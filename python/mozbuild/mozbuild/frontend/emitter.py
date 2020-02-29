@@ -52,6 +52,7 @@ from .data import (
     LocalizedPreprocessedFiles,
     ObjdirFiles,
     ObjdirPreprocessedFiles,
+    ObjSources,
     PerSourceFlag,
     Program,
     RustLibrary,
@@ -1030,7 +1031,13 @@ class TreeMetadataEmitter(LoggingMixin):
         sources = defaultdict(list)
         gen_sources = defaultdict(list)
         all_flags = {}
-        for symbol in ("SOURCES", "HOST_SOURCES", "UNIFIED_SOURCES", "WASM_SOURCES"):
+        for symbol in (
+            "SOURCES",
+            "OBJ_SOURCES",
+            "HOST_SOURCES",
+            "UNIFIED_SOURCES",
+            "WASM_SOURCES",
+        ):
             srcs = sources[symbol]
             gen_srcs = gen_sources[symbol]
             context_srcs = context.get(symbol, [])
@@ -1081,6 +1088,8 @@ class TreeMetadataEmitter(LoggingMixin):
                 gen_sources["UNIFIED_SOURCES"].extend(
                     mozpath.join(ipdl_root, root + suffix) for suffix in suffix_map[ext]
                 )
+        
+        assert not gen_sources["OBJ_SOURCES"]
 
         no_pgo = context.get("NO_PGO")
         no_pgo_sources = [f for f, flags in six.iteritems(all_flags) if flags.no_pgo]
@@ -1107,6 +1116,7 @@ class TreeMetadataEmitter(LoggingMixin):
             ".mm": set(),
             ".cpp": set([".cc", ".cxx"]),
             ".S": set(),
+            ".o": set(),
         }
 
         # The inverse of the above, mapping suffixes to their canonical suffix.
@@ -1121,6 +1131,7 @@ class TreeMetadataEmitter(LoggingMixin):
         all_suffixes = list(suffix_map.keys())
         varmap = dict(
             SOURCES=(Sources, all_suffixes),
+            OBJ_SOURCES=(ObjSources, [".o"]),
             HOST_SOURCES=(HostSources, [".c", ".mm", ".cpp"]),
             UNIFIED_SOURCES=(UnifiedSources, [".c", ".mm", ".m", ".cpp"]),
         )
@@ -1134,6 +1145,7 @@ class TreeMetadataEmitter(LoggingMixin):
         # Technically this won't do the right thing for SIMPLE_PROGRAMS in
         # a directory with mixed C and C++ source, but it's not that important.
         cxx_sources = defaultdict(bool)
+        obj_sources = defaultdict(bool)
 
         # Source files to track for linkables associated with this context.
         ctxt_sources = defaultdict(lambda: defaultdict(list))
@@ -1161,6 +1173,8 @@ class TreeMetadataEmitter(LoggingMixin):
             for canonical_suffix in sorted(by_canonical_suffix.keys()):
                 if canonical_suffix in (".cpp", ".mm"):
                     cxx_sources[variable] = True
+                elif canonical_suffix in (".o"):
+                    obj_sources[variable] = True
                 elif canonical_suffix in (".s", ".S"):
                     self._asm_compile_dirs.add(context.objdir)
                 src_group = by_canonical_suffix[canonical_suffix]
@@ -1178,7 +1192,7 @@ class TreeMetadataEmitter(LoggingMixin):
 
         if ctxt_sources:
             for linkable in linkables:
-                for target_var in ("SOURCES", "UNIFIED_SOURCES"):
+                for target_var in ("SOURCES", "OBJ_SOURCES", "UNIFIED_SOURCES"):
                     for suffix, srcs in ctxt_sources[target_var].items():
                         linkable.sources[suffix] += srcs
             for host_linkable in host_linkables:
@@ -1196,11 +1210,11 @@ class TreeMetadataEmitter(LoggingMixin):
         # If there are any C++ sources, set all the linkables defined here
         # to require the C++ linker.
         for vars, linkable_items in (
-            (("SOURCES", "UNIFIED_SOURCES"), linkables),
+            (("SOURCES", "OBJ_SOURCES", "UNIFIED_SOURCES"), linkables),
             (("HOST_SOURCES",), host_linkables),
         ):
             for var in vars:
-                if cxx_sources[var]:
+                if cxx_sources[var] or obj_sources[var]:
                     for l in linkable_items:
                         l.cxx_link = True
                     break

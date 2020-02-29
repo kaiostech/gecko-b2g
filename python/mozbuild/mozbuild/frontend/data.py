@@ -426,7 +426,7 @@ class Linkable(ContextDerived):
         all_sources = []
         # This is ordered for reproducibility and consistently w/
         # config/rules.mk
-        for suffix in (".c", ".S", ".cpp", ".m", ".mm", ".s"):
+        for suffix in (".c", ".S", ".cpp", ".o", ".m", ".mm", ".s"):
             all_sources += self.sources.get(suffix, [])
         return all_sources
 
@@ -1091,6 +1091,13 @@ class PgoGenerateOnlySources(BaseSources):
 
     def __init__(self, context, files):
         BaseSources.__init__(self, context, files, [], ".cpp")
+
+
+class ObjSources(BaseSources):
+    """Represents object files to be compiled during the build."""
+
+    def __init__(self, context, static_files, generated_files, canonical_suffix):
+        BaseSources.__init__(self, context, static_files, [],  canonical_suffix)
 
 
 class HostSources(HostMixin, BaseSources):

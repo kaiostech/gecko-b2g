@@ -332,6 +332,7 @@ def process_gn_config(
 
         sources = []
         unified_sources = []
+        obj_sources = []
         extensions = set()
         use_defines_in_asflags = False
 
@@ -342,6 +343,8 @@ def process_gn_config(
             src = "%s/%s" % (project_relsrcdir, f)
             if ext == ".h" or ext == ".inc":
                 continue
+            elif ext == ".o":
+                obj_sources.append("%s" % src)
             elif ext == ".def":
                 context_attrs["SYMBOLS_FILE"] = src
             elif ext != ".S" and src not in non_unified_sources:
@@ -355,6 +358,7 @@ def process_gn_config(
 
         context_attrs["SOURCES"] = sources
         context_attrs["UNIFIED_SOURCES"] = unified_sources
+        context_attrs["OBJ_SOURCES"] = obj_sources
 
         context_attrs["DEFINES"] = {}
         for define in spec.get("defines", []):

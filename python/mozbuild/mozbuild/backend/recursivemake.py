@@ -54,6 +54,7 @@ from ..frontend.data import (
     LocalizedPreprocessedFiles,
     ObjdirFiles,
     ObjdirPreprocessedFiles,
+    ObjSources,
     PerSourceFlag,
     Program,
     RustProgram,
@@ -453,7 +454,7 @@ class RecursiveMakeBackend(MakeBackend):
             # CommonBackend.
             assert os.path.basename(obj.output_path) == "Makefile"
             self._create_makefile(obj)
-        elif isinstance(obj, Sources):
+        elif isinstance(obj, (Sources, ObjSources)):
             suffix_map = {
                 ".s": "ASFILES",
                 ".c": "CSRCS",
@@ -461,6 +462,7 @@ class RecursiveMakeBackend(MakeBackend):
                 ".mm": "CMMSRCS",
                 ".cpp": "CPPSRCS",
                 ".S": "SSRCS",
+                ".o": "OSRCS",
             }
             variables = [suffix_map[obj.canonical_suffix]]
             for files, base, cls, prefix in (

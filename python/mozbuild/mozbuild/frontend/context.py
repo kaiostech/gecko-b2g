@@ -1426,6 +1426,15 @@ VARIABLES = {
         Accepts assembler, C, C++, Objective C/C++.
         """,
     ),
+    "OBJ_SOURCES": (
+        ContextDerivedTypedList(SourcePath, StrictOrderingOnAppendList),
+        list,
+        """Prebuilt object source files.
+
+        This variable contains a list of prebuilt .o files,
+        that will be linked into FINAL_LIBRARY defined in moz.build.
+        """,
+    ),
     "FILES_PER_UNIFIED_FILE": (
         int,
         int,

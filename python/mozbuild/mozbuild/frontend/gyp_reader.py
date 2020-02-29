@@ -251,6 +251,7 @@ def process_gyp_result(
                 context["OS_LIBS"] = os_libs
             # gyp files contain headers and asm sources in sources lists.
             sources = []
+            obj_sources = []
             unified_sources = []
             extensions = set()
             use_defines_in_asflags = False
@@ -263,6 +264,8 @@ def process_gyp_result(
                     s = SourcePath(context, f)
                 if ext == ".h":
                     continue
+                if ext == ".o":
+                    obj_sources.append(s)
                 if ext == ".def":
                     context["SYMBOLS_FILE"] = s
                 elif ext != ".S" and not no_unified and s not in non_unified_sources:
@@ -276,6 +279,7 @@ def process_gyp_result(
 
             # The context expects alphabetical order when adding sources
             context["SOURCES"] = alphabetical_sorted(sources)
+            context["OBJ_SOURCES"] = alphabetical_sorted(obj_sources)
             context["UNIFIED_SOURCES"] = alphabetical_sorted(unified_sources)
 
             defines = target_conf.get("defines", [])

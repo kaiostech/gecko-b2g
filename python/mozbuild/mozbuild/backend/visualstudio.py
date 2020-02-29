@@ -23,6 +23,7 @@ from ..frontend.data import (
     HostSources,
     Library,
     LocalInclude,
+    ObjSources,
     Program,
     SandboxedWasmLibrary,
     Sources,
@@ -103,6 +104,9 @@ class VisualStudioBackend(CommonBackend):
             self._paths_to_configs[reldir] = obj.config
 
         if isinstance(obj, Sources):
+            self._add_sources(reldir, obj)
+
+        elif isinstance(obj, ObjSources):
             self._add_sources(reldir, obj)
 
         elif isinstance(obj, HostSources):

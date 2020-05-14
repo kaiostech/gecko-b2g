@@ -56,6 +56,7 @@ RUN apt-get update && \
       gnupg \
       jq \
       libucl1 \
+      libncurses5 \
       p7zip-full \
       procps \
       python-dev \

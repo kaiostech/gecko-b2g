@@ -75,6 +75,8 @@
 #  define NS_OSX_LOCAL_APPLICATIONS_DIR "LocApp"
 #  define NS_OSX_USER_PREFERENCES_DIR "UsrPrfs"
 #  define NS_OSX_PICTURE_DOCUMENTS_DIR "Pct"
+#  define NS_OSX_MOVIE_DOCUMENTS_DIR "Mov"
+#  define NS_OSX_MUSIC_DOCUMENTS_DIR "Music"
 #elif defined(XP_WIN)
 #  define NS_WIN_WINDOWS_DIR "WinD"
 #  define NS_WIN_PROGRAM_FILES_DIR "ProgF"

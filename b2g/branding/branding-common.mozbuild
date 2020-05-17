@@ -10,13 +10,13 @@ def B2GBranding():
         BRANDING_FILES += [
             'app.ico',
         ]
-    elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
-        BRANDING_FILES += [
-            'app.icns',
-            'background.png',
-            'disk.icns',
-            'dsstore',
-        ]
+    # elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
+    #     BRANDING_FILES += [
+    #         'app.icns',
+    #         'background.png',
+    #         'disk.icns',
+    #         'dsstore',
+    #     ]
     # elif 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
     #    BRANDING_FILES += [
     #        'default.png',

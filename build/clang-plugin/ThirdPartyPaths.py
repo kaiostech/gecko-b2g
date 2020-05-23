@@ -18,7 +18,11 @@ def generate(output, *input_paths):
 
     # Add the Gonk root path to the 3rd party list to prevent issues in the camera code.
     if 'GONK_PATH' in os.environ:
-        lines.add(os.environ['GONK_PATH'])
+        GECKO_DIRS = ['gecko', 'objdir-gecko']
+        for dir in os.listdir(path=os.environ['GONK_PATH']):
+            fulldir = os.path.join(os.environ['GONK_PATH'], dir)
+            if os.path.isdir(fulldir) and not dir in GECKO_DIRS:
+                lines.add(fulldir)
 
     for line in lines:
         line = line.strip()

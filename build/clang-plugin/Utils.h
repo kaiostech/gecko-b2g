@@ -10,6 +10,8 @@
 #include "ThreadAllows.h"
 #include "plugin.h"
 
+#include <iostream>
+
 inline StringRef getFilename(const SourceManager &SM, SourceLocation Loc) {
   // We use the presumed location to handle #line directives and such, so the
   // plugin is friendly to icecc / sccache users.
@@ -59,9 +61,22 @@ inline bool ASTIsInSystemHeader(const ASTContext &AC, const T &D) {
   char* gonk_path = getenv("GONK_PATH");
   if (gonk_path != NULL) {
     auto path = ExpansionLoc.printToString(SourceManager);
+    std::cerr << "gonk_path=" << gonk_path << std::endl;
+    std::cerr << "path=" << path << std::endl;
 
-    if (path.rfind(gonk_path, 0) == 0) {
-      return true;
+    std::string gecko_path = std::string(gonk_path) + "/gecko";
+    std::string objdir_path = std::string(gonk_path) + "/objdir-gecko";
+
+    std::cerr << "gecko_path=" << gecko_path << std::endl;
+    if (path.rfind(gecko_path, 0) == 0) {
+    std::cerr << "gecko_path=" << gecko_path << " not system" << std::endl;
+      return false;
+    }
+
+    std::cerr << "objdir_path=" << objdir_path << std::endl;
+    if (path.rfind(objdir_path, 0) == 0) {
+    std::cerr << "gecko_path=" << gecko_path << " not system" << std::endl;
+      return false;
     }
   }
 

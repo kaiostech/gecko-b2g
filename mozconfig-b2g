@@ -126,4 +126,4 @@ if [ "$TARGET_ARCH" = "x86_64" ]; then
 fi;
 
 # Disable until we figure out CI issues
-# ac_add_options --enable-clang-plugin
+ac_add_options --enable-clang-plugin

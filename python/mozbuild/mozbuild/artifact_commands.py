@@ -300,7 +300,7 @@ class PackageFrontend(MachCommandBase):
             from taskgraph.parameters import Parameters
             from taskgraph.generator import load_tasks_for_kind
             params = Parameters(
-                level=six.ensure_text(os.environ.get('MOZ_SCM_LEVEL', '3')),
+                level=six.ensure_text(os.environ.get('MOZ_SCM_LEVEL', '2')),
                 strict=False,
             )
 

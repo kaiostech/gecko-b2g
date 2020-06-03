@@ -43,7 +43,7 @@ ac_add_options --with-android-ndk=$ANDROID_NDK
 ac_add_options --with-android-version=$PLATFORM_VERSION
 
 # Use sccache
-ac_add_options --with-ccache=sccache
+#ac_add_options --with-ccache=sccache
 
 # Auto-clobber
 mk_add_options AUTOCLOBBER=1

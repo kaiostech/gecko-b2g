@@ -1235,8 +1235,6 @@ nsAppShell::Init()
         GonkActivityManagerService::instantiate();
         ProcessState::self()->startThreadPool();
 
-        /* Start boot animation */
-        mozilla::StartBootAnimation();
         property_set("sys.boot_completed", "1");
 
         ScreenManager& screenManager = ScreenManager::GetSingleton();

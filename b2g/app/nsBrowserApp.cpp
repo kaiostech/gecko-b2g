@@ -46,6 +46,7 @@
 #endif
 
 #ifdef MOZ_WIDGET_GONK
+#include "mozilla/BootAnimation.h"
 #include "ui/GraphicBuffer.h"
 using namespace android;
 #endif
@@ -173,6 +174,10 @@ static int do_main(int argc, char* argv[], char* envp[]) {
     argv[2] = argv[0];
     argv += 2;
     argc -= 2;
+
+#ifdef MOZ_WIDGET_GONK
+    mozilla::StartBootAnimation();
+#endif
   } else if (argc > 1 && IsArg(argv[1], "xpcshell")) {
     for (int i = 1; i < argc; i++) {
       argv[i] = argv[i + 1];

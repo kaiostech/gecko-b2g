@@ -32,3 +32,16 @@ linux64-b2g-emulator:
     fetches:
         toolchain:
             - linux64-b2g-build
+
+linux64-b2g-sysroot:
+    treeherder:
+        symbol: TL(b2g-sysroot)
+    worker-type: b-linux
+    run:
+        script: extract-b2g-tarball.sh
+        arguments:
+            - b2g-sysroot.tar.zst
+        toolchain-artifact: public/build/b2g-sysroot.tar.zst
+    fetches:
+        toolchain:
+            - linux64-b2g-build

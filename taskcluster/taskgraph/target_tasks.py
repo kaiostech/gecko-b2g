@@ -522,10 +522,6 @@ def target_tasks_pine(full_task_graph, parameters, graph_config):
 def target_tasks_kaios(full_task_graph, parameters, graph_config):
     """The set of tasks to run for kaios integration"""
     def filter(task):
-        # Never try to run tasks on macosx or windows workers.
-        if task.task['tags'].get('os') in ('macosx', 'windows'):
-            task.optimization = {'always': None}
-            return False
         # Toolchains used for local development should always be built.
         if task.attributes.get('local-toolchain'):
             return True

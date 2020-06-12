@@ -8,6 +8,7 @@ transforms:
     - taskgraph.transforms.try_job:transforms
     - taskgraph.transforms.source_test:transforms
     - taskgraph.transforms.job:transforms
+    - taskgraph.transforms.kaios:disable_non_linux_workers
     - taskgraph.transforms.task:transforms
 
 kind-dependencies:

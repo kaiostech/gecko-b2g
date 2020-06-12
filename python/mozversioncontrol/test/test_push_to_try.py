@@ -32,7 +32,7 @@ def test_push_to_try(repo, monkeypatch):
 
     if repo.vcs == 'hg':
         expected = [
-            (tool, 'push-to-try', '-m', commit_message),
+            (tool, 'push-to-try', '-s', 'ssh://hg.mozilla.org/projects/kaios-try', '-m', commit_message),
             (tool, 'revert', '-a'),
         ]
     else:
@@ -40,7 +40,7 @@ def test_push_to_try(repo, monkeypatch):
             (tool, 'cinnabar', '--version'),
             (tool, '-c', 'commit.gpgSign=false', 'commit', '--allow-empty',
                    '-m', commit_message),
-            (tool, 'push', 'hg::ssh://hg.mozilla.org/try',
+            (tool, 'push', 'hg::ssh://hg.mozilla.org/projects/kaios-try',
                    '+HEAD:refs/heads/branches/default/tip'),
             (tool, 'reset', 'HEAD~'),
         ]

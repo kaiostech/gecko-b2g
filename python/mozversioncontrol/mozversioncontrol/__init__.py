@@ -432,7 +432,9 @@ class HgRepository(Repository):
 
     def push_to_try(self, message):
         try:
-            subprocess.check_call((self._tool, 'push-to-try', '-m', message), cwd=self.path,
+            subprocess.check_call((self._tool, 'push-to-try',
+                                   '-s', 'ssh://hg.mozilla.org/projects/kaios-try',
+                                   '-m', message), cwd=self.path,
                                   env=ensure_subprocess_env(self._env))
         except subprocess.CalledProcessError:
             try:
@@ -558,7 +560,7 @@ class GitRepository(Repository):
 
         self._run('-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', message)
         try:
-            subprocess.check_call((self._tool, 'push', 'hg::ssh://hg.mozilla.org/try',
+            subprocess.check_call((self._tool, 'push', 'hg::ssh://hg.mozilla.org/kaios-try',
                                    '+HEAD:refs/heads/branches/default/tip'), cwd=self.path)
         finally:
             self._run('reset', 'HEAD~')

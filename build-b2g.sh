@@ -142,11 +142,15 @@ $HWC_DEFINE \
 -isystem $GONK_PATH/bionic/libm/include \
 -I$GONK_PATH/system/core/libpixelflinger/include/ \
 -I$GONK_PATH/frameworks/av/include \
+-I$GONK_PATH/frameworks/native/headers/media_plugin \
 -I$GONK_PATH/frameworks/native/include \
 -I$GONK_PATH/frameworks/native/include/android \
+-I$GONK_PATH/frameworks/native/libs/binder/include \
+-I$GONK_PATH/frameworks/native/libs/gui/include \
 -I$GONK_PATH/frameworks/native/libs/nativewindow/include \
 -I$GONK_PATH/frameworks/native/libs/nativebase/include \
 -I$GONK_PATH/frameworks/native/libs/nativebase \
+-I$GONK_PATH/frameworks/native/libs/ui/include \
 -I$GONK_PATH/system \
 -I$(pwd)/modules/freetype2/include \
 -I$GONK_PATH/system/core/include \

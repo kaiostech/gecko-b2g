@@ -56,6 +56,24 @@ linux64-android-ndk-linux-repack:
         toolchain-artifact: project/gecko/android-ndk/android-ndk.tar.zst
         toolchain-alias: android-ndk-linux
 
+linux64-android-ndk-b2g-linux-repack:
+    description: "Custom Android NDK (Linux) for Boot2Gecko repack toolchain build"
+    treeherder:
+        symbol: TL(android-ndk-b2g-linux)
+    worker:
+        artifacts:
+            - name: project/gecko/android-ndk
+              path: /builds/worker/project/gecko/android-ndk/
+              type: directory
+        env:
+            LOCAL_NDK_BASE_URL: "ftp://ftp.kaiostech.com/ndk/android-ndk"
+    run:
+        script: repack-android-ndk-linux.sh
+        resources:
+            - 'python/mozboot/**/*android*'
+        toolchain-artifact: project/gecko/android-ndk/android-ndk.tar.zst
+        toolchain-alias: android-ndk-b2g-linux
+
 linux64-android-gradle-dependencies:
     description: "Android Gradle dependencies toolchain task"
     treeherder:

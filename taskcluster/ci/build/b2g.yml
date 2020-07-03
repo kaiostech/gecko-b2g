@@ -1,0 +1,87 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+gonk-b2g-x86_64/debug:
+    description: "Boot2Gecko x86-64 Debug"
+    index:
+        product: b2g
+        job-name: gonk-b2g-x86_64-debug
+    attributes:
+        enable-full-crashsymbols: true
+    treeherder:
+        platform: gonk-x86_64/debug
+        symbol: B
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: android-build}
+        max-run-time: 7200
+        env:
+            TOOLTOOL_MANIFEST: "b2g/config/tooltool-manifests/android-x86/releng.manifest"
+        artifacts:
+            - name: public/build
+              path: /builds/worker/artifacts/
+              type: directory
+    run-on-projects: ['kaios']
+    run:
+        using: mozharness
+        actions: [build]
+        config:
+            - builds/releng_base_b2g.py
+            - builds/releng_base_b2g_64_builds.py
+        mozconfig-variant: debug
+        script: "mozharness/scripts/fx_desktop_build.py"
+        tooltool-downloads: internal
+    fetches:
+        toolchain:
+            - android-ndk-b2g-linux
+            - linux64-b2g-sysroot
+            - linux64-cbindgen
+            - linux64-clang
+            - linux64-nasm
+            - linux64-node
+            - linux64-rust-android
+            - linux64-rust-size
+            - linux64-sccache
+
+gonk-b2g-x86_64/opt:
+    description: "Boot2Gecko x86-64 Opt"
+    index:
+        product: b2g
+        job-name: gonk-b2g-x86_64-opt
+    attributes:
+        enable-full-crashsymbols: true
+    treeherder:
+        platform: gonk-x86_64/opt
+        symbol: B
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: android-build}
+        max-run-time: 7200
+        env:
+            TOOLTOOL_MANIFEST: "b2g/config/tooltool-manifests/android-x86/releng.manifest"
+        artifacts:
+            - name: public/build
+              path: /builds/worker/artifacts/
+              type: directory
+    run-on-projects: ['kaios']
+    run:
+        using: mozharness
+        actions: [build]
+        config:
+            - builds/releng_base_b2g.py
+            - builds/releng_base_b2g_64_builds.py
+        mozconfig-variant: nightly
+        script: "mozharness/scripts/fx_desktop_build.py"
+        tooltool-downloads: internal
+    fetches:
+        toolchain:
+            - android-ndk-b2g-linux
+            - linux64-b2g-sysroot
+            - linux64-cbindgen
+            - linux64-clang
+            - linux64-nasm
+            - linux64-node
+            - linux64-rust-android
+            - linux64-rust-size
+            - linux64-sccache

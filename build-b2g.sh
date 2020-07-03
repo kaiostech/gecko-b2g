@@ -146,7 +146,6 @@ $HWC_DEFINE \
 -isystem $GONK_PATH/bionic/libc/kernel/uapi/ \
 -isystem $GONK_PATH/bionic/libc/kernel/uapi/asm-$ARCH_NAME/ \
 -isystem $GONK_PATH/bionic/libm/include \
--I$GONK_PATH/system/core/libpixelflinger/include/ \
 -I$GONK_PATH/frameworks/av/include \
 -I$GONK_PATH/frameworks/native/headers/media_plugin \
 -I$GONK_PATH/frameworks/native/include \
@@ -161,7 +160,6 @@ $HWC_DEFINE \
 -I$(pwd)/modules/freetype2/include \
 -I$GONK_PATH/system/core/include \
 -I$GONK_PATH/system/core/base/include \
--I$GONK_PATH/system/core/libpixelflinger/include \
 -I$GONK_PATH/hardware/libhardware/include/ \
 -I$GONK_PATH/system/libhidl/base/include \
 -I$HIDL_TRANSPORT/base/1.0/android.hidl.base@1.0_genc++_headers/gen \

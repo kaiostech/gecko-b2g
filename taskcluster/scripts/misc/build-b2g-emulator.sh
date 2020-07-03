@@ -123,6 +123,8 @@ EOF
   "$GECKO_PATH/taskcluster/scripts/misc/zstdpy"
 
 # Package the sysroot
+SYSROOT_PREBUILTS="prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/lib/gcc/x86_64-linux-android/4.9.x"
+
 SYSROOT_LIBRARIES="out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.1.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@2.0.so
@@ -235,7 +237,7 @@ system/libhidl/transport/token/1.0/utils/include
 system/media/audio/include
 system/media/camera/include"
 
-tar -c $SYSROOT_LIBRARIES $SYSROOT_INCLUDE_FOLDERS | $GECKO_PATH/taskcluster/scripts/misc/zstdpy > "b2g-sysroot.tar.zst"
+tar -c $SYSROOT_PREBUILTS $SYSROOT_LIBRARIES $SYSROOT_INCLUDE_FOLDERS --transform 's,^,b2g-sysroot/,S' | $GECKO_PATH/taskcluster/scripts/misc/zstdpy > "b2g-sysroot.tar.zst"
 
 # Bundle both tarballs into a single artifact
 mkdir -p "$UPLOAD_DIR"

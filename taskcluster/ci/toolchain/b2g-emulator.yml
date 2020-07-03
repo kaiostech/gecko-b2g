@@ -4,14 +4,17 @@
 ---
 job-defaults:
     description: "Boot2Gecko emulator toolchain build"
+    run-on-projects: ['kaios']
     worker:
-        max-run-time: 3600
+        max-run-time: 900
         docker-image: {in-tree: debian10-amd64-build}
 
 linux64-b2g-build:
     treeherder:
         symbol: TL(b2g-build)
     worker-type: b-linux-large
+    worker:
+        max-run-time: 4800
     run:
         script: build-b2g-emulator.sh
         toolchain-artifact: public/build/b2g-build.tar

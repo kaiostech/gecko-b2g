@@ -158,6 +158,7 @@ treeherder:
 
 index:
     products:
+        - 'b2g'
         - 'firefox'
         - 'fennec'
         - 'mobile'

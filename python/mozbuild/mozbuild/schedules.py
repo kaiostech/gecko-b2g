@@ -40,6 +40,7 @@ INCLUSIVE_COMPONENTS = sorted(INCLUSIVE_COMPONENTS)
 EXCLUSIVE_COMPONENTS = [
     # os families
     'android',
+    'gonk', # Customized android for b2g
     'linux',
     'macosx',
     'windows',

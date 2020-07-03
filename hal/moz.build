@@ -77,6 +77,7 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
             'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
             'out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen',
             'out/soong/.intermediates/hardware/interfaces/media/omx/1.0/android.hardware.media.omx@1.0_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen',
             'system/libhidl/transport/token/1.0/utils/include',
             'system/media/camera/include',
         ]

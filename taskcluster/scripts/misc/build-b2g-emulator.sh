@@ -121,6 +121,7 @@ SYSROOT_LIBRARIES="out/target/product/generic_x86_64/system/lib64/android.hardwa
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.1.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@2.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.radio@1.0.so
+out/target/product/generic_x86_64/system/lib64/android.hardware.sensors@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.vibrator@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.wifi@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.wifi@1.1.so
@@ -194,6 +195,7 @@ out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardwar
 out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/media/omx/1.0/android.hardware.media.omx@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/wifi/1.0/android.hardware.wifi@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/wifi/1.1/android.hardware.wifi@1.1_genc++_headers/gen

@@ -26,7 +26,7 @@ rm -rf .repo
 # Remove the Gecko build & packaging steps
 patch -d gonk-misc -p1 <<'EOF'
 diff --git a/Android.mk b/Android.mk
-index 1c8a3cf..f5daaab 100644
+index a0387ce..6114dfc 100644
 --- a/Android.mk
 +++ b/Android.mk
 @@ -160,15 +160,15 @@ endif
@@ -49,7 +49,7 @@ index 1c8a3cf..f5daaab 100644
  endif
  
  GECKO_LIB_DEPS := \
-@@ -226,24 +226,7 @@ endif
+@@ -228,30 +228,7 @@ endif
  
  .PHONY: $(LOCAL_BUILT_MODULE)
  $(LOCAL_BUILT_MODULE): $(TARGET_CRTBEGIN_DYNAMIC_O) $(TARGET_CRTEND_O) $(addprefix $(TARGET_OUT_SHARED_LIBRARIES)/,$(GECKO_LIB_DEPS)) $(GECKO_LIB_STATIC)
@@ -60,6 +60,9 @@ index 1c8a3cf..f5daaab 100644
 -	echo "export TARGET_ARCH=$(TARGET_ARCH)"; \
 -	echo "export TARGET_ARCH_VARIANT=$(TARGET_ARCH_VARIANT)"; \
 -	echo "export TARGET_CPU_VARIANT=$(TARGET_CPU_VARIANT)"; \
+-	echo "export PRODUCT_MANUFACTURER=$(PRODUCT_MANUFACTURER)"; \
+-	echo "export MOZ_DISABLE_LTO=$(MOZ_DISABLE_LTO)"; \
+-	echo "export HOST_OS=$(HOST_OS)";	\
 -	unset CC_WRAPPER && unset CXX_WRAPPER && \
 -	export GECKO_OBJDIR="$(abspath $(GECKO_OBJDIR))" && \
 -	export GONK_PATH="$(abspath .)" && \
@@ -68,6 +71,9 @@ index 1c8a3cf..f5daaab 100644
 -	export TARGET_ARCH="$(TARGET_ARCH)" && \
 -	export TARGET_ARCH_VARIANT="$(TARGET_ARCH_VARIANT)" && \
 -	export TARGET_CPU_VARIANT="$(TARGET_CPU_VARIANT)" && \
+-	export PRODUCT_MANUFACTURER="$(PRODUCT_MANUFACTURER)" && \
+-	export MOZ_DISABLE_LTO="$(MOZ_DISABLE_LTO)" && \
+-	export HOST_OS="$(HOST_OS)" && \
 -	(cd gecko ; $(SHELL) build-b2g.sh) && \
 -	(cd gecko ; $(SHELL) build-b2g.sh package) && \
 -	mkdir -p $(@D) && cp $(GECKO_OBJDIR)/dist/b2g-*.tar.gz $@

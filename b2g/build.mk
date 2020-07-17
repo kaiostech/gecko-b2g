@@ -11,8 +11,11 @@ package:
 	@$(MAKE) -C b2g/installer
 
 install::
-	@echo 'B2G can't be installed directly.'
-	@exit 1
+	@adb shell stop b2g
+	@adb remount
+	@adb shell rm -rf /system/b2g
+	@adb push dist/b2g/ /system/b2g
+	@adb shell start b2g
 
 upload::
 	@$(MAKE) -C b2g/installer upload

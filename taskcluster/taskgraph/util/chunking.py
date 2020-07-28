@@ -53,7 +53,7 @@ def guess_mozinfo_from_task(task):
         "tsan": "tsan" in task["build-attributes"]["build_platform"],
         "webrender": task.get("webrender", False),
     }
-    for platform in ("android", "linux", "mac", "win"):
+    for platform in ("android", "linux", "mac", "win", "gonk-b2g"):
         if platform in task["build-attributes"]["build_platform"]:
             info["os"] = platform
             break
@@ -93,7 +93,7 @@ def get_runtimes(platform, suite_name):
         raise TypeError("suite_name and platform cannot be empty.")
 
     base = os.path.join(GECKO, "testing", "runtimes", "manifest-runtimes-{}.json")
-    for key in ("android", "windows"):
+    for key in ("android", "windows", "gonk-b2g"):
         if key in platform:
             path = base.format(key)
             break

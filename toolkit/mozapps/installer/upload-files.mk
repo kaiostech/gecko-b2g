@@ -18,7 +18,11 @@ ifndef MOZ_PKG_FORMAT
                     ifeq (android,$(MOZ_WIDGET_TOOLKIT))
                         MOZ_PKG_FORMAT = APK
                     else
-                        MOZ_PKG_FORMAT = TGZ
+                        ifeq (gonk,$(MOZ_WIDGET_TOOLKIT))
+                            MOZ_PKG_FORMAT  = BZ2
+                        else
+                            MOZ_PKG_FORMAT = TGZ
+                        endif
                     endif
                 endif
             endif

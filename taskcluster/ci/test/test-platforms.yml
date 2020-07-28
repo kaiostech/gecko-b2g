@@ -544,3 +544,13 @@ android-hw-p2-8-0-android-aarch64/debug:
     build-platform: android-aarch64/debug
     test-sets:
         - android-hw-aarch64-debug-unittests
+
+gonk-b2g-em-x86_64/debug:
+    build-platform: gonk-b2g-x86_64/debug
+    test-sets:
+        - gonk-b2g-x86_64-tests
+
+gonk-b2g-em-x86_64/opt:
+    build-platform: gonk-b2g-x86_64/opt
+    test-sets:
+        - gonk-b2g-x86_64-tests

@@ -18,6 +18,7 @@ gonk-b2g-x86_64/debug:
         max-run-time: 7200
         env:
             TOOLTOOL_MANIFEST: "b2g/config/tooltool-manifests/android-x86/releng.manifest"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
         artifacts:
             - name: public/build
               path: /builds/worker/artifacts/
@@ -60,6 +61,7 @@ gonk-b2g-x86_64/opt:
         max-run-time: 7200
         env:
             TOOLTOOL_MANIFEST: "b2g/config/tooltool-manifests/android-x86/releng.manifest"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
         artifacts:
             - name: public/build
               path: /builds/worker/artifacts/

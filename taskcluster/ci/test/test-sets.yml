@@ -557,3 +557,6 @@ linux-tsan-tests:
     - mochitest-media
     - mochitest-plain
     - xpcshell
+
+gonk-b2g-x86_64-tests:
+    - xpcshell

@@ -10,6 +10,7 @@ import glob
 import os
 import posixpath
 import re
+import shutil
 import signal
 import six
 import subprocess
@@ -601,6 +602,10 @@ class AndroidMixin(object):
             # tooltool deployment.
             url = c["avd_url"]
             self.download_unpack(url, dirs["abs_avds_dir"])
+        elif "uses_avd_fetch" in c:
+            shutil.move(
+                os.path.join(os.environ["MOZ_FETCHES_DIR"], "avd"), dirs["abs_avds_dir"]
+            )
         else:
             url = self._get_repo_url(c["tooltool_manifest_path"])
             self._tooltool_fetch(url, dirs["abs_avds_dir"])

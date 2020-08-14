@@ -371,11 +371,9 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'opengl/GrallocTextureClient.cpp',
         'opengl/GrallocTextureHost.cpp',
     ]
-    LOCAL_INCLUDES += ['/widget/gonk']
     LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-             'system/core/libsync/include'
-        ]
+        '/modules/freetype2/include',
+        '/widget/gonk'
     ]
     SOURCES += [
         'ipc/GonkNativeHandle.cpp',
@@ -662,10 +660,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     includes = [
         'frameworks/av/include/media/stagefright',
         'frameworks/native/include/media/openmax',
-    ]
-
-    LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in includes
     ]
 
     OS_LIBS += [

@@ -9,7 +9,7 @@
 #include "nsTArray.h"
 #include "MediaCodecProxy.h"
 
-#include <stagefright/foundation/ADebug.h>
+#include <media/stagefright/foundation/ADebug.h>
 
 #include "mozilla/Logging.h"
 

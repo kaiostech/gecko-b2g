@@ -28,6 +28,17 @@ case "$target" in
 
     AC_SUBST(ANDROID_VERSION)
 
+    # If we're building for a gonk target add more sysroot system includes
+    if test -n "$gonkdir"; then
+        CPPFLAGS="$CPPFLAGS -isystem $gonkdir/include"
+        # HACK: Some system headers in the AOSP sources are laid out
+        # differently than the others so they get included both as
+        # #include <camera/path/to/header.h> and directly as
+        # #include <path/to/header.h>. To accomodate for this we need camera/
+        # in the default include path until we can fix the issue.
+        CPPFLAGS="$CPPFLAGS -isystem $gonkdir/include/camera"
+    fi
+
     ;;
 esac
 

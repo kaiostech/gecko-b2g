@@ -60,10 +60,7 @@ include('/ipc/chromium/chromium-config.mozbuild')
 DEFINES['HAVE_ANDROID_OS'] = True
 
 LOCAL_INCLUDES += [
-    # libhardware_legacy is needed for acquiring/releasing wake lock
-    '%' + '%s/hardware/libhardware_legacy/include' % CONFIG['GONK_PATH'],
     '/dom/b2g/bluetooth/common',
-    '/dom/base',
 ]
 
 DIRS += [

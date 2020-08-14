@@ -45,13 +45,6 @@ EXTRA_JS_MODULES += [
     'TetheringConfigStore.jsm',
     'TetheringService.jsm',
 ]
-LOCAL_INCLUDES += [
-    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-        'out/soong/.intermediates/system/netd/resolv/dnsresolver_aidl_interface-V2-cpp-source/gen/include',
-        'out/soong/.intermediates/system/netd/server/netd_aidl_interface-V2-cpp-source/gen/include',
-        'out/soong/.intermediates/system/netd/server/netd_event_listener_interface-V1-cpp-source/gen/include',
-    ]
-]
 
 include('/ipc/chromium/chromium-config.mozbuild')
 

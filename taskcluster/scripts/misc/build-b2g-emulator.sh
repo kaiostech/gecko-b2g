@@ -26,10 +26,10 @@ rm -rf .repo
 # Remove the Gecko build & packaging steps
 patch -d gonk-misc -p1 <<'EOF'
 diff --git a/Android.mk b/Android.mk
-index a0387ce..6114dfc 100644
+index 6225f10..6b707b4 100644
 --- a/Android.mk
 +++ b/Android.mk
-@@ -160,15 +160,15 @@ endif
+@@ -170,15 +170,15 @@ endif
  $(LOCAL_INSTALLED_MODULE) : $(LOCAL_BUILT_MODULE)
  	@echo Install dir: $(TARGET_OUT)/b2g
  	rm -rf $(filter-out $(addprefix $(TARGET_OUT)/b2g/,$(PRESERVE_DIRS)),$(wildcard $(TARGET_OUT)/b2g/*))
@@ -49,10 +49,14 @@ index a0387ce..6114dfc 100644
  endif
  
  GECKO_LIB_DEPS := \
-@@ -228,30 +228,7 @@ endif
+@@ -242,35 +242,7 @@ endif
  
  .PHONY: $(LOCAL_BUILT_MODULE)
  $(LOCAL_BUILT_MODULE): $(TARGET_CRTBEGIN_DYNAMIC_O) $(TARGET_CRTEND_O) $(addprefix $(TARGET_OUT_SHARED_LIBRARIES)/,$(GECKO_LIB_DEPS)) $(GECKO_LIB_STATIC)
+-ifeq ($(USE_PREBUILT_B2G),1)
+-	@echo -e "\033[0;33m ==== Use prebuilt gecko ==== \033[0m";
+-	mkdir -p $(@D) && cp $(abspath $(PREFERRED_B2G)) $@
+-else
 -	echo "export GECKO_OBJDIR=$(abspath $(GECKO_OBJDIR))"; \
 -	echo "export GONK_PRODUCT_NAME=$(TARGET_DEVICE)"; \
 -	echo "export GONK_PATH=$(abspath .)"; \
@@ -74,9 +78,10 @@ index a0387ce..6114dfc 100644
 -	export PRODUCT_MANUFACTURER="$(PRODUCT_MANUFACTURER)" && \
 -	export MOZ_DISABLE_LTO="$(MOZ_DISABLE_LTO)" && \
 -	export HOST_OS="$(HOST_OS)" && \
--	(cd gecko ; $(SHELL) build-b2g.sh) && \
--	(cd gecko ; $(SHELL) build-b2g.sh package) && \
+-	(cd $(GECKO_PATH) ; $(SHELL) build-b2g.sh) && \
+-	(cd $(GECKO_PATH) ; $(SHELL) build-b2g.sh package) && \
 -	mkdir -p $(@D) && cp $(GECKO_OBJDIR)/dist/b2g-*.tar.gz $@
+-endif
 +	:
  
  # Include a copy of the repo manifest that has the revisions used
@@ -122,10 +127,39 @@ EOF
 ./scripts/package-emulator.sh "b2g-emulator.tar.zst" \
   "$GECKO_PATH/taskcluster/scripts/misc/zstdpy"
 
+###############################################################################
 # Package the sysroot
-SYSROOT_PREBUILTS="prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/lib/gcc/x86_64-linux-android/4.9.x"
 
-SYSROOT_LIBRARIES="out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.0.so
+# Copy the contents of the directories in the first argument to the sysroot
+# preserving their full paths
+function copy_to_sysroot_full_path() {
+  printf "${1}\n" | while read path; do
+    if [ -d "${path}" ]; then
+      mkdir -p "b2g-sysroot/${path}"
+      rsync -r "${path}/" "b2g-sysroot/${path}/"
+    else
+      mkdir -p "b2g-sysroot/$(dirname ${path})"
+      cp "${path}" "b2g-sysroot/${path}"
+    fi
+  done
+}
+
+# Copy the contents of the directories in the first argument to the sysroot
+# using the second argument as the destination folder
+function copy_to_sysroot() {
+  mkdir -p "b2g-sysroot/${2}"
+  printf "${1}\n" | while read path; do
+    rsync -r --copy-links --times --exclude=".git" "${path}/" "b2g-sysroot/${2}/"
+  done
+}
+
+# Copy the prebuilts to the sysroot
+PREBUILTS="prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/lib/gcc/x86_64-linux-android/4.9.x"
+
+copy_to_sysroot_full_path "${PREBUILTS}"
+
+# Copy the system libraries to the sysroot
+LIBRARIES="out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.1.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@2.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.radio@1.0.so
@@ -170,7 +204,16 @@ out/target/product/generic_x86_64/system/lib64/libwificond_ipc_shared.so
 out/target/product/generic_x86_64/system/lib64/netd_aidl_interface-V2-cpp.so
 out/target/product/generic_x86_64/system/lib64/netd_event_listener_interface-V1-cpp.so"
 
-SYSROOT_INCLUDE_FOLDERS="frameworks/av
+copy_to_sysroot_full_path "${LIBRARIES}"
+
+# Store the system includes in the sysroot
+INCLUDE_FOLDERS="frameworks/av/camera/include
+frameworks/av/include
+frameworks/av/media/libaudioclient/include
+frameworks/av/media/libmedia/aidl
+frameworks/av/media/libmedia/include
+frameworks/av/media/libstagefright/foundation/include
+frameworks/av/media/libstagefright/include
 frameworks/native/headers/media_plugin
 frameworks/native/include/gui
 frameworks/native/include/media/openmax
@@ -185,11 +228,41 @@ gonk-misc/libcarthage/HWC
 gonk-misc/libcarthage/include
 hardware/libhardware/include
 hardware/libhardware_legacy/include
-out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_x86_64_core_shared/gen
-out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_x86_64_core_shared/gen
-out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_x86_64_core_shared/gen
-out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-cpp-source/gen
-out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-cpp-source/gen
+system/connectivity
+system/core/base/include
+system/core/include
+system/core/libcutils/include
+system/core/liblog/include
+system/core/libprocessgroup/include
+system/core/libsuspend/include
+system/core/libsync/include
+system/core/libsystem/include
+system/core/libsysutils/include
+system/core/libutils/include
+system/libhidl/base/include
+system/libhidl/transport/token/1.0/utils/include
+system/media/audio/include
+system/media/camera/include"
+
+copy_to_sysroot "${INCLUDE_FOLDERS}" "include"
+
+# Store the generated HIDL headers in the sysroot
+GENERATED_AIDL_HEADERS="out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_x86_64_core_shared/gen/aidl
+out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_x86_64_core_shared/gen/aidl
+out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_x86_64_core_shared/gen/aidl
+out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-cpp-source/gen/include
+out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-cpp-source/gen/include
+out/soong/.intermediates/system/connectivity/wificond/libwificond_ipc/android_x86_64_core_static/gen/aidl
+out/soong/.intermediates/system/netd/resolv/dnsresolver_aidl_interface-V2-cpp-source/gen/include
+out/soong/.intermediates/system/netd/server/netd_aidl_interface-V2-cpp-source/gen/include
+out/soong/.intermediates/system/netd/server/netd_event_listener_interface-V1-cpp-source/gen/include
+out/soong/.intermediates/system/vold/libvold_binder_shared/android_x86_64_core_shared/gen/aidl"
+
+copy_to_sysroot "${GENERATED_AIDL_HEADERS}" "include"
+
+# Store the generated AIDL headers in the sysroot
+GENERATED_HIDL_HEADERS="out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen
+out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/gnss/1.1/android.hardware.gnss@1.1_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/gnss/2.0/android.hardware.gnss@2.0_genc++_headers/gen
@@ -213,31 +286,11 @@ out/soong/.intermediates/hardware/interfaces/wifi/hostapd/1.0/android.hardware.w
 out/soong/.intermediates/hardware/interfaces/wifi/hostapd/1.1/android.hardware.wifi.hostapd@1.1_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.0/android.hardware.wifi.supplicant@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.1/android.hardware.wifi.supplicant@1.1_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.2/android.hardware.wifi.supplicant@1.2_genc++_headers/gen
-out/soong/.intermediates/system/connectivity/wificond/libwificond_ipc/android_x86_64_core_static/gen
-out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen
-out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen
-out/soong/.intermediates/system/netd/resolv/dnsresolver_aidl_interface-V2-cpp-source/gen
-out/soong/.intermediates/system/netd/server/netd_aidl_interface-V2-cpp-source/gen
-out/soong/.intermediates/system/netd/server/netd_event_listener_interface-V1-cpp-source/gen
-out/soong/.intermediates/system/vold/libvold_binder_shared/android_x86_64_core_shared/gen
-system/connectivity
-system/core/base/include
-system/core/include
-system/core/libcutils/include
-system/core/liblog/include
-system/core/libprocessgroup/include
-system/core/libsuspend/include
-system/core/libsync/include
-system/core/libsystem/include
-system/core/libsysutils/include
-system/core/libutils/include
-system/libhidl/base/include
-system/libhidl/transport/token/1.0/utils/include
-system/media/audio/include
-system/media/camera/include"
+out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.2/android.hardware.wifi.supplicant@1.2_genc++_headers/gen"
 
-tar -c $SYSROOT_PREBUILTS $SYSROOT_LIBRARIES $SYSROOT_INCLUDE_FOLDERS --transform 's,^,b2g-sysroot/,S' | $GECKO_PATH/taskcluster/scripts/misc/zstdpy > "b2g-sysroot.tar.zst"
+copy_to_sysroot "${GENERATED_HIDL_HEADERS}" "include"
+
+tar -c b2g-sysroot | $GECKO_PATH/taskcluster/scripts/misc/zstdpy > "b2g-sysroot.tar.zst"
 
 # Bundle both tarballs into a single artifact
 mkdir -p "$UPLOAD_DIR"

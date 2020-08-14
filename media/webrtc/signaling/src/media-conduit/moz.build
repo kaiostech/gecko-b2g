@@ -40,19 +40,6 @@ UNIFIED_SOURCES += [
 
 if CONFIG['OS_TARGET'] == 'Android':
     if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-        LOCAL_INCLUDES += [
-            '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-                'frameworks/native/include/media/openmax',
-                'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/1.0/android.hardware.graphics.bufferqueue@1.0_genc++_headers/gen',
-                'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen',
-                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
-                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
-                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
-                'out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen',
-                'system/libhidl/transport/token/1.0/utils/include',
-            ]
-        ]
-
         UNIFIED_SOURCES += [
             'GonkVideoCodec.cpp',
             'WebrtcGonkH264VideoCodec.cpp',

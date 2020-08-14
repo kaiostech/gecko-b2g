@@ -35,11 +35,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     LOCAL_INCLUDES += [
         '/widget/gonk/libdisplay',
     ]
-    LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-            'frameworks/native/include',
-        ]
-    ]
 
     LDFLAGS += ['-Wl,--export-dynamic']
 

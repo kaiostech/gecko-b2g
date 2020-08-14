@@ -119,26 +119,6 @@ DEFINES['HAVE_POSIX_CLOCKS'] = True
 if CONFIG['MOZ_OMX_DECODER']:
     DEFINES['MOZ_OMX_DECODER'] = True
 
-LOCAL_INCLUDES += [
-    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-        'frameworks/native/libs/math/include',
-        'gonk-misc/libcarthage/HWC',
-        'gonk-misc/libcarthage/include',
-    ]
-]
-
-LOCAL_INCLUDES += [
-    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-        'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
-        'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
-        'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
-    ]
-]
-
-LOCAL_INCLUDES += [
-    '%' + '%s/frameworks/native/opengl/include' % CONFIG['GONK_PATH'],
-]
-
 CXXFLAGS += [
     '-Wno-macro-redefined',
     '-Wno-mismatched-tags',
@@ -150,15 +130,6 @@ CXXFLAGS += [
     '-Wno-unused-function',
     '-Wno-unused-value',
     '-Wno-comma',
-]
-
-LOCAL_INCLUDES += [
-    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-        'frameworks/native/include',
-        'hardware/libhardware/include',
-        'hardware/libhardware_legacy/include',
-        'system/core/include',
-    ]
 ]
 
 LOCAL_INCLUDES += [

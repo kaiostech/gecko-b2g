@@ -8,7 +8,7 @@
 #  define GonkMediaDataDecoder_h_
 #  include "PlatformDecoderModule.h"
 #  include "mozilla/UniquePtr.h"
-#  include <stagefright/foundation/AHandler.h>
+#  include <media/stagefright/foundation/AHandler.h>
 
 namespace android {
 struct ALooper;

@@ -8,10 +8,10 @@
 #include <string.h>
 #include <binder/IPCThreadState.h>
 #include <media/MediaCodecBuffer.h>
-#include <stagefright/foundation/ABuffer.h>
-#include <stagefright/foundation/ADebug.h>
-#include <stagefright/MetaDataBase.h>
-#include "stagefright/MediaErrors.h"
+#include <media/stagefright/foundation/ABuffer.h>
+#include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/MetaDataBase.h>
+#include <media/stagefright/MediaErrors.h>
 
 mozilla::LazyLogModule gMediaCodecProxyLog("MediaCodecProxy");
 #undef LOG

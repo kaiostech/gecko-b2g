@@ -96,17 +96,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('android', 'gonk'):
         'gfxFT2Utils.cpp',
         'PrintTargetPDF.cpp',
     ]
-    if CONFIG['GONK_PATH']:
-        LOCAL_INCLUDES += [
-            '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-                'frameworks/native/libs/math/include',
-                'gonk-misc/libcarthage/HWC',
-                'gonk-misc/libcarthage/include',
-                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
-                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
-                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
-            ]
-        ]
 
 elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     EXPORTS += [
@@ -278,7 +267,10 @@ LOCAL_INCLUDES += [
 ]
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-  LOCAL_INCLUDES += ['/widget/gonk']
+  LOCAL_INCLUDES += [
+      '/modules/freetype2/include',
+      '/widget/gonk',
+  ]
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('android', 'gtk'):
     DEFINES['MOZ_ENABLE_FREETYPE'] = True

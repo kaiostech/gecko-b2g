@@ -95,51 +95,15 @@ ac_add_options --with-wifi-1.2-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/produ
 ac_add_options --with-wifi-1.3-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/android.hardware.wifi@1.3.so"
 ac_add_options --with-wificond-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/libwificond_ipc_shared.so"
 
-export CFLAGS="-DANDROID -DTARGET_OS_GONK \
+export CFLAGS="-Wno-nullability-completeness"
+
+export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
 -DJE_FORCE_SYNC_COMPARE_AND_SWAP_4=1 \
 -D_USING_LIBCXX \
--Wno-nullability-completeness \
 -DGR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE=1 \
--isystem $MOZ_FETCHES_DIR/b2g-sysroot/bionic \
--isystem $MOZ_FETCHES_DIR/b2g-sysroot/bionic/libc/$ARCH_DIR/include \
--isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/usr/include \
--isystem $MOZ_FETCHES_DIR/b2g-sysroot/bionic/libc/include \
--isystem $MOZ_FETCHES_DIR/b2g-sysroot/bionic/libc/kernel/common \
--isystem $MOZ_FETCHES_DIR/b2g-sysroot/bionic/libc/kernel/$ARCH_DIR \
--isystem $MOZ_FETCHES_DIR/b2g-sysroot/bionic/libc/kernel/uapi \
--isystem $MOZ_FETCHES_DIR/b2g-sysroot/bionic/libc/kernel/uapi/asm-$ARCH_NAME \
--isystem $MOZ_FETCHES_DIR/b2g-sysroot/bionic/libm/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/av/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/headers/media_plugin \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/include/android \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/libs/binder/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/libs/gui/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/libs/nativewindow/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/libs/nativebase/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/libs/nativebase \
--I$MOZ_FETCHES_DIR/b2g-sysroot/frameworks/native/libs/ui/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/system \
--I$(pwd)/modules/freetype2/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/system/core/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/system/core/base/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/hardware/libhardware/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/system/libhidl/base/include \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/hardware/interfaces/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/hardware/interfaces/gnss/1.1/android.hardware.gnss@1.1_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/hardware/interfaces/gnss/2.0/android.hardware.gnss@2.0_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/hardware/interfaces/gnss/measurement_corrections/1.0/android.hardware.gnss.measurement_corrections@1.0_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/hardware/interfaces/gnss/visibility_control/1.0/android.hardware.gnss.visibility_control@1.0_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/hardware/interfaces/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/hardware/interfaces/radio/1.1/android.hardware.radio@1.1_genc++_headers/gen \
--I$MOZ_FETCHES_DIR/b2g-sysroot/out/soong/.intermediates/hardware/interfaces/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen"
+-isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/usr/include"
 
-export CPPFLAGS="-isystem $MOZ_FETCHES_DIR/b2g-sysroot/api/cpp/include \
-$CFLAGS"
-
-export LDFLAGS="-L$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64 -Wl,-rpath-link=$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/obj/lib \
+export LDFLAGS="-L$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64 -Wl,-rpath-link=$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/obj/lib64 \
 --sysroot=$MOZ_FETCHES_DIR/android-ndk/platforms/android-29/arch-x86_64/ -L$MOZ_FETCHES_DIR/b2g-sysroot/prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/lib/gcc/x86_64-linux-android/4.9.x/ -ldl -lstdc++ \
 -llog -landroid -lnativewindow -lbinder \
 -lui -lgui \

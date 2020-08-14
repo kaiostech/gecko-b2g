@@ -69,14 +69,6 @@ LOCAL_INCLUDES += [
     '/modules/libjar',
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-    LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-            'out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-cpp-source/gen/include',
-            'out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-cpp-source/gen/include',
-        ]
-    ]
-
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gtk':
     CXXFLAGS += CONFIG['TK_CFLAGS']
     if CONFIG['MOZ_ENABLE_DBUS']:

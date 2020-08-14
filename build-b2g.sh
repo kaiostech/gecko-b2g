@@ -128,59 +128,95 @@ export GONK_PRODUCT=$GONK_PRODUCT_NAME
 
 rustc --version
 
-HIDL_HW=$GONK_PATH/out/soong/.intermediates/hardware/interfaces
-HIDL_TRANSPORT=$GONK_PATH/out/soong/.intermediates/system/libhidl/transport
+if [ "$TARGET_ARCH" = "$TARGET_ARCH_VARIANT" ] && [ "$TARGET_ARCH" = "$TARGET_CPU_VARIANT" ]; then
+  TARGET_FOLDER="$TARGET_ARCH"
+else
+  TARGET_FOLDER="$TARGET_ARCH_$TARGET_ARCH_VARIANT_$TARGET_CPU_VARIANT"
+fi
 
-export CFLAGS="-DANDROID -DTARGET_OS_GONK \
+INTERMEDIATES="$GONK_PATH/out/soong/.intermediates"
+HIDL_HW="$INTERMEDIATES/hardware/interfaces"
+
+export CFLAGS="-Wno-nullability-completeness"
+
+export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
 -DJE_FORCE_SYNC_COMPARE_AND_SWAP_4=1 \
-$HWC_DEFINE \
--DANDROID_VERSION=$PLATFORM_VERSION \
--D__SOFTFP__ \
 -D_USING_LIBCXX \
--Wno-nullability-completeness \
 -DGR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE=1 \
--isystem $GONK_PATH/bionic \
--isystem $GONK_PATH/bionic/libc/$ARCH_DIR/include \
 -isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/usr/include \
--isystem $GONK_PATH/bionic/libc/include/ \
--isystem $GONK_PATH/bionic/libc/kernel/common \
--isystem $GONK_PATH/bionic/libc/kernel/$ARCH_DIR \
--isystem $GONK_PATH/bionic/libc/kernel/uapi/ \
--isystem $GONK_PATH/bionic/libc/kernel/uapi/asm-$ARCH_NAME/ \
--isystem $GONK_PATH/bionic/libm/include \
--I$GONK_PATH/frameworks/av/include \
--I$GONK_PATH/frameworks/native/headers/media_plugin \
--I$GONK_PATH/frameworks/native/include \
--I$GONK_PATH/frameworks/native/include/android \
--I$GONK_PATH/frameworks/native/libs/binder/include \
--I$GONK_PATH/frameworks/native/libs/gui/include \
--I$GONK_PATH/frameworks/native/libs/nativewindow/include \
--I$GONK_PATH/frameworks/native/libs/nativebase/include \
--I$GONK_PATH/frameworks/native/libs/nativebase \
--I$GONK_PATH/frameworks/native/libs/ui/include \
--I$GONK_PATH/system \
--I$(pwd)/modules/freetype2/include \
--I$GONK_PATH/system/core/include \
--I$GONK_PATH/system/core/base/include \
--I$GONK_PATH/hardware/libhardware/include/ \
--I$GONK_PATH/system/libhidl/base/include \
--I$HIDL_TRANSPORT/base/1.0/android.hidl.base@1.0_genc++_headers/gen \
--I$HIDL_TRANSPORT/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen \
--I$HIDL_HW/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen \
--I$HIDL_HW/gnss/1.1/android.hardware.gnss@1.1_genc++_headers/gen \
--I$HIDL_HW/gnss/2.0/android.hardware.gnss@2.0_genc++_headers/gen \
--I$HIDL_HW/gnss/measurement_corrections/1.0/android.hardware.gnss.measurement_corrections@1.0_genc++_headers/gen \
--I$HIDL_HW/gnss/visibility_control/1.0/android.hardware.gnss.visibility_control@1.0_genc++_headers/gen \
--I$HIDL_HW/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen/ \
--I$HIDL_HW/radio/1.1/android.hardware.radio@1.1_genc++_headers/gen/ \
--I$HIDL_HW/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen \
--I$HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen"
-
-export CPPFLAGS="-fPIC \
--isystem $GONK_PATH/api/cpp/include \
-$CFLAGS"
-
-export CXXFLAGS="$CPPFLAGS -std=c++17"
+-isystem $GONK_PATH/frameworks/av/camera/include \
+-isystem $GONK_PATH/frameworks/av/camera/include/camera \
+-isystem $GONK_PATH/frameworks/av/include \
+-isystem $GONK_PATH/frameworks/av/media/libaudioclient/include \
+-isystem $GONK_PATH/frameworks/av/media/libmedia/aidl \
+-isystem $GONK_PATH/frameworks/av/media/libmedia/include \
+-isystem $GONK_PATH/frameworks/av/media/libstagefright/foundation/include \
+-isystem $GONK_PATH/frameworks/av/media/libstagefright/include \
+-isystem $GONK_PATH/frameworks/native/headers/media_plugin \
+-isystem $GONK_PATH/frameworks/native/include/gui \
+-isystem $GONK_PATH/frameworks/native/include/media/openmax \
+-isystem $GONK_PATH/frameworks/native/libs/binder/include \
+-isystem $GONK_PATH/frameworks/native/libs/gui/include \
+-isystem $GONK_PATH/frameworks/native/libs/math/include \
+-isystem $GONK_PATH/frameworks/native/libs/nativebase/include \
+-isystem $GONK_PATH/frameworks/native/libs/nativewindow/include \
+-isystem $GONK_PATH/frameworks/native/libs/ui/include \
+-isystem $GONK_PATH/frameworks/native/opengl/include \
+-isystem $GONK_PATH/gonk-misc/libcarthage/HWC \
+-isystem $GONK_PATH/gonk-misc/libcarthage/include \
+-isystem $GONK_PATH/hardware/libhardware/include \
+-isystem $GONK_PATH/hardware/libhardware_legacy/include \
+-isystem $GONK_PATH/system/connectivity \
+-isystem $GONK_PATH/system/core/base/include \
+-isystem $GONK_PATH/system/core/include \
+-isystem $GONK_PATH/system/core/libcutils/include \
+-isystem $GONK_PATH/system/core/liblog/include \
+-isystem $GONK_PATH/system/core/libprocessgroup/include \
+-isystem $GONK_PATH/system/core/libsuspend/include \
+-isystem $GONK_PATH/system/core/libsync/include \
+-isystem $GONK_PATH/system/core/libsystem/include \
+-isystem $GONK_PATH/system/core/libsysutils/include \
+-isystem $GONK_PATH/system/core/libutils/include \
+-isystem $GONK_PATH/system/libhidl/base/include \
+-isystem $GONK_PATH/system/libhidl/transport/token/1.0/utils/include \
+-isystem $GONK_PATH/system/media/audio/include \
+-isystem $GONK_PATH/system/media/camera/include \
+-isystem $HIDL_HW/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/gnss/1.1/android.hardware.gnss@1.1_genc++_headers/gen \
+-isystem $HIDL_HW/gnss/2.0/android.hardware.gnss@2.0_genc++_headers/gen \
+-isystem $HIDL_HW/gnss/measurement_corrections/1.0/android.hardware.gnss.measurement_corrections@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/gnss/visibility_control/1.0/android.hardware.gnss.visibility_control@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/graphics/bufferqueue/1.0/android.hardware.graphics.bufferqueue@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen \
+-isystem $HIDL_HW/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen \
+-isystem $HIDL_HW/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen \
+-isystem $HIDL_HW/media/1.0/android.hardware.media@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/media/omx/1.0/android.hardware.media.omx@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/1.0/android.hardware.wifi@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/1.1/android.hardware.wifi@1.1_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/1.2/android.hardware.wifi@1.2_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/1.3/android.hardware.wifi@1.3_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/hostapd/1.0/android.hardware.wifi.hostapd@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/hostapd/1.1/android.hardware.wifi.hostapd@1.1_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/supplicant/1.0/android.hardware.wifi.supplicant@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/supplicant/1.1/android.hardware.wifi.supplicant@1.1_genc++_headers/gen \
+-isystem $HIDL_HW/wifi/supplicant/1.2/android.hardware.wifi.supplicant@1.2_genc++_headers/gen \
+-isystem $INTERMEDIATES/frameworks/av/camera/libcamera_client/android_${TARGET_FOLDER}_core_shared/gen/aidl \
+-isystem $INTERMEDIATES/frameworks/av/media/libaudioclient/libaudioclient/android_${TARGET_FOLDER}_core_shared/gen/aidl \
+-isystem $INTERMEDIATES/frameworks/av/media/libmedia/libmedia_omx/android_${TARGET_FOLDER}_core_shared/gen/aidl \
+-isystem $INTERMEDIATES/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-cpp-source/gen/include \
+-isystem $INTERMEDIATES/gonk-misc/gonk-binder/binder_b2g_telephony_interface-cpp-source/gen/include \
+-isystem $INTERMEDIATES/system/connectivity/wificond/libwificond_ipc/android_${TARGET_FOLDER}_core_static/gen/aidl \
+-isystem $INTERMEDIATES/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen \
+-isystem $INTERMEDIATES/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen \
+-isystem $INTERMEDIATES/system/netd/resolv/dnsresolver_aidl_interface-V2-cpp-source/gen/include \
+-isystem $INTERMEDIATES/system/netd/server/netd_aidl_interface-V2-cpp-source/gen/include \
+-isystem $INTERMEDIATES/system/netd/server/netd_event_listener_interface-V1-cpp-source/gen/include \
+-isystem $INTERMEDIATES/system/vold/libvold_binder_shared/android_${TARGET_FOLDER}_core_shared/gen/aidl"
 
 # export RUSTC_OPT_LEVEL=z
 

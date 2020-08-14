@@ -8,8 +8,8 @@
 #define MEDIA_CODEC_PROXY_H
 
 #include <nsString.h>
-#include <stagefright/MediaCodec.h>
-#include <stagefright/MediaBuffer.h>
+#include <media/stagefright/MediaCodec.h>
+#include <media/stagefright/MediaBuffer.h>
 #include <utils/threads.h>
 
 #include "mozilla/media/MediaSystemResourceClient.h"

@@ -31,30 +31,6 @@ AllowCompilerWarnings()
 
 DisableStlWrapping()
 
-LOCAL_INCLUDES += [
-'%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-    'frameworks/native/libs/math/include',
-    'gonk-misc/libcarthage/include',
-    ]
-]
-
-LOCAL_INCLUDES += [
-    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-        'frameworks/native/include/',
-        'frameworks/native/include/gui',
-        'frameworks/native/opengl/include',
-        'system/core/include',
-        'system/core/libsuspend/include',
-    ]
-]
-
-LOCAL_INCLUDES += [
-    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-        'hardware/libhardware/include',
-        'hardware/libhardware_legacy/include',
-    ]
-]
-
 OS_LIBS += [
     'suspend',
     'ui',

@@ -67,22 +67,6 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     SOURCES += [
         'gonk/GonkHal.cpp',
     ]
-    LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-            'frameworks/av/camera/include/camera',
-            'out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
-            'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/1.0/android.hardware.graphics.bufferqueue@1.0_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/media/omx/1.0/android.hardware.media.omx@1.0_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen',
-            'system/libhidl/transport/token/1.0/utils/include',
-            'system/media/camera/include',
-        ]
-    ]
 
     if CONFIG['PRODUCT_MANUFACTURER_MTK'] :
         UNIFIED_SOURCES += [
@@ -220,8 +204,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         '/widget',
         '/widget/gonk',
     ]
-    LOCAL_INCLUDES += ['%' + '%s/hardware/libhardware/include' % CONFIG['GONK_PATH']]
-    LOCAL_INCLUDES += ['%' + '%s/hardware/libhardware_legacy/include' % CONFIG['GONK_PATH']]
 
 CFLAGS += CONFIG['GLIB_CFLAGS']
 CFLAGS += CONFIG['MOZ_DBUS_GLIB_CFLAGS']

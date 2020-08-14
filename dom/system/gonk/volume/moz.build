@@ -41,21 +41,8 @@ UNIFIED_SOURCES += [
     'VolumeServiceTest.cpp',
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-    LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-                'out/soong/.intermediates/system/vold/libvold_binder_shared/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
-        ]
-    ]
-
 include('/ipc/chromium/chromium-config.mozbuild')
 
 DEFINES['HAVE_ANDROID_OS'] = True
-
-LOCAL_INCLUDES += [
-    # libhardware_legacy is needed for acquiring/releasing wake lock
-    '%' + '%s/hardware/libhardware_legacy/include' % CONFIG['GONK_PATH'],
-    '/dom/base',
-]
 
 FINAL_LIBRARY = 'xul'

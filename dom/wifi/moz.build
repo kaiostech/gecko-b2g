@@ -80,21 +80,6 @@ if not CONFIG['DISABLE_WIFI']:
           'WifiProxyService.cpp',
       ]
       LOCAL_INCLUDES += [
-          '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-              'out/soong/.intermediates/hardware/interfaces/wifi/1.0/android.hardware.wifi@1.0_genc++_headers/gen',
-              'out/soong/.intermediates/hardware/interfaces/wifi/1.1/android.hardware.wifi@1.1_genc++_headers/gen',
-              'out/soong/.intermediates/hardware/interfaces/wifi/1.2/android.hardware.wifi@1.2_genc++_headers/gen',
-              'out/soong/.intermediates/hardware/interfaces/wifi/1.3/android.hardware.wifi@1.3_genc++_headers/gen',
-              'out/soong/.intermediates/hardware/interfaces/wifi/hostapd/1.0/android.hardware.wifi.hostapd@1.0_genc++_headers/gen',
-              'out/soong/.intermediates/hardware/interfaces/wifi/hostapd/1.1/android.hardware.wifi.hostapd@1.1_genc++_headers/gen',
-              'out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.0/android.hardware.wifi.supplicant@1.0_genc++_headers/gen',
-              'out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.1/android.hardware.wifi.supplicant@1.1_genc++_headers/gen',
-              'out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.2/android.hardware.wifi.supplicant@1.2_genc++_headers/gen',
-              'out/soong/.intermediates/system/connectivity/wificond/libwificond_ipc/android_%s_core_static/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
-              'system/connectivity',
-          ]
-      ]
-      LOCAL_INCLUDES += [
           'hal',
       ]
 

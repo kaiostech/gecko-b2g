@@ -162,6 +162,7 @@ copy_to_sysroot_full_path "${PREBUILTS}"
 LIBRARIES="out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.1.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@2.0.so
+out/target/product/generic_x86_64/system/lib64/android.hardware.gnss.visibility_control@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.radio@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.sensors@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.vibrator@1.0.so

@@ -215,6 +215,7 @@ frameworks/av/media/libmedia/aidl
 frameworks/av/media/libmedia/include
 frameworks/av/media/libstagefright/foundation/include
 frameworks/av/media/libstagefright/include
+frameworks/av/media/mtp
 frameworks/native/headers/media_plugin
 frameworks/native/include/gui
 frameworks/native/include/media/openmax

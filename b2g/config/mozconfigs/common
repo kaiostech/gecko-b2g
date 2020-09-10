@@ -95,6 +95,7 @@ ac_add_options --with-wifi-1.1-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/produ
 ac_add_options --with-wifi-1.2-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/android.hardware.wifi@1.2.so"
 ac_add_options --with-wifi-1.3-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/android.hardware.wifi@1.3.so"
 ac_add_options --with-wificond-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/libwificond_ipc_shared.so"
+ac_add_options --with-mtp-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/libmtp.so"
 
 export CFLAGS="-Wno-nullability-completeness"
 

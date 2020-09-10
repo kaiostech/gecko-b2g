@@ -203,7 +203,8 @@ out/target/product/generic_x86_64/system/lib64/libutils.so
 out/target/product/generic_x86_64/system/lib64/libvold_binder_shared.so
 out/target/product/generic_x86_64/system/lib64/libwificond_ipc_shared.so
 out/target/product/generic_x86_64/system/lib64/netd_aidl_interface-V2-cpp.so
-out/target/product/generic_x86_64/system/lib64/netd_event_listener_interface-V1-cpp.so"
+out/target/product/generic_x86_64/system/lib64/netd_event_listener_interface-V1-cpp.so
+out/target/product/generic_x86_64/system/lib64/libmtp.so"
 
 copy_to_sysroot_full_path "${LIBRARIES}"
 

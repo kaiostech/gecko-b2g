@@ -18,6 +18,9 @@ linux64-b2g-build:
     run:
         script: build-b2g-emulator.sh
         toolchain-artifact: public/build/b2g-build.tar
+    when:
+        files-changed:
+            - 'taskcluster/scripts/misc/create-b2g-sysroot.sh'
     fetches:
         fetch:
             - B2G

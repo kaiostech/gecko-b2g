@@ -28,7 +28,8 @@ case "$target" in
 
     AC_SUBST(ANDROID_VERSION)
 
-    # If we're building for a gonk target add more sysroot system includes
+    # If we're building for a gonk target add more sysroot system includes and
+    # library paths
     if test -n "$gonkdir"; then
         CPPFLAGS="$CPPFLAGS -isystem $gonkdir/include"
         # HACK: Some system headers in the AOSP sources are laid out
@@ -37,6 +38,8 @@ case "$target" in
         # #include <path/to/header.h>. To accomodate for this we need camera/
         # in the default include path until we can fix the issue.
         CPPFLAGS="$CPPFLAGS -isystem $gonkdir/include/camera"
+
+        LDFLAGS="-L$gonkdir/libs -Wl,-rpath-link=$gonkdir/libs $LDFLAGS"
     fi
 
     ;;

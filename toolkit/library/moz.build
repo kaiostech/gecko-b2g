@@ -12,6 +12,12 @@ def Libxul_defines():
         LIBRARY_DEFINES['STATIC_EXPORTABLE_JS_API'] = True
 
 @template
+def AOSPSharedObjects(*sharedobjects):
+    for so in sharedobjects:
+        path = CONFIG['GONK_PATH'] + '/libs/' + so + '.so'
+        LDFLAGS += [path]
+
+@template
 def Libxul(name, output_category=None):
     if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('cocoa', 'uikit'):
         # This is going to be a framework named "XUL", not an ordinary library named
@@ -98,42 +104,64 @@ def Libxul(name, output_category=None):
         OBJDIR_FILES.toolkit.library.build += ['../libxul.so-gdb.py']
 
     if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-        LDFLAGS += [
-            CONFIG['ANDROID_GNSS_1_0_SO'],
-            CONFIG['ANDROID_DNSRESOLVER_SO'],
-            CONFIG['ANDROID_MTP_SO'],
-            CONFIG['ANDROID_NETD_AIDL_SO'],
-            CONFIG['ANDROID_NETD_EVENT_SO'],
-            CONFIG['ANDROID_RADIO_SO'],
-            CONFIG['ANDROID_VOLD_SO'],
-            CONFIG['ANDROID_VIBRATOR_SO'],
-            CONFIG['ANDROID_SENSORS_SO'],
-            CONFIG['ANDROID_WIFI_1_0_SO'],
-            CONFIG['ANDROID_WIFI_1_1_SO'],
-            CONFIG['ANDROID_WIFI_1_2_SO'],
-            CONFIG['ANDROID_WIFI_1_3_SO'],
-            CONFIG['ANDROID_WIFI_KEYSTORE_1_0_SO'],
-            CONFIG['ANDROID_HOSTAPD_1_0_SO'],
-            CONFIG['ANDROID_HOSTAPD_1_1_SO'],
-            CONFIG['ANDROID_SUPPLICANT_1_0_SO'],
-            CONFIG['ANDROID_SUPPLICANT_1_1_SO'],
-            CONFIG['ANDROID_SUPPLICANT_1_2_SO'],
-            CONFIG['ANDROID_WIFICOND_SO'],
-            CONFIG['BINDER_B2G_CONNECTIVITY_SO'],
-            CONFIG['BINDER_B2G_TELEPHONY_SO'],
-            CONFIG['ANDROID_GRAPHICS_COMPOSER_2_1_SO'],
-            CONFIG['ANDROID_GRAPHICS_COMPOSER_2_2_SO'],
-            CONFIG['ANDROID_GRAPHICS_COMPOSER_2_3_SO'],
-            CONFIG['ANDROID_FMQ_SO'],
-            CONFIG['ANDROID_SYNC_SO'],
-            CONFIG['ANDROID_POWER_1_0_SO'],
+        OS_LIBS += [
+          'android',
+          'audioclient',
+          'base',
+          'binder',
+          'cutils',
+          'dl',
+          'fmq',
+          'gui',
+          'hardware',
+          'hardware_legacy',
+          'hidlbase',
+          'hidlmemory',
+          'hidltransport',
+          'hwbinder',
+          'log',
+          'mtp',
+          'nativewindow',
+          'stdc++',
+          'suspend',
+          'sync',
+          'sysutils',
+          'ui',
+          'utils',
+          'vold_binder_shared',
+          'wificond_ipc_shared',
         ]
+        AOSPSharedObjects(
+          'android.hardware.gnss@1.0',
+          'android.hardware.graphics.composer@2.1',
+          'android.hardware.graphics.composer@2.2',
+          'android.hardware.graphics.composer@2.3',
+          'android.hardware.power@1.0',
+          'android.hardware.radio@1.0',
+          'android.hardware.sensors@1.0',
+          'android.hardware.vibrator@1.0',
+          'android.hardware.wifi@1.0',
+          'android.hardware.wifi@1.1',
+          'android.hardware.wifi@1.2',
+          'android.hardware.wifi@1.3',
+          'android.hardware.wifi.hostapd@1.0',
+          'android.hardware.wifi.hostapd@1.1',
+          'android.hardware.wifi.supplicant@1.0',
+          'android.hardware.wifi.supplicant@1.1',
+          'android.hardware.wifi.supplicant@1.2',
+          'android.system.wifi.keystore@1.0',
+          'binder_b2g_connectivity_interface-cpp',
+          'binder_b2g_telephony_interface-cpp',
+          'dnsresolver_aidl_interface-V2-cpp',
+          'netd_aidl_interface-V2-cpp',
+          'netd_event_listener_interface-V1-cpp',
+        )
         if CONFIG['ANDROID_VERSION'] >= '29':
-            LDFLAGS += [
-                CONFIG['ANDROID_GNSS_1_1_SO'],
-                CONFIG['ANDROID_GNSS_2_0_SO'],
-                CONFIG['ANDROID_GNSS_VISIBILITY_CONTROL_1_0_SO'],
-            ]
+            AOSPSharedObjects(
+              'android.hardware.gnss@1.1',
+              'android.hardware.gnss@2.0',
+              'android.hardware.gnss.visibility_control@1.0',
+            )
 
 # The real libxul definition is in ./build/moz.build, but we define a
 # xul library here such that # FINAL_LIBRARY = 'xul' refers to here, which

@@ -14,8 +14,11 @@ ac_add_options --target=$TARGET_TRIPLE
 ac_add_options --enable-linker=lld
 ac_add_options --with-app-basename=b2g
 
+if [ "$HOST_OS" != "linux" ]; then
+  ac_add_options --disable-crashreporter
+fi
+
 # Disable a bunch of non critical stuff
-ac_add_options --disable-crashreporter
 ac_add_options --disable-printing
 ac_add_options --disable-updater
 ac_add_options --disable-cranelift
@@ -48,7 +51,7 @@ mk_add_options AUTOCLOBBER=1
 
 # Gonk-specific stuff
 ac_add_options --with-gonk-gfx
-ac_add_options --with-gonk="$GONK_PATH"
+ac_add_options --with-gonk="$(realpath $GECKO_OBJDIR/b2g-sysroot)"
 
 # Customize the objdir.
 if [ -f "$GECKO_OBJDIR" ]; then
@@ -91,43 +94,6 @@ if [ "$TARGET_BUILD_VARIANT" != "user" ] ; then
 fi
 
 ac_add_options --enable-b2g-camera
-
-ac_add_options --with-gnss1.0-so="$SYS_LIB/android.hardware.gnss@1.0.so"
-if [ $PLATFORM_VERSION -ge 29 ]; then
-  ac_add_options --with-gnss1.1-so="$SYS_LIB/android.hardware.gnss@1.1.so"
-  ac_add_options --with-gnss2.0-so="$SYS_LIB/android.hardware.gnss@2.0.so"
-  ac_add_options --with-gnss-visibility_control1.0-so="$SYS_LIB/android.hardware.gnss.visibility_control@1.0.so"
-fi
-
-ac_add_options --with-dnsresolver-so="$SYS_LIB/dnsresolver_aidl_interface-V2-cpp.so"
-ac_add_options --with-netd-event-so="$SYS_LIB/netd_aidl_interface-V2-cpp.so"
-ac_add_options --with-netd-aidl-so="$SYS_LIB/netd_event_listener_interface-V1-cpp.so"
-ac_add_options --with-radio-so="$SYS_LIB/android.hardware.radio@1.0.so"
-ac_add_options --with-vibrator-so="$SYS_LIB/android.hardware.vibrator@1.0.so"
-ac_add_options --with-sensors-so="$SYS_LIB/android.hardware.sensors@1.0.so"
-ac_add_options --with-wifi-1.0-so="$SYS_LIB/android.hardware.wifi@1.0.so"
-ac_add_options --with-wifi-1.1-so="$SYS_LIB/android.hardware.wifi@1.1.so"
-ac_add_options --with-wifi-1.2-so="$SYS_LIB/android.hardware.wifi@1.2.so"
-ac_add_options --with-wifi-1.3-so="$SYS_LIB/android.hardware.wifi@1.3.so"
-ac_add_options --with-hostapd-1.0-so="$SYS_LIB/android.hardware.wifi.hostapd@1.0.so"
-ac_add_options --with-hostapd-1.1-so="$SYS_LIB/android.hardware.wifi.hostapd@1.1.so"
-ac_add_options --with-supplicant-1.0-so="$SYS_LIB/android.hardware.wifi.supplicant@1.0.so"
-ac_add_options --with-supplicant-1.1-so="$SYS_LIB/android.hardware.wifi.supplicant@1.1.so"
-ac_add_options --with-supplicant-1.2-so="$SYS_LIB/android.hardware.wifi.supplicant@1.2.so"
-ac_add_options --with-wificond-so="$SYS_LIB/libwificond_ipc_shared.so"
-ac_add_options --with-wifi-keystore-1.0-so="$SYS_LIB/android.system.wifi.keystore@1.0.so"
-ac_add_options --with-binder-b2g-connectivity-so="$SYS_LIB/binder_b2g_connectivity_interface-cpp.so"
-ac_add_options --with-binder-b2g-telephony-so="$SYS_LIB/binder_b2g_telephony_interface-cpp.so"
-ac_add_options --with-vold-so="$SYS_LIB/libvold_binder_shared.so"
-ac_add_options --with-mtp-so="$SYS_LIB/libmtp.so"
-ac_add_options --with-graphics-composer-2.1-so="$SYS_LIB/android.hardware.graphics.composer@2.1.so"
-ac_add_options --with-graphics-composer-2.2-so="$SYS_LIB/android.hardware.graphics.composer@2.2.so"
-ac_add_options --with-graphics-composer-2.3-so="$SYS_LIB/android.hardware.graphics.composer@2.3.so"
-ac_add_options --with-android-power-1.0-so="$SYS_LIB/android.hardware.power@1.0.so"
-ac_add_options --with-android_fmq-so="$SYS_LIB/libfmq.so"
-ac_add_options --with-android_sync-so="$SYS_LIB/libsync.so"
-
-
 ac_add_options --enable-forkserver
 
 ac_add_options --enable-b2g-ril

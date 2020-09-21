@@ -325,6 +325,14 @@ def add_remote_arguments(parser):
     )
 
     parser.add_argument(
+        "--bundle",
+        action="store",
+        type=str,
+        dest="bundle",
+        help="Local path to tar bundle containing xpcshell binaries.",
+    )
+
+    parser.add_argument(
         "--adbPath",
         action="store",
         type=str,

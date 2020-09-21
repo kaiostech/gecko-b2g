@@ -15,6 +15,7 @@ import sys
 import runxpcshelltests as xpcshell
 import tempfile
 from zipfile import ZipFile
+import tarfile
 
 import mozcrash
 from mozdevice import ADBDevice, ADBDeviceFactory, ADBTimeoutError
@@ -290,8 +291,12 @@ class XPCShellRemote(xpcshell.XPCShellTests, object):
             self.remoteAPK = posixpath.join(
                 self.remoteBinDir, os.path.basename(options["localAPK"])
             )
+        elif options["bundle"]:
+            self.localBundleContents = tarfile.open(options["bundle"])
+            self.localAPKContents = None
         else:
             self.localAPKContents = None
+            self.localBundleContents = None
         if options["setup"]:
             self.setupTestDir()
             self.setupUtilities()
@@ -384,7 +389,7 @@ class XPCShellRemote(xpcshell.XPCShellTests, object):
         if not abi:
             raise Exception("failed to get ro.product.cpu.abi from device")
         self.log.info("ro.product.cpu.abi %s" % abi)
-        if self.localAPKContents:
+        if self.localAPKContents or self.localBundleContents:
             abilist = [abi]
             retries = 0
             while not abilistprop and retries < 3:
@@ -392,9 +397,18 @@ class XPCShellRemote(xpcshell.XPCShellTests, object):
                 retries += 1
             self.log.info("ro.product.cpu.abilist %s" % abilistprop)
             abi_found = False
-            names = [
-                n for n in self.localAPKContents.namelist() if n.startswith("lib/")
-            ]
+            names = None
+            if self.localAPKContents:
+                names = [
+                    n for n in self.localAPKContents.namelist() if n.startswith("lib/")
+                ]
+            elif self.localBundleContents:
+                names = [
+                    n
+                    for n in self.localBundleContents.getnames()
+                    if n.startswith("lib/")
+                ]
+
             self.log.debug("apk names: %s" % names)
             if abilistprop and len(abilistprop) > 0:
                 abilist.extend(abilistprop.split(","))
@@ -468,6 +482,8 @@ class XPCShellRemote(xpcshell.XPCShellTests, object):
             self.device.chmod(remoteFile)
 
             self.pushLibs()
+        elif self.options["bundle"]:
+            self.pushLibs()
         else:
             localB2G = os.path.join(self.options["objdir"], "dist", "b2g")
             if os.path.exists(localB2G):
@@ -480,17 +496,30 @@ class XPCShellRemote(xpcshell.XPCShellTests, object):
         pushed_libs_count = 0
         try:
             dir = tempfile.mkdtemp()
-            for info in self.localAPKContents.infolist():
-                if info.filename.endswith(".so"):
-                    print("Pushing %s.." % info.filename, file=sys.stderr)
-                    remoteFile = posixpath.join(
-                        self.remoteBinDir, os.path.basename(info.filename)
-                    )
-                    self.localAPKContents.extract(info, dir)
-                    localFile = os.path.join(dir, info.filename)
-                    self.device.push(localFile, remoteFile)
-                    pushed_libs_count += 1
-                    self.device.chmod(remoteFile)
+            if self.localAPKContents:
+                for info in self.localAPKContents.infolist():
+                    if info.filename.endswith(".so"):
+                        print("Pushing %s.." % info.filename, file=sys.stderr)
+                        remoteFile = posixpath.join(
+                            self.remoteBinDir, os.path.basename(info.filename)
+                        )
+                        self.localAPKContents.extract(info, dir)
+                        localFile = os.path.join(dir, info.filename)
+                        self.device.push(localFile, remoteFile)
+                        pushed_libs_count += 1
+                        self.device.chmod(remoteFile)
+            elif self.localBundleContents:
+                for name in self.localBundleContents.getnames():
+                    if name.endswith(".so") or name.endswith(".ja"):
+                        print("Pushing %s.." % name, file=sys.stderr)
+                        remoteFile = posixpath.join(
+                            self.remoteBinDir, os.path.basename(name)
+                        )
+                        self.localBundleContents.extract(name, dir)
+                        localFile = os.path.join(dir, name)
+                        self.device.push(localFile, remoteFile)
+                        pushed_libs_count += 1
+                        self.device.chmod(remoteFile)
         finally:
             shutil.rmtree(dir)
         return pushed_libs_count

@@ -21,4 +21,26 @@ config = {
     "android_version": 24,
     "is_fennec": False,
     "is_emulator": True,
+    "suite_definitions": {
+        "xpcshell": {
+            "run_filename": "remotexpcshelltests.py",
+            "testsdir": "xpcshell",
+            "install": False,
+            "options": [
+                "--xre-path=%(xre_path)s",
+                "--testing-modules-dir=%(modules_dir)s",
+                "--bundle=%(installer_path)s",
+                "--no-logfiles",
+                "--symbols-path=%(symbols_path)s",
+                "--manifest=tests/xpcshell.ini",
+                "--log-raw=%(raw_log_file)s",
+                "--log-raw-level=%(log_raw_level)s",
+                "--log-errorsummary=%(error_summary_file)s",
+                "--log-tbpl-level=%(log_tbpl_level)s",
+                "--test-plugin-path=none",
+                "--deviceSerial=%(device_serial)s",
+                "%(xpcshell_extra)s",
+            ],
+        },
+    },
 }

@@ -20,6 +20,7 @@ HOST_CXX="$MOZ_FETCHES_DIR/clang/bin/clang++ --gcc-toolchain=$MOZ_FETCHES_DIR/cl
 
 # Build Boot2Gecko
 ac_add_options --enable-application=b2g
+ac_add_options --with-app-basename=b2g
 
 if [ -z "$NO_NDK" -a -z "$USE_ARTIFACT" ]; then
     # We use our own clang instead of the NDK's clang.

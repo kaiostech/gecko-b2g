@@ -202,8 +202,8 @@ $(PYTHON3) $(topsrcdir)/toolkit/crashreporter/tools/symbolstore.py \
 
 endef
 
-SYMBOLS := $(shell find $(TARGET_OUT_UNSTRIPPED)/system -name *.so)
-SYMBOLS += $(shell find $(TARGET_OUT_UNSTRIPPED)/vendor -name *.so)
+SYMBOLS := $(shell test -d $(TARGET_OUT_UNSTRIPPED)/system && find $(TARGET_OUT_UNSTRIPPED)/system -name *.so)
+SYMBOLS += $(shell test -d $(TARGET_OUT_UNSTRIPPED)/vendor && find $(TARGET_OUT_UNSTRIPPED)/vendor -name *.so)
 .PHONY: syms_out
 syms_out:
 	$(foreach file,$(SYMBOLS),$(call dump_syms_out,$(file)))

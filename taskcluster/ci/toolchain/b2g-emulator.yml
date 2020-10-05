@@ -22,6 +22,9 @@ linux64-b2g-build:
         fetch:
             - B2G
             - b2g-manifests
+        toolchain:
+            - android-ndk-b2g-linux
+            - linux64-rust-android
 
 linux64-b2g-emulator:
     treeherder:

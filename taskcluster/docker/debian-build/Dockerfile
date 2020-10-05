@@ -43,6 +43,8 @@ RUN apt-get update && \
     elif grep -q ^10\\. /etc/debian_version; then \
       libstdcxx=libstdc++-8-dev; \
       LIBSTDCXX="$libstdcxx $libstdcxx:$ARCH"; \
+      apt-get install yarnpkg; \
+      ln -snf /usr/bin/yarnpkg /usr/bin/yarn; \
     fi && \
     apt-get install \
       autoconf2.13 \

@@ -14,4 +14,4 @@ b2g-manifests:
     fetch:
         type: git
         repo: https://github.com/kaiostech/manifests/
-        revision: 56b2a43d9544ed51450564eacdac3b19cf23d175
+        revision: 7632d5806dd1ea54dbfb6b507043691fa16998ca

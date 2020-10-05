@@ -89,6 +89,33 @@ index c2e3147..7df775f 100644
  buildsymbols:
 EOF
 
+# Work around the hardcoded LOCAL_NDK variable
+patch -d gonk-misc/api-daemon -p1 <<'EOF'
+diff --git a/Android.mk b/Android.mk
+index afaa48f..72a5636 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -40,7 +40,11 @@ API_DAEMON_LIB_DEPS := \
+ 
+ include $(BUILD_PREBUILT)
+ 
++ifndef ANDROID_NDK
+ LOCAL_NDK := $(HOME)/.mozbuild/android-ndk-r20b-canary
++else
++LOCAL_NDK := $(ANDROID_NDK)
++endif
+ 
+ $(LOCAL_BUILT_MODULE): $(TARGET_CRTBEGIN_DYNAMIC_O) $(TARGET_CRTEND_O) $(addprefix $(TARGET_OUT_SHARED_LIBRARIES)/,$(API_DAEMON_LIB_DEPS))
+ 	@echo "api-daemon: $(API_DAEMON_EXEC)"
+@@ -88,4 +92,4 @@ ifneq ($(PREBUILT_CA_BUNDLE),)
+ 	@cp $(PREBUILT_CA_BUNDLE) -f $@
+ else
+ 	@perl $(MK_CA_BUNDLE) -d $(CERTDATA_FILE) -f $@
+-endif
+\ No newline at end of file
++endif
+EOF
+
 # Force compressing debug symbols
 patch -d build/soong -p1 <<'EOF'
 diff --git a/cc/config/global.go b/cc/config/global.go
@@ -122,7 +149,9 @@ index 815c31d8..9d82d460 100644
 EOF
 
 # Build the emulator
-./build.sh
+env ANDROID_NDK="${MOZ_FETCHES_DIR}/android-ndk" \
+    PATH="${PATH}:${MOZ_FETCHES_DIR}/rustc/bin" \
+    ./build.sh
 
 # Package the emulator
 ./scripts/package-emulator.sh "b2g-emulator.tar.zst" \

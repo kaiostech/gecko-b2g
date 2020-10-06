@@ -1070,8 +1070,12 @@ nsresult nsAppShell::Init() {
   rv = AddFdHandler(signalfds[0], pipeHandler, "");
   NS_ENSURE_SUCCESS(rv, rv);
 
-  InitGonkMemoryPressureMonitoring();
-  InitGonkMemoryPressureMonitoring2();
+  bool isXPCShellTest = PR_GetEnv("XPCSHELL_TEST_PROFILE_DIR");
+
+  if (!isXPCShellTest) {
+    InitGonkMemoryPressureMonitoring();
+    InitGonkMemoryPressureMonitoring2();
+  }
 
   if (XRE_IsParentProcess()) {
     printf(
@@ -1090,8 +1094,10 @@ nsresult nsAppShell::Init() {
     GonkActivityManagerService::instantiate();
     ProcessState::self()->startThreadPool();
 
-    /* Start boot animation */
-    mozilla::StartBootAnimation();
+    if (!isXPCShellTest) {
+      /* Start boot animation */
+      mozilla::StartBootAnimation();
+    }
     property_set("sys.boot_completed", "1");
 
     ScreenManager& screenManager = ScreenManager::GetSingleton();

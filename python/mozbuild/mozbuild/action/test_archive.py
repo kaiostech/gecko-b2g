@@ -636,6 +636,7 @@ ARCHIVE_FILES = {
             "base": "testing/xpcshell",
             "patterns": [
                 "head.js",
+                "kaios_xpcshell_skip_list.ini",
                 "mach_test_package_commands.py",
                 "moz-http2/**",
                 "node-http2/**",

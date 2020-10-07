@@ -557,6 +557,18 @@ class XPCShellRemote(xpcshell.XPCShellTests, object):
         xpcshell.XPCShellTests.buildTestList(
             self, test_tags=test_tags, test_paths=test_paths, verify=verify
         )
+
+        skipFile = os.path.join(here, "kaios_xpcshell_skip_list.ini")
+        if os.path.exists(skipFile):
+            self.log.info("Skipping tests listed in " + skipFile)
+            # Load skip list
+            with open(skipFile) as f:
+                skipIds = f.read().splitlines()
+                # Remove tests to skip
+                self.alltests = list(
+                    filter(lambda test: test["id"] not in skipIds, self.alltests)
+                )
+
         uniqueTestPaths = set([])
         for test in self.alltests:
             uniqueTestPaths.add(test["here"])

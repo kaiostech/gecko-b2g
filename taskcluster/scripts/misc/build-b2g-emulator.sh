@@ -26,10 +26,10 @@ rm -rf .repo
 # Remove the Gecko build & packaging steps
 patch -d gonk-misc -p1 <<'EOF'
 diff --git a/Android.mk b/Android.mk
-index 6225f10..6b707b4 100644
+index c2e3147..7df775f 100644
 --- a/Android.mk
 +++ b/Android.mk
-@@ -170,15 +170,15 @@ endif
+@@ -161,15 +161,15 @@ endif
  $(LOCAL_INSTALLED_MODULE) : $(LOCAL_BUILT_MODULE)
  	@echo Install dir: $(TARGET_OUT)/b2g
  	rm -rf $(filter-out $(addprefix $(TARGET_OUT)/b2g/,$(PRESERVE_DIRS)),$(wildcard $(TARGET_OUT)/b2g/*))
@@ -49,7 +49,7 @@ index 6225f10..6b707b4 100644
  endif
  
  GECKO_LIB_DEPS := \
-@@ -242,35 +242,7 @@ endif
+@@ -235,36 +235,7 @@ endif
  
  .PHONY: $(LOCAL_BUILT_MODULE)
  $(LOCAL_BUILT_MODULE): $(TARGET_CRTBEGIN_DYNAMIC_O) $(TARGET_CRTEND_O) $(addprefix $(TARGET_OUT_SHARED_LIBRARIES)/,$(GECKO_LIB_DEPS)) $(GECKO_LIB_STATIC)
@@ -77,6 +77,7 @@ index 6225f10..6b707b4 100644
 -	export TARGET_CPU_VARIANT="$(TARGET_CPU_VARIANT)" && \
 -	export PRODUCT_MANUFACTURER="$(PRODUCT_MANUFACTURER)" && \
 -	export MOZ_DISABLE_LTO="$(MOZ_DISABLE_LTO)" && \
+-	export MOZ_SANDBOX_GPU_NODE="$(MOZ_SANDBOX_GPU_NODE)" && \
 -	export HOST_OS="$(HOST_OS)" && \
 -	(cd $(GECKO_PATH) ; $(SHELL) build-b2g.sh) && \
 -	(cd $(GECKO_PATH) ; $(SHELL) build-b2g.sh package) && \
@@ -84,8 +85,8 @@ index 6225f10..6b707b4 100644
 -endif
 +	:
  
- # Include a copy of the repo manifest that has the revisions used
- ifneq ($(DISABLE_SOURCES_XML),true)
+ .PHONY: buildsymbols
+ buildsymbols:
 EOF
 
 # Force compressing debug symbols

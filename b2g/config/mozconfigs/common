@@ -75,8 +75,7 @@ export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
 -DGR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE=1 \
 -isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/usr/include"
 
-export LDFLAGS="--sysroot=$MOZ_FETCHES_DIR/android-ndk/platforms/android-29/arch-x86_64/ \
--L$MOZ_FETCHES_DIR/b2g-sysroot/prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/lib/gcc/x86_64-linux-android/4.9.x/"
+export LDFLAGS="--sysroot=$MOZ_FETCHES_DIR/android-ndk/platforms/android-29/arch-x86_64/"
 
 ###############################################################################
 ###############################################################################

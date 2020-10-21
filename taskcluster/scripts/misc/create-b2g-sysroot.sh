@@ -5,21 +5,6 @@ src="${1-.}"
 dest="${2-.}"
 
 # Copy the contents of the directories in the first argument to the sysroot
-# preserving their full paths
-function copy_to_sysroot_full_path() {
-  printf "${1}\n" | while read path; do
-    path="${path}"
-    if [ -d "${src}/${path}" ]; then
-      mkdir -p "${dest}/b2g-sysroot/${path}"
-      rsync -r --times --exclude=Android.bp --exclude=AndroidTest.xml "${src}/${path}/" "${dest}/b2g-sysroot/${path}/"
-    else
-      mkdir -p "${dest}/b2g-sysroot/$(dirname ${path})"
-      cp --preserve=timestamps "${src}/${path}" "${dest}/b2g-sysroot/${path}"
-    fi
-  done
-}
-
-# Copy the contents of the directories in the first argument to the sysroot
 # using the second argument as the destination folder
 function copy_to_sysroot() {
   mkdir -p "${dest}/b2g-sysroot/${2}"
@@ -68,11 +53,6 @@ ARCH_FOLDER="${TARGET_ARCH}"
 if [ "${TARGET_ARCH}" != "${TARGET_ARCH_VARIANT}" ]; then
     ARCH_FOLDER="${TARGET_ARCH}_${TARGET_ARCH_VARIANT}"
 fi
-
-# Copy the prebuilts to the sysroot
-PREBUILTS="prebuilts/gcc/linux-x86/${ARCH_NAME}/${TARGET_TRIPLE}-4.9/lib/gcc/${TARGET_TRIPLE}/4.9.x/"
-
-copy_to_sysroot_full_path "${PREBUILTS}"
 
 # Copy the system libraries to the sysroot
 LIBRARIES="out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss@1.0.so
@@ -157,7 +137,6 @@ hardware/libhardware/include
 hardware/libhardware_legacy/include
 system/connectivity
 system/core/base/include
-system/core/include
 system/core/libcutils/include
 system/core/liblog/include
 system/core/libprocessgroup/include

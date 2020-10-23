@@ -160,9 +160,10 @@ env ANDROID_NDK="${MOZ_FETCHES_DIR}/android-ndk" \
 ###############################################################################
 # Package the sysroot
 
-env TARGET_ARCH="x86_64" \
+env GONK_PRODUCT_NAME="generic_x86_64" \
     TARGET_ARCH_VARIANT="x86_64" \
-    GONK_PRODUCT_NAME="generic_x86_64" \
+    TARGET_ARCH="x86_64" \
+    TARGET_CPU_VARIANT="x86_64" \
     $GECKO_PATH/taskcluster/scripts/misc/create-b2g-sysroot.sh
 tar -c b2g-sysroot | $GECKO_PATH/taskcluster/scripts/misc/zstdpy > "b2g-sysroot.tar.zst"
 

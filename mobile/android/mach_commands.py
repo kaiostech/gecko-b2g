@@ -465,11 +465,12 @@ class AndroidEmulatorCommands(MachCommandBase):
     @CommandArgument(
         "--version",
         metavar="VERSION",
-        choices=["arm-4.3", "x86-7.0"],
+        choices=["arm-4.3", "x86-7.0", "x86-KaiOS"],
         help="Specify which AVD to run in emulator. "
         'One of "arm-4.3" (Android 4.3 supporting armv7 binaries), or '
         '"x86-7.0" (Android 7.0 supporting x86 or x86_64 binaries, '
-        "recommended for most applications). "
+        "recommended for most applications), or "
+        '"x86-KaiOS" (KaiOS supporting x86 or x86_64 binaries). '
         'By default, "arm-4.3" will be used if the current build environment '
         'architecture is arm; otherwise "x86-7.0".',
     )

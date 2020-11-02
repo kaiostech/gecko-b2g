@@ -23,8 +23,10 @@ linux64-b2g-build:
             - 'taskcluster/scripts/misc/create-b2g-sysroot.sh'
     fetches:
         fetch:
+            - api-daemon
             - B2G
             - b2g-manifests
+            - gonk-misc
         toolchain:
             - android-ndk-b2g-linux
             - linux64-rust-android

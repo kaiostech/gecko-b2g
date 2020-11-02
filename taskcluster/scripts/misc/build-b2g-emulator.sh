@@ -17,6 +17,8 @@ git add .
 git commit -m dummy
 
 # Configure the emulator build and fetch all the AOSP dependencies
+mv "${MOZ_FETCHES_DIR}/gonk-misc" "${MOZ_FETCHES_DIR}/B2G/"
+mv "${MOZ_FETCHES_DIR}/api-daemon" "${MOZ_FETCHES_DIR}/B2G/gonk-misc/"
 cd "${MOZ_FETCHES_DIR}/B2G"
 GITREPO="${MOZ_FETCHES_DIR}/manifests" REPO_SYNC_FLAGS="-j4" REPO_INIT_FLAGS="--depth=1" ./config.sh emulator-10-x86_64
 
@@ -87,33 +89,6 @@ index c2e3147..7df775f 100644
  
  .PHONY: buildsymbols
  buildsymbols:
-EOF
-
-# Work around the hardcoded LOCAL_NDK variable
-patch -d gonk-misc/api-daemon -p1 <<'EOF'
-diff --git a/Android.mk b/Android.mk
-index afaa48f..72a5636 100644
---- a/Android.mk
-+++ b/Android.mk
-@@ -40,7 +40,11 @@ API_DAEMON_LIB_DEPS := \
- 
- include $(BUILD_PREBUILT)
- 
-+ifndef ANDROID_NDK
- LOCAL_NDK := $(HOME)/.mozbuild/android-ndk-r20b-canary
-+else
-+LOCAL_NDK := $(ANDROID_NDK)
-+endif
- 
- $(LOCAL_BUILT_MODULE): $(TARGET_CRTBEGIN_DYNAMIC_O) $(TARGET_CRTEND_O) $(addprefix $(TARGET_OUT_SHARED_LIBRARIES)/,$(API_DAEMON_LIB_DEPS))
- 	@echo "api-daemon: $(API_DAEMON_EXEC)"
-@@ -88,4 +92,4 @@ ifneq ($(PREBUILT_CA_BUNDLE),)
- 	@cp $(PREBUILT_CA_BUNDLE) -f $@
- else
- 	@perl $(MK_CA_BUNDLE) -d $(CERTDATA_FILE) -f $@
--endif
-\ No newline at end of file
-+endif
 EOF
 
 # Force compressing debug symbols

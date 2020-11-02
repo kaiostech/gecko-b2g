@@ -4,19 +4,14 @@ set -x -e -v
 src="${1-.}"
 dest="${2-.}"
 
-# Copy the contents of the directories in the first argument to the sysroot
-# using the second argument as the destination folder
+# Copy the contents of the files & directories in the first argument to the
+# sysroot using the second argument as the destination folder. File
+# creation/modification timestamps are preserved.
 function copy_to_sysroot() {
-  mkdir -p "${dest}/b2g-sysroot/${2}"
-  printf "${1}\n" | while read path; do
-    path="${src}/${path}"
-    if [ -d "${path}" ]; then
-      rsync --times --exclude=Android.bp --exclude=AndroidTest.xml -r --copy-links --exclude=".git" "${path}/" "${dest}/b2g-sysroot/${2}/"
-    else
-      mkdir -p "${dest}/b2g-sysroot/${2}"
-      cp --preserve=timestamps "${path}" "${dest}/b2g-sysroot/${2}/"
-    fi
-  done
+    mkdir -p "${dest}/b2g-sysroot/${2}/" && \
+    rsync --times -r --no-relative --copy-links \
+        --exclude=".git" --exclude=Android.bp --exclude=AndroidTest.xml \
+        --files-from="${1}" "${src}" "${dest}/b2g-sysroot/${2}/"
 }
 
 # Prepare the device-specific paths in the AOSP build files
@@ -65,8 +60,12 @@ fi
 
 ARCH_FOLDER="${TARGET_ARCH}${TARGET_ARCH_VARIANT}${TARGET_CPU_VARIANT}"
 
+libraries_list=$(mktemp)
+includes_list=$(mktemp)
+
 # Copy the system libraries to the sysroot
-LIBRARIES="out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss@1.0.so
+tee "${libraries_list}" << EOF
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss@1.1.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss@2.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss.visibility_control@1.0.so
@@ -118,12 +117,14 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libutils.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libvold_binder_shared.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libwificond_ipc_shared.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/netd_aidl_interface-V2-cpp.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/netd_event_listener_interface-V1-cpp.so"
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/netd_event_listener_interface-V1-cpp.so
+EOF
 
-copy_to_sysroot "${LIBRARIES}" "libs"
+copy_to_sysroot "${libraries_list}" "libs"
 
 # Store the system includes in the sysroot
-INCLUDE_FOLDERS="frameworks/av/camera/include
+sed 's/$/\//' > "${includes_list}" << EOF
+frameworks/av/camera/include
 frameworks/av/include
 frameworks/av/media/libaudioclient/include
 frameworks/av/media/libmedia/aidl
@@ -161,12 +162,12 @@ system/libhidl/base/include
 system/libhidl/transport/include
 system/libhidl/transport/token/1.0/utils/include
 system/media/audio/include
-system/media/camera/include"
-
-copy_to_sysroot "${INCLUDE_FOLDERS}" "include"
+system/media/camera/include
+EOF
 
 # Store the generated AIDL headers in the sysroot
-GENERATED_AIDL_HEADERS="out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_${ARCH_FOLDER}_core_shared/gen/aidl
+sed 's/$/\//' >> "${includes_list}" << EOF
+out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_${ARCH_FOLDER}_core_shared/gen/aidl
 out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_${ARCH_FOLDER}_core_shared/gen/aidl
 out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_${ARCH_FOLDER}_core_shared/gen/aidl
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-cpp-source/gen/include
@@ -175,12 +176,12 @@ out/soong/.intermediates/system/connectivity/wificond/libwificond_ipc/android_${
 out/soong/.intermediates/system/netd/resolv/dnsresolver_aidl_interface-V2-cpp-source/gen/include
 out/soong/.intermediates/system/netd/server/netd_aidl_interface-V2-cpp-source/gen/include
 out/soong/.intermediates/system/netd/server/netd_event_listener_interface-V1-cpp-source/gen/include
-out/soong/.intermediates/system/vold/libvold_binder_shared/android_${ARCH_FOLDER}_core_shared/gen/aidl"
-
-copy_to_sysroot "${GENERATED_AIDL_HEADERS}" "include"
+out/soong/.intermediates/system/vold/libvold_binder_shared/android_${ARCH_FOLDER}_core_shared/gen/aidl
+EOF
 
 # Store the generated HIDL headers in the sysroot
-GENERATED_HIDL_HEADERS="out/soong/.intermediates/hardware/interfaces/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen
+sed 's/$/\//' >> "${includes_list}" << EOF
+out/soong/.intermediates/hardware/interfaces/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/gnss/1.1/android.hardware.gnss@1.1_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/gnss/2.0/android.hardware.gnss@2.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/gnss/measurement_corrections/1.0/android.hardware.gnss.measurement_corrections@1.0_genc++_headers/gen
@@ -210,17 +211,7 @@ out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.1/android.hardwar
 out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.2/android.hardware.wifi.supplicant@1.2_genc++_headers/gen
 out/soong/.intermediates/system/hardware/interfaces/wifi/keystore/1.0/android.system.wifi.keystore@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen
-out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen"
+out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen
+EOF
 
-copy_to_sysroot "${GENERATED_HIDL_HEADERS}" "include"
-
-if [ ! -z ${BUILD_KOOST+x} ]; then
-
-KOOST_FILES="out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-cpp-source/gen/include
-out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-cpp-source/gen/include
-out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-cpp-source/gen/include
-out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-cpp-source/gen/include"
-
-copy_to_sysroot "${KOOST_FILES}" "include"
-
-fi
+copy_to_sysroot "${includes_list}" "include"

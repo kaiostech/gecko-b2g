@@ -80,7 +80,6 @@ else
 TARGET_CPU_VARIANT="_$TARGET_CPU_VARIANT"
 fi
 
-ac_add_options --with-target-arch-name="${TARGET_ARCH}${TARGET_ARCH_VARIANT}${TARGET_CPU_VARIANT}"
 ac_add_options --target-build-variant="$TARGET_BUILD_VARIANT"
 if [ "$TARGET_BUILD_VARIANT" != "user" ] ; then
 ENABLE_MARIONETTE=1

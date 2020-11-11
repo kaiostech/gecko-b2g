@@ -45,6 +45,8 @@ linux64-b2g-emulator:
             - linux64-b2g-build
 
 linux64-b2g-sysroot:
+    attributes:
+        local-toolchain: true
     treeherder:
         symbol: TL(b2g-sysroot)
     worker-type: b-linux

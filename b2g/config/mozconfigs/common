@@ -67,16 +67,6 @@ ac_add_options --disable-sandbox
 ac_add_options --enable-linker=lld
 ac_add_options --disable-elf-hack
 
-export CFLAGS="-Wno-nullability-completeness"
-
-export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
--DJE_FORCE_SYNC_COMPARE_AND_SWAP_4=1 \
--D_USING_LIBCXX \
--DGR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE=1 \
--isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/usr/include"
-
-export LDFLAGS="--sysroot=$MOZ_FETCHES_DIR/android-ndk/platforms/android-29/arch-x86_64/"
-
 ###############################################################################
 ###############################################################################
 ###############################################################################

@@ -174,7 +174,32 @@ class MobileAndroidBootstrapper(object):
         return self.generate_mobile_android_mozconfig(artifact_mode=True)
 
 
+class Boot2GeckoSysrootInstall(object):
+    def __init__(slef, **kwargs):
+        pass
+
+    def install_b2g_packages(self, mozconfig_builder):
+        from mozboot import android
+
+        android.ensure_android(
+            "linux", ndk_only=False, no_interactive=self.no_interactive
+        )
+
+    def ensure_b2g_sysroot_packages(self, state_dir, checkout_root):
+        from mozboot import b2g_sysroot
+
+        self.install_toolchain_artifact(
+            state_dir, checkout_root, b2g_sysroot.LINUX_B2G_SYSROOT
+        )
+
+    def generate_b2g_mozconfig(self, artifact_mode=False):
+        from mozboot import b2g
+
+        return b2g.generate_mozconfig()
+
+
 class LinuxBootstrapper(
+    Boot2GeckoSysrootInstall,
     ClangStaticAnalysisInstall,
     FixStacksInstall,
     DumpSymsInstall,

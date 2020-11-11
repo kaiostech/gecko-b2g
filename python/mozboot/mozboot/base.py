@@ -282,6 +282,27 @@ class BaseBootstrapper(object):
             % __name__
         )
 
+    def install_b2g_packages(self, mozconfig_builder):
+        """
+        Install packages required to build Boot2Gecko (application 'b2g').
+        """
+        raise NotImplementedError(
+            "Cannot bootstrap Boot2Gecko: "
+            "%s does not yet implement install_b2g_packages()" % __name__
+        )
+
+    def generate_b2g_mozconfig(self):
+        """
+        Print a message to the console detailing what the user's mozconfig
+        should contain.
+
+        Boot2Gecko currently requires a few specific flags set for the build to
+        work. In time these should be phased out.
+        """
+        raise NotImplementedError(
+            "%s does not yet implement generate_b2g_mozconfig()" % __name__
+        )
+
     def ensure_mach_environment(self, checkout_root):
         mach_binary = os.path.abspath(os.path.join(checkout_root, "mach"))
         if not os.path.exists(mach_binary):

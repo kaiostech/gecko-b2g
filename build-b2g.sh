@@ -121,8 +121,6 @@ export CROSS_TOOLCHAIN_LINKER_PATH=${CROSS_TOOLCHAIN_LINKER_PATH=:-$GONK_PATH/pr
 
 export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$CLANG_PATH:$PYTHON_PATH:$CROSS_TOOLCHAIN_LINKER_PATH:$PATH
 
-SYSROOT=$ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/
-
 export GONK_PRODUCT=$GONK_PRODUCT_NAME
 
 # Create the sysroot
@@ -141,16 +139,6 @@ taskcluster/scripts/misc/create-b2g-sysroot.sh "${GONK_PATH}" "${SYSROOT_DEST}"
 
 rustc --version
 
-export CFLAGS="-Wno-nullability-completeness"
-
-export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
--DJE_FORCE_SYNC_COMPARE_AND_SWAP_4=1 \
--D_USING_LIBCXX \
--DGR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE=1 \
--isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/usr/include"
-
 export ANDROID_PLATFORM=$ANDROID_PLATFORM
-
-export LDFLAGS="--sysroot=${SYSROOT}"
 
 ./mach build $@

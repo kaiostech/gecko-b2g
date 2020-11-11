@@ -21,8 +21,6 @@
 
 #include <inttypes.h>
 
-#include <cutils/atomic.h>
-
 #include "GonkBufferItem.h"
 #include "GonkBufferQueueCore.h"
 #include <gui/IConsumerListener.h>
@@ -31,20 +29,15 @@
 #include <private/gui/ComposerService.h>
 
 #include <cutils/compiler.h>
+#include "mozilla/Atomics.h"
 #include "mozilla/layers/GrallocTextureClient.h"
 #include "mozilla/layers/ImageBridgeChild.h"
-
-template <typename T>
-static inline T max(T a, T b) {
-  return a > b ? a : b;
-}
 
 namespace android {
 
 static String8 getUniqueName() {
-  static volatile int32_t counter = 0;
-  return String8::format("unnamed-%d-%d", getpid(),
-                         android_atomic_inc(&counter));
+  static mozilla::Atomic<int32_t, mozilla::Relaxed> counter(0);
+  return String8::format("unnamed-%d-%d", getpid(), counter++);
 }
 
 GonkBufferQueueCore::GonkBufferQueueCore()
@@ -151,7 +144,7 @@ int GonkBufferQueueCore::getMinMaxBufferCountLocked(bool async) const {
 int GonkBufferQueueCore::getMaxBufferCountLocked(bool async) const {
   int minMaxBufferCount = getMinMaxBufferCountLocked(async);
 
-  int maxBufferCount = max(mDefaultMaxBufferCount, minMaxBufferCount);
+  int maxBufferCount = std::max(mDefaultMaxBufferCount, minMaxBufferCount);
   if (mOverrideMaxBufferCount != 0) {
     assert(mOverrideMaxBufferCount >= minMaxBufferCount);
     maxBufferCount = mOverrideMaxBufferCount;

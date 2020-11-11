@@ -27,20 +27,6 @@ def b2g_os_name(value):
 set_config("MOZ_B2G_OS_NAME", b2g_os_name)
 set_define("MOZ_B2G_OS_NAME", b2g_os_name)
 
-option(
-    "--with-target-arch-name",
-    nargs=1,
-    help="Target arch name for the hidl generated headers",
-)
-
-
-@depends_if("--with-target-arch-name")
-def target_arch_name(value):
-    return value[0]
-
-
-set_config("TARGET_ARCH_NAME", target_arch_name)
-set_define("TARGET_ARCH_NAME", target_arch_name)
 
 option("--with-gonk", nargs=1, help="Path to the gonk base directory")
 option("--with-gonk-gfx", nargs=0, help="Use the gonk widget layer")

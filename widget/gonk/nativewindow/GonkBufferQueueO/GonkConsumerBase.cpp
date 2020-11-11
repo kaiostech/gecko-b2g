@@ -23,11 +23,12 @@
 
 #define EGL_EGLEXT_PROTOTYPES
 
-#include <cutils/atomic.h>
 #include <hardware/hardware.h>
 
 #include <utils/Log.h>
 #include <utils/String8.h>
+
+#include "mozilla/Atomics.h"
 
 #include "GonkConsumerBase.h"
 
@@ -35,8 +36,8 @@ namespace android {
 
 // Get an ID that's unique within this process.
 static int32_t createProcessUniqueId() {
-  static volatile int32_t globalCounter = 0;
-  return android_atomic_inc(&globalCounter);
+  static mozilla::Atomic<int32_t, mozilla::Relaxed> counter(0);
+  return counter++;
 }
 
 GonkConsumerBase::GonkConsumerBase(

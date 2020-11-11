@@ -69,6 +69,7 @@ Your choice: """
 
 APPLICATIONS = OrderedDict(
     [
+        ("Boot2Gecko", "b2g"),
         ("Firefox for Desktop Artifact Mode", "browser_artifact_mode"),
         ("Firefox for Desktop", "browser"),
         ("GeckoView/Firefox for Android Artifact Mode", "mobile_android_artifact_mode"),
@@ -304,7 +305,7 @@ class Bootstrapper(object):
 
         return state_dir
 
-    def maybe_install_private_packages_or_exit(self, state_dir, checkout_root):
+    def maybe_install_private_packages_or_exit(self, state_dir, checkout_root, application):
         # Install the clang packages needed for building the style system, as
         # well as the version of NodeJS that we currently support.
         # Also install the clang static-analysis package by default
@@ -321,6 +322,8 @@ class Bootstrapper(object):
             self.instance.ensure_lucetc_packages(state_dir, checkout_root)
             self.instance.ensure_wasi_sysroot_packages(state_dir, checkout_root)
             self.instance.ensure_dump_syms_packages(state_dir, checkout_root)
+            if application == "b2g":
+                self.instance.ensure_b2g_sysroot_packages(state_dir, checkout_root)
 
     def check_telemetry_opt_in(self, state_dir):
         # Don't prompt if the user already has a setting for this value.
@@ -408,7 +411,7 @@ class Bootstrapper(object):
 
         if self.instance.no_system_changes:
             self.check_telemetry_opt_in(state_dir)
-            self.maybe_install_private_packages_or_exit(state_dir, checkout_root)
+            self.maybe_install_private_packages_or_exit(state_dir, checkout_root, application)
             self._output_mozconfig(application, mozconfig_builder)
             sys.exit(0)
 
@@ -448,7 +451,7 @@ class Bootstrapper(object):
                 )
 
         self.check_telemetry_opt_in(state_dir)
-        self.maybe_install_private_packages_or_exit(state_dir, checkout_root)
+        self.maybe_install_private_packages_or_exit(state_dir, checkout_root, application)
         self.check_code_submission(checkout_root)
 
         print(FINISHED % name)

@@ -25,72 +25,6 @@ GITREPO="${MOZ_FETCHES_DIR}/manifests" REPO_SYNC_FLAGS="-j4" REPO_INIT_FLAGS="--
 # Wipe the repos, we don't need them anymore
 rm -rf .repo
 
-# Remove the Gecko build & packaging steps
-patch -d gonk-misc -p1 <<'EOF'
-diff --git a/Android.mk b/Android.mk
-index c2e3147..7df775f 100644
---- a/Android.mk
-+++ b/Android.mk
-@@ -161,15 +161,15 @@ endif
- $(LOCAL_INSTALLED_MODULE) : $(LOCAL_BUILT_MODULE)
- 	@echo Install dir: $(TARGET_OUT)/b2g
- 	rm -rf $(filter-out $(addprefix $(TARGET_OUT)/b2g/,$(PRESERVE_DIRS)),$(wildcard $(TARGET_OUT)/b2g/*))
--	cd $(TARGET_OUT) && tar xvfz $(abspath $<)
-+	:
- ifneq ($(EXPORT_DEVICE_PREFS),)
--	cp -n $(EXPORT_DEVICE_PREFS)/*.js $(TARGET_OUT)/b2g/defaults/pref/
-+	:
- endif
- ifneq ($(EXPORT_DEVICE_USER_BUILD_PREFS),)
--	cp -n $(EXPORT_DEVICE_USER_BUILD_PREFS) $(TARGET_OUT)/b2g/defaults/pref/
-+	:
- endif
- ifneq ($(EXPORT_BUILD_PREFS),)
--	cp -n $(EXPORT_BUILD_PREFS) $(TARGET_OUT)/b2g/defaults/pref/
-+	:
- endif
- 
- GECKO_LIB_DEPS := \
-@@ -235,36 +235,7 @@ endif
- 
- .PHONY: $(LOCAL_BUILT_MODULE)
- $(LOCAL_BUILT_MODULE): $(TARGET_CRTBEGIN_DYNAMIC_O) $(TARGET_CRTEND_O) $(addprefix $(TARGET_OUT_SHARED_LIBRARIES)/,$(GECKO_LIB_DEPS)) $(GECKO_LIB_STATIC)
--ifeq ($(USE_PREBUILT_B2G),1)
--	@echo -e "\033[0;33m ==== Use prebuilt gecko ==== \033[0m";
--	mkdir -p $(@D) && cp $(abspath $(PREFERRED_B2G)) $@
--else
--	echo "export GECKO_OBJDIR=$(abspath $(GECKO_OBJDIR))"; \
--	echo "export GONK_PRODUCT_NAME=$(TARGET_DEVICE)"; \
--	echo "export GONK_PATH=$(abspath .)"; \
--	echo "export PLATFORM_VERSION=$(PLATFORM_SDK_VERSION)"; \
--	echo "export TARGET_ARCH=$(TARGET_ARCH)"; \
--	echo "export TARGET_ARCH_VARIANT=$(TARGET_ARCH_VARIANT)"; \
--	echo "export TARGET_CPU_VARIANT=$(TARGET_CPU_VARIANT)"; \
--	echo "export PRODUCT_MANUFACTURER=$(PRODUCT_MANUFACTURER)"; \
--	echo "export MOZ_DISABLE_LTO=$(MOZ_DISABLE_LTO)"; \
--	echo "export HOST_OS=$(HOST_OS)";	\
--	unset CC_WRAPPER && unset CXX_WRAPPER && \
--	export GECKO_OBJDIR="$(abspath $(GECKO_OBJDIR))" && \
--	export GONK_PATH="$(abspath .)" && \
--	export GONK_PRODUCT_NAME="$(TARGET_DEVICE)" && \
--	export PLATFORM_VERSION="$(PLATFORM_SDK_VERSION)" && \
--	export TARGET_ARCH="$(TARGET_ARCH)" && \
--	export TARGET_ARCH_VARIANT="$(TARGET_ARCH_VARIANT)" && \
--	export TARGET_CPU_VARIANT="$(TARGET_CPU_VARIANT)" && \
--	export PRODUCT_MANUFACTURER="$(PRODUCT_MANUFACTURER)" && \
--	export MOZ_DISABLE_LTO="$(MOZ_DISABLE_LTO)" && \
--	export MOZ_SANDBOX_GPU_NODE="$(MOZ_SANDBOX_GPU_NODE)" && \
--	export HOST_OS="$(HOST_OS)" && \
--	(cd $(GECKO_PATH) ; $(SHELL) build-b2g.sh) && \
--	(cd $(GECKO_PATH) ; $(SHELL) build-b2g.sh package) && \
--	mkdir -p $(@D) && cp $(GECKO_OBJDIR)/dist/b2g-*.tar.gz $@
--endif
-+	:
- 
- .PHONY: buildsymbols
- buildsymbols:
-EOF
-
 # Force compressing debug symbols
 patch -d build/soong -p1 <<'EOF'
 diff --git a/cc/config/global.go b/cc/config/global.go
@@ -123,9 +57,16 @@ index 815c31d8..9d82d460 100644
  	deviceGlobalLldflags = append(ClangFilterUnknownLldflags(deviceGlobalLdflags),
 EOF
 
+# Create a dummy b2g archive
+mkdir b2g
+tar cvjf b2g-dummy.tar.bz2 b2g
+rm -rf b2g
+
 # Build the emulator
 env ANDROID_NDK="${MOZ_FETCHES_DIR}/android-ndk" \
     PATH="${PATH}:${MOZ_FETCHES_DIR}/rustc/bin" \
+    PREFERRED_B2G="$PWD/b2g-dummy.tar.bz2" \
+    USE_PREBUILT_B2G=1 \
     ./build.sh
 
 # Package the emulator

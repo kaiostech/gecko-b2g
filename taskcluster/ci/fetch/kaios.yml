@@ -21,11 +21,11 @@ gonk-misc:
     fetch:
         type: git
         repo: https://github.com/kaiostech/gonk-misc/
-        revision: 687e699f092a774e4cf8bf443ef7d5212d62a7aa
+        revision: f45aae54d4fb89c8bf18dc5444ac0baecb3a3bf1
 
 api-daemon:
     description: Rust daemons to access various native services
     fetch:
         type: git
         repo: https://github.com/kaiostech/api-daemon/
-        revision: af6c738d6832ce39ca1fef2fc06154f214f82398
+        revision: 5fa61edb0a528c89887f3e924d93868a583a1048

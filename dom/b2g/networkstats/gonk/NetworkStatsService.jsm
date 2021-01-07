@@ -4,13 +4,6 @@
 
 "use strict";
 
-const DEBUG = true;
-function debug(s) {
-  if (DEBUG) {
-    console.log("-*- NetworkStatsService: ", s, "\n");
-  }
-}
-
 this.EXPORTED_SYMBOLS = ["NetworkStatsService"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
@@ -32,8 +25,10 @@ const NET_NETWORKSTATSSERVICE_CID = Components.ID(
 /* eslint-enable no-unused-vars */
 
 const TOPIC_BANDWIDTH_CONTROL = "netd-bandwidth-control";
-
 const TOPIC_CONNECTION_STATE_CHANGED = "network-connection-state-changed";
+const TOPIC_PREF_CHANGED = "nsPref:changed";
+const PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
+
 const NET_TYPE_WIFI = Ci.nsINetworkInfo.NETWORK_TYPE_WIFI;
 const NET_TYPE_MOBILE = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE;
 
@@ -52,6 +47,20 @@ const MAX_CACHED_TRAFFIC = 500 * 1000 * 1000; // 500 MB
 const QUEUE_TYPE_UPDATE_STATS = 0;
 const QUEUE_TYPE_UPDATE_CACHE = 1;
 const QUEUE_TYPE_WRITE_CACHE = 2;
+
+var DEBUG = false;
+function debug(s) {
+  if (DEBUG) {
+    console.log("-*- NetworkStatsService: ", s, "\n");
+  }
+}
+
+function updateDebug() {
+  try {
+    DEBUG = DEBUG || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
+  } catch (e) {}
+}
+updateDebug();
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
@@ -95,6 +104,7 @@ this.NetworkStatsService = {
     Services.obs.addObserver(this, TOPIC_CONNECTION_STATE_CHANGED);
     Services.obs.addObserver(this, TOPIC_BANDWIDTH_CONTROL);
     Services.obs.addObserver(this, "profile-after-change");
+    Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
 
     this.timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
@@ -140,7 +150,7 @@ this.NetworkStatsService = {
       ppmm.addMessageListener(aMsgName, this);
     }, this);
 
-    this._db = new NetworkStatsDB();
+    this._db = new NetworkStatsDB(DEBUG);
 
     // Stats for all interfaces are updated periodically
     this.timer.initWithCallback(
@@ -250,6 +260,12 @@ this.NetworkStatsService = {
         }
         break;
 
+      case TOPIC_PREF_CHANGED:
+        if (aData == PREF_NETWORK_DEBUG_ENABLED) {
+          updateDebug();
+          this._db.setDebug(DEBUG);
+        }
+        break;
       case "xpcom-shutdown":
         debug("Service shutdown");
 
@@ -261,6 +277,7 @@ this.NetworkStatsService = {
         Services.obs.removeObserver(this, "profile-after-change");
         Services.obs.removeObserver(this, TOPIC_CONNECTION_STATE_CHANGED);
         Services.obs.removeObserver(this, TOPIC_BANDWIDTH_CONTROL);
+        Services.prefs.removeObserver(PREF_NETWORK_DEBUG_ENABLED, this);
 
         this.timer.cancel();
         this.timer = null;

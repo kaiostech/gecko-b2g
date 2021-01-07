@@ -4,11 +4,6 @@
 
 "use strict";
 
-const DEBUG = false;
-function debug(s) {
-  console.log("-*- NetworkStatsManager: ", s, "\n");
-}
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -19,6 +14,24 @@ const { DOMRequestIpcHelper } = ChromeUtils.import(
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
+
+const PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
+const TOPIC_PREF_CHANGED = "nsPref:changed";
+const TOPIC_XPCOM_SHUTDOWN = "xpcom-shutdown";
+
+var DEBUG = false;
+function updateDebug() {
+  try {
+    DEBUG = DEBUG || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
+  } catch (e) {}
+}
+
+function debug(s) {
+  if (DEBUG) {
+    console.log("-*- NetworkStatsManager: ", s, "\n");
+  }
+}
+updateDebug();
 
 // Ensure NetworkStatsService and NetworkStatsDB are loaded in the parent process
 // to receive messages from the child processes.
@@ -59,9 +72,7 @@ const NETWORKSTATSINTERFACE_CID = Components.ID(
 );
 
 function NetworkStatsInterface() {
-  if (DEBUG) {
-    debug("NetworkStatsInterface Constructor");
-  }
+  debug("NetworkStatsInterface Constructor");
 }
 
 NetworkStatsInterface.prototype = {
@@ -82,9 +93,7 @@ const NETWORKSTATS_CID = Components.ID(
 );
 
 function NetworkStats(aWindow, aStats) {
-  if (DEBUG) {
-    debug("NetworkStats Constructor");
-  }
+  debug("NetworkStats Constructor");
   this.appOrigin = aStats.appOrigin || null;
   this.serviceType = aStats.serviceType || null;
   this.network = new aWindow.NetworkStatsInterface(aStats.network);
@@ -143,9 +152,9 @@ const NETWORKSTATSMANAGER_CID = Components.ID(
 );
 
 function NetworkStatsManager() {
-  if (DEBUG) {
-    debug("Constructor");
-  }
+  debug("Constructor");
+  Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
+  Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN);
 }
 
 NetworkStatsManager.prototype = {
@@ -269,16 +278,12 @@ NetworkStatsManager.prototype = {
   },
 
   receiveMessage(aMessage) {
-    if (DEBUG) {
-      debug("NetworkStatsmanager::receiveMessage: " + aMessage.name);
-    }
+    debug("NetworkStatsmanager::receiveMessage: " + aMessage.name);
 
     let msg = aMessage.json;
     let req = this.takeRequest(msg.id);
     if (!req) {
-      if (DEBUG) {
-        debug("No request stored with id " + msg.id);
-      }
+      debug("No request stored with id " + msg.id);
       return;
     }
 
@@ -293,9 +298,7 @@ NetworkStatsManager.prototype = {
           this._window,
           new NetworkStats(this._window, msg.result)
         );
-        if (DEBUG) {
-          debug("result: " + JSON.stringify(result));
-        }
+        debug("result: " + JSON.stringify(result));
         Services.DOMRequest.fireSuccess(req, result);
         break;
 
@@ -371,9 +374,7 @@ NetworkStatsManager.prototype = {
         break;
 
       default:
-        if (DEBUG) {
-          debug("Wrong message: " + aMessage.name);
-        }
+        debug("Wrong message: " + aMessage.name);
     }
   },
 
@@ -401,11 +402,24 @@ NetworkStatsManager.prototype = {
     this.window = aWindow;
   },
 
+  // nsIObserver
+  observe(aSubject, aTopic, aData) {
+    switch (aTopic) {
+      case TOPIC_PREF_CHANGED:
+        if (aData === PREF_NETWORK_DEBUG_ENABLED) {
+          updateDebug();
+        }
+        break;
+      case TOPIC_XPCOM_SHUTDOWN:
+        Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
+        Services.prefs.removeObserver(PREF_NETWORK_DEBUG_ENABLED, this);
+        break;
+    }
+  },
+
   // Called from DOMRequestIpcHelper
   uninit: function uninit() {
-    if (DEBUG) {
-      debug("uninit call");
-    }
+    debug("uninit call");
   },
 
   classID: NETWORKSTATSMANAGER_CID,

@@ -6,9 +6,11 @@
 
 this.EXPORTED_SYMBOLS = ["NetworkStatsDB"];
 
-const DEBUG = false;
+var DEBUG = false;
 function debug(s) {
-  console.log("-*- NetworkStatsDB: ", s, "\n");
+  if (DEBUG) {
+    console.log("-*- NetworkStatsDB: ", s, "\n");
+  }
 }
 
 const { IndexedDBHelper } = ChromeUtils.import(
@@ -27,15 +29,18 @@ const VALUES_MAX_LENGTH = 6 * 30;
 // Constant defining the rate of the samples. Daily.
 const SAMPLE_RATE = 1000 * 60 * 60 * 24;
 
-this.NetworkStatsDB = function NetworkStatsDB() {
-  if (DEBUG) {
-    debug("Constructor");
-  }
+this.NetworkStatsDB = function NetworkStatsDB(aDebug) {
+  DEBUG = aDebug;
+  debug("Constructor");
   this.initDBHelper(DB_NAME, DB_VERSION, [STATS_STORE_NAME, ALARMS_STORE_NAME]);
 };
 
 NetworkStatsDB.prototype = {
   __proto__: IndexedDBHelper.prototype,
+
+  setDebug: function setDebug(aDebug) {
+    DEBUG = aDebug;
+  },
 
   dbNewTxn: function dbNewTxn(store_name, txn_type, callback, txnCb) {
     function successCb(result) {
@@ -67,24 +72,16 @@ NetworkStatsDB.prototype = {
     aOldVersion,
     aNewVersion
   ) {
-    if (DEBUG) {
-      debug(
-        "upgrade schema from: " +
-          aOldVersion +
-          " to " +
-          aNewVersion +
-          " called!"
-      );
-    }
+    debug(
+      "upgrade schema from: " + aOldVersion + " to " + aNewVersion + " called!"
+    );
     let db = aDb;
     let objectStore;
 
     // An array of upgrade functions for each version.
     let upgradeSteps = [
       function upgrade0to1() {
-        if (DEBUG) {
-          debug("Upgrade 0 to 1: Create object stores and indexes.");
-        }
+        debug("Upgrade 0 to 1: Create object stores and indexes.");
 
         // Create object store for alarms.
         objectStore = db.createObjectStore(ALARMS_STORE_NAME, {
@@ -133,9 +130,7 @@ NetworkStatsDB.prototype = {
 
       try {
         var i = index++;
-        if (DEBUG) {
-          debug("Upgrade step: " + i + "\n");
-        }
+        debug("Upgrade step: " + i + "\n");
         upgradeSteps[i].call(outer);
       } catch (ex) {
         dump("Caught exception " + ex);
@@ -217,10 +212,8 @@ NetworkStatsDB.prototype = {
       STATS_STORE_NAME,
       "readwrite",
       function(aTxn, aStore) {
-        if (DEBUG) {
-          debug("Filtered time: " + new Date(timestamp));
-          debug("New stats: " + JSON.stringify(stats));
-        }
+        debug("Filtered time: " + new Date(timestamp));
+        debug("New stats: " + JSON.stringify(stats));
 
         let lowerFilter = [stats.origin, stats.serviceType, stats.network, 0];
         let upperFilter = [stats.origin, stats.serviceType, stats.network, ""];
@@ -268,9 +261,7 @@ NetworkStatsDB.prototype = {
           }
 
           // There are old samples
-          if (DEBUG) {
-            debug("Last value " + JSON.stringify(cursor.value));
-          }
+          debug("Last value " + JSON.stringify(cursor.value));
 
           // Remove stats previous to now - VALUE_MAX_LENGTH
           this._removeOldStats(
@@ -312,16 +303,14 @@ NetworkStatsDB.prototype = {
       throw new Error("Error processing samples");
     }
 
-    if (DEBUG) {
-      debug(
-        "New: " +
-          aNewSample.timestamp +
-          " - Last: " +
-          lastSample.timestamp +
-          " - diff: " +
-          diff
-      );
-    }
+    debug(
+      "New: " +
+        aNewSample.timestamp +
+        " - Last: " +
+        lastSample.timestamp +
+        " - diff: " +
+        diff
+    );
 
     // If the incoming data has a accumulation feature, the new
     // |txBytes|/|rxBytes| is assigend by differnces between the new
@@ -407,17 +396,13 @@ NetworkStatsDB.prototype = {
       lastSample.rxTotalBytes += rxDiff;
       lastSample.txTotalBytes += txDiff;
 
-      if (DEBUG) {
-        debug("Update: " + JSON.stringify(lastSample));
-      }
+      debug("Update: " + JSON.stringify(lastSample));
       aLastSampleCursor.update(lastSample);
     }
   },
 
   _saveStats: function _saveStats(aTxn, aStore, aNetworkStats) {
-    if (DEBUG) {
-      debug("_saveStats: " + JSON.stringify(aNetworkStats));
-    }
+    debug("_saveStats: " + JSON.stringify(aNetworkStats));
 
     if (Array.isArray(aNetworkStats)) {
       let len = aNetworkStats.length - 1;
@@ -544,11 +529,9 @@ NetworkStatsDB.prototype = {
   },
 
   getCurrentStats: function getCurrentStats(aNetwork, aDate, aResultCb) {
-    if (DEBUG) {
-      debug(
-        "Get current stats for " + JSON.stringify(aNetwork) + " since " + aDate
-      );
-    }
+    debug(
+      "Get current stats for " + JSON.stringify(aNetwork) + " since " + aDate
+    );
 
     let network = [aNetwork.id, aNetwork.type];
     if (aDate) {
@@ -659,22 +642,20 @@ NetworkStatsDB.prototype = {
     let start = this.normalizeDate(aStart);
     let end = this.normalizeDate(aEnd);
 
-    if (DEBUG) {
-      debug(
-        "Find samples for origin: " +
-          aOrigin +
-          " serviceType: " +
-          aServiceType +
-          " network: " +
-          JSON.stringify(aNetwork) +
-          " from " +
-          start +
-          " until " +
-          end
-      );
-      debug("Start time: " + new Date(start));
-      debug("End time: " + new Date(end));
-    }
+    debug(
+      "Find samples for origin: " +
+        aOrigin +
+        " serviceType: " +
+        aServiceType +
+        " network: " +
+        JSON.stringify(aNetwork) +
+        " from " +
+        start +
+        " until " +
+        end
+    );
+    debug("Start time: " + new Date(start));
+    debug("End time: " + new Date(end));
 
     this.dbNewTxn(
       STATS_STORE_NAME,
@@ -890,16 +871,12 @@ NetworkStatsDB.prototype = {
       ALARMS_STORE_NAME,
       "readwrite",
       function(txn, store) {
-        if (DEBUG) {
-          debug("Going to add " + JSON.stringify(aAlarm));
-        }
+        debug("Going to add " + JSON.stringify(aAlarm));
 
         let record = this.alarmToRecord(aAlarm);
         store.put(record).onsuccess = function setResult(aEvent) {
           txn.result = aEvent.target.result;
-          if (DEBUG) {
-            debug("Request successful. New record ID: " + txn.result);
-          }
+          debug("Request successful. New record ID: " + txn.result);
         };
       }.bind(this),
       aResultCb
@@ -913,9 +890,7 @@ NetworkStatsDB.prototype = {
       ALARMS_STORE_NAME,
       "readonly",
       function(txn, store) {
-        if (DEBUG) {
-          debug("Get first alarm for network " + aNetworkId);
-        }
+        debug("Get first alarm for network " + aNetworkId);
 
         let lowerFilter = [aNetworkId, 0];
         let upperFilter = [aNetworkId, ""];
@@ -940,9 +915,7 @@ NetworkStatsDB.prototype = {
       ALARMS_STORE_NAME,
       "readwrite",
       function(txn, store) {
-        if (DEBUG) {
-          debug("Remove alarm " + aAlarmId);
-        }
+        debug("Remove alarm " + aAlarmId);
 
         store.get(aAlarmId).onsuccess = function onsuccess(event) {
           let record = event.target.result;
@@ -964,9 +937,7 @@ NetworkStatsDB.prototype = {
       ALARMS_STORE_NAME,
       "readwrite",
       function(txn, store) {
-        if (DEBUG) {
-          debug("Remove alarms of " + aOriginURL);
-        }
+        debug("Remove alarms of " + aOriginURL);
 
         store
           .index("originURL")
@@ -988,9 +959,7 @@ NetworkStatsDB.prototype = {
       ALARMS_STORE_NAME,
       "readwrite",
       function(txn, store) {
-        if (DEBUG) {
-          debug("Update alarm " + aAlarm.id);
-        }
+        debug("Update alarm " + aAlarm.id);
 
         let record = self.alarmToRecord(aAlarm);
         store.openCursor(record.id).onsuccess = function onsuccess(event) {
@@ -1012,9 +981,7 @@ NetworkStatsDB.prototype = {
       ALARMS_STORE_NAME,
       "readonly",
       function(txn, store) {
-        if (DEBUG) {
-          debug("Get alarms for " + aOriginURL);
-        }
+        debug("Get alarms for " + aOriginURL);
 
         txn.result = [];
         store
@@ -1041,9 +1008,7 @@ NetworkStatsDB.prototype = {
       ALARMS_STORE_NAME,
       "readwrite",
       function(txn, store) {
-        if (DEBUG) {
-          debug("Reset alarms for network " + aNetworkId);
-        }
+        debug("Reset alarms for network " + aNetworkId);
 
         let lowerFilter = [aNetworkId, 0];
         let upperFilter = [aNetworkId, ""];

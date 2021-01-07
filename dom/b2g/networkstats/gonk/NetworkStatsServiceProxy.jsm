@@ -4,12 +4,8 @@
 
 "use strict";
 
-const DEBUG = false;
-function debug(s) {
-  console.log("-*- NetworkStatsServiceProxy: ", s, "\n");
-}
-
 ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { NetworkStatsService } = ChromeUtils.import(
   "resource://gre/modules/NetworkStatsService.jsm"
 );
@@ -18,12 +14,28 @@ const NETWORKSTATSSERVICEPROXY_CID = Components.ID(
   "98fd8f69-784e-4626-aa59-56d6436a3c24"
 );
 
-const nsINetworkStatsServiceProxy = Ci.nsINetworkStatsServiceProxy;
+const TOPIC_PREF_CHANGED = "nsPref:changed";
+const TOPIC_XPCOM_SHUTDOWN = "xpcom-shutdown";
+const PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
+
+var DEBUG = false;
+function debug(s) {
+  if (DEBUG) {
+    console.log("-*- NetworkStatsServiceProxy: ", s, "\n");
+  }
+}
+
+function updateDebug() {
+  try {
+    DEBUG = DEBUG || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
+  } catch (e) {}
+}
+updateDebug();
 
 function NetworkStatsServiceProxy() {
-  if (DEBUG) {
-    debug("Proxy started");
-  }
+  debug("Proxy started");
+  Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
+  Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN);
 }
 
 NetworkStatsServiceProxy.prototype = {
@@ -42,32 +54,28 @@ NetworkStatsServiceProxy.prototype = {
     aCallback
   ) {
     if (!aNetworkInfo) {
-      if (DEBUG) {
-        debug(
-          "|aNetworkInfo| is not specified. Failed to save stats. Returning."
-        );
-      }
+      debug(
+        "|aNetworkInfo| is not specified. Failed to save stats. Returning."
+      );
       return;
     }
 
-    if (DEBUG) {
-      debug(
-        "saveAppStats: " +
-          aOrigin +
-          " NetworkType:" +
-          aNetworkInfo.type +
-          " TimeStamp:" +
-          aTimeStamp +
-          " RX:" +
-          aRxBytes +
-          " TX:" +
-          aTxBytes +
-          " Accumulative:" +
-          aIsAccumulative +
-          " IsApp:" +
-          aIsApp
-      );
-    }
+    debug(
+      "saveAppStats: " +
+        aOrigin +
+        " NetworkType:" +
+        aNetworkInfo.type +
+        " TimeStamp:" +
+        aTimeStamp +
+        " RX:" +
+        aRxBytes +
+        " TX:" +
+        aTxBytes +
+        " Accumulative:" +
+        aIsAccumulative +
+        " IsApp:" +
+        aIsApp
+    );
 
     // Treat non app & suffix without "localhost" as browser app.
     if (!aOrigin.endsWith(".localhost") && !aIsApp) {
@@ -104,30 +112,26 @@ NetworkStatsServiceProxy.prototype = {
     aCallback
   ) {
     if (!aNetworkInfo) {
-      if (DEBUG) {
-        debug(
-          "|aNetworkInfo| is not specified. Failed to save stats. Returning."
-        );
-      }
+      debug(
+        "|aNetworkInfo| is not specified. Failed to save stats. Returning."
+      );
       return;
     }
 
-    if (DEBUG) {
-      debug(
-        "saveServiceStats: " +
-          aServiceType +
-          " " +
-          aNetworkInfo.type +
-          " " +
-          aTimeStamp +
-          " " +
-          aRxBytes +
-          " " +
-          aTxBytes +
-          " " +
-          aIsAccumulative
-      );
-    }
+    debug(
+      "saveServiceStats: " +
+        aServiceType +
+        " " +
+        aNetworkInfo.type +
+        " " +
+        aTimeStamp +
+        " " +
+        aRxBytes +
+        " " +
+        aTxBytes +
+        " " +
+        aIsAccumulative
+    );
 
     if (aCallback) {
       aCallback = aCallback.notify;
@@ -145,8 +149,26 @@ NetworkStatsServiceProxy.prototype = {
     );
   },
 
+  // nsIObserver
+  observe(aSubject, aTopic, aData) {
+    switch (aTopic) {
+      case TOPIC_PREF_CHANGED:
+        if (aData === PREF_NETWORK_DEBUG_ENABLED) {
+          updateDebug();
+        }
+        break;
+      case TOPIC_XPCOM_SHUTDOWN:
+        Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
+        Services.prefs.removeObserver(PREF_NETWORK_DEBUG_ENABLED, this);
+        break;
+    }
+  },
+
   classID: NETWORKSTATSSERVICEPROXY_CID,
-  QueryInterface: ChromeUtils.generateQI([nsINetworkStatsServiceProxy]),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsINetworkStatsServiceProxy,
+    Ci.nsIObserver,
+  ]),
 };
 
 this.EXPORTED_SYMBOLS = ["NetworkStatsServiceProxy"];

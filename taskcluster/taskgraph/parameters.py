@@ -161,7 +161,7 @@ class Parameters(ReadOnlyDict):
             "head_repository": "https://hg.mozilla.org/projects/kaios",
             "head_rev": get_head_ref(),
             "hg_branch": "default",
-            "level": "2",
+            "level": "3",
             "message": "",
             "moz_build_date": six.ensure_text(now.strftime("%Y%m%d%H%M%S")),
             "next_version": None,

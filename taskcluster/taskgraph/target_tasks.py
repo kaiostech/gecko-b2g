@@ -725,8 +725,13 @@ def target_tasks_kaios(full_task_graph, parameters, graph_config):
     """The set of tasks to run for kaios integration"""
 
     def filter(task):
-        # Toolchains used for local development should always be built.
-        if task.attributes.get("local-toolchain"):
+        # Toolchains used for local development should always be built but not
+        # the macOS 11 SDK which has special requirements and breaks the
+        # decision task.
+        if (
+            task.attributes.get("local-toolchain")
+            and task.label != "toolchain-macosx64-sdk-11.0"
+        ):
             return True
         # Run anything that is supposed to run on kaios. We don't use
         # `filter_for_project`, since we don't want to run things that are

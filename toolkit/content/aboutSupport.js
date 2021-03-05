@@ -380,9 +380,9 @@ var snapshotFormatters = {
       throw Error("Missing localized title strings in experimental features");
     }
     for (let i = 0; i < titleL10nObjects.length; i++) {
-      let localizedTitle = titleL10nObjects[i].attributes.find(
-        a => a.name == "label"
-      ).value;
+      let localizedTitle =
+        titleL10nObjects[i]?.attributes.find(a => a.name == "label").value ||
+        "<no-title>";
       data[i] = [localizedTitle, data[i][1], data[i][2]];
     }
 

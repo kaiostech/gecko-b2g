@@ -256,6 +256,7 @@ static void close_logging() {
 #define PCI_BASE_CLASS_DISPLAY 0x03
 
 static int get_pci_status() {
+  return 0;
   void* libpci = dlopen("libpci.so.3", RTLD_LAZY);
   if (!libpci) {
     libpci = dlopen("libpci.so", RTLD_LAZY);

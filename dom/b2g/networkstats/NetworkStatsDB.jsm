@@ -226,6 +226,10 @@ NetworkStatsDB.prototype = {
             // Empty, so save first element.
 
             if (!isAccumulative) {
+              // Update total bytes for the fist element.
+              // Others will handle by processSamplesDiff function.
+              stats.rxTotalBytes = stats.rxBytes;
+              stats.txTotalBytes = stats.txBytes;
               this._saveStats(aTxn, aStore, stats);
               return;
             }

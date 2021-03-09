@@ -525,7 +525,7 @@ this.NetworkStatsService = {
           debug("origin: " + origin + " from appOrigin: " + appOrigin);
           debug("serviceType: " + serviceType);
 
-          if (origin || serviceType) {
+          if (origin != "default" || serviceType) {
             this.updateCachedStats(callback);
             return;
           }

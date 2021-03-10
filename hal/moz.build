@@ -103,8 +103,8 @@ elif CONFIG["OS_TARGET"] == "Linux":
         "fallback/FallbackScreenConfiguration.cpp",
         "fallback/FallbackSensor.cpp",
         "fallback/FallbackUsbManager.cpp",
-        "fallback/FallbackVibration.cpp",
         "linux/LinuxMemory.cpp",
+        "linux/LinuxVibration.cpp",
     ]
     if CONFIG["MOZ_ENABLE_DBUS"]:
         UNIFIED_SOURCES += [

@@ -7,11 +7,9 @@
 this.EXPORTED_SYMBOLS = [];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const window = Services.wm.getMostRecentWindow("navigator:browser");
 
-var window = Services.wm.getMostRecentWindow("navigator:browser");
-var system = window.document.getElementById("systemapp");
-
-var OrientationChangeHandler = {
+const OrientationChangeHandler = {
   // Clockwise orientations, looping
   orientations: [
     "portrait-primary",
@@ -25,9 +23,19 @@ var OrientationChangeHandler = {
 
   init() {
     window.screen.addEventListener("mozorientationchange", this, true);
+    this.lastOrientation = window.screen.mozOrientation;
   },
 
   handleEvent(evt) {
+    // console.log(
+    //   `OrientationChangeHandler: ${this.lastOrientation} -> ${window.screen.mozOrientation}`
+    // );
+    const system = window.document.getElementById("systemapp");
+    if (!system) {
+      console.error(`OrientationChangeHandler: no system app frame found!`);
+      return;
+    }
+
     let newOrientation = window.screen.mozOrientation;
     let orientationIndex = this.orientations.indexOf(this.lastOrientation);
     let nextClockwiseOrientation = this.orientations[orientationIndex + 1];
@@ -49,12 +57,15 @@ var OrientationChangeHandler = {
     system.style.transition = "";
     system.style.transform = `rotate(${angle}deg) scale(${xFactor}, ${yFactor})`;
 
-    function trigger() {
+    const trigger = () => {
+      // console.log(
+      //   `OrientationChangeHandler: triggering orientation change transition`
+      // );
       system.style.transition = "transform .25s cubic-bezier(.15, .7, .6, .9)";
 
       system.style.opacity = "";
       system.style.transform = "";
-    }
+    };
 
     // 180deg rotation, no resize
     if (fullSwitch) {
@@ -62,13 +73,7 @@ var OrientationChangeHandler = {
       return;
     }
 
-    window.addEventListener(
-      "resize",
-      () => {
-        trigger();
-      },
-      { once: true }
-    );
+    window.addEventListener("resize", trigger, { once: true });
   },
 };
 

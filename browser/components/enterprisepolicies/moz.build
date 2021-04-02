@@ -20,6 +20,6 @@ EXTRA_JS_MODULES.policies += [
     "Policies.jsm",
 ]
 
-FINAL_LIBRARY = "browsercomps"
+FINAL_LIBRARY = "xul"
 
 JAR_MANIFESTS += ["jar.mn"]

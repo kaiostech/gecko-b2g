@@ -7,6 +7,7 @@
 CONFIGURE_SUBST_FILES += ["installer/Makefile"]
 
 DIRS += [
+    "../browser/components/enterprisepolicies",
     "app",
     "chrome",
     "components",

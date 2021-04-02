@@ -68,7 +68,7 @@ bool AddonManagerWebAPI::IsValidSite(nsIURI* uri) {
   return IsValidHost(host);
 }
 
-#ifndef ANDROID
+#ifndef MOZ_WIDGET_ANDROID
 bool AddonManagerWebAPI::IsAPIEnabled(JSContext* aCx, JSObject* aGlobal) {
   MOZ_DIAGNOSTIC_ASSERT(JS_IsGlobalObject(aGlobal));
   nsCOMPtr<nsPIDOMWindowInner> win = xpc::WindowOrNull(aGlobal);
@@ -143,7 +143,7 @@ bool AddonManagerWebAPI::IsAPIEnabled(JSContext* aCx, JSObject* aGlobal) {
 bool AddonManagerWebAPI::IsAPIEnabled(JSContext* aCx, JSObject* aGlobal) {
   return false;
 }
-#endif  // ifndef ANDROID
+#endif  // ifndef MOZ_WIDGET_ANDROID
 
 namespace dom {
 

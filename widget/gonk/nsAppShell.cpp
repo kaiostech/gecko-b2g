@@ -99,7 +99,7 @@ void SetNetworkType(int32_t aType);
 bool gDrawRequest = false;
 static nsAppShell* gAppShell = nullptr;
 static int epollfd = 0;
-static int signalfds[2] = {0};
+static int signalfds[2] = {-1, -1};
 static bool sDevInputAudioJack;
 static int32_t sHeadphoneState;
 static int32_t sMicrophoneState;
@@ -1059,16 +1059,22 @@ nsAppShell::~nsAppShell() {
 }
 
 nsresult nsAppShell::Init() {
-  nsresult rv = nsBaseAppShell::Init();
-  NS_ENSURE_SUCCESS(rv, rv);
-
   epollfd = epoll_create(16);
   NS_ENSURE_TRUE(epollfd >= 0, NS_ERROR_UNEXPECTED);
 
   int ret = pipe2(signalfds, O_NONBLOCK);
   NS_ENSURE_FALSE(ret, NS_ERROR_UNEXPECTED);
 
-  rv = AddFdHandler(signalfds[0], pipeHandler, "");
+  nsresult rv = AddFdHandler(signalfds[0], pipeHandler, "");
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  // It could be possible that I/O thread has been created to receive IPC
+  // messages before an nsAppShell object is created and initialized.
+  // nsBaseAppShell::Init() must be called after the pipe(signalfds[2]) has
+  // been allocated. Otherwise, I/O thread may not always wake up main thread
+  // successfully. If that happens, main thread will block at epoll_wait()
+  // forever because I/O thread has no opportunity to write the pipe again.
+  rv = nsBaseAppShell::Init();
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (XRE_IsParentProcess()) {
@@ -1265,7 +1271,13 @@ bool nsAppShell::ProcessNextNativeEvent(bool mayWait) {
   return true;
 }
 
-void nsAppShell::NotifyNativeEvent() { write(signalfds[1], "w", 1); }
+void nsAppShell::NotifyNativeEvent() {
+  // Retry writing pipe when returned length is 0 or errno is EINTR
+  ssize_t bytes;
+  do {
+    bytes = write(signalfds[1], "w", 1);
+  } while (!bytes || (bytes == -1 && errno == EINTR));
+}
 
 /* static */ void nsAppShell::NotifyScreenInitialized() {
   // Getting the instance of OrientationObserver to initialize it.

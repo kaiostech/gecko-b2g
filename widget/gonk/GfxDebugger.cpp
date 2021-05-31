@@ -4,9 +4,10 @@
 /* (c) 2017 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
  * file or any portion thereof may not be reproduced or used in any manner
  * whatsoever without the express written permission of KAI OS TECHNOLOGIES
- * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
- * LIMITED or its affiliate company and may be registered in some jurisdictions.
- * All other trademarks are the property of their respective owners.
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+ * KONG) LIMITED or its affiliate company and may be registered in some
+ * jurisdictions. All other trademarks are the property of their respective
+ * owners.
  */
 
 #include <binder/Parcel.h>
@@ -20,17 +21,17 @@
 #include "mozilla/layers/SharedBufferManagerParent.h"
 
 #ifdef LOG_TAG
-#undef LOG_TAG
+#  undef LOG_TAG
 #endif
 #define LOG_TAG "GfxDebugger"
 
 #include <android/log.h>
-#define GD_LOGD(args...)  __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, args)
-#define GD_LOGE(args...)  __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, args)
-#define GD_LOGI(args...)  __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, args)
-#define GD_LOGW(args...)  __android_log_print(ANDROID_LOG_WARN,  LOG_TAG, args)
+#define GD_LOGD(args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, args)
+#define GD_LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, args)
+#define GD_LOGI(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, args)
+#define GD_LOGW(args...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, args)
 
-#define GD_SOCKET_NAME  "/dev/socket/gfxdebugger-ipc"
+#define GD_SOCKET_NAME "/dev/socket/gfxdebugger-ipc"
 
 using namespace android;
 using mozilla::layers::APZCTreeManager;
@@ -38,17 +39,13 @@ using mozilla::layers::AsyncPanZoomController;
 using mozilla::layers::SharedBufferManagerParent;
 
 namespace mozilla {
-  namespace ipc {
+namespace ipc {
 
 GfxDebuggerConnector::GfxDebuggerConnector(const nsACString& aSocketName,
                                            const char** const aAllowedUsers)
-  : mSocketName(aSocketName),
-    mAllowedUsers(aAllowedUsers)
-{
-};
+    : mSocketName(aSocketName), mAllowedUsers(aAllowedUsers){};
 
-nsresult GfxDebuggerConnector::CreateSocket(int& aFd) const
-{
+nsresult GfxDebuggerConnector::CreateSocket(int& aFd) const {
   unlink(mSocketName.get());
 
   aFd = socket(AF_LOCAL, SOCK_STREAM, 0);
@@ -60,8 +57,7 @@ nsresult GfxDebuggerConnector::CreateSocket(int& aFd) const
   return NS_OK;
 }
 
-nsresult GfxDebuggerConnector::SetSocketFlags(int aFd) const
-{
+nsresult GfxDebuggerConnector::SetSocketFlags(int aFd) const {
   static const int sReuseAddress = 1;
 
   // Set close-on-exec bit.
@@ -88,7 +84,7 @@ nsresult GfxDebuggerConnector::SetSocketFlags(int aFd) const
 
   // Set socket addr to be reused even if kernel is still waiting to close.
   res = setsockopt(aFd, SOL_SOCKET, SO_REUSEADDR, &sReuseAddress,
-      sizeof(sReuseAddress));
+                   sizeof(sReuseAddress));
   if (res < 0) {
     return NS_ERROR_FAILURE;
   }
@@ -96,8 +92,7 @@ nsresult GfxDebuggerConnector::SetSocketFlags(int aFd) const
   return NS_OK;
 }
 
-nsresult GfxDebuggerConnector::CheckPermission(int aFd) const
-{
+nsresult GfxDebuggerConnector::CheckPermission(int aFd) const {
   struct ucred userCred;
   socklen_t len = sizeof(userCred);
 
@@ -125,12 +120,11 @@ nsresult GfxDebuggerConnector::CheckPermission(int aFd) const
 }
 
 nsresult GfxDebuggerConnector::CreateAddress(struct sockaddr& aAddress,
-                                             socklen_t& aAddressLength) const
-{
+                                             socklen_t& aAddressLength) const {
   struct sockaddr_un* address =
-    reinterpret_cast<struct sockaddr_un*>(&aAddress);
+      reinterpret_cast<struct sockaddr_un*>(&aAddress);
 
-  size_t namesiz = strlen(mSocketName.get()) + 1; // include trailing '\0'
+  size_t namesiz = strlen(mSocketName.get()) + 1;  // include trailing '\0'
 
   if (namesiz > sizeof(address->sun_path)) {
     GD_LOGE("Address too long for socket struct!");
@@ -146,14 +140,12 @@ nsresult GfxDebuggerConnector::CreateAddress(struct sockaddr& aAddress,
 }
 
 nsresult GfxDebuggerConnector::ConvertAddressToString(
-                               const struct sockaddr& aAddress,
-                               socklen_t aAddressLength,
-                               nsACString& aAddressString)
-{
+    const struct sockaddr& aAddress, socklen_t aAddressLength,
+    nsACString& aAddressString) {
   MOZ_ASSERT(aAddress.sa_family == AF_UNIX);
 
   const struct sockaddr_un* un =
-    reinterpret_cast<const struct sockaddr_un*>(&aAddress);
+      reinterpret_cast<const struct sockaddr_un*>(&aAddress);
 
   size_t len = aAddressLength - offsetof(struct sockaddr_un, sun_path);
 
@@ -164,8 +156,7 @@ nsresult GfxDebuggerConnector::ConvertAddressToString(
 
 nsresult GfxDebuggerConnector::CreateListenSocket(struct sockaddr* aAddress,
                                                   socklen_t* aAddressLength,
-                                                  int& aListenFd)
-{
+                                                  int& aListenFd) {
   ScopedClose fd;
 
   nsresult rv = CreateSocket(fd.rwget());
@@ -187,12 +178,10 @@ nsresult GfxDebuggerConnector::CreateListenSocket(struct sockaddr* aAddress,
   return NS_OK;
 }
 
-
 nsresult GfxDebuggerConnector::AcceptStreamSocket(int aListenFd,
                                                   struct sockaddr* aAddress,
                                                   socklen_t* aAddressLength,
-                                                  int& aStreamFd)
-{
+                                                  int& aStreamFd) {
   ScopedClose fd(
       TEMP_FAILURE_RETRY(accept(aListenFd, aAddress, aAddressLength)));
   if (fd < 0) {
@@ -215,35 +204,26 @@ nsresult GfxDebuggerConnector::AcceptStreamSocket(int aListenFd,
 
 nsresult GfxDebuggerConnector::CreateStreamSocket(struct sockaddr* aAddress,
                                                   socklen_t* aAddressLength,
-                                                  int& aStreamFd)
-{
+                                                  int& aStreamFd) {
   return NS_ERROR_FAILURE;
 }
 
-nsresult GfxDebuggerConnector::Duplicate(UnixSocketConnector*& aConnector)
-{
+nsresult GfxDebuggerConnector::Duplicate(UnixSocketConnector*& aConnector) {
   aConnector = new GfxDebuggerConnector(*this);
 
   return NS_OK;
 }
 
 //-----------------------------------------------------------------------------
-static const char* GFXDEBUGGER_ALLOWED_USERS[] = {
-  "root",
-  "system",
-  NULL
-};
+static const char* GFXDEBUGGER_ALLOWED_USERS[] = {"root", "system", NULL};
 
-GfxDebugger::GfxDebugger()
-  : mShutdown(false)
-{
+GfxDebugger::GfxDebugger() : mShutdown(false) {
   mSocketName.AssignLiteral(GD_SOCKET_NAME);
   Listen();
 }
 
 /* static */
-GfxDebugger* GfxDebugger::GetInstance()
-{
+GfxDebugger* GfxDebugger::GetInstance() {
   static GfxDebugger* mInstance = nullptr;
 
   if (mInstance == nullptr) {
@@ -252,9 +232,7 @@ GfxDebugger* GfxDebugger::GetInstance()
   return mInstance;
 }
 
-void
-GfxDebugger::Shutdown()
-{
+void GfxDebugger::Shutdown() {
   // We set mShutdown first, so that |OnDisconnect| won't try to reconnect.
   mShutdown = true;
 
@@ -268,8 +246,7 @@ GfxDebugger::Shutdown()
   }
 }
 
-void GfxDebugger::Listen()
-{
+void GfxDebugger::Listen() {
   if (mStreamSocket) {
     mStreamSocket->Close();
   } else {
@@ -279,8 +256,8 @@ void GfxDebugger::Listen()
   if (!mListenSocket) {
     // We only ever allocate one |ListenSocket|...
     mListenSocket = new ListenSocket(this, LISTEN_SOCKET);
-    mConnector = new GfxDebuggerConnector(mSocketName,
-      GFXDEBUGGER_ALLOWED_USERS);
+    mConnector =
+        new GfxDebuggerConnector(mSocketName, GFXDEBUGGER_ALLOWED_USERS);
     mListenSocket->Listen(mConnector, mStreamSocket);
   } else {
     // ... but keep it open.
@@ -306,16 +283,15 @@ void OnScreenrecordFinish(int streamFd, int res) {
 }
 
 void GfxDebugger::ReceiveSocketData(int aIndex,
-                                    UniquePtr<UnixSocketBuffer>& aBuffer)
-{
+                                    UniquePtr<UnixSocketBuffer>& aBuffer) {
   Parcel parcel;
-  UnixSocketBuffer *usb = aBuffer.get();
+  UnixSocketBuffer* usb = aBuffer.get();
   while (usb->GetSize()) {
     GD_LOGD("read %d bytes from socket buff", usb->GetSize());
-    const uint8_t *data = usb->GetData();
+    const uint8_t* data = usb->GetData();
     parcel.setData(data, usb->GetSize());
 
-    parcel.readUint32(); // parcel size
+    parcel.readUint32();  // parcel size
     uint32_t cmd = parcel.readUint32();
     switch (cmd) {
       case GD_CMD_GRALLOC: {
@@ -351,7 +327,7 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
             break;
           }
         }
-      } // case GD_CMD_GRALLOC
+      }  // case GD_CMD_GRALLOC
       break;
 
       case GD_CMD_SCREENCAP: {
@@ -373,7 +349,7 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
             break;
           }
         }
-      } // case GD_CMD_SCREENCAP
+      }  // case GD_CMD_SCREENCAP
       break;
 
       case GD_CMD_SCREENRECORD: {
@@ -416,14 +392,13 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
   }
 }
 
-void GfxDebugger::OnConnectSuccess(int aIndex)
-{
+void GfxDebugger::OnConnectSuccess(int aIndex) {
   struct stat fstat;
   stat(GD_SOCKET_NAME, &fstat);
   uint32_t old_mode = fstat.st_mode & 511;
 
   int ret = chmod(GD_SOCKET_NAME,
-      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+                  S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
   if (ret == -1) {
     ALOGE("Failed on chmod: %s, err=%s", GD_SOCKET_NAME, strerror(errno));
   }
@@ -431,17 +406,20 @@ void GfxDebugger::OnConnectSuccess(int aIndex)
   stat(GD_SOCKET_NAME, &fstat);
   uint32_t new_mode = fstat.st_mode & 511;
 
-  GD_LOGD("Connector::CreateListenSocket- changing socket mode from "
-      "%04o to %04o(octal)", old_mode, new_mode);
+  GD_LOGD(
+      "Connector::CreateListenSocket- changing socket mode from "
+      "%04o to %04o(octal)",
+      old_mode, new_mode);
 }
 
-void GfxDebugger::OnConnectError(int aIndex)
-{
-  mStreamSocket->Close();
-}
+void GfxDebugger::OnConnectError(int aIndex) { mStreamSocket->Close(); }
 
-void GfxDebugger::OnDisconnect(int aIndex)
-{
+void GfxDebugger::OnDisconnect(int aIndex) {
+  if (mShutdown) {
+    GD_LOGD("GfxDebugger::OnDisconnect %s while doing shutdown", aIndex);
+    return;
+  }
+
   switch (aIndex) {
     case LISTEN_SOCKET:
       // Listen socket disconnected; start a new one.
@@ -455,5 +433,5 @@ void GfxDebugger::OnDisconnect(int aIndex)
   }
 }
 
-} // namespace ipc
-} // namespace mozilla
+}  // namespace ipc
+}  // namespace mozilla

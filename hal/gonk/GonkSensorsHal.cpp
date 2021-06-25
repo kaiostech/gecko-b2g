@@ -47,6 +47,43 @@ SensorType getSensorType(V1_0::SensorType aHidlSensorType) {
   }
 }
 
+const char* getSensorName(SensorType aType) {
+  switch(aType) {
+    case SENSOR_UNKNOWN:
+      return "Unknown";
+      break;
+    case SENSOR_ORIENTATION:
+      return "Orientation";
+      break; 
+    case SENSOR_ACCELERATION:
+      return "Acceleration";
+      break; 
+    case SENSOR_PROXIMITY:
+      return "Proximity";
+      break; 
+    case SENSOR_LINEAR_ACCELERATION:
+      return "LinearAcceleration";
+      break; 
+    case SENSOR_GYROSCOPE:
+      return "Gyroscope";
+      break; 
+    case SENSOR_LIGHT:
+      return "Light";
+      break; 
+    case SENSOR_ROTATION_VECTOR:
+      return "RotationVector";
+      break; 
+    case SENSOR_GAME_ROTATION_VECTOR:
+      return "GameRotationVector";
+      break; 
+    case SENSOR_PRESSURE:
+      return "Pressure";
+      break; 
+    default:
+     return "Invalid";
+  }
+}
+
 namespace mozilla {
 namespace hal_impl {
 
@@ -92,6 +129,8 @@ GonkSensorsHal::CreateSensorData(const Event aEvent) {
   AutoTArray<float, 4> values;
 
   SensorType sensorType = getSensorType(aEvent.sensorType);
+
+  HAL_LOG("CreateSensorData for %s", getSensorName(sensorType));
 
   if (sensorType == SENSOR_UNKNOWN) {
     return SensorData(sensorType, aEvent.timestamp, values);
@@ -397,7 +436,7 @@ GonkSensorsHal::InitSensorsList() {
 
     if (isValid) {
       mSensorInfoList[sensorType] = sensorInfo;
-      HAL_LOG("a valid sensor type=%d handle=%d is initialized", sensorType, sensorInfo.sensorHandle);
+      HAL_LOG("a valid sensor type=%s handle=%d is initialized", getSensorName(sensorType), sensorInfo.sensorHandle);
     }
   }
 
@@ -422,7 +461,7 @@ GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
 
   // check if specified sensor is supported
   if (!handle) {
-    HAL_LOG("device unsupported sensor aSensorType=%d", aSensorType);
+    HAL_LOG("device unsupported sensor: %s", getSensorName(aSensorType));
     return false;
   }
 
@@ -468,6 +507,8 @@ GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
     return false;
   }
 
+  HAL_LOG("Sensor type=%s activated", getSensorName(aSensorType));
+
   return true;
 }
 
@@ -493,6 +534,8 @@ GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
     HAL_ERR("sensors deactivate failed aSensorType=%d", aSensorType);
     return false;
   }
+
+  HAL_LOG("Sensor type=%s deactivated", getSensorName(aSensorType));
 
   return true;
 }

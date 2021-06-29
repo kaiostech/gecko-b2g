@@ -375,6 +375,7 @@ this.NetworkStatsService = {
       this._networks[netId] = Object.create(null);
       this._networks[netId].network = rilNetworks[netId];
       this._networks[netId].status = NETWORK_STATUS_STANDBY;
+      this._networks[netId].interfaceNames = [];
       this._currentAlarms[netId] = Object.create(null);
       aCallback(netId);
       return;
@@ -388,6 +389,7 @@ this.NetworkStatsService = {
           this._networks[netId] = Object.create(null);
           this._networks[netId].network = aNetwork;
           this._networks[netId].status = NETWORK_STATUS_AWAY;
+          this._networks[netId].interfaceNames = [];
           this._currentAlarms[netId] = Object.create(null);
           aCallback(netId);
           return;

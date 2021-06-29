@@ -1,0 +1,5 @@
+# modules
+category webextension-modules b2g chrome://b2g/content/ext-b2g.json
+
+category webextension-scripts c-b2g chrome://b2g/content/ext-b2g.js
+category webextension-scripts-addon b2g chrome://b2g/content/ext-c-b2g.js

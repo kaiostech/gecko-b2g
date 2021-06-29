@@ -29,6 +29,14 @@ static bool IsValidHost(const nsACString& host) {
     return false;
   }
 
+#ifdef MOZ_B2G
+  // TODO: use a pref instead of hardcoding
+  if (host.EqualsLiteral("system.localhost") ||
+      host.EqualsLiteral("settings.localhost")) {
+    return true;
+  }
+#endif
+
   if (host.EqualsLiteral("addons.mozilla.org")) {
     return true;
   }
@@ -52,12 +60,15 @@ bool AddonManagerWebAPI::IsValidSite(nsIURI* uri) {
     return false;
   }
 
+// TODO: replace by a secure context check.
+#if !defined(MOZ_B2G)
   if (!uri->SchemeIs("https")) {
     if (!(xpc::IsInAutomation() &&
           Preferences::GetBool("extensions.webapi.testing.http", false))) {
       return false;
     }
   }
+#endif
 
   nsAutoCString host;
   nsresult rv = uri->GetHost(host);

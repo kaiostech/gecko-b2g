@@ -56,7 +56,9 @@ var PREF_EM_CHECK_COMPATIBILITY = MOZ_COMPATIBILITY_NIGHTLY
 
 const VALID_TYPES_REGEXP = /^[\w\-]+$/;
 
-const WEBAPI_INSTALL_HOSTS = ["addons.mozilla.org"];
+const WEBAPI_INSTALL_HOSTS = AppConstants.MOZ_B2G
+  ? ["addons.mozilla.org", "shared.localhost"]
+  : ["addons.mozilla.org"];
 const WEBAPI_TEST_INSTALL_HOSTS = [
   "addons.allizom.org",
   "addons-dev.allizom.org",

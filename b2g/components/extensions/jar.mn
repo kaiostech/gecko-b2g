@@ -1,0 +1,16 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+chrome.jar:
+% content b2g %content/
+
+    content/ext-b2g.js
+    content/ext-b2g.json
+    content/ext-browserAction.js
+    content/ext-c-b2g.js
+    content/ext-c-tabs.js
+    content/ext-pageAction.js
+    content/ext-tabs.js
+    content/ext-downloads.js
+% override chrome://extensions/content/parent/ext-downloads.js chrome://b2g/content/ext-downloads.js

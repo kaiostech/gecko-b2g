@@ -27,7 +27,7 @@ using android::hardware::sensors::V1_0::SensorInfo;
 using android::hardware::sensors::V1_0::SensorFlagBits;
 using android::hardware::sensors::V2_0::EventQueueFlagBits;
 
-#define MAX_EVENT_BUFFER_SIZE 16
+#define MAX_EVENT_BUFFER_SIZE 128
 
 #ifdef PRODUCT_MANUFACTURER_MTK
 // mtk custom hal sends 128 events at most at a time in case data flooding. To avoid

@@ -17,6 +17,12 @@ function log(msg) {
 
 log(`Loading...`);
 
+ChromeUtils.defineModuleGetter(
+  this,
+  "WebExtensionsEmbedding",
+  "resource://gre/modules/WebExtensionsEmbedding.jsm"
+);
+
 // ChromeUtils.defineModuleGetter(
 //   this,
 //   "GeckoViewTabBridge",
@@ -144,32 +150,18 @@ class WindowTracker extends WindowTrackerBase {
     this.progressListeners = new DefaultWeakMap(() => new WeakMap());
   }
 
-  getCurrentWindow(context) {
-    log(`WindowTracker::getCurrentWindow ${context}`);
-    // In GeckoView the popup is on a separate window so getCurrentWindow for
-    // the popup should return whatever is the topWindow.
-    // TODO: Bug 1651506 use context?.viewType === "popup" instead
-    if (context?.currentWindow?.moduleManager.settings.isPopup) {
-      return this.topWindow;
-    }
-    return super.getCurrentWindow(context);
-  }
-
-  get topWindow() {
-    log(`WindowTracker::topWindow`);
-    // return mobileWindowTracker.topWindow;
-  }
-
-  get topNonPBWindow() {
-    log(`WindowTracker::topNonPBWindow`);
-    // return mobileWindowTracker.topNonPBWindow;
-  }
-
   isBrowserWindow(window) {
-    log(`WindowTracker::isBrowserWindow ${window.location}`);
-    const { documentElement } = window.document;
-    let res = documentElement.getAttribute("windowtype") === WINDOW_TYPE;
-    log(`  -> ${res}`);
+    let { documentElement } = window.document;
+    // log(
+    //   `WindowTracker::isBrowserWindow ${
+    //     window.location
+    //   } windowtype=${documentElement.getAttribute("windowtype")}`
+    // );
+    // TODO(fabrice): support 2nd screen which uses a different url.
+    let res =
+      documentElement.getAttribute("windowtype") === WINDOW_TYPE ||
+      window.location == "chrome://system/content/index.html";
+    // log(`  -> ${res}`);
     return res;
   }
 
@@ -236,7 +228,27 @@ class WindowTracker extends WindowTrackerBase {
 //   }).api();
 // };
 
+// Return an array of <web-views> loaded with content that is not a WebExtension popup.
+function getWebViewsForWindow(someWindow) {
+  // Find the web-view container.
+  let window = !!someWindow?.systemapp ? someWindow.systemapp : someWindow;
+  if (!window) {
+    return [];
+  }
+
+  // TODO(fabrice): This selector should be a pref since it depends on the system app layout.
+  return Array.from(
+    window.document.querySelectorAll("window-manager web-view")
+  );
+}
+
 class TabTracker extends TabTrackerBase {
+  constructor() {
+    super();
+
+    this._tabIds = new Map();
+  }
+
   init() {
     log(`TabTracker::init`);
 
@@ -245,70 +257,52 @@ class TabTracker extends TabTrackerBase {
     }
     this.initialized = true;
 
-    const observe = (subject, topic, data) => {
-      log(`Observing ${topic} from ${subject} : ${data}`);
-    };
-
-    Services.obs.addObserver(observe, "domwindowopened");
-    Services.obs.addObserver(observe, "domwindowclosed");
-
-    windowTracker.addOpenListener(window => {
-      log(`TabTracker got openListener callback`);
-      const nativeTab = window.tab;
+    Services.obs.addObserver((nativeTab, topic) => {
+      let tabId = nativeTab._extensionId;
+      log(`Observing ${topic}: ${nativeTab.localName} / ${tabId}`);
       this.emit("tab-created", { nativeTab });
-    });
+      nativeTab.linkedBrowser._extensionId = tabId;
+      this._tabIds.set(tabId, nativeTab);
+    }, "webview-created");
 
-    windowTracker.addCloseListener(window => {
-      const { tab, browser } = window;
-      const { windowId, tabId } = this.getBrowserData(browser);
-      this.emit("tab-removed", {
-        tab,
-        tabId,
-        windowId,
-        // In GeckoView, it is not meaningful to speak of "window closed", because a tab is a window.
-        // Until we have a meaningful way to group tabs (and close multiple tabs at once),
-        // let's use isWindowClosing: false
-        isWindowClosing: false,
-      });
-    });
+    Services.obs.addObserver((nativeTab, topic) => {
+      let tabId = nativeTab._extensionId;
+      log(`Observing ${topic}: ${nativeTab.localName} / ${tabId}`);
+      this.emit("tab-removed", { nativeTab, tabId });
+      this._tabIds.delete(tabId);
+    }, "webview-removed");
+
+    Services.obs.addObserver((nativeTab, topic) => {
+      let tabId = nativeTab._extensionId;
+      log(`Observing ${topic}: ${nativeTab.localName} / ${tabId}`);
+      this.emit("tab-activated", { nativeTab, tabId });
+    }, "webview-activated");
   }
 
   getId(nativeTab) {
-    log(`TabTracker::getId (${nativeTab})`);
-    return nativeTab.id;
+    log(`TabTracker::getId (${nativeTab}) -> ${nativeTab._extensionId}`);
+    return nativeTab._extensionId;
   }
 
-  getTab(id, default_ = undefined) {
-    log(`TabTracker::getTab (id=${id})`);
-    // const windowId = GeckoViewTabBridge.tabIdToWindowId(id);
-    // const window = windowTracker.getWindow(windowId, null, false);
-
-    // if (window) {
-    //   const { tab } = window;
-    //   if (tab) {
-    //     return tab;
-    //   }
-    // }
-
+  getTab(tabId, default_ = undefined) {
+    log(`TabTracker::getTab(tabId=${tabId}, default=${default_})`);
+    let nativeTab = this._tabIds.get(tabId);
+    if (nativeTab) {
+      return nativeTab;
+    }
     if (default_ !== undefined) {
       return default_;
     }
-    throw new ExtensionError(`Invalid tab ID: ${id}`);
+
+    throw new ExtensionError(`TabTracker::getTab: Invalid tab ID: ${tabId}`);
   }
 
   getBrowserData(browser) {
-    log(`TabTracker::getBrowserData (${browser})`);
+    // log(`TabTracker::getBrowserData (${browser})`);
 
     const window = browser.ownerGlobal;
-    const { tab } = window;
-    if (!tab) {
-      return {
-        tabId: -1,
-        windowId: -1,
-      };
-    }
-
     const windowId = windowTracker.getId(window);
+    // log(`   window=${browser.ownerGlobal} windowId=${windowId}`);
 
     if (!windowTracker.isBrowserWindow(window)) {
       return {
@@ -319,23 +313,22 @@ class TabTracker extends TabTrackerBase {
 
     return {
       windowId,
-      tabId: this.getId(tab),
+      tabId: browser._extensionId,
     };
   }
 
   get activeTab() {
     log(`TabTracker::activeTab`);
 
-    const window = windowTracker.topWindow;
-    if (window) {
-      return window.tab;
-    }
-    return null;
+    return getWebViewsForWindow(windowTracker.topWindow).find(webView => {
+      return webView.active;
+    });
   }
 }
 
 windowTracker = new WindowTracker();
 const tabTracker = new TabTracker();
+tabTracker.init();
 
 Object.assign(global, { tabTracker, windowTracker });
 
@@ -353,7 +346,7 @@ class Tab extends TabBase {
   }
 
   get browser() {
-    return this.nativeTab.browser;
+    return this.nativeTab.linkedBrowser;
   }
 
   get discarded() {
@@ -389,7 +382,7 @@ class Tab extends TabBase {
   }
 
   get active() {
-    return this.nativeTab.getActive();
+    return this.nativeTab.active;
   }
 
   get highlighted() {
@@ -397,7 +390,7 @@ class Tab extends TabBase {
   }
 
   get selected() {
-    return this.nativeTab.getActive();
+    return this.nativeTab.active;
   }
 
   get status() {
@@ -547,7 +540,20 @@ class Window extends WindowBase {
   }
 
   *getTabs() {
-    yield this.activeTab;
+    log(`getTabs systemapp=${this.window.systemapp}`);
+
+    let webViews = getWebViewsForWindow(this.window);
+    log(`Found ${webViews.length} web-view`);
+
+    let { tabManager } = this.extension;
+
+    for (let nativeTab of webViews) {
+      log(`webView: ${nativeTab.src}`);
+      let tab = tabManager.getWrapper(nativeTab);
+      if (tab) {
+        yield tab;
+      }
+    }
   }
 
   *getHighlightedTabs() {
@@ -555,8 +561,16 @@ class Window extends WindowBase {
   }
 
   get activeTab() {
-    const { tabManager } = this.extension;
-    return tabManager.getWrapper(this.window.tab);
+    let activeWebView = getWebViewsForWindow(this.window).find(webView => {
+      return webView.active;
+    });
+
+    if (activeWebView) {
+      const { tabManager } = this.extension;
+      return tabManager.getWrapper(activeWebView);
+    }
+
+    log(`Window::activeTab: no active tab found!`);
   }
 
   getTabAtIndex(index) {
@@ -589,12 +603,12 @@ class TabManager extends TabManagerBase {
   canAccessTab(nativeTab) {
     return (
       this.extension.privateBrowsingAllowed ||
-      !PrivateBrowsingUtils.isBrowserPrivate(nativeTab.browser)
+      !PrivateBrowsingUtils.isBrowserPrivate(nativeTab.linkedBrowser)
     );
   }
 
   wrapTab(nativeTab) {
-    return new Tab(this.extension, nativeTab, nativeTab.id);
+    return new Tab(this.extension, nativeTab, nativeTab._extensionId);
   }
 }
 
@@ -675,23 +689,23 @@ global.openOptionsPage = async extension => {
 
   if (options_ui.open_in_tab) {
     // Delegate new tab creation and open the options page in the new tab.
-    // const tab = await GeckoViewTabBridge.createNewTab({
-    //   extensionId,
-    //   createProperties: {
-    //     url: options_ui.page,
-    //     active: true,
-    //   },
-    // });
+    const tab = await WebExtensionsEmbedding.createNewTab({
+      extensionId,
+      createProperties: {
+        url: options_ui.page,
+        active: true,
+      },
+    });
 
-    const { browser } = tab;
+    const { linkedBrowser } = tab;
     const flags = Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
 
-    browser.loadURI(options_ui.page, {
+    linkedBrowser.loadURI(options_ui.page, {
       flags,
       triggeringPrincipal: extension.principal,
     });
 
-    const newWindow = browser.ownerGlobal;
+    const newWindow = linkedBrowser.ownerGlobal;
     // mobileWindowTracker.setTabActive(newWindow, true);
     return;
   }

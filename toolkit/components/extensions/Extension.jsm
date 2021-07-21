@@ -39,6 +39,8 @@ var EXPORTED_SYMBOLS = [
  * to run in the same process of the existing addon debugging browser element).
  */
 
+console.log(`ext-Extension.jsm loaded`);
+
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );

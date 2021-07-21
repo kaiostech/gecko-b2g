@@ -5,6 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
+console.log(`ext-ExtensionContent.jsm`);
+
 var EXPORTED_SYMBOLS = ["ExtensionContent", "ExtensionContentChild"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
@@ -1178,7 +1180,9 @@ var ExtensionContent = {
  */
 class ExtensionContentChild extends JSProcessActorChild {
   receiveMessage({ name, data }) {
+    console.log(`ext-ExtensionContent.jsm receiveMessage ${name} ${data}`);
     if (!isContentScriptProcess) {
+      console.log(`ext-ExtensionContent.jsm receiveMessage not a content script process!`);
       return;
     }
     switch (name) {

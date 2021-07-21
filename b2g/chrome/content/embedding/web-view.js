@@ -350,10 +350,15 @@
     "showmodalprompt",
   ];
 
+  // A numeric Id used for WebExtension tracking.
+  let webViewExtensionId = 0;
+
   class WebView extends HTMLElement {
     constructor() {
       super();
       this._constructorInternal();
+      this._extensionId = webViewExtensionId;
+      webViewExtensionId += 1;
     }
 
     // We also export functions for content world.
@@ -435,9 +440,26 @@
         this.browser = this._browser;
       } else {
         this.browser = document.createXULElement("browser");
+        // Used by the WebExtension code to figure our where to inject content scripts & CSS.
+        this.browser.setAttribute("messagemanagergroup", "browsers");
+        // The remoteType and initialBrowsingContextGroupId can't change once set, so are not observed attributes.
+        this.notifyWebExt = true;
+        if (this.hasAttribute("remoteType")) {
+          let remoteType = this.getAttribute("remoteType");
+          this.browser.setAttribute("remoteType", remoteType);
+          if (remoteType === "extension") {
+            this.notifyWebExt = false;
+          }
+        }
+        if (this.hasAttribute("browsingContextGroupId")) {
+          this.browser.setAttribute(
+            "initialBrowsingContextGroupId",
+            this.getAttribute("browsingContextGroupId")
+          );
+        }
       }
       // For chrome, the Browser API is defined and extended the <browser> by
-      // customElements.define("browser", MozBrowser) inbrowser-custom-element.js.
+      // customElements.define("browser", MozBrowser) in browser-custom-element.js.
       // For content, it does not allow us to extend an existed tag, so we add the API back by ourself.
       if (this.isCreatedByProxy) {
         WebView.__doPollyfillForBrowser(this.browser);
@@ -447,6 +469,18 @@
       // setup the browser.
       if (this._openWindowInfo !== undefined) {
         this.setupBrowser();
+      }
+
+      // We need to delay this notification to the next tick to let the browsing context
+      // creation happen.
+      if (this.notifyWebExt) {
+        Promise.resolve().then(() => {
+          Services.obs.notifyObservers(
+            this,
+            "webview-created",
+            this._extensionId
+          );
+        });
       }
     }
 
@@ -616,6 +650,14 @@
     }
 
     cleanup() {
+      if (this.notifyWebExt) {
+        Services.obs.notifyObservers(
+          this,
+          "webview-removed",
+          this._extensionId
+        );
+      }
+
       kRegisteredBrowserEvents.forEach(name => {
         if (this.browser) {
           this.browser.removeEventListener(name, this);
@@ -787,22 +829,32 @@
     }
 
     set active(val) {
-      if (this.browser) {
-        let current = this.browser.docShellIsActive;
-        this.browser.docShellIsActive = val;
-        if (current !== val) {
-          this.updateDCSState(val);
-          this.log(`change docShellIsActive from ${current} to ${val}`);
-          this.dispatchCustomEvent("visibilitychange", { visible: val });
-          // "visibilitychange" event is dispatched on webview itself.
-          // To notify its browser element, dispatch "webview-visibilitychange"
-          // event on this.browser.
-          let event = new CustomEvent("webview-visibilitychange", {
-            bubbles: true,
-            detail: { visible: val },
-          });
-          this.browser.dispatchEvent(event);
-        }
+      if (!this.browser) {
+        return;
+      }
+
+      let current = this.browser.docShellIsActive;
+
+      if (current === val) {
+        return;
+      }
+      this.browser.docShellIsActive = val;
+      this.updateDCSState(val);
+      this.log(`change docShellIsActive from ${current} to ${val}`);
+      this.dispatchCustomEvent("visibilitychange", { visible: val });
+      // "visibilitychange" event is dispatched on webview itself.
+      // To notify its browser element, dispatch "webview-visibilitychange"
+      // event on this.browser.
+      let event = new CustomEvent("webview-visibilitychange", {
+        bubbles: true,
+        detail: { visible: val },
+      });
+      this.browser.dispatchEvent(event);
+
+      if (val && this.notifyWebExt) {
+        Promise.resolve().then(() => {
+          Services.obs.notifyObservers(this, "webview-activated", null);
+        });
       }
     }
 

@@ -6,23 +6,18 @@ function log(msg) {
   dump(`ext-tab.js: ${msg}\n`);
 }
 
+log(`loaded`);
+
 ChromeUtils.defineModuleGetter(
   this,
   "PromiseUtils",
   "resource://gre/modules/PromiseUtils.jsm"
 );
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "GeckoViewTabBridge",
-  "resource://gre/modules/GeckoViewTab.jsm"
-);
-
-ChromeUtils.defineModuleGetter(
-  this,
-  "mobileWindowTracker",
-  "resource://gre/modules/GeckoViewWebExtension.jsm"
-);
+XPCOMUtils.defineLazyModuleGetters(this, {
+  WebExtensionsEmbedding: "resource://gre/modules/WebExtensionsEmbedding.jsm",
+  mobileWindowTracker: "resource://gre/modules/WebExtensionsEmbedding.jsm",
+});
 
 const getBrowserWindow = window => {
   return window.browsingContext.topChromeWindow;
@@ -77,8 +72,8 @@ const tabListener = {
       deferred = PromiseUtils.defer();
       if (
         !this.initializingTabs.has(nativeTab) &&
-        (nativeTab.browser.innerWindowID ||
-          nativeTab.browser.currentURI.spec === "about:blank")
+        (nativeTab.linkedBrowser.innerWindowID ||
+          nativeTab.linkedBrowser.currentURI.spec === "about:blank")
       ) {
         deferred.resolve(nativeTab);
       } else {
@@ -89,6 +84,29 @@ const tabListener = {
     return deferred.promise;
   },
 };
+
+function TabEventManager({ context, name, event, listener }) {
+  let register = fire => {
+    let listener2 = (eventName, eventData, ...args) => {
+      let { extension } = context;
+      let { tabManager } = extension;
+
+      if (!tabManager.canAccessTab(eventData.nativeTab)) {
+        console.error(`TabEventManager ${eventName} failing to access tab!`);
+        return;
+      }
+
+      listener(fire, eventData, ...args);
+    };
+
+    tabTracker.on(event, listener2);
+    return () => {
+      tabTracker.off(event, listener2);
+    };
+  };
+
+  return new EventManager({ context, name, register }).api();
+}
 
 this.tabs = class extends ExtensionAPI {
   getAPI(context) {
@@ -112,7 +130,9 @@ this.tabs = class extends ExtensionAPI {
       }
       if (!tab) {
         throw new ExtensionError(
-          tabId == null ? "Cannot access activeTab" : `Invalid tab ID: ${tabId}`
+          tabId == null
+            ? "Cannot access activeTab"
+            : `In promiseTabWhenReady: Invalid tab ID: ${tabId}`
         );
       }
 
@@ -123,43 +143,35 @@ this.tabs = class extends ExtensionAPI {
 
     const self = {
       tabs: {
-        onActivated: new EventManager({
+        onActivated: TabEventManager({
           context,
           name: "tabs.onActivated",
-          register: fire => {
-            const listener = (eventName, event) => {
-              const { windowId, tabId, isPrivate } = event;
-              if (isPrivate && !context.privateBrowsingAllowed) {
-                return;
-              }
-              fire.async({
-                windowId,
-                tabId,
-                // In GeckoView each window has only one tab, so previousTabId is omitted.
-              });
-            };
-
-            mobileWindowTracker.on("tab-activated", listener);
-            return () => {
-              mobileWindowTracker.off("tab-activated", listener);
-            };
+          event: "tab-activated",
+          listener: (fire, event) => {
+            let {
+              tabId,
+              windowId,
+              previousTabId,
+              previousTabIsPrivate,
+            } = event;
+            if (previousTabIsPrivate && !context.privateBrowsingAllowed) {
+              previousTabId = undefined;
+            }
+            fire.async({ tabId, previousTabId, windowId });
           },
-        }).api(),
+        }),
 
-        onCreated: new EventManager({
+        onCreated: TabEventManager({
           context,
           name: "tabs.onCreated",
-          register: fire => {
-            const listener = (eventName, event) => {
-              fire.async(tabManager.convert(event.nativeTab));
-            };
-
-            tabTracker.on("tab-created", listener);
-            return () => {
-              tabTracker.off("tab-created", listener);
-            };
+          event: "tab-created",
+          listener: (fire, event) => {
+            console.log(`TTT onCreated::listener tabId=${event.nativeTab}`);
+            fire.async(
+              tabManager.convert(event.nativeTab, event.currentTabSize)
+            );
           },
-        }).api(),
+        }),
 
         /**
          * Since multiple tabs currently can't be highlighted, onHighlighted
@@ -198,39 +210,41 @@ this.tabs = class extends ExtensionAPI {
           },
         }).api(),
 
-        onAttached: new EventManager({
+        onAttached: TabEventManager({
           context,
           name: "tabs.onAttached",
-          register: fire => {
-            return () => {};
+          event: "tab-attached",
+          listener: (fire, event) => {
+            fire.async(event.tabId, {
+              newWindowId: event.newWindowId,
+              newPosition: event.newPosition,
+            });
           },
-        }).api(),
+        }),
 
-        onDetached: new EventManager({
+        onDetached: TabEventManager({
           context,
           name: "tabs.onDetached",
-          register: fire => {
-            return () => {};
+          event: "tab-detached",
+          listener: (fire, event) => {
+            fire.async(event.tabId, {
+              oldWindowId: event.oldWindowId,
+              oldPosition: event.oldPosition,
+            });
           },
-        }).api(),
+        }),
 
-        onRemoved: new EventManager({
+        onRemoved: TabEventManager({
           context,
           name: "tabs.onRemoved",
-          register: fire => {
-            const listener = (eventName, event) => {
-              fire.async(event.tabId, {
-                windowId: event.windowId,
-                isWindowClosing: event.isWindowClosing,
-              });
-            };
-
-            tabTracker.on("tab-removed", listener);
-            return () => {
-              tabTracker.off("tab-removed", listener);
-            };
+          event: "tab-removed",
+          listener: (fire, event) => {
+            fire.async(event.tabId, {
+              windowId: event.windowId,
+              isWindowClosing: event.isWindowClosing,
+            });
           },
-        }).api(),
+        }),
 
         onReplaced: new EventManager({
           context,
@@ -248,6 +262,7 @@ this.tabs = class extends ExtensionAPI {
           },
         }).api(),
 
+        // TODO(fabrice): check implementation in browser/components/extensions/parent/ext-tabs.js
         onUpdated: new EventManager({
           context,
           name: "tabs.onUpdated",
@@ -341,6 +356,7 @@ this.tabs = class extends ExtensionAPI {
           title,
           url,
         } = {}) {
+          log(`create url=${url}`);
           if (active === null) {
             active = true;
           }
@@ -363,9 +379,11 @@ this.tabs = class extends ExtensionAPI {
             );
           }
           cookieStoreId = cookieStoreId ? cookieStoreId.toString() : undefined;
-
-          const nativeTab = await GeckoViewTabBridge.createNewTab({
+          let browsingContextGroupId =
+            context.extension.policy.browsingContextGroupId;
+          const nativeTab = await WebExtensionsEmbedding.createNewTab({
             extensionId: context.extension.id,
+            browsingContextGroupId,
             createProperties: {
               active,
               cookieStoreId,
@@ -377,7 +395,7 @@ this.tabs = class extends ExtensionAPI {
             },
           });
 
-          const { browser } = nativeTab;
+          const { linkedBrowser } = nativeTab;
 
           let flags = Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
 
@@ -401,31 +419,35 @@ this.tabs = class extends ExtensionAPI {
             );
           }
 
-          browser.loadURI(url, {
+          linkedBrowser.loadURI(url, {
             flags,
             triggeringPrincipal: principal,
           });
 
-          if (active) {
-            const newWindow = browser.ownerGlobal;
-            mobileWindowTracker.setTabActive(newWindow, true);
-          }
+          // TODO(fabrice)
+          // if (active) {
+          //   const newWindow = linkedBrowser.ownerGlobal;
+          //   mobileWindowTracker.setTabActive(newWindow, true);
+          // }
 
-          return tabManager.convert(nativeTab);
+          return nativeTab;
         },
 
         async remove(tabs) {
+          log(`remove`);
           if (!Array.isArray(tabs)) {
             tabs = [tabs];
           }
 
           await Promise.all(
             tabs.map(async tabId => {
+              log(`UUU GeckoViewTabBridge 2`);
               const windowId = GeckoViewTabBridge.tabIdToWindowId(tabId);
               const window = windowTracker.getWindow(windowId, context, false);
               if (!window) {
                 throw new ExtensionError(`Invalid tab ID ${tabId}`);
               }
+              log(`UUU GeckoViewTabBridge 3`);
               await GeckoViewTabBridge.closeTab({
                 window,
                 extensionId: context.extension.id,
@@ -438,8 +460,9 @@ this.tabs = class extends ExtensionAPI {
           tabId,
           { active, autoDiscardable, highlighted, muted, pinned, url } = {}
         ) {
+          log(`update tabId=${tabId}`);
           const nativeTab = getTabOrActive(tabId);
-          const window = nativeTab.browser.ownerGlobal;
+          const window = nativeTab.linkedBrowser.ownerGlobal;
 
           if (url !== null) {
             url = context.uri.resolve(url);
@@ -448,9 +471,8 @@ this.tabs = class extends ExtensionAPI {
               return Promise.reject({ message: `Illegal URL: ${url}` });
             }
           }
-
-          await GeckoViewTabBridge.updateTab({
-            window,
+          await WebExtensionsEmbedding.updateTab({
+            nativeTab,
             extensionId: context.extension.id,
             updateProperties: {
               active,
@@ -463,46 +485,52 @@ this.tabs = class extends ExtensionAPI {
           });
 
           if (url !== null) {
-            nativeTab.browser.loadURI(url, {
+            nativeTab.linkedBrowser.loadURI(url, {
               triggeringPrincipal: context.principal,
             });
           }
 
           // FIXME: openerTabId, successorTabId
-          if (active) {
-            mobileWindowTracker.setTabActive(window, true);
-          }
+          // TODO(fabrice)
+          // if (active) {
+          //   mobileWindowTracker.setTabActive(window, true);
+          // }
 
           return tabManager.convert(nativeTab);
         },
 
         async reload(tabId, reloadProperties) {
+          log(`reload`);
           const nativeTab = getTabOrActive(tabId);
 
           let flags = Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
           if (reloadProperties && reloadProperties.bypassCache) {
             flags |= Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE;
           }
-          nativeTab.browser.reloadWithFlags(flags);
+          nativeTab.linkedBrowser.reloadWithFlags(flags);
         },
 
         async get(tabId) {
+          log(`get ${tabId}`);
           return tabManager.get(tabId).convert();
         },
 
         async getCurrent() {
+          log(`getCurrent`);
           if (context.tabId) {
             return tabManager.get(context.tabId).convert();
           }
         },
 
         async query(queryInfo) {
-          return Array.from(tabManager.query(queryInfo, context), tab =>
-            tab.convert()
-          );
+          log(`query ${JSON.stringify(queryInfo)}`);
+          return Array.from(tabManager.query(queryInfo, context), tab => {
+            return tab.convert();
+          });
         },
 
         async captureTab(tabId, options) {
+          log(`captureTab`);
           const nativeTab = getTabOrActive(tabId);
           await tabListener.awaitTabReady(nativeTab);
 
@@ -515,6 +543,7 @@ this.tabs = class extends ExtensionAPI {
         },
 
         async captureVisibleTab(windowId, options) {
+          log(`captureVisibleTab`);
           const window =
             windowId == null
               ? windowTracker.topWindow
@@ -528,29 +557,34 @@ this.tabs = class extends ExtensionAPI {
         },
 
         async executeScript(tabId, details) {
+          log(`executeScript`);
           const tab = await promiseTabWhenReady(tabId);
 
           return tab.executeScript(context, details);
         },
 
         async insertCSS(tabId, details) {
+          log(`insertCSS`);
           const tab = await promiseTabWhenReady(tabId);
 
           return tab.insertCSS(context, details);
         },
 
         async removeCSS(tabId, details) {
+          log(`removeCSS`);
           const tab = await promiseTabWhenReady(tabId);
 
           return tab.removeCSS(context, details);
         },
 
         goForward(tabId) {
+          log(`goForward`);
           const { browser } = getTabOrActive(tabId);
           browser.goForward();
         },
 
         goBack(tabId) {
+          log(`goBack`);
           const { browser } = getTabOrActive(tabId);
           browser.goBack();
         },

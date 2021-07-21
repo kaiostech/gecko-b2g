@@ -1,5 +1,7 @@
 "use strict";
 
+console.log(`ext-c-tabs.js loaded`);
+
 this.tabs = class extends ExtensionAPI {
   getAPI(context) {
     return {

@@ -9,6 +9,8 @@
 
 var EXPORTED_SYMBOLS = ["ExtensionChild", "ExtensionActivityLogChild"];
 
+console.log(`ext-ExtensionChild.jsm loaded`);
+
 /**
  * This file handles addon logic that is independent of the chrome process and
  * may run in all web content and extension processes.
@@ -505,6 +507,7 @@ class BrowserExtensionContent extends EventEmitter {
   }
 
   getAPIManager() {
+    console.log(`ext-ExtensionChild getAPIManager()`);
     let apiManagers = [ExtensionPageChild.apiManager];
 
     if (this.dependencies) {

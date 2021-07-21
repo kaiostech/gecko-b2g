@@ -732,7 +732,7 @@ class BaseContext {
 
     if (!message) {
       Cu.reportError(error);
-      message = "An unexpected error occurred";
+      message = "An unexpected extension error occurred";
     }
     return new this.Error(message, fileName);
   }

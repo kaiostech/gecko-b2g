@@ -25,6 +25,7 @@ const embedder = new WebEmbedder({
   notifications: <Notifications implementation>,
   activityChooser: <ActivityChooser implementation>,
   imeHandler: <imeHandler implementation>,
+  webExtensions: <WebExtensions implementation>,
 });
 ```
 All delegates are optional.
@@ -192,3 +193,19 @@ A wrapper which represents the editing element and provides interfaces to contro
 - `setSelectedOption`: setup selected option of the current editing element.
 - `setSelectedOptions`: setup selected options of the current editing element.
 - `removeFocus`: remove focus from the current editing element.
+
+## WebExtensions delegate
+
+This delegates provides the interface to various WebExtension functionalities: install prompts, management of browser and page actions, etc.
+
+### Methods
+
+- `permissionPrompt(extension)`: Called when the user should be prompted to confirm a WebExtension installation. The `extension` parameter is an object representing the extension. This method returns a promise that is expected to resolve or reject to indicate the user's decision.
+- `setProvider(<WebExtensionProvider)`: Gives to the embedder a handle to an object that can be used to notify of actions or events. This method is guaranteed to be the first one called on the delegate.
+- `updateBrowserAction(extensionId, tabId, action)`
+  
+## WebExtensionProvider object
+
+### Methods
+
+- `browserActionClick(id)`: indicates that the user clicked on a browser action icon.

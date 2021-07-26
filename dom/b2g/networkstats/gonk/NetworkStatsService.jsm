@@ -83,8 +83,8 @@ XPCOMUtils.defineLazyServiceGetter(
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "messenger",
-  "@mozilla.org/system-message-internal;1",
-  "nsISystemMessagesInternal"
+  "@mozilla.org/systemmessage-service;1",
+  "nsISystemMessageService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -1381,15 +1381,18 @@ this.NetworkStatsService = {
   _fireSystemMessage: function _fireSystemMessage(aAlarm) {
     debug("Fire system message: " + JSON.stringify(aAlarm));
 
-    let originURI = Services.io.newURI(aAlarm.originURL);
-    let pageURI = Services.io.newURI(aAlarm.pageURL);
+    let originURI = aAlarm.originURL;
 
     let alarm = {
       id: aAlarm.id,
       threshold: aAlarm.absoluteThreshold,
       data: aAlarm.data,
     };
-    messenger.sendMessage("networkstats-alarm", alarm, pageURI, originURI);
+    if (originURI && originURI != "[System Principal]") {
+      messenger.sendMessage("networkstats-alarm", alarm, originURI);
+    } else {
+      messenger.broadcastMessage("networkstats-alarm", alarm);
+    }
   },
 };
 

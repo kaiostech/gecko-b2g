@@ -355,7 +355,12 @@ NetworkService.prototype = {
       self.controlMessage(params, function(aResult) {
         if (!aResult.result) {
           // Tethering disabled, set interfaceAlarm
-          self._setNetworkInterfaceAlarm(aInterfaceName, aThreshold, aCallback);
+          // TODO: We shall prevent enable same network alarm again and again.
+          self._enableNetworkInterfaceAlarm(
+            aInterfaceName,
+            aThreshold,
+            aCallback
+          );
           return;
         }
 
@@ -389,11 +394,11 @@ NetworkService.prototype = {
 
     this.controlMessage(params, function(aResult) {
       if (!aResult.result) {
-        aCallback.networkUsageAlarmResult(null);
+        aCallback.networkUsageAlarmResult("setNetworkInterfaceAlarm failed");
         return;
       }
 
-      this._enableNetworkInterfaceAlarm(aInterfaceName, aThreshold, aCallback);
+      aCallback.networkUsageAlarmResult(null);
     });
   },
 
@@ -416,10 +421,10 @@ NetworkService.prototype = {
 
     this.controlMessage(params, function(aResult) {
       if (!aResult.result) {
-        aCallback.networkUsageAlarmResult(null);
+        aCallback.networkUsageAlarmResult("enableNetworkInterfaceAlarm failed");
         return;
       }
-      aCallback.networkUsageAlarmResult(aResult.reason);
+      this._setNetworkInterfaceAlarm(aInterfaceName, aThreshold, aCallback);
     });
   },
 

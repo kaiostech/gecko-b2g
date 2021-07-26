@@ -2206,7 +2206,8 @@ CommandResult NetworkUtils::setNetworkInterfaceAlarm(NetworkParams& aOptions) {
                                                     GET_FIELD(mThreshold));
 
   result.mResult = status.isOk() ? true : false;
-  NU_DBG("setNetworkInterfaceAlarms %s", result.mResult ? "success" : "failed");
+  NU_DBG("setNetworkInterfaceAlarms %s %ld %s", GET_CHAR(mIfname),
+         GET_FIELD(mThreshold), result.mResult ? "success" : "failed");
   return CommandResult(result);
 }
 
@@ -2214,23 +2215,13 @@ CommandResult NetworkUtils::enableNetworkInterfaceAlarm(
     NetworkParams& aOptions) {
   NU_DBG("enableNetworkInterfaceAlarm: %s", GET_CHAR(mIfname));
   NetworkResultOptions result;
-  result.mResult = false;
-  Status status;
 
-  status = gNetd->bandwidthSetInterfaceQuota(GET_CHAR(mIfname), INT64_MAX);
-  if (!status.isOk()) {
-    NU_DBG("enableNetworkInterfaceAlarm failed to set quota");
-    return CommandResult(result);
-  }
+  Status status =
+      gNetd->bandwidthSetInterfaceQuota(GET_CHAR(mIfname), INT64_MAX);
+  result.mResult = status.isOk() ? true : false;
 
-  status = gNetd->bandwidthSetInterfaceAlert(GET_CHAR(mIfname),
-                                             GET_FIELD(mThreshold));
-  if (!status.isOk()) {
-    NU_DBG("enableNetworkInterfaceAlarm failed to set alert");
-    return CommandResult(result);
-  }
-
-  result.mResult = true;
+  NU_DBG("enableNetworkInterfaceAlarm %s",
+         result.mResult ? "success" : "failed");
   return CommandResult(result);
 }
 

@@ -29,8 +29,19 @@ const TOPIC_CONNECTION_STATE_CHANGED = "network-connection-state-changed";
 const TOPIC_PREF_CHANGED = "nsPref:changed";
 const PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
 
+// We only expose NET_TYPE_WIFI/NET_TYPE_MOBILE to webidl currently.
 const NET_TYPE_WIFI = Ci.nsINetworkInfo.NETWORK_TYPE_WIFI;
 const NET_TYPE_MOBILE = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE;
+const NET_TYPE_MOBILE_MMS = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_MMS;
+const NET_TYPE_MOBILE_SUPL = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_SUPL;
+const NET_TYPE_MOBILE_IMS = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_IMS;
+const NET_TYPE_MOBILE_DUN = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN;
+const NET_TYPE_MOBILE_FOTA = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_FOTA;
+const NET_TYPE_MOBILE_HIPRI = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_HIPRI;
+const NET_TYPE_MOBILE_CBS = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_CBS;
+const NET_TYPE_MOBILE_IA = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_IA;
+const NET_TYPE_MOBILE_ECC = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_ECC;
+const NET_TYPE_MOBILE_XCAP = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_XCAP;
 
 // Networks have different status that NetworkStats API needs to be aware of.
 // Network is present and ready, so NetworkManager provides the whole info.
@@ -68,16 +79,16 @@ XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
-  "gRil",
-  "@mozilla.org/ril;1",
-  "nsIRadioInterfaceLayer"
+  "gNetworkService",
+  "@mozilla.org/network/service;1",
+  "nsINetworkService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
-  "networkService",
-  "@mozilla.org/network/service;1",
-  "nsINetworkService"
+  "gNetworkManager",
+  "@mozilla.org/network/manager;1",
+  "nsINetworkManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -85,13 +96,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "messenger",
   "@mozilla.org/systemmessage-service;1",
   "nsISystemMessageService"
-);
-
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gIccService",
-  "@mozilla.org/icc/iccservice;1",
-  "nsIIccService"
 );
 
 this.NetworkStatsService = {
@@ -130,7 +134,8 @@ this.NetworkStatsService = {
     let netId = this.getNetworkId("0", NET_TYPE_WIFI);
     this._networks[netId] = {
       network: { id: "0", type: NET_TYPE_WIFI },
-      // TODO: temporay leave interfaceName until someone refactory quota alarm.
+      // TODO: Quota alarm won't work for multiple active interfaces exist
+      //       in a single type, refactor this once you need it.
       interfaceName: null,
       interfaceNames: [],
       status: NETWORK_STATUS_STANDBY,
@@ -234,6 +239,8 @@ this.NetworkStatsService = {
             networkInfo.name +
             " of type " +
             networkInfo.type +
+            " of meter " +
+            networkInfo.meter +
             " status change"
         );
 
@@ -304,41 +311,77 @@ this.NetworkStatsService = {
    */
   getRilNetworks() {
     let networks = {};
-    let numRadioInterfaces = gRil.numRadioInterfaces;
-    for (let i = 0; i < numRadioInterfaces; i++) {
-      let icc = gIccService.getIccByServiceId(i);
-      if (icc && icc.iccInfo) {
-        let netId = this.getNetworkId(icc.iccInfo.iccid, NET_TYPE_MOBILE);
-        networks[netId] = { id: icc.iccInfo.iccid, type: NET_TYPE_MOBILE };
+    let allNetworkInfo = gNetworkManager.allNetworkInfo;
+    for (let index in allNetworkInfo) {
+      let networkInfo = allNetworkInfo[index];
+      if (
+        this.isMobileNetworkType(networkInfo.type) &&
+        networkInfo instanceof Ci.nsIRilNetworkInfo
+      ) {
+        let rilNetwork = networkInfo.QueryInterface(Ci.nsIRilNetworkInfo);
+        // We only record interfaces which mark as metered for mobile.
+        if (!rilNetwork.meter) {
+          continue;
+        }
+
+        let iccId = rilNetwork.iccId;
+        if (iccId) {
+          let netId = this.getNetworkId(iccId, NET_TYPE_MOBILE);
+          networks[netId] = {
+            id: iccId,
+            type: NET_TYPE_MOBILE,
+          };
+        }
       }
     }
     return networks;
   },
 
-  convertNetworkInfo(aNetworkInfo) {
+  isMobileNetworkType(aNetworkType) {
     if (
-      aNetworkInfo.type != NET_TYPE_MOBILE &&
-      aNetworkInfo.type != NET_TYPE_WIFI
+      aNetworkType === NET_TYPE_MOBILE ||
+      aNetworkType === NET_TYPE_MOBILE_MMS ||
+      aNetworkType === NET_TYPE_MOBILE_SUPL ||
+      aNetworkType === NET_TYPE_MOBILE_IMS ||
+      aNetworkType === NET_TYPE_MOBILE_DUN ||
+      aNetworkType === NET_TYPE_MOBILE_FOTA ||
+      aNetworkType === NET_TYPE_MOBILE_HIPRI ||
+      aNetworkType === NET_TYPE_MOBILE_CBS ||
+      aNetworkType === NET_TYPE_MOBILE_IA ||
+      aNetworkType === NET_TYPE_MOBILE_ECC ||
+      aNetworkType === NET_TYPE_MOBILE_XCAP
     ) {
-      return null;
+      return true;
     }
 
+    return false;
+  },
+
+  convertNetworkInfo(aNetworkInfo) {
     let id = "0";
-    if (aNetworkInfo.type == NET_TYPE_MOBILE) {
+    if (this.isMobileNetworkType(aNetworkInfo.type)) {
       if (!(aNetworkInfo instanceof Ci.nsIRilNetworkInfo)) {
         debug("Error! Mobile network should be an nsIRilNetworkInfo!");
+        return null;
+      }
+      // Record mobile metered interface only.
+      if (!aNetworkInfo.meter) {
         return null;
       }
 
       let rilNetwork = aNetworkInfo.QueryInterface(Ci.nsIRilNetworkInfo);
       id = rilNetwork.iccId;
+    } else if (aNetworkInfo.type != NET_TYPE_WIFI) {
+      // We only get mobile/wifi type currently.
+      return null;
     }
 
-    let netId = this.getNetworkId(id, aNetworkInfo.type);
+    let networkType = this.convertNetworkType(aNetworkInfo.type);
+    let netId = this.getNetworkId(id, networkType);
 
     if (!this._networks[netId]) {
       this._networks[netId] = Object.create(null);
-      this._networks[netId].network = { id, type: aNetworkInfo.type };
+      this._networks[netId].network = { id, type: networkType };
       this._networks[netId].interfaceNames = [];
     }
 
@@ -352,6 +395,14 @@ this.NetworkStatsService = {
 
   getNetworkId: function getNetworkId(aIccId, aNetworkType) {
     return aIccId + "" + aNetworkType;
+  },
+
+  //TODO: We treat all mobile network types as same one and simply distinguish
+  //      by meter or not, refactor this if we wanna change the design.
+  convertNetworkType: function convertNetworkType(aNetworkType) {
+    return this.isMobileNetworkType(aNetworkType)
+      ? NET_TYPE_MOBILE
+      : aNetworkType;
   },
 
   /* Function to ensure that one network is valid. The network is valid if its status is
@@ -818,7 +869,7 @@ this.NetworkStatsService = {
     // Request stats to NetworkService, which will get stats from netd, passing
     // 'networkStatsAvailable' as a callback.
     if (interfaceNames.length != 0) {
-      networkService.getNetworkInterfaceStats(
+      gNetworkService.getNetworkInterfaceStats(
         interfaceNames,
         this.networkStatsAvailable.bind(this, aCallback, aNetId)
       );
@@ -1284,7 +1335,7 @@ this.NetworkStatsService = {
       debug("Set alarm " + JSON.stringify(aAlarm));
       let interfaceName = self._networks[aAlarm.networkId].interfaceName;
       if (interfaceName) {
-        networkService.setNetworkInterfaceAlarm(
+        gNetworkService.setNetworkInterfaceAlarm(
           interfaceName,
           aQuota,
           callback
@@ -1362,7 +1413,7 @@ this.NetworkStatsService = {
 
       if (!result) {
         let interfaceName = self._networks[aNetworkId].interfaceName;
-        networkService.setNetworkInterfaceAlarm(
+        gNetworkService.setNetworkInterfaceAlarm(
           interfaceName,
           -1,
           function onComplete() {}

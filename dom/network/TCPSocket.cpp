@@ -1187,7 +1187,7 @@ void TCPSocket::SaveNetworkStats(bool aEnforce) {
     return;
   }
 
-  nssProxy->SaveAppStats(mOrigin, mActiveNetworkInfo, PR_Now(), mRxBytes,
+  nssProxy->SaveAppStats(mOrigin, mActiveNetworkInfo, PR_Now() / 1000, mRxBytes,
                          mTxBytes, false, mIsApp, nullptr);
 
   // Reset the counters once the statistics is saved to

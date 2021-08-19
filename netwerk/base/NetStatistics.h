@@ -75,7 +75,7 @@ class SaveNetworkStatsEvent : public Runnable {
 
     // save the network stats through NetworkStatsServiceProxy
     mNetworkStatsServiceProxy->SaveAppStats(
-        mOrigin, mActiveNetworkInfo, PR_Now() / 1000, mCountRecv, mCountSent,
+        mOrigin, mActiveNetworkInfo, mCountRecv, mCountSent,
         mIsAccumulative, mIsApp, nullptr);
 
     return NS_OK;

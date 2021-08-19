@@ -46,7 +46,6 @@ NetworkStatsServiceProxy.prototype = {
   saveAppStats: function saveAppStats(
     aOrigin,
     aNetworkInfo,
-    aTimeStamp,
     aRxBytes,
     aTxBytes,
     aIsAccumulative,
@@ -65,8 +64,6 @@ NetworkStatsServiceProxy.prototype = {
         aOrigin +
         " NetworkType:" +
         aNetworkInfo.type +
-        " TimeStamp:" +
-        aTimeStamp +
         " RX:" +
         aRxBytes +
         " TX:" +
@@ -94,7 +91,6 @@ NetworkStatsServiceProxy.prototype = {
       aOrigin,
       "",
       aNetworkInfo,
-      aTimeStamp,
       aRxBytes,
       aTxBytes,
       aIsAccumulative,
@@ -109,7 +105,6 @@ NetworkStatsServiceProxy.prototype = {
   saveServiceStats: function saveServiceStats(
     aServiceType,
     aNetworkInfo,
-    aTimeStamp,
     aRxBytes,
     aTxBytes,
     aIsAccumulative,
@@ -128,8 +123,6 @@ NetworkStatsServiceProxy.prototype = {
         " " +
         aNetworkInfo.type +
         " " +
-        aTimeStamp +
-        " " +
         aRxBytes +
         " " +
         aTxBytes +
@@ -145,7 +138,6 @@ NetworkStatsServiceProxy.prototype = {
       "",
       aServiceType,
       aNetworkInfo,
-      aTimeStamp,
       aRxBytes,
       aTxBytes,
       aIsAccumulative,

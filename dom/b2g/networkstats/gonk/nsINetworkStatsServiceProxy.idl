@@ -23,7 +23,6 @@ interface nsINetworkStatsServiceProxy : nsISupports
    * An interface used to record per-app traffic data.
    * @param aOrigin origin
    * @param aNetworkInterface network
-   * @param aTimeStamp time stamp
    * @param aRxBytes received data amount
    * @param aTxBytes transmitted data amount
    * @param aIsAccumulative is stats accumulative
@@ -32,7 +31,6 @@ interface nsINetworkStatsServiceProxy : nsISupports
    */
   void saveAppStats(in ACString aOrigin,
                     in nsINetworkInfo aNetworkInfo,
-                    in unsigned long long aTimeStamp,
                     in unsigned long long aRxBytes,
                     in unsigned long long aTxBytes,
                     in boolean aIsAccumulative,
@@ -43,7 +41,6 @@ interface nsINetworkStatsServiceProxy : nsISupports
    * An interface used to record per-system service traffic data.
    * @param aServiceType system service type
    * @param aNetworkInterface network
-   * @param aTimeStamp time stamp
    * @param aRxBytes received data amount
    * @param aTxBytes transmitted data amount
    * @param aIsAccumulative is stats accumulative
@@ -51,7 +48,6 @@ interface nsINetworkStatsServiceProxy : nsISupports
    */
   void saveServiceStats(in string aServiceType,
                         in nsINetworkInfo aNetworkInfo,
-                        in unsigned long long aTimeStamp,
                         in unsigned long long aRxBytes,
                         in unsigned long long aTxBytes,
                         in boolean aIsAccumulative,

@@ -58,6 +58,7 @@ const MAX_CACHED_TRAFFIC = 500 * 1000 * 1000; // 500 MB
 const QUEUE_TYPE_UPDATE_STATS = 0;
 const QUEUE_TYPE_UPDATE_CACHE = 1;
 const QUEUE_TYPE_WRITE_CACHE = 2;
+const QUEUE_TYPE_UPDATE_INTERFACE_STATS = 3;
 
 var DEBUG = false;
 function debug(s) {
@@ -115,7 +116,6 @@ this.NetworkStatsService = {
     // Object to store network interfaces, each network interface is composed
     // by a network object (network type and network Id) and a interfaceName
     // that contains the name of the physical interface (wlan0, rmnet0, etc.).
-    // InterfaceNames array may contain multiple interface with same netId.
     // The network type can be 0 for wifi or 1 for mobile. On the other hand,
     // the network id is '0' for wifi or the iccid for mobile (SIM).
     // Each networkInterface is placed in the _networks object by the index of
@@ -137,9 +137,10 @@ this.NetworkStatsService = {
       // TODO: Quota alarm won't work for multiple active interfaces exist
       //       in a single type, refactor this once you need it.
       interfaceName: null,
-      interfaceNames: [],
       status: NETWORK_STATUS_STANDBY,
     };
+
+    this._interfaceStats = Object.create(null);
 
     this.messages = [
       "NetworkStats:Get",
@@ -176,6 +177,9 @@ this.NetworkStatsService = {
 
     this._currentAlarms = {};
     this.initAlarms();
+
+    // Snapshot all interfaces stats info
+    this.updateInterfaceStats("");
   },
 
   receiveMessage(aMessage) {
@@ -246,6 +250,8 @@ this.NetworkStatsService = {
 
         let netId = this.convertNetworkInfo(networkInfo);
         if (!netId) {
+          // Tracking non-metered interface stats still and no updating db needed
+          this.updateInterfaceStats(networkInfo.name);
           break;
         }
 
@@ -382,14 +388,10 @@ this.NetworkStatsService = {
     if (!this._networks[netId]) {
       this._networks[netId] = Object.create(null);
       this._networks[netId].network = { id, type: networkType };
-      this._networks[netId].interfaceNames = [];
     }
 
     this._networks[netId].status = NETWORK_STATUS_READY;
     this._networks[netId].interfaceName = aNetworkInfo.name;
-    if (!this._networks[netId].interfaceNames.includes(aNetworkInfo.name)) {
-      this._networks[netId].interfaceNames.push(aNetworkInfo.name);
-    }
     return netId;
   },
 
@@ -426,7 +428,6 @@ this.NetworkStatsService = {
       this._networks[netId] = Object.create(null);
       this._networks[netId].network = rilNetworks[netId];
       this._networks[netId].status = NETWORK_STATUS_STANDBY;
-      this._networks[netId].interfaceNames = [];
       this._currentAlarms[netId] = Object.create(null);
       aCallback(netId);
       return;
@@ -440,7 +441,6 @@ this.NetworkStatsService = {
           this._networks[netId] = Object.create(null);
           this._networks[netId].network = aNetwork;
           this._networks[netId].status = NETWORK_STATUS_AWAY;
-          this._networks[netId].interfaceNames = [];
           this._currentAlarms[netId] = Object.create(null);
           aCallback(netId);
           return;
@@ -771,6 +771,32 @@ this.NetworkStatsService = {
     }
   },
 
+  updateInterfaceStats: function updateInterfaceStats(
+    aInterfaceName,
+    aCallback
+  ) {
+    // FIXME: Moz uses netId which same with the DB key as updateQueue Id.
+    // We levrege the queue design but using "01" as an index for updateInterfaceStats used especially.
+    // It needs a generic approach for this.
+    let netId = this.getNetworkId("0", NET_TYPE_MOBILE);
+    // Check if the connection is in the main queue, push a new element
+    // if it is not being processed or add a callback if it is.
+    let index = this.updateQueueIndex(netId);
+    if (index == -1) {
+      this.updateQueue.push({
+        interfaceName: aInterfaceName,
+        callbacks: [aCallback],
+        queueType: QUEUE_TYPE_UPDATE_INTERFACE_STATS,
+      });
+    } else {
+      this.updateQueue[index].callbacks.push(aCallback);
+      return;
+    }
+
+    // Call the function that process the elements of the queue.
+    this.processQueue();
+  },
+
   updateStats: function updateStats(aNetId, aCallback) {
     // Check if the connection is in the main queue, push a new element
     // if it is not being processed or add a callback if it is.
@@ -851,7 +877,29 @@ this.NetworkStatsService = {
       case QUEUE_TYPE_WRITE_CACHE:
         this.writeCache(item.stats, this.processQueue.bind(this));
         break;
+      case QUEUE_TYPE_UPDATE_INTERFACE_STATS:
+        this.updateInterfaceInfo(
+          item.interfaceName,
+          this.processQueue.bind(this)
+        );
     }
+  },
+
+  updateInterfaceInfo: function updateInterfaceInfo(aInterfaceName, aCallback) {
+    let callback = function(aResult, aRxBytes, aTxBytes, aTimestamp) {
+      if (!aResult) {
+        if (aCallback) {
+          aCallback(false, "Netd IPC error");
+        }
+        return;
+      }
+      aCallback(true, "OK");
+    };
+
+    gNetworkService.getNetworkInterfaceStats(
+      aInterfaceName,
+      this.networkStatsAvailable.bind(this, callback)
+    );
   },
 
   update: function update(aNetId, aCallback) {
@@ -863,15 +911,48 @@ this.NetworkStatsService = {
       return;
     }
 
-    let interfaceNames = this._networks[aNetId].interfaceNames;
-    debug("Update stats for " + JSON.stringify(interfaceNames));
+    let callback = function(aResult, aRxBytesDiff, aTxBytesDiff, aTimestamp) {
+      if (!aResult) {
+        if (aCallback) {
+          aCallback(false, "Netd IPC error");
+        }
+        return;
+      }
+
+      let stats = {
+        origin: "default",
+        serviceType: "",
+        networkId: this._networks[aNetId].network.id,
+        networkType: this._networks[aNetId].network.type,
+        date: new Date(aTimestamp),
+        rxBytes: aRxBytesDiff,
+        txBytes: aTxBytesDiff,
+        isAccumulative: false,
+      };
+
+      debug("Update stats for: " + JSON.stringify(stats));
+
+      this._db.saveStats(stats, function onSavedStats(aError, aResult) {
+        if (aCallback) {
+          if (aError) {
+            aCallback(false, aError);
+            return;
+          }
+
+          aCallback(true, "OK");
+        }
+      });
+    }.bind(this);
+
+    let interfaceName = this._networks[aNetId].interfaceName;
+    debug("Update stats for " + JSON.stringify(interfaceName));
 
     // Request stats to NetworkService, which will get stats from netd, passing
     // 'networkStatsAvailable' as a callback.
-    if (interfaceNames.length != 0) {
+    if (interfaceName.length != 0) {
       gNetworkService.getNetworkInterfaceStats(
-        interfaceNames,
-        this.networkStatsAvailable.bind(this, aCallback, aNetId)
+        interfaceName,
+        this.networkStatsAvailable.bind(this, callback)
       );
       return;
     }
@@ -882,46 +963,44 @@ this.NetworkStatsService = {
   },
 
   /*
-   * Callback of request stats. Store stats in database.
+   * Callback of request stats. Update interfaceStats cache and return rx and tx diff.
    */
   networkStatsAvailable: function networkStatsAvailable(
     aCallback,
-    aNetId,
     aResult,
-    aRxBytes,
-    aTxBytes,
+    aInterfaceStats,
     aTimestamp
   ) {
     if (!aResult) {
       if (aCallback) {
-        aCallback(false, "Netd IPC error");
+        aCallback(false, 0, 0, aTimestamp);
       }
       return;
     }
 
-    let stats = {
-      origin: "default",
-      serviceType: "",
-      networkId: this._networks[aNetId].network.id,
-      networkType: this._networks[aNetId].network.type,
-      date: new Date(aTimestamp),
-      rxBytes: aRxBytes,
-      txBytes: aTxBytes,
-      isAccumulative: true,
-    };
+    let rxBytesDiff = 0;
+    let txBytesDiff = 0;
 
-    debug("Update stats for: " + JSON.stringify(stats));
+    debug("aInterfaceStats " + JSON.stringify(aInterfaceStats));
 
-    this._db.saveStats(stats, function onSavedStats(aError, aResult) {
-      if (aCallback) {
-        if (aError) {
-          aCallback(false, aError);
-          return;
-        }
-
-        aCallback(true, "OK");
+    aInterfaceStats.forEach(stat => {
+      if (!this._interfaceStats[stat.name]) {
+        this._interfaceStats[stat.name] = Object.create(null);
+        this._interfaceStats[stat.name].rxBytes = 0;
+        this._interfaceStats[stat.name].txBytes = 0;
       }
+      rxBytesDiff = stat.rxBytes - this._interfaceStats[stat.name].rxBytes;
+      txBytesDiff = stat.txBytes - this._interfaceStats[stat.name].txBytes;
+
+      this._interfaceStats[stat.name].rxBytes = stat.rxBytes;
+      this._interfaceStats[stat.name].txBytes = stat.txBytes;
     });
+
+    debug("this._interfaceStats " + JSON.stringify(this._interfaceStats));
+
+    if (aCallback) {
+      aCallback(true, rxBytesDiff, txBytesDiff, aTimestamp);
+    }
   },
 
   /*

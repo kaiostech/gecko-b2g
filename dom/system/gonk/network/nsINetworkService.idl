@@ -17,12 +17,21 @@ interface nsIWifiTetheringCallback : nsISupports
   void wifiTetheringEnabledChange(in jsval error);
 };
 
+[scriptable, function, uuid(a464a8e6-0fd5-4250-ab22-991a3488fd37)]
+interface nsIInterfaceStatsInfo : nsISupports
+{
+
+  attribute AString name;
+  attribute unsigned long rxBytes;
+  attribute unsigned long txBytes;
+
+};
+
 [scriptable, function, uuid(9c128e68-5e4b-4626-bb88-84ec54cce5d8)]
 interface nsINetworkStatsCallback : nsISupports
 {
   void networkStatsAvailable(in boolean success,
-                             in unsigned long rxBytes,
-                             in unsigned long txBytes,
+                             in Array<nsIInterfaceStatsInfo> stats,
                              in unsigned long long timestamp);
 };
 
@@ -260,14 +269,15 @@ interface nsINetworkService : nsISupports
   /**
    * Retrieve network interfaces stats.
    *
-   * @param interfaces
-   *        Select the Network interfaces to request estats.
+   * @param interfaceName
+   *        Select a Network interface to request estats.
+   *        If the interfaceName is not specified, it will return estats of all interfaces.
    *
    * @param callback
    *        Callback to notify result and provide stats, connectionType
    *        and the date when stats are retrieved
    */
-  void getNetworkInterfaceStats(in Array<ACString> interfaces,
+  void getNetworkInterfaceStats(in ACString interfaceName,
                                 in nsINetworkStatsCallback callback);
 
   /**

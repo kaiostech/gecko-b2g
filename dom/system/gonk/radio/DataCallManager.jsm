@@ -373,7 +373,7 @@ DataCallManager.prototype = {
     }
     // Once got the apn, loading the meter list config if any.
     if (aApnList && aApnList.length > 0) {
-      let meterInterfaceList = null;
+      let meterInterfaceList = [];
       if (gCustomizationInfo) {
         meterInterfaceList = gCustomizationInfo.getCustomizedValue(
           aClientId,
@@ -381,10 +381,14 @@ DataCallManager.prototype = {
           []
         );
       }
-      if (meterInterfaceList.length > 0) {
-        this.debug("meterInterfaceList:" + JSON.stringify(meterInterfaceList));
-        handler.configMeter(meterInterfaceList);
+      // Default config, if no meterInterfaceList config, set the default type as meter type.
+      if (meterInterfaceList.length == 0) {
+        this.debug("Config default type as meter.");
+        meterInterfaceList.push("default");
       }
+      this.debug("meterInterfaceList:" + JSON.stringify(meterInterfaceList));
+
+      handler.configMeter(meterInterfaceList);
     }
 
     // Once got the apn, loading the white list config if any.

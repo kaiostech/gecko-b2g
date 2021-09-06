@@ -619,7 +619,7 @@ NetworkStatsDB.prototype = {
                 // There is one sample only.
                 result.rxBytes = cursor.value.rxBytes;
                 result.txBytes = cursor.value.txBytes;
-              } else {
+              } else if (cursor.value.timestamp == start) {
                 result.rxBytes -= cursor.value.rxTotalBytes;
                 result.txBytes -= cursor.value.txTotalBytes;
               }

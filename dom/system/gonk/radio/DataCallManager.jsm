@@ -371,25 +371,6 @@ DataCallManager.prototype = {
       }*/
       handler.updateApnSettings(aApnList);
     }
-    // Once got the apn, loading the meter list config if any.
-    if (aApnList && aApnList.length > 0) {
-      let meterInterfaceList = [];
-      if (gCustomizationInfo) {
-        meterInterfaceList = gCustomizationInfo.getCustomizedValue(
-          aClientId,
-          "meterInterfaceList",
-          []
-        );
-      }
-      // Default config, if no meterInterfaceList config, set the default type as meter type.
-      if (meterInterfaceList.length == 0) {
-        this.debug("Config default type as meter.");
-        meterInterfaceList.push("default");
-      }
-      this.debug("meterInterfaceList:" + JSON.stringify(meterInterfaceList));
-
-      handler.configMeter(meterInterfaceList);
-    }
 
     // Once got the apn, loading the white list config if any.
     if (aApnList && aApnList.length > 0) {
@@ -981,6 +962,30 @@ DataCallHandler.prototype = {
     );
   },
 
+  updateMeterApnType() {
+    if (!this._activeApnSettings) {
+      this.debug("No apn setting.");
+      return;
+    }
+
+    let meterInterfaceList = [];
+    if (gCustomizationInfo) {
+      meterInterfaceList = gCustomizationInfo.getCustomizedValue(
+        this.clientId,
+        "meterInterfaceList",
+        []
+      );
+    }
+    // Default config, if no meterInterfaceList config, set the default type as meter type.
+    if (meterInterfaceList.length == 0) {
+      this.debug("Config default type as meter.");
+      meterInterfaceList.push("default");
+    }
+    this.debug("meterInterfaceList:" + JSON.stringify(meterInterfaceList));
+
+    this.configMeter(meterInterfaceList);
+  },
+
   /**
    * Check if all data is disconnected.
    */
@@ -1035,6 +1040,8 @@ DataCallHandler.prototype = {
     ).then(() => {
       this._setupApnSettings(this._pendingApnSettings);
       this._pendingApnSettings = null;
+      // Once got the apn, loading the meter list config if any.
+      this.updateMeterApnType();
       this.updateAllRILNetworkInterface();
     });
   },

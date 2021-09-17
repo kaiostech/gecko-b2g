@@ -80,6 +80,13 @@ XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
+  "gRil",
+  "@mozilla.org/ril;1",
+  "nsIRadioInterfaceLayer"
+);
+
+XPCOMUtils.defineLazyServiceGetter(
+  this,
   "gNetworkService",
   "@mozilla.org/network/service;1",
   "nsINetworkService"
@@ -87,16 +94,16 @@ XPCOMUtils.defineLazyServiceGetter(
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
-  "gNetworkManager",
-  "@mozilla.org/network/manager;1",
-  "nsINetworkManager"
+  "messenger",
+  "@mozilla.org/systemmessage-service;1",
+  "nsISystemMessageService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
-  "messenger",
-  "@mozilla.org/systemmessage-service;1",
-  "nsISystemMessageService"
+  "gIccService",
+  "@mozilla.org/icc/iccservice;1",
+  "nsIIccService"
 );
 
 this.NetworkStatsService = {
@@ -136,7 +143,7 @@ this.NetworkStatsService = {
       network: { id: "0", type: NET_TYPE_WIFI },
       // TODO: Quota alarm won't work for multiple active interfaces exist
       //       in a single type, refactor this once you need it.
-      interfaceName: null,
+      interfaceName: "",
       status: NETWORK_STATUS_STANDBY,
     };
 
@@ -317,27 +324,12 @@ this.NetworkStatsService = {
    */
   getRilNetworks() {
     let networks = {};
-    let allNetworkInfo = gNetworkManager.allNetworkInfo;
-    for (let index in allNetworkInfo) {
-      let networkInfo = allNetworkInfo[index];
-      if (
-        this.isMobileNetworkType(networkInfo.type) &&
-        networkInfo instanceof Ci.nsIRilNetworkInfo
-      ) {
-        let rilNetwork = networkInfo.QueryInterface(Ci.nsIRilNetworkInfo);
-        // We only record interfaces which mark as metered for mobile.
-        if (!rilNetwork.meter) {
-          continue;
-        }
-
-        let iccId = rilNetwork.iccId;
-        if (iccId) {
-          let netId = this.getNetworkId(iccId, NET_TYPE_MOBILE);
-          networks[netId] = {
-            id: iccId,
-            type: NET_TYPE_MOBILE,
-          };
-        }
+    let numRadioInterfaces = gRil.numRadioInterfaces;
+    for (let i = 0; i < numRadioInterfaces; i++) {
+      let icc = gIccService.getIccByServiceId(i);
+      if (icc && icc.iccInfo) {
+        let netId = this.getNetworkId(icc.iccInfo.iccid, NET_TYPE_MOBILE);
+        networks[netId] = { id: icc.iccInfo.iccid, type: NET_TYPE_MOBILE };
       }
     }
     return networks;
@@ -428,6 +420,7 @@ this.NetworkStatsService = {
       this._networks[netId] = Object.create(null);
       this._networks[netId].network = rilNetworks[netId];
       this._networks[netId].status = NETWORK_STATUS_STANDBY;
+      this._networks[netId].interfaceName = "";
       this._currentAlarms[netId] = Object.create(null);
       aCallback(netId);
       return;
@@ -441,6 +434,7 @@ this.NetworkStatsService = {
           this._networks[netId] = Object.create(null);
           this._networks[netId].network = aNetwork;
           this._networks[netId].status = NETWORK_STATUS_AWAY;
+          this._networks[netId].interfaceName = "";
           this._currentAlarms[netId] = Object.create(null);
           aCallback(netId);
           return;

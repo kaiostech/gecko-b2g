@@ -14,7 +14,14 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { NetworkStatsDB } = ChromeUtils.import(
   "resource://gre/modules/NetworkStatsDB.jsm"
 );
+
 const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
+
+ChromeUtils.defineModuleGetter(
+  this,
+  "AlarmService",
+  "resource://gre/modules/AlarmService.jsm"
+);
 
 /* eslint-disable no-unused-vars */
 const NET_NETWORKSTATSSERVICE_CONTRACTID =
@@ -78,6 +85,10 @@ XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
 
+XPCOMUtils.defineLazyGetter(this, "timeService", function() {
+  return Cc["@mozilla.org/sidl-native/time;1"].getService(Ci.nsITime);
+});
+
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "gRil",
@@ -108,6 +119,7 @@ XPCOMUtils.defineLazyServiceGetter(
 
 this.NetworkStatsService = {
   _currentAlarms: {},
+  _alarmForUpdateStatsId: null,
 
   init() {
     debug("Service started");
@@ -117,8 +129,6 @@ this.NetworkStatsService = {
     Services.obs.addObserver(this, TOPIC_BANDWIDTH_CONTROL);
     Services.obs.addObserver(this, "profile-after-change");
     Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
-
-    this.timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
     // Object to store network interfaces, each network interface is composed
     // by a network object (network type and network Id) and a interfaceName
@@ -168,13 +178,6 @@ this.NetworkStatsService = {
 
     this._db = new NetworkStatsDB(DEBUG);
 
-    // Stats for all interfaces are updated periodically
-    this.timer.initWithCallback(
-      this,
-      this._db.sampleRate,
-      Ci.nsITimer.TYPE_REPEATING_PRECISE_CAN_SKIP
-    );
-
     // Stats not from netd are firstly stored in the cached.
     this.cachedStats = Object.create(null);
     this.cachedStatsDate = new Date();
@@ -187,6 +190,33 @@ this.NetworkStatsService = {
 
     // Snapshot all interfaces stats info
     this.updateInterfaceStats("");
+
+    this._setAlarmForUpdateStats();
+
+    let timeChangeCallback = this._onAlarmForUpdatStatsFired.bind(this);
+
+    timeService.addObserver(
+      timeService.TIME_CHANGED,
+      {
+        notify: timeChangeCallback,
+      },
+      {
+        resolve: () => DEBUG && debug("resolve: addObserver on TIME_CHANGED"),
+        reject: () => DEBUG && debug("reject: addObserver on TIME_CHANGED"),
+      }
+    );
+    timeService.addObserver(
+      timeService.TIMEZONE_CHANGED,
+      {
+        notify: timeChangeCallback,
+      },
+      {
+        resolve: () =>
+          DEBUG && debug("resolve: addObserver on TIMEZONE_CHANGED"),
+        reject: () =>
+          DEBUG && debug("resolve: addObserver on TIMEZONE_CHANGED"),
+      }
+    );
   },
 
   receiveMessage(aMessage) {
@@ -302,8 +332,7 @@ this.NetworkStatsService = {
         Services.obs.removeObserver(this, TOPIC_BANDWIDTH_CONTROL);
         Services.prefs.removeObserver(PREF_NETWORK_DEBUG_ENABLED, this);
 
-        this.timer.cancel();
-        this.timer = null;
+        this._stopAlarmForUpdateStats();
 
         // Update stats before shutdown
         this.updateAllStats();
@@ -311,12 +340,59 @@ this.NetworkStatsService = {
     }
   },
 
-  /*
-   * nsITimerCallback
-   * Timer triggers the update of all stats
-   */
-  notify(aTimer) {
-    this.updateAllStats();
+  _setAlarmForUpdateStats() {
+    // Stop any existing alarm for update stats.
+    this._stopAlarmForUpdateStats();
+
+    // We cache a normalized timestamp when set alarm function is called
+    // (_timestampToUpdateStat) here for alarm oncallback to update network stats to DB.
+    // The _timestampToUpdateStat is UTC but implied offset, so the next time for tigger
+    // alarm is a normalized timestamp adds sampling period and timezone offset.
+    // It will make each tick set to midnight if the sampling period is 1 day.
+
+    let now = new Date();
+    let offset = new Date().getTimezoneOffset() * 60 * 1000;
+    this._timestampToUpdateStats = this._db.normalizeDate(now);
+    let timestamp = this._timestampToUpdateStats + this._db.sampleRate + offset;
+    debug(
+      "Set alarm for update all stats , _timestampToUpdateStats is " +
+        this._timestampToUpdateStats +
+        " alarm time is " +
+        timestamp +
+        " now is " +
+        now.getTime()
+    );
+    AlarmService.add(
+      {
+        date: new Date(timestamp),
+        ignoreTimezone: false,
+      },
+      this._onAlarmForUpdatStatsFired.bind(this),
+      function onSuccess(alarmId) {
+        this._alarmForUpdateStatsId = alarmId;
+        debug(
+          "Set alarm " +
+            timestamp +
+            " in the future " +
+            this._alarmForUpdateStatsId
+        );
+      }.bind(this)
+    );
+  },
+
+  _stopAlarmForUpdateStats() {
+    if (this._alarmForUpdateStatsId !== null) {
+      debug(
+        "Stopped existing alarm for update stats " + this._alarmForUpdateStatsId
+      );
+      AlarmService.remove(this._alarmForUpdateStatsId);
+      this._alarmForUpdateStatsId = null;
+    }
+  },
+
+  _onAlarmForUpdatStatsFired() {
+    this.updateAllStats(this._timestampToUpdateStats);
+    this._setAlarmForUpdateStats();
   },
 
   /*
@@ -675,7 +751,7 @@ this.NetworkStatsService = {
         };
       }, self);
 
-      self.updateAllStats(function onUpdate(aResult, aMessage) {
+      self.updateAllStats(null, function onUpdate(aResult, aMessage) {
         if (!aResult) {
           mm.sendAsyncMessage("NetworkStats:ClearAll:Return", {
             id: msg.id,
@@ -699,7 +775,7 @@ this.NetworkStatsService = {
     });
   },
 
-  updateAllStats: function updateAllStats(aCallback) {
+  updateAllStats: function updateAllStats(aTimestamp, aCallback) {
     let elements = [];
     let lastElement = null;
     let callback = function(success, message) {
@@ -722,6 +798,7 @@ this.NetworkStatsService = {
       if (lastElement.queueIndex == -1) {
         elements.push({
           netId: lastElement.netId,
+          timestamp: aTimestamp ? aTimestamp : undefined,
           callbacks: [],
           queueType: QUEUE_TYPE_UPDATE_STATS,
         });
@@ -863,7 +940,7 @@ this.NetworkStatsService = {
   run: function run(item) {
     switch (item.queueType) {
       case QUEUE_TYPE_UPDATE_STATS:
-        this.update(item.netId, this.processQueue.bind(this));
+        this.update(item.netId, this.processQueue.bind(this), item.timestamp);
         break;
       case QUEUE_TYPE_UPDATE_CACHE:
         this.updateCache(this.processQueue.bind(this));
@@ -896,7 +973,7 @@ this.NetworkStatsService = {
     );
   },
 
-  update: function update(aNetId, aCallback) {
+  update: function update(aNetId, aCallback, aTimestamp) {
     // Check if connection type is valid.
     if (!this._networks[aNetId]) {
       if (aCallback) {
@@ -905,7 +982,7 @@ this.NetworkStatsService = {
       return;
     }
 
-    let callback = function(aResult, aRxBytesDiff, aTxBytesDiff, aTimestamp) {
+    let callback = function(aResult, aRxBytesDiff, aTxBytesDiff, aFetchTime) {
       if (!aResult) {
         if (aCallback) {
           aCallback(false, "Netd IPC error");
@@ -918,7 +995,10 @@ this.NetworkStatsService = {
         serviceType: "",
         networkId: this._networks[aNetId].network.id,
         networkType: this._networks[aNetId].network.type,
-        date: new Date(aTimestamp),
+        // If an aTimestamp is assigned, it means a caller specify a timestamp
+        // to update stats. Otherwise, it should update stats to the time
+        // when getNetworkInterfaceStats function is called which is aFetchTime.
+        date: aTimestamp ? new Date(aTimestamp) : new Date(aFetchTime),
         rxBytes: aRxBytesDiff,
         txBytes: aTxBytesDiff,
         isAccumulative: false,

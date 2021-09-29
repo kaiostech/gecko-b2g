@@ -60,6 +60,7 @@ EXTRA_JS_MODULES += [
     "dbg-browser-actors.js",
     "ErrorPage.jsm",
     "GeckoBridge.jsm",
+    "IpfsProtocolHandler.jsm",
     "KillSwitchMain.jsm",
     "MultiscreenHandler.jsm",
     "OrientationChangeHandler.jsm",

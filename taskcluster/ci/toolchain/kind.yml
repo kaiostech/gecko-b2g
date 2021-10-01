@@ -25,7 +25,7 @@ job-defaults:
 
 jobs-from:
     - android.yml
-    - b2g-emulator.yml
+      #    - b2g-emulator.yml
     - cbindgen.yml
     - cctools-port.yml
     - clang-tidy.yml

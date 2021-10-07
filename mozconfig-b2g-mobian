@@ -36,3 +36,5 @@ else
 fi
 
 mk_add_options AUTOCLOBBER=1
+
+export MOZ_REQUIRE_SIGNING=

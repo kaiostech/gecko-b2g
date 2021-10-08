@@ -114,6 +114,7 @@ async function exportExtension(aAddon, aPermissions, aSourceURI) {
 class WebExtensionsEmbeddingImpl {
   constructor() {
     this.delegate = null;
+    this.queued = [];
 
     Services.obs.addObserver(this, "webextension-permission-prompt");
   }
@@ -130,6 +131,12 @@ class WebExtensionsEmbeddingImpl {
     this.log(`setDelegate`);
     this.delegate = delegate;
     this.delegate.setProvider(this);
+
+    // Drain the queue.
+    this.queued.forEach(({ extension, tabId, data }) => {
+      this.sendRequest(extension, tabId, data);
+    });
+    this.queued = [];
   }
 
   observe(aSubject, aTopic, aData) {
@@ -183,7 +190,11 @@ class WebExtensionsEmbeddingImpl {
 
   async updateTab({ nativeTab, extensionId, updateProperties } = {}) {
     this.log(`updateTab`);
-    return this.delegate.updateTab({ nativeTab, extensionId, updateProperties });
+    return this.delegate.updateTab({
+      nativeTab,
+      extensionId,
+      updateProperties,
+    });
   }
 
   // Internal methods.
@@ -191,7 +202,8 @@ class WebExtensionsEmbeddingImpl {
     // this.log(`sendRequest ${extension} ${tabId} ${JSON.stringify(data)}`);
 
     if (!this.delegate) {
-      this.error(`sendRequest: no delegate set, dropping '${data.type}'`);
+      this.error(`sendRequest: no delegate set, queueing '${data.type}'`);
+      this.queued.push({ extension, tabId, data });
       return;
     }
 

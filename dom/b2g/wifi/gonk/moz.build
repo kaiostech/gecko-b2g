@@ -1,0 +1,72 @@
+# -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
+# vim: set filetype=python:
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+EXTRA_JS_MODULES += [
+    "hotspot2/AnqpUtils.jsm",
+    "hotspot2/PasspointConfigManager.jsm",
+    "hotspot2/PasspointConfiguration.jsm",
+    "hotspot2/PasspointManager.jsm",
+    "hotspot2/PasspointNetworkSelector.jsm",
+    "OpenNetworkNotifier.jsm",
+    "SavedNetworkSelector.jsm",
+    "StateMachine.jsm",
+    "WifiCommand.jsm",
+    "WifiConfigManager.jsm",
+    "WifiConfigStore.jsm",
+    "WifiConfiguration.jsm",
+    "WifiConstants.jsm",
+    "WifiInfo.jsm",
+    "WifiNetUtil.jsm",
+    "WifiNetworkSelector.jsm",
+    "WifiScanSettings.jsm",
+    "WifiWorker.jsm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+EXPORTS += [
+    "hal/WifiCommon.h",
+    "hal/WifiEventCallback.h",
+    "nsAnqpResponse.h",
+    "nsWifiElement.h",
+    "nsWifiEvent.h",
+    "nsWifiResult.h",
+    "WifiCertService.h",
+    "WifiProxyService.h",
+]
+
+UNIFIED_SOURCES = [
+    "hal/AnqpElement.cpp",
+    "hal/PasspointHandler.cpp",
+    "hal/ScanEventService.cpp",
+    "hal/SoftapEventService.cpp",
+    "hal/SoftapManager.cpp",
+    "hal/SupplicantCallback.cpp",
+    "hal/SupplicantStaManager.cpp",
+    "hal/SupplicantStaNetwork.cpp",
+    "hal/WifiCommon.cpp",
+    "hal/WificondControl.cpp",
+    "hal/WifiHalManager.cpp",
+    "hal/WifiNative.cpp",
+    "nsAnqpResponse.cpp",
+    "nsWifiElement.cpp",
+    "nsWifiEvent.cpp",
+    "nsWifiResult.cpp",
+    "WifiCertService.cpp",
+    "WifiProxyService.cpp",
+]
+
+LOCAL_INCLUDES += [
+    "hal",
+]
+
+DIRS += [
+    "keystore",
+]
+
+FINAL_LIBRARY = "xul"

@@ -1293,9 +1293,8 @@ if CONFIG["MOZ_WEBSPEECH"]:
         "SpeechSynthesisEvent.webidl",
     ]
 
-if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+if not CONFIG["DISABLE_WIFI"]:
     WEBIDL_FILES += [
-        "MozSpeakerManager.webidl",
         "WifiCapabilities.webidl",
         "WifiManager.webidl",
         "WifiOptions.webidl",
@@ -1304,12 +1303,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     ]
     GENERATED_EVENTS_WEBIDL_FILES += [
         "CaptivePortalLoginEvent.webidl",
-        #'VideoCallCameraCapabilitiesChangeEvent.webidl',
-        #'VideoCallPeerDimensionsEvent.webidl',
-        #'VideoCallQualityEvent.webidl',
-        #'VideoCallSessionChangeEvent.webidl',
-        #'VideoCallSessionModifyRequestEvent.webidl',
-        #'VideoCallSessionModifyResponseEvent.webidl',
         "WifiConnectionInfoEvent.webidl",
         "WifiHasInternetEvent.webidl",
         "WifiOpenNetworkEvent.webidl",
@@ -1317,6 +1310,19 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "WifiScanResultEvent.webidl",
         "WifiStationInfoEvent.webidl",
         "WifiStatusChangeEvent.webidl",
+    ]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+    WEBIDL_FILES += [
+        "MozSpeakerManager.webidl",
+    ]
+    GENERATED_EVENTS_WEBIDL_FILES += [
+        #'VideoCallCameraCapabilitiesChangeEvent.webidl',
+        #'VideoCallPeerDimensionsEvent.webidl',
+        #'VideoCallQualityEvent.webidl',
+        #'VideoCallSessionChangeEvent.webidl',
+        #'VideoCallSessionModifyRequestEvent.webidl',
+        #'VideoCallSessionModifyResponseEvent.webidl',
     ]
 
 if CONFIG["ACCESSIBILITY"]:

@@ -21,68 +21,15 @@ XPIDL_SOURCES += [
 if not CONFIG["DISABLE_WIFI"]:
     EXTRA_JS_MODULES += [
         "DOMWifiManager.jsm",
-        "hotspot2/AnqpUtils.jsm",
-        "hotspot2/PasspointConfigManager.jsm",
-        "hotspot2/PasspointConfiguration.jsm",
-        "hotspot2/PasspointManager.jsm",
-        "hotspot2/PasspointNetworkSelector.jsm",
-        "OpenNetworkNotifier.jsm",
-        "SavedNetworkSelector.jsm",
-        "StateMachine.jsm",
-        "WifiCommand.jsm",
-        "WifiConfigManager.jsm",
-        "WifiConfigStore.jsm",
-        "WifiConfiguration.jsm",
-        "WifiConstants.jsm",
-        "WifiInfo.jsm",
-        "WifiNetUtil.jsm",
-        "WifiNetworkSelector.jsm",
-        "WifiScanSettings.jsm",
-        "WifiWorker.jsm",
     ]
 
     XPCOM_MANIFESTS += [
         "components.conf",
     ]
 
-    EXPORTS += [
-        "hal/WifiCommon.h",
-        "hal/WifiEventCallback.h",
-        "nsAnqpResponse.h",
-        "nsWifiElement.h",
-        "nsWifiEvent.h",
-        "nsWifiResult.h",
-        "WifiCertService.h",
-        "WifiProxyService.h",
-    ]
-
-    UNIFIED_SOURCES = [
-        "hal/AnqpElement.cpp",
-        "hal/PasspointHandler.cpp",
-        "hal/ScanEventService.cpp",
-        "hal/SoftapEventService.cpp",
-        "hal/SoftapManager.cpp",
-        "hal/SupplicantCallback.cpp",
-        "hal/SupplicantStaManager.cpp",
-        "hal/SupplicantStaNetwork.cpp",
-        "hal/WifiCommon.cpp",
-        "hal/WificondControl.cpp",
-        "hal/WifiHalManager.cpp",
-        "hal/WifiNative.cpp",
-        "nsAnqpResponse.cpp",
-        "nsWifiElement.cpp",
-        "nsWifiEvent.cpp",
-        "nsWifiResult.cpp",
-        "WifiCertService.cpp",
-        "WifiProxyService.cpp",
-    ]
-
-    LOCAL_INCLUDES += [
-        "hal",
-    ]
-
-    DIRS += [
-        "keystore",
-    ]
+    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+        DIRS += ["gonk"]
+    else:
+        error("No Wifi support for: %s, configure your build with DISABLE_WIFI (--disable-wifi-support)" % CONFIG["OS_TARGET"])
 
 FINAL_LIBRARY = "xul"

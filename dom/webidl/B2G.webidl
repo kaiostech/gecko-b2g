@@ -132,12 +132,12 @@ partial interface B2G {
 };
 #endif // MOZ_B2G_CAMERA
 
-#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
+#if !defined(DISABLE_WIFI)
 partial interface B2G {
   [Throws, Func="B2G::HasWifiManagerSupport", Exposed=Window]
   readonly attribute WifiManager wifiManager;
 };
-#endif // MOZ_WIDGET_GONK && !DISABLE_WIFI
+#endif // !DISABLE_WIFI
 
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
 [Exposed=Window]

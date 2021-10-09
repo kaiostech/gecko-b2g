@@ -66,7 +66,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
 #ifdef MOZ_B2G_CAMERA
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCameraManager)
 #endif
-#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
+#if !defined(DISABLE_WIFI)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWifiManager)
 #endif
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
@@ -627,7 +627,7 @@ nsDOMCameraManager* B2G::GetCameras(ErrorResult& aRv) {
 }
 #endif  // MOZ_B2G_CAMERA
 
-#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
+#if !defined(DISABLE_WIFI)
 WifiManager* B2G::GetWifiManager(ErrorResult& aRv) {
   if (!mWifiManager) {
     if (!mOwner) {
@@ -642,7 +642,7 @@ WifiManager* B2G::GetWifiManager(ErrorResult& aRv) {
   }
   return mWifiManager;
 }
-#endif  // MOZ_WIDGET_GONK && !DISABLE_WIFI
+#endif  // !DISABLE_WIFI
 
 /* static */
 bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
@@ -656,7 +656,7 @@ bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
 
 /* static */
 bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
-#if !defined(MOZ_WIDGET_GONK) || defined(DISABLE_WIFI)
+#if defined(DISABLE_WIFI)
   return false;
 #endif
 

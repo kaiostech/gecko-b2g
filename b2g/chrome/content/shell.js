@@ -270,6 +270,10 @@ var shell = {
     // This will cause Gonk Widget to remove boot animation from the screen
     // and reveals the page.
     Services.obs.notifyObservers(null, "browser-ui-startup-complete");
+
+    // Needed to kick off WebExtension background pages.
+    Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
+    Services.obs.notifyObservers(window, "extensions-late-startup");
   },
 };
 

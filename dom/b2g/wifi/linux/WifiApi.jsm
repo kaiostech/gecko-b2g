@@ -223,12 +223,12 @@ class NetworkManager {
 
     if (enabled) {
       this.scanId = setInterval(async () => {
-        let start = Date.now();
-        this.log(`Starting periodic scan`);
+        // let start = Date.now();
+        // this.log(`Starting periodic scan`);
         await this.getNetworks();
-        this.log(
-          `Periodic scan done in ${((Date.now() - start) / 1000).toFixed(1)}s`
-        );
+        // this.log(
+        //   `Periodic scan done in ${((Date.now() - start) / 1000).toFixed(1)}s`
+        // );
       }, interval * 1000);
     }
   }

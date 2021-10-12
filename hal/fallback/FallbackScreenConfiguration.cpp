@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "FallbackScreenConfiguration.h"
+#include "nsIObserverService.h"
 
 namespace mozilla {
 namespace hal_impl {
@@ -24,28 +25,20 @@ RefPtr<mozilla::MozPromise<bool, bool, false>> LockScreenOrientation(
 
 void UnlockScreenOrientation() {}
 
+bool GetScreenEnabled() { return true; }
 
-bool
-GetScreenEnabled()
-{
-  return true;
+void SetScreenEnabled(bool aEnabled) {
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
+  if (observerService) {
+    observerService->NotifyObservers(nullptr, "screen-state-changed",
+                                     aEnabled ? u"on" : u"off");
+  }
 }
 
-void
-SetScreenEnabled(bool)
-{
-}
+bool GetExtScreenEnabled() { return true; }
 
-bool
-GetExtScreenEnabled()
-{
-  return true;
-}
-
-void
-SetExtScreenEnabled(bool aEnabled)
-{
-}
+void SetExtScreenEnabled(bool aEnabled) {}
 
 }  // namespace hal_impl
 }  // namespace mozilla

@@ -7000,12 +7000,14 @@ RefPtr<VsyncSource> nsWindow::GetVsyncSource() {
 }
 
 bool nsWindow::SynchronouslyRepaintOnResize() {
+#if !defined(MOZ_B2G)
   if (GdkIsWaylandDisplay()) {
     // See Bug 1734368
     // Don't request synchronous repaint on HW accelerated backend - mesa can be
     // deadlocked when it's missing back buffer and main event loop is blocked.
     return false;
   }
+#endif
 
   // default is synced repaint.
   return true;

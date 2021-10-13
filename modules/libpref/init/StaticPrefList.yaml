@@ -6927,7 +6927,7 @@
   type: RelaxedAtomicBool
 #ifdef MOZ_WAYLAND
   # We want to control it by nsWindow::SynchronouslyRepaintOnResize() on Linux/Wayland.
-  value: false
+  value: true
 #else
   value: true
 #endif

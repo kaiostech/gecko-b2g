@@ -58,8 +58,8 @@ nsresult GaiaChrome::GetProfileDir() {
 }
 
 nsresult GaiaChrome::ComputeAppsPath(nsIFile* aPath) {
-#if defined(MOZ_WIDGET_GONK)
   nsCOMPtr<nsIFile> locationDetection = new nsLocalFile();
+#if defined(MOZ_WIDGET_GONK)
   locationDetection->InitWithPath(mSystemRoot);
   locationDetection->Append(mAppsDir);
   bool appsInSystem = EnsureIsDirectory(locationDetection);
@@ -90,6 +90,14 @@ nsresult GaiaChrome::ComputeAppsPath(nsIFile* aPath) {
       aPath->Append(mVrootDir);
       aPath->Append(u"."_ns);
     }
+  }
+#else
+
+  locationDetection->InitWithFile(aPath);
+  locationDetection->Append(mVrootDir);
+  if (EnsureIsDirectory(locationDetection)) {
+    aPath->Append(mVrootDir);
+    aPath->Append(u"."_ns);
   }
 #endif
 
@@ -196,7 +204,5 @@ static const mozilla::Module::CIDEntry kGaiaChromeCIDs[] = {
 static const mozilla::Module::ContractIDEntry kGaiaChromeContracts[] = {
     {"@mozilla.org/b2g/gaia-chrome;1", &kNS_GAIACHROME_CID}, {nullptr}};
 
-extern const mozilla::Module kGaiaChromeModule = {mozilla::Module::kVersion,
-                                                  kGaiaChromeCIDs,
-                                                  kGaiaChromeContracts,
-                                                  nullptr};
+extern const mozilla::Module kGaiaChromeModule = {
+    mozilla::Module::kVersion, kGaiaChromeCIDs, kGaiaChromeContracts, nullptr};

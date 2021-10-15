@@ -57,7 +57,7 @@ const KeycapMap = {
   },
 };
 
-Array.from(charKeys).forEach(aChar => {
+Array.from(charKeys).forEach((aChar) => {
   KeycapMap[aChar] = {
     detail: {
       key: aChar,
@@ -66,7 +66,7 @@ Array.from(charKeys).forEach(aChar => {
   };
 });
 
-specialKeys.forEach(aChar => {
+specialKeys.forEach((aChar) => {
   KeycapMap[aChar] = {
     detail: {
       key: aChar,
@@ -84,14 +84,14 @@ function sendKeyboardEvent(eventName, detail) {
   keg.generate(keyEvent);
 }
 
-document.getElementById("controls").addEventListener("mousedown", evt => {
+document.getElementById("controls").addEventListener("mousedown", (evt) => {
   const key = evt.target.dataset.key;
   if (key && KeycapMap[key]) {
     sendKeyboardEvent("keydown", KeycapMap[key].detail);
   }
 });
 
-document.getElementById("controls").addEventListener("mouseup", evt => {
+document.getElementById("controls").addEventListener("mouseup", (evt) => {
   const key = evt.target.dataset.key;
   if (key && KeycapMap[key]) {
     sendKeyboardEvent("keyup", KeycapMap[key].detail);
@@ -101,17 +101,23 @@ document.getElementById("controls").addEventListener("mouseup", evt => {
 window.addEventListener("systemappframeprepended", () => {
   let typeFlag;
   let isKeypadEnabled = true;
+  let desktopSize;
   try {
     const args = Cc[
       "@mozilla.org/commandlinehandler/general-startup;1?type=b2gcmds"
     ].getService(Ci.nsISupports).wrappedJSObject.cmdLine;
     typeFlag = args.handleFlagWithParam("type", false) || "touch";
+    desktopSize = args.handleFlagWithParam("size", false) || "1366x768";
   } catch (e) {
     console.error(e);
   }
 
   const systemAppFrame = document.getElementById("systemapp");
-  systemAppFrame.setAttribute("kind", typeFlag);
+  let kind = typeFlag;
+  if (typeFlag === "session" || typeFlag === "desktop") {
+    kind = "touch";
+  }
+  systemAppFrame.setAttribute("kind", kind);
   switch (typeFlag) {
     case "bartype":
       systemAppFrame.style.width = "240px";
@@ -120,6 +126,17 @@ window.addEventListener("systemappframeprepended", () => {
     case "qwerty":
       systemAppFrame.style.width = "320px";
       systemAppFrame.style.height = "240px";
+      break;
+    case "desktop":
+      const [width, height] = desktopSize.split("x");
+      systemAppFrame.style.width = `${width}px`;
+      systemAppFrame.style.height = `${height}px`;
+      isKeypadEnabled = false;
+      break;
+    case "session":
+      systemAppFrame.style.width = `${screen.width}px`;
+      systemAppFrame.style.height = `${screen.height}px`;
+      isKeypadEnabled = false;
       break;
     default:
       // FWVGA touch

@@ -242,13 +242,13 @@ var shell = {
     if (activity.response) {
       let sender = message.target;
       promise.then(
-        result => {
+        (result) => {
           sender.sendAsyncMessage(activity.response, {
             success: true,
             result,
           });
         },
-        error => {
+        (error) => {
           sender.sendAsyncMessage(activity.response, { success: false });
         }
       );
@@ -295,7 +295,7 @@ document.addEventListener(
     // eslint-disable-next-line no-undef
     RemoteDebugger.init(window);
 
-    Services.obs.addObserver(browserWindowImpl => {
+    Services.obs.addObserver((browserWindowImpl) => {
       debug("New web embedder created.");
       window.browserDOMWindow = browserWindowImpl;
 
@@ -327,7 +327,7 @@ document.addEventListener(
     // Wait for the the on-boot-done event to start the shell.
     // If the on-boot-done is not reported,
     // the shell will be started by the following timeout handler.
-    let onBootDone = new Promise(resolve => {
+    let onBootDone = new Promise((resolve) => {
       Services.obs.addObserver(() => {
         resolve();
       }, "on-boot-done");

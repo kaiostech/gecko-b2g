@@ -438,7 +438,7 @@ class WifiApi {
     return "@mozilla.org/wifi/linux;1";
   }
 
-  QueryInterface() {
+  get QueryInterface() {
     return ChromeUtils.generateQI([Ci.nsIObserver]);
   }
 

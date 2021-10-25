@@ -138,6 +138,11 @@ this.PermissionsTable = {
     signed: ALLOW_ACTION,
     access: ["read", "write", "create"],
   },
+  "content-manager": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+    core: ALLOW_ACTION,
+  },
   datacall: {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,

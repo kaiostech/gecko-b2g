@@ -101,9 +101,9 @@ void SetCurrentProcessPrivileges() {
   }
 #endif
 
+#ifdef MOZ_WIDGET_GONK
   gid_t gid = CHILD_UNPRIVILEGED_GID;
   uid_t uid = CHILD_UNPRIVILEGED_UID;
-#ifdef MOZ_WIDGET_GONK
   int fd = open("/proc/sys/kernel/pid_max", O_CLOEXEC | O_RDONLY);
   if (fd < 0) {
     DLOG(ERROR) << "Failed to open pid_max";
@@ -126,7 +126,6 @@ void SetCurrentProcessPrivileges() {
   }
   gid += getpid();
   uid += getpid();
-#endif
   if (setgid(gid) != 0) {
     DLOG(ERROR) << "Failed to setgid() child process";
     _exit(127);
@@ -136,6 +135,7 @@ void SetCurrentProcessPrivileges() {
     _exit(127);
   }
   if (chdir("/") != 0) gProcessLog.print("==> could not chdir()\n");
+#endif
 }
 
 #if defined(MOZ_ENABLE_FORKSERVER)

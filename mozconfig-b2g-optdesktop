@@ -1,0 +1,29 @@
+ac_add_options --enable-application=b2g
+ac_add_options --with-app-basename=b2g
+
+ac_add_options --disable-profiling
+ac_add_options --enable-forkserver
+ac_add_options --disable-tests
+
+# Disable telemetry
+ac_add_options MOZ_TELEMETRY_REPORTING=
+
+# Pretend to be an official build to be in a release configuration.
+export MOZILLA_OFFICIAL=1
+
+# Disable sandbox
+# TODO: Will enable sandbox once Bug-83319 has been fixed.
+ac_add_options --disable-sandbox
+
+mk_add_options AUTOCLOBBER=1
+
+# Use sccache
+ac_add_options --with-ccache=sccache
+
+# Set the api-daemon port
+ac_add_options --with-api-daemon-port=8081
+
+mk_add_options AUTOCLOBBER=1
+
+export MOZ_REQUIRE_SIGNING=
+  

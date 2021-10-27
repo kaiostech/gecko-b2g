@@ -139,11 +139,13 @@ window.addEventListener("systemappframeprepended", () => {
       isKeypadEnabled = false;
       break;
     default:
-      // FWVGA touch
+      typeFlag = "mobile"
       systemAppFrame.style.width = "480px";
       systemAppFrame.style.height = "854px";
       isKeypadEnabled = false;
   }
+
+  Services.prefs.setCharPref("b2g.session-type", typeFlag);
 
   if (isKeypadEnabled) {
     document.getElementById("controls").classList.add("show");

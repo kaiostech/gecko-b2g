@@ -7,6 +7,10 @@
 
 // A <web-view> custom element, wrapping a <xul:browser>
 
+const { AboutReaderParent } = ChromeUtils.import(
+  "resource:///actors/AboutReaderParent.jsm"
+);
+
 (function() {
   const { Services } = ChromeUtils.import(
     "resource://gre/modules/Services.jsm"
@@ -124,6 +128,12 @@
 
       // Remove password from uri.
       location = Services.io.createExposableURI(location);
+
+      let browser = this.webview.linkedBrowser;
+      let global = browser.browsingContext.currentWindowGlobal;
+      if (global) {
+        AboutReaderParent.updateReaderButton(browser);
+      }
 
       this.dispatchEvent(`locationchange`, {
         url: location.spec,
@@ -1012,6 +1022,15 @@
     leaveModalState() {
       this.log(`LeaveModalState`);
       this.browser?.leaveModalState();
+    }
+
+    onReaderModeStateChange(state) {
+      // this.log(`onReaderModeStateChange ${JSON.stringify(state)}`);
+      this.dispatchCustomEvent("readermodestate", state);
+    }
+
+    toggleReaderMode() {
+      AboutReaderParent.toggleReaderMode(this.browser);
     }
   }
 

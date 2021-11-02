@@ -307,6 +307,23 @@ ProcessGlobal.prototype = {
         includeChrome: true,
         allFrames: true,
       },
+
+      AboutReader: {
+        parent: {
+          moduleURI: "resource:///actors/AboutReaderParent.jsm",
+        },
+        child: {
+          moduleURI: "resource:///actors/AboutReaderChild.jsm",
+          events: {
+            DOMContentLoaded: {},
+            pageshow: { mozSystemGroup: true },
+            // Don't try to create the actor if only the pagehide event fires.
+            // This can happen with the initial about:blank documents.
+            pagehide: { mozSystemGroup: true, createActor: false },
+          },
+        },
+        messageManagerGroups: ["browsers"],
+      },
     };
 
     ActorManagerParent.addJSWindowActors(JSWINDOWACTORS);

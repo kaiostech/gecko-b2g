@@ -32,6 +32,17 @@ var modules = {
     privileged: true,
     hide: true,
   },
+  reader: {
+    // Use the same uri and flags as in browser/components/about/AboutRedirector.cpp
+    uri: "chrome://global/content/reader/aboutReader.html",
+    flags:
+      Ci.nsIAboutModule.URI_SAFE_FOR_UNTRUSTED_CONTENT |
+      Ci.nsIAboutModule.ALLOW_SCRIPT |
+      Ci.nsIAboutModule.URI_MUST_LOAD_IN_CHILD |
+      Ci.nsIAboutModule.HIDE_FROM_ABOUTABOUT,
+    privileged: true,
+    hide: true,
+  },
 };
 
 function B2GAboutRedirector() {}
@@ -53,8 +64,14 @@ B2GAboutRedirector.prototype = {
 
   // nsIAboutModule
   getURIFlags(aURI) {
-    let flags;
+    let flags = 0;
     let moduleInfo = this._getModuleInfo(aURI);
+
+    // If custom flags are set, just use them.
+    if (moduleInfo.flags) {
+      return moduleInfo.flags;
+    }
+
     if (moduleInfo.hide) {
       flags = Ci.nsIAboutModule.HIDE_FROM_ABOUTABOUT;
     }

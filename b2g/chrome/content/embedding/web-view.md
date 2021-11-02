@@ -29,6 +29,7 @@ The <web-view> element supports the following attributes:
 - `scrollToTop(smooth = true) : void` : scrolls to the top of the document.
 - `scrollToBottom(smooth = true) : void` : scrolls to the bottom of the document.
 - `stop() : void` : stops the current page loading.
+- `toggleReaderMode() : void` : toggles the reader mode view of the current page if possible.
 
 ## Properties
 
@@ -80,6 +81,7 @@ All events are CustomEvents, with an event payload specific to each type.
       - `choices` : an object with keys of permission types, such as `{"video-capture": "back"}`.
 - `recordingstatus` : `{ audio: boolean, video: boolean }`
   - dispatched when the recording status of this page is updated. `detail.audio` is true when the page is capturing audio through `MediaDevices.getUserMedia()` or recording audio through camera API. Same goes for `detail.video`.
+- `readermodestate`: `{ isReaderMode: boolean, isArticle: boolean }`
 - `resize` : `{ width: int, height: int}`
 - `scroll` : `{ top: int, left: int}`
 - `securitychange` : `{ state: string, mixedState: string, extendedValidation: boolean, mixedContent: boolean }`

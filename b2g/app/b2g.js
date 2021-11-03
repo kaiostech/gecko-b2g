@@ -1286,3 +1286,15 @@ pref("security.disallow_privileged_https_subdocuments_loads", false);
 // Workaround https://bugzilla.mozilla.org/show_bug.cgi?id=1735117 since
 // the system app needs to load resources from http://shared.localhost
 pref("security.disallow_privileged_https_stylesheet_loads", false);
+
+// Enable pdf.js
+pref("pdfjs.disabled", false);
+// Used by pdf.js to know the first time firefox is run with it installed so it
+// can become the default pdf viewer.
+pref("pdfjs.firstRun", true);
+// The values of preferredAction and alwaysAskBeforeHandling before pdf.js
+// became the default.
+pref("pdfjs.previousHandler.preferredAction", 0);
+pref("pdfjs.previousHandler.alwaysAskBeforeHandling", false);
+// Try to convert PDFs sent as octet-stream
+pref("pdfjs.handleOctetStream", true);

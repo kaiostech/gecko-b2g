@@ -510,3 +510,7 @@ bin/libfreebl_32int64_3.so
 
 ; Blocklist for addons.
 @BINPATH@/defaults/settings/blocklists
+
+; pdf.js
+@RESPATH@/chrome/pdfjs.manifest
+@RESPATH@/chrome/pdfjs/*

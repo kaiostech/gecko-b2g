@@ -936,7 +936,6 @@ pref("apz.fling_curve_function_y2", "1.0");
 pref("apz.fling_curve_threshold_inches_per_ms", "0.01");
 pref("apz.fling_friction", "0.0019");
 pref("apz.max_velocity_inches_per_ms", "0.07");
-pref("apz.overscroll.enabled", true);
 pref("apz.displayport_expiry_ms", 0); // causes issues on B2G, see bug 1250924
 
 // For event-regions based hit-testing

@@ -282,6 +282,13 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
         "apz/src/AndroidVelocityTracker.cpp",
     ]
 
+if CONFIG["MOZ_B2G"]:
+    UNIFIED_SOURCES += [
+        "apz/src/AndroidAPZ.cpp",
+        "apz/src/AndroidFlingPhysics.cpp",
+        "apz/src/AndroidVelocityTracker.cpp",
+    ]
+
 # NB: Gralloc is available on other platforms that use the android GL
 # libraries, but only Gonk is able to use it reliably because Gecko
 # has full system permissions there.

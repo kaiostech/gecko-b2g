@@ -91,7 +91,7 @@ WebViewChild.prototype = {
       /* useCapture = */ false
     );
 
-    debugEvents(global, els);
+    // debugEvents(global, els);
 
     global.addMessageListener(
       "WebView::fire-ctx-callback",

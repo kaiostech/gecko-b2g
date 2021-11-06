@@ -1042,6 +1042,9 @@ class AsyncPanZoomController {
   AxisX mX;
   AxisY mY;
 
+  // Flag set when we are overscrolling but not in the overscroll animation.
+  bool mStartedOverscroll;
+
   // This flag is set to true when we are in a axis-locked pan as a result of
   // the touch-action CSS property.
   bool mPanDirRestricted;

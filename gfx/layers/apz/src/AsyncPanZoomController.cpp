@@ -119,8 +119,11 @@ typedef mozilla::gfx::Point Point;
 typedef mozilla::gfx::Matrix4x4 Matrix4x4;
 
 // Choose between platform-specific implementations.
-#ifdef MOZ_WIDGET_ANDROID
+#if defined(MOZ_WIDGET_ANDROID)
 typedef WidgetOverscrollEffect OverscrollEffect;
+typedef AndroidSpecificState PlatformSpecificState;
+#elif defined(MOZ_B2G)
+typedef GenericOverscrollEffect OverscrollEffect;
 typedef AndroidSpecificState PlatformSpecificState;
 #else
 typedef GenericOverscrollEffect OverscrollEffect;
@@ -710,6 +713,7 @@ AsyncPanZoomController::AsyncPanZoomController(
       mLastContentPaintMetrics(mLastContentPaintMetadata.GetMetrics()),
       mX(this),
       mY(this),
+      mStartedOverscroll(false),
       mPanDirRestricted(false),
       mPinchLocked(false),
       mPinchEventBuffer(TimeDuration::FromMilliseconds(
@@ -3501,9 +3505,32 @@ ScrollDirections AsyncPanZoomController::GetOverscrollableDirections() const {
   return result;
 }
 
+void NotifyOverscrollObservers(char* topic) {
+  if (NS_IsMainThread()) {
+    nsCOMPtr<nsIObserverService> obsService = services::GetObserverService();
+    if (obsService) {
+      obsService->NotifyObservers(nullptr, topic, nullptr);
+    }
+  } else {
+    NS_DispatchToMainThread(
+        NS_NewRunnableFunction("NotifyOverscrollObservers", [=]() {
+          nsCOMPtr<nsIObserverService> obsService =
+              services::GetObserverService();
+          if (obsService) {
+            obsService->NotifyObservers(nullptr, topic, nullptr);
+          }
+        }));
+  }
+}
+
 void AsyncPanZoomController::OverscrollBy(ParentLayerPoint& aOverscroll) {
   if (!StaticPrefs::apz_overscroll_enabled()) {
     return;
+  }
+
+  if (!mStartedOverscroll && mState == PANNING_LOCKED_Y && aOverscroll.y < 0) {
+    mStartedOverscroll = true;
+    NotifyOverscrollObservers("overscroll-start");
   }
 
   RecursiveMutexAutoLock lock(mRecursiveMutex);
@@ -3748,6 +3775,11 @@ void AsyncPanZoomController::SmoothMsdScrollTo(
 void AsyncPanZoomController::StartOverscrollAnimation(
     const ParentLayerPoint& aVelocity, SideBits aOverscrollSideBits) {
   SetState(OVERSCROLL_ANIMATION);
+
+  if (mStartedOverscroll) {
+    mStartedOverscroll = false;
+    NotifyOverscrollObservers("overscroll-end");
+  }
 
   ParentLayerPoint velocity = aVelocity;
   AdjustDeltaForAllowedScrollDirections(velocity,

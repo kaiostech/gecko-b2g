@@ -275,11 +275,23 @@ XPCOMUtils.defineLazyServiceGetter(
 
       _webembed_log(`constructor in ${window}`);
 
+      let self = this;
+
+      let overscrollObserver = {
+        observe: (_subject, topic, _data) => {
+          _webembed_log(`Overscroll: ${topic}`);
+          self.dispatchEvent(new CustomEvent(topic));
+        },
+        QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver]),
+      };
+
+      Services.obs.addObserver(overscrollObserver, "overscroll-start");
+      Services.obs.addObserver(overscrollObserver, "overscroll-end");
+
       this.daemonManager = Cc["@mozilla.org/sidl-native/manager;1"].getService(
         Ci.nsIDaemonManager
       );
       if (this.daemonManager) {
-        let self = this;
         this.daemonManager.setObserver({
           // nsISidlConnectionObserver
           disconnected() {

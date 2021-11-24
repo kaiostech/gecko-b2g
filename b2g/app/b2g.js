@@ -1297,3 +1297,6 @@ pref("pdfjs.previousHandler.preferredAction", 0);
 pref("pdfjs.previousHandler.alwaysAskBeforeHandling", false);
 // Try to convert PDFs sent as octet-stream
 pref("pdfjs.handleOctetStream", true);
+
+// Needed for ipfs:// and ipns:// protocols to not lowercacse host names.
+pref("network.url.useDefaultURI", true);

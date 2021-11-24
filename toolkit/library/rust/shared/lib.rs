@@ -86,6 +86,9 @@ extern crate gecko_logger;
 // Gecko <-> SIDL integration
 extern crate gecko_sidl;
 
+// ipfs:// and ipns:// protocol handlers.
+extern crate ipfs_handler;
+
 #[cfg(target_os = "linux")]
 #[cfg(feature = "oxidized_breakpad")]
 extern crate rust_minidump_writer_linux;

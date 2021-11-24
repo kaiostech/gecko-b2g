@@ -77,6 +77,9 @@ webext_storage_bridge = { path = "../../../components/extensions/storage/webext_
 # Gecko <-> SIDL integration
 gecko_sidl = { path = "../../../../b2g/sidl/gecko_sidl" }
 
+# ipfs:// and ipns:// protocol handlers.
+ipfs_handler = { path = "../../../../netwerk/protocol/ipfs/ipfs_handler" }
+
 # https://github.com/mozilla/audioipc-2/commits/master
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 audioipc-client = { git = "https://github.com/mozilla/audioipc-2", rev = "515bb210a93f520642fd3a60f391652680b3e988", optional = true }

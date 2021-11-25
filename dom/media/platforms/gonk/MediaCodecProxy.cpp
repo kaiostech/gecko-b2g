@@ -489,7 +489,8 @@ bool MediaCodecProxy::UpdateOutputBuffers() {
 
 status_t MediaCodecProxy::Input(const uint8_t* aData, uint32_t aDataSize,
                                 int64_t aTimestampUsecs, uint64_t aflags,
-                                int64_t aTimeoutUs) {
+                                int64_t aTimeoutUs,
+                                GonkCryptoInfo* aCryptoInfo) {
   // Read Lock for mCodec
   {
     RWLock::AutoRLock autolock(mCodecLock);
@@ -510,13 +511,20 @@ status_t MediaCodecProxy::Input(const uint8_t* aData, uint32_t aDataSize,
 
   if (aData) {
     const sp<MediaCodecBuffer>& dstBuffer = mInputBuffers.itemAt(index);
-
     CHECK_LE(aDataSize, dstBuffer->capacity());
     dstBuffer->setRange(0, aDataSize);
-
     memcpy(dstBuffer->data(), aData, aDataSize);
-    err =
-        queueInputBuffer(index, 0, dstBuffer->size(), aTimestampUsecs, aflags);
+
+    if (aCryptoInfo && aCryptoInfo->mMode != CryptoPlugin::kMode_Unencrypted) {
+      err = queueSecureInputBuffer(
+          index, 0, aCryptoInfo->mSubSamples.data(),
+          aCryptoInfo->mSubSamples.size(), aCryptoInfo->mKey.data(),
+          aCryptoInfo->mIV.data(), aCryptoInfo->mMode, aCryptoInfo->mPattern,
+          aTimestampUsecs, aflags);
+    } else {
+      err = queueInputBuffer(index, 0, dstBuffer->size(), aTimestampUsecs,
+                             aflags);
+    }
   } else {
     LOG("queueInputBuffer MediaCodec::BUFFER_FLAG_EOS");
     err = queueInputBuffer(index, 0, 0, 0ll, MediaCodec::BUFFER_FLAG_EOS);

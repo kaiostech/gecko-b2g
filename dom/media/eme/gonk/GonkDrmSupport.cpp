@@ -9,6 +9,7 @@
 #include "GonkDrmCDMCallbackProxy.h"
 #include "GonkDrmSharedData.h"
 #include "GonkDrmUtils.h"
+#include "json/json.h"
 #include "mozilla/EMEUtils.h"
 #include "nsISerialEventTarget.h"
 
@@ -326,6 +327,12 @@ void GonkDrmSupport::UpdateSession(uint32_t aPromiseId,
   }
 
   mCallback->ResolvePromise(aPromiseId);
+
+#ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
+  if (mozilla::IsClearkeyKeySystem(mKeySystem)) {
+    PeekClearkeyKeyStatus(aEmeSessionId, aResponse);
+  }
+#endif
 }
 
 void GonkDrmSupport::CloseSession(uint32_t aPromiseId,
@@ -408,6 +415,14 @@ void GonkDrmSupport::OnKeyStatusChanged(const Parcel* aParcel) {
     return;
   }
 
+#ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
+  // MediaDrm ClearKey plugin only reports fake key status. Instead we use
+  // PeekClearkeyKeyStatus() to parse actual status from the server response.
+  if (mozilla::IsClearkeyKeySystem(mKeySystem)) {
+    return;
+  }
+#endif
+
   nsTArray<CDMKeyInfo> keyInfos;
   auto sessionId = GonkDrmUtils::ReadByteVectorFromParcel(aParcel);
   for (auto num = aParcel->readInt32(); num > 0; num--) {
@@ -420,6 +435,37 @@ void GonkDrmSupport::OnKeyStatusChanged(const Parcel* aParcel) {
 
   NotifyKeyStatus(GonkDrmUtils::EncodeBase64(sessionId), std::move(keyInfos));
 }
+
+#ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
+void GonkDrmSupport::PeekClearkeyKeyStatus(const nsCString& aEmeSessionId,
+                                           const nsTArray<uint8_t>& aResponse) {
+  GD_ASSERT(mozilla::IsClearkeyKeySystem(mKeySystem));
+
+  auto response = GonkDrmConverter::ToNsCString(aResponse);
+  GD_LOGD(
+      "%p GonkDrmSupport::PeekClearkeyKeyStatus, session ID %s, response %s",
+      this, aEmeSessionId.Data(), response.Data());
+
+  Json::Value root;
+  Json::CharReaderBuilder builder;
+  std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+  if (!reader->parse(response.BeginReading(), response.EndReading(), &root,
+                     nullptr)) {
+    GD_LOGE("%p GonkDrmSupport::PeekClearkeyKeyStatus, parse failed", this);
+    return;
+  }
+
+  auto sessionId = GonkDrmUtils::DecodeBase64(aEmeSessionId);
+  nsTArray<CDMKeyInfo> keyInfos;
+  for (auto& key : root["keys"]) {
+    auto kid = GonkDrmConverter::ToNsCString(key["kid"].asString());
+    auto keyId = GonkDrmUtils::DecodeBase64URL(kid);
+    keyInfos.EmplaceBack(GonkDrmConverter::ToNsByteArray(keyId),
+                         Optional<MediaKeyStatus>(MediaKeyStatus::Usable));
+  }
+  NotifyKeyStatus(aEmeSessionId, std::move(keyInfos));
+}
+#endif
 
 void GonkDrmSupport::NotifyKeyStatus(const nsCString& aEmeSessionId,
                                      nsTArray<CDMKeyInfo>&& aKeyInfos) {

@@ -13,6 +13,8 @@
 
 #include <mediadrm/IDrmClient.h>
 
+#define GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
+
 class nsISerialEventTarget;
 
 namespace mozilla {
@@ -74,6 +76,11 @@ class GonkDrmSupport : public BnDrmClient {
   void Notify(DrmPlugin::EventType aEventType, int aExtra, const Parcel* aObj);
 
   void OnKeyStatusChanged(const Parcel* aParcel);
+
+#ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
+  void PeekClearkeyKeyStatus(const nsCString& aEmeSessionId,
+                             const nsTArray<uint8_t>& aResponse);
+#endif
 
   void NotifyKeyStatus(const nsCString& aEmeSessionId,
                        nsTArray<CDMKeyInfo>&& aKeyInfos);

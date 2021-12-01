@@ -235,4 +235,15 @@ Vector<uint8_t> GonkDrmUtils::DecodeBase64(const nsACString& aBase64) {
   return GonkDrmConverter::ToByteVector(binary);
 }
 
+Vector<uint8_t> GonkDrmUtils::DecodeBase64URL(const nsACString& aBase64) {
+  FallibleTArray<uint8_t> binary;
+  nsresult rv = mozilla::Base64URLDecode(
+      aBase64, mozilla::Base64URLDecodePaddingPolicy::Reject, binary);
+  if (NS_FAILED(rv)) {
+    GD_LOGE("Base64URLDecode failed");
+    return Vector<uint8_t>();
+  }
+  return GonkDrmConverter::ToByteVector(binary);
+}
+
 }  // namespace android

@@ -11,6 +11,7 @@ EXPORTS.mozilla += [
 LOCAL_INCLUDES += [
     "!/ipc/ipdl/_ipdlheaders",
     "/ipc/chromium/src",
+    "/toolkit/components/jsoncpp/include",
 ]
 
 UNIFIED_SOURCES += [
@@ -34,6 +35,10 @@ EXTRA_JS_MODULES += [
 
 XPCOM_MANIFESTS += [
     "components.conf",
+]
+
+USE_LIBS += [
+    "jsoncpp",
 ]
 
 OS_LIBS += [

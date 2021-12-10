@@ -99,10 +99,15 @@ WindowContext* WindowContext::GetParentWindowContext() {
 
 WindowContext* WindowContext::TopWindowContext() {
   WindowContext* current = this;
-  while (current->GetParentWindowContext()) {
+  while (!current->IsTopContentOfNestedWebView() &&
+         current->GetParentWindowContext()) {
     current = current->GetParentWindowContext();
   }
   return current;
+}
+
+bool WindowContext::IsTopContentOfNestedWebView() {
+  return mBrowsingContext->IsTopContentOfNestedWebView();
 }
 
 bool WindowContext::IsTop() const { return mBrowsingContext->IsTop(); }
@@ -445,6 +450,7 @@ void WindowContext::AddSecurityState(uint32_t aStateFlags) {
     ContentChild* child = ContentChild::GetSingleton();
     child->SendAddSecurityState(this, aStateFlags);
   }
+  SetSecurityState(GetSecurityState() | aStateFlags);
 }
 
 void WindowContext::NotifyUserGestureActivation() {

@@ -5839,10 +5839,9 @@ nsDocShell::OnLocationChange(nsIWebProgress* aProgress, nsIRequest* aRequest,
   // changes the current window global, but that happens before this and we
   // have a lot of tests that depend on the specific ordering of messages.
   bool isTopLevel = false;
-  if (XRE_IsParentProcess() &&
-      !(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT) &&
+  if (!(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT) &&
       NS_SUCCEEDED(aProgress->GetIsTopLevel(&isTopLevel)) && isTopLevel) {
-    GetBrowsingContext()->Canonical()->UpdateSecurityState();
+    GetBrowsingContext()->UpdateSecurityState();
   }
   return NS_OK;
 }

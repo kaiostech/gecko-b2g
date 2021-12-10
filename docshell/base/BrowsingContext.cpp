@@ -75,6 +75,8 @@
 #include "nsQueryObject.h"
 #include "nsSandboxFlags.h"
 #include "nsScriptError.h"
+#include "nsSecureBrowserUI.h"
+#include "nsLocalSecureBrowserUI.h"
 #include "nsThreadUtils.h"
 #include "xpcprivate.h"
 
@@ -3737,6 +3739,17 @@ void BrowsingContext::ResetLocationChangeRateLimit() {
   // Resetting the timestamp object will cause the check function to
   // init again and reset the rate limit.
   mLocationChangeRateLimitSpanStart = TimeStamp();
+}
+
+void BrowsingContext::UpdateSecurityState() {
+  if (!IsTopContentOfNestedWebView()) {
+    return;
+  }
+
+  if (!mSecureBrowserUI) {
+    mSecureBrowserUI = new nsLocalSecureBrowserUI(this);
+  }
+  mSecureBrowserUI->RecomputeSecurityFlags();
 }
 
 }  // namespace dom

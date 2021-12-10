@@ -257,7 +257,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   // nsIWebProgressListener::OnLocationChange event, so that we
   // can update our security UI for the new location, or when the
   // mixed content/https-only state for our current window is changed.
-  void UpdateSecurityState();
+  virtual void UpdateSecurityState() override;
 
   void MaybeAddAsProgressListener(nsIWebProgress* aWebProgress);
 

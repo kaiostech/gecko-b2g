@@ -121,7 +121,7 @@ var PointerRelay = {
       return;
     }
     if (
-      aEvent.mozInputSource === Ci.nsIDOMMouseEvent.MOZ_SOURCE_UNKNOWN ||
+      aEvent.mozInputSource === MouseEvent.MOZ_SOURCE_UNKNOWN ||
       aEvent.isSynthesized
     ) {
       // Ignore events that are scripted or clicks from the a11y API.

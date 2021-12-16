@@ -58,6 +58,10 @@ class GonkDrmUtils final {
 
   static Vector<uint8_t> ReadByteVectorFromParcel(const Parcel* aParcel);
 
+  static nsCString EncodeBase64(const Vector<uint8_t>& aVector);
+
+  static Vector<uint8_t> DecodeBase64(const nsACString& aString);
+
  private:
   static const uint8_t* GetKeySystemUUID(const nsAString& aKeySystem);
 

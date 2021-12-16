@@ -293,24 +293,26 @@ void GonkDrmSupport::CreateSession(uint32_t aPromiseId,
       return;
   }
 
-  mCallback->SetSessionId(aCreateSessionToken,
-                          GonkDrmConverter::ToNsCString(sessionId));
+  auto emeSessionId = GonkDrmUtils::EncodeBase64(sessionId);
+  mCallback->SetSessionId(aCreateSessionToken, emeSessionId);
   mCallback->ResolvePromise(aPromiseId);
-  mCallback->SessionMessage(GonkDrmConverter::ToNsCString(sessionId),
-                            messageType,
+  mCallback->SessionMessage(emeSessionId, messageType,
                             GonkDrmConverter::ToNsByteArray(request));
+  GD_LOGD("%p GonkDrmSupport::CreateSession, session opened: %s", this,
+          emeSessionId.Data());
 }
 
 void GonkDrmSupport::UpdateSession(uint32_t aPromiseId,
-                                   const nsCString& aSessionId,
+                                   const nsCString& aEmeSessionId,
                                    const nsTArray<uint8_t>& aResponse) {
   GD_ASSERT(mDrm);
-  GD_LOGD("%p GonkDrmSupport::UpdateSession", this);
+  GD_LOGD("%p GonkDrmSupport::UpdateSession, session ID %s", this,
+          aEmeSessionId.Data());
 
+  auto sessionId = GonkDrmUtils::DecodeBase64(aEmeSessionId);
   Vector<uint8_t> keySetId;
   auto err = mDrm->provideKeyResponse(
-      GonkDrmConverter::ToByteVector(aSessionId),
-      GonkDrmConverter::ToByteVector(aResponse), keySetId);
+      sessionId, GonkDrmConverter::ToByteVector(aResponse), keySetId);
   if (err != OK) {
     GD_LOGE(
         "%p GonkDrmSupport::UpdateSession, DRM provideKeyResponse failed, err "
@@ -318,7 +320,7 @@ void GonkDrmSupport::UpdateSession(uint32_t aPromiseId,
         this, err);
     mCallback->RejectPromiseWithStateError(aPromiseId,
                                            "provideKeyResponse failed"_ns);
-    mCallback->SessionError(aSessionId, NS_ERROR_DOM_INVALID_STATE_ERR, -1,
+    mCallback->SessionError(aEmeSessionId, NS_ERROR_DOM_INVALID_STATE_ERR, -1,
                             "provideKeyResponse failed"_ns);
     return;
   }
@@ -327,11 +329,12 @@ void GonkDrmSupport::UpdateSession(uint32_t aPromiseId,
 }
 
 void GonkDrmSupport::CloseSession(uint32_t aPromiseId,
-                                  const nsCString& aSessionId) {
+                                  const nsCString& aEmeSessionId) {
   GD_ASSERT(mDrm);
-  GD_LOGD("%p GonkDrmSupport::CloseSession", this);
+  GD_LOGD("%p GonkDrmSupport::CloseSession, session ID %s", this,
+          aEmeSessionId.Data());
 
-  auto sessionId = GonkDrmConverter::ToByteVector(aSessionId);
+  auto sessionId = GonkDrmUtils::DecodeBase64(aEmeSessionId);
   auto err = mDrm->closeSession(sessionId);
   if (err != OK) {
     GD_LOGE("%p GonkDrmSupport::CloseSession, DRM closeSession failed(%d)",
@@ -343,7 +346,7 @@ void GonkDrmSupport::CloseSession(uint32_t aPromiseId,
 
   mSharedData->RemoveSession(sessionId);
   mCallback->ResolvePromise(aPromiseId);
-  mCallback->SessionClosed(aSessionId);
+  mCallback->SessionClosed(aEmeSessionId);
 }
 
 void GonkDrmSupport::SetServerCertificate(uint32_t aPromiseId,
@@ -415,17 +418,16 @@ void GonkDrmSupport::OnKeyStatusChanged(const Parcel* aParcel) {
         Optional<MediaKeyStatus>(ConvertToMediaKeyStatus(keyStatus)));
   }
 
-  NotifyKeyStatus(GonkDrmConverter::ToNsCString(sessionId),
-                  std::move(keyInfos));
+  NotifyKeyStatus(GonkDrmUtils::EncodeBase64(sessionId), std::move(keyInfos));
 }
 
-void GonkDrmSupport::NotifyKeyStatus(const nsCString& aSessionId,
+void GonkDrmSupport::NotifyKeyStatus(const nsCString& aEmeSessionId,
                                      nsTArray<CDMKeyInfo>&& aKeyInfos) {
   for (const auto& info : aKeyInfos) {
-    mSharedData->AddKey(GonkDrmConverter::ToByteVector(aSessionId),
+    mSharedData->AddKey(GonkDrmUtils::DecodeBase64(aEmeSessionId),
                         GonkDrmConverter::ToByteVector(info.mKeyId));
   }
-  mCallback->BatchedKeyStatusChanged(aSessionId, std::move(aKeyInfos));
+  mCallback->BatchedKeyStatusChanged(aEmeSessionId, std::move(aKeyInfos));
 }
 
 }  // namespace android

@@ -6,6 +6,7 @@
 
 #include "GonkDrmUtils.h"
 
+#include "mozilla/Base64.h"
 #include "mozilla/EMEUtils.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIGonkDrmNetUtils.h"
@@ -211,6 +212,27 @@ Vector<uint8_t> GonkDrmUtils::ReadByteVectorFromParcel(const Parcel* aParcel) {
     vector.appendArray(data, len);
   }
   return vector;
+}
+
+nsCString GonkDrmUtils::EncodeBase64(const Vector<uint8_t>& aVector) {
+  nsCString base64;
+  nsresult rv = mozilla::Base64Encode(
+      reinterpret_cast<const char*>(aVector.array()), aVector.size(), base64);
+  if (NS_FAILED(rv)) {
+    GD_LOGE("EncodeBase64 failed");
+    return nsCString();
+  }
+  return base64;
+}
+
+Vector<uint8_t> GonkDrmUtils::DecodeBase64(const nsACString& aBase64) {
+  nsCString binary;
+  nsresult rv = mozilla::Base64Decode(aBase64, binary);
+  if (NS_FAILED(rv)) {
+    GD_LOGE("DecodeBase64 failed");
+    return Vector<uint8_t>();
+  }
+  return GonkDrmConverter::ToByteVector(binary);
 }
 
 }  // namespace android

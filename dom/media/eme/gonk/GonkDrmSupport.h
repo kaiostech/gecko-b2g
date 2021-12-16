@@ -44,10 +44,10 @@ class GonkDrmSupport : public BnDrmClient {
                      const nsTArray<uint8_t>& aInitData,
                      MediaKeySessionType aSessionType);
 
-  void UpdateSession(uint32_t aPromiseId, const nsCString& aSessionId,
+  void UpdateSession(uint32_t aPromiseId, const nsCString& aEmeSessionId,
                      const nsTArray<uint8_t>& aResponse);
 
-  void CloseSession(uint32_t aPromiseId, const nsCString& aSessionId);
+  void CloseSession(uint32_t aPromiseId, const nsCString& aEmeSessionId);
 
   void SetServerCertificate(uint32_t aPromiseId,
                             const nsTArray<uint8_t>& aCert);
@@ -75,7 +75,7 @@ class GonkDrmSupport : public BnDrmClient {
 
   void OnKeyStatusChanged(const Parcel* aParcel);
 
-  void NotifyKeyStatus(const nsCString& aSessionId,
+  void NotifyKeyStatus(const nsCString& aEmeSessionId,
                        nsTArray<CDMKeyInfo>&& aKeyInfos);
 
   sp<GonkDrmSupport> Self() { return this; }

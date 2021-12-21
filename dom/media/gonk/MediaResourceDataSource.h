@@ -7,7 +7,7 @@
 #ifndef MediaResourceDataSource_h_
 #define MediaResourceDataSource_h_
 
-#include <media/stagefright/DataSource.h>
+#include <media/DataSource.h>
 #include "mozilla/RefPtr.h"
 
 namespace mozilla {

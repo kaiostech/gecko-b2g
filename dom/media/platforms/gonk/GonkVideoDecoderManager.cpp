@@ -6,7 +6,7 @@
 #include "MediaCodecProxy.h"
 #include <OMX_IVCommon.h>
 #include <gui/Surface.h>
-#include <media/ICrypto.h>
+#include <mediadrm/ICrypto.h>
 #include "GonkVideoDecoderManager.h"
 #include "GrallocImages.h"
 #include "ImageContainer.h"

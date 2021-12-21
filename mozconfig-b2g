@@ -21,6 +21,10 @@ fi
 # Disable a bunch of non critical stuff
 ac_add_options --disable-printing
 ac_add_options --disable-updater
+
+# temporarily disable for aosp 11
+# ac_add_options --disable-cranelift
+
 # Disable telemetry
 ac_add_options MOZ_TELEMETRY_REPORTING=
 
@@ -91,12 +95,12 @@ if [ "$TARGET_BUILD_VARIANT" != "user" ] ; then
   ac_add_options --enable-profiling
 fi
 
-ac_add_options --enable-b2g-camera
+#ac_add_options --enable-b2g-camera
 ac_add_options --enable-forkserver
 
-ac_add_options --enable-b2g-ril
-ac_add_options --enable-b2g-ims
-ac_add_options --enable-b2g-fm
+#ac_add_options --enable-b2g-ril
+#ac_add_options --enable-b2g-ims
+#ac_add_options --enable-b2g-fm
 ac_add_options --enable-b2g-voice-processing
 ac_add_options --enable-b2g-bt
 ac_add_options --enable-b2g-mediadrm

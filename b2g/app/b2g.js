@@ -1173,7 +1173,7 @@ pref("extensions.systemAddon.update.enabled", false);
 
 pref("browser.privatebrowsing.autostart", false);
 
-pref("security.sandbox.content.level", 4);
+pref("security.sandbox.content.level", 0);
 
 pref("gfx.e10s.font-list.shared", true);
 

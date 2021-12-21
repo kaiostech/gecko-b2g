@@ -7,14 +7,14 @@
 #ifndef SoftapEventService_H
 #define SoftapEventService_H
 
-#include <android/net/wifi/BnApInterfaceEventCallback.h>
+#include <android/net/wifi/nl80211/BnApInterfaceEventCallback.h>
 #include <binder/BinderService.h>
 
 BEGIN_WIFI_NAMESPACE
 
 class SoftapEventService
     : virtual public android::BinderService<SoftapEventService>,
-      virtual public android::net::wifi::BnApInterfaceEventCallback {
+      virtual public android::net::wifi::nl80211::BnApInterfaceEventCallback {
  public:
   explicit SoftapEventService(const std::string& aInterfaceName,
                               const android::sp<WifiEventCallback>& aCallback);
@@ -27,17 +27,17 @@ class SoftapEventService
 
   void Cleanup() { sSoftapEvent = nullptr; }
 
-  // IApInterfaceEventCallback
-  android::binder::Status onNumAssociatedStationsChanged(
-      int32_t numStations) override;
-  android::binder::Status onSoftApChannelSwitched(int32_t frequency,
-                                                  int32_t bandwidth) override;
-
  private:
   static android::sp<SoftapEventService> sSoftapEvent;
   std::string mSoftapInterfaceName;
 
   android::sp<WifiEventCallback> mCallback;
+
+  android::binder::Status onSoftApChannelSwitched(int32_t frequency,
+                                                  int32_t bandwidth) override;
+
+  android::binder::Status onConnectedClientsChanged(const ::android::net::wifi::nl80211::NativeWifiClient& client,
+                                                    bool isConnected) override;
 };
 
 END_WIFI_NAMESPACE

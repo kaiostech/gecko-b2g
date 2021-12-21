@@ -283,7 +283,7 @@ void AudioManager::HandleAudioFlingerDied() {
   SetAllDeviceConnectionStates();
 
   // Restore call state
-  AudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState));
+  AudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState), 0);
 
   // Restore master volume/mono/balance
   AudioSystem::setMasterVolume(1.0);
@@ -783,7 +783,7 @@ AudioManager::AudioManager()
 
 void AudioManager::Init() {
   // Register AudioSystem callbacks.
-  AudioSystem::setErrorCallback(BinderDeadCallback);
+  AudioSystem::addErrorCallback(BinderDeadCallback);
   AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
 
   // Gecko only control stream volume not master so set to default value
@@ -888,7 +888,7 @@ void AudioManager::Init() {
 AudioManager::~AudioManager() {
   MOZ_ASSERT(!sAudioManager);
 
-  AudioSystem::setErrorCallback(nullptr);
+  AudioSystem::addErrorCallback(nullptr);
   AudioSystem::removeAudioPortCallback(mAudioPortCallbackHolder->Callback());
   hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
   hal::UnregisterSwitchObserver(hal::SWITCH_LINEOUT, mObserver.get());
@@ -1005,7 +1005,7 @@ AudioManager::SetPhoneState(int32_t aState) {
                          IntToString<int32_t>(aState).get());
   }
 
-  if (AudioSystem::setPhoneState(static_cast<audio_mode_t>(aState))) {
+  if (AudioSystem::setPhoneState(static_cast<audio_mode_t>(aState), 0)) {
     return NS_ERROR_FAILURE;
   }
 

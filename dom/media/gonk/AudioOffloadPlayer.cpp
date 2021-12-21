@@ -178,7 +178,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
 
   mAudioSessionId = static_cast<audio_session_t>(
       AudioSystem::newAudioUniqueId(AUDIO_UNIQUE_ID_USE_SESSION));
-  AudioSystem::acquireAudioSessionId(mAudioSessionId, -1);
+  AudioSystem::acquireAudioSessionId(mAudioSessionId, -1, 0);
   mAudioSink = new AudioOutput(
       mAudioSessionId, IPCThreadState::self()->getCallingUid(), streamType);
 

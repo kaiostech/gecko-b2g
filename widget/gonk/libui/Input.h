@@ -32,6 +32,13 @@
 class SkMatrix;
 #endif
 
+enum {
+    DISPLAY_ORIENTATION_0 = 0,
+    DISPLAY_ORIENTATION_90 = 1,
+    DISPLAY_ORIENTATION_180 = 2,
+    DISPLAY_ORIENTATION_270 = 3
+};
+
 /*
  * Additional private constants not defined in ndk/ui/input.h.
  */

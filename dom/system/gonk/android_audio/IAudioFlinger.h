@@ -162,7 +162,7 @@ class IAudioFlinger : public IInterface {
   virtual audio_unique_id_t newAudioUniqueId(audio_unique_id_use_t use) = 0;
 
   virtual void acquireAudioSessionId(audio_session_t audioSession,
-                                     pid_t pid) = 0;
+                                     pid_t pid, uid_t uid) = 0;
   virtual void releaseAudioSessionId(audio_session_t audioSession,
                                      pid_t pid) = 0;
 

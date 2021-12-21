@@ -26,7 +26,7 @@
 #include <media/stagefright/MediaCodecConstants.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MediaMuxer.h>
-#include <media/ICrypto.h>
+#include <mediadrm/ICrypto.h>
 #include <media/MediaCodecBuffer.h>
 
 #include "GfxDebugger_defs.h"

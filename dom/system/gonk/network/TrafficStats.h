@@ -12,7 +12,7 @@
 #include "bpf/BpfUtils.h"
 #include "netdbpf/BpfNetworkStats.h"
 
-using android::bpf::Stats;
+using ::Stats;
 
 namespace mozilla {
 

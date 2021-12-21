@@ -75,7 +75,7 @@ status_t BnMediaHTTPConnection::onTransact(uint32_t code, const Parcel& data,
       if (size > memory->size()) {
         size = memory->size();
       }
-      ssize_t len = readAt(offset, memory->pointer(), size);
+      ssize_t len = readAt(offset, memory->unsecurePointer(), size);
       reply->writeNoException();
       reply->writeInt32(len);
       return NO_ERROR;

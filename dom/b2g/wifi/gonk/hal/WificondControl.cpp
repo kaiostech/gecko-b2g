@@ -22,9 +22,9 @@ using ::android::defaultServiceManager;
 using ::android::IBinder;
 using ::android::interface_cast;
 using ::android::String16;
-using ::android::net::wifi::IApInterfaceEventCallback;
-using ::android::net::wifi::IPnoScanEvent;
-using ::android::net::wifi::IScanEvent;
+using ::android::net::wifi::nl80211::IApInterfaceEventCallback;
+using ::android::net::wifi::nl80211::IPnoScanEvent;
+using ::android::net::wifi::nl80211::IScanEvent;
 
 using namespace mozilla::dom::wifi;
 
@@ -258,7 +258,7 @@ Result_t WificondControl::InitiateScanEvent(
   }
   if (!mScanner
            ->subscribeScanEvents(
-               android::interface_cast<android::net::wifi::IScanEvent>(
+               android::interface_cast<android::net::wifi::nl80211::IScanEvent>(
                    mScanEventService))
            .isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
@@ -266,7 +266,7 @@ Result_t WificondControl::InitiateScanEvent(
   }
   if (!mScanner
            ->subscribePnoScanEvents(
-               android::interface_cast<android::net::wifi::IPnoScanEvent>(
+               android::interface_cast<android::net::wifi::nl80211::IPnoScanEvent>(
                    mPnoScanEventService))
            .isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe pno scan event failed");
@@ -322,7 +322,7 @@ Result_t WificondControl::SetupApIface(
 
   bool success = false;
   mApInterface->registerCallback(
-      android::interface_cast<android::net::wifi::IApInterfaceEventCallback>(
+      android::interface_cast<android::net::wifi::nl80211::IApInterfaceEventCallback>(
           mSoftapEventService),
       &success);
   return CHECK_SUCCESS(success);
@@ -495,8 +495,10 @@ Result_t WificondControl::GetSoftapStations(uint32_t& aNumStations) {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
-  int32_t stations;
-  mApInterface->getNumberOfAssociatedStations(&stations);
-  aNumStations = (stations < 0) ? 0 : stations;
-  return CHECK_SUCCESS(stations >= 0);
+  //TODO FIXME
+  //int32_t stations;
+  //mApInterface->getNumberOfAssociatedStations(&stations);
+  //aNumStations = (stations < 0) ? 0 : stations;
+  //return CHECK_SUCCESS(stations >= 0);
+  return nsIWifiResult::SUCCESS;
 }

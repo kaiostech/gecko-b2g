@@ -14,6 +14,11 @@
 
 namespace mozilla {
 
+/* static */
+bool GonkDrmCDMProxy::IsSchemeSupported(const nsAString& aKeySystem) {
+  return android::GonkDrmUtils::IsSchemeSupported(aKeySystem);
+}
+
 GonkDrmCDMProxy::GonkDrmCDMProxy(dom::MediaKeys* aKeys,
                                  const nsAString& aKeySystem,
                                  bool aDistinctiveIdentifierRequired,

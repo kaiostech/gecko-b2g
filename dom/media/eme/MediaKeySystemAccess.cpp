@@ -36,6 +36,9 @@
 #  include "AndroidDecoderModule.h"
 #  include "mozilla/java/MediaDrmProxyWrappers.h"
 #endif
+#ifdef B2G_MEDIADRM
+#  include "mozilla/GonkDrmCDMProxy.h"
+#endif
 
 namespace mozilla::dom {
 
@@ -85,6 +88,10 @@ already_AddRefed<Promise> MediaKeySystemAccess::CreateMediaKeys(
 }
 
 static bool HavePluginForKeySystem(const nsCString& aKeySystem) {
+#ifdef B2G_MEDIADRM
+  return GonkDrmCDMProxy::IsSchemeSupported(NS_ConvertUTF8toUTF16(aKeySystem));
+#endif
+
   nsCString api = nsLiteralCString(CHROMIUM_CDM_API);
 
   bool havePlugin = HaveGMPFor(api, {aKeySystem});
@@ -112,6 +119,12 @@ MediaKeySystemStatus MediaKeySystemAccess::GetKeySystemStatus(
     const nsAString& aKeySystem, nsACString& aOutMessage) {
   MOZ_ASSERT(StaticPrefs::media_eme_enabled() ||
              IsClearkeyKeySystem(aKeySystem));
+
+#ifdef B2G_MEDIADRM
+  return GonkDrmCDMProxy::IsSchemeSupported(aKeySystem)
+             ? MediaKeySystemStatus::Available
+             : MediaKeySystemStatus::Cdm_not_supported;
+#endif
 
   if (IsClearkeyKeySystem(aKeySystem)) {
     return EnsureCDMInstalled(aKeySystem, aOutMessage);
@@ -292,6 +305,54 @@ struct KeySystemConfig {
 static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
   nsTArray<KeySystemConfig> keySystemConfigs;
 
+#ifdef B2G_MEDIADRM
+  {
+    const nsCString keySystem = nsLiteralCString(kClearKeyKeySystemName);
+    if (HavePluginForKeySystem(keySystem)) {
+      KeySystemConfig clearkey;
+      clearkey.mKeySystem.AssignLiteral(kClearKeyKeySystemName);
+      clearkey.mInitDataTypes.AppendElement(u"cenc"_ns);
+      clearkey.mInitDataTypes.AppendElement(u"keyids"_ns);
+      clearkey.mInitDataTypes.AppendElement(u"webm"_ns);
+      clearkey.mPersistentState = KeySystemFeatureSupport::Requestable;
+      clearkey.mDistinctiveIdentifier = KeySystemFeatureSupport::Prohibited;
+      clearkey.mSessionTypes.AppendElement(MediaKeySessionType::Temporary);
+      // MediaDrm Clearkey plugin only supports cenc encryption scheme.
+      clearkey.mEncryptionSchemes.AppendElement(u"cenc"_ns);
+      clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
+      clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
+      clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+      clearkey.mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
+      clearkey.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
+      keySystemConfigs.AppendElement(std::move(clearkey));
+    }
+  }
+  {
+    const nsCString keySystem = nsLiteralCString(kWidevineKeySystemName);
+    if (HavePluginForKeySystem(keySystem)) {
+      KeySystemConfig widevine;
+      widevine.mKeySystem.AssignLiteral(kWidevineKeySystemName);
+      widevine.mInitDataTypes.AppendElement(u"cenc"_ns);
+      widevine.mInitDataTypes.AppendElement(u"keyids"_ns);
+      widevine.mInitDataTypes.AppendElement(u"webm"_ns);
+      widevine.mPersistentState = KeySystemFeatureSupport::Requestable;
+      widevine.mDistinctiveIdentifier = KeySystemFeatureSupport::Prohibited;
+      widevine.mSessionTypes.AppendElement(MediaKeySessionType::Temporary);
+      widevine.mAudioRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
+      widevine.mVideoRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
+      widevine.mVideoRobustness.AppendElement(u"SW_SECURE_DECODE"_ns);
+      widevine.mEncryptionSchemes.AppendElement(u"cenc"_ns);
+      widevine.mEncryptionSchemes.AppendElement(u"cbcs"_ns);
+      widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
+      widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
+      widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+      widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
+      widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
+      keySystemConfigs.AppendElement(std::move(widevine));
+    }
+  }
+  return keySystemConfigs;
+#endif
   {
     const nsCString keySystem = nsLiteralCString(kClearKeyKeySystemName);
     if (HavePluginForKeySystem(keySystem)) {

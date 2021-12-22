@@ -30,6 +30,8 @@ class GonkDrmCDMProxy : public CDMProxy {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GonkDrmCDMProxy, override)
 
+  static bool IsSchemeSupported(const nsAString& aKeySystem);
+
   GonkDrmCDMProxy(dom::MediaKeys* aKeys, const nsAString& aKeySystem,
                   bool aDistinctiveIdentifierRequired,
                   bool aPersistentStateRequired);

@@ -8,6 +8,7 @@
 
 #include "mozilla/Base64.h"
 #include "mozilla/EMEUtils.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIGonkDrmNetUtils.h"
 
@@ -201,6 +202,39 @@ sp<ICrypto> GonkDrmUtils::MakeCrypto(const nsAString& aKeySystem,
     return nullptr;
   }
   return crypto;
+}
+
+bool GonkDrmUtils::IsSchemeSupported(const nsAString& aKeySystem) {
+  if (!mozilla::StaticPrefs::media_b2g_mediadrm_enabled()) {
+    return false;
+  }
+
+  // If mediadrmserver is disabled, MakeDrm() will be blocked for 5 seconds, so
+  // a non-blocking service check here is needed.
+  sp<IServiceManager> sm = defaultServiceManager();
+  sp<IBinder> binder = sm->checkService(String16("media.drm"));
+  if (!binder) {
+    GD_LOGE("GonkDrmUtils::IsSchemeSupported, unable to get media.drm service");
+    return false;
+  }
+
+  sp<IDrm> drm = MakeDrm();
+  if (!drm) {
+    GD_LOGE("GonkDrmUtils::IsSchemeSupported, MakeDrm failed");
+    return false;
+  }
+
+  bool supported = false;
+  auto err = drm->isCryptoSchemeSupported(
+      GetKeySystemUUID(aKeySystem), String8(), DrmPlugin::kSecurityLevelUnknown,
+      &supported);
+  if (err != OK) {
+    GD_LOGE(
+        "GonkDrmUtils::IsSchemeSupported, DRM isCryptoSchemeSupported failed");
+    return false;
+  }
+
+  return supported;
 }
 
 Vector<uint8_t> GonkDrmUtils::ReadByteVectorFromParcel(const Parcel* aParcel) {

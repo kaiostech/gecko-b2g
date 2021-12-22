@@ -56,6 +56,8 @@ class GonkDrmUtils final {
   static sp<ICrypto> MakeCrypto(const nsAString& aKeySystem,
                                 const Vector<uint8_t>& aSessionId);
 
+  static bool IsSchemeSupported(const nsAString& aKeySystem);
+
   static Vector<uint8_t> ReadByteVectorFromParcel(const Parcel* aParcel);
 
   static nsCString EncodeBase64(const Vector<uint8_t>& aVector);

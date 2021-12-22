@@ -9921,6 +9921,13 @@
     mirror: always
 #endif
 
+#if defined(B2G_MEDIADRM)
+-   name: media.b2g.mediadrm.enabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+#endif
+
 # The duration, in milliseconds, of decoded audio to keep around in the
 # AudioSink ring-buffer. New decoding operations are started when this limit is
 # reached. The total size of the ring-buffer is slightly bigger than this.

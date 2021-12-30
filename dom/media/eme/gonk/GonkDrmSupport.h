@@ -21,6 +21,7 @@ class GonkDrmCDMCallbackProxy;
 
 namespace android {
 
+class GonkDrmSharedData;
 class IDrm;
 
 class GonkDrmSupport : public BnDrmClient {
@@ -33,7 +34,8 @@ class GonkDrmSupport : public BnDrmClient {
   GonkDrmSupport(nsISerialEventTarget* aOwnerThread,
                  const nsAString& aKeySystem);
 
-  void Init(uint32_t aPromiseId, GonkDrmCDMCallbackProxy* aCallback);
+  void Init(uint32_t aPromiseId, GonkDrmCDMCallbackProxy* aCallback,
+            const sp<GonkDrmSharedData>& aSharedData);
 
   void Shutdown();
 
@@ -73,12 +75,16 @@ class GonkDrmSupport : public BnDrmClient {
 
   void OnKeyStatusChanged(const Parcel* aParcel);
 
+  void NotifyKeyStatus(const nsCString& aSessionId,
+                       nsTArray<CDMKeyInfo>&& aKeyInfos);
+
   sp<GonkDrmSupport> Self() { return this; }
 
   const nsCOMPtr<nsISerialEventTarget> mOwnerThread;
   const nsString mKeySystem;
   uint32_t mInitPromiseId = 0;
   GonkDrmCDMCallbackProxy* mCallback = nullptr;
+  sp<GonkDrmSharedData> mSharedData;
   sp<IDrm> mDrm;
 };
 

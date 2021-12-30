@@ -7,6 +7,7 @@
 #include "GonkDrmSupport.h"
 
 #include "GonkDrmCDMCallbackProxy.h"
+#include "GonkDrmSharedData.h"
 #include "GonkDrmUtils.h"
 #include "mozilla/EMEUtils.h"
 #include "nsISerialEventTarget.h"
@@ -55,7 +56,8 @@ GonkDrmSupport::GonkDrmSupport(nsISerialEventTarget* aOwnerThread,
 GonkDrmSupport::~GonkDrmSupport() { GD_ASSERT(!mDrm); }
 
 void GonkDrmSupport::Init(uint32_t aPromiseId,
-                          GonkDrmCDMCallbackProxy* aCallback) {
+                          GonkDrmCDMCallbackProxy* aCallback,
+                          const sp<GonkDrmSharedData>& aSharedData) {
   GD_ASSERT(aCallback);
   GD_LOGD("%p GonkDrmSupport::Init, %s", this,
           NS_ConvertUTF16toUTF8(mKeySystem).Data());
@@ -64,6 +66,7 @@ void GonkDrmSupport::Init(uint32_t aPromiseId,
 
   mInitPromiseId = aPromiseId;
   mCallback = aCallback;
+  mSharedData = aSharedData;
   mDrm = GonkDrmUtils::MakeDrm(mKeySystem);
   if (!mDrm) {
     GD_LOGE("%p GonkDrmSupport::Init, MakeDrm failed", this);
@@ -132,7 +135,7 @@ status_t GonkDrmSupport::OpenCryptoSession() {
             this, err);
     return err;
   }
-  // TODO: store crypto session ID and use it to create ICrypto objects.
+  mSharedData->SetCryptoSessionId(sessionId);
   return OK;
 }
 
@@ -199,6 +202,10 @@ void GonkDrmSupport::Reset() {
   if (mDrm) {
     mDrm->destroyPlugin();
     mDrm = nullptr;
+  }
+  if (mSharedData) {
+    mSharedData->SetCryptoSessionId(Vector<uint8_t>());
+    mSharedData = nullptr;
   }
   mInitPromiseId = 0;
   mCallback = nullptr;
@@ -324,7 +331,8 @@ void GonkDrmSupport::CloseSession(uint32_t aPromiseId,
   GD_ASSERT(mDrm);
   GD_LOGD("%p GonkDrmSupport::CloseSession", this);
 
-  auto err = mDrm->closeSession(GonkDrmConverter::ToByteVector(aSessionId));
+  auto sessionId = GonkDrmConverter::ToByteVector(aSessionId);
+  auto err = mDrm->closeSession(sessionId);
   if (err != OK) {
     GD_LOGE("%p GonkDrmSupport::CloseSession, DRM closeSession failed(%d)",
             this, err);
@@ -333,6 +341,7 @@ void GonkDrmSupport::CloseSession(uint32_t aPromiseId,
     return;
   }
 
+  mSharedData->RemoveSession(sessionId);
   mCallback->ResolvePromise(aPromiseId);
   mCallback->SessionClosed(aSessionId);
 }
@@ -406,8 +415,17 @@ void GonkDrmSupport::OnKeyStatusChanged(const Parcel* aParcel) {
         Optional<MediaKeyStatus>(ConvertToMediaKeyStatus(keyStatus)));
   }
 
-  mCallback->BatchedKeyStatusChanged(GonkDrmConverter::ToNsCString(sessionId),
-                                     std::move(keyInfos));
+  NotifyKeyStatus(GonkDrmConverter::ToNsCString(sessionId),
+                  std::move(keyInfos));
+}
+
+void GonkDrmSupport::NotifyKeyStatus(const nsCString& aSessionId,
+                                     nsTArray<CDMKeyInfo>&& aKeyInfos) {
+  for (const auto& info : aKeyInfos) {
+    mSharedData->AddKey(GonkDrmConverter::ToByteVector(aSessionId),
+                        GonkDrmConverter::ToByteVector(info.mKeyId));
+  }
+  mCallback->BatchedKeyStatusChanged(aSessionId, std::move(aKeyInfos));
 }
 
 }  // namespace android

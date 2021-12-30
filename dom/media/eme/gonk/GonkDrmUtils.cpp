@@ -12,6 +12,7 @@
 
 #include <binder/IServiceManager.h>
 #include <binder/Parcel.h>
+#include <mediadrm/ICrypto.h>
 #include <mediadrm/IDrm.h>
 #include <mediadrm/IMediaDrmService.h>
 
@@ -165,6 +166,40 @@ sp<IDrm> GonkDrmUtils::MakeDrm(const nsAString& aKeySystem) {
     return nullptr;
   }
   return drm;
+}
+
+sp<ICrypto> GonkDrmUtils::MakeCrypto() {
+  sp<IServiceManager> sm = defaultServiceManager();
+  sp<IBinder> binder = sm->getService(String16("media.drm"));
+  sp<IMediaDrmService> service = interface_cast<IMediaDrmService>(binder);
+  if (!service) {
+    GD_LOGE("GonkDrmUtils::MakeCrypto, unable to get media.drm service");
+    return nullptr;
+  }
+
+  sp<ICrypto> crypto = service->makeCrypto();
+  if (!crypto ||
+      (crypto->initCheck() != OK && crypto->initCheck() != NO_INIT)) {
+    GD_LOGE("GonkDrmUtils::MakeCrypto, unable to create Crypto");
+    return nullptr;
+  }
+  return crypto;
+}
+
+sp<ICrypto> GonkDrmUtils::MakeCrypto(const nsAString& aKeySystem,
+                                     const Vector<uint8_t>& aSessionId) {
+  sp<ICrypto> crypto = MakeCrypto();
+  if (!crypto) {
+    return nullptr;
+  }
+
+  auto err = crypto->createPlugin(GetKeySystemUUID(aKeySystem),
+                                  aSessionId.array(), aSessionId.size());
+  if (err != OK) {
+    GD_LOGE("GonkDrmUtils::MakeCrypto, unable to create plugin");
+    return nullptr;
+  }
+  return crypto;
 }
 
 Vector<uint8_t> GonkDrmUtils::ReadByteVectorFromParcel(const Parcel* aParcel) {

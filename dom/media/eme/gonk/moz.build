@@ -14,8 +14,10 @@ LOCAL_INCLUDES += [
 ]
 
 UNIFIED_SOURCES += [
+    "GonkCryptoProxy.cpp",
     "GonkDrmCDMCallbackProxy.cpp",
     "GonkDrmCDMProxy.cpp",
+    "GonkDrmSharedData.cpp",
     "GonkDrmSupport.cpp",
     "GonkDrmUtils.cpp",
 ]

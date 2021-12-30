@@ -17,7 +17,9 @@
 #include <utils/StrongPointer.h>
 
 namespace android {
+class GonkDrmSharedData;
 class GonkDrmSupport;
+class ICrypto;
 }  // namespace android
 
 namespace mozilla {
@@ -120,9 +122,12 @@ class GonkDrmCDMProxy : public CDMProxy {
 
   void OnCDMCreated(uint32_t aPromiseId);
 
+  android::sp<android::ICrypto> CreateCrypto();
+
  private:
   virtual ~GonkDrmCDMProxy();
 
+  android::sp<android::GonkDrmSharedData> mSharedData;
   android::sp<android::GonkDrmSupport> mCDM;
   UniquePtr<GonkDrmCDMCallbackProxy> mCallback;
 };

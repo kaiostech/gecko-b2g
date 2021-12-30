@@ -6,7 +6,9 @@
 
 #include "GonkDrmCDMProxy.h"
 
+#include "GonkCryptoProxy.h"
 #include "GonkDrmCDMCallbackProxy.h"
+#include "GonkDrmSharedData.h"
 #include "GonkDrmSupport.h"
 #include "GonkDrmUtils.h"
 
@@ -17,7 +19,8 @@ GonkDrmCDMProxy::GonkDrmCDMProxy(dom::MediaKeys* aKeys,
                                  bool aDistinctiveIdentifierRequired,
                                  bool aPersistentStateRequired)
     : CDMProxy(aKeys, aKeySystem, aDistinctiveIdentifierRequired,
-               aPersistentStateRequired) {
+               aPersistentStateRequired),
+      mSharedData(new android::GonkDrmSharedData()) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_COUNT_CTOR(GonkDrmCDMProxy);
 }
@@ -50,9 +53,9 @@ void GonkDrmCDMProxy::Init(PromiseId aPromiseId, const nsAString& aOrigin,
   mCallback = MakeUnique<GonkDrmCDMCallbackProxy>(this);
 
   mOwnerThread->Dispatch(NS_NewRunnableFunction(
-      "GonkDrmCDMProxy::Init",
-      [aPromiseId, callback = mCallback.get(), cdm = mCDM]() {
-        cdm->Init(aPromiseId, callback);
+      "GonkDrmCDMProxy::Init", [aPromiseId, callback = mCallback.get(),
+                                cdm = mCDM, sharedData = mSharedData]() {
+        cdm->Init(aPromiseId, callback, sharedData);
       }));
 }
 
@@ -322,6 +325,11 @@ void GonkDrmCDMProxy::OnCDMCreated(uint32_t aPromiseId) {
   ErrorResult rv;
   rv.ThrowInvalidStateError(err);
   mKeys->RejectPromise(aPromiseId, std::move(rv), err);
+}
+
+// Called on any thread.
+android::sp<android::ICrypto> GonkDrmCDMProxy::CreateCrypto() {
+  return new android::GonkCryptoProxy(mKeySystem, mSharedData);
 }
 
 }  // namespace mozilla

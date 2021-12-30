@@ -37,6 +37,7 @@ LogModule* GetGonkDrmLog();
 
 namespace android {
 
+class ICrypto;
 class IDrm;
 class Parcel;
 
@@ -52,12 +53,17 @@ class GonkDrmUtils final {
 
   static sp<IDrm> MakeDrm(const nsAString& aKeySystem);
 
+  static sp<ICrypto> MakeCrypto(const nsAString& aKeySystem,
+                                const Vector<uint8_t>& aSessionId);
+
   static Vector<uint8_t> ReadByteVectorFromParcel(const Parcel* aParcel);
 
  private:
   static const uint8_t* GetKeySystemUUID(const nsAString& aKeySystem);
 
   static sp<IDrm> MakeDrm();
+
+  static sp<ICrypto> MakeCrypto();
 };
 
 class GonkDrmConverter final {

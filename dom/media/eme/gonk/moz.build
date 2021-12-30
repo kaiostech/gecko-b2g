@@ -1,0 +1,41 @@
+# -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
+# vim: set filetype=python:
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+EXPORTS.mozilla += [
+    "GonkDrmCDMProxy.h",
+]
+
+LOCAL_INCLUDES += [
+    "!/ipc/ipdl/_ipdlheaders",
+    "/ipc/chromium/src",
+]
+
+UNIFIED_SOURCES += [
+    "GonkDrmCDMCallbackProxy.cpp",
+    "GonkDrmCDMProxy.cpp",
+    "GonkDrmSupport.cpp",
+    "GonkDrmUtils.cpp",
+]
+
+XPIDL_SOURCES += [
+    "nsIGonkDrmNetUtils.idl",
+]
+
+XPIDL_MODULE = "gonkdrm"
+
+EXTRA_JS_MODULES += [
+    "GonkDrmNetUtils.jsm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+OS_LIBS += [
+    'mediadrm',
+]
+
+FINAL_LIBRARY = "xul"

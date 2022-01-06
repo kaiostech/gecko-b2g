@@ -40,8 +40,10 @@ typedef android::MediaCodecProxy MediaCodecProxy;
 
 namespace mozilla {
 
-GonkAudioDecoderManager::GonkAudioDecoderManager(const AudioInfo& aConfig)
-    : mAudioChannels(aConfig.mChannels),
+GonkAudioDecoderManager::GonkAudioDecoderManager(const AudioInfo& aConfig,
+                                                 CDMProxy* aProxy)
+    : GonkDecoderManager(aProxy),
+      mAudioChannels(aConfig.mChannels),
       mAudioRate(aConfig.mRate),
       mAudioProfile(aConfig.mProfile),
       mAudioCompactor(mAudioQueue) {
@@ -86,7 +88,7 @@ bool GonkAudioDecoderManager::InitMediaCodecProxy() {
   format->setInt32("channel-count", mAudioChannels);
   format->setInt32("sample-rate", mAudioRate);
   format->setInt32("aac-profile", mAudioProfile);
-  status_t err = mDecoder->configure(format, nullptr, nullptr, 0);
+  status_t err = mDecoder->configure(format, nullptr, GetCrypto(), 0);
   if (err != OK || !mDecoder->Prepare()) {
     return false;
   }

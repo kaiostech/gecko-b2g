@@ -11,8 +11,13 @@
 
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
+#include <mediadrm/ICrypto.h>
 
 #include "mozilla/Logging.h"
+
+#ifdef B2G_MEDIADRM
+#  include "mozilla/GonkDrmCDMProxy.h"
+#endif
 
 mozilla::LazyLogModule gGonkMediaDataDecoderLog("GonkMediaDataDecoder");
 mozilla::LazyLogModule gGonkDecoderManagerLog("GonkDecoderManager");
@@ -180,6 +185,7 @@ nsresult GonkDecoderManager::Shutdown() {
   // mTaskQueue->BeginShutdown(), any Dispatch() call will simply return error.
 
   mCallback = nullptr;
+  mCDMProxy = nullptr;
   ShutdownInternal();
   mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
   return NS_OK;
@@ -300,6 +306,15 @@ void GonkDecoderManager::onMessageReceived(const sp<AMessage>& aMessage) {
       break;
     }
   }
+}
+
+sp<ICrypto> GonkDecoderManager::GetCrypto() {
+#ifdef B2G_MEDIADRM
+  if (mCDMProxy) {
+    return static_cast<GonkDrmCDMProxy*>(mCDMProxy.get())->CreateCrypto();
+  }
+#endif
+  return nullptr;
 }
 
 GonkMediaDataDecoder::GonkMediaDataDecoder(GonkDecoderManager* aManager)

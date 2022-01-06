@@ -4,14 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#if !defined(GonkMediaDataDecoder_h_)
-#  define GonkMediaDataDecoder_h_
-#  include "PlatformDecoderModule.h"
-#  include "mozilla/UniquePtr.h"
-#  include <media/stagefright/foundation/AHandler.h>
+#ifndef GonkMediaDataDecoder_h_
+#define GonkMediaDataDecoder_h_
+#include "PlatformDecoderModule.h"
+#include "mozilla/CDMProxy.h"
+#include "mozilla/UniquePtr.h"
+#include <media/stagefright/foundation/AHandler.h>
 
 namespace android {
 struct ALooper;
+class ICrypto;
 class MOZ_EXPORT MediaBuffer;
 class MediaCodecProxy;
 }  // namespace android
@@ -70,7 +72,7 @@ class GonkDecoderManager : public android::AHandler {
   }
 
  protected:
-  GonkDecoderManager() : mLastTime(INT64_MIN), mCallback(nullptr) {}
+  GonkDecoderManager(CDMProxy* aProxy) : mCDMProxy(aProxy) {}
 
   bool InitThreads(MediaData::Type aType);
 
@@ -98,6 +100,8 @@ class GonkDecoderManager : public android::AHandler {
   void ProcessToDo();
 
   void AssertOnTaskQueue() { MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn()); }
+
+  android::sp<android::ICrypto> GetCrypto();
 
   RefPtr<MediaByteBuffer> mCodecSpecificData;
 
@@ -132,7 +136,7 @@ class GonkDecoderManager : public android::AHandler {
   bool mOutputEOS = false;
 
   // The last decoded frame presentation time. Only accessed on mTaskLooper.
-  int64_t mLastTime;
+  int64_t mLastTime = INT64_MIN;
 
   // Remembers the notification that is currently waiting for the decoder event
   // to avoid requesting more than one notification at the time, which is
@@ -150,7 +154,10 @@ class GonkDecoderManager : public android::AHandler {
 
   nsTArray<WaitOutputInfo> mWaitOutput;
 
-  GonkDecoderManagerCallback* mCallback;  // Reports decoder output or error.
+  // Reports decoder output or error.
+  GonkDecoderManagerCallback* mCallback = nullptr;
+
+  RefPtr<CDMProxy> mCDMProxy;
 
  private:
   void UpdateWaitingList(int64_t aForgetUpTo);

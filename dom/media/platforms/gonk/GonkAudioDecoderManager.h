@@ -23,7 +23,7 @@ class GonkAudioDecoderManager : public GonkDecoderManager {
   typedef android::MediaCodecProxy MediaCodecProxy;
 
  public:
-  GonkAudioDecoderManager(const AudioInfo& aConfig);
+  GonkAudioDecoderManager(const AudioInfo& aConfig, CDMProxy* aProxy);
 
   virtual ~GonkAudioDecoderManager();
 

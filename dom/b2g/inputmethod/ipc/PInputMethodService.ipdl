@@ -79,6 +79,11 @@ struct HandleTextChangedRequest {
   nsString text;
 };
 
+struct HandleSelectionChangedRequest {
+  uint32_t startOffset;
+  uint32_t endOffset;
+};
+
 struct OptionDetail {
   bool group;
   bool inGroup;
@@ -204,6 +209,7 @@ union InputMethodRequest {
   SetValueRequest;
   ReplaceSurroundingTextRequest;
   HandleTextChangedRequest;
+  HandleSelectionChangedRequest;
 };
 
 union InputMethodResponse

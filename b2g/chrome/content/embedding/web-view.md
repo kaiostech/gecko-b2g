@@ -84,6 +84,7 @@ All events are CustomEvents, with an event payload specific to each type.
 - `readermodestate`: `{ isReaderMode: boolean, isArticle: boolean }`
 - `resize` : `{ width: int, height: int}`
 - `scroll` : `{ top: int, left: int}`
+- `scrollareachanged` : `{ width: int, height: int}`
 - `securitychange` : `{ state: string, mixedState: string, extendedValidation: boolean, mixedContent: boolean }`
 - `showmodalprompt` : `{ type: string, detail: {} }`
   - `type` : A custom event named `showmodalprompt`.

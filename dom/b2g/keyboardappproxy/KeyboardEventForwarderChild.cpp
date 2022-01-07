@@ -118,5 +118,53 @@ IPCResult KeyboardEventForwarderChild::RecvTextChanged(const nsCString& aText) {
   return IPC_OK();
 }
 
+IPCResult KeyboardEventForwarderChild::RecvSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset) {
+  MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+          ("KeyboardEventForwarderChild::RecvSelectionChanged [%u, %u]", aStartOffset, aEndOffset));
+  BrowserChild* browserChild = static_cast<BrowserChild*>(Manager());
+  if (!browserChild) {
+    MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+            ("KeyboardEventForwarderChild::RecvSelectionChanged no BrowserChild"));
+    return IPC_OK();
+  }
+  PresShell* presShell = browserChild->GetTopLevelPresShell();
+  if (!presShell) {
+    MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+            ("KeyboardEventForwarderChild::RecvSelectionChanged no PresShell"));
+    return IPC_OK();
+  }
+  Document* doc = presShell->GetDocument();
+  if (!doc) {
+    MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+            ("KeyboardEventForwarderChild::RecvSelectionChanged no doc"));
+    return IPC_OK();
+  }
+  RefPtr<CustomEvent> event = NS_NewDOMCustomEvent(doc, nullptr, nullptr);
+  AutoJSAPI jsapi;
+  if (NS_WARN_IF(!jsapi.Init(event->GetParentObject()))) {
+    return IPC_OK();
+  }
+
+  JSContext* cx = jsapi.cx();
+  JS::RootedObject obj(cx, JS_NewPlainObject(cx));
+  if (!obj) {
+    return IPC_OK();
+  }
+
+  JS::RootedValue startOffset(cx, JS::NumberValue(aStartOffset));
+  JS::RootedValue endOffset(cx, JS::NumberValue(aEndOffset));
+  JS_SetProperty(cx, obj, "selectionStart", startOffset);
+  JS_SetProperty(cx, obj, "selectionEnd", endOffset);
+  JS::RootedValue detail(cx);
+  if (!ToJSValue(cx, obj, &detail)) {
+    return IPC_OK();
+  }
+
+  event->InitCustomEvent(cx, u"selectionchange"_ns, false, false, detail);
+  event->SetTrusted(true);
+  doc->DispatchEvent(*event);
+  return IPC_OK();
+}
+
 }  // namespace dom
 }  // namespace mozilla

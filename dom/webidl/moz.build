@@ -1054,10 +1054,17 @@ if CONFIG["MOZ_AUDIO_CHANNEL_MANAGER"]:
 if CONFIG["MOZ_DOM_STREAMS"]:
     WEBIDL_FILES += [
         "QueuingStrategy.webidl",
+        "ReadableByteStreamController.webidl",
         "ReadableStream.webidl",
+        "ReadableStreamBYOBReader.webidl",
+        "ReadableStreamBYOBRequest.webidl",
         "ReadableStreamDefaultController.webidl",
         "ReadableStreamDefaultReader.webidl",
+        "UnderlyingSink.webidl",
         "UnderlyingSource.webidl",
+        "WritableStream.webidl",
+        "WritableStreamDefaultController.webidl",
+        "WritableStreamDefaultWriter.webidl",
     ]
 
 if CONFIG["MOZ_WEBRTC"]:

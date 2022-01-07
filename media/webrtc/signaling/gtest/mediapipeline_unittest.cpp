@@ -52,8 +52,10 @@ namespace {
 class MainAsCurrent : public TaskQueueWrapper {
  public:
   MainAsCurrent()
-      : TaskQueueWrapper(MakeRefPtr<TaskQueue>(
-            do_AddRef(GetMainThreadEventTarget()), "MainAsCurrentTaskQueue")),
+      : TaskQueueWrapper(
+            MakeRefPtr<TaskQueue>(do_AddRef(GetMainThreadEventTarget()),
+                                  "MainAsCurrentTaskQueue"),
+            "MainAsCurrent"_ns),
         mSetter(this) {
     MOZ_RELEASE_ASSERT(NS_IsMainThread());
   }
@@ -328,7 +330,7 @@ class TestAgent {
       audio_pipeline_->Shutdown();
     }
     if (audio_conduit_) {
-      audio_conduit_->Shutdown();
+      Unused << WaitFor(audio_conduit_->Shutdown());
     }
     if (call_) {
       call_->Destroy();

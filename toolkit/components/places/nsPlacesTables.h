@@ -334,7 +334,9 @@
   nsLiteralCString(                                                        \
       "CREATE TABLE IF NOT EXISTS moz_places_metadata_snapshots_groups ( " \
       "  id INTEGER PRIMARY KEY, "                                         \
-      "  title TEXT NOT NULL "                                             \
+      "  title TEXT NOT NULL, "                                            \
+      "  builder TEXT NOT NULL, "                                          \
+      "  builder_data TEXT "                                               \
       ")")
 
 #define CREATE_MOZ_PLACES_METADATA_GROUPS_TO_SNAPSHOTS                        \
@@ -369,6 +371,12 @@
       "CASCADE "                                                           \
       "  FOREIGN KEY (session_id) REFERENCES moz_session_metadata(id) ON " \
       "DELETE CASCADE "                                                    \
+      ") WITHOUT ROWID")
+
+#define CREATE_MOZ_PREVIEWS_TOMBSTONES                        \
+  nsLiteralCString(                                           \
+      "CREATE TABLE IF NOT EXISTS moz_previews_tombstones ( " \
+      "  hash TEXT PRIMARY KEY "                              \
       ") WITHOUT ROWID")
 
 #endif  // __nsPlacesTables_h__

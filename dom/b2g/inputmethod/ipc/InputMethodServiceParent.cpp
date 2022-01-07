@@ -164,6 +164,13 @@ IPCResult InputMethodServiceParent::RecvRequest(
       service->HandleTextChanged(request.text());
       break;
     }
+    case InputMethodRequest::THandleSelectionChangedRequest: {
+      IME_LOGD(
+          "InputMethodServiceParent::RecvRequest:HandleSelectionChangedRequest");
+      const HandleSelectionChangedRequest& request = aRequest;
+      service->HandleSelectionChanged(request.startOffset(), request.endOffset());
+      break;
+    }
     default: {
       return InputMethodServiceCommon<PInputMethodServiceParent>::RecvRequest(
           aRequest);

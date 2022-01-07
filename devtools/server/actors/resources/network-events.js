@@ -49,7 +49,7 @@ class NetworkEventWatcher {
     // Boolean to know if we keep previous document network events or not.
     this.persist = false;
     this.listener = new NetworkObserver(
-      { browserId: this.browserId, addonId: watcherActor.context.addonId },
+      { sessionContext: watcherActor.sessionContext },
       { onNetworkEvent: this.onNetworkEvent.bind(this) }
     );
 
@@ -59,10 +59,6 @@ class NetworkEventWatcher {
 
   get conn() {
     return this.watcherActor.conn;
-  }
-
-  get browserId() {
-    return this.watcherActor.context.browserId;
   }
 
   /**
@@ -155,14 +151,15 @@ class NetworkEventWatcher {
     }
     // If we persist, we will keep all requests allocated.
     // For now, consider that the Browser console and toolbox persist all the requests.
-    if (this.persist || this.watcherActor.context.type == "all") {
+    if (this.persist || this.watcherActor.sessionContext.type == "all") {
       return;
     }
     // If the watcher is bound to one browser element (i.e. a tab), ignore
     // windowGlobals related to other browser elements
     if (
-      this.watcherActor.context.type == "browser-element" &&
-      windowGlobal.browsingContext.browserId != this.browserId
+      this.watcherActor.sessionContext.type == "browser-element" &&
+      windowGlobal.browsingContext.browserId !=
+        this.watcherActor.sessionContext.browserId
     ) {
       return;
     }
@@ -212,7 +209,8 @@ class NetworkEventWatcher {
       );
     }
     const actor = new NetworkEventActor(
-      this,
+      this.watcherActor.conn,
+      this.watcherActor.sessionContext,
       {
         onNetworkEventUpdate: this.onNetworkEventUpdate.bind(this),
         onNetworkEventDestroy: this.onNetworkEventDestroy.bind(this),
@@ -318,11 +316,8 @@ class NetworkEventWatcher {
 
   /**
    * Stop watching for network event related to a given Watcher Actor.
-   *
-   * @param WatcherActor watcherActor
-   *        The watcher actor from which we should stop observing network events
    */
-  destroy(watcherActor) {
+  destroy() {
     if (this.listener) {
       this.listener.destroy();
       Services.obs.removeObserver(this, "window-global-destroyed");

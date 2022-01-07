@@ -10,7 +10,7 @@ use std::thread;
 use mio::{event::Event, Events, Interest, Poll, Registry, Token, Waker};
 use slab::Slab;
 
-use crate::messages::AssocRawPlatformHandle;
+use crate::messages::AssociateHandleForMessage;
 use crate::rpccore::{make_client, make_server, Client, Handler, Proxy, Server};
 use crate::{
     codec::Codec,
@@ -67,8 +67,8 @@ impl EventLoopHandle {
         connection: sys::Pipe,
     ) -> Result<Proxy<<C as Client>::ServerMessage, <C as Client>::ClientMessage>>
     where
-        <C as Client>::ServerMessage: Serialize + Debug + AssocRawPlatformHandle + Send,
-        <C as Client>::ClientMessage: DeserializeOwned + Debug + AssocRawPlatformHandle + Send,
+        <C as Client>::ServerMessage: Serialize + Debug + AssociateHandleForMessage + Send,
+        <C as Client>::ClientMessage: DeserializeOwned + Debug + AssociateHandleForMessage + Send,
     {
         let (handler, mut proxy) = make_client::<C>();
         let driver = Box::new(FramedDriver::new(handler));
@@ -83,8 +83,8 @@ impl EventLoopHandle {
         connection: sys::Pipe,
     ) -> Result<()>
     where
-        <S as Server>::ServerMessage: DeserializeOwned + Debug + AssocRawPlatformHandle + Send,
-        <S as Server>::ClientMessage: Serialize + Debug + AssocRawPlatformHandle + Send,
+        <S as Server>::ServerMessage: DeserializeOwned + Debug + AssociateHandleForMessage + Send,
+        <S as Server>::ClientMessage: Serialize + Debug + AssociateHandleForMessage + Send,
     {
         let handler = make_server::<S>(server);
         let driver = Box::new(FramedDriver::new(handler));
@@ -111,7 +111,7 @@ impl EventLoopHandle {
     }
 
     // Signal EventLoop to shutdown.  Causes EventLoop::poll to return Ok(false).
-    pub fn shutdown(&self) -> Result<()> {
+    fn shutdown(&self) -> Result<()> {
         self.requests_tx
             .send(Request::Shutdown)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
@@ -356,28 +356,51 @@ impl Connection {
     // Connections are always interested in READABLE.  clear_readable is only
     // called when the connection is in the process of shutting down.
     fn clear_readable(&mut self, registry: &Registry) -> Result<()> {
-        self.interest.and_then(|i| i.remove(Interest::READABLE));
-        self.update_registration(registry)
+        self.update_registration(
+            registry,
+            self.interest.and_then(|i| i.remove(Interest::READABLE)),
+        )
     }
 
     // Connections toggle WRITABLE based on the state of the `outbound` buffer.
     fn set_writable(&mut self, registry: &Registry) -> Result<()> {
-        self.interest
-            .map_or_else(|| Interest::WRITABLE, |i| i.add(Interest::WRITABLE));
-        self.update_registration(registry)
+        self.update_registration(
+            registry,
+            Some(
+                self.interest
+                    .map_or_else(|| Interest::WRITABLE, |i| i.add(Interest::WRITABLE)),
+            ),
+        )
     }
 
     fn clear_writable(&mut self, registry: &Registry) -> Result<()> {
-        self.interest.and_then(|i| i.remove(Interest::WRITABLE));
-        self.update_registration(registry)
+        self.update_registration(
+            registry,
+            self.interest.and_then(|i| i.remove(Interest::WRITABLE)),
+        )
     }
 
     // Update connection registration with the current readiness event interests.
-    fn update_registration(&mut self, registry: &Registry) -> Result<()> {
-        if let Some(interest) = self.interest {
-            registry.reregister(&mut self.io, self.token, interest)?;
-        } else {
-            registry.deregister(&mut self.io)?;
+    fn update_registration(
+        &mut self,
+        registry: &Registry,
+        new_interest: Option<Interest>,
+    ) -> Result<()> {
+        // Note: Updating registration always triggers a writable event with NamedPipes, so
+        // it's important to skip updating registration when the set of interests hasn't changed.
+        if new_interest != self.interest {
+            trace!(
+                "{:?}: updating readiness registration old={:?} new={:?}",
+                self.token,
+                self.interest,
+                new_interest
+            );
+            self.interest = new_interest;
+            if let Some(interest) = self.interest {
+                registry.reregister(&mut self.io, self.token, interest)?;
+            } else {
+                registry.deregister(&mut self.io)?;
+            }
         }
         Ok(())
     }
@@ -405,8 +428,7 @@ impl Connection {
             self.outbound.is_empty()
         );
         let done = done && self.outbound.is_empty();
-        // If driver is done, stop reading.  We may have more outbound to flush.
-        // XXX: This used to happen for recv done, now checks outbound too.
+        // If driver is done and outbound is clear, unregister connection.
         if done {
             trace!("{:?}: driver done, clearing read interest", self.token);
             self.clear_readable(registry)?;
@@ -446,7 +468,7 @@ impl Connection {
                     match r {
                         Ok(done) => {
                             if done {
-                                return Ok(done);
+                                return Ok(true);
                             }
                         }
                         Err(e) => {
@@ -500,7 +522,11 @@ impl Connection {
                     trace!("{:?}: send bytes: {}", self.token, n);
                 }
                 Err(ref e) if would_block(e) => {
-                    trace!("{:?}: send would_block: {:?}", self.token, e);
+                    trace!(
+                        "{:?}: send would_block: {:?}, setting write interest",
+                        self.token,
+                        e
+                    );
                     // Register for write events.
                     self.set_writable(registry)?;
                     break;
@@ -517,9 +543,6 @@ impl Connection {
             trace!("{:?}: post-send: outbound {:?}", self.token, self.outbound);
         }
         // Outbound buffer flushed, clear registration for WRITABLE.
-        // Note that Windows NamedPipes will cause an additional WRITABLE notification after a write, even if
-        // we're no longer registered for WRITABLE.  Any user of Poll is expected to handle spurious events,
-        // so this is fine.
         if self.outbound.is_empty() {
             trace!("{:?}: outbound empty, clearing write interest", self.token);
             self.clear_writable(registry)?;
@@ -558,8 +581,8 @@ trait Driver {
 impl<T> Driver for FramedDriver<T>
 where
     T: Handler,
-    T::In: DeserializeOwned + Debug + AssocRawPlatformHandle,
-    T::Out: Serialize + Debug + AssocRawPlatformHandle,
+    T::In: DeserializeOwned + Debug + AssociateHandleForMessage,
+    T::Out: Serialize + Debug + AssociateHandleForMessage,
 {
     // Caller passes `inbound` data, this function will trim any complete messages from `inbound` and pass them to the handler for processing.
     fn process_inbound(&mut self, inbound: &mut sys::ConnectionBuffer) -> Result<bool> {
@@ -569,17 +592,7 @@ where
         #[allow(unused_mut)]
         while let Some(mut item) = self.codec.decode(&mut inbound.buf)? {
             #[cfg(unix)]
-            {
-                // TODO: Clean this up to only expect a single fd per message.
-                let mut handle = None;
-                let b = inbound.cmsg.take().freeze();
-                for fd in cmsg::iterator(b) {
-                    assert_eq!(fd.len(), 1);
-                    assert!(handle.is_none());
-                    handle = Some(fd[0]);
-                }
-                item.set_owned_handle(|| handle);
-            }
+            item.receive_owned_message_handle(|| cmsg::decode_handle(&mut inbound.cmsg));
             self.handler.consume(item)?;
         }
 
@@ -592,37 +605,21 @@ where
 
         // Repeatedly grab outgoing items from the handler, passing each to `encode` for serialization into `outbound`.
         while let Some(mut item) = self.handler.produce()? {
-            let handle = item.take_handle_for_send();
-
-            // On Windows, the handle is transferred by duplicating it into the target remote process during message send.
-            #[cfg(windows)]
-            if let Some((handle, target_pid)) = handle {
-                let remote_handle = unsafe { duplicate_platform_handle(handle, Some(target_pid))? };
-                trace!(
-                    "item handle: {:?} remote_handle: {:?}",
-                    handle,
-                    remote_handle
-                );
-                // The new handle in the remote process is indicated by updating the handle stored in the item with the expected
-                // value on the remote.
-                item.set_remote_handle_value(|| Some(remote_handle));
-            }
-            // On Unix, the handle is encoded into a cmsg buffer for out-of-band transport via sendmsg.
-            #[cfg(unix)]
-            if let Some((handle, _)) = handle {
-                item.set_remote_handle_value(|| Some(handle));
-            }
+            item.prepare_send_message_handle(|handle, _target| {
+                // On Unix, the handle is encoded into a cmsg buffer for out-of-band transport via sendmsg.
+                #[cfg(unix)]
+                {
+                    cmsg::encode_handle(&mut outbound.cmsg, handle);
+                    Ok(handle)
+                }
+                // On Windows, the handle is transferred by duplicating it into the target remote process during message send.
+                #[cfg(windows)]
+                unsafe {
+                    duplicate_platform_handle(handle, Some(_target))
+                }
+            })?;
 
             self.codec.encode(item, &mut outbound.buf)?;
-
-            #[cfg(unix)]
-            if let Some((handle, _)) = handle {
-                // TODO: Rework builder to commit directly to outbound buffer.
-                match cmsg::builder(&mut outbound.cmsg).rights(&[handle]).finish() {
-                    Ok(handle_bytes) => outbound.cmsg.extend_from_slice(&handle_bytes),
-                    Err(e) => debug!("cmsg::builder failed: {:?}", e),
-                }
-            }
         }
         Ok(())
     }
@@ -716,7 +713,7 @@ mod test {
     enum TestServerMessage {
         TestRequest,
     }
-    impl AssocRawPlatformHandle for TestServerMessage {}
+    impl AssociateHandleForMessage for TestServerMessage {}
 
     struct TestServerImpl {}
 
@@ -735,7 +732,7 @@ mod test {
         TestResponse,
     }
 
-    impl AssocRawPlatformHandle for TestClientMessage {}
+    impl AssociateHandleForMessage for TestClientMessage {}
 
     struct TestClientImpl {}
 
@@ -813,9 +810,8 @@ mod test {
     fn dead_server() {
         init();
         let (server, _client, client_proxy) = setup();
-        server.handle().shutdown().unwrap();
-        // XXX: Need an explicit server drop here, otherwise the test below is racy.
         drop(server);
+
         let response = client_proxy.call(TestServerMessage::TestRequest);
         response.wait().expect_err("sending on closed channel");
     }
@@ -824,7 +820,7 @@ mod test {
     fn dead_client() {
         init();
         let (_server, client, client_proxy) = setup();
-        client.handle().shutdown().unwrap();
+        drop(client);
 
         let response = client_proxy.call(TestServerMessage::TestRequest);
         response.wait().expect_err("sending on a closed channel");
@@ -859,8 +855,7 @@ mod test {
 
         start_rx.recv().expect("after_start callback done");
 
-        // Explicit shutdown.
-        elt.handle().shutdown().expect("shutdown");
+        drop(elt);
 
         stop_rx.recv().expect("before_stop callback done");
     }

@@ -44,6 +44,7 @@ class InputMethodService final : public nsIEditableSupport {
     return mEditableSupport;
   }
   void HandleTextChanged(const nsAString& aText);
+  void HandleSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset);
 
  private:
   InputMethodService() = default;

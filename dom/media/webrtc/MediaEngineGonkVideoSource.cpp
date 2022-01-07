@@ -30,10 +30,9 @@ class CameraControlWrapper : public CameraControlListener {
   NS_IMETHOD_(MozExternalRefCountType) AddRef(void);
   NS_IMETHOD_(MozExternalRefCountType) Release(void);
 
-  explicit CameraControlWrapper(int aIndex);
+  explicit CameraControlWrapper(const nsACString& aCameraName);
 
   void SetPhotoOrientation(int aOrientation);
-  void GetCameraName(nsCString& aCameraName) { aCameraName = mCameraName; }
   bool GetIsBackCamera() { return mIsBackCamera; }
   int GetCameraAngle() { return mCameraAngle; }
 
@@ -57,7 +56,7 @@ class CameraControlWrapper : public CameraControlListener {
     Deallocate();
   }
 
-  const int mCaptureIndex;
+  int mCaptureIndex = -1;
   nsAutoCString mCameraName;
   bool mIsBackCamera = false;
   int mCameraAngle = 0;
@@ -78,11 +77,20 @@ class CameraControlWrapper : public CameraControlListener {
 NS_IMPL_ADDREF_INHERITED(CameraControlWrapper, CameraControlListener)
 NS_IMPL_RELEASE_INHERITED(CameraControlWrapper, CameraControlListener)
 
-CameraControlWrapper::CameraControlWrapper(int aIndex)
-    : mCaptureIndex(aIndex), mMonitor("CameraControlWrapper::mMonitor") {
-  ICameraControl::GetCameraName(mCaptureIndex, mCameraName);
-  if (mCameraName.EqualsASCII("back")) {
-    mIsBackCamera = true;
+CameraControlWrapper::CameraControlWrapper(const nsACString& aCameraName)
+    : mCameraName(aCameraName),
+      mIsBackCamera(aCameraName.EqualsASCII("back")),
+      mMonitor("CameraControlWrapper::mMonitor") {
+  // Find the index of the specified camera name.
+  int num = 0;
+  ICameraControl::GetNumberOfCameras(num);
+  for (int i = 0; i < num; i++) {
+    nsAutoCString name;
+    ICameraControl::GetCameraName(i, name);
+    if (name == aCameraName) {
+      mCaptureIndex = i;
+      break;
+    }
   }
 }
 
@@ -309,9 +317,10 @@ void CameraControlWrapper::OnUserError(UserContext aContext, nsresult aError) {
 
 // ----------------------------------------------------------------------
 
-MediaEngineGonkVideoSource::MediaEngineGonkVideoSource(int aIndex)
-    : MediaEngineCameraVideoSource(camera::CameraEngine),
-      mCaptureIndex(aIndex),
+MediaEngineGonkVideoSource::MediaEngineGonkVideoSource(
+    const MediaDevice* aMediaDevice)
+    : MediaEngineCameraVideoSource(aMediaDevice),
+      mDeviceName(NS_ConvertUTF16toUTF8(aMediaDevice->mRawName)),
       mMutex("MediaEngineGonkVideoSource::mMutex"),
       mRotationBufferPool(false, 1) {
   Init();
@@ -375,7 +384,7 @@ nsresult MediaEngineGonkVideoSource::Allocate(
   LOG("ChooseCapability(kFitness) for mCapability (Allocate) ++");
   if (!ChooseCapability(constraints, aPrefs, newCapability, kFitness)) {
     *aOutBadConstraint =
-        MediaConstraintsHelper::FindBadConstraint(constraints, this);
+        MediaConstraintsHelper::FindBadConstraint(constraints, mMediaDevice);
     return NS_ERROR_FAILURE;
   }
 
@@ -388,7 +397,7 @@ nsresult MediaEngineGonkVideoSource::Allocate(
     mCapability = newCapability;
   }
 
-  LOG("Video device %d allocated", mCaptureIndex);
+  LOG("Video device %s allocated", mDeviceName.Data());
   return NS_OK;
 }
 
@@ -417,7 +426,7 @@ nsresult MediaEngineGonkVideoSource::Deallocate() {
   nsresult rv = mWrapper->Deallocate();
   NS_ENSURE_SUCCESS(rv, rv);
 
-  LOG("Video device %d deallocated", mCaptureIndex);
+  LOG("Video device %s deallocated", mDeviceName.Data());
   return NS_OK;
 }
 
@@ -465,7 +474,7 @@ nsresult MediaEngineGonkVideoSource::Start() {
         settings->mFrameRate.Value() = cap.maxFPS;
       }));
 
-  LOG("Video device %d started", mCaptureIndex);
+  LOG("Video device %s started", mDeviceName.Data());
   return NS_OK;
 }
 
@@ -495,7 +504,7 @@ nsresult MediaEngineGonkVideoSource::Stop() {
     mState = kStopped;
   }
 
-  LOG("Video device %d stopped", mCaptureIndex);
+  LOG("Video device %s stopped", mDeviceName.Data());
   return NS_OK;
 }
 
@@ -510,7 +519,7 @@ nsresult MediaEngineGonkVideoSource::Reconfigure(
   LOG("ChooseCapability(kFitness) for mTargetCapability (Reconfigure) ++");
   if (!ChooseCapability(constraints, aPrefs, newCapability, kFitness)) {
     *aOutBadConstraint =
-        MediaConstraintsHelper::FindBadConstraint(constraints, this);
+        MediaConstraintsHelper::FindBadConstraint(constraints, mMediaDevice);
     return NS_ERROR_INVALID_ARG;
   }
   LOG("ChooseCapability(kFitness) for mTargetCapability (Reconfigure) --");
@@ -525,9 +534,9 @@ nsresult MediaEngineGonkVideoSource::Reconfigure(
     if (NS_WARN_IF(NS_FAILED(rv))) {
       nsAutoCString name;
       GetErrorName(rv, name);
-      LOG("Video source %p for video device %d Reconfigure() failed "
+      LOG("Video source %p for video device %s Reconfigure() failed "
           "unexpectedly in Stop(). rv=%s",
-          this, mCaptureIndex, name.Data());
+          this, mDeviceName.Data(), name.Data());
       return NS_ERROR_UNEXPECTED;
     }
   }
@@ -543,9 +552,9 @@ nsresult MediaEngineGonkVideoSource::Reconfigure(
     if (NS_WARN_IF(NS_FAILED(rv))) {
       nsAutoCString name;
       GetErrorName(rv, name);
-      LOG("Video source %p for video device %d Reconfigure() failed "
+      LOG("Video source %p for video device %s Reconfigure() failed "
           "unexpectedly in Start(). rv=%s",
-          this, mCaptureIndex, name.Data());
+          this, mDeviceName.Data(), name.Data());
       return NS_ERROR_UNEXPECTED;
     }
   }
@@ -589,13 +598,8 @@ void MediaEngineGonkVideoSource::Init() {
   LOG("%s", __PRETTY_FUNCTION__);
   AssertIsOnOwningThread();
 
-  mWrapper = new CameraControlWrapper(mCaptureIndex);
-  nsAutoCString deviceName;
-  mWrapper->GetCameraName(deviceName);
-  SetName(NS_ConvertUTF8toUTF16(deviceName));
-  SetUUID(deviceName.get());
-
-  LOG("Video device %d initialized, name %s", mCaptureIndex, deviceName.get());
+  mWrapper = new CameraControlWrapper(mDeviceName);
+  LOG("Video device %s initialized", mDeviceName.Data());
 }
 
 static int GetRotateAmount(int aScreenAngle, int aCameraMountAngle,
@@ -619,8 +623,8 @@ void MediaEngineGonkVideoSource::UpdateScreenConfiguration(
   int cameraAngle = mWrapper->GetCameraAngle();
   bool isBackCamera = mWrapper->GetIsBackCamera();
   int rotation = GetRotateAmount(aConfig.angle(), cameraAngle, isBackCamera);
-  LOG("Orientation: %d (Camera %d Back %d MountAngle: %d)", rotation,
-      mCaptureIndex, isBackCamera, cameraAngle);
+  LOG("Orientation: %d (Camera %s isBackCamera %d MountAngle: %d)", rotation,
+      mDeviceName.Data(), isBackCamera, cameraAngle);
 
   int orientation = 0;
   switch (aConfig.orientation()) {

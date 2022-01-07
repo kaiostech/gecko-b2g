@@ -10,9 +10,8 @@
 #include "gtest/gtest.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/UniquePtr.h"
-#include "mozilla/dom/MediaTrackSettingsBinding.h"
 #include "nsTArray.h"
-#include "webrtc/MediaEngineSource.h"
+#include "webrtc/MediaEngineDefault.h"
 
 using ::testing::Return;
 using namespace mozilla;
@@ -25,30 +24,11 @@ void PrintTo(const nsCString& aValue, ::std::ostream* aStream) {
   (*aStream) << aValue.get();
 }
 
-class MockMediaEngineSource : public MediaEngineSource {
- public:
-  MOCK_CONST_METHOD0(GetMediaSource, dom::MediaSourceEnum());
-
-  /* Unused overrides */
-  MOCK_CONST_METHOD0(GetName, nsString());
-  MOCK_CONST_METHOD0(GetUUID, nsCString());
-  MOCK_CONST_METHOD0(GetGroupId, nsString());
-  MOCK_CONST_METHOD1(GetSettings, void(dom::MediaTrackSettings&));
-  MOCK_METHOD4(Allocate,
-               nsresult(const dom::MediaTrackConstraints&,
-                        const MediaEnginePrefs&, uint64_t, const char**));
-  MOCK_METHOD2(SetTrack,
-               void(const RefPtr<MediaTrack>&, const PrincipalHandle&));
-  MOCK_METHOD0(Start, nsresult());
-  MOCK_METHOD3(Reconfigure, nsresult(const dom::MediaTrackConstraints&,
-                                     const MediaEnginePrefs&, const char**));
-  MOCK_METHOD0(Stop, nsresult());
-  MOCK_METHOD0(Deallocate, nsresult());
-};
-
-RefPtr<AudioDeviceInfo> MakeAudioDeviceInfo(const nsString aName) {
+RefPtr<AudioDeviceInfo> MakeAudioDeviceInfo(const nsAString& aName,
+                                            const nsAString& aGroupId,
+                                            uint16_t aType) {
   return MakeRefPtr<AudioDeviceInfo>(
-      nullptr, aName, u"GroupId"_ns, u"Vendor"_ns, AudioDeviceInfo::TYPE_OUTPUT,
+      nullptr, aName, aGroupId, u"Vendor"_ns, aType,
       AudioDeviceInfo::STATE_ENABLED, AudioDeviceInfo::PREF_NONE,
       AudioDeviceInfo::FMT_F32LE, AudioDeviceInfo::FMT_F32LE, 2u, 44100u,
       44100u, 44100u, 0, 0);
@@ -56,26 +36,24 @@ RefPtr<AudioDeviceInfo> MakeAudioDeviceInfo(const nsString aName) {
 
 RefPtr<MediaDevice> MakeCameraDevice(const nsString& aName,
                                      const nsString& aGroupId) {
-  auto v = MakeRefPtr<MockMediaEngineSource>();
-  EXPECT_CALL(*v, GetMediaSource())
-      .WillRepeatedly(Return(dom::MediaSourceEnum::Camera));
-
-  return MakeRefPtr<MediaDevice>(v, aName, u""_ns, aGroupId);
+  return new MediaDevice(new MediaEngineDefault(), dom::MediaSourceEnum::Camera,
+                         aName, u""_ns, aGroupId, MediaDevice::IsScary::No);
 }
 
 RefPtr<MediaDevice> MakeMicDevice(const nsString& aName,
                                   const nsString& aGroupId) {
-  auto a = MakeRefPtr<MockMediaEngineSource>();
-  EXPECT_CALL(*a, GetMediaSource())
-      .WillRepeatedly(Return(dom::MediaSourceEnum::Microphone));
-
-  return MakeRefPtr<MediaDevice>(a, aName, u""_ns, aGroupId);
+  return new MediaDevice(
+      new MediaEngineDefault(),
+      MakeAudioDeviceInfo(aName, aGroupId, AudioDeviceInfo::TYPE_INPUT),
+      u""_ns);
 }
 
 RefPtr<MediaDevice> MakeSpeakerDevice(const nsString& aName,
                                       const nsString& aGroupId) {
-  return MakeRefPtr<MediaDevice>(MakeAudioDeviceInfo(aName), u"ID"_ns,
-                                 aGroupId);
+  return new MediaDevice(
+      new MediaEngineDefault(),
+      MakeAudioDeviceInfo(aName, aGroupId, AudioDeviceInfo::TYPE_OUTPUT),
+      u"ID"_ns);
 }
 
 /* Verify that when an audio input device name contains the video input device
@@ -96,7 +74,7 @@ TEST(TestGroupId, MatchInput_PartOfName)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, devices[1]->mGroupID)
+  EXPECT_EQ(devices[0]->mRawGroupID, devices[1]->mRawGroupID)
       << "Video group id is the same as audio input group id.";
 }
 
@@ -117,7 +95,7 @@ TEST(TestGroupId, MatchInput_FullName)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, devices[1]->mGroupID)
+  EXPECT_EQ(devices[0]->mRawGroupID, devices[1]->mRawGroupID)
       << "Video group id is the same as audio input group id.";
 }
 
@@ -137,9 +115,9 @@ TEST(TestGroupId, NoMatchInput)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, Cam_Model_GroupId)
+  EXPECT_EQ(devices[0]->mRawGroupID, Cam_Model_GroupId)
       << "Video group id has not been updated.";
-  EXPECT_NE(devices[0]->mGroupID, audios[0]->mGroupID)
+  EXPECT_NE(devices[0]->mRawGroupID, audios[0]->mRawGroupID)
       << "Video group id is different than audio input group id.";
 }
 
@@ -167,11 +145,11 @@ TEST(TestGroupId, NoMatch_TwoIdenticalDevices)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, Cam_Model_GroupId)
+  EXPECT_EQ(devices[0]->mRawGroupID, Cam_Model_GroupId)
       << "Video group id has not been updated.";
-  EXPECT_NE(devices[0]->mGroupID, audios[0]->mGroupID)
+  EXPECT_NE(devices[0]->mRawGroupID, audios[0]->mRawGroupID)
       << "Video group id is different from audio input group id.";
-  EXPECT_NE(devices[0]->mGroupID, audios[2]->mGroupID)
+  EXPECT_NE(devices[0]->mRawGroupID, audios[2]->mRawGroupID)
       << "Video group id is different from audio output group id.";
 }
 
@@ -198,7 +176,7 @@ TEST(TestGroupId, Match_TwoIdenticalInputsMatchOutput)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, audios[2]->mGroupID)
+  EXPECT_EQ(devices[0]->mRawGroupID, audios[2]->mRawGroupID)
       << "Video group id is the same as audio output group id.";
 }
 
@@ -230,11 +208,11 @@ TEST(TestGroupId, NoMatch_ThreeIdenticalDevices)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, Cam_Model_GroupId)
+  EXPECT_EQ(devices[0]->mRawGroupID, Cam_Model_GroupId)
       << "Video group id has not been updated.";
-  EXPECT_NE(devices[0]->mGroupID, audios[0]->mGroupID)
+  EXPECT_NE(devices[0]->mRawGroupID, audios[0]->mRawGroupID)
       << "Video group id is different from audio input group id.";
-  EXPECT_NE(devices[0]->mGroupID, audios[3]->mGroupID)
+  EXPECT_NE(devices[0]->mRawGroupID, audios[3]->mRawGroupID)
       << "Video group id is different from audio output group id.";
 }
 
@@ -257,7 +235,7 @@ TEST(TestGroupId, MatchOutput)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, audios[1]->mGroupID)
+  EXPECT_EQ(devices[0]->mRawGroupID, audios[1]->mRawGroupID)
       << "Video group id is the same as audio output group id.";
 }
 
@@ -280,7 +258,7 @@ TEST(TestGroupId, InputOutputSameName)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, audios[0]->mGroupID)
+  EXPECT_EQ(devices[0]->mRawGroupID, audios[0]->mRawGroupID)
       << "Video input group id is the same as audio input group id.";
 }
 
@@ -299,7 +277,7 @@ TEST(TestGroupId, InputEmptyGroupId)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, audios[0]->mGroupID)
+  EXPECT_EQ(devices[0]->mRawGroupID, audios[0]->mRawGroupID)
       << "Video input group id is the same as audio input group id.";
 }
 
@@ -318,6 +296,6 @@ TEST(TestGroupId, OutputEmptyGroupId)
 
   MediaManager::GuessVideoDeviceGroupIDs(devices, audios);
 
-  EXPECT_EQ(devices[0]->mGroupID, audios[0]->mGroupID)
+  EXPECT_EQ(devices[0]->mRawGroupID, audios[0]->mRawGroupID)
       << "Video input group id is the same as audio output group id.";
 }

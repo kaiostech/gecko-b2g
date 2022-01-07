@@ -7,6 +7,7 @@
 #include "ScrollbarDrawing.h"
 
 #include "mozilla/RelativeLuminanceUtils.h"
+#include "mozilla/StaticPrefs_widget.h"
 #include "nsContainerFrame.h"
 #include "nsDeviceContext.h"
 #include "nsIFrame.h"
@@ -14,9 +15,9 @@
 #include "nsLookAndFeel.h"
 #include "nsNativeTheme.h"
 
-using namespace mozilla;
 using namespace mozilla::gfx;
-using namespace mozilla::widget;
+
+namespace mozilla::widget {
 
 using ScrollbarParams = ScrollbarDrawing::ScrollbarParams;
 using mozilla::RelativeLuminanceUtils;
@@ -91,6 +92,15 @@ auto ScrollbarDrawing::GetScrollbarSizes(nsPresContext* aPresContext,
   }
   auto dpi = GetDPIRatioForScrollbarPart(aPresContext);
   return {(CSSCoord(w) * dpi).Rounded(), (CSSCoord(h) * dpi).Rounded()};
+}
+
+auto ScrollbarDrawing::GetScrollbarSizes(nsPresContext* aPresContext,
+                                         nsIFrame* aFrame) -> ScrollbarSizes {
+  auto* style = nsLayoutUtils::StyleForScrollbar(aFrame);
+  auto width = style->StyleUIReset()->mScrollbarWidth;
+  auto overlay =
+      aPresContext->UseOverlayScrollbars() ? Overlay::Yes : Overlay::No;
+  return GetScrollbarSizes(aPresContext, width, overlay);
 }
 
 bool ScrollbarDrawing::IsScrollbarTrackOpaque(nsIFrame* aFrame) {
@@ -398,7 +408,7 @@ bool ScrollbarDrawing::PaintScrollbarButton(
     DrawTarget& aDrawTarget, StyleAppearance aAppearance,
     const LayoutDeviceRect& aRect, nsIFrame* aFrame,
     const ComputedStyle& aStyle, const EventStates& aElementState,
-    const EventStates& aDocumentState, const Colors& aColors) {
+    const EventStates& aDocumentState, const Colors& aColors, const DPIRatio&) {
   auto [buttonColor, arrowColor] = ComputeScrollbarButtonColors(
       aFrame, aAppearance, aStyle, aElementState, aDocumentState, aColors);
   aDrawTarget.FillRect(aRect.ToUnknownRect(),
@@ -440,3 +450,5 @@ bool ScrollbarDrawing::PaintScrollbarButton(
                            kPolygonSize, arrowNumPoints, arrowColor);
   return true;
 }
+
+}  // namespace mozilla::widget

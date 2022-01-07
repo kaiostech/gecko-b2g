@@ -2105,7 +2105,7 @@ void BluetoothServiceBluedroid::BondStateChangedNotification(
           BT_LOGD("BD name is unknown");
         }
         // Since mName is not 0-terminated, mLength is required here.
-        NS_ConvertASCIItoUTF16 bdName(
+        NS_ConvertUTF8toUTF16 bdName(
             reinterpret_cast<char*>(remotebdName.mName), remotebdName.mLength);
 
         BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(SYS_MSG_BT_PAIRING_ABORTED,

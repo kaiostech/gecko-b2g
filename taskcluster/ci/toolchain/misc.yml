@@ -180,11 +180,14 @@ linux64-liblowercase:
 
 linux64-wine:
     description: "Wine build for Windows Cross Compile"
+    attributes:
+        local-toolchain: true
     treeherder:
         symbol: TL(wine)
         tier: 1
     worker:
         max-run-time: 10800
+    run-on-projects: [trunk]
     run:
         script: build-wine.sh
         toolchain-artifact: public/build/wine.tar.zst
@@ -263,7 +266,7 @@ linux64-makecab:
         fetch:
             - makecab
         toolchain:
-            - linux64-rust-1.47
+            - linux64-rust-1.57
 
 win64-mozmake:
     description: "mozmake for Windows"
@@ -283,8 +286,11 @@ win64-mozmake:
 
 nsis:
     description: "NSIS for Linux and Windows"
+    attributes:
+        local-toolchain: true
     treeherder:
         symbol: TL(nsis)
+    run-on-projects: [trunk]
     run:
         script: build-nsis.sh
         toolchain-artifact: public/build/nsis.tar.zst

@@ -485,6 +485,7 @@ UniquePtr<webgl::FormatUsageAuthority> WebGLContext::CreateFormatUsage(
 RefPtr<WebGLContext> WebGLContext::Create(HostWebGLContext& host,
                                           const webgl::InitContextDesc& desc,
                                           webgl::InitContextResult* const out) {
+  AUTO_PROFILER_LABEL("WebGLContext::Create", GRAPHICS);
   nsCString failureId = "FEATURE_FAILURE_WEBGL_UNKOWN"_ns;
   const bool forceEnabled = StaticPrefs::webgl_force_enabled();
   ScopedGfxFeatureReporter reporter("WebGL", forceEnabled);
@@ -1456,15 +1457,7 @@ bool ClientWebGLContext::IsXRCompatible() const { return mXRCompatible; }
 already_AddRefed<dom::Promise> ClientWebGLContext::MakeXRCompatible(
     ErrorResult& aRv) {
   const FuncScope funcScope(*this, "MakeXRCompatible");
-  nsCOMPtr<nsIGlobalObject> global;
-  // TODO: Bug 1596921
-  // Should use nsICanvasRenderingContextInternal::GetParentObject
-  // once it has been updated to work in the offscreencanvas case
-  if (mCanvasElement) {
-    global = GetOwnerDoc()->GetScopeObject();
-  } else if (mOffscreenCanvas) {
-    global = mOffscreenCanvas->GetOwnerGlobal();
-  }
+  nsCOMPtr<nsIGlobalObject> global = GetParentObject();
   if (!global) {
     aRv.ThrowInvalidAccessError(
         "Using a WebGL context that is not attached to either a canvas or an "

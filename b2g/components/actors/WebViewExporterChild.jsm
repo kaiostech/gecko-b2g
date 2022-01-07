@@ -111,7 +111,10 @@ class WebViewExporterChild extends JSWindowActorChild {
               bubbles: aEvent.bubbles,
               detail: aEvent.detail,
             },
-            window
+            window,
+            {
+              cloneFunctions: true,
+            }
           )
         );
         this.__dispatchEventImpl(event);
@@ -153,6 +156,47 @@ class WebViewExporterChild extends JSWindowActorChild {
             {
               detail: {
                 id,
+              },
+              bubbles: true,
+            },
+            window
+          )
+        );
+        window.dispatchEvent(event);
+      });
+    };
+
+    classBrowser.prototype.webViewGetScreenshot = function(
+      maxWidth,
+      maxHeight,
+      mimeType
+    ) {
+      let id = `WebView::ReturnScreenshot::${this.webViewRequestId}`;
+      this.webViewRequestId += 1;
+
+      return new this.ownerGlobal.Promise((resolve, reject) => {
+        const window = this.contentWindow;
+        this.addEventListener(
+          id,
+          event => {
+            let detail = event.detail;
+            if (detail.success) {
+              resolve(detail.result);
+            } else {
+              reject();
+            }
+          },
+          { once: true }
+        );
+        const event = new window.CustomEvent(
+          "webview-getscreenshot",
+          Cu.cloneInto(
+            {
+              detail: {
+                id,
+                maxWidth,
+                maxHeight,
+                mimeType,
               },
               bubbles: true,
             },

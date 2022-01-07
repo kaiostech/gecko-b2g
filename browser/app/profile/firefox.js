@@ -300,7 +300,7 @@ pref("browser.startup.preXulSkeletonUI", true);
 #endif
 
 // Show an upgrade dialog on major upgrades.
-pref("browser.startup.upgradeDialog.enabled", true);
+pref("browser.startup.upgradeDialog.enabled", false);
 
 // Don't create the hidden window during startup on
 // platforms that don't always need it (Win/Linux).
@@ -361,6 +361,7 @@ pref("browser.urlbar.maxHistoricalSearchSuggestions", 2);
 pref("browser.urlbar.suggest.bookmark",             true);
 pref("browser.urlbar.suggest.history",              true);
 pref("browser.urlbar.suggest.openpage",             true);
+pref("browser.urlbar.suggest.remotetab",            true);
 pref("browser.urlbar.suggest.searches",             true);
 pref("browser.urlbar.suggest.topsites",             true);
 pref("browser.urlbar.suggest.engines",              true);
@@ -1203,25 +1204,6 @@ pref("browser.flash-protected-mode-flip.done", false);
 pref("dom.ipc.shims.enabledWarnings", false);
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-  // Controls whether and how the Windows NPAPI plugin process is sandboxed.
-  // To get a different setting for a particular plugin replace "default", with
-  // the plugin's nice file name, see: nsPluginTag::GetNiceFileName.
-  // On windows these levels are:
-  // 0 - no sandbox
-  // 1 - sandbox with USER_NON_ADMIN access token level
-  // 2 - a more strict sandbox, which might cause functionality issues. This now
-  //     includes running at low integrity.
-  // 3 - the strongest settings we seem to be able to use without breaking
-  //     everything, but will probably cause some functionality restrictions
-  pref("dom.ipc.plugins.sandbox-level.default", 0);
-  #if defined(_AMD64_)
-    // The base sandbox level in nsPluginTag::InitSandboxLevel must be
-    // updated to keep in sync with this value.
-    pref("dom.ipc.plugins.sandbox-level.flash", 3);
-  #else
-    pref("dom.ipc.plugins.sandbox-level.flash", 0);
-  #endif
-
   // This controls the strength of the Windows content process sandbox for
   // testing purposes. This will require a restart.
   // On windows these levels are:
@@ -1532,7 +1514,18 @@ pref("browser.newtabpage.activity-stream.discoverystream.loadMore.enabled", fals
 pref("browser.newtabpage.activity-stream.discoverystream.lastCardMessage.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.newFooterSection.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.saveToPocketCard.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.hideDescriptions.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.compactGrid.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.compactImages.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.imageGradient.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.titleLines", 3);
+pref("browser.newtabpage.activity-stream.discoverystream.descLines", 3);
+pref("browser.newtabpage.activity-stream.discoverystream.readTime.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.newSponsoredLabel.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.essentialReadsHeader.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.editorsPicksHeader.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.spoc-positions", "2,4,11,20");
+
 pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint-query", "");
 pref("browser.newtabpage.activity-stream.discoverystream.sponsored-collections.enabled", false);
@@ -1742,6 +1735,7 @@ pref("media.autoplay.default", 1); // 0=Allowed, 1=Blocked, 5=All Blocked
 
 pref("media.videocontrols.picture-in-picture.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
+pref("media.videocontrols.picture-in-picture.video-toggle.visibility-threshold", "0.9");
 pref("media.videocontrols.picture-in-picture.keyboard-controls.enabled", true);
 
 #ifdef NIGHTLY_BUILD
@@ -1884,6 +1878,13 @@ pref("browser.contentblocking.report.proxy.enabled", false);
 
 // Disable the mobile promotion by default.
 pref("browser.contentblocking.report.show_mobile_app", true);
+
+// Avoid advertising in certain regions. Comma separated string of two letter ISO 3166-1 country codes.
+// We're currently blocking all of Ukraine (ua), but would prefer to block just Crimea (ua-43). Currently, the Mozilla Location Service APIs used by Region.jsm only exposes the country, not the subdivision.
+pref("browser.vpn_promo.disallowed_regions", "ae,by,cn,cu,iq,ir,kp,om,ru,sd,sy,tm,tr,ua");
+
+// Default to enabling VPN promo messages to be shown when specified and allowed
+pref("browser.vpn_promo.enabled", true);
 
 // Enable the vpn card by default.
 pref("browser.contentblocking.report.vpn.enabled", true);
@@ -2056,6 +2057,11 @@ pref("extensions.pocket.showHome", true);
 // Control what version of the logged out doorhanger is displayed
 // Possibilities are: `control`, `control-one-button`, `variant_a`, `variant_b`, `variant_c`
 pref("extensions.pocket.loggedOutVariant", "control");
+
+// Enable the new Pocket panels.
+pref("extensions.pocket.refresh.layout.enabled", false);
+// Just for the new Pocket panels, enables the email signup button.
+pref("extensions.pocket.refresh.emailButton.enabled", false);
 
 pref("signon.management.page.fileImport.enabled", false);
 
@@ -2230,13 +2236,9 @@ pref("devtools.browsertoolbox.fission", false);
 // This preference will enable watching top-level targets from the server side.
 pref("devtools.target-switching.server.enabled", true);
 
-// Setting this preference to true will result in DevTools creating a target for each frame
-// (i.e. not only for top-level document and remote frames).
-#if defined(NIGHTLY_BUILD)
+// In DevTools, create a target for each frame (i.e. not only for top-level document and
+// remote frames).
 pref("devtools.every-frame-target.enabled", true);
-#else
-pref("devtools.every-frame-target.enabled", false);
-#endif
 
 // Toolbox Button preferences
 pref("devtools.command-button-pick.enabled", true);
@@ -2465,11 +2467,7 @@ pref("devtools.webconsole.filter.netxhr", false);
 pref("devtools.webconsole.input.autocomplete",true);
 
 // Show context selector in console input
-#if defined(NIGHTLY_BUILD)
-  pref("devtools.webconsole.input.context", true);
-#else
-  pref("devtools.webconsole.input.context", false);
-#endif
+pref("devtools.webconsole.input.context", true);
 
 // Set to true to eagerly show the results of webconsole terminal evaluations
 // when they don't have side effects.

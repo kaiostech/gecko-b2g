@@ -2048,8 +2048,7 @@ bool CanonicalBrowsingContext::LoadInParent(nsDocShellLoadState* aLoadState,
   // We currently only support starting loads directly from the
   // CanonicalBrowsingContext for top-level BCs.
   if (!IsTopContent() || !GetContentParent() ||
-      !StaticPrefs::browser_tabs_documentchannel_parent_controlled() ||
-      !mozilla::SessionHistoryInParent()) {
+      !StaticPrefs::browser_tabs_documentchannel_parent_controlled()) {
     return false;
   }
 
@@ -2077,8 +2076,7 @@ bool CanonicalBrowsingContext::AttemptSpeculativeLoadInParent(
   // We currently only support starting loads directly from the
   // CanonicalBrowsingContext for top-level BCs.
   if (!IsTopContent() || !GetContentParent() ||
-      (StaticPrefs::browser_tabs_documentchannel_parent_controlled() &&
-       mozilla::SessionHistoryInParent())) {
+      (StaticPrefs::browser_tabs_documentchannel_parent_controlled())) {
     return false;
   }
 
@@ -2098,7 +2096,7 @@ bool CanonicalBrowsingContext::StartDocumentLoad(
   // If we're controlling loads from the parent, then starting a new load means
   // that we need to cancel any existing ones.
   if (StaticPrefs::browser_tabs_documentchannel_parent_controlled() &&
-      mozilla::SessionHistoryInParent() && mCurrentLoad) {
+      mCurrentLoad) {
     // Make sure we are not loading a javascript URI.
     MOZ_ASSERT(!aLoad->IsLoadingJSURI());
 
@@ -2542,7 +2540,7 @@ static void LogBFCacheBlockingForDoc(BrowsingContext* aBrowsingContext,
 }
 
 bool CanonicalBrowsingContext::AllowedInBFCache(
-    const Maybe<uint64_t>& aChannelId) {
+    const Maybe<uint64_t>& aChannelId, nsIURI* aNewURI) {
   if (MOZ_UNLIKELY(MOZ_LOG_TEST(gSHIPBFCacheLog, LogLevel::Debug))) {
     nsAutoCString uri("[no uri]");
     nsCOMPtr<nsIURI> currentURI = GetCurrentURI();
@@ -2586,6 +2584,16 @@ bool CanonicalBrowsingContext::AllowedInBFCache(
         !currentURI->GetSpecOrDefault().EqualsLiteral("about:blank")) {
       bfcacheCombo |= BFCacheStatus::ABOUT_PAGE;
       MOZ_LOG(gSHIPBFCacheLog, LogLevel::Debug, (" * about:* page"));
+    }
+
+    if (aNewURI) {
+      bool equalUri = false;
+      aNewURI->Equals(currentURI, &equalUri);
+      if (equalUri) {
+        // When loading the same uri, disable bfcache so that
+        // nsDocShell::OnNewURI transforms the load to LOAD_NORMAL_REPLACE.
+        return false;
+      }
     }
   }
 

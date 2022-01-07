@@ -2689,12 +2689,6 @@ BrowserGlue.prototype = {
       },
 
       {
-        task: () => {
-          PlacesUIUtils.ensureBookmarkToolbarTelemetryListening();
-        },
-      },
-
-      {
         condition: AppConstants.MOZ_UPDATE_AGENT,
         task: () => {
           // Never in automation!  This is close to
@@ -3359,7 +3353,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 121;
+    const UI_VERSION = 122;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     const PROFILE_DIR = Services.dirsvc.get("ProfD", Ci.nsIFile).path;
@@ -3950,7 +3944,6 @@ BrowserGlue.prototype = {
           defaultValue
         );
       }
-      Services.prefs.clearUserPref(oldPrefName);
     }
 
     if (currentUIVersion < 109) {
@@ -4059,6 +4052,24 @@ BrowserGlue.prototype = {
       this._migrateHashedKeysForXULStoreForDocument(
         "chrome://browser/content/places/historySidebar.xhtml"
       );
+    }
+
+    if (currentUIVersion < 122) {
+      // Migrate xdg-desktop-portal pref from old to new prefs.
+      try {
+        const oldPref = "widget.use-xdg-desktop-portal";
+        if (Services.prefs.getBoolPref(oldPref)) {
+          Services.prefs.setIntPref(
+            "widget.use-xdg-desktop-portal.file-picker",
+            1
+          );
+          Services.prefs.setIntPref(
+            "widget.use-xdg-desktop-portal.mime-handler",
+            1
+          );
+        }
+        Services.prefs.clearUserPref(oldPref);
+      } catch (ex) {}
     }
 
     // Update the migration version.

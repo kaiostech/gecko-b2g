@@ -8,17 +8,19 @@
 #define MOZILLA_DOM_OFFSCREENCANVAS_H_
 
 #include "gfxTypes.h"
+#include "mozilla/dom/CanvasRenderingContextHelper.h"
 #include "mozilla/dom/ImageEncoder.h"
+#include "mozilla/dom/OffscreenCanvasDisplayHelper.h"
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/layers/LayersTypes.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
-#include "CanvasRenderingContextHelper.h"
 #include "nsCycleCollectionParticipant.h"
 
 struct JSContext;
 
 namespace mozilla {
-
+class CancelableRunnable;
 class ErrorResult;
 
 namespace gfx {
@@ -83,38 +85,10 @@ class OffscreenCanvas final : public DOMEventTargetHelper,
   void ClearResources();
 
   uint32_t Width() const { return mWidth; }
-
   uint32_t Height() const { return mHeight; }
-
-  void SetWidth(uint32_t aWidth, ErrorResult& aRv) {
-    if (mNeutered) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
-
-    if (mWidth != aWidth) {
-      mWidth = aWidth;
-      CanvasAttrChanged();
-    }
-  }
-
-  void SetHeight(uint32_t aHeight, ErrorResult& aRv) {
-    if (mNeutered) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
-
-    if (mHeight != aHeight) {
-      mHeight = aHeight;
-      CanvasAttrChanged();
-    }
-  }
-
-  void UpdateNeuteredSize(uint32_t aWidth, uint32_t aHeight) {
-    MOZ_ASSERT(mNeutered);
-    mWidth = aWidth;
-    mHeight = aHeight;
-  }
+  void SetWidth(uint32_t aWidth, ErrorResult& aRv);
+  void SetHeight(uint32_t aHeight, ErrorResult& aRv);
+  void UpdateNeuteredSize(uint32_t aWidth, uint32_t aHeight);
 
   void GetContext(JSContext* aCx, const OffscreenRenderingContextId& aContextId,
                   JS::Handle<JS::Value> aContextOptions,
@@ -148,10 +122,11 @@ class OffscreenCanvas final : public DOMEventTargetHelper,
 
   OffscreenCanvasCloneData* ToCloneData();
 
-  void UpdateParameters(uint32_t aWidth, uint32_t aHeight, bool aHasAlpha,
-                        bool aIsPremultiplied, bool aIsOriginBottomLeft);
+  void UpdateDisplayData(const OffscreenCanvasDisplayData& aData);
 
   void CommitFrameToCompositor();
+  void DequeueCommitToCompositor();
+  void QueueCommitToCompositor();
 
   virtual bool GetOpaqueAttr() override { return false; }
 
@@ -176,8 +151,6 @@ class OffscreenCanvas final : public DOMEventTargetHelper,
 
   bool ShouldResistFingerprinting() const;
 
-  void QueueCommitToCompositor();
-
  private:
   ~OffscreenCanvas();
 
@@ -201,6 +174,8 @@ class OffscreenCanvas final : public DOMEventTargetHelper,
   layers::TextureType mTextureType;
 
   RefPtr<OffscreenCanvasDisplayHelper> mDisplay;
+  RefPtr<CancelableRunnable> mPendingCommit;
+  Maybe<OffscreenCanvasDisplayData> mPendingUpdate;
 };
 
 }  // namespace dom

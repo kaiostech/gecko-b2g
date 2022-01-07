@@ -1028,6 +1028,7 @@
           "opensearch",
           "resize",
           "scroll",
+          "scrollareachanged",
           "contextmenu",
           "fullscreen::request",
           "fullscreen::exit",
@@ -1188,6 +1189,12 @@
             break;
           case "WebView::scroll":
             this.webViewDispatchEventFromData("scroll", data, ["top", "left"]);
+            break;
+          case "WebView::scrollareachanged":
+            this.webViewDispatchEventFromData("scrollareachanged", data, [
+              "width",
+              "height",
+            ]);
             break;
           case "WebView::fullscreen::request":
             window.addEventListener("MozDOMFullscreen:Entered", this, true);

@@ -3,12 +3,6 @@
 version = 3
 
 [[package]]
-name = "Inflector"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -27,6 +21,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "alsa"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb213f6b3e4b1480a60931ca2035794aa67b73103d254715b1db7b70dcb3c934"
+dependencies = [
+ "alsa-sys",
+ "bitflags",
+ "libc",
+ "nix",
+]
+
+[[package]]
+name = "alsa-sys"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db8fee663d06c4e303404ef5f40488a53e062f89ba8bfed81f42325aafad1527"
+dependencies = [
+ "libc",
+ "pkg-config",
 ]
 
 [[package]]
@@ -117,9 +133,9 @@ dependencies = [
 
 [[package]]
 name = "ashmem"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b43da58b19e1c6ffb1859b10766a2049cefa15f613c42dfeab8423701e8b76b6"
+checksum = "b947f77692187a29daa2768b6644e589cef61e7434bb96300197acfb876105ac"
 dependencies = [
  "ioctl-sys",
  "libc",
@@ -251,7 +267,7 @@ dependencies = [
 [[package]]
 name = "audioipc2"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=abd4a0132ea65057b554221c8f112a9bedd33a92#abd4a0132ea65057b554221c8f112a9bedd33a92"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=978b4082bdc7d8e1aa58dd49e45cdc81beacb333#978b4082bdc7d8e1aa58dd49e45cdc81beacb333"
 dependencies = [
  "ashmem",
  "audio_thread_priority",
@@ -276,7 +292,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-client"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=abd4a0132ea65057b554221c8f112a9bedd33a92#abd4a0132ea65057b554221c8f112a9bedd33a92"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=978b4082bdc7d8e1aa58dd49e45cdc81beacb333#978b4082bdc7d8e1aa58dd49e45cdc81beacb333"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -287,7 +303,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-server"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=abd4a0132ea65057b554221c8f112a9bedd33a92#abd4a0132ea65057b554221c8f112a9bedd33a92"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=978b4082bdc7d8e1aa58dd49e45cdc81beacb333#978b4082bdc7d8e1aa58dd49e45cdc81beacb333"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -710,7 +726,7 @@ checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
 [[package]]
 name = "chardetng"
 version = "0.1.9"
-source = "git+https://github.com/hsivonen/chardetng?rev=302c995f91f44cf26e77dc4758ad56c3ff0153ad#302c995f91f44cf26e77dc4758ad56c3ff0153ad"
+source = "git+https://github.com/hsivonen/chardetng?rev=3484d3e3ebdc8931493aa5df4d7ee9360a90e76b#3484d3e3ebdc8931493aa5df4d7ee9360a90e76b"
 dependencies = [
  "encoding_rs",
  "memchr",
@@ -893,6 +909,25 @@ source = "git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=dea28d0c7d9952bb
 dependencies = [
  "core-foundation-sys",
  "coreaudio-sys",
+]
+
+[[package]]
+name = "coremidi"
+version = "0.6.0"
+source = "git+https://github.com/chris-zen/coremidi.git?rev=fc68464b5445caf111e41f643a2e69ccce0b4f83#fc68464b5445caf111e41f643a2e69ccce0b4f83"
+dependencies = [
+ "core-foundation",
+ "core-foundation-sys",
+ "coremidi-sys",
+]
+
+[[package]]
+name = "coremidi-sys"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b49674d86f634be42bba110d6b2fa0b047bd5a2bbd02fcba776b56030899f20d"
+dependencies = [
+ "core-foundation-sys",
 ]
 
 [[package]]
@@ -1118,9 +1153,9 @@ dependencies = [
 
 [[package]]
 name = "cssparser"
-version = "0.29.1"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6907f2a003b6abf3a1688f4f74469c6f54d0916dbbbbb9813f89eabe5bc74e3c"
+checksum = "031d29b6d1ea84f63436e45fb6f3c1a3d62dc1650018c53fa7165e108d35d88f"
 dependencies = [
  "cssparser-macros",
  "dtoa-short",
@@ -1152,6 +1187,12 @@ dependencies = [
  "proc-macro2",
  "quote",
 ]
+
+[[package]]
+name = "cty"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 
 [[package]]
 name = "cubeb"
@@ -1555,14 +1596,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
-name = "fallible"
-version = "0.0.1"
-dependencies = [
- "hashglobe",
- "smallvec",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1637,25 +1670,25 @@ dependencies = [
 
 [[package]]
 name = "fluent-bundle"
-version = "0.15.1"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8acf044eeb4872d9dbf2667541fbf461f5965c57e343878ad0fb24b5793fa007"
+checksum = "e242c601dec9711505f6d5bbff5bedd4b61b2469f2e8bb8e57ee7c9747a87ffd"
 dependencies = [
  "fluent-langneg",
  "fluent-syntax",
  "intl-memoizer",
  "intl_pluralrules",
- "ouroboros",
  "rustc-hash",
+ "self_cell",
  "smallvec",
  "unic-langid",
 ]
 
 [[package]]
 name = "fluent-fallback"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "768feaf8a77beababd5cf3bb1154597b7161eb5a555013a3ac594fe3ed8b18ee"
+checksum = "e0ebe8c34b89a10c8a431de9c0c5c2005b79c438d9a498a028c4e05b88afb3d6"
 dependencies = [
  "async-trait",
  "chunky-vec",
@@ -2125,6 +2158,7 @@ dependencies = [
  "log",
  "mapped_hyph",
  "mdns_service",
+ "midir_impl",
  "mozurl",
  "mp4parse_capi",
  "neqo_glue",
@@ -2245,9 +2279,8 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "glow"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f04649123493bc2483cbef4daddb45d40bbdae5adb221a63a23efdb0cc99520"
+version = "0.11.1"
+source = "git+https://github.com/grovesNL/glow?rev=5851ca6#5851ca65e6b6f4f2c59683245c07de1843c85452"
 dependencies = [
  "js-sys",
  "slotmap",
@@ -2393,13 +2426,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
 dependencies = [
  "ahash",
-]
-
-[[package]]
-name = "hashglobe"
-version = "0.1.0"
-dependencies = [
- "libc",
 ]
 
 [[package]]
@@ -2636,6 +2662,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipcclientcerts-static"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "once_cell",
+ "pkcs11",
+ "rsclientcerts",
+ "sha2 0.8.2",
+]
+
+[[package]]
 name = "ipfs_handler"
 version = "0.1.0"
 dependencies = [
@@ -2683,12 +2720,11 @@ dependencies = [
 [[package]]
 name = "js-sys"
 version = "0.3.100"
-source = "git+https://github.com/kvark/dummy-web#5731e569d865a1ebaf116f48dad781f355a99243"
 
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=23a37b0881b20f923f952b3c0648f2cd4a6acc9f#23a37b0881b20f923f952b3c0648f2cd4a6acc9f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=a1a6ba41f0c610ebe751639f25f037474ca52941#a1a6ba41f0c610ebe751639f25f037474ca52941"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2702,7 +2738,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=23a37b0881b20f923f952b3c0648f2cd4a6acc9f#23a37b0881b20f923f952b3c0648f2cd4a6acc9f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=a1a6ba41f0c610ebe751639f25f037474ca52941#a1a6ba41f0c610ebe751639f25f037474ca52941"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2711,7 +2747,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=23a37b0881b20f923f952b3c0648f2cd4a6acc9f#23a37b0881b20f923f952b3c0648f2cd4a6acc9f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=a1a6ba41f0c610ebe751639f25f037474ca52941#a1a6ba41f0c610ebe751639f25f037474ca52941"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2724,7 +2760,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=23a37b0881b20f923f952b3c0648f2cd4a6acc9f#23a37b0881b20f923f952b3c0648f2cd4a6acc9f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=a1a6ba41f0c610ebe751639f25f037474ca52941#a1a6ba41f0c610ebe751639f25f037474ca52941"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2734,12 +2770,12 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=23a37b0881b20f923f952b3c0648f2cd4a6acc9f#23a37b0881b20f923f952b3c0648f2cd4a6acc9f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=a1a6ba41f0c610ebe751639f25f037474ca52941#a1a6ba41f0c610ebe751639f25f037474ca52941"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=23a37b0881b20f923f952b3c0648f2cd4a6acc9f#23a37b0881b20f923f952b3c0648f2cd4a6acc9f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=a1a6ba41f0c610ebe751639f25f037474ca52941#a1a6ba41f0c610ebe751639f25f037474ca52941"
 dependencies = [
  "arrayvec 0.5.2",
  "bumpalo",
@@ -2751,7 +2787,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=23a37b0881b20f923f952b3c0648f2cd4a6acc9f#23a37b0881b20f923f952b3c0648f2cd4a6acc9f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=a1a6ba41f0c610ebe751639f25f037474ca52941#a1a6ba41f0c610ebe751639f25f037474ca52941"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2761,7 +2797,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=23a37b0881b20f923f952b3c0648f2cd4a6acc9f#23a37b0881b20f923f952b3c0648f2cd4a6acc9f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=a1a6ba41f0c610ebe751639f25f037474ca52941#a1a6ba41f0c610ebe751639f25f037474ca52941"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -2835,7 +2871,7 @@ dependencies = [
 [[package]]
 name = "l10nregistry"
 version = "0.3.0"
-source = "git+https://github.com/mozilla/l10nregistry-rs?rev=fd02134161505f978e132114cbabdac057ce3b71#fd02134161505f978e132114cbabdac057ce3b71"
+source = "git+https://github.com/mozilla/l10nregistry-rs.git?rev=9da98c6e5325a5f2997191727eaa82c0ebc2004c#9da98c6e5325a5f2997191727eaa82c0ebc2004c"
 dependencies = [
  "async-trait",
  "fluent-bundle",
@@ -3061,12 +3097,10 @@ dependencies = [
  "app_units",
  "cssparser",
  "euclid",
- "hashglobe",
  "selectors",
  "servo_arc",
  "smallbitvec",
  "smallvec",
- "thin-slice",
  "void",
 ]
 
@@ -3118,10 +3152,17 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "dns-parser",
+ "gecko-profiler",
  "log",
  "socket2",
  "uuid",
 ]
+
+[[package]]
+name = "memalloc"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df39d232f5c40b0891c10216992c2f250c054105cb1e56f0fc9032db6203ecc1"
 
 [[package]]
 name = "memchr"
@@ -3177,6 +3218,33 @@ dependencies = [
  "foreign-types",
  "log",
  "objc",
+]
+
+[[package]]
+name = "midir"
+version = "0.7.0"
+source = "git+https://github.com/mozilla/midir.git?rev=4c11f0ffb5d6a10de4aff40a7b81218b33b94e6f#4c11f0ffb5d6a10de4aff40a7b81218b33b94e6f"
+dependencies = [
+ "alsa",
+ "bitflags",
+ "coremidi",
+ "js-sys",
+ "libc",
+ "memalloc",
+ "nix",
+ "wasm-bindgen",
+ "web-sys",
+ "winapi",
+]
+
+[[package]]
+name = "midir_impl"
+version = "0.1.0"
+dependencies = [
+ "midir",
+ "nsstring",
+ "thin-vec",
+ "uuid",
 ]
 
 [[package]]
@@ -3410,8 +3478,8 @@ dependencies = [
 
 [[package]]
 name = "mp4parse"
-version = "0.12.0"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=a25713781eac774c531af43ba833ef86cb920889#a25713781eac774c531af43ba833ef86cb920889"
+version = "0.13.0"
+source = "git+https://github.com/mozilla/mp4parse-rust?rev=3bfc47d9a571d0842676043ba60716318e946c06#3bfc47d9a571d0842676043ba60716318e946c06"
 dependencies = [
  "bitreader",
  "byteorder",
@@ -3428,8 +3496,8 @@ version = "0.1.0"
 
 [[package]]
 name = "mp4parse_capi"
-version = "0.12.0"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=a25713781eac774c531af43ba833ef86cb920889#a25713781eac774c531af43ba833ef86cb920889"
+version = "0.13.0"
+source = "git+https://github.com/mozilla/mp4parse-rust?rev=3bfc47d9a571d0842676043ba60716318e946c06#3bfc47d9a571d0842676043ba60716318e946c06"
 dependencies = [
  "byteorder",
  "fallible_collections",
@@ -3499,7 +3567,7 @@ checksum = "a2983372caf4480544083767bf2d27defafe32af49ab4df3a0b7fc90793a3664"
 [[package]]
 name = "naga"
 version = "0.7.1"
-source = "git+https://github.com/gfx-rs/naga?rev=29571cc#29571cc4cfbb28558948b1b31ad764f55b69f37b"
+source = "git+https://github.com/gfx-rs/naga?rev=8ffd6ba#8ffd6ba929b4b93c9564f08fe8bb34b23fa72a6f"
 dependencies = [
  "bit-set",
  "bitflags",
@@ -3826,29 +3894,6 @@ dependencies = [
  "cc",
  "dashmap",
  "log",
-]
-
-[[package]]
-name = "ouroboros"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8234affc3c31a8b744cc236fd3dc7443f57c6370cbb7d61f41f9c7dcc6c2530"
-dependencies = [
- "ouroboros_macro",
- "stable_deref_trait",
-]
-
-[[package]]
-name = "ouroboros_macro"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3633332cd8c0b6a865e2e0e705fad9cde25fe458cd0c693629b58a7b15e4d852"
-dependencies = [
- "Inflector",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -4324,11 +4369,11 @@ checksum = "63e935c45e09cc6dcf00d2f0b2d630a58f4095320223d47fc68918722f0538b6"
 
 [[package]]
 name = "raw-window-handle"
-version = "0.3.3"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a441a7a6c80ad6473bd4b74ec1c9a4c951794285bf941c2126f607c72e48211"
+checksum = "fba75eee94a9d5273a68c9e1e105d9cffe1ef700532325788389e5a83e2522b7"
 dependencies = [
- "libc",
+ "cty",
 ]
 
 [[package]]
@@ -4671,6 +4716,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "self_cell"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ef965a420fe14fdac7dd018862966a4c14094f900e1650bbc71ddd7d580c8af"
+
+[[package]]
 name = "semver"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4885,7 +4936,6 @@ checksum = "9def91fd1e018fe007022791f865d0ccc9b3a0d5001e01aabb8b40e46000afb5"
 [[package]]
 name = "slotmap"
 version = "1.100.0"
-source = "git+https://github.com/kvark/dummy-web#5731e569d865a1ebaf116f48dad781f355a99243"
 
 [[package]]
 name = "smallbitvec"
@@ -5004,11 +5054,8 @@ dependencies = [
  "cssparser",
  "derive_more",
  "euclid",
- "fallible",
  "fxhash",
  "gecko-profiler",
- "hashbrown",
- "hashglobe",
  "indexmap",
  "itertools 0.8.2",
  "itoa",
@@ -5036,7 +5083,6 @@ dependencies = [
  "static_prefs",
  "style_derive",
  "style_traits",
- "thin-slice",
  "time",
  "to_shmem",
  "to_shmem_derive",
@@ -5225,12 +5271,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "thin-slice"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eaa81235c7058867fa8c0e7314f33dcce9c215f535d1913822a2b3f5e289f3c"
-
-[[package]]
 name = "thin-vec"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5286,7 +5326,6 @@ dependencies = [
  "servo_arc",
  "smallbitvec",
  "smallvec",
- "thin-slice",
 ]
 
 [[package]]
@@ -5769,7 +5808,6 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 [[package]]
 name = "wasm-bindgen"
 version = "0.2.100"
-source = "git+https://github.com/kvark/dummy-web#5731e569d865a1ebaf116f48dad781f355a99243"
 
 [[package]]
 name = "wasm-encoder"
@@ -5819,7 +5857,6 @@ dependencies = [
 [[package]]
 name = "web-sys"
 version = "0.3.100"
-source = "git+https://github.com/kvark/dummy-web#5731e569d865a1ebaf116f48dad781f355a99243"
 
 [[package]]
 name = "webdriver"
@@ -5995,7 +6032,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "0.11.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=28ba9d8#28ba9d86ebb30173c910303b1ceb38e101a8a4a1"
+source = "git+https://github.com/gfx-rs/wgpu?rev=1e593a6#1e593a6bd3e60796d00604d803c77bfb41ef3232"
 dependencies = [
  "arrayvec 0.7.2",
  "bitflags",
@@ -6018,7 +6055,7 @@ dependencies = [
 [[package]]
 name = "wgpu-hal"
 version = "0.11.2"
-source = "git+https://github.com/gfx-rs/wgpu?rev=28ba9d8#28ba9d86ebb30173c910303b1ceb38e101a8a4a1"
+source = "git+https://github.com/gfx-rs/wgpu?rev=1e593a6#1e593a6bd3e60796d00604d803c77bfb41ef3232"
 dependencies = [
  "arrayvec 0.7.2",
  "ash",
@@ -6055,7 +6092,7 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "0.11.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=28ba9d8#28ba9d86ebb30173c910303b1ceb38e101a8a4a1"
+source = "git+https://github.com/gfx-rs/wgpu?rev=1e593a6#1e593a6bd3e60796d00604d803c77bfb41ef3232"
 dependencies = [
  "bitflags",
  "bitflags_serde_shim",

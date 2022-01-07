@@ -49,7 +49,7 @@ def check_run(args):
             sys.stdout.write(line.decode())
             sys.stdout.flush()
         r = p.wait()
-        if r != 0:
+        if r != 0 and os.environ.get("UPLOAD_DIR"):
             cmake_output_re = re.compile(b'See also "(.*/CMakeOutput.log)"')
             cmake_error_re = re.compile(b'See also "(.*/CMakeError.log)"')
 
@@ -62,16 +62,13 @@ def check_run(args):
             output_match = find_first_match(cmake_output_re)
             error_match = find_first_match(cmake_error_re)
 
-            def dump_file(log):
-                with open(log, "r", errors="replace") as f:
-                    print("\nContents of", log, "follow\n", file=sys.stderr)
-                    for line in f:
-                        print(line, file=sys.stderr)
-
+            upload_dir = os.environ["UPLOAD_DIR"].encode("utf-8")
+            if output_match or error_match:
+                mkdir_p(upload_dir)
             if output_match:
-                dump_file(output_match.group(1))
+                shutil.copy2(output_match.group(1), upload_dir)
             if error_match:
-                dump_file(error_match.group(1))
+                shutil.copy2(error_match.group(1), upload_dir)
     else:
         r = subprocess.call(args)
     assert r == 0
@@ -246,6 +243,9 @@ def build_one_stage(
 
     def cmake_base_args(cc, cxx, asm, ld, ar, ranlib, libtool, inst_dir):
         machine_targets = "X86;ARM;AArch64" if is_final_stage else "X86"
+        if build_wasm and is_final_stage:
+            machine_targets += ";WebAssembly"
+
         cmake_args = [
             "-GNinja",
             "-DCMAKE_C_COMPILER=%s" % slashify_path(cc[0]),
@@ -280,8 +280,7 @@ def build_one_stage(
                 "-DCOMPILER_RT_BUILD_MEMPROF=OFF",
                 "-DCOMPILER_RT_BUILD_LIBFUZZER=OFF",
             ]
-        if build_wasm:
-            cmake_args += ["-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=WebAssembly"]
+
         if is_linux() and not osx_cross_compile and is_final_stage:
             cmake_args += ["-DLLVM_BINUTILS_INCDIR=/usr/include"]
             cmake_args += ["-DLLVM_ENABLE_LIBXML2=FORCE_ON"]
@@ -701,7 +700,7 @@ if __name__ == "__main__":
                 "We only know how to do Release, Debug, RelWithDebInfo or "
                 "MinSizeRel builds"
             )
-    build_libcxx = not is_windows()
+    build_libcxx = True
     if "build_libcxx" in config:
         build_libcxx = config["build_libcxx"]
         if build_libcxx not in (True, False):

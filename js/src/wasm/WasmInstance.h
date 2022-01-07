@@ -254,13 +254,12 @@ class Instance {
                            uint32_t dstTableIndex, uint32_t srcTableIndex);
   static int32_t tableFill(Instance* instance, uint32_t start, void* value,
                            uint32_t len, uint32_t tableIndex);
-  static void* tableGet(Instance* instance, uint32_t index,
-                        uint32_t tableIndex);
+  static void* tableGetFunc(Instance* instance, uint32_t index,
+                            uint32_t tableIndex);
   static uint32_t tableGrow(Instance* instance, void* initValue, uint32_t delta,
                             uint32_t tableIndex);
-  static int32_t tableSet(Instance* instance, uint32_t index, void* value,
-                          uint32_t tableIndex);
-  static uint32_t tableSize(Instance* instance, uint32_t tableIndex);
+  static int32_t tableSetFunc(Instance* instance, uint32_t index, void* value,
+                              uint32_t tableIndex);
   static int32_t tableInit(Instance* instance, uint32_t dstOffset,
                            uint32_t srcOffset, uint32_t len, uint32_t segIndex,
                            uint32_t tableIndex);
@@ -285,7 +284,7 @@ class Instance {
 #ifdef ENABLE_WASM_EXCEPTIONS
   static void* exceptionNew(Instance* instance, uint32_t exnIndex,
                             uint32_t nbytes);
-  static void* throwException(Instance* instance, JSObject* exn);
+  static int32_t throwException(Instance* instance, JSObject* exn);
   static uint32_t consumePendingException(Instance* instance);
   static int32_t pushRefIntoExn(Instance* instance, JSObject* exn,
                                 JSObject* ref);
@@ -303,6 +302,10 @@ using UniqueInstance = UniquePtr<Instance>;
 bool ResultsToJSValue(JSContext* cx, ResultType type, void* registerResultLoc,
                       Maybe<char*> stackResultsLoc, MutableHandleValue rval,
                       CoercionLevel level = CoercionLevel::Spec);
+
+// Report an error to `cx` and mark it as a 'trap' so that it cannot be caught
+// by wasm exception handlers.
+void ReportTrapError(JSContext* cx, unsigned errorNumber);
 
 }  // namespace wasm
 }  // namespace js

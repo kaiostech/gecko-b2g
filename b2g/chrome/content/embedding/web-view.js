@@ -346,6 +346,7 @@ const { AboutReaderParent } = ChromeUtils.import(
     "backgroundcolor",
     "close",
     "documentfirstpaint",
+    "contextmenu",
     "iconchange",
     "manifestchange",
     "metachange",
@@ -357,6 +358,7 @@ const { AboutReaderParent } = ChromeUtils.import(
     "visibilitychange",
     "resize",
     "scroll",
+    "scrollareachanged",
     "showmodalprompt",
   ];
 
@@ -731,6 +733,7 @@ const { AboutReaderParent } = ChromeUtils.import(
         case "recordingstatus":
         case "resize":
         case "scroll":
+        case "scrollareachanged":
         case "showmodalprompt":
           this.dispatchCustomEvent(event.type, event.detail);
           break;

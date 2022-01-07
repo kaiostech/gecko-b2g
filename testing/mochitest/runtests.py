@@ -1859,12 +1859,6 @@ toolbar#nav-bar {
         if self.mozLogs:
             browserEnv["MOZ_LOG"] = MOZ_LOG
 
-        if options.enable_webrender:
-            browserEnv["MOZ_WEBRENDER"] = "1"
-            browserEnv["MOZ_ACCELERATED"] = "1"
-        else:
-            browserEnv["MOZ_WEBRENDER"] = "0"
-
         return browserEnv
 
     def killNamedProc(self, pname, orphans=True):
@@ -2119,10 +2113,6 @@ toolbar#nav-bar {
             # test) results in spurious intermittent failures.
             "gfx.font_rendering.fallback.async": False,
         }
-
-        # Ideally we should set this in a manifest, but a11y tests do not run by manifest.
-        if options.flavor == "a11y":
-            prefs["plugin.load_flash_only"] = False
 
         if options.flavor == "browser" and options.timeout:
             prefs["testing.browserTestHarness.timeout"] = options.timeout
@@ -2886,7 +2876,6 @@ toolbar#nav-bar {
                 "verify": options.verify,
                 "verify_fission": options.verify_fission,
                 "webgl_ipc": self.extraPrefs.get("webgl.out-of-process", False),
-                "webrender": options.enable_webrender,
                 "xorigin": options.xOriginTests,
             }
         )

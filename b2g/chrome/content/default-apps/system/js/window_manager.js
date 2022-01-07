@@ -209,6 +209,7 @@ class WebViewHandler {
       "visibilitychange",
       "error",
       "showmodalprompt",
+      "scrollareachanged",
     ].forEach(event_name => {
       web_view.addEventListener(`${event_name}`, handler);
     });
@@ -267,6 +268,11 @@ class WebViewHandler {
         let type = event.detail.promptType || event.detail.type;
         console.log(`Handling ${type}`);
         event.detail.unblock && event.detail.unblock();
+        break;
+      case "scrollareachanged":
+        console.log(
+          `Handling scrollareachanged width:${event.detail.width} height:${event.detail.height}`
+        );
         break;
     }
 

@@ -5,6 +5,7 @@
 #include "MediaEngineCameraVideoSource.h"
 
 #include "MediaEnginePrefs.h"
+#include "MediaManager.h"
 #include "mozilla/dom/MediaTrackSettingsBinding.h"
 #include "mozilla/IntegerPrintfMacros.h"
 
@@ -17,6 +18,23 @@ using dom::MediaSourceEnum;
 using dom::MediaTrackConstraintSet;
 using dom::MediaTrackSettings;
 using dom::VideoFacingModeEnum;
+
+/* static */
+camera::CaptureEngine MediaEngineCameraVideoSource::CaptureEngine(
+    MediaSourceEnum aMediaSource) {
+  switch (aMediaSource) {
+    case MediaSourceEnum::Browser:
+      return camera::BrowserEngine;
+    case MediaSourceEnum::Camera:
+      return camera::CameraEngine;
+    case MediaSourceEnum::Screen:
+      return camera::ScreenEngine;
+    case MediaSourceEnum::Window:
+      return camera::WinEngine;
+    default:
+      MOZ_CRASH();
+  }
+}
 
 /* static */
 Maybe<VideoFacingModeEnum> MediaEngineCameraVideoSource::GetFacingMode(
@@ -65,81 +83,30 @@ Maybe<VideoFacingModeEnum> MediaEngineCameraVideoSource::GetFacingMode(
 }
 
 MediaEngineCameraVideoSource::MediaEngineCameraVideoSource(
-    camera::CaptureEngine aCapEngine)
+    const MediaDevice* aMediaDevice)
     : mSettingsUpdatedByFrame(MakeAndAddRef<media::Refcountable<AtomicBool>>()),
       mSettings(MakeAndAddRef<media::Refcountable<MediaTrackSettings>>()),
-      mCapEngine(aCapEngine),
-      mFirstFramePromise(mFirstFramePromiseHolder.Ensure(__func__)) {}
+      mMediaDevice(aMediaDevice),
+      mCapEngine(CaptureEngine(aMediaDevice->mMediaSource)),
+      mFirstFramePromise(mFirstFramePromiseHolder.Ensure(__func__)) {
+  mSettings->mWidth.Construct(0);
+  mSettings->mHeight.Construct(0);
+  mSettings->mFrameRate.Construct(0);
+  if (mCapEngine == camera::CameraEngine) {
+    // Only cameras can have a facing mode.
+    Maybe<VideoFacingModeEnum> facingMode =
+        GetFacingMode(mMediaDevice->mRawName);
+    if (facingMode.isSome()) {
+      NS_ConvertASCIItoUTF16 facingString(
+          dom::VideoFacingModeEnumValues::GetString(*facingMode));
+      mSettings->mFacingMode.Construct(facingString);
+      mFacingMode.emplace(facingString);
+    }
+  }
+}
 
 MediaEngineCameraVideoSource::~MediaEngineCameraVideoSource() {
   mFirstFramePromiseHolder.RejectIfExists(NS_ERROR_ABORT, __func__);
-}
-
-MediaSourceEnum MediaEngineCameraVideoSource::GetMediaSource() const {
-  switch (mCapEngine) {
-    case camera::BrowserEngine:
-      return MediaSourceEnum::Browser;
-    case camera::CameraEngine:
-      return MediaSourceEnum::Camera;
-    case camera::ScreenEngine:
-      return MediaSourceEnum::Screen;
-    case camera::WinEngine:
-      return MediaSourceEnum::Window;
-    default:
-      MOZ_CRASH();
-  }
-}
-
-void MediaEngineCameraVideoSource::SetName(nsString aName) {
-  LOG("%s", __PRETTY_FUNCTION__);
-  AssertIsOnOwningThread();
-
-  mDeviceName = std::move(aName);
-
-  Maybe<VideoFacingModeEnum> facingMode;
-  if (GetMediaSource() == MediaSourceEnum::Camera) {
-    // Only cameras can have a facing mode.
-    facingMode = GetFacingMode(mDeviceName);
-  }
-
-  mFacingMode = facingMode.map([](const auto& aFM) {
-    return NS_ConvertASCIItoUTF16(
-        dom::VideoFacingModeEnumValues::GetString(aFM));
-  });
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      "MediaEngineCameraVideoSource::SetName (facingMode updater)",
-      [settings = mSettings, mode = mFacingMode]() {
-        if (mode.isNothing()) {
-          settings->mFacingMode.Reset();
-          return;
-        }
-        settings->mFacingMode.Construct(*mode);
-      }));
-}
-
-nsString MediaEngineCameraVideoSource::GetName() const {
-  AssertIsOnOwningThread();
-
-  return mDeviceName;
-}
-
-void MediaEngineCameraVideoSource::SetUUID(const char* aUUID) {
-  AssertIsOnOwningThread();
-  mUniqueId.Assign(aUUID);
-}
-
-nsCString MediaEngineCameraVideoSource::GetUUID() const {
-  AssertIsOnOwningThread();
-
-  return mUniqueId;
-}
-
-nsString MediaEngineCameraVideoSource::GetGroupId() const {
-  AssertIsOnOwningThread();
-
-  // The remote video backend doesn't implement group id. We return the device
-  // name and higher layers will correlate this with the name of audio devices.
-  return mDeviceName;
 }
 
 uint32_t MediaEngineCameraVideoSource::GetDistance(

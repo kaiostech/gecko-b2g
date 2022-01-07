@@ -61,6 +61,7 @@ class ScrollbarDrawing {
 
   virtual ScrollbarSizes GetScrollbarSizes(nsPresContext*, StyleScrollbarWidth,
                                            Overlay);
+  ScrollbarSizes GetScrollbarSizes(nsPresContext*, nsIFrame*);
   virtual LayoutDeviceIntSize GetMinimumWidgetSize(nsPresContext*,
                                                    StyleAppearance aAppearance,
                                                    nsIFrame* aFrame) = 0;
@@ -96,7 +97,7 @@ class ScrollbarDrawing {
                                     const ComputedStyle&,
                                     const EventStates& aElementState,
                                     const EventStates& aDocumentState,
-                                    const Colors&);
+                                    const Colors&, const DPIRatio&);
 
   virtual bool PaintScrollbarThumb(DrawTarget&, const LayoutDeviceRect&,
                                    bool aHorizontal, nsIFrame*,

@@ -145,9 +145,6 @@ MODERN_MERCURIAL_VERSION = LooseVersion("4.9")
 # Upgrade rust older than this.
 MODERN_RUST_VERSION = LooseVersion(MINIMUM_RUST_VERSION)
 
-# Upgrade nasm older than this.
-MODERN_NASM_VERSION = LooseVersion("2.14")
-
 
 class BaseBootstrapper(object):
     """Base class for system bootstrappers."""
@@ -157,8 +154,10 @@ class BaseBootstrapper(object):
         self.no_interactive = no_interactive
         self.no_system_changes = no_system_changes
         self.state_dir = None
+        self.srcdir = None
+        self.configure_sandbox = None
 
-    def validate_environment(self, srcdir):
+    def validate_environment(self):
         """
         Called once the current firefox checkout has been detected.
         Platform-specific implementations should check the environment and offer advice/warnings
@@ -198,7 +197,7 @@ class BaseBootstrapper(object):
             "%s does not yet implement install_browser_packages()" % __name__
         )
 
-    def ensure_browser_packages(self, state_dir, checkout_root):
+    def ensure_browser_packages(self):
         """
         Install pre-built packages needed to build Firefox for Desktop (application 'browser')
 
@@ -206,7 +205,7 @@ class BaseBootstrapper(object):
         """
         pass
 
-    def ensure_js_packages(self, state_dir, checkout_root):
+    def ensure_js_packages(self):
         """
         Install pre-built packages needed to build SpiderMonkey JavaScript Engine
 
@@ -214,7 +213,7 @@ class BaseBootstrapper(object):
         """
         pass
 
-    def ensure_browser_artifact_mode_packages(self, state_dir, checkout_root):
+    def ensure_browser_artifact_mode_packages(self):
         """
         Install pre-built packages needed to build Firefox for Desktop (application 'browser')
 
@@ -276,7 +275,7 @@ class BaseBootstrapper(object):
             "%s does not yet implement install_mobile_android_packages()" % __name__
         )
 
-    def ensure_mobile_android_packages(self, state_dir, checkout_root):
+    def ensure_mobile_android_packages(self):
         """
         Install pre-built packages required to run GeckoView (application 'mobile/android')
         """
@@ -285,12 +284,12 @@ class BaseBootstrapper(object):
             "%s does not yet implement ensure_mobile_android_packages()" % __name__
         )
 
-    def ensure_mobile_android_artifact_mode_packages(self, state_dir, checkout_root):
+    def ensure_mobile_android_artifact_mode_packages(self):
         """
         Install pre-built packages required to run GeckoView Artifact Build
         (application 'mobile/android')
         """
-        self.ensure_mobile_android_packages(state_dir, checkout_root)
+        self.ensure_mobile_android_packages()
 
     def generate_mobile_android_mozconfig(self):
         """
@@ -349,7 +348,7 @@ class BaseBootstrapper(object):
             "%s does not yet implement generate_b2g_mozconfig()" % __name__
         )
 
-    def ensure_clang_static_analysis_package(self, state_dir, checkout_root):
+    def ensure_clang_static_analysis_package(self):
         """
         Install the clang static analysis package
         """
@@ -358,7 +357,7 @@ class BaseBootstrapper(object):
             % __name__
         )
 
-    def ensure_stylo_packages(self, state_dir, checkout_root):
+    def ensure_stylo_packages(self):
         """
         Install any necessary packages needed for Stylo development.
         """
@@ -366,7 +365,7 @@ class BaseBootstrapper(object):
             "%s does not yet implement ensure_stylo_packages()" % __name__
         )
 
-    def ensure_nasm_packages(self, state_dir, checkout_root):
+    def ensure_nasm_packages(self):
         """
         Install nasm.
         """
@@ -374,49 +373,73 @@ class BaseBootstrapper(object):
             "%s does not yet implement ensure_nasm_packages()" % __name__
         )
 
-    def ensure_sccache_packages(self, state_dir, checkout_root):
+    def ensure_sccache_packages(self):
         """
         Install sccache.
         """
         pass
 
-    def ensure_node_packages(self, state_dir, checkout_root):
+    def ensure_node_packages(self):
         """
         Install any necessary packages needed to supply NodeJS"""
         raise NotImplementedError(
             "%s does not yet implement ensure_node_packages()" % __name__
         )
 
-    def ensure_fix_stacks_packages(self, state_dir, checkout_root):
+    def ensure_fix_stacks_packages(self):
         """
         Install fix-stacks.
         """
         pass
 
-    def ensure_minidump_stackwalk_packages(self, state_dir, checkout_root):
+    def ensure_minidump_stackwalk_packages(self):
         """
         Install minidump_stackwalk.
         """
         pass
 
-    def install_toolchain_static_analysis(
-        self, state_dir, checkout_root, toolchain_job
-    ):
-        clang_tools_path = os.path.join(state_dir, "clang-tools")
+    def install_toolchain_static_analysis(self, toolchain_job):
+        clang_tools_path = os.path.join(self.state_dir, "clang-tools")
         if not os.path.exists(clang_tools_path):
             os.mkdir(clang_tools_path)
-        self.install_toolchain_artifact(clang_tools_path, checkout_root, toolchain_job)
+        self.install_toolchain_artifact_impl(clang_tools_path, toolchain_job)
 
-    def install_toolchain_artifact(
-        self, state_dir, checkout_root, toolchain_job, no_unpack=False
+    def install_toolchain_artifact(self, toolchain_job, no_unpack=False):
+        if no_unpack:
+            return self.install_toolchain_artifact_impl(
+                self.state_dir, toolchain_job, no_unpack
+            )
+
+        if not self.configure_sandbox:
+            from mozbuild.configure import ConfigureSandbox
+
+            # Here, we don't want an existing mozconfig to interfere with what we
+            # do, neither do we want the default for --enable-bootstrap (which is not
+            # always on) to prevent this from doing something.
+            self.configure_sandbox = sandbox = ConfigureSandbox(
+                {}, argv=["configure", "--enable-bootstrap", f"MOZCONFIG={os.devnull}"]
+            )
+            moz_configure = os.path.join(self.srcdir, "build", "moz.configure")
+            sandbox.include_file(os.path.join(moz_configure, "init.configure"))
+            # bootstrap_search_path_order has a dependency on developer_options, which
+            # is not defined in init.configure. Its value doesn't matter for us, though.
+            sandbox["developer_options"] = sandbox["always"]
+            sandbox.include_file(os.path.join(moz_configure, "bootstrap.configure"))
+
+        # Expand the `bootstrap_path` template for the given toolchain_job, and execute the
+        # expanded function via `_value_for`, which will trigger autobootstrap.
+        self.configure_sandbox._value_for(
+            self.configure_sandbox["bootstrap_path"](toolchain_job)
+        )
+
+    def install_toolchain_artifact_impl(
+        self, install_dir, toolchain_job, no_unpack=False
     ):
-        mach_binary = os.path.join(checkout_root, "mach")
+        mach_binary = os.path.join(self.srcdir, "mach")
         mach_binary = os.path.abspath(mach_binary)
         if not os.path.exists(mach_binary):
             raise ValueError("mach not found at %s" % mach_binary)
 
-        # NOTE: Use self.state_dir over the passed-in state_dir, which might be
-        # a subdirectory of the actual state directory.
         if not self.state_dir:
             raise ValueError(
                 "Need a state directory (e.g. ~/.mozbuild) to download " "artifacts"
@@ -438,7 +461,7 @@ class BaseBootstrapper(object):
         if no_unpack:
             cmd += ["--no-unpack"]
 
-        subprocess.check_call(cmd, cwd=state_dir)
+        subprocess.check_call(cmd, cwd=install_dir)
 
     def run_as_root(self, command):
         if os.geteuid() != 0:
@@ -654,9 +677,6 @@ class BaseBootstrapper(object):
     def _parse_version(self, path, name=None, env=None):
         return self._parse_version_impl(path, name, env, "--version")
 
-    def _parse_version_short(self, path, name=None, env=None):
-        return self._parse_version_impl(path, name, env, "-v")
-
     def _hg_cleanenv(self, load_hgrc=False):
         """Returns a copy of the current environment updated with the HGPLAIN
         and HGRCPATH environment variables.
@@ -732,17 +752,6 @@ class BaseBootstrapper(object):
                 "cause flaky installations of the requirements, and other unexpected "
                 "issues with mach. It is recommended to unset this variable."
             )
-
-    def is_nasm_modern(self):
-        nasm = which("nasm")
-        if not nasm:
-            return False
-
-        our = self._parse_version_short(nasm, "version")
-        if not our:
-            return False
-
-        return our >= MODERN_NASM_VERSION
 
     def is_rust_modern(self, cargo_bin):
         rustc = which("rustc", extra_search_dirs=[cargo_bin])

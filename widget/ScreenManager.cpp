@@ -209,22 +209,19 @@ ScreenManager::ScreenForRect(int32_t aX, int32_t aY, int32_t aWidth,
 // The screen with the menubar/taskbar. This shouldn't be needed very
 // often.
 //
-NS_IMETHODIMP
-ScreenManager::GetPrimaryScreen(nsIScreen** aPrimaryScreen) {
+already_AddRefed<Screen> ScreenManager::GetPrimaryScreen() {
   if (mScreenList.IsEmpty()) {
     MOZ_LOG(sScreenLog, LogLevel::Warning,
             ("No screen available. This can happen in xpcshell."));
     RefPtr<Screen> ret = new Screen(
         LayoutDeviceIntRect(), LayoutDeviceIntRect(), 0, 0,
         DesktopToLayoutDeviceScale(), CSSToLayoutDeviceScale(), 96 /* dpi */);
-    ret.forget(aPrimaryScreen);
-    return NS_OK;
+    return ret.forget();
   }
 
   if (mScreenList.Length() == 1) {
     RefPtr<Screen> ret = mScreenList[0];
-    ret.forget(aPrimaryScreen);
-    return NS_OK;
+    return ret.forget();
   }
 
   Screen* which = mScreenList[0].get();
@@ -244,7 +241,13 @@ ScreenManager::GetPrimaryScreen(nsIScreen** aPrimaryScreen) {
   }
 
   RefPtr<Screen> ret = which;
-  ret.forget(aPrimaryScreen);
+  return ret.forget();
+}
+
+NS_IMETHODIMP
+ScreenManager::GetPrimaryScreen(nsIScreen** aPrimaryScreen) {
+  nsCOMPtr<nsIScreen> screen = GetPrimaryScreen();
+  screen.forget(aPrimaryScreen);
   return NS_OK;
 }
 

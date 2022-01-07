@@ -2852,13 +2852,23 @@ static bool SetTestFilenameValidationCallback(JSContext* cx, unsigned argc,
 
   // Accept all filenames that start with "safe". In system code also accept
   // filenames starting with "system".
-  auto testCb = [](const char* filename, bool isSystemRealm) -> bool {
+  auto testCb = [](JSContext* cx, const char* filename) -> bool {
     if (strstr(filename, "safe") == filename) {
       return true;
     }
-    if (isSystemRealm && strstr(filename, "system") == filename) {
+    if (cx->realm()->isSystem() && strstr(filename, "system") == filename) {
       return true;
     }
+
+    const char* utf8Filename;
+    if (mozilla::IsUtf8(mozilla::MakeStringSpan(filename))) {
+      utf8Filename = filename;
+    } else {
+      utf8Filename = "(invalid UTF-8 filename)";
+    }
+    JS_ReportErrorNumberUTF8(cx, js::GetErrorMessage, nullptr,
+                             JSMSG_UNSAFE_FILENAME, utf8Filename);
+
     return false;
   };
   JS::SetFilenameValidationCallback(testCb);
@@ -4031,13 +4041,15 @@ static bool DisplayName(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
 static bool IsAvxPresent(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
   args.rval().setBoolean(jit::Assembler::HasAVX());
+#else
+  args.rval().setBoolean(false);
+#endif
   return true;
 }
-#endif
 
 class ShellAllocationMetadataBuilder : public AllocationMetadataBuilder {
  public:
@@ -5330,7 +5342,7 @@ static bool GetBacktrace(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   JS::ConstUTF8CharsZ utf8chars(buf.get(), strlen(buf.get()));
-  JSString* str = NewStringCopyUTF8Z<CanGC>(cx, utf8chars);
+  JSString* str = NewStringCopyUTF8Z(cx, utf8chars);
   if (!str) {
     return false;
   }
@@ -8228,11 +8240,9 @@ gc::ZealModeHelpText),
 "  Returns whether the given value is a nested function in an asm.js module that has been\n"
 "  both compile- and link-time validated."),
 
-#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
     JS_FN_HELP("isAvxPresent", IsAvxPresent, 0, 0,
 "isAvxPresent(fn)",
 "  Returns whether AVX is present and enabled."),
-#endif
 
     JS_FN_HELP("wasmIsSupported", WasmIsSupported, 0, 0,
 "wasmIsSupported()",

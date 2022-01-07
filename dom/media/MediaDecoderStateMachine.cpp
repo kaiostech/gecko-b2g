@@ -3944,10 +3944,11 @@ void MediaDecoderStateMachine::ResumeMediaSink() {
     return;
   }
   LOG("ResumeMediaSink");
-  MOZ_ASSERT_IF(mMediaSink, !mMediaSink->IsStarted());
-  mMediaSink = CreateMediaSink();
   mIsMediaSinkSuspended = false;
-  MaybeStartPlayback();
+  if (!mMediaSink->IsStarted()) {
+    mMediaSink = CreateMediaSink();
+    MaybeStartPlayback();
+  }
 }
 
 void MediaDecoderStateMachine::UpdateSecondaryVideoContainer() {

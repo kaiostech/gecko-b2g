@@ -793,6 +793,20 @@ void GeckoEditableSupport::HandleTextChanged() {
   }
 }
 
+void
+GeckoEditableSupport::HandleSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset) {
+  if (XRE_IsParentProcess()) {
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = dom::InputMethodService::GetInstance();
+    service->HandleSelectionChanged(aStartOffset, aEndOffset);
+  } else {
+    EnsureServiceChild();
+    mServiceChild->SetEditableSupport(this);
+    HandleSelectionChangedRequest request(aStartOffset, aEndOffset);
+    mServiceChild->SendRequest(request);
+  }
+}
+
 NS_IMETHODIMP
 GeckoEditableSupport::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
                                 const IMENotification& aNotification) {
@@ -803,6 +817,10 @@ GeckoEditableSupport::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
     case NOTIFY_IME_OF_SELECTION_CHANGE: {
       IME_LOGD("SelectionChangeData=%s",
                ToString(aNotification.mSelectionChangeData).c_str());
+      uint32_t start = aNotification.mSelectionChangeData.StartOffset();
+      uint32_t end = aNotification.mSelectionChangeData.EndOffset();
+      IME_LOGD("SelectionChange start:[%u], end:[%u]", start, end);
+      HandleSelectionChanged(start, end);
       break;
     }
     case NOTIFY_IME_OF_TEXT_CHANGE: {

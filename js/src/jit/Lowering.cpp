@@ -1330,6 +1330,10 @@ void LIRGenerator::visitTypeOfIs(MTypeOfIs* ins) {
       return;
     }
 
+#ifdef ENABLE_RECORD_TUPLE
+    case JSTYPE_RECORD:
+    case JSTYPE_TUPLE:
+#endif
     case JSTYPE_LIMIT:
       break;
   }
@@ -5086,6 +5090,12 @@ void LIRGenerator::visitWasmLoadGlobalCell(MWasmLoadGlobalCell* ins) {
   }
 }
 
+void LIRGenerator::visitWasmLoadTableElement(MWasmLoadTableElement* ins) {
+  LAllocation elements = useRegisterAtStart(ins->elements());
+  LAllocation index = useRegisterAtStart(ins->index());
+  define(new (alloc()) LWasmLoadTableElement(elements, index), ins);
+}
+
 void LIRGenerator::visitWasmStoreGlobalVar(MWasmStoreGlobalVar* ins) {
   MDefinition* value = ins->value();
   size_t offs = offsetof(wasm::TlsData, globalArea) + ins->globalDataOffset();
@@ -5146,6 +5156,12 @@ void LIRGenerator::visitWasmStoreStackResult(MWasmStoreStackResult* ins) {
 void LIRGenerator::visitWasmDerivedPointer(MWasmDerivedPointer* ins) {
   LAllocation base = useRegisterAtStart(ins->base());
   define(new (alloc()) LWasmDerivedPointer(base), ins);
+}
+
+void LIRGenerator::visitWasmDerivedIndexPointer(MWasmDerivedIndexPointer* ins) {
+  LAllocation base = useRegisterAtStart(ins->base());
+  LAllocation index = useRegisterAtStart(ins->index());
+  define(new (alloc()) LWasmDerivedIndexPointer(base, index), ins);
 }
 
 void LIRGenerator::visitWasmStoreRef(MWasmStoreRef* ins) {
@@ -5342,19 +5358,26 @@ void LIRGenerator::visitWasmStackResult(MWasmStackResult* ins) {
 
 void LIRGenerator::visitWasmCall(MWasmCall* ins) {
   bool needsBoundsCheck = true;
+  mozilla::Maybe<uint32_t> tableSize;
+
   if (ins->callee().isTable()) {
     MDefinition* index = ins->getOperand(ins->numArgs());
 
-    if (ins->callee().which() == wasm::CalleeDesc::WasmTable &&
-        index->isConstant()) {
-      if (uint32_t(index->toConstant()->toInt32()) <
-          ins->callee().wasmTableMinLength()) {
+    if (ins->callee().which() == wasm::CalleeDesc::WasmTable) {
+      uint32_t minLength = ins->callee().wasmTableMinLength();
+      mozilla::Maybe<uint32_t> maxLength = ins->callee().wasmTableMaxLength();
+      if (index->isConstant() &&
+          uint32_t(index->toConstant()->toInt32()) < minLength) {
         needsBoundsCheck = false;
+      }
+      if (maxLength.isSome() && *maxLength == minLength) {
+        tableSize = maxLength;
       }
     }
   }
 
-  auto* lir = allocateVariadic<LWasmCall>(ins->numOperands(), needsBoundsCheck);
+  auto* lir = allocateVariadic<LWasmCall>(ins->numOperands(), needsBoundsCheck,
+                                          tableSize);
   if (!lir) {
     abort(AbortReason::Alloc, "OOM: LIRGenerator::lowerWasmCall");
     return;
@@ -6480,6 +6503,61 @@ void LIRGenerator::visitWasmSelect(MWasmSelect* ins) {
 void LIRGenerator::visitWasmFence(MWasmFence* ins) {
   add(new (alloc()) LWasmFence, ins);
 }
+
+// Wasm Exception Handling
+
+void LIRGenerator::visitWasmExceptionDataPointer(
+    MWasmExceptionDataPointer* ins) {
+  MOZ_ASSERT(ins->type() == MIRType::Pointer);
+  auto* lir = new (alloc()) LWasmExceptionDataPointer(useRegister(ins->exn()));
+  define(lir, ins);
+}
+
+void LIRGenerator::visitWasmLoadExceptionDataValue(
+    MWasmLoadExceptionDataValue* ins) {
+  size_t offs = ins->offset();
+  MDefinition* exnDataPtr = ins->exnDataPtr();
+  LAllocation dataPtr = useRegister(exnDataPtr);
+
+  if (ins->type() == MIRType::Int64) {
+    defineInt64(new (alloc()) LWasmLoadSlotI64(dataPtr, offs), ins);
+  } else {
+    define(new (alloc()) LWasmLoadSlot(dataPtr, offs, ins->type()), ins);
+  }
+}
+
+void LIRGenerator::visitWasmStoreExceptionDataValue(
+    MWasmStoreExceptionDataValue* ins) {
+  MDefinition* exnDataPtr = ins->exnDataPtr();
+  MDefinition* value = ins->value();
+  size_t offs = ins->offset();
+  LInstruction* lir;
+
+  if (value->type() == MIRType::Int64) {
+    lir = new (alloc()) LWasmStoreSlotI64(useInt64Register(value),
+                                          useRegister(exnDataPtr), offs);
+  } else {
+    lir = new (alloc()) LWasmStoreSlot(
+        useRegister(value), useRegister(exnDataPtr), offs, value->type());
+  }
+  add(lir, ins);
+}
+
+void LIRGenerator::visitWasmExceptionRefsPointer(
+    MWasmExceptionRefsPointer* ins) {
+  MOZ_ASSERT(ins->type() == MIRType::Pointer);
+  LAllocation exn = useRegister(ins->exn());
+  auto* lir = new (alloc()) LWasmExceptionRefsPointer(exn, temp());
+  define(lir, ins);
+}
+
+void LIRGenerator::visitWasmLoadExceptionRefsValue(
+    MWasmLoadExceptionRefsValue* ins) {
+  LAllocation refsPtr = useRegister(ins->exnRefsPtr());
+  define(new (alloc()) LWasmLoadExceptionRefsValue(refsPtr), ins);
+}
+
+// End Wasm Exception Handling
 
 static_assert(!std::is_polymorphic_v<LIRGenerator>,
               "LIRGenerator should not have any virtual methods");

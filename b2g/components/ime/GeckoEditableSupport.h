@@ -80,6 +80,7 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
   void GetBlurInputContextBag(dom::nsInputContext* aInputContext,
                               dom::Element* aFocusedElement);
   void HandleTextChanged();
+  void HandleSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset);
 
  private:
   void EnsureServiceChild();

@@ -68,7 +68,7 @@ static StaticRefPtr<nsITheme> gRDMInstance;
 already_AddRefed<nsITheme> do_GetBasicNativeThemeDoNotUseDirectly() {
   if (MOZ_UNLIKELY(!gInstance)) {
     UniquePtr<ScrollbarDrawing> scrollbarDrawing =
-        nsNativeBasicTheme::DetermineScrollbarStyle();
+        nsNativeBasicTheme::ScrollbarStyle();
 #ifdef MOZ_WIDGET_COCOA
     gInstance = new nsNativeBasicThemeCocoa(std::move(scrollbarDrawing));
 #else
@@ -88,12 +88,8 @@ already_AddRefed<nsITheme> do_GetNativeThemeDoNotUseDirectly() {
 
 already_AddRefed<nsITheme> do_GetRDMThemeDoNotUseDirectly() {
   if (MOZ_UNLIKELY(!gRDMInstance)) {
-    UniquePtr<ScrollbarDrawing> scrollbarDrawing =
-        nsNativeBasicTheme::DetermineScrollbarStyleSetByPrefs();
-    if (!scrollbarDrawing) {
-      scrollbarDrawing = MakeUnique<ScrollbarDrawingAndroid>();
-    }
-    gRDMInstance = new nsNativeBasicTheme(std::move(scrollbarDrawing));
+    gRDMInstance =
+        new nsNativeBasicTheme(MakeUnique<ScrollbarDrawingAndroid>());
     ClearOnShutdown(&gRDMInstance);
   }
   return do_AddRef(gRDMInstance);
@@ -124,8 +120,7 @@ void nsNativeBasicTheme::LookAndFeelChanged() {
   ThemeColors::RecomputeAccentColors();
   auto* basicTheme = static_cast<nsNativeBasicTheme*>(gInstance.get());
   if (basicTheme) {
-    basicTheme->SetScrollbarDrawing(
-        nsNativeBasicTheme::DetermineScrollbarStyle());
+    basicTheme->SetScrollbarDrawing(nsNativeBasicTheme::ScrollbarStyle());
     basicTheme->GetScrollbarDrawing().RecomputeScrollbarParams();
   }
 }
@@ -914,13 +909,13 @@ void nsNativeBasicTheme::PaintProgress(nsIFrame* aFrame,
         if (!meter) {
           return 0.0;
         }
-        return meter->Value() / meter->Max();
+        return meter->Position();
       }
       auto* progress = dom::HTMLProgressElement::FromNode(aFrame->GetContent());
       if (!progress) {
         return 0.0;
       }
-      return progress->Value() / progress->Max();
+      return progress->Position();
     }();
     if (isHorizontal) {
       double clipWidth = rect.width * position;
@@ -1163,7 +1158,7 @@ bool nsNativeBasicTheme::DoDrawWidgetBackground(PaintBackendData& aPaintData,
           GetScrollbarDrawing().PaintScrollbarButton(
               aPaintData, aAppearance, devPxRect, aFrame,
               *nsLayoutUtils::StyleForScrollbar(aFrame), eventState, docState,
-              colors);
+              colors, dpiRatio);
         }
       }
       break;
@@ -1358,8 +1353,7 @@ nscoord nsNativeBasicTheme::GetCheckboxRadioPrefSize() {
 }
 
 /* static */
-UniquePtr<ScrollbarDrawing>
-nsNativeBasicTheme::DetermineScrollbarStyleSetByPrefs() {
+UniquePtr<ScrollbarDrawing> nsNativeBasicTheme::ScrollbarStyle() {
   switch (StaticPrefs::widget_non_native_theme_scrollbar_style()) {
     case 1:
       return MakeUnique<ScrollbarDrawingCocoa>();
@@ -1372,17 +1366,13 @@ nsNativeBasicTheme::DetermineScrollbarStyleSetByPrefs() {
     case 5:
       return MakeUnique<ScrollbarDrawingWin11>();
     default:
-      return nullptr;
+      return DefaultPlatformScrollbarStyle();
   }
 }
 
 /* static */
-UniquePtr<ScrollbarDrawing> nsNativeBasicTheme::DetermineScrollbarStyle() {
-  // Check if a preferred scrollbar style is set via prefs.
-  if (UniquePtr<ScrollbarDrawing> scrollbarDrawing =
-          DetermineScrollbarStyleSetByPrefs()) {
-    return scrollbarDrawing;
-  }
+UniquePtr<ScrollbarDrawing>
+nsNativeBasicTheme::DefaultPlatformScrollbarStyle() {
   // Default to native scrollbar style for each platform.
 #ifdef XP_WIN
   if (IsWin11OrLater()) {

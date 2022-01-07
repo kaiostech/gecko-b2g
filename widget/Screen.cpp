@@ -7,6 +7,7 @@
 #include "Screen.h"
 
 #include "mozilla/dom/DOMTypes.h"
+#include "mozilla/Hal.h"
 #include "mozilla/StaticPrefs_layout.h"
 
 namespace mozilla {
@@ -61,6 +62,12 @@ mozilla::dom::ScreenDetails Screen::ToScreenDetails() {
       mRect, mRectDisplayPix, mAvailRect, mAvailRectDisplayPix, mPixelDepth,
       mColorDepth, mContentsScale, mDefaultCssScale, mScreenRotation,
       mNaturalBounds, mDPI);
+}
+
+mozilla::hal::ScreenConfiguration Screen::ToScreenConfiguration() {
+  return mozilla::hal::ScreenConfiguration(
+      nsIntRect(mRect.x, mRect.y, mRect.width, mRect.height),
+      hal::eScreenOrientation_None, 0, mColorDepth, mPixelDepth);
 }
 
 NS_IMETHODIMP

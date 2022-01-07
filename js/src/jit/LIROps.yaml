@@ -2723,7 +2723,16 @@
   arguments:
     offset: size_t
 
+- name: WasmLoadTableElement
+  result_type: WordSized
+  operands:
+    elements: WordSized
+    index: WordSized
+
 - name: WasmDerivedPointer
+  gen_boilerplate: false
+
+- name: WasmDerivedIndexPointer
   gen_boilerplate: false
 
 - name: WasmStoreRef
@@ -3383,6 +3392,15 @@
   gen_boilerplate: false
 
 - name: MulI
+  gen_boilerplate: false
+
+- name: WasmExceptionDataPointer
+  gen_boilerplate: false
+
+- name: WasmExceptionRefsPointer
+  gen_boilerplate: false
+
+- name: WasmLoadExceptionRefsValue
   gen_boilerplate: false
 
 #ifdef JS_CODEGEN_X86

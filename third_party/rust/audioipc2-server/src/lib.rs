@@ -121,16 +121,16 @@ fn init_threads(
         device_collection_name.to_string(),
         None,
         move || {
-            trace!("Starting {} thread", rpc_name);
+            trace!("Starting {} thread", device_collection_name);
             register_thread(thread_create_callback);
         },
         move || {
             unregister_thread(thread_destroy_callback);
-            trace!("Stopping {} thread", rpc_name);
+            trace!("Stopping {} thread", device_collection_name);
         },
     )
     .map_err(|e| {
-        debug!("Failed to start {} thread: {:?}", rpc_name, e);
+        debug!("Failed to start {} thread: {:?}", device_collection_name, e);
         e
     })?;
 
@@ -151,7 +151,7 @@ pub struct AudioIpcServerInitParams {
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn audioipc_server_start(
+pub unsafe extern "C" fn audioipc2_server_start(
     context_name: *const std::os::raw::c_char,
     backend_name: *const std::os::raw::c_char,
     init_params: *const AudioIpcServerInitParams,
@@ -177,7 +177,7 @@ pub unsafe extern "C" fn audioipc_server_start(
 // A `shm_area_size` of 0 allows the server to calculate an appropriate shm size for each stream.
 // A non-zero `shm_area_size` forces all allocations to the specified size.
 #[no_mangle]
-pub extern "C" fn audioipc_server_new_client(
+pub extern "C" fn audioipc2_server_new_client(
     p: *mut c_void,
     shm_area_size: usize,
 ) -> PlatformHandleType {
@@ -215,7 +215,7 @@ pub extern "C" fn audioipc_server_new_client(
 }
 
 #[no_mangle]
-pub extern "C" fn audioipc_server_stop(p: *mut c_void) {
+pub extern "C" fn audioipc2_server_stop(p: *mut c_void) {
     let wrapper = unsafe { Box::<ServerWrapper>::from_raw(p as *mut _) };
     drop(wrapper);
 }

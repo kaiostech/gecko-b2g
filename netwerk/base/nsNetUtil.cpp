@@ -2699,7 +2699,7 @@ nsresult NS_GetFilenameFromDisposition(nsAString& aFilename,
     if (NS_SUCCEEDED(rv)) {
       nsAutoString unescaped;
       textToSubURI->UnEscapeURIForUI(NS_ConvertUTF16toUTF8(aFilename),
-                                     unescaped);
+                                     /* dontEscape = */ true, unescaped);
       aFilename.Assign(unescaped);
     }
   }

@@ -99,7 +99,7 @@ class ScrollFrameHelper : public nsIReflowCallback {
 
   OverflowState GetOverflowState() const;
 
-  nsresult FireScrollPortEvent();
+  MOZ_CAN_RUN_SCRIPT nsresult FireScrollPortEvent();
   void PostScrollEndEvent();
   void FireScrollEndEvent();
   void PostOverflowEvent();
@@ -139,9 +139,9 @@ class ScrollFrameHelper : public nsIReflowCallback {
   void CurPosAttributeChanged(nsIContent* aChild, bool aDoScroll = true);
 
   void PostScrollEvent(bool aDelayed = false);
-  void FireScrollEvent();
+  MOZ_CAN_RUN_SCRIPT void FireScrollEvent();
   void PostScrolledAreaEvent();
-  void FireScrolledAreaEvent();
+  MOZ_CAN_RUN_SCRIPT void FireScrolledAreaEvent();
 
   bool IsSmoothScrollingEnabled();
 
@@ -876,7 +876,12 @@ class nsHTMLScrollFrame : public nsContainerFrame,
                       const ReflowOutput& aDesiredSize);
   void PlaceScrollArea(ScrollReflowInput& aState,
                        const nsPoint& aScrollPosition);
-  nscoord GetIntrinsicVScrollbarWidth(gfxContext* aRenderingContext);
+
+  // Return the sum of inline-size of the scrollbar gutters (if any) at the
+  // inline-start and inline-end edges of the scroll frame (for a potential
+  // scrollbar that scrolls in the block axis).
+  nscoord IntrinsicScrollbarGutterSizeAtInlineEdges(
+      gfxContext* aRenderingContext);
 
   bool GetBorderRadii(const nsSize& aFrameSize, const nsSize& aBorderArea,
                       Sides aSkipSides, nscoord aRadii[8]) const final {

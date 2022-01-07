@@ -293,16 +293,11 @@ class nsDocShell final : public nsDocLoader,
    * header is found. If docshell is busy loading a page currently, the request
    * will be queued and executed when the current page finishes loading.
    *
-   * @param aBaseURI base URI to resolve refresh uri with.
-   * @param aPrincipal The triggeringPrincipal for the refresh load
-   *   May be null, in which case the principal of current document will be
-   *   applied.
-   * @param aInnerWindowID The window id to use for error reporting.
-   * @param aHeader  The meta refresh header string.
+   * @param aDocument    document to which the refresh header applies.
+   * @param aHeader      The meta refresh header string.
    */
-  nsresult SetupRefreshURIFromHeader(nsIURI* aBaseURI, nsIPrincipal* aPrincipal,
-                                     uint64_t aInnerWindowID,
-                                     const nsACString& aHeader);
+  void SetupRefreshURIFromHeader(mozilla::dom::Document* aDocument,
+                                 const nsAString& aHeader);
 
   // Perform a URI load from a refresh timer. This is just like the
   // ForceRefreshURI method on nsIRefreshURI, but makes sure to take
@@ -322,7 +317,8 @@ class nsDocShell final : public nsDocLoader,
   // set. As soon as the current DocShell knows itself can be treated as
   // background loading, it triggers the parent docshell to see if the parent
   // document can fire load event earlier.
-  void TriggerParentCheckDocShellIsEmpty();
+  // TODO: Convert this to MOZ_CAN_RUN_SCRIPT (bug 1415230)
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void TriggerParentCheckDocShellIsEmpty();
 
   nsresult HistoryEntryRemoved(int32_t aIndex);
 
@@ -958,11 +954,13 @@ class nsDocShell final : public nsDocLoader,
   // If aSkipCheckingDynEntries is true, it will not try to remove dynamic
   // subframe entries. This is to avoid redundant RemoveDynEntries calls in all
   // children docshells.
-  void FirePageHideNotificationInternal(bool aIsUnload,
-                                        bool aSkipCheckingDynEntries);
+  // TODO: Convert this to MOZ_CAN_RUN_SCRIPT (bug 1415230)
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void FirePageHideNotificationInternal(
+      bool aIsUnload, bool aSkipCheckingDynEntries);
 
   void ThawFreezeNonRecursive(bool aThaw);
-  void FirePageHideShowNonRecursive(bool aShow);
+  // TODO: Convert this to MOZ_CAN_RUN_SCRIPT (bug 1415230)
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void FirePageHideShowNonRecursive(bool aShow);
 
   nsresult Dispatch(mozilla::TaskCategory aCategory,
                     already_AddRefed<nsIRunnable>&& aRunnable);

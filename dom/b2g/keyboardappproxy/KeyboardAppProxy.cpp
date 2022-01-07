@@ -237,6 +237,24 @@ KeyboardAppProxy::OnTextChanged(const nsACString& aText) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+KeyboardAppProxy::OnSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset) {
+  if (!mIsActive) {
+    return NS_OK;
+  }
+
+  LOG_IME(LogLevel::Info, "IME: OnSelectionChanged");
+  nsCOMPtr<nsIKeyboardEventForwarder> forwarder =
+      do_QueryReferent(mKeyboardEventForwarder);
+  if (!forwarder) {
+    LOG_IME(LogLevel::Debug, "KeyboardAppProxy::OnSelectionChanged no forwarder");
+    return NS_OK;
+  }
+
+  forwarder->OnSelectionChanged(aStartOffset, aEndOffset);
+  return NS_OK;
+}
+
 /* static */ already_AddRefed<KeyboardAppProxy>
 KeyboardAppProxy::GetInstance() {
   MOZ_ASSERT(NS_IsMainThread());

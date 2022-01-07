@@ -30,6 +30,7 @@ async protocol PKeyboardEventForwarder {
 child:
   async Key(KeyRequest event);
   async TextChanged(nsCString text);
+  async SelectionChanged(uint32_t startOffset, uint32_t endOffset);
   async __delete__();
 
 parent:

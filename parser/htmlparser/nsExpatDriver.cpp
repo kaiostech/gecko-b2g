@@ -46,6 +46,18 @@ using mozilla::LogLevel;
 using mozilla::MakeStringSpan;
 using mozilla::dom::Document;
 
+// We only pass chunks of length sMaxChunkLength to Expat in the RLBOX sandbox.
+// The RLBOX sandbox has a limited amount of memory, and we have to account for
+// other memory use by Expat (including the buffering it does).
+// Note that sMaxChunkLength is in number of characters.
+#ifdef DEBUG
+// On debug builds we set a much lower limit (1kB) to try to hit boundary
+// conditions more frequently.
+static const uint32_t sMaxChunkLength = 1024 / sizeof(char16_t);
+#else
+static const uint32_t sMaxChunkLength = (128 * 1024) / sizeof(char16_t);
+#endif
+
 #define kExpatSeparatorChar 0xFFFF
 
 static const char16_t kUTF16[] = {'U', 'T', 'F', '-', '1', '6', '\0'};
@@ -784,12 +796,14 @@ int nsExpatDriver::HandleExternalEntityRef(const char16_t* openEntityNames,
   if (uniIn) {
     auto utf16 = TransferBuffer<char16_t>(
         Sandbox(), kUTF16, nsCharTraits<char16_t>::length(kUTF16) + 1);
+    NS_ENSURE_TRUE(*utf16, 1);
     tainted_expat<XML_Parser> entParser;
     entParser =
         RLBOX_EXPAT_MCALL(MOZ_XML_ExternalEntityParserCreate, nullptr, *utf16);
     if (entParser) {
       auto url = TransferBuffer<XML_Char>(Sandbox(), (XML_Char*)absURL.get(),
                                           absURL.Length() + 1);
+      NS_ENSURE_TRUE(*url, 1);
       Sandbox()->invoke_sandbox_function(MOZ_XML_SetBase, entParser, *url);
 
       mInExternalDTD = true;
@@ -1108,6 +1122,39 @@ nsresult nsExpatDriver::HandleError() {
   return NS_ERROR_HTMLPARSER_STOPPARSING;
 }
 
+// Because we need to allocate a buffer in the RLBOX sandbox, and copy the data
+// to it for Expat to parse, we are limited in size by the memory available in
+// the RLBOX sandbox. nsExpatDriver::ChunkAndParseBuffer divides the buffer into
+// chunks of sMaxChunkLength characters or less, and passes them to
+// nsExpatDriver::ParseBuffer. That should ensure that we almost never run out
+// of memory in the sandbox.
+void nsExpatDriver::ChunkAndParseBuffer(const char16_t* aBuffer,
+                                        uint32_t aLength, bool aIsFinal,
+                                        uint32_t* aPassedToExpat,
+                                        uint32_t* aConsumed) {
+  *aConsumed = 0;
+
+  uint32_t remainder = aLength;
+  while (remainder > sMaxChunkLength) {
+    uint32_t consumed = 0;
+    ParseBuffer(aBuffer, sMaxChunkLength, /* aIsFinal = */ false, &consumed);
+    aBuffer += sMaxChunkLength;
+    remainder -= sMaxChunkLength;
+    *aConsumed += consumed;
+    if (NS_FAILED(mInternalState)) {
+      // Stop parsing if there's an error (including if we're blocked or
+      // interrupted).
+      *aPassedToExpat = aLength - remainder;
+      return;
+    }
+  }
+
+  uint32_t consumed = 0;
+  ParseBuffer(aBuffer, remainder, aIsFinal, &consumed);
+  *aConsumed += consumed;
+  *aPassedToExpat = aLength;
+}
+
 void nsExpatDriver::ParseBuffer(const char16_t* aBuffer, uint32_t aLength,
                                 bool aIsFinal, uint32_t* aConsumed) {
   NS_ASSERTION((aBuffer && aLength != 0) || (!aBuffer && aLength == 0), "?");
@@ -1135,6 +1182,8 @@ void nsExpatDriver::ParseBuffer(const char16_t* aBuffer, uint32_t aLength,
       status = RLBOX_EXPAT_SAFE_MCALL(MOZ_XML_ResumeParser, status_verifier);
     } else {
       auto buffer = TransferBuffer<char16_t>(Sandbox(), aBuffer, aLength);
+      MOZ_RELEASE_ASSERT(!aBuffer || !!*buffer,
+                         "Chunking should avoid OOM in ParseBuffer");
 
       status = RLBOX_EXPAT_SAFE_MCALL(
           MOZ_XML_Parse, status_verifier,
@@ -1156,8 +1205,6 @@ void nsExpatDriver::ParseBuffer(const char16_t* aBuffer, uint32_t aLength,
 
     // Consumed something.
     *aConsumed = (parserBytesConsumed - parserBytesBefore) / sizeof(char16_t);
-    NS_ASSERTION(*aConsumed <= aLength + mExpatBuffered,
-                 "Too many bytes consumed?");
 
     NS_ASSERTION(status != XML_STATUS_SUSPENDED || BlockedOrInterrupted(),
                  "Inconsistent expat suspension state.");
@@ -1236,8 +1283,12 @@ nsExpatDriver::ConsumeToken(nsScanner& aScanner, bool& aFlushTokens) {
                NS_ConvertUTF16toUTF8(start.get(), length).get()));
     }
 
+    uint32_t passedToExpat;
     uint32_t consumed;
-    ParseBuffer(buffer, length, noMoreBuffers, &consumed);
+    ChunkAndParseBuffer(buffer, length, noMoreBuffers, &passedToExpat,
+                        &consumed);
+    MOZ_ASSERT_IF(passedToExpat != length, NS_FAILED(mInternalState));
+    MOZ_ASSERT(consumed <= passedToExpat + mExpatBuffered);
     if (consumed > 0) {
       nsScannerIterator oldExpatPosition = currentExpatPosition;
       currentExpatPosition.advance(consumed);
@@ -1269,7 +1320,7 @@ nsExpatDriver::ConsumeToken(nsScanner& aScanner, bool& aFlushTokens) {
       }
     }
 
-    mExpatBuffered += length - consumed;
+    mExpatBuffered += passedToExpat - consumed;
 
     if (BlockedOrInterrupted()) {
       MOZ_LOG(gExpatDriverLog, LogLevel::Debug,
@@ -1477,9 +1528,20 @@ nsExpatDriver::WillBuildModel(const CParserContext& aParserContext,
     }
   }
 
+  mURISpec = aParserContext.mScanner->GetFilename();
+
   // Create sandbox
+  //
+  // We have to copy the base URI into the sandbox, and it can be arbitrarily
+  // long (e.g. data URIs). So make sure the sandbox is large enough. We
+  // unscientifically request the URI size plus two MB. Note that the parsing
+  // itself is chunked so as not to require a large sandbox.
+  uint64_t minSandboxSize =
+      mURISpec.Length() * sizeof(decltype(mURISpec)::char_type) +
+      (2 * 1024 * 1024);
   MOZ_ASSERT(!mSandboxPoolData);
-  mSandboxPoolData = RLBoxExpatSandboxPool::sSingleton->PopOrCreate();
+  mSandboxPoolData =
+      RLBoxExpatSandboxPool::sSingleton->PopOrCreate(minSandboxSize);
   NS_ENSURE_TRUE(mSandboxPoolData, NS_ERROR_OUT_OF_MEMORY);
 
   MOZ_ASSERT(SandboxData());
@@ -1494,8 +1556,10 @@ nsExpatDriver::WillBuildModel(const CParserContext& aParserContext,
   auto expatSeparator = TransferBuffer<char16_t>(
       Sandbox(), kExpatSeparator,
       nsCharTraits<char16_t>::length(kExpatSeparator) + 1);
+  MOZ_RELEASE_ASSERT(*expatSeparator);
   auto utf16 = TransferBuffer<char16_t>(
       Sandbox(), kUTF16, nsCharTraits<char16_t>::length(kUTF16) + 1);
+  MOZ_RELEASE_ASSERT(*utf16);
   mExpatParser = Sandbox()->invoke_sandbox_function(
       MOZ_XML_ParserCreate_MM, *utf16, nullptr, *expatSeparator);
   NS_ENSURE_TRUE(mExpatParser, NS_ERROR_FAILURE);
@@ -1507,10 +1571,9 @@ nsExpatDriver::WillBuildModel(const CParserContext& aParserContext,
                     XML_PARAM_ENTITY_PARSING_ALWAYS);
 #endif
 
-  mURISpec = aParserContext.mScanner->GetFilename();
-
   const XML_Char* uriStr = mURISpec.get();
   auto uri = TransferBuffer<XML_Char>(Sandbox(), uriStr, mURISpec.Length() + 1);
+  MOZ_RELEASE_ASSERT(*uri, "Sized sandbox for URI");
   RLBOX_EXPAT_MCALL(MOZ_XML_SetBase, *uri);
 
   // Set up the callbacks

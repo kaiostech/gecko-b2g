@@ -2605,6 +2605,9 @@
 - name: WasmLoadGlobalCell
   gen_boilerplate: false
 
+- name: WasmLoadTableElement
+  gen_boilerplate: false
+
 - name: WasmStoreGlobalVar
   gen_boilerplate: false
 
@@ -2615,6 +2618,9 @@
   gen_boilerplate: false
 
 - name: WasmDerivedPointer
+  gen_boilerplate: false
+
+- name: WasmDerivedIndexPointer
   gen_boilerplate: false
 
 - name: WasmStoreRef
@@ -2727,4 +2733,19 @@
   gen_boilerplate: false
 
 - name: IonToWasmCall
+  gen_boilerplate: false
+
+- name: WasmExceptionDataPointer
+  gen_boilerplate: false
+
+- name: WasmLoadExceptionDataValue
+  gen_boilerplate: false
+
+- name: WasmStoreExceptionDataValue
+  gen_boilerplate: false
+
+- name: WasmExceptionRefsPointer
+  gen_boilerplate: false
+
+- name: WasmLoadExceptionRefsValue
   gen_boilerplate: false

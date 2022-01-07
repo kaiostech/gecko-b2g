@@ -17,7 +17,7 @@ class CameraControlWrapper;
 class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
                                    public hal::ScreenConfigurationObserver {
  public:
-  explicit MediaEngineGonkVideoSource(int aIndex);
+  explicit MediaEngineGonkVideoSource(const MediaDevice* aMediaDevice);
 
   nsresult Allocate(const dom::MediaTrackConstraints& aConstraints,
                     const MediaEnginePrefs& aPrefs, uint64_t aWindowID,
@@ -53,7 +53,7 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
                                               uint32_t aWidth,
                                               uint32_t aHeight);
 
-  int mCaptureIndex;
+  nsCString mDeviceName;
 
   // mMutex protects certain members on 3 threads:
   // MediaManager, Camera and MediaTrackGraph.

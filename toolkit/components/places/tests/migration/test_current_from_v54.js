@@ -42,3 +42,34 @@ add_task(async function site_name_field_in_database() {
   let db = await PlacesUtils.promiseDBConnection();
   await db.execute(`SELECT site_name FROM moz_places`);
 });
+
+add_task(async function previews_tombstones_in_database() {
+  let db = await PlacesUtils.promiseDBConnection();
+  await db.execute(`SELECT hash FROM moz_previews_tombstones`);
+});
+
+add_task(async function builder_fields_in_database() {
+  let db = await PlacesUtils.promiseDBConnection();
+  await db.execute(
+    `SELECT builder, builder_data FROM moz_places_metadata_snapshots_groups`
+  );
+
+  let rows = await db.execute(
+    `SELECT * FROM sqlite_master WHERE type = "index"`
+  );
+
+  let indexes = rows.map(r => r.getResultByName("name"));
+
+  Assert.ok(
+    indexes.includes("moz_places_metadata_referrerindex"),
+    "Should contain the referrer index"
+  );
+  Assert.ok(
+    indexes.includes("moz_places_metadata_snapshots_pinnedindex"),
+    "Should contain the pinned index"
+  );
+  Assert.ok(
+    indexes.includes("moz_places_metadata_snapshots_extra_typeindex"),
+    "Should contain the type index"
+  );
+});

@@ -19,6 +19,7 @@ class KeyboardEventForwarderChild final : public PKeyboardEventForwarderChild {
   KeyboardEventForwarderChild();
   IPCResult RecvKey(const KeyRequest& aEvent);
   IPCResult RecvTextChanged(const nsCString& aText);
+  IPCResult RecvSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset);
 
  private:
   ~KeyboardEventForwarderChild();

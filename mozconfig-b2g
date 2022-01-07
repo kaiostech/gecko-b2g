@@ -155,6 +155,8 @@ if [ -n "$MOZ_SAFE_BROWSING" ]; then
   ac_add_options --enable-safebrowsing
 fi
 
+ac_add_options --enable-sandbox
+
 # Disable WASM libraries sandboxing for now until we figure out build failures.
 ac_add_options --without-wasm-sandboxed-libraries
 # ac_add_options --wasi-sysroot=${HOME}/.mozbuild/wasi-sysroot/

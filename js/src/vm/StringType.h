@@ -355,6 +355,9 @@ class JSString : public js::gc::CellWithLengthAndFlags {
    */
   static inline bool validateLength(JSContext* maybecx, size_t length);
 
+  template <js::AllowGC allowGC>
+  static inline bool validateLengthInternal(JSContext* maybecx, size_t length);
+
   static constexpr size_t offsetOfFlags() { return offsetOfHeaderFlags(); }
   static constexpr size_t offsetOfLength() { return offsetOfHeaderLength(); }
 
@@ -1404,16 +1407,14 @@ inline JSLinearString* NewStringCopyZ(
   return NewStringCopyN<allowGC>(cx, s, strlen(s), heap);
 }
 
-template <js::AllowGC allowGC>
 extern JSLinearString* NewStringCopyUTF8N(
     JSContext* cx, const JS::UTF8Chars utf8,
     js::gc::InitialHeap heap = js::gc::DefaultHeap);
 
-template <js::AllowGC allowGC>
 inline JSLinearString* NewStringCopyUTF8Z(
     JSContext* cx, const JS::ConstUTF8CharsZ utf8,
     js::gc::InitialHeap heap = js::gc::DefaultHeap) {
-  return NewStringCopyUTF8N<allowGC>(
+  return NewStringCopyUTF8N(
       cx, JS::UTF8Chars(utf8.c_str(), strlen(utf8.c_str())), heap);
 }
 

@@ -103,7 +103,6 @@ def shared_js(shared_js, export_js):
 
 
 set_config("JS_SHARED_LIBRARY", shared_js)
-add_old_configure_assignment("JS_SHARED_LIBRARY", shared_js)
 
 
 @depends(shared_js, "--disable-export-js", when=js_standalone)
@@ -133,10 +132,30 @@ def static_js(value):
 set_define("MOZ_STATIC_JS", static_js)
 
 
+# Enable records and tuples
+# ===================================================
+option(
+    "--enable-record-tuple",
+    default=False,
+    help="Enable records and tuples (and disables JIT)",
+)
+
+
+@depends("--enable-record-tuple")
+def enable_record_tuple(value):
+    if value:
+        return True
+
+
+set_config("ENABLE_RECORD_TUPLE", enable_record_tuple)
+set_define("ENABLE_RECORD_TUPLE", enable_record_tuple)
+
 # JIT support
 # =======================================================
-@depends(target)
-def jit_default(target):
+@depends(target, "--enable-record-tuple")
+def jit_default(target, enable_record_tuple):
+    if enable_record_tuple:
+        return False
     if target.cpu in ("x86", "x86_64", "arm", "aarch64", "mips32", "mips64"):
         return True
     return False
@@ -1095,7 +1114,7 @@ set_config("JS_HAS_INTL_API", True, when="--with-intl-api")
 set_define("JS_HAS_INTL_API", True, when="--with-intl-api")
 
 
-@depends(check_build_environment, when="--with-intl-api")
+@depends(build_environment, when="--with-intl-api")
 @imports(_from="__builtin__", _import="open")
 @imports(_from="__builtin__", _import="ValueError")
 def icu_version(build_env):
@@ -1234,5 +1253,20 @@ set_define("MOZJS_MINOR_VERSION", js_version.minor)
 set_config("MOZJS_PATCH_VERSION", depends(js_version.patch)(lambda p: str(p)))
 set_config(
     "MOZJS_ALPHA",
-    depends(js_version)(lambda x: x.version[-2] if str(x.version[-2]) in "ab" else None),
+    depends(js_version)(
+        lambda x: x.version[-2] if str(x.version[-2]) in "ab" else None
+    ),
 )
+
+
+# Check for tm_zone, tm_gmtoff in struct tm
+# ===================================================
+with only_when(compile_environment):
+    set_define(
+        "HAVE_TM_ZONE_TM_GMTOFF",
+        c_compiler.try_compile(
+            includes=["time.h"],
+            body="struct tm tm; tm.tm_zone = 0; tm.tm_gmtoff = 1;",
+            check_msg="for tm_zone and tm_gmtoff in struct tm",
+        ),
+    )

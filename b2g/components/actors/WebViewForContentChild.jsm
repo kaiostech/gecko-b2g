@@ -6,6 +6,15 @@
 
 var EXPORTED_SYMBOLS = ["WebViewForContentChild"];
 
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  ContextMenuUtils: "resource://gre/modules/ContextMenuUtils.jsm",
+  ScreenshotUtils: "resource://gre/modules/ScreenshotUtils.jsm",
+});
+
 class WebViewForContentChild extends JSWindowActorChild {
   log(...args) {
     dump("WebViewForContentChild: ");
@@ -13,6 +22,10 @@ class WebViewForContentChild extends JSWindowActorChild {
       dump(a + " ");
     }
     dump("\n");
+  }
+
+  actorCreated() {
+    ContextMenuUtils.init(this);
   }
 
   getBackgroundColor(browser, event) {
@@ -50,6 +63,41 @@ class WebViewForContentChild extends JSWindowActorChild {
     }
   }
 
+  async getScreenshot(browser, event) {
+    let content = browser.contentWindow;
+    let eventName = event.detail.id;
+    const win = browser.ownerGlobal;
+    if (!content) {
+      browser.dispatchEvent(
+        new win.CustomEvent(eventName, {
+          success: false,
+        })
+      );
+      return;
+    }
+
+    let { maxWidth, maxHeight, mimeType } = event.detail;
+    let detail = { success: false };
+    try {
+      let blob = await ScreenshotUtils.getScreenshot(
+        content,
+        maxWidth,
+        maxHeight,
+        mimeType
+      );
+      detail = Cu.cloneInto(
+        {
+          detail: {
+            success: true,
+            result: blob,
+          },
+        },
+        win
+      );
+    } catch (e) {}
+    browser.dispatchEvent(new win.CustomEvent(eventName, detail));
+  }
+
   handleEvent(event) {
     const browser = this.browsingContext.embedderElement;
 
@@ -74,6 +122,10 @@ class WebViewForContentChild extends JSWindowActorChild {
         this.getBackgroundColor(browser, event);
         break;
       }
+      case "webview-getscreenshot": {
+        this.getScreenshot(browser, event);
+        break;
+      }
       case "DOMMetaAdded":
       case "DOMMetaChanged":
       case "DOMMetaRemoved": {
@@ -82,6 +134,26 @@ class WebViewForContentChild extends JSWindowActorChild {
       }
       case "DOMLinkAdded": {
         this.handleLinkAdded(event);
+        break;
+      }
+      case "contextmenu": {
+        this.handleContextMenu(event);
+        break;
+      }
+      case "webview-fire-ctx-callback": {
+        ContextMenuUtils.handleContextMenuCallback(
+          this,
+          this.contentWindow,
+          event.detail.menuitem
+        );
+        break;
+      }
+      case "scroll": {
+        this.handleScroll(event);
+        break;
+      }
+      case "MozScrolledAreaChanged": {
+        this.handleScrollAreaChanged(event);
         break;
       }
     }
@@ -149,6 +221,52 @@ class WebViewForContentChild extends JSWindowActorChild {
     }, this);
   }
 
+  handleScroll(event) {
+    let doc = event.target;
+    const browser = this.browsingContext.embedderElement;
+    if (doc != this.contentWindow.document || event.defaultPrevented) {
+      return;
+    }
+    const win = browser.ownerGlobal;
+    browser?.dispatchEvent(
+      new win.CustomEvent(
+        "scroll",
+        Cu.cloneInto(
+          {
+            detail: {
+              top: doc.ownerGlobal.scrollY,
+              left: doc.ownerGlobal.scrollX,
+            },
+          },
+          win
+        )
+      )
+    );
+  }
+
+  handleScrollAreaChanged(event) {
+    let doc = event.target;
+    const browser = this.browsingContext.embedderElement;
+    if (doc != this.contentWindow.document || event.defaultPrevented) {
+      return;
+    }
+    const win = browser.ownerGlobal;
+    browser?.dispatchEvent(
+      new win.CustomEvent(
+        "scrollareachanged",
+        Cu.cloneInto(
+          {
+            detail: {
+              height: event.height,
+              width: event.width,
+            },
+          },
+          win
+        )
+      )
+    );
+  }
+
   maybeCopyAttribute(src, target, attribute) {
     if (src.getAttribute(attribute)) {
       target[attribute] = src.getAttribute(attribute);
@@ -190,5 +308,54 @@ class WebViewForContentChild extends JSWindowActorChild {
         },
       })
     );
+  }
+
+  handleContextMenu(event) {
+    if (event.defaultPrevented) {
+      return;
+    }
+    let menuData = ContextMenuUtils.generateMenu(
+      this,
+      this.contentWindow,
+      event
+    );
+    menuData.nested = true;
+    const browser = this.browsingContext.embedderElement;
+    const win = browser.ownerGlobal;
+
+    let ev = new win.CustomEvent("contextmenu", { detail: menuData });
+    if (menuData.contextmenu) {
+      let self = this.contentWindow;
+      Cu.exportFunction(
+        function(id) {
+          let evt = new self.CustomEvent(
+            "webview-fire-ctx-callback",
+            Cu.cloneInto(
+              {
+                bubbles: true,
+                cancelable: true,
+                detail: {
+                  menuitem: id,
+                },
+              },
+              self
+            )
+          );
+          self.dispatchEvent(evt);
+        },
+        ev.detail,
+        { defineAs: "contextMenuItemSelected" }
+      );
+    }
+
+    this.log(`dispatch ${event.type} ${JSON.stringify(ev.detail)}\n`);
+    if (!browser.dispatchEvent(ev)) {
+      // We call preventDefault() on our contextmenu event if the embedder
+      // called preventDefault() on /its/ contextmenu event to stop firing a
+      // click or long tap.
+      event.preventDefault();
+    } else {
+      ContextMenuUtils.cancel(this);
+    }
   }
 }

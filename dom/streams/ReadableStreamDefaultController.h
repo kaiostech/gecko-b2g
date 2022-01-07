@@ -14,9 +14,12 @@
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/QueuingStrategyBinding.h"
 #include "mozilla/dom/QueueWithSizes.h"
+#include "mozilla/dom/ReadableStreamController.h"
 #include "mozilla/dom/ReadRequest.h"
 #include "mozilla/dom/UnderlyingSourceCallbackHelpers.h"
 #include "nsCycleCollectionParticipant.h"
+#include "nsIGlobalObject.h"
+#include "nsISupports.h"
 #include "nsWrapperCache.h"
 #include "mozilla/dom/Nullable.h"
 #include "nsTArray.h"
@@ -26,26 +29,31 @@ namespace mozilla {
 namespace dom {
 
 class ReadableStream;
+class ReadableStreamDefaultReader;
 struct UnderlyingSource;
 class UnderlyingSourceCancelCallbackHelper;
 class UnderlyingSourcePullCallbackHelper;
+class UnderlyingSourceStartCallbackHelper;
+class ReadableStreamGenericReader;
 
-class ReadableStreamDefaultController final : public nsISupports,
+class ReadableStreamDefaultController final : public ReadableStreamController,
                                               public nsWrapperCache {
  public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ReadableStreamDefaultController)
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(
+      ReadableStreamDefaultController, ReadableStreamController)
 
  public:
-  explicit ReadableStreamDefaultController(nsISupports* aGlobal);
+  explicit ReadableStreamDefaultController(nsIGlobalObject* aGlobal);
 
  protected:
   ~ReadableStreamDefaultController();
 
-  nsCOMPtr<nsIGlobalObject> mGlobal;
-
  public:
-  nsIGlobalObject* GetParentObject() const { return mGlobal; }
+  virtual bool IsDefault() override { return true; }
+  virtual bool IsByte() override { return false; }
+  virtual ReadableStreamDefaultController* AsDefault() override { return this; }
+  ReadableByteStreamController* AsByte() override { return nullptr; }
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
@@ -60,9 +68,9 @@ class ReadableStreamDefaultController final : public nsISupports,
 
   virtual already_AddRefed<Promise> CancelSteps(JSContext* aCx,
                                                 JS::Handle<JS::Value> aReason,
-                                                ErrorResult& aRv);
+                                                ErrorResult& aRv) override;
   virtual void PullSteps(JSContext* aCx, ReadRequest* aReadRequest,
-                         ErrorResult& aRv);
+                         ErrorResult& aRv) override;
 
   // Internal Slot Accessors
   UnderlyingSourceCancelCallbackHelper* GetCancelAlgorithm() const {
@@ -153,7 +161,7 @@ extern void ReadableStreamDefaultControllerClose(
     ErrorResult& aRv);
 
 extern void ReadableStreamDefaultReaderRead(JSContext* aCx,
-                                            ReadableStreamDefaultReader* reader,
+                                            ReadableStreamGenericReader* reader,
                                             ReadRequest* aRequest,
                                             ErrorResult& aRv);
 

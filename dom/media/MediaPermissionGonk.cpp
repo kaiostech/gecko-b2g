@@ -41,9 +41,8 @@ StaticRefPtr<MediaPermissionManager> MediaPermissionManager::sSingleton;
 static void CreateDeviceNameList(nsTArray<nsCOMPtr<nsIMediaDevice>>& aDevices,
                                  nsTArray<nsString>& aDeviceNameList) {
   for (uint32_t i = 0; i < aDevices.Length(); ++i) {
-    nsString name;
     nsCOMPtr<nsIMediaDevice> device = aDevices[i];
-    static_cast<MediaDevice*>(device.get())->GetName(name);
+    nsString name = static_cast<LocalMediaDevice*>(device.get())->mName;
     aDeviceNameList.AppendElement(name);
   }
 }
@@ -53,8 +52,7 @@ static already_AddRefed<nsIMediaDevice> FindDeviceByName(
     const nsAString& aDeviceName) {
   for (uint32_t i = 0; i < aDevices.Length(); ++i) {
     nsCOMPtr<nsIMediaDevice> device = aDevices[i];
-    nsString deviceName;
-    static_cast<MediaDevice*>(device.get())->GetName(deviceName);
+    nsString deviceName = static_cast<LocalMediaDevice*>(device.get())->mName;
     if (deviceName.Equals(aDeviceName)) {
       return device.forget();
     }

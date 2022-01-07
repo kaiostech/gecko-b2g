@@ -50,5 +50,11 @@ KeyboardEventForwarderParent::OnTextChanged(const nsACString& aText) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+KeyboardEventForwarderParent::OnSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset) {
+  Unused << SendSelectionChanged(aStartOffset, aEndOffset);
+  return NS_OK;
+}
+
 }  // namespace dom
 }  // namespace mozilla

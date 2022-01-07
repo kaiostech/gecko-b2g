@@ -1137,7 +1137,7 @@
 # See bug 1710926
 - name: browser.download.improvements_to_download_panel
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # See bug 1731668
@@ -1278,13 +1278,6 @@
 - name: browser.theme.content-theme
   type: RelaxedAtomicUint32
   value: 2
-  mirror: always
-  rust: true
-
-# Enable Proton restyle. Requires restart.
-- name: browser.proton.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
   rust: true
 
@@ -4192,6 +4185,12 @@
   value: false
   mirror: always
 
+# midi permission is addon-gated
+- name: dom.webmidi.gated
+  type: bool
+  value: true
+  mirror: always
+
 - name: dom.webnotifications.allowinsecure
   type: RelaxedAtomicBool
   value: false
@@ -4625,15 +4624,6 @@
 # specific WebExtensions API.
 - name: extensions.webidl-api.expose_mock_interface
   type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-#---------------------------------------------------------------------------
-# Prefs starting with "findbar."
-#---------------------------------------------------------------------------
-
-- name: findbar.modalHighlight
-  type: bool
   value: false
   mirror: always
 
@@ -5255,7 +5245,29 @@
   # attempt to isolate video layers in fullscreen windows.
 -   name: gfx.core-animation.specialize-video
     type: RelaxedAtomicBool
-    value: true
+    value: @IS_EARLY_BETA_OR_EARLIER@
+    mirror: always
+#endif
+
+#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
+  # Spoof the timing of the video sample instead of marking the untimed
+  # sample to be displayed immediately.
+-   name: gfx.core-animation.specialize-video.spoof-timing
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
+  # Check that the sample has a color space and if it doesn't, log that
+  # and supply the default color space from the main display.
+-   name: gfx.core-animation.specialize-video.check-color-space
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
+  # Log properties of the video surface, buffer, and format.
+-   name: gfx.core-animation.specialize-video.log
+    type: RelaxedAtomicBool
+    value: false
     mirror: always
 #endif
 
@@ -6964,7 +6976,7 @@
 # How many unstable GPU process restarts we allow for a given configuration.
 - name: layers.gpu-process.max_restarts
   type: RelaxedAtomicInt32
-#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
+#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_ANDROID)
   #if defined(NIGHTLY_BUILD)
   value: 6
   #else
@@ -7224,7 +7236,7 @@
 # Whether @layer is enabled
 - name: layout.css.cascade-layers.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -7802,16 +7814,6 @@
   mirror: always
   rust: true
 
-# W3C touch-action css property (related to touch and pointer events)
-# Note that we turn this on even on platforms/configurations where touch
-# events are not supported (e.g. OS X, or Windows with e10s disabled). For
-# those platforms we don't handle touch events anyway so it's conceptually
-# a no-op.
-- name: layout.css.touch_action.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Are counters for implemented CSS properties enabled?
 - name: layout.css.use-counters.enabled
   type: bool
@@ -8022,6 +8024,12 @@
 - name: layout.throttled_frame_rate
   type: uint32_t
   value: 1
+  mirror: always
+
+# Activity granted to out-of-process iframes in the foreground tab, in milliseconds.
+- name: layout.oopif_activity_grace_period_ms
+  type: uint32_t
+  value: 1000
   mirror: always
 
 - name: layout.lower_priority_refresh_driver_during_load
@@ -8354,13 +8362,25 @@
   value: "opensl"
 #endif
 
-# Whether cubeb is sandboxed
+# Whether cubeb is sandboxed (AudioIPC)
 - name: media.cubeb.sandbox
   type: bool
   mirror: always
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
   value: true
 #elif defined(XP_WIN) && !defined(_ARM64_)
+  value: true
+#elif defined(XP_MACOSX)
+  value: true
+#else
+  value: false
+#endif
+
+# Whether cubeb sandbox (AudioIPC) is v2
+- name: media.cubeb.sandbox_v2
+  type: bool
+  mirror: always
+#if defined(XP_MACOSX)
   value: true
 #else
   value: false
@@ -8657,7 +8677,7 @@
 #ifdef MOZ_FFMPEG
 - name: media.rdd-ffmpeg.enabled
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 #endif
 
@@ -9420,9 +9440,7 @@
 
 - name: media.webrtc.platformencoder
   type: RelaxedAtomicBool
-#if defined(MOZ_WIDGET_ANDROID)
-  value: true
-#elif defined(NIGHTLY_BUILD) && !defined(MOZ_WIDGET_GTK)
+#if !defined(MOZ_WIDGET_GTK)
   value: true
 #else
   value: false
@@ -9431,7 +9449,7 @@
 
 - name: media.webrtc.software_encoder.fallback
   type: RelaxedAtomicBool
-#if defined(MOZ_WIDGET_ANDROID) || defined(NIGHTLY_BUILD)
+#if !defined(MOZ_WIDGET_GTK)
   value: true
 #else
   value: false
@@ -9492,6 +9510,39 @@
   value: true
   mirror: always
 #endif
+
+# When the playback rate of an HTMLMediaElement is greater than this value, or
+# lower than the inverse of this value, the audio is muted.
+- name: media.audio.playbackrate.muting_threshold
+  type: uint32_t
+  value: 8
+  mirror: always
+
+# Time-stretch algorithm single processing sequence length in milliseconds.
+# This determines to how long sequences the original sound is chopped in the
+# time-stretch algorithm.
+- name: media.audio.playbackrate.soundtouch_sequence_ms
+  type: RelaxedAtomicInt32
+  value: 10
+  mirror: always
+
+# Time-stretch algorithm seeking window length in milliseconds for algorithm
+# that finds the best possible overlapping location. This determines from how
+# wide window the algorithm may look for an optimal joining location when mixing
+# the sound sequences back together.
+- name: media.audio.playbackrate.soundtouch_seekwindow_ms
+  type: RelaxedAtomicInt32
+  value: 15
+  mirror: always
+
+# Time-stretch algorithm overlap length in milliseconds. When the chopped sound
+# sequences are mixed back together, to form a continuous sound stream, this
+# parameter defines over how long period the two consecutive sequences are let
+# to overlap each other.
+- name: media.audio.playbackrate.soundtouch_overlap_ms
+  type: RelaxedAtomicInt32
+  value: 8
+  mirror: always
 
 #if defined(MOZ_B2G)
   # Timeout for wakelock release (in milliseconds).
@@ -10213,9 +10264,16 @@
   mirror: always
 #endif
 
+# Whether to allow a bypass flag to be set on httpChannel that will
+# prevent proxies from being used for that specific request.
+- name: network.proxy.allow_bypass
+  type: bool
+  value: true
+  mirror: always
+
 - name: network.proxy.parse_pac_on_socket_process
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: network.proxy.detect_system_proxy_changes
@@ -10909,14 +10967,6 @@
   value: false
   mirror: always
 
-# Whether tab_modal print UI is enabled.
-#
-# The tab modal print dialog is currently only for early beta or nightly.
-- name: print.tab_modal.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Whether the pages per sheet print setting is enabled.
 - name: print.pages_per_sheet.enabled
   type: RelaxedAtomicBool
@@ -10977,6 +11027,14 @@
 - name: print.cups.monochrome.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# The maximum amount of time CUPS should spend enumerating print destinations
+# (in milliseconds).
+# The default value chosen here is completely arbitrary.
+- name: print.cups.enum_dests_timeout_ms
+  type: RelaxedAtomicUint32
+  value: 150
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -11980,7 +12038,7 @@
 # definitions in Gecko are used first in <input> and <textarea>
 - name: ui.key.textcontrol.prefer_native_key_bindings_over_builtin_shortcut_key_definitions
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 #ifdef MOZ_WIDGET_GTK
@@ -11992,7 +12050,7 @@
 # are just ignored.
 - name: ui.key.use_select_all_in_single_line_editor
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 #endif
 
@@ -12560,6 +12618,13 @@
   value: true
   mirror: always
 
+# Whether Windows 11 scrollbars are always drawn with the thinner "overlay"
+# scrollbar style.
+- name: widget.non-native-theme.win11.scrollbar.force-overlay-style
+  type: bool
+  value: false
+  mirror: always
+
 # The amount of space that the thumb should fill the scrollbar, from zero to
 # one.
 - name: widget.non-native-theme.gtk.scrollbar.thumb-size
@@ -12627,11 +12692,6 @@
 
 #ifdef XP_MACOSX
 - name: widget.macos.native-context-menus
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: widget.macos.enable-pre-bigsur-workaround-for-dark-mode-context-menus
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -12749,6 +12809,36 @@
   type: bool
   value: true
   mirror: once
+#endif
+
+#ifdef MOZ_WIDGET_GTK
+#
+# Whether to use gtk portal for the file picker.
+#  - 0: never
+#  - 1: always
+#  - 2: auto (true for flatpak or GTK_USE_PORTAL=1, false otherwise)
+- name: widget.use-xdg-desktop-portal.file-picker
+  type: int32_t
+  value: 2
+  mirror: always
+
+# Whether to use gtk portal for the mime handler.
+#  - 0: never
+#  - 1: always
+#  - 2: auto (true for flatpak or GTK_USE_PORTAL=1, false otherwise)
+- name: widget.use-xdg-desktop-portal.mime-handler
+  type: int32_t
+  value: 2
+  mirror: always
+
+# Whether to use gtk portal for the print dialog.
+#  - 0: never
+#  - 1: always
+#  - 2: auto (for now only true for flatpak, since it needs work, see bug 1688720).
+- name: widget.use-xdg-desktop-portal.print
+  type: int32_t
+  value: 2
+  mirror: always
 #endif
 
 #ifdef XP_WIN

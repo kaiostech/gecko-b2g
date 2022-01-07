@@ -27,6 +27,7 @@ interface nsIKeyboardEventForwarder : nsISupports
                                in uint64_t timeStamp,
                                in uint64_t generation);
   void onTextChanged(in ACString text);
+  void onSelectionChanged(in uint32_t startOffset, in uint32_t endOffset);
 };
 
 [scriptable, uuid(17005351-d16e-4a35-a136-4d75b844e807)]
@@ -60,4 +61,5 @@ interface nsIKeyboardAppProxy : nsISupports
   void activate(in FrameLoader frameLoader);
   void deactivate();
   void onTextChanged(in ACString text);
+  void onSelectionChanged(in uint32_t startOffset, in uint32_t endOffset);
 };

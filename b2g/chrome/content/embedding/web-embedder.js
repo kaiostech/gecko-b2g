@@ -598,7 +598,7 @@ XPCOMUtils.defineLazyServiceGetter(
     }
 
     doSelectionAction(action) {
-      const command = "cmd_" + action;
+      const command = action;
       _webembed_log(`doSelectionAction: ${command}`);
       SelectionActionParent.sendCommand(command);
     }

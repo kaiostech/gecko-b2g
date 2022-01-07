@@ -10,6 +10,7 @@
 #include "mozilla/TextUtils.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/Utf8.h"
+#include "mozilla/WinHeaderOnlyUtils.h"
 
 #include "nsCOMPtr.h"
 #include "nsMemory.h"
@@ -1053,7 +1054,7 @@ nsLocalFile::InitWithPath(const nsAString& aFilePath) {
   if (secondChar == L':') {
     // Make sure we have a valid drive, later code assumes the drive letter
     // is a single char a-z or A-Z.
-    if (PathGetDriveNumberW(aFilePath.Data()) == -1) {
+    if (MozPathGetDriveNumber<wchar_t>(aFilePath.Data()) == -1) {
       return NS_ERROR_FILE_UNRECOGNIZED_PATH;
     }
   }
@@ -3213,6 +3214,36 @@ nsLocalFile::Reveal() {
 
   return NS_DispatchBackgroundTask(task,
                                    nsIEventTarget::DISPATCH_EVENT_MAY_BLOCK);
+}
+
+NS_IMETHODIMP
+nsLocalFile::GetWindowsFileAttributes(uint32_t* aAttrs) {
+  NS_ENSURE_ARG_POINTER(aAttrs);
+
+  DWORD dwAttrs = ::GetFileAttributesW(mWorkingPath.get());
+  if (dwAttrs == INVALID_FILE_ATTRIBUTES) {
+    return ConvertWinError(GetLastError());
+  }
+
+  *aAttrs = dwAttrs;
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLocalFile::SetWindowsFileAttributes(uint32_t aSetAttrs,
+                                      uint32_t aClearAttrs) {
+  DWORD dwAttrs = ::GetFileAttributesW(mWorkingPath.get());
+  if (dwAttrs == INVALID_FILE_ATTRIBUTES) {
+    return ConvertWinError(GetLastError());
+  }
+
+  dwAttrs = (dwAttrs & ~aClearAttrs) | aSetAttrs;
+
+  if (::SetFileAttributesW(mWorkingPath.get(), dwAttrs) == 0) {
+    return ConvertWinError(GetLastError());
+  }
+  return NS_OK;
 }
 
 NS_IMETHODIMP

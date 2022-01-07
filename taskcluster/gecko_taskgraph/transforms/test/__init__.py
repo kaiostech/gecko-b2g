@@ -123,9 +123,6 @@ test_description_schema = Schema(
         Required("run-without-variant"): optionally_keyed_by("test-platform", bool),
         # Whether the task should run with WebRender enabled or not.
         Optional("webrender"): bool,
-        Optional("webrender-run-on-projects"): optionally_keyed_by(
-            "app", Any([str], "default")
-        ),
         # The EC2 instance size to run these tests on.
         Required("instance-size"): optionally_keyed_by(
             "test-platform", Any("default", "large", "xlarge")
@@ -275,8 +272,6 @@ test_description_schema = Schema(
         # A list of artifacts to install from 'fetch' tasks. Validation deferred
         # to 'job' transforms.
         Optional("fetches"): object,
-        # Opt-in to Python 3 support
-        Optional("python-3"): bool,
         # Raptor / browsertime specific keys, defer validation to 'raptor.py'
         # transform.
         Optional("raptor"): object,

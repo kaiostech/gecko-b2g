@@ -87,10 +87,7 @@ class MediaEngineCameraVideoSource : public MediaEngineSource {
                             uint32_t aDistance);
 
  public:
-  MediaEngineCameraVideoSource(camera::CaptureEngine aCapEngine);
-
-  // MediaEngineSource
-  dom::MediaSourceEnum GetMediaSource() const override;
+  MediaEngineCameraVideoSource(const MediaDevice* aMediaDevice);
 
   uint32_t GetBestFitnessDistance(
       const nsTArray<const NormalizedConstraintSet*>& aConstraintSets)
@@ -98,17 +95,11 @@ class MediaEngineCameraVideoSource : public MediaEngineSource {
 
   void GetSettings(dom::MediaTrackSettings& aOutSettings) const override;
 
-  nsString GetName() const override;
-  void SetName(nsString aName);
-
-  nsCString GetUUID() const override;
-  void SetUUID(const char* aUUID);
-
-  nsString GetGroupId() const override;
-
   RefPtr<GenericNonExclusivePromise> GetFirstFramePromise() const override {
     return mFirstFramePromise;
   }
+
+  static camera::CaptureEngine CaptureEngine(dom::MediaSourceEnum aMediaSource);
 
  protected:
   ~MediaEngineCameraVideoSource();
@@ -144,12 +135,11 @@ class MediaEngineCameraVideoSource : public MediaEngineSource {
    * GetCapability() can reset it. Owning thread only.
    */
   mutable bool mCapabilitiesAreHardcoded = false;
+  const RefPtr<const MediaDevice> mMediaDevice;
 
  private:
   const camera::CaptureEngine mCapEngine;  // source of media (cam, screen etc)
   RefPtr<GenericNonExclusivePromise> mFirstFramePromise;
-  nsString mDeviceName;
-  nsCString mUniqueId;
   Maybe<nsString> mFacingMode;
 };
 

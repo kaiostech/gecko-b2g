@@ -763,19 +763,7 @@ ScriptSourceObject* ScriptSourceObject::create(JSContext* cx,
     return true;
   }
 
-  if (gFilenameValidationCallback(filename, cx->realm()->isSystem())) {
-    return true;
-  }
-
-  const char* utf8Filename;
-  if (mozilla::IsUtf8(mozilla::MakeStringSpan(filename))) {
-    utf8Filename = filename;
-  } else {
-    utf8Filename = "(invalid UTF-8 filename)";
-  }
-  JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr, JSMSG_UNSAFE_FILENAME,
-                           utf8Filename);
-  return false;
+  return gFilenameValidationCallback(cx, filename);
 }
 
 /* static */
@@ -1258,7 +1246,7 @@ JSLinearString* ScriptSource::substring(JSContext* cx, size_t start,
     }
 
     const char* str = units.asChars();
-    return NewStringCopyUTF8N<CanGC>(cx, JS::UTF8Chars(str, len));
+    return NewStringCopyUTF8N(cx, JS::UTF8Chars(str, len));
   }
 
   // UTF-16 source text.
@@ -1292,7 +1280,7 @@ JSLinearString* ScriptSource::substringDontDeflate(JSContext* cx, size_t start,
     // There doesn't appear to be a non-deflating UTF-8 string creation
     // function -- but then again, it's not entirely clear how current
     // callers benefit from non-deflation.
-    return NewStringCopyUTF8N<CanGC>(cx, JS::UTF8Chars(str, len));
+    return NewStringCopyUTF8N(cx, JS::UTF8Chars(str, len));
   }
 
   // UTF-16 source text.

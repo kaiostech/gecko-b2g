@@ -107,5 +107,9 @@ LOCAL_INCLUDES += [
     "/xpcom/base",
 ]
 
+DIRS += [
+    "sensors",
+]
+
 MOCHITEST_CHROME_MANIFESTS += ["tests/chrome.ini", "tests/ioutils/chrome.ini"]
 MOCHITEST_MANIFESTS += ["tests/mochitest.ini"]

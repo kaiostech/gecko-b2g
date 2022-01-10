@@ -53,7 +53,6 @@
 
 #ifdef NS_PRINTING
 #  include "mozilla/embedding/printingui/PrintingParent.h"
-#  include "nsIWebBrowserPrint.h"
 #endif
 
 using namespace mozilla::ipc;
@@ -1041,9 +1040,9 @@ void CanonicalBrowsingContext::RemoveFromSessionHistory(const nsID& aChangeID) {
       BrowsingContext* rootBC = shistory->GetBrowsingContext();
       if (rootBC) {
         if (!rootBC->IsInProcess()) {
-          Unused << rootBC->Canonical()
-                        ->GetContentParent()
-                        ->SendDispatchLocationChangeEvent(rootBC);
+          if (ContentParent* cp = rootBC->Canonical()->GetContentParent()) {
+            Unused << cp->SendDispatchLocationChangeEvent(rootBC);
+          }
         } else if (rootBC->GetDocShell()) {
           rootBC->GetDocShell()->DispatchLocationChangeEvent();
         }

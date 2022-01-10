@@ -19,12 +19,12 @@ interface nsIWifiEvent : nsISupports
   const uint32_t AUTH_FAILURE_EAP_FAILURE = 4;
 
   /** Error code for EAP or EAP Method as per RFC-4186 10.18 */
-  const uint32_t ERROR_CODE_NONE = -1;
-  const uint32_t ERROR_EAP_SIM_GENERAL_FAILURE_AFTER_AUTH = 0;
-  const uint32_t ERROR_EAP_SIM_TEMPORARILY_DENIED = 1026;
-  const uint32_t ERROR_EAP_SIM_NOT_SUBSCRIBED = 1031;
-  const uint32_t ERROR_EAP_SIM_GENERAL_FAILURE_BEFORE_AUTH = 16384;
-  const uint32_t ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT = 16385;
+  const int32_t ERROR_CODE_NONE = -1;
+  const int32_t ERROR_EAP_SIM_GENERAL_FAILURE_AFTER_AUTH = 0;
+  const int32_t ERROR_EAP_SIM_TEMPORARILY_DENIED = 1026;
+  const int32_t ERROR_EAP_SIM_NOT_SUBSCRIBED = 1031;
+  const int32_t ERROR_EAP_SIM_GENERAL_FAILURE_BEFORE_AUTH = 16384;
+  const int32_t ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT = 16385;
 
   /**
    * Number of the event sent from hal.

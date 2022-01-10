@@ -7498,7 +7498,7 @@ mozilla::ipc::IPCResult ContentParent::RecvAdjustWindowFocus(
     CanonicalBrowsingContext* canonicalParent = parent->Canonical();
     ContentParent* cp = cpm->GetContentProcessById(
         ContentParentId(canonicalParent->OwnerProcessId()));
-    if (!processes.Get(cp)) {
+    if (cp && !processes.Get(cp)) {
       Unused << cp->SendAdjustWindowFocus(context, aIsVisible, aActionId);
       processes.InsertOrUpdate(cp, true);
     }

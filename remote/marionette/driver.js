@@ -54,7 +54,8 @@ XPCOMUtils.defineLazyModuleGetters(this, {
     "chrome://remote/content/shared/webdriver/Capabilities.jsm",
   unregisterCommandsActor:
     "chrome://remote/content/marionette/actors/MarionetteCommandsParent.jsm",
-  waitForLoadEvent: "chrome://remote/content/marionette/sync.js",
+  waitForInitialNavigationCompleted:
+    "chrome://remote/content/shared/Navigate.jsm",
   waitForObserverTopic: "chrome://remote/content/marionette/sync.js",
   WebDriverSession: "chrome://remote/content/shared/webdriver/Session.jsm",
   WebElement: "chrome://remote/content/marionette/element.js",
@@ -479,46 +480,7 @@ GeckoDriver.prototype.newSession = async function(cmd) {
         const browsingContext = this.curBrowser.contentBrowser.browsingContext;
         this.currentSession.contentBrowsingContext = browsingContext;
 
-        let resolveNavigation;
-
-        // Prepare a promise that will resolve upon a navigation.
-        const onProgressListenerNavigation = new Promise(
-          resolve => (resolveNavigation = resolve)
-        );
-
-        // Create a basic webprogress listener which will check if the browsing
-        // context is ready for the new session on every state change.
-        const navigationListener = {
-          onStateChange: (progress, request, flag, status) => {
-            const isStop = flag & Ci.nsIWebProgressListener.STATE_STOP;
-            if (isStop) {
-              resolveNavigation();
-            }
-          },
-
-          QueryInterface: ChromeUtils.generateQI([
-            "nsIWebProgressListener",
-            "nsISupportsWeakReference",
-          ]),
-        };
-
-        // Monitor the webprogress listener before checking isLoadingDocument to
-        // avoid race conditions.
-        browsingContext.webProgress.addProgressListener(
-          navigationListener,
-          Ci.nsIWebProgress.NOTIFY_STATE_WINDOW |
-            Ci.nsIWebProgress.NOTIFY_STATE_DOCUMENT
-        );
-
-        if (browsingContext.webProgress.isLoadingDocument) {
-          await onProgressListenerNavigation;
-        }
-
-        browsingContext.webProgress.removeProgressListener(
-          navigationListener,
-          Ci.nsIWebProgress.NOTIFY_STATE_WINDOW |
-            Ci.nsIWebProgress.NOTIFY_STATE_DOCUMENT
-        );
+        await waitForInitialNavigationCompleted(browsingContext);
 
         this.curBrowser.contentBrowser.focus();
       }
@@ -2131,13 +2093,6 @@ GeckoDriver.prototype.newWindow = async function(cmd) {
 
   let contentBrowser;
 
-  // Actors need the new window to be loaded to safely execute queries.
-  // Wait until a load event is dispatched for the new browsing context.
-  const onBrowserContentLoaded = waitForLoadEvent(
-    "pageshow",
-    () => contentBrowser?.browsingContext
-  );
-
   switch (type) {
     case "window":
       let win = await this.curBrowser.openBrowserWindow(focus, isPrivate);
@@ -2151,16 +2106,13 @@ GeckoDriver.prototype.newWindow = async function(cmd) {
       contentBrowser = browser.getBrowserForTab(tab);
   }
 
-  await onBrowserContentLoaded;
+  // Actors need the new window to be loaded to safely execute queries.
+  // Wait until the initial page load has been finished.
+  await waitForInitialNavigationCompleted(contentBrowser.browsingContext);
 
-  // Wait until the browser is available.
-  // TODO: Fix by using `Browser:Init` or equivalent on bug 1311041
-  let windowId = await new PollPromise((resolve, reject) => {
-    let id = windowManager.getIdForBrowser(contentBrowser);
-    windowManager.windowHandles.includes(id) ? resolve(id) : reject();
-  });
+  const id = windowManager.getIdForBrowser(contentBrowser);
 
-  return { handle: windowId.toString(), type };
+  return { handle: id.toString(), type };
 };
 
 /**

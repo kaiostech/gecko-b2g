@@ -145,13 +145,13 @@ interface nsIRilResponseResult : nsISupports
   readonly attribute AString basebandVersion;
 
   // CardState
-  const long CARD_STATE_UNINITIALIZED = 4294967294; // UINT32_MAX - 1
-  const long CARD_STATE_UNDETECTED = 4294967295;    // UINT32_MAX
-  const long CARD_STATE_ABSENT = 0;
-  const long CARD_STATE_PRESENT = 1;
-  const long CARD_STATE_ERROR = 2;
-  const long CARD_STATE_RESTRICTED = 3;  // card is present but not usable due to carrier
-                                         // restrictions
+  const uint32_t CARD_STATE_UNINITIALIZED = 4294967294; // UINT32_MAX - 1
+  const uint32_t CARD_STATE_UNDETECTED = 4294967295;    // UINT32_MAX
+  const uint32_t CARD_STATE_ABSENT = 0;
+  const uint32_t CARD_STATE_PRESENT = 1;
+  const uint32_t CARD_STATE_ERROR = 2;
+  const uint32_t CARD_STATE_RESTRICTED = 3;  // card is present but not usable due to carrier
+                                             // restrictions
 
   // PinState
   const long CARD_PIN_STATE_UNKNOWN = 0;

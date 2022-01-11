@@ -68,6 +68,10 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     SOURCES += [
         "gonk/GonkHal.cpp",
     ]
+    EXPORTS.gonk += [
+      "gonk/android_sensors/ISensorsWrapper.h",
+      "gonk/GonkSensorsHal.h",
+    ]
 
     if CONFIG["PRODUCT_MANUFACTURER_MTK"]:
         UNIFIED_SOURCES += [

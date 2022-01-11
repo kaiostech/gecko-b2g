@@ -9,6 +9,9 @@
 #include "nsThreadUtils.h"
 #include "nsXULAppAPI.h"
 #include "SensorData.h"
+#ifdef MOZ_WIDGET_GONK
+  #include "gonk/GonkSensorsHal.h"
+#endif
 
 using namespace mozilla;
 
@@ -75,10 +78,30 @@ NS_IMETHODIMP Sensors::UnregisterListener(nsISensorsListener *aListener, nsISens
 }
 
 NS_IMETHODIMP Sensors::GetVendor(nsISensors::SensorType aSensorType, nsACString& aRetval) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (aSensorType >= hal::NUM_SENSOR_TYPE) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+#ifdef MOZ_WIDGET_GONK
+  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
+  hal_impl::GonkSensorsHal::GetInstance()->GetSensorVendor(sensorType, aRetval);
+#endif
+
   return NS_OK;
 }
 
 NS_IMETHODIMP Sensors::GetName(nsISensors::SensorType aSensorType, nsACString& aRetval) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (aSensorType >= hal::NUM_SENSOR_TYPE) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+#ifdef MOZ_WIDGET_GONK
+  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
+  hal_impl::GonkSensorsHal::GetInstance()->GetSensorName(sensorType, aRetval);
+#endif
+
   return NS_OK;
 }
 

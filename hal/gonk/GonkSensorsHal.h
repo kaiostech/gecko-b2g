@@ -5,13 +5,13 @@
 #ifndef HAL_GONK_GONKSENSORSHAL_H_
 #define HAL_GONK_GONKSENSORSHAL_H_
 
+#include "mozilla/HalSensor.h"
 #include "mozilla/Mutex.h"
 #include "nsThreadUtils.h"
-#include "HalSensor.h"
 
 #include "android/hardware/sensors/1.0/types.h"
 #include "android/hardware/sensors/2.0/types.h"
-#include "android_sensors/ISensorsWrapper.h"
+#include "gonk/ISensorsWrapper.h"
 #include "fmq/MessageQueue.h"
 
 using namespace mozilla::hal;
@@ -111,8 +111,6 @@ private:
   const int64_t kPressureSamplingPeriodNs = 1000000000;
   const int64_t kReportLatencyNs = 0;
 };
-
-GonkSensorsHal* GonkSensorsHal::sInstance = nullptr;
 
 
 } // hal_impl

@@ -2862,26 +2862,6 @@ mozilla::layers::LayersId nsFrameLoader::GetLayersId() const {
   return mRemoteBrowser->GetLayersId();
 }
 
-void nsFrameLoader::ActivateRemoteFrame(ErrorResult& aRv) {
-  auto* browserParent = GetBrowserParent();
-  if (!browserParent) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
-    return;
-  }
-
-  browserParent->Activate(nsFocusManager::GenerateFocusActionId());
-}
-
-void nsFrameLoader::DeactivateRemoteFrame(ErrorResult& aRv) {
-  auto* browserParent = GetBrowserParent();
-  if (!browserParent) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
-    return;
-  }
-
-  browserParent->Deactivate(false, nsFocusManager::GenerateFocusActionId());
-}
-
 void nsFrameLoader::ActivateFrameEvent(const nsAString& aType, bool aCapture,
                                        ErrorResult& aRv) {
   auto* browserParent = GetBrowserParent();

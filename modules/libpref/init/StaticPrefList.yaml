@@ -1445,14 +1445,6 @@
   value: true
   mirror: always
 
-# Temporary pref which makes certain ServiceWorkers be isolated in special
-# processes instead of within a the normal web/webIsolated process based on
-# the URI.  Entries are separated by commas
-- name: browser.tabs.remote.serviceWorkerIsolationList
-  type: String
-  value: ""
-  mirror: never
-
 # When this pref is enabled, opaque response is only allowed to enter the
 # content process if it's a response for media (audio, image, video), CSS, or
 # JavaScript.
@@ -12696,6 +12688,16 @@
   mirror: always
 
 #ifdef XP_MACOSX
+
+# Whether to shift by the menubar height on fullscreen mode.
+# 0: never
+# 1: always
+# 2: auto (tries to detect when it is needed)
+- name: widget.macos.shift-by-menubar-on-fullscreen
+  type: RelaxedAtomicUint32
+  value: 2
+  mirror: always
+
 - name: widget.macos.native-context-menus
   type: RelaxedAtomicBool
   value: true

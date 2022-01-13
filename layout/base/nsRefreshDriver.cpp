@@ -1815,6 +1815,7 @@ bool nsRefreshDriver::
   // paint the page soon enough.
   if (mThrottled || mTestControllingRefreshes || !XRE_IsContentProcess() ||
       !mPresContext->Document()->IsTopLevelContentDocument() ||
+      mPresContext->Document()->IsInitialDocument() ||
       gfxPlatform::IsInLayoutAsapMode() || mPresContext->HadContentfulPaint() ||
       mPresContext->Document()->GetReadyStateEnum() ==
           Document::READYSTATE_COMPLETE) {

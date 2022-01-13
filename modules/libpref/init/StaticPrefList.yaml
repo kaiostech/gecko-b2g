@@ -4155,7 +4155,7 @@
 # Is support for form-associated custom element enabled?
 - name: dom.webcomponents.formAssociatedCustomElement.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Is support for the Web GPU API enabled?
@@ -5086,6 +5086,11 @@
 - name: general.smoothScroll.msdPhysics.regularSpringConstant
   type: RelaxedAtomicInt32
   value: 1000
+  mirror: always
+
+- name: general.utility-process.startup_timeout_ms
+  type: RelaxedAtomicInt32
+  value: 5000
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -6778,6 +6783,17 @@
     type: bool
     value: false
     mirror: always
+#endif
+
+#if defined(ENABLE_WASM_SIMD)
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
+  # Enables AVX instructions support on X86/X64 platforms.
+  # Changing these prefs requires a restart.
+-   name: javascript.options.wasm_simd_avx
+    type: bool
+    value: false
+    mirror: always
+#endif
 #endif
 
 #if defined(ENABLE_WASM_MEMORY64)
@@ -10655,9 +10671,9 @@
   value: 12582912
   mirror: always
 
-# Enable http3 network priorization as described in
+# Enable http3 network priority as described in
 # https://httpwg.org/http-extensions/draft-ietf-httpbis-priority.html
-- name: network.http.http3.priorization
+- name: network.http.http3.priority
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -10667,7 +10683,7 @@
 # improve performance when switching to an tab with a website using the same
 # QUIC connection. On the other hand it sends more data to the website and
 # might be a privacy concern.
-- name: network.http.http3.send_background_tabs_depriorization
+- name: network.http.http3.send_background_tabs_deprioritization
   type: RelaxedAtomicBool
   value: false
   mirror: always

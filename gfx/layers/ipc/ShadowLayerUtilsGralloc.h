@@ -46,11 +46,12 @@ struct GrallocBufferRef {
  * This is not just platform-specific, but also
  * gralloc-implementation-specific.
  */
+typedef ::android::GraphicBuffer GraphicBuffer;
+
 struct MagicGrallocBufferHandle {
-  typedef android::GraphicBuffer GraphicBuffer;
   MagicGrallocBufferHandle() {}
 
-  MagicGrallocBufferHandle(const android::sp<GraphicBuffer>& aGraphicBuffer, GrallocBufferRef ref);
+  MagicGrallocBufferHandle(const ::android::sp<GraphicBuffer>& aGraphicBuffer, GrallocBufferRef ref);
 
   // Default copy ctor and operator= are OK
 
@@ -58,7 +59,7 @@ struct MagicGrallocBufferHandle {
     return mGraphicBuffer == aOther.mGraphicBuffer;
   }
 
-  android::sp<GraphicBuffer> mGraphicBuffer;
+  ::android::sp<GraphicBuffer> mGraphicBuffer;
   GrallocBufferRef mRef;
 };
 
@@ -66,8 +67,8 @@ struct MagicGrallocBufferHandle {
  * Util function to find GraphicBuffer from SurfaceDescriptor, caller of this function should check origin
  * to make sure not corrupt others buffer
  */
-android::sp<android::GraphicBuffer> GetGraphicBufferFrom(MaybeMagicGrallocBufferHandle aHandle);
-android::sp<android::GraphicBuffer> GetGraphicBufferFromDesc(SurfaceDescriptor aDesc);
+::android::sp<GraphicBuffer> GetGraphicBufferFrom(MaybeMagicGrallocBufferHandle aHandle);
+::android::sp<GraphicBuffer> GetGraphicBufferFromDesc(SurfaceDescriptor aDesc);
 
 } // namespace layers
 } // namespace mozilla

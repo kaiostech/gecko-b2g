@@ -36,6 +36,7 @@ struct SandboxReport {
     MEDIA_PLUGIN,
     RDD,
     SOCKET_PROCESS,
+    UTILITY,
   };
 
   // The syscall number and arguments are usually `unsigned long`, but

@@ -390,6 +390,7 @@ var DownloadsPanel = {
     if (this._delayTimeout) {
       DownloadsView.richListBox.removeAttribute("disabled");
       clearTimeout(this._delayTimeout);
+      this._stopWatchingForSpammyDownloadActivation();
       this._delayTimeout = null;
     }
 
@@ -467,6 +468,10 @@ var DownloadsPanel = {
    * pasted item can be resolved to a URI.
    */
   _onKeyDown(aEvent) {
+    if (DownloadsView.richListBox.hasAttribute("disabled")) {
+      this._handlePotentiallySpammyDownloadActivation(aEvent);
+      return;
+    }
     // If the user has pressed the tab, up, or down cursor key, start keyboard
     // navigation, thus enabling focusrings in the panel.  Keyboard navigation
     // is automatically disabled if the user moves the mouse on the panel, or
@@ -582,20 +587,47 @@ var DownloadsPanel = {
   },
 
   _delayPopupItems() {
-    let delay = Services.prefs.getIntPref("security.dialog_enable_delay");
-    let richListBox = DownloadsView.richListBox;
-    richListBox.setAttribute("disabled", true);
+    DownloadsView.richListBox.setAttribute("disabled", true);
+    this._startWatchingForSpammyDownloadActivation();
 
+    this._refreshDelayTimer();
+  },
+
+  _refreshDelayTimer() {
     // If timeout already exists, overwrite it to avoid multiple timeouts.
     if (this._delayTimeout) {
       clearTimeout(this._delayTimeout);
     }
 
+    let delay = Services.prefs.getIntPref("security.dialog_enable_delay");
     this._delayTimeout = setTimeout(() => {
-      richListBox.removeAttribute("disabled");
+      DownloadsView.richListBox.removeAttribute("disabled");
+      this._stopWatchingForSpammyDownloadActivation();
       this._focusPanel();
       this._delayTimeout = null;
     }, delay);
+  },
+
+  _startWatchingForSpammyDownloadActivation() {
+    Services.els.addSystemEventListener(window, "keydown", this, true);
+  },
+
+  _lastBeepTime: 0,
+  _handlePotentiallySpammyDownloadActivation(aEvent) {
+    if (aEvent.key == "Enter" || aEvent.key == " ") {
+      // Throttle our beeping to a maximum of once per second, otherwise it
+      // appears on Win10 that beeps never make it through at all.
+      if (Date.now() - this._lastBeepTime > 1000) {
+        Cc["@mozilla.org/sound;1"].getService(Ci.nsISound).beep();
+        this._lastBeepTime = Date.now();
+      }
+
+      this._refreshDelayTimer();
+    }
+  },
+
+  _stopWatchingForSpammyDownloadActivation() {
+    Services.els.removeSystemEventListener(window, "keydown", this, true);
   },
 
   /**
@@ -1130,6 +1162,10 @@ class DownloadsViewItem extends DownloadsViewUI.DownloadElementShell {
         let partFile = new FileUtils.File(this.download.target.partFilePath);
         return partFile.exists();
       }
+      case "downloadsCmd_deleteFile": {
+        let { target } = this.download;
+        return target.exists || target.partFileExists;
+      }
       case "cmd_delete":
       case "downloadsCmd_copyLocation":
       case "downloadsCmd_doDefault":
@@ -1218,6 +1254,22 @@ class DownloadsViewItem extends DownloadsViewUI.DownloadElementShell {
     // window to open before the panel closed. This also helps to prevent the
     // user from opening the containing folder several times.
     DownloadsPanel.hidePanel();
+  }
+
+  async downloadsCmd_deleteFile() {
+    await super.downloadsCmd_deleteFile();
+    // Protects against an unusual edge case where the user:
+    // 1) downloads a file with Firefox; 2) deletes the file from outside of Firefox, e.g., a file manager;
+    // 3) downloads the same file from the same source; 4) opens the downloads panel and uses the menuitem to delete one of those 2 files;
+    // Under those conditions, Firefox will make 2 view items even though there's only 1 file.
+    // Using this method will only delete the view item it was called on, because this instance is not aware of other view items with identical targets.
+    // So the remaining view item needs to be refreshed to hide the "Delete" option.
+    // That example only concerns 2 duplicate view items but you can have an arbitrary number, so iterate over all items...
+    for (let viewItem of DownloadsView._visibleViewItems.values()) {
+      viewItem.download.refresh().catch(Cu.reportError);
+    }
+    // Don't use DownloadsPanel.hidePanel for this method because it will remove
+    // the view item from the list, which is already sufficient feedback.
   }
 
   downloadsCmd_showBlockedInfo() {

@@ -13,6 +13,9 @@
 #include "VideoUtils.h"
 #include "VPXDecoder.h"
 #include "mozilla/layers/KnowsCompositor.h"
+#if defined(MOZ_AV1) && defined(FFVPX_VERSION) && defined(MOZ_WAYLAND)
+#  include "AOMDecoder.h"
+#endif
 #ifdef MOZ_WAYLAND_USE_VAAPI
 #  include "H264.h"
 #  include "mozilla/layers/DMABUFSurfaceImage.h"
@@ -128,7 +131,11 @@ static AVPixelFormat ChooseVAAPIPixelFormat(AVCodecContext* aCodecContext,
 }
 
 AVCodec* FFmpegVideoDecoder<LIBAV_VER>::FindVAAPICodec() {
-  AVCodec* decoder = mLib->avcodec_find_decoder(mCodecID);
+  AVCodec* decoder = FindHardwareAVCodec(mLib, mCodecID);
+  if (!decoder) {
+    FFMPEG_LOG("  We're missing hardware accelerated decoder");
+    return nullptr;
+  }
   for (int i = 0;; i++) {
     const AVCodecHWConfig* config = mLib->avcodec_get_hw_config(decoder, i);
     if (!config) {
@@ -140,7 +147,7 @@ AVCodec* FFmpegVideoDecoder<LIBAV_VER>::FindVAAPICodec() {
     }
   }
 
-  FFMPEG_LOG("Decoder does not support VAAPI device type");
+  FFMPEG_LOG("  HW Decoder does not support VAAPI device type");
   return nullptr;
 }
 
@@ -223,20 +230,21 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitVAAPIDecoder() {
   FFMPEG_LOG("Initialising VA-API FFmpeg decoder");
 
   if (!mLib->IsVAAPIAvailable()) {
-    FFMPEG_LOG("libva library or symbols are missing.");
+    FFMPEG_LOG("  libva library or symbols are missing.");
     return NS_ERROR_NOT_AVAILABLE;
   }
 
   AVCodec* codec = FindVAAPICodec();
   if (!codec) {
-    FFMPEG_LOG("Couldn't find ffmpeg VA-API decoder");
+    FFMPEG_LOG("  couldn't find ffmpeg VA-API decoder");
     return NS_ERROR_DOM_MEDIA_FATAL_ERR;
   }
+  FFMPEG_LOG("  codec %s : %s", codec->name, codec->long_name);
 
   StaticMutexAutoLock mon(sMutex);
 
   if (!(mCodecContext = mLib->avcodec_alloc_context3(codec))) {
-    FFMPEG_LOG("Couldn't init VA-API ffmpeg context");
+    FFMPEG_LOG("  couldn't init VA-API ffmpeg context");
     return NS_ERROR_OUT_OF_MEMORY;
   }
   mCodecContext->opaque = this;
@@ -245,7 +253,7 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitVAAPIDecoder() {
 
   if (!CreateVAAPIDeviceContext()) {
     mLib->av_freep(&mCodecContext);
-    FFMPEG_LOG("Failed to create VA-API device context");
+    FFMPEG_LOG("  Failed to create VA-API device context");
     return NS_ERROR_DOM_MEDIA_FATAL_ERR;
   }
 
@@ -259,11 +267,11 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::InitVAAPIDecoder() {
   if (mLib->avcodec_open2(mCodecContext, codec, nullptr) < 0) {
     mLib->av_buffer_unref(&mVAAPIDeviceContext);
     mLib->av_freep(&mCodecContext);
-    FFMPEG_LOG("Couldn't initialise VA-API decoder");
+    FFMPEG_LOG("  Couldn't initialise VA-API decoder");
     return NS_ERROR_DOM_MEDIA_FATAL_ERR;
   }
 
-  FFMPEG_LOG("VA-API FFmpeg init successful");
+  FFMPEG_LOG("  VA-API FFmpeg init successful");
   return NS_OK;
 }
 
@@ -474,13 +482,14 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::DoDecode(
 
     res = mLib->avcodec_receive_frame(mCodecContext, mFrame);
     if (res == int(AVERROR_EOF)) {
+      FFMPEG_LOG("  End of stream.");
       return NS_ERROR_DOM_MEDIA_END_OF_STREAM;
     }
     if (res == AVERROR(EAGAIN)) {
       return NS_OK;
     }
     if (res < 0) {
-      FFMPEG_LOG("avcodec_receive_frame error: %d", res);
+      FFMPEG_LOG("  avcodec_receive_frame error: %d", res);
       return MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
                          RESULT_DETAIL("avcodec_receive_frame error: %d", res));
     }
@@ -594,6 +603,8 @@ gfx::YUVColorSpace FFmpegVideoDecoder<LIBAV_VER>::GetFrameColorSpace() const {
       case AVCOL_SPC_SMPTE170M:
       case AVCOL_SPC_BT470BG:
         return gfx::YUVColorSpace::BT601;
+      case AVCOL_SPC_RGB:
+        return gfx::YUVColorSpace::Identity;
       default:
         break;
     }
@@ -627,6 +638,9 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::CreateImage(
       mCodecContext->pix_fmt == AV_PIX_FMT_YUV444P10LE
 #if LIBAVCODEC_VERSION_MAJOR >= 57
       || mCodecContext->pix_fmt == AV_PIX_FMT_YUV444P12LE
+#endif
+#if defined(MOZ_AV1) && defined(FFVPX_VERSION) && defined(MOZ_WAYLAND)
+      || mCodecContext->pix_fmt == AV_PIX_FMT_GBRP
 #endif
   ) {
     b.mPlanes[1].mWidth = b.mPlanes[2].mWidth = mFrame->width;
@@ -819,6 +833,12 @@ AVCodecID FFmpegVideoDecoder<LIBAV_VER>::GetCodecId(
 #if LIBAVCODEC_VERSION_MAJOR >= 55
   if (VPXDecoder::IsVP9(aMimeType)) {
     return AV_CODEC_ID_VP9;
+  }
+#endif
+
+#if defined(MOZ_AV1) && defined(FFVPX_VERSION) && defined(MOZ_WAYLAND)
+  if (AOMDecoder::IsAV1(aMimeType)) {
+    return AV_CODEC_ID_AV1;
   }
 #endif
 

@@ -170,6 +170,8 @@ void Device::onHotplug(hwc2_display_t displayId, Connection connection) {
     }
     mDisplays.erase(displayId);
 
+    mDefaultDisplayId = displayId;
+
     DisplayType displayType;
     auto intError = mComposer->getDisplayType(
         displayId,

@@ -151,15 +151,17 @@ GonkDisplayP::GonkDisplayP()
           true)  // Initial value should sync with hal::GetExtScreenEnabled()
       ,
       mHwcDisplay(nullptr) {
-  std::string serviceName = "default";
+  char serviceName[PROPERTY_VALUE_MAX] = {};
+  property_get("debug.sf.hwc_service_name", serviceName, "default");
+  ALOGI("Using HWComposer service: '%s'", serviceName);
   mHwc = std::make_unique<HWC2::Device>(
-      std::make_unique<Hwc2::impl::Composer>(serviceName));
+        std::make_unique<Hwc2::impl::Composer>(std::string(serviceName)));
   assert(mHwc);
   mHwc->registerCallback(new HWComposerCallback(mHwc.get()), 0);
 
   std::unique_lock<std::mutex> lock(hotplugMutex);
   HWC2::Display* hwcDisplay;
-  while (!(hwcDisplay = mHwc->getDisplayById(HWC_DISPLAY_PRIMARY))) {
+  while (!(hwcDisplay = mHwc->getDisplayById(mHwc->getDefaultDisplayId()))) {
     /* Wait at most 5s for hotplug events */
     hotplugCv.wait_for(lock, std::chrono::seconds(5));
   }
@@ -405,7 +407,7 @@ void GonkDisplayP::SetExtEnabled(bool enabled) {
 HWC2::Error GonkDisplayP::SetHwcPowerMode(bool enabled) {
     HWC2::PowerMode mode =
         (enabled ? HWC2::PowerMode::On : HWC2::PowerMode::Off);
-    HWC2::Display* hwcDisplay = mHwc->getDisplayById(HWC_DISPLAY_PRIMARY);
+    HWC2::Display* hwcDisplay = mHwc->getDisplayById(mHwc->getDefaultDisplayId());
 
     auto error = hwcDisplay->setPowerMode(mode);
     if (error != HWC2::Error::None) {
@@ -566,7 +568,7 @@ void GonkDisplayP::NotifyBootAnimationStopped() {
 
 void GonkDisplayP::PowerOnDisplay(int displayId) {
   if (mHwc) {
-    HWC2::Display* hwcDisplay = mHwc->getDisplayById(displayId);
+    HWC2::Display* hwcDisplay = mHwc->getDisplayById(mHwc->getDefaultDisplayId());
     auto error = hwcDisplay->setPowerMode(HWC2::PowerMode::On);
     if (error != HWC2::Error::None) {
       ALOGE(

@@ -110,6 +110,8 @@ public:
 
     android::Hwc2::Composer* getComposer() { return mComposer.get(); }
 
+    hwc2_display_t getDefaultDisplayId() { return mDefaultDisplayId; }
+
     // We buffer most state changes and flush them implicitly with
     // Display::validate, Display::present, and Display::presentOrValidate.
     // This method provides an explicit way to flush state changes to HWC.
@@ -125,6 +127,7 @@ private:
     std::unordered_set<Capability> mCapabilities;
     std::unordered_map<hwc2_display_t, std::unique_ptr<Display>> mDisplays;
     bool mRegisteredCallback = false;
+    hwc2_display_t mDefaultDisplayId = HWC_DISPLAY_PRIMARY;
 };
 
 // Convenience C++ class to access hwc2_device_t Display functions directly.

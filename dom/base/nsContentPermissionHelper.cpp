@@ -366,7 +366,12 @@ void nsContentPermissionUtils::NotifyRemoveContentPermissionRequestChild(
 static nsIPrincipal* GetTopLevelPrincipal(nsPIDOMWindowInner* aWindow) {
   MOZ_ASSERT(aWindow);
 
-  BrowsingContext* top = aWindow->GetBrowsingContext()->Top();
+  // We may request permission from a window in a nested web-view. Use the BC
+  // of top or top content in a nested web-view.
+  BrowsingContext* top = aWindow->GetBrowsingContext();
+  while (!top->IsTop() && !top->IsTopContentOfNestedWebView()) {
+    top = top->GetParent();
+  }
   MOZ_ASSERT(top);
 
   nsPIDOMWindowOuter* outer = top->GetDOMWindow();

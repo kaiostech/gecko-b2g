@@ -13,6 +13,7 @@
 #include "AudioChannelFormat.h"
 #include "SharedBuffer.h"
 #include "WebAudioUtils.h"
+#include "mozilla/ScopeExit.h"
 #include "nsAutoRef.h"
 #ifdef MOZILLA_INTERNAL_API
 #  include "mozilla/TimeStamp.h"
@@ -168,8 +169,10 @@ struct AudioChunk {
 
   // Generic methods
   void SliceTo(TrackTime aStart, TrackTime aEnd) {
-    MOZ_ASSERT(aStart >= 0 && aStart < aEnd && aEnd <= mDuration,
-               "Slice out of bounds");
+    MOZ_ASSERT(aStart >= 0, "Slice out of bounds: invalid start");
+    MOZ_ASSERT(aStart < aEnd, "Slice out of bounds: invalid range");
+    MOZ_ASSERT(aEnd <= mDuration, "Slice out of bounds: invalid end");
+
     if (mBuffer) {
       MOZ_ASSERT(aStart < INT32_MAX,
                  "Can't slice beyond 32-bit sample lengths");
@@ -419,20 +422,30 @@ class AudioSegment : public MediaSegmentBase<AudioSegment, AudioChunk> {
   // be stored into aBuffer.
   size_t WriteToInterleavedBuffer(nsTArray<AudioDataValue>& aBuffer,
                                   uint32_t aChannels) const;
-  // Consumes aChunk, and returns a pointer to the persistent copy of aChunk
-  // in the segment.
-  AudioChunk* AppendAndConsumeChunk(AudioChunk&& aChunk) {
-    AudioChunk* chunk = AppendChunk(aChunk.mDuration);
-    chunk->mBuffer = std::move(aChunk.mBuffer);
-    chunk->mChannelData = std::move(aChunk.mChannelData);
+  // Consumes aChunk, and append it to the segment if its duration is not zero.
+  void AppendAndConsumeChunk(AudioChunk&& aChunk) {
+    AudioChunk unused;
+    AudioChunk* chunk = &unused;
 
-    MOZ_ASSERT(chunk->mBuffer || aChunk.mChannelData.IsEmpty(),
-               "Appending invalid data ?");
+    // Always consume aChunk. The chunk's mBuffer can be non-null even if its
+    // duration is 0.
+    auto consume = MakeScopeExit([&] {
+      chunk->mBuffer = std::move(aChunk.mBuffer);
+      chunk->mChannelData = std::move(aChunk.mChannelData);
 
-    chunk->mVolume = aChunk.mVolume;
-    chunk->mBufferFormat = aChunk.mBufferFormat;
-    chunk->mPrincipalHandle = std::move(aChunk.mPrincipalHandle);
-    return chunk;
+      MOZ_ASSERT(chunk->mBuffer || chunk->mChannelData.IsEmpty(),
+                 "Appending invalid data ?");
+
+      chunk->mVolume = aChunk.mVolume;
+      chunk->mBufferFormat = aChunk.mBufferFormat;
+      chunk->mPrincipalHandle = std::move(aChunk.mPrincipalHandle);
+    });
+
+    if (aChunk.GetDuration() == 0) {
+      return;
+    }
+
+    chunk = AppendChunk(aChunk.mDuration);
   }
   void ApplyVolume(float aVolume);
   // Mix the segment into a mixer, interleaved. This is useful to output a

@@ -315,7 +315,6 @@ class BluetoothDaemonInterface::InitResultHandler final
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(mInterface->mProtocol);
 
-    // TODO: init DaemonSocketModule when it's needed
     if (!mRegisteredSocketModule) {
       mRegisteredSocketModule = true;
       // Init, step 5: Register Socket module

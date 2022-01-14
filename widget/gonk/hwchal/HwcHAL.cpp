@@ -108,7 +108,8 @@ UniquePtr<HwcHALBase> HwcHALBase::CreateHwcHAL() {
 
 extern "C" MOZ_EXPORT __attribute__((weak)) HWC2::Display* hwc2_getDisplayById(
     HWC2::Device* p, hwc2_display_t id) {
-  return p->getDisplayById(id);
+  return p->getDisplayById(id) ?
+         p->getDisplayById(id) : p->getDisplayById(p->getDefaultDisplayId()) ;
 }
 
 extern "C" MOZ_EXPORT __attribute__((weak)) void hwc2_registerCallback(

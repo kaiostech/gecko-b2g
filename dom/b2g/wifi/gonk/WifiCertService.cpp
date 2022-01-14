@@ -113,7 +113,7 @@ class ImportCertTask final : public CryptoTask {
   nsresult CertificateExists(CERTCertificate* aCert, bool* exist) {
     *exist = false;
 
-    RefPtr<nsNSSCertificate> nsscert = nsNSSCertificate::Create(aCert);
+    RefPtr<nsNSSCertificate> nsscert = new nsNSSCertificate(aCert);
     if (!nsscert) {
       return NS_ERROR_FAILURE;
     }

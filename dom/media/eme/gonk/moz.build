@@ -19,18 +19,22 @@ UNIFIED_SOURCES += [
     "GonkDrmCDMCallbackProxy.cpp",
     "GonkDrmCDMProxy.cpp",
     "GonkDrmSharedData.cpp",
+    "GonkDrmStorageProxy.cpp",
     "GonkDrmSupport.cpp",
     "GonkDrmUtils.cpp",
 ]
 
 XPIDL_SOURCES += [
     "nsIGonkDrmNetUtils.idl",
+    "nsIGonkDrmStorage.idl",
 ]
 
 XPIDL_MODULE = "gonkdrm"
 
 EXTRA_JS_MODULES += [
+    "GonkDrmDB.jsm",
     "GonkDrmNetUtils.jsm",
+    "GonkDrmStorage.jsm",
 ]
 
 XPCOM_MANIFESTS += [

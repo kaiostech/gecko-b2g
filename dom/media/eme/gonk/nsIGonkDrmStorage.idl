@@ -1,0 +1,44 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(39003fe5-dd6c-4208-9e05-cada24a953a0)]
+interface nsIGonkDrmStorageCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onAdd(in nsresult status);
+
+  [implicit_jscontext]
+  void onGet(in nsresult status,
+             [optional] in ACString mimeType,
+             [optional] in ACString sessionType,
+             [optional] in ACString keySetId);
+
+  [implicit_jscontext]
+  void onRemove(in nsresult status);
+
+  [implicit_jscontext]
+  void onClear(in nsresult status);
+};
+
+[scriptable, uuid(45a21db7-187a-404d-b61d-e3b2ef8ca6f7)]
+interface nsIGonkDrmStorage : nsISupports
+{
+  void init(in ACString origin, in ACString keySystem);
+
+  void uninit();
+
+  void add(in ACString sessionId,
+           in ACString mimeType,
+           in ACString sessionType,
+           in ACString keySetId,
+           in nsIGonkDrmStorageCallback callback);
+
+  void get(in ACString sessionId, in nsIGonkDrmStorageCallback callback);
+
+  void remove(in ACString sessionId, in nsIGonkDrmStorageCallback callback);
+
+  void clear(in nsIGonkDrmStorageCallback callback);
+};

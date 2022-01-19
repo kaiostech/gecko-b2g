@@ -35,6 +35,7 @@ NS_IMPL_ISUPPORTS(AccessibleCaret::DummyTouchListener, nsIDOMEventListener)
 const nsLiteralString AccessibleCaret::sTextOverlayElementId =
     u"text-overlay"_ns;
 const nsLiteralString AccessibleCaret::sCaretImageElementId = u"image"_ns;
+const nsLiteralString AccessibleCaret::sSelectionBarElementId = u"bar"_ns;
 
 #define AC_PROCESS_ENUM_TO_STREAM(e) \
   case (e):                          \
@@ -107,6 +108,23 @@ void AccessibleCaret::SetAppearance(Appearance aAppearance) {
   if (mAppearance == Appearance::None) {
     ClearCachedData();
   }
+}
+
+void AccessibleCaret::SetSelectionBarEnabled(bool aEnabled) {
+  if (mSelectionBarEnabled == aEnabled) {
+    return;
+  }
+
+  AC_LOG("%s: %s -> %s", __FUNCTION__,
+    mSelectionBarEnabled? "Enabled" : "Disabled",
+    aEnabled ? "Enabled" : "Disabled");
+
+  ErrorResult rv;
+  CaretElement().ClassList()->Toggle(u"no-bar"_ns,
+                                     Optional<bool>(!aEnabled), rv);
+  MOZ_ASSERT(!rv.Failed());
+
+  mSelectionBarEnabled = aEnabled;
 }
 
 /* static */
@@ -201,12 +219,14 @@ already_AddRefed<Element> AccessibleCaret::CreateCaretElement(
   // Content structure of AccessibleCaret
   // <div class="moz-accessiblecaret">  <- CaretElement()
   //   <div id="text-overlay">          <- TextOverlayElement()
+  //   <div id="bar">                   <- SelectionBarElement()
   //   <div id="image">                 <- CaretImageElement()
 
   ErrorResult rv;
   RefPtr<Element> parent = aDocument->CreateHTMLElement(nsGkAtoms::div);
   parent->ClassList()->Add(u"moz-accessiblecaret"_ns, rv);
   parent->ClassList()->Add(u"none"_ns, rv);
+  parent->ClassList()->Add(u"no-bar"_ns, rv);
 
   auto CreateAndAppendChildElement =
       [aDocument, &parent](const nsLiteralString& aElementId) {
@@ -216,6 +236,7 @@ already_AddRefed<Element> AccessibleCaret::CreateCaretElement(
       };
 
   CreateAndAppendChildElement(sTextOverlayElementId);
+  CreateAndAppendChildElement(sSelectionBarElementId);
   CreateAndAppendChildElement(sCaretImageElementId);
 
   return parent.forget();
@@ -277,6 +298,7 @@ AccessibleCaret::PositionChangedResult AccessibleCaret::SetPosition(
   mZoomLevel = zoomLevel;
 
   SetCaretElementStyle(imaginaryCaretRectInContainerFrame, mZoomLevel);
+  SetSelectionBarElementStyle(imaginaryCaretRectInContainerFrame, mZoomLevel);
 
   return isSamePosition ? PositionChangedResult::Zoom
                         : PositionChangedResult::Position;
@@ -342,6 +364,26 @@ void AccessibleCaret::SetCaretImageElementStyle(const nsRect& aRect,
   styleStr.AppendLiteral("px;");
   CaretImageElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::style, styleStr,
                                true);
+  AC_LOG("%s: %s", __FUNCTION__, NS_ConvertUTF16toUTF8(styleStr).get());
+}
+
+void AccessibleCaret::SetSelectionBarElementStyle(const nsRect& aRect,
+                                                  float aZoomLevel) {
+  nsAutoString styleStr;
+  styleStr.AppendLiteral("margin-top: -");
+  styleStr.AppendFloat(nsPresContext::AppUnitsToFloatCSSPixels(aRect.height));
+  styleStr.AppendLiteral("px; height: ");
+  styleStr.AppendFloat(nsPresContext::AppUnitsToFloatCSSPixels(aRect.height));
+  styleStr.AppendLiteral("px");
+
+  styleStr.AppendLiteral("; width: ");
+  styleStr.AppendFloat(StaticPrefs::layout_accessiblecaret_sbar_width() /
+                       aZoomLevel);
+  styleStr.AppendLiteral("px;");
+
+  SelectionBarElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::style, styleStr,
+                                 true);
+
   AC_LOG("%s: %s", __FUNCTION__, NS_ConvertUTF16toUTF8(styleStr).get());
 }
 

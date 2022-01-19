@@ -398,6 +398,10 @@ const kSettingsToObserve = {
     prefName: "dom.sms.maxReadAheadEntries",
     defaultValue: 7,
   },
+  "debug.touch-location.enabled": {
+    prefName: "touch.show_location",
+    defaultValue: false,
+  },
   "ui.prefers.color-scheme": {
     prefName: "ui.systemUsesDarkTheme",
     defaultValue: 0,

@@ -965,6 +965,8 @@ pref("layout.accessiblecaret.margin-left", "0");
 pref("layout.accessiblecaret.caret_shown_when_long_tapping_on_empty_content", true);
 pref("layout.accessiblecaret.always_tilt", true);
 pref("layout.accessiblecaret.transition-duration", "0");
+pref("layout.accessiblecaret.bar.enabled", true);
+pref("layout.accessiblecaret.bar.cursor_enabled", true);
 
 // Enable mapped array buffer.
 #ifndef XP_WIN

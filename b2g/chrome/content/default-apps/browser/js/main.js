@@ -66,6 +66,7 @@ class BrowserTab {
     this.webview.addEventListener("iconchange", this.setupIcon);
     this.webview.addEventListener("titlechange", this.updateTitle);
     this.webview.addEventListener("opensearch", this.updateSearch);
+    this.webview.addEventListener("manifestchange", this.manifestChange);
     this.webview.addEventListener("loadstart", this.updateLoadState);
     this.webview.addEventListener("loadend", this.updateLoadState);
     this.webview.addEventListener("contextmenu", this.showContextMenu);
@@ -83,6 +84,7 @@ class BrowserTab {
     this.setupIcon({});
     this.updateTitle({});
     this.updateSearch({});
+    this.manifestChange({});
     this.updateLoadState({});
   }
 
@@ -113,6 +115,7 @@ class BrowserTab {
     this.setupIcon({});
     this.updateTitle({});
     this.updateSearch({});
+    this.manifestChange({});
     this.updateLoadState({});
     activatedTab = null;
   }
@@ -159,6 +162,11 @@ class BrowserTab {
       activatedTab.parentDocument.querySelector("#tabs > .search").innerText =
         title + " " + href;
     }
+  }
+
+  manifestChange(aEvent) {
+    let href = aEvent?.detail?.href;
+    log(`manifestChange ${href}`);
   }
 
   updateActionsUI(aEvent) {

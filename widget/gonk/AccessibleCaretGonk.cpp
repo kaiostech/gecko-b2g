@@ -103,6 +103,7 @@ AccessibleCaret::PositionChangedResult AccessibleCaretGonk::SetPosition(
   }
 
   SetCaretElementStyle(imaginaryCaretRectInContainerFrame, mZoomLevel);
+  SetSelectionBarElementStyle(imaginaryCaretRectInContainerFrame, mZoomLevel);
 
   return PositionChangedResult::Position;
 }
@@ -135,6 +136,11 @@ void AccessibleCaretGonk::SetCaretElementStyle(const nsRect& aRect,
                        aZoomLevel);
   styleStr.AppendLiteral("px; --caret-height: ");
   styleStr.AppendFloat(StaticPrefs::layout_accessiblecaret_height() /
+                       aZoomLevel);
+  styleStr.AppendLiteral("px");
+
+  styleStr.AppendLiteral("; --caret-bar-width: ");
+  styleStr.AppendFloat(StaticPrefs::layout_accessiblecaret_sbar_width() /
                        aZoomLevel);
   styleStr.AppendLiteral("px");
 

@@ -93,6 +93,8 @@ nsresult nsCanvasFrame::CreateAnonymousContent(
     eventHub->Init();
   }
 
+  PresContext()->GetPresShell()->InitTouchLocation();
+
   // Create the custom content container.
   mCustomContentContainer = doc->CreateHTMLElement(nsGkAtoms::div);
 #ifdef DEBUG

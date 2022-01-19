@@ -92,6 +92,10 @@ class AccessibleCaret {
            (mAppearance != Appearance::NormalNotShown);
   }
 
+  // Set true to enable the "Text Selection Bar" described in "Text Selection
+  // Visual Spec" in bug 921965.
+  virtual void SetSelectionBarEnabled(bool aEnabled);
+
   // This enum represents the result returned by SetPosition().
   enum class PositionChangedResult : uint8_t {
     // Both position and the zoom level are not changed.
@@ -145,6 +149,7 @@ class AccessibleCaret {
   void SetCaretElementStyle(const nsRect& aRect, float aZoomLevel);
   void SetTextOverlayElementStyle(const nsRect& aRect, float aZoomLevel);
   void SetCaretImageElementStyle(const nsRect& aRect, float aZoomLevel);
+  void SetSelectionBarElementStyle(const nsRect& aRect, float aZoomLevel);
 
   // Get current zoom level.
   float GetZoomLevel();
@@ -157,6 +162,11 @@ class AccessibleCaret {
   // Element which contains the caret image for 'Contains' test.
   dom::Element* CaretImageElement() const {
     return mCaretElementHolder->GetElementById(sCaretImageElementId);
+  }
+
+  // Element which represents the text selection bar.
+  dom::Element* SelectionBarElement() const {
+    return mCaretElementHolder->GetElementById(sSelectionBarElementId);
   }
 
   nsIFrame* RootFrame() const;
@@ -197,6 +207,8 @@ class AccessibleCaret {
   // Member variables
   Appearance mAppearance = Appearance::None;
 
+  bool mSelectionBarEnabled = false;
+
   // AccessibleCaretManager owns us by a UniquePtr. When it's terminated by
   // AccessibleCaretEventHub::Terminate() which is called in
   // PresShell::Destroy(), it frees us automatically. No need to worry if we
@@ -227,6 +239,7 @@ class AccessibleCaret {
   // Static class variables
   static const nsLiteralString sTextOverlayElementId;
   static const nsLiteralString sCaretImageElementId;
+  static const nsLiteralString sSelectionBarElementId;
 
 };  // class AccessibleCaret
 

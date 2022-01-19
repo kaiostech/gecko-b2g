@@ -6,10 +6,12 @@
  */
 
 #include "TouchManager.h"
+#include "TouchLocation.h"
 
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/StaticPrefs_touch.h"
 #include "nsIContent.h"
 #include "nsIFrame.h"
 #include "nsLayoutUtils.h"
@@ -40,12 +42,14 @@ void TouchManager::ReleaseStatics() {
 void TouchManager::Init(PresShell* aPresShell, Document* aDocument) {
   mPresShell = aPresShell;
   mDocument = aDocument;
+  mTouchLocation = nullptr;
 }
 
 void TouchManager::Destroy() {
   EvictTouches(mDocument);
   mDocument = nullptr;
   mPresShell = nullptr;
+  mTouchLocation = nullptr;
 }
 
 static nsIContent* GetNonAnonymousAncestor(EventTarget* aTarget) {
@@ -220,6 +224,7 @@ bool TouchManager::PreHandleEvent(WidgetEvent* aEvent, nsEventStatus* aStatus,
                                   nsCOMPtr<nsIContent>& aCurrentEventContent) {
   MOZ_DIAGNOSTIC_ASSERT(aEvent->IsTrusted());
 
+  bool isTouchEvent = true;
   // NOTE: If you need to handle new event messages here, you need to add new
   //       cases in PresShell::EventHandler::PrepareToDispatchEvent().
   switch (aEvent->mMessage) {
@@ -395,7 +400,14 @@ bool TouchManager::PreHandleEvent(WidgetEvent* aEvent, nsEventStatus* aStatus,
       break;
     }
     default:
+      isTouchEvent = false;
       break;
+  }
+
+  if (isTouchEvent && mTouchLocation) {
+    WidgetTouchEvent* touchEvent = aEvent->AsTouchEvent();
+    WidgetTouchEvent::TouchArray& touches = touchEvent->mTouches;
+    mTouchLocation->HandleTouchList(aEvent->mMessage, touches);
   }
   return true;
 }
@@ -469,6 +481,19 @@ bool TouchManager::ShouldConvertTouchToPointer(const Touch* aTouch,
       break;
   }
   return true;
+}
+
+void TouchManager::MaybeInitForTouchLocation() {
+  if (mTouchLocation) {
+    return;
+  }
+
+  // Only for parent process.
+  if (!XRE_IsParentProcess()) {
+    return;
+  }
+
+  mTouchLocation = std::make_shared<TouchLocation>(mPresShell);
 }
 
 }  // namespace mozilla

@@ -133,6 +133,7 @@ UNIFIED_SOURCES += [
     "ShapeUtils.cpp",
     "StackArena.cpp",
     "StaticPresData.cpp",
+    "TouchLocation.cpp",
     "TouchManager.cpp",
     "ViewportUtils.cpp",
     "ZoomConstraintsClient.cpp",

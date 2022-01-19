@@ -12,6 +12,8 @@
 #ifndef TouchManager_h_
 #define TouchManager_h_
 
+#include <memory>
+
 #include "mozilla/BasicEvents.h"
 #include "mozilla/dom/Touch.h"
 #include "mozilla/StaticPtr.h"
@@ -20,6 +22,7 @@
 
 namespace mozilla {
 class PresShell;
+class TouchLocation;
 
 class TouchManager {
  public:
@@ -58,6 +61,7 @@ class TouchManager {
   static already_AddRefed<dom::Touch> GetCapturedTouch(int32_t aId);
   static bool ShouldConvertTouchToPointer(const dom::Touch* aTouch,
                                           const WidgetTouchEvent* aEvent);
+  void MaybeInitForTouchLocation();
 
  private:
   void EvictTouches(dom::Document* aLimitToDocument = nullptr);
@@ -77,6 +81,8 @@ class TouchManager {
   static StaticAutoPtr<nsTHashMap<nsUint32HashKey, TouchInfo>>
       sCaptureTouchList;
   static layers::LayersId sCaptureTouchLayersId;
+
+  std::shared_ptr<TouchLocation> mTouchLocation;
 };
 
 }  // namespace mozilla

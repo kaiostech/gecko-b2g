@@ -616,6 +616,11 @@ class PresShell final : public nsStubDocumentObserver,
   already_AddRefed<AccessibleCaretEventHub> GetAccessibleCaretEventHub() const;
 
   /**
+   * To init TouchLocation for debugging.
+   */
+  void InitTouchLocation();
+
+  /**
    * Get the caret, if it exists. AddRefs it.
    */
   already_AddRefed<nsCaret> GetCaret() const;

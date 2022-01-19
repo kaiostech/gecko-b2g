@@ -210,6 +210,7 @@ class WebViewForContentChild extends JSWindowActorChild {
       "apple-touch-icon": iconchangeHandler,
       "apple-touch-icon-precomposed": iconchangeHandler,
       search: this.openSearchHandler.bind(this),
+      manifest: this.manifestChangedHandler.bind(this),
     };
 
     this.log(`Got linkAdded: (${event.target.href}) ${event.target.rel}`);
@@ -304,6 +305,23 @@ class WebViewForContentChild extends JSWindowActorChild {
       new win.CustomEvent("opensearch", {
         detail: {
           title: target.title,
+          href: target.href,
+        },
+      })
+    );
+  }
+
+  manifestChangedHandler(event) {
+    let target = event.target;
+    this.log(`Got manifestchanged: (${target.href})`);
+
+    // The event target is the web-view element of a content window.
+    // Dispatch the event to the related frame element.
+    const browser = this.browsingContext.embedderElement;
+    const win = browser.ownerGlobal;
+    browser?.dispatchEvent(
+      new win.CustomEvent("manifestchange", {
+        detail: {
           href: target.href,
         },
       })

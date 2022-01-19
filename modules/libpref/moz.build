@@ -82,6 +82,7 @@ pref_groups = [
     "threads",
     "timer",
     "toolkit",
+    "touch",
     "ui",
     "urlclassifier",
     "view_source",

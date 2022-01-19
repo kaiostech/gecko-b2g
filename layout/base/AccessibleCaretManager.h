@@ -271,6 +271,12 @@ class AccessibleCaretManager {
   // @return true if the aOffsets is suitable for changing the selection.
   bool RestrictCaretDraggingOffsets(nsIFrame::ContentOffsets& aOffsets);
 
+  // Timeout in milliseconds to hide the AccessibleCaret under cursor mode while
+  // no one touches it.
+  uint32_t CaretTimeoutMs() const;
+  void LaunchCaretTimeoutTimer();
+  void CancelCaretTimeoutTimer();
+
   // ---------------------------------------------------------------------------
   // The following functions are made virtual for stubbing or mocking in gtest.
   //
@@ -360,6 +366,10 @@ class AccessibleCaretManager {
   // The caret being pressed or dragged.
   AccessibleCaret* mActiveCaret = nullptr;
 
+  // The timer for hiding the caret in cursor mode after timeout behind the
+  // preference "layout.accessiblecaret.timeout_ms".
+  nsCOMPtr<nsITimer> mCaretTimeoutTimer;
+
   // The caret mode since last update carets.
   CaretMode mLastUpdateCaretMode = CaretMode::None;
 
@@ -394,6 +404,9 @@ class AccessibleCaretManager {
   };
 
   LayoutFlusher mLayoutFlusher;
+
+  // True if the caret is set to hide by AccessibleCarets
+  bool mCaretHide = false;
 
   // Set to True if one of the caret's position is changed in last update.
   bool mIsCaretPositionChanged = false;

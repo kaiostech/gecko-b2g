@@ -88,12 +88,15 @@ AccessibleCaretManager::AccessibleCaretManager(PresShell* aPresShell)
 #ifdef MOZ_WIDGET_GONK
           Carets{aPresShell ? MakeUnique<AccessibleCaretGonk>(aPresShell) : nullptr,
                  aPresShell ? MakeUnique<AccessibleCaretGonk>(aPresShell)
-                            : nullptr}} {}
+                            : nullptr}
 #else
           Carets{aPresShell ? MakeUnique<AccessibleCaret>(aPresShell) : nullptr,
                  aPresShell ? MakeUnique<AccessibleCaret>(aPresShell)
-                            : nullptr}} {}
+                            : nullptr}
 #endif
+                            } {
+      mCaretTimeoutTimer = do_CreateInstance("@mozilla.org/timer;1");
+    }
 
 AccessibleCaretManager::AccessibleCaretManager(PresShell* aPresShell,
                                                Carets aCarets)
@@ -104,6 +107,8 @@ AccessibleCaretManager::LayoutFlusher::~LayoutFlusher() {
 }
 
 void AccessibleCaretManager::Terminate() {
+  CancelCaretTimeoutTimer();
+  mCaretTimeoutTimer = nullptr;
   mCarets.Terminate();
   mActiveCaret = nullptr;
   mPresShell = nullptr;
@@ -189,6 +194,13 @@ void AccessibleCaretManager::HideCaretsAndDispatchCaretStateChangedEvent() {
     mCarets.GetSecond()->SetAppearance(Appearance::None);
     mIsCaretPositionChanged = false;
     DispatchCaretStateChangedEvent(CaretChangedReason::Visibilitychange);
+    CancelCaretTimeoutTimer();
+  }
+
+  if (mCaretHide) {
+    RefPtr<nsCaret> caret = mPresShell->GetCaret();
+    caret->RemoveForceHide();
+    mCaretHide = false;
   }
 }
 
@@ -227,7 +239,7 @@ void AccessibleCaretManager::UpdateCarets(const UpdateCaretsHintSet& aHint) {
 bool AccessibleCaretManager::IsCaretDisplayableInCursorMode(
     nsIFrame** aOutFrame, int32_t* aOutOffset) const {
   RefPtr<nsCaret> caret = mPresShell->GetCaret();
-  if (!caret || !caret->IsVisible()) {
+  if (!caret || (!caret->IsVisible() && !mCaretHide)) {
     return false;
   }
 
@@ -308,12 +320,23 @@ void AccessibleCaretManager::UpdateCaretsForCursorMode(
       break;
   }
 
+  mCarets.GetFirst()->SetSelectionBarEnabled(StaticPrefs::
+                                                layout_accessiblecaret_bar_cursor_enabled());
   mCarets.GetSecond()->SetAppearance(Appearance::None);
+
+  LaunchCaretTimeoutTimer();
 
   mIsCaretPositionChanged = (result == PositionChangedResult::Position);
 
   if (!aHints.contains(UpdateCaretsHint::DispatchNoEvent) && !mActiveCaret) {
     DispatchCaretStateChangedEvent(CaretChangedReason::Updateposition);
+  }
+
+  if (StaticPrefs::layout_accessiblecaret_bar_cursor_enabled() &&
+    mCarets.GetFirst()->IsVisuallyVisible() && !mCaretHide) {
+    RefPtr<nsCaret> caret = mPresShell->GetCaret();
+    caret->AddForceHide();
+    mCaretHide = true;
   }
 }
 
@@ -338,6 +361,7 @@ void AccessibleCaretManager::UpdateCaretsForSelectionMode(
   auto updateSingleCaret = [aHints](AccessibleCaret* aCaret, nsIFrame* aFrame,
                                     int32_t aOffset) -> PositionChangedResult {
     PositionChangedResult result = aCaret->SetPosition(aFrame, aOffset);
+    aCaret->SetSelectionBarEnabled(StaticPrefs::layout_accessiblecaret_bar_enabled());
 
     switch (result) {
       case PositionChangedResult::NotChanged:
@@ -508,6 +532,7 @@ nsresult AccessibleCaretManager::PressCaret(const nsPoint& aPoint,
         mActiveCaret->LogicalPosition().y - aPoint.y;
     SetSelectionDragState(true);
     DispatchCaretStateChangedEvent(CaretChangedReason::Presscaret);
+    CancelCaretTimeoutTimer();
     rv = NS_OK;
   }
 
@@ -538,6 +563,7 @@ nsresult AccessibleCaretManager::ReleaseCaret() {
   SetSelectionDragState(false);
   mDesiredAsyncPanZoomState.Update(*this);
   DispatchCaretStateChangedEvent(CaretChangedReason::Releasecaret);
+  LaunchCaretTimeoutTimer();
   return NS_OK;
 }
 
@@ -1434,6 +1460,35 @@ void AccessibleCaretManager::StopSelectionAutoScrollTimer() const {
   RefPtr<nsFrameSelection> fs = GetFrameSelection();
   MOZ_ASSERT(fs);
   fs->StopAutoScrollTimer();
+}
+
+uint32_t
+AccessibleCaretManager::CaretTimeoutMs() const {
+  return StaticPrefs::layout_accessiblecaret_timeout_ms();
+}
+
+void AccessibleCaretManager::LaunchCaretTimeoutTimer() {
+  if (!mPresShell || !mCaretTimeoutTimer || CaretTimeoutMs() == 0 ||
+      GetCaretMode() != CaretMode::Cursor || mActiveCaret) {
+    return;
+  }
+
+  nsTimerCallbackFunc callback = [](nsITimer* aTimer, void* aClosure) {
+    auto self = static_cast<AccessibleCaretManager*>(aClosure);
+    if (self->GetCaretMode() == CaretMode::Cursor) {
+      self->HideCaretsAndDispatchCaretStateChangedEvent();
+    }
+  };
+
+  mCaretTimeoutTimer->InitWithNamedFuncCallback(callback, this, CaretTimeoutMs(),
+                                                nsITimer::TYPE_ONE_SHOT,
+                                                "AccessibleCaretManager::CaretTimeoutCallback_timer");
+}
+
+void AccessibleCaretManager::CancelCaretTimeoutTimer() {
+  if (mCaretTimeoutTimer) {
+    mCaretTimeoutTimer->Cancel();
+  }
 }
 
 void AccessibleCaretManager::DispatchCaretStateChangedEvent(

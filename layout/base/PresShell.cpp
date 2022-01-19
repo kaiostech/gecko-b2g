@@ -2258,6 +2258,11 @@ PresShell::GetAccessibleCaretEventHub() const {
   return eventHub.forget();
 }
 
+void PresShell::InitTouchLocation() {
+  mTouchManager.MaybeInitForTouchLocation();
+}
+
+
 void PresShell::SetCaret(nsCaret* aNewCaret) { mCaret = aNewCaret; }
 
 void PresShell::RestoreCaret() { mCaret = mOriginalCaret; }

@@ -221,6 +221,16 @@ checkbox {
   stroke: var(--in-content-page-background);
 }
 
+@media (prefers-contrast) {
+  #category-more-from-mozilla:hover > .category-icon {
+    stroke: var(--in-content-button-background-hover);
+  }
+
+  #category-more-from-mozilla[selected] > .category-icon {
+    stroke: var(--in-content-button-background-hover);
+  }
+}
+
 /* All panes */
 
 .info-icon,
@@ -1346,6 +1356,8 @@ richlistitem .text-link:hover {
   padding: 2px;
   width: 80px;
   flex: 0 0 auto;
+  -moz-context-properties: fill;
+  fill: currentColor;
 }
 
 .advanced .qr-code-box-image {
@@ -1414,11 +1426,6 @@ richlistitem .text-link:hover {
 @media (prefers-color-scheme: dark) {
   .qr-code-box:not([hidden="true"]) {
     background-color: rgba(91,91,102,0.45);
-  }
-
-  .qr-code-box-image {
-    -moz-context-properties: fill;
-    fill: white;
   }
 
   .advanced .qr-code-box-image {

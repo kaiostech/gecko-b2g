@@ -321,7 +321,6 @@ BrowserChild::BrowserChild(ContentChild* aManager, const TabId& aTabId,
       mMaxTouchPoints(0),
       mLayersId{0},
       mEffectsInfo{EffectsInfo::FullyHidden()},
-      mOrientation(hal::eScreenOrientation_PortraitPrimary),
       mDynamicToolbarMaxHeight(0),
       mUniqueId(aTabId),
       mDidFakeShow(false),
@@ -1485,7 +1484,6 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateDimensions(
   mChromeOffset = aDimensionInfo.chromeOffset();
   MOZ_ASSERT_IF(!IsTopLevel(), mChromeOffset == LayoutDeviceIntPoint());
 
-  UpdateOrientation(aDimensionInfo.orientation());
   SetUnscaledInnerSize(aDimensionInfo.size());
   if (!mHasValidInnerSize && aDimensionInfo.size().width != 0 &&
       aDimensionInfo.size().height != 0) {
@@ -4178,46 +4176,6 @@ bool BrowserChild::UpdateSessionStore() {
   Unused << SendSessionStoreUpdate(docShellCaps, privatedMode,
                                    store->GetAndClearSHistoryChanged(),
                                    mSessionStoreListener->GetEpoch());
-  return true;
-}
-
-bool BrowserChild::UpdateOrientation(
-  const hal::ScreenOrientation& aOrientation) {
-  if(mOrientation == aOrientation) {
-    return true;
-  }
-
-  mOrientation = aOrientation;
-  nsresult rv;
-  nsCOMPtr<nsIScreenManager> screenMgr =
-      do_GetService("@mozilla.org/gfx/screenmanager;1", &rv);
-  if (NS_FAILED(rv)) {
-    NS_ERROR("Can't find nsIScreenManager!");
-    return false;
-  }
-  nsCOMPtr<nsIScreen> screen;
-  if (NS_FAILED(screenMgr->GetPrimaryScreen(getter_AddRefs(screen))) ||
-      !screen) {
-    return false;
-  }
-  uint32_t  aRotation = nsIScreen::ROTATION_0_DEG;
-  switch (mOrientation) {
-    case hal::eScreenOrientation_PortraitPrimary:
-      aRotation = nsIScreen::ROTATION_0_DEG;
-      break;
-    case hal::eScreenOrientation_PortraitSecondary:
-      aRotation = nsIScreen::ROTATION_180_DEG;
-      break;
-    case hal::eScreenOrientation_LandscapePrimary:
-      aRotation = nsIScreen::ROTATION_90_DEG;
-      break;
-    case hal::eScreenOrientation_LandscapeSecondary:
-      aRotation = nsIScreen::ROTATION_270_DEG;
-      break;
-    default:
-      aRotation = nsIScreen::ROTATION_0_DEG ;
-  }
-  screen->SetRotation(aRotation);
   return true;
 }
 

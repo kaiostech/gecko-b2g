@@ -47,6 +47,7 @@ treeherder:
         'M-gli': 'Mochitests with WebGL over IPC'
         'M-spi': 'Mochitests with socket process'
         'M-spi-nw': 'Mochitests with networking on socket process'
+        'M-spi-nw-fis': 'Mochitests with networking on socket process with fission enabled'
         'M-spi-nw-1proc': 'Mochitests with networking on socket process without e10s'
         'M-swr': 'Mochitests with software webrender enabled'
         'M-swr-a11y-checks': 'Mochitests with software webrender and accessibility checks enabled'
@@ -75,6 +76,7 @@ treeherder:
         'R': 'Reftests'
         'R-fis': 'Reftests with fission enabled'
         'R-swr': 'Reftests with software webrender enabled'
+        'R-swr-fis': 'Reftests with software webrender and fission enabled'
         'R-wayland': 'Reftests with Wayland backend enabled'
         'Rap': 'Raptor performance tests on Firefox'
         'Rap-live': 'Raptor performance tests on Firefox with live sites'
@@ -620,4 +622,8 @@ mac-notarization:
                 by-release-level:
                     production: security/mac/hardenedruntime/production.entitlements.xml
                     default: security/mac/hardenedruntime/developer.entitlements.xml
+            default: ''
+    mac-requirements:
+        by-platform:
+            macosx64.*: build/package/mac_osx/requirements.plist
             default: ''

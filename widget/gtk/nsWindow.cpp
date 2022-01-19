@@ -552,6 +552,8 @@ void nsWindow::DestroyChildWindows() {
 }
 
 void nsWindow::Destroy() {
+  MOZ_DIAGNOSTIC_ASSERT(NS_IsMainThread());
+
   if (mIsDestroyed || !mCreated) return;
 
   LOG("nsWindow::Destroy\n");
@@ -3965,8 +3967,8 @@ static bool is_top_level_mouse_exit(GdkWindow* aWindow,
                                     GdkEventCrossing* aEvent) {
   auto x = gint(aEvent->x_root);
   auto y = gint(aEvent->y_root);
-  GdkDisplay* display = gdk_window_get_display(aWindow);
-  GdkWindow* winAtPt = gdk_display_get_window_at_pointer(display, &x, &y);
+  GdkDevice* pointer = GdkGetPointer();
+  GdkWindow* winAtPt = gdk_device_get_window_at_position(pointer, &x, &y);
   if (!winAtPt) return true;
   GdkWindow* topLevelAtPt = gdk_window_get_toplevel(winAtPt);
   GdkWindow* topLevelWidget = gdk_window_get_toplevel(aWindow);
@@ -4810,15 +4812,15 @@ void nsWindow::OnWindowStateEvent(GtkWidget* aWidget,
 }
 
 void nsWindow::OnDPIChanged() {
+  // Update menu's font size etc.
+  // This affects style / layout because it affects system font sizes.
   if (mWidgetListener) {
     if (PresShell* presShell = mWidgetListener->GetPresShell()) {
       presShell->BackingScaleFactorChanged();
-      // Update menu's font size etc.
-      // This affects style / layout because it affects system font sizes.
-      presShell->ThemeChanged(ThemeChangeKind::StyleAndLayout);
     }
     mWidgetListener->UIResolutionChanged();
   }
+  NotifyThemeChanged(ThemeChangeKind::StyleAndLayout);
 }
 
 void nsWindow::OnCheckResize() { mPendingConfigures++; }
@@ -4860,11 +4862,11 @@ void nsWindow::OnScaleChanged() {
   if (mWidgetListener) {
     if (PresShell* presShell = mWidgetListener->GetPresShell()) {
       presShell->BackingScaleFactorChanged();
-      // This affects style / layout because it affects system font sizes.
-      // Update menu's font size etc.
-      presShell->ThemeChanged(ThemeChangeKind::StyleAndLayout);
     }
   }
+  // This affects style / layout because it affects system font sizes.
+  // Update menu's font size etc.
+  NotifyThemeChanged(ThemeChangeKind::StyleAndLayout);
 
   DispatchResized();
 
@@ -5297,7 +5299,7 @@ void nsWindow::ConfigureGdkWindow() {
     } else {
       // Disable rendering of parent container on X11 to avoid flickering.
       if (GtkWidget* parent = gtk_widget_get_parent(mShell)) {
-        gtk_window_set_opacity(GTK_WINDOW(parent), 0.0);
+        gtk_widget_set_opacity(parent, 0.0);
       }
     }
   }
@@ -6769,12 +6771,12 @@ void nsWindow::GrabPointer(guint32 aTime) {
   // Note that we need GDK_TOUCH_MASK below to work around a GDK/X11 bug that
   // causes touch events that would normally be received by this client on
   // other windows to be discarded during the grab.
-  retval = gdk_pointer_grab(
-      mGdkWindow, TRUE,
+  retval = gdk_device_grab(
+      GdkGetPointer(), mGdkWindow, GDK_OWNERSHIP_NONE, TRUE,
       (GdkEventMask)(GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
                      GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK |
                      GDK_POINTER_MOTION_MASK | GDK_TOUCH_MASK),
-      (GdkWindow*)nullptr, nullptr, aTime);
+      nullptr, aTime);
 
   if (retval == GDK_GRAB_NOT_VIEWABLE) {
     LOG("  failed: window not viewable; will retry\n");
@@ -6804,7 +6806,7 @@ void nsWindow::ReleaseGrabs(void) {
     return;
   }
 
-  gdk_pointer_ungrab(GDK_CURRENT_TIME);
+  gdk_device_ungrab(GdkGetPointer(), GDK_CURRENT_TIME);
 }
 
 GtkWidget* nsWindow::GetToplevelWidget() { return mShell; }
@@ -6883,11 +6885,13 @@ FullscreenTransitionWindow::FullscreenTransitionWindow(GtkWidget* aWidget) {
              "Can't resize window smaller than 1x1.");
   gtk_window_resize(gtkWin, monitorRect.width, monitorRect.height);
 
-  GdkColor bgColor;
-  bgColor.red = bgColor.green = bgColor.blue = 0;
-  gtk_widget_modify_bg(mWindow, GTK_STATE_NORMAL, &bgColor);
+  GdkRGBA bgColor;
+  bgColor.red = bgColor.green = bgColor.blue = 0.0;
+  bgColor.alpha = 1.0;
+  gtk_widget_override_background_color(mWindow, GTK_STATE_FLAG_NORMAL,
+                                       &bgColor);
 
-  gtk_window_set_opacity(gtkWin, 0.0);
+  gtk_widget_set_opacity(mWindow, 0.0);
   gtk_widget_show(mWindow);
 }
 
@@ -6929,7 +6933,7 @@ gboolean FullscreenTransitionData::TimeoutCallback(gpointer aData) {
   if (data->mStage == nsIWidget::eAfterFullscreenToggle) {
     opacity = 1.0 - opacity;
   }
-  gtk_window_set_opacity(GTK_WINDOW(data->mWindow->mWindow), opacity);
+  gtk_widget_set_opacity(data->mWindow->mWindow, opacity);
 
   if (!finishing) {
     return TRUE;
@@ -7609,8 +7613,8 @@ static gboolean leave_notify_event_cb(GtkWidget* widget,
   // avoid generating spurious mouse exit events.
   auto x = gint(event->x_root);
   auto y = gint(event->y_root);
-  GdkDisplay* display = gtk_widget_get_display(widget);
-  GdkWindow* winAtPt = gdk_display_get_window_at_pointer(display, &x, &y);
+  GdkDevice* pointer = GdkGetPointer();
+  GdkWindow* winAtPt = gdk_device_get_window_at_position(pointer, &x, &y);
   if (winAtPt == event->window) {
     return TRUE;
   }
@@ -8508,7 +8512,12 @@ void nsWindow::SetDrawsInTitlebar(bool aState) {
     GtkWidget* tmpWindow = gtk_window_new(GTK_WINDOW_POPUP);
     gtk_widget_realize(tmpWindow);
 
-    gtk_widget_reparent(GTK_WIDGET(mContainer), tmpWindow);
+    g_object_ref(mContainer);
+    gtk_container_remove(
+        GTK_CONTAINER(gtk_widget_get_parent(GTK_WIDGET(mContainer))),
+        GTK_WIDGET(mContainer));
+    gtk_container_add(GTK_CONTAINER(tmpWindow), GTK_WIDGET(mContainer));
+    g_object_unref(mContainer);
     gtk_widget_unrealize(GTK_WIDGET(mShell));
 
     if (aState) {
@@ -8534,7 +8543,12 @@ void nsWindow::SetDrawsInTitlebar(bool aState) {
     gtk_widget_size_allocate(GTK_WIDGET(mShell), &allocation);
 
     gtk_widget_realize(GTK_WIDGET(mShell));
-    gtk_widget_reparent(GTK_WIDGET(mContainer), GTK_WIDGET(mShell));
+    g_object_ref(mContainer);
+    gtk_container_remove(
+        GTK_CONTAINER(gtk_widget_get_parent(GTK_WIDGET(mContainer))),
+        GTK_WIDGET(mContainer));
+    gtk_container_add(GTK_CONTAINER(mShell), GTK_WIDGET(mContainer));
+    g_object_unref(mContainer);
 
     // Label mShell toplevel window so property_notify_event_cb callback
     // can find its way home.
@@ -8700,8 +8714,6 @@ nsresult nsWindow::SynthesizeNativeMouseEvent(
     return NS_OK;
   }
 
-  GdkDisplay* display = gdk_window_get_display(mGdkWindow);
-
   // When a button-press/release event is requested, create it here and put it
   // in the event queue. This will not emit a motion event - this needs to be
   // done explicitly *before* requesting a button-press/release. You will also
@@ -8732,10 +8744,7 @@ nsresult nsWindow::SynthesizeNativeMouseEvent(
       event.button.time = GDK_CURRENT_TIME;
 
       // Get device for event source
-      GdkDeviceManager* device_manager =
-          gdk_display_get_device_manager(display);
-      event.button.device =
-          gdk_device_manager_get_client_pointer(device_manager);
+      event.button.device = GdkGetPointer();
 
       event.button.x_root = DevicePixelsToGdkCoordRoundDown(aPoint.x);
       event.button.y_root = DevicePixelsToGdkCoordRoundDown(aPoint.y);
@@ -8761,7 +8770,7 @@ nsresult nsWindow::SynthesizeNativeMouseEvent(
 #endif
       GdkScreen* screen = gdk_window_get_screen(mGdkWindow);
       GdkPoint point = DevicePixelsToGdkPointRoundDown(aPoint);
-      gdk_display_warp_pointer(display, screen, point.x, point.y);
+      gdk_device_warp(GdkGetPointer(), screen, point.x, point.y);
       return NS_OK;
     }
     case NativeMouseMessage::EnterWindow:

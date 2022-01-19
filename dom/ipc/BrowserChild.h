@@ -473,8 +473,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   const EffectsInfo& GetEffectsInfo() const { return mEffectsInfo; }
 
-  hal::ScreenOrientation GetOrientation() const { return mOrientation; }
-
   void SetBackgroundColor(const nscolor& aColor);
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY virtual mozilla::ipc::IPCResult RecvUpdateEffects(
@@ -836,7 +834,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   CSSRect mUnscaledOuterRect;
   Maybe<bool> mLayersConnected;
   EffectsInfo mEffectsInfo;
-  hal::ScreenOrientation mOrientation;
 
   RefPtr<VsyncMainChild> mVsyncChild;
 

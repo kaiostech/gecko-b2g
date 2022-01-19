@@ -757,20 +757,18 @@ void GeckoInputReaderPolicy::setDisplayInfo() {
                     static_cast<int>(DISPLAY_ORIENTATION_270),
                 "Orientation enums not matched!");
 
-  nsCOMPtr<nsIScreen> screen = GetPrimaryScreen() ;
+  RefPtr<nsScreenGonk> screen = ScreenHelperGonk::GetPrimaryScreen() ;
 
   uint32_t rotation = nsIScreen::ROTATION_0_DEG;
   DebugOnly<nsresult> rv = screen->GetRotation(&rotation);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
-
-  int32_t x, y, width, height;
-  screen->GetAvailRect(&x, &y, &width, &height);
+  LayoutDeviceIntRect screenBounds = screen->GetNaturalBounds();
 
   DisplayViewport viewport;
   viewport.displayId = 0;
   viewport.orientation = rotation;
-  viewport.physicalRight = viewport.deviceWidth = width;
-  viewport.physicalBottom = viewport.deviceHeight = height;
+  viewport.physicalRight = viewport.deviceWidth = screenBounds.width;
+  viewport.physicalBottom = viewport.deviceHeight = screenBounds.height;
   if (viewport.orientation == DISPLAY_ORIENTATION_90 ||
       viewport.orientation == DISPLAY_ORIENTATION_270) {
     viewport.logicalRight = viewport.physicalBottom;

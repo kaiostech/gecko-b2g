@@ -6882,27 +6882,14 @@ nsTransparencyMode nsLayoutUtils::GetFrameTransparency(
   return eTransparencyOpaque;
 }
 
-static bool IsPopupFrame(const nsIFrame* aFrame) {
-  // aFrame is a popup it's the list control frame dropdown for a combobox.
-  LayoutFrameType frameType = aFrame->Type();
-  if (frameType == LayoutFrameType::ListControl) {
-    const nsListControlFrame* lcf =
-        static_cast<const nsListControlFrame*>(aFrame);
-    return lcf->IsInDropDownMode();
-  }
-
-  // ... or if it's a XUL menupopup frame.
-  return frameType == LayoutFrameType::MenuPopup;
-}
-
 /* static */
 bool nsLayoutUtils::IsPopup(const nsIFrame* aFrame) {
   // Optimization: the frame can't possibly be a popup if it has no view.
   if (!aFrame->HasView()) {
-    NS_ASSERTION(!IsPopupFrame(aFrame), "popup frame must have a view");
+    NS_ASSERTION(!aFrame->IsMenuPopupFrame(), "popup frame must have a view");
     return false;
   }
-  return IsPopupFrame(aFrame);
+  return aFrame->IsMenuPopupFrame();
 }
 
 /* static */
@@ -8605,9 +8592,6 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
       metrics.SetDisplayPort(CSSRect::FromAppUnits(dp));
       DisplayPortUtils::MarkDisplayPortAsPainted(aContent);
     }
-    if (DisplayPortUtils::GetCriticalDisplayPort(aContent, &dp)) {
-      metrics.SetCriticalDisplayPort(CSSRect::FromAppUnits(dp));
-    }
 
     metrics.SetHasNonZeroDisplayPortMargins(false);
     if (DisplayPortMarginsPropertyData* currentData =
@@ -8618,13 +8602,9 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
       }
     }
 
-    // Log the high-resolution display port (which is either the displayport
-    // or the critical displayport) for test purposes.
     if (IsAPZTestLoggingEnabled()) {
       LogTestDataForPaint(aLayerManager, scrollId, "displayport",
-                          StaticPrefs::layers_low_precision_buffer()
-                              ? metrics.GetCriticalDisplayPort()
-                              : metrics.GetDisplayPort());
+                          metrics.GetDisplayPort());
     }
 
     metrics.SetMinimalDisplayPort(

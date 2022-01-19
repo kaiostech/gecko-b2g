@@ -455,4 +455,13 @@ this.AppConstants = Object.freeze({
 
   MOZ_B2G_OS_NAME: "@MOZ_B2G_OS_NAME@",
   MOZ_B2G_VERSION: "@MOZ_B2G_VERSION@",
+
+  // Returns true for CN region build when distibution id set as 'MozillaOnline'
+  isChinaRepack() {
+    return (
+      Services.prefs
+      .getDefaultBranch("")
+      .getCharPref("distribution.id", "default") === "MozillaOnline"
+    );
+  },
 });

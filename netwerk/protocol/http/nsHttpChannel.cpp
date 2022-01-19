@@ -551,6 +551,15 @@ nsresult nsHttpChannel::MaybeUseHTTPSRRForUpgrade(bool aShouldUpgrade,
   }
 
   auto shouldSkipUpgradeWithHTTPSRR = [&]() -> bool {
+    // Skip using HTTPS RR to upgrade when this is not a top-level load and the
+    // loading principal is http.
+    if ((mLoadInfo->GetExternalContentPolicyType() !=
+         ExtContentPolicy::TYPE_DOCUMENT) &&
+        (mLoadInfo->GetLoadingPrincipal() &&
+         mLoadInfo->GetLoadingPrincipal()->SchemeIs("http"))) {
+      return true;
+    }
+
     nsAutoCString uriHost;
     mURI->GetAsciiHost(uriHost);
 
@@ -2376,9 +2385,10 @@ nsresult nsHttpChannel::ContinueProcessResponse3(nsresult rv) {
       }
       break;
 
+    case 408:
     case 425:
     case 429:
-      // Do not cache 425 and 429.
+      // Do not cache 408, 425 and 429.
       CloseCacheEntry(false);
       [[fallthrough]];  // process normally
     default:

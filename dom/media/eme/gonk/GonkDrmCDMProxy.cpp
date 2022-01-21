@@ -9,6 +9,7 @@
 #include "GonkCryptoProxy.h"
 #include "GonkDrmCDMCallbackProxy.h"
 #include "GonkDrmSharedData.h"
+#include "GonkDrmStorageProxy.h"
 #include "GonkDrmSupport.h"
 #include "GonkDrmUtils.h"
 
@@ -57,10 +58,18 @@ void GonkDrmCDMProxy::Init(PromiseId aPromiseId, const nsAString& aOrigin,
   mCDM = new android::GonkDrmSupport(mOwnerThread, mKeySystem);
   mCallback = MakeUnique<GonkDrmCDMCallbackProxy>(this);
 
+  mStorage = MakeRefPtr<GonkDrmStorageProxy>(aOrigin, mKeySystem);
+  if (!mStorage->Init()) {
+    RejectPromiseWithStateError(
+        aPromiseId, nsLiteralCString("Couldn't initialize storage"));
+    return;
+  }
+
   mOwnerThread->Dispatch(NS_NewRunnableFunction(
-      "GonkDrmCDMProxy::Init", [aPromiseId, callback = mCallback.get(),
-                                cdm = mCDM, sharedData = mSharedData]() {
-        cdm->Init(aPromiseId, callback, sharedData);
+      "GonkDrmCDMProxy::Init",
+      [aPromiseId, callback = mCallback.get(), cdm = mCDM, storage = mStorage,
+       sharedData = mSharedData]() {
+        cdm->Init(aPromiseId, callback, storage, sharedData);
       }));
 }
 
@@ -136,12 +145,15 @@ void GonkDrmCDMProxy::RemoveSession(const nsAString& aSessionId,
 void GonkDrmCDMProxy::Shutdown() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mOwnerThread);
+  MOZ_ASSERT(mStorage);
 
   mOwnerThread->Dispatch(NS_NewRunnableFunction(
       "GonkDrmCDMProxy::Shutdown", [cdm = mCDM]() { cdm->Shutdown(); }));
 
   mOwnerThread->Shutdown();
   mOwnerThread = nullptr;
+  mStorage->Shutdown();  // must be called after mOwnerThread is shut down
+  mStorage = nullptr;
   mCallback = nullptr;
   mCDM = nullptr;
 }

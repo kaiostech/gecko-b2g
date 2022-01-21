@@ -19,10 +19,12 @@ class nsISerialEventTarget;
 
 namespace mozilla {
 class GonkDrmCDMCallbackProxy;
-}
+class GonkDrmStorageProxy;
+}  // namespace mozilla
 
 namespace android {
 
+class GonkDrmSessionInfo;
 class GonkDrmSharedData;
 class IDrm;
 
@@ -31,12 +33,14 @@ class GonkDrmSupport : public BnDrmClient {
   typedef mozilla::dom::MediaKeySessionType MediaKeySessionType;
   typedef mozilla::CDMKeyInfo CDMKeyInfo;
   typedef mozilla::GonkDrmCDMCallbackProxy GonkDrmCDMCallbackProxy;
+  typedef mozilla::GonkDrmStorageProxy GonkDrmStorageProxy;
 
  public:
   GonkDrmSupport(nsISerialEventTarget* aOwnerThread,
                  const nsAString& aKeySystem);
 
   void Init(uint32_t aPromiseId, GonkDrmCDMCallbackProxy* aCallback,
+            GonkDrmStorageProxy* aStorage,
             const sp<GonkDrmSharedData>& aSharedData);
 
   void Shutdown();
@@ -59,6 +63,12 @@ class GonkDrmSupport : public BnDrmClient {
 
   status_t OpenCryptoSession();
 
+  sp<GonkDrmSessionInfo> OpenDrmSession(
+      MediaKeySessionType aSessionType,
+      const nsCString& aEmeSessionId = nsCString(), status_t* aErr = nullptr);
+
+  status_t CloseDrmSession(const sp<GonkDrmSessionInfo>& aSession);
+
   void StartProvisioning();
 
   void UpdateProvisioningResponse(bool aSuccess, const nsACString& aResponse);
@@ -78,11 +88,11 @@ class GonkDrmSupport : public BnDrmClient {
   void OnKeyStatusChanged(const Parcel* aParcel);
 
 #ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
-  void PeekClearkeyKeyStatus(const nsCString& aEmeSessionId,
+  void PeekClearkeyKeyStatus(const sp<GonkDrmSessionInfo>& aSession,
                              const nsTArray<uint8_t>& aResponse);
 #endif
 
-  void NotifyKeyStatus(const nsCString& aEmeSessionId,
+  void NotifyKeyStatus(const sp<GonkDrmSessionInfo>& aSession,
                        nsTArray<CDMKeyInfo>&& aKeyInfos);
 
   sp<GonkDrmSupport> Self() { return this; }
@@ -91,8 +101,25 @@ class GonkDrmSupport : public BnDrmClient {
   const nsString mKeySystem;
   uint32_t mInitPromiseId = 0;
   GonkDrmCDMCallbackProxy* mCallback = nullptr;
+  RefPtr<GonkDrmStorageProxy> mStorage;
   sp<GonkDrmSharedData> mSharedData;
   sp<IDrm> mDrm;
+
+  class SessionManager final {
+   public:
+    void Add(const sp<GonkDrmSessionInfo>& aSession);
+    void Remove(const sp<GonkDrmSessionInfo>& aSession);
+    void Clear();
+    std::vector<sp<GonkDrmSessionInfo>> All();
+    sp<GonkDrmSessionInfo> FindByEmeId(const nsCString& aEmeId);
+    sp<GonkDrmSessionInfo> FindByDrmId(const Vector<uint8_t>& aDrmId);
+
+   private:
+    std::map<nsCString, sp<GonkDrmSessionInfo>> mEmeSessionIdMap;
+    std::map<std::vector<uint8_t>, sp<GonkDrmSessionInfo>> mDrmSessionIdMap;
+  };
+
+  SessionManager mSessionManager;
 };
 
 }  // namespace android

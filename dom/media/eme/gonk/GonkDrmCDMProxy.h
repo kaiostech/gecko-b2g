@@ -25,6 +25,7 @@ class ICrypto;
 namespace mozilla {
 
 class GonkDrmCDMCallbackProxy;
+class GonkDrmStorageProxy;
 
 class GonkDrmCDMProxy : public CDMProxy {
  public:
@@ -132,6 +133,7 @@ class GonkDrmCDMProxy : public CDMProxy {
   android::sp<android::GonkDrmSharedData> mSharedData;
   android::sp<android::GonkDrmSupport> mCDM;
   UniquePtr<GonkDrmCDMCallbackProxy> mCallback;
+  RefPtr<GonkDrmStorageProxy> mStorage;
 };
 
 }  // namespace mozilla

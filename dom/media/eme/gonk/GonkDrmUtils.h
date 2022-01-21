@@ -66,6 +66,8 @@ class GonkDrmUtils final {
 
   static Vector<uint8_t> DecodeBase64URL(const nsACString& aString);
 
+  static nsCString GenerateUUID();
+
  private:
   static const uint8_t* GetKeySystemUUID(const nsAString& aKeySystem);
 

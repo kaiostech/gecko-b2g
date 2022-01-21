@@ -11,6 +11,8 @@
 #include "mozilla/StaticPrefs_media.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIGonkDrmNetUtils.h"
+#include "nsIUUIDGenerator.h"
+#include "nsServiceManagerUtils.h"
 
 #include <binder/IServiceManager.h>
 #include <binder/Parcel.h>
@@ -278,6 +280,29 @@ Vector<uint8_t> GonkDrmUtils::DecodeBase64URL(const nsACString& aBase64) {
     return Vector<uint8_t>();
   }
   return GonkDrmConverter::ToByteVector(binary);
+}
+
+nsCString GonkDrmUtils::GenerateUUID() {
+  nsresult rv;
+  nsCOMPtr<nsIUUIDGenerator> uuidgen =
+      do_GetService("@mozilla.org/uuid-generator;1", &rv);
+  if (NS_FAILED(rv)) {
+    GD_LOGE("GonkDrmUtils::GenerateUUID, failed to get nsIUUIDGenerator");
+    return nsCString();
+  }
+
+  nsID id;
+  rv = uuidgen->GenerateUUIDInPlace(&id);
+  if (NS_FAILED(rv)) {
+    GD_LOGE("GonkDrmUtils::GenerateUUID, failed to generate UUID");
+    return nsCString();
+  }
+
+  char buffer[NSID_LENGTH];
+  id.ToProvidedString(buffer);
+  nsCString uuid(buffer);
+  uuid.StripChars("{}");
+  return uuid;
 }
 
 }  // namespace android

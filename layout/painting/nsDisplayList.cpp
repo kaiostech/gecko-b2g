@@ -5987,7 +5987,8 @@ nsDisplayTransform::nsDisplayTransform(nsDisplayListBuilder* aBuilder,
       mChildrenBuildingRect(aChildrenBuildingRect),
       mPrerenderDecision(PrerenderDecision::No),
       mIsTransformSeparator(true),
-      mHasTransformGetter(false) {
+      mHasTransformGetter(false),
+      mHasAssociatedPerspective(false) {
   MOZ_COUNT_CTOR(nsDisplayTransform);
   MOZ_ASSERT(aFrame, "Must have a frame!");
   Init(aBuilder, aList);
@@ -6001,7 +6002,8 @@ nsDisplayTransform::nsDisplayTransform(nsDisplayListBuilder* aBuilder,
       mChildrenBuildingRect(aChildrenBuildingRect),
       mPrerenderDecision(aPrerenderDecision),
       mIsTransformSeparator(false),
-      mHasTransformGetter(false) {
+      mHasTransformGetter(false),
+      mHasAssociatedPerspective(false) {
   MOZ_COUNT_CTOR(nsDisplayTransform);
   MOZ_ASSERT(aFrame, "Must have a frame!");
   SetReferenceFrameToAncestor(aBuilder);
@@ -6016,7 +6018,8 @@ nsDisplayTransform::nsDisplayTransform(nsDisplayListBuilder* aBuilder,
       mChildrenBuildingRect(aChildrenBuildingRect),
       mPrerenderDecision(PrerenderDecision::No),
       mIsTransformSeparator(false),
-      mHasTransformGetter(true) {
+      mHasTransformGetter(true),
+      mHasAssociatedPerspective(false) {
   MOZ_COUNT_CTOR(nsDisplayTransform);
   MOZ_ASSERT(aFrame, "Must have a frame!");
   MOZ_ASSERT(aFrame->GetTransformGetter());
@@ -6673,6 +6676,7 @@ bool nsDisplayTransform::CreateWebRenderCommands(
   params.prim_flags = !BackfaceIsHidden()
                           ? wr::PrimitiveFlags::IS_BACKFACE_VISIBLE
                           : wr::PrimitiveFlags{0};
+  params.paired_with_perspective = mHasAssociatedPerspective;
   params.mDeferredTransformItem = deferredTransformItem;
   params.mAnimated = animated;
   // Determine if we would have to rasterize any items in local raster space

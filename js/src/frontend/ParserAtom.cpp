@@ -116,11 +116,11 @@ JSString* ParserAtom::instantiateString(JSContext* cx, ParserAtomIndex index,
 
   JSString* str;
   if (hasLatin1Chars()) {
-    str =
-        NewStringCopyN<CanGC>(cx, reinterpret_cast<const char*>(latin1Chars()),
-                              length(), gc::TenuredHeap);
+    str = NewStringCopyNDontDeflateNonStaticValidLength<CanGC>(
+        cx, latin1Chars(), length(), gc::TenuredHeap);
   } else {
-    str = NewStringCopyN<CanGC>(cx, twoByteChars(), length(), gc::TenuredHeap);
+    str = NewStringCopyNDontDeflateNonStaticValidLength<CanGC>(
+        cx, twoByteChars(), length(), gc::TenuredHeap);
   }
   if (!str) {
     return nullptr;
@@ -138,9 +138,11 @@ JSAtom* ParserAtom::instantiateAtom(JSContext* cx, ParserAtomIndex index,
 
   JSAtom* atom;
   if (hasLatin1Chars()) {
-    atom = AtomizeChars(cx, hash(), latin1Chars(), length());
+    atom =
+        AtomizeCharsNonStaticValidLength(cx, hash(), latin1Chars(), length());
   } else {
-    atom = AtomizeChars(cx, hash(), twoByteChars(), length());
+    atom =
+        AtomizeCharsNonStaticValidLength(cx, hash(), twoByteChars(), length());
   }
   if (!atom) {
     return nullptr;
@@ -157,8 +159,9 @@ JSAtom* ParserAtom::instantiatePermanentAtom(
   MOZ_ASSERT(!cx->zone());
 
   MOZ_ASSERT(hasLatin1Chars());
-  JSAtom* atom =
-      PermanentlyAtomizeChars(cx, atomSet, hash(), latin1Chars(), length());
+  MOZ_ASSERT(length() <= JSString::MAX_LENGTH);
+  JSAtom* atom = PermanentlyAtomizeCharsNonStaticValidLength(
+      cx, atomSet, hash(), latin1Chars(), length());
   if (!atom) {
     return nullptr;
   }

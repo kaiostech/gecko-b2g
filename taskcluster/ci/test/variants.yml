@@ -9,6 +9,16 @@
             extra-options:
                 - "--disable-e10s"
 
+headless:
+    description: "{description} without a window"
+    suffix: "headless"
+    replace:
+        tier: 2
+    merge:
+        mozharness:
+            extra-options:
+                - "--headless"
+
 a11y-checks:
     description: "{description} with accessibility checks enabled"
     contact: jteh
@@ -108,6 +118,7 @@ fission-webgl-ipc:
 
 socketprocess:
     description: "{description} with socket process enabled"
+    contact: kershaw
     suffix: "spi"
     merge:
         mozharness:
@@ -117,6 +128,7 @@ socketprocess:
 
 socketprocess_networking:
     description: "{description} with networking on socket process enabled"
+    contact: kershaw
     suffix: "spi-nw"
     merge:
         mozharness:
@@ -166,3 +178,14 @@ devtools-no-eft-no-fission:
             extra-options:
                 - "--setpref=devtools.every-frame-target.enabled=false"
                 - "--setpref=fission.autostart=false"
+
+dynamic-first-party-isolation:
+    description: "{description} with dFPI enabled"
+    contact: timhuang
+    suffix: "dfpi"
+    replace:
+        tier: 3
+    merge:
+        mozharness:
+            extra-options:
+                - "--setpref=network.cookie.cookieBehavior=5"

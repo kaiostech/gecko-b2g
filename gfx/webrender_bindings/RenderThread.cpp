@@ -156,6 +156,15 @@ void RenderThread::ShutDownTask(layers::SynchronousTask* aTask) {
   MOZ_ASSERT(IsInRenderThread());
   LOG("RenderThread::ShutDownTask()");
 
+  {
+    // Clear RenderTextureHosts
+    MutexAutoLock lock(mRenderTextureMapLock);
+    mRenderTexturesDeferred.clear();
+    mRenderTextures.clear();
+    mSyncObjectNeededRenderTextures.clear();
+    mRenderTextureOps.clear();
+  }
+
   // Let go of our handle to the (internally ref-counted) thread pool.
   mThreadPool.Release();
   mThreadPoolLP.Release();
@@ -858,7 +867,22 @@ static DeviceResetReason GLenumToResetReason(GLenum aReason) {
 void RenderThread::HandleDeviceReset(const char* aWhere, GLenum aReason) {
   MOZ_ASSERT(IsInRenderThread());
 
+  // This happens only on simulate device reset.
   if (aReason == LOCAL_GL_NO_ERROR) {
+    MOZ_ASSERT(XRE_IsGPUProcess());
+
+    if (!mHandlingDeviceReset) {
+      mHandlingDeviceReset = true;
+
+      MutexAutoLock lock(mRenderTextureMapLock);
+      mRenderTexturesDeferred.clear();
+      for (const auto& entry : mRenderTextures) {
+        entry.second->ClearCachedResources();
+      }
+      // Simulate DeviceReset does not need to notify the device reset to
+      // GPUProcessManager. It is already done by
+      // GPUProcessManager::SimulateDeviceReset().
+    }
     return;
   }
 

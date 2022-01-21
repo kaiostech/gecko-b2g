@@ -591,7 +591,7 @@ bool Gecko_MediaFeatures_PrefersReducedMotion(const mozilla::dom::Document*);
 mozilla::StylePrefersContrast Gecko_MediaFeatures_PrefersContrast(
     const mozilla::dom::Document*);
 mozilla::StylePrefersColorScheme Gecko_MediaFeatures_PrefersColorScheme(
-    const mozilla::dom::Document*);
+    const mozilla::dom::Document*, bool aUseContent);
 mozilla::StylePrefersTextSize Gecko_MediaFeatures_PrefersTextSize(
     const mozilla::dom::Document*);
 

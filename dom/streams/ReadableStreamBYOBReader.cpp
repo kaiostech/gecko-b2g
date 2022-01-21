@@ -104,9 +104,17 @@ struct Read_ReadIntoRequest final : public ReadIntoRequest {
     //
     // chunk steps, given chunk:
     //         Resolve promise with «[ "value" → chunk, "done" → false ]».
+
+    // We need to wrap this as the chunk could have come from
+    // another compartment.
+    JS::RootedObject chunk(aCx, &aChunk.toObject());
+    if (!JS_WrapObject(aCx, &chunk)) {
+      return;
+    }
+
     ReadableStreamBYOBReadResult result;
     result.mValue.Construct();
-    result.mValue.Value().Init(&aChunk.toObject());
+    result.mValue.Value().Init(chunk);
     result.mDone.Construct(false);
 
     mPromise->MaybeResolve(result);
@@ -114,14 +122,23 @@ struct Read_ReadIntoRequest final : public ReadIntoRequest {
 
   void CloseSteps(JSContext* aCx, JS::Handle<JS::Value> aChunk,
                   ErrorResult& errorResult) override {
-    MOZ_ASSERT(aChunk.isObject());
+    MOZ_ASSERT(aChunk.isObject() || aChunk.isUndefined());
     // https://streams.spec.whatwg.org/#byob-reader-read Step 6.
     //
     // close steps, given chunk:
     // Resolve promise with «[ "value" → chunk, "done" → true ]».
     ReadableStreamBYOBReadResult result;
-    result.mValue.Construct();
-    result.mValue.Value().Init(&aChunk.toObject());
+    if (aChunk.isObject()) {
+      // We need to wrap this as the chunk could have come from
+      // another compartment.
+      JS::RootedObject chunk(aCx, &aChunk.toObject());
+      if (!JS_WrapObject(aCx, &chunk)) {
+        return;
+      }
+
+      result.mValue.Construct();
+      result.mValue.Value().Init(chunk);
+    }
     result.mDone.Construct(true);
 
     mPromise->MaybeResolve(result);
@@ -194,7 +211,7 @@ already_AddRefed<Promise> ReadableStreamBYOBReader::Read(
     const ArrayBufferView& aArray, ErrorResult& aRv) {
   AutoJSAPI jsapi;
   if (!jsapi.Init(GetParentObject())) {
-    // MG:XXX: Do I need to have reported this error to aRv?
+    aRv.ThrowUnknownError("Internal error");
     return nullptr;
   }
   JSContext* cx = jsapi.cx();

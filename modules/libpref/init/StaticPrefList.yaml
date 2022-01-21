@@ -3662,6 +3662,46 @@
   mirror: always
   do_not_use_directly: true
 
+# The amount of snapshot peak usage which is attempted to be pre-incremented
+# during snapshot creation.
+- name: dom.storage.snapshot_peak_usage.initial_preincrement
+  type: RelaxedAtomicUint32
+  value: 16384
+  mirror: always
+
+# The amount of snapshot peak usage which is attempted to be pre-incremented
+# during snapshot creation if the LocalStorage usage was already close to the
+# limit (a fallback for dom.storage.snapshot_peak_usage.initial_preincrement).
+- name: dom.storage.snapshot_peak_usage.reduced_initial_preincrement
+  type: RelaxedAtomicUint32
+  value: 4096
+  mirror: always
+
+# The amount of snapshot peak usage which is attempted to be pre-incremented
+# beyond the specific values which are subsequently requested after snapshot
+# creation.
+- name: dom.storage.snapshot_peak_usage.gradual_preincrement
+  type: RelaxedAtomicUint32
+  value: 4096
+  mirror: always
+
+# The amount of snapshot peak usage which is attempted to be pre-incremented
+# beyond the specific values which are subsequently requested after snapshot
+# creation if the LocalStorage total usage was already close to the limit
+# (a fallback for dom.storage.snapshot_peak_usage.gradual_preincrement).
+- name: dom.storage.snapshot_peak_usage.reduced_gradual_preincrement
+  type: RelaxedAtomicUint32
+  value: 1024
+  mirror: always
+
+# How long between a snapshot becomes idle and when we actually finish the
+# snapshot. This preference is only used when "dom.storage.snapshot_reusing"
+# is true.
+- name: dom.storage.snapshot_idle_timeout_ms
+  type: uint32_t
+  value: 5000
+  mirror: always
+
 # Is support for Storage test APIs enabled?
 - name: dom.storage.testing
   type: bool
@@ -3700,6 +3740,12 @@
   mirror: always
 
 - name: dom.streams.expose.ReadableStreamDefaultReader
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# DON'T enable, there are known issues!
+- name: dom.streams.byte_streams
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -4124,7 +4170,11 @@
 # Maximum value of navigator.hardwareConcurrency.
 - name: dom.maxHardwareConcurrency
   type: RelaxedAtomicUint32
+#ifdef NIGHTLY_BUILD
   value: 128
+#else
+  value: 16
+#endif
   mirror: always
 
 # W3C pointer events draft.
@@ -8466,7 +8516,7 @@
   type: bool
   mirror: always
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-  value: true
+  value: false
 #elif defined(XP_WIN) && !defined(_ARM64_)
   value: true
 #elif defined(XP_MACOSX)

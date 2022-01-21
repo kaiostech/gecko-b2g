@@ -533,6 +533,13 @@ pref("browser.download.autohideButton", true);
 // The first download ever run in a new profile will still open the panel.
 pref("browser.download.alwaysOpenPanel", true);
 
+// Determines the behavior of the "Delete" item in the downloads context menu.
+// Valid values are 0, 1, and 2.
+//   0 - Don't remove the download from session list or history.
+//   1 - Remove the download from session list, but not history.
+//   2 - Remove the download from both session list and history.
+pref("browser.download.clearHistoryOnDelete", 0);
+
 #ifndef XP_MACOSX
   pref("browser.helperApps.deleteTempFileOnExit", true);
 #endif
@@ -1093,6 +1100,9 @@ pref("places.frecency.unvisitedTypedBonus", 200);
 // Clear data by base domain (including partitioned storage) when the user
 // selects "Forget About This Site".
 pref("places.forgetThisSite.clearByBaseDomain", true);
+
+// Whether to warm up network connections for places: menus and places: toolbar.
+pref("browser.places.speculativeConnect.enabled", true);
 
 // Controls behavior of the "Add Exception" dialog launched from SSL error pages
 // 0 - don't pre-populate anything
@@ -2236,11 +2246,7 @@ pref("devtools.inspector.showAllAnonymousContent", false);
 // Enable the inline CSS compatiblity warning in inspector rule view
 pref("devtools.inspector.ruleview.inline-compatibility-warning.enabled", false);
 // Enable the compatibility tool in the inspector.
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
 pref("devtools.inspector.compatibility.enabled", true);
-#else
-pref("devtools.inspector.compatibility.enabled", false);
-#endif
 // Enable overflow debugging in the inspector.
 pref("devtools.overflow.debugging.enabled", true);
 

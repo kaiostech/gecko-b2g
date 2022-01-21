@@ -57,7 +57,8 @@ class ReadableByteStreamController final : public ReadableStreamController,
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
-  already_AddRefed<ReadableStreamBYOBRequest> GetByobRequest(JSContext* aCx);
+  already_AddRefed<ReadableStreamBYOBRequest> GetByobRequest(JSContext* aCx,
+                                                             ErrorResult& aRv);
 
   Nullable<double> GetDesiredSize() const;
 
@@ -360,7 +361,8 @@ MOZ_CAN_RUN_SCRIPT extern void ReadableByteStreamControllerEnqueue(
 
 extern already_AddRefed<ReadableStreamBYOBRequest>
 ReadableByteStreamControllerGetBYOBRequest(
-    JSContext* aCx, ReadableByteStreamController* aController);
+    JSContext* aCx, ReadableByteStreamController* aController,
+    ErrorResult& aRv);
 
 extern void ReadableByteStreamControllerClose(
     JSContext* aCx, ReadableByteStreamController* aController,
@@ -375,11 +377,17 @@ MOZ_CAN_RUN_SCRIPT extern void SetUpReadableByteStreamController(
     UnderlyingSourceErrorCallbackHelper* aErrorAlgorithm, double aHighWaterMark,
     Maybe<uint64_t> aAutoAllocateChunkSize, ErrorResult& aRv);
 
-extern void ReadableByteStreamControllerCallPullIfNeeded(
+MOZ_CAN_RUN_SCRIPT extern void ReadableByteStreamControllerCallPullIfNeeded(
     JSContext* aCx, ReadableByteStreamController* aController,
     ErrorResult& aRv);
 
-void SetUpReadableByteStreamControllerFromUnderlyingSource(
+MOZ_CAN_RUN_SCRIPT void SetUpReadableByteStreamControllerFromUnderlyingSource(
+    JSContext* aCx, ReadableStream* aStream, JS::HandleObject aUnderlyingSource,
+    UnderlyingSource& aUnderlyingSourceDict, double aHighWaterMark,
+    ErrorResult& aRv);
+
+MOZ_CAN_RUN_SCRIPT void
+SetUpReadableByteStreamControllerFromBodyStreamUnderlyingSource(
     JSContext* aCx, ReadableStream* aStream,
     BodyStreamHolder* aUnderlyingSource, ErrorResult& aRv);
 

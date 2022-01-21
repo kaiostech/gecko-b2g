@@ -7,7 +7,7 @@ AC_DEFUN([MOZ_ANDROID_NDK],
 
 case "$target" in
 *-android*|*-linuxandroid*)
-    dnl $android_platform will be set for us by Python configure.
+    dnl $android_* will be set for us by Python configure.
     directory_include_args="-isystem $android_system -isystem $android_sysroot/usr/include"
 
     # clang will do any number of interesting things with host tools unless we tell
@@ -22,12 +22,6 @@ case "$target" in
     CXXFLAGS="-fno-short-enums -fno-exceptions $CXXFLAGS $stlport_cppflags"
     ASFLAGS="$directory_include_args -DANDROID $ASFLAGS"
 
-    LDFLAGS="-L$android_platform/usr/lib -Wl,-rpath-link=$android_platform/usr/lib --sysroot=$android_platform $LDFLAGS"
-    # ANDROID_PLATFORM="${android_platform}"
-    ANDROID_VERSION="${android_version}"
-
-    AC_SUBST(ANDROID_VERSION)
-
     # If we're building for a gonk target add more sysroot system includes and
     # library paths
     if test -n "$gonkdir"; then
@@ -39,7 +33,9 @@ case "$target" in
         # in the default include path until we can fix the issue.
         CPPFLAGS="$CPPFLAGS -isystem $gonkdir/include/camera"
 
-        LDFLAGS="-L$gonkdir/libs -Wl,-rpath-link=$gonkdir/libs $LDFLAGS"
+        # Needed for config/system-headers.mozbuild
+        ANDROID_VERSION="${android_version}"
+        AC_SUBST(ANDROID_VERSION)
     fi
 
     ;;

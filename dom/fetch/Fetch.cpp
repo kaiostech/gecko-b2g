@@ -49,6 +49,10 @@
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/WorkerScope.h"
 
+#ifdef MOZ_DOM_STREAMS
+#  include "mozilla/dom/ReadableStreamDefaultReader.h"
+#endif
+
 namespace mozilla::dom {
 
 namespace {
@@ -1742,7 +1746,7 @@ void FetchBody<Derived>::MaybeTeeReadableStreamBody(
   }
 
   nsTArray<RefPtr<ReadableStream> > branches;
-  mReadableStreamBody->Tee(aCx, branches, aRv);
+  MOZ_KnownLive(mReadableStreamBody)->Tee(aCx, branches, aRv);
   if (aRv.Failed()) {
     return;
   }

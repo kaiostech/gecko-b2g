@@ -16,6 +16,7 @@
 #include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/HoldDropJSObjects.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/dom/BindingCallContext.h"
 #include "mozilla/dom/ByteStreamHelpers.h"
 #include "mozilla/dom/BodyStream.h"
@@ -211,10 +212,19 @@ already_AddRefed<ReadableStream> ReadableStream::Constructor(
     }
 
     // Step 4.3
-    (void)highWaterMark;
-    aRv.ThrowNotSupportedError("BYOB Byte Streams Not Yet Supported");
+    if (!StaticPrefs::dom_streams_byte_streams()) {
+      aRv.ThrowNotSupportedError("BYOB byte streams not yet supported.");
+      return nullptr;
+    }
 
-    return nullptr;
+    SetUpReadableByteStreamControllerFromUnderlyingSource(
+        aGlobal.Context(), readableStream, underlyingSourceObj,
+        underlyingSourceDict, highWaterMark, aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+
+    return readableStream.forget();
   }
 
   // Step 5.1 (implicit in above check)
@@ -326,7 +336,17 @@ void ReadableStreamClose(JSContext* aCx, ReadableStream* aStream,
   if (reader->IsDefault()) {
     // Step 6.1
     ReadableStreamDefaultReader* defaultReader = reader->AsDefault();
-    for (ReadRequest* readRequest : defaultReader->ReadRequests()) {
+
+    // Move LinkedList out of DefaultReader onto stack to avoid the potential
+    // for concurrent modification, which could invalidate the iterator.
+    //
+    // See https://bugs.chromium.org/p/chromium/issues/detail?id=1045874 as an
+    // example of the kind of issue that could occur.
+    LinkedList<RefPtr<ReadRequest>> requestsToClose =
+        std::move(defaultReader->ReadRequests());
+
+    // Drain the local list and destroy elements along the way.
+    while (RefPtr<ReadRequest> readRequest = requestsToClose.popFirst()) {
       // Step 6.1.1.
       readRequest->CloseSteps(aCx, aRv);
       if (aRv.Failed()) {
@@ -334,7 +354,7 @@ void ReadableStreamClose(JSContext* aCx, ReadableStream* aStream,
       }
     }
 
-    // Step 6.2
+    // Step 6.2 (this may be superflous post-std::move)
     defaultReader->ReadRequests().clear();
   }
 }
@@ -381,8 +401,10 @@ already_AddRefed<Promise> ReadableStreamCancel(JSContext* aCx,
   // Step 6.
   if (reader && reader->IsBYOB()) {
     // Step 6.1.
-    for (RefPtr<ReadIntoRequest> readIntoRequest :
-         reader->AsBYOB()->ReadIntoRequests()) {
+    LinkedList<RefPtr<ReadIntoRequest>> readIntoRequestsToClose =
+        std::move(reader->AsBYOB()->ReadIntoRequests());
+    while (RefPtr<ReadIntoRequest> readIntoRequest =
+               readIntoRequestsToClose.popFirst()) {
       readIntoRequest->CloseSteps(aCx, JS::UndefinedHandleValue, aRv);
       if (aRv.Failed()) {
         return nullptr;
@@ -465,7 +487,8 @@ void ReadableStream::GetReader(JSContext* aCx,
                                const ReadableStreamGetReaderOptions& aOptions,
                                OwningReadableStreamReader& resultReader,
                                ErrorResult& aRv) {
-  // Step 1.
+  // Step 1. If options["mode"] does not exist,
+  // return ? AcquireReadableStreamDefaultReader(this).
   if (!aOptions.mMode.WasPassed()) {
     RefPtr<ReadableStream> thisRefPtr = this;
     RefPtr<ReadableStreamDefaultReader> defaultReader =
@@ -476,8 +499,23 @@ void ReadableStream::GetReader(JSContext* aCx,
     resultReader.SetAsReadableStreamDefaultReader() = defaultReader;
     return;
   }
-  // Step 2.
-  aRv.ThrowTypeError("BYOB STREAMS NOT IMPLEMENTED");
+
+  // Step 2. Assert: options["mode"] is "byob".
+  MOZ_ASSERT(aOptions.mMode.Value() == ReadableStreamReaderMode::Byob);
+
+  // Step 3. Return ? AcquireReadableStreamBYOBReader(this).
+  if (!StaticPrefs::dom_streams_byte_streams()) {
+    aRv.ThrowTypeError("BYOB byte streams reader not yet supported.");
+    return;
+  }
+
+  RefPtr<ReadableStream> thisRefPtr = this;
+  RefPtr<ReadableStreamBYOBReader> byobReader =
+      AcquireReadableStreamBYOBReader(aCx, thisRefPtr, aRv);
+  if (aRv.Failed()) {
+    return;
+  }
+  resultReader.SetAsReadableStreamBYOBReader() = byobReader;
 }
 
 // https://streams.spec.whatwg.org/#is-readable-stream-locked
@@ -525,12 +563,16 @@ void ReadableStreamError(JSContext* aCx, ReadableStream* aStream,
   if (reader->IsDefault()) {
     // Step 8.1:
     ReadableStreamDefaultReader* defaultReader = reader->AsDefault();
-    for (ReadRequest* readRequest : defaultReader->ReadRequests()) {
+
+    LinkedList<RefPtr<ReadRequest>> readRequestsToError =
+        std::move(defaultReader->ReadRequests());
+    while (RefPtr<ReadRequest> readRequest = readRequestsToError.popFirst()) {
       readRequest->ErrorSteps(aCx, aValue, aRv);
       if (aRv.Failed()) {
         return;
       }
     }
+
     // Step 8.2
     defaultReader->ReadRequests().clear();
   } else {
@@ -539,12 +581,17 @@ void ReadableStreamError(JSContext* aCx, ReadableStream* aStream,
     MOZ_ASSERT(reader->IsBYOB());
     ReadableStreamBYOBReader* byobReader = reader->AsBYOB();
     // Step 9.2.
-    for (auto* readIntoRequest : byobReader->ReadIntoRequests()) {
+    LinkedList<RefPtr<ReadIntoRequest>> requestsToError =
+        std::move(byobReader->ReadIntoRequests());
+
+    while (RefPtr<ReadIntoRequest> readIntoRequest =
+               requestsToError.popFirst()) {
       readIntoRequest->ErrorSteps(aCx, aValue, aRv);
       if (aRv.Failed()) {
         return;
       }
     }
+
     // Step 9.3
     byobReader->ReadIntoRequests().clear();
   }
@@ -877,7 +924,6 @@ already_AddRefed<ReadableStream> CreateReadableByteStream(
   return stream.forget();
 }
 
-MOZ_CAN_RUN_SCRIPT
 already_AddRefed<ReadableStream> ReadableStream::Create(
     JSContext* aCx, nsIGlobalObject* aGlobal,
     BodyStreamHolder* aUnderlyingSource, ErrorResult& aRv) {
@@ -885,8 +931,8 @@ already_AddRefed<ReadableStream> ReadableStream::Create(
 
   stream->SetNativeUnderlyingSource(aUnderlyingSource);
 
-  SetUpReadableByteStreamControllerFromUnderlyingSource(aCx, stream,
-                                                        aUnderlyingSource, aRv);
+  SetUpReadableByteStreamControllerFromBodyStreamUnderlyingSource(
+      aCx, stream, aUnderlyingSource, aRv);
 
   if (aRv.Failed()) {
     return nullptr;

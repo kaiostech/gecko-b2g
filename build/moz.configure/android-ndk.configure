@@ -160,7 +160,6 @@ def android_platform(target, android_version, ndk):
     return platform_dir
 
 
-add_old_configure_assignment("android_platform", android_platform)
 set_config("ANDROID_PLATFORM", android_platform)
 
 
@@ -461,3 +460,16 @@ set_define("MOZ_ANDROID_GOOGLE_VR", googlevr_sdk.enabled)
 set_config("MOZ_ANDROID_GOOGLE_VR", googlevr_sdk.enabled)
 set_config("MOZ_ANDROID_GOOGLE_VR_INCLUDE", googlevr_sdk.include)
 set_config("MOZ_ANDROID_GOOGLE_VR_LIBS", googlevr_sdk.libs)
+
+option("--with-gonk", nargs=1, help="Path to the gonk base directory")
+
+@depends_if("--with-gonk")
+@imports("os")
+def gonkdir(value):
+    if not os.path.isabs(value[0]):
+        die("Argument to --with-gonkdir must be an absolute path.")
+    return value[0]
+
+set_config("GONK_PATH", gonkdir)
+set_define("GONK_PATH", gonkdir)
+add_old_configure_assignment("gonkdir", gonkdir)

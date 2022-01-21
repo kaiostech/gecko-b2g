@@ -2400,7 +2400,10 @@ function clearRunOnceModification(actionName) {
 
 function replacePathVariables(path) {
   if (path.includes("${home}")) {
-    return path.replace("${home}", FileUtils.getFile("Home", []).path);
+    return path.replace(
+      "${home}",
+      Services.dirsvc.get("Home", Ci.nsIFile).path
+    );
   }
   return path;
 }
@@ -2528,9 +2531,10 @@ let ChromeURLBlockPolicy = {
     ) {
       return Ci.nsIContentPolicy.ACCEPT;
     }
+    let contentLocationSpec = contentLocation.spec.toLowerCase();
     if (
       gBlockedAboutPages.some(function(aboutPage) {
-        return contentLocation.spec.startsWith(aboutPage);
+        return contentLocationSpec.startsWith(aboutPage.toLowerCase());
       })
     ) {
       return Ci.nsIContentPolicy.REJECT_POLICY;

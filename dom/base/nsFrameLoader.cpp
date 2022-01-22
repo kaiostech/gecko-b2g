@@ -2678,6 +2678,8 @@ bool nsFrameLoader::TryRemoteBrowserInternal() {
             specIgnoringRef.EqualsLiteral(
                 "chrome://mozapps/content/extensions/aboutaddons.html") ||
 #ifdef MOZ_THUNDERBIRD
+            specIgnoringRef.EqualsLiteral("about:3pane") ||
+            specIgnoringRef.EqualsLiteral("about:message") ||
             specIgnoringRef.EqualsLiteral("about:preferences") ||
 #endif
             specIgnoringRef.EqualsLiteral(

@@ -1087,7 +1087,7 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
     assert.b2g();
     await this.switchToMarionetteWindow();
   } else {
-    assert.firefox();
+    assert.desktop();
   }
 
   assert.open(this.getBrowsingContext({ top: true }));
@@ -2164,7 +2164,7 @@ GeckoDriver.prototype.close = async function() {
  *     Top-level browsing context has been discarded.
  */
 GeckoDriver.prototype.closeChromeWindow = async function() {
-  assert.firefox();
+  assert.desktop();
   assert.open(this.getBrowsingContext({ context: Context.Chrome, top: true }));
 
   let nwins = 0;
@@ -2358,7 +2358,7 @@ GeckoDriver.prototype.setScreenOrientation = function(cmd) {
  *     Not available for current application.
  */
 GeckoDriver.prototype.minimizeWindow = async function() {
-  assert.firefox();
+  assert.desktop();
   assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
@@ -2411,7 +2411,7 @@ GeckoDriver.prototype.minimizeWindow = async function() {
  *     Not available for current application.
  */
 GeckoDriver.prototype.maximizeWindow = async function() {
-  assert.firefox();
+  assert.desktop();
   assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
@@ -2463,7 +2463,7 @@ GeckoDriver.prototype.maximizeWindow = async function() {
  *     Not available for current application.
  */
 GeckoDriver.prototype.fullscreenWindow = async function() {
-  assert.firefox();
+  assert.desktop();
   assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
@@ -2780,7 +2780,7 @@ GeckoDriver.prototype.installAddon = function(cmd) {
 };
 
 GeckoDriver.prototype.uninstallAddon = function(cmd) {
-  assert.firefox();
+  assert.desktop();
 
   let id = cmd.parameters.id;
   if (typeof id == "undefined" || typeof id != "string") {

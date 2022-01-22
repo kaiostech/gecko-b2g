@@ -457,9 +457,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/chrome/remote.manifest
 #endif
 @RESPATH@/components/AlertsService.js
-#ifdef MOZ_UPDATER
-@RESPATH@/components/UpdatePrompt.js
-#endif
 @RESPATH@/components/AppsServiceDelegate.js
 @RESPATH@/components/DirectoryProvider.js
 @RESPATH@/components/ProcessGlobal.js

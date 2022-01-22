@@ -3927,15 +3927,10 @@
   mirror: always
 
 # Is support for WebVR APIs enabled?
-# Enabled by default in beta and release for Windows and OS X and for all
-# platforms in nightly and aurora.
+# Disabled everywhere, but not removed.
 - name: dom.vr.enabled
   type: RelaxedAtomicBool
-#if defined(XP_WIN) || defined(XP_DARWIN) || !defined(RELEASE_OR_BETA)
-  value: true
-#else
   value: false
-#endif
   mirror: always
 
 # Should VR sessions always be reported as supported, without first
@@ -5897,6 +5892,12 @@
 - name: gfx.webrender.allow-partial-present-buffer-age
   type: bool
   value: true
+  mirror: once
+
+# Whether or not we should force partial present on.
+- name: gfx.webrender.force-partial-present
+  type: bool
+  value: false
   mirror: once
 
 - name: gfx.webrender.enable-gpu-markers

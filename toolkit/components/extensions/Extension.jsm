@@ -3145,7 +3145,7 @@ class Langpack extends ExtensionData {
 class SitePermission extends ExtensionData {
   constructor(addonData, startupReason) {
     super(addonData.resourceURI);
-
+    this.id = addonData.id;
     this.hasShutdown = false;
   }
 
@@ -3154,10 +3154,6 @@ class SitePermission extends ExtensionData {
 
     if (!manifestData) {
       return;
-    }
-
-    if (!this.id) {
-      this.id = manifestData.id;
     }
 
     this.manifest = manifestData.manifest;

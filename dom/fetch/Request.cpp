@@ -53,7 +53,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(Request, FetchBody<Request>)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mHeaders)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSignal)
-  AbortFollower::Traverse(static_cast<AbortFollower*>(tmp), cb);
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(Request, FetchBody<Request>)
@@ -759,5 +758,10 @@ AbortSignal* Request::GetOrCreateSignal() {
 }
 
 AbortSignalImpl* Request::GetSignalImpl() const { return mSignal; }
+
+AbortSignalImpl* Request::GetSignalImplToConsumeBody() const {
+  // This is a hack, see Response::GetSignalImplToConsumeBody.
+  return nullptr;
+}
 
 }  // namespace mozilla::dom

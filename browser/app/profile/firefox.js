@@ -579,6 +579,10 @@ pref("browser.privatebrowsing.vpnpromourl", "https://vpn.mozilla.org/?utm_source
 // Whether the user is opted-in to privacy segmentation.
 pref("browser.privacySegmentation.enabled", false);
 
+// Use dark theme variant for PBM windows. This is only supported if the theme
+// sets darkTheme data.
+pref("browser.theme.dark-private-windows", false);
+
 pref("browser.sessionhistory.max_entries", 50);
 
 // Built-in default permissions.
@@ -2123,6 +2127,12 @@ pref("app.normandy.onsync_skew_sec", 600);
   // AMO only serves language packs for release and beta versions.
   pref("intl.multilingual.downloadEnabled", false);
 #endif
+// With the preference enabled below, switching the browser language will do a live
+// reload rather than requiring a restart. Enable bidirectional below as well to allow
+// live reloading when switching between LTR and RTL languages.
+pref("intl.multilingual.liveReload", false);
+pref("intl.multilingual.liveReloadBidirectional", false);
+
 
 // Simulate conditions that will happen when the browser
 // is running with Fission enabled. This is meant to assist

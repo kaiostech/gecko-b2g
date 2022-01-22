@@ -2582,14 +2582,6 @@ set_config("ANDROID_PACKAGE_NAME", android_package_name)
 option(env="MOZ_WINCONSOLE", nargs="?", help="Whether we can create a console window.")
 set_define("MOZ_WINCONSOLE", True, when=depends("MOZ_WINCONSOLE")(lambda x: x))
 
-option(
-    env="MOZ_USE_NATIVE_POPUP_WINDOWS",
-    default=target_is_android,
-    help="Whether to use native popup windows",
-)
-
-set_define("MOZ_USE_NATIVE_POPUP_WINDOWS", True, when="MOZ_USE_NATIVE_POPUP_WINDOWS")
-
 
 # Alternative Crashreporter setting
 option(
@@ -3039,3 +3031,21 @@ def disable_smart_cards(build_project):
 
 set_config("MOZ_NO_SMART_CARDS", True, when=disable_smart_cards)
 set_define("MOZ_NO_SMART_CARDS", True, when=disable_smart_cards)
+
+# Checks for library functions
+# ==============================================================
+with only_when(compile_environment & depends(target.os)(lambda os: os != "WINNT")):
+    set_define("HAVE_STAT64", check_symbol("stat64"))
+    set_define("HAVE_LSTAT64", check_symbol("lstat64"))
+    set_define("HAVE_TRUNCATE64", check_symbol("truncate64"))
+    set_define("HAVE_STATVFS64", check_symbol("statvfs64"))
+    set_define("HAVE_STATVFS", check_symbol("statvfs"))
+    set_define("HAVE_STATFS64", check_symbol("statfs64"))
+    set_define("HAVE_STATFS", check_symbol("statfs"))
+    set_define("HAVE_LUTIMES", check_symbol("lutimes"))
+    set_define("HAVE_POSIX_FADVISE", check_symbol("posix_fadvise"))
+    set_define("HAVE_POSIX_FALLOCATE", check_symbol("posix_fallocate"))
+
+    set_define("HAVE_ARC4RANDOM", check_symbol("arc4random"))
+    set_define("HAVE_ARC4RANDOM_BUF", check_symbol("arc4random_buf"))
+    set_define("HAVE_MALLINFO", check_symbol("mallinfo"))

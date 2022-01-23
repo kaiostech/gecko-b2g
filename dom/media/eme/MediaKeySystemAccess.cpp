@@ -338,6 +338,8 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
       widevine.mPersistentState = KeySystemFeatureSupport::Requestable;
       widevine.mDistinctiveIdentifier = KeySystemFeatureSupport::Prohibited;
       widevine.mSessionTypes.AppendElement(MediaKeySessionType::Temporary);
+      widevine.mSessionTypes.AppendElement(
+          MediaKeySessionType::Persistent_license);
       widevine.mAudioRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
       widevine.mVideoRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
       widevine.mVideoRobustness.AppendElement(u"SW_SECURE_DECODE"_ns);

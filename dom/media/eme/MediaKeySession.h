@@ -98,6 +98,10 @@ class MediaKeySession final : public DOMEventTargetHelper,
 
   void SetExpiration(double aExpiry);
 
+#ifdef B2G_MEDIADRM
+  void ResetExpiration();
+#endif
+
   mozilla::dom::EventHandlerNonNull* GetOnkeystatuseschange();
   void SetOnkeystatuseschange(mozilla::dom::EventHandlerNonNull* aCallback);
 

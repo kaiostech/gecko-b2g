@@ -94,8 +94,14 @@ void GonkDrmCDMProxy::CreateSession(uint32_t aCreateSessionToken,
 void GonkDrmCDMProxy::LoadSession(PromiseId aPromiseId,
                                   dom::MediaKeySessionType aSessionType,
                                   const nsAString& aSessionId) {
-  // TODO: Implement LoadSession.
-  RejectPromiseWithStateError(aPromiseId, "Not support LoadSession"_ns);
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(mOwnerThread);
+  NS_ENSURE_TRUE_VOID(!mKeys.IsNull());
+
+  mOwnerThread->Dispatch(NS_NewRunnableFunction(
+      "GonkDrmCDMProxy::LoadSession",
+      [aPromiseId, sessionId = NS_ConvertUTF16toUTF8(aSessionId),
+       cdm = mCDM]() { cdm->LoadSession(aPromiseId, sessionId); }));
 }
 
 void GonkDrmCDMProxy::SetServerCertificate(PromiseId aPromiseId,
@@ -138,8 +144,14 @@ void GonkDrmCDMProxy::CloseSession(const nsAString& aSessionId,
 
 void GonkDrmCDMProxy::RemoveSession(const nsAString& aSessionId,
                                     PromiseId aPromiseId) {
-  // TODO: Implement RemoveSession.
-  RejectPromiseWithStateError(aPromiseId, "Not support RemoveSession"_ns);
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(mOwnerThread);
+  NS_ENSURE_TRUE_VOID(!mKeys.IsNull());
+
+  mOwnerThread->Dispatch(NS_NewRunnableFunction(
+      "GonkDrmCDMProxy::RemoveSession",
+      [aPromiseId, sessionId = NS_ConvertUTF16toUTF8(aSessionId),
+       cdm = mCDM]() { cdm->RemoveSession(aPromiseId, sessionId); }));
 }
 
 void GonkDrmCDMProxy::Shutdown() {
@@ -209,7 +221,13 @@ void GonkDrmCDMProxy::OnExpirationChange(const nsAString& aSessionId,
   }
   RefPtr<dom::MediaKeySession> session(mKeys->GetSession(aSessionId));
   if (session) {
-    session->SetExpiration(static_cast<double>(aExpiryTime));
+    if (aExpiryTime) {
+      session->SetExpiration(static_cast<double>(aExpiryTime));
+    } else {
+      // According to MediaDrm documentation, a time of 0 indicates that the
+      // keys never expire.
+      session->ResetExpiration();
+    }
   }
 }
 

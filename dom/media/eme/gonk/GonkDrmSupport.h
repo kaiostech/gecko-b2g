@@ -50,10 +50,14 @@ class GonkDrmSupport : public BnDrmClient {
                      const nsTArray<uint8_t>& aInitData,
                      MediaKeySessionType aSessionType);
 
+  void LoadSession(uint32_t aPromiseId, const nsCString& aEmeSessionId);
+
   void UpdateSession(uint32_t aPromiseId, const nsCString& aEmeSessionId,
                      const nsTArray<uint8_t>& aResponse);
 
   void CloseSession(uint32_t aPromiseId, const nsCString& aEmeSessionId);
+
+  void RemoveSession(uint32_t aPromiseId, const nsCString& aEmeSessionId);
 
   void SetServerCertificate(uint32_t aPromiseId,
                             const nsTArray<uint8_t>& aCert);
@@ -79,11 +83,34 @@ class GonkDrmSupport : public BnDrmClient {
 
   void Reset();
 
+  typedef std::pair<MediaKeyMessageType, nsTArray<uint8_t>> KeyRequest;
+
+  bool GetKeyRequest(const sp<GonkDrmSessionInfo>& aSession,
+                     const nsTArray<uint8_t>& aInitData, KeyRequest* aRequest);
+
+  void SendKeyRequest(const sp<GonkDrmSessionInfo>& aSession,
+                      KeyRequest&& aRequest);
+
+  typedef std::function<void()> SuccessCallback;
+  typedef std::function<void(const nsACString& /* aReason */)> FailureCallback;
+
+  void LoadSession(const sp<GonkDrmSessionInfo>& aSession,
+                   SuccessCallback aSuccessCb, FailureCallback aFailureCb);
+
+  void UpdateSession(const sp<GonkDrmSessionInfo>& aSession,
+                     const nsTArray<uint8_t>& aResponse,
+                     SuccessCallback aSuccessCb, FailureCallback aFailureCb);
+
+  void RemoveSession(const sp<GonkDrmSessionInfo>& aSession,
+                     SuccessCallback aSuccessCb, FailureCallback aFailureCb);
+
   // IDrmClient interface
   void notify(DrmPlugin::EventType aEventType, int aExtra,
               const Parcel* aObj) override;
 
   void Notify(DrmPlugin::EventType aEventType, int aExtra, const Parcel* aObj);
+
+  void OnExpirationUpdated(const Parcel* aParcel);
 
   void OnKeyStatusChanged(const Parcel* aParcel);
 
@@ -99,6 +126,7 @@ class GonkDrmSupport : public BnDrmClient {
 
   const nsCOMPtr<nsISerialEventTarget> mOwnerThread;
   const nsString mKeySystem;
+  const nsTArray<uint8_t> mDummyKeyId = {0};
   uint32_t mInitPromiseId = 0;
   GonkDrmCDMCallbackProxy* mCallback = nullptr;
   RefPtr<GonkDrmStorageProxy> mStorage;

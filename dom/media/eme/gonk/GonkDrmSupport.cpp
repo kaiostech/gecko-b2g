@@ -288,40 +288,43 @@ void GonkDrmSupport::CreateSession(uint32_t aPromiseId,
 
   session->SetMimeType(aInitDataType);
 
-  KeyedVector<String8, String8> optionalParameters;
-  DrmPlugin::KeyType keyType;
-
-  switch (aSessionType) {
-    case MediaKeySessionType::Temporary:
-      keyType = DrmPlugin::kKeyType_Streaming;
-      break;
-    case MediaKeySessionType::Persistent_license:
-      keyType = DrmPlugin::kKeyType_Offline;
-      break;
-    default:
-      GD_LOGE("%p GonkDrmSupport::CreateSession, unsupported session type %d",
-              this, aSessionType);
-      CloseDrmSession(session);
-      mCallback->RejectPromiseWithStateError(aPromiseId,
-                                             "unsupported session type"_ns);
-      return;
+  KeyRequest request;
+  if (!GetKeyRequest(session, aInitData, &request)) {
+    GD_LOGE("%p GonkDrmSupport::CreateSession, GetKeyRequest failed", this);
+    CloseDrmSession(session);
+    mCallback->RejectPromiseWithStateError(aPromiseId,
+                                           "GetKeyRequest failed"_ns);
   }
 
+  mCallback->SetSessionId(aCreateSessionToken, session->EmeId());
+  mCallback->ResolvePromise(aPromiseId);
+  SendKeyRequest(session, std::move(request));
+  GD_LOGD("%p GonkDrmSupport::CreateSession, session opened: %s", this,
+          session->EmeId().Data());
+}
+
+bool GonkDrmSupport::GetKeyRequest(const sp<GonkDrmSessionInfo>& aSession,
+                                   const nsTArray<uint8_t>& aInitData,
+                                   KeyRequest* aRequest) {
+  auto keyType = aSession->IsReleased()    ? DrmPlugin::kKeyType_Release
+                 : aSession->IsTemporary() ? DrmPlugin::kKeyType_Streaming
+                                           : DrmPlugin::kKeyType_Offline;
+
+  auto id = aSession->IsReleased() ? aSession->KeySetId() : aSession->DrmId();
+
+  KeyedVector<String8, String8> optionalParameters;
   Vector<uint8_t> request;
   String8 defaultUrl;
   DrmPlugin::KeyRequestType keyRequestType;
 
   auto err = mDrm->getKeyRequest(
-      session->DrmId(), GonkDrmConverter::ToByteVector(aInitData),
-      GonkDrmConverter::ToString8(session->MimeType()), keyType,
+      id, GonkDrmConverter::ToByteVector(aInitData),
+      GonkDrmConverter::ToString8(aSession->MimeType()), keyType,
       optionalParameters, request, defaultUrl, &keyRequestType);
   if (err != OK) {
-    GD_LOGE("%p GonkDrmSupport::CreateSession, DRM getKeyRequest failed(%d)",
+    GD_LOGE("%p GonkDrmSupport::GetKeyRequest, DRM getKeyRequest failed(%d)",
             this, err);
-    CloseDrmSession(session);
-    mCallback->RejectPromiseWithStateError(aPromiseId,
-                                           "getKeyRequest failed"_ns);
-    return;
+    return false;
   }
 
   MediaKeyMessageType messageType;
@@ -338,20 +341,79 @@ void GonkDrmSupport::CreateSession(uint32_t aPromiseId,
       break;
     default:
       GD_LOGE(
-          "%p GonkDrmSupport::CreateSession, unsupported key request type %d",
+          "%p GonkDrmSupport::GetKeyRequest, unsupported key request type %d",
           this, keyRequestType);
-      CloseDrmSession(session);
-      mCallback->RejectPromiseWithStateError(aPromiseId,
-                                             "unsupported key request type"_ns);
-      return;
+      return false;
   }
 
-  mCallback->SetSessionId(aCreateSessionToken, session->EmeId());
-  mCallback->ResolvePromise(aPromiseId);
-  mCallback->SessionMessage(session->EmeId(), messageType,
-                            GonkDrmConverter::ToNsByteArray(request));
-  GD_LOGD("%p GonkDrmSupport::CreateSession, session opened: %s", this,
-          session->EmeId().Data());
+  aRequest->first = messageType;
+  aRequest->second = GonkDrmConverter::ToNsByteArray(request);
+  return true;
+}
+
+void GonkDrmSupport::SendKeyRequest(const sp<GonkDrmSessionInfo>& aSession,
+                                    KeyRequest&& aRequest) {
+  mCallback->SessionMessage(aSession->EmeId(), aRequest.first,
+                            std::move(aRequest.second));
+}
+
+void GonkDrmSupport::LoadSession(uint32_t aPromiseId,
+                                 const nsCString& aEmeSessionId) {
+  GD_ASSERT(mDrm);
+  GD_LOGD("%p GonkDrmSupport::LoadSession, session ID %s", this,
+          aEmeSessionId.Data());
+
+  auto session =
+      OpenDrmSession(MediaKeySessionType::Persistent_license, aEmeSessionId);
+
+  auto successCb = [aPromiseId, this, self = Self()]() {
+    GD_LOGD("%p GonkDrmSupport::LoadSession succeeded", this);
+    mCallback->ResolveLoadSessionPromise(aPromiseId, true);
+  };
+
+  auto failureCb = [aPromiseId, session, this,
+                    self = Self()](const nsACString& aReason) {
+    GD_LOGE("%p GonkDrmSupport::LoadSession, %s", this, aReason.Data());
+    CloseDrmSession(session);
+    mCallback->RejectPromiseWithStateError(aPromiseId, nsCString(aReason));
+  };
+
+  LoadSession(session, successCb, failureCb);
+}
+
+void GonkDrmSupport::LoadSession(const sp<GonkDrmSessionInfo>& aSession,
+                                 SuccessCallback aSuccessCb,
+                                 FailureCallback aFailureCb) {
+  if (!aSession) {
+    aFailureCb("session not found"_ns);
+    return;
+  }
+
+  aSession->LoadFromStorage(
+      [aSession, aSuccessCb, aFailureCb, this, self = Self()]() {
+        // If the session was marked as released in RemoveSession() but somehow
+        // we didn't receive the server response through UpdateSession(), we
+        // should avoid restoring the key and just report success to let JS
+        // release it again.
+        if (aSession->IsReleased()) {
+          GD_LOGD("%p GonkDrmSupport::LoadSession, session is released", this);
+          aSuccessCb();
+
+          // Report expiration with dummy key ID to JS.
+          auto status = Optional<MediaKeyStatus>(MediaKeyStatus::Expired);
+          NotifyKeyStatus(aSession, {CDMKeyInfo(mDummyKeyId, status)});
+          return;
+        }
+
+        auto err = mDrm->restoreKeys(aSession->DrmId(), aSession->KeySetId());
+        if (err != OK) {
+          aFailureCb(nsPrintfCString("DRM restoreKeys failed(%d)", err));
+          return;
+        }
+
+        aSuccessCb();
+      },
+      aFailureCb);
 }
 
 void GonkDrmSupport::UpdateSession(uint32_t aPromiseId,
@@ -362,36 +424,63 @@ void GonkDrmSupport::UpdateSession(uint32_t aPromiseId,
           aEmeSessionId.Data());
 
   auto session = mSessionManager.FindByEmeId(aEmeSessionId);
-  if (!session) {
-    GD_LOGE("%p GonkDrmSupport::UpdateSession, session not found", this);
-    mCallback->RejectPromiseWithStateError(aPromiseId, "session not found"_ns);
-    mCallback->SessionError(session->EmeId(), NS_ERROR_DOM_INVALID_STATE_ERR,
-                            -1, "session not found"_ns);
+
+  auto successCb = [aPromiseId, this, self = Self()]() {
+    GD_LOGD("%p GonkDrmSupport::UpdateSession succeeded", this);
+    mCallback->ResolvePromise(aPromiseId);
+  };
+
+  auto failureCb = [aPromiseId, session, this,
+                    self = Self()](const nsACString& aReason) {
+    GD_LOGE("%p GonkDrmSupport::UpdateSession, %s", this, aReason.Data());
+    mCallback->RejectPromiseWithStateError(aPromiseId, nsCString(aReason));
+    if (session) {
+      mCallback->SessionError(session->EmeId(), NS_ERROR_DOM_INVALID_STATE_ERR,
+                              -1, nsCString(aReason));
+    }
+  };
+
+  UpdateSession(session, aResponse, successCb, failureCb);
+}
+
+void GonkDrmSupport::UpdateSession(const sp<GonkDrmSessionInfo>& aSession,
+                                   const nsTArray<uint8_t>& aResponse,
+                                   SuccessCallback aSuccessCb,
+                                   FailureCallback aFailureCb) {
+  if (!aSession) {
+    aFailureCb("session not found"_ns);
     return;
   }
 
+  auto id = aSession->IsReleased() ? aSession->KeySetId() : aSession->DrmId();
+  auto response = GonkDrmConverter::ToByteVector(aResponse);
   Vector<uint8_t> keySetId;
-  auto err = mDrm->provideKeyResponse(
-      session->DrmId(), GonkDrmConverter::ToByteVector(aResponse), keySetId);
+
+  auto err = mDrm->provideKeyResponse(id, response, keySetId);
   if (err != OK) {
-    GD_LOGE(
-        "%p GonkDrmSupport::UpdateSession, DRM provideKeyResponse failed, err "
-        "%d",
-        this, err);
-    mCallback->RejectPromiseWithStateError(aPromiseId,
-                                           "provideKeyResponse failed"_ns);
-    mCallback->SessionError(session->EmeId(), NS_ERROR_DOM_INVALID_STATE_ERR,
-                            -1, "provideKeyResponse failed"_ns);
+    aFailureCb(nsPrintfCString("DRM provideKeyResponse failed(%d)", err));
     return;
   }
-
-  mCallback->ResolvePromise(aPromiseId);
 
 #ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
   if (mozilla::IsClearkeyKeySystem(mKeySystem)) {
-    PeekClearkeyKeyStatus(session, aResponse);
+    PeekClearkeyKeyStatus(aSession, aResponse);
   }
 #endif
+
+  if (aSession->IsTemporary()) {
+    // For a temporary session, we are done here.
+    aSuccessCb();
+  } else if (aSession->IsReleased()) {
+    // For a released session, we have provided the server response to MediaDrm.
+    // We can now erase the session from the storage.
+    aSession->EraseFromStorage(aSuccessCb, aFailureCb);
+  } else {
+    // For a persistent session, we now have a key set ID. Save it to the
+    // storage.
+    aSession->SetKeySetId(keySetId);
+    aSession->SaveToStorage(aSuccessCb, aFailureCb);
+  }
 }
 
 void GonkDrmSupport::CloseSession(uint32_t aPromiseId,
@@ -419,6 +508,66 @@ void GonkDrmSupport::CloseSession(uint32_t aPromiseId,
   mSharedData->RemoveSession(session->DrmId());
   mCallback->ResolvePromise(aPromiseId);
   mCallback->SessionClosed(session->EmeId());
+}
+
+void GonkDrmSupport::RemoveSession(uint32_t aPromiseId,
+                                   const nsCString& aEmeSessionId) {
+  GD_ASSERT(mDrm);
+  GD_LOGD("%p GonkDrmSupport::RemoveSession, session ID %s", this,
+          aEmeSessionId.Data());
+
+  auto session = mSessionManager.FindByEmeId(aEmeSessionId);
+
+  auto successCb = [aPromiseId, this, self = Self()]() {
+    GD_LOGD("%p GonkDrmSupport::RemoveSession succeeded", this);
+    mCallback->ResolvePromise(aPromiseId);
+  };
+
+  auto failureCb = [aPromiseId, this,
+                    self = Self()](const nsACString& aReason) {
+    GD_LOGE("%p GonkDrmSupport::RemoveSession, %s", this, aReason.Data());
+    mCallback->RejectPromiseWithStateError(aPromiseId, nsCString(aReason));
+  };
+
+  RemoveSession(session, successCb, failureCb);
+}
+
+void GonkDrmSupport::RemoveSession(const sp<GonkDrmSessionInfo>& aSession,
+                                   SuccessCallback aSuccessCb,
+                                   FailureCallback aFailureCb) {
+  if (!aSession) {
+    aFailureCb("session not found"_ns);
+    return;
+  }
+
+  if (aSession->IsTemporary()) {
+    aFailureCb("session not persistent"_ns);
+    return;
+  }
+
+  if (aSession->KeySetId().empty()) {
+    aFailureCb("key set ID not found"_ns);
+    return;
+  }
+
+  // First mark this session as released until the following steps complete:
+  // 1. We have sent the key release request to the server.
+  // 2. We have received the server response through UpdateSession().
+  // 3. We have set the response to MediaDrm so the keys are actually released.
+  // And then we will erase this session from the storage in UpdateSession().
+  aSession->SetReleased();
+  aSession->SaveToStorage(
+      [aSuccessCb, aFailureCb, aSession, this, self = Self()]() {
+        // Generate key release request.
+        KeyRequest request;
+        if (!GetKeyRequest(aSession, {}, &request)) {
+          aFailureCb("GetKeyRequest failed"_ns);
+          return;
+        }
+        aSuccessCb();
+        SendKeyRequest(aSession, std::move(request));
+      },
+      aFailureCb);
 }
 
 void GonkDrmSupport::SetServerCertificate(uint32_t aPromiseId,
@@ -468,9 +617,35 @@ void GonkDrmSupport::Notify(DrmPlugin::EventType aEventType, int aExtra,
     return;
   }
 
-  if (aEventType == DrmPlugin::kDrmPluginEventKeysChange) {
-    OnKeyStatusChanged(aObj);
+  switch (aEventType) {
+    case DrmPlugin::kDrmPluginEventExpirationUpdate:
+      OnExpirationUpdated(aObj);
+      break;
+    case DrmPlugin::kDrmPluginEventKeysChange:
+      OnKeyStatusChanged(aObj);
+      break;
   }
+}
+
+void GonkDrmSupport::OnExpirationUpdated(const Parcel* aParcel) {
+  if (!aParcel) {
+    return;
+  }
+
+  auto sessionId = GonkDrmUtils::ReadByteVectorFromParcel(aParcel);
+  auto session = mSessionManager.FindByDrmId(sessionId);
+  if (!session) {
+    GD_LOGE("%p GonkDrmSupport::OnExpirationUpdate, session not found", this);
+    return;
+  }
+
+  auto expirationTime = aParcel->readInt64();
+
+  GD_LOGD(
+      "%p GonkDrmSupport::OnExpirationUpdate, session ID %s, expiration time "
+      "%" PRIi64,
+      this, session->EmeId().Data(), expirationTime);
+  mCallback->ExpirationChange(session->EmeId(), expirationTime);
 }
 
 void GonkDrmSupport::OnKeyStatusChanged(const Parcel* aParcel) {
@@ -545,8 +720,10 @@ void GonkDrmSupport::NotifyKeyStatus(const sp<GonkDrmSessionInfo>& aSession,
   GD_ASSERT(aSession);
 
   for (const auto& info : aKeyInfos) {
-    mSharedData->AddKey(aSession->DrmId(),
-                        GonkDrmConverter::ToByteVector(info.mKeyId));
+    if (info.mKeyId != mDummyKeyId) {
+      mSharedData->AddKey(aSession->DrmId(),
+                          GonkDrmConverter::ToByteVector(info.mKeyId));
+    }
   }
   mCallback->BatchedKeyStatusChanged(aSession->EmeId(), std::move(aKeyInfos));
 }

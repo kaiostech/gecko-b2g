@@ -595,6 +595,14 @@ void MediaKeySession::SetExpiration(double aExpiration) {
   mExpiration = aExpiration;
 }
 
+#ifdef B2G_MEDIADRM
+void MediaKeySession::ResetExpiration() {
+  EME_LOG("MediaKeySession[%p,'%s'] ResetExpiry", this,
+          NS_ConvertUTF16toUTF8(mSessionId).get());
+  mExpiration = JS::GenericNaN();
+}
+#endif
+
 EventHandlerNonNull* MediaKeySession::GetOnkeystatuseschange() {
   return GetEventHandler(nsGkAtoms::onkeystatuseschange);
 }

@@ -8007,6 +8007,11 @@
   value: true
   mirror: always
 
+- name: layout.display-list.retain.sc
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Set the maximum number of modified frames allowed before doing a full
 # display list rebuild.
 - name: layout.display-list.rebuild-frame-limit
@@ -12860,15 +12865,6 @@
   value: false
   mirror: always
 
-# Whether we try to extract dark theme GTK colors.
-#
-# For now, needed for follow-firefox-theme. In the future will also be needed
-# for the color-scheme CSS property / meta tag / etc.
-- name: widget.gtk.alt-theme.dark
-  type: bool
-  value: true
-  mirror: always
-
 # Whether selection colors for the non-system theme get passed from the system
 # GTK theme.
 - name: widget.gtk.alt-theme.selection
@@ -12982,7 +12978,7 @@
 # Whether to use gtk portal for the mime handler.
 #  - 0: never
 #  - 1: always
-#  - 2: auto (true for flatpak or GTK_USE_PORTAL=1, false otherwise)
+#  - 2: auto (for now only true for flatpak, see bug 1516290)
 - name: widget.use-xdg-desktop-portal.mime-handler
   type: int32_t
   value: 2

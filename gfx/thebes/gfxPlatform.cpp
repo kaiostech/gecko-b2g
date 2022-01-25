@@ -24,6 +24,7 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/StaticPrefs_apz.h"
+#include "mozilla/StaticPrefs_canvas.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/StaticPrefs_layers.h"
@@ -950,6 +951,12 @@ void gfxPlatform::Init() {
   if (gfxConfig::IsEnabled(Feature::GPU_PROCESS)) {
     GPUProcessManager* gpu = GPUProcessManager::Get();
     gpu->LaunchGPUProcess();
+  }
+
+  if (XRE_IsParentProcess()) {
+    nsAutoCString allowlist;
+    Preferences::GetCString("gfx.offscreencavas.domain-allowlist", allowlist);
+    gfxVars::SetOffscreenCanvasDomainAllowlist(allowlist);
   }
 
   gLastUsedFrameRate = ForceSoftwareVsync() ? GetSoftwareVsyncRate() : -1;

@@ -596,14 +596,12 @@ var gMainPane = {
       }
     }
 
-    let distroId = Services.prefs.getCharPref("distribution.id", "");
+    let defaults = Services.prefs.getDefaultBranch(null);
+    let distroId = defaults.getCharPref("distribution.id", "");
     if (distroId) {
       let distroString = distroId;
 
-      let distroVersion = Services.prefs.getCharPref(
-        "distribution.version",
-        ""
-      );
+      let distroVersion = defaults.getCharPref("distribution.version", "");
       if (distroVersion) {
         distroString += " - " + distroVersion;
       }
@@ -612,7 +610,7 @@ var gMainPane = {
       distroIdField.value = distroString;
       distroIdField.hidden = false;
 
-      let distroAbout = Services.prefs.getStringPref("distribution.about", "");
+      let distroAbout = defaults.getStringPref("distribution.about", "");
       if (distroAbout) {
         let distroField = document.getElementById("distribution");
         distroField.value = distroAbout;
@@ -2616,6 +2614,9 @@ var gMainPane = {
    * Sort the list when the user clicks on a column header.
    */
   sort(event) {
+    if (event.button != 0) {
+      return;
+    }
     var column = event.target;
 
     // If the user clicked on a new sort column, remove the direction indicator

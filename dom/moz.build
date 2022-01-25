@@ -54,6 +54,7 @@ DIRS += [
     "filesystem",
     "flashlightmanager",
     "flex",
+    "fs",
     "gamepad",
     "geolocation",
     "grid",

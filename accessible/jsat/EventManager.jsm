@@ -90,6 +90,11 @@ this.EventManager.prototype = {
         this.addEventListener("scroll", this, true);
         this.addEventListener("resize", this, true);
         this.addEventListener("visibilitychange", this);
+        if (Services.prefs.getIntPref("dom.w3c_touch_events.enabled") == 1) {
+          this.addEventListener("touchstart", this);
+          this.addEventListener("touchend", this);
+          this.addEventListener("touchmove", this);
+        }
         Services.obs.addObserver(domNode => {
           let acc = Utils.AccRetrieval.getAccessibleFor(domNode);
           if (acc == null) {
@@ -130,6 +135,11 @@ this.EventManager.prototype = {
       this.removeEventListener("scroll", this, true);
       this.removeEventListener("resize", this, true);
       this.removeEventListener("visibilitychange", this);
+      if (Services.prefs.getIntPref("dom.w3c_touch_events.enabled") == 1) {
+        this.removeEventListener("touchstart", this);
+        this.removeEventListener("touchend", this);
+        this.removeEventListener("touchmove", this);
+      }
     } catch (x) {
       // contentScope is dead.
     } finally {
@@ -168,6 +178,13 @@ this.EventManager.prototype = {
             window = aEvent.target.ownerGlobal;
           }
           this.present(Presentation.viewportChanged(window));
+          break;
+        }
+        case "touchstart":
+        case "touchend":
+        case "touchmove": {
+          aEvent.preventDefault();
+          aEvent.stopImmediatePropagation();
           break;
         }
         case "visibilitychange":

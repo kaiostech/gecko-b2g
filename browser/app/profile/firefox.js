@@ -973,7 +973,7 @@ pref("browser.preferences.experimental", true);
 #else
 pref("browser.preferences.experimental", false);
 #endif
-pref("browser.preferences.moreFromMozilla", false);
+pref("browser.preferences.moreFromMozilla", true);
 pref("browser.preferences.experimental.hidden", false);
 pref("browser.preferences.defaultPerformanceSettings.enabled", true);
 
@@ -1534,6 +1534,9 @@ pref("browser.newtabpage.activity-stream.feeds.section.topstories", true);
 
 // The pref controls if search hand-off is enabled for Activity Stream.
 pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", true);
+
+// This pref controls the visibility of Colorway Closet settings in the customize panel
+pref("browser.newtabpage.activity-stream.colorway-closet.enabled", false);
 
 pref("browser.newtabpage.activity-stream.logowordmark.alwaysVisible", true);
 

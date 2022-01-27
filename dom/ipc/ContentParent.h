@@ -1501,6 +1501,10 @@ class ContentParent final
       const MaybeDiscarded<BrowsingContext>& aContext,
       const uint32_t& aCacheKey);
 
+  mozilla::ipc::IPCResult RecvSessionHistoryEntryWireframe(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      const Wireframe& aWireframe);
+
   mozilla::ipc::IPCResult
   RecvSessionHistoryEntryStoreWindowNameInContiguousEntries(
       const MaybeDiscarded<BrowsingContext>& aContext, const nsString& aName);

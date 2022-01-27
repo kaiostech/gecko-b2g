@@ -216,7 +216,8 @@ nsTArray<nsString> names;
 names.AppendElement(u"testing.setting1"_ns);
 names.AppendElement(u"testing.setting2"_ns);
 nsCOMPtr<nsISettingsGetBatchResponse> getBatchCallback = new TestGetBatchCallback(names);
-aSettingsManager->GetBatch(names, getBatchCallback);
+nsCOMPtr<nsISettingsManager> settingsManager = do_GetService("@mozilla.org/sidl-native/settings;1");
+settingsManager->GetBatch(names, getBatchCallback);
 ```
 ### AddEventListener and RemoveEventListener Functions
 #### header declaration

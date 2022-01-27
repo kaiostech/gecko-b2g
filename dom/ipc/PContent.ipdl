@@ -181,6 +181,7 @@ using mozilla::PDMFactory::MediaCodecsSupported from "PDMFactory.h";
 using mozilla::RemoteDecodeIn from "mozilla/RemoteDecoderManagerChild.h";
 using mozilla::dom::PerformanceTimingData from "mozilla/dom/PerformanceTiming.h";
 [RefCounted] using mozilla::dom::FeaturePolicy from "mozilla/dom/FeaturePolicy.h";
+using Wireframe from "mozilla/dom/DocumentBinding.h";
 
 union ChromeRegistryItem
 {
@@ -1269,6 +1270,9 @@ parent:
 
     async SessionHistoryEntryStoreWindowNameInContiguousEntries(MaybeDiscardedBrowsingContext aContext,
                                                                 nsString aName);
+
+    async SessionHistoryEntryWireframe(MaybeDiscardedBrowsingContext aContext,
+                                       Wireframe aWireframe);
 
     async GetLoadingSessionHistoryInfoFromParent(MaybeDiscardedBrowsingContext aContext)
         returns (LoadingSessionHistoryInfo? aLoadingInfo);

@@ -78,6 +78,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAuthorizationManager)
 #  ifdef MOZ_WIDGET_GONK
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mEngmodeManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUserConsent)
 #  endif
 #  ifdef ENABLE_RSU
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRSU)
@@ -781,6 +782,16 @@ bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */,
 }
 
 #  ifdef MOZ_WIDGET_GONK
+already_AddRefed<Promise> B2G::GetUserConsent(const nsAString& secret,
+                                         ErrorResult& aRv) {
+    if (!mUserConsent) {
+        mUserConsent = UserConsent::Create(mOwner);
+    }
+
+    RefPtr<Promise> p = mUserConsent->GetUserConsent(secret);
+    return p.forget();
+}
+
 EngmodeManager* B2G::GetEngmodeManager(ErrorResult& aRv) {
   if (!mEngmodeManager) {
     if (!mOwner) {

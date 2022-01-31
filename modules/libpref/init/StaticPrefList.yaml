@@ -1493,7 +1493,11 @@
 # be loaded normally as-if users normally navigated to the page.
 - name: browser.soft_reload.only_force_validate_top_level_document
   type: bool
+#if defined(EARLY_BETA_OR_EARLIER)
   value: true
+#else
+  value: false
+#endif
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -5188,6 +5192,21 @@
 - name: general.utility-process.startup_timeout_ms
   type: RelaxedAtomicInt32
   value: 5000
+  mirror: always
+
+# Temporary pref to test website compatibility with Firefox 100 UA string. This
+# pref will be removed in Firefox 100 because it will no longer needed.
+- name: general.useragent.forceVersion100
+  type: bool
+  value: false
+  mirror: always
+
+# Temporary pref to remember whether we have handled the Nimbus enrollment
+# event for the Firefox 100 UA experiment. This pref will be removed in Firefox
+# 100 because the experiment will have ended.
+- name: general.useragent.handledVersionExperimentEnrollment
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -9013,22 +9032,10 @@
     mirror: always
 
 #ifdef MOZ_WAYLAND
-# Disable DMABuf for ffmpeg video textures on Linux
-- name: media.ffmpeg.dmabuf-textures.disabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # Use VA-API for ffmpeg video playback on Linux
 - name: media.ffmpeg.vaapi.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Use DRM display for VA-API ffmpeg video decoding on Linux
-- name: media.ffmpeg.vaapi-drm-display.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 #endif # MOZ_WAYLAND
 #endif  # MOZ_FFMPEG
@@ -9997,7 +10004,7 @@
 
 - name: network.cookie.sameSite.laxByDefault
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # lax-by-default 2 minutes tollerance for unsafe methods. The value is in seconds.
@@ -10008,12 +10015,12 @@
 
 - name: network.cookie.sameSite.noneRequiresSecure
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: network.cookie.sameSite.schemeful
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: network.cookie.thirdparty.sessionOnly
@@ -12979,18 +12986,6 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
-
-# Use async clipboard on Wayland
-- name: widget.wayland.async-clipboard.enabled
-  type: bool
-  value: true
-  mirror: once
-
-# Use async data getter on Wayland Clipboard
-- name: widget.wayland.async-data-transfer.enabled
-  type: bool
-  value: false
-  mirror: once
 
 # Force fractional scaling using wp_viewporter. Valid values: 0.5 - 8
 - name: widget.wayland.fractional_buffer_scale

@@ -43,7 +43,8 @@ namespace dom {
 NS_IMPL_CYCLE_COLLECTION_CLASS(ReadableByteStreamController)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(ReadableByteStreamController,
                                                 ReadableStreamController)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mByobRequest, mStream)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mByobRequest, mCancelAlgorithm,
+                                  mPullAlgorithm, mStream)
   tmp->ClearPendingPullIntos();
   tmp->ClearQueue();
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
@@ -51,7 +52,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ReadableByteStreamController,
                                                   ReadableStreamController)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mByobRequest, mStream)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mByobRequest, mCancelAlgorithm,
+                                    mPullAlgorithm, mStream)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(ReadableByteStreamController,
@@ -118,6 +120,7 @@ ReadableByteStreamControllerGetBYOBRequest(
         aController->PendingPullIntos().getFirst();
 
     // Step 1.2:
+    aRv.MightThrowJSException();
     JS::Rooted<JSObject*> buffer(aCx, firstDescriptor->Buffer());
     JS::Rooted<JSObject*> view(
         aCx, JS_NewUint8ArrayWithBuffer(
@@ -638,6 +641,8 @@ void ReadableByteStreamControllerProcessPullIntoDescriptorsUsingQueue(
 void ReadableByteStreamControllerEnqueue(
     JSContext* aCx, ReadableByteStreamController* aController,
     JS::Handle<JSObject*> aChunk, ErrorResult& aRv) {
+  aRv.MightThrowJSException();
+
   // Step 1.
   ReadableStream* stream = aController->Stream();
 
@@ -898,6 +903,7 @@ void ReadableByteStreamController::PullSteps(JSContext* aCx,
     }
 
     // Step 3.6
+    aRv.MightThrowJSException();
     JS::Rooted<JSObject*> buffer(aCx, entry->Buffer());
     JS::Rooted<JSObject*> view(
         aCx, JS_NewUint8ArrayWithBuffer(aCx, buffer, entry->ByteOffset(),
@@ -924,6 +930,7 @@ void ReadableByteStreamController::PullSteps(JSContext* aCx,
   // Step 5.
   if (autoAllocateChunkSize) {
     // Step 5.1
+    aRv.MightThrowJSException();
     JS::Rooted<JSObject*> buffer(
         aCx, JS::NewArrayBuffer(aCx, *autoAllocateChunkSize));
     // Step 5.2
@@ -1013,6 +1020,7 @@ JSObject* ReadableByteStreamControllerConvertPullIntoDescriptor(
   MOZ_ASSERT(bytesFilled % elementSize == 0);
 
   // Step 5. Let buffer be ! TransferArrayBuffer(pullIntoDescriptor’s buffer).
+  aRv.MightThrowJSException();
   JS::Rooted<JSObject*> srcBuffer(aCx, pullIntoDescriptor->Buffer());
   JS::Rooted<JSObject*> buffer(aCx, TransferArrayBuffer(aCx, srcBuffer));
   if (!buffer) {
@@ -1247,6 +1255,7 @@ void ReadableByteStreamControllerRespond(
   }
 
   // Step 6.
+  aRv.MightThrowJSException();
   JS::Rooted<JSObject*> buffer(aCx, firstDescriptor->Buffer());
   JS::Rooted<JSObject*> transferredBuffer(aCx,
                                           TransferArrayBuffer(aCx, buffer));
@@ -1265,6 +1274,8 @@ void ReadableByteStreamControllerRespond(
 void ReadableByteStreamControllerRespondWithNewView(
     JSContext* aCx, ReadableByteStreamController* aController,
     JS::Handle<JSObject*> aView, ErrorResult& aRv) {
+  aRv.MightThrowJSException();
+
   // Step 1.
   MOZ_ASSERT(!aController->PendingPullIntos().isEmpty());
 
@@ -1473,6 +1484,8 @@ void ReadableByteStreamControllerPullInto(
     JSContext* aCx, ReadableByteStreamController* aController,
     JS::HandleObject aView, ReadIntoRequest* aReadIntoRequest,
     ErrorResult& aRv) {
+  aRv.MightThrowJSException();
+
   // Step 1. Let stream be controller.[[stream]].
   ReadableStream* stream = aController->Stream();
 
@@ -1523,6 +1536,12 @@ void ReadableByteStreamControllerPullInto(
       aRv.StealExceptionFromJSContext(aCx);
       return;
     }
+
+    // It's not expliclitly stated, but I assume the intention here is that
+    // we perform a normal completion here; we also need to clear the
+    // exception state anyhow to succesfully run ErrorSteps.
+    JS_ClearPendingException(aCx);
+
     //     Step 8.1. Perform readIntoRequest’s error steps, given
     //     bufferResult.[[Value]].
     aReadIntoRequest->ErrorSteps(aCx, pendingException, aRv);

@@ -481,7 +481,7 @@ GeckoDriver.prototype.newSession = async function(cmd) {
         const browsingContext = this.curBrowser.contentBrowser.browsingContext;
         this.currentSession.contentBrowsingContext = browsingContext;
 
-        await waitForInitialNavigationCompleted(browsingContext);
+        await waitForInitialNavigationCompleted(browsingContext.webProgress);
 
         this.curBrowser.contentBrowser.focus();
       }
@@ -2109,7 +2109,9 @@ GeckoDriver.prototype.newWindow = async function(cmd) {
 
   // Actors need the new window to be loaded to safely execute queries.
   // Wait until the initial page load has been finished.
-  await waitForInitialNavigationCompleted(contentBrowser.browsingContext);
+  await waitForInitialNavigationCompleted(
+    contentBrowser.browsingContext.webProgress
+  );
 
   const id = TabManager.getIdForBrowser(contentBrowser);
 

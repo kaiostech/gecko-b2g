@@ -74,12 +74,9 @@ mochitest-plain:
                     default: []
             fission:
                 by-test-platform:
-                    (linux.*64|macosx.*64|windows10-64-2004)-qr/debug: ['autoland', 'mozilla-central']
-                    (linux.*64|macosx.*64|windows10-64-2004)-qr/opt: ['autoland']
-                    (linux.*64|macosx.*64|windows10-64-2004)-shippable-qr/opt: ['autoland', 'mozilla-central']
-                    linux.*64(-asan|-tsan)-qr/opt: ['autoland', 'mozilla-central']
-                    linux.*64-ccov-qr/opt: ['mozilla-central']
-                    default: []
+                    android.*: []
+                    .*-tsan-qr/opt: ['trunk']
+                    default: built-projects
             fission-xorigin:
                 by-test-platform:
                     (linux.*64|macosx.*64|windows10.*2004)(-shippable)?-qr/(opt|debug|asan|tsan): ['trunk']
@@ -88,7 +85,8 @@ mochitest-plain:
                     default: []
             socketprocess_networking:
                 by-test-platform:
-                    (linux.*64|macosx.*64|windows10-64-2004)(-shippable)?-qr/(opt|debug): ['autoland', 'mozilla-central']
+                    linux.*asan.*: ['trunk']
+                    linux.*64(-shippable)?-qr/(opt|debug): ['trunk']
                     default: []
             socketprocess_networking+fission:
                 by-test-platform:
@@ -101,7 +99,8 @@ mochitest-plain:
             webrender-sw:
                 by-test-platform:
                     android-em-7.0-x86_64-qr/debug: built-projects
-                    linux1804-64-qr/debug: built-projects
+                    linux.*asan.*: ['trunk']
+                    linux.*64(-shippable)?-qr/(opt|debug): ['trunk']
                     default: []
             webrender-sw+fission:
                 by-test-platform:
@@ -129,10 +128,14 @@ mochitest-plain:
                     default: []
             default:
                 by-test-platform:
-                    .*-tsan-qr/opt: ['trunk']
                     android-em-7.0-x86_64-qr/debug-isolated-process: []
                     linux.*64-ccov-qr/opt: []
-                    default: built-projects
+                    linux1804-32.*: []
+                    .*-tsan-qr/opt: []
+                    linux.*: ['trunk']  # linux opt/debug/asan
+                    android.*: built-projects
+                    default: []
+
     chunks:
         by-test-platform:
             android-em-7.*: 4
@@ -524,7 +527,8 @@ mochitest-plain-gpu:
             webrender-sw:
                 by-test-platform:
                     android-em-7.0-x86_64-qr/debug: built-projects
-                    linux.*64-qr/debug: built-projects
+                    linux.*asan.*: ['trunk']
+                    linux.*64(-shippable)?-qr/(opt|debug): ['trunk']
                     default: []
             webrender-sw+fission:
                 by-test-platform:
@@ -532,9 +536,13 @@ mochitest-plain-gpu:
                     default: []
             default:
                 by-test-platform:
-                    .*-tsan-qr/opt: ['trunk']
                     android-em-7.0-x86_64-qr/debug-isolated-process: []
-                    default: built-projects
+                    linux.*64-ccov-qr/opt: []
+                    linux1804-32.*: []
+                    .*-tsan-qr/opt: []
+                    linux.*: ['trunk']  # linux opt/debug/asan
+                    android.*: built-projects
+                    default: []
     virtualization: virtual-with-gpu
     tier:
         by-test-platform:
@@ -695,12 +703,11 @@ mochitest-media:
                     android-hw-.*/opt: []
                     android-hw-.*-arm7.*/(?:debug)?: ['trunk', 'mozilla-beta', 'mozilla-release']
                     android-em-7.0-x86_64-qr/debug-isolated-process: []
-                    .*-tsan-qr/opt: ['trunk']
+                    android.*: built-projects
+                    .*-tsan-qr/opt: []
                     linux.*(asan|ccov)/opt: []
-                    .*(ccov/|asan/|-32).*: built-projects
-                    (android|linux|windows10-64-2004|macos)(?!.*-qr).*: []
-                    windows10-aarch64-qr/.*: ['mozilla-central', 'mozilla-beta', 'mozilla-release']
-                    default: built-projects
+                    linux.*: ['trunk']  # opt / debug (asan doesn't run normally)
+                    default: []
     loopback-video: true
     instance-size:
         by-test-platform:
@@ -815,9 +822,9 @@ mochitest-webgl1-core:
     variants:
         - dynamic-first-party-isolation+fission
         - fission
-        - fission-webgl-ipc
         - wayland
         - webgl-ipc
+        - webgl-ipc+fission
         - webrender-sw
         - webrender-sw+fission
     run-on-projects:
@@ -831,7 +838,7 @@ mochitest-webgl1-core:
                     .*-tsan-qr/opt: ['trunk']
                     android.*: []
                     default: built-projects
-            fission-webgl-ipc:
+            webgl-ipc+fission:
                 by-test-platform:
                     .*-ccov.*: []
                     linux.*-64.*: ["trunk"]
@@ -859,10 +866,11 @@ mochitest-webgl1-core:
                     default: []
             default:
                 by-test-platform:
-                    .*-tsan-qr/opt: ['trunk']
                     android-hw-.*(?<!-shippable)(-qr)?/opt: ['mozilla-central', 'mozilla-beta', 'mozilla-release']
                     android-hw.*aarch.*-shippable-qr/opt: ['mozilla-central']
-                    default: built-projects
+                    android-hw.*aarch.*-qr/debug: ['mozilla-central']
+                    linux.*: ['trunk']
+                    default: []
     # Bug 1296733: llvmpipe with mesa 9.2.1 lacks thread safety
     allow-software-gl-layers: false
     mozharness:
@@ -885,7 +893,7 @@ mochitest-webgl1-ext:
     variants:
         - dynamic-first-party-isolation+fission
         - fission
-        - fission-webgl-ipc
+        - webgl-ipc+fission
         - wayland
         - webgl-ipc
         - webrender-sw
@@ -901,7 +909,7 @@ mochitest-webgl1-ext:
                     .*-tsan-qr/opt: ['trunk']
                     android.*: []
                     default: built-projects
-            fission-webgl-ipc:
+            webgl-ipc+fission:
                 by-test-platform:
                     .*-ccov.*: []
                     linux.*-64.*: built-projects
@@ -930,10 +938,11 @@ mochitest-webgl1-ext:
                     default: []
             default:
                 by-test-platform:
-                    .*-tsan-qr/opt: ['trunk']
                     android-hw-.*(?<!-shippable)(-qr)?/opt: ['mozilla-central', 'mozilla-beta', 'mozilla-release']
                     android-hw.*aarch.*-shippable-qr/opt: ['mozilla-central']
-                    default: built-projects
+                    android-hw.*aarch.*-qr/debug: ['mozilla-central']
+                    linux.*: ['trunk']
+                    default: []
     # Bug 1296733: llvmpipe with mesa 9.2.1 lacks thread safety
     allow-software-gl-layers: false
     mozharness:
@@ -957,7 +966,7 @@ mochitest-webgl2-core:
     variants:
         - dynamic-first-party-isolation+fission
         - fission
-        - fission-webgl-ipc
+        - webgl-ipc+fission
         - wayland
         - webgl-ipc
         - webrender-sw
@@ -973,7 +982,7 @@ mochitest-webgl2-core:
                     .*-tsan-qr/opt: ['trunk']
                     android.*: []
                     default: built-projects
-            fission-webgl-ipc:
+            webgl-ipc+fission:
                 by-test-platform:
                     .*-ccov.*/.*: []
                     android.*: []
@@ -1002,10 +1011,11 @@ mochitest-webgl2-core:
                     default: []
             default:
                 by-test-platform:
-                    .*-tsan-qr/opt: ['trunk']
                     android-hw-.*(?<!-shippable)(-qr)?/opt: ['mozilla-central', 'mozilla-beta', 'mozilla-release']
                     android-hw.*aarch.*-shippable-qr/opt: ['mozilla-central']
-                    default: built-projects
+                    android-hw.*aarch.*-qr/debug: ['mozilla-central']
+                    linux.*: ['trunk']
+                    default: []
     # Bug 1296733: llvmpipe with mesa 9.2.1 lacks thread safety
     allow-software-gl-layers: false
     mozharness:
@@ -1020,7 +1030,7 @@ mochitest-webgl2-ext:
     variants:
         - dynamic-first-party-isolation+fission
         - fission
-        - fission-webgl-ipc
+        - webgl-ipc+fission
         - webgl-ipc
         - webrender-sw
         - webrender-sw+fission
@@ -1035,7 +1045,7 @@ mochitest-webgl2-ext:
                 by-test-platform:
                     android.*: []
                     default: built-projects
-            fission-webgl-ipc:
+            webgl-ipc+fission:
                 by-test-platform:
                     .*ccov.*/.*: []
                     linux.*-64.*: ["trunk"]
@@ -1061,7 +1071,11 @@ mochitest-webgl2-ext:
                 by-test-platform:
                     linux.*64-qr/debug: built-projects
                     default: []
-            default: built-projects
+            default:
+                by-test-platform:
+                    linux.*: ['trunk']
+                    android.*: built-projects
+                    default: []
     chunks: 4
     test-manifest-loader: null  # don't load tests in the taskgraph
     loopback-video: true
@@ -1129,9 +1143,10 @@ mochitest-webgpu:
                     default: []
             default:
                 by-test-platform:
-                    .*mingw.*: ["release"]
-                    .*shippable.*: ["mozilla-central"]
-                    .*(!-shippable)-qr.*: ["trunk"]
+                    .*-tsan-qr/opt: []
+                    .*ccov.*: []
+                    linux.*/debug: []
+                    linux.*shippable.*: ['trunk']  # run on opt / asan; debug was not running originally
                     default: []
     max-run-time:
         by-test-platform:

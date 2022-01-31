@@ -19,10 +19,8 @@ class FakeMediaTrackGraph : public MediaTrackGraph {
         mCurrentTime((long long)0, "FakeMediaTrackGraph:CurrentTime") {}
 
   void DispatchToMainThreadStableState(already_AddRefed<nsIRunnable> aRunnable);
-  virtual nsresult OpenAudioInput(CubebUtils::AudioDeviceID aID,
-                                  AudioDataListener* aListener) override;
-  virtual void CloseAudioInput(CubebUtils::AudioDeviceID aID,
-                               AudioDataListener* aListener) override;
+  virtual void OpenAudioInput(NativeInputTrack* aTrack) override;
+  virtual void CloseAudioInput(NativeInputTrack* aTrack) override;
   virtual Watchable<GraphTime>& CurrentTime() override;
 
   virtual bool OnGraphThreadOrNotRunning() const override;

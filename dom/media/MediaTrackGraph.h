@@ -129,9 +129,7 @@ class AudioDataListenerInterface {
   virtual void Disconnect(MediaTrackGraphImpl* aGraph) = 0;
 
 #ifdef B2G_VOICE_PROCESSING
-  virtual void GetVoiceInputSettings(MediaTrackGraphImpl* aGraph,
-                                     bool* aEnableAec, bool* aEnableAgc,
-                                     bool* aEnableNs) {
+  virtual void GetVoiceInputSettings(bool* aEnableAec, bool* aEnableAgc, bool* aEnableNs) {
     *aEnableAec = false;
     *aEnableAgc = false;
     *aEnableNs = false;

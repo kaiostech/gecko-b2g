@@ -509,22 +509,7 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
                              bool* aEnableNs) override {
     MOZ_ASSERT(OnGraphThreadOrNotRunning());
 
-    *aEnableAec = false;
-    *aEnableAgc = false;
-    *aEnableNs = false;
-
-    auto result = mDeviceTrackMap.Lookup(mInputDeviceID);
-    if (!result) {
-      return;
-    }
-
-    for (const auto& listener : result.Data()->mDataUsers) {
-      bool aec, agc, ns;
-      listener->GetVoiceInputSettings(this, &aec, &agc, &ns);
-      *aEnableAec |= aec;
-      *aEnableAgc |= agc;
-      *aEnableNs |= ns;
-    }
+     mNativeInputTrackOnGraph->GetVoiceInputSettings(aEnableAec, aEnableAgc, aEnableNs);
   }
 #endif
 

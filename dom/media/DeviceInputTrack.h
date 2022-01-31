@@ -84,6 +84,23 @@ class NativeInputTrack : public ProcessedMediaTrack {
   const CubebUtils::AudioDeviceID mDeviceId;
   const PrincipalHandle mPrincipalHandle;
 
+#ifdef B2G_VOICE_PROCESSING
+  void GetVoiceInputSettings(bool* aEnableAec, bool* aEnableAgc,
+                             bool* aEnableNs) {
+    *aEnableAec = false;
+    *aEnableAgc = false;
+    *aEnableNs = false;
+
+    for (const auto& listener : this->mDataUsers) {
+      bool aec, agc, ns;
+      listener->GetVoiceInputSettings(&aec, &agc, &ns);
+      *aEnableAec |= aec;
+      *aEnableAgc |= agc;
+      *aEnableNs |= ns;
+    }
+  }
+#endif
+
  private:
   NativeInputTrack(TrackRate aSampleRate, CubebUtils::AudioDeviceID aDeviceId,
                    const PrincipalHandle& aPrincipalHandle);

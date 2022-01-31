@@ -141,8 +141,8 @@ class AudioInputProcessing : public AudioDataListener {
   void Disconnect(MediaTrackGraphImpl* aGraph) override;
 
 #ifdef B2G_VOICE_PROCESSING
-  void GetVoiceInputSettings(MediaTrackGraphImpl* aGraph, bool* aEnableAec,
-                             bool* aEnableAgc, bool* aEnableNs) override {
+  void GetVoiceInputSettings(bool* aEnableAec, bool* aEnableAgc,
+                             bool* aEnableNs) override {
     *aEnableAec = mEnableGonkAec;
     *aEnableAgc = mEnableGonkAgc;
     *aEnableNs = mEnableGonkNs;

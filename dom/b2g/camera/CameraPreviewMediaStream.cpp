@@ -27,13 +27,9 @@ void FakeMediaTrackGraph::DispatchToMainThreadStableState(
   NS_DispatchToMainThread(task);
 }
 
-nsresult FakeMediaTrackGraph::OpenAudioInput(CubebUtils::AudioDeviceID aID,
-                                             AudioDataListener* aListener) {
-  return NS_ERROR_FAILURE;
-}
+void FakeMediaTrackGraph::OpenAudioInput(NativeInputTrack* aTrack) {}
 
-void FakeMediaTrackGraph::CloseAudioInput(CubebUtils::AudioDeviceID aID,
-                                          AudioDataListener* aListener) {}
+void FakeMediaTrackGraph::CloseAudioInput(NativeInputTrack* aTrack) {}
 
 Watchable<mozilla::GraphTime>& FakeMediaTrackGraph::CurrentTime() {
   return mCurrentTime;

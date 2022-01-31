@@ -1996,10 +1996,10 @@ pub extern "C" fn wr_transaction_scroll_layer(
     txn: &mut Transaction,
     pipeline_id: WrPipelineId,
     scroll_id: u64,
-    new_scroll_offset: LayoutVector2D,
+    sampled_scroll_offsets: &ThinVec<SampledScrollOffset>,
 ) {
     let scroll_id = ExternalScrollId(scroll_id, pipeline_id);
-    txn.set_scroll_offset(scroll_id, new_scroll_offset);
+    txn.set_scroll_offsets(scroll_id, sampled_scroll_offsets.to_vec());
 }
 
 #[no_mangle]
@@ -2800,6 +2800,8 @@ pub extern "C" fn wr_dp_define_scroll_layer(
     content_rect: LayoutRect,
     clip_rect: LayoutRect,
     scroll_offset: LayoutVector2D,
+    scroll_offset_generation: APZScrollGeneration,
+    has_scroll_linked_effect: HasScrollLinkedEffect,
     key: SpatialTreeItemKey,
 ) -> WrSpatialId {
     assert!(unsafe { is_in_main_thread() });
@@ -2810,6 +2812,8 @@ pub extern "C" fn wr_dp_define_scroll_layer(
         content_rect,
         clip_rect,
         scroll_offset,
+        scroll_offset_generation,
+        has_scroll_linked_effect,
         key,
     );
 

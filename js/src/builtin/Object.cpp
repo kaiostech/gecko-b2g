@@ -36,7 +36,8 @@
 #include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/RegExpObject.h"
 #include "vm/StringObject.h"
-#include "vm/ToSource.h"       // js::ValueToSource
+#include "vm/ToSource.h"  // js::ValueToSource
+#include "vm/Watchtower.h"
 #include "vm/WellKnownAtom.h"  // js_*_str
 
 #ifdef ENABLE_RECORD_TUPLE
@@ -299,6 +300,17 @@ JSString* js::ObjectToSource(JSContext* cx, HandleObject obj) {
   if (!GetPropertyKeys(cx, obj, JSITER_OWNONLY | JSITER_SYMBOLS, &idv)) {
     return nullptr;
   }
+
+#ifdef ENABLE_RECORD_TUPLE
+  if (IsExtendedPrimitiveWrapper(*obj)) {
+    if (obj->is<TupleObject>()) {
+      Rooted<TupleType*> tup(cx, &obj->as<TupleObject>().unbox());
+      return TupleToSource(cx, tup);
+    }
+    MOZ_ASSERT(obj->is<RecordObject>());
+    return RecordToSource(cx, obj->as<RecordObject>().unbox());
+  }
+#endif
 
   bool comma = false;
 
@@ -910,8 +922,8 @@ static bool CanAddNewPropertyExcludingProtoFast(PlainObject* obj) {
   // enumerable/writable/configurable data properties, try to use its shape.
   if (toWasEmpty && !hasPropsWithNonDefaultAttrs &&
       toPlain->canReuseShapeForNewProperties(fromPlain->shape())) {
-    MOZ_ASSERT(!toPlain->isUsedAsPrototype(),
-               "prototypes require extra checks for shape teleporting");
+    MOZ_ASSERT(!Watchtower::watchesPropertyAdd(toPlain),
+               "watched objects require Watchtower calls");
     Shape* newShape = fromPlain->shape();
     if (!toPlain->setShapeAndUpdateSlots(cx, newShape)) {
       return false;
@@ -1437,7 +1449,7 @@ static bool TryEnumerableOwnPropertiesNative(JSContext* cx, HandleObject obj,
 
 #ifdef ENABLE_RECORD_TUPLE
   if (obj->is<TupleObject>()) {
-    Rooted<TupleType*> tup(cx, obj->as<TupleObject>().unbox());
+    Rooted<TupleType*> tup(cx, &obj->as<TupleObject>().unbox());
     return TryEnumerableOwnPropertiesNative<kind>(cx, tup, rval, optimized);
   } else if (obj->is<RecordObject>()) {
     Rooted<RecordType*> tup(cx, obj->as<RecordObject>().unbox());

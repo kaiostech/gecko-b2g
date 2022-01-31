@@ -200,6 +200,14 @@ const BrowsingContext* BrowsingContext::Top() const {
   return bc;
 }
 
+BrowsingContext* BrowsingContext::TopOfNormalOrNestedWebView() {
+  BrowsingContext* top = this;
+  while (!top->IsTop() && !top->IsTopContentOfNestedWebView()) {
+    top = top->GetParent();
+  }
+  return top;
+}
+
 int32_t BrowsingContext::IndexOf(BrowsingContext* aChild) {
   int32_t index = -1;
   for (BrowsingContext* child : Children()) {
@@ -2418,6 +2426,17 @@ Nullable<WindowProxyHolder> BrowsingContext::GetTop(ErrorResult& aError) {
   return WindowProxyHolder(Top());
 }
 
+Nullable<WindowProxyHolder> BrowsingContext::GetTopOfNormalOrNestedWebView(
+    ErrorResult& aError) {
+  if (mIsDiscarded) {
+    return nullptr;
+  }
+
+  // We never return null or throw an error, but the implementation in
+  // nsGlobalWindow does and we need to use the same signature.
+  return WindowProxyHolder(TopOfNormalOrNestedWebView());
+}
+
 void BrowsingContext::GetOpener(JSContext* aCx,
                                 JS::MutableHandle<JS::Value> aOpener,
                                 ErrorResult& aError) const {
@@ -3527,7 +3546,7 @@ bool BrowsingContext::ShouldAddEntryForRefresh(
 void BrowsingContext::SessionHistoryCommit(
     const LoadingSessionHistoryInfo& aInfo, uint32_t aLoadType,
     nsIURI* aCurrentURI, bool aHadActiveEntry, bool aPersist,
-    bool aCloneEntryChildren, bool aChannelExpired) {
+    bool aCloneEntryChildren, bool aChannelExpired, uint32_t aCacheKey) {
   nsID changeID = {};
   if (XRE_IsContentProcess()) {
     RefPtr<ChildSHistory> rootSH = Top()->GetChildSessionHistory();
@@ -3558,11 +3577,11 @@ void BrowsingContext::SessionHistoryCommit(
     ContentChild* cc = ContentChild::GetSingleton();
     mozilla::Unused << cc->SendHistoryCommit(
         this, aInfo.mLoadId, changeID, aLoadType, aPersist, aCloneEntryChildren,
-        aChannelExpired);
+        aChannelExpired, aCacheKey);
   } else {
     Canonical()->SessionHistoryCommit(aInfo.mLoadId, changeID, aLoadType,
                                       aPersist, aCloneEntryChildren,
-                                      aChannelExpired);
+                                      aChannelExpired, aCacheKey);
   }
 }
 

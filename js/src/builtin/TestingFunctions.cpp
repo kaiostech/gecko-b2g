@@ -108,6 +108,7 @@
 #include "vm/ErrorObject.h"
 #include "vm/GlobalObject.h"
 #include "vm/HelperThreads.h"
+#include "vm/HelperThreadState.h"
 #include "vm/Interpreter.h"
 #include "vm/Iteration.h"
 #include "vm/JSContext.h"
@@ -2105,6 +2106,50 @@ static bool IsInStencilCache(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+static bool WaitForStencilCache(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  if (args.length() != 1) {
+    JS_ReportErrorASCII(cx, "The function takes exactly one argument.");
+    return false;
+  }
+
+  if (!args[0].isObject() || !args[0].toObject().is<JSFunction>()) {
+    JS_ReportErrorASCII(cx, "The first argument should be a function.");
+    return false;
+  }
+  args.rval().setUndefined();
+
+  JSFunction* fun = &args[0].toObject().as<JSFunction>();
+  BaseScript* script = fun->baseScript();
+  RefPtr<ScriptSource> ss = script->scriptSource();
+  StencilCache& cache = cx->runtime()->caches().delazificationCache;
+  StencilContext key(ss, script->extent());
+
+  AutoLockHelperThreadState lock;
+  if (!HelperThreadState().isInitialized(lock)) {
+    return true;
+  }
+
+  while (true) {
+    {
+      // This capture a Mutex that we have to release before using the wait
+      // function.
+      auto guard = cache.isSourceCached(ss);
+      if (!guard) {
+        return true;
+      }
+
+      frontend::CompilationStencil* stencil = cache.lookup(guard, key);
+      if (stencil) {
+        break;
+      }
+    }
+
+    HelperThreadState().wait(lock);
+  }
+  return true;
+}
+
 static bool HasSameBytecodeData(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 2) {
@@ -2971,6 +3016,38 @@ static bool NewObjectWithAddPropertyHook(JSContext* cx, unsigned argc,
   }
 
   args.rval().setObject(*obj);
+  return true;
+}
+
+static bool SetWatchtowerCallback(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  JSFunction* fun = nullptr;
+  if (args.length() != 1 || !IsFunctionObject(args[0], &fun)) {
+    JS_ReportErrorASCII(cx, "Expected a single function argument.");
+    return false;
+  }
+
+  cx->watchtowerTestingCallbackRef() = fun;
+
+  args.rval().setUndefined();
+  return true;
+}
+
+static bool AddWatchtowerTarget(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  if (args.length() != 1 || !args[0].isObject()) {
+    JS_ReportErrorASCII(cx, "Expected a single object argument.");
+    return false;
+  }
+
+  RootedObject obj(cx, &args[0].toObject());
+  if (!JSObject::setUseWatchtowerTestingCallback(cx, obj)) {
+    return false;
+  }
+
+  args.rval().setUndefined();
   return true;
 }
 
@@ -8071,6 +8148,18 @@ static const JSFunctionSpecWithHelp TestingFunctions[] = {
 "  increments the value of the _propertiesAdded data property on the object\n"
 "  when a new property is added."),
 
+    JS_FN_HELP("setWatchtowerCallback", SetWatchtowerCallback, 1, 0,
+"setWatchtowerCallback(function)",
+"  Use the given function as callback for objects added to Watchtower by\n"
+"  addWatchtowerTarget. The callback is called with the following arguments:\n"
+"  - kind: a string describing the kind of mutation, for example \"add-prop\"\n"
+"  - object: the object being mutated\n"
+"  - extra: an extra value, for example the name of the property being added"),
+
+    JS_FN_HELP("addWatchtowerTarget", AddWatchtowerTarget, 1, 0,
+"addWatchtowerTarget(object)",
+"  Invoke the watchtower callback for changes to this object."),
+
     JS_FN_HELP("newString", NewString, 2, 0,
 "newString(str[, options])",
 "  Copies str's chars and returns a new string. Valid options:\n"
@@ -8979,6 +9068,10 @@ JS_FN_HELP("setDefaultLocale", SetDefaultLocale, 1, 0,
 JS_FN_HELP("isInStencilCache", IsInStencilCache, 1, 0,
 "isInStencilCache(fun)",
 "  True if fun is available in the stencil cache."),
+
+JS_FN_HELP("waitForStencilCache", WaitForStencilCache, 1, 0,
+"waitForStencilCache(fun)",
+"  Block main thread execution until the function is made available in the cache."),
 
     JS_FS_HELP_END
 };

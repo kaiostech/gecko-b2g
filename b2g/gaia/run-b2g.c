@@ -80,6 +80,12 @@ int main(int argc, char* argv[], char* envp[]) {
     // When b2g process is terminated, PR_SET_PDEATHSIG will be sent to kill the api-daemon
     // process at the same time.
     prctl(PR_SET_PDEATHSIG, SIGKILL);
+    // api-daemon loads vhost.root_path and apps_service.root_path from
+    // config.toml by relative path, so the current working directory must be
+    // set precisely.
+    if (chdir(cwd)) {
+      printf("chdir to %s for api-daemon error.\n", cwd);
+    }
     execle(apidaemon_path, apidaemon_path, full_config_path, NULL, apidaemon_envp);
   } else if (pid < 0) {
     printf("fork api-daemon error\n");

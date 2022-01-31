@@ -162,16 +162,17 @@ partial interface B2G {
   readonly attribute AuthorizationManager authorizationManager;
 };
 
+[Exposed=Window]
+partial interface B2G {
+  [Throws]
+  Promise<UserConsent> getUserConsent(DOMString secret);
+};
+
 #ifdef MOZ_WIDGET_GONK
 [Exposed=Window]
 partial interface B2G {
   [Throws, Func="B2G::HasEngmodeManagerSupport"]
   readonly attribute EngmodeManager engmodeManager;
-};
-[Exposed=Window]
-partial interface B2G {
-  [Throws]
-  Promise<UserConsent> getUserConsent(DOMString secret);
 };
 #endif
 #endif

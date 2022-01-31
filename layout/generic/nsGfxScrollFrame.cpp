@@ -6110,18 +6110,6 @@ bool ScrollFrameHelper::IsScrollingActive() const {
          nsContentUtils::HasScrollgrab(content);
 }
 
-bool ScrollFrameHelper::IsScrollingActiveNotMinimalDisplayPort() const {
-  const nsStyleDisplay* disp = mOuter->StyleDisplay();
-  if (disp->mWillChange.bits & StyleWillChangeBits::SCROLL) {
-    return true;
-  }
-
-  nsIContent* content = mOuter->GetContent();
-  return mHasBeenScrolledRecently || IsAlwaysActive() ||
-         DisplayPortUtils::HasNonMinimalDisplayPort(content) ||
-         nsContentUtils::HasScrollgrab(content);
-}
-
 /**
  * Reflow the scroll area if it needs it and return its size. Also determine if
  * the reflow will cause any of the scrollbars to need to be reflowed.
@@ -7336,12 +7324,15 @@ bool ScrollFrameHelper::IsScrollAnimating(
 }
 
 void ScrollFrameHelper::ResetScrollInfoIfNeeded(
-    const ScrollGeneration& aGeneration,
+    const MainThreadScrollGeneration& aGeneration,
+    const APZScrollGeneration& aGenerationOnApz,
     APZScrollAnimationType aAPZScrollAnimationType) {
   if (aGeneration == mScrollGeneration) {
     mLastScrollOrigin = ScrollOrigin::None;
     mApzAnimationRequested = false;
   }
+
+  mScrollGenerationOnApz = aGenerationOnApz;
   // We can reset this regardless of scroll generation, as this is only set
   // here, as a response to APZ requesting a repaint.
   mCurrentAPZScrollAnimationType = aAPZScrollAnimationType;

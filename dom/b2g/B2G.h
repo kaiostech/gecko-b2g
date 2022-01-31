@@ -49,8 +49,8 @@
 #endif
 #ifdef HAS_KOOST_MODULES
 #  include "mozilla/dom/AuthorizationManager.h"
+#  include "mozilla/dom/UserConsent.h"
 #  ifdef MOZ_WIDGET_GONK
-#    include "mozilla/dom/UserConsent.h"
 #    include "mozilla/dom/EngmodeManagerBinding.h"
 #  endif
 #  ifdef ENABLE_RSU
@@ -170,12 +170,12 @@ class B2G final : public DOMEventTargetHelper,
   AuthorizationManager* GetAuthorizationManager(ErrorResult& aRv);
   static bool HasAuthorizationManagerSupport(JSContext* /* unused */,
                                              JSObject* aGlobal);
+  already_AddRefed<Promise> GetUserConsent(const nsAString& secret,
+                                          ErrorResult& aRv);
 #  ifdef MOZ_WIDGET_GONK
   EngmodeManager* GetEngmodeManager(ErrorResult& aRv);
   static bool HasEngmodeManagerSupport(JSContext* /* unused */,
                                        JSObject* aGlobal);
-  already_AddRefed<Promise> GetUserConsent(const nsAString& secret,
-                                          ErrorResult& aRv);
 #  endif
 #  ifdef ENABLE_RSU
   RemoteSimUnlock* GetRsu(ErrorResult& aRv);
@@ -271,8 +271,8 @@ class B2G final : public DOMEventTargetHelper,
 #endif
 #ifdef HAS_KOOST_MODULES
   RefPtr<AuthorizationManager> mAuthorizationManager;
-#  ifdef MOZ_WIDGET_GONK
   RefPtr<UserConsent> mUserConsent;
+#  ifdef MOZ_WIDGET_GONK
   RefPtr<EngmodeManager> mEngmodeManager;
 #  endif
 #  ifdef ENABLE_RSU

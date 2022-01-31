@@ -4135,7 +4135,9 @@ uint32_t nsGlobalWindowOuter::Length() {
 
 Nullable<WindowProxyHolder> nsGlobalWindowOuter::GetTopOuter() {
   BrowsingContext* bc = GetBrowsingContext();
-  return bc ? bc->GetTop(IgnoreErrors()) : nullptr;
+  // We could get the top from the content inside a nested web-view. Return the
+  // nearest web-view or nested web-view.
+  return bc ? bc->GetTopOfNormalOrNestedWebView(IgnoreErrors()) : nullptr;
 }
 
 already_AddRefed<BrowsingContext> nsGlobalWindowOuter::GetChildWindow(
@@ -5201,12 +5203,6 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
     return;
   }
 
-  bool print_tab_modal_enabled = true;
-  if (!print_tab_modal_enabled && ShouldPromptToBlockDialogs() &&
-      !ConfirmDialogIfNeeded()) {
-    return aError.ThrowNotAllowedError("Prompt was canceled by the user");
-  }
-
   // If we're loading, queue the print for later. This is a special-case that
   // only applies to the window.print() call, for compat with other engines and
   // pre-existing behavior.
@@ -5233,9 +5229,8 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
     }
   });
 
-  const bool isPreview =
-      print_tab_modal_enabled && !StaticPrefs::print_always_print_silent();
-  Print(nullptr, nullptr, nullptr, IsPreview(isPreview),
+  const bool forPreview = !StaticPrefs::print_always_print_silent();
+  Print(nullptr, nullptr, nullptr, IsPreview(forPreview),
         IsForWindowDotPrint::Yes, nullptr, aError);
 #endif
 }
@@ -5293,9 +5288,7 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
   nsCOMPtr<nsIContentViewer> cv;
   RefPtr<BrowsingContext> bc;
   bool hasPrintCallbacks = false;
-  bool print_tab_modal_enabled = true;
-  if (docToPrint->IsStaticDocument() &&
-      (aIsPreview == IsPreview::Yes || print_tab_modal_enabled)) {
+  if (docToPrint->IsStaticDocument()) {
     if (aForWindowDotPrint == IsForWindowDotPrint::Yes) {
       aError.ThrowNotSupportedError(
           "Calling print() from a print preview is unsupported, did you intend "

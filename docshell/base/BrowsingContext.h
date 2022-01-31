@@ -429,6 +429,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   BrowsingContext* Top();
   const BrowsingContext* Top() const;
 
+  BrowsingContext* TopOfNormalOrNestedWebView();
+
   int32_t IndexOf(BrowsingContext* aChild);
 
   // NOTE: Unlike `GetEmbedderWindowGlobal`, `GetParentWindowContext` does not
@@ -685,6 +687,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   WindowProxyHolder GetFrames(ErrorResult& aError);
   int32_t Length() const { return Children().Length(); }
   Nullable<WindowProxyHolder> GetTop(ErrorResult& aError);
+  Nullable<WindowProxyHolder> GetTopOfNormalOrNestedWebView(
+      ErrorResult& aError);
   void GetOpener(JSContext* aCx, JS::MutableHandle<JS::Value> aOpener,
                  ErrorResult& aError) const;
   Nullable<WindowProxyHolder> GetParent(ErrorResult& aError);
@@ -807,7 +811,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   void SessionHistoryCommit(const LoadingSessionHistoryInfo& aInfo,
                             uint32_t aLoadType, nsIURI* aCurrentURI,
                             bool aHadActiveEntry, bool aPersist,
-                            bool aCloneEntryChildren, bool aChannelExpired);
+                            bool aCloneEntryChildren, bool aChannelExpired,
+                            uint32_t aCacheKey);
 
   // Set a new active entry on this browsing context. This is used for
   // implementing history.pushState/replaceState and same document navigations.

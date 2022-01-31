@@ -183,21 +183,14 @@ class CPUInfo {
   static const int AVX_PRESENT_BIT = 8;
 
   static SSEVersion GetSSEVersion() {
-    if (maxSSEVersion == UnknownSSE) {
-      SetSSEVersion();
-    }
-
-    MOZ_ASSERT(maxSSEVersion != UnknownSSE);
+    MOZ_ASSERT(FlagsHaveBeenComputed());
     MOZ_ASSERT_IF(maxEnabledSSEVersion != UnknownSSE,
                   maxSSEVersion <= maxEnabledSSEVersion);
     return maxSSEVersion;
   }
 
   static bool IsAVXPresent() {
-    if (MOZ_UNLIKELY(maxSSEVersion == UnknownSSE)) {
-      SetSSEVersion();
-    }
-
+    MOZ_ASSERT(FlagsHaveBeenComputed());
     MOZ_ASSERT_IF(!avxEnabled, !avxPresent);
     return avxPresent;
   }
@@ -216,8 +209,6 @@ class CPUInfo {
   static bool bmi2Present;
   static bool lzcntPresent;
   static bool avx2Present;
-
-  static void SetSSEVersion();
 
   static void SetMaxEnabledSSEVersion(SSEVersion v) {
     if (maxEnabledSSEVersion == UnknownSSE) {
@@ -245,39 +236,37 @@ class CPUInfo {
   static bool IsLZCNTPresent() { return lzcntPresent; }
   static bool IsAVX2Present() { return avx2Present; }
 
-  // The SSE flags can become set at startup when we JIT non-JS code eagerly;
-  // thus we must reset the flags before setting any flags explicitly during
-  // testing, so that the flags can be in a consistent state.
-
-  static void ResetSSEFlagsForTesting() {
-    maxSSEVersion = UnknownSSE;
-    maxEnabledSSEVersion = UnknownSSE;
-    avxPresent = false;
-    avxEnabled = false;
-  }
-
   static bool FlagsHaveBeenComputed() { return maxSSEVersion != UnknownSSE; }
 
-  // The following should be called only after calling ResetSSEFlagsForTesting.
-  // If several are called, the most restrictive setting is kept.
+  static void ComputeFlags();
+
+  // The following should be called only before JS_Init (where the flags are
+  // computed). If several are called, the most restrictive setting is kept.
 
   static void SetSSE3Disabled() {
+    MOZ_ASSERT(!FlagsHaveBeenComputed());
     SetMaxEnabledSSEVersion(SSE2);
     avxEnabled = false;
   }
   static void SetSSSE3Disabled() {
+    MOZ_ASSERT(!FlagsHaveBeenComputed());
     SetMaxEnabledSSEVersion(SSE3);
     avxEnabled = false;
   }
   static void SetSSE41Disabled() {
+    MOZ_ASSERT(!FlagsHaveBeenComputed());
     SetMaxEnabledSSEVersion(SSSE3);
     avxEnabled = false;
   }
   static void SetSSE42Disabled() {
+    MOZ_ASSERT(!FlagsHaveBeenComputed());
     SetMaxEnabledSSEVersion(SSE4_1);
     avxEnabled = false;
   }
-  static void SetAVXEnabled() { avxEnabled = true; }
+  static void SetAVXEnabled() {
+    MOZ_ASSERT(!FlagsHaveBeenComputed());
+    avxEnabled = true;
+  }
 };
 
 class AssemblerX86Shared : public AssemblerShared {
@@ -2309,10 +2298,8 @@ class AssemblerX86Shared : public AssemblerShared {
   void vpblendvb(FloatRegister mask, FloatRegister src1, FloatRegister src0,
                  FloatRegister dest) {
     MOZ_ASSERT(HasSSE41());
-    MOZ_ASSERT(mask.encoding() == X86Encoding::xmm0 &&
-                   src0.encoding() == dest.encoding(),
-               "only legacy encoding is supported");
-    masm.pblendvb_rr(src1.encoding(), dest.encoding());
+    masm.vpblendvb_rr(mask.encoding(), src1.encoding(), src0.encoding(),
+                      dest.encoding());
   }
 
   void vpinsrb(unsigned lane, const Operand& src1, FloatRegister src0,

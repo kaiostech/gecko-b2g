@@ -4288,12 +4288,10 @@ class FullscreenTransitionTask : public Runnable {
  public:
   FullscreenTransitionTask(const FullscreenTransitionDuration& aDuration,
                            nsGlobalWindowOuter* aWindow, bool aFullscreen,
-                           nsIWidget* aWidget, nsIScreen* aScreen,
-                           nsISupports* aTransitionData)
+                           nsIWidget* aWidget, nsISupports* aTransitionData)
       : mozilla::Runnable("FullscreenTransitionTask"),
         mWindow(aWindow),
         mWidget(aWidget),
-        mScreen(aScreen),
         mTransitionData(aTransitionData),
         mDuration(aDuration),
         mStage(eBeforeToggle),
@@ -4359,7 +4357,6 @@ class FullscreenTransitionTask : public Runnable {
 
   RefPtr<nsGlobalWindowOuter> mWindow;
   nsCOMPtr<nsIWidget> mWidget;
-  nsCOMPtr<nsIScreen> mScreen;
   nsCOMPtr<nsITimer> mTimer;
   nsCOMPtr<nsISupports> mTransitionData;
 
@@ -4401,7 +4398,7 @@ FullscreenTransitionTask::Run() {
     }
     // Toggle the fullscreen state on the widget
     if (!mWindow->SetWidgetFullscreen(FullscreenReason::ForFullscreenAPI,
-                                      mFullscreen, mWidget, mScreen)) {
+                                      mFullscreen, mWidget)) {
       // Fail to setup the widget, call FinishFullscreenChange to
       // complete fullscreen change directly.
       mWindow->FinishFullscreenChange(mFullscreen);
@@ -4498,15 +4495,13 @@ static bool MakeWidgetFullscreen(nsGlobalWindowOuter* aWindow,
           getter_AddRefs(transitionData));
     }
   }
-  // We pass nullptr as the screen to SetWidgetFullscreen
-  // and FullscreenTransitionTask, as we do not wish to override
-  // the default screen selection behavior.  The screen containing
-  // most of the widget will be selected.
+
   if (!performTransition) {
-    return aWindow->SetWidgetFullscreen(aReason, aFullscreen, widget, nullptr);
+    return aWindow->SetWidgetFullscreen(aReason, aFullscreen, widget);
   }
+
   nsCOMPtr<nsIRunnable> task = new FullscreenTransitionTask(
-      duration, aWindow, aFullscreen, widget, nullptr, transitionData);
+      duration, aWindow, aFullscreen, widget, transitionData);
   task->Run();
   return true;
 }
@@ -4623,8 +4618,7 @@ void nsGlobalWindowOuter::ForceFullScreenInWidget() {
 
 bool nsGlobalWindowOuter::SetWidgetFullscreen(FullscreenReason aReason,
                                               bool aIsFullscreen,
-                                              nsIWidget* aWidget,
-                                              nsIScreen* aScreen) {
+                                              nsIWidget* aWidget) {
   MOZ_ASSERT(this == GetInProcessTopInternal(),
              "Only topmost window should call this");
   MOZ_ASSERT(!GetFrameElementInternal(), "Content window should not call this");
@@ -4642,13 +4636,12 @@ bool nsGlobalWindowOuter::SetWidgetFullscreen(FullscreenReason aReason,
       }
     }
   }
-  nsresult rv =
-      aReason == FullscreenReason::ForFullscreenMode
-          ?
-          // If we enter fullscreen for fullscreen mode, we want
-          // the native system behavior.
-          aWidget->MakeFullScreenWithNativeTransition(aIsFullscreen, aScreen)
-          : aWidget->MakeFullScreen(aIsFullscreen, aScreen);
+  nsresult rv = aReason == FullscreenReason::ForFullscreenMode
+                    ?
+                    // If we enter fullscreen for fullscreen mode, we want
+                    // the native system behavior.
+                    aWidget->MakeFullScreenWithNativeTransition(aIsFullscreen)
+                    : aWidget->MakeFullScreen(aIsFullscreen);
   return NS_SUCCEEDED(rv);
 }
 

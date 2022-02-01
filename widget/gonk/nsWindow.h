@@ -102,8 +102,7 @@ class nsWindow final : public nsBaseWidget {
                            bool aDoCapture) override {}
   void ReparentNativeWidget(nsIWidget* aNewParent) override;
 
-  NS_IMETHOD MakeFullScreen(bool aFullScreen,
-                            nsIScreen* aTargetScreen = nullptr) override;
+  NS_IMETHOD MakeFullScreen(bool aFullScreen) override;
 
   virtual already_AddRefed<mozilla::gfx::DrawTarget> StartRemoteDrawing()
       override;

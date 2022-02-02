@@ -421,7 +421,7 @@ nsresult nsHttpHandler::Init() {
   PrefsChanged(nullptr);
 
   Telemetry::ScalarSet(Telemetry::ScalarID::NETWORKING_HTTP3_ENABLED,
-                       mHttp3Enabled);
+                       StaticPrefs::network_http_http3_enable());
 
   mMisc.AssignLiteral("rv:" MOZILLA_UAVERSION);
 
@@ -1812,13 +1812,6 @@ void nsHttpHandler::PrefsChanged(const char* pref) {
     }
   }
 
-  if (PREF_CHANGED(HTTP_PREF("http3.enabled"))) {
-    rv = Preferences::GetBool(HTTP_PREF("http3.enabled"), &cVar);
-    if (NS_SUCCEEDED(rv)) {
-      mHttp3Enabled = cVar;
-    }
-  }
-
   if (PREF_CHANGED(HTTP_PREF("http3.default-qpack-table-size"))) {
     rv = Preferences::GetInt(HTTP_PREF("http3.default-qpack-table-size"), &val);
     if (NS_SUCCEEDED(rv)) {
@@ -2897,7 +2890,8 @@ void nsHttpHandler::MaybeAddAltSvcForTesting(
     nsIURI* aUri, const nsACString& aUsername, bool aPrivateBrowsing,
     nsIInterfaceRequestor* aCallbacks,
     const OriginAttributes& aOriginAttributes) {
-  if (!IsHttp3Enabled() || mAltSvcMappingTemptativeMap.IsEmpty()) {
+  if (!StaticPrefs::network_http_http3_enable() ||
+      mAltSvcMappingTemptativeMap.IsEmpty()) {
     return;
   }
 

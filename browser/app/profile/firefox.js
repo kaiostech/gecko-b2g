@@ -124,6 +124,18 @@ pref("app.update.download.promptMaxAttempts", 2);
 // download a fresh installer.
 pref("app.update.elevation.promptMaxAttempts", 2);
 
+#ifdef NIGHTLY_BUILD
+  // Whether to delay popup notifications when an update is available and
+  // suppress them when an update is installed and waiting for user to restart.
+  // If set to true, these notifications will immediately be shown as banners in
+  // the app menu and as badges on the app menu button. Update available
+  // notifications will not create popup prompts until a week has passed without
+  // the user installing the update. Update restart notifications will not
+  // create popup prompts at all. This doesn't affect update notifications
+  // triggered by errors/failures or manual install prompts.
+  pref("app.update.suppressPrompts", false);
+#endif
+
 // If set to true, a message will be displayed in the hamburger menu while
 // an update is being downloaded.
 pref("app.update.notifyDuringDownload", false);
@@ -489,6 +501,9 @@ pref("browser.urlbar.merino.providers", "");
 
 // Comma-separated list of client variants to send to Merino
 pref("browser.urlbar.merino.clientVariants", "");
+
+// Whether best match results are enabled in the urlbar.
+pref("browser.urlbar.bestMatch.enabled", true);
 
 pref("browser.altClickSave", false);
 
@@ -2515,12 +2530,8 @@ pref("devtools.browserconsole.input.editorWidth", 0);
 // Display an onboarding UI for the Editor mode.
 pref("devtools.webconsole.input.editorOnboarding", true);
 
-// Enable the new performance recording panel in Nightly and Beta/DevEdition builds.
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
-  pref("devtools.performance.new-panel-enabled", true);
-#else
-  pref("devtools.performance.new-panel-enabled", false);
-#endif
+// Enable the new performance panel in all channels of Firefox.
+pref("devtools.performance.new-panel-enabled", true);
 
 // Enable message grouping in the console, true by default
 pref("devtools.webconsole.groupWarningMessages", true);

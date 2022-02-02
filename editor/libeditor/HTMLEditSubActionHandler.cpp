@@ -466,12 +466,15 @@ nsresult HTMLEditor::OnEndHandlingTopLevelEditSubActionInternal() {
       }
     }
 
-    // clean up any empty nodes in the selection
-    rv = RemoveEmptyNodesIn(
-        MOZ_KnownLive(*TopLevelEditSubActionDataRef().mChangedRange));
-    if (NS_FAILED(rv)) {
-      NS_WARNING("HTMLEditor::RemoveEmptyNodesIn() failed");
-      return rv;
+    // Clean up any empty nodes in the changed range unless they are inserted
+    // intentionally.
+    if (TopLevelEditSubActionDataRef().mNeedsToCleanUpEmptyElements) {
+      nsresult rv = RemoveEmptyNodesIn(
+          MOZ_KnownLive(*TopLevelEditSubActionDataRef().mChangedRange));
+      if (NS_FAILED(rv)) {
+        NS_WARNING("HTMLEditor::RemoveEmptyNodesIn() failed");
+        return rv;
+      }
     }
 
     // attempt to transform any unneeded nbsp's into spaces after doing various
@@ -634,7 +637,7 @@ nsresult HTMLEditor::OnEndHandlingTopLevelEditSubActionInternal() {
     // If the selection is in empty inline HTML elements, we should delete
     // them unless it's inserted intentionally.
     if (mPlaceholderBatch &&
-        TopLevelEditSubActionDataRef().mNeedsToCleanUpEmptyInlineElements &&
+        TopLevelEditSubActionDataRef().mNeedsToCleanUpEmptyElements &&
         SelectionRef().IsCollapsed() && SelectionRef().GetFocusNode()) {
       RefPtr<Element> mostDistantEmptyInlineAncestor = nullptr;
       for (Element* ancestor :
@@ -3027,19 +3030,19 @@ EditActionResult HTMLEditor::ChangeSelectedHardLinesToList(
         CreateAndInsertElementWithTransaction(
             aListItemElementTagName,
             EditorDOMPoint(newListElementOrError.inspect(), 0));
-    if (newListElementOrError.isErr()) {
+    if (newListItemElementOrError.isErr()) {
       NS_WARNING("HTMLEditor::CreateAndInsertElementWithTransaction() failed");
-      return EditActionResult(newListElementOrError.unwrapErr());
+      return EditActionResult(newListItemElementOrError.unwrapErr());
     }
-    MOZ_ASSERT(newListElementOrError.inspect());
+    MOZ_ASSERT(newListItemElementOrError.inspect());
 
     // remember our new block for postprocessing
     TopLevelEditSubActionDataRef().mNewBlockElement =
-        newListElementOrError.inspect();
+        newListItemElementOrError.inspect();
     // Put selection in new list item and don't restore the Selection.
     restoreSelectionLater.Abort();
     nsresult rv = CollapseSelectionToStartOf(
-        MOZ_KnownLive(*newListElementOrError.inspect()));
+        MOZ_KnownLive(*newListItemElementOrError.inspect()));
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                          "HTMLEditor::CollapseSelectionToStartOf() failed");
     return EditActionResult(rv);

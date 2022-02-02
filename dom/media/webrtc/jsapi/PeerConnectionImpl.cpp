@@ -679,7 +679,7 @@ class ConfigureCodec {
   }
 
   void operator()(UniquePtr<JsepCodecDescription>& codec) const {
-    switch (codec->mType) {
+    switch (codec->Type()) {
       case SdpMediaSection::kAudio: {
         JsepAudioCodecDescription& audioCodec =
             static_cast<JsepAudioCodecDescription&>(*codec);
@@ -779,7 +779,7 @@ class ConfigureRedCodec {
   }
 
   void operator()(UniquePtr<JsepCodecDescription>& codec) const {
-    if (codec->mType == SdpMediaSection::kVideo && codec->mEnabled == false) {
+    if (codec->Type() == SdpMediaSection::kVideo && !codec->mEnabled) {
       uint8_t pt = (uint8_t)strtoul(codec->mDefaultPt.c_str(), nullptr, 10);
       // don't search for the codec payload type unless we have a valid
       // conversion (non-zero)
@@ -916,11 +916,11 @@ nsresult PeerConnectionImpl::GetDatachannelParameters(
   }
 
   for (const auto& codec : encoding.GetCodecs()) {
-    if (codec->mType != SdpMediaSection::kApplication) {
+    if (codec->Type() != SdpMediaSection::kApplication) {
       CSFLogError(LOGTAG,
                   "%s: Codec type for m=application was %u, this "
                   "is a bug.",
-                  __FUNCTION__, static_cast<unsigned>(codec->mType));
+                  __FUNCTION__, static_cast<unsigned>(codec->Type()));
       MOZ_ASSERT(false, "Codec for m=application was not \"application\"");
       return NS_ERROR_FAILURE;
     }
@@ -2570,20 +2570,21 @@ void PeerConnectionImpl::UpdateDefaultCandidate(
 
 // TODO(bug 1616937): Move this to RTCRtpSender.
 nsTArray<RefPtr<dom::RTCStatsPromise>> PeerConnectionImpl::GetSenderStats(
-    const RefPtr<MediaPipelineTransmit>& aPipeline) {
+    const RefPtr<TransceiverImpl>& aTransceiver) {
   MOZ_ASSERT(NS_IsMainThread());
+  RefPtr<MediaPipelineTransmit> pipeline = aTransceiver->GetSendPipeline();
   nsTArray<RefPtr<RTCStatsPromise>> promises(2);
 
   nsAutoString trackName;
-  if (auto track = aPipeline->GetTrack()) {
+  if (auto track = pipeline->GetTrack()) {
     track->GetId(trackName);
   }
 
   {
     // Add bandwidth estimation stats
     promises.AppendElement(InvokeAsync(
-        aPipeline->mCallThread, __func__,
-        [conduit = aPipeline->mConduit, trackName]() mutable {
+        pipeline->mCallThread, __func__,
+        [conduit = pipeline->mConduit, trackName]() mutable {
           auto report = MakeUnique<dom::RTCStatsCollection>();
           Maybe<webrtc::Call::Stats> stats = conduit->GetCallStats();
           stats.apply([&](const auto aStats) {
@@ -2606,21 +2607,21 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> PeerConnectionImpl::GetSenderStats(
   }
 
   promises.AppendElement(
-      InvokeAsync(aPipeline->mCallThread, __func__, [aPipeline] {
+      InvokeAsync(pipeline->mCallThread, __func__, [pipeline] {
         auto report = MakeUnique<dom::RTCStatsCollection>();
-        auto asAudio = aPipeline->mConduit->AsAudioSessionConduit();
-        auto asVideo = aPipeline->mConduit->AsVideoSessionConduit();
+        auto asAudio = pipeline->mConduit->AsAudioSessionConduit();
+        auto asVideo = pipeline->mConduit->AsVideoSessionConduit();
 
         nsString kind = asVideo.isNothing() ? u"audio"_ns : u"video"_ns;
         nsString idstr = kind + u"_"_ns;
-        idstr.AppendInt(static_cast<uint32_t>(aPipeline->Level()));
+        idstr.AppendInt(static_cast<uint32_t>(pipeline->Level()));
 
-        for (uint32_t ssrc : aPipeline->mConduit->GetLocalSSRCs()) {
+        for (uint32_t ssrc : pipeline->mConduit->GetLocalSSRCs()) {
           nsString localId = u"outbound_rtp_"_ns + idstr + u"_"_ns;
           localId.AppendInt(ssrc);
           nsString remoteId;
           Maybe<uint16_t> base_seq =
-              aPipeline->mConduit->RtpSendBaseSeqFor(ssrc);
+              pipeline->mConduit->RtpSendBaseSeqFor(ssrc);
 
           auto constructCommonRemoteInboundRtpStats =
               [&](RTCRemoteInboundRtpStreamStats& aRemote,
@@ -2628,7 +2629,7 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> PeerConnectionImpl::GetSenderStats(
                 remoteId = u"outbound_rtcp_"_ns + idstr + u"_"_ns;
                 remoteId.AppendInt(ssrc);
                 aRemote.mTimestamp.Construct(
-                    aPipeline->GetTimestampMaker().ConvertNtpToDomTime(
+                    pipeline->GetTimestampMaker().ConvertNtpToDomTime(
                         webrtc::Timestamp::Micros(
                             aRtcpData.report_block_timestamp_utc_us()) +
                         webrtc::TimeDelta::Seconds(webrtc::kNtpJan1970)));
@@ -2656,7 +2657,7 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> PeerConnectionImpl::GetSenderStats(
               [&](RTCOutboundRtpStreamStats& aLocal) {
                 aLocal.mSsrc.Construct(ssrc);
                 aLocal.mTimestamp.Construct(
-                    aPipeline->GetTimestampMaker().GetNow());
+                    pipeline->GetTimestampMaker().GetNow());
                 aLocal.mId.Construct(localId);
                 aLocal.mType.Construct(RTCStatsType::Outbound_rtp);
                 aLocal.mMediaType.Construct(
@@ -2893,33 +2894,160 @@ void PeerConnectionImpl::CollectConduitTelemetryData() {
   }
 }
 
+nsTArray<dom::RTCCodecStats> PeerConnectionImpl::GetCodecStats(
+    DOMHighResTimeStamp aNow) {
+  MOZ_ASSERT(NS_IsMainThread());
+  nsTArray<dom::RTCCodecStats> result;
+
+  if (!mMedia) {
+    return result;
+  }
+
+  struct CodecComparator {
+    bool operator()(const JsepCodecDescription* aA,
+                    const JsepCodecDescription* aB) const {
+      return aA->StatsId() < aB->StatsId();
+    }
+  };
+
+  // transportId -> codec; per direction (whether the codecType
+  // shall be "encode", "decode" or absent (if a codec exists in both maps for a
+  // transport)). These do the bookkeeping to ensure codec stats get coalesced
+  // to transport level.
+  std::map<std::string, std::set<JsepCodecDescription*, CodecComparator>>
+      sendCodecMap;
+  std::map<std::string, std::set<JsepCodecDescription*, CodecComparator>>
+      recvCodecMap;
+
+  // Find all JsepCodecDescription instances we want to turn into codec stats.
+  for (const auto& transceiver : mMedia->GetTransceivers()) {
+    auto sendCodecs = transceiver->GetNegotiatedSendCodecs();
+    auto recvCodecs = transceiver->GetNegotiatedRecvCodecs();
+
+    const std::string transportId = transceiver->GetTransportId();
+    // This ensures both codec maps have the same size.
+    auto& sendMap = sendCodecMap[transportId];
+    auto& recvMap = recvCodecMap[transportId];
+
+    sendCodecs.apply([&](const auto& aCodecs) {
+      for (const auto& codec : aCodecs) {
+        sendMap.insert(codec.get());
+      }
+    });
+    recvCodecs.apply([&](const auto& aCodecs) {
+      for (const auto& codec : aCodecs) {
+        recvMap.insert(codec.get());
+      }
+    });
+  }
+
+  auto createCodecStat = [&](const JsepCodecDescription* aCodec,
+                             const nsString& aTransportId,
+                             Maybe<RTCCodecType> aCodecType) {
+    uint16_t pt;
+    {
+      DebugOnly<bool> rv = aCodec->GetPtAsInt(&pt);
+      MOZ_ASSERT(rv);
+    }
+    nsString mimeType;
+    mimeType.AppendPrintf(
+        "%s/%s", aCodec->Type() == SdpMediaSection::kVideo ? "video" : "audio",
+        aCodec->mName.c_str());
+    nsString id = aTransportId;
+    id.Append(u"_");
+    id.Append(aCodec->StatsId());
+
+    dom::RTCCodecStats codec;
+    codec.mId.Construct(std::move(id));
+    codec.mTimestamp.Construct(aNow);
+    codec.mType.Construct(RTCStatsType::Codec);
+    codec.mPayloadType = pt;
+    if (aCodecType) {
+      codec.mCodecType.Construct(*aCodecType);
+    }
+    codec.mTransportId = aTransportId;
+    codec.mMimeType = std::move(mimeType);
+    codec.mClockRate.Construct(aCodec->mClock);
+    if (aCodec->Type() == SdpMediaSection::MediaType::kAudio) {
+      codec.mChannels.Construct(aCodec->mChannels);
+    }
+    if (aCodec->mSdpFmtpLine) {
+      codec.mSdpFmtpLine.Construct(
+          NS_ConvertUTF8toUTF16(aCodec->mSdpFmtpLine->c_str()));
+    }
+
+    result.AppendElement(std::move(codec));
+  };
+
+  // Create codec stats for the gathered codec descriptions, sorted primarily
+  // by transportId, secondarily by payload type (from StatsId()).
+  for (const auto& [transportId, sendCodecs] : sendCodecMap) {
+    const auto& recvCodecs = recvCodecMap[transportId];
+    const nsString tid = NS_ConvertASCIItoUTF16(transportId);
+    AutoTArray<JsepCodecDescription*, 16> bidirectionalCodecs;
+    AutoTArray<JsepCodecDescription*, 16> unidirectionalCodecs;
+    std::set_intersection(sendCodecs.cbegin(), sendCodecs.cend(),
+                          recvCodecs.cbegin(), recvCodecs.cend(),
+                          MakeBackInserter(bidirectionalCodecs),
+                          CodecComparator());
+    std::set_symmetric_difference(sendCodecs.cbegin(), sendCodecs.cend(),
+                                  recvCodecs.cbegin(), recvCodecs.cend(),
+                                  MakeBackInserter(unidirectionalCodecs),
+                                  CodecComparator());
+    for (const auto* codec : bidirectionalCodecs) {
+      createCodecStat(codec, tid, Nothing());
+    }
+    for (const auto* codec : unidirectionalCodecs) {
+      createCodecStat(
+          codec, tid,
+          Some(codec->mDirection == sdp::kSend ? RTCCodecType::Encode
+                                               : RTCCodecType::Decode));
+    }
+  }
+
+  return result;
+}
+
 RefPtr<dom::RTCStatsReportPromise> PeerConnectionImpl::GetStats(
     dom::MediaStreamTrack* aSelector, bool aInternalStats) {
   MOZ_ASSERT(NS_IsMainThread());
   nsTArray<RefPtr<dom::RTCStatsPromise>> promises;
   DOMHighResTimeStamp now = mTimestampMaker.GetNow();
 
+  nsTArray<dom::RTCCodecStats> codecStats = GetCodecStats(now);
+
   if (mMedia) {
-    nsTArray<RefPtr<MediaPipelineTransmit>> sendPipelines;
-    // Gather up pipelines from mMedia so they may be inspected on STS
-    // TODO(bug 1616937): Use RTCRtpSender for these instead.
-    mMedia->GetTransmitPipelinesMatching(aSelector, &sendPipelines);
-    if (!sendPipelines.Length()) {
-      CSFLogError(LOGTAG, "%s: Found no pipelines matching selector.",
-                  __FUNCTION__);
-    }
-
-    for (const auto& pipeline : sendPipelines) {
-      promises.AppendElements(GetSenderStats(pipeline));
-    }
-
+    nsTArray<
+        std::tuple<TransceiverImpl*, RefPtr<RTCStatsPromise::AllPromiseType>>>
+        transceiverStatsPromises;
     for (const auto& transceiver : mMedia->GetTransceivers()) {
-      if (transceiver->Receiver()->HasTrack(aSelector)) {
+      const bool sendSelected = transceiver->HasSendTrack(aSelector);
+      const bool recvSelected = transceiver->Receiver()->HasTrack(aSelector);
+      if (!sendSelected && !recvSelected) {
+        continue;
+      }
+      nsTArray<RefPtr<RTCStatsPromise>> rtpStreamPromises;
+      // Get all rtp stream stats for the given selector. Then filter away any
+      // codec stat not related to the selector, and assign codec ids to the
+      // stream stats.
+      if (sendSelected) {
+        // TODO(bug 1616937): Use RTCRtpSender for these instead.
+        rtpStreamPromises.AppendElements(GetSenderStats(transceiver));
+      }
+      if (recvSelected) {
         // Right now, returns two promises; one for RTP/RTCP stats, and
         // another for ICE stats.
-        promises.AppendElements(transceiver->Receiver()->GetStatsInternal());
+        rtpStreamPromises.AppendElements(
+            transceiver->Receiver()->GetStatsInternal());
       }
+      transceiverStatsPromises.AppendElement(
+          std::make_tuple(transceiver.get(),
+                          RTCStatsPromise::All(GetMainThreadSerialEventTarget(),
+                                               rtpStreamPromises)));
     }
+
+    promises.AppendElement(TransceiverImpl::ApplyCodecStats(
+        std::move(codecStats), std::move(transceiverStatsPromises)));
 
     // TODO(bug 1616937): We need to move this is RTCRtpSender, to make
     // getStats on those objects work properly. It might be worth optimizing
@@ -2997,9 +3125,8 @@ RefPtr<dom::RTCStatsReportPromise> PeerConnectionImpl::GetStats(
       ->Then(
           mThread, __func__,
           [report = std::move(report), idGen = mIdGenerator](
-              const nsTArray<UniquePtr<dom::RTCStatsCollection>>&
-                  aStats) mutable {
-            idGen->RewriteIds(aStats, report.get());
+              nsTArray<UniquePtr<dom::RTCStatsCollection>> aStats) mutable {
+            idGen->RewriteIds(std::move(aStats), report.get());
             return dom::RTCStatsReportPromise::CreateAndResolve(
                 std::move(report), __func__);
           },

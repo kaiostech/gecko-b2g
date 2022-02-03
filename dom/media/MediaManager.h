@@ -269,6 +269,8 @@ class MediaManager final : public nsIMediaManagerService,
       MozPromise<RefPtr<DOMMediaStream>, RefPtr<MediaMgrError>, true>;
   using DeviceSetPromise =
       MozPromise<RefPtr<MediaDeviceSetRefCnt>, RefPtr<MediaMgrError>, true>;
+  using ConstDeviceSetPromise = MozPromise<RefPtr<const MediaDeviceSetRefCnt>,
+                                           RefPtr<MediaMgrError>, true>;
   using LocalDevicePromise =
       MozPromise<RefPtr<LocalMediaDevice>, RefPtr<MediaMgrError>, true>;
   using LocalDeviceSetPromise = MozPromise<RefPtr<LocalMediaDeviceSetRefCnt>,
@@ -280,21 +282,14 @@ class MediaManager final : public nsIMediaManagerService,
       const dom::MediaStreamConstraints& aConstraints,
       dom::CallerType aCallerType);
 
-  RefPtr<LocalDeviceSetPromise> EnumerateDevices(nsPIDOMWindowInner* aWindow);
-
-  enum class EnumerationFlag {
-    AllowPermissionRequest,
-    EnumerateAudioOutputs,
-    ForceFakes,
-  };
-  using EnumerationFlags = EnumSet<EnumerationFlag>;
-  RefPtr<LocalDeviceSetPromise> EnumerateDevicesImpl(
-      nsPIDOMWindowInner* aWindow, dom::MediaSourceEnum aVideoInputType,
-      dom::MediaSourceEnum aAudioInputType, EnumerationFlags aFlags);
-
   RefPtr<LocalDevicePromise> SelectAudioOutput(
       nsPIDOMWindowInner* aWindow, const dom::AudioOutputOptions& aOptions,
       dom::CallerType aCallerType);
+
+  // Return the list of microphone, camera, and speaker devices.
+  // MediaDeviceSets provided on promise resolution are shared between
+  // callers and so cannot be modified.
+  RefPtr<ConstDeviceSetPromise> GetPhysicalDevices();
 
   void OnNavigation(uint64_t aWindowID);
   void OnCameraMute(bool aMute);
@@ -339,6 +334,16 @@ class MediaManager final : public nsIMediaManagerService,
 #endif
 
  private:
+  enum class EnumerationFlag {
+    AllowPermissionRequest,
+    EnumerateAudioOutputs,
+    ForceFakes,
+  };
+  using EnumerationFlags = EnumSet<EnumerationFlag>;
+  RefPtr<LocalDeviceSetPromise> EnumerateDevicesImpl(
+      nsPIDOMWindowInner* aWindow, dom::MediaSourceEnum aVideoInputType,
+      dom::MediaSourceEnum aAudioInputType, EnumerationFlags aFlags);
+
   RefPtr<DeviceSetPromise> EnumerateRawDevices(
       dom::MediaSourceEnum aVideoInputType,
       dom::MediaSourceEnum aAudioInputType, EnumerationFlags aFlags);
@@ -363,6 +368,7 @@ class MediaManager final : public nsIMediaManagerService,
 
   void RemoveMediaDevicesCallback(uint64_t aWindowID);
   void DeviceListChanged();
+  void InvalidateDeviceCache();
   void HandleDeviceListChanged();
 
 #ifdef MOZ_B2G
@@ -388,6 +394,11 @@ class MediaManager final : public nsIMediaManagerService,
   nsRefPtrHashtable<nsStringHashKey, GetUserMediaTask> mActiveCallbacks;
   nsClassHashtable<nsUint64HashKey, nsTArray<nsString>> mCallIds;
   nsTArray<RefPtr<dom::GetUserMediaRequest>> mPendingGUMRequest;
+  // non-null if a device enumeration is in progress and was started after the
+  // last device-change invalidation
+  RefPtr<media::Refcountable<nsTArray<MozPromiseHolder<ConstDeviceSetPromise>>>>
+      mPendingDevicesPromises;
+  RefPtr<MediaDeviceSetRefCnt> mPhysicalDevices;
   TimeStamp mUnhandledDeviceChangeTime;
   RefPtr<MediaTimer> mDeviceChangeTimer;
   bool mCamerasMuted = false;

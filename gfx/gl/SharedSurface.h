@@ -138,6 +138,10 @@ class SharedSurface {
 
   virtual bool NeedsIndirectReads() const { return false; }
 
+  // Returns true if the surface is still valid to use. If false, the underlying
+  // resource has been released and we must allocate a new surface instead.
+  virtual bool IsValid() const { return true; };
+
   virtual Maybe<layers::SurfaceDescriptor> ToSurfaceDescriptor() = 0;
 
   virtual SharedSurface_Gralloc* AsSharedSurface_Gralloc() { return nullptr; }

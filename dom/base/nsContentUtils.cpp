@@ -269,7 +269,6 @@
 #include "nsIContentSecurityPolicy.h"
 #include "nsIContentSink.h"
 #include "nsIContentViewer.h"
-#include "nsID.h"
 #include "nsIDOMWindowUtils.h"
 #include "nsIDocShell.h"
 #include "nsIDocShellTreeItem.h"
@@ -327,7 +326,6 @@
 #if defined(MOZ_THUNDERBIRD) || defined(MOZ_SUITE)
 #  include "nsIURIWithSpecialOrigin.h"
 #endif
-#include "nsIUUIDGenerator.h"
 #include "nsIUserIdleService.h"
 #include "nsIWeakReferenceUtils.h"
 #include "nsIWebNavigation.h"
@@ -416,7 +414,6 @@ nsIScriptSecurityManager* nsContentUtils::sSecurityManager;
 nsIPrincipal* nsContentUtils::sSystemPrincipal;
 nsIPrincipal* nsContentUtils::sNullSubjectPrincipal;
 nsIIOService* nsContentUtils::sIOService;
-nsIUUIDGenerator* nsContentUtils::sUUIDGenerator;
 nsIConsoleService* nsContentUtils::sConsoleService;
 nsTHashMap<nsRefPtrHashKey<nsAtom>, EventNameMapping>*
     nsContentUtils::sAtomEventTable = nullptr;
@@ -795,13 +792,6 @@ nsresult nsContentUtils::Init() {
   Element::InitCCCallbacks();
 
   Unused << nsRFPService::GetOrCreate();
-
-  nsCOMPtr<nsIUUIDGenerator> uuidGenerator =
-      do_GetService("@mozilla.org/uuid-generator;1", &rv);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-  uuidGenerator.forget(&sUUIDGenerator);
 
   if (XRE_IsParentProcess()) {
     AsyncPrecreateStringBundles();
@@ -1897,7 +1887,7 @@ void nsContentUtils::Shutdown() {
   NS_IF_RELEASE(sSystemPrincipal);
   NS_IF_RELEASE(sNullSubjectPrincipal);
   NS_IF_RELEASE(sIOService);
-  NS_IF_RELEASE(sUUIDGenerator);
+
   sBidiKeyboard = nullptr;
 
   delete sAtomEventTable;
@@ -7401,27 +7391,6 @@ bool nsContentUtils::IsJavascriptMIMEType(const nsAString& aMIMEType) {
   }
 
   return false;
-}
-
-nsresult nsContentUtils::GenerateUUIDInPlace(nsID& aUUID) {
-  MOZ_ASSERT(sUUIDGenerator);
-
-  nsresult rv = sUUIDGenerator->GenerateUUIDInPlace(&aUUID);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  return NS_OK;
-}
-
-nsID nsContentUtils::GenerateUUID() {
-  MOZ_DIAGNOSTIC_ASSERT(sUUIDGenerator);
-
-  nsID uuid;
-  nsresult rv = sUUIDGenerator->GenerateUUIDInPlace(&uuid);
-  MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
-
-  return uuid;
 }
 
 bool nsContentUtils::PrefetchPreloadEnabled(nsIDocShell* aDocShell) {

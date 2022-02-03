@@ -169,22 +169,6 @@ def install_import_library(build_dir, clang_dir):
     )
 
 
-def install_asan_symbols(build_dir, clang_dir):
-    lib_path_pattern = os.path.join("lib", "clang", "*.*.*", "lib", "windows")
-    src_path = glob.glob(
-        os.path.join(build_dir, lib_path_pattern, "clang_rt.asan_dynamic-*.pdb")
-    )
-    dst_path = glob.glob(os.path.join(clang_dir, lib_path_pattern))
-
-    if len(src_path) != 1:
-        raise Exception("Source path pattern did not resolve uniquely")
-
-    if len(src_path) != 1:
-        raise Exception("Destination path pattern did not resolve uniquely")
-
-    shutil.copy2(src_path[0], dst_path[0])
-
-
 def is_darwin():
     return platform.system() == "Darwin"
 
@@ -214,9 +198,6 @@ def build_one_stage(
     assertions,
     libcxx_include_dir,
     build_wasm,
-    compiler_rt_source_dir=None,
-    runtimes_source_link=None,
-    compiler_rt_source_link=None,
     is_final_stage=False,
     pgo_phase=None,
 ):
@@ -354,53 +335,8 @@ def build_one_stage(
 
     # For some reasons the import library clang.lib of clang.exe is not
     # installed, so we copy it by ourselves.
-    if is_windows():
-        # The compiler-rt cmake scripts don't allow to build it for multiple
-        # targets at once on Windows, so manually build the 32-bits compiler-rt
-        # during the final stage.
-        build_32_bit = False
-        if is_final_stage:
-            # Only build the 32-bits compiler-rt when we originally built for
-            # 64-bits, which we detect through the contents of the LIB
-            # environment variable, which we also adjust for a 32-bits build
-            # at the same time.
-            old_lib = os.environ["LIB"]
-            new_lib = []
-            for l in old_lib.split(os.pathsep):
-                if l.endswith("x64"):
-                    l = l[:-3] + "x86"
-                    build_32_bit = True
-                elif l.endswith("amd64"):
-                    l = l[:-5]
-                    build_32_bit = True
-                new_lib.append(l)
-        if build_32_bit:
-            os.environ["LIB"] = os.pathsep.join(new_lib)
-            compiler_rt_build_dir = stage_dir + "/compiler-rt"
-            compiler_rt_inst_dir = inst_dir + "/lib/clang/"
-            subdirs = os.listdir(compiler_rt_inst_dir)
-            assert len(subdirs) == 1
-            compiler_rt_inst_dir += subdirs[0]
-            cmake_args = cmake_base_args(
-                [os.path.join(inst_dir, "bin", "clang-cl.exe"), "-m32"] + cc[1:],
-                [os.path.join(inst_dir, "bin", "clang-cl.exe"), "-m32"] + cxx[1:],
-                [os.path.join(inst_dir, "bin", "clang-cl.exe"), "-m32"] + asm[1:],
-                ld,
-                ar,
-                ranlib,
-                libtool,
-                compiler_rt_inst_dir,
-            )
-            cmake_args += [
-                "-DLLVM_CONFIG_PATH=%s"
-                % slashify_path(os.path.join(inst_dir, "bin", "llvm-config")),
-                os.path.join(src_dir, "projects", "compiler-rt"),
-            ]
-            build_package(compiler_rt_build_dir, cmake_args)
-            os.environ["LIB"] = old_lib
-        if is_final_stage:
-            install_import_library(build_dir, inst_dir)
-            install_asan_symbols(build_dir, inst_dir)
+    if is_windows() and is_final_stage:
+        install_import_library(build_dir, inst_dir)
 
 
 # Return the absolute path of a build tool.  We first look to see if the
@@ -846,8 +782,6 @@ if __name__ == "__main__":
             is_final_stage=(stages == 1),
         )
 
-    runtimes_source_link = llvm_source_dir + "/runtimes/compiler-rt"
-
     if stages >= 2 and skip_stages < 2:
         stage2_dir = build_dir + "/stage2"
         stage2_inst_dir = stage2_dir + "/" + package_name
@@ -875,9 +809,6 @@ if __name__ == "__main__":
             assertions,
             libcxx_include_dir,
             build_wasm,
-            compiler_rt_source_dir,
-            runtimes_source_link,
-            compiler_rt_source_link,
             is_final_stage=(stages == 2),
             pgo_phase=pgo_phase,
         )
@@ -908,9 +839,6 @@ if __name__ == "__main__":
             assertions,
             libcxx_include_dir,
             build_wasm,
-            compiler_rt_source_dir,
-            runtimes_source_link,
-            compiler_rt_source_link,
             (stages == 3),
         )
 
@@ -951,9 +879,6 @@ if __name__ == "__main__":
             assertions,
             libcxx_include_dir,
             build_wasm,
-            compiler_rt_source_dir,
-            runtimes_source_link,
-            compiler_rt_source_link,
             (stages == 4),
             pgo_phase=pgo_phase,
         )

@@ -169,7 +169,7 @@ JSObject* ExternalAPI::WrapObject(JSContext* aContext,
   nsCString asciiString;
   ErrorResult rv;
 
-  rv = nsContentUtils::GenerateUUIDInPlace(uuid);
+  rv = nsID::GenerateUUIDInPlace(uuid);
   if (rv.Failed()) {
     aToken.AssignLiteral("");
     return;

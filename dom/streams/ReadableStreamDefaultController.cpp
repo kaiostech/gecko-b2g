@@ -207,7 +207,7 @@ void ReadableStreamDefaultControllerClose(
   }
 
   // Step 2.
-  ReadableStream* stream = aController->GetStream();
+  RefPtr<ReadableStream> stream = aController->GetStream();
 
   // Step 3.
   aController->SetCloseRequested(true);
@@ -248,7 +248,7 @@ void ReadableStreamDefaultControllerEnqueue(
   }
 
   // Step 2.
-  ReadableStream* stream = aController->GetStream();
+  RefPtr<ReadableStream> stream = aController->GetStream();
 
   // Step 3.
   if (IsReadableStreamLocked(stream) &&
@@ -679,7 +679,7 @@ void ReadableStreamDefaultController::PullSteps(JSContext* aCx,
                                                 ReadRequest* aReadRequest,
                                                 ErrorResult& aRv) {
   // Step 1.
-  ReadableStream* stream = mStream;
+  RefPtr<ReadableStream> stream = mStream;
 
   // Step 2.
   if (!mQueue.isEmpty()) {
@@ -713,6 +713,11 @@ void ReadableStreamDefaultController::PullSteps(JSContext* aCx,
     // Step 3.2
     ReadableStreamDefaultControllerCallPullIfNeeded(aCx, this, aRv);
   }
+}
+
+// https://streams.spec.whatwg.org/#abstract-opdef-readablestreamdefaultcontroller-releasesteps
+void ReadableStreamDefaultController::ReleaseSteps() {
+  // Step 1. Return.
 }
 
 }  // namespace dom

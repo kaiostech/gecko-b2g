@@ -73,5 +73,8 @@ user_pref("browser.cache.offline.enable", true);
 user_pref("network.cookie.cookieBehavior", 4);
 // Force a light color scheme unless explicitly overriden by pref.
 user_pref("layout.css.prefers-color-scheme.content-override", 1);
+// Force OffscreenCanvas support
+user_pref("gfx.offscreencanvas.enabled", true);
+user_pref("dom.workers.requestAnimationFrame", true);
 // system app url for b2g wpt tests
 user_pref("b2g.system_startup_url", "chrome://b2g/content/system/marionette.html");

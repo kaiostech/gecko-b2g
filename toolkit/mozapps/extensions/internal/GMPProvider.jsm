@@ -701,6 +701,7 @@ var GMPProvider = {
   },
 
   _plugins: null,
+  _configured: false,
 
   startup() {
     configureLogging();
@@ -770,6 +771,8 @@ var GMPProvider = {
     } catch (e) {
       this._log.warn("startup - adding clearkey CDM failed", e);
     }
+
+    this._configured = true;
   },
 
   shutdown() {
@@ -855,14 +858,20 @@ var GMPProvider = {
   },
 
   observe(subject, topic, data) {
-    if (topic == FIRST_CONTENT_PROCESS_TOPIC) {
+    if (
+      (topic == FIRST_CONTENT_PROCESS_TOPIC ||
+        topic == "force-gmp-provider-startup") &&
+      !GMPProvider._configured
+    ) {
       AddonManagerPrivate.registerProvider(GMPProvider, ["plugin"]);
       Services.obs.removeObserver(this, FIRST_CONTENT_PROCESS_TOPIC);
+      Services.obs.removeObserver(this, "force-gmp-provider-startup");
     }
   },
 
   addObserver() {
     Services.obs.addObserver(this, FIRST_CONTENT_PROCESS_TOPIC);
+    Services.obs.addObserver(this, "force-gmp-provider-startup");
   },
 };
 

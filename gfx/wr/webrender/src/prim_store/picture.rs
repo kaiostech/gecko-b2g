@@ -79,7 +79,7 @@ pub enum PictureCompositeKey {
     Identity,
 
     // FilterOp
-    Blur(Au, Au),
+    Blur(Au, Au, bool),
     Brightness(Au),
     Contrast(Au),
     Grayscale(Au),
@@ -113,6 +113,7 @@ pub enum PictureCompositeKey {
     Saturation,
     Color,
     Luminosity,
+    PlusLighter,
 }
 
 impl From<Option<PictureCompositeMode>> for PictureCompositeKey {
@@ -136,12 +137,13 @@ impl From<Option<PictureCompositeMode>> for PictureCompositeKey {
                     MixBlendMode::Saturation => PictureCompositeKey::Saturation,
                     MixBlendMode::Color => PictureCompositeKey::Color,
                     MixBlendMode::Luminosity => PictureCompositeKey::Luminosity,
+                    MixBlendMode::PlusLighter => PictureCompositeKey::PlusLighter,
                 }
             }
             Some(PictureCompositeMode::Filter(op)) => {
                 match op {
-                    Filter::Blur(width, height) =>
-                        PictureCompositeKey::Blur(Au::from_f32_px(width), Au::from_f32_px(height)),
+                    Filter::Blur { width, height, should_inflate } =>
+                        PictureCompositeKey::Blur(Au::from_f32_px(width), Au::from_f32_px(height), should_inflate),
                     Filter::Brightness(value) => PictureCompositeKey::Brightness(Au::from_f32_px(value)),
                     Filter::Contrast(value) => PictureCompositeKey::Contrast(Au::from_f32_px(value)),
                     Filter::Grayscale(value) => PictureCompositeKey::Grayscale(Au::from_f32_px(value)),

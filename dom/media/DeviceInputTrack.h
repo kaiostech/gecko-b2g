@@ -132,4 +132,4 @@ class NativeInputTrack : public ProcessedMediaTrack {
 
 }  // namespace mozilla
 
-#endif  // DEVICEINPUTTRACK_H_
+#endif  // DOM_MEDIA_DEVICEINPUTTRACK_H_

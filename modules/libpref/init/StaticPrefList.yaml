@@ -2967,9 +2967,14 @@
   mirror: always
 
 # Network Information API
+# This feature is not available on Firefox desktop. It exposes too much
+# user information. Let's be consistent and disable it on Android.
+# But let's keep it around in case it becomes necessary for webcompat
+# reasons
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1637922
 - name: dom.netinfo.enabled
   type: RelaxedAtomicBool
-  value: @IS_ANDROID@
+  value: false
   mirror: always
 
 # Whether we should open noopener links in a new process.
@@ -3543,7 +3548,7 @@
 
 - name: dom.serviceWorkers.navigationPreload.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.serviceWorkers.shutdown_observer.enabled
@@ -5611,6 +5616,21 @@
   value: true
   mirror: always
 
+#if defined(XP_WIN)
+# Whether the DirectWrite bold simulation should be used when a bold font-weight
+# is requested but no bold face available in the family. This renders poorly with
+# some third-party fonts, so by default we disable it for webfonts and allow it
+# only with locally-installed fonts.
+# Values:
+#   0 - never use DWrite bold simulation; always multi-strike instead
+#   1 - use DWrite bold for installed fonts, multi-strike for webfont resources
+#   2 - use DWrite bold for all fonts
+- name: gfx.font_rendering.directwrite.bold_simulation
+  type: RelaxedAtomicUint32
+  value: 1
+  mirror: always
+#endif
+
 # The level of logging:
 # - 0: no logging;
 # - 1: adds errors;
@@ -6683,6 +6703,15 @@
   mirror: always
   do_not_use_directly: true
 
+# Whether the megamorphic property lookup cache is enabled.
+#
+# NOTE: This must match JitOptions defaults.
+- name: javascript.options.watchtower.megamorphic
+  type: bool
+  value: false
+  mirror: always  # LoadStartupJSPrefs
+  do_not_use_directly: true
+
 - name: javascript.options.compact_on_user_inactive
   type: bool
   value: true
@@ -7131,7 +7160,7 @@
 
 - name: layers.gpu-process.enabled
   type: bool
-#if defined(XP_WIN)
+#if defined(XP_WIN) || defined(MOZ_WIDGET_ANDROID)
   value: true
 #else
   value: false
@@ -8356,6 +8385,12 @@
   mirror: always
   rust: true
 
+# Whether we want scrollbar-width: thin to behave as scrollbar-width: auto.
+- name: layout.css.scrollbar-width-thin.disabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Whether the `scrollbar-gutter` CSS property is enabled.
 - name: layout.css.scrollbar-gutter.enabled
   type: RelaxedAtomicBool
@@ -9539,11 +9574,6 @@
   value: true
   mirror: always
 
-- name: media.peerconnection.rtpsourcesapi.enabled
-  type: bool
-  value: true
-  mirror: always
-
 #ifdef MOZ_WEBRTC
   # Use MediaDataDecoder API for VP8/VP9 in WebRTC. This includes hardware
   # acceleration for decoding.
@@ -10210,6 +10240,16 @@
 - name: network.http.sanitize-headers-in-logs
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Set this pref to an integer like 99 to override the User-Agent string's
+# Firefox version. The value 0 means use the default Firefox version. If
+# enterprise users rely on sites that aren't compatible with Firefox version
+# 100's three-digit version number, enterprise admins can set this pref to a
+# known-good version (like 99) in an enterprise policy file.
+- name: network.http.useragent.forceVersion
+  type: uint32_t
+  value: 0
   mirror: always
 
 # Whether or not we use Windows for SSO to Microsoft sites.
@@ -12859,10 +12899,16 @@
   value: 0
   mirror: always
 
+# Whether we should use themed values for dark scrollbars.
+- name: widget.non-native-theme.scrollbar.dark-themed
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Whether the active thumb color should always use the themed colors, even if
 # dark scrollbars are in use.
 - name: widget.non-native-theme.scrollbar.active-always-themed
-  type: bool
+  type: RelaxedAtomicBool
   value: true
   mirror: always
 
@@ -12968,6 +13014,12 @@
   value: false
   mirror: always
 
+# Whether we honor the scrollbar colors from the gtk theme.
+- name: widget.gtk.theme-scrollbar-colors.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Whether selection colors for the non-system theme get passed from the system
 # GTK theme.
 - name: widget.gtk.alt-theme.selection
@@ -12987,15 +13039,6 @@
 - name: widget.gtk.alt-theme.scrollbar_active
   type: bool
   value: true
-  mirror: always
-
-# Whether other scrollbar colors get passed from the real GTK theme.
-#
-# This is default false because light scrollbars usually match better websites,
-# and we have automatic scrollbar darkening.
-- name: widget.gtk.alt-theme.scrollbar
-  type: bool
-  value: false
   mirror: always
 
 # Whether to use gtk high contrast themes to disable content styling like on
@@ -13128,7 +13171,7 @@
 - name: widget.disable-swipe-tracker
   type: bool
 #ifdef XP_WIN
-  value: true
+  value: @IS_NOT_NIGHTLY_BUILD@
 #else
   value: false
 #endif

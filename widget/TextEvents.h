@@ -1050,9 +1050,6 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
       return false;
     }
     switch (mMessage) {
-      case eQuerySelectedText:
-        return mReply->mOffsetAndData.isSome() ||
-               mInput.mSelectionType != SelectionType::eNormal;
       case eQueryTextContent:
       case eQueryTextRect:
       case eQueryCaretRect:
@@ -1180,8 +1177,6 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
     CopyableTArray<mozilla::LayoutDeviceIntRect> mRectArray;
     // true if selection is reversed (end < start)
     bool mReversed;
-    // true if the selection exists
-    bool mHasSelection;
     // true if DOM element under mouse belongs to widget
     bool mWidgetIsHit;
 
@@ -1191,7 +1186,6 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
           mContentsRoot(nullptr),
           mFocusedWidget(nullptr),
           mReversed(false),
-          mHasSelection(false),
           mWidgetIsHit(false) {}
 
     // Don't allow to copy/move because of `mEventMessage`.
@@ -1213,13 +1207,13 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
                  mEventMessage == eQuerySelectedText);
       return mOffsetAndData.isSome() ? mOffsetAndData->Length() : 0;
     }
-    MOZ_NEVER_INLINE_DEBUG uint32_t SelectionStartOffset() const {
+    MOZ_NEVER_INLINE_DEBUG uint32_t AnchorOffset() const {
       MOZ_ASSERT(mEventMessage == eQuerySelectedText);
       MOZ_ASSERT(mOffsetAndData.isSome());
       return StartOffset() + (mReversed ? DataLength() : 0);
     }
 
-    MOZ_NEVER_INLINE_DEBUG uint32_t SelectionEndOffset() const {
+    MOZ_NEVER_INLINE_DEBUG uint32_t FocusOffset() const {
       MOZ_ASSERT(mEventMessage == eQuerySelectedText);
       MOZ_ASSERT(mOffsetAndData.isSome());
       return StartOffset() + (mReversed ? 0 : DataLength());
@@ -1279,8 +1273,7 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
                   << ToString(aReply.mTentativeCaretOffset).c_str() << ", ";
         }
       }
-      aStream << "mHasSelection=" << (aReply.mHasSelection ? "true" : "false");
-      if (aReply.mHasSelection) {
+      if (aReply.mOffsetAndData.isSome() && aReply.mOffsetAndData->Length()) {
         if (aReply.mEventMessage == eQuerySelectedText) {
           aStream << ", mReversed=" << (aReply.mReversed ? "true" : "false");
         }

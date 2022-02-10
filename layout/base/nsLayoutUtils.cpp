@@ -3361,8 +3361,10 @@ void nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext, nsIFrame* aFrame,
         if (useRetainedBuilder) {
           retainedBuilder->ClearFramesWithProps();
           retainedBuilder->ClearReuseableDisplayItems();
+#ifdef DEBUG
           mozilla::RDLUtils::AssertFrameSubtreeUnmodified(
               builder->RootReferenceFrame());
+#endif
         }
 
         list->DeleteAll(builder);

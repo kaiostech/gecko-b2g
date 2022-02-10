@@ -947,8 +947,9 @@ TEST(TestAudioTrackGraph, StartAudioDeviceBeforeStartingAudioProcessing)
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr);
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      nullptr);
 
   // Create a duplex AudioCallbackDriver
   const CubebUtils::AudioDeviceID deviceId = (void*)1;
@@ -1015,8 +1016,9 @@ TEST(TestAudioTrackGraph, StopAudioProcessingBeforeStoppingAudioDevice)
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr);
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      nullptr);
 
   // Create a duplex AudioCallbackDriver
   const CubebUtils::AudioDeviceID deviceId = (void*)1;

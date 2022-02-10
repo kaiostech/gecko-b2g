@@ -59,9 +59,6 @@ public:
   static bool InitForContent(Endpoint<PSharedBufferManagerChild>&& aEndpoint);
   static bool ReinitForContent(Endpoint<PSharedBufferManagerChild>&& aEndpoint);
 
-  static PSharedBufferManagerChild*
-  StartUpInChildProcess(Transport* aTransport, ProcessId aOtherProcess);
-
   /**
    * Destroys The SharedBufferManager protocol.
    *

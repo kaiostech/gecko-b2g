@@ -2974,7 +2974,11 @@
 # https://bugzilla.mozilla.org/show_bug.cgi?id=1637922
 - name: dom.netinfo.enabled
   type: RelaxedAtomicBool
+#ifdef MOZ_B2G
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 # Whether we should open noopener links in a new process.

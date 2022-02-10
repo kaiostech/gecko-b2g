@@ -7,10 +7,14 @@
 include protocol PMobileConnection;
 include PMobileConnectionTypes;
 
+include "mozilla/dom/mobileconnection/MobileConnectionChild.h";
+include "mozilla/dom/mobileconnection/MobileConnectionParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace mobileconnection {
 
+[ManualDealloc, ChildImpl="MobileConnectionRequestChild", ParentImpl="MobileConnectionRequestParent"]
 protocol PMobileConnectionRequest
 {
   manager PMobileConnection;

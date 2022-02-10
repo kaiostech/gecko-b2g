@@ -9,6 +9,9 @@ include TelephonyTypes;
 
 using nsTelephonyCallInfo from "mozilla/dom/telephony/TelephonyIPCSerializer.h";
 
+include "mozilla/dom/telephony/TelephonyChild.h";
+include "mozilla/dom/telephony/TelephonyParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace telephony {
@@ -67,6 +70,7 @@ union IPCTelephonyResponse
   DialResponseMMIError;
 };
 
+[ManualDealloc, ChildImpl="TelephonyRequestChild", ParentImpl="TelephonyRequestParent"]
 protocol PTelephonyRequest
 {
   manager PTelephony;

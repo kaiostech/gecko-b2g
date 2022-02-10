@@ -30,6 +30,7 @@ union FMRadioResponseType
  * When the request completed, the result, i.e. FMRadioResponseType, will be
  * sent back to child from parent in the `__delete__` message.
  */
+[ManualDealloc]
 async protocol PFMRadioRequest
 {
   manager PFMRadio;

@@ -126,7 +126,7 @@ KeyboardAppProxy::Activate(nsFrameLoader* aFrameLoader) {
     mKeyboardEventForwarder = do_GetWeakReference(actor);
   }
 
-  LOG_IME(LogLevel::Info, "IME: Activate");
+  LOG_IME(LogLevel::Info, "KeyboardAppProxy: Activate");
   // Advance event generation and empty event queue. Instead of doing such
   // clean up at set inactive, we perform it at set active for the reason if
   // target app destroys itself at keydown, System app still expect handling
@@ -145,7 +145,7 @@ KeyboardAppProxy::Deactivate() {
     return NS_OK;
   }
 
-  LOG_IME(LogLevel::Info, "IME: Deactivate");
+  LOG_IME(LogLevel::Info, "KeyboardAppProxy: Deactivate");
   mIsActive = false;
   nsCOMPtr<nsIKeyboardEventForwarder> forwarder =
       do_QueryReferent(mKeyboardEventForwarder);

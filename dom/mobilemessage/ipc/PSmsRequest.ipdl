@@ -11,6 +11,9 @@ include SmsTypes;
 using struct mozilla::void_t
   from "ipc/IPCMessageUtils.h";
 
+include "mozilla/dom/mobilemessage/SmsChild.h";
+include "mozilla/dom/mobilemessage/SmsParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
@@ -113,6 +116,7 @@ union MessageReply
   ReplySetSmscAddressFail;
 };
 
+[ManualDealloc, ChildImpl="SmsRequestChild", ParentImpl="SmsRequestParent"]
 protocol PSmsRequest
 {
   manager PSms;

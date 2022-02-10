@@ -10,6 +10,9 @@ include protocol PMobileMessageCursor;
 //include IPCBlob;
 include SmsTypes;
 
+include "mozilla/dom/mobilemessage/SmsChild.h";
+include "mozilla/dom/mobilemessage/SmsParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
@@ -106,6 +109,7 @@ union IPCMobileMessageCursor
   CreateThreadCursorRequest;
 };
 
+[ManualDealloc, ChildImpl="SmsChild", ParentImpl="SmsParent"]
 sync protocol PSms {
     manager PContent;
     manages PSmsRequest;

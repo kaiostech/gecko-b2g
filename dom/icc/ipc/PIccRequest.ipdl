@@ -5,6 +5,9 @@
 include protocol PIcc;
 include PIccTypes;
 
+include "mozilla/dom/icc/IccChild.h";
+include "mozilla/dom/icc/IccParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace icc {
@@ -82,6 +85,7 @@ union IccReply
   IccReplyChannelError;
 };
 
+[ManualDealloc, ChildImpl="IccRequestChild", ParentImpl="IccRequestParent"]
 protocol PIccRequest
 {
   manager PIcc;

@@ -6,10 +6,14 @@
 
 include protocol PSubsidyLock;
 
+include "mozilla/dom/subsidylock/SubsidyLockChild.h";
+include "mozilla/dom/subsidylock/SubsidyLockParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace subsidylock {
 
+[ManualDealloc, ChildImpl="SubsidyLockRequestChild", ParentImpl="SubsidyLockRequestParent"]
 protocol PSubsidyLockRequest
 {
   manager PSubsidyLock;

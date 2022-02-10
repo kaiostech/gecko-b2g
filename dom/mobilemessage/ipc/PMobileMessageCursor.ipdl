@@ -8,10 +8,14 @@ include protocol PSms;
 //include protocol PBlob;
 include SmsTypes;
 
+include "mozilla/dom/mobilemessage/SmsChild.h";
+include "mozilla/dom/mobilemessage/SmsParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
 
+[ManualDealloc, ChildImpl="MobileMessageCursorChild", ParentImpl="MobileMessageCursorParent"]
 protocol PMobileMessageCursor
 {
   manager PSms;

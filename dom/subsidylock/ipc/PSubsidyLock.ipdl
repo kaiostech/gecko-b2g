@@ -5,10 +5,14 @@
 include protocol PContent;
 include protocol PSubsidyLockRequest;
 
+include "mozilla/dom/subsidylock/SubsidyLockChild.h";
+include "mozilla/dom/subsidylock/SubsidyLockParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace subsidylock {
 
+[ManualDealloc, ChildImpl="SubsidyLockChild", ParentImpl="SubsidyLockParent"]
 sync protocol PSubsidyLock
 {
   manager PContent;

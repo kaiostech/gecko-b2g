@@ -24,6 +24,7 @@ struct KeyResponse {
   uint64_t generation;
 };
 
+[ManualDealloc]
 async protocol PKeyboardEventForwarder {
   manager PBrowser;
 

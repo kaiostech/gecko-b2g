@@ -8,6 +8,9 @@ include PIccTypes;
 
 using struct mozilla::void_t from "ipc/IPCMessageUtils.h";
 
+include "mozilla/dom/icc/IccChild.h";
+include "mozilla/dom/icc/IccParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace icc {
@@ -111,6 +114,7 @@ union IccRequest
   GetIccAuthenticationRequest;
 };
 
+[ManualDealloc, ChildImpl="IccChild", ParentImpl="IccParent"]
 sync protocol PIcc
 {
   manager PContent;

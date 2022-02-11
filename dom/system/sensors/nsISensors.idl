@@ -1,0 +1,67 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+interface nsISensorsListener;
+
+/**
+ *  Sensors interface
+ */
+[scriptable, uuid(993782a2-49de-49f4-ba92-75217fad772d)]
+interface nsISensors : nsISupports
+{
+  /**
+   * Sensor types enumeration
+   * Keep in sync with hal/HalSensor.h
+   */
+  cenum SensorType : 8 {
+    /** Measures angles of rotation around 3 axes */
+    TYPE_ORIENTATION = 0,
+
+    /** Measures acceleration force (including gravity) along 3 axes */
+    TYPE_ACCELERATION = 1,
+
+    /** Measures proximity and distance from object */
+    TYPE_PROXIMITY = 2,
+
+    /** Measures acceleration force (excluding gravity) along 3 axes */
+    TYPE_LINEAR_ACCELERATION = 3,
+
+    /** Measures rate of rotation around 3 axes */
+    TYPE_GYROSCOPE = 4,
+
+    /** Measures ambient light level (illumination) */
+    TYPE_LIGHT = 5,
+
+    /** Measures rotation vector along 3 axes */
+    TYPE_ROTATION_VECTOR = 6,
+
+    /** Measures rotation vector (without geomagnetic field support) along 3 axes */
+    TYPE_GAME_ROTATION_VECTOR = 7,
+
+    /** Measures atmospheric pressure */
+    TYPE_PRESSURE = 8,
+  };
+
+  /**
+   * Register a listener to specified sensor type
+   */
+  void registerListener(in nsISensorsListener aListener, in nsISensors_SensorType aSensorType);
+
+  /**
+   * Unregister a listener to specified sensor type
+   */
+  void unregisterListener(in nsISensorsListener aListener, in nsISensors_SensorType aSensorType);
+
+  /**
+   * Get vendor of specified sensor type
+   */
+  ACString getVendor(in nsISensors_SensorType aSensorType);
+
+  /**
+   * Get name of specified sensor type
+   */
+  ACString getName(in nsISensors_SensorType aSensorType);
+};

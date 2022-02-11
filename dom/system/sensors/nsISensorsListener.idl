@@ -1,0 +1,19 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+interface nsISensorData;
+
+/**
+ *  Listener of sensors events
+ */
+[scriptable, uuid(236ee5dc-9239-4979-9236-62d3fa5d838f)]
+interface nsISensorsListener : nsISupports
+{
+  /**
+   * Handler of sensor data
+   */
+  void onSensorDataUpdate(in nsISensorData aSensorData);
+};

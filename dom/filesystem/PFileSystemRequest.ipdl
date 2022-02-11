@@ -12,6 +12,8 @@ include protocol PRemoteLazyInputStream;
 
 include IPCBlob;
 
+include "mozilla/dom/FileSystemTaskBase.h";
+
 namespace mozilla {
 namespace dom {
 
@@ -72,7 +74,8 @@ union FileSystemResponseValue
   FileSystemErrorResponse;
 };
 
-[RefCounted] protocol PFileSystemRequest
+[ChildImpl="FileSystemTaskChildBase"]
+protocol PFileSystemRequest
 {
   manager PBackground;
 

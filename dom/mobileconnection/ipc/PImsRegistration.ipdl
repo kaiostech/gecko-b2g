@@ -5,10 +5,14 @@
 include protocol PContent;
 include protocol PImsRegistrationRequest;
 
+include "mozilla/dom/mobileconnection/ImsRegistrationParent.h";
+include "mozilla/dom/mobileconnection/ImsRegistrationChild.h";
+
 namespace mozilla {
 namespace dom {
 namespace mobileconnection {
 
+[ManualDealloc, ChildImpl="ImsRegistrationChild", ParentImpl="ImsRegistrationParent"]
 sync protocol PImsRegistration
 {
   manager PContent;

@@ -4,6 +4,9 @@
 
 include protocol PContent;
 
+include "mozilla/dom/mobileconnection/ImsRegistrationParent.h";
+include "mozilla/dom/mobileconnection/ImsRegistrationChild.h";
+
 namespace mozilla {
 namespace dom {
 namespace mobileconnection {
@@ -13,6 +16,7 @@ namespace mobileconnection {
  * This protocol is provided to check the availability of ImsRegService before
  * access ImsRegService via PImsRegistration protocol from child process.
  */
+[ManualDealloc, ChildImpl="ImsRegServiceFinderChild", ParentImpl="ImsRegServiceFinderParent"]
 sync protocol PImsRegServiceFinder
 {
   manager PContent;

@@ -4,10 +4,14 @@
 
 include protocol PImsRegistration;
 
+include "mozilla/dom/mobileconnection/ImsRegistrationParent.h";
+include "mozilla/dom/mobileconnection/ImsRegistrationChild.h";
+
 namespace mozilla {
 namespace dom {
 namespace mobileconnection {
 
+[ManualDealloc, ChildImpl="ImsRegistrationRequestChild", ParentImpl="ImsRegistrationRequestParent"]
 protocol PImsRegistrationRequest
 {
   manager PImsRegistration;

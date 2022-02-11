@@ -8,10 +8,14 @@ include protocol PContent;
 include protocol PMobileConnectionRequest;
 include PMobileConnectionTypes;
 
+include "mozilla/dom/mobileconnection/MobileConnectionChild.h";
+include "mozilla/dom/mobileconnection/MobileConnectionParent.h";
+
 namespace mozilla {
 namespace dom {
 namespace mobileconnection {
 
+[ManualDealloc, ChildImpl="MobileConnectionChild", ParentImpl="MobileConnectionParent"]
 sync protocol PMobileConnection
 {
   manager PContent;

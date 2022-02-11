@@ -106,6 +106,8 @@ SensorsHalDeathRecipient::serviceDied(uint64_t cookie, const android::wp<android
   GonkSensorsHal::GetInstance()->PrepareForReconnect();
 }
 
+GonkSensorsHal* GonkSensorsHal::sInstance = nullptr;
+
 class GonkSensorsHal::SensorDataNotifier : public Runnable {
 public:
   SensorDataNotifier(const SensorData aSensorData, const SensorDataCallback aCallback)

@@ -1,0 +1,60 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISensors.idl"
+#include "nsISupports.idl"
+
+/**
+ *  Sensor data in various types
+ */
+[scriptable, uuid(c501b21f-85c0-4075-9711-293aeb91f037)]
+interface nsISensorData : nsISupports
+{
+  /**
+    The data format (X, Y, Z and W fields) depends on which type it is.
+    The following describes data format of each sensor type.
+
+    - TYPE_ORIENTATION
+      3 axes angles in degrees
+
+    - TYPE_ACCELERATION
+      3 axes acceleration in meter per second per second (m/s^2)
+
+    - TYPE_PROXIMITY
+      X for near/far, Z for distance in centimeters (cm)
+
+    - TYPE_LINEAR_ACCELERATION
+      3 axes acceleration in meter per second per second (m/s^2)
+
+    - TYPE_GYROSCOPE
+      3 axes rate of rotation in degrees per second (deg/s)
+
+    - TYPE_LIGHT
+      X for illuminance in SI lux units (lx)
+
+    - TYPE_ROTATION_VECTOR
+      3 axes rotation vector and W for scalar
+
+    - TYPE_GAME_ROTATION_VECTOR
+      3 axes rotation vector
+
+    - TYPE_PRESSURE
+      X for air pressure in hectopascal (hPa)
+  */
+
+  /** Sensor type of the data */
+  readonly attribute nsISensors_SensorType type;
+
+  /** Data in X field */
+  readonly attribute double x;
+
+  /** Data in Y field */
+  readonly attribute double y;
+
+  /** Data in Z field */
+  readonly attribute double z;
+
+  /** Data in W field */
+  readonly attribute double w;
+};

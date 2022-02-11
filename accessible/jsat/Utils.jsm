@@ -104,9 +104,7 @@ this.Utils = {
     if (!win) {
       return null;
     }
-    return win
-      .QueryInterface(Ci.nsIInterfaceRequestor)
-      .getInterface(Ci.nsIDOMWindowUtils);
+    return win.windowUtils;
   },
 
   get AccRetrieval() {
@@ -357,10 +355,7 @@ this.Utils = {
 
   getContentResolution: function _getContentResolution(aAccessible) {
     let res = { value: 1 };
-    aAccessible.document.window
-      .QueryInterface(Ci.nsIInterfaceRequestor)
-      .getInterface(Ci.nsIDOMWindowUtils)
-      .getResolution(res);
+    aAccessible.document.window.windowUtils.getResolution(res);
     return res.value;
   },
 

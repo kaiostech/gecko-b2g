@@ -181,6 +181,9 @@ this.ContentControl.prototype = {
         // new position.
         this.sendToChild(vc, aMessage, { action: childAction }, true);
       }
+    } else if (action == "moveNext") {
+      // Bug 129285 - App virtual cursor to Infogaiton Bar when swipe to the end.
+      this.sendToParent(aMessage);
     } else {
       this._contentScope
         .get()

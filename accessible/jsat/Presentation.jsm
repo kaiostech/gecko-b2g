@@ -12,6 +12,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { Utils, PrefCache } = ChromeUtils.import(
   "resource://gre/modules/accessibility/Utils.jsm"
 );
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 XPCOMUtils.defineLazyGetter(this, "Logger", function() {
   const { Logger } = ChromeUtils.import(
@@ -988,6 +989,9 @@ this.Presentation = {
       b2g: [Utils.isBrowserFrame ? B2GPresenter : AppFramePresenter],
       browser: [VisualPresenter, B2GPresenter, AndroidPresenter],
     };
+    if (Services.prefs.getIntPref("dom.w3c_touch_events.enabled") == 1) {
+      presenterMap.b2g.push(VisualPresenter);
+    }
     this.presenters = presenterMap[Utils.MozBuildApp].map(P => new P());
     return this.presenters;
   },

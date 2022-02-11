@@ -24,8 +24,7 @@ NativeFontResourceFreeType::~NativeFontResourceFreeType() = default;
 template <class T>
 already_AddRefed<T> NativeFontResourceFreeType::CreateInternal(
     uint8_t* aFontData, uint32_t aDataLength, FT_Library aFTLibrary) {
-  if (Preferences::GetBool(
-          "gfx.font_rendering.native_font_source_none", false)) {
+  if (StaticPrefs::gfx_font_rendering_native_font_source_none()) {
     return nullptr;
   }
   if (!aFontData || !aDataLength) {

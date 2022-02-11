@@ -5635,6 +5635,12 @@
   mirror: always
 #endif
 
+# Disable using native font source of freetype, for use in tests.
+- name: gfx.font_rendering.native_font_source_none
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # The level of logging:
 # - 0: no logging;
 # - 1: adds errors;

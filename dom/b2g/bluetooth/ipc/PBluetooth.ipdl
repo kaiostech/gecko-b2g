@@ -397,6 +397,7 @@ union Request {
   GattServerSendIndicationRequest;
 };
 
+[ManualDealloc]
 protocol PBluetooth {
   manager PContent;
   manages PBluetoothRequest;

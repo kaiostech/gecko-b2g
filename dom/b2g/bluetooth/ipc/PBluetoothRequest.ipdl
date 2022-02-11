@@ -12,6 +12,7 @@ namespace mozilla {
 namespace dom {
 namespace bluetooth {
 
+[ManualDealloc]
 protocol PBluetoothRequest {
   manager PBluetooth;
 

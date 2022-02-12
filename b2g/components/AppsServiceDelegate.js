@@ -38,8 +38,10 @@ AppsServiceDelegate.prototype = {
   _xpcom_factory: ComponentUtils.generateSingletonFactory(AppsServiceDelegate),
 
   apps_list: new Map(),
+  deep_links: new Map(),
 
   _addOrUpdateAppsList(aManifestUrl, aManifest) {
+    this._registerDeepLink(aManifestUrl, aManifest);
     // Will add PWA app into the list only.
     if (Services.io.newURI(aManifestUrl).host.endsWith(".localhost")) {
       return;
@@ -52,7 +54,18 @@ AppsServiceDelegate.prototype = {
   },
 
   _removeFromAppsList(aManifestUrl) {
+    this._unregisterDeepLink(aManifestUrl);
     this.apps_list.delete(aManifestUrl);
+  },
+
+  _registerDeepLink(aManifestUrl, aManifest) {
+    if (aManifest.b2g_features && aManifest.b2g_features.deeplinks) {
+      this.deep_links.set(aManifestUrl, aManifest.b2g_features.deeplinks);
+    }
+  },
+
+  _unregisterDeepLink(aManifestUrl) {
+    this.deep_links.delete(aManifestUrl);
   },
 
   _installPermissions(aFeatures, aManifestUrl, aReinstall, aState) {
@@ -85,6 +98,32 @@ AppsServiceDelegate.prototype = {
     } catch (e) {
       log(`Error with ServiceWorkerAssistant in ${aState}: ${e}`);
     }
+  },
+
+  hasDeepLinks(aUrl) {
+    if (!inParent) {
+      // This should not happen.
+      return false;
+    }
+    for (let [key, dlObj] of this.deep_links) {
+      if (dlObj && !dlObj.paths) {
+        continue;
+      }
+      for (let path of dlObj.paths) {
+        if (aUrl.startsWith(path)) {
+          let detail = {
+            openedURI: aUrl,
+            manifestURL: key,
+          };
+          Services.obs.notifyObservers(
+            { wrappedJSObject: detail },
+            "open-deeplink"
+          );
+          return true;
+        }
+      }
+    }
+    return false;
   },
 
   getManifestUrlByScopeUrl(aUrl) {

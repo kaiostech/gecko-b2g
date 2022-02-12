@@ -19,6 +19,11 @@
       throw Error("NOT IMPLEMENTED");
     },
 
+    openDeeplink(aURI, aParams) {
+      log(`browserWindow::openDeeplink ${aURI}`);
+      throw Error("NOT IMPLEMENTED");
+    },
+
     createContentWindow(
       aURI,
       aOpener,

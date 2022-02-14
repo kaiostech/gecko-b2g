@@ -108,7 +108,7 @@ private:
   std::atomic<bool> mToReconnect;
 
   const int64_t kDefaultSamplingPeriodNs = 200000000;
-  const int64_t kPressureSamplingPeriodNs = 1000000000;
+  const int64_t kPressureSamplingPeriodNs = 100000000;
   const int64_t kReportLatencyNs = 0;
 };
 

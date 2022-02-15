@@ -49,7 +49,6 @@
 #include <map>
 #include <utility>
 
-#include "BrowserParent.h"
 #include "ContentProcessManager.h"
 #include "GeckoProfiler.h"
 #include "Geolocation.h"
@@ -182,7 +181,6 @@
 #include "mozilla/net/NeckoMessageUtils.h"
 #include "mozilla/net/NeckoParent.h"
 #include "mozilla/net/PCookieServiceParent.h"
-#include "mozilla/Telemetry.h"
 #include "mozilla/TelemetryComms.h"
 #include "mozilla/TelemetryEventEnums.h"
 #include "mozilla/RemoteLazyInputStreamParent.h"
@@ -546,12 +544,13 @@ ContentParentsMemoryReporter::CollectReports(
     const char* channelStr = "no channel";
     uint32_t numQueuedMessages = 0;
     if (channel) {
-      if (channel->Unsound_IsClosed()) {
+      if (channel->IsClosed()) {
         channelStr = "closed channel";
       } else {
         channelStr = "open channel";
       }
-      numQueuedMessages = channel->Unsound_NumQueuedMessages();
+      numQueuedMessages =
+          0;  // XXX was channel->Unsound_NumQueuedMessages(); Bug 1754876
     }
 
     nsPrintfCString path(
@@ -5766,10 +5765,10 @@ bool ContentParent::DeallocPWebBrowserPersistDocumentParent(
 }
 
 mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
-    PBrowserParent* aThisTab, BrowsingContext* aParent, bool aSetOpener,
+    PBrowserParent* aThisTab, BrowsingContext& aParent, bool aSetOpener,
     const uint32_t& aChromeFlags, const bool& aCalledFromJS,
     const bool& aForPrinting, const bool& aForWindowDotPrint,
-    nsIURI* aURIToLoad, const nsCString& aFeatures, const float& aFullZoom,
+    nsIURI* aURIToLoad, const nsCString& aFeatures,
     BrowserParent* aNextRemoteBrowser, const nsString& aName, nsresult& aResult,
     nsCOMPtr<nsIRemoteTab>& aNewRemoteTab, bool* aWindowIsNew,
     int32_t& aOpenLocation, nsIPrincipal* aTriggeringPrincipal,
@@ -5786,7 +5785,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
 
   RefPtr<nsOpenWindowInfo> openInfo = new nsOpenWindowInfo();
   openInfo->mForceNoOpener = !aSetOpener;
-  openInfo->mParent = aParent;
+  openInfo->mParent = &aParent;
   openInfo->mIsRemote = true;
   openInfo->mIsForPrinting = aForPrinting;
   openInfo->mIsForWindowDotPrint = aForWindowDotPrint;
@@ -5923,9 +5922,9 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
     return IPC_OK();
   }
 
-  aResult = pwwatch->OpenWindowWithRemoteTab(thisBrowserHost, aFeatures,
-                                             aCalledFromJS, aFullZoom, openInfo,
-                                             getter_AddRefs(aNewRemoteTab));
+  aResult = pwwatch->OpenWindowWithRemoteTab(
+      thisBrowserHost, aFeatures, aCalledFromJS, aParent.FullZoom(), openInfo,
+      getter_AddRefs(aNewRemoteTab));
   if (NS_WARN_IF(NS_FAILED(aResult))) {
     return IPC_OK();
   }
@@ -5987,9 +5986,9 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
     PBrowserParent* aNewTab, const uint32_t& aChromeFlags,
     const bool& aCalledFromJS, const bool& aForPrinting,
     const bool& aForPrintPreview, nsIURI* aURIToLoad,
-    const nsCString& aFeatures, const float& aFullZoom,
-    const IPC::Principal& aTriggeringPrincipal, nsIContentSecurityPolicy* aCsp,
-    nsIReferrerInfo* aReferrerInfo, const OriginAttributes& aOriginAttributes,
+    const nsCString& aFeatures, const IPC::Principal& aTriggeringPrincipal,
+    nsIContentSecurityPolicy* aCsp, nsIReferrerInfo* aReferrerInfo,
+    const OriginAttributes& aOriginAttributes,
     CreateWindowResolver&& aResolve) {
   if (!ValidatePrincipal(aTriggeringPrincipal)) {
     LogAndAssertFailedPrincipalValidationInfo(aTriggeringPrincipal, __func__);
@@ -6069,8 +6068,8 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   nsCOMPtr<nsIRemoteTab> newRemoteTab;
   int32_t openLocation = nsIBrowserDOMWindow::OPEN_NEWWINDOW;
   mozilla::ipc::IPCResult ipcResult = CommonCreateWindow(
-      aThisTab, parent, newBCOpenerId != 0, aChromeFlags, aCalledFromJS,
-      aForPrinting, aForPrintPreview, aURIToLoad, aFeatures, aFullZoom, newTab,
+      aThisTab, *parent, newBCOpenerId != 0, aChromeFlags, aCalledFromJS,
+      aForPrinting, aForPrintPreview, aURIToLoad, aFeatures, newTab,
       VoidString(), rv, newRemoteTab, &cwi.windowOpened(), openLocation,
       aTriggeringPrincipal, aReferrerInfo, /* aLoadUri = */ false, aCsp,
       aOriginAttributes);
@@ -6105,7 +6104,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
 mozilla::ipc::IPCResult ContentParent::RecvCreateWindowInDifferentProcess(
     PBrowserParent* aThisTab, const MaybeDiscarded<BrowsingContext>& aParent,
     const uint32_t& aChromeFlags, const bool& aCalledFromJS, nsIURI* aURIToLoad,
-    const nsCString& aFeatures, const float& aFullZoom, const nsString& aName,
+    const nsCString& aFeatures, const nsString& aName,
     nsIPrincipal* aTriggeringPrincipal, nsIContentSecurityPolicy* aCsp,
     nsIReferrerInfo* aReferrerInfo, const OriginAttributes& aOriginAttributes) {
   MOZ_DIAGNOSTIC_ASSERT(!nsContentUtils::IsSpecialName(aName));
@@ -6147,9 +6146,9 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindowInDifferentProcess(
 
   nsresult rv;
   mozilla::ipc::IPCResult ipcResult = CommonCreateWindow(
-      aThisTab, parent, /* aSetOpener = */ false, aChromeFlags, aCalledFromJS,
+      aThisTab, *parent, /* aSetOpener = */ false, aChromeFlags, aCalledFromJS,
       /* aForPrinting = */ false,
-      /* aForPrintPreview = */ false, aURIToLoad, aFeatures, aFullZoom,
+      /* aForPrintPreview = */ false, aURIToLoad, aFeatures,
       /* aNextRemoteBrowser = */ nullptr, aName, rv, newRemoteTab, &windowIsNew,
       openLocation, aTriggeringPrincipal, aReferrerInfo,
       /* aLoadUri = */ true, aCsp, aOriginAttributes);

@@ -511,13 +511,10 @@ LocalAccessible* LocalAccessible::LocalChildAtPoint(
 
   LayoutDeviceIntRect rootRect = rootWidget->GetScreenBounds();
 
-  WidgetMouseEvent dummyEvent(true, eMouseMove, rootWidget,
-                              WidgetMouseEvent::eSynthesized);
-  dummyEvent.mRefPoint =
-      LayoutDeviceIntPoint(aX - rootRect.X(), aY - rootRect.Y());
+  auto point = LayoutDeviceIntPoint(aX - rootRect.X(), aY - rootRect.Y());
 
-  nsIFrame* popupFrame = nsLayoutUtils::GetPopupFrameForEventCoordinates(
-      accDocument->PresContext()->GetRootPresContext(), &dummyEvent);
+  nsIFrame* popupFrame = nsLayoutUtils::GetPopupFrameForPoint(
+      accDocument->PresContext()->GetRootPresContext(), rootWidget, point);
   if (popupFrame) {
     // If 'this' accessible is not inside the popup then ignore the popup when
     // searching an accessible at point.
@@ -2732,13 +2729,6 @@ bool LocalAccessible::IsLink() const {
   return mParent && mParent->IsHyperText() && !IsText();
 }
 
-uint32_t LocalAccessible::EndOffset() {
-  MOZ_ASSERT(IsLink(), "EndOffset is called on not hyper link!");
-
-  HyperTextAccessible* hyperText = mParent ? mParent->AsHyperText() : nullptr;
-  return hyperText ? (hyperText->GetChildOffset(this) + 1) : 0;
-}
-
 uint32_t LocalAccessible::AnchorCount() {
   MOZ_ASSERT(IsLink(), "AnchorCount is called on not hyper link!");
   return 1;
@@ -3306,9 +3296,32 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
         }
       }
     }
+
+    if (nsIFrame* frame = GetFrame()) {
+      // Note our frame's current computed style so we can track style changes
+      // later on.
+      mOldComputedStyle = frame->Style();
+    }
   }
 
   return fields.forget();
+}
+
+void LocalAccessible::MaybeQueueCacheUpdateForStyleChanges() {
+  if (!StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    return;
+  }
+
+  if (nsIFrame* frame = GetFrame()) {
+    const ComputedStyle* newStyle = frame->Style();
+    MOZ_ASSERT(newStyle != mOldComputedStyle, "New style matches old style!");
+
+    // TODO: comparison on a11y-relevant style attributes
+
+    // TODO: Queue cache update, schedule processing on document
+
+    mOldComputedStyle = newStyle;
+  }
 }
 
 nsAtom* LocalAccessible::TagName() const {

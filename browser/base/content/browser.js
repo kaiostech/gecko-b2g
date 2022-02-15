@@ -1640,7 +1640,7 @@ var gBrowserInit = {
 
     if (AppConstants.platform == "win") {
       if (
-        window.matchMedia("(-moz-os-version: windows-win8)").matches &&
+        window.matchMedia("(-moz-platform: windows-win8)").matches &&
         window.matchMedia("(-moz-windows-default-theme)").matches
       ) {
         let windowFrameColor = new Color(
@@ -1806,14 +1806,24 @@ var gBrowserInit = {
       // Remove the speculative focus from the urlbar to let the url be formatted.
       gURLBar.removeAttribute("focused");
 
-      try {
-        gBrowser.swapBrowsersAndCloseOther(gBrowser.selectedTab, tabToAdopt);
-      } catch (e) {
-        Cu.reportError(e);
-      }
+      let swapBrowsers = () => {
+        try {
+          gBrowser.swapBrowsersAndCloseOther(gBrowser.selectedTab, tabToAdopt);
+        } catch (e) {
+          Cu.reportError(e);
+        }
 
-      // Clear the reference to the tab once its adoption has been completed.
-      this._clearTabToAdopt();
+        // Clear the reference to the tab once its adoption has been completed.
+        this._clearTabToAdopt();
+      };
+      if (tabToAdopt.linkedBrowser.isRemoteBrowser) {
+        // For remote browsers, wait for the paint event, otherwise the tabs
+        //  are not yet ready and focus gets confused because the browser swaps
+        // out while tabs are switching.
+        addEventListener("MozAfterPaint", swapBrowsers, { once: true });
+      } else {
+        swapBrowsers();
+      }
     }
 
     // Wait until chrome is painted before executing code not critical to making the window visible
@@ -2352,8 +2362,6 @@ var gBrowserInit = {
     scheduleIdleTask(async () => {
       NewTabPagePreloading.maybeCreatePreloadedBrowser(window);
     });
-
-    scheduleIdleTask(reportRemoteSubframesEnabledTelemetry);
 
     scheduleIdleTask(() => {
       gGfxUtils.init();
@@ -9921,16 +9929,3 @@ var ConfirmationHint = {
     }
   },
 };
-
-function reportRemoteSubframesEnabledTelemetry() {
-  let categoryLabel = gFissionBrowser ? "Enabled" : "Disabled";
-  if (gFissionBrowser == Services.appinfo.fissionAutostart) {
-    categoryLabel += "ByAutostart";
-  } else {
-    categoryLabel += "ByUser";
-  }
-
-  Services.telemetry
-    .getHistogramById("WINDOW_REMOTE_SUBFRAMES_ENABLED_STATUS")
-    .add(categoryLabel);
-}

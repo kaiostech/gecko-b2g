@@ -31,6 +31,7 @@ class AutoLockGC;
 class AutoLockGCBgAlloc;
 class AutoLockHelperThreadState;
 class FinalizationRegistryObject;
+class FinalizationRecordObject;
 class FinalizationQueueObject;
 class VerifyPreTracer;
 class WeakRefObject;
@@ -482,9 +483,12 @@ class GCRuntime {
       JS::DoCycleCollectionCallback callback);
 
   bool addFinalizationRegistry(JSContext* cx,
-                               FinalizationRegistryObject* registry);
+                               Handle<FinalizationRegistryObject*> registry);
   bool registerWithFinalizationRegistry(JSContext* cx, HandleObject target,
                                         HandleObject record);
+  void queueFinalizationRegistryForCleanup(FinalizationQueueObject* queue);
+  void nukeFinalizationRecordWrapper(JSObject* wrapper,
+                                     FinalizationRecordObject* record);
 
   void setFullCompartmentChecks(bool enable);
 
@@ -734,7 +738,6 @@ class GCRuntime {
   void traceEmbeddingGrayRoots(JSTracer* trc);
   IncrementalProgress traceEmbeddingGrayRoots(JSTracer* trc,
                                               SliceBudget& budget);
-  void markFinalizationRegistryRoots(JSTracer* trc);
   void checkNoRuntimeRoots(AutoGCSession& session);
   void maybeDoCycleCollection();
   void findDeadCompartments();
@@ -785,7 +788,6 @@ class GCRuntime {
   void sweepJitDataOnMainThread(JSFreeOp* fop);
   void sweepFinalizationRegistriesOnMainThread();
   void traceWeakFinalizationRegistryEdges(JSTracer* trc, Zone* zone);
-  void queueFinalizationRegistryForCleanup(FinalizationQueueObject* queue);
   void sweepWeakRefs();
   IncrementalProgress endSweepingSweepGroup(JSFreeOp* fop, SliceBudget& budget);
   IncrementalProgress performSweepActions(SliceBudget& sliceBudget);

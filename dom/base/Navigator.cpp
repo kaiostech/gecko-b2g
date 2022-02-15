@@ -102,10 +102,6 @@
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
 
-#if defined(XP_LINUX)
-#  include "mozilla/Hal.h"
-#endif
-
 #if defined(XP_WIN)
 #  include "mozilla/WindowsVersion.h"
 #endif

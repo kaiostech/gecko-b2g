@@ -39,7 +39,6 @@
 #include "nsPIDOMWindow.h"
 #include "nsDisplayList.h"
 #include "nsFocusManager.h"
-#include "nsContentUtils.h"
 
 #include "nsTArray.h"
 
@@ -89,7 +88,6 @@
 #include "mozilla/EndianUtils.h"
 #include "mozilla/FilterInstance.h"
 #include "mozilla/gfx/2D.h"
-#include "mozilla/gfx/Helpers.h"
 #include "mozilla/gfx/Tools.h"
 #include "mozilla/gfx/PathHelpers.h"
 #include "mozilla/gfx/DataSurfaceHelpers.h"
@@ -118,7 +116,6 @@
 #include "nsFontMetrics.h"
 #include "nsLayoutUtils.h"
 #include "Units.h"
-#include "CanvasUtils.h"
 #include "mozilla/CycleCollectedJSRuntime.h"
 #include "mozilla/ServoCSSParser.h"
 #include "mozilla/ServoStyleSet.h"
@@ -1509,6 +1506,14 @@ bool CanvasRenderingContext2D::TryBasicTarget(
 
   aOutProvider = new PersistentBufferProviderBasic(aOutDT);
   return true;
+}
+
+Maybe<SurfaceDescriptor> CanvasRenderingContext2D::GetFrontBuffer(
+    WebGLFramebufferJS*, const bool webvr) {
+  if (mBufferProvider) {
+    return mBufferProvider->GetFrontBuffer();
+  }
+  return Nothing();
 }
 
 PresShell* CanvasRenderingContext2D::GetPresShell() {

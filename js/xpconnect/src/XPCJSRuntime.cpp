@@ -2977,7 +2977,7 @@ void XPCJSRuntime::Initialize(JSContext* cx) {
   mLoaderGlobal.init(cx, nullptr);
 
   // these jsids filled in later when we have a JSContext to work with.
-  mStrIDs[0] = JSID_VOID;
+  mStrIDs[0] = JS::PropertyKey::Void();
 
   nsScriptSecurityManager::GetScriptSecurityManager()->InitJSCallbacks(cx);
 
@@ -3076,12 +3076,12 @@ void XPCJSRuntime::Initialize(JSContext* cx) {
 
 bool XPCJSRuntime::InitializeStrings(JSContext* cx) {
   // if it is our first context then we need to generate our string ids
-  if (JSID_IS_VOID(mStrIDs[0])) {
+  if (mStrIDs[0].isVoid()) {
     RootedString str(cx);
     for (unsigned i = 0; i < XPCJSContext::IDX_TOTAL_COUNT; i++) {
       str = JS_AtomizeAndPinString(cx, mStrings[i]);
       if (!str) {
-        mStrIDs[0] = JSID_VOID;
+        mStrIDs[0] = JS::PropertyKey::Void();
         return false;
       }
       mStrIDs[i] = PropertyKey::fromPinnedString(str);

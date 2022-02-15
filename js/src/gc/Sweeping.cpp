@@ -23,6 +23,7 @@
 #include "builtin/WeakRefObject.h"
 #include "debugger/DebugAPI.h"
 #include "gc/AllocKind.h"
+#include "gc/FinalizationRegistry.h"
 #include "gc/GCInternals.h"
 #include "gc/GCLock.h"
 #include "gc/GCProbes.h"
@@ -639,6 +640,11 @@ bool Zone::findSweepGroupEdges(Zone* atomsZone) {
     }
   }
 
+  FinalizationRegistryZone* frzone = finalizationRegistryZone();
+  if (frzone && !frzone->findSweepGroupEdges()) {
+    return false;
+  }
+
   return WeakMapBase::findSweepGroupEdgesForZone(this);
 }
 
@@ -966,7 +972,7 @@ static bool HasIncomingCrossCompartmentPointers(JSRuntime* rt) {
 }
 #endif
 
-void js::NotifyGCNukeWrapper(JSObject* wrapper) {
+void js::NotifyGCNukeWrapper(JSContext* cx, JSObject* wrapper) {
   MOZ_ASSERT(IsCrossCompartmentWrapper(wrapper));
 
   /*
@@ -981,7 +987,7 @@ void js::NotifyGCNukeWrapper(JSObject* wrapper) {
   JSObject* target = UncheckedUnwrapWithoutExpose(wrapper);
   if (target->is<WeakRefObject>()) {
     WeakRefObject* weakRef = &target->as<WeakRefObject>();
-    GCRuntime* gc = &weakRef->runtimeFromMainThread()->gc;
+    GCRuntime* gc = &cx->runtime()->gc;
     if (weakRef->target() && gc->unregisterWeakRefWrapper(wrapper)) {
       weakRef->clearTarget();
     }
@@ -993,7 +999,7 @@ void js::NotifyGCNukeWrapper(JSObject* wrapper) {
    */
   if (target->is<FinalizationRecordObject>()) {
     auto* record = &target->as<FinalizationRecordObject>();
-    FinalizationRegistryObject::unregisterRecord(record);
+    cx->runtime()->gc.nukeFinalizationRecordWrapper(wrapper, record);
   }
 }
 
@@ -1480,6 +1486,12 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JSFreeOp* fop,
   // This must happen before sweeping realm globals.
   sweepDebuggerOnMainThread(fop);
 
+  // FinalizationRegistry sweeping touches weak maps and so must not run in
+  // parallel with that. This triggers a read barrier and can add marking work
+  // for zones that are still marking. Must happen before sweeping realm
+  // globals.
+  sweepFinalizationRegistriesOnMainThread();
+
   // This must happen before updating embedding weak pointers.
   sweepRealmGlobals();
 
@@ -1531,11 +1543,6 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JSFreeOp* fop,
   if (sweepingAtoms) {
     startSweepingAtomsTable();
   }
-
-  // FinalizationRegistry sweeping touches weak maps and so must not run in
-  // parallel with that. This triggers a read barrier and can add marking work
-  // for zones that are still marking.
-  sweepFinalizationRegistriesOnMainThread();
 
   // Queue all GC things in all zones for sweeping, either on the foreground
   // or on the background thread.

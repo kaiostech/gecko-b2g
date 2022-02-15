@@ -45,6 +45,7 @@
 #include "builtin/WeakSetObject.h"
 #include "debugger/DebugAPI.h"
 #include "frontend/CompilationStencil.h"
+#include "gc/FinalizationRegistry.h"
 #include "gc/FreeOp.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/friend/WindowProxy.h"    // js::ToWindowProxyIfWindow
@@ -766,8 +767,8 @@ bool js::DefinePropertiesAndFunctions(JSContext* cx, HandleObject obj,
 }
 
 bool js::DefineToStringTag(JSContext* cx, HandleObject obj, JSAtom* tag) {
-  RootedId toStringTagId(cx,
-                         SYMBOL_TO_JSID(cx->wellKnownSymbols().toStringTag));
+  RootedId toStringTagId(
+      cx, PropertyKey::Symbol(cx->wellKnownSymbols().toStringTag));
   RootedValue tagString(cx, StringValue(tag));
   return DefineDataProperty(cx, obj, toStringTagId, tagString, JSPROP_READONLY);
 }
@@ -820,6 +821,16 @@ RegExpStatics* GlobalObject::getRegExpStatics(JSContext* cx,
   }
 
   return global->data().regExpStatics.get();
+}
+
+gc::FinalizationRegistryGlobalData*
+GlobalObject::getOrCreateFinalizationRegistryData() {
+  if (!data().finalizationRegistryData) {
+    data().finalizationRegistryData =
+        MakeUnique<gc::FinalizationRegistryGlobalData>(zone());
+  }
+
+  return maybeFinalizationRegistryData();
 }
 
 bool GlobalObject::addToVarNames(JSContext* cx, JS::Handle<JSAtom*> name) {
@@ -1028,7 +1039,7 @@ void GlobalObject::releaseData(JSFreeOp* fop) {
 
 GlobalObjectData::GlobalObjectData(Zone* zone) : varNames(zone) {}
 
-void GlobalObjectData::trace(JSTracer* trc) {
+void GlobalObjectData::trace(JSTracer* trc, GlobalObject* global) {
   // Atoms are always tenured.
   if (!JS::RuntimeHeapIsMinorCollecting()) {
     varNames.trace(trc);
@@ -1083,6 +1094,10 @@ void GlobalObjectData::trace(JSTracer* trc) {
 
   TraceNullableEdge(trc, &selfHostingScriptSource,
                     "self-hosting-script-source");
+
+  if (finalizationRegistryData) {
+    finalizationRegistryData->trace(trc, global);
+  }
 }
 
 void GlobalObjectData::addSizeOfIncludingThis(

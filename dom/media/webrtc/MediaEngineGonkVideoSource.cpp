@@ -628,16 +628,16 @@ void MediaEngineGonkVideoSource::UpdateScreenConfiguration(
 
   int orientation = 0;
   switch (aConfig.orientation()) {
-    case hal::eScreenOrientation_PortraitPrimary:
+    case hal::ScreenOrientation::PortraitPrimary:
       orientation = 0;
       break;
-    case hal::eScreenOrientation_PortraitSecondary:
+    case hal::ScreenOrientation::PortraitSecondary:
       orientation = 180;
       break;
-    case hal::eScreenOrientation_LandscapePrimary:
+    case hal::ScreenOrientation::LandscapePrimary:
       orientation = 270;
       break;
-    case hal::eScreenOrientation_LandscapeSecondary:
+    case hal::ScreenOrientation::LandscapeSecondary:
       orientation = 90;
       break;
   }

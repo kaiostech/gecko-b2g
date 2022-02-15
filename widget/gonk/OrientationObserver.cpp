@@ -39,10 +39,10 @@ struct OrientationMapping {
 };
 
 static OrientationMapping sOrientationMappings[] = {
-    {nsIScreen::ROTATION_0_DEG, hal::eScreenOrientation_PortraitPrimary},
-    {nsIScreen::ROTATION_180_DEG, hal::eScreenOrientation_PortraitSecondary},
-    {nsIScreen::ROTATION_90_DEG, hal::eScreenOrientation_LandscapePrimary},
-    {nsIScreen::ROTATION_270_DEG, hal::eScreenOrientation_LandscapeSecondary},
+    {nsIScreen::ROTATION_0_DEG, hal::ScreenOrientation::PortraitPrimary},
+    {nsIScreen::ROTATION_180_DEG, hal::ScreenOrientation::PortraitSecondary},
+    {nsIScreen::ROTATION_90_DEG, hal::ScreenOrientation::LandscapePrimary},
+    {nsIScreen::ROTATION_270_DEG, hal::ScreenOrientation::LandscapeSecondary},
 };
 
 const static uint32_t sDefaultLandscape = 2;
@@ -94,7 +94,7 @@ static void DetectDefaultOrientation() {
  * conversion.
  *
  * @param aOrientation DOM orientation e.g.
- *        dom::eScreenOrientation_PortraitPrimary.
+ *        dom::ScreenOrientation::PortraitPrimary.
  * @param aResult output nsIScreen rotation e.g. nsIScreen::ROTATION_0_DEG.
  * @return NS_OK on success. NS_ILLEGAL_VALUE on failure.
  */
@@ -120,7 +120,7 @@ static nsresult ConvertToScreenRotation(ScreenOrientation aOrientation,
  *
  * @param aRotation nsIScreen rotation e.g. nsIScreen::ROTATION_0_DEG.
  * @param aResult output DOM orientation e.g.
- *        eScreenOrientation_PortraitPrimary.
+ *        ScreenOrientation::PortraitPrimary.
  * @return NS_OK on success. NS_ILLEGAL_VALUE on failure.
  */
 nsresult ConvertToDomOrientation(uint32_t aRotation,
@@ -136,7 +136,7 @@ nsresult ConvertToDomOrientation(uint32_t aRotation,
     }
   }
 
-  *aResult = eScreenOrientation_None;
+  *aResult = ScreenOrientation::None;
   return NS_ERROR_ILLEGAL_VALUE;
 }
 
@@ -206,7 +206,7 @@ void OrientationObserver::Notify(const hal::SensorData& aSensorData) {
     return;
   }
 
-  if ((mAllowedOrientations & orientation) == eScreenOrientation_None) {
+  if ((mAllowedOrientations & orientation) == ScreenOrientation::None) {
     // The orientation from sensor is not allowed.
     return;
   }
@@ -240,24 +240,24 @@ void OrientationObserver::DisableAutoOrientation() {
 
 bool OrientationObserver::LockScreenOrientation(
     ScreenOrientation aOrientation) {
-  MOZ_ASSERT(aOrientation | (eScreenOrientation_PortraitPrimary |
-                             eScreenOrientation_PortraitSecondary |
-                             eScreenOrientation_LandscapePrimary |
-                             eScreenOrientation_LandscapeSecondary |
-                             eScreenOrientation_Default));
+  MOZ_ASSERT(aOrientation | (ScreenOrientation::PortraitPrimary |
+                             ScreenOrientation::PortraitSecondary |
+                             ScreenOrientation::LandscapePrimary |
+                             ScreenOrientation::LandscapeSecondary |
+                             ScreenOrientation::Default));
 
-  if (aOrientation == eScreenOrientation_Default) {
+  if (aOrientation == ScreenOrientation::Default) {
     aOrientation = (sOrientationOffset == sDefaultPortrait)
-                       ? eScreenOrientation_PortraitPrimary
-                       : eScreenOrientation_LandscapePrimary;
+                       ? ScreenOrientation::PortraitPrimary
+                       : ScreenOrientation::LandscapePrimary;
   }
 
   // If there are multiple orientations allowed, we should enable the
   // auto-rotation.
-  if (aOrientation != eScreenOrientation_LandscapePrimary &&
-      aOrientation != eScreenOrientation_LandscapeSecondary &&
-      aOrientation != eScreenOrientation_PortraitPrimary &&
-      aOrientation != eScreenOrientation_PortraitSecondary) {
+  if (aOrientation != ScreenOrientation::LandscapePrimary &&
+      aOrientation != ScreenOrientation::LandscapeSecondary &&
+      aOrientation != ScreenOrientation::PortraitPrimary &&
+      aOrientation != ScreenOrientation::PortraitSecondary) {
     if (!mAutoOrientationEnabled) {
       EnableAutoOrientation();
     }
@@ -274,7 +274,7 @@ bool OrientationObserver::LockScreenOrientation(
   nsresult rv = screen->GetRotation(&currRotation);
   NS_ENSURE_SUCCESS(rv, false);
 
-  ScreenOrientation currOrientation = eScreenOrientation_None;
+  ScreenOrientation currOrientation = ScreenOrientation::None;
   rv = ConvertToDomOrientation(currRotation, &currOrientation);
   NS_ENSURE_SUCCESS(rv, false);
 
@@ -307,5 +307,5 @@ void OrientationObserver::UnlockScreenOrientation() {
 
   mAllowedOrientations = sDefaultOrientations;
 
-  LockScreenOrientation(eScreenOrientation_Default);
+  LockScreenOrientation(ScreenOrientation::Default);
 }

@@ -57,14 +57,14 @@ class OrientationObserver : public ISensorObserver {
 
  private:
   bool mAutoOrientationEnabled;
-  uint32_t mAllowedOrientations;
+  mozilla::hal::ScreenOrientation mAllowedOrientations;
   mozilla::UniquePtr<mozilla::ProcessOrientation> mOrientation;
 
-  static const uint32_t sDefaultOrientations =
-      mozilla::hal::eScreenOrientation_PortraitPrimary |
-      mozilla::hal::eScreenOrientation_PortraitSecondary |
-      mozilla::hal::eScreenOrientation_LandscapePrimary |
-      mozilla::hal::eScreenOrientation_LandscapeSecondary;
+  static const mozilla::hal::ScreenOrientation sDefaultOrientations =
+      mozilla::hal::ScreenOrientation::PortraitPrimary |
+      mozilla::hal::ScreenOrientation::PortraitSecondary |
+      mozilla::hal::ScreenOrientation::LandscapePrimary |
+      mozilla::hal::ScreenOrientation::LandscapeSecondary;
 };
 
 #endif

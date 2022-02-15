@@ -947,8 +947,9 @@ TEST(TestAudioTrackGraph, SetInputChannelCountBeforeAudioCallbackDriver)
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr);
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      nullptr);
 
   // Set the input channel count of AudioInputProcessing, which will force
   // MediaTrackGraph to re-evaluate input device, when the MediaTrackGraph is

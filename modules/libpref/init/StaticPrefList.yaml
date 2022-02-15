@@ -3552,7 +3552,7 @@
 
 - name: dom.serviceWorkers.navigationPreload.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: dom.serviceWorkers.shutdown_observer.enabled
@@ -3771,13 +3771,17 @@
   value: false
   mirror: always
 
-# DON'T enable, there are known issues!
 - name: dom.streams.byte_streams.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
 
 - name: dom.streams.writable_streams.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: dom.streams.transform_streams.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -5278,12 +5282,12 @@
 
 - name: gfx.canvas.accelerated.cache-items
   type: RelaxedAtomicUint32
-  value: 1024
+  value: 2048
   mirror: always
 
 - name: gfx.canvas.accelerated.cache-size
   type: RelaxedAtomicUint32
-  value: 128
+  value: 256
   mirror: always
 
 - name: gfx.canvas.accelerated.max-size
@@ -5822,7 +5826,7 @@
 
 - name: gfx.will-change.ignore-opacity
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # We expose two prefs: gfx.webrender.all and gfx.webrender.enabled.
@@ -6718,7 +6722,7 @@
 # NOTE: This must match JitOptions defaults.
 - name: javascript.options.watchtower.megamorphic
   type: bool
-  value: false
+  value: true
   mirror: always  # LoadStartupJSPrefs
   do_not_use_directly: true
 
@@ -7170,7 +7174,7 @@
 
 - name: layers.gpu-process.enabled
   type: bool
-#if defined(XP_WIN) || defined(MOZ_WIDGET_ANDROID)
+#if defined(XP_WIN)
   value: true
 #else
   value: false
@@ -8661,7 +8665,7 @@
 
 # ClockDrift desired buffering in milliseconds
 - name: media.clockdrift.buffering
-  type: int32_t
+  type: uint32_t
   mirror: always
   value: 50
 
@@ -9857,6 +9861,15 @@
     value: 1
     mirror: always
 #endif
+
+# The duration, in milliseconds, of decoded audio to keep around in the
+# AudioSink ring-buffer. New decoding operations are started when this limit is
+# reached. The total size of the ring-buffer is slightly bigger than this.
+- name: media.audio.audiosink.threshold_ms
+  type: AtomicFloat
+  value: 1000.0
+  mirror: always
+
 
 #---------------------------------------------------------------------------
 # Prefs starting with "midi."
@@ -13024,6 +13037,12 @@
   value: false
   mirror: always
 
+# Whether we use overlay scrollbars on GTK.
+- name: widget.gtk.overlay-scrollbars.enabled
+  type: RelaxedAtomicBool
+  value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
 # Whether we honor the scrollbar colors from the gtk theme.
 - name: widget.gtk.theme-scrollbar-colors.enabled
   type: bool
@@ -13109,7 +13128,20 @@
 #endif
 
 #ifdef MOZ_WIDGET_GTK
+
+# The time we should spend on a DBUS call to the FileManager1 interface before
+# giving up and trying an alternative method.
 #
+# -1 for the default system timeout, INT_MAX for "infinite time".
+#
+# This happens right now on the main thread so 1 second should be enough, we
+# should consider moving it to a background task and just use the default
+# timeout.
+- name: widget.gtk.file-manager-show-items-timeout-ms
+  type: int32_t
+  value: 1000
+  mirror: always
+
 # Whether to use gtk portal for the file picker.
 #  - 0: never
 #  - 1: always
@@ -13185,6 +13217,26 @@
 #else
   value: false
 #endif
+  mirror: always
+
+# Various metrics to control SwipeTracker.
+- name: widget.swipe.velocity-twitch-tolerance
+  type: float
+  value: 0.0000001f
+  mirror: always
+
+- name: widget.swipe.success-threshold
+  type: float
+#if defined(XP_WIN)
+  value: 0.5f
+#else
+  value: 0.25f
+#endif
+  mirror: always
+
+- name: widget.swipe.success-velocity-contribution
+  type: float
+  value: 0.05f
   mirror: always
 
 #---------------------------------------------------------------------------

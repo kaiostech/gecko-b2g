@@ -1165,7 +1165,6 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
 #endif
 
   nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
-  MOZ_ASSERT(docShell);
   if (!docShell) {
     NS_WARNING("WebNavigation does not have a docshell");
     return IPC_OK();

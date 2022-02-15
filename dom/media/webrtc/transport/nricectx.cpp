@@ -58,7 +58,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nsComponentManagerUtils.h"
 #include "nsError.h"
 #include "nsNetCID.h"
-#include "nsComponentManagerUtils.h"
 #include "nsServiceManagerUtils.h"
 #include "ScopedNSSTypes.h"
 #include "runnable_utils.h"
@@ -781,7 +780,7 @@ nsresult NrIceCtx::SetStunServers(
     }
   }
 
-  int r = nr_ice_ctx_set_stun_servers(ctx_, &servers[0],
+  int r = nr_ice_ctx_set_stun_servers(ctx_, servers.data(),
                                       static_cast<int>(servers.size()));
   if (r) {
     MOZ_MTLOG(ML_ERROR, "Couldn't set STUN servers for '" << name_ << "'");
@@ -809,7 +808,7 @@ nsresult NrIceCtx::SetTurnServers(
     }
   }
 
-  int r = nr_ice_ctx_set_turn_servers(ctx_, &servers[0],
+  int r = nr_ice_ctx_set_turn_servers(ctx_, servers.data(),
                                       static_cast<int>(servers.size()));
   if (r) {
     MOZ_MTLOG(ML_ERROR, "Couldn't set TURN servers for '" << name_ << "'");

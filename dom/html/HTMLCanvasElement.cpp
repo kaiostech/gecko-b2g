@@ -578,7 +578,7 @@ void HTMLCanvasElement::HandlePrintCallback(nsPresContext* aPresContext) {
   // Only call the print callback here if 1) we're in a print testing mode or
   // print preview mode, 2) the canvas has a print callback and 3) the callback
   // hasn't already been called. For real printing the callback is handled in
-  // nsSimplePageSequenceFrame::PrePrintNextPage.
+  // nsPageSequenceFrame::PrePrintNextSheet.
   if ((aPresContext->Type() == nsPresContext::eContext_PageLayout ||
        aPresContext->Type() == nsPresContext::eContext_PrintPreview) &&
       !mPrintState && GetMozPrintCallback()) {
@@ -1210,8 +1210,8 @@ void HTMLCanvasElement::InvalidateCanvasContent(const gfx::Rect* damageRect) {
   }
 
   if (localData && wr::AsUint64(localData->mImageKey)) {
-    localData->mDirty = true;
-    frame->SchedulePaint(nsIFrame::PAINT_COMPOSITE_ONLY);
+    // When the readback is complete, we will schedule a resource update.
+    localData->RequestFrameReadback();
   } else if (renderer) {
     renderer->SetDirty();
     frame->SchedulePaint(nsIFrame::PAINT_COMPOSITE_ONLY);

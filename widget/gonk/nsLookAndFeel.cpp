@@ -305,12 +305,6 @@ nsresult nsLookAndFeel::NativeGetInt(IntID aID, int32_t& aResult) {
       aResult = eScrollThumbStyle_Proportional;
       break;
 
-    case IntID::WindowsDefaultTheme:
-    case IntID::OperatingSystemVersionIdentifier:
-      aResult = 0;
-      rv = NS_ERROR_NOT_IMPLEMENTED;
-      break;
-
     case IntID::IMERawInputUnderlineStyle:
     case IntID::IMEConvertedTextUnderlineStyle:
       aResult = NS_STYLE_TEXT_DECORATION_STYLE_SOLID;

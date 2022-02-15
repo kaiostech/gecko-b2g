@@ -283,23 +283,23 @@ static hal::ScreenOrientation ComputeOrientation(
   bool naturallyPortrait = (aScreenSize.height > aScreenSize.width);
   switch (aRotation) {
     case ROTATION_0:
-      return (naturallyPortrait ? eScreenOrientation_PortraitPrimary
-                                : eScreenOrientation_LandscapePrimary);
+      return (naturallyPortrait ? hal::ScreenOrientation::PortraitPrimary
+                                : hal::ScreenOrientation::LandscapePrimary);
     case ROTATION_90:
       // Arbitrarily choosing 90deg to be primary "unnatural"
       // rotation.
-      return (naturallyPortrait ? eScreenOrientation_LandscapePrimary
-                                : eScreenOrientation_PortraitPrimary);
+      return (naturallyPortrait ? hal::ScreenOrientation::LandscapePrimary
+                                : hal::ScreenOrientation::PortraitPrimary);
     case ROTATION_180:
-      return (naturallyPortrait ? eScreenOrientation_PortraitSecondary
-                                : eScreenOrientation_LandscapeSecondary);
+      return (naturallyPortrait ? hal::ScreenOrientation::PortraitSecondary
+                                : hal::ScreenOrientation::LandscapeSecondary);
     case ROTATION_270:
-      return (naturallyPortrait ? eScreenOrientation_LandscapeSecondary
-                                : eScreenOrientation_PortraitSecondary);
+      return (naturallyPortrait ? hal::ScreenOrientation::LandscapeSecondary
+                                : hal::ScreenOrientation::PortraitSecondary);
     default:
       MOZ_CRASH("Gonk screen must always have a known rotation");
   }
-  return hal::eScreenOrientation_PortraitPrimary;
+  return hal::ScreenOrientation::PortraitPrimary;
 }
 
 static uint16_t RotationToAngle(uint32_t aRotation) {

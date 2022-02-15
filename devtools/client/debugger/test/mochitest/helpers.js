@@ -826,9 +826,25 @@ async function reload(dbg, ...sources) {
  * @static
  */
 async function navigate(dbg, url, ...sources) {
-  await navigateTo(EXAMPLE_URL + url);
+  return navigateToAbsoluteURL(dbg, EXAMPLE_URL + url, ...sources);
+}
+
+/**
+ * Navigates the debuggee to another absolute url.
+ *
+ * @memberof mochitest/actions
+ * @param {Object} dbg
+ * @param {String} url
+ * @param {Array} sources
+ * @return {Promise}
+ * @static
+ */
+async function navigateToAbsoluteURL(dbg, url, ...sources) {
+  await navigateTo(url);
   return waitForSources(dbg, ...sources);
 }
+
+
 
 function getFirstBreakpointColumn(dbg, { line, sourceId }) {
   const { getSource, getFirstBreakpointPosition } = dbg.selectors;
@@ -1271,7 +1287,8 @@ async function getEditorLineEl(dbg, line) {
 }
 
 /*
- * Assert that no breakpoint is set on a given line.
+ * Assert that no breakpoint is set on a given line of
+ * the currently selected source in the editor.
  *
  * @memberof mochitest/helpers
  * @param {Object} dbg
@@ -1286,7 +1303,8 @@ async function assertNoBreakpoint(dbg, line) {
 }
 
 /*
- * Assert that a regular breakpoint is set. (no conditional, nor log breakpoint)
+ * Assert that a regular breakpoint is set in the currently
+ * selected source in the editor. (no conditional, nor log breakpoint)
  *
  * @memberof mochitest/helpers
  * @param {Object} dbg

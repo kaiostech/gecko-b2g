@@ -244,14 +244,14 @@ void MediaEngineWebRTCMicrophoneSource::ApplySettings(
             mInputProcessing->ApplyConfig(mTrack->GraphImpl(),
                                           mAudioProcessingConfig);
             {
-              TRACE("SetPassThrough")
-              mInputProcessing->SetPassThrough(mTrack->GraphImpl(),
-                                               mPassThrough);
-            }
-            {
               TRACE("SetRequestedInputChannelCount");
               mInputProcessing->SetRequestedInputChannelCount(
                   mTrack->GraphImpl(), mRequestedInputChannelCount);
+            }
+            {
+              TRACE("SetPassThrough")
+              mInputProcessing->SetPassThrough(mTrack->GraphImpl(),
+                                               mPassThrough);
             }
           }
         };
@@ -425,6 +425,8 @@ nsresult MediaEngineWebRTCMicrophoneSource::Start() {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
+  ApplySettings(mCurrentPrefs);
+
   NS_DispatchToMainThread(NS_NewRunnableFunction(
       __func__, [inputProcessing = mInputProcessing, deviceID, track = mTrack,
                  principal = mPrincipal] {
@@ -436,8 +438,6 @@ nsresult MediaEngineWebRTCMicrophoneSource::Start() {
             track, inputProcessing, StartStopMessage::Start));
         track->ConnectDeviceInput(deviceID, inputProcessing, principal);
       }));
-
-  ApplySettings(mCurrentPrefs);
 
   MOZ_ASSERT(mState != kReleased);
   mState = kStarted;

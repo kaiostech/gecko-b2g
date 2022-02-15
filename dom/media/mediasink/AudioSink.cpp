@@ -17,6 +17,7 @@
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "nsPrintfCString.h"
+#include "Tracing.h"
 
 namespace mozilla {
 
@@ -30,9 +31,6 @@ extern LazyLogModule gMediaDecoderLog;
 
 // The amount of audio frames that is used to fuzz rounding errors.
 static const int64_t AUDIO_FUZZ_FRAMES = 1;
-
-// Amount of audio frames we will be processing ahead of use
-static const int32_t LOW_AUDIO_USECS = 300000;
 
 using media::TimeUnit;
 
@@ -56,9 +54,11 @@ AudioSink::AudioSink(AbstractThread* aThread,
           StaticPrefs::dom_media_silence_duration_for_audibility()),
       mIsAudioDataAudible(false),
       mProcessedQueueFinished(false),
-      mAudioQueue(aAudioQueue) {
+      mAudioQueue(aAudioQueue),
+      mProcessedQueueThresholdMS(
+          StaticPrefs::media_audio_audiosink_threshold_ms()) {
   // Twice the limit that trigger a refill.
-  float capacitySeconds = LOW_AUDIO_USECS / 1000. / 1000. * 2;
+  float capacitySeconds = mProcessedQueueThresholdMS / 1000.f * 2;
   mProcessedSPSCQueue =
       MakeUnique<SPSCQueue<AudioDataValue>>(static_cast<uint32_t>(
           capacitySeconds * static_cast<float>(mOutputChannels * mOutputRate)));
@@ -115,6 +115,10 @@ bool AudioSink::HasUnplayedFrames() {
   // so we need to add 1 here before comparing it to mWritten.
   return mProcessedSPSCQueue->AvailableRead() ||
          (mAudioStream && mAudioStream->GetPositionInFrames() + 1 < mWritten);
+}
+
+TimeUnit AudioSink::UnplayedDuration() const {
+  return TimeUnit::FromMicroseconds(AudioQueuedInRingBufferMS());
 }
 
 void AudioSink::Shutdown() {
@@ -218,6 +222,11 @@ uint32_t AudioSink::PopFrames(AudioDataValue* aBuffer, uint32_t aFrames,
   if (aAudioThreadChanged) {
     mProcessedSPSCQueue->ResetThreadIds();
   }
+
+  TRACE_COMMENT("AudioSink::PopFrames", "%u frames (ringbuffer: %u/%u)",
+                aFrames, SampleToFrame(mProcessedSPSCQueue->AvailableRead()),
+                SampleToFrame(mProcessedSPSCQueue->Capacity()));
+
   const int samplesToPop = static_cast<int>(aFrames * mOutputChannels);
   const int samplesRead = mProcessedSPSCQueue->Dequeue(aBuffer, samplesToPop);
   MOZ_ASSERT(samplesRead % mOutputChannels == 0);
@@ -227,6 +236,8 @@ uint32_t AudioSink::PopFrames(AudioDataValue* aBuffer, uint32_t aFrames,
       SINK_LOG("Last PopFrames -- Source ended.");
     } else {
       NS_WARNING("Underrun when popping samples from audiosink ring buffer.");
+      TRACE_COMMENT("AudioSink::PopFrames", "Underrun %u frames missing",
+                    SampleToFrame(samplesToPop - samplesRead));
     }
     // silence the rest
     PodZero(aBuffer + samplesRead, samplesToPop - samplesRead);
@@ -270,10 +281,9 @@ void AudioSink::OnAudioPushed(const RefPtr<AudioData>& aSample) {
   NotifyAudioNeeded();
 }
 
-uint32_t AudioSink::AudioQueuedInRingBufferUs() const {
+uint32_t AudioSink::AudioQueuedInRingBufferMS() const {
   return static_cast<uint32_t>(
-      1000. * 1000 * SampleToFrame(mProcessedSPSCQueue->AvailableRead()) /
-      mOutputRate);
+      1000 * SampleToFrame(mProcessedSPSCQueue->AvailableRead()) / mOutputRate);
 }
 
 uint32_t AudioSink::SampleToFrame(uint32_t aSamples) const {
@@ -285,7 +295,7 @@ void AudioSink::NotifyAudioNeeded() {
              "Not called from the owner's thread");
 
   while (mAudioQueue.GetSize() &&
-         AudioQueuedInRingBufferUs() < LOW_AUDIO_USECS) {
+         AudioQueuedInRingBufferMS() < mProcessedQueueThresholdMS) {
     // Check if there's room in our ring buffer.
     if (mAudioQueue.PeekFront()->Frames() >
         SampleToFrame(mProcessedSPSCQueue->AvailableWrite())) {
@@ -395,6 +405,7 @@ void AudioSink::NotifyAudioNeeded() {
       } else {
         silenceData = CreateAudioFromBuffer(std::move(silenceBuffer), data);
       }
+      TRACE("Pushing silence");
       PushProcessedAudio(silenceData);
     }
 
@@ -424,6 +435,10 @@ uint32_t AudioSink::PushProcessedAudio(AudioData* aData) {
     return 0;
   }
   int framesToEnqueue = static_cast<int>(aData->Frames() * aData->mChannels);
+  TRACE_COMMENT("AudioSink::PushProcessedAudio", "%u frames (%u/%u)",
+                framesToEnqueue,
+                SampleToFrame(mProcessedSPSCQueue->AvailableWrite()),
+                SampleToFrame(mProcessedSPSCQueue->Capacity()));
   DebugOnly<int> rv =
       mProcessedSPSCQueue->Enqueue(aData->Data().Elements(), framesToEnqueue);
   NS_WARNING_ASSERTION(

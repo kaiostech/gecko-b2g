@@ -55,9 +55,12 @@ class AudioSink : private AudioStream::DataSource {
   media::TimeUnit GetPosition();
   media::TimeUnit GetEndTime() const;
 
-  // Check whether we've pushed more frames to the audio hardware than it has
-  // played.
+  // Check whether we've pushed more frames to the audio stream than it
+  // has played.
   bool HasUnplayedFrames();
+
+  // The duration of the buffered frames.
+  media::TimeUnit UnplayedDuration() const;
 
   // Shut down the AudioSink's resources.
   void Shutdown();
@@ -132,7 +135,7 @@ class AudioSink : private AudioStream::DataSource {
       AlignedAudioBuffer&& aBuffer, AudioData* aReference);
   // Add data to the processsed queue return the number of frames added.
   uint32_t PushProcessedAudio(AudioData* aData);
-  uint32_t AudioQueuedInRingBufferUs() const;
+  uint32_t AudioQueuedInRingBufferMS() const;
   uint32_t SampleToFrame(uint32_t aSamples) const;
   UniquePtr<AudioConverter> mConverter;
   UniquePtr<SPSCQueue<AudioDataValue>> mProcessedSPSCQueue;
@@ -156,6 +159,7 @@ class AudioSink : private AudioStream::DataSource {
 
   Atomic<bool> mProcessedQueueFinished;
   MediaQueue<AudioData>& mAudioQueue;
+  const float mProcessedQueueThresholdMS;
 };
 
 }  // namespace mozilla

@@ -793,8 +793,8 @@ void GeckoEditableSupport::HandleTextChanged() {
   }
 }
 
-void
-GeckoEditableSupport::HandleSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset) {
+void GeckoEditableSupport::HandleSelectionChanged(uint32_t aStartOffset,
+                                                  uint32_t aEndOffset) {
   if (XRE_IsParentProcess()) {
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = dom::InputMethodService::GetInstance();
@@ -805,6 +805,25 @@ GeckoEditableSupport::HandleSelectionChanged(uint32_t aStartOffset, uint32_t aEn
     HandleSelectionChangedRequest request(aStartOffset, aEndOffset);
     mServiceChild->SendRequest(request);
   }
+}
+
+void GeckoEditableSupport::HandleInputPositionChange() {
+  RefPtr<Element> ele = do_QueryReferent(mFocusedTarget);
+  if (!ele) {
+    return;
+  }
+  nsCOMPtr<Document> doc = ele->GetComposedDoc();
+  if (!doc) {
+    return;
+  }
+  PresShell* presShell = doc->GetPresShell();
+  if (!presShell) {
+    return;
+  }
+  presShell->ScrollContentIntoView(
+      ele, ScrollAxis(kScrollMinimum, WhenToScroll::IfNotFullyVisible),
+      ScrollAxis(kScrollMinimum, WhenToScroll::IfNotFullyVisible),
+      ScrollFlags::ScrollOverflowHidden);
 }
 
 NS_IMETHODIMP
@@ -857,6 +876,10 @@ GeckoEditableSupport::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
                   doc, element, name, CanBubble::eYes, Cancelable::eNo);
             }));
       }
+      break;
+    }
+    case NOTIFY_IME_OF_POSITION_CHANGE: {
+      HandleInputPositionChange();
       break;
     }
     default:

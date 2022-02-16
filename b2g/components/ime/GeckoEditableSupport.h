@@ -81,6 +81,7 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
                               dom::Element* aFocusedElement);
   void HandleTextChanged();
   void HandleSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset);
+  void HandleInputPositionChange();
 
  private:
   void EnsureServiceChild();

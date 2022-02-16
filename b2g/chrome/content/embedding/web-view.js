@@ -8,7 +8,7 @@
 // A <web-view> custom element, wrapping a <xul:browser>
 
 const { AboutReaderParent } = ChromeUtils.import(
-  "resource:///actors/AboutReaderParent.jsm"
+  "resource://gre/actors/AboutReaderParent.jsm"
 );
 
 (function() {

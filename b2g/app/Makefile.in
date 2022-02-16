@@ -7,6 +7,8 @@ NSDISTMODE = copy
 
 include $(topsrcdir)/config/rules.mk
 
+dist_dest   = $(DIST)/$(MOZ_MACBUNDLE_NAME)
+
 APP_ICON = app
 
 APP_BINARY = $(MOZ_APP_NAME)$(BIN_SUFFIX)
@@ -47,7 +49,8 @@ tools repackage:: $(libs-preqs)
 	rsync -a --include-from='$(srcdir)/macbuild/Contents/MacOS-files.in' --exclude '*' $(DIST)/bin/ $(DIST)/$(APP_NAME).app/Contents/MacOS
 	$(RM) $(DIST)/$(APP_NAME).app/Contents/MacOS/$(PROGRAM)
 	rsync -aL $(PROGRAM) $(DIST)/$(APP_NAME).app/Contents/MacOS
-	#cp -RL $(DIST)/branding/app.icns $(DIST)/$(APP_NAME).app/Contents/Resources/$(MOZ_APP_NAME).icns
+	cp -RL $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/$(MOZ_APP_NAME).icns '$(dist_dest)/Contents/Resources/$(MOZ_APP_NAME).icns'
+	cp -RL $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/document.icns '$(dist_dest)/Contents/Resources/document.icns'
 	printf APPLMOZB > $(DIST)/$(APP_NAME).app/Contents/PkgInfo
 
 else # MOZ_WIDGET_TOOLKIT != cocoa

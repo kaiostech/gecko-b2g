@@ -96,6 +96,12 @@ void GonkDrmSupport::Init(uint32_t aPromiseId,
       GD_LOGW("%p GonkDrmSupport::Init, DRM set sessionSharing failed(%d)",
               this, err);
     }
+    // Enable privacy mode.
+    err = mDrm->setPropertyString(String8("privacyMode"), String8("enable"));
+    if (err != OK) {
+      GD_LOGW("%p GonkDrmSupport::Init, DRM set privacyMode failed(%d)", this,
+              err);
+    }
   }
 
   err = OpenCryptoSession();
@@ -618,6 +624,9 @@ void GonkDrmSupport::Notify(DrmPlugin::EventType aEventType, int aExtra,
   }
 
   switch (aEventType) {
+    case DrmPlugin::kDrmPluginEventKeyNeeded:
+      OnKeyNeeded(aObj);
+      break;
     case DrmPlugin::kDrmPluginEventExpirationUpdate:
       OnExpirationUpdated(aObj);
       break;
@@ -625,6 +634,32 @@ void GonkDrmSupport::Notify(DrmPlugin::EventType aEventType, int aExtra,
       OnKeyStatusChanged(aObj);
       break;
   }
+}
+
+void GonkDrmSupport::OnKeyNeeded(const Parcel* aParcel) {
+  if (!aParcel) {
+    return;
+  }
+
+  auto sessionId = GonkDrmUtils::ReadByteVectorFromParcel(aParcel);
+  auto session = mSessionManager.FindByDrmId(sessionId);
+  if (!session) {
+    GD_LOGE("%p GonkDrmSupport::OnKeyNeeded, session not found", this);
+    return;
+  }
+
+  auto data = GonkDrmConverter::ToNsByteArray(
+      GonkDrmUtils::ReadByteVectorFromParcel(aParcel));
+
+  KeyRequest request;
+  if (!GetKeyRequest(session, data, &request)) {
+    GD_LOGE("%p GonkDrmSupport::OnKeyNeeded, GetKeyRequest failed", this);
+    return;
+  }
+
+  GD_LOGD("%p GonkDrmSupport::OnKeyNeeded, session ID %s sending key request",
+          this, session->EmeId().Data());
+  SendKeyRequest(session, std::move(request));
 }
 
 void GonkDrmSupport::OnExpirationUpdated(const Parcel* aParcel) {

@@ -110,6 +110,8 @@ class GonkDrmSupport : public BnDrmClient {
 
   void Notify(DrmPlugin::EventType aEventType, int aExtra, const Parcel* aObj);
 
+  void OnKeyNeeded(const Parcel* aParcel);
+
   void OnExpirationUpdated(const Parcel* aParcel);
 
   void OnKeyStatusChanged(const Parcel* aParcel);

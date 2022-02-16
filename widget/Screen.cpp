@@ -10,15 +10,26 @@
 #include "mozilla/Hal.h"
 #include "mozilla/StaticPrefs_layout.h"
 
-namespace mozilla {
-namespace widget {
+namespace mozilla::widget {
 
 NS_IMPL_ISUPPORTS(Screen, nsIScreen)
+
+static hal::ScreenOrientation EffectiveOrientation(
+    hal::ScreenOrientation aOrientation, const LayoutDeviceIntRect& aRect) {
+  if (aOrientation == hal::ScreenOrientation::None) {
+    return aRect.Width() >= aRect.Height()
+               ? hal::ScreenOrientation::LandscapePrimary
+               : hal::ScreenOrientation::PortraitPrimary;
+  }
+  return aOrientation;
+}
 
 Screen::Screen(LayoutDeviceIntRect aRect, LayoutDeviceIntRect aAvailRect,
                uint32_t aPixelDepth, uint32_t aColorDepth,
                DesktopToLayoutDeviceScale aContentsScale,
-               CSSToLayoutDeviceScale aDefaultCssScale, float aDPI)
+               CSSToLayoutDeviceScale aDefaultCssScale, float aDPI,
+               hal::ScreenOrientation aOrientation,
+               OrientationAngle aOrientationAngle)
     : mRect(aRect),
       mAvailRect(aAvailRect),
       mRectDisplayPix(RoundedToInt(aRect / aContentsScale)),
@@ -27,11 +38,13 @@ Screen::Screen(LayoutDeviceIntRect aRect, LayoutDeviceIntRect aAvailRect,
       mColorDepth(aColorDepth),
       mContentsScale(aContentsScale),
       mDefaultCssScale(aDefaultCssScale),
-      mScreenRotation(nsIScreen::ROTATION_0_DEG),
+      mDPI(aDPI),
+      mScreenOrientation(EffectiveOrientation(aOrientation, aRect)),
+      mOrientationAngle(aOrientationAngle),
       mNaturalBounds(aRect),
-      mDPI(aDPI) {}
+      mScreenRotation(nsIScreen::ROTATION_0_DEG) {}
 
-Screen::Screen(const mozilla::dom::ScreenDetails& aScreen)
+Screen::Screen(const dom::ScreenDetails& aScreen)
     : mRect(aScreen.rect()),
       mAvailRect(aScreen.availRect()),
       mRectDisplayPix(aScreen.rectDisplayPix()),
@@ -40,9 +53,11 @@ Screen::Screen(const mozilla::dom::ScreenDetails& aScreen)
       mColorDepth(aScreen.colorDepth()),
       mContentsScale(aScreen.contentsScaleFactor()),
       mDefaultCssScale(aScreen.defaultCSSScaleFactor()),
-      mScreenRotation(aScreen.screenRotation()),
+      mDPI(aScreen.dpi()),
+      mScreenOrientation(aScreen.orientation()),
+      mOrientationAngle(aScreen.orientationAngle()),
       mNaturalBounds(aScreen.naturalBounds()),
-      mDPI(aScreen.dpi()) {}
+      mScreenRotation(aScreen.screenRotation()) {}
 
 Screen::Screen(const Screen& aOther)
     : mRect(aOther.mRect),
@@ -53,21 +68,17 @@ Screen::Screen(const Screen& aOther)
       mColorDepth(aOther.mColorDepth),
       mContentsScale(aOther.mContentsScale),
       mDefaultCssScale(aOther.mDefaultCssScale),
+      mDPI(aOther.mDPI),
+      mScreenOrientation(aOther.mScreenOrientation),
+      mOrientationAngle(aOther.mOrientationAngle),
       mScreenRotation(aOther.mScreenRotation),
-      mNaturalBounds(aOther.mNaturalBounds),
-      mDPI(aOther.mDPI) {}
+      mNaturalBounds(aOther.mNaturalBounds) {}
 
-mozilla::dom::ScreenDetails Screen::ToScreenDetails() {
-  return mozilla::dom::ScreenDetails(
+dom::ScreenDetails Screen::ToScreenDetails() const {
+  return dom::ScreenDetails(
       mRect, mRectDisplayPix, mAvailRect, mAvailRectDisplayPix, mPixelDepth,
       mColorDepth, mContentsScale, mDefaultCssScale, mScreenRotation,
-      mNaturalBounds, mDPI);
-}
-
-mozilla::hal::ScreenConfiguration Screen::ToScreenConfiguration() {
-  return mozilla::hal::ScreenConfiguration(
-      nsIntRect(mRect.x, mRect.y, mRect.width, mRect.height),
-      hal::ScreenOrientation::None, 0, mColorDepth, mPixelDepth);
+      mNaturalBounds, mDPI, mScreenOrientation, mOrientationAngle);
 }
 
 NS_IMETHODIMP
@@ -145,7 +156,8 @@ Screen::SetRotation(uint32_t aRotation) {
     return NS_OK;
   }
   mScreenRotation = aRotation;
-  if (mScreenRotation == nsIScreen::ROTATION_90_DEG || mScreenRotation == nsIScreen::ROTATION_270_DEG) {
+  if (mScreenRotation == nsIScreen::ROTATION_90_DEG ||
+      mScreenRotation == nsIScreen::ROTATION_270_DEG) {
     mRect =
         LayoutDeviceIntRect(0, 0, mNaturalBounds.height, mNaturalBounds.width);
   } else {
@@ -155,5 +167,4 @@ Screen::SetRotation(uint32_t aRotation) {
   return NS_OK;
 }
 
-}  // namespace widget
-}  // namespace mozilla
+}  // namespace mozilla::widget

@@ -2,19 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "FallbackScreenConfiguration.h"
+#include "Hal.h"
 
-namespace mozilla {
-namespace hal_impl {
-
-void EnableScreenConfigurationNotifications() {}
-
-void DisableScreenConfigurationNotifications() {}
-
-void GetCurrentScreenConfiguration(
-    hal::ScreenConfiguration* aScreenConfiguration) {
-  fallback::GetCurrentScreenConfiguration(aScreenConfiguration);
-}
+namespace mozilla::hal_impl {
 
 RefPtr<mozilla::MozPromise<bool, bool, false>> LockScreenOrientation(
     const hal::ScreenOrientation& aOrientation) {
@@ -47,5 +37,4 @@ SetExtScreenEnabled(bool aEnabled)
 {
 }
 
-}  // namespace hal_impl
-}  // namespace mozilla
+}  // namespace mozilla::hal_impl

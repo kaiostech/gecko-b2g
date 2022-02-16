@@ -139,24 +139,30 @@ export const MultiStageAboutWelcome = props => {
     })();
   }, [useImportable, region]);
 
+  const centeredScreens = props.screens.filter(
+    s => s.content.position !== "corner"
+  );
+
   return (
     <React.Fragment>
       <div
         className={`outer-wrapper onboardingContainer proton transition-${transition}`}
-        style={
-          props.background_url
-            ? {
-                backgroundImage: `url(${props.background_url})`,
-              }
-            : {}
-        }
+        style={props.backdrop ? { background: props.backdrop } : {}}
       >
         {props.screens.map((screen, order) => {
+          const isFirstCenteredScreen =
+            screen.content.position !== "corner" &&
+            screen.order === centeredScreens[0].order;
+          const isLastCenteredScreen =
+            screen.content.position !== "corner" &&
+            screen.order === centeredScreens[centeredScreens.length - 1].order;
           return index === order ? (
             <WelcomeScreen
               key={screen.id + order}
               id={screen.id}
               totalNumberOfScreens={props.screens.length}
+              isFirstCenteredScreen={isFirstCenteredScreen}
+              isLastCenteredScreen={isLastCenteredScreen}
               order={order}
               autoClose={screen.autoClose}
               content={screen.content}
@@ -296,6 +302,8 @@ export class WelcomeScreen extends React.PureComponent {
         activeTheme={this.props.activeTheme}
         totalNumberOfScreens={this.props.totalNumberOfScreens - 1}
         handleAction={this.handleAction}
+        isFirstCenteredScreen={this.props.isFirstCenteredScreen}
+        isLastCenteredScreen={this.props.isLastCenteredScreen}
       />
     );
   }

@@ -69,14 +69,6 @@ struct WakeLockInformation {
   uint64_t[] lockingProcesses;
 };
 
-struct ScreenConfiguration {
-  nsIntRect rect;
-  ScreenOrientation orientation;
-  uint16_t angle;
-  uint32_t colorDepth;
-  uint32_t pixelDepth;
-};
-
 struct FlashlightInformation {
   bool enabled;
   bool present;
@@ -117,7 +109,6 @@ child:
     async NotifyPowerSupplyStatus(PowerSupplyStatus aPowerSupplyStatus);
     async NotifyNetworkChange(NetworkInformation aNetworkInfo);
     async NotifyWakeLockChange(WakeLockInformation aWakeLockInfo);
-    async NotifyScreenConfigurationChange(ScreenConfiguration aScreenOrientation);
     async NotifySwitchChange(SwitchEvent aEvent);
     async NotifyFlashlightState(FlashlightInformation aFlashlightInfo);
     async NotifyFlipState(bool aFlipState);
@@ -174,10 +165,6 @@ parent:
     sync GetWakeLockInfo(nsString aTopic)
       returns (WakeLockInformation aWakeLockInfo);
 
-    async EnableScreenConfigurationNotifications();
-    async DisableScreenConfigurationNotifications();
-    sync GetCurrentScreenConfiguration()
-      returns (ScreenConfiguration aScreenConfiguration);
     async LockScreenOrientation(ScreenOrientation aOrientation)
       returns (bool allowed);
     async UnlockScreenOrientation();

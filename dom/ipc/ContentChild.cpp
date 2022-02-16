@@ -120,7 +120,6 @@
 #include "mozilla/net/CookieServiceChild.h"
 #include "mozilla/net/DocumentChannelChild.h"
 #include "mozilla/net/HttpChannelChild.h"
-#include "mozilla/net/NeckoChild.h"
 #include "mozilla/widget/RemoteLookAndFeel.h"
 #include "mozilla/widget/ScreenManager.h"
 #include "mozilla/widget/WidgetMessageUtils.h"
@@ -2267,8 +2266,6 @@ bool ContentChild::DeallocPIccChild(PIccChild* aActor) {
 }
 #endif  // MOZ_B2G_RIL_END
 
-PNeckoChild* ContentChild::AllocPNeckoChild() { return new NeckoChild(); }
-
 mozilla::ipc::IPCResult ContentChild::RecvNetworkLinkTypeChange(
     const uint32_t& aType) {
   mNetworkLinkType = aType;
@@ -2278,11 +2275,6 @@ mozilla::ipc::IPCResult ContentChild::RecvNetworkLinkTypeChange(
                          nullptr);
   }
   return IPC_OK();
-}
-
-bool ContentChild::DeallocPNeckoChild(PNeckoChild* necko) {
-  delete necko;
-  return true;
 }
 
 PPrintingChild* ContentChild::AllocPPrintingChild() {

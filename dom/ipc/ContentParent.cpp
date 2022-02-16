@@ -4703,11 +4703,9 @@ bool ContentParent::DeallocPScriptCacheParent(PScriptCacheParent* cache) {
   return true;
 }
 
-PNeckoParent* ContentParent::AllocPNeckoParent() { return new NeckoParent(); }
-
-bool ContentParent::DeallocPNeckoParent(PNeckoParent* necko) {
-  delete necko;
-  return true;
+already_AddRefed<PNeckoParent> ContentParent::AllocPNeckoParent() {
+  RefPtr<NeckoParent> actor = new NeckoParent();
+  return actor.forget();
 }
 
 PPrintingParent* ContentParent::AllocPPrintingParent() {

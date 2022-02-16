@@ -11,7 +11,6 @@
 #include "mozilla/hal_sandbox/PHalParent.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/BrowserChild.h"
-#include "mozilla/fallback/FallbackScreenConfiguration.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/Observer.h"
 #include "mozilla/Unused.h"
@@ -102,18 +101,6 @@ void SetNetworkType(int32_t aType) {}
 
 void GetCurrentNetworkInformation(NetworkInformation* aNetworkInfo) {
   Hal()->SendGetCurrentNetworkInformation(aNetworkInfo);
-}
-
-void EnableScreenConfigurationNotifications() {
-  Hal()->SendEnableScreenConfigurationNotifications();
-}
-
-void DisableScreenConfigurationNotifications() {
-  Hal()->SendDisableScreenConfigurationNotifications();
-}
-
-void GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration) {
-  Hal()->SendGetCurrentScreenConfiguration(aScreenConfiguration);
 }
 
 RefPtr<mozilla::MozPromise<bool, bool, false>> LockScreenOrientation(
@@ -354,7 +341,6 @@ class HalParent : public PHalParent,
                   public NetworkObserver,
                   public ISensorObserver,
                   public WakeLockObserver,
-                  public ScreenConfigurationObserver,
                   public SwitchObserver,
                   public FlashlightObserver,
                   public FlipObserver {
@@ -364,7 +350,6 @@ class HalParent : public PHalParent,
     // if it *may* be registered below.
     hal::UnregisterBatteryObserver(this);
     hal::UnregisterNetworkObserver(this);
-    hal::UnregisterScreenConfigurationObserver(this);
     hal::UnregisterUsbObserver(this);
     hal::UnregisterPowerSupplyObserver(this);
     for (auto sensor : MakeEnumeratedRange(NUM_SENSOR_TYPE)) {
@@ -553,26 +538,6 @@ class HalParent : public PHalParent,
     Unused << SendNotifyNetworkChange(aNetworkInfo);
   }
 
-  virtual mozilla::ipc::IPCResult RecvEnableScreenConfigurationNotifications()
-      override {
-    // Screen configuration is used to implement CSS and DOM
-    // properties, so all content already has access to this.
-    hal::RegisterScreenConfigurationObserver(this);
-    return IPC_OK();
-  }
-
-  virtual mozilla::ipc::IPCResult RecvDisableScreenConfigurationNotifications()
-      override {
-    hal::UnregisterScreenConfigurationObserver(this);
-    return IPC_OK();
-  }
-
-  virtual mozilla::ipc::IPCResult RecvGetCurrentScreenConfiguration(
-    ScreenConfiguration* aScreenConfiguration) override {
-    hal::GetCurrentScreenConfiguration(aScreenConfiguration);
-    return IPC_OK();
-  }
-
   virtual mozilla::ipc::IPCResult RecvLockScreenOrientation(
       const ScreenOrientation& aOrientation,
       LockScreenOrientationResolver&& aResolve) override {
@@ -597,10 +562,6 @@ class HalParent : public PHalParent,
   virtual mozilla::ipc::IPCResult RecvUnlockScreenOrientation() override {
     hal::UnlockScreenOrientation();
     return IPC_OK();
-  }
-
-  void Notify(const ScreenConfiguration& aScreenConfiguration) override {
-    Unused << SendNotifyScreenConfigurationChange(aScreenConfiguration);
   }
 
   virtual mozilla::ipc::IPCResult RecvGetScreenEnabled(
@@ -748,12 +709,6 @@ class HalChild : public PHalChild {
   virtual mozilla::ipc::IPCResult RecvNotifyWakeLockChange(
       const WakeLockInformation& aWakeLockInfo) override {
     hal::NotifyWakeLockChange(aWakeLockInfo);
-    return IPC_OK();
-  }
-
-  virtual mozilla::ipc::IPCResult RecvNotifyScreenConfigurationChange(
-      const ScreenConfiguration& aScreenConfiguration) override {
-    hal::NotifyScreenConfigurationChange(aScreenConfiguration);
     return IPC_OK();
   }
 

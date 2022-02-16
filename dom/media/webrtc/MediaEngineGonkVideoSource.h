@@ -5,6 +5,7 @@
 #ifndef MEDIAENGINE_GONK_VIDEO_SOURCE_H_
 #define MEDIAENGINE_GONK_VIDEO_SOURCE_H_
 
+#include "nsIObserver.h"
 #include "MediaEngineCameraVideoSource.h"
 #include "mozilla/Hal.h"
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
@@ -15,8 +16,11 @@ namespace mozilla {
 class CameraControlWrapper;
 
 class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
-                                   public hal::ScreenConfigurationObserver {
+                                   public nsIObserver {
  public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
+
   explicit MediaEngineGonkVideoSource(const MediaDevice* aMediaDevice);
 
   nsresult Allocate(const dom::MediaTrackConstraints& aConstraints,
@@ -35,8 +39,6 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
   bool OnNewPreviewFrame(layers::Image* aImage, uint32_t aWidth,
                          uint32_t aHeight);
 
-  void Notify(const mozilla::hal::ScreenConfiguration& aConfiguration) override;
-
   nsresult TakePhoto(MediaEnginePhotoCallback* aCallback) override;
 
  private:
@@ -47,7 +49,7 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
   size_t NumCapabilities() const override;
   webrtc::CaptureCapability GetCapability(size_t aIndex) const override;
 
-  void UpdateScreenConfiguration(const hal::ScreenConfiguration& aConfig);
+  void UpdateScreenConfiguration();
 
   already_AddRefed<layers::Image> RotateImage(layers::Image* aImage,
                                               uint32_t aWidth,

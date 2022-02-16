@@ -12,6 +12,7 @@
 #include "mozilla/layers/GrallocTextureClient.h"
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/ReentrantMonitor.h"
+#include "mozilla/widget/ScreenManager.h"
 #include "ScreenOrientation.h"
 
 namespace mozilla {
@@ -317,6 +318,14 @@ void CameraControlWrapper::OnUserError(UserContext aContext, nsresult aError) {
 
 // ----------------------------------------------------------------------
 
+NS_INTERFACE_MAP_BEGIN(MediaEngineGonkVideoSource)
+  NS_INTERFACE_MAP_ENTRY(nsIObserver)
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
+NS_INTERFACE_MAP_END
+
+NS_IMPL_ADDREF(MediaEngineGonkVideoSource)
+NS_IMPL_RELEASE(MediaEngineGonkVideoSource)
+
 MediaEngineGonkVideoSource::MediaEngineGonkVideoSource(
     const MediaDevice* aMediaDevice)
     : MediaEngineCameraVideoSource(aMediaDevice),
@@ -455,12 +464,9 @@ nsresult MediaEngineGonkVideoSource::Start() {
   RefPtr<MediaEngineGonkVideoSource> self = this;
   NS_DispatchToMainThread(NS_NewRunnableFunction(
       "MediaEngineGonkVideoSource::Start_m", [this, self]() {
-        hal::RegisterScreenConfigurationObserver(this);
         // Update the initial configuration manually. Must be done after
         // mWrapper->Start(), so we can get camera mount angle.
-        hal::ScreenConfiguration config;
-        hal::GetCurrentScreenConfiguration(&config);
-        UpdateScreenConfiguration(config);
+        UpdateScreenConfiguration();
       }));
 
   NS_DispatchToMainThread(NS_NewRunnableFunction(
@@ -487,11 +493,6 @@ nsresult MediaEngineGonkVideoSource::Stop() {
   }
 
   MOZ_ASSERT(mState == kStarted);
-
-  RefPtr<MediaEngineGonkVideoSource> self = this;
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      "MediaEngineGonkVideoSource::Stop_m",
-      [this, self]() { hal::UnregisterScreenConfigurationObserver(this); }));
 
   nsresult rv = mWrapper->Stop();
   if (NS_FAILED(rv)) {
@@ -600,6 +601,10 @@ void MediaEngineGonkVideoSource::Init() {
 
   mWrapper = new CameraControlWrapper(mDeviceName);
   LOG("Video device %s initialized", mDeviceName.Data());
+
+  if (nsCOMPtr<nsIObserverService> os = services::GetObserverService()) {
+    os->AddObserver(this, "screen-information-changed", false);
+  }
 }
 
 static int GetRotateAmount(int aScreenAngle, int aCameraMountAngle,
@@ -611,23 +616,27 @@ static int GetRotateAmount(int aScreenAngle, int aCameraMountAngle,
   }
 }
 
-void MediaEngineGonkVideoSource::Notify(
-    const hal::ScreenConfiguration& aConfig) {
-  UpdateScreenConfiguration(aConfig);
+nsresult MediaEngineGonkVideoSource::Observe(nsISupports* aSubject,
+                                             const char* aTopic,
+                                             const char16_t* aData) {
+  UpdateScreenConfiguration();
+  return NS_OK;
 }
 
-void MediaEngineGonkVideoSource::UpdateScreenConfiguration(
-    const hal::ScreenConfiguration& aConfig) {
+void MediaEngineGonkVideoSource::UpdateScreenConfiguration() {
   MOZ_ASSERT(NS_IsMainThread());
 
+  RefPtr<widget::Screen> s =
+      widget::ScreenManager::GetSingleton().GetPrimaryScreen();
   int cameraAngle = mWrapper->GetCameraAngle();
   bool isBackCamera = mWrapper->GetIsBackCamera();
-  int rotation = GetRotateAmount(aConfig.angle(), cameraAngle, isBackCamera);
+  int rotation =
+      GetRotateAmount(s->GetOrientationAngle(), cameraAngle, isBackCamera);
   LOG("Orientation: %d (Camera %s isBackCamera %d MountAngle: %d)", rotation,
       mDeviceName.Data(), isBackCamera, cameraAngle);
 
   int orientation = 0;
-  switch (aConfig.orientation()) {
+  switch (s->GetOrientationType()) {
     case hal::ScreenOrientation::PortraitPrimary:
       orientation = 0;
       break;

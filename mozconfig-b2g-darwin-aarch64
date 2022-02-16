@@ -1,0 +1,81 @@
+# Cross compiling from Linux to OS-X: setup from https://github.com/emilio/mozconfigs/blob/master/mozconfigs/osx-cross
+
+ac_add_options --target=aarch64-apple-darwin
+
+CROSS_BUILD=1
+
+# $OSX_CROSS contains:
+#  * https://github.com/phracker/MacOSX-SDKs
+#  * linux64-libdmg
+#  * linux64-cctools-port
+#  * linux64-hfsplus
+#  * linux64-binutils (might not be needed)
+#  * linux64-clang-macosx-cross
+# You can install these with mach, eg. `./mach artifact toolchain --from-build linux64-hfsplus`
+
+CCTOOLS="$OSX_CROSS/cctools"
+
+OSX_CROSS_SYSROOT="$OSX_CROSS/MacOSX11.0.sdk"
+export MACOS_SDK_DIR="$OSX_CROSS_SYSROOT"
+
+export DSYMUTIL="$OSX_CROSS/clang/bin/dsymutil"
+
+mk_add_options "export PATH=$CCTOOLS/bin:$OSX_CROSS/binutils/bin:$OSX_CROSS/llvm-dsymutil/bin:$PATH"
+mk_add_options "export LD_LIBRARY_PATH=$OSX_CROSS/clang/lib:$CCTOOLS/lib"
+
+export CC="$OSX_CROSS/clang/bin/clang"
+export CXX="$OSX_CROSS/clang/bin/clang++"
+export HOST_CC="$OSX_CROSS/clang/bin/clang"
+export HOST_CXX="$OSX_CROSS/clang/bin/clang++"
+
+# These are needed for packaging.
+export MKFSHFS="$OSX_CROSS/hfsplus-tools/newfs_hfs"
+export DMG_TOOL="$OSX_CROSS/dmg/dmg"
+export HFS_TOOL="$OSX_CROSS/dmg/hfsplus"
+
+# Xcode clang defaults to something similar to -mcpu=apple-a12, while upstream
+# clang defaults to -mcpu=apple-a7, which disables a bunch of performance-enabling
+# CPU features. TODO: this should be done by configure.
+export CFLAGS="$CFLAGS -mcpu=apple-a12"
+export CXXFLAGS="$CXXFLAGS -mcpu=apple-a12"
+
+ac_add_options --disable-wifi-support
+
+# Generic b2g desktop configuration
+
+ac_add_options --enable-application=b2g
+ac_add_options --with-app-basename=b2g
+
+ac_add_options --disable-updater
+
+# Disable telemetry
+ac_add_options MOZ_TELEMETRY_REPORTING=
+
+#export MOZ_DISABLE_CONTENT_SANDBOX=1
+
+# Pretend to be an official build to be in a release configuration.
+export MOZILLA_OFFICIAL=1
+
+ac_add_options --enable-wasm-simd
+ac_add_options --enable-wasm-function-references
+ac_add_options --enable-wasm-type-reflections
+ac_add_options --enable-wasm-exceptions
+
+# Disable until we figure CI issues
+# ac_add_options --enable-clang-plugin
+
+# Use sccache
+ac_add_options --with-ccache=sccache
+
+# Set the api-daemon port
+ac_add_options --with-api-daemon-port=8081
+
+mk_add_options AUTOCLOBBER=1
+
+if [ -n "$MOZ_SAFE_BROWSING" ]; then
+  ac_add_options --enable-safebrowsing
+fi
+
+# Disable WASM libraries sandboxing for now until we figure out build failures.
+ac_add_options --without-wasm-sandboxed-libraries
+# ac_add_options --wasi-sysroot=${HOME}/.mozbuild/wasi-sysroot/

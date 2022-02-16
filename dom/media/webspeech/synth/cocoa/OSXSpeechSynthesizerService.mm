@@ -426,5 +426,10 @@ already_AddRefed<OSXSpeechSynthesizerService> OSXSpeechSynthesizerService::GetIn
   return speechService.forget();
 }
 
+NS_IMETHODIMP
+OSXSpeechSynthesizerService::ShutdownEngine() {
+  return NS_OK;
+}
+
 }  // namespace dom
 }  // namespace mozilla

@@ -71,7 +71,7 @@ MOZ_PACKAGER_MINIFY_JS=1
 endif
 endif
 
-ifeq (bundle, $(MOZ_FS_LAYOUT))
+ifeq (Darwin,$(OS_TARGET))
 BINPATH = $(_BINPATH)
 RESPATH = $(_RESPATH)
 DEFINES += -DAPPNAME=$(_APPNAME)

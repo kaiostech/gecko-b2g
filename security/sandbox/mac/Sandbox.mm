@@ -12,6 +12,7 @@
 #include "Sandbox.h"
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <Foundation/Foundation.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/sysctl.h>
@@ -421,6 +422,12 @@ bool StartMacSandbox(MacSandboxInfo const& aInfo, std::string& aErrorMessage) {
       if (aInfo.hasAudio) {
         profile.append(SandboxPolicyContentAudioAddend);
       }
+#if defined(MOZ_B2G)
+        NSString* fullPath = [NSString stringWithFormat:(@"/private%sapi-daemon-socket"), [::NSTemporaryDirectory() UTF8String]];
+        params.push_back("API_DAEMON_UDS_PATH");
+        params.push_back([fullPath UTF8String]);
+        profile.append(SandboxPolicyContentB2gAddend);
+#endif
     } else {
       fprintf(stderr, "Content sandbox disabled due to sandbox level setting\n");
       return false;

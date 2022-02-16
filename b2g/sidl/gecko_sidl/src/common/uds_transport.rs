@@ -223,11 +223,14 @@ impl UdsTransport {
 
     pub fn open() -> Self {
         #[cfg(target_os = "android")]
-        let path = "/dev/socket/api-daemon";
+        let path = "/dev/socket/api-daemon".to_owned();
         #[cfg(not(target_os = "android"))]
-        let path = "/tmp/api-daemon-socket";
+        let path = format!(
+            "{}",
+            std::env::temp_dir().join("api-daemon-socket").display()
+        );
 
-        let (transport, mut recv_stream) = match UnixStream::connect(path) {
+        let (transport, mut recv_stream) = match UnixStream::connect(&path) {
             Ok(stream) => {
                 let reader = stream.try_clone().expect("Failed to clone UDS stream");
                 (
@@ -264,7 +267,7 @@ impl UdsTransport {
                     loop {
                         info!("Waiting 1 seconds to reconnect to {} ...", path);
                         thread::sleep(std::time::Duration::from_secs(1));
-                        if let Ok(stream) = UnixStream::connect(path) {
+                        if let Ok(stream) = UnixStream::connect(&path) {
                             // Update the receiving stream.
                             recv_stream =
                                 Some(stream.try_clone().expect("Failed to clone UDS stream"));

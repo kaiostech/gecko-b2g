@@ -394,6 +394,14 @@ static const char SandboxPolicyContentAudioAddend[] = R"SANDBOX_LITERAL(
   (allow device-microphone)
 )SANDBOX_LITERAL";
 
+static const char SandboxPolicyContentB2gAddend[] = R"SANDBOX_LITERAL(
+  ; Allow connection to the api-daemon unix domain socket.
+  (define apiDaemonUdsPath (param "API_DAEMON_UDS_PATH"))
+  (allow network*
+      (remote unix-socket
+          (path-literal apiDaemonUdsPath)))
+)SANDBOX_LITERAL";
+
 }  // namespace mozilla
 
 #endif  // mozilla_SandboxPolicyContent_h

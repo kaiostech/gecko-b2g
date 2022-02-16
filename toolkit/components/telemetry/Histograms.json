@@ -12095,7 +12095,7 @@
   "BROWSER_ATTRIBUTION_ERRORS": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "100",
+    "expires_in_version": "never",
     "kind": "categorical",
     "labels": ["read_error", "decode_error", "write_error", "quarantine_error"],
     "description": "Count for the number of errors encountered trying to determine attribution data: on Windows, from the installers (stub and full); on macOS, from the quarantine database.",
@@ -14514,8 +14514,8 @@
     "kind": "exponential",
     "high": 10000,
     "n_buckets": 100,
-    "bug_numbers": [1238433, 1570634, 1752207],
-    "description": "Percentage of frames decoded frames dropped in an HTMLVideoElement"
+    "bug_numbers": [1238433, 1570634, 1752207, 1755363],
+    "description": "Frames of of 10,000 decoded frames dropped in an HTMLVideoElement"
   },
   "MEDIA_DECODER_BACKEND_USED": {
     "record_in_processes": ["main", "content", "gpu"],

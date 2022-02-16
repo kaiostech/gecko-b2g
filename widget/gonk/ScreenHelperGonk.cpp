@@ -308,16 +308,6 @@ static uint16_t RotationToAngle(uint32_t aRotation) {
   return angle;
 }
 
-ScreenConfiguration nsScreenGonk::GetConfiguration() {
-  auto orientation = ComputeOrientation(mScreenRotation, mNaturalBounds.Size());
-
-  // NB: perpetuating colorDepth == pixelDepth illusion here, for
-  // consistency.
-  return ScreenConfiguration(mVirtualBounds.ToUnknownRect(), orientation,
-                             RotationToAngle(mScreenRotation), mColorDepth,
-                             mColorDepth);
-}
-
 void nsScreenGonk::RegisterWindow(nsWindow* aWindow) {
   mTopWindows.AppendElement(aWindow);
 }

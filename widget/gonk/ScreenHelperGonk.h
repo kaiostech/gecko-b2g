@@ -56,7 +56,6 @@ class CompositorBridgeParent;
 enum class NotifyDisplayChangedEvent : int8_t { Observable, Suppressed };
 
 class nsScreenGonk : public nsBaseScreen {
-  typedef mozilla::hal::ScreenConfiguration ScreenConfiguration;
   typedef mozilla::GonkDisplay GonkDisplay;
   typedef mozilla::LayoutDeviceIntRect LayoutDeviceIntRect;
   typedef mozilla::layers::CompositorBridgeParent CompositorBridgeParent;
@@ -87,7 +86,6 @@ class nsScreenGonk : public nsBaseScreen {
   ANativeWindow* GetNativeWindow();
   LayoutDeviceIntRect GetNaturalBounds();
   uint32_t EffectiveScreenRotation();
-  ScreenConfiguration GetConfiguration();
   bool IsPrimaryScreen();
 
   already_AddRefed<DrawTarget> StartRemoteDrawing();

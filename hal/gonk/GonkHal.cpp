@@ -52,7 +52,6 @@
 #include "Hal.h"
 #include "HalImpl.h"
 #include "HalLog.h"
-#include "HalScreenConfiguration.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/dom/battery/Constants.h"
@@ -1084,18 +1083,6 @@ void DisableSystemClockChangeNotifications() {}
 void EnableSystemTimezoneChangeNotifications() {}
 
 void DisableSystemTimezoneChangeNotifications() {}
-
-// Nothing to do here.  Gonk widgetry always listens for screen
-// orientation changes.
-void EnableScreenConfigurationNotifications() {}
-
-void DisableScreenConfigurationNotifications() {}
-
-void GetCurrentScreenConfiguration(
-    hal::ScreenConfiguration* aScreenConfiguration) {
-  RefPtr<nsScreenGonk> screen = widget::ScreenHelperGonk::GetPrimaryScreen();
-  *aScreenConfiguration = screen->GetConfiguration();
-}
 
 RefPtr<mozilla::MozPromise<bool, bool, false>> LockScreenOrientation(
     const hal::ScreenOrientation& aOrientation) {

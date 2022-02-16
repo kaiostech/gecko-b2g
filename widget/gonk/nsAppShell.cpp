@@ -1288,8 +1288,4 @@ void nsAppShell::NotifyNativeEvent() {
   gAppShell->mReaderPolicy->setDisplayInfo();
   gAppShell->mReader->requestRefreshConfiguration(
       InputReaderConfiguration::CHANGE_DISPLAY_INFO);
-
-  RefPtr<nsScreenGonk> screen = ScreenHelperGonk::GetPrimaryScreen();
-  hal::ScreenConfiguration config = screen->GetConfiguration();
-  hal::NotifyScreenConfigurationChange(config);
 }

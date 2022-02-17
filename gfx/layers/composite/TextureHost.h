@@ -504,6 +504,10 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
 
   TextureFlags GetFlags() { return mFlags; }
 
+  wr::MaybeExternalImageId GetMaybeExternalImageId() const {
+    return mExternalImageId;
+  }
+
   /**
    * Allocate and deallocate a TextureParent actor.
    *

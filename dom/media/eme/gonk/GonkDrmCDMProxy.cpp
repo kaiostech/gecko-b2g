@@ -55,7 +55,7 @@ void GonkDrmCDMProxy::Init(PromiseId aPromiseId, const nsAString& aOrigin,
     }
   }
 
-  mCDM = new android::GonkDrmSupport(mOwnerThread, mKeySystem);
+  mCDM = new android::GonkDrmSupport(mOwnerThread, aOrigin, mKeySystem);
   mCallback = MakeUnique<GonkDrmCDMCallbackProxy>(this);
 
   mStorage = MakeRefPtr<GonkDrmStorageProxy>(aOrigin, mKeySystem);

@@ -36,7 +36,7 @@ class GonkDrmSupport : public BnDrmClient {
   typedef mozilla::GonkDrmStorageProxy GonkDrmStorageProxy;
 
  public:
-  GonkDrmSupport(nsISerialEventTarget* aOwnerThread,
+  GonkDrmSupport(nsISerialEventTarget* aOwnerThread, const nsAString& aOrigin,
                  const nsAString& aKeySystem);
 
   void Init(uint32_t aPromiseId, GonkDrmCDMCallbackProxy* aCallback,
@@ -127,6 +127,7 @@ class GonkDrmSupport : public BnDrmClient {
   sp<GonkDrmSupport> Self() { return this; }
 
   const nsCOMPtr<nsISerialEventTarget> mOwnerThread;
+  const nsString mOrigin;
   const nsString mKeySystem;
   const nsTArray<uint8_t> mDummyKeyId = {0};
   uint32_t mInitPromiseId = 0;

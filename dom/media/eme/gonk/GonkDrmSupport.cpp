@@ -50,8 +50,9 @@ static MediaKeyStatus ConvertToMediaKeyStatus(GonkDrmKeyStatus aKeyStatus) {
 }
 
 GonkDrmSupport::GonkDrmSupport(nsISerialEventTarget* aOwnerThread,
+                               const nsAString& aOrigin,
                                const nsAString& aKeySystem)
-    : mOwnerThread(aOwnerThread), mKeySystem(aKeySystem) {}
+    : mOwnerThread(aOwnerThread), mOrigin(aOrigin), mKeySystem(aKeySystem) {}
 
 GonkDrmSupport::~GonkDrmSupport() { GD_ASSERT(!mDrm); }
 
@@ -101,6 +102,12 @@ void GonkDrmSupport::Init(uint32_t aPromiseId,
     if (err != OK) {
       GD_LOGW("%p GonkDrmSupport::Init, DRM set privacyMode failed(%d)", this,
               err);
+    }
+    // Set security origin.
+    auto origin = GonkDrmConverter::ToString8(NS_ConvertUTF16toUTF8(mOrigin));
+    err = mDrm->setPropertyString(String8("origin"), origin);
+    if (err != OK) {
+      GD_LOGW("%p GonkDrmSupport::Init, DRM set origin failed(%d)", this, err);
     }
   }
 

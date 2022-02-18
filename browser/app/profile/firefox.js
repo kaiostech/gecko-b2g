@@ -379,6 +379,13 @@ pref("browser.urlbar.suggest.topsites",             true);
 pref("browser.urlbar.suggest.engines",              true);
 pref("browser.urlbar.suggest.calculator",           false);
 
+// When `browser.urlbar.bestMatch.enabled` is true, this controls whether best
+// match results are shown in the urlbar. This pref is exposed to the user in
+// the UI, and it's sticky so that its user-branch value persists regardless of
+// whatever Firefox Suggest experiments or rollouts the user is enrolled in over
+// time.
+pref("browser.urlbar.suggest.bestmatch", true, sticky);
+
 // Whether non-sponsored quick suggest results are shown in the urlbar. This
 // pref is exposed to the user in the UI, and it's sticky so that its
 // user-branch value persists regardless of whatever Firefox Suggest scenarios,
@@ -502,8 +509,8 @@ pref("browser.urlbar.merino.providers", "");
 // Comma-separated list of client variants to send to Merino
 pref("browser.urlbar.merino.clientVariants", "");
 
-// Whether best match results are enabled in the urlbar.
-pref("browser.urlbar.bestMatch.enabled", true);
+// Whether the best match feature in the urlbar is enabled.
+pref("browser.urlbar.bestMatch.enabled", false);
 
 pref("browser.altClickSave", false);
 
@@ -1518,7 +1525,7 @@ pref("browser.newtabpage.activity-stream.discoverystream.compactImages.enabled",
 pref("browser.newtabpage.activity-stream.discoverystream.imageGradient.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.titleLines", 3);
 pref("browser.newtabpage.activity-stream.discoverystream.descLines", 3);
-pref("browser.newtabpage.activity-stream.discoverystream.readTime.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.readTime.enabled", true);
 pref("browser.newtabpage.activity-stream.discoverystream.newSponsoredLabel.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.essentialReadsHeader.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.editorsPicksHeader.enabled", false);
@@ -1597,10 +1604,6 @@ pref("toolkit.startup.max_resumed_crashes", 3);
   pref("toolkit.winRegisterApplicationRestart", true);
 #endif
 
-// Completely disable pdf.js as an option to preview pdfs within firefox.
-// Note: if this is not disabled it does not necessarily mean pdf.js is the pdf
-// handler just that it is an option.
-pref("pdfjs.disabled", false);
 // Used by pdf.js to know the first time firefox is run with it installed so it
 // can become the default pdf viewer.
 pref("pdfjs.firstRun", true);
@@ -2454,6 +2457,8 @@ pref("devtools.netmonitor.features.serverSentEvents", true);
 #else
   pref("devtools.netmonitor.features.newEditAndResend", false);
 #endif
+
+pref("devtools.netmonitor.customRequest", '{}');
 
 // Enable the Storage Inspector
 pref("devtools.storage.enabled", true);

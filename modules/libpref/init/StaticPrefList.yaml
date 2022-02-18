@@ -2444,7 +2444,7 @@
 - name: dom.image-lazy-loading.root-margin.top
   type: float
 #if defined(EARLY_BETA_OR_EARLIER)
-  value: 500
+  value: 100 # 100%
 #else
   value: 300
 #endif
@@ -2452,13 +2452,17 @@
 
 - name: dom.image-lazy-loading.root-margin.top.percentage
   type: bool
+#if defined(EARLY_BETA_OR_EARLIER)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.bottom
   type: float
 #if defined(EARLY_BETA_OR_EARLIER)
-  value: 500
+  value: 100 # 100%
 #else
   value: 300
 #endif
@@ -2466,13 +2470,17 @@
 
 - name: dom.image-lazy-loading.root-margin.bottom.percentage
   type: bool
+#if defined(EARLY_BETA_OR_EARLIER)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.left
   type: float
 #if defined(EARLY_BETA_OR_EARLIER)
-  value: 500
+  value: 100 # 100%
 #else
   value: 300
 #endif
@@ -2480,13 +2488,17 @@
 
 - name: dom.image-lazy-loading.root-margin.left.percentage
   type: bool
+#if defined(EARLY_BETA_OR_EARLIER)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.right
   type: float
 #if defined(EARLY_BETA_OR_EARLIER)
-  value: 500
+  value: 100 # 100%
 #else
   value: 300
 #endif
@@ -2494,7 +2506,11 @@
 
 - name: dom.image-lazy-loading.root-margin.right.percentage
   type: bool
+#if defined(EARLY_BETA_OR_EARLIER)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 # Enable passing the "storage" option to indexedDB.open.
@@ -3604,7 +3620,7 @@
 
 - name: dom.workers.requestAnimationFrame
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: dom.workers.serialized-sab-access
@@ -5702,13 +5718,13 @@
 # Enable OffscreenCanvas based on the domain allowlist.
 - name: gfx.offscreencanvas.domain-enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Domains included in the allowlist.
 - name: gfx.offscreencanvas.domain-allowlist
   type: String
-  value: ""
+  value: "*.zoom.us"
   mirror: never
 
 - name: gfx.omta.background-color
@@ -7464,6 +7480,15 @@
 - name: layout.animation.prerender.partial.jank
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Override DPI. A value of -1 means use the maximum of 96 and the system DPI.
+# A value of 0 means use the system DPI. A positive value is used as the DPI.
+# This sets the physical size of a device pixel and thus controls the
+# interpretation of physical units such as "pt".
+- name: layout.css.dpi
+  type: int32_t
+  value: -1
   mirror: always
 
 # Whether non-standard caption-side values are enabled
@@ -11157,6 +11182,15 @@
 - name: page_load.deprioritization_period
   type: RelaxedAtomicUint32
   value: 5000
+  mirror: always
+
+#---------------------------------------------------------------------------
+# Prefs starting with "pdfjs."
+#---------------------------------------------------------------------------
+
+- name: pdfjs.disabled
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

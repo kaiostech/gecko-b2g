@@ -230,17 +230,28 @@ impl UdsTransport {
             std::env::temp_dir().join("api-daemon-socket").display()
         );
 
+        info!("Opening UDS transport on {}", path);
+
         let (transport, mut recv_stream) = match UnixStream::connect(&path) {
-            Ok(stream) => {
-                let reader = stream.try_clone().expect("Failed to clone UDS stream");
-                (
+            Ok(stream) => match stream.try_clone() {
+                Ok(reader) => (
                     Self {
                         session_data: Shared::adopt(SessionData::new(Some(stream))),
                         connection_observers: Shared::default(),
                     },
                     Some(reader),
-                )
-            }
+                ),
+                Err(err) => {
+                    error!("Failed to clone UDS stream {} : {}", path, err);
+                    (
+                        Self {
+                            session_data: Shared::adopt(SessionData::new(None)),
+                            connection_observers: Shared::default(),
+                        },
+                        None,
+                    )
+                }
+            },
             Err(err) => {
                 error!("Failed to connect to {} : {}", path, err);
                 (

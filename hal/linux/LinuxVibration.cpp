@@ -54,6 +54,8 @@ class VibratorRunnable final : public nsIRunnable, public nsIObserver {
 
       if (strstr(name, "vibrator")) {
         // Use the first vibration device we find.
+        printf_stderr("Found vibrator %s at %s\n", name, path);
+
         mFd = fd;
         break;
       } else {

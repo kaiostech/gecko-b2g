@@ -15,7 +15,9 @@
 #include "SandboxOpenedFiles.h"
 #include "SandboxReporterClient.h"
 
+#if defined(ANDROID)
 #include <cutils/properties.h>
+#endif
 #include <dirent.h>
 #ifdef NIGHTLY_BUILD
 #  include "dlfcn.h"

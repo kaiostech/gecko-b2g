@@ -302,6 +302,11 @@ function assertDebugLine(dbg, line, column) {
     return;
   }
 
+  // Scroll the line into view to make sure the content
+  // on the line is rendered and in the dom.
+  getCM(dbg).scrollIntoView({ line, ch: 0 });
+
+
   if (!lineInfo.wrapClass) {
     const pauseLine = getVisibleSelectedFrameLine(dbg);
     ok(false, `Expected pause line on line ${line}, it is on ${pauseLine}`);
@@ -343,6 +348,28 @@ function assertDebugLine(dbg, line, column) {
   }
   info(`Paused on line ${line}`);
 }
+
+/**
+ * Assert that a given line is breaklable or not.
+ * Verify that CodeMirror gutter is grayed out via the empty line classname if not breakable.
+ */
+function assertLineIsBreakable(dbg, file, line, shouldBeBreakable) {
+  const lineInfo = getCM(dbg).lineInfo(line - 1);
+  // When a line is not breakable, the "empty-line" class is added
+  // and the line is greyed out
+  if (shouldBeBreakable) {
+    ok(
+      !lineInfo.wrapClass?.includes("empty-line"),
+      `${file}:${line} should be breakable`
+    );
+  } else {
+    ok(
+      lineInfo?.wrapClass?.includes("empty-line"),
+      `${file}:${line} should NOT be breakable`
+    );
+  }
+}
+
 
 /**
  * Assert that the debugger is highlighting the correct location.
@@ -618,33 +645,42 @@ function pauseTest() {
   return new Promise(resolve => (resumeTest = resolve));
 }
 
-// Actions
 /**
- * Returns a source that matches the URL.
+ * Returns a source that matches a given filename, or a URL.
+ * This also accept a source as input argument, in such case it just returns it.
  *
- * @memberof mochitest/actions
  * @param {Object} dbg
- * @param {String} url
+ * @param {String} filenameOrUrlOrSource
+ *        The typical case will be to pass only a filename,
+ *        but you may also pass a full URL to match sources without filesnames like data: URL
+ *        or pass the source itself, which is just returned.
+ * @param {Object} options
+ * @param {Boolean} options.silent
+ *        If true, won't throw if the source is missing.
  * @return {Object} source
- * @static
  */
-function findSource(dbg, url, { silent } = { silent: false }) {
-  if (typeof url !== "string") {
-    // Support passing in a source object itelf all APIs that use this
+function findSource(dbg, filenameOrUrlOrSource, { silent } = { silent: false }) {
+  if (typeof filenameOrUrlOrSource !== "string") {
+    // Support passing in a source object itself all APIs that use this
     // function support both styles
-    const source = url;
-    return source;
+    return filenameOrUrlOrSource; 
   }
 
   const sources = dbg.selectors.getSourceList();
-  const source = sources.find(s => (s.url || "").includes(url));
+  const source = sources.find(s => {
+    // Sources don't have a file name attribute, we need to compute it here:
+    const sourceFileName = s.url ? s.url.substring(s.url.lastIndexOf("/") + 1) : "";
+    // The input argument may either be only the filename, or the complete URL
+    // This helps match sources whose URL doesn't contain a filename, like data: URLs
+    return sourceFileName == filenameOrUrlOrSource || s.url == filenameOrUrlOrSource;
+  });
 
   if (!source) {
     if (silent) {
       return false;
     }
 
-    throw new Error(`Unable to find source: ${url}`);
+    throw new Error(`Unable to find source: ${filenameOrUrlOrSource}`);
   }
 
   return source;
@@ -904,6 +940,17 @@ async function addBreakpoint(dbg, source, line, column, options) {
     bpCount + 1,
     "a new breakpoint was created"
   );
+}
+
+/**
+ * Similar to `addBreakpoint`, but uses the UI instead or calling
+ * the actions directly. This only support breakpoint on lines,
+ * not on a specific column.
+ */
+async function addBreakpointViaGutter(dbg, line) {
+  info(`Add breakpoint via the editor on line ${line}`);
+  await clickGutter(dbg, line);
+  return waitForDispatch(dbg.store, "SET_BREAKPOINT");
 }
 
 function disableBreakpoint(dbg, source, line, column) {
@@ -1284,6 +1331,20 @@ async function getEditorLineEl(dbg, line) {
   }
 
   return el;
+}
+
+/**
+ * Assert the text content on the line matches what is
+ * expected.
+ *
+ * @param {Object} dbg
+ * @param {Number} line
+ * @param {String} expectedTextContent
+ */
+function assertTextContentOnLine(dbg, line, expectedTextContent) {
+  const lineInfo = getCM(dbg).lineInfo(line - 1);
+  const textContent = lineInfo.text.trim();
+  is(textContent, expectedTextContent, `Expected text content on line ${line}`);
 }
 
 /*
@@ -2240,6 +2301,8 @@ async function setLogPoint(dbg, index, value) {
  *     Returns the absolute url for a given file.
  *   - switchToNextVersion()
  *     Start serving files from the next available sub folder.
+ *   - backToFirstVersion()
+ *     When running more than one test, helps restart from the first folder.
  */
 function createVersionizedHttpTestServer(testFolderName) {
   const httpServer = createTestHTTPServer();
@@ -2268,6 +2331,9 @@ function createVersionizedHttpTestServer(testFolderName) {
   return {
     switchToNextVersion() {
       currentVersion++;
+    },
+    backToFirstVersion() {
+      currentVersion = 1;
     },
     urlFor(path) {
       const port = httpServer.identity.primaryPort;

@@ -504,6 +504,8 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       return false;
     }();
 
+    nsDisplayList layerItems;
+
     // Create separate items for each background layer.
     const nsStyleImageLayers& layers = bg->StyleBackground()->mImage;
     NS_FOR_VISIBLE_IMAGE_LAYERS_BACK_TO_FRONT(i, layers) {
@@ -575,7 +577,7 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
             aBuilder, this, i + 1, &thisItemList, layers.mLayers[i].mBlendMode,
             thisItemASR, true);
       }
-      aLists.BorderBackground()->AppendToTop(&thisItemList);
+      layerItems.AppendToTop(&thisItemList);
     }
 
     bool hasFixedBottomLayer =
@@ -593,9 +595,11 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       // interleaving the two with a scrolled background color.
       // PresShell::AddCanvasBackgroundColorItem makes sure there always is a
       // non-scrolled background color item at the bottom.
-      aLists.BorderBackground()
-          ->AppendNewToBottom<nsDisplayCanvasBackgroundColor>(aBuilder, this);
+      aLists.BorderBackground()->AppendNewToTop<nsDisplayCanvasBackgroundColor>(
+          aBuilder, this);
     }
+
+    aLists.BorderBackground()->AppendToTop(&layerItems);
 
     if (needBlendContainer) {
       const ActiveScrolledRoot* containerASR = contASRTracker.GetContainerASR();

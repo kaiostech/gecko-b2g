@@ -154,6 +154,7 @@
 #include "nsIInterfaceRequestor.h"
 #include "nsIMemoryReporter.h"
 #include "nsIPrincipal.h"
+#include "nsIScreenManager.h"
 #include "nsIScriptError.h"
 #include "nsIScrollableFrame.h"
 #include "nsISpeculativeConnect.h"
@@ -1025,6 +1026,34 @@ nsRect Element::GetClientAreaRect() {
 
   // SVG nodes reach here and just return 0
   return nsRect(0, 0, 0, 0);
+}
+
+int32_t Element::ScreenX() {
+  nsIFrame* frame = GetPrimaryFrame(FlushType::Layout);
+  return frame ? frame->GetScreenRect().x : 0;
+}
+
+int32_t Element::ScreenY() {
+  nsIFrame* frame = GetPrimaryFrame(FlushType::Layout);
+  return frame ? frame->GetScreenRect().y : 0;
+}
+
+already_AddRefed<nsIScreen> Element::GetScreen() {
+  nsIFrame* frame = GetPrimaryFrame(FlushType::Layout);
+  if (!frame) {
+    return nullptr;
+  }
+  nsCOMPtr<nsIScreenManager> screenMgr =
+      do_GetService("@mozilla.org/gfx/screenmanager;1");
+  if (!screenMgr) {
+    return nullptr;
+  }
+  nsPresContext* pc = frame->PresContext();
+  const CSSIntRect rect = frame->GetScreenRect();
+  DesktopRect desktopRect =
+      rect * pc->CSSToDevPixelScale() /
+      pc->DeviceContext()->GetDesktopToDeviceScale();
+  return screenMgr->ScreenForRect(DesktopIntRect::Round(desktopRect));
 }
 
 already_AddRefed<DOMRect> Element::GetBoundingClientRect() {
@@ -3299,6 +3328,8 @@ nsresult Element::CopyInnerTo(Element* aDst, ReparseAttributes aReparse) {
 }
 
 Element* Element::Closest(const nsACString& aSelector, ErrorResult& aResult) {
+  AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING("Element::Closest",
+                                        LAYOUT_SelectorQuery, aSelector);
   const RawServoSelectorList* list = ParseSelectorList(aSelector, aResult);
   if (!list) {
     return nullptr;
@@ -3308,6 +3339,8 @@ Element* Element::Closest(const nsACString& aSelector, ErrorResult& aResult) {
 }
 
 bool Element::Matches(const nsACString& aSelector, ErrorResult& aResult) {
+  AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING("Element::Matches",
+                                        LAYOUT_SelectorQuery, aSelector);
   const RawServoSelectorList* list = ParseSelectorList(aSelector, aResult);
   if (!list) {
     return false;

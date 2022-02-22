@@ -157,6 +157,8 @@ class LSSnapshot final : public nsIRunnable {
 
   nsresult End();
 
+  int64_t GetUsage() const;
+
  private:
   ~LSSnapshot();
 
@@ -174,7 +176,7 @@ class LSSnapshot final : public nsIRunnable {
 
   nsresult Checkpoint();
 
-  nsresult Finish();
+  nsresult Finish(bool aSync = false);
 
   void CancelIdleTimer();
 

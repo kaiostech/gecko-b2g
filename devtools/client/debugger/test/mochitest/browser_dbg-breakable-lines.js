@@ -10,7 +10,7 @@ add_task(async function testBreakableLinesOverReloads() {
   const dbg = await initDebuggerWithAbsoluteURL(TEST_URL, "index.html", "script.js", "original.js");
 
   info("Assert breakable lines of the first html page load");
-  await assertBreakableLines(dbg, "index.html", 20, [[16], [17]]);
+  await assertBreakableLines(dbg, "index.html", 20, [[17], [18]]);
 
   info("Assert breakable lines of the first original source file, original.js");
   // The length of original.js is longer than the test file
@@ -30,28 +30,13 @@ add_task(async function testBreakableLinesOverReloads() {
   await assertBreakableLines(dbg, "script.js", 23, [[2], [13,23]]);
 
   info("Assert breakable lines of the second html page load");
-  await assertBreakableLines(dbg, "index.html", 21, [[15], [17]]);
+  await assertBreakableLines(dbg, "index.html", 22, [[16], [18]]);
 
   info("Assert breakable lines of the second orignal file");
   // See first assertion about original.js,
   // the size of original.js doesn't match the size of the test file
   await assertBreakableLines(dbg, "original.js", 18, [[1,3], [8,11], [13]]);
 });
-
-function assertLineIsBreakable(dbg, file, line, shouldBeBreakable) {
-  const lineInfo = getCM(dbg).lineInfo(line - 1);
-  // When a line is not breakable, the "empty-line" class is added
-  // and the line is greyed out
-  if (shouldBeBreakable) {
-    ok(
-      !lineInfo.wrapClass?.includes("empty-line"),
-      `${file}:${line} should be breakable`);
-  } else {
-    ok(
-      lineInfo?.wrapClass?.includes("empty-line"),
-      `${file}:${line} should NOT be breakable`);
-  }
-}
 
 function shouldLineBeBreakable(breakableLines, line) {
   for(const range of breakableLines) {

@@ -1036,6 +1036,7 @@ nsresult LocalAccessible::HandleAccEvent(AccEvent* aEvent) {
           ipcDoc->SendEvent(id, aEvent->GetEventType());
           break;
         }
+        case nsIAccessibleEvent::EVENT_TEXT_VALUE_CHANGE:
         case nsIAccessibleEvent::EVENT_VALUE_CHANGE: {
           SendCache(CacheDomain::Value, CacheUpdateType::Update);
           ipcDoc->SendEvent(id, aEvent->GetEventType());
@@ -1801,13 +1802,6 @@ role LocalAccessible::ARIATransformRole(role aRole) const {
   }
 
   return aRole;
-}
-
-nsAtom* LocalAccessible::LandmarkRole() const {
-  const nsRoleMapEntry* roleMapEntry = ARIARoleMap();
-  return roleMapEntry && roleMapEntry->IsOfType(eLandmark)
-             ? roleMapEntry->roleAtom
-             : nullptr;
 }
 
 role LocalAccessible::NativeRole() const { return roles::NOTHING; }
@@ -3161,11 +3155,35 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
     }
   }
 
-  if ((aCacheDomain & CacheDomain::Value) && HasNumericValue()) {
-    fields->SetAttribute(nsGkAtoms::value, CurValue());
-    fields->SetAttribute(nsGkAtoms::max, MaxValue());
-    fields->SetAttribute(nsGkAtoms::min, MinValue());
-    fields->SetAttribute(nsGkAtoms::step, Step());
+  if (aCacheDomain & CacheDomain::Value) {
+    // We cache the text value in 3 cases:
+    // 1. Accessible is an HTML input type that holds a number.
+    // 2. Accessible has a numeric value and an aria-valuetext.
+    // 3. Accessible is an HTML input type that holds text.
+    // ... for all other cases we divine the value remotely.
+    bool cacheValueText = false;
+    if (HasNumericValue()) {
+      fields->SetAttribute(nsGkAtoms::value, CurValue());
+      fields->SetAttribute(nsGkAtoms::max, MaxValue());
+      fields->SetAttribute(nsGkAtoms::min, MinValue());
+      fields->SetAttribute(nsGkAtoms::step, Step());
+      cacheValueText = NativeHasNumericValue() ||
+                       (mContent->IsElement() &&
+                        mContent->AsElement()->HasAttr(
+                            kNameSpaceID_None, nsGkAtoms::aria_valuetext));
+    } else {
+      cacheValueText = IsTextField();
+    }
+
+    if (cacheValueText) {
+      nsString value;
+      Value(value);
+      if (!value.IsEmpty()) {
+        fields->SetAttribute(nsGkAtoms::aria_valuetext, std::move(value));
+      } else if (aUpdateType == CacheUpdateType::Update) {
+        fields->SetAttribute(nsGkAtoms::aria_valuetext, DeleteEntry());
+      }
+    }
   }
 
   if (aCacheDomain & CacheDomain::Bounds) {
@@ -3280,6 +3298,12 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
     }
   }
 
+  if (aCacheDomain & CacheDomain::Style) {
+    if (RefPtr<nsAtom> display = DisplayStyle()) {
+      fields->SetAttribute(nsGkAtoms::display, display);
+    }
+  }
+
   if (aUpdateType == CacheUpdateType::Initial) {
     // Add fields which never change and thus only need to be included in the
     // initial cache push.
@@ -3321,9 +3345,12 @@ void LocalAccessible::MaybeQueueCacheUpdateForStyleChanges() {
     const ComputedStyle* newStyle = frame->Style();
     MOZ_ASSERT(newStyle != mOldComputedStyle, "New style matches old style!");
 
-    // TODO: comparison on a11y-relevant style attributes
-
-    // TODO: Queue cache update, schedule processing on document
+    nsAutoCString oldVal, newVal;
+    mOldComputedStyle->GetComputedPropertyValue(eCSSProperty_display, oldVal);
+    newStyle->GetComputedPropertyValue(eCSSProperty_display, newVal);
+    if (oldVal != newVal) {
+      mDoc->QueueCacheUpdate(this, CacheDomain::Style);
+    }
 
     mOldComputedStyle = newStyle;
   }
@@ -3332,6 +3359,14 @@ void LocalAccessible::MaybeQueueCacheUpdateForStyleChanges() {
 nsAtom* LocalAccessible::TagName() const {
   return mContent && mContent->IsElement() ? mContent->NodeInfo()->NameAtom()
                                            : nullptr;
+}
+
+already_AddRefed<nsAtom> LocalAccessible::DisplayStyle() const {
+  if (dom::Element* elm = Elm()) {
+    StyleInfo info(elm);
+    return info.Display();
+  }
+  return nullptr;
 }
 
 void LocalAccessible::StaticAsserts() const {

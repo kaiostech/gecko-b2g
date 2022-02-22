@@ -112,6 +112,7 @@ DIRS += [
     "prio",
     "l10n",
     "pco",
+    "origin-trials",
 ]
 
 # MOZ_B2G_RIL

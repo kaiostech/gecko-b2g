@@ -504,9 +504,9 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateStorageConnection(
       auto connection,
       OrElseIf(
           // Expression.
-          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCOMPtr<mozIStorageConnection>,
-                                            storageService, OpenDatabase,
-                                            &aDBFile),
+          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+              nsCOMPtr<mozIStorageConnection>, storageService, OpenDatabase,
+              &aDBFile, mozIStorageService::CONNECTION_DEFAULT),
           // Predicate.
           IsDatabaseCorruptionError,
           // Fallback.
@@ -540,7 +540,7 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateStorageConnection(
 
             QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                 nsCOMPtr<mozIStorageConnection>, storageService, OpenDatabase,
-                &aDBFile));
+                &aDBFile, mozIStorageService::CONNECTION_DEFAULT));
           })));
 
   QM_TRY(MOZ_TO_RESULT(SetDefaultPragmas(connection)));
@@ -693,9 +693,10 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> GetStorageConnection(
                                          MOZ_SELECT_OVERLOAD(do_GetService),
                                          MOZ_STORAGE_SERVICE_CONTRACTID));
 
-  QM_TRY_UNWRAP(auto connection, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
-                                     nsCOMPtr<mozIStorageConnection>, ss,
-                                     OpenDatabase, databaseFile));
+  QM_TRY_UNWRAP(auto connection,
+                MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                    nsCOMPtr<mozIStorageConnection>, ss, OpenDatabase,
+                    databaseFile, mozIStorageService::CONNECTION_DEFAULT));
 
   QM_TRY(MOZ_TO_RESULT(SetDefaultPragmas(connection)));
 
@@ -744,8 +745,9 @@ CreateArchiveStorageConnection(const nsAString& aStoragePath) {
       auto connection,
       QM_OR_ELSE_WARN_IF(
           // Expression.
-          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCOMPtr<mozIStorageConnection>, ss,
-                                            OpenUnsharedDatabase, archiveFile),
+          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+              nsCOMPtr<mozIStorageConnection>, ss, OpenUnsharedDatabase,
+              archiveFile, mozIStorageService::CONNECTION_DEFAULT),
           // Predicate.
           IsDatabaseCorruptionError,
           // Fallback. Don't throw an error, leave a corrupted ls-archive
@@ -839,8 +841,9 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateShadowStorageConnection(
       auto connection,
       QM_OR_ELSE_WARN_IF(
           // Expression.
-          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCOMPtr<mozIStorageConnection>, ss,
-                                            OpenUnsharedDatabase, shadowFile),
+          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+              nsCOMPtr<mozIStorageConnection>, ss, OpenUnsharedDatabase,
+              shadowFile, mozIStorageService::CONNECTION_DEFAULT),
           // Predicate.
           IsDatabaseCorruptionError,
           // Fallback.
@@ -850,7 +853,7 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateShadowStorageConnection(
 
             QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                 nsCOMPtr<mozIStorageConnection>, ss, OpenUnsharedDatabase,
-                shadowFile));
+                shadowFile, mozIStorageService::CONNECTION_DEFAULT));
           })));
 
   QM_TRY(MOZ_TO_RESULT(SetShadowJournalMode(connection)));
@@ -879,7 +882,8 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateShadowStorageConnection(
 
         QM_TRY_UNWRAP(connection, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                                       nsCOMPtr<mozIStorageConnection>, ss,
-                                      OpenUnsharedDatabase, shadowFile));
+                                      OpenUnsharedDatabase, shadowFile,
+                                      mozIStorageService::CONNECTION_DEFAULT));
 
         QM_TRY(MOZ_TO_RESULT(SetShadowJournalMode(connection)));
 
@@ -910,7 +914,8 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> GetShadowStorageConnection(
                                          MOZ_STORAGE_SERVICE_CONTRACTID));
 
   QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
-      nsCOMPtr<mozIStorageConnection>, ss, OpenUnsharedDatabase, shadowFile));
+      nsCOMPtr<mozIStorageConnection>, ss, OpenUnsharedDatabase, shadowFile,
+      mozIStorageService::CONNECTION_DEFAULT));
 }
 
 nsresult AttachShadowDatabase(const nsAString& aBasePath,
@@ -1573,10 +1578,10 @@ class Datastore final
   //////////////////////////////////////////////////////////////////////////////
   // Mutation Methods
   //
-  // These are only called during Snapshot::RecvCheckpoint
+  // These are only called during Snapshot::RecvAsyncCheckpoint
 
   /**
-   * Used by Snapshot::RecvCheckpoint to set a key/value pair as part of a an
+   * Used by Snapshot::RecvAsyncCheckpoint to set a key/value pair as part of an
    * explicit batch.
    */
   void SetItem(Database* aDatabase, const nsString& aKey,
@@ -2006,13 +2011,15 @@ class Snapshot final : public PBackgroundLSSnapshotParent {
 
   mozilla::ipc::IPCResult RecvDeleteMe() override;
 
-  mozilla::ipc::IPCResult RecvCheckpoint(
+  mozilla::ipc::IPCResult RecvAsyncCheckpoint(
       nsTArray<LSWriteInfo>&& aWriteInfos) override;
 
-  mozilla::ipc::IPCResult RecvCheckpointAndNotify(
+  mozilla::ipc::IPCResult RecvAsyncCheckpointAndNotify(
       nsTArray<LSWriteAndNotifyInfo>&& aWriteAndNotifyInfos) override;
 
-  mozilla::ipc::IPCResult RecvFinish() override;
+  mozilla::ipc::IPCResult RecvAsyncFinish() override;
+
+  mozilla::ipc::IPCResult RecvSyncFinish() override;
 
   mozilla::ipc::IPCResult RecvLoaded() override;
 
@@ -2024,8 +2031,6 @@ class Snapshot final : public PBackgroundLSSnapshotParent {
 
   mozilla::ipc::IPCResult RecvIncreasePeakUsage(const int64_t& aMinSize,
                                                 int64_t* aSize) override;
-
-  mozilla::ipc::IPCResult RecvPing() override;
 };
 
 class Observer final : public PBackgroundLSObserverParent {
@@ -5635,7 +5640,7 @@ mozilla::ipc::IPCResult Snapshot::RecvDeleteMe() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult Snapshot::RecvCheckpoint(
+mozilla::ipc::IPCResult Snapshot::RecvAsyncCheckpoint(
     nsTArray<LSWriteInfo>&& aWriteInfos) {
   AssertIsOnBackgroundThread();
   // Don't assert `mUsage >= 0`, it can be negative when multiple snapshots are
@@ -5690,7 +5695,7 @@ mozilla::ipc::IPCResult Snapshot::RecvCheckpoint(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult Snapshot::RecvCheckpointAndNotify(
+mozilla::ipc::IPCResult Snapshot::RecvAsyncCheckpointAndNotify(
     nsTArray<LSWriteAndNotifyInfo>&& aWriteAndNotifyInfos) {
   AssertIsOnBackgroundThread();
   // Don't assert `mUsage >= 0`, it can be negative when multiple snapshots are
@@ -5759,12 +5764,25 @@ mozilla::ipc::IPCResult Snapshot::RecvCheckpointAndNotify(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult Snapshot::RecvFinish() {
+mozilla::ipc::IPCResult Snapshot::RecvAsyncFinish() {
   AssertIsOnBackgroundThread();
 
   if (NS_WARN_IF(mFinishReceived)) {
     MOZ_CRASH_UNLESS_FUZZING();
-    return IPC_FAIL_NO_REASON(this);
+    return IPC_FAIL(this, "Already finished");
+  }
+
+  Finish();
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult Snapshot::RecvSyncFinish() {
+  AssertIsOnBackgroundThread();
+
+  if (NS_WARN_IF(mFinishReceived)) {
+    MOZ_CRASH_UNLESS_FUZZING();
+    return IPC_FAIL(this, "Already finished");
   }
 
   Finish();
@@ -6002,15 +6020,6 @@ mozilla::ipc::IPCResult Snapshot::RecvIncreasePeakUsage(const int64_t& aMinSize,
   mPeakUsage += size;
 
   *aSize = size;
-
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult Snapshot::RecvPing() {
-  AssertIsOnBackgroundThread();
-
-  // Do nothing here. This is purely a sync message allowing the child to
-  // confirm that the actor has received previous async message.
 
   return IPC_OK();
 }

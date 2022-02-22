@@ -860,8 +860,27 @@ void LSObject::EndExplicitSnapshot(nsIPrincipal& aSubjectPrincipal,
   mInExplicitSnapshot = false;
 }
 
-bool LSObject::GetHasActiveSnapshot(nsIPrincipal& aSubjectPrincipal,
-                                    ErrorResult& aError) {
+bool LSObject::GetHasSnapshot(nsIPrincipal& aSubjectPrincipal,
+                              ErrorResult& aError) {
+  AssertIsOnOwningThread();
+
+  if (!CanUseStorage(aSubjectPrincipal)) {
+    aError.Throw(NS_ERROR_DOM_SECURITY_ERR);
+    return false;
+  }
+
+  // We can't call `HasSnapshot` on the database if it's being closed, but we
+  // know that a database which is being closed can't have a snapshot, so we
+  // return false in that case directly here.
+  if (!mDatabase || mDatabase->IsAllowedToClose()) {
+    return false;
+  }
+
+  return mDatabase->HasSnapshot();
+}
+
+int64_t LSObject::GetSnapshotUsage(nsIPrincipal& aSubjectPrincipal,
+                                   ErrorResult& aError) {
   AssertIsOnOwningThread();
 
   if (!CanUseStorage(aSubjectPrincipal)) {
@@ -869,13 +888,17 @@ bool LSObject::GetHasActiveSnapshot(nsIPrincipal& aSubjectPrincipal,
     return 0;
   }
 
-  if (mDatabase && mDatabase->HasActiveSnapshot()) {
-    MOZ_ASSERT(!mDatabase->IsAllowedToClose());
-
-    return true;
+  if (!mDatabase || mDatabase->IsAllowedToClose()) {
+    aError.Throw(NS_ERROR_NOT_AVAILABLE);
+    return 0;
   }
 
-  return false;
+  if (!mDatabase->HasSnapshot()) {
+    aError.Throw(NS_ERROR_NOT_AVAILABLE);
+    return 0;
+  }
+
+  return mDatabase->GetSnapshotUsage();
 }
 
 NS_IMPL_ADDREF_INHERITED(LSObject, Storage)

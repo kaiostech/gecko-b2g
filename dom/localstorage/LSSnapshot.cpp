@@ -510,7 +510,16 @@ nsresult LSSnapshot::Clear(LSNotifyInfo& aNotifyInfo) {
   } else {
     changed = true;
 
-    DebugOnly<nsresult> rv = UpdateUsage(-mExactUsage);
+    int64_t delta = 0;
+    for (const auto& entry : mValues) {
+      const nsAString& key = entry.GetKey();
+      const nsString& value = entry.GetData();
+
+      delta += -static_cast<int64_t>(key.Length()) -
+               static_cast<int64_t>(value.Length());
+    }
+
+    DebugOnly<nsresult> rv = UpdateUsage(delta);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
 
     mValues.Clear();
@@ -572,16 +581,21 @@ nsresult LSSnapshot::End() {
 
   RefPtr<LSSnapshot> kungFuDeathGrip = this;
 
-  rv = Finish();
+  rv = Finish(/* aSync */ true);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
-  if (NS_WARN_IF(!mActor->SendPing())) {
-    return NS_ERROR_FAILURE;
-  }
-
   return NS_OK;
+}
+
+int64_t LSSnapshot::GetUsage() const {
+  AssertIsOnOwningThread();
+  MOZ_ASSERT(mActor);
+  MOZ_ASSERT(mInitialized);
+  MOZ_ASSERT(!mSentFinish);
+
+  return mExactUsage;
 }
 
 void LSSnapshot::ScheduleStableStateCallback() {
@@ -914,7 +928,8 @@ nsresult LSSnapshot::Checkpoint() {
     MOZ_ASSERT(mWriteAndNotifyInfos);
 
     if (!mWriteAndNotifyInfos->IsEmpty()) {
-      MOZ_ALWAYS_TRUE(mActor->SendCheckpointAndNotify(*mWriteAndNotifyInfos));
+      MOZ_ALWAYS_TRUE(
+          mActor->SendAsyncCheckpointAndNotify(*mWriteAndNotifyInfos));
 
       mWriteAndNotifyInfos->Clear();
     }
@@ -927,7 +942,7 @@ nsresult LSSnapshot::Checkpoint() {
 
       MOZ_ASSERT(!writeInfos.IsEmpty());
 
-      MOZ_ALWAYS_TRUE(mActor->SendCheckpoint(writeInfos));
+      MOZ_ALWAYS_TRUE(mActor->SendAsyncCheckpoint(writeInfos));
 
       mWriteOptimizer->Reset();
     }
@@ -936,14 +951,18 @@ nsresult LSSnapshot::Checkpoint() {
   return NS_OK;
 }
 
-nsresult LSSnapshot::Finish() {
+nsresult LSSnapshot::Finish(bool aSync) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mDatabase);
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(mInitialized);
   MOZ_ASSERT(!mSentFinish);
 
-  MOZ_ALWAYS_TRUE(mActor->SendFinish());
+  if (aSync) {
+    MOZ_ALWAYS_TRUE(mActor->SendSyncFinish());
+  } else {
+    MOZ_ALWAYS_TRUE(mActor->SendAsyncFinish());
+  }
 
   mDatabase->NoteFinishedSnapshot(this);
 

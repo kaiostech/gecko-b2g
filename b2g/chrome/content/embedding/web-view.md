@@ -15,7 +15,7 @@ The <web-view> element supports the following attributes:
 - `cleanup() : void` : releases resources before removing the <web-view> from the DOM. The <web-view> is not usable after this call.
 - `deactivateKeyForwarding() : void` : disable key forwarding.
 - `disableCursor() : void` : disables the virtual cursor.
-- `download(uri) : init download.
+- `download(uri) : void` : init download.
 - `enableCursor() : void` : enables the virtual cursor.
 - `enterModalState() : void` : Set into a state where scripts are frozen and events suppressed.
 - `focus() : void` : focuses the browser.
@@ -93,36 +93,17 @@ All events are CustomEvents, with an event payload specific to each type.
     - `unblock(returnValue)` : function, app need to call this function to unblock waiting response after `returnValue` is set.
                                App will set checkState if dialog has checkbox.
       - `returnValue` : object of event.detail and app fill in dialog response including checkbox and if `OK` or `Cancel` clicked.
-      +----------------------------+------------------------------------------------------------------------------+
-      | prompType                  | value in returnValue should be filled.                                       |
-      +============================+==============================================================================+
-      | `alert`                    | N/A                                                                          |
-      +----------------------------+------------------------------------------------------------------------------+
-      | `alertCheck`               | boolean: `returnValue.checked` represent checkBox's state.                   |
-      +----------------------------+------------------------------------------------------------------------------+
-      | `confirm`                  | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
-      +----------------------------+------------------------------------------------------------------------------+
-      | `confirmCheck`             | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
-      |                            | boolean: `returnValue.checked` represent checkBox's state.                   |
-      +----------------------------+------------------------------------------------------------------------------+
-      | `confirmEx`                | boolean: `returnValue.checked` represent checkBox's state.                   |
-      |                            | int: `returnValue.buttonNumClicked` index of button pressed. 0-2, default 0. |
-      +----------------------------+------------------------------------------------------------------------------+
-      | `prompt`                   | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
-      |                            | boolean: `returnValue.checked` represent checkBox's state.                   |
-      |                            | string: `returnValue.value` user input string.                               |
-      +----------------------------+------------------------------------------------------------------------------+
-      | `promptUsernameAndPassword`| boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
-      |                            | string: `returnValue.user` user input string.                                |
-      |                            | string: `returnValue.pass` user input string.                                |
-      +----------------------------+------------------------------------------------------------------------------+
-      | `promptPassword`           | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
-      |                            | string: `returnValue.pass` user input string.                                |
-      +----------------------------+------------------------------------------------------------------------------+
-      | `select`                   | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
-      |                            | int: `returnValue.selected` index of item been selected.                     |
-      +----------------------------+------------------------------------------------------------------------------+
-
+        | prompType | value in returnValue should be filled. |
+        | :--- | :--- |
+        | `alert` | N/A |
+        | `alertCheck` | boolean: `returnValue.checked` represent checkBox's state. |
+        | `confirm` | boolean: `returnValue.ok` true for `OK`, false for `Cancel`. |
+        | `confirmCheck` | boolean: `returnValue.ok` true for `OK`, false for `Cancel`. <br> boolean: `returnValue.checked` represent checkBox's state. |
+        | `confirmEx` | boolean: `returnValue.checked` represent checkBox's state. <br> int: `returnValue.buttonNumClicked` index of button pressed. 0-2, default 0. |
+        | `prompt` | boolean: `returnValue.ok` true for `OK`, false for `Cancel`. <br> boolean: `returnValue.checked` represent checkBox's state. <br> string: `returnValue.value` user input string. |
+        | `promptUsernameAndPassword` | boolean: `returnValue.ok` true for `OK`, false for `Cancel`. <br> string: `returnValue.user` user input string. <br> string: `returnValue.pass` user input string. |
+        | `promptPassword` | boolean: `returnValue.ok` true for `OK`, false for `Cancel`. <br> string: `returnValue.pass` user input string. |
+        | `select` | boolean: `returnValue.ok` true for `OK`, false for `Cancel`. <br> int: `returnValue.selected` index of item been selected. |
 - `titlechange` : `{ title: string }`
 - `visibilitychange` : `{ visible: boolean }`
 - `httponmodifyrequest` : `{ uri: string, host: string }`

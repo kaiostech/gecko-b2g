@@ -47,6 +47,7 @@ const SUGGESTIONS = [
     click_url: "http://example.com/click",
     impression_url: "http://example.com/impression",
     advertiser: "TestAdvertiser",
+    _test_is_best_match: false,
   },
   {
     id: 3,
@@ -59,6 +60,24 @@ const SUGGESTIONS = [
     position: BEST_MATCH_POSITION,
     _test_is_best_match: true,
   },
+  {
+    id: 4,
+    url: "http://example.com/logic-test",
+    title: "logictest title",
+    keywords: [
+      "lo",
+      "log",
+      "logi",
+      "logic",
+      "logict",
+      "logicte",
+      "logictes",
+      "logictest",
+    ],
+    click_url: "http://example.com/click",
+    impression_url: "http://example.com/impression",
+    advertiser: "TestAdvertiser",
+  },
 ];
 
 const EXPECTED_BEST_MATCH_RESULT = {
@@ -68,6 +87,7 @@ const EXPECTED_BEST_MATCH_RESULT = {
   isBestMatch: true,
   payload: {
     url: "http://example.com/best-match",
+    originalUrl: "http://example.com/best-match",
     title: `${BEST_MATCH_SEARCH_STRING} title`,
     icon: null,
     isSponsored: true,
@@ -88,6 +108,7 @@ const EXPECTED_NON_BEST_MATCH_RESULT = {
   heuristic: false,
   payload: {
     url: "http://example.com/non-best-match",
+    originalUrl: "http://example.com/non-best-match",
     title: `${NON_BEST_MATCH_SEARCH_STRING} title`,
     qsSuggestion: NON_BEST_MATCH_SEARCH_STRING,
     icon: null,
@@ -110,6 +131,7 @@ const EXPECTED_BEST_MATCH_POSITION_RESULT = {
   isBestMatch: true,
   payload: {
     url: "http://example.com/best-match-position",
+    originalUrl: "http://example.com/best-match-position",
     title: `${BEST_MATCH_POSITION_SEARCH_STRING} title`,
     icon: null,
     isSponsored: true,
@@ -376,4 +398,61 @@ add_task(async function position() {
 
   await cleanupPlaces();
   UrlbarPrefs.clear("quicksuggest.allowPositionInSuggestions");
+});
+
+// Tests the temporary simplistic triggering logic.
+add_task(async function tempLogic() {
+  let expectedBaseResult = {
+    type: UrlbarUtils.RESULT_TYPE.URL,
+    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+    heuristic: false,
+    payload: {
+      url: "http://example.com/logic-test",
+      originalUrl: "http://example.com/logic-test",
+      title: "logictest title",
+      icon: null,
+      isSponsored: true,
+      sponsoredImpressionUrl: "http://example.com/impression",
+      sponsoredClickUrl: "http://example.com/click",
+      sponsoredBlockId: 4,
+      sponsoredAdvertiser: "TestAdvertiser",
+      helpUrl: UrlbarProviderQuickSuggest.helpUrl,
+      helpL10nId: "firefox-suggest-urlbar-learn-more",
+      displayUrl: "http://example.com/logic-test",
+      source: "remote-settings",
+    },
+  };
+
+  let bestMatchResult = { ...expectedBaseResult };
+  bestMatchResult.isBestMatch = true;
+
+  let nonBestMatchResult = { ...expectedBaseResult };
+  nonBestMatchResult.payload = { ...expectedBaseResult.payload };
+  nonBestMatchResult.payload.qsSuggestion = "logictest";
+
+  // search string -> expected matching result
+  let resultsBySearchString = {
+    lo: nonBestMatchResult,
+    log: nonBestMatchResult,
+    logi: nonBestMatchResult,
+    // The logic is hardcoded at 5 chars, so we'll start triggering best match
+    // at this point.
+    logic: bestMatchResult,
+    logict: bestMatchResult,
+    logicte: bestMatchResult,
+    logictes: bestMatchResult,
+    logictest: bestMatchResult,
+  };
+
+  for (let [searchString, result] of Object.entries(resultsBySearchString)) {
+    info(`Searching for "${searchString}"`);
+    let context = createContext(searchString, {
+      providers: [UrlbarProviderQuickSuggest.name],
+      isPrivate: false,
+    });
+    await check_results({
+      context,
+      matches: [result],
+    });
+  }
 });

@@ -166,6 +166,7 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
 
   virtual ENameValueFlag Name(nsString& aName) const override;
   virtual void Description(nsString& aDescription) const override;
+  virtual void Value(nsString& aValue) const override;
 
   virtual double CurValue() const override;
   virtual double MinValue() const override;
@@ -179,6 +180,8 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
   virtual already_AddRefed<AccAttributes> Attributes() override;
 
   virtual nsAtom* TagName() const override;
+
+  virtual already_AddRefed<nsAtom> DisplayStyle() const override;
 
   virtual uint8_t ActionCount() const override;
 

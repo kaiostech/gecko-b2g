@@ -269,6 +269,7 @@
 using namespace js;
 using namespace js::gc;
 
+using mozilla::MakeScopeExit;
 using mozilla::Maybe;
 using mozilla::Nothing;
 using mozilla::Some;
@@ -2112,6 +2113,7 @@ bool GCRuntime::shouldPreserveJITCode(Realm* realm,
 #ifdef DEBUG
 class CompartmentCheckTracer final : public JS::CallbackTracer {
   void onChild(JS::GCCellPtr thing) override;
+  bool edgeIsInCrossCompartmentMap(JS::GCCellPtr dst);
 
  public:
   explicit CompartmentCheckTracer(JSRuntime* rt)
@@ -2153,16 +2155,19 @@ void CompartmentCheckTracer::onChild(JS::GCCellPtr thing) {
   Compartment* comp =
       MapGCThingTyped(thing, [](auto t) { return t->maybeCompartment(); });
   if (comp && compartment) {
-    MOZ_ASSERT(
-        comp == compartment ||
-        runtime()->mainContextFromOwnThread()->disableCompartmentCheckTracer ||
-        (srcKind == JS::TraceKind::Object &&
-         InCrossCompartmentMap(runtime(), static_cast<JSObject*>(src), thing)));
+    if (!runtime()->mainContextFromOwnThread()->disableCompartmentCheckTracer) {
+      MOZ_ASSERT(comp == compartment || edgeIsInCrossCompartmentMap(thing));
+    }
   } else {
     TenuredCell* tenured = &thing.asCell()->asTenured();
     Zone* thingZone = tenured->zoneFromAnyThread();
     MOZ_ASSERT(thingZone == zone || thingZone->isAtomsZone());
   }
+}
+
+bool CompartmentCheckTracer::edgeIsInCrossCompartmentMap(JS::GCCellPtr dst) {
+  return srcKind == JS::TraceKind::Object &&
+         InCrossCompartmentMap(runtime(), static_cast<JSObject*>(src), dst);
 }
 
 void GCRuntime::checkForCompartmentMismatches() {
@@ -3833,9 +3838,15 @@ struct MOZ_RAII AutoSetZoneSliceThresholds {
 void GCRuntime::collect(bool nonincrementalByAPI, const SliceBudget& budget,
                         JS::GCReason reason) {
   mozilla::TimeStamp startTime = TimeStamp::Now();
-  auto timer = mozilla::MakeScopeExit([&] {
+  auto timer = MakeScopeExit([&] {
     if (Realm* realm = rt->mainContextFromOwnThread()->realm()) {
       realm->timers.gcTime += TimeStamp::Now() - startTime;
+    }
+  });
+
+  auto clearGCOptions = MakeScopeExit([&] {
+    if (!isIncrementalGCInProgress()) {
+      maybeGcOptions = Nothing();
     }
   });
 
@@ -3895,10 +3906,6 @@ void GCRuntime::collect(bool nonincrementalByAPI, const SliceBudget& budget,
 
   if (reason == JS::GCReason::COMPARTMENT_REVIVED) {
     maybeDoCycleCollection();
-  }
-
-  if (!isIncrementalGCInProgress()) {
-    maybeGcOptions = Nothing();
   }
 
 #ifdef JS_GC_ZEAL

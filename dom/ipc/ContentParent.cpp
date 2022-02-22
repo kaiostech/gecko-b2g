@@ -1981,6 +1981,10 @@ void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
     if (CanSend() && !mShutdownPending) {
       // Stop sending input events with input priority when shutting down.
       SetInputPriorityEventEnabled(false);
+      // Send a high priority announcement first. If this fails, SendShutdown
+      // will also fail.
+      Unused << SendShutdownConfirmedHP();
+      // Send the definite message with normal priority.
       if (SendShutdown()) {
         mShutdownPending = true;
         // Start the force-kill timer if we haven't already.
@@ -7029,7 +7033,7 @@ ContentParent::RecvStorageAccessPermissionGrantedForOrigin(
 
   ContentBlocking::SaveAccessForOriginOnParentProcess(
       aTopLevelWindowId, aParentContext.get_canonical(), aTrackingPrincipal,
-      aTrackingOrigin, aAllowMode)
+      aAllowMode)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
           [aResolver = std::move(aResolver)](

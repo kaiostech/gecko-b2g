@@ -113,6 +113,9 @@ this.VideoControlsWidget = class {
     this.impl.onPrefChange(prefName, prefValue);
   }
 
+  // If you change this, also change SEEK_TIME_SECS in PictureInPictureChild.jsm
+  static SEEK_TIME_SECS = 5;
+
   static isPictureInPictureVideo(someVideo) {
     return someVideo.isCloningElementVisually;
   }
@@ -1901,7 +1904,7 @@ this.VideoControlsImplWidget = class {
             oldval -
             (this.video.duration || this.maxCurrentTimeSeen / 1000) / 10;
         } else {
-          newval = oldval - 15;
+          newval = oldval - VideoControlsWidget.SEEK_TIME_SECS;
         }
         this.video.currentTime = Math.max(0, newval);
       },
@@ -1913,7 +1916,7 @@ this.VideoControlsImplWidget = class {
         if (tenPercent) {
           newval = oldval + maxtime / 10;
         } else {
-          newval = oldval + 15;
+          newval = oldval + VideoControlsWidget.SEEK_TIME_SECS;
         }
         this.video.currentTime = Math.min(newval, maxtime);
       },
@@ -2003,7 +2006,7 @@ this.VideoControlsImplWidget = class {
             case "accel-ArrowUp" /* Unmute */:
               this.video.muted = false;
               break;
-            case "ArrowLeft" /* Seek back 15 seconds */:
+            case "ArrowLeft" /* Seek back 5 seconds */:
               if (allTabbable && target == this.volumeControl) {
                 this.keyboardVolumeDecrease();
               } else {
@@ -2013,7 +2016,7 @@ this.VideoControlsImplWidget = class {
             case "accel-ArrowLeft" /* Seek back 10% */:
               this.keyboardSeekBack(/* tenPercent */ true);
               break;
-            case "ArrowRight" /* Seek forward 15 seconds */:
+            case "ArrowRight" /* Seek forward 5 seconds */:
               if (allTabbable && target == this.volumeControl) {
                 this.keyboardVolumeIncrease();
               } else {

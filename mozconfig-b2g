@@ -133,6 +133,10 @@ if test -z "$DISABLE_OEMHOOK"; then
   ac_add_options --enable-b2g-oemhook
 fi
 
+if [ "$ENABLE_ZAXIS_GEOLOCATION" = "true" ]; then
+  ac_add_options --enable-b2g-zaxis-geolocation
+fi
+
 # Disable until we figure out CI issues
 # ac_add_options --enable-clang-plugin
 

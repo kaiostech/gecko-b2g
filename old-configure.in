@@ -1652,6 +1652,22 @@ else
 fi
 AC_SUBST(B2G_CUSTOM_MODULE, C002)
 
+dnl ========================================================
+dnl Build B2G Z-Axis Geolocation modules if the dir exists
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(b2g-zaxis-geolocation,
+[  --enable-b2g-zaxis-geolocation   Enable b2g-zaxis-geolocation modules],
+    B2G_ZAXIS_GEOLOCATION=1,
+    B2G_ZAXIS_GEOLOCATION= )
+if test -n "$B2G_ZAXIS_GEOLOCATION" && \
+   test -d "$_topsrcdir/koost/zaxis" ; then
+  B2G_ZAXIS_GEOLOCATION=1
+  AC_DEFINE(B2G_ZAXIS_GEOLOCATION)
+else
+  B2G_ZAXIS_GEOLOCATION=
+fi
+AC_SUBST(B2G_ZAXIS_GEOLOCATION)
+
 MOZ_CREATE_CONFIG_STATUS()
 
 rm -fr confdefs* $ac_clean_files

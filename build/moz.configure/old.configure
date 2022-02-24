@@ -99,6 +99,7 @@ def old_configure_options(*options):
     '--enable-b2g-oemhook',
     "--enable-b2g-ril",
     "--enable-b2g-voice-processing",
+    "--enable-b2g-zaxis-geolocation",
     "--enable-extensions",
     '--enable-rsu',
     "--enable-official-branding",

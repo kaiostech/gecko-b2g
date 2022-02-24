@@ -9,6 +9,7 @@
 #include "nsIContentHandler.h"
 #include "nsILoadGroup.h"
 #include "nsIDocumentLoader.h"
+#include "nsIGeckoBridge.h"
 #include "nsIStreamListener.h"
 #include "nsIURI.h"
 #include "nsIChannel.h"
@@ -128,6 +129,33 @@ NS_IMETHODIMP nsDocumentOpenInfo::OnStartRequest(nsIRequest* request) {
 
     if (204 == responseCode || 205 == responseCode) {
       return NS_BINDING_ABORTED;
+    }
+  }
+
+  //
+  // If the opened Url is found in the deeplinks list, it will be opened
+  // with openDeeplink, and this request will be canceled.
+  //
+  if (XRE_IsParentProcess()) {
+    nsCOMPtr<nsIChannel> aChannel = do_QueryInterface(request);
+    if (aChannel) {
+      nsCOMPtr<nsIURI> uri;
+      NS_GetFinalChannelURI(aChannel, getter_AddRefs(uri));
+      LOG(("nsDocumentOpenInfo::OnStartRequest [%s]",  uri->GetSpecOrDefault().get()));
+      nsCOMPtr<nsIAppsServiceDelegate> appsSvc =
+        do_GetService("@mozilla.org/sidl-native/appsservice;1");
+      if (appsSvc) {
+        bool retval;
+        nsAutoCString url;
+        uri->GetSpec(url);
+        if (NS_SUCCEEDED(appsSvc->HasDeepLinks(NS_ConvertUTF8toUTF16(url), &retval)) && retval) {
+          LOG(("nsDocumentOpenInfo::OnStartRequet has deeplinks."));
+          // The request is handled by deeplinks, abort the request.
+          return NS_BINDING_ABORTED;
+        }
+      } else {
+        LOG(("nsDocumentOpenInfo::OnStartRequet NO appsSvc."));
+      }
     }
   }
 

@@ -3,6 +3,7 @@
 
 [scriptable, uuid(40c07250-b984-4ba7-8420-85d27a02ebf6)]
 interface nsIAppsServiceDelegate : nsISupports {
+    bool hasDeepLinks(in AString aUrl);
     AString getManifestUrlByScopeUrl(in AString aUrl);
     void onBoot(in AString aManifestUrl, in AString aValue);
     void onBootDone();

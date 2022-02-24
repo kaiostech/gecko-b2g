@@ -550,6 +550,22 @@ XPCOMUtils.defineLazyServiceGetter(
         _webembed_log(`receive b2g-sw-registration-done`);
         this.dispatchEvent(new CustomEvent("sw-registration-done"));
       }, "b2g-sw-registration-done");
+
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(
+          `receive topic: ${topic}, detail: ${JSON.stringify(
+            subject.wrappedJSObject
+          )}`
+        );
+        let detail = subject.wrappedJSObject;
+        if (this.browserDomWindow) {
+          let aURI = detail.openedURI;
+          let manifestURL = detail.manifestURL;
+          this.browserDomWindow.openDeeplink(aURI, { manifestURL });
+        } else {
+          _webembed_log(`No webembedder to launch ${detail.manifestURL}`);
+        }
+      }, "open-deeplink");
     }
 
     isDaemonReady() {

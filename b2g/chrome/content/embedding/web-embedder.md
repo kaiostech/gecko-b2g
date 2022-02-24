@@ -98,6 +98,7 @@ This delegate is used when the plaform needs to create a new top level window. I
 ### Methods
 
 - `openURI(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp)`.
+- `openDeeplink(aURI, aParams)`.
 - `createContentWindow(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp)`.
 - `openURIInFrame(aURI, aParams, aWhere, aFlags, aName)`.
 - `createContentWindowInFrame(aURI, aParams, aWhere, aFlags, aName)`.

@@ -912,10 +912,15 @@ void ScriptPreloader::FillDecodeOptionsForCachedStencil(
 
 already_AddRefed<JS::Stencil> ScriptPreloader::GetCachedStencil(
     JSContext* cx, const JS::DecodeOptions& options, const nsCString& path) {
+
+// In b2g/components/DirectoryProvider.js is needed earlier than the cache being ready.
+// TODO: rewrite this component in native code.
+#if !defined(MOZ_B2G)
   MOZ_RELEASE_ASSERT(
       !(XRE_IsContentProcess() && !mCacheInitialized),
       "ScriptPreloader must be initialized before getting cached "
       "scripts in the content process.");
+#endif
 
   // If a script is used by both the parent and the child, it's stored only
   // in the child cache.

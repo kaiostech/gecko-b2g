@@ -546,6 +546,10 @@ XPCOMUtils.defineLazyServiceGetter(
         }, "AccessFu:Enabled");
       }
 
+      if (delegates.webExtensions) {
+        WebExtensionsEmbedding.setDelegate(delegates.webExtensions);
+      }
+
       Services.obs.addObserver((subject, topic, data) => {
         _webembed_log(
           `Get the caret-state-changed ${JSON.stringify(
@@ -564,9 +568,21 @@ XPCOMUtils.defineLazyServiceGetter(
         this.dispatchEvent(new CustomEvent("sw-registration-done"));
       }, "b2g-sw-registration-done");
 
-      if (delegates.webExtensions) {
-        WebExtensionsEmbedding.setDelegate(delegates.webExtensions);
-      }
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(
+          `receive topic: ${topic}, detail: ${JSON.stringify(
+            subject.wrappedJSObject
+          )}`
+        );
+        let detail = subject.wrappedJSObject;
+        if (this.browserDomWindow) {
+          let aURI = detail.openedURI;
+          let manifestURL = detail.manifestURL;
+          this.browserDomWindow.openDeeplink(aURI, { manifestURL });
+        } else {
+          _webembed_log(`No webembedder to launch ${detail.manifestURL}`);
+        }
+      }, "open-deeplink");
     }
 
     isDaemonReady() {

@@ -345,7 +345,7 @@ void GrallocTextureHostOGL::PushDisplayItems(
     const Range<wr::ImageKey>& aImageKeys, PushDisplayItemFlagSet aFlags) {
   MOZ_ASSERT(aImageKeys.length() == 1);
   aBuilder.PushImage(
-      aBounds, aClip, true, aFilter, aImageKeys[0],
+      aBounds, aClip, true, false, aFilter, aImageKeys[0],
       !(mFlags & TextureFlags::NON_PREMULTIPLIED),
       wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
       aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE));

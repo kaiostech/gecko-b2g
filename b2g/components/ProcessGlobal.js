@@ -178,7 +178,8 @@ ProcessGlobal.prototype = {
 
   observe: function pg_observe(subject, topic, data) {
     switch (topic) {
-      case "app-startup": {
+      case "app-startup":
+      case "content-process-ready-for-script": {
         Services.obs.addObserver(this, "console-api-log-event");
         let inParent =
           Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;

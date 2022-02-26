@@ -1299,3 +1299,6 @@ pref("pdfjs.handleOctetStream", true);
 
 // Needed for ipfs:// and ipns:// protocols to not lowercacse host names.
 pref("network.url.useDefaultURI", true);
+
+pref("layout.css.constructable-stylesheets.enabled", true);
+

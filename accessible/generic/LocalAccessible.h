@@ -554,12 +554,6 @@ class LocalAccessible : public nsISupports, public Accessible {
    */
   virtual already_AddRefed<nsIURI> AnchorURIAt(uint32_t aAnchorIndex) const;
 
-  /**
-   * Returns a text point for the accessible element.
-   */
-  void ToTextPoint(HyperTextAccessible** aContainer, int32_t* aOffset,
-                   bool aIsBefore = true) const;
-
   //////////////////////////////////////////////////////////////////////////////
   // SelectAccessible
 
@@ -861,8 +855,11 @@ class LocalAccessible : public nsISupports, public Accessible {
     eRelocated = 1 << 7,         // accessible was moved in tree
     eNoKidsFromDOM = 1 << 8,     // accessible doesn't allow children from DOM
     eHasTextKids = 1 << 9,       // accessible have a text leaf in children
+    eOldFrameHasValidTransformStyle =
+        1 << 10,  // frame prior to most recent style change both has transform
+                  // styling and supports transforms
 
-    eLastStateFlag = eHasTextKids
+    eLastStateFlag = eOldFrameHasValidTransformStyle
   };
 
   /**
@@ -1045,6 +1042,13 @@ class LocalAccessible : public nsISupports, public Accessible {
   LocalAccessible() = delete;
   LocalAccessible(const LocalAccessible&) = delete;
   LocalAccessible& operator=(const LocalAccessible&) = delete;
+
+  /**
+   * Traverses the accessible's parent chain in search of an accessible with
+   * a frame. Returns the frame when found. Includes special handling for
+   * OOP iframe docs and tab documents.
+   */
+  nsIFrame* FindNearestAccessibleAncestorFrame();
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(LocalAccessible, NS_ACCESSIBLE_IMPL_IID)

@@ -162,6 +162,8 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
  public:
   nsBaseWidget();
 
+  explicit nsBaseWidget(nsBorderStyle aBorderStyle);
+
   NS_DECL_THREADSAFE_ISUPPORTS
 
   // nsIWidget interface

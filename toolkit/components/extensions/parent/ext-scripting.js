@@ -122,8 +122,7 @@ const makeInternalContentScript = details => {
       matchAboutBlank: true,
       matches: details.matches,
       originAttributesPatterns: null,
-      // TODO: Bug 1755978 - Add support for `details.runAt`.
-      runAt: "document_idle",
+      runAt: details.runAt,
     },
   };
 };
@@ -232,6 +231,39 @@ this.scripting = class extends ExtensionAPI {
           // TODO: Bug 1756495 - Registration may be incomplete when a new
           // process spawns during the registration.
           extension.updateContentScripts();
+        },
+
+        getRegisteredContentScripts: async details => {
+          // Map<string, number>
+          const scriptIdsMap = gScriptIdsMap.get(extension);
+
+          return Array.from(scriptIdsMap.entries())
+            .filter(
+              ([id, scriptId]) => !details?.ids || details.ids.includes(id)
+            )
+            .map(([id, scriptId]) => {
+              const options = extension.registeredContentScripts.get(scriptId);
+
+              if (!options) {
+                // When we call `getRegisteredContentScripts()` during a registration,
+                // `options` might be `undefined`. This happens when `scriptIdsMap`
+                // is already updated but `extension.registeredContentScripts` is not
+                // yet due to the broadcast.
+                return;
+              }
+
+              return {
+                id,
+                allFrames: options.allFrames,
+                excludeMatches: options.excludeMatches || undefined,
+                js: options.jsPaths.map(jsPath =>
+                  jsPath.replace(extension.baseURL, "")
+                ),
+                matches: options.matches,
+                runAt: options.runAt,
+              };
+            })
+            .filter(script => script);
         },
       },
     };

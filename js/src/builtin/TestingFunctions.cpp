@@ -190,18 +190,6 @@ static bool GetRealmConfiguration(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  bool privateFields = cx->options().privateClassFields();
-  if (!JS_SetProperty(cx, info, "privateFields",
-                      privateFields ? TrueHandleValue : FalseHandleValue)) {
-    return false;
-  }
-  bool privateMethods = cx->options().privateClassMethods();
-  if (!JS_SetProperty(cx, info, "privateMethods",
-                      privateFields && privateMethods ? TrueHandleValue
-                                                      : FalseHandleValue)) {
-    return false;
-  }
-
   bool importAssertions = cx->options().importAssertions();
   if (!JS_SetProperty(cx, info, "importAssertions",
                       importAssertions ? TrueHandleValue : FalseHandleValue)) {
@@ -445,6 +433,24 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
   value = BooleanValue(false);
 #endif
   if (!JS_SetProperty(cx, info, "wasi", value)) {
+    return false;
+  }
+
+#ifdef JS_CODEGEN_LOONG64
+  value = BooleanValue(true);
+#else
+  value = BooleanValue(false);
+#endif
+  if (!JS_SetProperty(cx, info, "loong64", value)) {
+    return false;
+  }
+
+#ifdef JS_SIMULATOR_LOONG64
+  value = BooleanValue(true);
+#else
+  value = BooleanValue(false);
+#endif
+  if (!JS_SetProperty(cx, info, "loong64-simulator", value)) {
     return false;
   }
 

@@ -3712,7 +3712,11 @@ struct BoxToRect : public nsLayoutUtils::BoxCallback {
         nsLayoutUtils::TransformRect(outer, mRelativeTo, r);
       }
     } else {
-      r += outer->GetOffsetTo(mRelativeTo);
+      if (aFrame->PresContext() != mRelativeTo->PresContext()) {
+        r += outer->GetOffsetToCrossDoc(mRelativeTo);
+      } else {
+        r += outer->GetOffsetTo(mRelativeTo);
+      }
     }
     mCallback->AddRect(r);
   }
@@ -8644,7 +8648,7 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
     CSSPoint layoutScrollOffset =
         CSSPoint::FromAppUnits(scrollableFrame->GetScrollPosition());
     CSSPoint visualScrollOffset =
-        aIsRootContent && presShell->IsVisualViewportOffsetSet()
+        aIsRootContent
             ? CSSPoint::FromAppUnits(presShell->GetVisualViewportOffset())
             : layoutScrollOffset;
     metrics.SetVisualScrollOffset(visualScrollOffset);

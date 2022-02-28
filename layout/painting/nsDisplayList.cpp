@@ -21,6 +21,7 @@
 #include "mozilla/DisplayPortUtils.h"
 #include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
+#include "mozilla/dom/RemoteBrowser.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/dom/ServiceWorkerRegistration.h"
@@ -7580,9 +7581,7 @@ void nsDisplayText::RenderToContext(gfxContext* aCtx,
 
   bool willClip = !aBuilder->IsForGenerateGlyphMask() && !aIsRecording;
   if (willClip) {
-    aCtx->NewPath();
-    aCtx->Rectangle(pixelVisible);
-    aCtx->Clip();
+    aCtx->Clip(pixelVisible);
   }
 
   NS_ASSERTION(mVisIStartEdge >= 0, "illegal start edge");

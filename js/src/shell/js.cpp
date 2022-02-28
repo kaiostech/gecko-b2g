@@ -99,6 +99,9 @@
 #ifdef JS_SIMULATOR_MIPS64
 #  include "jit/mips64/Simulator-mips64.h"
 #endif
+#ifdef JS_SIMULATOR_LOONG64
+#  include "jit/loong64/Simulator-loong64.h"
+#endif
 #include "jit/CacheIRHealth.h"
 #include "jit/InlinableNatives.h"
 #include "jit/Ion.h"
@@ -628,16 +631,12 @@ bool shell::enableIteratorHelpers = false;
 #ifdef NIGHTLY_BUILD
 bool shell::enableArrayGrouping = true;
 #endif
-bool shell::enablePrivateClassFields = false;
-bool shell::enablePrivateClassMethods = false;
-bool shell::enableErgonomicBrandChecks = true;
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
 bool shell::enableChangeArrayByCopy = false;
 #endif
 #ifdef ENABLE_NEW_SET_METHODS
 bool shell::enableNewSetMethods = true;
 #endif
-bool shell::enableClassStaticBlocks = true;
 bool shell::enableImportAssertions = false;
 #ifdef JS_GC_ZEAL
 uint32_t shell::gZealBits = 0;
@@ -6807,7 +6806,7 @@ static bool WasmCompileAndSerialize(JSContext* cx) {
   }
 
   wasm::Bytes serialized;
-  if (!wasm::CompileAndSerialize(*bytecode, &serialized)) {
+  if (!wasm::CompileAndSerialize(cx, *bytecode, &serialized)) {
     return false;
   }
 
@@ -7389,6 +7388,10 @@ static void SingleStepCallback(void* arg, jit::Simulator* sim, void* pc) {
   state.lr = (void*)sim->get_register(jit::Simulator::lr);
   state.fp = (void*)sim->get_register(jit::Simulator::fp);
 #  elif defined(JS_SIMULATOR_MIPS64) || defined(JS_SIMULATOR_MIPS32)
+  state.sp = (void*)sim->getRegister(jit::Simulator::sp);
+  state.lr = (void*)sim->getRegister(jit::Simulator::ra);
+  state.fp = (void*)sim->getRegister(jit::Simulator::fp);
+#  elif defined(JS_SIMULATOR_LOONG64)
   state.sp = (void*)sim->getRegister(jit::Simulator::sp);
   state.lr = (void*)sim->getRegister(jit::Simulator::ra);
   state.fp = (void*)sim->getRegister(jit::Simulator::fp);
@@ -11063,17 +11066,12 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 #ifdef NIGHTLY_BUILD
   enableArrayGrouping = op.getBoolOption("enable-array-grouping");
 #endif
-  enablePrivateClassFields = !op.getBoolOption("disable-private-fields");
-  enablePrivateClassMethods = !op.getBoolOption("disable-private-methods");
-  enableErgonomicBrandChecks =
-      !op.getBoolOption("disable-ergonomic-brand-checks");
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
   enableChangeArrayByCopy = op.getBoolOption("enable-change-array-by-copy");
 #endif
 #ifdef ENABLE_NEW_SET_METHODS
   enableNewSetMethods = op.getBoolOption("enable-new-set-methods");
 #endif
-  enableClassStaticBlocks = !op.getBoolOption("disable-class-static-blocks");
   enableImportAssertions = op.getBoolOption("enable-import-assertions");
   useFdlibmForSinCosTan = op.getBoolOption("use-fdlibm-for-sin-cos-tan");
 
@@ -11102,16 +11100,12 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
       .setSourcePragmas(enableSourcePragmas)
       .setAsyncStack(enableAsyncStacks)
       .setAsyncStackCaptureDebuggeeOnly(enableAsyncStackCaptureDebuggeeOnly)
-      .setPrivateClassFields(enablePrivateClassFields)
-      .setPrivateClassMethods(enablePrivateClassMethods)
-      .setErgnomicBrandChecks(enableErgonomicBrandChecks)
 #ifdef NIGHTLY_BUILD
       .setArrayGrouping(enableArrayGrouping)
 #endif
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
       .setChangeArrayByCopy(enableChangeArrayByCopy)
 #endif
-      .setClassStaticBlocks(enableClassStaticBlocks)
       .setImportAssertions(enableImportAssertions);
 
   JS::SetUseFdlibmForSinCosTan(useFdlibmForSinCosTan);
@@ -11451,6 +11445,15 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   }
 
   int32_t stopAt = op.getIntOption("mips-sim-stop-at");
+  if (stopAt >= 0) {
+    jit::Simulator::StopSimAt = stopAt;
+  }
+#elif defined(JS_SIMULATOR_LOONG64)
+  if (op.getBoolOption("loong64-sim-icache-checks")) {
+    jit::SimulatorProcess::ICacheCheckingDisableCount = 0;
+  }
+
+  int32_t stopAt = op.getIntOption("loong64-sim-stop-at");
   if (stopAt >= 0) {
     jit::Simulator::StopSimAt = stopAt;
   }
@@ -12054,16 +12057,6 @@ int main(int argc, char** argv) {
                         "Enable iterator helpers") ||
       !op.addBoolOption('\0', "enable-array-grouping",
                         "Enable Array Grouping") ||
-      !op.addBoolOption('\0', "disable-private-fields",
-                        "Disable private class fields") ||
-      !op.addBoolOption('\0', "disable-private-methods",
-                        "Disable private class methods") ||
-      !op.addBoolOption(
-          '\0', "enable-ergonomic-brand-checks",
-          "Enable ergonomic brand checks for private class fields (no-op)") ||
-      !op.addBoolOption(
-          '\0', "disable-ergonomic-brand-checks",
-          "Disable ergonomic brand checks for private class fields") ||
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
       !op.addBoolOption('\0', "enable-change-array-by-copy",
                         "Enable change-array-by-copy methods") ||
@@ -12084,8 +12077,6 @@ int main(int argc, char** argv) {
 #endif
       !op.addBoolOption('\0', "enable-top-level-await",
                         "Enable top-level await") ||
-      !op.addBoolOption('\0', "disable-class-static-blocks",
-                        "Disable class static blocks") ||
       !op.addBoolOption('\0', "enable-class-static-blocks",
                         "(no-op) Enable class static blocks") ||
       !op.addBoolOption('\0', "enable-import-assertions",
@@ -12294,6 +12285,13 @@ int main(int argc, char** argv) {
                         "simulator.") ||
       !op.addIntOption('\0', "mips-sim-stop-at", "NUMBER",
                        "Stop the MIPS simulator after the given "
+                       "NUMBER of instructions.",
+                       -1) ||
+      !op.addBoolOption('\0', "loong64-sim-icache-checks",
+                        "Enable icache flush checks in the LoongArch64 "
+                        "simulator.") ||
+      !op.addIntOption('\0', "loong64-sim-stop-at", "NUMBER",
+                       "Stop the LoongArch64 simulator after the given "
                        "NUMBER of instructions.",
                        -1) ||
       !op.addIntOption('\0', "nursery-size", "SIZE-MB",

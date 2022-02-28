@@ -2928,7 +2928,8 @@ void nsRefreshDriver::CancelPendingAnimationEvents(
 }
 
 /* static */
-TimeStamp nsRefreshDriver::GetIdleDeadlineHint(TimeStamp aDefault) {
+TimeStamp nsRefreshDriver::GetIdleDeadlineHint(TimeStamp aDefault,
+                                               IdleCheck aCheckType) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!aDefault.IsNull());
 
@@ -2939,7 +2940,10 @@ TimeStamp nsRefreshDriver::GetIdleDeadlineHint(TimeStamp aDefault) {
   // busy but tasks resulting from a tick on sThrottledRateTimer
   // counts as being idle.
   if (sRegularRateTimer) {
-    return sRegularRateTimer->GetIdleDeadlineHint(aDefault);
+    TimeStamp retVal = sRegularRateTimer->GetIdleDeadlineHint(aDefault);
+    if (retVal != aDefault) {
+      return retVal;
+    }
   }
 
   // The following calculation is only used on platform using per-BrowserChild
@@ -2951,6 +2955,8 @@ TimeStamp nsRefreshDriver::GetIdleDeadlineHint(TimeStamp aDefault) {
   // For now we use a somewhat simplistic approach that in many situations
   // gives us similar behaviour to what we would get using sRegularRateTimer:
   // use the highest result that is still lower than the aDefault fallback.
+  // XXXsmaug None of this makes much sense. We should always return the
+  // lowest result, not highest.
   TimeStamp hint = TimeStamp();
   if (sRegularRateTimerList) {
     for (RefreshDriverTimer* timer : *sRegularRateTimerList) {
@@ -2961,7 +2967,23 @@ TimeStamp nsRefreshDriver::GetIdleDeadlineHint(TimeStamp aDefault) {
     }
   }
 
-  return hint.IsNull() ? aDefault : hint;
+  if (!hint.IsNull()) {
+    return hint;
+  }
+
+  if (aCheckType == IdleCheck::AllVsyncListeners && XRE_IsParentProcess()) {
+    Maybe<TimeDuration> rate = mozilla::gfx::VsyncSource::GetFastestVsyncRate();
+    if (rate.isSome()) {
+      TimeStamp newHint = TimeStamp::Now() + *rate -
+                          TimeDuration::FromMilliseconds(
+                              StaticPrefs::layout_idle_period_time_limit());
+      if (newHint < aDefault) {
+        return newHint;
+      }
+    }
+  }
+
+  return aDefault;
 }
 
 /* static */

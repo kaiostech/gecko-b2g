@@ -1485,6 +1485,7 @@ class PresShell final : public nsStubDocumentObserver,
   bool SetVisualViewportOffset(const nsPoint& aScrollOffset,
                                const nsPoint& aPrevLayoutScrollPos);
 
+  void ResetVisualViewportOffset();
   nsPoint GetVisualViewportOffset() const {
     if (mVisualViewportOffset.isSome()) {
       return *mVisualViewportOffset;

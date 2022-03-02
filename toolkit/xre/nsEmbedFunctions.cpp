@@ -85,6 +85,7 @@
 
 #include "GeckoProfiler.h"
 #include "BaseProfiler.h"
+#include "ProfilerControl.h"
 
 #if defined(MOZ_SANDBOX) && defined(XP_WIN)
 #  include "mozilla/sandboxTarget.h"
@@ -110,13 +111,6 @@
 #    define PR_SET_PTRACER_ANY ((unsigned long)-1)
 #  endif
 #endif
-
-#ifdef MOZ_IPDL_TESTS
-#  include "mozilla/_ipdltest/IPDLUnitTests.h"
-#  include "mozilla/_ipdltest/IPDLUnitTestProcessChild.h"
-
-using mozilla::_ipdltest::IPDLUnitTestProcessChild;
-#endif  // ifdef MOZ_IPDL_TESTS
 
 #ifdef MOZ_JPROF
 #  include "jprof.h"
@@ -154,6 +148,12 @@ using mozilla::ipc::TestShellCommandParent;
 using mozilla::ipc::TestShellParent;
 
 using mozilla::startup::sChildProcessType;
+
+namespace mozilla::_ipdltest {
+// Set in IPDLUnitTest.cpp when running gtests.
+UniquePtr<mozilla::ipc::ProcessChild> (*gMakeIPDLUnitTestProcessChild)(
+    base::ProcessId) = nullptr;
+}  // namespace mozilla::_ipdltest
 
 static NS_DEFINE_CID(kAppShellCID, NS_APPSHELL_CID);
 
@@ -573,6 +573,7 @@ nsresult XRE_InitChildProcess(int aArgc, char* aArgv[],
   switch (XRE_GetProcessType()) {
     case GeckoProcessType_Content:
     case GeckoProcessType_GPU:
+    case GeckoProcessType_IPDLUnitTest:
     case GeckoProcessType_VR:
     case GeckoProcessType_RDD:
     case GeckoProcessType_Socket:
@@ -631,11 +632,10 @@ nsresult XRE_InitChildProcess(int aArgc, char* aArgv[],
           break;
 
         case GeckoProcessType_IPDLUnitTest:
-#ifdef MOZ_IPDL_TESTS
-          process = MakeUnique<IPDLUnitTestProcessChild>(parentPID);
-#else
-          MOZ_CRASH("rebuild with --enable-ipdl-tests");
-#endif
+          MOZ_RELEASE_ASSERT(mozilla::_ipdltest::gMakeIPDLUnitTestProcessChild,
+                             "xul-gtest not loaded!");
+          process =
+              mozilla::_ipdltest::gMakeIPDLUnitTestProcessChild(parentPID);
           break;
 
         case GeckoProcessType_GMPlugin:
@@ -808,28 +808,6 @@ nsresult XRE_InitParentProcess(int aArgc, char* aArgv[],
 
   return XRE_DeinitCommandLine();
 }
-
-#ifdef MOZ_IPDL_TESTS
-//-----------------------------------------------------------------------------
-// IPDL unit test
-
-int XRE_RunIPDLTest(int aArgc, char** aArgv) {
-  if (aArgc < 2) {
-    fprintf(
-        stderr,
-        "TEST-UNEXPECTED-FAIL | <---> | insufficient #args, need at least 2\n");
-    return 1;
-  }
-
-  void* data = reinterpret_cast<void*>(aArgv[aArgc - 1]);
-
-  nsresult rv = XRE_InitParentProcess(
-      --aArgc, aArgv, mozilla::_ipdltest::IPDLUnitTestMain, data);
-  NS_ENSURE_SUCCESS(rv, 1);
-
-  return 0;
-}
-#endif  // ifdef MOZ_IPDL_TESTS
 
 nsresult XRE_RunAppShell() {
   nsCOMPtr<nsIAppShell> appShell(do_GetService(kAppShellCID));

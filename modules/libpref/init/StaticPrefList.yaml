@@ -4590,14 +4590,6 @@
   value: "#FFFFFF"
   mirror: never
 
-# Use CreateElementTransaction or not.  This is available only in a couple of
-# release cycles to make it possible to cancel stopping using
-# CreateElementTransaction.
-- name: editor.create_element_transaction.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Default length unit of indent blocks with CSS.
 # TODO: Delete this pref after checking the compatibility with the other
 #       browsers.
@@ -10638,7 +10630,7 @@
 # If true, don't fallback to native DNS upon network errors.
 - name: network.trr.strict_native_fallback
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # If true, we'll fallback to native if the retry also times out.
@@ -13101,6 +13093,13 @@
   value: false
   mirror: always
 
+# Whether native GTK context menus are enabled.
+# Disabled because at the very least there's missing custom icon support.
+- name: widget.gtk.native-context-menus
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Whether we use overlay scrollbars on GTK.
 - name: widget.gtk.overlay-scrollbars.enabled
   type: RelaxedAtomicBool
@@ -13234,15 +13233,6 @@
 #  - 1: always
 #  - 2: auto (for now only true for flatpak, see bug 1516290)
 - name: widget.use-xdg-desktop-portal.mime-handler
-  type: int32_t
-  value: 2
-  mirror: always
-
-# Whether to use gtk portal for the print dialog.
-#  - 0: never
-#  - 1: always
-#  - 2: auto (for now only true for flatpak, since it needs work, see bug 1688720).
-- name: widget.use-xdg-desktop-portal.print
   type: int32_t
   value: 2
   mirror: always

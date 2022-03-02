@@ -90,8 +90,6 @@ extern mozilla::LazyLogModule gAutoplayPermissionLog;
 #define AUTOPLAY_LOG(msg, ...) \
   MOZ_LOG(gAutoplayPermissionLog, LogLevel::Debug, (msg, ##__VA_ARGS__))
 
-using std::move;
-
 namespace mozilla::dom {
 
 // 0 is a special value that MediaTracks use to denote they are not part of a
@@ -714,7 +712,7 @@ already_AddRefed<Promise> AudioContext::DecodeAudioData(
       new WebAudioDecodeJob(this, promise, successCallback, failureCallback));
   AsyncDecodeWebAudio(contentType.get(), data, length, *job);
   // Transfer the ownership to mDecodeJobs
-  mDecodeJobs.AppendElement(move(job));
+  mDecodeJobs.AppendElement(std::move(job));
 
   return promise.forget();
 }
@@ -885,7 +883,7 @@ void AudioContext::Dispatch(already_AddRefed<nsIRunnable>&& aRunnable) {
   // and the global is not valid anymore.
   if (parentObject) {
     parentObject->AbstractMainThreadFor(TaskCategory::Other)
-        ->Dispatch(move(aRunnable));
+        ->Dispatch(std::move(aRunnable));
   } else {
     RefPtr<nsIRunnable> runnable(aRunnable);
     runnable = nullptr;
@@ -1077,7 +1075,7 @@ void AudioContext::SuspendInternal(void* aPromise,
     tracks = GetAllTracks();
   }
   auto promise = Graph()->ApplyAudioContextOperation(
-      DestinationTrack(), move(tracks), AudioContextOperation::Suspend);
+      DestinationTrack(), std::move(tracks), AudioContextOperation::Suspend);
   if ((aFlags & AudioContextOperationFlags::SendStateChange)) {
     promise->Then(
         GetMainThread(), "AudioContext::OnStateChanged",
@@ -1165,7 +1163,7 @@ void AudioContext::ResumeInternal(AudioContextOperationFlags aFlags) {
     tracks = GetAllTracks();
   }
   auto promise = Graph()->ApplyAudioContextOperation(
-      DestinationTrack(), move(tracks), AudioContextOperation::Resume);
+      DestinationTrack(), std::move(tracks), AudioContextOperation::Resume);
   if (aFlags & AudioContextOperationFlags::SendStateChange) {
     promise->Then(
         GetMainThread(), "AudioContext::OnStateChanged",
@@ -1297,7 +1295,7 @@ void AudioContext::CloseInternal(void* aPromise,
       tracks = GetAllTracks();
     }
     auto promise = Graph()->ApplyAudioContextOperation(
-        ds, move(tracks), AudioContextOperation::Close);
+        ds, std::move(tracks), AudioContextOperation::Close);
     if ((aFlags & AudioContextOperationFlags::SendStateChange)) {
       promise->Then(
           GetMainThread(), "AudioContext::OnStateChanged",
@@ -1366,8 +1364,8 @@ void AudioContext::Unmute() const {
 void AudioContext::SetParamMapForWorkletName(
     const nsAString& aName, AudioParamDescriptorMap* aParamMap) {
   MOZ_ASSERT(!mWorkletParamDescriptors.Contains(aName));
-  Unused << mWorkletParamDescriptors.InsertOrUpdate(aName, move(*aParamMap),
-                                                    fallible);
+  Unused << mWorkletParamDescriptors.InsertOrUpdate(
+      aName, std::move(*aParamMap), fallible);
 }
 
 AudioChannel AudioContext::TestAudioChannelInAudioNodeStream() {

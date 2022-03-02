@@ -354,7 +354,7 @@ enum radio_state_t {
 #define SCANNEXT (1 << 3) /* Scanning for next station */
 #define SIGNAL (1 << 4)   /* Signal indicator change (read SIGSTATE) */
 #define INTF (1 << 5)     /* Interference cnt has fallen outside range */
-#define SYNC (1 << 6)     /* RDS sync state change (read RDSSYNC) */
+// #define SYNC (1 << 6)     /* RDS sync state change (read RDSSYNC) */
 #define AUDIO (1 << 7)    /* Audio Control indicator (read AUDIOIND) */
 
 /* interrupt register 2 */

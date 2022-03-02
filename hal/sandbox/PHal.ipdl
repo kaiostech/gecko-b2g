@@ -166,7 +166,7 @@ parent:
       returns (WakeLockInformation aWakeLockInfo);
 
     async LockScreenOrientation(ScreenOrientation aOrientation)
-      returns (bool allowed);
+      returns (nsresult result);
     async UnlockScreenOrientation();
     async EnableSwitchNotifications(SwitchDevice aDevice);
     async DisableSwitchNotifications(SwitchDevice aDevice);

@@ -709,12 +709,18 @@ nsresult nsAppShellService::JustCreateTopWindow(
   bool center = aChromeMask & nsIWebBrowserChrome::CHROME_CENTER_SCREEN;
 
   widgetInitData.mRTL = LocaleService::GetInstance()->IsAppLocaleRTL();
+
 #ifdef MOZ_WIDGET_GONK
   // B2G multi-screen support. Screen ID is for differentiating screens of
   // windows, and due to the hardware limitation, it is platform-specific for
   // now, which align with the value of display type defined in HWC.
   widgetInitData.mScreenId = mScreenId;
 #endif
+
+  if (aChromeMask & nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW) {
+    widgetInitData.mIsPrivate = true;
+  }
+
   nsresult rv =
       window->Initialize(parent, center ? aParent : nullptr, aInitialWidth,
                          aInitialHeight, aIsHiddenWindow, widgetInitData);

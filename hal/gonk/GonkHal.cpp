@@ -1084,11 +1084,11 @@ void EnableSystemTimezoneChangeNotifications() {}
 
 void DisableSystemTimezoneChangeNotifications() {}
 
-RefPtr<mozilla::MozPromise<bool, bool, false>> LockScreenOrientation(
+RefPtr<GenericNonExclusivePromise> LockScreenOrientation(
     const hal::ScreenOrientation& aOrientation) {
   bool value =
       OrientationObserver::GetInstance()->LockScreenOrientation(aOrientation);
-  return MozPromise<bool, bool, false>::CreateAndReject(value, __func__);
+  return GenericNonExclusivePromise::CreateAndResolve(value, __func__);
 }
 
 void UnlockScreenOrientation() {

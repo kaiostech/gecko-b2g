@@ -16,8 +16,8 @@ function debug(msg) {
 }
 
 this.AppsUtils = {
-  clearBrowserData(url) {
-    debug("clearBrowserData: " + url);
+  clearData(url) {
+    debug("clearData: " + url);
     let uri = Services.io.newURI(url);
     const kFlags =
       Ci.nsIClearDataService.CLEAR_COOKIES |
@@ -31,18 +31,7 @@ this.AppsUtils = {
     Services.clearData.deleteDataFromHost(uri.host, true, kFlags, result => {
       debug("result: " + result);
     });
-  },
 
-  clearStorage(url) {
-    debug("clearStorage: " + url);
-    let uri = Services.io.newURI(url);
-
-    // Clear indexedDB files
-    let principal = Services.scriptSecurityManager.createContentPrincipal(
-      uri,
-      {}
-    );
-    Services.qms.clearStoragesForPrincipal(principal);
-    AlarmService.removeByHost(principal.origin);
+    AlarmService.removeByHost(uri.host);
   },
 };

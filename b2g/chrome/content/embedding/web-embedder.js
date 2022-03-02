@@ -547,6 +547,15 @@ XPCOMUtils.defineLazyServiceGetter(
       }, "caret-state-changed");
 
       Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive before-clear-app-storage ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("before-clear-app-storage", {
+            detail: { url: data },
+          })
+        );
+      }, "before-clear-app-storage");
+
+      Services.obs.addObserver((subject, topic, data) => {
         _webembed_log(`receive b2g-sw-registration-done`);
         this.dispatchEvent(new CustomEvent("sw-registration-done"));
       }, "b2g-sw-registration-done");

@@ -188,7 +188,7 @@
 #include "nsIWinTaskbar.h"
 #define NS_TASKBAR_CONTRACTID "@mozilla.org/windows-taskbar;1"
 
-#include "nsIWindowsUIUtils.h"
+#include "WindowsUIUtils.h"
 
 #include "nsWindowDefs.h"
 
@@ -5199,8 +5199,7 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM& wParam, LPARAM& lParam,
         gfxDWriteFont::UpdateSystemTextVars();
         break;
       }
-      if (lParam) {
-        auto lParamString = reinterpret_cast<const wchar_t*>(lParam);
+      if (auto lParamString = reinterpret_cast<const wchar_t*>(lParam)) {
         if (!wcscmp(lParamString, L"ImmersiveColorSet")) {
           // This affects system colors (-moz-win-accentcolor), so gotta pass
           // the style flag.
@@ -5220,14 +5219,7 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM& wParam, LPARAM& lParam,
               !wcscmp(lParamString, L"ConvertibleSlateMode") ||
               !wcscmp(lParamString, L"SystemDockMode")) {
             NotifyThemeChanged(widget::ThemeChangeKind::MediaQueriesOnly);
-
-            if (IsWin10OrLater()) {
-              nsCOMPtr<nsIWindowsUIUtils> uiUtils(
-                  do_GetService("@mozilla.org/windows-ui-utils;1"));
-              if (uiUtils) {
-                uiUtils->UpdateTabletModeState();
-              }
-            }
+            WindowsUIUtils::UpdateInTabletMode();
           }
         }
       }
@@ -5799,9 +5791,23 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM& wParam, LPARAM& lParam,
             wParam == WMSZ_TOPLEFT || wParam == WMSZ_BOTTOMLEFT) {
           newWidth = rect->right - rect->left;
           newHeight = newWidth * mAspectRatio;
+          if (newHeight < mSizeConstraints.mMinSize.height) {
+            newHeight = mSizeConstraints.mMinSize.height;
+            newWidth = newHeight / mAspectRatio;
+          } else if (newHeight > mSizeConstraints.mMaxSize.height) {
+            newHeight = mSizeConstraints.mMaxSize.height;
+            newWidth = newHeight / mAspectRatio;
+          }
         } else {
           newHeight = rect->bottom - rect->top;
           newWidth = newHeight / mAspectRatio;
+          if (newWidth < mSizeConstraints.mMinSize.width) {
+            newWidth = mSizeConstraints.mMinSize.width;
+            newHeight = newWidth * mAspectRatio;
+          } else if (newWidth > mSizeConstraints.mMaxSize.width) {
+            newWidth = mSizeConstraints.mMaxSize.width;
+            newHeight = newWidth * mAspectRatio;
+          }
         }
 
         switch (wParam) {

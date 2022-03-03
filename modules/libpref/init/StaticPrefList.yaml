@@ -8687,7 +8687,7 @@
   type: bool
   mirror: always
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-  value: false
+  value: true
 #elif defined(XP_WIN) && !defined(_ARM64_)
   value: true
 #elif defined(XP_MACOSX)
@@ -13291,6 +13291,13 @@
 - name: widget.windows.window_occlusion_tracking.enabled
   type: bool
   value: true
+  mirror: always
+
+# Whether overlay scrollbars respect the system settings.
+# Note that these can be overridden by the ui.useOverlayScrollbars pref.
+- name: widget.windows.overlay_scrollbars.enabled
+  type: bool
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: widget.windows.window_occlusion_tracking_display_state.enabled

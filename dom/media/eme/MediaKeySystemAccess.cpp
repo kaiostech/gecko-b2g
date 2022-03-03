@@ -322,6 +322,7 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
       clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
       clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
       clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+      clearkey.mWebM.SetCanDecryptAndDecode(EME_CODEC_VORBIS);
       clearkey.mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
       clearkey.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
       keySystemConfigs.AppendElement(std::move(clearkey));
@@ -348,6 +349,7 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
       widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
       widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
       widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+      widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_VORBIS);
       widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
       widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
       keySystemConfigs.AppendElement(std::move(widevine));

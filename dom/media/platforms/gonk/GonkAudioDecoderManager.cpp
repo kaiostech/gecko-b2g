@@ -21,6 +21,7 @@
 #include <media/openmax/OMX_Audio.h>
 #include "MediaData.h"
 #include "MediaInfo.h"
+#include "XiphExtradata.h"
 
 #define CODECCONFIG_TIMEOUT_US 40000LL
 #define READ_OUTPUT_BUFFER_TIMEOUT_US 0LL
@@ -108,6 +109,29 @@ bool GonkAudioDecoderManager::InitMediaCodecProxy() {
       format->setBuffer("csd-0", csdBuffer);
       format->setBuffer("csd-1", delayBuffer);
       format->setBuffer("csd-2", prerollBuffer);
+    } else if (mMimeType.EqualsLiteral("audio/vorbis")) {
+      AutoTArray<unsigned char*, 4> headers;
+      AutoTArray<size_t, 4> headerLens;
+      if (!XiphExtradataToHeaders(headers, headerLens,
+                                  mCodecSpecificData->Elements(),
+                                  mCodecSpecificData->Length())) {
+        LOG("Could not get vorbis header");
+        return false;
+      }
+      for (size_t i = 0; i < headers.Length(); i++) {
+        auto header = ABuffer::CreateAsCopy(headers[i], headerLens[i]);
+        if (header->size() < 1) {
+          continue;
+        }
+        switch (header->data()[0]) {
+          case 0x1:  // Identification header
+            format->setBuffer("csd-0", header);
+            break;
+          case 0x5:  // Setup header
+            format->setBuffer("csd-1", header);
+            break;
+        }
+      }
     } else if (mMimeType.EqualsLiteral("audio/mp4a-latm")) {
       format->setBuffer("csd-0", csdBuffer);
     } else {

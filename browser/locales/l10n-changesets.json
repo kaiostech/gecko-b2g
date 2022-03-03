@@ -411,7 +411,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "5480408776e20df8274cc399adbc4bcad9a398c4"
+        "revision": "76b20b078dc3b36e23793ae1fa6f3a88051235df"
     },
     "en-CA": {
         "pin": false,
@@ -501,7 +501,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "7494321544d9a289dcdcfb687ba6ae407553694d"
+        "revision": "8097c93c22731fca3a7d5f82847801c42f465d7f"
     },
     "es-ES": {
         "pin": false,
@@ -537,7 +537,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "f43ffb5899d6af3cfd15eb17e5e37016d98caea3"
+        "revision": "03d3d84b60d36fb0b858da46b8e25c9430720be3"
     },
     "et": {
         "pin": false,
@@ -735,7 +735,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "79ecbd15280e326e1f386eecc12c17113600417a"
+        "revision": "f5d82b13b58569bfcabe2197cbd44ec1284bef4e"
     },
     "gu-IN": {
         "pin": false,
@@ -879,7 +879,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "76173b59ec3cc374241f4837a404342952f34fd3"
+        "revision": "f7a5ca20d6645667896750da8a63ac6623ce0185"
     },
     "ia": {
         "pin": false,
@@ -933,7 +933,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "a79cf7156cd7743c947b782578ef4f722af27d72"
+        "revision": "4780c3066d09401e685878bdbd4cbcb26c1131d6"
     },
     "it": {
         "pin": false,
@@ -951,7 +951,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "7c613b5b039859a382d16c8a27110dc74db9b831"
+        "revision": "efb22f7be0f607d01a4c0159df9aab4c6c591f86"
     },
     "ja": {
         "pin": false,
@@ -1281,7 +1281,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "0bc72f781481f50e11e9313f1baa214f8f2e73a4"
+        "revision": "da35d8af53769dcb757cc80825551a3f352fd622"
     },
     "ne-NP": {
         "pin": false,
@@ -1605,7 +1605,7 @@
             "win64-aarch64-devedition",
             "win64-devedition"
         ],
-        "revision": "b0ac3866c37118f4935171aad5c73ece39f6329e"
+        "revision": "5a4b4a8c581c38dd5ebeff686de0db3857c42a61"
     },
     "son": {
         "pin": false,

@@ -36,6 +36,13 @@ XPCOMUtils.defineLazyGetter(this, "UrlbarTestUtils", () => {
   return module;
 });
 
+const DEFAULT_CONFIG = {
+  best_match: {
+    blocked_suggestion_ids: [],
+    min_search_string_length: 4,
+  },
+};
+
 const LEARN_MORE_URL =
   Services.urlFormatter.formatURLPref("app.support.baseURL") +
   "firefox-suggest";
@@ -69,6 +76,10 @@ class QSTestUtils {
     return LEARN_MORE_URL;
   }
 
+  get BEST_MATCH_LEARN_MORE_URL() {
+    return UrlbarProviderQuickSuggest.bestMatchHelpUrl;
+  }
+
   get SCALARS() {
     return SCALARS;
   }
@@ -79,6 +90,11 @@ class QSTestUtils {
 
   get UPDATE_TOPIC() {
     return UPDATE_TOPIC;
+  }
+
+  get DEFAULT_CONFIG() {
+    // Return a clone so callers can modify it.
+    return Cu.cloneInto(DEFAULT_CONFIG, this);
   }
 
   /**
@@ -124,12 +140,14 @@ class QSTestUtils {
    * @param {array} [results]
    *   Array of quick suggest result objects. If not given, then this function
    *   won't set up any mock data.
+   * @param {object} [config]
+   *   Configuration object.
    * @returns {function}
    *   A cleanup function. You only need to call this function if you're in a
    *   browser chrome test and you did not also call `init`. You can ignore it
    *   otherwise.
    */
-  async ensureQuickSuggestInit(results = null) {
+  async ensureQuickSuggestInit(results = null, config = DEFAULT_CONFIG) {
     this.info?.(
       "ensureQuickSuggestInit awaiting UrlbarQuickSuggest.readyPromise"
     );
@@ -147,6 +165,9 @@ class QSTestUtils {
 
     if (results) {
       UrlbarQuickSuggest._addResults(results);
+    }
+    if (config) {
+      this.setConfig(config);
     }
 
     return cleanup;
@@ -172,6 +193,29 @@ class QSTestUtils {
     this.info?.("initNimbusFeature done");
 
     this.registerCleanupFunction(doCleanup);
+  }
+
+  /**
+   * Sets the quick suggest configuration. You should call this again with
+   * `DEFAULT_CONFIG` before your test finishes. See also `withConfig()`.
+   *
+   * @param {object} config
+   */
+  setConfig(config) {
+    UrlbarQuickSuggest._config = config;
+  }
+
+  /**
+   * Sets the quick suggest configuration, calls your callback, and restores the
+   * default configuration.
+   *
+   * @param {object} config
+   * @param {function} callback
+   */
+  async withConfig({ config, callback }) {
+    this.setConfig(config);
+    await callback();
+    this.setConfig(DEFAULT_CONFIG);
   }
 
   /**
@@ -399,8 +443,14 @@ class QSTestUtils {
    *   The expected advertiser in the ping.
    * @param {number} [block_id]
    *   The expected block_id in the ping.
+   * @param {number} [is_clicked]
+   *   The expected is_clicked in the ping.
+   * @param {string} [match_type]
+   *   The expected match type, one of: "best-match", "firefox-suggest"
    * @param {string} [reporting_url]
    *   The expected reporting_url in the ping.
+   * @param {string} [request_id]
+   *   The expected request_id in the ping.
    * @param {string} [scenario]
    *   The quick suggest scenario, one of: "history", "offline", "online"
    */
@@ -409,7 +459,10 @@ class QSTestUtils {
     spy,
     advertiser = "test-advertiser",
     block_id = 1,
+    is_clicked = false,
+    match_type = "firefox-suggest",
     reporting_url = "http://impression.reporting.test.com/",
+    request_id = null,
     scenario = "offline",
   }) {
     // Find the call for `QS_IMPRESSION`.
@@ -420,23 +473,17 @@ class QSTestUtils {
     this.Assert.equal(calls.length, 1, "Sent one impression ping");
 
     let payload = calls[0].args[0];
-
-    // Check payload properties that should match exactly.
-    let expectedPayload = {
+    this._assertPingPayload(payload, {
       advertiser,
       block_id,
+      is_clicked,
+      match_type,
       position: index + 1,
       reporting_url,
+      request_id,
       scenario,
-    };
-    let actualPayload = {};
-    for (let key of Object.keys(expectedPayload)) {
-      actualPayload[key] = payload[key];
-    }
-    this.Assert.deepEqual(actualPayload, expectedPayload, "Payload is correct");
-
-    // Check payload properties that don't need to match exactly.
-    this.Assert.ok(!!payload.context_id, "Should set the context_id");
+      context_id: actual => !!actual,
+    });
   }
 
   /**
@@ -466,8 +513,12 @@ class QSTestUtils {
    *   The expected advertiser in the ping.
    * @param {number} [block_id]
    *   The expected block_id in the ping.
+   * @param {string} [match_type]
+   *   The expected match type, one of: "best-match", "firefox-suggest"
    * @param {string} [reporting_url]
    *   The expected reporting_url in the ping.
+   * @param {string} [request_id]
+   *   The expected request_id in the ping.
    * @param {string} [scenario]
    *   The quick suggest scenario, one of: "history", "offline", "online"
    */
@@ -476,7 +527,9 @@ class QSTestUtils {
     spy,
     advertiser = "test-advertiser",
     block_id = 1,
+    match_type = "firefox-suggest",
     reporting_url = "http://click.reporting.test.com/",
+    request_id = null,
     scenario = "offline",
   }) {
     // Find the call for `QS_SELECTION`.
@@ -487,23 +540,16 @@ class QSTestUtils {
     this.Assert.equal(calls.length, 1, "Sent one click ping");
 
     let payload = calls[0].args[0];
-
-    // Check payload properties that should match exactly.
-    let expectedPayload = {
+    this._assertPingPayload(payload, {
       advertiser,
       block_id,
+      match_type,
       position: index + 1,
       reporting_url,
+      request_id,
       scenario,
-    };
-    let actualPayload = {};
-    for (let key of Object.keys(expectedPayload)) {
-      actualPayload[key] = payload[key];
-    }
-    this.Assert.deepEqual(actualPayload, expectedPayload, "Payload is correct");
-
-    // Check payload properties that don't need to match exactly.
-    this.Assert.ok(!!payload.context_id, "Should set the context_id");
+      context_id: actual => !!actual,
+    });
   }
 
   /**
@@ -519,6 +565,40 @@ class QSTestUtils {
       return endpoint.includes(CONTEXTUAL_SERVICES_PING_TYPES.QS_SELECTION);
     });
     this.Assert.equal(calls.length, 0, "Did not send a click ping");
+  }
+
+  /**
+   * Helper for checking contextual services ping payloads.
+   *
+   * @param {object} actualPayload
+   *   The actual payload in the ping.
+   * @param {object} expectedPayload
+   *   An object describing the expected payload. Non-function values in this
+   *   object are checked for equality against the corresponding actual payload
+   *   values. Function values are called and passed the corresponding actual
+   *   values and should return true if the actual values are correct.
+   */
+  _assertPingPayload(actualPayload, expectedPayload) {
+    this.info?.("Checking ping payload: " + JSON.stringify(actualPayload));
+
+    this.Assert.equal(
+      Object.entries(actualPayload).length,
+      Object.entries(expectedPayload).length,
+      "Payload has expected number of properties"
+    );
+
+    for (let [key, expectedValue] of Object.entries(expectedPayload)) {
+      let actualValue = actualPayload[key];
+      if (typeof expectedValue == "function") {
+        this.Assert.ok(expectedValue(actualValue), "Payload property: " + key);
+      } else {
+        this.Assert.equal(
+          actualValue,
+          expectedValue,
+          "Payload property: " + key
+        );
+      }
+    }
   }
 
   /**

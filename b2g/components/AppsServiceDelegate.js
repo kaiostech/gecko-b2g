@@ -167,15 +167,15 @@ AppsServiceDelegate.prototype = {
 
   onClear(aManifestUrl, aType, aManifest) {
     log(`onClear: ${aManifestUrl}: clear type: ${aType}`);
-    switch (aType) {
-      case "Browser":
-        AppsUtils.clearBrowserData(aManifestUrl);
-        break;
-      case "Storage":
-        AppsUtils.clearStorage(aManifestUrl);
-        break;
-      default:
-    }
+
+    Services.obs.notifyObservers(
+      null,
+      "before-clear-app-storage",
+      aManifestUrl
+    );
+
+    // clearType now makes no difference since `app://` is deprecated.
+    AppsUtils.clearData(aManifestUrl);
 
     // clearStorage removes everything stores per origin, re-register service
     // worker to create the cache db back for used by service worker.

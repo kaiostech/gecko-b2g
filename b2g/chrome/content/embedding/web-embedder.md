@@ -91,6 +91,8 @@ Since the `WebEmbedder` object extends `EventTarget` you can attach event listen
     - `Event.detail` is ```{ id: "activity uid", name: "activity name", caller: "caller origin" }```
 - `activity-closed`: this event is dispatched when a started activity is done processing, a.k.a. activity.start() is resolve/reject.
     - `Event.detail` is ```{ id: "activity uid", name: "activity name", caller: "caller origin", handler: "handler origin" }```
+- `before-clear-app-storage`: this event is dispatched to notify that the app storage is going to be cleared.
+    - `Event.detail` is ```{ url : "the url of the app whose storage is going to be cleared." }```
 
 ## WindowProvider delegate
 

@@ -59,7 +59,7 @@
     - .lint:rules:cpp
   variables:
     PATHSPEC: '*.{c,cpp,cc,h}'
-    SPECIFIC_LINTERS: "codespell mingw-capitalization clang-format cpp-virtual-final"
+    SPECIFIC_LINTERS: "codespell mingw-capitalization clang-format"
 
 .lint_python:
   extends:

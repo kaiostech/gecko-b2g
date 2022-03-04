@@ -24,5 +24,12 @@
 #define FMR_ERR_BASE -0x100
 
 static int fmr_err = 0;
+static char tmp[20] = {0};
+
+char* FMR_strerr() {
+  snprintf(tmp, sizeof(tmp), "%d", fmr_err);
+
+  return tmp;
+}
 
 void FMR_seterr(int err) { fmr_err = err; }

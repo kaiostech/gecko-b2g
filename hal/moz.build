@@ -80,12 +80,11 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "gonk/mtk_fm/fmr_err.cpp",
         ]
     elif CONFIG["PRODUCT_MANUFACTURER_SPRD"]:
-        UNIFIED_SOURCES += ["gonk/sprd_fm/GonkFMRadio.cpp"]
-
         SOURCES += [
             "gonk/sprd_fm/common.cpp",
             "gonk/sprd_fm/fmr_core.cpp",
             "gonk/sprd_fm/fmr_err.cpp",
+            "gonk/sprd_fm/GonkFMRadio.cpp",
         ]
     else:
         UNIFIED_SOURCES += [

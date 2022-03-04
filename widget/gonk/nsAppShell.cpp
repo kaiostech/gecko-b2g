@@ -1285,6 +1285,10 @@ void nsAppShell::NotifyNativeEvent() {
 }
 
 /* static */ void nsAppShell::NotifyScreenRotation() {
+  if (!gAppShell->mReaderPolicy || !gAppShell->mReader) {
+    LOG("Skip screen rotation event when input device is not ready.");
+    return;
+  }
   gAppShell->mReaderPolicy->setDisplayInfo();
   gAppShell->mReader->requestRefreshConfiguration(
       InputReaderConfiguration::CHANGE_DISPLAY_INFO);

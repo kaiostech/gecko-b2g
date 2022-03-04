@@ -4140,6 +4140,7 @@ name = "qcms"
 version = "0.2.0"
 dependencies = [
  "libc",
+ "rustc_version",
 ]
 
 [[package]]

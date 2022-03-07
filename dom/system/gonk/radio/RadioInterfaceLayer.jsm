@@ -6046,6 +6046,8 @@ RadioInterface.prototype = {
         // ISO 7816-4 clause 6). But currently no one needs this information,
         // so simply reports "GenericFailure" for now.
         options.onerror(RIL.GECKO_ERROR_GENERIC_FAILURE);
+        delete this.tokenOptionsMap[token];
+        return;
       }
     }
     this.simIOcontext.ICCIOHelper.processICCIO(options);

@@ -36,8 +36,8 @@ namespace IPC {
 template <>
 struct ParamTraits<mozilla::layers::MagicGrallocBufferHandle> {
   typedef mozilla::layers::MagicGrallocBufferHandle paramType;
-  static void Write(Message*, const paramType&) {}
-  static bool Read(const Message*, PickleIterator*, paramType*) {
+  static void Write(MessageWriter*, const paramType&) {}
+  static bool Read(const MessageReader*, paramType*) {
     return false;
   }
 };
@@ -45,8 +45,8 @@ struct ParamTraits<mozilla::layers::MagicGrallocBufferHandle> {
 template <>
 struct ParamTraits<mozilla::layers::GrallocBufferRef> {
   typedef mozilla::layers::GrallocBufferRef paramType;
-  static void Write(Message*, const paramType&) {}
-  static bool Read(const Message*, PickleIterator*, paramType*) {
+  static void Write(MessageWriter*, const paramType&) {}
+  static bool Read(const MessageReader*, paramType*) {
     return false;
   }
 };

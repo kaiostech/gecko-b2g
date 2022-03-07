@@ -39,9 +39,9 @@ struct ParamTraits<nsIMobileCallForwardingOptions*> {
   typedef nsIMobileCallForwardingOptions* paramType;
 
   // Function to serialize a MobileCallForwardingOptions.
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
     // If it is a null object, then we are done.
     if (isNull) {
       return;
@@ -52,33 +52,32 @@ struct ParamTraits<nsIMobileCallForwardingOptions*> {
     bool pBool;
 
     aParam->GetActive(&pBool);
-    WriteParam(aMsg, pBool);
+    WriteParam(aWriter, pBool);
 
     aParam->GetAction(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     aParam->GetReason(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     aParam->GetNumber(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetTimeSeconds(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     aParam->GetServiceClass(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     // We release the ref here given that ipdl won't handle reference counting.
     aParam->Release();
   }
 
   // Function to de-serialize a MobileCallForwardingOptions.
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -95,10 +94,10 @@ struct ParamTraits<nsIMobileCallForwardingOptions*> {
     int16_t serviceClass;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &active) && ReadParam(aMsg, aIter, &action) &&
-          ReadParam(aMsg, aIter, &reason) && ReadParam(aMsg, aIter, &number) &&
-          ReadParam(aMsg, aIter, &timeSeconds) &&
-          ReadParam(aMsg, aIter, &serviceClass))) {
+    if (!(ReadParam(aReader, &active) && ReadParam(aReader, &action) &&
+          ReadParam(aReader, &reason) && ReadParam(aReader, &number) &&
+          ReadParam(aReader, &timeSeconds) &&
+          ReadParam(aReader, &serviceClass))) {
       return false;
     }
 
@@ -120,9 +119,9 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
   typedef nsIMobileNetworkInfo* paramType;
 
   // Function to serialize a MobileNetworkInfo.
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
     // If it is a null object, then we are done.
     if (isNull) {
       return;
@@ -130,30 +129,29 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
 
     nsString pString;
     aParam->GetShortName(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetLongName(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetMcc(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetMnc(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetState(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     // We release the ref here given that ipdl won't handle reference counting.
     aParam->Release();
   }
 
   // Function to de-serialize a MobileNetworkInfo.
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -169,9 +167,9 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
     nsString state;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &shortName) &&
-          ReadParam(aMsg, aIter, &longName) && ReadParam(aMsg, aIter, &mcc) &&
-          ReadParam(aMsg, aIter, &mnc) && ReadParam(aMsg, aIter, &state))) {
+    if (!(ReadParam(aReader, &shortName) && ReadParam(aReader, &longName) &&
+          ReadParam(aReader, &mcc) && ReadParam(aReader, &mnc) &&
+          ReadParam(aReader, &state))) {
       return false;
     }
 
@@ -191,9 +189,9 @@ struct ParamTraits<nsIMobileCellInfo*> {
   typedef nsIMobileCellInfo* paramType;
 
   // Function to serialize a MobileCellInfo.
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
     // If it is a null object, then we are done.
     if (isNull) {
       return;
@@ -205,45 +203,44 @@ struct ParamTraits<nsIMobileCellInfo*> {
     bool pBool;
 
     aParam->GetGsmLocationAreaCode(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     aParam->GetGsmCellId(&pLongLong);
-    WriteParam(aMsg, pLongLong);
+    WriteParam(aWriter, pLongLong);
 
     aParam->GetCdmaBaseStationId(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     aParam->GetCdmaBaseStationLatitude(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     aParam->GetCdmaBaseStationLongitude(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     aParam->GetCdmaSystemId(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     aParam->GetCdmaNetworkId(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     aParam->GetCdmaRoamingIndicator(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     aParam->GetCdmaDefaultRoamingIndicator(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     aParam->GetCdmaSystemIsInPRL(&pBool);
-    WriteParam(aMsg, pBool);
+    WriteParam(aWriter, pBool);
 
     // We release the ref here given that ipdl won't handle reference counting.
     aParam->Release();
   }
 
   // Function to de-serialize a MobileCellInfo.
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -264,16 +261,14 @@ struct ParamTraits<nsIMobileCellInfo*> {
     bool cdmaSystemIsInPRL;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &gsmLac) &&
-          ReadParam(aMsg, aIter, &gsmCellId) &&
-          ReadParam(aMsg, aIter, &cdmaBsId) &&
-          ReadParam(aMsg, aIter, &cdmaBsLat) &&
-          ReadParam(aMsg, aIter, &cdmaBsLong) &&
-          ReadParam(aMsg, aIter, &cdmaSystemId) &&
-          ReadParam(aMsg, aIter, &cdmaNetworkId) &&
-          ReadParam(aMsg, aIter, &cdmaRoamingIndicator) &&
-          ReadParam(aMsg, aIter, &cdmaDefaultRoamingIndicator) &&
-          ReadParam(aMsg, aIter, &cdmaSystemIsInPRL))) {
+    if (!(ReadParam(aReader, &gsmLac) && ReadParam(aReader, &gsmCellId) &&
+          ReadParam(aReader, &cdmaBsId) && ReadParam(aReader, &cdmaBsLat) &&
+          ReadParam(aReader, &cdmaBsLong) &&
+          ReadParam(aReader, &cdmaSystemId) &&
+          ReadParam(aReader, &cdmaNetworkId) &&
+          ReadParam(aReader, &cdmaRoamingIndicator) &&
+          ReadParam(aReader, &cdmaDefaultRoamingIndicator) &&
+          ReadParam(aReader, &cdmaSystemIsInPRL))) {
       return false;
     }
 
@@ -296,9 +291,9 @@ struct ParamTraits<nsIMobileConnectionInfo*> {
   typedef nsIMobileConnectionInfo* paramType;
 
   // Function to serialize a MobileConnectionInfo.
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
     // If it is a null object, then we are done.
     if (isNull) {
       return;
@@ -313,41 +308,40 @@ struct ParamTraits<nsIMobileConnectionInfo*> {
     JS::Rooted<JS::Value> pJsval(cx);
 
     aParam->GetState(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetConnected(&pBool);
-    WriteParam(aMsg, pBool);
+    WriteParam(aWriter, pBool);
 
     aParam->GetEmergencyCallsOnly(&pBool);
-    WriteParam(aMsg, pBool);
+    WriteParam(aWriter, pBool);
 
     aParam->GetRoaming(&pBool);
-    WriteParam(aMsg, pBool);
+    WriteParam(aWriter, pBool);
 
     aParam->GetType(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetNetwork(getter_AddRefs(pNetworkInfo));
     // Release ref when WriteParam is finished.
-    WriteParam(aMsg, pNetworkInfo.forget().take());
+    WriteParam(aWriter, pNetworkInfo.forget().take());
 
     aParam->GetCell(getter_AddRefs(pCellInfo));
     // Release ref when WriteParam is finished.
-    WriteParam(aMsg, pCellInfo.forget().take());
+    WriteParam(aWriter, pCellInfo.forget().take());
 
     aParam->GetReasonDataDenied(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     // We release the ref here given that ipdl won't handle reference counting.
     aParam->Release();
   }
 
   // Function to de-serialize a MobileConectionInfo.
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -367,13 +361,11 @@ struct ParamTraits<nsIMobileConnectionInfo*> {
     int32_t reasonDataDenied;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &state) &&
-          ReadParam(aMsg, aIter, &connected) &&
-          ReadParam(aMsg, aIter, &emergencyOnly) &&
-          ReadParam(aMsg, aIter, &roaming) && ReadParam(aMsg, aIter, &type) &&
-          ReadParam(aMsg, aIter, &networkInfo) &&
-          ReadParam(aMsg, aIter, &cellInfo) &&
-          ReadParam(aMsg, aIter, &reasonDataDenied))) {
+    if (!(ReadParam(aReader, &state) && ReadParam(aReader, &connected) &&
+          ReadParam(aReader, &emergencyOnly) && ReadParam(aReader, &roaming) &&
+          ReadParam(aReader, &type) && ReadParam(aReader, &networkInfo) &&
+          ReadParam(aReader, &cellInfo) &&
+          ReadParam(aReader, &reasonDataDenied))) {
       return false;
     }
 
@@ -399,9 +391,9 @@ struct ParamTraits<nsIMobileDeviceIdentities*> {
   typedef nsIMobileDeviceIdentities* paramType;
 
   // Function to serialize a MobileDeviceIdentities.
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
 
     // If it is a null object, then we are done.
     if (isNull) {
@@ -413,27 +405,26 @@ struct ParamTraits<nsIMobileDeviceIdentities*> {
     JS::Rooted<JS::Value> pJsval(cx);
 
     aParam->GetImei(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetImeisv(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetEsn(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     aParam->GetMeid(pString);
-    WriteParam(aMsg, pString);
+    WriteParam(aWriter, pString);
 
     // We release the ref here given that ipdl won't handle reference counting.
     aParam->Release();
   }
 
   // Function to de-serialize a MobileDeviceIdentities.
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -449,8 +440,8 @@ struct ParamTraits<nsIMobileDeviceIdentities*> {
     nsString meid;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &imei) && ReadParam(aMsg, aIter, &imeisv) &&
-          ReadParam(aMsg, aIter, &esn) && ReadParam(aMsg, aIter, &meid))) {
+    if (!(ReadParam(aReader, &imei) && ReadParam(aReader, &imeisv) &&
+          ReadParam(aReader, &esn) && ReadParam(aReader, &meid))) {
       return false;
     }
 
@@ -471,9 +462,9 @@ struct ParamTraits<nsIMobileSignalStrength*> {
   typedef nsIMobileSignalStrength* paramType;
 
   // Function to serialize a nsIMobileSignalStrength.
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
     // If it is a null object, then we are done.
     if (isNull) {
       return;
@@ -483,50 +474,49 @@ struct ParamTraits<nsIMobileSignalStrength*> {
     int32_t pLong;
 
     aParam->GetLevel(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     aParam->GetGsmSignalStrength(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
     aParam->GetGsmBitErrorRate(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     aParam->GetCdmaDbm(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
     aParam->GetCdmaEcio(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
     aParam->GetCdmaEvdoDbm(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
     aParam->GetCdmaEvdoEcio(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
     aParam->GetCdmaEvdoSNR(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
 
     aParam->GetLteSignalStrength(&pShort);
-    WriteParam(aMsg, pShort);
+    WriteParam(aWriter, pShort);
     aParam->GetLteRsrp(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
     aParam->GetLteRsrq(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
     aParam->GetLteRssnr(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
     aParam->GetLteCqi(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
     aParam->GetLteTimingAdvance(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     aParam->GetTdscdmaRscp(&pLong);
-    WriteParam(aMsg, pLong);
+    WriteParam(aWriter, pLong);
 
     // We release the ref here given that ipdl won't handle reference counting.
     aParam->Release();
   }
 
   // Function to de-serialize a MobileDeviceIdentities.
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -552,21 +542,18 @@ struct ParamTraits<nsIMobileSignalStrength*> {
     int32_t tdscdmaRscp;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &level) &&
-          ReadParam(aMsg, aIter, &gsmSignalStrength) &&
-          ReadParam(aMsg, aIter, &gsmBitErrorRate) &&
-          ReadParam(aMsg, aIter, &cdmaDbm) &&
-          ReadParam(aMsg, aIter, &cdmaEcio) &&
-          ReadParam(aMsg, aIter, &cdmaEvdoDbm) &&
-          ReadParam(aMsg, aIter, &cdmaEvdoEcio) &&
-          ReadParam(aMsg, aIter, &cdmaEvdoSNR) &&
-          ReadParam(aMsg, aIter, &lteSignalStrength) &&
-          ReadParam(aMsg, aIter, &lteRsrp) &&
-          ReadParam(aMsg, aIter, &lteRsrq) &&
-          ReadParam(aMsg, aIter, &lteRssnr) &&
-          ReadParam(aMsg, aIter, &lteCqi) &&
-          ReadParam(aMsg, aIter, &lteTimingAdvance) &&
-          ReadParam(aMsg, aIter, &tdscdmaRscp))) {
+    if (!(ReadParam(aReader, &level) &&
+          ReadParam(aReader, &gsmSignalStrength) &&
+          ReadParam(aReader, &gsmBitErrorRate) &&
+          ReadParam(aReader, &cdmaDbm) && ReadParam(aReader, &cdmaEcio) &&
+          ReadParam(aReader, &cdmaEvdoDbm) &&
+          ReadParam(aReader, &cdmaEvdoEcio) &&
+          ReadParam(aReader, &cdmaEvdoSNR) &&
+          ReadParam(aReader, &lteSignalStrength) &&
+          ReadParam(aReader, &lteRsrp) && ReadParam(aReader, &lteRsrq) &&
+          ReadParam(aReader, &lteRssnr) && ReadParam(aReader, &lteCqi) &&
+          ReadParam(aReader, &lteTimingAdvance) &&
+          ReadParam(aReader, &tdscdmaRscp))) {
       return false;
     }
 

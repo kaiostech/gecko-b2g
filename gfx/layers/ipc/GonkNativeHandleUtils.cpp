@@ -15,22 +15,18 @@ namespace IPC {
 
 namespace {
 
-class native_handle_Delete
-{
-public:
-  void operator()(native_handle* aNativeHandle) const
-  {
-    native_handle_close(aNativeHandle); // closes file descriptors
+class native_handle_Delete {
+ public:
+  void operator()(native_handle* aNativeHandle) const {
+    native_handle_close(aNativeHandle);  // closes file descriptors
     native_handle_delete(aNativeHandle);
   }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
-void
-ParamTraits<GonkNativeHandle>::Write(Message* aMsg,
-                                const paramType& aParam)
-{
+void ParamTraits<GonkNativeHandle>::Write(MessageWriter* aWriter,
+                                          const paramType& aParam) {
   GonkNativeHandle handle = aParam;
   MOZ_ASSERT(handle.IsValid());
 
@@ -39,21 +35,19 @@ ParamTraits<GonkNativeHandle>::Write(Message* aMsg,
 
   size_t nbytes = nativeHandle->numInts * sizeof(int);
   // TODO: verify this is correct after bug 1525199.
-  aMsg->WriteUInt32(nbytes);
-  aMsg->WriteBytes((nativeHandle->data + nativeHandle->numFds), nbytes);
+  aWriter->WriteUInt32(nbytes);
+  aWriter->WriteBytes((nativeHandle->data + nativeHandle->numFds), nbytes);
 
   for (size_t i = 0; i < static_cast<size_t>(nativeHandle->numFds); ++i) {
-    aMsg->WriteFileHandle(mozilla::UniqueFileHandle(nativeHandle->data[i]));
+    aWriter->WriteFileHandle(mozilla::UniqueFileHandle(nativeHandle->data[i]));
   }
 }
 
-bool
-ParamTraits<GonkNativeHandle>::Read(const Message* aMsg,
-                               PickleIterator* aIter, paramType* aResult)
-{
+bool ParamTraits<GonkNativeHandle>::Read(MessageReader* aReader,
+                                         paramType* aResult) {
   uint32_t nbytes;
   // TODO: verify this is correct after bug 1525199.
-  if (!aMsg->ReadUInt32(aIter, &nbytes)) {
+  if (!aReader->ReadUInt32(&nbytes)) {
     return false;
   }
 
@@ -62,26 +56,26 @@ ParamTraits<GonkNativeHandle>::Read(const Message* aMsg,
   }
 
   size_t numInts = nbytes / sizeof(int);
-  size_t numFds = aMsg->num_handles();
+  size_t numFds = aReader->NumHandles();
   mozilla::UniquePtr<native_handle, native_handle_Delete> nativeHandle(
-    native_handle_create(numFds, numInts));
+      native_handle_create(numFds, numInts));
   if (!nativeHandle) {
     return false;
   }
 
   auto data =
-    reinterpret_cast<char*>(nativeHandle->data + nativeHandle->numFds);
-  if (!aMsg->ReadBytesInto(aIter, data, nbytes)) {
+      reinterpret_cast<char*>(nativeHandle->data + nativeHandle->numFds);
+  if (!aReader->ReadBytesInto(data, nbytes)) {
     return false;
   }
 
   for (size_t i = 0; i < numFds; ++i) {
     mozilla::UniqueFileHandle fd;
-    if (!aMsg->ConsumeFileHandle(aIter, &fd)) {
+    if (!aReader->ConsumeFileHandle(&fd)) {
       return false;
     }
     nativeHandle->data[i] = fd.release();
-    nativeHandle->numFds = i + 1; // set number of valid file descriptors
+    nativeHandle->numFds = i + 1;  // set number of valid file descriptors
   }
 
   GonkNativeHandle handle(new GonkNativeHandle::NhObj(nativeHandle.get()));
@@ -92,4 +86,4 @@ ParamTraits<GonkNativeHandle>::Read(const Message* aMsg,
   return true;
 }
 
-} // namespace IPC
+}  // namespace IPC

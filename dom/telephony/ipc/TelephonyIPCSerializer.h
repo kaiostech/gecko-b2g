@@ -25,9 +25,9 @@ template <>
 struct ParamTraits<nsITelephonyCallInfo*> {
   typedef nsITelephonyCallInfo* paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
     // If it is a null object, then we are done.
     if (isNull) {
       return;
@@ -84,38 +84,37 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     aParam->GetRttMode(&rttMode);
     aParam->GetVowifiCallQuality(&vowifiQuality);
 
-    WriteParam(aMsg, clientId);
-    WriteParam(aMsg, callIndex);
-    WriteParam(aMsg, callState);
-    WriteParam(aMsg, voiceQuality);
-    WriteParam(aMsg, capabilities);
-    WriteParam(aMsg, videoCallState);
-    WriteParam(aMsg, disconnectedReason);
+    WriteParam(aWriter, clientId);
+    WriteParam(aWriter, callIndex);
+    WriteParam(aWriter, callState);
+    WriteParam(aWriter, voiceQuality);
+    WriteParam(aWriter, capabilities);
+    WriteParam(aWriter, videoCallState);
+    WriteParam(aWriter, disconnectedReason);
 
-    WriteParam(aMsg, number);
-    WriteParam(aMsg, numberPresentation);
-    WriteParam(aMsg, name);
-    WriteParam(aMsg, namePresentation);
-    WriteParam(aMsg, radioTech);
-    WriteParam(aMsg, verStatus);
+    WriteParam(aWriter, number);
+    WriteParam(aWriter, numberPresentation);
+    WriteParam(aWriter, name);
+    WriteParam(aWriter, namePresentation);
+    WriteParam(aWriter, radioTech);
+    WriteParam(aWriter, verStatus);
 
-    WriteParam(aMsg, isOutgoing);
-    WriteParam(aMsg, isEmergency);
-    WriteParam(aMsg, isConference);
-    WriteParam(aMsg, isSwitchable);
-    WriteParam(aMsg, isMergeable);
-    WriteParam(aMsg, isConferenceParent);
-    WriteParam(aMsg, isMarkable);
+    WriteParam(aWriter, isOutgoing);
+    WriteParam(aWriter, isEmergency);
+    WriteParam(aWriter, isConference);
+    WriteParam(aWriter, isSwitchable);
+    WriteParam(aWriter, isMergeable);
+    WriteParam(aWriter, isConferenceParent);
+    WriteParam(aWriter, isMarkable);
 
-    WriteParam(aMsg, rttMode);
-    WriteParam(aMsg, vowifiQuality);
+    WriteParam(aWriter, rttMode);
+    WriteParam(aWriter, vowifiQuality);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -151,30 +150,24 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     uint32_t vowifiQuality;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &clientId) &&
-          ReadParam(aMsg, aIter, &callIndex) &&
-          ReadParam(aMsg, aIter, &callState) &&
-          ReadParam(aMsg, aIter, &voiceQuality) &&
-          ReadParam(aMsg, aIter, &capabilities) &&
-          ReadParam(aMsg, aIter, &videoCallState) &&
-          ReadParam(aMsg, aIter, &disconnectedReason) &&
+    if (!(ReadParam(aReader, &clientId) && ReadParam(aReader, &callIndex) &&
+          ReadParam(aReader, &callState) && ReadParam(aReader, &voiceQuality) &&
+          ReadParam(aReader, &capabilities) &&
+          ReadParam(aReader, &videoCallState) &&
+          ReadParam(aReader, &disconnectedReason) &&
 
-          ReadParam(aMsg, aIter, &number) &&
-          ReadParam(aMsg, aIter, &numberPresentation) &&
-          ReadParam(aMsg, aIter, &name) &&
-          ReadParam(aMsg, aIter, &namePresentation) &&
-          ReadParam(aMsg, aIter, &radioTech) &&
-          ReadParam(aMsg, aIter, &verStatus) &&
+          ReadParam(aReader, &number) &&
+          ReadParam(aReader, &numberPresentation) &&
+          ReadParam(aReader, &name) && ReadParam(aReader, &namePresentation) &&
+          ReadParam(aReader, &radioTech) && ReadParam(aReader, &verStatus) &&
 
-          ReadParam(aMsg, aIter, &isOutgoing) &&
-          ReadParam(aMsg, aIter, &isEmergency) &&
-          ReadParam(aMsg, aIter, &isConference) &&
-          ReadParam(aMsg, aIter, &isSwitchable) &&
-          ReadParam(aMsg, aIter, &isMergeable) &&
-          ReadParam(aMsg, aIter, &isConferenceParent) &&
-          ReadParam(aMsg, aIter, &isMarkable) &&
-          ReadParam(aMsg, aIter, &rttMode) &&
-          ReadParam(aMsg, aIter, &vowifiQuality))) {
+          ReadParam(aReader, &isOutgoing) && ReadParam(aReader, &isEmergency) &&
+          ReadParam(aReader, &isConference) &&
+          ReadParam(aReader, &isSwitchable) &&
+          ReadParam(aReader, &isMergeable) &&
+          ReadParam(aReader, &isConferenceParent) &&
+          ReadParam(aReader, &isMarkable) && ReadParam(aReader, &rttMode) &&
+          ReadParam(aReader, &vowifiQuality))) {
       return false;
     }
 

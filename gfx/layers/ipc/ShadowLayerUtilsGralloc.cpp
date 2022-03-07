@@ -40,23 +40,19 @@ using mozilla::UniqueFileHandle;
 
 namespace IPC {
 
-void
-ParamTraits<GrallocBufferRef>::Write(Message* aMsg,
-                                     const paramType& aParam)
-{
-  aMsg->WriteInt(aParam.mOwner);
-  aMsg->WriteInt64(aParam.mKey);
+void ParamTraits<GrallocBufferRef>::Write(MessageWriter* aWriter,
+                                          const paramType& aParam) {
+  aWriter->WriteInt(aParam.mOwner);
+  aWriter->WriteInt64(aParam.mKey);
 }
 
-bool
-ParamTraits<GrallocBufferRef>::Read(const Message* aMsg, PickleIterator* aIter,
-                                    paramType* aParam)
-{
+bool ParamTraits<GrallocBufferRef>::Read(MessageReader* aReader,
+                                         paramType* aParam) {
   int owner;
   int64_t index;
-  if (!aMsg->ReadInt(aIter, &owner) ||
-      !aMsg->ReadInt64(aIter, &index)) {
-    printf_stderr("ParamTraits<GrallocBufferRef>::Read() failed to read a message\n");
+  if (!aReader->ReadInt(&owner) || !aReader->ReadInt64(&index)) {
+    printf_stderr(
+        "ParamTraits<GrallocBufferRef>::Read() failed to read a message\n");
     return false;
   }
   aParam->mOwner = owner;
@@ -64,10 +60,8 @@ ParamTraits<GrallocBufferRef>::Read(const Message* aMsg, PickleIterator* aIter,
   return true;
 }
 
-void
-ParamTraits<MagicGrallocBufferHandle>::Write(Message* aMsg,
-                                             const paramType& aParam)
-{
+void ParamTraits<MagicGrallocBufferHandle>::Write(MessageWriter* aWriter,
+                                                  const paramType& aParam) {
   sp<GraphicBuffer> flattenable = aParam.mGraphicBuffer;
   size_t nbytes = flattenable->getFlattenedSize();
   size_t nfds = flattenable->getFdCount();
@@ -76,8 +70,8 @@ ParamTraits<MagicGrallocBufferHandle>::Write(Message* aMsg,
   int fds[nfds];
 
   // Make a copy of "data" and "fds" for flatten() to avoid casting problem
-  void *pdata = (void *)data;
-  int *pfds = fds;
+  void* pdata = (void*)data;
+  int* pfds = fds;
 
   flattenable->flatten(pdata, nbytes, pfds, nfds);
 
@@ -87,23 +81,21 @@ ParamTraits<MagicGrallocBufferHandle>::Write(Message* aMsg,
   // So we change nbytes and nfds back by call corresponding calls.
   nbytes = flattenable->getFlattenedSize();
   nfds = flattenable->getFdCount();
-  aMsg->WriteInt(aParam.mRef.mOwner);
-  aMsg->WriteInt64(aParam.mRef.mKey);
+  aWriter->WriteInt(aParam.mRef.mOwner);
+  aWriter->WriteInt64(aParam.mRef.mKey);
   // TODO: verify this is correct after bug 1525199.
-  aMsg->WriteUInt32(nbytes);
-  aMsg->WriteBytes(data, nbytes);
+  aWriter->WriteUInt32(nbytes);
+  aWriter->WriteBytes(data, nbytes);
   for (size_t n = 0; n < nfds; ++n) {
     // These buffers can't die in transit because they're created
     // synchonously and the parent-side buffer can only be dropped if
     // there's a crash.
-    aMsg->WriteFileHandle(UniqueFileHandle(fds[n]));
+    aWriter->WriteFileHandle(UniqueFileHandle(fds[n]));
   }
 }
 
-bool
-ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
-                                            PickleIterator* aIter, paramType* aResult)
-{
+bool ParamTraits<MagicGrallocBufferHandle>::Read(MessageReader* aReader,
+                                                 paramType* aResult) {
   MOZ_ASSERT(!aResult->mGraphicBuffer.get());
   MOZ_ASSERT(aResult->mRef.mOwner == 0);
   MOZ_ASSERT(aResult->mRef.mKey == -1);
@@ -112,28 +104,33 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
   int owner;
   int64_t index;
 
-  if (!aMsg->ReadInt(aIter, &owner) ||
-      !aMsg->ReadInt64(aIter, &index) ||
+  if (!aReader->ReadInt(&owner) || !aReader->ReadInt64(&index) ||
       // TODO: verify this is correct after bug 1525199.
-      !aMsg->ReadUInt32(aIter, &nbytes)) {
-    printf_stderr("ParamTraits<MagicGrallocBufferHandle>::Read() failed to read a message\n");
+      !aReader->ReadUInt32(&nbytes)) {
+    printf_stderr(
+        "ParamTraits<MagicGrallocBufferHandle>::Read() failed to read a "
+        "message\n");
     return false;
   }
 
   auto data = mozilla::MakeUnique<char[]>(nbytes);
 
-  if (!aMsg->ReadBytesInto(aIter, data.get(), nbytes)) {
-    printf_stderr("ParamTraits<MagicGrallocBufferHandle>::Read() failed to read a message\n");
+  if (!aReader->ReadBytesInto(data.get(), nbytes)) {
+    printf_stderr(
+        "ParamTraits<MagicGrallocBufferHandle>::Read() failed to read a "
+        "message\n");
     return false;
   }
 
-  size_t nfds = aMsg->num_handles();
+  size_t nfds = aReader->NumHandles();
   int fds[nfds];
 
   for (size_t n = 0; n < nfds; ++n) {
     UniqueFileHandle fd;
-    if (!aMsg->ConsumeFileHandle(aIter, &fd)) {
-      printf_stderr("ParamTraits<MagicGrallocBufferHandle>::Read() failed to read file descriptors\n");
+    if (!aReader->ConsumeFileHandle(&fd)) {
+      printf_stderr(
+          "ParamTraits<MagicGrallocBufferHandle>::Read() failed to read file "
+          "descriptors\n");
       return false;
     }
     // If the GraphicBuffer was shared cross-process, SCM_RIGHTS does
@@ -150,7 +147,8 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
   if (XRE_IsParentProcess()) {
     // If we are in chrome process, we can just get GraphicBuffer directly from
     // SharedBufferManagerParent.
-    aResult->mGraphicBuffer = SharedBufferManagerParent::GetGraphicBuffer(aResult->mRef);
+    aResult->mGraphicBuffer =
+        SharedBufferManagerParent::GetGraphicBuffer(aResult->mRef);
   } else {
     // Deserialize GraphicBuffer
     size_t size = static_cast<size_t>(nbytes);
@@ -166,23 +164,23 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
   }
 
   if (!aResult->mGraphicBuffer.get()) {
-    printf_stderr("ParamTraits<MagicGrallocBufferHandle>::Read() failed to get gralloc buffer\n");
+    printf_stderr(
+        "ParamTraits<MagicGrallocBufferHandle>::Read() failed to get gralloc "
+        "buffer\n");
     return false;
   }
 
   return true;
 }
 
-} // namespace IPC
+}  // namespace IPC
 
 namespace mozilla {
 namespace layers {
 
-MagicGrallocBufferHandle::MagicGrallocBufferHandle(const sp<GraphicBuffer>& aGraphicBuffer, GrallocBufferRef ref)
-  : mGraphicBuffer(aGraphicBuffer)
-  , mRef(ref)
-{
-}
+MagicGrallocBufferHandle::MagicGrallocBufferHandle(
+    const sp<GraphicBuffer>& aGraphicBuffer, GrallocBufferRef ref)
+    : mGraphicBuffer(aGraphicBuffer), mRef(ref) {}
 
 //-----------------------------------------------------------------------------
 // Parent process
@@ -202,26 +200,28 @@ MagicGrallocBufferHandle::MagicGrallocBufferHandle(const sp<GraphicBuffer>& aGra
 //-----------------------------------------------------------------------------
 // Both processes
 
-/*static*/ sp<GraphicBuffer>
-GetGraphicBufferFrom(MaybeMagicGrallocBufferHandle aHandle)
-{
-  if (aHandle.type() != MaybeMagicGrallocBufferHandle::TMagicGrallocBufferHandle) {
+/*static*/ sp<GraphicBuffer> GetGraphicBufferFrom(
+    MaybeMagicGrallocBufferHandle aHandle) {
+  if (aHandle.type() !=
+      MaybeMagicGrallocBufferHandle::TMagicGrallocBufferHandle) {
     if (aHandle.type() == MaybeMagicGrallocBufferHandle::TGrallocBufferRef) {
       if (XRE_IsParentProcess()) {
-        return SharedBufferManagerParent::GetGraphicBuffer(aHandle.get_GrallocBufferRef());
+        return SharedBufferManagerParent::GetGraphicBuffer(
+            aHandle.get_GrallocBufferRef());
       }
-      return SharedBufferManagerChild::GetSingleton()->GetGraphicBuffer(aHandle.get_GrallocBufferRef().mKey);
+      return SharedBufferManagerChild::GetSingleton()->GetGraphicBuffer(
+          aHandle.get_GrallocBufferRef().mKey);
     }
   } else {
-    MagicGrallocBufferHandle realHandle = aHandle.get_MagicGrallocBufferHandle();
+    MagicGrallocBufferHandle realHandle =
+        aHandle.get_MagicGrallocBufferHandle();
     return realHandle.mGraphicBuffer;
   }
   return nullptr;
 }
 
-android::sp<android::GraphicBuffer>
-GetGraphicBufferFromDesc(SurfaceDescriptor aDesc)
-{
+android::sp<android::GraphicBuffer> GetGraphicBufferFromDesc(
+    SurfaceDescriptor aDesc) {
   MaybeMagicGrallocBufferHandle handle;
   if (aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
     handle = aDesc.get_SurfaceDescriptorGralloc().buffer();
@@ -235,5 +235,5 @@ GetGraphicBufferFromDesc(SurfaceDescriptor aDesc)
 //   // Nothing to be done for gralloc.
 // }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

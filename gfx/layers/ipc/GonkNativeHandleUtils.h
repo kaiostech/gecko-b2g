@@ -19,18 +19,18 @@ template <>
 struct ParamTraits<mozilla::layers::GonkNativeHandle> {
   typedef mozilla::layers::GonkNativeHandle paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam);
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult);
+  static void Write(MessageWriter* aMsg, const paramType& aParam);
+  static bool Read(MessageReader* aMsg, paramType* aResult);
 };
 #else
 template <>
 struct ParamTraits<mozilla::layers::GonkNativeHandle> {
   typedef mozilla::layers::GonkNativeHandle paramType;
-  static void Write(Message*, const paramType&) {}
-  static bool Read(const Message*, PickleIterator*, paramType*) { return false; }
+  static void Write(MessageWriter*, const paramType&) {}
+  static bool Read(MessageReader*, paramType*) { return false; }
 };
 #endif
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // IPC_GonkNativeHandleUtils_h
+#endif  // IPC_GonkNativeHandleUtils_h

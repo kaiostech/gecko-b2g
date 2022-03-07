@@ -203,6 +203,10 @@ class MOZ_STACK_CLASS MessageReader final {
     mozilla::ipc::PickleFatalError(aErrorMsg, actor_);
   }
 
+  bool NumHandles() {
+    return message_.num_handles();
+  }
+
  private:
   const Message& message_;
   PickleIterator iter_;

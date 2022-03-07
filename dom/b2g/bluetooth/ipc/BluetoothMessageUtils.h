@@ -16,16 +16,15 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothAddress> {
   typedef mozilla::dom::bluetooth::BluetoothAddress paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     for (size_t i = 0; i < MOZ_ARRAY_LENGTH(aParam.mAddr); ++i) {
-      WriteParam(aMsg, aParam.mAddr[i]);
+      WriteParam(aWriter, aParam.mAddr[i]);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     for (size_t i = 0; i < MOZ_ARRAY_LENGTH(aResult->mAddr); ++i) {
-      if (!ReadParam(aMsg, aIter, aResult->mAddr + i)) {
+      if (!ReadParam(aReader, aResult->mAddr + i)) {
         return false;
       }
     }
@@ -44,21 +43,20 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothPinCode> {
   typedef mozilla::dom::bluetooth::BluetoothPinCode paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     auto length = aParam.mLength;
     if (length > MOZ_ARRAY_LENGTH(aParam.mPinCode)) {
       length = MOZ_ARRAY_LENGTH(aParam.mPinCode);
     }
 
-    WriteParam(aMsg, length);
+    WriteParam(aWriter, length);
     for (uint8_t i = 0; i < length; ++i) {
-      WriteParam(aMsg, aParam.mPinCode[i]);
+      WriteParam(aWriter, aParam.mPinCode[i]);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &aResult->mLength)) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    if (!ReadParam(aReader, &aResult->mLength)) {
       return false;
     }
 
@@ -68,7 +66,7 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothPinCode> {
       return false;
     }
     for (uint8_t i = 0; i < aResult->mLength; ++i) {
-      if (!ReadParam(aMsg, aIter, aResult->mPinCode + i)) {
+      if (!ReadParam(aReader, aResult->mPinCode + i)) {
         return false;
       }
     }
@@ -83,23 +81,22 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothRemoteName> {
   typedef mozilla::dom::bluetooth::BluetoothRemoteName paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mLength);
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
+    WriteParam(aWriter, aParam.mLength);
     for (size_t i = 0; i < aParam.mLength; ++i) {
-      WriteParam(aMsg, aParam.mName[i]);
+      WriteParam(aWriter, aParam.mName[i]);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &aResult->mLength)) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    if (!ReadParam(aReader, &aResult->mLength)) {
       return false;
     }
     if (aResult->mLength > MOZ_ARRAY_LENGTH(aResult->mName)) {
       return false;
     }
     for (uint8_t i = 0; i < aResult->mLength; ++i) {
-      if (!ReadParam(aMsg, aIter, aResult->mName + i)) {
+      if (!ReadParam(aReader, aResult->mName + i)) {
         return false;
       }
     }
@@ -145,16 +142,15 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothUuid> {
   typedef mozilla::dom::bluetooth::BluetoothUuid paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     for (uint8_t i = 0; i < 16; i++) {
-      WriteParam(aMsg, aParam.mUuid[i]);
+      WriteParam(aWriter, aParam.mUuid[i]);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     for (uint8_t i = 0; i < 16; i++) {
-      if (!ReadParam(aMsg, aIter, &(aResult->mUuid[i]))) {
+      if (!ReadParam(aReader, &(aResult->mUuid[i]))) {
         return false;
       }
     }
@@ -167,15 +163,14 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattId> {
   typedef mozilla::dom::bluetooth::BluetoothGattId paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mUuid);
-    WriteParam(aMsg, aParam.mInstanceId);
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
+    WriteParam(aWriter, aParam.mUuid);
+    WriteParam(aWriter, aParam.mInstanceId);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &(aResult->mUuid)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mInstanceId))) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    if (!ReadParam(aReader, &(aResult->mUuid)) ||
+        !ReadParam(aReader, &(aResult->mInstanceId))) {
       return false;
     }
 
@@ -187,17 +182,16 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattCharAttribute> {
   typedef mozilla::dom::bluetooth::BluetoothGattCharAttribute paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mId);
-    WriteParam(aMsg, aParam.mProperties);
-    WriteParam(aMsg, aParam.mWriteType);
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
+    WriteParam(aWriter, aParam.mId);
+    WriteParam(aWriter, aParam.mProperties);
+    WriteParam(aWriter, aParam.mWriteType);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &(aResult->mId)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mProperties)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mWriteType))) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    if (!ReadParam(aReader, &(aResult->mId)) ||
+        !ReadParam(aReader, &(aResult->mProperties)) ||
+        !ReadParam(aReader, &(aResult->mWriteType))) {
       return false;
     }
 
@@ -209,13 +203,12 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothAttributeHandle> {
   typedef mozilla::dom::bluetooth::BluetoothAttributeHandle paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mHandle);
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
+    WriteParam(aWriter, aParam.mHandle);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &(aResult->mHandle))) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    if (!ReadParam(aReader, &(aResult->mHandle))) {
       return false;
     }
 
@@ -227,27 +220,26 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattDbElement> {
   typedef mozilla::dom::bluetooth::BluetoothGattDbElement paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mId);
-    WriteParam(aMsg, aParam.mUuid);
-    WriteParam(aMsg, aParam.mType);
-    WriteParam(aMsg, aParam.mHandle);
-    WriteParam(aMsg, aParam.mStartHandle);
-    WriteParam(aMsg, aParam.mEndHandle);
-    WriteParam(aMsg, aParam.mProperties);
-    WriteParam(aMsg, aParam.mPermissions);
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
+    WriteParam(aWriter, aParam.mId);
+    WriteParam(aWriter, aParam.mUuid);
+    WriteParam(aWriter, aParam.mType);
+    WriteParam(aWriter, aParam.mHandle);
+    WriteParam(aWriter, aParam.mStartHandle);
+    WriteParam(aWriter, aParam.mEndHandle);
+    WriteParam(aWriter, aParam.mProperties);
+    WriteParam(aWriter, aParam.mPermissions);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &(aResult->mId)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mUuid)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mType)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mHandle)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mStartHandle)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mEndHandle)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mProperties)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mPermissions))) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    if (!ReadParam(aReader, &(aResult->mId)) ||
+        !ReadParam(aReader, &(aResult->mUuid)) ||
+        !ReadParam(aReader, &(aResult->mType)) ||
+        !ReadParam(aReader, &(aResult->mHandle)) ||
+        !ReadParam(aReader, &(aResult->mStartHandle)) ||
+        !ReadParam(aReader, &(aResult->mEndHandle)) ||
+        !ReadParam(aReader, &(aResult->mProperties)) ||
+        !ReadParam(aReader, &(aResult->mPermissions))) {
       return false;
     }
 
@@ -259,27 +251,26 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattResponse> {
   typedef mozilla::dom::bluetooth::BluetoothGattResponse paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     auto length = aParam.mLength;
     if (length > MOZ_ARRAY_LENGTH(aParam.mValue)) {
       length = MOZ_ARRAY_LENGTH(aParam.mValue);
     }
 
-    WriteParam(aMsg, aParam.mHandle);
-    WriteParam(aMsg, aParam.mOffset);
-    WriteParam(aMsg, length);
-    WriteParam(aMsg, aParam.mAuthReq);
+    WriteParam(aWriter, aParam.mHandle);
+    WriteParam(aWriter, aParam.mOffset);
+    WriteParam(aWriter, length);
+    WriteParam(aWriter, aParam.mAuthReq);
     for (uint16_t i = 0; i < length; i++) {
-      WriteParam(aMsg, aParam.mValue[i]);
+      WriteParam(aWriter, aParam.mValue[i]);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &(aResult->mHandle)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mOffset)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mLength)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mAuthReq))) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    if (!ReadParam(aReader, &(aResult->mHandle)) ||
+        !ReadParam(aReader, &(aResult->mOffset)) ||
+        !ReadParam(aReader, &(aResult->mLength)) ||
+        !ReadParam(aReader, &(aResult->mAuthReq))) {
       return false;
     }
 
@@ -288,7 +279,7 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattResponse> {
     }
 
     for (uint16_t i = 0; i < aResult->mLength; i++) {
-      if (!ReadParam(aMsg, aIter, &(aResult->mValue[i]))) {
+      if (!ReadParam(aReader, &(aResult->mValue[i]))) {
         return false;
       }
     }
@@ -308,23 +299,22 @@ template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAdvertisingData> {
   typedef mozilla::dom::bluetooth::BluetoothGattAdvertisingData paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mAppearance);
-    WriteParam(aMsg, aParam.mIncludeDevName);
-    WriteParam(aMsg, aParam.mIncludeTxPower);
-    WriteParam(aMsg, aParam.mManufacturerData);
-    WriteParam(aMsg, aParam.mServiceData);
-    WriteParam(aMsg, aParam.mServiceUuids);
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
+    WriteParam(aWriter, aParam.mAppearance);
+    WriteParam(aWriter, aParam.mIncludeDevName);
+    WriteParam(aWriter, aParam.mIncludeTxPower);
+    WriteParam(aWriter, aParam.mManufacturerData);
+    WriteParam(aWriter, aParam.mServiceData);
+    WriteParam(aWriter, aParam.mServiceUuids);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &(aResult->mAppearance)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mIncludeDevName)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mIncludeTxPower)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mManufacturerData)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mServiceData)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mServiceUuids))) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    if (!ReadParam(aReader, &(aResult->mAppearance)) ||
+        !ReadParam(aReader, &(aResult->mIncludeDevName)) ||
+        !ReadParam(aReader, &(aResult->mIncludeTxPower)) ||
+        !ReadParam(aReader, &(aResult->mManufacturerData)) ||
+        !ReadParam(aReader, &(aResult->mServiceData)) ||
+        !ReadParam(aReader, &(aResult->mServiceUuids))) {
       return false;
     }
 

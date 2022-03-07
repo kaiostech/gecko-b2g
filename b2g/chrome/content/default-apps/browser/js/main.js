@@ -62,6 +62,7 @@ class BrowserTab {
 
     // Binding events
     this.webview.addEventListener("locationchange", this.updateActionsUI);
+    this.webview.addEventListener("securitychange", this.updateSecureUI);
     this.webview.addEventListener("openwindow", this.openWindow);
     this.webview.addEventListener("iconchange", this.setupIcon);
     this.webview.addEventListener("titlechange", this.updateTitle);
@@ -94,6 +95,7 @@ class BrowserTab {
     }
     this.webview.style.display = "none";
     this.webview.removeEventListener("locationchange", this.updateActionsUI);
+    this.webview.removeEventListener("securitychange", this.updateSecureUI);
     this.webview.removeEventListener("openwindow", this.openWindow);
     this.webview.removeEventListener("iconchange", this.setupIcon);
     this.webview.removeEventListener("loadstart", this.updateLoadState);
@@ -185,6 +187,10 @@ class BrowserTab {
       .getElementById("action-forward")
       .toggleAttribute("disabled", !aEvent.detail.canGoForward);
     activatedTab.parentDocument.getElementById("url").value = aEvent.detail.url;
+  }
+
+  updateSecureUI(aEvent) {
+    log("updateSecureUI " + aEvent.detail.state);
   }
 
   updateLoadState(aEvent) {

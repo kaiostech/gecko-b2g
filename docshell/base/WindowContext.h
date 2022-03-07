@@ -96,7 +96,8 @@ class BrowsingContextGroup;
   /* If this field is `true`, it means that this WindowContext's         \
    * WindowState was saved to be stored in the legacy (non-SHIP) BFCache \
    * implementation. Always false for SHIP */                            \
-  FIELD(WindowStateSaved, bool)
+  FIELD(WindowStateSaved, bool)                                          \
+  FIELD(SecurityState, uint32_t)
 
 class WindowContext : public nsISupports, public nsWrapperCache {
   MOZ_DECL_SYNCED_CONTEXT(WindowContext, MOZ_EACH_WC_FIELD)
@@ -143,6 +144,8 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   bool SameOriginWithTop() const;
 
   bool IsTop() const;
+
+  bool IsTopContentOfNestedWebView();
 
   Span<RefPtr<BrowsingContext>> Children() { return mChildren; }
 
@@ -302,6 +305,11 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_WindowStateSaved>, bool aValue,
               ContentParent* aSource);
 
+  bool CanSet(FieldIndex<IDX_SecurityState>, const uint32_t&,
+              ContentParent* aSource) {
+    return true;
+  }
+
   // Overload `DidSet` to get notifications for a particular field being set.
   //
   // You can also overload the variant that gets the old value if you need it.
@@ -353,20 +361,18 @@ extern template class syncedcontext::Transaction<WindowContext>;
 namespace ipc {
 template <>
 struct IPDLParamTraits<dom::MaybeDiscarded<dom::WindowContext>> {
-  static void Write(IPC::Message* aMsg, IProtocol* aActor,
+  static void Write(IPC::MessageWriter* aWriter, IProtocol* aActor,
                     const dom::MaybeDiscarded<dom::WindowContext>& aParam);
-  static bool Read(const IPC::Message* aMsg, PickleIterator* aIter,
-                   IProtocol* aActor,
+  static bool Read(IPC::MessageReader* aReader, IProtocol* aActor,
                    dom::MaybeDiscarded<dom::WindowContext>* aResult);
 };
 
 template <>
 struct IPDLParamTraits<dom::WindowContext::IPCInitializer> {
-  static void Write(IPC::Message* aMessage, IProtocol* aActor,
+  static void Write(IPC::MessageWriter* aWriter, IProtocol* aActor,
                     const dom::WindowContext::IPCInitializer& aInitializer);
 
-  static bool Read(const IPC::Message* aMessage, PickleIterator* aIterator,
-                   IProtocol* aActor,
+  static bool Read(IPC::MessageReader* aReader, IProtocol* aActor,
                    dom::WindowContext::IPCInitializer* aInitializer);
 };
 }  // namespace ipc

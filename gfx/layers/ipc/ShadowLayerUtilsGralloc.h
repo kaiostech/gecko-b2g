@@ -27,14 +27,9 @@ struct GrallocBufferRef {
   base::ProcessId mOwner;
   int64_t mKey;
 
-  GrallocBufferRef()
-    : mOwner(0)
-    , mKey(-1)
-  {
+  GrallocBufferRef() : mOwner(0), mKey(-1) {}
 
-  }
-
-  bool operator== (const GrallocBufferRef rhs) const{
+  bool operator==(const GrallocBufferRef rhs) const {
     return mOwner == rhs.mOwner && mKey == rhs.mKey;
   }
 };
@@ -51,7 +46,8 @@ typedef ::android::GraphicBuffer GraphicBuffer;
 struct MagicGrallocBufferHandle {
   MagicGrallocBufferHandle() {}
 
-  MagicGrallocBufferHandle(const ::android::sp<GraphicBuffer>& aGraphicBuffer, GrallocBufferRef ref);
+  MagicGrallocBufferHandle(const ::android::sp<GraphicBuffer>& aGraphicBuffer,
+                           GrallocBufferRef ref);
 
   // Default copy ctor and operator= are OK
 
@@ -64,14 +60,15 @@ struct MagicGrallocBufferHandle {
 };
 
 /**
- * Util function to find GraphicBuffer from SurfaceDescriptor, caller of this function should check origin
- * to make sure not corrupt others buffer
+ * Util function to find GraphicBuffer from SurfaceDescriptor, caller of this
+ * function should check origin to make sure not corrupt others buffer
  */
-::android::sp<GraphicBuffer> GetGraphicBufferFrom(MaybeMagicGrallocBufferHandle aHandle);
+::android::sp<GraphicBuffer> GetGraphicBufferFrom(
+    MaybeMagicGrallocBufferHandle aHandle);
 ::android::sp<GraphicBuffer> GetGraphicBufferFromDesc(SurfaceDescriptor aDesc);
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 namespace IPC {
 
@@ -79,18 +76,17 @@ template <>
 struct ParamTraits<mozilla::layers::MagicGrallocBufferHandle> {
   typedef mozilla::layers::MagicGrallocBufferHandle paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam);
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult);
+  static void Write(MessageWriter* aWriter, const paramType& aParam);
+  static bool Read(MessageReader* aReader, paramType* aResult);
 };
 
-template<>
+template <>
 struct ParamTraits<mozilla::layers::GrallocBufferRef> {
   typedef mozilla::layers::GrallocBufferRef paramType;
-  static void Write(Message* aMsg, const paramType& aParam);
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult);
+  static void Write(MessageWriter* aWriter, const paramType& aParam);
+  static bool Read(MessageReader* aReader, paramType* aResult);
 };
 
-
-} // namespace IPC
+}  // namespace IPC
 
 #endif  // mozilla_layers_ShadowLayerUtilsGralloc_h

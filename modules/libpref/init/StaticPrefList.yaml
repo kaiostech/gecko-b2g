@@ -2116,7 +2116,7 @@
 #ifdef MOZ_B2G
 - name: device.sensors.atmPressure.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 #endif
 

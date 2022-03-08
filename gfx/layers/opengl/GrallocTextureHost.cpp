@@ -45,6 +45,7 @@ static gfx::SurfaceFormat SurfaceFormatForAndroidPixelFormat(
     case HAL_PIXEL_FORMAT_YCbCr_422_I:
     case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
     case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
+    case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP:
     case HAL_PIXEL_FORMAT_YV12:
 #if defined(MOZ_WIDGET_GONK)
     case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:

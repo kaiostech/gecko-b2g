@@ -53,9 +53,8 @@ void nsLocalSecureBrowserUI::RecomputeSecurityFlags() {
   // secure - e.g. h2/alt-svc or by visiting an http URI over an https proxy).
   if (isSecure) {
     nsCOMPtr<nsISupports> secInfo;
-    nsresult rv = NS_OK;
     if (nsIChannel* failedChannel = doc->GetFailedChannel()) {
-      rv = failedChannel->GetSecurityInfo(getter_AddRefs(secInfo));
+      Unused << failedChannel->GetSecurityInfo(getter_AddRefs(secInfo));
     } else {
       // When there's no failed channel we should have a regular
       // security info on the document. In some cases there's no

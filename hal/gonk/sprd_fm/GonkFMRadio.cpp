@@ -27,7 +27,6 @@
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "mozilla/unused.h"
 
 #include "fmr.h"
 
@@ -70,7 +69,7 @@ struct v4l2_rds_data {
 #  define V4L2_RDS_BLOCK_ERROR 0x80
 #endif
 
-#include <AudioSystem.h>
+#include <media/AudioSystem.h>
 #include <utils/String8.h>
 using namespace android;
 

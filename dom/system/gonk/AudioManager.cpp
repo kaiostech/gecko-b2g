@@ -536,8 +536,8 @@ bool AudioManager::IsFmOutConnected() {
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
   return GetParameters("fm_status") == "fm_status=1"_ns;
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
-  return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_HEADSET, nullptr) ||
-         mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_SPEAKER, nullptr);
+  // FIXME: AUDIO_DEVICE_OUT_FM_HEADSET and AUDIO_DEVICE_OUT_FM_SPEAKER are not
+  // defined.
 #elif defined(PRODUCT_MANUFACTURER_MTK)
   return mConnectedDevices.Get(AUDIO_DEVICE_IN_FM_TUNER, nullptr);
 #else
@@ -1195,8 +1195,7 @@ void AudioManager::SetFmRouting() {
   }
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
   // Sync force use between MEDIA and FM
-  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
-  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_FM, force);
+  // FIXME: should we set AUDIO_POLICY_FORCE_FOR_FM?
 #elif defined(PRODUCT_MANUFACTURER_MTK)
   /* FIXME
   // Sync force use between MEDIA and FM
@@ -1264,8 +1263,8 @@ AudioManager::SetFmRadioAudioEnabled(bool aEnabled) {
     SetParameters("handle_fm=%d", GetDeviceForFm());
   }
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
-  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_OUT_FM_HEADSET);
-  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_OUT_FM_SPEAKER);
+  // FIXME: AUDIO_DEVICE_OUT_FM_HEADSET and AUDIO_DEVICE_OUT_FM_SPEAKER are not
+  // defined.
 #elif defined(PRODUCT_MANUFACTURER_MTK)
   UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_IN_FM_TUNER);
 #else
@@ -1504,7 +1503,8 @@ uint32_t AudioManager::GetDeviceForFm() {
 #if defined(PRODUCT_MANUFACTURER_SPRD)
   // On SPRD devices, FM radio only supports speaker or headphone path, so
   // manually decide its routing.
-  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_FM);
+  // FIXME: should we use AUDIO_POLICY_FORCE_FOR_FM?
+  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
   if (force == AUDIO_POLICY_FORCE_SPEAKER) {
     return AUDIO_DEVICE_OUT_SPEAKER;
   }

@@ -2857,17 +2857,6 @@
   value: true
   mirror: always
 
-# Whether the Large-Allocation header is enabled.
-- name: dom.largeAllocationHeader.enabled
-  type: bool
-  value: true
-  mirror: always
-
-- name: dom.largeAllocation.forceEnable
-  type: bool
-  value: false
-  mirror: always
-
 # Whether "W3C Web Manifest" processing is enabled
 - name: dom.manifest.enabled
   type: bool
@@ -3013,6 +3002,18 @@
 # Whether we shouldn't show an error page for unknown protocols (and should
 # show a console warning instead).
 - name: dom.no_unknown_protocol_error.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Whether origin trials are enabled.
+- name: dom.origin-trials.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Whether we use the test key to verify tokens.
+- name: dom.origin-trials.test-key.enabled
   type: bool
   value: true
   mirror: always
@@ -7218,7 +7219,7 @@
 
 - name: layers.gpu-process.enabled
   type: bool
-#if defined(XP_WIN)
+#if defined(XP_WIN) || defined(MOZ_WIDGET_ANDROID)
   value: true
 #else
   value: false
@@ -9212,6 +9213,11 @@
     value: true
     mirror: always
 
+-   name: media.wmf.no-copy-nv12-textures
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
 -   name: media.wmf.force.allow-p010-format
     type: RelaxedAtomicBool
     value: false
@@ -9920,7 +9926,11 @@
 # reached. The total size of the ring-buffer is slightly bigger than this.
 - name: media.audio.audiosink.threshold_ms
   type: AtomicFloat
+#if defined(XP_MACOSX) && defined(__aarch64__)
   value: 1000.0
+#else
+  value: 200.0
+#endif
   mirror: always
 
 

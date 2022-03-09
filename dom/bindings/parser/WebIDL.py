@@ -1585,6 +1585,7 @@ class IDLInterfaceOrNamespace(IDLInterfaceOrInterfaceMixinOrNamespace):
                         or member.getExtendedAttribute("ChromeOnly")
                         or member.getExtendedAttribute("Pref")
                         or member.getExtendedAttribute("Func")
+                        or member.getExtendedAttribute("Trial")
                         or member.getExtendedAttribute("SecureContext")
                     ):
                         raise WebIDLError(
@@ -1796,7 +1797,13 @@ class IDLInterfaceOrNamespace(IDLInterfaceOrInterfaceMixinOrNamespace):
     def hasMembersInSlots(self):
         return self._ownMembersInSlots != 0
 
-    conditionExtendedAttributes = ["Pref", "ChromeOnly", "Func", "SecureContext"]
+    conditionExtendedAttributes = [
+        "Pref",
+        "ChromeOnly",
+        "Func",
+        "Trial",
+        "SecureContext",
+    ]
 
     def isExposedConditionally(self, exclusions=[]):
         return any(
@@ -1973,6 +1980,7 @@ class IDLInterface(IDLInterfaceOrNamespace):
                 or identifier == "JSImplementation"
                 or identifier == "HeaderFile"
                 or identifier == "Func"
+                or identifier == "Trial"
                 or identifier == "Deprecated"
             ):
                 # Known extended attributes that take a string value
@@ -2059,6 +2067,7 @@ class IDLNamespace(IDLInterfaceOrNamespace):
                 identifier == "Pref"
                 or identifier == "HeaderFile"
                 or identifier == "Func"
+                or identifier == "Trial"
             ):
                 # Known extended attributes that take a string value
                 if not attr.hasValue():
@@ -4992,6 +5001,7 @@ class IDLConst(IDLInterfaceMember):
             identifier == "Pref"
             or identifier == "ChromeOnly"
             or identifier == "Func"
+            or identifier == "Trial"
             or identifier == "SecureContext"
             or identifier == "NonEnumerable"
         ):
@@ -5497,6 +5507,7 @@ class IDLAttribute(IDLInterfaceMember):
             or identifier == "GetterCanOOM"
             or identifier == "ChromeOnly"
             or identifier == "Func"
+            or identifier == "Trial"
             or identifier == "SecureContext"
             or identifier == "Frozen"
             or identifier == "NewObject"
@@ -5635,6 +5646,7 @@ class IDLArgument(IDLObjectWithIdentifier):
             elif self.dictionaryMember and (
                 identifier == "ChromeOnly"
                 or identifier == "Func"
+                or identifier == "Trial"
                 or identifier == "Pref"
             ):
                 if not self.optional:
@@ -6484,6 +6496,7 @@ class IDLMethod(IDLInterfaceMember, IDLScope):
             or identifier == "Pref"
             or identifier == "Deprecated"
             or identifier == "Func"
+            or identifier == "Trial"
             or identifier == "SecureContext"
             or identifier == "BinaryName"
             or identifier == "NeedsSubjectPrincipal"
@@ -6539,6 +6552,7 @@ class IDLConstructor(IDLMethod):
             or identifier == "SecureContext"
             or identifier == "Throws"
             or identifier == "Func"
+            or identifier == "Trial"
             or identifier == "Pref"
             or identifier == "UseCounter"
         ):

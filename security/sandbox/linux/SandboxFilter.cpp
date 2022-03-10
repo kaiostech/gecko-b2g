@@ -962,6 +962,11 @@ protected:
       case __NR_sched_getaffinity:
         return Error(ENOSYS);
 
+        // Identifies the processor and node where this thread or process is
+        // running. This is used by "Awake" profiler markers.
+      case __NR_getcpu:
+        return Allow();
+
         // Read own pid/tid.
       case __NR_getpid:
       case __NR_gettid:

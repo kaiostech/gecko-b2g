@@ -508,8 +508,14 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   void GetVoiceInputSettings(bool* aEnableAec, bool* aEnableAgc,
                              bool* aEnableNs) override {
     MOZ_ASSERT(OnGraphThreadOrNotRunning());
-
-     mNativeInputTrackOnGraph->GetVoiceInputSettings(aEnableAec, aEnableAgc, aEnableNs);
+    if (mNativeInputTrackOnGraph) {
+      mNativeInputTrackOnGraph->GetVoiceInputSettings(aEnableAec, aEnableAgc,
+                                                      aEnableNs);
+    } else {
+      *aEnableAec = false;
+      *aEnableAgc = false;
+      *aEnableNs = false;
+    }
   }
 #endif
 

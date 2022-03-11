@@ -39,8 +39,10 @@ endif
 	mkdir -p $(DIST)/bin/$(GAIA_PATH)/webapps/installed
 	cp -r $(B2G_DIR)/$(GAIA_PATH)/webapps/* $(DIST)/bin/$(GAIA_PATH)/webapps/installed
 
-api-daemon::
+build-api-daemon::
 	+$(call build-sidl-daemon)
+
+install-api-daemon:: build-api-daemon
 	+$(call run-sidl-release)
 	mkdir -p $(DIST)/bin/api-daemon
 	cp $(B2G_DIR)/sidl/daemon/config-kaiosrt.toml $(DIST)/bin/api-daemon/config.toml
@@ -48,4 +50,4 @@ api-daemon::
 	cp -r $(B2G_DIR)/sidl/prebuilts/http_root $(DIST)/bin/api-daemon/
 	cp $(B2G_DIR)/sidl/target/debug/api-daemon $(DIST)/bin/api-daemon/
 
-libs:: profile api-daemon
+libs:: profile install-api-daemon

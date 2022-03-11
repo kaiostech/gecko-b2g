@@ -58,12 +58,41 @@ LazyLogModule gMediaTrackGraphLog("MediaTrackGraph");
 #endif  // LOG
 #define LOG(type, msg) MOZ_LOG(gMediaTrackGraphLog, type, msg)
 
+namespace {
 /**
+<<<<<<< HEAD
  * A hash table containing the graph instances, one per AudioChannel.
  *
  * The key is a hash of nsPIDOMWindowInner, see `WindowToHash`.
+=======
+ * A hash table containing the graph instances, one per Window ID,
+ * sample rate, and device ID combination.
+>>>>>>> upstream/master
  */
-static nsTHashMap<nsUint32HashKey, MediaTrackGraphImpl*> gGraphs;
+class GraphKey final {
+ public:
+  GraphKey(uint64_t aWindowID, TrackRate aSampleRate,
+           CubebUtils::AudioDeviceID aOutputDeviceID)
+      : mWindowID(aWindowID),
+        mSampleRate(aSampleRate),
+        mOutputDeviceID(aOutputDeviceID) {}
+  GraphKey(const GraphKey&) = default;
+  ~GraphKey() = default;
+  bool operator==(const GraphKey& b) const {
+    return mWindowID == b.mWindowID && mSampleRate == b.mSampleRate &&
+           mOutputDeviceID == b.mOutputDeviceID;
+  }
+  PLDHashNumber Hash() const {
+    return HashGeneric(mWindowID, mSampleRate, mOutputDeviceID);
+  }
+
+ private:
+  uint64_t mWindowID;
+  TrackRate mSampleRate;
+  CubebUtils::AudioDeviceID mOutputDeviceID;
+};
+nsTHashMap<nsGenericHashKey<GraphKey>, MediaTrackGraphImpl*> gGraphs;
+}  // anonymous namespace
 
 MediaTrackGraphImpl::~MediaTrackGraphImpl() {
   MOZ_ASSERT(mTracks.IsEmpty() && mSuspendedTracks.IsEmpty(),
@@ -3189,6 +3218,7 @@ void MediaTrackGraphImpl::Destroy() {
   mSelfRef = nullptr;
 }
 
+<<<<<<< HEAD
 static uint32_t ChannelAndWindowToHash(
     dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
     TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID) {
@@ -3205,38 +3235,64 @@ static uint32_t ChannelAndWindowToHash(
 MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
     dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
     TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID) {
+=======
+// Internal method has a Window ID parameter so that TestAudioTrackGraph
+// GTests can create a graph without a window.
+/* static */
+MediaTrackGraphImpl* MediaTrackGraphImpl::GetInstanceIfExists(
+    uint64_t aWindowID, TrackRate aSampleRate,
+    CubebUtils::AudioDeviceID aOutputDeviceID) {
+>>>>>>> upstream/master
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
   TrackRate sampleRate =
       aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
+<<<<<<< HEAD
   uint32_t hashkey =
       ChannelAndWindowToHash(aChannel, aWindow, sampleRate, aOutputDeviceID);
+=======
+  GraphKey key(aWindowID, sampleRate, aOutputDeviceID);
+>>>>>>> upstream/master
 
-  return gGraphs.Get(hashkey);
+  return gGraphs.Get(key);
 }
 
+<<<<<<< HEAD
 MediaTrackGraph* MediaTrackGraph::GetInstance(
     MediaTrackGraph::GraphDriverType aGraphDriverRequested,
     dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
     TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID) {
+=======
+// Public method has an nsPIDOMWindowInner* parameter to ensure that the
+// window is a real inner Window, not a WindowProxy.
+/* static */
+MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
+    nsPIDOMWindowInner* aWindow, TrackRate aSampleRate,
+    CubebUtils::AudioDeviceID aOutputDeviceID) {
+  return MediaTrackGraphImpl::GetInstanceIfExists(aWindow->WindowID(),
+                                                  aSampleRate, aOutputDeviceID);
+}
+
+/* static */
+MediaTrackGraphImpl* MediaTrackGraphImpl::GetInstance(
+    GraphDriverType aGraphDriverRequested, uint64_t aWindowID,
+    TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID,
+    nsISerialEventTarget* aMainThread) {
+>>>>>>> upstream/master
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
   uint32_t channel = static_cast<uint32_t>(aChannel);
   TrackRate sampleRate =
       aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
+<<<<<<< HEAD
   MediaTrackGraphImpl* graph = static_cast<MediaTrackGraphImpl*>(
       GetInstanceIfExists(aChannel, aWindow, sampleRate, aOutputDeviceID));
+=======
+  MediaTrackGraphImpl* graph =
+      GetInstanceIfExists(aWindowID, sampleRate, aOutputDeviceID);
+>>>>>>> upstream/master
 
   if (!graph) {
-    nsISerialEventTarget* mainThread;
-    if (aWindow) {
-      mainThread =
-          aWindow->AsGlobal()->AbstractMainThreadFor(TaskCategory::Other);
-    } else {
-      // Uncommon case, only for some old configuration of webspeech.
-      mainThread = GetMainThreadSerialEventTarget();
-    }
-
     GraphRunType runType = DIRECT_DRIVER;
     if (aGraphDriverRequested != OFFLINE_THREAD_DRIVER &&
         (StaticPrefs::dom_audioworklet_enabled() ||
@@ -3251,6 +3307,7 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     uint32_t channelCount =
         std::min<uint32_t>(8, CubebUtils::MaxNumberOfChannels());
     graph = new MediaTrackGraphImpl(aGraphDriverRequested, runType, sampleRate,
+<<<<<<< HEAD
                                     channelCount, aChannel, aOutputDeviceID,
                                     mainThread);
 
@@ -3261,9 +3318,27 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     LOG(LogLevel::Debug,
         ("Starting up MediaStreamGraph %p for channel %s and window %p", graph,
          AudioChannelValues::strings[channel].value, aWindow));
+=======
+                                    channelCount, aOutputDeviceID, aMainThread);
+    GraphKey key(aWindowID, sampleRate, aOutputDeviceID);
+    gGraphs.InsertOrUpdate(key, graph);
+
+    LOG(LogLevel::Debug,
+        ("Starting up MediaTrackGraph %p for window 0x%" PRIx64, graph,
+         aWindowID));
+>>>>>>> upstream/master
   }
 
   return graph;
+}
+
+/* static */
+MediaTrackGraph* MediaTrackGraph::GetInstance(
+    GraphDriverType aGraphDriverRequested, nsPIDOMWindowInner* aWindow,
+    TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID) {
+  return MediaTrackGraphImpl::GetInstance(
+      aGraphDriverRequested, aWindow->WindowID(), aSampleRate, aOutputDeviceID,
+      aWindow->EventTargetFor(TaskCategory::Other));
 }
 
 MediaTrackGraph* MediaTrackGraph::CreateNonRealtimeInstance(

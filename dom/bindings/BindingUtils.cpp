@@ -65,6 +65,7 @@
 #include "mozilla/dom/HTMLElementBinding.h"
 #include "mozilla/dom/HTMLEmbedElementBinding.h"
 #include "mozilla/dom/MaybeCrossOriginObject.h"
+#include "mozilla/dom/ObservableArrayProxyHandler.h"
 #include "mozilla/dom/ReportingUtils.h"
 #include "mozilla/dom/XULElementBinding.h"
 #include "mozilla/dom/XULFrameElementBinding.h"
@@ -2792,7 +2793,7 @@ bool ConvertJSValueToByteString(BindingCallContext& cx, JS::Handle<JS::Value> v,
   return true;
 }
 
-void FinalizeGlobal(JSFreeOp* aFreeOp, JSObject* aObj) {
+void FinalizeGlobal(JS::GCContext* aGcx, JSObject* aObj) {
   MOZ_ASSERT(JS::GetClass(aObj)->flags & JSCLASS_DOM_GLOBAL);
   mozilla::dom::DestroyProtoAndIfaceCache(aObj);
 }
@@ -2825,25 +2826,20 @@ bool EnumerateGlobal(JSContext* aCx, JS::HandleObject aObj,
 bool IsNonExposedGlobal(JSContext* aCx, JSObject* aGlobal,
                         uint32_t aNonExposedGlobals) {
   MOZ_ASSERT(aNonExposedGlobals, "Why did we get called?");
-  MOZ_ASSERT(
-      (aNonExposedGlobals & ~(GlobalNames::Window | GlobalNames::BackstagePass |
-                              GlobalNames::DedicatedWorkerGlobalScope |
-                              GlobalNames::SharedWorkerGlobalScope |
-                              GlobalNames::ServiceWorkerGlobalScope |
-                              GlobalNames::WorkerDebuggerGlobalScope |
-                              GlobalNames::WorkletGlobalScope |
-                              GlobalNames::AudioWorkletGlobalScope |
-                              GlobalNames::PaintWorkletGlobalScope)) == 0,
-      "Unknown non-exposed global type");
+  MOZ_ASSERT((aNonExposedGlobals &
+              ~(GlobalNames::Window | GlobalNames::DedicatedWorkerGlobalScope |
+                GlobalNames::SharedWorkerGlobalScope |
+                GlobalNames::ServiceWorkerGlobalScope |
+                GlobalNames::WorkerDebuggerGlobalScope |
+                GlobalNames::WorkletGlobalScope |
+                GlobalNames::AudioWorkletGlobalScope |
+                GlobalNames::PaintWorkletGlobalScope)) == 0,
+             "Unknown non-exposed global type");
 
   const char* name = JS::GetClass(aGlobal)->name;
 
-  if ((aNonExposedGlobals & GlobalNames::Window) && !strcmp(name, "Window")) {
-    return true;
-  }
-
-  if ((aNonExposedGlobals & GlobalNames::BackstagePass) &&
-      !strcmp(name, "BackstagePass")) {
+  if ((aNonExposedGlobals & GlobalNames::Window) &&
+      (!strcmp(name, "Window") || !strcmp(name, "BackstagePass"))) {
     return true;
   }
 
@@ -3510,11 +3506,11 @@ nsresult UnwrapWindowProxyArg(JSContext* cx, JS::Handle<JSObject*> src,
   return NS_OK;
 }
 
-template <decltype(JS::NewMapObject) Method>
-bool GetMaplikeSetlikeBackingObject(JSContext* aCx, JS::Handle<JSObject*> aObj,
-                                    size_t aSlotIndex,
-                                    JS::MutableHandle<JSObject*> aBackingObj,
-                                    bool* aBackingObjCreated) {
+template <auto Method, typename... Args>
+static bool GetBackingObject(JSContext* aCx, JS::Handle<JSObject*> aObj,
+                             size_t aSlotIndex,
+                             JS::MutableHandle<JSObject*> aBackingObj,
+                             bool* aBackingObjCreated, Args... aArgs) {
   JS::Rooted<JSObject*> reflector(aCx);
   reflector = IsDOMObject(aObj)
                   ? aObj
@@ -3531,7 +3527,7 @@ bool GetMaplikeSetlikeBackingObject(JSContext* aCx, JS::Handle<JSObject*> aObj,
     {
       JSAutoRealm ar(aCx, reflector);
       JS::Rooted<JSObject*> newBackingObj(aCx);
-      newBackingObj.set(Method(aCx));
+      newBackingObj.set(Method(aCx, aArgs...));
       if (NS_WARN_IF(!newBackingObj)) {
         return false;
       }
@@ -3554,16 +3550,35 @@ bool GetMaplikeBackingObject(JSContext* aCx, JS::Handle<JSObject*> aObj,
                              size_t aSlotIndex,
                              JS::MutableHandle<JSObject*> aBackingObj,
                              bool* aBackingObjCreated) {
-  return GetMaplikeSetlikeBackingObject<JS::NewMapObject>(
-      aCx, aObj, aSlotIndex, aBackingObj, aBackingObjCreated);
+  return GetBackingObject<JS::NewMapObject>(aCx, aObj, aSlotIndex, aBackingObj,
+                                            aBackingObjCreated);
 }
 
 bool GetSetlikeBackingObject(JSContext* aCx, JS::Handle<JSObject*> aObj,
                              size_t aSlotIndex,
                              JS::MutableHandle<JSObject*> aBackingObj,
                              bool* aBackingObjCreated) {
-  return GetMaplikeSetlikeBackingObject<JS::NewSetObject>(
-      aCx, aObj, aSlotIndex, aBackingObj, aBackingObjCreated);
+  return GetBackingObject<JS::NewSetObject>(aCx, aObj, aSlotIndex, aBackingObj,
+                                            aBackingObjCreated);
+}
+
+static inline JSObject* NewObservableArrayProxyObject(
+    JSContext* aCx, const ObservableArrayProxyHandler* aHandler) {
+  JS::RootedObject target(aCx, JS::NewArrayObject(aCx, 0));
+  if (NS_WARN_IF(!target)) {
+    return nullptr;
+  }
+
+  JS::RootedValue targetValue(aCx, JS::ObjectValue(*target));
+  return js::NewProxyObject(aCx, aHandler, targetValue, nullptr);
+}
+
+bool GetObservableArrayBackingObject(
+    JSContext* aCx, JS::Handle<JSObject*> aObj, size_t aSlotIndex,
+    JS::MutableHandle<JSObject*> aBackingObj, bool* aBackingObjCreated,
+    const ObservableArrayProxyHandler* aHandler) {
+  return GetBackingObject<NewObservableArrayProxyObject>(
+      aCx, aObj, aSlotIndex, aBackingObj, aBackingObjCreated, aHandler);
 }
 
 bool ForEachHandler(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {

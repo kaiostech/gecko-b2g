@@ -6308,6 +6308,18 @@ RadioInterface.prototype = {
         );
         break;
       case "iccIO":
+        let data = null;
+        if (
+          message.command === RIL.ICC_COMMAND_UPDATE_RECORD &&
+          message.dataWriter
+        ) {
+          data = message.dataWriter;
+        }
+
+        let pin2 = null;
+        if (message.command === RIL.ICC_COMMAND_UPDATE_RECORD && message.pin2) {
+          pin2 = message.pin2;
+        }
         if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -6325,9 +6337,9 @@ RadioInterface.prototype = {
               " , p3 = " +
               message.p3 +
               " , data = " +
-              message.dataWriter +
+              data +
               " , pin2 = " +
-              message.pin2 +
+              pin2 +
               " , aid = " +
               message.aid
           );
@@ -6342,8 +6354,8 @@ RadioInterface.prototype = {
           message.p1,
           message.p2,
           message.p3,
-          message.dataWriter,
-          message.pin2,
+          data,
+          pin2,
           message.aid || this.aid
         );
         break;

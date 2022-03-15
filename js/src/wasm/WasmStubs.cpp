@@ -643,7 +643,7 @@ static void UnboxAnyrefIntoValue(MacroAssembler& masm, Register tls,
   masm.storeValue(JSVAL_TYPE_OBJECT, src, dst);
   // Spectre mitigations: see comment above about efficiency.
   masm.branchTestObjClass(Assembler::Equal, src,
-                          Address(tls, offsetof(TlsData, valueBoxClass)),
+                          Address(tls, Instance::offsetOfValueBoxClass()),
                           scratch, src, &mustUnbox);
   masm.jump(&done);
 
@@ -680,7 +680,7 @@ static void UnboxAnyrefIntoValueReg(MacroAssembler& masm, Register tls,
   masm.moveValue(TypedOrValueRegister(MIRType::Object, AnyRegister(src)), dst);
   // Spectre mitigations: see comment above about efficiency.
   masm.branchTestObjClass(Assembler::Equal, src,
-                          Address(tls, offsetof(TlsData, valueBoxClass)),
+                          Address(tls, Instance::offsetOfValueBoxClass()),
                           scratch, src, &mustUnbox);
   masm.jump(&done);
 
@@ -773,7 +773,7 @@ static bool GenerateInterpEntry(MacroAssembler& masm, const FuncExport& fe,
         argv);
   }
 
-  // Arg 2: TlsData*
+  // Arg 2: Instance*
   arg = abi.next(MIRType::Pointer);
   if (arg.kind() == ABIArg::GPR) {
     masm.movePtr(arg.gpr(), WasmTlsReg);
@@ -910,7 +910,7 @@ static void GenerateJitEntryLoadTls(MacroAssembler& masm, unsigned frameSize) {
                                    ScratchIonEntry);
 
   // ScratchIonEntry := callee->getExtendedSlot(WASM_TLSDATA_SLOT)->toPrivate()
-  //                 => TlsData*
+  //                 => Instance*
   offset = FunctionExtended::offsetOfExtendedSlot(
       FunctionExtended::WASM_TLSDATA_SLOT);
   masm.loadPrivate(Address(ScratchIonEntry, offset), WasmTlsReg);
@@ -928,15 +928,12 @@ static void GenerateJitEntryThrow(MacroAssembler& masm, unsigned frameSize) {
   masm.freeStack(frameSize);
   MoveSPForJitABI(masm);
 
-  masm.loadPtr(Address(WasmTlsReg, offsetof(TlsData, cx)), ScratchIonEntry);
+  masm.loadPtr(Address(WasmTlsReg, Instance::offsetOfCx()), ScratchIonEntry);
   masm.enterFakeExitFrameForWasm(ScratchIonEntry, ScratchIonEntry,
                                  ExitFrameType::WasmGenericJitEntry);
 
-  masm.loadPtr(Address(WasmTlsReg, offsetof(TlsData, instance)),
+  masm.loadPtr(Address(WasmTlsReg, Instance::offsetOfJSJitExceptionHandler()),
                ScratchIonEntry);
-  masm.loadPtr(
-      Address(ScratchIonEntry, Instance::offsetOfJSJitExceptionHandler()),
-      ScratchIonEntry);
   masm.jump(ScratchIonEntry);
 }
 
@@ -952,7 +949,7 @@ static void GenerateJitEntryThrow(MacroAssembler& masm, unsigned frameSize) {
 static void GenerateBigIntInitialization(MacroAssembler& masm,
                                          unsigned bytesPushedByPrologue,
                                          Register64 input, Register scratch,
-                                         const FuncExport* fe, Label* fail) {
+                                         const FuncExport& fe, Label* fail) {
 #if JS_BITS_PER_WORD == 32
   MOZ_ASSERT(input.low != scratch);
   MOZ_ASSERT(input.high != scratch);
@@ -970,13 +967,8 @@ static void GenerateBigIntInitialization(MacroAssembler& masm,
   masm.reserveStack(frameSize);
   masm.assertStackAlignment(ABIStackAlignment);
 
-  // Needs to use a different call type depending on stub it's used from.
-  if (fe) {
-    CallSymbolicAddress(masm, !fe->hasEagerStubs(),
-                        SymbolicAddress::AllocateBigInt);
-  } else {
-    masm.call(SymbolicAddress::AllocateBigInt);
-  }
+  CallSymbolicAddress(masm, !fe.hasEagerStubs(),
+                      SymbolicAddress::AllocateBigInt);
   masm.storeCallPointerResult(scratch);
 
   masm.assertStackAlignment(ABIStackAlignment);
@@ -1337,8 +1329,7 @@ static bool GenerateJitEntry(MacroAssembler& masm, size_t funcExportIndex,
       case ValType::I64: {
         Label fail, done;
         GenPrintI64(DebugChannel::Function, masm, ReturnReg64);
-        GenerateBigIntInitialization(masm, 0, ReturnReg64, scratchG, &fe,
-                                     &fail);
+        GenerateBigIntInitialization(masm, 0, ReturnReg64, scratchG, fe, &fail);
         masm.boxNonDouble(JSVAL_TYPE_BIGINT, scratchG, JSReturnOperand);
         masm.jump(&done);
         masm.bind(&fail);
@@ -1606,7 +1597,7 @@ void wasm::GenerateDirectCallFromJit(MacroAssembler& masm, const FuncExport& fe,
   GenPrintf(DebugChannel::Function, masm, "\n");
 
   // Load tls; from now on, WasmTlsReg is live.
-  masm.movePtr(ImmPtr(inst.tlsData()), WasmTlsReg);
+  masm.movePtr(ImmPtr(&inst), WasmTlsReg);
   masm.storePtr(WasmTlsReg,
                 Address(masm.getStackPointer(), WasmCalleeTlsOffsetBeforeCall));
   masm.loadWasmPinnedRegsFromTls();
@@ -2129,12 +2120,10 @@ static bool GenerateImportInterpExit(MacroAssembler& masm, const FuncImport& fi,
   ABIArgMIRTypeIter i(invokeArgTypes);
 
   // argument 0: Instance*
-  Address instancePtr(WasmTlsReg, offsetof(TlsData, instance));
   if (i->kind() == ABIArg::GPR) {
-    masm.loadPtr(instancePtr, i->gpr());
+    masm.movePtr(WasmTlsReg, i->gpr());
   } else {
-    masm.loadPtr(instancePtr, scratch);
-    masm.storePtr(scratch,
+    masm.storePtr(WasmTlsReg,
                   Address(masm.getStackPointer(), i->offsetFromArgBase()));
   }
   i++;
@@ -2485,8 +2474,7 @@ static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
   {
     // Call the arguments rectifier.
     masm.bind(&rectify);
-    masm.loadPtr(Address(WasmTlsReg, offsetof(TlsData, instance)), callee);
-    masm.loadPtr(Address(callee, Instance::offsetOfJSJitArgsRectifier()),
+    masm.loadPtr(Address(WasmTlsReg, Instance::offsetOfJSJitArgsRectifier()),
                  callee);
     masm.jump(&rejoinBeforeCall);
   }

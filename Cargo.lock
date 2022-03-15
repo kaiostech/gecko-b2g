@@ -2080,6 +2080,7 @@ dependencies = [
  "processtools",
  "profiler_helper",
  "qcms",
+ "regex-ffi",
  "rsdparsa_capi",
  "rusqlite",
  "rust_minidump_writer_linux",
@@ -4294,6 +4295,14 @@ dependencies = [
  "aho-corasick",
  "memchr",
  "regex-syntax",
+]
+
+[[package]]
+name = "regex-ffi"
+version = "0.1.0"
+dependencies = [
+ "nsstring",
+ "regex",
 ]
 
 [[package]]

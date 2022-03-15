@@ -834,17 +834,13 @@ already_AddRefed<layers::Image> MediaEngineGonkVideoSource::RotateImage(
 
     layers::PlanarYCbCrData data;
     data.mYChannel = const_cast<uint8_t*>(dstBuffer->DataY());
-    data.mYSize = IntSize(dstBuffer->width(), dstBuffer->height());
     data.mYStride = dstBuffer->StrideY();
     MOZ_ASSERT(dstBuffer->StrideU() == dstBuffer->StrideV());
     data.mCbCrStride = dstBuffer->StrideU();
     data.mCbChannel = const_cast<uint8_t*>(dstBuffer->DataU());
     data.mCrChannel = const_cast<uint8_t*>(dstBuffer->DataV());
-    data.mCbCrSize =
-        IntSize((dstBuffer->width() + 1) / 2, (dstBuffer->height() + 1) / 2);
-    data.mPicX = 0;
-    data.mPicY = 0;
-    data.mPicSize = IntSize(dstBuffer->width(), dstBuffer->height());
+    data.mPictureRect = IntRect(0, 0, dstBuffer->width(), dstBuffer->height());
+    data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
     data.mYUVColorSpace = gfx::YUVColorSpace::BT601;
 
     image = mImageContainer->CreatePlanarYCbCrImage();

@@ -270,8 +270,8 @@ nsresult OMXVideoEncoder::ConfigureDirect(sp<AMessage>& aFormat,
 // in aDestination, whose size needs to be >= Y plane size * 3 / 2.
 static void ConvertPlanarYCbCrToNV12(const PlanarYCbCrData* aSource,
                                      uint8_t* aDestination) {
-  int32_t width = aSource->mYSize.width;
-  int32_t height = aSource->mYSize.height;
+  int32_t width = aSource->YDataSize().width;
+  int32_t height = aSource->YDataSize().height;
   libyuv::I420ToNV12(aSource->mYChannel, aSource->mYStride, aSource->mCbChannel,
                      aSource->mCbCrStride, aSource->mCrChannel,
                      aSource->mCbCrStride, aDestination, width,
@@ -289,73 +289,42 @@ static void ConvertGrallocImageToNV12(GrallocImage* aSource,
                                       uint8_t* aDestination) {
   // Get graphic buffer.
   sp<GraphicBuffer> graphicBuffer = aSource->GetGraphicBuffer();
+  auto pixelFormat = graphicBuffer->getPixelFormat();
+  auto width = graphicBuffer->getWidth();
+  auto height = graphicBuffer->getHeight();
+  auto cWidth = (width + 1) / 2;
+  auto cHeight = (height + 1) / 2;
 
-  int pixelFormat = graphicBuffer->getPixelFormat();
+  android_ycbcr ycbcr = {};
+  graphicBuffer->lockYCbCr(GraphicBuffer::USAGE_SW_READ_MASK, &ycbcr);
 
-  void* imgPtr = nullptr;
-  graphicBuffer->lock(GraphicBuffer::USAGE_SW_READ_MASK, &imgPtr);
-  // Build PlanarYCbCrData for NV21 or YV12 buffer.
-  PlanarYCbCrData yuv;
   switch (pixelFormat) {
-    case HAL_PIXEL_FORMAT_YCrCb_420_SP:  // From camera.
-      yuv.mYChannel = static_cast<uint8_t*>(imgPtr);
-      yuv.mYSkip = 0;
-      yuv.mYSize.width = graphicBuffer->getWidth();
-      yuv.mYSize.height = graphicBuffer->getHeight();
-      yuv.mYStride = graphicBuffer->getStride();
-      // 4:2:0.
-      yuv.mCbCrSize.width = yuv.mYSize.width / 2;
-      yuv.mCbCrSize.height = yuv.mYSize.height / 2;
-      // Interleaved VU plane.
-      yuv.mCrChannel = yuv.mYChannel + (yuv.mYStride * yuv.mYSize.height);
-      yuv.mCrSkip = 1;
-      yuv.mCbChannel = yuv.mCrChannel + 1;
-      yuv.mCbSkip = 1;
-      yuv.mCbCrStride = yuv.mYStride;
-      ConvertPlanarYCbCrToNV12(&yuv, aDestination);
+    case HAL_PIXEL_FORMAT_YV12:
+      libyuv::I420ToNV12(static_cast<uint8_t*>(ycbcr.y), ycbcr.ystride,
+                         static_cast<uint8_t*>(ycbcr.cb), ycbcr.cstride,
+                         static_cast<uint8_t*>(ycbcr.cr), ycbcr.cstride,
+                         aDestination, width, aDestination + width * height,
+                         cWidth * 2, width, height);
       break;
-    case HAL_PIXEL_FORMAT_YV12:  // From video decoder.
-      // Android YV12 format is defined in system/core/include/system/graphics.h
-      yuv.mYChannel = static_cast<uint8_t*>(imgPtr);
-      yuv.mYSkip = 0;
-      yuv.mYSize.width = graphicBuffer->getWidth();
-      yuv.mYSize.height = graphicBuffer->getHeight();
-      yuv.mYStride = graphicBuffer->getStride();
-      // 4:2:0.
-      yuv.mCbCrSize.width = yuv.mYSize.width / 2;
-      yuv.mCbCrSize.height = yuv.mYSize.height / 2;
-      yuv.mCrChannel = yuv.mYChannel + (yuv.mYStride * yuv.mYSize.height);
-      // Aligned to 16 bytes boundary.
-      yuv.mCbCrStride = (yuv.mYStride / 2 + 15) & ~0x0F;
-      yuv.mCrSkip = 0;
-      yuv.mCbChannel =
-          yuv.mCrChannel + (yuv.mCbCrStride * yuv.mCbCrSize.height);
-      yuv.mCbSkip = 0;
-      ConvertPlanarYCbCrToNV12(&yuv, aDestination);
-      break;
-    // From QCOM video decoder on Flame. See bug 997593.
+
+    case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP:
     case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
-      // Venus formats are doucmented in kernel/include/media/msm_media_info.h:
-      yuv.mYChannel = static_cast<uint8_t*>(imgPtr);
-      yuv.mYSkip = 0;
-      yuv.mYSize.width = graphicBuffer->getWidth();
-      yuv.mYSize.height = graphicBuffer->getHeight();
-      // - Y & UV Width aligned to 128
-      yuv.mYStride = (yuv.mYSize.width + 127) & ~127;
-      yuv.mCbCrSize.width = yuv.mYSize.width / 2;
-      yuv.mCbCrSize.height = yuv.mYSize.height / 2;
-      // - Y height aligned to 32
-      yuv.mCbChannel =
-          yuv.mYChannel + (yuv.mYStride * ((yuv.mYSize.height + 31) & ~31));
-      // Interleaved VU plane.
-      yuv.mCbSkip = 1;
-      yuv.mCrChannel = yuv.mCbChannel + 1;
-      yuv.mCrSkip = 1;
-      yuv.mCbCrStride = yuv.mYStride;
-      ConvertPlanarYCbCrToNV12(&yuv, aDestination);
+      // TODO: call libyuv::NV12Copy() after libyuv is updated
+      libyuv::CopyPlane(static_cast<uint8_t*>(ycbcr.y), ycbcr.ystride,
+                        aDestination, width, width, height);
+      libyuv::CopyPlane(static_cast<uint8_t*>(ycbcr.cr), ycbcr.cstride,
+                        aDestination + width * height, cWidth * 2, cWidth * 2,
+                        cHeight);
       break;
+
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+      // TODO: call libyuv::NV21ToNV12() after libyuv is updated
+      CODEC_ERROR("NV21 to NV12 conversion is not supported (%x)", pixelFormat);
+      break;
+
     default:
-      NS_ERROR("Unsupported input gralloc image type. Should never be here.");
+      CODEC_ERROR("Unsupported input gralloc image type (%x)", pixelFormat);
+      break;
   }
 
   graphicBuffer->unlock();
@@ -384,7 +353,7 @@ static nsresult ConvertSourceSurfaceToNV12(
   if (!data) {
     CODEC_ERROR(
         "Getting data surface from %s image with %s (%s) surface failed",
-        ToString(format).c_str(), ToString((int8_t) aSurface->GetType()).c_str(),
+        ToString(format).c_str(), ToString((int8_t)aSurface->GetType()).c_str(),
         ToString(aSurface->GetFormat()).c_str());
     return NS_ERROR_FAILURE;
   }
@@ -393,7 +362,7 @@ static nsresult ConvertSourceSurfaceToNV12(
   if (!map.IsMapped()) {
     CODEC_ERROR(
         "Reading DataSourceSurface from %s image with %s (%s) surface failed",
-        ToString(format).c_str(), ToString((int8_t) aSurface->GetType()).c_str(),
+        ToString(format).c_str(), ToString((int8_t)aSurface->GetType()).c_str(),
         ToString(aSurface->GetFormat()).c_str());
     return NS_ERROR_FAILURE;
   }

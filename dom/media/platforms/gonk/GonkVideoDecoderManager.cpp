@@ -10,6 +10,7 @@
 #include "GonkVideoDecoderManager.h"
 #include "GrallocImages.h"
 #include "ImageContainer.h"
+#include "libyuv.h"
 #include "VideoUtils.h"
 #include "nsThreadUtils.h"
 #include "Layers.h"
@@ -230,175 +231,58 @@ nsresult GonkVideoDecoderManager::CreateVideoData(
   return NS_OK;
 }
 
-// Copy pixels from one planar YUV to another.
-static void CopyYUV(PlanarYCbCrData& aSource, PlanarYCbCrData& aDestination) {
-  // Fill Y plane.
-  uint8_t* srcY = aSource.mYChannel;
-  gfx::IntSize ySize = aSource.mYSize;
-  uint8_t* destY = aDestination.mYChannel;
-  // Y plane.
-  for (int i = 0; i < ySize.height; i++) {
-    memcpy(destY, srcY, ySize.width);
-    srcY += aSource.mYStride;
-    destY += aDestination.mYStride;
-  }
+static void CopyGraphicBuffer(sp<GraphicBuffer>& aSrc,
+                              sp<GraphicBuffer>& aDst) {
+  android_ycbcr srcYCbCr = {}, dstYCbCr = {};
+  aSrc->lockYCbCr(GraphicBuffer::USAGE_SW_READ_OFTEN, &srcYCbCr);
+  aDst->lockYCbCr(GraphicBuffer::USAGE_SW_WRITE_OFTEN, &dstYCbCr);
 
-  // Fill UV plane.
-  // Line start
-  uint8_t* srcU = aSource.mCbChannel;
-  uint8_t* srcV = aSource.mCrChannel;
-  uint8_t* destU = aDestination.mCbChannel;
-  uint8_t* destV = aDestination.mCrChannel;
+  auto width = aSrc->getWidth();
+  auto height = aSrc->getHeight();
+  auto cWidth = (width + 1) / 2;
+  auto cHeight = (height + 1) / 2;
 
-  gfx::IntSize uvSize = aSource.mCbCrSize;
-  for (int i = 0; i < uvSize.height; i++) {
-    uint8_t* su = srcU;
-    uint8_t* sv = srcV;
-    uint8_t* du = destU;
-    uint8_t* dv = destV;
-    for (int j = 0; j < uvSize.width; j++) {
-      *du++ = *su++;
-      *dv++ = *sv++;
-      // Move to next pixel.
-      su += aSource.mCbSkip;
-      sv += aSource.mCrSkip;
-      du += aDestination.mCbSkip;
-      dv += aDestination.mCrSkip;
-    }
-    // Move to next line.
-    srcU += aSource.mCbCrStride;
-    srcV += aSource.mCbCrStride;
-    destU += aDestination.mCbCrStride;
-    destV += aDestination.mCbCrStride;
-  }
-}
-
-static void CopyNV12(uint8_t* aSrc, uint8_t* aDst, uint32_t aWidth,
-                     uint32_t aHeight, uint32_t aSrcYStride,
-                     uint32_t aDstYStride, uint32_t aSrcYScanlines,
-                     uint32_t aDstYScanlines) {
-  // Copy Y plane.
-  uint8_t* s = aSrc;
-  uint8_t* d = aDst;
-  for (uint32_t i = 0; i < aHeight; i++) {
-    memcpy(d, s, aWidth);
-    s += aSrcYStride;
-    d += aDstYStride;
-  }
-
-  // Copy UV plane.
-  uint32_t uvHeight = (aHeight + 1) / 2;
-  s = aSrc + aSrcYStride * aSrcYScanlines;
-  d = aDst + aDstYStride * aDstYScanlines;
-  for (uint32_t i = 0; i < uvHeight; i++) {
-    memcpy(d, s, aWidth);
-    s += aSrcYStride;
-    d += aDstYStride;
-  }
-}
-
-inline static void CopyNV12(uint8_t* aSrc, uint8_t* aDst, uint32_t aWidth,
-                            uint32_t aHeight, uint32_t aSrcYStride,
-                            uint32_t aDstYStride) {
-  CopyNV12(aSrc, aDst, aWidth, aHeight, aSrcYStride, aDstYStride,
-           /* aSrcYScanlines = */ aHeight,
-           /* aDstYScanlines = */ aHeight);
-}
-
-inline static int Align(int aX, int aAlign) {
-  return (aX + aAlign - 1) & ~(aAlign - 1);
-}
-
-// Venus formats are doucmented in kernel/include/media/msm_media_info.h:
-// * Y_Stride : Width aligned to 128
-// * UV_Stride : Width aligned to 128
-// * Y_Scanlines: Height aligned to 32
-// * UV_Scanlines: Height/2 aligned to 16
-// * Total size = align((Y_Stride * Y_Scanlines
-// *          + UV_Stride * UV_Scanlines + 4096), 4096)
-inline static void CopyVenus(uint8_t* aSrc, uint8_t* aDst, uint32_t aWidth,
-                             uint32_t aHeight) {
-  uint32_t yStride = Align(aWidth, 128);
-  uint32_t yScanlines = Align(aHeight, 32);
-  CopyNV12(aSrc, aDst, aWidth, aHeight,
-           /* aSrcYStride = */ yStride,
-           /* aDstYStride = */ yStride,
-           /* aSrcYScanlines = */ yScanlines,
-           /* aDstYScanlines = */ yScanlines);
-}
-
-static void CopyGraphicBuffer(sp<GraphicBuffer>& aSource,
-                              sp<GraphicBuffer>& aDestination) {
-  void* srcPtr = nullptr;
-  aSource->lock(GraphicBuffer::USAGE_SW_READ_OFTEN, &srcPtr);
-  void* destPtr = nullptr;
-  aDestination->lock(GraphicBuffer::USAGE_SW_WRITE_OFTEN, &destPtr);
-  MOZ_ASSERT(srcPtr && destPtr);
-
-  // Build PlanarYCbCrData for source buffer.
-  PlanarYCbCrData srcData;
-  switch (aSource->getPixelFormat()) {
-    case HAL_PIXEL_FORMAT_YV12: {
-      // Android YV12 format is defined in system/core/include/system/graphics.h
-      srcData.mYChannel = static_cast<uint8_t*>(srcPtr);
-      srcData.mYSkip = 0;
-      srcData.mYSize.width = aSource->getWidth();
-      srcData.mYSize.height = aSource->getHeight();
-      srcData.mYStride = aSource->getStride();
-      // 4:2:0.
-      srcData.mCbCrSize.width = srcData.mYSize.width / 2;
-      srcData.mCbCrSize.height = srcData.mYSize.height / 2;
-      srcData.mCrChannel =
-          srcData.mYChannel + (srcData.mYStride * srcData.mYSize.height);
-      // Aligned to 16 bytes boundary.
-      srcData.mCbCrStride = Align(srcData.mYStride / 2, 16);
-      srcData.mCrSkip = 0;
-      srcData.mCbChannel =
-          srcData.mCrChannel + (srcData.mCbCrStride * srcData.mCbCrSize.height);
-      srcData.mCbSkip = 0;
-
-      // Build PlanarYCbCrData for destination buffer.
-      PlanarYCbCrData destData;
-      destData.mYChannel = static_cast<uint8_t*>(destPtr);
-      destData.mYSkip = 0;
-      destData.mYSize.width = aDestination->getWidth();
-      destData.mYSize.height = aDestination->getHeight();
-      destData.mYStride = aDestination->getStride();
-      // 4:2:0.
-      destData.mCbCrSize.width = destData.mYSize.width / 2;
-      destData.mCbCrSize.height = destData.mYSize.height / 2;
-      destData.mCrChannel =
-          destData.mYChannel + (destData.mYStride * destData.mYSize.height);
-      // Aligned to 16 bytes boundary.
-      destData.mCbCrStride = Align(destData.mYStride / 2, 16);
-      destData.mCrSkip = 0;
-      destData.mCbChannel = destData.mCrChannel +
-                            (destData.mCbCrStride * destData.mCbCrSize.height);
-      destData.mCbSkip = 0;
-
-      CopyYUV(srcData, destData);
+  switch (aSrc->getPixelFormat()) {
+    case HAL_PIXEL_FORMAT_YV12:
+      libyuv::I420Copy(static_cast<uint8_t*>(srcYCbCr.y), srcYCbCr.ystride,
+                       static_cast<uint8_t*>(srcYCbCr.cb), srcYCbCr.cstride,
+                       static_cast<uint8_t*>(srcYCbCr.cr), srcYCbCr.cstride,
+                       static_cast<uint8_t*>(dstYCbCr.y), dstYCbCr.ystride,
+                       static_cast<uint8_t*>(dstYCbCr.cb), dstYCbCr.cstride,
+                       static_cast<uint8_t*>(dstYCbCr.cr), dstYCbCr.cstride,
+                       width, height);
       break;
-    }
-    case HAL_PIXEL_FORMAT_YCrCb_420_SP:  // NV21, shared the same copy function
-                                         // with NV12
-    case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP:  // NV12
-      CopyNV12(static_cast<uint8_t*>(srcPtr), static_cast<uint8_t*>(destPtr),
-               aSource->getWidth(), aSource->getHeight(), aSource->getStride(),
-               aDestination->getStride());
-      break;
+
+    case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP:
     case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
-      CopyVenus(static_cast<uint8_t*>(srcPtr), static_cast<uint8_t*>(destPtr),
-                aSource->getWidth(), aSource->getHeight());
+      // TODO: call libyuv::NV12Copy() after libyuv is updated
+      libyuv::CopyPlane(static_cast<uint8_t*>(srcYCbCr.y), srcYCbCr.ystride,
+                        static_cast<uint8_t*>(dstYCbCr.y), dstYCbCr.ystride,
+                        width, height);
+      libyuv::CopyPlane(static_cast<uint8_t*>(srcYCbCr.cb), srcYCbCr.cstride,
+                        static_cast<uint8_t*>(dstYCbCr.cb), dstYCbCr.cstride,
+                        cWidth * 2, cHeight);
       break;
+
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+      // TODO: call libyuv::NV21Copy() after libyuv is updated
+      libyuv::CopyPlane(static_cast<uint8_t*>(srcYCbCr.y), srcYCbCr.ystride,
+                        static_cast<uint8_t*>(dstYCbCr.y), dstYCbCr.ystride,
+                        width, height);
+      libyuv::CopyPlane(static_cast<uint8_t*>(srcYCbCr.cr), srcYCbCr.cstride,
+                        static_cast<uint8_t*>(dstYCbCr.cr), dstYCbCr.cstride,
+                        cWidth * 2, cHeight);
+      break;
+
     default:
       LOGE_STATIC(
           "Unsupported input gralloc image type. Should never be here. "
           "PixelFormat: 0x%08x",
-          aSource->getPixelFormat());
+          aSrc->getPixelFormat());
   }
 
-  aSource->unlock();
-  aDestination->unlock();
+  aSrc->unlock();
+  aDst->unlock();
 }
 
 already_AddRefed<VideoData>

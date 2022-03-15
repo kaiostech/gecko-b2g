@@ -99,7 +99,21 @@ class WebViewForContentChild extends JSWindowActorChild {
   }
 
   handleEvent(event) {
-    const browser = this.browsingContext.embedderElement;
+    let bc = this.browsingContext;
+
+    if (event.type == "contextmenu") {
+      // Handle the case that contextmenu is fired in a iframe. Other events
+      // fired in a iframe are ignored.
+      while (
+        bc &&
+        bc.embedderElement &&
+        bc.embedderElement instanceof HTMLIFrameElement
+      ) {
+        bc = bc.parent;
+      }
+    }
+
+    const browser = bc.embedderElement;
 
     if (
       !browser ||
@@ -137,7 +151,7 @@ class WebViewForContentChild extends JSWindowActorChild {
         break;
       }
       case "contextmenu": {
-        this.handleContextMenu(event);
+        this.handleContextMenu(event, browser);
         break;
       }
       case "webview-fire-ctx-callback": {
@@ -328,7 +342,7 @@ class WebViewForContentChild extends JSWindowActorChild {
     );
   }
 
-  handleContextMenu(event) {
+  handleContextMenu(event, browser) {
     if (event.defaultPrevented) {
       return;
     }
@@ -338,7 +352,6 @@ class WebViewForContentChild extends JSWindowActorChild {
       event
     );
     menuData.nested = true;
-    const browser = this.browsingContext.embedderElement;
     const win = browser.ownerGlobal;
 
     let ev = new win.CustomEvent("contextmenu", { detail: menuData });

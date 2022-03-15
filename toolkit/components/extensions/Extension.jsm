@@ -48,7 +48,6 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   AddonManager: "resource://gre/modules/AddonManager.jsm",
-  AddonManagerPrivate: "resource://gre/modules/AddonManager.jsm",
   AddonSettings: "resource://gre/modules/addons/AddonSettings.jsm",
   AppConstants: "resource://gre/modules/AppConstants.jsm",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
@@ -2009,6 +2008,12 @@ class BootstrapScope {
   }
 
   async update(data, reason) {
+    // For updates that happen during startup, such as sideloads
+    // and staged updates, the extension startupReason will be
+    // APP_STARTED.  In some situations, such as background and
+    // persisted listeners, we also need to know that the addon
+    // was updated.
+    this.updateReason = this.BOOTSTRAP_REASON_TO_STRING_MAP[reason];
     // Retain any previously granted permissions that may have migrated
     // into the optional list.
     if (data.oldPermissions) {
@@ -2035,7 +2040,8 @@ class BootstrapScope {
     // eslint-disable-next-line no-use-before-define
     this.extension = new Extension(
       data,
-      this.BOOTSTRAP_REASON_TO_STRING_MAP[reason]
+      this.BOOTSTRAP_REASON_TO_STRING_MAP[reason],
+      this.updateReason
     );
     return this.extension.startup();
   }
@@ -2053,7 +2059,7 @@ XPCOMUtils.defineLazyGetter(
   BootstrapScope.prototype,
   "BOOTSTRAP_REASON_TO_STRING_MAP",
   () => {
-    const { BOOTSTRAP_REASONS } = AddonManagerPrivate;
+    const { BOOTSTRAP_REASONS } = XPIProvider;
 
     return Object.freeze({
       [BOOTSTRAP_REASONS.APP_STARTUP]: "APP_STARTUP",
@@ -2129,7 +2135,7 @@ let pendingExtensions = new Map();
  * @extends ExtensionData
  */
 class Extension extends ExtensionData {
-  constructor(addonData, startupReason) {
+  constructor(addonData, startupReason, updateReason) {
     super(addonData.resourceURI, addonData.isPrivileged);
 
     this.startupStates = new Set();
@@ -2160,8 +2166,12 @@ class Extension extends ExtensionData {
     this.addonData = addonData;
     this.startupData = addonData.startupData || {};
     this.startupReason = startupReason;
+    this.updateReason = updateReason;
 
-    if (["ADDON_UPGRADE", "ADDON_DOWNGRADE"].includes(startupReason)) {
+    if (
+      updateReason ||
+      ["ADDON_UPGRADE", "ADDON_DOWNGRADE"].includes(startupReason)
+    ) {
       StartupCache.clearAddonData(addonData.id);
     }
 

@@ -62,13 +62,13 @@ GrallocImage::~GrallocImage() {}
 
 bool GrallocImage::SetData(const Data& aData) {
   MOZ_ASSERT(!mTextureClient, "TextureClient is already set");
-  NS_ASSERTION(aData.mYSize.width % 2 == 0, "Image should have even width");
-  NS_ASSERTION(aData.mYSize.height % 2 == 0, "Image should have even height");
+  NS_ASSERTION(aData.YDataSize().width % 2 == 0, "Image should have even width");
+  NS_ASSERTION(aData.YDataSize().height % 2 == 0, "Image should have even height");
   NS_ASSERTION(aData.mYStride % 16 == 0,
                "Image should have stride of multiple of 16 pixels");
 
   mData = aData;
-  mSize = aData.mPicSize;
+  mSize = aData.YPictureSize();
 
   if (gfxPlatform::GetPlatform()->IsInGonkEmulator()) {
     // Emulator does not support HAL_PIXEL_FORMAT_YV12.
@@ -77,7 +77,7 @@ bool GrallocImage::SetData(const Data& aData) {
 
   RefPtr<ImageBridgeChild> allocator = ImageBridgeChild::GetSingleton().get();
   GrallocTextureData* texData = GrallocTextureData::Create(
-      mData.mYSize, HAL_PIXEL_FORMAT_YV12, gfx::BackendType::NONE,
+      mData.YDataSize(), HAL_PIXEL_FORMAT_YV12, gfx::BackendType::NONE,
       GraphicBuffer::USAGE_SW_READ_OFTEN | GraphicBuffer::USAGE_SW_WRITE_OFTEN |
           GraphicBuffer::USAGE_HW_TEXTURE,
       ImageBridgeChild::GetSingleton().get());
@@ -95,7 +95,7 @@ bool GrallocImage::SetData(const Data& aData) {
   }
 
   uint8_t* yChannel = static_cast<uint8_t*>(vaddr);
-  gfx::IntSize ySize = aData.mYSize;
+  gfx::IntSize ySize = aData.YDataSize();
   int32_t yStride = graphicBuffer->getStride();
 
   uint8_t* vChannel = yChannel + (yStride * ySize.height);
@@ -238,12 +238,13 @@ static status_t ConvertVendorYUVFormatToRGB565(
     layers::PlanarYCbCrData ycbcrData;
     ycbcrData.mYChannel = static_cast<uint8_t*>(ycbcr.y);
     ycbcrData.mYStride = ycbcr.ystride;
-    ycbcrData.mYSize = aSurface->GetSize();
     ycbcrData.mCbChannel = static_cast<uint8_t*>(ycbcr.cb);
     ycbcrData.mCrChannel = static_cast<uint8_t*>(ycbcr.cr);
     ycbcrData.mCbCrStride = ycbcr.cstride;
-    ycbcrData.mCbCrSize = aSurface->GetSize() / 2;
-    ycbcrData.mPicSize = aSurface->GetSize();
+    ycbcrData.mPictureRect =
+        gfx::IntRect(gfx::IntPoint(0, 0), aSurface->GetSize());
+    ycbcrData.mChromaSubsampling =
+        gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
 
     gfx::ConvertYCbCrToRGB(ycbcrData, aSurface->GetFormat(),
                            aSurface->GetSize(), aMappedSurface->mData,
@@ -311,16 +312,17 @@ static status_t ConvertOmxYUVFormatToRGB565(
       ycbcrData.mYChannel = buffer;
       ycbcrData.mYSkip = 0;
       ycbcrData.mYStride = aBuffer->getStride();
-      ycbcrData.mYSize = aSurface->GetSize();
       ycbcrData.mCbSkip = 0;
-      ycbcrData.mCbCrSize = aSurface->GetSize() / 2;
-      ycbcrData.mPicSize = aSurface->GetSize();
       ycbcrData.mCrChannel = buffer + ycbcrData.mYStride * aBuffer->getHeight();
       ycbcrData.mCrSkip = 0;
       // Align to 16 bytes boundary
       ycbcrData.mCbCrStride = ALIGN(ycbcrData.mYStride / 2, 16);
       ycbcrData.mCbChannel = ycbcrData.mCrChannel +
                              (ycbcrData.mCbCrStride * aBuffer->getHeight() / 2);
+      ycbcrData.mPictureRect =
+          gfx::IntRect(gfx::IntPoint(0, 0), aSurface->GetSize());
+      ycbcrData.mChromaSubsampling =
+          gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
     } else {
       // Update channels' address.
       // Gralloc buffer could map gralloc buffer only when the buffer is locked.

@@ -4021,10 +4021,9 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStream(
     return nullptr;
   }
 
-  MediaTrackGraph* graph =
-      MediaTrackGraph::GetInstance(graphDriverType, mAudioChannel, window,
-                                   MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-                                   MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
+  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
+      graphDriverType, window, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE, mAudioChannel);
 
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
@@ -4054,10 +4053,9 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStreamUntilEnded(
     return nullptr;
   }
 
-  MediaTrackGraph* graph =
-      MediaTrackGraph::GetInstance(graphDriverType, mAudioChannel, window,
-                                   MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-                                   MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
+  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
+      graphDriverType, window, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE, mAudioChannel);
 
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::FINISH_WHEN_ENDED,
@@ -7537,9 +7535,9 @@ void HTMLMediaElement::AudioCaptureTrackChange(bool aCapture) {
     }
 
     MediaTrackGraph* mtg = MediaTrackGraph::GetInstance(
-        MediaTrackGraph::AUDIO_THREAD_DRIVER, mAudioChannel, window,
+        MediaTrackGraph::AUDIO_THREAD_DRIVER, window,
         MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-        MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
+        MediaTrackGraph::DEFAULT_OUTPUT_DEVICE, mAudioChannel);
     RefPtr<DOMMediaStream> stream =
         CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
                               StreamCaptureType::CAPTURE_AUDIO, mtg);

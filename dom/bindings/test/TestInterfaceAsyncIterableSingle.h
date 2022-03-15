@@ -7,6 +7,7 @@
 #ifndef mozilla_dom_TestInterfaceAsyncIterableSingle_h
 #define mozilla_dom_TestInterfaceAsyncIterableSingle_h
 
+#include "IterableIterator.h"
 #include "nsCOMPtr.h"
 #include "nsWrapperCache.h"
 #include "nsTArray.h"

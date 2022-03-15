@@ -204,9 +204,9 @@ MediaStreamTrack::MediaStreamTrack(nsPIDOMWindowInner* aWindow,
     // MediaStreamTrackSource soon enough.
     auto graph = mInputTrack->IsDestroyed()
                      ? MediaTrackGraph::GetInstanceIfExists(
-                           mInputTrack->AudioChannelType(), mWindow,
-                           mInputTrack->mSampleRate,
-                           MediaTrackGraph::DEFAULT_OUTPUT_DEVICE)
+                           mWindow, mInputTrack->mSampleRate,
+                           MediaTrackGraph::DEFAULT_OUTPUT_DEVICE,
+                           mInputTrack->AudioChannelType())
                      : mInputTrack->Graph();
     MOZ_DIAGNOSTIC_ASSERT(graph,
                           "A destroyed input track is only expected when "

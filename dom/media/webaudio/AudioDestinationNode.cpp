@@ -304,9 +304,9 @@ AudioDestinationNode::AudioDestinationNode(AudioContext* aContext,
   // GetParentObject can return nullptr here. This will end up creating another
   // MediaTrackGraph
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, Context()->MozAudioChannelType(),
-      aContext->GetParentObject(), aContext->SampleRate(),
-      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, aContext->GetParentObject(),
+      aContext->SampleRate(), MediaTrackGraph::DEFAULT_OUTPUT_DEVICE,
+      Context()->MozAudioChannelType());
   AudioNodeEngine* engine = new DestinationNodeEngine(this);
 
   mTrack = AudioNodeTrack::Create(aContext, engine, kTrackFlags, graph);

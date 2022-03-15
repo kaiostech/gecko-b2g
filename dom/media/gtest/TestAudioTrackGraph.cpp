@@ -124,49 +124,29 @@ TEST(TestAudioTrackGraph, DifferentDeviceIDs)
   MockCubeb* cubeb = new MockCubeb();
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
-<<<<<<< HEAD
-  MediaTrackGraph* g1 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      /*OutputDeviceID*/ nullptr);
-
-  MediaTrackGraph* g2 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(1));
-
-  MediaTrackGraph* g1_2 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      /*OutputDeviceID*/ nullptr);
-
-  MediaTrackGraph* g2_2 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(1));
-=======
   MediaTrackGraph* g1 = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::AUDIO_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      /*OutputDeviceID*/ nullptr, GetMainThreadSerialEventTarget());
+      /*OutputDeviceID*/ nullptr, mozilla::dom::AudioChannel::Normal,
+      GetMainThreadSerialEventTarget());
 
   MediaTrackGraph* g2 = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::AUDIO_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(1),
-      GetMainThreadSerialEventTarget());
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   MediaTrackGraph* g1_2 = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::AUDIO_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      /*OutputDeviceID*/ nullptr, GetMainThreadSerialEventTarget());
+      /*OutputDeviceID*/ nullptr, mozilla::dom::AudioChannel::Normal,
+      GetMainThreadSerialEventTarget());
 
   MediaTrackGraph* g2_2 = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::AUDIO_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(1),
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   EXPECT_NE(g1, g2) << "Different graphs due to different device ids";
   EXPECT_EQ(g1, g1_2) << "Same graphs for same device ids";
@@ -198,18 +178,11 @@ TEST(TestAudioTrackGraph, SetOutputDeviceID)
 
   // Set the output device id in GetInstance method confirm that it is the one
   // used in cubeb_stream_init.
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(2));
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::AUDIO_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(2),
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   // Dummy track to make graph rolling. Add it and remove it to remove the
   // graph from the global hash table and let it shutdown.
@@ -232,17 +205,10 @@ TEST(TestAudioTrackGraph, NotifyDeviceStarted)
   MockCubeb* cubeb = new MockCubeb();
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::AUDIO_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   RefPtr<SourceMediaTrack> dummySource;
   Unused << WaitFor(Invoke([&] {
@@ -271,17 +237,10 @@ TEST(TestAudioTrackGraph, ErrorCallback)
   MockCubeb* cubeb = new MockCubeb();
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   const CubebUtils::AudioDeviceID deviceId = (CubebUtils::AudioDeviceID)1;
 
@@ -346,17 +305,10 @@ TEST(TestAudioTrackGraph, AudioProcessingTrack)
   // Start on a system clock driver, then switch to full-duplex in one go. If we
   // did output-then-full-duplex we'd risk a second NotifyWhenDeviceStarted
   // resolving early after checking the first audio driver only.
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   const CubebUtils::AudioDeviceID deviceId = (CubebUtils::AudioDeviceID)1;
 
@@ -445,15 +397,9 @@ TEST(TestAudioTrackGraph, ReConnectDeviceInput)
   // as unexected discontinuities in the test.
   const TrackRate rate = 48000;
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, rate, nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1, rate, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   const CubebUtils::AudioDeviceID deviceId = (CubebUtils::AudioDeviceID)1;
 
@@ -606,17 +552,10 @@ TEST(TestAudioTrackGraph, AudioProcessingTrackDisabling)
   MockCubeb* cubeb = new MockCubeb();
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   const CubebUtils::AudioDeviceID deviceId = (CubebUtils::AudioDeviceID)1;
 
@@ -723,17 +662,10 @@ TEST(TestAudioTrackGraph, SetRequestedInputChannelCount)
   MockCubeb* cubeb = new MockCubeb();
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   // Open a 2-channel input stream.
   const CubebUtils::AudioDeviceID deviceId = (CubebUtils::AudioDeviceID)1;
@@ -812,17 +744,10 @@ TEST(TestAudioTrackGraph, SwitchingDriverIfMaxChannelCountChanged)
   auto unforcer = WaitFor(cubeb->ForceAudioThread()).unwrap();
   Unused << unforcer;
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   // Request a new input channel count and expect to have a new stream.
   auto setNewChannelCount = [&](const RefPtr<AudioProcessingTrack>& aTrack,
@@ -975,17 +900,10 @@ TEST(TestAudioTrackGraph, SetInputChannelCountBeforeAudioCallbackDriver)
   MockCubeb* cubeb = new MockCubeb();
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   // Set the input channel count of AudioInputProcessing, which will force
   // MediaTrackGraph to re-evaluate input device, when the MediaTrackGraph is
@@ -1069,17 +987,10 @@ TEST(TestAudioTrackGraph, StartAudioDeviceBeforeStartingAudioProcessing)
   MockCubeb* cubeb = new MockCubeb();
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   // Create a duplex AudioCallbackDriver
   const CubebUtils::AudioDeviceID deviceId = (CubebUtils::AudioDeviceID)1;
@@ -1145,17 +1056,10 @@ TEST(TestAudioTrackGraph, StopAudioProcessingBeforeStoppingAudioDevice)
   MockCubeb* cubeb = new MockCubeb();
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
-<<<<<<< HEAD
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      nullptr);
-=======
   MediaTrackGraph* graph = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr,
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   // Create a duplex AudioCallbackDriver
   const CubebUtils::AudioDeviceID deviceId = (CubebUtils::AudioDeviceID)1;
@@ -1231,27 +1135,16 @@ void TestCrossGraphPort(uint32_t aInputRate, uint32_t aOutputRate,
   cubeb->SetStreamStartFreezeEnabled(true);
 
   /* Primary graph: Create the graph. */
-<<<<<<< HEAD
-  MediaTrackGraph* primary = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, aInputRate, nullptr);
-
-  /* Partner graph: Create the graph. */
-  MediaTrackGraph* partner = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
-      /*window*/ nullptr, aOutputRate,
-      /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(1));
-=======
   MediaTrackGraph* primary = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER,
-      /*Window ID*/ 1, aInputRate, nullptr, GetMainThreadSerialEventTarget());
+      /*Window ID*/ 1, aInputRate, nullptr, mozilla::dom::AudioChannel::Normal,
+      GetMainThreadSerialEventTarget());
 
   /* Partner graph: Create the graph. */
   MediaTrackGraph* partner = MediaTrackGraphImpl::GetInstance(
       MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*Window ID*/ 1, aOutputRate,
       /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(1),
-      GetMainThreadSerialEventTarget());
->>>>>>> upstream/master
+      mozilla::dom::AudioChannel::Normal, GetMainThreadSerialEventTarget());
 
   const CubebUtils::AudioDeviceID deviceId = (CubebUtils::AudioDeviceID)1;
 

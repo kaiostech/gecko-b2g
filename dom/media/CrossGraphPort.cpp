@@ -38,10 +38,9 @@ UniquePtr<CrossGraphPort> CrossGraphPort::Connect(
     return nullptr;
   }
 
-  MediaTrackGraph* newGraph =
-      MediaTrackGraph::GetInstance(MediaTrackGraph::AUDIO_THREAD_DRIVER,
-                                   dom::AudioChannel::Normal,
-                                   aWindow, defaultRate, aSink->DeviceID());
+  MediaTrackGraph* newGraph = MediaTrackGraph::GetInstance(
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, aWindow, defaultRate,
+      aSink->DeviceID(), dom::AudioChannel::Normal);
 
   return CrossGraphPort::Connect(aStreamTrack, newGraph);
 }

@@ -1497,9 +1497,8 @@ void GetUserMediaStreamTask::PrepareDOMStream() {
       mAudioDevice ? MediaTrackGraph::AUDIO_THREAD_DRIVER
                    : MediaTrackGraph::SYSTEM_THREAD_DRIVER;
   MediaTrackGraph* mtg = MediaTrackGraph::GetInstance(
-      graphDriverType, dom::AudioChannel::Normal, window,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
+      graphDriverType, window, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE, dom::AudioChannel::Normal);
 
   auto domStream = MakeRefPtr<DOMMediaStream>(window);
   RefPtr<LocalTrackSource> audioTrackSource;

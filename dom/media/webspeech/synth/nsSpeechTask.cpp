@@ -139,10 +139,8 @@ nsSpeechTask::SetupAudioNative(nsISpeechTaskCallback* aCallback, uint32_t aRate)
   MOZ_ASSERT(XRE_IsParentProcess());
 
   MediaTrackGraph* g1 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER,
-      mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
-      aRate,
-      /*OutputDeviceID*/ nullptr);
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, /*window*/ nullptr, aRate,
+      /*OutputDeviceID*/ nullptr, mozilla::dom::AudioChannel::Normal);
   mStream = g1->CreateSourceTrack(MediaSegment::AUDIO);
 
   MOZ_ASSERT(mStream);

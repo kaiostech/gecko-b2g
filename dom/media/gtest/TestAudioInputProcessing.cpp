@@ -25,7 +25,7 @@ class MockGraph : public MediaTrackGraphImpl {
  public:
   MockGraph(TrackRate aRate, uint32_t aChannels)
       : MediaTrackGraphImpl(OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, aRate,
-                            aChannels, dom::AudioChannel::Normal, nullptr,
+                            aChannels, nullptr, dom::AudioChannel::Normal,
                             AbstractThread::MainThread()) {
     ON_CALL(*this, OnGraphThread).WillByDefault(Return(true));
     // Remove this graph's driver since it holds a ref. If no AppendMessage

@@ -29,6 +29,7 @@ variables:
   # since we can always get nearly the whole git history from mirror,
   # it's ok to `fetch` the incoming MR instead of re-cloning the repo.
   GIT_STRATEGY: fetch
+  GIT_LFS_SKIP_SMUDGE: "1"
 
 stages:
   - lint

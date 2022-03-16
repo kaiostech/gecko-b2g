@@ -657,6 +657,11 @@ already_AddRefed<PlatformDecoderModule> PDMFactory::GetDecoderModule(
 void PDMFactory::SetCDMProxy(CDMProxy* aProxy) {
   MOZ_ASSERT(aProxy);
 
+#ifdef B2G_MEDIADRM
+  mEMEPDM = GonkDecoderModule::Create(aProxy);
+  return;
+#endif
+
 #ifdef MOZ_WIDGET_ANDROID
   if (IsWidevineKeySystem(aProxy->KeySystem())) {
     mEMEPDM = AndroidDecoderModule::Create(aProxy);

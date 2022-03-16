@@ -4,42 +4,51 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "GonkDecoderModule.h"
+
 #include "GonkVideoDecoderManager.h"
 #include "GonkAudioDecoderManager.h"
-#include "mozilla/Preferences.h"
-#include "mozilla/DebugOnly.h"
 #include "GonkMediaDataDecoder.h"
+#include "mozilla/CDMProxy.h"
+#include "mozilla/DebugOnly.h"
+#include "mozilla/Preferences.h"
+
+#ifdef B2G_MEDIADRM
+#  include "EMEDecoderModule.h"
+#endif
 
 namespace mozilla {
-GonkDecoderModule::GonkDecoderModule() {}
-
-GonkDecoderModule::~GonkDecoderModule() {}
+GonkDecoderModule::GonkDecoderModule(CDMProxy* aProxy) : mCDMProxy(aProxy) {}
 
 /* static */
-already_AddRefed<PlatformDecoderModule> GonkDecoderModule::Create() {
-  if (Init()) {
-    return MakeAndAddRef<GonkDecoderModule>();
-  }
-  return nullptr;
-}
-
-/* static */
-bool GonkDecoderModule::Init() {
-  return true;
+already_AddRefed<PlatformDecoderModule> GonkDecoderModule::Create(
+    CDMProxy* aProxy) {
+  return MakeAndAddRef<GonkDecoderModule>(aProxy);
 }
 
 already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateVideoDecoder(
     const CreateDecoderParams& aParams) {
-  RefPtr<MediaDataDecoder> decoder = new GonkMediaDataDecoder(
-      new GonkVideoDecoderManager(aParams.VideoConfig(),
-                                  aParams.mImageContainer));
+  RefPtr<MediaDataDecoder> decoder =
+      new GonkMediaDataDecoder(new GonkVideoDecoderManager(
+          aParams.VideoConfig(), aParams.mImageContainer, mCDMProxy.get()));
+#ifdef B2G_MEDIADRM
+  if (mCDMProxy) {
+    decoder = new EMEMediaDataDecoderProxy(aParams, decoder.forget(),
+                                           mCDMProxy.get());
+  }
+#endif
   return decoder.forget();
 }
 
 already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateAudioDecoder(
     const CreateDecoderParams& aParams) {
   RefPtr<MediaDataDecoder> decoder = new GonkMediaDataDecoder(
-      new GonkAudioDecoderManager(aParams.AudioConfig()));
+      new GonkAudioDecoderManager(aParams.AudioConfig(), mCDMProxy.get()));
+#ifdef B2G_MEDIADRM
+  if (mCDMProxy) {
+    decoder = new EMEMediaDataDecoderProxy(aParams, decoder.forget(),
+                                           mCDMProxy.get());
+  }
+#endif
   return decoder.forget();
 }
 

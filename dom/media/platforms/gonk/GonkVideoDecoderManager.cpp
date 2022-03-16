@@ -103,8 +103,10 @@ class GonkTextureClientAllocationHelper
 };
 
 GonkVideoDecoderManager::GonkVideoDecoderManager(
-    const VideoInfo& aConfig, mozilla::layers::ImageContainer* aImageContainer)
-    : mConfig(aConfig),
+    const VideoInfo& aConfig, mozilla::layers::ImageContainer* aImageContainer,
+    CDMProxy* aProxy)
+    : GonkDecoderManager(aProxy),
+      mConfig(aConfig),
       mImageContainer(aImageContainer),
       mColorConverterBufferSize(0),
       mPendingReleaseItemsLock(
@@ -571,7 +573,7 @@ void GonkVideoDecoderManager::CodecReserved() {
   if (mNativeWindow) {
     surface = new Surface(mGraphicBufferProducer);
   }
-  mDecoder->configure(format, surface, nullptr, 0);
+  mDecoder->configure(format, surface, GetCrypto(), 0);
   mDecoder->Prepare();
 
   if (mConfig.mMimeType.EqualsLiteral("video/mp4v-es")) {

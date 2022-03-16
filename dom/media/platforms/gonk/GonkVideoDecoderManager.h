@@ -34,7 +34,8 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
 
  public:
   GonkVideoDecoderManager(const VideoInfo& aConfig,
-                          mozilla::layers::ImageContainer* aImageContainer);
+                          mozilla::layers::ImageContainer* aImageContainer,
+                          CDMProxy* aProxy);
 
   virtual ~GonkVideoDecoderManager();
 

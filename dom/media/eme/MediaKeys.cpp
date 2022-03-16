@@ -37,6 +37,10 @@
 #  include "mozilla/WindowsVersion.h"
 #endif
 
+#ifdef B2G_MEDIADRM
+#  include "mozilla/GonkDrmCDMProxy.h"
+#endif
+
 namespace mozilla::dom {
 
 // We don't use NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE because we need to
@@ -428,6 +432,17 @@ class MediaKeysGMPCrashHelper : public GMPCrashHelper {
 already_AddRefed<CDMProxy> MediaKeys::CreateCDMProxy() {
   EME_LOG("MediaKeys[%p]::CreateCDMProxy()", this);
   RefPtr<CDMProxy> proxy;
+
+#ifdef B2G_MEDIADRM
+  if (GonkDrmCDMProxy::IsSchemeSupported(mKeySystem)) {
+    proxy = new GonkDrmCDMProxy(
+        this, mKeySystem,
+        mConfig.mDistinctiveIdentifier == MediaKeysRequirement::Required,
+        mConfig.mPersistentState == MediaKeysRequirement::Required);
+  }
+  return proxy.forget();
+#endif
+
 #ifdef MOZ_WIDGET_ANDROID
   if (IsWidevineKeySystem(mKeySystem)) {
     proxy = new MediaDrmCDMProxy(

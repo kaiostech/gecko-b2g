@@ -100,6 +100,7 @@ ac_add_options --enable-b2g-ims
 ac_add_options --enable-b2g-fm
 ac_add_options --enable-b2g-voice-processing
 ac_add_options --enable-b2g-bt
+ac_add_options --enable-b2g-mediadrm
 
 if [ "$IME_ENGINE" = "touchpal" ]; then
   ac_add_options --enable-touchpal

@@ -683,7 +683,8 @@ nsWindow::MakeFullScreen(bool aFullScreen) {
 //         static_cast<CompositorOGL*>(aManager->GetCompositor());
 //     if (compositor) {
 //       if (mGLCursorImageManager->ShouldDrawGLCursor() &&
-//           mGLCursorImageManager->IsCursorImageReady(mCursor.mDefaultCursor)) {
+//           mGLCursorImageManager->IsCursorImageReady(mCursor.mDefaultCursor))
+//           {
 //         GLCursorImageManager::GLCursorImage cursorImage =
 //             mGLCursorImageManager->GetGLCursorImage(mCursor.mDefaultCursor);
 //         LayoutDeviceIntPoint position =
@@ -765,9 +766,14 @@ void nsWindow::DestroyCompositor() {
 
 CompositorBridgeParent* nsWindow::NewCompositorBridgeParent(
     int aSurfaceWidth, int aSurfaceHeight) {
+  uint64_t innerWindowId = 0;
+  if (Document* doc = GetDocument()) {
+    innerWindowId = doc->InnerWindowID();
+  }
   return new CompositorBridgeParent(
       nullptr, CSSToLayoutDeviceScale(), TimeDuration::FromMilliseconds(17),
-      CompositorOptions(), false, gfx::IntSize(aSurfaceWidth, aSurfaceHeight));
+      CompositorOptions(), false, gfx::IntSize(aSurfaceWidth, aSurfaceHeight),
+      innerWindowId);
 }
 
 void nsWindow::BringToTop() {

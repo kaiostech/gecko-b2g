@@ -63,6 +63,11 @@ loader.lazyRequireGetter(
   "ResponsiveUIManager",
   "devtools/client/responsive/manager"
 );
+loader.lazyRequireGetter(
+  this,
+  "ResponsiveMessageHelper",
+  "devtools/client/responsive/utils/message"
+);
 
 loader.lazyRequireGetter(
   this,
@@ -1008,13 +1013,7 @@ async function waitFor(condition, message = "", interval = 10, maxTries = 500) {
     );
     return value;
   } catch (e) {
-    const errorMessage =
-      "Failed waitFor(): " +
-      message +
-      "\n" +
-      "Failed condition: " +
-      condition +
-      "\n";
+    const errorMessage = `Failed waitFor(): ${message} \nFailed condition: ${condition} \nException Message: ${e}`;
     throw new Error(errorMessage);
   }
 }
@@ -1969,4 +1968,31 @@ async function getFluentStringHelper(resourceIds) {
     }
     return string;
   };
+}
+
+/**
+ * Open responsive design mode for the given tab.
+ */
+async function openRDM(tab) {
+  info("Opening responsive design mode");
+  const manager = ResponsiveUIManager;
+  const ui = await manager.openIfNeeded(tab.ownerGlobal, tab, {
+    trigger: "test",
+  });
+  info("Responsive design mode opened");
+
+  await ResponsiveMessageHelper.wait(ui.toolWindow, "post-init");
+  info("Responsive design initialized");
+
+  return { ui, manager };
+}
+
+/**
+ * Close responsive design mode for the given tab.
+ */
+async function closeRDM(tab, options) {
+  info("Closing responsive design mode");
+  const manager = ResponsiveUIManager;
+  await manager.closeIfNeeded(tab.ownerGlobal, tab, options);
+  info("Responsive design mode closed");
 }

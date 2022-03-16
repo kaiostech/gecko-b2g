@@ -1664,6 +1664,18 @@ if test -n "$B2G_VOICE_PROCESSING"; then
 fi
 AC_SUBST(B2G_VOICE_PROCESSING)
 
+dnl ========================================================
+dnl = Enable MediaDrm for B2G (Gonk usually)
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(b2g-mediadrm,
+[  --enable-b2g-mediadrm      Enable b2g-mediadrm ],
+    B2G_MEDIADRM=1,
+    B2G_MEDIADRM= )
+if test -n "$B2G_MEDIADRM"; then
+    AC_DEFINE(B2G_MEDIADRM)
+fi
+AC_SUBST(B2G_MEDIADRM)
+
 dnl bug 988880: disable startup cache on b2g
 if test -n "$MOZ_B2G"; then
   MOZ_DISABLE_STARTUPCACHE=1

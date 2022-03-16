@@ -52,6 +52,14 @@ class SimpleMediaBuffer : public RefBase {
   MetaDataBase mMetaData;
 };
 
+struct GonkCryptoInfo {
+  CryptoPlugin::Mode mMode = CryptoPlugin::kMode_Unencrypted;
+  CryptoPlugin::Pattern mPattern = {0, 0};
+  std::vector<CryptoPlugin::SubSample> mSubSamples;
+  std::vector<uint8_t> mKey;
+  std::vector<uint8_t> mIV;
+};
+
 // This class is intended to be a proxy for MediaCodec with codec resource
 // management. Basically user can use it like MediaCodec, but need to handle
 // the listener when Codec is reserved for Async case. A good example is
@@ -142,7 +150,7 @@ class MediaCodecProxy : public RefBase {
   // If aData is null, will notify decoder input EOS
   status_t Input(const uint8_t* aData, uint32_t aDataSize,
                  int64_t aTimestampUsecs, uint64_t flags,
-                 int64_t aTimeoutUs = 0);
+                 int64_t aTimeoutUs = 0, GonkCryptoInfo* aCryptoInfo = nullptr);
   status_t Output(sp<SimpleMediaBuffer>* aBuffer, int64_t aTimeoutUs);
   bool Prepare();
   void ReleaseMediaResources();

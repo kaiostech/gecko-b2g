@@ -94,6 +94,7 @@ def old_configure_options(*options):
     "--enable-b2g-camera",
     "--enable-b2g-fm",
     "--enable-b2g-ims",
+    "--enable-b2g-mediadrm",
     '--enable-b2g-oemhook',
     "--enable-b2g-ril",
     "--enable-b2g-voice-processing",

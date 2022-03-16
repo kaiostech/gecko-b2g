@@ -1,0 +1,22 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(94382c69-17d1-410e-87ba-2dd17f2b4c4f)]
+interface nsIGonkDrmProvisioningCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onSuccess(in ACString response);
+
+  [implicit_jscontext]
+  void onError(in ACString message);
+};
+
+[scriptable, uuid(90b089d0-c8f4-41cc-8c1a-426c3221b84b)]
+interface nsIGonkDrmNetUtils : nsISupports
+{
+  void startProvisioning(in ACString url, in ACString request,
+                         in nsIGonkDrmProvisioningCallback callback);
+};

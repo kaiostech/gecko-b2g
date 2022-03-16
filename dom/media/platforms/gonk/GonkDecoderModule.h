@@ -4,20 +4,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#if !defined(GonkPlatformDecoderModule_h_)
-#  define GonkPlatformDecoderModule_h_
+#ifndef GonkPlatformDecoderModule_h_
+#define GonkPlatformDecoderModule_h_
 
-#  include "PlatformDecoderModule.h"
+#include "PlatformDecoderModule.h"
 
 namespace mozilla {
 
+class CDMProxy;
+
 class GonkDecoderModule : public PlatformDecoderModule {
+  template <typename T, typename... Args>
+  friend already_AddRefed<T> MakeAndAddRef(Args&&...);
+
  public:
   // Called on main thread.
-  static already_AddRefed<PlatformDecoderModule> Create();
-
-  GonkDecoderModule();
-  virtual ~GonkDecoderModule();
+  static already_AddRefed<PlatformDecoderModule> Create(
+      CDMProxy* aProxy = nullptr);
 
   already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
       const CreateDecoderParams& aParams) override;
@@ -25,10 +28,13 @@ class GonkDecoderModule : public PlatformDecoderModule {
   already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
       const CreateDecoderParams& aParams) override;
 
-  static bool Init();
-
   bool SupportsMimeType(const nsACString& aMimeType,
                         DecoderDoctorDiagnostics* aDiagnostics) const override;
+
+ private:
+  explicit GonkDecoderModule(CDMProxy* aProxy = nullptr);
+  virtual ~GonkDecoderModule() = default;
+  RefPtr<CDMProxy> mCDMProxy;
 };
 
 }  // namespace mozilla

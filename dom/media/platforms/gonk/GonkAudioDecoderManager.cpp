@@ -15,6 +15,7 @@
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MetaDataBase.h>
 #include <media/stagefright/MediaErrors.h>
+#include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/ALooper.h>
 #include <media/openmax/OMX_Audio.h>
@@ -40,8 +41,10 @@ typedef android::MediaCodecProxy MediaCodecProxy;
 
 namespace mozilla {
 
-GonkAudioDecoderManager::GonkAudioDecoderManager(const AudioInfo& aConfig)
-    : mAudioChannels(aConfig.mChannels),
+GonkAudioDecoderManager::GonkAudioDecoderManager(const AudioInfo& aConfig,
+                                                 CDMProxy* aProxy)
+    : GonkDecoderManager(aProxy),
+      mAudioChannels(aConfig.mChannels),
       mAudioRate(aConfig.mRate),
       mAudioProfile(aConfig.mProfile),
       mAudioCompactor(mAudioQueue) {
@@ -64,7 +67,6 @@ RefPtr<MediaDataDecoder::InitPromise> GonkAudioDecoderManager::Init() {
 }
 
 bool GonkAudioDecoderManager::InitMediaCodecProxy() {
-  status_t rv = OK;
   if (!InitThreads(MediaData::Type::AUDIO_DATA)) {
     return false;
   }
@@ -86,32 +88,39 @@ bool GonkAudioDecoderManager::InitMediaCodecProxy() {
   format->setInt32("channel-count", mAudioChannels);
   format->setInt32("sample-rate", mAudioRate);
   format->setInt32("aac-profile", mAudioProfile);
-  status_t err = mDecoder->configure(format, nullptr, nullptr, 0);
-  if (err != OK || !mDecoder->Prepare()) {
-    return false;
-  }
 
-  if (mMimeType.EqualsLiteral("audio/mp4a-latm")) {
-    // Under some conditions, mediacodec cannot return ontime. We could get
-    // EAGAIN error. Try 3 times to see whether Gecko can initialize the it.
-    const int tryCount = 3;
-
-    for (int i = 0; i < tryCount; ++i) {
-      rv = mDecoder->Input(
-          mCodecSpecificData->Elements(), mCodecSpecificData->Length(), 0,
-          android::MediaCodec::BUFFER_FLAG_CODECCONFIG, CODECCONFIG_TIMEOUT_US);
-      if (rv == OK) {
-        break;
-      } else if (rv != -EAGAIN) {
-        LOGE("Failed to input codec specific data! rv=%x", rv);
+  if (mCodecSpecificData) {
+    auto csdBuffer = ABuffer::CreateAsCopy(mCodecSpecificData->Elements(),
+                                           mCodecSpecificData->Length());
+    if (mMimeType.EqualsLiteral("audio/opus")) {
+      if (csdBuffer->size() < sizeof(int64_t)) {
+        mDecoder = nullptr;
         return false;
       }
-
-      LOG("MediaCodec is busy %d", i);
+      // AOSP Opus decoder requires 1) codec specific data, 2) codec delay and
+      // 3) seek preroll, but Gecko demuxer only provides codec delay, which is
+      // prepended to the codec specific data, so set seek preroll to 0.
+      int64_t codecDelayNs = BigEndian::readInt64(csdBuffer->data()) * 1000;
+      int64_t seekPreroll = 0;
+      auto delayBuffer = ABuffer::CreateAsCopy(&codecDelayNs, sizeof(int64_t));
+      auto prerollBuffer = ABuffer::CreateAsCopy(&seekPreroll, sizeof(int64_t));
+      csdBuffer->setRange(sizeof(int64_t), csdBuffer->size() - sizeof(int64_t));
+      format->setBuffer("csd-0", csdBuffer);
+      format->setBuffer("csd-1", delayBuffer);
+      format->setBuffer("csd-2", prerollBuffer);
+    } else if (mMimeType.EqualsLiteral("audio/mp4a-latm")) {
+      format->setBuffer("csd-0", csdBuffer);
+    } else {
+      LOG("Not sending codec config data for %s", mMimeType.Data());
     }
   }
 
-  return rv == OK;
+  status_t err = mDecoder->configure(format, nullptr, GetCrypto(), 0);
+  if (err != OK) {
+    return false;
+  }
+
+  return mDecoder->Prepare();
 }
 
 nsresult GonkAudioDecoderManager::CreateAudioData(

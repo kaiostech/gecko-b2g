@@ -1536,6 +1536,10 @@ const updatedAddonFluentIds = new Map([
         [formattedMessage] = l10n.formatMessagesSync([{ id: fluentId }]);
       }
 
+      if (!formattedMessage) {
+        formattedMessage = { value: addon.id };
+      }
+
       return formattedMessage.value;
     }
 

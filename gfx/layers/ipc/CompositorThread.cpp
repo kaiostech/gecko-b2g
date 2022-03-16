@@ -28,6 +28,7 @@ namespace layers {
 static StaticRefPtr<CompositorThreadHolder> sCompositorThreadHolder;
 static Atomic<bool> sFinishedCompositorShutDown(false);
 static mozilla::BackgroundHangMonitor* sBackgroundHangMonitor;
+static ProfilerThreadId sProfilerThreadId;
 
 nsISerialEventTarget* CompositorThread() {
   return sCompositorThreadHolder
@@ -71,6 +72,7 @@ CompositorThreadHolder::CreateCompositorThread() {
       NS_NewRunnableFunction(
           "CompositorThreadHolder::CompositorThreadHolderSetup",
           []() {
+            sProfilerThreadId = profiler_current_thread_id();
             sBackgroundHangMonitor = new mozilla::BackgroundHangMonitor(
                 "Compositor",
                 /* Timeout values are powers-of-two to enable us get better
@@ -107,6 +109,7 @@ void CompositorThreadHolder::Start() {
   // either the GPU process or the UI process, the user will have a usable
   // browser. If we get neither, it will crash as soon as we try to post to the
   // compositor thread for the first time.
+  sProfilerThreadId = ProfilerThreadId();
   sCompositorThreadHolder = new CompositorThreadHolder();
   if (!sCompositorThreadHolder->GetCompositorThread()) {
     gfxCriticalNote << "Compositor thread not started ("
@@ -167,6 +170,11 @@ bool CompositorThreadHolder::IsInCompositorThread() {
   bool in = false;
   MOZ_ALWAYS_SUCCEEDS(CompositorThread()->IsOnCurrentThread(&in));
   return in;
+}
+
+/* static */
+ProfilerThreadId CompositorThreadHolder::GetThreadId() {
+  return sCompositorThreadHolder ? sProfilerThreadId : ProfilerThreadId();
 }
 
 }  // namespace layers

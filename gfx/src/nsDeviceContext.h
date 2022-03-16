@@ -233,10 +233,6 @@ class nsDeviceContext final {
 
   mozilla::DesktopToLayoutDeviceScale GetDesktopToDeviceScale();
 
-  bool IsSyncPagePrinting() const;
-  void RegisterPageDoneCallback(PrintTarget::PageDoneCallback&& aCallback);
-  void UnregisterPageDoneCallback();
-
   void FindScreenId(uint32_t* screenId);
 
  private:

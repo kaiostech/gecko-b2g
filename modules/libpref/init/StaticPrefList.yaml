@@ -6249,12 +6249,6 @@
   value: false
   mirror: always
 
-# Whether to enable screen mirroring for external screen
-- name: gfx.screen-mirroring.enabled
-  type: bool
-  value: false
-  mirror: always
-
 #---------------------------------------------------------------------------
 # Prefs starting with "gl." (OpenGL)
 #---------------------------------------------------------------------------

@@ -169,21 +169,13 @@ void RefreshTimerVsyncDispatcher::UpdateVsyncStatus() {
     return;
   }
 
-  if (mDisplay) {
-    mDisplay->NotifyRefreshTimerVsyncStatus(NeedsVsync());
-  }
+  mDisplay->NotifyRefreshTimerVsyncStatus(NeedsVsync());
 }
 
 bool RefreshTimerVsyncDispatcher::NeedsVsync() {
   MOZ_ASSERT(NS_IsMainThread());
   auto observers = mVsyncObservers.Lock();
   return !observers->IsEmpty();
-}
-
-void
-RefreshTimerVsyncDispatcher::ClearDisplay()
-{
-  mDisplay = nullptr;
 }
 
 }  // namespace mozilla

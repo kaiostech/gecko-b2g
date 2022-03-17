@@ -602,17 +602,6 @@ class nsIWidget : public nsISupports {
   virtual float GetDPI() = 0;
 
   /**
-   * Return the Id of the internal screen.
-   */
-  virtual uint32_t GetScreenId() = 0;
-
-  /**
-   * Return whether the screen containing the window supports
-   * vsync event
-   */
-  virtual bool GetVsyncSupport() = 0;
-
-  /**
    * Return the scaling factor between device pixels and the platform-
    * dependent "desktop pixels" used to manage window positions on a
    * potentially multi-screen, mixed-resolution desktop.

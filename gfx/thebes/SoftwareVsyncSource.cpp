@@ -38,39 +38,6 @@ SoftwareDisplay::~SoftwareDisplay() {
   }
 };
 
-bool
-SoftwareDisplay::NeedNotifyVsync()
-{
-  return mPowerOn && mVsyncEnabled;
-}
-
-void SoftwareDisplay::EnableVsyncInternal(bool aEnable) {
-  MOZ_ASSERT(IsInSoftwareVsyncThread());
-  if (aEnable) {
-    TimeStamp vsyncTime = TimeStamp::Now();
-    TimeStamp outputTime = vsyncTime + mVsyncRate;
-    NotifyVsync(vsyncTime, outputTime);
-  } else {
-    if (mCurrentVsyncTask) {
-      mCurrentVsyncTask->Cancel();
-      mCurrentVsyncTask = nullptr;
-    }
-  }
-}
-
-void SoftwareDisplay::SetPowerMode(bool aEnable) {
-  if (NS_IsMainThread()) {
-    if (mPowerOn == aEnable) {
-      return;
-    }
-    mPowerOn = aEnable;
-    mVsyncThread->message_loop()->PostTask(NewRunnableMethod<bool>(
-        "SoftwareDisplay::SetPowerMode", this,
-        &SoftwareDisplay::EnableVsyncInternal, NeedNotifyVsync()));
-    return;
-  }
-}
-
 void SoftwareDisplay::EnableVsync() {
   MOZ_ASSERT(mVsyncThread->IsRunning());
   if (NS_IsMainThread()) {

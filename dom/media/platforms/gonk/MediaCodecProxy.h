@@ -187,6 +187,8 @@ class MediaCodecProxy : public RefBase {
   // Release Codec Resource
   void releaseCodec();
 
+  static void filterCodecs(Vector<AString>& aCodecs);
+
   // MediaCodec Parameter
   sp<ALooper> mCodecLooper;
   nsCString mCodecMime;

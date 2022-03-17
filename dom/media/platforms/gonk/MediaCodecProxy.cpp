@@ -131,6 +131,28 @@ void MediaCodecProxy::ReleaseMediaCodec() {
   releaseCodec();
 }
 
+/* static */
+void MediaCodecProxy::filterCodecs(Vector<AString>& aCodecs) {
+  // List of problematic codecs that will be removed from aCodecs.
+  static char const* const kDeniedCodecs[] = {"OMX.qti.audio.decoder.flac"};
+
+  size_t i = 0;
+  while (i < aCodecs.size()) {
+    bool denied = false;
+    for (const char* deniedCodec : kDeniedCodecs) {
+      if (aCodecs[i] == deniedCodec) {
+        denied = true;
+        break;
+      }
+    }
+    if (denied) {
+      aCodecs.removeAt(i);
+    } else {
+      i++;
+    }
+  }
+}
+
 bool MediaCodecProxy::allocateCodec() {
   if (!mCodecLooper) {
     return false;
@@ -139,6 +161,8 @@ bool MediaCodecProxy::allocateCodec() {
   Vector<AString> matchingCodecs;
   MediaCodecList::findMatchingCodecs(mCodecMime.get(), mCodecEncoder,
                                      mCodecFlags, &matchingCodecs);
+
+  filterCodecs(matchingCodecs);
 
   // Create MediaCodec
   for (auto& componentName : matchingCodecs) {

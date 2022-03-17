@@ -1346,7 +1346,7 @@
       let uri = Services.io.newURI(url);
       let channel = LazyModules.NetUtil.newChannel({
         uri,
-        loadingPrincipal: this._contentPrincipal,
+        loadingPrincipal: this.contentPrincipal,
         securityFlags:
           Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_INHERITS_SEC_CONTEXT,
         contentPolicyType: Ci.nsIContentPolicy.TYPE_OTHER,

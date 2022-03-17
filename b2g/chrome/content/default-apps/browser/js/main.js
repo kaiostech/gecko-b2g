@@ -15,6 +15,7 @@ let commands = [
   "action-show-prompt",
   "action-get-screenshot",
   "action-resize",
+  "action-download",
 ];
 
 function log(msg) {
@@ -50,6 +51,9 @@ class BrowserTab {
       .toggleAttribute("disabled", false);
     this.parentDocument
       .getElementById("action-resize")
+      .toggleAttribute("disabled", false);
+    this.parentDocument
+      .getElementById("action-download")
       .toggleAttribute("disabled", false);
     this.show();
   }
@@ -277,6 +281,12 @@ class BrowserTab {
     this.webview.style.width = rect.width * 0.9 + "px";
     this.webview.style.height = rect.height * 0.9 + "px";
   }
+
+  download() {
+    this.webview.download(
+      "https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2.png"
+    );
+  }
 }
 
 document.addEventListener(
@@ -330,6 +340,10 @@ document.addEventListener(
 
     this.resizeWebView = function() {
       activatedTab.resizeWebView();
+    };
+
+    this.download = function() {
+      activatedTab.download();
     };
 
     // Binding Actions

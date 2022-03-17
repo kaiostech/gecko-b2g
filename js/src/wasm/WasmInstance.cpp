@@ -1621,9 +1621,11 @@ void Instance::resetInterrupt(JSContext* cx) {
   stackLimit_ = cx->stackLimitForJitCode(JS::StackForUntrustedScript);
 }
 
+#ifdef ENABLE_WASM_EXCEPTIONS
 void Instance::setPendingException(JSObject* pendingException) {
   pendingException_ = pendingException;
 }
+#endif
 
 size_t Instance::memoryMappedSize() const {
   return memory_->buffer().wasmMappedSize();

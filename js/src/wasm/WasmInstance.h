@@ -236,12 +236,14 @@ class alignas(16) Instance {
   static constexpr size_t offsetOfValueBoxClass() {
     return offsetof(Instance, valueBoxClass_);
   }
+#ifdef ENABLE_WASM_EXCEPTIONS
   static constexpr size_t offsetOfPendingException() {
     return offsetof(Instance, pendingException_);
   }
   static constexpr size_t offsetOfPendingExceptionTag() {
     return offsetof(Instance, pendingExceptionTag_);
   }
+#endif
   static constexpr size_t offsetOfStackLimit() {
     return offsetof(Instance, stackLimit_);
   }

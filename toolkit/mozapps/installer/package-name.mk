@@ -34,7 +34,7 @@ endif
 endif
 endif
 ifeq ($(OS_ARCH),Darwin)
-MOZ_PKG_PLATFORM := mac
+MOZ_PKG_PLATFORM := mac-$(TARGET_CPU)
 endif
 ifeq ($(TARGET_OS),linux-gnu)
 MOZ_PKG_PLATFORM := linux-$(TARGET_CPU)

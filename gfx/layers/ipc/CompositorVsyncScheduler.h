@@ -170,7 +170,7 @@ class CompositorVsyncScheduler {
    private:
     virtual ~Observer();
 
-    Mutex mMutex;
+    Mutex mMutex MOZ_UNANNOTATED;
     // Hold raw pointer to avoid mutual reference.
     CompositorVsyncScheduler* mOwner;
   };
@@ -190,12 +190,12 @@ class CompositorVsyncScheduler {
   widget::CompositorWidget* mWidget;
   RefPtr<CompositorVsyncScheduler::Observer> mVsyncObserver;
 
-  mozilla::Monitor mCurrentCompositeTaskMonitor;
+  mozilla::Monitor mCurrentCompositeTaskMonitor MOZ_UNANNOTATED;
   RefPtr<CancelableRunnable> mCurrentCompositeTask;
   // Accessed on multiple threads, guarded by mCurrentCompositeTaskMonitor.
   wr::RenderReasons mCurrentCompositeTaskReasons;
 
-  mozilla::Monitor mCurrentVRTaskMonitor;
+  mozilla::Monitor mCurrentVRTaskMonitor MOZ_UNANNOTATED;
   RefPtr<CancelableRunnable> mCurrentVRTask;
 
   mozilla::Monitor mSetNeedsCompositeMonitor;

@@ -233,11 +233,13 @@ void HTMLEditor::OnStartToHandleTopLevelEditSubAction(
       "EditorBase::OnStartToHandleTopLevelEditSubAction() failed");
 
   // Remember where our selection was before edit action took place:
-  if (GetCompositionStartPoint().IsSet()) {
+  const auto atCompositionStart =
+      GetFirstIMESelectionStartPoint<EditorRawDOMPoint>();
+  if (atCompositionStart.IsSet()) {
     // If there is composition string, let's remember current composition
     // range.
     TopLevelEditSubActionDataRef().mSelectedRange->StoreRange(
-        GetCompositionStartPoint(), GetCompositionEndPoint());
+        atCompositionStart, GetLastIMESelectionEndPoint<EditorRawDOMPoint>());
   } else {
     // Get the selection location
     // XXX This may occur so that I think that we shouldn't throw exception
@@ -522,7 +524,7 @@ nsresult HTMLEditor::OnEndHandlingTopLevelEditSubActionInternal() {
         //       causes running mutation event listeners which are really
         //       expensive.
         // Adjust end of composition string if there is composition string.
-        EditorDOMPoint pointToAdjust(GetCompositionEndPoint());
+        auto pointToAdjust = GetLastIMESelectionEndPoint<EditorDOMPoint>();
         if (!pointToAdjust.IsInContentNode()) {
           // Otherwise, adjust current selection start point.
           pointToAdjust = EditorBase::GetStartPoint(SelectionRef());
@@ -1127,7 +1129,8 @@ EditActionResult HTMLEditor::HandleInsertText(
   }
 
   if (aEditSubAction == EditSubAction::eInsertTextComingFromIME) {
-    EditorRawDOMPoint compositionStartPoint = GetCompositionStartPoint();
+    auto compositionStartPoint =
+        GetFirstIMESelectionStartPoint<EditorRawDOMPoint>();
     if (!compositionStartPoint.IsSet()) {
       compositionStartPoint = pointToInsert;
     }
@@ -1146,7 +1149,7 @@ EditActionResult HTMLEditor::HandleInsertText(
       return EditActionHandled(rv);
     }
 
-    EditorRawDOMPoint compositionEndPoint = GetCompositionEndPoint();
+    auto compositionEndPoint = GetLastIMESelectionEndPoint<EditorRawDOMPoint>();
     if (!compositionEndPoint.IsSet()) {
       compositionEndPoint = compositionStartPoint;
     }
@@ -1158,8 +1161,8 @@ EditActionResult HTMLEditor::HandleInsertText(
       return EditActionHandled(rv);
     }
 
-    compositionStartPoint = GetCompositionStartPoint();
-    compositionEndPoint = GetCompositionEndPoint();
+    compositionStartPoint = GetFirstIMESelectionStartPoint<EditorRawDOMPoint>();
+    compositionEndPoint = GetLastIMESelectionEndPoint<EditorRawDOMPoint>();
     if (NS_WARN_IF(!compositionStartPoint.IsSet()) ||
         NS_WARN_IF(!compositionEndPoint.IsSet())) {
       // Mutation event listener has changed the DOM tree...
@@ -3049,27 +3052,29 @@ EditActionResult HTMLEditor::ChangeSelectedHardLinesToList(
             aListElementTagName, atStartOfSelection,
             BRElementNextToSplitPoint::Keep,
             // MOZ_CAN_RUN_SCRIPT_BOUNDARY due to bug 1758868
-            [&](Element& aListElement) MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-              Result<RefPtr<Element>, nsresult> listItemElementOrError =
-                  CreateAndInsertElement(aListElement.IsInComposedDoc()
-                                             ? WithTransaction::Yes
-                                             : WithTransaction::No,
-                                         aListItemElementTagName,
-                                         EditorDOMPoint(&aListElement, 0u));
-              if (listItemElementOrError.isErr()) {
-                NS_WARNING(nsPrintfCString(
-                               "HTMLEditor::CreateAndInsertElement(%s) failed",
-                               ToString(aListElement.IsInComposedDoc()
-                                            ? WithTransaction::Yes
-                                            : WithTransaction::No)
-                                   .c_str())
-                               .get());
-                return listItemElementOrError.unwrapErr();
-              }
-              MOZ_ASSERT(listItemElementOrError.inspect());
-              newListItemElement = listItemElementOrError.unwrap();
-              return NS_OK;
-            });
+            [&newListItemElement, &aListItemElementTagName](
+                HTMLEditor& aHTMLEditor, Element& aListElement,
+                const EditorDOMPoint& aPointToInsert)
+                MOZ_CAN_RUN_SCRIPT_BOUNDARY {
+                  const auto withTransaction = aListElement.IsInComposedDoc()
+                                                   ? WithTransaction::Yes
+                                                   : WithTransaction::No;
+                  Result<RefPtr<Element>, nsresult> listItemElementOrError =
+                      aHTMLEditor.CreateAndInsertElement(
+                          withTransaction, aListItemElementTagName,
+                          EditorDOMPoint(&aListElement, 0u));
+                  if (listItemElementOrError.isErr()) {
+                    NS_WARNING(
+                        nsPrintfCString(
+                            "HTMLEditor::CreateAndInsertElement(%s) failed",
+                            ToString(withTransaction).c_str())
+                            .get());
+                    return listItemElementOrError.unwrapErr();
+                  }
+                  MOZ_ASSERT(listItemElementOrError.inspect());
+                  newListItemElement = listItemElementOrError.unwrap();
+                  return NS_OK;
+                });
     if (MOZ_UNLIKELY(newListElementOrError.isErr())) {
       NS_WARNING(
           nsPrintfCString(
@@ -5698,12 +5703,13 @@ nsresult HTMLEditor::AlignBlockContentsWithDivElement(
   Result<RefPtr<Element>, nsresult> maybeNewDivElement = CreateAndInsertElement(
       WithTransaction::Yes, *nsGkAtoms::div, EditorDOMPoint(&aBlockElement, 0u),
       // MOZ_CAN_RUN_SCRIPT_BOUNDARY due to bug 1758868
-      [&](Element& aDivElement) MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-        // If aDivElement has not been connected yet, we do not need transaction
-        // of setting align attribute here.
-        nsresult rv =
-            SetAttributeOrEquivalent(&aDivElement, nsGkAtoms::align, aAlignType,
-                                     !aDivElement.IsInComposedDoc());
+      [&aAlignType](HTMLEditor& aHTMLEditor, Element& aDivElement,
+                    const EditorDOMPoint&) MOZ_CAN_RUN_SCRIPT_BOUNDARY {
+        // If aDivElement has not been connected yet, we do not need
+        // transaction of setting align attribute here.
+        nsresult rv = aHTMLEditor.SetAttributeOrEquivalent(
+            &aDivElement, nsGkAtoms::align, aAlignType,
+            !aDivElement.IsInComposedDoc());
         NS_WARNING_ASSERTION(
             NS_SUCCEEDED(rv),
             nsPrintfCString("EditorBase::SetAttributeOrEquivalent(nsGkAtoms:: "
@@ -6946,25 +6952,24 @@ nsresult HTMLEditor::HandleInsertParagraphInHeadingElement(
                                          : MOZ_KnownLive(paraAtom),
               atHeader.NextPoint(),
               // MOZ_CAN_RUN_SCRIPT_BOUNDARY due to bug 1758868
-              [&](Element& aDivOrParagraphElement) MOZ_CAN_RUN_SCRIPT_BOUNDARY {
+              [](HTMLEditor& aHTMLEditor, Element& aDivOrParagraphElement,
+                 const EditorDOMPoint&) MOZ_CAN_RUN_SCRIPT_BOUNDARY {
                 // We don't make inserting new <br> element undoable
                 // because removing the new element from the DOM tree
                 // gets same result for the user if aDivOrParagraphElement
                 // has not been connected yet.
+                const auto withTransaction =
+                    aDivOrParagraphElement.IsInComposedDoc()
+                        ? WithTransaction::Yes
+                        : WithTransaction::No;
                 Result<RefPtr<Element>, nsresult> brElementOrError =
-                    InsertBRElement(
-                        aDivOrParagraphElement.IsInComposedDoc()
-                            ? WithTransaction::Yes
-                            : WithTransaction::No,
+                    aHTMLEditor.InsertBRElement(
+                        withTransaction,
                         EditorDOMPoint(&aDivOrParagraphElement, 0u));
                 if (brElementOrError.isErr()) {
                   NS_WARNING(
-                      nsPrintfCString(
-                          "HTMLEditor::InsertBRElement(%s) failed",
-                          ToString(aDivOrParagraphElement.IsInComposedDoc()
-                                       ? WithTransaction::Yes
-                                       : WithTransaction::No)
-                              .c_str())
+                      nsPrintfCString("HTMLEditor::InsertBRElement(%s) failed",
+                                      ToString(withTransaction).c_str())
                           .get());
                   return brElementOrError.unwrapErr();
                 }
@@ -7393,23 +7398,25 @@ nsresult HTMLEditor::HandleInsertParagraphInListItemElement(
                                        : MOZ_KnownLive(paraAtom),
             atNextSiblingOfLeftList,
             // MOZ_CAN_RUN_SCRIPT_BOUNDARY due to bug 1758868
-            [&](Element& aDivOrParagraphElement) MOZ_CAN_RUN_SCRIPT_BOUNDARY {
+            [](HTMLEditor& aHTMLEditor, Element& aDivOrParagraphElement,
+               const EditorDOMPoint&) MOZ_CAN_RUN_SCRIPT_BOUNDARY {
               // We don't make inserting new <br> element undoable because
-              // removing the new element from the DOM tree gets same result for
-              // the user if aDivOrParagraphElement has not been connected yet.
+              // removing the new element from the DOM tree gets same result
+              // for the user if aDivOrParagraphElement has not been
+              // connected yet.
+              const auto withTransaction =
+                  aDivOrParagraphElement.IsInComposedDoc()
+                      ? WithTransaction::Yes
+                      : WithTransaction::No;
               Result<RefPtr<Element>, nsresult> brElementOrError =
-                  InsertBRElement(aDivOrParagraphElement.IsInComposedDoc()
-                                      ? WithTransaction::Yes
-                                      : WithTransaction::No,
-                                  EditorDOMPoint(&aDivOrParagraphElement, 0u));
+                  aHTMLEditor.InsertBRElement(
+                      withTransaction,
+                      EditorDOMPoint(&aDivOrParagraphElement, 0u));
               if (brElementOrError.isErr()) {
-                NS_WARNING(nsPrintfCString(
-                               "HTMLEditor::InsertBRElement(%s) failed",
-                               ToString(aDivOrParagraphElement.IsInComposedDoc()
-                                            ? WithTransaction::Yes
-                                            : WithTransaction::No)
-                                   .c_str())
-                               .get());
+                NS_WARNING(
+                    nsPrintfCString("HTMLEditor::InsertBRElement(%s) failed",
+                                    ToString(withTransaction).c_str())
+                        .get());
                 return brElementOrError.unwrapErr();
               }
               return NS_OK;
@@ -8069,7 +8076,7 @@ Result<RefPtr<Element>, nsresult>
 HTMLEditor::InsertElementWithSplittingAncestorsWithTransaction(
     nsAtom& aTagName, const EditorDOMPoint& aPointToInsert,
     BRElementNextToSplitPoint aBRElementNextToSplitPoint,
-    const std::function<nsresult(Element&)>& aInitializer) {
+    const InitializeInsertingElement& aInitializer) {
   MOZ_ASSERT(aPointToInsert.IsSetAndValid());
 
   SplitNodeResult splitNodeResult =

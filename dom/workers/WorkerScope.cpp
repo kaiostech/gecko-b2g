@@ -276,6 +276,11 @@ uint32_t WorkerGlobalScopeBase::GetPrincipalHashValue() const {
   return mWorkerPrivate->GetPrincipalHashValue();
 }
 
+OriginTrials WorkerGlobalScopeBase::Trials() const {
+  mWorkerPrivate->AssertIsOnWorkerThread();
+  return mWorkerPrivate->Trials();
+}
+
 StorageAccess WorkerGlobalScopeBase::GetStorageAccess() {
   mWorkerPrivate->AssertIsOnWorkerThread();
   return mWorkerPrivate->StorageAccess();

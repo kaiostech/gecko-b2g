@@ -5,15 +5,10 @@
 
 /* eslint no-unused-vars: [2, {"vars": "local"}] */
 /* import-globals-from ../../../shared/test/shared-head.js */
-/* import-globals-from ../../../shared/test/shared-redux-head.js */
 /* import-globals-from ../../../inspector/test/shared-head.js */
 
 Services.scriptloader.loadSubScript(
   "chrome://mochitests/content/browser/devtools/client/shared/test/shared-head.js",
-  this
-);
-Services.scriptloader.loadSubScript(
-  "chrome://mochitests/content/browser/devtools/client/shared/test/shared-redux-head.js",
   this
 );
 
@@ -158,11 +153,9 @@ function addRDMTaskWithPreAndPost(url, preTask, task, postTask, options) {
         preTaskValue = await preTask({ message, browser });
       }
 
-      const rdmValues = await openRDM(tab);
+      const rdmValues = await openRDM(tab, { waitForDeviceList });
       ui = rdmValues.ui;
       manager = rdmValues.manager;
-
-      await waitForRDMLoaded(ui, { waitForDeviceList });
     }
 
     try {
@@ -195,23 +188,6 @@ function addRDMTaskWithPreAndPost(url, preTask, task, postTask, options) {
     // any changes made by the tasks.
     await SpecialPowers.flushPrefEnv();
   });
-}
-
-/**
- * Wait for the RDM UI to be fully loaded
- */
-async function waitForRDMLoaded(ui, { waitForDeviceList }) {
-  // Always wait for the viewport to be added.
-  const { store } = ui.toolWindow;
-  await waitUntilState(store, state => state.viewports.length == 1);
-
-  if (waitForDeviceList) {
-    // Wait until the device list has been loaded.
-    await waitUntilState(
-      store,
-      state => state.devices.listState == localTypes.loadableState.LOADED
-    );
-  }
 }
 
 /**

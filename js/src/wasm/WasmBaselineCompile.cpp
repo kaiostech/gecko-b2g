@@ -155,7 +155,7 @@ bool BaseCompiler::generateOutOfLineCode() {
 
 bool BaseCompiler::addInterruptCheck() {
 #ifdef RABALDR_PIN_INSTANCE
-  Register tmp(WasmTlsReg);
+  Register tmp(InstanceReg);
 #else
   ScratchI32 tmp(*this);
   fr.loadTlsPtr(tmp);
@@ -497,7 +497,7 @@ bool BaseCompiler::beginFunction() {
   }
 
   fr.zeroLocals(&ra);
-  fr.storeTlsPtr(WasmTlsReg);
+  fr.storeTlsPtr(InstanceReg);
 
   if (compilerEnv_.debugEnabled()) {
     insertBreakablePoint(CallSiteDesc::EnterFrame);
@@ -558,9 +558,9 @@ bool BaseCompiler::endFunction() {
   }
 
 #ifndef RABALDR_PIN_INSTANCE
-  // To satisy Tls extent invariant we need to reload WasmTlsReg because
+  // To satisy Tls extent invariant we need to reload InstanceReg because
   // baseline can clobber it.
-  fr.loadTlsPtr(WasmTlsReg);
+  fr.loadTlsPtr(InstanceReg);
 #endif
   GenerateFunctionEpilogue(masm, fr.fixedAllocSize(), &offsets_);
 
@@ -576,6 +576,14 @@ bool BaseCompiler::endFunction() {
   if (!generateOutOfLineCode()) {
     return false;
   }
+  JitSpew(JitSpew_Codegen, "# endFunction: end of OOL code");
+
+  JitSpew(JitSpew_Codegen, "# endFunction: end of OOL code");
+  if (compilerEnv_.debugEnabled()) {
+    JitSpew(JitSpew_Codegen, "# endFunction: start of debug trap stub");
+    insertBreakpointStub();
+    JitSpew(JitSpew_Codegen, "# endFunction: end of debug trap stub");
+  }
 
   offsets_.end = masm.currentOffset();
 
@@ -588,15 +596,169 @@ bool BaseCompiler::endFunction() {
   return !masm.oom();
 }
 
-void BaseCompiler::popStackReturnValues(const ResultType& resultType) {
-  uint32_t bytes = ABIResultIter::MeasureStackBytes(resultType);
-  if (bytes == 0) {
-    return;
+//////////////////////////////////////////////////////////////////////////////
+//
+// Debugger API.
+
+void BaseCompiler::insertBreakablePoint(CallSiteDesc::Kind kind) {
+#ifndef RABALDR_PIN_INSTANCE
+  fr.loadTlsPtr(InstanceReg);
+#endif
+
+  // The breakpoint code must call the breakpoint handler installed on the
+  // instance if it is not null.  There is one breakable point before
+  // every bytecode, and one at the beginning and at the end of the function.
+  //
+  // There are many constraints:
+  //
+  //  - Code should be read-only; we do not want to patch
+  //  - The breakpoint code should be as dense as possible, given the volume of
+  //    breakable points
+  //  - The handler-is-null case should be as fast as we can make it
+  //
+  // The scratch register is available here.
+  //
+  // An unconditional callout would be densest but is too slow.  The best
+  // balance results from an inline test for null with a conditional call.  The
+  // best code sequence is platform-dependent.
+  //
+  // The conditional call goes to a stub attached to the function that performs
+  // further filtering before calling the breakpoint handler.
+#if defined(JS_CODEGEN_X64)
+  // REX 83 MODRM OFFS IB
+  static_assert(Instance::offsetOfDebugTrapHandler() < 128);
+  masm.cmpq(Imm32(0), Operand(Address(InstanceReg,
+                                      Instance::offsetOfDebugTrapHandler())));
+
+  // 74 OFFS
+  Label L;
+  L.bind(masm.currentOffset() + 7);
+  masm.j(Assembler::Zero, &L);
+
+  // E8 OFFS OFFS OFFS OFFS
+  masm.call(&debugTrapStub_);
+  masm.append(CallSiteDesc(iter_.lastOpcodeOffset(), kind),
+              CodeOffset(masm.currentOffset()));
+
+  // Branch destination
+  MOZ_ASSERT(masm.currentOffset() == uint32_t(L.offset()));
+#elif defined(JS_CODEGEN_X86)
+  // 83 MODRM OFFS IB
+  static_assert(Instance::offsetOfDebugTrapHandler() < 128);
+  masm.cmpl(Imm32(0), Operand(Address(InstanceReg,
+                                      Instance::offsetOfDebugTrapHandler())));
+
+  // 74 OFFS
+  Label L;
+  L.bind(masm.currentOffset() + 7);
+  masm.j(Assembler::Zero, &L);
+
+  // E8 OFFS OFFS OFFS OFFS
+  masm.call(&debugTrapStub_);
+  masm.append(CallSiteDesc(iter_.lastOpcodeOffset(), kind),
+              CodeOffset(masm.currentOffset()));
+
+  // Branch destination
+  MOZ_ASSERT(masm.currentOffset() == uint32_t(L.offset()));
+#elif defined(JS_CODEGEN_ARM64)
+  ScratchPtr scratch(*this);
+  ARMRegister tmp(scratch, 64);
+  Label L;
+  masm.Ldr(tmp, MemOperand(Address(InstanceReg,
+                                   Instance::offsetOfDebugTrapHandler())));
+  masm.Cbz(tmp, &L);
+  masm.Bl(&debugTrapStub_);
+  masm.append(CallSiteDesc(iter_.lastOpcodeOffset(), kind),
+              CodeOffset(masm.currentOffset()));
+  masm.bind(&L);
+#elif defined(JS_CODEGEN_ARM)
+  ScratchPtr scratch(*this);
+  masm.loadPtr(Address(InstanceReg, Instance::offsetOfDebugTrapHandler()),
+               scratch);
+  masm.ma_orr(scratch, scratch, SetCC);
+  masm.ma_bl(&debugTrapStub_, Assembler::NonZero);
+  masm.append(CallSiteDesc(iter_.lastOpcodeOffset(), kind),
+              CodeOffset(masm.currentOffset()));
+#elif defined(JS_CODEGEN_MIPS64)
+  // TODO - also see insertBreakpointStub()
+#elif defined(JS_CODEGEN_LOONG64)
+  // TODO - also see insertBreakpointStub()
+#else
+  MOZ_CRASH("BaseCompiler platform hook: insertBreakablePoint");
+#endif
+}
+
+void BaseCompiler::insertBreakpointStub() {
+  // The debug trap stub performs out-of-line filtering before jumping to the
+  // debug trap handler if necessary.  The trap handler returns directly to
+  // the breakable point.
+  //
+  // NOTE, the link register is live here on platforms that have LR.
+  //
+  // The scratch register is available here (as it was at the call site).
+  //
+  // It's useful for the debug trap stub to be compact, as every function gets
+  // one.
+
+  Label L;
+  masm.bind(&debugTrapStub_);
+
+#if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
+  {
+    ScratchPtr scratch(*this);
+
+    // Get the per-instance table of filtering bits.
+    masm.loadPtr(Address(InstanceReg, Instance::offsetOfDebugFilter()),
+                 scratch);
+
+    // Check the filter bit.  There is one bit per function in the module.
+    // Table elements are 32-bit because the masm makes that convenient.
+    masm.branchTestPtr(Assembler::NonZero, Address(scratch, func_.index / 32),
+                       Imm32(1 << (func_.index % 32)), &L);
+
+    // Fast path: return to the execution.
+    masm.ret();
   }
-  Register target = ABINonArgReturnReg0;
-  Register temp = ABINonArgReturnReg1;
-  fr.loadIncomingStackResultAreaPtr(RegPtr(target));
-  fr.popStackResultsToMemory(target, bytes, temp);
+#elif defined(JS_CODEGEN_ARM64)
+  {
+    ScratchPtr scratch(*this);
+
+    // Logic as above, except abiret to jump to the LR directly
+    masm.loadPtr(Address(InstanceReg, Instance::offsetOfDebugFilter()),
+                 scratch);
+    masm.branchTestPtr(Assembler::NonZero, Address(scratch, func_.index / 32),
+                       Imm32(1 << (func_.index % 32)), &L);
+    masm.abiret();
+  }
+#elif defined(JS_CODEGEN_ARM)
+  {
+    // We must be careful not to use the SecondScratchRegister, which usually
+    // is LR, as LR is live here.  This means avoiding masm abstractions such
+    // as branchTestPtr.
+
+    static_assert(ScratchRegister != lr);
+    static_assert(Instance::offsetOfDebugFilter() < 0x1000);
+
+    ScratchRegisterScope tmp1(masm);
+    ScratchI32 tmp2(*this);
+    masm.ma_ldr(
+        DTRAddr(InstanceReg, DtrOffImm(Instance::offsetOfDebugFilter())), tmp1);
+    masm.ma_mov(Imm32(func_.index / 32), tmp2);
+    masm.ma_ldr(DTRAddr(tmp1, DtrRegImmShift(tmp2, LSL, 0)), tmp2);
+    masm.ma_tst(tmp2, Imm32(1 << func_.index % 32), tmp1, Assembler::Always);
+    masm.ma_bx(lr, Assembler::Zero);
+  }
+#elif defined(JS_CODEGEN_MIPS64)
+  // TODO - also see insertBreakablePoint()
+#elif defined(JS_CODEGEN_LOONG64)
+  // TODO - also see insertBreakablePoint()
+#else
+  MOZ_CRASH("BaseCompiler platform hook: endFunction");
+#endif
+
+  // Jump to the debug trap handler.
+  masm.bind(&L);
+  masm.jump(Address(InstanceReg, Instance::offsetOfDebugTrapHandler()));
 }
 
 void BaseCompiler::saveRegisterReturnValues(const ResultType& resultType) {
@@ -700,6 +862,17 @@ void BaseCompiler::restoreRegisterReturnValues(const ResultType& resultType) {
 //////////////////////////////////////////////////////////////////////////////
 //
 // Results and block parameters
+
+void BaseCompiler::popStackReturnValues(const ResultType& resultType) {
+  uint32_t bytes = ABIResultIter::MeasureStackBytes(resultType);
+  if (bytes == 0) {
+    return;
+  }
+  Register target = ABINonArgReturnReg0;
+  Register temp = ABINonArgReturnReg1;
+  fr.loadIncomingStackResultAreaPtr(RegPtr(target));
+  fr.popStackResultsToMemory(target, bytes, temp);
+}
 
 // TODO / OPTIMIZE (Bug 1316818): At the moment we use the Wasm
 // inter-procedure ABI for block returns, which allocates ReturnReg as the
@@ -1141,16 +1314,16 @@ void BaseCompiler::endCall(FunctionCall& call, size_t stackSpace) {
 
   if (call.restoreRegisterStateAndRealm) {
     // The Tls has been clobbered, so always reload
-    fr.loadTlsPtr(WasmTlsReg);
-    masm.loadWasmPinnedRegsFromTls();
-    masm.switchToWasmTlsRealm(ABINonArgReturnReg0, ABINonArgReturnReg1);
+    fr.loadTlsPtr(InstanceReg);
+    masm.loadWasmPinnedRegsFromInstance();
+    masm.switchToWasmInstanceRealm(ABINonArgReturnReg0, ABINonArgReturnReg1);
   } else if (call.usesSystemAbi) {
     // On x86 there are no pinned registers, so don't waste time
     // reloading the Tls.
 #ifndef JS_CODEGEN_X86
     // The Tls has been clobbered, so always reload
-    fr.loadTlsPtr(WasmTlsReg);
-    masm.loadWasmPinnedRegsFromTls();
+    fr.loadTlsPtr(InstanceReg);
+    masm.loadWasmPinnedRegsFromInstance();
 #endif
   }
 }
@@ -1403,7 +1576,7 @@ CodeOffset BaseCompiler::builtinInstanceMethodCall(
     const FunctionCall& call) {
 #ifndef RABALDR_PIN_INSTANCE
   // Builtin method calls assume the TLS register has been set.
-  fr.loadTlsPtr(WasmTlsReg);
+  fr.loadTlsPtr(InstanceReg);
 #endif
   CallSiteDesc desc(call.lineOrBytecode, CallSiteDesc::Symbolic);
   return masm.wasmCallBuiltinInstanceMethod(desc, instanceArg, builtin.identity,
@@ -1446,14 +1619,14 @@ void BaseCompiler::consumePendingException(RegRef* exnDst, RegRef* tagDst) {
   RegPtr pendingAddr = RegPtr(PreBarrierReg);
   needPtr(pendingAddr);
   masm.computeEffectiveAddress(
-      Address(WasmTlsReg, Instance::offsetOfPendingException()), pendingAddr);
+      Address(InstanceReg, Instance::offsetOfPendingException()), pendingAddr);
   *exnDst = needRef();
   masm.loadPtr(Address(pendingAddr, 0), *exnDst);
   emitBarrieredClear(pendingAddr);
 
   *tagDst = needRef();
   masm.computeEffectiveAddress(
-      Address(WasmTlsReg, Instance::offsetOfPendingExceptionTag()),
+      Address(InstanceReg, Instance::offsetOfPendingExceptionTag()),
       pendingAddr);
   masm.loadPtr(Address(pendingAddr, 0), *tagDst);
   emitBarrieredClear(pendingAddr);
@@ -1906,7 +2079,7 @@ void BaseCompiler::convertI64ToF64(RegI64 src, bool isUnsigned, RegF64 dest,
 Address BaseCompiler::addressOfGlobalVar(const GlobalDesc& global, RegPtr tmp) {
   uint32_t globalToTlsOffset = Instance::offsetOfGlobalArea() + global.offset();
 #ifdef RABALDR_PIN_INSTANCE
-  movePtr(RegPtr(WasmTlsReg), tmp);
+  movePtr(RegPtr(InstanceReg), tmp);
 #else
   fr.loadTlsPtr(tmp);
 #endif
@@ -3845,10 +4018,10 @@ bool BaseCompiler::emitDelegate() {
   tryNote.entryPoint = tryNote.end;
   tryNote.framePushed = masm.framePushed();
 
-  // Store the Instance that was left in WasmTlsReg by the exception handling
-  // mechanism, that is this frame's Instance but with the exception filled in
-  // Instance::pendingException.
-  fr.storeTlsPtr(WasmTlsReg);
+  // Store the Instance that was left in InstanceReg by the exception
+  // handling mechanism, that is this frame's Instance but with the exception
+  // filled in Instance::pendingException.
+  fr.storeTlsPtr(InstanceReg);
 
   // If the target block is a non-try block, skip over it and find the next
   // try block or the very last block (to re-throw out of the function).
@@ -3933,10 +4106,10 @@ bool BaseCompiler::endTryCatch(ResultType type) {
     tryNote.end = tryNote.entryPoint;
   }
 
-  // Store the Instance that was left in WasmTlsReg by the exception handling
-  // mechanism, that is this frame's Instance but with the exception filled in
-  // Instance::pendingException.
-  fr.storeTlsPtr(WasmTlsReg);
+  // Store the Instance that was left in InstanceReg by the exception
+  // handling mechanism, that is this frame's Instance but with the exception
+  // filled in Instance::pendingException.
+  fr.storeTlsPtr(InstanceReg);
 
   // Load exception pointer from Instance and make sure that it is
   // saved before the following call will clear it.
@@ -3958,7 +4131,7 @@ bool BaseCompiler::endTryCatch(ResultType type) {
   for (CatchInfo& info : tryCatch.catchInfos) {
     if (info.tagIndex != CatchAllIndex) {
       MOZ_ASSERT(!hasCatchAll);
-      loadTag(RegPtr(WasmTlsReg), info.tagIndex, catchTag);
+      loadTag(RegPtr(InstanceReg), info.tagIndex, catchTag);
       masm.branchPtr(Assembler::Equal, tag, catchTag, &info.label);
     } else {
       masm.jump(&info.label);
@@ -4011,7 +4184,7 @@ bool BaseCompiler::emitThrow() {
 
   // Load the tag object
 #  ifdef RABALDR_PIN_INSTANCE
-  RegPtr tls(WasmTlsReg);
+  RegPtr tls(InstanceReg);
 #  else
   RegPtr tls = needPtr();
   fr.loadTlsPtr(tls);
@@ -4198,7 +4371,7 @@ bool BaseCompiler::emitCallArgs(const ValTypeVector& argTypes,
   }
 
 #ifndef RABALDR_PIN_INSTANCE
-  fr.loadTlsPtr(WasmTlsReg);
+  fr.loadTlsPtr(InstanceReg);
 #endif
   return true;
 }
@@ -5679,7 +5852,7 @@ void BaseCompiler::emitPreBarrier(RegPtr valueAddr) {
   ScratchPtr scratch(*this);
 
 #ifdef RABALDR_PIN_INSTANCE
-  Register tls(WasmTlsReg);
+  Register tls(InstanceReg);
 #else
   Register tls(scratch);
   fr.loadTlsPtr(tls);
@@ -5775,7 +5948,7 @@ void BaseCompiler::emitGcCanon(uint32_t typeIndex) {
   const TypeIdDesc& typeId = moduleEnv_.typeIds[typeIndex];
   RegRef rp = needRef();
 #  ifndef RABALDR_PIN_INSTANCE
-  fr.loadTlsPtr(WasmTlsReg);
+  fr.loadTlsPtr(InstanceReg);
 #  endif
   masm.loadWasmGlobalPtr(typeId.globalDataOffset(), rp);
   pushRef(rp);
@@ -6814,55 +6987,55 @@ static void DotI16x8(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
 }
 
 static void ExtMulLowI8x16(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.extMulLowInt8x16(rs, rsd);
+  masm.extMulLowInt8x16(rsd, rs, rsd);
 }
 
 static void ExtMulHighI8x16(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.extMulHighInt8x16(rs, rsd);
+  masm.extMulHighInt8x16(rsd, rs, rsd);
 }
 
 static void ExtMulLowUI8x16(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.unsignedExtMulLowInt8x16(rs, rsd);
+  masm.unsignedExtMulLowInt8x16(rsd, rs, rsd);
 }
 
 static void ExtMulHighUI8x16(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.unsignedExtMulHighInt8x16(rs, rsd);
+  masm.unsignedExtMulHighInt8x16(rsd, rs, rsd);
 }
 
 static void ExtMulLowI16x8(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.extMulLowInt16x8(rs, rsd);
+  masm.extMulLowInt16x8(rsd, rs, rsd);
 }
 
 static void ExtMulHighI16x8(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.extMulHighInt16x8(rs, rsd);
+  masm.extMulHighInt16x8(rsd, rs, rsd);
 }
 
 static void ExtMulLowUI16x8(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.unsignedExtMulLowInt16x8(rs, rsd);
+  masm.unsignedExtMulLowInt16x8(rsd, rs, rsd);
 }
 
 static void ExtMulHighUI16x8(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.unsignedExtMulHighInt16x8(rs, rsd);
+  masm.unsignedExtMulHighInt16x8(rsd, rs, rsd);
 }
 
 static void ExtMulLowI32x4(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.extMulLowInt32x4(rs, rsd);
+  masm.extMulLowInt32x4(rsd, rs, rsd);
 }
 
 static void ExtMulHighI32x4(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.extMulHighInt32x4(rs, rsd);
+  masm.extMulHighInt32x4(rsd, rs, rsd);
 }
 
 static void ExtMulLowUI32x4(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.unsignedExtMulLowInt32x4(rs, rsd);
+  masm.unsignedExtMulLowInt32x4(rsd, rs, rsd);
 }
 
 static void ExtMulHighUI32x4(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.unsignedExtMulHighInt32x4(rs, rsd);
+  masm.unsignedExtMulHighInt32x4(rsd, rs, rsd);
 }
 
 static void Q15MulrSatS(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.q15MulrSatInt16x8(rs, rsd);
+  masm.q15MulrSatInt16x8(rsd, rs, rsd);
 }
 
 static void CmpI8x16(MacroAssembler& masm, Assembler::Condition cond,
@@ -6883,13 +7056,13 @@ static void CmpI32x4(MacroAssembler& masm, Assembler::Condition cond,
 #  if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
 static void CmpI64x2ForEquality(MacroAssembler& masm, Assembler::Condition cond,
                                 RegV128 rs, RegV128 rsd) {
-  masm.compareForEqualityInt64x2(cond, rs, rsd);
+  masm.compareForEqualityInt64x2(cond, rsd, rs, rsd);
 }
 
 static void CmpI64x2ForOrdering(MacroAssembler& masm, Assembler::Condition cond,
                                 RegV128 rs, RegV128 rsd, RegV128 temp1,
                                 RegV128 temp2) {
-  masm.compareForOrderingInt64x2(cond, rs, rsd, temp1, temp2);
+  masm.compareForOrderingInt64x2(cond, rsd, rs, rsd, temp1, temp2);
 }
 #  else
 static void CmpI64x2ForEquality(MacroAssembler& masm, Assembler::Condition cond,
@@ -7473,7 +7646,7 @@ static void BitmaskI64x2(MacroAssembler& masm, RegV128 rs, RegI32 rd,
 #  endif
 
 static void Swizzle(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.swizzleInt8x16(rs, rsd);
+  masm.swizzleInt8x16(rsd, rs, rsd);
 }
 
 static void ConvertI32x4ToF32x4(MacroAssembler& masm, RegV128 rs, RegV128 rd) {
@@ -7565,7 +7738,7 @@ static void RelaxedFmsF64x2(MacroAssembler& masm, RegV128 rs1, RegV128 rs2,
 }
 
 static void RelaxedSwizzle(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {
-  masm.swizzleInt8x16Relaxed(rs, rsd);
+  masm.swizzleInt8x16Relaxed(rsd, rs, rsd);
 }
 
 static void RelaxedMinF32x4(MacroAssembler& masm, RegV128 rs, RegV128 rsd) {

@@ -43,8 +43,10 @@ class nsHttpResponseHead {
   nsHttpResponseHead(const nsHttpResponseHead& aOther);
   nsHttpResponseHead& operator=(const nsHttpResponseHead& aOther);
 
+  PUSH_IGNORE_THREAD_SAFETY
   void Enter() const { mRecursiveMutex.Lock(); }
   void Exit() const { mRecursiveMutex.Unlock(); }
+  POP_THREAD_SAFETY
 
   HttpVersion Version();
   uint16_t Status() const;
@@ -207,7 +209,8 @@ class nsHttpResponseHead {
 
   // We are using RecursiveMutex instead of a Mutex because VisitHeader
   // function calls nsIHttpHeaderVisitor::VisitHeader while under lock.
-  mutable RecursiveMutex mRecursiveMutex{"nsHttpResponseHead.mRecursiveMutex"};
+  mutable RecursiveMutex mRecursiveMutex MOZ_UNANNOTATED{
+      "nsHttpResponseHead.mRecursiveMutex"};
   // During VisitHeader we sould not allow cal to SetHeader.
   bool mInVisitHeaders{false};
 

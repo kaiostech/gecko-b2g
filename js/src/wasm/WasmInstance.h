@@ -44,8 +44,8 @@ using mozilla::Atomic;
 class FuncImport;
 class WasmFrameIter;
 
-struct FuncImportTls;
-struct TableTls;
+struct FuncImportInstanceData;
+struct TableInstanceData;
 struct TableDesc;
 struct TagDesc;
 
@@ -77,6 +77,10 @@ class alignas(16) Instance {
   //
   // See "Linear memory addresses and bounds checking" in WasmMemory.cpp.
   uintptr_t boundsCheckLimit_;
+
+  // Null or a pointer to a per-process builtin thunk that will invoke the Debug
+  // Trap Handler.
+  void* debugTrapHandler_;
 
   // The containing JS::Realm.
   JS::Realm* realm_;
@@ -163,6 +167,14 @@ class alignas(16) Instance {
   // The wasm::DebugState for this instance, if any
   const UniqueDebugState maybeDebug_;
 
+  // If debugging, this is a per-funcIndex bit table denoting whether debugging
+  // is currently enabled for the function within the instance.  The flag is set
+  // if any breakpoint or function entry or exit point needs to be visited.  It
+  // is OK to conservatively set this flag, but there is very significant
+  // overhead to taking a breakpoint trap, so managing it precisely is
+  // worthwhile.
+  uint32_t* debugFilter_;
+
 #ifdef ENABLE_WASM_GC
   // A flag to control whether a pass to trace types in global data is
   // necessary or not. Purely an optimization
@@ -179,8 +191,8 @@ class alignas(16) Instance {
 
   // Internal helpers:
   const void** addressOfTypeId(const TypeIdDesc& typeId) const;
-  FuncImportTls& funcImportTls(const FuncImport& fi);
-  TableTls& tableTls(const TableDesc& td) const;
+  FuncImportInstanceData& funcImportInstanceData(const FuncImport& fi);
+  TableInstanceData& tableInstanceData(const TableDesc& td) const;
 #ifdef ENABLE_WASM_EXCEPTIONS
   GCPtrWasmTagObject& tagTls(const TagDesc& td) const;
 #endif
@@ -193,8 +205,8 @@ class alignas(16) Instance {
                   uint64_t* argv);
 
   Instance(JSContext* cx, HandleWasmInstanceObject object, SharedCode code,
-           HandleWasmMemoryObject memory,
-           SharedTableVector&& tables, UniqueDebugState maybeDebug);
+           HandleWasmMemoryObject memory, SharedTableVector&& tables,
+           UniqueDebugState maybeDebug);
   ~Instance();
 
  public:
@@ -230,18 +242,23 @@ class alignas(16) Instance {
   static constexpr size_t offsetOfBoundsCheckLimit() {
     return offsetof(Instance, boundsCheckLimit_);
   }
+  static constexpr size_t offsetOfDebugTrapHandler() {
+    return offsetof(Instance, debugTrapHandler_);
+  }
 
   static constexpr size_t offsetOfRealm() { return offsetof(Instance, realm_); }
   static constexpr size_t offsetOfCx() { return offsetof(Instance, cx_); }
   static constexpr size_t offsetOfValueBoxClass() {
     return offsetof(Instance, valueBoxClass_);
   }
+#ifdef ENABLE_WASM_EXCEPTIONS
   static constexpr size_t offsetOfPendingException() {
     return offsetof(Instance, pendingException_);
   }
   static constexpr size_t offsetOfPendingExceptionTag() {
     return offsetof(Instance, pendingExceptionTag_);
   }
+#endif  // ENABLE_WASM_EXCEPTIONS
   static constexpr size_t offsetOfStackLimit() {
     return offsetof(Instance, stackLimit_);
   }
@@ -269,11 +286,16 @@ class alignas(16) Instance {
   static constexpr size_t offsetOfPreBarrierCode() {
     return offsetof(Instance, preBarrierCode_);
   }
+  static constexpr size_t offsetOfDebugFilter() {
+    return offsetof(Instance, debugFilter_);
+  }
   static constexpr size_t offsetOfGlobalArea() {
     return offsetof(Instance, globalArea_);
   }
 
   JSContext* cx() const { return cx_; }
+  void* debugTrapHandler() const { return debugTrapHandler_; }
+  void setDebugTrapHandler(void* newHandler) { debugTrapHandler_ = newHandler; }
   JS::Realm* realm() const { return realm_; }
   bool debugEnabled() const { return !!maybeDebug_; }
   DebugState& debug() { return *maybeDebug_; }
@@ -287,11 +309,13 @@ class alignas(16) Instance {
 
   // Methods to set, test and clear the interrupt fields. Both interrupt
   // fields are Relaxed and so no consistency/ordering can be assumed.
+
   void setInterrupt();
   bool isInterrupted() const;
   void resetInterrupt(JSContext* cx);
 
-  void setPendingException(JSObject* pendingException);
+  bool debugFilter(uint32_t funcIndex) const;
+  void setDebugFilter(uint32_t funcIndex, bool value);
 
   const Code& code() const { return *code_; }
   inline const CodeTier& code(Tier t) const;

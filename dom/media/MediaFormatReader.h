@@ -77,7 +77,6 @@ class MediaFormatReader final
   typedef MozPromise<bool, MediaResult, IsExclusive> NotifyDataArrivedPromise;
 
  public:
-  MOZ_DECLARE_THREADSAFEWEAKREFERENCE_TYPENAME(MediaFormatReader)
   MOZ_DECLARE_REFCOUNTED_TYPENAME(MediaFormatReader)
 
   using TrackSet = EnumSet<TrackInfo::TrackType>;
@@ -392,7 +391,7 @@ class MediaFormatReader final
     // as those can be read outside the TaskQueue.
     // They are only written on the TaskQueue however, as such mMutex doesn't
     // need to be held when those members are read on the TaskQueue.
-    Mutex mMutex;
+    Mutex mMutex MOZ_UNANNOTATED;
     // The platform decoder.
     RefPtr<MediaDataDecoder> mDecoder;
     nsCString mDescription;

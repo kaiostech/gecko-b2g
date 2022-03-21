@@ -18,6 +18,7 @@
 #include "MediaInfo.h"
 #include "MediaTelemetryConstants.h"
 #include "VPXDecoder.h"
+#include "AOMDecoder.h"
 #include "VideoUtils.h"
 #include "WMFDecoderModule.h"
 #include "WMFUtils.h"
@@ -61,14 +62,6 @@ const GUID MFVideoFormat_VP90 = {
     0x0010,
     {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
 #endif
-
-// Note: CLSID_WebmMfVpxDec needs to be extern for the CanCreateWMFDecoder
-// template in WMFDecoderModule.cpp to work.
-extern const GUID CLSID_WebmMfVpxDec = {
-    0xe3aaf548,
-    0xc9a4,
-    0x4c6e,
-    {0x23, 0x4d, 0x5a, 0xda, 0x37, 0x4b, 0x00, 0x00}};
 
 #if !defined(__MINGW32__) && _WIN32_WINNT < _WIN32_WINNT_WIN8
 const GUID MF_SA_MINIMUM_OUTPUT_SAMPLE_COUNT = {
@@ -162,6 +155,8 @@ WMFVideoMFTManager::WMFVideoMFTManager(
     mStreamType = VP8;
   } else if (VPXDecoder::IsVP9(aConfig.mMimeType)) {
     mStreamType = VP9;
+  } else if (AOMDecoder::IsAV1(aConfig.mMimeType)) {
+    mStreamType = AV1;
   } else {
     mStreamType = Unknown;
   }
@@ -178,20 +173,6 @@ WMFVideoMFTManager::~WMFVideoMFTManager() {
   MOZ_COUNT_DTOR(WMFVideoMFTManager);
 }
 
-const GUID& WMFVideoMFTManager::GetMFTGUID() {
-  MOZ_ASSERT(mStreamType != Unknown);
-  switch (mStreamType) {
-    case H264:
-      return CLSID_CMSH264DecoderMFT;
-    case VP8:
-      return CLSID_WebmMfVpxDec;
-    case VP9:
-      return CLSID_WebmMfVpxDec;
-    default:
-      return GUID_NULL;
-  };
-}
-
 const GUID& WMFVideoMFTManager::GetMediaSubtypeGUID() {
   MOZ_ASSERT(mStreamType != Unknown);
   switch (mStreamType) {
@@ -201,6 +182,8 @@ const GUID& WMFVideoMFTManager::GetMediaSubtypeGUID() {
       return MFVideoFormat_VP80;
     case VP9:
       return MFVideoFormat_VP90;
+    case AV1:
+      return MFVideoFormat_AV1;
     default:
       return GUID_NULL;
   };
@@ -250,28 +233,58 @@ bool WMFVideoMFTManager::InitializeDXVA() {
 }
 
 MediaResult WMFVideoMFTManager::ValidateVideoInfo() {
-  if (mStreamType != H264 ||
-      StaticPrefs::media_wmf_allow_unsupported_resolutions()) {
-    return NS_OK;
-  }
+  switch (mStreamType) {
+    case H264:
+      if (!StaticPrefs::media_wmf_allow_unsupported_resolutions()) {
+        // The WMF H.264 decoder is documented to have a minimum resolution
+        // 48x48 pixels for resolution, but we won't enable hw decoding for the
+        // resolution < 132 pixels. It's assumed the software decoder doesn't
+        // have this limitation, but it still might have maximum resolution
+        // limitation.
+        // https://msdn.microsoft.com/en-us/library/windows/desktop/dd797815(v=vs.85).aspx
+        const bool Is4KCapable =
+            IsWin8OrLater() || IsWin7H264Decoder4KCapable();
+        static const int32_t MAX_H264_PIXEL_COUNT =
+            Is4KCapable ? 4096 * 2304 : 1920 * 1088;
+        const CheckedInt32 pixelCount =
+            CheckedInt32(mVideoInfo.mImage.width) * mVideoInfo.mImage.height;
 
-  // The WMF H.264 decoder is documented to have a minimum resolution 48x48
-  // pixels for resolution, but we won't enable hw decoding for the resolution <
-  // 132 pixels. It's assumed the software decoder doesn't have this limitation,
-  // but it still might have maximum resolution limitation.
-  // https://msdn.microsoft.com/en-us/library/windows/desktop/dd797815(v=vs.85).aspx
-  const bool Is4KCapable = IsWin8OrLater() || IsWin7H264Decoder4KCapable();
-  static const int32_t MAX_H264_PIXEL_COUNT =
-      Is4KCapable ? 4096 * 2304 : 1920 * 1088;
-  const CheckedInt32 pixelCount =
-      CheckedInt32(mVideoInfo.mImage.width) * mVideoInfo.mImage.height;
+        if (!pixelCount.isValid() ||
+            pixelCount.value() > MAX_H264_PIXEL_COUNT) {
+          mIsValid = false;
+          return MediaResult(
+              NS_ERROR_DOM_MEDIA_FATAL_ERR,
+              RESULT_DETAIL("Can't decode H.264 stream because its "
+                            "resolution is out of the maximum limitation"));
+        }
+      }
+      break;
+    case VP9:
+      if (mVideoInfo.mExtraData && !mVideoInfo.mExtraData->IsEmpty()) {
+        // Read VP codec configuration to allow us to fail before decoding an
+        // unsupported sample.
+        VPXDecoder::VPXStreamInfo vpxInfo;
+        VPXDecoder::ReadVPCCBox(vpxInfo, mVideoInfo.mExtraData);
 
-  if (!pixelCount.isValid() || pixelCount.value() > MAX_H264_PIXEL_COUNT) {
-    mIsValid = false;
-    return MediaResult(
-        NS_ERROR_DOM_MEDIA_FATAL_ERR,
-        RESULT_DETAIL("Can't decode H.264 stream because its "
-                      "resolution is out of the maximum limitation"));
+        // Check for VPX MFT's supported profiles.
+        if (vpxInfo.mProfile != 0 && vpxInfo.mProfile != 2) {
+          return MediaResult(
+              NS_ERROR_DOM_MEDIA_FATAL_ERR,
+              RESULT_DETAIL("Can only decode VP9 streams in profiles 0 or 2."));
+        }
+
+        // Profiles 0 and 2 should always use 4:2:0, but in case we somehow get
+        // a compatible profile with incompatible subsampling, fail here.
+        if (!vpxInfo.mSubSampling_x || !vpxInfo.mSubSampling_y) {
+          return MediaResult(
+              NS_ERROR_DOM_MEDIA_FATAL_ERR,
+              RESULT_DETAIL(
+                  "Can't decode VP9 stream encoded in YUV 4:2:2 or 4:4:4."));
+        }
+      }
+      break;
+    default:
+      break;
   }
 
   return NS_OK;
@@ -310,7 +323,16 @@ MediaResult WMFVideoMFTManager::InitInternal() {
                  InitializeDXVA();
 
   RefPtr<MFTDecoder> decoder = new MFTDecoder();
-  HRESULT hr = decoder->Create(GetMFTGUID());
+  const GUID subtype = GetMediaSubtypeGUID();
+  HRESULT hr =
+      decoder->Create(MFT_CATEGORY_VIDEO_DECODER, subtype, MFVideoFormat_NV12);
+  if (FAILED(hr)) {
+    NS_WARNING(
+        "Hardware decoder MFT creation failed, trying software decoding");
+    hr = decoder->Create(
+        MFT_CATEGORY_VIDEO_DECODER, subtype,
+        mStreamType == H264 ? MFVideoFormat_YUY2 : MFVideoFormat_YV12);
+  }
   NS_ENSURE_TRUE(SUCCEEDED(hr),
                  MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                              RESULT_DETAIL("Can't create the MFT decoder.")));
@@ -333,7 +355,8 @@ MediaResult WMFVideoMFTManager::InitInternal() {
       }
     }
 
-    if (StaticPrefs::media_wmf_no_copy_nv12_textures() && mDXVA2Manager &&
+    if (StaticPrefs::media_wmf_no_copy_nv12_textures() &&
+        mKnowsCompositor->UsingHardwareWebRender() && mDXVA2Manager &&
         mDXVA2Manager->IsD3D11() && XRE_IsGPUProcess()) {
       mNoCopyNV12Texture = true;
       const int kOutputBufferSize = 10;
@@ -376,10 +399,11 @@ MediaResult WMFVideoMFTManager::InitInternal() {
       // MFT_MESSAGE_SET_D3D_MANAGER failed
       mDXVA2Manager.reset();
     }
-    if (mStreamType == VP9 || mStreamType == VP8) {
-      return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                         RESULT_DETAIL("Use VP8/9 MFT only if HW acceleration "
-                                       "is available."));
+    if (mStreamType == VP9 || mStreamType == VP8 || mStreamType == AV1) {
+      return MediaResult(
+          NS_ERROR_DOM_MEDIA_FATAL_ERR,
+          RESULT_DETAIL("Use VP8/VP9/AV1 MFT only if HW acceleration "
+                        "is available."));
     }
     Telemetry::Accumulate(Telemetry::MEDIA_DECODER_BACKEND_USED,
                           uint32_t(media::MediaDecoderBackend::WMFSoftware));
@@ -392,14 +416,14 @@ MediaResult WMFVideoMFTManager::InitInternal() {
       MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                   RESULT_DETAIL("Fail to set the decoder media types.")));
 
-  RefPtr<IMFMediaType> outputType;
-  hr = mDecoder->GetOutputMediaType(outputType);
+  RefPtr<IMFMediaType> inputType;
+  hr = mDecoder->GetInputMediaType(inputType);
   NS_ENSURE_TRUE(
       SUCCEEDED(hr),
       MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                  RESULT_DETAIL("Fail to get the output media type.")));
+                  RESULT_DETAIL("Fail to get the input media type.")));
 
-  if (mUseHwAccel && !CanUseDXVA(outputType, mFramerate)) {
+  if (mUseHwAccel && !CanUseDXVA(inputType, mFramerate)) {
     mDXVAEnabled = false;
     // DXVA initialization with current decoder actually failed,
     // re-do initialization.
@@ -408,6 +432,13 @@ MediaResult WMFVideoMFTManager::InitInternal() {
 
   LOG("Video Decoder initialized, Using DXVA: %s",
       (mUseHwAccel ? "Yes" : "No"));
+
+  RefPtr<IMFMediaType> outputType;
+  hr = mDecoder->GetOutputMediaType(outputType);
+  NS_ENSURE_TRUE(
+      SUCCEEDED(hr),
+      MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                  RESULT_DETAIL("Fail to get the output media type.")));
 
   if (mUseHwAccel) {
     hr = mDXVA2Manager->ConfigureForSize(
@@ -535,29 +566,31 @@ WMFVideoMFTManager::Input(MediaRawData* aSample) {
   return mDecoder->Input(inputSample);
 }
 
-// The MFTransform we use for decoding h264 video will silently fall
+// The MFTransforms we use for decoding H264 and AV1 video will silently fall
 // back to software decoding (even if we've negotiated DXVA) if the GPU
-// doesn't support decoding the given resolution. It will then upload
+// doesn't support decoding the given codec and resolution. It will then upload
 // the software decoded frames into d3d textures to preserve behaviour.
 //
 // Unfortunately this seems to cause corruption (see bug 1193547) and is
 // slow because the upload is done into a non-shareable texture and requires
 // us to copy it.
 //
-// This code tests if the given resolution can be supported directly on the GPU,
-// and makes sure we only ask the MFT for DXVA if it can be supported properly.
+// This code tests if the given codec and resolution can be supported directly
+// on the GPU, and makes sure we only ask the MFT for DXVA if it can be
+// supported properly.
 //
 // Ideally we'd know the framerate during initialization and would also ensure
 // that new decoders are created if the resolution changes. Then we could move
 // this check into Init and consolidate the main thread blocking code.
 bool WMFVideoMFTManager::CanUseDXVA(IMFMediaType* aType, float aFramerate) {
   MOZ_ASSERT(mDXVA2Manager);
-  // SupportsConfig only checks for valid h264 decoders currently.
-  if (mStreamType != H264) {
-    return true;
+  // Check if we're able to use hardware decoding with H264 or AV1.
+  // TODO: Do the same for VPX, if the VPX MFT has a slow software fallback?
+  if (mStreamType == H264 || mStreamType == AV1) {
+    return mDXVA2Manager->SupportsConfig(aType, aFramerate);
   }
 
-  return mDXVA2Manager->SupportsConfig(aType, aFramerate);
+  return true;
 }
 
 TimeUnit WMFVideoMFTManager::GetSampleDurationOrLastKnownDuration(
@@ -854,6 +887,18 @@ WMFVideoMFTManager::Output(int64_t aStreamOffset, RefPtr<MediaData>& aOutData) {
       }
       TimeUnit pts = GetSampleTime(sample);
       TimeUnit duration = GetSampleDurationOrLastKnownDuration(sample);
+
+      // AV1 MFT fix: Sample duration after seeking is always equal to the
+      // sample time, for some reason. Set it to last duration instead.
+      if (mStreamType == AV1 && duration == pts) {
+        LOG("Video sample duration (%" PRId64 ") matched timestamp (%" PRId64
+            "), setting to previous sample duration (%" PRId64 ") instead.",
+            pts.ToMicroseconds(), duration.ToMicroseconds(),
+            mLastDuration.ToMicroseconds());
+        duration = mLastDuration;
+        sample->SetSampleDuration(UsecsToHNs(duration.ToMicroseconds()));
+      }
+
       if (!pts.IsValid() || !duration.IsValid()) {
         return E_FAIL;
       }

@@ -470,12 +470,3 @@ linux-tsan-tests:
 
 gonk-b2g-x86_64-tests:
     - xpcshell
-
-domstreams-tests:
-    - crashtest
-    - mochitest-plain
-    - test-verify
-    - test-verify-wpt
-    - web-platform-tests
-    - web-platform-tests-crashtest
-    

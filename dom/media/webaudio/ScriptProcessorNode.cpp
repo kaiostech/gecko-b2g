@@ -80,7 +80,7 @@ class SharedBuffers final {
     // Synchronizes access to mBufferList.  Note that it's the responsibility
     // of the callers to perform the required locking, and we assert that every
     // time we access mBufferList.
-    Mutex mMutex;
+    Mutex mMutex MOZ_UNANNOTATED;
     // The list representing the queue.
     BufferList mBufferList;
   };
@@ -529,6 +529,11 @@ void ScriptProcessorNode::UpdateConnectedStatus() {
     MarkActive();
   } else {
     MarkInactive();
+  }
+
+  // MarkInactive above might have released this node, check if it has a track.
+  if (!mTrack) {
+    return;
   }
 
   auto engine = static_cast<ScriptProcessorNodeEngine*>(mTrack->Engine());

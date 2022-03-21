@@ -192,7 +192,6 @@ const JSClassOps DebuggerFrame::classOps_ = {
     nullptr,                         // mayResolve
     finalize,                        // finalize
     nullptr,                         // call
-    nullptr,                         // hasInstance
     nullptr,                         // construct
     CallTraceMethod<DebuggerFrame>,  // trace
 };
@@ -835,7 +834,8 @@ bool DebuggerFrame::incrementStepperCounter(JSContext* cx,
   wasm::Instance* instance = referent.asWasmDebugFrame()->instance();
   wasm::DebugFrame* wasmFrame = referent.asWasmDebugFrame();
   // Single stepping toggled off->on.
-  if (!instance->debug().incrementStepperCount(cx, wasmFrame->funcIndex())) {
+  if (!instance->debug().incrementStepperCount(cx, instance,
+                                               wasmFrame->funcIndex())) {
     return false;
   }
 
@@ -869,7 +869,8 @@ void DebuggerFrame::decrementStepperCounter(JS::GCContext* gcx,
   wasm::Instance* instance = referent.asWasmDebugFrame()->instance();
   wasm::DebugFrame* wasmFrame = referent.asWasmDebugFrame();
   // Single stepping toggled on->off.
-  instance->debug().decrementStepperCount(gcx, wasmFrame->funcIndex());
+  instance->debug().decrementStepperCount(gcx, instance,
+                                          wasmFrame->funcIndex());
 }
 
 void DebuggerFrame::decrementStepperCounter(JS::GCContext* gcx,
@@ -925,14 +926,17 @@ bool DebuggerFrame::getArguments(JSContext* cx, HandleDebuggerFrame frame,
 static bool EvaluateInEnv(JSContext* cx, Handle<Env*> env,
                           AbstractFramePtr frame,
                           mozilla::Range<const char16_t> chars,
-                          const char* filename, unsigned lineno,
+                          const EvalOptions& evalOptions,
                           MutableHandleValue rval) {
   cx->check(env, frame);
 
   CompileOptions options(cx);
+  const char* filename =
+      evalOptions.filename() ? evalOptions.filename() : "debugger eval code";
   options.setIsRunOnce(true)
       .setNoScriptRval(false)
-      .setFileAndLine(filename, lineno)
+      .setFileAndLine(filename, evalOptions.lineno())
+      .setHideScriptFromDebugger(evalOptions.hideFromDebugger())
       .setIntroductionType("debugger eval")
       /* Do not perform the Javascript filename validation security check for
        * javascript executions sent through the debugger. Besides making up
@@ -1083,10 +1087,7 @@ Result<Completion> js::DebuggerGenericEval(
   RootedValue rval(cx);
   AbstractFramePtr frame = iter ? iter->abstractFramePtr() : NullFramePtr();
 
-  bool ok = EvaluateInEnv(
-      cx, env, frame, chars,
-      options.filename() ? options.filename() : "debugger eval code",
-      options.lineno(), &rval);
+  bool ok = EvaluateInEnv(cx, env, frame, chars, options, &rval);
   Rooted<Completion> completion(cx, Completion::fromJSResult(cx, ok, rval));
   ar.reset();
   return completion.get();

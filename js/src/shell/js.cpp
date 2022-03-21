@@ -4220,7 +4220,6 @@ static const JSClassOps sandbox_classOps = {
     nullptr,                   // mayResolve
     nullptr,                   // finalize
     nullptr,                   // call
-    nullptr,                   // hasInstance
     nullptr,                   // construct
     JS_GlobalObjectTraceHook,  // trace
 };
@@ -5388,7 +5387,6 @@ class XDRBufferObject : public NativeObject {
     nullptr,                    // mayResolve
     XDRBufferObject::finalize,  // finalize
     nullptr,                    // call
-    nullptr,                    // hasInstance
     nullptr,                    // construct
     nullptr,                    // trace
 };
@@ -7210,7 +7208,6 @@ static bool CreateIsHTMLDDA(JSContext* cx, unsigned argc, Value* vp) {
       nullptr,         // mayResolve
       nullptr,         // finalize
       IsHTMLDDA_Call,  // call
-      nullptr,         // hasInstance
       nullptr,         // construct
       nullptr,         // trace
   };
@@ -7957,7 +7954,6 @@ const JSClassOps StreamCacheEntryObject::classOps_ = {
     nullptr,                           // mayResolve
     StreamCacheEntryObject::finalize,  // finalize
     nullptr,                           // call
-    nullptr,                           // hasInstance
     nullptr,                           // construct
     nullptr,                           // trace
 };
@@ -10287,7 +10283,6 @@ static const JSClassOps global_classOps = {
     global_mayResolve,         // mayResolve
     nullptr,                   // finalize
     nullptr,                   // call
-    nullptr,                   // hasInstance
     nullptr,                   // construct
     JS_GlobalObjectTraceHook,  // trace
 };
@@ -12197,11 +12192,20 @@ int main(int argc, char** argv) {
           '\0', "no-sse42",
           "Pretend CPU does not support SSE4.2 instructions "
           "to test JIT codegen (no-op on platforms other than x86 and x64).") ||
+#ifdef ENABLE_WASM_AVX
+      !op.addBoolOption('\0', "enable-avx",
+                        "No-op. AVX is enabled by default, if available.") ||
+      !op.addBoolOption(
+          '\0', "no-avx",
+          "Pretend CPU does not support AVX or AVX2 instructions "
+          "to test JIT codegen (no-op on platforms other than x86 and x64).") ||
+#else
       !op.addBoolOption('\0', "enable-avx",
                         "AVX is disabled by default. Enable AVX. "
                         "(no-op on platforms other than x86 and x64).") ||
       !op.addBoolOption('\0', "no-avx",
                         "No-op. AVX is currently disabled by default.") ||
+#endif
       !op.addBoolOption('\0', "more-compartments",
                         "Make newGlobal default to creating a new "
                         "compartment.") ||
@@ -12386,6 +12390,12 @@ int main(int argc, char** argv) {
   if (op.getBoolOption("no-sse42")) {
     js::jit::CPUInfo::SetSSE42Disabled();
     if (!sCompilerProcessFlags.append("--no-sse42")) {
+      return EXIT_FAILURE;
+    }
+  }
+  if (op.getBoolOption("no-avx")) {
+    js::jit::CPUInfo::SetAVXDisabled();
+    if (!sCompilerProcessFlags.append("--no-avx")) {
       return EXIT_FAILURE;
     }
   }

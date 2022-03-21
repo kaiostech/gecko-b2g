@@ -571,9 +571,6 @@ bitflags! {
         const SEGMENT_NINEPATCH_MIDDLE = 64;
         /// The extra segment data is a texel rect.
         const SEGMENT_TEXEL_RECT = 128;
-        /// Whether to force the anti-aliasing when the primitive
-        /// is axis-aligned.
-        const FORCE_AA = 256;
     }
 }
 
@@ -785,6 +782,23 @@ impl TransformPalette {
             to_index,
             spatial_tree,
         );
+        let transform_kind = self.metadata[index].transform_kind as u32;
+        TransformPaletteId(
+            (index as u32) |
+            (transform_kind << 24)
+        )
+    }
+
+    pub fn get_custom(
+        &mut self,
+        transform: LayoutToPictureTransform,
+    ) -> TransformPaletteId {
+        let index = register_transform(
+            &mut self.metadata,
+            &mut self.transforms,
+            transform,
+        );
+
         let transform_kind = self.metadata[index].transform_kind as u32;
         TransformPaletteId(
             (index as u32) |

@@ -386,6 +386,11 @@ bool js::ParseEvalOptions(JSContext* cx, HandleValue value,
     options.setLineno(lineno);
   }
 
+  if (!JS_GetProperty(cx, opts, "hideFromDebugger", &v)) {
+    return false;
+  }
+  options.setHideFromDebugger(ToBoolean(v));
+
   return true;
 }
 
@@ -3247,7 +3252,7 @@ static bool UpdateExecutionObservabilityOfScriptsInZone(
       }
 
       bool enableTrap = observing == Debugger::Observing;
-      instance->debug().ensureEnterFrameTrapsState(cx, enableTrap);
+      instance->debug().ensureEnterFrameTrapsState(cx, instance, enableTrap);
     }
   }
 
@@ -4018,7 +4023,6 @@ const JSClassOps DebuggerInstanceObject::classOps_ = {
     nullptr,                // mayResolve
     nullptr,                // finalize
     nullptr,                // call
-    nullptr,                // hasInstance
     nullptr,                // construct
     Debugger::traceObject,  // trace
 };

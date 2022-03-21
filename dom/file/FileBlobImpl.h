@@ -130,7 +130,7 @@ class FileBlobImpl : public BlobImpl {
 
   // FileBlobImpl has getter methods with lazy initialization. Because any
   // BlobImpl must work thread-safe, we use a mutex.
-  Mutex mMutex;
+  Mutex mMutex MOZ_UNANNOTATED;
 
   nsCOMPtr<nsIFile> mFile;
 

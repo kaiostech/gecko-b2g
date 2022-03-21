@@ -980,11 +980,13 @@ class SharedFTFace : public external::AtomicRefCounted<SharedFTFace> {
    * If no owner is given, then the user should avoid modifying any state on
    * the face so as not to invalidate the prior owner's modification.
    */
+  PUSH_IGNORE_THREAD_SAFETY
   bool Lock(void* aOwner = nullptr) {
     mLock.Lock();
     return !aOwner || mLastLockOwner.exchange(aOwner) == aOwner;
   }
   void Unlock() { mLock.Unlock(); }
+  POP_THREAD_SAFETY
 
   /** Should be called when a lock owner is destroyed so that we don't have
    * a dangling pointer to a destroyed owner.
@@ -998,7 +1000,7 @@ class SharedFTFace : public external::AtomicRefCounted<SharedFTFace> {
  private:
   FT_Face mFace;
   SharedFTFaceData* mData;
-  Mutex mLock;
+  Mutex mLock MOZ_UNANNOTATED;
   // Remember the last owner of the lock, even after unlocking, to allow users
   // to avoid reinitializing state on the FT face if the last owner hasn't
   // changed by the next time it is locked with the same owner.
@@ -1009,7 +1011,6 @@ class SharedFTFace : public external::AtomicRefCounted<SharedFTFace> {
 class UnscaledFont : public SupportsThreadSafeWeakPtr<UnscaledFont> {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(UnscaledFont)
-  MOZ_DECLARE_THREADSAFEWEAKREFERENCE_TYPENAME(UnscaledFont)
 
   virtual ~UnscaledFont();
 
@@ -1061,7 +1062,6 @@ class UnscaledFont : public SupportsThreadSafeWeakPtr<UnscaledFont> {
 class ScaledFont : public SupportsThreadSafeWeakPtr<ScaledFont> {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(ScaledFont)
-  MOZ_DECLARE_THREADSAFEWEAKREFERENCE_TYPENAME(ScaledFont)
 
   virtual ~ScaledFont();
 
@@ -2013,7 +2013,7 @@ class GFX2D_API Factory {
 
  private:
   static FT_Library mFTLibrary;
-  static StaticMutex mFTLock;
+  static StaticMutex mFTLock MOZ_UNANNOTATED;
 
  public:
 #endif
@@ -2082,10 +2082,10 @@ class GFX2D_API Factory {
  protected:
   // This guards access to the singleton devices above, as well as the
   // singleton devices in DrawTargetD2D1.
-  static StaticMutex mDeviceLock;
+  static StaticMutex mDeviceLock MOZ_UNANNOTATED;
   // This synchronizes access between different D2D drawtargets and their
   // implied dependency graph.
-  static StaticMutex mDTDependencyLock;
+  static StaticMutex mDTDependencyLock MOZ_UNANNOTATED;
 
   friend class DrawTargetD2D1;
 #endif  // WIN32

@@ -83,6 +83,7 @@
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_docshell.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_extensions.h"
 #include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StorageAccess.h"
 #include "mozilla/StoragePrincipalHelper.h"
@@ -1627,6 +1628,10 @@ bool nsGlobalWindowInner::ShouldResistFingerprinting() const {
   return nsIScriptGlobalObject::ShouldResistFingerprinting();
 }
 
+OriginTrials nsGlobalWindowInner::Trials() const {
+  return OriginTrials::FromWindow(this);
+}
+
 uint32_t nsGlobalWindowInner::GetPrincipalHashValue() const {
   if (mDoc) {
     return mDoc->NodePrincipal()->GetHashValue();
@@ -2478,6 +2483,20 @@ bool nsGlobalWindowInner::ShouldReportForServiceWorkerScope(
 }
 
 InstallTriggerImpl* nsGlobalWindowInner::GetInstallTrigger() {
+  if (!mInstallTrigger &&
+      !StaticPrefs::extensions_InstallTriggerImpl_enabled()) {
+    // Return nullptr when InstallTriggerImpl is disabled by pref,
+    // which does not yet break the "typeof InstallTrigger !== 'undefined"
+    // "UA detection" use case, but prevents access to the InstallTriggerImpl
+    // methods and properties.
+    //
+    // NOTE: a separate pref ("extensions.InstallTrigger.enabled"), associated
+    // to this property using the [Pref] extended attribute in Window.webidl,
+    // does instead hide the entire InstallTrigger property.
+    //
+    // See Bug 1754441 for more details about this deprecation.
+    return nullptr;
+  }
   if (!mInstallTrigger) {
     ErrorResult rv;
     mInstallTrigger = ConstructJSImplementation<InstallTriggerImpl>(
@@ -4637,21 +4656,22 @@ nsresult nsGlobalWindowInner::DispatchSyncPopState() {
     return NS_OK;
   }
 
-  // Get the document's pending state object -- it contains the data we're
-  // going to send along with the popstate event.  The object is serialized
-  // using structured clone.
-  nsCOMPtr<nsIVariant> stateObj;
-  nsresult rv = mDoc->GetStateObject(getter_AddRefs(stateObj));
-  NS_ENSURE_SUCCESS(rv, rv);
-
   AutoJSAPI jsapi;
   bool result = jsapi.Init(this);
   NS_ENSURE_TRUE(result, NS_ERROR_FAILURE);
 
   JSContext* cx = jsapi.cx();
-  JS::Rooted<JS::Value> stateJSValue(cx, JS::NullValue());
-  result = stateObj ? VariantToJsval(cx, stateObj, &stateJSValue) : true;
-  NS_ENSURE_TRUE(result, NS_ERROR_FAILURE);
+
+  // Get the document's pending state object -- it contains the data we're
+  // going to send along with the popstate event.  The object is serialized
+  // using structured clone.
+  JS::Rooted<JS::Value> stateJSValue(cx);
+  nsresult rv = mDoc->GetStateObject(&stateJSValue);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (!JS_WrapValue(cx, &stateJSValue)) {
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
 
   RootedDictionary<PopStateEventInit> init(cx);
   init.mState = stateJSValue;

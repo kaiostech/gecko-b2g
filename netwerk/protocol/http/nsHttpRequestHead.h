@@ -40,8 +40,11 @@ class nsHttpRequestHead {
   // copying headers. If you use it be careful to do it only under
   // nsHttpRequestHead lock!!!
   const nsHttpHeaderArray& Headers() const;
+
+  PUSH_IGNORE_THREAD_SAFETY
   void Enter() const { mRecursiveMutex.Lock(); }
   void Exit() const { mRecursiveMutex.Unlock(); }
+  POP_THREAD_SAFETY
 
   void SetHeaders(const nsHttpHeaderArray& aHeaders);
 
@@ -134,7 +137,8 @@ class nsHttpRequestHead {
 
   // We are using RecursiveMutex instead of a Mutex because VisitHeader
   // function calls nsIHttpHeaderVisitor::VisitHeader while under lock.
-  mutable RecursiveMutex mRecursiveMutex{"nsHttpRequestHead.mRecursiveMutex"};
+  mutable RecursiveMutex mRecursiveMutex MOZ_UNANNOTATED{
+      "nsHttpRequestHead.mRecursiveMutex"};
 
   // During VisitHeader we sould not allow cal to SetHeader.
   bool mInVisitHeaders{false};

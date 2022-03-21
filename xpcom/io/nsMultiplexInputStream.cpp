@@ -139,7 +139,7 @@ class nsMultiplexInputStream final : public nsIMultiplexInputStream,
   bool IsInputStreamLength() const;
   bool IsAsyncInputStreamLength() const;
 
-  Mutex mLock;  // Protects access to all data members.
+  Mutex mLock MOZ_UNANNOTATED;  // Protects access to all data members.
 
   nsTArray<StreamData> mStreams;
 
@@ -1390,6 +1390,8 @@ nsMultiplexInputStream::AsyncLengthWait(nsIInputStreamLengthCallback* aCallback,
 
 void nsMultiplexInputStream::AsyncWaitCompleted(
     int64_t aLength, const MutexAutoLock& aProofOfLock) {
+  mLock.AssertCurrentThreadOwns();
+
   nsCOMPtr<nsIInputStreamLengthCallback> callback;
   callback.swap(mAsyncWaitLengthCallback);
 

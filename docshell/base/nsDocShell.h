@@ -739,12 +739,12 @@ class nsDocShell final : public nsDocLoader,
                 nsIContentSecurityPolicy* aCsp, bool aFireOnLocationChange,
                 bool aAddToGlobalHistory, bool aCloneSHChildren);
 
+ public:
   // If wireframe collection is enabled, will attempt to gather the
   // wireframe for the document and stash it inside of the active history
   // entry.
   void CollectWireframe();
 
- public:
   // Helper method that is called when a new document (including any
   // sub-documents - ie. frames) has been completely loaded.
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
@@ -888,7 +888,8 @@ class nsDocShell final : public nsDocLoader,
   // has not been created yet. |aNewDocument| should be the document that will
   // replace the current document.
   bool CanSavePresentation(uint32_t aLoadType, nsIRequest* aNewRequest,
-                           mozilla::dom::Document* aNewDocument);
+                           mozilla::dom::Document* aNewDocument,
+                           bool aReportBFCacheComboTelemetry);
 
   static void ReportBFCacheComboTelemetry(uint32_t aCombo);
 

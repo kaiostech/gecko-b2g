@@ -241,11 +241,18 @@ check_and_add_gcc_warning(
 )
 
 # B2G errors
-check_and_add_gcc_warning("-Wno-mismatched-tags")
-check_and_add_gcc_warning("-Wno-unused-private-field")
-check_and_add_gcc_warning("-Wno-macro-redefined")
-check_and_add_gcc_warning("-Wno-overloaded-virtual")
-check_and_add_gcc_warning("-Wno-format")
+# check_and_add_gcc_warning("-Wno-mismatched-tags")
+# check_and_add_gcc_warning("-Wno-unused-private-field")
+# check_and_add_gcc_warning("-Wno-macro-redefined")
+# check_and_add_gcc_warning("-Wno-overloaded-virtual")
+# check_and_add_gcc_warning("-Wno-format")
+
+# Turn on clang thread-safety analysis
+# Older clangs don't support AutoUnlock, and have other issues
+check_and_add_gcc_warning(
+    "-Wthread-safety",
+    when=depends(c_compiler)(lambda c: c.type == "clang" and c.version >= "8.0"),
+)
 
 # Please keep these last in this file
 add_old_configure_assignment("_WARNINGS_CFLAGS", warnings_flags.cflags)

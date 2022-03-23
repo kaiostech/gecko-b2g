@@ -1023,13 +1023,15 @@ static void TraceIonICCallFrame(JSTracer* trc, const JSJitFrameIter& frame) {
   TraceRoot(trc, layout->stubCode(), "ion-ic-call-code");
 }
 
-#ifdef JS_CODEGEN_MIPS32
+#if defined(JS_CODEGEN_ARM64) || defined(JS_CODEGEN_MIPS32)
 uint8_t* alignDoubleSpill(uint8_t* pointer) {
   uintptr_t address = reinterpret_cast<uintptr_t>(pointer);
-  address &= ~(ABIStackAlignment - 1);
+  address &= ~(uintptr_t(ABIStackAlignment) - 1);
   return reinterpret_cast<uint8_t*>(address);
 }
+#endif
 
+#ifdef JS_CODEGEN_MIPS32
 static void TraceJitExitFrameCopiedArguments(JSTracer* trc,
                                              const VMFunctionData* f,
                                              ExitFooterFrame* footer) {
@@ -2044,22 +2046,16 @@ void InlineFrameIterator::findNextFrame() {
     MOZ_ASSERT(IsIonInlinableOp(JSOp(*pc_)));
 
     // Recover the number of actual arguments from the script.
-    if (JSOp(*pc_) != JSOp::FunApply) {
+    if (IsInvokeOp(JSOp(*pc_))) {
       numActualArgs_ = GET_ARGC(pc_);
-    }
-    if (JSOp(*pc_) == JSOp::FunCall) {
-      if (numActualArgs_ > 0) {
+      if (JSOp(*pc_) == JSOp::FunCall && numActualArgs_ > 0) {
         numActualArgs_--;
       }
     } else if (IsGetPropPC(pc_) || IsGetElemPC(pc_)) {
       numActualArgs_ = 0;
-    } else if (IsSetPropPC(pc_)) {
+    } else {
+      MOZ_RELEASE_ASSERT(IsSetPropPC(pc_));
       numActualArgs_ = 1;
-    }
-
-    if (numActualArgs_ == 0xbadbad) {
-      MOZ_CRASH(
-          "Couldn't deduce the number of arguments of an ionmonkey frame");
     }
 
     // Skip over non-argument slots, as well as |this|.

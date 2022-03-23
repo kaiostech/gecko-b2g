@@ -8,7 +8,9 @@
 #include "ModuleLoader.h"
 
 #include "jsapi.h"
+#include "js/CompileOptions.h"  // JS::CompileOptions, JS::InstantiateOptions
 #include "js/ContextOptions.h"  // JS::ContextOptionsRef
+#include "js/experimental/JSStencil.h"  // JS::Stencil, JS::CompileModuleScriptToStencil, JS::InstantiateModuleStencil
 #include "js/MemoryFunctions.h"
 #include "js/Modules.h"  // JS::FinishDynamicModuleImport, JS::{G,S}etModuleResolveHook, JS::Get{ModulePrivate,ModuleScript,RequestedModule{s,Specifier,SourcePos}}, JS::SetModule{DynamicImport,Metadata}Hook
 #include "js/OffThreadScriptCompilation.h"
@@ -342,6 +344,15 @@ ScriptLoader* ModuleLoader::GetScriptLoader() {
 }
 
 nsresult ModuleLoader::StartModuleLoad(ScriptLoadRequest* aRequest) {
+  return StartModuleLoadImpl(aRequest, RestartRequest::No);
+}
+
+nsresult ModuleLoader::RestartModuleLoad(ScriptLoadRequest* aRequest) {
+  return StartModuleLoadImpl(aRequest, RestartRequest::Yes);
+}
+
+nsresult ModuleLoader::StartModuleLoadImpl(ScriptLoadRequest* aRequest,
+                                           RestartRequest aRestart) {
   MOZ_ASSERT(aRequest->IsLoading());
   NS_ENSURE_TRUE(GetScriptLoader()->GetDocument(), NS_ERROR_NULL_POINTER);
   aRequest->SetUnknownDataType();
@@ -369,7 +380,16 @@ nsresult ModuleLoader::StartModuleLoad(ScriptLoadRequest* aRequest) {
   // Check whether the module has been fetched or is currently being fetched,
   // and if so wait for it rather than starting a new fetch.
   ModuleLoadRequest* request = aRequest->AsModuleRequest();
-  if (ModuleMapContainsURL(request->mURI,
+
+  // If we're restarting the request, the module should already be in the
+  // "fetching" map.
+  MOZ_ASSERT_IF(
+      aRestart == RestartRequest::Yes,
+      IsModuleFetching(request->mURI,
+                       aRequest->GetLoadContext()->GetWebExtGlobal()));
+
+  if (aRestart == RestartRequest::No &&
+      ModuleMapContainsURL(request->mURI,
                            aRequest->GetLoadContext()->GetWebExtGlobal())) {
     LOG(("ScriptLoadRequest (%p): Waiting for module fetch", aRequest));
     WaitForModuleFetch(request->mURI,
@@ -408,7 +428,9 @@ nsresult ModuleLoader::StartModuleLoad(ScriptLoadRequest* aRequest) {
 
   // We successfully started fetching a module so put its URL in the module
   // map and mark it as fetching.
-  SetModuleFetchStarted(aRequest->AsModuleRequest());
+  if (aRestart == RestartRequest::No) {
+    SetModuleFetchStarted(aRequest->AsModuleRequest());
+  }
   LOG(("ScriptLoadRequest (%p): Start fetching module", aRequest));
 
   return NS_OK;
@@ -418,14 +440,9 @@ void ModuleLoader::ProcessLoadedModuleTree(ModuleLoadRequest* aRequest) {
   MOZ_ASSERT(aRequest->IsReadyToRun());
 
   if (aRequest->IsTopLevel()) {
-    if (aRequest->IsDynamicImport()) {
-      MOZ_ASSERT(aRequest->isInList());
-      RefPtr<ScriptLoadRequest> req = mDynamicImportRequests.Steal(aRequest);
-      GetScriptLoader()->RunScriptWhenSafe(aRequest);
-    } else if (aRequest->GetLoadContext()->mIsInline &&
-               aRequest->GetLoadContext()->GetParserCreated() ==
-                   NOT_FROM_PARSER) {
-      MOZ_ASSERT(!aRequest->isInList());
+    if (aRequest->IsDynamicImport() ||
+        (aRequest->GetLoadContext()->mIsInline &&
+         aRequest->GetLoadContext()->GetParserCreated() == NOT_FROM_PARSER)) {
       GetScriptLoader()->RunScriptWhenSafe(aRequest);
     } else {
       GetScriptLoader()->MaybeMoveToLoadedList(aRequest);
@@ -439,34 +456,92 @@ void ModuleLoader::ProcessLoadedModuleTree(ModuleLoadRequest* aRequest) {
 nsresult ModuleLoader::CompileOrFinishModuleScript(
     JSContext* aCx, JS::Handle<JSObject*> aGlobal, JS::CompileOptions& aOptions,
     ModuleLoadRequest* aRequest, JS::MutableHandle<JSObject*> aModule) {
-  nsresult rv;
   if (aRequest->GetLoadContext()->mWasCompiledOMT) {
     JS::Rooted<JS::InstantiationStorage> storage(aCx);
 
-    RefPtr<JS::Stencil> stencil = JS::FinishCompileModuleToStencilOffThread(
-        aCx, aRequest->GetLoadContext()->mOffThreadToken, storage.address());
-    if (stencil) {
-      JS::InstantiateOptions instantiateOptions(aOptions);
-      aModule.set(JS::InstantiateModuleStencil(aCx, instantiateOptions, stencil,
-                                               storage.address()));
+    RefPtr<JS::Stencil> stencil;
+    if (aRequest->IsTextSource()) {
+      stencil = JS::FinishCompileModuleToStencilOffThread(
+          aCx, aRequest->GetLoadContext()->mOffThreadToken, storage.address());
+    } else {
+      MOZ_ASSERT(aRequest->IsBytecode());
+      stencil = JS::FinishDecodeStencilOffThread(
+          aCx, aRequest->GetLoadContext()->mOffThreadToken, storage.address());
     }
 
     aRequest->GetLoadContext()->mOffThreadToken = nullptr;
-    rv = aModule ? NS_OK : NS_ERROR_FAILURE;
-  } else {
+
+    if (!stencil) {
+      return NS_ERROR_FAILURE;
+    }
+
+    JS::InstantiateOptions instantiateOptions(aOptions);
+    aModule.set(JS::InstantiateModuleStencil(aCx, instantiateOptions, stencil,
+                                             storage.address()));
+    if (!aModule) {
+      return NS_ERROR_FAILURE;
+    }
+
+    if (aRequest->IsTextSource() &&
+        ScriptLoader::ShouldCacheBytecode(aRequest)) {
+      if (!JS::StartIncrementalEncoding(aCx, std::move(stencil))) {
+        return NS_ERROR_FAILURE;
+      }
+    }
+
+    return NS_OK;
+  }
+
+  if (!nsJSUtils::IsScriptable(aGlobal)) {
+    return NS_OK;
+  }
+
+  RefPtr<JS::Stencil> stencil;
+  if (aRequest->IsTextSource()) {
     MaybeSourceText maybeSource;
-    rv = aRequest->GetScriptSource(aCx, &maybeSource);
-    if (NS_SUCCEEDED(rv)) {
-      rv = maybeSource.constructed<SourceText<char16_t>>()
-               ? nsJSUtils::CompileModule(
-                     aCx, maybeSource.ref<SourceText<char16_t>>(), aGlobal,
-                     aOptions, aModule)
-               : nsJSUtils::CompileModule(
-                     aCx, maybeSource.ref<SourceText<Utf8Unit>>(), aGlobal,
-                     aOptions, aModule);
+    nsresult rv = aRequest->GetScriptSource(aCx, &maybeSource);
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    stencil = maybeSource.constructed<SourceText<char16_t>>()
+                  ? JS::CompileModuleScriptToStencil(
+                        aCx, aOptions, maybeSource.ref<SourceText<char16_t>>())
+                  : JS::CompileModuleScriptToStencil(
+                        aCx, aOptions, maybeSource.ref<SourceText<Utf8Unit>>());
+  } else {
+    MOZ_ASSERT(aRequest->IsBytecode());
+    JS::DecodeOptions decodeOptions(aOptions);
+    decodeOptions.borrowBuffer = true;
+
+    auto& bytecode = aRequest->mScriptBytecode;
+    auto& offset = aRequest->mBytecodeOffset;
+
+    JS::TranscodeRange range(bytecode.begin() + offset,
+                             bytecode.length() - offset);
+
+    JS::TranscodeResult tr =
+        JS::DecodeStencil(aCx, decodeOptions, range, getter_AddRefs(stencil));
+    if (tr != JS::TranscodeResult::Ok) {
+      return NS_ERROR_DOM_JS_DECODING_ERROR;
     }
   }
-  return rv;
+
+  if (!stencil) {
+    return NS_ERROR_FAILURE;
+  }
+
+  JS::InstantiateOptions instantiateOptions(aOptions);
+  aModule.set(JS::InstantiateModuleStencil(aCx, instantiateOptions, stencil));
+  if (!aModule) {
+    return NS_ERROR_FAILURE;
+  }
+
+  if (aRequest->IsTextSource() && ScriptLoader::ShouldCacheBytecode(aRequest)) {
+    if (!JS::StartIncrementalEncoding(aCx, std::move(stencil))) {
+      return NS_ERROR_FAILURE;
+    }
+  }
+
+  return NS_OK;
 }
 
 /* static */

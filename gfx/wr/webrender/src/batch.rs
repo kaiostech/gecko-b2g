@@ -31,7 +31,7 @@ use crate::space::SpaceMapper;
 use crate::visibility::{PrimitiveVisibilityFlags, VisibilityState};
 use smallvec::SmallVec;
 use std::{f32, i32, usize, mem};
-use crate::util::{project_rect, MaxRect, MatrixHelpers, TransformedRectKind};
+use crate::util::{project_rect, MaxRect, MatrixHelpers, TransformedRectKind, ScaleOffset};
 use crate::segment::EdgeAaSegmentMask;
 
 // Special sentinel value recognized by the shader. It is considered to be
@@ -828,12 +828,6 @@ impl BatchBuilder {
         surface_spatial_node_index: SpatialNodeIndex,
         z_generator: &mut ZBufferIdGenerator,
     ) {
-        let brush_flags = if prim_instance.anti_aliased {
-            BrushFlags::FORCE_AA
-        } else {
-            BrushFlags::empty()
-        };
-
         let vis_flags = match prim_instance.vis.state {
             VisibilityState::Culled => {
                 return;
@@ -942,7 +936,7 @@ impl BatchBuilder {
                     INVALID_SEGMENT_INDEX,
                     EdgeAaSegmentMask::all(),
                     clip_task_address,
-                    brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION,
+                    BrushFlags::PERSPECTIVE_INTERPOLATION,
                     prim_header_index,
                     0,
                 );
@@ -974,8 +968,7 @@ impl BatchBuilder {
 
                 let blend_mode = if !common_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     specified_blend_mode
                 } else {
@@ -1013,7 +1006,6 @@ impl BatchBuilder {
                     &batch_params,
                     blend_mode,
                     batch_features,
-                    brush_flags,
                     prim_header_index,
                     bounding_rect,
                     transform_kind,
@@ -1309,8 +1301,7 @@ impl BatchBuilder {
                 //           use of interning.
                 let blend_mode = if !common_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     BlendMode::PremultipliedAlpha
                 } else {
@@ -1344,7 +1335,7 @@ impl BatchBuilder {
                     INVALID_SEGMENT_INDEX,
                     EdgeAaSegmentMask::all(),
                     clip_task_address,
-                    brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION,
+                    BrushFlags::PERSPECTIVE_INTERPOLATION,
                     prim_header_index,
                     specific_resource_address,
                 );
@@ -1358,53 +1349,48 @@ impl BatchBuilder {
                     Some(ref raster_config) => {
                         // If the child picture was rendered in local space, we can safely
                         // interpolate the UV coordinates with perspective correction.
-                        let brush_flags = brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION;
+                        let brush_flags = BrushFlags::PERSPECTIVE_INTERPOLATION;
 
                         let surface = &ctx.surfaces[raster_config.surface_index.0];
 
-                        // If we are drawing with snapping enabled, the local rect of the prim must be in the raster
-                        // space, to avoid situations where there is a 180deg rotation in between the root and primitive
-                        // space not being correctly applied.
-                        let prim_header = if surface.surface_spatial_node_index == surface.raster_spatial_node_index {
-                            PrimitiveHeader {
-                                local_rect: prim_rect,
-                                local_clip_rect: prim_info.combined_local_clip_rect,
-                                specific_prim_address: prim_cache_address,
-                                transform_id,
-                            }
+                        // If we are drawing with snapping enabled, form a simple transform that just applies
+                        // the scale / translation from the raster transform. Otherwise, in edge cases where the
+                        // intermediate surface has a non-identity but axis-aligned transform (e.g. a 180 degree
+                        // rotation) it can be applied twice.
+                        let transform_id = if surface.surface_spatial_node_index == surface.raster_spatial_node_index {
+                            transform_id
                         } else {
                             let map_local_to_raster = SpaceMapper::new_with_target(
-                                surface.raster_spatial_node_index,
+                                root_spatial_node_index,
                                 surface.surface_spatial_node_index,
                                 LayoutRect::max_rect(),
                                 ctx.spatial_tree,
                             );
 
-                            let prim_rect = map_local_to_raster
+                            let raster_rect = map_local_to_raster
                                 .map(&prim_rect)
                                 .unwrap();
-                            let local_clip_rect = map_local_to_raster
-                                .map(&prim_info.combined_local_clip_rect)
-                                .unwrap();
-                            let transform_id = transforms
-                                .get_id(
-                                    surface.raster_spatial_node_index,
-                                    root_spatial_node_index,
-                                    ctx.spatial_tree,
-                                );
 
-                            PrimitiveHeader {
-                                local_rect: prim_rect,
-                                local_clip_rect,
-                                specific_prim_address: prim_cache_address,
-                                transform_id,
-                            }
+                            let sx = (raster_rect.max.x - raster_rect.min.x) / (prim_rect.max.x - prim_rect.min.x);
+                            let sy = (raster_rect.max.y - raster_rect.min.y) / (prim_rect.max.y - prim_rect.min.y);
+
+                            let tx = raster_rect.min.x - sx * prim_rect.min.x;
+                            let ty = raster_rect.min.y - sy * prim_rect.min.y;
+
+                            let transform = ScaleOffset::new(sx, sy, tx, ty);
+                            transforms.get_custom(transform.to_transform())
+                        };
+
+                        let prim_header = PrimitiveHeader {
+                            local_rect: prim_rect,
+                            local_clip_rect: prim_info.combined_local_clip_rect,
+                            specific_prim_address: prim_cache_address,
+                            transform_id,
                         };
 
                         let mut is_opaque = prim_info.clip_task_index == ClipTaskIndex::INVALID
                             && surface.is_opaque
-                            && transform_kind == TransformedRectKind::AxisAligned
-                            && !prim_instance.anti_aliased;
+                            && transform_kind == TransformedRectKind::AxisAligned;
 
                         let pic_task_id = picture.primary_render_task_id.unwrap();
 
@@ -2029,7 +2015,6 @@ impl BatchBuilder {
                                             &batch_params,
                                             blend_mode,
                                             batch_features,
-                                            brush_flags,
                                             prim_header_index,
                                             bounding_rect,
                                             transform_kind,
@@ -2110,8 +2095,7 @@ impl BatchBuilder {
                 let prim_cache_address = gpu_cache.get_address(&common_data.gpu_cache_handle);
                 let blend_mode = if !common_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     BlendMode::PremultipliedAlpha
                 } else {
@@ -2149,7 +2133,6 @@ impl BatchBuilder {
                     &batch_params,
                     blend_mode,
                     batch_features,
-                    brush_flags,
                     prim_header_index,
                     bounding_rect,
                     transform_kind,
@@ -2164,8 +2147,7 @@ impl BatchBuilder {
 
                 let blend_mode = if !prim_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     BlendMode::PremultipliedAlpha
                 } else {
@@ -2206,7 +2188,6 @@ impl BatchBuilder {
                     &batch_params,
                     blend_mode,
                     batch_features,
-                    brush_flags,
                     prim_header_index,
                     bounding_rect,
                     transform_kind,
@@ -2274,8 +2255,7 @@ impl BatchBuilder {
 
                 let blend_mode = if !prim_common_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     BlendMode::PremultipliedAlpha
                 } else {
@@ -2310,7 +2290,6 @@ impl BatchBuilder {
                     &batch_params,
                     blend_mode,
                     batch_features,
-                    brush_flags,
                     prim_header_index,
                     bounding_rect,
                     transform_kind,
@@ -2335,8 +2314,7 @@ impl BatchBuilder {
 
                 let blend_mode = if !common_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     match image_data.alpha_type {
                         AlphaType::PremultipliedAlpha => BlendMode::PremultipliedAlpha,
@@ -2398,7 +2376,6 @@ impl BatchBuilder {
                         &batch_params,
                         blend_mode,
                         batch_features,
-                        brush_flags,
                         prim_header_index,
                         bounding_rect,
                         transform_kind,
@@ -2466,7 +2443,7 @@ impl BatchBuilder {
                                 i as i32,
                                 tile.edge_flags,
                                 clip_task_address,
-                                brush_flags | BrushFlags::SEGMENT_RELATIVE | BrushFlags::PERSPECTIVE_INTERPOLATION,
+                                BrushFlags::SEGMENT_RELATIVE | BrushFlags::PERSPECTIVE_INTERPOLATION,
                                 prim_header_index,
                                 uv_rect_address.as_int(),
                             );
@@ -2486,8 +2463,7 @@ impl BatchBuilder {
 
                 let blend_mode = if !prim_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     BlendMode::PremultipliedAlpha
                 } else {
@@ -2520,7 +2496,6 @@ impl BatchBuilder {
                         &batch_params,
                         blend_mode,
                         batch_features,
-                        brush_flags,
                         prim_header_index,
                         bounding_rect,
                         transform_kind,
@@ -2560,7 +2535,7 @@ impl BatchBuilder {
                             INVALID_SEGMENT_INDEX,
                             EdgeAaSegmentMask::all(),
                             clip_task_address,
-                            brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION,
+                            BrushFlags::PERSPECTIVE_INTERPOLATION,
                             prim_header_index,
                             0,
                         );
@@ -2598,8 +2573,7 @@ impl BatchBuilder {
 
                 let blend_mode = if !common_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     BlendMode::PremultipliedAlpha
                 } else {
@@ -2634,7 +2608,6 @@ impl BatchBuilder {
                         &batch_params,
                         blend_mode,
                         batch_features,
-                        brush_flags,
                         prim_header_index,
                         bounding_rect,
                         transform_kind,
@@ -2676,7 +2649,7 @@ impl BatchBuilder {
                             INVALID_SEGMENT_INDEX,
                             EdgeAaSegmentMask::all(),
                             clip_task_address,
-                            brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION,
+                            BrushFlags::PERSPECTIVE_INTERPOLATION,
                             prim_header_index,
                             uv_rect_address.as_int(),
                         );
@@ -2715,8 +2688,7 @@ impl BatchBuilder {
 
                 let blend_mode = if !common_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     BlendMode::PremultipliedAlpha
                 } else {
@@ -2751,7 +2723,6 @@ impl BatchBuilder {
                         &batch_params,
                         blend_mode,
                         batch_features,
-                        brush_flags,
                         prim_header_index,
                         bounding_rect,
                         transform_kind,
@@ -2793,7 +2764,7 @@ impl BatchBuilder {
                             INVALID_SEGMENT_INDEX,
                             EdgeAaSegmentMask::all(),
                             clip_task_address,
-                            brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION,
+                            BrushFlags::PERSPECTIVE_INTERPOLATION,
                             prim_header_index,
                             uv_rect_address.as_int(),
                         );
@@ -2833,8 +2804,7 @@ impl BatchBuilder {
 
                 let blend_mode = if !common_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-                    transform_kind == TransformedRectKind::Complex ||
-                    prim_instance.anti_aliased
+                    transform_kind == TransformedRectKind::Complex
                 {
                     BlendMode::PremultipliedAlpha
                 } else {
@@ -2869,7 +2839,6 @@ impl BatchBuilder {
                         &batch_params,
                         blend_mode,
                         batch_features,
-                        brush_flags,
                         prim_header_index,
                         bounding_rect,
                         transform_kind,
@@ -2911,7 +2880,7 @@ impl BatchBuilder {
                             INVALID_SEGMENT_INDEX,
                             EdgeAaSegmentMask::all(),
                             clip_task_address,
-                            brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION,
+                            BrushFlags::PERSPECTIVE_INTERPOLATION,
                             prim_header_index,
                             uv_rect_address.as_int(),
                         );
@@ -2966,7 +2935,7 @@ impl BatchBuilder {
                     INVALID_SEGMENT_INDEX,
                     EdgeAaSegmentMask::empty(),
                     OPAQUE_TASK_ADDRESS,
-                    brush_flags,
+                    BrushFlags::empty(),
                     prim_header_index,
                     backdrop_uv_rect_address.as_int(),
                 );
@@ -2984,7 +2953,6 @@ impl BatchBuilder {
         prim_header_index: PrimitiveHeaderIndex,
         alpha_blend_mode: BlendMode,
         features: BatchFeatures,
-        brush_flags: BrushFlags,
         bounding_rect: &PictureRect,
         transform_kind: TransformedRectKind,
         z_id: ZBufferId,
@@ -3006,8 +2974,7 @@ impl BatchBuilder {
             let is_inner = segment.edge_flags.is_empty();
             let needs_blending = !prim_opacity.is_opaque ||
                                  clip_task_address != OPAQUE_TASK_ADDRESS ||
-                                 (!is_inner && transform_kind == TransformedRectKind::Complex) ||
-                                 brush_flags.contains(BrushFlags::FORCE_AA);
+                                 (!is_inner && transform_kind == TransformedRectKind::Complex);
 
             let textures = BatchTextures {
                 input: segment_data.textures,
@@ -3028,7 +2995,7 @@ impl BatchBuilder {
                 segment_index,
                 segment.edge_flags,
                 clip_task_address,
-                brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION | segment.brush_flags,
+                BrushFlags::PERSPECTIVE_INTERPOLATION | segment.brush_flags,
                 prim_header_index,
                 segment_data.specific_resource_address,
             );
@@ -3043,7 +3010,6 @@ impl BatchBuilder {
         params: &BrushBatchParameters,
         blend_mode: BlendMode,
         features: BatchFeatures,
-        brush_flags: BrushFlags,
         prim_header_index: PrimitiveHeaderIndex,
         bounding_rect: &PictureRect,
         transform_kind: TransformedRectKind,
@@ -3070,7 +3036,6 @@ impl BatchBuilder {
                         prim_header_index,
                         blend_mode,
                         features,
-                        brush_flags,
                         bounding_rect,
                         transform_kind,
                         z_id,
@@ -3096,7 +3061,6 @@ impl BatchBuilder {
                         prim_header_index,
                         blend_mode,
                         features,
-                        brush_flags,
                         bounding_rect,
                         transform_kind,
                         z_id,
@@ -3135,7 +3099,7 @@ impl BatchBuilder {
                     INVALID_SEGMENT_INDEX,
                     EdgeAaSegmentMask::all(),
                     clip_task_address,
-                    brush_flags | BrushFlags::PERSPECTIVE_INTERPOLATION,
+                    BrushFlags::PERSPECTIVE_INTERPOLATION,
                     prim_header_index,
                     segment_data.specific_resource_address,
                 );

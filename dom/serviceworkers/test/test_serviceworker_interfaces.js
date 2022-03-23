@@ -62,8 +62,6 @@ var ecmaGlobals = [
   "BigInt",
   "BigInt64Array",
   "BigUint64Array",
-  { name: "ByteLengthQueuingStrategy", optional: true },
-  { name: "CountQueuingStrategy", optional: true },
   "DataView",
   "Date",
   "Error",
@@ -87,7 +85,6 @@ var ecmaGlobals = [
   "Promise",
   "Proxy",
   "RangeError",
-  { name: "ReadableStream", optional: true },
   "ReferenceError",
   "Reflect",
   "RegExp",
@@ -124,6 +121,8 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   "BroadcastChannel",
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  "ByteLengthQueuingStrategy",
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   "Cache",
   // IMPORTANT: Do not change this list without review from a DOM peer!
   "CacheStorage",
@@ -133,6 +132,8 @@ var interfaceNamesInGlobalScope = [
   "Clients",
   // IMPORTANT: Do not change this list without review from a DOM peer!
   "CloseEvent",
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  "CountQueuingStrategy",
   // IMPORTANT: Do not change this list without review from a DOM peer!
   "Crypto",
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -262,6 +263,12 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "PushSubscriptionOptions" },
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  "ReadableStream",
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  "ReadableStreamDefaultController",
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  "ReadableStreamDefaultReader",
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "Report", nightly: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "ReportBody", nightly: true },
@@ -302,6 +309,11 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   "WorkerNavigator",
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  "WritableStream",
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  "WritableStreamDefaultController",
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  "WritableStreamDefaultWriter",
 ];
 // IMPORTANT: Do not change the list above without review from a DOM peer!
 

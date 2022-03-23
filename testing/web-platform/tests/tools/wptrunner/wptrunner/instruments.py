@@ -1,6 +1,8 @@
 import time
+import multiprocessing
 import threading
-from queue import Queue
+
+from . import mpcontext
 
 """Instrumentation for measuring high-level time spent on various tasks inside the runner.
 
@@ -75,20 +77,21 @@ class Instrument(object):
         self.queue = None
         self.current = None
         self.start_time = None
-        self.thread = None
+        self.instrument_proc = None
 
     def __enter__(self):
-        assert self.thread is None
+        assert self.instrument_proc is None
         assert self.queue is None
-        self.queue = Queue()
-        self.thread = threading.Thread(target=self.run)
-        self.thread.start()
+        mp = mpcontext.get_context()
+        self.queue = mp.Queue()
+        self.instrument_proc = mp.Process(target=self.run)
+        self.instrument_proc.start()
         return InstrumentWriter(self.queue)
 
     def __exit__(self, *args, **kwargs):
         self.queue.put(("stop", None, time.time(), None))
-        self.thread.join()
-        self.thread = None
+        self.instrument_proc.join()
+        self.instrument_proc = None
         self.queue = None
 
     def run(self):

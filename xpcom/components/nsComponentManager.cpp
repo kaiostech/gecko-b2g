@@ -631,6 +631,7 @@ void nsComponentManagerImpl::RegisterCIDEntryLocked(
 #endif
 
   mFactories.WithEntryHandle(aEntry->cid, [&](auto&& entry) {
+    mLock.AssertCurrentThreadOwns();
     if (entry) {
       nsFactoryEntry* f = entry.Data();
       NS_WARNING("Re-registering a CID?");
@@ -1303,6 +1304,7 @@ nsresult nsComponentManagerImpl::GetServiceLocked(Maybe<MonitorAutoLock>& aLock,
     }
   });
   nsresult rv;
+  mLock.AssertCurrentThreadOwns();
   {
     MonitorAutoUnlock unlock(mLock);
     AUTO_PROFILER_MARKER_TEXT(

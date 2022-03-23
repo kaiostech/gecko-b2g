@@ -54,11 +54,12 @@ struct StorageWithTArray {
 };
 
 class LockingWithMutex {
-  mozilla::Mutex mMutex;
+  mozilla::Mutex mMutex MOZ_UNANNOTATED;
 
  protected:
   LockingWithMutex() : mMutex("LockingWithMutex::mMutex") {}
 
+  PUSH_IGNORE_THREAD_SAFETY
   void Lock() { mMutex.Lock(); }
 
   void Unlock() { mMutex.Unlock(); }
@@ -71,6 +72,7 @@ class LockingWithMutex {
 
     ~AutoLock() { mHost.Unlock(); }
   };
+  POP_THREAD_SAFETY
 
   friend class AutoLock;
 };

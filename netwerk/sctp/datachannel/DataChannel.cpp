@@ -242,7 +242,7 @@ class DataChannelRegistry {
   uintptr_t mNextId = 1;
   std::map<uintptr_t, RefPtr<DataChannelConnection>> mConnections;
   UniquePtr<media::ShutdownBlockingTicket> mShutdownBlocker;
-  static StaticMutex sInstanceMutex;
+  static StaticMutex sInstanceMutex MOZ_UNANNOTATED;
 };
 
 StaticMutex DataChannelRegistry::sInstanceMutex;
@@ -2365,9 +2365,9 @@ void DataChannelConnection::HandleNotification(
   }
 }
 
-int DataChannelConnection::ReceiveCallback(struct socket* sock, void* data,
-                                           size_t datalen,
-                                           struct sctp_rcvinfo rcv, int flags) {
+int DataChannelConnection::ReceiveCallback(
+    struct socket* sock, void* data, size_t datalen, struct sctp_rcvinfo rcv,
+    int flags) NO_THREAD_SAFETY_ANALYSIS {
   ASSERT_WEBRTC(!NS_IsMainThread());
   DC_DEBUG(("In ReceiveCallback"));
 

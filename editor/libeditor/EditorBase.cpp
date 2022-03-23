@@ -142,6 +142,11 @@ using WalkTreeOption = HTMLEditUtils::WalkTreeOption;
 /*****************************************************************************
  * mozilla::EditorBase
  *****************************************************************************/
+template EditorDOMPoint EditorBase::GetFirstIMESelectionStartPoint() const;
+template EditorRawDOMPoint EditorBase::GetFirstIMESelectionStartPoint() const;
+template EditorDOMPoint EditorBase::GetLastIMESelectionEndPoint() const;
+template EditorRawDOMPoint EditorBase::GetLastIMESelectionEndPoint() const;
+
 template EditorBase::AutoCaretBidiLevelManager::AutoCaretBidiLevelManager(
     const EditorBase& aEditorBase, nsIEditor::EDirection aDirectionAndAmount,
     const EditorDOMPoint& aPointAtCaret);
@@ -2178,7 +2183,8 @@ nsresult EditorBase::DeleteNodeWithTransaction(nsIContent& aContent) {
 
 NS_IMETHODIMP EditorBase::NotifySelectionChanged(Document* aDocument,
                                                  Selection* aSelection,
-                                                 int16_t aReason) {
+                                                 int16_t aReason,
+                                                 int32_t aAmount) {
   if (NS_WARN_IF(!aDocument) || NS_WARN_IF(!aSelection)) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -3442,14 +3448,18 @@ void EditorBase::EndUpdateViewBatch(const char* aRequesterFuncName) {
 
 TextComposition* EditorBase::GetComposition() const { return mComposition; }
 
-EditorRawDOMPoint EditorBase::GetCompositionStartPoint() const {
-  return mComposition ? EditorRawDOMPoint(mComposition->GetStartRef())
-                      : EditorRawDOMPoint();
+template <typename EditorDOMPointType>
+EditorDOMPointType EditorBase::GetFirstIMESelectionStartPoint() const {
+  return mComposition
+             ? EditorDOMPointType(mComposition->FirstIMESelectionStartRef())
+             : EditorDOMPointType();
 }
 
-EditorRawDOMPoint EditorBase::GetCompositionEndPoint() const {
-  return mComposition ? EditorRawDOMPoint(mComposition->GetEndRef())
-                      : EditorRawDOMPoint();
+template <typename EditorDOMPointType>
+EditorDOMPointType EditorBase::GetLastIMESelectionEndPoint() const {
+  return mComposition
+             ? EditorDOMPointType(mComposition->LastIMESelectionEndRef())
+             : EditorDOMPointType();
 }
 
 bool EditorBase::IsIMEComposing() const {
@@ -5227,6 +5237,9 @@ nsresult EditorBase::InitializeSelection(nsINode& aFocusEventTargetNode) {
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
           "CompositionTransaction::SetIMESelection() failed, but ignored");
+      mComposition->OnUpdateCompositionInEditor(
+          mComposition->String(), *textNode,
+          mComposition->XPOffsetInTextNode());
     }
   }
 

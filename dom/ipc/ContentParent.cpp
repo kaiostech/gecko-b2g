@@ -188,6 +188,7 @@
 #include "mozilla/RemoteLazyInputStreamParent.h"
 #include "mozilla/widget/RemoteLookAndFeel.h"
 #include "mozilla/widget/ScreenManager.h"
+#include "mozilla/widget/TextRecognition.h"
 #include "nsAnonymousTemporaryFile.h"
 #include "nsAppRunner.h"
 #include "nsCExternalHandlerService.h"
@@ -5499,6 +5500,27 @@ mozilla::ipc::IPCResult ContentParent::RecvCopyFavicon(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentParent::RecvFindImageText(
+    ShmemImage&& aImage, FindImageTextResolver&& aResolver) {
+  RefPtr<DataSourceSurface> surf =
+      nsContentUtils::IPCImageToSurface(std::move(aImage), this);
+  if (!surf) {
+    aResolver(TextRecognitionResultOrError("Failed to read image"_ns));
+    return IPC_OK();
+  }
+  TextRecognition::FindText(*surf)->Then(
+      GetCurrentSerialEventTarget(), __func__,
+      [resolver = std::move(aResolver)](
+          TextRecognition::NativePromise::ResolveOrRejectValue&& aValue) {
+        if (aValue.IsResolve()) {
+          resolver(TextRecognitionResultOrError(aValue.ResolveValue()));
+        } else {
+          resolver(TextRecognitionResultOrError(aValue.RejectValue()));
+        }
+      });
+  return IPC_OK();
+}
+
 bool ContentParent::ShouldContinueFromReplyTimeout() {
   RefPtr<ProcessHangMonitor> monitor = ProcessHangMonitor::Get();
   return !monitor || !monitor->ShouldTimeOutCPOWs();
@@ -8100,12 +8122,12 @@ mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryCacheKey(
 mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryWireframe(
     const MaybeDiscarded<BrowsingContext>& aContext,
     const Wireframe& aWireframe) {
-  if (aContext.IsNullOrDiscarded()) {
+  if (aContext.IsNull()) {
     return IPC_OK();
   }
 
   SessionHistoryEntry* entry =
-      aContext.get_canonical()->GetActiveSessionHistoryEntry();
+      aContext.GetMaybeDiscarded()->Canonical()->GetActiveSessionHistoryEntry();
   if (entry) {
     entry->SetWireframe(Some(aWireframe));
   }

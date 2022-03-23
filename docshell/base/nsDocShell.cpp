@@ -5834,9 +5834,10 @@ nsDocShell::OnLocationChange(nsIWebProgress* aProgress, nsIRequest* aRequest,
   // changes the current window global, but that happens before this and we
   // have a lot of tests that depend on the specific ordering of messages.
   bool isTopLevel = false;
-  if (!(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT) &&
+  if (XRE_IsParentProcess() &&
+      !(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT) &&
       NS_SUCCEEDED(aProgress->GetIsTopLevel(&isTopLevel)) && isTopLevel) {
-    GetBrowsingContext()->UpdateSecurityState();
+    GetBrowsingContext()->Canonical()->UpdateSecurityState();
   }
   return NS_OK;
 }
@@ -6665,8 +6666,10 @@ nsresult nsDocShell::CreateAboutBlankContentViewer(
       }
     }
 
-    mSavingOldViewer = aTryToSaveOldPresentation &&
-                       CanSavePresentation(LOAD_NORMAL, nullptr, nullptr);
+    mSavingOldViewer =
+        aTryToSaveOldPresentation &&
+        CanSavePresentation(LOAD_NORMAL, nullptr, nullptr,
+                            /* aReportBFCacheComboTelemetry */ true);
 
     // Make sure to blow away our mLoadingURI just in case.  No loads
     // from inside this pagehide.
@@ -6830,7 +6833,8 @@ nsresult nsDocShell::CreateContentViewerForActor(
 
 bool nsDocShell::CanSavePresentation(uint32_t aLoadType,
                                      nsIRequest* aNewRequest,
-                                     Document* aNewDocument) {
+                                     Document* aNewDocument,
+                                     bool aReportBFCacheComboTelemetry) {
   if (!mOSHE) {
     return false;  // no entry to save into
   }
@@ -6903,8 +6907,10 @@ bool nsDocShell::CanSavePresentation(uint32_t aLoadType,
       }
     }
   }
-  ReportBFCacheComboTelemetry(bfCacheCombo);
 
+  if (aReportBFCacheComboTelemetry) {
+    ReportBFCacheComboTelemetry(bfCacheCombo);
+  }
   return doc && canSavePresentation;
 }
 
@@ -7348,7 +7354,8 @@ nsresult nsDocShell::RestoreFromHistory() {
     if (doc) {
       request = doc->GetChannel();
     }
-    mSavingOldViewer = CanSavePresentation(mLoadType, request, doc);
+    mSavingOldViewer = CanSavePresentation(
+        mLoadType, request, doc, /* aReportBFCacheComboTelemetry */ false);
   }
 
   // Protect against mLSHE going away via a load triggered from
@@ -7841,7 +7848,8 @@ nsresult nsDocShell::CreateContentViewer(const nsACString& aContentType,
     // it's still safe to do so, since there may have been DOM mutations
     // or new requests initiated.
     RefPtr<Document> doc = viewer->GetDocument();
-    mSavingOldViewer = CanSavePresentation(mLoadType, aRequest, doc);
+    mSavingOldViewer = CanSavePresentation(
+        mLoadType, aRequest, doc, /* aReportBFCacheComboTelemetry */ false);
   }
 
   NS_ASSERTION(!mLoadingURI, "Re-entering unload?");
@@ -9507,7 +9515,8 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
   // Also pass nullptr for the document, since it doesn't affect the return
   // value for our purposes here.
   bool savePresentation =
-      CanSavePresentation(aLoadState->LoadType(), nullptr, nullptr);
+      CanSavePresentation(aLoadState->LoadType(), nullptr, nullptr,
+                          /* aReportBFCacheComboTelemetry */ true);
 
   // nsDocShell::CanSavePresentation is for non-SHIP version only. Do a
   // separate check for SHIP so that we know if there are ongoing requests

@@ -839,12 +839,11 @@ extern bool JS::InstanceofOperator(JSContext* cx, HandleObject obj,
 }
 
 bool js::HasInstance(JSContext* cx, HandleObject obj, HandleValue v, bool* bp) {
-  const JSClass* clasp = obj->getClass();
-  RootedValue local(cx, v);
-  if (JSHasInstanceOp hasInstance = clasp->getHasInstance()) {
-    return hasInstance(cx, obj, &local, bp);
+  if (MOZ_UNLIKELY(obj->is<ProxyObject>())) {
+    RootedValue local(cx, v);
+    return Proxy::hasInstance(cx, obj, &local, bp);
   }
-  return JS::InstanceofOperator(cx, obj, local, bp);
+  return JS::InstanceofOperator(cx, obj, v, bp);
 }
 
 JSType js::TypeOfObject(JSObject* obj) {
@@ -3257,8 +3256,7 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
     CASE(CallIgnoresRv)
     CASE(CallIter)
     CASE(SuperCall)
-    CASE(FunCall)
-    CASE(FunApply) {
+    CASE(FunCall) {
       static_assert(JSOpLength_Call == JSOpLength_New,
                     "call and new must be the same size");
       static_assert(JSOpLength_Call == JSOpLength_CallIgnoresRv,
@@ -3269,8 +3267,6 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
                     "call and supercall must be the same size");
       static_assert(JSOpLength_Call == JSOpLength_FunCall,
                     "call and funcall must be the same size");
-      static_assert(JSOpLength_Call == JSOpLength_FunApply,
-                    "call and funapply must be the same size");
 
       if (REGS.fp()->hasPushedGeckoProfilerFrame()) {
         cx->geckoProfiler().updatePC(cx, script, REGS.pc);

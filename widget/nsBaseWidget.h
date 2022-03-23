@@ -173,13 +173,11 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   nsIWidgetListener* GetWidgetListener() const override;
   void SetWidgetListener(nsIWidgetListener* alistener) override;
   void Destroy() override;
-  void SetParent(nsIWidget* aNewParent) override {};
+  void SetParent(nsIWidget* aNewParent) override{};
   nsIWidget* GetParent() override;
   nsIWidget* GetTopLevelWidget() override;
   nsIWidget* GetSheetWindowParent(void) override;
   float GetDPI() override;
-  bool GetVsyncSupport() override { return true; }
-  uint32_t GetScreenId() override { return 0; }
   void AddChild(nsIWidget* aChild) override;
   void RemoveChild(nsIWidget* aChild) override;
 

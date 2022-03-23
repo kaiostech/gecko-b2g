@@ -479,11 +479,3 @@ DesktopToLayoutDeviceScale nsDeviceContext::GetDesktopToDeviceScale() {
 
   return DesktopToLayoutDeviceScale(1.0);
 }
-
-void nsDeviceContext::FindScreenId(uint32_t* screenId) {
-  if (!mWidget) {
-    *screenId = (uint32_t)DisplayType::DISPLAY_PRIMARY;
-  }
-
-  *screenId = mWidget->GetScreenId();
-}

@@ -1,4 +1,4 @@
-// |jit-test| --enable-avx; skip-if: !wasmSimdEnabled() || !hasDisassembler() || wasmCompileMode() != "ion" || !getBuildConfiguration().x64 || getBuildConfiguration().simulator || !isAvxPresent(); include:codegen-x64-test.js
+// |jit-test| skip-if: !wasmSimdEnabled() || !hasDisassembler() || wasmCompileMode() != "ion" || !getBuildConfiguration().x64 || getBuildConfiguration().simulator || !isAvxPresent(); include:codegen-x64-test.js
 
 // Test that there are no extraneous moves for various SIMD conversion
 // operations. See README-codegen.md for general information about this type of
@@ -116,24 +116,82 @@ c5 f1 f4 c2               vpmuludq %xmm2, %xmm1, %xmm0
 
 // Simple comparison ops
 codegenTestX64_v128xv128_v128_avxhack(
-     [['i32x4.eq', `c5 f1 76 c2               vpcmpeqd %xmm2, %xmm1, %xmm0`],
+     [['i8x16.eq', `c5 f1 74 c2               vpcmpeqb %xmm2, %xmm1, %xmm0`],
+      ['i8x16.ne', `
+c5 f1 74 c2               vpcmpeqb %xmm2, %xmm1, %xmm0
+66 45 0f 75 ff            pcmpeqw %xmm15, %xmm15
+66 41 0f ef c7            pxor %xmm15, %xmm0`],
+      ['i8x16.lt_s', `c5 e9 64 c1               vpcmpgtb %xmm1, %xmm2, %xmm0`],
+      ['i8x16.gt_u', `
+c5 f1 de c2               vpmaxub %xmm2, %xmm1, %xmm0
+66 0f 74 c2               pcmpeqb %xmm2, %xmm0
+66 45 0f 75 ff            pcmpeqw %xmm15, %xmm15
+66 41 0f ef c7            pxor %xmm15, %xmm0`],
+      ['i16x8.eq', `c5 f1 75 c2               vpcmpeqw %xmm2, %xmm1, %xmm0`],
+      ['i16x8.ne', `
+c5 f1 75 c2               vpcmpeqw %xmm2, %xmm1, %xmm0
+66 45 0f 75 ff            pcmpeqw %xmm15, %xmm15
+66 41 0f ef c7            pxor %xmm15, %xmm0`],
+      ['i16x8.le_s', `
+c5 f1 65 c2               vpcmpgtw %xmm2, %xmm1, %xmm0
+66 45 0f 75 ff            pcmpeqw %xmm15, %xmm15
+66 41 0f ef c7            pxor %xmm15, %xmm0`],
+      ['i16x8.ge_u', `
+c4 e2 71 3a c2            vpminuw %xmm2, %xmm1, %xmm0
+66 0f 75 c2               pcmpeqw %xmm2, %xmm0`],
+      ['i32x4.eq', `c5 f1 76 c2               vpcmpeqd %xmm2, %xmm1, %xmm0`],
       ['i32x4.ne', `
 c5 f1 76 c2               vpcmpeqd %xmm2, %xmm1, %xmm0
 66 45 0f 75 ff            pcmpeqw %xmm15, %xmm15
 66 41 0f ef c7            pxor %xmm15, %xmm0`],
-      ['i32x4.lt_s', `
-c5 f9 6f c2               vmovdqa %xmm2, %xmm0
-66 0f 66 c1               pcmpgtd %xmm1, %xmm0`],
+      ['i32x4.lt_s', `c5 e9 66 c1               vpcmpgtd %xmm1, %xmm2, %xmm0`],
       ['i32x4.gt_u', `
 c4 e2 71 3f c2            vpmaxud %xmm2, %xmm1, %xmm0
 66 0f 76 c2               pcmpeqd %xmm2, %xmm0
 66 45 0f 75 ff            pcmpeqw %xmm15, %xmm15
 66 41 0f ef c7            pxor %xmm15, %xmm0`],
+      ['i64x2.eq', `c4 e2 71 29 c2            vpcmpeqq %xmm2, %xmm1, %xmm0`],
+      ['i64x2.ne', `
+c4 e2 71 29 c2            vpcmpeqq %xmm2, %xmm1, %xmm0
+66 45 0f 75 ff            pcmpeqw %xmm15, %xmm15
+66 41 0f ef c7            pxor %xmm15, %xmm0`],
+      ['i64x2.lt_s', `c4 e2 69 37 c1            vpcmpgtq %xmm1, %xmm2, %xmm0`],
+      ['i64x2.ge_s', `
+c4 e2 69 37 c1            vpcmpgtq %xmm1, %xmm2, %xmm0
+66 45 0f 75 ff            pcmpeqw %xmm15, %xmm15
+66 41 0f ef c7            pxor %xmm15, %xmm0`],
       ['f32x4.eq', `c5 f0 c2 c2 00            vcmpps \\$0x00, %xmm2, %xmm1, %xmm0`],
       ['f32x4.lt', `c5 f0 c2 c2 01            vcmpps \\$0x01, %xmm2, %xmm1, %xmm0`],
-      ['f32x4.ge', `
-c5 f9 6f c2               vmovdqa %xmm2, %xmm0
-0f c2 c1 02               cmpps \\$0x02, %xmm1, %xmm0`]]);
+      ['f32x4.ge', `c5 e8 c2 c1 02            vcmpps \\$0x02, %xmm1, %xmm2, %xmm0`],
+      ['f64x2.eq', `c5 f1 c2 c2 00            vcmppd \\$0x00, %xmm2, %xmm1, %xmm0`],
+      ['f64x2.lt', `c5 f1 c2 c2 01            vcmppd \\$0x01, %xmm2, %xmm1, %xmm0`],
+      ['f64x2.ge', `c5 e9 c2 c1 02            vcmppd \\$0x02, %xmm1, %xmm2, %xmm0`],
+      ['f32x4.pmin', `c5 e8 5d c1               vminps %xmm1, %xmm2, %xmm0`],
+      ['f32x4.pmax', `c5 e8 5f c1               vmaxps %xmm1, %xmm2, %xmm0`],
+      ['f64x2.pmin', `c5 e9 5d c1               vminpd %xmm1, %xmm2, %xmm0`],
+      ['f64x2.pmax', `c5 e9 5f c1               vmaxpd %xmm1, %xmm2, %xmm0`],
+      ['i8x16.swizzle', `
+c5 69 dc 3d ${RIPRADDR}   vpaddusbx ${RIPR}, %xmm2, %xmm15
+c4 c2 71 00 c7            vpshufb %xmm15, %xmm1, %xmm0`],
+      ['i16x8.extmul_high_i8x16_s', `
+66 44 0f 3a 0f fa 08      palignr \\$0x08, %xmm2, %xmm15
+c4 42 79 20 ff            vpmovsxbw %xmm15, %xmm15
+66 0f 3a 0f c1 08         palignr \\$0x08, %xmm1, %xmm0
+c4 e2 79 20 c0            vpmovsxbw %xmm0, %xmm0
+66 41 0f d5 c7            pmullw %xmm15, %xmm0`],
+      ['i32x4.extmul_low_i16x8_u', `
+c5 71 e4 fa               vpmulhuw %xmm2, %xmm1, %xmm15
+c5 f1 d5 c2               vpmullw %xmm2, %xmm1, %xmm0
+66 41 0f 61 c7            punpcklwd %xmm15, %xmm0`],
+      ['i64x2.extmul_low_i32x4_s', `
+c5 79 70 f9 10            vpshufd \\$0x10, %xmm1, %xmm15
+c5 f9 70 c2 10            vpshufd \\$0x10, %xmm2, %xmm0
+66 41 0f 38 28 c7         pmuldq %xmm15, %xmm0`],
+      ['i16x8.q15mulr_sat_s', `
+c4 e2 71 0b c2            vpmulhrsw %xmm2, %xmm1, %xmm0
+c5 79 75 3d ${RIPRADDR}   vpcmpeqwx ${RIPR}, %xmm0, %xmm15
+66 41 0f ef c7            pxor %xmm15, %xmm0`],
+]);
 
 // Bitwise binary ops
 codegenTestX64_v128xv128_v128_avxhack(

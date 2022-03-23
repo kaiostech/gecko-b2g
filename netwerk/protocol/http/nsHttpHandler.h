@@ -641,9 +641,6 @@ class nsHttpHandler final : public nsIHttpProtocolHandler,
   nsCString mUserAgent;
   nsCString mSpoofedUserAgent;
   nsCString mUserAgentOverride;
-
-  nsCString mExperimentUserAgent;
-
   bool mUserAgentIsDirty{true};  // true if mUserAgent should be rebuilt
   bool mAcceptLanguagesIsDirty{true};
 
@@ -804,7 +801,7 @@ class nsHttpHandler final : public nsIHttpProtocolHandler,
       "nsHttpConnectionMgr::LastActiveTabLoadOptimization"};
   TimeStamp mLastActiveTabLoadOptimizationHit;
 
-  Mutex mHttpExclusionLock{"nsHttpHandler::HttpExclusion"};
+  Mutex mHttpExclusionLock MOZ_UNANNOTATED{"nsHttpHandler::HttpExclusion"};
 
  public:
   [[nodiscard]] nsresult NewChannelId(uint64_t& channelId);

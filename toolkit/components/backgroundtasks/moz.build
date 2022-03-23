@@ -50,6 +50,10 @@ EXTRA_JS_MODULES.backgroundtasks += [
     "BackgroundTask_success.jsm",
 ]
 
+LOCAL_INCLUDES += [
+    "../../profile",
+]
+
 BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.ini"]
 XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.ini"]
 
@@ -63,6 +67,7 @@ TESTING_JS_MODULES.backgroundtasks += [
     "tests/BackgroundTask_file_exists.jsm",
     "tests/BackgroundTask_jsdebugger.jsm",
     "tests/BackgroundTask_policies.jsm",
+    "tests/BackgroundTask_profile_is_slim.jsm",
     "tests/BackgroundTask_shouldnotprocessupdates.jsm",
     "tests/BackgroundTask_shouldprocessupdates.jsm",
     "tests/BackgroundTask_timeout.jsm",

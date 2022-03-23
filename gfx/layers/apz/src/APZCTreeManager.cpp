@@ -968,10 +968,10 @@ void APZCTreeManager::PrintAPZCInfo(const ScrollNode& aLayer,
                << aLayer.Metadata().GetContentDescription().get();
 }
 
+// mTreeLock is held, and checked with static analysis
 void APZCTreeManager::AttachNodeToTree(HitTestingTreeNode* aNode,
                                        HitTestingTreeNode* aParent,
                                        HitTestingTreeNode* aNextSibling) {
-  mTreeLock.AssertCurrentThreadIn();
   if (aNextSibling) {
     aNextSibling->SetPrevSibling(aNode);
   } else if (aParent) {
@@ -1095,6 +1095,7 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
     const Maybe<ZoomConstraints>& aZoomConstraints,
     const AncestorTransform& aAncestorTransform, HitTestingTreeNode* aParent,
     HitTestingTreeNode* aNextSibling, TreeBuildingState& aState) {
+  mTreeLock.AssertCurrentThreadIn();  // for static analysis
   bool needsApzc = true;
   if (!aMetrics.IsScrollable()) {
     needsApzc = false;
@@ -3532,6 +3533,7 @@ void APZCTreeManager::SendSubtreeTransformsToChromeMainThread(
     ForEachNode<ReverseIterator>(
         mRootNode.get(),
         [&](HitTestingTreeNode* aNode) {
+          mTreeLock.AssertCurrentThreadIn();
           bool atAncestor = (aAncestor && aNode->GetApzc() == aAncestor);
           MOZ_ASSERT(!(underAncestor && atAncestor));
           underAncestor |= atAncestor;
@@ -3611,6 +3613,7 @@ void APZCTreeManager::AssertOnUpdaterThread() {
   GetUpdater()->AssertOnUpdaterThread();
 }
 
+PUSH_IGNORE_THREAD_SAFETY
 void APZCTreeManager::LockTree() {
   AssertOnUpdaterThread();
   mTreeLock.Lock();
@@ -3620,6 +3623,7 @@ void APZCTreeManager::UnlockTree() {
   AssertOnUpdaterThread();
   mTreeLock.Unlock();
 }
+POP_THREAD_SAFETY
 
 void APZCTreeManager::SetDPI(float aDpiValue) {
   if (!APZThreadUtils::IsControllerThread()) {

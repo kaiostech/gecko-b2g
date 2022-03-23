@@ -113,6 +113,12 @@ bool ModuleLoaderBase::ModuleMapContainsURL(nsIURI* aURL,
   return mFetchingModules.Contains(key) || mFetchedModules.Contains(key);
 }
 
+bool ModuleLoaderBase::IsModuleFetching(nsIURI* aURL,
+                                        nsIGlobalObject* aGlobal) const {
+  ModuleMapKey key(aURL, aGlobal);
+  return mFetchingModules.Contains(key);
+}
+
 void ModuleLoaderBase::SetModuleFetchStarted(ModuleLoadRequest* aRequest) {
   // Update the module map to indicate that a module is currently being fetched.
 
@@ -235,24 +241,23 @@ nsresult ModuleLoaderBase::CreateModuleScript(ModuleLoadRequest* aRequest) {
     return NS_ERROR_FAILURE;
   }
 
-  mozilla::nsAutoMicroTask mt;
-
-  mozilla::AutoAllowLegacyScriptExecution exemption;
-
-  mozilla::dom::AutoEntryScript aes(globalObject, "CompileModule", true);
+  mozilla::dom::AutoJSAPI jsapi;
+  if (!jsapi.Init(globalObject)) {
+    return NS_ERROR_FAILURE;
+  }
 
   nsresult rv;
   {
-    JSContext* cx = aes.cx();
+    JSContext* cx = jsapi.cx();
     JS::Rooted<JSObject*> module(cx);
-    JS::Rooted<JSObject*> global(cx, globalObject->GetGlobalJSObject());
 
     JS::CompileOptions options(cx);
     JS::RootedScript introductionScript(cx);
-    rv = mLoader->FillCompileOptionsForRequest(cx, aRequest, global, &options,
+    rv = mLoader->FillCompileOptionsForRequest(cx, aRequest, &options,
                                                &introductionScript);
 
     if (NS_SUCCEEDED(rv)) {
+      JS::Rooted<JSObject*> global(cx, globalObject->GetGlobalJSObject());
       rv = CompileOrFinishModuleScript(cx, global, options, aRequest, &module);
     }
 
@@ -278,9 +283,9 @@ nsresult ModuleLoaderBase::CreateModuleScript(ModuleLoadRequest* aRequest) {
       LOG(("ScriptLoadRequest (%p):   compilation failed (%d)", aRequest,
            unsigned(rv)));
 
-      MOZ_ASSERT(aes.HasException());
+      MOZ_ASSERT(jsapi.HasException());
       JS::Rooted<JS::Value> error(cx);
-      if (!aes.StealException(&error)) {
+      if (!jsapi.StealException(&error)) {
         aRequest->mModuleScript = nullptr;
         return NS_ERROR_FAILURE;
       }
@@ -616,6 +621,31 @@ ModuleLoaderBase::~ModuleLoaderBase() {
   LOG(("ModuleLoaderBase::~ModuleLoaderBase %p", this));
 }
 
+bool ModuleLoaderBase::HasPendingDynamicImports() const {
+  return !mDynamicImportRequests.isEmpty();
+}
+
+void ModuleLoaderBase::CancelDynamicImport(ModuleLoadRequest* aRequest,
+                                           nsresult aResult) {
+  RefPtr<ScriptLoadRequest> req = mDynamicImportRequests.Steal(aRequest);
+  aRequest->Cancel();
+  // FinishDynamicImport must happen exactly once for each dynamic import
+  // request. If the load is aborted we do it when we remove the request
+  // from mDynamicImportRequests.
+  FinishDynamicImportAndReject(aRequest, aResult);
+}
+
+void ModuleLoaderBase::RemoveDynamicImport(ModuleLoadRequest* aRequest) {
+  MOZ_ASSERT(aRequest->IsDynamicImport());
+  mDynamicImportRequests.Remove(aRequest);
+}
+
+#ifdef DEBUG
+bool ModuleLoaderBase::HasDynamicImport(ModuleLoadRequest* aRequest) const {
+  return mDynamicImportRequests.Contains(aRequest);
+}
+#endif
+
 JS::Value ModuleLoaderBase::FindFirstParseError(ModuleLoadRequest* aRequest) {
   MOZ_ASSERT(aRequest);
 
@@ -644,6 +674,8 @@ bool ModuleLoaderBase::InstantiateModuleTree(ModuleLoadRequest* aRequest) {
 
   LOG(("ScriptLoadRequest (%p): Instantiate module tree", aRequest));
 
+  AUTO_PROFILER_LABEL("ModuleLoaderBase::InstantiateModuleTree", JS);
+
   ModuleScript* moduleScript = aRequest->mModuleScript;
   MOZ_ASSERT(moduleScript);
 
@@ -656,16 +688,17 @@ bool ModuleLoaderBase::InstantiateModuleTree(ModuleLoadRequest* aRequest) {
 
   MOZ_ASSERT(moduleScript->ModuleRecord());
 
-  mozilla::nsAutoMicroTask mt;
   mozilla::dom::AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(moduleScript->ModuleRecord()))) {
     return false;
   }
 
   JS::Rooted<JSObject*> module(jsapi.cx(), moduleScript->ModuleRecord());
-  bool ok = NS_SUCCEEDED(nsJSUtils::ModuleInstantiate(jsapi.cx(), module));
+  if (!xpc::Scriptability::Get(module).Allowed()) {
+    return true;
+  }
 
-  if (!ok) {
+  if (!JS::ModuleInstantiate(jsapi.cx(), module)) {
     LOG(("ScriptLoadRequest (%p): Instantiate failed", aRequest));
     MOZ_ASSERT(jsapi.HasException());
     JS::RootedValue exception(jsapi.cx());
@@ -728,6 +761,8 @@ void ModuleLoaderBase::ProcessDynamicImport(ModuleLoadRequest* aRequest) {
 
 nsresult ModuleLoaderBase::EvaluateModule(nsIGlobalObject* aGlobalObject,
                                           ScriptLoadRequest* aRequest) {
+  AUTO_PROFILER_LABEL("ModuleLoaderBase::EvaluateModule", JS);
+
   mozilla::nsAutoMicroTask mt;
   mozilla::dom::AutoEntryScript aes(aGlobalObject, "EvaluateModule", true);
   JSContext* cx = aes.cx();
@@ -741,10 +776,6 @@ nsresult ModuleLoaderBase::EvaluateModule(nsIGlobalObject* aGlobalObject,
   AUTO_PROFILER_MARKER_TEXT("ModuleEvaluation", JS,
                             MarkerInnerWindowIdFromJSContext(cx),
                             profilerLabelString);
-
-  // When a module is already loaded, it is not feched a second time and the
-  // mDataType of the request might remain set to DataType::Unknown.
-  MOZ_ASSERT(aRequest->IsTextSource() || aRequest->IsUnknownDataType());
 
   ModuleLoadRequest* request = aRequest->AsModuleRequest();
   MOZ_ASSERT(request->mModuleScript);
@@ -767,6 +798,10 @@ nsresult ModuleLoaderBase::EvaluateModule(nsIGlobalObject* aGlobalObject,
   JS::Rooted<JSObject*> module(cx, moduleScript->ModuleRecord());
   MOZ_ASSERT(module);
 
+  if (!xpc::Scriptability::Get(module).Allowed()) {
+    return NS_OK;
+  }
+
   nsresult rv = InitDebuggerDataForModuleTree(cx, request);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -777,20 +812,17 @@ nsresult ModuleLoaderBase::EvaluateModule(nsIGlobalObject* aGlobalObject,
 
   JS::Rooted<JS::Value> rval(cx);
 
-  rv = nsJSUtils::ModuleEvaluate(cx, module, &rval);
+  mLoader->MaybePrepareModuleForBytecodeEncodingBeforeExecute(cx, request);
 
-  if (NS_SUCCEEDED(rv)) {
+  if (JS::ModuleEvaluate(cx, module, &rval)) {
     // If we have an infinite loop in a module, which is stopped by the
     // user, the module evaluation will fail, but we will not have an
     // AutoEntryScript exception.
     MOZ_ASSERT(!aes.HasException());
-  }
-
-  if (NS_FAILED(rv)) {
+  } else {
     LOG(("ScriptLoadRequest (%p):   evaluation failed", aRequest));
-    // For a dynamic import, the promise is rejected.  Otherwise an error is
-    // either reported by AutoEntryScript.
-    rv = NS_OK;
+    // For a dynamic import, the promise is rejected. Otherwise an error is
+    // reported by AutoEntryScript.
   }
 
   JS::Rooted<JSObject*> aEvaluationPromise(cx);
@@ -802,23 +834,22 @@ nsresult ModuleLoaderBase::EvaluateModule(nsIGlobalObject* aGlobalObject,
     aEvaluationPromise.set(&rval.toObject());
   }
   if (request->IsDynamicImport()) {
-    FinishDynamicImport(cx, request, rv, aEvaluationPromise);
+    FinishDynamicImport(cx, request, NS_OK, aEvaluationPromise);
   } else {
     // If this is not a dynamic import, and if the promise is rejected,
     // the value is unwrapped from the promise value.
     if (!JS::ThrowOnModuleEvaluationFailure(cx, aEvaluationPromise)) {
       LOG(("ScriptLoadRequest (%p):   evaluation failed on throw", aRequest));
-      // For a dynamic import, the promise is rejected.  Otherwise an
-      // error is either reported by AutoEntryScript.
-      rv = NS_OK;
+      // For a dynamic import, the promise is rejected. Otherwise an error is
+      // reported by AutoEntryScript.
     }
   }
 
-  if (aRequest->HasLoadContext()) {
-    TRACE_FOR_TEST_NONE(aRequest->GetLoadContext()->GetScriptElement(),
-                        "scriptloader_no_encode");
-  }
-  aRequest->mCacheInfo = nullptr;
+  rv = mLoader->MaybePrepareModuleForBytecodeEncodingAfterExecute(request,
+                                                                  NS_OK);
+
+  mLoader->MaybeTriggerBytecodeEncoding();
+
   return rv;
 }
 

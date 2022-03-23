@@ -13,8 +13,8 @@
 #include "mozilla/intl/LocaleService.h"
 #include "mozilla/intl/OSPreferences.h"
 #if defined(MOZ_WIDGET_ANDROID)
-  #include "mozilla/jni/Utils.h"
-  #include "mozilla/layers/AndroidHardwareBuffer.h"
+#  include "mozilla/jni/Utils.h"
+#  include "mozilla/layers/AndroidHardwareBuffer.h"
 #endif
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_gfx.h"
@@ -30,15 +30,14 @@
 #include "nsUnicodeProperties.h"
 #include "cairo.h"
 #include "VsyncSource.h"
-#include "SoftwareVsyncSource.h"
 
 #include "ft2build.h"
 #include FT_FREETYPE_H
 #include FT_MODULE_H
 
 #ifdef MOZ_WIDGET_GONK
-#include <cutils/properties.h>
-#include "HwcComposer2D.h"
+#  include <cutils/properties.h>
+#  include "HwcComposer2D.h"
 #endif
 
 using namespace mozilla;
@@ -107,9 +106,9 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
   }
 
 #ifdef MOZ_WIDGET_GONK
-    char propQemu[PROPERTY_VALUE_MAX];
-    property_get("ro.kernel.qemu", propQemu, "");
-    mIsInGonkEmulator = !strncmp(propQemu, "1", 1);
+  char propQemu[PROPERTY_VALUE_MAX];
+  property_get("ro.kernel.qemu", propQemu, "");
+  mIsInGonkEmulator = !strncmp(propQemu, "1", 1);
 #endif
 }
 
@@ -187,7 +186,7 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
   static const char kNotoSansCJKJP[] = "Noto Sans CJK JP";
   static const char kNotoColorEmoji[] = "Noto Color Emoji";
 #ifdef MOZ_WIDGET_GONK
-    static const char kFirefoxEmoji[] = "Firefox Emoji";
+  static const char kFirefoxEmoji[] = "Firefox Emoji";
 #endif
 
   if (PrefersColor(aPresentation)) {
@@ -308,9 +307,9 @@ bool gfxAndroidPlatform::FontHintingEnabled() {
 #endif  //  MOZ_WIDGET_ANDROID
 
 #ifdef MOZ_WIDGET_GONK
-    // On B2G, the UX preference is currently to keep hinting disabled
-    // for all text (see bug 829523).
-    return false;
+  // On B2G, the UX preference is currently to keep hinting disabled
+  // for all text (see bug 829523).
+  return false;
 #endif
 
   // Currently, we don't have any other targets, but if/when we do,
@@ -340,185 +339,92 @@ bool gfxAndroidPlatform::RequiresLinearZoom() {
 }
 
 #ifdef MOZ_WIDGET_ANDROID
-class AndroidVsyncSource final : public VsyncSource {
+class AndroidVsyncSource final : public VsyncSource,
+                                 public widget::AndroidVsync::Observer {
  public:
-  class Display final : public VsyncSource::Display,
-                        public widget::AndroidVsync::Observer {
-   public:
-    Display() : mAndroidVsync(widget::AndroidVsync::GetInstance()) {}
-    ~Display() { DisableVsync(); }
+  AndroidVsyncSource() : mAndroidVsync(widget::AndroidVsync::GetInstance()) {}
 
-    bool IsVsyncEnabled() override {
-      MOZ_ASSERT(NS_IsMainThread());
-      return mObservingVsync;
+  bool IsVsyncEnabled() override {
+    MOZ_ASSERT(NS_IsMainThread());
+    return mObservingVsync;
+  }
+
+  void EnableVsync() override {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    if (mObservingVsync) {
+      return;
     }
+    mAndroidVsync->RegisterObserver(this, widget::AndroidVsync::RENDER);
+    mObservingVsync = true;
+  }
 
-    void EnableVsync() override {
-      MOZ_ASSERT(NS_IsMainThread());
+  void DisableVsync() override {
+    MOZ_ASSERT(NS_IsMainThread());
 
-      if (mObservingVsync) {
-        return;
-      }
-      mAndroidVsync->RegisterObserver(this, widget::AndroidVsync::RENDER);
-      mObservingVsync = true;
+    if (!mObservingVsync) {
+      return;
     }
+    mAndroidVsync->UnregisterObserver(this, widget::AndroidVsync::RENDER);
+    mObservingVsync = false;
+  }
 
-    void DisableVsync() override {
-      MOZ_ASSERT(NS_IsMainThread());
+  TimeDuration GetVsyncRate() override { return mAndroidVsync->GetVsyncRate(); }
 
-      if (!mObservingVsync) {
-        return;
-      }
-      mAndroidVsync->UnregisterObserver(this, widget::AndroidVsync::RENDER);
-      mObservingVsync = false;
-    }
+  void Shutdown() override { DisableVsync(); }
 
-    TimeDuration GetVsyncRate() override {
-      return mAndroidVsync->GetVsyncRate();
-    }
+  // Override for the widget::AndroidVsync::Observer method
+  void OnVsync(const TimeStamp& aTimeStamp) override {
+    // Use the timebase from the frame callback as the vsync time, unless it
+    // is in the future.
+    TimeStamp now = TimeStamp::Now();
+    TimeStamp vsyncTime = aTimeStamp < now ? aTimeStamp : now;
+    TimeStamp outputTime = vsyncTime + GetVsyncRate();
 
-    void Shutdown() override { DisableVsync(); }
-
-    // Override for the widget::AndroidVsync::Observer method
-    void OnVsync(const TimeStamp& aTimeStamp) override {
-      // Use the timebase from the frame callback as the vsync time, unless it
-      // is in the future.
-      TimeStamp now = TimeStamp::Now();
-      TimeStamp vsyncTime = aTimeStamp < now ? aTimeStamp : now;
-      TimeStamp outputTime = vsyncTime + GetVsyncRate();
-
-      NotifyVsync(vsyncTime, outputTime);
-    }
-
-   private:
-    RefPtr<widget::AndroidVsync> mAndroidVsync;
-    bool mObservingVsync = false;
-    TimeDuration mVsyncDuration;
-  };
-
-  Display& GetGlobalDisplay() final { return GetDisplayInstance(); }
+    NotifyVsync(vsyncTime, outputTime);
+  }
 
  private:
-  virtual ~AndroidVsyncSource() = default;
+  virtual ~AndroidVsyncSource() { DisableVsync(); }
 
-  static Display& GetDisplayInstance() {
-    static RefPtr<Display> globalDisplay = new Display();
-    return *globalDisplay;
-  }
+  RefPtr<widget::AndroidVsync> mAndroidVsync;
+  bool mObservingVsync = false;
+  TimeDuration mVsyncDuration;
 };
 #endif
 
 #ifdef MOZ_WIDGET_GONK
-class GonkVsyncSource final : public VsyncSource
-{
-  typedef VsyncSource::Display Display;
+class GonkVsyncSource final : public VsyncSource {
+ public:
+  GonkVsyncSource() : mVsyncEnabled(false) {}
 
-public:
-  GonkVsyncSource() : mGlobalDisplay(new GonkDisplay())
-  {
-  }
-
-  virtual Display& GetGlobalDisplay() override
-  {
-    return *mGlobalDisplay;
-  }
-
-  virtual Display& GetDisplayById(uint32_t aScreenId) override
-  {
-    if (mDisplayMap.count(aScreenId) > 0) {
-      return *mDisplayMap[aScreenId];
-    }
-
-    // GlobalDisplay should always exist.
-    return GetGlobalDisplay();
-  }
-
-  nsresult
-  AddDisplay(uint32_t aScreenId, VsyncSource::VsyncType aVsyncType) override
-  {
+  void EnableVsync() override {
     MOZ_ASSERT(NS_IsMainThread());
-    if (mDisplayMap.count(aScreenId) > 0) {
-      return NS_ERROR_FAILURE;
+    if (IsVsyncEnabled()) {
+      return;
     }
-
-    if (aVsyncType == HARDWARE_VYSNC) {
-      mDisplayMap[aScreenId] = mGlobalDisplay;
-      return NS_OK;
-    } else if (aVsyncType == SOFTWARE_VSYNC) {
-      mDisplayMap[aScreenId] = new SoftwareDisplay();
-      return NS_OK;
-    }
-
-    return NS_ERROR_FAILURE;
+    mVsyncEnabled = HwcComposer2D::GetInstance()->EnableVsync(true);
   }
 
-  nsresult
-  RemoveDisplay(uint32_t aScreenId) override
-  {
+  void DisableVsync() override {
     MOZ_ASSERT(NS_IsMainThread());
-    if (mDisplayMap.count(aScreenId) == 0) {
-      return NS_ERROR_FAILURE;
+    if (!IsVsyncEnabled()) {
+      return;
     }
-    mDisplayMap.erase(aScreenId);
-
-    return NS_OK;
+    mVsyncEnabled = HwcComposer2D::GetInstance()->EnableVsync(false);
   }
 
-
-  class GonkDisplay final : public VsyncSource::Display
-  {
-  public:
-    GonkDisplay() : mVsyncEnabled(false)
-    {
-    }
-
-    ~GonkDisplay()
-    {
-      DisableVsync();
-    }
-
-    void EnableVsync() override
-    {
-      MOZ_ASSERT(NS_IsMainThread());
-      if (IsVsyncEnabled()) {
-        return;
-      }
-      mVsyncEnabled = HwcComposer2D::GetInstance()->EnableVsync(true);
-    }
-
-    void DisableVsync() override
-    {
-      MOZ_ASSERT(NS_IsMainThread());
-      if (!IsVsyncEnabled()) {
-        return;
-      }
-      mVsyncEnabled = HwcComposer2D::GetInstance()->EnableVsync(false);
-    }
-
-    bool IsVsyncEnabled() override
-    {
-      MOZ_ASSERT(NS_IsMainThread());
-      return mVsyncEnabled;
-    }
-
-    void Shutdown() override {
-      DisableVsync();
-    }
-
-  private:
-    bool mVsyncEnabled;
-  }; // GonkDisplay
-
-private:
-  virtual ~GonkVsyncSource()
-  {
+  bool IsVsyncEnabled() override {
     MOZ_ASSERT(NS_IsMainThread());
-    mDisplayMap.clear();
+    return mVsyncEnabled;
   }
-  RefPtr<Display> mGlobalDisplay;
-  // Map of screen Id to Display
-  std::map<uint32_t, RefPtr<Display>> mDisplayMap;
-}; // GonkVsyncSource
+
+  void Shutdown() override { DisableVsync(); }
+
+ private:
+  virtual ~GonkVsyncSource() { DisableVsync(); }
+  bool mVsyncEnabled;
+};  // GonkVsyncSource
 #endif
 
 already_AddRefed<mozilla::gfx::VsyncSource>
@@ -530,13 +436,12 @@ gfxAndroidPlatform::CreateHardwareVsyncSource() {
   // L is android version 21, L-MR1 is 22, kit-kat is 19, 20 is kit-kat for
   // wearables.
   RefPtr<GonkVsyncSource> vsyncSource = new GonkVsyncSource();
-  VsyncSource::Display& display = vsyncSource->GetGlobalDisplay();
-  display.EnableVsync();
-  if (!display.IsVsyncEnabled()) {
-      NS_WARNING("Error enabling gonk vsync. Falling back to software vsync");
-      return gfxPlatform::CreateHardwareVsyncSource();
+  vsyncSource->EnableVsync();
+  if (!vsyncSource->IsVsyncEnabled()) {
+    NS_WARNING("Error enabling gonk vsync. Falling back to software vsync");
+    return gfxPlatform::CreateHardwareVsyncSource();
   }
-  display.DisableVsync();
+  vsyncSource->DisableVsync();
   return vsyncSource.forget();
 #elif defined(MOZ_WIDGET_ANDROID)
   // Vsync was introduced since JB (API 16~18) but inaccurate. Enable only for

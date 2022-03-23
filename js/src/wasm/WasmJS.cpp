@@ -704,7 +704,7 @@ static SharedCompileArgs InitCompileArgs(JSContext* cx,
   if (!ParseCompileOptions(cx, maybeOptions, &options)) {
     return nullptr;
   }
-  return CompileArgs::build(cx, std::move(scriptedCaller), options);
+  return CompileArgs::buildAndReport(cx, std::move(scriptedCaller), options);
 }
 
 // ============================================================================
@@ -1277,7 +1277,6 @@ const JSClassOps WasmModuleObject::classOps_ = {
     nullptr,                     // mayResolve
     WasmModuleObject::finalize,  // finalize
     nullptr,                     // call
-    nullptr,                     // hasInstance
     nullptr,                     // construct
     nullptr,                     // trace
 };
@@ -1863,7 +1862,6 @@ const JSClassOps WasmInstanceObject::classOps_ = {
     nullptr,                       // mayResolve
     WasmInstanceObject::finalize,  // finalize
     nullptr,                       // call
-    nullptr,                       // hasInstance
     nullptr,                       // construct
     WasmInstanceObject::trace,     // trace
 };
@@ -2051,8 +2049,7 @@ WasmInstanceObject* WasmInstanceObject::create(
 
     // Create this just before constructing Instance to avoid rooting hazards.
     instance = Instance::create(cx, obj, code, globalDataLength, memory,
-                                std::move(tables),
-                                std::move(maybeDebug));
+                                std::move(tables), std::move(maybeDebug));
     if (!instance) {
       return nullptr;
     }
@@ -2584,7 +2581,6 @@ const JSClassOps WasmMemoryObject::classOps_ = {
     nullptr,                     // mayResolve
     WasmMemoryObject::finalize,  // finalize
     nullptr,                     // call
-    nullptr,                     // hasInstance
     nullptr,                     // construct
     nullptr,                     // trace
 };
@@ -3009,7 +3005,6 @@ const JSClassOps WasmTableObject::classOps_ = {
     nullptr,                    // mayResolve
     WasmTableObject::finalize,  // finalize
     nullptr,                    // call
-    nullptr,                    // hasInstance
     nullptr,                    // construct
     WasmTableObject::trace,     // trace
 };
@@ -3422,7 +3417,7 @@ void WasmTableObject::assertRangeNull(uint32_t index, uint32_t length) const {
   switch (tab.repr()) {
     case TableRepr::Func:
       for (uint32_t i = index; i < index + length; i++) {
-        MOZ_ASSERT(tab.getFuncRef(i).tls == nullptr);
+        MOZ_ASSERT(tab.getFuncRef(i).instance == nullptr);
         MOZ_ASSERT(tab.getFuncRef(i).code == nullptr);
       }
       break;
@@ -3447,7 +3442,6 @@ const JSClassOps WasmGlobalObject::classOps_ = {
     nullptr,                     // mayResolve
     WasmGlobalObject::finalize,  // finalize
     nullptr,                     // call
-    nullptr,                     // hasInstance
     nullptr,                     // construct
     WasmGlobalObject::trace,     // trace
 };
@@ -3700,7 +3694,6 @@ const JSClassOps WasmTagObject::classOps_ = {
     nullptr,                  // mayResolve
     WasmTagObject::finalize,  // finalize
     nullptr,                  // call
-    nullptr,                  // hasInstance
     nullptr,                  // construct
     nullptr,                  // trace
 };
@@ -3855,7 +3848,6 @@ const JSClassOps WasmExceptionObject::classOps_ = {
     nullptr,                        // mayResolve
     WasmExceptionObject::finalize,  // finalize
     nullptr,                        // call
-    nullptr,                        // hasInstance
     nullptr,                        // construct
     WasmExceptionObject::trace,     // trace
 };
@@ -4284,7 +4276,7 @@ JSFunction* WasmFunctionCreate(JSContext* cx, HandleFunction func,
   FeatureOptions options;
   ScriptedCaller scriptedCaller;
   SharedCompileArgs compileArgs =
-      CompileArgs::build(cx, std::move(scriptedCaller), options);
+      CompileArgs::buildAndReport(cx, std::move(scriptedCaller), options);
   if (!compileArgs) {
     return nullptr;
   }
@@ -5223,7 +5215,6 @@ const JSClassOps ResolveResponseClosure::classOps_ = {
     nullptr,                           // mayResolve
     ResolveResponseClosure::finalize,  // finalize
     nullptr,                           // call
-    nullptr,                           // hasInstance
     nullptr,                           // construct
     nullptr,                           // trace
 };

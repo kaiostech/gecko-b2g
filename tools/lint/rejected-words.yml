@@ -66,7 +66,6 @@ avoid-blacklist-and-whitelist:
         - browser/components/urlbar/tests/unit/test_providerHeuristicFallback.js
         - browser/components/urlbar/tests/unit/test_search_suggestions.js
         - browser/components/urlbar/tests/unit/test_tokenizer.js
-        - browser/extensions/formautofill/test/browser/fathom/testing/EN_A17.html
         - browser/extensions/screenshots/background/main.js
         - browser/modules/SitePermissions.jsm
         - browser/tools/mozscreenshots/mozscreenshots/extension/configurations/PermissionPrompts.jsm
@@ -425,7 +424,6 @@ avoid-blacklist-and-whitelist:
         - toolkit/mozapps/extensions/test/xpinstall/browser_localfile3.js
         - toolkit/mozapps/extensions/test/xpinstall/browser_localfile4.js
         - toolkit/mozapps/extensions/test/xpinstall/browser_localfile4_postDownload.js
-        - toolkit/mozapps/extensions/test/xpinstall/browser_whitelist.js
         - toolkit/mozapps/extensions/test/xpinstall/head.js
         - toolkit/xre/nsAppRunner.cpp
         - toolkit/xre/nsEmbedFunctions.cpp

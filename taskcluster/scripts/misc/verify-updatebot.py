@@ -108,8 +108,15 @@ url = "%s/json-pushes?changeset=%s&version=2" % (
     os.environ.get("GECKO_HEAD_REPOSITORY"),
     os.environ.get("GECKO_HEAD_REV"),
 )
-response = requests.get(url)
-revisions_json = response.json()
+
+print("Requesting revisions from", url)
+try:
+    response = requests.get(url)
+    revisions_json = response.json()
+except Exception:
+    print("Got an error, re-requesting revisions from", url)
+    response = requests.get(url)
+    revisions_json = response.json()
 
 assert len(revisions_json["pushes"]) >= 1, "Did not see a push in the autoland API"
 pushid = list(revisions_json["pushes"].keys())[0]
@@ -236,13 +243,17 @@ for bug in unique_updatebot_bugs:
         )
 
         try:
-            target_revision = RE_COMMITMSG.search(first_commit.desc).groups(0)[1]
+            library, target_revision = RE_COMMITMSG.search(first_commit.desc).groups(0)
         except Exception:
             print(
                 "Could not parse the bug description with RE_COMMITMSG for the revision: %s"
                 % first_commit.desc
             )
             overall_failure = True
+            continue
+
+        if library == "angle":
+            print("Currently cannot verify angle updates")
             continue
 
         moz_yaml_file = find_moz_yaml_from_commit(first_commit)

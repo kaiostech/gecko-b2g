@@ -1011,10 +1011,10 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
           case uint32_t(SimdOp::F32x4RelaxedFms):
           case uint32_t(SimdOp::F64x2RelaxedFma):
           case uint32_t(SimdOp::F64x2RelaxedFms):
-          case uint32_t(SimdOp::I8x16LaneSelect):
-          case uint32_t(SimdOp::I16x8LaneSelect):
-          case uint32_t(SimdOp::I32x4LaneSelect):
-          case uint32_t(SimdOp::I64x2LaneSelect): {
+          case uint32_t(SimdOp::I8x16RelaxedLaneSelect):
+          case uint32_t(SimdOp::I16x8RelaxedLaneSelect):
+          case uint32_t(SimdOp::I32x4RelaxedLaneSelect):
+          case uint32_t(SimdOp::I64x2RelaxedLaneSelect): {
             if (!env.v128RelaxedEnabled()) {
               return iter.unrecognizedOpcode(&op);
             }
@@ -1024,7 +1024,8 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
           case uint32_t(SimdOp::F32x4RelaxedMin):
           case uint32_t(SimdOp::F32x4RelaxedMax):
           case uint32_t(SimdOp::F64x2RelaxedMin):
-          case uint32_t(SimdOp::F64x2RelaxedMax): {
+          case uint32_t(SimdOp::F64x2RelaxedMax):
+          case uint32_t(SimdOp::I16x8RelaxedQ15MulrS): {
             if (!env.v128RelaxedEnabled()) {
               return iter.unrecognizedOpcode(&op);
             }
@@ -1039,7 +1040,7 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
             }
             CHECK(iter.readUnary(ValType::V128, &nothing));
           }
-          case uint32_t(SimdOp::V8x16RelaxedSwizzle): {
+          case uint32_t(SimdOp::I8x16RelaxedSwizzle): {
             if (!env.v128RelaxedEnabled()) {
               return iter.unrecognizedOpcode(&op);
             }

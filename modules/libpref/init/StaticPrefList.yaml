@@ -234,7 +234,11 @@
 # the parent process.
 - name: accessibility.cache.enabled
   type: bool
+#ifdef ANDROID
+  value: true
+#else
   value: false
+#endif
   mirror: once
 
 #---------------------------------------------------------------------------
@@ -1230,6 +1234,15 @@
   value: false
   mirror: always
 
+# The minimum area for a rect to be included in a wireframe, in CSS pixels.
+#
+# The current value of 50 is pretty arbitrary, and will be tuned as we refine
+# and test the wireframing capability.
+- name: browser.history.wireframeAreaThreshold
+  type: uint32_t
+  value: 50
+  mirror: always
+
 #if defined(XP_WIN) || defined(XP_LINUX)
   # Notify TabUnloader or send the memory pressure if the memory resource
   # notification is signaled AND the available commit space is lower than
@@ -1309,7 +1322,7 @@
 # Communicates the preferred content theme color to platform (for e.g.,
 # prefers-color-scheme).
 #
-# dark (0), light (1), or toolbar (2).
+# dark (0), light (1), system (2), or toolbar (3).
 #
 # Default to "toolbar", the theming code sets it appropriately.
 - name: browser.theme.content-theme
@@ -3807,12 +3820,12 @@
 # interfaces from the global until later.
 - name: dom.streams.readable_stream_default_controller.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: dom.streams.readable_stream_default_reader.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: dom.streams.byte_streams.enabled
@@ -3822,7 +3835,7 @@
 
 - name: dom.streams.writable_streams.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: dom.streams.transform_streams.enabled
@@ -3832,7 +3845,7 @@
 
 - name: dom.streams.pipeTo.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # For area and anchor elements with target=_blank and no rel set to
@@ -4752,6 +4765,22 @@
 # Prefs starting with "extensions."
 #---------------------------------------------------------------------------
 
+# Whether the InstallTrigger implementation should be enabled (or hidden and
+# none of its methods available).
+- name: extensions.InstallTriggerImpl.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Whether the InstallTrigger implementation should be enabled (or completely
+# hidden), separate from InstallTriggerImpl because InstallTrigger is improperly
+# used also for UA detection.
+- name: extensions.InstallTrigger.enabled
+  type: bool
+  value: true
+  mirror: always
+
+
 # Whether the background.service_worker in the extension manifest.json file
 # is enabled.
 - name: extensions.backgroundServiceWorker.enabled
@@ -5264,21 +5293,6 @@
 - name: general.utility-process.startup_timeout_ms
   type: RelaxedAtomicInt32
   value: 5000
-  mirror: always
-
-# Temporary pref to test website compatibility with Firefox 100 UA string. This
-# pref will be removed in Firefox 100 because it will no longer needed.
-- name: general.useragent.forceVersion100
-  type: bool
-  value: false
-  mirror: always
-
-# Temporary pref to remember whether we have handled the Nimbus enrollment
-# event for the Firefox 100 UA experiment. This pref will be removed in Firefox
-# 100 because the experiment will have ended.
-- name: general.useragent.handledVersionExperimentEnrollment
-  type: bool
-  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -5877,6 +5891,12 @@
   value: true
   mirror: always
 
+# Should we override the blocklist to enable WebGPU?
+- name: gfx.webgpu.force-enabled
+  type: bool
+  value: false
+  mirror: once
+
 # We expose two prefs: gfx.webrender.all and gfx.webrender.enabled.
 # The first enables WR+additional features, and the second just enables WR.
 # For developer convenience, building with --enable-webrender=true or just
@@ -6074,6 +6094,10 @@
     type: bool
     value: @IS_NIGHTLY_BUILD@
     mirror: once
+-   name: gfx.webrender.dcomp-video-vp-scaling-win
+    type: bool
+    value: @IS_NIGHTLY_BUILD@
+    mirror: once
 #endif
 
 # Whether or not fallback to Software WebRender requires the GPU process.
@@ -6246,12 +6270,6 @@
 
 - name: gfx.ycbcr.accurate-conversion
   type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# Whether to enable screen mirroring for external screen
-- name: gfx.screen-mirroring.enabled
-  type: bool
   value: false
   mirror: always
 
@@ -7044,7 +7062,7 @@
   # Changing these prefs requires a restart.
 -   name: javascript.options.wasm_simd_avx
     type: bool
-    value: false
+    value: @IS_NIGHTLY_BUILD@
     mirror: always
 #endif
 #endif
@@ -7222,7 +7240,9 @@
 
 - name: layers.gpu-process.enabled
   type: bool
-#if defined(XP_WIN) || defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID)
+  value: @IS_NIGHTLY_BUILD@
+#elif defined(XP_WIN)
   value: true
 #else
   value: false
@@ -7479,7 +7499,7 @@
 # is rendered again with the latest visible partial area.
 - name: layout.animation.prerender.partial
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # One of several prefs affecting the maximum area to pre-render when animating
@@ -8178,7 +8198,7 @@
 
 - name: layout.display-list.retain.sc
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # Set the maximum number of modified frames allowed before doing a full
@@ -9143,7 +9163,7 @@
 # Allow ffmpeg decoder to decode directly onto shmem buffer
 - name: media.ffmpeg.customized-buffer-allocation
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 #ifdef MOZ_FFMPEG
@@ -9267,6 +9287,11 @@
     type: bool
     value: true
     mirror: once
+
+-   name: media.wmf.av1.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
 
 #endif  # MOZ_WMF
 
@@ -10188,6 +10213,15 @@
   mirror: always
 
 - name: network.cookie.thirdparty.nonsecureSessionOnly
+  type: bool
+  value: false
+  mirror: always
+
+# If we should not store "persistent" cookies at all, i.e., make the
+# "persistent" storage be like "private" storage.  This value is only read when
+# instantiating persistent storage for the cookie service, which usually only
+# happens when the cookie service singleton is created.
+- name: network.cookie.noPersistentStorage
   type: bool
   value: false
   mirror: always
@@ -12103,7 +12137,7 @@
   # true means win32k system calls are not permitted.
 -   name: security.sandbox.content.win32k-disable
     type: RelaxedAtomicBool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
     mirror: always
 
   # Note: win32k is currently _not_ disabled for GMP due to intermittent test

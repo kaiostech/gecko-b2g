@@ -2680,11 +2680,6 @@ class nsDisplayItem {
   const nsRect& GetBuildingRect() const { return mBuildingRect; }
 
   void SetBuildingRect(const nsRect& aBuildingRect) {
-    if (aBuildingRect == mBuildingRect) {
-      // Avoid unnecessary paint rect recompution when the
-      // building rect is staying the same.
-      return;
-    }
     mBuildingRect = aBuildingRect;
   }
 
@@ -3250,7 +3245,10 @@ class nsDisplayList {
     }
 
     nsDisplayItem* bottom = mBottom->mValue;
-    mBottom = mBottom->mNext;
+
+    auto next = mBottom->mNext;
+    Deallocate(mBottom);
+    mBottom = next;
 
     if (!mBottom) {
       // No bottom item means no items at all.

@@ -618,7 +618,8 @@ void nsScreenGonk::UpdateMirroringWidget(already_AddRefed<nsWindow>& aWindow) {
 
   if (mMirroringWidget) {
     nsCOMPtr<nsIWidget> widget = mMirroringWidget.forget();
-    NS_ReleaseOnMainThread("nsScreenGonk::UpdateMirroringWidget", widget.forget());
+    NS_ReleaseOnMainThread("nsScreenGonk::UpdateMirroringWidget",
+                           widget.forget());
   }
   mMirroringWidget = aWindow;
 }
@@ -753,28 +754,36 @@ already_AddRefed<Screen> ScreenHelperGonk::MakeScreen(
   DisplayType displayType = (DisplayType)id;
   NS_ENSURE_TRUE(!IsScreenConnected(id), nullptr);
   GonkDisplay::NativeData nativeData =
-      GetGonkDisplay()->GetNativeData(displayType, nullptr);
 
-  RefPtr<nsScreenGonk> screenGonk =
+      GetGonkDisplay()->GetNativeData(displayType, nullptr);
+  RefPtr<nsScreenGonk> screengonk =
       new nsScreenGonk(id, displayType, nativeData, aEventVisibility);
-  mScreenGonks.InsertOrUpdate(id, screenGonk);
+  mScreenGonks.InsertOrUpdate(id, screengonk);
 
   if (aEventVisibility == NotifyDisplayChangedEvent::Observable) {
     NotifyDisplayChange(id, true);
   }
 
+// TODO: FIXME
+#if 0
   // By default, non primary screen does mirroring.
-  // if (StaticPrefs::gfx_screen_mirroring_enabled() &&
-  //     displayType != DisplayType::DISPLAY_PRIMARY) {
-  //   screenGonk->EnableMirroring();
-  // }
+  if (aDisplayType != DisplayType::DISPLAY_PRIMARY) {
+      screen->EnableMirroring();
+  }
 
-  LayoutDeviceIntRect bounds = screenGonk->GetNaturalBounds();
+  VsyncSource::VsyncType vsyncType = (screen->IsVsyncSupported()) ?
+    VsyncSource::VsyncType::HARDWARE_VYSNC :
+    VsyncSource::VsyncType::SORTWARE_VSYNC;
+
+  gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(id, vsyncType);
+#endif
+
+  LayoutDeviceIntRect bounds = screengonk->GetNaturalBounds();
   int32_t depth;
 
-  screenGonk->GetColorDepth(&depth);
+  screengonk->GetColorDepth(&depth);
   float density = 160.0f;  // FIXME: This is the default density
-  float dpi = screenGonk->GetDpi();
+  float dpi = screengonk->GetDpi();
 
   RefPtr<Screen> screen = new Screen(bounds, bounds, depth, depth,
                                      DesktopToLayoutDeviceScale(density),
@@ -799,16 +808,6 @@ void ScreenHelperGonk::Refresh() {
 
   ScreenManager& manager = ScreenManager::GetSingleton();
   manager.Refresh(std::move(screenList));
-}
-
-void ScreenHelperGonk::AddDisplay(uint32_t aScreenId,
-                                  nsScreenGonk* screenGonk) {
-  VsyncSource::VsyncType vsyncType =
-      (screenGonk->IsVsyncSupported()) ? VsyncSource::VsyncType::HARDWARE_VYSNC
-                                       : VsyncSource::VsyncType::SOFTWARE_VSYNC;
-
-  gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(aScreenId,
-                                                             vsyncType);
 }
 
 void ScreenHelperGonk::AddScreen(uint32_t aScreenId, DisplayType aDisplayType,
@@ -890,12 +889,11 @@ bool ScreenHelperGonk::IsScreenConnected(uint32_t aId) {
 
 void ScreenHelperGonk::VsyncControl(bool aEnabled) {
   MOZ_ASSERT(NS_IsMainThread());
-  VsyncSource::Display& display =
-      gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay();
+  VsyncSource* vsyncSource = gfxPlatform::GetPlatform()->GetHardwareVsync();
   if (aEnabled) {
-    display.EnableVsync();
+    vsyncSource->EnableVsync();
   } else {
-    display.DisableVsync();
+    vsyncSource->DisableVsync();
   }
 }
 

@@ -882,7 +882,8 @@ void BaseProcessLauncher::GetChildLogName(const char* origLogName,
     defined(MOZ_ENABLE_FORKSERVER)
 
 static mozilla::StaticMutex gIPCLaunchThreadMutex;
-static mozilla::StaticRefPtr<nsIThread> gIPCLaunchThread;
+static mozilla::StaticRefPtr<nsIThread> gIPCLaunchThread
+    GUARDED_BY(gIPCLaunchThreadMutex);
 
 class IPCLaunchThreadObserver final : public nsIObserver {
  public:

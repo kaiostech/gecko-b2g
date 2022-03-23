@@ -24,11 +24,13 @@ class MultiWriterQueueReaderLocking_Mutex {
  public:
   MultiWriterQueueReaderLocking_Mutex()
       : mMutex("MultiWriterQueueReaderLocking_Mutex") {}
+  PUSH_IGNORE_THREAD_SAFETY
   void Lock() { mMutex.Lock(); };
   void Unlock() { mMutex.Unlock(); };
+  POP_THREAD_SAFETY
 
  private:
-  Mutex mMutex;
+  Mutex mMutex MOZ_UNANNOTATED;
 };
 
 // Reader non-locking strategy, trusting that PopAll will never be called

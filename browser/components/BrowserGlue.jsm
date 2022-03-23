@@ -2462,11 +2462,22 @@ BrowserGlue.prototype = {
           let shellService = Cc[
             "@mozilla.org/browser/shell-service;1"
           ].getService(Ci.nsIWindowsShellService);
+          let winTaskbar = Cc["@mozilla.org/windows-taskbar;1"].getService(
+            Ci.nsIWinTaskbar
+          );
 
           try {
             Services.telemetry.scalarSet(
               "os.environment.is_taskbar_pinned",
-              await shellService.isCurrentAppPinnedToTaskbarAsync()
+              await shellService.isCurrentAppPinnedToTaskbarAsync(
+                winTaskbar.defaultGroupId
+              )
+            );
+            Services.telemetry.scalarSet(
+              "os.environment.is_taskbar_pinned_private",
+              await shellService.isCurrentAppPinnedToTaskbarAsync(
+                winTaskbar.defaultPrivateGroupId
+              )
             );
           } catch (ex) {
             Cu.reportError(ex);
@@ -2526,12 +2537,10 @@ BrowserGlue.prototype = {
             WINTASKBAR_CONTRACTID in Cc &&
             Cc[WINTASKBAR_CONTRACTID].getService(Ci.nsIWinTaskbar).available
           ) {
-            let temp = {};
-            ChromeUtils.import(
-              "resource:///modules/WindowsJumpLists.jsm",
-              temp
+            const { WinTaskbarJumpList } = ChromeUtils.import(
+              "resource:///modules/WindowsJumpLists.jsm"
             );
-            temp.WinTaskbarJumpList.startup();
+            WinTaskbarJumpList.startup();
           }
         },
       },
@@ -2828,9 +2837,10 @@ BrowserGlue.prototype = {
       },
 
       () => {
-        let obj = {};
-        ChromeUtils.import("resource://gre/modules/GMPInstallManager.jsm", obj);
-        this._gmpInstallManager = new obj.GMPInstallManager();
+        let { GMPInstallManager } = ChromeUtils.import(
+          "resource://gre/modules/GMPInstallManager.jsm"
+        );
+        this._gmpInstallManager = new GMPInstallManager();
         // We don't really care about the results, if someone is interested they
         // can check the log.
         this._gmpInstallManager.simpleCheckAndInstall().catch(() => {});

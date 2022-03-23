@@ -112,7 +112,7 @@ class MessageLoop::EventTarget : public nsISerialEventTarget,
   }
 
   mozilla::Mutex mMutex;
-  MessageLoop* mLoop;
+  MessageLoop* mLoop GUARDED_BY(mMutex);
 };
 
 NS_IMPL_ISUPPORTS(MessageLoop::EventTarget, nsIEventTarget,

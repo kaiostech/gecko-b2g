@@ -416,8 +416,6 @@ nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
       aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
   mScreen = screenHelper->ScreenGonkForId(screenId);
-  // Add display for specific screenId according to vsync type.
-  screenHelper->AddDisplay(screenId, mScreen);
 
   mBounds = aRect;
 
@@ -705,9 +703,7 @@ void nsWindow::EndRemoteDrawing() { mScreen->EndRemoteDrawing(); }
 
 float nsWindow::GetDPI() { return mScreen->GetDpi(); }
 
-bool nsWindow::GetVsyncSupport() { return mScreen->IsVsyncSupported(); }
-
-uint32_t nsWindow::GetScreenId() { return mScreen->GetId(); }
+bool nsWindow::IsVsyncSupported() { return mScreen->IsVsyncSupported(); }
 
 double nsWindow::GetDefaultScaleInternal() {
   float dpi = GetDPI();

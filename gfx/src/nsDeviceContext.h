@@ -233,8 +233,6 @@ class nsDeviceContext final {
 
   mozilla::DesktopToLayoutDeviceScale GetDesktopToDeviceScale();
 
-  void FindScreenId(uint32_t* screenId);
-
  private:
   // Private destructor, to discourage deletion outside of Release():
   ~nsDeviceContext();

@@ -1598,17 +1598,18 @@ void MacroAssembler::bitmaskInt64x2(FloatRegister src, Register dest) {
 
 // Swizzle - permute with variable indices
 
-void MacroAssembler::swizzleInt8x16(FloatRegister rhs, FloatRegister lhsDest) {
+void MacroAssembler::swizzleInt8x16(FloatRegister lhs, FloatRegister rhs,
+                                    FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
   rhs = moveSimd128IntIfNotAVX(rhs, scratch);
   // Set high bit to 1 for values > 15 via adding with saturation.
   vpaddusbSimd128(SimdConstant::SplatX16(0x70), rhs, scratch);
-  vpshufb(scratch, lhsDest, lhsDest);  // permute
+  vpshufb(scratch, lhs, dest);  // permute
 }
 
-void MacroAssembler::swizzleInt8x16Relaxed(FloatRegister rhs,
-                                           FloatRegister lhsDest) {
-  vpshufb(rhs, lhsDest, lhsDest);
+void MacroAssembler::swizzleInt8x16Relaxed(FloatRegister lhs, FloatRegister rhs,
+                                           FloatRegister dest) {
+  vpshufb(rhs, lhs, dest);
 }
 
 // Integer Add
@@ -1756,113 +1757,124 @@ void MacroAssembler::mulInt64x2(FloatRegister lhs, FloatRegister rhs,
 // discussion on the PR (scroll down far enough) on how to avoid one of them,
 // but we need benchmarking + correctness proofs.
 
-void MacroAssembler::extMulLowInt8x16(FloatRegister rhs,
-                                      FloatRegister lhsDest) {
+void MacroAssembler::extMulLowInt8x16(FloatRegister lhs, FloatRegister rhs,
+                                      FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
   widenLowInt8x16(rhs, scratch);
-  widenLowInt8x16(lhsDest, lhsDest);
-  mulInt16x8(lhsDest, scratch, lhsDest);
+  widenLowInt8x16(lhs, dest);
+  mulInt16x8(dest, scratch, dest);
 }
 
-void MacroAssembler::extMulHighInt8x16(FloatRegister rhs,
-                                       FloatRegister lhsDest) {
+void MacroAssembler::extMulHighInt8x16(FloatRegister lhs, FloatRegister rhs,
+                                       FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
   widenHighInt8x16(rhs, scratch);
-  widenHighInt8x16(lhsDest, lhsDest);
-  mulInt16x8(lhsDest, scratch, lhsDest);
+  widenHighInt8x16(lhs, dest);
+  mulInt16x8(dest, scratch, dest);
 }
 
-void MacroAssembler::unsignedExtMulLowInt8x16(FloatRegister rhs,
-                                              FloatRegister lhsDest) {
+void MacroAssembler::unsignedExtMulLowInt8x16(FloatRegister lhs,
+                                              FloatRegister rhs,
+                                              FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
   unsignedWidenLowInt8x16(rhs, scratch);
-  unsignedWidenLowInt8x16(lhsDest, lhsDest);
-  mulInt16x8(lhsDest, scratch, lhsDest);
+  unsignedWidenLowInt8x16(lhs, dest);
+  mulInt16x8(dest, scratch, dest);
 }
 
-void MacroAssembler::unsignedExtMulHighInt8x16(FloatRegister rhs,
-                                               FloatRegister lhsDest) {
+void MacroAssembler::unsignedExtMulHighInt8x16(FloatRegister lhs,
+                                               FloatRegister rhs,
+                                               FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
   unsignedWidenHighInt8x16(rhs, scratch);
-  unsignedWidenHighInt8x16(lhsDest, lhsDest);
-  mulInt16x8(lhsDest, scratch, lhsDest);
+  unsignedWidenHighInt8x16(lhs, dest);
+  mulInt16x8(dest, scratch, dest);
 }
 
-void MacroAssembler::extMulLowInt16x8(FloatRegister rhs,
-                                      FloatRegister lhsDest) {
+void MacroAssembler::extMulLowInt16x8(FloatRegister lhs, FloatRegister rhs,
+                                      FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vmovdqa(lhsDest, scratch);
-  vpmullw(Operand(rhs), lhsDest, lhsDest);
-  vpmulhw(Operand(rhs), scratch, scratch);
-  vpunpcklwd(scratch, lhsDest, lhsDest);
+  FloatRegister lhsCopy = moveSimd128IntIfNotAVX(lhs, scratch);
+  vpmulhw(Operand(rhs), lhsCopy, scratch);
+  vpmullw(Operand(rhs), lhs, dest);
+  vpunpcklwd(scratch, dest, dest);
 }
 
-void MacroAssembler::extMulHighInt16x8(FloatRegister rhs,
-                                       FloatRegister lhsDest) {
+void MacroAssembler::extMulHighInt16x8(FloatRegister lhs, FloatRegister rhs,
+                                       FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vmovdqa(lhsDest, scratch);
-  vpmullw(Operand(rhs), lhsDest, lhsDest);
-  vpmulhw(Operand(rhs), scratch, scratch);
-  vpunpckhwd(scratch, lhsDest, lhsDest);
+  FloatRegister lhsCopy = moveSimd128IntIfNotAVX(lhs, scratch);
+  vpmulhw(Operand(rhs), lhsCopy, scratch);
+  vpmullw(Operand(rhs), lhs, dest);
+  vpunpckhwd(scratch, dest, dest);
 }
 
-void MacroAssembler::unsignedExtMulLowInt16x8(FloatRegister rhs,
-                                              FloatRegister lhsDest) {
+void MacroAssembler::unsignedExtMulLowInt16x8(FloatRegister lhs,
+                                              FloatRegister rhs,
+                                              FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vmovdqa(lhsDest, scratch);
-  vpmullw(Operand(rhs), lhsDest, lhsDest);
-  vpmulhuw(Operand(rhs), scratch, scratch);
-  vpunpcklwd(scratch, lhsDest, lhsDest);
+  FloatRegister lhsCopy = moveSimd128IntIfNotAVX(lhs, scratch);
+  vpmulhuw(Operand(rhs), lhsCopy, scratch);
+  vpmullw(Operand(rhs), lhs, dest);
+  vpunpcklwd(scratch, dest, dest);
 }
 
-void MacroAssembler::unsignedExtMulHighInt16x8(FloatRegister rhs,
-                                               FloatRegister lhsDest) {
+void MacroAssembler::unsignedExtMulHighInt16x8(FloatRegister lhs,
+                                               FloatRegister rhs,
+                                               FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vmovdqa(lhsDest, scratch);
-  vpmullw(Operand(rhs), lhsDest, lhsDest);
-  vpmulhuw(Operand(rhs), scratch, scratch);
-  vpunpckhwd(scratch, lhsDest, lhsDest);
+  FloatRegister lhsCopy = moveSimd128IntIfNotAVX(lhs, scratch);
+  vpmulhuw(Operand(rhs), lhsCopy, scratch);
+  vpmullw(Operand(rhs), lhs, dest);
+  vpunpckhwd(scratch, dest, dest);
 }
 
-void MacroAssembler::extMulLowInt32x4(FloatRegister rhs,
-                                      FloatRegister lhsDest) {
+void MacroAssembler::extMulLowInt32x4(FloatRegister lhs, FloatRegister rhs,
+                                      FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vpshufd(ComputeShuffleMask(0, 0, 1, 0), lhsDest, scratch);
-  vpshufd(ComputeShuffleMask(0, 0, 1, 0), rhs, lhsDest);
-  vpmuldq(scratch, lhsDest, lhsDest);
+  vpshufd(ComputeShuffleMask(0, 0, 1, 0), lhs, scratch);
+  vpshufd(ComputeShuffleMask(0, 0, 1, 0), rhs, dest);
+  vpmuldq(scratch, dest, dest);
 }
 
-void MacroAssembler::extMulHighInt32x4(FloatRegister rhs,
-                                       FloatRegister lhsDest) {
+void MacroAssembler::extMulHighInt32x4(FloatRegister lhs, FloatRegister rhs,
+                                       FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vpshufd(ComputeShuffleMask(2, 0, 3, 0), lhsDest, scratch);
-  vpshufd(ComputeShuffleMask(2, 0, 3, 0), rhs, lhsDest);
-  vpmuldq(scratch, lhsDest, lhsDest);
+  vpshufd(ComputeShuffleMask(2, 0, 3, 0), lhs, scratch);
+  vpshufd(ComputeShuffleMask(2, 0, 3, 0), rhs, dest);
+  vpmuldq(scratch, dest, dest);
 }
 
-void MacroAssembler::unsignedExtMulLowInt32x4(FloatRegister rhs,
-                                              FloatRegister lhsDest) {
+void MacroAssembler::unsignedExtMulLowInt32x4(FloatRegister lhs,
+                                              FloatRegister rhs,
+                                              FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vpshufd(ComputeShuffleMask(0, 0, 1, 0), lhsDest, scratch);
-  vpshufd(ComputeShuffleMask(0, 0, 1, 0), rhs, lhsDest);
-  vpmuludq(Operand(scratch), lhsDest, lhsDest);
+  vpshufd(ComputeShuffleMask(0, 0, 1, 0), lhs, scratch);
+  vpshufd(ComputeShuffleMask(0, 0, 1, 0), rhs, dest);
+  vpmuludq(Operand(scratch), dest, dest);
 }
 
-void MacroAssembler::unsignedExtMulHighInt32x4(FloatRegister rhs,
-                                               FloatRegister lhsDest) {
+void MacroAssembler::unsignedExtMulHighInt32x4(FloatRegister lhs,
+                                               FloatRegister rhs,
+                                               FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vpshufd(ComputeShuffleMask(2, 0, 3, 0), lhsDest, scratch);
-  vpshufd(ComputeShuffleMask(2, 0, 3, 0), rhs, lhsDest);
-  vpmuludq(Operand(scratch), lhsDest, lhsDest);
+  vpshufd(ComputeShuffleMask(2, 0, 3, 0), lhs, scratch);
+  vpshufd(ComputeShuffleMask(2, 0, 3, 0), rhs, dest);
+  vpmuludq(Operand(scratch), dest, dest);
 }
 
-void MacroAssembler::q15MulrSatInt16x8(FloatRegister rhs,
-                                       FloatRegister lhsDest) {
+void MacroAssembler::q15MulrSatInt16x8(FloatRegister lhs, FloatRegister rhs,
+                                       FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
-  vpmulhrsw(Operand(rhs), lhsDest, lhsDest);
-  vmovdqa(lhsDest, scratch);
-  vpcmpeqwSimd128(SimdConstant::SplatX8(0x8000), scratch, scratch);
-  vpxor(scratch, lhsDest, lhsDest);
+  vpmulhrsw(Operand(rhs), lhs, dest);
+  FloatRegister destCopy = moveSimd128IntIfNotAVX(dest, scratch);
+  vpcmpeqwSimd128(SimdConstant::SplatX8(0x8000), destCopy, scratch);
+  vpxor(scratch, dest, dest);
+}
+
+void MacroAssembler::q15MulrInt16x8Relaxed(FloatRegister lhs, FloatRegister rhs,
+                                           FloatRegister dest) {
+  vpmulhrsw(Operand(rhs), lhs, dest);
 }
 
 // Integer negate
@@ -2444,6 +2456,12 @@ void MacroAssembler::compareInt8x16(Assembler::Condition cond,
 }
 
 void MacroAssembler::compareInt8x16(Assembler::Condition cond,
+                                    FloatRegister lhs, FloatRegister rhs,
+                                    FloatRegister dest) {
+  MacroAssemblerX86Shared::compareInt8x16(lhs, Operand(rhs), cond, dest);
+}
+
+void MacroAssembler::compareInt8x16(Assembler::Condition cond,
                                     FloatRegister lhs, const SimdConstant& rhs,
                                     FloatRegister dest) {
   MOZ_ASSERT(cond != Assembler::Condition::LessThan &&
@@ -2454,6 +2472,12 @@ void MacroAssembler::compareInt8x16(Assembler::Condition cond,
 void MacroAssembler::compareInt16x8(Assembler::Condition cond,
                                     FloatRegister rhs, FloatRegister lhsDest) {
   MacroAssemblerX86Shared::compareInt16x8(lhsDest, Operand(rhs), cond, lhsDest);
+}
+
+void MacroAssembler::compareInt16x8(Assembler::Condition cond,
+                                    FloatRegister lhs, FloatRegister rhs,
+                                    FloatRegister dest) {
+  MacroAssemblerX86Shared::compareInt16x8(lhs, Operand(rhs), cond, dest);
 }
 
 void MacroAssembler::compareInt16x8(Assembler::Condition cond,
@@ -2484,19 +2508,22 @@ void MacroAssembler::compareInt32x4(Assembler::Condition cond,
 }
 
 void MacroAssembler::compareForEqualityInt64x2(Assembler::Condition cond,
+                                               FloatRegister lhs,
                                                FloatRegister rhs,
-                                               FloatRegister lhsDest) {
-  MacroAssemblerX86Shared::compareForEqualityInt64x2(lhsDest, Operand(rhs),
-                                                     cond, lhsDest);
+                                               FloatRegister dest) {
+  MacroAssemblerX86Shared::compareForEqualityInt64x2(lhs, Operand(rhs), cond,
+                                                     dest);
 }
 
-void MacroAssembler::compareForOrderingInt64x2(Assembler::Condition cond,
-                                               FloatRegister rhs,
-                                               FloatRegister lhsDest,
-                                               FloatRegister temp1,
-                                               FloatRegister temp2) {
-  MacroAssemblerX86Shared::compareForOrderingInt64x2(
-      lhsDest, Operand(rhs), cond, temp1, temp2, lhsDest);
+void MacroAssembler::compareForOrderingInt64x2(
+    Assembler::Condition cond, FloatRegister lhs, FloatRegister rhs,
+    FloatRegister dest, FloatRegister temp1, FloatRegister temp2) {
+  if (HasAVX() && HasSSE42()) {
+    MacroAssemblerX86Shared::compareForOrderingInt64x2AVX(lhs, rhs, cond, dest);
+  } else {
+    MacroAssemblerX86Shared::compareForOrderingInt64x2(lhs, Operand(rhs), cond,
+                                                       temp1, temp2, dest);
+  }
 }
 
 void MacroAssembler::compareFloat32x4(Assembler::Condition cond,
@@ -2535,18 +2562,23 @@ void MacroAssembler::compareFloat32x4(Assembler::Condition cond,
 void MacroAssembler::compareFloat64x2(Assembler::Condition cond,
                                       FloatRegister rhs,
                                       FloatRegister lhsDest) {
+  compareFloat64x2(cond, lhsDest, rhs, lhsDest);
+}
+
+void MacroAssembler::compareFloat64x2(Assembler::Condition cond,
+                                      FloatRegister lhs, FloatRegister rhs,
+                                      FloatRegister dest) {
   // Code in the SIMD implementation allows operands to be reversed like this,
   // this benefits the baseline compiler.  Ion takes care of the reversing
   // itself and never generates GT/GE.
   if (cond == Assembler::GreaterThan) {
-    MacroAssemblerX86Shared::compareFloat64x2(rhs, Operand(lhsDest),
-                                              Assembler::LessThan, lhsDest);
+    MacroAssemblerX86Shared::compareFloat64x2(rhs, Operand(lhs),
+                                              Assembler::LessThan, dest);
   } else if (cond == Assembler::GreaterThanOrEqual) {
-    MacroAssemblerX86Shared::compareFloat64x2(
-        rhs, Operand(lhsDest), Assembler::LessThanOrEqual, lhsDest);
+    MacroAssemblerX86Shared::compareFloat64x2(rhs, Operand(lhs),
+                                              Assembler::LessThanOrEqual, dest);
   } else {
-    MacroAssemblerX86Shared::compareFloat64x2(lhsDest, Operand(rhs), cond,
-                                              lhsDest);
+    MacroAssemblerX86Shared::compareFloat64x2(lhs, Operand(rhs), cond, dest);
   }
 }
 
@@ -2652,11 +2684,21 @@ void MacroAssembler::pseudoMinFloat32x4(FloatRegister rhsOrRhsDest,
   vminps(Operand(lhs), rhsDest, rhsDest);
 }
 
+void MacroAssembler::pseudoMinFloat32x4(FloatRegister lhs, FloatRegister rhs,
+                                        FloatRegister dest) {
+  vminps(Operand(rhs), lhs, dest);
+}
+
 void MacroAssembler::pseudoMinFloat64x2(FloatRegister rhsOrRhsDest,
                                         FloatRegister lhsOrLhsDest) {
   FloatRegister rhsDest = rhsOrRhsDest;
   FloatRegister lhs = lhsOrLhsDest;
   vminpd(Operand(lhs), rhsDest, rhsDest);
+}
+
+void MacroAssembler::pseudoMinFloat64x2(FloatRegister lhs, FloatRegister rhs,
+                                        FloatRegister dest) {
+  vminpd(Operand(rhs), lhs, dest);
 }
 
 // Compare-based maximum
@@ -2668,11 +2710,21 @@ void MacroAssembler::pseudoMaxFloat32x4(FloatRegister rhsOrRhsDest,
   vmaxps(Operand(lhs), rhsDest, rhsDest);
 }
 
+void MacroAssembler::pseudoMaxFloat32x4(FloatRegister lhs, FloatRegister rhs,
+                                        FloatRegister dest) {
+  vmaxps(Operand(rhs), lhs, dest);
+}
+
 void MacroAssembler::pseudoMaxFloat64x2(FloatRegister rhsOrRhsDest,
                                         FloatRegister lhsOrLhsDest) {
   FloatRegister rhsDest = rhsOrRhsDest;
   FloatRegister lhs = lhsOrLhsDest;
   vmaxpd(Operand(lhs), rhsDest, rhsDest);
+}
+
+void MacroAssembler::pseudoMaxFloat64x2(FloatRegister lhs, FloatRegister rhs,
+                                        FloatRegister dest) {
+  vmaxpd(Operand(rhs), lhs, dest);
 }
 
 // Widening/pairwise integer dot product
@@ -3096,9 +3148,19 @@ void MacroAssembler::minFloat32x4Relaxed(FloatRegister src,
   vminps(Operand(src), srcDest, srcDest);
 }
 
+void MacroAssembler::minFloat32x4Relaxed(FloatRegister lhs, FloatRegister rhs,
+                                         FloatRegister dest) {
+  vminps(Operand(rhs), lhs, dest);
+}
+
 void MacroAssembler::maxFloat32x4Relaxed(FloatRegister src,
                                          FloatRegister srcDest) {
   vmaxps(Operand(src), srcDest, srcDest);
+}
+
+void MacroAssembler::maxFloat32x4Relaxed(FloatRegister lhs, FloatRegister rhs,
+                                         FloatRegister dest) {
+  vmaxps(Operand(rhs), lhs, dest);
 }
 
 void MacroAssembler::minFloat64x2Relaxed(FloatRegister src,
@@ -3106,9 +3168,19 @@ void MacroAssembler::minFloat64x2Relaxed(FloatRegister src,
   vminpd(Operand(src), srcDest, srcDest);
 }
 
+void MacroAssembler::minFloat64x2Relaxed(FloatRegister lhs, FloatRegister rhs,
+                                         FloatRegister dest) {
+  vminpd(Operand(rhs), lhs, dest);
+}
+
 void MacroAssembler::maxFloat64x2Relaxed(FloatRegister src,
                                          FloatRegister srcDest) {
   vmaxpd(Operand(src), srcDest, srcDest);
+}
+
+void MacroAssembler::maxFloat64x2Relaxed(FloatRegister lhs, FloatRegister rhs,
+                                         FloatRegister dest) {
+  vmaxpd(Operand(rhs), lhs, dest);
 }
 
 // ========================================================================

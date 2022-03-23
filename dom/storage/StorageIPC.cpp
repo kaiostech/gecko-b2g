@@ -565,6 +565,17 @@ void SessionStorageManagerChild::ActorDestroy(ActorDestroyReason aWhy) {
   }
 }
 
+mozilla::ipc::IPCResult SessionStorageManagerChild::RecvClearStoragesForOrigin(
+    const nsCString& aOriginAttrs, const nsCString& aOriginKey) {
+  AssertIsOnOwningThread();
+
+  if (mSSManager) {
+    mSSManager->ClearStoragesForOrigin(aOriginAttrs, aOriginKey);
+  }
+
+  return IPC_OK();
+}
+
 LocalStorageCacheParent::LocalStorageCacheParent(
     const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
     const nsACString& aOriginKey, uint32_t aPrivateBrowsingId)
@@ -911,7 +922,7 @@ class SyncLoadCacheHelper : public LocalStorageCacheBridge {
   }
 
  private:
-  Monitor mMonitor;
+  Monitor mMonitor MOZ_UNANNOTATED;
   nsCString mSuffix, mOrigin;
   nsTArray<nsString>* mKeys;
   nsTArray<nsString>* mValues;

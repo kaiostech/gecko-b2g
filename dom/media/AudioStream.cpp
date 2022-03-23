@@ -143,14 +143,14 @@ AudioStream::AudioStream(DataSource& aSource, uint32_t aInRate,
       mOutChannels(aOutputChannels),
       mChannelMap(aChannelMap),
       mAudioClock(aInRate),
+      mAudioChannel(aAudioChannel),
       mState(INITIALIZED),
       mDataSource(aSource),
       mAudioThreadId(ProfilerThreadId{}),
       mSandboxed(CubebUtils::SandboxEnabled()),
       mPlaybackComplete(false),
       mPlaybackRate(1.0f),
-      mPreservesPitch(true),
-      mAudioChannel(aAudioChannel) {}
+      mPreservesPitch(true) {}
 
 AudioStream::~AudioStream() {
   LOG("deleted, state %d", mState);
@@ -233,6 +233,7 @@ struct ToCubebFormat<AUDIO_FORMAT_S16> {
 
 template <typename Function, typename... Args>
 int AudioStream::InvokeCubeb(Function aFunction, Args&&... aArgs) {
+  mMonitor.AssertCurrentThreadOwns();
   MonitorAutoUnlock mon(mMonitor);
   return aFunction(mCubebStream.get(), std::forward<Args>(aArgs)...);
 }

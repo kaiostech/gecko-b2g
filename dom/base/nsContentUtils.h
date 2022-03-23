@@ -161,6 +161,7 @@ template <class T>
 class StaticRefPtr;
 
 namespace dom {
+class ShmemImage;
 struct AutocompleteInfo;
 class BrowserChild;
 class BrowserParent;
@@ -2901,16 +2902,20 @@ class nsContentUtils {
    * The length and stride will be assigned from the surface.
    */
   static mozilla::UniquePtr<char[]> GetSurfaceData(
-      mozilla::NotNull<mozilla::gfx::DataSourceSurface*> aSurface,
-      size_t* aLength, int32_t* aStride);
+      mozilla::gfx::DataSourceSurface&, size_t* aLength, int32_t* aStride);
 
   /*
    * Get the pixel data from the given source surface and fill it in Shmem.
    * The length and stride will be assigned from the surface.
    */
   static mozilla::Maybe<mozilla::ipc::Shmem> GetSurfaceData(
-      mozilla::gfx::DataSourceSurface* aSurface, size_t* aLength,
+      mozilla::gfx::DataSourceSurface& aSurface, size_t* aLength,
       int32_t* aStride, mozilla::ipc::IShmemAllocator* aAlloc);
+
+  static mozilla::Maybe<mozilla::dom::ShmemImage> SurfaceToIPCImage(
+      mozilla::gfx::DataSourceSurface&, mozilla::ipc::IShmemAllocator*);
+  static already_AddRefed<mozilla::gfx::DataSourceSurface> IPCImageToSurface(
+      mozilla::dom::ShmemImage&&, mozilla::ipc::IShmemAllocator*);
 
   // Helpers shared by the implementations of nsContentUtils methods and
   // nsIDOMWindowUtils methods.
@@ -3210,9 +3215,13 @@ class nsContentUtils {
   // Alternate data MIME type used by the ScriptLoader to register and read
   // bytecode out of the nsCacheInfoChannel.
   [[nodiscard]] static bool InitJSBytecodeMimeType();
-  static nsCString& JSBytecodeMimeType() {
-    MOZ_ASSERT(sJSBytecodeMimeType);
-    return *sJSBytecodeMimeType;
+  static nsCString& JSScriptBytecodeMimeType() {
+    MOZ_ASSERT(sJSScriptBytecodeMimeType);
+    return *sJSScriptBytecodeMimeType;
+  }
+  static nsCString& JSModuleBytecodeMimeType() {
+    MOZ_ASSERT(sJSModuleBytecodeMimeType);
+    return *sJSModuleBytecodeMimeType;
   }
 
   /**
@@ -3431,9 +3440,10 @@ class nsContentUtils {
   static nsString* sAltText;
   static nsString* sModifierSeparator;
 
-  // Alternate data mime type, used by the ScriptLoader to register and read the
-  // bytecode out of the nsCacheInfoChannel.
-  static nsCString* sJSBytecodeMimeType;
+  // Alternate data mime types, used by the ScriptLoader to register and read
+  // the bytecode out of the nsCacheInfoChannel.
+  static nsCString* sJSScriptBytecodeMimeType;
+  static nsCString* sJSModuleBytecodeMimeType;
 
   static mozilla::LazyLogModule gResistFingerprintingLog;
   static mozilla::LazyLogModule sDOMDumpLog;

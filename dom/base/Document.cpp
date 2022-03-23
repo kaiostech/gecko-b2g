@@ -2436,7 +2436,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOrientationPendingPromise)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOriginalDocument)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCachedEncoder)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStateObjectCached)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentTimeline)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPendingAnimationTracker)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTemplateContentsOwner)
@@ -2508,10 +2507,17 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(Document)
 
-NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(Document)
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(Document)
+  NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER
+  if (tmp->mStateObjectCached.isSome()) {
+    NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mStateObjectCached.ref())
+  }
+NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   tmp->mInUnlinkOrDeletion = true;
+
+  tmp->SetStateObject(nullptr);
 
   // Clear out our external resources
   tmp->mExternalResourceMap.Shutdown();
@@ -2554,7 +2560,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mOrientationPendingPromise)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mOriginalDocument)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCachedEncoder)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mStateObjectCached)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentTimeline)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingAnimationTracker)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mTemplateContentsOwner)
@@ -2694,8 +2699,6 @@ nsresult Document::Init() {
   mFeaturePolicy->SetDefaultOrigin(NodePrincipal());
 
   mStyleSet = MakeUnique<ServoStyleSet>(*this);
-
-  mozilla::HoldJSObjects(this);
 
   return NS_OK;
 }
@@ -13209,24 +13212,36 @@ bool Document::IsCanceledFrameRequestCallback(int32_t aHandle) const {
   return mFrameRequestManager.IsCanceled(aHandle);
 }
 
-nsresult Document::GetStateObject(nsIVariant** aState) {
+nsresult Document::GetStateObject(JS::MutableHandle<JS::Value> aState) {
   // Get the document's current state object. This is the object backing both
   // history.state and popStateEvent.state.
   //
   // mStateObjectContainer may be null; this just means that there's no
   // current state object.
 
-  if (!mStateObjectCached && mStateObjectContainer) {
-    AutoJSAPI jsapi;
-    // Init with null is "OK" in the sense that it will just fail.
-    if (!jsapi.Init(GetScopeObject())) {
-      return NS_ERROR_UNEXPECTED;
+  if (mStateObjectCached.isNothing()) {
+    if (mStateObjectContainer) {
+      AutoJSAPI jsapi;
+      // Init with null is "OK" in the sense that it will just fail.
+      if (!jsapi.Init(GetScopeObject())) {
+        return NS_ERROR_UNEXPECTED;
+      }
+      JS::Rooted<JS::Value> value(jsapi.cx());
+      nsresult rv =
+          mStateObjectContainer->DeserializeToJsval(jsapi.cx(), &value);
+      NS_ENSURE_SUCCESS(rv, rv);
+
+      mStateObjectCached.emplace(value);
+      if (!value.isNullOrUndefined()) {
+        mozilla::HoldJSObjects(this);
+      }
+    } else {
+      mStateObjectCached.emplace(JS::NullValue());
     }
-    mStateObjectContainer->DeserializeToVariant(
-        jsapi.cx(), getter_AddRefs(mStateObjectCached));
   }
 
-  NS_IF_ADDREF(*aState = mStateObjectCached);
+  aState.set(mStateObjectCached.ref());
+
   return NS_OK;
 }
 
@@ -14586,8 +14601,7 @@ void Document::GetWireframeWithoutFlushing(bool aIncludeNodes,
   }
 
   auto& wireframe = aWireframe.SetValue();
-  nsStyleUtil::GetSerializedColorValue(shell->GetCanvasBackground(),
-                                       wireframe.mCanvasBackground.Construct());
+  wireframe.mCanvasBackground = shell->ComputeCanvasBackground().mColor;
 
   FrameForPointOptions options;
   options.mBits += FrameForPointOption::IgnoreCrossDoc;
@@ -14607,11 +14621,51 @@ void Document::GetWireframeWithoutFlushing(bool aIncludeNodes,
     return;
   }
   for (nsIFrame* frame : Reversed(frames)) {
-    // Can't really fail because SetCapacity succeeded.
-    auto& taggedRect = *rects.AppendElement(fallible);
+    auto [rectColor,
+          rectType] = [&]() -> std::tuple<nscolor, WireframeRectType> {
+      if (frame->IsTextFrame()) {
+        return {frame->StyleText()->mWebkitTextFillColor.CalcColor(frame),
+                WireframeRectType::Text};
+      }
+      if (frame->IsImageFrame() || frame->IsSVGOuterSVGFrame()) {
+        return {0, WireframeRectType::Image};
+      }
+      if (frame->IsThemed()) {
+        return {0, WireframeRectType::Background};
+      }
+      bool drawImage = false;
+      bool drawColor = false;
+      ComputedStyle* bgStyle = nullptr;
+      if (nsCSSRendering::FindBackground(frame, &bgStyle)) {
+        const nscolor color = nsCSSRendering::DetermineBackgroundColor(
+            pc, bgStyle, frame, drawImage, drawColor);
+        if (drawImage &&
+            !bgStyle->StyleBackground()->mImage.BottomLayer().mImage.IsNone()) {
+          return {color, WireframeRectType::Image};
+        }
+        if (drawColor && !frame->IsCanvasFrame()) {
+          // Canvas frame background already accounted for in mCanvasBackground.
+          return {color, WireframeRectType::Background};
+        }
+      }
+      return {0, WireframeRectType::Unknown};
+    }();
+
+    if (rectType == WireframeRectType::Unknown) {
+      continue;
+    }
+
     const auto r =
         CSSRect::FromAppUnits(nsLayoutUtils::TransformFrameRectToAncestor(
             frame, frame->GetRectRelativeToSelf(), relativeTo));
+    if ((uint32_t)r.Area() <
+        StaticPrefs::browser_history_wireframeAreaThreshold()) {
+      continue;
+    }
+
+    // Can't really fail because SetCapacity succeeded.
+    auto& taggedRect = *rects.AppendElement(fallible);
+
     if (aIncludeNodes) {
       if (nsIContent* c = frame->GetContent()) {
         taggedRect.mNode.Construct(c);
@@ -14621,34 +14675,8 @@ void Document::GetWireframeWithoutFlushing(bool aIncludeNodes,
     taggedRect.mY = r.y;
     taggedRect.mWidth = r.width;
     taggedRect.mHeight = r.height;
-    taggedRect.mType.Construct() = [&] {
-      if (frame->IsTextFrame()) {
-        nsStyleUtil::GetSerializedColorValue(
-            frame->StyleText()->mWebkitTextFillColor.CalcColor(frame),
-            taggedRect.mColor.Construct());
-        return WireframeRectType::Text;
-      }
-      if (frame->IsImageFrame() || frame->IsSVGOuterSVGFrame()) {
-        return WireframeRectType::Image;
-      }
-      if (frame->IsThemed()) {
-        return WireframeRectType::Background;
-      }
-      bool drawImage = false;
-      bool drawColor = false;
-      const nscolor color = nsCSSRendering::DetermineBackgroundColor(
-          pc, frame->Style(), frame, drawImage, drawColor);
-      if (drawImage &&
-          !frame->StyleBackground()->mImage.BottomLayer().mImage.IsNone()) {
-        return WireframeRectType::Image;
-      }
-      if (drawColor) {
-        nsStyleUtil::GetSerializedColorValue(color,
-                                             taggedRect.mColor.Construct());
-        return WireframeRectType::Background;
-      }
-      return WireframeRectType::Unknown;
-    }();
+    taggedRect.mColor = rectColor;
+    taggedRect.mType.Construct(rectType);
   }
 }
 
@@ -15817,7 +15845,7 @@ nsIDocShell* Document::GetDocShell() const { return mDocumentContainer; }
 
 void Document::SetStateObject(nsIStructuredCloneContainer* scContainer) {
   mStateObjectContainer = scContainer;
-  mStateObjectCached = nullptr;
+  mStateObjectCached.reset();
 }
 
 Document::DocumentTheme Document::GetDocumentLWTheme() const {

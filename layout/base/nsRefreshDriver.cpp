@@ -482,7 +482,7 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
 
   TimeDuration GetTimerRate() override {
     if (mVsyncSource) {
-      mVsyncRate = mVsyncSource->GetGlobalDisplay().GetVsyncRate();
+      mVsyncRate = mVsyncSource->GetVsyncRate();
     } else if (mVsyncChild) {
       mVsyncRate = mVsyncChild->GetVsyncRate();
     }

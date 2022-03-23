@@ -80,13 +80,7 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
 
   // Accessible hierarchy method overrides
 
-  virtual Accessible* Parent() const override {
-    if (Derived* parent = RemoteParent()) {
-      return parent;
-    }
-
-    return OuterDocOfRemoteBrowser();
-  }
+  virtual Accessible* Parent() const override { return RemoteParent(); }
 
   virtual Accessible* ChildAt(uint32_t aIndex) const override {
     return RemoteChildAt(aIndex);
@@ -182,6 +176,8 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
   virtual nsAtom* TagName() const override;
 
   virtual already_AddRefed<nsAtom> DisplayStyle() const override;
+
+  virtual Maybe<float> Opacity() const override;
 
   virtual uint8_t ActionCount() const override;
 

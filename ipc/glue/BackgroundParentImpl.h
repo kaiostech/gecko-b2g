@@ -138,6 +138,9 @@ class BackgroundParentImpl : public PBackgroundParent,
   AllocPBackgroundSessionStorageManagerParent(
       const uint64_t& aTopContextId) override;
 
+  already_AddRefed<PBackgroundSessionStorageServiceParent>
+  AllocPBackgroundSessionStorageServiceParent() override;
+
   already_AddRefed<PIdleSchedulerParent> AllocPIdleSchedulerParent() override;
 
   already_AddRefed<PRemoteLazyInputStreamParent>
@@ -254,7 +257,10 @@ class BackgroundParentImpl : public PBackgroundParent,
       PServiceWorkerManagerParent* aActor) override;
 
   PCamerasParent* AllocPCamerasParent() override;
-
+#ifdef MOZ_WEBRTC
+  mozilla::ipc::IPCResult RecvPCamerasConstructor(
+      PCamerasParent* aActor) override;
+#endif
   bool DeallocPCamerasParent(PCamerasParent* aActor) override;
 
   mozilla::ipc::IPCResult RecvShutdownServiceWorkerRegistrar() override;

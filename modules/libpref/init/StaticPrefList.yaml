@@ -234,7 +234,11 @@
 # the parent process.
 - name: accessibility.cache.enabled
   type: bool
+#ifdef ANDROID
+  value: true
+#else
   value: false
+#endif
   mirror: once
 
 #---------------------------------------------------------------------------
@@ -3831,7 +3835,7 @@
 
 - name: dom.streams.writable_streams.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: dom.streams.transform_streams.enabled
@@ -3841,7 +3845,7 @@
 
 - name: dom.streams.pipeTo.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # For area and anchor elements with target=_blank and no rel set to
@@ -5887,6 +5891,12 @@
   value: true
   mirror: always
 
+# Should we override the blocklist to enable WebGPU?
+- name: gfx.webgpu.force-enabled
+  type: bool
+  value: false
+  mirror: once
+
 # We expose two prefs: gfx.webrender.all and gfx.webrender.enabled.
 # The first enables WR+additional features, and the second just enables WR.
 # For developer convenience, building with --enable-webrender=true or just
@@ -7489,7 +7499,7 @@
 # is rendered again with the latest visible partial area.
 - name: layout.animation.prerender.partial
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # One of several prefs affecting the maximum area to pre-render when animating
@@ -12127,7 +12137,7 @@
   # true means win32k system calls are not permitted.
 -   name: security.sandbox.content.win32k-disable
     type: RelaxedAtomicBool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
     mirror: always
 
   # Note: win32k is currently _not_ disabled for GMP due to intermittent test

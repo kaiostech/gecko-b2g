@@ -251,6 +251,9 @@ nsStreamTransportService::~nsStreamTransportService() {
 }
 
 nsresult nsStreamTransportService::Init() {
+  // Can't be used multithreaded before this
+  PUSH_IGNORE_THREAD_SAFETY
+  MOZ_ASSERT(!mPool);
   mPool = new nsThreadPool();
 
   // Configure the pool
@@ -259,6 +262,7 @@ nsresult nsStreamTransportService::Init() {
   mPool->SetIdleThreadLimit(5);
   mPool->SetIdleThreadTimeoutRegressive(true);
   mPool->SetIdleThreadTimeout(PR_SecondsToInterval(30));
+  POP_THREAD_SAFETY
 
   nsCOMPtr<nsIObserverService> obsSvc = mozilla::services::GetObserverService();
   if (obsSvc) obsSvc->AddObserver(this, "xpcom-shutdown-threads", false);
@@ -365,13 +369,16 @@ nsStreamTransportService::Observe(nsISupports* subject, const char* topic,
   NS_ASSERTION(strcmp(topic, "xpcom-shutdown-threads") == 0, "oops");
 
   {
-    mozilla::MutexAutoLock lock(mShutdownLock);
-    mIsShutdown = true;
-  }
+    nsCOMPtr<nsIThreadPool> pool;
+    {
+      mozilla::MutexAutoLock lock(mShutdownLock);
+      mIsShutdown = true;
+      pool = mPool.forget();
+    }
 
-  if (mPool) {
-    mPool->Shutdown();
-    mPool = nullptr;
+    if (pool) {
+      pool->Shutdown();
+    }
   }
 
   // Because the DelayedRunnables are run by a thread pool, no guarantee is

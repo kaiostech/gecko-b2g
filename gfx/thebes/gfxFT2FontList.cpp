@@ -365,8 +365,7 @@ nsresult FT2FontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
   RefPtr<gfxCharacterMap> charmap = new gfxCharacterMap();
 
   nsresult rv = NS_ERROR_NOT_AVAILABLE;
-  hb_blob_t* cmapBlob = GetFontTable(TTAG_cmap);
-  if (cmapBlob) {
+  if (hb_blob_t* cmapBlob = GetFontTable(TTAG_cmap)) {
     unsigned int length;
     const char* data = hb_blob_get_data(cmapBlob, &length);
     rv = gfxFontUtils::ReadCMAP((const uint8_t*)data, length, *charmap,
@@ -1418,6 +1417,20 @@ void gfxFT2FontList::FindFonts() {
 
   static bool firstTime = true;
 
+  nsAutoCString androidFontsRoot = [&] {
+    // ANDROID_ROOT is the root of the android system, typically /system;
+    // font files are in /$ANDROID_ROOT/fonts/
+    nsAutoCString root;
+    char* androidRoot = PR_GetEnv("ANDROID_ROOT");
+    if (androidRoot) {
+      root = androidRoot;
+    } else {
+      root = "/system"_ns;
+    }
+    root.AppendLiteral("/fonts");
+    return root;
+  }();
+
   if (firstTime) {
 #if defined(MOZ_WIDGET_ANDROID)
     if (jni::GetAPIVersion() >= 29) {
@@ -1453,11 +1466,18 @@ void gfxFT2FontList::FindFonts() {
     if (iter) {
       void* font = systemFontIterator_next(iter);
       while (font) {
-        nsAutoCString path(font_getFontFilePath(font));
+        nsDependentCString path(font_getFontFilePath(font));
         AppendFacesFromFontFile(path, mFontNameCache.get(), kStandard);
         font_close(font);
         font = systemFontIterator_next(iter);
       }
+
+      // We don't yet support COLRv1 fonts (bug 1740525). Newer android versions
+      // have COLRv1 emoji font, and a legacy and hidden CBDT font we
+      // understand, so try to find NotoColorEmojiLegacy.ttf explicitly for now.
+      nsAutoCString legacyEmojiFont(androidFontsRoot);
+      legacyEmojiFont.Append("/NotoColorEmojiLegacy.ttf");
+      AppendFacesFromFontFile(legacyEmojiFont, mFontNameCache.get(), kStandard);
 
       systemFontIterator_close(iter);
     } else {
@@ -1471,18 +1491,7 @@ void gfxFT2FontList::FindFonts() {
   if (!useSystemFontAPI)
 #endif
   {
-    // ANDROID_ROOT is the root of the android system, typically /system;
-    // font files are in /$ANDROID_ROOT/fonts/
-    nsCString root;
-    char* androidRoot = PR_GetEnv("ANDROID_ROOT");
-    if (androidRoot) {
-      root = androidRoot;
-    } else {
-      root = "/system"_ns;
-    }
-    root.AppendLiteral("/fonts");
-
-    FindFontsInDir(root, mFontNameCache.get());
+    FindFontsInDir(androidFontsRoot, mFontNameCache.get());
   }
 
 #ifdef MOZ_WIDGET_GONK
@@ -1586,6 +1595,9 @@ void gfxFT2FontList::FindFontsInDir(const nsCString& aDir,
                                          "MTLmr3m.ttf",
                                          "MTLc3m.ttf",
                                          "NanumGothic.ttf",
+                                         "NotoColorEmoji.ttf",
+                                         "NotoColorEmojiFlags.ttf",
+                                         "NotoColorEmojiLegacy.ttf",
                                          "DroidSansJapanese.ttf",
                                          "DroidSansFallback.ttf"};
 
@@ -1608,7 +1620,7 @@ void gfxFT2FontList::FindFontsInDir(const nsCString& aDir,
         isStdFont = strcmp(sStandardFonts[i], ent->d_name) == 0;
       }
 
-      nsCString s(aDir);
+      nsAutoCString s(aDir);
       s.Append('/');
       s.Append(ent->d_name);
 

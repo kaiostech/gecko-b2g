@@ -3208,8 +3208,8 @@
     "record_in_processes": ["main", "socket"],
     "products": ["firefox", "fennec"],
     "alert_emails": ["seceng-telemetry@mozilla.com", "dkeeler@mozilla.com"],
-    "bug_numbers": [1675655],
-    "expires_in_version": "101",
+    "bug_numbers": [1675655, 1758827],
+    "expires_in_version": "113",
     "kind": "categorical",
     "releaseChannelCollection": "opt-out",
     "description": "Does CRLite and OCSP fetching agree when a certificate is revoked?",
@@ -7808,18 +7808,6 @@
     "bug_numbers": [1656994],
     "description": "Update: How much longer langpacks took to download than the app update in seconds."
   },
-  "UPTAKE_REMOTE_CONTENT_RESULT_1": {
-    "record_in_processes": ["all"],
-    "products": ["firefox", "fennec", "thunderbird"],
-    "expires_in_version": "never",
-    "kind": "categorical",
-    "keyed": true,
-    "labels": ["up_to_date", "success", "backoff", "pref_disabled", "parse_error", "content_error", "sign_error", "sign_retry_error", "conflict_error", "sync_error", "apply_error", "server_error", "certificate_error", "download_error", "timeout_error", "network_error", "offline_error", "cleanup_error", "unknown_error", "custom_1_error", "custom_2_error", "custom_3_error", "custom_4_error", "custom_5_error"],
-    "releaseChannelCollection": "opt-out",
-    "alert_emails": ["storage-team@mozilla.com"],
-    "bug_numbers": [1254099],
-    "description": "Generic histogram to track uptake of remote content like blocklists, settings or updates."
-  },
   "THUNDERBIRD_GLODA_SIZE_MB": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -9714,6 +9702,7 @@
     "high": 2147483646,
     "n_buckets": 10,
     "bug_numbers": [1288745, 1685406],
+    "releaseChannelCollection": "opt-out",
     "description": "a testing histogram; not meant to be touched"
   },
   "TELEMETRY_TEST_LINEAR": {
@@ -9726,10 +9715,11 @@
     "high": 2147483646,
     "n_buckets": 10,
     "bug_numbers": [1288745, 1685406],
+    "releaseChannelCollection": "opt-out",
     "description": "a testing histogram; not meant to be touched"
   },
   "TELEMETRY_TEST_MIRROR_FOR_CUSTOM": {
-    "record_in_processes": ["main"],
+    "record_in_processes": ["main", "content"],
     "products": ["firefox"],
     "alert_emails": ["chutten@mozilla.com"],
     "expires_in_version": "never",
@@ -9738,6 +9728,7 @@
     "high": 2147483646,
     "n_buckets": 10,
     "bug_numbers": [1716340],
+    "releaseChannelCollection": "opt-out",
     "description": "a testing histogram; not meant to be touched"
   },
   "TELEMETRY_TEST_BOOLEAN": {

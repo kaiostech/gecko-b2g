@@ -2303,6 +2303,11 @@ nsLocalFile::Remove(bool aRecursive) {
 
   if (isDir) {
     if (aRecursive) {
+      // WARNING: neither the `SHFileOperation` nor `IFileOperation` APIs are
+      // appropriate here as neither handle long path names, i.e. paths prefixed
+      // with `\\?\` or longer than 260 characters on Windows 10+ system with
+      // long paths enabled.
+
       RefPtr<nsDirEnumerator> dirEnum = new nsDirEnumerator();
 
       rv = dirEnum->Init(this);
@@ -2310,14 +2315,9 @@ nsLocalFile::Remove(bool aRecursive) {
         return rv;
       }
 
-      bool more = false;
-      while (NS_SUCCEEDED(dirEnum->HasMoreElements(&more)) && more) {
-        nsCOMPtr<nsISupports> item;
-        dirEnum->GetNext(getter_AddRefs(item));
-        nsCOMPtr<nsIFile> file = do_QueryInterface(item);
-        if (file) {
-          file->Remove(aRecursive);
-        }
+      nsCOMPtr<nsIFile> file;
+      while (NS_SUCCEEDED(dirEnum->GetNextFile(getter_AddRefs(file))) && file) {
+        file->Remove(aRecursive);
       }
     }
     if (RemoveDirectoryW(mWorkingPath.get()) == 0) {
@@ -3080,8 +3080,8 @@ nsLocalFile::Contains(nsIFile* aInFile, bool* aResult) {
     aInFile->GetPath(inFilePath);
   }
 
-  // make sure that the |aInFile|'s path has a trailing separator.
-  if (inFilePath.Length() >= myFilePathLen &&
+  // Make sure that the |aInFile|'s path has a trailing separator.
+  if (inFilePath.Length() > myFilePathLen &&
       inFilePath[myFilePathLen] == L'\\') {
     if (_wcsnicmp(myFilePath.get(), inFilePath.get(), myFilePathLen) == 0) {
       *aResult = true;

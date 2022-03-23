@@ -618,7 +618,8 @@ void nsScreenGonk::UpdateMirroringWidget(already_AddRefed<nsWindow>& aWindow) {
 
   if (mMirroringWidget) {
     nsCOMPtr<nsIWidget> widget = mMirroringWidget.forget();
-    NS_ReleaseOnMainThread("nsScreenGonk::UpdateMirroringWidget", widget.forget());
+    NS_ReleaseOnMainThread("nsScreenGonk::UpdateMirroringWidget",
+                           widget.forget());
   }
   mMirroringWidget = aWindow;
 }
@@ -888,12 +889,11 @@ bool ScreenHelperGonk::IsScreenConnected(uint32_t aId) {
 
 void ScreenHelperGonk::VsyncControl(bool aEnabled) {
   MOZ_ASSERT(NS_IsMainThread());
-  VsyncSource::Display& display =
-      gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay();
+  VsyncSource* vsyncSource = gfxPlatform::GetPlatform()->GetHardwareVsync();
   if (aEnabled) {
-    display.EnableVsync();
+    vsyncSource->EnableVsync();
   } else {
-    display.DisableVsync();
+    vsyncSource->DisableVsync();
   }
 }
 

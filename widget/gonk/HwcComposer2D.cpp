@@ -175,11 +175,10 @@ void HwcComposer2D::Vsync(int aDisplay, nsecs_t aVsyncTimestamp) {
     return;
   }
 
-  VsyncSource::Display& display =
-      gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay();
+  VsyncSource* vsyncSource = gfxPlatform::GetPlatform()->GetHardwareVsync();
   TimeStamp vsyncTime = mozilla::TimeStamp::FromSystemTime(aVsyncTimestamp);
-  TimeStamp outputTime = vsyncTime + display.GetVsyncRate();
-  display.NotifyVsync(vsyncTime, outputTime);
+  TimeStamp outputTime = vsyncTime + vsyncSource->GetVsyncRate();
+  vsyncSource->NotifyVsync(vsyncTime, outputTime);
 }
 
 // Called on the "invalidator" thread (run from HAL).

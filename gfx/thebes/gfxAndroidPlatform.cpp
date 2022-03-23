@@ -13,8 +13,8 @@
 #include "mozilla/intl/LocaleService.h"
 #include "mozilla/intl/OSPreferences.h"
 #if defined(MOZ_WIDGET_ANDROID)
-  #include "mozilla/jni/Utils.h"
-  #include "mozilla/layers/AndroidHardwareBuffer.h"
+#  include "mozilla/jni/Utils.h"
+#  include "mozilla/layers/AndroidHardwareBuffer.h"
 #endif
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_gfx.h"
@@ -36,8 +36,8 @@
 #include FT_MODULE_H
 
 #ifdef MOZ_WIDGET_GONK
-#include <cutils/properties.h>
-#include "HwcComposer2D.h"
+#  include <cutils/properties.h>
+#  include "HwcComposer2D.h"
 #endif
 
 using namespace mozilla;
@@ -106,9 +106,9 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
   }
 
 #ifdef MOZ_WIDGET_GONK
-    char propQemu[PROPERTY_VALUE_MAX];
-    property_get("ro.kernel.qemu", propQemu, "");
-    mIsInGonkEmulator = !strncmp(propQemu, "1", 1);
+  char propQemu[PROPERTY_VALUE_MAX];
+  property_get("ro.kernel.qemu", propQemu, "");
+  mIsInGonkEmulator = !strncmp(propQemu, "1", 1);
 #endif
 }
 
@@ -186,7 +186,7 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
   static const char kNotoSansCJKJP[] = "Noto Sans CJK JP";
   static const char kNotoColorEmoji[] = "Noto Color Emoji";
 #ifdef MOZ_WIDGET_GONK
-    static const char kFirefoxEmoji[] = "Firefox Emoji";
+  static const char kFirefoxEmoji[] = "Firefox Emoji";
 #endif
 
   if (PrefersColor(aPresentation)) {
@@ -307,9 +307,9 @@ bool gfxAndroidPlatform::FontHintingEnabled() {
 #endif  //  MOZ_WIDGET_ANDROID
 
 #ifdef MOZ_WIDGET_GONK
-    // On B2G, the UX preference is currently to keep hinting disabled
-    // for all text (see bug 829523).
-    return false;
+  // On B2G, the UX preference is currently to keep hinting disabled
+  // for all text (see bug 829523).
+  return false;
 #endif
 
   // Currently, we don't have any other targets, but if/when we do,
@@ -394,68 +394,37 @@ class AndroidVsyncSource final : public VsyncSource,
 #endif
 
 #ifdef MOZ_WIDGET_GONK
-class GonkVsyncSource final : public VsyncSource
-{
-public:
-  GonkVsyncSource() : mGlobalDisplay(new GonkDisplay())
-  {
+class GonkVsyncSource final : public VsyncSource {
+ public:
+  GonkVsyncSource() : mVsyncEnabled(false) {}
+
+  void EnableVsync() override {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (IsVsyncEnabled()) {
+      return;
+    }
+    mVsyncEnabled = HwcComposer2D::GetInstance()->EnableVsync(true);
   }
 
-  virtual Display& GetGlobalDisplay() override
-  {
-    return *mGlobalDisplay;
+  void DisableVsync() override {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (!IsVsyncEnabled()) {
+      return;
+    }
+    mVsyncEnabled = HwcComposer2D::GetInstance()->EnableVsync(false);
   }
 
-  class GonkDisplay final : public VsyncSource::Display
-  {
-  public:
-    GonkDisplay() : mVsyncEnabled(false)
-    {
-    }
-
-    ~GonkDisplay()
-    {
-      DisableVsync();
-    }
-
-    void EnableVsync() override
-    {
-      MOZ_ASSERT(NS_IsMainThread());
-      if (IsVsyncEnabled()) {
-        return;
-      }
-      mVsyncEnabled = HwcComposer2D::GetInstance()->EnableVsync(true);
-    }
-
-    void DisableVsync() override
-    {
-      MOZ_ASSERT(NS_IsMainThread());
-      if (!IsVsyncEnabled()) {
-        return;
-      }
-      mVsyncEnabled = HwcComposer2D::GetInstance()->EnableVsync(false);
-    }
-
-    bool IsVsyncEnabled() override
-    {
-      MOZ_ASSERT(NS_IsMainThread());
-      return mVsyncEnabled;
-    }
-
-    void Shutdown() override {
-      DisableVsync();
-    }
-
-  private:
-    bool mVsyncEnabled;
-  }; // GonkDisplay
-
-private:
-  virtual ~GonkVsyncSource()
-  {
+  bool IsVsyncEnabled() override {
+    MOZ_ASSERT(NS_IsMainThread());
+    return mVsyncEnabled;
   }
-  RefPtr<GonkDisplay> mGlobalDisplay;
-}; // GonkVsyncSource
+
+  void Shutdown() override { DisableVsync(); }
+
+ private:
+  virtual ~GonkVsyncSource() { DisableVsync(); }
+  bool mVsyncEnabled;
+};  // GonkVsyncSource
 #endif
 
 already_AddRefed<mozilla::gfx::VsyncSource>
@@ -467,13 +436,12 @@ gfxAndroidPlatform::CreateHardwareVsyncSource() {
   // L is android version 21, L-MR1 is 22, kit-kat is 19, 20 is kit-kat for
   // wearables.
   RefPtr<GonkVsyncSource> vsyncSource = new GonkVsyncSource();
-  VsyncSource::Display& display = vsyncSource->GetGlobalDisplay();
-  display.EnableVsync();
-  if (!display.IsVsyncEnabled()) {
-      NS_WARNING("Error enabling gonk vsync. Falling back to software vsync");
-      return gfxPlatform::CreateHardwareVsyncSource();
+  vsyncSource->EnableVsync();
+  if (!vsyncSource->IsVsyncEnabled()) {
+    NS_WARNING("Error enabling gonk vsync. Falling back to software vsync");
+    return gfxPlatform::CreateHardwareVsyncSource();
   }
-  display.DisableVsync();
+  vsyncSource->DisableVsync();
   return vsyncSource.forget();
 #elif defined(MOZ_WIDGET_ANDROID)
   // Vsync was introduced since JB (API 16~18) but inaccurate. Enable only for

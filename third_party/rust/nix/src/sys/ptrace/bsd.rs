@@ -1,9 +1,10 @@
-use errno::Errno;
+use cfg_if::cfg_if;
+use crate::errno::Errno;
 use libc::{self, c_int};
 use std::ptr;
-use sys::signal::Signal;
-use unistd::Pid;
-use Result;
+use crate::sys::signal::Signal;
+use crate::unistd::Pid;
+use crate::Result;
 
 pub type RequestType = c_int;
 
@@ -23,6 +24,7 @@ cfg_if! {
 libc_enum! {
     #[repr(i32)]
     /// Ptrace Request enum defining the action to be taken.
+    #[non_exhaustive]
     pub enum Request {
         PT_TRACE_ME,
         PT_READ_I,
@@ -77,16 +79,23 @@ pub fn traceme() -> Result<()> {
 
 /// Attach to a running process, as with `ptrace(PT_ATTACH, ...)`
 ///
-/// Attaches to the process specified in pid, making it a tracee of the calling process.
+/// Attaches to the process specified by `pid`, making it a tracee of the calling process.
 pub fn attach(pid: Pid) -> Result<()> {
     unsafe { ptrace_other(Request::PT_ATTACH, pid, ptr::null_mut(), 0).map(drop) }
 }
 
 /// Detaches the current running process, as with `ptrace(PT_DETACH, ...)`
 ///
-/// Detaches from the process specified in pid allowing it to run freely
-pub fn detach(pid: Pid) -> Result<()> {
-    unsafe { ptrace_other(Request::PT_DETACH, pid, ptr::null_mut(), 0).map(drop) }
+/// Detaches from the process specified by `pid` allowing it to run freely, optionally delivering a
+/// signal specified by `sig`.
+pub fn detach<T: Into<Option<Signal>>>(pid: Pid, sig: T) -> Result<()> {
+    let data = match sig.into() {
+        Some(s) => s as c_int,
+        None => 0,
+    };
+    unsafe {
+        ptrace_other(Request::PT_DETACH, pid, ptr::null_mut(), data).map(drop)
+    }
 }
 
 /// Restart the stopped tracee process, as with `ptrace(PTRACE_CONT, ...)`
@@ -121,21 +130,18 @@ pub fn kill(pid: Pid) -> Result<()> {
 ///
 /// # Example
 /// ```rust
-/// extern crate nix;
 /// use nix::sys::ptrace::step;
 /// use nix::unistd::Pid;
 /// use nix::sys::signal::Signal;
 /// use nix::sys::wait::*;
-/// fn main() {
-///     // If a process changes state to the stopped state because of a SIGUSR1
-///     // signal, this will step the process forward and forward the user
-///     // signal to the stopped process
-///     match waitpid(Pid::from_raw(-1), None) {
-///         Ok(WaitStatus::Stopped(pid, Signal::SIGUSR1)) => {
-///             let _ = step(pid, Signal::SIGUSR1);
-///         }
-///         _ => {},
+/// // If a process changes state to the stopped state because of a SIGUSR1
+/// // signal, this will step the process forward and forward the user
+/// // signal to the stopped process
+/// match waitpid(Pid::from_raw(-1), None) {
+///     Ok(WaitStatus::Stopped(pid, Signal::SIGUSR1)) => {
+///         let _ = step(pid, Signal::SIGUSR1);
 ///     }
+///     _ => {},
 /// }
 /// ```
 #[cfg(

@@ -33,22 +33,22 @@ mod linux {
     #[test]
     fn test_op_none() {
         if cfg!(any(target_arch = "mips", target_arch = "mips64", target_arch="powerpc", target_arch="powerpc64")){
-            assert_eq!(request_code_none!(b'q', 10), 0x2000_710A);
-            assert_eq!(request_code_none!(b'a', 255), 0x2000_61FF);
+            assert_eq!(request_code_none!(b'q', 10) as u32, 0x2000_710A);
+            assert_eq!(request_code_none!(b'a', 255) as u32, 0x2000_61FF);
         } else {
-            assert_eq!(request_code_none!(b'q', 10), 0x0000_710A);
-            assert_eq!(request_code_none!(b'a', 255), 0x0000_61FF);
+            assert_eq!(request_code_none!(b'q', 10) as u32, 0x0000_710A);
+            assert_eq!(request_code_none!(b'a', 255) as u32, 0x0000_61FF);
         }
     }
 
     #[test]
     fn test_op_write() {
         if cfg!(any(target_arch = "mips", target_arch = "mips64", target_arch="powerpc", target_arch="powerpc64")){
-            assert_eq!(request_code_write!(b'z', 10, 1), 0x8001_7A0A);
-            assert_eq!(request_code_write!(b'z', 10, 512), 0x8200_7A0A);
+            assert_eq!(request_code_write!(b'z', 10, 1) as u32, 0x8001_7A0A);
+            assert_eq!(request_code_write!(b'z', 10, 512) as u32, 0x8200_7A0A);
         } else {
-            assert_eq!(request_code_write!(b'z', 10, 1), 0x4001_7A0A);
-            assert_eq!(request_code_write!(b'z', 10, 512), 0x4200_7A0A);
+            assert_eq!(request_code_write!(b'z', 10, 1) as u32, 0x4001_7A0A);
+            assert_eq!(request_code_write!(b'z', 10, 512) as u32, 0x4200_7A0A);
         }
     }
 
@@ -56,9 +56,11 @@ mod linux {
     #[test]
     fn test_op_write_64() {
         if cfg!(any(target_arch = "mips64", target_arch="powerpc64")){
-            assert_eq!(request_code_write!(b'z', 10, (1 as u64) << 32), 0x8000_7A0A);
+            assert_eq!(request_code_write!(b'z', 10, 1u64 << 32) as u32,
+                       0x8000_7A0A);
         } else {
-            assert_eq!(request_code_write!(b'z', 10, (1 as u64) << 32), 0x4000_7A0A);
+            assert_eq!(request_code_write!(b'z', 10, 1u64 << 32) as u32,
+                       0x4000_7A0A);
         }
 
     }
@@ -66,11 +68,11 @@ mod linux {
     #[test]
     fn test_op_read() {
         if cfg!(any(target_arch = "mips", target_arch = "mips64", target_arch="powerpc", target_arch="powerpc64")){
-            assert_eq!(request_code_read!(b'z', 10, 1), 0x4001_7A0A);
-            assert_eq!(request_code_read!(b'z', 10, 512), 0x4200_7A0A);
+            assert_eq!(request_code_read!(b'z', 10, 1) as u32, 0x4001_7A0A);
+            assert_eq!(request_code_read!(b'z', 10, 512) as u32, 0x4200_7A0A);
         } else {
-            assert_eq!(request_code_read!(b'z', 10, 1), 0x8001_7A0A);
-            assert_eq!(request_code_read!(b'z', 10, 512), 0x8200_7A0A);
+            assert_eq!(request_code_read!(b'z', 10, 1) as u32, 0x8001_7A0A);
+            assert_eq!(request_code_read!(b'z', 10, 512) as u32, 0x8200_7A0A);
         }
     }
 
@@ -78,22 +80,25 @@ mod linux {
     #[test]
     fn test_op_read_64() {
         if cfg!(any(target_arch = "mips64", target_arch="powerpc64")){
-            assert_eq!(request_code_read!(b'z', 10, (1 as u64) << 32), 0x4000_7A0A);
+            assert_eq!(request_code_read!(b'z', 10, 1u64 << 32) as u32,
+                       0x4000_7A0A);
         } else {
-            assert_eq!(request_code_read!(b'z', 10, (1 as u64) << 32), 0x8000_7A0A);
+            assert_eq!(request_code_read!(b'z', 10, 1u64 << 32) as u32,
+                       0x8000_7A0A);
         }
     }
 
     #[test]
     fn test_op_read_write() {
-        assert_eq!(request_code_readwrite!(b'z', 10, 1), 0xC001_7A0A);
-        assert_eq!(request_code_readwrite!(b'z', 10, 512), 0xC200_7A0A);
+        assert_eq!(request_code_readwrite!(b'z', 10, 1) as u32, 0xC001_7A0A);
+        assert_eq!(request_code_readwrite!(b'z', 10, 512) as u32, 0xC200_7A0A);
     }
 
     #[cfg(target_pointer_width = "64")]
     #[test]
     fn test_op_read_write_64() {
-        assert_eq!(request_code_readwrite!(b'z', 10, (1 as u64) << 32), 0xC000_7A0A);
+        assert_eq!(request_code_readwrite!(b'z', 10, 1u64 << 32) as u32,
+                   0xC000_7A0A);
     }
 }
 
@@ -126,7 +131,7 @@ mod bsd {
     #[cfg(target_pointer_width = "64")]
     #[test]
     fn test_op_write_64() {
-        assert_eq!(request_code_write!(b'z', 10, (1 as u64) << 32), 0x8000_7A0A);
+        assert_eq!(request_code_write!(b'z', 10, 1u64 << 32), 0x8000_7A0A);
     }
 
     #[test]
@@ -138,7 +143,7 @@ mod bsd {
     #[cfg(target_pointer_width = "64")]
     #[test]
     fn test_op_read_64() {
-        assert_eq!(request_code_read!(b'z', 10, (1 as u64) << 32), 0x4000_7A0A);
+        assert_eq!(request_code_read!(b'z', 10, 1u64 << 32), 0x4000_7A0A);
     }
 
     #[test]
@@ -150,7 +155,7 @@ mod bsd {
     #[cfg(target_pointer_width = "64")]
     #[test]
     fn test_op_read_write_64() {
-        assert_eq!(request_code_readwrite!(b'z', 10, (1 as u64) << 32), 0xC000_7A0A);
+        assert_eq!(request_code_readwrite!(b'z', 10, 1u64 << 32), 0xC000_7A0A);
     }
 }
 
@@ -162,24 +167,23 @@ mod linux_ioctls {
     use tempfile::tempfile;
     use libc::{TCGETS, TCSBRK, TCSETS, TIOCNXCL, termios};
 
-    use nix::Error::Sys;
-    use nix::errno::Errno::{ENOTTY, ENOSYS};
+    use nix::errno::Errno;
 
     ioctl_none_bad!(tiocnxcl, TIOCNXCL);
     #[test]
     fn test_ioctl_none_bad() {
         let file = tempfile().unwrap();
         let res = unsafe { tiocnxcl(file.as_raw_fd()) };
-        assert_eq!(res, Err(Sys(ENOTTY)));
+        assert_eq!(res, Err(Errno::ENOTTY));
     }
 
     ioctl_read_bad!(tcgets, TCGETS, termios);
     #[test]
     fn test_ioctl_read_bad() {
         let file = tempfile().unwrap();
-        let mut termios = unsafe { mem::uninitialized() };
+        let mut termios = unsafe { mem::zeroed() };
         let res = unsafe { tcgets(file.as_raw_fd(), &mut termios) };
-        assert_eq!(res, Err(Sys(ENOTTY)));
+        assert_eq!(res, Err(Errno::ENOTTY));
     }
 
     ioctl_write_int_bad!(tcsbrk, TCSBRK);
@@ -187,16 +191,16 @@ mod linux_ioctls {
     fn test_ioctl_write_int_bad() {
         let file = tempfile().unwrap();
         let res = unsafe { tcsbrk(file.as_raw_fd(), 0) };
-        assert_eq!(res, Err(Sys(ENOTTY)));
+        assert_eq!(res, Err(Errno::ENOTTY));
     }
 
     ioctl_write_ptr_bad!(tcsets, TCSETS, termios);
     #[test]
     fn test_ioctl_write_ptr_bad() {
         let file = tempfile().unwrap();
-        let termios: termios = unsafe { mem::uninitialized() };
+        let termios: termios = unsafe { mem::zeroed() };
         let res = unsafe { tcsets(file.as_raw_fd(), &termios) };
-        assert_eq!(res, Err(Sys(ENOTTY)));
+        assert_eq!(res, Err(Errno::ENOTTY));
     }
 
     // FIXME: Find a suitable example for `ioctl_readwrite_bad`
@@ -207,7 +211,7 @@ mod linux_ioctls {
     fn test_ioctl_none() {
         let file = tempfile().unwrap();
         let res = unsafe { log_status(file.as_raw_fd()) };
-        assert!(res == Err(Sys(ENOTTY)) || res == Err(Sys(ENOSYS)));
+        assert!(res == Err(Errno::ENOTTY) || res == Err(Errno::ENOSYS));
     }
 
     #[repr(C)]
@@ -226,7 +230,7 @@ mod linux_ioctls {
         let file = tempfile().unwrap();
         let data: v4l2_audio = unsafe { mem::zeroed() };
         let res = unsafe { s_audio(file.as_raw_fd(), &data) };
-        assert!(res == Err(Sys(ENOTTY)) || res == Err(Sys(ENOSYS)));
+        assert!(res == Err(Errno::ENOTTY) || res == Err(Errno::ENOSYS));
     }
 
     // From linux/net/bluetooth/hci_sock.h
@@ -237,7 +241,7 @@ mod linux_ioctls {
     fn test_ioctl_write_int() {
         let file = tempfile().unwrap();
         let res = unsafe { hcidevup(file.as_raw_fd(), 0) };
-        assert!(res == Err(Sys(ENOTTY)) || res == Err(Sys(ENOSYS)));
+        assert!(res == Err(Errno::ENOTTY) || res == Err(Errno::ENOSYS));
     }
 
     // From linux/videodev2.h
@@ -245,9 +249,9 @@ mod linux_ioctls {
     #[test]
     fn test_ioctl_read() {
         let file = tempfile().unwrap();
-        let mut data: v4l2_audio = unsafe { mem::uninitialized() };
+        let mut data: v4l2_audio = unsafe { mem::zeroed() };
         let res = unsafe { g_audio(file.as_raw_fd(), &mut data) };
-        assert!(res == Err(Sys(ENOTTY)) || res == Err(Sys(ENOSYS)));
+        assert!(res == Err(Errno::ENOTTY) || res == Err(Errno::ENOSYS));
     }
 
     // From linux/videodev2.h
@@ -255,9 +259,9 @@ mod linux_ioctls {
     #[test]
     fn test_ioctl_readwrite() {
         let file = tempfile().unwrap();
-        let mut data: v4l2_audio = unsafe { mem::uninitialized() };
+        let mut data: v4l2_audio = unsafe { mem::zeroed() };
         let res = unsafe { enum_audio(file.as_raw_fd(), &mut data) };
-        assert!(res == Err(Sys(ENOTTY)) || res == Err(Sys(ENOSYS)));
+        assert!(res == Err(Errno::ENOTTY) || res == Err(Errno::ENOSYS));
     }
 
     // FIXME: Find a suitable example for `ioctl_read_buf`.
@@ -283,7 +287,7 @@ mod linux_ioctls {
         let file = tempfile().unwrap();
         let data: [spi_ioc_transfer; 4] = unsafe { mem::zeroed() };
         let res = unsafe { spi_ioc_message(file.as_raw_fd(), &data[..]) };
-        assert!(res == Err(Sys(ENOTTY)) || res == Err(Sys(ENOSYS)));
+        assert!(res == Err(Errno::ENOTTY) || res == Err(Errno::ENOSYS));
     }
 
     // FIXME: Find a suitable example for `ioctl_readwrite_buf`.
@@ -297,8 +301,7 @@ mod freebsd_ioctls {
     use tempfile::tempfile;
     use libc::termios;
 
-    use nix::Error::Sys;
-    use nix::errno::Errno::ENOTTY;
+    use nix::errno::Errno;
 
     // From sys/sys/ttycom.h
     const TTY_IOC_MAGIC: u8 = b't';
@@ -311,24 +314,24 @@ mod freebsd_ioctls {
     fn test_ioctl_none() {
         let file = tempfile().unwrap();
         let res = unsafe { tiocnxcl(file.as_raw_fd()) };
-        assert_eq!(res, Err(Sys(ENOTTY)));
+        assert_eq!(res, Err(Errno::ENOTTY));
     }
 
     ioctl_read!(tiocgeta, TTY_IOC_MAGIC, TTY_IOC_TYPE_GETA, termios);
     #[test]
     fn test_ioctl_read() {
         let file = tempfile().unwrap();
-        let mut termios = unsafe { mem::uninitialized() };
+        let mut termios = unsafe { mem::zeroed() };
         let res = unsafe { tiocgeta(file.as_raw_fd(), &mut termios) };
-        assert_eq!(res, Err(Sys(ENOTTY)));
+        assert_eq!(res, Err(Errno::ENOTTY));
     }
 
     ioctl_write_ptr!(tiocseta, TTY_IOC_MAGIC, TTY_IOC_TYPE_SETA, termios);
     #[test]
     fn test_ioctl_write_ptr() {
         let file = tempfile().unwrap();
-        let termios: termios = unsafe { mem::uninitialized() };
+        let termios: termios = unsafe { mem::zeroed() };
         let res = unsafe { tiocseta(file.as_raw_fd(), &termios) };
-        assert_eq!(res, Err(Sys(ENOTTY)));
+        assert_eq!(res, Err(Errno::ENOTTY));
     }
 }

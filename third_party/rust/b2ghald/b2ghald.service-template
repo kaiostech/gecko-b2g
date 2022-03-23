@@ -1,0 +1,10 @@
+[Unit]
+Description=B2G HAL daemon
+
+[Service]
+ExecStart=__B2GHALD_BIN__
+Restart=on-failure
+Type=simple
+
+[Install]
+WantedBy=multi-user.target

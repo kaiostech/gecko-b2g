@@ -1,10 +1,13 @@
+//! Send data from a file to a socket, bypassing userland.
+
+use cfg_if::cfg_if;
 use std::os::unix::io::RawFd;
 use std::ptr;
 
 use libc::{self, off_t};
 
-use Result;
-use errno::Errno;
+use crate::Result;
+use crate::errno::Errno;
 
 /// Copy up to `count` bytes to `out_fd` from `in_fd` starting at `offset`.
 ///
@@ -17,7 +20,7 @@ use errno::Errno;
 ///
 /// `in_fd` must support `mmap`-like operations and therefore cannot be a socket.
 ///
-/// For more information, see [the sendfile(2) man page.](http://man7.org/linux/man-pages/man2/sendfile.2.html)
+/// For more information, see [the sendfile(2) man page.](https://man7.org/linux/man-pages/man2/sendfile.2.html)
 #[cfg(any(target_os = "android", target_os = "linux"))]
 pub fn sendfile(
     out_fd: RawFd,
@@ -32,11 +35,37 @@ pub fn sendfile(
     Errno::result(ret).map(|r| r as usize)
 }
 
+/// Copy up to `count` bytes to `out_fd` from `in_fd` starting at `offset`.
+///
+/// Returns a `Result` with the number of bytes written.
+///
+/// If `offset` is `None`, `sendfile` will begin reading at the current offset of `in_fd`and will
+/// update the offset of `in_fd`. If `offset` is `Some`, `sendfile` will begin at the specified
+/// offset and will not update the offset of `in_fd`. Instead, it will mutate `offset` to point to
+/// the byte after the last byte copied.
+///
+/// `in_fd` must support `mmap`-like operations and therefore cannot be a socket.
+///
+/// For more information, see [the sendfile(2) man page.](https://man7.org/linux/man-pages/man2/sendfile.2.html)
+#[cfg(target_os = "linux")]
+pub fn sendfile64(
+    out_fd: RawFd,
+    in_fd: RawFd,
+    offset: Option<&mut libc::off64_t>,
+    count: usize,
+) -> Result<usize> {
+    let offset = offset
+        .map(|offset| offset as *mut _)
+        .unwrap_or(ptr::null_mut());
+    let ret = unsafe { libc::sendfile64(out_fd, in_fd, offset, count) };
+    Errno::result(ret).map(|r| r as usize)
+}
+
 cfg_if! {
     if #[cfg(any(target_os = "freebsd",
                  target_os = "ios",
                  target_os = "macos"))] {
-        use sys::uio::IoVec;
+        use crate::sys::uio::IoVec;
 
         #[derive(Clone, Debug, Eq, Hash, PartialEq)]
         struct SendfileHeaderTrailer<'a>(
@@ -123,6 +152,7 @@ cfg_if! {
         ///
         /// For more information, see
         /// [the sendfile(2) man page.](https://www.freebsd.org/cgi/man.cgi?query=sendfile&sektion=2)
+        #[allow(clippy::too_many_arguments)]
         pub fn sendfile(
             in_fd: RawFd,
             out_sock: RawFd,
@@ -136,7 +166,8 @@ cfg_if! {
             // Readahead goes in upper 16 bits
             // Flags goes in lower 16 bits
             // see `man 2 sendfile`
-            let flags: u32 = ((readahead as u32) << 16) | (flags.bits() as u32);
+            let ra32 = u32::from(readahead);
+            let flags: u32 = (ra32 << 16) | (flags.bits() as u32);
             let mut bytes_sent: off_t = 0;
             let hdtr = headers.or(trailers).map(|_| SendfileHeaderTrailer::new(headers, trailers));
             let hdtr_ptr = hdtr.as_ref().map_or(ptr::null(), |s| &s.0 as *const libc::sf_hdtr);

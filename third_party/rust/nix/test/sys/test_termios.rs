@@ -1,10 +1,10 @@
 use std::os::unix::prelude::*;
 use tempfile::tempfile;
 
-use nix::{Error, fcntl};
+use nix::fcntl;
 use nix::errno::Errno;
 use nix::pty::openpty;
-use nix::sys::termios::{self, LocalFlags, OutputFlags, Termios, tcgetattr};
+use nix::sys::termios::{self, LocalFlags, OutputFlags, tcgetattr};
 use nix::unistd::{read, write, close};
 
 /// Helper function analogous to `std::io::Write::write_all`, but for `RawFd`s
@@ -19,10 +19,10 @@ fn write_all(f: RawFd, buf: &[u8]) {
 #[test]
 fn test_tcgetattr_pty() {
     // openpty uses ptname(3) internally
-    let _m = ::PTSNAME_MTX.lock().expect("Mutex got poisoned by another test");
+    let _m = crate::PTSNAME_MTX.lock();
 
     let pty = openpty(None, None).expect("openpty failed");
-    assert!(termios::tcgetattr(pty.master).is_ok());
+    assert!(termios::tcgetattr(pty.slave).is_ok());
     close(pty.master).expect("closing the master failed");
     close(pty.slave).expect("closing the slave failed");
 }
@@ -32,28 +32,28 @@ fn test_tcgetattr_pty() {
 fn test_tcgetattr_enotty() {
     let file = tempfile().unwrap();
     assert_eq!(termios::tcgetattr(file.as_raw_fd()).err(),
-               Some(Error::Sys(Errno::ENOTTY)));
+               Some(Errno::ENOTTY));
 }
 
 // Test tcgetattr on an invalid file descriptor
 #[test]
 fn test_tcgetattr_ebadf() {
     assert_eq!(termios::tcgetattr(-1).err(),
-               Some(Error::Sys(Errno::EBADF)));
+               Some(Errno::EBADF));
 }
 
 // Test modifying output flags
 #[test]
 fn test_output_flags() {
     // openpty uses ptname(3) internally
-    let _m = ::PTSNAME_MTX.lock().expect("Mutex got poisoned by another test");
+    let _m = crate::PTSNAME_MTX.lock();
 
     // Open one pty to get attributes for the second one
     let mut termios = {
         let pty = openpty(None, None).expect("openpty failed");
         assert!(pty.master > 0);
         assert!(pty.slave > 0);
-        let termios = tcgetattr(pty.master).expect("tcgetattr failed");
+        let termios = tcgetattr(pty.slave).expect("tcgetattr failed");
         close(pty.master).unwrap();
         close(pty.slave).unwrap();
         termios
@@ -77,7 +77,7 @@ fn test_output_flags() {
 
     // Read from the slave verifying that the output has been properly transformed
     let mut buf = [0u8; 10];
-    ::read_exact(pty.slave, &mut buf);
+    crate::read_exact(pty.slave, &mut buf);
     let transformed_string = "foofoofoo\n";
     close(pty.master).unwrap();
     close(pty.slave).unwrap();
@@ -88,14 +88,14 @@ fn test_output_flags() {
 #[test]
 fn test_local_flags() {
     // openpty uses ptname(3) internally
-    let _m = ::PTSNAME_MTX.lock().expect("Mutex got poisoned by another test");
+    let _m = crate::PTSNAME_MTX.lock();
 
     // Open one pty to get attributes for the second one
     let mut termios = {
         let pty = openpty(None, None).unwrap();
         assert!(pty.master > 0);
         assert!(pty.slave > 0);
-        let termios = tcgetattr(pty.master).unwrap();
+        let termios = tcgetattr(pty.slave).unwrap();
         close(pty.master).unwrap();
         close(pty.slave).unwrap();
         termios
@@ -126,11 +126,5 @@ fn test_local_flags() {
     let read = read(pty.master, &mut buf).unwrap_err();
     close(pty.master).unwrap();
     close(pty.slave).unwrap();
-    assert_eq!(read, Error::Sys(Errno::EAGAIN));
-}
-
-#[test]
-fn test_cfmakeraw() {
-    let mut termios = unsafe { Termios::default_uninit() };
-    termios::cfmakeraw(&mut termios);
+    assert_eq!(read, Errno::EAGAIN);
 }

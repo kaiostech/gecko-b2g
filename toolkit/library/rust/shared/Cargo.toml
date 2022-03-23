@@ -88,6 +88,9 @@ gecko_sidl = { path = "../../../../b2g/sidl/gecko_sidl" }
 # ipfs:// and ipns:// protocol handlers.
 ipfs_handler = { path = "../../../../netwerk/protocol/ipfs/ipfs_handler" }
 
+# B2G Linux HAL support.
+b2glinuxhal = { path = "../../../../hal/linux/b2g/b2glinuxhal" }
+
 [features]
 default = []
 cubeb-remoting = ["cubeb-sys", "audioipc-client", "audioipc-server", "audioipc2-client", "audioipc2-server"]

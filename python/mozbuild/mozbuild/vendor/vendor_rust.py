@@ -90,6 +90,14 @@ TOLERATED_DUPES = {
     "pin-project-lite": 2,
     "target-lexicon": 2,
     "tokio": 2,
+    "block-buffer": 2,
+    "block-padding": 2,
+    "digest": 2,
+    "generic-array": 2,
+    "opaque-debug": 2,
+    "sha2": 2,
+    "toml": 2,
+    "nix": 2,
 }
 
 
@@ -271,6 +279,7 @@ Please commit or stash these changes before vendoring, or re-run with `--ignore-
             "fuchsia-cprng",
             "glsl",
             "instant",
+            "subtle",
         ]
     }
 
@@ -285,6 +294,7 @@ Please commit or stash these changes before vendoring, or re-run with `--ignore-
             "qlog",
         ],
         "BSD-3-Clause": [],
+        "AGPL-3.0-only": [ "b2ghald" ]
     }
 
     # ICU4X is distributed as individual crates that all share the same LICENSE

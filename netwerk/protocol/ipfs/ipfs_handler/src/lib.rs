@@ -45,7 +45,7 @@ fn fallible_get_char_pref(name: &str, default_value: &str) -> Result<nsCString, 
             // Safe because:
             //  * `null` is explicitly allowed per documentation
             //  * `p` is a valid outparam guaranteed by `getter_addrefs`
-            unsafe { pref_service.GetDefaultBranch(std::ptr::null(), p) }
+            unsafe { pref_service.GetBranch(std::ptr::null(), p) }
         })?;
         let pref_name = CString::new(name).map_err(|_| NS_ERROR_FAILURE)?;
         let mut pref_value = nsCString::new();

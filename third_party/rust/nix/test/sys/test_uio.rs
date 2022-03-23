@@ -6,13 +6,19 @@ use std::{cmp, iter};
 use std::fs::{OpenOptions};
 use std::os::unix::io::AsRawFd;
 
-use tempfile::{tempfile, tempdir};
+#[cfg(not(target_os = "redox"))]
+use tempfile::tempfile;
+use tempfile::tempdir;
 
 #[test]
 fn test_writev() {
     let mut to_write = Vec::with_capacity(16 * 128);
     for _ in 0..16 {
-        let s: String = thread_rng().sample_iter(&Alphanumeric).take(128).collect();
+        let s: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .map(char::from)
+            .take(128)
+            .collect();
         let b = s.as_bytes();
         to_write.extend(b.iter().cloned());
     }
@@ -21,7 +27,7 @@ fn test_writev() {
     let mut consumed = 0;
     while consumed < to_write.len() {
         let left = to_write.len() - consumed;
-        let slice_len = if left <= 64 { left } else { thread_rng().gen_range(64, cmp::min(256, left)) };
+        let slice_len = if left <= 64 { left } else { thread_rng().gen_range(64..cmp::min(256, left)) };
         let b = &to_write[consumed..consumed+slice_len];
         iovecs.push(IoVec::from_slice(b));
         consumed += slice_len;
@@ -53,14 +59,19 @@ fn test_writev() {
 }
 
 #[test]
+#[cfg(not(target_os = "redox"))]
 fn test_readv() {
-    let s:String = thread_rng().sample_iter(&Alphanumeric).take(128).collect();
+    let s:String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .map(char::from)
+        .take(128)
+        .collect();
     let to_write = s.as_bytes().to_vec();
     let mut storage = Vec::new();
     let mut allocated = 0;
     while allocated < to_write.len() {
         let left = to_write.len() - allocated;
-        let vec_len = if left <= 64 { left } else { thread_rng().gen_range(64, cmp::min(256, left)) };
+        let vec_len = if left <= 64 { left } else { thread_rng().gen_range(64..cmp::min(256, left)) };
         let v: Vec<u8> = iter::repeat(0u8).take(vec_len).collect();
         storage.push(v);
         allocated += vec_len;
@@ -97,6 +108,7 @@ fn test_readv() {
 }
 
 #[test]
+#[cfg(not(target_os = "redox"))]
 fn test_pwrite() {
     use std::io::Read;
 
@@ -129,7 +141,7 @@ fn test_pread() {
 }
 
 #[test]
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "redox"))]
 fn test_pwritev() {
     use std::io::Read;
 
@@ -159,7 +171,7 @@ fn test_pwritev() {
 }
 
 #[test]
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "redox"))]
 fn test_preadv() {
     use std::io::Write;
 
@@ -193,21 +205,23 @@ fn test_preadv() {
 
 #[test]
 #[cfg(target_os = "linux")]
-// FIXME: qemu-user doesn't implement process_vm_readv/writev on most arches
-#[cfg_attr(not(any(target_arch = "x86", target_arch = "x86_64")), ignore)]
+// qemu-user doesn't implement process_vm_readv/writev on most arches
+#[cfg_attr(qemu, ignore)]
 fn test_process_vm_readv() {
     use nix::unistd::ForkResult::*;
     use nix::sys::signal::*;
     use nix::sys::wait::*;
+    use crate::*;
 
-    let _ = ::FORK_MTX.lock().expect("Mutex got poisoned by another test");
+    require_capability!("test_process_vm_readv", CAP_SYS_PTRACE);
+    let _m = crate::FORK_MTX.lock();
 
     // Pre-allocate memory in the child, since allocation isn't safe
     // post-fork (~= async-signal-safe)
     let mut vector = vec![1u8, 2, 3, 4, 5];
 
     let (r, w) = pipe().unwrap();
-    match fork().expect("Error: Fork Failed") {
+    match unsafe{fork()}.expect("Error: Fork Failed") {
         Parent { child } => {
             close(w).unwrap();
             // wait for child

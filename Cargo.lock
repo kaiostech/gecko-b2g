@@ -32,7 +32,7 @@ dependencies = [
  "alsa-sys",
  "bitflags",
  "libc",
- "nix",
+ "nix 0.15.0",
 ]
 
 [[package]]
@@ -334,6 +334,31 @@ dependencies = [
 [[package]]
 name = "autocfg"
 version = "1.0.1"
+
+[[package]]
+name = "b2ghald"
+version = "0.1.0"
+source = "git+https://github.com/capyloon/b2ghald.git#3205bbb899e21db1d2b11545e7ca5df78d4da37c"
+dependencies = [
+ "bincode",
+ "clap",
+ "env_logger",
+ "log",
+ "nix 0.23.1",
+ "serde",
+]
+
+[[package]]
+name = "b2glinuxhal"
+version = "0.1.0"
+dependencies = [
+ "b2ghald",
+ "log",
+ "nserror",
+ "nsstring",
+ "parking_lot",
+ "xpcom",
+]
 
 [[package]]
 name = "baldrdash"
@@ -786,13 +811,29 @@ version = "3.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a30c3bf9ff12dfe5dae53f0a96e0febcd18420d1c0e7fad77796d9d5c4b5375"
 dependencies = [
+ "atty",
  "bitflags",
+ "clap_derive",
  "indexmap",
  "lazy_static",
  "os_str_bytes",
  "strsim",
+ "termcolor",
  "terminal_size",
  "textwrap",
+]
+
+[[package]]
+name = "clap_derive"
+version = "3.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da95d038ede1a964ce99f49cbe27a7fb538d1da595e4b4f70b8c8f338d17bf16"
+dependencies = [
+ "heck",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2153,6 +2194,7 @@ dependencies = [
  "audioipc2-client",
  "audioipc2-server",
  "authenticator",
+ "b2glinuxhal",
  "bitsdownload",
  "bookmark_sync",
  "cascade_bloom_filter",
@@ -2492,6 +2534,12 @@ checksum = "e7f66481bfee273957b1f20485a4ff3362987f85b2c236580d81b4eb7a326429"
 dependencies = [
  "http",
 ]
+
+[[package]]
+name = "heck"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
 
 [[package]]
 name = "hermit-abi"
@@ -3261,7 +3309,7 @@ dependencies = [
  "js-sys",
  "libc",
  "memalloc",
- "nix",
+ "nix 0.15.0",
  "wasm-bindgen",
  "web-sys",
  "winapi",
@@ -3303,7 +3351,7 @@ dependencies = [
  "libc",
  "memmap2 0.2.3",
  "memoffset 0.5.6",
- "nix",
+ "nix 0.15.0",
  "tempfile",
  "thiserror",
 ]
@@ -3757,6 +3805,19 @@ dependencies = [
  "cfg-if 0.1.10",
  "libc",
  "void",
+]
+
+[[package]]
+name = "nix"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f866317acbd3a240710c63f065ffb1e4fd466259045ccb504130b7f668f35c6"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if 1.0.0",
+ "libc",
+ "memoffset 0.6.5",
 ]
 
 [[package]]

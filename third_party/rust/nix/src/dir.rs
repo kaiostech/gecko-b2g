@@ -1,10 +1,10 @@
-use {Error, NixPath, Result};
-use errno::Errno;
-use fcntl::{self, OFlag};
-use libc;
+use crate::{Error, NixPath, Result};
+use crate::errno::Errno;
+use crate::fcntl::{self, OFlag};
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
-use std::{ffi, ptr};
-use sys;
+use std::ptr;
+use std::ffi;
+use crate::sys;
 
 #[cfg(target_os = "linux")]
 use libc::{dirent64 as dirent, readdir64_r as readdir_r};
@@ -25,7 +25,7 @@ use libc::{dirent, readdir_r};
 ///    * returns entries for `.` (current directory) and `..` (parent directory).
 ///    * returns entries' names as a `CStr` (no allocation or conversion beyond whatever libc
 ///      does).
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Dir(
     ptr::NonNull<libc::DIR>
 );
@@ -53,14 +53,12 @@ impl Dir {
 
     /// Converts from a file descriptor, closing it on success or failure.
     pub fn from_fd(fd: RawFd) -> Result<Self> {
-        let d = unsafe { libc::fdopendir(fd) };
-        if d.is_null() {
+        let d = ptr::NonNull::new(unsafe { libc::fdopendir(fd) }).ok_or_else(|| {
             let e = Error::last();
             unsafe { libc::close(fd) };
-            return Err(e);
-        };
-        // Always guaranteed to be non-null by the previous check
-        Ok(Dir(ptr::NonNull::new(d).unwrap()))
+            e
+        })?;
+        Ok(Dir(d))
     }
 
     /// Returns an iterator of `Result<Entry>` which rewinds when finished.
@@ -85,7 +83,32 @@ impl AsRawFd for Dir {
 
 impl Drop for Dir {
     fn drop(&mut self) {
-        unsafe { libc::closedir(self.0.as_ptr()) };
+        let e = Errno::result(unsafe { libc::closedir(self.0.as_ptr()) });
+        if !std::thread::panicking() && e == Err(Errno::EBADF) {
+            panic!("Closing an invalid file descriptor!");
+        };
+    }
+}
+
+fn next(dir: &mut Dir) -> Option<Result<Entry>> {
+    unsafe {
+        // Note: POSIX specifies that portable applications should dynamically allocate a
+        // buffer with room for a `d_name` field of size `pathconf(..., _PC_NAME_MAX)` plus 1
+        // for the NUL byte. It doesn't look like the std library does this; it just uses
+        // fixed-sized buffers (and libc's dirent seems to be sized so this is appropriate).
+        // Probably fine here too then.
+        let mut ent = std::mem::MaybeUninit::<dirent>::uninit();
+        let mut result = ptr::null_mut();
+        if let Err(e) = Errno::result(
+            readdir_r(dir.0.as_ptr(), ent.as_mut_ptr(), &mut result))
+        {
+            return Some(Err(e));
+        }
+        if result.is_null() {
+            return None;
+        }
+        assert_eq!(result, ent.as_mut_ptr());
+        Some(Ok(Entry(ent.assume_init())))
     }
 }
 
@@ -96,23 +119,7 @@ impl<'d> Iterator for Iter<'d> {
     type Item = Result<Entry>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            // Note: POSIX specifies that portable applications should dynamically allocate a
-            // buffer with room for a `d_name` field of size `pathconf(..., _PC_NAME_MAX)` plus 1
-            // for the NUL byte. It doesn't look like the std library does this; it just uses
-            // fixed-sized buffers (and libc's dirent seems to be sized so this is appropriate).
-            // Probably fine here too then.
-            let mut ent: Entry = Entry(::std::mem::uninitialized());
-            let mut result = ptr::null_mut();
-            if let Err(e) = Errno::result(readdir_r((self.0).0.as_ptr(), &mut ent.0, &mut result)) {
-                return Some(Err(e));
-            }
-            if result == ptr::null_mut() {
-                return None;
-            }
-            assert_eq!(result, &mut ent.0 as *mut dirent);
-            return Some(Ok(ent));
-        }
+        next(self.0)
     }
 }
 
@@ -122,10 +129,48 @@ impl<'d> Drop for Iter<'d> {
     }
 }
 
+/// The return type of [Dir::into_iter]
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct OwningIter(Dir);
+
+impl Iterator for OwningIter {
+    type Item = Result<Entry>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        next(&mut self.0)
+    }
+}
+
+impl IntoIterator for Dir {
+    type Item = Result<Entry>;
+    type IntoIter = OwningIter;
+
+    /// Creates a owning iterator, that is, one that takes ownership of the
+    /// `Dir`. The `Dir` cannot be used after calling this.  This can be useful
+    /// when you have a function that both creates a `Dir` instance and returns
+    /// an `Iterator`.
+    ///
+    /// Example:
+    ///
+    /// ```
+    /// use nix::{dir::Dir, fcntl::OFlag, sys::stat::Mode};
+    /// use std::{iter::Iterator, string::String};
+    ///
+    /// fn ls_upper(dirname: &str) -> impl Iterator<Item=String> {
+    ///     let d = Dir::open(dirname, OFlag::O_DIRECTORY, Mode::S_IXUSR).unwrap();
+    ///     d.into_iter().map(|x| x.unwrap().file_name().as_ref().to_string_lossy().to_ascii_uppercase())
+    /// }
+    /// ```
+    fn into_iter(self) -> Self::IntoIter {
+        OwningIter(self)
+    }
+}
+
 /// A directory entry, similar to `std::fs::DirEntry`.
 ///
 /// Note that unlike the std version, this may represent the `.` or `..` entries.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[repr(transparent)]
 pub struct Entry(dirent);
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
@@ -145,6 +190,7 @@ impl Entry {
               target_os = "emscripten",
               target_os = "fuchsia",
               target_os = "haiku",
+              target_os = "illumos",
               target_os = "ios",
               target_os = "l4re",
               target_os = "linux",
@@ -159,13 +205,15 @@ impl Entry {
                   target_os = "emscripten",
                   target_os = "fuchsia",
                   target_os = "haiku",
+                  target_os = "illumos",
                   target_os = "ios",
                   target_os = "l4re",
                   target_os = "linux",
                   target_os = "macos",
                   target_os = "solaris")))]
+    #[allow(clippy::useless_conversion)]    // Not useless on all OSes
     pub fn ino(&self) -> u64 {
-        self.0.d_fileno as u64
+        u64::from(self.0.d_fileno)
     }
 
     /// Returns the bare file name of this directory entry without any other leading path component.
@@ -179,6 +227,7 @@ impl Entry {
     /// notably, some Linux filesystems don't implement this. The caller should use `stat` or
     /// `fstat` if this returns `None`.
     pub fn file_type(&self) -> Option<Type> {
+        #[cfg(not(any(target_os = "illumos", target_os = "solaris")))]
         match self.0.d_type {
             libc::DT_FIFO => Some(Type::Fifo),
             libc::DT_CHR => Some(Type::CharacterDevice),
@@ -189,5 +238,9 @@ impl Entry {
             libc::DT_SOCK => Some(Type::Socket),
             /* libc::DT_UNKNOWN | */ _ => None,
         }
+
+        // illumos and Solaris systems do not have the d_type member at all:
+        #[cfg(any(target_os = "illumos", target_os = "solaris"))]
+        None
     }
 }

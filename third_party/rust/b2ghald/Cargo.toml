@@ -1,0 +1,32 @@
+[package]
+name = "b2ghald"
+version = "0.1.0"
+authors = ["Fabrice Desré <fabrice@desre.org>"]
+edition = "2018"
+license = "AGPL-3.0-only"
+
+[dependencies]
+bincode = "1.3"
+clap = {version = "3.0", features = ["derive"]}
+env_logger = "0.8"
+log = "0.4"
+nix = "0.23"
+serde = { version = "1.0", features = ["derive"] }
+
+[[bin]]
+name = "b2ghald"
+path = "src/daemon.rs"
+
+[[bin]]
+name = "b2ghalctl"
+path = "src/ctl.rs"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = "abort"
+

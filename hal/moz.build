@@ -106,6 +106,8 @@ elif CONFIG["OS_TARGET"] == "Linux":
         "linux/LinuxMemory.cpp",
         "linux/LinuxVibration.cpp",
     ]
+    if CONFIG["MOZ_B2G"]:
+        DIRS += [ "linux/b2g" ]
     if CONFIG["MOZ_ENABLE_DBUS"]:
         UNIFIED_SOURCES += [
             "linux/UPowerClient.cpp",

@@ -107,6 +107,10 @@ git = "https://github.com/chris-zen/coremidi.git"
 replace-with = "vendored-sources"
 rev = "fc68464b5445caf111e41f643a2e69ccce0b4f83"
 
+[source."https://github.com/capyloon/b2ghald.git"]
+git = "https://github.com/capyloon/b2ghald.git"
+replace-with = "vendored-sources"
+
 [source.crates-io]
 replace-with = "vendored-sources"
 

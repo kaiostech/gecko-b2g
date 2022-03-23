@@ -1,0 +1,12 @@
+#include "nsISupports.idl"
+#include "domstubs.idl"
+
+
+[scriptable, uuid(03d6c1f6-5bd3-4dea-baae-88ec6ab9d8f1)]
+interface nsIB2gLinuxHal : nsISupports
+{
+  void EnableFlashlight();
+  void DisableFlashlight();
+  bool IsFlashlighSupported();
+  bool FlashlightState();
+};

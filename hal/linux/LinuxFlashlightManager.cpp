@@ -9,62 +9,62 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-#include "mozilla/Preferences.h"
+#include "nsIB2gLinuxHal.h"
 
 using namespace mozilla::hal;
 
 namespace mozilla::hal_impl {
 
-int GetFlashLightFd() {
-    nsAutoCString sysfs;
-    mozilla::Preferences::GetCString("hal.linux.flashlight.path", sysfs);
-    return open(sysfs.get(), O_RDWR | O_CLOEXEC);
-}
+#define GET_LINUX_HAL                 \
+  nsCOMPtr<nsIB2gLinuxHal> linuxHal = \
+      do_GetService("@mozilla.org/hal/b2g-linux;1")
 
 bool GetFlashlightEnabled() {
-  auto fd = GetFlashLightFd();
-  if (fd < 0) {
-    NS_WARNING("Failed to open flashlight fd");
-    return false;
-  }
+  GET_LINUX_HAL;
 
-  char enabled = '0';
-  Unused << read(fd, &enabled, 1);
-  close(fd);
-
-  return enabled == '1';
+  bool state = false;
+  linuxHal->FlashlightState(&state);
+  return state;
 }
 
 void SetFlashlightEnabled(bool aEnabled) {
-  auto fd = GetFlashLightFd();
-  if (fd < 0) {
-    NS_WARNING("Failed to open flashlight fd");
-    return;
+  GET_LINUX_HAL;
+
+  if (aEnabled) {
+    linuxHal->EnableFlashlight();
+  } else {
+    linuxHal->DisableFlashlight();
   }
 
-  Unused << write(fd, aEnabled ? "1\n" : "0\n", 2);
-  Unused << fsync(fd);
-  close(fd);
+  bool present = false;
+  linuxHal->IsFlashlighSupported(&present);
 
   hal::FlashlightInformation flashlightInfo;
   flashlightInfo.enabled() = aEnabled;
-  flashlightInfo.present() = true;
+  flashlightInfo.present() = present;
   hal::UpdateFlashlightState(flashlightInfo);
 }
 
 bool IsFlashlightPresent() {
-  auto fd = GetFlashLightFd();
-  if (fd < 0) {
-      return false;
-  }
-  close(fd);
-  return true;
+  GET_LINUX_HAL;
+
+  bool result = false;
+  linuxHal->IsFlashlighSupported(&result);
+  return result;
 }
 
 void RequestCurrentFlashlightState() {
+  GET_LINUX_HAL;
+
+  bool present = false;
+  linuxHal->IsFlashlighSupported(&present);
+
+  bool state = false;
+  linuxHal->FlashlightState(&state);
+
   hal::FlashlightInformation flashlightInfo;
-  flashlightInfo.enabled() = GetFlashlightEnabled();
-  flashlightInfo.present() = true;
+  flashlightInfo.enabled() = state;
+  flashlightInfo.present() = present;
   hal::UpdateFlashlightState(flashlightInfo);
 }
 

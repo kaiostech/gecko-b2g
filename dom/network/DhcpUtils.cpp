@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include "SystemProperty.h"
+#include "mozilla/Sprintf.h"
 
 using mozilla::system::Property;
 

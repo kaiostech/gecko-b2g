@@ -15,6 +15,7 @@
 #include "mozilla/PlatformMutex.h"
 #include "mozilla/PlatformRWLock.h"
 #include "mozilla/BaseProfilerUtils.h"
+#include "mozilla/ThreadSafety.h"
 
 namespace mozilla {
 namespace baseprofiler {

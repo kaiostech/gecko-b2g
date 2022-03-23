@@ -151,6 +151,17 @@ enum EImeId {
   eImeXhosa = 0x46,
   eImeUzbek = 0x47,
   eImeKorean = 0x48,
+  eImeAmharic = 0x49,
+  eImeVietnamese = 0x4A,
+  eImeBelarusian = 0x4B,
+  eImeBasque = 0x4C,
+  eImeGalician = 0x4D,
+  eImeCatalonia = 0x4E,
+  eImeJapanese = 0x4F,
+  eImeHausa = 0x50,
+  eImeSomali = 0x51,
+  eImeTigre = 0x52,
+  eImeOromo = 0x53,
   eImeEnd
 };
 
@@ -226,7 +237,19 @@ const string SYS_DICT_FILE[eImeEnd] = {"",
                                        "georgian.rom",
                                        "xhosa.rom",
                                        "uzbek_cyrillic.rom",
-                                       "korean.rom"};
+                                       "korean.rom",
+                                       "amharic.rom",
+                                       "vietnamese.rom",
+                                       "belarusian.rom",
+                                       "basque.rom",
+                                       "galician.rom",
+                                       "catalonia.rom",
+                                       "japanese.rom",
+                                       "hausa.rom",
+                                       "somali.rom",
+                                       "tigre.rom",
+                                       "oromo.rom"};
+};
 
 const string KEYLAYOUT_FILE[eImeEnd] = {"",
                                         "french.keys",
@@ -300,7 +323,19 @@ const string KEYLAYOUT_FILE[eImeEnd] = {"",
                                         "georgian.keys",
                                         "xhosa.keys",
                                         "uzbek_cyrillic.keys",
-                                        "korean.keys"};
+                                        "korean.keys",
+                                        "amharic.keys",
+                                        "vietnamese.keys",
+                                        "belarusian.keys",
+                                        "basque.keys",
+                                        "galician.keys",
+                                        "catalonia.keys",
+                                        "japanese.keys",
+                                        "hausa.keys",
+                                        "somali.keys",
+                                        "tigre.keys",
+                                        "oromo.keys"
+                                      };
 
 const string WESTERN_USR_DICT_FILE = "western.usr";
 

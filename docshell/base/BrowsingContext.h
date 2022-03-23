@@ -32,13 +32,11 @@
 #include "nsILoadInfo.h"
 #include "nsILoadContext.h"
 #include "nsThreadUtils.h"
-#include "nsISecureBrowserUI.h"
 
 class nsDocShellLoadState;
 class nsGlobalWindowInner;
 class nsGlobalWindowOuter;
 class nsIPrincipal;
-class nsLocalSecureBrowserUI;
 class nsOuterWindowProxy;
 struct nsPoint;
 class PickleIterator;
@@ -914,12 +912,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void AddDiscardListener(std::function<void(uint64_t)>&& aListener);
 
-  // Called when the current URI changes (from an
-  // nsIWebProgressListener::OnLocationChange event, so that we
-  // can update our security UI for the new location, or when the
-  // mixed content/https-only state for our current window is changed.
-  virtual void UpdateSecurityState();
-
  protected:
   virtual ~BrowsingContext();
   BrowsingContext(WindowContext* aParentWindow, BrowsingContextGroup* aGroup,
@@ -1216,8 +1208,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   nsTArray<RefPtr<WindowContext>> mWindowContexts;
   RefPtr<WindowContext> mCurrentWindowContext;
-
-  RefPtr<nsLocalSecureBrowserUI> mSecureBrowserUI;
 
   // This is not a strong reference, but using a JS::Heap for that should be
   // fine. The JSObject stored in here should be a proxy with a

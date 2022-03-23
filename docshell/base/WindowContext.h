@@ -96,8 +96,7 @@ class BrowsingContextGroup;
   /* If this field is `true`, it means that this WindowContext's         \
    * WindowState was saved to be stored in the legacy (non-SHIP) BFCache \
    * implementation. Always false for SHIP */                            \
-  FIELD(WindowStateSaved, bool)                                          \
-  FIELD(SecurityState, uint32_t)
+  FIELD(WindowStateSaved, bool)
 
 class WindowContext : public nsISupports, public nsWrapperCache {
   MOZ_DECL_SYNCED_CONTEXT(WindowContext, MOZ_EACH_WC_FIELD)
@@ -144,8 +143,6 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   bool SameOriginWithTop() const;
 
   bool IsTop() const;
-
-  bool IsTopContentOfNestedWebView();
 
   Span<RefPtr<BrowsingContext>> Children() { return mChildren; }
 
@@ -304,11 +301,6 @@ class WindowContext : public nsISupports, public nsWrapperCache {
 
   bool CanSet(FieldIndex<IDX_WindowStateSaved>, bool aValue,
               ContentParent* aSource);
-
-  bool CanSet(FieldIndex<IDX_SecurityState>, const uint32_t&,
-              ContentParent* aSource) {
-    return true;
-  }
 
   // Overload `DidSet` to get notifications for a particular field being set.
   //

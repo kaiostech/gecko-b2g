@@ -248,8 +248,8 @@ const string SYS_DICT_FILE[eImeEnd] = {"",
                                        "hausa.rom",
                                        "somali.rom",
                                        "tigre.rom",
-                                       "oromo.rom"};
-};
+                                       "oromo.rom"
+                                      };
 
 const string KEYLAYOUT_FILE[eImeEnd] = {"",
                                         "french.keys",

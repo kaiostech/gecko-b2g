@@ -3582,9 +3582,11 @@ double nsGlobalWindowInner::GetDevicePixelRatio(CallerType aCallerType,
     }
   }
 
-  float overrideDPPX = presContext->GetOverrideDPPX();
-  if (overrideDPPX > 0.0f) {
-    return overrideDPPX;
+  if (aCallerType == CallerType::NonSystem) {
+    float overrideDPPX = presContext->GetOverrideDPPX();
+    if (overrideDPPX > 0.0f) {
+      return overrideDPPX;
+    }
   }
 
   return double(AppUnitsPerCSSPixel()) /

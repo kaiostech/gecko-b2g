@@ -370,6 +370,8 @@ nsresult RemoteWorkerChild::ExecWorkerOnMainThread(RemoteWorkerData&& aData) {
   info.mIsThirdPartyContextToTopWindow = aData.isThirdPartyContextToTopWindow();
   info.mOriginAttributes =
       BasePrincipal::Cast(principal)->OriginAttributesRef();
+  info.mShouldResistFingerprinting = nsContentUtils::ShouldResistFingerprinting(
+      info.mPrincipal, info.mOriginAttributes);
   net::CookieJarSettings::Deserialize(aData.cookieJarSettings(),
                                       getter_AddRefs(info.mCookieJarSettings));
 
@@ -636,7 +638,13 @@ void RemoteWorkerChild::CloseWorkerOnMainThread(State& aState) {
   // WorkerPrivate::Cancel.
 
   if (aState.is<Pending>()) {
-    aState.as<Pending>().mWorkerPrivate->Cancel();
+    // SharedWorkerOp::MaybeStart would not block terminate operation while
+    // RemoteWorkerChild::mState is still Pending, and the
+    // Pending.mWorkerPrivate is still nullptr. For the case, just switching the
+    // State to PendingTerminated.
+    if (aState.as<Pending>().mWorkerPrivate) {
+      aState.as<Pending>().mWorkerPrivate->Cancel();
+    }
     TransitionStateToPendingTerminated(aState);
     return;
   }

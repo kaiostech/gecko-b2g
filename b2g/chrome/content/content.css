@@ -6,8 +6,8 @@
 @namespace xul url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
 
 %ifdef MOZ_WIDGET_GONK
-/* Style the scrollbars */
-xul|window xul|scrollbar {
+ /* Style the scrollbars */
+ xul|window xul|scrollbar {
   display: none;
 }
 
@@ -33,7 +33,7 @@ xul|scrollbar {
 }
 
 /* Scrollbar code will reset the margin to the correct side depending on
-   where layout actually puts the scrollbar */
+    where layout actually puts the scrollbar */
 xul|scrollbar[orient="vertical"] {
   margin-left: -4px;
   margin-top: 1px;
@@ -57,7 +57,6 @@ xul|scrollbar[orient="horizontal"] xul|thumb {
   max-height: 3px !important;
   min-height: 3px !important;
 }
-
 
 xul|scrollbar:not([active="true"]),
 xul|scrollbar[disabled] {
@@ -100,28 +99,31 @@ select[size="1"] xul|scrollbarbutton {
 }
 
 %endif
-
-/* -moz-touch-enabled? media elements */
-:-moz-any(video, audio) > xul|videocontrols {
+ 
+ /* -moz-touch-enabled? media elements */
+ :-moz-any(video, audio) > xul|videocontrols {
   -moz-binding: url("chrome://global/content/bindings/videocontrols.xml#touchControls");
 }
 
 /* Selects are handled by the form helper, see bug 685197 */
-select option, select optgroup {
+select option,
+select optgroup {
   pointer-events: none;
 }
 
-%ifdef MOZ_WIDGET_GONK
-/* This binding only provide key shortcuts that we can't use on devices */
-input,
-textarea {
--moz-binding: none !important;
+@media (-moz-platform: android) {
+  /* This binding only provide key shortcuts that we can't use on devices */
+  input,
+  textarea {
+    -moz-binding: none !important;
+  }
 }
-%endif
 
 /* The following CSS style let numbers in editable <input> and <textarea>
-   appears in default format (0, 1, ... 9). */
-input, textarea, [contenteditable="true"] {
+    appears in default format (0, 1, ... 9). */
+input,
+textarea,
+[contenteditable="true"] {
   font-variant-numeric: nominal;
 }
 
@@ -161,12 +163,15 @@ div:-moz-native-anonymous.moz-accessiblecaret.right > #image {
   background-image: none;
 }
 
-div:-moz-native-anonymous.moz-accessiblecaret.normal > :is(#text-overlay, #image),
-div:-moz-native-anonymous.moz-accessiblecaret.right > :is(#text-overlay, #image) {
+div:-moz-native-anonymous.moz-accessiblecaret.normal
+  > :is(#text-overlay, #image),
+div:-moz-native-anonymous.moz-accessiblecaret.right
+  > :is(#text-overlay, #image) {
   margin-left: calc(var(--caret-width) * -1 - 0.5px);
 }
 
-div:-moz-native-anonymous.moz-accessiblecaret.left > :is(#text-overlay, #image) {
+div:-moz-native-anonymous.moz-accessiblecaret.left
+  > :is(#text-overlay, #image) {
   margin-left: calc(var(--caret-width) * -2 + 0.5px);
 }
 
@@ -202,7 +207,7 @@ div:-moz-native-anonymous.moz-accessiblecaret.none {
 div:-moz-native-anonymous.moz-accessiblecaret.normal > #image:after,
 div:-moz-native-anonymous.moz-accessiblecaret.right > #image:after,
 div:-moz-native-anonymous.moz-accessiblecaret.left > #image:after {
-  content: '';
+  content: "";
   display: block;
 
   width: var(--caret-width);
@@ -236,7 +241,7 @@ div:-moz-native-anonymous.moz-touchlocation > div.cross {
 
   border-radius: 50%;
   border: 1px white solid;
-  background-color: rgba(0,0,0,0.1);
+  background-color: rgba(0, 0, 0, 0.1);
   width: 32px;
   height: 32px;
 
@@ -262,7 +267,7 @@ div:-moz-native-anonymous.moz-touchlocation > div.cross:after {
 
 div:-moz-native-anonymous.moz-touchlocation > div.cross:before {
   counter-reset: cross-x-n var(--cross-x-n);
-  content: 'x:' counter(cross-x-n);
+  content: "x:" counter(cross-x-n);
   width: 1px;
   height: 100vh;
 
@@ -272,7 +277,7 @@ div:-moz-native-anonymous.moz-touchlocation > div.cross:before {
 
 div:-moz-native-anonymous.moz-touchlocation > div.cross:after {
   counter-reset: cross-y-n var(--cross-y-n);
-  content: 'y:' counter(cross-y-n);
+  content: "y:" counter(cross-y-n);
   width: 100vw;
   height: 1px;
 
@@ -291,19 +296,19 @@ div:-moz-native-anonymous.moz-touchlocation > div.cross.start {
 }
 
 div:-moz-native-anonymous.moz-touchlocation > div.cross.start:before {
-  content: '';
+  content: "";
   height: 32px;
   top: calc(var(--corss-y) - 32px);
 }
 
 div:-moz-native-anonymous.moz-touchlocation > div.cross.start:after {
-  content: '';
+  content: "";
   width: 32px;
   left: calc(var(--corss-x) - 32px);
 }
 
 /* Custom content container in the CanvasFrame, positioned on top of everything
-   everything else, not reacting to pointer events. */
+    everything else, not reacting to pointer events. */
 div:-moz-native-anonymous.moz-custom-content-container {
   pointer-events: none;
   -moz-top-layer: top;

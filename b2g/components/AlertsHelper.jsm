@@ -224,9 +224,9 @@ var AlertsHelper = {
 
     // The maximum supported structured-clone serialization format version
     // as defined in "js/public/StructuredClone.h"
-    let JS_STRUCTURED_CLONE_VERSION = 4;
+    let JS_STRUCTURED_CLONE_VERSION = 8;
     scContainer.initFromBase64(dataString, JS_STRUCTURED_CLONE_VERSION);
-    let dataObj = scContainer.deserializeToVariant();
+    let dataObj = scContainer.deserializeToJsval();
 
     // We have to check whether dataObj contains DOM objects (supported by
     // nsIStructuredCloneContainer, but not by Cu.cloneInto), e.g. ImageData.

@@ -57,7 +57,6 @@ xul|scrollbar[orient="horizontal"] xul|thumb {
   min-height: 3px !important;
 }
 
-
 xul|scrollbar:not([active="true"]),
 xul|scrollbar[disabled] {
   opacity: 0;
@@ -109,7 +108,7 @@ textarea,
 button,
 xul|button,
 * > input:not([type="image"]) {
-  -moz-appearance: none !important;  /* See bug 598421 for fixing the platform */
+  -moz-appearance: none !important; /* See bug 598421 for fixing the platform */
   border-radius: 3px;
 }
 
@@ -125,7 +124,8 @@ textarea,
 }
 
 /* Selects are handled by the form helper, see bug 685197 */
-select option, select optgroup {
+select option,
+select optgroup {
   pointer-events: none;
 }
 
@@ -139,7 +139,12 @@ button {
   border-style: solid;
   border-color: #7d7d7d;
   color: #414141;
-  background: white linear-gradient(rgba(255,255,255,0.2) 0, rgba(215,215,215,0.5) 18px, rgba(115,115,115,0.5) 100%);
+  background: white
+    linear-gradient(
+      rgba(255, 255, 255, 0.2) 0,
+      rgba(215, 215, 215, 0.5) 18px,
+      rgba(115, 115, 115, 0.5) 100%
+    );
 }
 
 input[type="checkbox"] {
@@ -202,7 +207,8 @@ select > button {
   border-radius: 0;
   color: #414141;
 
-  background-image: radial-gradient(at bottom left, #bbbbbb 40%, #f5f5f5), url(arrow.svg) !important;
+  background-image: radial-gradient(at bottom left, #bbbbbb 40%, #f5f5f5),
+    url(arrow.svg) !important;
   background-color: transparent;
   background-position: -15px center, 4px center !important;
   background-repeat: no-repeat, no-repeat !important;
@@ -221,7 +227,7 @@ input[type="file"]:focus > input[type="text"],
 * > input:not([type="image"]):focus {
   outline: 0px !important;
   border-style: solid;
-  border-color: rgb(94,128,153);
+  border-color: rgb(94, 128, 153);
   background-color: white;
 }
 
@@ -234,8 +240,13 @@ input[type="reset"]:focus,
 button:focus {
   outline: 0px !important;
   border-style: solid;
-  border-color: rgb(94,128,153);
-  background: white linear-gradient(rgba(255,255,255,0.2) 0, rgba(198,225,256,0.2) 18px, rgba(27,113,177,0.5) 100%);
+  border-color: rgb(94, 128, 153);
+  background: white
+    linear-gradient(
+      rgba(255, 255, 255, 0.2) 0,
+      rgba(198, 225, 256, 0.2) 18px,
+      rgba(27, 113, 177, 0.5) 100%
+    );
 }
 
 input[type="checkbox"]:focus,
@@ -249,8 +260,7 @@ input[type="radio"] {
 }
 
 input[type="radio"]:checked + label,
-input[type="radio"]:not(:checked) + label
-{
+input[type="radio"]:not(:checked) + label {
   position: relative;
   padding-left: 20px;
   cursor: pointer;
@@ -261,7 +271,7 @@ input[type="radio"]:not(:checked) + label
 
 /* radio outer circle */
 input[type="radio"] + label:before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -274,7 +284,7 @@ input[type="radio"] + label:before {
 
 /* radio inner circle */
 input[type="radio"]:checked + label:after {
-  content: '';
+  content: "";
   width: 10px;
   height: 10px;
   background: black;
@@ -287,7 +297,7 @@ input[type="radio"]:checked + label:after {
 }
 
 input[type="checkbox"]:before {
-  content: '';
+  content: "";
   display: inline-block;
   width: 12px;
   height: 12px;
@@ -295,7 +305,7 @@ input[type="checkbox"]:before {
 }
 
 input[type="checkbox"]:checked:before {
-  content: '\2713';
+  content: "\2713";
   text-align: center;
   color: black;
   font-size: 12px;
@@ -312,8 +322,8 @@ select[size="0"][disabled],
 select[size="1"][disabled],
 button[disabled],
 * > input:not([type="image"])[disabled] {
-  color: rgba(0,0,0,0.3);
-  border-color: rgba(125,125,125,0.4);
+  color: rgba(0, 0, 0, 0.3);
+  border-color: rgba(125, 125, 125, 0.4);
   border-style: solid;
   border-width: 1px;
   background-color: #f5f5f5;
@@ -344,7 +354,7 @@ input[type="checkbox"][disabled],
 input[type="checkbox"][disabled]:active,
 input[type="checkbox"][disabled]:hover,
 input[type="checkbox"][disabled]:hover:active {
-  border:1px solid rgba(125,125,125,0.4) !important;
+  border: 1px solid rgba(125, 125, 125, 0.4) !important;
 }
 
 select[disabled] > button {
@@ -353,7 +363,7 @@ select[disabled] > button {
 }
 
 *:-moz-any-link:active,
-*[role=button]:active,
+*[role="button"]:active,
 button:active,
 option:active,
 select:active,
@@ -366,17 +376,19 @@ input[type=number]::-moz-number-spin-box {
   display: none;
 }
 
-%ifdef MOZ_WIDGET_GONK
-/* This binding only provide key shortcuts that we can't use on devices */
-input,
-textarea {
--moz-binding: none !important;
+@media (-moz-platform: android) {
+  /* This binding only provide key shortcuts that we can't use on devices */
+  input,
+  textarea {
+    -moz-binding: none !important;
+  }
 }
-%endif
 
 /* The following CSS style let numbers in editable <input> and <textarea>
    appears in default format (0, 1, ... 9). */
-input, textarea, [contenteditable="true"] {
+input,
+textarea,
+[contenteditable="true"] {
   font-variant-numeric: nominal;
 }
 
@@ -416,12 +428,15 @@ div:-moz-native-anonymous.moz-accessiblecaret.right > #image {
   background-image: none;
 }
 
-div:-moz-native-anonymous.moz-accessiblecaret.normal > :is(#text-overlay, #image),
-div:-moz-native-anonymous.moz-accessiblecaret.right > :is(#text-overlay, #image) {
+div:-moz-native-anonymous.moz-accessiblecaret.normal
+  > :is(#text-overlay, #image),
+div:-moz-native-anonymous.moz-accessiblecaret.right
+  > :is(#text-overlay, #image) {
   margin-left: calc(var(--caret-width) * -1 - 0.5px);
 }
 
-div:-moz-native-anonymous.moz-accessiblecaret.left > :is(#text-overlay, #image) {
+div:-moz-native-anonymous.moz-accessiblecaret.left
+  > :is(#text-overlay, #image) {
   margin-left: calc(var(--caret-width) * -2 + 0.5px);
 }
 
@@ -457,7 +472,7 @@ div:-moz-native-anonymous.moz-accessiblecaret.none {
 div:-moz-native-anonymous.moz-accessiblecaret.normal > #image:after,
 div:-moz-native-anonymous.moz-accessiblecaret.right > #image:after,
 div:-moz-native-anonymous.moz-accessiblecaret.left > #image:after {
-  content: '';
+  content: "";
   display: block;
 
   width: var(--caret-width);
@@ -491,7 +506,7 @@ div:-moz-native-anonymous.moz-touchlocation > div.cross {
 
   border-radius: 50%;
   border: 1px white solid;
-  background-color: rgba(0,0,0,0.1);
+  background-color: rgba(0, 0, 0, 0.1);
   width: 32px;
   height: 32px;
 
@@ -517,7 +532,7 @@ div:-moz-native-anonymous.moz-touchlocation > div.cross:after {
 
 div:-moz-native-anonymous.moz-touchlocation > div.cross:before {
   counter-reset: cross-x-n var(--cross-x-n);
-  content: 'x:' counter(cross-x-n);
+  content: "x:" counter(cross-x-n);
   width: 1px;
   height: 100vh;
 
@@ -527,7 +542,7 @@ div:-moz-native-anonymous.moz-touchlocation > div.cross:before {
 
 div:-moz-native-anonymous.moz-touchlocation > div.cross:after {
   counter-reset: cross-y-n var(--cross-y-n);
-  content: 'y:' counter(cross-y-n);
+  content: "y:" counter(cross-y-n);
   width: 100vw;
   height: 1px;
 
@@ -546,13 +561,13 @@ div:-moz-native-anonymous.moz-touchlocation > div.cross.start {
 }
 
 div:-moz-native-anonymous.moz-touchlocation > div.cross.start:before {
-  content: '';
+  content: "";
   height: 32px;
   top: calc(var(--corss-y) - 32px);
 }
 
 div:-moz-native-anonymous.moz-touchlocation > div.cross.start:after {
-  content: '';
+  content: "";
   width: 32px;
   left: calc(var(--corss-x) - 32px);
 }

@@ -557,17 +557,19 @@ const { AboutReaderParent } = ChromeUtils.import(
               if (!browser || browser != self.browser) {
                 return;
               }
-              if (this._contentCrashed) {
-                self.dispatchCustomEvent("error", {
-                  type: "fatal",
-                  reason: "content-crash",
-                });
-              } else {
-                self.dispatchCustomEvent("error", {
-                  type: "fatal",
-                  reason: "content-kill",
-                });
-              }
+              setTimeout(() => {
+                if (this._contentCrashed) {
+                  self.dispatchCustomEvent("error", {
+                    type: "fatal",
+                    reason: "content-crash",
+                  });
+                } else {
+                  self.dispatchCustomEvent("error", {
+                    type: "fatal",
+                    reason: "content-kill",
+                  });
+                }
+              }, 250);
               self.updateDCSState(false);
 
               Services.virtualcursor.removeCursor(browser.frameLoader);

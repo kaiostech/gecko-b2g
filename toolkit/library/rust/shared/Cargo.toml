@@ -89,6 +89,7 @@ gecko_sidl = { path = "../../../../b2g/sidl/gecko_sidl" }
 ipfs_handler = { path = "../../../../netwerk/protocol/ipfs/ipfs_handler" }
 
 # B2G Linux HAL support.
+[target.'cfg(target_os = "linux")'.dependencies]
 b2glinuxhal = { path = "../../../../hal/linux/b2g/b2glinuxhal" }
 
 [features]

@@ -92,6 +92,7 @@ extern crate gecko_sidl;
 extern crate ipfs_handler;
 
 // B2G Linux HAL support.
+#[cfg(target_os = "linux")]
 extern crate b2glinuxhal;
 
 #[cfg(target_os = "linux")]

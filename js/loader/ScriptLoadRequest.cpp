@@ -82,8 +82,8 @@ ScriptLoadRequest::ScriptLoadRequest(ScriptKind aKind, nsIURI* aURI,
                                      nsIURI* aReferrer,
                                      mozilla::dom::ScriptLoadContext* aContext)
     : mKind(aKind),
-      mIsCanceled(false),
-      mProgress(Progress::eLoading),
+      mState(State::Fetching),
+      mFetchSourceOnly(false),
       mDataType(DataType::eUnknown),
       mFetchOptions(aFetchOptions),
       mIntegrity(aIntegrity),
@@ -108,12 +108,12 @@ ScriptLoadRequest::~ScriptLoadRequest() {
 }
 
 void ScriptLoadRequest::SetReady() {
-  MOZ_ASSERT(mProgress != Progress::eReady);
-  mProgress = Progress::eReady;
+  MOZ_ASSERT(!IsReadyToRun());
+  mState = State::Ready;
 }
 
 void ScriptLoadRequest::Cancel() {
-  mIsCanceled = true;
+  mState = State::Canceled;
   if (HasLoadContext()) {
     GetLoadContext()->MaybeCancelOffThreadScript();
   }

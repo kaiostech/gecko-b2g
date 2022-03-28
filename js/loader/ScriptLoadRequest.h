@@ -180,29 +180,25 @@ class ScriptLoadRequest
 
   virtual void Cancel();
 
-  bool IsCanceled() const { return mIsCanceled; }
-
   virtual void SetReady();
 
-  enum class Progress : uint8_t {
-    eLoading,         // Request either source or bytecode
-    eLoading_Source,  // Explicitly Request source stream
-    eCompiling,
-    eFetchingImports,
-    eReady
+  enum class State : uint8_t {
+    Fetching,
+    Compiling,
+    LoadingImports,
+    Ready,
+    Canceled
   };
 
-  bool IsReadyToRun() const { return mProgress == Progress::eReady; }
-  bool IsLoading() const {
-    return mProgress == Progress::eLoading ||
-           mProgress == Progress::eLoading_Source;
+  bool IsFetching() const { return mState == State::Fetching; }
+
+  bool IsCompiling() const { return mState == State::Compiling; }
+
+  bool IsReadyToRun() const {
+    return mState == State::Ready || mState == State::Canceled;
   }
 
-  bool IsLoadingSource() const {
-    return mProgress == Progress::eLoading_Source;
-  }
-
-  bool InCompilingStage() const { return mProgress == Progress::eCompiling; }
+  bool IsCanceled() const { return mState == State::Canceled; }
 
   // Type of data provided by the nsChannel.
   enum class DataType : uint8_t { eUnknown, eTextSource, eBytecode };
@@ -298,9 +294,9 @@ class ScriptLoadRequest
   const ScriptKind mKind;  // Whether this is a classic script or a module
                            // script.
 
-  bool mIsCanceled;    // True if we have been explicitly canceled.
-  Progress mProgress;  // Are we still waiting for a load to complete?
-  DataType mDataType;  // Does this contain Source or Bytecode?
+  State mState;           // Are we still waiting for a load to complete?
+  bool mFetchSourceOnly;  // Request source, not cached bytecode.
+  DataType mDataType;     // Does this contain Source or Bytecode?
   RefPtr<ScriptFetchOptions> mFetchOptions;
   const SRIMetadata mIntegrity;
   const nsCOMPtr<nsIURI> mReferrer;

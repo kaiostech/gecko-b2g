@@ -46,6 +46,7 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   AddonManager: "resource://gre/modules/AddonManager.jsm",
+  AddonManagerPrivate: "resource://gre/modules/AddonManager.jsm",
   AddonSettings: "resource://gre/modules/addons/AddonSettings.jsm",
   AppConstants: "resource://gre/modules/AppConstants.jsm",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
@@ -63,7 +64,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   PluralForm: "resource://gre/modules/PluralForm.jsm",
   Schemas: "resource://gre/modules/Schemas.jsm",
   ServiceWorkerCleanUp: "resource://gre/modules/ServiceWorkerCleanUp.jsm",
-  XPIProvider: "resource://gre/modules/addons/XPIProvider.jsm",
 
   // These are used for manipulating jar entry paths, which always use Unix
   // separators.
@@ -2091,7 +2091,7 @@ XPCOMUtils.defineLazyGetter(
   BootstrapScope.prototype,
   "BOOTSTRAP_REASON_TO_STRING_MAP",
   () => {
-    const { BOOTSTRAP_REASONS } = XPIProvider;
+    const { BOOTSTRAP_REASONS } = AddonManagerPrivate;
 
     return Object.freeze({
       [BOOTSTRAP_REASONS.APP_STARTUP]: "APP_STARTUP",
@@ -2268,6 +2268,11 @@ class Extension extends ExtensionData {
       this.policy.permissions = Array.from(this.permissions);
       this.policy.allowedOrigins = this.allowedOrigins;
 
+      if (this.policy.active) {
+        this.setSharedData("", this.serialize());
+        Services.ppmm.sharedData.flush();
+      }
+
       this.cachePermissions();
       this.updatePermissions();
     });
@@ -2289,6 +2294,11 @@ class Extension extends ExtensionData {
 
       this.policy.permissions = Array.from(this.permissions);
       this.policy.allowedOrigins = this.allowedOrigins;
+
+      if (this.policy.active) {
+        this.setSharedData("", this.serialize());
+        Services.ppmm.sharedData.flush();
+      }
 
       this.cachePermissions();
       this.updatePermissions();
@@ -2428,7 +2438,7 @@ class Extension extends ExtensionData {
     if (this.dontSaveStartupData) {
       return;
     }
-    XPIProvider.setStartupData(this.id, this.startupData);
+    AddonManagerPrivate.setAddonStartupData(this.id, this.startupData);
   }
 
   parseManifest() {
@@ -3144,7 +3154,7 @@ class Dictionary extends ExtensionData {
 
   async shutdown(reason) {
     if (reason !== "APP_SHUTDOWN") {
-      XPIProvider.unregisterDictionaries(this.dictionaries);
+      AddonManagerPrivate.unregisterDictionaries(this.dictionaries);
     }
   }
 }

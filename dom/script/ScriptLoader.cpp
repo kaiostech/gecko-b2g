@@ -255,6 +255,8 @@ ScriptLoader::~ScriptLoader() {
 static void CollectScriptTelemetry(ScriptLoadRequest* aRequest) {
   using namespace mozilla::Telemetry;
 
+  MOZ_ASSERT(aRequest->IsFetching());
+
   // Skip this function if we are not running telemetry.
   if (!CanRecordExtended()) {
     return;
@@ -270,14 +272,13 @@ static void CollectScriptTelemetry(ScriptLoadRequest* aRequest) {
   // Report the type of source. This is used to monitor the status of the
   // JavaScript Start-up Bytecode Cache, with the expectation of an almost zero
   // source-fallback and alternate-data being roughtly equal to source loads.
-  if (aRequest->IsLoadingSource()) {
+  if (aRequest->mFetchSourceOnly) {
     if (aRequest->GetLoadContext()->mIsInline) {
       AccumulateCategorical(LABELS_DOM_SCRIPT_LOADING_SOURCE::Inline);
     } else if (aRequest->IsTextSource()) {
       AccumulateCategorical(LABELS_DOM_SCRIPT_LOADING_SOURCE::SourceFallback);
     }
   } else {
-    MOZ_ASSERT(aRequest->IsLoading());
     if (aRequest->IsTextSource()) {
       AccumulateCategorical(LABELS_DOM_SCRIPT_LOADING_SOURCE::Source);
     } else if (aRequest->IsBytecode()) {
@@ -486,7 +487,7 @@ nsresult ScriptLoader::RestartLoad(ScriptLoadRequest* aRequest) {
 
   // Start a new channel from which we explicitly request to stream the source
   // instead of the bytecode.
-  aRequest->mProgress = ScriptLoadRequest::Progress::eLoading_Source;
+  aRequest->mFetchSourceOnly = true;
   nsresult rv;
   if (aRequest->IsModuleRequest()) {
     rv = mModuleLoader->RestartModuleLoad(aRequest);
@@ -508,7 +509,7 @@ nsresult ScriptLoader::StartLoad(ScriptLoadRequest* aRequest) {
 }
 
 nsresult ScriptLoader::StartClassicLoad(ScriptLoadRequest* aRequest) {
-  MOZ_ASSERT(aRequest->IsLoading());
+  MOZ_ASSERT(aRequest->IsFetching());
   NS_ENSURE_TRUE(mDocument, NS_ERROR_NULL_POINTER);
   aRequest->SetUnknownDataType();
 
@@ -596,7 +597,7 @@ nsresult ScriptLoader::StartLoadInternal(ScriptLoadRequest* aRequest,
   if (cic && StaticPrefs::dom_script_loader_bytecode_cache_enabled()) {
     MOZ_ASSERT(!aRequest->GetLoadContext()->GetWebExtGlobal(),
                "Can not bytecode cache WebExt code");
-    if (!aRequest->IsLoadingSource()) {
+    if (!aRequest->mFetchSourceOnly) {
       // Inform the HTTP cache that we prefer to have information coming from
       // the bytecode cache instead of the sources, if such entry is already
       // registered.
@@ -1078,7 +1079,7 @@ bool ScriptLoader::ProcessInlineScript(nsIScriptElement* aElement,
                         referrerPolicy);
   request->GetLoadContext()->mIsInline = true;
   request->GetLoadContext()->mLineNo = aElement->GetScriptLineNumber();
-  request->mProgress = ScriptLoadRequest::Progress::eLoading_Source;
+  request->mFetchSourceOnly = true;
   request->SetTextSource();
   TRACE_FOR_TEST_BOOL(request->GetLoadContext()->GetScriptElement(),
                       "scriptloader_load_source");
@@ -1121,7 +1122,7 @@ bool ScriptLoader::ProcessInlineScript(nsIScriptElement* aElement,
 
     return false;
   }
-  request->mProgress = ScriptLoadRequest::Progress::eReady;
+  request->mState = ScriptLoadRequest::State::Ready;
   if (aElement->GetParserCreated() == FROM_PARSER_XSLT &&
       (!ReadyToExecuteParserBlockingScripts() || !mXSLTRequests.isEmpty())) {
     // Need to maintain order for XSLT-inserted scripts
@@ -1331,7 +1332,7 @@ void ScriptLoader::CancelScriptLoadRequests() {
 }
 
 nsresult ScriptLoader::ProcessOffThreadRequest(ScriptLoadRequest* aRequest) {
-  MOZ_ASSERT(aRequest->mProgress == ScriptLoadRequest::Progress::eCompiling);
+  MOZ_ASSERT(aRequest->mState == ScriptLoadRequest::State::Compiling);
   MOZ_ASSERT(!aRequest->GetLoadContext()->mWasCompiledOMT);
 
   if (aRequest->IsCanceled()) {
@@ -1614,7 +1615,7 @@ nsresult ScriptLoader::AttemptAsyncScriptCompile(ScriptLoadRequest* aRequest,
 
   // Once the compilation is finished, an event would be added to the event loop
   // to call ScriptLoader::ProcessOffThreadRequest with the same request.
-  aRequest->mProgress = ScriptLoadRequest::Progress::eCompiling;
+  aRequest->mState = ScriptLoadRequest::State::Compiling;
 
   // Requests that are not tracked elsewhere are added to a list while they are
   // being compiled off-thread, so we can cancel the compilation later if
@@ -3188,7 +3189,7 @@ nsresult ScriptLoader::PrepareLoadedRequest(ScriptLoadRequest* aRequest,
   if (aRequest->IsCanceled()) {
     return NS_BINDING_ABORTED;
   }
-  MOZ_ASSERT(aRequest->IsLoading());
+  MOZ_ASSERT(aRequest->IsFetching());
   CollectScriptTelemetry(aRequest);
 
   // If we don't have a document, then we need to abort further
@@ -3298,7 +3299,7 @@ nsresult ScriptLoader::PrepareLoadedRequest(ScriptLoadRequest* aRequest,
     nsresult rv = AttemptAsyncScriptCompile(aRequest, &couldCompile);
     NS_ENSURE_SUCCESS(rv, rv);
     if (couldCompile) {
-      MOZ_ASSERT(aRequest->mProgress == ScriptLoadRequest::Progress::eCompiling,
+      MOZ_ASSERT(aRequest->mState == ScriptLoadRequest::State::Compiling,
                  "Request should be off-thread compiling now.");
       return NS_OK;
     }

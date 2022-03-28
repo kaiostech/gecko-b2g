@@ -122,7 +122,7 @@ bool ModuleLoaderBase::IsModuleFetching(nsIURI* aURL,
 void ModuleLoaderBase::SetModuleFetchStarted(ModuleLoadRequest* aRequest) {
   // Update the module map to indicate that a module is currently being fetched.
 
-  MOZ_ASSERT(aRequest->IsLoading());
+  MOZ_ASSERT(aRequest->IsFetching());
   MOZ_ASSERT(!ModuleMapContainsURL(aRequest->mURI,
                                    aRequest->mLoadContext->GetWebExtGlobal()));
   ModuleMapKey key(aRequest->mURI, aRequest->mLoadContext->GetWebExtGlobal());
@@ -470,7 +470,7 @@ void ModuleLoaderBase::StartFetchingModuleDependencies(
   auto visitedSet = aRequest->mVisitedSet;
   MOZ_ASSERT(visitedSet->Contains(aRequest->mURI));
 
-  aRequest->mProgress = ModuleLoadRequest::Progress::eFetchingImports;
+  aRequest->mState = ModuleLoadRequest::State::LoadingImports;
 
   nsCOMArray<nsIURI> urls;
   nsresult rv = ResolveRequestedModules(aRequest, &urls);

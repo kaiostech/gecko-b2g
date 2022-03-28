@@ -7581,20 +7581,6 @@
   mirror: always
   rust: true
 
-# Whether the `:-moz-lwtheme` pseudo-class is exposed to content.
-- name: layout.css.moz-lwtheme.content.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
-# Whether the `:-moz-locale-dir()` pseudo-class is exposed to content.
-- name: layout.css.moz-locale-dir.content.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
 # Whether the `-moz-control-character-visibility` property is exposed to
 # content.
 #
@@ -11249,6 +11235,12 @@
   value: 300   # 5 minutes (in seconds)
   mirror: always
 
+# Whether to use port prefixed QNAME for HTTPS RR
+- name: network.dns.port_prefixed_qname_https_rr
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: network.cache.frecency_array_check_enabled
   type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
@@ -13031,7 +13023,13 @@
 
 - name: webgl.out-of-process.worker
   type: RelaxedAtomicBool
+# (When reading the next line, know that preprocessor.py doesn't
+# understand parentheses, but && is higher precedence than ||.)
+#if defined(XP_MACOSX) || defined(XP_WIN) || defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
   value: true
+#else
+  value: false
+#endif
   mirror: always
 
 - name: webgl.out-of-process.force

@@ -358,14 +358,9 @@ enum class DeprecatedOperations : uint16_t {
 #define NS_DOCUMENT_STATE_LTR_LOCALE NS_DEFINE_EVENT_STATE_MACRO(2)
 // Lightweight-theme status.
 #define NS_DOCUMENT_STATE_LWTHEME NS_DEFINE_EVENT_STATE_MACRO(3)
-#define NS_DOCUMENT_STATE_LWTHEME_BRIGHTTEXT NS_DEFINE_EVENT_STATE_MACRO(4)
-#define NS_DOCUMENT_STATE_LWTHEME_DARKTEXT NS_DEFINE_EVENT_STATE_MACRO(5)
 
 #define NS_DOCUMENT_STATE_ALL_LOCALEDIR_BITS \
   (NS_DOCUMENT_STATE_RTL_LOCALE | NS_DOCUMENT_STATE_LTR_LOCALE)
-#define NS_DOCUMENT_STATE_ALL_LWTHEME_BITS                            \
-  (NS_DOCUMENT_STATE_LWTHEME | NS_DOCUMENT_STATE_LWTHEME_BRIGHTTEXT | \
-   NS_DOCUMENT_STATE_LWTHEME_DARKTEXT)
 
 class ExternalResourceMap {
   using SubDocEnumFunc = FunctionRef<CallState(Document&)>;
@@ -3035,17 +3030,13 @@ class Document : public nsINode,
     SetStateObject(aDocument->mStateObjectContainer);
   }
 
-  enum class DocumentTheme { None, Neutral, Dark, Bright };
-
   /**
-   * Returns DocumentTheme::None if there is no lightweight theme specified,
-   * Dark for a dark theme, Bright for a light theme, and Neutral for any other
-   * theme. This is used to determine the state of the pseudoclasses
-   * :-moz-lwtheme and :-moz-lwtheme-*text.
+   * Returns true if there is a lightweight theme specified. This is used to
+   * determine the state of the :-moz-lwtheme pseudo-class.
    */
-  DocumentTheme GetDocumentLWTheme() const;
+  bool ComputeDocumentLWTheme() const;
   void ResetDocumentLWTheme() {
-    UpdateDocumentStates(NS_DOCUMENT_STATE_ALL_LWTHEME_BITS, true);
+    UpdateDocumentStates(NS_DOCUMENT_STATE_LWTHEME, true);
   }
 
   // Whether we're a media document or not.
@@ -3683,8 +3674,8 @@ class Document : public nsINode,
 
   bool HasScriptsBlockedBySandbox();
 
-  void ReportHasScrollLinkedEffect();
-  bool HasScrollLinkedEffect() const { return mHasScrollLinkedEffect; }
+  void ReportHasScrollLinkedEffect(const TimeStamp& aTimeStamp);
+  bool HasScrollLinkedEffect() const;
 
 #ifdef DEBUG
   void AssertDocGroupMatchesKey() const;
@@ -4496,6 +4487,9 @@ class Document : public nsINode,
   // focus has never occurred then mLastFocusTime.IsNull() will be true.
   TimeStamp mLastFocusTime;
 
+  // Last time we found any scroll linked effect in this document.
+  TimeStamp mLastScrollLinkedEffectDetectionTime;
+
   EventStates mDocumentState{NS_DOCUMENT_STATE_LTR_LOCALE};
 
   RefPtr<Promise> mReadyForIdle;
@@ -4653,9 +4647,6 @@ class Document : public nsINode,
   // True if we have fired the DOMContentLoaded event, or don't plan to fire one
   // (e.g. we're not being parsed at all).
   bool mDidFireDOMContentLoaded : 1;
-
-  // True if ReportHasScrollLinkedEffect() has been called.
-  bool mHasScrollLinkedEffect : 1;
 
   // True if we have frame request callbacks scheduled with the refresh driver.
   // This should generally be updated only via

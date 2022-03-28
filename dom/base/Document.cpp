@@ -1349,7 +1349,6 @@ Document::Document(const char* aContentType)
       mHasDisplayDocument(false),
       mFontFaceSetDirty(true),
       mDidFireDOMContentLoaded(true),
-      mHasScrollLinkedEffect(false),
       mFrameRequestCallbacksScheduled(false),
       mIsTopLevelContentDocument(false),
       mIsContentDocument(false),
@@ -12385,23 +12384,11 @@ void Document::UpdateDocumentStates(EventStates aMaybeChangedStates,
     }
   }
 
-  if (aMaybeChangedStates.HasAtLeastOneOfStates(
-          NS_DOCUMENT_STATE_ALL_LWTHEME_BITS)) {
-    mDocumentState &= ~NS_DOCUMENT_STATE_ALL_LWTHEME_BITS;
-    switch (GetDocumentLWTheme()) {
-      case DocumentTheme::None:
-        break;
-      case DocumentTheme::Bright:
-        mDocumentState |=
-            NS_DOCUMENT_STATE_LWTHEME | NS_DOCUMENT_STATE_LWTHEME_BRIGHTTEXT;
-        break;
-      case DocumentTheme::Dark:
-        mDocumentState |=
-            NS_DOCUMENT_STATE_LWTHEME | NS_DOCUMENT_STATE_LWTHEME_DARKTEXT;
-        break;
-      case DocumentTheme::Neutral:
-        mDocumentState |= NS_DOCUMENT_STATE_LWTHEME;
-        break;
+  if (aMaybeChangedStates.HasAtLeastOneOfStates(NS_DOCUMENT_STATE_LWTHEME)) {
+    if (ComputeDocumentLWTheme()) {
+      mDocumentState |= NS_DOCUMENT_STATE_LWTHEME;
+    } else {
+      mDocumentState &= ~NS_DOCUMENT_STATE_LWTHEME;
     }
   }
 
@@ -15848,26 +15835,14 @@ void Document::SetStateObject(nsIStructuredCloneContainer* scContainer) {
   mStateObjectCached.reset();
 }
 
-Document::DocumentTheme Document::GetDocumentLWTheme() const {
+bool Document::ComputeDocumentLWTheme() const {
   if (!NodePrincipal()->IsSystemPrincipal()) {
-    return DocumentTheme::None;
+    return false;
   }
 
-  auto theme = DocumentTheme::None;  // No lightweight theme by default
   Element* element = GetRootElement();
-  if (element && element->AttrValueIs(kNameSpaceID_None, nsGkAtoms::lwtheme,
-                                      nsGkAtoms::_true, eCaseMatters)) {
-    theme = DocumentTheme::Neutral;
-    nsAutoString lwTheme;
-    element->GetAttr(kNameSpaceID_None, nsGkAtoms::lwthemetextcolor, lwTheme);
-    if (lwTheme.EqualsLiteral("dark")) {
-      theme = DocumentTheme::Dark;
-    } else if (lwTheme.EqualsLiteral("bright")) {
-      theme = DocumentTheme::Bright;
-    }
-  }
-
-  return theme;
+  return element && element->AttrValueIs(kNameSpaceID_None, nsGkAtoms::lwtheme,
+                                         nsGkAtoms::_true, eCaseMatters);
 }
 
 already_AddRefed<Element> Document::CreateHTMLElement(nsAtom* aTag) {
@@ -16032,15 +16007,31 @@ FontFaceSet* Document::Fonts() {
   return mFontFaceSet;
 }
 
-void Document::ReportHasScrollLinkedEffect() {
-  if (mHasScrollLinkedEffect) {
-    // We already did this once for this document, don't do it again.
+void Document::ReportHasScrollLinkedEffect(const TimeStamp& aTimeStamp) {
+  MOZ_ASSERT(!aTimeStamp.IsNull());
+
+  if (!mLastScrollLinkedEffectDetectionTime.IsNull() &&
+      mLastScrollLinkedEffectDetectionTime >= aTimeStamp) {
     return;
   }
-  mHasScrollLinkedEffect = true;
-  nsContentUtils::ReportToConsole(
-      nsIScriptError::warningFlag, "Async Pan/Zoom"_ns, this,
-      nsContentUtils::eLAYOUT_PROPERTIES, "ScrollLinkedEffectFound3");
+
+  if (mLastScrollLinkedEffectDetectionTime.IsNull()) {
+    // Report to console just once.
+    nsContentUtils::ReportToConsole(
+        nsIScriptError::warningFlag, "Async Pan/Zoom"_ns, this,
+        nsContentUtils::eLAYOUT_PROPERTIES, "ScrollLinkedEffectFound3");
+  }
+
+  mLastScrollLinkedEffectDetectionTime = aTimeStamp;
+}
+
+bool Document::HasScrollLinkedEffect() const {
+  if (nsPresContext* pc = GetPresContext()) {
+    return mLastScrollLinkedEffectDetectionTime ==
+           pc->RefreshDriver()->MostRecentRefresh();
+  }
+
+  return false;
 }
 
 void Document::SetSHEntryHasUserInteraction(bool aHasInteraction) {

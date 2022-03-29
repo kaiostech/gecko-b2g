@@ -7,6 +7,7 @@ sinclude $(GAIADIR)/gaia.mk
 # here.
 GAIA_ICONS_FILE ?= ./shared/resources/gaia-icons-dist/fonts/gaia-icons.ttf
 GAIA_ICONS_PATH := $(GAIADIR)/$(GAIA_ICONS_FILE)
+API_DAEMON_PATH := $(B2G_DIR)/services/api-daemon
 
 sinclude $(B2G_DIR)/gecko/b2g/gaia/api-daemon.mk
 
@@ -39,15 +40,11 @@ endif
 	mkdir -p $(DIST)/bin/$(GAIA_PATH)/webapps/installed
 	cp -r $(B2G_DIR)/$(GAIA_PATH)/webapps/* $(DIST)/bin/$(GAIA_PATH)/webapps/installed
 
-build-api-daemon::
-	+$(call build-sidl-daemon)
-
-install-api-daemon:: build-api-daemon
-	+$(call run-sidl-release)
+install-api-daemon::
 	mkdir -p $(DIST)/bin/api-daemon
-	cp $(B2G_DIR)/sidl/daemon/config-kaiosrt.toml $(DIST)/bin/api-daemon/config.toml
-	cp $(B2G_DIR)/sidl/services/devicecapability/devicecapability.json $(DIST)/bin/api-daemon/
-	cp -r $(B2G_DIR)/sidl/prebuilts/http_root $(DIST)/bin/api-daemon/
-	cp $(B2G_DIR)/sidl/target/debug/api-daemon $(DIST)/bin/api-daemon/
+	cp $(API_DAEMON_PATH)/daemon/config-kaiosrt.toml $(DIST)/bin/api-daemon/config.toml
+	cp $(API_DAEMON_PATH)/services/devicecapability/devicecapability.json $(DIST)/bin/api-daemon/
+	cp $(API_DAEMON_PATH)/prebuilts/debug/api-daemon $(DIST)/bin/api-daemon/
+	cp -r $(API_DAEMON_PATH)/prebuilts/http_root $(DIST)/bin/api-daemon/
 
 libs:: profile install-api-daemon

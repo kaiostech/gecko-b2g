@@ -234,7 +234,11 @@
 # the parent process.
 - name: accessibility.cache.enabled
   type: bool
+#ifdef ANDROID
+  value: true
+#else
   value: false
+#endif
   mirror: once
 
 #---------------------------------------------------------------------------
@@ -4911,7 +4915,7 @@
 # WebContentIsolationStrateg is set to IsolateHighvalue.
 - name: fission.highValue.login.monitor
   type: bool
-  value: false
+  value: @IS_ANDROID@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -9944,7 +9948,7 @@
 # reached. The total size of the ring-buffer is slightly bigger than this.
 - name: media.audio.audiosink.threshold_ms
   type: AtomicFloat
-#if defined(XP_MACOSX) && defined(__aarch64__)
+#if defined(XP_MACOSX) && defined(MOZ_AARCH64)
   value: 1000.0
 #else
   value: 200.0

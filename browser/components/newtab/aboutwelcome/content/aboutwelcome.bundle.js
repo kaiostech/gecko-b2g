@@ -986,41 +986,27 @@ const MarketplaceButtons = props => {
     ios_link: iosLink,
     android_link: androidLink
   } = props.links;
-
-  const getIconSrc = platform => {
-    const fileType = platform === "android" ? ".png" : ".svg";
-    return `url(chrome://activity-stream/content/data/content/assets/app-marketplace-icons/en-US/${platform}${fileType})`;
-  };
-
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("ul", {
     className: "mobile-download-buttons"
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("li", {
     className: "android"
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", {
-    rel: "external noreferrer",
-    target: "_blank",
     "data-l10n-id": "spotlight-android-marketplace-button",
     onClick: e => {
-      props.handleAction(e, iosLink);
-    },
-    style: {
-      backgroundImage: getIconSrc("android")
+      props.handleAction(e, androidLink);
     }
   })), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("li", {
     className: "ios"
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", {
-    rel: "external noreferrer",
-    target: "_blank",
     "data-l10n-id": "spotlight-ios-marketplace-button",
     onClick: e => {
-      props.handleAction(e, androidLink);
-    },
-    style: {
-      backgroundImage: getIconSrc("ios")
+      props.handleAction(e, iosLink);
     }
   })));
 };
 const MobileDownloads = props => {
+  var _QRCode$image_overrid;
+
   const {
     QR_code: QRCode
   } = props.data;
@@ -1031,7 +1017,7 @@ const MobileDownloads = props => {
     "data-l10n-id": QRCode.alt_text.string_id ? QRCode.alt_text.string_id : null,
     className: "qr-code-image",
     alt: typeof QRCode.alt_text === "string" ? QRCode.alt_text : "",
-    src: props.data.QR_code.image_url
+    src: ((_QRCode$image_overrid = QRCode.image_overrides) === null || _QRCode$image_overrid === void 0 ? void 0 : _QRCode$image_overrid[document.documentElement.lang]) ?? QRCode.image_url
   }) : null, showEmailLink ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
     text: props.data.email.link_text
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", {

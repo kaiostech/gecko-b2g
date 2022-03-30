@@ -58,7 +58,7 @@ ScriptLoadHandler::ScriptLoadHandler(
       mSRIStatus(NS_OK),
       mDecoder() {
   MOZ_ASSERT(mRequest->IsUnknownDataType());
-  MOZ_ASSERT(mRequest->IsLoading());
+  MOZ_ASSERT(mRequest->IsFetching());
 }
 
 ScriptLoadHandler::~ScriptLoadHandler() = default;
@@ -287,14 +287,14 @@ nsresult ScriptLoadHandler::MaybeDecodeSRI(uint32_t* sriLength) {
 nsresult ScriptLoadHandler::EnsureKnownDataType(
     nsIIncrementalStreamLoader* aLoader) {
   MOZ_ASSERT(mRequest->IsUnknownDataType());
-  MOZ_ASSERT(mRequest->IsLoading());
+  MOZ_ASSERT(mRequest->IsFetching());
 
   nsCOMPtr<nsIRequest> req;
   nsresult rv = aLoader->GetRequest(getter_AddRefs(req));
   MOZ_ASSERT(req, "StreamLoader's request went away prematurely");
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (mRequest->IsLoadingSource()) {
+  if (mRequest->mFetchSourceOnly) {
     mRequest->SetTextSource();
     TRACE_FOR_TEST(mRequest->mLoadContext->GetScriptElement(),
                    "scriptloader_load_source");
@@ -319,7 +319,7 @@ nsresult ScriptLoadHandler::EnsureKnownDataType(
                  "scriptloader_load_source");
 
   MOZ_ASSERT(!mRequest->IsUnknownDataType());
-  MOZ_ASSERT(mRequest->IsLoading());
+  MOZ_ASSERT(mRequest->IsFetching());
   return NS_OK;
 }
 

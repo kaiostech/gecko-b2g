@@ -39,7 +39,6 @@ DIRS += [
     "extensions",
     "featuregates",
     "formautofill",
-    "filewatcher",
     "finalizationwitness",
     "find",
     "forgetaboutsite",

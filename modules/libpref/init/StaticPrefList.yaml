@@ -1800,14 +1800,6 @@
 # Prefs starting with "devtools."
 #---------------------------------------------------------------------------
 
-# Tells if DevTools have been explicitely enabled by the user. This pref
-# allows to disable all features related to DevTools for users that never use
-# them. Until bug 1361080 lands, we always consider them enabled.
-- name: devtools.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: devtools.console.stdout.chrome
   type: RelaxedAtomicBool
   value: @IS_NOT_MOZILLA_OFFICIAL@
@@ -6073,16 +6065,21 @@
   # Whether to use a video overlay layers with DirectComposition
 -   name: gfx.webrender.dcomp-video-overlay-win
     type: bool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
+    mirror: once
+  # Enable video overlay even when it is blocked.
+-   name: gfx.webrender.dcomp-video-overlay-win-force-enabled
+    type: bool
+    value: false
     mirror: once
   # Whether to use a yuv video overlay layers with DirectComposition
 -   name: gfx.webrender.dcomp-video-yuv-overlay-win
     type: bool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
     mirror: once
 -   name: gfx.webrender.dcomp-video-vp-scaling-win
     type: bool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
     mirror: once
 #endif
 
@@ -7576,20 +7573,6 @@
 
 # Make `zoom` a `transform` + `transform-origin` alias.
 - name: layout.css.zoom-transform-hack.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
-# Whether the `:-moz-lwtheme` pseudo-class is exposed to content.
-- name: layout.css.moz-lwtheme.content.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
-# Whether the `:-moz-locale-dir()` pseudo-class is exposed to content.
-- name: layout.css.moz-locale-dir.content.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -10344,11 +10327,24 @@
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
+# Whether we ignore less restricted referrer policies for top navigations.
+- name: network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation
+  type: bool
+  value: false
+  mirror: always
+
 
 # Set to ignore referrer policies which is less restricted than the default for
 # cross-site requests in the private browsing mode, including 'unsafe-url',
 # 'no-referrer-when-downgrade' and 'origin-when-cross-origin'.
 - name: network.http.referer.disallowCrossSiteRelaxingDefault.pbmode
+  type: bool
+  value: true
+  mirror: always
+
+# Whether we ignore less restricted referrer policies for top navigations in the
+# private browsing mode.
+- name: network.http.referer.disallowCrossSiteRelaxingDefault.pbmode.top_navigation
   type: bool
   value: true
   mirror: always
@@ -11247,6 +11243,12 @@
 - name: network.dns.negative_ttl_for_type_record
   type: RelaxedAtomicUint32
   value: 300   # 5 minutes (in seconds)
+  mirror: always
+
+# Whether to use port prefixed QNAME for HTTPS RR
+- name: network.dns.port_prefixed_qname_https_rr
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 - name: network.cache.frecency_array_check_enabled
@@ -13031,7 +13033,13 @@
 
 - name: webgl.out-of-process.worker
   type: RelaxedAtomicBool
+# (When reading the next line, know that preprocessor.py doesn't
+# understand parentheses, but && is higher precedence than ||.)
+#if defined(XP_MACOSX) || defined(XP_WIN) || defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
   value: true
+#else
+  value: false
+#endif
   mirror: always
 
 - name: webgl.out-of-process.force

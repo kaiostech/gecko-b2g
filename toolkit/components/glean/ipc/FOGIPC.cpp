@@ -25,6 +25,7 @@
 #include "mozilla/ipc/UtilityProcessChild.h"
 #include "mozilla/ipc/UtilityProcessManager.h"
 #include "mozilla/ipc/UtilityProcessParent.h"
+#include "mozilla/ipc/UtilityProcessSandboxing.h"
 #include "mozilla/Unused.h"
 #include "GMPPlatform.h"
 #include "GMPServiceParent.h"
@@ -162,6 +163,8 @@ void RecordPowerMetrics() {
                     type);
     previousGpuTime += newGpuTime;
   }
+
+  profiler_record_wakeup_count(type);
 }
 
 /**
@@ -233,9 +236,9 @@ void FlushAllChildData(
 
   if (RefPtr<UtilityProcessManager> utilityManager =
           UtilityProcessManager::GetIfExists()) {
-    if (UtilityProcessParent* utilityParent =
-            utilityManager->GetProcessParent()) {
-      promises.EmplaceBack(utilityParent->SendFlushFOGData());
+    for (RefPtr<UtilityProcessParent>& parent :
+         utilityManager->GetAllProcessesProcessParent()) {
+      promises.EmplaceBack(parent->SendFlushFOGData());
     }
   }
 
@@ -362,7 +365,7 @@ void TestTriggerMetrics(uint32_t aProcessType,
       break;
     case nsIXULRuntime::PROCESS_TYPE_UTILITY:
       Unused << ipc::UtilityProcessManager::GetSingleton()
-                    ->GetProcessParent()
+                    ->GetProcessParent(ipc::SandboxingKind::GENERIC_UTILITY)
                     ->SendTestTriggerMetrics()
                     ->Then(
                         GetCurrentSerialEventTarget(), __func__,

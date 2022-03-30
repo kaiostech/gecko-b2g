@@ -406,11 +406,8 @@ class nsWindow final : public nsBaseWidget {
       const LayoutDeviceIntPoint& aLockCenter) override;
   void LockNativePointer() override;
   void UnlockNativePointer() override;
-  LayoutDeviceIntRect GetMoveToRectPopupRect() const override {
-    return mMoveToRectPopupRect;
-  };
-  void MoveToRectPopupRectClear() override {
-    mMoveToRectPopupRect = LayoutDeviceIntRect();
+  LayoutDeviceIntSize GetMoveToRectPopupSize() const override {
+    return mMoveToRectPopupSize;
   };
 #endif
 
@@ -793,8 +790,9 @@ class nsWindow final : public nsBaseWidget {
   void WaylandPopupMarkAsClosed();
   void WaylandPopupRemoveClosedPopups();
   void WaylandPopupSetDirectPosition();
-  bool WaylandPopupFitsParentWindow(const GdkRectangle& aSize);
+  bool WaylandPopupFitsToplevelWindow();
   const WaylandPopupMoveToRectParams WaylandPopupGetPositionFromLayout();
+  void WaylandPopupPropagateChangesToLayout(bool aMove, bool aResize);
   nsWindow* WaylandPopupFindLast(nsWindow* aPopup);
   GtkWindow* GetCurrentTopmostWindow();
   nsAutoCString GetFrameTag() const;
@@ -805,11 +803,13 @@ class nsWindow final : public nsBaseWidget {
   void LogPopupHierarchy();
 #endif
 
-  // mPopupPosition is the original popup position from layout, set by
+  // mPopupPosition is the original popup position/size from layout, set by
   // nsWindow::Move() or nsWindow::Resize().
+  // Popup position is relative to main (toplevel) window.
   GdkPoint mPopupPosition{};
 
-  // mRelativePopupPosition is popup position calculated against parent window.
+  // mRelativePopupPosition is popup position calculated against
+  // recent popup parent window.
   GdkPoint mRelativePopupPosition{};
 
   // Toplevel window (first element) of linked list of Wayland popups. It's null
@@ -821,9 +821,9 @@ class nsWindow final : public nsBaseWidget {
   RefPtr<nsWindow> mWaylandPopupPrev;
 
   // When popup is resized by Gtk by move-to-rect callback,
-  // we store final popup size here. Then we use mMoveToRectPopupRect size
+  // we store final popup size here. Then we use mMoveToRectPopupSize size
   // in following popup operations unless mLayoutPopupSizeCleared is set.
-  LayoutDeviceIntRect mMoveToRectPopupRect;
+  LayoutDeviceIntSize mMoveToRectPopupSize;
 
   LayoutDeviceIntRect mNewBoundsAfterMoveToRect;
 

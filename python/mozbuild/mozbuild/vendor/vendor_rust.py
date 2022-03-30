@@ -89,7 +89,7 @@ TOLERATED_DUPES = {
     "mio": 2,
     "pin-project-lite": 2,
     "target-lexicon": 2,
-    "tokio": 2,
+    "tokio": 3,
     "block-buffer": 2,
     "block-padding": 2,
     "digest": 2,

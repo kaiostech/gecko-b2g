@@ -2507,10 +2507,7 @@ GeckoDriver.prototype.dismissDialog = async function() {
   this._checkIfAlertIsPresent();
 
   const dialogClosed = this.dialogObserver.dialogClosed();
-
-  const { button0, button1 } = this.dialog.ui;
-  (button1 ? button1 : button0).click();
-
+  this.dialog.dismiss();
   await dialogClosed;
 
   const win = this.getCurrentWindow();
@@ -2529,10 +2526,7 @@ GeckoDriver.prototype.acceptDialog = async function() {
   this._checkIfAlertIsPresent();
 
   const dialogClosed = this.dialogObserver.dialogClosed();
-
-  const { button0 } = this.dialog.ui;
-  button0.click();
-
+  this.dialog.accept();
   await dialogClosed;
 
   const win = this.getCurrentWindow();
@@ -2549,8 +2543,7 @@ GeckoDriver.prototype.acceptDialog = async function() {
 GeckoDriver.prototype.getTextFromDialog = function() {
   assert.open(this.getBrowsingContext({ top: true }));
   this._checkIfAlertIsPresent();
-
-  return this.dialog.ui.infoBody.textContent;
+  return this.dialog.text;
 };
 
 /**
@@ -2595,24 +2588,21 @@ GeckoDriver.prototype.sendKeysToDialog = async function(cmd) {
         `User prompt of type ${promptType} is not supported`
       );
   }
-
-  // see toolkit/components/prompts/content/commonDialog.js
-  let { loginTextbox } = this.dialog.ui;
-  loginTextbox.value = text;
+  this.dialog.text = text;
 };
 
 GeckoDriver.prototype._checkIfAlertIsPresent = function() {
-  if (!this.dialog || !this.dialog.ui) {
+  if (!this.dialog || !this.dialog.isOpen) {
     throw new error.NoSuchAlertError();
   }
 };
 
 GeckoDriver.prototype._handleUserPrompts = async function() {
-  if (!this.dialog || !this.dialog.ui) {
+  if (!this.dialog || !this.dialog.isOpen) {
     return;
   }
 
-  let { textContent } = this.dialog.ui.infoBody;
+  let textContent = this.dialog.text;
 
   const behavior = this.currentSession.unhandledPromptBehavior;
   switch (behavior) {

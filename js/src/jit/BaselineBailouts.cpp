@@ -179,6 +179,7 @@ class MOZ_STACK_CLASS BaselineStackBuilder {
   [[nodiscard]] bool buildFixedSlots();
   [[nodiscard]] bool fixUpCallerArgs(MutableHandleValueVector savedCallerArgs,
                                      bool* fixedUp);
+  [[nodiscard]] bool buildFinallyException();
   [[nodiscard]] bool buildExpressionStack();
   [[nodiscard]] bool finishLastFrame();
 
@@ -209,6 +210,13 @@ class MOZ_STACK_CLASS BaselineStackBuilder {
     return excInfo_ && excInfo_->catchingException() &&
            excInfo_->frameNo() == frameNo_;
   }
+
+  // Returns true if we're bailing out to a finally block in this frame.
+  bool resumingInFinallyBlock() const {
+    return catchingException() && excInfo_->isFinally();
+  }
+
+  bool forcedReturn() const { return excInfo_ && excInfo_->forcedReturn(); }
 
   // Returns true if we're bailing out in place for debug mode
   bool propagatingIonExceptionForDebugMode() const {
@@ -875,8 +883,7 @@ bool BaselineStackBuilder::buildExpressionStack() {
       // possible nothing was pushed before we threw. We can't drop
       // iterators, however, so read them out. They will be closed by
       // HandleExceptionBaseline.
-      MOZ_ASSERT(cx_->realm()->isDebuggee() ||
-                 cx_->isPropagatingForcedReturn());
+      MOZ_ASSERT(cx_->realm()->isDebuggee() || forcedReturn());
       if (iter_.moreFrames() || hasLiveStackValueAtDepth(i)) {
         v = iter_.read();
       } else {
@@ -889,6 +896,19 @@ bool BaselineStackBuilder::buildExpressionStack() {
     if (!writeValue(v, "StackValue")) {
       return false;
     }
+  }
+
+  return true;
+}
+
+bool BaselineStackBuilder::buildFinallyException() {
+  MOZ_ASSERT(resumingInFinallyBlock());
+
+  if (!writeValue(excInfo_->finallyException(), "Exception")) {
+    return false;
+  }
+  if (!writeValue(BooleanValue(true), "throwing")) {
+    return false;
   }
 
   return true;
@@ -1355,8 +1375,15 @@ bool BaselineStackBuilder::validateFrame() {
   MOZ_ASSERT(blFrame()->debugNumValueSlots() >= script_->nfixed());
   MOZ_ASSERT(blFrame()->debugNumValueSlots() <= script_->nslots());
 
+  uint32_t expectedSlots = exprStackSlots();
+  if (resumingInFinallyBlock()) {
+    // If we are resuming in a finally block, we push two extra values on the
+    // stack (the exception, and |throwing|), so the depth at the resume PC
+    // should be the depth at the fault PC plus two.
+    expectedSlots += 2;
+  }
   return AssertBailoutStackDepth(cx_, script_, pc_, resumeMode(),
-                                 exprStackSlots());
+                                 expectedSlots);
 }
 #endif
 
@@ -1516,8 +1543,13 @@ bool BaselineStackBuilder::buildOneFrame() {
     return false;
   }
 
-  if (!fixedUp && !buildExpressionStack()) {
-    return false;
+  if (!fixedUp) {
+    if (!buildExpressionStack()) {
+      return false;
+    }
+    if (resumingInFinallyBlock() && !buildFinallyException()) {
+      return false;
+    }
   }
 
 #ifdef DEBUG
@@ -1970,9 +2002,9 @@ bool jit::FinishBailoutToBaseline(BaselineBailoutInfo* bailoutInfoArg) {
     act->removeRematerializedFrame(outerFp);
   }
 
-  // If we are catching an exception, we need to unwind scopes.
+  // If we are unwinding for an exception, we need to unwind scopes.
   // See |SettleOnTryNote|
-  if (cx->isExceptionPending() && bailoutInfo->faultPC) {
+  if (bailoutInfo->faultPC) {
     EnvironmentIter ei(cx, topFrame, bailoutInfo->faultPC);
     UnwindEnvironment(cx, ei, bailoutInfo->tryPC);
   }
@@ -2089,6 +2121,12 @@ bool jit::FinishBailoutToBaseline(BaselineBailoutInfo* bailoutInfoArg) {
         // and disable recompilation if this happens too often.
         action = BailoutAction::DisableIfFrequent;
       }
+      break;
+
+    case BailoutKind::Finally:
+      // We are bailing out for a finally block. We will invalidate
+      // and disable recompilation if this happens too often.
+      action = BailoutAction::DisableIfFrequent;
       break;
 
     case BailoutKind::Inevitable:

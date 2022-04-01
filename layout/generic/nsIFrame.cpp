@@ -4651,12 +4651,6 @@ static bool IsEditingHost(const nsIFrame* aFrame) {
   return element && element->IsEditableRoot();
 }
 
-static bool IsTopmostModalDialog(const nsIFrame* aFrame) {
-  auto* element = Element::FromNodeOrNull(aFrame->GetContent());
-  return element &&
-         element->State().HasState(NS_EVENT_STATE_TOPMOST_MODAL_DIALOG);
-}
-
 static StyleUserSelect UsedUserSelect(const nsIFrame* aFrame) {
   if (aFrame->IsGeneratedContentFrame()) {
     return StyleUserSelect::None;
@@ -4681,14 +4675,10 @@ static StyleUserSelect UsedUserSelect(const nsIFrame* aFrame) {
     return style;
   }
 
-  if (aFrame->IsTextInputFrame() || IsEditingHost(aFrame) ||
-      IsTopmostModalDialog(aFrame)) {
+  if (aFrame->IsTextInputFrame() || IsEditingHost(aFrame)) {
     // We don't implement 'contain' itself, but we make 'text' behave as
     // 'contain' for contenteditable and <input> / <textarea> elements anyway so
     // this is ok.
-    //
-    // Topmost modal dialogs need to behave like `text` too, because they're
-    // supposed to be selectable even if their ancestors are inert.
     return StyleUserSelect::Text;
   }
 
@@ -4939,9 +4929,8 @@ nsresult nsIFrame::MoveCaretToEventPoint(nsPresContext* aPresContext,
       // If clicked in a link when focused content is editable, we should
       // collapse selection in the link for compatibility with Blink.
       if (isEditor) {
-        nsCOMPtr<nsIURI> uri;
         for (Element* element : mContent->InclusiveAncestorsOfType<Element>()) {
-          if (element->IsLink(getter_AddRefs(uri))) {
+          if (element->IsLink()) {
             return nsFrameSelection::FocusMode::kCollapseToNewPoint;
           }
         }

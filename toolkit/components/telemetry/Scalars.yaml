@@ -1379,11 +1379,12 @@ privacy:
   dfpi_rollout_enabledByDefault:
     bug_numbers:
       - 1740232
+      - 1758828
     description: >
       Records if a client is opted into dFPI in standard ETP mode as part of the
       rollout experiment. 0: opted out, 1: opted in, 2: not part of the
       experiment
-    expires: "101"
+    expires: "106"
     kind: uint
     notification_emails:
       - pbz@mozilla.com
@@ -5744,45 +5745,6 @@ browser.searchinit:
     record_in_processes:
       - 'main'
     release_channel_collection: opt-out
-
-encoding:
-  override_used_manual:
-    bug_numbers:
-      - 840476
-      - 1513473
-      - 1554592
-      - 1603047
-      - 1648464
-      - 1706838
-    description: >-
-      Whether an item other than Automatic in the Text Encoding menu was used to override an encoding in this subsession.
-    expires: "96"
-    kind: boolean
-    notification_emails:
-      - hsivonen@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - main
-      - content
-
-  override_used_automatic:
-    bug_numbers:
-      - 1648464
-      - 1706838
-    description: >-
-      Whether the item Automatic in the Text Encoding menu was used to override an encoding in this subsession.
-    expires: "96"
-    kind: boolean
-    notification_emails:
-      - hsivonen@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - main
-      - content
 
 startup:
   profile_selection_reason:

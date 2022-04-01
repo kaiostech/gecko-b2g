@@ -356,6 +356,11 @@ void MediaOffloadPlayer::UpdateCompositor(
   RefPtr<layers::KnowsCompositor> compositor = aCompositor;
 }
 
+RefPtr<GenericPromise> MediaOffloadPlayer::RequestDebugInfo(
+    dom::MediaFormatReaderDebugInfo& aInfo) {
+  GenericPromise::CreateAndReject(NS_ERROR_ABORT, __func__);
+}
+
 void MediaOffloadPlayer::StartDormantTimer() {
   if (mInDormant) {
     return;

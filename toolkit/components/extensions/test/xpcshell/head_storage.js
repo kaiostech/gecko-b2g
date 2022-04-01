@@ -1242,7 +1242,6 @@ async function test_contentscript_storage(storageType) {
 }
 
 /* exported setLowDiskMode */
-
 // Small test helper to trigger the QuotaExceededError (it is basically the same
 // test helper defined in "dom/indexedDB/test/unit/test_lowDiskSpace.js", but it doesn't
 // use SpecialPowers).
@@ -1257,4 +1256,64 @@ function setLowDiskMode(val) {
     Services.obs.notifyObservers(null, "disk-space-watcher", data);
     lowDiskMode = val;
   }
+}
+
+async function test_storage_change_event_page(areaName) {
+  async function testFn() {
+    function background(areaName) {
+      browser.storage.onChanged.addListener((changes, area) => {
+        browser.test.assertEq(area, areaName, "Expected areaName");
+        browser.test.assertEq(
+          JSON.stringify(changes),
+          `{"storageKey":{"newValue":"newStorageValue"}}`,
+          "Expected changes"
+        );
+        browser.test.sendMessage("onChanged_was_fired");
+      });
+    }
+    let extension = ExtensionTestUtils.loadExtension({
+      manifest: {
+        permissions: ["storage"],
+        background: { persistent: false },
+      },
+      background: `(${background})("${areaName}")`,
+      files: {
+        "trigger-change.html": `
+          <!DOCTYPE html><meta charset="utf-8">
+          <script src="trigger-change.js"></script>
+        `,
+        "trigger-change.js": async () => {
+          let areaName = location.search.slice(1);
+          await browser.storage[areaName].set({
+            storageKey: "newStorageValue",
+          });
+          browser.test.sendMessage("tried_to_trigger_change");
+        },
+      },
+    });
+    await extension.startup();
+    assertPersistentListeners(extension, "storage", "onChanged", {
+      primed: false,
+    });
+
+    await extension.terminateBackground();
+    assertPersistentListeners(extension, "storage", "onChanged", {
+      primed: true,
+    });
+
+    // Now trigger the event
+    let contentPage = await ExtensionTestUtils.loadContentPage(
+      `moz-extension://${extension.uuid}/trigger-change.html?${areaName}`
+    );
+    await extension.awaitMessage("tried_to_trigger_change");
+    await contentPage.close();
+    await extension.awaitMessage("onChanged_was_fired");
+
+    assertPersistentListeners(extension, "storage", "onChanged", {
+      primed: false,
+    });
+    await extension.unload();
+  }
+
+  return runWithPrefs([["extensions.eventPages.enabled", true]], testFn);
 }

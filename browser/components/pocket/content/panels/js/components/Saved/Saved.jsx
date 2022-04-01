@@ -6,13 +6,14 @@ import React, { useState, useEffect } from "react";
 import Header from "../Header/Header";
 import Button from "../Button/Button";
 import ArticleList from "../ArticleList/ArticleList";
+import TagPicker from "../TagPicker/TagPicker";
 import panelMessaging from "../../messages";
 
 function Saved(props) {
-  const { locale } = props;
+  const { locale, pockethost, utmSource, utmCampaign, utmContent } = props;
   // savedStatus can be success, loading, or error.
   const [
-    { savedStatus, savedErrorId, itemId },
+    { savedStatus, savedErrorId, itemId, itemUrl },
     setSavedStatusState,
   ] = useState({ savedStatus: "loading" });
   // removedStatus can be removed, removing, or error.
@@ -21,7 +22,12 @@ function Saved(props) {
     setRemovedStatusState,
   ] = useState({});
   const [savedStory, setSavedStoryState] = useState();
-  const [similarRecs, setSimilarRecsState] = useState();
+  const [{ similarRecs, similarRecsModel }, setSimilarRecsState] = useState({});
+  const utmParams = `utm_source=${utmSource}${
+    utmCampaign && utmContent
+      ? `&utm_campaign=${utmCampaign}&utm_content=${utmContent}`
+      : ``
+  }`;
 
   function removeItem(event) {
     event.preventDefault();
@@ -68,7 +74,8 @@ function Saved(props) {
       // Success, so no localized error id needed.
       setSavedStatusState({
         savedStatus: "success",
-        itemId: data.item.item_id,
+        itemId: data.item?.item_id,
+        itemUrl: data.item?.given_url,
         savedErrorId: "",
       });
     });
@@ -79,7 +86,15 @@ function Saved(props) {
 
     panelMessaging.addMessageListener("PKT_renderItemRecs", function(resp) {
       const { data } = resp;
-      setSimilarRecsState(data?.recommendations?.map(rec => rec.item));
+
+      // This is the ML model used to recommend the story.
+      // Right now this value is the same for all three items returned together,
+      // so we can just use the first item's value for all.
+      const model = data?.recommendations?.[0]?.experiment || "";
+      setSimilarRecsState({
+        similarRecs: data?.recommendations?.map(rec => rec.item),
+        similarRecsModel: model,
+      });
     });
 
     // tell back end we're ready
@@ -105,7 +120,11 @@ function Saved(props) {
     <div className="stp_panel_container">
       <div className="stp_panel stp_panel_saved">
         <Header>
-          <Button style="primary">
+          <Button
+            style="primary"
+            url={`https://${pockethost}/a?${utmParams}`}
+            source="view_list"
+          >
             <span data-l10n-id="pocket-panel-header-my-list"></span>
           </Button>
         </Header>
@@ -114,22 +133,24 @@ function Saved(props) {
           <>
             <h3 className="header_large header_flex">
               <span data-l10n-id="pocket-panel-saved-page-saved-b" />
-              <Button style="text" url="google.com" onClick={removeItem}>
+              <Button style="text" onClick={removeItem}>
                 <span data-l10n-id="pocket-panel-button-remove"></span>
               </Button>
             </h3>
             {savedStory && (
               <ArticleList articles={[savedStory]} savedArticle={true} />
             )}
-            <h3
-              className="header_small"
-              data-l10n-id="pocket-panel-cta-add-tags"
-            />
+            <TagPicker tags={[]} itemUrl={itemUrl} />
             {similarRecs?.length && locale?.startsWith("en") && (
               <>
                 <hr />
                 <h3 className="header_medium">Similar Stories</h3>
-                <ArticleList articles={similarRecs} />
+                <ArticleList
+                  articles={similarRecs}
+                  source="on_save_recs"
+                  model={similarRecsModel}
+                  utmParams={utmParams}
+                />
               </>
             )}
           </>

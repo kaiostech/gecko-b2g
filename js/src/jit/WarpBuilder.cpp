@@ -905,7 +905,6 @@ bool WarpBuilder::build_RetRval(BytecodeLocation) {
 
 bool WarpBuilder::build_SetRval(BytecodeLocation) {
   MOZ_ASSERT(!script_->noScriptRval());
-
   MDefinition* rval = current->pop();
   current->setSlot(info().returnValueSlot(), rval);
   return true;
@@ -1501,6 +1500,14 @@ bool WarpBuilder::build_Goto(BytecodeLocation loc) {
   }
 
   return buildForwardGoto(loc.getJumpTarget());
+}
+
+bool WarpBuilder::build_IsNullOrUndefined(BytecodeLocation loc) {
+  MDefinition* value = current->peek(-1);
+  auto* isNullOrUndef = MIsNullOrUndefined::New(alloc(), value);
+  current->add(isNullOrUndef);
+  current->push(isNullOrUndef);
+  return true;
 }
 
 bool WarpBuilder::build_DebugCheckSelfHosted(BytecodeLocation loc) {
@@ -3026,9 +3033,6 @@ bool WarpBuilder::build_Rest(BytecodeLocation loc) {
 }
 
 bool WarpBuilder::build_Try(BytecodeLocation loc) {
-  // Note: WarpOracle aborts compilation for try-statements with a 'finally'
-  // block.
-
   graph().setHasTryBlock();
 
   MBasicBlock* pred = current;
@@ -3037,6 +3041,11 @@ bool WarpBuilder::build_Try(BytecodeLocation loc) {
   }
 
   pred->end(MGoto::New(alloc(), current));
+  return true;
+}
+
+bool WarpBuilder::build_Finally(BytecodeLocation loc) {
+  MOZ_ASSERT(graph().hasTryBlock());
   return true;
 }
 

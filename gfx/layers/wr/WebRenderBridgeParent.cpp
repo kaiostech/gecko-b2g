@@ -1590,7 +1590,8 @@ void WebRenderBridgeParent::FlushFrameGeneration(wr::RenderReasons aReasons) {
     mCompositorScheduler->CancelCurrentCompositeTask();
     // Update timestamp of scheduler for APZ and animation.
     mCompositorScheduler->UpdateLastComposeTime();
-    MaybeGenerateFrame(VsyncId(), /* aForceGenerateFrame */ true, aReasons);
+    MaybeGenerateFrame(VsyncId(), /* aForceGenerateFrame */ true,
+                       aReasons | wr::RenderReasons::FLUSH);
   }
 }
 
@@ -2181,7 +2182,8 @@ void WebRenderBridgeParent::CompositeIfNeeded() {
   if (mSkippedComposite) {
     mSkippedComposite = false;
     if (mCompositorScheduler) {
-      mCompositorScheduler->ScheduleComposition(mSkippedCompositeReasons);
+      mCompositorScheduler->ScheduleComposition(
+          mSkippedCompositeReasons | RenderReasons::SKIPPED_COMPOSITE);
     }
     mSkippedCompositeReasons = wr::RenderReasons::NONE;
   }
@@ -2217,7 +2219,7 @@ void WebRenderBridgeParent::CompositeToTarget(VsyncId aId,
   if (paused || !mReceivedDisplayList) {
     ResetPreviousSampleTime();
     mCompositionOpportunityId = mCompositionOpportunityId.Next();
-    PROFILER_MARKER_TEXT("SkippedComposite", GRAPHICS,
+    PROFILER_MARKER_TEXT("Discarded composite", GRAPHICS,
                          MarkerInnerWindowId(innerWindowId),
                          paused ? "Paused"_ns : "No display list"_ns);
     return;
@@ -2301,11 +2303,16 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
     // Trigger another CompositeToTarget() call because there might be another
     // frame that we want to generate after this one.
     // It will check if we actually want to generate the frame or not.
-    mCompositorScheduler->ScheduleComposition(aReasons);
+    mCompositorScheduler->ScheduleComposition(
+        wr::RenderReasons::ASYNC_IMAGE_COMPOSITE_UNTIL);
   }
 
-  bool generateFrame = mAsyncImageManager->GetAndResetWillGenerateFrame() ||
-                       !fastTxn.IsEmpty() || aForceGenerateFrame;
+  bool generateFrame = !fastTxn.IsEmpty() || aForceGenerateFrame;
+
+  if (mAsyncImageManager->GetAndResetWillGenerateFrame()) {
+    aReasons |= wr::RenderReasons::ASYNC_IMAGE;
+    generateFrame = true;
+  }
 
   if (!generateFrame) {
     // Could skip generating frame now.

@@ -11,13 +11,13 @@
 #include "base/shared_memory.h"
 #include "mozilla/Array.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/Omnijar.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/SandboxLaunch.h"
 #include "mozilla/SandboxSettings.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/UniquePtrExtensions.h"
-#include "mozilla/dom/ContentChild.h"
 #include "nsComponentManagerUtils.h"
 #include "nsPrintfCString.h"
 #include "nsString.h"
@@ -32,6 +32,7 @@
 #include "nsIFile.h"
 
 #include "nsNetCID.h"
+#include "prenv.h"
 
 #ifdef ANDROID
 #  include "cutils/properties.h"
@@ -879,6 +880,8 @@ SandboxBrokerPolicyFactory::GetRDDPolicy(int aPid) {
   policy->AddDir(rdonly, "/usr/lib");
   policy->AddDir(rdonly, "/usr/lib32");
   policy->AddDir(rdonly, "/usr/lib64");
+  policy->AddDir(rdonly, "/run/opengl-driver/lib");
+  policy->AddDir(rdonly, "/nix/store");
 
   // Bug 1647957: memory reporting.
   AddMemoryReporting(policy.get(), aPid);

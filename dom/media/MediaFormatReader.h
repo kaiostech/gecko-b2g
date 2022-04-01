@@ -16,6 +16,7 @@
 #  include "SeekTarget.h"
 #  include "mozilla/Atomics.h"
 #  include "mozilla/Maybe.h"
+#  include "mozilla/MozPromise.h"
 #  include "mozilla/Mutex.h"
 #  include "mozilla/StateMirroring.h"
 #  include "mozilla/StaticPrefs_media.h"
@@ -182,9 +183,11 @@ class MediaFormatReader final
 
   RefPtr<SetCDMPromise> SetCDMProxy(CDMProxy* aProxy);
 
-  // Returns a MediaDebugInfo structure
-  // Used for debugging purposes.
-  void GetDebugInfo(dom::MediaFormatReaderDebugInfo& aInfo);
+  // Requests that the MediaFormatReader populates aInfo with debug information.
+  // This may be done asynchronously, and aInfo should *not* be accessed by the
+  // caller until the returned promise is resolved or rejected.
+  RefPtr<GenericPromise> RequestDebugInfo(
+      dom::MediaFormatReaderDebugInfo& aInfo);
 
   // Switch the video decoder to NullDecoderModule. It might takes effective
   // since a few samples later depends on how much demuxed samples are already
@@ -358,8 +361,11 @@ class MediaFormatReader final
           mFlushing(false),
           mFlushed(true),
           mDrainState(DrainState::None),
-          mNumOfConsecutiveError(0),
-          mMaxConsecutiveError(aNumOfMaxError),
+          mNumOfConsecutiveDecodingError(0),
+          mMaxConsecutiveDecodingError(aNumOfMaxError),
+          mNumOfConsecutiveRDDCrashes(0),
+          mMaxConsecutiveRDDCrashes(
+              StaticPrefs::media_rdd_process_max_crashes()),
           mFirstFrameTime(Some(media::TimeUnit::Zero())),
           mNumSamplesInput(0),
           mNumSamplesOutput(0),
@@ -447,8 +453,14 @@ class MediaFormatReader final
       mDrainState = DrainState::DrainRequested;
     }
 
-    uint32_t mNumOfConsecutiveError;
-    uint32_t mMaxConsecutiveError;
+    // Track decoding error and fail when we hit the limit.
+    uint32_t mNumOfConsecutiveDecodingError;
+    uint32_t mMaxConsecutiveDecodingError;
+
+    // Track RDD process crashes and fail when we hit the limit.
+    uint32_t mNumOfConsecutiveRDDCrashes;
+    uint32_t mMaxConsecutiveRDDCrashes;
+
     // Set when we haven't yet decoded the first frame.
     // Cleared once the first frame has been decoded.
     // This is used to determine, upon error, if we should try again to decode
@@ -463,7 +475,7 @@ class MediaFormatReader final
       if (mError.ref() == NS_ERROR_DOM_MEDIA_DECODE_ERR) {
         // Allow decode errors to be non-fatal, but give up
         // if we have too many, or if warnings should be treated as errors.
-        return mNumOfConsecutiveError > mMaxConsecutiveError ||
+        return mNumOfConsecutiveDecodingError > mMaxConsecutiveDecodingError ||
                StaticPrefs::media_playback_warnings_as_errors();
       } else if (mError.ref() == NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER) {
         // If the caller asked for a new decoder we shouldn't treat
@@ -471,8 +483,10 @@ class MediaFormatReader final
         return false;
       } else if (mError.ref() ==
                  NS_ERROR_DOM_MEDIA_REMOTE_DECODER_CRASHED_ERR) {
-        // Allow to restart remote decoder.
-        return false;
+        // Allow RDD crashes to be non-fatal, but give up
+        // if we have too many, or if warnings should be treated as errors.
+        return mNumOfConsecutiveRDDCrashes > mMaxConsecutiveRDDCrashes ||
+               StaticPrefs::media_playback_warnings_as_errors();
       } else {
         // All other error types are fatal
         return true;
@@ -813,6 +827,8 @@ class MediaFormatReader final
   MozPromiseHolder<SetCDMPromise> mSetCDMPromise;
   TrackSet mSetCDMForTracks{};
   bool IsDecoderWaitingForCDM(TrackType aTrack);
+
+  void GetDebugInfo(dom::MediaFormatReaderDebugInfo& aInfo);
 };
 
 }  // namespace mozilla

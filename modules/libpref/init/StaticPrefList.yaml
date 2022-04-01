@@ -2266,12 +2266,6 @@
   value: true
   mirror: always
 
-# Enable clipboard readText() and writeText() by default
-- name: dom.events.asyncClipboard
-  type: bool
-  value: true
-  mirror: always
-
 # Disable clipboard.read() by default
 - name: dom.events.asyncClipboard.read
   type: bool
@@ -4911,7 +4905,7 @@
 # WebContentIsolationStrateg is set to IsolateHighvalue.
 - name: fission.highValue.login.monitor
   type: bool
-  value: false
+  value: @IS_ANDROID@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -7223,9 +7217,7 @@
 
 - name: layers.gpu-process.enabled
   type: bool
-#if defined(MOZ_WIDGET_ANDROID)
-  value: @IS_NIGHTLY_BUILD@
-#elif defined(XP_WIN)
+#if defined(XP_WIN) || defined(MOZ_WIDGET_ANDROID)
   value: true
 #else
   value: false
@@ -7537,6 +7529,13 @@
 - name: layout.css.cascade-layers.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Whether Container Queries are enabled
+- name: layout.css.container-queries.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -8307,6 +8306,12 @@
   value: false
   mirror: always
 
+# Whether anchor is kept selected.
+- name: layout.selectanchor
+  type: bool
+  value: false
+  mirror: always
+
 # Controls caret style and word-delete during text selection.
 # 0: Use platform default
 # 1: Caret moves and blinks as when there is no selection; word
@@ -8625,12 +8630,6 @@
 - name: mathml.scriptsizemultiplier_attribute.disabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
-  mirror: always
-
-# Whether to disable support for XLink on MathML elements.
-- name: mathml.xlink.disabled
-  type: bool
-  value: true
   mirror: always
 
 # Whether to disable support for stretching operators with STIXGeneral fonts.
@@ -8996,6 +8995,13 @@
 - name: media.rdd-process.startup_timeout_ms
   type: RelaxedAtomicInt32
   value: 5000
+  mirror: always
+
+# Specifies how many times we restart RDD process after crash till we give up.
+# After first RDD restart we disable HW acceleration on Linux.
+- name: media.rdd-process.max-crashes
+  type: RelaxedAtomicInt32
+  value: 2
   mirror: always
 
 #ifdef MOZ_FFMPEG
@@ -9944,7 +9950,7 @@
 # reached. The total size of the ring-buffer is slightly bigger than this.
 - name: media.audio.audiosink.threshold_ms
   type: AtomicFloat
-#if defined(XP_MACOSX) && defined(__aarch64__)
+#if defined(XP_MACOSX) && defined(MOZ_AARCH64)
   value: 1000.0
 #else
   value: 200.0
@@ -10324,7 +10330,7 @@
 # 'origin-when-cross-origin'.
 - name: network.http.referer.disallowCrossSiteRelaxingDefault
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # Whether we ignore less restricted referrer policies for top navigations.
@@ -13285,7 +13291,7 @@
 # Whether we use overlay scrollbars on GTK.
 - name: widget.gtk.overlay-scrollbars.enabled
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # Whether we honor the scrollbar colors from the gtk theme.
@@ -13450,9 +13456,9 @@
 
 # Whether overlay scrollbars respect the system settings.
 # Note that these can be overridden by the ui.useOverlayScrollbars pref.
-- name: widget.windows.overlay_scrollbars.enabled
+- name: widget.windows.overlay-scrollbars.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: widget.windows.window_occlusion_tracking_display_state.enabled

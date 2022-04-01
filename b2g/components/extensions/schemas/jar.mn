@@ -4,4 +4,5 @@
 
 chrome.jar:
 % content b2g %content/
-    content/schemas/tabs.json (tabs.json)
+    content/schemas/tabs.json    (tabs.json)
+    content/schemas/windows.json (windows.json)

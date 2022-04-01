@@ -56,7 +56,7 @@ class ExtensionActionHelper {
   }
 
   sendRequest(aTabId, aData) {
-    console.log(`ext-ExtensionActionHelper::sendRequest ${aTabId} ${JSON.stringify(aData)}`);
+    // console.log(`ext-ExtensionActionHelper::sendRequest ${aTabId} ${JSON.stringify(aData)}`);
     return WebExtensionsEmbedding.sendRequest(this.extension, aTabId, aData);
   }
 }
@@ -74,9 +74,9 @@ const BROWSER_ACTION_PROPERTIES = [
 
 class BrowserAction extends BrowserActionBase {
   constructor(extension, clickDelegate) {
-    const inParent =
-      Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_DEFAULT;
-    console.log(`ext-BrowserAction::constructor inParent=${inParent}`);
+    // const inParent =
+    //   Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_DEFAULT;
+    // console.log(`ext-BrowserAction::constructor inParent=${inParent}`);
 
     const tabContext = new TabContext(tabId => this.getContextData(null));
     super(tabContext, extension);
@@ -91,7 +91,7 @@ class BrowserAction extends BrowserActionBase {
   }
 
   updateOnChange(tab) {
-    console.log(`ext-BrowserAction::updateOnChange`);
+    // console.log(`ext-BrowserAction::updateOnChange`);
     const tabId = tab ? tab.id : null;
     const action = tab
       ? this.getContextData(tab)
@@ -103,7 +103,7 @@ class BrowserAction extends BrowserActionBase {
   }
 
   openPopup() {
-    console.log(`ext-BrowserAction::openPopup`);
+    // console.log(`ext-BrowserAction::openPopup`);
     const tab = tabTracker.activeTab;
     const popupUri = this.triggerClickOrPopup(tab);
     const actionObject = this.getContextData(tab);

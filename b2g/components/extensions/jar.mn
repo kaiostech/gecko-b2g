@@ -4,13 +4,14 @@
 
 chrome.jar:
 % content b2g %content/
-
     content/ext-b2g.js
     content/ext-b2g.json
-    content/ext-browserAction.js
     content/ext-c-b2g.js
     content/ext-c-tabs.js
+    content/ext-browserAction.js
+    content/ext-downloads.js
     content/ext-pageAction.js
     content/ext-tabs.js
-    content/ext-downloads.js
+    content/ext-windows.js
+
 % override chrome://extensions/content/parent/ext-downloads.js chrome://b2g/content/ext-downloads.js

@@ -508,7 +508,6 @@ class BrowserExtensionContent extends EventEmitter {
   }
 
   getAPIManager() {
-    console.log(`ext-ExtensionChild getAPIManager()`);
     let apiManagers = [ExtensionPageChild.apiManager];
 
     if (this.dependencies) {

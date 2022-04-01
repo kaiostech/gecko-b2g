@@ -24,5 +24,11 @@
     "schema": "chrome://b2g/content/schemas/tabs.json",
     "scopes": ["addon_parent"],
     "paths": [["tabs"]]
+  },
+  "windows": {
+    "url": "chrome://b2g/content/ext-windows.js",
+    "schema": "chrome://b2g/content/schemas/windows.json",
+    "scopes": ["addon_parent"],
+    "paths": [["windows"]]
   }
 }

@@ -99,7 +99,8 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   virtual void NotifyDataArrived() {}
   RefPtr<SetCDMPromise> SetCDMProxy(CDMProxy* aProxy);
   void UpdateCompositor(already_AddRefed<layers::KnowsCompositor> aCompositor);
-  void GetDebugInfo(dom::MediaFormatReaderDebugInfo& aInfo) {}
+  RefPtr<GenericPromise> RequestDebugInfo(
+      dom::MediaFormatReaderDebugInfo& aInfo);
 
   MediaEventSource<nsTArray<uint8_t>, nsString>& OnEncrypted() {
     return mOnEncrypted;

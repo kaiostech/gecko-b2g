@@ -31,7 +31,7 @@ class MediaFormatReaderProxy
   MediaFormatReaderProxy(MediaFormatReader* aReader);
   MediaFormatReaderProxy(MediaOffloadPlayer* aPlayer);
 
-  PROXY_MEMBER_FUNCTION(GetDebugInfo)
+  PROXY_MEMBER_FUNCTION(RequestDebugInfo)
   PROXY_MEMBER_FUNCTION(OwnerThread)
   PROXY_MEMBER_FUNCTION(OnEncrypted)
   PROXY_MEMBER_FUNCTION(OnWaitingForKey)

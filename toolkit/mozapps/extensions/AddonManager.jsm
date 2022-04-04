@@ -56,7 +56,7 @@ var PREF_EM_CHECK_COMPATIBILITY = MOZ_COMPATIBILITY_NIGHTLY
   : undefined;
 
 const WEBAPI_INSTALL_HOSTS = AppConstants.MOZ_B2G
-  ? ["addons.mozilla.org", "shared.localhost"]
+  ? ["addons.mozilla.org", "ftu.localhost"]
   : ["addons.mozilla.org"];
 const WEBAPI_TEST_INSTALL_HOSTS = [
   "addons.allizom.org",

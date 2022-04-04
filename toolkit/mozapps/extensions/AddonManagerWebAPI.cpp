@@ -32,7 +32,8 @@ static bool IsValidHost(const nsACString& host) {
 #ifdef MOZ_B2G
   // TODO: use a pref instead of hardcoding
   if (host.EqualsLiteral("system.localhost") ||
-      host.EqualsLiteral("settings.localhost")) {
+      host.EqualsLiteral("settings.localhost") ||
+      host.EqualsLiteral("ftu.localhost")) {
     return true;
   }
 #endif

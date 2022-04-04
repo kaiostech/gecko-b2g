@@ -78,7 +78,7 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
 #endif
   NS_DECL_NSIOBSERVER
 
-  nsGeolocationService() { mHigherAccuracy = false; }
+  nsGeolocationService() = default;
 
   nsresult Init();
 
@@ -90,13 +90,12 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
   CachedPositionAndAccuracy GetCachedPosition();
 
   // Find and startup a geolocation device (gps, nmea, etc.)
-  MOZ_CAN_RUN_SCRIPT
-  nsresult StartDevice();
+  MOZ_CAN_RUN_SCRIPT nsresult StartDevice();
 
   // Stop the started geolocation device (gps, nmea, etc.)
   void StopDevice();
 
-  // create, or reinitalize the callback timer
+  // create, or reinitialize the callback timer
   void SetDisconnectTimer();
 
   // Return true if there is active locator
@@ -132,7 +131,7 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
   CachedPositionAndAccuracy mLastPosition;
 
   // Current state of requests for higher accuracy
-  bool mHigherAccuracy;
+  bool mHigherAccuracy = false;
 };
 
 namespace mozilla {

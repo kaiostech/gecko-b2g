@@ -2754,12 +2754,6 @@
   value: true
   mirror: always
 
-# Enable Directory API. By default, disabled.
-- name: dom.input.dirpicker
-  type: bool
-  value: false
-  mirror: always
-
 # Whether to allow or disallow web apps to cancel `beforeinput` events caused
 # by MozEditableElement#setUserInput() which is used by autocomplete, autofill
 # and password manager.
@@ -5342,6 +5336,24 @@
 - name: gfx.canvas.accelerated.shared-page-size
   type: RelaxedAtomicUint32
   value: 1024
+  mirror: always
+
+# The minimum number of frames before acting on performance profile info
+- name: gfx.canvas.accelerated.profile-frames
+  type: RelaxedAtomicUint32
+  value: 10
+  mirror: always
+
+# The ratio of failed frames to total frames when to fall back from acceleration
+- name: gfx.canvas.accelerated.profile-fallback-ratio
+  type: AtomicFloat
+  value: 0.3
+  mirror: always
+
+# The ratio of cache misses at which to fail a profile frame
+- name: gfx.canvas.accelerated.profile-cache-miss-ratio
+  type: AtomicFloat
+  value: 0.66
   mirror: always
 
 # 0x7fff is the maximum supported xlib surface size and is more than enough for canvases.

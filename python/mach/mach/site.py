@@ -61,7 +61,7 @@ class SitePackagesSource(enum.Enum):
     VENV = "pip"
 
     @classmethod
-    def from_environment(cls, external_python, site_name, requirements):
+    def for_mach(cls):
         source = os.environ.get("MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE", "").lower()
         if source == "system":
             source = SitePackagesSource.SYSTEM
@@ -75,19 +75,7 @@ class SitePackagesSource(enum.Enum):
                 'of "system", "pip", "none", or to not be set'
             )
 
-        if site_name not in PIP_NETWORK_INSTALL_RESTRICTED_VIRTUALENVS:
-            if source == SitePackagesSource.SYSTEM:
-                raise Exception(
-                    'Cannot use MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE="system" for any '
-                    f"sites other than {PIP_NETWORK_INSTALL_RESTRICTED_VIRTUALENVS}. The "
-                    f'current attempted site is "{site_name}".'
-                )
-
-            return SitePackagesSource.VENV
-
         mach_use_system_python = bool(os.environ.get("MACH_USE_SYSTEM_PYTHON"))
-        moz_automation = bool(os.environ.get("MOZ_AUTOMATION"))
-
         if source:
             if mach_use_system_python:
                 raise Exception(
@@ -97,12 +85,9 @@ class SitePackagesSource(enum.Enum):
                 )
             return source
 
-        if not (mach_use_system_python or moz_automation):
-            return SitePackagesSource.VENV
-
         # Only print this warning once for the Mach site, so we don't spam it every
         # time a site handle is created.
-        if site_name == "mach" and mach_use_system_python:
+        if mach_use_system_python:
             print(
                 'The "MACH_USE_SYSTEM_PYTHON" environment variable is deprecated, '
                 "please unset it or replace it with either "
@@ -110,14 +95,11 @@ class SitePackagesSource(enum.Enum):
                 '"MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none"'
             )
 
-        if not external_python.has_pip():
-            source = SitePackagesSource.NONE
-        elif external_python.provides_any_package(site_name, requirements):
-            source = SitePackagesSource.SYSTEM
-        else:
-            source = SitePackagesSource.NONE
-
-        return source
+        return (
+            SitePackagesSource.NONE
+            if (mach_use_system_python or os.environ.get("MOZ_AUTOMATION"))
+            else SitePackagesSource.VENV
+        )
 
 
 class MozSiteMetadata:
@@ -138,7 +120,6 @@ class MozSiteMetadata:
         self,
         hex_version: int,
         site_name: str,
-        site_packages_source: SitePackagesSource,
         mach_site_packages_source: SitePackagesSource,
         original_python: "ExternalPythonSite",
         prefix: str,
@@ -159,7 +140,6 @@ class MozSiteMetadata:
 
         self.hex_version = hex_version
         self.site_name = site_name
-        self.site_packages_source = site_packages_source
         self.mach_site_packages_source = mach_site_packages_source
         # original_python is needed for commands that tweak the system, such
         # as "./mach install-moz-phab".
@@ -170,7 +150,6 @@ class MozSiteMetadata:
         raw = {
             "hex_version": self.hex_version,
             "virtualenv_name": self.site_name,
-            "site_packages_source": self.site_packages_source.name,
             "mach_site_packages_source": self.mach_site_packages_source.name,
             "original_python_executable": self.original_python.python_path,
             "is_finalized": is_finalized,
@@ -183,7 +162,6 @@ class MozSiteMetadata:
             type(self) == type(other)
             and self.hex_version == other.hex_version
             and self.site_name == other.site_name
-            and self.site_packages_source == other.site_packages_source
             and self.mach_site_packages_source == other.mach_site_packages_source
             and self.original_python.python_path == other.original_python.python_path
         )
@@ -211,7 +189,6 @@ class MozSiteMetadata:
             return cls(
                 raw["hex_version"],
                 raw["virtualenv_name"],
-                SitePackagesSource[raw["site_packages_source"]],
                 SitePackagesSource[raw["mach_site_packages_source"]],
                 ExternalPythonSite(raw["original_python_executable"]),
                 metadata_path,
@@ -291,7 +268,6 @@ class MachSiteManager:
             sys.hexversion,
             "mach",
             site_packages_source,
-            site_packages_source,
             original_python,
             self._virtualenv_root,
         )
@@ -326,9 +302,7 @@ class MachSiteManager:
         else:
             original_python = external_python
 
-        source = SitePackagesSource.from_environment(
-            external_python, "mach", requirements
-        )
+        source = SitePackagesSource.for_mach()
         virtualenv_root = (
             _mach_virtualenv_root(get_state_dir())
             if source == SitePackagesSource.VENV
@@ -434,7 +408,7 @@ class MachSiteManager:
             self._topsrcdir,
             environment,
             self._pthfile_lines(environment),
-            self._site_packages_source,
+            True,
             self._requirements,
             self._metadata,
         )
@@ -477,7 +451,7 @@ class CommandSiteManager:
         virtualenv_root: str,
         site_name: str,
         active_metadata: MozSiteMetadata,
-        site_packages_source: SitePackagesSource,
+        populate_virtualenv: bool,
         requirements: MachEnvRequirements,
     ):
         """
@@ -487,8 +461,10 @@ class CommandSiteManager:
             virtualenv_root: The path to the virtualenv associated with this site
             site_name: The name of this site, such as "build"
             active_metadata: The currently-active moz-managed site
-            site_packages_source: Where this site will import its pip-installed
-                dependencies from
+            populate_virtualenv: True if packages should be installed to the on-disk
+                virtualenv with "pip". False if the virtualenv should only include
+                sys.path modifications, and all 3rd-party packages should be imported from
+                Mach's site packages source.
             requirements: The requirements associated with this site, parsed from
                 the file at python/sites/<site_name>.txt
         """
@@ -499,13 +475,12 @@ class CommandSiteManager:
         self._virtualenv = PythonVirtualenv(self.virtualenv_root)
         self.python_path = self._virtualenv.python_path
         self.bin_path = self._virtualenv.bin_path
-        self._site_packages_source = site_packages_source
+        self._populate_virtualenv = populate_virtualenv
         self._mach_site_packages_source = active_metadata.mach_site_packages_source
         self._requirements = requirements
         self._metadata = MozSiteMetadata(
             sys.hexversion,
             site_name,
-            site_packages_source,
             active_metadata.mach_site_packages_source,
             active_metadata.original_python,
             virtualenv_root,
@@ -533,23 +508,30 @@ class CommandSiteManager:
             active_metadata
         ), "A Mach-managed site must be active before doing work with command sites"
 
-        external_python = ExternalPythonSite(sys.executable)
-        requirements = resolve_requirements(topsrcdir, site_name)
-        source = SitePackagesSource.from_environment(
-            external_python, site_name, requirements
-        )
-        if source == SitePackagesSource.NONE and requirements.pypi_requirements:
+        mach_site_packages_source = active_metadata.mach_site_packages_source
+        pip_restricted_site = site_name in PIP_NETWORK_INSTALL_RESTRICTED_VIRTUALENVS
+        if (
+            not pip_restricted_site
+            and mach_site_packages_source == SitePackagesSource.SYSTEM
+        ):
+            # Sites that aren't pip-network-install-restricted are likely going to be
+            # incompatible with the system. Besides, this use case shouldn't exist, since
+            # using the system packages is supposed to only be needed to lower risk of
+            # important processes like building Firefox.
             raise Exception(
-                f'The "{site_name}" site requires pip '
-                "packages, and Mach has been told to find such pip packages in "
-                "the system environment, but it can't because the system doesn't "
-                'have "pip" installed.'
+                'Cannot use MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE="system" for any '
+                f"sites other than {PIP_NETWORK_INSTALL_RESTRICTED_VIRTUALENVS}. The "
+                f'current attempted site is "{site_name}".'
             )
 
         mach_virtualenv_root = (
             _mach_virtualenv_root(get_state_dir())
-            if active_metadata.mach_site_packages_source == SitePackagesSource.VENV
+            if mach_site_packages_source == SitePackagesSource.VENV
             else None
+        )
+        populate_virtualenv = (
+            mach_site_packages_source == SitePackagesSource.VENV
+            or not pip_restricted_site
         )
         return cls(
             topsrcdir,
@@ -557,8 +539,8 @@ class CommandSiteManager:
             os.path.join(command_virtualenvs_dir, site_name),
             site_name,
             active_metadata,
-            source,
-            requirements,
+            populate_virtualenv,
+            resolve_requirements(topsrcdir, site_name),
         )
 
     def ensure(self):
@@ -581,7 +563,7 @@ class CommandSiteManager:
                 self._topsrcdir,
                 self._virtualenv,
                 self._pthfile_lines(),
-                self._site_packages_source,
+                self._populate_virtualenv,
                 self._requirements,
                 self._metadata,
             )
@@ -751,16 +733,7 @@ class CommandSiteManager:
 
         # Add this command's vendored and first-party modules.
         lines.extend(self._requirements.pths_as_absolute(self._topsrcdir))
-        if (
-            self._site_packages_source == SitePackagesSource.SYSTEM
-            and not mach_site_packages_source == SitePackagesSource.SYSTEM
-        ):
-            # Only add the system environment if it wasn't already added
-            # earlier for Mach.
-            stdlib_paths = self._metadata.original_python.stdlib_paths()
-            system_sys_path = [p for p in sys.path if p not in stdlib_paths]
-            lines.extend(system_sys_path)
-        elif self._site_packages_source == SitePackagesSource.VENV:
+        if self._populate_virtualenv:
             # Finally, ensure that pip-installed packages are the lowest-priority
             # source to import from.
             lines.extend(_deprioritize_venv_packages(self._virtualenv))
@@ -781,9 +754,7 @@ class CommandSiteManager:
                 self._topsrcdir,
                 pthfile_lines,
                 self._site_name,
-                self._requirements
-                if self._site_packages_source == SitePackagesSource.SYSTEM
-                else None,
+                self._requirements if not self._populate_virtualenv else None,
             )
 
         return _is_venv_up_to_date(
@@ -978,33 +949,6 @@ class ExternalPythonSite:
         )
         return ast.literal_eval(stdlib_paths)
 
-    @functools.lru_cache(maxsize=None)
-    def has_pip(self):
-        return (
-            subprocess.run(
-                [self.python_path, "-c", "import pip"], stderr=subprocess.DEVNULL
-            ).returncode
-            == 0
-        )
-
-    def provides_any_package(self, virtualenv_name, requirements):
-        system_packages = self._resolve_installed_packages()
-        result = RequirementsValidationResult.from_packages(
-            system_packages, requirements
-        )
-        if not result.has_all_packages:
-            print(result.report())
-            raise Exception(
-                f'The Python packages associated with "{self.python_path}" aren\'t '
-                f'compatible with the "{virtualenv_name}" virtualenv'
-            )
-
-        return result.provides_any_package
-
-    @functools.lru_cache(maxsize=None)
-    def _resolve_installed_packages(self):
-        return _resolve_installed_packages(self.python_path)
-
 
 @functools.lru_cache(maxsize=None)
 def resolve_requirements(topsrcdir, site_name):
@@ -1179,7 +1123,7 @@ def _create_venv_with_pthfile(
     topsrcdir,
     target_venv,
     pthfile_lines,
-    site_packages_source,
+    populate_with_pip,
     requirements,
     metadata,
 ):
@@ -1206,7 +1150,7 @@ def _create_venv_with_pthfile(
     with open(os.path.join(platlib_site_packages_dir, PTH_FILENAME), "w") as f:
         f.write(pthfile_contents)
 
-    if site_packages_source == SitePackagesSource.VENV:
+    if populate_with_pip:
         for requirement in requirements.pypi_requirements:
             target_venv.pip_install([str(requirement.requirement)])
         target_venv.install_optional_packages(requirements.pypi_optional_requirements)

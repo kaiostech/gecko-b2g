@@ -6871,7 +6871,7 @@
 
 - name: javascript.options.wasm_caching
   type: bool
-  value: true
+  value: false
   mirror: always
 
 # The amount of time we wait between a request to GC (due to leaving a page) and doing the actual GC, in ms.
@@ -9792,6 +9792,11 @@
 #else
   value: false
 #endif
+  mirror: always
+
+- name: media.webrtc.platformencoder.sw_mft
+  type: RelaxedAtomicBool
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: media.block-autoplay-until-in-foreground

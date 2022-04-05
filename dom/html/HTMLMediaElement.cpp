@@ -2394,6 +2394,9 @@ void HTMLMediaElement::AbortExistingLoads() {
   if (mNetworkState != NETWORK_EMPTY) {
     NS_ASSERTION(!mDecoder && !mSrcStream,
                  "How did someone setup a new stream/decoder already?");
+
+    DispatchAsyncEvent(u"emptied"_ns);
+
     // ChangeNetworkState() will call UpdateAudioChannelPlayingState()
     // indirectly which depends on mPaused. So we need to update mPaused first.
     if (!mPaused) {
@@ -2418,7 +2421,6 @@ void HTMLMediaElement::AbortExistingLoads() {
       // change will be reflected in the controls.
       FireTimeUpdate(TimeupdateType::eMandatory);
     }
-    DispatchAsyncEvent(u"emptied"_ns);
     UpdateAudioChannelPlayingState();
   }
 

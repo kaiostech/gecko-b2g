@@ -510,6 +510,7 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
           mRecentVsync(TimeStamp::Now()),
           mLastTickStart(TimeStamp::Now()),
           mLastIdleTaskCount(0),
+          mLastRunOutOfMTTasksCount(0),
           mVsyncRate(TimeDuration::Forever()),
           mProcessedVsync(true) {
       MOZ_ASSERT(NS_IsMainThread());
@@ -566,9 +567,15 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
       uint64_t idleTaskCount = idleTaskManager->ProcessedTaskCount();
 
       // If we haven't processed new idle tasks and we have pending
-      // non-idle tasks, give those non-idle tasks more time.
+      // non-idle tasks, give those non-idle tasks more time,
+      // but only if the main thread wasn't totally empty at some point.
+      // In the parent process RunOutOfMTTasksCount() is less meaningful
+      // because some of the tasks run through AppShell.
       return mLastIdleTaskCount == idleTaskCount &&
-             pendingTaskCount > pendingIdleTaskCount;
+             pendingTaskCount > pendingIdleTaskCount &&
+             (taskController->RunOutOfMTTasksCount() ==
+                  mLastRunOutOfMTTasksCount ||
+              XRE_IsParentProcess());
     }
 
     void NotifyVsyncOnMainThread() {
@@ -652,6 +659,7 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
       mLastTickStart = TimeStamp::Now();
       mLastTickEnd = TimeStamp();
       mLastIdleTaskCount = 0;
+      mLastRunOutOfMTTasksCount = 0;
     }
 
     void IdlePriorityNotify() {
@@ -765,6 +773,8 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
 
         mLastIdleTaskCount =
             TaskController::Get()->GetIdleTaskManager()->ProcessedTaskCount();
+        mLastRunOutOfMTTasksCount =
+            TaskController::Get()->RunOutOfMTTasksCount();
       }
 
       mLastTickEnd = TimeStamp::Now();
@@ -807,6 +817,9 @@ class VsyncRefreshDriverTimer : public RefreshDriverTimer {
     // The number of idle tasks the main thread has processed. It is updated
     // right after RefreshDrivers' tick.
     uint64_t mLastIdleTaskCount;
+    // If there were no idle tasks, we need to check if the main event queue
+    // was totally empty at times.
+    uint64_t mLastRunOutOfMTTasksCount;
     // Note, mLastProcessedTick stores the vsync timestamp, which may be coming
     // from a different process.
     TimeStamp mLastProcessedTick;

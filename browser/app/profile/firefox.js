@@ -593,7 +593,7 @@ pref("browser.search.openintab", false);
 // context menu searches open in the foreground
 pref("browser.search.context.loadInBackground", false);
 
-// comma seperated list of of engines to hide in the search panel.
+// comma separated list of of engines to hide in the search panel.
 pref("browser.search.hiddenOneOffs", "");
 
 // Mirrors whether the search-container widget is in the navigation toolbar.
@@ -1996,11 +1996,7 @@ pref("browser.tabs.remote.autostart", true);
 pref("browser.tabs.remote.desktopbehavior", true);
 
 // Run media transport in a separate process?
-#ifdef EARLY_BETA_OR_EARLIER
-  pref("media.peerconnection.mtransport_process", true);
-#else
-  pref("media.peerconnection.mtransport_process", false);
-#endif
+pref("media.peerconnection.mtransport_process", true);
 
 // For speculatively warming up tabs to improve perceived
 // performance while using the async tab switcher.
@@ -2078,7 +2074,12 @@ pref("extensions.pocket.showHome", true);
 pref("extensions.pocket.loggedOutVariant", "control");
 
 // Enable the new Pocket panels.
-pref("extensions.pocket.refresh.layout.enabled", false);
+#ifdef NIGHTLY_BUILD
+  pref("extensions.pocket.refresh.layout.enabled", true);
+#else
+  pref("extensions.pocket.refresh.layout.enabled", false);
+#endif
+
 // Just for the new Pocket panels, enables the email signup button.
 pref("extensions.pocket.refresh.emailButton.enabled", false);
 // Hides the recently saved section in the home panel.

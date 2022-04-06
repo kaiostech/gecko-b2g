@@ -9278,9 +9278,9 @@
     mirror: always
 
 -   name: media.wmf.vp9.enabled
-    type: bool
+    type: RelaxedAtomicBool
     value: true
-    mirror: once
+    mirror: always
 
 -   name: media.wmf.av1.enabled
     type: RelaxedAtomicBool
@@ -9438,6 +9438,12 @@
 
 # Are video stats enabled? (Disabling can help prevent fingerprinting.)
 - name: media.video_stats.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# forces the number of dropped frames to 0
+- name: media.video.dropped_frame_stats.enabled
   type: bool
   value: true
   mirror: always
@@ -10186,7 +10192,7 @@
   mirror: always
 
 - name: network.cookie.sameSite.laxByDefault
-  type: bool
+  type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
@@ -10563,7 +10569,7 @@
 #if defined(ANDROID) || defined(MOZ_THUNDERBIRD)
   value: false # see bug 1641427
 #else
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
 #endif
 
 # Whether we can send OnDataAvailable to content process directly.
@@ -13512,16 +13518,21 @@
 
 - name: widget.swipe.success-threshold
   type: float
-#if defined(XP_WIN)
-  value: 0.5f
-#else
   value: 0.25f
-#endif
   mirror: always
 
 - name: widget.swipe.success-velocity-contribution
   type: float
   value: 0.05f
+  mirror: always
+
+- name: widget.swipe.whole-page-pixel-size
+  type: float
+#if defined(XP_WIN)
+  value: 1100.0f
+#else
+  value: 550.0f
+#endif
   mirror: always
 
 #---------------------------------------------------------------------------

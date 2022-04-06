@@ -32,6 +32,7 @@ class MediaTransportHandler;
 class RTCStatsIdGenerator;
 class WebrtcCallWrapper;
 class JsepTrackNegotiatedDetails;
+class PeerConnectionImpl;
 
 namespace dom {
 class RTCDtlsTransport;
@@ -39,6 +40,7 @@ class RTCDTMFSender;
 class RTCRtpTransceiver;
 struct RTCRtpSourceEntry;
 class RTCRtpReceiver;
+class RTCRtpSender;
 }  // namespace dom
 
 /**
@@ -56,20 +58,16 @@ class TransceiverImpl : public nsISupports,
   /**
    * |aSendTrack| might or might not be set.
    */
-  TransceiverImpl(
-      nsPIDOMWindowInner* aWindow, bool aPrivacyNeeded,
-      const std::string& aPCHandle, MediaTransportHandler* aTransportHandler,
-      JsepTransceiver* aJsepTransceiver, nsISerialEventTarget* aMainThread,
-      nsISerialEventTarget* aStsThread, dom::MediaStreamTrack* aSendTrack,
-      WebrtcCallWrapper* aCallWrapper, RTCStatsIdGenerator* aIdGenerator);
+  TransceiverImpl(nsPIDOMWindowInner* aWindow, bool aPrivacyNeeded,
+                  PeerConnectionImpl* aPc,
+                  MediaTransportHandler* aTransportHandler,
+                  JsepTransceiver* aJsepTransceiver,
+                  nsISerialEventTarget* aStsThread,
+                  dom::MediaStreamTrack* aSendTrack,
+                  WebrtcCallWrapper* aCallWrapper,
+                  RTCStatsIdGenerator* aIdGenerator);
 
   bool IsValid() const { return !!mConduit; }
-
-  nsresult UpdateSendTrack(dom::MediaStreamTrack* aSendTrack);
-
-  nsresult UpdateSinkIdentity(const dom::MediaStreamTrack* aTrack,
-                              nsIPrincipal* aPrincipal,
-                              const PeerIdentity* aSinkIdentity);
 
   nsresult UpdateTransport();
 
@@ -84,26 +82,18 @@ class TransceiverImpl : public nsISupports,
 
   bool ConduitHasPluginID(uint64_t aPluginID);
 
-  bool HasSendTrack(const dom::MediaStreamTrack* aSendTrack) const;
-
-  // This is so PCImpl can unregister from PrincipalChanged callbacks; maybe we
-  // should have TransceiverImpl handle these callbacks instead? It would need
-  // to be able to get a ref to PCImpl though.
-  RefPtr<dom::MediaStreamTrack> GetSendTrack() { return mSendTrack; }
-
   // for webidl
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
   nsPIDOMWindowInner* GetParentObject() const;
   void SyncWithJS(dom::RTCRtpTransceiver& aJsTransceiver, ErrorResult& aRv);
   dom::RTCRtpReceiver* Receiver() const { return mReceiver; }
-  dom::RTCDTMFSender* GetDtmf() const { return mDtmf; }
+  dom::RTCRtpSender* Sender() const { return mSender; }
   dom::RTCDtlsTransport* GetDtlsTransport() const { return mDtlsTransport; }
+  void GetKind(nsAString& aKind) const;
 
   bool CanSendDTMF() const;
-
-  // TODO: These are for stats; try to find a cleaner way.
-  RefPtr<MediaPipelineTransmit> GetSendPipeline();
+  bool Stopped() const { return mStopped; }
 
   void UpdateDtlsTransportState(const std::string& aTransportId,
                                 TransportLayer::State aState);
@@ -145,13 +135,19 @@ class TransceiverImpl : public nsISupports,
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TransceiverImpl)
 
-  static nsresult NegotiatedDetailsToAudioCodecConfigs(
+  static void NegotiatedDetailsToAudioCodecConfigs(
       const JsepTrackNegotiatedDetails& aDetails,
       std::vector<AudioCodecConfig>* aConfigs);
 
-  static nsresult NegotiatedDetailsToVideoCodecConfigs(
+  static void NegotiatedDetailsToVideoCodecConfigs(
       const JsepTrackNegotiatedDetails& aDetails,
       std::vector<VideoCodecConfig>* aConfigs);
+
+  /* Returns a promise that will contain the stats in aStats, along with the
+   * codec stats (which is a PC-wide thing) */
+  void ChainToDomPromiseWithCodecStats(
+      nsTArray<RefPtr<dom::RTCStatsPromise>> aStats,
+      const RefPtr<dom::Promise>& aDomPromise);
 
   /**
    * Takes a set of codec stats (per-peerconnection) and a set of
@@ -166,54 +162,25 @@ class TransceiverImpl : public nsISupports,
                           RefPtr<dom::RTCStatsPromise::AllPromiseType>>>
           aTransceiverStatsPromises);
 
-  AbstractCanonical<bool>* CanonicalReceiving() { return &mReceiving; }
-  AbstractCanonical<bool>* CanonicalTransmitting() { return &mTransmitting; }
-  AbstractCanonical<Ssrcs>* CanonicalLocalSsrcs() { return &mLocalSsrcs; }
-  AbstractCanonical<std::string>* CanonicalLocalCname() { return &mLocalCname; }
-  AbstractCanonical<std::string>* CanonicalLocalMid() { return &mLocalMid; }
+  AbstractCanonical<std::string>* CanonicalMid() { return &mMid; }
   AbstractCanonical<std::string>* CanonicalSyncGroup() { return &mSyncGroup; }
-  AbstractCanonical<RtpExtList>* CanonicalLocalSendRtpExtensions() {
-    return &mLocalSendRtpExtensions;
-  }
-  AbstractCanonical<Maybe<AudioCodecConfig>>* CanonicalAudioSendCodec() {
-    return &mAudioSendCodec;
-  }
-  AbstractCanonical<Ssrcs>* CanonicalLocalVideoRtxSsrcs() {
-    return &mLocalVideoRtxSsrcs;
-  }
-  AbstractCanonical<Maybe<VideoCodecConfig>>* CanonicalVideoSendCodec() {
-    return &mVideoSendCodec;
-  }
-  AbstractCanonical<Maybe<RtpRtcpConfig>>* CanonicalVideoSendRtpRtcpConfig() {
-    return &mVideoSendRtpRtcpConfig;
-  }
-  AbstractCanonical<webrtc::VideoCodecMode>* CanonicalVideoCodecMode() {
-    return &mVideoCodecMode;
-  }
 
  private:
   virtual ~TransceiverImpl();
   void InitAudio();
   void InitVideo();
   void InitConduitControl();
-  nsresult UpdateAudioConduit();
-  nsresult UpdateVideoConduit();
-  nsresult ConfigureVideoCodecMode();
   void Stop();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
-  const std::string mPCHandle;
+  RefPtr<PeerConnectionImpl> mPc;
   RefPtr<MediaTransportHandler> mTransportHandler;
   const RefPtr<JsepTransceiver> mJsepTransceiver;
-  bool mHaveSetupTransport;
-  nsCOMPtr<nsISerialEventTarget> mMainThread;
   nsCOMPtr<nsISerialEventTarget> mStsThread;
-  RefPtr<dom::MediaStreamTrack> mSendTrack;
   // state for webrtc.org that is shared between all transceivers
   RefPtr<WebrtcCallWrapper> mCallWrapper;
+  RefPtr<RTCStatsIdGenerator> mIdGenerator;
   RefPtr<MediaSessionConduit> mConduit;
-  // Call thread only.
-  RefPtr<MediaPipelineTransmit> mTransmitPipeline;
   // The spec says both RTCRtpReceiver and RTCRtpSender have a slot for
   // an RTCDtlsTransport.  They are always the same, so we'll store it
   // here.
@@ -223,23 +190,13 @@ class TransceiverImpl : public nsISupports,
   // we'll store it here.
   RefPtr<dom::RTCDtlsTransport> mLastStableDtlsTransport;
   RefPtr<dom::RTCRtpReceiver> mReceiver;
-  // TODO(bug 1616937): Move this to RTCRtpSender
-  RefPtr<dom::RTCDTMFSender> mDtmf;
+  RefPtr<dom::RTCRtpSender> mSender;
+  bool mStopped = false;
+  bool mShutdown = false;
+  bool mSyncing = false;
 
-  Canonical<bool> mReceiving;
-  Canonical<bool> mTransmitting;
-  Canonical<Ssrcs> mLocalSsrcs;
-  Canonical<Ssrcs> mLocalVideoRtxSsrcs;
-  Canonical<std::string> mLocalCname;
-  Canonical<std::string> mLocalMid;
+  Canonical<std::string> mMid;
   Canonical<std::string> mSyncGroup;
-  Canonical<RtpExtList> mLocalSendRtpExtensions;
-
-  Canonical<Maybe<AudioCodecConfig>> mAudioSendCodec;
-
-  Canonical<Maybe<VideoCodecConfig>> mVideoSendCodec;
-  Canonical<Maybe<RtpRtcpConfig>> mVideoSendRtpRtcpConfig;
-  Canonical<webrtc::VideoCodecMode> mVideoCodecMode;
 };
 
 }  // namespace mozilla

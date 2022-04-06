@@ -2029,11 +2029,20 @@ KeyframeEffect::MatchForCompositor KeyframeEffect::IsMatchForCompositor(
     return KeyframeEffect::MatchForCompositor::NoAndBlockThisProperty;
   }
 
-  // Unconditionally disable OMTA for scroll-timeline.
-  // FIXME: Bug 1737180: Once we support OMTA for scroll-timeline, we can just
-  // drop this.
   if (mAnimation->UsingScrollTimeline()) {
-    return KeyframeEffect::MatchForCompositor::No;
+    const ScrollTimeline* scrollTimeline =
+        mAnimation->GetTimeline()->AsScrollTimeline();
+    // We don't send this animation to the compositor if
+    // 1. the APZ is disabled entirely or for the source, or
+    // 2. the associated scroll-timeline is inactive, or
+    // 3. the scrolling direction is not available (i.e. no scroll range).
+    // 4. the scroll style of the scroller is overflow:hidden.
+    if (!scrollTimeline->APZIsActiveForSource() ||
+        !scrollTimeline->IsActive() ||
+        !scrollTimeline->ScrollingDirectionIsAvailable() ||
+        scrollTimeline->SourceScrollStyle() == StyleOverflow::Hidden) {
+      return KeyframeEffect::MatchForCompositor::No;
+    }
   }
 
   if (!HasEffectiveAnimationOfPropertySet(aPropertySet, aEffects)) {

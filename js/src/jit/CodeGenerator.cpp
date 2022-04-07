@@ -1319,9 +1319,8 @@ void CodeGenerator::emitOOLTestObject(Register objreg,
 // objects are truthy, but we implement the JSCLASS_EMULATES_UNDEFINED class
 // flag to permit objects to look like |undefined| in certain contexts,
 // including in object truthiness testing.)  We check truthiness inline except
-// when we're testing it on a proxy (or if TI guarantees us that the specified
-// object will never emulate |undefined|), in which case out-of-line code will
-// call EmulatesUndefined for a conclusive answer.
+// when we're testing it on a proxy, in which case out-of-line code will call
+// EmulatesUndefined for a conclusive answer.
 class OutOfLineTestObject : public OutOfLineCodeBase<CodeGenerator> {
   Register objreg_;
   Register scratch_;
@@ -1410,8 +1409,9 @@ void CodeGenerator::testObjectEmulatesUndefined(Register objreg,
 
 void CodeGenerator::testValueTruthyForType(
     JSValueType type, ScratchTagScope& tag, const ValueOperand& value,
-    Register scratch1, Register scratch2, FloatRegister fr, Label* ifTruthy,
-    Label* ifFalsy, OutOfLineTestObject* ool, bool skipTypeTest) {
+    Register tempToUnbox, Register temp, FloatRegister floatTemp,
+    Label* ifTruthy, Label* ifFalsy, OutOfLineTestObject* ool,
+    bool skipTypeTest) {
 #ifdef DEBUG
   if (skipTypeTest) {
     Label expected;
@@ -1446,8 +1446,8 @@ void CodeGenerator::testValueTruthyForType(
         masm.branchTestObject(Assembler::NotEqual, tag, &notObject);
       }
       ScratchTagScopeRelease _(&tag);
-      Register objreg = masm.extractObject(value, scratch1);
-      testObjectEmulatesUndefined(objreg, ifFalsy, ifTruthy, scratch2, ool);
+      Register objreg = masm.extractObject(value, tempToUnbox);
+      testObjectEmulatesUndefined(objreg, ifFalsy, ifTruthy, temp, ool);
       masm.bind(&notObject);
       return;
     }
@@ -1481,8 +1481,8 @@ void CodeGenerator::testValueTruthyForType(
       break;
     }
     case JSVAL_TYPE_DOUBLE: {
-      masm.unboxDouble(value, fr);
-      masm.branchTestDoubleTruthy(false, fr, ifFalsy);
+      masm.unboxDouble(value, floatTemp);
+      masm.branchTestDoubleTruthy(false, floatTemp, ifFalsy);
       break;
     }
     default:
@@ -1498,12 +1498,12 @@ void CodeGenerator::testValueTruthyForType(
   masm.bind(&differentType);
 }
 
-void CodeGenerator::testValueTruthyKernel(
-    const ValueOperand& value, const LDefinition* scratch1,
-    const LDefinition* scratch2, FloatRegister fr, TypeDataList observedTypes,
-    Label* ifTruthy, Label* ifFalsy, OutOfLineTestObject* ool) {
-  Register scratch1Reg = ToRegister(scratch1);
-  Register scratch2Reg = ToRegister(scratch2);
+void CodeGenerator::testValueTruthy(const ValueOperand& value,
+                                    Register tempToUnbox, Register temp,
+                                    FloatRegister floatTemp,
+                                    const TypeDataList& observedTypes,
+                                    Label* ifTruthy, Label* ifFalsy,
+                                    OutOfLineTestObject* ool) {
   ScratchTagScope tag(masm, value);
   masm.splitTagForTest(value, tag);
 
@@ -1520,7 +1520,7 @@ void CodeGenerator::testValueTruthyKernel(
     JSValueType type = observed.type();
     remaining -= type;
 
-    testValueTruthyForType(type, tag, value, scratch1Reg, scratch2Reg, fr,
+    testValueTruthyForType(type, tag, value, tempToUnbox, temp, floatTemp,
                            ifTruthy, ifFalsy, ool, /*skipTypeTest*/ false);
   }
 
@@ -1533,23 +1533,12 @@ void CodeGenerator::testValueTruthyKernel(
 
     // We don't need a type test for the last possible type.
     bool skipTypeTest = remaining.isEmpty();
-    testValueTruthyForType(type, tag, value, scratch1Reg, scratch2Reg, fr,
+    testValueTruthyForType(type, tag, value, tempToUnbox, temp, floatTemp,
                            ifTruthy, ifFalsy, ool, skipTypeTest);
   }
   MOZ_ASSERT(remaining.isEmpty());
 
   // We fall through if the final test is truthy.
-}
-
-void CodeGenerator::testValueTruthy(const ValueOperand& value,
-                                    const LDefinition* scratch1,
-                                    const LDefinition* scratch2,
-                                    FloatRegister fr,
-                                    TypeDataList observedTypes, Label* ifTruthy,
-                                    Label* ifFalsy, OutOfLineTestObject* ool) {
-  testValueTruthyKernel(value, scratch1, scratch2, fr, observedTypes, ifTruthy,
-                        ifFalsy, ool);
-  masm.jump(ifTruthy);
 }
 
 void CodeGenerator::visitTestBIAndBranch(LTestBIAndBranch* lir) {
@@ -1586,9 +1575,15 @@ void CodeGenerator::visitTestVAndBranch(LTestVAndBranch* lir) {
   Label* truthy = getJumpLabelForBranch(lir->ifTruthy());
   Label* falsy = getJumpLabelForBranch(lir->ifFalsy());
 
-  testValueTruthy(ToValue(lir, LTestVAndBranch::Input), lir->temp1(),
-                  lir->temp2(), ToFloatRegister(lir->tempFloat()),
-                  lir->mir()->observedTypes(), truthy, falsy, ool);
+  ValueOperand input = ToValue(lir, LTestVAndBranch::Input);
+  Register tempToUnbox = ToTempUnboxRegister(lir->temp1());
+  Register temp = ToRegister(lir->temp2());
+  FloatRegister floatTemp = ToFloatRegister(lir->tempFloat());
+  const TypeDataList& observedTypes = lir->mir()->observedTypes();
+
+  testValueTruthy(input, tempToUnbox, temp, floatTemp, observedTypes, truthy,
+                  falsy, ool);
+  masm.jump(truthy);
 }
 
 void CodeGenerator::visitBooleanToString(LBooleanToString* lir) {
@@ -9935,122 +9930,93 @@ void CodeGenerator::visitCompareBigIntString(LCompareBigIntString* lir) {
 }
 
 void CodeGenerator::visitIsNullOrLikeUndefinedV(LIsNullOrLikeUndefinedV* lir) {
+  MOZ_ASSERT(lir->mir()->compareType() == MCompare::Compare_Undefined ||
+             lir->mir()->compareType() == MCompare::Compare_Null);
+
   JSOp op = lir->mir()->jsop();
-  MCompare::CompareType compareType = lir->mir()->compareType();
-  MOZ_ASSERT(compareType == MCompare::Compare_Undefined ||
-             compareType == MCompare::Compare_Null);
+  MOZ_ASSERT(IsLooseEqualityOp(op));
 
   const ValueOperand value = ToValue(lir, LIsNullOrLikeUndefinedV::ValueIndex);
   Register output = ToRegister(lir->output());
 
-  if (op == JSOp::Eq || op == JSOp::Ne) {
-    auto* ool = new (alloc()) OutOfLineTestObjectWithLabels();
-    addOutOfLineCode(ool, lir->mir());
+  auto* ool = new (alloc()) OutOfLineTestObjectWithLabels();
+  addOutOfLineCode(ool, lir->mir());
 
-    Label* nullOrLikeUndefined = ool->label1();
-    Label* notNullOrLikeUndefined = ool->label2();
+  Label* nullOrLikeUndefined = ool->label1();
+  Label* notNullOrLikeUndefined = ool->label2();
 
-    {
-      ScratchTagScope tag(masm, value);
-      masm.splitTagForTest(value, tag);
+  {
+    ScratchTagScope tag(masm, value);
+    masm.splitTagForTest(value, tag);
 
-      masm.branchTestNull(Assembler::Equal, tag, nullOrLikeUndefined);
-      masm.branchTestUndefined(Assembler::Equal, tag, nullOrLikeUndefined);
+    masm.branchTestNull(Assembler::Equal, tag, nullOrLikeUndefined);
+    masm.branchTestUndefined(Assembler::Equal, tag, nullOrLikeUndefined);
 
-      // Check whether it's a truthy object or a falsy object that emulates
-      // undefined.
-      masm.branchTestObject(Assembler::NotEqual, tag, notNullOrLikeUndefined);
-    }
-
-    Register objreg =
-        masm.extractObject(value, ToTempUnboxRegister(lir->temp1()));
-    branchTestObjectEmulatesUndefined(objreg, nullOrLikeUndefined,
-                                      notNullOrLikeUndefined,
-                                      ToRegister(lir->temp0()), ool);
-    // fall through
-
-    Label done;
-
-    // It's not null or undefined, and if it's an object it doesn't
-    // emulate undefined, so it's not like undefined.
-    masm.move32(Imm32(op == JSOp::Ne), output);
-    masm.jump(&done);
-
-    masm.bind(nullOrLikeUndefined);
-    masm.move32(Imm32(op == JSOp::Eq), output);
-
-    // Both branches meet here.
-    masm.bind(&done);
-    return;
+    // Check whether it's a truthy object or a falsy object that emulates
+    // undefined.
+    masm.branchTestObject(Assembler::NotEqual, tag, notNullOrLikeUndefined);
   }
 
-  MOZ_ASSERT(op == JSOp::StrictEq || op == JSOp::StrictNe);
+  Register objreg =
+      masm.extractObject(value, ToTempUnboxRegister(lir->temp0()));
+  branchTestObjectEmulatesUndefined(objreg, nullOrLikeUndefined,
+                                    notNullOrLikeUndefined, output, ool);
+  // fall through
 
-  Assembler::Condition cond = JSOpToCondition(compareType, op);
-  if (compareType == MCompare::Compare_Null) {
-    masm.testNullSet(cond, value, output);
-  } else {
-    masm.testUndefinedSet(cond, value, output);
-  }
+  Label done;
+
+  // It's not null or undefined, and if it's an object it doesn't
+  // emulate undefined, so it's not like undefined.
+  masm.move32(Imm32(op == JSOp::Ne), output);
+  masm.jump(&done);
+
+  masm.bind(nullOrLikeUndefined);
+  masm.move32(Imm32(op == JSOp::Eq), output);
+
+  // Both branches meet here.
+  masm.bind(&done);
 }
 
 void CodeGenerator::visitIsNullOrLikeUndefinedAndBranchV(
     LIsNullOrLikeUndefinedAndBranchV* lir) {
+  MOZ_ASSERT(lir->cmpMir()->compareType() == MCompare::Compare_Undefined ||
+             lir->cmpMir()->compareType() == MCompare::Compare_Null);
+
   JSOp op = lir->cmpMir()->jsop();
-  MCompare::CompareType compareType = lir->cmpMir()->compareType();
-  MOZ_ASSERT(compareType == MCompare::Compare_Undefined ||
-             compareType == MCompare::Compare_Null);
+  MOZ_ASSERT(IsLooseEqualityOp(op));
 
   const ValueOperand value =
       ToValue(lir, LIsNullOrLikeUndefinedAndBranchV::Value);
 
-  if (op == JSOp::Eq || op == JSOp::Ne) {
-    MBasicBlock* ifTrue;
-    MBasicBlock* ifFalse;
+  MBasicBlock* ifTrue = lir->ifTrue();
+  MBasicBlock* ifFalse = lir->ifFalse();
 
-    if (op == JSOp::Eq) {
-      ifTrue = lir->ifTrue();
-      ifFalse = lir->ifFalse();
-    } else {
-      // Swap branches.
-      ifTrue = lir->ifFalse();
-      ifFalse = lir->ifTrue();
-      op = JSOp::Eq;
-    }
-
-    auto* ool = new (alloc()) OutOfLineTestObject();
-    addOutOfLineCode(ool, lir->cmpMir());
-
-    Label* ifTrueLabel = getJumpLabelForBranch(ifTrue);
-    Label* ifFalseLabel = getJumpLabelForBranch(ifFalse);
-
-    {
-      ScratchTagScope tag(masm, value);
-      masm.splitTagForTest(value, tag);
-
-      masm.branchTestNull(Assembler::Equal, tag, ifTrueLabel);
-      masm.branchTestUndefined(Assembler::Equal, tag, ifTrueLabel);
-
-      masm.branchTestObject(Assembler::NotEqual, tag, ifFalseLabel);
-    }
-
-    // Objects that emulate undefined are loosely equal to null/undefined.
-    Register objreg =
-        masm.extractObject(value, ToTempUnboxRegister(lir->tempToUnbox()));
-    Register scratch = ToRegister(lir->temp());
-    testObjectEmulatesUndefined(objreg, ifTrueLabel, ifFalseLabel, scratch,
-                                ool);
-    return;
+  if (op == JSOp::Ne) {
+    // Swap branches.
+    std::swap(ifTrue, ifFalse);
   }
 
-  MOZ_ASSERT(op == JSOp::StrictEq || op == JSOp::StrictNe);
+  auto* ool = new (alloc()) OutOfLineTestObject();
+  addOutOfLineCode(ool, lir->cmpMir());
 
-  Assembler::Condition cond = JSOpToCondition(compareType, op);
-  if (compareType == MCompare::Compare_Null) {
-    testNullEmitBranch(cond, value, lir->ifTrue(), lir->ifFalse());
-  } else {
-    testUndefinedEmitBranch(cond, value, lir->ifTrue(), lir->ifFalse());
+  Label* ifTrueLabel = getJumpLabelForBranch(ifTrue);
+  Label* ifFalseLabel = getJumpLabelForBranch(ifFalse);
+
+  {
+    ScratchTagScope tag(masm, value);
+    masm.splitTagForTest(value, tag);
+
+    masm.branchTestNull(Assembler::Equal, tag, ifTrueLabel);
+    masm.branchTestUndefined(Assembler::Equal, tag, ifTrueLabel);
+
+    masm.branchTestObject(Assembler::NotEqual, tag, ifFalseLabel);
   }
+
+  // Objects that emulate undefined are loosely equal to null/undefined.
+  Register objreg =
+      masm.extractObject(value, ToTempUnboxRegister(lir->tempToUnbox()));
+  Register scratch = ToRegister(lir->temp());
+  testObjectEmulatesUndefined(objreg, ifTrueLabel, ifFalseLabel, scratch, ool);
 }
 
 void CodeGenerator::visitIsNullOrLikeUndefinedT(LIsNullOrLikeUndefinedT* lir) {
@@ -10059,8 +10025,7 @@ void CodeGenerator::visitIsNullOrLikeUndefinedT(LIsNullOrLikeUndefinedT* lir) {
   MOZ_ASSERT(lir->mir()->lhs()->type() == MIRType::Object);
 
   JSOp op = lir->mir()->jsop();
-  MOZ_ASSERT(op == JSOp::Eq || op == JSOp::Ne,
-             "Strict equality should have been folded");
+  MOZ_ASSERT(IsLooseEqualityOp(op), "Strict equality should have been folded");
 
   Register objreg = ToRegister(lir->input());
   Register output = ToRegister(lir->output());
@@ -10086,25 +10051,19 @@ void CodeGenerator::visitIsNullOrLikeUndefinedT(LIsNullOrLikeUndefinedT* lir) {
 
 void CodeGenerator::visitIsNullOrLikeUndefinedAndBranchT(
     LIsNullOrLikeUndefinedAndBranchT* lir) {
-  DebugOnly<MCompare::CompareType> compareType = lir->cmpMir()->compareType();
-  MOZ_ASSERT(compareType == MCompare::Compare_Undefined ||
-             compareType == MCompare::Compare_Null);
+  MOZ_ASSERT(lir->cmpMir()->compareType() == MCompare::Compare_Undefined ||
+             lir->cmpMir()->compareType() == MCompare::Compare_Null);
   MOZ_ASSERT(lir->cmpMir()->lhs()->type() == MIRType::Object);
 
   JSOp op = lir->cmpMir()->jsop();
-  MOZ_ASSERT(op == JSOp::Eq || op == JSOp::Ne,
-             "Strict equality should have been folded");
+  MOZ_ASSERT(IsLooseEqualityOp(op), "Strict equality should have been folded");
 
-  MBasicBlock* ifTrue;
-  MBasicBlock* ifFalse;
+  MBasicBlock* ifTrue = lir->ifTrue();
+  MBasicBlock* ifFalse = lir->ifFalse();
 
-  if (op == JSOp::Eq || op == JSOp::StrictEq) {
-    ifTrue = lir->ifTrue();
-    ifFalse = lir->ifFalse();
-  } else {
+  if (op == JSOp::Ne) {
     // Swap branches.
-    ifTrue = lir->ifFalse();
-    ifFalse = lir->ifTrue();
+    std::swap(ifTrue, ifFalse);
   }
 
   Register input = ToRegister(lir->getOperand(0));
@@ -10118,6 +10077,60 @@ void CodeGenerator::visitIsNullOrLikeUndefinedAndBranchT(
   // Objects that emulate undefined are loosely equal to null/undefined.
   Register scratch = ToRegister(lir->temp());
   testObjectEmulatesUndefined(input, ifTrueLabel, ifFalseLabel, scratch, ool);
+}
+
+void CodeGenerator::visitIsNull(LIsNull* lir) {
+  MCompare::CompareType compareType = lir->mir()->compareType();
+  MOZ_ASSERT(compareType == MCompare::Compare_Null);
+
+  JSOp op = lir->mir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+
+  const ValueOperand value = ToValue(lir, LIsNull::ValueIndex);
+  Register output = ToRegister(lir->output());
+
+  Assembler::Condition cond = JSOpToCondition(compareType, op);
+  masm.testNullSet(cond, value, output);
+}
+
+void CodeGenerator::visitIsUndefined(LIsUndefined* lir) {
+  MCompare::CompareType compareType = lir->mir()->compareType();
+  MOZ_ASSERT(compareType == MCompare::Compare_Undefined);
+
+  JSOp op = lir->mir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+
+  const ValueOperand value = ToValue(lir, LIsUndefined::ValueIndex);
+  Register output = ToRegister(lir->output());
+
+  Assembler::Condition cond = JSOpToCondition(compareType, op);
+  masm.testUndefinedSet(cond, value, output);
+}
+
+void CodeGenerator::visitIsNullAndBranch(LIsNullAndBranch* lir) {
+  MCompare::CompareType compareType = lir->cmpMir()->compareType();
+  MOZ_ASSERT(compareType == MCompare::Compare_Null);
+
+  JSOp op = lir->cmpMir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+
+  const ValueOperand value = ToValue(lir, LIsNullAndBranch::Value);
+
+  Assembler::Condition cond = JSOpToCondition(compareType, op);
+  testNullEmitBranch(cond, value, lir->ifTrue(), lir->ifFalse());
+}
+
+void CodeGenerator::visitIsUndefinedAndBranch(LIsUndefinedAndBranch* lir) {
+  MCompare::CompareType compareType = lir->cmpMir()->compareType();
+  MOZ_ASSERT(compareType == MCompare::Compare_Undefined);
+
+  JSOp op = lir->cmpMir()->jsop();
+  MOZ_ASSERT(IsStrictEqualityOp(op));
+
+  const ValueOperand value = ToValue(lir, LIsUndefinedAndBranch::Value);
+
+  Assembler::Condition cond = JSOpToCondition(compareType, op);
+  testUndefinedEmitBranch(cond, value, lir->ifTrue(), lir->ifFalse());
 }
 
 void CodeGenerator::visitSameValueDouble(LSameValueDouble* lir) {
@@ -10870,15 +10883,18 @@ void CodeGenerator::visitNotV(LNotV* lir) {
   Label* ifTruthy = ool->label1();
   Label* ifFalsy = ool->label2();
 
-  TypeDataList observed = lir->mir()->observedTypes();
-  testValueTruthyKernel(ToValue(lir, LNotV::InputIndex), lir->temp1(),
-                        lir->temp2(), ToFloatRegister(lir->temp0()), observed,
-                        ifTruthy, ifFalsy, ool);
+  ValueOperand input = ToValue(lir, LNotV::InputIndex);
+  Register tempToUnbox = ToTempUnboxRegister(lir->temp1());
+  FloatRegister floatTemp = ToFloatRegister(lir->temp0());
+  Register output = ToRegister(lir->output());
+  const TypeDataList& observedTypes = lir->mir()->observedTypes();
+
+  testValueTruthy(input, tempToUnbox, output, floatTemp, observedTypes,
+                  ifTruthy, ifFalsy, ool);
 
   Label join;
-  Register output = ToRegister(lir->output());
 
-  // Note that the testValueTruthyKernel call above may choose to fall through
+  // Note that the testValueTruthy call above may choose to fall through
   // to ifTruthy instead of branching there.
   masm.bind(ifTruthy);
   masm.move32(Imm32(0), output);
@@ -13990,17 +14006,18 @@ void CodeGenerator::visitGuardElementNotHole(LGuardElementNotHole* lir) {
 }
 
 void CodeGenerator::visitInstanceOfO(LInstanceOfO* ins) {
-  emitInstanceOf(ins, ins->rhs());
+  Register protoReg = ToRegister(ins->rhs());
+  emitInstanceOf(ins, protoReg);
 }
 
 void CodeGenerator::visitInstanceOfV(LInstanceOfV* ins) {
-  emitInstanceOf(ins, ins->rhs());
+  Register protoReg = ToRegister(ins->rhs());
+  emitInstanceOf(ins, protoReg);
 }
 
-void CodeGenerator::emitInstanceOf(LInstruction* ins,
-                                   const LAllocation* prototypeObject) {
+void CodeGenerator::emitInstanceOf(LInstruction* ins, Register protoReg) {
   // This path implements fun_hasInstance when the function's prototype is
-  // known to be prototypeObject.
+  // known to be the object in protoReg
 
   Label done;
   Register output = ToRegister(ins->getDef(0));
@@ -14019,14 +14036,6 @@ void CodeGenerator::emitInstanceOf(LInstruction* ins,
     objReg = ToRegister(ins->toInstanceOfO()->lhs());
   }
 
-  mozilla::Maybe<ImmGCPtr> protoPtr;
-  mozilla::Maybe<Register> protoReg;
-  if (prototypeObject->isConstant()) {
-    protoPtr.emplace(&prototypeObject->toConstant()->toObject());
-  } else {
-    protoReg.emplace(ToRegister(prototypeObject));
-  }
-
   // Crawl the lhs's prototype chain in a loop to search for prototypeObject.
   // This follows the main loop of js::IsPrototypeOf, though additionally breaks
   // out of the loop on Proxy::LazyProto.
@@ -14041,13 +14050,7 @@ void CodeGenerator::emitInstanceOf(LInstruction* ins,
 
     // Test for the target prototype object.
     Label notPrototypeObject;
-    if (protoPtr) {
-      masm.branchPtr(Assembler::NotEqual, output, *protoPtr,
-                     &notPrototypeObject);
-    } else {
-      masm.branchPtr(Assembler::NotEqual, output, *protoReg,
-                     &notPrototypeObject);
-    }
+    masm.branchPtr(Assembler::NotEqual, output, protoReg, &notPrototypeObject);
     masm.mov(ImmWord(1), output);
     masm.jump(&done);
     masm.bind(&notPrototypeObject);
@@ -14070,14 +14073,8 @@ void CodeGenerator::emitInstanceOf(LInstruction* ins,
   // register is already correct.
 
   using Fn = bool (*)(JSContext*, HandleObject, JSObject*, bool*);
-  OutOfLineCode* ool;
-  if (protoPtr) {
-    ool = oolCallVM<Fn, IsPrototypeOf>(ins, ArgList(*protoPtr, objReg),
-                                       StoreRegisterTo(output));
-  } else {
-    ool = oolCallVM<Fn, IsPrototypeOf>(ins, ArgList(*protoReg, objReg),
-                                       StoreRegisterTo(output));
-  }
+  auto* ool = oolCallVM<Fn, IsPrototypeOf>(ins, ArgList(protoReg, objReg),
+                                           StoreRegisterTo(output));
 
   // Regenerate the original lhs object for the VM call.
   Label regenerate, *lazyEntry;

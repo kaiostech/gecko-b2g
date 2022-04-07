@@ -60,6 +60,7 @@ bool GonkDecoderModule::SupportsMimeType(
          aMimeType.EqualsLiteral("audio/3gpp") ||
          aMimeType.EqualsLiteral("audio/amr-wb") ||
          aMimeType.EqualsLiteral("audio/mpeg") ||
+         aMimeType.EqualsLiteral("audio/flac") ||
          aMimeType.EqualsLiteral("video/mp4") ||
          aMimeType.EqualsLiteral("video/mp4v-es") ||
          aMimeType.EqualsLiteral("video/avc") ||

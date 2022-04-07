@@ -320,8 +320,10 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
       // MediaDrm Clearkey plugin only supports cenc encryption scheme.
       clearkey.mEncryptionSchemes.AppendElement(u"cenc"_ns);
       clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
+      clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_FLAC);
       clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
       clearkey.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+      clearkey.mWebM.SetCanDecryptAndDecode(EME_CODEC_VORBIS);
       clearkey.mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
       clearkey.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
       keySystemConfigs.AppendElement(std::move(clearkey));
@@ -346,8 +348,10 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
       widevine.mEncryptionSchemes.AppendElement(u"cenc"_ns);
       widevine.mEncryptionSchemes.AppendElement(u"cbcs"_ns);
       widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
+      widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_FLAC);
       widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
       widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+      widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_VORBIS);
       widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
       widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
       keySystemConfigs.AppendElement(std::move(widevine));

@@ -1153,7 +1153,7 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
 
   struct Reply final {
     EventMessage const mEventMessage;
-    void* mContentsRoot;
+    void* mContentsRoot = nullptr;
     Maybe<OffsetAndData<uint32_t>> mOffsetAndData;
     // mTentativeCaretOffset is used by only eQueryCharacterAtPoint.
     // This is the offset where caret would be if user clicked at the mRefPoint.
@@ -1165,7 +1165,7 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
     // to the owner window, not the <xul:panel>.
     mozilla::LayoutDeviceIntRect mRect;
     // The return widget has the caret. This is set at all query events.
-    nsIWidget* mFocusedWidget;
+    nsIWidget* mFocusedWidget = nullptr;
     // mozilla::WritingMode value at the end (focus) of the selection
     mozilla::WritingMode mWritingMode;
     // Used by eQuerySelectionAsTransferable
@@ -1175,17 +1175,14 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
     // Used by eQueryTextRectArray
     CopyableTArray<mozilla::LayoutDeviceIntRect> mRectArray;
     // true if selection is reversed (end < start)
-    bool mReversed;
+    bool mReversed = false;
     // true if DOM element under mouse belongs to widget
-    bool mWidgetIsHit;
+    bool mWidgetIsHit = false;
+    // true if mContentRoot is focused editable content
+    bool mIsEditableContent = false;
 
     Reply() = delete;
-    explicit Reply(EventMessage aEventMessage)
-        : mEventMessage(aEventMessage),
-          mContentsRoot(nullptr),
-          mFocusedWidget(nullptr),
-          mReversed(false),
-          mWidgetIsHit(false) {}
+    explicit Reply(EventMessage aEventMessage) : mEventMessage(aEventMessage) {}
 
     // Don't allow to copy/move because of `mEventMessage`.
     Reply(const Reply& aOther) = delete;
@@ -1286,6 +1283,8 @@ class WidgetQueryContentEvent : public WidgetGUIEvent {
         aStream << ", mWritingMode=" << ToString(aReply.mWritingMode).c_str();
       }
       aStream << ", mContentsRoot=0x" << aReply.mContentsRoot
+              << ", mIsEditableContent="
+              << (aReply.mIsEditableContent ? "true" : "false")
               << ", mFocusedWidget=0x" << aReply.mFocusedWidget;
       if (aReply.mEventMessage == eQueryTextContent) {
         aStream << ", mFontRanges={ Length()=" << aReply.mFontRanges.Length()

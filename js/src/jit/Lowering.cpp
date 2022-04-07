@@ -763,8 +763,8 @@ void LIRGenerator::visitTest(MTest* test) {
   }
 
   if (opd->type() == MIRType::Value) {
-    auto* lir = new (alloc()) LTestVAndBranch(ifTrue, ifFalse, useBox(opd),
-                                              tempDouble(), temp(), temp());
+    auto* lir = new (alloc()) LTestVAndBranch(
+        ifTrue, ifFalse, useBox(opd), tempDouble(), tempToUnbox(), temp());
     add(lir, test);
     return;
   }
@@ -881,8 +881,22 @@ void LIRGenerator::visitTest(MTest* test) {
         return;
       }
 
-      auto* lir = new (alloc()) LIsNullOrLikeUndefinedAndBranchV(
-          comp, ifTrue, ifFalse, useBox(left), temp(), tempToUnbox());
+      if (IsLooseEqualityOp(comp->jsop())) {
+        auto* lir = new (alloc()) LIsNullOrLikeUndefinedAndBranchV(
+            comp, ifTrue, ifFalse, useBox(left), temp(), tempToUnbox());
+        add(lir, test);
+        return;
+      }
+
+      if (comp->compareType() == MCompare::Compare_Null) {
+        auto* lir =
+            new (alloc()) LIsNullAndBranch(comp, ifTrue, ifFalse, useBox(left));
+        add(lir, test);
+        return;
+      }
+
+      auto* lir = new (alloc())
+          LIsUndefinedAndBranch(comp, ifTrue, ifFalse, useBox(left));
       add(lir, test);
       return;
     }
@@ -1163,8 +1177,20 @@ void LIRGenerator::visitCompare(MCompare* comp) {
       return;
     }
 
-    auto* lir = new (alloc())
-        LIsNullOrLikeUndefinedV(useBox(left), temp(), tempToUnbox());
+    if (IsLooseEqualityOp(comp->jsop())) {
+      auto* lir =
+          new (alloc()) LIsNullOrLikeUndefinedV(useBox(left), tempToUnbox());
+      define(lir, comp);
+      return;
+    }
+
+    if (comp->compareType() == MCompare::Compare_Null) {
+      auto* lir = new (alloc()) LIsNull(useBox(left));
+      define(lir, comp);
+      return;
+    }
+
+    auto* lir = new (alloc()) LIsUndefined(useBox(left));
     define(lir, comp);
     return;
   }
@@ -3469,7 +3495,7 @@ void LIRGenerator::visitNot(MNot* ins) {
       define(new (alloc()) LNotO(useRegister(op)), ins);
       break;
     case MIRType::Value: {
-      auto* lir = new (alloc()) LNotV(useBox(op), tempDouble(), temp(), temp());
+      auto* lir = new (alloc()) LNotV(useBox(op), tempDouble(), tempToUnbox());
       define(lir, ins);
       break;
     }
@@ -4800,13 +4826,11 @@ void LIRGenerator::visitInstanceOf(MInstanceOf* ins) {
   MOZ_ASSERT(rhs->type() == MIRType::Object);
 
   if (lhs->type() == MIRType::Object) {
-    auto* lir = new (alloc())
-        LInstanceOfO(useRegister(lhs), useRegisterOrConstant(rhs));
+    auto* lir = new (alloc()) LInstanceOfO(useRegister(lhs), useRegister(rhs));
     define(lir, ins);
     assignSafepoint(lir, ins);
   } else {
-    auto* lir =
-        new (alloc()) LInstanceOfV(useBox(lhs), useRegisterOrConstant(rhs));
+    auto* lir = new (alloc()) LInstanceOfV(useBox(lhs), useRegister(rhs));
     define(lir, ins);
     assignSafepoint(lir, ins);
   }

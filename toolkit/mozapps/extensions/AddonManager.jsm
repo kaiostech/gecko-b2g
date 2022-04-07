@@ -298,6 +298,9 @@ function webAPIForAddon(addon) {
     addon.permissions & AddonManager.PERM_CAN_UNINSTALL
   );
 
+  // Add a large icon.
+  result.iconUrl = AddonManager.getPreferredIconURL(addon, 512);
+
   return result;
 }
 
@@ -3442,6 +3445,10 @@ var AddonManagerInternal = {
           });
         }
       );
+    },
+
+    async getAllAddons(target) {
+      return (await AddonManagerInternal.getAllAddons()).map(webAPIForAddon);
     },
   },
 };

@@ -4,6 +4,8 @@
 
 "use strict";
 
+Cu.importGlobalProperties(["fetch"]);
+
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -259,6 +261,25 @@ class WebAPI extends APIObject {
       let install = new AddonInstall(this.window, this.broker, installInfo);
       this.allInstalls.push(installInfo.id);
       return this.window.AddonInstall._create(this.window, install);
+    });
+  }
+
+  getAllAddons() {
+    return this._apiTask("getAllAddons", [], async list => {
+      if (!list) {
+        return [];
+      }
+
+      let res = new this.window.Array();
+      for (let addonInfo of list) {
+        // fetch the icon as a blob since its URL is usually a jar:// one.
+        let response = await fetch(addonInfo.iconUrl);
+        addonInfo.icon = new this.window.Blob([await response.blob()]);
+
+        let addon = new Addon(this.window, this.broker, addonInfo);
+        res.push(this.window.Addon._create(this.window, addon));
+      }
+      return res;
     });
   }
 

@@ -27,6 +27,8 @@ interface Addon {
   readonly attribute boolean isActive;
   // If the add-on may be uninstalled
   readonly attribute boolean canUninstall;
+  // The addon icon as a blob.
+  readonly attribute Blob icon;
 
   Promise<boolean> uninstall();
   Promise<void> setEnabled(boolean value);
@@ -98,6 +100,9 @@ interface AddonManager : EventTarget {
   // Indicator to content whether handing off the reports to the integrated
   // abuse report panel is enabled.
   readonly attribute boolean abuseReportPanelEnabled;
+
+  // Returns the set of installed addons.
+  Promise<sequence<Addon>> getAllAddons();
 };
 
 [ChromeOnly,Exposed=Window,HeaderFile="mozilla/AddonManagerWebAPI.h"]

@@ -12,6 +12,12 @@ pub enum Request {
     EnableFlashlight(String),      // The path to the flashlight
     DisableFlashlight(String),     // The path to the flashlight
     FlashlightState(String),       // The path to the flashlight
+    SetTimezone(String),           // The timezone string representation, eg. America/Los_Angeles
+    GetTimezone,
+    SetSystemClock(i64), // The time since EPOCH in ms
+    GetSystemClock,
+    GetUptime,
+    ControlService(String, String), // The command and name of the systemctl service to restart
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -24,6 +30,9 @@ pub enum Response {
     GenericError,
     FlashlightSupported(bool),
     FlashlightState(bool),
+    GetTimezone(String), // The timezone string representation
+    GetSystemClock(i64), // The time since EPOCH in ms
+    GetUptime(i64),      // The time since startup in ms
 }
 
 #[derive(Serialize, Deserialize)]

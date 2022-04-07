@@ -186,4 +186,72 @@ impl SimpleClient {
             false
         }
     }
+
+    pub fn set_timezone(&mut self, tz: &str) {
+        let (sender, receiver) = channel();
+        let _ = self
+            .client
+            .send(Request::SetTimezone(tz.to_owned()), sender);
+        if self.client.get_next_message().is_ok() {
+            let _ = receiver.recv();
+        }
+    }
+
+    pub fn get_timezone(&mut self) -> Option<String> {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(Request::GetTimezone, sender);
+        if self.client.get_next_message().is_ok() {
+            match receiver.recv() {
+                Ok(Response::GetTimezone(value)) => Some(value),
+                Ok(_) | Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn get_uptime(&mut self) -> i64 {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(Request::GetUptime, sender);
+        if self.client.get_next_message().is_ok() {
+            match receiver.recv() {
+                Ok(Response::GetUptime(value)) => value,
+                Ok(_) | Err(_) => 0,
+            }
+        } else {
+            0
+        }
+    }
+
+    pub fn set_system_time(&mut self, ms: i64) {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(Request::SetSystemClock(ms), sender);
+        if self.client.get_next_message().is_ok() {
+            let _ = receiver.recv();
+        }
+    }
+
+    pub fn get_system_time(&mut self) -> i64 {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(Request::GetSystemClock, sender);
+        if self.client.get_next_message().is_ok() {
+            match receiver.recv() {
+                Ok(Response::GetSystemClock(value)) => value,
+                Ok(_) | Err(_) => 0,
+            }
+        } else {
+            0
+        }
+    }
+
+    pub fn control_service(&mut self, command: &str, service: &str) {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(
+            Request::ControlService(command.to_owned(), service.to_owned()),
+            sender,
+        );
+        if self.client.get_next_message().is_ok() {
+            let _ = receiver.recv();
+        }
+    }
 }

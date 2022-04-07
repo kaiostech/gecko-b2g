@@ -1,4 +1,5 @@
 use b2ghald::client::SimpleClient;
+use b2ghald::humantime::FormattedDuration;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -33,6 +34,33 @@ enum Command {
     Reboot {},
     /// Powers off the device.
     PowerOff {},
+    /// Get or set the timezone.
+    Timezone {
+        /// If set, change the timezone.
+        tz: Option<String>,
+    },
+    /// Get the device uptime
+    Uptime,
+    /// Restart a systemctl service
+    RestartService {
+        /// The service name
+        service: String,
+    },
+    /// Stop a systemctl service
+    StopService {
+        /// The service name
+        service: String,
+    },
+    /// Start a systemctl service
+    StartService {
+        /// The service name
+        service: String,
+    },
+    /// Set the device time.
+    SetTime {
+        /// Milliseconds since epoch.
+        ms: i64,
+    },
 }
 
 fn check_flashlight(client: &mut SimpleClient, path: &str) -> bool {
@@ -75,6 +103,36 @@ fn main() {
             if check_flashlight(&mut client, path) {
                 client.disable_flashlight(path);
             }
+        }
+        Command::Timezone { tz } => {
+            if let Some(value) = tz {
+                client.set_timezone(value);
+            } else {
+                println!(
+                    "Current timezone: {}",
+                    client.get_timezone().unwrap_or_else(|| "<not set>".into())
+                );
+            }
+        }
+        Command::Uptime => {
+            let uptime = client.get_uptime();
+            println!(
+                "Current uptime: {} ({}ms)",
+                FormattedDuration::from_millis(uptime),
+                client.get_uptime()
+            );
+        }
+        Command::RestartService { service } => {
+            client.control_service("restart", &service);
+        }
+        Command::StartService { service } => {
+            client.control_service("start", &service);
+        }
+        Command::StopService { service } => {
+            client.control_service("stop", &service);
+        }
+        Command::SetTime { ms } => {
+            client.set_system_time(*ms);
         }
     }
 }

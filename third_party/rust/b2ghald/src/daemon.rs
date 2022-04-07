@@ -1,5 +1,6 @@
 use b2ghald::backlight::Backlight;
 use b2ghald::messages::*;
+use b2ghald::time::{SystemClock, Timezone};
 use bincode::Options;
 use log::{debug, error, info};
 use nix::sys::reboot::{reboot, RebootMode};
@@ -25,6 +26,23 @@ fn flash_helper(path: &str, enabled: bool) -> Response {
         }
     }
     Response::GenericError
+}
+
+fn control_service(command: &str, service: &str) -> Result<(), Error> {
+    match std::process::Command::new("systemctl")
+        .arg(command)
+        .arg(service)
+        .status()
+    {
+        Ok(exit) => {
+            if exit.code() == Some(0) {
+                Ok(())
+            } else {
+                Err(Error::new(ErrorKind::Other, "systemctl error"))
+            }
+        }
+        Err(err) => Err(err),
+    }
 }
 
 // Manages a session with a client.
@@ -120,6 +138,43 @@ fn handle_client(stream: UnixStream) -> Result<(), Error> {
                     Request::FlashlightState(path) => {
                         let payload = if let Ok(device) = Backlight::from_path(path) {
                             Response::FlashlightState(device.get_brightness(0) != 0)
+                        } else {
+                            Response::GenericError
+                        };
+                        send!(payload);
+                    }
+                    Request::SetTimezone(tz) => {
+                        let payload = if Timezone::set(tz).is_ok() {
+                            Response::GenericSuccess
+                        } else {
+                            Response::GenericError
+                        };
+                        send!(payload);
+                    }
+                    Request::GetTimezone => {
+                        let payload = match Timezone::get() {
+                            Ok(tz) => Response::GetTimezone(tz),
+                            Err(_) => Response::GenericError,
+                        };
+                        send!(payload);
+                    }
+                    Request::SetSystemClock(ms) => {
+                        let payload = if SystemClock::set_time(*ms).is_ok() {
+                            Response::GenericSuccess
+                        } else {
+                            Response::GenericError
+                        };
+                        send!(payload);
+                    }
+                    Request::GetSystemClock => {
+                        send!(Response::GetSystemClock(SystemClock::get_time()));
+                    }
+                    Request::GetUptime => {
+                        send!(Response::GetUptime(SystemClock::get_uptime()));
+                    }
+                    Request::ControlService(command, service) => {
+                        let payload = if control_service(command, service).is_ok() {
+                            Response::GenericSuccess
                         } else {
                             Response::GenericError
                         };

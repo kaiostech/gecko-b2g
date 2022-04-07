@@ -274,7 +274,10 @@ class WebAPI extends APIObject {
       for (let addonInfo of list) {
         // fetch the icon as a blob since its URL is usually a jar:// one.
         let response = await fetch(addonInfo.iconUrl);
-        addonInfo.icon = new this.window.Blob([await response.blob()]);
+        let blob = await response.blob();
+        addonInfo.icon = new this.window.Blob([await blob.arrayBuffer()], {
+          type: blob.type,
+        });
 
         let addon = new Addon(this.window, this.broker, addonInfo);
         res.push(this.window.Addon._create(this.window, addon));

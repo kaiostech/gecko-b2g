@@ -337,7 +337,7 @@ version = "1.0.1"
 [[package]]
 name = "b2ghald"
 version = "0.1.0"
-source = "git+https://github.com/capyloon/b2ghald.git#3205bbb899e21db1d2b11545e7ca5df78d4da37c"
+source = "git+https://github.com/capyloon/b2ghald.git#5c97b676b308660618e288a1b0024f2e5277cb31"
 dependencies = [
  "bincode",
  "clap",
@@ -1751,14 +1751,14 @@ dependencies = [
 [[package]]
 name = "fluent-fallback"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0ebe8c34b89a10c8a431de9c0c5c2005b79c438d9a498a028c4e05b88afb3d6"
 dependencies = [
  "async-trait",
  "chunky-vec",
  "fluent-bundle",
+ "fluent-langneg",
  "futures 0.3.19",
  "once_cell",
+ "tokio 1.17.0",
  "unic-langid",
 ]
 

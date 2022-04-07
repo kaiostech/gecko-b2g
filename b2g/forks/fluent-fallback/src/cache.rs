@@ -89,10 +89,14 @@ where
             }
             Ordering::Equal => {
                 // Get the next item from the iterator
-                let item = self.cache.iter.borrow_mut().next();
-                self.curr += 1;
-                if let Some(item) = item {
-                    Some(self.cache.push_get(item))
+                if let Ok(mut iter) = self.cache.iter.try_borrow_mut() {
+                    let item = iter.next();
+                    self.curr += 1;
+                    if let Some(item) = item {
+                        Some(self.cache.push_get(item))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }

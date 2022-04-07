@@ -185,7 +185,7 @@ variables:
     - ./mach wpt testing/web-platform/tests/webdriver/tests/get_element_text/get.py --headless
 
 .build_emulator:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.57.0_7_0
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.59.0_7_0
   tags:
     - gecko-dev
   variables:

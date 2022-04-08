@@ -11,12 +11,15 @@ use crate::common::traits::Shared;
 use bincode::Options;
 use log::{debug, error, info};
 use moz_task::ThreadPtrHandle;
-use nserror::NS_OK;
+use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
+use nsstring::{nsACString, nsCString};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
+use std::ffi::CString;
 use std::net::Shutdown;
+use std::ops::DerefMut;
 use std::os::unix::net::UnixStream;
 use std::result::Result as StdResult;
 use std::sync::Arc;
@@ -169,6 +172,47 @@ impl ConnectionObservers {
     }
 }
 
+// Helper function to get a char pref with a default value.
+// Similar to https://searchfox.org/mozilla-central/rev/23b89f8c85c3898cc95c96c90afd6c304aad0158/toolkit/components/glean/src/init/mod.rs#267
+// but using 'GetBranch()' instead of 'GetDefaultBranch()' to pick up prefs from user prefs files.
+fn fallible_get_char_pref(name: &str, default_value: &str) -> Result<nsCString, nsresult> {
+    if let Some(pref_service) = xpcom::services::get_PrefService() {
+        let branch = xpcom::getter_addrefs(|p| {
+            // Safe because:
+            //  * `null` is explicitly allowed per documentation
+            //  * `p` is a valid outparam guaranteed by `getter_addrefs`
+            unsafe { pref_service.GetBranch(std::ptr::null(), p) }
+        })?;
+        let pref_name = CString::new(name).map_err(|_| NS_ERROR_FAILURE)?;
+        let mut pref_value = nsCString::new();
+        // Safe because:
+        //  * `branch` is non-null (otherwise `getter_addrefs` would've been `Err`
+        //  * `pref_name` exists so a pointer to it is valid for the life of the function
+        //  * `channel` exists so a pointer to it is valid, and it can be written to
+        unsafe {
+            if (*branch)
+                .GetCharPref(
+                    pref_name.as_ptr(),
+                    pref_value.deref_mut() as *mut nsACString,
+                )
+                .to_result()
+                .is_err()
+            {
+                pref_value = default_value.into();
+            }
+        }
+        Ok(nsCString::from(pref_value))
+    } else {
+        Ok(nsCString::from(default_value))
+    }
+}
+
+fn get_char_pref(name: &str, default_value: &str) -> String {
+    fallible_get_char_pref(name, default_value)
+        .unwrap_or_else(|_| nsCString::from(default_value))
+        .to_string()
+}
+
 #[derive(Clone)]
 pub struct UdsTransport {
     // The book keeping data for this session.
@@ -223,11 +267,11 @@ impl UdsTransport {
 
     pub fn open() -> Self {
         #[cfg(target_os = "android")]
-        let path = "/dev/socket/api-daemon";
+        let path = get_char_pref("b2g.api-daemon.uds-socket", "/dev/socket/api-daemon");
         #[cfg(not(target_os = "android"))]
-        let path = "/tmp/api-daemon-socket";
+        let path = get_char_pref("b2g.api-daemon.uds-socket", "/tmp/api-daemon-socket");
 
-        let (transport, mut recv_stream) = match UnixStream::connect(path) {
+        let (transport, mut recv_stream) = match UnixStream::connect(&path) {
             Ok(stream) => {
                 let reader = stream.try_clone().expect("Failed to clone UDS stream");
                 (
@@ -264,7 +308,7 @@ impl UdsTransport {
                     loop {
                         info!("Waiting 1 seconds to reconnect to {} ...", path);
                         thread::sleep(std::time::Duration::from_secs(1));
-                        if let Ok(stream) = UnixStream::connect(path) {
+                        if let Ok(stream) = UnixStream::connect(&path) {
                             // Update the receiving stream.
                             recv_stream =
                                 Some(stream.try_clone().expect("Failed to clone UDS stream"));

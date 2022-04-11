@@ -5754,7 +5754,7 @@
 # Domains included in the allowlist.
 - name: gfx.offscreencanvas.domain-allowlist
   type: String
-  value: "*.zoom.us"
+  value: "*.zoom.us,zoom.us"
   mirror: never
 
 - name: gfx.omta.background-color
@@ -6557,7 +6557,7 @@
 # Whether we record SVG images as blobs or not.
 - name: image.svg.blob-image
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Whether we attempt to decode WebP images or not.
@@ -7475,6 +7475,13 @@
 - name: layout.accessiblecaret.use_long_tap_injector
   type: bool
   value: false
+  mirror: always
+
+# To support magnify glass, whether we dispatch additional chrome event such as
+# dragcaret.
+- name: layout.accessiblecaret.magnifier.enabled
+  type: bool
+  value: @IS_ANDROID@
   mirror: always
 
 # One of several prefs affecting the maximum area to pre-render when animating
@@ -9300,9 +9307,14 @@
     mirror: always
 
 -   name: media.wmf.no-copy-nv12-textures
-    type: RelaxedAtomicBool
+    type: bool
+    value: true
+    mirror: once
+# Enable hardware decoded video no copy even when it is blocked.
+-   name: media.wmf.no-copy-nv12-textures-force-enabled
+    type: bool
     value: false
-    mirror: always
+    mirror: once
 
 -   name: media.wmf.force.allow-p010-format
     type: RelaxedAtomicBool

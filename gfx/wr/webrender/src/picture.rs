@@ -4247,6 +4247,19 @@ impl PrimitiveList {
     }
 }
 
+bitflags! {
+    #[cfg_attr(feature = "capture", derive(Serialize))]
+    /// Flags describing properties for a given PicturePrimitive
+    pub struct PictureFlags : u8 {
+        /// This picture is a resolve target (doesn't actually render content itself,
+        /// will have content copied in to it)
+        const IS_RESOLVE_TARGET = 1 << 0;
+        /// This picture establishes a sub-graph, which affects how SurfaceBuilder will
+        /// set up dependencies in the render task graph
+        const IS_SUB_GRAPH = 1 << 1;
+    }
+}
+
 #[cfg_attr(feature = "capture", derive(Serialize))]
 pub struct PicturePrimitive {
     /// List of primitives, and associated info for this picture.
@@ -4299,6 +4312,9 @@ pub struct PicturePrimitive {
 
     /// Requested raster space for this picture
     pub raster_space: RasterSpace,
+
+    /// Flags for this picture primitive
+    pub flags: PictureFlags,
 }
 
 impl PicturePrimitive {
@@ -4313,6 +4329,7 @@ impl PicturePrimitive {
         pt.add_item(format!("spatial_node_index: {:?}", self.spatial_node_index));
         pt.add_item(format!("raster_config: {:?}", self.raster_config));
         pt.add_item(format!("composite_mode: {:?}", self.composite_mode));
+        pt.add_item(format!("flags: {:?}", self.flags));
 
         for child_pic_index in &self.prim_list.child_pictures {
             pictures[child_pic_index.0].print(pictures, *child_pic_index, pt);
@@ -4385,10 +4402,11 @@ impl PicturePrimitive {
         composite_mode: Option<PictureCompositeMode>,
         context_3d: Picture3DContext<OrderedPictureChild>,
         apply_local_clip_rect: bool,
-        flags: PrimitiveFlags,
+        prim_flags: PrimitiveFlags,
         prim_list: PrimitiveList,
         spatial_node_index: SpatialNodeIndex,
         raster_space: RasterSpace,
+        flags: PictureFlags,
     ) -> Self {
         PicturePrimitive {
             prim_list,
@@ -4399,12 +4417,13 @@ impl PicturePrimitive {
             context_3d,
             extra_gpu_data_handles: SmallVec::new(),
             apply_local_clip_rect,
-            is_backface_visible: flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE),
+            is_backface_visible: prim_flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE),
             spatial_node_index,
             prev_local_rect: LayoutRect::zero(),
             segments_are_valid: false,
             is_opaque: false,
             raster_space,
+            flags,
         }
     }
 
@@ -4454,6 +4473,7 @@ impl PicturePrimitive {
                 let tile_cache = tile_caches.get_mut(&slice_id).unwrap();
                 let mut debug_info = SliceDebugInfo::new();
                 let mut surface_render_tasks = FastHashMap::default();
+                let mut surface_dirty_rects = Vec::new();
                 let mut surface_local_dirty_rect = PictureRect::zero();
                 let device_pixel_scale = frame_state
                     .surfaces[surface_index.0]
@@ -4769,6 +4789,7 @@ impl PicturePrimitive {
                                             Some(valid_rect),
                                             Some(clear_color),
                                             cmd_buffer_index,
+                                            false,
                                         )
                                     ),
                                 );
@@ -4777,6 +4798,7 @@ impl PicturePrimitive {
                                     tile_key,
                                     render_task_id,
                                 );
+                                surface_dirty_rects.push(tile.local_dirty_rect);
                             }
 
                             if frame_context.fb_config.testing {
@@ -4863,10 +4885,14 @@ impl PicturePrimitive {
                         );
                 }
 
-                let descriptor = SurfaceDescriptor::new_tiled(surface_render_tasks);
+                let descriptor = SurfaceDescriptor::new_tiled(
+                    surface_render_tasks,
+                    surface_dirty_rects,
+                );
 
                 frame_state.surface_builder.push_surface(
                     surface_index,
+                    false,
                     surface_local_dirty_rect,
                     descriptor,
                     frame_state.surfaces,
@@ -4928,6 +4954,7 @@ impl PicturePrimitive {
                     let surface = &frame_state.surfaces[surface_index.0];
                     (surface.raster_spatial_node_index, surface.device_pixel_scale)
                 };
+                let is_resolve_target = self.flags.contains(PictureFlags::IS_RESOLVE_TARGET);
 
                 let primary_render_task_id;
                 let surface_descriptor;
@@ -4974,6 +5001,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
+                                    is_resolve_target,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -4992,6 +5020,7 @@ impl PicturePrimitive {
                         surface_descriptor = SurfaceDescriptor::new_chained(
                             picture_task_id,
                             blur_render_task_id,
+                            surface_rects.clipped_local,
                         );
                     }
                     PictureCompositeMode::Filter(Filter::DropShadows(ref shadows)) => {
@@ -5015,6 +5044,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
+                                    is_resolve_target,
                                 ),
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5056,6 +5086,7 @@ impl PicturePrimitive {
                         surface_descriptor = SurfaceDescriptor::new_chained(
                             picture_task_id,
                             blur_render_task_id,
+                            surface_rects.clipped_local,
                         );
                     }
                     PictureCompositeMode::MixBlend(mode) if BlendMode::from_mix_blend_mode(
@@ -5157,13 +5188,17 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
+                                    is_resolve_target,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
 
                         primary_render_task_id = render_task_id;
 
-                        surface_descriptor = SurfaceDescriptor::new_simple(render_task_id);
+                        surface_descriptor = SurfaceDescriptor::new_simple(
+                            render_task_id,
+                            surface_rects.clipped_local,
+                        );
                     }
                     PictureCompositeMode::Filter(..) => {
                         let cmd_buffer_index = frame_state.cmd_buffers.create_cmd_buffer();
@@ -5182,13 +5217,17 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
+                                    is_resolve_target,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
 
                         primary_render_task_id = render_task_id;
 
-                        surface_descriptor = SurfaceDescriptor::new_simple(render_task_id);
+                        surface_descriptor = SurfaceDescriptor::new_simple(
+                            render_task_id,
+                            surface_rects.clipped_local,
+                        );
                     }
                     PictureCompositeMode::ComponentTransferFilter(..) => {
                         let cmd_buffer_index = frame_state.cmd_buffers.create_cmd_buffer();
@@ -5207,13 +5246,17 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
+                                    is_resolve_target,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
 
                         primary_render_task_id = render_task_id;
 
-                        surface_descriptor = SurfaceDescriptor::new_simple(render_task_id);
+                        surface_descriptor = SurfaceDescriptor::new_simple(
+                            render_task_id,
+                            surface_rects.clipped_local,
+                        );
                     }
                     PictureCompositeMode::MixBlend(..) |
                     PictureCompositeMode::Blit(_) => {
@@ -5233,13 +5276,17 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
+                                    is_resolve_target,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
 
                         primary_render_task_id = render_task_id;
 
-                        surface_descriptor = SurfaceDescriptor::new_simple(render_task_id);
+                        surface_descriptor = SurfaceDescriptor::new_simple(
+                            render_task_id,
+                            surface_rects.clipped_local,
+                        );
                     }
                     PictureCompositeMode::SvgFilter(ref primitives, ref filter_datas) => {
                         let cmd_buffer_index = frame_state.cmd_buffers.create_cmd_buffer();
@@ -5258,6 +5305,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
+                                    is_resolve_target,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5277,12 +5325,16 @@ impl PicturePrimitive {
                         surface_descriptor = SurfaceDescriptor::new_chained(
                             picture_task_id,
                             filter_task_id,
+                            surface_rects.clipped_local,
                         );
                     }
                 }
 
+                let is_sub_graph = self.flags.contains(PictureFlags::IS_SUB_GRAPH);
+
                 frame_state.surface_builder.push_surface(
                     raster_config.surface_index,
+                    is_sub_graph,
                     surface_rects.clipped_local,
                     surface_descriptor,
                     frame_state.surfaces,
@@ -5395,6 +5447,8 @@ impl PicturePrimitive {
         if self.raster_config.is_some() {
             frame_state.surface_builder.pop_surface(
                 frame_state.rg_builder,
+                frame_state.cmd_buffers,
+                frame_context.spatial_tree,
             );
         }
 

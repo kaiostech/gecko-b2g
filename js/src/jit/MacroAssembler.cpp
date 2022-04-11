@@ -3077,10 +3077,6 @@ void MacroAssembler::setupAlignedABICall() {
   MOZ_ASSERT(!IsCompilingWasm(), "wasm should use setupWasmABICall");
   setupNativeABICall();
   dynamicAlignment_ = false;
-
-#if defined(JS_CODEGEN_ARM64)
-  MOZ_CRASH("Not supported on arm64");
-#endif
 }
 
 void MacroAssembler::passABIArg(const MoveOperand& from, MoveOp::Type type) {
@@ -3654,6 +3650,16 @@ void MacroAssembler::loadFunctionName(Register func, Register output,
   }
 
   bind(&done);
+}
+
+void MacroAssembler::assertFunctionIsExtended(Register func) {
+#ifdef DEBUG
+  Label extended;
+  branchTestFunctionFlags(func, FunctionFlags::EXTENDED, Assembler::NonZero,
+                          &extended);
+  assumeUnreachable("Function is not extended");
+  bind(&extended);
+#endif
 }
 
 void MacroAssembler::branchTestType(Condition cond, Register tag,
@@ -4442,18 +4448,14 @@ void MacroAssembler::packedArrayShift(Register array, ValueOperand output,
   Address elementAddr(temp1, 0);
   loadValue(elementAddr, output);
 
-  // Pre-barrier the element because we're removing it from the array.
-  EmitPreBarrier(*this, elementAddr, MIRType::Value);
-
-  // Move the other elements.
+  // Move the other elements and update the initializedLength/length. This will
+  // also trigger pre-barriers.
   {
-    // Ensure output and temp2 are in volatileRegs. Don't preserve temp1.
+    // Ensure output is in volatileRegs. Don't preserve temp1 and temp2.
     volatileRegs.takeUnchecked(temp1);
+    volatileRegs.takeUnchecked(temp2);
     if (output.hasVolatileReg()) {
       volatileRegs.addUnchecked(output);
-    }
-    if (temp2.volatile_()) {
-      volatileRegs.addUnchecked(temp2);
     }
 
     PushRegsInMask(volatileRegs);
@@ -4464,15 +4466,7 @@ void MacroAssembler::packedArrayShift(Register array, ValueOperand output,
     callWithABI<Fn, ArrayShiftMoveElements>();
 
     PopRegsInMask(volatileRegs);
-
-    // Reload the elements. The call may have updated it.
-    loadPtr(Address(array, NativeObject::offsetOfElements()), temp1);
   }
-
-  // Update length and initializedLength.
-  sub32(Imm32(1), temp2);
-  store32(temp2, lengthAddr);
-  store32(temp2, initLengthAddr);
 
   bind(&done);
 }

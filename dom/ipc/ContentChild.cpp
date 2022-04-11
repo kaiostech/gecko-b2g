@@ -242,7 +242,6 @@
 #  include <process.h>
 #  define getpid _getpid
 #  include "mozilla/WinDllServices.h"
-#  include "mozilla/widget/AudioSession.h"
 #  include "mozilla/widget/WinContentSystemParameters.h"
 #endif
 
@@ -3501,10 +3500,6 @@ void ContentChild::ShutdownInternal() {
         "content-child-shutdown started"_ns);
     os->NotifyObservers(ToSupports(this), "content-child-shutdown", nullptr);
   }
-
-#if defined(XP_WIN)
-  mozilla::widget::StopAudioSession();
-#endif
 
   GetIPCChannel()->SetAbortOnError(false);
 

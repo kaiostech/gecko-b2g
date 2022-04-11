@@ -7183,15 +7183,18 @@ MOZ_CAN_RUN_SCRIPT static void WaylandDragWorkaround(GdkEventButton* aEvent) {
   nsCOMPtr<nsIDragSession> currentDragSession;
   dragService->GetCurrentSession(getter_AddRefs(currentDragSession));
 
-  if (currentDragSession != nullptr) {
-    buttonPressCountWithDrag++;
-    if (buttonPressCountWithDrag > 1) {
-      NS_WARNING(
-          "Quit unfinished Wayland Drag and Drop operation. Buggy Wayland "
-          "compositor?");
-      buttonPressCountWithDrag = 0;
-      dragService->EndDragSession(false, 0);
-    }
+  if (!currentDragSession) {
+    buttonPressCountWithDrag = 0;
+    return;
+  }
+
+  buttonPressCountWithDrag++;
+  if (buttonPressCountWithDrag > 1) {
+    NS_WARNING(
+        "Quit unfinished Wayland Drag and Drop operation. Buggy Wayland "
+        "compositor?");
+    buttonPressCountWithDrag = 0;
+    dragService->EndDragSession(false, 0);
   }
 }
 
@@ -8942,28 +8945,12 @@ nsWindow::GtkWindowDecoration nsWindow::GetSystemGtkWindowDecoration() {
     if (!currentDesktop) {
       return GTK_DECORATION_NONE;
     }
-    // clang-format off
-    if (strstr(currentDesktop, "pop:GNOME") || // Bug 1629198
-        strstr(currentDesktop, "KDE") ||
-        strstr(currentDesktop, "Enlightenment") ||
-        strstr(currentDesktop, "LXDE") ||
-        strstr(currentDesktop, "openbox") ||
-        strstr(currentDesktop, "MATE") ||
-        strstr(currentDesktop, "X-Cinnamon") ||
-        strstr(currentDesktop, "Pantheon") ||
-        strstr(currentDesktop, "Deepin")) {
-      return GTK_DECORATION_CLIENT;
-    }
-    if (strstr(currentDesktop, "GNOME") ||
-        strstr(currentDesktop, "LXQt") ||
-        strstr(currentDesktop, "Unity")) {
-      return GTK_DECORATION_SYSTEM;
-    }
     if (strstr(currentDesktop, "i3")) {
       return GTK_DECORATION_NONE;
     }
-    // clang-format on
 
+    // Tested desktops: pop:GNOME, KDE, Enlightenment, LXDE, openbox, MATE,
+    // X-Cinnamon, Pantheon, Deepin, GNOME, LXQt, Unity.
     return GTK_DECORATION_CLIENT;
   }();
   return sGtkWindowDecoration;

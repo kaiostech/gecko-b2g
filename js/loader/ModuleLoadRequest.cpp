@@ -64,7 +64,13 @@ ModuleLoadRequest::ModuleLoadRequest(
       mIsDynamicImport(aIsDynamicImport),
       mLoader(aLoader),
       mRootModule(aRootModule),
-      mVisitedSet(aVisitedSet) {}
+      mVisitedSet(aVisitedSet) {
+  MOZ_ASSERT(mLoader);
+}
+
+nsIGlobalObject* ModuleLoadRequest::GetGlobalObject() {
+  return mLoader->GetGlobalObject();
+}
 
 void ModuleLoadRequest::Cancel() {
   ScriptLoadRequest::Cancel();
@@ -104,9 +110,7 @@ void ModuleLoadRequest::ModuleLoaded() {
 
   LOG(("ScriptLoadRequest (%p): Module loaded", this));
 
-  nsIGlobalObject* global =
-      HasLoadContext() ? GetLoadContext()->GetWebExtGlobal() : nullptr;
-  mModuleScript = mLoader->GetFetchedModule(mURI, global);
+  mModuleScript = mLoader->GetFetchedModule(mURI);
   if (!mModuleScript || mModuleScript->HasParseError()) {
     ModuleErrored();
     return;
@@ -185,8 +189,6 @@ void ModuleLoadRequest::LoadFinished() {
   }
 
   mLoader->ProcessLoadedModuleTree(request);
-
-  mLoader = nullptr;
 }
 
 void ModuleLoadRequest::ClearDynamicImport() {

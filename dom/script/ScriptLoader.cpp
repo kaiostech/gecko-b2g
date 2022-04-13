@@ -167,7 +167,8 @@ NS_IMPL_CYCLE_COLLECTION(ScriptLoader, mNonAsyncExternalScriptInsertedRequests,
                          mOffThreadCompilingRequests, mDeferRequests,
                          mXSLTRequests, mParserBlockingRequest,
                          mBytecodeEncodingQueue, mPreloads,
-                         mPendingChildLoaders, mModuleLoader)
+                         mPendingChildLoaders, mModuleLoader,
+                         mWebExtModuleLoaders)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(ScriptLoader)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(ScriptLoader)
@@ -186,8 +187,7 @@ ScriptLoader::ScriptLoader(Document* aDocument)
       mBlockingDOMContentLoaded(false),
       mLoadEventFired(false),
       mGiveUpEncoding(false),
-      mReporter(new ConsoleReportCollector()),
-      mModuleLoader(new ModuleLoader(this)) {
+      mReporter(new ConsoleReportCollector()) {
   LOG(("ScriptLoader::ScriptLoader %p", this));
 
   mSpeculativeOMTParsingEnabled = StaticPrefs::
@@ -248,6 +248,31 @@ ScriptLoader::~ScriptLoader() {
   }
 
   mModuleLoader = nullptr;
+}
+
+void ScriptLoader::SetGlobalObject(nsIGlobalObject* aGlobalObject) {
+  if (!aGlobalObject) {
+    // The document is being detached.
+    return;
+  }
+
+  MOZ_ASSERT(!HasPendingRequests());
+
+  if (mModuleLoader) {
+    MOZ_ASSERT(mModuleLoader->GetGlobalObject() == aGlobalObject);
+    return;
+  }
+
+  // The module loader is associated with a global object, so don't create it
+  // until we have a global set.
+  mModuleLoader = new ModuleLoader(this, aGlobalObject, ModuleLoader::Normal);
+}
+
+void ScriptLoader::RegisterContentScriptModuleLoader(ModuleLoader* aLoader) {
+  MOZ_ASSERT(aLoader);
+  MOZ_ASSERT(aLoader->GetScriptLoader() == this);
+
+  mWebExtModuleLoaders.AppendElement(aLoader);
 }
 
 // Collect telemtry data about the cache information, and the kind of source
@@ -462,8 +487,7 @@ class ScriptRequestProcessor : public Runnable {
   NS_IMETHOD Run() override {
     if (mRequest->IsModuleRequest() &&
         mRequest->AsModuleRequest()->IsDynamicImport()) {
-      mLoader->GetModuleLoader()->ProcessDynamicImport(
-          mRequest->AsModuleRequest());
+      mRequest->AsModuleRequest()->ProcessDynamicImport();
       return NS_OK;
     }
 
@@ -490,7 +514,7 @@ nsresult ScriptLoader::RestartLoad(ScriptLoadRequest* aRequest) {
   aRequest->mFetchSourceOnly = true;
   nsresult rv;
   if (aRequest->IsModuleRequest()) {
-    rv = mModuleLoader->RestartModuleLoad(aRequest->AsModuleRequest());
+    rv = aRequest->AsModuleRequest()->RestartModuleLoad();
   } else {
     rv = StartLoad(aRequest);
   }
@@ -505,7 +529,7 @@ nsresult ScriptLoader::RestartLoad(ScriptLoadRequest* aRequest) {
 
 nsresult ScriptLoader::StartLoad(ScriptLoadRequest* aRequest) {
   if (aRequest->IsModuleRequest()) {
-    return mModuleLoader->StartModuleLoad(aRequest->AsModuleRequest());
+    return aRequest->AsModuleRequest()->StartModuleLoad();
   }
 
   return StartClassicLoad(aRequest);
@@ -547,6 +571,16 @@ nsresult ScriptLoader::StartClassicLoad(ScriptLoadRequest* aRequest) {
   return NS_OK;
 }
 
+static bool IsWebExtensionRequest(ScriptLoadRequest* aRequest) {
+  if (!aRequest->IsModuleRequest()) {
+    return false;
+  }
+
+  ModuleLoader* loader =
+      ModuleLoader::From(aRequest->AsModuleRequest()->mLoader);
+  return loader->GetKind() == ModuleLoader::WebExtension;
+}
+
 nsresult ScriptLoader::StartLoadInternal(ScriptLoadRequest* aRequest,
                                          nsSecurityFlags securityFlags) {
   nsContentPolicyType contentPolicyType =
@@ -586,10 +620,8 @@ nsresult ScriptLoader::StartLoadInternal(ScriptLoadRequest* aRequest,
     }
   }
 
-  // Module requests aren't cached, so ignore WebExtGlobal here.
-  nsCOMPtr<nsIScriptGlobalObject> globalObject =
-      GetScriptGlobalObject(WebExtGlobal::Ignore);
-  if (!globalObject) {
+  nsCOMPtr<nsIScriptGlobalObject> scriptGlobal = GetScriptGlobalObject();
+  if (!scriptGlobal) {
     return NS_ERROR_FAILURE;
   }
 
@@ -598,7 +630,7 @@ nsresult ScriptLoader::StartLoadInternal(ScriptLoadRequest* aRequest,
   aRequest->mCacheInfo = nullptr;
   nsCOMPtr<nsICacheInfoChannel> cic(do_QueryInterface(channel));
   if (cic && StaticPrefs::dom_script_loader_bytecode_cache_enabled()) {
-    MOZ_ASSERT(!aRequest->GetLoadContext()->GetWebExtGlobal(),
+    MOZ_ASSERT(!IsWebExtensionRequest(aRequest),
                "Can not bytecode cache WebExt code");
     if (!aRequest->mFetchSourceOnly) {
       // Inform the HTTP cache that we prefer to have information coming from
@@ -1117,7 +1149,7 @@ bool ScriptLoader::ProcessInlineScript(nsIScriptElement* aElement,
       mozilla::nsAutoMicroTask mt;
     }
 
-    nsresult rv = mModuleLoader->ProcessFetchedModuleSource(modReq);
+    nsresult rv = modReq->ProcessFetchedModuleSource();
     if (NS_FAILED(rv)) {
       ReportErrorToConsole(modReq, rv);
       HandleLoadError(modReq, rv);
@@ -1352,7 +1384,7 @@ nsresult ScriptLoader::ProcessOffThreadRequest(ScriptLoadRequest* aRequest) {
   if (aRequest->IsModuleRequest()) {
     MOZ_ASSERT(aRequest->GetLoadContext()->mOffThreadToken);
     ModuleLoadRequest* request = aRequest->AsModuleRequest();
-    return mModuleLoader->ProcessFetchedModuleSource(request);
+    return request->ProcessFetchedModuleSource();
   }
 
   // Element may not be ready yet if speculatively compiling, so process the
@@ -1674,7 +1706,7 @@ nsresult ScriptLoader::ProcessRequest(ScriptLoadRequest* aRequest) {
   if (aRequest->IsModuleRequest()) {
     ModuleLoadRequest* request = aRequest->AsModuleRequest();
     if (request->mModuleScript) {
-      if (!mModuleLoader->InstantiateModuleTree(request)) {
+      if (!request->InstantiateModuleTree()) {
         request->mModuleScript = nullptr;
       }
     }
@@ -1813,17 +1845,17 @@ MOZ_CAN_RUN_SCRIPT_BOUNDARY void ScriptLoader::FireScriptEvaluated(
 
 already_AddRefed<nsIGlobalObject> ScriptLoader::GetGlobalForRequest(
     ScriptLoadRequest* aRequest) {
-  if (aRequest->GetLoadContext()->GetWebExtGlobal()) {
-    nsCOMPtr<nsIGlobalObject> global =
-        aRequest->GetLoadContext()->GetWebExtGlobal();
+  if (aRequest->IsModuleRequest()) {
+    ModuleLoader* loader =
+        ModuleLoader::From(aRequest->AsModuleRequest()->mLoader);
+    nsCOMPtr<nsIGlobalObject> global = loader->GetGlobalObject();
     return global.forget();
   }
 
-  return GetScriptGlobalObject(WebExtGlobal::Handled);
+  return GetScriptGlobalObject();
 }
 
-already_AddRefed<nsIScriptGlobalObject> ScriptLoader::GetScriptGlobalObject(
-    WebExtGlobal) {
+already_AddRefed<nsIScriptGlobalObject> ScriptLoader::GetScriptGlobalObject() {
   if (!mDocument) {
     return nullptr;
   }
@@ -2039,16 +2071,16 @@ nsresult ScriptLoader::EvaluateScriptElement(ScriptLoadRequest* aRequest) {
 
   nsCOMPtr<nsIGlobalObject> globalObject;
   nsCOMPtr<nsIScriptContext> context;
-  if (aRequest->GetLoadContext()->GetWebExtGlobal()) {
-    // Executing a module from a WebExtension content-script.
-    globalObject = aRequest->GetLoadContext()->GetWebExtGlobal();
-  } else {
+  if (!IsWebExtensionRequest(aRequest)) {
     // Otherwise we have to ensure that there is a nsIScriptContext.
-    nsCOMPtr<nsIScriptGlobalObject> scriptGlobal =
-        GetScriptGlobalObject(WebExtGlobal::Handled);
+    nsCOMPtr<nsIScriptGlobalObject> scriptGlobal = GetScriptGlobalObject();
     if (!scriptGlobal) {
       return NS_ERROR_FAILURE;
     }
+
+    MOZ_ASSERT_IF(
+        aRequest->IsModuleRequest(),
+        aRequest->AsModuleRequest()->GetGlobalObject() == scriptGlobal);
 
     // Make sure context is a strong reference since we access it after
     // we've executed a script, which may cause all other references to
@@ -2061,7 +2093,7 @@ nsresult ScriptLoader::EvaluateScriptElement(ScriptLoadRequest* aRequest) {
     globalObject = scriptGlobal;
   }
 
-  // Update our current script
+  // Update our current script.
   // This must be destroyed after destroying nsAutoMicroTask, see:
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1620505#c4
   nsIScriptElement* currentScript =
@@ -2076,8 +2108,9 @@ nsresult ScriptLoader::EvaluateScriptElement(ScriptLoadRequest* aRequest) {
   }
 
   if (aRequest->IsModuleRequest()) {
-    return mModuleLoader->EvaluateModule(globalObject, aRequest);
+    return aRequest->AsModuleRequest()->EvaluateModule();
   }
+
   return EvaluateScript(globalObject, aRequest);
 }
 
@@ -2383,8 +2416,7 @@ void ScriptLoader::EncodeBytecode() {
   }
 
   // Should not be encoding modules at all.
-  nsCOMPtr<nsIScriptGlobalObject> globalObject =
-      GetScriptGlobalObject(WebExtGlobal::Ignore);
+  nsCOMPtr<nsIScriptGlobalObject> globalObject = GetScriptGlobalObject();
   if (!globalObject) {
     GiveUpBytecodeEncoding();
     return;
@@ -2400,8 +2432,8 @@ void ScriptLoader::EncodeBytecode() {
   RefPtr<ScriptLoadRequest> request;
   while (!mBytecodeEncodingQueue.isEmpty()) {
     request = mBytecodeEncodingQueue.StealFirst();
-    MOZ_ASSERT(!request->GetLoadContext()->GetWebExtGlobal(),
-               "Not handling global above");
+    MOZ_ASSERT(!IsWebExtensionRequest(request),
+               "Bytecode for web extension content scrips is not cached");
     EncodeRequestBytecode(aes.cx(), request);
     request->mScriptBytecode.clearAndFree();
     request->DropBytecodeCacheReferences();
@@ -2495,8 +2527,7 @@ void ScriptLoader::GiveUpBytecodeEncoding() {
   // would not keep a large buffer around.  If we cannot, we fallback on the
   // removal of all request from the current list and these large buffers would
   // be removed at the same time as the source object.
-  nsCOMPtr<nsIScriptGlobalObject> globalObject =
-      GetScriptGlobalObject(WebExtGlobal::Ignore);
+  nsCOMPtr<nsIScriptGlobalObject> globalObject = GetScriptGlobalObject();
   AutoAllowLegacyScriptExecution exemption;
   Maybe<AutoEntryScript> aes;
 
@@ -2512,7 +2543,7 @@ void ScriptLoader::GiveUpBytecodeEncoding() {
     LOG(("ScriptLoadRequest (%p): Cannot serialize bytecode", request.get()));
     TRACE_FOR_TEST_NONE(request->GetLoadContext()->GetScriptElement(),
                         "scriptloader_bytecode_failed");
-    MOZ_ASSERT(!request->GetLoadContext()->GetWebExtGlobal());
+    MOZ_ASSERT(!IsWebExtensionRequest(request));
 
     if (aes.isSome()) {
       bool result;
@@ -2536,14 +2567,27 @@ void ScriptLoader::GiveUpBytecodeEncoding() {
   }
 }
 
-bool ScriptLoader::HasPendingRequests() {
+bool ScriptLoader::HasPendingRequests() const {
   return mParserBlockingRequest || !mXSLTRequests.isEmpty() ||
          !mLoadedAsyncRequests.isEmpty() ||
          !mNonAsyncExternalScriptInsertedRequests.isEmpty() ||
-         !mDeferRequests.isEmpty() ||
-         mModuleLoader->HasPendingDynamicImports() ||
+         !mDeferRequests.isEmpty() || HasPendingDynamicImports() ||
          !mPendingChildLoaders.IsEmpty();
   // mOffThreadCompilingRequests are already being processed.
+}
+
+bool ScriptLoader::HasPendingDynamicImports() const {
+  if (mModuleLoader && mModuleLoader->HasPendingDynamicImports()) {
+    return true;
+  }
+
+  for (ModuleLoader* loader : mWebExtModuleLoaders) {
+    if (loader->HasPendingDynamicImports()) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void ScriptLoader::ProcessPendingRequestsAsync() {
@@ -2963,8 +3007,7 @@ void ScriptLoader::HandleLoadError(ScriptLoadRequest* aRequest,
 
   if (aRequest->IsModuleRequest() && !aRequest->GetLoadContext()->mIsInline) {
     auto* request = aRequest->AsModuleRequest();
-    mModuleLoader->SetModuleFetchFinishedAndResumeWaitingRequests(request,
-                                                                  aResult);
+    request->SetModuleFetchFinishedAndResumeWaitingRequests(aResult);
   }
 
   if (aRequest->GetLoadContext()->mInDeferList) {
@@ -3007,7 +3050,7 @@ void ScriptLoader::HandleLoadError(ScriptLoadRequest* aRequest,
     if (modReq->IsDynamicImport()) {
       MOZ_ASSERT(modReq->IsTopLevel());
       if (aRequest->isInList()) {
-        mModuleLoader->CancelDynamicImport(modReq, aResult);
+        modReq->CancelDynamicImport(aResult);
       }
     } else {
       MOZ_ASSERT(!modReq->IsTopLevel());
@@ -3242,17 +3285,16 @@ nsresult ScriptLoader::PrepareLoadedRequest(ScriptLoadRequest* aRequest,
   // inserting the request in the array. However it's an unlikely case
   // so if you see this assertion it is likely something else that is
   // wrong, especially if you see it more than once.
-  NS_ASSERTION(
-      mDeferRequests.Contains(aRequest) ||
-          mLoadingAsyncRequests.Contains(aRequest) ||
-          mNonAsyncExternalScriptInsertedRequests.Contains(aRequest) ||
-          mXSLTRequests.Contains(aRequest) ||
-          (aRequest->IsModuleRequest() &&
-           (mModuleLoader->HasDynamicImport(aRequest->AsModuleRequest()) ||
-            !aRequest->AsModuleRequest()->IsTopLevel())) ||
-          mPreloads.Contains(aRequest, PreloadRequestComparator()) ||
-          mParserBlockingRequest == aRequest,
-      "aRequest should be pending!");
+  NS_ASSERTION(mDeferRequests.Contains(aRequest) ||
+                   mLoadingAsyncRequests.Contains(aRequest) ||
+                   mNonAsyncExternalScriptInsertedRequests.Contains(aRequest) ||
+                   mXSLTRequests.Contains(aRequest) ||
+                   (aRequest->IsModuleRequest() &&
+                    (aRequest->AsModuleRequest()->IsRegisteredDynamicImport() ||
+                     !aRequest->AsModuleRequest()->IsTopLevel())) ||
+                   mPreloads.Contains(aRequest, PreloadRequestComparator()) ||
+                   mParserBlockingRequest == aRequest,
+               "aRequest should be pending!");
 
   nsCOMPtr<nsIURI> uri;
   rv = channel->GetOriginalURI(getter_AddRefs(uri));
@@ -3287,7 +3329,7 @@ nsresult ScriptLoader::PrepareLoadedRequest(ScriptLoadRequest* aRequest,
     }
 
     // Otherwise compile it right away and start fetching descendents.
-    return mModuleLoader->ProcessFetchedModuleSource(request);
+    return request->ProcessFetchedModuleSource();
   }
 
   // The script is now loaded and ready to run.
@@ -3336,7 +3378,13 @@ void ScriptLoader::ParsingComplete(bool aTerminated) {
   mNonAsyncExternalScriptInsertedRequests.CancelRequestsAndClear();
   mXSLTRequests.CancelRequestsAndClear();
 
-  mModuleLoader->CancelAndClearDynamicImports();
+  if (mModuleLoader) {
+    mModuleLoader->CancelAndClearDynamicImports();
+  }
+
+  for (ModuleLoader* loader : mWebExtModuleLoaders) {
+    loader->CancelAndClearDynamicImports();
+  }
 
   if (mParserBlockingRequest) {
     mParserBlockingRequest->Cancel();

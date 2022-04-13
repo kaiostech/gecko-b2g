@@ -40,7 +40,12 @@ class ModuleLoader final : public JS::loader::ModuleLoaderBase {
   virtual ~ModuleLoader();
 
  public:
-  explicit ModuleLoader(ScriptLoader* aLoader);
+  enum Kind { Normal, WebExtension };
+
+  ModuleLoader(ScriptLoader* aLoader, nsIGlobalObject* aGlobalObject,
+               Kind aKind);
+
+  Kind GetKind() const { return mKind; }
 
   ScriptLoader* GetScriptLoader();
 
@@ -71,6 +76,13 @@ class ModuleLoader final : public JS::loader::ModuleLoaderBase {
       JS::Handle<JS::Value> aReferencingPrivate,
       JS::Handle<JSString*> aSpecifier,
       JS::Handle<JSObject*> aPromise) override;
+
+  static ModuleLoader* From(ModuleLoaderBase* aLoader) {
+    return static_cast<ModuleLoader*>(aLoader);
+  }
+
+ private:
+  const Kind mKind;
 };
 
 }  // namespace dom

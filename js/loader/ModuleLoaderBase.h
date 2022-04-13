@@ -22,7 +22,6 @@
 #include "mozilla/dom/JSExecutionContext.h"
 #include "mozilla/MaybeOneOf.h"
 #include "mozilla/MozPromise.h"
-#include "ModuleMapKey.h"
 
 class nsIURI;
 
@@ -58,10 +57,6 @@ class ScriptLoaderInterface : public nsISupports {
   // In some environments, we will need to default to a base URI
   virtual nsIURI* GetBaseURI() const = 0;
 
-  // Get the global for the associated request.
-  virtual already_AddRefed<nsIGlobalObject> GetGlobalForRequest(
-      ScriptLoadRequest* aRequest) = 0;
-
   virtual void ReportErrorToConsole(ScriptLoadRequest* aRequest,
                                     nsresult aResult) const = 0;
 
@@ -86,12 +81,14 @@ class ModuleLoaderBase : public nsISupports {
   using GenericPromise = mozilla::GenericPromise;
 
   // Module map
-  nsRefPtrHashtable<ModuleMapKey, GenericNonExclusivePromise::Private>
+  nsRefPtrHashtable<nsURIHashKey, GenericNonExclusivePromise::Private>
       mFetchingModules;
-  nsRefPtrHashtable<ModuleMapKey, ModuleScript> mFetchedModules;
+  nsRefPtrHashtable<nsURIHashKey, ModuleScript> mFetchedModules;
 
   // List of dynamic imports that are currently being loaded.
   ScriptLoadRequestList mDynamicImportRequests;
+
+  nsCOMPtr<nsIGlobalObject> mGlobalObject;
 
  protected:
   RefPtr<ScriptLoaderInterface> mLoader;
@@ -101,7 +98,8 @@ class ModuleLoaderBase : public nsISupports {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(ModuleLoaderBase)
-  explicit ModuleLoaderBase(ScriptLoaderInterface* aLoader);
+  explicit ModuleLoaderBase(ScriptLoaderInterface* aLoader,
+                            nsIGlobalObject* aGlobalObject);
 
   using LoadedScript = JS::loader::LoadedScript;
   using ScriptFetchOptions = JS::loader::ScriptFetchOptions;
@@ -142,10 +140,14 @@ class ModuleLoaderBase : public nsISupports {
   // Public API methods.
 
  public:
+  ScriptLoaderInterface* GetScriptLoaderInterface() const { return mLoader; }
+
+  nsIGlobalObject* GetGlobalObject() const { return mGlobalObject; }
+
   bool HasPendingDynamicImports() const;
   void CancelDynamicImport(ModuleLoadRequest* aRequest, nsresult aResult);
 #ifdef DEBUG
-  bool HasDynamicImport(ModuleLoadRequest* aRequest) const;
+  bool HasDynamicImport(const ModuleLoadRequest* aRequest) const;
 #endif
 
   // Start a load for a module script URI. Returns immediately if the module is
@@ -160,8 +162,7 @@ class ModuleLoaderBase : public nsISupports {
   bool InstantiateModuleTree(ModuleLoadRequest* aRequest);
 
   // Implements https://html.spec.whatwg.org/#run-a-module-script
-  nsresult EvaluateModule(nsIGlobalObject* aGlobalObject,
-                          ScriptLoadRequest* aRequest);
+  nsresult EvaluateModule(ModuleLoadRequest* aRequest);
 
   void StartDynamicImport(ModuleLoadRequest* aRequest);
   void ProcessDynamicImport(ModuleLoadRequest* aRequest);
@@ -193,9 +194,9 @@ class ModuleLoaderBase : public nsISupports {
   static bool HostGetSupportedImportAssertions(
       JSContext* aCx, JS::ImportAssertionVector& aValues);
 
-  static already_AddRefed<nsIURI> ResolveModuleSpecifier(
-      ModuleLoaderBase* aLoader, LoadedScript* aScript,
-      const nsAString& aSpecifier);
+  already_AddRefed<nsIURI> ResolveModuleSpecifier(LoadedScript* aScript,
+                                                  const nsAString& aSpecifier);
+
   static nsresult HandleResolveFailure(JSContext* aCx, LoadedScript* aScript,
                                        const nsAString& aSpecifier,
                                        uint32_t aLineNumber,
@@ -206,16 +207,12 @@ class ModuleLoaderBase : public nsISupports {
   nsresult StartOrRestartModuleLoad(ModuleLoadRequest* aRequest,
                                     RestartRequest aRestart);
 
-  bool ModuleMapContainsURL(nsIURI* aURL, nsIGlobalObject* aGlobal) const;
-  bool IsModuleFetching(nsIURI* aURL, nsIGlobalObject* aGlobal) const;
-  RefPtr<GenericNonExclusivePromise> WaitForModuleFetch(
-      nsIURI* aURL, nsIGlobalObject* aGlobal);
+  bool ModuleMapContainsURL(nsIURI* aURL) const;
+  bool IsModuleFetching(nsIURI* aURL) const;
+  RefPtr<GenericNonExclusivePromise> WaitForModuleFetch(nsIURI* aURL);
   void SetModuleFetchStarted(ModuleLoadRequest* aRequest);
 
-  ModuleScript* GetFetchedModule(nsIURI* aURL, nsIGlobalObject* aGlobal) const;
-
-  // Helper function to set up the global correctly for dynamic imports.
-  nsresult EvaluateModule(ScriptLoadRequest* aRequest);
+  ModuleScript* GetFetchedModule(nsIURI* aURL) const;
 
   JS::Value FindFirstParseError(ModuleLoadRequest* aRequest);
   static nsresult InitDebuggerDataForModuleTree(JSContext* aCx,

@@ -5498,6 +5498,12 @@ nsresult XREMain::XRE_mainRun() {
 
     mDirProvider.DoStartup();
 
+#ifdef XP_WIN
+    // It needs to be called on the main thread because it has to use
+    // nsObserverService.
+    EnsureWin32kInitialized();
+#endif
+
     // As FilePreferences need the profile directory, we must initialize right
     // here.
     mozilla::FilePreferences::InitDirectoriesWhitelist();

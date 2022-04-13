@@ -3249,8 +3249,10 @@ MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
     nsPIDOMWindowInner* aWindow, TrackRate aSampleRate,
     CubebUtils::AudioDeviceID aOutputDeviceID,
     dom::AudioChannel aAudioChannel) {
+  // On B2G, webspeech gets the graph with null window, so give it window ID 0.
+  uint64_t windowID = aWindow ? aWindow->WindowID() : 0;
   return MediaTrackGraphImpl::GetInstanceIfExists(
-      aWindow->WindowID(), aSampleRate, aOutputDeviceID, aAudioChannel);
+      windowID, aSampleRate, aOutputDeviceID, aAudioChannel);
 }
 
 /* static */
@@ -3298,9 +3300,14 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     GraphDriverType aGraphDriverRequested, nsPIDOMWindowInner* aWindow,
     TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID,
     dom::AudioChannel aAudioChannel) {
-  return MediaTrackGraphImpl::GetInstance(
-      aGraphDriverRequested, aWindow->WindowID(), aSampleRate, aOutputDeviceID,
-      aAudioChannel, aWindow->EventTargetFor(TaskCategory::Other));
+  // On B2G, webspeech gets the graph with null window, so give it window ID 0.
+  uint64_t windowID = aWindow ? aWindow->WindowID() : 0;
+  nsCOMPtr<nsISerialEventTarget> mainThread =
+      aWindow ? aWindow->EventTargetFor(TaskCategory::Other)
+              : GetMainThreadSerialEventTarget();
+  return MediaTrackGraphImpl::GetInstance(aGraphDriverRequested, windowID,
+                                          aSampleRate, aOutputDeviceID,
+                                          aAudioChannel, mainThread);
 }
 
 MediaTrackGraph* MediaTrackGraph::CreateNonRealtimeInstance(

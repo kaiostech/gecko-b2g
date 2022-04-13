@@ -59,7 +59,7 @@ INSTANCE_RESERVED_SLOTS = 1
 # This size is arbitrary. It is a power of 2 to make using it as a modulo
 # operand cheap, and is usually around 1/3-1/5th of the set size (sometimes
 # smaller for very large sets).
-GLOBAL_NAMES_PHF_SIZE = 256
+GLOBAL_NAMES_PHF_SIZE = 512
 
 
 def memberReservedSlot(member, descriptor):

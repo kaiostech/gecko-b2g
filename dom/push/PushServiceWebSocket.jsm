@@ -1493,10 +1493,6 @@ var PushServiceWebSocket = {
       });
     }
 
-    if (record.scope) {
-      data.scope = record.scope;
-    }
-
     return this._sendRequestForReply(record, data).then(record => {
       if (!this._dataEnabled) {
         return record;

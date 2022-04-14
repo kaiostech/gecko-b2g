@@ -319,7 +319,10 @@ void nsVideoFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
                         ReflowChildFlags::Default);
 
       if (child->GetSize() != oldChildSize) {
-        MOZ_ASSERT(child->IsPrimaryFrame(),
+        // We might find non-primary frames in printing due to
+        // ReplicateFixedFrames, but we don't care about that.
+        MOZ_ASSERT(child->IsPrimaryFrame() ||
+                       PresContext()->IsPrintingOrPrintPreview(),
                    "We only look at the primary frame in ReflowFinished");
         if (!mReflowCallbackPosted) {
           mReflowCallbackPosted = true;
@@ -463,6 +466,10 @@ bool nsVideoFrame::ShouldDisplayPoster() const {
 }
 
 nsSize nsVideoFrame::GetVideoIntrinsicSize() const {
+  if (!HasVideoElement()) {
+    return nsSize(0, 0);
+  }
+
   // 'contain:size' replaced elements have intrinsic size 0,0.
   if (StyleDisplay()->IsContainSize()) {
     return nsSize(0, 0);

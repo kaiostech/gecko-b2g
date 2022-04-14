@@ -781,6 +781,9 @@ PresShell::PresShell(Document* aDocument)
     : mDocument(aDocument),
       mViewManager(nullptr),
       mFrameManager(nullptr),
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+      mAllocatedPointers(MakeUnique<nsTHashSet<void*>>()),
+#endif
       mAutoWeakFrames(nullptr),
 #ifdef ACCESSIBILITY
       mDocAccessible(nullptr),
@@ -897,8 +900,10 @@ PresShell::~PresShell() {
                    mLastCallbackEventRequest == nullptr,
                "post-reflow queues not empty.  This means we're leaking");
 
-  MOZ_ASSERT(mAllocatedPointers.IsEmpty(),
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+  MOZ_ASSERT(!mAllocatedPointers || mAllocatedPointers->IsEmpty(),
              "Some pres arena objects were not freed");
+#endif
 
   mFrameManager = nullptr;
   mFrameConstructor = nullptr;

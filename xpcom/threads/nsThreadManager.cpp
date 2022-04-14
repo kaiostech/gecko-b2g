@@ -16,6 +16,7 @@
 #include "mozilla/AbstractThread.h"
 #include "mozilla/AppShutdown.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/CycleCollectedJSContext.h"  // nsAutoMicroTask
 #include "mozilla/EventQueue.h"
 #include "mozilla/InputTaskManager.h"
 #include "mozilla/Mutex.h"
@@ -242,24 +243,11 @@ void AssertIsOnMainThread() { MOZ_ASSERT(NS_IsMainThread(), "Wrong thread!"); }
 
 typedef nsTArray<NotNull<RefPtr<nsThread>>> nsThreadArray;
 
-static Atomic<bool> sShutdownComplete;
-
 //-----------------------------------------------------------------------------
 
 /* static */
 void nsThreadManager::ReleaseThread(void* aData) {
-  if (sShutdownComplete) {
-    // We've already completed shutdown and released the references to all or
-    // our TLS wrappers. Don't try to release them again.
-    return;
-  }
-
-  auto* thread = static_cast<nsThread*>(aData);
-
-  if (thread->mHasTLSEntry) {
-    thread->mHasTLSEntry = false;
-    thread->Release();
-  }
+  static_cast<nsThread*>(aData)->Release();
 }
 
 // statically allocated instance
@@ -437,31 +425,12 @@ void nsThreadManager::Shutdown() {
 
   // Remove the TLS entry for the main thread.
   PR_SetThreadPrivate(mCurThreadIndex, nullptr);
-
-  {
-    // Cleanup the last references to any threads which haven't shut down yet.
-    nsTArray<RefPtr<nsThread>> threads;
-    for (auto* thread : nsThread::Enumerate()) {
-      if (thread->mHasTLSEntry) {
-        threads.AppendElement(dont_AddRef(thread));
-        thread->mHasTLSEntry = false;
-      }
-    }
-  }
-
-  // xpcshell tests sometimes leak the main thread. They don't enable leak
-  // checking, so that doesn't cause the test to fail, but leaving the entry in
-  // the thread list triggers an assertion, which does.
-  nsThread::ClearThreadList();
-
-  sShutdownComplete = true;
 }
 
 void nsThreadManager::RegisterCurrentThread(nsThread& aThread) {
   MOZ_ASSERT(aThread.GetPRThread() == PR_GetCurrentThread(), "bad aThread");
 
   aThread.AddRef();  // for TLS entry
-  aThread.mHasTLSEntry = true;
   PR_SetThreadPrivate(mCurThreadIndex, &aThread);
 }
 
@@ -726,6 +695,35 @@ nsThreadManager::DispatchToMainThread(nsIRunnable* aEvent, uint32_t aPriority,
         new PrioritizableRunnable(event.forget(), aPriority), 0);
   }
   return mMainThread->DispatchFromScript(aEvent, 0);
+}
+
+class AutoMicroTaskWrapperRunnable final : public Runnable {
+ public:
+  explicit AutoMicroTaskWrapperRunnable(nsIRunnable* aEvent)
+      : Runnable("AutoMicroTaskWrapperRunnable"), mEvent(aEvent) {
+    MOZ_ASSERT(aEvent);
+  }
+
+ private:
+  ~AutoMicroTaskWrapperRunnable() = default;
+
+  NS_IMETHOD Run() override {
+    nsAutoMicroTask mt;
+
+    return mEvent->Run();
+  }
+
+  RefPtr<nsIRunnable> mEvent;
+};
+
+NS_IMETHODIMP
+nsThreadManager::DispatchToMainThreadWithMicroTask(nsIRunnable* aEvent,
+                                                   uint32_t aPriority,
+                                                   uint8_t aArgc) {
+  RefPtr<AutoMicroTaskWrapperRunnable> runnable =
+      new AutoMicroTaskWrapperRunnable(aEvent);
+
+  return DispatchToMainThread(runnable, aPriority, aArgc);
 }
 
 void nsThreadManager::EnableMainThreadEventPrioritization() {

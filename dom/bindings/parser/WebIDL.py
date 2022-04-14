@@ -2463,9 +2463,6 @@ class IDLType(IDLObject):
     def isRecord(self):
         return False
 
-    def isReadableStream(self):
-        return False
-
     def isArrayBuffer(self):
         return False
 
@@ -2494,7 +2491,7 @@ class IDLType(IDLObject):
     def isSpiderMonkeyInterface(self):
         """Returns a boolean indicating whether this type is an 'interface'
         type that is implemented in SpiderMonkey."""
-        return self.isInterface() and (self.isBufferSource() or self.isReadableStream())
+        return self.isInterface() and self.isBufferSource()
 
     def isAny(self):
         return self.tag() == IDLType.Tags.any
@@ -2710,9 +2707,6 @@ class IDLNullableType(IDLParametrizedType):
 
     def isRecord(self):
         return self.inner.isRecord()
-
-    def isReadableStream(self):
-        return self.inner.isReadableStream()
 
     def isArrayBuffer(self):
         return self.inner.isArrayBuffer()
@@ -3222,9 +3216,6 @@ class IDLTypedefType(IDLType):
     def isRecord(self):
         return self.inner.isRecord()
 
-    def isReadableStream(self):
-        return self.inner.isReadableStream()
-
     def isDictionary(self):
         return self.inner.isDictionary()
 
@@ -3567,7 +3558,6 @@ class IDLBuiltinType(IDLType):
         "Uint32Array",
         "Float32Array",
         "Float64Array",
-        "ReadableStream",
     )
 
     TagLookup = {
@@ -3603,7 +3593,6 @@ class IDLBuiltinType(IDLType):
         Types.Uint32Array: IDLType.Tags.interface,
         Types.Float32Array: IDLType.Tags.interface,
         Types.Float64Array: IDLType.Tags.interface,
-        Types.ReadableStream: IDLType.Tags.interface,
     }
 
     PrettyNames = {
@@ -3639,7 +3628,6 @@ class IDLBuiltinType(IDLType):
         Types.Uint32Array: "Uint32Array",
         Types.Float32Array: "Float32Array",
         Types.Float64Array: "Float64Array",
-        Types.ReadableStream: "ReadableStream",
     }
 
     def __init__(
@@ -3800,19 +3788,11 @@ class IDLBuiltinType(IDLType):
             and self._typeTag <= IDLBuiltinType.Types.Float64Array
         )
 
-    def isReadableStream(self):
-        return self._typeTag == IDLBuiltinType.Types.ReadableStream
-
     def isInterface(self):
         # TypedArray things are interface types per the TypedArray spec,
         # but we handle them as builtins because SpiderMonkey implements
         # all of it internally.
-        return (
-            self.isArrayBuffer()
-            or self.isArrayBufferView()
-            or self.isTypedArray()
-            or self.isReadableStream()
-        )
+        return self.isArrayBuffer() or self.isArrayBufferView() or self.isTypedArray()
 
     def isNonCallbackInterface(self):
         # All the interfaces we can be are non-callback
@@ -3906,7 +3886,6 @@ class IDLBuiltinType(IDLType):
                     # ArrayBuffer is distinguishable from everything
                     # that's not an ArrayBuffer or a callback interface
                     (self.isArrayBuffer() and not other.isArrayBuffer())
-                    or (self.isReadableStream() and not other.isReadableStream())
                     or
                     # ArrayBufferView is distinguishable from everything
                     # that's not an ArrayBufferView or typed array.
@@ -4112,11 +4091,6 @@ BuiltinTypes = {
         BuiltinLocation("<builtin type>"),
         "Float64Array",
         IDLBuiltinType.Types.Float64Array,
-    ),
-    IDLBuiltinType.Types.ReadableStream: IDLBuiltinType(
-        BuiltinLocation("<builtin type>"),
-        "ReadableStream",
-        IDLBuiltinType.Types.ReadableStream,
     ),
 }
 
@@ -6851,9 +6825,6 @@ class Tokenizer(object):
     def t_IDENTIFIER(self, t):
         r"[_-]?[A-Za-z][0-9A-Z_a-z-]*"
         t.type = self.keywords.get(t.value, "IDENTIFIER")
-        # If Builtin readable streams are disabled, mark ReadableStream as an identifier.
-        if t.type == "READABLESTREAM" and not self._use_builtin_readable_streams:
-            t.type = "IDENTIFIER"
         return t
 
     def t_STRING(self, t):
@@ -6944,7 +6915,6 @@ class Tokenizer(object):
         "setlike": "SETLIKE",
         "iterable": "ITERABLE",
         "namespace": "NAMESPACE",
-        "ReadableStream": "READABLESTREAM",
         "constructor": "CONSTRUCTOR",
         "symbol": "SYMBOL",
         "async": "ASYNC",
@@ -6965,8 +6935,7 @@ class Tokenizer(object):
             ],
         )
 
-    def __init__(self, outputdir, lexer=None, use_builtin_readable_streams=True):
-        self._use_builtin_readable_streams = use_builtin_readable_streams
+    def __init__(self, outputdir, lexer=None):
         if lexer:
             self.lexer = lexer
         else:
@@ -8451,15 +8420,12 @@ class Parser(Tokenizer):
         """
         DistinguishableType : PrimitiveType Null
                             | ARRAYBUFFER Null
-                            | READABLESTREAM Null
                             | OBJECT Null
         """
         if p[1] == "object":
             type = BuiltinTypes[IDLBuiltinType.Types.object]
         elif p[1] == "ArrayBuffer":
             type = BuiltinTypes[IDLBuiltinType.Types.ArrayBuffer]
-        elif p[1] == "ReadableStream":
-            type = BuiltinTypes[IDLBuiltinType.Types.ReadableStream]
         else:
             type = BuiltinTypes[p[1]]
 
@@ -8808,8 +8774,8 @@ class Parser(Tokenizer):
                 [Location(self.lexer, p.lineno, p.lexpos, self._filename)],
             )
 
-    def __init__(self, outputdir="", lexer=None, use_builtin_readable_stream=True):
-        Tokenizer.__init__(self, outputdir, lexer, use_builtin_readable_stream)
+    def __init__(self, outputdir="", lexer=None):
+        Tokenizer.__init__(self, outputdir, lexer)
 
         logger = SqueakyCleanLogger()
         try:

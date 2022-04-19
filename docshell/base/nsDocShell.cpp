@@ -5888,6 +5888,12 @@ nsDocShell::OnLocationChange(nsIWebProgress* aProgress, nsIRequest* aRequest,
       !(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT) &&
       NS_SUCCEEDED(aProgress->GetIsTopLevel(&isTopLevel)) && isTopLevel) {
     GetBrowsingContext()->Canonical()->UpdateSecurityState();
+  } else if (XRE_IsContentProcess() &&
+             GetBrowsingContext()->GetIsTopOfNestedWebView()) {
+    if (!(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT)) {
+      GetBrowsingContext()
+          ->RecomputeSecurityFlagsForTopContentOfNestedWebView();
+    }
   }
   return NS_OK;
 }

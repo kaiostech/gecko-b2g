@@ -52,6 +52,7 @@
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_apz.h"
+#include "mozilla/StaticPrefs_mozilla.h"
 #include "mozilla/StaticPrefs_ui.h"
 #include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/TextEventDispatcher.h"
@@ -318,9 +319,6 @@ class CurrentX11TimeGetter {
 static nsWindow* gFocusWindow = nullptr;
 static bool gBlockActivateEvent = false;
 static bool gGlobalsInitialized = false;
-static bool gRaiseWindows = true;
-static bool gTransparentWindows = true;
-static bool gUseMoveToRect = true;
 static bool gUseAspectRatio = true;
 static uint32_t gLastTouchID = 0;
 
@@ -1185,11 +1183,15 @@ void nsWindow::HideWaylandPopupWindow(bool aTemporaryHide,
     mWaitingForMoveToRectCallback = false;
   }
 
-  // Clear rendering transactions of closed window and disable rendering to it
-  // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1717451#c27
-  // for details).
   if (mPopupClosed) {
+    // Clear rendering transactions of closed window and disable rendering to it
+    // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1717451#c27 for
+    // details).
     RevokeTransactionIdAllocator();
+
+    // Also clear the move to rect size so it doesn't affect further showing of
+    // the popup.
+    mMoveToRectPopupSize = {};
   }
 }
 
@@ -1764,7 +1766,7 @@ void nsWindow::UpdateWaylandPopupHierarchy() {
   nsWindow* popup = changedPopup;
   while (popup) {
     const bool useMoveToRect = [&] {
-      if (!gUseMoveToRect) {
+      if (!StaticPrefs::widget_wayland_use_move_to_rect_AtStartup()) {
         return false;  // Not available.
       }
       if (!popup->mPopupMatchesLayout) {
@@ -2864,7 +2866,8 @@ void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
 
   // Make sure that our owning widget has focus.  If it doesn't try to
   // grab it.  Note that we don't set our focus flag in this case.
-  if (gRaiseWindows && aRaise == Raise::Yes && toplevelWidget &&
+  if (StaticPrefs::mozilla_widget_raise_on_setfocus_AtStartup() &&
+      aRaise == Raise::Yes && toplevelWidget &&
       !gtk_widget_has_focus(toplevelWidget)) {
     if (gtk_widget_get_visible(mShell)) {
       gdk_window_show_unraised(gtk_widget_get_window(mShell));
@@ -2885,7 +2888,8 @@ void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
     // This is asynchronous.
     // If and when the window manager accepts the request, then the focus
     // widget will get a focus-in-event signal.
-    if (gRaiseWindows && toplevelWindow->mIsShown && toplevelWindow->mShell &&
+    if (StaticPrefs::mozilla_widget_raise_on_setfocus_AtStartup() &&
+        toplevelWindow->mIsShown && toplevelWindow->mShell &&
         !gtk_window_is_active(GTK_WINDOW(toplevelWindow->mShell))) {
       uint32_t timestamp = GDK_CURRENT_TIME;
 
@@ -5602,11 +5606,14 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
     // We need realized mShell at NativeMoveResize().
     gtk_widget_realize(mShell);
 
+    // With popup windows, we want to set their position.
+    // Place them immediately on X11 and save initial popup position
+    // on Wayland as we place Wayland popup on show.
     if (GdkIsX11Display()) {
-      // With popup windows, we want to control their position, so don't
-      // wait for the window manager to place them (which wouldn't
-      // happen with override-redirect windows anyway).
       NativeMoveResize(/* move */ true, /* resize */ false);
+    } else if (AreBoundsSane()) {
+      GdkRectangle rect = DevicePixelsToGdkRectRoundOut(mBounds);
+      mPopupPosition = {rect.x, rect.y};
     }
   } else {  // must be eWindowType_toplevel
     mGtkWindowRoleName = "Toplevel";
@@ -5659,13 +5666,15 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
   eventWidget = mDrawToContainer ? container : mShell;
 
   // Prevent GtkWindow from painting a background to avoid flickering.
-  gtk_widget_set_app_paintable(eventWidget, gTransparentWindows);
+  gtk_widget_set_app_paintable(
+      eventWidget, StaticPrefs::widget_transparent_windows_AtStartup());
 
   gtk_widget_add_events(eventWidget, kEvents);
 
   if (mDrawToContainer) {
     gtk_widget_add_events(mShell, GDK_PROPERTY_CHANGE_MASK);
-    gtk_widget_set_app_paintable(mShell, gTransparentWindows);
+    gtk_widget_set_app_paintable(
+        mShell, StaticPrefs::widget_transparent_windows_AtStartup());
   }
   if (mTransparencyBitmapForTitlebar) {
     moz_container_force_default_visual(mContainer);
@@ -8096,13 +8105,6 @@ static void drag_data_received_event_cb(GtkWidget* aWidget,
 }
 
 static nsresult initialize_prefs(void) {
-  gRaiseWindows =
-      Preferences::GetBool("mozilla.widget.raise-on-setfocus", true);
-  gTransparentWindows =
-      Preferences::GetBool("widget.transparent-windows", true);
-  gUseMoveToRect =
-      Preferences::GetBool("widget.wayland.use-move-to-rect", true);
-
   if (Preferences::HasUserValue("widget.use-aspect-ratio")) {
     gUseAspectRatio = Preferences::GetBool("widget.use-aspect-ratio", true);
   } else {

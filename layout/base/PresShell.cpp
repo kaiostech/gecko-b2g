@@ -783,11 +783,11 @@ PresShell::PresShell(Document* aDocument)
       mFrameManager(nullptr),
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
       mAllocatedPointers(MakeUnique<nsTHashSet<void*>>()),
-#endif
+#endif  // MOZ_DIAGNOSTIC_ASSERT_ENABLED
       mAutoWeakFrames(nullptr),
 #ifdef ACCESSIBILITY
       mDocAccessible(nullptr),
-#endif  // #ifdef ACCESSIBILITY
+#endif  // ACCESSIBILITY
       mCurrentEventFrame(nullptr),
       mMouseLocation(NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE),
       mLastResolutionChangeOrigin(ResolutionChangeOrigin::Apz),

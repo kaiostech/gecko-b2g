@@ -143,7 +143,8 @@ class D3D9DXVA2Manager : public DXVA2Manager {
   HRESULT CopyToImage(IMFSample* aVideoSample, const gfx::IntRect& aRegion,
                       Image** aOutImage) override;
 
-  bool SupportsConfig(IMFMediaType* aType, float aFramerate) override;
+  bool SupportsConfig(IMFMediaType* aInputType, IMFMediaType* aOutputType,
+                      float aFramerate) override;
 
  private:
   bool CanCreateDecoder(const DXVA2_VideoDesc& aDesc,
@@ -209,19 +210,19 @@ HRESULT ConvertMFTypeToDXVAType(IMFMediaType* pType, DXVA2_VideoDesc* pDesc) {
 
   UINT32 fpsNumerator = 0;
   UINT32 fpsDenominator = 0;
-  hr = MFGetAttributeRatio(pType, MF_MT_FRAME_RATE, &fpsNumerator,
-                           &fpsDenominator);
-  NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
-  pDesc->InputSampleFreq.Numerator = fpsNumerator;
-  pDesc->InputSampleFreq.Denominator = fpsDenominator;
+  if (SUCCEEDED(MFGetAttributeRatio(pType, MF_MT_FRAME_RATE, &fpsNumerator,
+                                    &fpsDenominator))) {
+    pDesc->InputSampleFreq.Numerator = fpsNumerator;
+    pDesc->InputSampleFreq.Denominator = fpsDenominator;
 
-  GetDXVA2ExtendedFormatFromMFMediaType(pType, &pDesc->SampleFormat);
-  pDesc->OutputFrameFreq = pDesc->InputSampleFreq;
-  if ((pDesc->SampleFormat.SampleFormat ==
-       DXVA2_SampleFieldInterleavedEvenFirst) ||
-      (pDesc->SampleFormat.SampleFormat ==
-       DXVA2_SampleFieldInterleavedOddFirst)) {
-    pDesc->OutputFrameFreq.Numerator *= 2;
+    GetDXVA2ExtendedFormatFromMFMediaType(pType, &pDesc->SampleFormat);
+    pDesc->OutputFrameFreq = pDesc->InputSampleFreq;
+    if ((pDesc->SampleFormat.SampleFormat ==
+         DXVA2_SampleFieldInterleavedEvenFirst) ||
+        (pDesc->SampleFormat.SampleFormat ==
+         DXVA2_SampleFieldInterleavedOddFirst)) {
+      pDesc->OutputFrameFreq.Numerator *= 2;
+    }
   }
 
   return S_OK;
@@ -264,9 +265,17 @@ static const GUID DXVA2_ModeAV1_Profile0 = {
 // DXVA2_ModeH264_VLD_NoFGT) as the H264 decoder MFT provided by windows
 // (CLSID_CMSH264DecoderMFT) uses, so we can use it to determine if the MFT will
 // use software fallback or not.
-bool D3D9DXVA2Manager::SupportsConfig(IMFMediaType* aType, float aFramerate) {
+bool D3D9DXVA2Manager::SupportsConfig(IMFMediaType* aInputType,
+                                      IMFMediaType* aOutputType,
+                                      float aFramerate) {
+  GUID inputSubtype;
+  HRESULT hr = aInputType->GetGUID(MF_MT_SUBTYPE, &inputSubtype);
+  if (FAILED(hr) || inputSubtype != MFVideoFormat_H264) {
+    return false;
+  }
+
   DXVA2_VideoDesc desc;
-  HRESULT hr = ConvertMFTypeToDXVAType(aType, &desc);
+  hr = ConvertMFTypeToDXVAType(aInputType, &desc);
   NS_ENSURE_TRUE(SUCCEEDED(hr), false);
   return CanCreateDecoder(desc, aFramerate);
 }
@@ -601,11 +610,10 @@ class D3D11DXVA2Manager : public DXVA2Manager {
 
   bool IsD3D11() override { return true; }
 
-  bool SupportsConfig(IMFMediaType* aType, float aFramerate) override;
+  bool SupportsConfig(IMFMediaType* aInputType, IMFMediaType* aOutputType,
+                      float aFramerate) override;
 
  private:
-  HRESULT CreateFormatConverter();
-
   HRESULT CreateOutputSample(RefPtr<IMFSample>& aSample,
                              ID3D11Texture2D* aTexture);
 
@@ -633,17 +641,19 @@ class D3D11DXVA2Manager : public DXVA2Manager {
   gfx::ColorRange mColorRange = gfx::ColorRange::LIMITED;
 };
 
-bool D3D11DXVA2Manager::SupportsConfig(IMFMediaType* aType, float aFramerate) {
+bool D3D11DXVA2Manager::SupportsConfig(IMFMediaType* aInputType,
+                                       IMFMediaType* aOutputType,
+                                       float aFramerate) {
   D3D11_VIDEO_DECODER_DESC desc = {.OutputFormat = DXGI_FORMAT_NV12};
   GUID subtype;
 
-  HRESULT hr = MFGetAttributeSize(aType, MF_MT_FRAME_SIZE, &desc.SampleWidth,
-                                  &desc.SampleHeight);
+  HRESULT hr = MFGetAttributeSize(aInputType, MF_MT_FRAME_SIZE,
+                                  &desc.SampleWidth, &desc.SampleHeight);
   NS_ENSURE_TRUE(SUCCEEDED(hr), false);
   NS_ENSURE_TRUE(desc.SampleWidth <= MAX_VIDEO_WIDTH, false);
   NS_ENSURE_TRUE(desc.SampleHeight <= MAX_VIDEO_HEIGHT, false);
 
-  hr = aType->GetGUID(MF_MT_SUBTYPE, &subtype);
+  hr = aInputType->GetGUID(MF_MT_SUBTYPE, &subtype);
   NS_ENSURE_TRUE(SUCCEEDED(hr), false);
 
   if (subtype == MFVideoFormat_H264) {

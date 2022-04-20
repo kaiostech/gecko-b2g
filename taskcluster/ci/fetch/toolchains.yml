@@ -237,12 +237,12 @@ wine:
         strip-components: 1
         add-prefix: wine-source/
 
-cbindgen-0.19.0:
+cbindgen-0.22.0:
     description: cbindgen source code
     fetch:
         type: git
         repo: https://github.com/eqrion/cbindgen
-        revision: d9e490ce8b836194595bd30611253a7028059da2
+        revision: 8604b2c0b720aab2582e169af4b0005d5d927770
 
 cctools-port:
     description: cctools-port source code
@@ -418,7 +418,7 @@ dump-syms:
     fetch:
         type: git
         repo: https://github.com/mozilla/dump_syms/
-        revision: bf7f6bd855eb6ecb233b52bfa7b2c975b7026540
+        revision: c558ad1824b247e147dcc45ec105588883e379fb
 
 rust-minidump:
     description: rust-minidump 0.10.4-prerelease source code (for minidump-stackwalk)

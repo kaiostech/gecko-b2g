@@ -31,20 +31,18 @@ pub use super::image::Image;
 pub use super::image::{EndingShape as GradientEndingShape, Gradient};
 pub use crate::values::specified::calc::CalcLengthPercentage;
 
-/// Number of app units per pixel
-pub const AU_PER_PX: CSSFloat = 60.;
-/// Number of app units per inch
-pub const AU_PER_IN: CSSFloat = AU_PER_PX * 96.;
-/// Number of app units per centimeter
-pub const AU_PER_CM: CSSFloat = AU_PER_IN / 2.54;
-/// Number of app units per millimeter
-pub const AU_PER_MM: CSSFloat = AU_PER_IN / 25.4;
-/// Number of app units per quarter
-pub const AU_PER_Q: CSSFloat = AU_PER_MM / 4.;
-/// Number of app units per point
-pub const AU_PER_PT: CSSFloat = AU_PER_IN / 72.;
-/// Number of app units per pica
-pub const AU_PER_PC: CSSFloat = AU_PER_PT * 12.;
+/// Number of pixels per inch
+pub const PX_PER_IN: CSSFloat = 96.;
+/// Number of pixels per centimeter
+pub const PX_PER_CM: CSSFloat = PX_PER_IN / 2.54;
+/// Number of pixels per millimeter
+pub const PX_PER_MM: CSSFloat = PX_PER_IN / 25.4;
+/// Number of pixels per quarter
+pub const PX_PER_Q: CSSFloat = PX_PER_MM / 4.;
+/// Number of pixels per point
+pub const PX_PER_PT: CSSFloat = PX_PER_IN / 72.;
+/// Number of pixels per pica
+pub const PX_PER_PC: CSSFloat = PX_PER_PT * 12.;
 
 /// A font relative length.
 #[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss, ToShmem)]
@@ -314,6 +312,7 @@ pub enum ViewportVariant {
 }
 
 /// https://drafts.csswg.org/css-values/#viewport-relative-units
+#[derive(PartialEq)]
 enum ViewportUnit {
     /// *vw units.
     Vw,
@@ -543,6 +542,7 @@ impl ViewportPercentageLength {
             ),
         }
     }
+
     fn try_sum(&self, other: &Self) -> Result<Self, ()> {
         use self::ViewportPercentageLength::*;
 
@@ -594,43 +594,21 @@ impl ViewportPercentageLength {
     /// Computes the given viewport-relative length for the given viewport size.
     pub fn to_computed_value(&self, context: &Context) -> CSSPixelLength {
         let (variant, unit, factor) = self.unpack();
+        let size = context.viewport_size_for_viewport_unit_resolution(variant);
         let length = match unit {
-            ViewportUnit::Vw => context.viewport_size_for_viewport_unit_resolution(variant).width,
-            ViewportUnit::Vh => context.viewport_size_for_viewport_unit_resolution(variant).height,
-            ViewportUnit::Vmin => {
-                let base_size =
-                    context.viewport_size_for_viewport_unit_resolution(variant);
-                cmp::min(base_size.width, base_size.height)
-            },
-            ViewportUnit::Vmax => {
-                let base_size =
-                    context.viewport_size_for_viewport_unit_resolution(variant);
-                cmp::max(base_size.width, base_size.height)
-            },
-            ViewportUnit::Vb => {
-                let base_size =
-                    context.viewport_size_for_viewport_unit_resolution(variant);
+            ViewportUnit::Vw => size.width,
+            ViewportUnit::Vh => size.height,
+            ViewportUnit::Vmin => cmp::min(size.width, size.height),
+            ViewportUnit::Vmax => cmp::max(size.width, size.height),
+            ViewportUnit::Vi | ViewportUnit::Vb => {
                 context
                     .rule_cache_conditions
                     .borrow_mut()
                     .set_writing_mode_dependency(context.builder.writing_mode);
-                if context.style().writing_mode.is_vertical() {
-                    base_size.width
+                if (unit == ViewportUnit::Vb) == context.style().writing_mode.is_vertical() {
+                    size.width
                 } else {
-                    base_size.height
-                }
-            },
-            ViewportUnit::Vi => {
-                let base_size =
-                    context.viewport_size_for_viewport_unit_resolution(variant);
-                context
-                    .rule_cache_conditions
-                    .borrow_mut()
-                    .set_writing_mode_dependency(context.builder.writing_mode);
-                if context.style().writing_mode.is_vertical() {
-                    base_size.height
-                } else {
-                    base_size.width
+                    size.height
                 }
             },
         };
@@ -718,12 +696,12 @@ impl AbsoluteLength {
 
         let pixel = match *self {
             AbsoluteLength::Px(value) => value,
-            AbsoluteLength::In(value) => value * (AU_PER_IN / AU_PER_PX),
-            AbsoluteLength::Cm(value) => value * (AU_PER_CM / AU_PER_PX),
-            AbsoluteLength::Mm(value) => value * (AU_PER_MM / AU_PER_PX),
-            AbsoluteLength::Q(value) => value * (AU_PER_Q / AU_PER_PX),
-            AbsoluteLength::Pt(value) => value * (AU_PER_PT / AU_PER_PX),
-            AbsoluteLength::Pc(value) => value * (AU_PER_PC / AU_PER_PX),
+            AbsoluteLength::In(value) => value * PX_PER_IN,
+            AbsoluteLength::Cm(value) => value * PX_PER_CM,
+            AbsoluteLength::Mm(value) => value * PX_PER_MM,
+            AbsoluteLength::Q(value) => value * PX_PER_Q,
+            AbsoluteLength::Pt(value) => value * PX_PER_PT,
+            AbsoluteLength::Pc(value) => value * PX_PER_PC,
         };
         pixel.min(f32::MAX).max(f32::MIN)
     }

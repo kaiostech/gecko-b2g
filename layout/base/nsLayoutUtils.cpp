@@ -6738,7 +6738,8 @@ ImgDrawResult nsLayoutUtils::DrawImage(
     const nsRect& aFill, const nsPoint& aAnchor, const nsRect& aDirty,
     uint32_t aImageFlags, float aOpacity) {
   Maybe<SVGImageContext> svgContext;
-  SVGImageContext::MaybeStoreContextPaint(svgContext, aComputedStyle, aImage);
+  SVGImageContext::MaybeStoreContextPaint(svgContext, *aPresContext,
+                                          *aComputedStyle, aImage);
 
   return DrawImageInternal(aContext, aPresContext, aImage, aSamplingFilter,
                            aDest, aFill, aAnchor, aDirty, svgContext,
@@ -9770,7 +9771,7 @@ static std::pair<Maybe<ScreenRect>, FramePosition> GetFrameVisibleRectOnScreen(
 
   nsIFrame* rootFrame = topContextInProcess->PresShell()->GetRootFrame();
   nsRect transformedToIFrame = nsLayoutUtils::TransformFrameRectToAncestor(
-      aFrame, aFrame->GetRectRelativeToSelf(), rootFrame);
+      aFrame, aFrame->InkOverflowRectRelativeToSelf(), rootFrame);
 
   LayoutDeviceRect rectInLayoutDevicePixel = LayoutDeviceRect::FromAppUnits(
       transformedToIFrame, topContextInProcess->AppUnitsPerDevPixel());

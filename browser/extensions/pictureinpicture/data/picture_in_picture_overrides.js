@@ -34,6 +34,15 @@ let AVAILABLE_PIP_OVERRIDES;
       "https://mochitest.youtube.com/*browser/browser/extensions/pictureinpicture/tests/browser/test-mock-wrapper.html": {
         videoWrapperScriptPath: "video-wrappers/mock-wrapper.js",
       },
+      "https://mochitest.youtube.com/*browser/browser/extensions/pictureinpicture/tests/browser/test-toggle-visibility.html": {
+        videoWrapperScriptPath: "video-wrappers/mock-wrapper.js",
+      },
+    },
+
+    airmozilla: {
+      "https://*.mozilla.hosted.panopto.com/*": {
+        videoWrapperScriptPath: "video-wrappers/airmozilla.js",
+      },
     },
 
     funimation: {

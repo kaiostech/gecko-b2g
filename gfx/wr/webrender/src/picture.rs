@@ -129,7 +129,7 @@ use crate::resource_cache::{ResourceCache, ImageGeneration, ImageRequest};
 use crate::space::SpaceMapper;
 use crate::scene::SceneProperties;
 use crate::spatial_tree::CoordinateSystemId;
-use crate::surface::SurfaceDescriptor;
+use crate::surface::{SurfaceDescriptor, SurfaceTileDescriptor};
 use smallvec::SmallVec;
 use std::{mem, u8, marker, u32};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -776,6 +776,8 @@ pub struct Tile {
     /// The last frame this tile had its dependencies updated (dependency updating is
     /// skipped if a tile is off-screen).
     pub last_updated_frame_id: FrameId,
+
+    pub sub_graphs: Vec<(PictureRect, Vec<(PictureCompositeMode, SurfaceIndex)>)>,
 }
 
 impl Tile {
@@ -804,6 +806,7 @@ impl Tile {
             local_valid_rect: PictureBox2D::zero(),
             z_id: ZBufferId::invalid(),
             last_updated_frame_id: FrameId::INVALID,
+            sub_graphs: Vec::new(),
         }
     }
 
@@ -929,6 +932,7 @@ impl Tile {
             PicturePoint::new(-1.0e32, -1.0e32),
         );
         self.invalidation_reason  = None;
+        self.sub_graphs.clear();
 
         self.world_tile_rect = ctx.pic_to_world_mapper
             .map(&self.local_tile_rect)
@@ -2512,7 +2516,7 @@ impl TileCacheInstance {
             return SurfacePromotionResult::Failed;
         }
 
-        if self.slice_flags.contains(SliceFlags::IS_BLEND_CONTAINER) {
+        if self.slice_flags.contains(SliceFlags::IS_ATOMIC) {
             return SurfacePromotionResult::Failed;
         }
 
@@ -3267,10 +3271,32 @@ impl TileCacheInstance {
                     });
                 }
             }
+            PrimitiveInstanceKind::Backdrop { .. } => {
+                // If this is a sub-graph, register the bounds on any affected tiles
+                // so we know how much to expand the content tile by.
+
+                // Implicitly, we know that any slice with a sub-graph disables compositor
+                // surface promotion, so sub_slice_index will always be 0.
+                debug_assert_eq!(sub_slice_index, 0);
+                let sub_slice = &mut self.sub_slices[sub_slice_index];
+
+                let mut surface_info = Vec::new();
+                for (pic_index, surface_index) in surface_stack.iter().rev() {
+                    let pic = &pictures[pic_index.0];
+                    surface_info.push((pic.composite_mode.as_ref().unwrap().clone(), *surface_index));
+                }
+
+                for y in p0.y .. p1.y {
+                    for x in p0.x .. p1.x {
+                        let key = TileOffset::new(x, y);
+                        let tile = sub_slice.tiles.get_mut(&key).expect("bug: no tile");
+                        tile.sub_graphs.push((pic_coverage_rect, surface_info.clone()));
+                    }
+                }
+            }
             PrimitiveInstanceKind::LineDecoration { .. } |
             PrimitiveInstanceKind::NormalBorder { .. } |
-            PrimitiveInstanceKind::TextRun { .. } |
-            PrimitiveInstanceKind::Backdrop { .. } => {
+            PrimitiveInstanceKind::TextRun { .. } => {
                 // These don't contribute dependencies
             }
         };
@@ -3673,6 +3699,9 @@ pub struct SurfaceInfo {
     pub world_scale_factors: (f32, f32),
     /// Local scale factors surface to raster transform
     pub local_scale: (f32, f32),
+    /// If true, try to find a better scale factor once we
+    /// know the surface's local (and projected) rect
+    pub estimate_scale_from_rect: bool,
 }
 
 impl SurfaceInfo {
@@ -3684,6 +3713,7 @@ impl SurfaceInfo {
         device_pixel_scale: DevicePixelScale,
         world_scale_factors: (f32, f32),
         local_scale: (f32, f32),
+        estimate_scale_from_rect: bool,
     ) -> Self {
         let map_surface_to_world = SpaceMapper::new_with_target(
             spatial_tree.root_reference_frame_index(),
@@ -3711,6 +3741,7 @@ impl SurfaceInfo {
             device_pixel_scale,
             world_scale_factors,
             local_scale,
+            estimate_scale_from_rect,
         }
     }
 
@@ -4745,7 +4776,7 @@ impl PicturePrimitive {
                                     tile_cache.transform_index,
                                 ).to_i32();
 
-                                let task_size = tile_cache.current_tile_size;
+                                let composite_task_size = tile_cache.current_tile_size;
 
                                 let tile_key = TileKey {
                                     sub_slice_index: SubSliceIndex::new(sub_slice_index),
@@ -4769,35 +4800,118 @@ impl PicturePrimitive {
 
                                 let cmd_buffer_index = frame_state.cmd_buffers.create_cmd_buffer();
 
-                                let render_task_id = frame_state.rg_builder.add().init(
-                                    RenderTask::new(
-                                        RenderTaskLocation::Static {
-                                            surface: StaticRenderTaskSurface::PictureCache {
-                                                surface,
-                                            },
-                                            rect: task_size.into(),
-                                        },
-                                        RenderTaskKind::new_picture(
-                                            task_size,
-                                            tile_cache.current_tile_size.to_f32(),
-                                            content_origin,
-                                            surface_spatial_node_index,
-                                            // raster == surface implicitly for picture cache tiles
-                                            surface_spatial_node_index,
-                                            device_pixel_scale,
-                                            Some(scissor_rect),
-                                            Some(valid_rect),
-                                            Some(clear_color),
-                                            cmd_buffer_index,
-                                            false,
-                                        )
-                                    ),
-                                );
+                                // TODO(gw): As a performance optimization, we could skip the resolve picture
+                                //           if the dirty rect is the same as the resolve rect (probably quite
+                                //           common for effects that scroll underneath a backdrop-filter, for example).
+                                let use_tile_composite = !tile.sub_graphs.is_empty();
 
-                                surface_render_tasks.insert(
-                                    tile_key,
-                                    render_task_id,
-                                );
+                                if use_tile_composite {
+                                    let mut local_content_rect = tile.local_dirty_rect;
+
+                                    for (sub_graph_rect, surface_stack) in &tile.sub_graphs {
+                                        if let Some(dirty_sub_graph_rect) = sub_graph_rect.intersection(&tile.local_dirty_rect) {
+                                            for (composite_mode, surface_index) in surface_stack {
+                                                let surface = &frame_state.surfaces[surface_index.0];
+
+                                                let rect = composite_mode.get_coverage(
+                                                    surface,
+                                                    Some(dirty_sub_graph_rect.cast_unit()),
+                                                ).cast_unit();
+
+                                                local_content_rect = local_content_rect.union(&rect);
+                                            }
+                                        }
+                                    }
+
+                                    let content_device_rect = (local_content_rect.cast_unit() * device_pixel_scale)
+                                        .round_out()
+                                        .to_i32();
+                                    let content_task_size = content_device_rect.size();
+                                    let normalized_content_rect = content_task_size.into();
+
+                                    let inner_offset = content_origin + scissor_rect.min.to_vector().to_f32();
+                                    let outer_offset = content_device_rect.min.to_f32();
+                                    let sub_rect_offset = (inner_offset - outer_offset).round().to_i32();
+
+                                    let render_task_id = frame_state.rg_builder.add().init(
+                                        RenderTask::new_dynamic(
+                                            content_task_size,
+                                            RenderTaskKind::new_picture(
+                                                content_task_size,
+                                                tile_cache.current_tile_size.to_f32(),
+                                                content_device_rect.min.to_f32(),
+                                                surface_spatial_node_index,
+                                                // raster == surface implicitly for picture cache tiles
+                                                surface_spatial_node_index,
+                                                device_pixel_scale,
+                                                Some(normalized_content_rect),
+                                                None,
+                                                Some(clear_color),
+                                                cmd_buffer_index,
+                                                false,
+                                            )
+                                        ),
+                                    );
+
+                                    let composite_task_id = frame_state.rg_builder.add().init(
+                                        RenderTask::new(
+                                            RenderTaskLocation::Static {
+                                                surface: StaticRenderTaskSurface::PictureCache {
+                                                    surface,
+                                                },
+                                                rect: composite_task_size.into(),
+                                            },
+                                            RenderTaskKind::new_tile_composite(
+                                                sub_rect_offset,
+                                                scissor_rect,
+                                                valid_rect,
+                                                clear_color,
+                                            ),
+                                        ),
+                                    );
+
+                                    surface_render_tasks.insert(
+                                        tile_key,
+                                        SurfaceTileDescriptor {
+                                            current_task_id: render_task_id,
+                                            composite_task_id: Some(composite_task_id),
+                                        },
+                                    );
+                                } else {
+                                    let render_task_id = frame_state.rg_builder.add().init(
+                                        RenderTask::new(
+                                            RenderTaskLocation::Static {
+                                                surface: StaticRenderTaskSurface::PictureCache {
+                                                    surface,
+                                                },
+                                                rect: composite_task_size.into(),
+                                            },
+                                            RenderTaskKind::new_picture(
+                                                composite_task_size,
+                                                tile_cache.current_tile_size.to_f32(),
+                                                content_origin,
+                                                surface_spatial_node_index,
+                                                // raster == surface implicitly for picture cache tiles
+                                                surface_spatial_node_index,
+                                                device_pixel_scale,
+                                                Some(scissor_rect),
+                                                Some(valid_rect),
+                                                Some(clear_color),
+                                                cmd_buffer_index,
+                                                false,
+                                            )
+                                        ),
+                                    );
+
+                                    surface_render_tasks.insert(
+                                        tile_key,
+                                        SurfaceTileDescriptor {
+                                            current_task_id: render_task_id,
+                                            composite_task_id: None,
+                                        },
+                                    );
+                                }
+
                                 surface_dirty_rects.push(tile.local_dirty_rect);
                             }
 
@@ -4954,7 +5068,7 @@ impl PicturePrimitive {
                     let surface = &frame_state.surfaces[surface_index.0];
                     (surface.raster_spatial_node_index, surface.device_pixel_scale)
                 };
-                let is_resolve_target = self.flags.contains(PictureFlags::IS_RESOLVE_TARGET);
+                let can_use_shared_surface = !self.flags.contains(PictureFlags::IS_RESOLVE_TARGET);
 
                 let primary_render_task_id;
                 let surface_descriptor;
@@ -5001,7 +5115,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
-                                    is_resolve_target,
+                                    can_use_shared_surface,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5044,7 +5158,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
-                                    is_resolve_target,
+                                    can_use_shared_surface,
                                 ),
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5075,10 +5189,7 @@ impl PicturePrimitive {
 
                         // Add this content picture as a dependency of the parent surface, to
                         // ensure it isn't free'd after the shadow uses it as an input.
-                        frame_state.surface_builder.add_child_render_task(
-                            picture_task_id,
-                            frame_state.rg_builder,
-                        );
+                        frame_state.surface_builder.add_picture_render_task(picture_task_id);
 
                         primary_render_task_id = blur_render_task_id;
                         self.secondary_render_task_id = Some(picture_task_id);
@@ -5188,7 +5299,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
-                                    is_resolve_target,
+                                    can_use_shared_surface,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5217,7 +5328,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
-                                    is_resolve_target,
+                                    can_use_shared_surface,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5246,7 +5357,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
-                                    is_resolve_target,
+                                    can_use_shared_surface,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5276,7 +5387,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
-                                    is_resolve_target,
+                                    can_use_shared_surface,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5305,7 +5416,7 @@ impl PicturePrimitive {
                                     None,
                                     None,
                                     cmd_buffer_index,
-                                    is_resolve_target,
+                                    can_use_shared_surface,
                                 )
                             ).with_uv_rect_kind(surface_rects.uv_rect_kind)
                         );
@@ -5633,6 +5744,7 @@ impl PicturePrimitive {
                 // Currently, we ensure that the scaling factor is >= 1.0 as a smaller scale factor can result in blurry output.
                 let mut min_scale;
                 let mut max_scale = 1.0e32;
+                let mut estimate_scale_from_rect = false;
 
                 // If a raster root is established, this surface should be scaled based on the scale factors of the surface raster to parent raster transform.
                 // This scaling helps ensure that the content in this surface does not become blurry or pixelated when composited in the parent surface.
@@ -5738,7 +5850,12 @@ impl PicturePrimitive {
                             // If client supplied a specific local scale, use that instead of
                             // estimating from parent transform
                             let world_scale_factors = match self.raster_space {
-                                RasterSpace::Screen => world_scale_factors,
+                                RasterSpace::Screen => {
+                                    // No client supplied scale factor, try to determine one based
+                                    // on the projected screen rect
+                                    estimate_scale_from_rect = true;
+                                    world_scale_factors
+                                }
                                 RasterSpace::Local(scale) => (scale, scale),
                             };
 
@@ -5757,6 +5874,7 @@ impl PicturePrimitive {
                     device_pixel_scale,
                     world_scale_factors,
                     local_scale,
+                    estimate_scale_from_rect,
                 );
 
                 let surface_index = SurfaceIndex(surfaces.len());
@@ -5787,6 +5905,7 @@ impl PicturePrimitive {
         frame_context: &FrameBuildingContext,
     ) {
         let surface = &mut surfaces[surface_index.0];
+        let estimate_scale_from_rect = surface.estimate_scale_from_rect;
 
         for cluster in &mut self.prim_list.clusters {
             cluster.flags.remove(ClusterFlags::IS_VISIBLE);
@@ -5853,6 +5972,29 @@ impl PicturePrimitive {
                     .map(&surface_rect)
                 {
                     parent_surface.local_rect = parent_surface.local_rect.union(&parent_surface_rect);
+
+                    // Try to estimate a better scale factor based on the local rect vs.
+                    // projected rect if needed
+                    if estimate_scale_from_rect {
+                        let local_surface_size = surface_rect.size();
+                        let parent_surface_size = parent_surface_rect.size();
+                        let parent_scale_factors = parent_surface.world_scale_factors;
+
+                        // If we have a valid rect and it has perspective (otherwise, the previous
+                        // scale_factors calculation is more accurate)
+                        if local_surface_size.width > 0.0 &&
+                           local_surface_size.height > 0.0 &&
+                           parent_surface.map_local_to_surface.get_transform().has_perspective_component() {
+                            let surface = &mut surfaces[surface_index.0];
+
+                            let x_scale = parent_scale_factors.0 * parent_surface_size.width / local_surface_size.width;
+                            let y_scale = parent_scale_factors.1 * parent_surface_size.height / local_surface_size.height;
+
+                            let device_pixel_scale = Scale::new(x_scale.max(y_scale));
+                            surface.world_scale_factors = (x_scale, y_scale);
+                            surface.device_pixel_scale = device_pixel_scale;
+                        }
+                    }
                 }
             }
         }
@@ -6878,6 +7020,7 @@ fn test_large_surface_scale_1() {
             device_pixel_scale: DevicePixelScale::new(1.0),
             world_scale_factors: (1.0, 1.0),
             local_scale: (1.0, 1.0),
+            estimate_scale_from_rect: false,
         },
         SurfaceInfo {
             local_rect: PictureRect::new(
@@ -6892,6 +7035,7 @@ fn test_large_surface_scale_1() {
             device_pixel_scale: DevicePixelScale::new(43.82798767089844),
             world_scale_factors: (1.0, 1.0),
             local_scale: (1.0, 1.0),
+            estimate_scale_from_rect: false,
         },
     ];
 

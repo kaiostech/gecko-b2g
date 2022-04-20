@@ -2215,7 +2215,7 @@ nsresult MediaManager::NotifyRecordingStatus(dom::EventTarget* aTarget,
   RefPtr<dom::CustomEvent> event =
       NS_NewDOMCustomEvent(aTarget, nullptr, nullptr);
 
-  AutoJSAPI jsapi;
+  dom::AutoJSAPI jsapi;
   bool success = jsapi.Init(event->GetParentObject());
   NS_ENSURE_TRUE(success, NS_ERROR_FAILURE);
 
@@ -2274,7 +2274,7 @@ nsresult MediaManager::CollectRecordingStatus(nsPIDOMWindowInner* aWindow) {
   if (XRE_IsParentProcess()) {
     NotifyRecordingStatus(topWindow->GetChromeEventHandler(), audio, video);
   } else {
-    RefPtr<BrowserChild> browserChild = BrowserChild::GetFrom(topWindow);
+    RefPtr<dom::BrowserChild> browserChild = dom::BrowserChild::GetFrom(topWindow);
     browserChild->SendNotifyRecordingStatus(audio, video);
   }
   return NS_OK;

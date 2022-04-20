@@ -433,11 +433,11 @@ blocklist:
         This field is documented in more detail in the definition of the blocklist.mlbf_source scalar.
         Possible values are "dump_match", "cache_match", "remote_match", "dump_fallback", "cache_fallback", "unknown".
     notification_emails: ["addons-dev-internal@mozilla.com", "rwu@mozilla.com"]
-    expiry_version: "102"
+    expiry_version: "112"
     products:
       - "firefox"
     record_in_processes: ["main"]
-    bug_numbers: [1662857, 1730037]
+    bug_numbers: [1662857, 1730037, 1763529]
     release_channel_collection: opt-out
 
 downloads:
@@ -692,21 +692,6 @@ navigation:
       engine: The id of the search engine used.
 
 upgrade_dialog:
-  content:
-    objects: ["show", "close", "button", "theme"]
-    bug_numbers: [1697222]
-    description: >
-      Content page behaviors of the upgrade dialog. Value for each object
-      indicates a custom interaction.
-        show: total screens count, button string id, compact mode
-        close: dismissed reason string
-        button: clicked string id (upgradeDialog.ftl -button)
-        theme: clicked theme index
-    expiry_version: never
-    notification_emails: ["edilee@mozilla.com"]
-    products: ["firefox"]
-    record_in_processes: ["main"]
-    release_channel_collection: opt-out
   trigger:
     objects: ["reason"]
     bug_numbers: [1697222]

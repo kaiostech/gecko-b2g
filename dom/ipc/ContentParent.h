@@ -1722,6 +1722,10 @@ class ContentParent final
   uint8_t mIsInPool : 1;
   uint8_t mIsUsed : 1;
 
+#ifdef DEBUG
+  bool mBlockShutdownCalled;
+#endif
+
   nsCOMPtr<nsIContentProcessInfo> mScriptableHelper;
 
   nsTArray<nsCOMPtr<nsIObserver>> mIdleListeners;

@@ -359,7 +359,16 @@ this.backgroundPage = class extends ExtensionAPI {
     };
 
     extension.wakeupBackground = () => {
+      if (extension.hasShutdown) {
+        return Promise.reject(
+          new Error(
+            "wakeupBackground called while the extension was already shutting down"
+          )
+        );
+      }
       extension.emit("background-script-event");
+      // `extension.wakeupBackground` is set back to the original arrow function
+      // when the background page is terminated and `primeBackground` is called again.
       extension.wakeupBackground = () => bgStartupPromise;
       return bgStartupPromise;
     };
@@ -394,15 +403,26 @@ this.backgroundPage = class extends ExtensionAPI {
     // After the background is started, initiate the first timer
     extension.once("background-script-started", resetBackgroundIdle);
 
-    extension.terminateBackground = async () => {
+    extension.terminateBackground = async ({
+      ignoreDevToolsAttached = false,
+    } = {}) => {
       await bgStartupPromise;
-      if (!this.extension) {
+      if (!this.extension || this.extension.hasShutdown) {
         // Extension was already shut down.
         return;
       }
       if (extension.backgroundState != BACKGROUND_STATE.RUNNING) {
         return;
       }
+
+      if (
+        !ignoreDevToolsAttached &&
+        ExtensionParent.DebugUtils.hasDevToolsAttached(extension.id)
+      ) {
+        extension.emit("background-script-suspend-ignored");
+        return;
+      }
+
       extension.backgroundState = BACKGROUND_STATE.SUSPENDING;
       this.clearIdleTimer();
       // call runtime.onSuspend

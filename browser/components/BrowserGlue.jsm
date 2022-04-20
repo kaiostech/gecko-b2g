@@ -889,6 +889,7 @@ BrowserGlue.prototype = {
   _migrationImportsDefaultBookmarks: false,
   _placesBrowserInitComplete: false,
   _isNewProfile: undefined,
+  _defaultCookieBehaviorAtStartup: null,
 
   _setPrefToSaveSession: function BG__setPrefToSaveSession(aForce) {
     if (!this._saveSession && !aForce) {
@@ -1675,9 +1676,16 @@ BrowserGlue.prototype = {
     PlacesUtils.favicons.setDefaultIconURIPreferredSize(
       16 * aWindow.devicePixelRatio
     );
+
+    // Keep track of the initial default cookie behavior to revert to when
+    // users opt-out. This is used by _setDefaultCookieBehavior.
+    BrowserGlue._defaultCookieBehaviorAtStartup = Services.prefs
+      .getDefaultBranch("")
+      .getIntPref("network.cookie.cookieBehavior");
     // _setDefaultCookieBehavior needs to run before other functions that modify
     // privacy preferences such as _setPrefExpectationsAndUpdate and _matchCBCategory
     this._setDefaultCookieBehavior();
+
     this._setPrefExpectationsAndUpdate();
     this._matchCBCategory();
 
@@ -1753,7 +1761,7 @@ BrowserGlue.prototype = {
       "network.cookie.cookieBehavior",
       dFPIEnabled
         ? Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
-        : Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER
+        : BrowserGlue._defaultCookieBehaviorAtStartup
     );
 
     Services.telemetry.scalarSet(
@@ -3376,7 +3384,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 125;
+    const UI_VERSION = 126;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     const PROFILE_DIR = Services.dirsvc.get("ProfD", Ci.nsIFile).path;
@@ -4152,12 +4160,30 @@ BrowserGlue.prototype = {
       }
     }
 
+    if (currentUIVersion < 126) {
+      // Bug 1747343 - Add a pref to set the default download action to "Always
+      // ask" so the UCT dialog will be opened for mime types that are not
+      // stored already. Users who wanted this behavior would have disabled the
+      // experimental pref browser.download.improvements_to_download_panel so we
+      // can migrate its inverted value to this new pref.
+      if (
+        !Services.prefs.getBoolPref(
+          "browser.download.improvements_to_download_panel",
+          true
+        )
+      ) {
+        Services.prefs.setBoolPref(
+          "browser.download.always_ask_before_handling_new_types",
+          true
+        );
+      }
+    }
+
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", UI_VERSION);
   },
 
   async _showUpgradeDialog() {
-    // TO DO Bug 1762666: Remove "chrome://browser/content/upgradeDialog.html"
     const msg = await OnboardingMessageProvider.getUpgradeMessage();
     const win = BrowserWindowTracker.getTopWindow();
     const browser = win.gBrowser.selectedBrowser;

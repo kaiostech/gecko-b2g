@@ -204,7 +204,8 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   Label entryFrame;
   Label catch_;
   Label finally;
-  Label return_;
+  Label returnBaseline;
+  Label returnIon;
   Label bailout;
   Label wasm;
   Label wasmCatch;
@@ -212,22 +213,24 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   // Check the `asMasm` calls above didn't mess with the StackPointer identity.
   MOZ_ASSERT(GetStackPointer64().Is(PseudoStackPointer64));
 
-  loadPtr(Address(PseudoStackPointer, offsetof(ResumeFromException, kind)), r0);
+  loadPtr(Address(PseudoStackPointer, ResumeFromException::offsetOfKind()), r0);
   asMasm().branch32(Assembler::Equal, r0,
-                    Imm32(ResumeFromException::RESUME_ENTRY_FRAME),
-                    &entryFrame);
+                    Imm32(ExceptionResumeKind::EntryFrame), &entryFrame);
+  asMasm().branch32(Assembler::Equal, r0, Imm32(ExceptionResumeKind::Catch),
+                    &catch_);
+  asMasm().branch32(Assembler::Equal, r0, Imm32(ExceptionResumeKind::Finally),
+                    &finally);
   asMasm().branch32(Assembler::Equal, r0,
-                    Imm32(ResumeFromException::RESUME_CATCH), &catch_);
+                    Imm32(ExceptionResumeKind::ForcedReturnBaseline),
+                    &returnBaseline);
   asMasm().branch32(Assembler::Equal, r0,
-                    Imm32(ResumeFromException::RESUME_FINALLY), &finally);
-  asMasm().branch32(Assembler::Equal, r0,
-                    Imm32(ResumeFromException::RESUME_FORCED_RETURN), &return_);
-  asMasm().branch32(Assembler::Equal, r0,
-                    Imm32(ResumeFromException::RESUME_BAILOUT), &bailout);
-  asMasm().branch32(Assembler::Equal, r0,
-                    Imm32(ResumeFromException::RESUME_WASM), &wasm);
-  asMasm().branch32(Assembler::Equal, r0,
-                    Imm32(ResumeFromException::RESUME_WASM_CATCH), &wasmCatch);
+                    Imm32(ExceptionResumeKind::ForcedReturnIon), &returnIon);
+  asMasm().branch32(Assembler::Equal, r0, Imm32(ExceptionResumeKind::Bailout),
+                    &bailout);
+  asMasm().branch32(Assembler::Equal, r0, Imm32(ExceptionResumeKind::Wasm),
+                    &wasm);
+  asMasm().branch32(Assembler::Equal, r0, Imm32(ExceptionResumeKind::WasmCatch),
+                    &wasmCatch);
 
   breakpoint();  // Invalid kind.
 
@@ -236,7 +239,7 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   bind(&entryFrame);
   moveValue(MagicValue(JS_ION_ERROR), JSReturnOperand);
   loadPtr(
-      Address(PseudoStackPointer, offsetof(ResumeFromException, stackPointer)),
+      Address(PseudoStackPointer, ResumeFromException::offsetOfStackPointer()),
       PseudoStackPointer);
 
   // `retn` does indeed sync the stack pointer, but before doing that it reads
@@ -255,13 +258,13 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   // If we found a catch handler, this must be a baseline frame. Restore state
   // and jump to the catch block.
   bind(&catch_);
-  loadPtr(Address(PseudoStackPointer, offsetof(ResumeFromException, target)),
+  loadPtr(Address(PseudoStackPointer, ResumeFromException::offsetOfTarget()),
           r0);
   loadPtr(
-      Address(PseudoStackPointer, offsetof(ResumeFromException, framePointer)),
+      Address(PseudoStackPointer, ResumeFromException::offsetOfFramePointer()),
       BaselineFrameReg);
   loadPtr(
-      Address(PseudoStackPointer, offsetof(ResumeFromException, stackPointer)),
+      Address(PseudoStackPointer, ResumeFromException::offsetOfStackPointer()),
       PseudoStackPointer);
   syncStackPtr();
   Br(x0);
@@ -271,27 +274,29 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   bind(&finally);
   ARMRegister exception = x1;
   Ldr(exception, MemOperand(PseudoStackPointer64,
-                            offsetof(ResumeFromException, exception)));
+                            ResumeFromException::offsetOfException()));
   Ldr(x0,
-      MemOperand(PseudoStackPointer64, offsetof(ResumeFromException, target)));
+      MemOperand(PseudoStackPointer64, ResumeFromException::offsetOfTarget()));
   Ldr(ARMRegister(BaselineFrameReg, 64),
       MemOperand(PseudoStackPointer64,
-                 offsetof(ResumeFromException, framePointer)));
+                 ResumeFromException::offsetOfFramePointer()));
   Ldr(PseudoStackPointer64,
       MemOperand(PseudoStackPointer64,
-                 offsetof(ResumeFromException, stackPointer)));
+                 ResumeFromException::offsetOfStackPointer()));
   syncStackPtr();
   push(exception);
   pushValue(BooleanValue(true));
   Br(x0);
 
-  // Only used in debug mode. Return BaselineFrame->returnValue() to the caller.
-  bind(&return_);
+  // Return BaselineFrame->returnValue() to the caller.
+  // Used in debug mode and for GeneratorReturn.
+  Label profilingInstrumentation;
+  bind(&returnBaseline);
   loadPtr(
-      Address(PseudoStackPointer, offsetof(ResumeFromException, framePointer)),
+      Address(PseudoStackPointer, ResumeFromException::offsetOfFramePointer()),
       BaselineFrameReg);
   loadPtr(
-      Address(PseudoStackPointer, offsetof(ResumeFromException, stackPointer)),
+      Address(PseudoStackPointer, ResumeFromException::offsetOfStackPointer()),
       PseudoStackPointer);
   // See comment further up beginning "`retn` does indeed sync the stack
   // pointer".  That comment applies here too.
@@ -302,9 +307,22 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   movePtr(BaselineFrameReg, PseudoStackPointer);
   syncStackPtr();
   vixl::MacroAssembler::Pop(ARMRegister(BaselineFrameReg, 64));
+  jump(&profilingInstrumentation);
+
+  // Return the given value to the caller.
+  bind(&returnIon);
+  loadValue(
+      Address(PseudoStackPointer, ResumeFromException::offsetOfException()),
+      JSReturnOperand);
+  loadPtr(
+      Address(PseudoStackPointer, offsetof(ResumeFromException, framePointer)),
+      PseudoStackPointer);
+  syncStackPtr();
 
   // If profiling is enabled, then update the lastProfilingFrame to refer to
-  // caller frame before returning.
+  // caller frame before returning. This code is shared by ForcedReturnIon
+  // and ForcedReturnBaseline.
+  bind(&profilingInstrumentation);
   {
     Label skipProfilingInstrumentation;
     AbsoluteAddress addressOfEnabled(
@@ -323,9 +341,9 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   // bailout tail stub. Load 1 (true) in x0 (ReturnReg) to indicate success.
   bind(&bailout);
   Ldr(x2, MemOperand(PseudoStackPointer64,
-                     offsetof(ResumeFromException, bailoutInfo)));
+                     ResumeFromException::offsetOfBailoutInfo()));
   Ldr(x1,
-      MemOperand(PseudoStackPointer64, offsetof(ResumeFromException, target)));
+      MemOperand(PseudoStackPointer64, ResumeFromException::offsetOfTarget()));
   Mov(x0, 1);
   Br(x1);
 
@@ -334,22 +352,22 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   // we can just ret().
   bind(&wasm);
   Ldr(x29, MemOperand(PseudoStackPointer64,
-                      offsetof(ResumeFromException, framePointer)));
+                      ResumeFromException::offsetOfFramePointer()));
   Ldr(PseudoStackPointer64,
       MemOperand(PseudoStackPointer64,
-                 offsetof(ResumeFromException, stackPointer)));
+                 ResumeFromException::offsetOfStackPointer()));
   syncStackPtr();
   ret();
 
   // Found a wasm catch handler, restore state and jump to it.
   bind(&wasmCatch);
-  loadPtr(Address(PseudoStackPointer, offsetof(ResumeFromException, target)),
+  loadPtr(Address(PseudoStackPointer, ResumeFromException::offsetOfTarget()),
           r0);
   loadPtr(
-      Address(PseudoStackPointer, offsetof(ResumeFromException, framePointer)),
+      Address(PseudoStackPointer, ResumeFromException::offsetOfFramePointer()),
       r29);
   loadPtr(
-      Address(PseudoStackPointer, offsetof(ResumeFromException, stackPointer)),
+      Address(PseudoStackPointer, ResumeFromException::offsetOfStackPointer()),
       PseudoStackPointer);
   syncStackPtr();
   Br(x0);

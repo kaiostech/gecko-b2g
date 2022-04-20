@@ -650,7 +650,25 @@ static bool IsMouseVanishKey(WPARAM aVirtKey) {
     case VK_RMENU:
     case VK_LWIN:
     case VK_RWIN:
+    case VK_INSERT:
+    case VK_DELETE:
+    case VK_HOME:
+    case VK_END:
+    case VK_ESCAPE:
+    case VK_PRINT:
+    case VK_UP:
+    case VK_DOWN:
+    case VK_LEFT:
+    case VK_RIGHT:
+    case VK_PRIOR:  // PgUp
+    case VK_NEXT:   // PgDn
       return false;
+    case 'A':
+    case 'C':
+    case 'V':
+    case 'X':
+      // Ignore Ctrl-A, Ctrl-C, Ctrl-V, Ctrl-X
+      return (GetKeyState(VK_CONTROL) & 0x8000) != 0x8000;
     default:
       return true;
   }
@@ -1829,30 +1847,6 @@ void nsWindow::SetThemeRegion() {
         }
       }
     }
-  }
-
-  // Popup types that have a visual styles region applied (bug 376408). This can
-  // be expanded for other window types as needed. The regions are applied
-  // generically to the base window so default constants are used for part and
-  // state. At some point we might need part and state values from
-  // nsNativeThemeWin's GetThemePartAndState, but currently windows that change
-  // shape based on state haven't come up.
-  else if (!HasGlass() &&
-           (mWindowType == eWindowType_popup && !IsPopupWithTitleBar() &&
-            (mPopupType == ePopupTypeTooltip ||
-             mPopupType == ePopupTypePanel))) {
-    HRGN hRgn = nullptr;
-    RECT rect = {0, 0, mBounds.Width(), mBounds.Height()};
-
-    HDC dc = ::GetDC(mWnd);
-    GetThemeBackgroundRegion(nsUXThemeData::GetTheme(eUXTooltip), dc,
-                             TTP_STANDARD, TS_NORMAL, &rect, &hRgn);
-    if (hRgn) {
-      if (!SetWindowRgn(mWnd, hRgn,
-                        false))  // do not delete or alter hRgn if accepted.
-        DeleteObject(hRgn);
-    }
-    ::ReleaseDC(mWnd, dc);
   }
 }
 

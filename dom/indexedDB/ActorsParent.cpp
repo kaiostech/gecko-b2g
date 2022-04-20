@@ -4929,7 +4929,6 @@ class QuotaClient final : public mozilla::dom::quota::Client {
   RefPtr<nsThreadPool> mMaintenanceThreadPool;
   nsClassHashtable<nsRefPtrHashKey<DatabaseFileManager>, nsTArray<int64_t>>
       mPendingDeleteInfos;
-  FlippedOnce<false> mShutdownRequested;
 
  public:
   QuotaClient();
@@ -4940,31 +4939,9 @@ class QuotaClient final : public mozilla::dom::quota::Client {
     return sInstance;
   }
 
-  static bool IsShuttingDownOnBackgroundThread() {
-    AssertIsOnBackgroundThread();
-
-    if (sInstance) {
-      return sInstance->IsShuttingDown();
-    }
-
-    return QuotaManager::IsShuttingDown();
-  }
-
-  static bool IsShuttingDownOnNonBackgroundThread() {
-    MOZ_ASSERT(!IsOnBackgroundThread());
-
-    return QuotaManager::IsShuttingDown();
-  }
-
   nsIEventTarget* BackgroundThread() const {
     MOZ_ASSERT(mBackgroundThread);
     return mBackgroundThread;
-  }
-
-  bool IsShuttingDown() const {
-    AssertIsOnBackgroundThread();
-
-    return mShutdownRequested;
   }
 
   nsresult AsyncDeleteFile(DatabaseFileManager* aFileManager, int64_t aFileId);
@@ -12496,7 +12473,7 @@ nsresult QuotaClient::AsyncDeleteFile(DatabaseFileManager* aFileManager,
                                       int64_t aFileId) {
   AssertIsOnBackgroundThread();
 
-  if (mShutdownRequested) {
+  if (IsShuttingDownOnBackgroundThread()) {
     // Whoops! We want to delete an IndexedDB disk-backed File but it's too late
     // to actually delete the file! This means we're going to "leak" the file
     // and leave it around when we shouldn't! (The file will stay around until
@@ -12530,7 +12507,7 @@ nsresult QuotaClient::FlushPendingFileDeletions() {
 
 nsThreadPool* QuotaClient::GetOrCreateThreadPool() {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(!mShutdownRequested);
+  MOZ_ASSERT(!IsShuttingDownOnBackgroundThread());
 
   if (!mMaintenanceThreadPool) {
     RefPtr<nsThreadPool> threadPool = new nsThreadPool();
@@ -12907,7 +12884,10 @@ void QuotaClient::AbortAllOperations() {
 
 void QuotaClient::StartIdleMaintenance() {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(!mShutdownRequested);
+  if (IsShuttingDownOnBackgroundThread()) {
+    MOZ_ASSERT(false, "!IsShuttingDownOnBackgroundThread()");
+    return;
+  }
 
   mBackgroundThread = GetCurrentEventTarget();
 
@@ -12917,7 +12897,6 @@ void QuotaClient::StartIdleMaintenance() {
 
 void QuotaClient::StopIdleMaintenance() {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(!mShutdownRequested);
 
   if (mCurrentMaintenance) {
     mCurrentMaintenance->Abort();
@@ -12930,8 +12909,6 @@ void QuotaClient::StopIdleMaintenance() {
 
 void QuotaClient::InitiateShutdown() {
   AssertIsOnBackgroundThread();
-
-  mShutdownRequested.Flip();
 
   AbortAllOperations();
 }

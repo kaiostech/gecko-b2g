@@ -3342,7 +3342,8 @@ void gfxPlatform::NotifyCompositorCreated(LayersBackend aBackend) {
 /* static */
 bool gfxPlatform::FallbackFromAcceleration(FeatureStatus aStatus,
                                            const char* aMessage,
-                                           const nsACString& aFailureId) {
+                                           const nsACString& aFailureId,
+                                           bool aCrashAfterFinalFallback) {
   // We always want to ensure (Hardware) WebRender is disabled.
   if (gfxConfig::IsEnabled(Feature::WEBRENDER)) {
     gfxConfig::GetFeature(Feature::WEBRENDER)
@@ -3439,6 +3440,10 @@ bool gfxPlatform::FallbackFromAcceleration(FeatureStatus aStatus,
     gfxCriticalNoteOnce << "Fallback WR to SW-WR, forced";
     gfxVars::SetUseSoftwareWebRender(true);
     return true;
+  }
+
+  if (aCrashAfterFinalFallback) {
+    MOZ_CRASH("Fallback configurations exhausted");
   }
 
   // Continue using Software WebRender (disabled fallback to Basic).

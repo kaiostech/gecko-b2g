@@ -76,6 +76,7 @@ import org.mozilla.gecko.util.EventCallback;
 import org.mozilla.gecko.util.GeckoBundle;
 import org.mozilla.gecko.util.IntentUtils;
 import org.mozilla.gecko.util.ThreadUtils;
+import org.mozilla.geckoview.GeckoDisplay.SurfaceInfo;
 
 public class GeckoSession {
   private static final String LOGTAG = "GeckoSession";
@@ -239,14 +240,12 @@ public class GeckoSession {
 
   private boolean mAttachedCompositor;
   private boolean mCompositorReady;
-  private Surface mSurface;
+  private SurfaceInfo mSurfaceInfo;
 
   // All fields of coordinates are in screen units.
   private int mLeft;
   private int mTop; // Top of the surface (including toolbar);
   private int mClientTop; // Top of the client area (i.e. excluding toolbar);
-  private int mOffsetX;
-  private int mOffsetY;
   private int mWidth;
   private int mHeight; // Height of the surface (including toolbar);
   private int mClientHeight; // Height of the client area (i.e. excluding toolbar);
@@ -310,7 +309,7 @@ public class GeckoSession {
     // UI thread resumes compositor and notifies Gecko thread; does not block UI thread.
     @WrapForJNI(calledFrom = "ui", dispatchTo = "current")
     public native void syncResumeResizeCompositor(
-        int x, int y, int width, int height, Object surface);
+        int x, int y, int width, int height, Object surface, Object surfaceControl);
 
     @WrapForJNI(calledFrom = "ui", dispatchTo = "current")
     public native void setMaxToolbarHeight(int height);
@@ -2178,18 +2177,7 @@ public class GeckoSession {
       searchString = bundle.getString("searchString");
       flags = SessionFinder.getFlagsFromBundle(bundle.getBundle("flags"));
       linkUri = bundle.getString("linkURL");
-
-      final GeckoBundle rectBundle = bundle.getBundle("clientRect");
-      if (rectBundle == null) {
-        clientRect = null;
-      } else {
-        clientRect =
-            new RectF(
-                (float) rectBundle.getDouble("left"),
-                (float) rectBundle.getDouble("top"),
-                (float) rectBundle.getDouble("right"),
-                (float) rectBundle.getDouble("bottom"));
-      }
+      clientRect = bundle.getRectF("clientRect");
     }
 
     /** Empty constructor for tests */
@@ -3404,19 +3392,7 @@ public class GeckoSession {
                 | (bundle.getBoolean("editable") ? SelectionActionDelegate.FLAG_IS_EDITABLE : 0)
                 | (bundle.getBoolean("password") ? SelectionActionDelegate.FLAG_IS_PASSWORD : 0);
         text = bundle.getString("selection");
-
-        final GeckoBundle rectBundle = bundle.getBundle("clientRect");
-        if (rectBundle == null) {
-          clientRect = null;
-        } else {
-          clientRect =
-              new RectF(
-                  (float) rectBundle.getDouble("left"),
-                  (float) rectBundle.getDouble("top"),
-                  (float) rectBundle.getDouble("right"),
-                  (float) rectBundle.getDouble("bottom"));
-        }
-
+        clientRect = bundle.getRectF("clientRect");
         availableActions = actions;
         mSeqNo = bundle.getInt("seqNo");
         mEventCallback = callback;
@@ -5904,24 +5880,27 @@ public class GeckoSession {
   })
   public @interface RestartReason {}
 
-  /* package */ void onSurfaceChanged(
-      final Surface surface, final int x, final int y, final int width, final int height) {
+  /* package */ void onSurfaceChanged(final @NonNull SurfaceInfo surfaceInfo) {
     ThreadUtils.assertOnUiThread();
 
-    mOffsetX = x;
-    mOffsetY = y;
-    mWidth = width;
-    mHeight = height;
+    mWidth = surfaceInfo.mWidth;
+    mHeight = surfaceInfo.mHeight;
 
     if (mCompositorReady) {
-      mCompositor.syncResumeResizeCompositor(x, y, width, height, surface);
+      mCompositor.syncResumeResizeCompositor(
+          surfaceInfo.mLeft,
+          surfaceInfo.mTop,
+          surfaceInfo.mWidth,
+          surfaceInfo.mHeight,
+          surfaceInfo.mSurface,
+          surfaceInfo.mSurfaceControl);
       onWindowBoundsChanged();
       return;
     }
 
     // We have a valid surface but we're not attached or the compositor
     // is not ready; save the surface for later when we're ready.
-    mSurface = surface;
+    mSurfaceInfo = surfaceInfo;
 
     // Adjust bounds as the last step.
     onWindowBoundsChanged();
@@ -5937,7 +5916,7 @@ public class GeckoSession {
 
     // While the surface was valid, we never became attached or the
     // compositor never became ready; clear the saved surface.
-    mSurface = null;
+    mSurfaceInfo = null;
   }
 
   /* package */ void onScreenOriginChanged(final int left, final int top) {
@@ -5995,10 +5974,10 @@ public class GeckoSession {
     mAttachedCompositor = true;
     mCompositor.attachNPZC(mPanZoomController.mNative);
 
-    if (mSurface != null) {
+    if (mSurfaceInfo != null) {
       // If we have a valid surface, create the compositor now that we're attached.
       // Leave mSurface alone because we'll need it later for onCompositorReady.
-      onSurfaceChanged(mSurface, mOffsetX, mOffsetY, mWidth, mHeight);
+      onSurfaceChanged(mSurfaceInfo);
     }
 
     mCompositor.sendToolbarAnimatorMessage(IS_COMPOSITOR_CONTROLLER_OPEN);
@@ -6083,11 +6062,11 @@ public class GeckoSession {
       mController.onCompositorReady();
     }
 
-    if (mSurface != null) {
+    if (mSurfaceInfo != null) {
       // If we have a valid surface, resume the
       // compositor now that the compositor is ready.
-      onSurfaceChanged(mSurface, mOffsetX, mOffsetY, mWidth, mHeight);
-      mSurface = null;
+      onSurfaceChanged(mSurfaceInfo);
+      mSurfaceInfo = null;
     }
 
     if (mFixedBottomOffset != 0) {

@@ -27,9 +27,9 @@ void FakeMediaTrackGraph::DispatchToMainThreadStableState(
   NS_DispatchToMainThread(task);
 }
 
-void FakeMediaTrackGraph::OpenAudioInput(NativeInputTrack* aTrack) {}
+void FakeMediaTrackGraph::OpenAudioInput(DeviceInputTrack* aTrack) {}
 
-void FakeMediaTrackGraph::CloseAudioInput(NativeInputTrack* aTrack) {}
+void FakeMediaTrackGraph::CloseAudioInput(DeviceInputTrack* aTrack) {}
 
 Watchable<mozilla::GraphTime>& FakeMediaTrackGraph::CurrentTime() {
   return mCurrentTime;

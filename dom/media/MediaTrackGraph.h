@@ -99,7 +99,8 @@ class MediaTrack;
 class MediaTrackGraph;
 class MediaTrackGraphImpl;
 class MediaTrackListener;
-class NativeInputTrack;
+class DeviceInputConsumerTrack;
+class DeviceInputTrack;
 class ProcessedMediaTrack;
 class SourceMediaTrack;
 
@@ -375,7 +376,10 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   virtual ForwardedInputTrack* AsForwardedInputTrack() { return nullptr; }
   virtual CrossGraphTransmitter* AsCrossGraphTransmitter() { return nullptr; }
   virtual CrossGraphReceiver* AsCrossGraphReceiver() { return nullptr; }
-  virtual NativeInputTrack* AsNativeInputTrack() { return nullptr; }
+  virtual DeviceInputTrack* AsDeviceInputTrack() { return nullptr; }
+  virtual DeviceInputConsumerTrack* AsDeviceInputConsumerTrack() {
+    return nullptr;
+  }
 
   // These Impl methods perform the core functionality of the control methods
   // above, on the media graph thread.
@@ -1066,8 +1070,8 @@ class MediaTrackGraph {
   // Idempotent
   void ForceShutDown();
 
-  virtual void OpenAudioInput(NativeInputTrack* aTrack) = 0;
-  virtual void CloseAudioInput(NativeInputTrack* aTrack) = 0;
+  virtual void OpenAudioInput(DeviceInputTrack* aTrack) = 0;
+  virtual void CloseAudioInput(DeviceInputTrack* aTrack) = 0;
 
   // Control API.
   /**

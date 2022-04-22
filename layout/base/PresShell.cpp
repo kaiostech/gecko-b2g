@@ -759,7 +759,7 @@ already_AddRefed<nsFrameSelection> PresShell::FrameSelection() {
 
 //----------------------------------------------------------------------
 
-static uint32_t sNextPresShellId;
+static uint32_t sNextPresShellId = 0;
 
 /* static */
 bool PresShell::AccessibleCaretEnabled(nsIDocShell* aDocShell) {
@@ -795,7 +795,7 @@ PresShell::PresShell(Document* aDocument)
       mAPZFocusSequenceNumber(0),
       mCanvasBackgroundColor(NS_RGBA(0, 0, 0, 0)),
       mActiveSuppressDisplayport(0),
-      mPresShellId(sNextPresShellId++),
+      mPresShellId(++sNextPresShellId),
       mFontSizeInflationEmPerLine(0),
       mFontSizeInflationMinTwips(0),
       mFontSizeInflationLineThreshold(0),
@@ -3678,16 +3678,21 @@ void PresShell::DoScrollContentIntoView() {
     return;
   }
 
-  // Make sure we skip 'frame' ... if it's scrollable, we should use its
-  // scrollable ancestor as the container.
+  // We really just need a non-fragmented frame so that we can accumulate the
+  // bounds of all our continuations relative to it. We shouldn't jump out of
+  // our nearest scrollable frame, and that's an ok reference frame, so try to
+  // use that, or the root frame if there's nothing to scroll in this document.
   nsIFrame* container = nsLayoutUtils::GetClosestFrameOfType(
       frame->GetParent(), LayoutFrameType::Scroll);
   if (!container) {
-    // nothing can be scrolled
-    return;
+    container = frame->PresShell()->GetRootFrame();
+    MOZ_DIAGNOSTIC_ASSERT(container);
+    if (!container) {
+      return;
+    }
   }
 
-  ScrollIntoViewData* data = static_cast<ScrollIntoViewData*>(
+  auto* data = static_cast<ScrollIntoViewData*>(
       mContentToScrollTo->GetProperty(nsGkAtoms::scrolling));
   if (MOZ_UNLIKELY(!data)) {
     mContentToScrollTo = nullptr;

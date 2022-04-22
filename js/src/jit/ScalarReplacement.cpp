@@ -1517,6 +1517,9 @@ class ArgumentsReplacer : public MDefinitionVisitorDefaultNoop {
     return args_->isCreateInlinedArgumentsObject();
   }
 
+  MNewArrayObject* inlineArgsArray(MInstruction* ins, Shape* shape,
+                                   uint32_t begin, uint32_t count);
+
   void visitGuardToClass(MGuardToClass* ins);
   void visitGuardProto(MGuardProto* ins);
   void visitGuardArgumentsObjectFlags(MGuardArgumentsObjectFlags* ins);
@@ -1528,6 +1531,7 @@ class ArgumentsReplacer : public MDefinitionVisitorDefaultNoop {
   void visitArgumentsObjectLength(MArgumentsObjectLength* ins);
   void visitApplyArgsObj(MApplyArgsObj* ins);
   void visitArrayFromArgumentsObject(MArrayFromArgumentsObject* ins);
+  void visitArgumentsSlice(MArgumentsSlice* ins);
   void visitLoadFixedSlot(MLoadFixedSlot* ins);
 
   bool oom() const { return oom_; }
@@ -1645,6 +1649,7 @@ bool ArgumentsReplacer::escapes(MInstruction* ins, bool guardedForMapped) {
       case MDefinition::Opcode::LoadArgumentsObjectArgHole:
       case MDefinition::Opcode::InArgumentsObjectArg:
       case MDefinition::Opcode::ArrayFromArgumentsObject:
+      case MDefinition::Opcode::ArgumentsSlice:
         break;
 
       // This instruction is a no-op used to test that scalar replacement
@@ -1724,21 +1729,9 @@ void ArgumentsReplacer::visitGuardProto(MGuardProto* ins) {
     return;
   }
 
-#ifdef DEBUG
   // The prototype can only be changed through explicit operations, for example
   // by calling |Reflect.setPrototype|. We have already determined that the args
   // object doesn't escape, so its prototype can't be mutated.
-  //
-  // Additionally check the prototype of the template object, if present, to
-  // ensure the expected prototype is used.
-
-  if (args_->isCreateArgumentsObject()) {
-    auto* expected = &ins->expected()->toConstant()->toObject();
-    auto* templateObj = args_->toCreateArgumentsObject()->templateObject();
-
-    MOZ_ASSERT_IF(templateObj, templateObj->staticPrototype() == expected);
-  }
-#endif
 
   // Replace the guard with the args object.
   ins->replaceAllUsesWith(args_);
@@ -2038,6 +2031,52 @@ void ArgumentsReplacer::visitApplyArgsObj(MApplyArgsObj* ins) {
   ins->block()->discard(ins);
 }
 
+MNewArrayObject* ArgumentsReplacer::inlineArgsArray(MInstruction* ins,
+                                                    Shape* shape,
+                                                    uint32_t begin,
+                                                    uint32_t count) {
+  auto* actualArgs = args_->toCreateInlinedArgumentsObject();
+
+  // Contrary to |WarpBuilder::build_Rest()|, we can always create
+  // MNewArrayObject, because we're guaranteed to have a shape and all
+  // arguments can be stored into fixed elements.
+  static_assert(
+      gc::CanUseFixedElementsForArray(ArgumentsObject::MaxInlinedArgs));
+
+  gc::InitialHeap heap = gc::DefaultHeap;
+
+  // Allocate an array of the correct size.
+  auto* shapeConstant = MConstant::NewShape(alloc(), shape);
+  ins->block()->insertBefore(ins, shapeConstant);
+
+  auto* newArray = MNewArrayObject::New(alloc(), shapeConstant, count, heap);
+  ins->block()->insertBefore(ins, newArray);
+
+  if (count) {
+    auto* elements = MElements::New(alloc(), newArray);
+    ins->block()->insertBefore(ins, elements);
+
+    MConstant* index = nullptr;
+    for (uint32_t i = 0; i < count; i++) {
+      index = MConstant::New(alloc(), Int32Value(i));
+      ins->block()->insertBefore(ins, index);
+
+      MDefinition* arg = actualArgs->getArg(begin + i);
+      auto* store = MStoreElement::New(alloc(), elements, index, arg,
+                                       /* needsHoleCheck = */ false);
+      ins->block()->insertBefore(ins, store);
+
+      auto* barrier = MPostWriteBarrier::New(alloc(), newArray, arg);
+      ins->block()->insertBefore(ins, barrier);
+    }
+
+    auto* initLength = MSetInitializedLength::New(alloc(), elements, index);
+    ins->block()->insertBefore(ins, initLength);
+  }
+
+  return newArray;
+}
+
 void ArgumentsReplacer::visitArrayFromArgumentsObject(
     MArrayFromArgumentsObject* ins) {
   // Skip other arguments objects.
@@ -2065,45 +2104,7 @@ void ArgumentsReplacer::visitArrayFromArgumentsObject(
     uint32_t numActuals = actualArgs->numActuals();
     MOZ_ASSERT(numActuals <= ArgumentsObject::MaxInlinedArgs);
 
-    // Contrary to |WarpBuilder::build_Rest()|, we can always create
-    // MNewArrayObject, because we're guaranteed to have a shape and all
-    // arguments can be stored into fixed elements.
-    static_assert(
-        gc::CanUseFixedElementsForArray(ArgumentsObject::MaxInlinedArgs));
-
-    gc::InitialHeap heap = gc::DefaultHeap;
-
-    // Allocate an array of the correct size.
-    auto* shapeConstant = MConstant::NewShape(alloc(), shape);
-    ins->block()->insertBefore(ins, shapeConstant);
-
-    auto* newArray =
-        MNewArrayObject::New(alloc(), shapeConstant, numActuals, heap);
-    ins->block()->insertBefore(ins, newArray);
-
-    if (numActuals) {
-      auto* elements = MElements::New(alloc(), newArray);
-      ins->block()->insertBefore(ins, elements);
-
-      MConstant* index = nullptr;
-      for (uint32_t i = 0; i < numActuals; i++) {
-        index = MConstant::New(alloc(), Int32Value(i));
-        ins->block()->insertBefore(ins, index);
-
-        MDefinition* arg = actualArgs->getArg(i);
-        auto* store = MStoreElement::New(alloc(), elements, index, arg,
-                                         /* needsHoleCheck = */ false);
-        ins->block()->insertBefore(ins, store);
-
-        auto* barrier = MPostWriteBarrier::New(alloc(), newArray, arg);
-        ins->block()->insertBefore(ins, barrier);
-      }
-
-      auto* initLength = MSetInitializedLength::New(alloc(), elements, index);
-      ins->block()->insertBefore(ins, initLength);
-    }
-
-    replacement = newArray;
+    replacement = inlineArgsArray(ins, shape, 0, numActuals);
   } else {
     // We can use |MRest| to read all arguments, because we've guaranteed that
     // the arguments stored in the stack frame haven't changed; see the comment
@@ -2120,6 +2121,116 @@ void ArgumentsReplacer::visitArrayFromArgumentsObject(
 
     replacement = rest;
   }
+
+  ins->replaceAllUsesWith(replacement);
+
+  // Remove original instruction.
+  ins->block()->discard(ins);
+}
+
+static uint32_t NormalizeSlice(MDefinition* def, uint32_t length) {
+  int32_t value = def->toConstant()->toInt32();
+  if (value < 0) {
+    return std::max(int32_t(uint32_t(value) + length), 0);
+  }
+  return std::min(uint32_t(value), length);
+}
+
+void ArgumentsReplacer::visitArgumentsSlice(MArgumentsSlice* ins) {
+  // Skip other arguments objects.
+  if (ins->object() != args_) {
+    return;
+  }
+
+  // Optimise the common pattern |Array.prototype.slice.call(arguments, begin)|,
+  // where |begin| is a non-negative, constant int32.
+  //
+  // An absent end-index is replaced by |arguments.length|, so we try to match
+  // |Array.prototype.slice.call(arguments, begin, arguments.length)|.
+  if (isInlinedArguments()) {
+    // When this is an inlined arguments, |arguments.length| has been replaced
+    // by a constant.
+    if (ins->begin()->isConstant() && ins->end()->isConstant()) {
+      auto* actualArgs = args_->toCreateInlinedArgumentsObject();
+      uint32_t numActuals = actualArgs->numActuals();
+      MOZ_ASSERT(numActuals <= ArgumentsObject::MaxInlinedArgs);
+
+      uint32_t begin = NormalizeSlice(ins->begin(), numActuals);
+      uint32_t end = NormalizeSlice(ins->end(), numActuals);
+      uint32_t count = end > begin ? end - begin : 0;
+      MOZ_ASSERT(count <= numActuals);
+
+      Shape* shape = ins->templateObj()->shape();
+      auto* newArray = inlineArgsArray(ins, shape, begin, count);
+
+      ins->replaceAllUsesWith(newArray);
+
+      // Remove original instruction.
+      ins->block()->discard(ins);
+      return;
+    }
+  } else {
+    // Otherwise |arguments.length| is emitted as MArgumentsLength.
+    if (ins->begin()->isConstant() && ins->end()->isArgumentsLength()) {
+      int32_t begin = ins->begin()->toConstant()->toInt32();
+      if (begin >= 0) {
+        auto* numActuals = MArgumentsLength::New(alloc());
+        ins->block()->insertBefore(ins, numActuals);
+
+        // Set |numFormals| to read all arguments starting at |begin|.
+        uint32_t numFormals = begin;
+
+        Shape* shape = ins->templateObj()->shape();
+
+        // Use MRest because it can be scalar replaced, which enables further
+        // optimizations.
+        auto* rest = MRest::New(alloc(), numActuals, numFormals, shape);
+        ins->block()->insertBefore(ins, rest);
+
+        ins->replaceAllUsesWith(rest);
+
+        // Remove original instruction.
+        ins->block()->discard(ins);
+        return;
+      }
+    }
+  }
+
+  MInstruction* numArgs;
+  if (isInlinedArguments()) {
+    uint32_t argc = args_->toCreateInlinedArgumentsObject()->numActuals();
+    numArgs = MConstant::New(alloc(), Int32Value(argc));
+  } else {
+    numArgs = MArgumentsLength::New(alloc());
+  }
+  ins->block()->insertBefore(ins, numArgs);
+
+  auto* begin = MNormalizeSliceTerm::New(alloc(), ins->begin(), numArgs);
+  ins->block()->insertBefore(ins, begin);
+
+  auto* end = MNormalizeSliceTerm::New(alloc(), ins->end(), numArgs);
+  ins->block()->insertBefore(ins, end);
+
+  bool isMax = false;
+  auto* beginMin = MMinMax::New(alloc(), begin, end, MIRType::Int32, isMax);
+  ins->block()->insertBefore(ins, beginMin);
+
+  // Safe to truncate because both operands are positive and end >= beginMin.
+  auto* count = MSub::New(alloc(), end, beginMin, MIRType::Int32);
+  count->setTruncateKind(TruncateKind::Truncate);
+  ins->block()->insertBefore(ins, count);
+
+  MInstruction* replacement;
+  if (isInlinedArguments()) {
+    auto* actualArgs = args_->toCreateInlinedArgumentsObject();
+    replacement =
+        MInlineArgumentsSlice::New(alloc(), beginMin, count, actualArgs,
+                                   ins->templateObj(), ins->initialHeap());
+  } else {
+    replacement = MFrameArgumentsSlice::New(
+        alloc(), beginMin, count, ins->templateObj(), ins->initialHeap());
+  }
+  ins->block()->insertBefore(ins, replacement);
 
   ins->replaceAllUsesWith(replacement);
 

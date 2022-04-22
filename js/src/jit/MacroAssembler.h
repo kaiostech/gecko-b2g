@@ -3506,7 +3506,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
   CodeOffset wasmTrapInstruction() PER_SHARED_ARCH;
 
   void wasmTrap(wasm::Trap trap, wasm::BytecodeOffset bytecodeOffset);
-  void wasmInterruptCheck(Register tls, wasm::BytecodeOffset bytecodeOffset);
 #ifdef ENABLE_WASM_EXCEPTIONS
   [[nodiscard]] bool wasmStartTry(size_t* tryNoteIndex);
 #endif
@@ -3523,9 +3522,18 @@ class MacroAssembler : public MacroAssemblerSpecific {
   std::pair<CodeOffset, uint32_t> wasmReserveStackChecked(
       uint32_t amount, wasm::BytecodeOffset trapOffset);
 
-  // Emit a bounds check against the wasm heap limit, jumping to 'ok' if
-  // 'cond' holds. If JitOptions.spectreMaskIndex is true, in speculative
-  // executions 'index' is saturated in-place to 'boundsCheckLimit'.
+  // Emit a bounds check against the wasm heap limit, jumping to 'ok' if 'cond'
+  // holds; this can be the label either of the access or of the trap.  The
+  // label should name a code position greater than the position of the bounds
+  // check.
+  //
+  // If JitOptions.spectreMaskIndex is true, a no-op speculation barrier is
+  // emitted in the code stream after the check to prevent an OOB access from
+  // being executed speculatively.  (On current tier-1 platforms the barrier is
+  // a conditional saturation of 'index' to 'boundsCheckLimit', using the same
+  // condition as the check.)  If the condition is such that the bounds check
+  // branches out of line to the trap, the barrier will actually be executed
+  // when the bounds check passes.
   //
   // On 32-bit systems for both wasm and asm.js, and on 64-bit systems for
   // asm.js, heap lengths are limited to 2GB.  On 64-bit systems for wasm,
@@ -3694,8 +3702,14 @@ class MacroAssembler : public MacroAssemblerSpecific {
   // gives rise to two call instructions, both of which need safe points.  As
   // per normal, the call offsets are the code offsets at the end of the call
   // instructions (the return points).
+  //
+  // `boundsCheckFailedLabel` is non-null iff a bounds check is required.
+  // `nullCheckFailedLabel` is non-null only on platforms that can't fold the
+  // null check into the rest of the call instructions.
   void wasmCallIndirect(const wasm::CallSiteDesc& desc,
-                        const wasm::CalleeDesc& callee, bool needsBoundsCheck,
+                        const wasm::CalleeDesc& callee,
+                        Label* boundsCheckFailedLabel,
+                        Label* nullCheckFailedLabel,
                         mozilla::Maybe<uint32_t> tableSize,
                         CodeOffset* fastCallOffset, CodeOffset* slowCallOffset);
 

@@ -1955,6 +1955,12 @@
   value: true
   mirror: always
 
+# Block sandboxed BrowsingContexts from navigating to external protocols.
+- name: dom.block_external_protocol_navigation_from_sandbox
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Block Insecure downloads from Secure Origins
 - name: dom.block_download_insecure
   type: bool
@@ -2204,6 +2210,12 @@
 - name: dom.enable_performance_navigation_timing
   type: bool
   value: true
+  mirror: always
+
+# Whether the scheduler interface will be exposed
+- name: dom.enable_web_task_scheduling
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # If this is true, it's allowed to fire "cut", "copy" and "paste" events.
@@ -7060,7 +7072,7 @@
   # Changing these prefs requires a restart.
 -   name: javascript.options.wasm_simd_avx
     type: bool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
     mirror: always
 #endif
 #endif
@@ -12253,7 +12265,7 @@
   # true means win32k system calls are not permitted.
 -   name: security.sandbox.content.win32k-disable
     type: RelaxedAtomicBool
-    value: true
+    value: @IS_EARLY_BETA_OR_EARLIER@
     mirror: always
 
   # Note: win32k is currently _not_ disabled for GMP due to intermittent test

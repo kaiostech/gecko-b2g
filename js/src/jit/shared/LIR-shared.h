@@ -361,6 +361,29 @@ class LGetInlinedArgumentHole : public LVariadicInstruction<BOX_PIECES, 0> {
   }
 };
 
+class LInlineArgumentsSlice : public LVariadicInstruction<1, 1> {
+ public:
+  LIR_HEADER(InlineArgumentsSlice)
+
+  static const size_t Begin = 0;
+  static const size_t Count = 1;
+  static const size_t NumNonArgumentOperands = 2;
+  static size_t ArgIndex(size_t i) {
+    return NumNonArgumentOperands + BOX_PIECES * i;
+  }
+
+  explicit LInlineArgumentsSlice(uint32_t numOperands, const LDefinition& temp)
+      : LVariadicInstruction(classOpcode, numOperands) {
+    setTemp(0, temp);
+  }
+
+  const LAllocation* begin() { return getOperand(Begin); }
+  const LAllocation* count() { return getOperand(Count); }
+  const LDefinition* temp() { return getTemp(0); }
+
+  MInlineArgumentsSlice* mir() const { return mir_->toInlineArgumentsSlice(); }
+};
+
 // Common code for LIR descended from MCall.
 template <size_t Defs, size_t Operands, size_t Temps>
 class LJSCallInstructionHelper
@@ -3262,14 +3285,18 @@ class LWasmCall : public LVariadicInstruction<0, 0> {
     this->setIsCall();
   }
 
-  MWasmCallBase* mir() const {
-    if (mir_->isWasmCallCatchable()) {
-      return static_cast<MWasmCallBase*>(mir_->toWasmCallCatchable());
+  MWasmCallBase* callBase() const {
+    if (isCatchable()) {
+      return static_cast<MWasmCallBase*>(mirCatchable());
     }
-    return static_cast<MWasmCallBase*>(mir_->toWasmCallUncatchable());
+    return static_cast<MWasmCallBase*>(mirUncatchable());
   }
+  bool isCatchable() const { return mir_->isWasmCallCatchable(); }
   MWasmCallCatchable* mirCatchable() const {
     return mir_->toWasmCallCatchable();
+  }
+  MWasmCallUncatchable* mirUncatchable() const {
+    return mir_->toWasmCallUncatchable();
   }
 
   static bool isCallPreserved(AnyRegister reg) {

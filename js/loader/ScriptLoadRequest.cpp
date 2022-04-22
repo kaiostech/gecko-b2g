@@ -32,17 +32,18 @@ namespace JS::loader {
 // ScriptFetchOptions
 //////////////////////////////////////////////////////////////
 
-NS_IMPL_CYCLE_COLLECTION(ScriptFetchOptions, mTriggeringPrincipal)
+NS_IMPL_CYCLE_COLLECTION(ScriptFetchOptions, mTriggeringPrincipal, mElement)
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(ScriptFetchOptions, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(ScriptFetchOptions, Release)
 
 ScriptFetchOptions::ScriptFetchOptions(
     mozilla::CORSMode aCORSMode, mozilla::dom::ReferrerPolicy aReferrerPolicy,
-    nsIPrincipal* aTriggeringPrincipal)
+    nsIPrincipal* aTriggeringPrincipal, mozilla::dom::Element* aElement)
     : mCORSMode(aCORSMode),
       mReferrerPolicy(aReferrerPolicy),
-      mTriggeringPrincipal(aTriggeringPrincipal) {
+      mTriggeringPrincipal(aTriggeringPrincipal),
+      mElement(aElement) {
   MOZ_ASSERT(mTriggeringPrincipal);
 }
 
@@ -78,7 +79,7 @@ ScriptLoadRequest::ScriptLoadRequest(ScriptKind aKind, nsIURI* aURI,
                                      ScriptFetchOptions* aFetchOptions,
                                      const SRIMetadata& aIntegrity,
                                      nsIURI* aReferrer,
-                                     mozilla::dom::ScriptLoadContext* aContext)
+                                     LoadContextBase* aContext)
     : mKind(aKind),
       mState(State::Fetching),
       mFetchSourceOnly(false),
@@ -113,13 +114,18 @@ void ScriptLoadRequest::SetReady() {
 void ScriptLoadRequest::Cancel() {
   mState = State::Canceled;
   if (HasLoadContext()) {
-    GetLoadContext()->MaybeCancelOffThreadScript();
+    GetScriptLoadContext()->MaybeCancelOffThreadScript();
   }
 }
 
 void ScriptLoadRequest::DropBytecodeCacheReferences() {
   mCacheInfo = nullptr;
   DropJSObjects(this);
+}
+
+mozilla::dom::ScriptLoadContext* ScriptLoadRequest::GetScriptLoadContext() {
+  MOZ_ASSERT(mLoadContext);
+  return mLoadContext->AsWindowContext();
 }
 
 ModuleLoadRequest* ScriptLoadRequest::AsModuleRequest() {
@@ -161,9 +167,9 @@ bool ScriptLoadRequest::IsMarkedForBytecodeEncoding() const {
 nsresult ScriptLoadRequest::GetScriptSource(JSContext* aCx,
                                             MaybeSourceText* aMaybeSource) {
   // If there's no script text, we try to get it from the element
-  if (HasLoadContext() && GetLoadContext()->mIsInline) {
+  if (HasLoadContext() && GetScriptLoadContext()->mIsInline) {
     nsAutoString inlineData;
-    GetLoadContext()->GetScriptElement()->GetScriptText(inlineData);
+    GetScriptLoadContext()->GetScriptElement()->GetScriptText(inlineData);
 
     size_t nbytes = inlineData.Length() * sizeof(char16_t);
     JS::UniqueTwoByteChars chars(

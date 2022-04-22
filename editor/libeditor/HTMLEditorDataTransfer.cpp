@@ -463,7 +463,8 @@ HTMLEditor::HTMLWithContextInserter::GetNewCaretPointAfterInsertingHTML(
         wsRunScannerAtStartReason.ScanPreviousVisibleNodeOrBlockBoundaryFrom(
             pointToPutCaret);
     if (backwardScanFromPointToCaretResult.InVisibleOrCollapsibleCharacters()) {
-      pointToPutCaret = backwardScanFromPointToCaretResult.Point();
+      pointToPutCaret =
+          backwardScanFromPointToCaretResult.Point<EditorDOMPoint>();
     } else if (backwardScanFromPointToCaretResult.ReachedSpecialContent()) {
       // XXX In my understanding, this is odd.  The end reason may not be
       //     same as the reached special content because the equality is
@@ -699,7 +700,8 @@ nsresult HTMLEditor::HTMLWithContextInserter::Run(
   EditorDOMPoint pointToInsert =
       HTMLEditUtils::GetBetterInsertionPointFor<EditorDOMPoint>(
           arrayOfTopMostChildContents[0],
-          EditorBase::GetStartPoint(mHTMLEditor.SelectionRef()), *editingHost);
+          mHTMLEditor.GetFirstSelectionStartPoint<EditorRawDOMPoint>(),
+          *editingHost);
   if (!pointToInsert.IsSet()) {
     NS_WARNING("HTMLEditor::GetBetterInsertionPointFor() failed");
     return NS_ERROR_FAILURE;
@@ -769,11 +771,13 @@ nsresult HTMLEditor::HTMLWithContextInserter::Run(
       GetNewCaretPointAfterInsertingHTML(lastInsertedPoint.inspect());
   // Now collapse the selection to the end of what we just inserted.
   rv = MOZ_KnownLive(mHTMLEditor).CollapseSelectionTo(pointToPutCaret);
-  if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+  if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+    NS_WARNING(
+        "EditorBase::CollapseSelectionTo() caused destroying the editor");
     return NS_ERROR_EDITOR_DESTROYED;
   }
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "HTMLEditor::CollapseSelectionTo() failed, but ignored");
+                       "EditorBase::CollapseSelectionTo() failed, but ignored");
 
   // If we didn't start from an `<a href>` element, we should not keep
   // caret in the link to make users type something outside the link.
@@ -1062,12 +1066,14 @@ nsresult HTMLEditor::HTMLWithContextInserter::MoveCaretOutsideOfLink(
     nsresult rv = MOZ_KnownLive(mHTMLEditor)
                       .CollapseSelectionTo(EditorRawDOMPoint::After(
                           *previousContentOfSplitPoint));
-    if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+    if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+      NS_WARNING(
+          "EditorBase::CollapseSelectionTo() caused destroying the editor");
       return NS_ERROR_EDITOR_DESTROYED;
     }
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rv),
-        "HTMLEditor::CollapseSelectionTo() failed, but ignored");
+        "EditorBase::CollapseSelectionTo() failed, but ignored");
   }
   return NS_OK;
 }
@@ -2511,8 +2517,8 @@ nsresult HTMLEditor::PasteAsQuotationAsAction(int32_t aClipboardType,
   // Collapse Selection in the new `<blockquote>` element.
   rv = CollapseSelectionToStartOf(
       MOZ_KnownLive(*blockquoteElementOrError.inspect()));
-  if (NS_FAILED(rv)) {
-    NS_WARNING("HTMLEditor::CollapseSelectionToStartOf() failed");
+  if (MOZ_UNLIKELY(NS_FAILED(rv))) {
+    NS_WARNING("EditorBase::CollapseSelectionToStartOf() failed");
     return rv;
   }
 
@@ -2942,12 +2948,15 @@ nsresult HTMLEditor::InsertAsPlaintextQuotation(const nsAString& aQuotedText,
     MOZ_ASSERT(spanElementOrError.inspect());
     rv = CollapseSelectionToStartOf(
         MOZ_KnownLive(*spanElementOrError.inspect()));
-    if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+    if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+      NS_WARNING(
+          "EditorBase::CollapseSelectionToStartOf() caused destroying the "
+          "editor");
       return NS_ERROR_EDITOR_DESTROYED;
     }
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rv),
-        "HTMLEditor::CollapseSelectionToStartOf() failed, but ignored");
+        "EditorBase::CollapseSelectionToStartOf() failed, but ignored");
   }
 
   // TODO: We should insert text at specific point rather than at selection.
@@ -2979,12 +2988,14 @@ nsresult HTMLEditor::InsertAsPlaintextQuotation(const nsAString& aQuotedText,
       "Failed to set after the new <span> element, but ignored");
   if (afterNewSpanElement.IsSet()) {
     nsresult rv = CollapseSelectionTo(afterNewSpanElement);
-    if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+    if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+      NS_WARNING(
+          "EditorBase::CollapseSelectionTo() caused destroying the editor");
       return NS_ERROR_EDITOR_DESTROYED;
     }
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rv),
-        "HTMLEditor::CollapseSelectionTo() failed, but ignored");
+        "EditorBase::CollapseSelectionTo() failed, but ignored");
   }
 
   // Note that if !aAddCites, aNodeInserted isn't set.
@@ -3200,11 +3211,13 @@ nsresult HTMLEditor::InsertAsCitedQuotationInternal(
   // Set the selection inside the blockquote so aQuotedText will go there:
   rv = CollapseSelectionTo(
       EditorRawDOMPoint(blockquoteElementOrError.inspect(), 0u));
-  if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+  if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+    NS_WARNING(
+        "EditorBase::CollapseSelectionTo() caused destroying the editor");
     return NS_ERROR_EDITOR_DESTROYED;
   }
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "HTMLEditor::CollapseSelectionTo() failed, but ignored");
+                       "EditorBase::CollapseSelectionTo() failed, but ignored");
 
   // TODO: We should insert text at specific point rather than at selection.
   //       Then, we can do this before inserting the <blockquote> element.
@@ -3237,12 +3250,14 @@ nsresult HTMLEditor::InsertAsCitedQuotationInternal(
       "Failed to set after new <blockquote> element, but ignored");
   if (afterNewBlockquoteElement.IsSet()) {
     nsresult rv = CollapseSelectionTo(afterNewBlockquoteElement);
-    if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+    if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+      NS_WARNING(
+          "EditorBase::CollapseSelectionTo() caused destroying the editor");
       return NS_ERROR_EDITOR_DESTROYED;
     }
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rv),
-        "HTMLEditor::CollapseSelectionTo() failed, but ignored");
+        "EditorBase::CollapseSelectionTo() failed, but ignored");
   }
 
   if (aNodeInserted) {

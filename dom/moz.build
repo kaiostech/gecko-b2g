@@ -114,6 +114,7 @@ DIRS += [
     "l10n",
     "pco",
     "origin-trials",
+    "webscheduling",
 ]
 
 # MOZ_B2G_RIL

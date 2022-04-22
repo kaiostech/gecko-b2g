@@ -3004,6 +3004,44 @@ class MGetInlinedArgumentHole
   MDefinition* foldsTo(TempAllocator& alloc) override;
 };
 
+class MInlineArgumentsSlice
+    : public MVariadicInstruction,
+      public MixPolicy<UnboxedInt32Policy<0>, UnboxedInt32Policy<1>,
+                       NoFloatPolicyAfter<2>>::Data {
+  JSObject* templateObj_;
+  gc::InitialHeap initialHeap_;
+
+  MInlineArgumentsSlice(JSObject* templateObj, gc::InitialHeap initialHeap)
+      : MVariadicInstruction(classOpcode),
+        templateObj_(templateObj),
+        initialHeap_(initialHeap) {
+    setResultType(MIRType::Object);
+  }
+
+  static const size_t NumNonArgumentOperands = 2;
+
+ public:
+  INSTRUCTION_HEADER(InlineArgumentsSlice)
+  static MInlineArgumentsSlice* New(TempAllocator& alloc, MDefinition* begin,
+                                    MDefinition* count,
+                                    MCreateInlinedArgumentsObject* args,
+                                    JSObject* templateObj,
+                                    gc::InitialHeap initialHeap);
+  NAMED_OPERANDS((0, begin), (1, count))
+
+  JSObject* templateObj() const { return templateObj_; }
+  gc::InitialHeap initialHeap() const { return initialHeap_; }
+
+  MDefinition* getArg(uint32_t idx) const {
+    return getOperand(idx + NumNonArgumentOperands);
+  }
+  uint32_t numActuals() const { return numOperands() - NumNonArgumentOperands; }
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  bool possiblyCalls() const override { return true; }
+};
+
 class MToFPInstruction : public MUnaryInstruction, public ToDoublePolicy::Data {
  public:
   // Types of values which can be converted.
@@ -10059,8 +10097,8 @@ class MWasmCallBase {
 
   const ABIArg& instanceArg() const { return instanceArg_; }
 
-  bool inTry() { return inTry_; }
-  size_t tryNoteIndex() { return tryNoteIndex_; }
+  bool inTry() const { return inTry_; }
+  size_t tryNoteIndex() const { return tryNoteIndex_; }
 };
 
 // A wasm call that is catchable. This instruction is a control instruction,

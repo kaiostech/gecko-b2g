@@ -3,11 +3,12 @@
 root:
   items:
     - type: "stacking-context"
-      transform: [1,0,0,0,0,1,0,0,0.6666667,0.6666667,1,-0.0022222223,0,0,0,1]
+      perspective: 1000
       transform-style: preserve-3d
       items:
         - type: "stacking-context"
-          transform: [1,0,0,0,0,0,1,0,0,-1,0,0,0,0,-75,1]
+          transform-origin: 175 175
+          transform: rotate-x(-20) rotate-y(20)
           items:
           - image: checkerboard(2, 22, 16)
             bounds: [0, 0, 350, 350]

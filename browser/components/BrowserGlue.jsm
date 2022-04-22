@@ -1785,15 +1785,15 @@ BrowserGlue.prototype = {
     } else {
       Services.prefs.setStringPref(
         "browser.search.param.google_channel_us",
-        "xus7"
+        "tus7"
       );
       Services.prefs.setStringPref(
         "browser.search.param.google_channel_row",
-        "xrow7"
+        "trow7"
       );
       Services.prefs.setStringPref(
         "browser.search.param.bing_ptag",
-        "MOZZ0000000032"
+        "MOZZ0000000031"
       );
     }
   },
@@ -4403,7 +4403,7 @@ BrowserGlue.prototype = {
         } else {
           tab = win.gBrowser.addWebTab(URI.uri);
         }
-        tab.setAttribute("attention", true);
+        tab.attention = true;
         return tab;
       };
 
@@ -4502,7 +4502,7 @@ BrowserGlue.prototype = {
     } else {
       tab = win.gBrowser.addWebTab(url);
     }
-    tab.setAttribute("attention", true);
+    tab.attention = true;
     let clickCallback = (subject, topic, data) => {
       if (topic != "alertclickcallback") {
         return;

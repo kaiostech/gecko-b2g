@@ -175,11 +175,17 @@ wrench-deps:
             - 'gfx/wr/Cargo.lock'
             - 'gfx/wr/ci-scripts/install-meson.sh'
         toolchain-artifact: public/build/wrench-deps.tar.zst
+    dependencies:
+        linux64-rust-1.47: toolchain-linux64-rust-1.47
     fetches:
         fetch:
             - android-rs-glue
+        linux64-rust-1.47:
+            - artifact: rustc.tar.zst
+              extract: true
+              dest: rustc-1.47
         toolchain:
-            - linux64-rust-1.47  # whatever m-c is built with
+            - linux64-rust  # whatever m-c is built with
 
 linux64-liblowercase:
     description: "liblowercase"
@@ -193,7 +199,7 @@ linux64-liblowercase:
             - build/liblowercase/
     fetches:
         toolchain:
-            - linux64-rust-1.47
+            - linux64-rust-toolchain
 
 linux64-wine:
     description: "Wine build for Windows Cross Compile"
@@ -292,7 +298,7 @@ linux64-makecab:
         fetch:
             - makecab
         toolchain:
-            - linux64-rust-1.57
+            - linux64-rust-toolchain
 
 win64-mozmake:
     description: "mozmake for Windows"

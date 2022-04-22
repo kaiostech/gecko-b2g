@@ -20,6 +20,7 @@
 #include "js/SourceText.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/dom/AutoEntryScript.h"
+#include "mozilla/dom/ScriptLoadContext.h"
 #include "mozilla/CycleCollectedJSContext.h"  // nsAutoMicroTask
 #include "mozilla/Preferences.h"
 #include "nsContentUtils.h"
@@ -491,8 +492,7 @@ nsresult ModuleLoaderBase::CreateModuleScript(ModuleLoadRequest* aRequest) {
     }
 
     RefPtr<ModuleScript> moduleScript =
-        new ModuleScript(aRequest->mFetchOptions, aRequest->mBaseURL,
-                         aRequest->mLoadContext->mElement);
+        new ModuleScript(aRequest->mFetchOptions, aRequest->mBaseURL);
     aRequest->mModuleScript = moduleScript;
 
     if (!module) {
@@ -1000,7 +1000,7 @@ nsresult ModuleLoaderBase::EvaluateModule(ModuleLoadRequest* aRequest) {
 
   nsAutoCString profilerLabelString;
   if (aRequest->HasLoadContext()) {
-    aRequest->GetLoadContext()->GetProfilerLabel(profilerLabelString);
+    aRequest->GetScriptLoadContext()->GetProfilerLabel(profilerLabelString);
   }
 
   LOG(("ScriptLoadRequest (%p): Evaluate Module", aRequest));
@@ -1011,7 +1011,7 @@ nsresult ModuleLoaderBase::EvaluateModule(ModuleLoadRequest* aRequest) {
   ModuleLoadRequest* request = aRequest->AsModuleRequest();
   MOZ_ASSERT(request->mModuleScript);
   MOZ_ASSERT_IF(request->HasLoadContext(),
-                !request->GetLoadContext()->mOffThreadToken);
+                !request->GetScriptLoadContext()->mOffThreadToken);
 
   ModuleScript* moduleScript = request->mModuleScript;
   if (moduleScript->HasErrorToRethrow()) {
@@ -1037,7 +1037,7 @@ nsresult ModuleLoaderBase::EvaluateModule(ModuleLoadRequest* aRequest) {
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (request->HasLoadContext()) {
-    TRACE_FOR_TEST(aRequest->GetLoadContext()->GetScriptElement(),
+    TRACE_FOR_TEST(aRequest->GetScriptLoadContext()->GetScriptElement(),
                    "scriptloader_evaluate_module");
   }
 

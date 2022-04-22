@@ -3722,6 +3722,66 @@ void LIRGenerator::visitArraySlice(MArraySlice* ins) {
   assignSafepoint(lir, ins);
 }
 
+void LIRGenerator::visitArgumentsSlice(MArgumentsSlice* ins) {
+  MOZ_ASSERT(ins->type() == MIRType::Object);
+  MOZ_ASSERT(ins->object()->type() == MIRType::Object);
+  MOZ_ASSERT(ins->begin()->type() == MIRType::Int32);
+  MOZ_ASSERT(ins->end()->type() == MIRType::Int32);
+
+  auto* lir = new (alloc()) LArgumentsSlice(
+      useRegisterAtStart(ins->object()), useRegisterAtStart(ins->begin()),
+      useRegisterAtStart(ins->end()), tempFixed(CallTempReg0),
+      tempFixed(CallTempReg1));
+  defineReturn(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
+void LIRGenerator::visitFrameArgumentsSlice(MFrameArgumentsSlice* ins) {
+  MOZ_ASSERT(ins->type() == MIRType::Object);
+  MOZ_ASSERT(ins->begin()->type() == MIRType::Int32);
+  MOZ_ASSERT(ins->count()->type() == MIRType::Int32);
+
+  auto* lir = new (alloc()) LFrameArgumentsSlice(
+      useRegister(ins->begin()), useRegister(ins->count()), temp());
+  define(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
+void LIRGenerator::visitInlineArgumentsSlice(MInlineArgumentsSlice* ins) {
+  LAllocation begin = useRegisterOrConstant(ins->begin());
+  LAllocation count = useRegisterOrConstant(ins->count());
+  uint32_t numActuals = ins->numActuals();
+  uint32_t numOperands =
+      numActuals * BOX_PIECES + LInlineArgumentsSlice::NumNonArgumentOperands;
+
+  auto* lir = allocateVariadic<LInlineArgumentsSlice>(numOperands, temp());
+  if (!lir) {
+    abort(AbortReason::Alloc, "OOM: LIRGenerator::visitInlineArgumentsSlice");
+    return;
+  }
+
+  lir->setOperand(LInlineArgumentsSlice::Begin, begin);
+  lir->setOperand(LInlineArgumentsSlice::Count, count);
+  for (uint32_t i = 0; i < numActuals; i++) {
+    MDefinition* arg = ins->getArg(i);
+    uint32_t index = LInlineArgumentsSlice::ArgIndex(i);
+    lir->setBoxOperand(index,
+                       useBoxOrTypedOrConstant(arg, /*useConstant = */ true));
+  }
+  define(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
+void LIRGenerator::visitNormalizeSliceTerm(MNormalizeSliceTerm* ins) {
+  MOZ_ASSERT(ins->type() == MIRType::Int32);
+  MOZ_ASSERT(ins->value()->type() == MIRType::Int32);
+  MOZ_ASSERT(ins->length()->type() == MIRType::Int32);
+
+  auto* lir = new (alloc()) LNormalizeSliceTerm(useRegister(ins->value()),
+                                                useRegister(ins->length()));
+  define(lir, ins);
+}
+
 void LIRGenerator::visitArrayJoin(MArrayJoin* ins) {
   MOZ_ASSERT(ins->type() == MIRType::String);
   MOZ_ASSERT(ins->array()->type() == MIRType::Object);

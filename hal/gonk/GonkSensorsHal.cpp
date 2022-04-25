@@ -420,13 +420,15 @@ GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
     return false;
   }
 
-  const int32_t handle = mSensorInfoList[aSensorType].sensorHandle;
+  bool hasSensor = (bool)mSensorInfoList[aSensorType].type;
 
   // check if specified sensor is supported
-  if (!handle) {
+  if (!hasSensor) {
     HAL_LOG("device unsupported sensor aSensorType=%d", aSensorType);
     return false;
   }
+
+  const int32_t handle = mSensorInfoList[aSensorType].sensorHandle;
 
   int64_t samplingPeriodNs;
   switch (aSensorType) {
@@ -481,13 +483,15 @@ GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
     return false;
   }
 
-  const int32_t handle = mSensorInfoList[aSensorType].sensorHandle;
+  bool hasSensor = (bool)mSensorInfoList[aSensorType].type;
 
   // check if specified sensor is supported
-  if (!handle) {
+  if (!hasSensor) {
     HAL_LOG("device unsupported sensor aSensorType=%d", aSensorType);
     return false;
   }
+
+  const int32_t handle = mSensorInfoList[aSensorType].sensorHandle;
 
   // deactivate specified sensor
   auto ret = mSensors->activate(handle, false);

@@ -1782,7 +1782,11 @@
 # KaiOS-only, see https://bugzilla.mozilla.org/show_bug.cgi?id=1699707#c10
 - name: device.sensors.proximity.enabled
   type: bool
+#ifdef MOZ_B2G
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 #ifdef MOZ_B2G

@@ -1150,7 +1150,9 @@ bool ScriptLoader::ProcessInlineScript(nsIScriptElement* aElement,
       mozilla::nsAutoMicroTask mt;
     }
 
-    nsresult rv = modReq->ProcessFetchedModuleSource();
+    // This calls OnFetchComplete directly since there's no need to start
+    // fetching an inline script.
+    nsresult rv = modReq->OnFetchComplete(NS_OK);
     if (NS_FAILED(rv)) {
       ReportErrorToConsole(modReq, rv);
       HandleLoadError(modReq, rv);
@@ -1385,7 +1387,7 @@ nsresult ScriptLoader::ProcessOffThreadRequest(ScriptLoadRequest* aRequest) {
   if (aRequest->IsModuleRequest()) {
     MOZ_ASSERT(aRequest->GetScriptLoadContext()->mOffThreadToken);
     ModuleLoadRequest* request = aRequest->AsModuleRequest();
-    return request->ProcessFetchedModuleSource();
+    return request->OnFetchComplete(NS_OK);
   }
 
   // Element may not be ready yet if speculatively compiling, so process the
@@ -1589,17 +1591,18 @@ nsresult ScriptLoader::AttemptAsyncScriptCompile(ScriptLoadRequest* aRequest,
     nsresult rv = aRequest->GetScriptSource(cx, &maybeSource);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    aRequest->GetScriptLoadContext()->mOffThreadToken =
-        maybeSource.constructed<SourceText<char16_t>>()
-            ? JS::CompileModuleToStencilOffThread(
-                  cx, options, maybeSource.ref<SourceText<char16_t>>(),
-                  OffThreadScriptLoaderCallback, static_cast<void*>(runnable))
-            : JS::CompileModuleToStencilOffThread(
-                  cx, options, maybeSource.ref<SourceText<Utf8Unit>>(),
-                  OffThreadScriptLoaderCallback, static_cast<void*>(runnable));
-    if (!aRequest->GetScriptLoadContext()->mOffThreadToken) {
+    auto compile = [&](auto& source) {
+      return JS::CompileModuleToStencilOffThread(
+          cx, options, source, OffThreadScriptLoaderCallback, runnable.get());
+    };
+
+    MOZ_ASSERT(!maybeSource.empty());
+    JS::OffThreadToken* token = maybeSource.mapNonEmpty(compile);
+    if (!token) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
+
+    aRequest->GetScriptLoadContext()->mOffThreadToken = token;
   } else {
     MOZ_ASSERT(aRequest->IsTextSource());
 
@@ -1638,17 +1641,18 @@ nsresult ScriptLoader::AttemptAsyncScriptCompile(ScriptLoadRequest* aRequest,
       }
     }
 
-    aRequest->GetScriptLoadContext()->mOffThreadToken =
-        maybeSource.constructed<SourceText<char16_t>>()
-            ? JS::CompileToStencilOffThread(
-                  cx, options, maybeSource.ref<SourceText<char16_t>>(),
-                  OffThreadScriptLoaderCallback, static_cast<void*>(runnable))
-            : JS::CompileToStencilOffThread(
-                  cx, options, maybeSource.ref<SourceText<Utf8Unit>>(),
-                  OffThreadScriptLoaderCallback, static_cast<void*>(runnable));
-    if (!aRequest->GetScriptLoadContext()->mOffThreadToken) {
+    auto compile = [&](auto& source) {
+      return JS::CompileToStencilOffThread(
+          cx, options, source, OffThreadScriptLoaderCallback, runnable.get());
+    };
+
+    MOZ_ASSERT(!maybeSource.empty());
+    JS::OffThreadToken* token = maybeSource.mapNonEmpty(compile);
+    if (!token) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
+
+    aRequest->GetScriptLoadContext()->mOffThreadToken = token;
   }
   signalOOM.release();
 
@@ -1712,7 +1716,7 @@ nsresult ScriptLoader::ProcessRequest(ScriptLoadRequest* aRequest) {
   if (aRequest->IsModuleRequest()) {
     ModuleLoadRequest* request = aRequest->AsModuleRequest();
     if (request->mModuleScript) {
-      if (!request->InstantiateModuleTree()) {
+      if (!request->InstantiateModuleGraph()) {
         request->mModuleScript = nullptr;
       }
     }
@@ -2170,10 +2174,11 @@ nsresult ScriptLoader::CompileOrDecodeClassicScript(
                                 MarkerInnerWindowIdFromJSContext(aCx),
                                 profilerLabelString);
 
+      auto compile = [&](auto& source) { return aExec.Compile(source); };
+
+      MOZ_ASSERT(!maybeSource.empty());
       TimeStamp startTime = TimeStamp::Now();
-      rv = maybeSource.constructed<SourceText<char16_t>>()
-               ? aExec.Compile(maybeSource.ref<SourceText<char16_t>>())
-               : aExec.Compile(maybeSource.ref<SourceText<Utf8Unit>>());
+      rv = maybeSource.mapNonEmpty(compile);
       mMainThreadParseTime += TimeStamp::Now() - startTime;
     }
   }
@@ -3012,10 +3017,9 @@ void ScriptLoader::HandleLoadError(ScriptLoadRequest* aRequest,
     mDocument->AddBlockedNodeByClassifier(cont);
   }
 
-  if (aRequest->IsModuleRequest() &&
-      !aRequest->GetScriptLoadContext()->mIsInline) {
-    auto* request = aRequest->AsModuleRequest();
-    request->SetModuleFetchFinishedAndResumeWaitingRequests(aResult);
+  if (aRequest->IsModuleRequest()) {
+    MOZ_ASSERT(!aRequest->GetScriptLoadContext()->mIsInline);
+    aRequest->AsModuleRequest()->OnFetchComplete(aResult);
   }
 
   if (aRequest->GetScriptLoadContext()->mInDeferList) {
@@ -3340,7 +3344,7 @@ nsresult ScriptLoader::PrepareLoadedRequest(ScriptLoadRequest* aRequest,
     }
 
     // Otherwise compile it right away and start fetching descendents.
-    return request->ProcessFetchedModuleSource();
+    return request->OnFetchComplete(NS_OK);
   }
 
   // The script is now loaded and ready to run.

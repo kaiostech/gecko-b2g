@@ -105,13 +105,55 @@ bool EmulateStateOf<MemoryView>::run(MemoryView& view) {
   return true;
 }
 
-static bool IsObjectEscaped(MInstruction* ins,
+static inline bool IsOptimizableObjectInstruction(MInstruction* ins) {
+  return ins->isNewObject() || ins->isNewPlainObject() ||
+         ins->isNewCallObject() || ins->isNewIterator();
+}
+
+static bool PhiOperandEqualTo(MDefinition* operand, MInstruction* newObject) {
+  if (operand == newObject) {
+    return true;
+  }
+
+  switch (operand->op()) {
+    case MDefinition::Opcode::GuardShape:
+      return PhiOperandEqualTo(operand->toGuardShape()->input(), newObject);
+
+    case MDefinition::Opcode::GuardToClass:
+      return PhiOperandEqualTo(operand->toGuardToClass()->input(), newObject);
+
+    case MDefinition::Opcode::CheckIsObj:
+      return PhiOperandEqualTo(operand->toCheckIsObj()->input(), newObject);
+
+    case MDefinition::Opcode::Unbox:
+      return PhiOperandEqualTo(operand->toUnbox()->input(), newObject);
+
+    default:
+      return false;
+  }
+}
+
+// Return true if all phi operands are equal to |newObject|.
+static bool PhiOperandsEqualTo(MPhi* phi, MInstruction* newObject) {
+  MOZ_ASSERT(IsOptimizableObjectInstruction(newObject));
+
+  for (size_t i = 0, e = phi->numOperands(); i < e; i++) {
+    if (!PhiOperandEqualTo(phi->getOperand(i), newObject)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool IsObjectEscaped(MDefinition* ins, MInstruction* newObject,
                             const Shape* shapeDefault = nullptr);
 
 // Returns False if the lambda is not escaped and if it is optimizable by
 // ScalarReplacementOfObject.
-static bool IsLambdaEscaped(MInstruction* lambda, const Shape* shape) {
+static bool IsLambdaEscaped(MInstruction* lambda, MInstruction* newObject,
+                            const Shape* shape) {
   MOZ_ASSERT(lambda->isLambda() || lambda->isFunctionWithProto());
+  MOZ_ASSERT(IsOptimizableObjectInstruction(newObject));
   JitSpewDef(JitSpew_Escape, "Check lambda\n", lambda);
   JitSpewIndent spewIndent(JitSpew_Escape);
 
@@ -134,7 +176,7 @@ static bool IsLambdaEscaped(MInstruction* lambda, const Shape* shape) {
       return true;
     }
 
-    if (IsObjectEscaped(def->toInstruction(), shape)) {
+    if (IsObjectEscaped(def->toInstruction(), newObject, shape)) {
       JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
       return true;
     }
@@ -143,18 +185,15 @@ static bool IsLambdaEscaped(MInstruction* lambda, const Shape* shape) {
   return false;
 }
 
-static inline bool IsOptimizableObjectInstruction(MInstruction* ins) {
-  return ins->isNewObject() || ins->isNewPlainObject() ||
-         ins->isNewCallObject() || ins->isNewIterator();
-}
-
 // Returns False if the object is not escaped and if it is optimizable by
 // ScalarReplacementOfObject.
 //
 // For the moment, this code is dumb as it only supports objects which are not
-// changing shape, and which are known by TI at the object creation.
-static bool IsObjectEscaped(MInstruction* ins, const Shape* shapeDefault) {
-  MOZ_ASSERT(ins->type() == MIRType::Object);
+// changing shape.
+static bool IsObjectEscaped(MDefinition* ins, MInstruction* newObject,
+                            const Shape* shapeDefault) {
+  MOZ_ASSERT(ins->type() == MIRType::Object || ins->isPhi());
+  MOZ_ASSERT(IsOptimizableObjectInstruction(newObject));
 
   JitSpewDef(JitSpew_Escape, "Check object\n", ins);
   JitSpewIndent spewIndent(JitSpew_Escape);
@@ -226,7 +265,20 @@ static bool IsObjectEscaped(MInstruction* ins, const Shape* shapeDefault) {
           JitSpewDef(JitSpew_Escape, "has a non-matching guard shape\n", guard);
           return true;
         }
-        if (IsObjectEscaped(def->toInstruction(), shape)) {
+        if (IsObjectEscaped(def->toInstruction(), newObject, shape)) {
+          JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
+          return true;
+        }
+        break;
+      }
+
+      case MDefinition::Opcode::GuardToClass: {
+        MGuardToClass* guard = def->toGuardToClass();
+        if (!shape || shape->getObjectClass() != guard->getClass()) {
+          JitSpewDef(JitSpew_Escape, "has a non-matching class guard\n", guard);
+          return true;
+        }
+        if (IsObjectEscaped(def->toInstruction(), newObject, shape)) {
           JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
           return true;
         }
@@ -234,7 +286,7 @@ static bool IsObjectEscaped(MInstruction* ins, const Shape* shapeDefault) {
       }
 
       case MDefinition::Opcode::CheckIsObj: {
-        if (IsObjectEscaped(def->toInstruction(), shape)) {
+        if (IsObjectEscaped(def->toInstruction(), newObject, shape)) {
           JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
           return true;
         }
@@ -246,7 +298,7 @@ static bool IsObjectEscaped(MInstruction* ins, const Shape* shapeDefault) {
           JitSpewDef(JitSpew_Escape, "has an invalid unbox\n", def);
           return true;
         }
-        if (IsObjectEscaped(def->toInstruction(), shape)) {
+        if (IsObjectEscaped(def->toInstruction(), newObject, shape)) {
           JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
           return true;
         }
@@ -255,12 +307,38 @@ static bool IsObjectEscaped(MInstruction* ins, const Shape* shapeDefault) {
 
       case MDefinition::Opcode::Lambda:
       case MDefinition::Opcode::FunctionWithProto: {
-        if (IsLambdaEscaped(def->toInstruction(), shape)) {
+        if (IsLambdaEscaped(def->toInstruction(), newObject, shape)) {
           JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
           return true;
         }
         break;
       }
+
+      case MDefinition::Opcode::Phi: {
+        auto* phi = def->toPhi();
+        if (!PhiOperandsEqualTo(phi, newObject)) {
+          JitSpewDef(JitSpew_Escape, "has different phi operands\n", def);
+          return true;
+        }
+        if (IsObjectEscaped(phi, newObject, shape)) {
+          JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
+          return true;
+        }
+        break;
+      }
+
+      case MDefinition::Opcode::Compare: {
+        bool canFold;
+        if (!def->toCompare()->tryFold(&canFold)) {
+          JitSpewDef(JitSpew_Escape, "has an unsupported compare\n", def);
+          return true;
+        }
+        break;
+      }
+
+      // Doesn't escape the object.
+      case MDefinition::Opcode::IsObject:
+        break;
 
       // This instruction is a no-op used to verify that scalar replacement
       // is working as expected in jit-test.
@@ -321,11 +399,15 @@ class ObjectMemoryView : public MDefinitionVisitorDefaultNoop {
   void visitStoreDynamicSlot(MStoreDynamicSlot* ins);
   void visitLoadDynamicSlot(MLoadDynamicSlot* ins);
   void visitGuardShape(MGuardShape* ins);
+  void visitGuardToClass(MGuardToClass* ins);
   void visitCheckIsObj(MCheckIsObj* ins);
   void visitUnbox(MUnbox* ins);
   void visitFunctionEnvironment(MFunctionEnvironment* ins);
   void visitLambda(MLambda* ins);
   void visitFunctionWithProto(MFunctionWithProto* ins);
+  void visitPhi(MPhi* ins);
+  void visitCompare(MCompare* ins);
+  void visitIsObject(MIsObject* ins);
 };
 
 /* static */ const char ObjectMemoryView::phaseName[] =
@@ -627,6 +709,19 @@ void ObjectMemoryView::visitGuardShape(MGuardShape* ins) {
   ins->block()->discard(ins);
 }
 
+void ObjectMemoryView::visitGuardToClass(MGuardToClass* ins) {
+  // Skip guards on other objects.
+  if (ins->object() != obj_) {
+    return;
+  }
+
+  // Replace the guard by its object.
+  ins->replaceAllUsesWith(obj_);
+
+  // Remove original instruction.
+  ins->block()->discard(ins);
+}
+
 void ObjectMemoryView::visitCheckIsObj(MCheckIsObj* ins) {
   // Skip checks on other objects.
   if (ins->input() != obj_) {
@@ -692,6 +787,54 @@ void ObjectMemoryView::visitFunctionWithProto(MFunctionWithProto* ins) {
   }
 
   ins->setIncompleteObject();
+}
+
+void ObjectMemoryView::visitPhi(MPhi* ins) {
+  // Skip phis on other objects.
+  if (!PhiOperandsEqualTo(ins, obj_)) {
+    return;
+  }
+
+  // Replace the phi by its object.
+  ins->replaceAllUsesWith(obj_);
+
+  // Remove original instruction.
+  ins->block()->discardPhi(ins);
+}
+
+void ObjectMemoryView::visitCompare(MCompare* ins) {
+  // Skip unrelated comparisons.
+  if (ins->lhs() != obj_ && ins->rhs() != obj_) {
+    return;
+  }
+
+  bool folded;
+  MOZ_ALWAYS_TRUE(ins->tryFold(&folded));
+
+  auto* cst = MConstant::New(alloc_, BooleanValue(folded));
+  ins->block()->insertBefore(ins, cst);
+
+  // Replace the comparison with a constant.
+  ins->replaceAllUsesWith(cst);
+
+  // Remove original instruction.
+  ins->block()->discard(ins);
+}
+
+void ObjectMemoryView::visitIsObject(MIsObject* ins) {
+  // Skip unrelated tests.
+  if (ins->input() != obj_) {
+    return;
+  }
+
+  auto* cst = MConstant::New(alloc_, BooleanValue(true));
+  ins->block()->insertBefore(ins, cst);
+
+  // Replace the test with a constant.
+  ins->replaceAllUsesWith(cst);
+
+  // Remove original instruction.
+  ins->block()->discard(ins);
 }
 
 static bool IndexOf(MDefinition* ins, int32_t* res) {
@@ -2739,7 +2882,8 @@ bool ScalarReplacement(MIRGenerator* mir, MIRGraph& graph) {
 
     for (MInstructionIterator ins = block->begin(); ins != block->end();
          ins++) {
-      if (IsOptimizableObjectInstruction(*ins) && !IsObjectEscaped(*ins)) {
+      if (IsOptimizableObjectInstruction(*ins) &&
+          !IsObjectEscaped(*ins, *ins)) {
         ObjectMemoryView view(graph.alloc(), *ins);
         if (!replaceObject.run(view)) {
           return false;

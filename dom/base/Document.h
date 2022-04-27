@@ -2889,6 +2889,10 @@ class Document : public nsINode,
    */
   Document* GetTemplateContentsOwner();
 
+  Document* GetTemplateContentsOwnerIfExists() const {
+    return mTemplateContentsOwner.get();
+  }
+
   /**
    * Returns true if this document is a static clone of a normal document.
    *
@@ -3664,6 +3668,10 @@ class Document : public nsINode,
   // Return true if NotifyUserGestureActivation() has been called on any
   // document in the document tree.
   bool HasBeenUserGestureActivated();
+
+  // Reture timestamp of last user gesture in milliseconds relative to
+  // navigation start timestamp.
+  DOMHighResTimeStamp LastUserGestureTimeStamp();
 
   // Return true if there is transient user gesture activation and it hasn't yet
   // timed out.

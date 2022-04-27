@@ -102,13 +102,12 @@ class ModuleLoadRequest final : public ScriptLoadRequest {
 #endif
   nsresult StartModuleLoad() { return mLoader->StartModuleLoad(this); }
   nsresult RestartModuleLoad() { return mLoader->RestartModuleLoad(this); }
-  void SetModuleFetchFinishedAndResumeWaitingRequests(nsresult aResult) {
-    mLoader->SetModuleFetchFinishedAndResumeWaitingRequests(this, aResult);
+  nsresult OnFetchComplete(nsresult aRv) {
+    return mLoader->OnFetchComplete(this, aRv);
   }
-  nsresult ProcessFetchedModuleSource() {
-    return mLoader->ProcessFetchedModuleSource(this);
+  bool InstantiateModuleGraph() {
+    return mLoader->InstantiateModuleGraph(this);
   }
-  bool InstantiateModuleTree() { return mLoader->InstantiateModuleTree(this); }
   nsresult EvaluateModule() { return mLoader->EvaluateModule(this); }
   void StartDynamicImport() { mLoader->StartDynamicImport(this); }
   void ProcessDynamicImport() { mLoader->ProcessDynamicImport(this); }
@@ -134,8 +133,8 @@ class ModuleLoadRequest final : public ScriptLoadRequest {
   // finishes.
   RefPtr<ModuleLoaderBase> mLoader;
 
-  // Pointer to the top level module of this module tree, nullptr if this is
-  // a top level module
+  // Pointer to the top level module of this module graph, nullptr if this is a
+  // top level module
   RefPtr<ModuleLoadRequest> mRootModule;
 
   // Set to a module script object after a successful load or nullptr on

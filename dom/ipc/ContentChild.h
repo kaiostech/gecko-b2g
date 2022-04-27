@@ -243,9 +243,7 @@ class ContentChild final : public PContentChild,
       PScriptCacheChild*, const FileDescOrError& cacheFile,
       const bool& wantCacheData) override;
 
-  PPrintingChild* AllocPPrintingChild();
-
-  bool DeallocPPrintingChild(PPrintingChild*);
+  PRemotePrintJobChild* AllocPRemotePrintJobChild();
 
   PChildToParentStreamChild* AllocPChildToParentStreamChild();
   bool DeallocPChildToParentStreamChild(PChildToParentStreamChild*);

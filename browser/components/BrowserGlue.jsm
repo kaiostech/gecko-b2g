@@ -94,6 +94,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   TelemetryUtils: "resource://gre/modules/TelemetryUtils.jsm",
   TRRRacer: "resource:///modules/TRRPerformance.jsm",
   UIState: "resource://services-sync/UIState.jsm",
+  UpdateListener: "resource://gre/modules/UpdateListener.jsm",
   UrlbarQuickSuggest: "resource:///modules/UrlbarQuickSuggest.jsm",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.jsm",
   WebChannel: "resource://gre/modules/WebChannel.jsm",
@@ -104,23 +105,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 XPCOMUtils.defineLazyModuleGetters(this, {
   AboutLoginsParent: "resource:///modules/AboutLoginsParent.jsm",
   PluginManager: "resource:///actors/PluginParent.jsm",
-});
-
-// Modules requiring an initialization method call.
-let initializedModules = {};
-[
-  [
-    "ContentPrefServiceParent",
-    "resource://gre/modules/ContentPrefServiceParent.jsm",
-    "alwaysInit",
-  ],
-  ["UpdateListener", "resource://gre/modules/UpdateListener.jsm", "init"],
-].forEach(([name, resource, init]) => {
-  XPCOMUtils.defineLazyGetter(this, name, () => {
-    ChromeUtils.import(resource, initializedModules);
-    initializedModules[name][init]();
-    return initializedModules[name];
-  });
 });
 
 XPCOMUtils.defineLazyServiceGetters(this, {
@@ -1215,6 +1199,7 @@ BrowserGlue.prototype = {
       PREF_DFPI_ENABLED_BY_DEFAULT,
       this._setDefaultCookieBehavior
     );
+    NimbusFeatures.tcpByDefault.off(this._setDefaultCookieBehavior);
   },
 
   // runs on startup, before the first command line handler is invoked
@@ -1734,6 +1719,7 @@ BrowserGlue.prototype = {
       PREF_DFPI_ENABLED_BY_DEFAULT,
       this._setDefaultCookieBehavior
     );
+    NimbusFeatures.tcpByDefault.onUpdate(this._setDefaultCookieBehavior);
   },
 
   _updateAutoplayPref() {
@@ -1747,16 +1733,32 @@ BrowserGlue.prototype = {
     }
   },
 
-  // For the initial rollout of dFPI, set the default cookieBehavior based on the pref
-  // set during onboarding when the user chooses to enable protections or not.
   _setDefaultCookieBehavior() {
+    let defaultPrefs = Services.prefs.getDefaultBranch("");
+
+    // For phase 2 we enable dFPI / TCP for all clients which are part of the
+    // rollout.
+    if (NimbusFeatures.tcpByDefault.isEnabled()) {
+      Services.telemetry.scalarSet("privacy.dfpi_rollout_enabledByDefault", 3);
+
+      // Enable TCP by updating the default pref state for cookie behaviour. This
+      // means we won't override user choice.
+      defaultPrefs.setIntPref(
+        "network.cookie.cookieBehavior",
+        Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
+      );
+
+      return;
+    }
+
+    // For the initial rollout of dFPI, set the default cookieBehavior based on the pref
+    // set during onboarding when the user chooses to enable protections or not.
     if (!Services.prefs.prefHasUserValue(PREF_DFPI_ENABLED_BY_DEFAULT)) {
       Services.telemetry.scalarSet("privacy.dfpi_rollout_enabledByDefault", 2);
       return;
     }
     let dFPIEnabled = Services.prefs.getBoolPref(PREF_DFPI_ENABLED_BY_DEFAULT);
 
-    let defaultPrefs = Services.prefs.getDefaultBranch("");
     defaultPrefs.setIntPref(
       "network.cookie.cookieBehavior",
       dFPIEnabled
@@ -1768,34 +1770,6 @@ BrowserGlue.prototype = {
       "privacy.dfpi_rollout_enabledByDefault",
       dFPIEnabled ? 1 : 0
     );
-
-    if (dFPIEnabled) {
-      Services.prefs.setStringPref(
-        "browser.search.param.google_channel_us",
-        "tus7"
-      );
-      Services.prefs.setStringPref(
-        "browser.search.param.google_channel_row",
-        "trow7"
-      );
-      Services.prefs.setStringPref(
-        "browser.search.param.bing_ptag",
-        "MOZZ0000000031"
-      );
-    } else {
-      Services.prefs.setStringPref(
-        "browser.search.param.google_channel_us",
-        "tus7"
-      );
-      Services.prefs.setStringPref(
-        "browser.search.param.google_channel_row",
-        "trow7"
-      );
-      Services.prefs.setStringPref(
-        "browser.search.param.bing_ptag",
-        "MOZZ0000000031"
-      );
-    }
   },
 
   _setPrefExpectations() {
@@ -1979,13 +1953,8 @@ BrowserGlue.prototype = {
       () => Normandy.uninit(),
       () => RFPHelper.uninit(),
       () => ASRouterNewTabHook.destroy(),
+      () => UpdateListener.reset(),
     ];
-
-    tasks.push(
-      ...Object.values(initializedModules)
-        .filter(m => m.uninit)
-        .map(m => () => m.uninit())
-    );
 
     for (let task of tasks) {
       try {
@@ -2742,6 +2711,12 @@ BrowserGlue.prototype = {
             null,
             "unblock-untrusted-modules-thread"
           );
+        },
+      },
+
+      {
+        task: () => {
+          UpdateListener.maybeShowUnsupportedNotification();
         },
       },
 

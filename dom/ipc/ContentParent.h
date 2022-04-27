@@ -74,10 +74,6 @@ class BenchmarkStorageParent;
 
 using mozilla::loader::PScriptCacheParent;
 
-namespace embedding {
-class PrintingParent;
-}
-
 namespace ipc {
 class CrashReporterHost;
 class PFileDescriptorSetParent;
@@ -451,17 +447,6 @@ class ContentParent final
       PNeckoParent* aActor) override {
     return PContentParent::RecvPNeckoConstructor(aActor);
   }
-
-  PPrintingParent* AllocPPrintingParent();
-
-  bool DeallocPPrintingParent(PPrintingParent* aActor);
-
-#if defined(NS_PRINTING)
-  /**
-   * @return the PrintingParent for this ContentParent.
-   */
-  already_AddRefed<embedding::PrintingParent> GetPrintingParent();
-#endif
 
   mozilla::ipc::IPCResult RecvInitStreamFilter(
       const uint64_t& aChannelId, const nsString& aAddonId,
@@ -1745,10 +1730,6 @@ class ContentParent final
   mozilla::UniquePtr<SandboxBroker> mSandboxBroker;
   static mozilla::UniquePtr<SandboxBrokerPolicyFactory>
       sSandboxBrokerPolicyFactory;
-#endif
-
-#ifdef NS_PRINTING
-  RefPtr<embedding::PrintingParent> mPrintingParent;
 #endif
 
   // This hashtable is used to run GetFilesHelper objects in the parent process.

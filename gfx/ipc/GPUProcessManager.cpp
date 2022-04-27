@@ -1164,7 +1164,8 @@ bool GPUProcessManager::CreateContentSharedBufferManager(
 #endif
 
 base::ProcessId GPUProcessManager::GPUProcessPid() {
-  base::ProcessId gpuPid = mGPUChild ? mGPUChild->OtherPid() : -1;
+  base::ProcessId gpuPid =
+      mGPUChild ? mGPUChild->OtherPid() : base::kInvalidProcessId;
   return gpuPid;
 }
 

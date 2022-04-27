@@ -118,7 +118,7 @@ nsresult ModuleLoader::StartFetch(ModuleLoadRequest* aRequest) {
   return NS_OK;
 }
 
-void ModuleLoader::ProcessLoadedModuleTree(ModuleLoadRequest* aRequest) {
+void ModuleLoader::OnModuleLoadComplete(ModuleLoadRequest* aRequest) {
   MOZ_ASSERT(aRequest->IsReadyToRun());
 
   if (aRequest->IsTopLevel()) {
@@ -136,9 +136,9 @@ void ModuleLoader::ProcessLoadedModuleTree(ModuleLoadRequest* aRequest) {
   aRequest->GetScriptLoadContext()->MaybeUnblockOnload();
 }
 
-nsresult ModuleLoader::CompileOrFinishModuleScript(
+nsresult ModuleLoader::CompileFetchedModule(
     JSContext* aCx, JS::Handle<JSObject*> aGlobal, JS::CompileOptions& aOptions,
-    ModuleLoadRequest* aRequest, JS::MutableHandle<JSObject*> aModule) {
+    ModuleLoadRequest* aRequest, JS::MutableHandle<JSObject*> aModuleOut) {
   if (aRequest->GetScriptLoadContext()->mWasCompiledOMT) {
     JS::Rooted<JS::InstantiationStorage> storage(aCx);
 
@@ -161,9 +161,9 @@ nsresult ModuleLoader::CompileOrFinishModuleScript(
     }
 
     JS::InstantiateOptions instantiateOptions(aOptions);
-    aModule.set(JS::InstantiateModuleStencil(aCx, instantiateOptions, stencil,
-                                             storage.address()));
-    if (!aModule) {
+    aModuleOut.set(JS::InstantiateModuleStencil(aCx, instantiateOptions,
+                                                stencil, storage.address()));
+    if (!aModuleOut) {
       return NS_ERROR_FAILURE;
     }
 
@@ -187,11 +187,10 @@ nsresult ModuleLoader::CompileOrFinishModuleScript(
     nsresult rv = aRequest->GetScriptSource(aCx, &maybeSource);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    stencil = maybeSource.constructed<SourceText<char16_t>>()
-                  ? JS::CompileModuleScriptToStencil(
-                        aCx, aOptions, maybeSource.ref<SourceText<char16_t>>())
-                  : JS::CompileModuleScriptToStencil(
-                        aCx, aOptions, maybeSource.ref<SourceText<Utf8Unit>>());
+    auto compile = [&](auto& source) {
+      return JS::CompileModuleScriptToStencil(aCx, aOptions, source);
+    };
+    stencil = maybeSource.mapNonEmpty(compile);
   } else {
     MOZ_ASSERT(aRequest->IsBytecode());
     JS::DecodeOptions decodeOptions(aOptions);
@@ -215,8 +214,9 @@ nsresult ModuleLoader::CompileOrFinishModuleScript(
   }
 
   JS::InstantiateOptions instantiateOptions(aOptions);
-  aModule.set(JS::InstantiateModuleStencil(aCx, instantiateOptions, stencil));
-  if (!aModule) {
+  aModuleOut.set(
+      JS::InstantiateModuleStencil(aCx, instantiateOptions, stencil));
+  if (!aModuleOut) {
     return NS_ERROR_FAILURE;
   }
 

@@ -6738,7 +6738,8 @@ ImgDrawResult nsLayoutUtils::DrawImage(
     const nsRect& aFill, const nsPoint& aAnchor, const nsRect& aDirty,
     uint32_t aImageFlags, float aOpacity) {
   Maybe<SVGImageContext> svgContext;
-  SVGImageContext::MaybeStoreContextPaint(svgContext, aComputedStyle, aImage);
+  SVGImageContext::MaybeStoreContextPaint(svgContext, *aPresContext,
+                                          *aComputedStyle, aImage);
 
   return DrawImageInternal(aContext, aPresContext, aImage, aSamplingFilter,
                            aDest, aFill, aAnchor, aDirty, svgContext,
@@ -8138,23 +8139,28 @@ bool nsLayoutUtils::GetContentViewerSize(
 bool nsLayoutUtils::UpdateCompositionBoundsForRCDRSF(
     ParentLayerRect& aCompBounds, const nsPresContext* aPresContext) {
   SubtractDynamicToolbar shouldSubtractDynamicToolbar =
-      SubtractDynamicToolbar::Yes;
+      aPresContext->IsRootContentDocumentCrossProcess() &&
+              aPresContext->HasDynamicToolbar()
+          ? SubtractDynamicToolbar::Yes
+          : SubtractDynamicToolbar::No;
 
-  if (RefPtr<MobileViewportManager> MVM =
-          aPresContext->PresShell()->GetMobileViewportManager()) {
-    CSSSize intrinsicCompositionSize = MVM->GetIntrinsicCompositionSize();
+  if (shouldSubtractDynamicToolbar == SubtractDynamicToolbar::Yes) {
+    if (RefPtr<MobileViewportManager> MVM =
+            aPresContext->PresShell()->GetMobileViewportManager()) {
+      CSSSize intrinsicCompositionSize = MVM->GetIntrinsicCompositionSize();
 
-    if (nsIScrollableFrame* rootScrollableFrame =
-            aPresContext->PresShell()->GetRootScrollFrameAsScrollable()) {
-      // Expand the composition size to include the area initially covered by
-      // the dynamic toolbar only if the content is taller than the intrinsic
-      // composition size (i.e. the dynamic toolbar should be able to move only
-      // if the content is vertically scrollable).
-      if (intrinsicCompositionSize.height <
-          CSSPixel::FromAppUnits(
-              CalculateScrollableRectForFrame(rootScrollableFrame, nullptr)
-                  .Height())) {
-        shouldSubtractDynamicToolbar = SubtractDynamicToolbar::No;
+      if (nsIScrollableFrame* rootScrollableFrame =
+              aPresContext->PresShell()->GetRootScrollFrameAsScrollable()) {
+        // Expand the composition size to include the area initially covered by
+        // the dynamic toolbar only if the content is taller than the intrinsic
+        // composition size (i.e. the dynamic toolbar should be able to move
+        // only if the content is vertically scrollable).
+        if (intrinsicCompositionSize.height <
+            CSSPixel::FromAppUnits(
+                CalculateScrollableRectForFrame(rootScrollableFrame, nullptr)
+                    .Height())) {
+          shouldSubtractDynamicToolbar = SubtractDynamicToolbar::No;
+        }
       }
     }
   }
@@ -9641,9 +9647,10 @@ void nsLayoutUtils::ComputeSystemFont(nsFont* aSystemFont,
       aFontID == LookAndFeel::FontID::MozList) {
     const bool isWindowsOrNonNativeTheme =
 #ifdef XP_WIN
-        true ||
-#endif
+        true;
+#else
         aDocument->ShouldAvoidNativeTheme();
+#endif
 
     if (isWindowsOrNonNativeTheme) {
       // For textfields, buttons and selects, we use whatever font is defined by
@@ -9770,7 +9777,7 @@ static std::pair<Maybe<ScreenRect>, FramePosition> GetFrameVisibleRectOnScreen(
 
   nsIFrame* rootFrame = topContextInProcess->PresShell()->GetRootFrame();
   nsRect transformedToIFrame = nsLayoutUtils::TransformFrameRectToAncestor(
-      aFrame, aFrame->GetRectRelativeToSelf(), rootFrame);
+      aFrame, aFrame->InkOverflowRectRelativeToSelf(), rootFrame);
 
   LayoutDeviceRect rectInLayoutDevicePixel = LayoutDeviceRect::FromAppUnits(
       transformedToIFrame, topContextInProcess->AppUnitsPerDevPixel());
@@ -9875,9 +9882,16 @@ template <typename SizeType>
           mozilla::PixelCastJustification::LayoutDeviceIsScreenForBounds)
           .height;
 
-  return SizeType(
-      aSize.width,
-      NSCoordSaturatingAdd(aSize.height, aSize.height * toolbarHeightRatio));
+  SizeType expandedSize = aSize;
+  static_assert(std::is_same_v<nsSize, SizeType> ||
+                std::is_same_v<CSSSize, SizeType>);
+  if constexpr (std::is_same_v<nsSize, SizeType>) {
+    expandedSize.height =
+        NSCoordSaturatingAdd(aSize.height, aSize.height * toolbarHeightRatio);
+  } else if (std::is_same_v<CSSSize, SizeType>) {
+    expandedSize.height = aSize.height + aSize.height * toolbarHeightRatio;
+  }
+  return expandedSize;
 }
 
 CSSSize nsLayoutUtils::ExpandHeightForDynamicToolbar(

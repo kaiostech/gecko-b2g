@@ -2213,6 +2213,11 @@ pref("extensions.blocklist.addonItemURL", "https://addons.mozilla.org/%LOCALE%/%
 // Controls what level the blocklist switches from warning about items to forcibly
 // blocking them.
 pref("extensions.blocklist.level", 2);
+// Whether event pages should be enabled for "manifest_version: 2" extensions.
+pref("extensions.eventPages.enabled", false);
+// Whether "manifest_version: 3" extensions should be allowed to install successfully.
+pref("extensions.manifestV3.enabled", false);
+
 // Blocklist via settings server (Kinto)
 pref("services.blocklist.bucket", "blocklists");
 pref("services.blocklist.addons.collection", "addons");
@@ -2892,11 +2897,11 @@ pref("font.size.monospace.x-math", 13);
   // available.  Note that this is ignored if active ATOK is or older than
   // 2016 and create_native_caret is true.
   pref("intl.tsf.hack.atok.do_not_return_no_layout_error_of_composition_string", true);
-  // Whether disable "search" input scope when the ATOK is active on windows. 
+  // Whether disable "search" input scope when the ATOK is active on windows.
   // When "search" is set to the input scope, ATOK may stop their suggestions.
   // To avoid it, turn this pref on, or changing the settings in ATOK.
   // Note that if you enable this pref and you use the touch keyboard for touch
-  // screens, you cannot access some specific features for a "search" input 
+  // screens, you cannot access some specific features for a "search" input
   // field.
   pref("intl.tsf.hack.atok.search_input_scope_disabled", false);
   // Whether use available composition string rect for result of
@@ -3696,9 +3701,6 @@ pref("network.psl.onUpdate_notify", false);
   pref("widget.disable-workspace-management", false);
   pref("widget.titlebar-x11-use-shape-mask", false);
 #endif
-#ifdef MOZ_WAYLAND
-  pref("widget.wayland.use-move-to-rect", true);
-#endif
 
 // All the Geolocation preferences are here.
 //
@@ -4102,13 +4104,10 @@ pref("media.gmp-manager.url", "https://aus5.mozilla.org/update/3/GMP/%VERSION%/%
 // header. Information from this header will be used to validate the response.
 // If this header is not present, is malformed, or cannot be determined as
 // valid then the update will fail.
-#ifdef EARLY_BETA_OR_EARLIER
-  // The plan is to have the feature gated by this pref to eventually replace
-  // the features controlled by the media.gmp-manager.cert.* prefs. Once that
-  // happens we can remove related code and prefs, but while testing we'll use
-  // this to gate (see bug 1714621 for more info).
-  pref("media.gmp-manager.checkContentSignature", true);
-#endif
+// We should eventually remove this pref and any cert pinning code and make
+// the content signature path the sole path. We retain this for now in case
+// we need to debug content sig vs cert pin.
+pref("media.gmp-manager.checkContentSignature", true);
 
 // When |media.gmp-manager.cert.requireBuiltIn| is true or not specified the
 // final certificate and all certificates the connection is redirected to before
@@ -4451,10 +4450,6 @@ pref("services.common.log.logger.tokenserverclient", "Debug");
   #else
     pref("remote.active-protocols", 2);
   #endif
-
-  // Limits remote agent to listen on loopback devices,
-  // e.g. 127.0.0.1, localhost, and ::1.
-  pref("remote.force-local", true);
 
   // Defines the verbosity of the internal logger.
   //

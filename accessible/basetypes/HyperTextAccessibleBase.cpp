@@ -463,6 +463,10 @@ bool HyperTextAccessibleBase::IsValidRange(int32_t aStartOffset,
          startOffset <= endOffset && endOffset <= CharacterCount();
 }
 
+uint32_t HyperTextAccessibleBase::LinkCount() {
+  return Acc()->EmbeddedChildCount();
+}
+
 Accessible* HyperTextAccessibleBase::LinkAt(uint32_t aIndex) {
   return Acc()->EmbeddedChildAt(aIndex);
 }
@@ -546,12 +550,18 @@ void HyperTextAccessibleBase::CroppedSelectionRanges(
     nsTArray<TextRange>& aRanges) const {
   SelectionRanges(&aRanges);
   const Accessible* acc = Acc();
-  if (!acc->IsDoc()) {
-    aRanges.RemoveElementsBy([acc](auto& range) {
-      return range.StartPoint() == range.EndPoint() ||
-             !range.Crop(const_cast<Accessible*>(acc));
-    });
-  }
+  aRanges.RemoveElementsBy([acc](auto& range) {
+    if (range.StartPoint() == range.EndPoint()) {
+      return true;  // Collapsed, so remove this range.
+    }
+    // If this is the document, it contains all ranges, so there's no need to
+    // crop.
+    if (!acc->IsDoc()) {
+      // If we fail to crop, the range is outside acc, so remove it.
+      return !range.Crop(const_cast<Accessible*>(acc));
+    }
+    return false;
+  });
 }
 
 int32_t HyperTextAccessibleBase::SelectionCount() {

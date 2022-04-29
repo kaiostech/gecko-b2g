@@ -5,19 +5,19 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS.js.loader += [
+    "LoadContextBase.h",
     "LoadedScript.h",
     "ModuleLoaderBase.h",
     "ModuleLoadRequest.h",
-    "ModuleMapKey.h",
     "ScriptKind.h",
     "ScriptLoadRequest.h",
 ]
 
 UNIFIED_SOURCES += [
+    "LoadContextBase.cpp",
     "LoadedScript.cpp",
     "ModuleLoaderBase.cpp",
     "ModuleLoadRequest.cpp",
-    "ModuleMapKey.cpp",
     "ScriptLoadRequest.cpp",
 ]
 

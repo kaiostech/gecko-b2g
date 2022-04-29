@@ -9,8 +9,8 @@
     border-radius: 4px;
     font-style: normal;
     font-weight: normal;
-    font-size: 1em;
-    line-height: 1.2em;
+    font-size: 1rem;
+    line-height: 1.2rem;
     color: #15141A;
     margin-bottom: 10px;
   }
@@ -20,11 +20,11 @@
     border-radius: 4px;
     color: #15141A;
     display: inline-block;
-    font-size: 0.7em;
+    font-size: 0.85rem;
+    line-height: 1rem;
     font-style: normal;
-    line-height: 1em;
     font-weight: 600;
-    padding: 4px 8px;
+    padding: 0 8px;
     transition: background-color 200ms ease-in-out;
 
     @include theme_dark {
@@ -50,6 +50,10 @@
 
     @include theme_dark {
       color: #8F8F9D;
+
+      &:hover {
+        color: #fff;
+      }
 
       &:focus {
         outline: 2px solid #00DDFF;
@@ -78,7 +82,8 @@
     border-end-start-radius: 4px;
 
     &:focus {
-      outline: 2px solid #0060df;
+      border: 1px solid #0060DF;
+      outline: 1px solid #0060DF;
     }
 
     @include theme_dark {
@@ -86,16 +91,15 @@
       color: #FBFBFB;
 
       &:focus {
-        outline: 2px solid #00DDFF;
+        border: 1px solid #00DDFF;
+        outline: 1px solid #00DDFF;
       }
-    }
-    &:focus {
-      border: 1px solid #0060DF;
-      outline: 1px solid #0060DF;
     }
   }
 
   .stp_tag_picker_button {
+    font-size: 0.95rem;
+    line-height: 1.1rem;
     padding: 4px 6px;
     background-color: #F0F0F4;
     border: 1px solid #8F8F9D;
@@ -111,6 +115,21 @@
     &:focus:enabled {
       border: 1px solid #0060DF;
       outline: 1px solid #0060DF;
+    }
+
+    @include theme_dark {
+      background-color: #2B2A33;
+      color: #FBFBFB;
+      &:disabled {
+        color: #666;
+      }
+      &:hover:enabled {
+        background-color: #53535d;
+      }
+      &:focus:enabled {
+        border: 1px solid #00DDFF;
+        outline: 1px solid #00DDFF;
+      }
     }
   }
 }

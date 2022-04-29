@@ -10,7 +10,7 @@ use crate::common::uds_transport::*;
 use crate::services::time::messages::*;
 use bincode::Options;
 use log::error;
-use moz_task::{ThreadPtrHandle};
+use moz_task::ThreadPtrHandle;
 use std::any::Any;
 use xpcom::interfaces::nsITimeObserver;
 

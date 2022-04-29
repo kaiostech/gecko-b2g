@@ -3,6 +3,101 @@
     {
       "stash": {
         "blocked": [
+          "{d8246cf5-fdcf-470b-9599-9daa31c7376c}:1.0",
+          "{f9508171-fff5-4fee-94d2-d4bf00adb7e2}:1.0"
+        ],
+        "unblocked": []
+      },
+      "schema": 1649939903702,
+      "key_format": "{guid}:{version}",
+      "stash_time": 1650371708670,
+      "id": "982c0a03-ffd9-4e68-92eb-db63664bb880",
+      "last_modified": 1650371906091
+    },
+    {
+      "stash": {
+        "blocked": [
+          "{dd70ce08-6a8a-4899-b2bd-17c2ce37805e}:0.0.2"
+        ],
+        "unblocked": []
+      },
+      "schema": 1649860691900,
+      "key_format": "{guid}:{version}",
+      "stash_time": 1649939709345,
+      "id": "042538b6-1e10-495f-a086-d0c9f42ce759",
+      "last_modified": 1649939903644
+    },
+    {
+      "stash": {
+        "blocked": [
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.8.2",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.8.1",
+          "{c4c9b8f3-3c9b-41c2-827e-569e556fcb8a}:1.0.0.7",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.9.0",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.8.3d",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.2d",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.1d",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.9.0d",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.3d",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.7f",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.5d",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.0d",
+          "{c4c9b8f3-3c9b-41c2-827e-569e556fcb8a}:1.0.0.0",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.8.0",
+          "{c4c9b8f3-3c9b-41c2-827e-569e556fcb8a}:1.0.0.5",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.4d",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.9.1",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.6d",
+          "{d619d6d4-d562-4ec3-a62b-9246e1553b42}:1.7d"
+        ],
+        "unblocked": []
+      },
+      "schema": 1649691602593,
+      "key_format": "{guid}:{version}",
+      "stash_time": 1649788507913,
+      "id": "9f608cfe-480d-4ec7-b692-0b26cb3ac3c3",
+      "last_modified": 1649788697027
+    },
+    {
+      "stash": {
+        "blocked": [
+          "webpki@lacunasoftware.com:2.14.2",
+          "webpki@lacunasoftware.com:2.9.1",
+          "webpki@lacunasoftware.com:2.14.1",
+          "webpki@lacunasoftware.com:2.11.9",
+          "webpki@lacunasoftware.com:2.7.1",
+          "webpki@lacunasoftware.com:2.15.0",
+          "webpki@lacunasoftware.com:2.7.2",
+          "webpki@lacunasoftware.com:2.13.0",
+          "webpki@lacunasoftware.com:2.8.0",
+          "webpki@lacunasoftware.com:2.10.1",
+          "webpki@lacunasoftware.com:2.7.5",
+          "webpki@lacunasoftware.com:2.13.6",
+          "webpki@lacunasoftware.com:2.7.0",
+          "webpki@lacunasoftware.com:2.12.1",
+          "webpki@lacunasoftware.com:2.7.4",
+          "webpki@lacunasoftware.com:2.11.10",
+          "webpki@lacunasoftware.com:2.13.4",
+          "webpki@lacunasoftware.com:2.13.5",
+          "webpki@lacunasoftware.com:2.11.7",
+          "webpki@lacunasoftware.com:2.13.2",
+          "webpki@lacunasoftware.com:2.11.8",
+          "webpki@lacunasoftware.com:2.7.3",
+          "webpki@lacunasoftware.com:2.15.1",
+          "webpki@lacunasoftware.com:2.13.3",
+          "webpki@lacunasoftware.com:2.13.1"
+        ],
+        "unblocked": []
+      },
+      "schema": 1648744604332,
+      "key_format": "{guid}:{version}",
+      "stash_time": 1649248507608,
+      "id": "d68f1e69-715e-417a-8c74-25a70d6299d9",
+      "last_modified": 1649248709738
+    },
+    {
+      "stash": {
+        "blocked": [
           "sp@FindingFormsPro:2.0.0",
           "sp@SpeedCheckerPlus:3.0.0",
           "sp@FindingFormsPro:1.0.7",

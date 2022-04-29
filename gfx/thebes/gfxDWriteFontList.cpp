@@ -132,11 +132,13 @@ static HRESULT GetDirectWriteFaceName(IDWriteFont* aFont,
   return S_OK;
 }
 
-void gfxDWriteFontFamily::FindStyleVariations(FontInfoData* aFontInfoData) {
+void gfxDWriteFontFamily::FindStyleVariationsLocked(
+    FontInfoData* aFontInfoData) {
   HRESULT hr;
   if (mHasStyles) {
     return;
   }
+
   mHasStyles = true;
 
   gfxPlatformFontList* fp = gfxPlatformFontList::PlatformFontList();
@@ -188,7 +190,7 @@ void gfxDWriteFontFamily::FindStyleVariations(FontInfoData* aFontInfoData) {
 
     fe->SetupVariationRanges();
 
-    AddFontEntry(fe);
+    AddFontEntryLocked(fe);
 
     // postscript/fullname if needed
     nsAutoCString psname, fullname;
@@ -514,8 +516,9 @@ nsresult gfxDWriteFontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
   RefPtr<gfxCharacterMap> charmap;
   nsresult rv;
 
+  uint32_t uvsOffset = 0;
   if (aFontInfoData &&
-      (charmap = GetCMAPFromFontInfo(aFontInfoData, mUVSOffset))) {
+      (charmap = GetCMAPFromFontInfo(aFontInfoData, uvsOffset))) {
     rv = NS_OK;
   } else {
     uint32_t kCMAP = TRUETYPE_TAG('c', 'm', 'a', 'p');
@@ -526,14 +529,15 @@ nsresult gfxDWriteFontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
       uint32_t cmapLen;
       const uint8_t* cmapData = reinterpret_cast<const uint8_t*>(
           hb_blob_get_data(cmapTable, &cmapLen));
-      rv = gfxFontUtils::ReadCMAP(cmapData, cmapLen, *charmap, mUVSOffset);
+      rv = gfxFontUtils::ReadCMAP(cmapData, cmapLen, *charmap, uvsOffset);
     } else {
       rv = NS_ERROR_NOT_AVAILABLE;
     }
   }
+  mUVSOffset.exchange(uvsOffset);
 
-  mHasCmapTable = NS_SUCCEEDED(rv);
-  if (mHasCmapTable) {
+  bool setCharMap = true;
+  if (NS_SUCCEEDED(rv)) {
     // Bug 969504: exclude U+25B6 from Segoe UI family, because it's used
     // by sites to represent a "Play" icon, but the glyph in Segoe UI Light
     // and Semibold on Windows 7 is too thin. (Ditto for leftward U+25C0.)
@@ -546,17 +550,24 @@ nsresult gfxDWriteFontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
     fontlist::FontList* sharedFontList = pfl->SharedFontList();
     if (!IsUserFont() && mShmemFace) {
       mShmemFace->SetCharacterMap(sharedFontList, charmap);  // async
-      if (!TrySetShmemCharacterMap()) {
-        // Temporarily retain charmap, until the shared version is
-        // ready for use.
-        mCharacterMap = charmap;
+      if (TrySetShmemCharacterMap()) {
+        setCharMap = false;
       }
     } else {
-      mCharacterMap = pfl->FindCharMap(charmap);
+      charmap = pfl->FindCharMap(charmap);
     }
+    mHasCmapTable = true;
   } else {
     // if error occurred, initialize to null cmap
-    mCharacterMap = new gfxCharacterMap();
+    charmap = new gfxCharacterMap();
+    mHasCmapTable = false;
+  }
+  if (setCharMap) {
+    // Temporarily retain charmap, until the shared version is
+    // ready for use.
+    if (mCharacterMap.compareExchange(nullptr, charmap.get())) {
+      Unused << charmap.forget();
+    }
   }
 
   LOG_FONTLIST(("(fontlist-cmap) name: %s, size: %d hash: %8.8x%s\n",
@@ -925,6 +936,8 @@ gfxFontEntry* gfxDWriteFontList::LookupLocalFont(
     nsPresContext* aPresContext, const nsACString& aFontName,
     WeightRange aWeightForEntry, StretchRange aStretchForEntry,
     SlantStyleRange aStyleForEntry) {
+  AutoLock lock(mLock);
+
   if (SharedFontList()) {
     return LookupInSharedFaceNameList(aPresContext, aFontName, aWeightForEntry,
                                       aStretchForEntry, aStyleForEntry);
@@ -1830,7 +1843,7 @@ void gfxDWriteFontList::GetFontsFromCollection(
       // if this fails/doesn't exist, we'll have used name index 0,
       // so that's the one we'll want to skip here
       names->FindLocaleName(L"en-us", &englishIdx, &exists);
-
+      AutoTArray<nsCString, 4> otherFamilyNames;
       for (nameIndex = 0; nameIndex < nameCount; nameIndex++) {
         UINT32 nameLen;
         AutoTArray<WCHAR, 32> localizedName;
@@ -1857,8 +1870,11 @@ void gfxDWriteFontList::GetFontsFromCollection(
         NS_ConvertUTF16toUTF8 locName(localizedName.Elements());
 
         if (!familyName.Equals(locName)) {
-          AddOtherFamilyName(fam, locName);
+          otherFamilyNames.AppendElement(locName);
         }
+      }
+      if (!otherFamilyNames.IsEmpty()) {
+        AddOtherFamilyNames(fam, otherFamilyNames);
       }
     }
 
@@ -2001,7 +2017,7 @@ void gfxDWriteFontList::GetDirectWriteSubstitutes() {
   }
 }
 
-bool gfxDWriteFontList::FindAndAddFamilies(
+bool gfxDWriteFontList::FindAndAddFamiliesLocked(
     nsPresContext* aPresContext, StyleGenericFontFamily aGeneric,
     const nsACString& aFamily, nsTArray<FamilyAndGeneric>* aOutput,
     FindFamiliesFlags aFlags, gfxFontStyle* aStyle, nsAtom* aLanguage,
@@ -2028,7 +2044,7 @@ bool gfxDWriteFontList::FindAndAddFamilies(
     return false;
   }
 
-  return gfxPlatformFontList::FindAndAddFamilies(
+  return gfxPlatformFontList::FindAndAddFamiliesLocked(
       aPresContext, aGeneric, keyName, aOutput, aFlags, aStyle, aLanguage,
       aDevToCssSize);
 }
@@ -2036,6 +2052,8 @@ bool gfxDWriteFontList::FindAndAddFamilies(
 void gfxDWriteFontList::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
                                                FontListSizes* aSizes) const {
   gfxPlatformFontList::AddSizeOfExcludingThis(aMallocSizeOf, aSizes);
+
+  AutoLock lock(mLock);
 
   // We are a singleton, so include the font loader singleton's memory.
   MOZ_ASSERT(static_cast<const gfxPlatformFontList*>(this) ==

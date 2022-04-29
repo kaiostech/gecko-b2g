@@ -1035,9 +1035,6 @@ static void EnsureFissionAutostartInitialized() {
     } else {
       gFissionDecisionStatus = nsIXULRuntime::eFissionDisabledByE10sOther;
     }
-  } else if (gSafeMode) {
-    gFissionAutostart = false;
-    gFissionDecisionStatus = nsIXULRuntime::eFissionDisabledBySafeMode;
   } else if (EnvHasValue("MOZ_FORCE_ENABLE_FISSION")) {
     gFissionAutostart = true;
     gFissionDecisionStatus = nsIXULRuntime::eFissionEnabledByEnv;
@@ -1495,9 +1492,6 @@ nsXULAppInfo::GetFissionDecisionStatusString(nsACString& aResult) {
       break;
     case eFissionDisabledByEnv:
       aResult = "disabledByEnv";
-      break;
-    case eFissionDisabledBySafeMode:
-      aResult = "disabledBySafeMode";
       break;
     case eFissionEnabledByDefault:
       aResult = "enabledByDefault";
@@ -4418,6 +4412,11 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
     mStartOffline = true;
   }
 
+  // On Windows, to get working console arrangements so help/version/etc
+  // print something, we need to initialize the native app support.
+  rv = NS_CreateNativeAppSupport(getter_AddRefs(mNativeApp));
+  if (NS_FAILED(rv)) return 1;
+
   // Handle --help, --full-version and --version command line arguments.
   // They should return quickly, so we deal with them here.
   if (CheckArg("h") || CheckArg("help") || CheckArg("?")) {
@@ -4884,9 +4883,6 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
 #ifdef MOZ_JPROF
   setupProfilingStuff();
 #endif
-
-  rv = NS_CreateNativeAppSupport(getter_AddRefs(mNativeApp));
-  if (NS_FAILED(rv)) return 1;
 
   bool canRun = false;
   rv = mNativeApp->Start(&canRun);
@@ -5498,6 +5494,12 @@ nsresult XREMain::XRE_mainRun() {
 
     mDirProvider.DoStartup();
 
+#ifdef XP_WIN
+    // It needs to be called on the main thread because it has to use
+    // nsObserverService.
+    EnsureWin32kInitialized();
+#endif
+
     // As FilePreferences need the profile directory, we must initialize right
     // here.
     mozilla::FilePreferences::InitDirectoriesWhitelist();
@@ -5934,6 +5936,18 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   // run!
   rv = XRE_mainRun();
 
+#if defined(XP_WIN)
+  bool wantAudio = true;
+#  ifdef MOZ_BACKGROUNDTASKS
+  if (BackgroundTasks::IsBackgroundTaskMode()) {
+    wantAudio = false;
+  }
+#  endif
+  if (MOZ_LIKELY(wantAudio)) {
+    mozilla::widget::StopAudioSession();
+  }
+#endif
+
 #ifdef MOZ_INSTRUMENT_EVENT_LOOP
   mozilla::ShutdownEventTracing();
 #endif
@@ -5950,18 +5964,6 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 #endif /* MOZ_WIDGET_GTK */
 
   mScopedXPCOM = nullptr;
-
-#if defined(XP_WIN)
-  bool wantAudio = true;
-#  ifdef MOZ_BACKGROUNDTASKS
-  if (BackgroundTasks::IsBackgroundTaskMode()) {
-    wantAudio = false;
-  }
-#  endif
-  if (MOZ_LIKELY(wantAudio)) {
-    mozilla::widget::StopAudioSession();
-  }
-#endif
 
   // unlock the profile after ScopedXPCOMStartup object (xpcom)
   // has gone out of scope.  see bug #386739 for more details

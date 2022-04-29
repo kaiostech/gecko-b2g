@@ -7,10 +7,12 @@
 #define mozilla_EditorBase_h
 
 #include "mozilla/intl/BidiEmbeddingLevel.h"
-#include "mozilla/Assertions.h"          // for MOZ_ASSERT, etc.
-#include "mozilla/EditAction.h"          // for EditAction and EditSubAction
-#include "mozilla/EditorDOMPoint.h"      // for EditorDOMPoint
+#include "mozilla/Assertions.h"      // for MOZ_ASSERT, etc.
+#include "mozilla/EditAction.h"      // for EditAction and EditSubAction
+#include "mozilla/EditorDOMPoint.h"  // for EditorDOMPoint
+#include "mozilla/EditorForwards.h"
 #include "mozilla/EventForwards.h"       // for InputEventTargetRanges
+#include "mozilla/Likely.h"              // for MOZ_UNLIKELY, MOZ_LIKELY
 #include "mozilla/Maybe.h"               // for Maybe
 #include "mozilla/OwningNonNull.h"       // for OwningNonNull
 #include "mozilla/TypeInState.h"         // for PropItem, StyleCache
@@ -60,47 +62,17 @@ class nsRange;
 
 namespace mozilla {
 class AlignStateAtSelection;
-class AutoRangeArray;
-class AutoTopLevelEditSubActionNotifier;
 class AutoTransactionsConserveSelection;
 class AutoUpdateViewBatch;
-class ChangeAttributeTransaction;
-class CompositionTransaction;
-class CSSEditUtils;
-class DeleteNodeTransaction;
-class DeleteRangeTransaction;
-class DeleteTextTransaction;
-class EditActionResult;
-class EditAggregateTransaction;
-class EditorEventListener;
-class EditTransactionBase;
 class ErrorResult;
-class HTMLEditor;
-class HTMLEditUtils;
 class IMEContentObserver;
-class InsertNodeTransaction;
-class InsertTextTransaction;
-class JoinNodesTransaction;
 class ListElementSelectionState;
 class ListItemElementSelectionState;
 class ParagraphStateAtSelection;
-class PlaceholderTransaction;
 class PresShell;
-class ReplaceTextTransaction;
-class SplitNodeResult;
-class SplitNodeTransaction;
 class TextComposition;
-class TextEditor;
 class TextInputListener;
 class TextServicesDocument;
-class TypeInState;
-class WhiteSpaceVisibilityKeeper;
-
-enum class SplitNodeDirection;  // Declrared in HTMLEditor.h
-
-template <typename NodeType>
-class CreateNodeResultBase;
-typedef CreateNodeResultBase<dom::Element> CreateElementResult;
 
 namespace dom {
 class AbstractRange;
@@ -137,10 +109,11 @@ class EditorBase : public nsIEditor,
    *       method to edit the DOM tree, you can make your new method public.
    ****************************************************************************/
 
-  typedef dom::Document Document;
-  typedef dom::Element Element;
-  typedef dom::Selection Selection;
-  typedef dom::Text Text;
+  using Document = dom::Document;
+  using Element = dom::Element;
+  using InterlinePosition = dom::Selection::InterlinePosition;
+  using Selection = dom::Selection;
+  using Text = dom::Text;
 
   enum class EditorType { Text, HTML };
 
@@ -1249,11 +1222,8 @@ class EditorBase : public nsIEditor,
         case EditSubAction::eComputeTextToOutput:
         case EditSubAction::eCreatePaddingBRElementForEmptyEditor:
         case EditSubAction::eNone:
-          MOZ_ASSERT(aDirection == eNone);
-          mDirectionOfTopLevelEditSubAction = eNone;
-          break;
         case EditSubAction::eReplaceHeadWithHTMLSource:
-          // NOTE: Not used with AutoTopLevelEditSubActionNotifier.
+          MOZ_ASSERT(aDirection == eNone);
           mDirectionOfTopLevelEditSubAction = eNone;
           break;
         case EditSubAction::eDeleteNode:
@@ -1672,21 +1642,17 @@ class EditorBase : public nsIEditor,
    *
    * @param aDocument       The document of this editor.
    * @param aStringToInsert The string to insert.
-   * @param aPointToInser   The point to insert aStringToInsert.
+   * @param aPointToInsert  The point to insert aStringToInsert.
    *                        Must be valid DOM point.
-   * @param aPointAfterInsertedString
-   *                        The point after inserted aStringToInsert.
-   *                        So, when this method actually inserts string,
-   *                        this is set to a point in the text node.
-   *                        Otherwise, this may be set to aPointToInsert.
-   * @return                When this succeeds to insert the string or
-   *                        does nothing during composition, returns NS_OK.
-   *                        Otherwise, an error code.
+   * @return                If succeeded, returns the point after inserted
+   *                        aStringToInsert. So, when this method actually
+   *                        inserts string, returns a point in the text node.
+   *                        Otherwise, returns aPointToInsert.
    */
-  MOZ_CAN_RUN_SCRIPT virtual nsresult InsertTextWithTransaction(
-      Document& aDocument, const nsAString& aStringToInsert,
-      const EditorRawDOMPoint& aPointToInsert,
-      EditorRawDOMPoint* aPointAfterInsertedString = nullptr);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT virtual Result<EditorDOMPoint, nsresult>
+  InsertTextWithTransaction(Document& aDocument,
+                            const nsAString& aStringToInsert,
+                            const EditorDOMPoint& aPointToInsert);
 
   /**
    * InsertTextIntoTextNodeWithTransaction() inserts aStringToInsert into
@@ -1862,16 +1828,74 @@ class EditorBase : public nsIEditor,
    */
   bool ShouldHandleIMEComposition() const;
 
-  static EditorRawDOMPoint GetStartPoint(const Selection& aSelection);
-  static EditorRawDOMPoint GetEndPoint(const Selection& aSelection);
+  template <typename EditorDOMPointType>
+  EditorDOMPointType GetFirstSelectionStartPoint() const;
+  template <typename EditorDOMPointType>
+  EditorDOMPointType GetFirstSelectionEndPoint() const;
 
   static nsresult GetEndChildNode(const Selection& aSelection,
                                   nsIContent** aEndNode);
 
+  template <typename PT, typename CT>
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  CollapseSelectionTo(const EditorDOMPointBase<PT, CT>& aPoint) const {
+    // We don't need to throw exception directly for a failure of updating
+    // selection.  Therefore, let's use IgnoredErrorResult for the performance.
+    IgnoredErrorResult error;
+    CollapseSelectionTo(aPoint, error);
+    return error.StealNSResult();
+  }
+
+  template <typename PT, typename CT>
+  MOZ_CAN_RUN_SCRIPT void CollapseSelectionTo(
+      const EditorDOMPointBase<PT, CT>& aPoint, ErrorResult& aRv) const {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    MOZ_ASSERT(!aRv.Failed());
+
+    if (aPoint.GetInterlinePosition() != InterlinePosition::Undefined) {
+      if (MOZ_UNLIKELY(NS_FAILED(SelectionRef().SetInterlinePosition(
+              aPoint.GetInterlinePosition())))) {
+        NS_WARNING("Selection::SetInterlinePosition() failed");
+        aRv.Throw(NS_ERROR_FAILURE);
+        return;
+      }
+    }
+
+    SelectionRef().CollapseInLimiter(aPoint, aRv);
+    if (MOZ_UNLIKELY(Destroyed())) {
+      NS_WARNING("Selection::CollapseInLimiter() caused destroying the editor");
+      aRv.Throw(NS_ERROR_EDITOR_DESTROYED);
+      return;
+    }
+    NS_WARNING_ASSERTION(!aRv.Failed(),
+                         "Selection::CollapseInLimiter() failed");
+  }
+
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  CollapseSelectionToStartOf(nsINode& aNode) const {
+    return CollapseSelectionTo(EditorRawDOMPoint(&aNode, 0u));
+  }
+
+  MOZ_CAN_RUN_SCRIPT void CollapseSelectionToStartOf(nsINode& aNode,
+                                                     ErrorResult& aRv) const {
+    CollapseSelectionTo(EditorRawDOMPoint(&aNode, 0u), aRv);
+  }
+
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  CollapseSelectionToEndOf(nsINode& aNode) const {
+    return CollapseSelectionTo(EditorRawDOMPoint::AtEndOf(aNode));
+  }
+
+  MOZ_CAN_RUN_SCRIPT void CollapseSelectionToEndOf(nsINode& aNode,
+                                                   ErrorResult& aRv) const {
+    CollapseSelectionTo(EditorRawDOMPoint::AtEndOf(aNode), aRv);
+  }
+
   /**
-   * CollapseSelectionToEnd() collapses the selection to the end of the editor.
+   * CollapseSelectionToEnd() collapses the selection to the last leaf content
+   * of the editor.
    */
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult CollapseSelectionToEnd() const;
+  MOZ_CAN_RUN_SCRIPT nsresult CollapseSelectionToEndOfLastLeafNode() const;
 
   /**
    * AllowsTransactionsToChangeSelection() returns true if editor allows any
@@ -1916,8 +1940,9 @@ class EditorBase : public nsIEditor,
    * @return            Better insertion point if there is.  If not returns
    *                    same point as aPoint.
    */
-  EditorRawDOMPoint FindBetterInsertionPoint(
-      const EditorRawDOMPoint& aPoint) const;
+  template <typename EditorDOMPointType>
+  EditorDOMPointType FindBetterInsertionPoint(
+      const EditorDOMPointType& aPoint) const;
 
   /**
    * HideCaret() hides caret with nsCaret::AddForceHide() or may show carent

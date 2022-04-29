@@ -1376,8 +1376,11 @@ var SessionStoreInternal = {
 
         this.onTabStateUpdate(browser.permanentKey, browser.ownerGlobal, data);
 
+        // SHIP code will call this when it receives "browser-shutdown-tabstate-updated"
         if (data.isFinal) {
-          this.onFinalTabStateUpdateComplete(browser);
+          if (!Services.appinfo.sessionHistoryInParent) {
+            this.onFinalTabStateUpdateComplete(browser);
+          }
         } else if (data.flushID) {
           // This is an update kicked off by an async flush request. Notify the
           // TabStateFlusher so that it can finish the request and notify its
@@ -4341,7 +4344,7 @@ var SessionStoreInternal = {
    * @returns a flag indicates whether a connection has been made
    */
   prepareConnectionToHost(tab, url) {
-    if (!url.startsWith("about:")) {
+    if (url && !url.startsWith("about:")) {
       let principal = Services.scriptSecurityManager.createNullPrincipal({
         userContextId: tab.userContextId,
       });

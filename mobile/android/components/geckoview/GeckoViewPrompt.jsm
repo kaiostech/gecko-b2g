@@ -31,6 +31,9 @@ class PromptFactory {
       case "mozshowdropdown-sourcetouch":
         this._handleSelect(aEvent.composedTarget, /* aIsDropDown = */ true);
         break;
+      case "MozOpenDateTimePicker":
+        this._handleDateTime(aEvent.composedTarget);
+        break;
       case "click":
         this._handleClick(aEvent);
         break;
@@ -43,8 +46,6 @@ class PromptFactory {
     }
   }
 
-  // TODO(emilio): We should listen to MozOpenDateTimePicker instead, except
-  // the Gecko widget isn't supported for stuff like <input type=week>
   _handleClick(aEvent) {
     const target = aEvent.composedTarget;
     const className = ChromeUtils.getClassName(target);
@@ -73,15 +74,15 @@ class PromptFactory {
     }
 
     const type = target.type;
-    if (
-      type === "date" ||
-      type === "month" ||
-      type === "week" ||
-      type === "time" ||
-      type === "datetime-local"
-    ) {
-      this._handleDateTime(target, type);
-      aEvent.preventDefault();
+    if (type === "month" || type === "week") {
+      // If there's a shadow root, the MozOpenDateTimePicker event takes care
+      // of this. Right now for these input types there's never a shadow root.
+      // Once we support UA widgets for month/week inputs (see bug 888320), we
+      // can remove this.
+      if (!target.openOrClosedShadowRoot) {
+        this._handleDateTime(target);
+        aEvent.preventDefault();
+      }
     }
   }
 
@@ -179,12 +180,12 @@ class PromptFactory {
     );
   }
 
-  _handleDateTime(aElement, aType) {
+  _handleDateTime(aElement) {
     const prompt = new GeckoViewPrompter(aElement.ownerGlobal);
     prompt.asyncShowPrompt(
       {
         type: "datetime",
-        mode: aType,
+        mode: aElement.type,
         value: aElement.value,
         min: aElement.min,
         max: aElement.max,

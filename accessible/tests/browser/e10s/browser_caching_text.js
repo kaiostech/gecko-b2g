@@ -170,14 +170,16 @@ addAccessibleTask(
     const container = findAccessibleChildByID(docAcc, "container", [
       nsIAccessibleHyperText,
     ]);
+    is(container.linkCount, 1, "container linkCount is 1");
     let link = container.getLinkAt(0);
-    queryInterfaces(link, [nsIAccessible]);
+    queryInterfaces(link, [nsIAccessible, nsIAccessibleHyperText]);
     is(getAccessibleDOMNodeID(link), "link", "LinkAt 0 is the link");
     is(container.getLinkIndex(link), 0, "getLinkIndex for link is 0");
     is(link.startIndex, 1, "link's startIndex is 1");
     is(link.endIndex, 2, "link's endIndex is 2");
     is(container.getLinkIndexAtOffset(1), 0, "getLinkIndexAtOffset(1) is 0");
     is(container.getLinkIndexAtOffset(0), -1, "getLinkIndexAtOffset(0) is -1");
+    is(link.linkCount, 0, "link linkCount is 0");
   },
   {
     chrome: true,
@@ -753,6 +755,8 @@ addAccessibleTask(
 </div>
   `,
   async function(browser, docAcc) {
+    queryInterfaces(docAcc, [nsIAccessibleText]);
+
     const textarea = findAccessibleChildByID(docAcc, "textarea", [
       nsIAccessibleText,
     ]);
@@ -762,6 +766,7 @@ addAccessibleTask(
     await caretMoved;
     testSelectionRange(browser, textarea, textarea, 0, textarea, 0);
     is(textarea.selectionCount, 0, "textarea selectionCount is 0");
+    is(docAcc.selectionCount, 0, "document selectionCount is 0");
 
     info("Selecting a in textarea");
     let selChanged = waitForSelectionChange(textarea);
@@ -803,6 +808,7 @@ addAccessibleTask(
     testSelectionRange(browser, editable, p1, 0, p1, 0);
     is(editable.selectionCount, 0, "editable selectionCount is 0");
     is(p1.selectionCount, 0, "p1 selectionCount is 0");
+    is(docAcc.selectionCount, 0, "document selectionCount is 0");
 
     info("Selecting a in editable");
     selChanged = waitForSelectionChange(p1);

@@ -688,8 +688,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   void SetMozSrcObject(DOMMediaStream& aValue);
   void SetMozSrcObject(DOMMediaStream* aValue);
 
-  bool MozPreservesPitch() const { return mPreservesPitch; }
-  void SetMozPreservesPitch(bool aPreservesPitch);
+  bool PreservesPitch() const { return mPreservesPitch; }
+  void SetPreservesPitch(bool aPreservesPitch);
 
   MediaKeys* GetMediaKeys() const;
 

@@ -109,7 +109,7 @@ class GeckoChildProcessHost : public ChildProcessHost,
   bool SyncLaunch(StringVector aExtraOpts = StringVector(),
                   int32_t timeoutMs = 0);
 
-  virtual void OnChannelConnected(int32_t peer_pid) override;
+  virtual void OnChannelConnected(base::ProcessId peer_pid) override;
   virtual void OnMessageReceived(IPC::Message&& aMsg) override;
   virtual void OnChannelError() override;
   virtual void GetQueuedMessages(std::queue<IPC::Message>& queue) override;
@@ -152,7 +152,7 @@ class GeckoChildProcessHost : public ChildProcessHost,
   // For bug 943174: Skip the EnsureProcessTerminated call in the destructor.
   void SetAlreadyDead();
 
-#if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
+#if defined(MOZ_SANDBOX) && defined(XP_MACOSX)
   // Start the sandbox from the child process.
   static bool StartMacSandbox(int aArgc, char** aArgv,
                               std::string& aErrorMessage);
@@ -171,7 +171,7 @@ class GeckoChildProcessHost : public ChildProcessHost,
   // disabled to avoid connection attempts to diagnosticd(8) which are
   // blocked in child processes due to sandboxing.
   void DisableOSActivityMode();
-#endif
+#endif  // defined(MOZ_SANDBOX) && defined(XP_MACOSX)
   typedef std::function<void(GeckoChildProcessHost*)> GeckoProcessCallback;
 
   // Iterates over all instances and calls aCallback with each one of them.

@@ -9,6 +9,9 @@
 #include <psapi.h>
 #include <winsdkver.h>
 #include <algorithm>
+#ifdef MOZ_AV1
+#  include "AOMDecoder.h"
+#endif
 #include "DXVA2Manager.h"
 #include "GMPUtils.h"  // For SplitAt. TODO: Move SplitAt to a central place.
 #include "IMFYCbCrImage.h"
@@ -199,24 +202,37 @@ bool WMFVideoMFTManager::InitializeDXVA() {
     return false;
   }
 
-  nsACString* failureReason = &mDXVAFailureReason;
-  nsCString secondFailureReason;
-  if (StaticPrefs::media_wmf_dxva_d3d11_enabled() && IsWin8OrLater()) {
+  bool d3d11 = true;
+  if (!StaticPrefs::media_wmf_dxva_d3d11_enabled()) {
+    mDXVAFailureReason = nsPrintfCString(
+        "D3D11: %s is false",
+        StaticPrefs::GetPrefName_media_wmf_dxva_d3d11_enabled());
+    d3d11 = false;
+  }
+  if (!IsWin8OrLater()) {
+    mDXVAFailureReason.AssignLiteral("D3D11: Requires Windows 8 or later");
+    d3d11 = false;
+  }
+
+  if (d3d11) {
+    mDXVAFailureReason.AppendLiteral("D3D11: ");
     mDXVA2Manager.reset(
-        DXVA2Manager::CreateD3D11DXVA(mKnowsCompositor, *failureReason));
+        DXVA2Manager::CreateD3D11DXVA(mKnowsCompositor, mDXVAFailureReason));
     if (mDXVA2Manager) {
       return true;
     }
-    // Try again with d3d9, but record the failure reason
-    // into a new var to avoid overwriting the d3d11 failure.
-    failureReason = &secondFailureReason;
-    mDXVAFailureReason.AppendLiteral("; ");
   }
 
+  // Try again with d3d9, but record the failure reason
+  // into a new var to avoid overwriting the d3d11 failure.
+  nsAutoCString d3d9Failure;
   mDXVA2Manager.reset(
-      DXVA2Manager::CreateD3D9DXVA(mKnowsCompositor, *failureReason));
+      DXVA2Manager::CreateD3D9DXVA(mKnowsCompositor, d3d9Failure));
   // Make sure we include the messages from both attempts (if applicable).
-  mDXVAFailureReason.Append(secondFailureReason);
+  if (!d3d9Failure.IsEmpty()) {
+    mDXVAFailureReason.AppendLiteral("; D3D9: ");
+    mDXVAFailureReason.Append(d3d9Failure);
+  }
 
   return mDXVA2Manager != nullptr;
 }
@@ -275,6 +291,23 @@ MediaResult WMFVideoMFTManager::ValidateVideoInfo() {
         }
       }
       break;
+#ifdef MOZ_AV1
+    case WMFStreamType::AV1:
+      if (mVideoInfo.mExtraData && !mVideoInfo.mExtraData->IsEmpty()) {
+        // Read AV1 codec configuration and check support for profiles and pixel
+        // formats.
+        AOMDecoder::AV1SequenceInfo av1Info;
+        bool hadSeqHdr;
+        AOMDecoder::ReadAV1CBox(mVideoInfo.mExtraData, av1Info, hadSeqHdr);
+
+        if (av1Info.mProfile != 0) {
+          return MediaResult(
+              NS_ERROR_DOM_MEDIA_FATAL_ERR,
+              RESULT_DETAIL("Can only decode AV1 streams in profile 0"));
+        }
+      }
+      break;
+#endif
     default:
       break;
   }
@@ -309,10 +342,20 @@ MediaResult WMFVideoMFTManager::InitInternal() {
   static const int MIN_H264_HW_HEIGHT = 132;
 
   mUseHwAccel = false;  // default value; changed if D3D setup succeeds.
-  bool useDxva = (mStreamType != WMFStreamType::H264 ||
-                  (mVideoInfo.ImageRect().width > MIN_H264_HW_WIDTH &&
-                   mVideoInfo.ImageRect().height > MIN_H264_HW_HEIGHT)) &&
-                 InitializeDXVA();
+  bool useDxva = true;
+
+  if (mStreamType == WMFStreamType::H264 &&
+      (mVideoInfo.ImageRect().width <= MIN_H264_HW_WIDTH ||
+       mVideoInfo.ImageRect().height <= MIN_H264_HW_HEIGHT)) {
+    useDxva = false;
+    mDXVAFailureReason = nsPrintfCString(
+        "H264 video resolution too low: %" PRIu32 "x%" PRIu32,
+        mVideoInfo.ImageRect().width, mVideoInfo.ImageRect().height);
+  }
+
+  if (useDxva) {
+    useDxva = InitializeDXVA();
+  }
 
   RefPtr<MFTDecoder> decoder = new MFTDecoder();
   HRESULT hr = WMFDecoderModule::CreateMFTDecoder(mStreamType, decoder);
@@ -375,6 +418,12 @@ MediaResult WMFVideoMFTManager::InitInternal() {
     }
   }
 
+  if (!mDXVAFailureReason.IsEmpty()) {
+    // DXVA failure reason being set can mean that D3D11 failed, or that DXVA is
+    // entirely disabled.
+    LOG(nsPrintfCString("DXVA failure: %s", mDXVAFailureReason.get()).get());
+  }
+
   if (!mUseHwAccel) {
     if (mDXVA2Manager) {
       // Either mDXVAEnabled was set to false prior the second call to
@@ -408,7 +457,16 @@ MediaResult WMFVideoMFTManager::InitInternal() {
       MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                   RESULT_DETAIL("Fail to get the input media type.")));
 
-  if (mUseHwAccel && !CanUseDXVA(inputType, mFramerate)) {
+  RefPtr<IMFMediaType> outputType;
+  hr = mDecoder->GetOutputMediaType(outputType);
+  NS_ENSURE_TRUE(
+      SUCCEEDED(hr),
+      MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                  RESULT_DETAIL("Fail to get the output media type.")));
+
+  if (mUseHwAccel && !CanUseDXVA(inputType, outputType, mFramerate)) {
+    LOG("DXVA manager determined that the input type was unsupported in "
+        "hardware, retrying init without DXVA.");
     mDXVAEnabled = false;
     // DXVA initialization with current decoder actually failed,
     // re-do initialization.
@@ -417,13 +475,6 @@ MediaResult WMFVideoMFTManager::InitInternal() {
 
   LOG("Video Decoder initialized, Using DXVA: %s",
       (mUseHwAccel ? "Yes" : "No"));
-
-  RefPtr<IMFMediaType> outputType;
-  hr = mDecoder->GetOutputMediaType(outputType);
-  NS_ENSURE_TRUE(
-      SUCCEEDED(hr),
-      MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                  RESULT_DETAIL("Fail to get the output media type.")));
 
   if (mUseHwAccel) {
     hr = mDXVA2Manager->ConfigureForSize(
@@ -479,6 +530,12 @@ WMFVideoMFTManager::SetDecoderMediaTypes() {
                           mVideoInfo.ImageRect().height);
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
+  UINT32 fpsDenominator = 1000;
+  UINT32 fpsNumerator = static_cast<uint32_t>(mFramerate * fpsDenominator);
+  hr = MFSetAttributeRatio(inputType, MF_MT_FRAME_RATE, fpsNumerator,
+                           fpsDenominator);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
+
   RefPtr<IMFMediaType> outputType;
   hr = wmf::MFCreateMediaType(getter_AddRefs(outputType));
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
@@ -489,6 +546,10 @@ WMFVideoMFTManager::SetDecoderMediaTypes() {
   hr = MFSetAttributeSize(outputType, MF_MT_FRAME_SIZE,
                           mVideoInfo.ImageRect().width,
                           mVideoInfo.ImageRect().height);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
+
+  hr = MFSetAttributeRatio(outputType, MF_MT_FRAME_RATE, fpsNumerator,
+                           fpsDenominator);
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   GUID outputSubType = mUseHwAccel ? MFVideoFormat_NV12 : MFVideoFormat_YV12;
@@ -567,12 +628,14 @@ WMFVideoMFTManager::Input(MediaRawData* aSample) {
 // Ideally we'd know the framerate during initialization and would also ensure
 // that new decoders are created if the resolution changes. Then we could move
 // this check into Init and consolidate the main thread blocking code.
-bool WMFVideoMFTManager::CanUseDXVA(IMFMediaType* aType, float aFramerate) {
+bool WMFVideoMFTManager::CanUseDXVA(IMFMediaType* aInputType,
+                                    IMFMediaType* aOutputType,
+                                    float aFramerate) {
   MOZ_ASSERT(mDXVA2Manager);
   // Check if we're able to use hardware decoding with H264 or AV1.
   // TODO: Do the same for VPX, if the VPX MFT has a slow software fallback?
   if (mStreamType == WMFStreamType::H264 || mStreamType == WMFStreamType::AV1) {
-    return mDXVA2Manager->SupportsConfig(aType, aFramerate);
+    return mDXVA2Manager->SupportsConfig(aInputType, aOutputType, aFramerate);
   }
 
   return true;
@@ -941,14 +1004,49 @@ bool WMFVideoMFTManager::IsHardwareAccelerated(
 nsCString WMFVideoMFTManager::GetDescriptionName() const {
   nsCString failureReason;
   bool hw = IsHardwareAccelerated(failureReason);
-  return nsPrintfCString("wmf %s codec %s video decoder - %s",
+
+  const char* formatName = [&]() {
+    if (!mDecoder) {
+      return "not initialized";
+    }
+    GUID format = mDecoder->GetOutputMediaSubType();
+    if (format == MFVideoFormat_NV12) {
+      if (!gfx::DeviceManagerDx::Get()->CanUseNV12()) {
+        return "nv12->argb32";
+      }
+      return "nv12";
+    }
+    if (format == MFVideoFormat_P010) {
+      if (!gfx::DeviceManagerDx::Get()->CanUseP010()) {
+        return "p010->argb32";
+      }
+      return "p010";
+    }
+    if (format == MFVideoFormat_P016) {
+      if (!gfx::DeviceManagerDx::Get()->CanUseP016()) {
+        return "p016->argb32";
+      }
+      return "p016";
+    }
+    if (format == MFVideoFormat_YV12) {
+      return "yv12";
+    }
+    return "unknown";
+  }();
+
+  const char* dxvaName = [&]() {
+    if (!mDXVA2Manager) {
+      return "no DXVA";
+    }
+    if (mDXVA2Manager->IsD3D11()) {
+      return "D3D11";
+    }
+    return "D3D9";
+  }();
+
+  return nsPrintfCString("wmf %s codec %s video decoder - %s, %s",
                          WMFDecoderModule::StreamTypeToString(mStreamType),
-                         hw ? "hardware" : "software",
-                         hw ? StaticPrefs::media_wmf_use_nv12_format() &&
-                                      gfx::DeviceManagerDx::Get()->CanUseNV12()
-                                  ? "nv12"
-                                  : "rgba32"
-                            : "yuv420");
+                         hw ? "hardware" : "software", dxvaName, formatName);
 }
 
 }  // namespace mozilla

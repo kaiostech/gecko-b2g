@@ -735,6 +735,12 @@ ScreenOrientation::FullscreenEventListener::HandleEvent(Event* aEvent) {
     return NS_OK;
   }
 
+  BrowsingContext* bc = doc->GetBrowsingContext();
+  bc = bc ? bc->Top() : nullptr;
+  if (bc) {
+    bc->SetOrientationLock(hal::ScreenOrientation::None, IgnoreErrors());
+  }
+
   hal::UnlockScreenOrientation();
 
   target->RemoveSystemEventListener(u"fullscreenchange"_ns, this, true);

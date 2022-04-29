@@ -429,6 +429,18 @@ pref("browser.urlbar.quicksuggest.remoteSettings.enabled", true);
 // suggestions.
 pref("browser.urlbar.quicksuggest.allowPositionInSuggestions", true);
 
+// Whether non-sponsored quick suggest results are subject to impression
+// frequency caps.
+pref("browser.urlbar.quicksuggest.impressionCaps.nonSponsoredEnabled", false);
+
+// Whether sponsored quick suggest results are subject to impression frequency
+// caps.
+pref("browser.urlbar.quicksuggest.impressionCaps.sponsoredEnabled", false);
+
+// Whether the usual non-best-match quick suggest results can be blocked. This
+// pref is a fallback for the Nimbus variable `quickSuggestBlockingEnabled`.
+pref("browser.urlbar.quicksuggest.blockingEnabled", false);
+
 // Whether unit conversion is enabled.
 #ifdef NIGHTLY_BUILD
 pref("browser.urlbar.unitConversion.enabled", true);
@@ -516,7 +528,8 @@ pref("browser.urlbar.merino.clientVariants", "");
 // Whether the best match feature in the urlbar is enabled.
 pref("browser.urlbar.bestMatch.enabled", false);
 
-// Whether best match results can be blocked.
+// Whether best match results can be blocked. This pref is a fallback for the
+// Nimbus variable `bestMatchBlockingEnabled`.
 pref("browser.urlbar.bestMatch.blockingEnabled", false);
 
 pref("browser.altClickSave", false);
@@ -1732,17 +1745,10 @@ pref("media.autoplay.default", 1); // 0=Allowed, 1=Blocked, 5=All Blocked
 #endif
 
 pref("media.videocontrols.picture-in-picture.enabled", true);
+pref("media.videocontrols.picture-in-picture.audio-toggle.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.visibility-threshold", "1.0");
 pref("media.videocontrols.picture-in-picture.keyboard-controls.enabled", true);
-
-#ifdef NIGHTLY_BUILD
-  // Show the audio toggle for Picture-in-Picture.
-  pref("media.videocontrols.picture-in-picture.audio-toggle.enabled", true);
-  // Enable keyboard controls for Picture-in-Picture.
-#else
-  pref("media.videocontrols.picture-in-picture.audio-toggle.enabled", false);
-#endif
 
 pref("browser.translation.detectLanguage", false);
 pref("browser.translation.neverForLanguages", "");
@@ -1805,7 +1811,6 @@ pref("dom.storage_access.enabled", true);
 // Enable URL query stripping in Nightly.
 #ifdef NIGHTLY_BUILD
 pref("privacy.query_stripping.enabled", true);
-pref("privacy.query_stripping.strip_list", "mc_eid oly_anon_id oly_enc_id __s vero_id _hsenc mkt_tok fbclid");
 #endif
 
 pref("browser.contentblocking.cryptomining.preferences.ui.enabled", true);
@@ -2314,6 +2319,8 @@ pref("devtools.inspector.ruleview.inline-compatibility-warning.enabled", false);
 pref("devtools.inspector.compatibility.enabled", true);
 // Enable overflow debugging in the inspector.
 pref("devtools.overflow.debugging.enabled", true);
+// Enable drag to edit properties in the inspector rule view.
+pref("devtools.inspector.draggable_properties", true);
 
 // Grid highlighter preferences
 pref("devtools.gridinspector.gridOutlineMaxColumns", 50);
@@ -2697,7 +2704,15 @@ pref("svg.context-properties.content.allowed-domains", "profile.accounts.firefox
 // SnapshotScorer.
 pref("browser.snapshots.score.Visit", 1);
 pref("browser.snapshots.score.CurrentSession", 1);
-pref("browser.snapshots.score.InNavigation", 3);
-pref("browser.snapshots.score.IsOverlappingVisit", 3);
 pref("browser.snapshots.score.IsUserPersisted", 1);
 pref("browser.snapshots.score.IsUsedRemoved", -10);
+
+// A set of weights for the snapshot recommendation sources. The suffixes after
+// the last decimal map to the keys of `Snapshots.recommendationSources`.
+pref("browser.snapshots.source.CommonReferrer", 3);
+pref("browser.snapshots.source.Overlapping", 3);
+
+// Expiration days for snapshots.
+pref("browser.places.snapshots.expiration.days", 210);
+// For user managed snapshots we use more than a year, to support yearly tasks.
+pref("browser.places.snapshots.expiration.userManaged.days", 420);

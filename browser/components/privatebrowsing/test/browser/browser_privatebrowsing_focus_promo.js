@@ -5,6 +5,7 @@ const { ASRouter } = ChromeUtils.import(
 
 const initialHomeRegion = Region._home;
 const intialCurrentRegion = Region._current;
+const initialLocale = Services.locale.appLocaleAsBCP47;
 
 // Helper to run tests for specific regions
 async function setupRegions(home, current) {
@@ -12,8 +13,14 @@ async function setupRegions(home, current) {
   Region._setCurrentRegion(current || "");
 }
 
+// Helper to run tests for specific locales
+function setLocale(locale) {
+  Services.locale.availableLocales = [locale];
+  Services.locale.requestedLocales = [locale];
+}
+
 add_task(async function test_focus_promo_in_allowed_region() {
-  await ASRouter._resetMessageState();
+  ASRouter.resetMessageState();
 
   const allowedRegion = "ES"; // Spain
   setupRegions(allowedRegion, allowedRegion);
@@ -31,7 +38,7 @@ add_task(async function test_focus_promo_in_allowed_region() {
 });
 
 add_task(async function test_focus_promo_in_disallowed_region() {
-  await ASRouter._resetMessageState();
+  ASRouter.resetMessageState();
 
   const disallowedRegion = "CN"; // China
   setupRegions(disallowedRegion);
@@ -47,3 +54,34 @@ add_task(async function test_focus_promo_in_disallowed_region() {
   await BrowserTestUtils.closeWindow(win);
   setupRegions(initialHomeRegion, intialCurrentRegion); // revert changes to regions
 });
+
+add_task(
+  async function test_klar_promo_in_certain_regions_with_English_locale() {
+    const testLocale = "en-GB"; // British English
+    setLocale(testLocale);
+
+    const testRegion = async region => {
+      setupRegions(region);
+      ASRouter.resetMessageState();
+      const { win, tab } = await openTabAndWaitForRender();
+      await SpecialPowers.spawn(tab, [], async function() {
+        const buttonText = content.document.querySelector(
+          "#private-browsing-vpn-link"
+        ).textContent;
+        Assert.equal(
+          buttonText,
+          "Download Firefox Klar",
+          "The promo button text reads 'Download Firefox Klar'"
+        );
+      });
+      await BrowserTestUtils.closeWindow(win);
+    };
+
+    await testRegion("AT"); // Austria
+    await testRegion("DE"); // Germany
+    await testRegion("CH"); // Switzerland
+
+    setupRegions(initialHomeRegion, intialCurrentRegion); // revert changes to regions
+    setLocale(initialLocale); // revert changes to locale
+  }
+);

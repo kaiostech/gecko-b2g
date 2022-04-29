@@ -280,9 +280,12 @@ const DEFAULT_ENVIRONMENT_PREFS = new Map([
   ["dom.ipc.plugins.enabled", { what: RECORD_PREF_VALUE }],
   ["dom.ipc.processCount", { what: RECORD_PREF_VALUE }],
   ["dom.max_script_run_time", { what: RECORD_PREF_VALUE }],
+  ["extensions.InstallTrigger.enabled", { what: RECORD_PREF_VALUE }],
+  ["extensions.InstallTriggerImpl.enabled", { what: RECORD_PREF_VALUE }],
   ["extensions.autoDisableScopes", { what: RECORD_PREF_VALUE }],
-  ["extensions.enabledScopes", { what: RECORD_PREF_VALUE }],
   ["extensions.blocklist.enabled", { what: RECORD_PREF_VALUE }],
+  ["extensions.enabledScopes", { what: RECORD_PREF_VALUE }],
+  ["extensions.eventPages.enabled", { what: RECORD_PREF_VALUE }],
   ["extensions.formautofill.addresses.enabled", { what: RECORD_PREF_VALUE }],
   [
     "extensions.formautofill.addresses.capture.enabled",
@@ -294,8 +297,7 @@ const DEFAULT_ENVIRONMENT_PREFS = new Map([
     { what: RECORD_PREF_VALUE },
   ],
   ["extensions.formautofill.creditCards.used", { what: RECORD_PREF_VALUE }],
-  ["extensions.InstallTrigger.enabled", { what: RECORD_PREF_VALUE }],
-  ["extensions.InstallTriggerImpl.enabled", { what: RECORD_PREF_VALUE }],
+  ["extensions.manifestV3.enabled", { what: RECORD_PREF_VALUE }],
   ["extensions.strictCompatibility", { what: RECORD_PREF_VALUE }],
   ["extensions.update.enabled", { what: RECORD_PREF_VALUE }],
   ["extensions.update.url", { what: RECORD_PREF_VALUE }],
@@ -1699,10 +1701,12 @@ EnvironmentCache.prototype = {
 
     let attributionData = {};
     for (let key in data) {
-      attributionData[key] = limitStringToLength(
-        data[key],
-        MAX_ATTRIBUTION_STRING_LENGTH
-      );
+      attributionData[key] =
+        // At least one of these may be boolean, and limitStringToLength
+        // returns null for non-string inputs.
+        typeof data[key] === "string"
+          ? limitStringToLength(data[key], MAX_ATTRIBUTION_STRING_LENGTH)
+          : data[key];
     }
     this._currentEnvironment.settings.attribution = attributionData;
   },

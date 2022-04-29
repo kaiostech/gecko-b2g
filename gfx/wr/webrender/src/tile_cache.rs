@@ -8,7 +8,7 @@ use crate::clip::{ClipChainId, ClipNodeKind, ClipStore, ClipInstance};
 use crate::frame_builder::FrameBuilderConfig;
 use crate::internal_types::{FastHashMap};
 use crate::picture::{PrimitiveList, PictureCompositeMode, PicturePrimitive, SliceId};
-use crate::picture::{Picture3DContext, TileCacheParams, TileOffset};
+use crate::picture::{Picture3DContext, TileCacheParams, TileOffset, PictureFlags};
 use crate::prim_store::{PrimitiveInstance, PrimitiveStore, PictureIndex};
 use crate::scene_building::SliceFlags;
 use crate::scene_builder_thread::Interners;
@@ -132,6 +132,14 @@ impl TileCacheBuilder {
         let mut scroll_root_occurrences = FastHashMap::default();
 
         for cluster in &prim_list.clusters {
+            // If we encounter a cluster which has an unknown spatial node,
+            // we don't include that in the set of spatial nodes that we
+            // are trying to find scroll roots for. Later on, in finalize_picture,
+            // the cluster spatial node will be updated to the selected scroll root.
+            if cluster.spatial_node_index == SpatialNodeIndex::UNKNOWN {
+                continue;
+            }
+
             let scroll_root = self.find_scroll_root(
                 cluster.spatial_node_index,
                 spatial_tree,
@@ -378,7 +386,7 @@ impl TileCacheBuilder {
                 let (params, iframe_clip) = if slice == MAX_CACHE_SLICES-1 {
                     let params = TileCacheParams {
                         slice,
-                        slice_flags: SliceFlags::empty(),
+                        slice_flags: SliceFlags::IS_ATOMIC,
                         spatial_node_index: self.root_spatial_node_index,
                         background_color: None,
                         shared_clips: Vec::new(),
@@ -608,6 +616,7 @@ fn create_tile_cache(
         prim_list,
         scroll_root,
         RasterSpace::Screen,
+        PictureFlags::empty(),
     ));
 
     PictureIndex(pic_index)

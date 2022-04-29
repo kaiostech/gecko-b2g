@@ -55,7 +55,8 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // this value.  See UrlbarProviderPlaces.
   ["autoFill.stddevMultiplier", [0.0, "float"]],
 
-  // Whether best match results can be blocked.
+  // Whether best match results can be blocked. This pref is a fallback for the
+  // Nimbus variable `bestMatchBlockingEnabled`.
   ["bestMatch.blockingEnabled", false],
 
   // Whether the best match feature is enabled.
@@ -222,11 +223,29 @@ const PREF_URLBAR_DEFAULTS = new Map([
   ["suggest.topsites", true],
 
   // JSON'ed array of blocked quick suggest URL digests.
-  ["quickSuggest.blockedDigests", ""],
+  ["quicksuggest.blockedDigests", ""],
+
+  // Whether the usual non-best-match quick suggest results can be blocked. This
+  // pref is a fallback for the Nimbus variable `quickSuggestBlockingEnabled`.
+  ["quicksuggest.blockingEnabled", false],
 
   // Global toggle for whether the quick suggest feature is enabled, i.e.,
   // sponsored and recommended results related to the user's search string.
   ["quicksuggest.enabled", false],
+
+  // Whether non-sponsored quick suggest results are subject to impression
+  // frequency caps. This pref is a fallback for the Nimbus variable
+  // `quickSuggestImpressionCapsNonSponsoredEnabled`.
+  ["quicksuggest.impressionCaps.nonSponsoredEnabled", false],
+
+  // Whether sponsored quick suggest results are subject to impression frequency
+  // caps. This pref is a fallback for the Nimbus variable
+  // `quickSuggestImpressionCapsSponsoredEnabled`.
+  ["quicksuggest.impressionCaps.sponsoredEnabled", false],
+
+  // JSON'ed object of quick suggest impression stats. Used for implementing
+  // impression frequency caps for quick suggest suggestions.
+  ["quicksuggest.impressionCaps.stats", ""],
 
   // Whether to show QuickSuggest related logs.
   ["quicksuggest.log", false],

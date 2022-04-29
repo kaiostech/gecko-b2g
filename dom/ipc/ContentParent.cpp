@@ -8,6 +8,7 @@
 #  include "AndroidDecoderModule.h"
 #endif
 
+#include "mozilla/AppShutdown.h"
 #include "mozilla/DebugOnly.h"
 
 #include "base/basictypes.h"
@@ -64,6 +65,7 @@
 #include "mozilla/ipc/URIUtils.h"
 #include "gfxPlatform.h"
 #include "gfxPlatformFontList.h"
+#include "mozilla/AppShutdown.h"
 #include "mozilla/AutoRestore.h"
 #include "mozilla/ContentBlocking.h"
 #include "mozilla/BasePrincipal.h"
@@ -90,6 +92,7 @@
 #include "mozilla/Components.h"
 #include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/StyleSheet.h"
@@ -151,7 +154,6 @@
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/dom/quota/QuotaManagerService.h"
-#include "mozilla/embedding/printingui/PrintingParent.h"
 #include "mozilla/extensions/ExtensionsParent.h"
 #include "mozilla/extensions/StreamFilterParent.h"
 #include "mozilla/gfx/GPUProcessManager.h"
@@ -736,10 +738,6 @@ UniquePtr<SandboxBrokerPolicyFactory>
 UniquePtr<std::vector<std::string>> ContentParent::sMacSandboxParams;
 #endif
 
-// This is true when subprocess launching is enabled.  This is the
-// case between StartUp() and ShutDown().
-static bool sCanLaunchSubprocesses;
-
 // Set to true when the first content process gets created.
 static bool sCreatedFirstContentProcess = false;
 
@@ -782,6 +780,23 @@ static const char* sObserverTopics[] = {
     "network:socket-process-crashed",
 };
 
+static const char kFissionEnforceBlockList[] =
+    "fission.enforceBlocklistedPrefsInSubprocesses";
+static const char kFissionOmitBlockListValues[] =
+    "fission.omitBlocklistedPrefsInSubprocesses";
+
+static void OnFissionBlocklistPrefChange(const char* aPref, void* aData) {
+  if (strcmp(aPref, kFissionEnforceBlockList) == 0) {
+    sCrashOnBlocklistedPref =
+        StaticPrefs::fission_enforceBlocklistedPrefsInSubprocesses();
+  } else if (strcmp(aPref, kFissionOmitBlockListValues) == 0) {
+    sOmitBlocklistedPrefValues =
+        StaticPrefs::fission_omitBlocklistedPrefsInSubprocesses();
+  } else {
+    MOZ_CRASH("Unknown pref passed to callback");
+  }
+}
+
 // PreallocateProcess is called by the PreallocatedProcessManager.
 // ContentParent then takes this process back within GetNewOrUsedBrowserProcess.
 /*static*/ already_AddRefed<ContentParent>
@@ -792,11 +807,8 @@ ContentParent::MakePreallocProcess() {
 
 /*static*/
 void ContentParent::StartUp() {
-  // We could launch sub processes from content process
   // FIXME Bug 1023701 - Stop using ContentParent static methods in
   // child process
-  sCanLaunchSubprocesses = true;
-
   if (!XRE_IsParentProcess()) {
     return;
   }
@@ -825,6 +837,11 @@ void ContentParent::StartUp() {
   BackgroundChild::Startup();
   ClientManager::Startup();
 
+  Preferences::RegisterCallbackAndCall(&OnFissionBlocklistPrefChange,
+                                       kFissionEnforceBlockList);
+  Preferences::RegisterCallbackAndCall(&OnFissionBlocklistPrefChange,
+                                       kFissionOmitBlockListValues);
+
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
   sSandboxBrokerPolicyFactory = MakeUnique<SandboxBrokerPolicyFactory>();
 #endif
@@ -840,9 +857,8 @@ void ContentParent::StartUp() {
 
 /*static*/
 void ContentParent::ShutDown() {
-  // No-op for now.  We rely on normal process shutdown and
+  // For the most, we rely on normal process shutdown and
   // ClearOnShutdown() to clean up our state.
-  sCanLaunchSubprocesses = false;
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
   sSandboxBrokerPolicyFactory = nullptr;
@@ -1618,7 +1634,9 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
       "BrowsingContext must not have BrowserParent, or have previous "
       "BrowserParent cleared");
 
-  if (!sCanLaunchSubprocesses) {
+  // Take a shortcut (BeginSubprpocessLaunch would fail later, too).
+  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
+    MOZ_ASSERT(false, "Late attempt to CreateBrowser!");
     return nullptr;
   }
 
@@ -1725,6 +1743,9 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
   }
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
+  if (NS_WARN_IF(!cpm)) {
+    return nullptr;
+  }
   cpm->RegisterRemoteFrame(browserParent);
 
   nsCOMPtr<nsIPrincipal> initialPrincipal =
@@ -1834,7 +1855,12 @@ void ContentParent::BroadcastMediaCodecsSupportedUpdate(
 
 const nsACString& ContentParent::GetRemoteType() const { return mRemoteType; }
 
+static StaticRefPtr<nsIAsyncShutdownClient> sXPCOMShutdownClient;
+static StaticRefPtr<nsIAsyncShutdownClient> sProfileBeforeChangeClient;
+
 void ContentParent::Init() {
+  MOZ_ASSERT(sXPCOMShutdownClient);
+
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
     size_t length = ArrayLength(sObserverTopics);
@@ -1842,8 +1868,6 @@ void ContentParent::Init() {
       obs->AddObserver(this, sObserverTopics[i], false);
     }
   }
-
-  AddShutdownBlockers();
 
   if (obs) {
     nsAutoString cpId;
@@ -2054,8 +2078,7 @@ void ContentParent::AssertNotInPool() {
     MOZ_RELEASE_ASSERT(
         !sBrowserContentParents ||
         !sBrowserContentParents->Contains(mRemoteType) ||
-        !sBrowserContentParents->Get(mRemoteType)->Contains(this) ||
-        !sCanLaunchSubprocesses);  // aka in shutdown - avoid timing issues
+        !sBrowserContentParents->Get(mRemoteType)->Contains(this));
 
     for (const auto& group : mGroups) {
       MOZ_RELEASE_ASSERT(group->GetHostProcess(mRemoteType) != this,
@@ -2272,15 +2295,18 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
   }
 
   // Remove any and all idle listeners.
-  nsCOMPtr<nsIUserIdleService> idleService =
-      do_GetService("@mozilla.org/widget/useridleservice;1");
-  MOZ_ASSERT(idleService);
-  RefPtr<ParentIdleListener> listener;
-  for (int32_t i = mIdleListeners.Length() - 1; i >= 0; --i) {
-    listener = static_cast<ParentIdleListener*>(mIdleListeners[i].get());
-    idleService->RemoveIdleObserver(listener, listener->mTime);
+  if (mIdleListeners.Length() > 0) {
+    nsCOMPtr<nsIUserIdleService> idleService =
+        do_GetService("@mozilla.org/widget/useridleservice;1");
+    if (idleService) {
+      RefPtr<ParentIdleListener> listener;
+      for (const auto& lentry : mIdleListeners) {
+        listener = static_cast<ParentIdleListener*>(lentry.get());
+        idleService->RemoveIdleObserver(listener, listener->mTime);
+      }
+    }
+    mIdleListeners.Clear();
   }
-  mIdleListeners.Clear();
 
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
           ("destroying Subprocess in ActorDestroy: ContentParent %p "
@@ -2288,20 +2314,24 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
            this, mSubprocess,
            mSubprocess ? (uintptr_t)mSubprocess->GetChildProcessHandle() : -1));
   // FIXME (bug 1520997): does this really need an additional dispatch?
-  GetCurrentSerialEventTarget()->Dispatch(NS_NewRunnableFunction(
-      "DelayedDeleteSubprocessRunnable", [subprocess = mSubprocess] {
-        MOZ_LOG(
-            ContentParent::GetLog(), LogLevel::Debug,
-            ("destroyed Subprocess in ActorDestroy: Subprocess %p handle "
-             "%" PRIuPTR,
-             subprocess,
-             subprocess ? (uintptr_t)subprocess->GetChildProcessHandle() : -1));
-        subprocess->Destroy();
-      }));
+  if (GetCurrentSerialEventTarget()) {
+    GetCurrentSerialEventTarget()->Dispatch(NS_NewRunnableFunction(
+        "DelayedDeleteSubprocessRunnable", [subprocess = mSubprocess] {
+          MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
+                  ("destroyed Subprocess in ActorDestroy: Subprocess %p handle "
+                   "%" PRIuPTR,
+                   subprocess,
+                   subprocess ? (uintptr_t)subprocess->GetChildProcessHandle()
+                              : -1));
+          subprocess->Destroy();
+        }));
+  }
   mSubprocess = nullptr;
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  cpm->RemoveContentProcess(this->ChildID());
+  if (cpm) {
+    cpm->RemoveContentProcess(this->ChildID());
+  }
 
   if (mDriverCrashGuard) {
     mDriverCrashGuard->NotifyCrashed();
@@ -2692,9 +2722,17 @@ void ContentParent::AppendSandboxParams(std::vector<std::string>& aArgs) {
 bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   AUTO_PROFILER_LABEL("ContentParent::LaunchSubprocess", OTHER);
 
+  // Ensure we will not rush through our shutdown phases while launching.
+  // LaunchSubprocessReject will remove them in case of failure,
+  // otherwise ActorDestroy will take care.
+  AddShutdownBlockers();
+
+  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
+    MOZ_ASSERT(false, "Late attempt to launch a process!");
+    return false;
+  }
   if (!ContentProcessManager::GetSingleton()) {
-    NS_WARNING(
-        "Shutdown has begun, we shouldn't spawn any more child processes");
+    MOZ_ASSERT(false, "Unable to acquire ContentProcessManager singleton!");
     return false;
   }
 
@@ -2708,9 +2746,9 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
 
   // Instantiate the pref serializer. It will be cleaned up in
   // `LaunchSubprocessReject`/`LaunchSubprocessResolve`.
-  mPrefSerializer = MakeUnique<mozilla::ipc::SharedPreferenceSerializer>(
-      ShouldSyncPreference);
-  if (!mPrefSerializer->SerializeToSharedMemory()) {
+  mPrefSerializer = MakeUnique<mozilla::ipc::SharedPreferenceSerializer>();
+  if (!mPrefSerializer->SerializeToSharedMemory(GeckoProcessType_Content,
+                                                GetRemoteType())) {
     NS_WARNING("SharedPreferenceSerializer::SerializeToSharedMemory failed");
     MarkAsDead();
     return false;
@@ -2784,6 +2822,7 @@ void ContentParent::LaunchSubprocessReject() {
     mIsAPreallocBlocker = false;
   }
   MarkAsDead();
+  RemoveShutdownBlockers();
 }
 
 bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
@@ -2824,7 +2863,13 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
       base::GetProcId(mSubprocess->GetChildProcessHandle());
   Open(mSubprocess->TakeInitialPort(), procId);
 
-  ContentProcessManager::GetSingleton()->AddContentProcess(this);
+  ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
+  if (!cpm) {
+    NS_WARNING("immediately shutting-down caused by our shutdown");
+    ShutDownProcess(SEND_SHUTDOWN_MESSAGE);
+    return false;
+  }
+  cpm->AddContentProcess(this);
 
 #ifdef MOZ_CODE_COVERAGE
   Unused << SendShareCodeCoverageMutex(
@@ -2890,13 +2935,12 @@ bool ContentParent::LaunchSubprocessSync(
   // We've started a sync content process launch.
   Telemetry::Accumulate(Telemetry::CONTENT_PROCESS_LAUNCH_IS_SYNC, 1);
 
-  if (!BeginSubprocessLaunch(aInitialPriority)) {
-    return false;
-  }
-  const bool ok = mSubprocess->WaitForProcessHandle();
-  if (ok && LaunchSubprocessResolve(/* aIsSync = */ true, aInitialPriority)) {
-    ContentParent::DidLaunchSubprocess();
-    return true;
+  if (BeginSubprocessLaunch(aInitialPriority)) {
+    const bool ok = mSubprocess->WaitForProcessHandle();
+    if (ok && LaunchSubprocessResolve(/* aIsSync = */ true, aInitialPriority)) {
+      ContentParent::DidLaunchSubprocess();
+      return true;
+    }
   }
   LaunchSubprocessReject();
   return false;
@@ -2958,7 +3002,9 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mIsRemoteInputEventQueueEnabled(false),
       mIsInputPriorityEventEnabled(false),
       mIsInPool(false),
-      mIsUsed(false),
+#ifdef DEBUG
+      mBlockShutdownCalled(false),
+#endif
       mHangMonitorActor(nullptr) {
   MOZ_DIAGNOSTIC_ASSERT(!IsForJSPlugin(),
                         "XXX(nika): How are we creating a JSPlugin?");
@@ -3780,12 +3826,36 @@ NS_INTERFACE_MAP_END
 // Async shutdown blocker
 NS_IMETHODIMP
 ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
-  // Make sure that our process will get scheduled.
-  ProcessPriorityManager::SetProcessPriority(this, PROCESS_PRIORITY_FOREGROUND);
+#ifdef DEBUG
+  // We register two shutdown blockers and both would call us, but
+  // if things go well we will unregister both as (delayed) reaction
+  // to the first call we get and thus never receive a second call.
+  // Thus we believe that we will get called only once.
+  MOZ_ASSERT(!mBlockShutdownCalled);
+  mBlockShutdownCalled = true;
+#endif
 
-  // Okay to call ShutDownProcess multiple times.
-  ShutDownProcess(SEND_SHUTDOWN_MESSAGE);
-  MarkAsDead();
+  if (CanSend()) {
+    // Make sure that our process will get scheduled.
+    ProcessPriorityManager::SetProcessPriority(this,
+                                               PROCESS_PRIORITY_FOREGROUND);
+    // The normal shutdown sequence is to send a shutdown message
+    // to the child and then just wait for ActorDestroy which will
+    // cleanup everything and remove our blockers.
+    // XXX: Check for successful dispatch, see bug 1765732
+    ShutDownProcess(SEND_SHUTDOWN_MESSAGE);
+  } else if (IsLaunching()) {
+    // If we get here while we are launching, we must wait for the child to
+    // be able to react on our commands. Mark this process as dead. This
+    // will make bail out LaunchSubprocessResolve and kick off the normal
+    // shutdown sequence.
+    MarkAsDead();
+  } else {
+    MOZ_ASSERT(IsDead());
+    // Nothing left we can do. We must assume that we race with an ongoing
+    // process shutdown, such that we can expect our shutdown blockers to be
+    // removed normally.
+  }
 
   return NS_OK;
 }
@@ -3806,40 +3876,59 @@ ContentParent::GetState(nsIPropertyBag** aResult) {
   return NS_OK;
 }
 
-static StaticRefPtr<nsIAsyncShutdownClient> sXPCOMShutdownClient;
-static StaticRefPtr<nsIAsyncShutdownClient> sProfileBeforeChangeClient;
-
-static void InitClients() {
+static void InitShutdownClients() {
   if (!sXPCOMShutdownClient) {
     nsresult rv;
     nsCOMPtr<nsIAsyncShutdownService> svc = services::GetAsyncShutdownService();
+    if (!svc) {
+      return;
+    }
 
     nsCOMPtr<nsIAsyncShutdownClient> client;
-    rv = svc->GetXpcomWillShutdown(getter_AddRefs(client));
-    sXPCOMShutdownClient = client.forget();
-    ClearOnShutdown(&sXPCOMShutdownClient);
-    MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv), "XPCOMShutdown shutdown blocker");
-
-    rv = svc->GetProfileBeforeChange(getter_AddRefs(client));
-    sProfileBeforeChangeClient = client.forget();
-    ClearOnShutdown(&sProfileBeforeChangeClient);
-    MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv),
-                       "profileBeforeChange shutdown blocker");
+    // TODO: It seems as if getPhase from AsyncShutdown.jsm does not check if
+    // we are beyond our phase already. See bug 1762840.
+    if (!AppShutdown::IsInOrBeyond(ShutdownPhase::XPCOMWillShutdown)) {
+      rv = svc->GetXpcomWillShutdown(getter_AddRefs(client));
+      if (NS_SUCCEEDED(rv)) {
+        sXPCOMShutdownClient = client.forget();
+        ClearOnShutdown(&sXPCOMShutdownClient);
+      }
+    }
+    if (!AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
+      rv = svc->GetProfileBeforeChange(getter_AddRefs(client));
+      if (NS_SUCCEEDED(rv)) {
+        sProfileBeforeChangeClient = client.forget();
+        ClearOnShutdown(&sProfileBeforeChangeClient);
+      }
+    }
   }
 }
 
 void ContentParent::AddShutdownBlockers() {
-  InitClients();
+  InitShutdownClients();
+  MOZ_ASSERT(sXPCOMShutdownClient);
+  MOZ_ASSERT(sProfileBeforeChangeClient);
 
-  sXPCOMShutdownClient->AddBlocker(
-      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, u""_ns);
-  sProfileBeforeChangeClient->AddBlocker(
-      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, u""_ns);
+  if (sXPCOMShutdownClient) {
+    sXPCOMShutdownClient->AddBlocker(
+        this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, u""_ns);
+  }
+  if (sProfileBeforeChangeClient) {
+    sProfileBeforeChangeClient->AddBlocker(
+        this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, u""_ns);
+  }
 }
 
 void ContentParent::RemoveShutdownBlockers() {
-  Unused << sXPCOMShutdownClient->RemoveBlocker(this);
-  Unused << sProfileBeforeChangeClient->RemoveBlocker(this);
+  MOZ_ASSERT(sXPCOMShutdownClient);
+  MOZ_ASSERT(sProfileBeforeChangeClient);
+
+  if (sXPCOMShutdownClient) {
+    Unused << sXPCOMShutdownClient->RemoveBlocker(this);
+  }
+  if (sProfileBeforeChangeClient) {
+    Unused << sProfileBeforeChangeClient->RemoveBlocker(this);
+  }
 }
 
 NS_IMETHODIMP
@@ -3853,13 +3942,11 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
     // We know prefs are ASCII here.
     NS_LossyConvertUTF16toASCII strData(aData);
 
-    // A pref changed. If it is useful to do so, inform child processes.
-    if (!ShouldSyncPreference(strData.Data())) {
-      return NS_OK;
-    }
+    Pref pref(strData, /* isLocked */ false,
+              /* isSanitized */ false, Nothing(), Nothing());
 
-    Pref pref(strData, /* isLocked */ false, Nothing(), Nothing());
-    Preferences::GetPreference(&pref);
+    Preferences::GetPreference(&pref, GeckoProcessType_Content,
+                               GetRemoteType());
     if (IsInitialized()) {
       MOZ_ASSERT(mQueuedPrefs.IsEmpty());
       if (!SendPreferenceUpdate(pref)) {
@@ -4052,37 +4139,6 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
   }
 
   return NS_OK;
-}
-
-/* static */
-bool ContentParent::ShouldSyncPreference(const char* aPref) {
-#define PARENT_ONLY_PREF_LIST_ENTRY(s) \
-  { s, (sizeof(s) / sizeof(char)) - 1 }
-  struct ParentOnlyPrefListEntry {
-    const char* mPrefBranch;
-    size_t mLen;
-  };
-  // These prefs are not useful in child processes.
-  static const ParentOnlyPrefListEntry sParentOnlyPrefBranchList[] = {
-      PARENT_ONLY_PREF_LIST_ENTRY("app.update.lastUpdateTime."),
-      PARENT_ONLY_PREF_LIST_ENTRY("datareporting.policy."),
-      PARENT_ONLY_PREF_LIST_ENTRY("browser.safebrowsing.provider."),
-      PARENT_ONLY_PREF_LIST_ENTRY("browser.shell."),
-      PARENT_ONLY_PREF_LIST_ENTRY("browser.slowStartup."),
-      PARENT_ONLY_PREF_LIST_ENTRY("browser.startup."),
-      PARENT_ONLY_PREF_LIST_ENTRY("extensions.getAddons.cache."),
-      PARENT_ONLY_PREF_LIST_ENTRY("media.gmp-manager."),
-      PARENT_ONLY_PREF_LIST_ENTRY("media.gmp-gmpopenh264."),
-      PARENT_ONLY_PREF_LIST_ENTRY("privacy.sanitize."),
-  };
-#undef PARENT_ONLY_PREF_LIST_ENTRY
-
-  for (const auto& entry : sParentOnlyPrefBranchList) {
-    if (strncmp(entry.mPrefBranch, aPref, entry.mLen) == 0) {
-      return false;
-    }
-  }
-  return true;
 }
 
 void ContentParent::UpdateNetworkLinkType() {
@@ -4348,7 +4404,7 @@ mozilla::ipc::IPCResult ContentParent::RecvConstructPopupBrowser(
     // window.open().
     // We need to register remote frame with the child generated tab id.
     auto* cpm = ContentProcessManager::GetSingleton();
-    if (!cpm->RegisterRemoteFrame(parent)) {
+    if (!cpm || !cpm->RegisterRemoteFrame(parent)) {
       return IPC_FAIL(this, "RegisterRemoteFrame Failed");
     }
   }
@@ -4418,7 +4474,7 @@ void ContentParent::GeneratePairedMinidump(const char* aReason) {
                                   reason);
 
     // Generate the report and insert into the queue for submittal.
-    if (mCrashReporter->GenerateMinidumpAndPair(this, nullptr, "browser"_ns)) {
+    if (mCrashReporter->GenerateMinidumpAndPair(this, "browser"_ns)) {
       mCreatedPairedMinidumps = mCrashReporter->FinalizeCrashReport();
     }
   }
@@ -4757,51 +4813,6 @@ already_AddRefed<PNeckoParent> ContentParent::AllocPNeckoParent() {
   return actor.forget();
 }
 
-PPrintingParent* ContentParent::AllocPPrintingParent() {
-#ifdef NS_PRINTING
-  if (mPrintingParent) {
-    // Only one PrintingParent should be created per process.
-    return nullptr;
-  }
-
-  // Create the printing singleton for this process.
-  mPrintingParent = new PrintingParent();
-
-  // Take another reference for IPDL code.
-  mPrintingParent.get()->AddRef();
-
-  return mPrintingParent.get();
-#else
-  MOZ_ASSERT_UNREACHABLE("Should never be created if no printing.");
-  return nullptr;
-#endif
-}
-
-bool ContentParent::DeallocPPrintingParent(PPrintingParent* printing) {
-#ifdef NS_PRINTING
-  MOZ_RELEASE_ASSERT(
-      mPrintingParent == printing,
-      "Only one PrintingParent should have been created per process.");
-
-  // Release reference taken for IPDL code.
-  static_cast<PrintingParent*>(printing)->Release();
-
-  mPrintingParent = nullptr;
-#else
-  MOZ_ASSERT_UNREACHABLE("Should never have been created if no printing.");
-#endif
-  return true;
-}
-
-#ifdef NS_PRINTING
-already_AddRefed<embedding::PrintingParent> ContentParent::GetPrintingParent() {
-  MOZ_ASSERT(mPrintingParent);
-
-  RefPtr<embedding::PrintingParent> printingParent = mPrintingParent;
-  return printingParent.forget();
-}
-#endif
-
 mozilla::ipc::IPCResult ContentParent::RecvInitStreamFilter(
     const uint64_t& aChannelId, const nsString& aAddonId,
     InitStreamFilterResolver&& aResolver) {
@@ -4981,6 +4992,9 @@ bool ContentParent::DeallocPBenchmarkStorageParent(
 
 #ifdef MOZ_WEBSPEECH
 PSpeechSynthesisParent* ContentParent::AllocPSpeechSynthesisParent() {
+  if (!StaticPrefs::media_webspeech_synth_enabled()) {
+    return nullptr;
+  }
   return new mozilla::dom::SpeechSynthesisParent();
 }
 
@@ -5077,7 +5091,7 @@ mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
     nsIURI* uri, nsIPrincipal* aTriggeringPrincipal,
     nsIPrincipal* aRedirectPrincipal,
     const MaybeDiscarded<BrowsingContext>& aContext,
-    bool aWasExternallyTriggered) {
+    bool aWasExternallyTriggered, bool aHasValidUserGestureActivation) {
   if (aContext.IsDiscarded()) {
     return IPC_OK();
   }
@@ -5094,7 +5108,8 @@ mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
 
   BrowsingContext* bc = aContext.get();
   extProtService->LoadURI(uri, aTriggeringPrincipal, aRedirectPrincipal, bc,
-                          aWasExternallyTriggered);
+                          aWasExternallyTriggered,
+                          aHasValidUserGestureActivation);
   return IPC_OK();
 }
 
@@ -5267,7 +5282,9 @@ mozilla::ipc::IPCResult ContentParent::RecvAddGeolocationListener(
 mozilla::ipc::IPCResult ContentParent::RecvRemoveGeolocationListener() {
   if (mGeolocationWatchID != -1) {
     RefPtr<Geolocation> geo = Geolocation::NonWindowSingleton();
-    geo->ClearWatch(mGeolocationWatchID);
+    if (geo) {
+      geo->ClearWatch(mGeolocationWatchID);
+    }
     mGeolocationWatchID = -1;
   }
   return IPC_OK();
@@ -5796,9 +5813,12 @@ ContentParent::AllocPContentPermissionRequestParent(
     const IPC::Principal& aPrincipal, const IPC::Principal& aTopLevelPrincipal,
     const bool& aIsHandlingUserInput,
     const bool& aMaybeUnsafePermissionDelegate, const TabId& aTabId) {
+  RefPtr<BrowserParent> tp;
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  RefPtr<BrowserParent> tp =
-      cpm->GetTopLevelBrowserParentByProcessAndTabId(this->ChildID(), aTabId);
+  if (cpm) {
+    tp =
+        cpm->GetTopLevelBrowserParentByProcessAndTabId(this->ChildID(), aTabId);
+  }
   if (!tp) {
     return nullptr;
   }
@@ -7484,9 +7504,11 @@ mozilla::ipc::IPCResult ContentParent::RecvWindowClose(
   //       browsing contexts of bc.
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  ContentParent* cp =
-      cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
-  Unused << cp->SendWindowClose(context, aTrustedCaller);
+  if (cpm) {
+    ContentParent* cp =
+        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+    Unused << cp->SendWindowClose(context, aTrustedCaller);
+  }
   return IPC_OK();
 }
 
@@ -7503,9 +7525,11 @@ mozilla::ipc::IPCResult ContentParent::RecvWindowFocus(
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  ContentParent* cp =
-      cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
-  Unused << cp->SendWindowFocus(context, aCallerType, aActionId);
+  if (cpm) {
+    ContentParent* cp =
+        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+    Unused << cp->SendWindowFocus(context, aCallerType, aActionId);
+  }
   return IPC_OK();
 }
 
@@ -7520,9 +7544,11 @@ mozilla::ipc::IPCResult ContentParent::RecvWindowBlur(
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  ContentParent* cp =
-      cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
-  Unused << cp->SendWindowBlur(context, aCallerType);
+  if (cpm) {
+    ContentParent* cp =
+        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+    Unused << cp->SendWindowBlur(context, aCallerType);
+  }
   return IPC_OK();
 }
 
@@ -7540,9 +7566,11 @@ mozilla::ipc::IPCResult ContentParent::RecvRaiseWindow(
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  ContentParent* cp =
-      cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
-  Unused << cp->SendRaiseWindow(context, aCallerType, aActionId);
+  if (cpm) {
+    ContentParent* cp =
+        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+    Unused << cp->SendRaiseWindow(context, aCallerType, aActionId);
+  }
   return IPC_OK();
 }
 
@@ -7563,21 +7591,23 @@ mozilla::ipc::IPCResult ContentParent::RecvAdjustWindowFocus(
   processes.InsertOrUpdate(this, true);
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  CanonicalBrowsingContext* context = aContext.get_canonical();
-  while (context) {
-    BrowsingContext* parent = context->GetParent();
-    if (!parent) {
-      break;
-    }
+  if (cpm) {
+    CanonicalBrowsingContext* context = aContext.get_canonical();
+    while (context) {
+      BrowsingContext* parent = context->GetParent();
+      if (!parent) {
+        break;
+      }
 
-    CanonicalBrowsingContext* canonicalParent = parent->Canonical();
-    ContentParent* cp = cpm->GetContentProcessById(
-        ContentParentId(canonicalParent->OwnerProcessId()));
-    if (cp && !processes.Get(cp)) {
-      Unused << cp->SendAdjustWindowFocus(context, aIsVisible, aActionId);
-      processes.InsertOrUpdate(cp, true);
+      CanonicalBrowsingContext* canonicalParent = parent->Canonical();
+      ContentParent* cp = cpm->GetContentProcessById(
+          ContentParentId(canonicalParent->OwnerProcessId()));
+      if (cp && !processes.Get(cp)) {
+        Unused << cp->SendAdjustWindowFocus(context, aIsVisible, aActionId);
+        processes.InsertOrUpdate(cp, true);
+      }
+      context = canonicalParent;
     }
-    context = canonicalParent;
   }
   return IPC_OK();
 }
@@ -7593,9 +7623,11 @@ mozilla::ipc::IPCResult ContentParent::RecvClearFocus(
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  ContentParent* cp =
-      cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
-  Unused << cp->SendClearFocus(context);
+  if (cpm) {
+    ContentParent* cp =
+        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+    Unused << cp->SendClearFocus(context);
+  }
   return IPC_OK();
 }
 
@@ -7718,11 +7750,11 @@ mozilla::ipc::IPCResult ContentParent::RecvSetFocusedElement(
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-
-  ContentParent* cp =
-      cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
-  Unused << cp->SendSetFocusedElement(context, aNeedsFocus);
-
+  if (cpm) {
+    ContentParent* cp =
+        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+    Unused << cp->SendSetFocusedElement(context, aNeedsFocus);
+  }
   return IPC_OK();
 }
 
@@ -7738,11 +7770,12 @@ mozilla::ipc::IPCResult ContentParent::RecvFinalizeFocusOuter(
   LOGFOCUS(("ContentParent::RecvFinalizeFocusOuter"));
   CanonicalBrowsingContext* context = aContext.get_canonical();
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-
-  ContentParent* cp =
-      cpm->GetContentProcessById(ContentParentId(context->EmbedderProcessId()));
-  if (cp) {
-    Unused << cp->SendFinalizeFocusOuter(context, aCanFocus, aCallerType);
+  if (cpm) {
+    ContentParent* cp = cpm->GetContentProcessById(
+        ContentParentId(context->EmbedderProcessId()));
+    if (cp) {
+      Unused << cp->SendFinalizeFocusOuter(context, aCanFocus, aCallerType);
+    }
   }
   return IPC_OK();
 }
@@ -7783,6 +7816,9 @@ mozilla::ipc::IPCResult ContentParent::RecvBlurToParent(
       aFocusedBrowsingContext.get_canonical();
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
+  if (!cpm) {
+    return IPC_OK();
+  }
 
   // If aBrowsingContextToClear and aAncestorBrowsingContextToFocusHandled
   // didn't get handled in the process that sent this IPC message and they
@@ -7830,10 +7866,11 @@ mozilla::ipc::IPCResult ContentParent::RecvMaybeExitFullscreen(
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-
-  ContentParent* cp =
-      cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
-  Unused << cp->SendMaybeExitFullscreen(context);
+  if (cpm) {
+    ContentParent* cp =
+        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+    Unused << cp->SendMaybeExitFullscreen(context);
+  }
 
   return IPC_OK();
 }
@@ -8021,8 +8058,11 @@ mozilla::ipc::IPCResult ContentParent::RecvSynchronizeLayoutHistoryState(
     return IPC_OK();
   }
 
-  SessionHistoryEntry* entry =
-      aContext.GetMaybeDiscarded()->Canonical()->GetActiveSessionHistoryEntry();
+  BrowsingContext* bc = aContext.GetMaybeDiscarded();
+  if (!bc) {
+    return IPC_OK();
+  }
+  SessionHistoryEntry* entry = bc->Canonical()->GetActiveSessionHistoryEntry();
   if (entry) {
     entry->SetLayoutHistoryState(aState);
   }
@@ -8118,8 +8158,12 @@ mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryWireframe(
     return IPC_OK();
   }
 
-  SessionHistoryEntry* entry =
-      aContext.GetMaybeDiscarded()->Canonical()->GetActiveSessionHistoryEntry();
+  BrowsingContext* bc = aContext.GetMaybeDiscarded();
+  if (!bc) {
+    return IPC_OK();
+  }
+
+  SessionHistoryEntry* entry = bc->Canonical()->GetActiveSessionHistoryEntry();
   if (entry) {
     entry->SetWireframe(Some(aWireframe));
   }

@@ -94,6 +94,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   TelemetryUtils: "resource://gre/modules/TelemetryUtils.jsm",
   TRRRacer: "resource:///modules/TRRPerformance.jsm",
   UIState: "resource://services-sync/UIState.jsm",
+  UpdateListener: "resource://gre/modules/UpdateListener.jsm",
   UrlbarQuickSuggest: "resource:///modules/UrlbarQuickSuggest.jsm",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.jsm",
   WebChannel: "resource://gre/modules/WebChannel.jsm",
@@ -104,23 +105,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 XPCOMUtils.defineLazyModuleGetters(this, {
   AboutLoginsParent: "resource:///modules/AboutLoginsParent.jsm",
   PluginManager: "resource:///actors/PluginParent.jsm",
-});
-
-// Modules requiring an initialization method call.
-let initializedModules = {};
-[
-  [
-    "ContentPrefServiceParent",
-    "resource://gre/modules/ContentPrefServiceParent.jsm",
-    "alwaysInit",
-  ],
-  ["UpdateListener", "resource://gre/modules/UpdateListener.jsm", "init"],
-].forEach(([name, resource, init]) => {
-  XPCOMUtils.defineLazyGetter(this, name, () => {
-    ChromeUtils.import(resource, initializedModules);
-    initializedModules[name][init]();
-    return initializedModules[name];
-  });
 });
 
 XPCOMUtils.defineLazyServiceGetters(this, {
@@ -889,6 +873,7 @@ BrowserGlue.prototype = {
   _migrationImportsDefaultBookmarks: false,
   _placesBrowserInitComplete: false,
   _isNewProfile: undefined,
+  _defaultCookieBehaviorAtStartup: null,
 
   _setPrefToSaveSession: function BG__setPrefToSaveSession(aForce) {
     if (!this._saveSession && !aForce) {
@@ -1214,6 +1199,7 @@ BrowserGlue.prototype = {
       PREF_DFPI_ENABLED_BY_DEFAULT,
       this._setDefaultCookieBehavior
     );
+    NimbusFeatures.tcpByDefault.off(this._setDefaultCookieBehavior);
   },
 
   // runs on startup, before the first command line handler is invoked
@@ -1675,9 +1661,16 @@ BrowserGlue.prototype = {
     PlacesUtils.favicons.setDefaultIconURIPreferredSize(
       16 * aWindow.devicePixelRatio
     );
+
+    // Keep track of the initial default cookie behavior to revert to when
+    // users opt-out. This is used by _setDefaultCookieBehavior.
+    BrowserGlue._defaultCookieBehaviorAtStartup = Services.prefs
+      .getDefaultBranch("")
+      .getIntPref("network.cookie.cookieBehavior");
     // _setDefaultCookieBehavior needs to run before other functions that modify
     // privacy preferences such as _setPrefExpectationsAndUpdate and _matchCBCategory
     this._setDefaultCookieBehavior();
+
     this._setPrefExpectationsAndUpdate();
     this._matchCBCategory();
 
@@ -1726,6 +1719,7 @@ BrowserGlue.prototype = {
       PREF_DFPI_ENABLED_BY_DEFAULT,
       this._setDefaultCookieBehavior
     );
+    NimbusFeatures.tcpByDefault.onUpdate(this._setDefaultCookieBehavior);
   },
 
   _updateAutoplayPref() {
@@ -1739,55 +1733,43 @@ BrowserGlue.prototype = {
     }
   },
 
-  // For the initial rollout of dFPI, set the default cookieBehavior based on the pref
-  // set during onboarding when the user chooses to enable protections or not.
   _setDefaultCookieBehavior() {
+    let defaultPrefs = Services.prefs.getDefaultBranch("");
+
+    // For phase 2 we enable dFPI / TCP for all clients which are part of the
+    // rollout.
+    if (NimbusFeatures.tcpByDefault.isEnabled()) {
+      Services.telemetry.scalarSet("privacy.dfpi_rollout_enabledByDefault", 3);
+
+      // Enable TCP by updating the default pref state for cookie behaviour. This
+      // means we won't override user choice.
+      defaultPrefs.setIntPref(
+        "network.cookie.cookieBehavior",
+        Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
+      );
+
+      return;
+    }
+
+    // For the initial rollout of dFPI, set the default cookieBehavior based on the pref
+    // set during onboarding when the user chooses to enable protections or not.
     if (!Services.prefs.prefHasUserValue(PREF_DFPI_ENABLED_BY_DEFAULT)) {
       Services.telemetry.scalarSet("privacy.dfpi_rollout_enabledByDefault", 2);
       return;
     }
     let dFPIEnabled = Services.prefs.getBoolPref(PREF_DFPI_ENABLED_BY_DEFAULT);
 
-    let defaultPrefs = Services.prefs.getDefaultBranch("");
     defaultPrefs.setIntPref(
       "network.cookie.cookieBehavior",
       dFPIEnabled
         ? Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
-        : Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER
+        : BrowserGlue._defaultCookieBehaviorAtStartup
     );
 
     Services.telemetry.scalarSet(
       "privacy.dfpi_rollout_enabledByDefault",
       dFPIEnabled ? 1 : 0
     );
-
-    if (dFPIEnabled) {
-      Services.prefs.setStringPref(
-        "browser.search.param.google_channel_us",
-        "tus7"
-      );
-      Services.prefs.setStringPref(
-        "browser.search.param.google_channel_row",
-        "trow7"
-      );
-      Services.prefs.setStringPref(
-        "browser.search.param.bing_ptag",
-        "MOZZ0000000031"
-      );
-    } else {
-      Services.prefs.setStringPref(
-        "browser.search.param.google_channel_us",
-        "xus7"
-      );
-      Services.prefs.setStringPref(
-        "browser.search.param.google_channel_row",
-        "xrow7"
-      );
-      Services.prefs.setStringPref(
-        "browser.search.param.bing_ptag",
-        "MOZZ0000000032"
-      );
-    }
   },
 
   _setPrefExpectations() {
@@ -1971,13 +1953,8 @@ BrowserGlue.prototype = {
       () => Normandy.uninit(),
       () => RFPHelper.uninit(),
       () => ASRouterNewTabHook.destroy(),
+      () => UpdateListener.reset(),
     ];
-
-    tasks.push(
-      ...Object.values(initializedModules)
-        .filter(m => m.uninit)
-        .map(m => () => m.uninit())
-    );
 
     for (let task of tasks) {
       try {
@@ -2282,7 +2259,7 @@ BrowserGlue.prototype = {
 
     if (AppConstants.ASAN_REPORTER) {
       var { AsanReporter } = ChromeUtils.import(
-        "resource:///modules/AsanReporter.jsm"
+        "resource://gre/modules/AsanReporter.jsm"
       );
       AsanReporter.init();
     }
@@ -2737,7 +2714,13 @@ BrowserGlue.prototype = {
         },
       },
 
-      // WebDriver components (Remote Agent and Marionette) need to be
+      {
+        task: () => {
+          UpdateListener.maybeShowUnsupportedNotification();
+        },
+      },
+
+      // WebDriver components (Marionette) need to be
       // initialized as very last step.
       {
         condition: AppConstants.ENABLE_WEBDRIVER,
@@ -2750,9 +2733,6 @@ BrowserGlue.prototype = {
               "browser-startup-idle-tasks-finished"
             );
 
-            // Request startup of the Remote Agent (support for WebDriver BiDi
-            // and the partial Chrome DevTools protocol) before Marionette.
-            Services.obs.notifyObservers(null, "remote-startup-requested");
             Services.obs.notifyObservers(null, "marionette-startup-requested");
           });
         },
@@ -3376,7 +3356,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 125;
+    const UI_VERSION = 126;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     const PROFILE_DIR = Services.dirsvc.get("ProfD", Ci.nsIFile).path;
@@ -4152,12 +4132,30 @@ BrowserGlue.prototype = {
       }
     }
 
+    if (currentUIVersion < 126) {
+      // Bug 1747343 - Add a pref to set the default download action to "Always
+      // ask" so the UCT dialog will be opened for mime types that are not
+      // stored already. Users who wanted this behavior would have disabled the
+      // experimental pref browser.download.improvements_to_download_panel so we
+      // can migrate its inverted value to this new pref.
+      if (
+        !Services.prefs.getBoolPref(
+          "browser.download.improvements_to_download_panel",
+          true
+        )
+      ) {
+        Services.prefs.setBoolPref(
+          "browser.download.always_ask_before_handling_new_types",
+          true
+        );
+      }
+    }
+
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", UI_VERSION);
   },
 
   async _showUpgradeDialog() {
-    // TO DO Bug 1762666: Remove "chrome://browser/content/upgradeDialog.html"
     const msg = await OnboardingMessageProvider.getUpgradeMessage();
     const win = BrowserWindowTracker.getTopWindow();
     const browser = win.gBrowser.selectedBrowser;
@@ -4377,7 +4375,7 @@ BrowserGlue.prototype = {
         } else {
           tab = win.gBrowser.addWebTab(URI.uri);
         }
-        tab.setAttribute("attention", true);
+        tab.attention = true;
         return tab;
       };
 
@@ -4476,7 +4474,7 @@ BrowserGlue.prototype = {
     } else {
       tab = win.gBrowser.addWebTab(url);
     }
-    tab.setAttribute("attention", true);
+    tab.attention = true;
     let clickCallback = (subject, topic, data) => {
       if (topic != "alertclickcallback") {
         return;

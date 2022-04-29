@@ -51,6 +51,7 @@ Preferences.addAll([
 
   // Downloads
   { id: "browser.download.useDownloadDir", type: "bool" },
+  { id: "browser.download.always_ask_before_handling_new_types", type: "bool" },
   { id: "browser.download.folderList", type: "int" },
   { id: "browser.download.dir", type: "file" },
 
@@ -2364,7 +2365,10 @@ var gMainPane = {
 
     let internalMenuItem;
     // Add the "Open in Firefox" option for optional internal handlers.
-    if (handlerInfo instanceof InternalHandlerInfoWrapper) {
+    if (
+      handlerInfo instanceof InternalHandlerInfoWrapper &&
+      !handlerInfo.preventInternalViewing
+    ) {
       internalMenuItem = document.createXULElement("menuitem");
       internalMenuItem.setAttribute(
         "action",
@@ -2903,6 +2907,12 @@ var gMainPane = {
    *   browser.download.folderList preference.
    *   False - Always ask the user where to save a file and default to
    *   browser.download.lastDir when displaying a folder picker dialog.
+   * browser.download.always_ask_before_handling_new_types - bool
+   *   Defines the default behavior for new file handlers.
+   *   True - When downloading a file that doesn't match any existing
+   *   handlers, ask the user whether to save or open the file.
+   *   False - Save the file. The user can change the default action in
+   *   the Applications section in the preferences UI.
    * browser.download.dir - local file handle
    *   A local folder the user may have selected for downloaded files to be
    *   saved. Migration of other browser settings may also set this path.
@@ -3563,6 +3573,10 @@ class InternalHandlerInfoWrapper extends HandlerInfoWrapper {
     super.store();
   }
 
+  get preventInternalViewing() {
+    return false;
+  }
+
   get enabled() {
     throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
@@ -3573,8 +3587,14 @@ class PDFHandlerInfoWrapper extends InternalHandlerInfoWrapper {
     super(TYPE_PDF, null);
   }
 
+  get preventInternalViewing() {
+    return Services.prefs.getBoolPref(PREF_PDFJS_DISABLED);
+  }
+
+  // PDF is always shown in the list, but the 'show internally' option is
+  // hidden when the internal PDF viewer is disabled.
   get enabled() {
-    return !Services.prefs.getBoolPref(PREF_PDFJS_DISABLED);
+    return true;
   }
 }
 

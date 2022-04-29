@@ -87,7 +87,7 @@ RTCDTMFSender* RTCRtpSender::GetDtmf() const { return mDtmf; }
 
 already_AddRefed<Promise> RTCRtpSender::GetStats() {
   RefPtr<Promise> promise = MakePromise();
-  if (NS_WARN_IF(!mTransceiverImpl)) {
+  if (NS_WARN_IF(!mPipeline)) {
     // TODO(bug 1056433): When we stop nulling this out when the PC is closed
     // (or when the transceiver is stopped), we can remove this code. We
     // resolve instead of reject in order to make this eventual change in
@@ -109,7 +109,7 @@ already_AddRefed<Promise> RTCRtpSender::GetStats() {
 nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal() {
   MOZ_ASSERT(NS_IsMainThread());
   nsTArray<RefPtr<RTCStatsPromise>> promises(2);
-  if (!mSenderTrack || !mTransceiverImpl) {
+  if (!mSenderTrack || !mPipeline) {
     return promises;
   }
 
@@ -369,6 +369,9 @@ nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal() {
                 streamStats->rtp_stats.retransmitted.packets);
             local.mRetransmittedBytesSent.Construct(
                 streamStats->rtp_stats.retransmitted.payload_bytes);
+            local.mFramesSent.Construct(streamStats->frames_encoded);
+            local.mFrameWidth.Construct(streamStats->width);
+            local.mFrameHeight.Construct(streamStats->height);
             /*
              * Potential new stats that are now available upstream.
             local.mTargetBitrate.Construct(videoStats->target_media_bitrate_bps);
@@ -430,6 +433,13 @@ already_AddRefed<Promise> RTCRtpSender::SetParameters(
       }
       uniqueRids.insert(encoding.mRid.Value());
     }
+
+    if (encoding.mMaxFramerate.WasPassed()) {
+      if (encoding.mMaxFramerate.Value() < 0.0f) {
+        p->MaybeRejectWithRangeError("maxFramerate must be non-negative");
+        return p.forget();
+      }
+    }
   }
 
   // TODO(bug 1401592): transaction ids, timing changes
@@ -465,6 +475,9 @@ void RTCRtpSender::ApplyParameters(const RTCRtpParameters& aParameters) {
       }
       if (encoding.mMaxBitrate.WasPassed()) {
         constraint.constraints.maxBr = encoding.mMaxBitrate.Value();
+      }
+      if (encoding.mMaxFramerate.WasPassed()) {
+        constraint.constraints.maxFps = Some(encoding.mMaxFramerate.Value());
       }
       constraint.constraints.scaleDownBy = encoding.mScaleResolutionDownBy;
       constraints.push_back(constraint);
@@ -549,34 +562,12 @@ RefPtr<dom::Promise> ReplaceTrackOperation::CallImpl() {
   // Let p be a new promise.
   RefPtr<dom::Promise> p = sender->MakePromise();
 
-  // Let sending be true if transceiver.[[CurrentDirection]] is "sendrecv" or
-  // "sendonly", and false otherwise.
-  bool sending = mTransceiver->IsSending();
-
-  // Run the following steps in parallel:
-
-  // If sending is true, and withTrack is null, have the sender stop sending.
-  if (sending && !mNewTrack) {
-    sender->Stop();
-    sender->SeamlessTrackSwitch(mNewTrack);
-  }
-
-  // If sending is true, and withTrack is not null, determine if withTrack can
-  // be sent immediately by the sender without violating the sender's
-  // already-negotiated envelope, and if it cannot, then reject p with a newly
-  // created InvalidModificationError, and abort these steps.
-
-  // If sending is true, and withTrack is not null, have the sender switch
-  // seamlessly to transmitting withTrack instead of the sender's existing
-  // track.
-  if (sending && mNewTrack) {
-    if (!sender->SeamlessTrackSwitch(mNewTrack)) {
-      MOZ_LOG(gSenderLog, LogLevel::Info,
-              ("%s Could not seamlessly replace track", __FUNCTION__));
-      p->MaybeRejectWithInvalidModificationError(
-          "Could not seamlessly replace track");
-      return p;
-    }
+  if (!sender->SeamlessTrackSwitch(mNewTrack)) {
+    MOZ_LOG(gSenderLog, LogLevel::Info,
+            ("%s Could not seamlessly replace track", __FUNCTION__));
+    p->MaybeRejectWithInvalidModificationError(
+        "Could not seamlessly replace track");
+    return p;
   }
 
   // Queue a task that runs the following steps:
@@ -613,8 +604,8 @@ already_AddRefed<dom::Promise> RTCRtpSender::ReplaceTrack(
   }
 
   MOZ_LOG(gSenderLog, LogLevel::Debug,
-          ("%s[%s]: %s (%p)", mPc->GetHandle().c_str(), GetMid().c_str(),
-           __FUNCTION__, aWithTrack));
+          ("%s[%s]: %s (%p to %p)", mPc->GetHandle().c_str(), GetMid().c_str(),
+           __FUNCTION__, mSenderTrack.get(), aWithTrack));
 
   // Return the result of chaining the following steps to connection's
   // operations chain:
@@ -622,7 +613,7 @@ already_AddRefed<dom::Promise> RTCRtpSender::ReplaceTrack(
       new ReplaceTrackOperation(mPc, mTransceiverImpl, aWithTrack);
   // Static analysis forces us to use a temporary.
   auto pc = mPc;
-  return do_AddRef(pc->Chain(op));
+  return pc->Chain(op);
 }
 
 nsPIDOMWindowInner* RTCRtpSender::GetParentObject() const { return mWindow; }
@@ -637,24 +628,40 @@ bool RTCRtpSender::SeamlessTrackSwitch(
   // queued task after this is done (this happens in
   // SetSenderTrackWithClosedCheck).
 
+  // Let sending be true if transceiver.[[CurrentDirection]] is "sendrecv" or
+  // "sendonly", and false otherwise.
+  bool sending = mTransceiverImpl->IsSending();
+  if (sending && !aWithTrack) {
+    // If sending is true, and withTrack is null, have the sender stop sending.
+    Stop();
+  }
+
   mPipeline->SetTrack(aWithTrack);
 
-  if (mTransceiverImpl->IsVideo()) {
-    // We update the media conduits here so we can apply different codec
-    // settings for different sources (e.g. screensharing as opposed to camera.)
-    Maybe<MediaSourceEnum> oldType;
-    Maybe<MediaSourceEnum> newType;
-    if (mSenderTrack) {
-      oldType = Some(mSenderTrack->GetSource().GetMediaSource());
-    }
-    if (aWithTrack) {
-      newType = Some(aWithTrack->GetSource().GetMediaSource());
-    }
-    if (oldType != newType) {
+  if (sending && aWithTrack) {
+    // If sending is true, and withTrack is not null, determine if withTrack can
+    // be sent immediately by the sender without violating the sender's
+    // already-negotiated envelope, and if it cannot, then reject p with a newly
+    // created InvalidModificationError, and abort these steps.
+
+    if (mTransceiverImpl->IsVideo()) {
+      // We update the media conduits here so we can apply different codec
+      // settings for different sources (e.g. screensharing as opposed to
+      // camera.)
+      Maybe<MediaSourceEnum> oldType;
+      Maybe<MediaSourceEnum> newType;
+      if (mSenderTrack) {
+        oldType = Some(mSenderTrack->GetSource().GetMediaSource());
+      }
+      if (aWithTrack) {
+        newType = Some(aWithTrack->GetSource().GetMediaSource());
+      }
+      if (oldType != newType) {
+        UpdateConduit();
+      }
+    } else if (!mSenderTrack != !aWithTrack) {
       UpdateConduit();
     }
-  } else if (!mSenderTrack != !aWithTrack) {
-    UpdateConduit();
   }
 
   // There may eventually be cases where a renegotiation is necessary to switch.
@@ -681,7 +688,6 @@ void RTCRtpSender::Shutdown() {
   MOZ_ASSERT(NS_IsMainThread());
   mPipeline->Shutdown();
   mPipeline = nullptr;
-  mTransceiverImpl = nullptr;
 }
 
 void RTCRtpSender::UpdateTransport() {

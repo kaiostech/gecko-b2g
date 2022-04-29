@@ -817,7 +817,7 @@ nsresult HTMLEditor::MaybeCollapseSelectionAtFirstEditableNode(
         nsresult rv = CollapseSelectionTo(
             EditorDOMPoint(editableBlockElementOrInlineEditingHost, 0));
         NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                             "HTMLEditor::CollapseSelectionTo() failed");
+                             "EditorBase::CollapseSelectionTo() failed");
         return rv;
       }
       NS_WARNING("Found leaf content did not have editable parent, why?");
@@ -852,9 +852,10 @@ nsresult HTMLEditor::MaybeCollapseSelectionAtFirstEditableNode(
       if ((scanResultInTextNode.InVisibleOrCollapsibleCharacters() ||
            scanResultInTextNode.ReachedPreformattedLineBreak()) &&
           scanResultInTextNode.TextPtr() == text) {
-        nsresult rv = CollapseSelectionTo(scanResultInTextNode.Point());
+        nsresult rv = CollapseSelectionTo(
+            scanResultInTextNode.Point<EditorRawDOMPoint>());
         NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                             "HTMLEditor::CollapseSelectionTo() failed");
+                             "EditorBase::CollapseSelectionTo() failed");
         return rv;
       }
       // If it's an invisible text node, keep scanning next leaf.
@@ -874,7 +875,7 @@ nsresult HTMLEditor::MaybeCollapseSelectionAtFirstEditableNode(
       if (EditorUtils::IsEditableContent(*leafContent, EditorType::HTML)) {
         nsresult rv = CollapseSelectionTo(EditorDOMPoint(leafContent));
         NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                             "HTMLEditor::CollapseSelectionTo() failed");
+                             "EditorBase::CollapseSelectionTo() failed");
         return rv;
       }
       MOZ_ASSERT_UNREACHABLE(
@@ -883,7 +884,7 @@ nsresult HTMLEditor::MaybeCollapseSelectionAtFirstEditableNode(
       // for now.
       nsresult rv = CollapseSelectionTo(EditorDOMPoint(editingHost, 0));
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "HTMLEditor::CollapseSelectionTo() failed");
+                           "EditorBase::CollapseSelectionTo() failed");
       return rv;
     }
 
@@ -916,7 +917,7 @@ nsresult HTMLEditor::MaybeCollapseSelectionAtFirstEditableNode(
   //     reason why we do this is just compatibility with Chromium.
   nsresult rv = CollapseSelectionTo(EditorDOMPoint(editingHost, 0));
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "HTMLEditor::CollapseSelectionTo() failed");
+                       "EditorBase::CollapseSelectionTo() failed");
   return rv;
 }
 
@@ -1338,10 +1339,16 @@ EditActionResult HTMLEditor::HandleTabKeyPressInTable(
   // CollapseSelectionToDeepestNonTableFirstChild(), but we know cell is an
   // empty new cell, so this works fine)
   if (cell) {
-    DebugOnly<nsresult> rvIgnored = CollapseSelectionToStartOf(*cell);
+    nsresult rv = CollapseSelectionToStartOf(*cell);
+    if (MOZ_UNLIKELY(NS_FAILED(rv))) {
+      NS_WARNING(
+          "EditorBase::CollapseSelectionToStartOf() caused destroying the "
+          "editor");
+      return EditActionHandled(NS_ERROR_EDITOR_DESTROYED);
+    }
     NS_WARNING_ASSERTION(
-        NS_SUCCEEDED(rvIgnored),
-        "HTMLEditor::CollapseSelectionToStartOf() failed, but ignored");
+        NS_SUCCEEDED(rv),
+        "EditorBase::CollapseSelectionToStartOf() failed, but ignored");
   }
   return EditActionHandled(NS_WARN_IF(Destroyed()) ? NS_ERROR_EDITOR_DESTROYED
                                                    : NS_OK);
@@ -1367,7 +1374,7 @@ void HTMLEditor::CollapseSelectionToDeepestNonTableFirstChild(nsINode* aNode) {
   DebugOnly<nsresult> rvIgnored = CollapseSelectionToStartOf(*node);
   NS_WARNING_ASSERTION(
       NS_SUCCEEDED(rvIgnored),
-      "HTMLEditor::CollapseSelectionToStartOf() failed, but ignored");
+      "EditorBase::CollapseSelectionToStartOf() failed, but ignored");
 }
 
 nsresult HTMLEditor::ReplaceHeadContentsWithSourceWithTransaction(
@@ -1388,10 +1395,9 @@ nsresult HTMLEditor::ReplaceHeadContentsWithSourceWithTransaction(
 
   CommitComposition();
 
-  // Do not use AutoTopLevelEditSubActionNotifier -- rules code won't let us
-  // insert in <head>.  Use the head node as a parent and delete/insert
-  // directly.
-  // XXX We're using AutoTopLevelEditSubActionNotifier above...
+  // Do not use AutoEditSubActionNotifier -- rules code won't let us insert in
+  // <head>.  Use the head node as a parent and delete/insert directly.
+  // XXX We're using AutoEditSubActionNotifier above...
   RefPtr<Document> document = GetDocument();
   if (NS_WARN_IF(!document)) {
     return NS_ERROR_NOT_INITIALIZED;
@@ -2023,7 +2029,7 @@ nsresult HTMLEditor::CollapseSelectionAfter(Element& aElement) {
   }
   nsresult rv = CollapseSelectionTo(afterElement);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "HTMLEditor::CollapseSelectionTo() failed");
+                       "EditorBase::CollapseSelectionTo() failed");
   return rv;
 }
 
@@ -3487,14 +3493,14 @@ nsresult HTMLEditor::ReplaceTextWithTransaction(
     if (NS_WARN_IF(!document)) {
       return NS_ERROR_NOT_INITIALIZED;
     }
-    nsresult rv = InsertTextWithTransaction(
-        *document, aStringToInsert, EditorRawDOMPoint(&aTextNode, aOffset));
-    if (NS_WARN_IF(Destroyed())) {
-      return NS_ERROR_EDITOR_DESTROYED;
+    Result<EditorDOMPoint, nsresult> insertTextResult =
+        InsertTextWithTransaction(*document, aStringToInsert,
+                                  EditorDOMPoint(&aTextNode, aOffset));
+    if (MOZ_UNLIKELY(insertTextResult.isErr())) {
+      NS_WARNING("HTMLEditor::InsertTextWithTransaction() failed");
+      return insertTextResult.unwrapErr();
     }
-    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "HTMLEditor::InsertTextWithTransaction() failed");
-    return rv;
+    return NS_OK;
   }
 
   if (NS_WARN_IF(!HTMLEditUtils::IsSimplyEditableNode(aTextNode))) {
@@ -3561,8 +3567,10 @@ nsresult HTMLEditor::ReplaceTextWithTransaction(
   if (pointToInsert.IsSet()) {
     auto [begin, end] = ComputeInsertedRange(pointToInsert, aStringToInsert);
     if (begin.IsSet() && end.IsSet()) {
-      TopLevelEditSubActionDataRef().DidDeleteText(*this, begin);
-      TopLevelEditSubActionDataRef().DidInsertText(*this, begin, end);
+      TopLevelEditSubActionDataRef().DidDeleteText(
+          *this, begin.To<EditorRawDOMPoint>());
+      TopLevelEditSubActionDataRef().DidInsertText(
+          *this, begin.To<EditorRawDOMPoint>(), end.To<EditorRawDOMPoint>());
     }
   }
 
@@ -3583,25 +3591,21 @@ nsresult HTMLEditor::ReplaceTextWithTransaction(
   return NS_WARN_IF(Destroyed()) ? NS_ERROR_EDITOR_DESTROYED : rv;
 }
 
-nsresult HTMLEditor::InsertTextWithTransaction(
+Result<EditorDOMPoint, nsresult> HTMLEditor::InsertTextWithTransaction(
     Document& aDocument, const nsAString& aStringToInsert,
-    const EditorRawDOMPoint& aPointToInsert,
-    EditorRawDOMPoint* aPointAfterInsertedString) {
+    const EditorDOMPoint& aPointToInsert) {
   if (NS_WARN_IF(!aPointToInsert.IsSet())) {
-    return NS_ERROR_INVALID_ARG;
+    return Err(NS_ERROR_INVALID_ARG);
   }
 
   // Do nothing if the node is read-only
-  if (NS_WARN_IF(!HTMLEditUtils::IsSimplyEditableNode(
-          *aPointToInsert.GetContainer()))) {
-    return NS_ERROR_FAILURE;
+  if (MOZ_UNLIKELY(NS_WARN_IF(!HTMLEditUtils::IsSimplyEditableNode(
+          *aPointToInsert.GetContainer())))) {
+    return Err(NS_ERROR_FAILURE);
   }
 
-  nsresult rv = EditorBase::InsertTextWithTransaction(
-      aDocument, aStringToInsert, aPointToInsert, aPointAfterInsertedString);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "EditorBase::InsertTextWithTransaction() failed");
-  return rv;
+  return EditorBase::InsertTextWithTransaction(aDocument, aStringToInsert,
+                                               aPointToInsert);
 }
 
 Result<EditorDOMPoint, nsresult> HTMLEditor::PrepareToInsertBRElement(
@@ -3686,43 +3690,32 @@ Result<RefPtr<Element>, nsresult> HTMLEditor::InsertBRElement(
     case eNone:
       break;
     case eNext: {
-      ErrorResult error;
-      SelectionRef().SetInterlinePosition(true, error);
-      if (error.Failed()) {
-        NS_WARNING("Selection::SetInterlinePosition(true) failed");
-        return Err(error.StealNSResult());
-      }
       // Collapse selection after the <br> node.
-      EditorRawDOMPoint afterBRElement(
-          EditorRawDOMPoint::After(*maybeNewBRElement.inspect()));
-      if (!afterBRElement.IsSet()) {
+      const auto afterBRElement = EditorRawDOMPoint::After(
+          *maybeNewBRElement.inspect(), InterlinePosition::StartOfNextLine);
+      if (MOZ_UNLIKELY(!afterBRElement.IsSet())) {
         NS_WARNING("Setting point to after <br> element failed");
         return Err(NS_ERROR_FAILURE);
       }
-      CollapseSelectionTo(afterBRElement, error);
-      if (error.Failed()) {
-        NS_WARNING("HTMLEditor::CollapseSelectionTo() failed, but ignored");
-        return Err(error.StealNSResult());
+      nsresult rv = CollapseSelectionTo(afterBRElement);
+      if (MOZ_UNLIKELY(NS_FAILED(rv))) {
+        NS_WARNING("EditorBase::CollapseSelectionTo() failed, but ignored");
+        return Err(rv);
       }
       break;
     }
     case ePrevious: {
-      ErrorResult error;
-      SelectionRef().SetInterlinePosition(true, error);
-      if (error.Failed()) {
-        NS_WARNING("Selection::SetInterlinePosition(true) failed");
-        return Err(error.StealNSResult());
-      }
       // Collapse selection at the <br> node.
-      EditorRawDOMPoint atBRElement(maybeNewBRElement.inspect());
-      if (!atBRElement.IsSet()) {
+      EditorRawDOMPoint atBRElement(maybeNewBRElement.inspect(),
+                                    InterlinePosition::StartOfNextLine);
+      if (MOZ_UNLIKELY(!atBRElement.IsSet())) {
         NS_WARNING("Setting point to at <br> element failed");
         return Err(NS_ERROR_FAILURE);
       }
-      CollapseSelectionTo(atBRElement, error);
-      if (error.Failed()) {
-        NS_WARNING("HTMLEditor::CollapseSelectionTo() failed, but ignored");
-        return Err(error.StealNSResult());
+      nsresult rv = CollapseSelectionTo(atBRElement);
+      if (MOZ_UNLIKELY(NS_FAILED(rv))) {
+        NS_WARNING("EditorBase::CollapseSelectionTo() failed, but ignored");
+        return Err(rv);
       }
       break;
     }
@@ -4076,7 +4069,7 @@ nsresult HTMLEditor::SelectEntireDocument() {
   if (IsEmpty()) {
     nsresult rv = CollapseSelectionToStartOf(*bodyOrDocumentElement);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "HTMLEditor::CollapseSelectionToStartOf() failed");
+                         "EditorBase::CollapseSelectionToStartOf() failed");
     return rv;
   }
 
@@ -4168,7 +4161,7 @@ bool HTMLEditor::SetCaretInTableCell(Element* aElement) {
   // Set selection at beginning of the found node
   nsresult rv = CollapseSelectionToStartOf(*deepestFirstChild);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "HTMLEditor::CollapseSelectionToStartOf() failed");
+                       "EditorBase::CollapseSelectionToStartOf() failed");
   return NS_SUCCEEDED(rv);
 }
 
@@ -4239,7 +4232,7 @@ nsresult HTMLEditor::SetSelectionAtDocumentStart() {
 
   nsresult rv = CollapseSelectionToStartOf(*rootElement);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "HTMLEditor::CollapseSelectionToStartOf() failed");
+                       "EditorBase::CollapseSelectionToStartOf() failed");
   return rv;
 }
 
@@ -5024,13 +5017,16 @@ nsresult HTMLEditor::DoJoinNodes(nsIContent& aContentToKeep,
 
   if (allowedTransactionsToChangeSelection) {
     // Editor wants us to set selection at join point.
-    DebugOnly<nsresult> rvIgnored = SelectionRef().CollapseInLimiter(
-        &aContentToKeep, removingContentLength);
-    if (NS_WARN_IF(Destroyed())) {
+    DebugOnly<nsresult> rvIgnored = CollapseSelectionTo(
+        EditorRawDOMPoint(&aContentToKeep, removingContentLength));
+    if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+      NS_WARNING(
+          "EditorBase::CollapseSelectionTo() caused destroying the editor");
       return NS_ERROR_EDITOR_DESTROYED;
     }
-    NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
-                         "Selection::CollapseInLimiter() failed, but ignored");
+    NS_WARNING_ASSERTION(
+        NS_SUCCEEDED(rv),
+        "EditorBases::CollapseSelectionTos() failed, but ignored");
   }
 
   return NS_OK;
@@ -5060,7 +5056,7 @@ nsresult HTMLEditor::MoveNodeWithTransaction(
   }
 
   // Mutation event listener could break insertion point. Let's check it.
-  EditorDOMPoint pointToInsert(selNotify.ComputeInsertionPoint());
+  auto pointToInsert = selNotify.ComputeInsertionPoint<EditorDOMPoint>();
   if (NS_WARN_IF(!pointToInsert.IsSet())) {
     return NS_ERROR_FAILURE;
   }
@@ -5103,17 +5099,16 @@ Result<RefPtr<Element>, nsresult> HTMLEditor::DeleteSelectionAndCreateElement(
   MOZ_ASSERT(newElementOrError.inspect());
 
   // We want the selection to be just after the new node
-  EditorRawDOMPoint afterNewElement(
-      EditorRawDOMPoint::After(newElementOrError.inspect()));
+  const auto afterNewElement =
+      EditorRawDOMPoint::After(newElementOrError.inspect());
   MOZ_ASSERT(afterNewElement.IsSetAndValid());
-  IgnoredErrorResult ignoredError;
-  SelectionRef().CollapseInLimiter(afterNewElement, ignoredError);
-  if (ignoredError.Failed()) {
-    NS_WARNING("Selection::CollapseInLimiter() failed");
+  rv = CollapseSelectionTo(afterNewElement);
+  if (MOZ_UNLIKELY(NS_FAILED(rv))) {
+    NS_WARNING("EditorBase::CollapseSelectionTo() failed");
     // XXX Even if it succeeded to create new element, this returns error
-    //     when Selection.Collapse() fails something.  This could occur with
+    //     when CollapseSelectionTo() fails something.  This could occur with
     //     mutation observer or mutation event listener.
-    return Err(NS_ERROR_FAILURE);
+    return Err(rv);
   }
   return newElementOrError;
 }
@@ -5149,27 +5144,25 @@ nsresult HTMLEditor::DeleteSelectionAndPrepareToCreateNode() {
   }
 
   if (atAnchor.IsStartOfContainer()) {
-    EditorRawDOMPoint atAnchorContainer(atAnchor.GetContainer());
-    if (NS_WARN_IF(!atAnchorContainer.IsSetAndValid())) {
+    const EditorRawDOMPoint atAnchorContainer(atAnchor.GetContainer());
+    if (MOZ_UNLIKELY(NS_WARN_IF(!atAnchorContainer.IsSetAndValid()))) {
       return NS_ERROR_FAILURE;
     }
-    ErrorResult error;
-    SelectionRef().CollapseInLimiter(atAnchorContainer, error);
-    NS_WARNING_ASSERTION(!error.Failed(),
-                         "Selection::CollapseInLimiter() failed");
-    return error.StealNSResult();
+    nsresult rv = CollapseSelectionTo(atAnchorContainer);
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                         "EditorBase::CollapseSelectionTo() failed");
+    return rv;
   }
 
   if (atAnchor.IsEndOfContainer()) {
     EditorRawDOMPoint afterAnchorContainer(atAnchor.GetContainer());
-    if (NS_WARN_IF(!afterAnchorContainer.AdvanceOffset())) {
+    if (MOZ_UNLIKELY(NS_WARN_IF(!afterAnchorContainer.AdvanceOffset()))) {
       return NS_ERROR_FAILURE;
     }
-    ErrorResult error;
-    SelectionRef().CollapseInLimiter(afterAnchorContainer, error);
-    NS_WARNING_ASSERTION(!error.Failed(),
-                         "Selection::CollapseInLimiter() failed");
-    return error.StealNSResult();
+    nsresult rv = CollapseSelectionTo(afterAnchorContainer);
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                         "EditorBase::CollapseSelectionTo() failed");
+    return rv;
   }
 
   SplitNodeResult splitAtAnchorResult = SplitNodeWithTransaction(atAnchor);
@@ -5186,7 +5179,7 @@ nsresult HTMLEditor::DeleteSelectionAndPrepareToCreateNode() {
   MOZ_ASSERT(atRightContent.IsSetAndValid());
   nsresult rv = CollapseSelectionTo(atRightContent);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "HTMLEditor::CollapseSelectionTo() failed");
+                       "EditorBase::CollapseSelectionTo() failed");
   return rv;
 }
 

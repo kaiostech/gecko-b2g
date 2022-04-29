@@ -59,7 +59,7 @@ INSTANCE_RESERVED_SLOTS = 1
 # This size is arbitrary. It is a power of 2 to make using it as a modulo
 # operand cheap, and is usually around 1/3-1/5th of the set size (sometimes
 # smaller for very large sets).
-GLOBAL_NAMES_PHF_SIZE = 256
+GLOBAL_NAMES_PHF_SIZE = 512
 
 
 def memberReservedSlot(member, descriptor):
@@ -1427,10 +1427,7 @@ class CGHeaders(CGWrapper):
                         # just include their header if we need to have functions
                         # taking references to them declared in that header.
                         headerSet = declareIncludes
-                    if unrolled.isReadableStream():
-                        headerSet.add("mozilla/dom/ReadableStream.h")
-                    else:
-                        headerSet.add("mozilla/dom/TypedArray.h")
+                    headerSet.add("mozilla/dom/TypedArray.h")
                 else:
                     try:
                         typeDesc = config.getDescriptor(unrolled.inner.identifier.name)
@@ -1678,10 +1675,7 @@ def UnionTypes(unionTypes, config):
                     if f.isSpiderMonkeyInterface():
                         headers.add("js/RootingAPI.h")
                         headers.add("js/Value.h")
-                        if f.isReadableStream():
-                            headers.add("mozilla/dom/ReadableStream.h")
-                        else:
-                            headers.add("mozilla/dom/TypedArray.h")
+                        headers.add("mozilla/dom/TypedArray.h")
                     else:
                         try:
                             typeDesc = config.getDescriptor(f.inner.identifier.name)
@@ -1793,10 +1787,7 @@ def UnionConversions(unionTypes, config):
                 elif f.isInterface():
                     if f.isSpiderMonkeyInterface():
                         headers.add("js/RootingAPI.h")
-                        if f.isReadableStream():
-                            headers.add("mozilla/dom/ReadableStream.h")
-                        else:
-                            headers.add("mozilla/dom/TypedArray.h")
+                        headers.add("mozilla/dom/TypedArray.h")
                     elif f.inner.isExternal():
                         try:
                             typeDesc = config.getDescriptor(f.inner.identifier.name)
@@ -18063,20 +18054,16 @@ class CGForwardDeclarations(CGWrapper):
                         d.interface.maplikeOrSetlikeOrIterable.valueType, config
                     )
 
+            # Add the atoms cache type, even if we don't need it.
+            builder.add(d.nativeType + "Atoms", isStruct=True)
+
+            for m in d.interface.members:
+                if m.isAttr() and m.type.isObservableArray():
+                    builder.forwardDeclareForType(m.type, config)
+
         # We just about always need NativePropertyHooks
         builder.addInMozillaDom("NativePropertyHooks", isStruct=True)
         builder.addInMozillaDom("ProtoAndIfaceCache")
-        # Add the atoms cache type, even if we don't need it.
-        for d in descriptors:
-            # Iterators have native types that are template classes, so
-            # creating an 'Atoms' cache type doesn't work for them, and is one
-            # of the cases where we don't need it anyways.
-            if (
-                d.interface.isIteratorInterface()
-                or d.interface.isAsyncIteratorInterface()
-            ):
-                continue
-            builder.add(d.nativeType + "Atoms", isStruct=True)
 
         for callback in callbacks:
             builder.addInMozillaDom(callback.identifier.name)

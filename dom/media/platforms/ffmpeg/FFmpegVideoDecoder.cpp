@@ -13,9 +13,6 @@
 #include "VideoUtils.h"
 #include "VPXDecoder.h"
 #include "mozilla/layers/KnowsCompositor.h"
-#if defined(MOZ_AV1) && defined(FFVPX_VERSION) && defined(MOZ_WAYLAND)
-#  include "AOMDecoder.h"
-#endif
 #if LIBAVCODEC_VERSION_MAJOR >= 57
 #  include "mozilla/layers/TextureClient.h"
 #endif
@@ -25,6 +22,12 @@
 #  include "mozilla/widget/DMABufLibWrapper.h"
 #  include "FFmpegVideoFramePool.h"
 #  include "va/va.h"
+#endif
+
+#if defined(MOZ_AV1) && defined(MOZ_WAYLAND) && \
+    (defined(FFVPX_VERSION) || LIBAVCODEC_VERSION_MAJOR >= 59)
+#  define FFMPEG_AV1_DECODE 1
+#  include "AOMDecoder.h"
 #endif
 
 #include "libavutil/pixfmt.h"
@@ -989,7 +992,7 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::CreateImage(
 #if LIBAVCODEC_VERSION_MAJOR >= 57
       || mCodecContext->pix_fmt == AV_PIX_FMT_YUV444P12LE
 #endif
-#if defined(MOZ_AV1) && defined(FFVPX_VERSION) && defined(MOZ_WAYLAND)
+#if defined(FFMPEG_AV1_DECODE)
       || mCodecContext->pix_fmt == AV_PIX_FMT_GBRP
 #endif
   ) {
@@ -1038,7 +1041,16 @@ MediaResult FFmpegVideoDecoder<LIBAV_VER>::CreateImage(
 
   RefPtr<VideoData> v;
 #ifdef CUSTOMIZED_BUFFER_ALLOCATION
-  if (mIsUsingShmemBufferForDecode && *mIsUsingShmemBufferForDecode) {
+  bool requiresCopy = false;
+#  ifdef XP_MACOSX
+  // Bug 1765388: macOS needs to generate a MacIOSurfaceImage in order to
+  // properly display HDR video. The later call to ::CreateAndCopyData does
+  // that. If this shared memory buffer path also generated a
+  // MacIOSurfaceImage, then we could use it for HDR.
+  requiresCopy = (b.mColorDepth != gfx::ColorDepth::COLOR_8);
+#  endif
+  if (mIsUsingShmemBufferForDecode && *mIsUsingShmemBufferForDecode &&
+      !requiresCopy) {
     RefPtr<ImageBufferWrapper> wrapper = static_cast<ImageBufferWrapper*>(
         mLib->av_buffer_get_opaque(mFrame->buf[0]));
     MOZ_ASSERT(wrapper);
@@ -1151,7 +1163,7 @@ AVCodecID FFmpegVideoDecoder<LIBAV_VER>::GetCodecId(
   }
 #endif
 
-#if defined(MOZ_AV1) && defined(FFVPX_VERSION) && defined(MOZ_WAYLAND)
+#if defined(FFMPEG_AV1_DECODE)
   if (AOMDecoder::IsAV1(aMimeType)) {
     return AV_CODEC_ID_AV1;
   }

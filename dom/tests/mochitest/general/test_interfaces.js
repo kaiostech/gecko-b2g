@@ -772,21 +772,25 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "MessagePort", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MIDIAccess", android: false },
+  { name: "MIDIAccess", android: false, disabled: !isEarlyBetaOrEarlier },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MIDIConnectionEvent", android: false },
+  {
+    name: "MIDIConnectionEvent",
+    android: false,
+    disabled: !isEarlyBetaOrEarlier,
+  },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MIDIInputMap", android: false },
+  { name: "MIDIInputMap", android: false, disabled: !isEarlyBetaOrEarlier },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MIDIInput", android: false },
+  { name: "MIDIInput", android: false, disabled: !isEarlyBetaOrEarlier },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MIDIMessageEvent", android: false },
+  { name: "MIDIMessageEvent", android: false, disabled: !isEarlyBetaOrEarlier },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MIDIOutputMap", android: false },
+  { name: "MIDIOutputMap", android: false, disabled: !isEarlyBetaOrEarlier },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MIDIOutput", android: false },
+  { name: "MIDIOutput", android: false, disabled: !isEarlyBetaOrEarlier },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MIDIPort", android: false },
+  { name: "MIDIPort", android: false, disabled: !isEarlyBetaOrEarlier },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "MimeType", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -1013,6 +1017,8 @@ var interfaceNamesInGlobalScope = [
   { name: "RTCTrackEvent", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "Sanitizer", disabled: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "Scheduler", insecureContext: true, nightly: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "Screen", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -1270,6 +1276,12 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "SVGViewElement", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "TaskController", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "TaskPriorityChangeEvent", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "TaskSignal", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "Text", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "TextDecoder", insecureContext: true },
@@ -1297,6 +1309,14 @@ var interfaceNamesInGlobalScope = [
   { name: "TouchList", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "TrackEvent", insecureContext: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "TransformStream", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  {
+    name: "TransformStreamDefaultController",
+    insecureContext: true,
+    nightly: true,
+  },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "TransitionEvent", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!

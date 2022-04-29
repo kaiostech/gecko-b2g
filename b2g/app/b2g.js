@@ -1285,6 +1285,12 @@ pref("security.disallow_privileged_https_subdocuments_loads", false);
 // the system app needs to load resources from http://shared.localhost
 pref("security.disallow_privileged_https_stylesheet_loads", false);
 
+#ifdef MOZ_WIDGET_GONK
+pref("b2g.api-daemon.uds-socket", "/dev/socket/api-daemon");
+#else
+pref("b2g.api-daemon.uds-socket", "/tmp/api-daemon-socket")
+#endif
+
 // Enable pdf.js
 pref("pdfjs.disabled", false);
 // Used by pdf.js to know the first time firefox is run with it installed so it
@@ -1301,4 +1307,3 @@ pref("pdfjs.handleOctetStream", true);
 pref("network.url.useDefaultURI", true);
 
 pref("layout.css.constructable-stylesheets.enabled", true);
-

@@ -1,6 +1,6 @@
 'use strict';
 
-// Filters an array of FontMetadata by font names. Used to reduce down
+// Filters an array of FontData by font names. Used to reduce down
 // the size of test data.
 function filterFonts(fonts, filter) {
   const filteredFont = [];
@@ -96,7 +96,7 @@ function font_access_test(test_function, name, properties) {
           fonts.length, 0, 'Fonts are not returned on non-supported platform.');
       return;
     }
-    await test_driver.set_permission({name: 'font-access'}, 'granted');
+    await test_driver.set_permission({name: 'local-fonts'}, 'granted');
     await test_function(t, name, properties);
   });
 }

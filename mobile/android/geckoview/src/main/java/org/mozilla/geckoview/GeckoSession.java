@@ -13,6 +13,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.net.Uri;
@@ -33,6 +34,7 @@ import android.view.ViewStructure;
 import android.view.inputmethod.CursorAnchorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
+import android.widget.Magnifier;
 import androidx.annotation.AnyThread;
 import androidx.annotation.IntDef;
 import androidx.annotation.LongDef;
@@ -74,6 +76,7 @@ import org.mozilla.gecko.util.EventCallback;
 import org.mozilla.gecko.util.GeckoBundle;
 import org.mozilla.gecko.util.IntentUtils;
 import org.mozilla.gecko.util.ThreadUtils;
+import org.mozilla.geckoview.GeckoDisplay.SurfaceInfo;
 
 public class GeckoSession {
   private static final String LOGTAG = "GeckoSession";
@@ -133,6 +136,95 @@ public class GeckoSession {
   private SessionAccessibility mAccessibility;
   private SessionFinder mFinder;
 
+  /** {@code SessionMagnifier} handles magnifying glass. */
+  /* package */ interface SessionMagnifier {
+    /**
+     * Get the current {@link android.view.View} for magnifying glass.
+     *
+     * @return Current View for magnifying glass or null if not set.
+     */
+    @UiThread
+    default @Nullable View getView() {
+      return null;
+    }
+
+    /**
+     * Set the current {@link android.view.View} for magnifying glass.
+     *
+     * @param view View for magnifying glass or null to clear current View.
+     */
+    @UiThread
+    default void setView(final @NonNull View view) {}
+
+    /**
+     * Show magnifying glass.
+     *
+     * @param sourceCenter The source center of view that magnifying glass is attached
+     */
+    @UiThread
+    default void show(final @NonNull PointF sourceCenter) {}
+
+    /** Dismiss magnifying glass. */
+    @UiThread
+    default void dismiss() {}
+  }
+
+  @TargetApi(Build.VERSION_CODES.P)
+  private static class SessionMagnifierP implements GeckoSession.SessionMagnifier {
+    private @Nullable View mView;
+    private @Nullable Magnifier mMagnifier;
+
+    @Override
+    @UiThread
+    public @Nullable View getView() {
+      ThreadUtils.assertOnUiThread();
+
+      return mView;
+    }
+
+    @Override
+    @UiThread
+    public void setView(final @NonNull View view) {
+      ThreadUtils.assertOnUiThread();
+
+      if (mMagnifier != null) {
+        mMagnifier.dismiss();
+        mMagnifier = null;
+      }
+      mView = view;
+    }
+
+    @Override
+    @UiThread
+    public void show(final @NonNull PointF sourceCenter) {
+      ThreadUtils.assertOnUiThread();
+
+      if (mView == null) {
+        return;
+      }
+      if (mMagnifier == null) {
+        mMagnifier = new Magnifier(mView);
+      }
+
+      mMagnifier.show(sourceCenter.x, sourceCenter.y);
+    }
+
+    @Override
+    @UiThread
+    public void dismiss() {
+      ThreadUtils.assertOnUiThread();
+
+      if (mMagnifier == null) {
+        return;
+      }
+
+      mMagnifier.dismiss();
+      mMagnifier = null;
+    }
+  }
+
+  private SessionMagnifier mMagnifier;
+
   private String mId;
   /* package */ String getId() {
     return mId;
@@ -148,14 +240,12 @@ public class GeckoSession {
 
   private boolean mAttachedCompositor;
   private boolean mCompositorReady;
-  private Surface mSurface;
+  private SurfaceInfo mSurfaceInfo;
 
   // All fields of coordinates are in screen units.
   private int mLeft;
   private int mTop; // Top of the surface (including toolbar);
   private int mClientTop; // Top of the client area (i.e. excluding toolbar);
-  private int mOffsetX;
-  private int mOffsetY;
   private int mWidth;
   private int mHeight; // Height of the surface (including toolbar);
   private int mClientHeight; // Height of the client area (i.e. excluding toolbar);
@@ -219,7 +309,7 @@ public class GeckoSession {
     // UI thread resumes compositor and notifies Gecko thread; does not block UI thread.
     @WrapForJNI(calledFrom = "ui", dispatchTo = "current")
     public native void syncResumeResizeCompositor(
-        int x, int y, int width, int height, Object surface);
+        int x, int y, int width, int height, Object surface, Object surfaceControl);
 
     @WrapForJNI(calledFrom = "ui", dispatchTo = "current")
     public native void setMaxToolbarHeight(int height);
@@ -795,7 +885,10 @@ public class GeckoSession {
           "GeckoViewSelectionAction",
           this,
           new String[] {
-            "GeckoView:HideSelectionAction", "GeckoView:ShowSelectionAction",
+            "GeckoView:HideSelectionAction",
+            "GeckoView:ShowSelectionAction",
+            "GeckoView:HideMagnifier",
+            "GeckoView:ShowMagnifier",
           }) {
         @Override
         public void handleMessage(
@@ -827,6 +920,21 @@ public class GeckoSession {
             }
 
             delegate.onHideAction(GeckoSession.this, reason);
+          } else if ("GeckoView:ShowMagnifier".equals(event)) {
+            final GeckoBundle ptBundle = message.getBundle("clientPoint");
+            if (ptBundle == null) {
+              throw new IllegalArgumentException("Invalid argument");
+            }
+
+            final Matrix matrix = new Matrix();
+            GeckoSession.this.getClientToSurfaceMatrix(matrix);
+            final float[] origin =
+                new float[] {(float) ptBundle.getDouble("x"), (float) ptBundle.getDouble("y")};
+            matrix.mapPoints(origin);
+
+            GeckoSession.this.getMagnifier().show(new PointF(origin[0], origin[1]));
+          } else if ("GeckoView:HideMagnifier".equals(event)) {
+            GeckoSession.this.getMagnifier().dismiss();
           }
         }
       };
@@ -1452,6 +1560,26 @@ public class GeckoSession {
     return mAccessibility;
   }
 
+  /**
+   * Get the SessionMagnifier instance for this session.
+   *
+   * @return SessionMagnifier instance.
+   */
+  @UiThread
+  /* package */ @NonNull
+  SessionMagnifier getMagnifier() {
+    ThreadUtils.assertOnUiThread();
+    if (mMagnifier == null) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        mMagnifier = new SessionMagnifierP();
+      } else {
+        mMagnifier = new SessionMagnifier() {};
+      }
+    }
+
+    return mMagnifier;
+  }
+
   @Retention(RetentionPolicy.SOURCE)
   @IntDef(
       flag = true,
@@ -2049,18 +2177,7 @@ public class GeckoSession {
       searchString = bundle.getString("searchString");
       flags = SessionFinder.getFlagsFromBundle(bundle.getBundle("flags"));
       linkUri = bundle.getString("linkURL");
-
-      final GeckoBundle rectBundle = bundle.getBundle("clientRect");
-      if (rectBundle == null) {
-        clientRect = null;
-      } else {
-        clientRect =
-            new RectF(
-                (float) rectBundle.getDouble("left"),
-                (float) rectBundle.getDouble("top"),
-                (float) rectBundle.getDouble("right"),
-                (float) rectBundle.getDouble("bottom"));
-      }
+      clientRect = bundle.getRectF("clientRect");
     }
 
     /** Empty constructor for tests */
@@ -3275,19 +3392,7 @@ public class GeckoSession {
                 | (bundle.getBoolean("editable") ? SelectionActionDelegate.FLAG_IS_EDITABLE : 0)
                 | (bundle.getBoolean("password") ? SelectionActionDelegate.FLAG_IS_PASSWORD : 0);
         text = bundle.getString("selection");
-
-        final GeckoBundle rectBundle = bundle.getBundle("clientRect");
-        if (rectBundle == null) {
-          clientRect = null;
-        } else {
-          clientRect =
-              new RectF(
-                  (float) rectBundle.getDouble("left"),
-                  (float) rectBundle.getDouble("top"),
-                  (float) rectBundle.getDouble("right"),
-                  (float) rectBundle.getDouble("bottom"));
-        }
-
+        clientRect = bundle.getRectF("clientRect");
         availableActions = actions;
         mSeqNo = bundle.getInt("seqNo");
         mEventCallback = callback;
@@ -5775,24 +5880,27 @@ public class GeckoSession {
   })
   public @interface RestartReason {}
 
-  /* package */ void onSurfaceChanged(
-      final Surface surface, final int x, final int y, final int width, final int height) {
+  /* package */ void onSurfaceChanged(final @NonNull SurfaceInfo surfaceInfo) {
     ThreadUtils.assertOnUiThread();
 
-    mOffsetX = x;
-    mOffsetY = y;
-    mWidth = width;
-    mHeight = height;
+    mWidth = surfaceInfo.mWidth;
+    mHeight = surfaceInfo.mHeight;
 
     if (mCompositorReady) {
-      mCompositor.syncResumeResizeCompositor(x, y, width, height, surface);
+      mCompositor.syncResumeResizeCompositor(
+          surfaceInfo.mLeft,
+          surfaceInfo.mTop,
+          surfaceInfo.mWidth,
+          surfaceInfo.mHeight,
+          surfaceInfo.mSurface,
+          surfaceInfo.mSurfaceControl);
       onWindowBoundsChanged();
       return;
     }
 
     // We have a valid surface but we're not attached or the compositor
     // is not ready; save the surface for later when we're ready.
-    mSurface = surface;
+    mSurfaceInfo = surfaceInfo;
 
     // Adjust bounds as the last step.
     onWindowBoundsChanged();
@@ -5808,7 +5916,7 @@ public class GeckoSession {
 
     // While the surface was valid, we never became attached or the
     // compositor never became ready; clear the saved surface.
-    mSurface = null;
+    mSurfaceInfo = null;
   }
 
   /* package */ void onScreenOriginChanged(final int left, final int top) {
@@ -5866,10 +5974,10 @@ public class GeckoSession {
     mAttachedCompositor = true;
     mCompositor.attachNPZC(mPanZoomController.mNative);
 
-    if (mSurface != null) {
+    if (mSurfaceInfo != null) {
       // If we have a valid surface, create the compositor now that we're attached.
       // Leave mSurface alone because we'll need it later for onCompositorReady.
-      onSurfaceChanged(mSurface, mOffsetX, mOffsetY, mWidth, mHeight);
+      onSurfaceChanged(mSurfaceInfo);
     }
 
     mCompositor.sendToolbarAnimatorMessage(IS_COMPOSITOR_CONTROLLER_OPEN);
@@ -5954,11 +6062,11 @@ public class GeckoSession {
       mController.onCompositorReady();
     }
 
-    if (mSurface != null) {
+    if (mSurfaceInfo != null) {
       // If we have a valid surface, resume the
       // compositor now that the compositor is ready.
-      onSurfaceChanged(mSurface, mOffsetX, mOffsetY, mWidth, mHeight);
-      mSurface = null;
+      onSurfaceChanged(mSurfaceInfo);
+      mSurfaceInfo = null;
     }
 
     if (mFixedBottomOffset != 0) {

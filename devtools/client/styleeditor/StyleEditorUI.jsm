@@ -17,13 +17,12 @@ const EventEmitter = require("devtools/shared/event-emitter");
 const {
   getString,
   text,
-  wire,
   showFilePicker,
   optionsPopupMenu,
 } = require("resource://devtools/client/styleeditor/StyleEditorUtil.jsm");
 const {
   SplitView,
-} = require("resource://devtools/client/shared/SplitView.jsm");
+} = require("resource://devtools/client/styleeditor/SplitView.jsm");
 const {
   StyleSheetEditor,
 } = require("resource://devtools/client/styleeditor/StyleSheetEditor.jsm");
@@ -53,7 +52,6 @@ loader.lazyRequireGetter(
 );
 
 const LOAD_ERROR = "error-load";
-const STYLE_EDITOR_TEMPLATE = "stylesheet";
 const PREF_MEDIA_SIDEBAR = "devtools.styleeditor.showMediaSidebar";
 const PREF_SIDEBAR_WIDTH = "devtools.styleeditor.mediaSidebarWidth";
 const PREF_NAV_WIDTH = "devtools.styleeditor.navSidebarWidth";
@@ -160,18 +158,24 @@ StyleEditorUI.prototype = {
   createUI: function() {
     this._view = new SplitView(this._root);
 
-    wire(this._view.rootElement, ".style-editor-newButton", async () => {
-      const stylesheetsFront = await this.currentTarget.getFront("stylesheets");
-      stylesheetsFront.addStyleSheet(null);
-    });
+    this._root
+      .querySelector(".style-editor-newButton")
+      .addEventListener("click", async () => {
+        const stylesheetsFront = await this.currentTarget.getFront(
+          "stylesheets"
+        );
+        stylesheetsFront.addStyleSheet(null);
+      });
 
-    wire(this._view.rootElement, ".style-editor-importButton", () => {
-      this._importFromFile(this._mockImportFile || null, this._window);
-    });
+    this._root
+      .querySelector(".style-editor-importButton")
+      .addEventListener("click", () => {
+        this._importFromFile(this._mockImportFile || null, this._window);
+      });
 
-    wire(this._view.rootElement, "#style-editor-options", event => {
-      this._onOptionsButtonClick(event);
-    });
+    this._root
+      .querySelector("#style-editor-options")
+      .addEventListener("click", this._onOptionsButtonClick);
 
     this._panelDoc.addEventListener(
       "contextmenu",
@@ -590,116 +594,111 @@ StyleEditorUI.prototype = {
     let ordinal = editor.styleSheet.styleSheetIndex;
     ordinal = ordinal == -1 ? Number.MAX_SAFE_INTEGER : ordinal;
     // add new sidebar item and editor to the UI
-    this._view.appendTemplatedItem(STYLE_EDITOR_TEMPLATE, {
-      data: {
-        editor: editor,
-      },
-      disableAnimations: this._alwaysDisableAnimations,
-      ordinal: ordinal,
-      onCreate: (summary, details, data) => {
-        const createdEditor = data.editor;
-        createdEditor.summary = summary;
-        createdEditor.details = details;
-
-        wire(summary, ".stylesheet-enabled", function onToggleDisabled(event) {
-          event.stopPropagation();
-          event.target.blur();
-
-          createdEditor.toggleDisabled();
-        });
-
-        wire(summary, ".stylesheet-name", {
-          events: {
-            keypress: event => {
-              if (event.keyCode == KeyCodes.DOM_VK_RETURN) {
-                this._view.activeSummary = summary;
-              }
-            },
-          },
-        });
-
-        wire(summary, ".stylesheet-saveButton", function onSaveButton(event) {
-          event.stopPropagation();
-          event.target.blur();
-
-          createdEditor.saveToFile(createdEditor.savedFile);
-        });
-
-        this._updateSummaryForEditor(createdEditor, summary);
-
-        summary.addEventListener("contextmenu", () => {
-          this._contextMenuStyleSheet = createdEditor.styleSheet;
-        });
-
-        summary.addEventListener("focus", function onSummaryFocus(event) {
-          if (event.target == summary) {
-            // autofocus the stylesheet name
-            summary.querySelector(".stylesheet-name").focus();
-          }
-        });
-
-        const sidebar = details.querySelector(".stylesheet-sidebar");
-        sidebar.setAttribute(
-          "width",
-          Services.prefs.getIntPref(PREF_SIDEBAR_WIDTH)
-        );
-
-        const splitter = details.querySelector(".devtools-side-splitter");
-        splitter.addEventListener("mousemove", () => {
-          const sidebarWidth = sidebar.getAttribute("width");
-          Services.prefs.setIntPref(PREF_SIDEBAR_WIDTH, sidebarWidth);
-
-          // update all @media sidebars for consistency
-          const sidebars = [
-            ...this._panelDoc.querySelectorAll(".stylesheet-sidebar"),
-          ];
-          for (const mediaSidebar of sidebars) {
-            mediaSidebar.setAttribute("width", sidebarWidth);
-          }
-        });
-
-        // autofocus if it's a new user-created stylesheet
-        if (createdEditor.isNew) {
-          this._selectEditor(createdEditor);
-        }
-
-        if (this._isEditorToSelect(createdEditor)) {
-          this.switchToSelectedSheet();
-        }
-
-        // If this is the first stylesheet and there is no pending request to
-        // select a particular style sheet, select this sheet.
-        if (
-          !this.selectedEditor &&
-          !this._styleSheetBoundToSelect &&
-          createdEditor.styleSheet.styleSheetIndex == 0
-        ) {
-          this._selectEditor(createdEditor);
-        }
-        this.emit("editor-added", createdEditor);
-      },
-
-      onShow: (summary, details, data) => {
-        const showEditor = data.editor;
-        this.selectedEditor = showEditor;
+    const { summary, details } = this._view.appendItem({
+      ordinal,
+      onShow: detailsEl => {
+        this.selectedEditor = editor;
 
         (async function() {
-          if (!showEditor.sourceEditor) {
+          if (!editor.sourceEditor) {
             // only initialize source editor when we switch to this view
-            const inputElement = details.querySelector(
+            const inputElement = detailsEl.querySelector(
               ".stylesheet-editor-input"
             );
-            await showEditor.load(inputElement, this._cssProperties);
+            await editor.load(inputElement, this._cssProperties);
           }
 
-          showEditor.onShow();
+          editor.onShow();
 
-          this.emit("editor-selected", showEditor);
+          this.emit("editor-selected", editor);
         }
           .bind(this)()
           .catch(console.error));
       },
     });
+
+    const createdEditor = editor;
+    createdEditor.summary = summary;
+    createdEditor.details = details;
+
+    summary
+      .querySelector(".stylesheet-enabled")
+      .addEventListener("click", event => {
+        event.stopPropagation();
+        event.target.blur();
+
+        createdEditor.toggleDisabled();
+      });
+
+    summary
+      .querySelector(".stylesheet-name")
+      .addEventListener("keypress", event => {
+        if (event.keyCode == KeyCodes.DOM_VK_RETURN) {
+          this._view.setActiveSummary(summary);
+        }
+      });
+
+    summary
+      .querySelector(".stylesheet-saveButton")
+      .addEventListener("click", event => {
+        event.stopPropagation();
+        event.target.blur();
+
+        createdEditor.saveToFile(createdEditor.savedFile);
+      });
+
+    this._updateSummaryForEditor(createdEditor, summary);
+
+    summary.addEventListener("contextmenu", () => {
+      this._contextMenuStyleSheet = createdEditor.styleSheet;
+    });
+
+    summary.addEventListener("focus", function onSummaryFocus(event) {
+      if (event.target == summary) {
+        // autofocus the stylesheet name
+        summary.querySelector(".stylesheet-name").focus();
+      }
+    });
+
+    const sidebar = details.querySelector(".stylesheet-sidebar");
+    sidebar.setAttribute(
+      "width",
+      Services.prefs.getIntPref(PREF_SIDEBAR_WIDTH)
+    );
+
+    const splitter = details.querySelector(".devtools-side-splitter");
+    splitter.addEventListener("mousemove", () => {
+      const sidebarWidth = sidebar.getAttribute("width");
+      Services.prefs.setIntPref(PREF_SIDEBAR_WIDTH, sidebarWidth);
+
+      // update all @media sidebars for consistency
+      const sidebars = [
+        ...this._panelDoc.querySelectorAll(".stylesheet-sidebar"),
+      ];
+      for (const mediaSidebar of sidebars) {
+        mediaSidebar.setAttribute("width", sidebarWidth);
+      }
+    });
+
+    // autofocus if it's a new user-created stylesheet
+    if (createdEditor.isNew) {
+      this._selectEditor(createdEditor);
+    }
+
+    if (this._isEditorToSelect(createdEditor)) {
+      this.switchToSelectedSheet();
+    }
+
+    // If this is the first stylesheet and there is no pending request to
+    // select a particular style sheet, select this sheet.
+    if (
+      !this.selectedEditor &&
+      !this._styleSheetBoundToSelect &&
+      createdEditor.styleSheet.styleSheetIndex == 0
+    ) {
+      this._selectEditor(createdEditor);
+    }
+    this.emit("editor-added", createdEditor);
   },
 
   /**
@@ -788,7 +787,7 @@ StyleEditorUI.prototype = {
       if (!this.editors.includes(editor)) {
         throw new Error("Editor was destroyed");
       }
-      this._view.activeSummary = summary;
+      this._view.setActiveSummary(summary);
     });
 
     return Promise.all([editorPromise, summaryPromise]);
@@ -942,17 +941,9 @@ StyleEditorUI.prototype = {
       ruleCount = "-";
     }
 
-    const flags = [];
-    if (editor.styleSheet.disabled) {
-      flags.push("disabled");
-    }
-    if (editor.unsaved) {
-      flags.push("unsaved");
-    }
-    if (editor.linkedCSSFileError) {
-      flags.push("linked-file-error");
-    }
-    this._view.setItemClassName(summary, flags.join(" "));
+    summary.classList.toggle("disabled", !!editor.styleSheet.disabled);
+    summary.classList.toggle("unsaved", !!editor.unsaved);
+    summary.classList.toggle("linked-file-error", !!editor.linkedCSSFileError);
 
     const label = summary.querySelector(".stylesheet-name > label");
     label.setAttribute("value", editor.friendlyName);

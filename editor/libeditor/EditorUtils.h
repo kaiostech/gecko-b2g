@@ -9,6 +9,7 @@
 #include "mozilla/EditAction.h"
 #include "mozilla/EditorBase.h"
 #include "mozilla/EditorDOMPoint.h"
+#include "mozilla/EditorForwards.h"
 #include "mozilla/IntegerRange.h"
 #include "mozilla/RangeBoundary.h"
 #include "mozilla/Result.h"
@@ -28,7 +29,6 @@
 class nsITransferable;
 
 namespace mozilla {
-class MoveNodeResult;
 template <class T>
 class OwningNonNull;
 
@@ -296,17 +296,19 @@ class MOZ_STACK_CLASS AutoRangeArray final {
     return ranges;
   }
 
-  EditorDOMPoint GetStartPointOfFirstRange() const {
+  template <typename EditorDOMPointType>
+  EditorDOMPointType GetFirstRangeStartPoint() const {
     if (mRanges.IsEmpty() || !mRanges[0]->IsPositioned()) {
-      return EditorDOMPoint();
+      return EditorDOMPointType();
     }
-    return EditorDOMPoint(mRanges[0]->StartRef());
+    return EditorDOMPointType(mRanges[0]->StartRef());
   }
-  EditorDOMPoint GetEndPointOfFirstRange() const {
+  template <typename EditorDOMPointType>
+  EditorDOMPointType GetFirstRangeEndPoint() const {
     if (mRanges.IsEmpty() || !mRanges[0]->IsPositioned()) {
-      return EditorDOMPoint();
+      return EditorDOMPointType();
     }
-    return EditorDOMPoint(mRanges[0]->EndRef());
+    return EditorDOMPointType(mRanges[0]->EndRef());
   }
 
   nsresult SelectNode(nsINode& aNode) {

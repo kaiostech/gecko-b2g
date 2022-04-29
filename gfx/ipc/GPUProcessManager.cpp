@@ -10,6 +10,7 @@
 #include "gfxPlatform.h"
 #include "GPUProcessHost.h"
 #include "GPUProcessListener.h"
+#include "mozilla/AppShutdown.h"
 #include "mozilla/MemoryReportingProcess.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Sprintf.h"
@@ -140,7 +141,7 @@ GPUProcessManager::Observer::Observe(nsISupports* aSubject, const char* aTopic,
   } else if (!strcmp(aTopic, "application-foreground")) {
     mManager->mAppInForeground = true;
     if (!mManager->mProcess && gfxConfig::IsEnabled(Feature::GPU_PROCESS)) {
-      mManager->LaunchGPUProcess();
+      Unused << mManager->LaunchGPUProcess();
     }
   } else if (!strcmp(aTopic, "application-background")) {
     mManager->mAppInForeground = false;
@@ -167,13 +168,11 @@ void GPUProcessManager::OnPreferenceChange(const char16_t* aData) {
   // We know prefs are ASCII here.
   NS_LossyConvertUTF16toASCII strData(aData);
 
-  // A pref changed. If it is useful to do so, inform child processes.
-  if (!dom::ContentParent::ShouldSyncPreference(strData.Data())) {
-    return;
-  }
+  mozilla::dom::Pref pref(strData, /* isLocked */ false,
+                          /* isSanitized */ false, Nothing(), Nothing());
 
-  mozilla::dom::Pref pref(strData, /* isLocked */ false, Nothing(), Nothing());
-  Preferences::GetPreference(&pref);
+  Preferences::GetPreference(&pref, GeckoProcessType_GPU,
+                             /* remoteType */ ""_ns);
   if (!!mGPUChild) {
     MOZ_ASSERT(mQueuedPrefs.IsEmpty());
     mGPUChild->SendPreferenceUpdate(pref);
@@ -182,9 +181,13 @@ void GPUProcessManager::OnPreferenceChange(const char16_t* aData) {
   }
 }
 
-void GPUProcessManager::LaunchGPUProcess() {
+bool GPUProcessManager::LaunchGPUProcess() {
   if (mProcess) {
-    return;
+    return true;
+  }
+
+  if (AppShutdown::IsInOrBeyond(ShutdownPhase::XPCOMShutdown)) {
+    return false;
   }
 
   // Start listening for pref changes so we can
@@ -229,6 +232,8 @@ void GPUProcessManager::LaunchGPUProcess() {
   if (!mProcess->Launch(extraArgs)) {
     DisableGPUProcess("Failed to launch GPU process");
   }
+
+  return true;
 }
 
 bool GPUProcessManager::IsGPUProcessLaunching() {
@@ -291,7 +296,9 @@ bool GPUProcessManager::EnsureGPUReady() {
 
   // Launch the GPU process if it is enabled but hasn't been (re-)launched yet.
   if (!mProcess && gfxConfig::IsEnabled(Feature::GPU_PROCESS)) {
-    LaunchGPUProcess();
+    if (!LaunchGPUProcess()) {
+      return false;
+    }
   }
 
   if (mProcess && !mProcess->IsConnected()) {
@@ -557,9 +564,12 @@ bool GPUProcessManager::DisableWebRenderConfig(wr::WebRenderError aError,
         gfx::FeatureStatus::Unavailable, "Failed to render WebRender",
         "FEATURE_FAILURE_WEBRENDER_RENDER"_ns);
   } else if (aError == wr::WebRenderError::NEW_SURFACE) {
+    // If we cannot create a new Surface even in the final fallback
+    // configuration then force a crash.
     wantRestart = gfxPlatform::FallbackFromAcceleration(
         gfx::FeatureStatus::Unavailable, "Failed to create new surface",
-        "FEATURE_FAILURE_WEBRENDER_NEW_SURFACE"_ns);
+        "FEATURE_FAILURE_WEBRENDER_NEW_SURFACE"_ns,
+        /* aCrashAfterFinalFallback */ true);
   } else if (aError == wr::WebRenderError::BEGIN_DRAW) {
     wantRestart = gfxPlatform::FallbackFromAcceleration(
         gfx::FeatureStatus::Unavailable, "BeginDraw() failed",
@@ -794,7 +804,7 @@ void GPUProcessManager::HandleProcessLost() {
   // until the app is in the foreground again.
   if (gfxConfig::IsEnabled(Feature::GPU_PROCESS)) {
     if (mAppInForeground) {
-      LaunchGPUProcess();
+      Unused << LaunchGPUProcess();
     }
   } else {
     // If the GPU process is disabled we can reinitialize rendering immediately.
@@ -1152,7 +1162,8 @@ bool GPUProcessManager::CreateContentSharedBufferManager(
 #endif
 
 base::ProcessId GPUProcessManager::GPUProcessPid() {
-  base::ProcessId gpuPid = mGPUChild ? mGPUChild->OtherPid() : -1;
+  base::ProcessId gpuPid =
+      mGPUChild ? mGPUChild->OtherPid() : base::kInvalidProcessId;
   return gpuPid;
 }
 

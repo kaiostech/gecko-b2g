@@ -408,6 +408,8 @@ bool nsIFrame::IsVisibleConsideringAncestors(uint32_t aFlags) const {
     nsView* view = frame->GetView();
     if (view && view->GetVisibility() == nsViewVisibility_kHide) return false;
 
+    if (this != frame && frame->IsContentHidden()) return false;
+
     nsIFrame* parent = frame->GetParent();
     nsDeckFrame* deck = do_QueryFrame(parent);
     if (deck) {
@@ -749,7 +751,7 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
     AddStateBits(NS_FRAME_MAY_BE_TRANSFORMED);
   }
 
-  if (disp->IsContainLayout() && disp->IsContainSize() &&
+  if (disp->IsContainLayout() && disp->GetContainSizeAxes().IsBoth() &&
       // All frames that support contain:layout also support contain:size.
       IsFrameOfType(eSupportsContainLayoutAndPaint) && !IsTableWrapperFrame()) {
     // In general, frames that have contain:layout+size can be reflow roots.
@@ -6465,16 +6467,30 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   // aspect-ratio to the other side to preserve the aspect ratio to the extent
   // that they can without violating any sizes specified explicitly on that
   // affected axis.
+  //
+  // FIXME: The spec words may not be correct, so we may have to update this
+  // tentative solution once this spec issue gets resolved. Here, we clamp the
+  // flex base size by the transferred min and max sizes, and don't include
+  // the transferred min & max sizes into its used min & max sizes. So this
+  // lets us match other browsers' current behaviors.
+  // https://github.com/w3c/csswg-drafts/issues/6071
+  //
+  // Note: This may make more sense if we clamp the flex base size in
+  // FlexItem::ResolveFlexBaseSizeFromAspectRatio(). However, the result should
+  // be identical. FlexItem::ResolveFlexBaseSizeFromAspectRatio() only handles
+  // the case of the definite cross size, and the definite cross size is clamped
+  // by the min & max cross sizes below in this function. This means its flex
+  // base size has been clamped by the transferred min & max size already after
+  // generating the flex items. So here we make the code more general for both
+  // definite cross size and indefinite cross size.
   const bool isDefiniteISize = styleISize.IsLengthPercentage();
-  const bool isFlexItemInlineAxisMainAxis =
-      isFlexItem && flexMainAxis == eLogicalAxisInline;
   const auto& minBSizeCoord = stylePos->MinBSize(aWM);
   const auto& maxBSizeCoord = stylePos->MaxBSize(aWM);
   const bool isAutoMinBSize =
       nsLayoutUtils::IsAutoBSize(minBSizeCoord, aCBSize.BSize(aWM));
   const bool isAutoMaxBSize =
       nsLayoutUtils::IsAutoBSize(maxBSizeCoord, aCBSize.BSize(aWM));
-  if (aspectRatio && !isDefiniteISize && !isFlexItemInlineAxisMainAxis) {
+  if (aspectRatio && !isDefiniteISize) {
     const MinMaxSize minMaxBSize{
         isAutoMinBSize ? 0
                        : nsLayoutUtils::ComputeBSizeValue(
@@ -6494,6 +6510,8 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   // Flex items ignore their min & max sizing properties in their
   // flex container's main-axis.  (Those properties get applied later in
   // the flexbox algorithm.)
+  const bool isFlexItemInlineAxisMainAxis =
+      isFlexItem && flexMainAxis == eLogicalAxisInline;
   const auto& maxISizeCoord = stylePos->MaxISize(aWM);
   nscoord maxISize = NS_UNCONSTRAINEDSIZE;
   if (!maxISizeCoord.IsNone() && !isFlexItemInlineAxisMainAxis) {

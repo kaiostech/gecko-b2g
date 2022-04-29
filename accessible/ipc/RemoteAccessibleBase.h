@@ -102,7 +102,7 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
     }
     return parent->mChildren.IndexOf(static_cast<const Derived*>(this));
   }
-  uint32_t EmbeddedChildCount() const;
+  virtual uint32_t EmbeddedChildCount() override;
   virtual int32_t IndexOfEmbeddedChild(Accessible* aChild) override;
   virtual Accessible* EmbeddedChildAt(uint32_t aChildIdx) override;
 
@@ -213,6 +213,7 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
   // Methods that interact with content.
 
   virtual void TakeFocus() const override;
+  virtual void ScrollTo(uint32_t aHow) const override;
 
   /**
    * Allow the platform to store a pointers worth of data on us.
@@ -285,11 +286,7 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
   virtual TableAccessibleBase* AsTableBase() override;
   virtual TableCellAccessibleBase* AsTableCellBase() override;
 
-  /**
-   * Return the id of the dom node this accessible represents.  Note this
-   * should probably only be used for testing.
-   */
-  virtual void DOMNodeID(nsString& aID) const;
+  virtual void DOMNodeID(nsString& aID) const override;
 
   // HyperTextAccessibleBase
   virtual already_AddRefed<AccAttributes> DefaultTextAttributes() override;

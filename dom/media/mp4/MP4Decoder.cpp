@@ -7,6 +7,9 @@
 #include "MP4Decoder.h"
 #include "H264.h"
 #include "VPXDecoder.h"
+#ifdef MOZ_AV1
+#  include "AOMDecoder.h"
+#endif
 #include "MP4Demuxer.h"
 #include "MediaContainerType.h"
 #include "PDMFactory.h"
@@ -118,9 +121,11 @@ nsTArray<UniquePtr<TrackInfo>> MP4Decoder::GetTracksInfo(
     }
 #ifdef MOZ_AV1
     if (StaticPrefs::media_av1_enabled() && IsAV1CodecString(codec)) {
-      tracks.AppendElement(
+      auto trackInfo =
           CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-              "video/av1"_ns, aType));
+              "video/av1"_ns, aType);
+      AOMDecoder::SetVideoInfo(trackInfo->GetAsVideoInfo(), codec);
+      tracks.AppendElement(std::move(trackInfo));
       continue;
     }
 #endif

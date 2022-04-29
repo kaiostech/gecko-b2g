@@ -66,6 +66,7 @@
 #include "mozilla/dom/Performance.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PromiseWorkerProxy.h"
+#include "mozilla/dom/WebTaskSchedulerWorker.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/SerializedStackHolder.h"
 #include "mozilla/dom/ServiceWorkerDescriptor.h"
@@ -381,6 +382,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(WorkerGlobalScope,
                                                   WorkerGlobalScopeBase)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCrypto)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPerformance)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebTaskScheduler)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocation)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mNavigator)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIndexedDB)
@@ -392,6 +394,10 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(WorkerGlobalScope,
                                                 WorkerGlobalScopeBase)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCrypto)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPerformance)
+  if (tmp->mWebTaskScheduler) {
+    tmp->mWebTaskScheduler->Disconnect();
+    NS_IMPL_CYCLE_COLLECTION_UNLINK(mWebTaskScheduler)
+  }
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mLocation)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mNavigator)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mIndexedDB)
@@ -695,6 +701,21 @@ already_AddRefed<IDBFactory> WorkerGlobalScope::GetIndexedDB(
   }
 
   return indexedDB.forget();
+}
+
+WebTaskScheduler* WorkerGlobalScope::Scheduler() {
+  mWorkerPrivate->AssertIsOnWorkerThread();
+
+  if (!mWebTaskScheduler) {
+    mWebTaskScheduler = WebTaskScheduler::CreateForWorker(mWorkerPrivate);
+  }
+
+  MOZ_ASSERT(mWebTaskScheduler);
+  return mWebTaskScheduler;
+}
+
+WebTaskScheduler* WorkerGlobalScope::GetExistingScheduler() const {
+  return mWebTaskScheduler;
 }
 
 already_AddRefed<Promise> WorkerGlobalScope::CreateImageBitmap(

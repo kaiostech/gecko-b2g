@@ -5,12 +5,11 @@
 
 #include "nsPrintSettingsService.h"
 
-#include "mozilla/embedding/PPrinting.h"
+#include "mozilla/embedding/PPrintingTypes.h"
 #include "mozilla/layout/RemotePrintJobChild.h"
 #include "mozilla/RefPtr.h"
 #include "nsCoord.h"
 #include "nsIPrinterList.h"
-#include "nsPrintingProxy.h"
 #include "nsReadableUtils.h"
 #include "nsPrintSettingsImpl.h"
 #include "nsIPrintSession.h"
@@ -136,7 +135,6 @@ nsPrintSettingsService::SerializeToPrintData(nsIPrintSettings* aSettings,
   aSettings->GetFooterStrCenter(data->footerStrCenter());
   aSettings->GetFooterStrRight(data->footerStrRight());
 
-  aSettings->GetIsCancelled(&data->isCancelled());
   aSettings->GetPrintSilent(&data->printSilent());
   aSettings->GetShrinkToFit(&data->shrinkToFit());
 
@@ -225,7 +223,6 @@ nsPrintSettingsService::DeserializeToPrintSettings(const PrintData& data,
   settings->SetFooterStrCenter(data.footerStrCenter());
   settings->SetFooterStrRight(data.footerStrRight());
 
-  settings->SetIsCancelled(data.isCancelled());
   settings->SetPrintSilent(data.printSilent());
   settings->SetShrinkToFit(data.shrinkToFit());
 

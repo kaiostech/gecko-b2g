@@ -412,17 +412,8 @@ partial namespace ChromeUtils {
    * Synchronously loads and evaluates the js file located at
    * 'aResourceURI' with a new, fully privileged global object.
    *
-   * If `aTargetObj` is specified, and non-null, all properties exported by
-   * the module are copied to that object.
-   *
-   * If `aTargetObj` is not specified, or is non-null, an object is returned
-   * containing all of the module's exported properties. The same object is
-   * returned for every call.
-   *
-   * If `aTargetObj` is specified and null, the module's global object is
-   * returned, rather than its explicit exports. This behavior is deprecated,
-   * and will removed in the near future, since it is incompatible with the
-   * ES6 module semanitcs we intend to migrate to. It should not be used in
+   * If `aTargetObj` is specified all properties exported by the module are
+   * copied to that object. This is deprecated and should not be used in
    * new code.
    *
    * @param aResourceURI A resource:// URI string to load the module from.
@@ -436,7 +427,7 @@ partial namespace ChromeUtils {
    * specified target object and the global object returned as above.
    */
   [Throws]
-  object import(DOMString aResourceURI, optional object? aTargetObj);
+  object import(UTF8String aResourceURI, optional object aTargetObj);
 
   /**
    * Defines a property on the given target which lazily imports a JavaScript
@@ -678,6 +669,20 @@ dictionary WindowInfoDictionary {
   boolean isInProcess = false;
 };
 
+/*
+ * Add new entry to WebIDLUtilityActorName here and update accordingly
+ * UtilityActorNameToWebIDL in dom/base/ChromeUtils.cpp as well as
+ * UtilityActorName in toolkit/components/processtools/ProcInfo.h
+ */
+enum WebIDLUtilityActorName {
+  "unknown",
+  "audioDecoder",
+};
+
+dictionary UtilityActorsDictionary {
+  WebIDLUtilityActorName actorName = "unknown";
+};
+
 /**
  * Information on a child process.
  *
@@ -725,6 +730,9 @@ dictionary ChildProcInfoDictionary {
 
   // The windows implemented by this process.
   sequence<WindowInfoDictionary> windows = [];
+
+  // The utility process list of actors if any
+  sequence<UtilityActorsDictionary> utilityActors = [];
 };
 
 /**

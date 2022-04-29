@@ -40,6 +40,7 @@ namespace jit {
   _(ArgumentsObjectCreateForInlinedIon,                                        \
     js::ArgumentsObject::createForInlinedIon)                                  \
   _(ArgumentsObjectCreateForIon, js::ArgumentsObject::createForIon)            \
+  _(ArgumentsSliceDense, js::ArgumentsSliceDense)                              \
   _(ArrayConstructorOneArg, js::ArrayConstructorOneArg)                        \
   _(ArrayFromArgumentsObject, js::ArrayFromArgumentsObject)                    \
   _(ArrayJoin, js::jit::ArrayJoin)                                             \
@@ -192,6 +193,8 @@ namespace jit {
   _(NewArgumentsObject, js::jit::NewArgumentsObject)                           \
   _(NewArrayIterator, js::NewArrayIterator)                                    \
   _(NewArrayObjectBaselineFallback, js::NewArrayObjectBaselineFallback)        \
+  _(NewArrayObjectEnsureDenseInitLength,                                       \
+    js::jit::NewArrayObjectEnsureDenseInitLength)                              \
   _(NewArrayObjectOptimzedFallback, js::NewArrayObjectOptimizedFallback)       \
   _(NewArrayOperation, js::NewArrayOperation)                                  \
   _(NewArrayWithShape, js::NewArrayWithShape)                                  \

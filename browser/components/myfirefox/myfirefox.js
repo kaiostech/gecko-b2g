@@ -4,11 +4,14 @@
 
 "use strict";
 
+import { tabsSetupFlowManager } from "./tabs-pickup.js";
+import "./recently-closed-tabs.js";
+
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyModuleGetters(this, {
+XPCOMUtils.defineLazyModuleGetters(globalThis, {
   ColorwayClosetOpener: "resource:///modules/ColorwayClosetOpener.jsm",
 });
 
@@ -16,6 +19,10 @@ window.addEventListener("load", () => {
   document
     .getElementById("colorway-closet-button")
     .addEventListener("click", () => {
-      ColorwayClosetOpener.openModal();
+      globalThis.ColorwayClosetOpener.openModal();
     });
+  tabsSetupFlowManager.initialize(
+    document.getElementById("tabs-pickup-container")
+  );
+  document.getElementById("recently-closed-tabs-container").onLoad();
 });

@@ -722,14 +722,17 @@ class MacroAssembler : public MacroAssemblerSpecific {
   // accordingly.
 
   // Setup a call to C/C++ code, given the assumption that the framePushed
-  // accruately define the state of the stack, and that the top of the stack
+  // accurately defines the state of the stack, and that the top of the stack
   // was properly aligned. Note that this only supports cdecl.
-  void setupAlignedABICall();  // CRASH_ON(arm64)
+  //
+  // As a rule of thumb, this can be used in CodeGenerator but not in CacheIR or
+  // Baseline code (because the stack is not aligned to ABIStackAlignment).
+  void setupAlignedABICall();
 
   // As setupAlignedABICall, but for WebAssembly native ABI calls, which pass
   // through a builtin thunk that uses the wasm ABI. All the wasm ABI calls
   // can be native, since we always know the stack alignment a priori.
-  void setupWasmABICall();  // CRASH_ON(arm64)
+  void setupWasmABICall();
 
   // Setup an ABI call for when the alignment is not known. This may need a
   // scratch register.
@@ -1645,6 +1648,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void loadFunctionName(Register func, Register output, ImmGCPtr emptyString,
                         Label* slowPath);
 
+  void assertFunctionIsExtended(Register func);
+
   inline void branchFunctionKind(Condition cond,
                                  FunctionFlags::FunctionKind kind, Register fun,
                                  Register scratch, Label* label);
@@ -2155,8 +2160,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
       DEFINED_ON(x86_shared, arm64);
 
   // Constants
-
-  inline void zeroSimd128(FloatRegister dest) DEFINED_ON(x86_shared, arm64);
 
   inline void loadConstantSimd128(const SimdConstant& v, FloatRegister dest)
       DEFINED_ON(x86_shared, arm64);
@@ -2913,7 +2916,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
   // Any lane true, ie, any bit set
 
   inline void anyTrueSimd128(FloatRegister src, Register dest)
-      DEFINED_ON(x86, x64, arm64);
+      DEFINED_ON(x86_shared, arm64);
 
   // All lanes true
 
@@ -3501,7 +3504,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
   CodeOffset wasmTrapInstruction() PER_SHARED_ARCH;
 
   void wasmTrap(wasm::Trap trap, wasm::BytecodeOffset bytecodeOffset);
-  void wasmInterruptCheck(Register tls, wasm::BytecodeOffset bytecodeOffset);
 #ifdef ENABLE_WASM_EXCEPTIONS
   [[nodiscard]] bool wasmStartTry(size_t* tryNoteIndex);
 #endif
@@ -3518,9 +3520,18 @@ class MacroAssembler : public MacroAssemblerSpecific {
   std::pair<CodeOffset, uint32_t> wasmReserveStackChecked(
       uint32_t amount, wasm::BytecodeOffset trapOffset);
 
-  // Emit a bounds check against the wasm heap limit, jumping to 'ok' if
-  // 'cond' holds. If JitOptions.spectreMaskIndex is true, in speculative
-  // executions 'index' is saturated in-place to 'boundsCheckLimit'.
+  // Emit a bounds check against the wasm heap limit, jumping to 'ok' if 'cond'
+  // holds; this can be the label either of the access or of the trap.  The
+  // label should name a code position greater than the position of the bounds
+  // check.
+  //
+  // If JitOptions.spectreMaskIndex is true, a no-op speculation barrier is
+  // emitted in the code stream after the check to prevent an OOB access from
+  // being executed speculatively.  (On current tier-1 platforms the barrier is
+  // a conditional saturation of 'index' to 'boundsCheckLimit', using the same
+  // condition as the check.)  If the condition is such that the bounds check
+  // branches out of line to the trap, the barrier will actually be executed
+  // when the bounds check passes.
   //
   // On 32-bit systems for both wasm and asm.js, and on 64-bit systems for
   // asm.js, heap lengths are limited to 2GB.  On 64-bit systems for wasm,
@@ -3689,8 +3700,14 @@ class MacroAssembler : public MacroAssemblerSpecific {
   // gives rise to two call instructions, both of which need safe points.  As
   // per normal, the call offsets are the code offsets at the end of the call
   // instructions (the return points).
+  //
+  // `boundsCheckFailedLabel` is non-null iff a bounds check is required.
+  // `nullCheckFailedLabel` is non-null only on platforms that can't fold the
+  // null check into the rest of the call instructions.
   void wasmCallIndirect(const wasm::CallSiteDesc& desc,
-                        const wasm::CalleeDesc& callee, bool needsBoundsCheck,
+                        const wasm::CalleeDesc& callee,
+                        Label* boundsCheckFailedLabel,
+                        Label* nullCheckFailedLabel,
                         mozilla::Maybe<uint32_t> tableSize,
                         CodeOffset* fastCallOffset, CodeOffset* slowCallOffset);
 

@@ -699,6 +699,8 @@ class HTMLInputElement final : public TextControlElement,
                                        SelectionMode aSelectMode,
                                        ErrorResult& aRv);
 
+  void ShowPicker(ErrorResult& aRv);
+
   bool WebkitDirectoryAttr() const {
     return HasAttr(kNameSpaceID_None, nsGkAtoms::webkitdirectory);
   }
@@ -1565,8 +1567,7 @@ class HTMLInputElement final : public TextControlElement,
   static bool CreatesDateTimeWidget(FormControlType aType) {
     return aType == FormControlType::InputDate ||
            aType == FormControlType::InputTime ||
-           (aType == FormControlType::InputDatetimeLocal &&
-            StaticPrefs::dom_forms_datetime_local_widget());
+           aType == FormControlType::InputDatetimeLocal;
   }
 
   bool CreatesDateTimeWidget() const { return CreatesDateTimeWidget(mType); }

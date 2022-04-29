@@ -52,19 +52,22 @@ already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateAudioDecoder(
   return decoder.forget();
 }
 
-bool GonkDecoderModule::SupportsMimeType(
+media::DecodeSupportSet GonkDecoderModule::SupportsMimeType(
     const nsACString& aMimeType, DecoderDoctorDiagnostics* aDiagnostics) const {
-  return aMimeType.EqualsLiteral("audio/mp4a-latm") ||
-         aMimeType.EqualsLiteral("audio/aac") ||
-         aMimeType.EqualsLiteral("audio/mp4") ||
-         aMimeType.EqualsLiteral("audio/3gpp") ||
-         aMimeType.EqualsLiteral("audio/amr-wb") ||
-         aMimeType.EqualsLiteral("audio/mpeg") ||
-         aMimeType.EqualsLiteral("audio/flac") ||
-         aMimeType.EqualsLiteral("video/mp4") ||
-         aMimeType.EqualsLiteral("video/mp4v-es") ||
-         aMimeType.EqualsLiteral("video/avc") ||
-         aMimeType.EqualsLiteral("video/3gpp");
+    if (aMimeType.EqualsLiteral("audio/mp4a-latm") ||
+        aMimeType.EqualsLiteral("audio/aac") ||
+        aMimeType.EqualsLiteral("audio/mp4") ||
+        aMimeType.EqualsLiteral("audio/3gpp") ||
+        aMimeType.EqualsLiteral("audio/amr-wb") ||
+        aMimeType.EqualsLiteral("audio/mpeg") ||
+        aMimeType.EqualsLiteral("audio/flac") ||
+        aMimeType.EqualsLiteral("video/mp4") ||
+        aMimeType.EqualsLiteral("video/mp4v-es") ||
+        aMimeType.EqualsLiteral("video/avc") ||
+        aMimeType.EqualsLiteral("video/3gpp")) {
+        return media::DecodeSupport::SoftwareDecode;
+    }
+    return media::DecodeSupport::SoftwareDecode;
 }
 
 }  // namespace mozilla

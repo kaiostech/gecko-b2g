@@ -91,6 +91,7 @@ const JEXL_PROVIDER_CACHE = new Set(["snippets"]);
 
 // To observe the app locale change notification.
 const TOPIC_INTL_LOCALE_CHANGED = "intl:app-locales-changed";
+const TOPIC_EXPERIMENT_FORCE_ENROLLED = "nimbus:force-enroll";
 // To observe the pref that controls if ASRouter should use the remote Fluent files for l10n.
 const USE_REMOTE_L10N_PREF =
   "browser.newtabpage.activity-stream.asrouter.useRemoteL10n";
@@ -303,7 +304,7 @@ const MessageLoaderUtils = {
               "newtab"
             );
             // Await here in order to capture the exceptions for reporting.
-            await downloader.download(record.data, {
+            await downloader.downloadToDisk(record.data, {
               retries: RS_DOWNLOAD_MAX_RETRIES,
             });
             RemoteL10n.reloadL10n();
@@ -540,6 +541,9 @@ class _ASRouter {
     this.isUnblockedMessage = this.isUnblockedMessage.bind(this);
     this.unblockAll = this.unblockAll.bind(this);
     this.forceWNPanel = this.forceWNPanel.bind(this);
+    this._onExperimentForceEnrolled = this._onExperimentForceEnrolled.bind(
+      this
+    );
     Services.telemetry.setEventRecordingEnabled(REACH_EVENT_CATEGORY, true);
   }
 
@@ -748,12 +752,16 @@ class _ASRouter {
   /**
    * loadMessagesFromAllProviders - Loads messages from all providers if they require updates.
    *                                Checks the .lastUpdated field on each provider to see if updates are needed
+   * @param toUpdate  An optional list of providers to update. This overrides
+   *                  the checks to determine which providers to update.
    * @memberof _ASRouter
    */
-  async loadMessagesFromAllProviders() {
-    const needsUpdate = this.state.providers.filter(provider =>
-      MessageLoaderUtils.shouldProviderUpdate(provider)
-    );
+  async loadMessagesFromAllProviders(toUpdate = undefined) {
+    const needsUpdate = Array.isArray(toUpdate)
+      ? toUpdate
+      : this.state.providers.filter(provider =>
+          MessageLoaderUtils.shouldProviderUpdate(provider)
+        );
     await this.loadAllMessageGroups();
     // Don't do extra work if we don't need any updates
     if (needsUpdate.length) {
@@ -917,6 +925,10 @@ class _ASRouter {
 
     SpecialMessageActions.blockMessageById = this.blockMessageById;
     Services.obs.addObserver(this._onLocaleChanged, TOPIC_INTL_LOCALE_CHANGED);
+    Services.obs.addObserver(
+      this._onExperimentForceEnrolled,
+      TOPIC_EXPERIMENT_FORCE_ENROLLED
+    );
     Services.prefs.addObserver(USE_REMOTE_L10N_PREF, this);
     // sets .initialized to true and resolves .waitForInitialized promise
     this._finishInitializing();
@@ -945,6 +957,10 @@ class _ASRouter {
     Services.obs.removeObserver(
       this._onLocaleChanged,
       TOPIC_INTL_LOCALE_CHANGED
+    );
+    Services.obs.removeObserver(
+      this._onExperimentForceEnrolled,
+      TOPIC_EXPERIMENT_FORCE_ENROLLED
     );
     Services.prefs.removeObserver(USE_REMOTE_L10N_PREF, this);
     // If we added any CFR recommendations, they need to be removed
@@ -1432,14 +1448,12 @@ class _ASRouter {
     }
     // Update storage
     this._storage.set("groupImpressions", newGroupImpressions);
-    // The groups parameter below can be removed once this method has test coverage
     return this.setState(({ groups }) => ({
       groupImpressions: newGroupImpressions,
     }));
   }
 
-  // Until this method has test coverage, it should only be used for testing
-  _resetMessageState() {
+  resetMessageState() {
     const newMessageImpressions = {};
     for (let { id } of this.state.messages) {
       newMessageImpressions[id] = [];
@@ -1735,6 +1749,17 @@ class _ASRouter {
     panel.setAttribute("noautohide", false);
     // Removing the button is enough to close the panel.
     await ToolbarPanelHub._hideToolbarButton(win);
+  }
+
+  async _onExperimentForceEnrolled(subject, topic, data) {
+    const experimentProvider = this.state.providers.find(
+      p => p.id === "messaging-experiments"
+    );
+    if (!experimentProvider.enabled) {
+      return;
+    }
+
+    await this.loadMessagesFromAllProviders([experimentProvider]);
   }
 }
 this._ASRouter = _ASRouter;

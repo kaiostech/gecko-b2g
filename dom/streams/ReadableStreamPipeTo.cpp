@@ -18,6 +18,8 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsISupportsImpl.h"
 
+#include "js/Exception.h"
+
 namespace mozilla::dom {
 
 struct PipeToReadRequest;
@@ -501,12 +503,16 @@ void PipeToPump::ShutdownWithActionAfterFinishedWrite(
   RefPtr<Promise> p = aAction(aCx, thisRefPtr, aError, rv);
 
   // Error while calling actions above, continue immediately with finalization.
-  rv.WouldReportJSException();
-  if (rv.Failed()) {
+  if (rv.MaybeSetPendingException(aCx)) {
+    JS::Rooted<Maybe<JS::Value>> someError(aCx);
+
     JS::Rooted<JS::Value> error(aCx);
-    bool ok = ToJSValue(aCx, std::move(rv), &error);
-    MOZ_RELEASE_ASSERT(ok, "must be ok");
-    JS::Rooted<mozilla::Maybe<JS::Value>> someError(aCx, Some(error.get()));
+    if (JS_GetPendingException(aCx, &error)) {
+      someError = Some(error.get());
+    }
+
+    JS_ClearPendingException(aCx);
+
     Finalize(aCx, someError);
     return;
   }
@@ -696,8 +702,7 @@ void PipeToPump::Read(JSContext* aCx) {
   RefPtr<ReadRequest> request = new PipeToReadRequest(this);
   ErrorResult rv;
   ReadableStreamDefaultReaderRead(aCx, MOZ_KnownLive(mReader), request, rv);
-  rv.WouldReportJSException();
-  if (rv.Failed()) {
+  if (rv.MaybeSetPendingException(aCx)) {
     // XXX It's actually not quite obvious what we should do here.
     // We've got an error during reading, so on the surface it seems logical
     // to invoke `OnSourceErrored`. However in certain cases the required
@@ -706,9 +711,15 @@ void PipeToPump::Read(JSContext* aCx) {
     // `OnReadFulfilled` (via PipeToReadRequest::ChunkSteps) fails in
     // a synchronous fashion.
     JS::Rooted<JS::Value> error(aCx);
-    bool ok = ToJSValue(aCx, std::move(rv), &error);
-    MOZ_RELEASE_ASSERT(ok, "must be ok");
-    JS::Rooted<Maybe<JS::Value>> someError(aCx, Some(error.get()));
+    JS::Rooted<Maybe<JS::Value>> someError(aCx);
+
+    // The error was moved to the JSContext by MaybeSetPendingException.
+    if (JS_GetPendingException(aCx, &error)) {
+      someError = Some(error.get());
+    }
+
+    JS_ClearPendingException(aCx);
+
     Shutdown(aCx, someError);
   }
 }

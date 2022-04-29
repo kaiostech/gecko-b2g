@@ -501,9 +501,9 @@ describe("ASRouter", () => {
       sandbox.spy(global.Services.obs, "addObserver");
       await createRouterAndInit();
 
-      assert.calledOnce(global.Services.obs.addObserver);
-      assert.equal(
-        global.Services.obs.addObserver.args[0][1],
+      assert.calledWithExactly(
+        global.Services.obs.addObserver,
+        Router._onLocaleChanged,
         "intl:app-locales-changed"
       );
     });
@@ -974,7 +974,7 @@ describe("ASRouter", () => {
         .stub(MessageLoaderUtils, "_getRemoteSettingsMessages")
         .resolves([{ id: "message_1" }]);
       const spy = sandbox.spy();
-      global.Downloader.prototype.download = spy;
+      global.Downloader.prototype.downloadToDisk = spy;
       const provider = {
         id: "cfr",
         enabled: true,
@@ -1415,9 +1415,9 @@ describe("ASRouter", () => {
       sandbox.spy(global.Services.obs, "removeObserver");
       Router.uninit();
 
-      assert.calledOnce(global.Services.obs.removeObserver);
-      assert.equal(
-        global.Services.obs.removeObserver.args[0][1],
+      assert.calledWithExactly(
+        global.Services.obs.removeObserver,
+        Router._onLocaleChanged,
         "intl:app-locales-changed"
       );
     });
@@ -2814,7 +2814,7 @@ describe("ASRouter", () => {
         .stub(MessageLoaderUtils, "_getRemoteSettingsMessages")
         .resolves([{ id: "message_1" }]);
       spy = sandbox.spy();
-      global.Downloader.prototype.download = spy;
+      global.Downloader.prototype.downloadToDisk = spy;
     });
     it("should be called with the expected dir path", async () => {
       const dlSpy = sandbox.spy(global, "Downloader");
@@ -2866,6 +2866,48 @@ describe("ASRouter", () => {
       await MessageLoaderUtils._remoteSettingsLoader(provider, {});
 
       assert.notCalled(spy);
+    });
+  });
+  describe("#resetMessageState", () => {
+    it("should reset all message impressions", async () => {
+      await Router.setState({
+        messages: [{ id: "1" }, { id: "2" }],
+      });
+      await Router.setState({
+        messageImpressions: { "1": [0, 1, 2], "2": [0, 1, 2] },
+      }); // Add impressions for test messages
+      let impressions = Object.values(Router.state.messageImpressions);
+      assert.equal(impressions.filter(i => i.length).length, 2); // Both messages have impressions
+
+      Router.resetMessageState();
+      impressions = Object.values(Router.state.messageImpressions);
+
+      assert.isEmpty(impressions.filter(i => i.length)); // Both messages now have zero impressions
+      assert.calledWithExactly(Router._storage.set, "messageImpressions", {
+        "1": [],
+        "2": [],
+      });
+    });
+  });
+  describe("#resetGroupsState", () => {
+    it("should reset all group impressions", async () => {
+      await Router.setState({
+        groups: [{ id: "1" }, { id: "2" }],
+      });
+      await Router.setState({
+        groupImpressions: { "1": [0, 1, 2], "2": [0, 1, 2] },
+      }); // Add impressions for test groups
+      let impressions = Object.values(Router.state.groupImpressions);
+      assert.equal(impressions.filter(i => i.length).length, 2); // Both groups have impressions
+
+      Router.resetGroupsState();
+      impressions = Object.values(Router.state.groupImpressions);
+
+      assert.isEmpty(impressions.filter(i => i.length)); // Both groups now have zero impressions
+      assert.calledWithExactly(Router._storage.set, "groupImpressions", {
+        "1": [],
+        "2": [],
+      });
     });
   });
 });

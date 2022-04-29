@@ -1183,8 +1183,7 @@
         this.updateTitlebar();
 
         newTab.removeAttribute("titlechanged");
-        newTab.removeAttribute("attention");
-        this._tabAttrModified(newTab, ["attention"]);
+        newTab.attention = false;
 
         // The tab has been selected, it's not unselected anymore.
         // (1) Call the current tab's finishUnselectedTabHoverTimer()
@@ -1595,7 +1594,7 @@
     },
 
     _setTabLabel(aTab, aLabel, { beforeTabOpen, isContentTitle } = {}) {
-      if (!aLabel) {
+      if (!aLabel || aLabel.includes("about:reader?")) {
         return false;
       }
 
@@ -2211,11 +2210,12 @@
             break;
           case "currentURI":
             getter = () => {
-              let url = SessionStore.getLazyTabValue(aTab, "url");
               // Avoid recreating the same nsIURI object over and over again...
               if (browser._cachedCurrentURI) {
                 return browser._cachedCurrentURI;
               }
+              let url =
+                SessionStore.getLazyTabValue(aTab, "url") || "about:blank";
               return (browser._cachedCurrentURI = Services.io.newURI(url));
             };
             break;
@@ -2255,7 +2255,8 @@
             break;
           case "remoteType":
             getter = () => {
-              let url = SessionStore.getLazyTabValue(aTab, "url");
+              let url =
+                SessionStore.getLazyTabValue(aTab, "url") || "about:blank";
               // Avoid recreating the same nsIURI object over and over again...
               let uri;
               if (browser._cachedCurrentURI) {
@@ -5922,8 +5923,7 @@
 
             // For null principals, we bail immediately and don't show the checkbox:
             if (!promptPrincipal || promptPrincipal.isNullPrincipal) {
-              tabForEvent.setAttribute("attention", "true");
-              this._tabAttrModified(tabForEvent, ["attention"]);
+              tabForEvent.attention = true;
               return;
             }
 
@@ -5944,8 +5944,7 @@
                 tabPrompt.onNextPromptShowAllowFocusCheckboxFor(
                   promptPrincipal
                 );
-                tabForEvent.setAttribute("attention", "true");
-                this._tabAttrModified(tabForEvent, ["attention"]);
+                tabForEvent.attention = true;
                 return;
               }
             }
@@ -6126,18 +6125,7 @@
       });
 
       let tabContextFTLInserter = () => {
-        MozXULElement.insertFTLIfNeeded("browser/tabContextMenu.ftl");
-        // Un-lazify the l10n-ids now that the FTL file has been inserted.
-        document
-          .getElementById("tabContextMenu")
-          .querySelectorAll("[data-lazy-l10n-id]")
-          .forEach(el => {
-            el.setAttribute(
-              "data-l10n-id",
-              el.getAttribute("data-lazy-l10n-id")
-            );
-            el.removeAttribute("data-lazy-l10n-id");
-          });
+        this.translateTabContextMenu();
         this.tabContainer.removeEventListener(
           "contextmenu",
           tabContextFTLInserter,
@@ -6287,6 +6275,22 @@
         const { url, description, previewImageURL } = event.detail;
         this.setPageInfo(url, description, previewImageURL);
       });
+    },
+
+    translateTabContextMenu() {
+      if (this._tabContextMenuTranslated) {
+        return;
+      }
+      MozXULElement.insertFTLIfNeeded("browser/tabContextMenu.ftl");
+      // Un-lazify the l10n-ids now that the FTL file has been inserted.
+      document
+        .getElementById("tabContextMenu")
+        .querySelectorAll("[data-lazy-l10n-id]")
+        .forEach(el => {
+          el.setAttribute("data-l10n-id", el.getAttribute("data-lazy-l10n-id"));
+          el.removeAttribute("data-lazy-l10n-id");
+        });
+      this._tabContextMenuTranslated = true;
     },
 
     setSuccessor(aTab, successorTab) {

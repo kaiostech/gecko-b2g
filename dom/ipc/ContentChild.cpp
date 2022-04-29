@@ -114,6 +114,9 @@
 #include "mozilla/layers/CompositorManagerChild.h"
 #include "mozilla/layers/ContentProcessController.h"
 #include "mozilla/layers/ImageBridgeChild.h"
+#ifdef NS_PRINTING
+#include "mozilla/layout/RemotePrintJobChild.h"
+#endif
 #include "mozilla/loader/ScriptCacheActors.h"
 #include "mozilla/media/MediaChild.h"
 #include "mozilla/net/CaptivePortalService.h"
@@ -203,9 +206,6 @@
 #include "nsThreadManager.h"
 #include "nsVariant.h"
 #include "nsXULAppAPI.h"
-#ifdef NS_PRINTING
-#  include "nsPrintingProxy.h"
-#endif
 #include "IHistory.h"
 #include "ReferrerInfo.h"
 #include "base/message_loop.h"
@@ -242,7 +242,6 @@
 #  include <process.h>
 #  define getpid _getpid
 #  include "mozilla/WinDllServices.h"
-#  include "mozilla/widget/AudioSession.h"
 #  include "mozilla/widget/WinContentSystemParameters.h"
 #endif
 
@@ -857,12 +856,6 @@ void ContentChild::Init(base::ProcessId aParentPid, const char* aParentBuildID,
 
   mID = aChildID;
   mIsForBrowser = aIsForBrowser;
-
-#ifdef NS_PRINTING
-  // Force the creation of the nsPrintingProxy so that it's IPC counterpart,
-  // PrintingParent, is always available for printing initiated from the parent.
-  RefPtr<nsPrintingProxy> printingProxy = nsPrintingProxy::GetInstance();
-#endif
 
   SetProcessName("Web Content"_ns);
 
@@ -2299,17 +2292,12 @@ mozilla::ipc::IPCResult ContentChild::RecvSocketProcessCrashed() {
   return IPC_OK();
 }
 
-PPrintingChild* ContentChild::AllocPPrintingChild() {
-  // The ContentParent should never attempt to allocate the nsPrintingProxy,
-  // which implements PPrintingChild. Instead, the nsPrintingProxy service is
-  // requested and instantiated via XPCOM, and the constructor of
-  // nsPrintingProxy sets up the IPC connection.
-  MOZ_CRASH("Should never get here!");
+PRemotePrintJobChild* ContentChild::AllocPRemotePrintJobChild() {
+#ifdef NS_PRINTING
+  return new RemotePrintJobChild();
+#else
   return nullptr;
-}
-
-bool ContentChild::DeallocPPrintingChild(PPrintingChild* printing) {
-  return true;
+#endif
 }
 
 PChildToParentStreamChild* ContentChild::SendPChildToParentStreamConstructor(
@@ -3501,10 +3489,6 @@ void ContentChild::ShutdownInternal() {
         "content-child-shutdown started"_ns);
     os->NotifyObservers(ToSupports(this), "content-child-shutdown", nullptr);
   }
-
-#if defined(XP_WIN)
-  mozilla::widget::StopAudioSession();
-#endif
 
   GetIPCChannel()->SetAbortOnError(false);
 
@@ -4937,25 +4921,6 @@ mozilla::ipc::IPCResult ContentChild::RecvInitNextGenLocalStorageEnabled(
   if (!resolved) {
     aResolver(nsIContentViewer::eAllowNavigation);
   }
-}
-
-mozilla::ipc::IPCResult ContentChild::RecvFlushTabState(
-    const MaybeDiscarded<BrowsingContext>& aContext,
-    FlushTabStateResolver&& aResolver) {
-  if (aContext.IsNullOrDiscarded()) {
-    aResolver(false);
-    return IPC_OK();
-  }
-
-  if (auto* docShell = nsDocShell::Cast(aContext->GetDocShell())) {
-    docShell->CollectWireframe();
-  }
-
-  aContext->FlushSessionStore();
-
-  aResolver(true);
-
-  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvGoBack(

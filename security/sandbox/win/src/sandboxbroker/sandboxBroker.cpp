@@ -1305,7 +1305,8 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
       sandbox::MITIGATION_BOTTOM_UP_ASLR | sandbox::MITIGATION_HEAP_TERMINATE |
       sandbox::MITIGATION_SEHOP | sandbox::MITIGATION_EXTENSION_POINT_DISABLE |
       sandbox::MITIGATION_DEP_NO_ATL_THUNK | sandbox::MITIGATION_DEP |
-      sandbox::MITIGATION_IMAGE_LOAD_PREFER_SYS32;
+      sandbox::MITIGATION_IMAGE_LOAD_PREFER_SYS32 |
+      sandbox::MITIGATION_CET_COMPAT_MODE;
 
   const Maybe<Vector<const wchar_t*>>& exceptionModules =
       GetPrespawnCigExceptionModules();
@@ -1327,7 +1328,13 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
   SANDBOX_ENSURE_SUCCESS(result, "Failed to add the win32k lockdown policy");
 
   mitigations = sandbox::MITIGATION_STRICT_HANDLE_CHECKS |
-                sandbox::MITIGATION_DLL_SEARCH_ORDER;
+                sandbox::MITIGATION_DLL_SEARCH_ORDER
+// TODO: Bug 1766432 - Investigate why this crashes in MSAudDecMFT.dll during
+// Utility AudioDecoder process startup only on 32-bits systems.
+#if defined(_M_X64)
+                | sandbox::MITIGATION_DYNAMIC_CODE_DISABLE
+#endif  // defined(_M_X64)
+      ;
 
   if (exceptionModules.isNothing()) {
     mitigations |= sandbox::MITIGATION_FORCE_MS_SIGNED_BINS;

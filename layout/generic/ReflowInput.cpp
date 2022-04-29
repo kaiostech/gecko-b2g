@@ -421,8 +421,8 @@ void ReflowInput::Init(nsPresContext* aPresContext,
     }
   }
 
-  if (mStyleDisplay->IsContainSize()) {
-    // In the case that a box is size contained, we want to ensure
+  if (mStyleDisplay->GetContainSizeAxes().mBContained) {
+    // In the case that a box is size contained in block axis, we want to ensure
     // that it is also monolithic. We do this by unsetting
     // AvailableBSize() to avoid fragmentaiton.
     AvailableBSize() = NS_UNCONSTRAINEDSIZE;
@@ -1214,8 +1214,7 @@ void ReflowInput::CalculateHypotheticalPosition(
 
   // See if we can calculate what the box inline size would have been if
   // the element had been in the flow
-  nscoord boxISize;
-  bool knowBoxISize = false;
+  Maybe<nscoord> boxISize;
   if (mStyleDisplay->IsOriginalDisplayInlineOutside() && !mFlags.mIsReplaced) {
     // For non-replaced inline-level elements the 'inline size' property
     // doesn't apply, so we don't know what the inline size would have
@@ -1236,16 +1235,13 @@ void ReflowInput::CalculateHypotheticalPosition(
       // It's a replaced element with an 'auto' inline size so the box
       // inline size is its intrinsic size plus any border/padding/margin
       if (intrinsicSize) {
-        boxISize = LogicalSize(wm, *intrinsicSize).ISize(wm) +
-                   outsideBoxISizing + insideBoxISizing;
-        knowBoxISize = true;
+        boxISize.emplace(LogicalSize(wm, *intrinsicSize).ISize(wm) +
+                         outsideBoxISizing + insideBoxISizing);
       }
 
     } else if (isAutoISize) {
       // The box inline size is the containing block inline size
-      boxISize = blockContentSize.ISize(wm);
-      knowBoxISize = true;
-
+      boxISize.emplace(blockContentSize.ISize(wm));
     } else {
       // We need to compute it. It's important we do this, because if it's
       // percentage based this computed value may be different from the computed
@@ -1254,12 +1250,11 @@ void ReflowInput::CalculateHypotheticalPosition(
       CalculateBorderPaddingMargin(eLogicalAxisBlock,
                                    blockContentSize.BSize(wm),
                                    &insideBoxBSizing, &dummy);
-      boxISize =
+      boxISize.emplace(
           ComputeISizeValue(wm, blockContentSize,
                             LogicalSize(wm, insideBoxISizing, insideBoxBSizing),
                             outsideBoxISizing, styleISize) +
-          insideBoxISizing + outsideBoxISizing;
-      knowBoxISize = true;
+          insideBoxISizing + outsideBoxISizing);
     }
   }
 
@@ -1446,7 +1441,7 @@ void ReflowInput::CalculateHypotheticalPosition(
                  insideBoxSizing + outsideBoxSizing;
     }
 
-    LogicalSize boxSize(wm, knowBoxISize ? boxISize : 0, boxBSize);
+    LogicalSize boxSize(wm, boxISize.valueOr(0), boxBSize);
 
     LogicalPoint origin(wm, aHypotheticalPos.mIStart, aHypotheticalPos.mBStart);
     origin =

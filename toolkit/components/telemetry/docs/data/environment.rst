@@ -85,6 +85,7 @@ Structure:
           experiment: <string>, // name/id of the enrolled funnel experiment
           ua: <string>, // identifier derived from the user agent downloading the installer, e.g., chrome, Google Chrome 123
           dltoken: <string>, // Unique token created at Firefox download time. ex: c18f86a3-f228-4d98-91bb-f90135c0aa9c
+          msstoresignedin: <boolean>, // optional, only present if the installation was done through the Microsoft Store, and was able to retrieve the "campaign ID" it was first installed with. this value is "true" if the user was signed into the Microsoft Store when they first installed, and false otherwise
         },
         sandbox: {
           effectiveContentProcessLevel: <integer>,
@@ -415,6 +416,10 @@ The following is a partial list of `collected preferences <https://searchfox.org
 - ``extensions.InstallTriggerImpl.enabled``: Whether the InstallTrigger implementation should be enabled (or hidden and none of its methods available).
 
 - ``extensions.InstallTrigger.enabled``: Whether the InstallTrigger implementation should be enabled (or completely hidden), separate from InstallTriggerImpl because InstallTrigger is improperly used also for UA detection.
+
+- ``extensions.eventPages.enabled``: Whether non-persistent background pages (also known as Event pages) should be enabled for `"manifest_version": 2` extensions.
+
+- ``extensions.manifestV3.enabled``: Whether `"manifest_version": 3` extensions should be allowed to install successfully.
 
 attribution
 ~~~~~~~~~~~

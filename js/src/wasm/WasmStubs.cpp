@@ -2747,12 +2747,12 @@ static const LiveRegisterSet RegsToPreserve(
 #  endif
 #endif
 
-// Generate a MachineState which describes the locations of the GPRs as saved
+// Generate a RegisterOffsets which describes the locations of the GPRs as saved
 // by GenerateTrapExit.  FP registers are ignored.  Note that the values
-// stored in the MachineState are offsets in words downwards from the top of
+// stored in the RegisterOffsets are offsets in words downwards from the top of
 // the save area.  That is, a higher value implies a lower address.
-void wasm::GenerateTrapExitMachineState(MachineState* machine,
-                                        size_t* numWords) {
+void wasm::GenerateTrapExitRegisterOffsets(RegisterOffsets* offsets,
+                                           size_t* numWords) {
   // This is the number of words pushed by the initial WasmPush().
   *numWords = WasmPushSize / sizeof(void*);
   MOZ_ASSERT(*numWords == TrapExitDummyValueOffsetFromTop + 1);
@@ -2760,8 +2760,7 @@ void wasm::GenerateTrapExitMachineState(MachineState* machine,
   // And these correspond to the PushRegsInMask() that immediately follows.
   for (GeneralRegisterBackwardIterator iter(RegsToPreserve.gprs()); iter.more();
        ++iter) {
-    machine->setRegisterLocation(*iter,
-                                 reinterpret_cast<uintptr_t*>(*numWords));
+    offsets->setOffset(*iter, *numWords);
     (*numWords)++;
   }
 }
@@ -2916,34 +2915,33 @@ static bool GenerateThrowStub(MacroAssembler& masm, Label* throwLabel,
               scratch1);
 
   masm.branch32(Assembler::Equal, scratch1,
-                Imm32(jit::ResumeFromException::RESUME_WASM_CATCH),
-                &resumeCatch);
+                Imm32(jit::ExceptionResumeKind::WasmCatch), &resumeCatch);
   masm.branch32(Assembler::Equal, scratch1,
-                Imm32(jit::ResumeFromException::RESUME_WASM), &leaveWasm);
+                Imm32(jit::ExceptionResumeKind::Wasm), &leaveWasm);
 
   masm.breakpoint();
 
   // The case where a Wasm catch handler was found while unwinding the stack.
   masm.bind(&resumeCatch);
-  masm.loadPtr(Address(ReturnReg, offsetof(ResumeFromException, tlsData)),
+  masm.loadPtr(Address(ReturnReg, ResumeFromException::offsetOfTlsData()),
                InstanceReg);
   masm.loadWasmPinnedRegsFromInstance();
   masm.switchToWasmInstanceRealm(scratch1, scratch2);
-  masm.loadPtr(Address(ReturnReg, offsetof(ResumeFromException, target)),
+  masm.loadPtr(Address(ReturnReg, ResumeFromException::offsetOfTarget()),
                scratch1);
-  masm.loadPtr(Address(ReturnReg, offsetof(ResumeFromException, framePointer)),
+  masm.loadPtr(Address(ReturnReg, ResumeFromException::offsetOfFramePointer()),
                FramePointer);
   masm.loadStackPtr(
-      Address(ReturnReg, offsetof(ResumeFromException, stackPointer)));
+      Address(ReturnReg, ResumeFromException::offsetOfStackPointer()));
   MoveSPForJitABI(masm);
   ClobberWasmRegsForLongJmp(masm, scratch1);
   masm.jump(scratch1);
 
   // No catch handler was found, so we will just return out.
   masm.bind(&leaveWasm);
-  masm.loadPtr(Address(ReturnReg, offsetof(ResumeFromException, framePointer)),
+  masm.loadPtr(Address(ReturnReg, ResumeFromException::offsetOfFramePointer()),
                FramePointer);
-  masm.loadPtr(Address(ReturnReg, offsetof(ResumeFromException, stackPointer)),
+  masm.loadPtr(Address(ReturnReg, ResumeFromException::offsetOfStackPointer()),
                scratch1);
   masm.moveToStackPtr(scratch1);
 #ifdef JS_CODEGEN_ARM64

@@ -338,6 +338,12 @@ class DOMStyleSheetSetList;
 class ResizeObserver;
 class ResizeObserverController;
 class PostMessageEvent;
+struct PageLoadEventTelemetryData {
+  TimeDuration mPageLoadTime;
+  TimeDuration mTotalJSExecutionTime;
+  TimeDuration mResponseStartTime;
+  TimeDuration mFirstContentfulPaintTime;
+};
 
 #define DEPRECATED_OPERATION(_op) e##_op,
 enum class DeprecatedOperations : uint16_t {
@@ -2883,6 +2889,10 @@ class Document : public nsINode,
    */
   Document* GetTemplateContentsOwner();
 
+  Document* GetTemplateContentsOwnerIfExists() const {
+    return mTemplateContentsOwner.get();
+  }
+
   /**
    * Returns true if this document is a static clone of a normal document.
    *
@@ -3658,6 +3668,10 @@ class Document : public nsINode,
   // Return true if NotifyUserGestureActivation() has been called on any
   // document in the document tree.
   bool HasBeenUserGestureActivated();
+
+  // Reture timestamp of last user gesture in milliseconds relative to
+  // navigation start timestamp.
+  DOMHighResTimeStamp LastUserGestureTimeStamp();
 
   // Return true if there is transient user gesture activation and it hasn't yet
   // timed out.
@@ -5280,11 +5294,17 @@ class Document : public nsINode,
   // See SetNotifyFormOrPasswordRemoved and ShouldNotifyFormOrPasswordRemoved.
   bool mShouldNotifyFormOrPasswordRemoved;
 
+  // Record page load telemetry
+  void RecordPageLoadEventTelemetry(
+      PageLoadEventTelemetryData aEventTelemetryData);
+
   // Accumulate JS telemetry collected
-  void AccumulateJSTelemetry();
+  void AccumulateJSTelemetry(
+      PageLoadEventTelemetryData& aEventTelemetryDataOut);
 
   // Accumulate page load metrics
-  void AccumulatePageLoadTelemetry();
+  void AccumulatePageLoadTelemetry(
+      PageLoadEventTelemetryData& aEventTelemetryDataOut);
 
   // The OOP counterpart to nsDocLoader::mChildrenInOnload.
   // Not holding strong refs here since we don't actually use the BBCs.

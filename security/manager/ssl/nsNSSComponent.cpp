@@ -2036,8 +2036,8 @@ nsresult nsNSSComponent::InitializeNSS() {
     // ensure we have initial values for various root hashes
 #ifdef DEBUG
     mTestBuiltInRootHash.Truncate();
-    Preferences::GetString("security.test.built_in_root_hash",
-                           mTestBuiltInRootHash);
+    Preferences::GetCString("security.test.built_in_root_hash",
+                            mTestBuiltInRootHash);
 #endif
     mContentSigningRootHash.Truncate();
     Preferences::GetCString("security.content.signature.root_hash",
@@ -2397,8 +2397,8 @@ nsNSSComponent::Observe(nsISupports* aSubject, const char* aTopic,
     } else if (prefName.EqualsLiteral("security.test.built_in_root_hash")) {
       MutexAutoLock lock(mMutex);
       mTestBuiltInRootHash.Truncate();
-      Preferences::GetString("security.test.built_in_root_hash",
-                             mTestBuiltInRootHash);
+      Preferences::GetCString("security.test.built_in_root_hash",
+                              mTestBuiltInRootHash);
 #endif  // DEBUG
     } else if (prefName.EqualsLiteral("security.content.signature.root_hash")) {
       MutexAutoLock lock(mMutex);
@@ -2499,36 +2499,10 @@ nsresult nsNSSComponent::RegisterObservers() {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-nsNSSComponent::IsCertTestBuiltInRoot(CERTCertificate* cert, bool* result) {
-  NS_ENSURE_ARG_POINTER(cert);
-  NS_ENSURE_ARG_POINTER(result);
-  *result = false;
+nsresult DoesCertMatchFingerprint(const nsTArray<uint8_t>& cert,
+                                  const nsCString& fingerprint, bool& result) {
+  result = false;
 
-#ifdef DEBUG
-  nsCOMPtr<nsIX509Cert> x509Cert(new nsNSSCertificate(cert));
-  nsAutoString certHash;
-  nsresult rv = x509Cert->GetSha256Fingerprint(certHash);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-
-  MutexAutoLock lock(mMutex);
-  if (mTestBuiltInRootHash.IsEmpty()) {
-    return NS_OK;
-  }
-
-  *result = mTestBuiltInRootHash.Equals(certHash);
-#endif  // DEBUG
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsNSSComponent::IsCertContentSigningRoot(const nsTArray<uint8_t>& cert,
-                                         bool* result) {
-  NS_ENSURE_ARG_POINTER(result);
-  *result = false;
   if (cert.Length() > std::numeric_limits<uint32_t>::max()) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -2540,15 +2514,46 @@ nsNSSComponent::IsCertContentSigningRoot(const nsTArray<uint8_t>& cert,
   }
   SECItem digestItem = {siBuffer, digestArray.Elements(),
                         static_cast<unsigned int>(digestArray.Length())};
-
-  UniquePORTString fingerprintCString(
+  UniquePORTString certFingerprint(
       CERT_Hexify(&digestItem, true /* use colon delimiters */));
-  if (!fingerprintCString) {
+  if (!certFingerprint) {
     return NS_ERROR_FAILURE;
   }
 
+  result = fingerprint.Equals(certFingerprint.get());
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsNSSComponent::IsCertTestBuiltInRoot(const nsTArray<uint8_t>& cert,
+                                      bool* result) {
+  NS_ENSURE_ARG_POINTER(result);
+  *result = false;
+
+#ifdef DEBUG
   MutexAutoLock lock(mMutex);
-  *result = mContentSigningRootHash.Equals(fingerprintCString.get());
+  nsresult rv = DoesCertMatchFingerprint(cert, mTestBuiltInRootHash, *result);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+#endif  // DEBUG
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsNSSComponent::IsCertContentSigningRoot(const nsTArray<uint8_t>& cert,
+                                         bool* result) {
+  NS_ENSURE_ARG_POINTER(result);
+  *result = false;
+
+  MutexAutoLock lock(mMutex);
+  nsresult rv =
+      DoesCertMatchFingerprint(cert, mContentSigningRootHash, *result);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
   return NS_OK;
 }
 
@@ -2672,11 +2677,15 @@ UniqueCERTCertList FindClientCertificatesWithPrivateKeys() {
       PK11SlotInfo* slot = list->module->slots[i];
       MOZ_LOG(gPIPNSSLog, LogLevel::Debug,
               ("    slot '%s'", PK11_GetSlotName(slot)));
-      // If this is the internal certificate/key slot, there may be many more
-      // certificates than private keys, so search by private keys.
-      if (internalSlot.get() == slot) {
+      // If this is the internal certificate/key slot or the slot on the
+      // builtin roots module, there may be many more certificates than private
+      // keys, so search by private keys (PK11_HasRootCerts will be true if the
+      // slot contains an object with the vendor-specific CK_CLASS
+      // CKO_NSS_BUILTIN_ROOT_LIST, which should only be the case for the NSS
+      // builtin roots module).
+      if (internalSlot.get() == slot || PK11_HasRootCerts(slot)) {
         MOZ_LOG(gPIPNSSLog, LogLevel::Debug,
-                ("    (looking at internal slot)"));
+                ("    (looking at internal/builtin slot)"));
         if (PK11_Authenticate(slot, true, nullptr) != SECSuccess) {
           MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("    (couldn't authenticate)"));
           continue;

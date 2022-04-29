@@ -270,6 +270,7 @@
 #include "nsIContentSecurityPolicy.h"
 #include "nsIContentSink.h"
 #include "nsIContentViewer.h"
+#include "nsICryptoHMAC.h"
 #include "nsIDOMWindowUtils.h"
 #include "nsIDocShell.h"
 #include "nsIDocShellTreeItem.h"
@@ -290,6 +291,7 @@
 #include "nsIInputStream.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIInterfaceRequestorUtils.h"
+#include "nsIKeyModule.h"
 #include "nsILoadContext.h"
 #include "nsILoadGroup.h"
 #include "nsILoadInfo.h"
@@ -3734,33 +3736,17 @@ already_AddRefed<imgIContainer> nsContentUtils::GetImageFromContent(
   return imgContainer.forget();
 }
 
-// static
-bool nsContentUtils::ContentIsDraggable(nsIContent* aContent) {
-  MOZ_ASSERT(aContent);
-
-  if (auto htmlElement = nsGenericHTMLElement::FromNode(aContent)) {
-    if (htmlElement->Draggable()) {
-      return true;
-    }
-
-    if (htmlElement->AttrValueIs(kNameSpaceID_None, nsGkAtoms::draggable,
-                                 nsGkAtoms::_false, eIgnoreCase)) {
-      return false;
-    }
-  }
-  if (aContent->IsSVGElement()) {
+static bool IsLinkWithURI(const nsIContent& aContent) {
+  const auto* element = Element::FromNode(aContent);
+  if (!element || !element->IsLink()) {
     return false;
   }
-
-  // special handling for content area image and link dragging
-  return IsDraggableImage(aContent) || IsDraggableLink(aContent);
+  nsCOMPtr<nsIURI> absURI = element->GetHrefURI();
+  return !!absURI;
 }
 
-// static
-bool nsContentUtils::IsDraggableImage(nsIContent* aContent) {
-  MOZ_ASSERT(aContent, "Must have content node to test");
-
-  nsCOMPtr<nsIImageLoadingContent> imageContent(do_QueryInterface(aContent));
+static bool HasImageRequest(nsIContent& aContent) {
+  nsCOMPtr<nsIImageLoadingContent> imageContent(do_QueryInterface(&aContent));
   if (!imageContent) {
     return false;
   }
@@ -3771,17 +3757,49 @@ bool nsContentUtils::IsDraggableImage(nsIContent* aContent) {
 
   // XXXbz It may be draggable even if the request resulted in an error.  Why?
   // Not sure; that's what the old nsContentAreaDragDrop/nsFrame code did.
-  return imgRequest != nullptr;
+  return !!imgRequest;
+}
+
+static Maybe<bool> DraggableOverride(const nsIContent& aContent) {
+  if (auto* el = nsGenericHTMLElement::FromNode(aContent)) {
+    if (el->Draggable()) {
+      return Some(true);
+    }
+
+    if (el->AttrValueIs(kNameSpaceID_None, nsGkAtoms::draggable,
+                        nsGkAtoms::_false, eIgnoreCase)) {
+      return Some(false);
+    }
+  }
+  if (aContent.IsSVGElement()) {
+    return Some(false);
+  }
+  return Nothing();
+}
+
+// static
+bool nsContentUtils::ContentIsDraggable(nsIContent* aContent) {
+  MOZ_ASSERT(aContent);
+
+  if (auto draggable = DraggableOverride(*aContent)) {
+    return *draggable;
+  }
+
+  // special handling for content area image and link dragging
+  return HasImageRequest(*aContent) || IsLinkWithURI(*aContent);
+}
+
+// static
+bool nsContentUtils::IsDraggableImage(nsIContent* aContent) {
+  MOZ_ASSERT(aContent);
+  return HasImageRequest(*aContent) &&
+         DraggableOverride(*aContent).valueOr(true);
 }
 
 // static
 bool nsContentUtils::IsDraggableLink(const nsIContent* aContent) {
-  const auto* element = Element::FromNode(*aContent);
-  if (!element || !element->IsLink()) {
-    return false;
-  }
-  nsCOMPtr<nsIURI> absURI = element->GetHrefURI();
-  return !!absURI;
+  MOZ_ASSERT(aContent);
+  return IsLinkWithURI(*aContent) && DraggableOverride(*aContent).valueOr(true);
 }
 
 // static
@@ -10676,6 +10694,48 @@ nsCString nsContentUtils::TruncatedURLForDisplay(nsIURI* aURL, size_t aMaxLen) {
     spec.Truncate(std::min(aMaxLen, spec.Length()));
   }
   return spec;
+}
+
+/* static */
+nsresult nsContentUtils::AnonymizeId(nsAString& aId,
+                                     const nsACString& aOriginKey,
+                                     OriginFormat aFormat) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsresult rv;
+  nsCOMPtr<nsIKeyObjectFactory> factory =
+      do_GetService("@mozilla.org/security/keyobjectfactory;1", &rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCString rawKey;
+  if (aFormat == OriginFormat::Base64) {
+    rv = Base64Decode(aOriginKey, rawKey);
+    NS_ENSURE_SUCCESS(rv, rv);
+  } else {
+    rawKey = aOriginKey;
+  }
+
+  nsCOMPtr<nsIKeyObject> key;
+  rv = factory->KeyFromString(nsIKeyObject::HMAC, rawKey, getter_AddRefs(key));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsICryptoHMAC> hasher =
+      do_CreateInstance(NS_CRYPTO_HMAC_CONTRACTID, &rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = hasher->Init(nsICryptoHMAC::SHA256, key);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  NS_ConvertUTF16toUTF8 id(aId);
+  rv = hasher->Update(reinterpret_cast<const uint8_t*>(id.get()), id.Length());
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCString mac;
+  rv = hasher->Finish(true, mac);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  CopyUTF8toUTF16(mac, aId);
+  return NS_OK;
 }
 
 namespace mozilla {

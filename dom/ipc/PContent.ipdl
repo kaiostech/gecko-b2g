@@ -27,6 +27,7 @@ include protocol PProcessHangMonitor;
 include protocol PSharedBufferManager;
 include protocol PImageBridge;
 include protocol PRemoteLazyInputStream;
+include protocol PRemotePrintJob;
 include protocol PLoginReputation;
 include protocol PMedia;
 include protocol PNecko;
@@ -34,7 +35,6 @@ include protocol PStreamFilter;
 include protocol PGMPContent;
 include protocol PGMPService;
 include protocol PGMP;
-include protocol PPrinting;
 include protocol PChildToParentStream;
 include protocol PParentToChildStream;
 #ifdef MOZ_WEBSPEECH
@@ -685,9 +685,9 @@ sync protocol PContent
     manages PHandlerService;
     manages PHeapSnapshotTempFileHelper;
     manages PRemoteLazyInputStream;
+    manages PRemotePrintJob;
     manages PMedia;
     manages PNecko;
-    manages PPrinting;
     manages PChildToParentStream;
     manages PParentToChildStream;
 #ifdef MOZ_WEBSPEECH
@@ -1281,9 +1281,6 @@ child:
   // Update the cached list of codec supported in the given process.
   async UpdateMediaCodecsSupported(RemoteDecodeIn aLocation, MediaCodecsSupported aSupported);
 
-  async FlushTabState(MaybeDiscardedBrowsingContext aBrowsingContext)
-      returns(bool aHadContext);
-
   // Send the list of the supported mimetypes in the given process. GeckoView-specific
   async DecoderSupportedMimeTypes(nsCString[] supportedTypes);
 
@@ -1291,6 +1288,8 @@ child:
   // latched value in the parent process. See dom/LocalStorageCommon.h for more
   // details.
   async InitNextGenLocalStorageEnabled(bool enabled);
+
+  async PRemotePrintJob();
 
 parent:
 
@@ -1342,8 +1341,6 @@ parent:
     async PHeapSnapshotTempFileHelper();
 
     async PNecko();
-
-    async PPrinting();
 
     async PChildToParentStream();
 
@@ -1415,7 +1412,8 @@ parent:
                           nsIPrincipal triggeringPrincipal,
                           nsIPrincipal redirectPrincipal,
                           MaybeDiscardedBrowsingContext browsingContext,
-                          bool wasExternallyTriggered);
+                          bool wasExternallyTriggered,
+                          bool hasValidUserGestureActivation);
     async ExtProtocolChannelConnectParent(uint64_t registrarId);
 
     // PrefService message

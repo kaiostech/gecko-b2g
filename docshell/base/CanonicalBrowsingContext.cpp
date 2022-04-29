@@ -25,11 +25,16 @@
 #include "mozilla/dom/ContentPlaybackController.h"
 #include "mozilla/dom/SessionStorageManager.h"
 #include "mozilla/ipc/ProtocolUtils.h"
+#ifdef NS_PRINTING
+#include "mozilla/layout/RemotePrintJobParent.h"
+#endif
 #include "mozilla/net/DocumentLoadListener.h"
 #include "mozilla/NullPrincipal.h"
 #include "mozilla/StaticPrefs_docshell.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/Telemetry.h"
+#include "nsIPrintSettings.h"
+#include "nsIPrintSettingsService.h"
 #include "nsISupports.h"
 #include "nsIWebNavigation.h"
 #include "mozilla/MozPromiseInlines.h"
@@ -50,10 +55,6 @@
 #include "nsIXPConnect.h"
 #include "nsImportModule.h"
 #include "UnitTransforms.h"
-
-#ifdef NS_PRINTING
-#  include "mozilla/embedding/printingui/PrintingParent.h"
-#endif
 
 using namespace mozilla::ipc;
 
@@ -184,6 +185,9 @@ ContentParent* CanonicalBrowsingContext::GetContentParent() const {
   }
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
+  if (!cpm) {
+    return nullptr;
+  }
   return cpm->GetContentProcessById(ContentParentId(mProcessId));
 }
 
@@ -314,6 +318,8 @@ void CanonicalBrowsingContext::ReplacedBy(
   // about:blank documents created in it.
   txn.SetSandboxFlags(GetSandboxFlags());
   txn.SetInitialSandboxFlags(GetSandboxFlags());
+  txn.SetTargetTopLevelLinkClicksToBlankInternal(
+      TargetTopLevelLinkClicksToBlank());
   if (aNewContext->EverAttached()) {
     MOZ_ALWAYS_SUCCEEDS(txn.Commit(aNewContext));
   } else {
@@ -411,6 +417,19 @@ CanonicalBrowsingContext::GetParentProcessWidgetContaining() {
   }
 
   return widget.forget();
+}
+
+already_AddRefed<nsIBrowserDOMWindow>
+CanonicalBrowsingContext::GetBrowserDOMWindow() {
+  RefPtr<CanonicalBrowsingContext> chromeTop = TopCrossChromeBoundary();
+  if (nsCOMPtr<nsIDOMChromeWindow> chromeWin =
+          do_QueryInterface(chromeTop->GetDOMWindow())) {
+    nsCOMPtr<nsIBrowserDOMWindow> bdw;
+    if (NS_SUCCEEDED(chromeWin->GetBrowserDOMWindow(getter_AddRefs(bdw)))) {
+      return bdw.forget();
+    }
+  }
+  return nullptr;
 }
 
 already_AddRefed<WindowGlobalParent>
@@ -703,15 +722,37 @@ already_AddRefed<Promise> CanonicalBrowsingContext::Print(
     return promise.forget();
   }
 
-  RefPtr<embedding::PrintingParent> printingParent =
-      browserParent->Manager()->GetPrintingParent();
+  nsCOMPtr<nsIPrintSettingsService> printSettingsSvc =
+      do_GetService("@mozilla.org/gfx/printsettings-service;1");
+  if (NS_WARN_IF(!printSettingsSvc)) {
+    promise->MaybeReject(ErrorResult(NS_ERROR_FAILURE));
+    return promise.forget();
+  }
+
+  nsresult rv;
+  nsCOMPtr<nsIPrintSettings> printSettings = aPrintSettings;
+  if (!printSettings) {
+    rv = printSettingsSvc->GetNewPrintSettings(getter_AddRefs(printSettings));
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      promise->MaybeReject(ErrorResult(rv));
+      return promise.forget();
+    }
+  }
 
   embedding::PrintData printData;
-  nsresult rv = printingParent->SerializeAndEnsureRemotePrintJob(
-      aPrintSettings, listener, nullptr, &printData);
+  rv = printSettingsSvc->SerializeToPrintData(printSettings, &printData);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     promise->MaybeReject(ErrorResult(rv));
     return promise.forget();
+  }
+
+  layout::RemotePrintJobParent* remotePrintJob =
+      new layout::RemotePrintJobParent(printSettings);
+  printData.remotePrintJobParent() =
+      browserParent->Manager()->SendPRemotePrintJobConstructor(remotePrintJob);
+
+  if (listener) {
+    remotePrintJob->RegisterListener(listener);
   }
 
   if (NS_WARN_IF(!browserParent->SendPrint(this, printData))) {
@@ -2136,10 +2177,10 @@ bool CanonicalBrowsingContext::StartDocumentLoad(
   return true;
 }
 
-void CanonicalBrowsingContext::EndDocumentLoad(bool aForProcessSwitch) {
+void CanonicalBrowsingContext::EndDocumentLoad(bool aContinueNavigating) {
   mCurrentLoad = nullptr;
 
-  if (!aForProcessSwitch) {
+  if (!aContinueNavigating) {
     // Resetting the current load identifier on a discarded context
     // has no effect when a document load has finished.
     Unused << SetCurrentLoadIdentifier(Nothing());
@@ -2362,7 +2403,7 @@ void CanonicalBrowsingContext::UpdateSessionStoreSessionStorage(
   using DataPromise = BackgroundSessionStorageManager::DataPromise;
   BackgroundSessionStorageManager::GetData(
       this, StaticPrefs::browser_sessionstore_dom_storage_limit(),
-      /* aCancelSessionStoreTiemr = */ true)
+      /* aClearSessionStoreTimer = */ true)
       ->Then(GetCurrentSerialEventTarget(), __func__,
              [self = RefPtr{this}, aDone, epoch = GetSessionStoreEpoch()](
                  const DataPromise::ResolveOrRejectValue& valueList) {
@@ -2673,6 +2714,12 @@ bool CanonicalBrowsingContext::AllowedInBFCache(
 void CanonicalBrowsingContext::SetTouchEventsOverride(
     dom::TouchEventsOverride aOverride, ErrorResult& aRv) {
   SetTouchEventsOverrideInternal(aOverride, aRv);
+}
+
+void CanonicalBrowsingContext::SetTargetTopLevelLinkClicksToBlank(
+    bool aTargetTopLevelLinkClicksToBlank, ErrorResult& aRv) {
+  SetTargetTopLevelLinkClicksToBlankInternal(aTargetTopLevelLinkClicksToBlank,
+                                             aRv);
 }
 
 void CanonicalBrowsingContext::AddPageAwakeRequest() {

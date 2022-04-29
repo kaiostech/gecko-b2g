@@ -22,7 +22,7 @@ use crate::prim_store::gradient::{
 };
 use crate::resource_cache::{ResourceCache, ImageRequest};
 use std::{usize, f32, i32, u32};
-use crate::render_target::RenderTargetKind;
+use crate::render_target::{ResolveOp, RenderTargetKind};
 use crate::render_task_graph::{PassId, RenderTaskId, RenderTaskGraphBuilder};
 use crate::render_task_cache::{RenderTaskCacheEntryHandle, RenderTaskCacheKey, RenderTaskCacheKeyKind, RenderTaskParent};
 use crate::surface::SurfaceBuilder;
@@ -173,6 +173,16 @@ pub struct ClipRegionTask {
 
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
+pub struct TileCompositeTask {
+    pub clear_color: ColorF,
+    pub scissor_rect: DeviceIntRect,
+    pub valid_rect: DeviceIntRect,
+    pub task_id: Option<RenderTaskId>,
+    pub sub_rect_offset: DeviceIntVector2D,
+}
+
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct PictureTask {
     pub can_merge: bool,
     pub content_origin: DevicePoint,
@@ -183,6 +193,29 @@ pub struct PictureTask {
     pub scissor_rect: Option<DeviceIntRect>,
     pub valid_rect: Option<DeviceIntRect>,
     pub cmd_buffer_index: CommandBufferIndex,
+    pub resolve_op: Option<ResolveOp>,
+
+    pub can_use_shared_surface: bool,
+}
+
+impl PictureTask {
+    /// Copy an existing picture task, but set a new command buffer for it to build in to.
+    /// Used for pictures that are split between render tasks (e.g. pre/post a backdrop
+    /// filter). Subsequent picture tasks never have a clear color as they are by definition
+    /// going to write to an existing target
+    pub fn duplicate(
+        &self,
+        cmd_buffer_index: CommandBufferIndex,
+    ) -> Self {
+        assert_eq!(self.resolve_op, None);
+
+        PictureTask {
+            clear_color: None,
+            cmd_buffer_index,
+            resolve_op: None,
+            ..*self
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -310,6 +343,7 @@ pub enum RenderTaskKind {
     RadialGradient(RadialGradientTask),
     ConicGradient(ConicGradientTask),
     SvgFilter(SvgFilterTask),
+    TileComposite(TileCompositeTask),
     #[cfg(test)]
     Test(RenderTargetKind),
 }
@@ -319,6 +353,14 @@ impl RenderTaskKind {
         match self {
             &RenderTaskKind::Image(..) => false,
             &RenderTaskKind::Cached(..) => false,
+            _ => true,
+        }
+    }
+
+    /// Whether this task can be allocated on a shared render target surface
+    pub fn can_use_shared_surface(&self) -> bool {
+        match self {
+            &RenderTaskKind::Picture(ref info) => info.can_use_shared_surface,
             _ => true,
         }
     }
@@ -350,6 +392,7 @@ impl RenderTaskKind {
             RenderTaskKind::RadialGradient(..) => "RadialGradient",
             RenderTaskKind::ConicGradient(..) => "ConicGradient",
             RenderTaskKind::SvgFilter(..) => "SvgFilter",
+            RenderTaskKind::TileComposite(..) => "TileComposite",
             #[cfg(test)]
             RenderTaskKind::Test(..) => "Test",
         }
@@ -367,6 +410,7 @@ impl RenderTaskKind {
             RenderTaskKind::ConicGradient(..) |
             RenderTaskKind::Picture(..) |
             RenderTaskKind::Blit(..) |
+            RenderTaskKind::TileComposite(..) |
             RenderTaskKind::SvgFilter(..) => {
                 RenderTargetKind::Color
             }
@@ -394,6 +438,21 @@ impl RenderTaskKind {
         }
     }
 
+    pub fn new_tile_composite(
+        sub_rect_offset: DeviceIntVector2D,
+        scissor_rect: DeviceIntRect,
+        valid_rect: DeviceIntRect,
+        clear_color: ColorF,
+    ) -> Self {
+        RenderTaskKind::TileComposite(TileCompositeTask {
+            task_id: None,
+            sub_rect_offset,
+            scissor_rect,
+            valid_rect,
+            clear_color,
+        })
+    }
+
     pub fn new_picture(
         size: DeviceIntSize,
         unclipped_size: DeviceSize,
@@ -405,6 +464,7 @@ impl RenderTaskKind {
         valid_rect: Option<DeviceIntRect>,
         clear_color: Option<ColorF>,
         cmd_buffer_index: CommandBufferIndex,
+        can_use_shared_surface: bool,
     ) -> Self {
         render_task_sanity_check(&size);
 
@@ -421,6 +481,8 @@ impl RenderTaskKind {
             valid_rect,
             clear_color,
             cmd_buffer_index,
+            resolve_op: None,
+            can_use_shared_surface,
         })
     }
 
@@ -635,10 +697,10 @@ impl RenderTaskKind {
             RenderTaskKind::LinearGradient(..) |
             RenderTaskKind::RadialGradient(..) |
             RenderTaskKind::ConicGradient(..) |
+            RenderTaskKind::TileComposite(..) |
             RenderTaskKind::Blit(..) => {
                 [0.0; 4]
             }
-
 
             RenderTaskKind::SvgFilter(ref task) => {
                 match task.info {
@@ -760,9 +822,6 @@ pub struct RenderTask {
     pub uv_rect_handle: GpuCacheHandle,
     pub cache_handle: Option<RenderTaskCacheEntryHandle>,
     uv_rect_kind: UvRectKind,
-
-    /// Whether this task can be allocated on a shared render target surface
-    pub can_use_shared_surface: bool,
 }
 
 impl RenderTask {
@@ -781,12 +840,7 @@ impl RenderTask {
             uv_rect_handle: GpuCacheHandle::new(),
             uv_rect_kind: UvRectKind::Rect,
             cache_handle: None,
-            can_use_shared_surface: true,
         }
-    }
-
-    pub fn disable_surface_sharing(&mut self) {
-        self.can_use_shared_surface = false;
     }
 
     pub fn new_dynamic(
@@ -825,7 +879,6 @@ impl RenderTask {
             uv_rect_handle: GpuCacheHandle::new(),
             uv_rect_kind: UvRectKind::Rect,
             cache_handle: None,
-            can_use_shared_surface: true,
         }
     }
 
@@ -844,7 +897,6 @@ impl RenderTask {
             uv_rect_handle: GpuCacheHandle::new(),
             uv_rect_kind: UvRectKind::Rect,
             cache_handle: None,
-            can_use_shared_surface: true,
         }
     }
 

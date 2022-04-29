@@ -2169,24 +2169,7 @@ bool StyleAnimation::operator==(const StyleAnimation& aOther) const {
 // nsStyleDisplay
 //
 nsStyleDisplay::nsStyleDisplay(const Document& aDocument)
-    : mTransitions(
-          nsStyleAutoArray<StyleTransition>::WITH_SINGLE_INITIAL_ELEMENT),
-      mTransitionTimingFunctionCount(1),
-      mTransitionDurationCount(1),
-      mTransitionDelayCount(1),
-      mTransitionPropertyCount(1),
-      mAnimations(
-          nsStyleAutoArray<StyleAnimation>::WITH_SINGLE_INITIAL_ELEMENT),
-      mAnimationTimingFunctionCount(1),
-      mAnimationDurationCount(1),
-      mAnimationDelayCount(1),
-      mAnimationNameCount(1),
-      mAnimationDirectionCount(1),
-      mAnimationFillModeCount(1),
-      mAnimationPlayStateCount(1),
-      mAnimationIterationCountCount(1),
-      mAnimationTimelineCount(1),
-      mDisplay(StyleDisplay::Inline),
+    : mDisplay(StyleDisplay::Inline),
       mOriginalDisplay(StyleDisplay::Inline),
       mContain(StyleContain::NONE),
       mContentVisibility(StyleContentVisibility::Visible),
@@ -2239,28 +2222,10 @@ nsStyleDisplay::nsStyleDisplay(const Document& aDocument)
       mShapeMargin(LengthPercentage::Zero()),
       mShapeOutside(StyleShapeOutside::None()) {
   MOZ_COUNT_CTOR(nsStyleDisplay);
-
-  mTransitions[0].SetInitialValues();
-  mAnimations[0].SetInitialValues();
 }
 
 nsStyleDisplay::nsStyleDisplay(const nsStyleDisplay& aSource)
-    : mTransitions(aSource.mTransitions.Clone()),
-      mTransitionTimingFunctionCount(aSource.mTransitionTimingFunctionCount),
-      mTransitionDurationCount(aSource.mTransitionDurationCount),
-      mTransitionDelayCount(aSource.mTransitionDelayCount),
-      mTransitionPropertyCount(aSource.mTransitionPropertyCount),
-      mAnimations(aSource.mAnimations.Clone()),
-      mAnimationTimingFunctionCount(aSource.mAnimationTimingFunctionCount),
-      mAnimationDurationCount(aSource.mAnimationDurationCount),
-      mAnimationDelayCount(aSource.mAnimationDelayCount),
-      mAnimationNameCount(aSource.mAnimationNameCount),
-      mAnimationDirectionCount(aSource.mAnimationDirectionCount),
-      mAnimationFillModeCount(aSource.mAnimationFillModeCount),
-      mAnimationPlayStateCount(aSource.mAnimationPlayStateCount),
-      mAnimationIterationCountCount(aSource.mAnimationIterationCountCount),
-      mAnimationTimelineCount(aSource.mAnimationTimelineCount),
-      mDisplay(aSource.mDisplay),
+    : mDisplay(aSource.mDisplay),
       mOriginalDisplay(aSource.mOriginalDisplay),
       mContain(aSource.mContain),
       mContentVisibility(aSource.mContentVisibility),
@@ -2390,9 +2355,14 @@ nsChangeHint nsStyleDisplay::CalcDifference(
     const nsStyleDisplay& aNewData, const nsStylePosition& aOldPosition) const {
   if (mDisplay != aNewData.mDisplay || mContain != aNewData.mContain ||
       (mFloat == StyleFloat::None) != (aNewData.mFloat == StyleFloat::None) ||
-      mScrollBehavior != aNewData.mScrollBehavior ||
-      mScrollSnapType != aNewData.mScrollSnapType ||
       mTopLayer != aNewData.mTopLayer || mResize != aNewData.mResize) {
+    return nsChangeHint_ReconstructFrame;
+  }
+
+  // `content-visibility` can impact whether or not this frame has containment,
+  // so we reconstruct the frame like we do above.
+  // TODO: We should avoid reconstruction here, per bug 1765615.
+  if (mContentVisibility != aNewData.mContentVisibility) {
     return nsChangeHint_ReconstructFrame;
   }
 
@@ -2447,6 +2417,13 @@ nsChangeHint nsStyleDisplay::CalcDifference(
     // FIXME: Bug 1530253 Support re-snapping when scroll-snap-align changes.
     hint |= nsChangeHint_NeutralChange;
   }
+  if (mScrollSnapType != aNewData.mScrollSnapType) {
+    // FIXME: Bug 1530253 Support re-snapping when scroll-snap-type changes.
+    hint |= nsChangeHint_RepaintFrame;
+  }
+  if (mScrollBehavior != aNewData.mScrollBehavior) {
+    hint |= nsChangeHint_NeutralChange;
+  }
 
   if (mOverflowX != aNewData.mOverflowX || mOverflowY != aNewData.mOverflowY) {
     const bool isScrollable = IsScrollableOverflow();
@@ -2475,12 +2452,6 @@ nsChangeHint nsStyleDisplay::CalcDifference(
     }
   }
 
-  // FIXME(mrobinson): Depending on how this is implemented this may need a
-  // different set of change hints. See bug 1758490.
-  if (mContentVisibility != aNewData.mContentVisibility) {
-    hint |= nsChangeHint_RepaintFrame;
-  }
-
   if (mScrollbarGutter != aNewData.mScrollbarGutter) {
     if (IsScrollableOverflow()) {
       // Changing scrollbar-gutter affects available inline-size of a inner
@@ -2491,22 +2462,6 @@ nsChangeHint nsStyleDisplay::CalcDifference(
       hint |= nsChangeHint_NeutralChange;
     }
   }
-
-  /* Note: When mScrollBehavior or mScrollSnapType are changed,
-   * nsChangeHint_NeutralChange is not sufficient to enter
-   * nsCSSFrameConstructor::PropagateScrollToViewport. By using the same hint as
-   * used when the overflow css property changes, nsChangeHint_ReconstructFrame,
-   * PropagateScrollToViewport will be called.
-   *
-   * The scroll-behavior css property is not expected to change often (the
-   * CSSOM-View DOM methods are likely to be used in those cases); however,
-   * if this does become common perhaps a faster-path might be worth while.
-   *
-   * FIXME(emilio): Can we do what we do for overflow changes?
-   *
-   * FIXME(emilio): These properties no longer propagate from the body to the
-   * viewport.
-   */
 
   if (mFloat != aNewData.mFloat) {
     // Changing which side we're floating on (float:none was handled above).
@@ -2662,25 +2617,7 @@ nsChangeHint nsStyleDisplay::CalcDifference(
   // properties, since some data did change in the style struct.
 
   // TODO(emilio): Figure out change hints for container-type/name.
-  if (!hint && (mTransitions != aNewData.mTransitions ||
-                mTransitionTimingFunctionCount !=
-                    aNewData.mTransitionTimingFunctionCount ||
-                mTransitionDurationCount != aNewData.mTransitionDurationCount ||
-                mTransitionDelayCount != aNewData.mTransitionDelayCount ||
-                mTransitionPropertyCount != aNewData.mTransitionPropertyCount ||
-                mAnimations != aNewData.mAnimations ||
-                mAnimationTimingFunctionCount !=
-                    aNewData.mAnimationTimingFunctionCount ||
-                mAnimationDurationCount != aNewData.mAnimationDurationCount ||
-                mAnimationDelayCount != aNewData.mAnimationDelayCount ||
-                mAnimationNameCount != aNewData.mAnimationNameCount ||
-                mAnimationDirectionCount != aNewData.mAnimationDirectionCount ||
-                mAnimationFillModeCount != aNewData.mAnimationFillModeCount ||
-                mAnimationPlayStateCount != aNewData.mAnimationPlayStateCount ||
-                mAnimationIterationCountCount !=
-                    aNewData.mAnimationIterationCountCount ||
-                mAnimationTimelineCount != aNewData.mAnimationTimelineCount ||
-                mWillChange != aNewData.mWillChange ||
+  if (!hint && (mWillChange != aNewData.mWillChange ||
                 mOverflowAnchor != aNewData.mOverflowAnchor ||
                 mContainerName != aNewData.mContainerName ||
                 mContainerType != aNewData.mContainerType)) {
@@ -3208,8 +3145,27 @@ nsStyleUIReset::nsStyleUIReset(const Document& aDocument)
       mWindowOpacity(1.0),
       mWindowTransformOrigin{LengthPercentage::FromPercentage(0.5),
                              LengthPercentage::FromPercentage(0.5),
-                             {0.}} {
+                             {0.}},
+      mTransitions(
+          nsStyleAutoArray<StyleTransition>::WITH_SINGLE_INITIAL_ELEMENT),
+      mTransitionTimingFunctionCount(1),
+      mTransitionDurationCount(1),
+      mTransitionDelayCount(1),
+      mTransitionPropertyCount(1),
+      mAnimations(
+          nsStyleAutoArray<StyleAnimation>::WITH_SINGLE_INITIAL_ELEMENT),
+      mAnimationTimingFunctionCount(1),
+      mAnimationDurationCount(1),
+      mAnimationDelayCount(1),
+      mAnimationNameCount(1),
+      mAnimationDirectionCount(1),
+      mAnimationFillModeCount(1),
+      mAnimationPlayStateCount(1),
+      mAnimationIterationCountCount(1),
+      mAnimationTimelineCount(1) {
   MOZ_COUNT_CTOR(nsStyleUIReset);
+  mTransitions[0].SetInitialValues();
+  mAnimations[0].SetInitialValues();
 }
 
 nsStyleUIReset::nsStyleUIReset(const nsStyleUIReset& aSource)
@@ -3221,7 +3177,22 @@ nsStyleUIReset::nsStyleUIReset(const nsStyleUIReset& aSource)
       mWindowShadow(aSource.mWindowShadow),
       mWindowOpacity(aSource.mWindowOpacity),
       mMozWindowTransform(aSource.mMozWindowTransform),
-      mWindowTransformOrigin(aSource.mWindowTransformOrigin) {
+      mWindowTransformOrigin(aSource.mWindowTransformOrigin),
+      mTransitions(aSource.mTransitions.Clone()),
+      mTransitionTimingFunctionCount(aSource.mTransitionTimingFunctionCount),
+      mTransitionDurationCount(aSource.mTransitionDurationCount),
+      mTransitionDelayCount(aSource.mTransitionDelayCount),
+      mTransitionPropertyCount(aSource.mTransitionPropertyCount),
+      mAnimations(aSource.mAnimations.Clone()),
+      mAnimationTimingFunctionCount(aSource.mAnimationTimingFunctionCount),
+      mAnimationDurationCount(aSource.mAnimationDurationCount),
+      mAnimationDelayCount(aSource.mAnimationDelayCount),
+      mAnimationNameCount(aSource.mAnimationNameCount),
+      mAnimationDirectionCount(aSource.mAnimationDirectionCount),
+      mAnimationFillModeCount(aSource.mAnimationFillModeCount),
+      mAnimationPlayStateCount(aSource.mAnimationPlayStateCount),
+      mAnimationIterationCountCount(aSource.mAnimationIterationCountCount),
+      mAnimationTimelineCount(aSource.mAnimationTimelineCount) {
   MOZ_COUNT_CTOR(nsStyleUIReset);
 }
 
@@ -3254,7 +3225,25 @@ nsChangeHint nsStyleUIReset::CalcDifference(
     hint |= nsChangeHint_SchedulePaint;
   }
 
-  if (!hint && (mIMEMode != aNewData.mIMEMode ||
+  if (!hint && (mTransitions != aNewData.mTransitions ||
+                mTransitionTimingFunctionCount !=
+                    aNewData.mTransitionTimingFunctionCount ||
+                mTransitionDurationCount != aNewData.mTransitionDurationCount ||
+                mTransitionDelayCount != aNewData.mTransitionDelayCount ||
+                mTransitionPropertyCount != aNewData.mTransitionPropertyCount ||
+                mAnimations != aNewData.mAnimations ||
+                mAnimationTimingFunctionCount !=
+                    aNewData.mAnimationTimingFunctionCount ||
+                mAnimationDurationCount != aNewData.mAnimationDurationCount ||
+                mAnimationDelayCount != aNewData.mAnimationDelayCount ||
+                mAnimationNameCount != aNewData.mAnimationNameCount ||
+                mAnimationDirectionCount != aNewData.mAnimationDirectionCount ||
+                mAnimationFillModeCount != aNewData.mAnimationFillModeCount ||
+                mAnimationPlayStateCount != aNewData.mAnimationPlayStateCount ||
+                mAnimationIterationCountCount !=
+                    aNewData.mAnimationIterationCountCount ||
+                mAnimationTimelineCount != aNewData.mAnimationTimelineCount ||
+                mIMEMode != aNewData.mIMEMode ||
                 mWindowOpacity != aNewData.mWindowOpacity ||
                 mMozWindowTransform != aNewData.mMozWindowTransform)) {
     hint |= nsChangeHint_NeutralChange;
@@ -3535,4 +3524,41 @@ template <>
 nscoord StyleCalcNode::Resolve(nscoord aBasis,
                                CoordPercentageRounder aRounder) const {
   return ResolveInternal(aBasis, aRounder);
+}
+
+nsSize ContainSizeAxes::ContainSize(const nsSize& aUncontainedSize,
+                                    const WritingMode& aWM) const {
+  if (!IsAny()) {
+    return aUncontainedSize;
+  }
+  if (IsBoth()) {
+    return nsSize();
+  }
+  // At this point, we know that precisely one of our dimensions is contained.
+  const bool zeroWidth =
+      (!aWM.IsVertical() && mIContained) || (aWM.IsVertical() && mBContained);
+  if (zeroWidth) {
+    return nsSize(0, aUncontainedSize.Height());
+  }
+  return nsSize(aUncontainedSize.Width(), 0);
+}
+
+IntrinsicSize ContainSizeAxes::ContainIntrinsicSize(
+    const IntrinsicSize& aUncontainedSize, const WritingMode& aWM) const {
+  if (!IsAny()) {
+    return aUncontainedSize;
+  }
+  if (IsBoth()) {
+    return IntrinsicSize(0, 0);
+  }
+  // At this point, we know that precisely one of our dimensions is contained.
+  const bool zeroWidth =
+      (!aWM.IsVertical() && mIContained) || (aWM.IsVertical() && mBContained);
+  IntrinsicSize result(aUncontainedSize);
+  if (zeroWidth) {
+    result.width = Some(0);
+  } else {
+    result.height = Some(0);
+  }
+  return result;
 }

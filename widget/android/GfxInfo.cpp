@@ -199,7 +199,7 @@ void GfxInfo::EnsureInitialized() {
   mAdapterDescription.AppendPrintf(
       ", Manufacturer: %s", NS_LossyConvertUTF16toASCII(mManufacturer).get());
 
-  mSDKVersion = java::sdk::VERSION::SDK_INT();
+  mSDKVersion = java::sdk::Build::VERSION::SDK_INT();
   // the HARDWARE field isn't available on Android SDK < 8, but we require 9+
   // anyway.
   MOZ_ASSERT(mSDKVersion >= 8);
@@ -208,7 +208,7 @@ void GfxInfo::EnsureInitialized() {
   mAdapterDescription.AppendPrintf(
       ", Hardware: %s", NS_LossyConvertUTF16toASCII(mHardware).get());
 
-  jni::String::LocalRef release = java::sdk::VERSION::RELEASE();
+  jni::String::LocalRef release = java::sdk::Build::VERSION::RELEASE();
   mOSVersion = release->ToCString();
 
   mOSVersionInteger = 0;
@@ -691,20 +691,6 @@ nsresult GfxInfo::GetFeatureStatusImpl(
     if (isPowerVRRogue) {
       *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
       aFailureId = "FEATURE_FAILURE_POWERVR_ROGUE";
-    } else {
-      *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
-    }
-    return NS_OK;
-  }
-
-  if (aFeature == FEATURE_GPU_PROCESS) {
-    // On Android 12 the EGL context isn't correctly detached from the Surface
-    // when the process dies, meaning we are subsequently unable to create new
-    // EGL contexts. Block the GPU process on Android 12 and above until we find
-    // a solution. See bug 1762025.
-    if (mSDKVersion >= 31) {
-      *aStatus = nsIGfxInfo::FEATURE_BLOCKED_OS_VERSION;
-      aFailureId = "FEATURE_FAILURE_ANDROID_12";
     } else {
       *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
     }

@@ -94,7 +94,7 @@ void RemoteAccessibleBase<Derived>::ClearChildDoc(
 }
 
 template <class Derived>
-uint32_t RemoteAccessibleBase<Derived>::EmbeddedChildCount() const {
+uint32_t RemoteAccessibleBase<Derived>::EmbeddedChildCount() {
   size_t count = 0, kids = mChildren.Length();
   for (size_t i = 0; i < kids; i++) {
     if (mChildren[i]->IsEmbeddedObject()) {
@@ -641,6 +641,11 @@ already_AddRefed<AccAttributes> RemoteAccessibleBase<Derived>::Attributes() {
     }
   }
 
+  nsAutoString name;
+  if (Name(name) != eNameFromSubtree && !name.IsVoid()) {
+    attributes->SetAttribute(nsGkAtoms::explicit_name, true);
+  }
+
   return attributes.forget();
 }
 
@@ -695,8 +700,7 @@ template <class Derived>
 uint8_t RemoteAccessibleBase<Derived>::ActionCount() const {
   uint8_t actionCount = 0;
   if (mCachedFields) {
-    if (HasPrimaryAction() ||
-        ((IsTextLeaf() || IsImage()) && ActionAncestor())) {
+    if (HasPrimaryAction() || ActionAncestor()) {
       actionCount++;
     }
 
@@ -715,25 +719,21 @@ void RemoteAccessibleBase<Derived>::ActionNameAt(uint8_t aIndex,
   if (mCachedFields) {
     aName.Truncate();
     nsAtom* action = GetPrimaryAction();
-    if (!action && (IsTextLeaf() || IsImage())) {
-      const Accessible* actionAcc = ActionAncestor();
-      Derived* acc =
-          actionAcc ? const_cast<Accessible*>(actionAcc)->AsRemote() : nullptr;
-      if (acc) {
-        action = acc->GetPrimaryAction();
-      }
-    }
+    bool hasActionAncestor = !action && ActionAncestor();
 
     switch (aIndex) {
       case 0:
         if (action) {
           action->ToString(aName);
+        } else if (hasActionAncestor) {
+          aName.AssignLiteral("click ancestor");
         } else if (mCachedFields->HasAttribute(nsGkAtoms::longdesc)) {
           aName.AssignLiteral("showlongdesc");
         }
         break;
       case 1:
-        if (action && mCachedFields->HasAttribute(nsGkAtoms::longdesc)) {
+        if ((action || hasActionAncestor) &&
+            mCachedFields->HasAttribute(nsGkAtoms::longdesc)) {
           aName.AssignLiteral("showlongdesc");
         }
         break;
@@ -835,6 +835,11 @@ bool RemoteAccessibleBase<Derived>::HasPrimaryAction() const {
 template <class Derived>
 void RemoteAccessibleBase<Derived>::TakeFocus() const {
   Unused << mDoc->SendTakeFocus(mID);
+}
+
+template <class Derived>
+void RemoteAccessibleBase<Derived>::ScrollTo(uint32_t aHow) const {
+  Unused << mDoc->SendScrollTo(mID, aHow);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

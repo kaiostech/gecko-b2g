@@ -3759,19 +3759,18 @@ static bool PairedDumpCallback(
     EXCEPTION_POINTERS* /*unused*/, MDRawAssertionInfo* /*unused*/,
 #endif
     const phc::AddrInfo* addrInfo, bool succeeded) {
-  nsCOMPtr<nsIFile>& minidump = *static_cast<nsCOMPtr<nsIFile>*>(context);
+  XP_CHAR* path = static_cast<XP_CHAR*>(context);
+  size_t size = XP_PATH_MAX;
 
-  xpstring path;
 #ifdef XP_LINUX
-  path = descriptor.path();
+  Concat(path, descriptor.path(), &size);
 #else
-  path = dump_path;
-  path += XP_PATH_SEPARATOR;
-  path += minidump_id;
-  path += dumpFileExtension;
+  path = Concat(path, dump_path, &size);
+  path = Concat(path, XP_PATH_SEPARATOR, &size);
+  path = Concat(path, minidump_id, &size);
+  Concat(path, dumpFileExtension, &size);
 #endif
 
-  CreateFileFromPath(path, getter_AddRefs(minidump));
   return true;
 }
 
@@ -3817,7 +3816,6 @@ static mach_port_t GetChildThread(ProcessHandle childPid,
 bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
                             ThreadId aTargetBlamedThread,
                             const nsACString& aIncomingPairName,
-                            nsIFile* aIncomingDumpToPair,
                             AnnotationTable& aTargetAnnotations,
                             nsIFile** aMainDumpOut) {
   if (!GetEnabled()) {
@@ -3839,11 +3837,14 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
   dump_path = gExceptionHandler->minidump_descriptor().directory();
 #endif
 
+  // Ugly, but due to Breakpad limitations we can't allocate memory in the
+  // callback when generating a dump of the calling process.
+  XP_CHAR minidumpPath[XP_PATH_MAX] = {};
+
   // dump the target
-  nsCOMPtr<nsIFile> targetMinidump;
   if (!google_breakpad::ExceptionHandler::WriteMinidumpForChild(
           aTargetHandle, targetThread, dump_path, PairedDumpCallback,
-          static_cast<void*>(&targetMinidump)
+          static_cast<void*>(minidumpPath)
 #ifdef XP_WIN
               ,
           GetMinidumpType()
@@ -3852,26 +3853,27 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
     return false;
   }
 
-  // If aIncomingDumpToPair isn't valid, create a dump of this process.
-  nsCOMPtr<nsIFile> incomingDump;
-  if (aIncomingDumpToPair == nullptr) {
-    if (!google_breakpad::ExceptionHandler::WriteMinidump(
-            dump_path,
+  nsCOMPtr<nsIFile> targetMinidump;
+  CreateFileFromPath(xpstring(minidumpPath), getter_AddRefs(targetMinidump));
+
+  // Create a dump of this process.
+  if (!google_breakpad::ExceptionHandler::WriteMinidump(
+          dump_path,
 #ifdef XP_MACOSX
-            true,
+          true,
 #endif
-            PairedDumpCallback, static_cast<void*>(&incomingDump)
+          PairedDumpCallback, static_cast<void*>(minidumpPath)
 #ifdef XP_WIN
-                                    ,
-            GetMinidumpType()
+                                  ,
+          GetMinidumpType()
 #endif
-                )) {
-      targetMinidump->Remove(false);
-      return false;
-    }
-  } else {
-    incomingDump = aIncomingDumpToPair;
+              )) {
+    targetMinidump->Remove(false);
+    return false;
   }
+
+  nsCOMPtr<nsIFile> incomingDump;
+  CreateFileFromPath(xpstring(minidumpPath), getter_AddRefs(incomingDump));
 
   RenameAdditionalHangMinidump(incomingDump, targetMinidump, aIncomingPairName);
 
@@ -3890,43 +3892,6 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
   }
 
   targetMinidump.forget(aMainDumpOut);
-
-  return true;
-}
-
-bool CreateAdditionalChildMinidump(ProcessHandle childPid,
-                                   ThreadId childBlamedThread,
-                                   nsIFile* parentMinidump,
-                                   const nsACString& name) {
-  if (!GetEnabled()) return false;
-
-#ifdef XP_MACOSX
-  mach_port_t childThread = GetChildThread(childPid, childBlamedThread);
-#else
-  ThreadId childThread = childBlamedThread;
-#endif
-
-  xpstring dump_path;
-#ifndef XP_LINUX
-  dump_path = gExceptionHandler->dump_path();
-#else
-  dump_path = gExceptionHandler->minidump_descriptor().directory();
-#endif
-
-  // dump the child
-  nsCOMPtr<nsIFile> childMinidump;
-  if (!google_breakpad::ExceptionHandler::WriteMinidumpForChild(
-          childPid, childThread, dump_path, PairedDumpCallback,
-          static_cast<void*>(&childMinidump)
-#ifdef XP_WIN
-              ,
-          GetMinidumpType()
-#endif
-              )) {
-    return false;
-  }
-
-  RenameAdditionalHangMinidump(childMinidump, parentMinidump, name);
 
   return true;
 }

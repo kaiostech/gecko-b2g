@@ -60,9 +60,9 @@ bool UtilityProcessHost::Launch(StringVector aExtraOpts) {
   MOZ_ASSERT(mLaunchPhase == LaunchPhase::Unlaunched);
   MOZ_ASSERT(!mUtilityProcessParent);
 
-  mPrefSerializer = MakeUnique<ipc::SharedPreferenceSerializer>(
-      dom::ContentParent::ShouldSyncPreference);
-  if (!mPrefSerializer->SerializeToSharedMemory()) {
+  mPrefSerializer = MakeUnique<ipc::SharedPreferenceSerializer>();
+  if (!mPrefSerializer->SerializeToSharedMemory(GeckoProcessType_Utility,
+                                                /* remoteType */ ""_ns)) {
     return false;
   }
   mPrefSerializer->AddSharedPrefCmdLineArgs(*this, aExtraOpts);
@@ -141,7 +141,7 @@ RefPtr<GenericNonExclusivePromise> UtilityProcessHost::LaunchPromise() {
   return mLaunchPromise;
 }
 
-void UtilityProcessHost::OnChannelConnected(int32_t peer_pid) {
+void UtilityProcessHost::OnChannelConnected(base::ProcessId peer_pid) {
   MOZ_ASSERT(!NS_IsMainThread());
 
   GeckoChildProcessHost::OnChannelConnected(peer_pid);

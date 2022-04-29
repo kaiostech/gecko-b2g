@@ -24,6 +24,15 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 });
 
 /**
+ * @typedef {object} Recommendation
+ *   A snapshot recommendation with an associated score.
+ * @property {Snapshot} snapshot
+ *   The recommended snapshot.
+ * @property {number} score
+ *   The score for this snapshot.
+ */
+
+/**
  * @typedef {object} SnapshotCriteria
  *   A set of tests to check if a set of interactions are a snapshot.
  * @property {string} property
@@ -148,6 +157,11 @@ const Snapshots = new (class Snapshots {
     if (!PlacesPreviews.enabled) {
       PageThumbs.addExpirationFilter(this);
     }
+
+    this.recommendationSources = {
+      Overlapping: this.#queryOverlapping.bind(this),
+      CommonReferrer: this.#queryCommonReferrer.bind(this),
+    };
   }
 
   #notify(topic, urls) {
@@ -396,33 +410,58 @@ const Snapshots = new (class Snapshots {
   }
 
   /**
-   * Deletes a snapshot, creating a tombstone. Note, the caller is expected
-   * to take account of the userPersisted value for a Snapshot when appropriate.
+   * Deletes one or more snapshots.
+   * By default this creates a tombstone rather than removing the entry, so that
+   * heuristics can take into account user removed snapshots.
+   * Note, the caller is expected to take account of the userPersisted value
+   * for a Snapshot when appropriate.
    *
-   * @param {string} url
-   *   The url of the snapshot to delete.
+   * @param {string|Array<string>} urls
+   *   The url of the snapshot to delete, or an Array of urls.
+   * @param {boolean} removeFromStore
+   *   Whether the snapshot should actually be removed rather than tombston-ed.
    */
-  async delete(url) {
-    url = this.stripFragments(url);
-    await PlacesUtils.withConnectionWrapper("Snapshots: delete", async db => {
-      let placeId = (
-        await db.executeCached(
+  async delete(urls, removeFromStore = false) {
+    if (!Array.isArray(urls)) {
+      urls = [urls];
+    }
+    urls = urls.map(this.stripFragments);
+
+    let placeIdsSQLFragment = `
+    SELECT id FROM moz_places
+    WHERE url_hash IN (${PlacesUtils.sqlBindPlaceholders(
+      urls,
+      "hash(",
+      ")"
+    )}) AND url IN (${PlacesUtils.sqlBindPlaceholders(urls)})`;
+    let queryArgs = removeFromStore
+      ? [
+          `DELETE FROM moz_places_metadata_snapshots
+         WHERE place_id IN (${placeIdsSQLFragment})
+         RETURNING place_id`,
+          [...urls, ...urls],
+        ]
+      : [
           `UPDATE moz_places_metadata_snapshots
-           SET removed_at = :removedAt
-           WHERE place_id = (SELECT id FROM moz_places WHERE url_hash = hash(:url) AND url = :url)
-           RETURNING place_id`,
-          { removedAt: Date.now(), url }
-        )
-      )[0].getResultByName("place_id");
+         SET removed_at = ?
+         WHERE place_id IN (${placeIdsSQLFragment})
+         RETURNING place_id`,
+          [Date.now(), ...urls, ...urls],
+        ];
+
+    await PlacesUtils.withConnectionWrapper("Snapshots: delete", async db => {
+      let placeIds = (await db.executeCached(...queryArgs)).map(r =>
+        r.getResultByName("place_id")
+      );
       // Remove orphan page data.
       await db.executeCached(
         `DELETE FROM moz_places_metadata_snapshots_extra
-         WHERE place_id = :placeId`,
-        { placeId }
+         WHERE place_id IN (${PlacesUtils.sqlBindPlaceholders(placeIds)})`,
+        placeIds
       );
     });
 
-    this.#notify("places-snapshots-deleted", [url]);
+    this.#notify("places-snapshots-deleted", urls);
   }
 
   /**
@@ -480,9 +519,18 @@ const Snapshots = new (class Snapshots {
    *   Restrict the snapshots to those with a particular type of page data available.
    * @param {number} [options.group]
    *   Restrict the snapshots to those within a particular group.
+   * @param {boolean} [includeSnapshotsInUserManagedGroups]
+   *   Whether snapshots that are in a user managed group should be included.
+   *   Snapshots that are part of multiple groups are excluded even if only one
+   *   of the groups is user managed.
+   *   This is ignored if a specific .group id is passed. Defaults to true.
    * @param {boolean} [options.includeHiddenInGroup]
    *   Only applies when querying a particular group. Pass true to include
    *   snapshots that are hidden in the group.
+   * @param {boolean} [options.includeUserPersisted]
+   *   Whether to include user persisted snapshots.
+   * @param {number} [options.lastInteractionBefore]
+   *   Restrict to snaphots whose last interaction was before the given time.
    * @param {boolean} [options.sortDescending]
    *   Whether or not to sortDescending. Defaults to true.
    * @param {string} [options.sortBy]
@@ -496,7 +544,10 @@ const Snapshots = new (class Snapshots {
     includeTombstones = false,
     type = undefined,
     group = undefined,
+    includeSnapshotsInUserManagedGroups = true,
     includeHiddenInGroup = false,
+    includeUserPersisted = true,
+    lastInteractionBefore = undefined,
     sortDescending = true,
     sortBy = "last_interaction_at",
   } = {}) {
@@ -511,6 +562,15 @@ const Snapshots = new (class Snapshots {
       clauses.push("removed_at IS NULL");
     }
 
+    if (!includeUserPersisted) {
+      clauses.push("user_persisted = :user_persisted");
+      bindings.user_persisted = this.USER_PERSISTED.NO;
+    }
+    if (lastInteractionBefore) {
+      clauses.push("last_interaction_at < :last_interaction_before");
+      bindings.last_interaction_before = lastInteractionBefore;
+    }
+
     if (type) {
       clauses.push("type = :type");
       bindings.type = type;
@@ -519,12 +579,20 @@ const Snapshots = new (class Snapshots {
     if (group) {
       clauses.push("group_id = :group");
       if (!includeHiddenInGroup) {
-        clauses.push("g.hidden = 0");
+        clauses.push("gs.hidden = 0");
       }
       bindings.group = group;
       joins.push(
-        "LEFT JOIN moz_places_metadata_groups_to_snapshots g USING(place_id)"
+        "LEFT JOIN moz_places_metadata_groups_to_snapshots gs USING(place_id)"
       );
+    } else if (!includeSnapshotsInUserManagedGroups) {
+      // TODO: if we change the way to define user managed groups, we should
+      // update this condition.
+      clauses.push(`NOT EXISTS(
+        SELECT 1 FROM moz_places_metadata_snapshots_groups g
+        JOIN moz_places_metadata_groups_to_snapshots gs ON g.id = gs.group_id
+        WHERE gs.place_id = h.id AND builder == 'user'
+      )`);
     }
 
     if (limit != -1) {
@@ -543,7 +611,7 @@ const Snapshots = new (class Snapshots {
              h.visit_count
       FROM moz_places_metadata_snapshots s
       JOIN moz_places h ON h.id = s.place_id
-      LEFT JOIN moz_places_metadata_snapshots_extra e ON e.place_id = s.place_id
+      LEFT JOIN moz_places_metadata_snapshots_extra e USING(place_id)
       ${joins.join(" ")}
       ${whereStatement}
       GROUP BY s.place_id
@@ -587,15 +655,15 @@ const Snapshots = new (class Snapshots {
    *   For example, if a user visited Site A two days ago, we would generate a list of snapshots that were visited within an hour of that visit.
    *   Site A may have also been visited four days ago, we would like to see what websites were browsed then.
    *
-   * @param {string} context_url
-   *   the url that we're collection snapshots whose interactions overlapped
-   * @returns {Snapshot[]}
+   * @param {SelectionContext} selectionContext
+   *   the selection context to inform recommendations
+   * @returns {Recommendation[]}
    *   Returns array of overlapping snapshots in order of descending overlappingVisitScore (Calculated as 1.0 to 0.0, as the overlap gap goes to snapshot_overlap_limit)
    */
-  async queryOverlapping(context_url) {
-    let current_id = await this.queryPlaceIdFromUrl(context_url);
+  async #queryOverlapping(selectionContext) {
+    let current_id = await this.queryPlaceIdFromUrl(selectionContext.url);
     if (current_id == -1) {
-      logConsole.debug(`PlaceId not found for url ${context_url}`);
+      logConsole.debug(`PlaceId not found for url ${selectionContext.url}`);
       return [];
     }
 
@@ -640,23 +708,24 @@ const Snapshots = new (class Snapshots {
       return [];
     }
 
-    return rows.map(row =>
-      this.#translateRow(row, { includeOverlappingVisitScore: true })
-    );
+    return rows.map(row => ({
+      snapshot: this.#translateRow(row),
+      score: row.getResultByName("overlappingVisitScore"),
+    }));
   }
 
   /**
    * Queries snapshots which have interactions sharing a common referrer with the context url's interactions
    *
-   * @param {string} context_url
-   *   the url that we're collecting snapshots for
-   * @returns {Snapshot[]}
+   * @param {SelectionContext} selectionContext
+   *   the selection context to inform recommendations
+   * @returns {Recommendation[]}
    *   Returns array of snapshots with the common referrer
    */
-  async queryCommonReferrer(context_url) {
+  async #queryCommonReferrer(selectionContext) {
     let db = await PlacesUtils.promiseDBConnection();
 
-    let context_place_id = await this.queryPlaceIdFromUrl(context_url);
+    let context_place_id = await this.queryPlaceIdFromUrl(selectionContext.url);
     if (context_place_id == -1) {
       return [];
     }
@@ -681,11 +750,10 @@ const Snapshots = new (class Snapshots {
       { context_place_id }
     );
 
-    return rows.map(row => {
-      let snapshot = this.#translateRow(row);
-      snapshot.commonReferrerScore = 1.0;
-      return snapshot;
-    });
+    return rows.map(row => ({
+      snapshot: this.#translateRow(row),
+      score: 1.0,
+    }));
   }
 
   /**
@@ -693,12 +761,9 @@ const Snapshots = new (class Snapshots {
    *
    * @param {object} row
    *   The database row to translate.
-   * @param {object} [options]
-   * @param {boolean} [options.includeOverlappingVisitScore]
-   *   Whether to retrieve the overlappingVisitScore field
    * @returns {Snapshot}
    */
-  #translateRow(row, { includeOverlappingVisitScore = false } = {}) {
+  #translateRow(row) {
     // Maps data type to data.
     let pageData;
     let pageDataStr = row.getResultByName("page_data");
@@ -709,11 +774,6 @@ const Snapshots = new (class Snapshots {
       } catch (e) {
         logConsole.error(e);
       }
-    }
-
-    let overlappingVisitScore = 0;
-    if (includeOverlappingVisitScore) {
-      overlappingVisitScore = row.getResultByName("overlappingVisitScore");
     }
 
     let snapshot = {
@@ -732,7 +792,6 @@ const Snapshots = new (class Snapshots {
       ),
       documentType: row.getResultByName("document_type"),
       userPersisted: row.getResultByName("user_persisted"),
-      overlappingVisitScore,
       pageData: pageData ?? new Map(),
       visitCount: row.getResultByName("visit_count"),
     };

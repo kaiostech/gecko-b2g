@@ -30,6 +30,7 @@ import android.view.DisplayCutout;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
+import android.view.SurfaceControl;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
@@ -101,7 +102,11 @@ public class GeckoView extends FrameLayout {
       onGlobalLayout();
       if (GeckoView.this.mSurfaceWrapper != null) {
         final SurfaceViewWrapper wrapper = GeckoView.this.mSurfaceWrapper;
-        mDisplay.surfaceChanged(wrapper.getSurface(), wrapper.getWidth(), wrapper.getHeight());
+        mDisplay.surfaceChanged(
+            new GeckoDisplay.SurfaceInfo.Builder(wrapper.getSurface())
+                .surfaceControl(wrapper.getSurfaceControl())
+                .size(wrapper.getWidth(), wrapper.getHeight())
+                .build());
         mDisplay.setDynamicToolbarMaxHeight(mDynamicToolbarMaxHeight);
         GeckoView.this.setActive(true);
       }
@@ -121,9 +126,17 @@ public class GeckoView extends FrameLayout {
     }
 
     @Override // SurfaceListener
-    public void onSurfaceChanged(final Surface surface, final int width, final int height) {
+    public void onSurfaceChanged(
+        final Surface surface,
+        @Nullable final SurfaceControl surfaceControl,
+        final int width,
+        final int height) {
       if (mDisplay != null) {
-        mDisplay.surfaceChanged(surface, width, height);
+        mDisplay.surfaceChanged(
+            new GeckoDisplay.SurfaceInfo.Builder(surface)
+                .surfaceControl(surfaceControl)
+                .size(width, height)
+                .build());
         mDisplay.setDynamicToolbarMaxHeight(mDynamicToolbarMaxHeight);
         if (!mValid) {
           GeckoView.this.setActive(true);
@@ -323,6 +336,10 @@ public class GeckoView extends FrameLayout {
     }
 
     addView(mSurfaceWrapper.getView());
+
+    if (mSession != null) {
+      mSession.getMagnifier().setView(mSurfaceWrapper.getView());
+    }
   }
 
   /**
@@ -428,6 +445,10 @@ public class GeckoView extends FrameLayout {
       mSession.setAutofillDelegate(null);
     }
 
+    if (mSession.getMagnifier().getView() == mSurfaceWrapper.getView()) {
+      session.getMagnifier().setView(null);
+    }
+
     if (isFocused()) {
       mSession.setFocused(false);
     }
@@ -523,6 +544,10 @@ public class GeckoView extends FrameLayout {
 
     if (mAutofillEnabled) {
       session.setAutofillDelegate(mAutofillDelegate);
+    }
+
+    if (session.getMagnifier().getView() == null) {
+      session.getMagnifier().setView(mSurfaceWrapper.getView());
     }
 
     if (isFocused()) {

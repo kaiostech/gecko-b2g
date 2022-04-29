@@ -13,6 +13,7 @@
 #include "mozilla/TextUtils.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 
 #include "jsfriendapi.h"
@@ -1769,14 +1770,14 @@ struct NumericElement {
 static bool ComparatorNumericLeftMinusRight(const NumericElement& a,
                                             const NumericElement& b,
                                             bool* lessOrEqualp) {
-  *lessOrEqualp = (a.dv <= b.dv);
+  *lessOrEqualp = std::isunordered(a.dv, b.dv) || (a.dv <= b.dv);
   return true;
 }
 
 static bool ComparatorNumericRightMinusLeft(const NumericElement& a,
                                             const NumericElement& b,
                                             bool* lessOrEqualp) {
-  *lessOrEqualp = (b.dv <= a.dv);
+  *lessOrEqualp = std::isunordered(a.dv, b.dv) || (b.dv <= a.dv);
   return true;
 }
 
@@ -2366,7 +2367,11 @@ void js::ArrayShiftMoveElements(ArrayObject* arr) {
 
   if (!arr->tryShiftDenseElements(1)) {
     arr->moveDenseElements(0, 1, initlen - 1);
+    arr->setDenseInitializedLength(initlen - 1);
   }
+
+  MOZ_ASSERT(arr->getDenseInitializedLength() == initlen - 1);
+  arr->setLength(initlen - 1);
 }
 
 static inline void SetInitializedLength(JSContext* cx, NativeObject* obj,
@@ -3725,6 +3730,50 @@ JSObject* js::ArraySliceDense(JSContext* cx, HandleObject obj, int32_t begin,
     return nullptr;
   }
   return &argv[0].toObject();
+}
+
+JSObject* js::ArgumentsSliceDense(JSContext* cx, HandleObject obj,
+                                  int32_t begin, int32_t end,
+                                  HandleObject result) {
+  MOZ_ASSERT(obj->is<ArgumentsObject>());
+  MOZ_ASSERT(IsArraySpecies(cx, obj));
+
+  Handle<ArgumentsObject*> argsobj = obj.as<ArgumentsObject>();
+  MOZ_ASSERT(!argsobj->hasOverriddenLength());
+  MOZ_ASSERT(!argsobj->hasOverriddenElement());
+
+  uint32_t length = argsobj->initialLength();
+  uint32_t actualBegin = NormalizeSliceTerm(begin, length);
+  uint32_t actualEnd = NormalizeSliceTerm(end, length);
+
+  if (actualBegin > actualEnd) {
+    actualBegin = actualEnd;
+  }
+  uint32_t count = actualEnd - actualBegin;
+
+  if (result) {
+    Handle<ArrayObject*> resArray = result.as<ArrayObject>();
+    MOZ_ASSERT(resArray->getDenseInitializedLength() == 0);
+    MOZ_ASSERT(resArray->length() == 0);
+
+    if (count > 0) {
+      if (!resArray->ensureElements(cx, count)) {
+        return nullptr;
+      }
+      resArray->setDenseInitializedLength(count);
+      resArray->setLength(count);
+
+      for (uint32_t index = 0; index < count; index++) {
+        const Value& v = argsobj->element(actualBegin + index);
+        resArray->initDenseElement(index, v);
+      }
+    }
+
+    return resArray;
+  }
+
+  // Slower path if the JIT wasn't able to allocate an object inline.
+  return SliceArguments(cx, argsobj, actualBegin, count);
 }
 
 static bool array_isArray(JSContext* cx, unsigned argc, Value* vp) {

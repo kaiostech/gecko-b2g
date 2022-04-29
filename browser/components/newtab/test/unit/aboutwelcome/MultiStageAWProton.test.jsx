@@ -27,9 +27,8 @@ describe("MultiStageAboutWelcomeProton module", () => {
       assert.ok(wrapper.exists());
     });
 
-    it("should render section left on first screen", () => {
+    it("should render section left for corner positioned screens", () => {
       const SCREEN_PROPS = {
-        order: 0,
         content: {
           position: "corner",
           title: "test title",
@@ -41,6 +40,20 @@ describe("MultiStageAboutWelcomeProton module", () => {
       assert.equal(wrapper.find(".welcome-text h1").text(), "test title");
       assert.equal(wrapper.find(".section-left h1").text(), "test subtitle");
       assert.equal(wrapper.find("main").prop("pos"), "corner");
+    });
+
+    it("should render with no section left for center positioned screens", () => {
+      const SCREEN_PROPS = {
+        content: {
+          position: "center",
+          title: "test title",
+        },
+      };
+      const wrapper = mount(<MultiStageProtonScreen {...SCREEN_PROPS} />);
+      assert.ok(wrapper.exists());
+      assert.equal(wrapper.find(".section-left").exists(), false);
+      assert.equal(wrapper.find(".welcome-text h1").text(), "test title");
+      assert.equal(wrapper.find("main").prop("pos"), "center");
     });
   });
 
@@ -127,7 +140,6 @@ describe("MultiStageAboutWelcomeProton module", () => {
         screens: [
           {
             id: "AW_PIN_FIREFOX",
-            order: 0,
             content: {
               position: "corner",
               help_text: {
@@ -210,26 +222,21 @@ describe("MultiStageAboutWelcomeProton module", () => {
       const { screens } = await AboutWelcomeDefaults.prepareContentForReact({
         screens: [
           {
-            order: 0,
             content: {
               tiles: { type: "theme" },
             },
           },
-          { id: "hello", order: 1 },
+          { id: "hello" },
           {
-            order: 2,
             content: {
               tiles: { type: "theme" },
             },
           },
-          { id: "world", order: 3 },
+          { id: "world" },
         ],
       });
 
-      assert.deepEqual(screens, [
-        { id: "hello", order: 0 },
-        { id: "world", order: 1 },
-      ]);
+      assert.deepEqual(screens, [{ id: "hello" }, { id: "world" }]);
     });
     it("shouldn't remove colorway screens on win7", async () => {
       sandbox.stub(AppConstants, "isPlatformAndVersionAtMost").returns(true);
@@ -237,31 +244,28 @@ describe("MultiStageAboutWelcomeProton module", () => {
       const { screens } = await AboutWelcomeDefaults.prepareContentForReact({
         screens: [
           {
-            order: 0,
             content: {
               tiles: { type: "colorway" },
             },
           },
-          { id: "hello", order: 1 },
+          { id: "hello" },
           {
-            order: 2,
             content: {
               tiles: { type: "theme" },
             },
           },
-          { id: "world", order: 3 },
+          { id: "world" },
         ],
       });
 
       assert.deepEqual(screens, [
         {
-          order: 0,
           content: {
             tiles: { type: "colorway" },
           },
         },
-        { id: "hello", order: 1 },
-        { id: "world", order: 2 },
+        { id: "hello" },
+        { id: "world" },
       ]);
     });
   });

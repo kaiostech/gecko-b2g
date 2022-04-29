@@ -3077,10 +3077,6 @@ void MacroAssembler::setupAlignedABICall() {
   MOZ_ASSERT(!IsCompilingWasm(), "wasm should use setupWasmABICall");
   setupNativeABICall();
   dynamicAlignment_ = false;
-
-#if defined(JS_CODEGEN_ARM64)
-  MOZ_CRASH("Not supported on arm64");
-#endif
 }
 
 void MacroAssembler::passABIArg(const MoveOperand& from, MoveOp::Type type) {
@@ -3656,6 +3652,16 @@ void MacroAssembler::loadFunctionName(Register func, Register output,
   bind(&done);
 }
 
+void MacroAssembler::assertFunctionIsExtended(Register func) {
+#ifdef DEBUG
+  Label extended;
+  branchTestFunctionFlags(func, FunctionFlags::EXTENDED, Assembler::NonZero,
+                          &extended);
+  assumeUnreachable("Function is not extended");
+  bind(&extended);
+#endif
+}
+
 void MacroAssembler::branchTestType(Condition cond, Register tag,
                                     JSValueType type, Label* label) {
   switch (type) {
@@ -3742,15 +3748,6 @@ void MacroAssembler::wasmTrap(wasm::Trap trap,
                 currentOffset() - trapOffset == WasmTrapInstructionLength);
 
   append(trap, wasm::TrapSite(trapOffset, bytecodeOffset));
-}
-
-void MacroAssembler::wasmInterruptCheck(Register tls,
-                                        wasm::BytecodeOffset bytecodeOffset) {
-  Label ok;
-  branch32(Assembler::Equal, Address(tls, wasm::Instance::offsetOfInterrupt()),
-           Imm32(0), &ok);
-  wasmTrap(wasm::Trap::CheckInterrupt, bytecodeOffset);
-  bind(&ok);
 }
 
 #ifdef ENABLE_WASM_EXCEPTIONS
@@ -3926,7 +3923,8 @@ CodeOffset MacroAssembler::asmCallIndirect(const wasm::CallSiteDesc& desc,
 
 void MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
                                       const wasm::CalleeDesc& callee,
-                                      bool needsBoundsCheck,
+                                      Label* boundsCheckFailedLabel,
+                                      Label* nullCheckFailedLabel,
                                       mozilla::Maybe<uint32_t> tableSize,
                                       CodeOffset* fastCallOffset,
                                       CodeOffset* slowCallOffset) {
@@ -3948,18 +3946,16 @@ void MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
   // spilled and re-loaded before the next call_indirect, or would be abandoned
   // because we could not trust that a hoisted value would not have changed.)
 
-  if (needsBoundsCheck) {
-    Label ok;
+  if (boundsCheckFailedLabel) {
     if (tableSize.isSome()) {
-      branch32(Assembler::Condition::Below, index, Imm32(*tableSize), &ok);
+      branch32(Assembler::Condition::AboveOrEqual, index, Imm32(*tableSize),
+               boundsCheckFailedLabel);
     } else {
-      branch32(Assembler::Condition::Above,
+      branch32(Assembler::Condition::BelowOrEqual,
                Address(InstanceReg, wasm::Instance::offsetOfGlobalArea() +
                                         callee.tableLengthGlobalDataOffset()),
-               index, &ok);
+               index, boundsCheckFailedLabel);
     }
-    wasmTrap(wasm::Trap::OutOfBounds, trapOffset);
-    bind(&ok);
   }
 
   // Write the functype-id into the ABI functype-id register.
@@ -4009,12 +4005,12 @@ void MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
 #ifdef WASM_HAS_HEAPREG
   // Use the null pointer exception resulting from loading HeapReg from a null
   // Tls to handle a call to a null slot.
+  MOZ_ASSERT(nullCheckFailedLabel == nullptr);
   loadWasmPinnedRegsFromInstance(mozilla::Some(trapOffset));
 #else
-  Label nonNull;
-  branchTestPtr(Assembler::NonZero, InstanceReg, InstanceReg, &nonNull);
-  wasmTrap(wasm::Trap::IndirectCallToNull, trapOffset);
-  bind(&nonNull);
+  MOZ_ASSERT(nullCheckFailedLabel != nullptr);
+  branchTestPtr(Assembler::Zero, InstanceReg, InstanceReg,
+                nullCheckFailedLabel);
 
   loadWasmPinnedRegsFromInstance();
 #endif
@@ -4442,18 +4438,14 @@ void MacroAssembler::packedArrayShift(Register array, ValueOperand output,
   Address elementAddr(temp1, 0);
   loadValue(elementAddr, output);
 
-  // Pre-barrier the element because we're removing it from the array.
-  EmitPreBarrier(*this, elementAddr, MIRType::Value);
-
-  // Move the other elements.
+  // Move the other elements and update the initializedLength/length. This will
+  // also trigger pre-barriers.
   {
-    // Ensure output and temp2 are in volatileRegs. Don't preserve temp1.
+    // Ensure output is in volatileRegs. Don't preserve temp1 and temp2.
     volatileRegs.takeUnchecked(temp1);
+    volatileRegs.takeUnchecked(temp2);
     if (output.hasVolatileReg()) {
       volatileRegs.addUnchecked(output);
-    }
-    if (temp2.volatile_()) {
-      volatileRegs.addUnchecked(temp2);
     }
 
     PushRegsInMask(volatileRegs);
@@ -4464,15 +4456,7 @@ void MacroAssembler::packedArrayShift(Register array, ValueOperand output,
     callWithABI<Fn, ArrayShiftMoveElements>();
 
     PopRegsInMask(volatileRegs);
-
-    // Reload the elements. The call may have updated it.
-    loadPtr(Address(array, NativeObject::offsetOfElements()), temp1);
   }
-
-  // Update length and initializedLength.
-  sub32(Imm32(1), temp2);
-  store32(temp2, lengthAddr);
-  store32(temp2, initLengthAddr);
 
   bind(&done);
 }

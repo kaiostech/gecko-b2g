@@ -38,7 +38,6 @@
 #include "mozilla/layers/APZCCallbackHelper.h"
 #include "mozilla/layers/CompositorOptions.h"
 #include "mozilla/layers/GeckoContentControllerTypes.h"
-#include "nsITopLevelNavigationDelegate.h"
 #include "mozilla/dom/ipc/IdType.h"
 #include "AudioChannelService.h"
 #include "PuppetWidget.h"
@@ -87,9 +86,7 @@ class TabGroup;
 class ClonedMessageData;
 class CoalescedMouseData;
 class CoalescedWheelData;
-class ContentSessionStore;
-class SessionStoreChangeListener;
-class TabListener;
+class SessionStoreChild;
 class RequestData;
 class WebProgressData;
 
@@ -397,8 +394,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                                                 aApzResponse);
   }
 
-  mozilla::ipc::IPCResult RecvUpdateEpoch(const uint32_t& aEpoch);
-
   mozilla::ipc::IPCResult RecvUpdateSHistory();
 
   mozilla::ipc::IPCResult RecvNativeSynthesisResponse(
@@ -694,7 +689,11 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     mCancelContentJSEpoch = aEpoch;
   }
 
-  bool UpdateSessionStore();
+  void UpdateSessionStore();
+
+  mozilla::dom::SessionStoreChild* GetSessionStoreChild() {
+    return mSessionStoreChild;
+  }
 
 #ifdef XP_WIN
   // Check if the window this BrowserChild is associated with supports
@@ -807,8 +806,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                                        nsIRequest* aRequest,
                                        WebProgressData& aWebProgressData,
                                        RequestData& aRequestData);
-  already_AddRefed<nsITopLevelNavigationDelegate>
-  GetTopLevelNavigationDelegate();
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsresult UpdateRemotePrintSettings(const embedding::PrintData& aPrintData);
@@ -927,8 +924,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   AutoTArray<bool, NUMBER_OF_AUDIO_CHANNELS> mAudioChannelsActive;
 
   RefPtr<layers::IAPZCTreeManager> mApzcTreeManager;
-  RefPtr<TabListener> mSessionStoreListener;
-  RefPtr<SessionStoreChangeListener> mSessionStoreChangeListener;
+  RefPtr<SessionStoreChild> mSessionStoreChild;
 
   // The most recently seen layer observer epoch in RecvSetDocShellIsActive.
   layers::LayersObserverEpoch mLayersObserverEpoch;

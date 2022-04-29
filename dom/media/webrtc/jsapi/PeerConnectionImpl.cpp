@@ -695,7 +695,7 @@ class ConfigureCodec {
             }
           }
           videoCodec.mConstraints.maxFs = mVP8MaxFs;
-          videoCodec.mConstraints.maxFps = mVP8MaxFr;
+          videoCodec.mConstraints.maxFps = Some(mVP8MaxFr);
         }
 
         if (mUseTmmbr) {
@@ -1182,27 +1182,29 @@ RefPtr<dom::Promise> PeerConnectionImpl::JSOperation::CallImpl() {
   return op->Call();
 }
 
-dom::Promise* PeerConnectionImpl::Chain(dom::ChainedOperation& aOperation) {
+already_AddRefed<dom::Promise> PeerConnectionImpl::Chain(
+    dom::ChainedOperation& aOperation) {
   MOZ_RELEASE_ASSERT(!mChainingOperation);
   mChainingOperation = true;
   RefPtr<Operation> operation = new JSOperation(this, aOperation);
-  auto* promise = Chain(operation);
+  RefPtr<Promise> promise = Chain(operation);
   mChainingOperation = false;
-  return promise;
+  return promise.forget();
 }
 
 // This is kinda complicated, but it is what the spec requires us to do. The
 // core of what makes this complicated is the requirement that |aOperation| be
 // run _immediately_ (without any Promise.Then!) if the operations chain is
 // empty.
-dom::Promise* PeerConnectionImpl::Chain(const RefPtr<Operation>& aOperation) {
+already_AddRefed<dom::Promise> PeerConnectionImpl::Chain(
+    const RefPtr<Operation>& aOperation) {
   // If connection.[[IsClosed]] is true, return a promise rejected with a newly
   // created InvalidStateError.
   if (IsClosed()) {
     CSFLogDebug(LOGTAG, "%s:%d: Peer connection is closed", __FILE__, __LINE__);
     RefPtr<dom::Promise> error = MakePromise();
     error->MaybeRejectWithInvalidStateError("Peer connection is closed");
-    return error;
+    return error.forget();
   }
 
   // Append operation to [[Operations]].
@@ -1214,7 +1216,7 @@ dom::Promise* PeerConnectionImpl::Chain(const RefPtr<Operation>& aOperation) {
   }
 
   // This is the promise p from https://w3c.github.io/webrtc-pc/#dfn-chain
-  return aOperation->GetPromise();
+  return do_AddRef(aOperation->GetPromise());
 }
 
 void PeerConnectionImpl::RunNextOperation() {
@@ -1660,35 +1662,32 @@ PeerConnectionImpl::SetRemoteDescription(int32_t action, const char* aSDP) {
 
 already_AddRefed<dom::Promise> PeerConnectionImpl::GetStats(
     MediaStreamTrack* aSelector) {
-  if (NS_FAILED(CheckApiState(false))) {
-    return nullptr;
-  }
-
   if (!mWindow) {
-    return nullptr;
+    MOZ_CRASH("Cannot create a promise without a window!");
   }
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
   ErrorResult rv;
   RefPtr<Promise> promise = Promise::Create(global, rv);
   if (NS_WARN_IF(rv.Failed())) {
-    rv.StealNSResult();
-    return nullptr;
+    MOZ_CRASH("Failed to create a promise!");
   }
 
-  GetStats(aSelector, false)
-      ->Then(
-          GetMainThreadSerialEventTarget(), __func__,
-          [promise,
-           window = mWindow](UniquePtr<dom::RTCStatsReportInternal>&& aReport) {
-            RefPtr<RTCStatsReport> report(new RTCStatsReport(window));
-            report->Incorporate(*aReport);
-            promise->MaybeResolve(std::move(report));
-          },
-          [promise, window = mWindow](nsresult aError) {
-            RefPtr<RTCStatsReport> report(new RTCStatsReport(window));
-            promise->MaybeResolve(std::move(report));
-          });
+  if (!IsClosed()) {
+    GetStats(aSelector, false)
+        ->Then(
+            GetMainThreadSerialEventTarget(), __func__,
+            [promise, window = mWindow](
+                UniquePtr<dom::RTCStatsReportInternal>&& aReport) {
+              RefPtr<RTCStatsReport> report(new RTCStatsReport(window));
+              report->Incorporate(*aReport);
+              promise->MaybeResolve(std::move(report));
+            },
+            [promise, window = mWindow](nsresult aError) {
+              RefPtr<RTCStatsReport> report(new RTCStatsReport(window));
+              promise->MaybeResolve(std::move(report));
+            });
+  }
 
   return promise.forget();
 }

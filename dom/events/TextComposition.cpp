@@ -105,44 +105,63 @@ void TextComposition::OnCharacterDataChanged(
   // If the change ends before the composition string, we need only to adjust
   // the start offset.
   if (aInfo.mChangeEnd <= mCompositionStartOffsetInTextNode) {
+    MOZ_ASSERT(aInfo.LengthOfRemovedText() <=
+               mCompositionStartOffsetInTextNode);
     mCompositionStartOffsetInTextNode -= aInfo.LengthOfRemovedText();
     mCompositionStartOffsetInTextNode += aInfo.mReplaceLength;
     return;
   }
 
-  // If the change starts in the composition string, we should shrink our
-  // storing range to avoid deleting outside composition string.
-  if (aInfo.mChangeStart >= mCompositionStartOffsetInTextNode) {
-    const uint32_t changeStartInCompositionString =
-        aInfo.mChangeStart - mCompositionStartOffsetInTextNode;
-    const uint32_t removedLengthInCompositionString =
-        aInfo.mChangeEnd <=
-                mCompositionStartOffsetInTextNode + mCompositionLengthInTextNode
-            ? aInfo.mChangeEnd - changeStartInCompositionString
-            : mCompositionLengthInTextNode - changeStartInCompositionString;
-    // Include the new string into the range to be replaced with new composition
-    // string if it's inserted middle of the composition string.
-    const uint32_t insertedLengthInCompositionString =
-        aInfo.mChangeEnd < mCompositionStartOffsetInTextNode
-            ? aInfo.mReplaceLength
-            : 0u;
-    mCompositionLengthInTextNode -= removedLengthInCompositionString;
-    mCompositionLengthInTextNode += insertedLengthInCompositionString;
+  // If this is caused by a splitting text node, the composition string
+  // may be split out to the new right node.  In the case,
+  // CompositionTransaction::DoTransaction handles it with warking the
+  // following text nodes.  Therefore, we should NOT shrink the composing
+  // range for avoind breaking the fix of bug 1310912.  Although the handling
+  // looks buggy so that we need to move the handling into here later.
+  if (aInfo.mDetails &&
+      aInfo.mDetails->mType == CharacterDataChangeInfo::Details::eSplit) {
     return;
   }
 
-  // Otherwise, start of or all of composition string is removed with the
-  // preceding text.
-  const uint32_t newPrecedingTextLength = mCompositionStartOffsetInTextNode -
-                                          aInfo.mChangeStart +
-                                          aInfo.mReplaceLength;
+  // If the change removes/replaces the last character of the composition
+  // string, we should shrink the composition range before the change start.
+  // Then, the replace string will be never updated by coming composition
+  // updates.
+  if (aInfo.mChangeEnd >=
+      mCompositionStartOffsetInTextNode + mCompositionLengthInTextNode) {
+    // If deleting the first character of the composition string, collapse IME
+    // selection temporarily.  Updating composition string will insert new
+    // composition string there.
+    if (aInfo.mChangeStart <= mCompositionStartOffsetInTextNode) {
+      mCompositionStartOffsetInTextNode = aInfo.mChangeStart;
+      mCompositionLengthInTextNode = 0u;
+      return;
+    }
+    // If some characters in the composition still stay, composition range
+    // should be shrunken.
+    MOZ_ASSERT(aInfo.mChangeStart > mCompositionStartOffsetInTextNode);
+    mCompositionLengthInTextNode =
+        aInfo.mChangeStart - mCompositionStartOffsetInTextNode;
+    return;
+  }
+
+  // If removed range starts in the composition string, we need only adjust
+  // the length to make composition range contain the replace string.
+  if (aInfo.mChangeStart >= mCompositionStartOffsetInTextNode) {
+    MOZ_ASSERT(aInfo.LengthOfRemovedText() <= mCompositionLengthInTextNode);
+    mCompositionLengthInTextNode -= aInfo.LengthOfRemovedText();
+    mCompositionLengthInTextNode += aInfo.mReplaceLength;
+    return;
+  }
+
+  // If preceding characers of the composition string is also removed,  new
+  // composition start will be there and new composition ends at current
+  // position.
   const uint32_t removedLengthInCompositionString =
-      aInfo.mChangeEnd <=
-              mCompositionStartOffsetInTextNode + mCompositionLengthInTextNode
-          ? aInfo.mChangeEnd - mCompositionStartOffsetInTextNode
-          : mCompositionLengthInTextNode;
-  mCompositionStartOffsetInTextNode = newPrecedingTextLength;
+      aInfo.mChangeEnd - mCompositionStartOffsetInTextNode;
+  mCompositionStartOffsetInTextNode = aInfo.mChangeStart;
   mCompositionLengthInTextNode -= removedLengthInCompositionString;
+  mCompositionLengthInTextNode += aInfo.mReplaceLength;
 }
 
 bool TextComposition::IsValidStateForComposition(nsIWidget* aWidget) const {

@@ -37,10 +37,23 @@ RefPtr<VsyncObserver> CompositorWidgetParent::GetVsyncObserver() const {
   return mVsyncObserver;
 }
 
+mozilla::ipc::IPCResult CompositorWidgetParent::RecvNotifyClientSizeChanged(
+    const LayoutDeviceIntSize& aClientSize) {
+  NotifyClientSizeChanged(aClientSize);
+  return IPC_OK();
+}
+
 void CompositorWidgetParent::OnCompositorSurfaceChanged() {
-  mSurface = java::GeckoServiceGpuProcess::RemoteCompositorSurfaceManager::
-                 GetInstance()
-                     ->GetCompositorSurface(mWidgetId);
+  java::GeckoServiceGpuProcess::RemoteCompositorSurfaceManager::LocalRef
+      manager = java::GeckoServiceGpuProcess::RemoteCompositorSurfaceManager::
+          GetInstance();
+  java::sdk::SurfaceControl::LocalRef surfaceControl =
+      manager->GetCompositorSurfaceControl(mWidgetId);
+  if (surfaceControl) {
+    mSurface = java::sdk::Surface::FromSurfaceControl(surfaceControl);
+  } else {
+    mSurface = manager->GetCompositorSurface(mWidgetId);
+  }
 }
 
 }  // namespace widget

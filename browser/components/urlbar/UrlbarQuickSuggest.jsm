@@ -12,6 +12,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
+  EventEmitter: "resource://gre/modules/EventEmitter.jsm",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
   QUICK_SUGGEST_SOURCE: "resource:///modules/UrlbarProviderQuickSuggest.jsm",
   RemoteSettings: "resource://services-settings/remote-settings.js",
@@ -66,8 +67,8 @@ const SUGGESTION_SCORE = 0.2;
  * Fetches the suggestions data from RemoteSettings and builds the structures
  * to provide suggestions for UrlbarProviderQuickSuggest.
  */
-class Suggestions {
-  constructor() {
+class QuickSuggest extends EventEmitter {
+  init() {
     UrlbarPrefs.addObserver(this);
     NimbusFeatures.urlbar.onUpdate(() => this._queueSettingsSetup());
 
@@ -102,10 +103,25 @@ class Suggestions {
   /**
    * @returns {object}
    *   Global quick suggest configuration from remote settings:
+   *
    *   {
    *     best_match: {
    *       min_search_string_length,
    *       blocked_suggestion_ids,
+   *     },
+   *     impression_caps: {
+   *       nonsponsored: {
+   *         lifetime,
+   *         custom: [
+   *           { interval_s, max_count },
+   *         ],
+   *       },
+   *       sponsored: {
+   *         lifetime,
+   *         custom: [
+   *           { interval_s, max_count },
+   *         ],
+   *       },
    *     },
    *   }
    */
@@ -136,6 +152,7 @@ class Suggestions {
       impression_url: result.impression_url,
       block_id: result.id,
       advertiser: result.advertiser,
+      iab_category: result.iab_category,
       is_sponsored: !NONSPONSORED_IAB_CATEGORIES.has(result.iab_category),
       score: SUGGESTION_SCORE,
       source: QUICK_SUGGEST_SOURCE.REMOTE_SETTINGS,
@@ -349,7 +366,7 @@ class Suggestions {
   // or initialization is ongoing; see `readyPromise`.
   _settingsTaskQueue = new TaskQueue();
 
-  // Configuration data synced from remote settings.
+  // Configuration data synced from remote settings. See the `config` getter.
   _config = {};
 
   // Maps from keywords to their corresponding results. Keywords are unique in
@@ -394,7 +411,12 @@ class Suggestions {
         await Promise.all(
           event.data.deleted
             .filter(d => d.attachment)
-            .map(entry => this._rs.attachments.delete(entry))
+            .map(entry =>
+              Promise.all([
+                this._rs.attachments.deleteDownloaded(entry), // type: data
+                this._rs.attachments.deleteFromDisk(entry), // type: icon
+              ])
+            )
         );
       }
 
@@ -404,23 +426,31 @@ class Suggestions {
         this._rs
           .get({ filters: { type: "icon" } })
           .then(icons =>
-            Promise.all(icons.map(i => this._rs.attachments.download(i)))
+            Promise.all(icons.map(i => this._rs.attachments.downloadToDisk(i)))
           ),
       ]);
 
       log.debug("Got configuration:", configArray);
-      this._config = configArray?.[0]?.configuration || {};
+      this._setConfig(configArray?.[0]?.configuration || {});
 
       this._resultsByKeyword.clear();
 
       for (let record of data) {
-        let { buffer } = await this._rs.attachments.download(record, {
-          useCache: true,
-        });
+        let { buffer } = await this._rs.attachments.download(record);
         let results = JSON.parse(new TextDecoder("utf-8").decode(buffer));
         this._addResults(results);
       }
     });
+  }
+
+  /**
+   * Sets the quick suggest config and emits a "config-set" event.
+   *
+   * @param {object} config
+   */
+  _setConfig(config) {
+    this._config = config || {};
+    this.emit("config-set");
   }
 
   /**
@@ -456,8 +486,8 @@ class Suggestions {
     if (!record) {
       return null;
     }
-    return this._rs.attachments.download(record);
+    return this._rs.attachments.downloadToDisk(record);
   }
 }
 
-let UrlbarQuickSuggest = new Suggestions();
+let UrlbarQuickSuggest = new QuickSuggest();

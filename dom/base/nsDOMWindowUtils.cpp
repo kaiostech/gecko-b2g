@@ -75,9 +75,11 @@
 #include "mozilla/dom/DOMRect.h"
 #include <algorithm>
 
-#if defined(MOZ_X11) && defined(MOZ_WIDGET_GTK)
+#if defined(MOZ_WIDGET_GTK)
 #  include <gdk/gdk.h>
-#  include <gdk/gdkx.h>
+#  if defined(MOZ_X11)
+#    include <gdk/gdkx.h>
+#  endif
 #endif
 
 #include "Layers.h"
@@ -1569,17 +1571,17 @@ nsDOMWindowUtils::CompareCanvases(nsISupports* aCanvas1, nsISupports* aCanvas2,
   DataSourceSurface::ScopedMap map1(img1, DataSourceSurface::READ);
   DataSourceSurface::ScopedMap map2(img2, DataSourceSurface::READ);
 
-  if (NS_WARN_IF(!map1.IsMapped()) || NS_WARN_IF(!map2.IsMapped()) ||
-      NS_WARN_IF(map1.GetStride() != map2.GetStride())) {
+  if (NS_WARN_IF(!map1.IsMapped()) || NS_WARN_IF(!map2.IsMapped())) {
     return NS_ERROR_FAILURE;
   }
 
   int v;
   IntSize size = img1->GetSize();
-  int32_t stride = map1.GetStride();
+  int32_t stride1 = map1.GetStride();
+  int32_t stride2 = map2.GetStride();
 
   // we can optimize for the common all-pass case
-  if (stride == size.width * 4) {
+  if (stride1 == stride2 && stride1 == size.width * 4) {
     v = memcmp(map1.GetData(), map2.GetData(), size.width * size.height * 4);
     if (v == 0) {
       if (aMaxDifference) *aMaxDifference = 0;
@@ -1592,9 +1594,9 @@ nsDOMWindowUtils::CompareCanvases(nsISupports* aCanvas1, nsISupports* aCanvas2,
   uint32_t different = 0;
 
   for (int j = 0; j < size.height; j++) {
-    unsigned char* p1 = map1.GetData() + j * stride;
-    unsigned char* p2 = map2.GetData() + j * stride;
-    v = memcmp(p1, p2, stride);
+    unsigned char* p1 = map1.GetData() + j * stride1;
+    unsigned char* p2 = map2.GetData() + j * stride2;
+    v = memcmp(p1, p2, size.width * 4);
 
     if (v) {
       for (int i = 0; i < size.width; i++) {
@@ -4768,5 +4770,24 @@ nsDOMWindowUtils::GetHasScrollLinkedEffect(bool* aResult) {
     return NS_ERROR_FAILURE;
   }
   *aResult = doc->HasScrollLinkedEffect();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::GetOrientationLock(uint32_t* aOrientationLock) {
+  NS_WARNING("nsDOMWindowUtils::GetOrientationLock");
+
+  nsIDocShell* docShell = GetDocShell();
+  if (!docShell) {
+    return NS_ERROR_FAILURE;
+  }
+
+  BrowsingContext* bc = docShell->GetBrowsingContext();
+  bc = bc ? bc->Top() : nullptr;
+  if (!bc) {
+    return NS_ERROR_FAILURE;
+  }
+
+  *aOrientationLock = static_cast<uint32_t>(bc->GetOrientationLock());
   return NS_OK;
 }

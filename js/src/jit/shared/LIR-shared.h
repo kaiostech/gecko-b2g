@@ -361,6 +361,29 @@ class LGetInlinedArgumentHole : public LVariadicInstruction<BOX_PIECES, 0> {
   }
 };
 
+class LInlineArgumentsSlice : public LVariadicInstruction<1, 1> {
+ public:
+  LIR_HEADER(InlineArgumentsSlice)
+
+  static const size_t Begin = 0;
+  static const size_t Count = 1;
+  static const size_t NumNonArgumentOperands = 2;
+  static size_t ArgIndex(size_t i) {
+    return NumNonArgumentOperands + BOX_PIECES * i;
+  }
+
+  explicit LInlineArgumentsSlice(uint32_t numOperands, const LDefinition& temp)
+      : LVariadicInstruction(classOpcode, numOperands) {
+    setTemp(0, temp);
+  }
+
+  const LAllocation* begin() { return getOperand(Begin); }
+  const LAllocation* count() { return getOperand(Count); }
+  const LDefinition* temp() { return getTemp(0); }
+
+  MInlineArgumentsSlice* mir() const { return mir_->toInlineArgumentsSlice(); }
+};
+
 // Common code for LIR descended from MCall.
 template <size_t Defs, size_t Operands, size_t Temps>
 class LJSCallInstructionHelper
@@ -1351,54 +1374,47 @@ class LCopySignF : public LInstructionHelper<1, 2, 2> {
   explicit LCopySignF() : LInstructionHelper(classOpcode) {}
 };
 
-class LAtan2D : public LCallInstructionHelper<1, 2, 1> {
+class LAtan2D : public LCallInstructionHelper<1, 2, 0> {
  public:
   LIR_HEADER(Atan2D)
-  LAtan2D(const LAllocation& y, const LAllocation& x, const LDefinition& temp)
+  LAtan2D(const LAllocation& y, const LAllocation& x)
       : LCallInstructionHelper(classOpcode) {
     setOperand(0, y);
     setOperand(1, x);
-    setTemp(0, temp);
   }
 
   const LAllocation* y() { return getOperand(0); }
 
   const LAllocation* x() { return getOperand(1); }
 
-  const LDefinition* temp() { return getTemp(0); }
-
   const LDefinition* output() { return getDef(0); }
 };
 
-class LHypot : public LCallInstructionHelper<1, 4, 1> {
+class LHypot : public LCallInstructionHelper<1, 4, 0> {
   uint32_t numOperands_;
 
  public:
   LIR_HEADER(Hypot)
-  LHypot(const LAllocation& x, const LAllocation& y, const LDefinition& temp)
+  LHypot(const LAllocation& x, const LAllocation& y)
       : LCallInstructionHelper(classOpcode), numOperands_(2) {
     setOperand(0, x);
     setOperand(1, y);
-    setTemp(0, temp);
   }
 
-  LHypot(const LAllocation& x, const LAllocation& y, const LAllocation& z,
-         const LDefinition& temp)
+  LHypot(const LAllocation& x, const LAllocation& y, const LAllocation& z)
       : LCallInstructionHelper(classOpcode), numOperands_(3) {
     setOperand(0, x);
     setOperand(1, y);
     setOperand(2, z);
-    setTemp(0, temp);
   }
 
   LHypot(const LAllocation& x, const LAllocation& y, const LAllocation& z,
-         const LAllocation& w, const LDefinition& temp)
+         const LAllocation& w)
       : LCallInstructionHelper(classOpcode), numOperands_(4) {
     setOperand(0, x);
     setOperand(1, y);
     setOperand(2, z);
     setOperand(3, w);
-    setTemp(0, temp);
   }
 
   uint32_t numArgs() const { return numOperands_; }
@@ -1407,37 +1423,31 @@ class LHypot : public LCallInstructionHelper<1, 4, 1> {
 
   const LAllocation* y() { return getOperand(1); }
 
-  const LDefinition* temp() { return getTemp(0); }
-
   const LDefinition* output() { return getDef(0); }
 };
 
-class LMathFunctionD : public LCallInstructionHelper<1, 1, 1> {
+class LMathFunctionD : public LCallInstructionHelper<1, 1, 0> {
  public:
   LIR_HEADER(MathFunctionD)
-  LMathFunctionD(const LAllocation& input, const LDefinition& temp)
+  explicit LMathFunctionD(const LAllocation& input)
       : LCallInstructionHelper(classOpcode) {
     setOperand(0, input);
-    setTemp(0, temp);
   }
 
-  const LDefinition* temp() { return getTemp(0); }
   MMathFunction* mir() const { return mir_->toMathFunction(); }
   const char* extraName() const {
     return MMathFunction::FunctionName(mir()->function());
   }
 };
 
-class LMathFunctionF : public LCallInstructionHelper<1, 1, 1> {
+class LMathFunctionF : public LCallInstructionHelper<1, 1, 0> {
  public:
   LIR_HEADER(MathFunctionF)
-  LMathFunctionF(const LAllocation& input, const LDefinition& temp)
+  explicit LMathFunctionF(const LAllocation& input)
       : LCallInstructionHelper(classOpcode) {
     setOperand(0, input);
-    setTemp(0, temp);
   }
 
-  const LDefinition* temp() { return getTemp(0); }
   MMathFunction* mir() const { return mir_->toMathFunction(); }
   const char* extraName() const {
     return MMathFunction::FunctionName(mir()->function());
@@ -1558,14 +1568,12 @@ class LModD : public LBinaryMath<1> {
  public:
   LIR_HEADER(ModD)
 
-  LModD(const LAllocation& lhs, const LAllocation& rhs, const LDefinition& temp)
+  LModD(const LAllocation& lhs, const LAllocation& rhs)
       : LBinaryMath(classOpcode) {
     setOperand(0, lhs);
     setOperand(1, rhs);
-    setTemp(0, temp);
     setIsCall();
   }
-  const LDefinition* temp() { return getTemp(0); }
   MMod* mir() const { return mir_->toMod(); }
 };
 
@@ -3277,7 +3285,19 @@ class LWasmCall : public LVariadicInstruction<0, 0> {
     this->setIsCall();
   }
 
-  MWasmCall* mir() const { return mir_->toWasmCall(); }
+  MWasmCallBase* callBase() const {
+    if (isCatchable()) {
+      return static_cast<MWasmCallBase*>(mirCatchable());
+    }
+    return static_cast<MWasmCallBase*>(mirUncatchable());
+  }
+  bool isCatchable() const { return mir_->isWasmCallCatchable(); }
+  MWasmCallCatchable* mirCatchable() const {
+    return mir_->toWasmCallCatchable();
+  }
+  MWasmCallUncatchable* mirUncatchable() const {
+    return mir_->toWasmCallUncatchable();
+  }
 
   static bool isCallPreserved(AnyRegister reg) {
     // All MWasmCalls preserve the TLS register:
@@ -3285,6 +3305,10 @@ class LWasmCall : public LVariadicInstruction<0, 0> {
     //  - import calls do by explicitly saving/restoring at the callsite
     //  - builtin calls do because the TLS reg is non-volatile
     // See also CodeGeneratorShared::emitWasmCall.
+    //
+    // All other registers are not preserved. This is is relied upon by
+    // MWasmCallCatchable which needs all live registers to be spilled before
+    // a call.
     return !reg.isFloat() && reg.gpr() == InstanceReg;
   }
 

@@ -149,8 +149,7 @@ class IncrementalFinalizeRunnable : public DiscardableRunnable {
 struct NoteWeakMapChildrenTracer : public JS::CallbackTracer {
   NoteWeakMapChildrenTracer(JSRuntime* aRt,
                             nsCycleCollectionNoteRootCallback& aCb)
-      : JS::CallbackTracer(aRt, JS::TracerKind::Callback,
-                           JS::IdTraceAction::CanSkip),
+      : JS::CallbackTracer(aRt, JS::TracerKind::Callback),
         mCb(aCb),
         mTracedAny(false),
         mMap(nullptr),
@@ -392,8 +391,7 @@ struct TraversalTracer : public JS::CallbackTracer {
   TraversalTracer(JSRuntime* aRt, nsCycleCollectionTraversalCallback& aCb)
       : JS::CallbackTracer(aRt, JS::TracerKind::Callback,
                            JS::TraceOptions(JS::WeakMapTraceAction::Skip,
-                                            JS::WeakEdgeTraceAction::Trace,
-                                            JS::IdTraceAction::CanSkip)),
+                                            JS::WeakEdgeTraceAction::Trace)),
         mCb(aCb) {}
   void onChild(JS::GCCellPtr aThing) override;
   nsCycleCollectionTraversalCallback& mCb;
@@ -1604,14 +1602,7 @@ void CycleCollectedJSRuntime::JSObjectsTenured() {
     }
   }
 
-#ifdef DEBUG
-  for (auto iter = mPreservedNurseryObjects.Iter(); !iter.Done(); iter.Next()) {
-    MOZ_ASSERT(JS::ObjectIsTenured(iter.Get().get()));
-  }
-#endif
-
   mNurseryObjects.Clear();
-  mPreservedNurseryObjects.Clear();
 }
 
 void CycleCollectedJSRuntime::NurseryWrapperAdded(nsWrapperCache* aCache) {
@@ -1619,11 +1610,6 @@ void CycleCollectedJSRuntime::NurseryWrapperAdded(nsWrapperCache* aCache) {
   MOZ_ASSERT(aCache->GetWrapperMaybeDead());
   MOZ_ASSERT(!JS::ObjectIsTenured(aCache->GetWrapperMaybeDead()));
   mNurseryObjects.InfallibleAppend(aCache);
-}
-
-void CycleCollectedJSRuntime::NurseryWrapperPreserved(JSObject* aWrapper) {
-  mPreservedNurseryObjects.InfallibleAppend(
-      JS::PersistentRooted<JSObject*>(mJSRuntime, aWrapper));
 }
 
 void CycleCollectedJSRuntime::DeferredFinalize(

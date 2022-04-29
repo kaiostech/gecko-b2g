@@ -91,7 +91,7 @@ use style::gecko_bindings::structs::{
     RawServoLayerStatementRule, RawServoMediaList, RawServoMediaRule, RawServoMozDocumentRule,
     RawServoNamespaceRule, RawServoPageRule, RawServoScrollTimelineRule,
     RawServoSharedMemoryBuilder, RawServoStyleSet, RawServoStyleSheetContents,
-    RawServoSupportsRule, ServoCssRules,
+    RawServoSupportsRule, RawServoContainerRule, ServoCssRules,
 };
 use style::gecko_bindings::sugar::ownership::{FFIArcHelpers, HasArcFFI, HasFFI};
 use style::gecko_bindings::sugar::ownership::{
@@ -127,7 +127,7 @@ use style::stylesheets::{
     DocumentRule, FontFaceRule, FontFeatureValuesRule, ImportRule, KeyframesRule, LayerBlockRule,
     LayerStatementRule, MediaRule, NamespaceRule, Origin, OriginSet, PageRule, SanitizationData,
     SanitizationKind, ScrollTimelineRule, StyleRule, StylesheetContents,
-    StylesheetLoader as StyleStylesheetLoader, SupportsRule, UrlExtraData,
+    StylesheetLoader as StyleStylesheetLoader, SupportsRule, UrlExtraData, ContainerRule,
 };
 use style::stylist::{add_size_of_ua_cache, AuthorStylesEnabled, RuleInclusion, Stylist};
 use style::thread_state;
@@ -1817,8 +1817,6 @@ pub unsafe extern "C" fn Servo_StyleSet_MediumFeaturesChanged(
     document_set: &RawServoStyleSet,
     non_document_styles: &mut nsTArray<&mut RawServoAuthorStyles>,
     may_affect_default_style: bool,
-    viewport_changed: bool,
-    root: Option<&RawGeckoElement>,
 ) -> structs::MediumFeaturesChangedResult {
     let global_style_data = &*GLOBAL_STYLE_DATA;
     let guard = global_style_data.shared_lock.read();
@@ -1862,16 +1860,6 @@ pub unsafe extern "C" fn Servo_StyleSet_MediumFeaturesChanged(
         if affected_style {
             affects_non_document_rules = true;
             author_styles.stylesheets.force_dirty();
-        }
-    }
-
-    if viewport_changed && document_data.stylist.device().used_viewport_size() {
-        if let Some(root) = root {
-            if style::invalidation::viewport_units::invalidate(GeckoElement(root)) {
-                // The invalidation machinery propagates the bits up, but we still need
-                // to tell the Gecko restyle root machinery about it.
-                bindings::Gecko_NoteDirtySubtreeForInvalidation(root);
-            }
         }
     }
 
@@ -2334,6 +2322,14 @@ impl_group_rule_funcs! { (Supports, SupportsRule, RawServoSupportsRule),
     changed: Servo_StyleSet_SupportsRuleChanged,
 }
 
+impl_group_rule_funcs! { (Container, ContainerRule, RawServoContainerRule),
+    get_rules: Servo_ContainerRule_GetRules,
+    getter: Servo_CssRules_GetContainerRuleAt,
+    debug: Servo_ContainerRule_Debug,
+    to_css: Servo_ContainerRule_GetCssText,
+    changed: Servo_StyleSet_ContainerRuleChanged,
+}
+
 impl_group_rule_funcs! { (LayerBlock, LayerBlockRule, RawServoLayerBlockRule),
     get_rules: Servo_LayerBlockRule_GetRules,
     getter: Servo_CssRules_GetLayerBlockRuleAt,
@@ -2715,7 +2711,7 @@ pub unsafe extern "C" fn Servo_KeyframesRule_SetName(
     name: *mut nsAtom,
 ) {
     write_locked_arc(rule, |rule: &mut KeyframesRule| {
-        rule.name = KeyframesName::Ident(CustomIdent(Atom::from_addrefed(name)));
+        rule.name = KeyframesName::from_atom(Atom::from_addrefed(name));
     })
 }
 
@@ -2947,6 +2943,16 @@ pub extern "C" fn Servo_SupportsRule_GetConditionText(
     result: &mut nsACString,
 ) {
     read_locked_arc(rule, |rule: &SupportsRule| {
+        rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_ContainerRule_GetConditionText(
+    rule: &RawServoContainerRule,
+    result: &mut nsACString,
+) {
+    read_locked_arc(rule, |rule: &ContainerRule| {
         rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
     })
 }
@@ -4119,8 +4125,8 @@ pub unsafe extern "C" fn Servo_ComputedValues_Inherit(
 pub extern "C" fn Servo_ComputedValues_SpecifiesAnimationsOrTransitions(
     values: &ComputedValues,
 ) -> bool {
-    let b = values.get_box();
-    b.specifies_animations() || b.specifies_transitions()
+    let ui = values.get_ui();
+    ui.specifies_animations() || ui.specifies_transitions()
 }
 
 #[no_mangle]
@@ -7369,4 +7375,28 @@ pub extern "C" fn Servo_LayerStatementRule_GetNameAt(
             name.to_css(&mut CssWriter::new(result)).unwrap()
         }
     })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_InvalidateForViewportUnits(
+    document_style: &RawServoStyleSet,
+    root: &RawGeckoElement,
+    dynamic_only: bool,
+) {
+    let document_data = PerDocumentStyleData::from_ffi(document_style).borrow();
+    let device = document_data.stylist.device();
+
+    if !device.used_viewport_size() {
+        return;
+    }
+
+    if dynamic_only && !device.used_dynamic_viewport_size() {
+        return;
+    }
+
+    if style::invalidation::viewport_units::invalidate(GeckoElement(root)) {
+        // The invalidation machinery propagates the bits up, but we still need
+        // to tell the Gecko restyle root machinery about it.
+        bindings::Gecko_NoteDirtySubtreeForInvalidation(root);
+    }
 }

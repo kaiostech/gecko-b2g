@@ -185,19 +185,15 @@ module.exports = {
         "caps/tests/unit/test_origin.js",
         "extensions/permissions/**",
         "image/test/unit/**",
-        "intl/uconv/tests/unit/test_bug317216.js",
         "intl/uconv/tests/unit/test_bug340714.js",
         "modules/libjar/test/unit/test_empty_jar_telemetry.js",
         "modules/libjar/zipwriter/test/unit/test_alignment.js",
         "modules/libjar/zipwriter/test/unit/test_bug419769_2.js",
         "modules/libjar/zipwriter/test/unit/test_storedata.js",
         "modules/libjar/zipwriter/test/unit/test_zippermissions.js",
-        "modules/libpref/test/unit/test_changeType.js",
         "modules/libpref/test/unit/test_dirtyPrefs.js",
         "toolkit/crashreporter/test/unit/test_crash_AsyncShutdown.js",
         "toolkit/mozapps/update/tests/unit_aus_update/testConstants.js",
-        "xpcom/tests/unit/test_hidden_files.js",
-        "xpcom/tests/unit/test_localfile.js",
 
         // These are more complicated bugs which may require some in-depth
         // investigation or different solutions. They are also likely to be

@@ -159,6 +159,7 @@ enum class ExplicitActiveStatus : uint8_t {
   FIELD(AllowContentRetargetingOnChildren, bool)                              \
   FIELD(ForceEnableTrackingProtection, bool)                                  \
   FIELD(UseGlobalHistory, bool)                                               \
+  FIELD(TargetTopLevelLinkClicksToBlankInternal, bool)                        \
   FIELD(FullscreenAllowedByOwner, bool)                                       \
   /*                                                                          \
    * "is popup" in the spec.                                                  \
@@ -565,6 +566,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   void SetWatchedByDevTools(bool aWatchedByDevTools, ErrorResult& aRv);
 
   dom::TouchEventsOverride TouchEventsOverride() const;
+  bool TargetTopLevelLinkClicksToBlank() const;
 
   bool FullscreenAllowed() const;
 
@@ -792,6 +794,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   bool CreatedDynamically() const { return mCreatedDynamically; }
 
+  // Returns true if this browsing context, or any ancestor to this browsing
+  // context was created dynamically. See also `CreatedDynamically`.
+  bool IsDynamic() const;
+
   int32_t ChildOffset() const { return mChildOffset; }
 
   bool GetOffsetPath(nsTArray<uint32_t>& aPath) const;
@@ -896,8 +902,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   dom::PrefersColorSchemeOverride PrefersColorSchemeOverride() const {
     return GetPrefersColorSchemeOverride();
   }
-
-  void FlushSessionStore();
 
   bool IsInBFCache() const;
 
@@ -1009,6 +1013,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
               ContentParent* aSource) {
     return IsTop() && !aSource;
   }
+
+  void DidSet(FieldIndex<IDX_SessionStoreEpoch>, uint32_t aOldValue);
 
   using CanSetResult = syncedcontext::CanSetResult;
 
@@ -1147,6 +1153,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   void DidSet(FieldIndex<IDX_DefaultLoadFlags>);
 
   bool CanSet(FieldIndex<IDX_UseGlobalHistory>, const bool& aUseGlobalHistory,
+              ContentParent* aSource);
+
+  bool CanSet(FieldIndex<IDX_TargetTopLevelLinkClicksToBlankInternal>,
+              const bool& aTargetTopLevelLinkClicksToBlankInternal,
               ContentParent* aSource);
 
   void DidSet(FieldIndex<IDX_HasSessionHistory>, bool aOldValue);

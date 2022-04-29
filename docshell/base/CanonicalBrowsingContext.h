@@ -25,6 +25,7 @@
 #include "nsHashKeys.h"
 #include "nsISecureBrowserUI.h"
 
+class nsIBrowserDOMWindow;
 class nsISHistory;
 class nsIWidget;
 class nsIPrintSettings;
@@ -55,6 +56,8 @@ class MediaController;
 struct LoadingSessionHistoryInfo;
 class SSCacheCopy;
 class WindowGlobalParent;
+class SessionStoreFormData;
+class SessionStoreScrollData;
 
 // CanonicalBrowsingContext is a BrowsingContext living in the parent
 // process, with whatever extra data that a BrowsingContext in the
@@ -109,6 +112,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   WindowGlobalParent* GetTopWindowContext();
 
   already_AddRefed<nsIWidget> GetParentProcessWidgetContaining();
+  already_AddRefed<nsIBrowserDOMWindow> GetBrowserDOMWindow();
 
   // Same as `GetParentWindowContext`, but will also cross <browser> and
   // content/chrome boundaries.
@@ -322,6 +326,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   }
 
   void SetTouchEventsOverride(dom::TouchEventsOverride, ErrorResult& aRv);
+  void SetTargetTopLevelLinkClicksToBlank(bool aTargetTopLevelLinkClicksToBlank,
+                                          ErrorResult& aRv);
 
   bool IsReplaced() const { return mIsReplaced; }
 
@@ -435,7 +441,10 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   // Called once DocumentLoadListener completes handling a load, and it
   // is either complete, or handed off to the final channel to deliver
   // data to the destination docshell.
-  void EndDocumentLoad(bool aForProcessSwitch);
+  // If aContinueNavigating it set, the reference to the DocumentLoadListener
+  // will be cleared to prevent it being cancelled, however the current load ID
+  // will be preserved until `EndDocumentLoad` is called again.
+  void EndDocumentLoad(bool aContinueNavigating);
 
   bool SupportsLoadingInParent(nsDocShellLoadState* aLoadState,
                                uint64_t* aOuterWindowId);
@@ -521,6 +530,17 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   RefPtr<nsBrowserStatusFilter> mStatusFilter;
 
   RefPtr<FeaturePolicy> mContainerFeaturePolicy;
+
+  friend class BrowserSessionStore;
+  WeakPtr<SessionStoreFormData>& GetSessionStoreFormDataRef() {
+    return mFormdata;
+  }
+  WeakPtr<SessionStoreScrollData>& GetSessionStoreScrollDataRef() {
+    return mScroll;
+  }
+
+  WeakPtr<SessionStoreFormData> mFormdata;
+  WeakPtr<SessionStoreScrollData> mScroll;
 
   RefPtr<RestoreState> mRestoreState;
 

@@ -488,8 +488,45 @@ class ProxyContextParent extends BaseContext {
     this.listenerProxies = new Map();
 
     this.pendingEventBrowser = null;
+    this.callContextData = null;
 
     apiManager.emit("proxy-context-load", this);
+  }
+
+  /**
+   * Call the `callable` parameter with `context.callContextData` set to the value passed
+   * as the first parameter of this method.
+   *
+   * `context.callContextData` is expected to:
+   * - don't be set when context.withCallContextData is being called
+   * - be set back to null right after calling the `callable` function, without
+   *   awaiting on any async code that the function may be running internally
+   *
+   * The callable method itself is responsabile of eventually retrieve the value initially set
+   * on the `context.callContextData` before any code executed asynchronously (e.g. from a
+   * callback or after awaiting internally on a promise if the `callable` function was async).
+   *
+   * @param {object} callContextData
+   * @param {boolean} callContextData.isHandlingUserInput
+   * @param {Function} callable
+   *
+   * @returns {any} Returns the value returned by calling the `callable` method.
+   */
+  withCallContextData({ isHandlingUserInput }, callable) {
+    if (this.callContextData) {
+      Cu.reportError(
+        `Unexpected pre-existing callContextData on "${this.extension?.policy.debugName}" contextId ${this.contextId}`
+      );
+    }
+
+    try {
+      this.callContextData = {
+        isHandlingUserInput,
+      };
+      return callable();
+    } finally {
+      this.callContextData = null;
+    }
   }
 
   async withPendingBrowser(browser, callable) {
@@ -987,10 +1024,15 @@ ParentAPIManager = {
 
     try {
       let args = data.args;
+      let { isHandlingUserInput = false } = data.options || {};
       let pendingBrowser = context.pendingEventBrowser;
       let fun = await context.apiCan.asyncFindAPIPath(data.path);
       let result = this.callAndLog(context, data, () => {
-        return context.withPendingBrowser(pendingBrowser, () => fun(...args));
+        return context.withPendingBrowser(pendingBrowser, () =>
+          context.withCallContextData({ isHandlingUserInput }, () =>
+            fun(...args)
+          )
+        );
       });
 
       if (data.callId) {
@@ -1500,9 +1542,34 @@ const DebugUtils = {
     // service worker).
     if (this.hasPersistentBackgroundScript(addonId) === false) {
       const policy = WebExtensionPolicy.getByID(addonId);
-      return policy.extension.terminateBackground();
+      // When the event page is being terminated through the Devtools
+      // action, we should terminate it even if there are DevTools
+      // toolboxes attached to the extension.
+      return policy.extension.terminateBackground({
+        ignoreDevToolsAttached: true,
+      });
     }
     throw Error(`Unable to terminate background script for ${addonId}`);
+  },
+
+  /**
+   * Determine whether a devtools toolbox attached to the extension.
+   *
+   * This method is called by the background page idle timeout handler,
+   * to inhibit terminating the event page when idle while the extension
+   * developer is debugging the extension through the Addon Debugging window
+   * (similarly to how service workers are kept alive while the devtools are
+   * attached).
+   *
+   * @param {string} id
+   *        The id of the extension.
+   *
+   * @returns {boolean}
+   *          true when a devtools toolbox is attached to an extension with
+   *          the given id, false otherwise.
+   */
+  hasDevToolsAttached(id) {
+    return this.debugBrowserPromises.has(id);
   },
 
   /**
@@ -1877,6 +1944,7 @@ StartupCache = {
     "other",
     "permissions",
     "schemas",
+    "menus",
   ]),
 
   _ensureDirectoryPromise: null,
@@ -1958,6 +2026,7 @@ StartupCache = {
       this.locales.delete(id),
       this.manifests.delete(id),
       this.permissions.delete(id),
+      this.menus.delete(id),
     ]).catch(e => {
       // Ignore the error. It happens when we try to flush the add-on
       // data after the AddonManager has flushed the entire startup cache.

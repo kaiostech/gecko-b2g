@@ -57,12 +57,13 @@ use crate::hit_test::HitTestingScene;
 use crate::intern::Interner;
 use crate::internal_types::{FastHashMap, LayoutPrimitiveInfo, Filter, PlaneSplitter, PlaneSplitterIndex, PipelineInstanceId};
 use crate::picture::{Picture3DContext, PictureCompositeMode, PicturePrimitive};
-use crate::picture::{BlitReason, OrderedPictureChild, PrimitiveList, SurfaceInfo};
+use crate::picture::{BlitReason, OrderedPictureChild, PrimitiveList, SurfaceInfo, PictureFlags};
 use crate::picture_graph::PictureGraph;
 use crate::prim_store::{PrimitiveInstance, register_prim_chase_id};
 use crate::prim_store::{PrimitiveInstanceKind, NinePatchDescriptor, PrimitiveStore};
 use crate::prim_store::{InternablePrimitive, SegmentInstanceIndex, PictureIndex};
-use crate::prim_store::PolygonKey;
+use crate::prim_store::{PolygonKey};
+use crate::prim_store::backdrop::Backdrop;
 use crate::prim_store::borders::{ImageBorder, NormalBorderPrim};
 use crate::prim_store::gradient::{
     GradientStopKey, LinearGradient, RadialGradient, RadialGradientParams, ConicGradient,
@@ -230,6 +231,10 @@ struct PictureChainBuilder {
     flags: PrimitiveFlags,
     /// Requested raster space for enclosing stacking context
     raster_space: RasterSpace,
+    /// If true, set first picture as a resolve target
+    set_resolve_target: bool,
+    /// If true, mark the last picture as a sub-graph
+    establishes_sub_graph: bool,
 }
 
 impl PictureChainBuilder {
@@ -239,6 +244,7 @@ impl PictureChainBuilder {
         flags: PrimitiveFlags,
         spatial_node_index: SpatialNodeIndex,
         raster_space: RasterSpace,
+        is_sub_graph: bool,
     ) -> Self {
         PictureChainBuilder {
             current: PictureSource::PrimitiveList {
@@ -247,6 +253,8 @@ impl PictureChainBuilder {
             spatial_node_index,
             flags,
             raster_space,
+            establishes_sub_graph: is_sub_graph,
+            set_resolve_target: is_sub_graph,
         }
     }
 
@@ -264,6 +272,8 @@ impl PictureChainBuilder {
             flags,
             spatial_node_index,
             raster_space,
+            establishes_sub_graph: false,
+            set_resolve_target: false,
         }
     }
 
@@ -296,6 +306,12 @@ impl PictureChainBuilder {
             }
         };
 
+        let flags = if self.set_resolve_target {
+            PictureFlags::IS_RESOLVE_TARGET
+        } else {
+            PictureFlags::empty()
+        };
+
         let pic_index = PictureIndex(prim_store.pictures
             .alloc()
             .init(PicturePrimitive::new_image(
@@ -306,6 +322,7 @@ impl PictureChainBuilder {
                 prim_list,
                 self.spatial_node_index,
                 self.raster_space,
+                flags,
             ))
         );
 
@@ -324,6 +341,9 @@ impl PictureChainBuilder {
             spatial_node_index: self.spatial_node_index,
             flags: self.flags,
             raster_space: self.raster_space,
+            // We are now on a subsequent picture, so set_resolve_target has been handled
+            set_resolve_target: false,
+            establishes_sub_graph: self.establishes_sub_graph,
         }
     }
 
@@ -334,12 +354,25 @@ impl PictureChainBuilder {
         interners: &mut Interners,
         prim_store: &mut PrimitiveStore,
     ) -> PrimitiveInstance {
+        let mut flags = PictureFlags::empty();
+        if self.establishes_sub_graph {
+            flags |= PictureFlags::IS_SUB_GRAPH;
+        }
+
         match self.current {
             PictureSource::WrappedPicture { mut instance } => {
                 instance.clip_set.clip_chain_id = clip_chain_id;
+
+                let pic_index = instance.kind.as_pic();
+                prim_store.pictures[pic_index.0].flags |= flags;
+
                 instance
             }
             PictureSource::PrimitiveList { prim_list } => {
+                if self.set_resolve_target {
+                    flags |= PictureFlags::IS_RESOLVE_TARGET;
+                }
+
                 // If no picture was created for this stacking context, create a
                 // pass-through wrapper now. This is only needed in 1-2 edge cases
                 // now, and will be removed as a follow up.
@@ -353,6 +386,7 @@ impl PictureChainBuilder {
                         prim_list,
                         self.spatial_node_index,
                         self.raster_space,
+                        flags,
                     ))
                 );
 
@@ -366,6 +400,14 @@ impl PictureChainBuilder {
             }
         }
     }
+
+    /// Returns true if this builder wraps a picture
+    fn has_picture(&self) -> bool {
+        match self.current {
+            PictureSource::WrappedPicture { .. } => true,
+            PictureSource::PrimitiveList { .. } => false,
+        }
+    }
 }
 
 bitflags! {
@@ -373,8 +415,8 @@ bitflags! {
     pub struct SliceFlags : u8 {
         /// Slice created by a prim that has PrimitiveFlags::IS_SCROLLBAR_CONTAINER
         const IS_SCROLLBAR = 1;
-        /// Represents a mix-blend container (can't split out compositor surfaces in this slice)
-        const IS_BLEND_CONTAINER = 2;
+        /// Represents an atomic container (can't split out compositor surfaces in this slice)
+        const IS_ATOMIC = 2;
     }
 }
 
@@ -546,6 +588,11 @@ impl<'a> SceneBuilder<'a> {
         // Add all the tile cache pictures as roots of the picture graph
         for pic_index in &tile_cache_pictures {
             builder.picture_graph.add_root(*pic_index);
+            SceneBuilder::finalize_picture(
+                *pic_index,
+                &mut builder.prim_store.pictures,
+                None,
+            );
         }
 
         BuiltScene {
@@ -564,6 +611,61 @@ impl<'a> SceneBuilder<'a> {
             prim_instances: builder.prim_instances,
             surfaces: builder.surfaces,
         }
+    }
+
+    /// Traverse the picture prim list and update any late-set spatial nodes
+    // TODO(gw): This is somewhat hacky - it's unfortunate we need to do this, but it's
+    //           because we can't determine the scroll root until we have checked all the
+    //           primitives in the slice. Perhaps we could simplify this by doing some
+    //           work earlier in the DL builder, so we know what scroll root will be picked?
+    fn finalize_picture(
+        pic_index: PictureIndex,
+        pictures: &mut [PicturePrimitive],
+        parent_spatial_node_index: Option<SpatialNodeIndex>,
+    ) {
+        // Extract the prim_list (borrow check) and select the spatial node to
+        // assign to unknown clusters
+        let (mut prim_list, spatial_node_index) = {
+            let pic = &mut pictures[pic_index.0];
+            assert_ne!(pic.spatial_node_index, SpatialNodeIndex::UNKNOWN);
+
+            // If we're a surface, use that spatial node, otherwise the parent
+            let spatial_node_index = match pic.composite_mode {
+                Some(_) => pic.spatial_node_index,
+                None => parent_spatial_node_index.expect("bug: no parent"),
+            };
+
+            (
+                mem::replace(&mut pic.prim_list, PrimitiveList::empty()),
+                spatial_node_index,
+            )
+        };
+
+        // Update the spatial node of any unknown clusters
+        for cluster in &mut prim_list.clusters {
+            if cluster.spatial_node_index == SpatialNodeIndex::UNKNOWN {
+                cluster.spatial_node_index = spatial_node_index;
+            }
+        }
+
+        // Update the spatial node of any child pictures
+        for child_pic_index in &prim_list.child_pictures {
+            let child_pic = &mut pictures[child_pic_index.0];
+
+            if child_pic.spatial_node_index == SpatialNodeIndex::UNKNOWN {
+                child_pic.spatial_node_index = spatial_node_index;
+            }
+
+            // Recurse into child pictures which may also have unknown spatial nodes
+            SceneBuilder::finalize_picture(
+                *child_pic_index,
+                pictures,
+                Some(spatial_node_index),
+            );
+        }
+
+        // Restore the prim_list
+        pictures[pic_index.0].prim_list = prim_list;
     }
 
     /// Retrieve the current offset to allow converting a stacking context
@@ -1573,16 +1675,15 @@ impl<'a> SceneBuilder<'a> {
             DisplayItem::BackdropFilter(ref info) => {
                 profile_scope!("backdrop");
 
-                let (_layout, _, _spatial_node_index, _clip_chain_id) = self.process_common_properties(
+                let (layout, _, spatial_node_index, clip_chain_id) = self.process_common_properties(
                     &info.common,
                     None,
                 );
 
-                let _filters = filter_ops_for_compositing(item.filters());
-                let _filter_datas = filter_datas_for_compositing(item.filter_datas());
-                let _filter_primitives = filter_primitives_for_compositing(item.filter_primitives());
+                let filters = filter_ops_for_compositing(item.filters());
+                let filter_datas = filter_datas_for_compositing(item.filter_datas());
+                let filter_primitives = filter_primitives_for_compositing(item.filter_primitives());
 
-                /*
                 self.add_backdrop_filter(
                     spatial_node_index,
                     clip_chain_id,
@@ -1591,7 +1692,6 @@ impl<'a> SceneBuilder<'a> {
                     filter_datas,
                     filter_primitives,
                 );
-                */
             }
 
             // Do nothing; these are dummy items for the display list parser
@@ -2083,7 +2183,6 @@ impl<'a> SceneBuilder<'a> {
                 blit_reason,
                 transform_style,
                 context_3d,
-                is_redundant,
                 flags,
                 raster_space: new_space,
             });
@@ -2130,7 +2229,7 @@ impl<'a> SceneBuilder<'a> {
         // cache. This means that we get caching and correct scrolling invalidation for
         // root level blend containers. For these cases, the readbacks of the backdrop
         // are handled by doing partial reads of the picture cache tiles during rendering.
-        if stacking_context.flags.contains(StackingContextFlags::IS_BLEND_CONTAINER) &&
+        if stacking_context.flags.intersects(StackingContextFlags::IS_BLEND_CONTAINER | StackingContextFlags::IS_BACKDROP_ROOT) &&
            self.sc_stack.is_empty() &&
            self.tile_cache_builder.can_add_container_tile_cache() &&
            self.spatial_tree.is_root_coord_system(stacking_context.spatial_node_index)
@@ -2143,7 +2242,7 @@ impl<'a> SceneBuilder<'a> {
                 self.interners,
                 &self.config,
                 self.root_iframe_clip,
-                SliceFlags::IS_BLEND_CONTAINER,
+                SliceFlags::IS_ATOMIC,
                 &self.prim_instances,
             );
 
@@ -2152,7 +2251,6 @@ impl<'a> SceneBuilder<'a> {
 
         let parent_is_empty = match self.sc_stack.last() {
             Some(parent_sc) => {
-                assert!(!stacking_context.is_redundant);
                 parent_sc.prim_list.is_empty()
             },
             None => true,
@@ -2182,6 +2280,7 @@ impl<'a> SceneBuilder<'a> {
                         stacking_context.prim_list,
                         stacking_context.spatial_node_index,
                         stacking_context.raster_space,
+                        PictureFlags::empty(),
                     ))
                 );
 
@@ -2207,6 +2306,7 @@ impl<'a> SceneBuilder<'a> {
                         stacking_context.prim_flags,
                         stacking_context.spatial_node_index,
                         stacking_context.raster_space,
+                        false,
                     )
                 } else {
                     let composite_mode = Some(
@@ -2224,6 +2324,7 @@ impl<'a> SceneBuilder<'a> {
                             stacking_context.prim_list,
                             stacking_context.spatial_node_index,
                             stacking_context.raster_space,
+                            PictureFlags::empty(),
                         ))
                     );
 
@@ -2325,6 +2426,7 @@ impl<'a> SceneBuilder<'a> {
                     prim_list,
                     stacking_context.spatial_node_index,
                     stacking_context.raster_space,
+                    PictureFlags::empty(),
                 ))
             );
 
@@ -2822,6 +2924,7 @@ impl<'a> SceneBuilder<'a> {
                                 prim_list,
                                 pending_shadow.spatial_node_index,
                                 raster_space,
+                                PictureFlags::empty(),
                             ))
                         );
 
@@ -3458,6 +3561,95 @@ impl<'a> SceneBuilder<'a> {
         }
     }
 
+    pub fn add_backdrop_filter(
+        &mut self,
+        spatial_node_index: SpatialNodeIndex,
+        clip_chain_id: ClipChainId,
+        info: &LayoutPrimitiveInfo,
+        filters: Vec<Filter>,
+        filter_datas: Vec<FilterData>,
+        filter_primitives: Vec<FilterPrimitive>,
+    ) {
+        // We don't know the spatial node for a backdrop filter, as it's whatever is the
+        // backdrop root, but we can't know this if the root is a picture cache slice
+        // (which is the common case). It will get resolved later during `finalize_picture`.
+        let filter_spatial_node_index = SpatialNodeIndex::UNKNOWN;
+
+        // Create the backdrop prim - this is a placeholder which sets the size of resolve
+        // picture that reads from the backdrop root
+        let backdrop_instance = self.create_primitive(
+            info,
+            spatial_node_index,
+            clip_chain_id,
+            Backdrop {
+            },
+        );
+
+        // Create a prim_list for this backdrop prim and add to a picture chain builder, which
+        // is needed for the call to `wrap_prim_with_filters` below
+        let mut prim_list = PrimitiveList::empty();
+        prim_list.add_prim(
+            backdrop_instance,
+            info.rect,
+            spatial_node_index,
+            info.flags,
+            &mut self.prim_instances,
+        );
+
+        let mut source = PictureChainBuilder::from_prim_list(
+            prim_list,
+            info.flags,
+            filter_spatial_node_index,
+            RasterSpace::Screen,
+            true,
+        );
+
+        // Wrap the backdrop primitive picture with the filters that were specified. This
+        // produces a picture chain with 1+ pictures with the filter composite modes set.
+        source = self.wrap_prim_with_filters(
+            source,
+            filters,
+            filter_primitives,
+            filter_datas,
+        );
+
+        // Clip the backdrop filter to the outline of the backdrop-filter prim. If this is
+        // axis-aligned with the backdrop root, no clip mask will be produced. Otherwise,
+        // it will result in a clip-mask matching the primitive shape that is used to mask
+        // the final backdrop-filter output
+        let filter_clips = vec![
+            ClipItemKey {
+                kind: ClipItemKeyKind::rectangle(
+                    info.rect,
+                    ClipMode::Clip,
+                ),
+                spatial_node_index,
+            },
+        ];
+
+        let filter_clip_chain_id = self.build_clip_chain(
+            filter_clips,
+            clip_chain_id,
+        );
+
+        // If all the filters were no-ops (e.g. opacity(0)) then we don't get a picture here
+        // and we can skip adding the backdrop-filter.
+        if source.has_picture() {
+            let filtered_instance = source.finalize(
+                filter_clip_chain_id,
+                &mut self.interners,
+                &mut self.prim_store,
+            );
+
+            self.add_primitive_to_draw_list(
+                filtered_instance,
+                info.rect,
+                filter_spatial_node_index,
+                info.flags,
+            );
+        }
+    }
+
     #[must_use]
     fn wrap_prim_with_filters(
         &mut self,
@@ -3628,9 +3820,6 @@ struct FlattenedStackingContext {
     /// Defines the relationship to a preserve-3D hiearachy.
     context_3d: Picture3DContext<ExtendedPrimitiveInstance>,
 
-    /// True if this stacking context is redundant (i.e. doesn't require a surface)
-    is_redundant: bool,
-
     /// Flags identifying the type of container (among other things) this stacking context is
     flags: StackingContextFlags,
 
@@ -3714,6 +3903,7 @@ impl FlattenedStackingContext {
                 mem::replace(&mut self.prim_list, PrimitiveList::empty()),
                 self.spatial_node_index,
                 self.raster_space,
+                PictureFlags::empty(),
             ))
         );
 

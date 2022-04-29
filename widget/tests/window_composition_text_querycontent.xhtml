@@ -101,6 +101,46 @@ function isGreaterThan(aLeft, aRight, aMessage)
   ok(aLeft > aRight, aMessage + ", got=" + aLeft + ", expected minimum value=" + aRight);
 }
 
+/**
+ * synthesizeSimpleCompositionChange synthesizes a composition which has only
+ * one clause and put caret end of it.
+ *
+ * @param aComposition  string or object.  If string, it's treated as
+ *                      composition string whose attribute is
+ *                      COMPOSITION_ATTR_RAW_CLAUSE.
+ *                      If object, it must have .string whose type is "string".
+ *                      Additionally, .attr can be specified if you'd like to
+ *                      use the other attribute instead of
+ *                      COMPOSITION_ATTR_RAW_CLAUSE.
+ */
+function synthesizeSimpleCompositionChange(aComposition, aWindow, aCallback) {
+  const comp = (() => {
+    if (typeof aComposition == "string") {
+      return { string: aComposition, attr: COMPOSITION_ATTR_RAW_CLAUSE };
+    }
+    return {
+      string: aComposition.string,
+      attr: aComposition.attr === undefined
+        ? COMPOSITION_ATTR_RAW_CLAUSE
+        : aComposition.attr
+    };
+  })();
+  synthesizeCompositionChange(
+    {
+      composition: {
+        string: comp.string,
+        clauses: [
+          { length: comp.string.length, attr: comp.attr },
+        ],
+      },
+      caret: { start: comp.string.length, length: 0 },
+    },
+    aWindow,
+    aCallback
+  );
+}
+
+
 var div = document.getElementById("div");
 var textarea = document.getElementById("textarea");
 var panel = document.getElementById("panel");
@@ -2592,17 +2632,7 @@ function runCompositionTestWhoseTextNodeModified() {
     const textNode = contenteditable.firstChild.firstChild;
     selection.collapse(textNode, "def".length);
     // Insert composition to the end of a text node
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "g",
-          clauses: [
-            { length: 1, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 1, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("g");
     is(
       textNode.data,
       "defg",
@@ -2629,17 +2659,7 @@ function runCompositionTestWhoseTextNodeModified() {
     );
 
     // Update composition string (appending a character)
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "gh",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("gh");
     is(
       textNode.data,
       "cdefgh",
@@ -2677,17 +2697,7 @@ function runCompositionTestWhoseTextNodeModified() {
     );
 
     // Update the composition string again (appending another character)
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "ghi",
-          clauses: [
-            { length: 3, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 3, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("ghi");
     is(
       textNode.data,
       "bcdefghi",
@@ -2782,17 +2792,7 @@ function runCompositionTestWhoseTextNodeModified() {
     const textNode = contenteditable.firstChild.firstChild;
     selection.collapse(textNode, 0);
     // Insert composition at start of the text node
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "b",
-          clauses: [
-            { length: 1, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 1, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("b");
     is(
       textNode.data,
       "bd",
@@ -2821,17 +2821,7 @@ function runCompositionTestWhoseTextNodeModified() {
     );
 
     // Update the composition string after inserting character immediately before it
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "bc",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("bc");
     is(
       textNode.data,
       "abcd",
@@ -2871,17 +2861,7 @@ function runCompositionTestWhoseTextNodeModified() {
     const textNode = contenteditable.firstChild.firstChild;
     selection.collapse(textNode, "a".length);
     // Insert composition at end of the text node
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "b",
-          clauses: [
-            { length: 1, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 1, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("b");
     is(
       textNode.data,
       "ab",
@@ -2908,17 +2888,7 @@ function runCompositionTestWhoseTextNodeModified() {
     );
 
     // Update the composition string after inserting character immediately after it
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "bc",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("bc");
     is(
       textNode.data,
       "abcd",
@@ -2950,6 +2920,9 @@ function runCompositionTestWhoseTextNodeModified() {
     );
   })();
 
+  // Inserting/replacing text before the last character of composition string
+  // should be contained by the composition, i.e., updated by next composition
+  // update.  This is Chrome compatible.
   (function testInsertTextMiddleOfComposition() {
     const description =
       "runCompositionTestWhoseTextNodeModified: testInsertTextMiddleOfComposition:";
@@ -2958,17 +2931,7 @@ function runCompositionTestWhoseTextNodeModified() {
     const textNode = contenteditable.firstChild.firstChild;
     selection.collapse(textNode, "a".length);
     // Insert composition at middle of the text node
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "bd",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("bd");
     is(
       textNode.data,
       "abd",
@@ -2982,7 +2945,7 @@ function runCompositionTestWhoseTextNodeModified() {
       "abcd",
       `${
         description
-      } Composition should stay when a character is inserted into middle of it`
+      } Inserted string should inserted into the middle of composition string`
     );
     checkIMESelection(
       "RawClause",
@@ -2995,27 +2958,19 @@ function runCompositionTestWhoseTextNodeModified() {
     );
 
     // Update the composition string after inserting character into it
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "BD",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("BD");
     is(
       textNode.data,
       "aBD",
-      `${description} Composition should be updated with deleting the inserted character`
+      `${
+        description
+      } Composition should be replace the range containing the inserted character`
     );
     checkIMESelection(
       "RawClause",
       true,
       `${kLF}a`.length,
-      "bc",
+      "BD",
       `${
         description
       } IME selection should be set at the updated composition string`
@@ -3035,41 +2990,151 @@ function runCompositionTestWhoseTextNodeModified() {
       "aBD".length,
       `${description} Selection should be collapsed at end of the commit string`
     );
-  });
+  })();
 
-  (function testReplaceCompositionString() {
+  (function testReplaceFirstCharOfCompositionString() {
     const description =
-      "runCompositionTestWhoseTextNodeModified: testReplaceCompositionString:";
+      "runCompositionTestWhoseTextNodeModified: testReplaceFirstCharOfCompositionString:";
     contenteditable.focus();
-    contenteditable.innerHTML = "<p>ad</p>";
+    contenteditable.innerHTML = "<p>abfg</p>";
     const textNode = contenteditable.firstChild.firstChild;
-    selection.collapse(textNode, "a".length);
+    selection.collapse(textNode, "ab".length);
     // Insert composition at middle of the text node
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "bc",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("cde");
     is(
       textNode.data,
-      "abcd",
-      `${description} Composition should be inserted to end of the text node`
+      "abcdefg",
+      `${description} Composition should be inserted`
     );
 
     // Replace the composition string
-    textNode.replaceData("a".length, "bc".length, "xy");
+    textNode.replaceData("ab".length, "c".length, "XYZ");
     is(
       textNode.data,
-      "axyd",
+      "abXYZdefg",
+      `${description} First character of the composition should be replaced`
+    );
+    checkIMESelection(
+      "RawClause",
+      true,
+      `${kLF}ab`.length,
+      "XYZde",
+      `${description} IME selection should contain the replace string`
+    );
+
+    // Update the composition string after replaced
+    synthesizeSimpleCompositionChange("CDE");
+    is(
+      textNode.data,
+      "abCDEfg",
+      `${description} Composition should update the replace string too`
+    );
+    checkIMESelection(
+      "RawClause",
+      true,
+      `${kLF}ab`.length,
+      "CDE",
+      `${description} IME selection should update the replace string too`
+    );
+
+    // Commit it
+    synthesizeComposition({ type: "compositioncommitasis" });
+    is(
+      textNode.data,
+      "abCDEfg",
+      `${description} Composition should be committed`
+    );
+    is(
+      selection.focusOffset,
+      "abCDE".length,
+      `${description} Selection should be collapsed at end of the commit string`
+    );
+  })();
+
+  // Although Chrome commits composition if all composition string is removed,
+  // let's keep composition for making TSF stable...
+  (function testReplaceAllCompositionString() {
+    const description =
+      "runCompositionTestWhoseTextNodeModified: testReplaceAllCompositionString:";
+    contenteditable.focus();
+    contenteditable.innerHTML = "<p>abfg</p>";
+    const textNode = contenteditable.firstChild.firstChild;
+    selection.collapse(textNode, "ab".length);
+    // Insert composition at middle of the text node
+    synthesizeSimpleCompositionChange("cde");
+    is(
+      textNode.data,
+      "abcdefg",
+      `${description} Composition should be inserted to the text node`
+    );
+
+    // Replace the composition string
+    textNode.replaceData("ab".length, "cde".length, "XYZ");
+    is(
+      textNode.data,
+      "abXYZfg",
+      `${description} Composition should be replaced`
+    );
+    checkIMESelection(
+      "RawClause",
+      true,
+      `${kLF}ab`.length,
+      "",
       `${
         description
-      } Composition should be replaced`
+      } IME selection should be collapsed before the replace string`
+    );
+
+    // Update the composition string after replaced
+    synthesizeSimpleCompositionChange("CDE");
+    is(
+      textNode.data,
+      "abCDEXYZfg",
+      `${description} Composition should be inserted again`
+    );
+    checkIMESelection(
+      "RawClause",
+      true,
+      `${kLF}ab`.length,
+      "CDE",
+      `${description} IME selection should not contain the replace string`
+    );
+
+    // Commit it
+    synthesizeComposition({ type: "compositioncommitasis" });
+    is(
+      textNode.data,
+      "abCDEXYZfg",
+      `${description} Composition should be committed`
+    );
+    is(
+      selection.focusOffset,
+      "abCDE".length,
+      `${description} Selection should be collapsed at end of the commit string`
+    );
+  })();
+
+  (function testReplaceCompositionStringAndSurroundedCharacters() {
+    const description =
+      "runCompositionTestWhoseTextNodeModified: testReplaceCompositionStringAndSurroundedCharacters:";
+    contenteditable.focus();
+    contenteditable.innerHTML = "<p>abfg</p>";
+    const textNode = contenteditable.firstChild.firstChild;
+    selection.collapse(textNode, "ab".length);
+    // Insert composition at middle of the text node
+    synthesizeSimpleCompositionChange("cde");
+    is(
+      textNode.data,
+      "abcdefg",
+      `${description} Composition should be inserted to the text node`
+    );
+
+    // Replace the composition string
+    textNode.replaceData("a".length, "bcdef".length, "XYZ");
+    is(
+      textNode.data,
+      "aXYZg",
+      `${description} Composition should be replaced`
     );
     checkIMESelection(
       "RawClause",
@@ -3078,225 +3143,289 @@ function runCompositionTestWhoseTextNodeModified() {
       "",
       `${
         description
-      } IME selection should be collapsed at start of the replaced string`
+      } IME selection should be collapsed before the replace string`
     );
 
     // Update the composition string after replaced
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "BC",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("CDE");
     is(
       textNode.data,
-      "aBCxyd",
-      `${description} Composition should be inserted before the inserted string`
+      "aCDEXYZg",
+      `${description} Composition should be inserted again`
     );
     checkIMESelection(
       "RawClause",
       true,
       `${kLF}a`.length,
-      "BC",
-      `${
-        description
-      } IME selection should be set at the new composition string`
+      "CDE",
+      `${description} IME selection should not contain the replace string`
     );
 
     // Commit it
     synthesizeComposition({ type: "compositioncommitasis" });
     is(
       textNode.data,
-      "aBCxyd",
-      `${
-        description
-      } Composition should be committed before the inserted string`
+      "aCDEXYZg",
+      `${description} Composition should be committed`
     );
     is(
       selection.focusOffset,
-      "aBC".length,
+      "aCDE".length,
       `${description} Selection should be collapsed at end of the commit string`
     );
-  });
+  })();
 
-  (function testReplaceFirstHalfCompositionString() {
+  // If start boundary characters are replaced, the replace string should be
+  // contained into the composition range.  This is Chrome compatible.
+  (function testReplaceStartBoundaryOfCompositionString() {
     const description =
-      "runCompositionTestWhoseTextNodeModified: testReplaceFirstHalfCompositionString:";
+      "runCompositionTestWhoseTextNodeModified: testReplaceStartBoundaryOfCompositionString:";
     contenteditable.focus();
-    contenteditable.innerHTML = "<p>ad</p>";
+    contenteditable.innerHTML = "<p>abfg</p>";
     const textNode = contenteditable.firstChild.firstChild;
-    selection.collapse(textNode, "a".length);
+    selection.collapse(textNode, "ab".length);
     // Insert composition at middle of the text node
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "bc",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("cde");
     is(
       textNode.data,
-      "abcd",
-      `${description} Composition should be inserted to end of the text node`
+      "abcdefg",
+      `${description} Composition should be inserted to the text node`
     );
 
-    // Replace the composition string
-    textNode.replaceData(0, "ab".length, "xy");
+    // Replace some text
+    textNode.replaceData("a".length, "bc".length, "XYZ");
     is(
       textNode.data,
-      "xycd",
+      "aXYZdefg",
       `${
         description
-      } First half of the composition should be replaced`
+      } Start of the composition should be replaced`
     );
     checkIMESelection(
       "RawClause",
       true,
-      `${kLF}xy`.length,
-      "c",
-      `${
-        description
-      } IME selection should be stay at non-replaced part`
+      `${kLF}a`.length,
+      "XYZde",
+      `${description} IME selection should contain the replace string`
     );
 
-    // Update the composition string after replaced
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "BC",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    // Update the replace string and remaining composition.
+    synthesizeSimpleCompositionChange("CDE");
     is(
       textNode.data,
-      "xyBCd",
-      `${description} Composition should be updated after the inserted string`
+      "aCDEfg",
+      `${description} Composition should update the replace string too`
     );
     checkIMESelection(
       "RawClause",
       true,
-      `${kLF}xy`.length,
-      "BC",
-      `${
-        description
-      } IME selection should be set at the new composition string`
+      `${kLF}a`.length,
+      "CDE",
+      `${description} IME selection should contain the replace string`
     );
 
     // Commit it
     synthesizeComposition({ type: "compositioncommitasis" });
     is(
       textNode.data,
-      "xyBCd",
+      "aCDEfg",
       `${
         description
-      } Composition should be committed after the inserted string`
+      } Composition should be committed`
     );
     is(
       selection.focusOffset,
-      "xyBC".length,
+      "aCDE".length,
       `${description} Selection should be collapsed at end of the commit string`
     );
-  });
+  })();
 
-  (function testReplaceSecondHalfCompositionString() {
+  // If start boundary characters are replaced, the replace string should NOT
+  // be contained in the composition range.  This is Chrome compatible.
+  (function testReplaceEndBoundaryOfCompositionString() {
     const description =
-      "runCompositionTestWhoseTextNodeModified: testReplaceSecondHalfCompositionString:";
+      "runCompositionTestWhoseTextNodeModified: testReplaceEndBoundaryOfCompositionString:";
     contenteditable.focus();
-    contenteditable.innerHTML = "<p>ad</p>";
+    contenteditable.innerHTML = "<p>abfg</p>";
     const textNode = contenteditable.firstChild.firstChild;
-    selection.collapse(textNode, "a".length);
+    selection.collapse(textNode, "ab".length);
     // Insert composition at middle of the text node
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "bc",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("cde");
     is(
       textNode.data,
-      "abcd",
-      `${description} Composition should be inserted to end of the text node`
+      "abcdefg",
+      `${description} Composition should be inserted to the text node`
     );
 
     // Replace the composition string
-    textNode.replaceData("ab".length, "cd".length, "xy");
+    textNode.replaceData("abcd".length, "ef".length, "XYZ");
     is(
       textNode.data,
-      "abxy",
+      "abcdXYZg",
       `${
         description
-      } First half of the composition should be replaced`
+      } End half of the composition should be replaced`
     );
     checkIMESelection(
       "RawClause",
       true,
-      `${kLF}a`.length,
-      "b",
+      `${kLF}ab`.length,
+      "cd",
       `${
         description
       } IME selection should be shrunken to the non-replaced part`
     );
 
     // Update the composition string after replaced
-    synthesizeCompositionChange(
-      {
-        composition: {
-          string: "BC",
-          clauses: [
-            { length: 2, attr: COMPOSITION_ATTR_RAW_CLAUSE },
-          ],
-        },
-        caret: { start: 2, length: 0 },
-      }
-    );
+    synthesizeSimpleCompositionChange("CDE");
     is(
       textNode.data,
-      "aBCxy",
-      `${description} Composition should be updated before the inserted string`
+      "abCDEXYZg",
+      `${description} Only the remaining composition string should be updated`
     );
     checkIMESelection(
       "RawClause",
       true,
-      `${kLF}a`.length,
-      "BC",
-      `${
-        description
-      } IME selection should be set at the new composition string`
+      `${kLF}ab`.length,
+      "CDE",
+      `${description} IME selection should NOT include the replace string`
     );
 
     // Commit it
     synthesizeComposition({ type: "compositioncommitasis" });
     is(
       textNode.data,
-      "aBCxy",
-      `${
-        description
-      } Composition should be committed before the inserted string`
+      "abCDEXYZg",
+      `${description} Composition should be committed`
     );
     is(
       selection.focusOffset,
-      "aBC".length,
+      "abCDE".length,
       `${description} Selection should be collapsed at end of the commit string`
     );
-  });
+  })();
+
+  // If the last character of composition is replaced, i.e., it should NOT be
+  // treated as a part of composition string.  This is Chrome compatible.
+  (function testReplaceLastCharOfCompositionString() {
+    const description =
+      "runCompositionTestWhoseTextNodeModified: testReplaceLastCharOfCompositionString:";
+    contenteditable.focus();
+    contenteditable.innerHTML = "<p>abfg</p>";
+    const textNode = contenteditable.firstChild.firstChild;
+    selection.collapse(textNode, "ab".length);
+    // Insert composition at middle of the text node
+    synthesizeSimpleCompositionChange("cde");
+    is(
+      textNode.data,
+      "abcdefg",
+      `${description} Composition should be inserted`
+    );
+
+    // Replace the composition string
+    textNode.replaceData("abcd".length, "e".length, "XYZ");
+    is(
+      textNode.data,
+      "abcdXYZfg",
+      `${description} Last character of the composition should be replaced`
+    );
+    checkIMESelection(
+      "RawClause",
+      true,
+      `${kLF}ab`.length,
+      "cd",
+      `${description} IME selection should be shrunken`
+    );
+
+    // Update the composition string after replaced
+    synthesizeSimpleCompositionChange("CDE");
+    is(
+      textNode.data,
+      "abCDEXYZfg",
+      `${description} Composition should NOT update the replace string`
+    );
+    checkIMESelection(
+      "RawClause",
+      true,
+      `${kLF}ab`.length,
+      "CDE",
+      `${description} IME selection should not contain the replace string`
+    );
+
+    // Commit it
+    synthesizeComposition({ type: "compositioncommitasis" });
+    is(
+      textNode.data,
+      "abCDEXYZfg",
+      `${description} Composition should be committed`
+    );
+    is(
+      selection.focusOffset,
+      "abCDE".length,
+      `${description} Selection should be collapsed at end of the commit string`
+    );
+  })();
+
+  (function testReplaceMiddleCharOfCompositionString() {
+    const description =
+      "runCompositionTestWhoseTextNodeModified: testReplaceMiddleCharOfCompositionString:";
+    contenteditable.focus();
+    contenteditable.innerHTML = "<p>abfg</p>";
+    const textNode = contenteditable.firstChild.firstChild;
+    selection.collapse(textNode, "ab".length);
+    // Insert composition at middle of the text node
+    synthesizeSimpleCompositionChange("cde");
+    is(
+      textNode.data,
+      "abcdefg",
+      `${description} Composition should be inserted`
+    );
+
+    // Replace the composition string
+    textNode.replaceData("abc".length, "d".length, "XYZ");
+    is(
+      textNode.data,
+      "abcXYZefg",
+      `${
+        description
+      } Middle character of the composition should be replaced`
+    );
+    checkIMESelection(
+      "RawClause",
+      true,
+      `${kLF}ab`.length,
+      "cXYZe",
+      `${description} IME selection should be extended by the replace string`
+    );
+
+    // Update the composition string after replaced
+    synthesizeSimpleCompositionChange("CDE");
+    is(
+      textNode.data,
+      "abCDEfg",
+      `${description} Composition should update the replace string`
+    );
+    checkIMESelection(
+      "RawClause",
+      true,
+      `${kLF}ab`.length,
+      "CDE",
+      `${description} IME selection should be shrunken after update`
+    );
+
+    // Commit it
+    synthesizeComposition({ type: "compositioncommitasis" });
+    is(
+      textNode.data,
+      "abCDEfg",
+      `${description} Composition should be committed`
+    );
+    is(
+      selection.focusOffset,
+      "abCDE".length,
+      `${description} Selection should be collapsed at end of the commit string`
+    );
+  })();
 }
 
 // eslint-disable-next-line complexity

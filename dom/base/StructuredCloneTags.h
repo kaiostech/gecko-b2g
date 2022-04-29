@@ -17,7 +17,7 @@ namespace dom {
 //
 // If you are planning to add new tags which could be used by IndexedDB,
 // consider to use empty slots. See EMPTY_SLOT_x
-enum StructuredCloneTags {
+enum StructuredCloneTags : uint32_t {
   SCTAG_BASE = JS_SCTAG_USER_MIN,
 
   // IMPORTANT: Don't change the order of these enum values. You could break
@@ -96,7 +96,7 @@ enum StructuredCloneTags {
 
   // IMPORTANT: Don't change the order of these enum values. You could break
   // IDB.
-  EMPTY_SLOT_8,
+  SCTAG_DOM_DOMEXCEPTION,
 
   // IMPORTANT: Don't change the order of these enum values. You could break
   // IDB.

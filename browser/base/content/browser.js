@@ -5363,11 +5363,15 @@ var XULBrowserWindow = {
       this.reloadCommand.removeAttribute("disabled");
     }
 
+    let isSessionRestore = !!(
+      aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SESSION_STORE
+    );
+
     // We want to update the popup visibility if we received this notification
     // via simulated locationchange events such as switching between tabs, however
     // if this is a document navigation then PopupNotifications will be updated
     // via TabsProgressListener.onLocationChange and we do not want it called twice
-    gURLBar.setURI(aLocationURI, aIsSimulated);
+    gURLBar.setURI(aLocationURI, aIsSimulated, isSessionRestore);
 
     BookmarkingUI.onLocationChange();
     // If we've actually changed document, update the toolbar visibility.
@@ -6314,7 +6318,7 @@ nsBrowserAccess.prototype = {
           forceNotRemote,
           userContextId,
           aOpenWindowInfo,
-          null,
+          aOpenWindowInfo?.parent?.top.embedderElement,
           aTriggeringPrincipal,
           "",
           aCsp,
@@ -8626,12 +8630,16 @@ function switchToTabHavingURI(aURI, aOpenNew, aOpenParams = {}) {
           adoptIntoActiveWindow && isBrowserWindow && aWindow != window;
 
         if (doAdopt) {
-          window.gBrowser.adoptTab(
+          const newTab = window.gBrowser.adoptTab(
             aWindow.gBrowser.getTabForBrowser(browser),
             window.gBrowser.tabContainer.selectedIndex + 1,
             /* aSelectTab = */ true
           );
-        } else {
+          if (!newTab) {
+            doAdopt = false;
+          }
+        }
+        if (!doAdopt) {
           aWindow.focus();
         }
 

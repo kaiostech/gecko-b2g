@@ -1,6 +1,6 @@
 /**
  * @licstart The following is the entire license notice for the
- * Javascript code in this page
+ * JavaScript code in this page
  *
  * Copyright 2022 Mozilla Foundation
  *
@@ -17,7 +17,7 @@
  * limitations under the License.
  *
  * @licend The above is the entire license notice for the
- * Javascript code in this page
+ * JavaScript code in this page
  */
 
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -29,7 +29,7 @@
 		exports["pdfjs-dist/build/pdf.scripting"] = factory();
 	else
 		root.pdfjsScripting = factory();
-})(this, function() {
+})(this, () => {
 return /******/ (() => { // webpackBootstrap
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ([
@@ -641,7 +641,12 @@ class Field extends _pdf_object.PDFObject {
     if (this._isChoice) {
       if (this.multipleSelection) {
         const values = new Set(value);
-        this._currentValueIndices.length = 0;
+
+        if (Array.isArray(this._currentValueIndices)) {
+          this._currentValueIndices.length = 0;
+        } else {
+          this._currentValueIndices = [];
+        }
 
         this._items.forEach(({
           displayValue
@@ -2613,6 +2618,10 @@ class EventDispatcher {
 
   mergeChange(event) {
     let value = event.value;
+
+    if (Array.isArray(value)) {
+      return value;
+    }
 
     if (typeof value !== "string") {
       value = value.toString();
@@ -4947,8 +4956,8 @@ Object.defineProperty(exports, "initSandbox", ({
 
 var _initialization = __w_pdfjs_require__(1);
 
-const pdfjsVersion = '2.14.102';
-const pdfjsBuild = 'db4f3adc5';
+const pdfjsVersion = '2.14.224';
+const pdfjsBuild = '2be19e828';
 })();
 
 /******/ 	return __webpack_exports__;

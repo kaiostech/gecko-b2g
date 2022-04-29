@@ -165,10 +165,10 @@ export const MultiStageAboutWelcome = props => {
         {screens.map((screen, order) => {
           const isFirstCenteredScreen =
             screen.content.position !== "corner" &&
-            screen.order === centeredScreens[0].order;
+            screen === centeredScreens[0];
           const isLastCenteredScreen =
             screen.content.position !== "corner" &&
-            screen.order === centeredScreens[centeredScreens.length - 1].order;
+            screen === centeredScreens[centeredScreens.length - 1];
           /* If first screen is corner positioned, don't include it in the count for the steps indicator. This assumes corner positioning will only be used on the first screen. */
           const totalNumberOfScreens =
             screens[0].content.position === "corner"
@@ -283,7 +283,8 @@ export class WelcomeScreen extends React.PureComponent {
     // Send telemetry before waiting on actions
     AboutWelcomeUtils.sendActionTelemetry(
       props.messageId,
-      event.currentTarget.value
+      event.currentTarget.value,
+      event.name
     );
 
     let { action } = targetContent;

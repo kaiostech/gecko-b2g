@@ -104,56 +104,8 @@ async def test_evaluate_window_open_with_url(
     )
 
 
-async def test_navigate_creates_iframes(bidi_session, current_session, test_page_multiple_frames):
-    # Unsubscribe in case a previous tests subscribed to the event
-    await bidi_session.session.unsubscribe(events=[CONTEXT_CREATED_EVENT])
-
-    events = []
-
-    async def on_event(method, data):
-        events.append(data)
-
-    remove_listener = bidi_session.add_event_listener(CONTEXT_CREATED_EVENT, on_event)
-    await bidi_session.session.subscribe(events=[CONTEXT_CREATED_EVENT])
-
-    current_session.url = test_page_multiple_frames
-
-    wait = AsyncPoll(
-        current_session,
-        message="Didn't receive context created events for frames")
-    await wait.until(lambda _: len(events) >= 2)
-    assert len(events) == 2
-
-    # Get all browsing contexts from the current tab
-    contexts = await bidi_session.browsing_context.get_tree(parent=current_session.window_handle)
-
-    assert len(contexts) == 1
-    parent_info = contexts[0]
-    children_info = parent_info["children"]
-    assert len(children_info) == 2
-
-    assert_browsing_context(
-        events[0],
-        children_info[0]["context"],
-        children=None,
-        url=children_info[0]["url"],
-        parent=parent_info["context"],
-    )
-
-    assert_browsing_context(
-        events[1],
-        children_info[1]["context"],
-        children=None,
-        url=children_info[1]["url"],
-        parent=parent_info["context"],
-    )
-
-    remove_listener()
-    await bidi_session.session.unsubscribe(events=[CONTEXT_CREATED_EVENT])
-
-
-async def test_navigate_creates_nested_iframes(
-    bidi_session, current_session, test_page_nested_frames
+async def test_navigate_creates_iframes(
+    bidi_session, current_session, top_context, test_page_multiple_frames
 ):
     # Unsubscribe in case a previous tests subscribed to the event
     await bidi_session.session.unsubscribe(events=[CONTEXT_CREATED_EVENT])
@@ -166,7 +118,9 @@ async def test_navigate_creates_nested_iframes(
     remove_listener = bidi_session.add_event_listener(CONTEXT_CREATED_EVENT, on_event)
     await bidi_session.session.subscribe(events=[CONTEXT_CREATED_EVENT])
 
-    current_session.url = test_page_nested_frames
+    await bidi_session.browsing_context.navigate(
+        context=top_context["context"], url=test_page_multiple_frames, wait="complete"
+    )
 
     wait = AsyncPoll(
         current_session,
@@ -175,12 +129,64 @@ async def test_navigate_creates_nested_iframes(
     assert len(events) == 2
 
     # Get all browsing contexts from the current tab
-    contexts = await bidi_session.browsing_context.get_tree(parent=current_session.window_handle)
+    contexts = await bidi_session.browsing_context.get_tree(root=current_session.window_handle)
 
     assert len(contexts) == 1
-    parent_info = contexts[0]
-    assert len(parent_info["children"]) == 1
-    child1_info = parent_info["children"][0]
+    root_info = contexts[0]
+    children_info = root_info["children"]
+    assert len(children_info) == 2
+
+    assert_browsing_context(
+        events[0],
+        children_info[0]["context"],
+        children=None,
+        url=children_info[0]["url"],
+        parent=root_info["context"],
+    )
+
+    assert_browsing_context(
+        events[1],
+        children_info[1]["context"],
+        children=None,
+        url=children_info[1]["url"],
+        parent=root_info["context"],
+    )
+
+    remove_listener()
+    await bidi_session.session.unsubscribe(events=[CONTEXT_CREATED_EVENT])
+
+
+async def test_navigate_creates_nested_iframes(
+    bidi_session, current_session, top_context, test_page_nested_frames
+):
+    # Unsubscribe in case a previous tests subscribed to the event
+    await bidi_session.session.unsubscribe(events=[CONTEXT_CREATED_EVENT])
+
+    events = []
+
+    async def on_event(method, data):
+        events.append(data)
+
+    remove_listener = bidi_session.add_event_listener(CONTEXT_CREATED_EVENT, on_event)
+    await bidi_session.session.subscribe(events=[CONTEXT_CREATED_EVENT])
+
+    await bidi_session.browsing_context.navigate(
+        context=top_context["context"], url=test_page_nested_frames, wait="complete"
+    )
+
+    wait = AsyncPoll(
+        current_session,
+        message="Didn't receive context created events for frames")
+    await wait.until(lambda _: len(events) >= 2)
+    assert len(events) == 2
+
+    # Get all browsing contexts from the current tab
+    contexts = await bidi_session.browsing_context.get_tree(root=current_session.window_handle)
+
+    assert len(contexts) == 1
+    root_info = contexts[0]
+    assert len(root_info["children"]) == 1
+    child1_info = root_info["children"][0]
     assert len(child1_info["children"]) == 1
     child2_info = child1_info["children"][0]
 
@@ -189,7 +195,7 @@ async def test_navigate_creates_nested_iframes(
         child1_info["context"],
         children=None,
         url=child1_info["url"],
-        parent=parent_info["context"],
+        parent=root_info["context"],
     )
 
     assert_browsing_context(

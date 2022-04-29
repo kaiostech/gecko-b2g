@@ -505,7 +505,7 @@ AudioCallbackDriver::AudioCallbackDriver(
       mInputDeviceID(aInputDeviceID),
       mIterationDurationMS(MEDIA_GRAPH_TARGET_PERIOD_MS),
       mStarted(false),
-      mInitShutdownThread(SharedThreadPool::Get("CubebOperation"_ns, 1)),
+      mInitShutdownThread(CUBEB_TASK_THREAD),
       mAudioChannel(aGraphInterface->AudioChannel()),
       mAudioThreadId(ProfilerThreadId{}),
       mAudioThreadIdInCb(std::thread::id()),

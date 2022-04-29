@@ -10,6 +10,7 @@ $break-point-medium: 610px;
 $break-point-large: 866px;
 $logo-size: 80px;
 $main-section-width: 504px;
+$noodle-buffer: 106px;
 
 html {
   height: 100%;
@@ -35,16 +36,12 @@ body {
 :root {
   &[dialogroot] {
     background-color: transparent;
-    min-width: $main-section-width;
-    overflow: hidden;
 
     body {
       padding: 0;
     }
 
     .onboardingContainer {
-      overflow: visible;
-
       &:dir(rtl) {
         transform: unset;
       }
@@ -55,14 +52,6 @@ body {
         &:dir(rtl) {
           transform: unset;
         }
-
-        &.with-noodles {
-          // Adjust for noodles partially extending out from the square modal
-          $noodle-buffer: 106px;
-          min-width: $main-section-width + $noodle-buffer;
-          min-height: $main-section-width + $noodle-buffer;
-        }
-
       }
     }
   }
@@ -70,7 +59,6 @@ body {
 
 .onboardingContainer {
   text-align: center;
-  overflow-x: auto;
   height: 100vh;
 
   @media (prefers-contrast: more) {
@@ -147,6 +135,21 @@ body {
     min-height: 500px;
     overflow: hidden;
 
+    &:is(.UPGRADE_PIN_FIREFOX, .UPGRADE_ONLY_DEFAULT, .UPGRADE_GET_STARTED) {
+      .brand-logo {
+        margin-top: 120px;
+
+        @media (prefers-reduced-motion: reduce) {
+          // sass-lint:disable-block no-important
+          background-image: url('chrome://activity-stream/content/data/content/assets/heart.svg') !important;
+        }
+      }
+
+      .no-steps {
+        padding-bottom: 12px;
+      }
+    }
+
     &.light-text {
       --in-content-page-color: rgb(251, 251, 254);
       --in-content-primary-button-text-color: rgb(43, 42, 51);
@@ -181,6 +184,20 @@ body {
 
     &:dir(rtl) {
       transform: rotateY(180deg);
+    }
+
+    &[pos='center'] {
+      min-width: $main-section-width;
+
+      &.with-noodles {
+        // Adjust for noodles partially extending out from the square modal
+        min-width: $main-section-width + $noodle-buffer;
+        min-height: $main-section-width + $noodle-buffer;
+
+        .section-main {
+          height: $main-section-width;
+        }
+      }
     }
   }
 
@@ -221,11 +238,11 @@ body {
     h1,
     h2 {
       color: var(--in-content-page-color);
+      line-height: 1.5;
     }
 
     h1 {
       font-size: 24px;
-      line-height: 36px;
       font-weight: 600;
       margin: 0 6px;
       letter-spacing: -0.02em;
@@ -236,42 +253,33 @@ body {
       font-size: 16px;
       font-weight: normal;
       margin: 10px 6px 0;
-      line-height: 24px;
       max-width: 750px;
       letter-spacing: -0.01em;
-    }
-
-    &.larger {
-      h1 {
-        font-size: 36px;
-      }
-    }
-
-    &.slim {
-      h1 {
-        font-weight: 276;
-      }
     }
 
     &.fancy {
       h1 {
         background-image: linear-gradient(90deg, #9059FF, #FF4AA2, #FF8C00, #FF4AA2, #9059FF);
-        background-size: 400% auto;
-        color: #000;
         background-clip: text;
-        -webkit-background-clip: text;
-        animation: shine 50s linear infinite;
+        background-size: 200%;
         @media (prefers-contrast: no-preference) {
-          -webkit-text-fill-color: transparent;
+          color: transparent;
         }
         @media (prefers-color-scheme: dark) {
           background-image: linear-gradient(90deg, #C688FF, #FF84C0, #FFBD4F, #FF84C0, #C688FF);
         }
       }
+    }
+
+    &.shine {
+      h1 {
+        animation: shine 50s linear infinite;
+        background-size: 400%;
+      }
 
       @keyframes shine {
         to {
-          background-position: 400% center;
+          background-position: 400%;
         }
       }
     }
@@ -826,6 +834,7 @@ body {
         background-size: contain;
         background-position: center;
         box-shadow: none;
+        border: 0;
       }
 
       &:not(:first-child) {
@@ -1092,6 +1101,7 @@ body {
         width: 350px;
         bottom: 0;
         inset-inline-end: 30px;
+        overflow: visible;
         transition: var(--transition);
       }
 
@@ -1391,9 +1401,5 @@ body {
         transition-delay: 0.4s;
       }
     }
-  }
-
-  .screen.with-noodles:not(.corner) .section-main {
-    height: $main-section-width;
   }
 }

@@ -1288,7 +1288,7 @@ pref("security.disallow_privileged_https_stylesheet_loads", false);
 #ifdef MOZ_WIDGET_GONK
 pref("b2g.api-daemon.uds-socket", "/dev/socket/api-daemon");
 #else
-pref("b2g.api-daemon.uds-socket", "/tmp/api-daemon-socket")
+pref("b2g.api-daemon.uds-socket", "/tmp/api-daemon-socket");
 #endif
 
 // Enable pdf.js

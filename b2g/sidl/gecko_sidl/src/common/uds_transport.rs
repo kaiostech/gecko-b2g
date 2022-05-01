@@ -270,6 +270,11 @@ impl UdsTransport {
         let path = get_char_pref("b2g.api-daemon.uds-socket", "/dev/socket/api-daemon");
         #[cfg(not(target_os = "android"))]
         let path = get_char_pref("b2g.api-daemon.uds-socket", "/tmp/api-daemon-socket");
+        #[cfg(target_os = "macos")]
+        let path = format!(
+            "{}",
+            std::env::temp_dir().join("api-daemon-socket").display()
+        );
 
         let (transport, mut recv_stream) = match UnixStream::connect(&path) {
             Ok(stream) => match stream.try_clone() {

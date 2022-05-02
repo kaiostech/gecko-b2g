@@ -62,7 +62,7 @@ BluetoothProfileController::BluetoothProfileController(
   MOZ_ASSERT(aRunnable);
   MOZ_ASSERT(aCallback);
 
-  mTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
+  mTimer = NS_NewTimer();
   MOZ_ASSERT(mTimer);
 
   mProfiles.Clear();

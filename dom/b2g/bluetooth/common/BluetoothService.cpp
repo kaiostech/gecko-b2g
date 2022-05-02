@@ -548,7 +548,7 @@ nsresult BluetoothService::HandleShutdown() {
     // or the bluetooth threads to finish. If we don't get a timer or can't use
     // it for some reason then we skip all the waiting entirely since we really
     // can't afford to hang on shutdown.
-    nsCOMPtr<nsITimer> timer = do_CreateInstance(NS_TIMER_CONTRACTID);
+    nsCOMPtr<nsITimer> timer = NS_NewTimer();
     MOZ_ASSERT(timer);
 
     if (timer) {

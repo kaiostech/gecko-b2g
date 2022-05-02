@@ -93,7 +93,7 @@ bool MatchesOrigin(const uint8_t* aOrigin, size_t aOriginLen, bool aIsSubdomain,
   LOG("MatchesOrigin(%d, %d, %d, %s)\n", aIsThirdParty, aIsSubdomain,
       aIsUsageSubset, nsCString(origin).get());
 
-  if (aIsThirdParty || aIsSubdomain || aIsUsageSubset) {
+  if (aIsThirdParty || aIsUsageSubset) {
     // TODO(emilio): Support third-party tokens and so on.
     return false;
   }
@@ -104,10 +104,26 @@ bool MatchesOrigin(const uint8_t* aOrigin, size_t aOriginLen, bool aIsSubdomain,
     return false;
   }
 
-  if (NS_WARN_IF(!principal->IsSameOrigin(originURI))) {
+  const bool originMatches = [&] {
+    if (principal->IsSameOrigin(originURI)) {
+      return true;
+    }
+    if (aIsSubdomain) {
+      for (nsCOMPtr<nsIPrincipal> prin = principal->GetNextSubDomainPrincipal();
+           prin; prin = prin->GetNextSubDomainPrincipal()) {
+        if (prin->IsSameOrigin(originURI)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }();
+
+  if (NS_WARN_IF(!originMatches)) {
     LOG("Origin doesn't match\n");
     return false;
   }
+
   return true;
 }
 
@@ -153,12 +169,33 @@ OriginTrials OriginTrials::FromWindow(const nsGlobalWindowInner* aWindow) {
   return doc->Trials();
 }
 
+static int32_t PrefState(OriginTrial aTrial) {
+  switch (aTrial) {
+    case OriginTrial::TestTrial:
+      return StaticPrefs::dom_origin_trials_test_trial_state();
+    case OriginTrial::MAX:
+      MOZ_ASSERT_UNREACHABLE("Unknown trial!");
+      break;
+  }
+  return 0;
+}
+
 bool OriginTrials::IsEnabled(JSContext* aCx, JSObject* aObject,
                              OriginTrial aTrial) {
   if (nsContentUtils::ThreadsafeIsSystemCaller(aCx)) {
     return true;
   }
   LOG("OriginTrials::IsEnabled(%d)\n", int(aTrial));
+
+  switch (PrefState(aTrial)) {
+    case 1:
+      return true;
+    case 2:
+      return false;
+    default:
+      break;
+  }
+
   nsIGlobalObject* global = xpc::CurrentNativeGlobal(aCx);
   MOZ_ASSERT(global);
   return global && global->Trials().IsEnabled(aTrial);

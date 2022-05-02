@@ -538,7 +538,7 @@ class TIPMessageHandler {
     // want to block, and the aHwnd is a nsWindow that belongs to the current
     // thread.
     if (!aMsgResult || aMsgCode != WM_GETOBJECT ||
-        static_cast<DWORD>(aLParam) != OBJID_CLIENT ||
+        static_cast<LONG>(aLParam) != OBJID_CLIENT ||
         !WinUtils::GetNSWindowPtr(aHwnd) ||
         ::GetWindowThreadProcessId(aHwnd, nullptr) != ::GetCurrentThreadId() ||
         !IsA11yBlocked()) {
@@ -1334,7 +1334,7 @@ DWORD nsWindow::WindowStyle() {
 
     default:
       NS_ERROR("unknown border style");
-      // fall through
+      [[fallthrough]];
 
     case eWindowType_toplevel:
     case eWindowType_invisible:
@@ -1417,7 +1417,7 @@ DWORD nsWindow::WindowExStyle() {
     }
     default:
       NS_ERROR("unknown border style");
-      // fall through
+      [[fallthrough]];
 
     case eWindowType_toplevel:
     case eWindowType_invisible:
@@ -1872,7 +1872,7 @@ BOOL CALLBACK nsWindow::RegisterTouchForDescendants(HWND aWnd, LPARAM aMsg) {
 
 void nsWindow::LockAspectRatio(bool aShouldLock) {
   if (aShouldLock) {
-    mAspectRatio = (float)mBounds.Height() / (float)mBounds.Width();
+    mAspectRatio = (float)mBounds.Width() / (float)mBounds.Height();
   } else {
     mAspectRatio = 0.0;
   }
@@ -3388,7 +3388,7 @@ void nsWindow::UpdateGlass() {
         margins.cxRightWidth += kGlassMarginAdjustment;
         margins.cyBottomHeight += kGlassMarginAdjustment;
       }
-      // Fall through
+      [[fallthrough]];
     case eTransparencyGlass:
       policy = DWMNCRP_ENABLED;
       break;
@@ -5604,6 +5604,7 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
       }
       // We've transitioned from non-client to outside of the window, so
       // fall-through to the WM_MOUSELEAVE handler.
+      [[fallthrough]];
     }
     case WM_MOUSELEAVE: {
       if (!mMousePresent) break;
@@ -5834,23 +5835,23 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
         if (wParam == WMSZ_LEFT || wParam == WMSZ_RIGHT ||
             wParam == WMSZ_TOPLEFT || wParam == WMSZ_BOTTOMLEFT) {
           newWidth = rect->right - rect->left;
-          newHeight = newWidth * mAspectRatio;
+          newHeight = newWidth / mAspectRatio;
           if (newHeight < mSizeConstraints.mMinSize.height) {
             newHeight = mSizeConstraints.mMinSize.height;
-            newWidth = newHeight / mAspectRatio;
+            newWidth = newHeight * mAspectRatio;
           } else if (newHeight > mSizeConstraints.mMaxSize.height) {
             newHeight = mSizeConstraints.mMaxSize.height;
-            newWidth = newHeight / mAspectRatio;
+            newWidth = newHeight * mAspectRatio;
           }
         } else {
           newHeight = rect->bottom - rect->top;
-          newWidth = newHeight / mAspectRatio;
+          newWidth = newHeight * mAspectRatio;
           if (newWidth < mSizeConstraints.mMinSize.width) {
             newWidth = mSizeConstraints.mMinSize.width;
-            newHeight = newWidth * mAspectRatio;
+            newHeight = newWidth / mAspectRatio;
           } else if (newWidth > mSizeConstraints.mMaxSize.width) {
             newWidth = mSizeConstraints.mMaxSize.width;
-            newHeight = newWidth * mAspectRatio;
+            newHeight = newWidth / mAspectRatio;
           }
         }
 
@@ -6856,7 +6857,7 @@ void nsWindow::OnWindowPosChanged(WINDOWPOS* wp) {
       // has changed such that it violates the aspect ratio constraint. If so,
       // queue up an event to enforce the aspect ratio constraint and repaint.
       // When resized with Windows Aero Snap, we are in the NOT_RESIZING state.
-      float newAspectRatio = (float)newHeight / newWidth;
+      float newAspectRatio = (float)newWidth / newHeight;
       if (mResizeState == NOT_RESIZING && mAspectRatio != newAspectRatio) {
         // Hold a reference to self alive and pass it into the lambda to make
         // sure this nsIWidget stays alive long enough to run this function.
@@ -6864,7 +6865,7 @@ void nsWindow::OnWindowPosChanged(WINDOWPOS* wp) {
         NS_DispatchToMainThread(NS_NewRunnableFunction(
             "EnforceAspectRatio", [self, this, newWidth]() -> void {
               if (mWnd) {
-                Resize(newWidth, newWidth * mAspectRatio, true);
+                Resize(newWidth, newWidth / mAspectRatio, true);
               }
             }));
       }

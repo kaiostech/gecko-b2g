@@ -81,7 +81,7 @@ void UsbManager::Notify(const hal::UsbStatus& aUsbStatus) {
     // We often get rapid connect/disconnect events
     // when enabling USB functions which need debouncing.
     if (!mDeviceAttached && !mDebouncingTimer) {
-      mDebouncingTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
+      mDebouncingTimer = NS_NewTimer();
       mDebouncingTimer->InitWithCallback(this, UPDATE_DELAY,
                                          nsITimer::TYPE_ONE_SHOT);
       return;

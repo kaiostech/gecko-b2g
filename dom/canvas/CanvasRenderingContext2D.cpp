@@ -2503,10 +2503,20 @@ static already_AddRefed<ComputedStyle> GetFontStyleForServo(
   RefPtr<ComputedStyle> sc =
       styleSet->ResolveForDeclarations(parentStyle, declarations);
 
+  // https://html.spec.whatwg.org/multipage/canvas.html#dom-context-2d-font
+  // The font-size component must be converted to CSS px for reserialization,
+  // so we update the declarations with the value from the computed style.
+  if (!sc->StyleFont()->mFont.family.is_system_font) {
+    nsAutoCString computedFontSize;
+    sc->GetComputedPropertyValue(eCSSProperty_font_size, computedFontSize);
+    Servo_DeclarationBlock_SetPropertyById(
+        declarations, eCSSProperty_font_size, &computedFontSize, false, nullptr,
+        ParsingMode::Default, eCompatibility_FullStandards, nullptr,
+        StyleCssRuleType::Style, {});
+  }
+
   // The font getter is required to be reserialized based on what we
-  // parsed (including having line-height removed).  (Older drafts of
-  // the spec required font sizes be converted to pixels, but that no
-  // longer seems to be required.)
+  // parsed (including having line-height removed).
   Servo_SerializeFontValueForCanvas(declarations, &aOutUsedFont);
   return sc.forget();
 }
@@ -4894,7 +4904,7 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
   // If any dimension is up-scaled, we consider the image as being up-scaled.
   auto scale = mTarget->GetTransform().ScaleFactors();
   bool isDownScale =
-      aDw * Abs(scale.width) < aSw && aDh * Abs(scale.height) < aSh;
+      aDw * Abs(scale.xScale) < aSw && aDh * Abs(scale.yScale) < aSh;
 
   SamplingFilter samplingFilter;
   AntialiasMode antialiasMode;
@@ -4999,10 +5009,10 @@ void CanvasRenderingContext2D::DrawDirectlyToCanvas(
   // for context shadow.
   Matrix matrix = tempTarget->GetTransform();
   gfxMatrix contextMatrix = ThebesMatrix(matrix);
-  gfxSize contextScale(contextMatrix.ScaleFactors());
+  MatrixScalesDouble contextScale = contextMatrix.ScaleFactors();
 
   // Scale the dest rect to include the context scale.
-  aDest.Scale(contextScale.width, contextScale.height);
+  aDest.Scale((float)contextScale.xScale, (float)contextScale.yScale);
 
   // Scale the image size to the dest rect, and adjust the source rect to match.
   gfxSize scale(aDest.width / aSrc.width, aDest.height / aSrc.height);
@@ -5021,7 +5031,7 @@ void CanvasRenderingContext2D::DrawDirectlyToCanvas(
   }
   context->SetMatrixDouble(
       contextMatrix
-          .PreScale(1.0 / contextScale.width, 1.0 / contextScale.height)
+          .PreScale(1.0 / contextScale.xScale, 1.0 / contextScale.yScale)
           .PreTranslate(aDest.x - aSrc.x, aDest.y - aSrc.y));
 
   context->SetOp(tempTarget.UsedOperation());

@@ -456,7 +456,8 @@ class GlobalHelperThreadState {
   // completed some work.
   js::ConditionVariable consumerWakeup;
 
-  void dispatch(const AutoLockHelperThreadState& locked);
+  void dispatch(JS::DispatchReason reason,
+                const AutoLockHelperThreadState& locked);
 
   void runTask(HelperThreadTask* task, AutoLockHelperThreadState& lock);
 
@@ -487,6 +488,11 @@ class GlobalHelperThreadState {
   HelperThreadTask* findHighestPriorityTask(
       const AutoLockHelperThreadState& locked);
 };
+
+static inline bool IsHelperThreadStateInitialized() {
+  extern GlobalHelperThreadState* gHelperThreadState;
+  return gHelperThreadState;
+}
 
 static inline GlobalHelperThreadState& HelperThreadState() {
   extern GlobalHelperThreadState* gHelperThreadState;

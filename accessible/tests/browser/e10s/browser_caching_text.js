@@ -26,6 +26,7 @@ ef gh</pre>
 <p id="linksStartEnd"><a href="https://example.com/">a</a>b<a href="https://example.com/">c</a></p>
 <p id="linksBreaking">a<a href="https://example.com/">b<br>c</a>d</p>
 <p id="p">a<br role="presentation">b</p>
+<p id="leafThenWrap" style="font-family: monospace; width: 2ch; word-break: break-word;"><span>a</span>bc</p>
   `,
   async function(browser, docAcc) {
     for (const id of ["br", "pre"]) {
@@ -157,6 +158,62 @@ ef gh</pre>
       [1, 2, "b", 1, 2],
     ]);
     testTextAtOffset(p, BOUNDARY_PARAGRAPH, [[0, 2, "ab", 0, 2]]);
+    const leafThenWrap = findAccessibleChildByID(docAcc, "leafThenWrap");
+    testTextAtOffset(leafThenWrap, BOUNDARY_LINE_START, [
+      [0, 1, "ab", 0, 2],
+      [2, 3, "c", 2, 3],
+    ]);
+  },
+  { chrome: true, topLevel: true, iframe: true, remoteIframe: true }
+);
+
+/**
+ * Test line offsets after text mutation.
+ */
+addAccessibleTask(
+  `
+<p id="initBr"><br></p>
+<p id="rewrap" style="font-family: monospace; width: 2ch; word-break: break-word;"><span id="rewrap1">ac</span>def</p>
+  `,
+  async function(browser, docAcc) {
+    const initBr = findAccessibleChildByID(docAcc, "initBr");
+    testTextAtOffset(initBr, BOUNDARY_LINE_START, [
+      [0, 0, "\n", 0, 1],
+      [1, 1, "", 1, 1],
+    ]);
+    info("initBr: Inserting text before br");
+    let reordered = waitForEvent(EVENT_REORDER, initBr);
+    await invokeContentTask(browser, [], () => {
+      const initBrNode = content.document.getElementById("initBr");
+      initBrNode.insertBefore(
+        content.document.createTextNode("a"),
+        initBrNode.firstElementChild
+      );
+    });
+    await reordered;
+    testTextAtOffset(initBr, BOUNDARY_LINE_START, [
+      [0, 1, "a\n", 0, 2],
+      [2, 2, "", 2, 2],
+    ]);
+
+    const rewrap = findAccessibleChildByID(docAcc, "rewrap");
+    testTextAtOffset(rewrap, BOUNDARY_LINE_START, [
+      [0, 1, "ac", 0, 2],
+      [2, 3, "de", 2, 4],
+      [4, 5, "f", 4, 5],
+    ]);
+    info("rewrap: Changing ac to abc");
+    reordered = waitForEvent(EVENT_REORDER, rewrap);
+    await invokeContentTask(browser, [], () => {
+      const rewrap1 = content.document.getElementById("rewrap1");
+      rewrap1.textContent = "abc";
+    });
+    await reordered;
+    testTextAtOffset(rewrap, BOUNDARY_LINE_START, [
+      [0, 1, "ab", 0, 2],
+      [2, 3, "cd", 2, 4],
+      [4, 6, "ef", 4, 6],
+    ]);
   },
   { chrome: true, topLevel: true, iframe: true, remoteIframe: true }
 );

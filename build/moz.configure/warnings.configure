@@ -46,7 +46,7 @@ add_warning("-Wempty-body")
 check_and_add_warning("-Wformat-type-confusion")
 
 # catches return types with qualifiers like const
-add_warning("-Wignored-qualifiers", when=not_clang_cl)
+add_warning("-Wignored-qualifiers")
 
 # catches pointer arithmetic using NULL or sizeof(void)
 add_warning("-Wpointer-arith")
@@ -55,7 +55,7 @@ add_warning("-Wpointer-arith")
 check_and_add_warning("-Wshadow-field-in-constructor-modified")
 
 # catches comparing signed/unsigned ints
-add_warning("-Wsign-compare", when=not_clang_cl)
+add_warning("-Wsign-compare")
 
 # catches overflow bugs, few false positives
 add_warning("-Wtype-limits")
@@ -106,7 +106,7 @@ check_and_add_warning("-Wduplicated-cond")
 check_and_add_warning("-Wenum-compare-conditional")
 
 # catches unintentional switch case fallthroughs
-check_and_add_warning("-Wimplicit-fallthrough", cxx_compiler, when=not_clang_cl)
+check_and_add_warning("-Wimplicit-fallthrough", cxx_compiler)
 
 # Enable some ObjC diagnostics that are only relevant when targeting macOS:
 with only_when(depends(target)(lambda t: t.kernel == "Darwin")):
@@ -315,7 +315,9 @@ check_and_add_warning(
 # Older clangs don't support AutoUnlock, and have other issues
 check_and_add_warning(
     "-Wthread-safety",
-    when=depends(c_compiler)(lambda c: c.type == "clang" and c.version >= "8.0"),
+    when=depends(c_compiler)(
+        lambda c: c.type in ("clang", "clang-cl") and c.version >= "8.0"
+    ),
 )
 
 # Please keep these last in this file

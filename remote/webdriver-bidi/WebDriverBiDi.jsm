@@ -91,7 +91,7 @@ class WebDriverBiDi {
     // has been requested, register a path handler for the session.
     let webSocketUrl = null;
     if (
-      this.agent.listening &&
+      this.agent.running &&
       (this.session.capabilities.get("webSocketUrl") || sessionlessConnection)
     ) {
       this.agent.server.registerPathHandler(this.session.path, this.session);
@@ -125,7 +125,7 @@ class WebDriverBiDi {
 
     // When the Remote Agent is listening, and a BiDi WebSocket is active,
     // unregister the path handler for the session.
-    if (this.agent.listening && this.session.capabilities.get("webSocketUrl")) {
+    if (this.agent.running && this.session.capabilities.get("webSocketUrl")) {
       this.agent.server.registerPathHandler(this.session.path, null);
       logger.debug(`Unregistered session handler: ${this.session.path}`);
     }
@@ -165,6 +165,16 @@ class WebDriverBiDi {
     if (this._running) {
       return;
     }
+
+    // Starting WebDriver BiDi too early can cause issues with clients in not
+    // being able to find any available browsing context. Also when closing
+    // the application while it's still starting up can cause shutdown hangs.
+    // As such WebDriver BiDi will be started when all the initial application
+    // windows have been fully restored (workaround for bug 1764420).
+    logger.debug(
+      `Awaiting all initial windows to be restored before enabling the protocol`
+    );
+    await this.agent.browserStartupFinished;
 
     this._running = true;
 

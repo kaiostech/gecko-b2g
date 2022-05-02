@@ -199,11 +199,16 @@ int32_t RemoteAccessible::SelectionCount() {
   return count;
 }
 
-void RemoteAccessible::TextSubstring(int32_t aStartOffset, int32_t aEndOfset,
+void RemoteAccessible::TextSubstring(int32_t aStartOffset, int32_t aEndOffset,
                                      nsAString& aText) const {
+  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    return RemoteAccessibleBase<RemoteAccessible>::TextSubstring(
+        aStartOffset, aEndOffset, aText);
+  }
+
   bool valid;
   nsString text;
-  Unused << mDoc->SendTextSubstring(mID, aStartOffset, aEndOfset, &text,
+  Unused << mDoc->SendTextSubstring(mID, aStartOffset, aEndOffset, &text,
                                     &valid);
   aText = std::move(text);
 }
@@ -383,18 +388,6 @@ bool RemoteAccessible::PasteText(int32_t aPosition) {
   bool valid;
   Unused << mDoc->SendPasteText(mID, aPosition, &valid);
   return valid;
-}
-
-LayoutDeviceIntPoint RemoteAccessible::ImagePosition(uint32_t aCoordType) {
-  LayoutDeviceIntPoint retVal;
-  Unused << mDoc->SendImagePosition(mID, aCoordType, &retVal);
-  return retVal;
-}
-
-LayoutDeviceIntSize RemoteAccessible::ImageSize() {
-  LayoutDeviceIntSize retVal;
-  Unused << mDoc->SendImageSize(mID, &retVal);
-  return retVal;
 }
 
 uint32_t RemoteAccessible::StartOffset() {

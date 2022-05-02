@@ -245,6 +245,14 @@ static bool isGarbageCollecting;
 static uint32_t eventloopNestingLevel = 0;
 static time_t inactiveStateStart = 0;
 
+static
+#if defined(XP_UNIX)
+    pthread_t
+#elif defined(XP_WIN)  // defined(XP_UNIX)
+    DWORD
+#endif                 // defined(XP_WIN)
+        gMainThreadId = 0;
+
 // Avoid a race during application termination.
 static Mutex* dumpSafetyLock;
 static bool isSafeToDump = false;
@@ -335,6 +343,32 @@ class ReportInjectedCrash : public Runnable {
   uint32_t mPID;
 };
 #endif  // MOZ_CRASHREPORTER_INJECTOR
+
+void RecordMainThreadId() {
+  gMainThreadId =
+#if defined(XP_UNIX)
+      pthread_self()
+#elif defined(XP_WIN)  // defined(XP_UNIX)
+      GetCurrentThreadId()
+#endif                 // defined(XP_WIN)
+      ;
+}
+
+bool SignalSafeIsMainThread() {
+  // We can't rely on NS_IsMainThread() because we are in a signal handler, and
+  // sTLSIsMainThread is a thread local variable and it can be lazy allocated
+  // i.e., we could hit code path where this variable has not been accessed
+  // before and needs to be allocated right now, which will lead to spinlock
+  // deadlock effectively hanging the process, as in bug 1756407.
+
+#if defined(XP_UNIX)
+  pthread_t th = pthread_self();
+  return pthread_equal(th, gMainThreadId);
+#elif defined(XP_WIN)  // defined(XP_UNIX)
+  DWORD th = GetCurrentThreadId();
+  return th == gMainThreadId;
+#endif                 // defined(XP_WIN)
+}
 
 #if defined(XP_WIN)
 // the following are used to prevent other DLLs reverting the last chance
@@ -1288,7 +1322,7 @@ static bool LaunchCrashHandlerService(const XP_CHAR* aProgramPath,
 static void WriteMainThreadRunnableName(AnnotationWriter& aWriter) {
 #ifdef MOZ_COLLECTING_RUNNABLE_TELEMETRY
   // Only try to collect this information if the main thread is crashing.
-  if (!NS_IsMainThread()) {
+  if (!SignalSafeIsMainThread()) {
     return;
   }
 
@@ -2146,6 +2180,8 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   // Tell JS about the new filter before we disable SetUnhandledExceptionFilter
   SetJitExceptionHandler();
 #  endif
+
+  RecordMainThreadId();
 
   // protect the crash reporter from being unloaded
   gBlockUnhandledExceptionFilter = true;
@@ -3595,6 +3631,8 @@ bool SetRemoteExceptionHandler(const char* aCrashPipe,
       true,     // install signal handlers
       aCrashPipe);
 #endif
+
+  RecordMainThreadId();
 
   oldTerminateHandler = std::set_terminate(&TerminateHandler);
 

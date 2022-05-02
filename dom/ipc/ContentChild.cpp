@@ -132,6 +132,7 @@
 #include "nsHttpHandler.h"
 #include "nsIConsoleService.h"
 #include "nsIInputStreamChannel.h"
+#include "nsILayoutHistoryState.h"
 #include "nsILoadGroup.h"
 #include "nsIOpenWindowInfo.h"
 #include "nsISimpleEnumerator.h"
@@ -4859,6 +4860,20 @@ mozilla::ipc::IPCResult ContentChild::RecvHistoryCommitIndexAndLength(
       shistory->SetIndexAndLength(aIndex, aLength, aChangeID);
     }
   }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvGetLayoutHistoryState(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    GetLayoutHistoryStateResolver&& aResolver) {
+  nsCOMPtr<nsILayoutHistoryState> state;
+  nsIDocShell* docShell;
+  if (!aContext.IsNullOrDiscarded() &&
+      (docShell = aContext.get()->GetDocShell())) {
+    docShell->PersistLayoutHistoryState();
+    docShell->GetLayoutHistoryState(getter_AddRefs(state));
+  }
+  aResolver(state);
   return IPC_OK();
 }
 

@@ -6263,7 +6263,7 @@ def getJSToNativeConversionInfo(
             interfaceObject = CGWrapper(
                 CGList(interfaceObject, " ||\n"),
                 pre="done = ",
-                post=";\n\n",
+                post=";\n",
                 reindent=True,
             )
         else:
@@ -9918,9 +9918,7 @@ class CGSwitch(CGList):
         if default is not None:
             self.append(
                 CGIndenter(
-                    CGWrapper(
-                        CGIndenter(default), pre="default: {\n", post="  break;\n}\n"
-                    )
+                    CGWrapper(CGIndenter(default), pre="default: {\n", post="}\n")
                 )
             )
 
@@ -9933,16 +9931,28 @@ class CGCase(CGList):
 
     Takes three constructor arguments: an expression, a CGThing for
     the body (allowed to be None if there is no body), and an optional
-    argument (defaulting to False) for whether to fall through.
+    argument for whether add a break, add fallthrough annotation or add nothing
+    (defaulting to add a break).
     """
 
-    def __init__(self, expression, body, fallThrough=False):
+    ADD_BREAK = 0
+    ADD_FALLTHROUGH = 1
+    DONT_ADD_BREAK = 2
+
+    def __init__(self, expression, body, breakOrFallthrough=ADD_BREAK):
         CGList.__init__(self, [])
+
+        assert (
+            breakOrFallthrough == CGCase.ADD_BREAK
+            or breakOrFallthrough == CGCase.ADD_FALLTHROUGH
+            or breakOrFallthrough == CGCase.DONT_ADD_BREAK
+        )
+
         self.append(CGGeneric("case " + expression + ": {\n"))
         bodyList = CGList([body])
-        if fallThrough:
+        if breakOrFallthrough == CGCase.ADD_FALLTHROUGH:
             bodyList.append(CGGeneric("[[fallthrough]];\n"))
-        else:
+        elif breakOrFallthrough == CGCase.ADD_BREAK:
             bodyList.append(CGGeneric("break;\n"))
         self.append(CGIndenter(bodyList))
         self.append(CGGeneric("}\n"))
@@ -10050,7 +10060,9 @@ class CGMethodCall(CGThing):
                         allowedArgCounts[argCountIdx + 1]
                     )
                 )
-                argCountCases.append(CGCase(str(argCount), None, True))
+                argCountCases.append(
+                    CGCase(str(argCount), None, CGCase.ADD_FALLTHROUGH)
+                )
                 continue
 
             if len(possibleSignatures) == 1:
@@ -12685,7 +12697,11 @@ class CGUnionStruct(CGThing):
 
         methods = []
         enumValues = ["eUninitialized"]
-        toJSValCases = [CGCase("eUninitialized", CGGeneric("return false;\n"))]
+        toJSValCases = [
+            CGCase(
+                "eUninitialized", CGGeneric("return false;\n"), CGCase.DONT_ADD_BREAK
+            )
+        ]
         destructorCases = [CGCase("eUninitialized", None)]
         assignmentCases = [
             CGCase(
@@ -12731,7 +12747,12 @@ class CGUnionStruct(CGThing):
                 )
             )
             toJSValCases.append(
-                CGCase("eNull", CGGeneric("rval.setNull();\n" "return true;\n"))
+                CGCase(
+                    "eNull",
+                    CGGeneric(
+                        "rval.setNull();\n" "return true;\n", CGCase.DONT_ADD_BREAK
+                    ),
+                )
             )
 
         hasObjectType = any(t.isObject() for t in self.type.flatMemberTypes)
@@ -12877,7 +12898,9 @@ class CGUnionStruct(CGThing):
 
             conversionToJS = self.getConversionToJS(vars, t)
             if conversionToJS:
-                toJSValCases.append(CGCase("e" + vars["name"], conversionToJS))
+                toJSValCases.append(
+                    CGCase("e" + vars["name"], conversionToJS, CGCase.DONT_ADD_BREAK)
+                )
             else:
                 skipToJSVal = True
 
@@ -12972,8 +12995,7 @@ class CGUnionStruct(CGThing):
                     ],
                     body=CGSwitch(
                         "mType", toJSValCases, default=CGGeneric("return false;\n")
-                    ).define()
-                    + "\nreturn false;\n",
+                    ).define(),
                     const=True,
                 )
             )
@@ -12985,13 +13007,14 @@ class CGUnionStruct(CGThing):
                 traceBody = CGSwitch(
                     "mType", traceCases, default=CGGeneric("")
                 ).define()
-            else:
-                traceBody = ""
-            methods.append(
-                ClassMethod(
-                    "TraceUnion", "void", [Argument("JSTracer*", "trc")], body=traceBody
+                methods.append(
+                    ClassMethod(
+                        "TraceUnion",
+                        "void",
+                        [Argument("JSTracer*", "trc")],
+                        body=traceBody,
+                    )
                 )
-            )
             if CGUnionStruct.isUnionCopyConstructible(self.type):
                 constructors.append(
                     ClassConstructor(
@@ -13020,10 +13043,13 @@ class CGUnionStruct(CGThing):
             disallowCopyConstruction = True
 
         if self.ownsMembers:
-            friend = (
-                "  friend void ImplCycleCollectionUnlink(%s& aUnion);\n"
-                % CGUnionStruct.unionTypeName(self.type, True)
-            )
+            if idlTypeNeedsCycleCollection(self.type):
+                friend = (
+                    "  friend void ImplCycleCollectionUnlink(%s& aUnion);\n"
+                    % CGUnionStruct.unionTypeName(self.type, True)
+                )
+            else:
+                friend = ""
         else:
             friend = "  friend class %sArgument;\n" % str(self.type)
 

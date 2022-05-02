@@ -191,7 +191,7 @@ static const uint32_t kDefaultCameraId = 0;
 
   sCachedCameraControl = cameraControl;
 
-  nsCOMPtr<nsITimer> timer = do_CreateInstance(NS_TIMER_CONTRACTID);
+  nsCOMPtr<nsITimer> timer = NS_NewTimer();
   if (NS_WARN_IF(!timer)) {
     return;
   }

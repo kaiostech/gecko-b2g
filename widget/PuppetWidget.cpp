@@ -86,6 +86,7 @@ PuppetWidget::PuppetWidget(BrowserChild* aBrowserChild)
       mDefaultScale(-1),
       mEnabled(false),
       mVisible(false),
+      mSizeMode(nsSizeMode_Normal),
       mNeedIMEStateInit(false),
       mIgnoreCompositionEvents(false) {
   // Setting 'Unknown' means "not yet cached".
@@ -1032,11 +1033,7 @@ LayoutDeviceIntPoint PuppetWidget::GetChromeOffset() {
 }
 
 LayoutDeviceIntPoint PuppetWidget::WidgetToScreenOffset() {
-  auto positionRalativeToWindow =
-      WidgetToTopLevelWidgetTransform().TransformPoint(LayoutDevicePoint());
-
-  return GetWindowPosition() +
-         LayoutDeviceIntPoint::Round(positionRalativeToWindow);
+  return GetWindowPosition() + WidgetToTopLevelWidgetOffset();
 }
 
 LayoutDeviceIntPoint PuppetWidget::GetWindowPosition() {

@@ -79,7 +79,8 @@ static nsWindow* gFocusedWindow = nullptr;
 
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 
-nsWindow::nsWindow() : mGLCursorImageManager(nullptr) {
+nsWindow::nsWindow()
+    : mGLCursorImageManager(nullptr), mSizeMode(nsSizeMode_Normal) {
   // This is a hack to force initialization of the compositor
   // resources, if we're going to use omtc.
   //

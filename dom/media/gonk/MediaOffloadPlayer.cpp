@@ -107,7 +107,7 @@ RefPtr<MediaOffloadPlayer> MediaOffloadPlayer::Create(
   name(mTaskQueue, val, "MediaOffloadPlayer::" #name " (Canonical)")
 
 MediaOffloadPlayer::MediaOffloadPlayer(MediaFormatReaderInit& aInit)
-    : mTaskQueue(new TaskQueue(GetMediaThreadPool(MediaThreadType::MDSM),
+    : mTaskQueue(TaskQueue::Create(GetMediaThreadPool(MediaThreadType::MDSM),
                                "MediaOffloadPlayer::mTaskQueue",
                                /* aSupportsTailDispatch = */ true)),
       mWatchManager(this, mTaskQueue),

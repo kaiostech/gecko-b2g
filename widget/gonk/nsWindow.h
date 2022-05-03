@@ -78,6 +78,8 @@ class nsWindow final : public nsBaseWidget {
   void Resize(double aWidth, double aHeight, bool aRepaint) override;
   void Resize(double aX, double aY, double aWidth, double aHeight,
               bool aRepaint) override;
+  virtual nsSizeMode SizeMode() override { return mSizeMode; }
+  virtual void SetSizeMode(nsSizeMode aMode) override { mSizeMode = aMode; };
   void Enable(bool aState) override;
   virtual bool IsEnabled() const override;
   virtual void SetFocus(Raise, mozilla::dom::CallerType aCallerType) override;
@@ -151,6 +153,7 @@ class nsWindow final : public nsBaseWidget {
 
  protected:
   nsWindow* mParent;
+  nsSizeMode mSizeMode;
   bool mVisible;
   InputContext mInputContext;
   nsCOMPtr<nsIUserIdleServiceInternal> mIdleService;
@@ -163,8 +166,8 @@ class nsWindow final : public nsBaseWidget {
   // event (like a keypress or mouse click).
   void UserActivity();
 
-//   void DrawWindowOverlay(LayerManagerComposite* aManager,
-//                          LayoutDeviceIntRect aRect);
+  //   void DrawWindowOverlay(LayerManagerComposite* aManager,
+  //                          LayoutDeviceIntRect aRect);
 
  private:
   void EnsureGLCursorImageManager();

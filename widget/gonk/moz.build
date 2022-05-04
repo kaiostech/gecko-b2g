@@ -74,6 +74,8 @@ UNIFIED_SOURCES += [
     "GonkScreenShot.cpp",
     "hwchal/android_10/ComposerHal.cpp",
     "hwchal/android_10/HWC2.cpp",
+    "nsDeviceContextGonk.cpp",
+    "nsPrintSettingsServiceGonk.cpp",
 ]
 
 SOURCES += [

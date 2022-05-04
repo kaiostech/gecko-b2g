@@ -550,7 +550,7 @@ already_AddRefed<UnscaledFont> Factory::CreateUnscaledFontFromFontDescriptor(
     case FontType::FONTCONFIG:
       return UnscaledFontFontconfig::CreateFromFontDescriptor(
           aData, aDataLength, aIndex);
-#elif defined(MOZ_WIDGET_ANDROID)
+#elif defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
     case FontType::FREETYPE:
       return UnscaledFontFreeType::CreateFromFontDescriptor(aData, aDataLength,
                                                             aIndex);

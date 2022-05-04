@@ -6964,12 +6964,13 @@ pub unsafe extern "C" fn Servo_ParseFontShorthandForMatching(
     style: &mut ComputedFontStyleDescriptor,
     stretch: &mut f32,
     weight: &mut f32,
+    size: Option<&mut f32>,
 ) -> bool {
     use style::properties::shorthands::font;
     use style::values::computed::font::FontWeight as ComputedFontWeight;
     use style::values::generics::font::FontStyle as GenericFontStyle;
     use style::values::specified::font::{
-        FontFamily, FontStretch, FontStyle, FontWeight, SpecifiedFontStyle,
+        FontFamily, FontSize, FontStretch, FontStyle, FontWeight, SpecifiedFontStyle,
     };
 
     let string = value.as_str_unchecked();
@@ -7025,6 +7026,33 @@ pub unsafe extern "C" fn Servo_ParseFontShorthandForMatching(
         FontWeight::Lighter => ComputedFontWeight::normal().lighter().0,
         FontWeight::System(_) => return false,
     };
+
+    // XXX This is unfinished; see values::specified::FontSize::ToComputedValue
+    // for a more complete implementation (but we can't use it as-is).
+    if let Some(size) = size {
+        *size = match font.font_size {
+            FontSize::Length(lp) => {
+                use style::values::generics::transform::ToAbsoluteLength;
+                match lp.to_pixel_length(None) {
+                    Ok(len) => len,
+                    Err(..) => return false,
+                }
+            },
+            // Map absolute-size keywords to sizes.
+            FontSize::Keyword(info) => {
+                let metrics = get_metrics_provider_for_product();
+                // TODO: Maybe get a meaningful language / quirks-mode from the
+                // caller?
+                let language = atom!("x-western");
+                let quirks_mode = QuirksMode::NoQuirks;
+                info.kw.to_length_without_context(quirks_mode, &metrics, &language, family).0.px()
+            }
+            // smaller, larger not currently supported
+            FontSize::Smaller | FontSize::Larger | FontSize::System(_) => {
+                return false;
+            }
+        };
+    }
 
     true
 }

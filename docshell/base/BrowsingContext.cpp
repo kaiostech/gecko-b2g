@@ -72,10 +72,12 @@
 #include "nsGlobalWindowOuter.h"
 #include "nsIObserverService.h"
 #include "nsISHistory.h"
+#include "nsLocalSecureBrowserUI.h"
 #include "nsContentUtils.h"
 #include "nsQueryObject.h"
 #include "nsSandboxFlags.h"
 #include "nsScriptError.h"
+#include "nsSecureBrowserUI.h"
 #include "nsThreadUtils.h"
 #include "xpcprivate.h"
 
@@ -3541,7 +3543,7 @@ bool BrowsingContext::IsPopupAllowed() {
 bool BrowsingContext::ShouldAddEntryForRefresh(
     nsIURI* aCurrentURI, const SessionHistoryInfo& aInfo) {
   return ShouldAddEntryForRefresh(aCurrentURI, aInfo.GetURI(),
-                                  aInfo.GetPostData());
+                                  aInfo.HasPostData());
 }
 
 /* static */
@@ -3735,6 +3737,16 @@ void BrowsingContext::ResetLocationChangeRateLimit() {
   // Resetting the timestamp object will cause the check function to
   // init again and reset the rate limit.
   mLocationChangeRateLimitSpanStart = TimeStamp();
+}
+
+void BrowsingContext::RecomputeSecurityFlagsForTopContentOfNestedWebView() {
+  MOZ_ASSERT(XRE_IsContentProcess());
+  MOZ_ASSERT(IsTopContentOfNestedWebView());
+
+  if (!mSecureBrowserUI) {
+    mSecureBrowserUI = new nsLocalSecureBrowserUI(this);
+  }
+  mSecureBrowserUI->RecomputeSecurityFlags();
 }
 
 }  // namespace dom

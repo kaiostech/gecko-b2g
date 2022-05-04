@@ -5888,6 +5888,12 @@ nsDocShell::OnLocationChange(nsIWebProgress* aProgress, nsIRequest* aRequest,
       !(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT) &&
       NS_SUCCEEDED(aProgress->GetIsTopLevel(&isTopLevel)) && isTopLevel) {
     GetBrowsingContext()->Canonical()->UpdateSecurityState();
+  } else if (XRE_IsContentProcess() &&
+             GetBrowsingContext()->GetIsTopOfNestedWebView()) {
+    if (!(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT)) {
+      GetBrowsingContext()
+          ->RecomputeSecurityFlagsForTopContentOfNestedWebView();
+    }
   }
   return NS_OK;
 }
@@ -8820,19 +8826,6 @@ bool nsDocShell::IsSameDocumentNavigation(nsDocShellLoadState* aLoadState,
     }
   }
 
-#ifdef DEBUG
-  if (aState.mHistoryNavBetweenSameDoc) {
-    nsCOMPtr<nsIInputStream> currentPostData;
-    if (mozilla::SessionHistoryInParent()) {
-      currentPostData = mActiveEntry->GetPostData();
-    } else {
-      currentPostData = mOSHE->GetPostData();
-    }
-    NS_ASSERTION(currentPostData == aLoadState->PostDataStream(),
-                 "Different POST data for entries for the same page?");
-  }
-#endif
-
   // A same document navigation happens when we navigate between two SHEntries
   // for the same document. We do a same document navigation under two
   // circumstances. Either
@@ -10072,6 +10065,10 @@ nsIPrincipal* nsDocShell::GetInheritedPrincipal(
 
       // we really need to have a content type associated with this stream!!
       postChannel->SetUploadStream(aLoadState->PostDataStream(), ""_ns, -1);
+
+      // Ownership of the stream has transferred to the channel, clear our
+      // reference.
+      aLoadState->SetPostDataStream(nullptr);
     }
 
     /* If there is a valid postdata *and* it is a History Load,

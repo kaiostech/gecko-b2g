@@ -864,6 +864,8 @@ var GMPProvider = {
       !GMPProvider._configured
     ) {
       AddonManagerPrivate.registerProvider(GMPProvider, ["plugin"]);
+      Services.obs.notifyObservers(null, "gmp-provider-registered");
+
       Services.obs.removeObserver(this, FIRST_CONTENT_PROCESS_TOPIC);
       Services.obs.removeObserver(this, "force-gmp-provider-startup");
     }

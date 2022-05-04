@@ -168,6 +168,11 @@ bool WindowContext::CheckOnlyOwningProcessCanSet(ContentParent* aSource) {
   return false;
 }
 
+bool WindowContext::CanSet(FieldIndex<IDX_SecurityState>, const uint32_t&,
+                           ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
 bool WindowContext::CanSet(FieldIndex<IDX_IsSecure>, const bool& aIsSecure,
                            ContentParent* aSource) {
   return CheckOnlyOwningProcessCanSet(aSource);

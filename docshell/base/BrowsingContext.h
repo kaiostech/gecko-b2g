@@ -32,11 +32,13 @@
 #include "nsILoadInfo.h"
 #include "nsILoadContext.h"
 #include "nsThreadUtils.h"
+#include "nsLocalSecureBrowserUI.h"
 
 class nsDocShellLoadState;
 class nsGlobalWindowInner;
 class nsGlobalWindowOuter;
 class nsIPrincipal;
+class nsLocalSecureBrowserUI;
 class nsOuterWindowProxy;
 struct nsPoint;
 class PickleIterator;
@@ -879,6 +881,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void ResetLocationChangeRateLimit();
 
+  void RecomputeSecurityFlagsForTopContentOfNestedWebView();
+
   mozilla::dom::DisplayMode DisplayMode() { return Top()->GetDisplayMode(); }
 
   // Returns canFocus, isActive
@@ -1232,6 +1236,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   nsTArray<RefPtr<WindowContext>> mWindowContexts;
   RefPtr<WindowContext> mCurrentWindowContext;
+
+  RefPtr<nsLocalSecureBrowserUI> mSecureBrowserUI;
 
   // This is not a strong reference, but using a JS::Heap for that should be
   // fine. The JSObject stored in here should be a proxy with a

@@ -956,7 +956,6 @@ nsresult MaybeStoreStreamForBackgroundThread(nsIInterceptedChannel* aChannel,
   MOZ_ALWAYS_SUCCEEDS(aChannel->GetChannel(getter_AddRefs(channel)));
 
   Maybe<BodyStreamVariant> body;
-  int64_t bodySize = -1;
   nsCOMPtr<nsIUploadChannel2> uploadChannel = do_QueryInterface(channel);
 
   if (uploadChannel) {
@@ -977,8 +976,7 @@ nsresult MaybeStoreStreamForBackgroundThread(nsIInterceptedChannel* aChannel,
       }
 
       auto storage = storageOrErr.unwrap();
-      storage->AddStream(uploadStream, body->get_ParentToParentStream().uuid(),
-                         bodySize, 0);
+      storage->AddStream(uploadStream, body->get_ParentToParentStream().uuid());
     }
   }
 

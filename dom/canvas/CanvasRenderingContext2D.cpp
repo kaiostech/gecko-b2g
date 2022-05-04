@@ -2554,13 +2554,6 @@ static already_AddRefed<ComputedStyle> ResolveFilterStyleForServo(
 bool CanvasRenderingContext2D::ParseFilter(
     const nsACString& aString, StyleOwnedSlice<StyleFilter>& aFilterChain,
     ErrorResult& aError) {
-  if (!mCanvasElement && !mDocShell) {
-    NS_WARNING(
-        "Canvas element must be non-null or a docshell must be provided");
-    aError.Throw(NS_ERROR_FAILURE);
-    return false;
-  }
-
   RefPtr<PresShell> presShell = GetPresShell();
   if (NS_WARN_IF(!presShell)) {
     aError.Throw(NS_ERROR_FAILURE);
@@ -3414,13 +3407,6 @@ bool CanvasRenderingContext2D::SetFontInternal(const nsACString& aFont,
    * string is equal to the old one.
    */
 
-  if (!mCanvasElement && !mDocShell) {
-    NS_WARNING(
-        "Canvas element must be non-null or a docshell must be provided");
-    aError.Throw(NS_ERROR_FAILURE);
-    return false;
-  }
-
   RefPtr<PresShell> presShell = GetPresShell();
   if (NS_WARN_IF(!presShell)) {
     aError.Throw(NS_ERROR_FAILURE);
@@ -3710,7 +3696,7 @@ struct MOZ_STACK_CLASS CanvasBidiProcessor
         mOp(CanvasRenderingContext2D::TextDrawOperation::FILL),
         mTextRunFlags(),
         mDoMeasureBoundingBox(false) {
-    if (Preferences::GetBool(GFX_MISSING_FONTS_NOTIFY_PREF)) {
+    if (StaticPrefs::gfx_missing_fonts_notify()) {
       mMissingFonts = MakeUnique<gfxMissingFontRecorder>();
     }
   }
@@ -3926,8 +3912,6 @@ struct MOZ_STACK_CLASS CanvasBidiProcessor
   // current text run
   RefPtr<gfxTextRun> mTextRun;
 
-  RefPtr<nsPresContext> mPresContext;
-
   // pointer to a screen reference context used to measure text and such
   RefPtr<DrawTarget> mDrawTarget;
 
@@ -4071,8 +4055,6 @@ TextMetrics* CanvasRenderingContext2D::DrawOrMeasureText(
   }
 
   CanvasBidiProcessor processor;
-
-  processor.mPresContext = presContext;
 
   // If we don't have a ComputedStyle, we can't set up vertical-text flags
   // (for now, at least; perhaps we need new Canvas API to control this).

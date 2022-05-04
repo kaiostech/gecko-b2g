@@ -11,12 +11,9 @@
 #include "nsIFile.h"
 #include "nsComponentManagerUtils.h"
 #include "nsISupportsPrimitives.h"
-#include "nsDirectoryServiceDefs.h"
-#include "nsThreadUtils.h"
 #include "xpcpublic.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/Services.h"
 
 #define PREF_BDM_ADDTORECENTDOCS "browser.download.manager.addToRecentDocs"
 

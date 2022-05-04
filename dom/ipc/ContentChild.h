@@ -45,11 +45,6 @@ class RemoteSpellcheckEngineChild;
 class ChildProfilerController;
 class BenchmarkStorageChild;
 
-namespace ipc {
-class PChildToParentStreamChild;
-class PFileDescriptorSetChild;
-}  // namespace ipc
-
 namespace loader {
 class PScriptCacheChild;
 }
@@ -73,11 +68,9 @@ enum class CallerType : uint32_t;
 class ContentChild final : public PContentChild,
                            public nsIDOMProcessChild,
                            public mozilla::ipc::IShmemAllocator,
-                           public mozilla::ipc::ChildToParentStreamActorManager,
                            public ProcessActor {
   using ClonedMessageData = mozilla::dom::ClonedMessageData;
   using FileDescriptor = mozilla::ipc::FileDescriptor;
-  using PFileDescriptorSetChild = mozilla::ipc::PFileDescriptorSetChild;
 
   friend class PContentChild;
 
@@ -196,9 +189,6 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvSetProcessSandbox(
       const Maybe<FileDescriptor>& aBroker);
 
-  already_AddRefed<PRemoteLazyInputStreamChild>
-  AllocPRemoteLazyInputStreamChild(const nsID& aID, const uint64_t& aSize);
-
   PHalChild* AllocPHalChild();
   bool DeallocPHalChild(PHalChild*);
 
@@ -244,12 +234,6 @@ class ContentChild final : public PContentChild,
       const bool& wantCacheData) override;
 
   PRemotePrintJobChild* AllocPRemotePrintJobChild();
-
-  PChildToParentStreamChild* AllocPChildToParentStreamChild();
-  bool DeallocPChildToParentStreamChild(PChildToParentStreamChild*);
-
-  PParentToChildStreamChild* AllocPParentToChildStreamChild();
-  bool DeallocPParentToChildStreamChild(PParentToChildStreamChild*);
 
   PMediaChild* AllocPMediaChild();
 
@@ -525,10 +509,6 @@ class ContentChild final : public PContentChild,
 
   bool IsForBrowser() const { return mIsForBrowser; }
 
-  PFileDescriptorSetChild* AllocPFileDescriptorSetChild(const FileDescriptor&);
-
-  bool DeallocPFileDescriptorSetChild(PFileDescriptorSetChild*);
-
   MOZ_CAN_RUN_SCRIPT_BOUNDARY mozilla::ipc::IPCResult RecvConstructBrowser(
       ManagedEndpoint<PBrowserChild>&& aBrowserEp,
       ManagedEndpoint<PWindowGlobalChild>&& aWindowEp, const TabId& aTabId,
@@ -705,11 +685,6 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvInitSandboxTesting(
       Endpoint<PSandboxTestingChild>&& aEndpoint);
 #endif
-
-  PChildToParentStreamChild* SendPChildToParentStreamConstructor(
-      PChildToParentStreamChild* aActor) override;
-  PFileDescriptorSetChild* SendPFileDescriptorSetConstructor(
-      const FileDescriptor& aFD) override;
 
 #ifdef MOZ_B2G_RIL
   PVoicemailChild* AllocPVoicemailChild();

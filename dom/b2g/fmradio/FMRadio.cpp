@@ -6,8 +6,11 @@
 
 #include "FMRadio.h"
 #include "AudioChannelService.h"
+#include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/dom/ContentMediaController.h"
 #include "mozilla/dom/FMRadioBinding.h"
 #include "mozilla/dom/FMRadioService.h"
+#include "mozilla/dom/MediaControlUtils.h"
 #include "mozilla/dom/PFMRadioChild.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/TypedArray.h"
@@ -17,6 +20,11 @@
 
 #undef LOG
 #define LOG(args...) FM_LOG("FMRadio", args)
+
+#undef MEDIACONTROL_LOG
+#define MEDIACONTROL_LOG(msg, ...)           \
+  MOZ_LOG(gMediaControlLog, LogLevel::Debug, \
+          ("FMRadio=%p, " msg, this, ##__VA_ARGS__))
 
 // The pref indicates if the device has an internal antenna.
 // If the pref is true, the antanna will be always available.
@@ -107,8 +115,154 @@ class FMRadioRequest final : public FMRadioReplyRunnable {
 
 NS_IMPL_ISUPPORTS_INHERITED0(FMRadioRequest, FMRadioReplyRunnable)
 
+class FMRadio::MediaControlKeyListener final
+    : public ContentMediaControlKeyReceiver {
+ public:
+  NS_INLINE_DECL_REFCOUNTING(MediaControlKeyListener, override)
+
+  MOZ_INIT_OUTSIDE_CTOR explicit MediaControlKeyListener(FMRadio* aFMRadio) {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(aFMRadio);
+    mFMRadio = do_GetWeakReference(static_cast<EventTarget*>(aFMRadio));
+  }
+
+  void Start() {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (IsStarted()) {
+      return;
+    }
+
+    if (!InitMediaAgent()) {
+      MEDIACONTROL_LOG("Failed to start due to not able to init media agent!");
+      return;
+    }
+
+    NotifyPlaybackStateChanged(MediaPlaybackState::eStarted);
+  }
+
+  void StopIfNeeded() {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (!IsStarted()) {
+      return;
+    }
+    NotifyMediaStoppedPlaying();
+    NotifyPlaybackStateChanged(MediaPlaybackState::eStopped);
+
+    // Remove ourselves from media agent, which would stop receiving event.
+    mControlAgent->RemoveReceiver(this);
+    mControlAgent = nullptr;
+  }
+
+  bool IsStarted() const { return mState != MediaPlaybackState::eStopped; }
+
+  bool IsPlaying() const override {
+    return Owner() && Owner()->IsPlayingThroughAudioChannel();
+  }
+
+  void NotifyMediaStartedPlaying() {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(IsStarted());
+    if (mState == MediaPlaybackState::eStarted ||
+        mState == MediaPlaybackState::ePaused) {
+      NotifyPlaybackStateChanged(MediaPlaybackState::ePlayed);
+      NotifyAudibleStateChanged(MediaAudibleState::eAudible);
+    }
+  }
+
+  void NotifyMediaStoppedPlaying() {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(IsStarted());
+    if (mState == MediaPlaybackState::ePlayed) {
+      NotifyPlaybackStateChanged(MediaPlaybackState::ePaused);
+      NotifyAudibleStateChanged(MediaAudibleState::eInaudible);
+    }
+  }
+
+  void HandleMediaKey(MediaControlKey aKey) override {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(IsStarted());
+    MEDIACONTROL_LOG("HandleEvent '%s'", ToMediaControlKeyStr(aKey));
+
+    switch (aKey) {
+      case MediaControlKey::Play: {
+        RefPtr<Promise> p = Owner()->Enable(Owner()->mCachedFrequency);
+        break;
+      }
+      case MediaControlKey::Pause: {
+        RefPtr<Promise> p = Owner()->Disable();
+        break;
+      }
+      case MediaControlKey::Stop: {
+        RefPtr<Promise> p = Owner()->Disable();
+        StopIfNeeded();
+        break;
+      }
+      default:
+        MOZ_ASSERT_UNREACHABLE("Unsupported key");
+        break;
+    }
+  }
+
+ private:
+  ~MediaControlKeyListener() = default;
+
+  BrowsingContext* GetCurrentBrowsingContext() const {
+    if (!Owner()) {
+      return nullptr;
+    }
+    nsPIDOMWindowInner* window = Owner()->GetParentObject();
+    return window ? window->GetBrowsingContext() : nullptr;
+  }
+
+  bool InitMediaAgent() {
+    MOZ_ASSERT(NS_IsMainThread());
+    BrowsingContext* currentBC = GetCurrentBrowsingContext();
+    mControlAgent = ContentMediaAgent::Get(currentBC);
+    if (!mControlAgent) {
+      return false;
+    }
+    MOZ_ASSERT(currentBC);
+    mOwnerBrowsingContextId = currentBC->Id();
+    MEDIACONTROL_LOG("Init agent in browsing context %" PRIu64,
+                     mOwnerBrowsingContextId);
+    mControlAgent->AddReceiver(this);
+    return true;
+  }
+
+  FMRadio* Owner() const {
+    nsCOMPtr<EventTarget> target = do_QueryReferent(mFMRadio);
+    auto* fmRadio = static_cast<FMRadio*>(target.get());
+    MOZ_ASSERT(fmRadio || !IsStarted());
+    return fmRadio;
+  }
+
+  void NotifyPlaybackStateChanged(MediaPlaybackState aState) {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(mControlAgent);
+    MEDIACONTROL_LOG("NotifyMediaState from state='%s' to state='%s'",
+                     ToMediaPlaybackStateStr(mState),
+                     ToMediaPlaybackStateStr(aState));
+    MOZ_ASSERT(mState != aState, "Should not notify same state again!");
+    mState = aState;
+    mControlAgent->NotifyMediaPlaybackChanged(mOwnerBrowsingContextId, mState);
+  }
+
+  void NotifyAudibleStateChanged(MediaAudibleState aState) {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(IsStarted());
+    mControlAgent->NotifyMediaAudibleChanged(mOwnerBrowsingContextId, aState);
+  }
+
+  MediaPlaybackState mState = MediaPlaybackState::eStopped;
+  nsWeakPtr mFMRadio;
+  RefPtr<ContentMediaAgent> mControlAgent;
+  uint64_t mOwnerBrowsingContextId;
+};
+
 FMRadio::FMRadio()
     : mRdsGroupMask(0),
+      mCachedFrequency(0.0),
+      mSuspendedByAudioChannel(false),
       mAudioChannelAgentEnabled(false),
       mHasInternalAntenna(false),
       mIsShutdown(false) {
@@ -133,11 +287,15 @@ void FMRadio::Init(nsIGlobalObject* aGlobal) {
     LOG("FMRadio::Init, Fail to initialize the audio channel agent");
     return;
   }
+
+  mMediaControlKeyListener = new MediaControlKeyListener(this);
 }
 
 void FMRadio::Shutdown() {
   IFMRadioService::Singleton()->RemoveObserver(this);
   DisableAudioChannelAgent();
+  mMediaControlKeyListener->StopIfNeeded();
+  mMediaControlKeyListener = nullptr;
   mIsShutdown = true;
 }
 
@@ -150,6 +308,7 @@ void FMRadio::Notify(const FMRadioEventType& aType) {
   switch (aType) {
     case FrequencyChanged:
       DispatchTrustedEvent(u"frequencychange"_ns);
+      mCachedFrequency = IFMRadioService::Singleton()->GetFrequency();
       break;
     case EnabledChanged:
       if (Enabled()) {
@@ -276,6 +435,7 @@ already_AddRefed<Promise> FMRadio::Enable(double aFrequency) {
     return nullptr;
   }
 
+  mMediaControlKeyListener->Start();
   IFMRadioService::Singleton()->Enable(aFrequency, r);
   return r->GetPromise();
 }
@@ -399,7 +559,13 @@ void FMRadio::DisableAudioChannelAgent() {
     NS_ENSURE_TRUE_VOID(mAudioChannelAgent);
     mAudioChannelAgent->NotifyStoppedPlaying();
     mAudioChannelAgentEnabled = false;
+    mSuspendedByAudioChannel = false;
+    mMediaControlKeyListener->NotifyMediaStoppedPlaying();
   }
+}
+
+bool FMRadio::IsPlayingThroughAudioChannel() {
+  return mAudioChannelAgentEnabled && !mSuspendedByAudioChannel;
 }
 
 NS_IMETHODIMP FMRadio::WindowVolumeChanged(float aVolume, bool aMuted) {
@@ -408,8 +574,13 @@ NS_IMETHODIMP FMRadio::WindowVolumeChanged(float aVolume, bool aMuted) {
 }
 
 NS_IMETHODIMP FMRadio::WindowSuspendChanged(SuspendTypes aSuspend) {
-  IFMRadioService::Singleton()->EnableAudio(aSuspend ==
-                                            nsISuspendedTypes::NONE_SUSPENDED);
+  mSuspendedByAudioChannel = aSuspend != nsISuspendedTypes::NONE_SUSPENDED;
+  if (mSuspendedByAudioChannel) {
+    mMediaControlKeyListener->NotifyMediaStoppedPlaying();
+  } else {
+    mMediaControlKeyListener->NotifyMediaStartedPlaying();
+  }
+  IFMRadioService::Singleton()->EnableAudio(!mSuspendedByAudioChannel);
   return NS_OK;
 }
 

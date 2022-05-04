@@ -99,13 +99,19 @@ class FMRadio final : public DOMEventTargetHelper,
 
   void EnableAudioChannelAgent();
   void DisableAudioChannelAgent();
+  bool IsPlayingThroughAudioChannel();
 
   uint32_t mRdsGroupMask;
+  double mCachedFrequency;
+  bool mSuspendedByAudioChannel;
   bool mAudioChannelAgentEnabled;
   bool mHasInternalAntenna;
   bool mIsShutdown;
 
+  class MediaControlKeyListener;
+
   RefPtr<AudioChannelAgent> mAudioChannelAgent;
+  RefPtr<MediaControlKeyListener> mMediaControlKeyListener;
 };
 
 END_FMRADIO_NAMESPACE

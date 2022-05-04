@@ -1284,6 +1284,7 @@ pref("security.disallow_privileged_https_subdocuments_loads", false);
 // Workaround https://bugzilla.mozilla.org/show_bug.cgi?id=1735117 since
 // the system app needs to load resources from http://shared.localhost
 pref("security.disallow_privileged_https_stylesheet_loads", false);
+pref("security.disallow_privileged_https_script_loads", false);
 
 #ifdef MOZ_WIDGET_GONK
 pref("b2g.api-daemon.uds-socket", "/dev/socket/api-daemon");

@@ -26,6 +26,15 @@
 #  include "mozilla/a11y/DocAccessiblePlatformExtParent.h"
 #endif
 
+#if defined(ANDROID)
+#  define ACQUIRE_ANDROID_LOCK \
+    MonitorAutoLock mal(nsAccessibilityService::GetAndroidMonitor());
+#else
+#  define ACQUIRE_ANDROID_LOCK \
+    do {                       \
+    } while (0);
+#endif
+
 namespace mozilla {
 
 #if defined(XP_WIN)
@@ -46,6 +55,7 @@ uint64_t DocAccessibleParent::sMaxDocID = 0;
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvShowEvent(
     const ShowEventData& aData, const bool& aFromUser) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) return IPC_OK();
 
   MOZ_ASSERT(CheckDocTree());
@@ -213,6 +223,7 @@ void DocAccessibleParent::ShutdownOrPrepareForMove(RemoteAccessible* aAcc) {
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvHideEvent(
     const uint64_t& aRootID, const bool& aFromUser) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) return IPC_OK();
 
   MOZ_ASSERT(CheckDocTree());
@@ -267,6 +278,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvHideEvent(
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvEvent(
     const uint64_t& aID, const uint32_t& aEventType) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -284,6 +296,10 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvEvent(
   if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
     if (aEventType == nsIAccessibleEvent::EVENT_REORDER ||
         aEventType == nsIAccessibleEvent::EVENT_INNER_REORDER) {
+      if (proxy->IsHyperText()) {
+        // Invalidate the HyperText offset cache.
+        proxy->InvalidateCachedHyperTextOffsets();
+      }
       for (RemoteAccessible* child = proxy->RemoteFirstChild(); child;
            child = child->RemoteNextSibling()) {
         child->InvalidateGroupInfo();
@@ -310,6 +326,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvEvent(
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvStateChangeEvent(
     const uint64_t& aID, const uint64_t& aState, const bool& aEnabled) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -350,6 +367,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvCaretMoveEvent(
 #endif  // defined (XP_WIN)
     const int32_t& aOffset, const bool& aIsSelectionCollapsed,
     const bool& aIsAtEndOfLine, const int32_t& aGranularity) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -397,6 +415,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvCaretMoveEvent(
 mozilla::ipc::IPCResult DocAccessibleParent::RecvTextChangeEvent(
     const uint64_t& aID, const nsString& aStr, const int32_t& aStart,
     const uint32_t& aLen, const bool& aIsInsert, const bool& aFromUser) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -437,6 +456,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvSyncTextChangeEvent(
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvSelectionEvent(
     const uint64_t& aID, const uint64_t& aWidgetID, const uint32_t& aType) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -467,6 +487,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvVirtualCursorChangeEvent(
     const uint64_t& aNewPositionID, const int32_t& aNewStartOffset,
     const int32_t& aNewEndOffset, const int16_t& aReason,
     const int16_t& aBoundaryType, const bool& aFromUser) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -507,6 +528,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvScrollingEvent(
     const uint64_t& aID, const uint64_t& aType, const uint32_t& aScrollX,
     const uint32_t& aScrollY, const uint32_t& aMaxScrollX,
     const uint32_t& aMaxScrollY) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -543,6 +565,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvScrollingEvent(
 mozilla::ipc::IPCResult DocAccessibleParent::RecvCache(
     const mozilla::a11y::CacheUpdateType& aUpdateType,
     nsTArray<CacheData>&& aData, const bool& aFinal) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -555,6 +578,13 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvCache(
     }
 
     remote->ApplyCache(aUpdateType, entry.Fields());
+    if (aUpdateType == CacheUpdateType::Update && remote->IsTextLeaf()) {
+      // Invalidate the HyperText offset cache.
+      RemoteAccessible* parent = remote->RemoteParent();
+      if (parent && parent->IsHyperText()) {
+        parent->InvalidateCachedHyperTextOffsets();
+      }
+    }
   }
 
   if (nsCOMPtr<nsIObserverService> obsService =
@@ -577,6 +607,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvAccessiblesWillMove(
 mozilla::ipc::IPCResult DocAccessibleParent::RecvAnnouncementEvent(
     const uint64_t& aID, const nsString& aAnnouncement,
     const uint16_t& aPriority) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -608,6 +639,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvAnnouncementEvent(
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvTextSelectionChangeEvent(
     const uint64_t& aID, nsTArray<TextRangeData>&& aSelection) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -646,6 +678,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvTextSelectionChangeEvent(
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvRoleChangedEvent(
     const a11y::role& aRole) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }
@@ -825,6 +858,7 @@ ipc::IPCResult DocAccessibleParent::AddChildDoc(
 }
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvShutdown() {
+  ACQUIRE_ANDROID_LOCK
   Destroy();
 
   auto mgr = static_cast<dom::BrowserParent*>(Manager());
@@ -1036,6 +1070,7 @@ void DocAccessibleParent::SetEmulatedWindowHandle(HWND aWindowHandle) {
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvFocusEvent(
     const uint64_t& aID, const LayoutDeviceIntRect& aCaretRect) {
+  ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
   }

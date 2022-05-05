@@ -9,6 +9,10 @@ const { ExperimentFakes } = ChromeUtils.import(
   "resource://testing-common/NimbusTestUtils.jsm"
 );
 
+const { EnterprisePolicyTesting } = ChromeUtils.import(
+  "resource://testing-common/EnterprisePolicyTesting.jsm"
+);
+
 ChromeUtils.defineModuleGetter(
   this,
   "BrowserGlue",
@@ -37,6 +41,11 @@ function cleanup() {
   // Reset the rollout scalar back to 2 = unset. We have to simulate this on
   // test cleanup, because BrowserGlue only sets this once initially.
   Services.telemetry.scalarSet("privacy.dfpi_rollout_enabledByDefault", 2);
+  // Same for the tcpByDefault feature probe.
+  Services.telemetry.scalarSet(
+    "privacy.dfpi_rollout_tcpByDefault_feature",
+    false
+  );
 }
 
 /**
@@ -56,13 +65,20 @@ async function waitForAndAssertPrefState(pref, expectedValue, message) {
 }
 
 function testTelemetryState(
-  expectedValue,
-  message = "Scalar should have correct value"
+  expectedValueOptIn,
+  expectedValueTCPByDefault,
+  message = "Scalars should have correct value"
 ) {
   TelemetryTestUtils.assertScalar(
     TelemetryTestUtils.getProcessScalars("parent"),
     "privacy.dfpi_rollout_enabledByDefault",
-    expectedValue,
+    expectedValueOptIn,
+    message
+  );
+  TelemetryTestUtils.assertScalar(
+    TelemetryTestUtils.getProcessScalars("parent"),
+    "privacy.dfpi_rollout_tcpByDefault_feature",
+    expectedValueTCPByDefault,
     message
   );
 }
@@ -158,7 +174,7 @@ add_task(async function test_phase2() {
     "TCP preferences section should not be visible initially."
   );
 
-  testTelemetryState(2, "Telemetry should indicate not enrolled.");
+  testTelemetryState(2, false, "Telemetry should indicate not enrolled.");
 
   let cookieBehaviorChange = waitForAndAssertPrefState(
     COOKIE_BEHAVIOR_PREF,
@@ -197,7 +213,7 @@ add_task(async function test_phase2() {
     "Preferences section should still not be visible."
   );
 
-  testTelemetryState(3, "Telemetry should indicate phase 2");
+  testTelemetryState(2, true, "Telemetry should indicate phase 2");
 
   await doEnrollmentCleanup();
   cleanup();
@@ -235,7 +251,7 @@ add_task(async function test_phase1_opt_out_to_phase2() {
     "TCP preferences section should not be visible initially."
   );
 
-  testTelemetryState(2, "Telemetry should indicate not enrolled.");
+  testTelemetryState(2, false, "Telemetry should indicate not enrolled.");
 
   info("Set the phase 1 rollout pref indicating user opt-out state.");
   // This simulates the prefs set when the user opts out via the messaging
@@ -249,7 +265,7 @@ add_task(async function test_phase1_opt_out_to_phase2() {
     `After opt-out TCP is still disabled by default.`
   );
 
-  testTelemetryState(0, "Telemetry indicates opt-out.");
+  testTelemetryState(0, false, "Telemetry indicates opt-out.");
 
   ok(
     !NimbusFeatures.tcpByDefault.isEnabled(),
@@ -293,7 +309,7 @@ add_task(async function test_phase1_opt_out_to_phase2() {
     "Preferences section should no longer be visible."
   );
 
-  testTelemetryState(3, "Telemetry should indicate phase 2.");
+  testTelemetryState(0, true, "Telemetry should indicate phase 2.");
 
   await doEnrollmentCleanup();
   cleanup();
@@ -331,7 +347,7 @@ add_task(async function test_phase1_opt_in_to_phase2() {
     "TCP preferences section should not be visible initially."
   );
 
-  testTelemetryState(2, "Telemetry should indicate not enrolled.");
+  testTelemetryState(2, false, "Telemetry should indicate not enrolled.");
 
   info("Set the phase 1 rollout pref indicator user opt-in state.");
   // This simulates the prefs set when the user opts-in via the messaging
@@ -344,7 +360,7 @@ add_task(async function test_phase1_opt_in_to_phase2() {
     `TCP is enabled default.`
   );
 
-  testTelemetryState(1, "Telemetry indicates opt-in.");
+  testTelemetryState(1, false, "Telemetry indicates opt-in.");
 
   ok(
     !NimbusFeatures.tcpByDefault.isEnabled(),
@@ -396,7 +412,7 @@ add_task(async function test_phase1_opt_in_to_phase2() {
     "Preferences section should still not be visible."
   );
 
-  testTelemetryState(3, "Telemetry should indicate phase 2.");
+  testTelemetryState(1, true, "Telemetry should indicate phase 2.");
 
   info(
     "Changing opt-in choice after phase 2 enrollment should not disable TCP."
@@ -428,3 +444,125 @@ add_task(async function test_phase1_opt_in_to_phase2() {
   await doEnrollmentCleanup();
   cleanup();
 });
+
+/**
+ * Tests that in phase 2+ we don't target clients with enterprise policy setting
+ * a cookie behavior.
+ */
+add_task(async function test_phase2_enterprise_policy_with_cookie_behavior() {
+  // Disable TCP by default.
+  setDefaultCookieBehavior(Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER);
+
+  is(
+    defaultPrefs.getIntPref(COOKIE_BEHAVIOR_PREF),
+    Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER,
+    "TCP is disabled by default."
+  );
+  ok(
+    !Services.prefs.prefHasUserValue(COOKIE_BEHAVIOR_PREF),
+    "No user value for cookie behavior."
+  );
+
+  await EnterprisePolicyTesting.setupPolicyEngineWithJson({
+    policies: {
+      Cookies: {
+        Locked: false,
+        Behavior: "accept",
+      },
+    },
+  });
+
+  is(
+    defaultPrefs.getIntPref(COOKIE_BEHAVIOR_PREF),
+    Ci.nsICookieService.BEHAVIOR_ACCEPT,
+    "Cookie behavior is set to ACCEPT by enterprise policy."
+  );
+  ok(
+    !Services.prefs.prefHasUserValue(COOKIE_BEHAVIOR_PREF),
+    "No user value for cookie behavior."
+  );
+
+  // Enable Nimbus feature for phase 2.
+  let doEnrollmentCleanup = await ExperimentFakes.enrollWithFeatureConfig({
+    featureId: "tcpByDefault",
+    value: { enabled: true },
+  });
+
+  is(
+    defaultPrefs.getIntPref(COOKIE_BEHAVIOR_PREF),
+    Ci.nsICookieService.BEHAVIOR_ACCEPT,
+    "Cookie behavior is *still* set to ACCEPT_ALL by enterprise policy."
+  );
+  ok(
+    !Services.prefs.prefHasUserValue(COOKIE_BEHAVIOR_PREF),
+    "No user value for cookie behavior."
+  );
+
+  await doEnrollmentCleanup();
+  cleanup();
+});
+
+/**
+ * Tests that in phase 2+ still target clients with enterprise policy *not*
+ * setting a cookie behavior.
+ */
+add_task(
+  async function test_phase2_enterprise_policy_without_cookie_behavior() {
+    // Disable TCP by default.
+    setDefaultCookieBehavior(Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER);
+
+    is(
+      defaultPrefs.getIntPref(COOKIE_BEHAVIOR_PREF),
+      Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER,
+      "TCP is disabled by default."
+    );
+    ok(
+      !Services.prefs.prefHasUserValue(COOKIE_BEHAVIOR_PREF),
+      "No user value for cookie behavior."
+    );
+
+    await EnterprisePolicyTesting.setupPolicyEngineWithJson({
+      policies: {
+        PopupBlocking: {
+          Locked: true,
+        },
+      },
+    });
+
+    is(
+      defaultPrefs.getIntPref(COOKIE_BEHAVIOR_PREF),
+      Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER,
+      "Cookie behavior is still set to BEHAVIOR_REJECT_TRACKER."
+    );
+    ok(
+      !Services.prefs.prefHasUserValue(COOKIE_BEHAVIOR_PREF),
+      "No user value for cookie behavior."
+    );
+
+    let cookieBehaviorChange = waitForAndAssertPrefState(
+      COOKIE_BEHAVIOR_PREF,
+      Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN,
+      "Cookie behavior updates to TCP enabled after tcpByDefault enrollment."
+    );
+
+    // Enable Nimbus feature for phase 2.
+    let doEnrollmentCleanup = await ExperimentFakes.enrollWithFeatureConfig({
+      featureId: "tcpByDefault",
+      value: { enabled: true },
+    });
+
+    await cookieBehaviorChange;
+    is(
+      defaultPrefs.getIntPref(COOKIE_BEHAVIOR_PREF),
+      Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN,
+      "TCP is enabled by default."
+    );
+    ok(
+      !Services.prefs.prefHasUserValue(COOKIE_BEHAVIOR_PREF),
+      "No user value for cookie behavior."
+    );
+
+    await doEnrollmentCleanup();
+    cleanup();
+  }
+);

@@ -48,7 +48,7 @@ namespace wasm {
 //
 // If this mechanism becomes a hassle, we can investigate other methods of
 // achieving the same goal.
-#if defined(ENABLE_WASM_VERIFY_SERIALIZATION_FOR_SIZE)
+#if defined(ENABLE_WASM_VERIFY_SERIALIZATION_FOR_SIZE) && !defined(DEBUG)
 
 template <typename T, size_t Size>
 struct Tripwire {

@@ -8,6 +8,14 @@
 var EXPORTED_SYMBOLS = ["ContextMenuUtils"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  SelectionUtils: "resource://gre/modules/SelectionUtils.jsm",
+});
+
 const kLongestReturnedString = 128;
 
 var ContextMenuUtils = {
@@ -100,6 +108,8 @@ var ContextMenuUtils = {
     menuData.clientY = event.clientY;
     menuData.screenX = event.screenX;
     menuData.screenY = event.screenY;
+    menuData.selectionInfo = SelectionUtils.getSelectionDetails(event.target.ownerDocument.defaultView);
+
     return menuData;
   },
 

@@ -428,7 +428,7 @@ class GonkVsyncSource final : public VsyncSource {
 #endif
 
 already_AddRefed<mozilla::gfx::VsyncSource>
-gfxAndroidPlatform::CreateHardwareVsyncSource() {
+gfxAndroidPlatform::CreateGlobalHardwareVsyncSource() {
 #if defined(MOZ_WIDGET_GONK)
   // Only enable true hardware vsync on kit-kat and L device. Jelly Bean has
   // inaccurate hardware vsync so disable on JB. Android pre-JB doesn't have
@@ -439,7 +439,7 @@ gfxAndroidPlatform::CreateHardwareVsyncSource() {
   vsyncSource->EnableVsync();
   if (!vsyncSource->IsVsyncEnabled()) {
     NS_WARNING("Error enabling gonk vsync. Falling back to software vsync");
-    return gfxPlatform::CreateHardwareVsyncSource();
+    return GetSoftwareVsyncSource();
   }
   vsyncSource->DisableVsync();
   return vsyncSource.forget();
@@ -453,5 +453,5 @@ gfxAndroidPlatform::CreateHardwareVsyncSource() {
 #endif
 
   NS_WARNING("Vsync not supported. Falling back to software vsync");
-  return gfxPlatform::CreateHardwareVsyncSource();
+  return GetSoftwareVsyncSource();
 }

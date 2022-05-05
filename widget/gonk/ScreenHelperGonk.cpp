@@ -889,7 +889,7 @@ bool ScreenHelperGonk::IsScreenConnected(uint32_t aId) {
 
 void ScreenHelperGonk::VsyncControl(bool aEnabled) {
   MOZ_ASSERT(NS_IsMainThread());
-  VsyncSource* vsyncSource = gfxPlatform::GetPlatform()->GetHardwareVsync();
+  RefPtr<VsyncSource> vsyncSource = gfxPlatform::GetPlatform()->GetGonkVsyncSource();
   if (aEnabled) {
     vsyncSource->EnableVsync();
   } else {

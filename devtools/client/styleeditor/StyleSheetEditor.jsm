@@ -6,7 +6,7 @@
 
 const EXPORTED_SYMBOLS = ["StyleSheetEditor"];
 
-const { require } = ChromeUtils.import(
+const { require, loader } = ChromeUtils.import(
   "resource://devtools/shared/loader/Loader.jsm"
 );
 const Editor = require("devtools/client/shared/sourceeditor/editor");
@@ -17,9 +17,21 @@ const {
 const { throttle } = require("devtools/shared/throttle");
 const Services = require("Services");
 const EventEmitter = require("devtools/shared/event-emitter");
-const { FileUtils } = require("resource://gre/modules/FileUtils.jsm");
-const { NetUtil } = require("resource://gre/modules/NetUtil.jsm");
-const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
+
+loader.lazyRequireGetter(
+  this,
+  "FileUtils",
+  "resource://gre/modules/FileUtils.jsm",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "NetUtil",
+  "resource://gre/modules/NetUtil.jsm",
+  true
+);
+loader.lazyRequireGetter(this, "OS", "resource://gre/modules/osfile.jsm", true);
+
 const {
   getString,
   showFilePicker,
@@ -542,14 +554,22 @@ StyleSheetEditor.prototype = {
 
   /**
    * Event handler for when the editor is shown.
+   *
+   * @param {Object} options
+   * @param {String} options.reason: Indicates why the editor is shown
    */
-  onShow: function() {
+  onShow: function(options = {}) {
     if (this.sourceEditor) {
       // CodeMirror needs refresh to restore scroll position after hiding and
       // showing the editor.
       this.sourceEditor.refresh();
     }
-    this.focus();
+
+    // We don't want to focus the editor if it was shown because of the list being filtered,
+    // as the user might still be typing in the filter input.
+    if (options.reason !== "filter-auto") {
+      this.focus();
+    }
   },
 
   /**
@@ -885,20 +905,27 @@ StyleSheetEditor.prototype = {
    * @return {array} key binding objects for the source editor
    */
   _getKeyBindings: function() {
-    const bindings = {};
-    const keybind = Editor.accel(getString("saveStyleSheet.commandkey"));
+    const saveStyleSheetKeybind = Editor.accel(
+      getString("saveStyleSheet.commandkey")
+    );
+    const focusFilterInputKeybind = Editor.accel(
+      getString("focusFilterInput.commandkey")
+    );
 
-    bindings[keybind] = () => {
-      this.saveToFile(this.savedFile);
+    return {
+      Esc: false,
+      [saveStyleSheetKeybind]: () => {
+        this.saveToFile(this.savedFile);
+      },
+      ["Shift-" + saveStyleSheetKeybind]: () => {
+        this.saveToFile();
+      },
+      // We can't simply ignore this (with `false`, or returning `CodeMirror.Pass`), as the
+      // event isn't received by the event listener in StyleSheetUI.
+      [focusFilterInputKeybind]: () => {
+        this.emit("filter-input-keyboard-shortcut");
+      },
     };
-
-    bindings["Shift-" + keybind] = () => {
-      this.saveToFile();
-    };
-
-    bindings.Esc = false;
-
-    return bindings;
   },
 
   _getStyleSheetsFront() {

@@ -3929,27 +3929,24 @@ static bool SearchElementDense(JSContext* cx, HandleValue val, Iter iterator,
     return iterator(cx, cmp, rval);
   }
 
+  MOZ_ASSERT(val.isBigInt() ||
+             IF_RECORD_TUPLE(val.isExtendedPrimitive(), false));
+
   // Generic implementation for the remaining types.
   RootedValue elementRoot(cx);
   auto cmp = [val, &elementRoot](JSContext* cx, const Value& element,
                                  bool* equal) {
     if (MOZ_UNLIKELY(element.isMagic(JS_ELEMENTS_HOLE))) {
-      // |includes| treats holes as |undefined|. For |indexOf| we have to ignore
-      // holes.
-      if constexpr (Kind == SearchKind::Includes) {
-        elementRoot.setUndefined();
-      } else {
-        static_assert(Kind == SearchKind::IndexOf);
-        *equal = false;
-        return true;
-      }
-    } else {
-      elementRoot = element;
+      // |includes| treats holes as |undefined|, but |undefined| is already
+      // handled above. For |indexOf| we have to ignore holes.
+      *equal = false;
+      return true;
     }
     // Note: |includes| uses SameValueZero, but that checks for NaN and then
     // calls StrictlyEqual. Since we already handled NaN above, we can call
     // StrictlyEqual directly.
     MOZ_ASSERT(!val.isNumber());
+    elementRoot = element;
     return StrictlyEqual(cx, val, elementRoot, equal);
   };
   return iterator(cx, cmp, rval);
@@ -4250,6 +4247,13 @@ bool js::array_includes(JSContext* cx, unsigned argc, Value* vp) {
     uint32_t length =
         std::min(nobj->getDenseInitializedLength(), uint32_t(len));
     const Value* elements = nobj->getDenseElements();
+
+    // Trailing holes are treated as |undefined|.
+    if (uint32_t(len) > length && searchElement.isUndefined()) {
+      // |undefined| is strictly equal only to |undefined|.
+      args.rval().setBoolean(true);
+      return true;
+    }
 
     auto iterator = [elements, start, length](JSContext* cx, auto cmp,
                                               MutableHandleValue rval) {

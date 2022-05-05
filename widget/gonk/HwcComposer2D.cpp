@@ -168,14 +168,16 @@ bool HwcComposer2D::RegisterHwcEventCallback() {
 
 void HwcComposer2D::Vsync(int aDisplay, nsecs_t aVsyncTimestamp) {
   // KaiOS Bug 567: The vsync here might be fired during testing whether vsync
-  // is avaliabe in gfxAndroidPlatform::CreateHardwareVsyncSource. At this
+  // is avaliabe in gfxAndroidPlatform::GetGonkVsyncSource. At this
   // timing created VsyncSource doesn't be assigned to gfxPlatform yet.
+
+  RefPtr<VsyncSource> vsyncSource = gfxPlatform::GetPlatform()->GetGonkVsyncSource();
+
   if (!gfxPlatform::Initialized() ||
-      !gfxPlatform::GetPlatform()->GetHardwareVsync()) {
+      !vsyncSource) {
     return;
   }
 
-  VsyncSource* vsyncSource = gfxPlatform::GetPlatform()->GetHardwareVsync();
   TimeStamp vsyncTime = mozilla::TimeStamp::FromSystemTime(aVsyncTimestamp);
   TimeStamp outputTime = vsyncTime + vsyncSource->GetVsyncRate();
   vsyncSource->NotifyVsync(vsyncTime, outputTime);

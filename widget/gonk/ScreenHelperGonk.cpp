@@ -119,6 +119,7 @@ nsScreenGonk::nsScreenGonk(uint32_t aId, DisplayType aDisplayType,
       mDpi(aNativeData.mXdpi),
       mScreenRotation(ROTATION_0),
       mPhysicalScreenRotation(ROTATION_0),
+      mRefreshRate(60),
       mDisplaySurface(aNativeData.mDisplaySurface),
       mComposer2DSupported(aNativeData.mComposer2DSupported),
       mVsyncSupported(aNativeData.mVsyncSupported),
@@ -234,6 +235,12 @@ nsScreenGonk::GetColorDepth(int32_t* aColorDepth) {
 NS_IMETHODIMP
 nsScreenGonk::GetRotation(uint32_t* aRotation) {
   *aRotation = mScreenRotation;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsScreenGonk::GetRefreshRate(int32_t* aRefreshRate) {
+  *aRefreshRate = mRefreshRate;
   return NS_OK;
 }
 
@@ -782,12 +789,16 @@ already_AddRefed<Screen> ScreenHelperGonk::MakeScreen(
   int32_t depth;
 
   screengonk->GetColorDepth(&depth);
+
+  int32_t refreshRate;
+  screengonk->GetRefreshRate(&refreshRate);
+
   float density = 160.0f;  // FIXME: This is the default density
   float dpi = screengonk->GetDpi();
 
-  RefPtr<Screen> screen = new Screen(bounds, bounds, depth, depth,
+  RefPtr<Screen> screen = new Screen(bounds, bounds, depth, depth, refreshRate,
                                      DesktopToLayoutDeviceScale(density),
-                                     CSSToLayoutDeviceScale(1.0f), dpi);
+                                     CSSToLayoutDeviceScale(1.0f), dpi, Screen::IsPseudoDisplay::No);
   return screen.forget();
 }
 

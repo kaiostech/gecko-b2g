@@ -1550,6 +1550,10 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvGetSystemIcon(nsIURI* aURI,
                                             GetSystemIconResolver&& aResolver);
 
+#ifdef FUZZING_SNAPSHOT
+  mozilla::ipc::IPCResult RecvSignalFuzzingReady();
+#endif
+
  public:
   void SendGetFilesResponseAndForget(const nsID& aID,
                                      const GetFilesResponseResult& aResult);

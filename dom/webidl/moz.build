@@ -405,7 +405,6 @@ GENERATED_WEBIDL_FILES = [
 ]
 
 PREPROCESSED_WEBIDL_FILES = [
-    "Animation.webidl",
     "B2G.webidl",
     "Node.webidl",
     "Window.webidl",
@@ -421,6 +420,7 @@ WEBIDL_FILES = [
     "AddonManager.webidl",
     "AnalyserNode.webidl",
     "Animatable.webidl",
+    "Animation.webidl",
     "AnimationEffect.webidl",
     "AnimationEvent.webidl",
     "AnimationFrameProvider.webidl",

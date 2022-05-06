@@ -8,7 +8,9 @@ this.EXPORTED_SYMBOLS = ["TelephonyUtils"];
 
 const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 /* global TelephonyService */
 XPCOMUtils.defineLazyServiceGetter(
@@ -20,7 +22,7 @@ XPCOMUtils.defineLazyServiceGetter(
 
 function getCurrentCalls(aFilter) {
   if (aFilter === undefined) {
-    aFilter = call => true;
+    aFilter = (call) => true;
   }
 
   let calls = [];
@@ -47,7 +49,7 @@ this.TelephonyUtils = {
    * @return boolean
    */
   hasAnyCalls(aClientId) {
-    let calls = getCurrentCalls(call => {
+    let calls = getCurrentCalls((call) => {
       if (aClientId !== undefined && call.clientId !== aClientId) {
         return false;
       }
@@ -64,7 +66,7 @@ this.TelephonyUtils = {
    * @return boolean
    */
   hasConnectedCalls(aClientId) {
-    let calls = getCurrentCalls(call => {
+    let calls = getCurrentCalls((call) => {
       if (aClientId !== undefined && call.clientId !== aClientId) {
         return false;
       }
@@ -86,7 +88,7 @@ this.TelephonyUtils = {
     }
 
     let self = this;
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       let listener = {
         QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
 

@@ -43,12 +43,10 @@ XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
 });
 
 // eslint-disable-next-line mozilla/reject-chromeutils-import-params
-var RIL_DEBUG = ChromeUtils.import(
-  "resource://gre/modules/ril_consts_debug.js",
-  null
-);
+var RIL_DEBUG = {};
+ChromeUtils.import("resource://gre/modules/ril_consts_debug.js", RIL_DEBUG);
 
-XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
+XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function () {
   return {
     // Should match with enum DataCallState in DataCallManager webidl.
     convertToDataCallState(aState, aReason) {
@@ -185,7 +183,7 @@ DOMDataCallManager.prototype = {
   uninit() {
     // All requests that are still pending need to be invalidated
     // because the context is no longer valid.
-    this.forEachPromiseResolver(aKey => {
+    this.forEachPromiseResolver((aKey) => {
       this.takePromiseResolver(aKey).reject("DataCallManager got destroyed.");
     });
   },
@@ -408,10 +406,7 @@ DOMDataCall.prototype = {
       Ci.nsIUUIDGenerator
     );
     // generateUUID() gives a UUID surrounded by {...}, slice them off.
-    return uuidGenerator
-      .generateUUID()
-      .toString()
-      .slice(1, -1);
+    return uuidGenerator.generateUUID().toString().slice(1, -1);
   },
 
   _sendMessage(aMessageName, aData) {
@@ -483,7 +478,7 @@ DOMDataCall.prototype = {
   uninit() {
     // All requests that are still pending need to be invalidated
     // because the context is no longer valid.
-    this.forEachPromiseResolver(aKey => {
+    this.forEachPromiseResolver((aKey) => {
       this.takePromiseResolver(aKey).reject("DataCall got destroyed.");
     });
   },

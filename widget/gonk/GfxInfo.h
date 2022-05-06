@@ -52,9 +52,6 @@ class GfxInfo : public GfxInfoBase {
   NS_IMETHOD GetAdapterDriverDate2(nsAString& aAdapterDriverDate) override;
   NS_IMETHOD GetIsGPU2Active(bool* aIsGPU2Active) override;
   NS_IMETHOD GetWindowProtocol(nsAString& aWindowProtocol) override;
-  NS_IMETHOD GetDisplayInfo(nsTArray<nsString>& aDisplayInfo) override;
-  NS_IMETHOD GetDisplayWidth(nsTArray<uint32_t>& aDisplayWidth) override;
-  NS_IMETHOD GetDisplayHeight(nsTArray<uint32_t>& aDisplayHeight) override;
   NS_IMETHOD GetDrmRenderDevice(nsACString& aDrmRenderDevice) override;
   NS_IMETHODIMP GetEmbeddedInFirefoxReality(
       bool* aEmbeddedInFirefoxReality) override;

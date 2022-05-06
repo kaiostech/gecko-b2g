@@ -77,6 +77,8 @@ class nsScreenGonk : public nsBaseScreen {
   NS_IMETHOD GetColorDepth(int32_t* aColorDepth);
   NS_IMETHOD GetRotation(uint32_t* aRotation);
   NS_IMETHOD SetRotation(uint32_t aRotation);
+  NS_IMETHOD GetRefreshRate(int32_t *aRefreshRate);
+  NS_IMETHOD GetIsPseudoDisplay(bool *aIsPseudoDisplay) { *aIsPseudoDisplay = false; return NS_OK; }
 
   uint32_t GetId();
   NotifyDisplayChangedEvent GetEventVisibility();
@@ -142,6 +144,7 @@ class nsScreenGonk : public nsBaseScreen {
       mVirtualBounds;  // Screen bounds w/ rotation taken into account.
   uint32_t mScreenRotation;
   uint32_t mPhysicalScreenRotation;
+  int32_t mRefreshRate;
   nsTArray<nsWindow*> mTopWindows;
   android::sp<android::DisplaySurface> mDisplaySurface;
   bool mComposer2DSupported;

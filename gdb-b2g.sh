@@ -7,9 +7,11 @@ GONK_PATH=${GONK_PATH:-.}
 case "$TARGET_ARCH" in
     arm)
         GDB=$GONK_PATH/gonk-misc/arm-unknown-linux-androideabi-gdb
+        GDBSERVER=gdbserver
         ;;
     arm64)
         GDB=$GONK_PATH/gonk-misc/aarch64-unknown-linux-androideabi-gdb
+        GDBSERVER=gdbserver64
         ;;
 esac
 
@@ -28,8 +30,8 @@ if [ -z "$GONK_PATH" -o ! -e "$GDB" ]; then
     exit 255
 fi
 
-echo -e "Please run b2g with \e[31mgdbserver at localhost:8859\e[0m"
-echo -e "For example, \e[92madb shell 'COMMAND_PREFIX=\"gdbserver localhost:8859\" b2g.sh'\e[0m"
+echo -e "Please run b2g with \e[31m${GDBSERVER} at localhost:8859\e[0m"
+echo -e "For example, \e[92madb shell 'COMMAND_PREFIX=\"${GDBSERVER} localhost:8859\" b2g.sh'\e[0m"
 echo
 echo
 

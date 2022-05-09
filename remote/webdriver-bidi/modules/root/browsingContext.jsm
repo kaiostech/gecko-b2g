@@ -167,7 +167,7 @@ class BrowsingContextModule extends Module {
             `browsingContext.create with type "tab" not supported in ${AppInfo.name}`
           );
         }
-        let tab = TabManager.addTab({ focus: false });
+        let tab = await TabManager.addTab({ focus: false });
         browser = TabManager.getBrowserForTab(tab);
     }
 
@@ -347,6 +347,7 @@ class BrowsingContextModule extends Module {
 
     const resolveWhenStarted = wait === WaitCondition.None;
     const listener = new ProgressListener(webProgress, {
+      expectNavigation: true,
       resolveWhenStarted,
       // In case the webprogress is already navigating, always wait for an
       // explicit start flag.

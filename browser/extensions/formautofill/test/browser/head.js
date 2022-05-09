@@ -10,10 +10,11 @@
             SUPPORTED_COUNTRIES_PREF,
             SYNC_USERNAME_PREF, SYNC_ADDRESSES_PREF, SYNC_CREDITCARDS_PREF, SYNC_CREDITCARDS_AVAILABLE_PREF, CREDITCARDS_USED_STATUS_PREF,
             sleep, waitForStorageChangedEvents, waitForAutofill, focusUpdateSubmitForm, runAndWaitForAutocompletePopupOpen,
-            openPopupOn, openPopupForSubframe, closePopup, closePopupForSubframe,
+            openPopupOn, openPopupOnSubframe, closePopup, closePopupForSubframe,
             clickDoorhangerButton, getAddresses, saveAddress, removeAddresses, saveCreditCard, setStorage,
             getDisplayedPopupItems, getDoorhangerCheckbox, waitForPopupEnabled,
-            getNotification, promiseNotificationShown, getDoorhangerButton, removeAllRecords, expectWarningText, testDialog */
+            getNotification, waitForPopupShown, getDoorhangerButton, removeAllRecords, expectWarningText, testDialog,
+            TIMEOUT_ENSURE_PROFILE_NOT_SAVED */
 
 "use strict";
 
@@ -192,6 +193,11 @@ const MAIN_BUTTON = "button";
 const SECONDARY_BUTTON = "secondaryButton";
 const MENU_BUTTON = "menubutton";
 
+/**
+ * Collection of timeouts that are used to ensure something should not happen.
+ */
+const TIMEOUT_ENSURE_PROFILE_NOT_SAVED = 1000;
+
 function getDisplayedPopupItems(
   browser,
   selector = ".autocomplete-richlistitem"
@@ -236,8 +242,6 @@ async function waitForStorageChangedEvents(...eventTypes) {
 /**
  * Wait until the element found matches the expected autofill value
  *
- * Note. This function assumes the element is in a form whose id is "form"
- *
  * @param {Object} target
  *        The target in which to run the task.
  * @param {string} selector
@@ -251,8 +255,7 @@ async function waitForAutofill(target, selector, value) {
     val
   ) {
     await ContentTaskUtils.waitForCondition(() => {
-      let form = content.document.getElementById("form");
-      let element = form.querySelector(selector);
+      let element = content.document.querySelector(selector);
       return element.value == val;
     }, "Autofill never fills");
   });
@@ -458,6 +461,7 @@ async function runAndWaitForAutocompletePopupOpen(browser, taskFn) {
           return (
             (item.getAttribute("originaltype") == "autofill-profile" ||
               item.getAttribute("originaltype") == "autofill-insecureWarning" ||
+              item.getAttribute("originaltype") == "autofill-clear-button" ||
               item.getAttribute("originaltype") == "autofill-footer") &&
             item.hasAttribute("formautofillattached")
           );
@@ -521,7 +525,7 @@ async function openPopupOn(browser, selector) {
   await childNotifiedPromise;
 }
 
-async function openPopupForSubframe(browser, frameBrowsingContext, selector) {
+async function openPopupOnSubframe(browser, frameBrowsingContext, selector) {
   let childNotifiedPromise = waitPopupStateInChild(
     frameBrowsingContext,
     "FormAutoComplete:PopupOpened"
@@ -532,7 +536,7 @@ async function openPopupForSubframe(browser, frameBrowsingContext, selector) {
   await runAndWaitForAutocompletePopupOpen(browser, async () => {
     await focusAndWaitForFieldsIdentified(frameBrowsingContext, selector);
     if (!selector.includes("cc-")) {
-      info(`openPopupForSubframe: before VK_DOWN on ${selector}`);
+      info(`openPopupOnSubframe: before VK_DOWN on ${selector}`);
       await BrowserTestUtils.synthesizeKey("VK_DOWN", {}, frameBrowsingContext);
     }
   });
@@ -640,7 +644,7 @@ function getNotification(index = 0) {
   return notifications[index];
 }
 
-function promiseNotificationShown() {
+function waitForPopupShown() {
   return BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
 }
 

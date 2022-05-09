@@ -295,9 +295,15 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(HTMLEditor)
   NS_INTERFACE_MAP_ENTRY(nsIEditorMailSupport)
 NS_INTERFACE_MAP_END_INHERITING(EditorBase)
 
-nsresult HTMLEditor::Init(Document& aDocument, uint32_t aFlags) {
+nsresult HTMLEditor::Init(Document& aDocument,
+                          ComposerCommandsUpdater& aComposerCommandsUpdater,
+                          uint32_t aFlags) {
   MOZ_ASSERT(!mInitSucceeded,
              "HTMLEditor::Init() called again without calling PreDestroy()?");
+
+  MOZ_DIAGNOSTIC_ASSERT(!mComposerCommandsUpdater ||
+                        mComposerCommandsUpdater == &aComposerCommandsUpdater);
+  mComposerCommandsUpdater = &aComposerCommandsUpdater;
 
   RefPtr<PresShell> presShell = aDocument.GetPresShell();
   if (NS_WARN_IF(!presShell)) {
@@ -371,7 +377,12 @@ nsresult HTMLEditor::Init(Document& aDocument, uint32_t aFlags) {
   // Throw away the old transaction manager if this is not the first time that
   // we're initializing the editor.
   ClearUndoRedo();
-  EnableUndoRedo();
+  EnableUndoRedo();  // FYI: Creating mTransactionManager in this call
+
+  if (mTransactionManager) {
+    mTransactionManager->Attach(*this);
+  }
+
   MOZ_ASSERT(!mInitSucceeded, "HTMLEditor::Init() shouldn't be nested");
   mInitSucceeded = true;
   return NS_OK;
@@ -716,6 +727,19 @@ void HTMLEditor::RemoveEventListeners() {
   EditorBase::RemoveEventListeners();
 }
 
+void HTMLEditor::Detach(
+    const ComposerCommandsUpdater& aComposerCommandsUpdater) {
+  MOZ_DIAGNOSTIC_ASSERT_IF(
+      mComposerCommandsUpdater,
+      &aComposerCommandsUpdater == mComposerCommandsUpdater);
+  if (mComposerCommandsUpdater == &aComposerCommandsUpdater) {
+    mComposerCommandsUpdater = nullptr;
+    if (mTransactionManager) {
+      mTransactionManager->Detach(*this);
+    }
+  }
+}
+
 NS_IMETHODIMP HTMLEditor::BeginningOfDocument() {
   AutoEditActionDataSetter editActionData(*this, EditAction::eNotEditing);
   if (NS_WARN_IF(!editActionData.CanHandle())) {
@@ -932,7 +956,7 @@ nsresult HTMLEditor::MaybeCollapseSelectionAtFirstEditableNode(
 }
 
 bool HTMLEditor::ArePreservingSelection() const {
-  return IsEditActionDataAvailable() && !SavedSelectionRef().IsEmpty();
+  return IsEditActionDataAvailable() && SavedSelectionRef().RangeCount();
 }
 
 void HTMLEditor::PreserveSelectionAcrossActions() {
@@ -945,7 +969,9 @@ void HTMLEditor::PreserveSelectionAcrossActions() {
 nsresult HTMLEditor::RestorePreservedSelection() {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
-  if (SavedSelectionRef().IsEmpty()) {
+  if (!SavedSelectionRef().RangeCount()) {
+    // XXX Returing error when it does not store is odd because no selection
+    //     ranges is not illegal case in general.
     return NS_ERROR_FAILURE;
   }
   DebugOnly<nsresult> rvIgnored =
@@ -961,7 +987,7 @@ void HTMLEditor::StopPreservingSelection() {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
   RangeUpdaterRef().DropSelectionState(SavedSelectionRef());
-  SavedSelectionRef().Clear();
+  SavedSelectionRef().RemoveAllRanges();
 }
 
 void HTMLEditor::PreHandleMouseDown(const MouseEvent& aMouseDownEvent) {

@@ -919,6 +919,10 @@ static void wayland_egltest() {
     record_error("EGL test failed");
   }
 
+  // This is enough to crash some broken NVIDIA prime + Wayland setups, see
+  // https://github.com/NVIDIA/egl-wayland/issues/41 and bug 1768260.
+  wl_display_roundtrip(dpy);
+
   wl_display_disconnect(dpy);
   record_value("TEST_TYPE\nEGL\n");
 }

@@ -467,7 +467,7 @@ downloads:
       - "firefox"
     record_in_processes: ["main"]
     release_channel_collection: opt-out
-    expiry_version: "103"
+    expiry_version: "109"
 
 form_autocomplete:
   show:
@@ -507,9 +507,9 @@ creditcard:
       - "update"
       - "cancel"
       - "disable"
-    bug_numbers: [1653073, 1653083, 1720608]
-    notification_emails: ["tgiles@mozilla.com", "dlee@mozilla.com"]
-    expiry_version: "103"
+    bug_numbers: [1653073, 1653083, 1720608, 1767907]
+    notification_emails: ["sgalich@mozilla.com", "dlee@mozilla.com"]
+    expiry_version: never
     products:
       - "firefox"
     record_in_processes: ["main"]
@@ -525,9 +525,9 @@ creditcard:
       - "delete"
       - "show_entry"
       - "edit"
-    bug_numbers: [1653073, 1654167, 1720608]
-    notification_emails: ["tgiles@mozilla.com", "dlee@mozilla.com"]
-    expiry_version: "103"
+    bug_numbers: [1653073, 1654167, 1720608, 1767907]
+    notification_emails: ["sgalich@mozilla.com", "dlee@mozilla.com"]
+    expiry_version: never
     products:
       - "firefox"
     record_in_processes: ["main"]
@@ -543,9 +543,9 @@ creditcard:
       - "filled"
       - "filled_modified"
       - "submitted"
-    bug_numbers: [1653073, 1653162, 1720608]
-    notification_emails: ["tgiles@mozilla.com", "dlee@mozilla.com"]
-    expiry_version: "103"
+    bug_numbers: [1653073, 1653162, 1720608, 1767907]
+    notification_emails: ["sgalich@mozilla.com", "dlee@mozilla.com"]
+    expiry_version: never
     products:
       - "firefox"
     record_in_processes: ["content"]

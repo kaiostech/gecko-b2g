@@ -111,7 +111,7 @@ FileBlobImpl::FileBlobImpl(const FileBlobImpl* aOther, uint64_t aStart,
 
 already_AddRefed<BlobImpl> FileBlobImpl::CreateSlice(
     uint64_t aStart, uint64_t aLength, const nsAString& aContentType,
-    ErrorResult& aRv) {
+    ErrorResult& aRv) const {
   RefPtr<FileBlobImpl> impl =
       new FileBlobImpl(this, aStart, aLength, aContentType);
   return impl.forget();
@@ -158,6 +158,32 @@ uint64_t FileBlobImpl::GetSize(ErrorResult& aRv) {
 
   return mLength.value();
 }
+
+class FileBlobImpl::GetTypeRunnable final : public WorkerMainThreadRunnable {
+ public:
+  GetTypeRunnable(WorkerPrivate* aWorkerPrivate, FileBlobImpl* aBlobImpl,
+                  const MutexAutoLock& aProofOfLock)
+      : WorkerMainThreadRunnable(aWorkerPrivate, "FileBlobImpl :: GetType"_ns),
+        mBlobImpl(aBlobImpl),
+        mProofOfLock(aProofOfLock) {
+    MOZ_ASSERT(aBlobImpl);
+    aWorkerPrivate->AssertIsOnWorkerThread();
+  }
+
+  bool MainThreadRun() override {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    nsAutoString type;
+    mBlobImpl->GetTypeInternal(type, mProofOfLock);
+    return true;
+  }
+
+ private:
+  ~GetTypeRunnable() override = default;
+
+  RefPtr<FileBlobImpl> mBlobImpl;
+  const MutexAutoLock& mProofOfLock;
+};
 
 void FileBlobImpl::GetType(nsAString& aType) {
   MutexAutoLock lock(mMutex);
@@ -228,7 +254,7 @@ const uint32_t sFileStreamFlags =
     nsIFileInputStream::DEFER_OPEN | nsIFileInputStream::SHARE_DELETE;
 
 void FileBlobImpl::CreateInputStream(nsIInputStream** aStream,
-                                     ErrorResult& aRv) {
+                                     ErrorResult& aRv) const {
   nsCOMPtr<nsIInputStream> stream;
   aRv = NS_NewLocalFileInputStream(getter_AddRefs(stream), mFile, -1, -1,
                                    sFileStreamFlags);

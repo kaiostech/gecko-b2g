@@ -152,6 +152,14 @@ if [ -f "$GONK_GEOLOCATION_KEY_FILE" ]; then
 ac_add_options --with-gonk-geolocation-api-keyfile="$GONK_GEOLOCATION_KEY_FILE"
 fi
 
+if [ -f "$KAI_ZAXIS_CALI_KEY_FILE" ]; then
+ac_add_options --with-kaios-zaxis-cali-api-keyfile="$KAI_ZAXIS_CALI_KEY_FILE"
+fi
+
+if [ -f "$KAI_ZAXIS_ECALL_KEY_FILE" ]; then
+ac_add_options --with-kaios-zaxis-ecall-api-keyfile="$KAI_ZAXIS_ECALL_KEY_FILE"
+fi
+
 ac_add_options --with-sandbox-gpu-node="$MOZ_SANDBOX_GPU_NODE"
 
 if [ "$TARGET_BUILD_VARIANT" != "user" ] ; then

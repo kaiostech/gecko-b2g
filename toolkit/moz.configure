@@ -1040,6 +1040,9 @@ simple_keyfile("KaiOS Push API")
 simple_keyfile("KaiOS Service API")
 simple_keyfile("Gonk Geolocation API")
 
+simple_keyfile("KaiOS Zaxis Cali API")
+simple_keyfile("KaiOS Zaxis ECall API")
+
 # WebRender Debugger integration
 # ==============================================================
 

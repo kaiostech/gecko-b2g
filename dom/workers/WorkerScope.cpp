@@ -131,8 +131,7 @@ using mozilla::ipc::BackgroundChild;
 using mozilla::ipc::PBackgroundChild;
 using mozilla::ipc::PrincipalInfo;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class WorkerScriptTimeoutHandler final : public ScriptTimeoutHandler {
  public:
@@ -1348,5 +1347,4 @@ bool IsWorkerDebuggerSandbox(JSObject* object) {
          SimpleGlobalObject::GlobalType::WorkerDebuggerSandbox;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

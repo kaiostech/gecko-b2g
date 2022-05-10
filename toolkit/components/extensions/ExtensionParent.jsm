@@ -37,6 +37,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   PerformanceCounters: "resource://gre/modules/PerformanceCounters.jsm",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
   Schemas: "resource://gre/modules/Schemas.jsm",
+  getErrorNameForTelemetry: "resource://gre/modules/ExtensionTelemetry.jsm",
 });
 
 XPCOMUtils.defineLazyServiceGetters(this, {
@@ -466,6 +467,7 @@ class ProxyContextParent extends BaseContext {
   constructor(envType, extension, params, xulBrowser, principal) {
     super(envType, extension);
 
+    this.childId = params.childId;
     this.uri = Services.io.newURI(params.url);
 
     this.incognito = params.incognito;
@@ -815,7 +817,7 @@ ParentAPIManager = {
         "RemoveListener",
       ],
       send: ["CallResult"],
-      query: ["RunListener"],
+      query: ["RunListener", "StreamFilterSuspendCancel"],
     });
   },
 
@@ -852,6 +854,10 @@ ParentAPIManager = {
         this.proxyContexts.delete(childId);
       }
     }
+  },
+
+  queryStreamFilterSuspendCancel(childId) {
+    return this.conduit.queryStreamFilterSuspendCancel(childId);
   },
 
   recvCreateProxyContext(data, { actor, sender }) {
@@ -1976,6 +1982,10 @@ StartupCache = {
     let data = new Uint8Array(aomStartup.encodeBlob(this._data));
     await this._ensureDirectoryPromise;
     await IOUtils.write(this.file, data, { tmpPath: `${this.file}.tmp` });
+    Services.telemetry.scalarSet(
+      "extensions.startupCache.write_byteLength",
+      data.byteLength
+    );
   },
 
   save() {
@@ -2000,13 +2010,22 @@ StartupCache = {
   async _readData() {
     let result = new Map();
     try {
+      Glean.extensions.startupCacheLoadTime.start();
       let { buffer } = await IOUtils.read(this.file);
 
       result = aomStartup.decodeBlob(buffer);
+      Glean.extensions.startupCacheLoadTime.stop();
     } catch (e) {
+      Glean.extensions.startupCacheLoadTime.cancel();
       if (!DOMException.isInstance(e) || e.name !== "NotFoundError") {
         Cu.reportError(e);
       }
+
+      Services.telemetry.keyedScalarAdd(
+        "extensions.startupCache.read_errors",
+        getErrorNameForTelemetry(e),
+        1
+      );
     }
 
     this._data = result;

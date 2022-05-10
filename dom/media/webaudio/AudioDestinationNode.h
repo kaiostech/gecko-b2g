@@ -12,8 +12,7 @@
 #include "AudioChannelAgent.h"
 #include "mozilla/TimeStamp.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class AudioContext;
 class WakeLock;
@@ -131,7 +130,6 @@ class AudioDestinationNode final : public AudioNode,
   TimeDuration mDurationBeforeFirstTimeAudible;
 };
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 #endif

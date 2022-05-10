@@ -11,9 +11,7 @@
 #include "nsTArray.h"
 #include "mozilla/ThreadSafety.h"
 
-namespace mozilla {
-namespace dom {
-namespace workerinternals {
+namespace mozilla::dom::workerinternals {
 
 template <typename T, int TCount>
 struct StorageWithTArray {
@@ -149,8 +147,6 @@ class Queue : public LockingPolicy {
   Queue& operator=(const Queue&);
 };
 
-}  // namespace workerinternals
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::workerinternals
 
 #endif /* mozilla_dom_workerinternals_Queue_h*/

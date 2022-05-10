@@ -94,8 +94,7 @@ void AsyncLog(nsIInterceptedChannel* aInterceptedChannel,
 
 }  // anonymous namespace
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 CancelChannelRunnable::CancelChannelRunnable(
     nsMainThreadPtrHandle<nsIInterceptedChannel>& aChannel,
@@ -1384,5 +1383,4 @@ NS_INTERFACE_MAP_END_INHERITING(Event)
 NS_IMPL_ADDREF_INHERITED(ExtendableMessageEvent, Event)
 NS_IMPL_RELEASE_INHERITED(ExtendableMessageEvent, Event)
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

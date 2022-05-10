@@ -22,8 +22,7 @@
 
 class nsIInterceptedChannel;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class Blob;
 class Client;
@@ -367,7 +366,6 @@ class ExtendableMessageEvent final : public ExtendableEvent {
   void GetPorts(nsTArray<RefPtr<MessagePort>>& aPorts);
 };
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 #endif /* mozilla_dom_serviceworkerevents_h__ */

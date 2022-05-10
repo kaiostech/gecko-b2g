@@ -23,8 +23,7 @@ class nsIRunnable;
 class nsPIDOMWindowOuter;
 struct PRLogModuleInfo;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 #ifdef MOZ_WIDGET_GONK
 class SpeakerManagerService;
@@ -400,7 +399,6 @@ const char* AudibleStateToStr(
 const char* AudibleChangedReasonToStr(
     const AudioChannelService::AudibleChangedReasons& aReason);
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 #endif

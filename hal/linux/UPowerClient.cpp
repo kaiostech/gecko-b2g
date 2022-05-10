@@ -33,7 +33,7 @@ class UPowerClient {
   bool IsCharging();
   double GetRemainingTime();
   double GetBatteryTemperature();
-  BatteryHealth GetHealth();
+  dom::BatteryHealth GetHealth();
   bool IsBatteryPresent();
 
   ~UPowerClient();
@@ -108,7 +108,7 @@ class UPowerClient {
   bool mCharging;
   double mRemainingTime;
   double mTemperature;
-  BatteryHealth mHealth;
+  dom::BatteryHealth mHealth;
   bool mPresent;
 
   static UPowerClient* sInstance;
@@ -474,7 +474,7 @@ double UPowerClient::GetRemainingTime() { return mRemainingTime; }
 
 double UPowerClient::GetBatteryTemperature() { return mTemperature; }
 
-BatteryHealth UPowerClient::GetHealth() { return mHealth; }
+dom::BatteryHealth UPowerClient::GetHealth() { return mHealth; }
 
 bool UPowerClient::IsBatteryPresent() { return mPresent; }
 

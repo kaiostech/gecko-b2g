@@ -37,8 +37,7 @@
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/WeakPtr.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class IteratorUtils {
  public:
@@ -359,7 +358,6 @@ class AsyncIterableIterator final
   void* mData;
 };
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 #endif  // mozilla_dom_IterableIterator_h

@@ -9,8 +9,7 @@
 
 #include "mozilla/dom/PRemoteWorkerParent.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class RemoteWorkerController;
 
@@ -57,7 +56,6 @@ class RemoteWorkerParent final : public PRemoteWorkerParent {
   RefPtr<nsIURI> mScriptURL;
 };
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 #endif  // mozilla_dom_RemoteWorkerParent_h

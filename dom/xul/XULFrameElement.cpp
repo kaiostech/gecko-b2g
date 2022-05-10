@@ -16,8 +16,7 @@
 #include "mozilla/dom/XULFrameElementBinding.h"
 #include "nsAttrValueOrString.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(XULFrameElement)
 
@@ -218,5 +217,4 @@ nsresult XULFrameElement::OnAttrSetButNotChanged(
                                               aNotify);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

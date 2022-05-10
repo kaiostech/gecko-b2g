@@ -15,8 +15,7 @@
 #include "nsISupportsImpl.h"
 #include "nsTArray.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class RemoteWorkerController;
 class RemoteWorkerServiceParent;
@@ -120,7 +119,6 @@ class RemoteWorkerManager final {
   nsTArray<Pending> mPendings;
 };
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 #endif  // mozilla_dom_RemoteWorkerManager_h

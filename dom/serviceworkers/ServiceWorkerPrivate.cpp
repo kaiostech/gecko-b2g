@@ -60,8 +60,7 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using mozilla::ipc::PrincipalInfo;
 
@@ -2282,5 +2281,4 @@ void ServiceWorkerPrivate::SetHandlesFetch(bool aValue) {
   mInfo->SetHandlesFetch(aValue);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

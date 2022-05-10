@@ -65,8 +65,7 @@
 #include "mozilla/ipc/IPCStreamUtils.h"
 #include "mozilla/net/MozURL.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
@@ -2063,5 +2062,4 @@ class ExtensionAPIEventOp final : public ServiceWorkerOp {
   return op.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

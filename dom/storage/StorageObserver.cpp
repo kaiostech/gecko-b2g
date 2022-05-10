@@ -29,8 +29,7 @@
 #include "mozilla/SpinEventLoopUntil.h"
 #include "nsServiceManagerUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using namespace StorageUtils;
 
@@ -543,5 +542,4 @@ StorageObserver::GetName(nsACString& aName) {
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -3,6 +3,7 @@
 ## Attribute
 
 The <web-view> element supports the following attributes:
+
 - `src` : the url of the page to load.
 - `remote` : a boolean to decide if that browser should load content in a content process.
 - `ignorefocus` : a boolean that when set let the browser get pointer events without focusing it. This is useful for virtual keyboard frames.
@@ -30,6 +31,8 @@ The <web-view> element supports the following attributes:
 - `scrollToBottom(smooth = true) : void` : scrolls to the bottom of the document.
 - `stop() : void` : stops the current page loading.
 - `toggleReaderMode() : void` : toggles the reader mode view of the current page if possible.
+- `saveAsPDF() : { filename, filePath, promise }` : prints the current page to a PDF document, returning the downloaded document file name and a promise that will resolve or reject once the document is ready.
+- `savePage() : void` : Download the page with all its assets.
 
 ## Properties
 
@@ -93,7 +96,7 @@ All events are CustomEvents, with an event payload specific to each type.
     - `title` : string type, title of dialog.
     - `text` : string type, text context in dialog.
     - `unblock(returnValue)` : function, app need to call this function to unblock waiting response after `returnValue` is set.
-                               App will set checkState if dialog has checkbox.
+      App will set checkState if dialog has checkbox.
       - `returnValue` : object of event.detail and app fill in dialog response including checkbox and if `OK` or `Cancel` clicked.
         | prompType | value in returnValue should be filled. |
         | :--- | :--- |

@@ -1037,6 +1037,58 @@ const { AboutReaderParent } = ChromeUtils.import(
     toggleReaderMode() {
       AboutReaderParent.toggleReaderMode(this.browser);
     }
+
+    savePage() {
+      let scope = {};
+      Services.scriptloader.loadSubScript(
+        "chrome://global/content/contentAreaUtils.js",
+        scope
+      );
+      scope.saveBrowser(this.browser, true /* skipPrompt */);
+    }
+
+    async saveAsPDF() {
+      const { DownloadPaths } = ChromeUtils.import(
+        "resource://gre/modules/DownloadPaths.jsm"
+      );
+      const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
+
+      let linkedBrowser = this.browser;
+      let filename = "";
+      if (linkedBrowser.contentTitle != "") {
+        filename = linkedBrowser.contentTitle;
+      } else {
+        let url = new URL(linkedBrowser.currentURI.spec);
+        let path = decodeURIComponent(url.pathname);
+        path = path.replace(/\/$/, "");
+        filename = path.split("/").pop();
+        if (filename == "") {
+          filename = url.hostname;
+        }
+      }
+      filename = `${DownloadPaths.sanitize(filename)}.pdf`;
+
+      // Create a unique filename for the temporary PDF file
+      const basePath = OS.Path.join(OS.Constants.Path.tmpDir, filename);
+      const { file, path: filePath } = await OS.File.openUnique(basePath);
+      await file.close();
+
+      let psService = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
+        Ci.nsIPrintSettingsService
+      );
+      const printSettings = psService.newPrintSettings;
+      printSettings.isInitializedFromPrinter = true;
+      printSettings.isInitializedFromPrefs = true;
+      printSettings.outputFormat = Ci.nsIPrintSettings.kOutputFormatPDF;
+      printSettings.printerName = "";
+      printSettings.printSilent = true;
+      printSettings.outputDestination =
+        Ci.nsIPrintSettings.kOutputDestinationFile;
+      printSettings.toFileName = filePath;
+
+      let promise = linkedBrowser.browsingContext.print(printSettings);
+      return { filename, filePath, promise };
+    }
   }
 
   webViewLogEnabled && console.log(`Setting up <web-view> custom element`);

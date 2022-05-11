@@ -57,7 +57,7 @@ class MacPowerInformationService {
   bool mCharging;
   double mRemainingTime;
   double mTemperature;
-  BatteryHealth mHealth;
+  dom::BatteryHealth mHealth;
   bool mPresent;
   bool mShouldNotify;
 

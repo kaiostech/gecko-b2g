@@ -220,7 +220,7 @@ SharedBufferManagerParent::ActorDestroy(ActorDestroyReason aWhy)
   mMainMessageLoop->PostTask(task.forget());
 }
 
-bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, const uint32_t& aFormat, const uint32_t& aUsage, mozilla::layers::MaybeMagicGrallocBufferHandle* aHandle)
+IPCResult SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, const uint32_t& aFormat, const uint32_t& aUsage, mozilla::layers::MaybeMagicGrallocBufferHandle* aHandle)
 {
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
 
@@ -228,12 +228,12 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
 
   if (aFormat == 0 || aUsage == 0) {
     printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- format and usage must be non-zero");
-    return false;
+    return IPC_FAIL(this, "SharedBufferManagerParent::RecvAllocateGrallocBuffer -- format and usage must be non-zero");
   }
 
   if (aSize.width <= 0 || aSize.height <= 0) {
     printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- requested gralloc buffer size is invalid");
-    return false;
+    return IPC_FAIL(this, "SharedBufferManagerParent::RecvAllocateGrallocBuffer -- requested gralloc buffer size is invalid");
   }
 
   // If the requested size is too big (i.e. exceeds the commonly used max GL texture size)
@@ -242,13 +242,13 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
   // TODO: actually use GL_MAX_TEXTURE_SIZE instead of hardcoding 4096
   if (aSize.width > 4096 || aSize.height > 4096) {
     printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- requested gralloc buffer is too big.");
-    return false;
+    return IPC_FAIL(this, "SharedBufferManagerParent::RecvAllocateGrallocBuffer -- requested gralloc buffer is too big.");
   }
 
   android::sp<android::GraphicBuffer> outgoingBuffer = new android::GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
   if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != android::NO_ERROR) {
     printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
-    return true;
+    return IPC_FAIL(this, "SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
   }
 
   int64_t bufferKey;
@@ -266,10 +266,10 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
     mBuffers[bufferKey] = outgoingBuffer;
   }
 #endif
-  return true;
+  return IPC_OK();
 }
 
-bool SharedBufferManagerParent::RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle)
+IPCResult SharedBufferManagerParent::RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle)
 {
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
   NS_ASSERTION(handle.type() == MaybeMagicGrallocBufferHandle::TGrallocBufferRef, "We shouldn't interact with the real buffer!");
@@ -282,11 +282,11 @@ bool SharedBufferManagerParent::RecvDropGrallocBuffer(const mozilla::layers::May
 
   if(!buf.get()) {
     printf_stderr("SharedBufferManagerParent::RecvDropGrallocBuffer -- invalid buffer key.");
-    return true;
+    return IPC_OK();
   }
 
 #endif
-  return true;
+  return IPC_OK();
 }
 
 void SharedBufferManagerParent::DropGrallocBufferSync(mozilla::layers::SurfaceDescriptor aDesc)

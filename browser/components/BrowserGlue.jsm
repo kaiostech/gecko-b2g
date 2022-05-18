@@ -112,6 +112,25 @@ XPCOMUtils.defineLazyServiceGetters(this, {
   PushService: ["@mozilla.org/push/Service;1", "nsIPushService"],
 });
 
+if (AppConstants.ENABLE_WEBDRIVER) {
+  XPCOMUtils.defineLazyServiceGetter(
+    this,
+    "Marionette",
+    "@mozilla.org/remote/marionette;1",
+    "nsIMarionette"
+  );
+
+  XPCOMUtils.defineLazyServiceGetter(
+    this,
+    "RemoteAgent",
+    "@mozilla.org/remote/agent;1",
+    "nsIRemoteAgent"
+  );
+} else {
+  this.Marionette = { running: false };
+  this.RemoteAgent = { running: false };
+}
+
 const PREF_PDFJS_ISDEFAULT_CACHE_STATE = "pdfjs.enabledCache.state";
 const PREF_DFPI_ENABLED_BY_DEFAULT =
   "privacy.restrict3rdpartystorage.rollout.enabledByDefault";
@@ -678,6 +697,7 @@ let JSWINDOWACTORS = {
         // The 'unload' event is only used to clean up state, and should not
         // force actor creation.
         unload: { createActor: false },
+        load: { mozSystemGroup: true, capture: true },
       },
     },
   },
@@ -1181,6 +1201,10 @@ BrowserGlue.prototype = {
     );
     Services.prefs.removeObserver(
       "privacy.partition.network_state.ocsp_cache",
+      this._matchCBCategory
+    );
+    Services.prefs.removeObserver(
+      "privacy.query_stripping.enabled",
       this._matchCBCategory
     );
     Services.prefs.removeObserver(
@@ -1697,6 +1721,10 @@ BrowserGlue.prototype = {
     );
     Services.prefs.addObserver(
       "privacy.partition.network_state.ocsp_cache",
+      this._matchCBCategory
+    );
+    Services.prefs.addObserver(
+      "privacy.query_stripping.enabled",
       this._matchCBCategory
     );
     Services.prefs.addObserver(
@@ -2680,10 +2708,8 @@ BrowserGlue.prototype = {
           // `UpdateService.disabledForTesting`, but without creating the
           // service, which can perform a good deal of I/O in order to log its
           // state.  Since this is in the startup path, we avoid all of that.
-          // We also don't test for Marionette and Remote Agent since they are
-          // not yet initialized.
           let disabledForTesting =
-            Cu.isInAutomation &&
+            (Cu.isInAutomation || Marionette.running || RemoteAgent.running) &&
             Services.prefs.getBoolPref("app.update.disabledForTesting", false);
           if (!disabledForTesting) {
             BackgroundUpdate.maybeScheduleBackgroundUpdateTask();
@@ -2732,10 +2758,7 @@ BrowserGlue.prototype = {
         },
       },
 
-      // WebDriver components (Marionette) need to be
-      // initialized as very last step.
       {
-        condition: AppConstants.ENABLE_WEBDRIVER,
         task: () => {
           // Use idleDispatch a second time to run this after the per-window
           // idle tasks.
@@ -2744,12 +2767,10 @@ BrowserGlue.prototype = {
               null,
               "browser-startup-idle-tasks-finished"
             );
-
-            Services.obs.notifyObservers(null, "marionette-startup-requested");
           });
         },
       },
-      // Do NOT add anything after WebDriver initialization.
+      // Do NOT add anything after idle tasks finished.
     ];
 
     for (let task of idleTasks) {
@@ -4163,34 +4184,21 @@ BrowserGlue.prototype = {
       }
     }
 
-    if (currentUIVersion < 127) {
-      // Bug 1767440 - Clean up rollout search param prefs.
-
-      let prefsToClear = {
-        "browser.search.param.google_channel_us": "tus7",
-        "browser.search.param.google_channel_row": "trow7",
-        "browser.search.param.bing_ptag": "MOZZ0000000031",
-      };
-      Object.entries(prefsToClear).forEach(([key, value]) => {
-        if (Services.prefs.getStringPref(key, null) == value) {
-          Services.prefs.clearUserPref(key);
-        }
-      });
-    }
+    // Bug 1769071: The UI Version 127 was used for a clean up code that is not
+    // necessary anymore. Please do not use 127 because this number is probably
+    // set in Nightly and Beta channel.
 
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", UI_VERSION);
   },
 
   async _showUpgradeDialog() {
-    const msg = await OnboardingMessageProvider.getUpgradeMessage();
+    const data = await OnboardingMessageProvider.getUpgradeMessage();
     const win = BrowserWindowTracker.getTopWindow();
     const browser = win.gBrowser.selectedBrowser;
     const config = {
       type: "SHOW_SPOTLIGHT",
-      data: {
-        content: msg.content,
-      },
+      data,
     };
     SpecialMessageActions.handleAction(config, browser);
   },
@@ -4678,6 +4686,7 @@ var ContentBlockingCategoriesPrefs = {
         "network.http.referer.disallowCrossSiteRelaxingDefault": null,
         "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation": null,
         "privacy.partition.network_state.ocsp_cache": null,
+        "privacy.query_stripping.enabled": null,
       },
       standard: {
         "network.cookie.cookieBehavior": null,
@@ -4691,6 +4700,7 @@ var ContentBlockingCategoriesPrefs = {
         "network.http.referer.disallowCrossSiteRelaxingDefault": null,
         "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation": null,
         "privacy.partition.network_state.ocsp_cache": null,
+        "privacy.query_stripping.enabled": null,
       },
     };
     let type = "strict";
@@ -4788,6 +4798,12 @@ var ContentBlockingCategoriesPrefs = {
           this.CATEGORY_PREFS[type][
             "privacy.partition.network_state.ocsp_cache"
           ] = false;
+          break;
+        case "qps":
+          this.CATEGORY_PREFS[type]["privacy.query_stripping.enabled"] = true;
+          break;
+        case "-qps":
+          this.CATEGORY_PREFS[type]["privacy.query_stripping.enabled"] = false;
           break;
         case "cookieBehavior0":
           this.CATEGORY_PREFS[type]["network.cookie.cookieBehavior"] =

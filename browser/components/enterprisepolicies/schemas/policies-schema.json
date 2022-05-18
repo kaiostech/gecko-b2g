@@ -25,6 +25,10 @@
       "type": "boolean"
     },
 
+    "AppUpdatePin": {
+      "type": "string"
+    },
+
     "AppUpdateURL": {
       "type": "URL"
     },
@@ -457,6 +461,24 @@
         },
         "Locked": {
           "type": "boolean"
+        }
+      }
+    },
+
+    "ExemptDomainFileTypePairsFromFileTypeDownloadWarnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_extension": {
+            "type": "string"
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       }
     },

@@ -8,6 +8,8 @@
 
 #include "BluetoothServiceChildProcess.h"
 
+using mozilla::ipc::IPCResult;
+
 USING_BLUETOOTH_NAMESPACE
 
 namespace {
@@ -55,44 +57,44 @@ void BluetoothChild::ActorDestroy(ActorDestroyReason aWhy) {
 #endif
 }
 
-bool BluetoothChild::RecvNotify(const BluetoothSignal& aSignal) {
+IPCResult BluetoothChild::RecvNotify(const BluetoothSignal& aSignal) {
   MOZ_ASSERT(sBluetoothService);
 
   if (sBluetoothService) {
     sBluetoothService->DistributeSignal(aSignal);
   }
-  return true;
+  return IPC_OK();
 }
 
-bool BluetoothChild::RecvEnabled(const bool& aEnabled) {
+IPCResult BluetoothChild::RecvEnabled(const bool& aEnabled) {
   MOZ_ASSERT(sBluetoothService);
 
   if (sBluetoothService) {
     sBluetoothService->SetEnabled(aEnabled);
   }
-  return true;
+  return IPC_OK();
 }
 
-bool BluetoothChild::RecvBeginShutdown() {
+IPCResult BluetoothChild::RecvBeginShutdown() {
   if (mShutdownState != Running && mShutdownState != SentStopNotifying) {
     MOZ_ASSERT(false, "Bad state!");
-    return false;
+    return IPC_FAIL(this, "Bad state!");
   }
 
   SendStopNotifying();
   mShutdownState = SentStopNotifying;
 
-  return true;
+  return IPC_OK();
 }
 
-bool BluetoothChild::RecvNotificationsStopped() {
+IPCResult BluetoothChild::RecvNotificationsStopped() {
   if (mShutdownState != SentStopNotifying) {
     MOZ_ASSERT(false, "Bad state!");
-    return false;
+    return IPC_FAIL(this, "Bad state!");
   }
 
   Send__delete__(this);
-  return true;
+  return IPC_OK();
 }
 
 PBluetoothRequestChild* BluetoothChild::AllocPBluetoothRequestChild(

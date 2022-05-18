@@ -468,7 +468,12 @@ class ModuleInfo {
       throw new Error(`No impl for message: ${aMessage.name}.`);
     }
 
-    this._impl.receiveMessage(aMessage);
+    try {
+      this._impl.receiveMessage(aMessage);
+    } catch (error) {
+      warn`this._impl.receiveMessage failed ${aMessage.name}`;
+      throw error;
+    }
   }
 
   onContentModuleLoaded() {
@@ -613,6 +618,9 @@ function startup() {
       onEnable: {
         actors: {
           ScrollDelegate: {
+            parent: {
+              moduleURI: "resource:///actors/ScrollDelegateParent.jsm",
+            },
             child: {
               moduleURI: "resource:///actors/ScrollDelegateChild.jsm",
               events: {
@@ -627,8 +635,12 @@ function startup() {
     {
       name: "GeckoViewSelectionAction",
       onEnable: {
+        resource: "resource://gre/modules/GeckoViewSelectionAction.jsm",
         actors: {
           SelectionActionDelegate: {
+            parent: {
+              moduleURI: "resource:///actors/SelectionActionDelegateParent.jsm",
+            },
             child: {
               moduleURI: "resource:///actors/SelectionActionDelegateChild.jsm",
               events: {
@@ -679,6 +691,9 @@ function startup() {
       onInit: {
         actors: {
           GeckoViewAutoFill: {
+            parent: {
+              moduleURI: "resource:///actors/GeckoViewAutoFillParent.jsm",
+            },
             child: {
               moduleURI: "resource:///actors/GeckoViewAutoFillChild.jsm",
               events: {
@@ -721,6 +736,9 @@ function startup() {
         resource: "resource://gre/modules/GeckoViewMediaControl.jsm",
         actors: {
           MediaControlDelegate: {
+            parent: {
+              moduleURI: "resource:///actors/MediaControlDelegateParent.jsm",
+            },
             child: {
               moduleURI: "resource:///actors/MediaControlDelegateChild.jsm",
               events: {
@@ -851,16 +869,6 @@ function startup() {
         "browser-idle-startup-tasks-finished"
       )
     );
-
-    InitLater(() => {
-      // This lets Marionette start listening (when enabled).
-      // Both GeckoView and this remote protocol do most of their
-      // initialization in "profile-after-change", and there is no order enforced
-      // between them.  Therefore we defer asking the Marionette component to
-      // startup until after all "profile-after-change" handlers (including this
-      // one) have completed.
-      Services.obs.notifyObservers(null, "marionette-startup-requested");
-    });
   });
 
   // Move focus to the content window at the end of startup,

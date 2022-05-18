@@ -31,6 +31,10 @@ import {
 import { getSourceTextContent } from "./sources-content";
 import { getAllThreads } from "./threads";
 
+export function hasSource(state, id) {
+  return state.sources.sources.has(id);
+}
+
 export function getSource(state, id) {
   return state.sources.sources.get(id);
 }
@@ -41,6 +45,10 @@ export function getSourceFromId(state, id) {
     console.warn(`source ${id} does not exist`);
   }
   return source;
+}
+
+export function getLocationSource(state, location) {
+  return getSource(state, location.sourceId);
 }
 
 export function getSourceByActorId(state, actorId) {

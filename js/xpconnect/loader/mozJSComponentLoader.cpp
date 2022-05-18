@@ -21,10 +21,10 @@
 #include "js/Array.h"  // JS::GetArrayLength, JS::IsArrayObject
 #include "js/CharacterEncoding.h"
 #include "js/CompilationAndEvaluation.h"
-#include "js/CompileOptions.h"  // JS::CompileOptions
-#include "js/experimental/JSStencil.h"
+#include "js/CompileOptions.h"         // JS::CompileOptions
 #include "js/friend/JSMEnvironment.h"  // JS::ExecuteInJSMEnvironment, JS::GetJSMEnvironmentOfScriptedCaller, JS::NewJSMEnvironment
-#include "js/Object.h"                 // JS::GetCompartment
+#include "js/loader/ModuleLoadRequest.h"
+#include "js/Object.h"  // JS::GetCompartment
 #include "js/Printf.h"
 #include "js/PropertyAndElement.h"  // JS_DefineFunctions, JS_DefineProperty, JS_Enumerate, JS_GetElement, JS_GetProperty, JS_GetPropertyById, JS_HasOwnProperty, JS_HasOwnPropertyById, JS_SetProperty, JS_SetPropertyById
 #include "js/PropertySpec.h"
@@ -49,6 +49,8 @@
 #include "nsReadableUtils.h"
 #include "nsXULAppAPI.h"
 #include "WrapperFactory.h"
+#include "JSMEnvironmentProxy.h"
+#include "ModuleEnvironmentProxy.h"
 
 #include "AutoMemMap.h"
 #include "ScriptPreloader-inl.h"
@@ -64,6 +66,7 @@
 #include "mozilla/ScriptPreloader.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/dom/AutoEntryScript.h"
+#include "mozilla/dom/ReferrerPolicyBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/UniquePtrExtensions.h"
@@ -102,6 +105,32 @@ static LazyLogModule gJSCLLog("JSComponentLoader");
 #define ERROR_SETTING_SYMBOL "%s - Could not set symbol '%s' on target object."
 #define ERROR_UNINITIALIZED_SYMBOL \
   "%s - Symbol '%s' accessed before initialization. Cyclic import?"
+
+static bool IsJSM(const nsACString& aLocation) {
+  if (aLocation.Length() < 4) {
+    return false;
+  }
+  const auto ext = Substring(aLocation, aLocation.Length() - 4);
+  return ext == ".jsm";
+}
+
+static bool IsMJS(const nsACString& aLocation) {
+  if (aLocation.Length() < 4) {
+    return false;
+  }
+  const auto ext = Substring(aLocation, aLocation.Length() - 4);
+  return ext == ".mjs";
+}
+
+static void ToJSM(const nsACString& aLocation, nsAutoCString& aOut) {
+  aOut = Substring(aLocation, 0, aLocation.Length() - 4);
+  aOut += ".jsm";
+}
+
+static void ToMJS(const nsACString& aLocation, nsAutoCString& aOut) {
+  aOut = Substring(aLocation, 0, aLocation.Length() - 4);
+  aOut += ".mjs";
+}
 
 static bool Dump(JSContext* cx, unsigned argc, Value* vp) {
   if (!nsJSUtils::DumpEnabled()) {
@@ -219,7 +248,9 @@ mozJSComponentLoader::mozJSComponentLoader()
 class MOZ_STACK_CLASS ComponentLoaderInfo {
  public:
   explicit ComponentLoaderInfo(const nsACString& aLocation)
-      : mLocation(aLocation) {}
+      : mLocation(&aLocation), mIsModule(false) {}
+  explicit ComponentLoaderInfo(nsIURI* aURI, bool aIsModule)
+      : mLocation(nullptr), mURI(aURI), mIsModule(aIsModule) {}
 
   nsIIOService* IOService() {
     MOZ_ASSERT(mIOService);
@@ -240,7 +271,8 @@ class MOZ_STACK_CLASS ComponentLoaderInfo {
   }
   nsresult EnsureURI() {
     BEGIN_ENSURE(URI, IOService);
-    return mIOService->NewURI(mLocation, nullptr, nullptr,
+    MOZ_ASSERT(mLocation);
+    return mIOService->NewURI(*mLocation, nullptr, nullptr,
                               getter_AddRefs(mURI));
   }
 
@@ -271,7 +303,10 @@ class MOZ_STACK_CLASS ComponentLoaderInfo {
     return ResolveURI(mURI, getter_AddRefs(mResolvedURI));
   }
 
-  const nsACString& Key() { return mLocation; }
+  const nsACString& Key() {
+    MOZ_ASSERT(mLocation);
+    return *mLocation;
+  }
 
   [[nodiscard]] nsresult GetLocation(nsCString& aLocation) {
     nsresult rv = EnsureURI();
@@ -279,12 +314,15 @@ class MOZ_STACK_CLASS ComponentLoaderInfo {
     return mURI->GetSpec(aLocation);
   }
 
+  bool IsModule() const { return mIsModule; }
+
  private:
-  const nsACString& mLocation;
+  const nsACString* mLocation;
   nsCOMPtr<nsIIOService> mIOService;
   nsCOMPtr<nsIURI> mURI;
   nsCOMPtr<nsIChannel> mScriptChannel;
   nsCOMPtr<nsIURI> mResolvedURI;
+  const bool mIsModule;
 };
 
 template <typename... Args>
@@ -311,7 +349,6 @@ mozJSComponentLoader::~mozJSComponentLoader() {
   MOZ_ASSERT(!mInitialized,
              "UnloadModules() was not explicitly called before cleaning up "
              "mozJSComponentLoader");
-
   if (mInitialized) {
     UnloadModules();
   }
@@ -320,25 +357,6 @@ mozJSComponentLoader::~mozJSComponentLoader() {
 }
 
 StaticRefPtr<mozJSComponentLoader> mozJSComponentLoader::sSelf;
-
-// For terrible compatibility reasons, we need to consider both the global
-// lexical environment and the global of modules when searching for exported
-// symbols.
-static JSObject* ResolveModuleObjectProperty(JSContext* aCx,
-                                             HandleObject aModObj,
-                                             const char* name) {
-  if (JS_HasExtensibleLexicalEnvironment(aModObj)) {
-    RootedObject lexical(aCx, JS_ExtensibleLexicalEnvironment(aModObj));
-    bool found;
-    if (!JS_HasOwnProperty(aCx, lexical, name, &found)) {
-      return nullptr;
-    }
-    if (found) {
-      return lexical;
-    }
-  }
-  return aModObj;
-}
 
 const mozilla::Module* mozJSComponentLoader::LoadModule(FileLocation& aFile) {
   if (!NS_IsMainThread()) {
@@ -466,6 +484,11 @@ void mozJSComponentLoader::InitStatics() {
 void mozJSComponentLoader::Unload() {
   if (sSelf) {
     sSelf->UnloadModules();
+
+    if (sSelf->mModuleLoader) {
+      sSelf->mModuleLoader->Shutdown();
+      sSelf->mModuleLoader = nullptr;
+    }
   }
 }
 
@@ -596,6 +619,11 @@ void mozJSComponentLoader::CreateLoaderGlobal(JSContext* aCx,
   // about:memory may use that information
   xpc::SetLocationForGlobal(global, aLocation);
 
+  MOZ_ASSERT(!mModuleLoader);
+  RefPtr<ComponentScriptLoader> scriptLoader = new ComponentScriptLoader;
+  mModuleLoader = new ComponentModuleLoader(scriptLoader, backstagePass);
+  backstagePass->InitModuleLoader(mModuleLoader);
+
   aGlobal.set(global);
 }
 
@@ -616,6 +644,23 @@ JSObject* mozJSComponentLoader::GetSharedGlobal(JSContext* aCx) {
   }
 
   return mLoaderGlobal;
+}
+
+/* static */
+nsresult mozJSComponentLoader::LoadSingleModuleScript(
+    JSContext* aCx, nsIURI* aURI, MutableHandleScript aScriptOut) {
+  ComponentLoaderInfo info(aURI, true);
+  nsresult rv = info.EnsureResolvedURI();
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIFile> sourceFile;
+  rv = GetSourceFile(info.ResolvedURI(), getter_AddRefs(sourceFile));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool realFile = LocationIsRealFile(aURI);
+
+  RootedScript script(aCx);
+  return GetScriptForLocation(aCx, info, sourceFile, realFile, aScriptOut);
 }
 
 /* static */
@@ -810,6 +855,9 @@ nsresult mozJSComponentLoader::ObjectForLocation(
 nsresult mozJSComponentLoader::GetScriptForLocation(
     JSContext* aCx, ComponentLoaderInfo& aInfo, nsIFile* aComponentFile,
     bool aUseMemMap, MutableHandleScript aScriptOut, char** aLocationOut) {
+  // JS compilation errors are returned via an exception on the context.
+  MOZ_ASSERT(!JS_IsExceptionPending(aCx));
+
   aScriptOut.set(nullptr);
 
   nsAutoCString nativePath;
@@ -827,8 +875,13 @@ nsresult mozJSComponentLoader::GetScriptForLocation(
   aInfo.EnsureResolvedURI();
 
   nsAutoCString cachePath;
-  rv = PathifyURI(JS_CACHE_PREFIX("non-syntactic", "script"),
-                  aInfo.ResolvedURI(), cachePath);
+  if (aInfo.IsModule()) {
+    rv = PathifyURI(JS_CACHE_PREFIX("non-syntactic", "module"),
+                    aInfo.ResolvedURI(), cachePath);
+  } else {
+    rv = PathifyURI(JS_CACHE_PREFIX("non-syntactic", "script"),
+                    aInfo.ResolvedURI(), cachePath);
+  }
   NS_ENSURE_SUCCESS(rv, rv);
 
   JS::DecodeOptions decodeOptions;
@@ -857,8 +910,17 @@ nsresult mozJSComponentLoader::GetScriptForLocation(
     CompileOptions options(aCx);
     ScriptPreloader::FillCompileOptionsForCachedStencil(options);
     options.setFileAndLine(nativePath.get(), 1);
-    options.setForceStrictMode();
-    options.setNonSyntacticScope(true);
+    if (aInfo.IsModule()) {
+      options.setModule();
+      // Top level await is not supported in synchronously loaded modules.
+      options.topLevelAwait = false;
+
+      // Make all top-level `vars` available in `ModuleEnvironmentObject`.
+      options.deoptimizeModuleGlobalVars = true;
+    } else {
+      options.setForceStrictMode();
+      options.setNonSyntacticScope(true);
+    }
 
     // If we can no longer write to caches, we should stop using lazy sources
     // and instead let normal syntax parsing occur. This can occur in content
@@ -879,7 +941,7 @@ nsresult mozJSComponentLoader::GetScriptForLocation(
       JS::SourceText<mozilla::Utf8Unit> srcBuf;
       if (srcBuf.init(aCx, buf.get(), map.size(),
                       JS::SourceOwnership::Borrowed)) {
-        stencil = CompileGlobalScriptToStencil(aCx, options, srcBuf);
+        stencil = CompileStencil(aCx, options, srcBuf, aInfo.IsModule());
       }
     } else {
       nsCString str;
@@ -888,7 +950,7 @@ nsresult mozJSComponentLoader::GetScriptForLocation(
       JS::SourceText<mozilla::Utf8Unit> srcBuf;
       if (srcBuf.init(aCx, str.get(), str.Length(),
                       JS::SourceOwnership::Borrowed)) {
-        stencil = CompileGlobalScriptToStencil(aCx, options, srcBuf);
+        stencil = CompileStencil(aCx, options, srcBuf, aInfo.IsModule());
       }
     }
 
@@ -903,9 +965,7 @@ nsresult mozJSComponentLoader::GetScriptForLocation(
     }
   }
 
-  JS::InstantiateOptions instantiateOptions;
-  aScriptOut.set(
-      JS::InstantiateGlobalStencil(aCx, instantiateOptions, stencil));
+  aScriptOut.set(InstantiateStencil(aCx, stencil, aInfo.IsModule()));
   if (!aScriptOut) {
     return NS_ERROR_FAILURE;
   }
@@ -932,9 +992,11 @@ nsresult mozJSComponentLoader::GetScriptForLocation(
   }
 
   /* Owned by ModuleEntry. Freed when we remove from the table. */
-  *aLocationOut = ToNewCString(nativePath, mozilla::fallible);
-  if (!*aLocationOut) {
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (aLocationOut) {
+    *aLocationOut = ToNewCString(nativePath, mozilla::fallible);
+    if (!*aLocationOut) {
+      return NS_ERROR_OUT_OF_MEMORY;
+    }
   }
 
   return NS_OK;
@@ -960,6 +1022,36 @@ void mozJSComponentLoader::UnloadModules() {
     iter.Data()->Clear();
     iter.Remove();
   }
+}
+
+/* static */
+already_AddRefed<Stencil> mozJSComponentLoader::CompileStencil(
+    JSContext* aCx, const JS::CompileOptions& aOptions,
+    JS::SourceText<mozilla::Utf8Unit>& aSource, bool aIsModule) {
+  if (aIsModule) {
+    return CompileModuleScriptToStencil(aCx, aOptions, aSource);
+  }
+
+  return CompileGlobalScriptToStencil(aCx, aOptions, aSource);
+}
+
+/* static */
+JSScript* mozJSComponentLoader::InstantiateStencil(JSContext* aCx,
+                                                   JS::Stencil* aStencil,
+                                                   bool aIsModule) {
+  JS::InstantiateOptions instantiateOptions;
+
+  if (aIsModule) {
+    RootedObject module(aCx);
+    module = JS::InstantiateModuleStencil(aCx, instantiateOptions, aStencil);
+    if (!module) {
+      return nullptr;
+    }
+
+    return JS::GetModuleScript(module);
+  }
+
+  return JS::InstantiateGlobalStencil(aCx, instantiateOptions, aStencil);
 }
 
 nsresult mozJSComponentLoader::ImportInto(const nsACString& registryLocation,
@@ -1021,7 +1113,27 @@ nsresult mozJSComponentLoader::IsModuleLoaded(const nsACString& aLocation,
 
   mInitialized = true;
   ComponentLoaderInfo info(aLocation);
-  *retval = !!mImports.Get(info.Key());
+  if (mImports.Get(info.Key())) {
+    *retval = true;
+    return NS_OK;
+  }
+
+  if (IsJSM(aLocation) && mModuleLoader) {
+    nsAutoCString mjsLocation;
+    ToMJS(aLocation, mjsLocation);
+
+    ComponentLoaderInfo mjsInfo(mjsLocation);
+
+    nsresult rv = mjsInfo.EnsureURI();
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    if (mModuleLoader->IsModuleFetched(mjsInfo.URI())) {
+      *retval = true;
+      return NS_OK;
+    }
+  }
+
+  *retval = false;
   return NS_OK;
 }
 
@@ -1031,6 +1143,30 @@ void mozJSComponentLoader::GetLoadedModules(
   for (const auto& data : mImports.Values()) {
     aLoadedModules.AppendElement(data->location);
   }
+}
+
+nsresult mozJSComponentLoader::GetLoadedESModules(
+    nsTArray<nsCString>& aLoadedModules) {
+  return mModuleLoader->GetFetchedModuleURLs(aLoadedModules);
+}
+
+nsresult mozJSComponentLoader::GetLoadedJSAndESModules(
+    nsTArray<nsCString>& aLoadedModules) {
+  GetLoadedModules(aLoadedModules);
+
+  nsTArray<nsCString> modules;
+  nsresult rv = GetLoadedESModules(modules);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  for (const auto& location : modules) {
+    if (IsMJS(location)) {
+      nsAutoCString jsmLocation;
+      ToJSM(location, jsmLocation);
+      aLoadedModules.AppendElement(jsmLocation);
+    }
+  }
+
+  return NS_OK;
 }
 
 void mozJSComponentLoader::GetLoadedComponents(
@@ -1081,22 +1217,6 @@ nsresult mozJSComponentLoader::GetComponentLoadStack(
 #else
   return NS_ERROR_NOT_IMPLEMENTED;
 #endif
-}
-
-static JSObject* ResolveModuleObjectPropertyById(JSContext* aCx,
-                                                 HandleObject aModObj,
-                                                 HandleId id) {
-  if (JS_HasExtensibleLexicalEnvironment(aModObj)) {
-    RootedObject lexical(aCx, JS_ExtensibleLexicalEnvironment(aModObj));
-    bool found;
-    if (!JS_HasOwnPropertyById(aCx, lexical, id, &found)) {
-      return nullptr;
-    }
-    if (found) {
-      return lexical;
-    }
-  }
-  return aModObj;
 }
 
 nsresult mozJSComponentLoader::ImportInto(const nsACString& aLocation,
@@ -1331,6 +1451,11 @@ nsresult mozJSComponentLoader::Import(JSContext* aCx,
         return NS_ERROR_FAILURE;
       }
 
+      if (rv == NS_ERROR_FILE_NOT_FOUND) {
+        return TryFallbackToImportModule(aCx, aLocation, aModuleGlobal,
+                                         aModuleExports, aIgnoreExports);
+      }
+
       // Something failed, but we don't know what it is, guess.
       return NS_ERROR_FILE_NOT_FOUND;
     }
@@ -1345,7 +1470,19 @@ nsresult mozJSComponentLoader::Import(JSContext* aCx,
   }
 
   MOZ_ASSERT(mod->obj, "Import table contains entry with no object");
-  aModuleGlobal.set(mod->obj);
+  JS::RootedObject globalProxy(aCx);
+  {
+    JSAutoRealm ar(aCx, mod->obj);
+
+    globalProxy = CreateJSMEnvironmentProxy(aCx, mod->obj);
+    if (!globalProxy) {
+      return NS_ERROR_FAILURE;
+    }
+  }
+  if (!JS_WrapObject(aCx, &globalProxy)) {
+    return NS_ERROR_FAILURE;
+  }
+  aModuleGlobal.set(globalProxy);
 
   JS::RootedObject exports(aCx, mod->exports);
   if (!exports && !aIgnoreExports) {
@@ -1362,6 +1499,121 @@ nsresult mozJSComponentLoader::Import(JSContext* aCx,
   if (newEntry) {
     mImports.InsertOrUpdate(info.Key(), std::move(newEntry));
   }
+
+  return NS_OK;
+}
+
+nsresult mozJSComponentLoader::TryFallbackToImportModule(
+    JSContext* aCx, const nsACString& aLocation,
+    JS::MutableHandleObject aModuleGlobal,
+    JS::MutableHandleObject aModuleExports, bool aIgnoreExports) {
+  if (!IsJSM(aLocation)) {
+    return NS_ERROR_FILE_NOT_FOUND;
+  }
+
+  nsAutoCString mjsLocation;
+  ToMJS(aLocation, mjsLocation);
+
+  JS::RootedObject moduleNamespace(aCx);
+  nsresult rv = ImportModule(aCx, mjsLocation, &moduleNamespace);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  JS::RootedObject globalProxy(aCx);
+  {
+    JSAutoRealm ar(aCx, moduleNamespace);
+
+    JS::RootedObject moduleObject(
+        aCx, JS::GetModuleForNamespace(aCx, moduleNamespace));
+    if (!moduleObject) {
+      return NS_ERROR_FAILURE;
+    }
+
+    globalProxy = CreateModuleEnvironmentProxy(aCx, moduleObject);
+    if (!globalProxy) {
+      return NS_ERROR_FAILURE;
+    }
+  }
+  if (!JS_WrapObject(aCx, &globalProxy)) {
+    return NS_ERROR_FAILURE;
+  }
+  aModuleGlobal.set(globalProxy);
+
+  if (!aIgnoreExports) {
+    JS::RootedObject exports(aCx, moduleNamespace);
+    if (!JS_WrapObject(aCx, &exports)) {
+      return NS_ERROR_FAILURE;
+    }
+    aModuleExports.set(exports);
+  }
+
+  return NS_OK;
+}
+
+nsresult mozJSComponentLoader::ImportModule(
+    JSContext* aCx, const nsACString& aLocation,
+    JS::MutableHandleObject aModuleNamespace) {
+  using namespace JS::loader;
+
+  MOZ_ASSERT(mModuleLoader);
+
+  // Called from ChromeUtils::ImportModule.
+  nsCString str(aLocation);
+
+  AUTO_PROFILER_MARKER_TEXT(
+      "ChromeUtils.importModule", JS,
+      MarkerOptions(MarkerStack::Capture(),
+                    MarkerInnerWindowIdFromJSContext(aCx)),
+      aLocation);
+
+  RootedObject globalObj(aCx, GetSharedGlobal(aCx));
+  NS_ENSURE_TRUE(globalObj, NS_ERROR_FAILURE);
+  MOZ_ASSERT(xpc::Scriptability::Get(globalObj).Allowed());
+
+  JSAutoRealm ar(aCx, globalObj);
+
+  nsCOMPtr<nsIURI> uri;
+  nsresult rv = NS_NewURI(getter_AddRefs(uri), aLocation);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIPrincipal> principal =
+      mModuleLoader->GetGlobalObject()->PrincipalOrNull();
+  MOZ_ASSERT(principal);
+
+  RefPtr<ScriptFetchOptions> options = new ScriptFetchOptions(
+      CORS_NONE, dom::ReferrerPolicy::No_referrer, principal);
+
+  RefPtr<ComponentLoadContext> context = new ComponentLoadContext();
+
+  RefPtr<VisitedURLSet> visitedSet =
+      ModuleLoadRequest::NewVisitedSetForTopLevelImport(uri);
+
+  RefPtr<ModuleLoadRequest> request = new ModuleLoadRequest(
+      uri, options, dom::SRIMetadata(),
+      /* aReferrer = */ nullptr, context,
+      /* aIsTopLevel = */ true,
+      /* aIsDynamicImport = */ false, mModuleLoader, visitedSet, nullptr);
+
+  rv = request->StartModuleLoad();
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = mModuleLoader->ProcessRequests();
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  MOZ_ASSERT(request->IsReadyToRun());
+  if (!request->InstantiateModuleGraph()) {
+    return NS_ERROR_FAILURE;
+  }
+
+  rv = mModuleLoader->EvaluateModuleInContext(aCx, request,
+                                              JS::ThrowModuleErrorsSync);
+  NS_ENSURE_SUCCESS(rv, rv);
+  if (JS_IsExceptionPending(aCx)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  RefPtr<ModuleScript> moduleScript = request->mModuleScript;
+  JS::Rooted<JSObject*> module(aCx, moduleScript->ModuleRecord());
+  aModuleNamespace.set(JS::GetModuleNamespace(aCx, module));
 
   return NS_OK;
 }

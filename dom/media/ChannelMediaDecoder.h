@@ -105,7 +105,7 @@ class ChannelMediaDecoder
 #ifdef MOZ_WIDGET_GONK
   MediaDecoderStateMachineProxy* CreateStateMachine();
 #else
-  MediaDecoderStateMachine* CreateStateMachine();
+  MediaDecoderStateMachineBase* CreateStateMachine();
 #endif
 
   nsresult Load(BaseMediaResource* aOriginal);

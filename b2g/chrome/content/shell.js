@@ -3,7 +3,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
+ 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
@@ -311,7 +311,8 @@ document.addEventListener(
     // Always initialize Marionette server in userdebug and desktop builds
     if (!isGonk || libcutils.property_get("ro.build.type") == "userdebug") {
       Services.tm.idleDispatchToMainThread(() => {
-        Services.obs.notifyObservers(null, "marionette-startup-requested");
+        Services.obs.notifyObservers(null, "browser-delayed-startup-finished");
+        Services.obs.notifyObservers(null, "browser-idle-startup-tasks-finished");
       });
     }
 

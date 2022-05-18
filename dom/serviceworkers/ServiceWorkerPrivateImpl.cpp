@@ -780,11 +780,11 @@ ServiceWorkerPrivateImpl::PendingFetchEvent::PendingFetchEvent(
     RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
     ParentToParentServiceWorkerFetchEventOpArgs&& aArgs,
     nsCOMPtr<nsIInterceptedChannel>&& aChannel,
-    RefPtr<FetchServiceResponsePromise>&& aPreloadResponseReadyPromise)
+    RefPtr<FetchServicePromises>&& aPreloadResponseReadyPromises)
     : PendingFunctionalEvent(aOwner, std::move(aRegistration)),
       mArgs(std::move(aArgs)),
       mChannel(std::move(aChannel)),
-      mPreloadResponseReadyPromise(std::move(aPreloadResponseReadyPromise)) {
+      mPreloadResponseReadyPromises(std::move(aPreloadResponseReadyPromises)) {
   AssertIsOnMainThread();
   MOZ_ASSERT(mChannel);
 }
@@ -796,7 +796,7 @@ nsresult ServiceWorkerPrivateImpl::PendingFetchEvent::Send() {
 
   return mOwner->SendFetchEventInternal(
       std::move(mRegistration), std::move(mArgs), std::move(mChannel),
-      std::move(mPreloadResponseReadyPromise));
+      std::move(mPreloadResponseReadyPromises));
 }
 
 ServiceWorkerPrivateImpl::PendingFetchEvent::~PendingFetchEvent() {
@@ -956,7 +956,6 @@ nsresult MaybeStoreStreamForBackgroundThread(nsIInterceptedChannel* aChannel,
   MOZ_ALWAYS_SUCCEEDS(aChannel->GetChannel(getter_AddRefs(channel)));
 
   Maybe<BodyStreamVariant> body;
-  int64_t bodySize = -1;
   nsCOMPtr<nsIUploadChannel2> uploadChannel = do_QueryInterface(channel);
 
   if (uploadChannel) {
@@ -977,8 +976,7 @@ nsresult MaybeStoreStreamForBackgroundThread(nsIInterceptedChannel* aChannel,
       }
 
       auto storage = storageOrErr.unwrap();
-      storage->AddStream(uploadStream, body->get_ParentToParentStream().uuid(),
-                         bodySize, 0);
+      storage->AddStream(uploadStream, body->get_ParentToParentStream().uuid());
     }
   }
 
@@ -987,8 +985,7 @@ nsresult MaybeStoreStreamForBackgroundThread(nsIInterceptedChannel* aChannel,
 
 }  // anonymous namespace
 
-RefPtr<FetchServiceResponsePromise>
-ServiceWorkerPrivateImpl::SetupNavigationPreload(
+RefPtr<FetchServicePromises> ServiceWorkerPrivateImpl::SetupNavigationPreload(
     nsCOMPtr<nsIInterceptedChannel>& aChannel,
     const RefPtr<ServiceWorkerRegistrationInfo>& aRegistration) {
   MOZ_ASSERT(XRE_IsParentProcess());
@@ -1073,9 +1070,9 @@ nsresult ServiceWorkerPrivateImpl::SendFetchEvent(
                            request.method().LowerCaseEqualsASCII("get") &&
                            aRegistration->GetNavigationPreloadState().enabled();
 
-  RefPtr<FetchServiceResponsePromise> preloadResponsePromise;
+  RefPtr<FetchServicePromises> preloadResponsePromises;
   if (preloadNavigation) {
-    preloadResponsePromise = SetupNavigationPreload(aChannel, aRegistration);
+    preloadResponsePromises = SetupNavigationPreload(aChannel, aRegistration);
   }
 
   ParentToParentServiceWorkerFetchEventOpArgs args(
@@ -1083,13 +1080,13 @@ nsresult ServiceWorkerPrivateImpl::SendFetchEvent(
           mOuter->mInfo->ScriptSpec(), request, nsString(aClientId),
           nsString(aResultingClientId), isNonSubresourceRequest,
           preloadNavigation, mOuter->mInfo->TestingInjectCancellation()),
-      Nothing());
+      Nothing(), Nothing());
 
   if (mOuter->mInfo->State() == ServiceWorkerState::Activating) {
     UniquePtr<PendingFunctionalEvent> pendingEvent =
         MakeUnique<PendingFetchEvent>(this, std::move(aRegistration),
                                       std::move(args), std::move(aChannel),
-                                      std::move(preloadResponsePromise));
+                                      std::move(preloadResponsePromises));
 
     mPendingFunctionalEvents.AppendElement(std::move(pendingEvent));
 
@@ -1100,14 +1097,14 @@ nsresult ServiceWorkerPrivateImpl::SendFetchEvent(
 
   return SendFetchEventInternal(std::move(aRegistration), std::move(args),
                                 std::move(aChannel),
-                                std::move(preloadResponsePromise));
+                                std::move(preloadResponsePromises));
 }
 
 nsresult ServiceWorkerPrivateImpl::SendFetchEventInternal(
     RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
     ParentToParentServiceWorkerFetchEventOpArgs&& aArgs,
     nsCOMPtr<nsIInterceptedChannel>&& aChannel,
-    RefPtr<FetchServiceResponsePromise>&& aPreloadResponseReadyPromise) {
+    RefPtr<FetchServicePromises>&& aPreloadResponseReadyPromises) {
   AssertIsOnMainThread();
   MOZ_ASSERT(mOuter);
 
@@ -1129,7 +1126,7 @@ nsresult ServiceWorkerPrivateImpl::SendFetchEventInternal(
 
   FetchEventOpChild::SendFetchEvent(
       mControllerChild->get(), std::move(aArgs), std::move(aChannel),
-      std::move(aRegistration), std::move(aPreloadResponseReadyPromise),
+      std::move(aRegistration), std::move(aPreloadResponseReadyPromises),
       mOuter->CreateEventKeepAliveToken())
       ->Then(GetCurrentSerialEventTarget(), __func__,
              [holder = std::move(holder)](

@@ -831,6 +831,7 @@ public class GeckoSession {
             final String event,
             final GeckoBundle message,
             final EventCallback callback) {
+          Log.d(LOGTAG, "handleMessage: " + event);
           if (delegate == null) {
             callback.sendSuccess(/* granted */ false);
             return;
@@ -900,7 +901,7 @@ public class GeckoSession {
             final @SelectionActionDelegateAction HashSet<String> actionsSet =
                 new HashSet<>(Arrays.asList(message.getStringArray("actions")));
             final SelectionActionDelegate.Selection selection =
-                new SelectionActionDelegate.Selection(message, actionsSet, callback);
+                new SelectionActionDelegate.Selection(message, actionsSet, mEventDispatcher);
 
             delegate.onShowActionRequest(GeckoSession.this, selection);
 
@@ -1312,22 +1313,27 @@ public class GeckoSession {
     /* package */ void registerListeners() {
       getEventDispatcher()
           .registerUiThreadListener(
-              this, "GeckoView:PinOnScreen", "GeckoView:Prompt", "GeckoView:Prompt:Dismiss", null);
+              this,
+              "GeckoView:PinOnScreen",
+              "GeckoView:Prompt",
+              "GeckoView:Prompt:Dismiss",
+              "GeckoView:Prompt:Update",
+              null);
     }
 
     @Override
     public void handleMessage(
         final String event, final GeckoBundle message, final EventCallback callback) {
-      if (DEBUG) {
-        Log.d(LOGTAG, "handleMessage: event = " + event);
-      }
+      Log.d(LOGTAG, "handleMessage " + event);
 
       if ("GeckoView:PinOnScreen".equals(event)) {
         GeckoSession.this.setShouldPinOnScreen(message.getBoolean("pinned"));
       } else if ("GeckoView:Prompt".equals(event)) {
-        mPromptController.handleEvent(GeckoSession.this, message, callback);
+        mPromptController.handleEvent(GeckoSession.this, message.getBundle("prompt"), callback);
       } else if ("GeckoView:Prompt:Dismiss".equals(event)) {
         mPromptController.dismissPrompt(message.getString("id"));
+      } else if ("GeckoView:Prompt:Update".equals(event)) {
+        mPromptController.updatePrompt(message.getBundle("prompt"));
       }
     }
   }
@@ -1579,6 +1585,17 @@ public class GeckoSession {
 
     return mMagnifier;
   }
+
+  // The priority of the GeckoSession, either default or high.
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({PRIORITY_DEFAULT, PRIORITY_HIGH})
+  public @interface Priority {}
+
+  /** Value for Priority when it is default. */
+  public static final int PRIORITY_DEFAULT = 0;
+
+  /** Value for Priority when it is high. */
+  public static final int PRIORITY_HIGH = 1;
 
   @Retention(RetentionPolicy.SOURCE)
   @IntDef(
@@ -2245,6 +2262,22 @@ public class GeckoSession {
     final GeckoBundle msg = new GeckoBundle(1);
     msg.putBoolean("focused", focused);
     mEventDispatcher.dispatch("GeckoView:SetFocused", msg);
+  }
+
+  /**
+   * Notify GeckoView of the priority for this GeckoSession.
+   *
+   * <p>Set this GeckoSession to high priority (PRIORITY_HIGH) whenever the app wants to signal to
+   * GeckoView that this GeckoSession is important to the app. GeckoView will keep the session state
+   * as long as possible. Set this to default priority (PRIORITY_DEFAULT) in any other case.
+   *
+   * @param priorityHint Priority of the geckosession, either high priority or default.
+   */
+  @AnyThread
+  public void setPriorityHint(final @Priority int priorityHint) {
+    final GeckoBundle msg = new GeckoBundle(1);
+    msg.putInt("priorityHint", priorityHint);
+    mEventDispatcher.dispatch("GeckoView:SetPriorityHint", msg);
   }
 
   /** Class representing a saved session state. */
@@ -3379,14 +3412,14 @@ public class GeckoSession {
       /** Set of valid actions available through {@link Selection#execute(String)} */
       public final @NonNull @SelectionActionDelegateAction Collection<String> availableActions;
 
-      private final int mSeqNo;
+      private final String mActionId;
 
-      private final EventCallback mEventCallback;
+      private final WeakReference<EventDispatcher> mEventDispatcher;
 
       /* package */ Selection(
           final GeckoBundle bundle,
           final @NonNull @SelectionActionDelegateAction Set<String> actions,
-          final EventCallback callback) {
+          final EventDispatcher eventDispatcher) {
         flags =
             (bundle.getBoolean("collapsed") ? SelectionActionDelegate.FLAG_IS_COLLAPSED : 0)
                 | (bundle.getBoolean("editable") ? SelectionActionDelegate.FLAG_IS_EDITABLE : 0)
@@ -3394,8 +3427,8 @@ public class GeckoSession {
         text = bundle.getString("selection");
         clientRect = bundle.getRectF("clientRect");
         availableActions = actions;
-        mSeqNo = bundle.getInt("seqNo");
-        mEventCallback = callback;
+        mActionId = bundle.getString("actionId");
+        mEventDispatcher = new WeakReference<>(eventDispatcher);
       }
 
       /** Empty constructor for tests. */
@@ -3404,8 +3437,8 @@ public class GeckoSession {
         text = "";
         clientRect = null;
         availableActions = new HashSet<>();
-        mSeqNo = 0;
-        mEventCallback = null;
+        mActionId = null;
+        mEventDispatcher = null;
       }
 
       /**
@@ -3431,10 +3464,16 @@ public class GeckoSession {
         if (!isActionAvailable(action)) {
           throw new IllegalStateException("Action not available");
         }
+        final EventDispatcher eventDispatcher = mEventDispatcher.get();
+        if (eventDispatcher == null) {
+          // The session is not available anymore, nothing really to do
+          Log.w(LOGTAG, "Calling execute on a stale Selection.");
+          return;
+        }
         final GeckoBundle response = new GeckoBundle(2);
         response.putString("id", action);
-        response.putInt("seqNo", mSeqNo);
-        mEventCallback.sendSuccess(response);
+        response.putString("actionId", mActionId);
+        eventDispatcher.dispatch("GeckoView:ExecuteSelectionAction", response);
       }
 
       /**
@@ -3889,6 +3928,19 @@ public class GeckoSession {
        */
       @UiThread
       default void onPromptDismiss(final @NonNull BasePrompt prompt) {}
+
+      /**
+       * Called when this prompt has been updated.
+       *
+       * <p>This is called if inner &lt;option&gt; elements are updated when using &lt;select&gt;
+       * element.
+       *
+       * <p>When this method is called, you should update the prompt UI elements.
+       *
+       * @param prompt the new prompt that should be updated.
+       */
+      @UiThread
+      default void onPromptUpdate(final @NonNull BasePrompt prompt) {}
     }
 
     // Prompt classes.

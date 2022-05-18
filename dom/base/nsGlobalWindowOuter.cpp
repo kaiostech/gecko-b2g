@@ -270,6 +270,7 @@ using namespace mozilla::dom::ipc;
 using mozilla::BasePrincipal;
 using mozilla::OriginAttributes;
 using mozilla::TimeStamp;
+using mozilla::layout::RemotePrintJobChild;
 
 #define FORWARD_TO_INNER(method, args, err_rval)       \
   PR_BEGIN_MACRO                                       \
@@ -3815,15 +3816,6 @@ float nsGlobalWindowOuter::GetMozInnerScreenYOuter(CallerType aCallerType) {
   return nsPresContext::AppUnitsToFloatCSSPixels(r.y);
 }
 
-uint64_t nsGlobalWindowOuter::GetMozPaintCountOuter() {
-  if (!mDocShell) {
-    return 0;
-  }
-
-  PresShell* presShell = mDocShell->GetPresShell();
-  return presShell ? presShell->GetPaintCount() : 0;
-}
-
 void nsGlobalWindowOuter::SetScreenXOuter(int32_t aScreenX,
                                           CallerType aCallerType,
                                           ErrorResult& aError) {
@@ -5141,7 +5133,7 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
   });
 
   const bool forPreview = !StaticPrefs::print_always_print_silent();
-  Print(nullptr, nullptr, nullptr, IsPreview(forPreview),
+  Print(nullptr, nullptr, nullptr, nullptr, IsPreview(forPreview),
         IsForWindowDotPrint::Yes, nullptr, aError);
 #endif
 }
@@ -5161,9 +5153,9 @@ class MOZ_RAII AutoModalState {
 };
 
 Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
-    nsIPrintSettings* aPrintSettings, nsIWebProgressListener* aListener,
-    nsIDocShell* aDocShellToCloneInto, IsPreview aIsPreview,
-    IsForWindowDotPrint aForWindowDotPrint,
+    nsIPrintSettings* aPrintSettings, RemotePrintJobChild* aRemotePrintJob,
+    nsIWebProgressListener* aListener, nsIDocShell* aDocShellToCloneInto,
+    IsPreview aIsPreview, IsForWindowDotPrint aForWindowDotPrint,
     PrintPreviewResolver&& aPrintPreviewCallback, ErrorResult& aError) {
 #ifdef NS_PRINTING
   nsCOMPtr<nsIPrintSettingsService> printSettingsService =
@@ -5320,7 +5312,7 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
       }
     } else {
       // Historically we've eaten this error.
-      webBrowserPrint->Print(ps, aListener);
+      webBrowserPrint->Print(ps, aRemotePrintJob, aListener);
     }
   }
 

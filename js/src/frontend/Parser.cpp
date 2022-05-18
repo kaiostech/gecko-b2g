@@ -1957,6 +1957,12 @@ ModuleNode* Parser<FullParseHandler, Unit>::moduleBody(
       ->value()
       ->setClosedOver();
 
+  if (options().deoptimizeModuleGlobalVars) {
+    for (BindingIter bi = modulepc.varScope().bindings(pc_); bi; bi++) {
+      bi.setClosedOver();
+    }
+  }
+
   if (!CheckParseTree(cx_, alloc_, stmtList)) {
     return null();
   }
@@ -6743,6 +6749,10 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::forStatement(
 
     // If we come across a top level await here, mark the module as async.
     if (matched && pc_->sc()->isModuleContext() && !pc_->isAsync()) {
+      if (!options().topLevelAwait) {
+        error(JSMSG_TOP_LEVEL_AWAIT_NOT_SUPPORTED);
+        return null();
+      }
       pc_->sc()->asModuleContext()->setIsAsync();
       MOZ_ASSERT(pc_->isAsync());
     }
@@ -8938,6 +8948,10 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::statement(
       // as async, mark the module as async.
       if (tt == TokenKind::Await && !pc_->isAsync()) {
         if (pc_->atModuleTopLevel()) {
+          if (!options().topLevelAwait) {
+            error(JSMSG_TOP_LEVEL_AWAIT_NOT_SUPPORTED);
+            return null();
+          }
           pc_->sc()->asModuleContext()->setIsAsync();
           MOZ_ASSERT(pc_->isAsync());
         }
@@ -9193,6 +9207,10 @@ GeneralParser<ParseHandler, Unit>::statementListItem(
       // as async, mark the module as async.
       if (tt == TokenKind::Await && !pc_->isAsync()) {
         if (pc_->atModuleTopLevel()) {
+          if (!options().topLevelAwait) {
+            error(JSMSG_TOP_LEVEL_AWAIT_NOT_SUPPORTED);
+            return null();
+          }
           pc_->sc()->asModuleContext()->setIsAsync();
           MOZ_ASSERT(pc_->isAsync());
         }
@@ -10273,6 +10291,10 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::unaryExpr(
     case TokenKind::Await: {
       // If we encounter an await in a module, mark it as async.
       if (!pc_->isAsync() && pc_->sc()->isModule()) {
+        if (!options().topLevelAwait) {
+          error(JSMSG_TOP_LEVEL_AWAIT_NOT_SUPPORTED);
+          return null();
+        }
         pc_->sc()->asModuleContext()->setIsAsync();
         MOZ_ASSERT(pc_->isAsync());
       }

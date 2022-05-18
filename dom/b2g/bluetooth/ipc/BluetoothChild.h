@@ -20,6 +20,8 @@ class BluetoothServiceChildProcess;
 }  // namespace dom
 }  // namespace mozilla
 
+using mozilla::ipc::IPCResult;
+
 BEGIN_BLUETOOTH_NAMESPACE
 
 /*******************************************************************************
@@ -41,13 +43,13 @@ class BluetoothChild : public PBluetoothChild {
  public:
   virtual void ActorDestroy(ActorDestroyReason aWhy);
 
-  virtual bool RecvNotify(const BluetoothSignal& aSignal);
+  virtual IPCResult RecvNotify(const BluetoothSignal& aSignal);
 
-  virtual bool RecvEnabled(const bool& aEnabled);
+  virtual IPCResult RecvEnabled(const bool& aEnabled);
 
-  virtual bool RecvBeginShutdown();
+  virtual IPCResult RecvBeginShutdown();
 
-  virtual bool RecvNotificationsStopped();
+  virtual IPCResult RecvNotificationsStopped();
 
   virtual PBluetoothRequestChild* AllocPBluetoothRequestChild(
       const Request& aRequest);

@@ -13,7 +13,7 @@
 
 namespace mozilla {
 
-class MediaDecoderStateMachine;
+class MediaDecoderStateMachineBase;
 class MediaSourceDemuxer;
 
 namespace dom {
@@ -76,7 +76,7 @@ class MediaSourceDecoder : public MediaDecoder,
 #ifdef MOZ_WIDGET_GONK
   MediaDecoderStateMachineProxy* CreateStateMachine();
 #else
-  MediaDecoderStateMachine* CreateStateMachine();
+  MediaDecoderStateMachineBase* CreateStateMachine();
 #endif
   void DoSetMediaSourceDuration(double aDuration);
   media::TimeInterval ClampIntervalToEnd(const media::TimeInterval& aInterval);

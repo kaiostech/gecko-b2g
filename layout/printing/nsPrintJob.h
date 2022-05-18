@@ -7,6 +7,7 @@
 #define nsPrintJob_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/layout/RemotePrintJobChild.h"
 #include "mozilla/UniquePtr.h"
 
 #include "nsCOMPtr.h"
@@ -52,6 +53,7 @@ class nsPrintJob final : public nsIWebProgressListener,
   using Document = mozilla::dom::Document;
   using PrintPreviewResolver =
       std::function<void(const mozilla::dom::PrintPreviewResultInfo&)>;
+  using RemotePrintJobChild = mozilla::layout::RemotePrintJobChild;
 
  public:
   nsPrintJob();
@@ -97,6 +99,7 @@ class nsPrintJob final : public nsIWebProgressListener,
    */
   MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
   Print(Document* aSourceDoc, nsIPrintSettings* aPrintSettings,
+        RemotePrintJobChild* aRemotePrintJob,
         nsIWebProgressListener* aWebProgressListener);
 
   /**
@@ -116,7 +119,6 @@ class nsPrintJob final : public nsIWebProgressListener,
 
   bool IsDoingPrint() const { return mIsDoingPrinting; }
   bool CreatedForPrintPreview() const { return mCreatedForPrintPreview; }
-  bool HasEverPrinted() const { return mHasEverPrinted; }
   /// If the returned value is not greater than zero, an error occurred.
   int32_t GetRawNumPages() const;
   // Returns whether the preview is empty due to page range exclusion.
@@ -127,7 +129,6 @@ class nsPrintJob final : public nsIWebProgressListener,
   // due to pages having been skipped in a page range or combined into a single
   // sheet via pages-per-sheet.)
   int32_t GetPrintPreviewNumSheets() const;
-  already_AddRefed<nsIPrintSettings> GetCurrentPrintSettings();
 
   // The setters here also update the DocViewer
   void SetIsPrinting(bool aIsPrinting);
@@ -148,7 +149,6 @@ class nsPrintJob final : public nsIWebProgressListener,
   void FirePrintingErrorEvent(nsresult aPrintError);
 
   bool CheckBeforeDestroy() const;
-  mozilla::PresShell* GetPrintPreviewPresShell();
   nsresult Cancel();
   void Destroy();
   void DestroyPrintingData();
@@ -161,7 +161,6 @@ class nsPrintJob final : public nsIWebProgressListener,
   MOZ_CAN_RUN_SCRIPT nsresult DocumentReadyForPrinting();
   MOZ_CAN_RUN_SCRIPT nsresult SetupToPrintContent();
   nsresult EnablePOsForPrinting();
-  nsPrintObject* FindSmallestSTF();
 
   bool PrintDocContent(const mozilla::UniquePtr<nsPrintObject>& aPO,
                        nsresult& aStatus);
@@ -176,16 +175,6 @@ class nsPrintJob final : public nsIWebProgressListener,
   void CalcNumPrintablePages(int32_t& aNumPages);
 
   nsresult StartPagePrintTimer(const mozilla::UniquePtr<nsPrintObject>& aPO);
-
-  bool IsWindowsInOurSubTree(nsPIDOMWindowOuter* aDOMWindow) const;
-
-  /**
-   * @return The document from the focused windows for a document viewer.
-   *
-   * FIXME: This is somewhat unsound, this looks at the original document, which
-   * could've mutated after print was initiated.
-   */
-  Document* FindFocusedDocument(Document* aDoc) const;
 
   /// Customizes the behaviour of GetDisplayTitleAndURL.
   enum class DocTitleDefault : uint32_t { eDocURLElseFallback, eFallback };
@@ -244,13 +233,6 @@ class nsPrintJob final : public nsIWebProgressListener,
 
   void PageDone(nsresult aResult);
 
-  // The document that we were originally created for in order to print it or
-  // create a print preview of it.  This may belong to mDocViewerPrint or may
-  // belong to a different docViewer in a different docShell.  In reality, this
-  // also may not be the original document that the user selected to print (see
-  // the comment documenting Initialize() above).
-  RefPtr<Document> mOriginalDoc;
-
   // The docViewer that owns us, and its docShell.
   nsCOMPtr<nsIDocumentViewerPrint> mDocViewerPrint;
   nsWeakPtr mDocShell;
@@ -272,6 +254,9 @@ class nsPrintJob final : public nsIWebProgressListener,
 
   RefPtr<nsPagePrintTimer> mPagePrintTimer;
 
+  // Only set if this nsPrintJob was created for a real print.
+  RefPtr<RemotePrintJobChild> mRemotePrintJob;
+
   // If the code that initiates a print preview passes a PrintPreviewResolver
   // (a std::function) to be notified of the final sheet/page counts (once
   // we've sufficiently laid out the document to know what those are), that
@@ -283,7 +268,6 @@ class nsPrintJob final : public nsIWebProgressListener,
   bool mCreatedForPrintPreview = false;
   bool mIsCreatingPrintPreview = false;
   bool mIsDoingPrinting = false;
-  bool mHasEverPrinted = false;
   bool mDidLoadDataForPrinting = false;
   bool mDoingInitialReflow = false;
   bool mIsDestroying = false;

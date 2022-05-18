@@ -1724,23 +1724,23 @@ static nsRect GetOnePixelRangeAroundPoint(const nsPoint& aPoint,
   return allowedRange;
 }
 
-void ScrollFrameHelper::ScrollByPage(
-    nsScrollbarFrame* aScrollbar, int32_t aDirection,
-    nsIScrollbarMediator::ScrollSnapMode aSnap) {
+void ScrollFrameHelper::ScrollByPage(nsScrollbarFrame* aScrollbar,
+                                     int32_t aDirection,
+                                     ScrollSnapFlags aSnapFlags) {
   ScrollByUnit(aScrollbar, ScrollMode::Smooth, aDirection, ScrollUnit::PAGES,
-               aSnap);
+               aSnapFlags);
 }
 
-void ScrollFrameHelper::ScrollByWhole(
-    nsScrollbarFrame* aScrollbar, int32_t aDirection,
-    nsIScrollbarMediator::ScrollSnapMode aSnap) {
+void ScrollFrameHelper::ScrollByWhole(nsScrollbarFrame* aScrollbar,
+                                      int32_t aDirection,
+                                      ScrollSnapFlags aSnapFlags) {
   ScrollByUnit(aScrollbar, ScrollMode::Instant, aDirection, ScrollUnit::WHOLE,
-               aSnap);
+               aSnapFlags);
 }
 
-void ScrollFrameHelper::ScrollByLine(
-    nsScrollbarFrame* aScrollbar, int32_t aDirection,
-    nsIScrollbarMediator::ScrollSnapMode aSnap) {
+void ScrollFrameHelper::ScrollByLine(nsScrollbarFrame* aScrollbar,
+                                     int32_t aDirection,
+                                     ScrollSnapFlags aSnapFlags) {
   bool isHorizontal = aScrollbar->IsXULHorizontal();
   nsIntPoint delta;
   if (isHorizontal) {
@@ -1771,7 +1771,7 @@ void ScrollFrameHelper::ScrollByLine(
 
   nsIntPoint overflow;
   ScrollBy(delta, ScrollUnit::LINES, ScrollMode::Smooth, &overflow,
-           ScrollOrigin::Other, nsIScrollableFrame::NOT_MOMENTUM, aSnap);
+           ScrollOrigin::Other, nsIScrollableFrame::NOT_MOMENTUM, aSnapFlags);
 }
 
 void ScrollFrameHelper::RepeatButtonScroll(nsScrollbarFrame* aScrollbar) {
@@ -1811,9 +1811,10 @@ void ScrollFrameHelper::ScrollbarReleased(nsScrollbarFrame* aScrollbar) {
   ScrollSnap(mDestination, ScrollMode::Smooth);
 }
 
-void ScrollFrameHelper::ScrollByUnit(
-    nsScrollbarFrame* aScrollbar, ScrollMode aMode, int32_t aDirection,
-    ScrollUnit aUnit, nsIScrollbarMediator::ScrollSnapMode aSnap) {
+void ScrollFrameHelper::ScrollByUnit(nsScrollbarFrame* aScrollbar,
+                                     ScrollMode aMode, int32_t aDirection,
+                                     ScrollUnit aUnit,
+                                     ScrollSnapFlags aSnapFlags) {
   MOZ_ASSERT(aScrollbar != nullptr);
   bool isHorizontal = aScrollbar->IsXULHorizontal();
   nsIntPoint delta;
@@ -1824,7 +1825,7 @@ void ScrollFrameHelper::ScrollByUnit(
   }
   nsIntPoint overflow;
   ScrollBy(delta, aUnit, aMode, &overflow, ScrollOrigin::Other,
-           nsIScrollableFrame::NOT_MOMENTUM, aSnap);
+           nsIScrollableFrame::NOT_MOMENTUM, aSnapFlags);
 }
 
 nsresult nsXULScrollFrame::CreateAnonymousContent(
@@ -2431,12 +2432,12 @@ bool ScrollFrameHelper::HasBgAttachmentLocal() const {
 
 void ScrollFrameHelper::ScrollTo(nsPoint aScrollPosition, ScrollMode aMode,
                                  ScrollOrigin aOrigin, const nsRect* aRange,
-                                 nsIScrollbarMediator::ScrollSnapMode aSnap,
+                                 ScrollSnapFlags aSnapFlags,
                                  ScrollTriggeredByScript aTriggeredByScript) {
   if (aOrigin == ScrollOrigin::NotSpecified) {
     aOrigin = ScrollOrigin::Other;
   }
-  ScrollToWithOrigin(aScrollPosition, aMode, aOrigin, aRange, aSnap,
+  ScrollToWithOrigin(aScrollPosition, aMode, aOrigin, aRange, aSnapFlags,
                      aTriggeredByScript);
 }
 
@@ -2456,7 +2457,9 @@ void ScrollFrameHelper::ScrollToCSSPixels(const CSSIntPoint& aScrollPosition,
           APZScrollAnimationType::TriggeredByUserInput &&
       !isScrollAnimating) {
     CSSIntPoint delta = aScrollPosition - currentCSSPixels;
-    ScrollByCSSPixels(delta, aMode);
+    // This transmogrification need to be an intended end position scroll
+    // operation.
+    ScrollByCSSPixels(delta, aMode, ScrollSnapFlags::IntendedEndPosition);
     return;
   }
 
@@ -2479,7 +2482,9 @@ void ScrollFrameHelper::ScrollToCSSPixels(const CSSIntPoint& aScrollPosition,
     range.height = 0;
   }
   ScrollTo(pt, aMode, ScrollOrigin::Other, &range,
-           nsIScrollableFrame::ENABLE_SNAP, ScrollTriggeredByScript::Yes);
+           // This ScrollToCSSPixels is used for Element.scrollTo,
+           // Element.scrollTop, Element.scrollLeft and for Window.scrollTo.
+           ScrollSnapFlags::IntendedEndPosition, ScrollTriggeredByScript::Yes);
   // 'this' might be destroyed here
 }
 
@@ -2503,7 +2508,7 @@ CSSIntPoint ScrollFrameHelper::GetScrollPositionCSSPixels() {
  */
 void ScrollFrameHelper::ScrollToWithOrigin(
     nsPoint aScrollPosition, ScrollMode aMode, ScrollOrigin aOrigin,
-    const nsRect* aRange, nsIScrollbarMediator::ScrollSnapMode aSnap,
+    const nsRect* aRange, ScrollSnapFlags aSnapFlags,
     ScrollTriggeredByScript aTriggeredByScript) {
   // None is never a valid scroll origin to be passed in.
   MOZ_ASSERT(aOrigin != ScrollOrigin::None);
@@ -2518,8 +2523,8 @@ void ScrollFrameHelper::ScrollToWithOrigin(
   }
 
   bool willSnap = false;
-  if (aSnap == nsIScrollableFrame::ENABLE_SNAP) {
-    willSnap = GetSnapPointForDestination(ScrollUnit::DEVICE_PIXELS,
+  if (aSnapFlags != ScrollSnapFlags::Disabled) {
+    willSnap = GetSnapPointForDestination(ScrollUnit::DEVICE_PIXELS, aSnapFlags,
                                           mDestination, aScrollPosition);
   }
 
@@ -3688,41 +3693,6 @@ class MOZ_RAII AutoContainsBlendModeCapturer {
   }
 };
 
-// This is an equivalent to the AutoContainsBlendModeCapturer helper class
-// above but for backdrop filters.
-class MOZ_RAII AutoContainsBackdropFilterCapturer {
-  nsDisplayListBuilder& mBuilder;
-  bool mSavedContainsBackdropFilter;
-
- public:
-  explicit AutoContainsBackdropFilterCapturer(nsDisplayListBuilder& aBuilder)
-      : mBuilder(aBuilder),
-        mSavedContainsBackdropFilter(aBuilder.ContainsBackdropFilter()) {
-    mBuilder.SetContainsBackdropFilter(false);
-  }
-
-  bool CaptureContainsBackdropFilter() {
-    // "Capture" the flag by extracting and clearing the ContainsBackdropFilter
-    // flag on the builder.
-    bool capturedBackdropFilter = mBuilder.ContainsBackdropFilter();
-    mBuilder.SetContainsBackdropFilter(false);
-    return capturedBackdropFilter;
-  }
-
-  ~AutoContainsBackdropFilterCapturer() {
-    // If CaptureContainsBackdropFilter() was called, the descendant filter was
-    // "captured" and so uncapturedContainsBackdropFilter will be false. If
-    // CaptureContainsBackdropFilter() wasn't called, then no capture occurred,
-    // and uncapturedContainsBackdropFilter may be true if there was a
-    // descendant filter. In that case, we set the flag on the DL builder so
-    // that we restore state to what it would have been without this RAII class
-    // on the stack.
-    bool uncapturedContainsBackdropFilter = mBuilder.ContainsBackdropFilter();
-    mBuilder.SetContainsBackdropFilter(mSavedContainsBackdropFilter ||
-                                       uncapturedContainsBackdropFilter);
-  }
-};
-
 // Finds the max z-index of the items in aList that meet the following
 // conditions
 //   1) have z-index auto or z-index >= 0.
@@ -3942,7 +3912,6 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 
   nsDisplayListCollection set(aBuilder);
   AutoContainsBlendModeCapturer blendCapture(*aBuilder);
-  AutoContainsBackdropFilterCapturer backdropFilterCapture(*aBuilder);
 
   bool willBuildAsyncZoomContainer =
       mWillBuildScrollableLayer && aBuilder->ShouldBuildAsyncZoomContainer() &&
@@ -4167,6 +4136,38 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     set.PositionedDescendants()->AppendToTop(topLayerWrapList);
   }
 
+  nsDisplayList rootResultList(aBuilder);
+  bool serializedList = false;
+  auto SerializeList = [&] {
+    if (!serializedList) {
+      serializedList = true;
+      set.SerializeWithCorrectZOrder(&rootResultList, mOuter->GetContent());
+    }
+  };
+  if (mIsRoot) {
+    if (nsIFrame* rootStyleFrame = GetFrameForStyle()) {
+      bool usingBackdropFilter =
+          rootStyleFrame->StyleEffects()->HasBackdropFilters() &&
+          rootStyleFrame->IsVisibleForPainting();
+
+      if (rootStyleFrame->StyleEffects()->HasFilters()) {
+        SerializeList();
+        rootResultList.AppendNewToTop<nsDisplayFilters>(
+            aBuilder, mOuter, &rootResultList, rootStyleFrame,
+            usingBackdropFilter);
+      }
+
+      if (usingBackdropFilter) {
+        SerializeList();
+        DisplayListClipState::AutoSaveRestore clipState(aBuilder);
+        nsRect backdropRect = mOuter->GetRectRelativeToSelf() +
+                              aBuilder->ToReferenceFrame(mOuter);
+        rootResultList.AppendNewToTop<nsDisplayBackdropFilters>(
+            aBuilder, mOuter, &rootResultList, backdropRect, rootStyleFrame);
+      }
+    }
+  }
+
   if (willBuildAsyncZoomContainer) {
     MOZ_ASSERT(mIsRoot);
 
@@ -4176,9 +4177,7 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     // it. The children have the layout viewport clip applied to them (above).
     // Effectively we are double clipping to the viewport, at potentially
     // different async scales.
-
-    nsDisplayList resultList(aBuilder);
-    set.SerializeWithCorrectZOrder(&resultList, mOuter->GetContent());
+    SerializeList();
 
     if (blendCapture.CaptureContainsBlendMode()) {
       // The async zoom contents contain a mix-blend mode, so let's wrap all
@@ -4188,9 +4187,9 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       // WebRender.
       nsDisplayItem* blendContainer =
           nsDisplayBlendContainer::CreateForMixBlendMode(
-              aBuilder, mOuter, &resultList,
+              aBuilder, mOuter, &rootResultList,
               aBuilder->CurrentActiveScrolledRoot());
-      resultList.AppendToTop(blendContainer);
+      rootResultList.AppendToTop(blendContainer);
 
       // Blend containers can be created or omitted during partial updates
       // depending on the dirty rect. So we basically can't do partial updates
@@ -4206,39 +4205,19 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       }
     }
 
-    if (backdropFilterCapture.CaptureContainsBackdropFilter()) {
-      // The async zoom contents contain a backdrop-filter, so let's wrap all
-      // those contents into a backdrop root container, and then wrap the
-      // backdrop container in the async zoom container. Otherwise the
-      // backdrop-root container ends up outside the zoom container which
-      // results in blend failure for WebRender.
-      resultList.AppendNewToTop<nsDisplayBackdropRootContainer>(
-          aBuilder, mOuter, &resultList, aBuilder->CurrentActiveScrolledRoot());
-
-      // Backdrop root containers can be created or omitted during partial
-      // updates depending on the dirty rect. So we basically can't do partial
-      // updates if there's a backdrop root container involved. There is
-      // equivalent code to this in the BuildDisplayListForStackingContext
-      // function as well, with a more detailed comment explaining things
-      // better.
-      if (aBuilder->IsRetainingDisplayList()) {
-        if (aBuilder->IsPartialUpdate()) {
-          aBuilder->SetPartialBuildFailed(true);
-        } else {
-          aBuilder->SetDisablePartialUpdates(true);
-        }
-      }
-    }
-
     mozilla::layers::FrameMetrics::ViewID viewID =
         nsLayoutUtils::FindOrCreateIDFor(mScrolledFrame->GetContent());
 
     DisplayListClipState::AutoSaveRestore clipState(aBuilder);
     clipState.ClipContentDescendants(clipRect, haveRadii ? radii : nullptr);
 
-    set.Content()->AppendNewToTop<nsDisplayAsyncZoom>(
-        aBuilder, mOuter, &resultList, aBuilder->CurrentActiveScrolledRoot(),
-        viewID);
+    rootResultList.AppendNewToTop<nsDisplayAsyncZoom>(
+        aBuilder, mOuter, &rootResultList,
+        aBuilder->CurrentActiveScrolledRoot(), viewID);
+  }
+
+  if (serializedList) {
+    set.Content()->AppendToTop(&rootResultList);
   }
 
   nsDisplayListCollection scrolledContent(aBuilder);
@@ -4758,11 +4737,18 @@ nsRect ScrollFrameHelper::GetVisualOptimalViewingRect() const {
   return rect;
 }
 
-static void AdjustForWholeDelta(int32_t aDelta, nscoord* aCoord) {
-  if (aDelta < 0) {
-    *aCoord = nscoord_MIN;
-  } else if (aDelta > 0) {
-    *aCoord = nscoord_MAX;
+static void AdjustDestinationForWholeDelta(const nsIntPoint& aDelta,
+                                           const nsRect& aScrollRange,
+                                           nsPoint& aPoint) {
+  if (aDelta.x < 0) {
+    aPoint.x = aScrollRange.X();
+  } else if (aDelta.x > 0) {
+    aPoint.x = aScrollRange.XMost();
+  }
+  if (aDelta.y < 0) {
+    aPoint.y = aScrollRange.Y();
+  } else if (aDelta.y > 0) {
+    aPoint.y = aScrollRange.YMost();
   }
 }
 
@@ -4792,7 +4778,7 @@ void ScrollFrameHelper::ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit,
                                  ScrollMode aMode, nsIntPoint* aOverflow,
                                  ScrollOrigin aOrigin,
                                  nsIScrollableFrame::ScrollMomentum aMomentum,
-                                 nsIScrollbarMediator::ScrollSnapMode aSnap) {
+                                 ScrollSnapFlags aSnapFlags) {
   // When a smooth scroll is being processed on a frame, mouse wheel and
   // trackpad momentum scroll event updates must notcancel the SMOOTH or
   // SMOOTH_MSD scroll animations, enabling Javascript that depends on them to
@@ -4825,7 +4811,7 @@ void ScrollFrameHelper::ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit,
   bool isGenericOrigin = (aOrigin == ScrollOrigin::Other);
 
   bool askApzToDoTheScroll = false;
-  if ((aSnap != nsIScrollableFrame::ENABLE_SNAP || !NeedsScrollSnap()) &&
+  if ((aSnapFlags == ScrollSnapFlags::Disabled || !NeedsScrollSnap()) &&
       gfxPlatform::UseDesktopZoomingScrollbars() &&
       nsLayoutUtils::AsyncPanZoomEnabled(mOuter) &&
       !nsLayoutUtils::ShouldDisableApzForElement(mOuter->GetContent()) &&
@@ -4869,10 +4855,9 @@ void ScrollFrameHelper::ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit,
         break;
       } else {
         nsPoint pos = GetScrollPosition();
-        AdjustForWholeDelta(aDelta.x, &pos.x);
-        AdjustForWholeDelta(aDelta.y, &pos.y);
-        if (aSnap == nsIScrollableFrame::ENABLE_SNAP) {
-          GetSnapPointForDestination(aUnit, mDestination, pos);
+        AdjustDestinationForWholeDelta(aDelta, GetLayoutScrollRange(), pos);
+        if (aSnapFlags != ScrollSnapFlags::Disabled) {
+          GetSnapPointForDestination(aUnit, aSnapFlags, mDestination, pos);
         }
         ScrollTo(pos, aMode, ScrollOrigin::Other);
         // 'this' might be destroyed here
@@ -4925,7 +4910,7 @@ void ScrollFrameHelper::ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit,
                                       NSCoordSaturatingNonnegativeMultiply(
                                           aDelta.y, deltaMultiplier.height)));
 
-  if (aSnap == nsIScrollableFrame::ENABLE_SNAP) {
+  if (aSnapFlags != ScrollSnapFlags::Disabled) {
     if (NeedsScrollSnap()) {
       nscoord appUnitsPerDevPixel =
           mOuter->PresContext()->AppUnitsPerDevPixel();
@@ -4939,7 +4924,7 @@ void ScrollFrameHelper::ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit,
         // of scroll delta.
         snapUnit = ScrollUnit::LINES;
       }
-      GetSnapPointForDestination(snapUnit, mDestination, newPos);
+      GetSnapPointForDestination(snapUnit, aSnapFlags, mDestination, newPos);
     }
   }
 
@@ -4974,7 +4959,8 @@ void ScrollFrameHelper::ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit,
 }
 
 void ScrollFrameHelper::ScrollByCSSPixels(const CSSIntPoint& aDelta,
-                                          ScrollMode aMode) {
+                                          ScrollMode aMode,
+                                          mozilla::ScrollSnapFlags aSnapFlags) {
   nsPoint current = GetScrollPosition();
   // `current` value above might be a value which was aligned to in
   // layer-pixels, so starting from such points will make the difference between
@@ -5004,8 +4990,7 @@ void ScrollFrameHelper::ScrollByCSSPixels(const CSSIntPoint& aDelta,
     range.y = pt.y;
     range.height = 0;
   }
-  ScrollToWithOrigin(pt, aMode, ScrollOrigin::Relative, &range,
-                     nsIScrollableFrame::ENABLE_SNAP,
+  ScrollToWithOrigin(pt, aMode, ScrollOrigin::Relative, &range, aSnapFlags,
                      ScrollTriggeredByScript::Yes);
   // 'this' might be destroyed here
 }
@@ -5032,7 +5017,11 @@ void ScrollFrameHelper::ScrollSnap(const nsPoint& aDestination,
   nsRect scrollRange = GetLayoutScrollRange();
   nsPoint pos = GetScrollPosition();
   nsPoint snapDestination = scrollRange.ClampPoint(aDestination);
-  if (GetSnapPointForDestination(ScrollUnit::DEVICE_PIXELS, pos,
+  ScrollSnapFlags snapFlags = ScrollSnapFlags::IntendedEndPosition;
+  if (mVelocityQueue.GetVelocity() != nsPoint()) {
+    snapFlags |= ScrollSnapFlags::IntendedDirection;
+  }
+  if (GetSnapPointForDestination(ScrollUnit::DEVICE_PIXELS, snapFlags, pos,
                                  snapDestination)) {
     ScrollTo(snapDestination, aMode, ScrollOrigin::Other);
   }
@@ -7875,11 +7864,12 @@ layers::ScrollSnapInfo ScrollFrameHelper::GetScrollSnapInfo(
 }
 
 bool ScrollFrameHelper::GetSnapPointForDestination(ScrollUnit aUnit,
+                                                   ScrollSnapFlags aSnapFlags,
                                                    const nsPoint& aStartPos,
                                                    nsPoint& aDestination) {
   Maybe<nsPoint> snapPoint = ScrollSnapUtils::GetSnapPointForDestination(
-      GetScrollSnapInfo(Some(aDestination)), aUnit, GetLayoutScrollRange(),
-      aStartPos, aDestination);
+      GetScrollSnapInfo(Some(aDestination)), aUnit, aSnapFlags,
+      GetLayoutScrollRange(), aStartPos, aDestination);
   if (snapPoint) {
     aDestination = snapPoint.ref();
     return true;

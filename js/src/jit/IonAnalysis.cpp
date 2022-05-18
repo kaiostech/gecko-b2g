@@ -1046,6 +1046,13 @@ static bool MaybeFoldTriangleConditionBlock(MIRGraph& graph,
 
   MOZ_ASSERT(phi->numOperands() == 2);
 
+  // If the phi-operand doesn't match the initial input, we can't fold the test.
+  auto* phiInputForInitialBlock =
+      phi->getOperand(phiBlock->indexForPredecessor(initialBlock));
+  if (!IsTestInputMaybeToBool(initialTest, phiInputForInitialBlock)) {
+    return true;
+  }
+
   // Make sure the test block does not have any outgoing loop backedges.
   if (!SplitCriticalEdgesForBlock(graph, testBlock)) {
     return false;
@@ -1227,6 +1234,13 @@ static bool MaybeFoldTestBlock(MIRGraph& graph, MBasicBlock* initialBlock) {
 
   MOZ_ASSERT(phiBlock->numPredecessors() == phi->numOperands());
 
+  // If the phi-operand doesn't match the initial input, we can't fold the test.
+  auto* phiInputForInitialBlock =
+      phi->getOperand(phiBlock->indexForPredecessor(initialBlock));
+  if (!IsTestInputMaybeToBool(initialTest, phiInputForInitialBlock)) {
+    return true;
+  }
+
   MBasicBlock* newTestBlock = nullptr;
   MDefinition* newTestInput = nullptr;
 
@@ -1241,7 +1255,11 @@ static bool MaybeFoldTestBlock(MIRGraph& graph, MBasicBlock* initialBlock) {
     if (lastIns->isGoto() && !newTestBlock) {
       newTestBlock = pred;
       newTestInput = operand;
-    } else if (!lastIns->isTest()) {
+    } else if (lastIns->isTest()) {
+      if (!IsTestInputMaybeToBool(lastIns->toTest(), operand)) {
+        return true;
+      }
+    } else {
       return true;
     }
 

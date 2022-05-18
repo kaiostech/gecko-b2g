@@ -241,11 +241,11 @@ bool JSScript::functionHasParameterExprs() const {
   return scope->as<js::FunctionScope>().hasParameterExprs();
 }
 
+bool JSScript::isModule() const { return bodyScope()->is<js::ModuleScope>(); }
+
 js::ModuleObject* JSScript::module() const {
-  if (bodyScope()->is<js::ModuleScope>()) {
-    return bodyScope()->as<js::ModuleScope>().module();
-  }
-  return nullptr;
+  MOZ_ASSERT(isModule());
+  return bodyScope()->as<js::ModuleScope>().module();
 }
 
 bool JSScript::isGlobalCode() const {
@@ -1486,6 +1486,9 @@ bool ScriptSource::assignSource(JSContext* cx,
   MOZ_ASSERT(data.is<Missing>(),
              "source assignment should only occur on fresh ScriptSources");
 
+  mutedErrors_ = options.mutedErrors();
+  delazificationMode_ = options.eagerDelazificationStrategy();
+
   if (options.discardSource) {
     return true;
   }
@@ -1859,6 +1862,7 @@ bool ScriptSource::initFromOptions(JSContext* cx,
   MOZ_ASSERT(!introducerFilename_);
 
   mutedErrors_ = options.mutedErrors();
+  delazificationMode_ = options.eagerDelazificationStrategy();
 
   startLine_ = options.lineno;
   introductionType_ = options.introductionType;

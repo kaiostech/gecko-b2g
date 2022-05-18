@@ -16,8 +16,8 @@
 #include "nsRefPtrHashtable.h"
 #include "nsCOMArray.h"
 #include "nsCOMPtr.h"
-#include "nsILoadInfo.h"  // nsSecurityFlags
-#include "nsINode.h"      // nsIURI
+#include "nsILoadInfo.h"    // nsSecurityFlags
+#include "nsINode.h"        // nsIURI
 #include "nsThreadUtils.h"  // GetMainThreadSerialEventTarget
 #include "nsURIHashKey.h"
 #include "mozilla/CORSMode.h"
@@ -180,6 +180,9 @@ class ModuleLoaderBase : public nsISupports {
                             nsISerialEventTarget* aEventTarget =
                                 mozilla::GetMainThreadSerialEventTarget());
 
+  // Called to break cycles during shutdown to prevent memory leaks.
+  void Shutdown();
+
   using LoadedScript = JS::loader::LoadedScript;
   using ScriptFetchOptions = JS::loader::ScriptFetchOptions;
   using ScriptLoadRequest = JS::loader::ScriptLoadRequest;
@@ -250,7 +253,8 @@ class ModuleLoaderBase : public nsISupports {
 
   // Evaluate a module in the given context. Does not push an entry to the
   // execution stack.
-  nsresult EvaluateModuleInContext(JSContext* aCx, ModuleLoadRequest* aRequest);
+  nsresult EvaluateModuleInContext(JSContext* aCx, ModuleLoadRequest* aRequest,
+                                   JS::ModuleErrorBehaviour errorBehaviour);
 
   void StartDynamicImport(ModuleLoadRequest* aRequest);
   void ProcessDynamicImport(ModuleLoadRequest* aRequest);
@@ -269,6 +273,11 @@ class ModuleLoaderBase : public nsISupports {
   void SetAcquiringImportMaps(bool acquiring) {
     mAcquiringImportMaps = acquiring;
   }
+
+  // Returns true if the module for given URL is already fetched.
+  bool IsModuleFetched(nsIURI* aURL) const;
+
+  nsresult GetFetchedModuleURLs(nsTArray<nsCString>& aURLs);
 
   // Internal methods.
 

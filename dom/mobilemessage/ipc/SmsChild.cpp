@@ -19,6 +19,7 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::dom::mobilemessage;
+using mozilla::ipc::IPCResult;
 
 namespace {
 
@@ -59,69 +60,69 @@ namespace mobilemessage {
 
 void SmsChild::ActorDestroy(ActorDestroyReason aWhy) {}
 
-bool SmsChild::RecvNotifyReceivedMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyReceivedMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsReceivedObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifyRetrievingMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyRetrievingMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsRetrievingObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifySendingMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifySendingMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsSendingObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifySentMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifySentMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsSentObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifyFailedMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyFailedMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsFailedObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifyDeliverySuccessMessage(
+IPCResult SmsChild::RecvNotifyDeliverySuccessMessage(
     const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsDeliverySuccessObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifyDeliveryErrorMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyDeliveryErrorMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsDeliveryErrorObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifyReceivedSilentMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyReceivedSilentMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSilentSmsReceivedObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifyReadSuccessMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyReadSuccessMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsReadSuccessObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifyReadErrorMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyReadErrorMessage(const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsReadErrorObserverTopic, aData);
-  return true;
+  return IPC_OK();
 }
 
-bool SmsChild::RecvNotifyDeletedMessageInfo(
+IPCResult SmsChild::RecvNotifyDeletedMessageInfo(
     const DeletedMessageInfoData& aDeletedInfo) {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (!obs) {
     NS_ERROR("Failed to get nsIObserverService!");
-    return false;
+    return IPC_FAIL(this, "Failed to get nsIObserverService!");
   }
 
   nsCOMPtr<nsISupports> info = new DeletedMessageInfo(aDeletedInfo);
   obs->NotifyObservers(info, kSmsDeletedObserverTopic, nullptr);
 
-  return true;
+  return IPC_OK();
 }
 
 PSmsRequestChild* SmsChild::AllocPSmsRequestChild(
@@ -161,7 +162,7 @@ void SmsRequestChild::ActorDestroy(ActorDestroyReason aWhy) {
   // Nothing needed here.
 }
 
-mozilla::ipc::IPCResult SmsRequestChild::Recv__delete__(
+IPCResult SmsRequestChild::Recv__delete__(
     const MessageReply& aReply) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mReplyRequest);
@@ -263,7 +264,7 @@ void MobileMessageCursorChild::ActorDestroy(ActorDestroyReason aWhy) {
   // Nothing needed here.
 }
 
-bool MobileMessageCursorChild::RecvNotifyResult(
+IPCResult MobileMessageCursorChild::RecvNotifyResult(
     const MobileMessageCursorData& aData) {
   MOZ_ASSERT(mCursorCallback);
 
@@ -278,10 +279,10 @@ bool MobileMessageCursorChild::RecvNotifyResult(
       MOZ_CRASH("Received invalid response parameters!");
   }
 
-  return true;
+  return IPC_OK();
 }
 
-mozilla::ipc::IPCResult MobileMessageCursorChild::Recv__delete__(
+IPCResult MobileMessageCursorChild::Recv__delete__(
     const int32_t& aError) {
   MOZ_ASSERT(mCursorCallback);
 

@@ -105,8 +105,9 @@ add_task(async function startup() {
 
   let knownProblematicPrefs = {
     "browser.startup.record": {
+      // This pref is accessed in Nighly and debug builds only.
       min: 200,
-      max: 350,
+      max: 400,
     },
     "network.loadinfo.skip_type_assertion": {
       // This is accessed in debug only.
@@ -250,11 +251,11 @@ add_task(async function navigate_around() {
       // The following 2 graphics prefs are covered by
       // https://bugzilla.mozilla.org/show_bug.cgi?id=1639497
       knownProblematicPrefs["gfx.canvas.azure.backends"] = {
-        min: 100,
+        min: 90,
         max: 110,
       };
       knownProblematicPrefs["gfx.content.azure.backends"] = {
-        min: 100,
+        min: 90,
         max: 110,
       };
       // The following 2 sandbox prefs are covered by

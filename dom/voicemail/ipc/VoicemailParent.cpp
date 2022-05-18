@@ -8,6 +8,8 @@
 
 #include "nsServiceManagerUtils.h"
 
+using mozilla::ipc::IPCResult;
+
 namespace mozilla {
 namespace dom {
 namespace voicemail {
@@ -23,14 +25,14 @@ mozilla::ipc::IPCResult VoicemailParent::Init() {
   }
 }
 
-bool VoicemailParent::RecvGetAttributes(
+IPCResult VoicemailParent::RecvGetAttributes(
     const uint32_t& aServiceId, nsString* aNumber, nsString* aDisplayName,
     bool* aHasMessages, int32_t* aMessageCount, nsString* aReturnNumber,
     nsString* aReturnMessage) {
   nsCOMPtr<nsIVoicemailProvider> provider;
   NS_ENSURE_SUCCESS(
       mService->GetItemByServiceId(aServiceId, getter_AddRefs(provider)),
-      false);
+      IPC_FAIL(this, "No voicemail provider"));
 
   provider->GetNumber(*aNumber);
   provider->GetDisplayName(*aDisplayName);
@@ -39,7 +41,7 @@ bool VoicemailParent::RecvGetAttributes(
   provider->GetReturnNumber(*aReturnNumber);
   provider->GetReturnMessage(*aReturnMessage);
 
-  return true;
+  return IPC_OK();
 }
 
 void VoicemailParent::ActorDestroy(ActorDestroyReason aWhy) {

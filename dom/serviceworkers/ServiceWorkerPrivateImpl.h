@@ -153,7 +153,7 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
 
   // Setup the navigation preload by the intercepted channel and the
   // RegistrationInfo.
-  RefPtr<FetchServiceResponsePromise> SetupNavigationPreload(
+  RefPtr<FetchServicePromises> SetupNavigationPreload(
       nsCOMPtr<nsIInterceptedChannel>& aChannel,
       const RefPtr<ServiceWorkerRegistrationInfo>& aRegistration);
 
@@ -161,7 +161,7 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
       RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
       ParentToParentServiceWorkerFetchEventOpArgs&& aArgs,
       nsCOMPtr<nsIInterceptedChannel>&& aChannel,
-      RefPtr<FetchServiceResponsePromise>&& aPreloadResponseReadyPromise);
+      RefPtr<FetchServicePromises>&& aPreloadResponseReadyPromises);
 
   void Shutdown();
 
@@ -220,7 +220,7 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
         RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
         ParentToParentServiceWorkerFetchEventOpArgs&& aArgs,
         nsCOMPtr<nsIInterceptedChannel>&& aChannel,
-        RefPtr<FetchServiceResponsePromise>&& aPreloadResponseReadyPromise);
+        RefPtr<FetchServicePromises>&& aPreloadResponseReadyPromises);
 
     nsresult Send() override;
 
@@ -229,13 +229,13 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
    private:
     ParentToParentServiceWorkerFetchEventOpArgs mArgs;
     nsCOMPtr<nsIInterceptedChannel> mChannel;
-    // The promise from FetchService. It indicates if the preload response is
+    // The promises from FetchService. It indicates if the preload response is
     // ready or not. The promise's resolve/reject value should be handled in
     // FetchEventOpChild, such that the preload result can be propagated to the
     // ServiceWorker through IPC. However, FetchEventOpChild creation could be
     // pending here, so this member is needed. And it will be forwarded to
     // FetchEventOpChild when crearting the FetchEventOpChild.
-    RefPtr<FetchServiceResponsePromise> mPreloadResponseReadyPromise;
+    RefPtr<FetchServicePromises> mPreloadResponseReadyPromises;
   };
 
   nsTArray<UniquePtr<PendingFunctionalEvent>> mPendingFunctionalEvents;

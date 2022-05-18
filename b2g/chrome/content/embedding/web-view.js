@@ -1076,7 +1076,7 @@ const { AboutReaderParent } = ChromeUtils.import(
       let psService = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
         Ci.nsIPrintSettingsService
       );
-      const printSettings = psService.newPrintSettings;
+      const printSettings = psService.createNewPrintSettings();
       printSettings.isInitializedFromPrinter = true;
       printSettings.isInitializedFromPrefs = true;
       printSettings.outputFormat = Ci.nsIPrintSettings.kOutputFormatPDF;

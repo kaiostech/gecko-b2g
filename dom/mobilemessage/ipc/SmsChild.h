@@ -13,6 +13,8 @@
 #include "nsIMobileMessageCallback.h"
 #include "nsIMobileMessageCursorCallback.h"
 
+using mozilla::ipc::IPCResult;
+
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
@@ -28,27 +30,27 @@ class SmsChild : public PSmsChild {
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  bool RecvNotifyReceivedMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifyReceivedMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifyRetrievingMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifyRetrievingMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifySendingMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifySendingMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifySentMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifySentMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifyFailedMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifyFailedMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifyDeliverySuccessMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifyDeliverySuccessMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifyDeliveryErrorMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifyDeliveryErrorMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifyReceivedSilentMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifyReceivedSilentMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifyReadSuccessMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifyReadSuccessMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifyReadErrorMessage(const MobileMessageData& aMessage);
+  IPCResult RecvNotifyReadErrorMessage(const MobileMessageData& aMessage);
 
-  bool RecvNotifyDeletedMessageInfo(const DeletedMessageInfoData& aDeletedInfo);
+  IPCResult RecvNotifyDeletedMessageInfo(const DeletedMessageInfoData& aDeletedInfo);
 
   PSmsRequestChild* AllocPSmsRequestChild(const IPCSmsRequest& aRequest);
 
@@ -75,7 +77,7 @@ class SmsRequestChild : public PSmsRequestChild {
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  mozilla::ipc::IPCResult Recv__delete__(const MessageReply& aReply);
+  IPCResult Recv__delete__(const MessageReply& aReply);
 };
 
 class MobileMessageCursorChild : public PMobileMessageCursorChild,
@@ -96,9 +98,9 @@ class MobileMessageCursorChild : public PMobileMessageCursorChild,
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  bool RecvNotifyResult(const MobileMessageCursorData& aData);
+  IPCResult RecvNotifyResult(const MobileMessageCursorData& aData);
 
-  mozilla::ipc::IPCResult Recv__delete__(const int32_t& aError);
+  IPCResult Recv__delete__(const int32_t& aError);
 
  private:
   void DoNotifyResult(const nsTArray<MobileMessageData>& aData);

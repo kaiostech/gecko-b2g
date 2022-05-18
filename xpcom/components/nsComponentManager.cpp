@@ -223,7 +223,7 @@ class MOZ_STACK_CLASS EntryWrapper final {
 static already_AddRefed<nsIFile> GetLocationFromDirectoryService(
     const char* aProp) {
   nsCOMPtr<nsIProperties> directoryService;
-  nsDirectoryService::Create(nullptr, NS_GET_IID(nsIProperties),
+  nsDirectoryService::Create(NS_GET_IID(nsIProperties),
                              getter_AddRefs(directoryService));
 
   if (!directoryService) {
@@ -256,12 +256,7 @@ static already_AddRefed<nsIFile> CloneAndAppend(nsIFile* aBase,
 // nsComponentManagerImpl
 ////////////////////////////////////////////////////////////////////////////////
 
-nsresult nsComponentManagerImpl::Create(nsISupports* aOuter, REFNSIID aIID,
-                                        void** aResult) {
-  if (aOuter) {
-    return NS_ERROR_NO_AGGREGATION;
-  }
-
+nsresult nsComponentManagerImpl::Create(REFNSIID aIID, void** aResult) {
   if (!gComponentManager) {
     return NS_ERROR_FAILURE;
   }
@@ -286,7 +281,6 @@ extern const mozilla::Module kWidgetModule;
 extern const mozilla::Module kLayoutModule;
 extern const mozilla::Module kKeyValueModule;
 extern const mozilla::Module kXREModule;
-extern const mozilla::Module kEmbeddingModule;
 #if defined(MOZ_B2G)
 extern const mozilla::Module kGaiaChromeModule;
 #endif
@@ -390,7 +384,6 @@ nsresult nsComponentManagerImpl::Init() {
   RegisterModule(&kLayoutModule);
   RegisterModule(&kKeyValueModule);
   RegisterModule(&kXREModule);
-  RegisterModule(&kEmbeddingModule);
 #if defined(MOZ_B2G)
   RegisterModule(&kGaiaChromeModule);
 #endif
@@ -1087,7 +1080,7 @@ nsComponentManagerImpl::CreateInstance(const nsCID& aClass, const nsIID& aIID,
   nsresult rv;
   nsCOMPtr<nsIFactory> factory = entry->GetFactory();
   if (factory) {
-    rv = factory->CreateInstance(nullptr, aIID, aResult);
+    rv = factory->CreateInstance(aIID, aResult);
     if (NS_SUCCEEDED(rv) && !*aResult) {
       NS_ERROR("Factory did not return an object but returned success!");
       rv = NS_ERROR_SERVICE_NOT_AVAILABLE;
@@ -1170,7 +1163,7 @@ nsComponentManagerImpl::CreateInstanceByContractID(const char* aContractID,
   nsresult rv;
   nsCOMPtr<nsIFactory> factory = entry->GetFactory();
   if (factory) {
-    rv = factory->CreateInstance(nullptr, aIID, aResult);
+    rv = factory->CreateInstance(aIID, aResult);
     if (NS_SUCCEEDED(rv) && !*aResult) {
       NS_ERROR("Factory did not return an object but returned success!");
       rv = NS_ERROR_SERVICE_NOT_AVAILABLE;
@@ -1782,7 +1775,7 @@ already_AddRefed<nsIFactory> nsFactoryEntry::GetFactory() {
 nsresult nsFactoryEntry::CreateInstance(const nsIID& aIID, void** aResult) {
   nsCOMPtr<nsIFactory> factory = GetFactory();
   NS_ENSURE_TRUE(factory, NS_ERROR_FAILURE);
-  return factory->CreateInstance(nullptr, aIID, aResult);
+  return factory->CreateInstance(aIID, aResult);
 }
 
 size_t nsFactoryEntry::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) {

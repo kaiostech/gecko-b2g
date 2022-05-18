@@ -158,7 +158,10 @@ static const RedirEntry kRedirMap[] = {
 #endif
 #ifndef MOZ_GLEAN_ANDROID
     {"glean", "chrome://global/content/aboutGlean.html",
-     nsIAboutModule::HIDE_FROM_ABOUTABOUT | nsIAboutModule::ALLOW_SCRIPT},
+#  if !defined(NIGHTLY_BUILD) && defined(MOZILLA_OFFICIAL)
+     nsIAboutModule::HIDE_FROM_ABOUTABOUT |
+#  endif
+         nsIAboutModule::ALLOW_SCRIPT},
 #endif
     {"telemetry", "chrome://global/content/aboutTelemetry.xhtml",
      nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::IS_SECURE_CHROME_UI},
@@ -281,8 +284,7 @@ nsAboutRedirector::GetChromeURI(nsIURI* aURI, nsIURI** chromeURI) {
   return NS_ERROR_ILLEGAL_VALUE;
 }
 
-nsresult nsAboutRedirector::Create(nsISupports* aOuter, REFNSIID aIID,
-                                   void** aResult) {
+nsresult nsAboutRedirector::Create(REFNSIID aIID, void** aResult) {
   RefPtr<nsAboutRedirector> about = new nsAboutRedirector();
   return about->QueryInterface(aIID, aResult);
 }

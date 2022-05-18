@@ -352,10 +352,10 @@ void SharedBufferManagerChild::DropGrallocBuffer(
 #endif
 }
 
-bool SharedBufferManagerChild::RecvDropGrallocBuffer(
+IPCResult SharedBufferManagerChild::RecvDropGrallocBuffer(
     const mozilla::layers::MaybeMagicGrallocBufferHandle& aHandle) {
   DropGrallocBuffer(aHandle);
-  return true;
+  return IPC_OK();
 }
 
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC

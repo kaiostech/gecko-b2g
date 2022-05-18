@@ -27,6 +27,8 @@
 #include "nsServiceManagerUtils.h"
 #include "DeletedMessageInfo.h"
 
+using mozilla::ipc::IPCResult;
+
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
@@ -347,39 +349,39 @@ SmsParent::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-bool SmsParent::RecvAddSilentNumber(const nsString& aNumber) {
+IPCResult SmsParent::RecvAddSilentNumber(const nsString& aNumber) {
   if (mSilentNumbers.Contains(aNumber)) {
-    return true;
+    return IPC_OK();
   }
 
   nsCOMPtr<nsISmsService> smsService = do_GetService(SMS_SERVICE_CONTRACTID);
-  NS_ENSURE_TRUE(smsService, true);
+  NS_ENSURE_TRUE(smsService, IPC_OK());
 
   nsresult rv = smsService->AddSilentNumber(aNumber);
   if (NS_SUCCEEDED(rv)) {
     mSilentNumbers.AppendElement(aNumber);
   }
 
-  return true;
+  return IPC_OK();
 }
 
-bool SmsParent::RecvRemoveSilentNumber(const nsString& aNumber) {
+IPCResult SmsParent::RecvRemoveSilentNumber(const nsString& aNumber) {
   if (!mSilentNumbers.Contains(aNumber)) {
-    return true;
+    return IPC_OK();
   }
 
   nsCOMPtr<nsISmsService> smsService = do_GetService(SMS_SERVICE_CONTRACTID);
-  NS_ENSURE_TRUE(smsService, true);
+  NS_ENSURE_TRUE(smsService, IPC_OK());
 
   nsresult rv = smsService->RemoveSilentNumber(aNumber);
   if (NS_SUCCEEDED(rv)) {
     mSilentNumbers.RemoveElement(aNumber);
   }
 
-  return true;
+  return IPC_OK();
 }
 
-mozilla::ipc::IPCResult SmsParent::RecvPSmsRequestConstructor(
+IPCResult SmsParent::RecvPSmsRequestConstructor(
     PSmsRequestParent* aActor, const IPCSmsRequest& aRequest) {
   SmsRequestParent* actor = static_cast<SmsRequestParent*>(aActor);
 
@@ -439,7 +441,7 @@ bool SmsParent::DeallocPSmsRequestParent(PSmsRequestParent* aActor) {
   return true;
 }
 
-mozilla::ipc::IPCResult SmsParent::RecvPMobileMessageCursorConstructor(
+IPCResult SmsParent::RecvPMobileMessageCursorConstructor(
     PMobileMessageCursorParent* aActor,
     const IPCMobileMessageCursor& aRequest) {
   MobileMessageCursorParent* actor =
@@ -780,15 +782,16 @@ void MobileMessageCursorParent::ActorDestroy(ActorDestroyReason aWhy) {
   mContinueCallback = nullptr;
 }
 
-bool MobileMessageCursorParent::RecvContinue() {
+IPCResult MobileMessageCursorParent::RecvContinue() {
   MOZ_ASSERT(mContinueCallback);
 
   if (NS_FAILED(mContinueCallback->HandleContinue())) {
-    return NS_SUCCEEDED(
+    bool success = NS_SUCCEEDED(
         NotifyCursorError(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return success ? IPC_OK() : IPC_FAIL(this, "Internal Error");
   }
 
-  return true;
+  return IPC_OK();
 }
 
 bool MobileMessageCursorParent::DoRequest(

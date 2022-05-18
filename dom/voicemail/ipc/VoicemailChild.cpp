@@ -11,6 +11,8 @@
 #include "nsIMobileConnectionService.h"
 #include "nsServiceManagerUtils.h"
 
+using mozilla::ipc::IPCResult;
+
 namespace mozilla {
 namespace dom {
 namespace voicemail {
@@ -116,12 +118,12 @@ VoicemailChild::~VoicemailChild() {
 
 // PVoicemailChild
 
-bool VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
+IPCResult VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
                                            const nsString& aNumber,
                                            const nsString& aDisplayName) {
   nsCOMPtr<nsIVoicemailProvider> provider;
   NS_ENSURE_SUCCESS(GetItemByServiceId(aServiceId, getter_AddRefs(provider)),
-                    false);
+                    IPC_FAIL(this, "No voicemail provider"));
 
   VoicemailIPCProvider* pProvider =
       static_cast<VoicemailIPCProvider*>(provider.get());
@@ -135,17 +137,17 @@ bool VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
     copy[i]->NotifyInfoChanged(provider);
   }
 
-  return true;
+  return IPC_OK();
 }
 
-bool VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
+IPCResult VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
                                              const bool& aHasMessages,
                                              const int32_t& aMessageCount,
                                              const nsString& aReturnNumber,
                                              const nsString& aReturnMessage) {
   nsCOMPtr<nsIVoicemailProvider> provider;
   NS_ENSURE_SUCCESS(GetItemByServiceId(aServiceId, getter_AddRefs(provider)),
-                    false);
+                    IPC_FAIL(this, "No voicemail provider"));
 
   VoicemailIPCProvider* pProvider =
       static_cast<VoicemailIPCProvider*>(provider.get());
@@ -161,7 +163,7 @@ bool VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
     copy[i]->NotifyStatusChanged(provider);
   }
 
-  return true;
+  return IPC_OK();
 }
 
 void VoicemailChild::ActorDestroy(ActorDestroyReason aWhy) {

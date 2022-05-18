@@ -10,6 +10,8 @@
 #include "BluetoothRequestParent.h"
 #include "BluetoothService.h"
 
+using mozilla::ipc::IPCResult;
+
 using mozilla::Unused;
 USING_BLUETOOTH_NAMESPACE
 
@@ -65,24 +67,24 @@ void BluetoothParent::ActorDestroy(ActorDestroyReason aWhy) {
 #endif
 }
 
-bool BluetoothParent::RecvRegisterSignalHandler(const nsString& aNode) {
+IPCResult BluetoothParent::RecvRegisterSignalHandler(const nsString& aNode) {
   MOZ_ASSERT(mService);
   mService->RegisterBluetoothSignalHandler(aNode, this);
-  return true;
+  return IPC_OK();
 }
 
-bool BluetoothParent::RecvUnregisterSignalHandler(const nsString& aNode) {
+IPCResult BluetoothParent::RecvUnregisterSignalHandler(const nsString& aNode) {
   MOZ_ASSERT(mService);
   mService->UnregisterBluetoothSignalHandler(aNode, this);
-  return true;
+  return IPC_OK();
 }
 
-bool BluetoothParent::RecvStopNotifying() {
+IPCResult BluetoothParent::RecvStopNotifying() {
   MOZ_ASSERT(mService);
 
   if (mShutdownState != Running && mShutdownState != SentBeginShutdown) {
     MOZ_ASSERT(false, "Bad state!");
-    return false;
+    return IPC_FAIL(this, "Bad state!");
   }
 
   mShutdownState = ReceivedStopNotifying;
@@ -91,10 +93,10 @@ bool BluetoothParent::RecvStopNotifying() {
 
   if (SendNotificationsStopped()) {
     mShutdownState = SentNotificationsStopped;
-    return true;
+    return IPC_OK();
   }
 
-  return false;
+  return IPC_FAIL(this, "Bad state!");
 }
 
 mozilla::ipc::IPCResult BluetoothParent::RecvPBluetoothRequestConstructor(

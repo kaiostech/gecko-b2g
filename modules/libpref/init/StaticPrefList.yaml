@@ -1853,12 +1853,6 @@
   value: false
   mirror: always
 
-# Whether window.mozPaintCount is exposed to the web.
-- name: dom.mozPaintCount.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Allow cut/copy
 - name: dom.allow_cut_copy
   type: bool
@@ -3329,7 +3323,10 @@
 #   0: On-demand only. Delazification will be triggered only on the main thread
 #      before the execution of the function.
 #
-#   1: Depth-first. Delazify all functions off-thread in the order of appearance
+#   1: Compare on-demand delazification (= 0) with concurrent depth-first
+#      delazification (= 2).
+#
+#   2: Depth-first. Delazify all functions off-thread in the order of appearance
 #      in the source.
 #
 # 255: Parse everything eagerly, from the first parse. All functions are parsed
@@ -3687,35 +3684,6 @@
 # Whether the File System API is enabled
 - name: dom.fs.enabled
   type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# Should we abort LocalStorage requests when a sync message from parent is
-# detected?
-#
-# LocalStorage is a synchronous API involving sync IPC from the child to the
-# parent. Accessibility interfaces currently also involve different forms of
-# synchronous parent-to-child communication. (See bug 1516136 comment 11 and
-# comment 15.) Although LocalStorage NextGen no longer needs to consult the
-# main thread, thereby eliminating the possibility of deadlock, the browser is
-# very complex and so we have retained a fail-safe mechanism that will cause
-# blocking LocalStorage operations to abort on synchronous IPC from the parent
-# to the child.
-#
-# We are disabling this fail-safe mechanism because it is fundamentally visible
-# to content when activated. When we abort the synchronous LocalStorage
-# operation we throw an error which has the potential to break web content.
-# This is not a hypothetical. In bug 1574569 content broke due to accessibility
-# path aborting the LS call, but the LS call didn't need to abort because it
-# was not at risk of deadlock.
-#
-# But we are retaining the preference in the event that regressions occur
-# anywhere in the code-base that could cause a cascade that would result in
-# deadlock. (There have been logic bugs in components that resulted in
-# PBackground synchronously blocking in a way that could result in deadlock.)
-# This allows us to re-enable the fail-safe with only a pref flip.
-- name: dom.storage.abort_on_sync_parent_to_child_messages
-  type: bool
   value: false
   mirror: always
 
@@ -5319,6 +5287,23 @@
   value: 6000
   mirror: always
 
+#ifdef MOZ_ENABLE_DBUS
+# Whether to use Geoclue location provider (if available on the system).
+- name: geo.provider.use_geoclue
+  type: bool
+  value: true
+  mirror: always
+
+# Whether to always provide high location accuracy, even if site
+# doesn't actually request this level of accuracy.
+# Almost no site correctly requests high accuracy so force it by default
+# for compatibility with other geolocation providers.
+- name: geo.provider.geoclue.always_high_accuracy
+  type: bool
+  value: true
+  mirror: always
+#endif
+
 #---------------------------------------------------------------------------
 # Prefs starting with "gfx."
 #---------------------------------------------------------------------------
@@ -5358,6 +5343,11 @@
 - name: gfx.canvas.accelerated.cache-size
   type: RelaxedAtomicUint32
   value: 256
+  mirror: always
+
+- name: gfx.canvas.accelerated.reserve-empty-cache
+  type: RelaxedAtomicUint32
+  value: 36
   mirror: always
 
 - name: gfx.canvas.accelerated.max-size
@@ -5600,6 +5590,13 @@
   type: int32_t
   value: 0
   mirror: once
+
+# Rate by which the frame rate is divided. I.e. at a number higher than 1 we
+# will only refresh every <x> frames.
+- name: gfx.display.frame-rate-divisor
+  type: RelaxedAtomicInt32
+  value: 1
+  mirror: always
 
 # Whether to preserve color bitmap tables in fonts (bypassing OTS).
 # Currently these are supported only on platforms where we use Freetype
@@ -7006,22 +7003,6 @@
   value: true
   mirror: always  # LoadStartupJSPrefs
   do_not_use_directly: true
-
-# Streams API. This only applies to JS Streams
-- name: javascript.options.streams
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Writable Streams API.  (The pref above must also be set to expose this.)
-#
-# Writable streams are still EXTRAORDINARILY BETA and it is well-known that
-# things are likely pretty broken if you poke much at all, so if you flip this
-# preference, don't report bugs against it just yet.
-- name: javascript.options.writable_streams
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
 
 - name: javascript.options.main_thread_stack_quota_cap
   type: uint32_t
@@ -8506,21 +8487,6 @@
   value: true
   mirror: always
 
-# Whether the computed value of line-height: normal returns the `normal`
-# keyword rather than a pixel value based on the first available font.
-#
-# Only enabled on Nightly and early beta, at least for now.
-#
-# It'd be nice to make numbers compute also to themselves, but it looks like
-# everybody agrees on turning them into pixels, see the discussion starting
-# from [1].
-#
-# [1]: https://github.com/w3c/csswg-drafts/issues/3749#issuecomment-477287453
-- name: layout.css.line-height.normal-as-resolved-value.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Is 'content:none' supported on (non-pseudo) elements?
 - name: layout.css.element-content-none.enabled
   type: RelaxedAtomicBool
@@ -9203,9 +9169,21 @@
 # using the IPC actor within the Utility process rather than the RDD process.
 # When it is set to true, then the utility process will take precedence over RDD
 # to perform audio decoding.
+# TODO: Android: Bug 1767930
+# TODO: OpenBSD: Bug 1769033
 - name: media.utility-process.enabled
   type: RelaxedAtomicBool
+#if defined(XP_WIN)
+  value: true
+#elif defined(XP_MACOSX)
+  value: true
+#elif defined(XP_LINUX) && !defined(ANDROID)
+  value: true
+#elif defined(XP_OPENBSD)
   value: false
+#else
+  value: false
+#endif
   mirror: always
 
 #ifdef MOZ_FFMPEG
@@ -9417,6 +9395,12 @@
 -   name: media.wmf.av1.enabled
     type: RelaxedAtomicBool
     value: true
+    mirror: always
+
+# Using Windows Media Foundation Media Engine for encrypted playback
+-   name: media.wmf.media-engine.enabled
+    type: RelaxedAtomicBool
+    value: false
     mirror: always
 
 #endif  # MOZ_WMF
@@ -10697,6 +10681,12 @@
 - name: network.preload
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Enable 103 Early Hint status code (RFC 8297)
+- name: network.early-hints.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Whether to use the network process or not
@@ -12124,9 +12114,17 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
-# The global switch to control the URL query sting stripping which strips query
-# parameters from loading URIs to prevent bounce (redirect) tracking.
+# Enables / disables the URL query string stripping in normal browsing mode
+# which strips query parameters from loading URIs to prevent bounce (redirect)
+# tracking.
 - name: privacy.query_stripping.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Same as the pref above, but controls query stripping for private browsing
+# mode.
+- name: privacy.query_stripping.enabled.pbmode
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -12269,7 +12267,6 @@
   value: true
   mirror: always
 
-
 # The level to which we sandbox the content process. firefox.js sets the
 # default to different values on a per-OS basis, and has documentation
 # on what the defaults are and what the numbers mean.
@@ -12399,6 +12396,13 @@
   value: true
   mirror: always
 
+# Block the execution of scripts using a wrong type as defined by the file extension
+# (OS) mapping when loaded via the file:// protocol.
+- name: security.block_fileuri_script_with_wrong_mime
+  type: bool
+  value: true
+  mirror: always
+
 # Cancel outgoing requests from SystemPrincipal
 - name: security.cancel_non_local_loads_triggered_by_systemprincipal
   type: bool
@@ -12435,10 +12439,318 @@
 
 # Disable preloaded static key pins by default.
 - name: security.cert_pinning.enforcement_level
-  type: ReleaseAcquireAtomicUint32
+  type: RelaxedAtomicUint32
   value: 0
   mirror: always
   do_not_use_directly: true
+
+# OCSP fetching behavior:
+# 0: do not fetch OCSP
+# 1: fetch OCSP for DV and EV certificates
+# 2: fetch OCSP only for EV certificates
+- name: security.OCSP.enabled
+  type: RelaxedAtomicUint32
+#ifdef ANDROID
+  value: 2
+#else
+  value: 1
+#endif
+  mirror: always
+
+# Whether or not OCSP is required.
+# true => hard-fail (if an OCSP request times out, stop the connection)
+# false => soft-fail (if an OCSP request times out, continue the connection)
+- name: security.OCSP.require
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# How many milliseconds to wait for an OCSP response before assuming it failed
+# (when fetching for soft-fail).
+- name: security.OCSP.timeoutMilliseconds.soft
+  type: RelaxedAtomicUint32
+#ifdef RELEASE_OR_BETA
+  value: 2000
+#else
+  value: 1000
+#endif
+  mirror: always
+
+# How many milliseconds to wait for an OCSP response before assuming it failed
+# (when fetching for hard-fail).
+- name: security.OCSP.timeoutMilliseconds.hard
+  type: RelaxedAtomicUint32
+  value: 10000
+  mirror: always
+
+# Whether or not to enable OCSP must-staple (in other words, TLS-feature with
+# status request).
+- name: security.ssl.enable_ocsp_must_staple
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Whether or not to enable OCSP stapling.
+- name: security.ssl.enable_ocsp_stapling
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# This is checked at startup to see if NSS should be initialized without the
+# user's certificate and key databases.
+- name: security.nocertdb
+  type: bool
+  value: false
+  mirror: once
+
+# On Windows 8.1, if the following preference is 2, we will attempt to detect
+# if the Family Safety TLS interception feature has been enabled. If so, we
+# will behave as if the enterprise roots feature has been enabled (i.e. import
+# and trust third party root certificates from the OS).
+# With any other value of the pref or on any other platform, this does nothing.
+# This preference takes precedence over "security.enterprise_roots.enabled".
+- name: security.family_safety.mode
+  type: RelaxedAtomicUint32
+  value: 2
+  mirror: always
+
+# Whether or not to import and trust third party root certificates from the OS.
+- name: security.enterprise_roots.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.intermediate_preloading_healer.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NOT_ANDROID@
+  mirror: always
+
+- name: security.intermediate_preloading_healer.timer_interval_ms
+  type: RelaxedAtomicUint32
+  value: 300000
+  mirror: always
+
+# If true, attempt to load the osclientcerts PKCS#11 module at startup on a
+# background thread. This module allows Firefox to use client certificates
+# stored in OS certificate storage. Currently only available for Windows and
+# macOS.
+- name: security.osclientcerts.autoload
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.pki.cert_short_lifetime_in_days
+  type: RelaxedAtomicUint32
+  value: 10
+  mirror: always
+
+# NB: Changes to this pref affect CERT_CHAIN_SHA1_POLICY_STATUS telemetry.
+# See the comment in CertVerifier.cpp.
+# 1 = forbid sha1 in certificate signatures, even for imported roots
+- name: security.pki.sha1_enforcement_level
+  type: RelaxedAtomicUint32
+  value: 1
+  mirror: always
+
+# security.pki.netscape_step_up_policy controls how the platform handles the
+# id-Netscape-stepUp OID in extended key usage extensions of CA certificates.
+# 0: id-Netscape-stepUp is always considered equivalent to id-kp-serverAuth
+# 1: it is considered equivalent when the notBefore is before 23 August 2016
+# 2: similarly, but for 23 August 2015
+# 3: it is never considered equivalent
+- name: security.pki.netscape_step_up_policy
+  type: RelaxedAtomicUint32
+#ifdef RELEASE_OR_BETA
+  value: 1
+#else
+  value: 2
+#endif
+  mirror: always
+
+# Configures Certificate Transparency support mode:
+# 0: Fully disabled.
+# 1: Only collect telemetry. CT qualification checks are not performed.
+- name: security.pki.certificate_transparency.mode
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
+# 0: Disable CRLite entirely.
+# 1: Consult CRLite but only collect telemetry.
+# 2: Consult CRLite and enforce both "Revoked" and "Not Revoked" results.
+# 3: Consult CRLite and enforce "Not Revoked" results, but defer to OCSP for "Revoked".
+- name: security.pki.crlite_mode
+  type: RelaxedAtomicUint32
+  value: 3
+  mirror: always
+
+- name: security.tls.version.min
+  type: RelaxedAtomicUint32
+  value: 3
+  mirror: always
+
+- name: security.tls.version.max
+  type: RelaxedAtomicUint32
+  value: 4
+  mirror: always
+
+- name: security.tls.version.enable-deprecated
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.tls.version.fallback-limit
+  type: RelaxedAtomicUint32
+  value: 4
+  mirror: always
+
+# Turn off post-handshake authentication for TLS 1.3 by default,
+# until the incompatibility with HTTP/2 is resolved:
+# https://tools.ietf.org/html/draft-davidben-http2-tls13-00
+- name: security.tls.enable_post_handshake_auth
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.tls.hello_downgrade_check
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.tls.enable_delegated_credentials
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.tls.enable_0rtt_data
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl.treat_unsafe_negotiation_as_broken
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.ssl.require_safe_negotiation
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.ssl.enable_false_start
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl.enable_alpn
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl.disable_session_identifiers
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.ssl3.ecdhe_rsa_aes_128_gcm_sha256
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_ecdsa_aes_128_gcm_sha256
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_ecdsa_chacha20_poly1305_sha256
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_rsa_chacha20_poly1305_sha256
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_ecdsa_aes_256_gcm_sha384
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_rsa_aes_256_gcm_sha384
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_rsa_aes_128_sha
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_ecdsa_aes_128_sha
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_rsa_aes_256_sha
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.ecdhe_ecdsa_aes_256_sha
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.dhe_rsa_aes_128_sha
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.ssl3.dhe_rsa_aes_256_sha
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: security.ssl3.rsa_aes_128_sha
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.rsa_aes_256_sha
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.rsa_aes_128_gcm_sha256
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.rsa_aes_256_gcm_sha384
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.ssl3.deprecated.rsa_des_ede3_sha
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.tls13.aes_128_gcm_sha256
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.tls13.chacha20_poly1305_sha256
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: security.tls13.aes_256_gcm_sha384
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 #---------------------------------------------------------------------------
 # Prefs starting with "signon."
@@ -13660,7 +13972,7 @@
 
 - name: widget.windows.window_occlusion_tracking_session_lock.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: widget.windows.hide_cursor_when_typing

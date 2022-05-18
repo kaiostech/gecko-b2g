@@ -48,7 +48,7 @@ class ProcessedMediaTrack;
 class FrameStatistics;
 class VideoFrameContainer;
 class MediaFormatReader;
-class MediaDecoderStateMachine;
+class MediaDecoderStateMachineBase;
 struct MediaPlaybackEvent;
 struct SharedDummyTrack;
 
@@ -273,8 +273,8 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
   MediaDecoderStateMachineProxy* GetStateMachine() const;
   void SetStateMachine(MediaDecoderStateMachineProxy* aStateMachine);
 #  else
-  MediaDecoderStateMachine* GetStateMachine() const;
-  void SetStateMachine(MediaDecoderStateMachine* aStateMachine);
+  MediaDecoderStateMachineBase* GetStateMachine() const;
+  void SetStateMachine(MediaDecoderStateMachineBase* aStateMachine);
 #  endif
 
   // Constructs the time ranges representing what segments of the media
@@ -520,7 +520,7 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
 #  ifdef MOZ_WIDGET_GONK
   void ConnectMirrors(MediaDecoderStateMachineProxy* aObject);
 #  else
-  void ConnectMirrors(MediaDecoderStateMachine* aObject);
+  void ConnectMirrors(MediaDecoderStateMachineBase* aObject);
 #  endif
   void DisconnectMirrors();
 
@@ -536,7 +536,7 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
 #  ifdef MOZ_WIDGET_GONK
   RefPtr<MediaDecoderStateMachineProxy> mDecoderStateMachine;
 #  else
-  RefPtr<MediaDecoderStateMachine> mDecoderStateMachine;
+  RefPtr<MediaDecoderStateMachineBase> mDecoderStateMachine;
 #  endif
 
  protected:

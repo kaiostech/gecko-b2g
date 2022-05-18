@@ -187,7 +187,7 @@ Result<nsCOMPtr<nsIOutputStream>, nsresult> NS_NewLocalFileOutputStream(
 nsresult NS_NewLocalFileOutputStream(nsIOutputStream** result,
                                      const mozilla::ipc::FileDescriptor& fd) {
   nsCOMPtr<nsIFileOutputStream> out;
-  nsFileOutputStream::Create(nullptr, NS_GET_IID(nsIFileOutputStream),
+  nsFileOutputStream::Create(NS_GET_IID(nsIFileOutputStream),
                              getter_AddRefs(out));
 
   nsresult rv =
@@ -1345,7 +1345,7 @@ nsresult NS_NewBufferedOutputStream(
 
   nsCOMPtr<nsIBufferedInputStream> in;
   nsresult rv = nsBufferedInputStream::Create(
-      nullptr, NS_GET_IID(nsIBufferedInputStream), getter_AddRefs(in));
+      NS_GET_IID(nsIBufferedInputStream), getter_AddRefs(in));
   if (NS_SUCCEEDED(rv)) {
     rv = in->Init(inputStream, aBufferSize);
     if (NS_SUCCEEDED(rv)) {

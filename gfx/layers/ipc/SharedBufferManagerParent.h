@@ -57,8 +57,8 @@ public:
    */
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool RecvAllocateGrallocBuffer(const IntSize&, const uint32_t&, const uint32_t&, mozilla::layers::MaybeMagicGrallocBufferHandle*);
-  virtual bool RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle);
+  virtual ipc::IPCResult RecvAllocateGrallocBuffer(const IntSize&, const uint32_t&, const uint32_t&, mozilla::layers::MaybeMagicGrallocBufferHandle*);
+  virtual ipc::IPCResult RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle);
 
   /**
    * Break the buffer's sharing state, decrease buffer reference for both side

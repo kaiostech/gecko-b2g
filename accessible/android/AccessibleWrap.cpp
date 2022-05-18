@@ -210,9 +210,6 @@ nsresult AccessibleWrap::HandleAccEvent(AccEvent* aEvent) {
 
       if (state & states::BUSY) {
         sessionAcc->SendWindowStateChangedEvent(accessible);
-        if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
-          sessionAcc->SendWindowContentChangedEvent();
-        }
       }
       break;
     }
@@ -532,11 +529,13 @@ void AccessibleWrap::GetRoleDescription(role aRole, AccAttributes* aAttributes,
                                         nsAString& aRoleDescription) {
   if (aRole == roles::HEADING && aAttributes) {
     // The heading level is an attribute, so we need that.
-    AutoTArray<nsString, 1> formatString;
-    if (aAttributes->GetAttribute(nsGkAtoms::level,
-                                  *formatString.AppendElement()) &&
-        LocalizeString("headingLevel", aRoleDescription, formatString)) {
-      return;
+    nsAutoString headingLevel;
+    if (aAttributes->GetAttribute(nsGkAtoms::level, headingLevel)) {
+      nsAutoString token(u"heading-");
+      token.Append(headingLevel);
+      if (LocalizeString(token, aRoleDescription)) {
+        return;
+      }
     }
   }
 
@@ -545,8 +544,7 @@ void AccessibleWrap::GetRoleDescription(role aRole, AccAttributes* aAttributes,
     if (aAttributes->GetAttribute(nsGkAtoms::xmlroles, xmlRoles)) {
       nsWhitespaceTokenizer tokenizer(xmlRoles);
       while (tokenizer.hasMoreTokens()) {
-        if (LocalizeString(NS_ConvertUTF16toUTF8(tokenizer.nextToken()).get(),
-                           aRoleDescription)) {
+        if (LocalizeString(tokenizer.nextToken(), aRoleDescription)) {
           return;
         }
       }
@@ -554,7 +552,7 @@ void AccessibleWrap::GetRoleDescription(role aRole, AccAttributes* aAttributes,
   }
 
   GetAccService()->GetStringRole(aRole, aGeckoRole);
-  LocalizeString(NS_ConvertUTF16toUTF8(aGeckoRole).get(), aRoleDescription);
+  LocalizeString(aGeckoRole, aRoleDescription);
 }
 
 int32_t AccessibleWrap::AndroidClass(Accessible* aAccessible) {

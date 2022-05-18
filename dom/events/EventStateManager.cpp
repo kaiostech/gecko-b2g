@@ -12,6 +12,7 @@
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/EventStates.h"
+#include "mozilla/Hal.h"
 #include "mozilla/HTMLEditor.h"
 #include "mozilla/IMEStateManager.h"
 #include "mozilla/MiscEvents.h"
@@ -42,6 +43,7 @@
 #include "mozilla/dom/UIEventBinding.h"
 #include "mozilla/dom/UserActivation.h"
 #include "mozilla/dom/WheelEventBinding.h"
+#include "mozilla/glean/GleanMetrics.h"
 #include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_dom.h"
@@ -227,6 +229,13 @@ UITimerCallback::Notify(nsITimer* aTimer) {
   } else {
     obs->NotifyObservers(nullptr, "user-interaction-active", nullptr);
     EventStateManager::UpdateUserActivityTimer();
+
+    if (XRE_IsParentProcess()) {
+      hal::BatteryInformation batteryInfo;
+      hal::GetCurrentBatteryInformation(&batteryInfo);
+      glean::power_battery::percentage_when_user_active.AccumulateSamples(
+          {uint64_t(batteryInfo.level() * 100)});
+    }
   }
   mPreviousCount = gMouseOrKeyboardEventCounter;
   return NS_OK;
@@ -2962,17 +2971,17 @@ void EventStateManager::DoScrollText(nsIScrollableFrame* aScrollableFrame,
     actualDevPixelScrollAmount.y = 0;
   }
 
-  nsIScrollbarMediator::ScrollSnapMode snapMode =
-      nsIScrollbarMediator::DISABLE_SNAP;
+  ScrollSnapFlags snapFlags = ScrollSnapFlags::Disabled;
   mozilla::ScrollOrigin origin = mozilla::ScrollOrigin::NotSpecified;
   switch (aEvent->mDeltaMode) {
     case WheelEvent_Binding::DOM_DELTA_LINE:
       origin = mozilla::ScrollOrigin::MouseWheel;
-      snapMode = nsIScrollableFrame::ENABLE_SNAP;
+      snapFlags = ScrollSnapFlags::IntendedDirection;
       break;
     case WheelEvent_Binding::DOM_DELTA_PAGE:
       origin = mozilla::ScrollOrigin::Pages;
-      snapMode = nsIScrollableFrame::ENABLE_SNAP;
+      snapFlags = ScrollSnapFlags::IntendedDirection |
+                  ScrollSnapFlags::IntendedEndPosition;
       break;
     case WheelEvent_Binding::DOM_DELTA_PIXEL:
       origin = mozilla::ScrollOrigin::Pixels;
@@ -3034,7 +3043,7 @@ void EventStateManager::DoScrollText(nsIScrollableFrame* aScrollableFrame,
   nsIntPoint overflow;
   aScrollableFrame->ScrollBy(actualDevPixelScrollAmount,
                              ScrollUnit::DEVICE_PIXELS, mode, &overflow, origin,
-                             momentum, snapMode);
+                             momentum, snapFlags);
 
   if (!scrollFrameWeak.IsAlive()) {
     // If the scroll causes changing the layout, we can think that the event

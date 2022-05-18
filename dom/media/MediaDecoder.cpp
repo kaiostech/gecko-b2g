@@ -12,7 +12,7 @@
 #include "DecoderBenchmark.h"
 #include "ImageContainer.h"
 #include "Layers.h"
-#include "MediaDecoderStateMachine.h"
+#include "MediaDecoderStateMachineBase.h"
 #include "MediaFormatReader.h"
 #include "MediaResource.h"
 #include "MediaShutdownManager.h"
@@ -1206,7 +1206,7 @@ void MediaDecoder::SetStreamName(const nsAutoString& aStreamName) {
 #ifdef MOZ_WIDGET_GONK
 void MediaDecoder::ConnectMirrors(MediaDecoderStateMachineProxy* aObject) {
 #else
-void MediaDecoder::ConnectMirrors(MediaDecoderStateMachine* aObject) {
+void MediaDecoder::ConnectMirrors(MediaDecoderStateMachineBase* aObject) {
 #endif
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aObject);
@@ -1228,17 +1228,17 @@ void MediaDecoder::DisconnectMirrors() {
 void MediaDecoder::SetStateMachine(
     MediaDecoderStateMachineProxy* aStateMachine) {
 #else
-void MediaDecoder::SetStateMachine(MediaDecoderStateMachine* aStateMachine) {
+void MediaDecoder::SetStateMachine(MediaDecoderStateMachineBase* aStateMachine) {
 #endif
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT_IF(aStateMachine, !mDecoderStateMachine);
   if (aStateMachine) {
     mDecoderStateMachine = aStateMachine;
-    DDLINKCHILD("decoder state machine", mDecoderStateMachine.get());
+    LOG("set state machine %p", mDecoderStateMachine.get());
     ConnectMirrors(aStateMachine);
     UpdateVideoDecodeMode();
   } else if (mDecoderStateMachine) {
-    DDUNLINKCHILD(mDecoderStateMachine.get());
+    LOG("null out state machine %p", mDecoderStateMachine.get());
     mDecoderStateMachine = nullptr;
     DisconnectMirrors();
   }
@@ -1315,7 +1315,7 @@ void MediaDecoder::NotifyReaderDataArrived() {
 #ifdef MOZ_WIDGET_GONK
 MediaDecoderStateMachineProxy* MediaDecoder::GetStateMachine() const {
 #else
-MediaDecoderStateMachine* MediaDecoder::GetStateMachine() const {
+MediaDecoderStateMachineBase* MediaDecoder::GetStateMachine() const {
 #endif
   MOZ_ASSERT(NS_IsMainThread());
   return mDecoderStateMachine;

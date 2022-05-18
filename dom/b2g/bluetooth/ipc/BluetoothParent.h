@@ -19,6 +19,8 @@ class ContentParent;
 }  // namespace dom
 }  // namespace mozilla
 
+using mozilla::ipc::IPCResult;
+
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothService;
@@ -49,13 +51,13 @@ class BluetoothParent : public PBluetoothParent,
 
   bool InitWithService(BluetoothService* aService);
 
-  virtual bool RecvRegisterSignalHandler(const nsString& aNode);
+  virtual IPCResult RecvRegisterSignalHandler(const nsString& aNode);
 
-  virtual bool RecvUnregisterSignalHandler(const nsString& aNode);
+  virtual IPCResult RecvUnregisterSignalHandler(const nsString& aNode);
 
-  virtual bool RecvStopNotifying();
+  virtual IPCResult RecvStopNotifying();
 
-  virtual mozilla::ipc::IPCResult RecvPBluetoothRequestConstructor(
+  virtual IPCResult RecvPBluetoothRequestConstructor(
       PBluetoothRequestParent* aActor, const Request& aRequest) override;
 
   virtual PBluetoothRequestParent* AllocPBluetoothRequestParent(

@@ -15,6 +15,8 @@
 #include "nsIMobileMessageCursorCallback.h"
 #include "nsIObserver.h"
 
+using mozilla::ipc::IPCResult;
+
 namespace mozilla {
 namespace dom {
 
@@ -31,23 +33,23 @@ class SmsParent : public PSmsParent, public nsIObserver {
   NS_DECL_NSIOBSERVER
 
  protected:
-  bool RecvAddSilentNumber(const nsString& aNumber);
+  IPCResult RecvAddSilentNumber(const nsString& aNumber);
 
-  bool RecvRemoveSilentNumber(const nsString& aNumber);
+  IPCResult RecvRemoveSilentNumber(const nsString& aNumber);
 
   SmsParent();
   virtual ~SmsParent() {}
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual mozilla::ipc::IPCResult RecvPSmsRequestConstructor(
+  virtual IPCResult RecvPSmsRequestConstructor(
       PSmsRequestParent* aActor, const IPCSmsRequest& aRequest) override;
 
   PSmsRequestParent* AllocPSmsRequestParent(const IPCSmsRequest& aRequest);
 
   virtual bool DeallocPSmsRequestParent(PSmsRequestParent* aActor);
 
-  virtual mozilla::ipc::IPCResult RecvPMobileMessageCursorConstructor(
+  virtual IPCResult RecvPMobileMessageCursorConstructor(
       PMobileMessageCursorParent* aActor,
       const IPCMobileMessageCursor& aRequest) override;
 
@@ -114,7 +116,7 @@ class MobileMessageCursorParent : public PMobileMessageCursorParent,
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  bool RecvContinue();
+  IPCResult RecvContinue();
 
   bool DoRequest(const CreateMessageCursorRequest& aRequest);
 

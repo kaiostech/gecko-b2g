@@ -236,7 +236,7 @@ MediaDecoderStateMachineProxy* ChannelMediaDecoder::CreateStateMachine() {
 }
 
 #else
-MediaDecoderStateMachine* ChannelMediaDecoder::CreateStateMachine() {
+MediaDecoderStateMachineBase* ChannelMediaDecoder::CreateStateMachine() {
   MOZ_ASSERT(NS_IsMainThread());
   MediaFormatReaderInit init;
   init.mVideoFrameContainer = GetVideoFrameContainer();

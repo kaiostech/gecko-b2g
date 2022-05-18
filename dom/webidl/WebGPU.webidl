@@ -125,9 +125,18 @@ interface GPUSupportedLimits {
     readonly attribute unsigned long maxUniformBuffersPerShaderStage;
     readonly attribute unsigned long maxUniformBufferBindingSize;
     readonly attribute unsigned long maxStorageBufferBindingSize;
+    readonly attribute unsigned long minUniformBufferOffsetAlignment;
+    readonly attribute unsigned long minStorageBufferOffsetAlignment;
     readonly attribute unsigned long maxVertexBuffers;
     readonly attribute unsigned long maxVertexAttributes;
     readonly attribute unsigned long maxVertexBufferArrayStride;
+    readonly attribute unsigned long maxInterStageShaderComponents;
+    readonly attribute unsigned long maxComputeWorkgroupStorageSize;
+    readonly attribute unsigned long maxComputeInvocationsPerWorkgroup;
+    readonly attribute unsigned long maxComputeWorkgroupSizeX;
+    readonly attribute unsigned long maxComputeWorkgroupSizeY;
+    readonly attribute unsigned long maxComputeWorkgroupSizeZ;
+    readonly attribute unsigned long maxComputeWorkgroupsPerDimension;
 };
 
 [Pref="dom.webgpu.enabled",
@@ -1049,8 +1058,8 @@ dictionary GPUComputePassDescriptor : GPUObjectDescriptorBase {
  Exposed=(Window,DedicatedWorker)]
 interface GPUComputePassEncoder {
     void setPipeline(GPUComputePipeline pipeline);
-    void dispatch(GPUSize32 x, optional GPUSize32 y = 1, optional GPUSize32 z = 1);
-    void dispatchIndirect(GPUBuffer indirectBuffer, GPUSize64 indirectOffset);
+    void dispatchWorkgroups(GPUSize32 x, optional GPUSize32 y = 1, optional GPUSize32 z = 1);
+    void dispatchWorkgroupsIndirect(GPUBuffer indirectBuffer, GPUSize64 indirectOffset);
 
     [Throws]
     void endPass();

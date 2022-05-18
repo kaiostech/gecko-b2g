@@ -3543,7 +3543,7 @@ bool BrowsingContext::IsPopupAllowed() {
 bool BrowsingContext::ShouldAddEntryForRefresh(
     nsIURI* aCurrentURI, const SessionHistoryInfo& aInfo) {
   return ShouldAddEntryForRefresh(aCurrentURI, aInfo.GetURI(),
-                                  aInfo.GetPostData());
+                                  aInfo.HasPostData());
 }
 
 /* static */

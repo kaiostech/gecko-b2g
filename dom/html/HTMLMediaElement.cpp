@@ -7100,7 +7100,7 @@ void HTMLMediaElement::OnVisibilityChange(Visibility aNewVisibility) {
 
 MediaKeys* HTMLMediaElement::GetMediaKeys() const { return mMediaKeys; }
 
-bool HTMLMediaElement::ContainsRestrictedContent() {
+bool HTMLMediaElement::ContainsRestrictedContent() const {
   return GetMediaKeys() != nullptr;
 }
 

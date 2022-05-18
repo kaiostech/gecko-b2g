@@ -693,7 +693,6 @@ nsDisplayListBuilder::nsDisplayListBuilder(nsIFrame* aReferenceFrame,
       mPartialBuildFailed(false),
       mIsInActiveDocShell(false),
       mBuildAsyncZoomContainer(false),
-      mContainsBackdropFilter(false),
       mIsRelativeToLayoutViewport(false),
       mUseOverlayScrollbars(false),
       mAlwaysLayerizeScrollbars(false) {
@@ -2798,7 +2797,7 @@ bool nsDisplaySolidColor::CreateWebRenderCommands(
   LayoutDeviceRect bounds = LayoutDeviceRect::FromAppUnits(
       mBounds, mFrame->PresContext()->AppUnitsPerDevPixel());
   wr::LayoutRect r = wr::ToLayoutRect(bounds);
-  aBuilder.PushRect(r, r, !BackfaceIsHidden(), false,
+  aBuilder.PushRect(r, r, !BackfaceIsHidden(), false, mIsCheckerboardBackground,
                     wr::ToColorF(ToDeviceColor(mColor)));
 
   return true;
@@ -2836,7 +2835,7 @@ bool nsDisplaySolidColorRegion::CreateWebRenderCommands(
     LayoutDeviceRect layerRects = LayoutDeviceRect::FromAppUnits(
         rect, mFrame->PresContext()->AppUnitsPerDevPixel());
     wr::LayoutRect r = wr::ToLayoutRect(layerRects);
-    aBuilder.PushRect(r, r, !BackfaceIsHidden(), false,
+    aBuilder.PushRect(r, r, !BackfaceIsHidden(), false, false,
                       wr::ToColorF(ToDeviceColor(mColor)));
   }
 
@@ -3869,7 +3868,7 @@ bool nsDisplayBackgroundColor::CreateWebRenderCommands(
                                    wr::ToColorF(ToDeviceColor(color)), &prop);
   } else {
     aBuilder.StartGroup(this);
-    aBuilder.PushRect(r, r, !BackfaceIsHidden(), false,
+    aBuilder.PushRect(r, r, !BackfaceIsHidden(), false, false,
                       wr::ToColorF(ToDeviceColor(color)));
     aBuilder.FinishGroup();
   }
@@ -4191,11 +4190,11 @@ bool nsDisplayCaret::CreateWebRenderCommands(
   wr::LayoutRect hook = wr::ToLayoutRect(devHookRect);
 
   // Note, WR will pixel snap anything that is layout aligned.
-  aBuilder.PushRect(caret, caret, !BackfaceIsHidden(), false,
+  aBuilder.PushRect(caret, caret, !BackfaceIsHidden(), false, false,
                     wr::ToColorF(color));
 
   if (!devHookRect.IsEmpty()) {
-    aBuilder.PushRect(hook, hook, !BackfaceIsHidden(), false,
+    aBuilder.PushRect(hook, hook, !BackfaceIsHidden(), false, false,
                       wr::ToColorF(color));
   }
   return true;
@@ -4738,12 +4737,13 @@ nsresult nsDisplayItemWrapper::WrapListsInPlace(
 nsDisplayOpacity::nsDisplayOpacity(
     nsDisplayListBuilder* aBuilder, nsIFrame* aFrame, nsDisplayList* aList,
     const ActiveScrolledRoot* aActiveScrolledRoot, bool aForEventsOnly,
-    bool aNeedsActiveLayer)
+    bool aNeedsActiveLayer, bool aWrapsBackdropFilter)
     : nsDisplayWrapList(aBuilder, aFrame, aList, aActiveScrolledRoot, true),
       mOpacity(aFrame->StyleEffects()->mOpacity),
       mForEventsOnly(aForEventsOnly),
       mNeedsActiveLayer(aNeedsActiveLayer),
-      mChildOpacityState(ChildOpacityState::Unknown) {
+      mChildOpacityState(ChildOpacityState::Unknown),
+      mWrapsBackdropFilter(aWrapsBackdropFilter) {
   MOZ_COUNT_CTOR(nsDisplayOpacity);
 }
 
@@ -5025,6 +5025,9 @@ bool nsDisplayOpacity::CreateWebRenderCommands(
   params.opacity = opacityForSC;
   params.clip =
       wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
+  if (mWrapsBackdropFilter) {
+    params.flags |= wr::StackingContextFlags::WRAPS_BACKDROP_FILTER;
+  }
   StackingContextHelper sc(aSc, GetActiveScrolledRoot(), mFrame, this, aBuilder,
                            params);
 
@@ -7243,13 +7246,11 @@ nsRect nsDisplayTransform::TransformRect(const nsRect& aUntransformedBounds,
 
   float factor = aFrame->PresContext()->AppUnitsPerDevPixel();
 
-  uint32_t flags =
-      INCLUDE_PERSPECTIVE | OFFSET_BY_ORIGIN | INCLUDE_PRESERVE3D_ANCESTORS;
   FrameTransformProperties props(aFrame, aRefBox, factor);
   return nsLayoutUtils::MatrixTransformRect(
       aUntransformedBounds,
-      GetResultingTransformMatrixInternal(props, aRefBox, nsPoint(0, 0), factor,
-                                          flags),
+      GetResultingTransformMatrixInternal(props, aRefBox, nsPoint(), factor,
+                                          kTransformRectFlags),
       factor);
 }
 
@@ -7260,29 +7261,36 @@ bool nsDisplayTransform::UntransformRect(const nsRect& aTransformedBounds,
   MOZ_ASSERT(aFrame, "Can't take the transform based on a null frame!");
 
   float factor = aFrame->PresContext()->AppUnitsPerDevPixel();
+  Matrix4x4 transform = GetResultingTransformMatrix(aFrame, nsPoint(), factor,
+                                                    kTransformRectFlags);
+  return UntransformRect(aTransformedBounds, aChildBounds, transform, factor,
+                         aOutRect);
+}
 
-  uint32_t flags =
-      INCLUDE_PERSPECTIVE | OFFSET_BY_ORIGIN | INCLUDE_PRESERVE3D_ANCESTORS;
-
-  Matrix4x4 transform =
-      GetResultingTransformMatrix(aFrame, nsPoint(0, 0), factor, flags);
-  if (transform.IsSingular()) {
+bool nsDisplayTransform::UntransformRect(const nsRect& aTransformedBounds,
+                                         const nsRect& aChildBounds,
+                                         const Matrix4x4& aMatrix,
+                                         float aAppUnitsPerPixel,
+                                         nsRect* aOutRect) {
+  if (aMatrix.IsSingular()) {
     return false;
   }
 
-  RectDouble result(NSAppUnitsToFloatPixels(aTransformedBounds.x, factor),
-                    NSAppUnitsToFloatPixels(aTransformedBounds.y, factor),
-                    NSAppUnitsToFloatPixels(aTransformedBounds.width, factor),
-                    NSAppUnitsToFloatPixels(aTransformedBounds.height, factor));
+  RectDouble result(
+      NSAppUnitsToFloatPixels(aTransformedBounds.x, aAppUnitsPerPixel),
+      NSAppUnitsToFloatPixels(aTransformedBounds.y, aAppUnitsPerPixel),
+      NSAppUnitsToFloatPixels(aTransformedBounds.width, aAppUnitsPerPixel),
+      NSAppUnitsToFloatPixels(aTransformedBounds.height, aAppUnitsPerPixel));
 
   RectDouble childGfxBounds(
-      NSAppUnitsToFloatPixels(aChildBounds.x, factor),
-      NSAppUnitsToFloatPixels(aChildBounds.y, factor),
-      NSAppUnitsToFloatPixels(aChildBounds.width, factor),
-      NSAppUnitsToFloatPixels(aChildBounds.height, factor));
+      NSAppUnitsToFloatPixels(aChildBounds.x, aAppUnitsPerPixel),
+      NSAppUnitsToFloatPixels(aChildBounds.y, aAppUnitsPerPixel),
+      NSAppUnitsToFloatPixels(aChildBounds.width, aAppUnitsPerPixel),
+      NSAppUnitsToFloatPixels(aChildBounds.height, aAppUnitsPerPixel));
 
-  result = transform.Inverse().ProjectRectBounds(result, childGfxBounds);
-  *aOutRect = nsLayoutUtils::RoundGfxRectToAppRect(ThebesRect(result), factor);
+  result = aMatrix.Inverse().ProjectRectBounds(result, childGfxBounds);
+  *aOutRect = nsLayoutUtils::RoundGfxRectToAppRect(ThebesRect(result),
+                                                   aAppUnitsPerPixel);
   return true;
 }
 
@@ -7858,8 +7866,9 @@ static void ComputeMaskGeometry(PaintFramesParams& aParams) {
 
 nsDisplayMasksAndClipPaths::nsDisplayMasksAndClipPaths(
     nsDisplayListBuilder* aBuilder, nsIFrame* aFrame, nsDisplayList* aList,
-    const ActiveScrolledRoot* aActiveScrolledRoot)
-    : nsDisplayEffectsBase(aBuilder, aFrame, aList, aActiveScrolledRoot, true) {
+    const ActiveScrolledRoot* aActiveScrolledRoot, bool aWrapsBackdropFilter)
+    : nsDisplayEffectsBase(aBuilder, aFrame, aList, aActiveScrolledRoot, true),
+      mWrapsBackdropFilter(aWrapsBackdropFilter) {
   MOZ_COUNT_CTOR(nsDisplayMasksAndClipPaths);
 
   nsPresContext* presContext = mFrame->PresContext();
@@ -8200,6 +8209,9 @@ bool nsDisplayMasksAndClipPaths::CreateWebRenderCommands(
     wr::StackingContextParams params;
     params.clip = wr::WrStackingContextClip::ClipId(*clip);
     params.opacity = opacity.ptrOr(nullptr);
+    if (mWrapsBackdropFilter) {
+      params.flags |= wr::StackingContextFlags::WRAPS_BACKDROP_FILTER;
+    }
     layer.emplace(aSc, GetActiveScrolledRoot(), mFrame, this, aBuilder, params,
                   bounds);
     sc = layer.ptr();
@@ -8272,43 +8284,14 @@ void nsDisplayMasksAndClipPaths::PrintEffects(nsACString& aTo) {
 }
 #endif
 
-void nsDisplayBackdropRootContainer::Paint(nsDisplayListBuilder* aBuilder,
-                                           gfxContext* aCtx) {
-  aCtx->GetDrawTarget()->PushLayer(false, 1.0, nullptr, gfx::Matrix());
-  GetChildren()->Paint(aBuilder, aCtx,
-                       mFrame->PresContext()->AppUnitsPerDevPixel());
-  aCtx->GetDrawTarget()->PopLayer();
-}
-
-bool nsDisplayBackdropRootContainer::CreateWebRenderCommands(
-    wr::DisplayListBuilder& aBuilder, wr::IpcResourceUpdateQueue& aResources,
-    const StackingContextHelper& aSc, RenderRootStateManager* aManager,
-    nsDisplayListBuilder* aDisplayListBuilder) {
-  wr::StackingContextParams params;
-  params.flags |= wr::StackingContextFlags::IS_BACKDROP_ROOT;
-  params.clip =
-      wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
-  StackingContextHelper sc(aSc, GetActiveScrolledRoot(), mFrame, this, aBuilder,
-                           params);
-
-  nsDisplayWrapList::CreateWebRenderCommands(aBuilder, aResources, sc, aManager,
-                                             aDisplayListBuilder);
-  return true;
-}
-
-/* static */
-bool nsDisplayBackdropFilters::CanCreateWebRenderCommands(
-    nsDisplayListBuilder* aBuilder, nsIFrame* aFrame) {
-  return SVGIntegrationUtils::CanCreateWebRenderFiltersForFrame(aFrame);
-}
-
 bool nsDisplayBackdropFilters::CreateWebRenderCommands(
     wr::DisplayListBuilder& aBuilder, wr::IpcResourceUpdateQueue& aResources,
     const StackingContextHelper& aSc, RenderRootStateManager* aManager,
     nsDisplayListBuilder* aDisplayListBuilder) {
   WrFiltersHolder wrFilters;
   Maybe<nsRect> filterClip;
-  auto filterChain = mFrame->StyleEffects()->mBackdropFilters.AsSpan();
+  const ComputedStyle& style = mStyle ? *mStyle : *mFrame->Style();
+  auto filterChain = style.StyleEffects()->mBackdropFilters.AsSpan();
   bool initialized = true;
   if (!SVGIntegrationUtils::CreateWebRenderCSSFilters(filterChain, mFrame,
                                                       wrFilters) &&
@@ -8324,7 +8307,7 @@ bool nsDisplayBackdropFilters::CreateWebRenderCommands(
 
   nsCSSRendering::ImageLayerClipState clip;
   nsCSSRendering::GetImageLayerClip(
-      mFrame->StyleBackground()->BottomLayer(), mFrame, *mFrame->StyleBorder(),
+      style.StyleBackground()->BottomLayer(), mFrame, *style.StyleBorder(),
       mBackdropRect, mBackdropRect, false,
       mFrame->PresContext()->AppUnitsPerDevPixel(), &clip);
 
@@ -8357,11 +8340,24 @@ void nsDisplayBackdropFilters::Paint(nsDisplayListBuilder* aBuilder,
                        mFrame->PresContext()->AppUnitsPerDevPixel());
 }
 
+nsRect nsDisplayBackdropFilters::GetBounds(nsDisplayListBuilder* aBuilder,
+                                           bool* aSnap) const {
+  nsRect childBounds = nsDisplayWrapList::GetBounds(aBuilder, aSnap);
+
+  *aSnap = false;
+
+  return mBackdropRect.Union(childBounds);
+}
+
 /* static */
 nsDisplayFilters::nsDisplayFilters(nsDisplayListBuilder* aBuilder,
-                                   nsIFrame* aFrame, nsDisplayList* aList)
+                                   nsIFrame* aFrame, nsDisplayList* aList,
+                                   nsIFrame* aStyleFrame,
+                                   bool aWrapsBackdropFilter)
     : nsDisplayEffectsBase(aBuilder, aFrame, aList),
-      mEffectsBounds(aFrame->InkOverflowRectRelativeToSelf()) {
+      mStyle(aFrame == aStyleFrame ? nullptr : aStyleFrame->Style()),
+      mEffectsBounds(aFrame->InkOverflowRectRelativeToSelf()),
+      mWrapsBackdropFilter(aWrapsBackdropFilter) {
   MOZ_COUNT_CTOR(nsDisplayFilters);
   mVisibleRect = aBuilder->GetVisibleRect() +
                  aBuilder->GetCurrentFrameOffsetToReferenceFrame();
@@ -8382,7 +8378,6 @@ void nsDisplayFilters::ComputeInvalidationRegion(
 
   const auto* geometry =
       static_cast<const nsDisplayFiltersGeometry*>(aGeometry);
-
   if (aBuilder->ShouldSyncDecodeImages() &&
       geometry->ShouldInvalidateToSyncDecodeImages()) {
     bool snap;
@@ -8394,6 +8389,7 @@ void nsDisplayFilters::ComputeInvalidationRegion(
 void nsDisplayFilters::PaintWithContentsPaintCallback(
     nsDisplayListBuilder* aBuilder, gfxContext* aCtx,
     const std::function<void(gfxContext* aContext)>& aPaintChildren) {
+  MOZ_ASSERT(!mStyle, "Shouldn't get to  this code path on the root");
   imgDrawingParams imgParams(aBuilder->GetImageDecodeFlags());
   nsRect borderArea = nsRect(ToReferenceFrame(), mFrame->GetSize());
   SVGIntegrationUtils::PaintFramesParams params(
@@ -8427,11 +8423,16 @@ bool nsDisplayFilters::CreateWebRenderCommands(
   WrFiltersHolder wrFilters;
   Maybe<nsRect> filterClip;
   bool initialized = true;
-  auto filterChain = mFrame->StyleEffects()->mFilters.AsSpan();
+  auto filterChain = mStyle ? mStyle->StyleEffects()->mFilters.AsSpan()
+                            : mFrame->StyleEffects()->mFilters.AsSpan();
   if (!SVGIntegrationUtils::CreateWebRenderCSSFilters(filterChain, mFrame,
                                                       wrFilters) &&
       !SVGIntegrationUtils::BuildWebRenderFilters(
           mFrame, filterChain, wrFilters, filterClip, initialized)) {
+    if (mStyle) {
+      // TODO(bug 1769223): Support fallback filters in the root code-path.
+      return true;
+    }
     return false;
   }
 
@@ -8460,6 +8461,9 @@ bool nsDisplayFilters::CreateWebRenderCommands(
   params.mFilterDatas = std::move(wrFilters.filter_datas);
   params.opacity = opacity != 1.0f ? &opacity : nullptr;
   params.clip = clip;
+  if (mWrapsBackdropFilter) {
+    params.flags |= wr::StackingContextFlags::WRAPS_BACKDROP_FILTER;
+  }
   StackingContextHelper sc(aSc, GetActiveScrolledRoot(), mFrame, this, aBuilder,
                            params);
 

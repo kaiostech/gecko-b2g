@@ -113,7 +113,7 @@ already_AddRefed<TCPServerSocket> TCPServerSocket::Constructor(
   return socket.forget();
 }
 
-uint16_t TCPServerSocket::LocalPort() { return mPort; }
+uint16_t TCPServerSocket::LocalPort() const { return mPort; }
 
 void TCPServerSocket::Close() {
   if (mServerBridgeChild) {

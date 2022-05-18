@@ -11,6 +11,8 @@
 #include "mozilla/dom/voicemail/PVoicemailChild.h"
 #include "nsIVoicemailService.h"
 
+using mozilla::ipc::IPCResult;
+
 namespace mozilla {
 namespace dom {
 namespace voicemail {
@@ -23,15 +25,15 @@ class VoicemailChild final : public PVoicemailChild,
 
   VoicemailChild();
 
-  bool RecvNotifyInfoChanged(const uint32_t& aServiceId,
-                             const nsString& aNumber,
-                             const nsString& aDisplayName);
+  IPCResult RecvNotifyInfoChanged(const uint32_t& aServiceId,
+                                  const nsString& aNumber,
+                                  const nsString& aDisplayName);
 
-  bool RecvNotifyStatusChanged(const uint32_t& aServiceId,
-                               const bool& aHasMessages,
-                               const int32_t& aMessageCount,
-                               const nsString& aNumber,
-                               const nsString& aDisplayName);
+  IPCResult RecvNotifyStatusChanged(const uint32_t& aServiceId,
+                                    const bool& aHasMessages,
+                                    const int32_t& aMessageCount,
+                                    const nsString& aNumber,
+                                    const nsString& aDisplayName);
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 

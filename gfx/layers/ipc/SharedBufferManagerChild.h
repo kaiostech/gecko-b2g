@@ -106,7 +106,7 @@ public:
   void
   DropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& aHandle);
 
-  virtual bool RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& aHandle);
+  virtual ipc::IPCResult RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& aHandle);
 
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
   android::sp<android::GraphicBuffer> GetGraphicBuffer(int64_t key);

@@ -13,6 +13,8 @@
 #include "nsIVoicemailService.h"
 #include "nsString.h"
 
+using mozilla::ipc::IPCResult;
+
 namespace mozilla {
 namespace dom {
 namespace voicemail {
@@ -27,10 +29,10 @@ class VoicemailParent final : public PVoicemailParent,
 
   mozilla::ipc::IPCResult Init();
 
-  bool RecvGetAttributes(const uint32_t& aServiceId, nsString* aNumber,
-                         nsString* aDisplayName, bool* aHasMessages,
-                         int32_t* aMessageCount, nsString* aReturnNumber,
-                         nsString* aReturnMessage);
+  IPCResult RecvGetAttributes(const uint32_t& aServiceId, nsString* aNumber,
+                              nsString* aDisplayName, bool* aHasMessages,
+                              int32_t* aMessageCount, nsString* aReturnNumber,
+                              nsString* aReturnMessage);
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 

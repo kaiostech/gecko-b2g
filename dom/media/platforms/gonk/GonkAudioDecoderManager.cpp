@@ -51,7 +51,8 @@ GonkAudioDecoderManager::GonkAudioDecoderManager(const AudioInfo& aConfig,
       mAudioCompactor(mAudioQueue) {
   MOZ_COUNT_CTOR(GonkAudioDecoderManager);
   MOZ_ASSERT(mAudioChannels);
-  mCodecSpecificData = aConfig.mCodecSpecificConfig;
+  // TODO: Gonk changes for https://bugzilla.mozilla.org/show_bug.cgi?id=1747760
+  // mCodecSpecificData = aConfig.mCodecSpecificConfig;
   mMimeType = aConfig.mMimeType;
 }
 

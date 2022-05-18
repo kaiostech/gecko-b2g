@@ -306,6 +306,7 @@ document.addEventListener(
     // Always initialize Marionette server in userdebug and desktop builds
     if (!isGonk || libcutils.property_get("ro.build.type") == "userdebug") {
       Services.tm.idleDispatchToMainThread(() => {
+        Services.obs.notifyObservers(null, "browser-delayed-startup-finished");
         Services.obs.notifyObservers(null, "browser-idle-startup-tasks-finished");
       });
     }

@@ -208,6 +208,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  dweb: {
+    pwa: PROMPT_ACTION,
+    signed: PROMPT_ACTION,
+    core: ALLOW_ACTION,
+  },
   engmode: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,

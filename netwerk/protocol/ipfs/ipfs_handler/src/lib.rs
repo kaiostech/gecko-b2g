@@ -170,7 +170,7 @@ impl IpfsHandler {
         // ipfs://bafybeiemxf5abjwjbikoz4mc3a3dla6ual3jsgpdr4cjr3oz3evfyavhwq/wiki/Vincent_van_Gogh.html ->
         // https://bafybeiemxf5abjwjbikoz4mc3a3dla6ual3jsgpdr4cjr3oz3evfyavhwq.ipfs.dweb.link/wiki/Vincent_van_Gogh.html
         //
-        // We don't use the `https://dweb.link/ipfs?uri=...` form because this causes an HTTP redirects and
+        // We don't use the `https://dweb.link/ipfs?uri=...` form because this causes an HTTP redirect and
         // this doesn't preserve the ipfs:// or ipns:// origin of the loaded document.
 
         let safe_host = if self.protocol == Protocol::Ipfs {
@@ -179,8 +179,8 @@ impl IpfsHandler {
             // Same as Cid::to_string_v1() which is unfortunately private.
             multibase::encode(multibase::Base::Base32Lower, cid.to_bytes().as_slice())
         } else {
-            // For ipns://, convert '.' to '-'
-            host.to_utf8().replace('.', "-")
+            // For ipns://, convert '-' to '--' and '.' to '-'
+            host.to_utf8().replace('-', "--").replace('.', "-")
         };
 
         let gateway_url = format!(

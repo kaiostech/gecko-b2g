@@ -6,9 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if defined(MOZ_WIDGET_GONK)
-#pragma GCC visibility push(default)
-#include "sync/sync.h"       // for sync_merge
-#pragma GCC visibility pop
+#  pragma GCC visibility push(default)
+#  include "sync/sync.h"  // for sync_merge
+#  pragma GCC visibility pop
 #endif
 
 #include "FenceUtils.h"
@@ -17,52 +17,39 @@ using namespace mozilla::layers;
 
 namespace IPC {
 
-void
-ParamTraits<FenceHandle>::Write(Message* aMsg,
-                                const paramType& aParam)
-{
+void ParamTraits<FenceHandle>::Write(MessageWriter* aWriter,
+                                     const paramType& aParam) {
   FenceHandle handle = aParam;
 
   MOZ_ASSERT(handle.IsValid());
 
 #if defined(MOZ_WIDGET_GONK)
   RefPtr<FenceHandle::FdObj> fence = handle.GetAndResetFdObj();
-  aMsg->WriteFileHandle(mozilla::UniqueFileHandle(fence->GetAndResetFd()));
+  aWriter->WriteFileHandle(mozilla::UniqueFileHandle(fence->GetAndResetFd()));
 #endif
 }
 
-bool
-ParamTraits<FenceHandle>::Read(const Message* aMsg,
-                               PickleIterator* aIter, paramType* aResult)
-{
+bool ParamTraits<FenceHandle>::Read(MessageReader* aReader,
+                                    paramType* aResult) {
 #if defined(MOZ_WIDGET_GONK)
   mozilla::UniqueFileHandle fd;
-  if (aMsg->ConsumeFileHandle(aIter, &fd)) {
+  if (aReader->ConsumeFileHandle(&fd)) {
     aResult->Merge(FenceHandle(new FenceHandle::FdObj(fd.release())));
   }
 #endif
   return true;
 }
 
-} // namespace IPC
+}  // namespace IPC
 
 namespace mozilla {
 namespace layers {
 
-FenceHandle::FenceHandle()
-  : mFence(new FdObj())
-{
-}
+FenceHandle::FenceHandle() : mFence(new FdObj()) {}
 
-FenceHandle::FenceHandle(FdObj* aFdObj)
-  : mFence(aFdObj)
-{
-  MOZ_ASSERT(aFdObj);
-}
+FenceHandle::FenceHandle(FdObj* aFdObj) : mFence(aFdObj) { MOZ_ASSERT(aFdObj); }
 
-void
-FenceHandle::Merge(const FenceHandle& aFenceHandle)
-{
+void FenceHandle::Merge(const FenceHandle& aFenceHandle) {
 #if defined(MOZ_WIDGET_GONK)
   if (!aFenceHandle.IsValid()) {
     return;
@@ -71,7 +58,8 @@ FenceHandle::Merge(const FenceHandle& aFenceHandle)
   if (!IsValid()) {
     mFence = aFenceHandle.mFence;
   } else {
-    int result = sync_merge("FenceHandle", mFence->mFd, aFenceHandle.mFence->mFd);
+    int result =
+        sync_merge("FenceHandle", mFence->mFd, aFenceHandle.mFence->mFd);
     if (result == -1) {
       mFence = aFenceHandle.mFence;
     } else {
@@ -81,23 +69,17 @@ FenceHandle::Merge(const FenceHandle& aFenceHandle)
 #endif
 }
 
-void
-FenceHandle::TransferToAnotherFenceHandle(FenceHandle& aFenceHandle)
-{
+void FenceHandle::TransferToAnotherFenceHandle(FenceHandle& aFenceHandle) {
   aFenceHandle.mFence = this->GetAndResetFdObj();
 }
 
-already_AddRefed<FenceHandle::FdObj>
-FenceHandle::GetAndResetFdObj()
-{
+already_AddRefed<FenceHandle::FdObj> FenceHandle::GetAndResetFdObj() {
   RefPtr<FdObj> fence = mFence;
   mFence = new FdObj();
   return fence.forget();
 }
 
-already_AddRefed<FenceHandle::FdObj>
-FenceHandle::GetDupFdObj()
-{
+already_AddRefed<FenceHandle::FdObj> FenceHandle::GetDupFdObj() {
   RefPtr<FdObj> fdObj;
   if (IsValid()) {
     fdObj = new FenceHandle::FdObj(dup(mFence->mFd));
@@ -107,5 +89,5 @@ FenceHandle::GetDupFdObj()
   return fdObj.forget();
 }
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla

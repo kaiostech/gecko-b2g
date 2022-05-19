@@ -8,31 +8,29 @@
 #ifndef IPC_FencerUtils_h
 #define IPC_FencerUtils_h
 
-#include <unistd.h> // for close()
+#include <unistd.h>  // for close()
 #include "ipc/IPCMessageUtils.h"
-#include "mozilla/RefPtr.h"             // for nsRefPtr
+#include "mozilla/RefPtr.h"  // for nsRefPtr
 
 namespace mozilla {
 namespace layers {
 
 class FenceHandle {
-public:
+ public:
   class FdObj {
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FdObj)
     friend class FenceHandle;
-  public:
-    FdObj()
-      : mFd(-1) {}
-    explicit FdObj(int aFd)
-      : mFd(aFd) {}
-    int GetAndResetFd()
-    {
+
+   public:
+    FdObj() : mFd(-1) {}
+    explicit FdObj(int aFd) : mFd(aFd) {}
+    int GetAndResetFd() {
       int fd = mFd;
       mFd = -1;
       return fd;
     }
 
-  private:
+   private:
     virtual ~FdObj() {
       if (mFd != -1) {
         close(mFd);
@@ -50,10 +48,7 @@ public:
     return mFence.get() == aOther.mFence.get();
   }
 
-  bool IsValid() const
-  {
-    return (mFence->mFd != -1);
-  }
+  bool IsValid() const { return (mFence->mFd != -1); }
 
   void Merge(const FenceHandle& aFenceHandle);
 
@@ -63,12 +58,12 @@ public:
 
   already_AddRefed<FdObj> GetDupFdObj();
 
-private:
+ private:
   RefPtr<FdObj> mFence;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 namespace IPC {
 
@@ -76,10 +71,10 @@ template <>
 struct ParamTraits<mozilla::layers::FenceHandle> {
   typedef mozilla::layers::FenceHandle paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam);
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult);
+  static void Write(MessageWriter* aWriter, const paramType& aParam);
+  static bool Read(MessageReader* aReader, paramType* aResult);
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // IPC_FencerUtils_h
+#endif  // IPC_FencerUtils_h

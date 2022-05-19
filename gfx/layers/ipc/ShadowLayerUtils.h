@@ -37,18 +37,14 @@ template <>
 struct ParamTraits<mozilla::layers::MagicGrallocBufferHandle> {
   typedef mozilla::layers::MagicGrallocBufferHandle paramType;
   static void Write(MessageWriter*, const paramType&) {}
-  static bool Read(const MessageReader*, paramType*) {
-    return false;
-  }
+  static bool Read(MessageReader*, paramType*) { return false; }
 };
 
 template <>
 struct ParamTraits<mozilla::layers::GrallocBufferRef> {
   typedef mozilla::layers::GrallocBufferRef paramType;
   static void Write(MessageWriter*, const paramType&) {}
-  static bool Read(const MessageReader*, paramType*) {
-    return false;
-  }
+  static bool Read(MessageReader*, paramType*) { return false; }
 };
 #endif  // !defined(MOZ_HAVE_XSURFACEDESCRIPTORGRALLOC)
 

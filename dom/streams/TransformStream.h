@@ -75,18 +75,18 @@ class TransformStream final : public nsISupports, public nsWrapperCache {
   // MOZ_KNOWN_LIVE for slots that will never be reassigned
   bool mBackpressure = false;
   RefPtr<Promise> mBackpressureChangePromise;
-  MOZ_KNOWN_LIVE RefPtr<TransformStreamDefaultController> mController;
-  MOZ_KNOWN_LIVE RefPtr<ReadableStream> mReadable;
-  MOZ_KNOWN_LIVE RefPtr<WritableStream> mWritable;
+  RefPtr<TransformStreamDefaultController> mController;
+  RefPtr<ReadableStream> mReadable;
+  RefPtr<WritableStream> mWritable;
 };
 
 MOZ_CAN_RUN_SCRIPT void TransformStreamErrorWritableAndUnblockWrite(
-    JSContext* aCx, TransformStream* aStream, JS::HandleValue aError,
+    JSContext* aCx, TransformStream* aStream, JS::Handle<JS::Value> aError,
     ErrorResult& aRv);
 
 MOZ_CAN_RUN_SCRIPT void TransformStreamError(JSContext* aCx,
                                              TransformStream* aStream,
-                                             JS::HandleValue aError,
+                                             JS::Handle<JS::Value> aError,
                                              ErrorResult& aRv);
 
 void TransformStreamSetBackpressure(TransformStream* aStream,

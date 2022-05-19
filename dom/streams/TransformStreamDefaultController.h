@@ -54,13 +54,13 @@ class TransformStreamDefaultController final : public nsISupports,
   nsCOMPtr<nsIGlobalObject> mGlobal;
 
   // Internal slots
-  MOZ_KNOWN_LIVE RefPtr<TransformStream> mStream;
+  RefPtr<TransformStream> mStream;
   RefPtr<TransformerAlgorithms> mTransformerAlgorithms;
 };
 
 void SetUpTransformStreamDefaultControllerFromTransformer(
-    JSContext* aCx, TransformStream& aStream, JS::HandleObject aTransformer,
-    Transformer& aTransformerDict);
+    JSContext* aCx, TransformStream& aStream,
+    JS::Handle<JSObject*> aTransformer, Transformer& aTransformerDict);
 
 }  // namespace mozilla::dom
 

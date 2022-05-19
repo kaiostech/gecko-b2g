@@ -76,7 +76,7 @@ class WritableStream : public nsISupports, public nsWrapperCache {
   void SetState(const WriterState& aState) { mState = aState; }
 
   JS::Value StoredError() const { return mStoredError; }
-  void SetStoredError(JS::HandleValue aStoredError) {
+  void SetStoredError(JS::Handle<JS::Value> aStoredError) {
     mStoredError = aStoredError;
   }
 
@@ -160,7 +160,7 @@ class WritableStream : public nsISupports, public nsWrapperCache {
  private:
   bool mBackpressure = false;
   RefPtr<Promise> mCloseRequest;
-  MOZ_KNOWN_LIVE RefPtr<WritableStreamDefaultController> mController;
+  RefPtr<WritableStreamDefaultController> mController;
   RefPtr<Promise> mInFlightWriteRequest;
   RefPtr<Promise> mInFlightCloseRequest;
 

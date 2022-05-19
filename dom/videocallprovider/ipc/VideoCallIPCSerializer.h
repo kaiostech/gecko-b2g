@@ -32,9 +32,9 @@ struct ParamTraits<nsIVideoCallProfile*> {
   typedef nsIVideoCallProfile* paramType;
 
   // Function to serialize a DOMVideoCallProfile.
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
     // If it is a null object, then we are don.
     if (isNull) {
       return;
@@ -46,16 +46,16 @@ struct ParamTraits<nsIVideoCallProfile*> {
     aParam->GetQuality(&quality);
     aParam->GetState(&state);
 
-    WriteParam(aMsg, quality);
-    WriteParam(aMsg, state);
+    WriteParam(aWriter, quality);
+    WriteParam(aWriter, state);
     aParam->Release();
   }
 
   // Function to de-serialize a DOMVideoCallProfile.
-  static bool Read(const Message* aMsg, void** aIter, paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transferred.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -66,7 +66,7 @@ struct ParamTraits<nsIVideoCallProfile*> {
     uint16_t quality;
     uint16_t state;
 
-    if (!(ReadParam(aMsg, aIter, &quality) && ReadParam(aMsg, aIter, &state))) {
+    if (!(ReadParam(aReader, &quality) && ReadParam(aReader, &state))) {
       return false;
     }
 
@@ -87,9 +87,9 @@ struct ParamTraits<nsIVideoCallCameraCapabilities*> {
   typedef nsIVideoCallCameraCapabilities* paramType;
 
   // Function to serialize a DOMVideoCallCameraCapabilities.
-  static void Write(Message* aMsg, const paramType& aParam) {
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
     bool isNull = !aParam;
-    WriteParam(aMsg, isNull);
+    WriteParam(aWriter, isNull);
     // If it is a null object, then we are don.
     if (isNull) {
       return;
@@ -105,18 +105,18 @@ struct ParamTraits<nsIVideoCallCameraCapabilities*> {
     aParam->GetZoomSupported(&zoomSupported);
     aParam->GetMaxZoom(&maxZoom);
 
-    WriteParam(aMsg, width);
-    WriteParam(aMsg, height);
-    WriteParam(aMsg, zoomSupported);
-    WriteParam(aMsg, maxZoom);
+    WriteParam(aWriter, width);
+    WriteParam(aWriter, height);
+    WriteParam(aWriter, zoomSupported);
+    WriteParam(aWriter, maxZoom);
     aParam->Release();
   }
 
   // Function to de-serialize a DOMVideoCallCameraCapabilities.
-  static bool Read(const Message* aMsg, void** aIter, paramType* aResult) {
+  static bool Read(MessageReader* aReader, paramType* aResult) {
     // Check if is the null pointer we have transferred.
     bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
+    if (!ReadParam(aReader, &isNull)) {
       return false;
     }
 
@@ -129,9 +129,8 @@ struct ParamTraits<nsIVideoCallCameraCapabilities*> {
     bool zoomSupported;
     float maxZoom;
 
-    if (!(ReadParam(aMsg, aIter, &width) && ReadParam(aMsg, aIter, &height) &&
-          ReadParam(aMsg, aIter, &zoomSupported) &&
-          ReadParam(aMsg, aIter, &maxZoom))) {
+    if (!(ReadParam(aReader, &width) && ReadParam(aReader, &height) &&
+          ReadParam(aReader, &zoomSupported) && ReadParam(aReader, &maxZoom))) {
       return false;
     }
 

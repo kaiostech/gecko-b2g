@@ -3818,6 +3818,11 @@
   value: true
   mirror: always
 
+- name: dom.streams.transferable.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # For area and anchor elements with target=_blank and no rel set to
 # opener/noopener.
 - name: dom.targetBlankNoOpener.enabled
@@ -4295,24 +4300,6 @@
 - name: dom.webcomponents.shadowdom.report_usage
   type: bool
   value: false
-  mirror: always
-
-# Is support for custom element disabledFeatures enabled?
-- name: dom.webcomponents.disabledFeatures.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# Is support for custom element elementInternals enabled?
-- name: dom.webcomponents.elementInternals.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# Is support for form-associated custom element enabled?
-- name: dom.webcomponents.formAssociatedCustomElement.enabled
-  type: bool
-  value: true
   mirror: always
 
 # Is support for the Web GPU API enabled?
@@ -12396,6 +12383,12 @@
 - name: security.csp.enableNavigateTo
   type: bool
   value: false
+  mirror: always
+
+# wasm-unsafe-eval source keyword
+- name: security.csp.wasm-unsafe-eval.enabled
+  type: bool
+  value: true
   mirror: always
 
 # No way to enable on Android, Bug 1552602

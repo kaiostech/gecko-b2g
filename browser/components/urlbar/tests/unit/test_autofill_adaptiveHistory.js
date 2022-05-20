@@ -161,25 +161,6 @@ const TEST_DATA = [
     inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
     userInput: "e",
     expected: {
-      autofilled: "example.com/test",
-      completed: "http://example.com/test",
-      results: [
-        context =>
-          makeVisitResult(context, {
-            uri: "http://example.com/test",
-            title: "example.com/test",
-            heuristic: true,
-          }),
-      ],
-    },
-  },
-  {
-    description: "User input is longer than the input history",
-    pref: true,
-    visitHistory: ["http://example.com/test"],
-    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
-    userInput: "example",
-    expected: {
       autofilled: "example.com/",
       completed: "http://example.com/",
       results: [
@@ -193,6 +174,69 @@ const TEST_DATA = [
           makeVisitResult(context, {
             uri: "http://example.com/test",
             title: "test visit for http://example.com/test",
+          }),
+      ],
+    },
+  },
+  {
+    description: "User input is longer than the input history",
+    pref: true,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    userInput: "example",
+    expected: {
+      autofilled: "example.com/test",
+      completed: "http://example.com/test",
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "example.com/test",
+            heuristic: true,
+          }),
+      ],
+    },
+  },
+  {
+    description:
+      "User input starts with input history and includes path of the url",
+    pref: true,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    userInput: "example.com/te",
+    expected: {
+      autofilled: "example.com/test",
+      completed: "http://example.com/test",
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "example.com/test",
+            heuristic: true,
+          }),
+      ],
+    },
+  },
+  {
+    description: "User input starts with input history and but another url",
+    pref: true,
+    visitHistory: ["http://example.com/test", "http://example.org/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    userInput: "example.o",
+    expected: {
+      autofilled: "example.org/",
+      completed: "http://example.org/",
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.org/",
+            title: "example.org",
+            heuristic: true,
+          }),
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.org/test",
+            title: "test visit for http://example.org/test",
           }),
       ],
     },
@@ -544,23 +588,20 @@ const TEST_DATA = [
     description:
       "Those that match with fixed URL take precedence over those that match prefixed URL",
     pref: true,
-    visitHistory: [
-      "http://hostname.example.com/test",
-      "http://example.com/test",
-    ],
+    visitHistory: ["http://http.example.com/test", "http://example.com/test"],
     inputHistory: [
-      { uri: "http://hostname.example.com/test", input: "host" },
+      { uri: "http://http.example.com/test", input: "http" },
       { uri: "http://example.com/test", input: "http://example.com/test" },
     ],
-    userInput: "h",
+    userInput: "http",
     expected: {
-      autofilled: "hostname.example.com/test",
-      completed: "http://hostname.example.com/test",
+      autofilled: "http.example.com/test",
+      completed: "http://http.example.com/test",
       results: [
         context =>
           makeVisitResult(context, {
-            uri: "http://hostname.example.com/test",
-            title: "hostname.example.com/test",
+            uri: "http://http.example.com/test",
+            title: "http.example.com/test",
             heuristic: true,
           }),
         context =>
@@ -705,6 +746,71 @@ const TEST_DATA = [
     },
   },
   {
+    description: "minCharsThreshold pref equals to the user input length",
+    pref: true,
+    minCharsThreshold: 3,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    userInput: "exa",
+    expected: {
+      autofilled: "example.com/test",
+      completed: "http://example.com/test",
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "example.com/test",
+            heuristic: true,
+          }),
+      ],
+    },
+  },
+  {
+    description: "minCharsThreshold pref is smaller than the user input length",
+    pref: true,
+    minCharsThreshold: 2,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    userInput: "exa",
+    expected: {
+      autofilled: "example.com/test",
+      completed: "http://example.com/test",
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "example.com/test",
+            heuristic: true,
+          }),
+      ],
+    },
+  },
+  {
+    description: "minCharsThreshold pref is larger than the user input length",
+    pref: true,
+    minCharsThreshold: 4,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    userInput: "exa",
+    expected: {
+      autofilled: "example.com/",
+      completed: "http://example.com/",
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/",
+            title: "example.com",
+            heuristic: true,
+          }),
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "test visit for http://example.com/test",
+          }),
+      ],
+    },
+  },
+  {
     description: "Turn the pref off",
     pref: false,
     visitHistory: ["http://example.com/test"],
@@ -730,10 +836,11 @@ const TEST_DATA = [
   },
 ];
 
-add_task(async function() {
+add_task(async function inputTest() {
   for (const {
     description,
     pref,
+    minCharsThreshold,
     useCountThreshold,
     source,
     visitHistory,
@@ -745,6 +852,13 @@ add_task(async function() {
     info(description);
 
     UrlbarPrefs.set("autoFill.adaptiveHistory.enabled", pref);
+
+    if (!isNaN(minCharsThreshold)) {
+      UrlbarPrefs.set(
+        "autoFill.adaptiveHistory.minCharsThreshold",
+        minCharsThreshold
+      );
+    }
 
     if (!isNaN(useCountThreshold)) {
       UrlbarPrefs.set(
@@ -784,6 +898,90 @@ add_task(async function() {
 
     await cleanupPlaces();
     UrlbarPrefs.clear("autoFill.adaptiveHistory.enabled");
+    UrlbarPrefs.clear("autoFill.adaptiveHistory.minCharsThreshold");
     UrlbarPrefs.clear("autoFill.adaptiveHistory.useCountThreshold");
   }
+});
+
+add_task(async function decayTest() {
+  UrlbarPrefs.set("autoFill.adaptiveHistory.enabled", true);
+
+  await PlacesTestUtils.addVisits(["http://example.com/test"]);
+  await UrlbarUtils.addToInputHistory("http://example.com/test", "exa");
+
+  const initContext = createContext("exa", { isPrivate: false });
+  await check_results({
+    context: initContext,
+    autofilled: "example.com/test",
+    completed: "http://example.com/test",
+    matches: [
+      makeVisitResult(initContext, {
+        uri: "http://example.com/test",
+        title: "example.com/test",
+        heuristic: true,
+      }),
+    ],
+  });
+
+  // The decay rate for a day is 0.975 defined in
+  // nsNavHistory::PREF_FREC_DECAY_RATE_DEF. Therefore, after 30 days, as
+  // use_count will be 0.975^30 = 0.468, we set the useCountThreshold 0.47 to not
+  // take the input history passed 30 days.
+  UrlbarPrefs.set("autoFill.adaptiveHistory.useCountThreshold", 0.47);
+
+  // Make 29 days later.
+  for (let i = 0; i < 29; i++) {
+    PlacesUtils.history
+      .QueryInterface(Ci.nsIObserver)
+      .observe(null, "idle-daily", "");
+    await PlacesTestUtils.waitForNotification(
+      "pages-rank-changed",
+      () => true,
+      "places"
+    );
+  }
+  const midContext = createContext("exa", { isPrivate: false });
+  await check_results({
+    context: midContext,
+    autofilled: "example.com/test",
+    completed: "http://example.com/test",
+    matches: [
+      makeVisitResult(midContext, {
+        uri: "http://example.com/test",
+        title: "example.com/test",
+        heuristic: true,
+      }),
+    ],
+  });
+
+  // Total 30 days later.
+  PlacesUtils.history
+    .QueryInterface(Ci.nsIObserver)
+    .observe(null, "idle-daily", "");
+  await PlacesTestUtils.waitForNotification(
+    "pages-rank-changed",
+    () => true,
+    "places"
+  );
+  const context = createContext("exa", { isPrivate: false });
+  await check_results({
+    context,
+    autofilled: "example.com/",
+    completed: "http://example.com/",
+    matches: [
+      makeVisitResult(context, {
+        uri: "http://example.com/",
+        title: "example.com",
+        heuristic: true,
+      }),
+      makeVisitResult(context, {
+        uri: "http://example.com/test",
+        title: "test visit for http://example.com/test",
+      }),
+    ],
+  });
+
+  await cleanupPlaces();
+  UrlbarPrefs.clear("autoFill.adaptiveHistory.enabled");
+  UrlbarPrefs.clear("autoFill.adaptiveHistory.useCountThreshold");
 });

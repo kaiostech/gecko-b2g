@@ -581,7 +581,7 @@ class ProviderAutofill extends UrlbarProvider {
       queryType: QUERYTYPE.AUTOFILL_ADAPTIVE,
       searchString: queryContext.searchString.toLowerCase(),
       useCountThreshold: UrlbarPrefs.get(
-        "autoFill.adaptiveHistory.useCountThreshold"
+        "autoFillAdaptiveHistoryUseCountThreshold"
       ),
     };
 
@@ -593,7 +593,7 @@ class ProviderAutofill extends UrlbarProvider {
         fixup_url(h.url) COLLATE NOCASE BETWEEN :searchString AND :searchString || X'FFFF' AS fixed_url_match
       FROM moz_places h
       JOIN moz_inputhistory i ON i.place_id = h.id
-      WHERE i.input COLLATE NOCASE BETWEEN :searchString AND :searchString || X'FFFF'
+      WHERE :searchString COLLATE NOCASE BETWEEN i.input AND i.input || X'FFFF'
       AND (
         fixed_url_match OR (h.url COLLATE NOCASE BETWEEN :searchString AND :searchString || X'FFFF')
       )
@@ -752,7 +752,11 @@ class ProviderAutofill extends UrlbarProvider {
     }
 
     // We try to autofill with adaptive history first.
-    if (UrlbarPrefs.get("autoFillAdaptiveHistoryEnabled")) {
+    if (
+      UrlbarPrefs.get("autoFillAdaptiveHistoryEnabled") &&
+      UrlbarPrefs.get("autoFillAdaptiveHistoryMinCharsThreshold") <=
+        queryContext.searchString.length
+    ) {
       const [query, params] = this._getAdaptiveHistoryQuery(queryContext);
       if (query) {
         const resultSet = await conn.executeCached(query, params);

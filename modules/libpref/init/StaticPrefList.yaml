@@ -1006,6 +1006,15 @@
   value: 3
   mirror: always
 
+# Compression level for cached JavaScript bytecode
+#   0 = do not compress,
+#   1 = minimal compression,
+#   9 = maximal compression
+- name: browser.cache.jsbc_compression_level
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
 - name: browser.contentblocking.database.enabled
   type: bool
   value: false
@@ -5333,7 +5342,11 @@
 
 - name: gfx.canvas.accelerated
   type: RelaxedAtomicBool
+#if defined(XP_LINUX) && !defined(ANDROID) && defined(NIGHTLY_BUILD)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 - name: gfx.canvas.accelerated.cache-items
@@ -9343,12 +9356,12 @@
     value: true
     mirror: always
 
--   name: media.wmf.no-copy-nv12-textures
+-   name: media.wmf.zero-copy-nv12-textures
     type: bool
     value: true
     mirror: once
 # Enable hardware decoded video no copy even when it is blocked.
--   name: media.wmf.no-copy-nv12-textures-force-enabled
+-   name: media.wmf.zero-copy-nv12-textures-force-enabled
     type: bool
     value: false
     mirror: once

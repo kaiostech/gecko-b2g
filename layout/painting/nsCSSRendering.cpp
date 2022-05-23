@@ -2137,7 +2137,7 @@ void nsCSSRendering::GetImageLayerClip(
     aClipState->mBGClipArea.Deflate(border);
 
     if (haveRoundedCorners) {
-      nsIFrame::InsetBorderRadii(aClipState->mRadii, border);
+      nsIFrame::AdjustBorderRadii(aClipState->mRadii, -border);
     }
   }
 
@@ -2628,7 +2628,7 @@ nsCSSRendering::BuildWebRenderDisplayItemsForStyleImageLayerWithSC(
   result &= state.mImageRenderer.PrepareResult();
 
   if (!state.mFillArea.IsEmpty()) {
-    return state.mImageRenderer.BuildWebRenderDisplayItemsForLayer(
+    result &= state.mImageRenderer.BuildWebRenderDisplayItemsForLayer(
         &aParams.presCtx, aBuilder, aResources, aSc, aManager, aItem,
         state.mDestArea, state.mFillArea,
         state.mAnchor + paintBorderArea.TopLeft(),

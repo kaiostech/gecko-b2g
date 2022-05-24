@@ -738,7 +738,7 @@ pub static MEDIA_FEATURES: [QueryFeatureDescription; 61] = [
         atom!("prefers-text-size"),
         AllowsRanges::No,
         keyword_evaluator!(eval_prefers_text_size, PrefersTextSize),
-        ParsingRequirements::empty(),
+        FeatureFlags::empty(),
     ),
     feature!(
         atom!("forced-colors"),

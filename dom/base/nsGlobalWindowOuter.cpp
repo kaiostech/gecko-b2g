@@ -4988,8 +4988,8 @@ void nsGlobalWindowOuter::PromptOuter(const nsAString& aMessage,
 void nsGlobalWindowOuter::FocusOuter(CallerType aCallerType,
                                      bool aFromOtherProcess,
                                      uint64_t aActionId) {
-  nsFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (!fm) {
+  RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager();
+  if (MOZ_UNLIKELY(!fm)) {
     return;
   }
 
@@ -5029,7 +5029,8 @@ void nsGlobalWindowOuter::FocusOuter(CallerType aCallerType,
   if (parent) {
     if (!parent->IsInProcess()) {
       if (isActive) {
-        fm->WindowRaised(this, aActionId);
+        OwningNonNull<nsGlobalWindowOuter> kungFuDeathGrip(*this);
+        fm->WindowRaised(kungFuDeathGrip, aActionId);
       } else {
         ContentChild* contentChild = ContentChild::GetSingleton();
         MOZ_ASSERT(contentChild);
@@ -5051,7 +5052,8 @@ void nsGlobalWindowOuter::FocusOuter(CallerType aCallerType,
     // if there is no parent, this must be a toplevel window, so raise the
     // window if canFocus is true. If this is a child process, the raise
     // window request will get forwarded to the parent by the puppet widget.
-    fm->RaiseWindow(this, aCallerType, aActionId);
+    OwningNonNull<nsGlobalWindowOuter> kungFuDeathGrip(*this);
+    fm->RaiseWindow(kungFuDeathGrip, aCallerType, aActionId);
   }
 }
 
@@ -5074,13 +5076,15 @@ void nsGlobalWindowOuter::BlurOuter(CallerType aCallerType) {
     siteWindow->Blur();
 
     // if the root is focused, clear the focus
-    nsFocusManager* fm = nsFocusManager::GetFocusManager();
-    if (fm && mDoc) {
-      RefPtr<Element> element;
-      fm->GetFocusedElementForWindow(this, false, nullptr,
-                                     getter_AddRefs(element));
-      if (element == mDoc->GetRootElement()) {
-        fm->ClearFocus(this);
+    if (mDoc) {
+      if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
+        RefPtr<Element> element;
+        fm->GetFocusedElementForWindow(this, false, nullptr,
+                                       getter_AddRefs(element));
+        if (element == mDoc->GetRootElement()) {
+          OwningNonNull<nsGlobalWindowOuter> kungFuDeathGrip(*this);
+          fm->ClearFocus(kungFuDeathGrip);
+        }
       }
     }
   }

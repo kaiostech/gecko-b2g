@@ -137,9 +137,10 @@ int X11Error(Display* display, XErrorEvent* event) {
 void InstallX11ErrorHandler() {
   XSetErrorHandler(X11Error);
 
-  Display* display = mozilla::DefaultXDisplay();
-  NS_ASSERTION(display, "No X display");
   if (PR_GetEnv("MOZ_X_SYNC")) {
-    XSynchronize(display, X11True);
+    Display* display = mozilla::DefaultXDisplay();
+    if (display) {
+      XSynchronize(display, X11True);
+    }
   }
 }

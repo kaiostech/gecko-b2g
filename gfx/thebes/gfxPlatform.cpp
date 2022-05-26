@@ -2738,10 +2738,10 @@ void gfxPlatform::InitWebRenderConfig() {
       int32_t status;
       const nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
       if (NS_FAILED(gfxInfo->GetFeatureStatus(
-              nsIGfxInfo::FEATURE_HW_DECODED_VIDEO_NO_COPY, failureId,
+              nsIGfxInfo::FEATURE_HW_DECODED_VIDEO_ZERO_COPY, failureId,
               &status))) {
         FeatureState& feature =
-            gfxConfig::GetFeature(Feature::HW_DECODED_VIDEO_NO_COPY);
+            gfxConfig::GetFeature(Feature::HW_DECODED_VIDEO_ZERO_COPY);
         feature.DisableByDefault(FeatureStatus::BlockedNoGfxInfo,
                                  "gfxInfo is broken",
                                  "FEATURE_FAILURE_WR_NO_GFX_INFO"_ns);
@@ -2749,7 +2749,7 @@ void gfxPlatform::InitWebRenderConfig() {
       } else {
         if (status != nsIGfxInfo::FEATURE_ALLOW_ALWAYS) {
           FeatureState& feature =
-              gfxConfig::GetFeature(Feature::HW_DECODED_VIDEO_NO_COPY);
+              gfxConfig::GetFeature(Feature::HW_DECODED_VIDEO_ZERO_COPY);
           feature.DisableByDefault(FeatureStatus::Blocked,
                                    "Blocklisted by gfxInfo", failureId);
           useHwVideoZeroCopy = false;
@@ -2760,7 +2760,7 @@ void gfxPlatform::InitWebRenderConfig() {
 
   if (useHwVideoZeroCopy) {
     FeatureState& feature =
-        gfxConfig::GetFeature(Feature::HW_DECODED_VIDEO_NO_COPY);
+        gfxConfig::GetFeature(Feature::HW_DECODED_VIDEO_ZERO_COPY);
     feature.EnableByDefault();
     gfxVars::SetHwDecodedVideoZeroCopy(true);
   }

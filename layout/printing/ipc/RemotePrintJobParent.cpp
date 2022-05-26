@@ -67,7 +67,7 @@ nsresult RemotePrintJobParent::InitializePrintDevice(
     return rv;
   }
 
-  rv = deviceContextSpec->Init(nullptr, mPrintSettings, false);
+  rv = deviceContextSpec->Init(mPrintSettings, false);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -275,7 +275,9 @@ void RemotePrintJobParent::ActorDestroy(ActorDestroyReason aWhy) {
   // If progress dialog is opened, notify closing it.
   for (auto listener : mPrintProgressListeners) {
     listener->OnStateChange(nullptr, nullptr,
-                            nsIWebProgressListener::STATE_STOP, NS_OK);
+                            nsIWebProgressListener::STATE_STOP |
+                                nsIWebProgressListener::STATE_IS_DOCUMENT,
+                            NS_OK);
   }
 }
 

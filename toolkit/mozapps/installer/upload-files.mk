@@ -378,7 +378,9 @@ endif
 
 ifdef MOZ_NORMANDY
 ifndef CROSS_COMPILE
+ifndef FUZZING_SNAPSHOT
   UPLOAD_FILES += $(call QUOTED_WILDCARD,$(MOZ_NORMANDY_JSON))
+endif
 endif
 endif
 

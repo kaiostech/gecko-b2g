@@ -3386,15 +3386,6 @@ static bool RoundedRectContainsRect(const nsRect& aRoundedRect,
 
 bool nsDisplayBackgroundImage::CanApplyOpacity(
     WebRenderLayerManager* aManager, nsDisplayListBuilder* aBuilder) const {
-  // Bug 1752919: WebRender does not properly handle opacity flattening for
-  // images larger than 4096 dest pixels.
-  static const nscoord WR_NSCOORD_LIMIT =
-      NSIntPixelsToAppUnits(4096, AppUnitsPerCSSPixel());
-  if MOZ_UNLIKELY (mDestRect.width > WR_NSCOORD_LIMIT ||
-                   mDestRect.height > WR_NSCOORD_LIMIT) {
-    return false;
-  }
-
   return CanBuildWebRenderDisplayItems(aManager, aBuilder);
 }
 
@@ -5268,11 +5259,8 @@ bool nsDisplayOwnLayer::CreateWebRenderCommands(
   params.animation = prop.ptrOr(nullptr);
   params.clip =
       wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
-  if (IsScrollbarContainer()) {
+  if (IsScrollbarContainer() && IsRootScrollbarContainer()) {
     params.prim_flags |= wr::PrimitiveFlags::IS_SCROLLBAR_CONTAINER;
-  }
-  if (IsScrollThumbLayer()) {
-    params.prim_flags |= wr::PrimitiveFlags::IS_SCROLLBAR_THUMB;
   }
   if (IsZoomingLayer() ||
       ((IsFixedPositionLayer() && HasDynamicToolbar()) ||

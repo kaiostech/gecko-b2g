@@ -1432,16 +1432,16 @@ void nsWindow::WaylandPopupHierarchyCalculatePositions() {
     if (popup->mPopupContextMenu && !popup->mPopupAnchored) {
       LOG("  popup [%p] is first context menu", popup);
       popup->mRelativePopupPosition = popup->mPopupPosition;
-    } else if (popup->mPopupAnchored) {
-      LOG("  popup [%p] is anchored", popup);
-      if (!popup->mPopupMatchesLayout) {
-        NS_WARNING("Anchored popup does not match layout!");
-      }
-      popup->mRelativePopupPosition = popup->mPopupPosition;
     } else if (popup->mWaylandPopupPrev->mWaylandToplevel == nullptr) {
       LOG("  popup [%p] has toplevel as parent", popup);
       popup->mRelativePopupPosition = popup->mPopupPosition;
     } else {
+      if (popup->mPopupAnchored) {
+        LOG("  popup [%p] is anchored", popup);
+        if (!popup->mPopupMatchesLayout) {
+          NS_WARNING("Anchored popup does not match layout!");
+        }
+      }
       GdkPoint parent = WaylandGetParentPosition();
 
       LOG("  popup [%p] uses transformed coordinates\n", popup);
@@ -2398,9 +2398,10 @@ void nsWindow::WaylandPopupMove() {
   LOG("  popup use move to rect %d\n", mPopupUseMoveToRect);
 
   if (!mPopupUseMoveToRect) {
-    if (mNeedsShow && mPopupType != ePopupTypeTooltip) {
-      // Workaround for https://gitlab.gnome.org/GNOME/gtk/-/issues/4308
-      // Tooltips are created as subsurfaces with relative position.
+    // Workaround for https://gitlab.gnome.org/GNOME/gtk/-/issues/4308
+    // Tooltips/Utility popus are created as subsurfaces with relative position.
+    // Menu uses absolute positions.
+    if (mPopupHint == ePopupTypeMenu) {
       LOG("  use gtk_window_move(%d, %d) for hidden widget\n", mPopupPosition.x,
           mPopupPosition.y);
       gtk_window_move(GTK_WINDOW(mShell), mPopupPosition.x, mPopupPosition.y);
@@ -5905,7 +5906,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 #endif
 #ifdef MOZ_WAYLAND
   // Initialize the window specific VsyncSource early in order to avoid races
-  // with BrowserParent::UpdateVsyncParentVsyncSource().
+  // with BrowserParent::UpdateVsyncParentVsyncDispatcher().
   // Only use for toplevel windows for now, see bug 1619246.
   if (GdkIsWaylandDisplay() &&
       StaticPrefs::widget_wayland_vsync_enabled_AtStartup() &&

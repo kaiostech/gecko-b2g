@@ -34,6 +34,10 @@
 #include "base/process_util.h"
 #include "common/basictypes.h"
 
+#if defined(MOZ_WIDGET_GONK)
+#  include "cutils/properties.h"
+#endif
+
 #if defined(XP_WIN)
 #  ifdef WIN32_LEAN_AND_MEAN
 #    undef WIN32_LEAN_AND_MEAN
@@ -1482,6 +1486,10 @@ bool MinidumpCallback(
     EXCEPTION_POINTERS* exinfo, MDRawAssertionInfo* assertion,
 #endif
     const phc::AddrInfo* addrInfo, bool succeeded) {
+#ifdef MOZ_WIDGET_GONK
+  property_set("persist.b2g.reboot.reason", "crash");
+#endif
+
   bool returnValue = showOSCrashReporter ? false : succeeded;
 
   static XP_CHAR minidumpPath[XP_PATH_MAX];

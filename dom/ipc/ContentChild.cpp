@@ -164,6 +164,7 @@
 
 #    include "SpecialSystemDirectory.h"
 #    include "nsILineInputStream.h"
+#    include "mozilla/ipc/UtilityProcessSandboxing.h"
 #  endif
 #  if defined(MOZ_DEBUG) && defined(ENABLE_TESTS)
 #    include "mozilla/SandboxTestingChild.h"
@@ -1387,8 +1388,6 @@ void ContentChild::InitXPCOM(
     MOZ_ASSERT_UNREACHABLE("PBackground init can't fail at this point");
     return;
   }
-
-  LSObject::Initialize();
 
   ClientManager::Startup();
 
@@ -4288,8 +4287,7 @@ mozilla::ipc::IPCResult ContentChild::RecvRaiseWindow(
     return IPC_OK();
   }
 
-  nsFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (fm) {
+  if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
     fm->RaiseWindow(window, aCallerType, aActionId);
   }
   return IPC_OK();
@@ -4304,10 +4302,9 @@ mozilla::ipc::IPCResult ContentChild::RecvAdjustWindowFocus(
     return IPC_OK();
   }
 
-  nsFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (fm) {
-    fm->AdjustInProcessWindowFocus(aContext.get(), false, aIsVisible,
-                                   aActionId);
+  if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
+    RefPtr<BrowsingContext> bc = aContext.get();
+    fm->AdjustInProcessWindowFocus(bc, false, aIsVisible, aActionId);
   }
   return IPC_OK();
 }
@@ -4328,8 +4325,7 @@ mozilla::ipc::IPCResult ContentChild::RecvClearFocus(
     return IPC_OK();
   }
 
-  nsFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (fm) {
+  if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
     fm->ClearFocus(window);
   }
   return IPC_OK();
@@ -4439,18 +4435,24 @@ mozilla::ipc::IPCResult ContentChild::RecvBlurToChild(
     return IPC_OK();
   }
 
-  BrowsingContext* toClear = aBrowsingContextToClear.IsDiscarded()
-                                 ? nullptr
-                                 : aBrowsingContextToClear.get();
-  BrowsingContext* toFocus = aAncestorBrowsingContextToFocus.IsDiscarded()
-                                 ? nullptr
-                                 : aAncestorBrowsingContextToFocus.get();
-
-  nsFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (fm) {
-    fm->BlurFromOtherProcess(aFocusedBrowsingContext.get(), toClear, toFocus,
-                             aIsLeavingDocument, aAdjustWidget, aActionId);
+  RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager();
+  if (MOZ_UNLIKELY(!fm)) {
+    return IPC_OK();
   }
+
+  RefPtr<BrowsingContext> toClear = aBrowsingContextToClear.IsDiscarded()
+                                        ? nullptr
+                                        : aBrowsingContextToClear.get();
+  RefPtr<BrowsingContext> toFocus =
+      aAncestorBrowsingContextToFocus.IsDiscarded()
+          ? nullptr
+          : aAncestorBrowsingContextToFocus.get();
+
+  RefPtr<BrowsingContext> focusedBrowsingContext =
+      aFocusedBrowsingContext.get();
+
+  fm->BlurFromOtherProcess(focusedBrowsingContext, toClear, toFocus,
+                           aIsLeavingDocument, aAdjustWidget, aActionId);
   return IPC_OK();
 }
 
@@ -5251,7 +5253,7 @@ OpenBSDUnveilPaths(const nsACString& uPath, const nsACString& pledgePath) {
   return NS_OK;
 }
 
-bool StartOpenBSDSandbox(GeckoProcessType type) {
+bool StartOpenBSDSandbox(GeckoProcessType type, ipc::SandboxingKind kind) {
   nsAutoCString pledgeFile;
   nsAutoCString unveilFile;
 
@@ -5286,6 +5288,25 @@ bool StartOpenBSDSandbox(GeckoProcessType type) {
       OpenBSDFindPledgeUnveilFilePath("pledge.rdd", pledgeFile);
       OpenBSDFindPledgeUnveilFilePath("unveil.rdd", unveilFile);
       break;
+
+    case GeckoProcessType_Utility: {
+      MOZ_RELEASE_ASSERT(kind <= SandboxingKind::COUNT,
+                         "Should define a sandbox");
+      switch (kind) {
+        case ipc::SandboxingKind::UTILITY_AUDIO_DECODING:
+          OpenBSDFindPledgeUnveilFilePath("pledge.utility-audioDecoder",
+                                          pledgeFile);
+          OpenBSDFindPledgeUnveilFilePath("unveil.utility-audioDecoder",
+                                          unveilFile);
+          break;
+
+        case ipc::SandboxingKind::GENERIC_UTILITY:
+        default:
+          OpenBSDFindPledgeUnveilFilePath("pledge.utility", pledgeFile);
+          OpenBSDFindPledgeUnveilFilePath("unveil.utility", unveilFile);
+          break;
+      }
+    } break;
 
     default:
       MOZ_ASSERT(false, "unknown process type");

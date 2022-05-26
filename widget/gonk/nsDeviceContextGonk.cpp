@@ -58,8 +58,7 @@ already_AddRefed<PrintTarget> nsDeviceContextSpecGonk::MakePrintTarget() {
 }
 
 NS_IMETHODIMP
-nsDeviceContextSpecGonk::Init(nsIWidget* aWidget, nsIPrintSettings* aPS,
-                                 bool aIsPrintPreview) {
+nsDeviceContextSpecGonk::Init(nsIPrintSettings* aPS, bool aIsPrintPreview) {
   mPrintSettings = aPS;
   return NS_OK;
 }

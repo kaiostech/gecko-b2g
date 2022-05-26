@@ -3555,10 +3555,11 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
             // focused frame
             EnsureDocument(mPresContext);
             if (mDocument) {
+              nsCOMPtr<nsPIDOMWindowOuter> outerWindow = mDocument->GetWindow();
 #ifdef XP_MACOSX
               if (!activeContent || !activeContent->IsXULElement())
 #endif
-                fm->ClearFocus(mDocument->GetWindow());
+                fm->ClearFocus(outerWindow);
               // Prevent switch frame if we're already not in the foreground tab
               // and we're in a content process.
               // TODO: If we were inactive frame in this tab, and now in
@@ -3568,7 +3569,7 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
               //       for doing this.  Therefore, we should skip setting focus
               //       to clicked document for now.
               if (XRE_IsParentProcess() || IsInActiveTab(mDocument)) {
-                fm->SetFocusedWindow(mDocument->GetWindow());
+                fm->SetFocusedWindow(outerWindow);
               }
             }
           }
@@ -4022,7 +4023,10 @@ bool EventStateManager::IsTargetCrossProcess(WidgetGUIEvent* aEvent) {
 }
 
 void EventStateManager::NotifyDestroyPresContext(nsPresContext* aPresContext) {
-  IMEStateManager::OnDestroyPresContext(aPresContext);
+  RefPtr<nsPresContext> presContext = aPresContext;
+  if (presContext) {
+    IMEStateManager::OnDestroyPresContext(*presContext);
+  }
   if (mHoverContent) {
     // Bug 70855: Presentation is going away, possibly for a reframe.
     // Reset the hover state so that if we're recreating the presentation,
@@ -4031,7 +4035,7 @@ void EventStateManager::NotifyDestroyPresContext(nsPresContext* aPresContext) {
     SetContentState(nullptr, NS_EVENT_STATE_HOVER);
   }
   mPointersEnterLeaveHelper.Clear();
-  PointerEventHandler::NotifyDestroyPresContext(aPresContext);
+  PointerEventHandler::NotifyDestroyPresContext(presContext);
 }
 
 void EventStateManager::SetPresContext(nsPresContext* aPresContext) {
@@ -5595,12 +5599,6 @@ static Element* GetLabelTarget(nsIContent* aPossibleLabel) {
 }
 
 /* static */
-void EventStateManager::SetFullscreenState(Element* aElement,
-                                           bool aIsFullscreen) {
-  DoStateChange(aElement, NS_EVENT_STATE_FULLSCREEN, aIsFullscreen);
-}
-
-/* static */
 inline void EventStateManager::DoStateChange(Element* aElement,
                                              EventStates aState,
                                              bool aAddState) {
@@ -5877,12 +5875,18 @@ void EventStateManager::ContentRemoved(Document* aDocument,
     element->LeaveLink(element->GetPresContext(Element::eForComposedDoc));
   }
 
-  IMEStateManager::OnRemoveContent(mPresContext, aContent);
+  if (aContent->IsElement()) {
+    if (RefPtr<nsPresContext> presContext = mPresContext) {
+      IMEStateManager::OnRemoveContent(*presContext,
+                                       MOZ_KnownLive(*aContent->AsElement()));
+    }
+  }
 
   // inform the focus manager that the content is being removed. If this
   // content is focused, the focus will be removed without firing events.
-  nsFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (fm) fm->ContentRemoved(aDocument, aContent);
+  if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
+    fm->ContentRemoved(aDocument, aContent);
+  }
 
   RemoveNodeFromChainIfNeeded(NS_EVENT_STATE_HOVER, aContent, true);
   RemoveNodeFromChainIfNeeded(NS_EVENT_STATE_ACTIVE, aContent, true);

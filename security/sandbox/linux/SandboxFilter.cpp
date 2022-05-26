@@ -1155,6 +1155,9 @@ protected:
 
       case __NR_ioctl: {
         Arg<unsigned long> request(1);
+#ifdef MOZ_ASAN
+        Arg<int> fd(0);
+#endif // MOZ_ASAN
         // Make isatty() return false, because none of the terminal
         // ioctls will be allowed; libraries sometimes call this for
         // various reasons (e.g., to decide whether to emit ANSI/VT
@@ -1164,6 +1167,10 @@ protected:
         // This is required by ffmpeg
         return If(AnyOf(request == TCGETS, request == TIOCGWINSZ),
                   Error(ENOTTY))
+#ifdef MOZ_ASAN
+            // ASAN's error reporter wants to know if stderr is a tty.
+            .ElseIf(fd == STDERR_FILENO, Error(ENOTTY))
+#endif // MOZ_ASAN
             .Else(SandboxPolicyBase::EvaluateSyscall(sysno));
       }
 
@@ -1174,12 +1181,6 @@ protected:
         return SandboxPolicyBase::EvaluateSyscall(sysno);
 
 #ifdef MOZ_ASAN
-        // ASAN's error reporter wants to know if stderr is a tty.
-      case __NR_ioctl: {
-        Arg<int> fd(0);
-        return If(fd == STDERR_FILENO, Error(ENOTTY)).Else(InvalidSyscall());
-      }
-
         // ...and before compiler-rt r209773, it will call readlink on
         // /proc/self/exe and use the cached value only if that fails:
       case __NR_readlink:
@@ -1190,7 +1191,7 @@ protected:
         // (See also bug 1081242 comment #7.)
       CASES_FOR_stat:
         return Error(ENOENT);
-#endif
+#endif // MOZ_ASAN
 
       default:
         return SandboxPolicyBase::EvaluateSyscall(sysno);
@@ -1717,6 +1718,10 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
       case __NR_get_mempolicy:
         return Allow();
 
+      // Required by libnuma for FFmpeg
+      case __NR_set_mempolicy:
+        return Error(ENOSYS);
+
       case __NR_kcmp:
         return KcmpPolicyForMesa();
 
@@ -2191,15 +2196,18 @@ class UtilityAudioDecoderSandboxPolicy final : public UtilitySandboxPolicy {
   ResultExpr EvaluateSyscall(int sysno) const override {
     switch (sysno) {
       // Required by FFmpeg
-      case __NR_get_mempolicy: {
+      case __NR_get_mempolicy:
         return Allow();
-      }
 
       // Required by libnuma for FFmpeg
       case __NR_sched_getaffinity: {
         Arg<pid_t> pid(0);
         return If(pid == 0, Allow()).Else(Trap(SchedTrap, nullptr));
       }
+
+      // Required by libnuma for FFmpeg
+      case __NR_set_mempolicy:
+        return Error(ENOSYS);
 
       // Pass through the common policy.
       default:

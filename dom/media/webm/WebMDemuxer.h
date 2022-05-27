@@ -110,6 +110,10 @@ class WebMDemuxer : public MediaDataDemuxer,
 
   bool IsSeekableOnlyInBufferedRanges() const override;
 
+#ifdef MOZ_B2G
+  bool IsAudioSeekedByVideo() const override { return true; }
+#endif
+
   UniquePtr<EncryptionInfo> GetCrypto() override;
 
   bool GetOffsetForTime(uint64_t aTime, int64_t* aOffset);

@@ -66,6 +66,10 @@ class MediaDataDemuxer : public DecoderDoctorLifeLogger<MediaDataDemuxer> {
   // ranges.
   virtual bool IsSeekableOnlyInBufferedRanges() const { return false; }
 
+#  ifdef MOZ_B2G
+  virtual bool IsAudioSeekedByVideo() const { return false; }
+#  endif
+
   // Returns the media's crypto information, or nullptr if media isn't
   // encrypted.
   virtual UniquePtr<EncryptionInfo> GetCrypto() { return nullptr; }

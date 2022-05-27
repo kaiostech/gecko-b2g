@@ -8421,6 +8421,12 @@
   value: 1
   mirror: always
 
+# Whether we should throttle in-process iframes in the active tab.
+- name: layout.throttle_in_process_iframes
+  type: bool
+  value: true
+  mirror: always
+
 # Activity granted to out-of-process iframes in the foreground tab, in milliseconds.
 - name: layout.oopif_activity_grace_period_ms
   type: uint32_t
@@ -9226,17 +9232,7 @@
 #ifdef MOZ_FFVPX
 - name: media.utility-ffvpx.enabled
   type: RelaxedAtomicBool
-#if defined(XP_WIN)
   value: true
-#elif defined(XP_MACOSX)
-  value: true
-#elif defined(XP_LINUX) && !defined(ANDROID)
-  value: true
-#elif defined(XP_OPENBSD)
-  value: true
-#else
-  value: false
-#endif
   mirror: always
 #endif
 
@@ -9274,6 +9270,13 @@
 -   name: media.android-media-codec.enabled
     type: RelaxedAtomicBool
     value: true
+    mirror: always
+
+  # Bug 1771196
+  # Dont yet enable AndroidDecoderModule on Utility
+-   name: media.utility-android-media-codec.enabled
+    type: RelaxedAtomicBool
+    value: false
     mirror: always
 
 -   name: media.android-media-codec.preferred

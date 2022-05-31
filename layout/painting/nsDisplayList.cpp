@@ -1056,7 +1056,6 @@ nsCaret* nsDisplayListBuilder::GetCaret() {
 
 void nsDisplayListBuilder::IncrementPresShellPaintCount(PresShell* aPresShell) {
   if (mIsPaintingToWindow) {
-    mReferenceFrame->AddPaintedPresShell(aPresShell);
     aPresShell->IncrementPaintCount();
   }
 }
@@ -5371,17 +5370,6 @@ void nsDisplaySubDocument::RemoveFrame(nsIFrame* aFrame) {
     SetDeletedFrame();
   }
   nsDisplayOwnLayer::RemoveFrame(aFrame);
-}
-
-void nsDisplaySubDocument::Disown() {
-  if (mFrame) {
-    mFrame->RemoveDisplayItem(this);
-    RemoveFrame(mFrame);
-  }
-  if (mSubDocFrame) {
-    mSubDocFrame->RemoveDisplayItem(this);
-    RemoveFrame(mSubDocFrame);
-  }
 }
 
 static bool UseDisplayPortForViewport(nsDisplayListBuilder* aBuilder,

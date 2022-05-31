@@ -665,7 +665,7 @@ const TargetingGetters = {
   },
 };
 
-this.ASRouterTargeting = {
+const ASRouterTargeting = {
   Environment: TargetingGetters,
 
   isTriggerMatch(trigger = {}, candidateMessageTrigger = {}) {
@@ -841,11 +841,7 @@ this.ASRouterTargeting = {
   },
 };
 
-// Export for testing
-this.getSortedMessages = getSortedMessages;
-this.QueryCache = QueryCache;
-this.CachedTargetingGetter = CachedTargetingGetter;
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "ASRouterTargeting",
   "QueryCache",
   "CachedTargetingGetter",

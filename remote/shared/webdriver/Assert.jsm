@@ -25,7 +25,7 @@ const isB2G = () => Services.appinfo.name.toLowerCase() == "b2g";
  *
  * @namespace
  */
-this.assert = {};
+const assert = {};
 
 /**
  * Asserts that WebDriver has an active session.

@@ -197,9 +197,12 @@ class HTMLEditor final : public EditorBase,
   Element* GetFocusedElement() const final;
   bool IsActiveInDOMWindow() const final;
   dom::EventTarget* GetDOMEventTarget() const final;
-  Element* FindSelectionRoot(nsINode* aNode) const final;
+  [[nodiscard]] Element* FindSelectionRoot(const nsINode& aNode) const final;
   bool IsAcceptableInputEvent(WidgetGUIEvent* aGUIEvent) const final;
   nsresult GetPreferredIMEState(widget::IMEState* aState) final;
+  MOZ_CAN_RUN_SCRIPT nsresult
+  OnFocus(const nsINode& aOriginalEventTargetNode) final;
+  nsresult OnBlur(const dom::EventTarget* aEventTarget) final;
 
   /**
    * GetBackgroundColorState() returns what the background color of the
@@ -637,7 +640,7 @@ class HTMLEditor final : public EditorBase,
    * active in the DOM window, this returns NULL.
    */
   enum class LimitInBodyElement { No, Yes };
-  Element* GetActiveEditingHost(
+  Element* ComputeEditingHost(
       LimitInBodyElement aLimitInBodyElement = LimitInBodyElement::Yes) const;
 
   /**
@@ -786,7 +789,6 @@ class HTMLEditor final : public EditorBase,
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
   RemoveBlockContainerWithTransaction(Element& aElement);
 
-  Element* GetEditorRoot() const final;
   MOZ_CAN_RUN_SCRIPT nsresult RemoveAttributeOrEquivalent(
       Element* aElement, nsAtom* aAttribute, bool aSuppressTransaction) final;
   MOZ_CAN_RUN_SCRIPT nsresult SetAttributeOrEquivalent(

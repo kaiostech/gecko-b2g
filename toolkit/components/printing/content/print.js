@@ -1608,12 +1608,7 @@ class PrintUIForm extends PrintUIControlMixin(HTMLFormElement) {
   }
 
   removeNonPdfSettings() {
-    let selectors = [
-      "#margins",
-      "#headers-footers",
-      "#backgrounds",
-      "#source-version-selection",
-    ];
+    let selectors = ["#backgrounds", "#source-version-selection"];
     for (let selector of selectors) {
       this.querySelector(selector).remove();
     }

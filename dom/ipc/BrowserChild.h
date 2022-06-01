@@ -442,10 +442,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   mozilla::ipc::IPCResult RecvSetUpdateHitRegion(const bool& aEnabled);
 
 #ifdef ACCESSIBILITY
-  PDocAccessibleChild* AllocPDocAccessibleChild(PDocAccessibleChild*,
-                                                const uint64_t&,
-                                                const uint32_t&,
-                                                const IAccessibleHolder&);
+  PDocAccessibleChild* AllocPDocAccessibleChild(
+      PDocAccessibleChild*, const uint64_t&,
+      const MaybeDiscardedBrowsingContext&, const uint32_t&,
+      const IAccessibleHolder&);
   bool DeallocPDocAccessibleChild(PDocAccessibleChild*);
 #endif
 

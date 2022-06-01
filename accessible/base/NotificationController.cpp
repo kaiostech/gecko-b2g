@@ -5,7 +5,6 @@
 
 #include "NotificationController.h"
 
-#include "CacheConstants.h"
 #include "DocAccessible-inl.h"
 #include "DocAccessibleChild.h"
 #include "nsEventShell.h"
@@ -636,10 +635,10 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
   if (!mDocument) return;
 
   // Wait until an update, we have started, or an interruptible reflow is
-  // finished.
+  // finished, and the PresShell has initialized.
   if (mObservingState == eRefreshProcessing ||
       mObservingState == eRefreshProcessingForUpdate ||
-      mPresShell->IsReflowInterrupted()) {
+      mPresShell->IsReflowInterrupted() || !mPresShell->DidInitialize()) {
     return;
   }
 
@@ -745,10 +744,6 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
 #endif
 
       TextUpdater::Run(mDocument, textAcc->AsTextLeaf(), text.mString);
-      if (IPCAccessibilityActive() &&
-          StaticPrefs::accessibility_cache_enabled_AtStartup()) {
-        mDocument->QueueCacheUpdate(textAcc, CacheDomain::Text);
-      }
       continue;
     }
 
@@ -965,7 +960,9 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
           do_GetInterface(mDocument->DocumentNode()->GetDocShell());
       if (browserChild) {
         static_cast<BrowserChild*>(browserChild.get())
-            ->SendPDocAccessibleConstructor(ipcDoc, parentIPCDoc, id, 0, 0);
+            ->SendPDocAccessibleConstructor(
+                ipcDoc, parentIPCDoc, id,
+                childDoc->DocumentNode()->GetBrowsingContext(), 0, 0);
         ipcDoc->SendPDocAccessiblePlatformExtConstructor();
       }
 #endif

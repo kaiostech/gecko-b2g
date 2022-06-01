@@ -374,7 +374,9 @@ void HTMLEditor::HideGrabberInternal() {
 nsresult HTMLEditor::ShowGrabberInternal(Element& aElement) {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
-  if (NS_WARN_IF(!IsDescendantOfEditorRoot(&aElement))) {
+  const RefPtr<Element> editingHost = ComputeEditingHost();
+  if (NS_WARN_IF(!editingHost) ||
+      NS_WARN_IF(!aElement.IsInclusiveDescendantOf(editingHost))) {
     return NS_ERROR_UNEXPECTED;
   }
 
@@ -937,7 +939,8 @@ nsresult HTMLEditor::GetTemporaryStyleForFocusedPositionedElement(
     return NS_OK;
   }
 
-  RefPtr<ComputedStyle> style = nsComputedDOMStyle::GetComputedStyle(&aElement);
+  RefPtr<const ComputedStyle> style =
+      nsComputedDOMStyle::GetComputedStyle(&aElement);
   if (NS_WARN_IF(Destroyed())) {
     return NS_ERROR_EDITOR_DESTROYED;
   }

@@ -631,23 +631,10 @@ static const nsDefaultMimeTypeEntry nonDecodableExtensions[] = {
  *
  * In addition to this list, we do this for all audio/, video/ and
  * image/ mimetypes.
- *
- * Also see the list for anyExtensionMimetypes for those types that are
- * never modified.
  */
 static const char* forcedExtensionMimetypes[] = {
     APPLICATION_PDF, APPLICATION_OGG, APPLICATION_WASM,
     TEXT_CALENDAR,   TEXT_CSS,        TEXT_VCARD};
-
-/**
- * Mimetypes that are commonly used with a variety of extensions. These
- * types will not have their extension modified.
- *
- * For XML, we can use it when sniffing for a mimetype if one hasn't been
- * provided, so it is added here as well.
- */
-static const char* anyExtensionMimetypes[] = {APPLICATION_ZIP, APPLICATION_JSON,
-                                              TEXT_XML};
 
 /**
  * Primary extensions of types whose descriptions should be overwritten.
@@ -3712,21 +3699,11 @@ nsExternalHelperAppService::ShouldModifyExtension(nsIMIMEInfo* aMimeInfo,
     return ModifyExtension_Append;
   }
 
-  // Skip those types for which we should never modify the extension, unless
-  // the extension is empty.
-  if (!aFileExt.IsEmpty()) {
-    for (const char* mime : anyExtensionMimetypes) {
-      if (MIMEType.Equals(mime)) {
-        return ModifyExtension_Ignore;
-      }
-    }
-  }
-
   // Determine whether the extensions should be appended or replaced depending
   // on the content type.
   bool canForce = StringBeginsWith(MIMEType, "image/"_ns) ||
                   StringBeginsWith(MIMEType, "audio/"_ns) ||
-                  StringBeginsWith(MIMEType, "video/"_ns);
+                  StringBeginsWith(MIMEType, "video/"_ns) || aFileExt.IsEmpty();
 
   if (!canForce) {
     for (const char* mime : forcedExtensionMimetypes) {
@@ -3740,7 +3717,7 @@ nsExternalHelperAppService::ShouldModifyExtension(nsIMIMEInfo* aMimeInfo,
     }
 
     if (!canForce) {
-      return ModifyExtension_Append;
+      return ModifyExtension_Ignore;
     }
   }
 

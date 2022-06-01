@@ -401,8 +401,6 @@ class BrowserExtensionContent extends EventEmitter {
     this.MESSAGE_EMIT_EVENT = `Extension:EmitEvent:${this.instanceId}`;
     Services.cpmm.addMessageListener(this.MESSAGE_EMIT_EVENT, this);
 
-    let restrictSchemes = !this.hasPermission("mozillaAddons");
-
     this.apiManager = this.getAPIManager();
 
     this._manifest = null;
@@ -421,49 +419,6 @@ class BrowserExtensionContent extends EventEmitter {
 
     // Only used for devtools views.
     this.devtoolsViews = new Set();
-
-    /* eslint-disable mozilla/balanced-listeners */
-    this.on("add-permissions", (ignoreEvent, permissions) => {
-      if (permissions.permissions.length) {
-        let perms = new Set(this.policy.permissions);
-        for (let perm of permissions.permissions) {
-          perms.add(perm);
-        }
-        this.policy.permissions = perms;
-      }
-
-      if (permissions.origins.length) {
-        let patterns = this.allowedOrigins.patterns.map(host => host.pattern);
-
-        this.policy.allowedOrigins = new MatchPatternSet(
-          [...patterns, ...permissions.origins],
-          { restrictSchemes, ignorePath: true }
-        );
-      }
-    });
-
-    this.on("remove-permissions", (ignoreEvent, permissions) => {
-      if (permissions.permissions.length) {
-        let perms = new Set(this.policy.permissions);
-        for (let perm of permissions.permissions) {
-          perms.delete(perm);
-        }
-        this.policy.permissions = perms;
-      }
-
-      if (permissions.origins.length) {
-        let origins = permissions.origins.map(
-          origin => new MatchPattern(origin, { ignorePath: true }).pattern
-        );
-
-        this.policy.allowedOrigins = new MatchPatternSet(
-          this.allowedOrigins.patterns.filter(
-            host => !origins.includes(host.pattern)
-          )
-        );
-      }
-    });
-    /* eslint-enable mozilla/balanced-listeners */
 
     ExtensionManager.extensions.set(this.id, this);
   }
@@ -816,8 +771,7 @@ class ChildAPIManager {
           }
         }
       };
-      this.context.extension.on("add-permissions", this.updatePermissions);
-      this.context.extension.on("remove-permissions", this.updatePermissions);
+      this.context.extension.on("update-permissions", this.updatePermissions);
     }
   }
 
@@ -959,8 +913,7 @@ class ChildAPIManager {
     this.conduit.close();
 
     if (this.updatePermissions) {
-      this.context.extension.off("add-permissions", this.updatePermissions);
-      this.context.extension.off("remove-permissions", this.updatePermissions);
+      this.context.extension.off("update-permissions", this.updatePermissions);
     }
   }
 

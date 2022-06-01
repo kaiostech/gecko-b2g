@@ -952,7 +952,7 @@ bool APZCTreeManager::AdvanceAnimationsInternal(
 }
 
 void APZCTreeManager::PrintLayerInfo(const ScrollNode& aLayer) {
-  if (aLayer.Dump(mApzcTreeLog) > 0) {
+  if (StaticPrefs::apz_printtree() && aLayer.Dump(mApzcTreeLog) > 0) {
     mApzcTreeLog << "\n";
   }
 }
@@ -2428,9 +2428,6 @@ void APZCTreeManager::UpdateZoomConstraints(
         }
         return matches;
       });
-
-  MOZ_ASSERT(!node ||
-             !node->GetApzc());  // any node returned must not have an APZC
 
   // This does not hold because we can get zoom constraints updates before the
   // layer tree update with the async zoom container (I assume).

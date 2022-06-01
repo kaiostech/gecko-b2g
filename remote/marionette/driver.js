@@ -110,7 +110,7 @@ const TIMEOUT_NO_WINDOW_MANAGER = 5000;
  * @param {MarionetteServer} server
  *     The instance of Marionette server.
  */
-this.GeckoDriver = function(server) {
+function GeckoDriver(server) {
   this._server = server;
 
   // WebDriver Session
@@ -141,7 +141,7 @@ this.GeckoDriver = function(server) {
       Services.obs.addObserver(resolve, "shell-ready");
     }
   });
-};
+}
 
 /**
  * The current context decides if commands are executed in chrome- or
@@ -486,11 +486,12 @@ GeckoDriver.prototype.newSession = async function(cmd) {
         if (AppInfo.isB2G) {
           this.switchToSystemWindow();
         } else {
-          const browsingContext = this.curBrowser.contentBrowser.browsingContext;
+          const browsingContext = this.curBrowser.contentBrowser
+            .browsingContext;
           this.currentSession.contentBrowsingContext = browsingContext;
-  
+
           await waitForInitialNavigationCompleted(browsingContext.webProgress);
-  
+
           this.curBrowser.contentBrowser.focus();
         }
       }

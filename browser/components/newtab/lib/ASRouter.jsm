@@ -25,7 +25,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
     "resource://activity-stream/lib/ASRouterPreferences.jsm",
   ASRouterTriggerListeners:
     "resource://activity-stream/lib/ASRouterTriggerListeners.jsm",
-  CFRMessageProvider: "resource://activity-stream/lib/CFRMessageProvider.jsm",
   KintoHttpClient: "resource://services-common/kinto-http-client.js",
   Downloader: "resource://services-settings/Attachments.jsm",
   RemoteL10n: "resource://activity-stream/lib/RemoteL10n.jsm",
@@ -510,8 +509,6 @@ const MessageLoaderUtils = {
     return localeMap[locale] ?? locale;
   },
 };
-
-this.MessageLoaderUtils = MessageLoaderUtils;
 
 /**
  * @class _ASRouter - Keeps track of all messages, UI surfaces, and
@@ -1785,12 +1782,11 @@ class _ASRouter {
     await this.loadMessagesFromAllProviders([experimentProvider]);
   }
 }
-this._ASRouter = _ASRouter;
 
 /**
  * ASRouter - singleton instance of _ASRouter that controls all messages
  * in the new tab page.
  */
-this.ASRouter = new _ASRouter();
+const ASRouter = new _ASRouter();
 
 const EXPORTED_SYMBOLS = ["_ASRouter", "ASRouter", "MessageLoaderUtils"];

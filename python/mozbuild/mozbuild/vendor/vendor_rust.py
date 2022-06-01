@@ -11,11 +11,11 @@ import logging
 import os
 import re
 import subprocess
-import sys
 from collections import defaultdict, OrderedDict
 from distutils.version import LooseVersion
 from itertools import dropwhile
 from mozboot.util import MINIMUM_RUST_VERSION
+from pathlib import Path
 
 import pytoml
 import mozpack.path as mozpath
@@ -74,20 +74,16 @@ PACKAGES_WE_ALWAYS_WANT_AN_OVERRIDE_OF = [
 # add a comment as to why.
 TOLERATED_DUPES = {
     "arrayvec": 2,
-    "base64": 3,
+    "base64": 2,
     "bytes": 3,
-    "cfg-if": 2,
     "crossbeam-deque": 2,
     "crossbeam-epoch": 2,
     "crossbeam-utils": 3,
     "futures": 2,
-    "itertools": 2,
     "libloading": 2,
-    "memmap2": 2,
     "memoffset": 2,
     "mio": 2,
     "pin-project-lite": 2,
-    "target-lexicon": 2,
     "tokio": 3,
     "block-buffer": 2,
     "digest": 2,
@@ -141,7 +137,7 @@ class VendorRust(MozbuildObject):
         self.log(logging.DEBUG, "cargo_version", {}, "cargo is new enough")
         return True
 
-    def check_modified_files(self):
+    def has_modified_files(self):
         """
         Ensure that there aren't any uncommitted changes to files
         in the working copy, since we're going to change some state
@@ -167,7 +163,7 @@ Please commit or stash these changes before vendoring, or re-run with `--ignore-
                     files="\n".join(sorted(modified))
                 ),
             )
-            sys.exit(1)
+        return modified
 
     def check_openssl(self):
         """
@@ -385,6 +381,7 @@ Please commit or stash these changes before vendoring, or re-run with `--ignore-
                         ),
                     )
                     return False
+            return True
 
         def check_package(package):
             self.log(
@@ -443,7 +440,8 @@ Please commit or stash these changes before vendoring, or re-run with `--ignore-
 
                 if license_matches:
                     license = license_matches[0].group(1)
-                    verify_acceptable_license(package, license)
+                    if not verify_acceptable_license(package, license):
+                        return False
                 else:
                     license_file = license_file_matches[0].group(1)
                     self.log(
@@ -507,12 +505,13 @@ license file's hash.
     ):
         self.populate_logger()
         self.log_manager.enable_unstructured()
-        if not ignore_modified:
-            self.check_modified_files()
+        if not ignore_modified and self.has_modified_files():
+            return False
 
         cargo = self._ensure_cargo()
         if not cargo:
-            return
+            self.log(logging.ERROR, "cargo_not_found", {}, "Cargo was not found.")
+            return False
 
         relative_vendor_dir = "third_party/rust"
         vendor_dir = mozpath.join(self.topsrcdir, relative_vendor_dir)
@@ -520,7 +519,10 @@ license file's hash.
         # We use check_call instead of mozprocess to ensure errors are displayed.
         # We do an |update -p| here to regenerate the Cargo.lock file with minimal
         # changes. See bug 1324462
-        subprocess.check_call([cargo, "update", "-p", "gkrust"], cwd=self.topsrcdir)
+        res = subprocess.run([cargo, "update", "-p", "gkrust"], cwd=self.topsrcdir)
+        if res.returncode:
+            self.log(logging.ERROR, "cargo_update_failed", {}, "Cargo update failed.")
+            return False
 
         with open(os.path.join(self.topsrcdir, "Cargo.lock")) as fh, open(
             os.path.join(self.topsrcdir, "Cargo.toml")
@@ -574,11 +576,12 @@ license file's hash.
                             "crate": name,
                             "num": num,
                             "expected": expected,
-                            "file": __file__,
+                            "file": Path(__file__).relative_to(self.topsrcdir),
                         },
                         "There are {num} different versions of crate {crate} "
-                        "(expected {expected}). Please void the extra duplication "
-                        "or adjust TOLERATED_DUPES in {file} if not possible.",
+                        "(expected {expected}). Please avoid the extra duplication "
+                        "or adjust TOLERATED_DUPES in {file} if not possible "
+                        "(but we'd prefer the former).",
                     )
                     failed = True
                 elif num < expected and num > 1:
@@ -589,7 +592,7 @@ license file's hash.
                             "crate": name,
                             "num": num,
                             "expected": expected,
-                            "file": __file__,
+                            "file": Path(__file__).relative_to(self.topsrcdir),
                         },
                         "There are {num} different versions of crate {crate} "
                         "(expected {expected}). Please adjust TOLERATED_DUPES in "
@@ -602,7 +605,7 @@ license file's hash.
                         "less_duplicate_crate",
                         {
                             "crate": name,
-                            "file": __file__,
+                            "file": Path(__file__).relative_to(self.topsrcdir),
                         },
                         "Crate {crate} is not duplicated anymore. "
                         "Please adjust TOLERATED_DUPES in {file} to reflect this improvement.",
@@ -614,7 +617,7 @@ license file's hash.
                         "broken_allowed_dupes",
                         {
                             "crate": name,
-                            "file": __file__,
+                            "file": Path(__file__).relative_to(self.topsrcdir),
                         },
                         "Crate {crate} is not duplicated. Remove it from "
                         "TOLERATED_DUPES in {file}.",
@@ -628,7 +631,7 @@ license file's hash.
                         "outdated_allowed_dupes",
                         {
                             "crate": name,
-                            "file": __file__,
+                            "file": Path(__file__).relative_to(self.topsrcdir),
                         },
                         "Crate {crate} is not in Cargo.lock anymore. Remove it from "
                         "TOLERATED_DUPES in {file}.",
@@ -636,11 +639,15 @@ license file's hash.
                     failed = True
 
             if failed:
-                sys.exit(1)
+                return False
 
-        output = subprocess.check_output(
-            [cargo, "vendor", vendor_dir], cwd=self.topsrcdir
-        ).decode("UTF-8")
+        res = subprocess.run(
+            [cargo, "vendor", vendor_dir], cwd=self.topsrcdir, stdout=subprocess.PIPE
+        )
+        if res.returncode:
+            self.log(logging.ERROR, "cargo_vendor_failed", {}, "Cargo vendor failed.")
+            return False
+        output = res.stdout.decode("UTF-8")
 
         # Get the snippet of configuration that cargo vendor outputs, and
         # update .cargo/config with it.
@@ -668,7 +675,7 @@ license file's hash.
                 """cargo vendor didn't output a unique replace-with. Found: %s."""
                 % replaces,
             )
-            sys.exit(1)
+            return False
 
         replace_name = replaces.pop()
         replace = config["source"].pop(replace_name)
@@ -722,7 +729,7 @@ license file's hash.
                 ),
             )
             self.repository.clean_directory(vendor_dir)
-            sys.exit(1)
+            return False
 
         self.repository.add_remove_files(vendor_dir)
 
@@ -762,7 +769,7 @@ The changes from `mach vendor rust` will NOT be added to version control.
             )
             self.repository.forget_add_remove_files(vendor_dir)
             self.repository.clean_directory(vendor_dir)
-            sys.exit(1)
+            return False
 
         # Only warn for large imports, since we may just have large code
         # drops from time to time (e.g. importing features into m-c).
@@ -781,3 +788,4 @@ a pull request upstream to ignore those files when publishing.""".format(
                     size=cumulative_added_size
                 ),
             )
+        return True

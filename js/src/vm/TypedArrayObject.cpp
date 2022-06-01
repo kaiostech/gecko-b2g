@@ -1033,6 +1033,20 @@ JS_FOR_EACH_TYPED_ARRAY(CREATE_TYPE_FOR_TYPED_ARRAY)
 
 } /* anonymous namespace */
 
+#ifdef ENABLE_CHANGE_ARRAY_BY_COPY
+JSObject* js::GetTypedArrayConstructorFromKind(JSContext* cx,
+                                               Scalar::Type type) {
+#  define TYPED_ARRAY_CONSTRUCTOR(_, T, N)                          \
+    if (type == Scalar::N) {                                        \
+      return N##Array::createConstructor(cx, N##Array::protoKey()); \
+    }
+  JS_FOR_EACH_TYPED_ARRAY(TYPED_ARRAY_CONSTRUCTOR)
+#  undef TYPED_ARRAY_CONSTRUCTOR
+
+  MOZ_CRASH("Unsupported TypedArray type");
+}
+#endif
+
 TypedArrayObject* js::NewTypedArrayWithTemplateAndLength(
     JSContext* cx, HandleObject templateObj, int32_t len) {
   MOZ_ASSERT(templateObj->is<TypedArrayObject>());
@@ -1995,10 +2009,10 @@ bool TypedArrayObject::copyWithin(JSContext* cx, unsigned argc, Value* vp) {
 
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
 const JSFunctionSpec changeArrayByCopyProtoFunctions[] = {
-    JS_SELF_HOSTED_FN("withReversed", "TypedArrayWithReversed", 0, 0),
-    JS_SELF_HOSTED_FN("withSorted", "TypedArrayWithSorted", 1, 0),
-    JS_SELF_HOSTED_FN("withAt", "TypedArrayWithAt", 2, 0),
-    JS_SELF_HOSTED_FN("withSpliced", "TypedArrayWithSpliced", 3, 0),
+    JS_SELF_HOSTED_FN("toReversed", "TypedArrayToReversed", 0, 0),
+    JS_SELF_HOSTED_FN("toSorted", "TypedArrayToSorted", 1, 0),
+    JS_SELF_HOSTED_FN("with", "TypedArrayWith", 2, 0),
+    JS_SELF_HOSTED_FN("toSpliced", "TypedArrayToSpliced", 3, 0),
 
     JS_FS_END};
 
@@ -2461,10 +2475,7 @@ static bool StringToTypedArrayIndexSlow(JSContext* cx,
   const mozilla::RangedPtr<const CharT> end = s.end();
 
   const CharT* actualEnd;
-  double result;
-  if (!js_strtod(cx, start.get(), end.get(), &actualEnd, &result)) {
-    return false;
-  }
+  double result = js_strtod(start.get(), end.get(), &actualEnd);
 
   // The complete string must have been parsed.
   if (actualEnd != end.get()) {

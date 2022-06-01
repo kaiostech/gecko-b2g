@@ -621,6 +621,14 @@ class MediaFormatReader::DemuxerProxy {
     return mData->mSeekableOnlyInBufferedRange;
   }
 
+#ifdef MOZ_B2G
+  bool IsAudioSeekedByVideo() const {
+    MOZ_RELEASE_ASSERT(mData && mData->mInitDone);
+
+    return mData->mIsAudioSeekedByVideo;
+  }
+#endif
+
   UniquePtr<EncryptionInfo> GetCrypto() const {
     MOZ_RELEASE_ASSERT(mData && mData->mInitDone);
 
@@ -659,6 +667,9 @@ class MediaFormatReader::DemuxerProxy {
     RefPtr<Wrapper> mVideoDemuxer;
     bool mSeekable = false;
     bool mSeekableOnlyInBufferedRange = false;
+#ifdef MOZ_B2G
+    bool mIsAudioSeekedByVideo = false;
+#endif
     bool mShouldComputeStartTime = true;
     UniquePtr<EncryptionInfo> mCrypto;
 
@@ -878,6 +889,10 @@ RefPtr<MediaDataDemuxer::InitPromise> MediaFormatReader::DemuxerProxy::Init() {
             data->mSeekable = data->mDemuxer->IsSeekable();
             data->mSeekableOnlyInBufferedRange =
                 data->mDemuxer->IsSeekableOnlyInBufferedRanges();
+#ifdef MOZ_B2G
+            data->mIsAudioSeekedByVideo =
+                data->mDemuxer->IsAudioSeekedByVideo();
+#endif
             data->mShouldComputeStartTime =
                 data->mDemuxer->ShouldComputeStartTime();
             data->mInitDone = true;
@@ -2959,7 +2974,11 @@ void MediaFormatReader::OnVideoSeekCompleted(TimeUnit aTime) {
 
   if (HasAudio() && !mOriginalSeekTarget.IsVideoOnly()) {
     MOZ_ASSERT(mPendingSeekTime.isSome());
+#ifdef MOZ_B2G
+    if (mOriginalSeekTarget.IsFast() && !mDemuxer->IsAudioSeekedByVideo()) {
+#else
     if (mOriginalSeekTarget.IsFast()) {
+#endif
       // We are performing a fast seek. We need to seek audio to where the
       // video seeked to, to ensure proper A/V sync once playback resume.
       mPendingSeekTime = Some(aTime);

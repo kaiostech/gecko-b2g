@@ -25,7 +25,6 @@
 #include "mozilla/BasicEvents.h"
 #include "mozilla/BitSet.h"
 #include "mozilla/OriginTrials.h"
-#include "mozilla/ContentBlockingNotifier.h"
 #include "mozilla/CORSMode.h"
 #include "mozilla/CallState.h"
 #include "mozilla/EventStates.h"
@@ -1265,16 +1264,6 @@ class Document : public nsINode,
 
   nsresult HasStorageAccessSync(bool& aHasStorageAccess);
   already_AddRefed<Promise> HasStorageAccess(ErrorResult& aRv);
-
-  // This function performs the asynchronous portion of checking if requests
-  // for storage access will be sucessful or not. This includes creating a
-  // permission prompt request and trying to perform an "autogrant"
-  // This will return a promise whose values correspond to those of a
-  // ContentBlocking::AllowAccessFor call that ends the funciton.
-  RefPtr<MozPromise<int, bool, true>> RequestStorageAccessAsyncHelper(
-      nsPIDOMWindowInner* aInnerWindow, BrowsingContext* aBrowsingContext,
-      nsIPrincipal* aPrincipal, bool aHasUserInteraction,
-      ContentBlockingNotifier::StorageAccessPermissionGrantedReason aNotifier);
   already_AddRefed<Promise> RequestStorageAccess(ErrorResult& aRv);
 
   already_AddRefed<Promise> RequestStorageAccessForOrigin(
@@ -1916,8 +1905,6 @@ class Document : public nsINode,
   void RequestFullscreenInParentProcess(UniquePtr<FullscreenRequest> aRequest,
                                         bool applyFullScreenDirectly);
 
-  static void ClearFullscreenStateOnElement(Element&);
-
   // Pushes aElement onto the top layer
   void TopLayerPush(Element&);
 
@@ -1931,8 +1918,8 @@ class Document : public nsINode,
   void CleanupFullscreenState();
 
   // Pops the fullscreen element from the top layer and clears its
-  // fullscreen flag.
-  void UnsetFullscreenElement();
+  // fullscreen flag. Returns whether there was any fullscreen element.
+  bool PopFullscreenElement();
 
   // Pushes the given element into the top of top layer and set fullscreen
   // flag.

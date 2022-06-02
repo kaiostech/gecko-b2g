@@ -3142,6 +3142,16 @@ void MediaInputPort::Disconnect() {
   mGraph->SetTrackOrderDirty();
 }
 
+MediaTrack* MediaInputPort::GetSource() const {
+  mGraph->AssertOnGraphThreadOrNotRunning();
+  return mSource;
+}
+
+ProcessedMediaTrack* MediaInputPort::GetDestination() const {
+  mGraph->AssertOnGraphThreadOrNotRunning();
+  return mDest;
+}
+
 MediaInputPort::InputInterval MediaInputPort::GetNextInputInterval(
     MediaInputPort const* aPort, GraphTime aTime) {
   InputInterval result = {GRAPH_TIME_MAX, GRAPH_TIME_MAX, false};
@@ -3219,7 +3229,7 @@ already_AddRefed<MediaInputPort> ProcessedMediaTrack::AllocateInputPort(
   class Message : public ControlMessage {
    public:
     explicit Message(MediaInputPort* aPort)
-        : ControlMessage(aPort->GetDestination()), mPort(aPort) {}
+        : ControlMessage(aPort->mDest), mPort(aPort) {}
     void Run() override {
       TRACE("ProcessedMediaTrack::AllocateInputPort ControlMessage");
       mPort->Init();

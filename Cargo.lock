@@ -10,9 +10,14 @@ checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
 name = "ahash"
-version = "0.4.7"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "739f4a8db6605981345c5654f3a85b056ce52f37a39d34da03f25bf2151ea16e"
+checksum = "fcb51a0695d8f838b1ee009b3fbf66bda078cd64590202a864a8f3e8c4315c47"
+dependencies = [
+ "getrandom",
+ "once_cell",
+ "version_check",
+]
 
 [[package]]
 name = "aho-corasick"
@@ -325,7 +330,7 @@ dependencies = [
  "libc",
  "libudev",
  "log",
- "rand",
+ "rand 0.7.999",
  "runloop",
  "winapi",
 ]
@@ -499,7 +504,7 @@ dependencies = [
  "comedy",
  "guid_win",
  "lazy_static",
- "rand",
+ "rand 0.8.5",
  "regex",
  "tempfile",
  "thiserror",
@@ -1678,7 +1683,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ad9169582543d2cfe9961be1e9eaf4fc42f9aa3483f7c485717b8dde36466ea"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.9.999",
 ]
 
 [[package]]
@@ -2149,9 +2154,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.1.16"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce"
+checksum = "9be70c98951c83b8d2f8f60d7065fa6d5146873094452a1008da8c2f1e4205ad"
 dependencies = [
  "cfg-if 1.0.0",
  "libc",
@@ -2456,7 +2461,7 @@ checksum = "d7a237f0419ab10d17006d55c62ac4f689a6bf52c75d3f38b8361d249e8d4b0b"
 dependencies = [
  "bitflags",
  "gpu-descriptor-types",
- "hashbrown",
+ "hashbrown 0.9.999",
 ]
 
 [[package]]
@@ -2499,9 +2504,16 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.9.1"
+version = "0.9.999"
+dependencies = [
+ "hashbrown 0.11.2",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
+checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
 dependencies = [
  "ahash",
 ]
@@ -2512,7 +2524,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d99cf782f0dc4372d26846bec3de7804ceb5df083c2d4462c0b8d2330e894fa8"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.9.999",
 ]
 
 [[package]]
@@ -2676,12 +2688,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.6.2"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
+checksum = "0f647032dfaa1f8b6dc29bd3edb7bbef4861b8b8007ebb118d6db284fd59f6ee"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.11.2",
  "serde",
 ]
 
@@ -2819,7 +2831,7 @@ version = "0.3.100"
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=8e3bb9d83bf0d503279a1ffde104337d1ef18703#8e3bb9d83bf0d503279a1ffde104337d1ef18703"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b86a26dee550081fa49bf34e3a5e6d7a673ea7a9#b86a26dee550081fa49bf34e3a5e6d7a673ea7a9"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2833,7 +2845,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=8e3bb9d83bf0d503279a1ffde104337d1ef18703#8e3bb9d83bf0d503279a1ffde104337d1ef18703"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b86a26dee550081fa49bf34e3a5e6d7a673ea7a9#b86a26dee550081fa49bf34e3a5e6d7a673ea7a9"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2842,7 +2854,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=8e3bb9d83bf0d503279a1ffde104337d1ef18703#8e3bb9d83bf0d503279a1ffde104337d1ef18703"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b86a26dee550081fa49bf34e3a5e6d7a673ea7a9#b86a26dee550081fa49bf34e3a5e6d7a673ea7a9"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2855,7 +2867,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=8e3bb9d83bf0d503279a1ffde104337d1ef18703#8e3bb9d83bf0d503279a1ffde104337d1ef18703"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b86a26dee550081fa49bf34e3a5e6d7a673ea7a9#b86a26dee550081fa49bf34e3a5e6d7a673ea7a9"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2865,14 +2877,14 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=8e3bb9d83bf0d503279a1ffde104337d1ef18703#8e3bb9d83bf0d503279a1ffde104337d1ef18703"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b86a26dee550081fa49bf34e3a5e6d7a673ea7a9#b86a26dee550081fa49bf34e3a5e6d7a673ea7a9"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=8e3bb9d83bf0d503279a1ffde104337d1ef18703#8e3bb9d83bf0d503279a1ffde104337d1ef18703"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b86a26dee550081fa49bf34e3a5e6d7a673ea7a9#b86a26dee550081fa49bf34e3a5e6d7a673ea7a9"
 dependencies = [
- "arrayvec 0.5.2",
+ "arrayvec 0.7.2",
  "bumpalo",
  "jsparagus-ast",
  "jsparagus-generated-parser",
@@ -2882,7 +2894,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=8e3bb9d83bf0d503279a1ffde104337d1ef18703#8e3bb9d83bf0d503279a1ffde104337d1ef18703"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b86a26dee550081fa49bf34e3a5e6d7a673ea7a9#b86a26dee550081fa49bf34e3a5e6d7a673ea7a9"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2892,7 +2904,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=8e3bb9d83bf0d503279a1ffde104337d1ef18703#8e3bb9d83bf0d503279a1ffde104337d1ef18703"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b86a26dee550081fa49bf34e3a5e6d7a673ea7a9#b86a26dee550081fa49bf34e3a5e6d7a673ea7a9"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -3514,7 +3526,7 @@ dependencies = [
 name = "mozglue-static"
 version = "0.1.0"
 dependencies = [
- "arrayvec 0.5.2",
+ "arrayvec 0.7.2",
  "cc",
  "mozbuild",
  "rustc_version",
@@ -4130,9 +4142,9 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
 name = "phf"
-version = "0.8.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dfb61232e34fcb633f43d12c58f83c1df82962dcdfa565a4e866ffc17dafe12"
+checksum = "fabbf1ead8a5bcbc20f5f8b939ee3f5b0f6f281b6ad3468b84656b658b455259"
 dependencies = [
  "phf_macros",
  "phf_shared",
@@ -4141,9 +4153,9 @@ dependencies = [
 
 [[package]]
 name = "phf_codegen"
-version = "0.8.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbffee61585b0411840d3ece935cce9cb6321f01c45477d30066498cd5e1a815"
+checksum = "4fb1c3a8bc4dd4e5cfce29b44ffc14bedd2ee294559a294e2a4d4c9e9a6a13cd"
 dependencies = [
  "phf_generator",
  "phf_shared",
@@ -4151,19 +4163,19 @@ dependencies = [
 
 [[package]]
 name = "phf_generator"
-version = "0.8.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17367f0cc86f2d25802b2c26ee58a7b23faeccf78a396094c13dced0d0182526"
+checksum = "5d5285893bb5eb82e6aaf5d59ee909a06a16737a8970984dd7746ba9283498d6"
 dependencies = [
  "phf_shared",
- "rand",
+ "rand 0.8.5",
 ]
 
 [[package]]
 name = "phf_macros"
-version = "0.8.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f6fde18ff429ffc8fe78e2bf7f8b7a5a5a6e2a8b58bc5a9ac69198bbda9189c"
+checksum = "58fdf3184dd560f160dd73922bea2d5cd6e8f064bf4b13110abd81b03697b4e0"
 dependencies = [
  "phf_generator",
  "phf_shared",
@@ -4175,9 +4187,9 @@ dependencies = [
 
 [[package]]
 name = "phf_shared"
-version = "0.8.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c00cf8b9eafe68dde5e9eaa2cef8ee84a9336a47d566ec55ca16589633b65af7"
+checksum = "b6796ad771acdc0123d2a88dc428b5e38ef24456743ddb1744ed628f9815c096"
 dependencies = [
  "siphasher",
 ]
@@ -4451,23 +4463,27 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a6b1679d49b24bbfe0c803429aa1874472f50d9b363131f0e89fc356b544d03"
+version = "0.7.999"
 dependencies = [
- "getrandom",
+ "rand 0.8.5",
+]
+
+[[package]]
+name = "rand"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+dependencies = [
  "libc",
  "rand_chacha",
  "rand_core",
- "rand_hc",
- "rand_pcg",
 ]
 
 [[package]]
 name = "rand_chacha"
-version = "0.2.2"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4c8ed856279c9737206bf725bf36935d8666ead7aa69b52be55af369d193402"
+checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
  "rand_core",
@@ -4475,29 +4491,11 @@ dependencies = [
 
 [[package]]
 name = "rand_core"
-version = "0.5.1"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90bde5296fc891b0cef12a6d03ddccc162ce7b2aff54160af9338f8d40df6d19"
+checksum = "d34f1408f55294453790c48b2f1ebbb1c5b4b7563eb1f418bcfcfdbb06ebb4e7"
 dependencies = [
  "getrandom",
-]
-
-[[package]]
-name = "rand_hc"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
-dependencies = [
- "rand_core",
-]
-
-[[package]]
-name = "rand_pcg"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16abd0c1b639e9eb4d7c50c0b8100b0d0f849be2349829c740fe8e6eb4816429"
-dependencies = [
- "rand_core",
 ]
 
 [[package]]
@@ -4703,7 +4701,7 @@ checksum = "ef248456c30c6607f1eb1e5d11025367b3340e235314dd33d2b31b41b35ac335"
 dependencies = [
  "byteorder",
  "murmurhash3",
- "rand",
+ "rand 0.7.999",
  "sha2 0.10.2",
 ]
 
@@ -5162,7 +5160,7 @@ name = "style"
 version = "0.0.1"
 dependencies = [
  "app_units",
- "arrayvec 0.5.2",
+ "arrayvec 0.7.2",
  "atomic_refcell",
  "bindgen 0.59.2",
  "bitflags",
@@ -5289,7 +5287,7 @@ version = "0.1.0"
 source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
 dependencies = [
  "base64 0.12.3",
- "rand",
+ "rand 0.7.999",
  "rusqlite",
  "serde",
 ]
@@ -5334,7 +5332,7 @@ checksum = "7a6e24d9338a0a5be79593e2fa15a648add6138caa803e2d5bc782c371732ca9"
 dependencies = [
  "cfg-if 0.1.999",
  "libc",
- "rand",
+ "rand 0.7.999",
  "redox_syscall",
  "remove_dir_all",
  "winapi",
@@ -5727,11 +5725,11 @@ checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
 
 [[package]]
 name = "uluru"
-version = "1.1.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6ee6f45294ecb6e220e76b8afddb50a8b69d433f31ad9eb2d16fb44029ef5db"
+checksum = "794a32261a1f5eb6a4462c81b59cec87b5c27d5deea7dd1ac8fc781c41d226db"
 dependencies = [
- "arrayvec 0.5.2",
+ "arrayvec 0.7.2",
 ]
 
 [[package]]
@@ -5872,7 +5870,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fde2f6a4bea1d6e007c4ad38c6839fa71cbb63b6dbf5b595aa38dc9b1093c11"
 dependencies = [
- "rand",
+ "rand 0.7.999",
  "serde",
 ]
 
@@ -5955,9 +5953,9 @@ dependencies = [
 
 [[package]]
 name = "wasi"
-version = "0.9.0+wasi-snapshot-preview1"
+version = "0.10.2+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
+checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 
 [[package]]
 name = "wasm-bindgen"

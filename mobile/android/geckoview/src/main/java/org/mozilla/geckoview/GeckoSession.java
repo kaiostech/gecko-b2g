@@ -43,6 +43,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.annotation.UiThread;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
@@ -1168,6 +1169,9 @@ public class GeckoSession {
     public native void attachAccessibility(
         SessionAccessibility.NativeProvider sessionAccessibility);
 
+    @WrapForJNI(dispatchTo = "proxy")
+    public native void printToPdf(GeckoResult<InputStream> geckoResult);
+
     @WrapForJNI(calledFrom = "gecko")
     private synchronized void onReady(final @Nullable NativeQueue queue) {
       // onReady is called the first time the Gecko window is ready, with a null queue
@@ -1359,7 +1363,7 @@ public class GeckoSession {
     mAutofillSupport = new Autofill.Support(this);
     mAutofillSupport.registerListeners();
 
-    if (BuildConfig.DEBUG && handlersCount != mSessionHandlers.length) {
+    if (BuildConfig.DEBUG_BUILD && handlersCount != mSessionHandlers.length) {
       throw new AssertionError("Add new handler to handlers list");
     }
   }
@@ -6502,6 +6506,18 @@ public class GeckoSession {
   @UiThread
   public @NonNull Autofill.Session getAutofillSession() {
     return getAutofillSupport().getAutofillSession();
+  }
+
+  /**
+   * Saves a PDF of the currently displayed page.
+   *
+   * @return A GeckoResult with an InputStream containing the PDF
+   */
+  @AnyThread
+  public @NonNull GeckoResult<InputStream> saveAsPdf() {
+    final GeckoResult<InputStream> geckoResult = new GeckoResult<>();
+    this.mWindow.printToPdf(geckoResult);
+    return geckoResult;
   }
 
   private static String rgbaToArgb(final String color) {

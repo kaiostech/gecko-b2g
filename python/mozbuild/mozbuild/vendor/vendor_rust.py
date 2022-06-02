@@ -75,7 +75,7 @@ PACKAGES_WE_ALWAYS_WANT_AN_OVERRIDE_OF = [
 TOLERATED_DUPES = {
     "arrayvec": 2,
     "base64": 2,
-    "bytes": 3,
+    "bytes": 2,
     "crossbeam-deque": 2,
     "crossbeam-epoch": 2,
     "crossbeam-utils": 3,
@@ -83,13 +83,11 @@ TOLERATED_DUPES = {
     "libloading": 2,
     "memoffset": 2,
     "mio": 2,
-    "pin-project-lite": 2,
-    "tokio": 3,
-    "block-buffer": 2,
-    "digest": 2,
-    "sha2": 2,
-    "toml": 2,
-    "nix": 2,
+    # Transition from time 0.1 to 0.3 underway, but chrono is stuck on 0.1
+    # and hasn't been updated in 1.5 years (an hypothetical update is
+    # expected to remove the dependency on time altogether).
+    "time": 2,
+    "tokio": 2,
 }
 
 

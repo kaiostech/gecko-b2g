@@ -16,7 +16,7 @@
 #include "builtin/SelfHostingDefines.h"  // MODULE_OBJECT_*
 #include "gc/Barrier.h"                  // HeapPtr, PreBarrieredId
 #include "gc/Rooting.h"                  // HandleAtom, HandleArrayObject
-#include "gc/ZoneAllocator.h"            // ZoneAllocPolicy
+#include "gc/ZoneAllocator.h"            // CellAllocPolicy
 #include "js/Class.h"                    // JSClass, ObjectOpResult
 #include "js/GCVector.h"                 // GCVector
 #include "js/Id.h"                       // jsid
@@ -185,7 +185,7 @@ class IndirectBindingMap {
 
   using Map =
       mozilla::HashMap<PreBarrieredId, Binding,
-                       mozilla::DefaultHasher<PreBarrieredId>, ZoneAllocPolicy>;
+                       mozilla::DefaultHasher<PreBarrieredId>, CellAllocPolicy>;
 
   mozilla::Maybe<Map> map_;
 };
@@ -323,7 +323,7 @@ class ModuleObject : public NativeObject {
   void initImportExportData(HandleArrayObject requestedModules,
                             HandleArrayObject importEntries,
                             HandleArrayObject localExportEntries,
-                            HandleArrayObject indiretExportEntries,
+                            HandleArrayObject indirectExportEntries,
                             HandleArrayObject starExportEntries);
   static bool Freeze(JSContext* cx, HandleModuleObject self);
 #ifdef DEBUG
@@ -370,10 +370,11 @@ class ModuleObject : public NativeObject {
   static bool appendAsyncParentModule(JSContext* cx, HandleModuleObject self,
                                       HandleModuleObject parent);
 
-  static bool topLevelCapabilityResolve(JSContext* cx,
-                                        HandleModuleObject module);
-  static bool topLevelCapabilityReject(JSContext* cx, HandleModuleObject module,
-                                       HandleValue error);
+  [[nodiscard]] static bool topLevelCapabilityResolve(
+      JSContext* cx, HandleModuleObject module);
+  [[nodiscard]] static bool topLevelCapabilityReject(JSContext* cx,
+                                                     HandleModuleObject module,
+                                                     HandleValue error);
 
   static bool Instantiate(JSContext* cx, HandleModuleObject self);
 

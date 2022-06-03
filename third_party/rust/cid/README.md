@@ -16,35 +16,25 @@
 
 ## Table of Contents
 
-- [Install](#install)
 - [Usage](#usage)
+- [Testing](#testing)
 - [Maintainers](#maintainers)
 - [Contribute](#contribute)
 - [License](#license)
 
-## Install
-
-First add this to your `Cargo.toml`
-
-```toml
-[dependencies]
-cid = "*"
-multihash = "0.10"
-```
-
-Then run `cargo build`.
-
 ## Usage
 
 ```rust
-use cid::{Cid, Codec, Version};
-use multihash::Sha2_256;
+use cid::multihash::{Code, MultihashDigest};
+use cid::Cid;
 use std::convert::TryFrom;
 
-fn main() {
-    let h = Sha2_256::digest(b"beep boop");
+const RAW: u64 = 0x55;
 
-    let cid = Cid::new(Version::V1, Codec::DagProtobuf, h).unwrap();
+fn main() {
+    let h = Code::Sha2_256.digest(b"beep boop");
+
+    let cid = Cid::new_v1(RAW, h);
 
     let data = cid.to_bytes();
     let out = Cid::try_from(data).unwrap();
@@ -52,9 +42,27 @@ fn main() {
     assert_eq!(cid, out);
 
     let cid_string = cid.to_string();
-    /// bafybeieq5jui4j25lacwomsqgjeswwl3y5zcdrresptwgmfylxo2depppq
+    assert_eq!(
+        cid_string,
+        "bafkreieq5jui4j25lacwomsqgjeswwl3y5zcdrresptwgmfylxo2depppq"
+    );
+    println!("{}", cid_string);
 }
 ```
+
+Your `Cargo.toml` needs these dependencies:
+
+```toml
+[dependencies]
+cid = "0.7.0"
+```
+
+You can also run this example from this checkout with `cargo run --example readme`.
+
+## Testing
+
+You can run the tests using this command: `cargo test --all-features`
+
 ## Maintainers
 
 Captain: [@dignifiedquire](https://github.com/dignifiedquire).
@@ -66,7 +74,6 @@ Contributions welcome. Please check out [the issues](https://github.com/multifor
 Check out our [contributing document](https://github.com/multiformats/multiformats/blob/master/contributing.md) for more information on how we work, and about contributing in general. Please be aware that all interactions related to multiformats are subject to the IPFS [Code of Conduct](https://github.com/ipfs/community/blob/master/code-of-conduct.md).
 
 Small note: If editing the README, please conform to the [standard-readme](https://github.com/RichardLitt/standard-readme) specification.
-
 
 ## License
 

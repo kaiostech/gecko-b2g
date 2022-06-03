@@ -11,12 +11,14 @@ mod version;
 
 #[cfg(any(test, feature = "arb"))]
 mod arb;
+#[cfg(feature = "serde-codec")]
+pub mod serde;
 
 pub use self::cid::Cid as CidGeneric;
 pub use self::error::{Error, Result};
 pub use self::version::Version;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 pub use multibase;
 pub use multihash;
 
@@ -25,4 +27,4 @@ pub use multihash;
 /// This is the same digest size the default multihash code table has.
 ///
 /// If you need a CID that is generic over its digest size, use [`CidGeneric`] instead.
-pub type Cid = CidGeneric<multihash::U64>;
+pub type Cid = CidGeneric<64>;

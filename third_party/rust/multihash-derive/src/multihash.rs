@@ -6,6 +6,7 @@ use quote::quote;
 #[cfg(not(test))]
 use quote::ToTokens;
 use syn::parse::{Parse, ParseStream};
+#[cfg(not(test))]
 use syn::spanned::Spanned;
 use synstructure::{Structure, VariantInfo};
 
@@ -13,19 +14,17 @@ mod kw {
     use syn::custom_keyword;
 
     custom_keyword!(code);
-    custom_keyword!(digest);
     custom_keyword!(hasher);
     custom_keyword!(mh);
     custom_keyword!(alloc_size);
-    custom_keyword!(no_alloc_size_errors);
 }
 
 /// Attributes for the enum items.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum MhAttr {
     Code(utils::Attr<kw::code, syn::Expr>),
     Hasher(utils::Attr<kw::hasher, Box<syn::Type>>),
-    Digest(utils::Attr<kw::digest, syn::Path>),
 }
 
 impl Parse for MhAttr {
@@ -35,7 +34,7 @@ impl Parse for MhAttr {
         } else if input.peek(kw::hasher) {
             Ok(MhAttr::Hasher(input.parse()?))
         } else {
-            Ok(MhAttr::Digest(input.parse()?))
+            Err(syn::Error::new(input.span(), "unknown attribute"))
         }
     }
 }
@@ -43,16 +42,13 @@ impl Parse for MhAttr {
 /// Attributes of the top-level derive.
 #[derive(Debug)]
 enum DeriveAttr {
-    AllocSize(utils::Attr<kw::alloc_size, syn::Type>),
-    NoAllocSizeErrors(kw::no_alloc_size_errors),
+    AllocSize(utils::Attr<kw::alloc_size, syn::LitInt>),
 }
 
 impl Parse for DeriveAttr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(kw::alloc_size) {
             Ok(Self::AllocSize(input.parse()?))
-        } else if input.peek(kw::no_alloc_size_errors) {
-            Ok(Self::NoAllocSizeErrors(input.parse()?))
         } else {
             Err(syn::Error::new(input.span(), "unknown attribute"))
         }
@@ -68,7 +64,6 @@ struct Hash {
     ident: syn::Ident,
     code: syn::Expr,
     hasher: Box<syn::Type>,
-    digest: syn::Path,
 }
 
 impl Hash {
@@ -90,29 +85,16 @@ impl Hash {
         let hasher = &self.hasher;
         let code = &self.code;
         quote!(Self::#ident => {
-           let digest = #hasher::digest(input);
-           Multihash::wrap(#code, &digest.as_ref()).unwrap()
+            let mut hasher = #hasher::default();
+            hasher.update(input);
+            Multihash::wrap(#code, hasher.finalize()).unwrap()
         })
-    }
-
-    fn from_digest(&self, params: &Params) -> TokenStream {
-        let digest = &self.digest;
-        let code_enum = &params.code_enum;
-        let ident = &self.ident;
-        quote! {
-           impl From<&#digest> for #code_enum {
-               fn from(digest: &#digest) -> Self {
-                   Self::#ident
-               }
-           }
-        }
     }
 }
 
 impl<'a> From<&'a VariantInfo<'a>> for Hash {
     fn from(bi: &'a VariantInfo<'a>) -> Self {
         let mut code = None;
-        let mut digest = None;
         let mut hasher = None;
         for attr in bi.ast().attrs {
             let attr: Result<utils::Attrs<MhAttr>, _> = syn::parse2(attr.tokens.clone());
@@ -121,7 +103,6 @@ impl<'a> From<&'a VariantInfo<'a>> for Hash {
                     match attr {
                         MhAttr::Code(attr) => code = Some(attr.value),
                         MhAttr::Hasher(attr) => hasher = Some(attr.value),
-                        MhAttr::Digest(attr) => digest = Some(attr.value),
                     }
                 }
             }
@@ -142,18 +123,10 @@ impl<'a> From<&'a VariantInfo<'a>> for Hash {
             #[cfg(not(test))]
             proc_macro_error::abort!(ident, msg);
         });
-        let digest = digest.unwrap_or_else(|| {
-            let msg = "Missing digest atttibute: e.g. #[mh(digest = multihash::Sha2Digest<U32>)]";
-            #[cfg(test)]
-            panic!("{}", msg);
-            #[cfg(not(test))]
-            proc_macro_error::abort!(ident, msg);
-        });
         Self {
             ident,
             code,
             hasher,
-            digest,
         }
     }
 }
@@ -161,9 +134,8 @@ impl<'a> From<&'a VariantInfo<'a>> for Hash {
 /// Parse top-level enum [#mh()] attributes.
 ///
 /// Returns the `alloc_size` and whether errors regarding to `alloc_size` should be reported or not.
-fn parse_code_enum_attrs(ast: &syn::DeriveInput) -> (syn::Type, bool) {
+fn parse_code_enum_attrs(ast: &syn::DeriveInput) -> syn::LitInt {
     let mut alloc_size = None;
-    let mut no_alloc_size_errors = false;
 
     for attr in &ast.attrs {
         let derive_attrs: Result<utils::Attrs<DeriveAttr>, _> = syn::parse2(attr.tokens.clone());
@@ -173,15 +145,14 @@ fn parse_code_enum_attrs(ast: &syn::DeriveInput) -> (syn::Type, bool) {
                     DeriveAttr::AllocSize(alloc_size_attr) => {
                         alloc_size = Some(alloc_size_attr.value)
                     }
-                    DeriveAttr::NoAllocSizeErrors(_) => no_alloc_size_errors = true,
                 }
             }
         }
     }
     match alloc_size {
-        Some(alloc_size) => (alloc_size, no_alloc_size_errors),
+        Some(alloc_size) => alloc_size,
         None => {
-            let msg = "enum is missing `alloc_size` attribute: e.g. #[mh(alloc_size = U64)]";
+            let msg = "enum is missing `alloc_size` attribute: e.g. #[mh(alloc_size = 64)]";
             #[cfg(test)]
             panic!("{}", msg);
             #[cfg(not(test))]
@@ -226,93 +197,6 @@ fn error_code_duplicates(hashes: &[Hash]) {
 #[derive(Debug)]
 struct ParseError(Span);
 
-/// Parse a path containing a `typenum` unsigned integer (e.g. `U64`) into a u64
-fn parse_unsigned_typenum(typenum_path: &syn::Type) -> Result<u64, ParseError> {
-    match typenum_path {
-        syn::Type::Path(type_path) => match type_path.path.segments.last() {
-            Some(path_segment) => {
-                let typenum_ident = &path_segment.ident;
-                let typenum = typenum_ident.to_string();
-                match typenum.as_str().split_at(1) {
-                    ("U", byte_size) => byte_size
-                        .parse::<u64>()
-                        .map_err(|_| ParseError(typenum_ident.span())),
-                    _ => Err(ParseError(typenum_ident.span())),
-                }
-            }
-            None => Err(ParseError(type_path.path.span())),
-        },
-        _ => Err(ParseError(typenum_path.span())),
-    }
-}
-
-/// Returns the max size as u64.
-///
-/// Emits an error if the `#mh(alloc_size)` attribute doesn't contain a valid unsigned integer
-/// `typenum`.
-fn parse_alloc_size_attribute(alloc_size: &syn::Type) -> u64 {
-    parse_unsigned_typenum(&alloc_size).unwrap_or_else(|_| {
-        let msg = "`alloc_size` attribute must be a `typenum`, e.g. #[mh(alloc_size = U64)]";
-        #[cfg(test)]
-        panic!("{}", msg);
-        #[cfg(not(test))]
-        proc_macro_error::abort!(&alloc_size, msg);
-    })
-}
-
-/// Return a warning/error if the specified alloc_size is smaller than the biggest digest
-fn error_alloc_size(hashes: &[Hash], expected_alloc_size_type: &syn::Type) {
-    let expected_alloc_size = parse_alloc_size_attribute(expected_alloc_size_type);
-
-    let maybe_error: Result<(), ParseError> = hashes
-        .iter()
-        .try_for_each(|hash| {
-            // The digest type must have a size parameter of the shape `U<number>`, else we error.
-            match hash.digest.segments.last() {
-                Some(path_segment) => match &path_segment.arguments {
-                    syn::PathArguments::AngleBracketed(arguments) => match arguments.args.last() {
-                        Some(syn::GenericArgument::Type(path)) => {
-                            match parse_unsigned_typenum(&path) {
-                                Ok(max_digest_size) => {
-                                    if max_digest_size > expected_alloc_size {
-                                        let msg = format!("The `#mh(alloc_size) attribute must be bigger than the maximum defined digest size (U{})",
-                                        max_digest_size);
-                                        #[cfg(test)]
-                                        panic!("{}", msg);
-                                        #[cfg(not(test))]
-                                        {
-                                            let digest = &hash.digest.to_token_stream().to_string().replace(" ", "");
-                                            let line = &hash.digest.span().start().line;
-                                            proc_macro_error::emit_error!(
-                                                &expected_alloc_size_type, msg;
-                                                note = "the bigger digest is `{}` at line {}", digest, line;
-                                            );
-                                        }
-                                    }
-                                    Ok(())
-                                },
-                                Err(err) => Err(err),
-                            }
-                        },
-                        _ => Err(ParseError(arguments.args.span())),
-                    },
-                    _ => Err(ParseError(path_segment.span())),
-                },
-                None => Err(ParseError(hash.digest.span())),
-            }
-        });
-
-    if let Err(_error) = maybe_error {
-        let msg = "Invalid byte size. It must be a unsigned integer typenum, e.g. `U32`";
-        #[cfg(test)]
-        panic!("{}", msg);
-        #[cfg(not(test))]
-        {
-            proc_macro_error::emit_error!(&_error.0, msg);
-        }
-    }
-}
-
 pub fn multihash(s: Structure) -> TokenStream {
     let mh_crate = match utils::use_crate("multihash") {
         Ok(ident) => ident,
@@ -322,14 +206,10 @@ pub fn multihash(s: Structure) -> TokenStream {
         }
     };
     let code_enum = &s.ast().ident;
-    let (alloc_size, no_alloc_size_errors) = parse_code_enum_attrs(&s.ast());
+    let alloc_size = parse_code_enum_attrs(s.ast());
     let hashes: Vec<_> = s.variants().iter().map(Hash::from).collect();
 
     error_code_duplicates(&hashes);
-
-    if !no_alloc_size_errors {
-        error_alloc_size(&hashes, &alloc_size);
-    }
 
     let params = Params {
         code_enum: code_enum.clone(),
@@ -338,15 +218,12 @@ pub fn multihash(s: Structure) -> TokenStream {
     let code_into_u64 = hashes.iter().map(|h| h.code_into_u64(&params));
     let code_from_u64 = hashes.iter().map(|h| h.code_from_u64());
     let code_digest = hashes.iter().map(|h| h.code_digest());
-    let from_digest = hashes.iter().map(|h| h.from_digest(&params));
 
     quote! {
         /// A Multihash with the same allocated size as the Multihashes produces by this derive.
-        pub type Multihash = #mh_crate::MultihashGeneric::<#alloc_size>;
+        pub type Multihash = #mh_crate::MultihashGeneric<#alloc_size>;
 
-        impl #mh_crate::MultihashDigest for #code_enum {
-            type AllocSize = #alloc_size;
-
+        impl #mh_crate::MultihashDigest<#alloc_size> for #code_enum {
             fn digest(&self, input: &[u8]) -> Multihash {
                 use #mh_crate::Hasher;
                 match self {
@@ -355,14 +232,8 @@ pub fn multihash(s: Structure) -> TokenStream {
                 }
             }
 
-            fn multihash_from_digest<'a, S, D>(digest: &'a D) -> Multihash
-            where
-                S: #mh_crate::Size,
-                D: #mh_crate::Digest<S>,
-                Self: From<&'a D>,
-            {
-                let code = Self::from(&digest);
-                Multihash::wrap(code.into(), &digest.as_ref()).unwrap()
+            fn wrap(&self, digest: &[u8]) -> Result<Multihash, #mh_crate::Error> {
+                Multihash::wrap((*self).into(), digest)
             }
         }
 
@@ -385,8 +256,6 @@ pub fn multihash(s: Structure) -> TokenStream {
                 }
             }
         }
-
-        #(#from_digest)*
     }
 }
 
@@ -398,48 +267,41 @@ mod tests {
     fn test_multihash_derive() {
         let input = quote! {
            #[derive(Clone, Multihash)]
-           #[mh(alloc_size = U32)]
+           #[mh(alloc_size = 32)]
            pub enum Code {
-               #[mh(code = multihash::IDENTITY, hasher = multihash::Identity256, digest = multihash::IdentityDigest<U32>)]
+               #[mh(code = multihash::IDENTITY, hasher = multihash::Identity256)]
                Identity256,
                /// Multihash array for hash function.
-               #[mh(code = 0x38b64f, hasher = multihash::Strobe256, digest = multihash::StrobeDigest<U32>)]
+               #[mh(code = 0x38b64f, hasher = multihash::Strobe256)]
                Strobe256,
             }
         };
         let expected = quote! {
             /// A Multihash with the same allocated size as the Multihashes produces by this derive.
-            pub type Multihash = multihash::MultihashGeneric::<U32>;
+            pub type Multihash = multihash::MultihashGeneric<32>;
 
-            impl multihash::MultihashDigest for Code {
-               type AllocSize = U32;
-
+            impl multihash::MultihashDigest<32> for Code {
                fn digest(&self, input: &[u8]) -> Multihash {
                    use multihash::Hasher;
                    match self {
                        Self::Identity256 => {
-                           let digest = multihash::Identity256::digest(input);
-                           Multihash::wrap(multihash::IDENTITY, &digest.as_ref()).unwrap()
+                           let mut hasher = multihash::Identity256::default();
+                           hasher.update(input);
+                           Multihash::wrap(multihash::IDENTITY, hasher.finalize()).unwrap()
                        },
                        Self::Strobe256 => {
-                           let digest = multihash::Strobe256::digest(input);
-                           Multihash::wrap(0x38b64f, &digest.as_ref()).unwrap()
+                           let mut hasher = multihash::Strobe256::default();
+                           hasher.update(input);
+                           Multihash::wrap(0x38b64f, hasher.finalize()).unwrap()
                        },
                        _ => unreachable!(),
                    }
                }
 
-               fn multihash_from_digest<'a, S, D>(digest: &'a D) -> Multihash
-               where
-                   S: multihash::Size,
-                   D: multihash::Digest<S>,
-                   Self: From<&'a D>,
-               {
-                   let code = Self::from(&digest);
-                   Multihash::wrap(code.into(), &digest.as_ref()).unwrap()
+               fn wrap(&self, digest: &[u8]) -> Result<Multihash, multihash::Error> {
+                   Multihash::wrap((*self).into(), digest)
                }
             }
-
 
             impl From<Code> for u64 {
                 fn from(code: Code) -> Self {
@@ -462,17 +324,6 @@ mod tests {
                     }
                 }
             }
-
-            impl From<&multihash::IdentityDigest<U32> > for Code {
-                fn from(digest: &multihash::IdentityDigest<U32>) -> Self {
-                    Self::Identity256
-                }
-            }
-            impl From<&multihash::StrobeDigest<U32> > for Code {
-                fn from(digest: &multihash::StrobeDigest<U32>) -> Self {
-                    Self::Strobe256
-                }
-            }
         };
         let derive_input = syn::parse2(input).unwrap();
         let s = Structure::new(&derive_input);
@@ -487,11 +338,11 @@ mod tests {
     fn test_multihash_error_code_duplicates() {
         let input = quote! {
            #[derive(Clone, Multihash)]
-           #[mh(alloc_size = U64)]
+           #[mh(alloc_size = 64)]
            pub enum Multihash {
-               #[mh(code = multihash::SHA2_256, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<U32>)]
+               #[mh(code = multihash::SHA2_256, hasher = multihash::Sha2_256)]
                Identity256,
-               #[mh(code = multihash::SHA2_256, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<U32>)]
+               #[mh(code = multihash::SHA2_256, hasher = multihash::Sha2_256)]
                Identity256,
             }
         };
@@ -505,117 +356,12 @@ mod tests {
     fn test_multihash_error_code_duplicates_numbers() {
         let input = quote! {
            #[derive(Clone, Multihash)]
-           #[mh(alloc_size = U32)]
+           #[mh(alloc_size = 32)]
            pub enum Code {
-               #[mh(code = 0x14, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<U32>)]
+               #[mh(code = 0x14, hasher = multihash::Sha2_256)]
                Identity256,
-               #[mh(code = 0x14, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<U32>)]
+               #[mh(code = 0x14, hasher = multihash::Sha2_256)]
                Identity256,
-            }
-        };
-        let derive_input = syn::parse2(input).unwrap();
-        let s = Structure::new(&derive_input);
-        multihash(s);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "enum is missing `alloc_size` attribute: e.g. #[mh(alloc_size = U64)]"
-    )]
-    fn test_multihash_error_no_alloc_size() {
-        let input = quote! {
-           #[derive(Clone, Multihash)]
-           pub enum Code {
-               #[mh(code = 0x14, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<U32>)]
-               Sha2_256,
-            }
-        };
-        let derive_input = syn::parse2(input).unwrap();
-        let s = Structure::new(&derive_input);
-        multihash(s);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "The `#mh(alloc_size) attribute must be bigger than the maximum defined digest size (U32)"
-    )]
-    fn test_multihash_error_too_small_alloc_size() {
-        let input = quote! {
-           #[derive(Clone, Multihash)]
-           #[mh(alloc_size = U16)]
-           pub enum Code {
-               #[mh(code = 0x14, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<U32>)]
-               Sha2_256,
-            }
-        };
-        let derive_input = syn::parse2(input).unwrap();
-        let s = Structure::new(&derive_input);
-        multihash(s);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "Invalid byte size. It must be a unsigned integer typenum, e.g. `U32`"
-    )]
-    fn test_multihash_error_digest_invalid_size_type() {
-        let input = quote! {
-           #[derive(Clone, Multihash)]
-           #[mh(alloc_size = U32)]
-           pub enum Code {
-               #[mh(code = 0x14, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<foo>)]
-               Sha2_256,
-            }
-        };
-        let derive_input = syn::parse2(input).unwrap();
-        let s = Structure::new(&derive_input);
-        multihash(s);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "Invalid byte size. It must be a unsigned integer typenum, e.g. `U32`"
-    )]
-    fn test_multihash_error_digest_invalid_size_type2() {
-        let input = quote! {
-           #[derive(Clone, Multihash)]
-           #[mh(alloc_size = U32)]
-           pub enum Code {
-               #[mh(code = 0x14, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<_>)]
-               Sha2_256,
-            }
-        };
-        let derive_input = syn::parse2(input).unwrap();
-        let s = Structure::new(&derive_input);
-        multihash(s);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "Invalid byte size. It must be a unsigned integer typenum, e.g. `U32`"
-    )]
-    fn test_multihash_error_digest_without_typenum() {
-        let input = quote! {
-           #[derive(Clone, Multihash)]
-           #[mh(alloc_size = U32)]
-           pub enum Code {
-               #[mh(code = 0x14, hasher = multihash::Sha2_256, digest = Sha2_256Digest)]
-               Sha2_256,
-            }
-        };
-        let derive_input = syn::parse2(input).unwrap();
-        let s = Structure::new(&derive_input);
-        multihash(s);
-    }
-
-    // This one does not panic, die to `no_alloc_size_errors`
-    #[test]
-    fn test_multihash_error_digest_without_typenum_no_alloc_size_errors() {
-        let input = quote! {
-           #[derive(Clone, Multihash)]
-           #[mh(alloc_size = U32, no_alloc_size_errors)]
-           pub enum Code {
-               #[mh(code = 0x14, hasher = multihash::Sha2_256, digest = Sha2_256Digest)]
-               Sha2_256,
             }
         };
         let derive_input = syn::parse2(input).unwrap();

@@ -1,54 +1,51 @@
 use std::io::{Cursor, Write};
 
 use multihash::{
-    derive::Multihash, Blake2b256, Blake2b512, Blake2bDigest, Blake2s128, Blake2s256,
-    Blake2sDigest, Blake3Digest, Blake3_256, Digest, Error, Hasher, Identity256, IdentityDigest,
-    Keccak224, Keccak256, Keccak384, Keccak512, KeccakDigest, MultihashDigest, MultihashGeneric,
-    Sha1, Sha1Digest, Sha2Digest, Sha2_256, Sha2_512, Sha3Digest, Sha3_224, Sha3_256, Sha3_384,
-    Sha3_512, Size, StatefulHasher, Strobe256, Strobe512, StrobeDigest, U16, U20, U28, U32, U48,
-    U64,
+    derive::Multihash, Blake2b256, Blake2b512, Blake2s128, Blake2s256, Blake3_256, Hasher,
+    Identity256, Keccak224, Keccak256, Keccak384, Keccak512, MultihashDigest, Sha1, Sha2_256,
+    Sha2_512, Sha3_224, Sha3_256, Sha3_384, Sha3_512, Strobe256, Strobe512,
 };
 
 #[derive(Clone, Copy, Debug, Eq, Multihash, PartialEq)]
-#[mh(alloc_size = U64)]
+#[mh(alloc_size = 64)]
 pub enum Code {
-    #[mh(code = 0x00, hasher = Identity256, digest = IdentityDigest<U32>)]
+    #[mh(code = 0x00, hasher = Identity256)]
     Identity,
-    #[mh(code = 0x11, hasher = Sha1, digest = Sha1Digest<U20>)]
+    #[mh(code = 0x11, hasher = Sha1)]
     Sha1,
-    #[mh(code = 0x12, hasher = Sha2_256, digest = Sha2Digest<U32>)]
+    #[mh(code = 0x12, hasher = Sha2_256)]
     Sha2_256,
-    #[mh(code = 0x13, hasher = Sha2_512, digest = Sha2Digest<U64>)]
+    #[mh(code = 0x13, hasher = Sha2_512)]
     Sha2_512,
-    #[mh(code = 0x17, hasher = Sha3_224, digest = Sha3Digest<U28>)]
+    #[mh(code = 0x17, hasher = Sha3_224)]
     Sha3_224,
-    #[mh(code = 0x16, hasher = Sha3_256, digest = Sha3Digest<U32>)]
+    #[mh(code = 0x16, hasher = Sha3_256)]
     Sha3_256,
-    #[mh(code = 0x15, hasher = Sha3_384, digest = Sha3Digest<U48>)]
+    #[mh(code = 0x15, hasher = Sha3_384)]
     Sha3_384,
-    #[mh(code = 0x14, hasher = Sha3_512, digest = Sha3Digest<U64>)]
+    #[mh(code = 0x14, hasher = Sha3_512)]
     Sha3_512,
-    #[mh(code = 0x1a, hasher = Keccak224, digest = KeccakDigest<U28>)]
+    #[mh(code = 0x1a, hasher = Keccak224)]
     Keccak224,
-    #[mh(code = 0x1b, hasher = Keccak256, digest = KeccakDigest<U32>)]
+    #[mh(code = 0x1b, hasher = Keccak256)]
     Keccak256,
-    #[mh(code = 0x1c, hasher = Keccak384, digest = KeccakDigest<U48>)]
+    #[mh(code = 0x1c, hasher = Keccak384)]
     Keccak384,
-    #[mh(code = 0x1d, hasher = Keccak512, digest = KeccakDigest<U64>)]
+    #[mh(code = 0x1d, hasher = Keccak512)]
     Keccak512,
-    #[mh(code = 0xb220, hasher = Blake2b256, digest = Blake2bDigest<U32>)]
+    #[mh(code = 0xb220, hasher = Blake2b256)]
     Blake2b256,
-    #[mh(code = 0xb240, hasher = Blake2b512, digest = Blake2bDigest<U64>)]
+    #[mh(code = 0xb240, hasher = Blake2b512)]
     Blake2b512,
-    #[mh(code = 0xb250, hasher = Blake2s128, digest = Blake2sDigest<U16>)]
+    #[mh(code = 0xb250, hasher = Blake2s128)]
     Blake2s128,
-    #[mh(code = 0xb260, hasher = Blake2s256, digest = Blake2sDigest<U32>)]
+    #[mh(code = 0xb260, hasher = Blake2s256)]
     Blake2s256,
-    #[mh(code = 0x1e, hasher = Blake3_256, digest = Blake3Digest<U32>)]
+    #[mh(code = 0x1e, hasher = Blake3_256)]
     Blake3_256,
-    #[mh(code = 0x3312e7, hasher = Strobe256, digest = StrobeDigest<U16>)]
+    #[mh(code = 0x3312e7, hasher = Strobe256)]
     Strobe256,
-    #[mh(code = 0x3312e8, hasher = Strobe512, digest = StrobeDigest<U32>)]
+    #[mh(code = 0x3312e8, hasher = Strobe512)]
     Strobe512,
 }
 
@@ -65,18 +62,11 @@ macro_rules! assert_encode {
                "{:?} encodes correctly (from code)", stringify!($alg)
            );
 
-           // From digest
-           assert_eq!(
-             Code::multihash_from_digest(&<$alg>::digest($data)).to_bytes(),
-             expected,
-             "{:?} encodes correctly (from digest)", stringify!($alg)
-           );
-
            // From incremental hashing
            let mut hasher = <$alg>::default();
            hasher.update($data);
            assert_eq!(
-               Code::multihash_from_digest(&hasher.finalize()).to_bytes(),
+               $code.wrap(hasher.finalize()).unwrap().to_bytes(),
                expected,
                "{:?} encodes correctly (from hasher)", stringify!($alg)
            );
@@ -161,7 +151,7 @@ macro_rules! assert_roundtrip {
             {
                 let mut hasher = <$alg>::default();
                 hasher.update(b"helloworld");
-                let hash = Code::multihash_from_digest(&hasher.finalize());
+                let hash = $code.wrap(hasher.finalize()).unwrap();
                 assert_eq!(
                     Multihash::from_bytes(&hash.to_bytes()).unwrap().code(),
                     hash.code()
@@ -171,7 +161,7 @@ macro_rules! assert_roundtrip {
             {
                 let mut hasher = <$alg>::default();
                 hasher.write_all(b"helloworld").unwrap();
-                let hash = Code::multihash_from_digest(&hasher.finalize());
+                let hash = $code.wrap(hasher.finalize()).unwrap();
                 assert_eq!(
                     Multihash::from_bytes(&hash.to_bytes()).unwrap().code(),
                     hash.code()
@@ -206,8 +196,7 @@ fn assert_roundtrip() {
 /// Testing the public interface of `Multihash` and coversions to it
 fn multihash_methods<H>(code: Code, prefix: &str, digest_str: &str)
 where
-    H: StatefulHasher,
-    Code: for<'a> From<&'a H::Digest>,
+    H: Hasher + Default,
 {
     let digest = hex::decode(digest_str).unwrap();
     let expected_bytes = hex::decode(&format!("{}{}", prefix, digest_str)).unwrap();
@@ -228,7 +217,7 @@ where
     // Test from hasher digest conversion
     let mut hasher = H::default();
     hasher.update(b"hello world");
-    let multihash_from_digest = Code::multihash_from_digest(&hasher.finalize());
+    let multihash_from_digest = code.wrap(hasher.finalize()).unwrap();
     assert_eq!(multihash_from_digest.code(), u64::from(code));
     assert_eq!(multihash_from_digest.size() as usize, digest.len());
     assert_eq!(multihash_from_digest.digest(), digest);
@@ -247,7 +236,7 @@ fn test_multihash_methods() {
         "1220",
         "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
     );
-    multihash_methods::<Sha2_512>(
+    multihash_methods::<Sha2_512, >(
       Code::Sha2_512,
      "1340",
      "309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f989dd35bc5ff499670da34255b45b0cfd830e81f605dcf7dc5542e93ae9cd76f");
@@ -261,11 +250,11 @@ fn test_multihash_methods() {
         "1620",
         "644bcc7e564373040999aac89e7622f3ca71fba1d972fd94a31c3bfbf24e3938",
     );
-    multihash_methods::<Sha3_384>(
+    multihash_methods::<Sha3_384, >(
      Code::Sha3_384,
      "1530",
      "83bff28dde1b1bf5810071c6643c08e5b05bdb836effd70b403ea8ea0a634dc4997eb1053aa3593f590f9c63630dd90b");
-    multihash_methods::<Sha3_512>(
+    multihash_methods::<Sha3_512, >(
      Code::Sha3_512,
      "1440",
      "840006653e9ac9e95117a15c915caab81662918e925de9e004f774ff82d7079a40d4d27b1b372657c61d46d470304c88c788b3a4527ad074d1dccbee5dbaa99a");
@@ -279,15 +268,15 @@ fn test_multihash_methods() {
         "1B20",
         "47173285a8d7341e5e972fc677286384f802f8ef42a5ec5f03bbfa254cb01fad",
     );
-    multihash_methods::<Keccak384>(
+    multihash_methods::<Keccak384, >(
      Code::Keccak384,
      "1C30",
      "65fc99339a2a40e99d3c40d695b22f278853ca0f925cde4254bcae5e22ece47e6441f91b6568425adc9d95b0072eb49f");
-    multihash_methods::<Keccak512>(
+    multihash_methods::<Keccak512, >(
      Code::Keccak512,
      "1D40",
      "3ee2b40047b8060f68c67242175660f4174d0af5c01d47168ec20ed619b0b7c42181f40aa1046f39e2ef9efc6910782a998e0013d172458957957fac9405b67d");
-    multihash_methods::<Blake2b512>(
+    multihash_methods::<Blake2b512, >(
      Code::Blake2b512,
      "c0e40240",
      "021ced8799296ceca557832ab941a50b4a11f83478cf141f51f933f653ab9fbcc05a037cddbed06e309bf334942c4e58cdf1a46e237911ccd7fcf9787cbc7fd0");
@@ -316,9 +305,9 @@ fn test_multihash_methods() {
 #[test]
 #[should_panic]
 fn test_long_identity_hash() {
-    // The identity hash panics if the input size is bigger than the maximum size
-    let input = b"abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz";
-    Identity256::digest(input);
+    // The identity hash allocates if the input size is bigger than the maximum size
+    let input = b"abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz";
+    Code::Identity.digest(input);
 }
 
 #[test]

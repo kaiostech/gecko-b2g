@@ -4,8 +4,7 @@ use std::str::FromStr;
 
 use cid::{Cid, CidGeneric, Error, Version};
 use multibase::Base;
-use multihash::typenum::U128;
-use multihash::{derive::Multihash, Code, MultihashDigest, Size};
+use multihash::{derive::Multihash, Code, MultihashDigest};
 
 const RAW: u64 = 0x55;
 const DAG_PB: u64 = 0x70;
@@ -140,7 +139,7 @@ fn to_string_of_base_v0_error() {
     ));
 }
 
-fn a_function_that_takes_a_generic_cid<S: Size>(cid: &CidGeneric<S>) -> String {
+fn a_function_that_takes_a_generic_cid<const S: usize>(cid: &CidGeneric<S>) -> String {
     cid.to_string()
 }
 
@@ -149,14 +148,14 @@ fn a_function_that_takes_a_generic_cid<S: Size>(cid: &CidGeneric<S>) -> String {
 #[test]
 fn method_can_take_differently_sized_cids() {
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Multihash)]
-    #[mh(alloc_size = U128)]
+    #[mh(alloc_size = 128)]
     enum Code128 {
-        #[mh(code = 0x12, hasher = multihash::Sha2_256, digest = multihash::Sha2Digest<multihash::U32>)]
+        #[mh(code = 0x12, hasher = multihash::Sha2_256)]
         Sha2_256,
     }
 
     let cid_default = Cid::new_v1(RAW, Code::Sha2_256.digest(b"foo"));
-    let cid_128 = CidGeneric::<U128>::new_v1(RAW, Code128::Sha2_256.digest(b"foo"));
+    let cid_128 = CidGeneric::<128>::new_v1(RAW, Code128::Sha2_256.digest(b"foo"));
 
     assert_eq!(
         a_function_that_takes_a_generic_cid(&cid_default),

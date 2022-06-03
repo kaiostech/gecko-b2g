@@ -1,26 +1,18 @@
 use std::convert::TryFrom;
 
 use multihash::derive::Multihash;
-use multihash::typenum::{U20, U25, U64};
-use multihash::{
-    Digest, Error, Hasher, MultihashDigest, MultihashGeneric, Sha2Digest, Sha2_256, Size,
-    StatefulHasher,
-};
+use multihash::{Error, Hasher, MultihashDigest, MultihashGeneric, Sha2_256};
 
 // You can implement a custom hasher. This is a SHA2 256-bit hasher that returns a hash that is
 // truncated to 160 bits.
 #[derive(Default, Debug)]
 pub struct Sha2_256Truncated20(Sha2_256);
-impl StatefulHasher for Sha2_256Truncated20 {
-    type Size = U20;
-    type Digest = Sha2Digest<Self::Size>;
+impl Hasher for Sha2_256Truncated20 {
     fn update(&mut self, input: &[u8]) {
         self.0.update(input)
     }
-    fn finalize(&self) -> Self::Digest {
-        let digest = self.0.finalize();
-        let truncated = &digest.as_ref()[..20];
-        Self::Digest::try_from(truncated).expect("digest sizes always match")
+    fn finalize(&mut self) -> &[u8] {
+        &self.0.finalize()[..20]
     }
     fn reset(&mut self) {
         self.0.reset();
@@ -28,13 +20,13 @@ impl StatefulHasher for Sha2_256Truncated20 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Multihash, PartialEq)]
-#[mh(alloc_size = U64)]
+#[mh(alloc_size = 64)]
 pub enum Code {
     /// Example for using a custom hasher which returns truncated hashes
-    #[mh(code = 0x12, hasher = Sha2_256Truncated20, digest = multihash::Sha2Digest<U20>)]
+    #[mh(code = 0x12, hasher = Sha2_256Truncated20)]
     Sha2_256Truncated20,
     /// Example for using a hasher with a bit size that is not exported by default
-    #[mh(code = 0xb219, hasher = multihash::Blake2bHasher::<U25>, digest = multihash::Blake2bDigest<U25>)]
+    #[mh(code = 0xb219, hasher = multihash::Blake2bHasher::<25>)]
     Blake2b200,
 }
 

@@ -1,13 +1,15 @@
-use quickcheck::{Arbitrary, Gen};
+use quickcheck::Gen;
 use rand::{
     distributions::{weighted::WeightedIndex, Distribution},
     Rng,
 };
 
-use crate::{MultihashGeneric, U64};
+use arbitrary::{size_hint, Unstructured};
+
+use crate::MultihashGeneric;
 
 /// Generates a random valid multihash.
-impl Arbitrary for MultihashGeneric<U64> {
+impl<const S: usize> quickcheck::Arbitrary for MultihashGeneric<S> {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         // In real world lower multihash codes are more likely to happen, hence distribute them
         // with bias towards smaller values.
@@ -25,10 +27,56 @@ impl Arbitrary for MultihashGeneric<U64> {
             _ => unreachable!(),
         };
 
-        // Maximum size is 64 byte due to the `U64` generic
-        let size = g.gen_range(0, 64);
-        let mut data = [0; 64];
+        // Maximum size is S byte due to the generic.
+        let size = g.gen_range(0, S);
+        let mut data = [0; S];
         g.fill_bytes(&mut data);
         MultihashGeneric::wrap(code, &data[..size]).unwrap()
+    }
+}
+
+impl<'a, const S: usize> arbitrary::Arbitrary<'a> for MultihashGeneric<S> {
+    fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut code = 0u64;
+        let mut len_choice = u.arbitrary::<u8>()? | 1;
+
+        while len_choice & 1 == 1 {
+            len_choice >>= 1;
+
+            let x = u.arbitrary::<u8>();
+            let next = code
+                .checked_shl(8)
+                .zip(x.ok())
+                .map(|(next, x)| next.saturating_add(x as u64));
+
+            match next {
+                None => break,
+                Some(next) => code = next,
+            }
+        }
+
+        let size = u.int_in_range(0..=S)?;
+        let data = u.bytes(size)?;
+
+        Ok(MultihashGeneric::wrap(code, data).unwrap())
+    }
+
+    fn size_hint(depth: usize) -> (usize, Option<usize>) {
+        size_hint::and(<[u8; 3]>::size_hint(depth), (0, Some(S + 8)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::MultihashGeneric;
+    use arbitrary::{Arbitrary, Unstructured};
+
+    #[test]
+    fn arbitrary() {
+        let mut u = Unstructured::new(&[2, 4, 13, 5, 6, 7, 8, 9, 6]);
+
+        let mh = <MultihashGeneric<16> as Arbitrary>::arbitrary(&mut u).unwrap();
+        let mh2 = MultihashGeneric::<16>::wrap(1037, &[6, 7, 8, 9, 6]).unwrap();
+        assert_eq!(mh, mh2);
     }
 }

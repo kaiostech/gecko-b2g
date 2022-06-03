@@ -75,20 +75,16 @@ PACKAGES_WE_ALWAYS_WANT_AN_OVERRIDE_OF = [
 # If you do need to make changes increasing the number of duplicates, please
 # add a comment as to why.
 TOLERATED_DUPES = {
-    "arrayvec": 2,
     "base64": 2,
     "bytes": 2,
-    "block-buffer": 2,
     "crossbeam-deque": 2,
     "crossbeam-epoch": 2,
     "crossbeam-utils": 3,
-    "digest": 2,
     "futures": 2,
     "libloading": 2,
     "memoffset": 2,
     "mio": 2,
     "nix": 2,
-    "sha2": 2,
     # Transition from time 0.1 to 0.3 underway, but chrono is stuck on 0.1
     # and hasn't been updated in 1.5 years (an hypothetical update is
     # expected to remove the dependency on time altogether).

@@ -1,5 +1,11 @@
 use core::fmt;
 
+#[cfg(feature = "std")]
+use std::io;
+
+#[cfg(not(feature = "std"))]
+use core2::io;
+
 /// Type alias to use this library's [`Error`] type in a `Result`.
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -23,8 +29,7 @@ pub enum Error {
     /// Varint decode failure.
     VarIntDecodeError,
     /// Io error.
-    #[cfg(feature = "std")]
-    Io(std::io::Error),
+    Io(io::Error),
 }
 
 #[cfg(feature = "std")]
@@ -42,7 +47,6 @@ impl fmt::Display for Error {
             InvalidCidV0Multihash => "CIDv0 requires a Sha-256 multihash",
             InvalidCidV0Base => "CIDv0 requires a Base58 base",
             VarIntDecodeError => "Failed to decode unsigned varint format",
-            #[cfg(feature = "std")]
             Io(err) => return write!(f, "{}", err),
         };
 
@@ -50,7 +54,7 @@ impl fmt::Display for Error {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl From<multibase::Error> for Error {
     fn from(_: multibase::Error) -> Error {
         Error::ParsingError
@@ -80,9 +84,8 @@ impl From<unsigned_varint::io::ReadError> for Error {
     }
 }
 
-#[cfg(feature = "std")]
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
         Self::Io(err)
     }
 }

@@ -3981,7 +3981,9 @@ void nsWindow::OnEnterNotifyEvent(GdkEventCrossing* aEvent) {
   // Gecko window then we'll catch the corresponding event on that window,
   // but we won't notice when the pointer directly enters a foreign (plugin)
   // child window without passing over a visible portion of a Gecko window.
-  if (aEvent->subwindow != nullptr) return;
+  if (aEvent->subwindow) {
+    return;
+  }
 
   // Check before is_parent_ungrab_enter() as the button state may have
   // changed while a non-Gecko ancestor window had a pointer grab.
@@ -4365,8 +4367,7 @@ void nsWindow::OnButtonPressEvent(GdkEventButton* aEvent) {
 
   LayoutDeviceIntPoint refPoint =
       GdkEventCoordsToDevicePixels(aEvent->x, aEvent->y);
-  if ((mIsWaylandPanelWindow ||
-       mDraggableRegion.Contains(refPoint.x, refPoint.y)) &&
+  if ((mIsWaylandPanelWindow || mDraggableRegion.Contains(refPoint)) &&
       domButton == MouseButton::ePrimary &&
       eventStatus.mContentStatus != nsEventStatus_eConsumeNoDefault) {
     mWindowShouldStartDragging = true;
@@ -4419,13 +4420,13 @@ void nsWindow::OnButtonReleaseEvent(GdkEventButton* aEvent) {
 
   nsIWidget::ContentAndAPZEventStatus eventStatus = DispatchInputEvent(&event);
 
-  bool defaultPrevented =
-      (eventStatus.mContentStatus == nsEventStatus_eConsumeNoDefault);
+  const bool defaultPrevented =
+      eventStatus.mContentStatus == nsEventStatus_eConsumeNoDefault;
   // Check if mouse position in titlebar and doubleclick happened to
   // trigger restore/maximize.
   if (!defaultPrevented && mDrawInTitlebar &&
       event.mButton == MouseButton::ePrimary && event.mClickCount == 2 &&
-      mDraggableRegion.Contains(pos.x, pos.y)) {
+      mDraggableRegion.Contains(pos)) {
     if (mSizeState == nsSizeMode_Maximized) {
       SetSizeMode(nsSizeMode_Normal);
     } else {
@@ -4596,16 +4597,13 @@ mozilla::CurrentX11TimeGetter* nsWindow::GetCurrentTimeGetter() {
 gboolean nsWindow::OnKeyPressEvent(GdkEventKey* aEvent) {
   LOG("OnKeyPressEvent");
 
-  RefPtr<nsWindow> self(this);
-  KeymapWrapper::HandleKeyPressEvent(self, aEvent);
+  KeymapWrapper::HandleKeyPressEvent(this, aEvent);
   return TRUE;
 }
 
 gboolean nsWindow::OnKeyReleaseEvent(GdkEventKey* aEvent) {
   LOG("OnKeyReleaseEvent");
-
-  RefPtr<nsWindow> self(this);
-  if (NS_WARN_IF(!KeymapWrapper::HandleKeyReleaseEvent(self, aEvent))) {
+  if (NS_WARN_IF(!KeymapWrapper::HandleKeyReleaseEvent(this, aEvent))) {
     return FALSE;
   }
   return TRUE;
@@ -5146,7 +5144,7 @@ gboolean nsWindow::OnTouchEvent(GdkEventTouch* aEvent) {
   // by something on it.
   LayoutDeviceIntPoint refPoint =
       GdkEventCoordsToDevicePixels(aEvent->x, aEvent->y);
-  if (msg == eTouchStart && mDraggableRegion.Contains(refPoint.x, refPoint.y) &&
+  if (msg == eTouchStart && mDraggableRegion.Contains(refPoint) &&
       eventStatus.mApzStatus != nsEventStatus_eConsumeNoDefault) {
     mWindowShouldStartDragging = true;
   }
@@ -5513,7 +5511,6 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
   // and can be changed so we use WaylandPopupIsPermanent() to get
   // recent popup config (Bug 1728952).
   mNoAutoHide = aInitData && aInitData->mNoAutoHide;
-  mMouseTransparent = aInitData && aInitData->mMouseTransparent;
 
   // Popups that are not noautohide are only temporary. The are used
   // for menus and the like and disappear when another window is used.
@@ -6862,15 +6859,17 @@ void nsWindow::ReleaseGrabs(void) {
 #endif
 }
 
-GtkWidget* nsWindow::GetToplevelWidget() { return mShell; }
+GtkWidget* nsWindow::GetToplevelWidget() const { return mShell; }
 
-GdkWindow* nsWindow::GetToplevelGdkWindow() {
+GdkWindow* nsWindow::GetToplevelGdkWindow() const {
   return gtk_widget_get_window(mShell);
 }
 
-nsWindow* nsWindow::GetContainerWindow() {
+nsWindow* nsWindow::GetContainerWindow() const {
   GtkWidget* owningWidget = GTK_WIDGET(mContainer);
-  if (!owningWidget) return nullptr;
+  if (!owningWidget) {
+    return nullptr;
+  }
 
   nsWindow* window = get_window_for_gtk_widget(owningWidget);
   NS_ASSERTION(window, "No nsWindow for container widget");
@@ -7872,7 +7871,6 @@ static gboolean key_release_event_cb(GtkWidget* widget, GdkEventKey* event) {
   if (!window) return FALSE;
 
   RefPtr<nsWindow> focusWindow = gFocusWindow ? gFocusWindow : window;
-
   return focusWindow->OnKeyReleaseEvent(event);
 }
 
@@ -8620,7 +8618,7 @@ void nsWindow::SetDrawsInTitlebar(bool aState) {
   }
 }
 
-GtkWindow* nsWindow::GetCurrentTopmostWindow() {
+GtkWindow* nsWindow::GetCurrentTopmostWindow() const {
   GtkWindow* parentWindow = GTK_WINDOW(GetGtkWidget());
   GtkWindow* topmostParentWindow = nullptr;
   while (parentWindow) {
@@ -8666,11 +8664,11 @@ gint nsWindow::GdkCeiledScaleFactor() {
   return mWindowScaleFactor;
 }
 
-bool nsWindow::UseFractionalScale() {
+bool nsWindow::UseFractionalScale() const {
 #ifdef MOZ_WAYLAND
-  return (GdkIsWaylandDisplay() &&
-          StaticPrefs::widget_wayland_fractional_buffer_scale_AtStartup() > 0 &&
-          WaylandDisplayGet()->GetViewporter());
+  return GdkIsWaylandDisplay() &&
+         StaticPrefs::widget_wayland_fractional_buffer_scale_AtStartup() > 0 &&
+         WaylandDisplayGet()->GetViewporter();
 #else
   return false;
 #endif
@@ -8689,59 +8687,61 @@ double nsWindow::FractionalScaleFactor() {
   return GdkCeiledScaleFactor();
 }
 
-gint nsWindow::DevicePixelsToGdkCoordRoundUp(int pixels) {
+gint nsWindow::DevicePixelsToGdkCoordRoundUp(int aPixels) {
   double scale = FractionalScaleFactor();
-  return ceil(pixels / scale);
+  return ceil(aPixels / scale);
 }
 
-gint nsWindow::DevicePixelsToGdkCoordRoundDown(int pixels) {
+gint nsWindow::DevicePixelsToGdkCoordRoundDown(int aPixels) {
   double scale = FractionalScaleFactor();
-  return floor(pixels / scale);
+  return floor(aPixels / scale);
 }
 
-GdkPoint nsWindow::DevicePixelsToGdkPointRoundDown(LayoutDeviceIntPoint point) {
+GdkPoint nsWindow::DevicePixelsToGdkPointRoundDown(
+    const LayoutDeviceIntPoint& aPoint) {
   double scale = FractionalScaleFactor();
-  return {int(point.x / scale), int(point.y / scale)};
+  return {int(aPoint.x / scale), int(aPoint.y / scale)};
 }
 
-GdkRectangle nsWindow::DevicePixelsToGdkRectRoundOut(LayoutDeviceIntRect rect) {
+GdkRectangle nsWindow::DevicePixelsToGdkRectRoundOut(
+    const LayoutDeviceIntRect& aRect) {
   double scale = FractionalScaleFactor();
-  int x = floor(rect.x / scale);
-  int y = floor(rect.y / scale);
-  int right = ceil((rect.x + rect.width) / scale);
-  int bottom = ceil((rect.y + rect.height) / scale);
+  int x = floor(aRect.x / scale);
+  int y = floor(aRect.y / scale);
+  int right = ceil((aRect.x + aRect.width) / scale);
+  int bottom = ceil((aRect.y + aRect.height) / scale);
   return {x, y, right - x, bottom - y};
 }
 
 GdkRectangle nsWindow::DevicePixelsToGdkSizeRoundUp(
-    LayoutDeviceIntSize pixelSize) {
+    const LayoutDeviceIntSize& aSize) {
   double scale = FractionalScaleFactor();
-  gint width = ceil(pixelSize.width / scale);
-  gint height = ceil(pixelSize.height / scale);
+  gint width = ceil(aSize.width / scale);
+  gint height = ceil(aSize.height / scale);
   return {0, 0, width, height};
 }
 
-int nsWindow::GdkCoordToDevicePixels(gint coord) {
-  return (int)(coord * FractionalScaleFactor());
+int nsWindow::GdkCoordToDevicePixels(gint aCoord) {
+  return (int)(aCoord * FractionalScaleFactor());
 }
 
-LayoutDeviceIntPoint nsWindow::GdkEventCoordsToDevicePixels(gdouble x,
-                                                            gdouble y) {
+LayoutDeviceIntPoint nsWindow::GdkEventCoordsToDevicePixels(gdouble aX,
+                                                            gdouble aY) {
   double scale = FractionalScaleFactor();
-  return LayoutDeviceIntPoint::Floor((float)(x * scale), (float)(y * scale));
+  return LayoutDeviceIntPoint::Floor((float)(aX * scale), (float)(aY * scale));
 }
 
-LayoutDeviceIntPoint nsWindow::GdkPointToDevicePixels(GdkPoint point) {
+LayoutDeviceIntPoint nsWindow::GdkPointToDevicePixels(const GdkPoint& aPoint) {
   double scale = FractionalScaleFactor();
-  return LayoutDeviceIntPoint::Floor((float)(point.x * scale),
-                                     (float)(point.y * scale));
+  return LayoutDeviceIntPoint::Floor((float)(aPoint.x * scale),
+                                     (float)(aPoint.y * scale));
 }
 
-LayoutDeviceIntRect nsWindow::GdkRectToDevicePixels(GdkRectangle rect) {
+LayoutDeviceIntRect nsWindow::GdkRectToDevicePixels(const GdkRectangle& aRect) {
   double scale = FractionalScaleFactor();
   return LayoutDeviceIntRect::RoundIn(
-      (float)(rect.x * scale), (float)(rect.y * scale),
-      (float)(rect.width * scale), (float)(rect.height * scale));
+      (float)(aRect.x * scale), (float)(aRect.y * scale),
+      (float)(aRect.width * scale), (float)(aRect.height * scale));
 }
 
 nsresult nsWindow::SynthesizeNativeMouseEvent(

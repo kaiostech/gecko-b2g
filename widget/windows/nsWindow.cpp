@@ -971,23 +971,17 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
         ShouldUseOffMainThreadCompositing()) {
       extendedStyle |= WS_EX_COMPOSITED;
     }
-
-    if (aInitData->mMouseTransparent) {
-      // This flag makes the window transparent to mouse events
-      mMouseTransparent = true;
-      extendedStyle |= WS_EX_TRANSPARENT;
-    }
   } else if (mWindowType == eWindowType_invisible) {
     // Make sure CreateWindowEx succeeds at creating a toplevel window
     style &= ~0x40000000;  // WS_CHILDWINDOW
   } else {
     // See if the caller wants to explictly set clip children and clip siblings
-    if (aInitData->clipChildren) {
+    if (aInitData->mClipChildren) {
       style |= WS_CLIPCHILDREN;
     } else {
       style &= ~WS_CLIPCHILDREN;
     }
-    if (aInitData->clipSiblings) {
+    if (aInitData->mClipSiblings) {
       style |= WS_CLIPSIBLINGS;
     }
   }

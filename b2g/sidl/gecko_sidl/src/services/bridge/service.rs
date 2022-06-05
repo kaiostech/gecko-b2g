@@ -202,7 +202,8 @@ impl GeckoBridgeImpl {
         let (task, delegate) = task;
 
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
-        let wrapper = AppsServiceDelegate::new(delegate, self.service_id, object_id);
+        let wrapper =
+            AppsServiceDelegate::new(delegate, self.service_id, object_id, &self.transport);
         self.apps_service_delegate = Some(ClientObject::new::<AppsServiceDelegate>(
             wrapper,
             &mut self.transport,

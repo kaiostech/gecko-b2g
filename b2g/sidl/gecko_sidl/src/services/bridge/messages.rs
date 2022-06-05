@@ -10,7 +10,7 @@ use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =
-    "95202d3b4068cea1ee3924c7d9282b9c6f49b119da6d29ee65ab4233da4fcc1";
+    "7d8a63753d27db79a379c39e4dc9785bd04e8f6a8fe2fec676c7d4965e8414bf";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -86,44 +86,46 @@ pub enum GeckoBridgeFromClient {
     GeckoFeaturesSetNetworkManagerDelegate(ObjectRef), // 7
     GeckoFeaturesSetPowerManagerDelegate(ObjectRef), // 8
     GeckoFeaturesSetPreferenceDelegate(ObjectRef), // 9
-    AppsServiceDelegateOnBootSuccess,             // 10
-    AppsServiceDelegateOnBootError,               // 11
-    AppsServiceDelegateOnBootDoneSuccess,         // 12
-    AppsServiceDelegateOnBootDoneError,           // 13
-    AppsServiceDelegateOnClearSuccess,            // 14
-    AppsServiceDelegateOnClearError,              // 15
-    AppsServiceDelegateOnInstallSuccess,          // 16
-    AppsServiceDelegateOnInstallError,            // 17
-    AppsServiceDelegateOnUninstallSuccess,        // 18
-    AppsServiceDelegateOnUninstallError,          // 19
-    AppsServiceDelegateOnUpdateSuccess,           // 20
-    AppsServiceDelegateOnUpdateError,             // 21
-    MobileManagerDelegateGetCardInfoSuccess(String), // 22
-    MobileManagerDelegateGetCardInfoError,        // 23
-    MobileManagerDelegateGetMncMccSuccess(NetworkOperator), // 24
-    MobileManagerDelegateGetMncMccError,          // 25
-    NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 26
-    NetworkManagerDelegateGetNetworkInfoError,    // 27
-    PowerManagerDelegateRequestWakelockSuccess(ObjectRef), // 28
-    PowerManagerDelegateRequestWakelockError,     // 29
-    PowerManagerDelegateSetScreenEnabledSuccess,  // 30
-    PowerManagerDelegateSetScreenEnabledError,    // 31
-    PreferenceDelegateGetBoolSuccess(bool),       // 32
-    PreferenceDelegateGetBoolError,               // 33
-    PreferenceDelegateGetCharSuccess(String),     // 34
-    PreferenceDelegateGetCharError,               // 35
-    PreferenceDelegateGetIntSuccess(i64),         // 36
-    PreferenceDelegateGetIntError,                // 37
-    PreferenceDelegateSetBoolSuccess,             // 38
-    PreferenceDelegateSetBoolError,               // 39
-    PreferenceDelegateSetCharSuccess,             // 40
-    PreferenceDelegateSetCharError,               // 41
-    PreferenceDelegateSetIntSuccess,              // 42
-    PreferenceDelegateSetIntError,                // 43
-    WakelockGetTopicSuccess(String),              // 44
-    WakelockGetTopicError,                        // 45
-    WakelockUnlockSuccess,                        // 46
-    WakelockUnlockError,                          // 47
+    AppsServiceDelegateGetUaSuccess(String),      // 10
+    AppsServiceDelegateGetUaError,                // 11
+    AppsServiceDelegateOnBootSuccess,             // 12
+    AppsServiceDelegateOnBootError,               // 13
+    AppsServiceDelegateOnBootDoneSuccess,         // 14
+    AppsServiceDelegateOnBootDoneError,           // 15
+    AppsServiceDelegateOnClearSuccess,            // 16
+    AppsServiceDelegateOnClearError,              // 17
+    AppsServiceDelegateOnInstallSuccess,          // 18
+    AppsServiceDelegateOnInstallError,            // 19
+    AppsServiceDelegateOnUninstallSuccess,        // 20
+    AppsServiceDelegateOnUninstallError,          // 21
+    AppsServiceDelegateOnUpdateSuccess,           // 22
+    AppsServiceDelegateOnUpdateError,             // 23
+    MobileManagerDelegateGetCardInfoSuccess(String), // 24
+    MobileManagerDelegateGetCardInfoError,        // 25
+    MobileManagerDelegateGetMncMccSuccess(NetworkOperator), // 26
+    MobileManagerDelegateGetMncMccError,          // 27
+    NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 28
+    NetworkManagerDelegateGetNetworkInfoError,    // 29
+    PowerManagerDelegateRequestWakelockSuccess(ObjectRef), // 30
+    PowerManagerDelegateRequestWakelockError,     // 31
+    PowerManagerDelegateSetScreenEnabledSuccess,  // 32
+    PowerManagerDelegateSetScreenEnabledError,    // 33
+    PreferenceDelegateGetBoolSuccess(bool),       // 34
+    PreferenceDelegateGetBoolError,               // 35
+    PreferenceDelegateGetCharSuccess(String),     // 36
+    PreferenceDelegateGetCharError,               // 37
+    PreferenceDelegateGetIntSuccess(i64),         // 38
+    PreferenceDelegateGetIntError,                // 39
+    PreferenceDelegateSetBoolSuccess,             // 40
+    PreferenceDelegateSetBoolError,               // 41
+    PreferenceDelegateSetCharSuccess,             // 42
+    PreferenceDelegateSetCharError,               // 43
+    PreferenceDelegateSetIntSuccess,              // 44
+    PreferenceDelegateSetIntError,                // 45
+    WakelockGetTopicSuccess(String),              // 46
+    WakelockGetTopicError,                        // 47
+    WakelockUnlockSuccess,                        // 48
+    WakelockUnlockError,                          // 49
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,23 +150,24 @@ pub enum GeckoBridgeToClient {
     GeckoFeaturesSetPowerManagerDelegateError,             // 17
     GeckoFeaturesSetPreferenceDelegateSuccess,             // 18
     GeckoFeaturesSetPreferenceDelegateError,               // 19
-    AppsServiceDelegateOnBoot(String, JsonValue),          // 20
-    AppsServiceDelegateOnBootDone,                         // 21
-    AppsServiceDelegateOnClear(String, String, JsonValue), // 22
-    AppsServiceDelegateOnInstall(String, JsonValue),       // 23
-    AppsServiceDelegateOnUninstall(String),                // 24
-    AppsServiceDelegateOnUpdate(String, JsonValue),        // 25
-    MobileManagerDelegateGetCardInfo(i64, CardInfoType),   // 26
-    MobileManagerDelegateGetMncMcc(i64, bool),             // 27
-    NetworkManagerDelegateGetNetworkInfo,                  // 28
-    PowerManagerDelegateRequestWakelock(String),           // 29
-    PowerManagerDelegateSetScreenEnabled(bool, bool),      // 30
-    PreferenceDelegateGetBool(String),                     // 31
-    PreferenceDelegateGetChar(String),                     // 32
-    PreferenceDelegateGetInt(String),                      // 33
-    PreferenceDelegateSetBool(String, bool),               // 34
-    PreferenceDelegateSetChar(String, String),             // 35
-    PreferenceDelegateSetInt(String, i64),                 // 36
-    WakelockGetTopic,                                      // 37
-    WakelockUnlock,                                        // 38
+    AppsServiceDelegateGetUa,                              // 20
+    AppsServiceDelegateOnBoot(String, JsonValue),          // 21
+    AppsServiceDelegateOnBootDone,                         // 22
+    AppsServiceDelegateOnClear(String, String, JsonValue), // 23
+    AppsServiceDelegateOnInstall(String, JsonValue),       // 24
+    AppsServiceDelegateOnUninstall(String),                // 25
+    AppsServiceDelegateOnUpdate(String, JsonValue),        // 26
+    MobileManagerDelegateGetCardInfo(i64, CardInfoType),   // 27
+    MobileManagerDelegateGetMncMcc(i64, bool),             // 28
+    NetworkManagerDelegateGetNetworkInfo,                  // 29
+    PowerManagerDelegateRequestWakelock(String),           // 30
+    PowerManagerDelegateSetScreenEnabled(bool, bool),      // 31
+    PreferenceDelegateGetBool(String),                     // 32
+    PreferenceDelegateGetChar(String),                     // 33
+    PreferenceDelegateGetInt(String),                      // 34
+    PreferenceDelegateSetBool(String, bool),               // 35
+    PreferenceDelegateSetChar(String, String),             // 36
+    PreferenceDelegateSetInt(String, i64),                 // 37
+    WakelockGetTopic,                                      // 38
+    WakelockUnlock,                                        // 39
 }

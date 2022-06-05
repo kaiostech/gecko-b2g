@@ -11,6 +11,7 @@ interface nsIAppsServiceDelegate : nsISupports {
     void onInstall(in AString aManifestUrl, in AString aValue);
     void onUpdate(in AString aManifestUrl, in AString aValue);
     void onUninstall(in AString aManifestUrl);
+    AString getUa();
 };
 
 [scriptable, uuid(b8b76495-4541-4018-9903-c8904f5d36d6)]

@@ -7,15 +7,10 @@
 #include "MediaEngineWebRTC.h"
 
 #include "CamerasChild.h"
-#include "CSFLog.h"
 #include "MediaEngineRemoteVideoSource.h"
 #include "MediaEngineWebRTCAudio.h"
 #include "MediaManager.h"
-#include "MediaTrackConstraints.h"
-#include "mozilla/dom/MediaDeviceInfo.h"
 #include "mozilla/Logging.h"
-#include "nsIComponentRegistrar.h"
-#include "prenv.h"
 
 #if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
 #  include "ICameraControl.h"

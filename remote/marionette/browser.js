@@ -12,7 +12,9 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyModuleGetters(this, {
+const lazy = {};
+
+XPCOMUtils.defineLazyModuleGetters(lazy, {
   AppInfo: "chrome://remote/content/marionette/appinfo.js",
   error: "chrome://remote/content/shared/webdriver/Errors.jsm",
   EventPromise: "chrome://remote/content/shared/Sync.jsm",
@@ -82,7 +84,7 @@ browser.Context = class {
 
     // In Firefox this is <xul:tabbrowser> (not <xul:browser>!)
     // and MobileTabBrowser in GeckoView.
-    this.tabBrowser = TabManager.getTabBrowser(this.window);
+    this.tabBrowser = lazy.TabManager.getTabBrowser(this.window);
 
     // Used to set curFrameId upon new session
     this.newSession = true;
@@ -103,7 +105,7 @@ browser.Context = class {
    */
   get contentBrowser() {
     if (this.tab) {
-      return TabManager.getBrowserForTab(this.tab);
+      return lazy.TabManager.getBrowserForTab(this.tab);
     } else if (
       this.tabBrowser &&
       this.driver.isReftestBrowser(this.tabBrowser)
@@ -175,7 +177,7 @@ browser.Context = class {
    *     A promise which is resolved when the current window has been closed.
    */
   async closeWindow() {
-    return windowManager.closeWindow(this.window);
+    return lazy.windowManager.closeWindow(this.window);
   }
 
   /**
@@ -185,7 +187,7 @@ browser.Context = class {
    *     A promise which is resolved when the current window has been focused.
    */
   async focusWindow() {
-    return windowManager.focusWindow(this.window);
+    return lazy.windowManager.focusWindow(this.window);
   }
 
   /**
@@ -195,7 +197,7 @@ browser.Context = class {
    *     A promise resolving to the newly created chrome window.
    */
   openBrowserWindow(focus = false, isPrivate = false) {
-    return windowManager.openBrowserWindow({
+    return lazy.windowManager.openBrowserWindow({
       openerWindow: this.window,
       focus,
       isPrivate,
@@ -223,13 +225,15 @@ browser.Context = class {
       return this.closeWindow();
     }
 
-    let destroyed = new MessageManagerDestroyedPromise(this.messageManager);
+    let destroyed = new lazy.MessageManagerDestroyedPromise(
+      this.messageManager
+    );
     let tabClosed;
     let promises;
 
-    switch (AppInfo.name) {
+    switch (lazy.AppInfo.name) {
       case "Firefox":
-        tabClosed = new EventPromise(this.tab, "TabClose");
+        tabClosed = new lazy.EventPromise(this.tab, "TabClose");
         this.tabBrowser.removeTab(this.tab);
         promises = [destroyed, tabClosed];
         break;
@@ -241,8 +245,8 @@ browser.Context = class {
         break;
 
       default:
-        throw new error.UnsupportedOperationError(
-          `closeTab() not supported in ${AppInfo.name}`
+        throw new lazy.error.UnsupportedOperationError(
+          `closeTab() not supported in ${lazy.AppInfo.name}`
         );
     }
 
@@ -255,9 +259,9 @@ browser.Context = class {
   async openTab(focus = false) {
     let tab = null;
 
-    switch (AppInfo.name) {
+    switch (lazy.AppInfo.name) {
       case "Firefox":
-        const opened = new EventPromise(this.window, "TabOpen");
+        const opened = new lazy.EventPromise(this.window, "TabOpen");
         this.window.BrowserOpenTab();
         await opened;
 
@@ -285,8 +289,8 @@ browser.Context = class {
         break;
 
       default:
-        throw new error.UnsupportedOperationError(
-          `openTab() not supported in ${AppInfo.name}`
+        throw new lazy.error.UnsupportedOperationError(
+          `openTab() not supported in ${lazy.AppInfo.name}`
         );
     }
 
@@ -314,7 +318,7 @@ browser.Context = class {
   async switchToTab(index, window = undefined, focus = true) {
     if (window) {
       this.window = window;
-      this.tabBrowser = TabManager.getTabBrowser(this.window);
+      this.tabBrowser = lazy.TabManager.getTabBrowser(this.window);
     }
 
     if (!this.tabBrowser) {
@@ -328,8 +332,12 @@ browser.Context = class {
     }
 
     if (focus) {
-      await TabManager.selectTab(this.tab);
+      await lazy.TabManager.selectTab(this.tab);
     }
+
+    // TODO(ato): Currently tied to curBrowser, but should be moved to
+    // WebElement when introduced by https://bugzil.la/1400256.
+    this.eventObserver = new lazy.WebElementEventTarget(this.messageManager);
 
     return this.tab;
   }

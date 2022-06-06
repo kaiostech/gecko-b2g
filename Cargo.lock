@@ -1482,7 +1482,7 @@ dependencies = [
 [[package]]
 name = "error-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
+source = "git+https://github.com/mozilla/application-services?rev=a44feb6b6a2151bf094f3385145a0827a9fbc7cc#a44feb6b6a2151bf094f3385145a0827a9fbc7cc"
 
 [[package]]
 name = "etagere"
@@ -2368,11 +2368,11 @@ dependencies = [
 
 [[package]]
 name = "hashlink"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d99cf782f0dc4372d26846bec3de7804ceb5df083c2d4462c0b8d2330e894fa8"
+checksum = "7249a3129cbc1ffccd74857f81464a323a152173cdb134e0fd81bc803b29facf"
 dependencies = [
- "hashbrown 0.9.999",
+ "hashbrown 0.11.2",
 ]
 
 [[package]]
@@ -2569,7 +2569,12 @@ dependencies = [
 [[package]]
 name = "interrupt-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
+source = "git+https://github.com/mozilla/application-services?rev=a44feb6b6a2151bf094f3385145a0827a9fbc7cc#a44feb6b6a2151bf094f3385145a0827a9fbc7cc"
+dependencies = [
+ "lazy_static",
+ "parking_lot",
+ "rusqlite",
+]
 
 [[package]]
 name = "intl-memoizer"
@@ -2903,9 +2908,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.20.1"
+version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d31059f22935e6c31830db5249ba2b7ecd54fd73a9909286f0a67aa55c2fbd"
+checksum = "898745e570c7d0453cc1fbc4a701eb6c662ed54e8fec8b7d14be137ebeeb9d14"
 dependencies = [
  "cc",
  "pkg-config",
@@ -3471,7 +3476,7 @@ checksum = "a2983372caf4480544083767bf2d27defafe32af49ab4df3a0b7fc90793a3664"
 [[package]]
 name = "naga"
 version = "0.8.0"
-source = "git+https://github.com/gfx-rs/naga?rev=1aa91549#1aa9154964238af8c692cf521ff90e1f2395e147"
+source = "git+https://github.com/gfx-rs/naga?rev=571302e#571302e3ff09cb856f63a3683da308159872b7cc"
 dependencies = [
  "bit-set",
  "bitflags",
@@ -3641,7 +3646,7 @@ dependencies = [
 [[package]]
 name = "nss_build_common"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
+source = "git+https://github.com/mozilla/application-services?rev=a44feb6b6a2151bf094f3385145a0827a9fbc7cc#a44feb6b6a2151bf094f3385145a0827a9fbc7cc"
 
 [[package]]
 name = "nsstring"
@@ -4400,9 +4405,9 @@ checksum = "5d79b4b604167921892e84afbbaad9d5ad74e091bf6c511d9dbfb0593f09fabd"
 
 [[package]]
 name = "rusqlite"
-version = "0.24.2"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5f38ee71cbab2c827ec0ac24e76f82eca723cee92c509a65f67dee393c25112"
+checksum = "85127183a999f7db96d1a976a309eebbfb6ea3b0b400ddd8340190129de6eb7a"
 dependencies = [
  "bitflags",
  "fallible-iterator",
@@ -4798,7 +4803,7 @@ dependencies = [
 [[package]]
 name = "sql-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
+source = "git+https://github.com/mozilla/application-services?rev=a44feb6b6a2151bf094f3385145a0827a9fbc7cc#a44feb6b6a2151bf094f3385145a0827a9fbc7cc"
 dependencies = [
  "ffi-support",
  "interrupt-support",
@@ -4979,10 +4984,10 @@ dependencies = [
 [[package]]
 name = "sync-guid"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
+source = "git+https://github.com/mozilla/application-services?rev=a44feb6b6a2151bf094f3385145a0827a9fbc7cc#a44feb6b6a2151bf094f3385145a0827a9fbc7cc"
 dependencies = [
  "base64 0.12.3",
- "rand 0.7.999",
+ "rand 0.8.5",
  "rusqlite",
  "serde",
 ]
@@ -4990,7 +4995,7 @@ dependencies = [
 [[package]]
 name = "sync15-traits"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
+source = "git+https://github.com/mozilla/application-services?rev=a44feb6b6a2151bf094f3385145a0827a9fbc7cc#a44feb6b6a2151bf094f3385145a0827a9fbc7cc"
 dependencies = [
  "anyhow",
  "ffi-support",
@@ -5624,7 +5629,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "viaduct"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
+source = "git+https://github.com/mozilla/application-services?rev=a44feb6b6a2151bf094f3385145a0827a9fbc7cc#a44feb6b6a2151bf094f3385145a0827a9fbc7cc"
 dependencies = [
  "ffi-support",
  "log",
@@ -5776,7 +5781,7 @@ dependencies = [
 [[package]]
 name = "webext-storage"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=c51b63595a27a6ef45161012323e0261475c10c9#c51b63595a27a6ef45161012323e0261475c10c9"
+source = "git+https://github.com/mozilla/application-services?rev=a44feb6b6a2151bf094f3385145a0827a9fbc7cc#a44feb6b6a2151bf094f3385145a0827a9fbc7cc"
 dependencies = [
  "error-support",
  "ffi-support",
@@ -5802,6 +5807,7 @@ dependencies = [
  "atomic_refcell",
  "cstr",
  "golden_gate",
+ "interrupt-support",
  "moz_task",
  "nserror",
  "nsstring",
@@ -5927,9 +5933,10 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "0.12.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=b51fd851#b51fd851be51cfe40c937ef789a44244e7dc2971"
+source = "git+https://github.com/gfx-rs/wgpu?rev=32af4f56#32af4f56079fd2203c46c9c452cfe33fd60a5721"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.2",
+ "bit-vec",
  "bitflags",
  "cfg_aliases",
  "codespan-reporting",
@@ -5950,7 +5957,7 @@ dependencies = [
 [[package]]
 name = "wgpu-hal"
 version = "0.12.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=b51fd851#b51fd851be51cfe40c937ef789a44244e7dc2971"
+source = "git+https://github.com/gfx-rs/wgpu?rev=32af4f56#32af4f56079fd2203c46c9c452cfe33fd60a5721"
 dependencies = [
  "arrayvec",
  "ash",
@@ -5987,7 +5994,7 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "0.12.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=b51fd851#b51fd851be51cfe40c937ef789a44244e7dc2971"
+source = "git+https://github.com/gfx-rs/wgpu?rev=32af4f56#32af4f56079fd2203c46c9c452cfe33fd60a5721"
 dependencies = [
  "bitflags",
  "bitflags_serde_shim",

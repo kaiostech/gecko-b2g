@@ -15,16 +15,33 @@ ChromeUtils.defineModuleGetter(
   "resource://gre/modules/CanonicalJSON.jsm"
 );
 
-XPCOMUtils.defineLazyGlobalGetters(this, [
-  "fetch",
-  "URL",
-]); /* globals fetch, URL */
+XPCOMUtils.defineLazyGlobalGetters(this, ["fetch"]); /* globals fetch */
 
 var EXPORTED_SYMBOLS = ["NormandyApi"];
 
 const prefs = Services.prefs.getBranch("app.normandy.");
 
 let indexPromise = null;
+
+function getChainRootIdentifier() {
+  const normandy_url = Services.prefs.getCharPref("app.normandy.api_url");
+  if (normandy_url == "https://normandy.cdn.mozilla.net/api/v1") {
+    return Ci.nsIContentSignatureVerifier.ContentSignatureProdRoot;
+  }
+  if (normandy_url.includes("stage.")) {
+    return Ci.nsIContentSignatureVerifier.ContentSignatureStageRoot;
+  }
+  if (normandy_url.includes("dev.")) {
+    return Ci.nsIContentSignatureVerifier.ContentSignatureDevRoot;
+  }
+  let env = Cc["@mozilla.org/process/environment;1"].getService(
+    Ci.nsIEnvironment
+  );
+  if (env.exists("XPCSHELL_TEST_PROFILE_DIR")) {
+    return Ci.nsIX509CertDB.AppXPCShellRoot;
+  }
+  return Ci.nsIContentSignatureVerifier.ContentSignatureLocalRoot;
+}
 
 var NormandyApi = {
   InvalidSignatureError: class InvalidSignatureError extends Error {},
@@ -110,7 +127,8 @@ var NormandyApi = {
         serialized,
         builtSignature,
         certChain,
-        "normandy.content-signature.mozilla.org"
+        "normandy.content-signature.mozilla.org",
+        getChainRootIdentifier()
       );
     } catch (err) {
       throw new NormandyApi.InvalidSignatureError(

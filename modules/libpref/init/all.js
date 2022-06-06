@@ -21,9 +21,6 @@
 
 pref("security.tls.insecure_fallback_hosts", "");
 
-pref("security.content.signature.root_hash",
-     "97:E8:BA:9C:F1:2F:B3:DE:53:CC:42:A4:E6:57:7E:D6:4D:F4:93:C2:47:B4:14:FE:A0:36:81:8D:38:23:56:0E");
-
 pref("security.default_personal_cert",   "Ask Every Time");
 pref("security.remember_cert_checkbox_default_setting", true);
 
@@ -190,6 +187,9 @@ pref("dom.keyboardevent.keypress.hack.use_legacy_keycode_and_charcode.addl", "")
 // "dom.keyboardevent.keypress.hack.dispatch_non_printable_keys". So, check its
 // explanation for the detail.
 pref("dom.mouseevent.click.hack.use_legacy_non-primary_dispatch", "");
+
+// Enable experimental text recognition features for supported OSes.
+pref("dom.text-recognition.enabled", false);
 
 // Fastback caching - if this pref is negative, then we calculate the number
 // of content viewers to cache based on the amount of available memory.

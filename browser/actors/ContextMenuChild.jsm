@@ -13,8 +13,6 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGlobalGetters(this, ["URL"]);
-
 XPCOMUtils.defineLazyModuleGetters(this, {
   E10SUtils: "resource://gre/modules/E10SUtils.jsm",
   SpellCheckHelper: "resource://gre/modules/InlineSpellChecker.jsm",
@@ -169,6 +167,12 @@ class ContextMenuChild extends JSWindowActorChild {
       case "ContextMenu:ReloadFrame": {
         let target = ContentDOMReference.resolve(message.data.targetIdentifier);
         target.ownerDocument.location.reload(message.data.forceReload);
+        break;
+      }
+
+      case "ContextMenu:GetImageText": {
+        let img = ContentDOMReference.resolve(message.data.targetIdentifier);
+        img.recognizeCurrentImageText();
         break;
       }
 

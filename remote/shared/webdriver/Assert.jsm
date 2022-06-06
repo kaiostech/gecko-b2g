@@ -114,7 +114,7 @@ assert.mobile = function(msg = "") {
  */
 assert.b2g = function(msg = "") {
   msg = msg || "Only supported in B2G";
-  assert.that(isB2G, msg, error.UnsupportedOperationError)();
+  assert.that(isB2G, msg, lazy.error.UnsupportedOperationError)();
 };
 
 /**

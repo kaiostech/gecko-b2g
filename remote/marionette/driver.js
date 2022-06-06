@@ -126,7 +126,7 @@ function GeckoDriver(server) {
   // Use content context by default
   this.context = lazy.Context.Content;
 
-  this.importedScripts = new evaluate.ScriptStorage();
+  this.importedScripts = new lazy.evaluate.ScriptStorage();
 
   // used for modal dialogs or tab modal alerts
   this.dialog = null;
@@ -487,16 +487,16 @@ GeckoDriver.prototype.newSession = async function(cmd) {
 
       if (this.curBrowser.tab) {
         // B2G default focuses on system app when session is initialized.
-        if (AppInfo.isB2G) {
+        if (lazy.AppInfo.isB2G) {
           this.switchToSystemWindow();
         } else {
           const browsingContext = this.curBrowser.contentBrowser
             .browsingContext;
           this.currentSession.contentBrowsingContext = browsingContext;
 
-        await lazy.waitForInitialNavigationCompleted(
-          browsingContext.webProgress
-        );
+          await lazy.waitForInitialNavigationCompleted(
+            browsingContext.webProgress
+          );
 
           this.curBrowser.contentBrowser.focus();
         }
@@ -1116,7 +1116,7 @@ GeckoDriver.prototype.getWindowRect = async function() {
  *     Not applicable to application.
  */
 GeckoDriver.prototype.setWindowRect = async function(cmd) {
-  if (AppInfo.isB2G) {
+  if (lazy.AppInfo.isB2G) {
     lazy.assert.b2g();
     await this.switchToMarionetteWindow();
   } else {
@@ -1167,10 +1167,10 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
  * Only for B2G, switch working browsing context to System app.
  */
 GeckoDriver.prototype.switchToSystemWindow = async function() {
-  assert.b2g();
+  lazy.assert.b2g();
   await this.b2gLoaded;
   let systemAppUrl = Services.prefs.getCharPref("b2g.system_startup_url");
-  const found = windowManager.findWindowByOrigin(new URL(systemAppUrl).origin);
+  const found = lazy.windowManager.findWindowByOrigin(new URL(systemAppUrl).origin);
   if (found) {
     const focus = false;
     await this.setWindowHandle(found, focus);
@@ -1180,11 +1180,11 @@ GeckoDriver.prototype.switchToSystemWindow = async function() {
 };
 
 GeckoDriver.prototype.switchToMarionetteWindow = async function() {
-  assert.b2g();
+  lazy.assert.b2g();
   await this.b2gLoaded;
 
   await this.curBrowser.openTab(true);
-  const found = windowManager.findMarionetteWindow();
+  const found = lazy.windowManager.findMarionetteWindow();
   if (found) {
     const focus = false;
     await this.setWindowHandle(found, focus);
@@ -1213,10 +1213,10 @@ GeckoDriver.prototype.switchToMarionetteWindow = async function() {
  */
 GeckoDriver.prototype.switchToWindow = async function(cmd) {
   let focus = true;
-  if (!AppInfo.isB2G && typeof cmd.parameters.focus != "undefined") {
-    focus = assert.boolean(
+  if (!lazy.AppInfo.isB2G && typeof cmd.parameters.focus != "undefined") {
+    focus = lazy.assert.boolean(
       cmd.parameters.focus,
-      pprint`Expected "focus" to be a boolean, got ${cmd.parameters.focus}`
+      lazy.pprint`Expected "focus" to be a boolean, got ${cmd.parameters.focus}`
     );
   } else {
     // B2G doesn't switch focus.
@@ -1227,7 +1227,7 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
   if (typeof cmd.parameters.handle != "undefined") {
     handle = lazy.assert.string(
       cmd.parameters.handle,
-      pprint`Expected "handle" to be a string, got ${cmd.parameters.handle}`
+      lazy.pprint`Expected "handle" to be a string, got ${cmd.parameters.handle}`
     );
   }
 
@@ -1235,12 +1235,12 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
   if (typeof cmd.parameters.origin != "undefined") {
     origin = lazy.assert.string(
       cmd.parameters.origin,
-      pprint`Expected "origin" to be a string, got ${cmd.parameters.origin}`
+      lazy.pprint`Expected "origin" to be a string, got ${cmd.parameters.origin}`
     );
 
     lazy.assert.boolean(
       origin == new URL(origin).origin,
-      pprint`Expected "origin" to be a origin of an URL, got ${origin}`
+      lazy.pprint`Expected "origin" to be a origin of an URL, got ${origin}`
     );
   }
 
@@ -2259,15 +2259,10 @@ GeckoDriver.prototype.deleteSession = function() {
 
   Services.obs.removeObserver(this, "browser-delayed-startup-finished");
 
-<<<<<<< HEAD
   this.importedScripts.clear();
 
-  clearActionInputState();
-  clearElementIdCache();
-=======
   lazy.clearActionInputState();
   lazy.clearElementIdCache();
->>>>>>> upstream/master
 
   // Always unregister actors after all other observers
   // and listeners have been removed.

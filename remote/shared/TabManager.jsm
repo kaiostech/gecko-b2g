@@ -311,6 +311,6 @@ var TabManager = {
     // `.linkedBrowser.ownerGlobal` works both with Firefox Desktop and Mobile.
     // Other accessors (eg `.ownerGlobal` or `.browser.ownerGlobal`) fail on one
     // of the platforms.
-    return tab.linkedBrowser.ownerGlobal;
+    return tab?.linkedBrowser.ownerGlobal;
   },
 };

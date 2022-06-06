@@ -99,10 +99,10 @@ class WindowManager {
     for (const win of this.windows) {
       // Check if the chrome window has a tab browser, and that it
       // contains a tab with the wanted origin.
-      const tabBrowser = TabManager.getTabBrowser(win);
+      const tabBrowser = lazy.TabManager.getTabBrowser(win);
       if (tabBrowser && tabBrowser.tabs) {
         for (let i = 0; i < tabBrowser.tabs.length; ++i) {
-          let contentBrowser = TabManager.getBrowserForTab(tabBrowser.tabs[i]);
+          let contentBrowser = lazy.TabManager.getBrowserForTab(tabBrowser.tabs[i]);
           try {
             let winOrigin = new URL(contentBrowser.src).origin;
             if (origin == winOrigin) {
@@ -130,10 +130,10 @@ class WindowManager {
     for (const win of this.windows) {
       // Check if the chrome window has a tab browser, and that it
       // contains a tab with the wanted origin.
-      const tabBrowser = TabManager.getTabBrowser(win);
+      const tabBrowser = lazy.TabManager.getTabBrowser(win);
       if (tabBrowser && tabBrowser.tabs) {
         for (let i = 0; i < tabBrowser.tabs.length; ++i) {
-          let contentBrowser = TabManager.getBrowserForTab(tabBrowser.tabs[i]);
+          let contentBrowser = lazy.TabManager.getBrowserForTab(tabBrowser.tabs[i]);
           try {
             // We don't want to report the system app itself, only "content" tabs.
             if (systemSrc != contentBrowser.src) {

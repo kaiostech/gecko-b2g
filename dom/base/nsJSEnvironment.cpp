@@ -1583,9 +1583,15 @@ bool CCGCScheduler::CCRunnerFired(TimeStamp aDeadline) {
       case CCRunnerAction::None:
         break;
 
+      case CCRunnerAction::MinorGC:
+        JS::MaybeRunNurseryCollection(CycleCollectedJSRuntime::Get()->Runtime(),
+                                      step.mParam.mReason);
+        sScheduler.NoteMinorGCEnd();
+        break;
+
       case CCRunnerAction::ForgetSkippable:
         // 'Forget skippable' only, then end this invocation.
-        FireForgetSkippable(bool(step.mRemoveChildless), aDeadline);
+        FireForgetSkippable(bool(step.mParam.mRemoveChildless), aDeadline);
         break;
 
       case CCRunnerAction::CleanupContentUnbinder:
@@ -1600,7 +1606,7 @@ bool CCGCScheduler::CCRunnerFired(TimeStamp aDeadline) {
 
       case CCRunnerAction::CycleCollect:
         // Cycle collection slice.
-        nsJSContext::RunCycleCollectorSlice(step.mCCReason, aDeadline);
+        nsJSContext::RunCycleCollectorSlice(step.mParam.mCCReason, aDeadline);
         break;
 
       case CCRunnerAction::StopRunning:
@@ -1686,6 +1692,23 @@ void nsJSContext::PokeGC(JS::GCReason aReason, JSObject* aObj,
 }
 
 // static
+void nsJSContext::MaybePokeGC() {
+  if (sShuttingDown) {
+    return;
+  }
+
+  JSRuntime* rt = CycleCollectedJSRuntime::Get()->Runtime();
+  JS::GCReason reason = JS::WantEagerMinorGC(rt);
+  if (reason != JS::GCReason::NO_REASON) {
+    MOZ_ASSERT(reason == JS::GCReason::EAGER_NURSERY_COLLECTION);
+    sScheduler.PokeMinorGC(reason);
+  }
+
+  // Bug 1772638: For now, only do eager minor GCs. Eager major GCs regress some
+  // benchmarks. Hopefully that will be worked out and this will check for
+  // whether an eager major GC is needed.
+}
+
 void nsJSContext::DoLowMemoryGC() {
   if (sShuttingDown) {
     return;
@@ -1728,7 +1751,7 @@ static void DOMGCSliceCallback(JSContext* aCx, JS::GCProgress aProgress,
   switch (aProgress) {
     case JS::GC_CYCLE_BEGIN: {
       // Prevent cycle collections and shrinking during incremental GC.
-      sScheduler.NoteGCBegin();
+      sScheduler.NoteGCBegin(aDesc.reason_);
       sCurrentGCStartTime = TimeStamp::Now();
       break;
     }

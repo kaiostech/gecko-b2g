@@ -4828,6 +4828,9 @@ void EventStateManager::ResetPointerToWindowCenterWhilePointerLocked(
     // we've dispatched a synthetic mouse movement, so we can cancel it
     // in the other branch here.
     sSynthCenteringPoint = center;
+    // XXX Once we fix XXX comments in SetPointerLock about this API, we could
+    //     restrict that this API works only in the automation mode or in the
+    //     pointer locked situation.
     aMouseEvent->mWidget->SynthesizeNativeMouseMove(
         center + aMouseEvent->mWidget->WidgetToScreenOffset(), nullptr);
   } else if (aMouseEvent->mRefPoint == sSynthCenteringPoint) {
@@ -4960,6 +4963,9 @@ void EventStateManager::SetPointerLock(nsIWidget* aWidget,
     // Fire a synthetic mouse move to ensure event state is updated. We first
     // set the mouse to the center of the window, so that the mouse event
     // doesn't report any movement.
+    // XXX Cannot we do synthesize the native mousemove in the parent process
+    //     with calling LockNativePointer below?  Then, we could make this API
+    //     work only in the automation mode.
     sLastRefPoint = GetWindowClientRectCenter(aWidget);
     aWidget->SynthesizeNativeMouseMove(
         sLastRefPoint + aWidget->WidgetToScreenOffset(), nullptr);
@@ -4986,6 +4992,9 @@ void EventStateManager::SetPointerLock(nsIWidget* aWidget,
     // locking pointer, it has its initial value.
     sSynthCenteringPoint = kInvalidRefPoint;
     if (aWidget) {
+      // XXX Cannot we do synthesize the native mousemove in the parent process
+      //     with calling `UnlockNativePointer` above?  Then, we could make this
+      //     API work only in the automation mode.
       aWidget->SynthesizeNativeMouseMove(
           sPreLockPoint + aWidget->WidgetToScreenOffset(), nullptr);
     }

@@ -6,13 +6,14 @@
 
 var EXPORTED_SYMBOLS = ["TabManager"];
 
-var { XPCOMUtils } = ChromeUtils.import(
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyModuleGetters(this, {
-  Services: "resource://gre/modules/Services.jsm",
+const lazy = {};
 
+XPCOMUtils.defineLazyModuleGetters(lazy, {
   AppInfo: "chrome://remote/content/marionette/appinfo.js",
   EventPromise: "chrome://remote/content/shared/Sync.jsm",
   MobileTabBrowser: "chrome://remote/content/shared/MobileTabBrowser.jsm",
@@ -113,7 +114,7 @@ var TabManager = {
     if (Services.appinfo.name === "b2g") {
       return win.MarionetteHelper;
     } else if (Services.appinfo.OS === "Android") {
-      return new MobileTabBrowser(win);
+      return new lazy.MobileTabBrowser(win);
       // Firefox
     } else if ("gBrowser" in win) {
       return win.gBrowser;
@@ -295,7 +296,7 @@ var TabManager = {
       return Promise.resolve();
     }
 
-    const selected = new EventPromise(ownerWindow, "TabSelect");
+    const selected = new lazy.EventPromise(ownerWindow, "TabSelect");
     tabBrowser.selectedTab = tab;
     return selected;
   },
@@ -303,13 +304,13 @@ var TabManager = {
   supportsTabs() {
     // TODO: Only Firefox supports adding tabs at the moment.
     // Geckoview support should be added via Bug 1506782.
-    return AppInfo.name === "Firefox";
+    return lazy.AppInfo.name === "Firefox";
   },
 
   _getWindowForTab(tab) {
     // `.linkedBrowser.ownerGlobal` works both with Firefox Desktop and Mobile.
     // Other accessors (eg `.ownerGlobal` or `.browser.ownerGlobal`) fail on one
     // of the platforms.
-    return tab.linkedBrowser.ownerGlobal;
+    return tab?.linkedBrowser.ownerGlobal;
   },
 };

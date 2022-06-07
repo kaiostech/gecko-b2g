@@ -13,9 +13,11 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
-  AppConstants: "resource://gre/modules/AppConstants.jsm",
   ExtensionProcessScript: "resource://gre/modules/ExtensionProcessScript.jsm",
   ExtensionTelemetry: "resource://gre/modules/ExtensionTelemetry.jsm",
   LanguageDetector: "resource:///modules/translation/LanguageDetector.jsm",
@@ -46,7 +48,7 @@ const { ExtensionUtils } = ChromeUtils.import(
   "resource://gre/modules/ExtensionUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGlobalGetters(this, ["crypto", "TextEncoder"]);
+XPCOMUtils.defineLazyGlobalGetters(this, ["crypto"]);
 
 const {
   DefaultMap,

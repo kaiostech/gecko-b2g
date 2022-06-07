@@ -9,7 +9,6 @@
 
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/HalBatteryInformation.h"
-#include "nsCycleCollectionParticipant.h"
 #include "mozilla/dom/BatteryManagerBinding.h"
 
 namespace mozilla {

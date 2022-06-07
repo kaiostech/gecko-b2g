@@ -468,15 +468,28 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   }
   masm.pushReturnAddress();
 
+  // Frame prologue. Push extra padding to ensure proper stack alignment.
+  //
+  // NOTE: if this changes, fix the Baseline bailout code too!
+  // See BaselineStackBuilder::calculatePrevFramePtr and
+  // BaselineStackBuilder::buildRectifierFrame (in BaselineBailouts.cpp).
+  static_assert(sizeof(Value) == 2 * sizeof(void*));
+  static_assert(JitStackAlignment == sizeof(Value));
+  masm.push(FramePointer);
+  masm.mov(StackPointer, FramePointer);
+  masm.push(FramePointer);  // Padding.
+
   // Copy number of actual arguments into r0 and r8.
-  masm.ma_ldr(
-      DTRAddr(sp, DtrOffImm(RectifierFrameLayout::offsetOfNumActualArgs())),
-      r0);
+  constexpr size_t FrameOffset = 2 * sizeof(void*);  // Frame pointer + padding.
+  constexpr size_t NargsOffset =
+      FrameOffset + RectifierFrameLayout::offsetOfNumActualArgs();
+  masm.ma_ldr(DTRAddr(sp, DtrOffImm(NargsOffset)), r0);
   masm.mov(r0, r8);
 
   // Load the number of |undefined|s to push into r6.
-  masm.ma_ldr(
-      DTRAddr(sp, DtrOffImm(RectifierFrameLayout::offsetOfCalleeToken())), r1);
+  constexpr size_t TokenOffset =
+      FrameOffset + RectifierFrameLayout::offsetOfCalleeToken();
+  masm.ma_ldr(DTRAddr(sp, DtrOffImm(TokenOffset)), r1);
   {
     ScratchRegisterScope scratch(masm);
     masm.ma_and(Imm32(CalleeTokenMask), r1, r6, scratch);
@@ -488,8 +501,9 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   // Get the topmost argument.
   {
     ScratchRegisterScope scratch(masm);
-    masm.ma_alu(sp, lsl(r8, 3), r3, OpAdd);  // r3 <- r3 + nargs * 8
-    masm.ma_add(r3, Imm32(sizeof(RectifierFrameLayout)), r3, scratch);
+    masm.ma_alu(sp, lsl(r8, 3), r3, OpAdd);  // r3 <- sp + nargs * 8
+    masm.ma_add(r3, Imm32(FrameOffset + sizeof(RectifierFrameLayout)), r3,
+                scratch);
   }
 
   {
@@ -537,7 +551,7 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   }
 
   // translate the framesize from values into bytes
-  masm.as_add(r6, r6, Imm8(1));
+  masm.as_add(r6, r6, Imm8(2));  // 2 for |this| + frame pointer and padding
   masm.ma_lsl(Imm32(3), r6, r6);
 
   // Construct sizeDescriptor.
@@ -569,6 +583,8 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
       break;
   }
 
+  // frame pointer
+  // padding
   // arg1
   //  ...
   // argN
@@ -583,6 +599,8 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
     masm.ma_dtr(IsLoad, sp, Imm32(12), r4, scratch, PostIndex);
   }
 
+  // frame pointer
+  // padding
   // arg1
   //  ...
   // argN               <- sp now; r4 <- frame descriptor
@@ -591,9 +609,12 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   // sizeDescriptor
   // return address
 
-  // Discard pushed arguments.
-  masm.ma_alu(sp, lsr(r4, FRAMESIZE_SHIFT), sp, OpAdd);
+  // Discard pushed arguments, but not the pushed frame pointer.
+  masm.rshift32(Imm32(FRAMESIZE_SHIFT), r4);
+  masm.sub32(Imm32(sizeof(void*)), r4);
+  masm.addPtr(r4, sp);
 
+  masm.pop(FramePointer);
   masm.ret();
 }
 

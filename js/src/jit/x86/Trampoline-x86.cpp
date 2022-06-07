@@ -409,12 +409,26 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   // Caller:
   // [arg2] [arg1] [this] [ [argc] [callee] [descr] [raddr] ] <- esp
 
+  // Frame prologue. Push extra padding to ensure proper stack alignment. See
+  // comments and assertions below.
+  //
+  // NOTE: if this changes, fix the Baseline bailout code too!
+  // See BaselineStackBuilder::calculatePrevFramePtr and
+  // BaselineStackBuilder::buildRectifierFrame (in BaselineBailouts.cpp).
+  masm.push(FramePointer);
+  masm.movl(esp, FramePointer);  // Save %esp.
+  masm.push(FramePointer);       // Padding.
+
   // Load argc.
-  masm.loadPtr(Address(esp, RectifierFrameLayout::offsetOfNumActualArgs()),
-               esi);
+  constexpr size_t FrameOffset = 2 * sizeof(void*);  // Frame pointer + padding.
+  constexpr size_t NargsOffset =
+      FrameOffset + RectifierFrameLayout::offsetOfNumActualArgs();
+  masm.loadPtr(Address(esp, NargsOffset), esi);
 
   // Load the number of |undefined|s to push into %ecx.
-  masm.loadPtr(Address(esp, RectifierFrameLayout::offsetOfCalleeToken()), eax);
+  constexpr size_t TokenOffset =
+      FrameOffset + RectifierFrameLayout::offsetOfCalleeToken();
+  masm.loadPtr(Address(esp, TokenOffset), eax);
   masm.mov(eax, ecx);
   masm.andl(Imm32(CalleeTokenMask), ecx);
   masm.loadFunctionArgCount(ecx, ecx);
@@ -453,15 +467,6 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
 
   masm.moveValue(UndefinedValue(), ValueOperand(ebx, edi));
 
-  // NOTE: The fact that x86 ArgumentsRectifier saves the FramePointer
-  // is relied upon by the baseline bailout code.  If this changes,
-  // fix that code!  See the |#if defined(JS_CODEGEN_X86) portions of
-  // BaselineStackBuilder::calculatePrevFramePtr and
-  // BaselineStackBuilder::buildRectifierFrame (in BaselineBailouts.cpp).
-  masm.push(FramePointer);
-  masm.movl(esp, FramePointer);  // Save %esp.
-  masm.push(FramePointer /* padding */);
-
   // Caller:
   // [arg2] [arg1] [this] [ [argc] [callee] [descr] [raddr] ]
   // '-- #esi ---'
@@ -484,7 +489,7 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   }
 
   // Get the topmost argument. We did a push of %ebp earlier, so be sure to
-  // account for this in the offset
+  // account for this in the offset.
   BaseIndex b(FramePointer, esi, TimesEight,
               sizeof(RectifierFrameLayout) + sizeof(void*));
   masm.lea(Operand(b), ecx);

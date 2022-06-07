@@ -156,6 +156,13 @@ minidump_writer_linux = { git = "https://github.com/rust-minidump/minidump-write
 
 fluent-fallback = { path = "b2g/forks/fluent-fallback" }
 
+# application-services overrides to make updating them all simpler.
+interrupt-support = { git = "https://github.com/mozilla/application-services", rev = "a44feb6b6a2151bf094f3385145a0827a9fbc7cc" }
+sql-support = { git = "https://github.com/mozilla/application-services", rev = "a44feb6b6a2151bf094f3385145a0827a9fbc7cc" }
+sync15-traits = { git = "https://github.com/mozilla/application-services", rev = "a44feb6b6a2151bf094f3385145a0827a9fbc7cc" }
+viaduct = { git = "https://github.com/mozilla/application-services", rev = "a44feb6b6a2151bf094f3385145a0827a9fbc7cc" }
+webext-storage = { git = "https://github.com/mozilla/application-services", rev = "a44feb6b6a2151bf094f3385145a0827a9fbc7cc" }
+
 # Patch mio 0.6 to use winapi 0.3 and miow 0.3, getting rid of winapi 0.2.
 # There is not going to be new version of mio 0.6, mio now being >= 0.7.11.
 [patch.crates-io.mio]

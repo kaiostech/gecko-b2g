@@ -203,6 +203,7 @@ static EGLSurface CreateSurfaceFromNativeWindow(
   ANativeWindow* const nativeWindow =
       ANativeWindow_fromSurface(env, reinterpret_cast<jobject>(window));
   if (!nativeWindow) {
+    gfxCriticalNote << "Failed to obtain native window from Surface";
     return EGL_NO_SURFACE;
   }
   const auto& display = egl.mLib->fGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -210,11 +211,11 @@ static EGLSurface CreateSurfaceFromNativeWindow(
   ANativeWindow_release(nativeWindow);
 #else
   newSurface = egl.fCreateWindowSurface(config, window, 0);
+#endif
   if (!newSurface) {
     const auto err = egl.mLib->fGetError();
     gfxCriticalNote << "Failed to create EGLSurface!: " << gfx::hexa(err);
   }
-#endif
   return newSurface;
 }
 

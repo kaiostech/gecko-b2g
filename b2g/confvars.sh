@@ -9,7 +9,7 @@ MOZ_APP_UA_NAME=${PRODUCTION_OS_NAME-"B2GOS"}
 
 MOZ_UA_OS_AGNOSTIC=1
 
-MOZ_BRANDING_DIRECTORY=b2g/branding/unofficial
+MOZ_BRANDING_DIRECTORY=b2g/branding/capyloon
 MOZ_OFFICIAL_BRANDING_DIRECTORY=b2g/branding/official
 # MOZ_APP_DISPLAYNAME is set by branding/configure.sh
 

@@ -314,7 +314,7 @@ Element* DocumentOrShadowRoot::GetFullscreenElement() const {
   }
 
   Element* element = AsNode().OwnerDoc()->GetUnretargetedFullScreenElement();
-  NS_ASSERTION(!element || element->State().HasState(NS_EVENT_STATE_FULLSCREEN),
+  NS_ASSERTION(!element || element->State().HasState(ElementState::FULLSCREEN),
                "Fullscreen element should have fullscreen styles applied");
 
   nsIContent* retargeted = Retarget(element);
@@ -470,8 +470,7 @@ Element* DocumentOrShadowRoot::ElementFromPoint(float aX, float aY) {
 void DocumentOrShadowRoot::ElementsFromPoint(
     float aX, float aY, nsTArray<RefPtr<Element>>& aElements) {
   QueryNodesFromPoint(*this, aX, aY, {}, FlushLayout::Yes, Multiple::Yes,
-                      ViewportType::Layout, PerformRetargeting::Yes,
-                      aElements);
+                      ViewportType::Layout, PerformRetargeting::Yes, aElements);
 }
 
 void DocumentOrShadowRoot::NodesFromPoint(float aX, float aY,

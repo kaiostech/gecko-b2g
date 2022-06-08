@@ -3281,7 +3281,7 @@ static const char* TryNoteName(TryNoteKind kind) {
     return false;
   }
 
-  for (const TryNote& tn : script->trynotes()) {
+  for (const js::TryNote& tn : script->trynotes()) {
     if (!sp->jsprintf(" %-16s %6u %8u %8u\n", TryNoteName(tn.kind()),
                       tn.stackDepth, tn.start, tn.start + tn.length)) {
       return false;
@@ -4523,11 +4523,9 @@ static void WorkerMain(UniquePtr<WorkerInput> input) {
     }
 
     JS::CompileOptions options(cx);
-    options
-        .setFileAndLine("<string>", 1)
+    options.setFileAndLine("<string>", 1)
         .setIsRunOnce(true)
         .setEagerDelazificationStrategy(defaultDelazificationMode);
-
 
     AutoReportException are(cx);
     JS::SourceText<char16_t> srcBuf;
@@ -7030,6 +7028,13 @@ static bool NewGlobal(JSContext* cx, unsigned argc, Value* vp) {
       creationOptions.setCoopAndCoepEnabled(v.toBoolean());
     }
 
+    if (!JS_GetProperty(cx, opts, "freezeBuiltins", &v)) {
+      return false;
+    }
+    if (v.isBoolean()) {
+      creationOptions.setFreezeBuiltins(v.toBoolean());
+    }
+
     // On the web, the SharedArrayBuffer constructor is not installed as a
     // global property in pages that aren't isolated in a separate process (and
     // thus can't allow the structured cloning of shared memory).  Specify false
@@ -9508,6 +9513,9 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
 "         (default false).\n"
 "      useWindowProxy: the global will be created with a WindowProxy attached. In this\n"
 "          case, the WindowProxy will be returned.\n"
+"      freezeBuiltins: certain builtin constructors will be frozen when created and\n"
+"          their prototypes will be sealed. These constructors will be defined on the\n"
+"          global as non-configurable and non-writable.\n"
 "      immutablePrototype: whether the global's prototype is immutable.\n"
 "      principal: if present, its value converted to a number must be an\n"
 "         integer that fits in 32 bits; use that as the new realm's\n"
@@ -10911,8 +10919,8 @@ static bool OptionFailure(const char* option, const char* str) {
       const char* code = codeChunks.front();
 
       JS::CompileOptions opts(cx);
-      opts.setFileAndLine("-e", 1)
-          .setEagerDelazificationStrategy(defaultDelazificationMode);
+      opts.setFileAndLine("-e", 1).setEagerDelazificationStrategy(
+          defaultDelazificationMode);
 
       JS::SourceText<Utf8Unit> srcBuf;
       if (!srcBuf.init(cx, code, strlen(code), JS::SourceOwnership::Borrowed)) {

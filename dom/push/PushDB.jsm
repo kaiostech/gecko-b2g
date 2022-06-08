@@ -13,7 +13,9 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 const EXPORTED_SYMBOLS = ["PushDB"];
 
-XPCOMUtils.defineLazyGetter(this, "console", () => {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "console", () => {
   let { ConsoleAPI } = ChromeUtils.import("resource://gre/modules/Console.jsm");
   return new ConsoleAPI({
     maxLogLevelPref: "dom.push.loglevel",
@@ -22,7 +24,7 @@ XPCOMUtils.defineLazyGetter(this, "console", () => {
 });
 
 function PushDB(dbName, dbVersion, dbStoreName, keyPath, model) {
-  console.debug("PushDB()");
+  lazy.console.debug("PushDB()");
   this._dbStoreName = dbStoreName;
   this._keyPath = keyPath;
   this._model = model;
@@ -116,7 +118,7 @@ PushDB.prototype = {
    */
 
   put(aRecord, aStoreName) {
-    console.debug("put()", aRecord);
+    lazy.console.debug("put()", aRecord);
     if (!this.isValidRecord(aRecord)) {
       return Promise.reject(
         new TypeError(
@@ -141,7 +143,7 @@ PushDB.prototype = {
           aTxn.result = undefined;
 
           aStore.put(aRecord).onsuccess = aEvent => {
-            console.debug(
+            lazy.console.debug(
               "put: Request successful. Updated record",
               aEvent.target.result
             );
@@ -159,7 +161,7 @@ PushDB.prototype = {
    *        The ID of record to be deleted.
    */
   delete(aKeyID, aStoreName) {
-    console.debug("delete()");
+    lazy.console.debug("delete()");
 
     if (aStoreName) {
       if (typeof aStoreName != "string" || aStoreName.length === 0) {
@@ -173,7 +175,7 @@ PushDB.prototype = {
         "readwrite",
         aStoreName ? aStoreName : this._dbStoreName,
         (aTxn, aStore) => {
-          console.debug("delete: Removing record", aKeyID);
+          lazy.console.debug("delete: Removing record", aKeyID);
           aStore.get(aKeyID).onsuccess = event => {
             aTxn.result = this.toPushRecord(event.target.result);
             aStore.delete(aKeyID);
@@ -188,7 +190,7 @@ PushDB.prototype = {
   // testFn(record) is called with a database record and should return true if
   // that record should be deleted.
   clearIf(testFn) {
-    console.debug("clearIf()");
+    lazy.console.debug("clearIf()");
     return new Promise((resolve, reject) =>
       this.newTxn(
         "readwrite",
@@ -203,7 +205,7 @@ PushDB.prototype = {
               if (testFn(record)) {
                 let deleteRequest = cursor.delete();
                 deleteRequest.onerror = e => {
-                  console.error(
+                  lazy.console.error(
                     "clearIf: Error removing record",
                     record.keyID,
                     e
@@ -221,7 +223,7 @@ PushDB.prototype = {
   },
 
   getByPushEndpoint(aPushEndpoint) {
-    console.debug("getByPushEndpoint()");
+    lazy.console.debug("getByPushEndpoint()");
 
     return new Promise((resolve, reject) =>
       this.newTxn(
@@ -233,7 +235,7 @@ PushDB.prototype = {
           let index = aStore.index("pushEndpoint");
           index.get(aPushEndpoint).onsuccess = aEvent => {
             let record = this.toPushRecord(aEvent.target.result);
-            console.debug("getByPushEndpoint: Got record", record);
+            lazy.console.debug("getByPushEndpoint: Got record", record);
             aTxn.result = record;
           };
         },
@@ -244,7 +246,7 @@ PushDB.prototype = {
   },
 
   getByKeyID(aKeyID, aStoreName) {
-    console.debug("getByKeyID()");
+    lazy.console.debug("getByKeyID()");
 
     if (aStoreName) {
       if (typeof aStoreName != "string" || aStoreName.length === 0) {
@@ -262,7 +264,7 @@ PushDB.prototype = {
 
           aStore.get(aKeyID).onsuccess = aEvent => {
             let record = this.toPushRecord(aEvent.target.result);
-            console.debug("getByKeyID: Got record", record);
+            lazy.console.debug("getByKeyID: Got record", record);
             aTxn.result = record;
           };
         },
@@ -284,7 +286,7 @@ PushDB.prototype = {
    * @returns {Promise} Resolves once all records have been processed.
    */
   forEachOrigin(origin, originAttributes, callback) {
-    console.debug("forEachOrigin()");
+    lazy.console.debug("forEachOrigin()");
 
     return new Promise((resolve, reject) =>
       this.newTxn(
@@ -315,9 +317,9 @@ PushDB.prototype = {
 
   // Perform a unique match against { scope, originAttributes }
   getByIdentifiers(aPageRecord) {
-    console.debug("getByIdentifiers()", aPageRecord);
+    lazy.console.debug("getByIdentifiers()", aPageRecord);
     if (!aPageRecord.scope || aPageRecord.originAttributes == undefined) {
-      console.error(
+      lazy.console.error(
         "getByIdentifiers: Scope and originAttributes are required",
         aPageRecord
       );
@@ -379,7 +381,7 @@ PushDB.prototype = {
   },
 
   getAllKeyIDs(aStoreName) {
-    console.debug("getAllKeyIDs()");
+    lazy.console.debug("getAllKeyIDs()");
 
     if (aStoreName) {
       if (typeof aStoreName != "string" || aStoreName.length === 0) {
@@ -407,7 +409,7 @@ PushDB.prototype = {
   },
 
   _getAllByPushQuota(range) {
-    console.debug("getAllByPushQuota()");
+    lazy.console.debug("getAllByPushQuota()");
 
     return new Promise((resolve, reject) =>
       this.newTxn(
@@ -432,12 +434,12 @@ PushDB.prototype = {
   },
 
   getAllUnexpired() {
-    console.debug("getAllUnexpired()");
+    lazy.console.debug("getAllUnexpired()");
     return this._getAllByPushQuota(IDBKeyRange.lowerBound(1));
   },
 
   getAllExpired() {
-    console.debug("getAllExpired()");
+    lazy.console.debug("getAllExpired()");
     return this._getAllByPushQuota(IDBKeyRange.only(0));
   },
 
@@ -473,7 +475,7 @@ PushDB.prototype = {
             }
             let newRecord = aUpdateFunc(this.toPushRecord(record));
             if (!this.isValidRecord(newRecord)) {
-              console.error(
+              lazy.console.error(
                 "update: Ignoring invalid update",
                 aKeyID,
                 newRecord
@@ -483,7 +485,11 @@ PushDB.prototype = {
             function putRecord() {
               let req = aStore.put(newRecord);
               req.onsuccess = aEvent => {
-                console.debug("update: Update successful", aKeyID, newRecord);
+                lazy.console.debug(
+                  "update: Update successful",
+                  aKeyID,
+                  newRecord
+                );
                 aTxn.result = newRecord;
               };
             }
@@ -503,7 +509,7 @@ PushDB.prototype = {
   },
 
   drop(aStoreName) {
-    console.debug("drop()");
+    lazy.console.debug("drop()");
 
     if (aStoreName) {
       if (typeof aStoreName != "string" || aStoreName.length === 0) {

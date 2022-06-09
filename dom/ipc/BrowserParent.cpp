@@ -1812,7 +1812,10 @@ mozilla::ipc::IPCResult BrowserParent::RecvRequestNativeKeyBindings(
   MOZ_ASSERT(aCommands);
   MOZ_ASSERT(aCommands->IsEmpty());
 
+// B2G needs that IPC for the input method api.
+#if !defined(MOZ_B2G)
   NS_ENSURE_TRUE(xpc::IsInAutomation(), IPC_FAIL(this, "Unexpected event"));
+#endif
 
   NativeKeyBindingsType keyBindingsType =
       static_cast<NativeKeyBindingsType>(aType);

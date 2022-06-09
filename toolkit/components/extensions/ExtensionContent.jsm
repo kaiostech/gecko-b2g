@@ -17,7 +17,9 @@ const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
 
-XPCOMUtils.defineLazyModuleGetters(this, {
+const lazy = {};
+
+XPCOMUtils.defineLazyModuleGetters(lazy, {
   ExtensionProcessScript: "resource://gre/modules/ExtensionProcessScript.jsm",
   ExtensionTelemetry: "resource://gre/modules/ExtensionTelemetry.jsm",
   LanguageDetector: "resource:///modules/translation/LanguageDetector.jsm",
@@ -26,7 +28,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "styleSheetService",
   "@mozilla.org/content/style-sheet-service;1",
   "nsIStyleSheetService"
@@ -48,7 +50,7 @@ const { ExtensionUtils } = ChromeUtils.import(
   "resource://gre/modules/ExtensionUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGlobalGetters(this, ["crypto"]);
+XPCOMUtils.defineLazyGlobalGetters(lazy, ["crypto"]);
 
 const {
   DefaultMap,
@@ -69,9 +71,9 @@ const {
 
 const { BrowserExtensionContent, ChildAPIManager, Messenger } = ExtensionChild;
 
-XPCOMUtils.defineLazyGetter(this, "console", ExtensionCommon.getConsole);
+XPCOMUtils.defineLazyGetter(lazy, "console", ExtensionCommon.getConsole);
 
-XPCOMUtils.defineLazyGetter(this, "isContentScriptProcess", () => {
+XPCOMUtils.defineLazyGetter(lazy, "isContentScriptProcess", () => {
   return (
     Services.appinfo.processType === Services.appinfo.PROCESS_TYPE_CONTENT ||
     !WebExtensionPolicy.useRemoteWebExtensions ||
@@ -86,7 +88,7 @@ const CATEGORY_EXTENSION_SCRIPTS_CONTENT = "webextension-scripts-content";
 
 var apiManager = new (class extends SchemaAPIManager {
   constructor() {
-    super("content", Schemas);
+    super("content", lazy.Schemas);
     this.initialized = false;
   }
 
@@ -227,7 +229,7 @@ class CSSCache extends BaseCSSCache {
       CSS_EXPIRY_TIMEOUT_MS,
       url => {
         let uri = Services.io.newURI(url);
-        return styleSheetService
+        return lazy.styleSheetService
           .preloadSheetAsync(uri, sheetType)
           .then(sheet => {
             return { url, sheet };
@@ -277,7 +279,7 @@ class CSSCodeCache extends BaseCSSCache {
       "data:text/css;extension=style;charset=utf-8," +
         encodeURIComponent(cssCode)
     );
-    const value = styleSheetService
+    const value = lazy.styleSheetService
       .preloadSheetAsync(uri, this.sheetType)
       .then(sheet => {
         return { sheet, uri };
@@ -373,7 +375,7 @@ class Script {
     }
 
     // Store the hash of the cssCode.
-    const buffer = await crypto.subtle.digest(
+    const buffer = await lazy.crypto.subtle.digest(
       "SHA-1",
       new TextEncoder().encode(cssCode)
     );
@@ -442,7 +444,7 @@ class Script {
   }
 
   async injectInto(window) {
-    if (!isContentScriptProcess) {
+    if (!lazy.isContentScriptProcess) {
       return;
     }
 
@@ -569,7 +571,7 @@ class Script {
 
     // The evaluations below may throw, in which case the promise will be
     // automatically rejected.
-    ExtensionTelemetry.contentScriptInjection.stopwatchStart(
+    lazy.ExtensionTelemetry.contentScriptInjection.stopwatchStart(
       extension,
       context
     );
@@ -588,7 +590,7 @@ class Script {
         );
       }
     } finally {
-      ExtensionTelemetry.contentScriptInjection.stopwatchFinish(
+      lazy.ExtensionTelemetry.contentScriptInjection.stopwatchFinish(
         extension,
         context
       );
@@ -691,7 +693,10 @@ class UserScript extends Script {
 
     // The evaluations below may throw, in which case the promise will be
     // automatically rejected.
-    ExtensionTelemetry.userScriptInjection.stopwatchStart(extension, context);
+    lazy.ExtensionTelemetry.userScriptInjection.stopwatchStart(
+      extension,
+      context
+    );
     try {
       let userScriptSandbox = this.sandboxes.get(context);
 
@@ -718,7 +723,7 @@ class UserScript extends Script {
         script.executeInGlobal(userScriptSandbox);
       }
     } finally {
-      ExtensionTelemetry.userScriptInjection.stopwatchFinish(
+      lazy.ExtensionTelemetry.userScriptInjection.stopwatchFinish(
         extension,
         context
       );
@@ -755,7 +760,9 @@ class UserScript extends Script {
 }
 
 var contentScripts = new DefaultWeakMap(matcher => {
-  const extension = ExtensionProcessScript.extensions.get(matcher.extension);
+  const extension = lazy.ExtensionProcessScript.extensions.get(
+    matcher.extension
+  );
 
   if ("userScriptOptions" in matcher) {
     return new UserScript(extension, matcher);
@@ -776,7 +783,7 @@ class ContentScriptContextChild extends BaseContext {
 
     this.setContentWindow(contentWindow);
 
-    let frameId = WebNavigationFrames.getFrameId(contentWindow);
+    let frameId = lazy.WebNavigationFrames.getFrameId(contentWindow);
     this.frameId = frameId;
 
     this.browsingContextId = contentWindow.docShell.browsingContext.id;
@@ -897,8 +904,12 @@ class ContentScriptContextChild extends BaseContext {
       return chromeObj;
     });
 
-    Schemas.exportLazyGetter(this.sandbox, "browser", () => this.chromeObj);
-    Schemas.exportLazyGetter(this.sandbox, "chrome", () => this.chromeObj);
+    lazy.Schemas.exportLazyGetter(
+      this.sandbox,
+      "browser",
+      () => this.chromeObj
+    );
+    lazy.Schemas.exportLazyGetter(this.sandbox, "chrome", () => this.chromeObj);
 
     // Keep track if the userScript API script has been already executed in this context
     // (e.g. because there are more then one UserScripts that match the related webpage
@@ -917,12 +928,12 @@ class ContentScriptContextChild extends BaseContext {
     }
 
     // This is an iframe with content script API enabled (See Bug 1214658)
-    Schemas.exportLazyGetter(
+    lazy.Schemas.exportLazyGetter(
       this.contentWindow,
       "browser",
       () => this.chromeObj
     );
-    Schemas.exportLazyGetter(
+    lazy.Schemas.exportLazyGetter(
       this.contentWindow,
       "chrome",
       () => this.chromeObj
@@ -1143,7 +1154,7 @@ var ExtensionContent = {
     let encoder = Cu.createDocumentEncoder("text/plain");
     encoder.init(doc, "text/plain", Ci.nsIDocumentEncoder.SkipInvisibleContent);
 
-    let result = await LanguageDetector.detectLanguage({
+    let result = await lazy.LanguageDetector.detectLanguage({
       language:
         doc.documentElement.getAttribute("xml:lang") ||
         doc.documentElement.getAttribute("lang") ||
@@ -1233,11 +1244,15 @@ var ExtensionContent = {
  */
 class ExtensionContentChild extends JSProcessActorChild {
   receiveMessage({ name, data }) {
+<<<<<<< HEAD
     console.log(`ext-ExtensionContent.jsm receiveMessage ${name} ${data}`);
     if (!isContentScriptProcess) {
       console.log(
         `ext-ExtensionContent.jsm receiveMessage not a content script process!`
       );
+=======
+    if (!lazy.isContentScriptProcess) {
+>>>>>>> next
       return;
     }
     switch (name) {

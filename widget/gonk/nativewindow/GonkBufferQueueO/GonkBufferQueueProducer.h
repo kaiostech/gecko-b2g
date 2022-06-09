@@ -23,7 +23,7 @@
 
 namespace android {
 
-class GonkBufferSlot;
+struct GonkBufferSlot;
 
 class GonkBufferQueueProducer : public BnGraphicBufferProducer,
                                 private IBinder::DeathRecipient {

@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import re
-import shutil
 import subprocess
 from collections import defaultdict, OrderedDict
 from distutils.version import LooseVersion
@@ -75,7 +74,6 @@ PACKAGES_WE_ALWAYS_WANT_AN_OVERRIDE_OF = [
 # If you do need to make changes increasing the number of duplicates, please
 # add a comment as to why.
 TOLERATED_DUPES = {
-    "base64": 2,
     "bytes": 2,
     "crossbeam-deque": 2,
     "crossbeam-epoch": 2,
@@ -90,6 +88,10 @@ TOLERATED_DUPES = {
     # expected to remove the dependency on time altogether).
     "time": 2,
     "tokio": 2,
+    # nom 6 used by plenty of things
+    # nom 7 used by askama (dep of UniFFI, dep of Glean)
+    # See https://github.com/mozilla/uniffi-rs/issues/1260
+    "nom": 2,
 }
 
 
@@ -531,9 +533,50 @@ license file's hash.
         ]
         return all(results)
 
+    def _check_build_rust(self, cargo_lock):
+        ret = True
+        crates = {}
+        for path in Path(self.topsrcdir).glob("build/rust/**/Cargo.toml"):
+            with open(path) as fh:
+                cargo_toml = pytoml.load(fh)
+                path = path.relative_to(self.topsrcdir)
+                package = cargo_toml["package"]
+                key = (package["name"], package["version"])
+                if key in crates:
+                    self.log(
+                        logging.ERROR,
+                        "build_rust",
+                        {
+                            "path": crates[key],
+                            "path2": path,
+                            "crate": key[0],
+                            "version": key[1],
+                        },
+                        "{path} and {path2} both contain {crate} {version}",
+                    )
+                    ret = False
+                crates[key] = path
+
+        for package in cargo_lock["package"]:
+            key = (package["name"], package["version"])
+            if key in crates and "source" not in package:
+                crates.pop(key)
+
+        for ((name, version), path) in crates.items():
+            self.log(
+                logging.ERROR,
+                "build_rust",
+                {"path": path, "crate": name, "version": version},
+                "{crate} {version} has an override in {path} that is not used",
+            )
+            ret = False
+        return ret
+
     def vendor(
         self, ignore_modified=False, build_peers_said_large_imports_were_ok=False
     ):
+        from mozbuild.mach_commands import cargo_vet
+
         self.populate_logger()
         self.log_manager.enable_unstructured()
         if not ignore_modified and self.has_modified_files():
@@ -565,6 +608,9 @@ license file's hash.
                     {"crate": package["name"]},
                     """Unused patch in top-level Cargo.toml for {crate}.""",
                 )
+                failed = True
+
+            if not self._check_build_rust(cargo_lock):
                 failed = True
 
             grouped = defaultdict(list)
@@ -667,41 +713,35 @@ license file's hash.
                     )
                     failed = True
 
-        # Only run cargo-vet on automation for now, and only emit warnings.
+        # Only emit warnings for cargo-vet for now.
+        env = os.environ.copy()
+        env["PATH"] = os.pathsep.join(
+            (
+                str(Path(cargo).parent),
+                os.environ["PATH"],
+            )
+        )
+        flags = ["--output-format=json"]
         if "MOZ_AUTOMATION" in os.environ:
-            env = os.environ.copy()
-            env["PATH"] = os.pathsep.join(
-                (
-                    os.path.join(os.environ["MOZ_FETCHES_DIR"], "cargo-vet"),
-                    os.path.join(os.environ["MOZ_FETCHES_DIR"], "rustc", "bin"),
-                    os.environ["PATH"],
+            flags.append("--locked")
+        res = cargo_vet(
+            self,
+            flags,
+            stdout=subprocess.PIPE,
+            env=env,
+        )
+        if res.returncode:
+            vet = json.loads(res.stdout)
+            for failure in vet.get("failures", []):
+                failure["crate"] = failure.pop("name")
+                self.log(
+                    logging.ERROR,
+                    "cargo_vet_failed",
+                    failure,
+                    "Vetting missing for {crate}:{version} {missing_criteria}."
+                    " Run `./mach cargo vet` for more information",
                 )
-            )
-            # The use of --locked requires .cargo/config to exist, but other things,
-            # like cargo update, don't want it there, so remove it after cargo vet.
-            topsrcdir = Path(self.topsrcdir)
-            shutil.copyfile(
-                topsrcdir / ".cargo" / "config.in", topsrcdir / ".cargo" / "config"
-            )
-            try:
-                res = subprocess.run(
-                    [cargo, "vet", "--output-format=json", "--locked"],
-                    cwd=self.topsrcdir,
-                    stdout=subprocess.PIPE,
-                    env=env,
-                )
-                if res.returncode:
-                    vet = json.loads(res.stdout)
-                    for failure in vet.get("failures", []):
-                        failure["crate"] = failure.pop("name")
-                        self.log(
-                            logging.WARNING,
-                            "cargo_vet_failed",
-                            failure,
-                            "Vetting missing for {crate}:{version} {missing_criteria}",
-                        )
-            finally:
-                os.unlink(topsrcdir / ".cargo" / "config")
+                failed = True
 
         if failed:
             return False

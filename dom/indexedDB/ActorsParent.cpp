@@ -5607,12 +5607,10 @@ RefPtr<BlobImpl> CreateFileBlobImpl(const Database& aDatabase,
 }
 
 Result<nsTArray<SerializedStructuredCloneFile>, nsresult>
-SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
-                              const SafeRefPtr<Database>& aDatabase,
+SerializeStructuredCloneFiles(const SafeRefPtr<Database>& aDatabase,
                               const nsTArray<StructuredCloneFileParent>& aFiles,
                               bool aForPreprocess) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aBackgroundActor);
   MOZ_ASSERT(aDatabase);
 
   if (aFiles.IsEmpty()) {
@@ -5635,7 +5633,7 @@ SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
         return !aForPreprocess ||
                file.Type() == StructuredCloneFileBase::eStructuredClone;
       },
-      [&directory, &aDatabase, aBackgroundActor, aForPreprocess](
+      [&directory, &aDatabase, aForPreprocess](
           const auto& file) -> Result<SerializedStructuredCloneFile, nsresult> {
         const int64_t fileId = file.FileInfo().Id();
         MOZ_ASSERT(fileId > 0);
@@ -5662,8 +5660,7 @@ SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
             IPCBlob ipcBlob;
 
             // This can only fail if the child has crashed.
-            QM_TRY(MOZ_TO_RESULT(IPCBlobUtils::Serialize(impl, aBackgroundActor,
-                                                         ipcBlob)),
+            QM_TRY(MOZ_TO_RESULT(IPCBlobUtils::Serialize(impl, ipcBlob)),
                    Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
                    IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
@@ -11964,8 +11961,7 @@ void ValueCursorBase::ProcessFiles(CursorResponse& aResponse,
       MOZ_ASSERT(this->mDatabase);
 
       QM_TRY_UNWRAP(serializedInfo->files(),
-                    SerializeStructuredCloneFiles((*this->mBackgroundParent),
-                                                  this->mDatabase, files,
+                    SerializeStructuredCloneFiles(this->mDatabase, files,
                                                   /* aForPreprocess */ false),
                     QM_VOID, [&aResponse](const nsresult result) {
                       aResponse = ClampResultCode(result);
@@ -19919,7 +19915,7 @@ Result<T, nsresult> ObjectStoreGetRequestOp::ConvertResponse(
   }
 
   QM_TRY_UNWRAP(result.files(), SerializeStructuredCloneFiles(
-                                    mBackgroundParent, mDatabase, aInfo.Files(),
+                                    mDatabase, aInfo.Files(),
                                     std::is_same_v<T, PreprocessInfo>));
 
   return result;
@@ -20466,9 +20462,8 @@ void IndexGetRequestOp::GetResponse(RequestResponse& aResponse,
 
     result.data().data = info.ReleaseData();
 
-    QM_TRY_UNWRAP(result.files(),
-                  SerializeStructuredCloneFiles(mBackgroundParent, mDatabase,
-                                                info.Files(), false));
+    QM_TRY_UNWRAP(result.files(), SerializeStructuredCloneFiles(
+                                      mDatabase, info.Files(), false));
 
     return result;
   };

@@ -750,12 +750,6 @@ nsresult nsFrameLoader::ReallyStartLoadingInternal() {
     return NS_OK;
   }
 
-  if (GetDocShell()) {
-    // If we already have a docshell, ensure that the docshell's storage access
-    // flag is cleared.
-    GetDocShell()->MaybeClearStorageAccessFlag();
-  }
-
   nsresult rv = MaybeCreateDocShell();
   if (NS_FAILED(rv)) {
     return rv;
@@ -1172,8 +1166,6 @@ void nsFrameLoader::Hide() {
   if (!GetDocShell()) {
     return;
   }
-
-  GetDocShell()->MaybeClearStorageAccessFlag();
 
   nsCOMPtr<nsIContentViewer> contentViewer;
   GetDocShell()->GetContentViewer(getter_AddRefs(contentViewer));
@@ -3021,8 +3013,7 @@ nsresult nsFrameLoader::DoSendAsyncMessage(const nsAString& aMessage,
   auto* browserParent = GetBrowserParent();
   if (browserParent) {
     ClonedMessageData data;
-    ContentParent* cp = browserParent->Manager();
-    if (!BuildClonedMessageDataForParent(cp, aData, data)) {
+    if (!BuildClonedMessageData(aData, data)) {
       MOZ_CRASH();
       return NS_ERROR_DOM_DATA_CLONE_ERR;
     }

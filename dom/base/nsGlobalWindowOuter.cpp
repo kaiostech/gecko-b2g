@@ -24,7 +24,6 @@
 #include "nsISecureBrowserUI.h"
 #include "nsIWebProgressListener.h"
 #include "mozilla/AntiTrackingUtils.h"
-#include "mozilla/ContentBlocking.h"
 #include "mozilla/dom/AutoPrintEventDispatcher.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/BrowserChild.h"
@@ -50,6 +49,7 @@
 #include "mozilla/dom/WindowFeatures.h"  // WindowFeatures
 #include "mozilla/dom/WindowProxyHolder.h"
 #include "mozilla/IntegerPrintfMacros.h"
+#include "mozilla/StorageAccessAPIHelper.h"
 #include "nsBaseCommandController.h"
 #include "nsError.h"
 #include "nsICookieService.h"
@@ -1308,7 +1308,6 @@ nsGlobalWindowOuter::nsGlobalWindowOuter(uint64_t aWindowID)
       mIsChrome(false),
       mAllowScriptsToClose(false),
       mTopLevelOuterContentWindow(false),
-      mStorageAccessPermissionGranted(false),
       mDelayedPrintUntilAfterLoad(false),
       mDelayedCloseForPrinting(false),
       mShouldDelayPrintUntilAfterLoad(false),
@@ -2504,9 +2503,6 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
   }
 
   PreloadLocalStorage();
-
-  mStorageAccessPermissionGranted = ContentBlocking::ShouldAllowAccessFor(
-      newInnerWindow, aDocument->GetDocumentURI(), nullptr);
 
   // Do this here rather than in say the Document constructor, since
   // we need a WindowContext available.
@@ -7140,8 +7136,8 @@ void nsGlobalWindowOuter::MaybeAllowStorageForOpenedWindow(nsIURI* aURI) {
       aURI, doc->NodePrincipal()->OriginAttributesRef());
 
   // We don't care when the asynchronous work finishes here.
-  Unused << ContentBlocking::AllowAccessFor(principal, GetBrowsingContext(),
-                                            ContentBlockingNotifier::eOpener);
+  Unused << StorageAccessAPIHelper::AllowAccessFor(
+      principal, GetBrowsingContext(), ContentBlockingNotifier::eOpener);
 }
 
 //*****************************************************************************

@@ -479,12 +479,6 @@ WindowGlobalChild::RecvSaveStorageAccessPermissionGranted() {
     inner->SaveStorageAccessPermissionGranted();
   }
 
-  nsCOMPtr<nsPIDOMWindowOuter> outer =
-      nsPIDOMWindowOuter::GetFromCurrentInner(inner);
-  if (outer) {
-    nsGlobalWindowOuter::Cast(outer)->SetStorageAccessPermissionGranted(true);
-  }
-
   return IPC_OK();
 }
 
@@ -573,12 +567,12 @@ IPCResult WindowGlobalChild::RecvRawMessage(
   Maybe<StructuredCloneData> data;
   if (aData) {
     data.emplace();
-    data->BorrowFromClonedMessageDataForChild(*aData);
+    data->BorrowFromClonedMessageData(*aData);
   }
   Maybe<StructuredCloneData> stack;
   if (aStack) {
     stack.emplace();
-    stack->BorrowFromClonedMessageDataForChild(*aStack);
+    stack->BorrowFromClonedMessageData(*aStack);
   }
   ReceiveRawMessage(aMeta, std::move(data), std::move(stack));
   return IPC_OK();

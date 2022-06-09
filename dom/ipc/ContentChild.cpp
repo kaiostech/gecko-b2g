@@ -18,7 +18,6 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/BackgroundHangMonitor.h"
 #include "mozilla/BenchmarkStorageChild.h"
-#include "mozilla/ContentBlocking.h"
 #include "mozilla/FOGIPC.h"
 #include "GMPServiceChild.h"
 #include "Geolocation.h"
@@ -49,6 +48,7 @@
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_media.h"
+#include "mozilla/StorageAccessAPIHelper.h"
 #include "mozilla/TelemetryIPC.h"
 #include "mozilla/Unused.h"
 #include "mozilla/WebBrowserPersistDocumentChild.h"
@@ -603,7 +603,7 @@ ConsoleListener::Observe(nsIConsoleMessage* aMessage) {
         }
 
         ClonedMessageData cloned;
-        if (!data.BuildClonedMessageDataForChild(mChild, cloned)) {
+        if (!data.BuildClonedMessageData(cloned)) {
           return NS_ERROR_FAILURE;
         }
 
@@ -2665,7 +2665,7 @@ mozilla::ipc::IPCResult ContentChild::RecvAsyncMessage(
       nsFrameMessageManager::GetChildProcessManager();
   if (cpm) {
     StructuredCloneData data;
-    ipc::UnpackClonedMessageDataForChild(aData, data);
+    ipc::UnpackClonedMessageData(aData, data);
     cpm->ReceiveMessage(cpm, nullptr, aMsg, false, &data, nullptr,
                         IgnoreErrors());
   }
@@ -4031,8 +4031,8 @@ mozilla::ipc::IPCResult ContentChild::RecvOnAllowAccessFor(
         aReason) {
   MOZ_ASSERT(!aContext.IsNull(), "Browsing context cannot be null");
 
-  ContentBlocking::OnAllowAccessFor(aContext.GetMaybeDiscarded(),
-                                    aTrackingOrigin, aCookieBehavior, aReason);
+  StorageAccessAPIHelper::OnAllowAccessFor(
+      aContext.GetMaybeDiscarded(), aTrackingOrigin, aCookieBehavior, aReason);
 
   return IPC_OK();
 }
@@ -5005,12 +5005,12 @@ IPCResult ContentChild::RecvRawMessage(const JSActorMessageMeta& aMeta,
   Maybe<StructuredCloneData> data;
   if (aData) {
     data.emplace();
-    data->BorrowFromClonedMessageDataForChild(*aData);
+    data->BorrowFromClonedMessageData(*aData);
   }
   Maybe<StructuredCloneData> stack;
   if (aStack) {
     stack.emplace();
-    stack->BorrowFromClonedMessageDataForChild(*aStack);
+    stack->BorrowFromClonedMessageData(*aStack);
   }
   ReceiveRawMessage(aMeta, std::move(data), std::move(stack));
   return IPC_OK();

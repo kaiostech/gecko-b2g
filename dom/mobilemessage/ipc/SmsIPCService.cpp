@@ -283,7 +283,6 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
   request.receivers().AppendElements(params.mReceivers);
 
   // SendMobileMessageRequest.attachments
-  mozilla::dom::ContentChild* cc = mozilla::dom::ContentChild::GetSingleton();
 
   IPCBlob ipcBlob;
   for (uint32_t i = 0; i < params.mAttachments.Length(); i++) {
@@ -292,7 +291,7 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
     mmsAttachment.id().Assign(attachment.mId);
     mmsAttachment.location().Assign(attachment.mLocation);
     nsresult rv =
-        IPCBlobUtils::Serialize(attachment.mContent->Impl(), cc, ipcBlob);
+        IPCBlobUtils::Serialize(attachment.mContent->Impl(), ipcBlob);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }

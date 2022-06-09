@@ -96,18 +96,10 @@ FileSystemParams CreateFileTaskChild::GetRequestParams(
     return param;
   }
 
-  // If we are here, PBackground must be up and running: this method is called
-  // when the task has been already started by FileSystemPermissionRequest
-  // class and this happens only when PBackground actor has already been
-  // created.
-  PBackgroundChild* actor =
-      mozilla::ipc::BackgroundChild::GetForCurrentThread();
-  MOZ_ASSERT(actor);
-
   param.replace() = mReplace;
   if (mBlobImpl) {
     IPCBlob ipcBlob;
-    nsresult rv = IPCBlobUtils::Serialize(mBlobImpl, actor, ipcBlob);
+    nsresult rv = IPCBlobUtils::Serialize(mBlobImpl, ipcBlob);
     if (NS_SUCCEEDED(rv)) {
       param.data() = ipcBlob;
     }
@@ -206,7 +198,7 @@ FileSystemResponseValue CreateFileTaskParent::GetSuccessRequestResult(
   RefPtr<BlobImpl> blobImpl = new FileBlobImpl(mTargetPath);
   IPCBlob ipcBlob;
   nsresult rv =
-      IPCBlobUtils::Serialize(blobImpl, mRequestParent->Manager(), ipcBlob);
+      IPCBlobUtils::Serialize(blobImpl, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return FileSystemFileResponse();
   }

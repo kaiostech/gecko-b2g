@@ -278,9 +278,8 @@ nsresult DeviceStorageRequestParent::PostBlobSuccessEvent::CancelableRun() {
   RefPtr<BlobImpl> blob = new FileBlobImpl(fullPath, mime, mLength,
                                            mFile->mFile, mLastModificationDate);
 
-  ContentParent* cp = static_cast<ContentParent*>(mParent->Manager());
   IPCBlob ipcBlob;
-  nsresult rv = IPCBlobUtils::Serialize(blob, cp, ipcBlob);
+  nsresult rv = IPCBlobUtils::Serialize(blob, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     ErrorResponse response(
         NS_LITERAL_STRING_FROM_CSTRING(POST_ERROR_EVENT_UNKNOWN));

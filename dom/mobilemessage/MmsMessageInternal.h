@@ -60,7 +60,7 @@ class MmsMessageInternal final : public nsIMmsMessage {
                          bool aIsGroup, JSContext* aCx,
                          nsIMmsMessage** aMessage);
 
-  bool GetData(ContentParent* aParent, MmsMessageData& aData);
+  bool GetData(MmsMessageData& aData);
 
  private:
   ~MmsMessageInternal() {}

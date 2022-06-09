@@ -435,8 +435,7 @@ nsresult ServiceWorkerPrivateImpl::SendMessageEvent(
 
   ServiceWorkerMessageEventOpArgs args;
   args.clientInfoAndState() = aClientInfoAndState;
-  if (!aData->BuildClonedMessageDataForBackgroundChild(bgChild,
-                                                       args.clonedData())) {
+  if (!aData->BuildClonedMessageData(args.clonedData())) {
     return NS_ERROR_DOM_DATA_CLONE_ERR;
   }
 
@@ -648,8 +647,7 @@ nsresult ServiceWorkerPrivateImpl::SendSystemMessageEvent(
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
-  if (!aMessageData->BuildClonedMessageDataForBackgroundChild(
-          bgChild, args.clonedData())) {
+  if (!aMessageData->BuildClonedMessageData(args.clonedData())) {
     return NS_ERROR_DOM_DATA_CLONE_ERR;
   }
 

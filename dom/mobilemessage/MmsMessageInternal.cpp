@@ -299,10 +299,7 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
   return NS_OK;
 }
 
-bool MmsMessageInternal::GetData(ContentParent* aParent,
-                                 MmsMessageData& aData) {
-  NS_ASSERTION(aParent, "aParent is null");
-
+bool MmsMessageInternal::GetData(MmsMessageData& aData) {
   aData.id() = mId;
   aData.threadId() = mThreadId;
   aData.iccId() = mIccId;
@@ -393,7 +390,7 @@ bool MmsMessageInternal::GetData(ContentParent* aParent,
     //}
     IPCBlob ipcBlob;
     nsresult rv =
-        IPCBlobUtils::Serialize(element.mContent->Impl(), aParent, ipcBlob);
+        IPCBlobUtils::Serialize(element.mContent->Impl(), ipcBlob);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }

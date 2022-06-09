@@ -233,7 +233,7 @@ void BluetoothServiceChildProcess::SendFile(
     BluetoothReplyRunnable* aRunnable) {
   IPCBlob ipcBlob;
   nsresult rv =
-      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+      IPCBlobUtils::Serialize(aBlob, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -286,7 +286,7 @@ void BluetoothServiceChildProcess::ReplyTovCardPulling(
     BlobImpl* aBlob, BluetoothReplyRunnable* aRunnable) {
   IPCBlob ipcBlob;
   nsresult rv =
-      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+      IPCBlobUtils::Serialize(aBlob, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -298,7 +298,7 @@ void BluetoothServiceChildProcess::ReplyToPhonebookPulling(
     BluetoothReplyRunnable* aRunnable) {
   IPCBlob ipcBlob;
   nsresult rv =
-      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+      IPCBlobUtils::Serialize(aBlob, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -311,7 +311,7 @@ void BluetoothServiceChildProcess::ReplyTovCardListing(
     BluetoothReplyRunnable* aRunnable) {
   IPCBlob ipcBlob;
   nsresult rv =
-      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+      IPCBlobUtils::Serialize(aBlob, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -330,7 +330,7 @@ void BluetoothServiceChildProcess::ReplyToMapMessagesListing(
     const nsAString& aTimestamp, int aSize, BluetoothReplyRunnable* aRunnable) {
   IPCBlob ipcBlob;
   nsresult rv =
-      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+      IPCBlobUtils::Serialize(aBlob, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -343,7 +343,7 @@ void BluetoothServiceChildProcess::ReplyToMapGetMessage(
     uint8_t aMasId, BlobImpl* aBlob, BluetoothReplyRunnable* aRunnable) {
   IPCBlob ipcBlob;
   nsresult rv =
-      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+      IPCBlobUtils::Serialize(aBlob, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -405,7 +405,7 @@ void BluetoothServiceChildProcess::SendMessageEvent(
     uint8_t aMasId, BlobImpl* aBlob, BluetoothReplyRunnable* aRunnable) {
   IPCBlob ipcBlob;
   nsresult rv =
-      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+      IPCBlobUtils::Serialize(aBlob, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }

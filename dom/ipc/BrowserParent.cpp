@@ -2338,7 +2338,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvSyncMessage(
   MMPrinter::Print("BrowserParent::RecvSyncMessage", aMessage, aData);
 
   StructuredCloneData data;
-  ipc::UnpackClonedMessageDataForParent(aData, data);
+  ipc::UnpackClonedMessageData(aData, data);
 
   if (!ReceiveMessage(aMessage, true, &data, aRetVal)) {
     return IPC_FAIL_NO_REASON(this);
@@ -2353,7 +2353,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvAsyncMessage(
   MMPrinter::Print("BrowserParent::RecvAsyncMessage", aMessage, aData);
 
   StructuredCloneData data;
-  ipc::UnpackClonedMessageDataForParent(aData, data);
+  ipc::UnpackClonedMessageData(aData, data);
 
   if (!ReceiveMessage(aMessage, false, &data, nullptr)) {
     return IPC_FAIL_NO_REASON(this);

@@ -333,7 +333,7 @@ MethodStatus BaselineCompiler::compile() {
   script->jitScript()->setBaselineScript(script, baselineScript.release());
 
 #ifdef JS_ION_PERF
-  writePerfSpewerBaselineProfile(script, code);
+  perfSpewer_.writeProfile(script, code);
 #endif
 
 #ifdef MOZ_VTUNE
@@ -6282,7 +6282,7 @@ bool BaselineCompilerCodeGen::emit_ImportMeta() {
   // Note: this is like the interpreter implementation, but optimized a bit by
   // calling GetModuleObjectForScript at compile-time.
 
-  RootedModuleObject module(cx, GetModuleObjectForScript(handler.script()));
+  Rooted<ModuleObject*> module(cx, GetModuleObjectForScript(handler.script()));
   MOZ_ASSERT(module);
 
   frame.syncStack(0);
@@ -6507,6 +6507,10 @@ MethodStatus BaselineCompiler::emitBody() {
     if (MOZ_UNLIKELY(compileDebugInstrumentation()) && !emitDebugTrap()) {
       return Method_Error;
     }
+
+#ifdef JS_ION_PERF
+    perfSpewer_.recordInstruction(masm, op);
+#endif
 
 #define EMIT_OP(OP, ...)                                       \
   case JSOp::OP: {                                             \

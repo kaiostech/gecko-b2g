@@ -1873,8 +1873,7 @@ class DeviceStorageCreateRequest final : public DeviceStorageRequest {
 
   nsresult CreateSendParams(DeviceStorageParams& aParams) override {
     IPCBlob ipcBlob;
-    nsresult rv =
-        IPCBlobUtils::Serialize(mBlob, ContentChild::GetSingleton(), ipcBlob);
+    nsresult rv = IPCBlobUtils::Serialize(mBlob, ipcBlob);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return NS_ERROR_FAILURE;
     }
@@ -1926,8 +1925,7 @@ class DeviceStorageAppendRequest final : public DeviceStorageRequest {
  protected:
   nsresult CreateSendParams(DeviceStorageParams& aParams) override {
     IPCBlob ipcBlob;
-    nsresult rv =
-        IPCBlobUtils::Serialize(mBlob, ContentChild::GetSingleton(), ipcBlob);
+    nsresult rv = IPCBlobUtils::Serialize(mBlob, ipcBlob);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return NS_ERROR_FAILURE;
     }

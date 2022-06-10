@@ -752,6 +752,7 @@ license file's hash.
         flags = ["--output-format=json"]
         if "MOZ_AUTOMATION" in os.environ:
             flags.append("--locked")
+            flags.append("--frozen")
         res = cargo_vet(
             self,
             flags,

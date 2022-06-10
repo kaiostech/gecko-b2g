@@ -15,12 +15,8 @@ namespace mozilla {
 
 class CameraControlWrapper;
 
-class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
-                                   public nsIObserver {
+class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource {
  public:
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSIOBSERVER
-
   explicit MediaEngineGonkVideoSource(const MediaDevice* aMediaDevice);
 
   nsresult Allocate(const dom::MediaTrackConstraints& aConstraints,
@@ -42,14 +38,15 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
   nsresult TakePhoto(MediaEnginePhotoCallback* aCallback) override;
 
  private:
+  class ScreenObserver;
+
   ~MediaEngineGonkVideoSource();
-  // Initialize the needed Video engine interfaces.
-  void Init();
 
   size_t NumCapabilities() const override;
   webrtc::CaptureCapability GetCapability(size_t aIndex) const override;
 
-  void UpdateScreenConfiguration();
+  void UpdateScreenConfiguration(int aOrientationAngle,
+                                 hal::ScreenOrientation aOrientationType);
 
   already_AddRefed<layers::Image> RotateImage(layers::Image* aImage,
                                               uint32_t aWidth,
@@ -96,6 +93,8 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
   mutable nsTArray<webrtc::CaptureCapability> mHardcodedCapabilities;
 
   RefPtr<layers::TextureClientRecycleAllocator> mTextureClientAllocator;
+
+  RefPtr<ScreenObserver> mScreenObserver;
 
   RefPtr<CameraControlWrapper> mWrapper;
 };

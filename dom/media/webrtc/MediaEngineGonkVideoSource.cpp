@@ -316,15 +316,73 @@ void CameraControlWrapper::OnUserError(UserContext aContext, nsresult aError) {
   }
 }
 
-// ----------------------------------------------------------------------
+class MediaEngineGonkVideoSource::ScreenObserver final : public nsIObserver {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
 
-NS_INTERFACE_MAP_BEGIN(MediaEngineGonkVideoSource)
-  NS_INTERFACE_MAP_ENTRY(nsIObserver)
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
+  ScreenObserver(MediaEngineGonkVideoSource* aOwner)
+      : mOwner(aOwner), mOwnerThread(GetCurrentSerialEventTarget()) {}
 
-NS_IMPL_ADDREF(MediaEngineGonkVideoSource)
-NS_IMPL_RELEASE(MediaEngineGonkVideoSource)
+  void Start() {
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        "ScreenObserver::Start", [this, self = RefPtr<ScreenObserver>(this)]() {
+          nsCOMPtr<nsIObserverService> os = services::GetObserverService();
+          if (os) {
+            os->AddObserver(this, "screen-information-changed", false);
+          }
+          UpdateOrientation();
+        }));
+  }
+
+  void Stop() {
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        "ScreenObserver::Stop", [this, self = RefPtr<ScreenObserver>(this)]() {
+          nsCOMPtr<nsIObserverService> os = services::GetObserverService();
+          if (os) {
+            os->RemoveObserver(this, "screen-information-changed");
+          }
+        }));
+  }
+
+  void Shutdown() {
+    MOZ_ASSERT(mOwnerThread->IsOnCurrentThread());
+    mOwner = nullptr;
+  }
+
+  NS_IMETHOD Observe(nsISupports* aSubject, const char* aTopic,
+                     const char16_t* aData) override {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (!strcmp(aTopic, "screen-information-changed")) {
+      UpdateOrientation();
+    }
+    return NS_OK;
+  }
+
+ private:
+  ~ScreenObserver() = default;
+
+  void UpdateOrientation() {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    RefPtr<widget::Screen> screen =
+        widget::ScreenManager::GetSingleton().GetPrimaryScreen();
+    int angle = screen->GetOrientationAngle();
+    auto type = screen->GetOrientationType();
+
+    mOwnerThread->Dispatch(NS_NewRunnableFunction(
+        "ScreenObserver::UpdateOrientation",
+        [angle, type, this, self = RefPtr<ScreenObserver>(this)]() {
+          if (mOwner) {
+            mOwner->UpdateScreenConfiguration(angle, type);
+          }
+        }));
+  }
+
+  MediaEngineGonkVideoSource* mOwner = nullptr;
+  nsCOMPtr<nsISerialEventTarget> mOwnerThread;
+};
+
+NS_IMPL_ISUPPORTS(MediaEngineGonkVideoSource::ScreenObserver, nsIObserver)
 
 MediaEngineGonkVideoSource::MediaEngineGonkVideoSource(
     const MediaDevice* aMediaDevice)
@@ -332,7 +390,7 @@ MediaEngineGonkVideoSource::MediaEngineGonkVideoSource(
       mDeviceName(NS_ConvertUTF16toUTF8(aMediaDevice->mRawName)),
       mMutex("MediaEngineGonkVideoSource::mMutex"),
       mRotationBufferPool(false, 1) {
-  Init();
+  MOZ_ASSERT(NS_IsMainThread());
 }
 
 MediaEngineGonkVideoSource::~MediaEngineGonkVideoSource() {}
@@ -397,6 +455,9 @@ nsresult MediaEngineGonkVideoSource::Allocate(
     return NS_ERROR_FAILURE;
   }
 
+  mScreenObserver = new ScreenObserver(this);
+
+  mWrapper = new CameraControlWrapper(mDeviceName);
   nsresult rv = mWrapper->Allocate(this);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -432,8 +493,11 @@ nsresult MediaEngineGonkVideoSource::Deallocate() {
   mImageContainer = nullptr;
   mRotationBufferPool.Release();
 
-  nsresult rv = mWrapper->Deallocate();
-  NS_ENSURE_SUCCESS(rv, rv);
+  mScreenObserver->Shutdown();
+  mScreenObserver = nullptr;
+
+  mWrapper->Deallocate();
+  mWrapper = nullptr;
 
   LOG("Video device %s deallocated", mDeviceName.Data());
   return NS_OK;
@@ -461,14 +525,10 @@ nsresult MediaEngineGonkVideoSource::Start() {
     return rv;
   }
 
-  RefPtr<MediaEngineGonkVideoSource> self = this;
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      "MediaEngineGonkVideoSource::Start_m", [this, self]() {
-        // Update the initial configuration manually. Must be done after
-        // mWrapper->Start(), so we can get camera mount angle.
-        UpdateScreenConfiguration();
-      }));
+  // Must be called after mWrapper is started
+  mScreenObserver->Start();
 
+  RefPtr<MediaEngineGonkVideoSource> self = this;
   NS_DispatchToMainThread(NS_NewRunnableFunction(
       "MediaEngineGonkVideoSource::SetLastCapability",
       [settings = mSettings, updated = mSettingsUpdatedByFrame,
@@ -499,6 +559,8 @@ nsresult MediaEngineGonkVideoSource::Stop() {
     LOG("Stop failed");
     return rv;
   }
+
+  mScreenObserver->Stop();
 
   {
     MutexAutoLock lock(mMutex);
@@ -590,23 +652,6 @@ void MediaEngineGonkVideoSource::SetTrack(const RefPtr<MediaTrack>& aTrack,
   }
 }
 
-/**
- * Initialization function for the video source, called by the
- * constructor.
- */
-
-void MediaEngineGonkVideoSource::Init() {
-  LOG("%s", __PRETTY_FUNCTION__);
-  AssertIsOnOwningThread();
-
-  mWrapper = new CameraControlWrapper(mDeviceName);
-  LOG("Video device %s initialized", mDeviceName.Data());
-
-  if (nsCOMPtr<nsIObserverService> os = services::GetObserverService()) {
-    os->AddObserver(this, "screen-information-changed", false);
-  }
-}
-
 static int GetRotateAmount(int aScreenAngle, int aCameraMountAngle,
                            bool aBackCamera) {
   if (aBackCamera) {
@@ -616,27 +661,18 @@ static int GetRotateAmount(int aScreenAngle, int aCameraMountAngle,
   }
 }
 
-nsresult MediaEngineGonkVideoSource::Observe(nsISupports* aSubject,
-                                             const char* aTopic,
-                                             const char16_t* aData) {
-  UpdateScreenConfiguration();
-  return NS_OK;
-}
+void MediaEngineGonkVideoSource::UpdateScreenConfiguration(
+    int aOrientationAngle, hal::ScreenOrientation aOrientationType) {
+  AssertIsOnOwningThread();
 
-void MediaEngineGonkVideoSource::UpdateScreenConfiguration() {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  RefPtr<widget::Screen> s =
-      widget::ScreenManager::GetSingleton().GetPrimaryScreen();
   int cameraAngle = mWrapper->GetCameraAngle();
   bool isBackCamera = mWrapper->GetIsBackCamera();
-  int rotation =
-      GetRotateAmount(s->GetOrientationAngle(), cameraAngle, isBackCamera);
+  int rotation = GetRotateAmount(aOrientationAngle, cameraAngle, isBackCamera);
   LOG("Orientation: %d (Camera %s isBackCamera %d MountAngle: %d)", rotation,
       mDeviceName.Data(), isBackCamera, cameraAngle);
 
   int orientation = 0;
-  switch (s->GetOrientationType()) {
+  switch (aOrientationType) {
     case hal::ScreenOrientation::PortraitPrimary:
       orientation = 0;
       break;

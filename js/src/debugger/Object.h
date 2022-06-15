@@ -15,7 +15,6 @@
 #include "jstypes.h"           // for JS_PUBLIC_API
 #include "NamespaceImports.h"  // for Value, MutableHandleValue, HandleId
 
-#include "gc/Rooting.h"       // for HandleObject
 #include "js/Promise.h"       // for PromiseState
 #include "js/Proxy.h"         // for PropertyDescriptor
 #include "vm/JSObject.h"      // for JSObject (ptr only)
@@ -40,7 +39,7 @@ class DebuggerObject : public NativeObject {
                                  HandleObject debugCtor);
   static DebuggerObject* create(JSContext* cx, HandleObject proto,
                                 HandleObject referent,
-                                HandleNativeObject debugger);
+                                Handle<NativeObject*> debugger);
 
   void trace(JSTracer* trc);
 

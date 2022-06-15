@@ -3031,7 +3031,7 @@ bool BaselineCodeGen<Handler>::emit_MutateProto() {
   pushArg(R1);
   pushArg(R0.scratchReg());
 
-  using Fn = bool (*)(JSContext*, HandlePlainObject, HandleValue);
+  using Fn = bool (*)(JSContext*, Handle<PlainObject*>, HandleValue);
   if (!callVM<Fn, MutatePrototype>()) {
     return false;
   }
@@ -3252,7 +3252,7 @@ bool BaselineCodeGen<Handler>::emit_NewPrivateName() {
 
   pushScriptNameArg(R0.scratchReg(), R1.scratchReg());
 
-  using Fn = JS::Symbol* (*)(JSContext*, HandleAtom);
+  using Fn = JS::Symbol* (*)(JSContext*, Handle<JSAtom*>);
   if (!callVM<Fn, NewPrivateName>()) {
     return false;
   }
@@ -3314,8 +3314,8 @@ bool BaselineCompilerCodeGen::tryOptimizeBindGlobalName() {
   JSScript* script = handler.script();
   MOZ_ASSERT(!script->hasNonSyntacticScope());
 
-  RootedGlobalObject global(cx, &script->global());
-  RootedPropertyName name(cx, script->getName(handler.pc()));
+  Rooted<GlobalObject*> global(cx, &script->global());
+  Rooted<PropertyName*> name(cx, script->getName(handler.pc()));
   if (JSObject* binding = MaybeOptimizeBindGlobalName(cx, global, name)) {
     frame.push(ObjectValue(*binding));
     return true;
@@ -3427,8 +3427,8 @@ bool BaselineCodeGen<Handler>::emitSetPropSuper(bool strict) {
   masm.loadValue(frame.addressOfStackValue(-1), R0);
   pushArg(R0);  // obj
 
-  using Fn = bool (*)(JSContext*, HandleValue, HandleValue, HandlePropertyName,
-                      HandleValue, bool);
+  using Fn = bool (*)(JSContext*, HandleValue, HandleValue,
+                      Handle<PropertyName*>, HandleValue, bool);
   if (!callVM<Fn, js::SetPropertySuper>()) {
     return false;
   }
@@ -3493,7 +3493,7 @@ bool BaselineCodeGen<Handler>::emitDelProp(bool strict) {
   pushScriptNameArg(R1.scratchReg(), R2.scratchReg());
   pushArg(R0);
 
-  using Fn = bool (*)(JSContext*, HandleValue, HandlePropertyName, bool*);
+  using Fn = bool (*)(JSContext*, HandleValue, Handle<PropertyName*>, bool*);
   if (strict) {
     if (!callVM<Fn, DelPropOperation<true>>()) {
       return false;
@@ -3796,7 +3796,7 @@ bool BaselineCodeGen<Handler>::emit_DelName() {
   pushArg(R0.scratchReg());
   pushScriptNameArg(R1.scratchReg(), R2.scratchReg());
 
-  using Fn = bool (*)(JSContext*, HandlePropertyName, HandleObject,
+  using Fn = bool (*)(JSContext*, Handle<PropertyName*>, HandleObject,
                       MutableHandleValue);
   if (!callVM<Fn, js::DeleteNameOperation>()) {
     return false;
@@ -3924,8 +3924,8 @@ bool BaselineCodeGen<Handler>::emitInitPropGetterSetter() {
   pushArg(R1.scratchReg());
   pushBytecodePCArg();
 
-  using Fn = bool (*)(JSContext*, jsbytecode*, HandleObject, HandlePropertyName,
-                      HandleObject);
+  using Fn = bool (*)(JSContext*, jsbytecode*, HandleObject,
+                      Handle<PropertyName*>, HandleObject);
   if (!callVM<Fn, InitPropGetterSetterOperation>()) {
     return false;
   }
@@ -4480,7 +4480,7 @@ bool BaselineCodeGen<Handler>::emit_ImplicitThis() {
   pushScriptNameArg(R1.scratchReg(), R2.scratchReg());
   pushArg(R0.scratchReg());
 
-  using Fn = bool (*)(JSContext*, HandleObject, HandlePropertyName,
+  using Fn = bool (*)(JSContext*, HandleObject, Handle<PropertyName*>,
                       MutableHandleValue);
   if (!callVM<Fn, ImplicitThisOperation>()) {
     return false;
@@ -4790,7 +4790,7 @@ bool BaselineCodeGen<Handler>::emit_PushVarEnv() {
                        R2.scratchReg());
   pushArg(R0.scratchReg());
 
-  using Fn = bool (*)(JSContext*, BaselineFrame*, HandleScope);
+  using Fn = bool (*)(JSContext*, BaselineFrame*, Handle<Scope*>);
   return callVM<Fn, jit::PushVarEnv>();
 }
 

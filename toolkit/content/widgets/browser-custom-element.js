@@ -1740,8 +1740,8 @@
         Services.obs.addObserver(this.observer, "apz:cancel-autoscroll", true);
 
         usingApz = browsingContext.startApzAutoscroll(
-          screenX,
-          screenY,
+          screenXDevPx,
+          screenYDevPx,
           scrollId,
           presShellId
         );

@@ -1454,7 +1454,7 @@ static bool TryAppendNativeProperties(JSContext* cx, HandleObject obj,
     return true;
   }
 
-  HandleNativeObject nobj = obj.as<NativeObject>();
+  Handle<NativeObject*> nobj = obj.as<NativeObject>();
   if (nobj->isIndexed() || nobj->is<TypedArrayObject>() ||
       nobj->getClass()->getNewEnumerate() || nobj->getClass()->getEnumerate()) {
     return true;
@@ -2681,7 +2681,7 @@ bool JSStructuredCloneReader::startRead(MutableHandleValue vp,
         return false;
       }
 
-      RootedAtom atom(context(), AtomizeString(context(), str));
+      Rooted<JSAtom*> atom(context(), AtomizeString(context(), str));
       if (!atom) {
         return false;
       }

@@ -12,7 +12,6 @@
 #include "NamespaceImports.h"
 #include "builtin/RecordObject.h"
 #include "builtin/TupleObject.h"
-#include "gc/Rooting.h"
 #include "js/Value.h"
 #include "vm/GlobalObject.h"
 #include "vm/JSObject.h"
@@ -124,7 +123,7 @@ bool ExtendedPrimitiveGetProperty(JSContext* cx, HandleObject obj,
     return false;
   }
 
-  RootedNativeObject rootedProto(cx, &proto->as<NativeObject>());
+  Rooted<NativeObject*> rootedProto(cx, &proto->as<NativeObject>());
   return NativeGetProperty(cx, rootedProto, receiver, id, vp);
 }
 

@@ -438,8 +438,8 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
       }
 
       case JSOp::BindGName: {
-        RootedGlobalObject global(cx_, &script_->global());
-        RootedPropertyName name(cx_, loc.getPropertyName(script_));
+        Rooted<GlobalObject*> global(cx_, &script_->global());
+        Rooted<PropertyName*> name(cx_, loc.getPropertyName(script_));
         if (JSObject* env = MaybeOptimizeBindGlobalName(cx_, global, name)) {
           MOZ_ASSERT(env->isTenured());
           if (!AddOpSnapshot<WarpBindGName>(alloc_, opSnapshots, offset, env)) {

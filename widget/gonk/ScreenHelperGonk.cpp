@@ -110,6 +110,38 @@ static uint32_t SurfaceFormatToColorDepth(int32_t aSurfaceFormat) {
 }
 
 // nsScreenGonk.cpp
+NS_IMPL_ISUPPORTS(nsScreenGonk, nsIScreen)
+
+NS_IMETHODIMP
+nsScreenGonk::GetRectDisplayPix(int32_t* outLeft, int32_t* outTop,
+                                int32_t* outWidth, int32_t* outHeight) {
+  return GetRect(outLeft, outTop, outWidth, outHeight);
+}
+
+NS_IMETHODIMP
+nsScreenGonk::GetAvailRectDisplayPix(int32_t* outLeft, int32_t* outTop,
+                                     int32_t* outWidth, int32_t* outHeight) {
+  return GetAvailRect(outLeft, outTop, outWidth, outHeight);
+}
+
+NS_IMETHODIMP
+nsScreenGonk::GetContentsScaleFactor(double* aContentsScaleFactor) {
+  *aContentsScaleFactor = 1.0;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsScreenGonk::GetDefaultCSSScaleFactor(double* aScaleFactor) {
+  *aScaleFactor = 1.0;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsScreenGonk::GetDpi(float* aDPI) {
+  *aDPI = 96;
+  return NS_OK;
+}
+
 nsScreenGonk::nsScreenGonk(uint32_t aId, DisplayType aDisplayType,
                            const GonkDisplay::NativeData& aNativeData,
                            NotifyDisplayChangedEvent aEventVisibility)

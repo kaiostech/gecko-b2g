@@ -273,9 +273,9 @@ ArgumentsObject* ArgumentsObject::createTemplateObject(JSContext* cx,
   }
 
   constexpr ObjectFlags objectFlags = {ObjectFlag::Indexed};
-  RootedShape shape(cx, SharedShape::getInitialShape(
-                            cx, clasp, cx->realm(), TaggedProto(proto),
-                            FINALIZE_KIND, objectFlags));
+  Rooted<Shape*> shape(cx, SharedShape::getInitialShape(
+                               cx, clasp, cx->realm(), TaggedProto(proto),
+                               FINALIZE_KIND, objectFlags));
   if (!shape) {
     return nullptr;
   }
@@ -329,7 +329,7 @@ ArgumentsObject* ArgumentsObject::create(JSContext* cx, HandleFunction callee,
     return nullptr;
   }
 
-  RootedShape shape(cx, templateObj->shape());
+  Rooted<Shape*> shape(cx, templateObj->shape());
 
   unsigned numFormals = callee->nargs();
   unsigned numArgs = std::max(numActuals, numFormals);
@@ -625,8 +625,8 @@ bool js::MappedArgSetter(JSContext* cx, HandleObject obj, HandleId id,
 /* static */
 bool ArgumentsObject::getArgumentsIterator(JSContext* cx,
                                            MutableHandleValue val) {
-  HandlePropertyName shName = cx->names().ArrayValues;
-  RootedAtom name(cx, cx->names().values);
+  Handle<PropertyName*> shName = cx->names().ArrayValues;
+  Rooted<JSAtom*> name(cx, cx->names().values);
   return GlobalObject::getSelfHostedFunction(cx, cx->global(), shName, name, 0,
                                              val);
 }

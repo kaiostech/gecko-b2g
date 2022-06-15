@@ -1244,15 +1244,7 @@ var ExtensionContent = {
  */
 class ExtensionContentChild extends JSProcessActorChild {
   receiveMessage({ name, data }) {
-<<<<<<< HEAD
-    console.log(`ext-ExtensionContent.jsm receiveMessage ${name} ${data}`);
-    if (!isContentScriptProcess) {
-      console.log(
-        `ext-ExtensionContent.jsm receiveMessage not a content script process!`
-      );
-=======
     if (!lazy.isContentScriptProcess) {
->>>>>>> next
       return;
     }
     switch (name) {

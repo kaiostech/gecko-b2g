@@ -86,7 +86,7 @@ AppsServiceDelegate.prototype = {
       switch (aState) {
         case "onBoot":
         case "onInstall":
-          ServiceWorkerAssistant.register(aManifestUrl, aFeatures);
+          ServiceWorkerAssistant.register(aManifestUrl, aFeatures, aState);
           break;
         case "onUpdate":
           ServiceWorkerAssistant.update(aManifestUrl, aFeatures);
@@ -192,11 +192,7 @@ AppsServiceDelegate.prototype = {
         let manifest = JSON.parse(aManifest);
         // To compatible with when b2g_features only is passed.
         let features = manifest.b2g_features || manifest;
-        ServiceWorkerAssistant.register(
-          aManifestUrl,
-          features,
-          true /* serviceWorkerOnly */
-        );
+        ServiceWorkerAssistant.register(aManifestUrl, features, "onClear");
       } catch (e) {
         log(`Error when trying re-register sw in onClear: ${e}`);
       }

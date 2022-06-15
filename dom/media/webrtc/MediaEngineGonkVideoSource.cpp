@@ -4,7 +4,7 @@
 #include "MediaEngineGonkVideoSource.h"
 
 #include "CameraControlListener.h"
-#include "GonkCameraImage.h"
+#include "gfxPlatform.h"
 #include "GrallocImages.h"
 #include "libyuv.h"
 #include "mozilla/dom/MediaTrackSettingsBinding.h"
@@ -389,7 +389,7 @@ MediaEngineGonkVideoSource::MediaEngineGonkVideoSource(
     : MediaEngineCameraVideoSource(aMediaDevice),
       mDeviceName(NS_ConvertUTF16toUTF8(aMediaDevice->mRawName)),
       mMutex("MediaEngineGonkVideoSource::mMutex"),
-      mRotationBufferPool(false, 1) {
+      mRotation(0) {
   MOZ_ASSERT(NS_IsMainThread());
 }
 
@@ -491,7 +491,6 @@ nsresult MediaEngineGonkVideoSource::Deallocate() {
 
   mTextureClientAllocator = nullptr;
   mImageContainer = nullptr;
-  mRotationBufferPool.Release();
 
   mScreenObserver->Shutdown();
   mScreenObserver = nullptr;
@@ -633,7 +632,9 @@ void MediaEngineGonkVideoSource::SetTrack(const RefPtr<MediaTrack>& aTrack,
   MOZ_ASSERT(!mTrack);
   MOZ_ASSERT(aTrack);
 
-  if (!mTextureClientAllocator) {
+  // If WebRender pref is disabled, we can't allocate gralloc texture on our
+  // own. In that case, we don't need to create TextureClient allocator.
+  if (gfxPlatform::WebRenderPrefEnabled() && !mTextureClientAllocator) {
     RefPtr<layers::ImageBridgeChild> bridge =
         layers::ImageBridgeChild::GetSingleton();
     mTextureClientAllocator = new layers::TextureClientRecycleAllocator(bridge);
@@ -690,7 +691,7 @@ void MediaEngineGonkVideoSource::UpdateScreenConfiguration(
   orientation = (isBackCamera ? orientation : (-orientation));
   mWrapper->SetPhotoOrientation(orientation);
 
-  MutexAutoLock lock(mMutex);
+  // Atomic
   mRotation = rotation;
 }
 
@@ -810,16 +811,69 @@ static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer,
 }
 
 static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer,
-                        rtc::scoped_refptr<webrtc::I420Buffer> aDstBuffer,
+                        layers::MappedYCbCrTextureData& aDstBuffer,
                         int aRotation) {
-  android_ycbcr dstYUV = {.y = const_cast<uint8_t*>(aDstBuffer->DataY()),
-                          .cb = const_cast<uint8_t*>(aDstBuffer->DataU()),
-                          .cr = const_cast<uint8_t*>(aDstBuffer->DataV()),
-                          .ystride = static_cast<size_t>(aDstBuffer->StrideY()),
-                          .cstride = static_cast<size_t>(aDstBuffer->StrideU()),
+  android_ycbcr dstYUV = {.y = aDstBuffer.y.data,
+                          .cb = aDstBuffer.cb.data,
+                          .cr = aDstBuffer.cr.data,
+                          .ystride = static_cast<size_t>(aDstBuffer.y.stride),
+                          .cstride = static_cast<size_t>(aDstBuffer.cb.stride),
                           .chroma_step = 1};
 
   return RotateBuffer(aSrcBuffer, dstYUV, aRotation);
+}
+
+already_AddRefed<layers::Image>
+MediaEngineGonkVideoSource::CreateI420GrallocImage(uint32_t aWidth,
+                                                   uint32_t aHeight) {
+  if (!mTextureClientAllocator) {
+    return nullptr;
+  }
+
+  RefPtr<layers::TextureClient> textureClient =
+      mTextureClientAllocator->CreateOrRecycle(
+          gfx::SurfaceFormat::YUV, IntSize(aWidth, aHeight),
+          layers::BackendSelector::Content, layers::TextureFlags::DEFAULT,
+          layers::ALLOC_DISALLOW_BUFFERTEXTURECLIENT);
+  if (!textureClient) {
+    return nullptr;
+  }
+
+  if (!textureClient->GetInternalData()->AsGrallocTextureData()) {
+    return nullptr;
+  }
+
+  RefPtr<layers::GrallocImage> image = new layers::GrallocImage();
+  image->AdoptData(textureClient, IntSize(aWidth, aHeight));
+  return image.forget();
+}
+
+already_AddRefed<layers::Image>
+MediaEngineGonkVideoSource::CreateI420PlanarYCbCrImage(uint32_t aWidth,
+                                                       uint32_t aHeight) {
+  if (!mImageContainer) {
+    return nullptr;
+  }
+
+  RefPtr<layers::PlanarYCbCrImage> image =
+      mImageContainer->CreatePlanarYCbCrImage();
+  if (!image) {
+    return nullptr;
+  }
+
+  auto ySize = IntSize(aWidth, aHeight);
+  auto uvSize = IntSize((aWidth + 1) / 2, (aHeight + 1) / 2);
+
+  layers::PlanarYCbCrData data;
+  data.mYStride = ySize.Width();
+  data.mCbCrStride = uvSize.Width();
+  data.mPictureRect = IntRect(0, 0, aWidth, aHeight);
+  data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
+  data.mColorDepth = gfx::ColorDepth::COLOR_8;
+  if (!image->CreateEmptyBuffer(data, ySize, uvSize)) {
+    return nullptr;
+  }
+  return image.forget();
 }
 
 // Rotate the source image and convert it to I420 format, which is mandatory in
@@ -827,65 +881,40 @@ static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer,
 already_AddRefed<layers::Image> MediaEngineGonkVideoSource::RotateImage(
     layers::Image* aImage, uint32_t aWidth, uint32_t aHeight) {
   sp<GraphicBuffer> srcBuffer = aImage->AsGrallocImage()->GetGraphicBuffer();
-  RefPtr<layers::PlanarYCbCrImage> image;
 
   uint32_t dstWidth = aWidth;
   uint32_t dstHeight = aHeight;
-  if (mRotation == 90 || mRotation == 270) {
+  int rotation = mRotation;
+  if (rotation == 90 || rotation == 270) {
     std::swap(dstWidth, dstHeight);
   }
 
-  MOZ_ASSERT(mTextureClientAllocator);
-  RefPtr<layers::TextureClient> textureClient =
-      mTextureClientAllocator->CreateOrRecycle(
-          gfx::SurfaceFormat::YUV, IntSize(dstWidth, dstHeight),
-          layers::BackendSelector::Content, layers::TextureFlags::DEFAULT,
-          layers::ALLOC_DISALLOW_BUFFERTEXTURECLIENT);
-  if (textureClient) {
-    sp<GraphicBuffer> dstBuffer = textureClient->GetInternalData()
-                                      ->AsGrallocTextureData()
-                                      ->GetGraphicBuffer();
+  RefPtr<layers::Image> image;
+  if (image = CreateI420GrallocImage(dstWidth, dstHeight)) {
+    sp<GraphicBuffer> dstBuffer = image->AsGrallocImage()->GetGraphicBuffer();
+    if (RotateBuffer(srcBuffer, dstBuffer, rotation) == -1) {
+      return nullptr;
+    }
+  } else if (image = CreateI420PlanarYCbCrImage(dstWidth, dstHeight)) {
+    RefPtr<layers::TextureClient> textureClient =
+        image->GetTextureClient(nullptr);
 
-    if (RotateBuffer(srcBuffer, dstBuffer, mRotation) == -1) {
+    layers::TextureClientAutoLock autoLock(textureClient,
+                                           layers::OpenMode::OPEN_WRITE_ONLY);
+    if (!autoLock.Succeeded()) {
       return nullptr;
     }
 
-    image = new GonkCameraImage();
-    image->AsGrallocImage()->AdoptData(textureClient,
-                                       IntSize(dstWidth, dstHeight));
-  } else {
-    // Handle out of gralloc case.
-    rtc::scoped_refptr<webrtc::I420Buffer> dstBuffer =
-        mRotationBufferPool.CreateBuffer(dstWidth, dstHeight);
-    if (!dstBuffer) {
-      MOZ_ASSERT_UNREACHABLE(
-          "We might fail to allocate a buffer, but with this "
-          "being a recycling pool that shouldn't happen");
+    layers::MappedYCbCrTextureData dstBuffer;
+    if (!textureClient->BorrowMappedYCbCrData(dstBuffer)) {
       return nullptr;
     }
 
-    if (RotateBuffer(srcBuffer, dstBuffer, mRotation) == -1) {
+    if (RotateBuffer(srcBuffer, dstBuffer, rotation) == -1) {
       return nullptr;
     }
 
-    layers::PlanarYCbCrData data;
-    data.mYChannel = const_cast<uint8_t*>(dstBuffer->DataY());
-    data.mYStride = dstBuffer->StrideY();
-    MOZ_ASSERT(dstBuffer->StrideU() == dstBuffer->StrideV());
-    data.mCbCrStride = dstBuffer->StrideU();
-    data.mCbChannel = const_cast<uint8_t*>(dstBuffer->DataU());
-    data.mCrChannel = const_cast<uint8_t*>(dstBuffer->DataV());
-    data.mPictureRect = IntRect(0, 0, dstBuffer->width(), dstBuffer->height());
-    data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
-    data.mYUVColorSpace = gfx::YUVColorSpace::BT601;
-
-    image = mImageContainer->CreatePlanarYCbCrImage();
-    if (!image->CopyData(data)) {
-      MOZ_ASSERT_UNREACHABLE(
-          "We might fail to allocate a buffer, but with this "
-          "being a recycling container that shouldn't happen");
-      return nullptr;
-    }
+    textureClient->MarkImmutable();
   }
   return image.forget();
 }

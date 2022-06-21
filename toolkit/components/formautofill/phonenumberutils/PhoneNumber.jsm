@@ -9,18 +9,21 @@
 
 var EXPORTED_SYMBOLS = ["PhoneNumber"];
 
-const lazy = {};
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "PHONE_NUMBER_META_DATA",
+const { PHONE_NUMBER_META_DATA } = ChromeUtils.import(
   "resource://autofill/phonenumberutils/PhoneNumberMetaData.jsm"
 );
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "PhoneNumberNormalizer",
-  "resource://autofill/phonenumberutils/PhoneNumberNormalizer.jsm"
-);
+
+const lazy = {};
+
+XPCOMUtils.defineLazyModuleGetters(lazy, {
+  PhoneNumberNormalizer:
+    "resource://autofill/phonenumberutils/PhoneNumberNormalizer.jsm",
+});
+
 var PhoneNumber = (function(dataBase) {
   const MAX_PHONE_NUMBER_LENGTH = 50;
   const NON_ALPHA_CHARS = /[^a-zA-Z]/g;
@@ -477,4 +480,4 @@ var PhoneNumber = (function(dataBase) {
     IsPlain: IsPlainPhoneNumber,
     Parse: ParseNumber,
   };
-})(lazy.PHONE_NUMBER_META_DATA);
+})(PHONE_NUMBER_META_DATA);

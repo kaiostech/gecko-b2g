@@ -62,8 +62,8 @@ static MOZ_ALWAYS_INLINE void Debug_SetValueRangeToCrashOnTouch(Value* vec,
 #endif
 }
 
-static MOZ_ALWAYS_INLINE void Debug_SetValueRangeToCrashOnTouch(GCPtrValue* vec,
-                                                                size_t len) {
+static MOZ_ALWAYS_INLINE void Debug_SetValueRangeToCrashOnTouch(
+    GCPtr<Value>* vec, size_t len) {
 #ifdef DEBUG
   Debug_SetValueRangeToCrashOnTouch((Value*)vec, len);
 #endif
@@ -1354,8 +1354,6 @@ class NativeObject : public JSObject {
   inline void ensureDenseInitializedLength(uint32_t index, uint32_t extra);
 
   void setDenseElement(uint32_t index, const Value& val) {
-    // Note: Streams code can call this for the internal ListObject type with
-    // MagicValue(JS_WRITABLESTREAM_CLOSE_RECORD).
     MOZ_ASSERT_IF(val.isMagic(), val.whyMagic() != JS_ELEMENTS_HOLE);
     setDenseElementUnchecked(index, val);
   }

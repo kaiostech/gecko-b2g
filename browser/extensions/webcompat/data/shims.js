@@ -165,7 +165,7 @@ const AVAILABLE_SHIMS = [
         types: ["image", "imageset", "xmlhttprequest"],
       },
     ],
-    onlyIfDFPIActive: true,
+    onlyIfBlockedByETP: true,
   },
   {
     id: "AdSafeProtectedGoogleIMAAdapter",
@@ -439,6 +439,15 @@ const AVAILABLE_SHIMS = [
     ],
   },
   {
+    id: "IAM",
+    platform: "all",
+    name: "INFOnline IAM",
+    bug: "1761774",
+    file: "iam.js",
+    matches: ["*://script.ioam.de/iam.js"],
+    onlyIfBlockedByETP: true,
+  },
+  {
     id: "IASPET",
     platform: "all",
     name: "Integral Ad Science PET",
@@ -471,6 +480,15 @@ const AVAILABLE_SHIMS = [
       "*://*.moatads.com/*/moatheader.js*",
       "*://*.moatads.com/*/yi.js*",
     ],
+    onlyIfBlockedByETP: true,
+  },
+  {
+    id: "Nielsen",
+    platform: "all",
+    name: "Nielsen",
+    bug: "1760754",
+    file: "nielsen.js",
+    matches: ["*://*.imrworldwide.com/v60.js"],
     onlyIfBlockedByETP: true,
   },
   {
@@ -536,7 +554,7 @@ const AVAILABLE_SHIMS = [
         types: ["image", "imageset", "xmlhttprequest"],
       },
     ],
-    onlyIfDFPIActive: true,
+    onlyIfBlockedByETP: true,
   },
   {
     id: "Vidible",

@@ -68,6 +68,7 @@ avoid-blacklist-and-whitelist:
         - browser/components/urlbar/tests/unit/test_search_suggestions.js
         - browser/components/urlbar/tests/unit/test_tokenizer.js
         - browser/extensions/screenshots/background/main.js
+        - browser/extensions/webcompat/shims/nielsen.js
         - browser/modules/SitePermissions.jsm
         - browser/tools/mozscreenshots/mozscreenshots/extension/configurations/PermissionPrompts.jsm
         - build/clang-plugin/CustomMatchers.h
@@ -259,7 +260,6 @@ avoid-blacklist-and-whitelist:
         - netwerk/url-classifier/UrlClassifierFeatureFactory.h
         - netwerk/url-classifier/UrlClassifierFeatureFingerprintingAnnotation.cpp
         - netwerk/url-classifier/UrlClassifierFeatureFingerprintingProtection.cpp
-        - netwerk/url-classifier/UrlClassifierFeatureFlash.cpp
         - netwerk/url-classifier/UrlClassifierFeatureLoginReputation.cpp
         - netwerk/url-classifier/UrlClassifierFeaturePhishingProtection.cpp
         - netwerk/url-classifier/UrlClassifierFeatureSocialTrackingAnnotation.cpp

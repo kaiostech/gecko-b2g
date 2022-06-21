@@ -36,7 +36,6 @@ treeherder:
         'Fxfn': 'Firefox functional tests'
         'Fxfn-nofis': 'Firefox functional tests without fission enabled'
         'Fxfn-fis': 'Firefox functional tests with fission enabled'
-        'iris': 'Iris testing suite'
         'l10n-bump': 'L10n Bumper'
         'M': 'Mochitests'
         'M-headless': 'Headless Mochitests'
@@ -363,9 +362,7 @@ merge-automation:
                   new-suffix: 'esr'
             replacements: []
             merge-old-head: false
-            base-tag: "FIREFOX_ESR_{major_version}_BASE"
-            from-repo: 'https://hg.mozilla.org/releases/mozilla-release'
-            from-branch: 'release'
+            end-tag: "FIREFOX_ESR_{major_version}_BASE"
             to-repo: 'https://hg.mozilla.org/releases/mozilla-esr102'
             to-branch: 'esr102'
         bump-central:

@@ -1125,18 +1125,20 @@ void LookAndFeel::DoHandleGlobalThemeChange() {
       }));
 }
 
+// We want to use a non-native color scheme for the non-native theme (except in
+// high-contrast mode), so spoof some of the colors with stand-ins to prevent
+// lack of contrast.
 static bool ShouldUseStandinsForNativeColorForNonNativeTheme(
     const dom::Document& aDoc, LookAndFeel::ColorID aColor,
     const PreferenceSheet::Prefs& aPrefs) {
   using ColorID = LookAndFeel::ColorID;
-  if (!aDoc.ShouldAvoidNativeTheme()) {
+  if (!aDoc.ShouldAvoidNativeTheme() ||
+      aPrefs.NonNativeThemeShouldBeHighContrast()) {
     return false;
   }
 
-  // The native theme doesn't use native system colors backgrounds etc, except
-  // when in high-contrast mode, so spoof some of the colors with stand-ins to
-  // prevent lack of contrast.
   switch (aColor) {
+    // Used by default button styles.
     case ColorID::Buttonface:
     case ColorID::Buttontext:
     case ColorID::MozButtonhoverface:
@@ -1145,25 +1147,35 @@ static bool ShouldUseStandinsForNativeColorForNonNativeTheme(
     case ColorID::MozButtonactivetext:
     case ColorID::MozButtondisabledface:
 
+    // Used by select elements.
     case ColorID::Threedlightshadow:
+    // For symmetry with the above.
     case ColorID::Threeddarkshadow:
+    // Used by fieldset borders.
     case ColorID::Threedface:
 
+    // Used by select elements.
     case ColorID::MozCombobox:
     case ColorID::MozComboboxtext:
 
+    // Used by input / textarea.
     case ColorID::Field:
-    case ColorID::MozDisabledfield:
     case ColorID::Fieldtext:
 
+    // Used by disabled form controls.
+    case ColorID::MozDisabledfield:
     case ColorID::Graytext:
-      return !aPrefs.NonNativeThemeShouldBeHighContrast();
+
+    // Some pages expect these to return windows-like colors, see bug 1773795.
+    // Also, per spec these should match Canvas/CanvasText, see
+    // https://drafts.csswg.org/css-color-4/#window
+    case ColorID::Window:
+    case ColorID::Windowtext:
+      return true;
 
     default:
-      break;
+      return false;
   }
-
-  return false;
 }
 
 ColorScheme LookAndFeel::sChromeColorScheme;

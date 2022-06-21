@@ -32,13 +32,11 @@ JSJitFrameIter::JSJitFrameIter(const JitActivation* activation,
     : current_(fp),
       type_(frameType),
       resumePCinCurrentFrame_(nullptr),
-      frameSize_(0),
       cachedSafepointIndex_(nullptr),
       activation_(activation) {
   MOZ_ASSERT(type_ == FrameType::JSJitToWasm || type_ == FrameType::Exit);
   if (activation_->bailoutData()) {
     current_ = activation_->bailoutData()->fp();
-    frameSize_ = activation_->bailoutData()->topFrameSize();
     type_ = FrameType::Bailout;
   } else {
     MOZ_ASSERT(!TlsContext.get()->inUnsafeCallWithABI);
@@ -98,6 +96,13 @@ bool JSJitFrameIter::isBareExit() const {
   return exitFrame()->isBareExit();
 }
 
+bool JSJitFrameIter::isUnwoundJitExit() const {
+  if (type_ != FrameType::Exit) {
+    return false;
+  }
+  return exitFrame()->isUnwoundJitExit();
+}
+
 bool JSJitFrameIter::isFunctionFrame() const {
   return CalleeTokenIsFunction(calleeToken());
 }
@@ -147,29 +152,56 @@ void JSJitFrameIter::baselineScriptAndPc(JSScript** scriptRes,
 Value* JSJitFrameIter::actualArgs() const { return jsFrame()->argv() + 1; }
 
 uint8_t* JSJitFrameIter::prevFp() const {
-  return current_ + current()->prevFrameLocalSize() + current()->headerSize();
+  if (current()->prevType() == FrameType::WasmToJSJit) {
+    return current()->callerFramePtr();
+  }
+  return current()->callerFramePtr() + CommonFrameLayout::FramePointerOffset;
+}
+
+// Compute the size of a Baseline frame excluding pushed VMFunction arguments or
+// callee frame headers. This is used to calculate the number of Value slots in
+// the frame. The caller asserts this matches BaselineFrame::debugFrameSize.
+static uint32_t ComputeBaselineFrameSize(const JSJitFrameIter& frame) {
+  MOZ_ASSERT(frame.prevType() == FrameType::BaselineJS);
+
+  uint32_t frameSize = frame.current()->callerFramePtr() +
+                       CommonFrameLayout::FramePointerOffset - frame.fp();
+
+  if (frame.isBaselineStub()) {
+    return frameSize - BaselineStubFrameLayout::Size();
+  }
+
+  // Note: an UnwoundJit exit frame is a JitFrameLayout that was turned into an
+  // ExitFrameLayout by EnsureUnwoundJitExitFrame. We have to use the original
+  // header size here because that's what we have on the stack.
+  if (frame.isScripted() || frame.isUnwoundJitExit()) {
+    return frameSize - JitFrameLayout::Size();
+  }
+
+  if (frame.isExitFrame()) {
+    frameSize -= ExitFrameLayout::Size();
+    if (frame.exitFrame()->isWrapperExit()) {
+      const VMFunctionData* data = frame.exitFrame()->footer()->function();
+      frameSize -= data->explicitStackSlots() * sizeof(void*);
+    }
+    return frameSize;
+  }
+
+  MOZ_CRASH("Unexpected frame");
 }
 
 void JSJitFrameIter::operator++() {
   MOZ_ASSERT(!isEntry());
 
-  // Compute BaselineFrame size, the size stored in the descriptor excluding
-  // VMFunction arguments pushed for VM calls.
-  //
-  // In debug builds this is equivalent to BaselineFrame::debugFrameSize_. This
-  // is asserted at the end of this method.
+  // Compute BaselineFrame size. In debug builds this is equivalent to
+  // BaselineFrame::debugFrameSize_. This is asserted at the end of this method.
   if (current()->prevType() == FrameType::BaselineJS) {
-    uint32_t frameSize = prevFrameLocalSize();
-    if (isExitFrame() && exitFrame()->isWrapperExit()) {
-      const VMFunctionData* data = exitFrame()->footer()->function();
-      frameSize -= data->explicitStackSlots() * sizeof(void*);
-    }
+    uint32_t frameSize = ComputeBaselineFrameSize(*this);
     baselineFrameSize_ = mozilla::Some(frameSize);
   } else {
     baselineFrameSize_ = mozilla::Nothing();
   }
 
-  frameSize_ = prevFrameLocalSize();
   cachedSafepointIndex_ = nullptr;
 
   // If the next frame is the entry frame, just exit. Don't update current_,
@@ -326,16 +358,14 @@ void JSJitFrameIter::dump() const {
   switch (type_) {
     case FrameType::CppToJSJit:
       fprintf(stderr, " Entry frame\n");
-      fprintf(stderr, "  Frame size: %u\n",
-              unsigned(current()->prevFrameLocalSize()));
+      fprintf(stderr, "  Caller frame ptr: %p\n", current()->callerFramePtr());
       break;
     case FrameType::BaselineJS:
       dumpBaseline();
       break;
     case FrameType::BaselineStub:
       fprintf(stderr, " Baseline stub frame\n");
-      fprintf(stderr, "  Frame size: %u\n",
-              unsigned(current()->prevFrameLocalSize()));
+      fprintf(stderr, "  Caller frame ptr: %p\n", current()->callerFramePtr());
       break;
     case FrameType::Bailout:
     case FrameType::IonJS: {
@@ -351,18 +381,15 @@ void JSJitFrameIter::dump() const {
     }
     case FrameType::Rectifier:
       fprintf(stderr, " Rectifier frame\n");
-      fprintf(stderr, "  Frame size: %u\n",
-              unsigned(current()->prevFrameLocalSize()));
+      fprintf(stderr, "  Caller frame ptr: %p\n", current()->callerFramePtr());
       break;
     case FrameType::IonICCall:
       fprintf(stderr, " Ion IC call\n");
-      fprintf(stderr, "  Frame size: %u\n",
-              unsigned(current()->prevFrameLocalSize()));
+      fprintf(stderr, "  Caller frame ptr: %p\n", current()->callerFramePtr());
       break;
     case FrameType::WasmToJSJit:
       fprintf(stderr, " Fast wasm-to-JS entry frame\n");
-      fprintf(stderr, "  Frame size: %u\n",
-              unsigned(current()->prevFrameLocalSize()));
+      fprintf(stderr, "  Caller frame ptr: %p\n", current()->callerFramePtr());
       break;
     case FrameType::Exit:
       fprintf(stderr, " Exit frame\n");
@@ -529,8 +556,11 @@ JSJitProfilingFrameIterator::JSJitProfilingFrameIterator(JSContext* cx,
 
 template <typename ReturnType = CommonFrameLayout*>
 static inline ReturnType GetPreviousRawFrame(CommonFrameLayout* frame) {
-  size_t prevSize = frame->prevFrameLocalSize() + frame->headerSize();
-  return ReturnType((uint8_t*)frame + prevSize);
+  if (frame->prevType() == FrameType::WasmToJSJit) {
+    return ReturnType(frame->callerFramePtr());
+  }
+  static constexpr size_t FPOffset = CommonFrameLayout::FramePointerOffset;
+  return ReturnType(frame->callerFramePtr() + FPOffset);
 }
 
 JSJitProfilingFrameIterator::JSJitProfilingFrameIterator(
@@ -648,39 +678,24 @@ void JSJitProfilingFrameIterator::operator++() {
   moveToNextFrame(frame);
 }
 
-void JSJitProfilingFrameIterator::moveToWasmFrame(CommonFrameLayout* frame) {
-  // No previous js jit frame, this is a transition frame, used to
-  // pass a wasm iterator the correct value of FP.
-  resumePCinCurrentFrame_ = nullptr;
-  fp_ = GetPreviousRawFrame<uint8_t*>(frame);
-  type_ = FrameType::WasmToJSJit;
-  MOZ_ASSERT(!done());
-}
-
-void JSJitProfilingFrameIterator::moveToCppEntryFrame() {
-  // No previous frame, set to nullptr to indicate that
-  // JSJitProfilingFrameIterator is done().
-  resumePCinCurrentFrame_ = nullptr;
-  fp_ = nullptr;
-  type_ = FrameType::CppToJSJit;
-}
-
 void JSJitProfilingFrameIterator::moveToNextFrame(CommonFrameLayout* frame) {
   /*
    * fp_ points to a Baseline or Ion frame.  The possible call-stacks
-   * patterns occurring between this frame and a previous Ion or Baseline
+   * patterns occurring between this frame and a previous Ion, Baseline or Entry
    * frame are as follows:
    *
    * <Baseline-Or-Ion>
    * ^
    * |
-   * ^--- Ion
+   * ^--- Ion (or Baseline JSOp::Resume)
    * |
    * ^--- Baseline Stub <---- Baseline
    * |
+   * ^--- IonICCall <---- Ion
+   * |
    * ^--- WasmToJSJit <---- (other wasm frames, not handled by this iterator)
    * |
-   * ^--- Argument Rectifier
+   * ^--- Arguments Rectifier
    * |    ^
    * |    |
    * |    ^--- Ion
@@ -689,100 +704,68 @@ void JSJitProfilingFrameIterator::moveToNextFrame(CommonFrameLayout* frame) {
    * |    |
    * |    ^--- WasmToJSJit <--- (other wasm frames)
    * |    |
-   * |    ^--- CppToJSJit
+   * |    ^--- Entry Frame (CppToJSJit)
    * |
-   * ^--- Entry Frame (From C++)
-   *      Exit Frame (From previous JitActivation)
-   *      ^
-   *      |
-   *      ^--- Ion
-   *      |
-   *      ^--- Baseline
-   *      |
-   *      ^--- Baseline Stub <---- Baseline
+   * ^--- Entry Frame (CppToJSJit)
+   *
+   * NOTE: Keep this in sync with JitRuntime::generateProfilerExitFrameTailStub!
    */
+
+  // Unwrap rectifier frames.
+  if (frame->prevType() == FrameType::Rectifier) {
+    frame = GetPreviousRawFrame<RectifierFrameLayout*>(frame);
+    MOZ_ASSERT(frame->prevType() == FrameType::IonJS ||
+               frame->prevType() == FrameType::BaselineStub ||
+               frame->prevType() == FrameType::WasmToJSJit ||
+               frame->prevType() == FrameType::CppToJSJit);
+  }
+
   FrameType prevType = frame->prevType();
-
-  if (prevType == FrameType::IonJS) {
-    resumePCinCurrentFrame_ = frame->returnAddress();
-    fp_ = GetPreviousRawFrame<uint8_t*>(frame);
-    type_ = FrameType::IonJS;
-    return;
-  }
-
-  if (prevType == FrameType::BaselineJS) {
-    resumePCinCurrentFrame_ = frame->returnAddress();
-    fp_ = GetPreviousRawFrame<uint8_t*>(frame);
-    type_ = FrameType::BaselineJS;
-    return;
-  }
-
-  if (prevType == FrameType::BaselineStub) {
-    BaselineStubFrameLayout* stubFrame =
-        GetPreviousRawFrame<BaselineStubFrameLayout*>(frame);
-    MOZ_ASSERT(stubFrame->prevType() == FrameType::BaselineJS);
-
-    resumePCinCurrentFrame_ = stubFrame->returnAddress();
-    fp_ = GetPreviousRawFrame<uint8_t*>(stubFrame);
-    type_ = FrameType::BaselineJS;
-    return;
-  }
-
-  if (prevType == FrameType::Rectifier) {
-    RectifierFrameLayout* rectFrame =
-        GetPreviousRawFrame<RectifierFrameLayout*>(frame);
-    FrameType rectPrevType = rectFrame->prevType();
-
-    if (rectPrevType == FrameType::IonJS) {
-      resumePCinCurrentFrame_ = rectFrame->returnAddress();
-      fp_ = GetPreviousRawFrame<uint8_t*>(rectFrame);
-      type_ = FrameType::IonJS;
+  switch (prevType) {
+    case FrameType::IonJS:
+    case FrameType::BaselineJS:
+      resumePCinCurrentFrame_ = frame->returnAddress();
+      fp_ = GetPreviousRawFrame<uint8_t*>(frame);
+      type_ = prevType;
       return;
-    }
 
-    if (rectPrevType == FrameType::BaselineStub) {
-      BaselineStubFrameLayout* stubFrame =
-          GetPreviousRawFrame<BaselineStubFrameLayout*>(rectFrame);
-      MOZ_ASSERT(stubFrame->prevType() == FrameType::BaselineJS);
+    case FrameType::BaselineStub:
+    case FrameType::IonICCall: {
+      FrameType stubPrevType = (prevType == FrameType::BaselineStub)
+                                   ? FrameType::BaselineJS
+                                   : FrameType::IonJS;
+      auto* stubFrame = GetPreviousRawFrame<CommonFrameLayout*>(frame);
+      MOZ_ASSERT(stubFrame->prevType() == stubPrevType);
       resumePCinCurrentFrame_ = stubFrame->returnAddress();
       fp_ = GetPreviousRawFrame<uint8_t*>(stubFrame);
-      type_ = FrameType::BaselineJS;
+      type_ = stubPrevType;
       return;
     }
 
-    if (rectPrevType == FrameType::WasmToJSJit) {
-      moveToWasmFrame(rectFrame);
+    case FrameType::WasmToJSJit:
+      // No previous js jit frame, this is a transition frame, used to
+      // pass a wasm iterator the correct value of FP.
+      resumePCinCurrentFrame_ = nullptr;
+      fp_ = GetPreviousRawFrame<uint8_t*>(frame);
+      type_ = FrameType::WasmToJSJit;
+      MOZ_ASSERT(!done());
       return;
-    }
 
-    if (rectPrevType == FrameType::CppToJSJit) {
-      moveToCppEntryFrame();
+    case FrameType::CppToJSJit:
+      // No previous frame, set to nullptr to indicate that
+      // JSJitProfilingFrameIterator is done().
+      resumePCinCurrentFrame_ = nullptr;
+      fp_ = nullptr;
+      type_ = FrameType::CppToJSJit;
       return;
-    }
 
-    MOZ_CRASH("Bad frame type prior to rectifier frame.");
-  }
-
-  if (prevType == FrameType::IonICCall) {
-    IonICCallFrameLayout* callFrame =
-        GetPreviousRawFrame<IonICCallFrameLayout*>(frame);
-
-    MOZ_ASSERT(callFrame->prevType() == FrameType::IonJS);
-
-    resumePCinCurrentFrame_ = callFrame->returnAddress();
-    fp_ = GetPreviousRawFrame<uint8_t*>(callFrame);
-    type_ = FrameType::IonJS;
-    return;
-  }
-
-  if (prevType == FrameType::WasmToJSJit) {
-    moveToWasmFrame(frame);
-    return;
-  }
-
-  if (prevType == FrameType::CppToJSJit) {
-    moveToCppEntryFrame();
-    return;
+    case FrameType::Rectifier:
+    case FrameType::Exit:
+    case FrameType::Bailout:
+    case FrameType::JSJitToWasm:
+      // Rectifier frames are handled before this switch. The other frame types
+      // can't call JS functions directly.
+      break;
   }
 
   MOZ_CRASH("Bad frame type.");

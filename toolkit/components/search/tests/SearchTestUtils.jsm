@@ -20,8 +20,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   sinon: "resource://testing-common/Sinon.jsm",
 });
 
-Cu.importGlobalProperties(["fetch"]);
-
 var EXPORTED_SYMBOLS = ["SearchTestUtils"];
 
 var gTestScope;
@@ -151,7 +149,7 @@ var SearchTestUtils = {
   async searchConfigToEngines(engineConfigurations) {
     let engines = [];
     for (let config of engineConfigurations) {
-      let engine = await Services.search.wrappedJSObject.makeEngineFromConfig(
+      let engine = await Services.search.wrappedJSObject._makeEngineFromConfig(
         config
       );
       engines.push(engine);

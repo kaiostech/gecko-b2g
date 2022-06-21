@@ -74,7 +74,6 @@ class DocAccessible : public HyperTextAccessibleWrap,
   virtual uint64_t NativeInteractiveState() const override;
   virtual bool NativelyUnavailable() const override;
   virtual void ApplyARIAState(uint64_t* aState) const override;
-  virtual already_AddRefed<AccAttributes> Attributes() override;
 
   virtual void TakeFocus() const override;
 
@@ -152,6 +151,9 @@ class DocAccessible : public HyperTextAccessibleWrap,
   bool IsContentLoaded() const;
 
   bool IsHidden() const;
+
+  bool IsViewportCacheDirty() { return mViewportCacheDirty; }
+  void SetViewportCacheDirty(bool aDirty) { mViewportCacheDirty = aDirty; }
 
   /**
    * Document load states.
@@ -662,7 +664,15 @@ class DocAccessible : public HyperTextAccessibleWrap,
   /**
    * Bit mask of other states and props.
    */
-  uint32_t mDocFlags : 28;
+  uint32_t mDocFlags : 27;
+
+  /**
+   * Tracks whether we have seen changes to this document's content that
+   * indicate we should re-send the viewport cache we use for hittesting.
+   * This value is set in `BundleFieldsForCache` and processed in
+   * `ProcessQueuedCacheUpdates`.
+   */
+  bool mViewportCacheDirty : 1;
 
   /**
    * Type of document load event fired after the document is loaded completely.

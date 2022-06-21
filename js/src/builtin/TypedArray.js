@@ -256,6 +256,8 @@ function TypedArrayEvery(callbackfn/*, thisArg*/) {
     // Step 7.
     return true;
 }
+// Inlining this enables inlining of the callback function.
+SetIsInlinableLargeFunction(TypedArrayEvery);
 
 // ES2018 draft rev ad2d1c60c5dc42a806696d4b58b4dca42d1f7dd4
 // 22.2.3.8 %TypedArray%.prototype.fill ( value [ , start [ , end ] ] )
@@ -496,6 +498,8 @@ function TypedArrayForEach(callbackfn/*, thisArg*/) {
     // Step 7.
     return undefined;
 }
+// Inlining this enables inlining of the callback function.
+SetIsInlinableLargeFunction(TypedArrayForEach);
 
 // ES2021 draft rev 190d474c3d8728653fbf8a5a37db1de34b9c1472
 // Plus <https://github.com/tc39/ecma262/pull/2221>
@@ -736,6 +740,8 @@ function TypedArrayMap(callbackfn/*, thisArg*/) {
     // Step 9.
     return A;
 }
+// Inlining this enables inlining of the callback function.
+SetIsInlinableLargeFunction(TypedArrayMap);
 
 // ES2021 draft rev 190d474c3d8728653fbf8a5a37db1de34b9c1472
 // Plus <https://github.com/tc39/ecma262/pull/2221>
@@ -978,6 +984,8 @@ function TypedArraySome(callbackfn/*, thisArg*/) {
     // Step 7.
     return false;
 }
+// Inlining this enables inlining of the callback function.
+SetIsInlinableLargeFunction(TypedArraySome);
 
 // ES2019 draft rev 8a16cb8d18660a1106faae693f0f39b9f1a30748
 // 22.2.3.26 %TypedArray%.prototype.sort ( comparefn )
@@ -1189,6 +1197,93 @@ function TypedArrayAt(index) {
 
     // Step 8.
     return obj[k];
+}
+// This function is only barely too long for normal inlining.
+SetIsInlinableLargeFunction(TypedArrayAt);
+
+// https://github.com/tc39/proposal-array-find-from-last
+// %TypedArray%.prototype.findLast ( predicate, thisArg )
+function TypedArrayFindLast(predicate/*, thisArg*/) {
+    // Step 1.
+    var O = this;
+
+    // Step 2.
+    var isTypedArray = IsTypedArrayEnsuringArrayBuffer(O);
+
+    // If we got here, `this` is either a typed array or a wrapper for one.
+
+    // Step 3.
+    var len;
+    if (isTypedArray) {
+        len = TypedArrayLength(O);
+    } else {
+        len = callFunction(CallTypedArrayMethodIfWrapped, O, "TypedArrayLengthMethod");
+    }
+
+    // Step 4.
+    if (arguments.length === 0) {
+        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "%TypedArray%.prototype.findLast");
+    }
+    if (!IsCallable(predicate)) {
+        ThrowTypeError(JSMSG_NOT_FUNCTION, DecompileArg(0, predicate));
+    }
+
+    var thisArg = arguments.length > 1 ? arguments[1] : void 0;
+
+    // Steps 5-6.
+    for (var k = len - 1; k >= 0; k--) {
+        // Steps 6.a-b.
+        var kValue = O[k];
+
+        // Steps 6.c-d.
+        if (callContentFunction(predicate, thisArg, kValue, k, O)) {
+            return kValue;
+        }
+    }
+
+    // Step 7.
+    return undefined;
+}
+
+// https://github.com/tc39/proposal-array-find-from-last
+// %TypedArray%.prototype.findLastIndex ( predicate, thisArg )
+function TypedArrayFindLastIndex(predicate/*, thisArg*/) {
+    // Step 1.
+    var O = this;
+
+    // Step 2.
+    var isTypedArray = IsTypedArrayEnsuringArrayBuffer(O);
+
+    // If we got here, `this` is either a typed array or a wrapper for one.
+
+    // Step 3.
+    var len;
+    if (isTypedArray) {
+        len = TypedArrayLength(O);
+    } else {
+        len = callFunction(CallTypedArrayMethodIfWrapped, O, "TypedArrayLengthMethod");
+    }
+
+    // Step 4.
+    if (arguments.length === 0) {
+        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "%TypedArray%.prototype.findLastIndex");
+    }
+    if (!IsCallable(predicate)) {
+        ThrowTypeError(JSMSG_NOT_FUNCTION, DecompileArg(0, predicate));
+    }
+
+    var thisArg = arguments.length > 1 ? arguments[1] : void 0;
+
+    // Steps 5-6.
+    for (var k = len - 1; k >= 0; k--) {
+        // Steps 6.a-f.
+        if (callContentFunction(predicate, thisArg, O[k], k, O)) {
+            return k;
+        }
+    }
+
+    // Step 7.
+    return -1;
 }
 
 // ES6 draft rev30 (2014/12/24) 22.2.3.30 %TypedArray%.prototype.values()

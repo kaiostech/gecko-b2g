@@ -61,7 +61,6 @@ BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations,
     : machine_(bailout->machineState()), activation_(nullptr) {
   uint8_t* sp = bailout->parentStackPointer();
   framePointer_ = sp + bailout->frameSize();
-  topFrameSize_ = framePointer_ - sp;
 
   JSScript* script =
       ScriptFromCalleeToken(((JitFrameLayout*)framePointer_)->calleeToken());
@@ -75,7 +74,6 @@ BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations,
                                    InvalidationBailoutStack* bailout)
     : machine_(bailout->machine()), activation_(nullptr) {
   framePointer_ = (uint8_t*)bailout->fp();
-  topFrameSize_ = framePointer_ - bailout->sp();
   topIonScript_ = bailout->ionScript();
   attachOnJitActivation(activations);
 
@@ -88,7 +86,6 @@ BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations,
                                    const JSJitFrameIter& frame)
     : machine_(frame.machineState()) {
   framePointer_ = (uint8_t*)frame.fp();
-  topFrameSize_ = frame.frameSize();
   topIonScript_ = frame.ionScript();
   attachOnJitActivation(activations);
 
@@ -122,7 +119,7 @@ bool jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo) {
   BailoutFrameInfo bailoutData(jitActivations, sp);
   JSJitFrameIter frame(jitActivations->asJit());
   MOZ_ASSERT(!frame.ionScript()->invalidated());
-  CommonFrameLayout* currentFramePtr = frame.current();
+  JitFrameLayout* currentFramePtr = frame.jsFrame();
 
   TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
   TraceLogTimestamp(logger, TraceLogger_Bailout);
@@ -183,7 +180,6 @@ bool jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo) {
 }
 
 bool jit::InvalidationBailout(InvalidationBailoutStack* sp,
-                              size_t* frameSizeOut,
                               BaselineBailoutInfo** bailoutInfo) {
   sp->checkInvariants();
 
@@ -195,16 +191,13 @@ bool jit::InvalidationBailout(InvalidationBailoutStack* sp,
   JitActivationIterator jitActivations(cx);
   BailoutFrameInfo bailoutData(jitActivations, sp);
   JSJitFrameIter frame(jitActivations->asJit());
-  CommonFrameLayout* currentFramePtr = frame.current();
+  JitFrameLayout* currentFramePtr = frame.jsFrame();
 
   TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
   TraceLogTimestamp(logger, TraceLogger_Invalidation);
 
   JitSpew(JitSpew_IonBailouts, "Took invalidation bailout! Snapshot offset: %u",
           frame.snapshotOffset());
-
-  // Note: the frame size must be computed before we return from this function.
-  *frameSizeOut = frame.frameSize();
 
   MOZ_ASSERT(IsBaselineJitEnabled(cx));
 
@@ -237,8 +230,8 @@ bool jit::InvalidationBailout(InvalidationBailoutStack* sp,
     JitSpew(JitSpew_IonInvalidate, "Bailout failed (Fatal Error)");
     JitSpew(JitSpew_IonInvalidate, "   calleeToken %p",
             (void*)layout->calleeToken());
-    JitSpew(JitSpew_IonInvalidate, "   frameSize %u",
-            unsigned(layout->prevFrameLocalSize()));
+    JitSpew(JitSpew_IonInvalidate, "   callerFramePtr %p",
+            layout->callerFramePtr());
     JitSpew(JitSpew_IonInvalidate, "   ra %p", (void*)layout->returnAddress());
 #endif
   }
@@ -280,7 +273,7 @@ bool jit::ExceptionHandlerBailout(JSContext* cx,
   JitActivationIterator jitActivations(cx);
   BailoutFrameInfo bailoutData(jitActivations, frame.frame());
   JSJitFrameIter frameView(jitActivations->asJit());
-  CommonFrameLayout* currentFramePtr = frameView.current();
+  JitFrameLayout* currentFramePtr = frameView.jsFrame();
 
   BaselineBailoutInfo* bailoutInfo = nullptr;
   bool success = BailoutIonToBaseline(cx, bailoutData.activation(), frameView,

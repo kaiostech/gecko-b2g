@@ -314,6 +314,81 @@ double RemoteAccessibleBase<Derived>::Step() const {
 }
 
 template <class Derived>
+Accessible* RemoteAccessibleBase<Derived>::ChildAtPoint(
+    int32_t aX, int32_t aY, LocalAccessible::EWhichChildAtPoint aWhichChild) {
+  RemoteAccessible* lastMatch = nullptr;
+  // If `this` is a document, use its viewport cache instead of
+  // the cache of its parent document.
+  if (DocAccessibleParent* doc = IsDoc() ? AsDoc() : mDoc) {
+    if (auto maybeViewportCache =
+            doc->mCachedFields->GetAttribute<nsTArray<uint64_t>>(
+                nsGkAtoms::viewport)) {
+      // The retrieved viewport cache contains acc IDs in hittesting order.
+      // That is, items earlier in the list have z-indexes that are larger than
+      // those later in the list. If you were to build a tree by z-index, where
+      // chilren have larger z indices than their parents, iterating this list
+      // is essentially a postorder tree traversal.
+      const nsTArray<uint64_t>& viewportCache = *maybeViewportCache;
+
+      for (auto id : viewportCache) {
+        RemoteAccessible* acc = doc->GetAccessible(id);
+        if (!acc) {
+          // This can happen if the acc died in between
+          // pushing the viewport cache and doing this hittest
+          continue;
+        }
+
+        if (acc == this) {
+          // Even though we're searching from the doc's cache
+          // this call shouldn't pass the boundary defined by
+          // the acc this call originated on. If we hit `this`,
+          // return our most recent match.
+          break;
+        }
+
+        if (acc == doc) {
+          // If we're already in `doc`s viewport cache, and the doc is
+          // not the acc this call originated on, skip it.
+          // We have to have `doc` in this list, because we need to support
+          // calling `doc->ChildAtPoint()`. Without this check, we end up
+          // calling `doc->ChildAtPoint(...)` below which changes the context of
+          // this call.
+          continue;
+        }
+
+        if (acc->Bounds().Contains(aX, aY)) {
+          if (acc->IsDoc()) {
+            // If we encounter a doc, search its viewport
+            // cache. Do this even if we're looking for the
+            // deepest child, since in that case we should return
+            // the deepest child in the subdoc.
+            return acc->ChildAtPoint(aX, aY, aWhichChild);
+          }
+
+          if (aWhichChild == EWhichChildAtPoint::DeepestChild) {
+            // Because our rects are in hittesting order, the
+            // first match we encounter is guaranteed to be the
+            // deepest match.
+            lastMatch = acc;
+            break;
+          }
+
+          // We're looking for a DirectChild match. Update our
+          // `lastMatch` marker as we ascend towards `this`.
+          lastMatch = acc;
+        }
+      }
+    }
+  }
+
+  if (!lastMatch && Bounds().Contains(aX, aY)) {
+    return this;
+  }
+
+  return lastMatch;
+}
+
+template <class Derived>
 Maybe<nsRect> RemoteAccessibleBase<Derived>::RetrieveCachedBounds() const {
   MOZ_ASSERT(mCachedFields);
   if (!mCachedFields) {
@@ -382,7 +457,7 @@ void RemoteAccessibleBase<Derived>::ApplyScrollOffset(nsRect& aBounds) const {
 }
 
 template <class Derived>
-nsRect RemoteAccessibleBase<Derived>::GetBoundsInAppUnits() const {
+nsRect RemoteAccessibleBase<Derived>::BoundsInAppUnits() const {
   dom::CanonicalBrowsingContext* cbc =
       static_cast<dom::BrowserParent*>(mDoc->Manager())
           ->GetBrowsingContext()
@@ -610,6 +685,18 @@ RemoteAccessibleBase<Derived>::DefaultTextAttributes() {
 }
 
 template <class Derived>
+RefPtr<const AccAttributes>
+RemoteAccessibleBase<Derived>::GetCachedARIAAttributes() const {
+  if (mCachedFields) {
+    auto attrs =
+        mCachedFields->GetAttributeRefPtr<AccAttributes>(nsGkAtoms::aria);
+    VERIFY_CACHE(CacheDomain::ARIA);
+    return attrs;
+  }
+  return nullptr;
+}
+
+template <class Derived>
 uint64_t RemoteAccessibleBase<Derived>::State() {
   uint64_t state = 0;
   if (mCachedFields) {
@@ -694,6 +781,10 @@ already_AddRefed<AccAttributes> RemoteAccessibleBase<Derived>::Attributes() {
 
     if (bool layoutGuess = TableIsProbablyForLayout()) {
       attributes->SetAttribute(nsGkAtoms::layout_guess, layoutGuess);
+    }
+
+    if (auto ariaAttrs = GetCachedARIAAttributes()) {
+      ariaAttrs->CopyTo(attributes);
     }
   }
 
@@ -1083,6 +1174,17 @@ RemoteAccessibleBase<Derived>::GetCachedHyperTextOffsets() const {
 template <class Derived>
 void RemoteAccessibleBase<Derived>::SetCaretOffset(int32_t aOffset) {
   Unused << mDoc->SendSetCaretOffset(mID, aOffset);
+}
+
+template <class Derived>
+Maybe<int32_t> RemoteAccessibleBase<Derived>::GetIntARIAAttr(
+    nsAtom* aAttrName) const {
+  if (RefPtr<const AccAttributes> attrs = GetCachedARIAAttributes()) {
+    if (auto val = attrs->GetAttribute<int32_t>(aAttrName)) {
+      return val;
+    }
+  }
+  return Nothing();
 }
 
 template class RemoteAccessibleBase<RemoteAccessible>;

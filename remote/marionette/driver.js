@@ -11,6 +11,10 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
+const { element } = ChromeUtils.import(
+  "chrome://remote/content/marionette/element.js"
+);
+
 const lazy = {};
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
@@ -27,7 +31,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   DebounceCallback: "chrome://remote/content/marionette/sync.js",
   disableEventsActor:
     "chrome://remote/content/marionette/actors/MarionetteEventsParent.jsm",
-  element: "chrome://remote/content/marionette/element.js",
   enableEventsActor:
     "chrome://remote/content/marionette/actors/MarionetteEventsParent.jsm",
   error: "chrome://remote/content/shared/webdriver/Errors.jsm",
@@ -74,14 +77,14 @@ XPCOMUtils.defineLazyGetter(lazy, "logger", () =>
 const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 
 const SUPPORTED_STRATEGIES = new Set([
-  lazy.element.Strategy.ClassName,
-  lazy.element.Strategy.Selector,
-  lazy.element.Strategy.ID,
-  lazy.element.Strategy.Name,
-  lazy.element.Strategy.LinkText,
-  lazy.element.Strategy.PartialLinkText,
-  lazy.element.Strategy.TagName,
-  lazy.element.Strategy.XPath,
+  element.Strategy.ClassName,
+  element.Strategy.Selector,
+  element.Strategy.ID,
+  element.Strategy.Name,
+  element.Strategy.LinkText,
+  element.Strategy.PartialLinkText,
+  element.Strategy.TagName,
+  element.Strategy.XPath,
 ]);
 
 // Timeout used to abort fullscreen, maximize, and minimize
@@ -656,11 +659,16 @@ GeckoDriver.prototype.getContext = function() {
  *
  * @throws {JavaScriptError}
  *     If an {@link Error} was thrown whilst evaluating the script.
+ * @throws {NoSuchElementError}
+ *     If an element that was passed as part of <var>args</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
  * @throws {ScriptTimeoutError}
  *     If the script was interrupted due to reaching the session's
  *     script timeout.
+ * @throws {StaleElementReferenceError}
+ *     If an element that was passed as part of <var>args</var> or that is
+ *     returned as result has gone stale.
  */
 GeckoDriver.prototype.executeScript = async function(cmd) {
   let { script, args } = cmd.parameters;
@@ -723,11 +731,16 @@ GeckoDriver.prototype.executeScript = async function(cmd) {
  *
  * @throws {JavaScriptError}
  *     If an Error was thrown whilst evaluating the script.
+ * @throws {NoSuchElementError}
+ *     If an element that was passed as part of <var>args</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
  * @throws {ScriptTimeoutError}
  *     If the script was interrupted due to reaching the session's
  *     script timeout.
+ * @throws {StaleElementReferenceError}
+ *     If an element that was passed as part of <var>args</var> or that is
+ *     returned as result has gone stale.
  */
 GeckoDriver.prototype.executeAsyncScript = async function(cmd) {
   let { script, args } = cmd.parameters;
@@ -1244,6 +1257,8 @@ GeckoDriver.prototype.switchToMarionetteWindow = async function() {
  *     the window. Defaults to true. B2G forces to be false to app window
  *     controlled by system app or user behaviors.
  *
+ * @throws {InvalidArgumentError}
+ *     If <var>handle</var> is not a string or <var>focus</var> not a boolean.
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
  */
@@ -1400,8 +1415,12 @@ GeckoDriver.prototype.switchToParentFrame = async function() {
  *     The index of the frame to switch to.
  *     If both element and id are not defined, switch to top-level frame.
  *
+ * @throws {NoSuchElementError}
+ *     If element represented by reference <var>element</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>element</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1480,8 +1499,12 @@ GeckoDriver.prototype.singleTap = async function(cmd) {
  * @param {Array.<?>} actions
  *     Array of objects that each represent an action sequence.
  *
+ * @throws {NoSuchElementError}
+ *     If an element that is used as part of the action chain is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If an element that is used as part of the action chain has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  * @throws {UnsupportedOperationError}
@@ -1519,13 +1542,19 @@ GeckoDriver.prototype.releaseActions = async function() {
 /**
  * Find an element using the indicated search strategy.
  *
+ * @param {string=} element
+ *     Web element reference ID to the element that will be used as start node.
  * @param {string} using
  *     Indicates which search method to use.
  * @param {string} value
  *     Value the client is looking for.
  *
+ * @throws {NoSuchElementError}
+ *     If element represented by reference <var>element</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>element</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1558,13 +1587,21 @@ GeckoDriver.prototype.findElement = async function(cmd) {
 /**
  * Find elements using the indicated search strategy.
  *
+ * @param {string=} element
+ *     Web element reference ID to the element that will be used as start node.
  * @param {string} using
  *     Indicates which search method to use.
  * @param {string} value
  *     Value the client is looking for.
  *
+ * @throws {NoSuchElementError}
+ *     If element represented by reference <var>element</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>element</var> has gone stale.
+ * @throws {UnexpectedAlertOpenError}
+ *     A modal dialog is open, blocking this operation.
  */
 GeckoDriver.prototype.findElements = async function(cmd) {
   const { element: el, using, value } = cmd.parameters;
@@ -1608,6 +1645,8 @@ GeckoDriver.prototype.findElements = async function(cmd) {
  *     Element does not have a shadow root attached.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  * @throws {UnsupportedOperationError}
@@ -1643,7 +1682,7 @@ GeckoDriver.prototype.getShadowRoot = async function(cmd) {
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  * @throws {UnsupportedOperationError}
- *     Not available in current context.
+ *     Not available in chrome context.
  */
 GeckoDriver.prototype.getActiveElement = async function() {
   lazy.assert.content(this.context);
@@ -1665,6 +1704,8 @@ GeckoDriver.prototype.getActiveElement = async function() {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1713,6 +1754,8 @@ GeckoDriver.prototype.clickElement = async function(cmd) {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1744,6 +1787,8 @@ GeckoDriver.prototype.getElementAttribute = async function(cmd) {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1774,6 +1819,8 @@ GeckoDriver.prototype.getElementProperty = async function(cmd) {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1802,6 +1849,8 @@ GeckoDriver.prototype.getElementText = async function(cmd) {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1863,6 +1912,8 @@ GeckoDriver.prototype.isElementDisplayed = async function(cmd) {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1892,6 +1943,8 @@ GeckoDriver.prototype.getElementValueOfCssProperty = async function(cmd) {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1946,6 +1999,8 @@ GeckoDriver.prototype.isElementSelected = async function(cmd) {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -1968,11 +2023,13 @@ GeckoDriver.prototype.getElementRect = async function(cmd) {
  *     Value to send to the element.
  *
  * @throws {InvalidArgumentError}
- *     If `id` or `text` are not strings.
+ *     If <var>id</var> or <var>text</var> are not strings.
  * @throws {NoSuchElementError}
- *     If element represented by reference `id` is unknown.
+ *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -2003,6 +2060,8 @@ GeckoDriver.prototype.sendKeysToElement = async function(cmd) {
  *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
  *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
@@ -2020,7 +2079,7 @@ GeckoDriver.prototype.clearElement = async function(cmd) {
  * Add a single cookie to the cookie store associated with the active
  * document's address.
  *
- * @param {Map.<string, (string|number|boolean)> cookie
+ * @param {Map.<string, (string|number|boolean)>} cookie
  *     Cookie object.
  *
  * @throws {InvalidCookieDomainError}
@@ -2136,6 +2195,8 @@ GeckoDriver.prototype.deleteCookie = async function(cmd) {
  *
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
+ * @throws {UnexpectedAlertOpenError}
+ *     A modal dialog is open, blocking this operation.
  */
 GeckoDriver.prototype.newWindow = async function(cmd) {
   lazy.assert.open(this.getBrowsingContext({ top: true }));
@@ -2345,8 +2406,12 @@ GeckoDriver.prototype.deleteSession = function() {
  *     string.  If <var>hash</var> is true, hex digest of the SHA-256
  *     hash of the Base64 encoded string.
  *
+ * @throws {NoSuchElementError}
+ *     If element represented by reference <var>id</var> is unknown.
  * @throws {NoSuchWindowError}
- *     Top-level browsing context has been discarded.
+ *     Browsing context has been discarded.
+ * @throws {StaleElementReferenceError}
+ *     If element represented by reference <var>id</var> has gone stale.
  */
 GeckoDriver.prototype.takeScreenshot = async function(cmd) {
   lazy.assert.open(this.getBrowsingContext({ top: true }));
@@ -2589,6 +2654,8 @@ GeckoDriver.prototype.fullscreenWindow = async function() {
  * Dismisses a currently displayed tab modal, or returns no such alert if
  * no modal is displayed.
  *
+ * @throws {NoSuchAlertError}
+ *     If there is no current user prompt.
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
  */
@@ -2608,6 +2675,8 @@ GeckoDriver.prototype.dismissDialog = async function() {
  * Accepts a currently displayed tab modal, or returns no such alert if
  * no modal is displayed.
  *
+ * @throws {NoSuchAlertError}
+ *     If there is no current user prompt.
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
  */
@@ -2627,6 +2696,8 @@ GeckoDriver.prototype.acceptDialog = async function() {
  * Returns the message shown in a currently displayed modal, or returns
  * a no such alert error if no modal is currently displayed.
  *
+ * @throws {NoSuchAlertError}
+ *     If there is no current user prompt.
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
  */
@@ -3060,6 +3131,10 @@ GeckoDriver.prototype.teardownReftest = function() {
  *
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
+ * @throws {UnexpectedAlertOpenError}
+ *     A modal dialog is open, blocking this operation.
+ * @throws {UnsupportedOperationError}
+ *     Not available in chrome context.
  */
 GeckoDriver.prototype.print = async function(cmd) {
   lazy.assert.content(this.context);

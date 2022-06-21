@@ -8773,40 +8773,6 @@
     "bug_numbers": [1737651],
     "description": "Firefox: Latency of the remote settings source for quick suggest (ms)"
   },
-  "FX_URLBAR_SELECTED_RESULT_INDEX": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["fx-search@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 17,
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [775825],
-    "description": "Firefox: The index of the selected result in the URL bar popup"
-  },
-  "FX_URLBAR_SELECTED_RESULT_TYPE_2": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["fx-search@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 32,
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [775825, 1617631, 1398416],
-    "description": "Firefox: The type of the selected result in the URL bar popup. See UrlbarUtils.jsm:SELECTED_RESULT_TYPES for the result types."
-  },
-  "FX_URLBAR_SELECTED_RESULT_INDEX_BY_TYPE_2": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["fx-search@mozilla.com"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 32,
-    "keyed": true,
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1345834, 1617631, 1398416],
-    "description": "Firefox: The index of the selected result in the URL bar popup by the type of the selected result in the URL bar popup. See UrlbarUtils.jsm:SELECTED_RESULT_TYPES for the result types."
-  },
   "FX_URLBAR_SELECTED_RESULT_METHOD": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -11400,6 +11366,16 @@
     "bug_numbers": [1766509],
     "releaseChannelCollection": "opt-out",
     "description": "Whether any kind of H264 is enabled"
+  },
+  "WEBRTC_GMP_INIT_SUCCESS": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec"],
+    "alert_emails": ["webrtc-telemetry-alerts@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "boolean",
+    "bug_numbers": [1774222],
+    "releaseChannelCollection": "opt-out",
+    "description": "Counts of GMP codec initialization success and failure"
   },
   "MEDIA_RECORDER_RECORDING_DURATION": {
     "record_in_processes": ["main", "content"],
@@ -16603,6 +16579,17 @@
     "releaseChannelCollection": "opt-out",
     "n_buckets": 56,
     "description": "How much time (in hours) passed between the current cookie purging activity and the one before that (cookie purging is run on 'daily idle')"
+  },
+  "COOKIE_RETRIEVAL_SAMESITE_PROBLEM": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["fbraun@mozilla.com", "tschuster@mozilla.com", "seceng-telemetry@mozilla.com"],
+    "bug_numbers": [1763367],
+    "expires_in_version": "106",
+    "kind" : "enumerated",
+    "n_values": 32,
+    "description": "Whether a cookie was skipped in GetCookiesForURI because of a same-site issue. This is a bit field.",
+    "releaseChannelCollection": "opt-out"
   },
   "REFERRER_POLICY_COUNT" : {
     "products": ["firefox"],

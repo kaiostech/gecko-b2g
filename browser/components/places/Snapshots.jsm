@@ -32,6 +32,9 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
  *   The recommended snapshot.
  * @property {number} score
  *   The score for this snapshot.
+ * @property {object} [data]
+ *   An optional object containing data used to calculate the score, printed
+ *   as part of logs for debugging purposes.
  */
 
 /**
@@ -386,7 +389,7 @@ const Snapshots = new (class Snapshots {
       "Snapshots: add",
       async db => {
         let now = Date.now();
-        await this.#maybeInsertPlace(db, new URL(url));
+        await lazy.PlacesUtils.maybeInsertPlace(db, new URL(url));
 
         // Title is updated only if the caller provided it.
         let updateTitleFragment =
@@ -885,7 +888,7 @@ const Snapshots = new (class Snapshots {
       interactionCounts.min = Math.min(interactionCounts.min, interactions);
       return {
         snapshot: this.#translateRow(row),
-        interactions,
+        data: { interactions },
       };
     });
 
@@ -896,7 +899,7 @@ const Snapshots = new (class Snapshots {
     // For now instead we assign a score based on the number of interactions
     // with the page during `snapshot_timeofday_limit_days`.
     entries.forEach(e => {
-      e.score = this.timeOfDayScore(e.interactions, interactionCounts);
+      e.score = this.timeOfDayScore(e.data.interactions, interactionCounts);
     });
     return entries;
   }
@@ -1192,28 +1195,5 @@ const Snapshots = new (class Snapshots {
         await db.executeCached(`DELETE FROM moz_places_metadata_snapshots`);
       }
     );
-  }
-
-  /**
-   * Tries to insert a new place if it doesn't exist yet.
-   * @param {mozIStorageAsyncConnection} db
-   *   The connection to the Places database.
-   * @param {URL} url
-   *   A valid URL object.
-   */
-  async #maybeInsertPlace(db, url) {
-    // The IGNORE conflict can trigger on `guid`.
-    await db.executeCached(
-      `INSERT OR IGNORE INTO moz_places (url, url_hash, rev_host, hidden, frecency, guid)
-       VALUES (:url, hash(:url), :rev_host, 1, -1,
-               IFNULL((SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url),
-                     GENERATE_GUID()))
-      `,
-      {
-        url: url.href,
-        rev_host: lazy.PlacesUtils.getReversedHost(url),
-      }
-    );
-    await db.executeCached("DELETE FROM moz_updateoriginsinsert_temp");
   }
 })();

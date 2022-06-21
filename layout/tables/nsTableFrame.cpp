@@ -6378,7 +6378,7 @@ bool BCPaintBorderIterator::SetNewRowGroup() {
       mCellMap = mTableCellMap->GetMapFor(fifRg, nullptr);
       if (!mCellMap) ABORT1(false);
     }
-    if (mRg && mTable->GetPrevInFlow() && !mRg->GetPrevInFlow()) {
+    if (mTable->GetPrevInFlow() && !mRg->GetPrevInFlow()) {
       // if mRowGroup doesn't have a prev in flow, then it may be a repeated
       // header or footer
       const nsStyleDisplay* display = mRg->StyleDisplay();
@@ -7498,14 +7498,6 @@ nsRect nsDisplayTableItem::GetBounds(nsDisplayListBuilder* aBuilder,
   return mFrame->InkOverflowRectRelativeToSelf() + ToReferenceFrame();
 }
 
-void nsDisplayTableItem::UpdateForFrameBackground(nsIFrame* aFrame) {
-  ComputedStyle* bgSC;
-  if (!nsCSSRendering::FindBackground(aFrame, &bgSC)) return;
-  if (!bgSC->StyleBackground()->HasFixedBackground(aFrame)) return;
-
-  mPartHasFixedBackground = true;
-}
-
 nsDisplayItemGeometry* nsDisplayTableItem::AllocateGeometry(
     nsDisplayListBuilder* aBuilder) {
   return new nsDisplayTableItemGeometry(
@@ -7517,17 +7509,8 @@ void nsDisplayTableItem::ComputeInvalidationRegion(
     nsRegion* aInvalidRegion) const {
   auto geometry = static_cast<const nsDisplayTableItemGeometry*>(aGeometry);
 
-  bool invalidateForAttachmentFixed = false;
-  if (mDrawsBackground && mPartHasFixedBackground) {
-    nsPoint frameOffsetToViewport =
-        mFrame->GetOffsetTo(mFrame->PresShell()->GetRootFrame());
-    invalidateForAttachmentFixed =
-        frameOffsetToViewport != geometry->mFrameOffsetToViewport;
-  }
-
-  if (invalidateForAttachmentFixed ||
-      (aBuilder->ShouldSyncDecodeImages() &&
-       geometry->ShouldInvalidateToSyncDecodeImages())) {
+  if (aBuilder->ShouldSyncDecodeImages() &&
+      geometry->ShouldInvalidateToSyncDecodeImages()) {
     bool snap;
     aInvalidRegion->Or(*aInvalidRegion, GetBounds(aBuilder, &snap));
   }

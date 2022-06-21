@@ -5,13 +5,16 @@
 
 var EXPORTED_SYMBOLS = ["PlacesUtils"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
+const { PromiseUtils } = ChromeUtils.import(
+  "resource://gre/modules/PromiseUtils.jsm"
+);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 const lazy = {};
 
@@ -21,7 +24,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   Bookmarks: "resource://gre/modules/Bookmarks.jsm",
   History: "resource://gre/modules/History.jsm",
   PlacesSyncUtils: "resource://gre/modules/PlacesSyncUtils.jsm",
-  PromiseUtils: "resource://gre/modules/PromiseUtils.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "MOZ_ACTION_REGEX", () => {
@@ -1690,7 +1692,7 @@ var PlacesUtils = {
    *  - charset (string): the last known charset of the bookmark.
    *  - keyword (string): the bookmark's keyword (unset if none).
    *  - postData (string): the bookmark's keyword postData (unset if none).
-   *  - iconuri (string): the bookmark's favicon url.
+   *  - iconUri (string): the bookmark's favicon url.
    * The last four properties are not set at all if they're irrelevant (e.g.
    * |charset| is not set if no charset was previously set for the bookmark
    * url).
@@ -1730,7 +1732,7 @@ var PlacesUtils = {
       let type = aRow.getResultByName("type");
       item.typeCode = type;
       if (type == Ci.nsINavBookmarksService.TYPE_BOOKMARK) {
-        copyProps("charset", "tags", "iconuri");
+        copyProps("charset", "tags", "iconUri");
       }
 
       switch (type) {
@@ -1796,7 +1798,7 @@ var PlacesUtils = {
                       JOIN moz_icons_to_pages ON icon_id = i.id
                       JOIN moz_pages_w_icons pi ON page_id = pi.id
                       WHERE pi.page_url_hash = hash(h.url) AND pi.page_url = h.url
-                      ORDER BY width DESC LIMIT 1) AS iconuri,
+                      ORDER BY width DESC LIMIT 1) AS iconUri,
               (SELECT GROUP_CONCAT(t.title, ',')
                FROM moz_bookmarks b2
                JOIN moz_bookmarks t ON t.id = +b2.parent AND t.parent = :tags_folder
@@ -1967,6 +1969,64 @@ var PlacesUtils = {
         return lazy.gCryptoHash.finish(true);
     }
   },
+
+  /**
+   * Inserts a new place if one doesn't currently exist.
+   *
+   * This should only be used from an API that is connecting this new entry to
+   * some additional foreign table. Otherwise this will just create an orphan
+   * entry that could be expired at any time.
+   *
+   * @param db
+   *        The database connection to use.
+   * @param url
+   *        A valid URL object.
+   * @return {Promise} resolved when the operation is complete.
+   */
+  async maybeInsertPlace(db, url) {
+    // The IGNORE conflict can trigger on `guid`.
+    await db.executeCached(
+      `INSERT OR IGNORE INTO moz_places (url, url_hash, rev_host, hidden, frecency, guid)
+      VALUES (:url, hash(:url), :rev_host, 0, :frecency,
+              IFNULL((SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url),
+                      GENERATE_GUID()))
+      `,
+      {
+        url: url.href,
+        rev_host: this.getReversedHost(url),
+        frecency: url.protocol == "place:" ? 0 : -1,
+      }
+    );
+    await db.executeCached("DELETE FROM moz_updateoriginsinsert_temp");
+  },
+
+  /**
+   * Tries to insert a set of new places if they don't exist yet.
+   *
+   * This should only be used from an API that is connecting this new entry to
+   * some additional foreign table. Otherwise this will just create an orphan
+   * entry that could be expired at any time.
+   *
+   * @param db
+   *        The database to use
+   * @param urls
+   *        An array with all the url objects to insert.
+   * @return {Promise} resolved when the operation is complete.
+   */
+  async maybeInsertManyPlaces(db, urls) {
+    await db.executeCached(
+      `INSERT OR IGNORE INTO moz_places (url, url_hash, rev_host, hidden, frecency, guid) VALUES
+     (:url, hash(:url), :rev_host, 0, :frecency,
+     IFNULL((SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url), :maybeguid))`,
+      urls.map(url => ({
+        url: url.href,
+        rev_host: this.getReversedHost(url),
+        frecency: url.protocol == "place:" ? 0 : -1,
+        maybeguid: this.history.makeGuid(),
+      }))
+    );
+    await db.executeCached("DELETE FROM moz_updateoriginsinsert_temp");
+  },
 };
 
 XPCOMUtils.defineLazyGetter(PlacesUtils, "history", function() {
@@ -2114,7 +2174,7 @@ XPCOMUtils.defineLazyGetter(lazy, "gAsyncDBWrapperPromised", () =>
     .catch(Cu.reportError)
 );
 
-var gAsyncDBLargeCacheConnDeferred = lazy.PromiseUtils.defer();
+var gAsyncDBLargeCacheConnDeferred = PromiseUtils.defer();
 XPCOMUtils.defineLazyGetter(lazy, "gAsyncDBLargeCacheConnPromised", () =>
   lazy.Sqlite.cloneStorageConnection({
     connection: PlacesUtils.history.DBConnection,
@@ -2501,19 +2561,7 @@ PlacesUtils.keywords = {
           // An entry for the given page could be missing, in such a case we need to
           // create it.  The IGNORE conflict can trigger on `guid`.
           await db.executeTransaction(async () => {
-            await db.executeCached(
-              `INSERT OR IGNORE INTO moz_places (url, url_hash, rev_host, hidden, frecency, guid)
-               VALUES (:url, hash(:url), :rev_host, 0, :frecency,
-                       IFNULL((SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url),
-                              GENERATE_GUID()))
-              `,
-              {
-                url: url.href,
-                rev_host: PlacesUtils.getReversedHost(url),
-                frecency: url.protocol == "place:" ? 0 : -1,
-              }
-            );
-            await db.executeCached("DELETE FROM moz_updateoriginsinsert_temp");
+            await PlacesUtils.maybeInsertPlace(db, url);
 
             // A new keyword could be assigned to an url that already has one,
             // then we must replace the old keyword with the new one.

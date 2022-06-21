@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Web Compatibility Interventions",
   "description": "Urgent post-release fixes for web compatibility.",
-  "version": "102.10.0",
+  "version": "102.15.0",
   "applications": {
     "gecko": {
       "id": "webcompat@mozilla.org",
@@ -120,6 +120,7 @@
     "shims/hamropatro.js",
     "shims/history.js",
     "shims/humblebundle.js",
+    "shims/iam.js",
     "shims/iaspet.js",
     "shims/kinja.js",
     "shims/live-test-shim.js",
@@ -129,6 +130,7 @@
     "shims/mochitest-shim-1.js",
     "shims/mochitest-shim-2.js",
     "shims/mochitest-shim-3.js",
+    "shims/nielsen.js",
     "shims/optimizely.js",
     "shims/play.svg",
     "shims/rambler-authenticator.js",

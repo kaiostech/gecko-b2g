@@ -16,7 +16,6 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGlobalGetters(lazy, ["fetch"]);
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   ASRouterTargeting: "resource://activity-stream/lib/ASRouterTargeting.jsm",
   TargetingContext: "resource://messaging-system/targeting/Targeting.jsm",
@@ -44,13 +43,14 @@ XPCOMUtils.defineLazyServiceGetter(
 const COLLECTION_ID_PREF = "messaging-system.rsexperimentloader.collection_id";
 const COLLECTION_ID_FALLBACK = "nimbus-desktop-experiments";
 const ENABLED_PREF = "messaging-system.rsexperimentloader.enabled";
-const STUDIES_OPT_OUT_PREF = "app.shield.optoutstudies.enabled";
 
 const TIMER_NAME = "rs-experiment-loader-timer";
 const TIMER_LAST_UPDATE_PREF = `app.update.lastUpdateTime.${TIMER_NAME}`;
 // Use the same update interval as normandy
 const RUN_INTERVAL_PREF = "app.normandy.run_interval_seconds";
 const NIMBUS_DEBUG_PREF = "nimbus.debug";
+
+const STUDIES_ENABLED_CHANGED = "nimbus:studies-enabled-changed";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -67,10 +67,9 @@ XPCOMUtils.defineLazyPreferenceGetter(
 
 const SCHEMAS = {
   get NimbusExperiment() {
-    return lazy
-      .fetch("resource://nimbus/schemas/NimbusExperiment.schema.json", {
-        credentials: "omit",
-      })
+    return fetch("resource://nimbus/schemas/NimbusExperiment.schema.json", {
+      credentials: "omit",
+    })
       .then(rsp => rsp.json())
       .then(json => json.definitions.NimbusExperiment);
   },
@@ -90,18 +89,12 @@ class _RemoteSettingsExperimentLoader {
       return lazy.RemoteSettings(lazy.COLLECTION_ID);
     });
 
+    Services.obs.addObserver(this, STUDIES_ENABLED_CHANGED);
+
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
       "enabled",
       ENABLED_PREF,
-      false,
-      this.onEnabledPrefChange.bind(this)
-    );
-
-    XPCOMUtils.defineLazyPreferenceGetter(
-      this,
-      "studiesEnabled",
-      STUDIES_OPT_OUT_PREF,
       false,
       this.onEnabledPrefChange.bind(this)
     );
@@ -113,6 +106,10 @@ class _RemoteSettingsExperimentLoader {
       21600,
       () => this.setTimer()
     );
+  }
+
+  get studiesEnabled() {
+    return this.manager.studiesEnabled;
   }
 
   async init() {
@@ -288,6 +285,13 @@ class _RemoteSettingsExperimentLoader {
       throw new Error("Could not opt in.");
     }
 
+    if (!this.studiesEnabled) {
+      lazy.log.debug(
+        "Force enrollment does not work when studies are disabled."
+      );
+      throw new Error("Could not opt in: studies are disabled.");
+    }
+
     let recipes;
     try {
       recipes = await lazy
@@ -320,14 +324,20 @@ class _RemoteSettingsExperimentLoader {
    * Changing any of them to false will turn off any recipe fetching and
    * processing.
    */
-  onEnabledPrefChange(prefName, oldValue, newValue) {
-    if (this._initialized && !newValue) {
+  onEnabledPrefChange() {
+    if (this._initialized && !(this.enabled && this.studiesEnabled)) {
       this.uninit();
-    } else if (!this._initialized && newValue && this.enabled) {
+    } else if (!this._initialized && this.enabled && this.studiesEnabled) {
       // If the feature pref is turned on then turn on recipe processing.
       // If the opt in pref is turned on then turn on recipe processing only if
       // the feature pref is also enabled.
       this.init();
+    }
+  }
+
+  observe(aSubect, aTopic, aData) {
+    if (aTopic === STUDIES_ENABLED_CHANGED) {
+      this.onEnabledPrefChange();
     }
   }
 
@@ -375,9 +385,9 @@ class _RemoteSettingsExperimentLoader {
         } else if (lazy.NimbusFeatures[featureId].manifest.schema?.uri) {
           const uri = lazy.NimbusFeatures[featureId].manifest.schema.uri;
           try {
-            const schema = await lazy
-              .fetch(uri, { credentials: "omit" })
-              .then(rsp => rsp.json());
+            const schema = await fetch(uri, { credentials: "omit" }).then(rsp =>
+              rsp.json()
+            );
             validator = validatorCache[
               featureId
             ] = new lazy.JsonSchema.Validator(schema);

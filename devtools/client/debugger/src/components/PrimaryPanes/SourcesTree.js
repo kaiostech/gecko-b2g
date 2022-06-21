@@ -78,7 +78,8 @@ class SourcesTree extends Component {
     };
   }
 
-  componentWillReceiveProps(nextProps) {
+  // FIXME: https://bugzilla.mozilla.org/show_bug.cgi?id=1774507
+  UNSAFE_componentWillReceiveProps(nextProps) {
     const {
       projectRoot,
       mainThreadHost,
@@ -105,17 +106,6 @@ class SourcesTree extends Component {
       );
     }
 
-    if (
-      nextProps.selectedSource &&
-      nextProps.selectedSource != selectedSource
-    ) {
-      const highlightItems = getDirectories(
-        nextProps.selectedSource,
-        sourceTree
-      );
-      this.setState({ highlightItems });
-    }
-
     // NOTE: do not run this every time a source is clicked,
     // only when a new source is added
     if (nextProps.sources != this.props.sources) {
@@ -128,8 +118,42 @@ class SourcesTree extends Component {
         sourceTree,
       });
       if (update) {
-        this.setState(update);
+        this.setState({
+          uncollapsedTree: update.uncollapsedTree,
+          sourceTree: update.sourceTree,
+          getParent: update.getParent,
+        });
       }
+    }
+
+    // Execute this *after* the call to updateTree in case the selected source
+    // just got added in the props.
+    if (
+      nextProps.selectedSource &&
+      nextProps.selectedSource != selectedSource
+    ) {
+      const highlightItems = getDirectories(
+        nextProps.selectedSource,
+        // Ensure querying latest state, in case updateTree updated the source tree
+        this.state.sourceTree
+      );
+      this.setState({ highlightItems });
+
+      // Also, it can happen that the source is selected before it is registered in the tree,
+      // In which case, this previous line would select the root item.
+      // So check if we have a selectedSource and we are on root and we got new sources,
+      // to try to update the selected item in the ManagedTree
+    } else if (
+      nextProps.selectedSource &&
+      this.state.highlightItems &&
+      this.state.highlightItems[0].name == "root"
+    ) {
+      const highlightItems = getDirectories(
+        nextProps.selectedSource,
+        // Ensure querying latest state, in case updateTree updated the source tree
+        this.state.sourceTree
+      );
+      this.setState({ highlightItems });
     }
   }
 

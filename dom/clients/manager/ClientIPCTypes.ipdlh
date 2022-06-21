@@ -127,6 +127,9 @@ struct ClientOpenWindowArgs
   ClientDisposition disposition;
 };
 
+struct ClientEvictBFCacheArgs
+{};
+
 union ClientOpConstructorArgs
 {
   ClientControlledArgs;
@@ -137,6 +140,7 @@ union ClientOpConstructorArgs
   ClientClaimArgs;
   ClientGetInfoAndStateArgs;
   ClientOpenWindowArgs;
+  ClientEvictBFCacheArgs;
 };
 
 struct ClientList

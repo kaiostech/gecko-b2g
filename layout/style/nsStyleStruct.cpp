@@ -2127,7 +2127,7 @@ bool nsStyleBackground::IsTransparent(const nsIFrame* aFrame) const {
   return IsTransparent(aFrame->Style());
 }
 
-bool nsStyleBackground::IsTransparent(mozilla::ComputedStyle* aStyle) const {
+bool nsStyleBackground::IsTransparent(const ComputedStyle* aStyle) const {
   return BottomLayer().mImage.IsNone() && mImage.mImageCount == 1 &&
          NS_GET_A(BackgroundColor(aStyle)) == 0;
 }
@@ -3183,7 +3183,8 @@ nsStyleUIReset::nsStyleUIReset(const Document& aDocument)
       mAnimationFillModeCount(1),
       mAnimationPlayStateCount(1),
       mAnimationIterationCountCount(1),
-      mAnimationTimelineCount(1) {
+      mAnimationTimelineCount(1),
+      mScrollTimelineAxis(StyleScrollAxis::Block) {
   MOZ_COUNT_CTOR(nsStyleUIReset);
   mTransitions[0].SetInitialValues();
   mAnimations[0].SetInitialValues();
@@ -3214,7 +3215,9 @@ nsStyleUIReset::nsStyleUIReset(const nsStyleUIReset& aSource)
       mAnimationFillModeCount(aSource.mAnimationFillModeCount),
       mAnimationPlayStateCount(aSource.mAnimationPlayStateCount),
       mAnimationIterationCountCount(aSource.mAnimationIterationCountCount),
-      mAnimationTimelineCount(aSource.mAnimationTimelineCount) {
+      mAnimationTimelineCount(aSource.mAnimationTimelineCount),
+      mScrollTimelineName(aSource.mScrollTimelineName),
+      mScrollTimelineAxis(aSource.mScrollTimelineAxis) {
   MOZ_COUNT_CTOR(nsStyleUIReset);
 }
 
@@ -3269,7 +3272,9 @@ nsChangeHint nsStyleUIReset::CalcDifference(
        mIMEMode != aNewData.mIMEMode ||
        mWindowOpacity != aNewData.mWindowOpacity ||
        mMozWindowInputRegionMargin != aNewData.mMozWindowInputRegionMargin ||
-       mMozWindowTransform != aNewData.mMozWindowTransform)) {
+       mMozWindowTransform != aNewData.mMozWindowTransform ||
+       mScrollTimelineName != aNewData.mScrollTimelineName ||
+       mScrollTimelineAxis != aNewData.mScrollTimelineAxis)) {
     hint |= nsChangeHint_NeutralChange;
   }
 

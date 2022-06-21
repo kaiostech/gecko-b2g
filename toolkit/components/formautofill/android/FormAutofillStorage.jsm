@@ -21,17 +21,17 @@ const {
   CreditCardsBase,
   AddressesBase,
 } = ChromeUtils.import("resource://autofill/FormAutofillStorageBase.jsm");
+const { JSONFile } = ChromeUtils.import("resource://gre/modules/JSONFile.jsm");
 
 const lazy = {};
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
-  GeckoViewAutocomplete: "resource://gre/modules/GeckoViewAutocomplete.jsm",
-  CreditCard: "resource://gre/modules/GeckoViewAutocomplete.jsm",
   Address: "resource://gre/modules/GeckoViewAutocomplete.jsm",
-  JSONFile: "resource://gre/modules/JSONFile.jsm",
+  CreditCard: "resource://gre/modules/GeckoViewAutocomplete.jsm",
+  GeckoViewAutocomplete: "resource://gre/modules/GeckoViewAutocomplete.jsm",
 });
 
-class GeckoViewStorage extends lazy.JSONFile {
+class GeckoViewStorage extends JSONFile {
   constructor() {
     super({ path: null });
   }

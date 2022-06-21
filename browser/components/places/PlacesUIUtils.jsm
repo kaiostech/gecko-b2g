@@ -1561,6 +1561,23 @@ var PlacesUIUtils = {
 
     PlacesUIUtils.lastContextMenuTriggerNode = menupopup.triggerNode;
 
+    if (Services.prefs.getBoolPref("browser.tabs.loadBookmarksInTabs", false)) {
+      menupopup.ownerDocument
+        .getElementById("placesContext_open")
+        .removeAttribute("default");
+      menupopup.ownerDocument
+        .getElementById("placesContext_open:newtab")
+        .setAttribute("default", "true");
+      // else clause ensures correct behavior if pref is repeatedly toggled
+    } else {
+      menupopup.ownerDocument
+        .getElementById("placesContext_open:newtab")
+        .removeAttribute("default");
+      menupopup.ownerDocument
+        .getElementById("placesContext_open")
+        .setAttribute("default", "true");
+    }
+
     let isManaged = !!menupopup.triggerNode.closest("#managed-bookmarks");
     if (isManaged) {
       this.managedPlacesContextShowing(event);
@@ -1816,8 +1833,8 @@ var PlacesUIUtils = {
     }
   },
 
-  getImageURL(aItem) {
-    let iconURL = aItem.image;
+  getImageURL(icon) {
+    let iconURL = icon;
     // don't initiate a connection just to fetch a favicon (see bug 467828)
     if (/^https?:/.test(iconURL)) {
       iconURL = "moz-anno:favicon:" + iconURL;
@@ -1836,7 +1853,7 @@ var PlacesUIUtils = {
    *
    * @param {object[]} candidates
    *   An array of candidates to modify. The candidates should have a `title`
-   *   property.
+   *   property which should be a string or null.
    *   The order of the array does not matter. The objects are modified
    *   in-place.
    *   If a difference to other similar titles is found then a
@@ -1863,7 +1880,10 @@ var PlacesUIUtils = {
 
     for (let candidate of candidates) {
       // Title is too short for us to care about, simply continue.
-      if (candidate.title.length < this.similarTitlesMinChars) {
+      if (
+        !candidate.title ||
+        candidate.title.length < this.similarTitlesMinChars
+      ) {
         continue;
       }
       let titleBeginning = candidate.title.slice(0, this.similarTitlesMinChars);

@@ -507,9 +507,17 @@ fn parse_hash_color(value: &[u8]) -> Result<RGBA, ()> {
 }
 
 impl Color {
-    /// Returns whether this color is a system color.
-    pub fn is_system(&self) -> bool {
-        matches!(self, Color::System(..))
+    /// Returns whether this color is allowed in forced-colors mode.
+    pub fn honored_in_forced_colors_mode(&self, allow_transparent: bool) -> bool {
+        match *self {
+            Color::InheritFromBodyQuirk | Color::CurrentColor => false,
+            Color::System(..) => true,
+            Color::Numeric { ref parsed, .. } => allow_transparent && parsed.alpha == 0,
+            Color::ColorMix(ref mix) => {
+                mix.left.honored_in_forced_colors_mode(allow_transparent) &&
+                    mix.right.honored_in_forced_colors_mode(allow_transparent)
+            },
+        }
     }
 
     /// Returns currentcolor value.
@@ -604,7 +612,10 @@ impl Color {
         let mut serialization = [b'0'; 6];
         let space_padding = 6 - total;
         let mut written = space_padding;
-        written += itoa::write(&mut serialization[written..], value).unwrap();
+        let mut buf = itoa::Buffer::new();
+        let s = buf.format(value);
+        (&mut serialization[written..]).write_all(s.as_bytes()).unwrap();
+        written += s.len();
         if let Some(unit) = unit {
             written += (&mut serialization[written..])
                 .write(unit.as_bytes())

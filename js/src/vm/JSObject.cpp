@@ -1156,7 +1156,7 @@ bool NativeObject::fixupAfterSwap(JSContext* cx, Handle<NativeObject*> obj,
     JSContext* cx, MutableHandleValueVector valuesOut) {
   MOZ_ASSERT(valuesOut.empty());
 
-  // Remove the GCPtrValues we're about to swap from the store buffer, to
+  // Remove the GCPtr<Value>s we're about to swap from the store buffer, to
   // ensure we don't trace bogus values.
   gc::StoreBuffer& sb = cx->runtime()->gc.storeBuffer();
 
@@ -2254,6 +2254,13 @@ JS_PUBLIC_API bool js::ShouldIgnorePropertyDefinition(JSContext* cx,
     return true;
   }
 #endif
+
+  if (key == JSProto_Array &&
+      !cx->realm()->creationOptions().getArrayFindLastEnabled() &&
+      (id == NameToId(cx->names().findLast) ||
+       id == NameToId(cx->names().findLastIndex))) {
+    return true;
+  }
 
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
   if (key == JSProto_Array && !cx->options().changeArrayByCopy() &&

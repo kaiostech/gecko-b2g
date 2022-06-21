@@ -200,11 +200,21 @@ class ChromeUtils {
                      const Optional<JS::Handle<JSObject*>>& aTargetObj,
                      JS::MutableHandle<JSObject*> aRetval, ErrorResult& aRv);
 
+  static void ImportESModule(const GlobalObject& aGlobal,
+                             const nsAString& aResourceURI,
+                             JS::MutableHandle<JSObject*> aRetval,
+                             ErrorResult& aRv);
+
   static void DefineModuleGetter(const GlobalObject& global,
                                  JS::Handle<JSObject*> target,
                                  const nsAString& id,
                                  const nsAString& resourceURI,
                                  ErrorResult& aRv);
+
+  static void DefineESModuleGetters(const GlobalObject& global,
+                                    JS::Handle<JSObject*> target,
+                                    JS::Handle<JSObject*> modules,
+                                    ErrorResult& aRv);
 
   static void GetCallerLocation(const GlobalObject& global,
                                 nsIPrincipal* principal,

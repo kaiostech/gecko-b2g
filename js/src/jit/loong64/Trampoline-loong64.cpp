@@ -136,9 +136,6 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
 
   GeneratePrologue(masm);
 
-  // Save stack pointer into s4
-  masm.movePtr(StackPointer, s4);
-
   // Save stack pointer as baseline frame.
   masm.movePtr(StackPointer, FramePointer);
 
@@ -188,16 +185,12 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
   }
   masm.bind(&footer);
 
-  // Create the frame descriptor.
-  masm.subPtr(StackPointer, s4);
-  masm.makeFrameDescriptor(s4, FrameType::CppToJSJit, JitFrameLayout::Size());
-
   masm.subPtr(Imm32(2 * sizeof(uintptr_t)), StackPointer);
   masm.storePtr(s3,
                 Address(StackPointer, sizeof(uintptr_t)));  // actual arguments
   masm.storePtr(reg_token, Address(StackPointer, 0));       // callee token
 
-  masm.push(s4);  // descriptor
+  masm.pushFrameDescriptor(FrameType::CppToJSJit);
 
   CodeLabel returnLabel;
   Label oomReturnLabel;
@@ -235,16 +228,11 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
     masm.subPtr(scratch, StackPointer);
 
     // Enter exit frame.
-    masm.addPtr(
-        Imm32(BaselineFrame::Size() + BaselineFrame::FramePointerOffset),
-        scratch);
-    masm.makeFrameDescriptor(scratch, FrameType::BaselineJS,
-                             ExitFrameLayout::Size());
-
     // Push frame descriptor and fake return address.
     masm.reserveStack(2 * sizeof(uintptr_t));
     masm.storePtr(
-        scratch, Address(StackPointer, sizeof(uintptr_t)));  // Frame descriptor
+        ImmWord(MakeFrameDescriptor(FrameType::BaselineJS)),
+        Address(StackPointer, sizeof(uintptr_t)));  // Frame descriptor
     masm.storePtr(zero, Address(StackPointer, 0));  // fake return address
 
     // No GC things to mark, push a bare token.
@@ -280,13 +268,11 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
     // if profiler instrumentation is enabled.
     {
       Label skipProfilingInstrumentation;
-      Register realFramePtr = numStackValues;
       AbsoluteAddress addressOfEnabled(
           cx->runtime()->geckoProfiler().addressOfEnabled());
       masm.branch32(Assembler::Equal, addressOfEnabled, Imm32(0),
                     &skipProfilingInstrumentation);
-      masm.ma_add_d(realFramePtr, framePtr, Imm32(sizeof(void*)));
-      masm.profilerEnterFrame(realFramePtr, scratch);
+      masm.profilerEnterFrame(framePtr, scratch);
       masm.bind(&skipProfilingInstrumentation);
     }
 
@@ -320,15 +306,9 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
     masm.bind(&oomReturnLabel);
   }
 
-  // s0 <- 8*argc (size of all arguments we pushed on the stack)
-  masm.pop(s0);
-  masm.rshiftPtr(Imm32(FRAMESIZE_SHIFT), s0);
-
-  // Discard calleeToken, numActualArgs.
-  masm.addPtr(Imm32(2 * sizeof(uintptr_t)), StackPointer);
-
-  // Pop arguments off the stack.
-  masm.addPtr(s0, StackPointer);
+  // Discard arguments and padding. Set sp to the address of the EnterJITRegs
+  // on the stack.
+  masm.mov(FramePointer, StackPointer);
 
   // Store the returned value into the vp
   masm.as_ld_d(reg_vp, StackPointer, offsetof(EnterJITRegs, a7));
@@ -361,32 +341,25 @@ void JitRuntime::generateInvalidator(MacroAssembler& masm, Label* bailoutTail) {
   // Pass pointer to InvalidationBailoutStack structure.
   masm.movePtr(StackPointer, a0);
 
-  // Reserve place for return value and BailoutInfo pointer
+  // Reserve place for BailoutInfo pointer. Two words to ensure alignment for
+  // setupAlignedABICall.
   masm.subPtr(Imm32(2 * sizeof(uintptr_t)), StackPointer);
-  // Pass pointer to return value.
-  masm.ma_add_d(a1, StackPointer, Imm32(sizeof(uintptr_t)));
   // Pass pointer to BailoutInfo
-  masm.movePtr(StackPointer, a2);
+  masm.movePtr(StackPointer, a1);
 
-  using Fn = bool (*)(InvalidationBailoutStack * sp, size_t * frameSizeOut,
-                      BaselineBailoutInfo * *info);
+  using Fn =
+      bool (*)(InvalidationBailoutStack * sp, BaselineBailoutInfo * *info);
   masm.setupAlignedABICall();
   masm.passABIArg(a0);
   masm.passABIArg(a1);
-  masm.passABIArg(a2);
   masm.callWithABI<Fn, InvalidationBailout>(
       MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
 
   masm.loadPtr(Address(StackPointer, 0), a2);
-  masm.loadPtr(Address(StackPointer, sizeof(uintptr_t)), a1);
-  // Remove the return address, the IonScript, the register state
-  // (InvaliationBailoutStack) and the space that was allocated for the
-  // return value.
-  masm.addPtr(Imm32(sizeof(InvalidationBailoutStack) + 2 * sizeof(uintptr_t)),
-              StackPointer);
-  // remove the space that this frame was using before the bailout
-  // (computed by InvalidationBailout)
-  masm.addPtr(a1, StackPointer);
+
+  // Pop the machine state and the dead frame.
+  masm.moveToStackPtr(FramePointer);
+  masm.pop(FramePointer);
 
   // Jump to shared bailout tail. The BailoutInfo pointer has to be in r2.
   masm.jump(bailoutTail);
@@ -552,11 +525,6 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   //                                              [callee] [descr] [raddr] ]
   //
 
-  // Construct sizeDescriptor, accounting for pushed frame pointer above
-  masm.ma_add_d(t2, FramePointer, Imm32(sizeof(void*)));
-  masm.subPtr(StackPointer, t2);
-  masm.makeFrameDescriptor(t2, FrameType::Rectifier, JitFrameLayout::Size());
-
   // Construct JitFrameLayout.
   masm.subPtr(Imm32(3 * sizeof(uintptr_t)), StackPointer);
   // Push actual arguments.
@@ -564,7 +532,8 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   // Push callee token.
   masm.storePtr(calleeTokenReg, Address(StackPointer, sizeof(uintptr_t)));
   // Push frame descriptor.
-  masm.storePtr(t2, Address(StackPointer, 0));
+  masm.storePtr(ImmWord(MakeFrameDescriptor(FrameType::Rectifier)),
+                Address(StackPointer, 0));
 
   // Call the target function.
   masm.andPtr(Imm32(uint32_t(CalleeTokenMask)), calleeTokenReg);
@@ -628,22 +597,9 @@ static void GenerateBailoutThunk(MacroAssembler& masm, Label* bailoutTail) {
   // Get the bailoutInfo outparam.
   masm.pop(a2);
 
-  // Stack is:
-  //     [frame]
-  //     snapshotOffset
-  //     frameSize
-  //     [bailoutFrame]
-  //
-  // We want to remove both the bailout frame and the topmost Ion frame's stack.
-
-  // Remove the bailoutFrame.
-  static const uint32_t BailoutDataSize = sizeof(RegisterDump);
-  masm.addPtr(Imm32(BailoutDataSize), StackPointer);
-
-  // Remove the frame, snapshotOffset, and frameSize.
-  masm.ma_ld_d(a1, Address(StackPointer, 0));
-  masm.addPtr(Imm32(2 * sizeof(void*)), a1);
-  masm.addPtr(a1, StackPointer);
+  // Remove both the bailout frame and the topmost Ion frame's stack.
+  masm.moveToStackPtr(FramePointer);
+  masm.pop(FramePointer);
 
   // Jump to shared bailout tail. The BailoutInfo pointer has to be in a2.
   masm.jump(bailoutTail);

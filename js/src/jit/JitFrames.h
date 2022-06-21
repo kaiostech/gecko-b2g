@@ -40,9 +40,9 @@ struct VMFunctionData;
 //
 // In between every two frames lies a small header describing both frames. This
 // header, minimally, contains a returnAddress word and a descriptor word (See
-// CommonFrameLayout). The descriptor describes the size and type of the older
-// (caller) frame, whereas the returnAddress describes the address the newer
-// (callee) frame will return to.
+// CommonFrameLayout). The descriptor describes the type of the older (caller)
+// frame, whereas the returnAddress describes the address the newer (callee)
+// frame will return to.
 //
 // Special Frames:
 //
@@ -66,33 +66,19 @@ struct VMFunctionData;
 
 // [SMDOC] Frame Descriptor Layout
 //
-// A frame descriptor word is organized into four sections:
+// A frame descriptor word has the following data:
 //
-//    high bits: [ frame size |
-//                 has-cached-saved-frame bit |
-///                frame header size|
+//    high bits: [ has-cached-saved-frame bit |
 //    low bits:    frame type ]
 //
-// * Frame Size: Size of caller frame
 // * Has-cache-saved-frame bit: Used to power the LiveSavedFrameCache
 //   optimization. See the comment in Activation.h
-// * Frame header size: The number of words in a frame header (see
-//   FrameLayout::Size())
 // * Frame Type: BaselineJS, Exit, etc. (jit::FrameType)
 //
 
 static const uintptr_t FRAMETYPE_BITS = 4;
 static const uintptr_t FRAMETYPE_MASK = (1 << FRAMETYPE_BITS) - 1;
-static const uintptr_t FRAME_HEADER_SIZE_SHIFT = FRAMETYPE_BITS;
-static const uintptr_t FRAME_HEADER_SIZE_BITS = 3;
-static const uintptr_t FRAME_HEADER_SIZE_MASK =
-    (1 << FRAME_HEADER_SIZE_BITS) - 1;
-static const uintptr_t HASCACHEDSAVEDFRAME_BIT =
-    1 << (FRAMETYPE_BITS + FRAME_HEADER_SIZE_BITS);
-static const uintptr_t FRAMESIZE_SHIFT =
-    FRAMETYPE_BITS + FRAME_HEADER_SIZE_BITS + 1 /* cached saved frame bit */;
-static const uintptr_t FRAMESIZE_BITS = 32 - FRAMESIZE_SHIFT;
-static const uintptr_t FRAMESIZE_MASK = (1 << FRAMESIZE_BITS) - 1;
+static const uintptr_t HASCACHEDSAVEDFRAME_BIT = 1 << FRAMETYPE_BITS;
 
 struct BaselineBailoutInfo;
 
@@ -175,26 +161,14 @@ static_assert(sizeof(ResumeFromException) % 16 == 0,
 
 void HandleException(ResumeFromException* rfe);
 
-void EnsureBareExitFrame(JitActivation* act, JitFrameLayout* frame);
+void EnsureUnwoundJitExitFrame(JitActivation* act, JitFrameLayout* frame);
 
 void TraceJitActivations(JSContext* cx, JSTracer* trc);
 
 void UpdateJitActivationsForMinorGC(JSRuntime* rt);
 
-static inline uint32_t EncodeFrameHeaderSize(size_t headerSize) {
-  MOZ_ASSERT((headerSize % sizeof(uintptr_t)) == 0);
-
-  uint32_t headerSizeWords = headerSize / sizeof(uintptr_t);
-  MOZ_ASSERT(headerSizeWords <= FRAME_HEADER_SIZE_MASK);
-  return headerSizeWords;
-}
-
-static inline uint32_t MakeFrameDescriptor(uint32_t frameSize, FrameType type,
-                                           uint32_t headerSize) {
-  MOZ_ASSERT(frameSize < FRAMESIZE_MASK);
-  headerSize = EncodeFrameHeaderSize(headerSize);
-  return 0 | (frameSize << FRAMESIZE_SHIFT) |
-         (headerSize << FRAME_HEADER_SIZE_SHIFT) | uint32_t(type);
+static inline uint32_t MakeFrameDescriptor(FrameType type) {
+  return uint32_t(type);
 }
 
 // Returns the JSScript associated with the topmost JIT frame.
@@ -216,6 +190,10 @@ class CommonFrameLayout {
   uintptr_t descriptor_;
 
  public:
+  // All frames have the caller's frame pointer as first word (pushed after the
+  // return address is pushed).
+  static constexpr size_t FramePointerOffset = sizeof(void*);
+
   static size_t offsetOfDescriptor() {
     return offsetof(CommonFrameLayout, descriptor_);
   }
@@ -228,11 +206,6 @@ class CommonFrameLayout {
     descriptor_ &= ~FRAMETYPE_MASK;
     descriptor_ |= uintptr_t(type);
   }
-  size_t prevFrameLocalSize() const { return descriptor_ >> FRAMESIZE_SHIFT; }
-  size_t headerSize() const {
-    return sizeof(uintptr_t) *
-           ((descriptor_ >> FRAME_HEADER_SIZE_SHIFT) & FRAME_HEADER_SIZE_MASK);
-  }
   bool hasCachedSavedFrame() const {
     return descriptor_ & HASCACHEDSAVEDFRAME_BIT;
   }
@@ -240,6 +213,11 @@ class CommonFrameLayout {
   void clearHasCachedSavedFrame() { descriptor_ &= ~HASCACHEDSAVEDFRAME_BIT; }
   uint8_t* returnAddress() const { return returnAddress_; }
   void setReturnAddress(uint8_t* addr) { returnAddress_ = addr; }
+
+  uint8_t* callerFramePtr() const {
+    auto* p = reinterpret_cast<const uintptr_t*>(this) - 1;
+    return reinterpret_cast<uint8_t*>(*p);
+  }
 };
 
 class JitFrameLayout : public CommonFrameLayout {
@@ -276,15 +254,7 @@ class JitFrameLayout : public CommonFrameLayout {
   }
   uintptr_t numActualArgs() const { return numActualArgs_; }
 
-  // All JIT frames have the caller's frame pointer as first word (pushed after
-  // the return address).
-  static constexpr size_t FramePointerOffset = sizeof(void*);
-
-  uint8_t* callerFramePtr() const {
-    auto* p = reinterpret_cast<const uintptr_t*>(this) - 1;
-    return reinterpret_cast<uint8_t*>(*p);
-  }
-
+  // For IonJS frames: the distance from the JitFrameLayout to the first local
   // slot. The caller's frame pointer is stored in this space. 32-bit platforms
   // have 4 bytes of padding to ensure doubles are properly aligned.
   static constexpr size_t IonFirstSlotOffset = 8;
@@ -313,10 +283,6 @@ class IonICCallFrameLayout : public CommonFrameLayout {
   JitCode* stubCode_;
 
  public:
-  // The caller's frame pointer is pushed after the IonICCallFrameLayout is
-  // pushed on the stack.
-  static constexpr size_t FramePointerOffset = sizeof(void*);
-
   JitCode** stubCode() { return &stubCode_; }
   static size_t Size() { return sizeof(IonICCallFrameLayout); }
 };
@@ -331,6 +297,7 @@ enum class ExitFrameType : uint8_t {
   IonOOLProxy = 0x6,
   WasmGenericJitEntry = 0x7,
   DirectWasmJitCall = 0x8,
+  UnwoundJit = 0xFB,
   InterpreterStub = 0xFC,
   VMFunction = 0xFD,
   LazyLink = 0xFE,
@@ -343,9 +310,17 @@ class ExitFooterFrame {
   // VMFunctionData*.
   uintptr_t data_;
 
+  // Saved frame pointer. This must be the last word, so that this overlaps with
+  // CommonFrameLayout::FramePointerOffset.
+ protected:  // Silence warning about unused private field.
+  static_assert(CommonFrameLayout::FramePointerOffset == sizeof(void*));
+  uint8_t* callerFP_;
+
  public:
   static inline size_t Size() { return sizeof(ExitFooterFrame); }
-  void setBareExitFrame() { data_ = uintptr_t(ExitFrameType::Bare); }
+  void setUnwoundJitExitFrame() {
+    data_ = uintptr_t(ExitFrameType::UnwoundJit);
+  }
   ExitFrameType type() const {
     static_assert(sizeof(ExitFrameType) == sizeof(uint8_t),
                   "Code assumes ExitFrameType fits in a byte");
@@ -379,6 +354,10 @@ class ExitFooterFrame {
   T* outParam() {
     uint8_t* address = alignedForABI();
     return reinterpret_cast<T*>(address - sizeof(T));
+  }
+
+  static constexpr size_t offsetOfCallerFP() {
+    return offsetof(ExitFooterFrame, callerFP_);
   }
 };
 
@@ -415,6 +394,9 @@ class ExitFrameLayout : public CommonFrameLayout {
     return footer()->type() == ExitFrameType::VMFunction;
   }
   inline bool isBareExit() { return footer()->type() == ExitFrameType::Bare; }
+  inline bool isUnwoundJitExit() {
+    return footer()->type() == ExitFrameType::UnwoundJit;
+  }
 
   // See the various exit frame layouts below.
   template <typename T>
@@ -709,9 +691,7 @@ class BaselineStubFrameLayout : public CommonFrameLayout {
   // +-----------------------+
 
  public:
-  // The caller frame pointer should be pushed after the return address, to help
-  // external stack unwinders.
-  static constexpr size_t FramePointerOffset = sizeof(void*);
+  static_assert(FramePointerOffset == sizeof(void*));
   static constexpr size_t ICStubOffset = 2 * sizeof(void*);
   static constexpr int ICStubOffsetFromFP = -int(sizeof(void*));
 

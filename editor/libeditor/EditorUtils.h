@@ -319,6 +319,26 @@ class MOZ_STACK_CLASS AutoRangeArray final {
     Initialize(aSelection);
   }
 
+  template <typename PointType>
+  explicit AutoRangeArray(const EditorDOMRangeBase<PointType>& aRange) {
+    MOZ_ASSERT(aRange.IsPositionedAndValid());
+    RefPtr<nsRange> range = aRange.CreateRange(IgnoreErrors());
+    if (NS_WARN_IF(!range) || NS_WARN_IF(!range->IsPositioned())) {
+      return;
+    }
+    mRanges.AppendElement(std::move(range));
+  }
+
+  template <typename PT, typename CT>
+  explicit AutoRangeArray(const EditorDOMPointBase<PT, CT>& aPoint) {
+    MOZ_ASSERT(aPoint.IsSetAndValid());
+    RefPtr<nsRange> range = aPoint.CreateCollapsedRange(IgnoreErrors());
+    if (NS_WARN_IF(!range) || NS_WARN_IF(!range->IsPositioned())) {
+      return;
+    }
+    mRanges.AppendElement(std::move(range));
+  }
+
   void Initialize(const dom::Selection& aSelection) {
     mDirection = aSelection.GetDirection();
     mRanges.Clear();
@@ -344,6 +364,13 @@ class MOZ_STACK_CLASS AutoRangeArray final {
    * element and is first child.
    */
   void EnsureRangesInTextNode(const dom::Text& aTextNode);
+
+  /**
+   * Extend ranges to wrap lines to handle block level edit actions such as
+   * updating the block parent or indent/outdent around the selection.
+   */
+  void ExtendRangesToWrapLinesToHandleBlockLevelEditAction(
+      EditSubAction aEditSubAction, const dom::Element& aEditingHost);
 
   /**
    * Check whether the range is in aEditingHost and both containers of start and
@@ -570,7 +597,53 @@ class MOZ_STACK_CLASS AutoRangeArray final {
     mDirection = nsDirection::eDirNext;
   }
 
+  /**
+   * If the points are same (i.e., mean a collapsed range) and in an empty block
+   * element except the padding <br> element, this makes aStartPoint and
+   * aEndPoint contain the padding <br> element.
+   */
+  static void UpdatePointsToSelectAllChildrenIfCollapsedInEmptyBlockElement(
+      EditorDOMPoint& aStartPoint, EditorDOMPoint& aEndPoint,
+      const dom::Element& aEditingHost);
+
+  /**
+   * CreateRangeExtendedToHardLineStartAndEnd() creates an nsRange instance
+   * which may be expanded to start/end of hard line at both edges of the given
+   * range.  If this fails handling something, returns nullptr.
+   */
+  static already_AddRefed<nsRange>
+  CreateRangeWrappingStartAndEndLinesContainingBoundaries(
+      const EditorDOMRange& aRange, EditSubAction aEditSubAction,
+      const dom::Element& aEditingHost) {
+    if (!aRange.IsPositioned()) {
+      return nullptr;
+    }
+    return CreateRangeWrappingStartAndEndLinesContainingBoundaries(
+        aRange.StartRef(), aRange.EndRef(), aEditSubAction, aEditingHost);
+  }
+  static already_AddRefed<nsRange>
+  CreateRangeWrappingStartAndEndLinesContainingBoundaries(
+      const EditorDOMPoint& aStartPoint, const EditorDOMPoint& aEndPoint,
+      EditSubAction aEditSubAction, const dom::Element& aEditingHost) {
+    RefPtr<nsRange> range =
+        nsRange::Create(aStartPoint.ToRawRangeBoundary(),
+                        aEndPoint.ToRawRangeBoundary(), IgnoreErrors());
+    if (MOZ_UNLIKELY(!range)) {
+      return nullptr;
+    }
+    if (NS_FAILED(ExtendRangeToWrapStartAndEndLinesContainingBoundaries(
+            *range, aEditSubAction, aEditingHost)) ||
+        MOZ_UNLIKELY(!range->IsPositioned())) {
+      return nullptr;
+    }
+    return range.forget();
+  }
+
  private:
+  static nsresult ExtendRangeToWrapStartAndEndLinesContainingBoundaries(
+      nsRange& aRange, EditSubAction aEditSubAction,
+      const dom::Element& aEditingHost);
+
   AutoTArray<mozilla::OwningNonNull<nsRange>, 8> mRanges;
   RefPtr<nsRange> mAnchorFocusRange;
   nsDirection mDirection = nsDirection::eDirNext;

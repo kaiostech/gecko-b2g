@@ -81,7 +81,13 @@ CodeGeneratorShared::CodeGeneratorShared(MIRGenerator* gen, LIRGraph* graph,
     // regular array where all slots are sizeof(Value), it maintains the max
     // argument stack depth separately.
     MOZ_ASSERT(graph->argumentSlotCount() == 0);
+
+#ifdef JS_CODEGEN_ARM64
+    // Ensure SP is aligned to 16 bytes.
+    frameDepth_ = AlignBytes(graph->localSlotsSize(), WasmStackAlignment);
+#else
     frameDepth_ = AlignBytes(graph->localSlotsSize(), sizeof(uintptr_t));
+#endif
     frameDepth_ += gen->wasmMaxStackArgBytes();
 
 #ifdef ENABLE_WASM_SIMD
@@ -101,6 +107,11 @@ CodeGeneratorShared::CodeGeneratorShared(MIRGenerator* gen, LIRGraph* graph,
       frameDepth_ += ComputeByteAlignment(sizeof(wasm::Frame) + frameDepth_,
                                           WasmStackAlignment);
     }
+
+#ifdef JS_CODEGEN_ARM64
+    MOZ_ASSERT((frameDepth_ % WasmStackAlignment) == 0,
+               "Trap exit stub needs 16-byte aligned stack pointer");
+#endif
   } else {
     // Reserve space for frame pointer (and padding on 32-bit platforms).
     offsetOfLocalSlots_ = JitFrameLayout::IonFirstSlotOffset;
@@ -130,17 +141,17 @@ bool CodeGeneratorShared::generatePrologue() {
   masm.pushReturnAddress();
 #endif
 
-  // If profiling, save the current frame pointer to a per-thread global field.
-  if (isProfilerInstrumentationEnabled()) {
-    masm.profilerEnterFrame(masm.getStackPointer(), CallTempReg0);
-  }
-
   // Ensure that the Ion frame is properly aligned.
   masm.assertStackAlignment(JitStackAlignment, 0);
 
   // Frame prologue.
   masm.Push(FramePointer);
   masm.moveStackPtrTo(FramePointer);
+
+  // If profiling, save the current frame pointer to a per-thread global field.
+  if (isProfilerInstrumentationEnabled()) {
+    masm.profilerEnterFrame(FramePointer, CallTempReg0);
+  }
 
   // Note that this automatically sets MacroAssembler::framePushed().
   masm.reserveStack(frameSize() - sizeof(uintptr_t));
@@ -162,16 +173,16 @@ bool CodeGeneratorShared::generateEpilogue() {
     emitTracelogIonStop();
   }
 
+  // If profiling, jump to a trampoline to reset the JitActivation's
+  // lastProfilingFrame to point to the previous frame and return to the caller.
+  if (isProfilerInstrumentationEnabled()) {
+    masm.profilerExitFrame();
+  }
+
   MOZ_ASSERT(masm.framePushed() == frameSize());
   masm.moveToStackPtr(FramePointer);
   masm.pop(FramePointer);
   masm.setFramePushed(0);
-
-  // If profiling, reset the per-thread global lastJitFrame to point to
-  // the previous frame.
-  if (isProfilerInstrumentationEnabled()) {
-    masm.profilerExitFrame();
-  }
 
   masm.ret();
 

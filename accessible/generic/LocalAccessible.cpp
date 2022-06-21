@@ -789,10 +789,6 @@ LayoutDeviceIntRect LocalAccessible::Bounds() const {
       BoundsInAppUnits(), mDoc->PresContext()->AppUnitsPerDevPixel());
 }
 
-nsIntRect LocalAccessible::BoundsInCSSPixels() const {
-  return BoundsInAppUnits().ToNearestPixels(AppUnitsPerCSSPixel());
-}
-
 void LocalAccessible::SetSelected(bool aSelect) {
   if (!HasOwnContent()) return;
 
@@ -1101,9 +1097,7 @@ already_AddRefed<AccAttributes> LocalAccessible::Attributes() {
   // Expose object attributes from ARIA attributes.
   aria::AttrIterator attribIter(mContent);
   while (attribIter.Next()) {
-    nsString value;
-    attribIter.AttrValue(value);
-    attributes->SetAttribute(attribIter.AttrName(), std::move(value));
+    attribIter.ExposeAttr(attributes);
   }
 
   // If there is no aria-live attribute then expose default value of 'live'
@@ -1324,6 +1318,7 @@ void LocalAccessible::DOMAttributeChanged(int32_t aNameSpaceID,
     if (StringBeginsWith(nsDependentAtomString(aAttribute), u"aria-"_ns)) {
       uint8_t attrFlags = aria::AttrCharacteristicsFor(aAttribute);
       if (!(attrFlags & ATTR_BYPASSOBJ)) {
+        mDoc->QueueCacheUpdate(this, CacheDomain::ARIA);
         // For aria attributes like drag and drop changes we fire a generic
         // attribute change event; at least until native API comes up with a
         // more meaningful event.
@@ -3209,6 +3204,73 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
     }
   }
 
+  if (aCacheDomain & CacheDomain::Viewport && IsDoc()) {
+    // Construct the viewport cache for this document. This cache domain will
+    // only be requested after we finish painting.
+    DocAccessible* doc = AsDoc();
+    PresShell* presShell = doc->PresShellPtr();
+
+    if (nsIFrame* rootFrame = presShell->GetRootFrame()) {
+      nsTArray<nsIFrame*> frames;
+      nsIScrollableFrame* sf = presShell->GetRootScrollFrameAsScrollable();
+      nsRect scrollPort = sf ? sf->GetScrollPortRect() : rootFrame->GetRect();
+
+      nsLayoutUtils::GetFramesForArea(
+          RelativeTo{rootFrame}, scrollPort, frames,
+          {{// We only care about visible content for hittesting.
+            nsLayoutUtils::FrameForPointOption::OnlyVisible,
+            // This flag ensures the display lists are built, even if
+            // the page hasn't finished loading.
+            nsLayoutUtils::FrameForPointOption::IgnorePaintSuppression,
+            // Each doc should have its own viewport cache, so we can
+            // ignore cross-doc content as an optimization.
+            nsLayoutUtils::FrameForPointOption::IgnoreCrossDoc}});
+
+      nsTHashSet<LocalAccessible*> inViewAccs;
+      nsTArray<uint64_t> viewportCache;
+      for (nsIFrame* frame : frames) {
+        nsIContent* content = frame->GetContent();
+        if (!content) {
+          continue;
+        }
+
+        LocalAccessible* acc = doc->GetAccessibleOrContainer(content);
+        if (!acc) {
+          continue;
+        }
+
+        if (acc->IsTextLeaf() && nsAccUtils::MustPrune(acc->LocalParent())) {
+          acc = acc->LocalParent();
+        }
+
+        if (acc->IsImageMap()) {
+          // Layout doesn't walk image maps, so we do that
+          // manually here. We do this before adding the map itself
+          // so the children come earlier in the hittesting order.
+          for (uint32_t i = 0; i < acc->ChildCount(); i++) {
+            LocalAccessible* child = acc->LocalChildAt(i);
+            MOZ_ASSERT(child);
+            if (inViewAccs.EnsureInserted(child)) {
+              viewportCache.AppendElement(
+                  child->IsDoc()
+                      ? 0
+                      : reinterpret_cast<uint64_t>(child->UniqueID()));
+            }
+          }
+        }
+
+        if (inViewAccs.EnsureInserted(acc)) {
+          viewportCache.AppendElement(
+              acc->IsDoc() ? 0 : reinterpret_cast<uint64_t>(acc->UniqueID()));
+        }
+      }
+
+      if (viewportCache.Length()) {
+        fields->SetAttribute(nsGkAtoms::viewport, std::move(viewportCache));
+      }
+    }
+  }
+
   bool boundsChanged = false;
   if (aCacheDomain & CacheDomain::Bounds) {
     nsRect newBoundsRect = ParentRelativeBounds();
@@ -3477,6 +3539,25 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
     }
   }
 
+  if (aCacheDomain & CacheDomain::ARIA && mContent) {
+    // We use a nested AccAttributes to make cache updates simpler. Rather than
+    // managing individual removals, we just replace or remove the entire set of
+    // ARIA attributes.
+    RefPtr<AccAttributes> ariaAttrs;
+    aria::AttrIterator attrIt(mContent);
+    while (attrIt.Next()) {
+      if (!ariaAttrs) {
+        ariaAttrs = new AccAttributes();
+      }
+      attrIt.ExposeAttr(ariaAttrs);
+    }
+    if (ariaAttrs) {
+      fields->SetAttribute(nsGkAtoms::aria, std::move(ariaAttrs));
+    } else if (aUpdateType == CacheUpdateType::Update) {
+      fields->SetAttribute(nsGkAtoms::aria, DeleteEntry());
+    }
+  }
+
   if (aUpdateType == CacheUpdateType::Initial) {
     // Add fields which never change and thus only need to be included in the
     // initial cache push.
@@ -3521,13 +3602,20 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
     }
   }
 
+  if ((aCacheDomain & (CacheDomain::Text | CacheDomain::ScrollPosition) ||
+       boundsChanged) &&
+      mDoc) {
+    mDoc->SetViewportCacheDirty(true);
+  }
+
   return fields.forget();
 }
 
 void LocalAccessible::MaybeQueueCacheUpdateForStyleChanges() {
   // mOldComputedStyle might be null if the initial cache hasn't been sent yet.
   // In that case, there is nothing to do here.
-  if (!StaticPrefs::accessibility_cache_enabled_AtStartup() ||
+  if (!IPCAccessibilityActive() ||
+      !StaticPrefs::accessibility_cache_enabled_AtStartup() ||
       !mOldComputedStyle) {
     return;
   }
@@ -3727,4 +3815,15 @@ TableCellAccessibleBase* LocalAccessible::AsTableCellBase() {
     return CachedTableCellAccessible::GetFrom(this);
   }
   return AsTableCell();
+}
+
+Maybe<int32_t> LocalAccessible::GetIntARIAAttr(nsAtom* aAttrName) const {
+  if (mContent) {
+    int32_t val;
+    if (nsCoreUtils::GetUIntAttr(mContent, aAttrName, &val)) {
+      return Some(val);
+    }
+    // XXX Handle attributes that allow -1; e.g. aria-row/colcount.
+  }
+  return Nothing();
 }

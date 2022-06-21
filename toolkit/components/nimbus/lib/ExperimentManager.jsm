@@ -34,7 +34,10 @@ const TELEMETRY_EVENT_OBJECT = "nimbus_experiment";
 const TELEMETRY_EXPERIMENT_ACTIVE_PREFIX = "nimbus-";
 const TELEMETRY_DEFAULT_EXPERIMENT_TYPE = "nimbus";
 
+const UPLOAD_ENABLED_PREF = "datareporting.healthreport.uploadEnabled";
 const STUDIES_OPT_OUT_PREF = "app.shield.optoutstudies.enabled";
+
+const STUDIES_ENABLED_CHANGED = "nimbus:studies-enabled-changed";
 
 function featuresCompat(branch) {
   if (!branch || (!branch.feature && !branch.features)) {
@@ -58,7 +61,15 @@ class _ExperimentManager {
     this.id = id;
     this.store = store || new lazy.ExperimentStore();
     this.sessions = new Map();
+    Services.prefs.addObserver(UPLOAD_ENABLED_PREF, this);
     Services.prefs.addObserver(STUDIES_OPT_OUT_PREF, this);
+  }
+
+  get studiesEnabled() {
+    return (
+      Services.prefs.getBoolPref(UPLOAD_ENABLED_PREF) &&
+      Services.prefs.getBoolPref(STUDIES_OPT_OUT_PREF)
+    );
   }
 
   /**
@@ -429,6 +440,14 @@ class _ExperimentManager {
       enrollmentId:
         enrollment.enrollmentId || lazy.TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
     });
+    // Sent Glean event equivalent
+    Glean.nimbusEvents.unenrollment.record({
+      experiment: slug,
+      branch: enrollment.branch.slug,
+      enrollment_id:
+        enrollment.enrollmentId || lazy.TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+      reason,
+    });
 
     lazy.log.debug(`Recipe unenrolled: ${slug}`);
   }
@@ -437,15 +456,16 @@ class _ExperimentManager {
    * Unenroll from all active studies if user opts out.
    */
   observe(aSubject, aTopic, aPrefName) {
-    if (Services.prefs.getBoolPref(STUDIES_OPT_OUT_PREF)) {
-      return;
+    if (!this.studiesEnabled) {
+      for (const { slug } of this.store.getAllActive()) {
+        this.unenroll(slug, "studies-opt-out");
+      }
+      for (const { slug } of this.store.getAllRollouts()) {
+        this.unenroll(slug, "studies-opt-out");
+      }
     }
-    for (const { slug } of this.store.getAllActive()) {
-      this.unenroll(slug, "studies-opt-out");
-    }
-    for (const { slug } of this.store.getAllRollouts()) {
-      this.unenroll(slug, "studies-opt-out");
-    }
+
+    Services.obs.notifyObservers(null, STUDIES_ENABLED_CHANGED);
   }
 
   /**
@@ -459,6 +479,17 @@ class _ExperimentManager {
     lazy.TelemetryEvents.sendEvent(eventName, TELEMETRY_EVENT_OBJECT, slug, {
       reason,
     });
+    if (eventName == "enrollFailed") {
+      Glean.nimbusEvents.enrollFailed.record({
+        experiment: slug,
+        reason,
+      });
+    } else if (eventName == "unenrollFailed") {
+      Glean.nimbusEvents.unenrollFailed.record({
+        experiment: slug,
+        reason,
+      });
+    }
   }
 
   /**
@@ -471,6 +502,13 @@ class _ExperimentManager {
       branch: branch.slug,
       enrollmentId:
         enrollmentId || lazy.TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+    });
+    Glean.nimbusEvents.enrollment.record({
+      experiment: slug,
+      branch: branch.slug,
+      enrollment_id:
+        enrollmentId || lazy.TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+      experiment_type: experimentType,
     });
   }
 

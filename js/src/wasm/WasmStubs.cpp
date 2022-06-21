@@ -927,6 +927,12 @@ static void GenerateJitEntryThrow(MacroAssembler& masm, unsigned frameSize) {
 
   GenerateJitEntryLoadInstance(masm, frameSize);
 
+  // The frame pointer is still set to FailFP. Restore it before entering the
+  // exit frame.
+  MOZ_ASSERT(frameSize >= JitFrameLayout::FramePointerOffset);
+  uint32_t offset = frameSize - JitFrameLayout::FramePointerOffset;
+  masm.loadPtr(Address(masm.getStackPointer(), offset), FramePointer);
+
   masm.freeStack(frameSize);
   MoveSPForJitABI(masm);
 
@@ -1447,10 +1453,6 @@ void wasm::GenerateDirectCallFromJit(MacroAssembler& masm, const FuncExport& fe,
 
   size_t framePushedAtStart = masm.framePushed();
 
-  // FramePointer isn't volatile, manually preserve it because it will be
-  // clobbered below.
-  masm.Push(FramePointer);
-
   // Note, if code here pushes a reference value into the frame for its own
   // purposes (and not just as an argument to the callee) then the frame must be
   // traced in TraceJitExitFrame, see the case there for DirectWasmJitCall.  The
@@ -1461,8 +1463,13 @@ void wasm::GenerateDirectCallFromJit(MacroAssembler& masm, const FuncExport& fe,
   *callOffset = masm.buildFakeExitFrame(scratch);
   masm.loadJSContext(scratch);
 
-  masm.moveStackPtrTo(FramePointer);
+  // Note: enterFakeExitFrame pushes an ExitFooterFrame containing the current
+  // frame pointer. We also use this to restore the frame pointer after the
+  // call.
   masm.enterFakeExitFrame(scratch, scratch, ExitFrameType::DirectWasmJitCall);
+  // FP := ExitFrameLayout* | ExitOrJitEntryFPTag
+  masm.moveStackPtrTo(FramePointer);
+  masm.addPtr(Imm32(ExitFooterFrame::Size()), FramePointer);
   masm.orPtr(Imm32(ExitOrJitEntryFPTag), FramePointer);
 
   // Move stack arguments to their final locations.
@@ -1662,11 +1669,13 @@ void wasm::GenerateDirectCallFromJit(MacroAssembler& masm, const FuncExport& fe,
 
   GenPrintf(DebugChannel::Function, masm, "\n");
 
+  // Restore the frame pointer by loading it from the ExitFooterFrame.
+  masm.loadPtr(Address(masm.getStackPointer(),
+                       bytesNeeded + ExitFooterFrame::offsetOfCallerFP()),
+               FramePointer);
+
   // Free args + frame descriptor.
   masm.leaveExitFrame(bytesNeeded + ExitFrameLayout::Size());
-
-  // Free FramePointer.
-  masm.Pop(FramePointer);
 
   MOZ_ASSERT(framePushedAtStart == masm.framePushed());
 }
@@ -2268,7 +2277,6 @@ static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
                             sizeof(Frame),  // pushed by prologue
                             totalJitFrameBytes) -
       sizeOfRetAddr;
-  const unsigned sizeOfThisAndArgsAndPadding = jitFramePushed - sizeOfPreFrame;
 
   // On ARM64 we must align the SP to a 16-byte boundary.
 #ifdef JS_CODEGEN_ARM64
@@ -2281,9 +2289,7 @@ static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
 
   // 1. Descriptor.
   size_t argOffset = frameAlignExtra;
-  uint32_t descriptor =
-      MakeFrameDescriptor(sizeOfThisAndArgsAndPadding, FrameType::WasmToJSJit,
-                          WasmToJSJitFrameLayout::Size());
+  uint32_t descriptor = MakeFrameDescriptor(FrameType::WasmToJSJit);
   masm.storePtr(ImmWord(uintptr_t(descriptor)),
                 Address(masm.getStackPointer(), argOffset));
   argOffset += sizeof(size_t);

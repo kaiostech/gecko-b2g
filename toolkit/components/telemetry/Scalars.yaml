@@ -2117,22 +2117,6 @@ pictureinpicture:
       - main
 
 preferences:
-  created_new_user_prefs_file:
-    bug_numbers:
-      - 1367813
-    description: >-
-      A boolean indicating that profile/prefs.js was not found and it is being
-      created for the first time in this session.
-    expires: "62"
-    kind: boolean
-    notification_emails:
-      - bsmedberg@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - main
   prefs_file_was_invalid:
     bug_numbers:
       - 1367813
@@ -6545,6 +6529,92 @@ urlbar:
       - fx-search@mozilla.com
       - tbrooks@mozilla.com
     release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+urlbar.impression:
+  autofill_about:
+    bug_numbers:
+      - 1774305
+    description: >
+      Counts how many times about-page type was autofilled per engagement.
+    expires: never
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  autofill_adaptive:
+    bug_numbers:
+      - 1774305
+    description: >
+      Counts how many times adaptive history type was autofilled per engagement.
+    expires: never
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  autofill_origin:
+    bug_numbers:
+      - 1774305
+    description: >
+      Counts how many times origin type was autofilled per engagement.
+    expires: never
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  autofill_other:
+    bug_numbers:
+      - 1774305
+    description: >
+      Counts how many times other type was autofilled per engagement.
+    expires: never
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  autofill_preloaded:
+    bug_numbers:
+      - 1774305
+    description: >
+      Counts how many times preloaded site type was autofilled per engagement.
+    expires: never
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  autofill_url:
+    bug_numbers:
+      - 1774305
+    description: >
+      Counts how many times url type was autofilled per engagement.
+    expires: never
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+    release_channel_collection: opt-in
     products:
       - 'firefox'
     record_in_processes:

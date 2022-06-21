@@ -28,8 +28,14 @@ using mozilla::IsPowerOfTwo;
 // Given a `CommonFrameLayout* frame`:
 // - `frame->prevType()` should be `FrameType::CppToJSJit`.
 // - Then EnterJITStackEntry starts at:
-//   (uint8_t*)frame + frame->headerSize() + frame->prevFrameLocalSize()
+//     frame->callerFramePtr() + EnterJITStackEntry::offsetFromFP()
+//     (the offset is negative, so this subtracts from the frame pointer)
 struct EnterJITStackEntry {
+  // Offset from frame pointer to EnterJITStackEntry*.
+  static constexpr int32_t offsetFromFP() {
+    return -int32_t(offsetof(EnterJITStackEntry, rbp));
+  }
+
   void* result;
 
 #if defined(_WIN64)
@@ -137,9 +143,6 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
 
   // End of pushes reflected in EnterJITStackEntry, i.e. EnterJITStackEntry
   // starts at this rsp.
-  // Remember stack depth without padding and arguments, the frame descriptor
-  // will record the number of bytes pushed after this.
-  masm.mov(rsp, r14);
 
   // Remember number of bytes occupied by argument vector
   masm.mov(reg_argc, r13);
@@ -197,10 +200,6 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
     masm.bind(&footer);
   }
 
-  // Create the frame descriptor.
-  masm.subq(rsp, r14);
-  masm.makeFrameDescriptor(r14, FrameType::CppToJSJit, JitFrameLayout::Size());
-
   // Push the number of actual arguments.  |result| is used to store the
   // actual number of arguments without adding an extra argument to the enter
   // JIT.
@@ -212,7 +211,7 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
   masm.push(token);
 
   // Push the descriptor.
-  masm.push(r14);
+  masm.pushFrameDescriptor(FrameType::CppToJSJit);
 
   CodeLabel returnLabel;
   Label oomReturnLabel;
@@ -253,12 +252,7 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
     masm.subPtr(valuesSize, rsp);
 
     // Enter exit frame.
-    masm.addPtr(
-        Imm32(BaselineFrame::Size() + BaselineFrame::FramePointerOffset),
-        valuesSize);
-    masm.makeFrameDescriptor(valuesSize, FrameType::BaselineJS,
-                             ExitFrameLayout::Size());
-    masm.push(valuesSize);
+    masm.pushFrameDescriptor(FrameType::BaselineJS);
     masm.push(Imm32(0));  // Fake return address.
     // No GC things to mark, push a bare token.
     masm.loadJSContext(scratch);
@@ -289,13 +283,11 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
     // if profiler instrumentation is enabled.
     {
       Label skipProfilingInstrumentation;
-      Register realFramePtr = numStackValues;
       AbsoluteAddress addressOfEnabled(
           cx->runtime()->geckoProfiler().addressOfEnabled());
       masm.branch32(Assembler::Equal, addressOfEnabled, Imm32(0),
                     &skipProfilingInstrumentation);
-      masm.lea(Operand(rbp, sizeof(void*)), realFramePtr);
-      masm.profilerEnterFrame(realFramePtr, scratch);
+      masm.profilerEnterFrame(rbp, scratch);
       masm.bind(&skipProfilingInstrumentation);
     }
 
@@ -327,12 +319,9 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
     masm.bind(&oomReturnLabel);
   }
 
-  // Pop arguments and padding from stack.
-  masm.pop(r14);  // Pop and decode descriptor.
-  masm.shrq(Imm32(FRAMESIZE_SHIFT), r14);
-  masm.pop(r12);        // Discard calleeToken.
-  masm.pop(r12);        // Discard numActualArgs.
-  masm.addq(r14, rsp);  // Remove arguments.
+  // Discard arguments and padding. Set rsp to the address of the
+  // EnterJITStackEntry on the stack.
+  masm.lea(Operand(rbp, EnterJITStackEntry::offsetFromFP()), rsp);
 
   /*****************************************************************
   Place return value where it belongs, pop all saved registers
@@ -377,13 +366,10 @@ JitRuntime::getCppEntryRegisters(JitFrameLayout* frameStackAddress) {
     return mozilla::Nothing{};
   }
 
-  // The entry is (frame size stored in descriptor) bytes past the header.
-  MOZ_ASSERT(frameStackAddress->headerSize() == JitFrameLayout::Size());
-  const size_t offsetToCppEntry =
-      JitFrameLayout::Size() + frameStackAddress->prevFrameLocalSize();
-  EnterJITStackEntry* enterJITStackEntry =
-      reinterpret_cast<EnterJITStackEntry*>(
-          reinterpret_cast<uint8_t*>(frameStackAddress) + offsetToCppEntry);
+  // Compute pointer to start of EnterJITStackEntry on the stack.
+  uint8_t* fp = frameStackAddress->callerFramePtr();
+  auto* enterJITStackEntry = reinterpret_cast<EnterJITStackEntry*>(
+      fp + EnterJITStackEntry::offsetFromFP());
 
   // Extract native function call registers.
   ::JS::ProfilingFrameIterator::RegisterState registerState;
@@ -435,28 +421,23 @@ void JitRuntime::generateInvalidator(MacroAssembler& masm, Label* bailoutTail) {
 
   masm.movq(rsp, rax);  // Argument to jit::InvalidationBailout.
 
-  // Make space for InvalidationBailout's frameSize outparam.
-  masm.reserveStack(sizeof(size_t));
-  masm.movq(rsp, rbx);
-
   // Make space for InvalidationBailout's bailoutInfo outparam.
   masm.reserveStack(sizeof(void*));
-  masm.movq(rsp, r9);
+  masm.movq(rsp, rbx);
 
-  using Fn = bool (*)(InvalidationBailoutStack * sp, size_t * frameSizeOut,
-                      BaselineBailoutInfo * *info);
+  using Fn =
+      bool (*)(InvalidationBailoutStack * sp, BaselineBailoutInfo * *info);
   masm.setupUnalignedABICall(rdx);
   masm.passABIArg(rax);
   masm.passABIArg(rbx);
-  masm.passABIArg(r9);
   masm.callWithABI<Fn, InvalidationBailout>(
       MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
 
-  masm.pop(r9);   // Get the bailoutInfo outparam.
-  masm.pop(rbx);  // Get the frameSize outparam.
+  masm.pop(r9);  // Get the bailoutInfo outparam.
 
   // Pop the machine state and the dead frame.
-  masm.lea(Operand(rsp, rbx, TimesOne, sizeof(InvalidationBailoutStack)), rsp);
+  masm.moveToStackPtr(FramePointer);
+  masm.pop(FramePointer);
 
   // Jump to shared bailout tail. The BailoutInfo pointer has to be in r9.
   masm.jmp(bailoutTail);
@@ -614,15 +595,10 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
   //                                                 [callee] [descr] [raddr] ]
   //
 
-  // Construct descriptor, accounting for pushed frame pointer above
-  masm.lea(Operand(FramePointer, sizeof(void*)), r9);
-  masm.subq(rsp, r9);
-  masm.makeFrameDescriptor(r9, FrameType::Rectifier, JitFrameLayout::Size());
-
   // Construct JitFrameLayout.
   masm.push(rdx);  // numActualArgs
   masm.push(rax);  // callee token
-  masm.push(r9);   // descriptor
+  masm.pushFrameDescriptor(FrameType::Rectifier);
 
   // Call the target function.
   masm.andq(Imm32(uint32_t(CalleeTokenMask)), rax);
@@ -675,17 +651,9 @@ static void GenerateBailoutThunk(MacroAssembler& masm, Label* bailoutTail) {
 
   masm.pop(r9);  // Get the bailoutInfo outparam.
 
-  // Stack is:
-  //     [frame]
-  //     snapshotOffset
-  //     frameSize
-  //     [bailoutFrame]
-  //
   // Remove both the bailout frame and the topmost Ion frame's stack.
-  static constexpr uint32_t BailoutDataSize = sizeof(RegisterDump);
-  masm.addq(Imm32(BailoutDataSize), rsp);
-  masm.pop(rcx);  // frameSize
-  masm.lea(Operand(rsp, rcx, TimesOne, sizeof(void*)), rsp);
+  masm.moveToStackPtr(FramePointer);
+  masm.pop(FramePointer);
 
   // Jump to shared bailout tail. The BailoutInfo pointer has to be in r9.
   masm.jmp(bailoutTail);

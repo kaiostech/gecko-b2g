@@ -467,7 +467,7 @@ class Bootstrapper(object):
 
         if current_mozconfig_path:
             # mozconfig file exists
-            if Path.samefile(
+            if self._default_mozconfig_path().exists() and Path.samefile(
                 Path(current_mozconfig_path), self._default_mozconfig_path()
             ):
                 # This mozconfig file may be created by bootstrap.

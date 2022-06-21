@@ -40,10 +40,7 @@ void MacroAssembler::clampDoubleToUint8(FloatRegister input, Register output) {
 }
 
 bool MacroAssemblerLOONG64Compat::buildOOLFakeExitFrame(void* fakeReturnAddr) {
-  uint32_t descriptor = MakeFrameDescriptor(
-      asMasm().framePushed(), FrameType::IonJS, ExitFrameLayout::Size());
-
-  asMasm().Push(Imm32(descriptor));  // descriptor_
+  asMasm().PushFrameDescriptor(FrameType::IonJS);  // descriptor_
   asMasm().Push(ImmPtr(fakeReturnAddr));
 
   return true;
@@ -5266,10 +5263,12 @@ void MacroAssemblerLOONG64Compat::handleFailureWithHandlerTail(
 
   breakpoint();  // Invalid kind.
 
-  // No exception handler. Load the error value, load the new stack pointer
-  // and return from the entry frame.
+  // No exception handler. Load the error value, restore state and return from
+  // the entry frame.
   bind(&entryFrame);
   asMasm().moveValue(MagicValue(JS_ION_ERROR), JSReturnOperand);
+  loadPtr(Address(StackPointer, ResumeFromException::offsetOfFramePointer()),
+          FramePointer);
   loadPtr(Address(StackPointer, ResumeFromException::offsetOfStackPointer()),
           StackPointer);
 
@@ -5312,8 +5311,6 @@ void MacroAssemblerLOONG64Compat::handleFailureWithHandlerTail(
           StackPointer);
   loadValue(Address(FramePointer, BaselineFrame::reverseOffsetOfReturnValue()),
             JSReturnOperand);
-  as_or(StackPointer, FramePointer, zero);
-  pop(FramePointer);
   jump(&profilingInstrumentation);
 
   // Return the given value to the caller.
@@ -5340,6 +5337,8 @@ void MacroAssemblerLOONG64Compat::handleFailureWithHandlerTail(
     bind(&skipProfilingInstrumentation);
   }
 
+  as_or(StackPointer, FramePointer, zero);
+  pop(FramePointer);
   ret();
 
   // If we are bailing out to baseline to handle an exception, jump to

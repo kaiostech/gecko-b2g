@@ -369,7 +369,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleBackground {
 
   // True if this background is completely transparent.
   bool IsTransparent(const nsIFrame* aFrame) const;
-  bool IsTransparent(mozilla::ComputedStyle* aStyle) const;
+  bool IsTransparent(const mozilla::ComputedStyle* aStyle) const;
 
   // We have to take slower codepaths for fixed background attachment,
   // but we don't want to do that when there's no image.
@@ -1521,6 +1521,8 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleDisplay {
            !IsInternalTableStyleExceptCell();
   }
 
+  bool IsContainAny() const { return !!EffectiveContainment(); }
+
   mozilla::ContainSizeAxes GetContainSizeAxes() const {
     const auto contain = EffectiveContainment();
     // Short circuit for no containment whatsoever
@@ -1846,6 +1848,9 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleUIReset {
   uint32_t mAnimationPlayStateCount;
   uint32_t mAnimationIterationCountCount;
   uint32_t mAnimationTimelineCount;
+
+  mozilla::StyleScrollTimelineName mScrollTimelineName;
+  mozilla::StyleScrollAxis mScrollTimelineAxis;
 };
 
 struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleUI {

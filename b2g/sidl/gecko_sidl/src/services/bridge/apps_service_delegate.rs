@@ -96,9 +96,6 @@ impl SessionObject for AppsServiceDelegate {
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnUninstall(manifest_url)) => {
                 self.post_task(AppsServiceCommand::OnUninstall(manifest_url), request_id);
             }
-            Ok(GeckoBridgeToClient::AppsServiceDelegateOnUninstall(manifest_url)) => {
-                self.post_task(AppsServiceCommand::OnUninstall(manifest_url), request_id);
-            }
             _ => {
                 error!(
                     "AppsServiceDelegate::on_request unexpected message: {:?}",
@@ -244,11 +241,10 @@ impl SidlTask for AppsServiceDelegateTask {
                 AppsServiceCommand::GetUa() => {
                     let mut ua = nsString::new();
                     let status = unsafe { object.GetUa(&mut *ua) };
-                    match status {
-                        NS_OK => {
-                            GeckoBridgeFromClient::AppsServiceDelegateGetUaSuccess(ua.to_string())
-                        }
-                        _ => GeckoBridgeFromClient::AppsServiceDelegateGetUaError,
+                    if status == nserror::NS_OK {
+                        GeckoBridgeFromClient::AppsServiceDelegateGetUaSuccess(ua.to_string())
+                    } else {
+                        GeckoBridgeFromClient::AppsServiceDelegateGetUaError
                     }
                 }
             };

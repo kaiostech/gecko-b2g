@@ -11,12 +11,10 @@ import {
   getPrettySourceURL,
   isDescendantOfRoot,
   isGenerated,
-  getPlainUrl,
   isPretty,
   isJavaScript,
   removeThreadActorId,
 } from "../utils/source";
-import { stripQuery } from "../utils/url";
 
 import { findPosition } from "../utils/breakpoint/breakpointPositions";
 import { isFulfilled } from "../utils/async-value";
@@ -127,24 +125,6 @@ export function hasPrettySource(state, id) {
   return !!getPrettySource(state, id);
 }
 
-// This is only used by jest tests
-export function getSourcesUrlsInSources(state, url) {
-  if (!url) {
-    return [];
-  }
-
-  const plainUrl = getPlainUrl(url);
-  return getPlainUrls(state)[plainUrl] || [];
-}
-
-export function getHasSiblingOfSameName(state, source) {
-  if (!source) {
-    return false;
-  }
-
-  return getSourcesUrlsInSources(state, source.url).length > 1;
-}
-
 // This is only used externaly by tabs and breakpointSources selectors
 export function getSourcesMap(state) {
   return state.sources.sources;
@@ -152,10 +132,6 @@ export function getSourcesMap(state) {
 
 function getUrls(state) {
   return state.sources.urls;
-}
-
-function getPlainUrls(state) {
-  return state.sources.plainUrls;
 }
 
 export const getSourceList = createSelector(
@@ -263,7 +239,6 @@ export const getDisplayedSources = createSelector(
   getMainThreadHost,
   (list, mainThreadHost) => {
     const result = {};
-    const entriesByNoQueryURL = {};
     for (const source of list) {
       const displayURL = getDisplayURL(source.url, mainThreadHost);
 
@@ -293,27 +268,6 @@ export const getDisplayedSources = createSelector(
         result[thread] = {};
       }
       result[thread][displayedSource.id] = displayedSource;
-
-      // Lets see if we have sources
-      // with query parameters in their URL that can be removed
-      const noQueryURL = stripQuery(displayedSource.url);
-      // This had query parameters to strip out
-      if (noQueryURL != displayedSource.url) {
-        if (!entriesByNoQueryURL[noQueryURL]) {
-          entriesByNoQueryURL[noQueryURL] = [];
-        }
-        entriesByNoQueryURL[noQueryURL].push(displayedSource);
-      }
-    }
-
-    // If the URL does not compete with another without the query string,
-    // we exclude the query string when rendering the source URL to keep the
-    // UI more easily readable.
-    for (const noQueryURL in entriesByNoQueryURL) {
-      const entries = entriesByNoQueryURL[noQueryURL];
-      if (entries.length === 1) {
-        entries[0].displayURL = getDisplayURL(noQueryURL, mainThreadHost);
-      }
     }
 
     return result;

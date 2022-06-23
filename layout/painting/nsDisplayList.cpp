@@ -8020,7 +8020,7 @@ void nsDisplayMasksAndClipPaths::Paint(nsDisplayListBuilder* aBuilder,
   });
 }
 
-static Maybe<wr::WrClipId> CreateSimpleClipRegion(
+static Maybe<wr::WrClipChainId> CreateSimpleClipRegion(
     const nsDisplayMasksAndClipPaths& aDisplayItem,
     wr::DisplayListBuilder& aBuilder) {
   nsIFrame* frame = aDisplayItem.Frame();
@@ -8096,7 +8096,9 @@ static Maybe<wr::WrClipId> CreateSimpleClipRegion(
       return Nothing();
   }
 
-  return Some(clipId);
+  wr::WrClipChainId clipChainId = aBuilder.DefineClipChain({clipId}, true);
+
+  return Some(clipChainId);
 }
 
 static void FillPolygonDataForDisplayItem(
@@ -8136,7 +8138,7 @@ static void FillPolygonDataForDisplayItem(
                   : wr::FillRule::Evenodd;
 }
 
-static Maybe<wr::WrClipId> CreateWRClipPathAndMasks(
+static Maybe<wr::WrClipChainId> CreateWRClipPathAndMasks(
     nsDisplayMasksAndClipPaths* aDisplayItem, const LayoutDeviceRect& aBounds,
     wr::IpcResourceUpdateQueue& aResources, wr::DisplayListBuilder& aBuilder,
     const StackingContextHelper& aSc, RenderRootStateManager* aManager,
@@ -8160,7 +8162,9 @@ static Maybe<wr::WrClipId> CreateWRClipPathAndMasks(
   wr::WrClipId clipId =
       aBuilder.DefineImageMaskClip(mask.ref(), points, fillRule);
 
-  return Some(clipId);
+  wr::WrClipChainId clipChainId = aBuilder.DefineClipChain({clipId}, true);
+
+  return Some(clipChainId);
 }
 
 bool nsDisplayMasksAndClipPaths::CreateWebRenderCommands(
@@ -8173,7 +8177,7 @@ bool nsDisplayMasksAndClipPaths::CreateWebRenderCommands(
   LayoutDeviceRect bounds =
       LayoutDeviceRect::FromAppUnits(displayBounds, appUnitsPerDevPixel);
 
-  Maybe<wr::WrClipId> clip = CreateWRClipPathAndMasks(
+  Maybe<wr::WrClipChainId> clip = CreateWRClipPathAndMasks(
       this, bounds, aResources, aBuilder, aSc, aManager, aDisplayListBuilder);
 
   float oldOpacity = aBuilder.GetInheritedOpacity();
@@ -8194,7 +8198,7 @@ bool nsDisplayMasksAndClipPaths::CreateWebRenderCommands(
             : Nothing();
 
     wr::StackingContextParams params;
-    params.clip = wr::WrStackingContextClip::ClipId(*clip);
+    params.clip = wr::WrStackingContextClip::ClipChain(clip->id);
     params.opacity = opacity.ptrOr(nullptr);
     if (mWrapsBackdropFilter) {
       params.flags |= wr::StackingContextFlags::WRAPS_BACKDROP_FILTER;
@@ -8433,16 +8437,18 @@ bool nsDisplayFilters::CreateWebRenderCommands(
     return true;
   }
 
-  wr::WrStackingContextClip clip{};
+  uint64_t clipChainId;
   if (filterClip) {
     auto devPxRect = LayoutDeviceRect::FromAppUnits(
         filterClip.value() + ToReferenceFrame(), auPerDevPixel);
-    wr::WrClipId clipId =
+    auto clipId =
         aBuilder.DefineRectClip(Nothing(), wr::ToLayoutRect(devPxRect));
-    clip = wr::WrStackingContextClip::ClipId(clipId);
+    clipChainId = aBuilder.DefineClipChain({clipId}, true).id;
   } else {
-    clip = wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
+    clipChainId = aBuilder.CurrentClipChainId();
   }
+  wr::WrStackingContextClip clip =
+      wr::WrStackingContextClip::ClipChain(clipChainId);
 
   float opacity = aBuilder.GetInheritedOpacity();
   aBuilder.SetInheritedOpacity(1.0f);

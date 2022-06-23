@@ -496,9 +496,8 @@ bool BaselineCacheIRCompiler::emitCallScriptedGetterShared(
     masm.storeICScriptInJSContext(scratch);
   }
 
-  masm.Push(Imm32(0));  // ActualArgc is 0
   masm.Push(callee);
-  masm.PushFrameDescriptor(FrameType::BaselineStub);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, /* argc = */ 0);
 
   // Handle arguments underflow.
   Label noUnderflow;
@@ -1579,13 +1578,11 @@ bool BaselineCacheIRCompiler::emitCallScriptedSetterShared(
   masm.Push(val);
   masm.Push(TypedOrValueRegister(MIRType::Object, AnyRegister(receiver)));
 
-  masm.Push(Imm32(1));  // ActualArgc
-
   // Push callee.
   masm.Push(callee);
 
   // Push frame descriptor.
-  masm.PushFrameDescriptor(FrameType::BaselineStub);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, /* argc = */ 1);
 
   if (isInlined) {
     // Store icScript in the context.
@@ -2604,6 +2601,7 @@ bool BaselineCacheIRCompiler::emitCallNativeShared(
 
   masm.pushFrameDescriptor(FrameType::BaselineStub);
   masm.push(ICTailCallReg);
+  masm.push(FramePointer);
   masm.loadJSContext(scratch);
   masm.enterFakeExitFrameForNative(scratch, scratch, isConstructing);
 
@@ -2845,11 +2843,12 @@ void BaselineCacheIRCompiler::updateReturnValue() {
   //  ...
   //  Arg0
   //  ThisVal         <---- We want this value.
-  //  argc                  ^
-  //  Callee token          | Skip three stack slots.
+  //  Callee token          | Skip two stack slots.
   //  Frame descriptor      v
   //  [Top of stack]
-  Address thisAddress(masm.getStackPointer(), 3 * sizeof(size_t));
+  size_t thisvOffset =
+      JitFrameLayout::offsetOfThis() - JitFrameLayout::bytesPoppedAfterCall();
+  Address thisAddress(masm.getStackPointer(), thisvOffset);
   masm.loadValue(thisAddress, JSReturnOperand);
 
 #ifdef DEBUG
@@ -2901,9 +2900,8 @@ bool BaselineCacheIRCompiler::emitCallScriptedFunction(ObjOperandId calleeId,
 
   // Note that we use Push, not push, so that callJit will align the stack
   // properly on ARM.
-  masm.Push(argcReg);
   masm.PushCalleeToken(calleeReg, isConstructing);
-  masm.PushFrameDescriptor(FrameType::BaselineStub);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, argcReg, scratch);
 
   // Handle arguments underflow.
   Label noUnderflow;
@@ -3009,9 +3007,8 @@ bool BaselineCacheIRCompiler::emitCallInlinedFunction(ObjOperandId calleeId,
 
   // Note that we use Push, not push, so that callJit will align the stack
   // properly on ARM.
-  masm.Push(argcReg);
   masm.PushCalleeToken(calleeReg, isConstructing);
-  masm.PushFrameDescriptor(FrameType::BaselineStub);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, argcReg, scratch);
 
   // Handle arguments underflow.
   Label noUnderflow;
@@ -3184,9 +3181,8 @@ bool BaselineCacheIRCompiler::emitCloseIterScriptedResult(
     masm.pushValue(UndefinedValue());
   }
   masm.Push(TypedOrValueRegister(MIRType::Object, AnyRegister(iter)));
-  masm.Push(Imm32(0));  // argc is 0
   masm.Push(callee);
-  masm.PushFrameDescriptor(FrameType::BaselineStub);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, /* argc = */ 0);
 
   masm.callJit(code);
 

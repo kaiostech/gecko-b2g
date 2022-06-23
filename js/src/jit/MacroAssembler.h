@@ -846,6 +846,18 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void pushFrameDescriptor(FrameType type);
   inline void PushFrameDescriptor(FrameType type);
 
+  // For JitFrameLayout, the descriptor also stores the number of arguments
+  // passed by the caller. See MakeFrameDescriptorForJitCall.
+  inline void pushFrameDescriptorForJitCall(FrameType type, uint32_t argc);
+  inline void pushFrameDescriptorForJitCall(FrameType type, Register argc,
+                                            Register scratch);
+  inline void PushFrameDescriptorForJitCall(FrameType type, uint32_t argc);
+  inline void PushFrameDescriptorForJitCall(FrameType type, Register argc,
+                                            Register scratch);
+
+  // Load the number of actual arguments from the frame's JitFrameLayout.
+  inline void loadNumActualArgs(Register framePtr, Register dest);
+
   // Push the callee token of a JSFunction which pointer is stored in the
   // |callee| register. The callee token is packed with a |constructing| flag
   // which correspond to the fact that the JS function is called with "new" or

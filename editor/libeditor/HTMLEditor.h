@@ -636,12 +636,24 @@ class HTMLEditor final : public EditorBase,
                                          nsIContent& aContent) const;
 
   /**
-   * Get an active editor's editing host in DOM window.  If this editor isn't
-   * active in the DOM window, this returns NULL.
+   * Compute editing host for aContent.  If this editor isn't active in the DOM
+   * window, this returns nullptr.
    */
   enum class LimitInBodyElement { No, Yes };
-  Element* ComputeEditingHost(
-      LimitInBodyElement aLimitInBodyElement = LimitInBodyElement::Yes) const;
+  [[nodiscard]] Element* ComputeEditingHost(
+      const nsIContent& aContent,
+      LimitInBodyElement aLimitInBodyElement = LimitInBodyElement::Yes) const {
+    return ComputeEditingHostInternal(&aContent, aLimitInBodyElement);
+  }
+
+  /**
+   * Compute editing host for the focus node of the Selection.  If this editor
+   * isn't active in the DOM window, this returns nullptr.
+   */
+  [[nodiscard]] Element* ComputeEditingHost(
+      LimitInBodyElement aLimitInBodyElement = LimitInBodyElement::Yes) const {
+    return ComputeEditingHostInternal(nullptr, aLimitInBodyElement);
+  }
 
   /**
    * Retruns true if we're in designMode.
@@ -847,7 +859,7 @@ class HTMLEditor final : public EditorBase,
    * Helper routines for font size changing.
    */
   enum class FontSize { incr, decr };
-  MOZ_CAN_RUN_SCRIPT nsresult
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT CreateElementResult
   RelativeFontChangeOnTextNode(FontSize aDir, Text& aTextNode,
                                uint32_t aStartOffset, uint32_t aEndOffset);
 
@@ -1128,18 +1140,11 @@ class HTMLEditor final : public EditorBase,
    * @param aRangeItem          [in/out] One or two DOM points where should be
    *                            split.  Will be modified to split point if
    *                            they're split.
+   * @return                    A suggest point to put caret if succeeded, but
+   *                            it may be unset.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
   SplitParentInlineElementsAtRangeEdges(RangeItem& aRangeItem);
-
-  /**
-   * SplitParentInlineElementsAtRangeEdges(nsTArray<OwningNonNull<nsRange>>&)
-   * calls SplitParentInlineElementsAtRangeEdges(RangeItem&) for each range.
-   * Then, updates given range to keep edit target ranges as expected.
-   */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  SplitParentInlineElementsAtRangeEdges(
-      nsTArray<OwningNonNull<nsRange>>& aArrayOfRanges);
 
   /**
    * SplitElementsAtEveryBRElement() splits before all <br> elements in
@@ -1181,67 +1186,6 @@ class HTMLEditor final : public EditorBase,
       EditSubAction aEditSubAction);
 
   /**
-   * CollectEditableChildren() collects child nodes of aNode (starting from
-   * first editable child, but may return non-editable children after it).
-   *
-   * @param aNode               Parent node of retrieving children.
-   * @param aOutArrayOfContents [out] This method will inserts found children
-   *                            into this array.
-   * @param aIndexToInsertChildren      Starting from this index, found
-   *                                    children will be inserted to the array.
-   * @param aCollectListChildren        If Yes, will collect children of list
-   *                                    and list-item elements recursively.
-   * @param aCollectTableChildren       If Yes, will collect children of table
-   *                                    related elements recursively.
-   * @param aCollectNonEditableNodes    If Yes, will collect found children
-   *                                    even if they are not editable.
-   * @return                    Number of found children.
-   */
-  enum class CollectListChildren { No, Yes };
-  enum class CollectTableChildren { No, Yes };
-  enum class CollectNonEditableNodes { No, Yes };
-  size_t CollectChildren(
-      nsINode& aNode, nsTArray<OwningNonNull<nsIContent>>& aOutArrayOfContents,
-      size_t aIndexToInsertChildren, CollectListChildren aCollectListChildren,
-      CollectTableChildren aCollectTableChildren,
-      CollectNonEditableNodes aCollectNonEditableNodes) const;
-
-  /**
-   * SplitInlinessAndCollectEditTargetNodes() splits text nodes and inline
-   * elements around aArrayOfRanges.  Then, collects edit target nodes to
-   * aOutArrayOfNodes.  Finally, each edit target nodes is split at every
-   * <br> element in it.
-   */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  SplitInlinesAndCollectEditTargetNodes(
-      nsTArray<OwningNonNull<nsRange>>& aArrayOfRanges,
-      nsTArray<OwningNonNull<nsIContent>>& aOutArrayOfContents,
-      EditSubAction aEditSubAction,
-      CollectNonEditableNodes aCollectNonEditableNodes);
-
-  /**
-   * SplitTextNodesAtRangeEnd() splits text nodes if each range end is in
-   * middle of a text node.
-   *
-   * @return            A suggest point to put caret if succeeded, but it may be
-   *                    unset.
-   */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
-  SplitTextNodesAtRangeEnd(
-      const nsTArray<OwningNonNull<nsRange>>& aArrayOfRanges);
-
-  /**
-   * CollectEditTargetNodes() collects edit target nodes in aArrayOfRanges.
-   * First, this collects all nodes in given ranges, then, modifies the
-   * result for specific edit sub-actions.
-   */
-  nsresult CollectEditTargetNodes(
-      nsTArray<OwningNonNull<nsRange>>& aArrayOfRanges,
-      nsTArray<OwningNonNull<nsIContent>>& aOutArrayOfContents,
-      EditSubAction aEditSubAction,
-      CollectNonEditableNodes aCollectNonEditableNodes);
-
-  /**
    * CreateRangeIncludingAdjuscentWhiteSpaces() creates an nsRange instance
    * which may be expanded from the given range to include adjuscent
    * white-spaces.  If this fails handling something, returns nullptr.
@@ -1276,13 +1220,15 @@ class HTMLEditor final : public EditorBase,
   Element* GetParentListElementAtSelection() const;
 
   /**
-   * MaybeExtendSelectionToHardLineEdgesForBlockEditAction() adjust Selection if
-   * there is only one range.  If range start and/or end point is <br> node or
-   * something non-editable point, they should be moved to nearest text node or
-   * something where the other methods easier to handle edit action.
+   * GetRangeExtendedToHardLineEdgesForBlockEditAction() returns an extended
+   * range if aRange should be extended before handling a block level editing.
+   * If aRange start and/or end point <br> or something non-editable point, they
+   * should be moved to nearest text node or something where the other methods
+   * easier to handle edit action.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  MaybeExtendSelectionToHardLineEdgesForBlockEditAction();
+  [[nodiscard]] Result<EditorRawDOMRange, nsresult>
+  GetRangeExtendedToHardLineEdgesForBlockEditAction(
+      const nsRange* aRange, const Element& aEditingHost) const;
 
   /**
    * InitializeInsertingElement is a callback type of methods which inserts
@@ -1483,9 +1429,10 @@ class HTMLEditor final : public EditorBase,
    * FormatBlockContainerWithTransaction() is implementation of "formatBlock"
    * command of `Document.execCommand()`.  This applies block style or removes
    * it.
-   * NOTE: This creates AutoSelectionRestorer.  Therefore, even when this
-   *       return NS_OK, editor may have been destroyed.
    *
+   * @param aSelectionRanges    The ranges which are cloned by selection or
+   *                            updated from it with doing something before
+   *                            calling this.
    * @param aBlockType  New block tag name.
    *                    If nsGkAtoms::normal or nsGkAtoms::_empty,
    *                    RemoveBlockContainerElementsWithTransaction() will be
@@ -1498,7 +1445,8 @@ class HTMLEditor final : public EditorBase,
    * @param aEditingHost        The editing host.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult FormatBlockContainerWithTransaction(
-      nsAtom& aBlockType, const Element& aEditingHost);
+      AutoRangeArray& aSelectionRanges, nsAtom& aBlockType,
+      const Element& aEditingHost);
 
   /**
    * InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary() determines if
@@ -1509,12 +1457,6 @@ class HTMLEditor final : public EditorBase,
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
   InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
       const EditorDOMPoint& aPointToInsert);
-
-  /**
-   * Insert a `<br>` element if aElement is a block element and empty.
-   */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  InsertBRElementIfEmptyBlockElement(Element& aElement);
 
   /**
    * Insert padding `<br>` element for empty last line into aElement if
@@ -1531,7 +1473,7 @@ class HTMLEditor final : public EditorBase,
   MaybeInsertPaddingBRElementForEmptyLastLineAtSelection();
 
   /**
-   * SplitParagraph() splits the parent block, aParentDivOrP, at
+   * SplitParagraphWithTransaction() splits the parent block, aParentDivOrP, at
    * aStartOfRightNode.
    *
    * @param aParentDivOrP       The parent block to be split.  This must be <p>
@@ -1539,27 +1481,39 @@ class HTMLEditor final : public EditorBase,
    * @param aStartOfRightNode   The point to be start of right node after
    *                            split.  This must be descendant of
    *                            aParentDivOrP.
-   * @param aNextBRNode         Next <br> node if there is.  Otherwise, nullptr.
-   *                            If this is not nullptr, the <br> node may be
-   *                            removed.
+   * @param aMayBecomeVisibleBRElement
+   *                            Next <br> element of the split point if there
+   *                            is.  Otherwise, nullptr. If this is not nullptr,
+   *                            the <br> element may be removed if it becomes
+   *                            visible.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  SplitParagraph(Element& aParentDivOrP,
-                 const EditorDOMPoint& aStartOfRightNode, nsIContent* aBRNode);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT SplitNodeResult
+  SplitParagraphWithTransaction(Element& aParentDivOrP,
+                                const EditorDOMPoint& aStartOfRightNode,
+                                dom::HTMLBRElement* aMayBecomeVisibleBRElement);
 
   /**
    * HandleInsertParagraphInParagraph() does the right thing for Enter key
    * press or 'insertParagraph' command in aParentDivOrP.  aParentDivOrP will
-   * be split at start of first selection range.
+   * be split **around** aCandidatePointToSplit.  If this thinks that it should
+   * be handled to insert a <br> instead, this returns "not handled".
    *
    * @param aParentDivOrP   The parent block.  This must be <p> or <div>
    *                        element.
-   * @return                Returns with NS_OK if this doesn't meat any
-   *                        unexpected situation.  If this method tries to
-   *                        split the paragraph, marked as handled.
+   * @param aCandidatePointToSplit
+   *                        The point where the caller want to split
+   *                        aParentDivOrP.  However, in some cases, this is not
+   *                        used as-is.  E.g., this method avoids to create new
+   *                        empty <a href> in the right paragraph.  So this may
+   *                        be adjusted to proper position around it.
+   * @param aEditingHost    The editing host.
+   * @return                If the caller should default to inserting <br>
+   *                        element, returns "not handled".
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT EditActionResult
-  HandleInsertParagraphInParagraph(Element& aParentDivOrP);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT SplitNodeResult
+  HandleInsertParagraphInParagraph(Element& aParentDivOrP,
+                                   const EditorDOMPoint& aCandidatePointToSplit,
+                                   const Element& aEditingHost);
 
   /**
    * HandleInsertParagraphInHeadingElement() handles insertParagraph command
@@ -1570,9 +1524,8 @@ class HTMLEditor final : public EditorBase,
    *
    * @param aHeadingElement     The heading element to be split.
    * @param aPointToSplit       The point to split aHeadingElement.
-   * @return                    A candidate position to put caret.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT SplitNodeResult
   HandleInsertParagraphInHeadingElement(Element& aHeadingElement,
                                         const EditorDOMPoint& aPointToSplit);
 
@@ -1800,46 +1753,47 @@ class HTMLEditor final : public EditorBase,
 
   /**
    * InsertContainerWithTransaction() creates new element whose name is
-   * aTagName, moves aContent into the new element, then, inserts the new
-   * element into where aContent was.
-   * Note that this method does not check if aContent is valid child of
-   * the new element.  So, callers need to guarantee it.
+   * aWrapperTagName, moves aContentToBeWrapped into the new element, then,
+   * inserts the new element into where aContentToBeWrapped was.
+   * NOTE: This method does not check if aContentToBeWrapped is valid child
+   * of the new element.  So, callers need to guarantee it.
    *
-   * @param aContent            The content which will be wrapped with new
+   * @param aContentToBeWrapped The content which will be wrapped with new
    *                            element.
-   * @param aTagName            Element name of new element which will wrap
+   * @param aWrapperTagName     Element name of new element which will wrap
    *                            aContent and be inserted into where aContent
    *                            was.
-   * @return                    The new element.
    */
-  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> InsertContainerWithTransaction(
-      nsIContent& aContent, nsAtom& aTagName) {
-    return InsertContainerWithTransactionInternal(aContent, aTagName,
-                                                  *nsGkAtoms::_empty, u""_ns);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT CreateElementResult
+  InsertContainerWithTransaction(nsIContent& aContentToBeWrapped,
+                                 nsAtom& aWrapperTagName) {
+    return InsertContainerWithTransactionInternal(
+        aContentToBeWrapped, aWrapperTagName, *nsGkAtoms::_empty, u""_ns);
   }
 
   /**
    * InsertContainerWithTransaction() creates new element whose name is
-   * aTagName, sets its aAttribute to aAttributeValue, moves aContent into the
-   * new element, then, inserts the new element into where aContent was.
-   * Note that this method does not check if aContent is valid child of
-   * the new element.  So, callers need to guarantee it.
+   * aWrapperTagName, sets its aAttribute to aAttributeValue, moves
+   * aContentToBeWrapped into the new element, then, inserts the new element
+   * into where aContentToBeWrapped was.
+   * NOTE: This method does not check if aContentToBeWrapped is valid child
+   * of the new element.  So, callers need to guarantee it.
    *
-   * @param aContent            The content which will be wrapped with new
+   * @param aContentToBeWrapped The content which will be wrapped with new
    *                            element.
-   * @param aTagName            Element name of new element which will wrap
+   * @param aWrapperTagName     Element name of new element which will wrap
    *                            aContent and be inserted into where aContent
    *                            was.
    * @param aAttribute          Attribute which should be set to the new
    *                            element.
    * @param aAttributeValue     Value to be set to aAttribute.
-   * @return                    The new element.
    */
-  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> InsertContainerWithTransaction(
-      nsIContent& aContent, nsAtom& aTagName, nsAtom& aAttribute,
-      const nsAString& aAttributeValue) {
-    return InsertContainerWithTransactionInternal(aContent, aTagName,
-                                                  aAttribute, aAttributeValue);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT CreateElementResult
+  InsertContainerWithTransaction(nsIContent& aContentToBeWrapped,
+                                 nsAtom& aWrapperTagName, nsAtom& aAttribute,
+                                 const nsAString& aAttributeValue) {
+    return InsertContainerWithTransactionInternal(
+        aContentToBeWrapped, aWrapperTagName, aAttribute, aAttributeValue);
   }
 
   /**
@@ -2729,6 +2683,9 @@ class HTMLEditor final : public EditorBase,
 
   MOZ_CAN_RUN_SCRIPT nsresult SelectAllInternal() final;
 
+  [[nodiscard]] Element* ComputeEditingHostInternal(
+      const nsIContent* aContent, LimitInBodyElement aLimitInBodyElement) const;
+
   /**
    * Creates a range with just the supplied node and appends that to the
    * selection.
@@ -3244,13 +3201,14 @@ class HTMLEditor final : public EditorBase,
 
   /**
    * InsertContainerWithTransactionInternal() creates new element whose name is
-   * aTagName, moves aContent into the new element, then, inserts the new
-   * element into where aContent was.  If aAttribute is not nsGkAtoms::_empty,
-   * aAttribute of the new element will be set to aAttributeValue.
+   * aWrapperTagName, moves aContentToBeWrapped into the new element, then,
+   * inserts the new element into where aContent was.  If aAttribute is not
+   * nsGkAtoms::_empty, aAttribute of the new element will be set to
+   * aAttributeValue.
    *
-   * @param aContent            The content which will be wrapped with new
+   * @param aContentToBeWrapped The content which will be wrapped with new
    *                            element.
-   * @param aTagName            Element name of new element which will wrap
+   * @param aWrapperTagName     Element name of new element which will wrap
    *                            aContent and be inserted into where aContent
    *                            was.
    * @param aAttribute          Attribute which should be set to the new
@@ -3258,10 +3216,10 @@ class HTMLEditor final : public EditorBase,
    *                            this does not set any attributes to the new
    *                            element.
    * @param aAttributeValue     Value to be set to aAttribute.
-   * @return                    The new element.
    */
-  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element>
-  InsertContainerWithTransactionInternal(nsIContent& aContent, nsAtom& aTagName,
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT CreateElementResult
+  InsertContainerWithTransactionInternal(nsIContent& aContentToBeWrapped,
+                                         nsAtom& aWrapperTagName,
                                          nsAtom& aAttribute,
                                          const nsAString& aAttributeValue);
 
@@ -4523,6 +4481,8 @@ class HTMLEditor final : public EditorBase,
 
   friend class AlignStateAtSelection;  // CollectEditableTargetNodes,
                                        // CollectNonEditableNodes
+  friend class AutoRangeArray;  // RangeUpdaterRef, SplitNodeWithTransaction,
+                                // SplitParentInlineElementsAtRangeEdges
   friend class AutoSelectionSetterAfterTableEdit;  // SetSelectionAfterEdit
   friend class
       AutoSetTemporaryAncestorLimiter;  // InitializeSelectionAncestorLimit

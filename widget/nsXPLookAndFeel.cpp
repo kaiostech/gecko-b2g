@@ -295,8 +295,8 @@ static const char sColorPrefs[][41] = {
     "ui.-moz-mac-source-list-selection",
     "ui.-moz-mac-active-source-list-selection",
     "ui.-moz-mac-tooltip",
-    "ui.-moz-accent-color",
-    "ui.-moz-accent-color-foreground",
+    "ui.accentcolor",
+    "ui.accentcolortext",
     "ui.-moz-autofill-background",
     "ui.-moz-win-mediatext",
     "ui.-moz-win-communicationstext",
@@ -448,6 +448,7 @@ static constexpr struct {
       widget::ThemeChangeKind::MediaQueriesOnly;
 } kMediaQueryPrefs[] = {
     {"browser.display.windows.native_menus"_ns},
+    {"widget.use-theme-accent"_ns, widget::ThemeChangeKind::Style},
     // Affects env().
     {"layout.css.prefers-color-scheme.content-override"_ns,
      widget::ThemeChangeKind::Style},
@@ -568,8 +569,10 @@ nscolor nsXPLookAndFeel::GetStandinForNativeColor(ColorID aID,
     case ColorID::IMERawInputUnderline:
     case ColorID::IMEConvertedTextUnderline:
       return NS_40PERCENT_FOREGROUND_COLOR;
-      COLOR(MozAccentColor, 53, 132, 228)
-      COLOR(MozAccentColorForeground, 0xff, 0xff, 0xff)
+    case ColorID::Accentcolor:
+      return widget::sDefaultAccent.ToABGR();
+    case ColorID::Accentcolortext:
+      return widget::sDefaultAccentText.ToABGR();
       COLOR(SpellCheckerUnderline, 0xff, 0x00, 0x00)
       COLOR(TextSelectDisabledBackground, 0xaa, 0xaa, 0xaa)
 
@@ -890,6 +893,12 @@ nsresult nsXPLookAndFeel::GetColorValue(ColorID aID, ColorScheme aScheme,
 
   if (NS_SUCCEEDED(GetColorFromPref(aID, aScheme, aResult))) {
     cache.Insert(aID, Some(aResult));
+    return NS_OK;
+  }
+
+  if (!StaticPrefs::widget_use_theme_accent() &&
+      (aID == ColorID::Accentcolor || aID == ColorID::Accentcolortext)) {
+    aResult = GetStandinForNativeColor(aID, aScheme);
     return NS_OK;
   }
 

@@ -268,6 +268,9 @@ static SystemTimeConverter<guint32>& TimeConverter() {
 
 bool nsWindow::sTransparentMainWindow = false;
 
+// forward declare from mozgtk
+extern "C" MOZ_EXPORT void mozgtk_linker_holder();
+
 namespace mozilla {
 
 #ifdef MOZ_X11
@@ -428,6 +431,10 @@ nsWindow::nsWindow()
     }
 #endif
   }
+  // Dummy call to mozgtk to prevent the linker from removing
+  // the dependency with --as-needed.
+  // see toolkit/library/moz.build for details.
+  mozgtk_linker_holder();
 }
 
 nsWindow::~nsWindow() {
@@ -4248,6 +4255,8 @@ void nsWindow::TryToShowNativeWindowMenu(GdkEventButton* aEvent) {
 void nsWindow::OnButtonPressEvent(GdkEventButton* aEvent) {
   LOG("Button %u press\n", aEvent->button);
 
+  SetLastMousePressEvent((GdkEvent*)aEvent);
+
   // If you double click in GDK, it will actually generate a second
   // GDK_BUTTON_PRESS before sending the GDK_2BUTTON_PRESS, and this is
   // different than the DOM spec.  GDK puts this in the queue
@@ -4356,6 +4365,9 @@ void nsWindow::OnButtonPressEvent(GdkEventButton* aEvent) {
 
 void nsWindow::OnButtonReleaseEvent(GdkEventButton* aEvent) {
   LOG("Button %u release\n", aEvent->button);
+
+  SetLastMousePressEvent(nullptr);
+
   if (!mGdkWindow) {
     return;
   }
@@ -5311,10 +5323,6 @@ void nsWindow::ConfigureGdkWindow() {
     // tearing because Gecko does not align its framebuffer updates with
     // vblank.
     SetCompositorHint(GTK_WIDGET_COMPOSIDED_ENABLED);
-
-    // Dummy call to a function in mozgtk to prevent the linker from removing
-    // the dependency with --as-needed.
-    XShmQueryExtension(DefaultXDisplay());
   }
 #endif
 #ifdef MOZ_WAYLAND

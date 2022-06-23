@@ -173,7 +173,7 @@ AppsServiceDelegate.prototype = {
     ServiceWorkerAssistant.waitForRegistrations();
   },
 
-  onClear(aManifestUrl, aType, aManifest) {
+  async onClear(aManifestUrl, aType, aManifest) {
     log(`onClear: ${aManifestUrl}: clear type: ${aType}`);
 
     Services.obs.notifyObservers(
@@ -183,7 +183,7 @@ AppsServiceDelegate.prototype = {
     );
 
     // clearType now makes no difference since `app://` is deprecated.
-    AppsUtils.clearData(aManifestUrl);
+    await AppsUtils.clearData(aManifestUrl);
 
     // clearStorage removes everything stores per origin, re-register service
     // worker to create the cache db back for used by service worker.

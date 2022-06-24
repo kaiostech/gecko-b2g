@@ -40,8 +40,11 @@ async function test() {
     offsetY: 100
   });
   await childMessagePromise;
-  is(clickCoordsInChild.offsetX, 100, "x coordinate is correct");
-  is(clickCoordsInChild.offsetY, 100, "y coordinate is correct");
+  // Need to use fuzzy comparisons because the combination of floating-point
+  // matrix multiplication and rounding to integer coordinates can result in
+  // small discrepancies.
+  isfuzzy(clickCoordsInChild.offsetX, 100, 1, "x coordinate is correct");
+  isfuzzy(clickCoordsInChild.offsetY, 100, 1, "y coordinate is correct");
 }
 
 waitUntilApzStable()

@@ -16,9 +16,9 @@ notes = "Used for automation."
 [policy.gkrust-gtest]
 criteria = "safe-to-run"
 notes = "Used for testing."
-[policy.gkrust-shared.dependency-criteria]
-tokio-reactor = []
-tokio-threadpool = []
+
+[policy.gkrust-shared]
+dependency-criteria = { tokio-reactor = [], tokio-threadpool = [] }
 
 [policy.gkrust_shared]
 notes = "The dependencies on tokio-reactor and tokio-threadpools are just a hack to pin the version used by audioipc-{client,server}. Suppress vetting on those for the same reasons behind the policy entries."
@@ -32,15 +32,17 @@ criteria = "safe-to-run"
 notes = "Used for testing."
 
 [policy.l10nregistry]
+dependency-criteria = { fluent-testing = "safe-to-run", tokio = "safe-to-run" }
 notes = "This crate has two testing-only dependencies which are specified as regular-but-optional rather than a dev-dependencies, because they need to be available to both benchmarks and integration tests."
 
-[policy.l10nregistry.dependency-criteria]
-fluent-testing = "safe-to-run"
-tokio = "safe-to-run"
+[policy.smoosh]
+criteria = "safe-to-run"
+notes = "We're not shipping this and have no plans to ship it."
 
 [policy.webdriver]
 criteria = "safe-to-run"
 notes = "Used for automation."
+
 [[unaudited.adler]]
 version = "1.0.2"
 criteria = "safe-to-deploy"
@@ -183,7 +185,7 @@ criteria = "safe-to-deploy"
 
 [[unaudited.bumpalo]]
 version = "3.10.0"
-criteria = "safe-to-deploy"
+criteria = "safe-to-run"
 
 [[unaudited.byteorder]]
 version = "1.4.3"
@@ -422,11 +424,11 @@ version = "1.1.0"
 criteria = "safe-to-run"
 
 [[unaudited.derive_more]]
-version = "0.99.11"
+version = "0.99.17"
 criteria = "safe-to-deploy"
 
 [[unaudited.devd-rs]]
-version = "0.3.2"
+version = "0.3.4"
 criteria = "safe-to-deploy"
 
 [[unaudited.digest]]
@@ -511,6 +513,10 @@ criteria = "safe-to-deploy"
 
 [[unaudited.fallible_collections]]
 version = "0.4.4"
+criteria = "safe-to-deploy"
+
+[[unaudited.fastrand]]
+version = "1.7.0"
 criteria = "safe-to-deploy"
 
 [[unaudited.ffi-support]]
@@ -649,14 +655,6 @@ criteria = "safe-to-deploy"
 version = "0.13.1"
 criteria = "safe-to-deploy"
 
-[[unaudited.glean]]
-version = "50.0.1"
-criteria = "safe-to-deploy"
-
-[[unaudited.glean-core]]
-version = "50.0.1"
-criteria = "safe-to-deploy"
-
 [[unaudited.glob]]
 version = "0.3.0"
 criteria = "safe-to-deploy"
@@ -762,7 +760,7 @@ version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[unaudited.idna]]
-version = "0.2.1"
+version = "0.2.3"
 criteria = "safe-to-deploy"
 
 [[unaudited.indexmap]]
@@ -898,7 +896,7 @@ version = "2.5.0"
 criteria = "safe-to-deploy"
 
 [[unaudited.memmap2]]
-version = "0.3.1"
+version = "0.5.4"
 criteria = "safe-to-deploy"
 
 [[unaudited.memoffset]]
@@ -1030,11 +1028,11 @@ version = "0.4.1"
 criteria = "safe-to-deploy"
 
 [[unaudited.parking_lot]]
-version = "0.11.1"
+version = "0.11.2"
 criteria = "safe-to-deploy"
 
 [[unaudited.parking_lot_core]]
-version = "0.8.1"
+version = "0.8.5"
 criteria = "safe-to-deploy"
 
 [[unaudited.paste]]
@@ -1186,7 +1184,7 @@ version = "1.9.3"
 criteria = "safe-to-deploy"
 
 [[unaudited.redox_syscall]]
-version = "0.1.57"
+version = "0.2.13"
 criteria = "safe-to-deploy"
 
 [[unaudited.regalloc]]
@@ -1410,7 +1408,7 @@ version = "0.12.4"
 criteria = "safe-to-deploy"
 
 [[unaudited.tempfile]]
-version = "3.1.0"
+version = "3.3.0"
 criteria = "safe-to-deploy"
 
 [[unaudited.termcolor]]
@@ -1438,7 +1436,7 @@ version = "0.1.3"
 criteria = "safe-to-deploy"
 
 [[unaudited.time]]
-version = "0.1.43"
+version = "0.1.44"
 criteria = "safe-to-deploy"
 
 [[unaudited.time]]
@@ -1546,7 +1544,7 @@ version = "1.0.0"
 criteria = "safe-to-deploy"
 
 [[unaudited.unicode-normalization]]
-version = "0.1.7"
+version = "0.1.19"
 criteria = "safe-to-deploy"
 
 [[unaudited.unicode-segmentation]]
@@ -1614,7 +1612,7 @@ version = "0.3.2"
 criteria = "safe-to-run"
 
 [[unaudited.wasi]]
-version = "0.10.2+wasi-snapshot-preview1"
+version = "0.11.0+wasi-snapshot-preview1"
 criteria = "safe-to-deploy"
 
 [[unaudited.wasm-encoder]]
@@ -1631,10 +1629,6 @@ criteria = "safe-to-deploy"
 
 [[unaudited.wast]]
 version = "41.0.0"
-criteria = "safe-to-deploy"
-
-[[unaudited.wat]]
-version = "1.0.43"
 criteria = "safe-to-deploy"
 
 [[unaudited.webrtc-sdp]]

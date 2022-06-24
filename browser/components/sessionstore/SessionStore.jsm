@@ -230,6 +230,9 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
+const { GlobalState } = ChromeUtils.import(
+  "resource:///modules/sessionstore/GlobalState.jsm"
+);
 
 const lazy = {};
 
@@ -248,7 +251,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
   DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.jsm",
   E10SUtils: "resource://gre/modules/E10SUtils.jsm",
-  GlobalState: "resource:///modules/sessionstore/GlobalState.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
   PrivacyFilter: "resource://gre/modules/sessionstore/PrivacyFilter.jsm",
   PromiseUtils: "resource://gre/modules/PromiseUtils.jsm",
@@ -606,7 +608,7 @@ var SessionStoreInternal = {
     "nsISupportsWeakReference",
   ]),
 
-  _globalState: new lazy.GlobalState(),
+  _globalState: new GlobalState(),
 
   // A counter to be used to generate a unique ID for each closed tab or window.
   _nextClosedId: 0,
@@ -2545,7 +2547,7 @@ var SessionStoreInternal = {
     if (!isPrivateWindow && tabState.isPrivate) {
       return;
     }
-    if (aTab == aWindow.gFirefoxViewTab) {
+    if (aTab == aWindow.FirefoxViewHandler.tab) {
       return;
     }
 
@@ -4128,7 +4130,7 @@ var SessionStoreInternal = {
 
     // update the internal state data for this window
     for (let tab of tabs) {
-      if (tab == aWindow.gFirefoxViewTab) {
+      if (tab == aWindow.FirefoxViewHandler.tab) {
         continue;
       }
       let tabData = lazy.TabState.collect(tab, TAB_CUSTOM_VALUES.get(tab));

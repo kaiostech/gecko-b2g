@@ -367,9 +367,9 @@ nsresult nsLookAndFeel::NativeGetFloat(FloatID aID, float& aResult) {
 bool nsLookAndFeel::NativeGetFont(FontID aID, nsString& aFontName,
                                   gfxFontStyle& aFontStyle) {
   aFontName.AssignLiteral("\"Fira Sans\"");
-  aFontStyle.style = mozilla::FontSlantStyle::Normal();
-  aFontStyle.weight = mozilla::FontWeight::Normal();
-  aFontStyle.stretch = mozilla::FontStretch::Normal();
+  aFontStyle.style = mozilla::FontSlantStyle::NORMAL;
+  aFontStyle.weight = mozilla::FontWeight::NORMAL;
+  aFontStyle.stretch = mozilla::FontStretch::NORMAL;
   aFontStyle.size = 9.0 * 96.0f / 72.0f;
   aFontStyle.systemFont = true;
   return true;

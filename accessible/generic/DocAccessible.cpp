@@ -90,6 +90,7 @@ DocAccessible::DocAccessible(dom::Document* aDocument,
       mDocumentNode(aDocument),
       mLoadState(eTreeConstructionPending),
       mDocFlags(0),
+      mViewportCacheDirty(false),
       mLoadEventType(0),
       mPrevStateBits(0),
       mVirtualCursor(nullptr),
@@ -263,24 +264,6 @@ void DocAccessible::ApplyARIAState(uint64_t* aState) const {
   if (mParent) mParent->ApplyARIAState(aState);
 }
 
-already_AddRefed<AccAttributes> DocAccessible::Attributes() {
-  RefPtr<AccAttributes> attributes = HyperTextAccessibleWrap::Attributes();
-
-  // No attributes if document is not attached to the tree or if it's a root
-  // document.
-  if (!mParent || IsRoot()) return attributes.forget();
-
-  // Override ARIA object attributes from outerdoc.
-  aria::AttrIterator attribIter(mParent->GetContent());
-  while (attribIter.Next()) {
-    nsString value;
-    attribIter.AttrValue(value);
-    attributes->SetAttribute(attribIter.AttrName(), std::move(value));
-  }
-
-  return attributes.forget();
-}
-
 LocalAccessible* DocAccessible::FocusedChild() {
   // Return an accessible for the current global focus, which does not have to
   // be contained within the current document.
@@ -358,9 +341,11 @@ void DocAccessible::DocType(nsAString& aType) const {
 
 void DocAccessible::QueueCacheUpdate(LocalAccessible* aAcc,
                                      uint64_t aNewDomain) {
+  if (!mIPCDoc || !StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    return;
+  }
   uint64_t& domain = mQueuedCacheUpdates.LookupOrInsert(aAcc, 0);
   domain |= aNewDomain;
-
   Controller()->ScheduleProcessing();
 }
 

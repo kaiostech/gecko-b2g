@@ -36,7 +36,6 @@ treeherder:
         'Fxfn': 'Firefox functional tests'
         'Fxfn-nofis': 'Firefox functional tests without fission enabled'
         'Fxfn-fis': 'Firefox functional tests with fission enabled'
-        'iris': 'Iris testing suite'
         'l10n-bump': 'L10n Bumper'
         'M': 'Mochitests'
         'M-headless': 'Headless Mochitests'
@@ -51,6 +50,7 @@ treeherder:
         'M-a11y-checks': 'Mochitests with accessibility checks enabled'
         'M-a11y-checks-nofis': 'Mochitests with accessibility checks enabled and without fission enabled'
         'M-a11y-checks-fis': 'Mochitests with accessibility checks enabled and fission enabled'
+        'M-condprof-fis': 'Mochitests with a conditioned profile and fission enabled'
         'M-fis': 'Mochitests with fission enabled'
         'M-fis-xorig': 'Mochitests with cross-origin and fission enabled'
         'M-fis-gli': 'Mochitests with fission and WebGL IPC enabled'
@@ -77,6 +77,7 @@ treeherder:
         'M-wayland-1proc': 'Mochitests with Wayland backend enabled without e10s'
         'M-f': 'Mochitest failures'
         'M-f-1proc': 'Mochitest failures without e10s'
+        'M-f-condprof-fis': 'Mochitest failures with fission enabled'
         'M-f-fis': 'Mochitest failures with fission enabled'
         'M-f-fis-xorig': 'Mochitest failures with cross-origin with fission enabled'
         'M-f-gli': 'Mochitest failures with WebGL over IPC'
@@ -361,9 +362,7 @@ merge-automation:
                   new-suffix: 'esr'
             replacements: []
             merge-old-head: false
-            base-tag: "FIREFOX_ESR_{major_version}_BASE"
-            from-repo: 'https://hg.mozilla.org/releases/mozilla-release'
-            from-branch: 'release'
+            end-tag: "FIREFOX_ESR_{major_version}_BASE"
             to-repo: 'https://hg.mozilla.org/releases/mozilla-esr102'
             to-branch: 'esr102'
         bump-central:
@@ -567,6 +566,11 @@ workers:
             os: linux-bitbar
             worker-type: 'gecko-{alias}'
         t-linux(-large|-xlarge|-xlarge-source|-metal):
+            provisioner: '{trust-domain}-t'
+            implementation: docker-worker
+            os: linux
+            worker-type: '{alias}'
+        t-linux(-large|-xlarge)-gcp:
             provisioner: '{trust-domain}-t'
             implementation: docker-worker
             os: linux

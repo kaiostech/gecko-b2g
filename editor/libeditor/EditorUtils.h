@@ -12,8 +12,10 @@
 #include "mozilla/EditorForwards.h"
 #include "mozilla/EnumSet.h"
 #include "mozilla/IntegerRange.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/RangeBoundary.h"
 #include "mozilla/Result.h"
+#include "mozilla/SelectionState.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/HTMLBRElement.h"
 #include "mozilla/dom/Selection.h"
@@ -174,6 +176,10 @@ class MOZ_STACK_CLASS CreateNodeResultBase final {
   // isErr() must not required to wrap with them.
   bool isOk() const { return NS_SUCCEEDED(mRv); }
   bool isErr() const { return NS_FAILED(mRv); }
+  bool Handled() const {
+    MOZ_ASSERT_IF(mRv == NS_SUCCESS_DOM_NO_OPERATION, !mNode);
+    return isOk() && mRv == NS_SUCCESS_DOM_NO_OPERATION;
+  }
   constexpr nsresult inspectErr() const { return mRv; }
   constexpr nsresult unwrapErr() const { return inspectErr(); }
   constexpr bool EditorDestroyed() const {
@@ -218,8 +224,6 @@ class MOZ_STACK_CLASS CreateNodeResultBase final {
                         const EditorBase& aEditorBase,
                         const SuggestCaretOptions& aOptions);
 
-  CreateNodeResultBase() = delete;
-
   explicit CreateNodeResultBase(nsresult aRv) : mRv(aRv) {
     MOZ_DIAGNOSTIC_ASSERT(NS_FAILED(mRv));
   }
@@ -250,6 +254,25 @@ class MOZ_STACK_CLASS CreateNodeResultBase final {
         mCaretPoint(std::move(aCandidateCaretPoint)),
         mRv(mNode.get() ? NS_OK : NS_ERROR_FAILURE) {}
 
+  [[nodiscard]] static SelfType NotHandled() {
+    SelfType result;
+    result.mRv = NS_SUCCESS_DOM_NO_OPERATION;
+    return result;
+  }
+  [[nodiscard]] static SelfType NotHandled(
+      const EditorDOMPoint& aPointToPutCaret) {
+    SelfType result;
+    result.mRv = NS_SUCCESS_DOM_NO_OPERATION;
+    result.mCaretPoint = aPointToPutCaret;
+    return result;
+  }
+  [[nodiscard]] static SelfType NotHandled(EditorDOMPoint&& aPointToPutCaret) {
+    SelfType result;
+    result.mRv = NS_SUCCESS_DOM_NO_OPERATION;
+    result.mCaretPoint = std::move(aPointToPutCaret);
+    return result;
+  }
+
 #ifdef DEBUG
   ~CreateNodeResultBase() {
     MOZ_ASSERT_IF(isOk(), !mCaretPoint.IsSet() || mHandledCaretPoint);
@@ -262,9 +285,11 @@ class MOZ_STACK_CLASS CreateNodeResultBase final {
   SelfType& operator=(SelfType&& aOther) = default;
 
  private:
+  CreateNodeResultBase() = default;
+
   RefPtr<NodeType> mNode;
   EditorDOMPoint mCaretPoint;
-  nsresult mRv;
+  nsresult mRv = NS_OK;
   bool mutable mHandledCaretPoint = false;
 };
 
@@ -315,11 +340,16 @@ class MOZ_STACK_CLASS AutoSelectionRangeArray final {
  *****************************************************************************/
 class MOZ_STACK_CLASS AutoRangeArray final {
  public:
-  explicit AutoRangeArray(const dom::Selection& aSelection) {
-    Initialize(aSelection);
-  }
+  explicit AutoRangeArray(const dom::Selection& aSelection);
+  template <typename PointType>
+  explicit AutoRangeArray(const EditorDOMRangeBase<PointType>& aRange);
+  template <typename PT, typename CT>
+  explicit AutoRangeArray(const EditorDOMPointBase<PT, CT>& aPoint);
+
+  ~AutoRangeArray();
 
   void Initialize(const dom::Selection& aSelection) {
+    ClearSavedRanges();
     mDirection = aSelection.GetDirection();
     mRanges.Clear();
     for (const uint32_t i : IntegerRange(aSelection.RangeCount())) {
@@ -344,6 +374,13 @@ class MOZ_STACK_CLASS AutoRangeArray final {
    * element and is first child.
    */
   void EnsureRangesInTextNode(const dom::Text& aTextNode);
+
+  /**
+   * Extend ranges to wrap lines to handle block level edit actions such as
+   * updating the block parent or indent/outdent around the selection.
+   */
+  void ExtendRangesToWrapLinesToHandleBlockLevelEditAction(
+      EditSubAction aEditSubAction, const dom::Element& aEditingHost);
 
   /**
    * Check whether the range is in aEditingHost and both containers of start and
@@ -515,10 +552,23 @@ class MOZ_STACK_CLASS AutoRangeArray final {
     mRanges.AppendElement(*mAnchorFocusRange);
     return NS_OK;
   }
+  template <typename SPT, typename SCT, typename EPT, typename ECT>
+  nsresult SetBaseAndExtent(const EditorDOMPointBase<SPT, SCT>& aAnchor,
+                            const EditorDOMPointBase<EPT, ECT>& aFocus) {
+    if (MOZ_UNLIKELY(!aAnchor.IsSet()) || MOZ_UNLIKELY(!aFocus.IsSet())) {
+      mRanges.Clear();
+      mAnchorFocusRange = nullptr;
+      return NS_ERROR_INVALID_ARG;
+    }
+    return aAnchor.EqualsOrIsBefore(aFocus) ? SetStartAndEnd(aAnchor, aFocus)
+                                            : SetStartAndEnd(aFocus, aAnchor);
+  }
   [[nodiscard]] const nsRange* GetAnchorFocusRange() const {
     return mAnchorFocusRange;
   }
   [[nodiscard]] nsDirection GetDirection() const { return mDirection; }
+
+  void SetDirection(nsDirection aDirection) { mDirection = aDirection; }
 
   [[nodiscard]] const RangeBoundary& AnchorRef() const {
     if (!mAnchorFocusRange) {
@@ -570,10 +620,120 @@ class MOZ_STACK_CLASS AutoRangeArray final {
     mDirection = nsDirection::eDirNext;
   }
 
+  /**
+   * APIs to store ranges with only container node and offset in it, and track
+   * them with RangeUpdater.
+   */
+  [[nodiscard]] bool SaveAndTrackRanges(HTMLEditor& aHTMLEditor);
+  [[nodiscard]] bool HasSavedRanges() const { return mSavedRanges.isSome(); }
+  void ClearSavedRanges();
+  void RestoreFromSavedRanges() {
+    MOZ_DIAGNOSTIC_ASSERT(mSavedRanges.isSome());
+    if (mSavedRanges.isNothing()) {
+      return;
+    }
+    mSavedRanges->ApplyTo(*this);
+    ClearSavedRanges();
+  }
+
+  /**
+   * Apply mRanges and mDirection to aSelection.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult ApplyTo(dom::Selection& aSelection) {
+    dom::SelectionBatcher selectionBatcher(aSelection, __FUNCTION__);
+    aSelection.RemoveAllRanges(IgnoreErrors());
+    MOZ_ASSERT(!aSelection.RangeCount());
+    aSelection.SetDirection(mDirection);
+    IgnoredErrorResult error;
+    for (const OwningNonNull<nsRange>& range : mRanges) {
+      // MOZ_KnownLive(range) due to bug 1622253
+      aSelection.AddRangeAndSelectFramesAndNotifyListeners(MOZ_KnownLive(range),
+                                                           error);
+      if (error.Failed()) {
+        return error.StealNSResult();
+      }
+    }
+    return NS_OK;
+  }
+
+  /**
+   * If the points are same (i.e., mean a collapsed range) and in an empty block
+   * element except the padding <br> element, this makes aStartPoint and
+   * aEndPoint contain the padding <br> element.
+   */
+  static void UpdatePointsToSelectAllChildrenIfCollapsedInEmptyBlockElement(
+      EditorDOMPoint& aStartPoint, EditorDOMPoint& aEndPoint,
+      const dom::Element& aEditingHost);
+
+  /**
+   * CreateRangeExtendedToHardLineStartAndEnd() creates an nsRange instance
+   * which may be expanded to start/end of hard line at both edges of the given
+   * range.  If this fails handling something, returns nullptr.
+   */
+  static already_AddRefed<nsRange>
+  CreateRangeWrappingStartAndEndLinesContainingBoundaries(
+      const EditorDOMRange& aRange, EditSubAction aEditSubAction,
+      const dom::Element& aEditingHost) {
+    if (!aRange.IsPositioned()) {
+      return nullptr;
+    }
+    return CreateRangeWrappingStartAndEndLinesContainingBoundaries(
+        aRange.StartRef(), aRange.EndRef(), aEditSubAction, aEditingHost);
+  }
+  static already_AddRefed<nsRange>
+  CreateRangeWrappingStartAndEndLinesContainingBoundaries(
+      const EditorDOMPoint& aStartPoint, const EditorDOMPoint& aEndPoint,
+      EditSubAction aEditSubAction, const dom::Element& aEditingHost) {
+    RefPtr<nsRange> range =
+        nsRange::Create(aStartPoint.ToRawRangeBoundary(),
+                        aEndPoint.ToRawRangeBoundary(), IgnoreErrors());
+    if (MOZ_UNLIKELY(!range)) {
+      return nullptr;
+    }
+    if (NS_FAILED(ExtendRangeToWrapStartAndEndLinesContainingBoundaries(
+            *range, aEditSubAction, aEditingHost)) ||
+        MOZ_UNLIKELY(!range->IsPositioned())) {
+      return nullptr;
+    }
+    return range.forget();
+  }
+
+  /**
+   * Splits text nodes if each range end is in middle of a text node, then,
+   * calls HTMLEditor::SplitParentInlineElementsAtRangeEdges(RangeItem&) for
+   * each range.  Finally, updates ranges to keep edit target ranges as
+   * expected.
+   *
+   * @param aHTMLEditor The HTMLEditor which will handle the splittings.
+   * @return            A suggest point to put caret if succeeded, but it may be
+   *                    unset.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
+  SplitTextNodesAtEndBoundariesAndParentInlineElementsAtBoundaries(
+      HTMLEditor& aHTMLEditor);
+
+  /**
+   * CollectEditTargetNodes() collects edit target nodes the ranges.
+   * First, this collects all nodes in given ranges, then, modifies the
+   * result for specific edit sub-actions.
+   */
+  enum class CollectNonEditableNodes { No, Yes };
+  nsresult CollectEditTargetNodes(
+      const HTMLEditor& aHTMLEditor,
+      nsTArray<OwningNonNull<nsIContent>>& aOutArrayOfContents,
+      EditSubAction aEditSubAction,
+      CollectNonEditableNodes aCollectNonEditableNodes) const;
+
  private:
+  static nsresult ExtendRangeToWrapStartAndEndLinesContainingBoundaries(
+      nsRange& aRange, EditSubAction aEditSubAction,
+      const dom::Element& aEditingHost);
+
   AutoTArray<mozilla::OwningNonNull<nsRange>, 8> mRanges;
   RefPtr<nsRange> mAnchorFocusRange;
   nsDirection mDirection = nsDirection::eDirNext;
+  Maybe<SelectionState> mSavedRanges;
+  RefPtr<HTMLEditor> mTrackingHTMLEditor;
 };
 
 class EditorUtils final {

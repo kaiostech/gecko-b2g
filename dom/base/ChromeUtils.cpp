@@ -8,9 +8,10 @@
 
 #include "js/CharacterEncoding.h"
 #include "js/Object.h"              // JS::GetClass
-#include "js/PropertyAndElement.h"  // JS_DefineProperty, JS_DefinePropertyById, JS_Enumerate, JS_GetProperty, JS_GetPropertyById, JS_SetProperty, JS_SetPropertyById
+#include "js/PropertyAndElement.h"  // JS_DefineProperty, JS_DefinePropertyById, JS_Enumerate, JS_GetProperty, JS_GetPropertyById, JS_SetProperty, JS_SetPropertyById, JS::IdVector
 #include "js/PropertyDescriptor.h"  // JS::PropertyDescriptor, JS_GetOwnPropertyDescriptorById
 #include "js/SavedFrameAPI.h"
+#include "js/Value.h"  // JS::Value, JS::StringValue
 #include "jsfriendapi.h"
 #include "WrapperFactory.h"
 
@@ -570,6 +571,38 @@ void ChromeUtils::Import(const GlobalObject& aGlobal,
   aRetval.set(exports);
 }
 
+/* static */
+void ChromeUtils::ImportESModule(const GlobalObject& aGlobal,
+                                 const nsAString& aResourceURI,
+                                 JS::MutableHandle<JSObject*> aRetval,
+                                 ErrorResult& aRv) {
+  RefPtr<mozJSComponentLoader> moduleloader = mozJSComponentLoader::Get();
+  MOZ_ASSERT(moduleloader);
+
+  NS_ConvertUTF16toUTF8 registryLocation(aResourceURI);
+
+  AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING_NONSENSITIVE(
+      "ChromeUtils::ImportESModule", OTHER, registryLocation);
+
+  JSContext* cx = aGlobal.Context();
+
+  JS::Rooted<JSObject*> moduleNamespace(cx);
+  nsresult rv =
+      moduleloader->ImportESModule(cx, registryLocation, &moduleNamespace);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return;
+  }
+
+  MOZ_ASSERT(!JS_IsExceptionPending(cx));
+
+  if (!JS_WrapObject(cx, &moduleNamespace)) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return;
+  }
+  aRetval.set(moduleNamespace);
+}
+
 namespace module_getter {
 static const size_t SLOT_ID = 0;
 static const size_t SLOT_URI = 1;
@@ -594,7 +627,10 @@ static bool ExtractArgs(JSContext* aCx, JS::CallArgs& aArgs,
   return true;
 }
 
-static bool ModuleGetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
+enum class ModuleType { JSM, ESM };
+
+static bool ModuleGetterImpl(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
+                             ModuleType aType) {
   JS::CallArgs args = JS::CallArgsFromVp(aArgc, aVp);
 
   JS::Rooted<JSObject*> callee(aCx);
@@ -615,17 +651,38 @@ static bool ModuleGetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
   RefPtr<mozJSComponentLoader> moduleloader = mozJSComponentLoader::Get();
   MOZ_ASSERT(moduleloader);
 
-  JS::Rooted<JSObject*> moduleGlobal(aCx);
-  JS::Rooted<JSObject*> moduleExports(aCx);
-  nsresult rv = moduleloader->Import(aCx, uri, &moduleGlobal, &moduleExports);
-  if (NS_FAILED(rv)) {
-    Throw(aCx, rv);
-    return false;
-  }
-
   JS::Rooted<JS::Value> value(aCx);
-  if (!JS_GetPropertyById(aCx, moduleExports, id, &value)) {
-    return false;
+  if (aType == ModuleType::JSM) {
+    JS::Rooted<JSObject*> moduleGlobal(aCx);
+    JS::Rooted<JSObject*> moduleExports(aCx);
+    nsresult rv = moduleloader->Import(aCx, uri, &moduleGlobal, &moduleExports);
+    if (NS_FAILED(rv)) {
+      Throw(aCx, rv);
+      return false;
+    }
+
+    // JSM's exports is from the same realm.
+    if (!JS_GetPropertyById(aCx, moduleExports, id, &value)) {
+      return false;
+    }
+  } else {
+    JS::Rooted<JSObject*> moduleNamespace(aCx);
+    nsresult rv = moduleloader->ImportESModule(aCx, uri, &moduleNamespace);
+    if (NS_FAILED(rv)) {
+      Throw(aCx, rv);
+      return false;
+    }
+
+    // ESM's namespace is from the module's realm.
+    {
+      JSAutoRealm ar(aCx, moduleNamespace);
+      if (!JS_GetPropertyById(aCx, moduleNamespace, id, &value)) {
+        return false;
+      }
+    }
+    if (!JS_WrapValue(aCx, &value)) {
+      return false;
+    }
   }
 
   if (!JS_DefinePropertyById(aCx, thisObj, id, value, JSPROP_ENUMERATE)) {
@@ -636,7 +693,15 @@ static bool ModuleGetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
   return true;
 }
 
-static bool ModuleSetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
+static bool JSModuleGetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
+  return ModuleGetterImpl(aCx, aArgc, aVp, ModuleType::JSM);
+}
+
+static bool ESModuleGetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
+  return ModuleGetterImpl(aCx, aArgc, aVp, ModuleType::ESM);
+}
+
+static bool ModuleSetterImpl(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
   JS::CallArgs args = JS::CallArgsFromVp(aArgc, aVp);
 
   JS::Rooted<JSObject*> callee(aCx);
@@ -649,8 +714,17 @@ static bool ModuleSetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
   return JS_DefinePropertyById(aCx, thisObj, id, args.get(0), JSPROP_ENUMERATE);
 }
 
-static bool DefineGetter(JSContext* aCx, JS::Handle<JSObject*> aTarget,
-                         const nsAString& aId, const nsAString& aResourceURI) {
+static bool JSModuleSetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
+  return ModuleSetterImpl(aCx, aArgc, aVp);
+}
+
+static bool ESModuleSetter(JSContext* aCx, unsigned aArgc, JS::Value* aVp) {
+  return ModuleSetterImpl(aCx, aArgc, aVp);
+}
+
+static bool DefineJSModuleGetter(JSContext* aCx, JS::Handle<JSObject*> aTarget,
+                                 const nsAString& aId,
+                                 const nsAString& aResourceURI) {
   JS::Rooted<JS::Value> uri(aCx);
   JS::Rooted<JS::Value> idValue(aCx);
   JS::Rooted<jsid> id(aCx);
@@ -663,11 +737,11 @@ static bool DefineGetter(JSContext* aCx, JS::Handle<JSObject*> aTarget,
 
   JS::Rooted<JSObject*> getter(
       aCx, JS_GetFunctionObject(
-               js::NewFunctionByIdWithReserved(aCx, ModuleGetter, 0, 0, id)));
+               js::NewFunctionByIdWithReserved(aCx, JSModuleGetter, 0, 0, id)));
 
   JS::Rooted<JSObject*> setter(
       aCx, JS_GetFunctionObject(
-               js::NewFunctionByIdWithReserved(aCx, ModuleSetter, 0, 0, id)));
+               js::NewFunctionByIdWithReserved(aCx, JSModuleSetter, 0, 0, id)));
 
   if (!getter || !setter) {
     JS_ReportOutOfMemory(aCx);
@@ -682,6 +756,33 @@ static bool DefineGetter(JSContext* aCx, JS::Handle<JSObject*> aTarget,
   return JS_DefinePropertyById(aCx, aTarget, id, getter, setter,
                                JSPROP_ENUMERATE);
 }
+
+static bool DefineESModuleGetter(JSContext* aCx, JS::Handle<JSObject*> aTarget,
+                                 JS::Handle<JS::PropertyKey> aId,
+                                 JS::Handle<JS::Value> aResourceURI) {
+  JS::Rooted<JS::Value> idVal(aCx, JS::StringValue(aId.toString()));
+
+  JS::Rooted<JSObject*> getter(
+      aCx, JS_GetFunctionObject(js::NewFunctionByIdWithReserved(
+               aCx, ESModuleGetter, 0, 0, aId)));
+
+  JS::Rooted<JSObject*> setter(
+      aCx, JS_GetFunctionObject(js::NewFunctionByIdWithReserved(
+               aCx, ESModuleSetter, 0, 0, aId)));
+
+  if (!getter || !setter) {
+    JS_ReportOutOfMemory(aCx);
+    return false;
+  }
+
+  js::SetFunctionNativeReserved(getter, SLOT_ID, idVal);
+  js::SetFunctionNativeReserved(setter, SLOT_ID, idVal);
+
+  js::SetFunctionNativeReserved(getter, SLOT_URI, aResourceURI);
+
+  return JS_DefinePropertyById(aCx, aTarget, aId, getter, setter,
+                               JSPROP_ENUMERATE);
+}
 }  // namespace module_getter
 
 /* static */
@@ -690,8 +791,45 @@ void ChromeUtils::DefineModuleGetter(const GlobalObject& global,
                                      const nsAString& id,
                                      const nsAString& resourceURI,
                                      ErrorResult& aRv) {
-  if (!module_getter::DefineGetter(global.Context(), target, id, resourceURI)) {
+  if (!module_getter::DefineJSModuleGetter(global.Context(), target, id,
+                                           resourceURI)) {
     aRv.NoteJSContextException(global.Context());
+  }
+}
+
+/* static */
+void ChromeUtils::DefineESModuleGetters(const GlobalObject& global,
+                                        JS::Handle<JSObject*> target,
+                                        JS::Handle<JSObject*> modules,
+                                        ErrorResult& aRv) {
+  auto cx = global.Context();
+
+  JS::Rooted<JS::IdVector> props(cx, JS::IdVector(cx));
+  if (!JS_Enumerate(cx, modules, &props)) {
+    aRv.NoteJSContextException(cx);
+    return;
+  }
+
+  JS::Rooted<JS::PropertyKey> prop(cx);
+  JS::Rooted<JS::Value> resourceURIVal(cx);
+  for (JS::PropertyKey tmp : props) {
+    prop = tmp;
+
+    if (!prop.isString()) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return;
+    }
+
+    if (!JS_GetPropertyById(cx, modules, prop, &resourceURIVal)) {
+      aRv.NoteJSContextException(cx);
+      return;
+    }
+
+    if (!module_getter::DefineESModuleGetter(cx, target, prop,
+                                             resourceURIVal)) {
+      aRv.NoteJSContextException(cx);
+      return;
+    }
   }
 }
 

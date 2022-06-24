@@ -1190,7 +1190,7 @@ void jit::TraceCacheIRStub(JSTracer* trc, T* stub,
         // shapes. Use TraceSameZoneCrossCompartmentEdge to not assert in the
         // GC. Note: CacheIRWriter::writeShapeField asserts we never store
         // cross-zone shapes.
-        GCPtrShape& shapeField =
+        GCPtr<Shape*>& shapeField =
             stubInfo->getStubField<T, Shape*>(stub, offset);
         TraceSameZoneCrossCompartmentEdge(trc, &shapeField, "cacheir-shape");
         break;
@@ -4398,7 +4398,7 @@ bool CacheIRCompiler::emitObjectCreateResult(uint32_t templateObjectOffset) {
   callvm.prepare();
   masm.Push(scratch);
 
-  using Fn = PlainObject* (*)(JSContext*, HandlePlainObject);
+  using Fn = PlainObject* (*)(JSContext*, Handle<PlainObject*>);
   callvm.call<Fn, ObjectCreateWithTemplate>();
   return true;
 }
@@ -4418,7 +4418,7 @@ bool CacheIRCompiler::emitNewArrayFromLengthResult(
   masm.Push(length);
   masm.Push(scratch);
 
-  using Fn = ArrayObject* (*)(JSContext*, HandleArrayObject, int32_t length);
+  using Fn = ArrayObject* (*)(JSContext*, Handle<ArrayObject*>, int32_t length);
   callvm.call<Fn, ArrayConstructorOneArg>();
   return true;
 }
@@ -4513,7 +4513,8 @@ bool CacheIRCompiler::emitAddSlotAndCallAddPropHook(ObjOperandId objId,
   masm.Push(rhs);
   masm.Push(obj);
 
-  using Fn = bool (*)(JSContext*, HandleNativeObject, HandleValue, HandleShape);
+  using Fn =
+      bool (*)(JSContext*, Handle<NativeObject*>, HandleValue, Handle<Shape*>);
   callvm.callNoResult<Fn, AddSlotAndCallAddPropHook>();
   return true;
 }
@@ -7552,7 +7553,7 @@ bool CacheIRCompiler::emitCallNativeGetElementResult(ObjOperandId objId,
   masm.Push(TypedOrValueRegister(MIRType::Object, AnyRegister(obj)));
   masm.Push(obj);
 
-  using Fn = bool (*)(JSContext*, HandleNativeObject, HandleValue, int32_t,
+  using Fn = bool (*)(JSContext*, Handle<NativeObject*>, HandleValue, int32_t,
                       MutableHandleValue);
   callvm.call<Fn, NativeGetElement>();
 
@@ -7612,7 +7613,7 @@ bool CacheIRCompiler::emitCallGetSparseElementResult(ObjOperandId objId,
   masm.Push(id);
   masm.Push(obj);
 
-  using Fn = bool (*)(JSContext * cx, HandleArrayObject obj, int32_t int_id,
+  using Fn = bool (*)(JSContext * cx, Handle<ArrayObject*> obj, int32_t int_id,
                       MutableHandleValue result);
   callvm.call<Fn, GetSparseElementHelper>();
   return true;
@@ -8738,18 +8739,17 @@ void CacheIRCompiler::callVMInternal(MacroAssembler& masm, VMFunctionId id) {
     TrampolinePtr code = cx_->runtime()->jitRuntime()->getVMWrapper(id);
     const VMFunctionData& fun = GetVMFunction(id);
     uint32_t frameSize = fun.explicitStackSlots() * sizeof(void*);
-    uint32_t descriptor = MakeFrameDescriptor(frameSize, FrameType::IonICCall,
-                                              ExitFrameLayout::Size());
-    masm.Push(Imm32(descriptor));
+    masm.PushFrameDescriptor(FrameType::IonICCall);
     masm.callJit(code);
 
-    // Remove rest of the frame left on the stack. We remove the return address
-    // which is implicitly popped when returning.
-    int framePop = sizeof(ExitFrameLayout) - sizeof(void*);
-
-    // Pop arguments from framePushed.
+    // Pop rest of the exit frame and the arguments left on the stack.
+    int framePop =
+        sizeof(ExitFrameLayout) - ExitFrameLayout::bytesPoppedAfterCall();
     masm.implicitPop(frameSize + framePop);
-    masm.freeStack(IonICCallFrameLayout::Size());
+
+    // Pop IonICCallFrameLayout.
+    masm.Pop(FramePointer);
+    masm.freeStack(IonICCallFrameLayout::Size() - sizeof(void*));
     return;
   }
 

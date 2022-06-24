@@ -132,7 +132,7 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme aScheme, nscolor
     case ColorID::Selecteditem:
       color = GetColorFromNSColor(NSColor.alternateSelectedControlColor);
       break;
-    case ColorID::MozAccentColorForeground:
+    case ColorID::Accentcolortext:
     case ColorID::MozMenuhovertext:
     case ColorID::Selecteditemtext:
       color = GetColorFromNSColor(NSColor.alternateSelectedControlTextColor);
@@ -339,7 +339,7 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme aScheme, nscolor
       break;
     case ColorID::MozMacActiveMenuitem:
     case ColorID::MozMacActiveSourceListSelection:
-    case ColorID::MozAccentColor:
+    case ColorID::Accentcolor:
       color = GetColorFromNSColor(ControlAccentColor());
       break;
     default:
@@ -548,9 +548,9 @@ bool nsLookAndFeel::NativeGetFont(FontID aID, nsString& aFontName, gfxFontStyle&
 
   // hack for now
   if (aID == FontID::MozWindow || aID == FontID::MozDocument) {
-    aFontStyle.style = mozilla::FontSlantStyle::Normal();
-    aFontStyle.weight = mozilla::FontWeight::Normal();
-    aFontStyle.stretch = mozilla::FontStretch::Normal();
+    aFontStyle.style = mozilla::FontSlantStyle::NORMAL;
+    aFontStyle.weight = mozilla::FontWeight::NORMAL;
+    aFontStyle.stretch = mozilla::FontStretch::NORMAL;
     aFontStyle.size = 14;
     aFontStyle.systemFont = true;
 

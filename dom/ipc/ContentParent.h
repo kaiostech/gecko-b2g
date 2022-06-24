@@ -1563,6 +1563,10 @@ class ContentParent final : public PContentParent,
   static already_AddRefed<nsIPrincipal> CreateRemoteTypeIsolationPrincipal(
       const nsACString& aRemoteType);
 
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+  bool IsBlockingShutdown() { return mBlockShutdownCalled; }
+#endif
+
  private:
   // Return an existing ContentParent if possible. Otherwise, `nullptr`.
   static already_AddRefed<ContentParent> GetUsedBrowserProcess(
@@ -1687,7 +1691,7 @@ class ContentParent final : public PContentParent,
   uint8_t mIsInPool : 1;
   uint8_t mIsUsed : 1;
 
-#ifdef DEBUG
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   bool mBlockShutdownCalled;
 #endif
 

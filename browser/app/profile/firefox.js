@@ -1011,9 +1011,6 @@ pref("plugins.show_infobar", false);
   pref("plugin.default.state", 1);
 #endif
 
-// Enables the download and use of the flash blocklists.
-pref("plugins.flashBlock.enabled", true);
-
 // Prefer HTML5 video over Flash content, and don't
 // load plugin instances with no src declared.
 // These prefs are documented in details on all.js.
@@ -1222,8 +1219,6 @@ pref("browser.bookmarks.editDialog.maxRecentFolders", 7);
 // By default the Edit Bookmark dialog is instant-apply. This feature pref will allow to
 // just save on Accept, once the project is complete.
 pref("browser.bookmarks.editDialog.delayedApply.enabled", false);
-
-pref("dom.ipc.shims.enabledWarnings", false);
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
   // This controls the strength of the Windows content process sandbox for
@@ -1609,6 +1604,8 @@ pref("browser.aboutwelcome.enabled", true);
 // Used to set multistage welcome UX
 pref("browser.aboutwelcome.screens", "");
 pref("browser.aboutwelcome.skipFocus", true);
+// Used to enable template for MR 2022 Onboarding
+pref("browser.aboutwelcome.templateMR", false);
 
 // The pref that controls if the What's New panel is enabled.
 pref("browser.messaging-system.whatsNewPanel.enabled", true);
@@ -1757,12 +1754,8 @@ pref("media.gmp-gmpopenh264.enabled", true);
 // Set Firefox to block autoplay, asking for permission by default.
 pref("media.autoplay.default", 1); // 0=Allowed, 1=Blocked, 5=All Blocked
 
-#ifdef NIGHTLY_BUILD
-  // Block WebAudio from playing automatically.
-  pref("media.autoplay.block-webaudio", true);
-#else
-  pref("media.autoplay.block-webaudio", false);
-#endif
+// Block WebAudio from playing automatically.
+pref("media.autoplay.block-webaudio", true);
 
 pref("media.videocontrols.picture-in-picture.enabled", true);
 pref("media.videocontrols.picture-in-picture.audio-toggle.enabled", true);
@@ -1828,10 +1821,12 @@ pref("browser.contentblocking.database.enabled", true);
 
 pref("dom.storage_access.enabled", true);
 
-// Enable URL query stripping in Nightly.
+// Enable URL query stripping in regular browsing in Nightly.
 #ifdef NIGHTLY_BUILD
 pref("privacy.query_stripping.enabled", true);
 #endif
+// Enable URL query stripping in Private Browsing Mode for all desktop channels.
+pref("privacy.query_stripping.enabled.pbmode", true);
 
 pref("browser.contentblocking.cryptomining.preferences.ui.enabled", true);
 pref("browser.contentblocking.fingerprinting.preferences.ui.enabled", true);
@@ -2280,6 +2275,13 @@ pref("devtools.browsertoolbox.fission", true);
 #else
 pref("devtools.browsertoolbox.fission", false);
 #endif
+
+// When the Multiprocess Browser Toolbox is enabled, you can configure the scope of it:
+// - "everything" will enable debugging absolutely everything in the browser
+//   All processes, all documents, all workers, all add-ons.
+// - "parent-process" will restrict debugging to the parent process
+//   All privileged javascript, documents and workers running in the parent process.
+pref("devtools.browsertoolbox.scope", "everything");
 
 // This preference will enable watching top-level targets from the server side.
 pref("devtools.target-switching.server.enabled", true);

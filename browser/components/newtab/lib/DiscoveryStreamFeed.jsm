@@ -3,9 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const lazy = {};
 ChromeUtils.defineModuleGetter(
   lazy,
@@ -21,7 +18,6 @@ const { setTimeout, clearTimeout } = ChromeUtils.import(
   "resource://gre/modules/Timer.jsm"
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-XPCOMUtils.defineLazyGlobalGetters(lazy, ["fetch"]);
 const { actionTypes: at, actionCreators: ac } = ChromeUtils.import(
   "resource://activity-stream/common/Actions.jsm"
 );
@@ -34,6 +30,11 @@ ChromeUtils.defineModuleGetter(
   lazy,
   "PersistentCache",
   "resource://activity-stream/lib/PersistentCache.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  lazy,
+  "ExperimentAPI",
+  "resource://nimbus/ExperimentAPI.jsm"
 );
 
 const CACHE_KEY = "discovery_stream";
@@ -202,11 +203,32 @@ class DiscoveryStreamFeed {
   }
 
   setupPrefs(isStartup = false) {
+    const pocketNewtabExperiment = lazy.ExperimentAPI.getExperiment({
+      featureId: "pocketNewtab",
+    });
+
+    let utmSource = "pocket-newtab";
+    let utmCampaign = pocketNewtabExperiment?.slug;
+    let utmContent = pocketNewtabExperiment?.branch?.slug;
+
     // Send the initial state of the pref on our reducer
     this.store.dispatch(
       ac.BroadcastToContent({
         type: at.DISCOVERY_STREAM_CONFIG_SETUP,
         data: this.config,
+        meta: {
+          isStartup,
+        },
+      })
+    );
+    this.store.dispatch(
+      ac.BroadcastToContent({
+        type: at.DISCOVERY_STREAM_EXPERIMENT_DATA,
+        data: {
+          utmSource,
+          utmCampaign,
+          utmContent,
+        },
         meta: {
           isStartup,
         },
@@ -261,7 +283,7 @@ class DiscoveryStreamFeed {
       const controller = new AbortController();
       const { signal } = controller;
 
-      const fetchPromise = lazy.fetch(endpoint, {
+      const fetchPromise = fetch(endpoint, {
         ...options,
         credentials: "omit",
         signal,

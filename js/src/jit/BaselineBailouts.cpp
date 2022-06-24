@@ -139,8 +139,6 @@ class MOZ_STACK_CLASS BaselineStackBuilder {
     MOZ_ASSERT(!header_);
     MOZ_ASSERT(bufferUsed_ == 0);
 
-    prevFramePtr_ = frame_->callerFramePtr();
-
     uint8_t* bufferRaw = cx_->pod_calloc<uint8_t>(bufferTotal_);
     if (!bufferRaw) {
       return false;
@@ -190,7 +188,7 @@ class MOZ_STACK_CLASS BaselineStackBuilder {
   [[nodiscard]] bool finishLastFrame();
 
   [[nodiscard]] bool prepareForNextFrame(HandleValueVector savedCallerArgs);
-  [[nodiscard]] bool finishOuterFrame(uint32_t frameSize);
+  [[nodiscard]] bool finishOuterFrame();
   [[nodiscard]] bool buildStubFrame(uint32_t frameSize,
                                     HandleValueVector savedCallerArgs);
   [[nodiscard]] bool buildRectifierFrame(uint32_t actualArgc,
@@ -228,7 +226,10 @@ class MOZ_STACK_CLASS BaselineStackBuilder {
     return excInfo_ && excInfo_->propagatingIonExceptionForDebugMode();
   }
 
-  void* prevFramePtr() const { return prevFramePtr_; }
+  void* prevFramePtr() const {
+    MOZ_ASSERT(prevFramePtr_);
+    return prevFramePtr_;
+  }
   BufferPointer<BaselineFrame>& blFrame() { return blFrame_.ref(); }
 
   void setNextCallee(JSFunction* nextCallee);
@@ -387,10 +388,6 @@ class MOZ_STACK_CLASS BaselineStackBuilder {
 
   void setResumeAddr(void* resumeAddr) { header_->resumeAddr = resumeAddr; }
 
-  void setFrameSizeOfInnerMostFrame(uint32_t size) {
-    header_->frameSizeOfInnerMostFrame = size;
-  }
-
   template <typename T>
   BufferPointer<T> pointerAtStackOffset(size_t offset) {
     if (offset < bufferUsed_) {
@@ -464,19 +461,22 @@ bool BaselineStackBuilder::initFrame() {
     MOZ_ASSERT(exprStackSlots_ <= totalFrameSlots);
   }
 
-  resetFramePushed();
-
   JitSpew(JitSpew_BaselineBailouts, "      Unpacking %s:%u:%u",
           script_->filename(), script_->lineno(), script_->column());
   JitSpew(JitSpew_BaselineBailouts, "      [BASELINE-JS FRAME]");
 
-  // Write the previous frame pointer value. Record the virtual stack offset at
-  // this location.  Later on, if we end up writing out a BaselineStub frame for
-  // the next callee, we'll need to save the address.
-  if (!writePtr(prevFramePtr(), "PrevFramePtr")) {
-    return false;
+  // Write the previous frame pointer value. For the outermost frame we reuse
+  // the value in the JitFrameLayout already on the stack. Record the virtual
+  // stack offset at this location. Later on, if we end up writing out a
+  // BaselineStub frame for the next callee, we'll need to save the address.
+  if (!isOutermostFrame()) {
+    if (!writePtr(prevFramePtr(), "PrevFramePtr")) {
+      return false;
+    }
   }
   prevFramePtr_ = virtualPointerAtStackOffset(0);
+
+  resetFramePushed();
 
   return true;
 }
@@ -839,14 +839,14 @@ bool BaselineStackBuilder::prepareForNextFrame(
 
   // Write out descriptor and return address for the baseline frame.
   // The icEntry in question MUST have an inlinable fallback stub.
-  if (!finishOuterFrame(frameSize)) {
+  if (!finishOuterFrame()) {
     return false;
   }
 
   return buildStubFrame(frameSize, savedCallerArgs);
 }
 
-bool BaselineStackBuilder::finishOuterFrame(uint32_t frameSize) {
+bool BaselineStackBuilder::finishOuterFrame() {
   // .               .
   // |  Descr(BLJS)  |
   // +---------------+
@@ -859,8 +859,7 @@ bool BaselineStackBuilder::finishOuterFrame(uint32_t frameSize) {
   blFrame()->setInterpreterFields(script_, pc_);
 
   // Write out descriptor of BaselineJS frame.
-  size_t baselineFrameDescr = MakeFrameDescriptor(
-      frameSize, FrameType::BaselineJS, BaselineStubFrameLayout::Size());
+  size_t baselineFrameDescr = MakeFrameDescriptor(FrameType::BaselineJS);
   if (!writeWord(baselineFrameDescr, "Descriptor")) {
     return false;
   }
@@ -873,9 +872,9 @@ bool BaselineStackBuilder::buildStubFrame(uint32_t frameSize,
                                           HandleValueVector savedCallerArgs) {
   // Build baseline stub frame:
   // +===============+
-  // |    StubPtr    |
-  // +---------------+
   // |   FramePtr    |
+  // +---------------+
+  // |    StubPtr    |
   // +---------------+
   // |   Padding?    |
   // +---------------+
@@ -887,8 +886,6 @@ bool BaselineStackBuilder::buildStubFrame(uint32_t frameSize,
   // +---------------+
   // |     ThisV     |
   // +---------------+
-  // |  ActualArgC   |
-  // +---------------+
   // |  CalleeToken  |
   // +---------------+
   // | Descr(BLStub) |
@@ -898,7 +895,11 @@ bool BaselineStackBuilder::buildStubFrame(uint32_t frameSize,
 
   JitSpew(JitSpew_BaselineBailouts, "      [BASELINE-STUB FRAME]");
 
-  size_t startOfBaselineStubFrame = framePushed();
+  // Write previous frame pointer (saved earlier).
+  if (!writePtr(prevFramePtr(), "PrevFramePtr")) {
+    return false;
+  }
+  prevFramePtr_ = virtualPointerAtStackOffset(0);
 
   // Write stub pointer.
   uint32_t pcOff = script_->pcToOffset(pc_);
@@ -908,12 +909,6 @@ bool BaselineStackBuilder::buildStubFrame(uint32_t frameSize,
   if (!writePtr(fallback, "StubPtr")) {
     return false;
   }
-
-  // Write previous frame pointer (saved earlier).
-  if (!writePtr(prevFramePtr(), "PrevFramePtr")) {
-    return false;
-  }
-  prevFramePtr_ = virtualPointerAtStackOffset(0);
 
   // Write out the arguments, copied from the baseline frame. The order
   // of the arguments is reversed relative to the baseline frame's stack
@@ -1000,18 +995,6 @@ bool BaselineStackBuilder::buildStubFrame(uint32_t frameSize,
   // rectifier frame, save the framePushed values here for later use.
   size_t endOfBaselineStubArgs = framePushed();
 
-  // Calculate frame size for descriptor.
-  size_t baselineStubFrameSize =
-      endOfBaselineStubArgs - startOfBaselineStubFrame;
-  size_t baselineStubFrameDescr =
-      MakeFrameDescriptor((uint32_t)baselineStubFrameSize,
-                          FrameType::BaselineStub, JitFrameLayout::Size());
-
-  // Push actual argc
-  if (!writeWord(actualArgc, "ActualArgc")) {
-    return false;
-  }
-
   // Push callee token (must be a JS Function)
   JitSpew(JitSpew_BaselineBailouts, "      Callee = %016" PRIx64,
           callee.asRawBits());
@@ -1023,6 +1006,8 @@ bool BaselineStackBuilder::buildStubFrame(uint32_t frameSize,
   setNextCallee(calleeFun);
 
   // Push BaselineStub frame descriptor
+  size_t baselineStubFrameDescr =
+      MakeFrameDescriptorForJitCall(FrameType::BaselineStub, actualArgc);
   if (!writeWord(baselineStubFrameDescr, "Descriptor")) {
     return false;
   }
@@ -1033,7 +1018,9 @@ bool BaselineStackBuilder::buildStubFrame(uint32_t frameSize,
   if (!writePtr(baselineCallReturnAddr, "ReturnAddr")) {
     return false;
   }
-  MOZ_ASSERT(framePushed() % JitStackAlignment == 0);
+
+  // The stack must be aligned after the callee pushes the frame pointer.
+  MOZ_ASSERT((framePushed() + sizeof(void*)) % JitStackAlignment == 0);
 
   // Build a rectifier frame if necessary
   if (actualArgc < calleeFun->nargs() &&
@@ -1064,8 +1051,6 @@ bool BaselineStackBuilder::buildRectifierFrame(uint32_t actualArgc,
   // +---------------+
   // |     ThisV     |
   // +---------------+
-  // |  ActualArgC   |
-  // +---------------+
   // |  CalleeToken  |
   // +---------------+
   // |  Descr(Rect)  |
@@ -1076,20 +1061,10 @@ bool BaselineStackBuilder::buildRectifierFrame(uint32_t actualArgc,
   JitSpew(JitSpew_BaselineBailouts, "      [RECTIFIER FRAME]");
   bool pushedNewTarget = IsConstructPC(pc_);
 
-  size_t startOfRectifierFrame = framePushed();
-
   if (!writePtr(prevFramePtr(), "PrevFramePtr")) {
     return false;
   }
   prevFramePtr_ = virtualPointerAtStackOffset(0);
-
-#ifdef JS_NUNBOX32
-  // 32-bit platforms push an extra padding word. Follow the same logic as in
-  // JitRuntime::generateArgumentsRectifier.
-  if (!writePtr(prevFramePtr(), "Padding")) {
-    return false;
-  }
-#endif
 
   // Align the stack based on the number of arguments.
   size_t afterFrameSize =
@@ -1126,23 +1101,14 @@ bool BaselineStackBuilder::buildRectifierFrame(uint32_t actualArgc,
   memcpy(pointerAtStackOffset<uint8_t>(0).get(), stubArgsEnd.get(),
          (actualArgc + 1) * sizeof(Value));
 
-  // Calculate frame size for descriptor.
-  size_t rectifierFrameSize = framePushed() - startOfRectifierFrame;
-  size_t rectifierFrameDescr =
-      MakeFrameDescriptor((uint32_t)rectifierFrameSize, FrameType::Rectifier,
-                          JitFrameLayout::Size());
-
-  // Push actualArgc
-  if (!writeWord(actualArgc, "ActualArgc")) {
-    return false;
-  }
-
   // Push calleeToken again.
   if (!writePtr(CalleeToToken(nextCallee(), pushedNewTarget), "CalleeToken")) {
     return false;
   }
 
   // Push rectifier frame descriptor
+  size_t rectifierFrameDescr =
+      MakeFrameDescriptorForJitCall(FrameType::Rectifier, actualArgc);
   if (!writeWord(rectifierFrameDescr, "Descriptor")) {
     return false;
   }
@@ -1155,7 +1121,9 @@ bool BaselineStackBuilder::buildRectifierFrame(uint32_t actualArgc,
   if (!writePtr(rectReturnAddr, "ReturnAddr")) {
     return false;
   }
-  MOZ_ASSERT(framePushed() % JitStackAlignment == 0);
+
+  // The stack must be aligned after the callee pushes the frame pointer.
+  MOZ_ASSERT((framePushed() + sizeof(void*)) % JitStackAlignment == 0);
 
   return true;
 }
@@ -1165,7 +1133,6 @@ bool BaselineStackBuilder::finishLastFrame() {
       cx_->runtime()->jitRuntime()->baselineInterpreter();
 
   setResumeFramePtr(prevFramePtr());
-  setFrameSizeOfInnerMostFrame(framePushed());
 
   // Compute the native address (within the Baseline Interpreter) that we will
   // resume at and initialize the frame's interpreter fields.
@@ -1808,7 +1775,9 @@ bool jit::FinishBailoutToBaseline(BaselineBailoutInfo* bailoutInfoArg) {
   // frame.
   if (cx->runtime()->jitRuntime()->isProfilerInstrumentationEnabled(
           cx->runtime())) {
-    cx->jitActivation->setLastProfilingFrame(iter.prevFp());
+    MOZ_ASSERT(iter.prevType() == FrameType::BaselineJS);
+    JitFrameLayout* fp = reinterpret_cast<JitFrameLayout*>(iter.prevFp());
+    cx->jitActivation->setLastProfilingFrame(fp);
   }
 
   uint32_t numFrames = bailoutInfo->numFrames;

@@ -45,7 +45,7 @@ using ::testing::MockFunction;
 using ::testing::NiceMock;
 typedef mozilla::layers::GeckoContentController::TapType TapType;
 
-static TimeStamp GetStartupTime() {
+inline TimeStamp GetStartupTime() {
   static TimeStamp sStartupTime = TimeStamp::Now();
   return sStartupTime;
 }
@@ -355,6 +355,15 @@ class TestAsyncPanZoomController : public AsyncPanZoomController {
   void AssertStateIsPanMomentum() {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     EXPECT_EQ(PAN_MOMENTUM, mState);
+  }
+
+  void SetAxisLocked(ScrollDirections aDirections, bool aLockValue) {
+    if (aDirections.contains(ScrollDirection::eVertical)) {
+      mY.SetAxisLocked(aLockValue);
+    }
+    if (aDirections.contains(ScrollDirection::eHorizontal)) {
+      mX.SetAxisLocked(aLockValue);
+    }
   }
 
   void AssertNotAxisLocked() const {

@@ -27,35 +27,6 @@ const testServer = createVersionizedHttpTestServer(
 );
 const TEST_URL = testServer.urlFor("index.html");
 
-const INTEGRATION_TEST_PAGE_SOURCES = [
-  "index.html",
-  "iframe.html",
-  "script.js",
-  "onload.js",
-  "test-functions.js",
-  "query.js?x=1",
-  "query.js?x=2",
-  "bundle.js",
-  "original.js",
-  "bundle-with-another-original.js",
-  "original-with-no-update.js",
-  "replaced-bundle.js",
-  "removed-original.js",
-  "named-eval.js",
-  // Webpack generated some extra sources:
-  "bootstrap 3b1a221408fdde86aa49",
-  "bootstrap a1ecee2f86e1d0ea3fb5",
-  "bootstrap 6fda1f7ea9ecbc1a2d5b",
-  // There is 3 occurences, one per target (main thread, worker and iframe).
-  // But there is even more source actors (named evals and duplicated script tags).
-  "same-url.sjs",
-  "same-url.sjs",
-];
-// The iframe one is only available when fission is enabled, or EFT
-if (isFissionEnabled() || isEveryFrameTargetEnabled()) {
-  INTEGRATION_TEST_PAGE_SOURCES.push("same-url.sjs");
-}
-
 /**
  * This test opens the SourceTree manually via click events on the nested source,
  * and then adds a source dynamically and asserts it is visible.
@@ -273,6 +244,7 @@ add_task(async function testSourceTreeOnTheIntegrationTestPage() {
     "test-functions.js",
     "query.js?x=1",
     "query.js?x=2",
+    "query2.js?y=3",
     "bundle.js",
     "original.js",
     "replaced-bundle.js",
@@ -393,19 +365,14 @@ add_task(async function testSourceTreeWithWebExtensionContentScript() {
   let dbg = await initDebugger("doc-content-script-sources.html");
   // Let some time for unexpected source to appear
   await wait(1000);
-  // Bug 1761975 - While the content script doesn't show up,
-  // the internals of WebExtension codebase appear in the debugger...
-  await waitForSourcesInSourceTree(dbg, ["ExtensionContent.jsm"]);
+  await waitForSourcesInSourceTree(dbg, []);
   await dbg.toolbox.closeToolbox();
 
   info("With the chrome preference, the content script shows up");
   await pushPref("devtools.chrome.enabled", true);
   const toolbox = await openToolboxForTab(gBrowser.selectedTab, "jsdebugger");
   dbg = createDebuggerContext(toolbox);
-  await waitForSourcesInSourceTree(dbg, [
-    "content_script.js",
-    "ExtensionContent.jsm",
-  ]);
+  await waitForSourcesInSourceTree(dbg, ["content_script.js"]);
   await selectSource(dbg, "content_script.js");
   ok(
     findElementWithSelector(dbg, ".sources-list .focused"),
@@ -445,7 +412,6 @@ add_task(async function testSourceTreeNamesForWebExtensions() {
     "Test content script extension",
     "Test content script extension is labeled properly"
   );
-  is(getLabel(dbg, 3), "resource://gre", "resource://gre is labeled properly");
 
   await dbg.toolbox.closeToolbox();
   await extension.unload();
@@ -464,9 +430,7 @@ add_task(async function testSourceTreeNamesForWebExtensions() {
     assertSourceTreeNode,
   });
 
-  // ToolboxTask.spawn pass input arguments by stringify them via string concatenation.
-  // This mean we have to stringify the input object, but don't have to parse it from the task.
-  await ToolboxTask.spawn(JSON.stringify(selectors), async _selectors => {
+  await ToolboxTask.spawn(selectors, async _selectors => {
     this.selectors = _selectors;
   });
 

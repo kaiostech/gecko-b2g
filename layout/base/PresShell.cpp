@@ -5472,7 +5472,7 @@ PresShell::CanvasBackground PresShell::ComputeCanvasBackground() const {
     return {GetDefaultBackgroundColorToDraw(), false};
   }
 
-  ComputedStyle* bgStyle =
+  const ComputedStyle* bgStyle =
       nsCSSRendering::FindRootFrameBackground(rootStyleFrame);
   // XXX We should really be passing the canvasframe, not the root element
   // style frame but we don't have access to the canvasframe here. It isn't
@@ -6759,6 +6759,9 @@ void PresShell::RecordMouseLocation(WidgetGUIEvent* aEvent) {
       nsView* rootView = mViewManager->GetRootView();
       mMouseLocation = nsLayoutUtils::TranslateWidgetToView(
           mPresContext, aEvent->mWidget, aEvent->mRefPoint, rootView);
+      // TODO: instead, encapsulate `mMouseLocation` and
+      // `mLastOverWindowMouseLocation` in a struct.
+      mLastOverWindowMouseLocation = mMouseLocation;
       mMouseEventTargetGuid = InputAPZContext::GetTargetLayerGuid();
     } else {
       RelativeTo relativeTo{rootFrame};
@@ -6767,6 +6770,7 @@ void PresShell::RecordMouseLocation(WidgetGUIEvent* aEvent) {
       }
       mMouseLocation =
           nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent, relativeTo);
+      mLastOverWindowMouseLocation = mMouseLocation;
       mMouseEventTargetGuid = InputAPZContext::GetTargetLayerGuid();
     }
     mMouseLocationWasSetBySynthesizedMouseEventForTests =

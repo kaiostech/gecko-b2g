@@ -496,10 +496,8 @@ bool BaselineCacheIRCompiler::emitCallScriptedGetterShared(
     masm.storeICScriptInJSContext(scratch);
   }
 
-  EmitBaselineCreateStubFrameDescriptor(masm, scratch, JitFrameLayout::Size());
-  masm.Push(Imm32(0));  // ActualArgc is 0
   masm.Push(callee);
-  masm.Push(scratch);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, /* argc = */ 0);
 
   // Handle arguments underflow.
   Label noUnderflow;
@@ -1580,14 +1578,11 @@ bool BaselineCacheIRCompiler::emitCallScriptedSetterShared(
   masm.Push(val);
   masm.Push(TypedOrValueRegister(MIRType::Object, AnyRegister(receiver)));
 
-  EmitBaselineCreateStubFrameDescriptor(masm, scratch, JitFrameLayout::Size());
-  masm.Push(Imm32(1));  // ActualArgc
-
   // Push callee.
   masm.Push(callee);
 
   // Push frame descriptor.
-  masm.Push(scratch);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, /* argc = */ 1);
 
   if (isInlined) {
     // Store icScript in the context.
@@ -1792,7 +1787,7 @@ bool BaselineCacheIRCompiler::emitCallAddOrUpdateSparseElementHelper(
   masm.Push(id);
   masm.Push(obj);
 
-  using Fn = bool (*)(JSContext * cx, HandleArrayObject obj, int32_t int_id,
+  using Fn = bool (*)(JSContext * cx, Handle<ArrayObject*> obj, int32_t int_id,
                       HandleValue v, bool strict);
   callVM<Fn, AddOrUpdateSparseElementHelper>(masm);
 
@@ -2368,7 +2363,7 @@ void BaselineCacheIRCompiler::pushStandardArguments(Register argcReg,
 
   // argPtr initially points to the last argument. Skip the stub frame.
   Register argPtr = scratch2;
-  Address argAddress(masm.getStackPointer(), STUB_FRAME_SIZE);
+  Address argAddress(masm.getStackPointer(), StubFrameSize);
   masm.computeEffectiveAddress(argAddress, argPtr);
 
   // Align the stack such that the JitFrameLayout is aligned on the
@@ -2398,7 +2393,7 @@ void BaselineCacheIRCompiler::pushArrayArguments(Register argcReg,
   // Pull the array off the stack before aligning.
   Register startReg = scratch;
   masm.unboxObject(Address(masm.getStackPointer(),
-                           (isConstructing * sizeof(Value)) + STUB_FRAME_SIZE),
+                           (isConstructing * sizeof(Value)) + StubFrameSize),
                    startReg);
   masm.loadPtr(Address(startReg, NativeObject::offsetOfElements()), startReg);
 
@@ -2416,7 +2411,7 @@ void BaselineCacheIRCompiler::pushArrayArguments(Register argcReg,
 
   // Push newTarget, if necessary
   if (isConstructing) {
-    masm.pushValue(Address(FramePointer, STUB_FRAME_SIZE));
+    masm.pushValue(Address(FramePointer, StubFrameSizeFromFP));
   }
 
   // Push arguments: set up endReg to point to &array[argc]
@@ -2435,13 +2430,15 @@ void BaselineCacheIRCompiler::pushArrayArguments(Register argcReg,
   masm.bind(&copyDone);
 
   // Push |this|.
-  masm.pushValue(Address(
-      FramePointer, STUB_FRAME_SIZE + (1 + isConstructing) * sizeof(Value)));
+  masm.pushValue(
+      Address(FramePointer,
+              StubFrameSizeFromFP + (1 + isConstructing) * sizeof(Value)));
 
   // Push |callee| if needed.
   if (!isJitCall) {
-    masm.pushValue(Address(
-        FramePointer, STUB_FRAME_SIZE + (2 + isConstructing) * sizeof(Value)));
+    masm.pushValue(
+        Address(FramePointer,
+                StubFrameSizeFromFP + (2 + isConstructing) * sizeof(Value)));
   }
 }
 
@@ -2508,7 +2505,7 @@ void BaselineCacheIRCompiler::pushFunApplyArgsObj(Register argcReg,
                                                   bool isJitCall) {
   // Load the arguments object off the stack before aligning.
   Register argsReg = scratch;
-  masm.unboxObject(Address(masm.getStackPointer(), STUB_FRAME_SIZE), argsReg);
+  masm.unboxObject(Address(masm.getStackPointer(), StubFrameSize), argsReg);
 
   // Align the stack such that the JitFrameLayout is aligned on the
   // JitStackAlignment.
@@ -2549,7 +2546,7 @@ void BaselineCacheIRCompiler::pushFunApplyArgsObj(Register argcReg,
   masm.bind(&done);
 
   // Push arg0 as |this| for call
-  masm.pushValue(Address(FramePointer, STUB_FRAME_SIZE + sizeof(Value)));
+  masm.pushValue(Address(FramePointer, StubFrameSizeFromFP + sizeof(Value)));
 
   // Push |callee| if needed.
   if (!isJitCall) {
@@ -2602,9 +2599,9 @@ bool BaselineCacheIRCompiler::emitCallNativeShared(
   // Construct a native exit frame.
   masm.push(argcReg);
 
-  EmitBaselineCreateStubFrameDescriptor(masm, scratch, ExitFrameLayout::Size());
-  masm.push(scratch);
+  masm.pushFrameDescriptor(FrameType::BaselineStub);
   masm.push(ICTailCallReg);
+  masm.push(FramePointer);
   masm.loadJSContext(scratch);
   masm.enterFakeExitFrameForNative(scratch, scratch, isConstructing);
 
@@ -2749,15 +2746,15 @@ void BaselineCacheIRCompiler::storeThis(const T& newThis, Register argcReg,
   switch (flags.getArgFormat()) {
     case CallFlags::Standard: {
       BaseValueIndex thisAddress(masm.getStackPointer(),
-                                 argcReg,               // Arguments
-                                 1 * sizeof(Value) +    // NewTarget
-                                     STUB_FRAME_SIZE);  // Stub frame
+                                 argcReg,             // Arguments
+                                 1 * sizeof(Value) +  // NewTarget
+                                     StubFrameSize);  // Stub frame
       masm.storeValue(newThis, thisAddress);
     } break;
     case CallFlags::Spread: {
       Address thisAddress(masm.getStackPointer(),
-                          2 * sizeof(Value) +    // Arg array, NewTarget
-                              STUB_FRAME_SIZE);  // Stub frame
+                          2 * sizeof(Value) +  // Arg array, NewTarget
+                              StubFrameSize);  // Stub frame
       masm.storeValue(newThis, thisAddress);
     } break;
     default:
@@ -2785,7 +2782,7 @@ void BaselineCacheIRCompiler::createThis(Register argcReg, Register calleeReg,
     return;
   }
 
-  size_t depth = STUB_FRAME_SIZE;
+  size_t depth = StubFrameSize;
 
   // Save live registers that don't have to be traced.
   LiveGeneralRegisterSet liveNonGCRegs;
@@ -2829,7 +2826,7 @@ void BaselineCacheIRCompiler::createThis(Register argcReg, Register calleeReg,
   // Restore calleeReg. CreateThisFromIC may trigger a GC, so we reload the
   // callee from the stub frame (which is traced) instead of spilling it to
   // the stack.
-  depth = STUB_FRAME_SIZE;
+  depth = StubFrameSize;
   loadStackObject(ArgumentKind::Callee, flags, depth, argcReg, calleeReg);
 }
 
@@ -2846,11 +2843,12 @@ void BaselineCacheIRCompiler::updateReturnValue() {
   //  ...
   //  Arg0
   //  ThisVal         <---- We want this value.
-  //  argc                  ^
-  //  Callee token          | Skip three stack slots.
+  //  Callee token          | Skip two stack slots.
   //  Frame descriptor      v
   //  [Top of stack]
-  Address thisAddress(masm.getStackPointer(), 3 * sizeof(size_t));
+  size_t thisvOffset =
+      JitFrameLayout::offsetOfThis() - JitFrameLayout::bytesPoppedAfterCall();
+  Address thisAddress(masm.getStackPointer(), thisvOffset);
   masm.loadValue(thisAddress, JSReturnOperand);
 
 #ifdef DEBUG
@@ -2900,13 +2898,10 @@ bool BaselineCacheIRCompiler::emitCallScriptedFunction(ObjOperandId calleeId,
   Register code = scratch2;
   masm.loadJitCodeRaw(calleeReg, code);
 
-  EmitBaselineCreateStubFrameDescriptor(masm, scratch, JitFrameLayout::Size());
-
   // Note that we use Push, not push, so that callJit will align the stack
   // properly on ARM.
-  masm.Push(argcReg);
   masm.PushCalleeToken(calleeReg, isConstructing);
-  masm.Push(scratch);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, argcReg, scratch);
 
   // Handle arguments underflow.
   Label noUnderflow;
@@ -3010,13 +3005,10 @@ bool BaselineCacheIRCompiler::emitCallInlinedFunction(ObjOperandId calleeId,
   pushArguments(argcReg, calleeReg, scratch, scratch2, flags,
                 /*isJitCall =*/true);
 
-  EmitBaselineCreateStubFrameDescriptor(masm, scratch, JitFrameLayout::Size());
-
   // Note that we use Push, not push, so that callJit will align the stack
   // properly on ARM.
-  masm.Push(argcReg);
   masm.PushCalleeToken(calleeReg, isConstructing);
-  masm.Push(scratch);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, argcReg, scratch);
 
   // Handle arguments underflow.
   Label noUnderflow;
@@ -3153,8 +3145,8 @@ bool BaselineCacheIRCompiler::emitNewPlainObjectResult(uint32_t numFixedSlots,
     masm.loadPtr(shapeAddr, shape);  // This might have been overwritten.
     masm.Push(shape);
 
-    using Fn =
-        JSObject* (*)(JSContext*, HandleShape, gc::AllocKind, gc::AllocSite*);
+    using Fn = JSObject* (*)(JSContext*, Handle<Shape*>, gc::AllocKind,
+                             gc::AllocSite*);
     callVM<Fn, NewPlainObjectBaselineFallback>(masm);
 
     stubFrame.leave(masm);
@@ -3189,10 +3181,8 @@ bool BaselineCacheIRCompiler::emitCloseIterScriptedResult(
     masm.pushValue(UndefinedValue());
   }
   masm.Push(TypedOrValueRegister(MIRType::Object, AnyRegister(iter)));
-  EmitBaselineCreateStubFrameDescriptor(masm, scratch, JitFrameLayout::Size());
-  masm.Push(Imm32(0));  // argc is 0
   masm.Push(callee);
-  masm.Push(scratch);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, /* argc = */ 0);
 
   masm.callJit(code);
 

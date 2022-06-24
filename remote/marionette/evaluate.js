@@ -310,6 +310,10 @@ evaluate.fromJSON = function(options = {}) {
  *
  * @throws {JavaScriptError}
  *     If an object contains cyclic references.
+ * @throws {StaleElementReferenceError}
+ *     If the element has gone stale, indicating it is no longer
+ *     attached to the DOM, or its node document is no longer the
+ *     active document.
  */
 evaluate.toJSON = function(obj, seenEls) {
   const t = Object.prototype.toString.call(obj);
@@ -671,7 +675,7 @@ evaluate.ScriptStorage = class extends Set {
     for (let s of additional) {
       rv = rv + ";" + s;
     }
-    logger.debug(rv);
+    lazy.logger.debug(rv);
     return rv;
   }
 

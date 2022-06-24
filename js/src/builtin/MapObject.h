@@ -29,7 +29,7 @@ namespace js {
 class HashableValue {
   // This is used for map and set keys. We use OrderedHashTableRef to update all
   // nursery keys on minor GC, so a post barrier is not required here.
-  PreBarrieredValue value;
+  PreBarriered<Value> value;
 
  public:
   struct Hasher {
@@ -381,7 +381,7 @@ template <SetInitGetPrototypeOp getPrototypeOp, SetInitIsBuiltinOp isBuiltinOp>
   }
 
   // Get the canonical prototype object.
-  RootedNativeObject setProto(cx, getPrototypeOp(cx, cx->global()));
+  Rooted<NativeObject*> setProto(cx, getPrototypeOp(cx, cx->global()));
   if (!setProto) {
     return false;
   }

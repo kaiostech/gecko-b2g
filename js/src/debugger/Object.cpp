@@ -25,8 +25,6 @@
 #include "debugger/NoExecute.h"  // for LeaveDebuggeeNoExecute
 #include "debugger/Script.h"     // for DebuggerScript
 #include "debugger/Source.h"     // for DebuggerSource
-#include "gc/Barrier.h"          // for ImmutablePropertyNamePtr
-#include "gc/Rooting.h"          // for RootedValue
 #include "gc/Tracer.h"  // for TraceManuallyBarrieredCrossCompartmentEdge
 #include "js/CompilationAndEvaluation.h"  //  for Compile
 #include "js/Conversions.h"               // for ToObject
@@ -724,7 +722,7 @@ bool DebuggerObject::CallData::promiseDependentPromisesGetter() {
       return false;
     }
   }
-  RootedArrayObject promises(cx);
+  Rooted<ArrayObject*> promises(cx);
   if (values.length() == 0) {
     promises = NewDenseEmptyArray(cx);
   } else {
@@ -1307,7 +1305,7 @@ bool DebuggerObject::CallData::createSource() {
     }
   }
 
-  RootedScriptSourceObject sso(cx, script->sourceObject());
+  Rooted<ScriptSourceObject*> sso(cx, script->sourceObject());
   RootedObject wrapped(cx, dbg->wrapSource(cx, sso));
   if (!wrapped) {
     return false;
@@ -1367,14 +1365,14 @@ bool DebuggerObject::CallData::unwrapMethod() {
 struct DebuggerObject::PromiseReactionRecordBuilder
     : js::PromiseReactionRecordBuilder {
   Debugger* dbg;
-  HandleArrayObject records;
+  Handle<ArrayObject*> records;
 
-  PromiseReactionRecordBuilder(Debugger* dbg, HandleArrayObject records)
+  PromiseReactionRecordBuilder(Debugger* dbg, Handle<ArrayObject*> records)
       : dbg(dbg), records(records) {}
 
   bool then(JSContext* cx, HandleObject resolve, HandleObject reject,
             HandleObject result) override {
-    RootedPlainObject record(cx, NewPlainObject(cx));
+    Rooted<PlainObject*> record(cx, NewPlainObject(cx));
     if (!record) {
       return false;
     }
@@ -1421,7 +1419,7 @@ struct DebuggerObject::PromiseReactionRecordBuilder
     return dbg->getFrame(cx, unwrappedGenerator, &frame) && push(cx, frame);
   }
 
-  bool setIfNotNull(JSContext* cx, HandlePlainObject obj,
+  bool setIfNotNull(JSContext* cx, Handle<PlainObject*> obj,
                     Handle<PropertyName*> name, HandleObject prop) {
     if (!prop) {
       return true;
@@ -1445,7 +1443,7 @@ bool DebuggerObject::CallData::getPromiseReactionsMethod() {
     return false;
   }
 
-  RootedArrayObject holder(cx, NewDenseEmptyArray(cx));
+  Rooted<ArrayObject*> holder(cx, NewDenseEmptyArray(cx));
   if (!holder) {
     return false;
   }
@@ -1540,7 +1538,7 @@ const JSFunctionSpec DebuggerObject::methods_[] = {
 NativeObject* DebuggerObject::initClass(JSContext* cx,
                                         Handle<GlobalObject*> global,
                                         HandleObject debugCtor) {
-  RootedNativeObject objectProto(
+  Rooted<NativeObject*> objectProto(
       cx, InitClass(cx, debugCtor, nullptr, &class_, construct, 0, properties_,
                     methods_, nullptr, nullptr));
 
@@ -1559,7 +1557,7 @@ NativeObject* DebuggerObject::initClass(JSContext* cx,
 /* static */
 DebuggerObject* DebuggerObject::create(JSContext* cx, HandleObject proto,
                                        HandleObject referent,
-                                       HandleNativeObject debugger) {
+                                       Handle<NativeObject*> debugger) {
   DebuggerObject* obj =
       IsInsideNursery(referent)
           ? NewObjectWithGivenProto<DebuggerObject>(cx, proto)
@@ -2511,7 +2509,7 @@ bool DebuggerObject::makeDebuggeeNativeFunction(JSContext* cx,
     EnterDebuggeeObjectRealm(cx, ar, referent);
 
     unsigned nargs = fun->nargs();
-    RootedAtom name(cx, fun->displayAtom());
+    Rooted<JSAtom*> name(cx, fun->displayAtom());
     if (name) {
       cx->markAtom(name);
     }
@@ -2558,7 +2556,8 @@ bool DebuggerObject::isSameNative(JSContext* cx, Handle<DebuggerObject*> object,
 
   RootedFunction fun(cx, EnsureNativeFunction(nonCCWValue));
   if (!fun) {
-    RootedAtom selfHostedName(cx, MaybeGetSelfHostedFunctionName(nonCCWValue));
+    Rooted<JSAtom*> selfHostedName(cx,
+                                   MaybeGetSelfHostedFunctionName(nonCCWValue));
     if (!selfHostedName) {
       JS_ReportErrorASCII(cx, "Need native function");
       return false;

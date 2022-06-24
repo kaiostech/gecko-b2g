@@ -18,11 +18,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -37,18 +38,39 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://www.example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://www.example.com/test",
-            title: "www.example.com/test",
+            title: "test visit for http://www.example.com/test",
             heuristic: true,
           }),
       ],
     },
   },
   {
-    description: "Case differences for input are ignored",
+    description: "User's input starts with www",
+    pref: true,
+    visitHistory: ["http://www.example.com/test"],
+    inputHistory: [{ uri: "http://www.example.com/test", input: "www.exa" }],
+    userInput: "www.exa",
+    expected: {
+      autofilled: "www.example.com/test",
+      completed: "http://www.example.com/test",
+      hasAutofillTitle: true,
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://www.example.com/test",
+            title: "test visit for http://www.example.com/test",
+            heuristic: true,
+          }),
+      ],
+    },
+  },
+  {
+    description: "Case differences for user's input are ignored",
     pref: true,
     visitHistory: ["http://example.com/test"],
     inputHistory: [{ uri: "http://example.com/test", input: "EXA" }],
@@ -56,11 +78,33 @@ const TEST_DATA = [
     expected: {
       autofilled: "eXAmple.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
+            heuristic: true,
+          }),
+      ],
+    },
+  },
+  {
+    description:
+      "Case differences for user's input that starts with www are ignored",
+    pref: true,
+    visitHistory: ["http://www.example.com/test"],
+    inputHistory: [{ uri: "http://www.example.com/test", input: "www.exa" }],
+    userInput: "WWW.exa",
+    expected: {
+      autofilled: "WWW.example.com/test",
+      completed: "http://www.example.com/test",
+      hasAutofillTitle: true,
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://www.example.com/test",
+            title: "test visit for http://www.example.com/test",
             heuristic: true,
           }),
       ],
@@ -84,11 +128,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/yes",
       completed: "http://example.com/yes",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/yes",
-            title: "example.com/yes",
+            title: "test visit for http://example.com/yes",
             heuristic: true,
           }),
         context =>
@@ -112,11 +157,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/many",
       completed: "http://example.com/many",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/many",
-            title: "example.com/many",
+            title: "test visit for http://example.com/many",
             heuristic: true,
           }),
         context =>
@@ -140,11 +186,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/many",
       completed: "http://example.com/many",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/many",
-            title: "example.com/many",
+            title: "test visit for http://example.com/many",
             heuristic: true,
           }),
         context =>
@@ -172,11 +219,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/many",
       completed: "http://example.com/many",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/many",
-            title: "example.com/many",
+            title: "test visit for http://example.com/many",
             heuristic: true,
           }),
         context =>
@@ -196,6 +244,7 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/",
       completed: "http://example.com/",
+      hasAutofillTitle: false,
       results: [
         context =>
           makeVisitResult(context, {
@@ -220,11 +269,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -240,11 +290,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -259,6 +310,7 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.org/",
       completed: "http://example.org/",
+      hasAutofillTitle: false,
       results: [
         context =>
           makeVisitResult(context, {
@@ -283,6 +335,7 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/",
       completed: "http://example.com/",
+      hasAutofillTitle: false,
       results: [
         context =>
           makeVisitResult(context, {
@@ -346,16 +399,17 @@ const TEST_DATA = [
     pref: true,
     visitHistory: ["http://example.com/test"],
     inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
-    bookmarks: [{ uri: "http://example.com/test", title: "test" }],
+    bookmarks: [{ uri: "http://example.com/test", title: "test bookmark" }],
     userInput: "exa",
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test bookmark",
             heuristic: true,
           }),
       ],
@@ -371,11 +425,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -403,7 +458,9 @@ const TEST_DATA = [
     pref: true,
     source: UrlbarUtils.RESULT_SOURCE.HISTORY,
     visitHistory: ["http://example.com/test", "http://example.com/bookmarked"],
-    bookmarks: [{ uri: "http://example.com/bookmarked", title: "test" }],
+    bookmarks: [
+      { uri: "http://example.com/bookmarked", title: "test bookmark" },
+    ],
     inputHistory: [
       {
         uri: "http://example.com/test",
@@ -418,11 +475,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/bookmarked",
       completed: "http://example.com/bookmarked",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/bookmarked",
-            title: "example.com/bookmarked",
+            title: "test bookmark",
             heuristic: true,
           }),
         context =>
@@ -438,7 +496,9 @@ const TEST_DATA = [
     pref: true,
     source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
     visitHistory: ["http://example.com/test", "http://example.com/bookmarked"],
-    bookmarks: [{ uri: "http://example.com/bookmarked", title: "test" }],
+    bookmarks: [
+      { uri: "http://example.com/bookmarked", title: "test bookmark" },
+    ],
     inputHistory: [
       {
         uri: "http://example.com/test",
@@ -453,11 +513,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/bookmarked",
       completed: "http://example.com/bookmarked",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/bookmarked",
-            title: "example.com/bookmarked",
+            title: "test bookmark",
             heuristic: true,
           }),
       ],
@@ -509,11 +570,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
         context =>
@@ -540,11 +602,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "http://example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
         context =>
@@ -571,11 +634,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "http://example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
         context =>
@@ -602,11 +666,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/testMany",
       completed: "http://example.com/testMany",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/testMany",
-            title: "example.com/testMany",
+            title: "test visit for http://example.com/testMany",
             heuristic: true,
           }),
         context =>
@@ -624,14 +689,16 @@ const TEST_DATA = [
     inputHistory: [{ uri: "http://example.com/test", input: "http" }],
     userInput: "http",
     expected: {
-      autofilled: "http://example.com/test",
-      completed: "http://example.com/test",
       results: [
+        context =>
+          makeSearchResult(context, {
+            engineName: "Suggestions",
+            heuristic: true,
+          }),
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
-            heuristic: true,
+            title: "test visit for http://example.com/test",
           }),
       ],
     },
@@ -643,14 +710,16 @@ const TEST_DATA = [
     inputHistory: [{ uri: "http://example.com/test", input: "http:" }],
     userInput: "http:",
     expected: {
-      autofilled: "http://example.com/test",
-      completed: "http://example.com/test",
       results: [
+        context =>
+          makeSearchResult(context, {
+            engineName: "Suggestions",
+            heuristic: true,
+          }),
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
-            heuristic: true,
+            title: "test visit for http://example.com/test",
           }),
       ],
     },
@@ -664,11 +733,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "http://example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -683,11 +753,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "http://example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -702,11 +773,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "http://example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -725,11 +797,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "http.example.com/test",
       completed: "http://http.example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://http.example.com/test",
-            title: "http.example.com/test",
+            title: "test visit for http://http.example.com/test",
             heuristic: true,
           }),
         context =>
@@ -779,11 +852,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "totally.example.com/",
       completed: "http://totally.example.com/",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://totally.example.com/",
-            title: "totally.example.com",
+            title: "test visit for http://totally.example.com/",
             heuristic: true,
           }),
         context =>
@@ -807,11 +881,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -832,11 +907,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -858,6 +934,7 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/",
       completed: "http://example.com/",
+      hasAutofillTitle: false,
       results: [
         context =>
           makeVisitResult(context, {
@@ -883,11 +960,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -903,11 +981,12 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/test",
       completed: "http://example.com/test",
+      hasAutofillTitle: true,
       results: [
         context =>
           makeVisitResult(context, {
             uri: "http://example.com/test",
-            title: "example.com/test",
+            title: "test visit for http://example.com/test",
             heuristic: true,
           }),
       ],
@@ -923,6 +1002,187 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/",
       completed: "http://example.com/",
+      hasAutofillTitle: false,
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/",
+            title: "example.com",
+            heuristic: true,
+          }),
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "test visit for http://example.com/test",
+          }),
+      ],
+    },
+  },
+  {
+    description:
+      "Prioritize path component with case-sensitive and that is visited",
+    pref: true,
+    visitHistory: [
+      "http://example.com/TEST",
+      "http://example.com/TEST",
+      "http://example.com/test",
+    ],
+    inputHistory: [
+      { uri: "http://example.com/TEST", input: "example.com/test" },
+      { uri: "http://example.com/test", input: "example.com/test" },
+    ],
+    userInput: "example.com/test",
+    expected: {
+      autofilled: "example.com/test",
+      completed: "http://example.com/test",
+      hasAutofillTitle: true,
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "test visit for http://example.com/test",
+            heuristic: true,
+          }),
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/TEST",
+            title: "test visit for http://example.com/TEST",
+          }),
+      ],
+    },
+  },
+  {
+    description:
+      "Prioritize path component with case-sensitive but no visited data",
+    pref: true,
+    visitHistory: ["http://example.com/TEST"],
+    inputHistory: [
+      { uri: "http://example.com/TEST", input: "example.com/test" },
+    ],
+    userInput: "example.com/test",
+    expected: {
+      autofilled: "example.com/test",
+      completed: "http://example.com/test",
+      hasAutofillTitle: false,
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "example.com/test",
+            heuristic: true,
+          }),
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/TEST",
+            title: "test visit for http://example.com/TEST",
+          }),
+      ],
+    },
+  },
+  {
+    description:
+      "With history and bookmarks sources, foreign_count == 0, frecency <= 0: No adaptive history autofill",
+    pref: true,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    frecency: 0,
+    userInput: "exa",
+    expected: {
+      autofilled: "example.com/",
+      completed: "http://example.com/",
+      hasAutofillTitle: false,
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/",
+            heuristic: true,
+          }),
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "test visit for http://example.com/test",
+          }),
+      ],
+    },
+  },
+  {
+    description:
+      "With history source, visit_count == 0, foreign_count != 0: No adaptive history autofill",
+    pref: true,
+    source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    bookmarks: [{ uri: "http://example.com/test", title: "test bookmark" }],
+    userInput: "exa",
+    expected: {
+      results: [
+        context =>
+          makeSearchResult(context, {
+            engineName: "Suggestions",
+            heuristic: true,
+          }),
+      ],
+    },
+  },
+  {
+    description:
+      "With history source, visit_count > 0, foreign_count != 0, frecency <= 20: No adaptive history autofill",
+    pref: true,
+    source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    bookmarks: [{ uri: "http://example.com/test", title: "test bookmark" }],
+    frecency: 0,
+    userInput: "exa",
+    expected: {
+      autofilled: "example.com/",
+      completed: "http://example.com/",
+      hasAutofillTitle: false,
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/",
+            heuristic: true,
+          }),
+      ],
+    },
+  },
+  {
+    description:
+      "With history source, visit_count > 0, foreign_count == 0, frecency <= 20: No adaptive history autofill",
+    pref: true,
+    source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "exa" }],
+    frecency: 0,
+    userInput: "exa",
+    expected: {
+      autofilled: "example.com/",
+      completed: "http://example.com/",
+      hasAutofillTitle: false,
+      results: [
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/",
+            heuristic: true,
+          }),
+        context =>
+          makeVisitResult(context, {
+            uri: "http://example.com/test",
+            title: "test visit for http://example.com/test",
+          }),
+      ],
+    },
+  },
+  {
+    description: "Empty input string",
+    pref: true,
+    visitHistory: ["http://example.com/test"],
+    inputHistory: [{ uri: "http://example.com/test", input: "" }],
+    userInput: "exa",
+    expected: {
+      autofilled: "example.com/",
+      completed: "http://example.com/",
+      hasAutofillTitle: false,
       results: [
         context =>
           makeVisitResult(context, {
@@ -947,6 +1207,7 @@ const TEST_DATA = [
     expected: {
       autofilled: "example.com/",
       completed: "http://example.com/",
+      hasAutofillTitle: false,
       results: [
         context =>
           makeVisitResult(context, {
@@ -974,6 +1235,7 @@ add_task(async function inputTest() {
     visitHistory,
     inputHistory,
     bookmarks,
+    frecency,
     userInput,
     expected,
   } of TEST_DATA) {
@@ -1005,6 +1267,18 @@ add_task(async function inputTest() {
       await PlacesTestUtils.addBookmarkWithDetails(bookmark);
     }
 
+    if (typeof frecency == "number") {
+      await PlacesUtils.withConnectionWrapper("test::setFrecency", db =>
+        db.execute(
+          `UPDATE moz_places SET frecency = :frecency WHERE url = :url`,
+          {
+            frecency,
+            url: visitHistory[0],
+          }
+        )
+      );
+    }
+
     const sources = source
       ? [source]
       : [
@@ -1021,6 +1295,7 @@ add_task(async function inputTest() {
       context,
       autofilled: expected.autofilled,
       completed: expected.completed,
+      hasAutofillTitle: expected.hasAutofillTitle,
       matches: expected.results.map(f => f(context)),
     });
 
@@ -1068,10 +1343,11 @@ add_task(async function urlCase() {
         context,
         autofilled,
         completed: "http://example.com/ABC/DEF",
+        hasAutofillTitle: true,
         matches: [
           makeVisitResult(context, {
             uri: "http://example.com/ABC/DEF",
-            title: "example.com/ABC/DEF",
+            title: "test visit for http://example.com/ABC/DEF",
             heuristic: true,
           }),
         ],
@@ -1082,6 +1358,7 @@ add_task(async function urlCase() {
         context,
         autofilled: "example.COM/abc/def",
         completed: "http://example.com/abc/def",
+        hasAutofillTitle: false,
         matches: [
           makeVisitResult(context, {
             uri: "http://example.com/abc/def",
@@ -1112,10 +1389,11 @@ add_task(async function decayTest() {
     context: initContext,
     autofilled: "example.com/test",
     completed: "http://example.com/test",
+    hasAutofillTitle: true,
     matches: [
       makeVisitResult(initContext, {
         uri: "http://example.com/test",
-        title: "example.com/test",
+        title: "test visit for http://example.com/test",
         heuristic: true,
       }),
     ],
@@ -1143,10 +1421,11 @@ add_task(async function decayTest() {
     context: midContext,
     autofilled: "example.com/test",
     completed: "http://example.com/test",
+    hasAutofillTitle: true,
     matches: [
       makeVisitResult(midContext, {
         uri: "http://example.com/test",
-        title: "example.com/test",
+        title: "test visit for http://example.com/test",
         heuristic: true,
       }),
     ],
@@ -1166,6 +1445,7 @@ add_task(async function decayTest() {
     context,
     autofilled: "example.com/",
     completed: "http://example.com/",
+    hasAutofillTitle: false,
     matches: [
       makeVisitResult(context, {
         uri: "http://example.com/",

@@ -19,16 +19,6 @@ const lazy = {};
 
 ChromeUtils.defineModuleGetter(
   lazy,
-  "AutoCompleteChild",
-  "resource://gre/actors/AutoCompleteChild.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "BrowserUtils",
-  "resource://gre/modules/BrowserUtils.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  lazy,
   "InsecurePasswordUtils",
   "resource://gre/modules/InsecurePasswordUtils.jsm"
 );
@@ -685,13 +675,12 @@ class LoginAutoComplete {
         this.isProbablyANewPasswordField(inputElement);
     }
 
-    let messageData = {
+    const messageData = {
       actionOrigin,
       searchString,
       previousResult,
       forcePasswordGeneration,
       hasBeenTypePassword,
-      isSecure: lazy.InsecurePasswordUtils.isFormSecure(form),
       isProbablyANewPasswordField,
     };
 
@@ -701,7 +690,6 @@ class LoginAutoComplete {
 
     lazy.log.debug("LoginAutoComplete search:", {
       forcePasswordGeneration,
-      isSecure: messageData.isSecure,
       hasBeenTypePassword,
       isProbablyANewPasswordField,
       searchStringLength: searchString.length,

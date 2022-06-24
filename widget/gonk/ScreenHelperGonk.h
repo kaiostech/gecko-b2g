@@ -26,7 +26,6 @@
 #include "mozilla/dom/DOMTypes.h"
 #include "mozilla/Hal.h"
 #include "mozilla/Mutex.h"
-#include "nsBaseScreen.h"
 #include "nsCOMPtr.h"
 #include "nsIScreenManager.h"
 #include "nsProxyRelease.h"
@@ -55,28 +54,47 @@ class CompositorBridgeParent;
 
 enum class NotifyDisplayChangedEvent : int8_t { Observable, Suppressed };
 
-class nsScreenGonk : public nsBaseScreen {
+class nsScreenGonk : public nsIScreen {
   typedef mozilla::GonkDisplay GonkDisplay;
   typedef mozilla::LayoutDeviceIntRect LayoutDeviceIntRect;
   typedef mozilla::layers::CompositorBridgeParent CompositorBridgeParent;
   typedef mozilla::gfx::DrawTarget DrawTarget;
 
+  ~nsScreenGonk();
+
  public:
+  NS_DECL_ISUPPORTS
+
+  // nsIScreen interface
+
+  // These simply forward to the device-pixel versions;
+  // implementations where desktop pixels may not correspond
+  // to per-screen device pixels must override.
+  NS_IMETHOD GetRectDisplayPix(int32_t* outLeft, int32_t* outTop,
+                               int32_t* outWidth, int32_t* outHeight) override;
+  NS_IMETHOD GetAvailRectDisplayPix(int32_t* outLeft, int32_t* outTop,
+                                    int32_t* outWidth,
+                                    int32_t* outHeight) override;
+
+  NS_IMETHOD GetContentsScaleFactor(double* aContentsScaleFactor) override;
+
+  NS_IMETHOD GetDefaultCSSScaleFactor(double* aScaleFactor) override;
+
+  NS_IMETHOD GetDpi(float* aDPI) override;
+
   nsScreenGonk(uint32_t aId, DisplayType aDisplayType,
                const GonkDisplay::NativeData& aNativeData,
                NotifyDisplayChangedEvent aEventVisibility);
 
-  ~nsScreenGonk();
-
   NS_IMETHOD GetId(uint32_t* aId);
   NS_IMETHOD GetRect(int32_t* aLeft, int32_t* aTop, int32_t* aWidth,
-                     int32_t* aHeight);
+                     int32_t* aHeight) override;
   NS_IMETHOD GetAvailRect(int32_t* aLeft, int32_t* aTop, int32_t* aWidth,
-                          int32_t* aHeight);
-  NS_IMETHOD GetPixelDepth(int32_t* aPixelDepth);
-  NS_IMETHOD GetColorDepth(int32_t* aColorDepth);
-  NS_IMETHOD GetRotation(uint32_t* aRotation);
-  NS_IMETHOD SetRotation(uint32_t aRotation);
+                          int32_t* aHeight) override;
+  NS_IMETHOD GetPixelDepth(int32_t* aPixelDepth) override;
+  NS_IMETHOD GetColorDepth(int32_t* aColorDepth) override;
+  NS_IMETHOD GetRotation(uint32_t* aRotation) override;
+  NS_IMETHOD SetRotation(uint32_t aRotation) override;
   NS_IMETHOD GetRefreshRate(int32_t *aRefreshRate);
   NS_IMETHOD GetIsPseudoDisplay(bool *aIsPseudoDisplay) { *aIsPseudoDisplay = false; return NS_OK; }
 

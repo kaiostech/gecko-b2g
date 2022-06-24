@@ -108,13 +108,6 @@ go-1.14.4:
         sha256: aed845e4185a0b2a3c3d5e1d0a35491702c55889192bb9c30e67a3de6849c067
         size: 123711003
 
-iris-2.0:
-    description: Iris_Firefox source code
-    fetch:
-        type: git
-        repo: https://github.com/mozilla/iris_firefox
-        revision: a91a1cb88a16b0ee4d30f0dfc165d2cacf48b10c
-
 isl-0.16.1:
     description: ISL 0.16.1 source code
     fetch:
@@ -245,12 +238,12 @@ wine:
         strip-components: 1
         add-prefix: wine-source/
 
-cbindgen-0.24.2:
+cbindgen-0.24.3:
     description: cbindgen source code
     fetch:
         type: git
         repo: https://github.com/eqrion/cbindgen
-        revision: 3d06ae1fc4984b82ada2d84ce74c7af06ffd499d
+        revision: f43ccfc047a1a160267f32355c5e5e7154a2665a
 
 cctools-port:
     description: cctools-port source code
@@ -354,11 +347,11 @@ clang-5.0:
         revision: 6a075b6de4cafebec9ca1ff9eec7229a617c93f6
 
 clang-14:
-    description: clang 14.0.4 source code
+    description: clang 14.0.5 source code
     fetch:
         type: git
         repo: https://github.com/llvm/llvm-project
-        revision: 29f1039a7285a5c3a9c353d054140bf2556d4c4d
+        revision: 4bc1d0b51c8e488d78ab69c8b19cfbcd1f7db6a4
 
 clang-trunk:
     description: clang main branch source code
@@ -387,11 +380,11 @@ rust-1.62.0-dev:
         revision: 60e50fc1cfe0bb693a5f4f93eb83ef70854531e3
 
 wasi-sdk:
-    description: wasi-sdk-15 source code + LLVM-15 fix
+    description: wasi-sdk-16 source code
     fetch:
         type: git
         repo: https://github.com/WebAssembly/wasi-sdk
-        revision: 37ae6af88201884c8b98a65adcd6d8cd1284f95e
+        revision: 7b7b8a974a31f527d71467499b0d5be3b12f2fa9
 
 ninja:
     description: ninja 1.9.0
@@ -664,4 +657,4 @@ cargo-vet:
     fetch:
         type: git
         repo: https://github.com/mozilla/cargo-vet
-        revision: 8760068d704a23312c434d9342b1ecc5f35d1109
+        revision: a0c319c5b7622ba53ef58a6e8c93ad660c3dca82

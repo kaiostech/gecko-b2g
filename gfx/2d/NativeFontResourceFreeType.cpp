@@ -7,7 +7,7 @@
 #include "mozilla/Preferences.h"
 #include "NativeFontResourceFreeType.h"
 #include "UnscaledFontFreeType.h"
-#include "Logging.h"
+#include "mozilla/StaticPrefs_gfx.h"
 
 namespace mozilla::gfx {
 

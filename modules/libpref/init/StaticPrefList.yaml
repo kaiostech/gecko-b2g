@@ -1135,6 +1135,20 @@
   value: "#FBFBFE"
   mirror: never
 
+# Determines the behavior of OS zoom settings.
+#
+#   0: doesn't affect rendering at all
+#   1: affects full zoom (dpi, effectively).
+#   2: affects text zoom.
+#
+# Default is (1): Historical behavior on Linux, matches other browsers on
+# Windows, and generally creates more consistent rendering.
+- name: browser.display.os-zoom-behavior
+  type: RelaxedAtomicInt32
+  value: 1
+  mirror: always
+  rust: true
+
 # Whether focus rings are always shown by default.
 #
 # This is the initial value of nsWindowRoot::mShowFocusRings, but it can be
@@ -2022,6 +2036,8 @@
   value: true
   mirror: always
 
+# Exposes window.caches and skips SecureContext check.
+# dom.serviceWorkers.testing.enabled also includes the same effect.
 - name: dom.caches.testing.enabled
   type: RelaxedAtomicBool
   value: false
@@ -2301,9 +2317,17 @@
   value: false
   mirror: always
 
+# Skips checking permission and user activation when accessing the clipboard.
 # Should only be enabled in tests.
 # Access with Clipboard::IsTestingPrefEnabled().
 - name: dom.events.testing.asyncClipboard
+  type: bool
+  value: false
+  mirror: always
+  do_not_use_directly: true
+
+# Control whether `navigator.clipboard.readText()` is exposed to content.
+- name: dom.events.asyncClipboard.readText
   type: bool
   value: false
   mirror: always
@@ -3361,6 +3385,11 @@
 #   2: Depth-first. Delazify all functions off-thread in the order of appearance
 #      in the source.
 #
+#   3: Large-first. Delazify all functions off-thread starting with the largest
+#      functions first, and the smallest as the last one to be delazified, where
+#      the size of function is measured in bytes between the start to the end of
+#      the function.
+#
 # 255: Parse everything eagerly, from the first parse. All functions are parsed
 #      at the same time as the top-level of a file.
 - name: dom.script_loader.delazification.strategy
@@ -3838,7 +3867,7 @@
 
 - name: dom.streams.transferable.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # For area and anchor elements with target=_blank and no rel set to
@@ -4748,7 +4777,7 @@
 # none of its methods available).
 - name: extensions.InstallTriggerImpl.enabled
   type: bool
-  value: true
+  value: false
   mirror: always
 
 # Whether the InstallTrigger implementation should be enabled (or completely
@@ -4756,7 +4785,7 @@
 # used also for UA detection.
 - name: extensions.InstallTrigger.enabled
   type: bool
-  value: true
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 
@@ -5582,7 +5611,7 @@
 
 - name: gfx.direct3d11.reuse-decoder-device
   type: RelaxedAtomicInt32
-#ifdef NIGHTLY_BUILD
+#if defined(EARLY_BETA_OR_EARLIER)
   value: 1
 #else
   value: -1
@@ -6901,6 +6930,12 @@
     mirror: always
 #endif  // NIGHTLY_BUILD
 
+  # Experimental support for Array.findLast/Array.findLastIndex in JavaScript.
+-   name: javascript.options.experimental.array_find_last
+    type: bool
+    value: false
+    mirror: always
+
 # Experimental support for class static blocks in JavaScript.
 -   name: javascript.options.experimental.class_static_blocks
     type: bool
@@ -7069,12 +7104,10 @@
     mirror: always
 #endif  // defined(ENABLE_WASM_EXTENDED_CONST)
 
-#if defined(ENABLE_WASM_EXCEPTIONS)
 -   name: javascript.options.wasm_exceptions
     type: bool
     value: true
     mirror: always
-#endif // defined(ENABLE_WASM_EXCEPTIONS)
 
 #if defined(ENABLE_WASM_FUNCTION_REFERENCES)
 -   name: javascript.options.wasm_function_references
@@ -7940,6 +7973,13 @@
   mirror: always
   rust: true
 
+# Is support for :has() enabled?
+- name: layout.css.has-selector.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Is support for CSS hyphenate-character enabled?
 - name: layout.css.hyphenate-character.enabled
   type: RelaxedAtomicBool
@@ -8637,7 +8677,7 @@
 # Whether to draw images in CSS backgrounds if we only have a partial frame.
 - name: layout.display_partial_background_images
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Controls whether nsRefreshDriver::IsInHighRateMode() may ever return true.
@@ -8707,13 +8747,13 @@
 # is unspecified.
 - name: mathml.scriptminsize_attribute.disabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether to disable the scriptsizemultiplier attribute.
 - name: mathml.scriptsizemultiplier_attribute.disabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether to disable support for stretching operators with STIXGeneral fonts.
@@ -9071,6 +9111,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_FREEBSD)
+  value: true
 #elif defined(XP_OPENBSD)
   value: true
 #else
@@ -9111,6 +9153,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_FREEBSD)
+  value: true
 #elif defined(XP_OPENBSD)
   value: true
 #else
@@ -9141,6 +9185,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_FREEBSD)
+  value: true
 #elif defined(XP_OPENBSD)
   value: true
 #else
@@ -9155,6 +9201,8 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
+  value: true
+#elif defined(XP_FREEBSD)
   value: true
 #elif defined(XP_OPENBSD)
   value: true
@@ -9171,6 +9219,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_FREEBSD)
+  value: true
 #elif defined(XP_OPENBSD)
   value: true
 #else
@@ -9186,6 +9236,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_FREEBSD)
+  value: true
 #elif defined(XP_OPENBSD)
   value: true
 #else
@@ -9200,6 +9252,8 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
+  value: true
+#elif defined(XP_FREEBSD)
   value: true
 #elif defined(XP_OPENBSD)
   value: true
@@ -9664,6 +9718,11 @@
 - name: media.av1.new-thread-count-strategy
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+- name: media.av1.force-thread-count
+  type: RelaxedAtomicInt32
+  value: 0
   mirror: always
 
 - name: media.flac.enabled
@@ -10458,6 +10517,13 @@
   value: 2
   mirror: always
 
+# Whether to respect the redirected-tainted origin flag
+# https://fetch.spec.whatwg.org/#concept-request-tainted-origin
+- name: network.http.origin.redirectTainted
+  type: bool
+  value: true
+  mirror: always
+
 # Prefs allowing granular control of referers.
 # 0=don't send any, 1=send only on clicks, 2=send on image requests as well
 - name: network.http.sendRefererHeader
@@ -10916,6 +10982,12 @@
   type: String
   value: "https://mozilla.cloudflare-dns.com/dns-query"
   mirror: never
+
+# If true, retry TRR for recoverable errors once.
+- name: network.trr.retry_on_recoverable_errors
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 # If true, don't fallback to native DNS upon network errors.
 - name: network.trr.strict_native_fallback
@@ -11643,11 +11715,6 @@
 #---------------------------------------------------------------------------
 # Prefs starting with "plugins."
 #---------------------------------------------------------------------------
-
-- name: plugins.flashBlock.enabled
-  type: bool
-  value: false
-  mirror: always
 
 - name: plugins.http_https_only
   type: bool
@@ -12460,7 +12527,7 @@
 # (OS) mapping when loaded via the file:// protocol.
 - name: security.block_fileuri_script_with_wrong_mime
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Cancel outgoing requests from SystemPrincipal:
@@ -12523,6 +12590,7 @@
   value: 1
 #endif
   mirror: always
+
 
 # Whether or not OCSP is required.
 # true => hard-fail (if an OCSP request times out, stop the connection)
@@ -12669,6 +12737,29 @@
 - name: security.tls.enable_post_handshake_auth
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Probability of GREASEing a TLS connection with ECH (0-100)
+# 0 means never GREASE, 100 means always GREASE
+- name: security.tls.ech.grease_probability
+  type: RelaxedAtomicUint32
+#ifdef IS_NIGHTLY_BUILD
+  value: 10
+#else
+  value: 0
+#endif
+  mirror: always
+
+# Whether to retry connections without ECH Grease
+- name: security.tls.ech.disable_grease_on_fallback
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# ECH GREASE Padding target (1-255)
+- name: security.tls.ech.grease_size
+  type: RelaxedAtomicUint32
+  value: 100
   mirror: always
 
 - name: security.tls.hello_downgrade_check
@@ -13766,16 +13857,9 @@
   mirror: always
 
 # Whether we should use the default accent color or the theme-provided one.
-#
-# TODO(emilio): This should probably do the right thing in most other
-# platforms, but stick to the standard colors on those.
-- name: widget.non-native-theme.use-theme-accent
+- name: widget.use-theme-accent
   type: RelaxedAtomicBool
-#if defined(MOZ_WIDGET_GTK) || defined(XP_MACOSX) || defined(ANDROID)
   value: true
-#else
-  value: false
-#endif
   mirror: always
 
 # Whether we should try to use WebRender to render widgets.
@@ -13997,6 +14081,15 @@
   type: int32_t
   value: 2
   mirror: always
+# Whether to use XDG portal for opening to a file.
+# https://flatpak.github.io/xdg-desktop-portal/#gdbus-org.freedesktop.portal.OpenURI
+#  - 0: never
+#  - 1: always
+#  - 2: auto (true for flatpak or GTK_USE_PORTAL=1, false otherwise)
+- name: widget.use-xdg-desktop-portal.open-uri
+  type: int32_t
+  value: 2
+  mirror: always
 #endif
 
 #ifdef XP_WIN
@@ -14020,6 +14113,12 @@
 # Whether overlay scrollbars respect the system settings.
 # Note that these can be overridden by the ui.useOverlayScrollbars pref.
 - name: widget.windows.overlay-scrollbars.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Whether we allow accessing the UWP system color pallete.
+- name: widget.windows.uwp-system-colors.enabled
   type: bool
   value: true
   mirror: always

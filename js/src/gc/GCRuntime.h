@@ -34,6 +34,7 @@ class AutoLockHelperThreadState;
 class FinalizationRegistryObject;
 class FinalizationRecordObject;
 class FinalizationQueueObject;
+class GlobalObject;
 class VerifyPreTracer;
 class WeakRefObject;
 class ZoneAllocator;
@@ -952,6 +953,7 @@ class GCRuntime {
   /* GC scheduling state and parameters. */
   GCSchedulingTunables tunables;
   GCSchedulingState schedulingState;
+  MainThreadData<bool> fullGCRequested;
 
   // Helper thread configuration.
   MainThreadData<double> helperThreadRatio;

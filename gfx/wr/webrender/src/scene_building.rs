@@ -52,7 +52,7 @@ use crate::clip::{ClipInternData, ClipNodeKind, ClipInstance, SceneClipInstance}
 use crate::clip::{PolygonDataHandle};
 use crate::segment::EdgeAaSegmentMask;
 use crate::spatial_tree::{SceneSpatialTree, SpatialNodeIndex, get_external_scroll_offset};
-use crate::frame_builder::{ChasePrimitive, FrameBuilderConfig};
+use crate::frame_builder::{FrameBuilderConfig};
 use crate::glyph_rasterizer::{FontInstance, SharedFontResources};
 use crate::hit_test::HitTestingScene;
 use crate::intern::Interner;
@@ -60,7 +60,7 @@ use crate::internal_types::{FastHashMap, LayoutPrimitiveInfo, Filter, PlaneSplit
 use crate::picture::{Picture3DContext, PictureCompositeMode, PicturePrimitive};
 use crate::picture::{BlitReason, OrderedPictureChild, PrimitiveList, SurfaceInfo, PictureFlags};
 use crate::picture_graph::PictureGraph;
-use crate::prim_store::{PrimitiveInstance, register_prim_chase_id};
+use crate::prim_store::{PrimitiveInstance};
 use crate::prim_store::{PrimitiveInstanceKind, NinePatchDescriptor, PrimitiveStore};
 use crate::prim_store::{InternablePrimitive, SegmentInstanceIndex, PictureIndex};
 use crate::prim_store::{PolygonKey};
@@ -817,7 +817,7 @@ impl<'a> SceneBuilder<'a> {
                             info.stacking_context.transform_style,
                             info.prim_flags,
                             spatial_node_index,
-                            info.stacking_context.clip_id,
+                            info.stacking_context.clip_chain_id,
                             info.stacking_context.raster_space,
                             info.stacking_context.flags,
                             bc.pipeline_id,
@@ -1860,9 +1860,6 @@ impl<'a> SceneBuilder<'a> {
         flags: PrimitiveFlags,
     ) {
         // Add primitive to the top-most stacking context on the stack.
-        if prim_instance.is_chased() {
-            info!("\tadded to stacking context at {}", self.sc_stack.len());
-        }
 
         // If we have a valid stacking context, the primitive gets added to that.
         // Otherwise, it gets added to a top-level picture cache slice.
@@ -1969,18 +1966,11 @@ impl<'a> SceneBuilder<'a> {
         P: InternablePrimitive,
         Interners: AsMut<Interner<P>>,
     {
-        let mut prim_instance = self.create_primitive(
+        let prim_instance = self.create_primitive(
             info,
             spatial_node_index,
             clip_chain_id,
             prim,
-        );
-        if info.flags.contains(PrimitiveFlags::ANTIALISED) {
-            prim_instance.anti_aliased = true;
-        }
-        self.register_chase_primitive_by_rect(
-            &info.rect,
-            &prim_instance,
         );
         self.add_primitive_to_draw_list(
             prim_instance,
@@ -2031,12 +2021,15 @@ impl<'a> SceneBuilder<'a> {
         transform_style: TransformStyle,
         prim_flags: PrimitiveFlags,
         spatial_node_index: SpatialNodeIndex,
-        clip_id: Option<ClipId>,
+        clip_chain_id: Option<api::ClipChainId>,
         requested_raster_space: RasterSpace,
         flags: StackingContextFlags,
         pipeline_id: PipelineId,
     ) -> StackingContextInfo {
         profile_scope!("push_stacking_context");
+
+        // TODO(gw): Port internal API to be ClipChain based, rather than ClipId once all callers updated
+        let clip_id = clip_chain_id.map(|id| ClipId::ClipChain(id));
 
         let new_space = match (self.raster_space_stack.last(), requested_raster_space) {
             // If no parent space, just use the requested space
@@ -2618,11 +2611,6 @@ impl<'a> SceneBuilder<'a> {
         viewport_size: &LayoutSize,
         instance: PipelineInstanceId,
     ) {
-        if let ChasePrimitive::Id(id) = self.config.chase_primitive {
-            debug!("Chasing {:?} by index", id);
-            register_prim_chase_id(id);
-        }
-
         let spatial_node_index = self.push_reference_frame(
             SpatialId::root_reference_frame(pipeline_id),
             self.spatial_tree.root_reference_frame_index(),
@@ -3081,26 +3069,6 @@ impl<'a> SceneBuilder<'a> {
                 pending_primitive.prim,
             );
         }
-    }
-
-    #[cfg(debug_assertions)]
-    fn register_chase_primitive_by_rect(
-        &mut self,
-        rect: &LayoutRect,
-        prim_instance: &PrimitiveInstance,
-    ) {
-        if ChasePrimitive::LocalRect(*rect) == self.config.chase_primitive {
-            debug!("Chasing {:?} by local rect", prim_instance.id);
-            register_prim_chase_id(prim_instance.id);
-        }
-    }
-
-    #[cfg(not(debug_assertions))]
-    fn register_chase_primitive_by_rect(
-        &mut self,
-        _rect: &LayoutRect,
-        _prim_instance: &PrimitiveInstance,
-    ) {
     }
 
     pub fn add_clear_rectangle(

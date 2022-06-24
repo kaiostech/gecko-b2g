@@ -17,8 +17,6 @@ const lazy = {};
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   FormLikeFactory: "resource://gre/modules/FormLikeFactory.jsm",
-  GeckoViewAutofill: "resource://gre/modules/GeckoViewAutofill.jsm",
-  WebNavigationFrames: "resource://gre/modules/WebNavigationFrames.jsm",
   LoginManagerChild: "resource://gre/modules/LoginManagerChild.jsm",
 });
 
@@ -111,9 +109,13 @@ class GeckoViewAutoFillChild extends GeckoViewActorChild {
       }
     }
 
-    const [usernameField] = lazy.LoginManagerChild.forWindow(
-      window
-    ).getUserNameAndPasswordFields(passwordField || aFormLike.elements[0]);
+    const loginManagerChild = lazy.LoginManagerChild.forWindow(window);
+    const docState = loginManagerChild.stateForDocument(
+      passwordField.ownerDocument
+    );
+    const [usernameField] = docState.getUserNameAndPasswordFields(
+      passwordField || aFormLike.elements[0]
+    );
 
     const focusedElement = aFormLike.rootElement.ownerDocument.activeElement;
     let sendFocusEvent = aFormLike.rootElement === focusedElement;

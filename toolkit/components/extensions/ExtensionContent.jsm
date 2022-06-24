@@ -50,8 +50,6 @@ const { ExtensionUtils } = ChromeUtils.import(
   "resource://gre/modules/ExtensionUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGlobalGetters(lazy, ["crypto"]);
-
 const {
   DefaultMap,
   DefaultWeakMap,
@@ -70,8 +68,6 @@ const {
 } = ExtensionCommon;
 
 const { BrowserExtensionContent, ChildAPIManager, Messenger } = ExtensionChild;
-
-XPCOMUtils.defineLazyGetter(lazy, "console", ExtensionCommon.getConsole);
 
 XPCOMUtils.defineLazyGetter(lazy, "isContentScriptProcess", () => {
   return (
@@ -375,7 +371,7 @@ class Script {
     }
 
     // Store the hash of the cssCode.
-    const buffer = await lazy.crypto.subtle.digest(
+    const buffer = await crypto.subtle.digest(
       "SHA-1",
       new TextEncoder().encode(cssCode)
     );

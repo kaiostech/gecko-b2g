@@ -165,7 +165,7 @@ const AVAILABLE_SHIMS = [
         types: ["image", "imageset", "xmlhttprequest"],
       },
     ],
-    onlyIfDFPIActive: true,
+    onlyIfBlockedByETP: true,
   },
   {
     id: "AdSafeProtectedGoogleIMAAdapter",
@@ -183,7 +183,17 @@ const AVAILABLE_SHIMS = [
     name: "Ads by Google",
     bug: "1713726",
     file: "google-ads.js",
-    matches: ["*://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"],
+    matches: [
+      "*://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",
+      {
+        patterns: [
+          "*://pagead2.googlesyndication.com/pagead/*.js*fcd=true",
+          "*://pagead2.googlesyndication.com/pagead/js/*.js*fcd=true",
+        ],
+        target: "empty-script.js",
+        types: ["xmlhttprequest"],
+      },
+    ],
     onlyIfBlockedByETP: true,
   },
   {
@@ -429,6 +439,15 @@ const AVAILABLE_SHIMS = [
     ],
   },
   {
+    id: "IAM",
+    platform: "all",
+    name: "INFOnline IAM",
+    bug: "1761774",
+    file: "iam.js",
+    matches: ["*://script.ioam.de/iam.js"],
+    onlyIfBlockedByETP: true,
+  },
+  {
     id: "IASPET",
     platform: "all",
     name: "Integral Ad Science PET",
@@ -464,6 +483,15 @@ const AVAILABLE_SHIMS = [
     onlyIfBlockedByETP: true,
   },
   {
+    id: "Nielsen",
+    platform: "all",
+    name: "Nielsen",
+    bug: "1760754",
+    file: "nielsen.js",
+    matches: ["*://*.imrworldwide.com/v60.js"],
+    onlyIfBlockedByETP: true,
+  },
+  {
     id: "Optimizely",
     platform: "all",
     name: "Optimizely",
@@ -490,6 +518,19 @@ const AVAILABLE_SHIMS = [
     file: "rich-relevance.js",
     matches: ["*://media.richrelevance.com/rrserver/js/1.2/p13n.js"],
     onlyIfBlockedByETP: true,
+  },
+  {
+    id: "Firebase",
+    platform: "all",
+    name: "Firebase",
+    bug: "1668408",
+    onlyIfPrivateBrowsing: true,
+    runFirst: "firebase.js",
+    matches: [
+      "*://www.gstatic.com/firebasejs/*/firebase-messaging.js*",
+      "*://orangerie.eu/js/vendor*.js*",
+      "*://web.whatsapp.com/vendor*bootstrap_qr*.js*",
+    ],
   },
   {
     id: "StackBlitz",
@@ -526,7 +567,7 @@ const AVAILABLE_SHIMS = [
         types: ["image", "imageset", "xmlhttprequest"],
       },
     ],
-    onlyIfDFPIActive: true,
+    onlyIfBlockedByETP: true,
   },
   {
     id: "Vidible",

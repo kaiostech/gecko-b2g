@@ -3222,6 +3222,8 @@ exports.CSS_PROPERTIES = {
       "animation-fill-mode",
       "animation-delay",
       "animation-timeline",
+      "scroll-timeline-name",
+      "scroll-timeline-axis",
       "-moz-box-align",
       "-moz-box-direction",
       "-moz-box-flex",
@@ -11802,6 +11804,14 @@ exports.PREFERENCES = [
     "layout.css.individual-transform.enabled"
   ],
   [
+    "scroll-timeline-axis",
+    "layout.css.scroll-linked-animations.enabled"
+  ],
+  [
+    "scroll-timeline-name",
+    "layout.css.scroll-linked-animations.enabled"
+  ],
+  [
     "size",
     "layout.css.page-size.enabled"
   ],
@@ -11832,6 +11842,10 @@ exports.PREFERENCES = [
   [
     "zoom",
     "layout.css.zoom-transform-hack.enabled"
+  ],
+  [
+    "scroll-timeline",
+    "layout.css.scroll-linked-animations.enabled"
   ],
   [
     "-moz-transform",

@@ -25,8 +25,6 @@ const { AppConstants } = ChromeUtils.import(
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGlobalGetters(lazy, ["fetch"]);
-
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   ConsoleAPI: "resource://gre/modules/Console.jsm",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
@@ -60,8 +58,6 @@ function getConsole() {
     prefix: "WebExtensions",
   });
 }
-
-XPCOMUtils.defineLazyGetter(lazy, "console", getConsole);
 
 const BACKGROUND_SCRIPTS_VIEW_TYPES = ["background", "background_worker"];
 
@@ -1394,7 +1390,7 @@ class SchemaAPIManager extends EventEmitter {
   }
 
   async loadModuleJSON(urls) {
-    let promises = urls.map(url => lazy.fetch(url).then(resp => resp.json()));
+    let promises = urls.map(url => fetch(url).then(resp => resp.json()));
 
     return this.initModuleJSON(await Promise.all(promises));
   }

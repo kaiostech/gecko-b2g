@@ -237,7 +237,7 @@ static nscolor GetBackplateColor(nsIFrame* aFrame) {
     // colors with the non-native theme, and native system colors should also
     // match the native theme), then we're alright and we should compute an
     // appropriate backplate color.
-    auto* style = frame->Style();
+    const auto* style = frame->Style();
     if (style->StyleBackground()->IsTransparent(style)) {
       continue;
     }
@@ -3907,6 +3907,12 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowState& aState,
                       clearance, aState.IsAdjacentWithTop(), aLine.get(),
                       *childReflowInput, frameReflowStatus, aState);
 
+      if (frameReflowStatus.IsInlineBreakBefore()) {
+        // No need to retry this loop if there is a break opportunity before the
+        // child block.
+        break;
+      }
+
       // Now the block has a height.  Using that height, get the
       // available space again and call ComputeBlockAvailSpace again.
       // If ComputeBlockAvailSpace gives a different result, we need to
@@ -6705,6 +6711,15 @@ void nsBlockFrame::ReflowFloat(BlockReflowState& aState,
                     nullptr, floatRS, aReflowStatus, aState);
   } while (clearanceFrame);
 
+  if (aFloat->IsLetterFrame()) {
+    // We never split floating first letters; an incomplete status for such
+    // frames simply means that there is more content to be reflowed on the
+    // line.
+    if (aReflowStatus.IsIncomplete()) {
+      aReflowStatus.Reset();
+    }
+  }
+
   if (!aReflowStatus.IsFullyComplete() && ShouldAvoidBreakInside(floatRS)) {
     aReflowStatus.SetInlineLineBreakBeforeAndReset();
   } else if (aReflowStatus.IsIncomplete() &&
@@ -6716,15 +6731,6 @@ void nsBlockFrame::ReflowFloat(BlockReflowState& aState,
 
   if (aReflowStatus.NextInFlowNeedsReflow()) {
     aState.mReflowStatus.SetNextInFlowNeedsReflow();
-  }
-
-  if (aFloat->IsLetterFrame()) {
-    // We never split floating first letters; an incomplete state for
-    // such frames simply means that there is more content to be
-    // reflowed on the line.
-    if (aReflowStatus.IsIncomplete()) {
-      aReflowStatus.Reset();
-    }
   }
 
   // Capture the margin and offsets information for the caller

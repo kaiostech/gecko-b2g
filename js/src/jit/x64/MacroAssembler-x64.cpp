@@ -547,10 +547,11 @@ void MacroAssemblerX64::handleFailureWithHandlerTail(Label* profilerExitTail) {
 
   breakpoint();  // Invalid kind.
 
-  // No exception handler. Load the error value, load the new stack pointer
-  // and return from the entry frame.
+  // No exception handler. Load the error value, restore state and return from
+  // the entry frame.
   bind(&entryFrame);
   asMasm().moveValue(MagicValue(JS_ION_ERROR), JSReturnOperand);
+  loadPtr(Address(rsp, ResumeFromException::offsetOfFramePointer()), rbp);
   loadPtr(Address(rsp, ResumeFromException::offsetOfStackPointer()), rsp);
   ret();
 
@@ -584,15 +585,14 @@ void MacroAssemblerX64::handleFailureWithHandlerTail(Label* profilerExitTail) {
   loadPtr(Address(rsp, ResumeFromException::offsetOfStackPointer()), rsp);
   loadValue(Address(rbp, BaselineFrame::reverseOffsetOfReturnValue()),
             JSReturnOperand);
-  movq(rbp, rsp);
-  pop(rbp);
   jmp(&profilingInstrumentation);
 
   // Return the given value to the caller.
   bind(&returnIon);
   loadValue(Address(rsp, ResumeFromException::offsetOfException()),
             JSReturnOperand);
-  loadPtr(Address(rsp, ResumeFromException::offsetOfFramePointer()), rsp);
+  loadPtr(Address(rsp, ResumeFromException::offsetOfFramePointer()), rbp);
+  loadPtr(Address(rsp, ResumeFromException::offsetOfStackPointer()), rsp);
 
   // If profiling is enabled, then update the lastProfilingFrame to refer to
   // caller frame before returning. This code is shared by ForcedReturnIon
@@ -608,6 +608,8 @@ void MacroAssemblerX64::handleFailureWithHandlerTail(Label* profilerExitTail) {
     bind(&skipProfilingInstrumentation);
   }
 
+  movq(rbp, rsp);
+  pop(rbp);
   ret();
 
   // If we are bailing out to baseline to handle an exception, jump to the

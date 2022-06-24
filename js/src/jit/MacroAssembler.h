@@ -842,12 +842,21 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline uint32_t callJit(ImmPtr callee);
 
   // The frame descriptor is the second field of all Jit frames, pushed before
-  // calling the Jit function.  It is a composite value defined in JitFrames.h
-  inline void makeFrameDescriptor(Register frameSizeReg, FrameType type,
-                                  uint32_t headerSize);
+  // calling the Jit function. See CommonFrameLayout::descriptor_.
+  inline void pushFrameDescriptor(FrameType type);
+  inline void PushFrameDescriptor(FrameType type);
 
-  // Push the frame descriptor, based on the statically known framePushed.
-  inline void pushStaticFrameDescriptor(FrameType type, uint32_t headerSize);
+  // For JitFrameLayout, the descriptor also stores the number of arguments
+  // passed by the caller. See MakeFrameDescriptorForJitCall.
+  inline void pushFrameDescriptorForJitCall(FrameType type, uint32_t argc);
+  inline void pushFrameDescriptorForJitCall(FrameType type, Register argc,
+                                            Register scratch);
+  inline void PushFrameDescriptorForJitCall(FrameType type, uint32_t argc);
+  inline void PushFrameDescriptorForJitCall(FrameType type, Register argc,
+                                            Register scratch);
+
+  // Load the number of actual arguments from the frame's JitFrameLayout.
+  inline void loadNumActualArgs(Register framePtr, Register dest);
 
   // Push the callee token of a JSFunction which pointer is stored in the
   // |callee| register. The callee token is packed with a |constructing| flag
@@ -4985,8 +4994,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
  public:
   // Generates code used to complete a bailout.
   void generateBailoutTail(Register scratch, Register bailoutInfo);
-
-  void assertRectifierFrameParentType(Register frameType);
 
  public:
 #ifndef JS_CODEGEN_ARM64

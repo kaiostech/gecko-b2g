@@ -11,9 +11,16 @@
 
 var EXPORTED_SYMBOLS = ["DownloadIntegration"];
 
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+const { Downloads } = ChromeUtils.import(
+  "resource://gre/modules/Downloads.jsm"
+);
 const { Integration } = ChromeUtils.import(
   "resource://gre/modules/Integration.jsm"
 );
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -25,18 +32,10 @@ ChromeUtils.defineModuleGetter(
   "AsyncShutdown",
   "resource://gre/modules/AsyncShutdown.jsm"
 );
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
-);
 ChromeUtils.defineModuleGetter(
   lazy,
   "DeferredTask",
   "resource://gre/modules/DeferredTask.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "Downloads",
-  "resource://gre/modules/Downloads.jsm"
 );
 ChromeUtils.defineModuleGetter(
   lazy,
@@ -53,12 +52,6 @@ ChromeUtils.defineModuleGetter(
   "FileUtils",
   "resource://gre/modules/FileUtils.jsm"
 );
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "NetUtil",
-  "resource://gre/modules/NetUtil.jsm"
-);
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 ChromeUtils.defineModuleGetter(
   lazy,
   "NetUtil",
@@ -122,14 +115,14 @@ XPCOMUtils.defineLazyServiceGetter(
   Ci.nsIApplicationReputationService
 );
 
-// We have to use the gCombinedDownloadIntegration identifier because, in this
-// module only, the DownloadIntegration identifier refers to the base version.
 Integration.downloads.defineModuleGetter(
   lazy,
-  "gCombinedDownloadIntegration",
-  "resource://gre/modules/DownloadIntegration.jsm",
-  "DownloadIntegration"
+  "DownloadIntegration",
+  "resource://gre/modules/DownloadIntegration.jsm"
 );
+XPCOMUtils.defineLazyGetter(lazy, "gCombinedDownloadIntegration", () => {
+  return lazy.DownloadIntegration;
+});
 
 const Timer = Components.Constructor(
   "@mozilla.org/timer;1",
@@ -170,13 +163,13 @@ const kObserverTopics = [
  */
 const kVerdictMap = {
   [Ci.nsIApplicationReputationService.VERDICT_DANGEROUS]:
-    lazy.Downloads.Error.BLOCK_VERDICT_MALWARE,
+    Downloads.Error.BLOCK_VERDICT_MALWARE,
   [Ci.nsIApplicationReputationService.VERDICT_UNCOMMON]:
-    lazy.Downloads.Error.BLOCK_VERDICT_UNCOMMON,
+    Downloads.Error.BLOCK_VERDICT_UNCOMMON,
   [Ci.nsIApplicationReputationService.VERDICT_POTENTIALLY_UNWANTED]:
-    lazy.Downloads.Error.BLOCK_VERDICT_POTENTIALLY_UNWANTED,
+    Downloads.Error.BLOCK_VERDICT_POTENTIALLY_UNWANTED,
   [Ci.nsIApplicationReputationService.VERDICT_DANGEROUS_HOST]:
-    lazy.Downloads.Error.BLOCK_VERDICT_MALWARE,
+    Downloads.Error.BLOCK_VERDICT_MALWARE,
 };
 
 /**
@@ -1218,7 +1211,7 @@ var DownloadObserver = {
         break;
       case "last-pb-context-exited":
         let promise = (async function() {
-          let list = await lazy.Downloads.getList(lazy.Downloads.PRIVATE);
+          let list = await Downloads.getList(Downloads.PRIVATE);
           let downloads = await list.getAll();
 
           // We can remove the downloads and finalize them in parallel.

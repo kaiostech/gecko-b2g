@@ -13,7 +13,6 @@
 #include "jstypes.h"            // for JS_PUBLIC_API
 #include "NamespaceImports.h"   // for Value, HandleId, HandleObject
 #include "debugger/Debugger.h"  // for Env
-#include "gc/Rooting.h"         // for HandleObject
 #include "js/PropertySpec.h"    // for JSFunctionSpec, JSPropertySpec
 #include "js/RootingAPI.h"      // for Handle, MutableHandle
 #include "vm/NativeObject.h"    // for NativeObject
@@ -39,7 +38,7 @@ class DebuggerEnvironment : public NativeObject {
                                  HandleObject dbgCtor);
   static DebuggerEnvironment* create(JSContext* cx, HandleObject proto,
                                      HandleObject referent,
-                                     HandleNativeObject debugger);
+                                     Handle<NativeObject*> debugger);
 
   void trace(JSTracer* trc);
 

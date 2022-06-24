@@ -31,6 +31,7 @@ extern crate fog_control;
 extern crate gecko_profiler;
 extern crate gkrust_utils;
 extern crate http_sfv;
+extern crate jog;
 extern crate jsrust_shared;
 extern crate kvstore;
 extern crate mapped_hyph;
@@ -101,6 +102,9 @@ extern crate rust_minidump_writer_linux;
 
 #[cfg(feature = "webmidi_midir_impl")]
 extern crate midir_impl;
+
+#[cfg(target_os = "windows")]
+extern crate detect_win32k_conflicts;
 
 extern crate origin_trials_ffi;
 

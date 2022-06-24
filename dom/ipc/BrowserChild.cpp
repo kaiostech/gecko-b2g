@@ -1416,6 +1416,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvInitRendering(
     const layers::LayersId& aLayersId,
     const CompositorOptions& aCompositorOptions, const bool& aLayersConnected) {
   mLayersConnected = Some(aLayersConnected);
+  mLayersConnectRequested = Some(aLayersConnected);
   InitRenderingState(aTextureFactoryIdentifier, aLayersId, aCompositorOptions);
   return IPC_OK();
 }
@@ -3450,7 +3451,8 @@ void BrowserChild::ReinitRendering() {
 
   // In some cases, like when we create a windowless browser,
   // RemoteLayerTreeOwner/BrowserChild is not connected to a compositor.
-  if (mLayersConnected.isNothing() || !*mLayersConnected) {
+  if (mLayersConnectRequested.isNothing() ||
+      mLayersConnectRequested == Some(false)) {
     return;
   }
 

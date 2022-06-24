@@ -145,6 +145,14 @@ AppsServiceDelegate.prototype = {
     return found;
   },
 
+  getUa() {
+    let ua = Cc["@mozilla.org/network/protocol;1?name=http"].getService(
+      Ci.nsIHttpProtocolHandler
+    ).userAgent;
+    log(`getUa: ${ua}`);
+    return ua;
+  },
+
   onBoot(aManifestUrl, aManifest) {
     log(`onBoot: ${aManifestUrl}`);
     try {

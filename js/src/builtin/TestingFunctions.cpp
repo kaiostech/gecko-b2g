@@ -206,6 +206,12 @@ static bool GetRealmConfiguration(JSContext* cx, unsigned argc, Value* vp) {
   }
 #endif
 
+  bool arrayFindLast = cx->realm()->creationOptions().getArrayFindLastEnabled();
+  if (!JS_SetProperty(cx, info, "enableArrayFindLast",
+                      arrayFindLast ? TrueHandleValue : FalseHandleValue)) {
+    return false;
+  }
+
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
   bool changeArrayByCopy = cx->options().changeArrayByCopy();
   if (!JS_SetProperty(cx, info, "enableChangeArrayByCopy",
@@ -864,7 +870,7 @@ static bool WasmMaxMemoryPages(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
   RootedString s(cx, args.get(0).toString());
-  RootedLinearString ls(cx, s->ensureLinear(cx));
+  Rooted<JSLinearString*> ls(cx, s->ensureLinear(cx));
   if (!ls) {
     return false;
   }
@@ -1126,7 +1132,7 @@ static bool WasmGlobalFromArrayBuffer(JSContext* cx, unsigned argc, Value* vp) {
   if (!proto) {
     return false;
   }
-  RootedWasmGlobalObject result(
+  Rooted<WasmGlobalObject*> result(
       cx, WasmGlobalObject::create(cx, val, false, proto));
   if (!result) {
     return false;
@@ -1164,7 +1170,7 @@ static bool ToLaneInterp(JSContext* cx, HandleValue v, LaneInterp* out) {
   if (!interpStr) {
     return false;
   }
-  RootedLinearString interpLinearStr(cx, interpStr->ensureLinear(cx));
+  Rooted<JSLinearString*> interpLinearStr(cx, interpStr->ensureLinear(cx));
   if (!interpLinearStr) {
     return false;
   }
@@ -1205,8 +1211,8 @@ static bool WasmGlobalExtractLane(JSContext* cx, unsigned argc, Value* vp) {
     JS_ReportErrorASCII(cx, "argument is not wasm value");
     return false;
   }
-  RootedWasmGlobalObject global(cx,
-                                &args.get(0).toObject().as<WasmGlobalObject>());
+  Rooted<WasmGlobalObject*> global(
+      cx, &args.get(0).toObject().as<WasmGlobalObject>());
 
   // Check that we have a v128 value
   if (global->type().kind() != wasm::ValType::V128) {
@@ -1253,7 +1259,7 @@ static bool WasmGlobalExtractLane(JSContext* cx, unsigned argc, Value* vp) {
 
   RootedObject proto(
       cx, GlobalObject::getOrCreatePrototype(cx, JSProto_WasmGlobal));
-  RootedWasmGlobalObject result(
+  Rooted<WasmGlobalObject*> result(
       cx, WasmGlobalObject::create(cx, val, false, proto));
   args.rval().setObject(*result.get());
   return true;
@@ -1279,8 +1285,10 @@ static bool WasmGlobalsEqual(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  RootedWasmGlobalObject a(cx, &args.get(0).toObject().as<WasmGlobalObject>());
-  RootedWasmGlobalObject b(cx, &args.get(1).toObject().as<WasmGlobalObject>());
+  Rooted<WasmGlobalObject*> a(cx,
+                              &args.get(0).toObject().as<WasmGlobalObject>());
+  Rooted<WasmGlobalObject*> b(cx,
+                              &args.get(1).toObject().as<WasmGlobalObject>());
 
   if (a->type() != b->type()) {
     JS_ReportErrorASCII(cx, "globals are of different type");
@@ -1382,7 +1390,7 @@ static bool ToNaNFlavor(JSContext* cx, HandleValue v, NaNFlavor* out) {
   if (!flavorStr) {
     return false;
   }
-  RootedLinearString flavorLinearStr(cx, flavorStr->ensureLinear(cx));
+  Rooted<JSLinearString*> flavorLinearStr(cx, flavorStr->ensureLinear(cx));
   if (!flavorLinearStr) {
     return false;
   }
@@ -1416,8 +1424,8 @@ static bool WasmGlobalIsNaN(JSContext* cx, unsigned argc, Value* vp) {
     JS_ReportErrorASCII(cx, "argument is not wasm value");
     return false;
   }
-  RootedWasmGlobalObject global(cx,
-                                &args.get(0).toObject().as<WasmGlobalObject>());
+  Rooted<WasmGlobalObject*> global(
+      cx, &args.get(0).toObject().as<WasmGlobalObject>());
 
   NaNFlavor flavor;
   if (!ToNaNFlavor(cx, args.get(1), &flavor)) {
@@ -1459,8 +1467,8 @@ static bool WasmGlobalToString(JSContext* cx, unsigned argc, Value* vp) {
     JS_ReportErrorASCII(cx, "argument is not wasm value");
     return false;
   }
-  RootedWasmGlobalObject global(cx,
-                                &args.get(0).toObject().as<WasmGlobalObject>());
+  Rooted<WasmGlobalObject*> global(
+      cx, &args.get(0).toObject().as<WasmGlobalObject>());
   const wasm::Val& globalVal = global->val().get();
 
   UniqueChars result;
@@ -2007,7 +2015,7 @@ static bool WasmIntrinsicI8VecMul(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   wasm::IntrinsicId ids[] = {wasm::IntrinsicId::I8VecMul};
-  RootedWasmModuleObject module(cx);
+  Rooted<WasmModuleObject*> module(cx);
   if (!wasm::CompileIntrinsicModule(cx, ids, wasm::Shareable::False, &module)) {
     return false;
   }
@@ -2942,7 +2950,7 @@ static bool NewObjectWithAddPropertyHook(JSContext* cx, unsigned argc,
 
   auto addPropHook = [](JSContext* cx, HandleObject obj, HandleId id,
                         HandleValue v) -> bool {
-    RootedAtom propName(cx, GetPropertiesAddedName(cx));
+    Rooted<JSAtom*> propName(cx, GetPropertiesAddedName(cx));
     if (!propName) {
       return false;
     }
@@ -2987,7 +2995,7 @@ static bool NewObjectWithAddPropertyHook(JSContext* cx, unsigned argc,
   }
 
   // Initialize _propertiesAdded to 0.
-  RootedAtom propName(cx, GetPropertiesAddedName(cx));
+  Rooted<JSAtom*> propName(cx, GetPropertiesAddedName(cx));
   if (!propName) {
     return false;
   }
@@ -3754,7 +3762,7 @@ static bool GetWaitForAllPromise(JSContext* cx, unsigned argc, Value* vp) {
         cx, "first argument must be a dense Array of Promise objects");
     return false;
   }
-  RootedNativeObject list(cx, &args[0].toObject().as<NativeObject>());
+  Rooted<NativeObject*> list(cx, &args[0].toObject().as<NativeObject>());
   RootedObjectVector promises(cx);
   uint32_t count = list->getDenseInitializedLength();
   if (!promises.resize(count)) {
@@ -4733,6 +4741,30 @@ bool js::testingFunc_serialize(JSContext* cx, unsigned argc, Value* vp) {
       }
       clonebuf.emplace(*scope, nullptr, nullptr);
     }
+
+    if (!JS_GetProperty(cx, opts, "ErrorStackFrames", &v)) {
+      return false;
+    }
+
+    if (!v.isUndefined()) {
+      JSString* str = JS::ToString(cx, v);
+      if (!str) {
+        return false;
+      }
+      JSLinearString* poli = str->ensureLinear(cx);
+      if (!poli) {
+        return false;
+      }
+
+      if (StringEqualsLiteral(poli, "allow")) {
+        policy.allowErrorStackFrames();
+      } else if (StringEqualsLiteral(poli, "deny")) {
+        // default
+      } else {
+        JS_ReportErrorASCII(cx, "Invalid policy value for 'ErrorStackFrames'");
+        return false;
+      }
+    }
   }
 
   if (!clonebuf) {
@@ -4763,6 +4795,7 @@ static bool Deserialize(JSContext* cx, unsigned argc, Value* vp) {
                                  &args[0].toObject().as<CloneBufferObject>());
 
   JS::CloneDataPolicy policy;
+
   JS::StructuredCloneScope scope =
       obj->isSynthetic() ? JS::StructuredCloneScope::DifferentProcess
                          : JS::StructuredCloneScope::SameProcess;
@@ -4821,6 +4854,30 @@ static bool Deserialize(JSContext* cx, unsigned argc, Value* vp) {
       }
 
       scope = *maybeScope;
+    }
+
+    if (!JS_GetProperty(cx, opts, "ErrorStackFrames", &v)) {
+      return false;
+    }
+
+    if (!v.isUndefined()) {
+      JSString* str = JS::ToString(cx, v);
+      if (!str) {
+        return false;
+      }
+      JSLinearString* poli = str->ensureLinear(cx);
+      if (!poli) {
+        return false;
+      }
+
+      if (StringEqualsLiteral(poli, "allow")) {
+        policy.allowErrorStackFrames();
+      } else if (StringEqualsLiteral(poli, "deny")) {
+        // default
+      } else {
+        JS_ReportErrorASCII(cx, "Invalid policy value for 'ErrorStackFrames'");
+        return false;
+      }
     }
   }
 
@@ -5674,7 +5731,7 @@ static bool FindPath(JSContext* cx, unsigned argc, Value* vp) {
   //
   //   { node: undefined, edge: <string> }
   size_t length = nodes.length();
-  RootedArrayObject result(cx, NewDenseFullyAllocatedArray(cx, length));
+  Rooted<ArrayObject*> result(cx, NewDenseFullyAllocatedArray(cx, length));
   if (!result) {
     return false;
   }
@@ -5730,7 +5787,7 @@ static bool ShortestPaths(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  RootedArrayObject objs(cx, &args[0].toObject().as<ArrayObject>());
+  Rooted<ArrayObject*> objs(cx, &args[0].toObject().as<ArrayObject>());
   size_t length = objs->getDenseInitializedLength();
   if (length == 0) {
     ReportValueError(cx, JSMSG_UNEXPECTED_TYPE, JSDVG_SEARCH_STACK, args[0],
@@ -5871,7 +5928,7 @@ static bool ShortestPaths(JSContext* cx, unsigned argc, Value* vp) {
   MOZ_ASSERT(values.length() == names.length());
   MOZ_ASSERT(values.length() == length);
 
-  RootedArrayObject results(cx, NewDenseFullyAllocatedArray(cx, length));
+  Rooted<ArrayObject*> results(cx, NewDenseFullyAllocatedArray(cx, length));
   if (!results) {
     return false;
   }
@@ -5881,7 +5938,8 @@ static bool ShortestPaths(JSContext* cx, unsigned argc, Value* vp) {
     size_t numPaths = values[i].length();
     MOZ_ASSERT(names[i].length() == numPaths);
 
-    RootedArrayObject pathsArray(cx, NewDenseFullyAllocatedArray(cx, numPaths));
+    Rooted<ArrayObject*> pathsArray(cx,
+                                    NewDenseFullyAllocatedArray(cx, numPaths));
     if (!pathsArray) {
       return false;
     }
@@ -5891,14 +5949,15 @@ static bool ShortestPaths(JSContext* cx, unsigned argc, Value* vp) {
       size_t pathLength = values[i][j].length();
       MOZ_ASSERT(names[i][j].length() == pathLength);
 
-      RootedArrayObject path(cx, NewDenseFullyAllocatedArray(cx, pathLength));
+      Rooted<ArrayObject*> path(cx,
+                                NewDenseFullyAllocatedArray(cx, pathLength));
       if (!path) {
         return false;
       }
       path->ensureDenseInitializedLength(0, pathLength);
 
       for (size_t k = 0; k < pathLength; k++) {
-        RootedPlainObject part(cx, NewPlainObject(cx));
+        Rooted<PlainObject*> part(cx, NewPlainObject(cx));
         if (!part) {
           return false;
         }
@@ -6657,7 +6716,7 @@ static bool SetGCCallback(JSContext* cx, unsigned argc, Value* vp) {
   if (!str) {
     return false;
   }
-  RootedLinearString action(cx, str->ensureLinear(cx));
+  Rooted<JSLinearString*> action(cx, str->ensureLinear(cx));
   if (!action) {
     return false;
   }
@@ -6976,7 +7035,7 @@ static bool SetTimeZone(JSContext* cx, unsigned argc, Value* vp) {
   };
 
   if (args[0].isString() && !args[0].toString()->empty()) {
-    RootedLinearString str(cx, args[0].toString()->ensureLinear(cx));
+    Rooted<JSLinearString*> str(cx, args[0].toString()->ensureLinear(cx));
     if (!str) {
       return false;
     }
@@ -7064,7 +7123,7 @@ static bool SetDefaultLocale(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   if (args[0].isString() && !args[0].toString()->empty()) {
-    RootedLinearString str(cx, args[0].toString()->ensureLinear(cx));
+    Rooted<JSLinearString*> str(cx, args[0].toString()->ensureLinear(cx));
     if (!str) {
       return false;
     }
@@ -7371,7 +7430,7 @@ static bool EncodeAsUtf8InBuffer(JSContext* cx, unsigned argc, Value* vp) {
 
   // Create the amounts array early so that the raw pointer into Uint8Array
   // data has as short a lifetime as possible
-  RootedArrayObject array(cx, NewDenseFullyAllocatedArray(cx, 2));
+  Rooted<ArrayObject*> array(cx, NewDenseFullyAllocatedArray(cx, 2));
   if (!array) {
     return false;
   }
@@ -7428,8 +7487,8 @@ JSScript* js::TestingFunctionArgumentToScript(
     JSContext* cx, HandleValue v, JSFunction** funp /* = nullptr */) {
   if (v.isString()) {
     // To convert a string to a script, compile it. Parse it as an ES6 Program.
-    RootedLinearString linearStr(cx,
-                                 JS::StringToLinearString(cx, v.toString()));
+    Rooted<JSLinearString*> linearStr(
+        cx, JS::StringToLinearString(cx, v.toString()));
     if (!linearStr) {
       return nullptr;
     }

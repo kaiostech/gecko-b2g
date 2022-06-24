@@ -31,7 +31,6 @@ const { Svc, Utils } = ChromeUtils.import("resource://services-sync/util.js");
 const lazy = {};
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
-  BookmarkValidator: "resource://services-sync/bookmark_validator.js",
   Observers: "resource://services-common/observers.js",
   OS: "resource://gre/modules/osfile.jsm",
   PlacesBackups: "resource://gre/modules/PlacesBackups.jsm",
@@ -40,12 +39,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   PlacesUtils: "resource://gre/modules/PlacesUtils.jsm",
   Resource: "resource://services-sync/resource.js",
   SyncedBookmarksMirror: "resource://gre/modules/SyncedBookmarksMirror.jsm",
-});
-
-XPCOMUtils.defineLazyGetter(lazy, "PlacesBundle", () => {
-  return Services.strings.createBundle(
-    "chrome://places/locale/places.properties"
-  );
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "ANNOS_TO_TRACK", () => [

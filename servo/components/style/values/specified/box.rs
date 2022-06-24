@@ -803,13 +803,13 @@ impl Default for Scroller {
 #[repr(u8)]
 pub enum ScrollAxis {
     /// The block axis of the scroll container. (Default.)
-    Block,
+    Block = 0,
     /// The inline axis of the scroll container.
-    Inline,
+    Inline = 1,
     /// The vertical block axis of the scroll container.
-    Vertical,
+    Vertical = 2,
     /// The horizontal axis of the scroll container.
-    Horizontal,
+    Horizontal = 3,
 }
 
 impl Default for ScrollAxis {
@@ -844,9 +844,13 @@ fn is_default<T: Default + PartialEq>(value: &T) -> bool {
 pub enum AnimationTimeline {
     /// Use default timeline. The animation’s timeline is a DocumentTimeline.
     Auto,
-    /// The scroll-timeline name
+    /// The scroll-timeline name.
+    ///
+    /// Note: This could be the timeline name from @scroll-timeline rule, or scroll-timeline-name
+    /// from itself, its ancestors, or its previous siblings.
+    /// https://drafts.csswg.org/scroll-animations-1/rewrite#scroll-timelines-named
     Timeline(TimelineName),
-    /// The scroll() notation
+    /// The scroll() notation.
     /// https://drafts.csswg.org/scroll-animations-1/rewrite#scroll-notation
     #[css(function)]
     Scroll(
@@ -900,6 +904,49 @@ impl Parse for AnimationTimeline {
         }
 
         TimelineName::parse(context, input).map(AnimationTimeline::Timeline)
+    }
+}
+
+/// A value for the scroll-timeline-name.
+///
+/// Note: The spec doesn't mention `auto` for scroll-timeline-name. However, `auto` is a keyword in
+/// animation-timeline, so we reject `auto` for scroll-timeline-name now.
+///
+/// https://drafts.csswg.org/scroll-animations-1/rewrite#scroll-timeline-name
+#[derive(
+    Clone,
+    Debug,
+    Eq,
+    Hash,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
+pub struct ScrollTimelineName(pub TimelineName);
+
+impl ScrollTimelineName {
+    /// Returns the `none` value.
+    pub fn none() -> Self {
+        Self(TimelineName::none())
+    }
+}
+
+impl Parse for ScrollTimelineName {
+    fn parse<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        if let Ok(name) = input.try_parse(|input| TimelineName::parse(context, input)) {
+            return Ok(Self(name));
+        }
+
+        input.expect_ident_matching("none")?;
+        Ok(Self(TimelineName::none()))
     }
 }
 

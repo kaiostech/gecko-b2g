@@ -11,12 +11,10 @@ import {
   getPrettySourceURL,
   isDescendantOfRoot,
   isGenerated,
-  getPlainUrl,
   isPretty,
   isJavaScript,
   removeThreadActorId,
 } from "../utils/source";
-import { stripQuery } from "../utils/url";
 
 import { findPosition } from "../utils/breakpoint/breakpointPositions";
 import { isFulfilled } from "../utils/async-value";
@@ -127,24 +125,6 @@ export function hasPrettySource(state, id) {
   return !!getPrettySource(state, id);
 }
 
-// This is only used by jest tests
-export function getSourcesUrlsInSources(state, url) {
-  if (!url) {
-    return [];
-  }
-
-  const plainUrl = getPlainUrl(url);
-  return getPlainUrls(state)[plainUrl] || [];
-}
-
-export function getHasSiblingOfSameName(state, source) {
-  if (!source) {
-    return false;
-  }
-
-  return getSourcesUrlsInSources(state, source.url).length > 1;
-}
-
 // This is only used externaly by tabs and breakpointSources selectors
 export function getSourcesMap(state) {
   return state.sources.sources;
@@ -152,10 +132,6 @@ export function getSourcesMap(state) {
 
 function getUrls(state) {
   return state.sources.urls;
-}
-
-function getPlainUrls(state) {
-  return state.sources.plainUrls;
 }
 
 export const getSourceList = createSelector(
@@ -214,7 +190,7 @@ export function getProjectDirectoryRootName(state) {
   return state.sources.projectDirectoryRootName;
 }
 
-const getDisplayedSourceIDs = createSelector(
+const getSourcesTreeList = createSelector(
   getSourcesMap,
   state => state.sources.sourcesWithUrls,
   state => state.sources.projectDirectoryRoot,
@@ -233,11 +209,12 @@ const getDisplayedSourceIDs = createSelector(
       projectDirectoryRoot,
       threads
     );
-    const sourceIDsByThread = {};
+    const list = [];
 
     for (const id of sourcesWithUrls) {
       const source = sourcesMap.get(id);
 
+      // This is the key part defining which sources appear in the SourcesTree
       const displayed =
         isDescendantOfRoot(source, rootWithoutThreadActor) &&
         (!source.isExtension ||
@@ -248,63 +225,49 @@ const getDisplayedSourceIDs = createSelector(
         continue;
       }
 
-      const thread = source.thread;
-      if (!sourceIDsByThread[thread]) {
-        sourceIDsByThread[thread] = new Set();
-      }
-      sourceIDsByThread[thread].add(id);
+      list.push(source);
     }
-    return sourceIDsByThread;
-  }
+    return list;
+  },
+  // As the input arguments always change, even if we added/removed a hidden source,
+  // Use shallow equal to ensure returning the exact same array if nothing changed.
+  { memoizeOptions: { resultEqualityCheck: shallowEqual } }
 );
 
 export const getDisplayedSources = createSelector(
-  getSourcesMap,
-  getDisplayedSourceIDs,
+  getSourcesTreeList,
   getMainThreadHost,
-  (sourcesMap, idsByThread, mainThreadHost) => {
+  (list, mainThreadHost) => {
     const result = {};
+    for (const source of list) {
+      const displayURL = getDisplayURL(source.url, mainThreadHost);
 
-    for (const thread of Object.keys(idsByThread)) {
-      const entriesByNoQueryURL = Object.create(null);
-
-      for (const id of idsByThread[thread]) {
-        const source = sourcesMap.get(id);
-        const displayURL = getDisplayURL(source.url, mainThreadHost);
-
-        // Ignore source which have not been able to be sorted in a group by getDisplayURL
-        // It should be only javascript: URLs and weird URLs without protocols.
-        if (!displayURL.group) {
-          continue;
-        }
-
-        const entry = {
-          ...source,
-          displayURL,
-          parts: getPathParts(displayURL, thread, mainThreadHost),
-        };
-
-        if (!result[thread]) {
-          result[thread] = {};
-        }
-        result[thread][id] = entry;
-
-        const noQueryURL = stripQuery(entry.url);
-        if (!entriesByNoQueryURL[noQueryURL]) {
-          entriesByNoQueryURL[noQueryURL] = [];
-        }
-        entriesByNoQueryURL[noQueryURL].push(entry);
+      // Ignore source which have not been able to be sorted in a group by getDisplayURL
+      // It should be only javascript: URLs and weird URLs without protocols.
+      if (!displayURL.group) {
+        continue;
       }
 
-      // If the URL does not compete with another without the query string,
-      // we exclude the query string when rendering the source URL to keep the
-      // UI more easily readable.
-      for (const noQueryURL in entriesByNoQueryURL) {
-        const entries = entriesByNoQueryURL[noQueryURL];
-        if (entries.length === 1) {
-          entries[0].displayURL = getDisplayURL(noQueryURL, mainThreadHost);
-        }
+      // Duplicate Source objects into a new dedicated type of "displayed source object"
+      // with two additional fields: parts and displayURL.
+      const displayedSource = {
+        thread: source.thread,
+        isPrettyPrinted: source.isPrettyPrinted,
+        isBlackBoxed: source.isBlackBoxed,
+        isOriginal: source.isOriginal,
+        url: source.url,
+        // quick-open codebase uses this attribute:
+        relativeUrl: source.relativeUrl,
+        id: source.id,
+        displayURL,
+        parts: getPathParts(displayURL, source.thread, mainThreadHost),
+      };
+      const thread = displayedSource.thread;
+
+      if (!result[thread]) {
+        result[thread] = {};
       }
+      result[thread][displayedSource.id] = displayedSource;
     }
 
     return result;

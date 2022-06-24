@@ -295,8 +295,8 @@ static const char sColorPrefs[][41] = {
     "ui.-moz-mac-source-list-selection",
     "ui.-moz-mac-active-source-list-selection",
     "ui.-moz-mac-tooltip",
-    "ui.-moz-accent-color",
-    "ui.-moz-accent-color-foreground",
+    "ui.accentcolor",
+    "ui.accentcolortext",
     "ui.-moz-autofill-background",
     "ui.-moz-win-mediatext",
     "ui.-moz-win-communicationstext",
@@ -322,6 +322,22 @@ bool nsXPLookAndFeel::sInitialized = false;
 
 nsXPLookAndFeel* nsXPLookAndFeel::sInstance = nullptr;
 bool nsXPLookAndFeel::sShutdown = false;
+
+auto LookAndFeel::SystemZoomSettings() -> ZoomSettings {
+  ZoomSettings settings;
+  switch (StaticPrefs::browser_display_os_zoom_behavior()) {
+    case 0:
+    default:
+      break;
+    case 1:
+      settings.mFullZoom = GetTextScaleFactor();
+      break;
+    case 2:
+      settings.mTextZoom = GetTextScaleFactor();
+      break;
+  }
+  return settings;
+}
 
 // static
 nsXPLookAndFeel* nsXPLookAndFeel::GetInstance() {
@@ -386,10 +402,13 @@ static void IntPrefChanged(const nsACString& aPref) {
   LookAndFeel::NotifyChangedAllWindows(changeKind);
 }
 
-static void FloatPrefChanged() {
-  // Float prefs can't change our system colors or fonts.
-  LookAndFeel::NotifyChangedAllWindows(
-      widget::ThemeChangeKind::MediaQueriesOnly);
+static void FloatPrefChanged(const nsACString& aPref) {
+  // Most float prefs can't change our system colors or fonts, but
+  // textScaleFactor affects layout.
+  auto changeKind = aPref.EqualsLiteral("ui.textScaleFactor")
+                        ? widget::ThemeChangeKind::StyleAndLayout
+                        : widget::ThemeChangeKind::MediaQueriesOnly;
+  LookAndFeel::NotifyChangedAllWindows(changeKind);
 }
 
 static void ColorPrefChanged() {
@@ -409,7 +428,7 @@ void nsXPLookAndFeel::OnPrefChanged(const char* aPref, void* aClosure) {
 
   for (const char* pref : sFloatPrefs) {
     if (prefName.Equals(pref)) {
-      FloatPrefChanged();
+      FloatPrefChanged(prefName);
       return;
     }
   }
@@ -429,11 +448,15 @@ static constexpr struct {
       widget::ThemeChangeKind::MediaQueriesOnly;
 } kMediaQueryPrefs[] = {
     {"browser.display.windows.native_menus"_ns},
+    {"widget.use-theme-accent"_ns, widget::ThemeChangeKind::Style},
     // Affects env().
     {"layout.css.prefers-color-scheme.content-override"_ns,
      widget::ThemeChangeKind::Style},
     // Affects media queries and scrollbar sizes, so gotta relayout.
     {"widget.gtk.overlay-scrollbars.enabled"_ns,
+     widget::ThemeChangeKind::StyleAndLayout},
+    // Affects zoom settings which includes text and full zoom.
+    {"browser.display.os-zoom-behavior"_ns,
      widget::ThemeChangeKind::StyleAndLayout},
     // This affects not only the media query, but also the native theme, so we
     // need to re-layout.
@@ -546,8 +569,10 @@ nscolor nsXPLookAndFeel::GetStandinForNativeColor(ColorID aID,
     case ColorID::IMERawInputUnderline:
     case ColorID::IMEConvertedTextUnderline:
       return NS_40PERCENT_FOREGROUND_COLOR;
-      COLOR(MozAccentColor, 53, 132, 228)
-      COLOR(MozAccentColorForeground, 0xff, 0xff, 0xff)
+    case ColorID::Accentcolor:
+      return widget::sDefaultAccent.ToABGR();
+    case ColorID::Accentcolortext:
+      return widget::sDefaultAccentText.ToABGR();
       COLOR(SpellCheckerUnderline, 0xff, 0x00, 0x00)
       COLOR(TextSelectDisabledBackground, 0xaa, 0xaa, 0xaa)
 
@@ -871,6 +896,12 @@ nsresult nsXPLookAndFeel::GetColorValue(ColorID aID, ColorScheme aScheme,
     return NS_OK;
   }
 
+  if (!StaticPrefs::widget_use_theme_accent() &&
+      (aID == ColorID::Accentcolor || aID == ColorID::Accentcolortext)) {
+    aResult = GetStandinForNativeColor(aID, aScheme);
+    return NS_OK;
+  }
+
   if (NS_SUCCEEDED(NativeGetColor(aID, aScheme, aResult))) {
     if (gfxPlatform::GetCMSMode() == CMSMode::All &&
         !IsSpecialColor(aID, aResult)) {
@@ -961,9 +992,9 @@ bool nsXPLookAndFeel::LookAndFeelFontToStyle(const LookAndFeelFont& aFont,
   aName = aFont.name();
   aStyle = gfxFontStyle();
   aStyle.size = aFont.size();
-  aStyle.weight = FontWeight(aFont.weight());
+  aStyle.weight = FontWeight::FromInt(aFont.weight());
   aStyle.style =
-      aFont.italic() ? FontSlantStyle::Italic() : FontSlantStyle::Normal();
+      aFont.italic() ? FontSlantStyle::ITALIC : FontSlantStyle::NORMAL;
   aStyle.systemFont = true;
   return true;
 }
@@ -1103,18 +1134,20 @@ void LookAndFeel::DoHandleGlobalThemeChange() {
       }));
 }
 
+// We want to use a non-native color scheme for the non-native theme (except in
+// high-contrast mode), so spoof some of the colors with stand-ins to prevent
+// lack of contrast.
 static bool ShouldUseStandinsForNativeColorForNonNativeTheme(
     const dom::Document& aDoc, LookAndFeel::ColorID aColor,
     const PreferenceSheet::Prefs& aPrefs) {
   using ColorID = LookAndFeel::ColorID;
-  if (!aDoc.ShouldAvoidNativeTheme()) {
+  if (!aDoc.ShouldAvoidNativeTheme() ||
+      aPrefs.NonNativeThemeShouldBeHighContrast()) {
     return false;
   }
 
-  // The native theme doesn't use native system colors backgrounds etc, except
-  // when in high-contrast mode, so spoof some of the colors with stand-ins to
-  // prevent lack of contrast.
   switch (aColor) {
+    // Used by default button styles.
     case ColorID::Buttonface:
     case ColorID::Buttontext:
     case ColorID::MozButtonhoverface:
@@ -1123,25 +1156,35 @@ static bool ShouldUseStandinsForNativeColorForNonNativeTheme(
     case ColorID::MozButtonactivetext:
     case ColorID::MozButtondisabledface:
 
+    // Used by select elements.
     case ColorID::Threedlightshadow:
+    // For symmetry with the above.
     case ColorID::Threeddarkshadow:
+    // Used by fieldset borders.
     case ColorID::Threedface:
 
+    // Used by select elements.
     case ColorID::MozCombobox:
     case ColorID::MozComboboxtext:
 
+    // Used by input / textarea.
     case ColorID::Field:
-    case ColorID::MozDisabledfield:
     case ColorID::Fieldtext:
 
+    // Used by disabled form controls.
+    case ColorID::MozDisabledfield:
     case ColorID::Graytext:
-      return !aPrefs.NonNativeThemeShouldBeHighContrast();
+
+    // Some pages expect these to return windows-like colors, see bug 1773795.
+    // Also, per spec these should match Canvas/CanvasText, see
+    // https://drafts.csswg.org/css-color-4/#window
+    case ColorID::Window:
+    case ColorID::Windowtext:
+      return true;
 
     default:
-      break;
+      return false;
   }
-
-  return false;
 }
 
 ColorScheme LookAndFeel::sChromeColorScheme;

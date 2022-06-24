@@ -1293,10 +1293,14 @@ static void GetScrollableOverflowForPerspective(
 
         // Scale according to rightDelta/bottomDelta to adjust for the different
         // scroll rates.
-        overhang.top /= bottomDelta;
-        overhang.right /= rightDelta;
-        overhang.bottom /= bottomDelta;
-        overhang.left /= rightDelta;
+        overhang.top = NSCoordSaturatingMultiply(
+            overhang.top, static_cast<float>(1 / bottomDelta));
+        overhang.right = NSCoordSaturatingMultiply(
+            overhang.right, static_cast<float>(1 / rightDelta));
+        overhang.bottom = NSCoordSaturatingMultiply(
+            overhang.bottom, static_cast<float>(1 / bottomDelta));
+        overhang.left = NSCoordSaturatingMultiply(
+            overhang.left, static_cast<float>(1 / rightDelta));
 
         // Take the minimum overflow rect that would allow the current scroll
         // position, using the size of the scroll port and offset by the
@@ -2907,15 +2911,18 @@ static nscoord ClampAndAlignWithPixels(nscoord aDesired, nscoord aBoundLower,
  * it to the same layer pixel edges as aCurrent, keeping it within aRange
  * during snapping. aCurrent is the current scroll position.
  */
-static nsPoint ClampAndAlignWithLayerPixels(
-    const nsPoint& aPt, const nsRect& aBounds, const nsRect& aRange,
-    const nsPoint& aCurrent, nscoord aAppUnitsPerPixel, const gfxSize& aScale) {
+static nsPoint ClampAndAlignWithLayerPixels(const nsPoint& aPt,
+                                            const nsRect& aBounds,
+                                            const nsRect& aRange,
+                                            const nsPoint& aCurrent,
+                                            nscoord aAppUnitsPerPixel,
+                                            const MatrixScales& aScale) {
   return nsPoint(
       ClampAndAlignWithPixels(aPt.x, aBounds.x, aBounds.XMost(), aRange.x,
-                              aRange.XMost(), aAppUnitsPerPixel, aScale.width,
+                              aRange.XMost(), aAppUnitsPerPixel, aScale.xScale,
                               aCurrent.x),
       ClampAndAlignWithPixels(aPt.y, aBounds.y, aBounds.YMost(), aRange.y,
-                              aRange.YMost(), aAppUnitsPerPixel, aScale.height,
+                              aRange.YMost(), aAppUnitsPerPixel, aScale.yScale,
                               aCurrent.y));
 }
 
@@ -2964,7 +2971,7 @@ bool ScrollFrameHelper::GetDisplayPortAtLastApproximateFrameVisibilityUpdate(
   return mHadDisplayPortAtLastFrameUpdate;
 }
 
-gfxSize GetPaintedLayerScaleForFrame(nsIFrame* aFrame) {
+MatrixScales GetPaintedLayerScaleForFrame(nsIFrame* aFrame) {
   MOZ_ASSERT(aFrame, "need a frame");
 
   nsPresContext* presCtx = aFrame->PresContext()->GetRootPresContext();
@@ -2980,8 +2987,7 @@ gfxSize GetPaintedLayerScaleForFrame(nsIFrame* aFrame) {
       nsLayoutUtils::GetTransformToAncestorScaleCrossProcessForFrameMetrics(
           aFrame);
 
-  return gfxSize(transformToAncestorScale.xScale,
-                 transformToAncestorScale.yScale);
+  return transformToAncestorScale.ToUnknownScale();
 }
 
 void ScrollFrameHelper::ScrollToImpl(
@@ -3034,7 +3040,7 @@ void ScrollFrameHelper::ScrollToImpl(
   nscoord appUnitsPerDevPixel = presContext->AppUnitsPerDevPixel();
   // 'scale' is our estimate of the scale factor that will be applied
   // when rendering the scrolled content to its own PaintedLayer.
-  gfxSize scale = GetPaintedLayerScaleForFrame(mScrolledFrame);
+  MatrixScales scale = GetPaintedLayerScaleForFrame(mScrolledFrame);
   nsPoint curPos = GetScrollPosition();
 
   // Try to align aPt with curPos so they have an integer number of layer
@@ -7232,26 +7238,26 @@ nsRect ScrollFrameHelper::GetScrolledRect() const {
   // We snap to layer pixels, so we need to respect the layer's scale.
   nscoord appUnitsPerDevPixel =
       mScrolledFrame->PresContext()->AppUnitsPerDevPixel();
-  gfxSize scale = GetPaintedLayerScaleForFrame(mScrolledFrame);
-  if (scale.IsEmpty()) {
-    scale = gfxSize(1.0f, 1.0f);
+  MatrixScales scale = GetPaintedLayerScaleForFrame(mScrolledFrame);
+  if (scale.xScale == 0 || scale.yScale == 0) {
+    scale = MatrixScales();
   }
 
   // Compute bounds for the scroll position, and computed the snapped scrolled
   // rect from the scroll position bounds.
   nscoord snappedScrolledAreaBottom =
-      SnapCoord(scrolledRect.YMost(), scale.height, appUnitsPerDevPixel);
+      SnapCoord(scrolledRect.YMost(), scale.yScale, appUnitsPerDevPixel);
   nscoord snappedScrollPortBottom =
-      SnapCoord(scrollPort.YMost(), scale.height, appUnitsPerDevPixel);
+      SnapCoord(scrollPort.YMost(), scale.yScale, appUnitsPerDevPixel);
   nscoord maximumScrollOffsetY =
       snappedScrolledAreaBottom - snappedScrollPortBottom;
   result.SetBottomEdge(scrollPort.height + maximumScrollOffsetY);
 
   if (GetScrolledFrameDir() == StyleDirection::Ltr) {
     nscoord snappedScrolledAreaRight =
-        SnapCoord(scrolledRect.XMost(), scale.width, appUnitsPerDevPixel);
+        SnapCoord(scrolledRect.XMost(), scale.xScale, appUnitsPerDevPixel);
     nscoord snappedScrollPortRight =
-        SnapCoord(scrollPort.XMost(), scale.width, appUnitsPerDevPixel);
+        SnapCoord(scrollPort.XMost(), scale.xScale, appUnitsPerDevPixel);
     nscoord maximumScrollOffsetX =
         snappedScrolledAreaRight - snappedScrollPortRight;
     result.SetRightEdge(scrollPort.width + maximumScrollOffsetX);
@@ -7261,9 +7267,9 @@ nsRect ScrollFrameHelper::GetScrolledRect() const {
     // the right edge to stay flush with the scroll port, so we snap the
     // left edge.
     nscoord snappedScrolledAreaLeft =
-        SnapCoord(scrolledRect.x, scale.width, appUnitsPerDevPixel);
+        SnapCoord(scrolledRect.x, scale.xScale, appUnitsPerDevPixel);
     nscoord snappedScrollPortLeft =
-        SnapCoord(scrollPort.x, scale.width, appUnitsPerDevPixel);
+        SnapCoord(scrollPort.x, scale.xScale, appUnitsPerDevPixel);
     nscoord minimumScrollOffsetX =
         snappedScrolledAreaLeft - snappedScrollPortLeft;
     result.SetLeftEdge(minimumScrollOffsetX);

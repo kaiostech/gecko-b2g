@@ -11,12 +11,10 @@
 // TODO bug 1637465: Remove the Kinto-based storage implementation.
 
 var EXPORTED_SYMBOLS = [
-  "ExtensionStorageSync",
+  "ExtensionStorageSyncKinto",
   "KintoStorageTestUtils",
-  "extensionStorageSync",
+  "extensionStorageSyncKinto",
 ];
-
-Cu.importGlobalProperties(["atob", "btoa"]);
 
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
@@ -126,10 +124,10 @@ function throwIfNoFxA(fxAccounts, action) {
   }
 }
 
-// Global ExtensionStorageSync instance that extensions and Fx Sync use.
+// Global ExtensionStorageSyncKinto instance that extensions and Fx Sync use.
 // On Android, because there's no FXAccounts instance, any syncing
 // operations will fail.
-var extensionStorageSync = null;
+var extensionStorageSyncKinto = null;
 
 /**
  * Utility function to enforce an order of fields when computing an HMAC.
@@ -339,7 +337,7 @@ class KeyRingEncryptionRemoteTransformer extends EncryptionRemoteTransformer {
 }
 
 /**
- * A Promise that centralizes initialization of ExtensionStorageSync.
+ * A Promise that centralizes initialization of ExtensionStorageSyncKinto.
  *
  * This centralizes the use of the Sqlite database, to which there is
  * only one connection which is shared by all threads.
@@ -633,9 +631,9 @@ class CryptoCollection {
     await collection.upsert(record);
   }
 
-  async sync(extensionStorageSync) {
+  async sync(extensionStorageSyncKinto) {
     const collection = await this.getCollection();
-    return extensionStorageSync._syncCollection(collection, {
+    return extensionStorageSyncKinto._syncCollection(collection, {
       strategy: "server_wins",
     });
   }
@@ -738,7 +736,7 @@ const openCollection = async function(extension, options = {}) {
   return coll;
 };
 
-class ExtensionStorageSync {
+class ExtensionStorageSyncKinto {
   /**
    * @param {FXAccounts} fxaService (Optional) If not
    *    present, trying to sync will fail.
@@ -1378,7 +1376,7 @@ class ExtensionStorageSync {
     }
   }
 }
-extensionStorageSync = new ExtensionStorageSync(_fxaService);
+extensionStorageSyncKinto = new ExtensionStorageSyncKinto(_fxaService);
 
 // For test use only.
 const KintoStorageTestUtils = {

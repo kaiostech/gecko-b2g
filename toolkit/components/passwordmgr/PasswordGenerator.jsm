@@ -12,14 +12,6 @@
 
 const EXPORTED_SYMBOLS = ["PasswordGenerator"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
-const lazy = {};
-
-XPCOMUtils.defineLazyGlobalGetters(lazy, ["crypto"]);
-
 const DEFAULT_PASSWORD_LENGTH = 15;
 const MAX_UINT8 = Math.pow(2, 8) - 1;
 const MAX_UINT32 = Math.pow(2, 32) - 1;
@@ -29,8 +21,6 @@ const LOWER_CASE_ALPHA = "abcdefghijkmnpqrstuvwxyz"; // no 'l' or 'o'
 const UPPER_CASE_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no 'I' or 'O'
 const DIGITS = "23456789"; // no '1' or '0'
 const SPECIAL_CHARACTERS = " -~!@#$%^&*_+=`|(){}[:;\"'<>,.?]";
-const ALPHANUMERIC_CHARACTERS = LOWER_CASE_ALPHA + UPPER_CASE_ALPHA + DIGITS;
-const ALL_CHARACTERS = ALPHANUMERIC_CHARACTERS + SPECIAL_CHARACTERS;
 
 const REQUIRED_CHARACTER_CLASSES = [LOWER_CASE_ALPHA, UPPER_CASE_ALPHA, DIGITS];
 
@@ -169,7 +159,7 @@ const PasswordGenerator = {
 
     const randomValueArr = new Uint8Array(1);
     do {
-      lazy.crypto.getRandomValues(randomValueArr);
+      crypto.getRandomValues(randomValueArr);
     } while (randomValueArr[0] > MAX_ACCEPTABLE_VALUE);
     return randomValueArr[0] % range;
   },
@@ -183,7 +173,7 @@ const PasswordGenerator = {
     let arr = Array.from(str);
     // Generate all the random numbers that will be needed.
     const randomValues = new Uint32Array(arr.length - 1);
-    lazy.crypto.getRandomValues(randomValues);
+    crypto.getRandomValues(randomValues);
 
     // Fisher-Yates Shuffle
     // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle

@@ -6137,10 +6137,10 @@ struct SnappedImageDrawingParameters {
  */
 static gfxMatrix TransformBetweenRects(const gfxRect& aFrom,
                                        const gfxRect& aTo) {
-  gfxSize scale(aTo.width / aFrom.width, aTo.height / aFrom.height);
-  gfxPoint translation(aTo.x - aFrom.x * scale.width,
-                       aTo.y - aFrom.y * scale.height);
-  return gfxMatrix(scale.width, 0, 0, scale.height, translation.x,
+  MatrixScalesDouble scale(aTo.width / aFrom.width, aTo.height / aFrom.height);
+  gfxPoint translation(aTo.x - aFrom.x * scale.xScale,
+                       aTo.y - aFrom.y * scale.yScale);
+  return gfxMatrix(scale.xScale, 0, 0, scale.yScale, translation.x,
                    translation.y);
 }
 
@@ -6900,15 +6900,16 @@ nsTransparencyMode nsLayoutUtils::GetFrameTransparency(
     return eTransparencyOpaque;
   }
 
-  ComputedStyle* bgSC;
-  if (!nsCSSRendering::FindBackground(aBackgroundFrame, &bgSC)) {
+  ComputedStyle* bgSC = nsCSSRendering::FindBackground(aBackgroundFrame);
+  if (!bgSC) {
     return eTransparencyTransparent;
   }
   const nsStyleBackground* bg = bgSC->StyleBackground();
   if (NS_GET_A(bg->BackgroundColor(bgSC)) < 255 ||
       // bottom layer's clip is used for the color
-      bg->BottomLayer().mClip != StyleGeometryBox::BorderBox)
+      bg->BottomLayer().mClip != StyleGeometryBox::BorderBox) {
     return eTransparencyTransparent;
+  }
   return eTransparencyOpaque;
 }
 
@@ -8955,14 +8956,11 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
     if (isRootScrollFrame) {
       metadata.SetBackgroundColor(
           sRGBColor::FromABGR(presShell->GetCanvasBackground()));
-    } else {
-      ComputedStyle* backgroundStyle;
-      if (nsCSSRendering::FindBackground(aScrollFrame, &backgroundStyle)) {
-        nscolor backgroundColor =
-            backgroundStyle->StyleBackground()->BackgroundColor(
-                backgroundStyle);
-        metadata.SetBackgroundColor(sRGBColor::FromABGR(backgroundColor));
-      }
+    } else if (const auto* backgroundStyle =
+                   nsCSSRendering::FindBackground(aScrollFrame)) {
+      nscolor backgroundColor =
+          backgroundStyle->StyleBackground()->BackgroundColor(backgroundStyle);
+      metadata.SetBackgroundColor(sRGBColor::FromABGR(backgroundColor));
     }
   }
 

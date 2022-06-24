@@ -141,8 +141,6 @@ const { getUniqueId, promiseTimeout } = ExtensionUtils;
 
 const { EventEmitter, updateAllowedOrigins } = ExtensionCommon;
 
-XPCOMUtils.defineLazyGetter(lazy, "console", ExtensionCommon.getConsole);
-
 XPCOMUtils.defineLazyGetter(
   lazy,
   "LocaleData",
@@ -1028,6 +1026,20 @@ class ExtensionData {
         // AddonSettings.EXPERIMENTS_ENABLED is true is currently needed to allow,
         // while running under automation, the test harness extensions (like mochikit
         // and specialpowers) to use that privileged manifest property.
+        lazy.AddonSettings.EXPERIMENTS_ENABLED)
+    );
+  }
+
+  canUseThemeExperiment() {
+    return (
+      ["extension", "theme"].includes(this.type) &&
+      (this.isPrivileged ||
+        // "theme_experiment" MDN docs are currently explicitly mentioning this is expected
+        // to be allowed also for non-signed extensions installed non-temporarily on builds
+        // where the signature checks can be disabled).
+        //
+        // NOTE: be careful to don't regress "theme_experiment" (see Bug 1773076) while changing
+        // AddonSettings.EXPERIMENTS_ENABLED (e.g. as part of fixing Bug 1771341).
         lazy.AddonSettings.EXPERIMENTS_ENABLED)
     );
   }

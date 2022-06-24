@@ -8,7 +8,9 @@ use super::messages::*;
 use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::sidl_task::{SidlRunnable, SidlTask};
 use crate::common::traits::TrackerId;
-use crate::common::uds_transport::{from_base_message, SessionObject, XpcomSessionObject};
+use crate::common::uds_transport::{
+    from_base_message, SessionObject, UdsTransport, XpcomSessionObject,
+};
 use bincode::Options;
 use log::{debug, error};
 use moz_task::ThreadPtrHandle;
@@ -20,6 +22,7 @@ pub struct AppsServiceDelegate {
     xpcom: ThreadPtrHandle<nsIAppsServiceDelegate>,
     service_id: TrackerId,
     object_id: TrackerId,
+    transport: UdsTransport,
 }
 
 impl AppsServiceDelegate {
@@ -27,54 +30,27 @@ impl AppsServiceDelegate {
         xpcom: ThreadPtrHandle<nsIAppsServiceDelegate>,
         service_id: TrackerId,
         object_id: TrackerId,
+        transport: &UdsTransport,
     ) -> Self {
         Self {
             xpcom,
             service_id,
             object_id,
+            transport: transport.clone(),
         }
     }
 
-    fn post_task(&mut self, command: AppsServiceCommand, request_id: u64) -> BaseMessage {
-        // Unconditionally Return a success response for now.
-        let payload = match command {
-            AppsServiceCommand::OnBoot(_, _) => {
-                GeckoBridgeFromClient::AppsServiceDelegateOnBootSuccess
-            }
-            AppsServiceCommand::OnBootDone() => {
-                GeckoBridgeFromClient::AppsServiceDelegateOnBootDoneSuccess
-            }
-            AppsServiceCommand::OnClear(_, _, _) => {
-                GeckoBridgeFromClient::AppsServiceDelegateOnClearSuccess
-            }
-            AppsServiceCommand::OnInstall(_, _) => {
-                GeckoBridgeFromClient::AppsServiceDelegateOnInstallSuccess
-            }
-            AppsServiceCommand::OnUninstall(_) => {
-                GeckoBridgeFromClient::AppsServiceDelegateOnUninstallSuccess
-            }
-            AppsServiceCommand::OnUpdate(_, _) => {
-                GeckoBridgeFromClient::AppsServiceDelegateOnUpdateSuccess
-            }
-        };
-
-        // Dispatch the setting change to the xpcom observer.
+    fn post_task(&mut self, command: AppsServiceCommand, request_id: u64) {
         let task = AppsServiceDelegateTask {
             xpcom: self.xpcom.clone(),
             command,
+            transport: self.transport.clone(),
+            service_id: self.service_id,
+            object_id: self.object_id,
+            request_id,
         };
-
         let _ = SidlRunnable::new("AppsServiceDelegate", Box::new(task))
             .and_then(|r| SidlRunnable::dispatch(r, self.xpcom.owning_thread()));
-
-        // Wrap the payload in a base message and send it.
-        let message = BaseMessage {
-            service: self.service_id,
-            object: self.object_id,
-            kind: BaseMessageKind::Response(request_id),
-            content: crate::common::get_bincode().serialize(&payload).unwrap(),
-        };
-        message
     }
 }
 
@@ -83,46 +59,51 @@ impl SessionObject for AppsServiceDelegate {
         debug!("AppsServiceDelegate on_request id: {}", request_id);
         // Unpack the request.
         match from_base_message(&request) {
+            Ok(GeckoBridgeToClient::AppsServiceDelegateGetUa) => {
+                self.post_task(AppsServiceCommand::GetUa(), request_id);
+            }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnBoot(manifest_url, value)) => {
-                Some(self.post_task(
+                self.post_task(
                     AppsServiceCommand::OnBoot(manifest_url, value.into()),
                     request_id,
-                ))
+                );
             }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnBootDone) => {
-                Some(self.post_task(AppsServiceCommand::OnBootDone(), request_id))
+                self.post_task(AppsServiceCommand::OnBootDone(), request_id);
             }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnClear(
                 manifest_url,
                 clear_type,
                 value,
-            )) => Some(self.post_task(
-                AppsServiceCommand::OnClear(manifest_url, clear_type, value.into()),
-                request_id,
-            )),
+            )) => {
+                self.post_task(
+                    AppsServiceCommand::OnClear(manifest_url, clear_type, value.into()),
+                    request_id,
+                );
+            }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnInstall(manifest_url, value)) => {
-                Some(self.post_task(
+                self.post_task(
                     AppsServiceCommand::OnInstall(manifest_url, value.into()),
                     request_id,
-                ))
+                );
             }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnUpdate(manifest_url, value)) => {
-                Some(self.post_task(
+                self.post_task(
                     AppsServiceCommand::OnUpdate(manifest_url, value.into()),
                     request_id,
-                ))
+                );
             }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnUninstall(manifest_url)) => {
-                Some(self.post_task(AppsServiceCommand::OnUninstall(manifest_url), request_id))
+                self.post_task(AppsServiceCommand::OnUninstall(manifest_url), request_id);
             }
             _ => {
                 error!(
                     "AppsServiceDelegate::on_request unexpected message: {:?}",
                     request.content
                 );
-                None
             }
         }
+        None
     }
 
     fn on_event(&mut self, _event: Vec<u8>) {
@@ -168,6 +149,7 @@ enum AppsServiceCommand {
     OnUninstall(
         String, // manifest_url
     ),
+    GetUa(),
 }
 
 // A Task to dispatch commands to the delegate.
@@ -175,6 +157,23 @@ enum AppsServiceCommand {
 struct AppsServiceDelegateTask {
     xpcom: ThreadPtrHandle<nsIAppsServiceDelegate>,
     command: AppsServiceCommand,
+    service_id: TrackerId,
+    object_id: TrackerId,
+    transport: UdsTransport,
+    request_id: u64,
+}
+
+impl AppsServiceDelegateTask {
+    fn reply(&self, payload: GeckoBridgeFromClient) {
+        let message = BaseMessage {
+            service: self.service_id,
+            object: self.object_id,
+            kind: BaseMessageKind::Response(self.request_id),
+            content: crate::common::get_bincode().serialize(&payload).unwrap(),
+        };
+        let mut t = self.transport.clone();
+        let _ = t.send_message(&message);
+    }
 }
 
 impl SidlTask for AppsServiceDelegateTask {
@@ -182,7 +181,7 @@ impl SidlTask for AppsServiceDelegateTask {
         // Call the method on the initial thread.
         debug!("AppsServiceDelegateTask::run");
         if let Some(object) = self.xpcom.get() {
-            match &self.command {
+            let payload = match &self.command {
                 AppsServiceCommand::OnBoot(manifest_url, value) => {
                     let manifest_url = nsString::from(manifest_url);
                     let value = nsString::from(value);
@@ -194,12 +193,14 @@ impl SidlTask for AppsServiceDelegateTask {
                     unsafe {
                         object.OnBoot(&*manifest_url as &nsAString, &*value as &nsAString);
                     }
+                    GeckoBridgeFromClient::AppsServiceDelegateOnBootSuccess
                 }
                 AppsServiceCommand::OnBootDone() => {
                     debug!("AppsServiceDelegateTask OnBootDone");
                     unsafe {
                         object.OnBootDone();
                     }
+                    GeckoBridgeFromClient::AppsServiceDelegateOnBootDoneSuccess
                 }
                 AppsServiceCommand::OnClear(manifest_url, clear_type, value) => {
                     let manifest_url = nsString::from(manifest_url);
@@ -212,6 +213,7 @@ impl SidlTask for AppsServiceDelegateTask {
                             &*value as &nsAString,
                         );
                     }
+                    GeckoBridgeFromClient::AppsServiceDelegateOnClearSuccess
                 }
                 AppsServiceCommand::OnInstall(manifest_url, value) => {
                     let manifest_url = nsString::from(manifest_url);
@@ -219,6 +221,7 @@ impl SidlTask for AppsServiceDelegateTask {
                     unsafe {
                         object.OnInstall(&*manifest_url as &nsAString, &*value as &nsAString);
                     }
+                    GeckoBridgeFromClient::AppsServiceDelegateOnInstallSuccess
                 }
                 AppsServiceCommand::OnUpdate(manifest_url, value) => {
                     let manifest_url = nsString::from(manifest_url);
@@ -226,14 +229,26 @@ impl SidlTask for AppsServiceDelegateTask {
                     unsafe {
                         object.OnUpdate(&*manifest_url as &nsAString, &*value as &nsAString);
                     }
+                    GeckoBridgeFromClient::AppsServiceDelegateOnUninstallSuccess
                 }
                 AppsServiceCommand::OnUninstall(manifest_url) => {
                     let url = nsString::from(manifest_url);
                     unsafe {
                         object.OnUninstall(&*url as &nsAString);
                     }
+                    GeckoBridgeFromClient::AppsServiceDelegateOnUpdateSuccess
                 }
-            }
+                AppsServiceCommand::GetUa() => {
+                    let mut ua = nsString::new();
+                    let status = unsafe { object.GetUa(&mut *ua) };
+                    if status == nserror::NS_OK {
+                        GeckoBridgeFromClient::AppsServiceDelegateGetUaSuccess(ua.to_string())
+                    } else {
+                        GeckoBridgeFromClient::AppsServiceDelegateGetUaError
+                    }
+                }
+            };
+            self.reply(payload);
         }
     }
 }

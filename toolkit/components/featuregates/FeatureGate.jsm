@@ -17,8 +17,6 @@ ChromeUtils.defineModuleGetter(
   "resource://featuregates/FeatureGateImplementation.jsm"
 );
 
-XPCOMUtils.defineLazyGlobalGetters(lazy, ["fetch"]);
-
 var EXPORTED_SYMBOLS = ["FeatureGate"];
 
 XPCOMUtils.defineLazyGetter(lazy, "gFeatureDefinitionsPromise", async () => {
@@ -27,7 +25,7 @@ XPCOMUtils.defineLazyGetter(lazy, "gFeatureDefinitionsPromise", async () => {
 });
 
 async function fetchFeatureDefinitions(url) {
-  const res = await lazy.fetch(url);
+  const res = await fetch(url);
   let definitionsJson = await res.json();
   return new Map(Object.entries(definitionsJson));
 }
@@ -236,6 +234,7 @@ class FeatureGate {
     ["mac", AppConstants.platform === "macosx"],
     ["linux", AppConstants.platform === "linux"],
     ["android", AppConstants.platform === "android"],
+    ["thunderbird", AppConstants.MOZ_APP_NAME === "thunderbird"],
   ]);
 
   /**

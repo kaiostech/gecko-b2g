@@ -28,8 +28,7 @@
 #include "debugger/DebugAPI.h"      // for DebugAPI
 #include "debugger/Object.h"        // for DebuggerObject
 #include "ds/TraceableFifo.h"       // for TraceableFifo
-#include "gc/Barrier.h"             // for WeakHeapPtrGlobalObject, HeapPtr
-#include "gc/Rooting.h"             // for HandleAtom
+#include "gc/Barrier.h"             //
 #include "gc/Tracer.h"              // for TraceNullableEdge, TraceEdge
 #include "gc/WeakMap.h"             // for WeakMap
 #include "gc/ZoneAllocator.h"       // for ZoneAllocPolicy
@@ -285,8 +284,8 @@ class Completion {
   Variant variant;
 };
 
-typedef HashSet<WeakHeapPtrGlobalObject,
-                MovableCellHasher<WeakHeapPtrGlobalObject>, ZoneAllocPolicy>
+typedef HashSet<WeakHeapPtr<GlobalObject*>,
+                MovableCellHasher<WeakHeapPtr<GlobalObject*>>, ZoneAllocPolicy>
     WeakGlobalObjectSet;
 
 #ifdef DEBUG
@@ -609,11 +608,11 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   };
 
  private:
-  HeapPtrNativeObject object; /* The Debugger object. Strong reference. */
+  HeapPtr<NativeObject*> object; /* The Debugger object. Strong reference. */
   WeakGlobalObjectSet
       debuggees; /* Debuggee globals. Cross-compartment weak references. */
   JS::ZoneSet debuggeeZones; /* Set of zones that we have debuggees in. */
-  HeapPtrObject uncaughtExceptionHook; /* Strong reference. */
+  HeapPtr<JSObject*> uncaughtExceptionHook; /* Strong reference. */
   bool allowUnobservedAsmJS;
   bool allowUnobservedWasm;
 
@@ -1111,8 +1110,8 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   Debugger(JSContext* cx, NativeObject* dbg);
   ~Debugger();
 
-  inline const js::HeapPtrNativeObject& toJSObject() const;
-  inline js::HeapPtrNativeObject& toJSObjectRef();
+  inline const js::HeapPtr<NativeObject*>& toJSObject() const;
+  inline js::HeapPtr<NativeObject*>& toJSObjectRef();
   static inline Debugger* fromJSObject(const JSObject* obj);
 
 #ifdef DEBUG
@@ -1253,7 +1252,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
    * must be a script source object in a debuggee realm.
    */
   DebuggerSource* wrapSource(JSContext* cx,
-                             js::HandleScriptSourceObject source);
+                             js::Handle<ScriptSourceObject*> source);
 
   /*
    * Return the Debugger.Source object for |wasmInstance| (the entire module),
@@ -1577,12 +1576,12 @@ Breakpoint* Debugger::firstBreakpoint() const {
   return &(*breakpoints.begin());
 }
 
-const js::HeapPtrNativeObject& Debugger::toJSObject() const {
+const js::HeapPtr<NativeObject*>& Debugger::toJSObject() const {
   MOZ_ASSERT(object);
   return object;
 }
 
-js::HeapPtrNativeObject& Debugger::toJSObjectRef() {
+js::HeapPtr<NativeObject*>& Debugger::toJSObjectRef() {
   MOZ_ASSERT(object);
   return object;
 }

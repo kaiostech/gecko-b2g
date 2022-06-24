@@ -581,7 +581,7 @@ JS::OffThreadToken* OffThreadJob::waitUntilDone(JSContext* cx) {
 }
 
 struct ShellCompartmentPrivate {
-  GCPtrObject grayRoot;
+  GCPtr<JSObject*> grayRoot;
 };
 
 struct MOZ_STACK_CLASS EnvironmentPreparer
@@ -629,6 +629,7 @@ bool shell::enableIteratorHelpers = false;
 #ifdef NIGHTLY_BUILD
 bool shell::enableArrayGrouping = true;
 #endif
+bool shell::enableArrayFindLast = false;
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
 bool shell::enableChangeArrayByCopy = false;
 #endif
@@ -1888,7 +1889,7 @@ static bool Options(JSContext* cx, unsigned argc, Value* vp) {
       return false;
     }
 
-    RootedLinearString opt(cx, str->ensureLinear(cx));
+    Rooted<JSLinearString*> opt(cx, str->ensureLinear(cx));
     if (!opt) {
       return false;
     }
@@ -3920,7 +3921,7 @@ static bool Fuzzilli(JSContext* cx, unsigned argc, Value* vp) {
   if (!arg) {
     return false;
   }
-  RootedLinearString operation(cx, StringToLinearString(cx, arg));
+  Rooted<JSLinearString*> operation(cx, StringToLinearString(cx, arg));
   if (!operation) {
     return false;
   }
@@ -4248,6 +4249,7 @@ static void SetStandardRealmOptions(JS::RealmOptions& options) {
 #ifdef NIGHTLY_BUILD
       .setArrayGroupingEnabled(enableArrayGrouping)
 #endif
+      .setArrayFindLastEnabled(enableArrayFindLast)
 #ifdef ENABLE_NEW_SET_METHODS
       .setNewSetMethodsEnabled(enableNewSetMethods)
 #endif
@@ -5560,7 +5562,7 @@ static bool RegisterModule(JSContext* cx, unsigned argc, Value* vp) {
   Rooted<ModuleObject*> module(
       cx, args[1].toObject().as<ShellModuleObjectWrapper>().get());
 
-  RootedAtom specifier(cx, AtomizeString(cx, args[0].toString()));
+  Rooted<JSAtom*> specifier(cx, AtomizeString(cx, args[0].toString()));
   if (!specifier) {
     return false;
   }
@@ -5626,7 +5628,7 @@ static bool GetModuleEnvironmentNames(JSContext* cx, unsigned argc, Value* vp) {
   ids.eraseIfEqual(NameToId(cx->names().starNamespaceStar));
 
   uint32_t length = ids.length();
-  RootedArrayObject array(cx, NewDenseFullyAllocatedArray(cx, length));
+  Rooted<ArrayObject*> array(cx, NewDenseFullyAllocatedArray(cx, length));
   if (!array) {
     return false;
   }
@@ -5852,7 +5854,7 @@ static bool FrontendTest(JSContext* cx, unsigned argc, Value* vp,
   }
 
   JSString* scriptContents = args[0].toString();
-  RootedLinearString linearString(cx, scriptContents->ensureLinear(cx));
+  Rooted<JSLinearString*> linearString(cx, scriptContents->ensureLinear(cx));
   if (!linearString) {
     return false;
   }
@@ -7215,11 +7217,11 @@ static bool GetSelfHostedValue(JSContext* cx, unsigned argc, Value* vp) {
                               JSSMSG_INVALID_ARGS, "getSelfHostedValue");
     return false;
   }
-  RootedAtom srcAtom(cx, ToAtom<CanGC>(cx, args[0]));
+  Rooted<JSAtom*> srcAtom(cx, ToAtom<CanGC>(cx, args[0]));
   if (!srcAtom) {
     return false;
   }
-  RootedPropertyName srcName(cx, srcAtom->asPropertyName());
+  Rooted<PropertyName*> srcName(cx, srcAtom->asPropertyName());
   return GlobalObject::getIntrinsicValue(cx, cx->global(), srcName,
                                          args.rval());
 }
@@ -7902,7 +7904,7 @@ class StreamCacheEntryObject : public NativeObject {
       return false;
     }
 
-    RootedNativeObject obj(
+    Rooted<NativeObject*> obj(
         cx, NewObjectWithGivenProto<StreamCacheEntryObject>(cx, nullptr));
     if (!obj) {
       return false;
@@ -8734,7 +8736,7 @@ static bool WasmLoop(JSContext* cx, unsigned argc, Value* vp) {
     }
 
     Rooted<TypedArrayObject*> typedArray(cx, &ret->as<TypedArrayObject>());
-    RootedWasmInstanceObject instanceObj(cx);
+    Rooted<WasmInstanceObject*> instanceObj(cx);
     // No additional compile options here, we don't need them for this use case.
     RootedValue maybeOptions(cx);
     if (!wasm::Eval(cx, typedArray, importObj, maybeOptions, &instanceObj)) {
@@ -9993,7 +9995,7 @@ static bool PrintEnumeratedHelp(JSContext* cx, HandleObject obj,
       if (!JSString::ensureLinear(cx, v.toString())) {
         return false;
       }
-      RootedLinearString input(cx, &v.toString()->asLinear());
+      Rooted<JSLinearString*> input(cx, &v.toString()->asLinear());
       if (!ExecuteRegExpLegacy(cx, nullptr, regex, input, &ignored, true, &v)) {
         return false;
       }
@@ -11040,6 +11042,7 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 #ifdef NIGHTLY_BUILD
   enableArrayGrouping = op.getBoolOption("enable-array-grouping");
 #endif
+  enableArrayFindLast = op.getBoolOption("enable-array-find-last");
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
   enableChangeArrayByCopy = op.getBoolOption("enable-change-array-by-copy");
 #endif
@@ -11570,7 +11573,7 @@ static void SetWorkerContextOptions(JSContext* cx) {
     return false;
   }
 
-  RootedArrayObject resultObj(cx, &obj->as<ArrayObject>());
+  Rooted<ArrayObject*> resultObj(cx, &obj->as<ArrayObject>());
   while (true) {
     bool done = SetIteratorObject::next(iterObj, resultObj);
     if (done) {
@@ -12073,6 +12076,8 @@ int main(int argc, char** argv) {
                         "Enable iterator helpers") ||
       !op.addBoolOption('\0', "enable-array-grouping",
                         "Enable Array Grouping") ||
+      !op.addBoolOption('\0', "enable-array-find-last",
+                        "Enable Array.findLast/findLastIndex") ||
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
       !op.addBoolOption('\0', "enable-change-array-by-copy",
                         "Enable change-array-by-copy methods") ||

@@ -335,9 +335,9 @@ static TypedArrayObject* NewTypedArrayObject(JSContext* cx,
   static_assert(nfixed <= NativeObject::MAX_FIXED_SLOTS);
   static_assert(nfixed == TypedArrayObject::FIXED_DATA_START);
 
-  RootedShape shape(cx, SharedShape::getInitialShape(cx, clasp, cx->realm(),
-                                                     AsTaggedProto(proto),
-                                                     nfixed, ObjectFlags()));
+  Rooted<Shape*> shape(cx, SharedShape::getInitialShape(cx, clasp, cx->realm(),
+                                                        AsTaggedProto(proto),
+                                                        nfixed, ObjectFlags()));
   if (!shape) {
     return nullptr;
   }
@@ -1361,7 +1361,7 @@ template <typename T>
   // Fast path when iterable is a packed array using the default iterator.
   if (optimized) {
     // Step 6.a (We don't need to call IterableToList for the fast path).
-    HandleArrayObject array = other.as<ArrayObject>();
+    Handle<ArrayObject*> array = other.as<ArrayObject>();
 
     // Step 6.b.
     size_t len = array->getDenseInitializedLength();
@@ -2013,6 +2013,11 @@ bool TypedArrayObject::copyWithin(JSContext* cx, unsigned argc, Value* vp) {
     JS_SELF_HOSTED_FN("at", "TypedArrayAt", 1, 0),
     JS_FS_END};
 
+const JSFunctionSpec arrayFindLastProtoFunctions[] = {
+    JS_SELF_HOSTED_FN("findLast", "TypedArrayFindLast", 1, 0),
+    JS_SELF_HOSTED_FN("findLastIndex", "TypedArrayFindLastIndex", 1, 0),
+    JS_FS_END};
+
 #ifdef ENABLE_CHANGE_ARRAY_BY_COPY
 const JSFunctionSpec changeArrayByCopyProtoFunctions[] = {
     JS_SELF_HOSTED_FN("toReversed", "TypedArrayToReversed", 0, 0),
@@ -2021,17 +2026,24 @@ const JSFunctionSpec changeArrayByCopyProtoFunctions[] = {
     JS_SELF_HOSTED_FN("toSpliced", "TypedArrayToSpliced", 3, 0),
 
     JS_FS_END};
+#endif
 
 static bool TypedArrayProtoFinish(JSContext* cx, JS::HandleObject ctor,
                                   JS::HandleObject proto) {
+  if (cx->realm()->creationOptions().getArrayFindLastEnabled()) {
+    if (!js::DefineFunctions(cx, proto, arrayFindLastProtoFunctions)) {
+      return false;
+    }
+  }
+#ifdef ENABLE_CHANGE_ARRAY_BY_COPY
   if (cx->options().changeArrayByCopy()) {
     if (!js::DefineFunctions(cx, proto, changeArrayByCopyProtoFunctions)) {
       return false;
     }
   }
+#endif
   return true;
 }
-#endif
 
 /* static */ const JSFunctionSpec TypedArrayObject::staticFunctions[] = {
     JS_SELF_HOSTED_FN("from", "TypedArrayStaticFrom", 3, 0),
@@ -2053,11 +2065,7 @@ static const ClassSpec TypedArrayObjectSharedTypedArrayPrototypeClassSpec = {
     TypedArrayObject::staticProperties,
     TypedArrayObject::protoFunctions,
     TypedArrayObject::protoAccessors,
-#ifdef ENABLE_CHANGE_ARRAY_BY_COPY
     TypedArrayProtoFinish,
-#else
-    nullptr,
-#endif
     ClassSpec::DontDefineConstructor};
 
 /* static */ const JSClass TypedArrayObject::sharedTypedArrayPrototypeClass = {

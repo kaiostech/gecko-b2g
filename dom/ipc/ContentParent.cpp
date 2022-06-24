@@ -1,5 +1,5 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -206,6 +206,7 @@
 #include "nsHashPropertyBag.h"
 #include "nsHyphenationManager.h"
 #include "nsIAlertsService.h"
+#include "nsIAppShell.h"
 #include "nsIAppStartup.h"
 #include "nsIAppWindow.h"
 #include "nsIAsyncInputStream.h"
@@ -777,6 +778,7 @@ static const char* sObserverTopics[] = {
     "private-cookie-changed",
     NS_NETWORK_LINK_TYPE_TOPIC,
     "network:socket-process-crashed",
+    DEFAULT_TIMEZONE_CHANGED_OBSERVER_TOPIC,
 };
 
 static const char kFissionEnforceBlockList[] =
@@ -1976,6 +1978,23 @@ void ContentParent::MaybeAsyncSendShutDownMessage() {
       &ContentParent::ShutDownProcess, SEND_SHUTDOWN_MESSAGE));
 }
 
+void MaybeLogBlockShutdownDiagnostics(ContentParent* aSelf, const char* aMsg,
+                                      const char* aFile, int32_t aLine) {
+#if defined(MOZ_DIAGNOSTIC_ASSERT_ENABLED)
+  if (aSelf->IsBlockingShutdown()) {
+    nsAutoCString logmsg;
+    logmsg.AppendPrintf("ContentParent: id=%p - ", aSelf);
+    logmsg.Append(aMsg);
+    NS_DebugBreak(NS_DEBUG_WARNING, logmsg.get(), nullptr, aFile, aLine);
+  }
+#else
+  Unused << aSelf;
+  Unused << aMsg;
+  Unused << aFile;
+  Unused << aLine;
+#endif
+}
+
 void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
           ("ShutDownProcess: %p", this));
@@ -1987,18 +2006,34 @@ void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
   // other methods. We first call Shutdown() in the child. After the child is
   // ready, it calls FinishShutdown() on us. Then we close the channel.
   if (aMethod == SEND_SHUTDOWN_MESSAGE) {
-    if (CanSend() && !mShutdownPending) {
-      // Stop sending input events with input priority when shutting down.
-      SetInputPriorityEventEnabled(false);
-      // Send a high priority announcement first. If this fails, SendShutdown
-      // will also fail.
-      Unused << SendShutdownConfirmedHP();
-      // Send the definite message with normal priority.
-      if (SendShutdown()) {
-        mShutdownPending = true;
-        // Start the force-kill timer if we haven't already.
-        StartForceKillTimer();
+    if (!mShutdownPending) {
+      if (CanSend()) {
+        // Stop sending input events with input priority when shutting down.
+        SetInputPriorityEventEnabled(false);
+        // Send a high priority announcement first. If this fails, SendShutdown
+        // will also fail.
+        Unused << SendShutdownConfirmedHP();
+        // Send the definite message with normal priority.
+        if (SendShutdown()) {
+          MaybeLogBlockShutdownDiagnostics(
+              this, "ShutDownProcess: Sent shutdown message.", __FILE__,
+              __LINE__);
+          mShutdownPending = true;
+          // Start the force-kill timer if we haven't already.
+          StartForceKillTimer();
+        } else {
+          MaybeLogBlockShutdownDiagnostics(
+              this, "ShutDownProcess: !!! Send shutdown message failed! !!!",
+              __FILE__, __LINE__);
+        }
+      } else {
+        MaybeLogBlockShutdownDiagnostics(
+            this, "ShutDownProcess: !!! !CanSend !!!", __FILE__, __LINE__);
       }
+    } else {
+      MaybeLogBlockShutdownDiagnostics(
+          this, "ShutDownProcess: Shutdown already pending.", __FILE__,
+          __LINE__);
     }
     // If call was not successful, the channel must have been broken
     // somehow, and we will clean up the error in ActorDestroy.
@@ -2014,11 +2049,15 @@ void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
   // If Close() fails with an error, we'll end up back in this function, but
   // with aMethod = CLOSE_CHANNEL_WITH_ERROR.
 
-  if (aMethod == CLOSE_CHANNEL && !mCalledClose) {
-    // Close() can only be called once: It kicks off the destruction
-    // sequence.
-    mCalledClose = true;
-    Close();
+  if (aMethod == CLOSE_CHANNEL) {
+    if (!mCalledClose) {
+      MaybeLogBlockShutdownDiagnostics(
+          this, "ShutDownProcess: Closing channel.", __FILE__, __LINE__);
+      // Close() can only be called once: It kicks off the destruction
+      // sequence.
+      mCalledClose = true;
+      Close();
+    }
   }
 
   // A ContentParent object might not get freed until after XPCOM shutdown has
@@ -2033,6 +2072,12 @@ mozilla::ipc::IPCResult ContentParent::RecvFinishShutdown() {
   // SEND_SHUTDOWN_MESSAGE. To actually close the channel, we call
   // ShutDownProcess again with CLOSE_CHANNEL.
   MOZ_ASSERT(mShutdownPending);
+  if (mCalledClose) {
+    MaybeLogBlockShutdownDiagnostics(
+        this, "RecvFinishShutdown: Channel already closed.", __FILE__,
+        __LINE__);
+  }
+
   ShutDownProcess(CLOSE_CHANNEL);
   return IPC_OK();
 }
@@ -3001,7 +3046,7 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mIsRemoteInputEventQueueEnabled(false),
       mIsInputPriorityEventEnabled(false),
       mIsInPool(false),
-#ifdef DEBUG
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
       mBlockShutdownCalled(false),
 #endif
       mHangMonitorActor(nullptr) {
@@ -3828,7 +3873,7 @@ NS_INTERFACE_MAP_END
 // Async shutdown blocker
 NS_IMETHODIMP
 ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
-#ifdef DEBUG
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   // We register two shutdown blockers and both would call us, but
   // if things go well we will unregister both as (delayed) reaction
   // to the first call we get and thus never receive a second call.
@@ -3838,6 +3883,9 @@ ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
 #endif
 
   if (CanSend()) {
+    MaybeLogBlockShutdownDiagnostics(this, "BlockShutdown: CanSend.", __FILE__,
+                                     __LINE__);
+
     // Make sure that our process will get scheduled.
     ProcessPriorityManager::SetProcessPriority(this,
                                                PROCESS_PRIORITY_FOREGROUND);
@@ -3847,6 +3895,9 @@ ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
     // XXX: Check for successful dispatch, see bug 1765732
     ShutDownProcess(SEND_SHUTDOWN_MESSAGE);
   } else if (IsLaunching()) {
+    MaybeLogBlockShutdownDiagnostics(
+        this, "BlockShutdown: !CanSend && IsLaunching.", __FILE__, __LINE__);
+
     // If we get here while we are launching, we must wait for the child to
     // be able to react on our commands. Mark this process as dead. This
     // will make bail out LaunchSubprocessResolve and kick off the normal
@@ -3854,6 +3905,15 @@ ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
     MarkAsDead();
   } else {
     MOZ_ASSERT(IsDead());
+    if (!IsDead()) {
+      MaybeLogBlockShutdownDiagnostics(
+          this, "BlockShutdown: !!! !CanSend && !IsLaunching && !IsDead !!!",
+          __FILE__, __LINE__);
+    } else {
+      MaybeLogBlockShutdownDiagnostics(
+          this, "BlockShutdown: !CanSend && !IsLaunching && IsDead.", __FILE__,
+          __LINE__);
+    }
     // Nothing left we can do. We must assume that we race with an ongoing
     // process shutdown, such that we can expect our shutdown blockers to be
     // removed normally.
@@ -3924,6 +3984,12 @@ void ContentParent::AddShutdownBlockers() {
 void ContentParent::RemoveShutdownBlockers() {
   MOZ_ASSERT(sXPCOMShutdownClient);
   MOZ_ASSERT(sProfileBeforeChangeClient);
+
+  MaybeLogBlockShutdownDiagnostics(this, "RemoveShutdownBlockers", __FILE__,
+                                   __LINE__);
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+  mBlockShutdownCalled = false;
+#endif
 
   if (sXPCOMShutdownClient) {
     Unused << sXPCOMShutdownClient->RemoveBlocker(this);
@@ -4138,6 +4204,8 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
     UpdateNetworkLinkType();
   } else if (!strcmp(aTopic, "network:socket-process-crashed")) {
     Unused << SendSocketProcessCrashed();
+  } else if (!strcmp(aTopic, DEFAULT_TIMEZONE_CHANGED_OBSERVER_TOPIC)) {
+    Unused << SendSystemTimezoneChanged();
   }
 
   return NS_OK;

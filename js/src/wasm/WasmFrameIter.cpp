@@ -199,8 +199,7 @@ void WasmFrameIter::popFrame() {
     //
     // The next value of FP is just a regular jit frame used as a marker to
     // know that we should transition to a JSJit frame iterator.
-    unwoundJitCallerFP_ = reinterpret_cast<uint8_t*>(fp_) +
-                          JSJitToWasmFrame::jitFrameLayoutOffsetFromFP();
+    unwoundJitCallerFP_ = reinterpret_cast<uint8_t*>(fp_);
     unwoundJitFrameType_ = FrameType::JSJitToWasm;
 
     fp_ = nullptr;
@@ -381,9 +380,10 @@ static const unsigned SetFP = 16;
 static const unsigned PoppedFP = 4;
 #elif defined(JS_CODEGEN_LOONG64)
 static const unsigned PushedRetAddr = 8;
-static const unsigned PushedFP = 12;
-static const unsigned SetFP = 16;
+static const unsigned PushedFP = 16;
+static const unsigned SetFP = 20;
 static const unsigned PoppedFP = 4;
+static const unsigned PoppedFPJitEntry = 0;
 #elif defined(JS_CODEGEN_NONE)
 // Synthetic values to satisfy asserts and avoid compiler warnings.
 static const unsigned PushedRetAddr = 0;
@@ -458,10 +458,9 @@ static void GenerateCallablePrologue(MacroAssembler& masm, uint32_t* entry) {
   {
     *entry = masm.currentOffset();
 
-    masm.subFromStackPtr(Imm32(sizeof(Frame)));
-    masm.storePtr(ra, Address(StackPointer, Frame::returnAddressOffset()));
+    masm.ma_push(ra);
     MOZ_ASSERT_IF(!masm.oom(), PushedRetAddr == masm.currentOffset() - *entry);
-    masm.storePtr(FramePointer, Address(StackPointer, Frame::callerFPOffset()));
+    masm.ma_push(FramePointer);
     MOZ_ASSERT_IF(!masm.oom(), PushedFP == masm.currentOffset() - *entry);
     masm.moveStackPtrTo(FramePointer);
     MOZ_ASSERT_IF(!masm.oom(), SetFP == masm.currentOffset() - *entry);
@@ -829,8 +828,9 @@ void wasm::GenerateJitEntryPrologue(MacroAssembler& masm,
     offsets->begin = masm.currentOffset();
     static_assert(BeforePushRetAddr == 0);
     // Subtract from SP first as SP must be aligned before offsetting.
-    masm.Sub(sp, sp, 8 + sizeof(JSJitToWasmFrame));
-    masm.Str(ARMRegister(lr, 64), MemOperand(sp, sizeof(JSJitToWasmFrame)));
+    masm.Sub(sp, sp, 16);
+    static_assert(JitFrameLayout::offsetOfReturnAddress() == 8);
+    masm.Str(ARMRegister(lr, 64), MemOperand(sp, 8));
 #else
     // The x86/x64 call instruction pushes the return address.
     offsets->begin = masm.currentOffset();
@@ -840,25 +840,19 @@ void wasm::GenerateJitEntryPrologue(MacroAssembler& masm,
 
     // Save jit frame pointer, so unwinding from wasm to jit frames is trivial.
 #if defined(JS_CODEGEN_ARM64)
-    masm.Str(ARMRegister(FramePointer, 64),
-             MemOperand(sp, JSJitToWasmFrame::callerFPOffset()));
+    static_assert(JitFrameLayout::offsetOfCallerFramePtr() == 0);
+    masm.Str(ARMRegister(FramePointer, 64), MemOperand(sp, 0));
 #else
-    static_assert(sizeof(JSJitToWasmFrame) == sizeof(uintptr_t));
     masm.Push(FramePointer);
 #endif
     MOZ_ASSERT_IF(!masm.oom(),
                   PushedFP == masm.currentOffset() - offsets->begin);
 
-#if defined(JS_CODEGEN_ARM64)
-    masm.Add(ARMRegister(FramePointer, 64), sp,
-             JSJitToWasmFrame::callerFPOffset());
-#else
     masm.moveStackPtrTo(FramePointer);
-#endif
     MOZ_ASSERT_IF(!masm.oom(), SetFP == masm.currentOffset() - offsets->begin);
   }
 
-  masm.setFramePushed(sizeof(JSJitToWasmFrame));
+  masm.setFramePushed(0);
 }
 
 void wasm::GenerateJitEntryEpilogue(MacroAssembler& masm,
@@ -868,11 +862,11 @@ void wasm::GenerateJitEntryEpilogue(MacroAssembler& masm,
   RegisterOrSP sp = masm.getStackPointer();
   AutoForbidPoolsAndNops afp(&masm,
                              /* number of instructions in scope = */ 5);
-  masm.loadPtr(Address(sp, sizeof(JSJitToWasmFrame)), lr);
-  masm.loadPtr(Address(sp, JSJitToWasmFrame::callerFPOffset()), FramePointer);
+  masm.loadPtr(Address(sp, 8), lr);
+  masm.loadPtr(Address(sp, 0), FramePointer);
   poppedFP = masm.currentOffset();
 
-  masm.addToStackPtr(Imm32(8 + sizeof(JSJitToWasmFrame)));
+  masm.addToStackPtr(Imm32(2 * sizeof(void*)));
   // Copy SP into PSP to enforce return-point invariants (SP == PSP).
   // `addToStackPtr` won't sync them because SP is the active pointer here.
   // For the same reason, we can't use initPseudoStackPtr to do the sync, so
@@ -888,8 +882,7 @@ void wasm::GenerateJitEntryEpilogue(MacroAssembler& masm,
   AutoForbidPoolsAndNops afp(&masm, /* number of instructions in scope = */ 2);
 #  endif
 
-  static_assert(sizeof(JSJitToWasmFrame) == sizeof(uintptr_t));
-  masm.Pop(FramePointer);
+  masm.pop(FramePointer);
   poppedFP = masm.currentOffset();
 
   offsets->ret = masm.currentOffset();
@@ -1009,8 +1002,7 @@ void ProfilingFrameIterator::initFromExitFP(const Frame* fp) {
     case CodeRange::JitEntry:
       callerPC_ = nullptr;
       callerFP_ = nullptr;
-      unwoundJitCallerFP_ =
-          fp->rawCaller() + JSJitToWasmFrame::jitFrameLayoutOffsetFromFP();
+      unwoundJitCallerFP_ = fp->rawCaller();
       break;
     case CodeRange::Function:
       fp = fp->wasmCaller();
@@ -1317,46 +1309,30 @@ bool js::wasm::StartUnwinding(const RegisterState& registers,
       // There's a jit frame above the current one; we don't care about pc
       // since the Jit entry frame is a jit frame which can be considered as
       // an exit frame.
-#if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64) || \
-    defined(JS_CODEGEN_MIPS64) || defined(JS_CODEGEN_LOONG64)
-      if (offsetFromEntry < PushedRetAddr) {
-        // We haven't pushed the jit return address yet, thus the jit
-        // frame is incomplete. During profiling frame iteration, it means
-        // that the jit profiling frame iterator won't be able to unwind
-        // this frame; drop it.
+      if (offsetFromEntry < PushedFP) {
+        // We haven't pushed the jit caller's frame pointer yet, thus the jit
+        // frame is incomplete. During profiling frame iteration, it means that
+        // the jit profiling frame iterator won't be able to unwind this frame;
+        // drop it.
         return false;
       }
-#endif
+      if (offsetInCode >= codeRange->ret() - PoppedFPJitEntry &&
+          offsetInCode <= codeRange->ret()) {
+        // We've popped FP but still have to return. Similar to the
+        // |offsetFromEntry < PushedFP| case above, the JIT frame is now
+        // incomplete and we can't unwind.
+        return false;
+      }
       // On the error return path, FP might be set to FailFP. Ignore these
       // transient frames.
       if (intptr_t(fp) == (FailFP & ~ExitOrJitEntryFPTag)) {
         return false;
       }
       // Set fixedFP to the address of the JitFrameLayout on the stack.
-      if (offsetFromEntry < PushedFP) {
-        // On ARM64, we allocate the JSJitToWasmFrame before storing the return
-        // address so it's already on the stack. On other architectures this
-        // happens as part of pushing FP.
-#if defined(JS_CODEGEN_ARM64)
-        fixedFP = reinterpret_cast<uint8_t*>(sp) + sizeof(JSJitToWasmFrame);
-#else
+      if (offsetFromEntry < SetFP) {
         fixedFP = reinterpret_cast<uint8_t*>(sp);
-#endif
-      } else if (offsetFromEntry < SetFP) {
-        fixedFP = reinterpret_cast<uint8_t*>(sp) + sizeof(JSJitToWasmFrame);
-      } else if (offsetInCode >= codeRange->ret() - PoppedFPJitEntry &&
-                 offsetInCode <= codeRange->ret()) {
-        // We've popped FP but still have to return. Similar to the
-        // |offsetFromEntry < PushedRetAddr| case above, the JIT frame may be
-        // incomplete on some platforms if we already popped the return address,
-        // so we return false.
-#if defined(JS_CODEGEN_ARM64)
-        return false;
-#else
-        fixedFP = reinterpret_cast<uint8_t*>(sp);
-#endif
       } else {
-        fixedFP = fp + JSJitToWasmFrame::jitFrameLayoutOffsetFromFP();
+        fixedFP = fp;
       }
       fixedPC = nullptr;
       break;
@@ -1490,8 +1466,7 @@ void ProfilingFrameIterator::operator++() {
   MOZ_ASSERT(codeRange_);
 
   if (codeRange_->isJitEntry()) {
-    unwoundJitCallerFP_ =
-        callerFP_ + JSJitToWasmFrame::jitFrameLayoutOffsetFromFP();
+    unwoundJitCallerFP_ = callerFP_;
     MOZ_ASSERT(!done());
     return;
   }

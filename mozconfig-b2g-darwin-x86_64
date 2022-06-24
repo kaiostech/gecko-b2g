@@ -1,6 +1,6 @@
 # Cross compiling from Linux to OS-X: setup from https://github.com/emilio/mozconfigs/blob/master/mozconfigs/osx-cross
 
-ac_add_options --target=aarch64-apple-darwin
+ac_add_options --target=x86_64-apple-darwin
 
 CROSS_BUILD=1
 
@@ -32,12 +32,6 @@ export HOST_CXX="$OSX_CROSS/clang/bin/clang++"
 export MKFSHFS="$OSX_CROSS/hfsplus-tools/newfs_hfs"
 export DMG_TOOL="$OSX_CROSS/dmg/dmg"
 export HFS_TOOL="$OSX_CROSS/dmg/hfsplus"
-
-# Xcode clang defaults to something similar to -mcpu=apple-a12, while upstream
-# clang defaults to -mcpu=apple-a7, which disables a bunch of performance-enabling
-# CPU features. TODO: this should be done by configure.
-export CFLAGS="$CFLAGS -mcpu=apple-a12"
-export CXXFLAGS="$CXXFLAGS -mcpu=apple-a12"
 
 ac_add_options --disable-wifi-support
 

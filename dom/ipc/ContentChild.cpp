@@ -242,7 +242,6 @@
 #  include <process.h>
 #  define getpid _getpid
 #  include "mozilla/WinDllServices.h"
-#  include "mozilla/widget/WinContentSystemParameters.h"
 #endif
 
 #if defined(XP_MACOSX)
@@ -733,10 +732,6 @@ mozilla::ipc::IPCResult ContentChild::RecvSetXPCOMProcessAttributes(
   mLookAndFeelData = std::move(aLookAndFeelData);
   mFontList = std::move(aFontList);
   mSharedFontListBlocks = std::move(aSharedFontListBlocks);
-#ifdef XP_WIN
-  widget::WinContentSystemParameters::GetSingleton()->SetContentValues(
-      aXPCOMInit.systemParameters());
-#endif
 
   gfx::gfxVars::SetValuesForInitialize(aXPCOMInit.gfxNonDefaultVarUpdates());
   InitSharedUASheets(std::move(aSharedUASheetHandle), aSharedUASheetAddress);
@@ -1466,6 +1461,11 @@ void ContentChild::InitXPCOM(
   // Initialize the RemoteDecoderManager thread and its associated PBackground
   // channel.
   RemoteDecoderManagerChild::Init();
+
+  Preferences::RegisterCallbackAndCall(&OnFissionBlocklistPrefChange,
+                                       kFissionEnforceBlockList);
+  Preferences::RegisterCallbackAndCall(&OnFissionBlocklistPrefChange,
+                                       kFissionOmitBlockListValues);
 
   // Set the dynamic scalar definitions for this process.
   TelemetryIPC::AddDynamicScalarDefinitions(aXPCOMInit.dynamicScalarDefs());
@@ -2636,16 +2636,6 @@ mozilla::ipc::IPCResult ContentChild::RecvThemeChanged(
     FullLookAndFeel&& aLookAndFeelData, widget::ThemeChangeKind aKind) {
   LookAndFeel::SetData(std::move(aLookAndFeelData));
   LookAndFeel::NotifyChangedAllWindows(aKind);
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentChild::RecvUpdateSystemParameters(
-    nsTArray<SystemParameterKVPair>&& aUpdates) {
-#ifdef XP_WIN
-  widget::WinContentSystemParameters::GetSingleton()->SetContentValues(
-      aUpdates);
-#endif
-
   return IPC_OK();
 }
 

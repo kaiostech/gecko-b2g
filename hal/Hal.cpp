@@ -13,6 +13,7 @@
 #include "mozilla/dom/Document.h"
 #include "nsXULAppAPI.h"
 #include "nsPIDOMWindow.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Observer.h"
 #include "mozilla/dom/ContentChild.h"
 #include "WindowIdentifier.h"

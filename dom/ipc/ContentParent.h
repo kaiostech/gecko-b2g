@@ -1267,6 +1267,8 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvShutdownProfile(const nsCString& aProfile);
 
+  mozilla::ipc::IPCResult RecvShutdownPerfStats(const nsCString& aPerfStats);
+
   mozilla::ipc::IPCResult RecvGetGraphicsDeviceInitData(
       ContentDeviceData* aOut);
 

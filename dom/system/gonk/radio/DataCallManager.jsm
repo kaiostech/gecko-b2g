@@ -1,7 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 "use strict";
 
 const { XPCOMUtils } = ChromeUtils.import(
@@ -10,20 +9,22 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
+const lazy = {};
+
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gSettingsManager",
+  lazy,
+  "settingsManager",
   "@mozilla.org/sidl-native/settings;1",
   "nsISettingsManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gCustomizationInfo",
+  lazy,
+  "customizationInfo",
   "@kaiostech.com/customizationinfo;1",
   "nsICustomizationInfo"
 );
@@ -33,43 +34,41 @@ XPCOMUtils.defineLazyServiceGetter(
                                    "nsISystemMessagesInternal");*/
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gDataCallInterfaceService",
+  lazy,
+  "dataCallInterfaceService",
   "@mozilla.org/datacall/interfaceservice;1",
   "nsIDataCallInterfaceService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gMobileConnectionService",
+  lazy,
+  "mobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gIccService",
+  lazy,
+  "iccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gNetworkManager",
+  lazy,
+  "networkManager",
   "@mozilla.org/network/manager;1",
   "nsINetworkManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gPCOService",
+  lazy,
+  "PCOService",
   "@kaiostech.com/pcoservice;1",
   "nsIPCOService"
 );
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
-  return ChromeUtils.import("resource://gre/modules/ril_consts.js");
-});
+var RIL = ChromeUtils.import("resource://gre/modules/ril_consts.js");
 
 const { BinderServices } = ChromeUtils.import(
   "resource://gre/modules/BinderServices.jsm"
@@ -179,7 +178,7 @@ updateDebugFlag();
 
 function DataCallManager() {
   this._connectionHandlers = [];
-  let numRadioInterfaces = gMobileConnectionService.numItems;
+  let numRadioInterfaces = lazy.mobileConnectionService.numItems;
   //let numRadioInterfaces = 1;
   for (let clientId = 0; clientId < numRadioInterfaces; clientId++) {
     this._connectionHandlers.push(new DataCallHandler(clientId));
@@ -353,7 +352,7 @@ DataCallManager.prototype = {
     this._connectionHandlers = null;
     // remove the setting observer.
 
-    let numRadioInterfaces = gMobileConnectionService.numItems;
+    let numRadioInterfaces = lazy.mobileConnectionService.numItems;
     for (let clientId = 0; clientId < numRadioInterfaces; clientId++) {
       let apnSetting = kApnSettingKey + (clientId + 1);
       this.removeSettingObserver(apnSetting);
@@ -369,8 +368,8 @@ DataCallManager.prototype = {
     let handler = this._connectionHandlers[aClientId];
     if (handler && aApnList) {
       // Mark it first.
-      /*if (gCustomizationInfo.getCustomizedValue(clientId, "xcap", null) != null) {
-        apnSetting.push(gCustomizationInfo.getCustomizedValue(clientId, "xcap"));
+      /*if (lazy.customizationInfo.getCustomizedValue(clientId, "xcap", null) != null) {
+        apnSetting.push(lazy.customizationInfo.getCustomizedValue(clientId, "xcap"));
       }*/
       handler.updateApnSettings(aApnList);
     }
@@ -378,8 +377,8 @@ DataCallManager.prototype = {
     // Once got the apn, loading the white list config if any.
     if (aApnList && aApnList.length > 0) {
       let allowed = null;
-      if (gCustomizationInfo) {
-        allowed = gCustomizationInfo.getCustomizedValue(
+      if (lazy.customizationInfo) {
+        allowed = lazy.customizationInfo.getCustomizedValue(
           aClientId,
           "mobileSettingWhiteList",
           []
@@ -510,12 +509,12 @@ DataCallManager.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.settingsManager) {
       if (DEBUG) {
         this.debug("get " + aKey + " setting.");
       }
       let self = this;
-      gSettingsManager.get(aKey, {
+      lazy.settingsManager.get(aKey, {
         resolve: info => {
           self.observeSetting(info);
         },
@@ -532,25 +531,28 @@ DataCallManager.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.settingsManager) {
       if (DEBUG) {
         this.debug(
           "set " + aKey + " setting with value = " + JSON.stringify(aValue)
         );
       }
       let self = this;
-      gSettingsManager.set([{ name: aKey, value: JSON.stringify(aValue) }], {
-        resolve: () => {
-          if (DEBUG) {
-            self.debug(" Set " + aKey + " succedded. ");
-          }
-        },
-        reject: () => {
-          if (DEBUG) {
-            self.debug("Set " + aKey + " failed.");
-          }
-        },
-      });
+      lazy.settingsManager.set(
+        [{ name: aKey, value: JSON.stringify(aValue) }],
+        {
+          resolve: () => {
+            if (DEBUG) {
+              self.debug(" Set " + aKey + " succedded. ");
+            }
+          },
+          reject: () => {
+            if (DEBUG) {
+              self.debug("Set " + aKey + " failed.");
+            }
+          },
+        }
+      );
     }
   },
 
@@ -560,12 +562,12 @@ DataCallManager.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.settingsManager) {
       if (DEBUG) {
         this.debug("add " + aKey + " setting observer.");
       }
       let self = this;
-      gSettingsManager.addObserver(aKey, this, {
+      lazy.settingsManager.addObserver(aKey, this, {
         resolve: () => {
           if (DEBUG) {
             self.debug("observed " + aKey + " successed.");
@@ -585,12 +587,12 @@ DataCallManager.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.settingsManager) {
       if (DEBUG) {
         this.debug("remove " + aKey + " setting observer.");
       }
       let self = this;
-      gSettingsManager.removeObserver(aKey, this, {
+      lazy.settingsManager.removeObserver(aKey, this, {
         resolve: () => {
           if (DEBUG) {
             self.debug("remove observer " + aKey + " successed.");
@@ -695,12 +697,14 @@ function DataCallHandler(aClientId) {
   // RILNetworkInterface.
   this.dataNetworkInterfaces = new Map();
 
-  this.dataCallInterface = gDataCallInterfaceService.getDataCallInterface(
+  this.dataCallInterface = lazy.dataCallInterfaceService.getDataCallInterface(
     aClientId
   );
   this.dataCallInterface.registerListener(this);
 
-  let mobileConnection = gMobileConnectionService.getItemByServiceId(aClientId);
+  let mobileConnection = lazy.mobileConnectionService.getItemByServiceId(
+    aClientId
+  );
   mobileConnection.registerListener(this);
 
   this._dataInfo = {
@@ -754,7 +758,7 @@ DataCallHandler.prototype = {
   shutdown() {
     // Shutdown all RIL network interfaces
     this.dataNetworkInterfaces.forEach(function(networkInterface) {
-      gNetworkManager.unregisterNetworkInterface(networkInterface);
+      lazy.networkManager.unregisterNetworkInterface(networkInterface);
       networkInterface.shutdown();
       networkInterface = null;
     });
@@ -769,7 +773,7 @@ DataCallHandler.prototype = {
     this.dataCallInterface = null;
     this.mobileWhiteList = null;
 
-    let mobileConnection = gMobileConnectionService.getItemByServiceId(
+    let mobileConnection = lazy.mobileConnectionService.getItemByServiceId(
       this.clientId
     );
     mobileConnection.unregisterListener(this);
@@ -839,7 +843,7 @@ DataCallHandler.prototype = {
 
     // Shutdown all network interfaces and clear data calls.
     this.dataNetworkInterfaces.forEach(function(networkInterface) {
-      gNetworkManager.unregisterNetworkInterface(networkInterface);
+      lazy.networkManager.unregisterNetworkInterface(networkInterface);
       networkInterface.shutdown();
       networkInterface = null;
     });
@@ -920,7 +924,7 @@ DataCallHandler.prototype = {
           dataCallsList
         );
 
-        gNetworkManager.registerNetworkInterface(networkInterface);
+        lazy.networkManager.registerNetworkInterface(networkInterface);
         this.dataNetworkInterfaces.set(networkType, networkInterface);
         readyApnTypes.push(networkType);
         //Set the default networkInterface to enable.
@@ -1104,7 +1108,9 @@ DataCallHandler.prototype = {
       return;
     }
 
-    let connection = gMobileConnectionService.getItemByServiceId(this.clientId);
+    let connection = lazy.mobileConnectionService.getItemByServiceId(
+      this.clientId
+    );
     let dataInfo = connection && connection.data;
     if (dataInfo == null) {
       return;
@@ -1119,7 +1125,7 @@ DataCallHandler.prototype = {
   },
 
   updatePcoData(aCid, aBearerProtom, aPcoId, aContents) {
-    if (!gPCOService) {
+    if (!lazy.PCOService) {
       this.debug("Error. No PCO Service. return.");
       return;
     }
@@ -1197,7 +1203,7 @@ DataCallHandler.prototype = {
     if (DEBUG) {
       this.debug("updatePcoData pcoValueList=" + JSON.stringify(pcoValueList));
     }
-    gPCOService.updatePcoData(pcoValueList);
+    lazy.PCOService.updatePcoData(pcoValueList);
   },
 
   updateRILNetworkInterface() {
@@ -1235,7 +1241,9 @@ DataCallHandler.prototype = {
       );
     }
 
-    let connection = gMobileConnectionService.getItemByServiceId(this.clientId);
+    let connection = lazy.mobileConnectionService.getItemByServiceId(
+      this.clientId
+    );
 
     let dataInfo = connection && connection.data;
     let radioTechType = dataInfo && dataInfo.type;
@@ -1258,8 +1266,8 @@ DataCallHandler.prototype = {
 
     let wifi_active = false;
     if (
-      gNetworkManager.activeNetworkInfo &&
-      gNetworkManager.activeNetworkInfo.type == NETWORK_TYPE_WIFI
+      lazy.networkManager.activeNetworkInfo &&
+      lazy.networkManager.activeNetworkInfo.type == NETWORK_TYPE_WIFI
     ) {
       wifi_active = true;
     }
@@ -1712,7 +1720,9 @@ DataCallHandler.prototype = {
     if (DEBUG) {
       this.debug("notifyDataChanged");
     }
-    let connection = gMobileConnectionService.getItemByServiceId(this.clientId);
+    let connection = lazy.mobileConnectionService.getItemByServiceId(
+      this.clientId
+    );
     let newDataInfo = connection.data;
 
     if (
@@ -1752,7 +1762,9 @@ DataCallHandler.prototype = {
       return;
     }
 
-    let connection = gMobileConnectionService.getItemByServiceId(this.clientId);
+    let connection = lazy.mobileConnectionService.getItemByServiceId(
+      this.clientId
+    );
     let radioOn =
       connection.radioState ===
       Ci.nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED;
@@ -1910,7 +1922,7 @@ DataCall.prototype = {
   updateTcpBufferSizes(aRadioTech) {
     // Handle setup data call result case. Get the rat in case the rat is change before result come back.
     if (!aRadioTech) {
-      let connection = gMobileConnectionService.getItemByServiceId(
+      let connection = lazy.mobileConnectionService.getItemByServiceId(
         this.clientId
       );
       let dataInfo = connection && connection.data;
@@ -2033,13 +2045,17 @@ DataCall.prototype = {
 
     this.linkInfo.ifname = aDataCall.ifname;
     this.linkInfo.addresses = aDataCall.addresses
-      ? aDataCall.addresses.split(" ")
+      ? aDataCall.addresses.trim().split(" ")
       : [];
     this.linkInfo.gateways = aDataCall.gateways
-      ? aDataCall.gateways.split(" ")
+      ? aDataCall.gateways.trim().split(" ")
       : [];
-    this.linkInfo.dnses = aDataCall.dnses ? aDataCall.dnses.split(" ") : [];
-    this.linkInfo.pcscf = aDataCall.pcscf ? aDataCall.pcscf.split(" ") : [];
+    this.linkInfo.dnses = aDataCall.dnses
+      ? aDataCall.dnses.trim().split(" ")
+      : [];
+    this.linkInfo.pcscf = aDataCall.pcscf
+      ? aDataCall.pcscf.trim().split(" ")
+      : [];
     this.linkInfo.mtu = aDataCall.mtu > 0 ? aDataCall.mtu : 0;
     this.state = this._getGeckoDataCallState(aDataCall);
     this.linkInfo.tcpbuffersizes = this.updateTcpBufferSizes();
@@ -2105,13 +2121,17 @@ DataCall.prototype = {
     let newLinkInfo = {
       ifname: aUpdatedDataCall.ifname,
       addresses: aUpdatedDataCall.addresses
-        ? aUpdatedDataCall.addresses.split(" ")
+        ? aUpdatedDataCall.addresses.trim().split(" ")
         : [],
-      dnses: aUpdatedDataCall.dnses ? aUpdatedDataCall.dnses.split(" ") : [],
+      dnses: aUpdatedDataCall.dnses
+        ? aUpdatedDataCall.dnses.trim().split(" ")
+        : [],
       gateways: aUpdatedDataCall.gateways
-        ? aUpdatedDataCall.gateways.split(" ")
+        ? aUpdatedDataCall.gateways.trim().split(" ")
         : [],
-      pcscf: aUpdatedDataCall.pcscf ? aUpdatedDataCall.pcscf.split(" ") : [],
+      pcscf: aUpdatedDataCall.pcscf
+        ? aUpdatedDataCall.pcscf.trim().split(" ")
+        : [],
       mtu: aUpdatedDataCall.mtu > 0 ? aUpdatedDataCall.mtu : 0,
     };
 
@@ -2441,7 +2461,9 @@ DataCall.prototype = {
       );
     }
 
-    let connection = gMobileConnectionService.getItemByServiceId(this.clientId);
+    let connection = lazy.mobileConnectionService.getItemByServiceId(
+      this.clientId
+    );
     let dataInfo = connection && connection.data;
     if (
       dataInfo == null ||
@@ -2752,7 +2774,7 @@ RILNetworkInfo.prototype = {
   serviceId: 0,
 
   get iccId() {
-    let icc = gIccService.getIccByServiceId(this.serviceId);
+    let icc = lazy.iccService.getIccByServiceId(this.serviceId);
     let iccInfo = icc && icc.iccInfo;
 
     return iccInfo && iccInfo.iccid;
@@ -2938,7 +2960,7 @@ RILNetworkInterface.prototype = {
       );
     }
 
-    gNetworkManager.updateNetworkInterface(this);
+    lazy.networkManager.updateNetworkInterface(this);
   },
 
   enable() {

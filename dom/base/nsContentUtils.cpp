@@ -10048,6 +10048,10 @@ void nsContentUtils::StructuredClone(JSContext* aCx, nsIGlobalObject* aGlobal,
   if (aGlobal->IsSharedMemoryAllowed()) {
     clonePolicy.allowSharedMemoryObjects();
   }
+  // Stack principals can't be cloned on Worker threads.
+  if (NS_IsMainThread()) {
+    clonePolicy.allowErrorStackFrames();
+  }
 
   StructuredCloneHolder holder(StructuredCloneHolder::CloningSupported,
                                StructuredCloneHolder::TransferringSupported,

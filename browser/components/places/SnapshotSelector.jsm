@@ -60,6 +60,8 @@ XPCOMUtils.defineLazyGetter(lazy, "logConsole", function() {
  *   The snapshot this recommendation relates to.
  * @property {number} score
  *   The score for the snapshot.
+ * @property {string | undefined} source
+ *   The source that provided the largest score for this snapshot.
  */
 
 /**
@@ -185,19 +187,19 @@ class SnapshotSelector extends EventEmitter {
   /**
    * Called internally when the set of snapshots has been generated.
    *
-   * @param {Snapshot[]} snapshots
+   * @param {Recommendation[]} recommendations
    */
-  #snapshotsGenerated(snapshots) {
+  #snapshotsGenerated(recommendations) {
     // If this instance has been destroyed then do nothing.
     if (!this.#task) {
       return;
     }
 
     lazy.logConsole.debug(
-      "Generated snapshots",
-      snapshots.map(s => s.url)
+      "Generated recommendations",
+      recommendations.map(s => s.snapshot.url)
     );
-    this.emit("snapshots-updated", snapshots);
+    this.emit("snapshots-updated", recommendations);
   }
 
   /**
@@ -234,18 +236,21 @@ class SnapshotSelector extends EventEmitter {
       return !context.filterAdult || !lazy.FilterAdult.isAdultUrl(snapshot.url);
     });
 
-    snapshots = lazy.SnapshotScorer.dedupeSnapshots(
-      snapshots.map(s => ({
-        snapshot: s,
-      }))
-    )
-      .slice(0, context.count)
-      .map(s => s.snapshot)
-      .slice();
+    let recommendations = snapshots.map((snapshot, index) => ({
+      source: "recent",
+      score: snapshots.length - index,
+      snapshot,
+    }));
 
-    lazy.PlacesUIUtils.insertTitleStartDiffs(snapshots);
+    recommendations = lazy.SnapshotScorer.dedupeSnapshots(
+      recommendations
+    ).slice(0, context.count);
 
-    this.#snapshotsGenerated(snapshots);
+    lazy.PlacesUIUtils.insertTitleStartDiffs(
+      recommendations.map(s => s.snapshot)
+    );
+
+    this.#snapshotsGenerated(recommendations);
   }
 
   /**
@@ -284,7 +289,7 @@ class SnapshotSelector extends EventEmitter {
             )
           );
 
-          return { recommendations, weight };
+          return { source: key, recommendations, weight };
         }
       )
     );
@@ -294,13 +299,13 @@ class SnapshotSelector extends EventEmitter {
       ...recommendationGroups
     );
 
-    let snapshots = recommendations
-      .slice(0, context.count)
-      .map(r => r.snapshot);
+    recommendations = recommendations.slice(0, context.count);
 
-    lazy.PlacesUIUtils.insertTitleStartDiffs(snapshots);
+    lazy.PlacesUIUtils.insertTitleStartDiffs(
+      recommendations.map(r => r.snapshot)
+    );
 
-    this.#snapshotsGenerated(snapshots);
+    this.#snapshotsGenerated(recommendations);
   }
 
   /**
@@ -309,14 +314,22 @@ class SnapshotSelector extends EventEmitter {
    * @param {string} [url]
    *  The url of the current context.
    * @param {number} [time]
-   *  The time, in milliseconds from the Unix epoch.
+   *  The time, in milliseconds since the Unix epoch.
    * @param {PageDataSchema.DATA_TYPE} [type]
    *  The type of snapshots for this selector.
+   * @param {number} [sessionStartTime]
+   *  The start time of the session, in milliseconds since the Unix epoch.
    * @param {string} [rebuildImmediately] (default: false)
    *  Whether to rebuild immediately instead of waiting some delay. Useful on
    *  startup.
    */
-  updateDetailsAndRebuild({ url, time, type, rebuildImmediately = false }) {
+  updateDetailsAndRebuild({
+    url,
+    time,
+    type,
+    sessionStartTime,
+    rebuildImmediately = false,
+  }) {
     let rebuild = false;
     if (url !== undefined) {
       url = lazy.Snapshots.stripFragments(url);
@@ -333,6 +346,14 @@ class SnapshotSelector extends EventEmitter {
       this.#context.type = type;
       rebuild = true;
     }
+    if (
+      sessionStartTime != undefined &&
+      sessionStartTime != this.#context.sessionStartTime
+    ) {
+      this.#context.sessionStartTime = sessionStartTime;
+      rebuild = true;
+    }
+
     if (rebuild) {
       if (rebuildImmediately) {
         this.#buildSnapshots();

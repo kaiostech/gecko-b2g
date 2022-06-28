@@ -36,7 +36,6 @@ class DebianBootstrapper(LinuxBootstrapper, BaseBootstrapper):
         "m4",
         "unzip",
         "uuid",
-        "watchman",
         "zip",
     ]
 
@@ -70,6 +69,14 @@ class DebianBootstrapper(LinuxBootstrapper, BaseBootstrapper):
         self.codename = codename
 
         self.packages = list(self.COMMON_PACKAGES)
+
+        try:
+            version_number = int(version)
+        except ValueError:
+            version_number = None
+
+        if (version_number and (version_number >= 11)) or version == "unstable":
+            self.packages += ["watchman"]
 
     def suggest_install_distutils(self):
         print(

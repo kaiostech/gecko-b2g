@@ -242,7 +242,6 @@
 #  include <process.h>
 #  define getpid _getpid
 #  include "mozilla/WinDllServices.h"
-#  include "mozilla/widget/WinContentSystemParameters.h"
 #endif
 
 #if defined(XP_MACOSX)
@@ -733,12 +732,9 @@ mozilla::ipc::IPCResult ContentChild::RecvSetXPCOMProcessAttributes(
   mLookAndFeelData = std::move(aLookAndFeelData);
   mFontList = std::move(aFontList);
   mSharedFontListBlocks = std::move(aSharedFontListBlocks);
-#ifdef XP_WIN
-  widget::WinContentSystemParameters::GetSingleton()->SetContentValues(
-      aXPCOMInit.systemParameters());
-#endif
 
   gfx::gfxVars::SetValuesForInitialize(aXPCOMInit.gfxNonDefaultVarUpdates());
+  PerfStats::SetCollectionMask(aXPCOMInit.perfStatsMask());
   InitSharedUASheets(std::move(aSharedUASheetHandle), aSharedUASheetAddress);
   InitXPCOM(std::move(aXPCOMInit), aInitialData,
             aIsReadyForBackgroundProcessing);
@@ -1466,6 +1462,11 @@ void ContentChild::InitXPCOM(
   // Initialize the RemoteDecoderManager thread and its associated PBackground
   // channel.
   RemoteDecoderManagerChild::Init();
+
+  Preferences::RegisterCallbackAndCall(&OnFissionBlocklistPrefChange,
+                                       kFissionEnforceBlockList);
+  Preferences::RegisterCallbackAndCall(&OnFissionBlocklistPrefChange,
+                                       kFissionOmitBlockListValues);
 
   // Set the dynamic scalar definitions for this process.
   TelemetryIPC::AddDynamicScalarDefinitions(aXPCOMInit.dynamicScalarDefs());
@@ -2639,16 +2640,6 @@ mozilla::ipc::IPCResult ContentChild::RecvThemeChanged(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentChild::RecvUpdateSystemParameters(
-    nsTArray<SystemParameterKVPair>&& aUpdates) {
-#ifdef XP_WIN
-  widget::WinContentSystemParameters::GetSingleton()->SetContentValues(
-      aUpdates);
-#endif
-
-  return IPC_OK();
-}
-
 mozilla::ipc::IPCResult ContentChild::RecvLoadProcessScript(
     const nsString& aURL) {
   auto* global = ContentProcessMessageManager::Get();
@@ -3458,6 +3449,10 @@ void ContentChild::ShutdownInternal() {
              : (isProfiling
                     ? "Profiling - SendShutdownProfile (failed)"_ns
                     : "Not profiling - SendShutdownProfile (failed)"_ns));
+  }
+
+  if (PerfStats::GetCollectionMask() != 0) {
+    SendShutdownPerfStats(PerfStats::CollectLocalPerfStatsJSON());
   }
 
   // Start a timer that will insure we quickly exit after a reasonable
@@ -4781,12 +4776,16 @@ mozilla::ipc::IPCResult ContentChild::RecvGetLayoutHistoryState(
     GetLayoutHistoryStateResolver&& aResolver) {
   nsCOMPtr<nsILayoutHistoryState> state;
   nsIDocShell* docShell;
+  mozilla::Maybe<mozilla::dom::Wireframe> wireframe;
   if (!aContext.IsNullOrDiscarded() &&
       (docShell = aContext.get()->GetDocShell())) {
     docShell->PersistLayoutHistoryState();
     docShell->GetLayoutHistoryState(getter_AddRefs(state));
+    wireframe = static_cast<nsDocShell*>(docShell)->GetWireframe();
   }
-  aResolver(state);
+  aResolver(Tuple<nsILayoutHistoryState*, const mozilla::Maybe<Wireframe>&>(
+      state, wireframe));
+
   return IPC_OK();
 }
 

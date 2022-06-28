@@ -1412,10 +1412,6 @@ static void WriteAnnotationsForMainProcessCrash(PlatformWriter& pw,
     writer.Write(Annotation::TextureUsage, gTexturesSize);
   }
 
-  if (!memoryReportPath.empty()) {
-    writer.Write(Annotation::ContainsMemoryReport, "1");
-  }
-
 #ifdef MOZ_PHC
   WritePHCAddrInfo(writer, addrInfo);
 #endif
@@ -2556,10 +2552,6 @@ static void AddCommonAnnotations(AnnotationTable& aAnnotations) {
   nsAutoCString uptimeStr;
   uptimeStr.AppendFloat(uptimeTS);
   aAnnotations[Annotation::UptimeTS] = uptimeStr;
-
-  if (!memoryReportPath.empty()) {
-    aAnnotations[Annotation::ContainsMemoryReport] = "1"_ns;
-  }
 }
 
 nsresult SetGarbageCollecting(bool collecting) {

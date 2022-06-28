@@ -859,6 +859,44 @@
 #endif
   mirror: always
 
+# Bidi numeral style:
+# 0 = nominalnumeralBidi *
+# 1 = regularcontextnumeralBidi
+# 2 = hindicontextnumeralBidi
+# 3 = arabicnumeralBidi
+# 4 = hindinumeralBidi
+# 5 = persiancontextnumeralBidi
+# 6 = persiannumeralBidi
+- name: bidi.numeral
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
+# Bidi text type
+# 1 = charsettexttypeBidi *
+# 2 = logicaltexttypeBidi
+# 3 = visualtexttypeBidi
+- name: bidi.texttype
+  type: RelaxedAtomicUint32
+  value: 1
+  mirror: always
+
+# Bidi direction
+# 1 = directionLTRBidi *
+# 2 = directionRTLBidi
+- name: bidi.direction
+  type: RelaxedAtomicUint32
+  value: 1
+  mirror: always
+
+# Setting this pref to |true| forces Bidi UI menu items and keyboard shortcuts
+# to be exposed, and enables the directional caret hook. By default, only
+# expose it for bidi-associated system locales.
+- name: bidi.browser.ui
+  type: bool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "browser."
 #---------------------------------------------------------------------------
@@ -1490,6 +1528,13 @@
 - name: browser.tabs.remote.useCrossOriginEmbedderPolicy
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# This pref makes `credentialless` a valid value for
+# Cross-Origin-Embedder-Policy header
+- name: browser.tabs.remote.coep.credentialless
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # When this pref is enabled top level loads with a mismatched
@@ -2404,6 +2449,12 @@
   value: true
   mirror: always
 
+# Whether or not File Handle is enabled.
+- name: dom.fileHandle.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Support @autocomplete values for form autofill feature.
 - name: dom.forms.autocomplete.formautofill
   type: bool
@@ -2911,11 +2962,6 @@
 - name: dom.media.silence_duration_for_audibility
   type: AtomicFloat
   value: 2.0f
-  mirror: always
-
-- name: dom.menuitem.enabled
-  type: bool
-  value: false
   mirror: always
 
 # Enable meta-viewport support in remote APZ-enabled frames.
@@ -4956,6 +5002,17 @@
   value: false
   mirror: always
 
+# Temporary prefs to be used for a few weeks, then removed
+- name: fission.omitBlocklistedPrefsInSubprocesses.tmp
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: fission.enforceBlocklistedPrefsInSubprocesses.tmp
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "font."
 #---------------------------------------------------------------------------
@@ -5768,6 +5825,12 @@
   value: true
   mirror: always
 
+# whether to always search all font cmaps during system font fallback
+- name: gfx.font_rendering.fallback.always_use_cmaps
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #if defined(XP_WIN)
 # Whether the DirectWrite bold simulation should be used when a bold font-weight
 # is requested but no bold face available in the family. This renders poorly with
@@ -5787,6 +5850,23 @@
 - name: gfx.font_rendering.native_font_source_none
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+- name: gfx.font_rendering.graphite.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Cache shaped word results
+- name: gfx.font_rendering.wordcache.charlimit
+  type: RelaxedAtomicUint32
+  value: 32
+  mirror: always
+
+# Cache shaped word results
+- name: gfx.font_rendering.wordcache.maxentries
+  type: RelaxedAtomicUint32
+  value: 10000
   mirror: always
 
 # The level of logging:
@@ -6499,6 +6579,12 @@
 # Decode all images automatically on load, ignoring our normal heuristics.
 - name: image.decode-immediately.enabled
   type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Decode all images synchronously
+- name: image.decode-sync.enabled
+  type: bool
   value: false
   mirror: always
 
@@ -12744,7 +12830,7 @@
 - name: security.tls.ech.grease_probability
   type: RelaxedAtomicUint32
 #ifdef IS_NIGHTLY_BUILD
-  value: 10
+  value: 50
 #else
   value: 0
 #endif
@@ -14162,7 +14248,7 @@
 # Whether to disable SwipeTracker (e.g. swipe-to-nav).
 - name: widget.disable-swipe-tracker
   type: bool
-#ifdef XP_WIN
+#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
   value: @IS_NOT_EARLY_BETA_OR_EARLIER@
 #else
   value: false
@@ -14180,12 +14266,16 @@
   value: 0.05f
   mirror: always
 
+# The values for this pref are derived from trial and error in an effort to
+# match the existing behavior on the respective platforms.
 - name: widget.swipe.whole-page-pixel-size
   type: float
 #if defined(XP_WIN)
   value: 1100.0f
-#else
+#elif defined(XP_MACOSX)
   value: 550.0f
+#else
+  value: 40.0f
 #endif
   mirror: always
 

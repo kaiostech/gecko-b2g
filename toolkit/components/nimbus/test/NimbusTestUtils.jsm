@@ -10,15 +10,21 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
+const { ExperimentStore } = ChromeUtils.import(
+  "resource://nimbus/lib/ExperimentStore.jsm"
+);
+
+const { FileTestUtils } = ChromeUtils.import(
+  "resource://testing-common/FileTestUtils.jsm"
+);
+
 const lazy = {};
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   _ExperimentManager: "resource://nimbus/lib/ExperimentManager.jsm",
   ExperimentManager: "resource://nimbus/lib/ExperimentManager.jsm",
-  ExperimentStore: "resource://nimbus/lib/ExperimentStore.jsm",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
   NormandyUtils: "resource://normandy/lib/NormandyUtils.jsm",
-  FileTestUtils: "resource://testing-common/FileTestUtils.jsm",
   _RemoteSettingsExperimentLoader:
     "resource://nimbus/lib/RemoteSettingsExperimentLoader.jsm",
   sinon: "resource://testing-common/Sinon.jsm",
@@ -26,12 +32,9 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   JsonSchema: "resource://gre/modules/JsonSchema.jsm",
 });
 
-const {
-  SYNC_DATA_PREF_BRANCH,
-  SYNC_DEFAULTS_PREF_BRANCH,
-} = lazy.ExperimentStore;
+const { SYNC_DATA_PREF_BRANCH, SYNC_DEFAULTS_PREF_BRANCH } = ExperimentStore;
 
-const PATH = lazy.FileTestUtils.getTempFile("shared-data-map").path;
+const PATH = FileTestUtils.getTempFile("shared-data-map").path;
 
 async function fetchSchema(url) {
   const response = await fetch(url);
@@ -152,6 +155,11 @@ const ExperimentTestUtils = {
    */
   addTestFeatures(...features) {
     for (const feature of features) {
+      if (Object.hasOwn(lazy.NimbusFeatures, feature.featureId)) {
+        throw new Error(
+          `Cannot add feature ${feature.featureId} -- a feature with this ID already exists!`
+        );
+      }
       lazy.NimbusFeatures[feature.featureId] = feature;
     }
     return () => {
@@ -177,7 +185,7 @@ const ExperimentFakes = {
     return manager;
   },
   store() {
-    return new lazy.ExperimentStore("FakeStore", {
+    return new ExperimentStore("FakeStore", {
       path: PATH,
       isParent: true,
     });
@@ -313,7 +321,7 @@ const ExperimentFakes = {
     }
   },
   childStore() {
-    return new lazy.ExperimentStore("FakeStore", { isParent: false });
+    return new ExperimentStore("FakeStore", { isParent: false });
   },
   rsLoader() {
     const loader = new lazy._RemoteSettingsExperimentLoader();

@@ -34,6 +34,12 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"
 delta = "1.1.0 -> 1.1.1"
 
+[[audits.dogear]]
+who = "Sammy Khamis <skhamis@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.0 -> 0.5.0"
+notes = "The repository for this crate belongs in the Mozilla org."
+
 [[audits.getrandom]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
@@ -57,6 +63,11 @@ criteria = "safe-to-deploy"
 version = "0.5.4"
 notes = "I own this crate (I am contain-rs) and 0.5.4 passes miri. This code is very old and used by lots of people, so I'm pretty confident in it, even though it's in maintenance-mode and missing some nice-to-have APIs."
 
+[[audits.log]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+version = "0.4.17"
+
 [[audits.rust_decimal]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
@@ -77,4 +88,10 @@ notes = "I own this crate, and most of its versions were codeveloped and reviewe
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "1.0.0 -> 1.0.1"
+
+[[audits.unicode-normalization]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.1.19 -> 0.1.20"
+notes = "I am the author of most of these changes upstream, and prepared the release myself, at which point I looked at the other changes since 0.1.19."
 

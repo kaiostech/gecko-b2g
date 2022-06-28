@@ -17,31 +17,13 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const lazy = {};
 
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "InsecurePasswordUtils",
-  "resource://gre/modules/InsecurePasswordUtils.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "LoginFormFactory",
-  "resource://gre/modules/LoginFormFactory.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "LoginHelper",
-  "resource://gre/modules/LoginHelper.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "LoginManagerChild",
-  "resource://gre/modules/LoginManagerChild.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "NewPasswordModel",
-  "resource://gre/modules/NewPasswordModel.jsm"
-);
+XPCOMUtils.defineLazyModuleGetters(lazy, {
+  InsecurePasswordUtils: "resource://gre/modules/InsecurePasswordUtils.jsm",
+  LoginFormFactory: "resource://gre/modules/LoginFormFactory.jsm",
+  LoginHelper: "resource://gre/modules/LoginHelper.jsm",
+  LoginManagerChild: "resource://gre/modules/LoginManagerChild.jsm",
+  NewPasswordModel: "resource://gre/modules/NewPasswordModel.jsm",
+});
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "formFillController",
@@ -349,8 +331,8 @@ class LoginAutoCompleteResult {
 
     this.searchString = aSearchString;
 
-    // Insecure field warning comes first if it applies and is enabled.
-    if (!isSecure && lazy.LoginHelper.showInsecureFieldWarning) {
+    // Insecure field warning comes first.
+    if (!isSecure) {
       this.#rows.push(new InsecureLoginFormAutocompleteItem());
     }
 

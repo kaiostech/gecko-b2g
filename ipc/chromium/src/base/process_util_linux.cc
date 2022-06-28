@@ -7,12 +7,9 @@
 #include "base/process_util.h"
 
 #include <string>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
-
-#include "algorithm"
 
 #include "nsXULAppAPI.h"  // for XRE_GetProcessType
 #if defined(MOZ_CODE_COVERAGE)
@@ -21,13 +18,10 @@
 
 #if defined(MOZ_ENABLE_FORKSERVER)
 #  include <stdlib.h>
-#  include <sys/types.h>
-#  include <sys/stat.h>
 #  include <fcntl.h>
 #  if defined(DEBUG)
 #    include "base/message_loop.h"
 #  endif
-#  include "mozilla/DebugOnly.h"
 #  include "mozilla/ipc/ForkServiceChild.h"
 
 #  include "mozilla/Unused.h"

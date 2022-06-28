@@ -104,7 +104,6 @@ include = [
   "FontFamily",
   "FontFamilyNameSyntax",
   "OverflowWrap",
-  "TimingFunction",
   "OffsetPath",
   "OffsetRotate",
   "UnicodeRange",
@@ -809,6 +808,12 @@ renaming_overrides_prefixing = true
  public:
   // The implementation of IPC LayersMessages needs this to be public.
   StyleGenericPositionOrAuto(): tag(Tag::Auto) {}
+"""
+
+"TimingFunction" = """
+ public:
+  // The implementation of IPC LayersMessages needs this to be public.
+  StyleTimingFunction() : tag(Tag::Keyword) { ::new (&keyword._0) (StyleTimingKeyword) (StyleTimingKeyword::Linear); }
 """
 
 "GenericImage" = """

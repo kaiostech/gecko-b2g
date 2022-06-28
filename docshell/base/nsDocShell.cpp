@@ -11191,32 +11191,41 @@ bool nsDocShell::OnNewURI(nsIURI* aURI, nsIChannel* aChannel,
   return onLocationChangeNeeded;
 }
 
-bool nsDocShell::CollectWireframe() {
+Maybe<Wireframe> nsDocShell::GetWireframe() {
   const bool collectWireFrame =
       mozilla::SessionHistoryInParent() &&
       StaticPrefs::browser_history_collectWireframes() &&
       mBrowsingContext->IsTopContent() && mActiveEntry;
 
   if (!collectWireFrame) {
-    return false;
+    return Nothing();
   }
 
   RefPtr<Document> doc = mContentViewer->GetDocument();
   Nullable<Wireframe> wireframe;
   doc->GetWireframeWithoutFlushing(false, wireframe);
   if (wireframe.IsNull()) {
+    return Nothing();
+  }
+  return Some(wireframe.Value());
+}
+
+bool nsDocShell::CollectWireframe() {
+  Maybe<Wireframe> wireframe = GetWireframe();
+  if (wireframe.isNothing()) {
     return false;
   }
+
   if (XRE_IsParentProcess()) {
     SessionHistoryEntry* entry =
         mBrowsingContext->Canonical()->GetActiveSessionHistoryEntry();
     if (entry) {
-      entry->SetWireframe(Some(wireframe.Value()));
+      entry->SetWireframe(wireframe);
     }
   } else {
     mozilla::Unused
         << ContentChild::GetSingleton()->SendSessionHistoryEntryWireframe(
-               mBrowsingContext, wireframe.Value());
+               mBrowsingContext, wireframe.ref());
   }
 
   return true;
@@ -12153,8 +12162,6 @@ nsDocShell::PersistLayoutHistoryState() {
     if (scrollRestorationIsManual && layoutState) {
       layoutState->ResetScrollState();
     }
-
-    CollectWireframe();
   }
 
   return rv;

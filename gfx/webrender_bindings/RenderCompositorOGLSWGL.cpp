@@ -133,7 +133,10 @@ EGLSurface RenderCompositorOGLSWGL::CreateEGLSurface() {
   surface = gl::GLContextEGL::CreateEGLSurfaceForCompositorWidget(
       mWidget, gl::GLContextEGL::Cast(GetGLContext())->mConfig);
   if (surface == EGL_NO_SURFACE) {
-    gfxCriticalNote << "Failed to create EGLSurface";
+    const auto* renderThread = RenderThread::Get();
+    gfxCriticalNote << "Failed to create EGLSurface. "
+                    << renderThread->RendererCount() << " renderers, "
+                    << renderThread->ActiveRendererCount() << " active.";
   }
 
   // The subsequent render after creating a new surface must be a full render.
@@ -151,8 +154,14 @@ void RenderCompositorOGLSWGL::DestroyEGLSurface() {
   // Release EGLSurface of back buffer before calling ResizeBuffers().
   if (mEGLSurface) {
     gle->SetEGLSurfaceOverride(EGL_NO_SURFACE);
-    egl->fMakeCurrent(EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    egl->fDestroySurface(mEGLSurface);
+    if (!egl->fMakeCurrent(EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
+      const EGLint err = egl->mLib->fGetError();
+      gfxCriticalNote << "Error in eglMakeCurrent: " << gfx::hexa(err);
+    }
+    if (!egl->fDestroySurface(mEGLSurface)) {
+      const EGLint err = egl->mLib->fGetError();
+      gfxCriticalNote << "Error in eglDestroySurface: " << gfx::hexa(err);
+    }
     mEGLSurface = EGL_NO_SURFACE;
   }
 }

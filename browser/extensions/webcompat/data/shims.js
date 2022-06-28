@@ -295,6 +295,19 @@ const AVAILABLE_SHIMS = [
     onlyIfBlockedByETP: true,
   },
   {
+    id: "PBMWebAPIFixes",
+    platform: "all",
+    name: "Private Browsing Web APIs",
+    bug: "1773110",
+    runFirst: "private-browsing-web-api-fixes.js",
+    matches: [
+      "*://*.imgur.com/js/vendor.*.bundle.js",
+      "*://*.imgur.io/js/vendor.*.bundle.js",
+      "*://www.rva311.com/static/js/main.*.chunk.js",
+    ],
+    onlyIfPrivateBrowsing: true,
+  },
+  {
     id: "Eluminate",
     platform: "all",
     name: "Eluminate",
@@ -497,7 +510,10 @@ const AVAILABLE_SHIMS = [
     name: "Optimizely",
     bug: "1714431",
     file: "optimizely.js",
-    matches: ["*://cdn.optimizely.com/js/*.js"],
+    matches: [
+      "*://cdn.optimizely.com/js/*.js",
+      "*://cdn.optimizely.com/public/*.js",
+    ],
     onlyIfBlockedByETP: true,
   },
   {

@@ -14,6 +14,11 @@ ChromeUtils.defineModuleGetter(
   "RemoteSettings",
   "resource://services-settings/remote-settings.js"
 );
+ChromeUtils.defineModuleGetter(
+  lazy,
+  "pktApi",
+  "chrome://pocket/content/pktApi.jsm"
+);
 const { setTimeout, clearTimeout } = ChromeUtils.import(
   "resource://gre/modules/Timer.jsm"
 );
@@ -234,6 +239,18 @@ class DiscoveryStreamFeed {
         },
       })
     );
+    const nimbusConfig = this.store.getState().Prefs.values?.pocketConfig || {};
+    this.store.dispatch(
+      ac.BroadcastToContent({
+        type: at.DISCOVERY_STREAM_PREFS_SETUP,
+        data: {
+          recentSavesEnabled: nimbusConfig.recentSavesEnabled,
+        },
+        meta: {
+          isStartup,
+        },
+      })
+    );
     this.store.dispatch(
       ac.BroadcastToContent({
         type: at.DISCOVERY_STREAM_COLLECTION_DISMISSIBLE_TOGGLE,
@@ -247,6 +264,45 @@ class DiscoveryStreamFeed {
         },
       })
     );
+  }
+
+  async setupPocketState(target) {
+    let dispatch = action =>
+      this.store.dispatch(ac.OnlyToOneContent(action, target));
+    const isUserLoggedIn = lazy.pktApi.isUserLoggedIn();
+    dispatch({
+      type: at.DISCOVERY_STREAM_POCKET_STATE_SET,
+      data: {
+        isUserLoggedIn,
+      },
+    });
+
+    // If we're not logged in, don't bother fetching recent saves, we're done.
+    if (isUserLoggedIn) {
+      let recentSaves = await lazy.pktApi.getRecentSavesCache();
+      if (recentSaves) {
+        // We have cache, so we can use those.
+        dispatch({
+          type: at.DISCOVERY_STREAM_RECENT_SAVES,
+          data: {
+            recentSaves,
+          },
+        });
+      } else {
+        // We don't have cache, so fetch fresh stories.
+        lazy.pktApi.getRecentSaves({
+          success(data) {
+            dispatch({
+              type: at.DISCOVERY_STREAM_RECENT_SAVES,
+              data: {
+                recentSaves: data,
+              },
+            });
+          },
+          error(error) {},
+        });
+      }
+    }
   }
 
   uninitPrefs() {
@@ -486,11 +542,7 @@ class DiscoveryStreamFeed {
         this.store.getState().Prefs.values?.pocketConfig || {};
 
       let items = isBasicLayout ? 3 : 21;
-      if (
-        pocketConfig.compactLayout ||
-        pocketConfig.fourCardLayout ||
-        pocketConfig.hybridLayout
-      ) {
+      if (pocketConfig.fourCardLayout || pocketConfig.hybridLayout) {
         items = isBasicLayout ? 4 : 24;
       }
 
@@ -508,7 +560,6 @@ class DiscoveryStreamFeed {
         widgetData: [
           ...(this.locale.startsWith("en-") ? [{ type: "TopicsWidget" }] : []),
         ],
-        compactLayout: pocketConfig.compactLayout,
         hybridLayout: pocketConfig.hybridLayout,
         hideCardBackground: pocketConfig.hideCardBackground,
         fourCardLayout: pocketConfig.fourCardLayout,
@@ -1735,7 +1786,9 @@ class DiscoveryStreamFeed {
           )
         );
         break;
-
+      case at.DISCOVERY_STREAM_POCKET_STATE_INIT:
+        this.setupPocketState(action.meta.fromTarget);
+        break;
       case at.DISCOVERY_STREAM_CONFIG_RESET:
         // This is a generic config reset likely related to an external feed pref.
         this.configReset();
@@ -1909,7 +1962,6 @@ class DiscoveryStreamFeed {
      `items` How many items to include in the primary card grid.
      `spocPositions` Changes the position of spoc cards.
      `sponsoredCollectionsEnabled` Tuns on and off the sponsored collection section.
-     `compactLayout` Changes cards to smaller more compact cards.
      `hybridLayout` Changes cards to smaller more compact cards only for specific breakpoints.
      `hideCardBackground` Removes Pocket card background and borders.
      `fourCardLayout` Enable four Pocket cards per row.
@@ -1934,7 +1986,6 @@ getHardcodedLayout = ({
   widgetPositions = [],
   widgetData = [],
   sponsoredCollectionsEnabled = false,
-  compactLayout = false,
   hybridLayout = false,
   hideCardBackground = false,
   fourCardLayout = false,
@@ -2030,18 +2081,18 @@ getHardcodedLayout = ({
           properties: {
             items,
             hybridLayout,
-            hideCardBackground: hideCardBackground || compactLayout,
-            fourCardLayout: fourCardLayout || compactLayout,
-            hideDescriptions: hideDescriptions || compactLayout,
+            hideCardBackground,
+            fourCardLayout,
+            hideDescriptions,
             compactImages,
             imageGradient,
-            newSponsoredLabel: newSponsoredLabel || compactLayout,
-            titleLines: (compactLayout && 3) || titleLines,
+            newSponsoredLabel,
+            titleLines,
             descLines,
             compactGrid,
             essentialReadsHeader,
             editorsPicksHeader,
-            readTime: readTime || compactLayout,
+            readTime,
           },
           widgets: {
             positions: widgetPositions.map(position => {

@@ -363,7 +363,6 @@ using namespace mozilla::system;
 
 #ifdef XP_WIN
 #  include "mozilla/widget/AudioSession.h"
-#  include "mozilla/widget/WinContentSystemParameters.h"
 #  include "mozilla/WinDllServices.h"
 #endif
 
@@ -780,23 +779,6 @@ static const char* sObserverTopics[] = {
     "network:socket-process-crashed",
     DEFAULT_TIMEZONE_CHANGED_OBSERVER_TOPIC,
 };
-
-static const char kFissionEnforceBlockList[] =
-    "fission.enforceBlocklistedPrefsInSubprocesses";
-static const char kFissionOmitBlockListValues[] =
-    "fission.omitBlocklistedPrefsInSubprocesses";
-
-static void OnFissionBlocklistPrefChange(const char* aPref, void* aData) {
-  if (strcmp(aPref, kFissionEnforceBlockList) == 0) {
-    sCrashOnBlocklistedPref =
-        StaticPrefs::fission_enforceBlocklistedPrefsInSubprocesses();
-  } else if (strcmp(aPref, kFissionOmitBlockListValues) == 0) {
-    sOmitBlocklistedPrefValues =
-        StaticPrefs::fission_omitBlocklistedPrefsInSubprocesses();
-  } else {
-    MOZ_CRASH("Unknown pref passed to callback");
-  }
-}
 
 // PreallocateProcess is called by the PreallocatedProcessManager.
 // ContentParent then takes this process back within GetNewOrUsedBrowserProcess.
@@ -3245,11 +3227,6 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
     xpcomInit.gfxFeatureStatus() = gfxInfoRaw->GetAllFeatures();
   }
 
-#ifdef XP_WIN
-  xpcomInit.systemParameters() =
-      widget::WinContentSystemParameters::GetSingleton()->GetParentValues();
-#endif
-
   // Send the dynamic scalar definitions to the new process.
   TelemetryIPC::GetDynamicScalarDefinitions(xpcomInit.dynamicScalarDefs());
 
@@ -3284,6 +3261,8 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   RefPtr<DllServices> dllSvc(DllServices::Get());
   isReadyForBackgroundProcessing = dllSvc->IsReadyForBackgroundProcessing();
 #endif
+
+  xpcomInit.perfStatsMask() = PerfStats::GetCollectionMask();
 
   Unused << SendSetXPCOMProcessAttributes(
       xpcomInit, initialData, lnf, fontList, std::move(sharedUASheetHandle),
@@ -6292,6 +6271,12 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindowInDifferentProcess(
 mozilla::ipc::IPCResult ContentParent::RecvShutdownProfile(
     const nsCString& aProfile) {
   profiler_received_exit_profile(aProfile);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvShutdownPerfStats(
+    const nsCString& aPerfStats) {
+  PerfStats::StorePerfStats(this, aPerfStats);
   return IPC_OK();
 }
 

@@ -16,12 +16,10 @@ namespace mozilla {
 
 /**
  * A module implements one or more XPCOM components. This structure is used
- * for both binary and script modules, but the registration members
- * (cids/contractids/categoryentries) are unused for modules which are loaded
- * via a module loader.
+ * for binary modules.
  */
 struct Module {
-  static const unsigned int kVersion = 103;
+  static const unsigned int kVersion = 104;
 
   struct CIDEntry;
 

@@ -30,4 +30,4 @@ CommandlineHandler.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([CommandlineHandler]);
+const EXPORTED_SYMBOLS = ["CommandLineHandler"];

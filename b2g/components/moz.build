@@ -31,7 +31,8 @@ if CONFIG["MOZ_PRESENTATION"]:
     ]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] != "gonk" and CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
-    EXTRA_COMPONENTS += ["CommandLine.js", "OopCommandLine.js", "SimulatorScreen.js"]
+    EXTRA_JS_MODULES += ["CommandLine.jsm"]
+    EXTRA_COMPONENTS += ["SimulatorScreen.js"]
 
 EXTRA_PP_COMPONENTS += [
     "B2GComponents.manifest",

@@ -45,16 +45,6 @@ contract @mozilla.org/filepicker;1 {436ff8f9-0acc-4b11-8ec7-e293efba3141}
 component {710322af-e6ae-4b0c-b2c9-1474a87b077e} HelperAppDialog.js
 contract @mozilla.org/helperapplauncherdialog;1 {710322af-e6ae-4b0c-b2c9-1474a87b077e}
 
-#ifndef MOZ_WIDGET_GONK
-component {e30b0e13-2d12-4cb0-bc4c-4e617a1bf76e} OopCommandLine.js
-contract @mozilla.org/commandlinehandler/general-startup;1?type=b2goop {e30b0e13-2d12-4cb0-bc4c-4e617a1bf76e}
-category command-line-handler m-b2goop @mozilla.org/commandlinehandler/general-startup;1?type=b2goop
-
-component {385993fe-8710-4621-9fb1-00a09d8bec37} CommandLine.js
-contract @mozilla.org/commandlinehandler/general-startup;1?type=b2gcmds {385993fe-8710-4621-9fb1-00a09d8bec37}
-category command-line-handler m-b2gcmds @mozilla.org/commandlinehandler/general-startup;1?type=b2gcmds
-#endif
-
 #ifdef MOZ_PRESENTATION
 # B2GPresentationDevicePrompt.js
 component {4a300c26-e99b-4018-ab9b-c48cf9bc4de1} B2GPresentationDevicePrompt.js

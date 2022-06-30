@@ -4,8 +4,6 @@
 
 const EXPORTED_SYMBOLS = ["AppsServiceDelegate"];
 
-console.log(`AAAA in AppsServiceDelegate.jsm`);
-
 const { ComponentUtils } = ChromeUtils.import(
   "resource://gre/modules/ComponentUtils.jsm"
 );

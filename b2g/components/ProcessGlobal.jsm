@@ -177,12 +177,15 @@ ProcessGlobal.prototype = {
   },
 
   observe: function pg_observe(subject, topic, data) {
+    let inParent =
+      Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
     switch (topic) {
       case "app-startup":
-      case "content-process-ready-for-script": {
+        if (!inParent) {
+          return;
+        }
+      case "content-process-ready-for-script":
         Services.obs.addObserver(this, "console-api-log-event");
-        let inParent =
-          Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
         if (inParent) {
           this._initActor();
 
@@ -193,7 +196,6 @@ ProcessGlobal.prototype = {
           this.cleanupAfterFactoryReset();
         }
         break;
-      }
       case "console-api-log-event": {
         // Pipe `console` log messages to the nsIConsoleService which
         // writes them to logcat on Gonk.
@@ -319,4 +321,4 @@ ProcessGlobal.prototype = {
   },
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([ProcessGlobal]);
+const EXPORTED_SYMBOLS = ["ProcessGlobal"];

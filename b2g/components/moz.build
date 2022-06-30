@@ -19,7 +19,6 @@ EXTRA_COMPONENTS += [
     "HelperAppDialog.js",
     "KillSwitch.js",
     "MailtoProtocolHandler.js",
-    "ProcessGlobal.js",
     "SmsProtocolHandler.js",
     "TelProtocolHandler.js",
 ]
@@ -66,6 +65,7 @@ EXTRA_JS_MODULES += [
     "PermissionsInstaller.jsm",
     "PermissionsTable.jsm",
     "PersistentDataBlock.jsm",
+    "ProcessGlobal.jsm",
     "Screenshot.jsm",
     "ServiceWorkerAssistant.jsm",
     "SettingsPrefsSync.jsm",

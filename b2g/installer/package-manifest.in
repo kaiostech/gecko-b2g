@@ -454,7 +454,6 @@ bin/libfreebl_32int64_3.so
 #endif
 @RESPATH@/components/AlertsService.js
 @RESPATH@/components/DirectoryProvider.js
-@RESPATH@/components/ProcessGlobal.js
 @RESPATH@/components/PaymentProviderStrategy.js
 @RESPATH@/components/RecoveryService.js
 @RESPATH@/components/MailtoProtocolHandler.js

@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+const EXPORTED_SYMBOLS = ["AppsServiceDelegate"];
+
+console.log(`AAAA in AppsServiceDelegate.jsm`);
+
 const { ComponentUtils } = ChromeUtils.import(
   "resource://gre/modules/ComponentUtils.jsm"
 );
@@ -35,7 +39,6 @@ function AppsServiceDelegate() {}
 AppsServiceDelegate.prototype = {
   classID: Components.ID("{a4a8d542-c877-11ea-81c6-87c0ade42646}"),
   QueryInterface: ChromeUtils.generateQI([Ci.nsIAppsServiceDelegate]),
-  _xpcom_factory: ComponentUtils.generateSingletonFactory(AppsServiceDelegate),
 
   apps_list: new Map(),
   deep_links: new Map(),
@@ -236,5 +239,3 @@ AppsServiceDelegate.prototype = {
     this._removeFromAppsList(aManifestUrl);
   },
 };
-
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([AppsServiceDelegate]);

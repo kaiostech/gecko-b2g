@@ -38,7 +38,6 @@ EXTRA_PP_COMPONENTS += [
 ]
 
 EXTRA_COMPONENTS += [
-    "AppsServiceDelegate.js",
     "DirectoryProvider.js",
     "RecoveryService.js",
 ]
@@ -51,6 +50,7 @@ if CONFIG["MOZ_UPDATER"]:
 EXTRA_JS_MODULES += [
     "ActivityChannel.jsm",
     "AlertsHelper.jsm",
+    "AppsServiceDelegate.jsm",
     "AppsUtils.jsm",
     "B2GProcessSelector.jsm",
     "ChromeNotifications.jsm",

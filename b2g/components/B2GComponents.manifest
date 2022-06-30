@@ -5,10 +5,6 @@ category agent-style-sheets browser-content-stylesheet chrome://b2g/content/cont
 component {fe33c107-82a4-41d6-8c64-5353267e04c9} AlertsService.js
 contract @mozilla.org/system-alerts-service;1 {fe33c107-82a4-41d6-8c64-5353267e04c9}
 
-# AppsServiceDelegate.js
-component {a4a8d542-c877-11ea-81c6-87c0ade42646} AppsServiceDelegate.js
-contract @mozilla.org/sidl-native/appsservice;1 {a4a8d542-c877-11ea-81c6-87c0ade42646}
-
 # DirectoryProvider.js
 component {9181eb7c-6f87-11e1-90b1-4f59d80dd2e5} DirectoryProvider.js
 contract @mozilla.org/b2g/directory-provider;1 {9181eb7c-6f87-11e1-90b1-4f59d80dd2e5}

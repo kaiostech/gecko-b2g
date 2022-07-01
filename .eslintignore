@@ -36,6 +36,7 @@ dom/system/gonk/BinderServices.jsm
 dom/mobilemessage/tests/
 dom/cellbroadcast/tests/
 dom/telephony/test/
+dom/voicemail/test/
 
 # build/ third-party code
 build/pgo/js-input/

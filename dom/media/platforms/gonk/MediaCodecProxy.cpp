@@ -127,9 +127,7 @@ MediaCodecProxy::AsyncAllocateVideoMediaCodec() {
   return CodecPromise::CreateAndResolve(true, __func__);
 }
 
-void MediaCodecProxy::ReleaseMediaCodec() {
-  releaseCodec();
-}
+void MediaCodecProxy::ReleaseMediaCodec() { releaseCodec(); }
 
 /* static */
 void MediaCodecProxy::filterCodecs(Vector<AString>& aCodecs) {

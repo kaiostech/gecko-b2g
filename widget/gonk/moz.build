@@ -79,7 +79,7 @@ UNIFIED_SOURCES += [
 SOURCES += [
     "AccessibleCaretGonk.cpp",
     "GeckoTouchDispatcher.cpp",
-#    "GfxDebugger.cpp",
+    #    "GfxDebugger.cpp",
     "GfxInfo.cpp",
     "GLCursorImageManager.cpp",
     "GonkActivityManagerService.cpp",

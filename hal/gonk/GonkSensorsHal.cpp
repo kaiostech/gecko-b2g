@@ -7,18 +7,16 @@
 
 #include "GonkSensorsHal.h"
 
+inline double radToDeg(double aRad) { return aRad * (180.0 / M_PI); }
 
-inline double radToDeg(double aRad) {
-  return aRad * (180.0 / M_PI);
-}
-
-template<typename EnumType>
-constexpr typename std::underlying_type<EnumType>::type asBaseType(EnumType aValue) {
+template <typename EnumType>
+constexpr typename std::underlying_type<EnumType>::type asBaseType(
+    EnumType aValue) {
   return static_cast<typename std::underlying_type<EnumType>::type>(aValue);
 }
 
 enum EventQueueFlagBitsInternal : uint32_t {
-  INTERNAL_WAKE =  1 << 16,
+  INTERNAL_WAKE = 1 << 16,
 };
 
 SensorType getSensorType(V1_0::SensorType aHidlSensorType) {
@@ -50,20 +48,22 @@ SensorType getSensorType(V1_0::SensorType aHidlSensorType) {
 namespace mozilla {
 namespace hal_impl {
 
-
 struct SensorsCallback : public ISensorsCallback {
   // TODO: to support dynamic sensors connection if there is requirement
-  Return<void> onDynamicSensorsConnected(const hidl_vec<SensorInfo> &aDynamicSensorsAdded) override {
+  Return<void> onDynamicSensorsConnected(
+      const hidl_vec<SensorInfo>& aDynamicSensorsAdded) override {
     return Void();
   }
 
-  Return<void> onDynamicSensorsDisconnected(const hidl_vec<int32_t> &aDynamicSensorHandlesRemoved) override {
+  Return<void> onDynamicSensorsDisconnected(
+      const hidl_vec<int32_t>& aDynamicSensorHandlesRemoved) override {
     return Void();
   }
 };
 
-void
-SensorsHalDeathRecipient::serviceDied(uint64_t cookie, const android::wp<android::hidl::base::V1_0::IBase>& service) {
+void SensorsHalDeathRecipient::serviceDied(
+    uint64_t cookie,
+    const android::wp<android::hidl::base::V1_0::IBase>& service) {
   HAL_ERR("sensors hidl server died");
 
   GonkSensorsHal::GetInstance()->PrepareForReconnect();
@@ -72,11 +72,12 @@ SensorsHalDeathRecipient::serviceDied(uint64_t cookie, const android::wp<android
 GonkSensorsHal* GonkSensorsHal::sInstance = nullptr;
 
 class GonkSensorsHal::SensorDataNotifier : public Runnable {
-public:
-  SensorDataNotifier(const SensorData aSensorData, const SensorDataCallback aCallback)
-  : mozilla::Runnable("GonkSensors::SensorDataNotifier"),
-    mSensorData(aSensorData),
-    mCallback(aCallback) {}
+ public:
+  SensorDataNotifier(const SensorData aSensorData,
+                     const SensorDataCallback aCallback)
+      : mozilla::Runnable("GonkSensors::SensorDataNotifier"),
+        mSensorData(aSensorData),
+        mCallback(aCallback) {}
 
   NS_IMETHOD Run() override {
     if (mCallback) {
@@ -84,13 +85,13 @@ public:
     }
     return NS_OK;
   }
-private:
+
+ private:
   SensorData mSensorData;
   SensorDataCallback mCallback;
 };
 
-SensorData
-GonkSensorsHal::CreateSensorData(const Event aEvent) {
+SensorData GonkSensorsHal::CreateSensorData(const Event aEvent) {
   AutoTArray<float, 4> values;
 
   SensorType sensorType = getSensorType(aEvent.sensorType);
@@ -147,8 +148,7 @@ GonkSensorsHal::CreateSensorData(const Event aEvent) {
   return SensorData(sensorType, aEvent.timestamp, values);
 }
 
-void
-GonkSensorsHal::StartPollingThread() {
+void GonkSensorsHal::StartPollingThread() {
   if (mPollThread == nullptr) {
     nsresult rv = NS_NewNamedThread("SensorsPoll", getter_AddRefs(mPollThread));
     if (NS_FAILED(rv)) {
@@ -158,59 +158,66 @@ GonkSensorsHal::StartPollingThread() {
     }
   }
 
-  mPollThread->Dispatch(NS_NewRunnableFunction("Polling", [this]() {
-    do {
-      size_t eventsRead = 0;
+  mPollThread->Dispatch(
+      NS_NewRunnableFunction(
+          "Polling",
+          [this]() {
+            do {
+              size_t eventsRead = 0;
 
-      // reading from fmq is preferred than polling hal as it is based on shared memory
-      if (mSensors->supportsMessageQueues()) {
-        eventsRead = PollFmq();
-      } else if (mSensors->supportsPolling()) {
-        eventsRead = PollHal();
-      } else {
-        // can't reach here, it must support polling or fmq
-        HAL_ERR("sensors hal must support polling or fmq");
-        break;
-      }
+              // reading from fmq is preferred than polling hal as it is based
+              // on shared memory
+              if (mSensors->supportsMessageQueues()) {
+                eventsRead = PollFmq();
+              } else if (mSensors->supportsPolling()) {
+                eventsRead = PollHal();
+              } else {
+                // can't reach here, it must support polling or fmq
+                HAL_ERR("sensors hal must support polling or fmq");
+                break;
+              }
 
-      // create sensor data and dispatch to main thread
-      for (size_t i=0; i<eventsRead; i++) {
-        SensorData sensorData = CreateSensorData(mEventBuffer[i]);
+              // create sensor data and dispatch to main thread
+              for (size_t i = 0; i < eventsRead; i++) {
+                SensorData sensorData = CreateSensorData(mEventBuffer[i]);
 
-        if (sensorData.sensor() == SENSOR_UNKNOWN) {
-          continue;
-        }
+                if (sensorData.sensor() == SENSOR_UNKNOWN) {
+                  continue;
+                }
 
-        // TODO: Bug 123480 to notify the count of wakeup events to wakelock queue
+                // TODO: Bug 123480 to notify the count of wakeup events to
+                // wakelock queue
 
-        NS_DispatchToMainThread(new SensorDataNotifier(sensorData, mSensorDataCallback));
-      }
-      // stop polling sensors data if it is reconnecting
-    } while (!mToReconnect);
+                NS_DispatchToMainThread(
+                    new SensorDataNotifier(sensorData, mSensorDataCallback));
+              }
+              // stop polling sensors data if it is reconnecting
+            } while (!mToReconnect);
 
-    if (mToReconnect) {
-      Reconnect();
-    }
-  }), NS_DISPATCH_NORMAL);
+            if (mToReconnect) {
+              Reconnect();
+            }
+          }),
+      NS_DISPATCH_NORMAL);
 }
 
-size_t
-GonkSensorsHal::PollHal() {
+size_t GonkSensorsHal::PollHal() {
   hidl_vec<Event> events;
   size_t eventsRead = 0;
 
-  auto ret = mSensors->poll(mEventBuffer.size(),
-    [&events](auto result, const auto &data, const auto &) {
-    if (result == V1_0::Result::OK) {
-      events = data;
-    } else {
-      HAL_ERR("polling sensors event result failed");
-    }
-  });
+  auto ret =
+      mSensors->poll(mEventBuffer.size(),
+                     [&events](auto result, const auto& data, const auto&) {
+                       if (result == V1_0::Result::OK) {
+                         events = data;
+                       } else {
+                         HAL_ERR("polling sensors event result failed");
+                       }
+                     });
 
   if (ret.isOk()) {
     eventsRead = events.size();
-    for (size_t i=0; i<eventsRead; i++) {
+    for (size_t i = 0; i < eventsRead; i++) {
       mEventBuffer[i] = events[i];
     }
   } else {
@@ -220,14 +227,15 @@ GonkSensorsHal::PollHal() {
   return eventsRead;
 }
 
-size_t
-GonkSensorsHal::PollFmq() {
+size_t GonkSensorsHal::PollFmq() {
   size_t eventsRead = 0;
 
   size_t availableEvents = mEventQueue->availableToRead();
   if (availableEvents == 0) {
     uint32_t eventFlagState = 0;
-    mEventQueueFlag->wait(asBaseType(EventQueueFlagBits::READ_AND_PROCESS) | asBaseType(INTERNAL_WAKE), &eventFlagState);
+    mEventQueueFlag->wait(asBaseType(EventQueueFlagBits::READ_AND_PROCESS) |
+                              asBaseType(INTERNAL_WAKE),
+                          &eventFlagState);
     availableEvents = mEventQueue->availableToRead();
 
     if ((eventFlagState & asBaseType(INTERNAL_WAKE)) && mToReconnect) {
@@ -250,8 +258,7 @@ GonkSensorsHal::PollFmq() {
   return eventsRead;
 }
 
-void
-GonkSensorsHal::Init() {
+void GonkSensorsHal::Init() {
   // initialize sensors hidl service
   if (!InitHidlService()) {
     HAL_ERR("initialize sensors hidl service failed");
@@ -272,8 +279,7 @@ GonkSensorsHal::Init() {
   HAL_LOG("sensors init completed");
 }
 
-bool
-GonkSensorsHal::InitHidlService() {
+bool GonkSensorsHal::InitHidlService() {
   // TODO: consider to move out initialization stuff from main thread
   android::sp<V2_0::ISensors> serviceV2_0 = V2_0::ISensors::getService();
   if (serviceV2_0) {
@@ -291,15 +297,15 @@ GonkSensorsHal::InitHidlService() {
   return false;
 }
 
-bool
-GonkSensorsHal::InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0) {
+bool GonkSensorsHal::InitHidlServiceV1_0(
+    android::sp<V1_0::ISensors> aServiceV1_0) {
   size_t retry = 5;
   do {
     mSensors = new SensorsWrapperV1_0(aServiceV1_0);
 
-    // poke hidl service to check if it is alive, the hidl service will kill and restart
-    // itself if has lingering connection
-    auto ret = mSensors->poll(0, [](auto, const auto &, const auto &) {});
+    // poke hidl service to check if it is alive, the hidl service will kill and
+    // restart itself if has lingering connection
+    auto ret = mSensors->poll(0, [](auto, const auto&, const auto&) {});
     if (ret.isOk()) {
       mSensorsHalDeathRecipient = new SensorsHalDeathRecipient();
       aServiceV1_0->linkToDeath(mSensorsHalDeathRecipient, 0);
@@ -319,22 +325,26 @@ GonkSensorsHal::InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0) {
   return false;
 }
 
-bool
-GonkSensorsHal::InitHidlServiceV2_0(android::sp<V2_0::ISensors> aServiceV2_0) {
+bool GonkSensorsHal::InitHidlServiceV2_0(
+    android::sp<V2_0::ISensors> aServiceV2_0) {
   mSensors = new SensorsWrapperV2_0(aServiceV2_0);
 
-  mEventQueue = std::make_unique<EventMessageQueue>(MAX_EVENT_BUFFER_SIZE, true);
+  mEventQueue =
+      std::make_unique<EventMessageQueue>(MAX_EVENT_BUFFER_SIZE, true);
   mWakeLockQueue = std::make_unique<WakeLockQueue>(MAX_EVENT_BUFFER_SIZE, true);
 
   EventFlag::deleteEventFlag(&mEventQueueFlag);
   EventFlag::createEventFlag(mEventQueue->getEventFlagWord(), &mEventQueueFlag);
 
-  if (mEventQueue == nullptr || mWakeLockQueue == nullptr || mEventQueueFlag == nullptr) {
+  if (mEventQueue == nullptr || mWakeLockQueue == nullptr ||
+      mEventQueueFlag == nullptr) {
     HAL_ERR("create sensors event queue failed");
     return false;
   }
 
-  auto ret = mSensors->initialize(*mEventQueue->getDesc(), *mWakeLockQueue->getDesc(), new SensorsCallback());
+  auto ret =
+      mSensors->initialize(*mEventQueue->getDesc(), *mWakeLockQueue->getDesc(),
+                           new SensorsCallback());
   if (!ret.isOk() || ret != V1_0::Result::OK) {
     HAL_ERR("sensors v2.0 hidl service initialize failed");
     return false;
@@ -345,16 +355,15 @@ GonkSensorsHal::InitHidlServiceV2_0(android::sp<V2_0::ISensors> aServiceV2_0) {
   return true;
 }
 
-bool
-GonkSensorsHal::InitSensorsList() {
+bool GonkSensorsHal::InitSensorsList() {
   if (mSensors == nullptr) {
     return false;
   }
 
   // obtain hidl sensors list
   hidl_vec<SensorInfo> list;
-  auto ret = mSensors->getSensorsList(
-    [&list](const auto &aList) { list = aList; });
+  auto ret =
+      mSensors->getSensorsList([&list](const auto& aList) { list = aList; });
   if (!ret.isOk()) {
     HAL_ERR("get sensors list failed");
     return false;
@@ -362,11 +371,12 @@ GonkSensorsHal::InitSensorsList() {
 
   // setup the available sensors list and filter out unnecessary ones
   const size_t count = list.size();
-  for (size_t i=0; i<count; i++) {
+  for (size_t i = 0; i < count; i++) {
     const SensorInfo sensorInfo = list[i];
 
     SensorType sensorType = getSensorType(sensorInfo.type);
-    SensorFlagBits mode = (SensorFlagBits)(sensorInfo.flags & SensorFlagBits::MASK_REPORTING_MODE);
+    SensorFlagBits mode = (SensorFlagBits)(sensorInfo.flags &
+                                           SensorFlagBits::MASK_REPORTING_MODE);
     bool canWakeUp = sensorInfo.flags & SensorFlagBits::WAKE_UP;
     bool isValid = false;
 
@@ -399,21 +409,21 @@ GonkSensorsHal::InitSensorsList() {
 
     if (isValid) {
       mSensorInfoList[sensorType] = sensorInfo;
-      HAL_LOG("a valid sensor type=%d handle=%d is initialized", sensorType, sensorInfo.sensorHandle);
+      HAL_LOG("a valid sensor type=%d handle=%d is initialized", sensorType,
+              sensorInfo.sensorHandle);
     }
   }
 
   return true;
 }
 
-bool
-GonkSensorsHal::RegisterSensorDataCallback(const SensorDataCallback aCallback) {
+bool GonkSensorsHal::RegisterSensorDataCallback(
+    const SensorDataCallback aCallback) {
   mSensorDataCallback = aCallback;
   return true;
 };
 
-bool
-GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
+bool GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
   MutexAutoLock lock(mLock);
 
   if (mSensors == nullptr) {
@@ -475,8 +485,7 @@ GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
   return true;
 }
 
-bool
-GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
+bool GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
   MutexAutoLock lock(mLock);
 
   if (mSensors == nullptr) {
@@ -503,20 +512,19 @@ GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
   return true;
 }
 
-void
-GonkSensorsHal::GetSensorVendor(const SensorType aSensorType, nsACString& aRetval) {
+void GonkSensorsHal::GetSensorVendor(const SensorType aSensorType,
+                                     nsACString& aRetval) {
   SensorInfo& sensorInfo = mSensorInfoList[aSensorType];
   aRetval.AssignASCII(sensorInfo.vendor.c_str(), sensorInfo.vendor.size());
 }
 
-void
-GonkSensorsHal::GetSensorName(const SensorType aSensorType, nsACString& aRetval) {
+void GonkSensorsHal::GetSensorName(const SensorType aSensorType,
+                                   nsACString& aRetval) {
   SensorInfo& sensorInfo = mSensorInfoList[aSensorType];
   aRetval.AssignASCII(sensorInfo.name.c_str(), sensorInfo.name.size());
 }
 
-void
-GonkSensorsHal::PrepareForReconnect() {
+void GonkSensorsHal::PrepareForReconnect() {
   mToReconnect = true;
   if (mSensors->supportsMessageQueues()) {
     // wake up the poll thread from sleep state
@@ -524,8 +532,7 @@ GonkSensorsHal::PrepareForReconnect() {
   }
 }
 
-void
-GonkSensorsHal::Reconnect() {
+void GonkSensorsHal::Reconnect() {
   MutexAutoLock lock(mLock);
 
   HAL_LOG("reconnect sensors hidl server");
@@ -536,6 +543,5 @@ GonkSensorsHal::Reconnect() {
   mToReconnect = false;
 }
 
-
-} // hal_impl
-} // mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

@@ -38,7 +38,8 @@
 #define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, "Gonk", ##args)
 
 #define PRIMARY_SCREEN_BRIGHTNESS "/sys/class/leds/lcd-backlight/brightness"
-#define SECONDARY_SCREEN_BRIGHTNESS "/sys/class/leds/sublcd-backlight/brightness"
+#define SECONDARY_SCREEN_BRIGHTNESS \
+  "/sys/class/leds/sublcd-backlight/brightness"
 // Constants defined in system_properties.h from AOSP
 #define VALUE_MAX_LENGTH 92
 
@@ -278,9 +279,7 @@ struct RawReadState {
   uint32_t length;
 };
 
-bool
-WriteToSysFile(const char* aFilename, const char* aBuf)
-{
+bool WriteToSysFile(const char* aFilename, const char* aBuf) {
   size_t aBufSize = strlen(aBuf);
   int fd = open(aFilename, O_WRONLY);
   if (fd < 0) {
@@ -315,7 +314,8 @@ void setBacklight(uint32_t aBrightness, bool aIsExternal) {
   char path[VALUE_MAX_LENGTH];
 
   if (aIsExternal) {
-    property_get("screen.secondary.brightness", path, SECONDARY_SCREEN_BRIGHTNESS);
+    property_get("screen.secondary.brightness", path,
+                 SECONDARY_SCREEN_BRIGHTNESS);
   } else {
     property_get("screen.primary.brightness", path, PRIMARY_SCREEN_BRIGHTNESS);
   }
@@ -743,7 +743,8 @@ static void* AnimationThread(void*) {
     Animation& extAnimation = animVec.back();
     extAnimation.dpy = DisplayType::DISPLAY_EXTERNAL;
     extAnimation.format = extDispData.mSurfaceformat;
-      if (!extAnimation.LoadAnimations("/system/media/bootanimation_external.zip") ||
+    if (!extAnimation.LoadAnimations(
+            "/system/media/bootanimation_external.zip") ||
         !animVec[0].CanPlaySimultaneously(extAnimation)) {
       LOGW("Failed to load boot animation file for external screen");
       ShowSolidColorFrame(display, extDispData.mSurfaceformat,

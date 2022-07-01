@@ -157,8 +157,7 @@ void GonkNativeWindow::returnBuffer(TextureClient* client) {
 
   GrallocTextureData* textureClient =
       static_cast<GrallocTextureData*>(client->GetInternalData());
-  FenceHandle handle =
-      textureClient->GetAndResetReleaseFenceHandle();
+  FenceHandle handle = textureClient->GetAndResetReleaseFenceHandle();
   RefPtr<FenceHandle::FdObj> fdObj = handle.GetAndResetFdObj();
   sp<Fence> fence = new Fence(fdObj->GetAndResetFd());
 

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved. Copyright (C) 2007 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,91 +34,86 @@ class String8;
 
 using mozilla::NativeFramebufferDevice;
 typedef struct DisplayUtils {
-    enum {
-        MAIN, EXTERNAL
-    } type;
+  enum { MAIN, EXTERNAL } type;
 
-    union {
-        // Object for using HWC operation.
-        HWC2::Display* hwcDisplay;
+  union {
+    // Object for using HWC operation.
+    HWC2::Display* hwcDisplay;
 
-        // FB device for external screen update.
-        NativeFramebufferDevice* extFBDevice;
-    } utils;
+    // FB device for external screen update.
+    NativeFramebufferDevice* extFBDevice;
+  } utils;
 } DisplayUtils;
 // ---------------------------------------------------------------------------
 
 class FramebufferSurface : public DisplaySurface {
-public:
-    FramebufferSurface(
-        uint32_t width, uint32_t height, uint32_t format,
-        const sp<IGraphicBufferConsumer>& consumer,
-        DisplayUtils displayUtils, bool visibility);
+ public:
+  FramebufferSurface(uint32_t width, uint32_t height, uint32_t format,
+                     const sp<IGraphicBufferConsumer>& consumer,
+                     DisplayUtils displayUtils, bool visibility);
 
-    // From DisplaySurface
-    virtual status_t beginFrame(bool mustRecompose);
-    virtual status_t prepareFrame(CompositionType compositionType);
-    virtual status_t advanceFrame();
-    virtual void onFrameCommitted();
-    // Cannot resize a buffers in a FramebufferSurface. Only works with virtual
-    // displays.
-    virtual void resizeBuffers(const uint32_t width, const uint32_t height);
+  // From DisplaySurface
+  virtual status_t beginFrame(bool mustRecompose);
+  virtual status_t prepareFrame(CompositionType compositionType);
+  virtual status_t advanceFrame();
+  virtual void onFrameCommitted();
+  // Cannot resize a buffers in a FramebufferSurface. Only works with virtual
+  // displays.
+  virtual void resizeBuffers(const uint32_t width, const uint32_t height);
 
-    virtual int GetPrevDispAcquireFd();
+  virtual int GetPrevDispAcquireFd();
 
-    virtual sp<GraphicBuffer> GetCurrentFrameBuffer() { return mCurrentBuffer; }
+  virtual sp<GraphicBuffer> GetCurrentFrameBuffer() { return mCurrentBuffer; }
 
-    virtual void setVisibility(bool visibility) { mVisibility = visibility; }
+  virtual void setVisibility(bool visibility) { mVisibility = visibility; }
 
-    // setReleaseFenceFd stores a fence file descriptor that will signal when the
-    // current buffer is no longer being read. This fence will be returned to
-    // the producer when the current buffer is released by updateTexImage().
-    // Multiple fences can be set for a given buffer; they will be merged into
-    // a single union fence. The SurfaceTexture will close the file descriptor
-    // when finished with it.
-    status_t setReleaseFenceFd(int fenceFd);
+  // setReleaseFenceFd stores a fence file descriptor that will signal when the
+  // current buffer is no longer being read. This fence will be returned to
+  // the producer when the current buffer is released by updateTexImage().
+  // Multiple fences can be set for a given buffer; they will be merged into
+  // a single union fence. The SurfaceTexture will close the file descriptor
+  // when finished with it.
+  status_t setReleaseFenceFd(int fenceFd);
 
-private:
-    virtual ~FramebufferSurface() { }; // this class cannot be overloaded
+ private:
+  virtual ~FramebufferSurface(){};  // this class cannot be overloaded
 
-    virtual void onFrameAvailable(const BufferItem &item);
+  virtual void onFrameAvailable(const BufferItem& item);
 
-    virtual void freeBufferLocked(int slotIndex);
+  virtual void freeBufferLocked(int slotIndex);
 
-    // nextBuffer waits for and then latches the next buffer from the
-    // BufferQueue and releases the previously latched buffer to the
-    // BufferQueue.  The new buffer is returned in the 'buffer' argument.
-    status_t nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>& outFence);
+  // nextBuffer waits for and then latches the next buffer from the
+  // BufferQueue and releases the previously latched buffer to the
+  // BufferQueue.  The new buffer is returned in the 'buffer' argument.
+  status_t nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>& outFence);
 
-	void presentLocked(
-        const int slot,
-        const sp<GraphicBuffer>& buffer,
-        const sp<Fence>& acquireFence);
+  void presentLocked(const int slot, const sp<GraphicBuffer>& buffer,
+                     const sp<Fence>& acquireFence);
 
-    // mCurrentBufferIndex is the slot index of the current buffer or
-    // INVALID_BUFFER_SLOT to indicate that either there is no current buffer
-    // or the buffer is not associated with a slot.
-    int mCurrentSlot;
+  // mCurrentBufferIndex is the slot index of the current buffer or
+  // INVALID_BUFFER_SLOT to indicate that either there is no current buffer
+  // or the buffer is not associated with a slot.
+  int mCurrentSlot;
 
-    // mCurrentBuffer is the current buffer or NULL to indicate that there is
-    // no current buffer.
-    sp<GraphicBuffer> mCurrentBuffer;
+  // mCurrentBuffer is the current buffer or NULL to indicate that there is
+  // no current buffer.
+  sp<GraphicBuffer> mCurrentBuffer;
 
-    // Previous buffer to release after getting an updated retire fence.
-    bool mHasPendingRelease;
-    int mPreviousBufferSlot;
-    sp<GraphicBuffer> mPreviousBuffer;
-    sp<Fence> mPrevFBAcquireFence;
-    sp<Fence> mLastPresentFence;
+  // Previous buffer to release after getting an updated retire fence.
+  bool mHasPendingRelease;
+  int mPreviousBufferSlot;
+  sp<GraphicBuffer> mPreviousBuffer;
+  sp<Fence> mPrevFBAcquireFence;
+  sp<Fence> mLastPresentFence;
 
-    DisplayUtils mDisplayUtils;
+  DisplayUtils mDisplayUtils;
 
-    // Indicator to control whether to update frame or not with this Surface.
-    bool mVisibility;
+  // Indicator to control whether to update frame or not with this Surface.
+  bool mVisibility;
 };
 
 // ---------------------------------------------------------------------------
-}; // namespace android
+};  // namespace android
 // ---------------------------------------------------------------------------
 
-#endif // ANDROID_SF_FRAMEBUFFER_SURFACE_H
+#endif  // ANDROID_SF_FRAMEBUFFER_SURFACE_H

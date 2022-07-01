@@ -906,9 +906,7 @@ void SetScreenEnabled(bool aEnabled) {
 
 bool GetExtScreenEnabled() { return sExtScreenEnabled; }
 
-void
-SetExtScreenEnabled(bool aEnabled)
-{
+void SetExtScreenEnabled(bool aEnabled) {
   GetGonkDisplay()->SetExtEnabled(aEnabled);
   sExtScreenEnabled = aEnabled;
 }

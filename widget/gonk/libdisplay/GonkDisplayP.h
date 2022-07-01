@@ -1,5 +1,5 @@
-/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
- * Copyright 2013 Mozilla Foundation and Mozilla contributors
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved. Copyright 2013 Mozilla Foundation and Mozilla contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,86 +37,86 @@ namespace mozilla {
 using namespace android;
 using ::android::hardware::power::V1_0::IPower;
 class MOZ_EXPORT GonkDisplayP : public GonkDisplay {
-public:
-    GonkDisplayP();
-    ~GonkDisplayP();
+ public:
+  GonkDisplayP();
+  ~GonkDisplayP();
 
-    virtual void SetEnabled(bool enabled);
+  virtual void SetEnabled(bool enabled);
 
-    virtual void SetExtEnabled(bool enabled);
+  virtual void SetExtEnabled(bool enabled);
 
-    virtual void SetDisplayVisibility(bool visibility);
+  virtual void SetDisplayVisibility(bool visibility);
 
-    virtual void OnEnabled(OnEnabledCallbackType callback);
+  virtual void OnEnabled(OnEnabledCallbackType callback);
 
-    virtual void* GetHWCDevice();
+  virtual void* GetHWCDevice();
 
-    virtual bool IsExtFBDeviceEnabled();
+  virtual bool IsExtFBDeviceEnabled();
 
-    virtual bool SwapBuffers(DisplayType aDisplayType);
+  virtual bool SwapBuffers(DisplayType aDisplayType);
 
-    virtual ANativeWindowBuffer* DequeueBuffer(DisplayType aDisplayType);
+  virtual ANativeWindowBuffer* DequeueBuffer(DisplayType aDisplayType);
 
-    virtual bool QueueBuffer(ANativeWindowBuffer* buf, DisplayType aDisplayType);
+  virtual bool QueueBuffer(ANativeWindowBuffer* buf, DisplayType aDisplayType);
 
-    virtual void UpdateDispSurface(EGLDisplay aDisplayType, EGLSurface sur);
+  virtual void UpdateDispSurface(EGLDisplay aDisplayType, EGLSurface sur);
 
-    bool Post(buffer_handle_t buf, int fence, DisplayType aDisplayType);
+  bool Post(buffer_handle_t buf, int fence, DisplayType aDisplayType);
 
-    virtual NativeData GetNativeData(
-        DisplayType aDisplayType,
-        IGraphicBufferProducer* aSink = nullptr);
+  virtual NativeData GetNativeData(DisplayType aDisplayType,
+                                   IGraphicBufferProducer* aSink = nullptr);
 
-    virtual void NotifyBootAnimationStopped();
+  virtual void NotifyBootAnimationStopped();
 
-    virtual int TryLockScreen();
+  virtual int TryLockScreen();
 
-    virtual void UnlockScreen();
+  virtual void UnlockScreen();
 
-    virtual sp<ANativeWindow> GetSurface(DisplayType aDisplayType);
+  virtual sp<ANativeWindow> GetSurface(DisplayType aDisplayType);
 
-    virtual sp<GraphicBuffer> GetFrameBuffer(DisplayType aDisplayType);
+  virtual sp<GraphicBuffer> GetFrameBuffer(DisplayType aDisplayType);
 
-private:
-    void CreateFramebufferSurface(sp<ANativeWindow>& aNativeWindow,
-        sp<DisplaySurface>& aDisplaySurface, uint32_t aWidth,
-        uint32_t aHeight, unsigned int format,
-        DisplayUtils displayUtils, bool enableDisplay);
+ private:
+  void CreateFramebufferSurface(sp<ANativeWindow>& aNativeWindow,
+                                sp<DisplaySurface>& aDisplaySurface,
+                                uint32_t aWidth, uint32_t aHeight,
+                                unsigned int format, DisplayUtils displayUtils,
+                                bool enableDisplay);
 
-    void CreateVirtualDisplaySurface(IGraphicBufferProducer* aSink,
-        sp<ANativeWindow>& aNativeWindow,
-        sp<DisplaySurface>& aDisplaySurface);
+  void CreateVirtualDisplaySurface(IGraphicBufferProducer* aSink,
+                                   sp<ANativeWindow>& aNativeWindow,
+                                   sp<DisplaySurface>& aDisplaySurface);
 
-    void PowerOnDisplay(int aDpy);
+  void PowerOnDisplay(int aDpy);
 
-    int DoQueueBuffer(ANativeWindowBuffer* buf, DisplayType aDisplayType);
+  int DoQueueBuffer(ANativeWindowBuffer* buf, DisplayType aDisplayType);
 
-    HWC2::Error SetHwcPowerMode(bool enabled);
+  HWC2::Error SetHwcPowerMode(bool enabled);
 
-    std::unique_ptr<HWC2::Device> mHwc;
-    framebuffer_device_t*         mFBDevice;
-    NativeFramebufferDevice*      mExtFBDevice;
-    power_module_t*               mPowerModule;
-    HWC2::Layer*                  mlayer;
-    HWC2::Layer*                  mlayerBootAnim;
-    sp<DisplaySurface>            mDispSurface;
-    sp<ANativeWindow>             mSTClient;
-    sp<DisplaySurface>            mExtDispSurface;
-    sp<ANativeWindow>             mExtSTClient;
-    sp<DisplaySurface>            mBootAnimDispSurface;
-    sp<ANativeWindow>             mBootAnimSTClient;
-    sp<IPower>                    mPower;
-    hwc_display_contents_1_t*     mList;
-    OnEnabledCallbackType         mEnabledCallback;
-    bool                          mEnableHWCPower;
-    bool                          mFBEnabled;
-    bool                          mExtFBEnabled;
-    android::Mutex                mPrimaryScreenLock;
-    HWC2::Display*                mHwcDisplay;
+  std::unique_ptr<HWC2::Device> mHwc;
+  framebuffer_device_t* mFBDevice;
+  NativeFramebufferDevice* mExtFBDevice;
+  power_module_t* mPowerModule;
+  HWC2::Layer* mlayer;
+  HWC2::Layer* mlayerBootAnim;
+  sp<DisplaySurface> mDispSurface;
+  sp<ANativeWindow> mSTClient;
+  sp<DisplaySurface> mExtDispSurface;
+  sp<ANativeWindow> mExtSTClient;
+  sp<DisplaySurface> mBootAnimDispSurface;
+  sp<ANativeWindow> mBootAnimSTClient;
+  sp<IPower> mPower;
+  hwc_display_contents_1_t* mList;
+  OnEnabledCallbackType mEnabledCallback;
+  bool mEnableHWCPower;
+  bool mFBEnabled;
+  bool mExtFBEnabled;
+  android::Mutex mPrimaryScreenLock;
+  HWC2::Display* mHwcDisplay;
 };
 
 // ----------------------------------------------------------------------------
-} // namespace mozilla
+}  // namespace mozilla
 // ----------------------------------------------------------------------------
 
 #endif /* GONKDISPLAYP_H */

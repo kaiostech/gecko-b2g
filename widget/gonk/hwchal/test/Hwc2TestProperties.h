@@ -81,11 +81,9 @@ class Hwc2TestProperty : public Hwc2TestContainer {
                    const std::vector<T>& basicList,
                    const std::vector<T>& defaultList,
                    const std::array<bool, 6>& compositionSupport)
-      : Hwc2TestProperty((coverage == Hwc2TestCoverage::Complete)
-                             ? completeList
-                             : (coverage == Hwc2TestCoverage::Basic)
-                                   ? basicList
-                                   : defaultList,
+      : Hwc2TestProperty((coverage == Hwc2TestCoverage::Complete) ? completeList
+                         : (coverage == Hwc2TestCoverage::Basic)  ? basicList
+                                                                  : defaultList,
                          compositionSupport) {}
 
   Hwc2TestProperty(const std::vector<T>& list,

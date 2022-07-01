@@ -23,11 +23,9 @@ using namespace mozilla::hal;
 namespace mozilla {
 namespace hal_impl {
 
-
 static GonkSensorsHal* sSensorsHal = nullptr;
 
-void
-EnableSensorNotifications(SensorType aSensor) {
+void EnableSensorNotifications(SensorType aSensor) {
   if (!sSensorsHal) {
     sSensorsHal = GonkSensorsHal::GetInstance();
   }
@@ -39,14 +37,12 @@ EnableSensorNotifications(SensorType aSensor) {
   }
 }
 
-void
-DisableSensorNotifications(SensorType aSensor) {
+void DisableSensorNotifications(SensorType aSensor) {
   if (!sSensorsHal) {
     sSensorsHal = GonkSensorsHal::GetInstance();
   }
   sSensorsHal->DeactivateSensor(aSensor);
 }
-
 
 }  // namespace hal_impl
 }  // namespace mozilla

@@ -1,4 +1,5 @@
-/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,18 +29,21 @@ extern "C" {
 #include <mozilla/Types.h>
 
 #ifdef LOG_TAG
-#undef LOG_TAG
-#define LOG_TAG "native-gralloc"
+#  undef LOG_TAG
+#  define LOG_TAG "native-gralloc"
 #endif
 
-#define GRALLOC0(code) (version == 0) { code }
-#define GRALLOC1(code) (version == 1) { code }
+#define GRALLOC0(code) \
+  (version == 0) { code }
+#define GRALLOC1(code) \
+  (version == 1) { code }
 
-#define NO_GRALLOC {                                                         \
-    ALOGE("%s:%d: called gralloc method without gralloc loaded\n",           \
-        __func__, __LINE__);                                                 \
+#define NO_GRALLOC                                                           \
+  {                                                                          \
+    ALOGE("%s:%d: called gralloc method without gralloc loaded\n", __func__, \
+          __LINE__);                                                         \
     assert(NULL);                                                            \
-}
+  }
 namespace mozilla {
 
 void native_gralloc_deinitialize(void);
@@ -53,12 +57,14 @@ int native_gralloc_release(buffer_handle_t handle, int was_allocated);
 int native_gralloc_retain(buffer_handle_t handle);
 
 int native_gralloc_allocate(int width, int height, int format, int usage,
-	buffer_handle_t *handle, uint32_t *stride);
+                            buffer_handle_t* handle, uint32_t* stride);
 
-extern "C" MOZ_EXPORT __attribute__ ((weak)) int native_gralloc_lock(buffer_handle_t handle,
-	int usage, int l, int t, int w, int h, void **vaddr);
+extern "C" MOZ_EXPORT __attribute__((weak)) int native_gralloc_lock(
+    buffer_handle_t handle, int usage, int l, int t, int w, int h,
+    void** vaddr);
 
-extern "C" MOZ_EXPORT __attribute__ ((weak)) int native_gralloc_unlock(buffer_handle_t handle);
+extern "C" MOZ_EXPORT __attribute__((weak)) int native_gralloc_unlock(
+    buffer_handle_t handle);
 
 int native_gralloc_fbdev_format(void);
 
@@ -72,11 +78,10 @@ int native_gralloc_fbdev_width(void);
 
 int native_gralloc_fbdev_height(void);
 
-}
+}  // namespace mozilla
 
 #ifdef __cplusplus
 };
 #endif
 
 #endif /* NATIVEGRALLOC_H */
-

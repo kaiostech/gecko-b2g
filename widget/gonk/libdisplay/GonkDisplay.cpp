@@ -155,7 +155,7 @@ GonkDisplayP::GonkDisplayP()
   property_get("debug.sf.hwc_service_name", serviceName, "default");
   ALOGI("Using HWComposer service: '%s'", serviceName);
   mHwc = std::make_unique<HWC2::Device>(
-        std::make_unique<Hwc2::impl::Composer>(std::string(serviceName)));
+      std::make_unique<Hwc2::impl::Composer>(std::string(serviceName)));
   assert(mHwc);
   mHwc->registerCallback(new HWComposerCallback(mHwc.get()), 0);
 
@@ -180,8 +180,9 @@ GonkDisplayP::GonkDisplayP()
 
   mEnableHWCPower = property_get_bool("persist.hwc.powermode", false);
 
-  ALOGI("width: %i, height: %i, dpi: %f, lcd: %d, vsync: %llu\n", config->getWidth(),
-        config->getHeight(), config->getDpiX(), lcd_dnsity, config->getVsyncPeriod());
+  ALOGI("width: %i, height: %i, dpi: %f, lcd: %d, vsync: %llu\n",
+        config->getWidth(), config->getHeight(), config->getDpiX(), lcd_dnsity,
+        config->getVsyncPeriod());
 
   DisplayNativeData& dispData =
       mDispNativeData[(uint32_t)DisplayType::DISPLAY_PRIMARY];
@@ -300,10 +301,12 @@ GonkDisplayP::~GonkDisplayP() {
   }
 }
 
-void GonkDisplayP::CreateFramebufferSurface(
-    sp<ANativeWindow>& nativeWindow, sp<DisplaySurface>& displaySurface,
-    uint32_t width, uint32_t height, unsigned int format,
-    DisplayUtils displayUtils, bool visibility) {
+void GonkDisplayP::CreateFramebufferSurface(sp<ANativeWindow>& nativeWindow,
+                                            sp<DisplaySurface>& displaySurface,
+                                            uint32_t width, uint32_t height,
+                                            unsigned int format,
+                                            DisplayUtils displayUtils,
+                                            bool visibility) {
   sp<IGraphicBufferProducer> producer;
   sp<IGraphicBufferConsumer> consumer;
   BufferQueue::createBufferQueue(&producer, &consumer);
@@ -414,20 +417,19 @@ void GonkDisplayP::SetExtEnabled(bool enabled) {
 }
 
 HWC2::Error GonkDisplayP::SetHwcPowerMode(bool enabled) {
-    HWC2::PowerMode mode =
-        (enabled ? HWC2::PowerMode::On : HWC2::PowerMode::Off);
-    HWC2::Display* hwcDisplay = mHwc->getDisplayById(mHwc->getDefaultDisplayId());
+  HWC2::PowerMode mode = (enabled ? HWC2::PowerMode::On : HWC2::PowerMode::Off);
+  HWC2::Display* hwcDisplay = mHwc->getDisplayById(mHwc->getDefaultDisplayId());
 
-    auto error = hwcDisplay->setPowerMode(mode);
-    if (error != HWC2::Error::None) {
-      ALOGE(
-          "SetHwcPowerMode: Unable to set power mode %s for "
-          "display %d: %s (%d)",
-          to_string(mode).c_str(), HWC_DISPLAY_PRIMARY,
-          to_string(error).c_str(), static_cast<int32_t>(error));
-    }
+  auto error = hwcDisplay->setPowerMode(mode);
+  if (error != HWC2::Error::None) {
+    ALOGE(
+        "SetHwcPowerMode: Unable to set power mode %s for "
+        "display %d: %s (%d)",
+        to_string(mode).c_str(), HWC_DISPLAY_PRIMARY, to_string(error).c_str(),
+        static_cast<int32_t>(error));
+  }
 
-    return error;
+  return error;
 }
 
 void GonkDisplayP::SetDisplayVisibility(bool visibility) {
@@ -577,7 +579,8 @@ void GonkDisplayP::NotifyBootAnimationStopped() {
 
 void GonkDisplayP::PowerOnDisplay(int displayId) {
   if (mHwc) {
-    HWC2::Display* hwcDisplay = mHwc->getDisplayById(mHwc->getDefaultDisplayId());
+    HWC2::Display* hwcDisplay =
+        mHwc->getDisplayById(mHwc->getDefaultDisplayId());
     auto error = hwcDisplay->setPowerMode(HWC2::PowerMode::On);
     if (error != HWC2::Error::None) {
       ALOGE(
@@ -610,30 +613,27 @@ GonkDisplay::NativeData GonkDisplayP::GetNativeData(
     }
   } else if (displayType == DisplayType::DISPLAY_VIRTUAL) {
     data.mXdpi = mDispNativeData[(uint32_t)DisplayType::DISPLAY_PRIMARY].mXdpi;
-    CreateVirtualDisplaySurface(sink, data.mNativeWindow,
-                                data.mDisplaySurface);
+    CreateVirtualDisplaySurface(sink, data.mNativeWindow, data.mDisplaySurface);
   }
 
   return data;
 }
 
-sp<ANativeWindow> GonkDisplayP::GetSurface(
-    DisplayType displayType) {
+sp<ANativeWindow> GonkDisplayP::GetSurface(DisplayType displayType) {
   if (displayType == DisplayType::DISPLAY_PRIMARY) {
-    return mSTClient? mSTClient : nullptr;
+    return mSTClient ? mSTClient : nullptr;
   } else if (displayType == DisplayType::DISPLAY_EXTERNAL) {
-    return mExtSTClient? mExtSTClient : nullptr;
+    return mExtSTClient ? mExtSTClient : nullptr;
   }
 
   return nullptr;
 }
 
-sp<GraphicBuffer> GonkDisplayP::GetFrameBuffer(
-    DisplayType displayType) {
+sp<GraphicBuffer> GonkDisplayP::GetFrameBuffer(DisplayType displayType) {
   if (displayType == DisplayType::DISPLAY_PRIMARY) {
-    return mDispSurface? mDispSurface->GetCurrentFrameBuffer() : nullptr;
+    return mDispSurface ? mDispSurface->GetCurrentFrameBuffer() : nullptr;
   } else if (displayType == DisplayType::DISPLAY_EXTERNAL) {
-    return mExtDispSurface? mExtDispSurface->GetCurrentFrameBuffer() : nullptr;
+    return mExtDispSurface ? mExtDispSurface->GetCurrentFrameBuffer() : nullptr;
   }
 
   return nullptr;

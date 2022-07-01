@@ -312,7 +312,7 @@ void KeyEventDispatcher::Dispatch() {
     return;
   }
 
-  if (mDOMKeyNameIndex == KEY_NAME_INDEX_Flip){
+  if (mDOMKeyNameIndex == KEY_NAME_INDEX_Flip) {
     hal::NotifyFlipStateFromInputDevice(!IsKeyPress());
     return;
   }
@@ -757,7 +757,7 @@ void GeckoInputReaderPolicy::setDisplayInfo() {
                     static_cast<int>(DISPLAY_ORIENTATION_270),
                 "Orientation enums not matched!");
 
-  RefPtr<nsScreenGonk> screen = ScreenHelperGonk::GetPrimaryScreen() ;
+  RefPtr<nsScreenGonk> screen = ScreenHelperGonk::GetPrimaryScreen();
 
   uint32_t rotation = nsIScreen::ROTATION_0_DEG;
   DebugOnly<nsresult> rv = screen->GetRotation(&rotation);
@@ -854,9 +854,11 @@ void GeckoInputDispatcher::notifyKey(const NotifyKeyArgs* args) {
     MutexAutoLock lock(mQueueLock);
     mEventQueue.push(data);
     if (!mPowerWakelock) {
-      // From https://cs.android.com/android/platform/superproject/+/android-10.0.0_r30:hardware/libhardware_legacy/power.cpp;l=62
-      // return 0 indicates acquire wakelock successfully, return -1 indicates failed to acquire wakelock.
-      // Set the flag when we acquire the wakelock successfully.
+      // From
+      // https://cs.android.com/android/platform/superproject/+/android-10.0.0_r30:hardware/libhardware_legacy/power.cpp;l=62
+      // return 0 indicates acquire wakelock successfully, return -1 indicates
+      // failed to acquire wakelock. Set the flag when we acquire the wakelock
+      // successfully.
       int ret = acquire_wake_lock(PARTIAL_WAKE_LOCK, kKey_WAKE_LOCK_ID);
       if (ret == 0) {
         mPowerWakelock = true;

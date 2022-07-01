@@ -25,7 +25,6 @@
 
 #include <hardware/hwcomposer.h>
 
-
 #ifndef HWC_BLIT
 #  define HWC_BLIT 0xFF
 #endif  // #ifndef HWC_BLIT

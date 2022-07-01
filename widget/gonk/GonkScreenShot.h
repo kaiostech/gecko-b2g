@@ -1,4 +1,5 @@
-/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +20,8 @@
 namespace mozilla {
 
 class GonkScreenShot {
-public:
-    static int capture(uint32_t displayId, bool pngEncode, const char* fileName);
+ public:
+  static int capture(uint32_t displayId, bool pngEncode, const char* fileName);
 };
 
 } /* namespace mozilla */

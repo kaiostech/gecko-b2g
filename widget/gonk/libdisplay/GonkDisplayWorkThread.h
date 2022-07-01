@@ -1,4 +1,5 @@
-/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,17 +21,17 @@
 
 namespace carthage {
 
-class GonkDisplayWorkThread: public WorkThread {
-public:
+class GonkDisplayWorkThread : public WorkThread {
+ public:
   static GonkDisplayWorkThread* Get() {
     static GonkDisplayWorkThread instance;
     return &instance;
   }
 
-private:
-  GonkDisplayWorkThread() {};
+ private:
+  GonkDisplayWorkThread(){};
 };
 
-}
+}  // namespace carthage
 
 #endif

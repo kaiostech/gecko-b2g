@@ -23,22 +23,25 @@
 extern "C" {
 #endif
 
-// Conversion functions are out-of-line so that users don't have to be exposed to
-// android/hardware/graphics/allocator/2.0/types.h and link against
+// Conversion functions are out-of-line so that users don't have to be exposed
+// to android/hardware/graphics/allocator/2.0/types.h and link against
 // android.hardware.graphics.allocator@2.0 to get that in their search path.
 
-// Convert a 32-bit gralloc0 usage mask to a producer/consumer pair of 64-bit usage masks as used
-// by android.hardware.graphics.allocator@2.0 (and gralloc1). This conversion properly handles the
-// mismatch between a.h.g.allocator@2.0's CPU_{READ,WRITE}_OFTEN and gralloc0's
+// Convert a 32-bit gralloc0 usage mask to a producer/consumer pair of 64-bit
+// usage masks as used by android.hardware.graphics.allocator@2.0 (and
+// gralloc1). This conversion properly handles the mismatch between
+// a.h.g.allocator@2.0's CPU_{READ,WRITE}_OFTEN and gralloc0's
 // SW_{READ,WRITE}_OFTEN.
 void android_convertGralloc0To1Usage(int32_t usage, uint64_t* producerUsage,
                                      uint64_t* consumerUsage);
 
 // Convert a producer/consumer pair of 64-bit usage masks as used by
-// android.hardware.graphics.allocator@2.0 (and gralloc1) to a 32-bit gralloc0 usage mask. This
-// conversion properly handles the mismatch between a.h.g.allocator@2.0's CPU_{READ,WRITE}_OFTEN
-// and gralloc0's SW_{READ,WRITE}_OFTEN.
-int32_t android_convertGralloc1To0Usage(uint64_t producerUsage, uint64_t consumerUsage);
+// android.hardware.graphics.allocator@2.0 (and gralloc1) to a 32-bit gralloc0
+// usage mask. This conversion properly handles the mismatch between
+// a.h.g.allocator@2.0's CPU_{READ,WRITE}_OFTEN and gralloc0's
+// SW_{READ,WRITE}_OFTEN.
+int32_t android_convertGralloc1To0Usage(uint64_t producerUsage,
+                                        uint64_t consumerUsage);
 
 #ifdef __cplusplus
 }

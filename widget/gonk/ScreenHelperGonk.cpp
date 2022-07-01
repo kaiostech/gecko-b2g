@@ -830,7 +830,8 @@ already_AddRefed<Screen> ScreenHelperGonk::MakeScreen(
 
   RefPtr<Screen> screen = new Screen(bounds, bounds, depth, depth, refreshRate,
                                      DesktopToLayoutDeviceScale(density),
-                                     CSSToLayoutDeviceScale(1.0f), dpi, Screen::IsPseudoDisplay::No);
+                                     CSSToLayoutDeviceScale(1.0f), dpi,
+                                     Screen::IsPseudoDisplay::No);
   return screen.forget();
 }
 
@@ -932,7 +933,8 @@ bool ScreenHelperGonk::IsScreenConnected(uint32_t aId) {
 
 void ScreenHelperGonk::VsyncControl(bool aEnabled) {
   MOZ_ASSERT(NS_IsMainThread());
-  RefPtr<VsyncSource> vsyncSource = gfxPlatform::GetPlatform()->GetGonkVsyncSource();
+  RefPtr<VsyncSource> vsyncSource =
+      gfxPlatform::GetPlatform()->GetGonkVsyncSource();
   if (aEnabled) {
     vsyncSource->EnableVsync();
   } else {

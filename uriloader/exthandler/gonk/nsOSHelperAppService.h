@@ -34,7 +34,7 @@ class nsOSHelperAppService : public nsExternalHelperAppService {
 
   // override nsIExternalProtocolService methods
   [[nodiscard]] nsresult OSProtocolHandlerExists(const char* aProtocolScheme,
-                                                bool* aHandlerExists) override;
+                                                 bool* aHandlerExists) override;
   NS_IMETHOD GetApplicationDescription(const nsACString& aScheme,
                                        nsAString& _retval) override;
   NS_IMETHOD IsCurrentAppOSDefaultForProtocol(const nsACString& aScheme,

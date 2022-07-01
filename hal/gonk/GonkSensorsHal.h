@@ -17,39 +17,43 @@
 using namespace mozilla::hal;
 using namespace android::hardware::sensors;
 using namespace android::SensorServiceUtil;
-using android::hardware::Void;
+using android::hardware::EventFlag;
 using android::hardware::hidl_vec;
 using android::hardware::kSynchronizedReadWrite;
 using android::hardware::MessageQueue;
-using android::hardware::EventFlag;
+using android::hardware::Void;
 using android::hardware::sensors::V1_0::Event;
-using android::hardware::sensors::V1_0::SensorInfo;
 using android::hardware::sensors::V1_0::SensorFlagBits;
+using android::hardware::sensors::V1_0::SensorInfo;
 using android::hardware::sensors::V2_0::EventQueueFlagBits;
 
 #define MAX_EVENT_BUFFER_SIZE 16
 
 #ifdef PRODUCT_MANUFACTURER_MTK
-// mtk custom hal sends 128 events at most at a time in case data flooding. To avoid
-// fmq blocking, the buffer size is enlarged to 128 here specifically for mtk hal as
-// a temporary workaround before mtk fix it.
-// TODO: to remove this workaround once mtk fix the issue. Track it by Bug 124274.
-#undef MAX_EVENT_BUFFER_SIZE
-#define MAX_EVENT_BUFFER_SIZE 128
+// mtk custom hal sends 128 events at most at a time in case data flooding. To
+// avoid fmq blocking, the buffer size is enlarged to 128 here specifically for
+// mtk hal as a temporary workaround before mtk fix it.
+// TODO: to remove this workaround once mtk fix the issue. Track it by Bug
+// 124274.
+#  undef MAX_EVENT_BUFFER_SIZE
+#  define MAX_EVENT_BUFFER_SIZE 128
 #endif
 
 namespace mozilla {
 namespace hal_impl {
 
-typedef void (* SensorDataCallback)(const SensorData& aSensorData);
+typedef void (*SensorDataCallback)(const SensorData& aSensorData);
 
-class SensorsHalDeathRecipient : public android::hardware::hidl_death_recipient {
-public:
-  virtual void serviceDied(uint64_t cookie, const android::wp<::android::hidl::base::V1_0::IBase>& service) override;
+class SensorsHalDeathRecipient
+    : public android::hardware::hidl_death_recipient {
+ public:
+  virtual void serviceDied(
+      uint64_t cookie,
+      const android::wp<::android::hidl::base::V1_0::IBase>& service) override;
 };
 
 class GonkSensorsHal {
-public:
+ public:
   static GonkSensorsHal* GetInstance() {
     if (sInstance == nullptr) {
       sInstance = new GonkSensorsHal();
@@ -64,22 +68,23 @@ public:
   void GetSensorName(const SensorType aSensorType, nsACString& aRetval);
   void PrepareForReconnect();
   void Reconnect();
-private:
+
+ private:
   class SensorDataNotifier;
 
   static GonkSensorsHal* sInstance;
 
   GonkSensorsHal()
-    : mSensors(nullptr),
-      mPollThread(nullptr),
-      mLock("Sensors"),
-      mSensorDataCallback(nullptr),
-      mEventQueueFlag(nullptr),
-      mToReconnect(false) {
-        memset(mSensorInfoList, 0, sizeof(mSensorInfoList));
-        Init();
+      : mSensors(nullptr),
+        mPollThread(nullptr),
+        mLock("Sensors"),
+        mSensorDataCallback(nullptr),
+        mEventQueueFlag(nullptr),
+        mToReconnect(false) {
+    memset(mSensorInfoList, 0, sizeof(mSensorInfoList));
+    Init();
   };
-  ~GonkSensorsHal() {};
+  ~GonkSensorsHal(){};
 
   void Init();
   bool InitHidlService();
@@ -112,8 +117,7 @@ private:
   const int64_t kReportLatencyNs = 0;
 };
 
+}  // namespace hal_impl
+}  // namespace mozilla
 
-} // hal_impl
-} // mozilla
-
-#endif // HAL_GONK_GONKSENSORSHAL_H_
+#endif  // HAL_GONK_GONKSENSORSHAL_H_

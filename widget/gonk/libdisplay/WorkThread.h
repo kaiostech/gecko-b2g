@@ -1,4 +1,5 @@
-/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,41 +27,41 @@
 namespace carthage {
 
 class WorkThread {
-public:
+ public:
   class Work {
-  public:
-    virtual ~Work() {};
+   public:
+    virtual ~Work(){};
     virtual void Exec() = 0;
     virtual void Destroy() = 0;
 
-    template<typename T>
+    template <typename T>
     static std::shared_ptr<WorkThread::Work> Create(T t) {
       return std::make_shared<WorkThread::LambdaWork<T>>(t);
     }
   };
 
-  template<typename FUNC>
+  template <typename FUNC>
   class LambdaWork : public Work {
-  public:
+   public:
     LambdaWork(FUNC aFunc) : mFunc(aFunc) {}
 
-    virtual void Exec() {
-      mFunc();
-    }
+    virtual void Exec() { mFunc(); }
 
-    virtual void Destroy() { }
+    virtual void Destroy() {}
 
-  private:
+   private:
     FUNC mFunc;
   };
 
   WorkThread();
-  virtual ~WorkThread() {};
+  virtual ~WorkThread(){};
 
   virtual void DoPost(std::shared_ptr<Work> aWork);
 
-  template<typename T>
-  void Post(T t) { DoPost(Work::Create<T>(t)); }
+  template <typename T>
+  void Post(T t) {
+    DoPost(Work::Create<T>(t));
+  }
 
   // to notifiy a thread exit the internal ThreadLoop;
   void SendExitSignal();
@@ -71,8 +72,7 @@ public:
   // detach a thread, the handle is invalid after this call.
   void Detach();
 
-protected:
-
+ protected:
   // the "main" function for thread
   void ThreadLoop();
 
@@ -85,6 +85,6 @@ protected:
   std::queue<std::shared_ptr<Work>> mQueue;
 };
 
-}
+}  // namespace carthage
 
 #endif

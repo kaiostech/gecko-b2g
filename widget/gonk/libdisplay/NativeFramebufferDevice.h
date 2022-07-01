@@ -1,5 +1,5 @@
-/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
- * Copyright (C) 2015 Acadine Technologies. All rights reserved.
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved. Copyright (C) 2015 Acadine Technologies. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,45 +27,45 @@ namespace mozilla {
 // ----------------------------------------------------------------------------
 
 class NativeFramebufferDevice {
-public:
-    ~NativeFramebufferDevice();
+ public:
+  ~NativeFramebufferDevice();
 
-    static NativeFramebufferDevice* Create();
+  static NativeFramebufferDevice* Create();
 
-    bool Open();
+  bool Open();
 
-    bool Post(buffer_handle_t buf);
+  bool Post(buffer_handle_t buf);
 
-    bool EnableScreen(int enabled);
+  bool EnableScreen(int enabled);
 
-    bool IsValid();
+  bool IsValid();
 
-    // Only be valid after open sucessfully
-    uint32_t mWidth;
-    uint32_t mHeight;
-    int32_t mSurfaceformat;
-    float mXdpi;
+  // Only be valid after open sucessfully
+  uint32_t mWidth;
+  uint32_t mHeight;
+  int32_t mSurfaceformat;
+  float mXdpi;
 
-private:
-    NativeFramebufferDevice(int aExtFbFd);
-    bool Close();
-    void DrawSolidColorFrame();
+ private:
+  NativeFramebufferDevice(int aExtFbFd);
+  bool Close();
+  void DrawSolidColorFrame();
 
-    bool mIsEnabled;
-    int mFd;
-    void* mMappedAddr;
-    uint32_t mMemLength;
-    struct fb_var_screeninfo mVInfo;
-    struct fb_fix_screeninfo mFInfo;
-    gralloc_module_t *mGrmodule;
-    int32_t mFBSurfaceformat;
+  bool mIsEnabled;
+  int mFd;
+  void* mMappedAddr;
+  uint32_t mMemLength;
+  struct fb_var_screeninfo mVInfo;
+  struct fb_fix_screeninfo mFInfo;
+  gralloc_module_t* mGrmodule;
+  int32_t mFBSurfaceformat;
 
-    // Locks against both mFd and mIsEnable.
-    mutable android::Mutex mMutex;
+  // Locks against both mFd and mIsEnable.
+  mutable android::Mutex mMutex;
 };
 
 // ----------------------------------------------------------------------------
-} // namespace mozilla
+}  // namespace mozilla
 // ----------------------------------------------------------------------------
 
 #endif /* NATIVEFRAMEBUFFERDEVICE_H */

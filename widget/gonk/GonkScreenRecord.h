@@ -1,4 +1,5 @@
-/* Copyright (C) 2021 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
+/* Copyright (C) 2021 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,20 +25,21 @@ namespace mozilla {
 
 class GonkScreenRecord : public Runnable {
   typedef void (*FinishCallback)(int streamFd, int res);
-public:
-  GonkScreenRecord(uint32_t displayId, uint32_t outputFormat, uint32_t timeLimitSec,
-    const char* fileName, FinishCallback finishCallback, int streamFd)
-  : mozilla::Runnable("GonkScreenRecord"),
-    mDisplayId(displayId),
-    mOutputFormat(outputFormat),
-    mTimeLimitSec(timeLimitSec),
-    mStreamFd(streamFd),
-    mFinishCallback(finishCallback),
-    mVsyncThread(nullptr)
-    {
-      mFileName = (char*)malloc(strlen(fileName) + 1);
-      strcpy(mFileName, fileName);
-    }
+
+ public:
+  GonkScreenRecord(uint32_t displayId, uint32_t outputFormat,
+                   uint32_t timeLimitSec, const char* fileName,
+                   FinishCallback finishCallback, int streamFd)
+      : mozilla::Runnable("GonkScreenRecord"),
+        mDisplayId(displayId),
+        mOutputFormat(outputFormat),
+        mTimeLimitSec(timeLimitSec),
+        mStreamFd(streamFd),
+        mFinishCallback(finishCallback),
+        mVsyncThread(nullptr) {
+    mFileName = (char*)malloc(strlen(fileName) + 1);
+    strcpy(mFileName, fileName);
+  }
 
   ~GonkScreenRecord() {
     if (mFileName) {
@@ -46,21 +48,16 @@ public:
   }
 
   NS_IMETHOD
-  Run() override {
-    return (nsresult)capture();
-  }
+  Run() override { return (nsresult)capture(); }
 
-  void
-  NotifyVsync(const int display, const mozilla::TimeStamp& aVsyncTimestamp,
-              const mozilla::TimeDuration& aVsyncPeriod);
+  void NotifyVsync(const int display, const mozilla::TimeStamp& aVsyncTimestamp,
+                   const mozilla::TimeDuration& aVsyncPeriod);
 
-  void
-  ClearVsyncTask();
+  void ClearVsyncTask();
 
-  int
-  capture();
+  int capture();
 
-private:
+ private:
   uint32_t mDisplayId;
   uint32_t mOutputFormat;
   uint32_t mTimeLimitSec;

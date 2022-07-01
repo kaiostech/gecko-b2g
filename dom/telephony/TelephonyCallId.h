@@ -45,9 +45,13 @@ class TelephonyCallId final : public nsISupports, public nsWrapperCache {
 
   void UpdateName(const nsAString& aName) { mName = aName; };
 
-  void UpdateNumberPresentation(uint16_t aNumberPresentation) { mNumberPresentation = aNumberPresentation; }
+  void UpdateNumberPresentation(uint16_t aNumberPresentation) {
+    mNumberPresentation = aNumberPresentation;
+  }
 
-  void UpdateNamePresentation(uint16_t aNamePresentation) { mNamePresentation = aNamePresentation; }
+  void UpdateNamePresentation(uint16_t aNamePresentation) {
+    mNamePresentation = aNamePresentation;
+  }
 
  private:
   ~TelephonyCallId();

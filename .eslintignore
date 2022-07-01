@@ -35,6 +35,7 @@ dom/system/gonk/BinderServices.jsm
 # Tests to fix:
 dom/mobilemessage/tests/
 dom/cellbroadcast/tests/
+dom/telephony/test/
 
 # build/ third-party code
 build/pgo/js-input/

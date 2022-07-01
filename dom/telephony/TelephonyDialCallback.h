@@ -38,8 +38,7 @@ class TelephonyDialCallback final : public TelephonyCallback,
  private:
   ~TelephonyDialCallback() {}
 
-  nsresult
-  NotifyDialMMISuccess(JSContext* aCx, const MMIResult& aResult);
+  nsresult NotifyDialMMISuccess(JSContext* aCx, const MMIResult& aResult);
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   RefPtr<Telephony> mTelephony;

@@ -12,17 +12,15 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-/* global RIL */
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
-  let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
-  return obj;
-});
+const lazy = {};
 
-var RIL_DEBUG = ChromeUtils.import(
+const RIL = ChromeUtils.import("resource://gre/modules/ril_consts.js");
+
+const RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );
 
-XPCOMUtils.defineLazyGetter(this, "console", () => {
+XPCOMUtils.defineLazyGetter(lazy, "console", () => {
   let { ConsoleAPI } = ChromeUtils.import("resource://gre/modules/Console.jsm");
   return new ConsoleAPI({
     maxLogLevelPref: "dom.telephony.loglevel",
@@ -75,28 +73,6 @@ const MMI_PROCEDURE_DEACTIVATION = "#";
 const MMI_PROCEDURE_INTERROGATION = "*#";
 const MMI_PROCEDURE_REGISTRATION = "**";
 const MMI_PROCEDURE_ERASURE = "##";
-
-XPCOMUtils.defineConstant(
-  this,
-  "MMI_PROCEDURE_ACTIVATION",
-  MMI_PROCEDURE_ACTIVATION
-);
-XPCOMUtils.defineConstant(
-  this,
-  "MMI_PROCEDURE_DEACTIVATION",
-  MMI_PROCEDURE_DEACTIVATION
-);
-XPCOMUtils.defineConstant(
-  this,
-  "MMI_PROCEDURE_INTERROGATION",
-  MMI_PROCEDURE_INTERROGATION
-);
-XPCOMUtils.defineConstant(
-  this,
-  "MMI_PROCEDURE_REGISTRATION",
-  MMI_PROCEDURE_REGISTRATION
-);
-XPCOMUtils.defineConstant(this, "MMI_PROCEDURE_ERASURE", MMI_PROCEDURE_ERASURE);
 
 // MMI call forwarding service codes as defined in TS.22.030 Annex B
 const MMI_SC_CFU = "21";
@@ -327,8 +303,7 @@ function debug(s) {
   dump("TelephonyService: " + s + "\n");
 }
 
-/* global gRadioInterfaceLayer */
-XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function() {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -336,71 +311,63 @@ XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
   return ril;
 });
 
-/* global gPowerManagerService */
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gPowerManagerService",
   "@mozilla.org/power/powermanagerservice;1",
   "nsIPowerManagerService"
 );
 
-/* global gTelephonyMessenger */
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gTelephonyMessenger",
   "@mozilla.org/ril/system-messenger-helper;1",
   "nsITelephonyMessenger"
 );
 
-/* global gAudioService */
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gAudioService",
   "@mozilla.org/telephony/audio-service;1",
   "nsITelephonyAudioService"
 );
 
-/* global gGonkMobileConnectionService */
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gGonkMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIGonkMobileConnectionService"
 );
 
-/* global gIccService */
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
-/* global gImsRegService */
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gImsRegService",
   "@mozilla.org/mobileconnection/imsregservice;1",
   "nsIImsRegService"
 );
 
-/* global gImsPhoneService */
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gImsPhoneService",
   "@b2g/telephony/ims/imsphoneservice;1",
   "nsIImsPhoneService"
 );
 
 XPCOMUtils.defineLazyModuleGetter(
-  this,
+  lazy,
   "gPhoneNumberUtils",
   "resource://gre/modules/PhoneNumberUtils.jsm",
   "PhoneNumberUtils"
 );
 
-/* global DialNumberUtils */
-XPCOMUtils.defineLazyModuleGetters(this, {
+XPCOMUtils.defineLazyModuleGetters(lazy, {
   DialNumberUtils: "resource://gre/modules/DialNumberUtils.jsm",
 });
 
@@ -584,7 +551,7 @@ VideoCallProvider.prototype = {
 };
 
 function TelephonyService() {
-  this._numClients = gRadioInterfaceLayer.numRadioInterfaces;
+  this._numClients = lazy.gRadioInterfaceLayer.numRadioInterfaces;
   this._listeners = [];
 
   this._isDialing = false;
@@ -600,8 +567,8 @@ function TelephonyService() {
 
   this._cdmaCallWaitingNumber = null;
 
-  this._headsetState = gAudioService.headsetState;
-  gAudioService.registerListener(this);
+  this._headsetState = lazy.gAudioService.headsetState;
+  lazy.gAudioService.registerListener(this);
   this._applyTtyMode();
 
   // this.defaultServiceId = this._getDefaultServiceId();
@@ -625,7 +592,7 @@ function TelephonyService() {
   // access mobile connection in next tick.
   Services.tm.currentThread.dispatch(() => {
     for (let i = 0; i < this._numClients; ++i) {
-      let connection = gGonkMobileConnectionService.getItemByServiceId(i);
+      let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(i);
       let listener = new MobileConnectionListener();
       listener.notifyRadioStateChanged = () => {
         if (
@@ -677,7 +644,7 @@ TelephonyService.prototype = {
       if (DEBUG) {
         debug("Acquiring a CPU wake lock for handling incoming call.");
       }
-      this._callRingWakeLock = gPowerManagerService.newWakeLock("cpu");
+      this._callRingWakeLock = lazy.gPowerManagerService.newWakeLock("cpu");
     }
     if (!this._callRingWakeLockTimer) {
       if (DEBUG) {
@@ -711,7 +678,7 @@ TelephonyService.prototype = {
   },
 
   _getClient(aClientId) {
-    return gRadioInterfaceLayer.getRadioInterface(aClientId);
+    return lazy.gRadioInterfaceLayer.getRadioInterface(aClientId);
   },
 
   _sendToRilWorker(aClientId, aType, aMessage, aCallback) {
@@ -738,26 +705,29 @@ TelephonyService.prototype = {
   },
 
   _isCdmaClient(aClientId) {
-    let type = gGonkMobileConnectionService.getItemByServiceId(aClientId).voice
-      .type;
+    let type = lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId)
+      .voice.type;
     return !this._isGsmTechGroup(type);
   },
 
   _isEmergencyOnly(aClientId) {
-    return gGonkMobileConnectionService.getItemByServiceId(aClientId).voice
+    return lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId).voice
       .emergencyCallsOnly;
   },
 
   _isRadioOn(aClientId) {
-    let connection = gGonkMobileConnectionService.getItemByServiceId(aClientId);
+    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
+      aClientId
+    );
     return (
       connection.radioState === nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED
     );
   },
 
   _isVoWifi(aClientId) {
-    let connInfo = gGonkMobileConnectionService.getItemByServiceId(aClientId)
-      .data;
+    let connInfo = lazy.gGonkMobileConnectionService.getItemByServiceId(
+      aClientId
+    ).data;
     return (
       RIL.GECKO_RADIO_TECH.indexOf(connInfo.type) ===
       RIL.NETWORK_CREG_TECH_IWLAN
@@ -808,17 +778,21 @@ TelephonyService.prototype = {
         state => state === nsITelephonyAudioService.PHONE_STATE_IN_CALL
       )
     ) {
-      gAudioService.setPhoneState(nsITelephonyAudioService.PHONE_STATE_IN_CALL);
+      lazy.gAudioService.setPhoneState(
+        nsITelephonyAudioService.PHONE_STATE_IN_CALL
+      );
     } else if (
       this._audioStates.some(
         state => state === nsITelephonyAudioService.PHONE_STATE_RINGTONE
       )
     ) {
-      gAudioService.setPhoneState(
+      lazy.gAudioService.setPhoneState(
         nsITelephonyAudioService.PHONE_STATE_RINGTONE
       );
     } else {
-      gAudioService.setPhoneState(nsITelephonyAudioService.PHONE_STATE_NORMAL);
+      lazy.gAudioService.setPhoneState(
+        nsITelephonyAudioService.PHONE_STATE_NORMAL
+      );
     }
   },
 
@@ -950,7 +924,7 @@ TelephonyService.prototype = {
     let ttyMode =
       this._headsetState == nsITelephonyAudioService.HEADSET_STATE_HEADSET ||
       this._headsetState == nsITelephonyAudioService.HEADSET_STATE_HEADPHONE
-        ? gAudioService.ttyMode
+        ? lazy.gAudioService.ttyMode
         : nsITelephonyService.TTY_MODE_OFF;
 
     // Apply only if it's different from what has been applied.
@@ -959,7 +933,7 @@ TelephonyService.prototype = {
     }
 
     this._appliedTtyMode = ttyMode;
-    gAudioService.applyTtyMode(ttyMode);
+    lazy.gAudioService.applyTtyMode(ttyMode);
 
     for (let clientId = 0; clientId < this._numClients; clientId++) {
       this._sendToRilWorker(clientId, "setTtyMode", { ttyMode }, aResponse => {
@@ -968,7 +942,7 @@ TelephonyService.prototype = {
         }
       });
     }
-    gTelephonyMessenger.notifyTtyModeChanged(ttyMode);
+    lazy.gTelephonyMessenger.notifyTtyModeChanged(ttyMode);
     // TODO: send request to IMS stack (if existing) for setup IMS TTY bearer.
   },
 
@@ -1068,7 +1042,7 @@ TelephonyService.prototype = {
   _getClientIdForEmergencyCall() {
     // Select the client with sim card first.
     for (let cid = 0; cid < this._numClients; ++cid) {
-      let icc = gIccService.getIccByServiceId(cid);
+      let icc = lazy.gIccService.getIccByServiceId(cid);
       let cardState = icc ? icc.cardState : Ci.nsIIcc.CARD_STATE_UNKONWN;
       if (
         cardState !== Ci.nsIIcc.CARD_STATE_UNDETECTED &&
@@ -1103,19 +1077,22 @@ TelephonyService.prototype = {
     // We don't try to be too clever here, as the phone is probably in the
     // locked state. Let's just check if it's a number without normalizing
     if (!aIsDialEmergency) {
-      aNumber = gPhoneNumberUtils.normalize(aNumber);
+      aNumber = lazy.gPhoneNumberUtils.normalize(aNumber);
     }
 
     // Validate the number.
     // Note: isPlainPhoneNumber also accepts USSD and SS numbers
-    if (!gPhoneNumberUtils.isPlainPhoneNumber(aNumber)) {
+    if (!lazy.gPhoneNumberUtils.isPlainPhoneNumber(aNumber)) {
       if (DEBUG) {
         debug("Error: Number '" + aNumber + "' is not viable. Drop.");
       }
       aCallback.notifyError(DIAL_ERROR_BAD_NUMBER);
       return;
     }
-    let isEmergencyNumber = DialNumberUtils.isEmergency(aNumber, aClientId);
+    let isEmergencyNumber = lazy.DialNumberUtils.isEmergency(
+      aNumber,
+      aClientId
+    );
 
     // DialEmergency accepts only emergency number.
     if (aIsDialEmergency && !isEmergencyNumber) {
@@ -1137,7 +1114,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    let mmi = DialNumberUtils.parseMMI(aNumber);
+    let mmi = lazy.DialNumberUtils.parseMMI(aNumber);
     if (mmi) {
       if (this._isTemporaryCLIR(mmi)) {
         this._dialCall(
@@ -1250,7 +1227,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    let isEmergency = DialNumberUtils.isEmergency(aNumber, aClientId);
+    let isEmergency = lazy.DialNumberUtils.isEmergency(aNumber, aClientId);
 
     if (!isEmergency) {
       if (!this._isRadioOn(aClientId) && !this._isVoWifi(aClientId)) {
@@ -1273,7 +1250,7 @@ TelephonyService.prototype = {
 
       // Radio is off. Turn it on first.
       if (!this._isRadioOn(aClientId) && !this._isVoWifi(aClientId)) {
-        let connection = gGonkMobileConnectionService.getItemByServiceId(
+        let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
           aClientId
         );
         let listener = new MobileConnectionListener();
@@ -1571,7 +1548,9 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _callForwardingMMI(aClientId, aMmi, aCallback) {
-    let connection = gGonkMobileConnectionService.getItemByServiceId(aClientId);
+    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
+      aClientId
+    );
     let action = MMI_PROC_TO_CF_ACTION[aMmi.procedure];
     let reason = MMI_SC_TO_CF_REASON[aMmi.serviceCode];
     let serviceClass = this._siToServiceClass(aMmi.sib);
@@ -1644,7 +1623,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    let icc = gIccService.getIccByServiceId(aClientId);
+    let icc = lazy.gIccService.getIccByServiceId(aClientId);
     let lockType = MMI_SC_TO_LOCK_TYPE[aMmi.serviceCode];
 
     icc.changeCardLockPassword(lockType, aMmi.sia, aMmi.sib, {
@@ -1684,7 +1663,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    let icc = gIccService.getIccByServiceId(aClientId);
+    let icc = lazy.gIccService.getIccByServiceId(aClientId);
     let lockType = MMI_SC_TO_LOCK_TYPE[aMmi.serviceCode];
 
     icc.unlockCardLock(lockType, aMmi.sia, aMmi.sib, {
@@ -1718,7 +1697,9 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _getImeiMMI(aClientId, aMmi, aCallback) {
-    let connection = gGonkMobileConnectionService.getItemByServiceId(aClientId);
+    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
+      aClientId
+    );
     if (!connection.deviceIdentities || !connection.deviceIdentities.imei) {
       aCallback.notifyDialMMIError(RIL.GECKO_ERROR_GENERIC_FAILURE);
       return;
@@ -1779,7 +1760,9 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _clirMMI(aClientId, aMmi, aCallback) {
-    let connection = gGonkMobileConnectionService.getItemByServiceId(aClientId);
+    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
+      aClientId
+    );
     switch (aMmi.procedure) {
       case MMI_PROCEDURE_INTERROGATION:
         connection.getCallingLineIdRestriction({
@@ -1923,7 +1906,9 @@ TelephonyService.prototype = {
       return;
     }
 
-    let connection = gGonkMobileConnectionService.getItemByServiceId(aClientId);
+    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
+      aClientId
+    );
     connection.changeCallBarringPassword(aMmi.sib, aMmi.sic, {
       QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileConnectionCallback]),
       notifySuccess() {
@@ -1946,7 +1931,9 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _callBarringMMI(aClientId, aMmi, aCallback) {
-    let connection = gGonkMobileConnectionService.getItemByServiceId(aClientId);
+    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
+      aClientId
+    );
     let program = MMI_SC_TO_CB_PROGRAM[aMmi.serviceCode];
     let password = aMmi.sia || "";
     let serviceClass = this._siToServiceClass(aMmi.sib);
@@ -2014,7 +2001,9 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _callWaitingMMI(aClientId, aMmi, aCallback) {
-    let connection = gGonkMobileConnectionService.getItemByServiceId(aClientId);
+    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
+      aClientId
+    );
 
     switch (aMmi.procedure) {
       case MMI_PROCEDURE_INTERROGATION:
@@ -2284,7 +2273,10 @@ TelephonyService.prototype = {
     }
 
     aCall.isOutgoing = !aRilCall.isMT;
-    aCall.isEmergency = DialNumberUtils.isEmergency(aCall.number, aClientId);
+    aCall.isEmergency = lazy.DialNumberUtils.isEmergency(
+      aCall.number,
+      aClientId
+    );
     if (
       aCall.rttMode == nsITelephonyService.RTT_MODE_FULL &&
       aCall.state == nsITelephonyService.CALL_STATE_CONNECTED
@@ -2462,7 +2454,7 @@ TelephonyService.prototype = {
   answerCall(aClientId, aCallIndex, aType, aRttMode, aCallback) {
     let call = this._currentCalls[aClientId][aCallIndex];
     if (DEBUG) {
-      console.log("answerCall state: " + call.state);
+      lazy.console.log("answerCall state: " + call.state);
     }
     if (!call || call.state != nsITelephonyService.CALL_STATE_INCOMING) {
       aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
@@ -2480,7 +2472,7 @@ TelephonyService.prototype = {
         this._answerImsPhone(aClientId, aCallIndex, aType, aRttMode, aCallback);
       } else {
         if (DEBUG) {
-          console.log("answerCall sendToRil");
+          lazy.console.log("answerCall sendToRil");
         }
         this._sendToRilWorker(
           aClientId,
@@ -2687,7 +2679,7 @@ TelephonyService.prototype = {
     if (DEBUG) {
       debug("_switchImsActiveCall");
     }
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     let imsCallback = this._createSimpleImsCallback(aCallback);
     imsPhone.switchActiveCall(aCallType, aRttMode, imsCallback);
   },
@@ -2709,7 +2701,7 @@ TelephonyService.prototype = {
 
   _explicitCallTransfer(aClientId, aCallback) {
     if (this._isImsClient(aClientId)) {
-      let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+      let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
       imsPhone.consultativeTransfer(this._createSimpleImsCallback(aCallback));
     } else {
       this._sendToRilWorker(
@@ -2757,7 +2749,7 @@ TelephonyService.prototype = {
         },
       };
 
-      let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+      let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
       imsPhone.conferenceCall(callback);
 
       return;
@@ -2949,7 +2941,7 @@ TelephonyService.prototype = {
         continue;
       }
 
-      let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+      let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
       if (imsPhone) {
         imsPhone.hangupCall(
           index,
@@ -3038,7 +3030,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.sendRttModifyRequest(
       aCallIndex,
       aRttMode,
@@ -3053,7 +3045,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.sendRttModifyResponse(
       aCallIndex,
       aStatus,
@@ -3068,7 +3060,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.sendRttMessage(
       aCallIndex,
       aMessage,
@@ -3077,35 +3069,35 @@ TelephonyService.prototype = {
   },
 
   get hacMode() {
-    return gAudioService.hacMode;
+    return lazy.gAudioService.hacMode;
   },
 
   set hacMode(aEnabled) {
-    gAudioService.hacMode = aEnabled;
+    lazy.gAudioService.hacMode = aEnabled;
   },
 
   get microphoneMuted() {
-    return gAudioService.microphoneMuted;
+    return lazy.gAudioService.microphoneMuted;
   },
 
   set microphoneMuted(aMuted) {
-    gAudioService.microphoneMuted = aMuted;
+    lazy.gAudioService.microphoneMuted = aMuted;
   },
 
   get speakerEnabled() {
-    return gAudioService.speakerEnabled;
+    return lazy.gAudioService.speakerEnabled;
   },
 
   set speakerEnabled(aEnabled) {
-    gAudioService.speakerEnabled = aEnabled;
+    lazy.gAudioService.speakerEnabled = aEnabled;
   },
 
   get ttyMode() {
-    return gAudioService.ttyMode;
+    return lazy.gAudioService.ttyMode;
   },
 
   set ttyMode(aMode) {
-    gAudioService.ttyMode = aMode;
+    lazy.gAudioService.ttyMode = aMode;
     this._applyTtyMode();
   },
 
@@ -3121,7 +3113,7 @@ TelephonyService.prototype = {
 
     // Don't save conference parent into call log.
     if (!aCall.isConferenceParent) {
-      gTelephonyMessenger.notifyCallEnded(
+      lazy.gTelephonyMessenger.notifyCallEnded(
         aCall.clientId,
         aCall.number,
         this._cdmaCallWaitingNumber,
@@ -3200,7 +3192,7 @@ TelephonyService.prototype = {
     // the sleep mode when the RIL handles the incoming call.
     this._acquireCallRingWakeLock();
 
-    gTelephonyMessenger.notifyNewCall();
+    lazy.gTelephonyMessenger.notifyNewCall();
   },
 
   /**
@@ -3369,7 +3361,7 @@ TelephonyService.prototype = {
     if (
       aCalls.some(call => call.state == nsITelephonyService.CALL_STATE_DIALING)
     ) {
-      gTelephonyMessenger.notifyNewCall();
+      lazy.gTelephonyMessenger.notifyNewCall();
     }
 
     let allInfo = aCalls.map(call => new TelephonyCallInfo(call));
@@ -3486,7 +3478,11 @@ TelephonyService.prototype = {
       return;
     }
 
-    gTelephonyMessenger.notifyUssdReceived(aClientId, aMessage, aSessionEnded);
+    lazy.gTelephonyMessenger.notifyUssdReceived(
+      aClientId,
+      aMessage,
+      aSessionEnded
+    );
   },
 
   /**
@@ -3574,14 +3570,16 @@ TelephonyService.prototype = {
       case NS_XPCOM_SHUTDOWN_OBSERVER_ID:
         // Release the CPU wake lock for handling the incoming call.
         this._releaseCallRingWakeLock();
-        gAudioService.unregisterListener(this);
+        lazy.gAudioService.unregisterListener(this);
         Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
         Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
         Services.prefs.removeObserver(kPrefDefaultServiceId, this);
         Services.prefs.removeObserver(kPrefTwoDigitShortCodes, this);
 
         for (let i = 0; i < this._mobileConnListeners.length; i++) {
-          let connection = gGonkMobileConnectionService.getItemByServiceId(i);
+          let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
+            i
+          );
           connection.unregisterListener(this._mobileConnListeners[i]);
         }
         this._mobileConnListeners = [];
@@ -3594,7 +3592,7 @@ TelephonyService.prototype = {
     if (DEBUG) {
       debug("_isIms: " + aClientId);
     }
-    let imsHandler = gImsRegService.getHandlerByServiceId(aClientId);
+    let imsHandler = lazy.gImsRegService.getHandlerByServiceId(aClientId);
     if (!imsHandler) {
       if (DEBUG) {
         debug("_isIms no imsHandler ");
@@ -3634,7 +3632,7 @@ TelephonyService.prototype = {
       () => {
         self._isDialing = false;
         if (DEBUG) {
-          console.log("_dialImsCall success");
+          lazy.console.log("_dialImsCall success");
         }
         self._ongoingDial = {
           clientId: aClientId,
@@ -3647,7 +3645,7 @@ TelephonyService.prototype = {
       aError => {
         self._isDialing = false;
         if (DEBUG) {
-          console.log("_dialImsCall error: " + aError);
+          lazy.console.log("_dialImsCall error: " + aError);
         }
         aCallback.notifyError(aError);
       }
@@ -3662,16 +3660,16 @@ TelephonyService.prototype = {
       if (!IMS_ENABLED) {
         return;
       }
-      let imsPhone = gImsPhoneService.getPhoneByServiceId(index);
+      let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(index);
       this._imsPhones.push(imsPhone);
     }
   },
 
   _answerImsPhone(aClientId, aCallIndex, aType, aRttMode, aCallback) {
     if (DEBUG) {
-      console.log("_answerImsPhone: " + aCallIndex);
+      lazy.console.log("_answerImsPhone: " + aCallIndex);
     }
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.answerCall(
       aCallIndex,
       aType,
@@ -3682,11 +3680,11 @@ TelephonyService.prototype = {
 
   _rejectImsCall(aClientId, aCallIndex, aReason, aCallback) {
     if (DEBUG) {
-      console.log("_rejectImsCall: " + aCallIndex);
+      lazy.console.log("_rejectImsCall: " + aCallIndex);
     }
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     if (DEBUG) {
-      console.log("_rejectImsCall with phone: " + imsPhone);
+      lazy.console.log("_rejectImsCall with phone: " + imsPhone);
     }
     imsPhone.rejectCall(
       aCallIndex,
@@ -3697,9 +3695,9 @@ TelephonyService.prototype = {
 
   _hangupImsCall(aClientId, aCallIndex, aReason, aCallback) {
     if (DEBUG) {
-      console.log("_hangupImsCall: " + aCallIndex);
+      lazy.console.log("_hangupImsCall: " + aCallIndex);
     }
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.hangupCall(
       aCallIndex,
       aReason,
@@ -3714,7 +3712,7 @@ TelephonyService.prototype = {
         aCallback(aCause);
       },
     };
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.getFailCause(callback);
   },
 
@@ -3737,7 +3735,7 @@ TelephonyService.prototype = {
         aCallback.notifyError(aError);
       },
     };
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.sendDtmf(aDtmfChar, callback);
   },
 
@@ -3746,7 +3744,7 @@ TelephonyService.prototype = {
       debug("_startTone");
     }
 
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.startDtmf(aDtmfChar);
   },
 
@@ -3754,7 +3752,7 @@ TelephonyService.prototype = {
     if (DEBUG) {
       debug("_stopImsTone");
     }
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.stopDtmf();
   },
 
@@ -3785,12 +3783,12 @@ TelephonyService.prototype = {
   },
 
   _hangUpImsForeground(aClientId, aCallback) {
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.hangupForeground(this._createSimpleImsCallback(aCallback));
   },
 
   _hangUpImsBackground(aClientId, aCallback) {
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsPhone = lazy.gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.hangupBackground(this._createSimpleImsCallback(aCallback));
   },
 
@@ -3826,7 +3824,7 @@ TelephonyService.prototype = {
       return false;
     }
 
-    return ALWAYS_TRY_IMS_FOR_EMERGENCY && gImsRegService.isServiceReady();
+    return ALWAYS_TRY_IMS_FOR_EMERGENCY && lazy.gImsRegService.isServiceReady();
   },
 };
 

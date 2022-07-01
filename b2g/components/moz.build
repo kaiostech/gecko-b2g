@@ -17,9 +17,6 @@ EXTRA_COMPONENTS += [
     "FilePicker.js",
     "HelperAppDialog.js",
     "KillSwitch.js",
-    "MailtoProtocolHandler.js",
-    "SmsProtocolHandler.js",
-    "TelProtocolHandler.js",
 ]
 
 if CONFIG["MOZ_PRESENTATION"]:
@@ -60,6 +57,7 @@ EXTRA_JS_MODULES += [
     "ErrorPage.jsm",
     "GeckoBridge.jsm",
     "KillSwitchMain.jsm",
+    "MailtoProtocolHandler.jsm",
     "MultiscreenHandler.jsm",
     "OrientationChangeHandler.jsm",
     "PermissionsInstaller.jsm",
@@ -70,6 +68,8 @@ EXTRA_JS_MODULES += [
     "ServiceWorkerAssistant.jsm",
     "SettingsPrefsSync.jsm",
     "ShareDelegate.jsm",
+    "SmsProtocolHandler.jsm",
+    "TelProtocolHandler.jsm",
     "TelURIParser.jsm",
 ]
 

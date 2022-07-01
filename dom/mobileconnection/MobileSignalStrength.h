@@ -15,7 +15,7 @@ class MobileSignalStrength final : public nsIMobileSignalStrength {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILESIGNALSTRENGTH
 
-  explicit MobileSignalStrength() {};
+  explicit MobileSignalStrength(){};
 
   explicit MobileSignalStrength(
       const int16_t& aLevel, const int16_t& aGsmSignalStrength,
@@ -29,7 +29,7 @@ class MobileSignalStrength final : public nsIMobileSignalStrength {
   void Update(nsIMobileSignalStrength* aInfo);
 
  private:
-  ~MobileSignalStrength() {};
+  ~MobileSignalStrength(){};
 
   int16_t mLevel;
 

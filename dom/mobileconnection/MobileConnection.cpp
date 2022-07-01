@@ -384,7 +384,8 @@ MobileConnection::GetDeviceIdentities() {
   return domIdentities.forget();
 }
 
-already_AddRefed<DOMMobileSignalStrength> MobileConnection::SignalStrength() const {
+already_AddRefed<DOMMobileSignalStrength> MobileConnection::SignalStrength()
+    const {
   if (!mMobileConnection) {
     return nullptr;
   }
@@ -1012,7 +1013,8 @@ already_AddRefed<DOMRequest> MobileConnection::SetRadioEnabled(
   return request.forget();
 }
 
-already_AddRefed<DOMRequest> MobileConnection::StopNetworkScan(ErrorResult& aRv) {
+already_AddRefed<DOMRequest> MobileConnection::StopNetworkScan(
+    ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -1091,8 +1093,8 @@ MobileConnection::NotifyCFStateChanged(unsigned short aAction,
   init.mTimeSeconds = aSeconds;
   init.mServiceClass = aServiceClass;
 
-  RefPtr<CFStateChangeEvent> event = CFStateChangeEvent::Constructor(
-      this, u"cfstatechange"_ns, init);
+  RefPtr<CFStateChangeEvent> event =
+      CFStateChangeEvent::Constructor(this, u"cfstatechange"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1126,8 +1128,8 @@ MobileConnection::NotifyOtaStatusChanged(const nsAString& aStatus) {
   init.mCancelable = false;
   init.mStatus = aStatus;
 
-  RefPtr<OtaStatusEvent> event = OtaStatusEvent::Constructor(
-      this, u"otastatuschange"_ns, init);
+  RefPtr<OtaStatusEvent> event =
+      OtaStatusEvent::Constructor(this, u"otastatuschange"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1152,8 +1154,8 @@ MobileConnection::NotifyClirModeChanged(uint32_t aMode) {
   init.mCancelable = false;
   init.mMode = aMode;
 
-  RefPtr<ClirModeEvent> event = ClirModeEvent::Constructor(
-      this, u"clirmodechange"_ns, init);
+  RefPtr<ClirModeEvent> event =
+      ClirModeEvent::Constructor(this, u"clirmodechange"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1199,8 +1201,8 @@ MobileConnection::NotifyModemRestart(const nsAString& aReason) {
   ModemRestartEventInit init;
   init.mReason = aReason;
 
-  RefPtr<ModemRestartEvent> event = ModemRestartEvent::Constructor(
-      this, u"modemrestart"_ns, init);
+  RefPtr<ModemRestartEvent> event =
+      ModemRestartEvent::Constructor(this, u"modemrestart"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1228,8 +1230,8 @@ MobileConnection::NotifyIccInfoChanged() {
     return NS_OK;
   }
 
-  RefPtr<AsyncEventDispatcher> asyncDispatcher = new AsyncEventDispatcher(
-      this, u"iccchange"_ns, CanBubble::eNo);
+  RefPtr<AsyncEventDispatcher> asyncDispatcher =
+      new AsyncEventDispatcher(this, u"iccchange"_ns, CanBubble::eNo);
 
   return asyncDispatcher->PostDOMEvent();
 }

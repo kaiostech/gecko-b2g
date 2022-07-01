@@ -14,9 +14,7 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
-  return ChromeUtils.import("resource://gre/modules/ril_consts.js");
-});
+const RIL = ChromeUtils.import("resource://gre/modules/ril_consts.js");
 
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
@@ -131,42 +129,44 @@ CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_ANONYMOUS_INCOMING] =
 // TODO: Customization for rsrp/rssnr range.
 const rsrp_thresh = [-140, -128, -118, -108, -98, -44];
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionMessenger",
   "@mozilla.org/ril/system-messenger-helper;1",
   "nsIMobileConnectionMessenger"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkManager",
   "@mozilla.org/network/manager;1",
   "nsINetworkManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gDataCallManager",
   "@mozilla.org/datacall/manager;1",
   "nsIDataCallManager"
 );
 
 XPCOMUtils.defineLazyModuleGetter(
-  this,
+  lazy,
   "gTelephonyUtils",
   "resource://gre/modules/TelephonyUtils.jsm",
   "TelephonyUtils"
 );
 
-XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function() {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -175,28 +175,28 @@ XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gImsRegService",
   "@mozilla.org/mobileconnection/imsregservice;1",
   "nsIImsRegService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gCustomizationInfo",
   "@kaiostech.com/customizationinfo;1",
   "nsICustomizationInfo"
 );
 
 XPCOMUtils.defineLazyModuleGetter(
-  this,
+  lazy,
   "gPhoneNumberUtils",
   "resource://gre/modules/PhoneNumberUtils.jsm",
   "PhoneNumberUtils"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gImsServiceManager",
   "@mozilla.org/b2g/imsservicemanager;1",
   "nsIImsServiceManager"
@@ -1175,7 +1175,7 @@ MobileConnectionProvider.prototype = {
    * /android/internal/telephony/cdma/CdmaServiceStateTracker.java#1573
    */
   _checkRoamingBetweenOperators(aNetworkInfo) {
-    let icc = gIccService.getIccByServiceId(this._clientId);
+    let icc = lazy.gIccService.getIccByServiceId(this._clientId);
     let iccInfo = icc ? icc.iccInfo : null;
     let operator = aNetworkInfo.network;
     let state = aNetworkInfo.state;
@@ -1323,10 +1323,9 @@ MobileConnectionProvider.prototype = {
   updateDataInfo(aNewInfo, aBatch = false) {
     // For the data connection, the `connected` flag indicates whether
     // there's an active data call. We get correct `connected` state here.
-    let active =
-      gNetworkManager &&
-      gNetworkManager.activeNetworkInfo &&
-      gNetworkManager.activeNetworkInfo.QueryInterface(Ci.nsIRilNetworkInfo);
+    let active = lazy.gNetworkManager?.activeNetworkInfo?.QueryInterface(
+      Ci.nsIRilNetworkInfo
+    );
 
     aNewInfo.connected = false;
     if (
@@ -1367,7 +1366,7 @@ MobileConnectionProvider.prototype = {
     if (
       isVoiceRegistered &&
       !isDataRegistered &&
-      this._clientId == gDataCallManager.dataDefaultServiceId
+      this._clientId == lazy.gDataCallManager.dataDefaultServiceId
     ) {
       // We have been here before, no more recovery.
       if (this._dataRegistrationFailed) {
@@ -1395,8 +1394,8 @@ MobileConnectionProvider.prototype = {
 
       this._dataRegistrationFailed = true;
       // If there is any ongoing call, wait for them to disconnect.
-      if (gTelephonyUtils.hasAnyCalls(this._clientId)) {
-        gTelephonyUtils.waitForNoCalls(this._clientId).then(() => {
+      if (lazy.gTelephonyUtils.hasAnyCalls(this._clientId)) {
+        lazy.gTelephonyUtils.waitForNoCalls(this._clientId).then(() => {
           if (this._dataRegistrationFailed) {
             this._recoverDataRegistration();
           }
@@ -2289,7 +2288,7 @@ MobileConnectionProvider.prototype = {
   exitEmergencyCbMode(aCallback) {
     if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       try {
-        let imsEcbm = gImsServiceManager.getEcbm(this._clientId);
+        let imsEcbm = lazy.gImsServiceManager.getEcbm(this._clientId);
         if (imsEcbm) {
           imsEcbm.exitEmergencyCallbackMode();
           aCallback.notifySuccess();
@@ -2674,18 +2673,18 @@ MobileConnectionProvider.prototype = {
 function MobileConnectionService() {
   this._providers = [];
 
-  let numClients = gRadioInterfaceLayer.numRadioInterfaces;
+  let numClients = lazy.gRadioInterfaceLayer.numRadioInterfaces;
   // FIXME
   debug("numClients: " + numClients);
   if (numClients < 1) {
     numClients = 1;
   }
   for (let i = 0; i < numClients; i++) {
-    let radioInterface = gRadioInterfaceLayer.getRadioInterface(i);
+    let radioInterface = lazy.gRadioInterfaceLayer.getRadioInterface(i);
 
     let imsRegHandler = null;
-    if (gImsRegService) {
-      imsRegHandler = gImsRegService.getHandlerByServiceId(i);
+    if (lazy.gImsRegService) {
+      imsRegHandler = lazy.gImsRegService.getHandlerByServiceId(i);
     }
 
     let provider = new MobileConnectionProvider(
@@ -2821,11 +2820,11 @@ MobileConnectionService.prototype = {
     try {
       shutdownPromses.push(
         this.getItemByServiceId(
-          gDataCallManager.dataDefaultServiceId
+          lazy.gDataCallManager.dataDefaultServiceId
         ).shutdownRequest()
       );
       for (let i = 0; i < this._providers.length; i++) {
-        if (i == gDataCallManager.dataDefaultServiceId) {
+        if (i == lazy.gDataCallManager.dataDefaultServiceId) {
           continue;
         }
         shutdownPromses.push(this.getItemByServiceId(i).shutdownRequest());
@@ -2945,7 +2944,7 @@ MobileConnectionService.prototype = {
 
     if (voiceMessage) {
       provider.updateVoiceInfo(voiceMessage, true);
-      gPhoneNumberUtils.updateCountryNameProperty(aClientId);
+      lazy.gPhoneNumberUtils.updateCountryNameProperty(aClientId);
     }
 
     if (dataMessage) {
@@ -2988,8 +2987,8 @@ MobileConnectionService.prototype = {
       provider._operatorInfo.mcc + provider._operatorInfo.mnc;
     let numericArray = [];
 
-    if (gCustomizationInfo) {
-      numericArray = gCustomizationInfo.getCustomizedValue(
+    if (lazy.gCustomizationInfo) {
+      numericArray = lazy.gCustomizationInfo.getCustomizedValue(
         aClientId,
         "roamingOperatorStringArray",
         []
@@ -3010,7 +3009,7 @@ MobileConnectionService.prototype = {
   },
 
   _isSameNamedOperators(aClientId, provider) {
-    let icc = gIccService.getIccByServiceId(aClientId);
+    let icc = lazy.gIccService.getIccByServiceId(aClientId);
     let iccInfo = icc ? icc.iccInfo : null;
 
     if (!iccInfo) {
@@ -3036,8 +3035,8 @@ MobileConnectionService.prototype = {
       provider._operatorInfo.mcc + provider._operatorInfo.mnc;
     let numericArray = [];
 
-    if (gCustomizationInfo) {
-      numericArray = gCustomizationInfo.getCustomizedValue(
+    if (lazy.gCustomizationInfo) {
+      numericArray = lazy.gCustomizationInfo.getCustomizedValue(
         aClientId,
         "nonRoamingOperatorStringArray",
         []
@@ -3148,7 +3147,10 @@ MobileConnectionService.prototype = {
   },
 
   notifyCdmaInfoRecDisplay(aClientId, aDisplay) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecDisplay(aClientId, aDisplay);
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecDisplay(
+      aClientId,
+      aDisplay
+    );
   },
 
   notifyCdmaInfoRecCalledPartyNumber(
@@ -3159,7 +3161,7 @@ MobileConnectionService.prototype = {
     aPi,
     aSi
   ) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecCalledPartyNumber(
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecCalledPartyNumber(
       aClientId,
       aType,
       aPlan,
@@ -3177,7 +3179,7 @@ MobileConnectionService.prototype = {
     aPi,
     aSi
   ) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecCallingPartyNumber(
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecCallingPartyNumber(
       aClientId,
       aType,
       aPlan,
@@ -3195,7 +3197,7 @@ MobileConnectionService.prototype = {
     aPi,
     aSi
   ) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecConnectedPartyNumber(
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecConnectedPartyNumber(
       aClientId,
       aType,
       aPlan,
@@ -3206,7 +3208,7 @@ MobileConnectionService.prototype = {
   },
 
   notifyCdmaInfoRecSignal(aClientId, aType, aAlertPitch, aSignal) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecSignal(
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecSignal(
       aClientId,
       aType,
       aAlertPitch,
@@ -3223,7 +3225,7 @@ MobileConnectionService.prototype = {
     aSi,
     aReason
   ) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecRedirectingNumber(
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecRedirectingNumber(
       aClientId,
       aType,
       aPlan,
@@ -3241,7 +3243,7 @@ MobileConnectionService.prototype = {
     aReverse,
     aPowerDenial
   ) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecLineControl(
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecLineControl(
       aClientId,
       aPolarityIncluded,
       aToggle,
@@ -3251,11 +3253,11 @@ MobileConnectionService.prototype = {
   },
 
   notifyCdmaInfoRecClir(aClientId, aCause) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecClir(aClientId, aCause);
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecClir(aClientId, aCause);
   },
 
   notifyCdmaInfoRecAudioControl(aClientId, aUpLink, aDownLink) {
-    gMobileConnectionMessenger.notifyCdmaInfoRecAudioControl(
+    lazy.gMobileConnectionMessenger.notifyCdmaInfoRecAudioControl(
       aClientId,
       aUpLink,
       aDownLink

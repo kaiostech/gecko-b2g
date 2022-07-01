@@ -19,7 +19,7 @@ NS_IMETHODIMP FallbackImsRegService::GetHandlerByServiceId(
   return NS_OK;
 }
 
-NS_IMETHODIMP FallbackImsRegService::IsServiceReady(bool *retval) {
+NS_IMETHODIMP FallbackImsRegService::IsServiceReady(bool* retval) {
   *retval = false;
   return NS_OK;
 }

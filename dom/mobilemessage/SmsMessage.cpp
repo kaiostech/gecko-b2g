@@ -26,9 +26,8 @@ SmsMessage::SmsMessage(nsPIDOMWindowInner* aWindow,
 
 SmsMessage::~SmsMessage() {}
 
-JSObject*
-SmsMessage::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* SmsMessage::WrapObject(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto) {
   return SmsMessage_Binding::Wrap(aCx, this, aGivenProto);
 }
 

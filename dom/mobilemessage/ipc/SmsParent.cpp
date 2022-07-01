@@ -149,8 +149,7 @@ static bool GetMobileMessageDataFromMessage(nsISupports* aMsg,
   nsCOMPtr<nsIMmsMessage> mmsMsg = do_QueryInterface(aMsg);
   if (mmsMsg) {
     MmsMessageData data;
-    if (!static_cast<MmsMessageInternal*>(mmsMsg.get())
-             ->GetData(data)) {
+    if (!static_cast<MmsMessageInternal*>(mmsMsg.get())->GetData(data)) {
       return false;
     }
     aData = data;
@@ -374,8 +373,8 @@ IPCResult SmsParent::RecvRemoveSilentNumber(const nsString& aNumber) {
   return IPC_OK();
 }
 
-IPCResult SmsParent::RecvPSmsRequestConstructor(
-    PSmsRequestParent* aActor, const IPCSmsRequest& aRequest) {
+IPCResult SmsParent::RecvPSmsRequestConstructor(PSmsRequestParent* aActor,
+                                                const IPCSmsRequest& aRequest) {
   SmsRequestParent* actor = static_cast<SmsRequestParent*>(aActor);
 
   switch (aRequest.type()) {

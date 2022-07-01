@@ -4,10 +4,6 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
 var WAP_CONSTS = ChromeUtils.import("resource://gre/modules/wap_consts.js");
 
 var DEBUG = false; // set to true to see debug messages
@@ -18,29 +14,17 @@ const CR = 13;
 const LF = 10;
 const SP = 32;
 const HT = 9;
-const DQUOTE = 34;
 const DEL = 127;
 const QUOTE = 127;
-
-XPCOMUtils.defineConstant(this, "NUL", NUL);
-XPCOMUtils.defineConstant(this, "CR", CR);
-XPCOMUtils.defineConstant(this, "LF", LF);
-XPCOMUtils.defineConstant(this, "SP", SP);
-XPCOMUtils.defineConstant(this, "HT", HT);
-XPCOMUtils.defineConstant(this, "DQUOTE", DQUOTE);
-XPCOMUtils.defineConstant(this, "DEL", DEL);
 
 // Special ASCII character ranges
 const CTLS = 32;
 const ASCIIS = 128;
 
-XPCOMUtils.defineConstant(this, "CTLS", CTLS);
-XPCOMUtils.defineConstant(this, "ASCIIS", ASCIIS);
-
 /**
  * Error class for generic encoding/decoding failures.
  */
-this.CodeError = function CodeError(message) {
+const CodeError = function CodeError(message) {
   this.name = "CodeError";
   this.message = message || "Invalid format";
 };
@@ -70,7 +54,7 @@ NullCharError.prototype.constructor = NullCharError;
  * @param message [optional]
  *        A short description for the error.
  */
-this.FatalCodeError = function FatalCodeError(message) {
+const FatalCodeError = function FatalCodeError(message) {
   this.name = "FatalCodeError";
   this.message = message || "Decoding fails";
 };
@@ -90,7 +74,7 @@ FatalCodeError.prototype.constructor = FatalCodeError;
  * @param message [optional]
  *        A short description for the error.
  */
-this.NotWellKnownEncodingError = function NotWellKnownEncodingError(message) {
+const NotWellKnownEncodingError = function NotWellKnownEncodingError(message) {
   this.name = "NotWellKnownEncodingError";
   this.message = message || "Not well known encoding";
 };
@@ -110,7 +94,7 @@ NotWellKnownEncodingError.prototype.constructor = NotWellKnownEncodingError;
  *
  * @throws FatalCodeError if headers[name] is undefined.
  */
-this.ensureHeader = function ensureHeader(headers, name) {
+const ensureHeader = function ensureHeader(headers, name) {
   let value = headers[name];
   // Header field might have a null value as NoValue
   if (value === undefined) {
@@ -144,7 +128,7 @@ this.ensureHeader = function ensureHeader(headers, name) {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.1.2
  */
-this.skipValue = function skipValue(data) {
+const skipValue = function skipValue(data) {
   let begin = data.offset;
   let value = Octet.decode(data);
   if (value <= 31) {
@@ -179,7 +163,7 @@ this.skipValue = function skipValue(data) {
  *
  * @return Decoded value.
  */
-this.decodeAlternatives = function decodeAlternatives(data, options) {
+const decodeAlternatives = function decodeAlternatives(data, options) {
   let begin = data.offset;
   for (let i = 2; i < arguments.length; i++) {
     try {
@@ -206,7 +190,7 @@ this.decodeAlternatives = function decodeAlternatives(data, options) {
  * @param options
  *        Extra context for encoding.
  */
-this.encodeAlternatives = function encodeAlternatives(data, value, options) {
+const encodeAlternatives = function encodeAlternatives(data, value, options) {
   let begin = data.offset;
   for (let i = 3; i < arguments.length; i++) {
     try {
@@ -223,7 +207,7 @@ this.encodeAlternatives = function encodeAlternatives(data, value, options) {
   }
 };
 
-this.Octet = {
+const Octet = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -330,7 +314,7 @@ this.Octet = {
  *
  * @see RFC 2616 clause 2.2 Basic Rules
  */
-this.Text = {
+const Text = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -423,7 +407,7 @@ this.Text = {
   },
 };
 
-this.NullTerminatedTexts = {
+const NullTerminatedTexts = {
   /**
    * Decode internal referenced null terminated text string.
    *
@@ -472,7 +456,7 @@ this.NullTerminatedTexts = {
  *
  * @see RFC 2616 clause 2.2 Basic Rules
  */
-this.Token = {
+const Token = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -564,7 +548,7 @@ this.Token = {
  *
  * @see RFC 2396 Uniform Resource Indentifiers (URI)
  */
-this.URIC = {
+const URIC = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -608,7 +592,7 @@ this.URIC = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.1
  */
-this.TextString = {
+const TextString = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -676,7 +660,7 @@ this.TextString = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.1
  */
-this.TokenText = {
+const TokenText = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -722,7 +706,7 @@ this.TokenText = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.1
  */
-this.QuotedString = {
+const QuotedString = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -761,7 +745,7 @@ this.QuotedString = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.1
  */
-this.ShortInteger = {
+const ShortInteger = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -807,7 +791,7 @@ this.ShortInteger = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.1
  */
-this.LongInteger = {
+const LongInteger = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -889,7 +873,7 @@ this.LongInteger = {
 /**
  * @see WAP-230-WSP-20010705-a clause 8.4.2.1
  */
-this.UintVar = {
+const UintVar = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -944,7 +928,7 @@ this.UintVar = {
  * @see WAP-230-WSP-20010705-a clause 8.4.2.1
  * @see https://bugzilla.mozilla.org/show_bug.cgi?id=823816
  */
-this.ConstrainedEncoding = {
+const ConstrainedEncoding = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -978,7 +962,7 @@ this.ConstrainedEncoding = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.2
  */
-this.ValueLength = {
+const ValueLength = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1020,7 +1004,7 @@ this.ValueLength = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.3
  */
-this.NoValue = {
+const NoValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1051,7 +1035,7 @@ this.NoValue = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.3
  */
-this.TextValue = {
+const TextValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1091,7 +1075,7 @@ this.TextValue = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.3
  */
-this.IntegerValue = {
+const IntegerValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1127,7 +1111,7 @@ this.IntegerValue = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.3
  */
-this.DateValue = {
+const DateValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1170,7 +1154,7 @@ this.DateValue = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.3
  */
-this.DeltaSecondsValue = IntegerValue;
+const DeltaSecondsValue = IntegerValue;
 
 /**
  * Quality factor 0 and quality factors with one or two decimal digits are
@@ -1180,7 +1164,7 @@ this.DeltaSecondsValue = IntegerValue;
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.3
  */
-this.QValue = {
+const QValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1236,7 +1220,7 @@ this.QValue = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.3
  */
-this.VersionValue = {
+const VersionValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1301,7 +1285,7 @@ this.VersionValue = {
  * @see WAP-230-WSP-20010705-a clause 8.4.2.3
  * @see RFC 2616 clause 2.2 Basic Rules
  */
-this.UriValue = {
+const UriValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1331,7 +1315,7 @@ this.UriValue = {
  *
  * @see WAP-230-WSP-20010705-a table 38
  */
-this.TypeValue = {
+const TypeValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1393,7 +1377,7 @@ this.TypeValue = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.4
  */
-this.Parameter = {
+const Parameter = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1606,7 +1590,7 @@ this.Parameter = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.6
  */
-this.Header = {
+const Header = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1657,7 +1641,7 @@ this.Header = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.6
  */
-this.WellKnownHeader = {
+const WellKnownHeader = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1730,7 +1714,7 @@ this.WellKnownHeader = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.6
  */
-this.ApplicationHeader = {
+const ApplicationHeader = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1789,7 +1773,7 @@ this.ApplicationHeader = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.6
  */
-this.FieldName = {
+const FieldName = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1842,7 +1826,7 @@ this.FieldName = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.8
  */
-this.AcceptCharsetValue = {
+const AcceptCharsetValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -1958,7 +1942,7 @@ this.AcceptCharsetValue = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.8
  */
-this.WellKnownCharset = {
+const WellKnownCharset = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -2034,7 +2018,7 @@ this.WellKnownCharset = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.24
  */
-this.ContentTypeValue = {
+const ContentTypeValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -2225,7 +2209,7 @@ this.ContentTypeValue = {
  *
  * @see WAP-230-WSP-20010705-a clause 8.4.2.54
  */
-this.ApplicationIdValue = {
+const ApplicationIdValue = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -2264,7 +2248,7 @@ this.ApplicationIdValue = {
   },
 };
 
-this.PduHelper = {
+const PduHelper = {
   /**
    * @param data
    *        A UInt8Array of data for decode.
@@ -2608,7 +2592,7 @@ this.PduHelper = {
 //       Deprecated items should only be supported for backward compatibility
 //       purpose.
 // @see WAP-230-WSP-20010705-a Appendix A. Assigned Numbers.
-this.WSP_HEADER_FIELDS = (function() {
+const WSP_HEADER_FIELDS = (function() {
   let names = {};
   function add(name, number, coder) {
     let entry = {
@@ -2704,7 +2688,7 @@ this.WSP_HEADER_FIELDS = (function() {
 
 // WSP Content Type Assignments
 // @see http://www.openmobilealliance.org/tech/omna/omna-wsp-content-type.aspx
-this.WSP_WELL_KNOWN_CONTENT_TYPES = (function() {
+const WSP_WELL_KNOWN_CONTENT_TYPES = (function() {
   let types = {};
 
   function add(type, number) {
@@ -2831,7 +2815,7 @@ this.WSP_WELL_KNOWN_CONTENT_TYPES = (function() {
 // Note: Items commented out are either deprecated or not implemented.
 //       Deprecated items should not be used.
 // @see WAP-230-WSP-20010705-a Appendix A. Assigned Numbers.
-this.WSP_WELL_KNOWN_PARAMS = (function() {
+const WSP_WELL_KNOWN_PARAMS = (function() {
   let params = {};
 
   function add(name, number, coder) {
@@ -2886,7 +2870,7 @@ this.WSP_WELL_KNOWN_PARAMS = (function() {
 // WSP Character Set Assignments
 // @see WAP-230-WSP-20010705-a Appendix A. Assigned Numbers.
 // @see http://www.iana.org/assignments/character-sets
-this.WSP_WELL_KNOWN_CHARSETS = (function() {
+const WSP_WELL_KNOWN_CHARSETS = (function() {
   let charsets = {};
 
   function add(name, number, converter) {
@@ -2933,7 +2917,7 @@ this.WSP_WELL_KNOWN_CHARSETS = (function() {
 
 // OMNA PUSH Application ID
 // @see http://www.openmobilealliance.org/tech/omna/omna-push-app-id.aspx
-this.OMNA_PUSH_APPLICATION_IDS = (function() {
+const OMNA_PUSH_APPLICATION_IDS = (function() {
   let ids = {};
 
   function add(urn, number) {

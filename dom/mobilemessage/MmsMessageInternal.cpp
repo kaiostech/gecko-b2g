@@ -389,8 +389,7 @@ bool MmsMessageInternal::GetData(MmsMessageData& aData) {
     //  }
     //}
     IPCBlob ipcBlob;
-    nsresult rv =
-        IPCBlobUtils::Serialize(element.mContent->Impl(), ipcBlob);
+    nsresult rv = IPCBlobUtils::Serialize(element.mContent->Impl(), ipcBlob);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }
@@ -481,7 +480,7 @@ MmsMessageInternal::GetSender(nsAString& aSender) {
 NS_IMETHODIMP
 MmsMessageInternal::GetReceivers(JSContext* aCx,
                                  JS::MutableHandle<JS::Value> aReceivers) {
-  if(!ToJSValue(aCx, mReceivers, aReceivers)) {
+  if (!ToJSValue(aCx, mReceivers, aReceivers)) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;

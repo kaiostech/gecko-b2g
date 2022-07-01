@@ -290,8 +290,7 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
     MmsAttachmentData mmsAttachment;
     mmsAttachment.id().Assign(attachment.mId);
     mmsAttachment.location().Assign(attachment.mLocation);
-    nsresult rv =
-        IPCBlobUtils::Serialize(attachment.mContent->Impl(), ipcBlob);
+    nsresult rv = IPCBlobUtils::Serialize(attachment.mContent->Impl(), ipcBlob);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }
@@ -299,7 +298,7 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
     request.attachments().AppendElement(mmsAttachment);
   }
 
-  //always have smil to prevent compatibility issue with different carriers
+  // always have smil to prevent compatibility issue with different carriers
   if (!params.mSmil.Length()) {
     return false;
   }

@@ -65,7 +65,8 @@ IPCResult SmsChild::RecvNotifyReceivedMessage(const MobileMessageData& aData) {
   return IPC_OK();
 }
 
-IPCResult SmsChild::RecvNotifyRetrievingMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyRetrievingMessage(
+    const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsRetrievingObserverTopic, aData);
   return IPC_OK();
 }
@@ -91,17 +92,20 @@ IPCResult SmsChild::RecvNotifyDeliverySuccessMessage(
   return IPC_OK();
 }
 
-IPCResult SmsChild::RecvNotifyDeliveryErrorMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyDeliveryErrorMessage(
+    const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsDeliveryErrorObserverTopic, aData);
   return IPC_OK();
 }
 
-IPCResult SmsChild::RecvNotifyReceivedSilentMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyReceivedSilentMessage(
+    const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSilentSmsReceivedObserverTopic, aData);
   return IPC_OK();
 }
 
-IPCResult SmsChild::RecvNotifyReadSuccessMessage(const MobileMessageData& aData) {
+IPCResult SmsChild::RecvNotifyReadSuccessMessage(
+    const MobileMessageData& aData) {
   NotifyObserversWithMobileMessage(kSmsReadSuccessObserverTopic, aData);
   return IPC_OK();
 }
@@ -162,8 +166,7 @@ void SmsRequestChild::ActorDestroy(ActorDestroyReason aWhy) {
   // Nothing needed here.
 }
 
-IPCResult SmsRequestChild::Recv__delete__(
-    const MessageReply& aReply) {
+IPCResult SmsRequestChild::Recv__delete__(const MessageReply& aReply) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mReplyRequest);
   switch (aReply.type()) {
@@ -282,8 +285,7 @@ IPCResult MobileMessageCursorChild::RecvNotifyResult(
   return IPC_OK();
 }
 
-IPCResult MobileMessageCursorChild::Recv__delete__(
-    const int32_t& aError) {
+IPCResult MobileMessageCursorChild::Recv__delete__(const int32_t& aError) {
   MOZ_ASSERT(mCursorCallback);
 
   if (aError != nsIMobileMessageCallback::SUCCESS_NO_ERROR) {

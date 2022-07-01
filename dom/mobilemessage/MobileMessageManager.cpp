@@ -361,7 +361,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::Delete(
       id = element.GetAsLong();
     } else if (element.IsMmsMessage()) {
       id = element.GetAsMmsMessage()->Id();
-    } else { //if (element.IsSmsMessage()) {
+    } else {  // if (element.IsSmsMessage()) {
       id = element.GetAsSmsMessage()->Id();
     }
   }

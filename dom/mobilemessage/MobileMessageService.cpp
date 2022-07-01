@@ -66,6 +66,6 @@ MobileMessageService::CreateDeletedMessageInfo(
                                     aThreadCount, aDeletedInfo);
 }
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla

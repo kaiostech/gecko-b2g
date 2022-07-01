@@ -453,7 +453,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/chrome/remote.manifest
 #endif
 @RESPATH@/components/AlertsService.js
-@RESPATH@/components/DirectoryProvider.js
 @RESPATH@/components/PaymentProviderStrategy.js
 @RESPATH@/components/RecoveryService.js
 @RESPATH@/components/MailtoProtocolHandler.js

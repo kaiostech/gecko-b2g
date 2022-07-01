@@ -58,9 +58,7 @@ function DirectoryProvider() {}
 
 DirectoryProvider.prototype = {
   classID: Components.ID("{9181eb7c-6f87-11e1-90b1-4f59d80dd2e5}"),
-
   QueryInterface: ChromeUtils.generateQI([Ci.nsIDirectoryServiceProvider]),
-  _xpcom_factory: ComponentUtils.generateSingletonFactory(DirectoryProvider),
 
   _profD: null,
 
@@ -273,4 +271,4 @@ DirectoryProvider.prototype = {
   },
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([DirectoryProvider]);
+const EXPORTED_SYMBOLS = ["DirectoryProvider"];

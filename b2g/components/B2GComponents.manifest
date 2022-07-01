@@ -5,11 +5,6 @@ category agent-style-sheets browser-content-stylesheet chrome://b2g/content/cont
 component {fe33c107-82a4-41d6-8c64-5353267e04c9} AlertsService.js
 contract @mozilla.org/system-alerts-service;1 {fe33c107-82a4-41d6-8c64-5353267e04c9}
 
-# DirectoryProvider.js
-component {9181eb7c-6f87-11e1-90b1-4f59d80dd2e5} DirectoryProvider.js
-contract @mozilla.org/b2g/directory-provider;1 {9181eb7c-6f87-11e1-90b1-4f59d80dd2e5}
-category xpcom-directory-providers b2g-directory-provider @mozilla.org/b2g/directory-provider;1
-
 # TelProtocolHandler.js
 component {782775dd-7351-45ea-aff1-0ffa872cfdd2} TelProtocolHandler.js
 contract @mozilla.org/network/protocol;1?name=tel {782775dd-7351-45ea-aff1-0ffa872cfdd2}

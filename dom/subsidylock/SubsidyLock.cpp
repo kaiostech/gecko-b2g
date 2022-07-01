@@ -35,7 +35,6 @@ NS_INTERFACE_MAP_END
 
 SubsidyLock::SubsidyLock(nsPIDOMWindowInner* aWindow, uint32_t aClientId)
     : mClientId(aClientId), mWindow(aWindow) {
-
   nsCOMPtr<nsISubsidyLockService> service =
       do_GetService(NS_SUBSIDY_LOCK_SERVICE_CONTRACTID);
 

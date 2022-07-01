@@ -12,19 +12,9 @@ DIRS += [
     "virtualcursor",
 ]
 
-if CONFIG["MOZ_PRESENTATION"]:
-    EXTRA_COMPONENTS += [
-        "B2GPresentationDevicePrompt.js",
-        "PresentationRequestUIGlue.js",
-    ]
-
 if CONFIG["MOZ_WIDGET_TOOLKIT"] != "gonk" and CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
     EXTRA_JS_MODULES += ["CommandLine.jsm"]
     EXTRA_COMPONENTS += ["SimulatorScreen.js"]
-
-EXTRA_PP_COMPONENTS += [
-    "B2GComponents.manifest",
-]
 
 if CONFIG["MOZ_UPDATER"]:
     EXTRA_COMPONENTS += [

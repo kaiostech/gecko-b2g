@@ -447,15 +447,9 @@ bin/libfreebl_32int64_3.so
 #endif
 @RESPATH@/chrome/chrome@JAREXT@
 @RESPATH@/chrome/chrome.manifest
-@RESPATH@/components/B2GComponents.manifest
 #if defined(ENABLE_WEBDRIVER) || !defined(MOZ_WIDGET_GONK)
 @RESPATH@/chrome/remote@JAREXT@
 @RESPATH@/chrome/remote.manifest
-#endif
-@RESPATH@/components/PaymentProviderStrategy.js
-#ifdef MOZ_PRESENTATION
-@RESPATH@/components/B2GPresentationDevicePrompt.js
-@RESPATH@/components/PresentationRequestUIGlue.js
 #endif
 
 #ifndef MOZ_WIDGET_GONK

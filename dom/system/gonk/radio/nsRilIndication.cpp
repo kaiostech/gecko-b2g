@@ -298,10 +298,9 @@ Return<void> nsRilIndication::newBroadcastSms(
   uint32_t size = data.size();
 
   nsTArray<int32_t> aData;
-  for(uint32_t i=0; i<size; i++)
-    {
-      aData.AppendElement(data[i]);
-    }
+  for (uint32_t i = 0; i < size; i++) {
+    aData.AppendElement(data[i]);
+  }
   result->updateNewBroadcastSms(aData);
 
   mRIL->sendRilIndicationResult(result);

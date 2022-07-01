@@ -15,7 +15,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["PhoneNumberUtils"];
+const EXPORTED_SYMBOLS = ["PhoneNumberUtils"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
@@ -33,21 +33,23 @@ var RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );
 
+const lazy = {};
+
 ChromeUtils.defineModuleGetter(
-  this,
+  lazy,
   "MCC_ISO3166_TABLE",
   "resource://gre/modules/mcc_iso3166_table.jsm"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
@@ -111,7 +113,7 @@ function updateDebugFlag() {
 }
 updateDebugFlag();
 
-this.PhoneNumberUtils = {
+const PhoneNumberUtils = {
   normalize(aNumber, numbersOnly) {
     if (typeof aNumber !== "string") {
       return "";
@@ -223,7 +225,9 @@ this.PhoneNumberUtils = {
     let countryName;
 
     // Get network mcc
-    let connection = gMobileConnectionService.getItemByServiceId(aClientId);
+    let connection = lazy.gMobileConnectionService.getItemByServiceId(
+      aClientId
+    );
     let voice = connection && connection.voice;
     if (voice && voice.network && voice.network.mcc) {
       mcc = voice.network.mcc;
@@ -233,7 +237,7 @@ this.PhoneNumberUtils = {
     }
 
     // Get SIM mcc
-    let icc = gIccService.getIccByServiceId(aClientId);
+    let icc = lazy.gIccService.getIccByServiceId(aClientId);
     let iccInfo = icc && icc.iccInfo;
     if (!mcc && iccInfo && iccInfo.mcc) {
       mcc = iccInfo.mcc;
@@ -252,7 +256,7 @@ this.PhoneNumberUtils = {
       } catch (e) {}
     }
 
-    countryName = MCC_ISO3166_TABLE[mcc] || this.defaultCountryCode();
+    countryName = lazy.MCC_ISO3166_TABLE[mcc] || this.defaultCountryCode();
 
     if (DEBUG) {
       debug("MCC: " + mcc + " countryName: " + countryName);

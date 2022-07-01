@@ -26,22 +26,24 @@ var RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gTime",
   "@mozilla.org/sidl-native/time;1",
   "nsITime"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkManager",
   "@mozilla.org/network/manager;1",
   "nsINetworkManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSettingsManager",
   "@mozilla.org/sidl-native/settings;1",
   "nsISettingsManager"
@@ -116,12 +118,12 @@ function NetworkTimeService() {
     Services.prefs.getIntPref("network.sntp.port")
   );
 
-  if (gSettingsManager) {
+  if (lazy.gSettingsManager) {
     // Read the "time.clock.automatic-update.enabled" setting to see if
     // we need to adjust the system clock time by NITZ or SNTP.
     // Read the "time.timezone.automatic-update.enabled" setting to see if
     // we need to adjust the system timezone by NITZ.
-    gSettingsManager.getBatch(
+    lazy.gSettingsManager.getBatch(
       [
         kSettingsClockAutoUpdateEnabled,
         kSettingsTimezoneAutoUpdateEnabled,
@@ -219,8 +221,8 @@ NetworkTimeService.prototype = {
 
     // SNTP
     if (
-      gNetworkManager.activeNetworkInfo &&
-      gNetworkManager.activeNetworkInfo.state ==
+      lazy.gNetworkManager.activeNetworkInfo &&
+      lazy.gNetworkManager.activeNetworkInfo.state ==
         Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED
     ) {
       if (!this._sntp.isExpired()) {
@@ -251,8 +253,8 @@ NetworkTimeService.prototype = {
         if (this._lastNitzData[0]) {
           this.setClockByNitz(this._lastNitzData[0]);
         } else if (
-          gNetworkManager.activeNetworkInfo &&
-          gNetworkManager.activeNetworkInfo.state ==
+          lazy.gNetworkManager.activeNetworkInfo &&
+          lazy.gNetworkManager.activeNetworkInfo.state ==
             Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED
         ) {
           // Set the latest cached SNTP time if it's available.
@@ -424,7 +426,7 @@ NetworkTimeService.prototype = {
           this.debug("setClockByNitz nitzTime is invalid, skip!");
           return;
         }
-        gTime.setTime(nitzTime, this);
+        lazy.gTime.setTime(nitzTime, this);
       })
       .catch(() => {});
   },
@@ -469,7 +471,7 @@ NetworkTimeService.prototype = {
         500,
         Ci.nsITimer.TYPE_ONE_SHOT
       );
-      gTime.getElapsedRealTime(callback);
+      lazy.gTime.getElapsedRealTime(callback);
     });
   },
 
@@ -531,18 +533,18 @@ NetworkTimeService.prototype = {
       }
       return;
     }
-    gTime.setTime(Date.now() + aOffset, this);
+    lazy.gTime.setTime(Date.now() + aOffset, this);
   },
 
   _updateSetting(aKey, aValue) {
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       if (DEBUG) {
         this.debug(
           "Update setting key: " + aKey + ", value: " + JSON.stringify(aValue)
         );
       }
 
-      gSettingsManager.set(
+      lazy.gSettingsManager.set(
         [
           {
             name: aKey,
@@ -560,13 +562,13 @@ NetworkTimeService.prototype = {
   _initObservers() {
     this._initTopicObservers();
     this._initSettingsObservers();
-    gTime.addObserver(Ci.nsITime.TIME_CHANGED, this, this);
+    lazy.gTime.addObserver(Ci.nsITime.TIME_CHANGED, this, this);
   },
 
   _deinitObservers() {
     this._deinitTopicObservers();
     this._deinitSettingsObservers();
-    gTime.removeObserver(Ci.nsITime.TIME_CHANGED, this, this);
+    lazy.gTime.removeObserver(Ci.nsITime.TIME_CHANGED, this, this);
   },
 
   _initTopicObservers() {
@@ -596,7 +598,7 @@ NetworkTimeService.prototype = {
   },
 
   _addSettingsObserver(aKey) {
-    gSettingsManager.addObserver(aKey, this, {
+    lazy.gSettingsManager.addObserver(aKey, this, {
       resolve: () => {
         if (DEBUG) {
           this.debug("Add SettingObserve " + aKey + " success");
@@ -609,7 +611,7 @@ NetworkTimeService.prototype = {
   },
 
   _removeSettingsObserver(aKey) {
-    gSettingsManager.removeObserver(aKey, this, {
+    lazy.gSettingsManager.removeObserver(aKey, this, {
       resolve: () => {
         if (DEBUG) {
           this.debug("Remove SettingObserve " + aKey + " success");

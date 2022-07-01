@@ -20,7 +20,7 @@ XPIDL_SOURCES += [
     "nsIDataCallInterfaceService.idl",
     "nsIDataCallManager.idl",
     "nsIGonkDataCallInterfaceService.idl",
-    'nsINetworkTimeService.idl',
+    "nsINetworkTimeService.idl",
     "nsIRadioInterfaceLayer.idl",
     "nsIRilIndicationResult.idl",
     "nsIRilResponseResult.idl",

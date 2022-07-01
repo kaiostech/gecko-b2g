@@ -31,12 +31,13 @@ const { libcutils } = ChromeUtils.import(
 
 ChromeUtils.import("resource://gre/modules/systemlibs.js");
 
-XPCOMUtils.defineLazyGetter(this, "SIM", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "SIM", function() {
   return ChromeUtils.import("resource://gre/modules/simIOHelper.js");
 });
 
-/* global RIL */
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
   return ChromeUtils.import("resource://gre/modules/ril_consts.js");
 });
 
@@ -94,7 +95,7 @@ function debug(s) {
 }
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/gonkiccservice;1",
   "nsIGonkIccService"
@@ -105,7 +106,7 @@ XPCOMUtils.defineLazyServiceGetter(
 //                                    "nsIMobileMessageService");
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSmsService",
   "@mozilla.org/sms/gonksmsservice;1",
   "nsIGonkSmsService"
@@ -120,49 +121,49 @@ XPCOMUtils.defineLazyServiceGetter(
 //                                    "nsISystemWorkerManager");
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gTelephonyService",
   "@mozilla.org/telephony/telephonyservice;1",
   "nsIGonkTelephonyService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIGonkMobileConnectionService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gCellBroadcastService",
   "@mozilla.org/cellbroadcast/cellbroadcastservice;1",
   "nsIGonkCellBroadcastService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gStkCmdFactory",
   "@mozilla.org/icc/stkcmdfactory;1",
   "nsIStkCmdFactory"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gDataCallManager",
   "@mozilla.org/datacall/manager;1",
   "nsIDataCallManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gDataCallInterfaceService",
   "@mozilla.org/datacall/interfaceservice;1",
   "nsIGonkDataCallInterfaceService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gRilWorkerService",
   "@mozilla.org/rilworkerservice;1",
   "nsIRilWorkerService"
@@ -170,7 +171,7 @@ XPCOMUtils.defineLazyServiceGetter(
 
 if (Ci.nsIOemHook) {
   XPCOMUtils.defineLazyServiceGetter(
-    this,
+    lazy,
     "gOemHookService",
     "@mozilla.org/b2g/oemhookservice;1",
     "nsIOemHookService"
@@ -178,20 +179,20 @@ if (Ci.nsIOemHook) {
 }
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkTimeService",
   "@b2g/time/networktimeservice;1",
   "nsINetworkTimeService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gVoicemailService",
   "@mozilla.org/voicemail/gonkvoicemailservice;1",
   "nsIGonkVoicemailService"
 );
 
-XPCOMUtils.defineLazyGetter(this, "gRadioEnabledController", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioEnabledController", function() {
   let _ril = null;
   let _pendingMessages = []; // For queueing "setRadioEnabled" message.
   let _isProcessingPending = false;
@@ -237,7 +238,10 @@ XPCOMUtils.defineLazyGetter(this, "gRadioEnabledController", function() {
     },
 
     notifyRadioStateChanged(clientId, radioState) {
-      gMobileConnectionService.notifyRadioStateChanged(clientId, radioState);
+      lazy.gMobileConnectionService.notifyRadioStateChanged(
+        clientId,
+        radioState
+      );
     },
 
     _startProcessingPending() {
@@ -323,10 +327,10 @@ XPCOMUtils.defineLazyGetter(this, "gRadioEnabledController", function() {
           notifyError() {},
         };
 
-        gTelephonyService.enumerateCalls({
+        lazy.gTelephonyService.enumerateCalls({
           QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
           enumerateCallState(aInfo) {
-            gTelephonyService.hangUpCall(
+            lazy.gTelephonyService.hangUpCall(
               aInfo.clientId,
               aInfo.callIndex,
               hangUpCallback
@@ -388,10 +392,12 @@ XPCOMUtils.defineLazyGetter(this, "gRadioEnabledController", function() {
     _deactivateDataCallsForClient(clientId) {
       return function() {
         let deferred = (_deactivatingDeferred[clientId] = PromiseUtils.defer());
-        let dataCallHandler = gDataCallManager.getDataCallHandler(clientId);
+        let dataCallHandler = lazy.gDataCallManager.getDataCallHandler(
+          clientId
+        );
 
         dataCallHandler.deactivateAllDataCalls(
-          RIL.DATACALL_DEACTIVATE_RADIO_SHUTDOWN,
+          lazy.RIL.DATACALL_DEACTIVATE_RADIO_SHUTDOWN,
           function() {
             deferred.resolve();
           }
@@ -461,7 +467,7 @@ function DataCall(aAttributes) {
   for (let key in aAttributes) {
     if (key === "pdpType") {
       // Convert pdp type into constant int value.
-      this[key] = RIL.RIL_DATACALL_PDP_TYPES.indexOf(aAttributes[key]);
+      this[key] = lazy.RIL.RIL_DATACALL_PDP_TYPES.indexOf(aAttributes[key]);
       continue;
     }
 
@@ -530,7 +536,7 @@ function RadioInterfaceLayer() {
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
   Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
 
-  gRadioEnabledController.init(this);
+  lazy.gRadioEnabledController.init(this);
 }
 RadioInterfaceLayer.prototype = {
   classID: RADIOINTERFACELAYER_CID,
@@ -605,15 +611,15 @@ function RadioInterface(aClientId) {
   this._needRepollNetworkInfo = false;
   this._pendingNetworkInfo = { rilMessageType: "networkinfochanged" };
   this.pendingNetworkType = null;
-  this.cardState = RIL.GECKO_CARDSTATE_UNINITIALIZED;
-  this.pin2CardState = RIL.GECKO_CARDSTATE_UNINITIALIZED;
+  this.cardState = lazy.RIL.GECKO_CARDSTATE_UNINITIALIZED;
+  this.pin2CardState = lazy.RIL.GECKO_CARDSTATE_UNINITIALIZED;
   this.operator = {
     rilMessageType: "operatorchange",
     longName: null,
     shortName: null,
   };
   this._initIccInfo();
-  this.networkSelectionMode = RIL.GECKO_NETWORK_SELECTION_UNKNOWN;
+  this.networkSelectionMode = lazy.RIL.GECKO_NETWORK_SELECTION_UNKNOWN;
   this.voiceRegistrationState = {};
   this.dataRegistrationState = {};
   this.aid = null;
@@ -634,15 +640,15 @@ function RadioInterface(aClientId) {
   };
   this.mergedCellBroadcastConfig = null;
 
-  if (gRilWorkerService) {
-    this.rilworker = gRilWorkerService.getRilWorker(this.clientId);
+  if (lazy.gRilWorkerService) {
+    this.rilworker = lazy.gRilWorkerService.getRilWorker(this.clientId);
     if (this.rilworker) {
       this.rilworker.initRil(this);
     }
   }
 
   // For sim io context.
-  this.simIOcontext = new SIM.Context(this);
+  this.simIOcontext = new lazy.SIM.Context(this);
 
   this.tokenCallbackMap = {};
   this.telephonyRequestQueue = new TelephonyRequestQueue.TelephonyRequestQueue(
@@ -864,7 +870,7 @@ RadioInterface.prototype = {
   },
 
   isCardPresent() {
-    let icc = gIccService.getIccByServiceId(this.clientId);
+    let icc = lazy.gIccService.getIccByServiceId(this.clientId);
     let cardState = icc ? icc.cardState : Ci.nsIIcc.CARD_STATE_UNKNOWN;
     return (
       cardState !== Ci.nsIIcc.CARD_STATE_UNDETECTED &&
@@ -889,7 +895,7 @@ RadioInterface.prototype = {
         if (DEBUG) {
           this.debug("RILJ: [UNSL]< RIL_UNSOL_CALL_RING");
         }
-        gTelephonyService.notifyCallRing();
+        lazy.gTelephonyService.notifyCallRing();
         break;
       case "callStateChanged":
         if (DEBUG) {
@@ -898,7 +904,7 @@ RadioInterface.prototype = {
         this.handleCallStateChanged();
         break;
       case "cdmaCallWaiting":
-        gTelephonyService.notifyCdmaCallWaiting(
+        lazy.gTelephonyService.notifyCdmaCallWaiting(
           this.clientId,
           message.waitingCall
         );
@@ -907,7 +913,7 @@ RadioInterface.prototype = {
         if (DEBUG) {
           this.debug("RILJ: [UNSL]< RIL_UNSOL_SUPP_SVC_NOTIFICATION");
         }
-        gTelephonyService.notifySupplementaryService(
+        lazy.gTelephonyService.notifySupplementaryService(
           this.clientId,
           message.suppSvc.notificationType,
           message.suppSvc.code,
@@ -924,7 +930,7 @@ RadioInterface.prototype = {
               JSON.stringify(srvccState)
           );
         }
-        gTelephonyService.notifySrvccState(this.clientId, srvccState);
+        lazy.gTelephonyService.notifySrvccState(this.clientId, srvccState);
         break;
       case "ussdreceived":
         if (DEBUG) {
@@ -939,7 +945,7 @@ RadioInterface.prototype = {
         // the type code is "1", otherwise the current session
         // (if any) is assumed to have terminated.
         let sessionEnded = message.typeCode !== 1;
-        gTelephonyService.notifyUssdReceived(
+        lazy.gTelephonyService.notifyUssdReceived(
           this.clientId,
           message.message,
           sessionEnded
@@ -956,7 +962,7 @@ RadioInterface.prototype = {
           );
         }
 
-        gDataCallInterfaceService.notifyDataCallListChanged(
+        lazy.gDataCallInterfaceService.notifyDataCallListChanged(
           this.clientId,
           dataCalls.length,
           dataCalls
@@ -969,32 +975,41 @@ RadioInterface.prototype = {
               message.playRingbackTone
           );
         }
-        gTelephonyService.notifyRingbackTone(
+        lazy.gTelephonyService.notifyRingbackTone(
           this.clientId,
           message.playRingbackTone
         );
         break;
       //====== For networkinfochange not a unsol command=====
       case "networkinfochanged":
-        gMobileConnectionService.notifyNetworkInfoChanged(
+        lazy.gMobileConnectionService.notifyNetworkInfoChanged(
           this.clientId,
           message
         );
         break;
       case "networkselectionmodechange":
-        gMobileConnectionService.notifyNetworkSelectModeChanged(
+        lazy.gMobileConnectionService.notifyNetworkSelectModeChanged(
           this.clientId,
           message.mode
         );
         break;
       case "voiceregistrationstatechange":
-        gMobileConnectionService.notifyVoiceInfoChanged(this.clientId, message);
+        lazy.gMobileConnectionService.notifyVoiceInfoChanged(
+          this.clientId,
+          message
+        );
         break;
       case "dataregistrationstatechange":
-        gMobileConnectionService.notifyDataInfoChanged(this.clientId, message);
+        lazy.gMobileConnectionService.notifyDataInfoChanged(
+          this.clientId,
+          message
+        );
         break;
       case "operatorchange":
-        gMobileConnectionService.notifyOperatorChanged(this.clientId, message);
+        lazy.gMobileConnectionService.notifyOperatorChanged(
+          this.clientId,
+          message
+        );
         break;
       //==================================
       case "signalstrengthchange":
@@ -1007,7 +1022,7 @@ RadioInterface.prototype = {
         this.handleSignalStrength(message);
         break;
       case "otastatuschange":
-        gMobileConnectionService.notifyOtaStatusChanged(
+        lazy.gMobileConnectionService.notifyOtaStatusChanged(
           this.clientId,
           message.status
         );
@@ -1022,7 +1037,7 @@ RadioInterface.prototype = {
           );
         }
         this.handleRadioStateChange(message.radioState);
-        gRadioEnabledController.notifyRadioStateChanged(
+        lazy.gRadioEnabledController.notifyRadioStateChanged(
           this.clientId,
           message.radioState
         );
@@ -1030,7 +1045,7 @@ RadioInterface.prototype = {
         if (
           message.radioState != Ci.nsIRilIndicationResult.RADIOSTATE_ENABLED
         ) {
-          gRadioEnabledController._deactivateDataCalls();
+          lazy.gRadioEnabledController._deactivateDataCalls();
         }
         break;
       case "sms-received":
@@ -1073,7 +1088,7 @@ RadioInterface.prototype = {
         if (DEBUG) {
           this.debug("iccinfochange message=" + JSON.stringify(message));
         }
-        gIccService.notifyIccInfoChanged(
+        lazy.gIccService.notifyIccInfoChanged(
           this.clientId,
           message.iccid ? message : null
         );
@@ -1094,23 +1109,23 @@ RadioInterface.prototype = {
         if (DEBUG) {
           this.debug("isiminfochange message=" + JSON.stringify(message));
         }
-        gIccService.notifyIsimInfoChanged(
+        lazy.gIccService.notifyIsimInfoChanged(
           this.clientId,
           message.impi ? message : null
         );
         break;
       //================================================
       case "stkcommand":
-        gIccService.notifyStkCommand(
+        lazy.gIccService.notifyStkCommand(
           this.clientId,
-          gStkCmdFactory.createCommand(message)
+          lazy.gStkCmdFactory.createCommand(message)
         );
         break;
       case "stksessionend":
         if (DEBUG) {
           this.debug("RILJ: [UNSL]< RIL_UNSOL_STK_SESSION_END");
         }
-        gIccService.notifyStkSessionEnd(this.clientId);
+        lazy.gIccService.notifyStkSessionEnd(this.clientId);
         break;
       case "stkProactiveCommand":
         if (DEBUG) {
@@ -1137,7 +1152,7 @@ RadioInterface.prototype = {
           );
         }
 
-        gMobileConnectionService.notifyModemRestart(
+        lazy.gMobileConnectionService.notifyModemRestart(
           this.clientId,
           message.reason
         );
@@ -1264,7 +1279,9 @@ RadioInterface.prototype = {
           );
         }
 
-        let connHandler = gDataCallManager.getDataCallHandler(this.clientId);
+        let connHandler = lazy.gDataCallManager.getDataCallHandler(
+          this.clientId
+        );
         connHandler.updatePcoData(
           pco.cid,
           pco.bearerProto,
@@ -1587,7 +1604,7 @@ RadioInterface.prototype = {
       if (DEBUG) {
         this.debug("Invalid Cell Broadcast search list: " + e);
       }
-      options.errorMsg = RIL.GECKO_ERROR_UNSPECIFIED_ERROR;
+      options.errorMsg = lazy.RIL.GECKO_ERROR_UNSPECIFIED_ERROR;
     }
 
     this.handleRilResponse(options);
@@ -1620,7 +1637,7 @@ RadioInterface.prototype = {
       from = parseInt(result[1], 10);
       to = result[2] ? parseInt(result[2], 10) + 1 : from + 1;
       if (
-        !RIL.CB_NON_MMI_SETTABLE_RANGES &&
+        !lazy.RIL.CB_NON_MMI_SETTABLE_RANGES &&
         !this._checkCellBroadcastMMISettable(from, to)
       ) {
         throw new Error("Invalid range");
@@ -1647,9 +1664,9 @@ RadioInterface.prototype = {
 
     if (!this._isCdma) {
       // GSM not settable ranges.
-      for (let i = 0, f, t; i < RIL.CB_NON_MMI_SETTABLE_RANGES.length; ) {
-        f = RIL.CB_NON_MMI_SETTABLE_RANGES[i++];
-        t = RIL.CB_NON_MMI_SETTABLE_RANGES[i++];
+      for (let i = 0, f, t; i < lazy.RIL.CB_NON_MMI_SETTABLE_RANGES.length; ) {
+        f = lazy.RIL.CB_NON_MMI_SETTABLE_RANGES[i++];
+        t = lazy.RIL.CB_NON_MMI_SETTABLE_RANGES[i++];
         if (from < t && to > f) {
           // Have overlap.
           return false;
@@ -1706,20 +1723,20 @@ RadioInterface.prototype = {
         this.debug("handleStkProactiveCommand  error: " + e);
       }
       this.processSendStkTerminalResponse({
-        resultCode: RIL.STK_RESULT_CMD_DATA_NOT_UNDERSTOOD,
+        resultCode: lazy.RIL.STK_RESULT_CMD_DATA_NOT_UNDERSTOOD,
       });
       return;
     }
 
     let ctlvs = berTlv.value;
     let ctlv = this.simIOcontext.StkProactiveCmdHelper.searchForTag(
-      RIL.COMPREHENSIONTLV_TAG_COMMAND_DETAILS,
+      lazy.RIL.COMPREHENSIONTLV_TAG_COMMAND_DETAILS,
       ctlvs
     );
 
     if (!ctlv) {
       this.processSendStkTerminalResponse({
-        resultCode: RIL.STK_RESULT_CMD_DATA_NOT_UNDERSTOOD,
+        resultCode: lazy.RIL.STK_RESULT_CMD_DATA_NOT_UNDERSTOOD,
       });
       throw new Error("Can't find COMMAND_DETAILS ComprehensionTlv");
     }
@@ -1737,10 +1754,10 @@ RadioInterface.prototype = {
     }
 
     // STK_CMD_MORE_TIME need not to propagate event to chrome.
-    if (cmdDetails.typeOfCommand == RIL.STK_CMD_MORE_TIME) {
+    if (cmdDetails.typeOfCommand == lazy.RIL.STK_CMD_MORE_TIME) {
       this.processSendStkTerminalResponse({
         command: cmdDetails,
-        resultCode: RIL.STK_RESULT_OK,
+        resultCode: lazy.RIL.STK_RESULT_OK,
       });
       return;
     }
@@ -1819,7 +1836,7 @@ RadioInterface.prototype = {
    *                    NetworkManager
    */
   updateRILNetworkInterface() {
-    let connHandler = gDataCallManager.getDataCallHandler(this.clientId);
+    let connHandler = lazy.gDataCallManager.getDataCallHandler(this.clientId);
     connHandler.updateRILNetworkInterface();
   },
 
@@ -1901,7 +1918,7 @@ RadioInterface.prototype = {
       sender: aMessage.sender,
       pid: aMessage.pid,
       encoding: aMessage.encoding,
-      messageClass: RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(
+      messageClass: lazy.RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(
         aMessage.messageClass
       ),
       language: aMessage.language || null,
@@ -1923,7 +1940,7 @@ RadioInterface.prototype = {
       body: aMessage.body || null,
     };
 
-    gSmsService.notifyMessageReceived(
+    lazy.gSmsService.notifyMessageReceived(
       this.clientId,
       gonkSms,
       aMessage.data || [],
@@ -1953,7 +1970,7 @@ RadioInterface.prototype = {
       if (DEBUG) {
         this.debug("no pending SMS-SUBMIT message");
       }
-      return RIL.PDU_FCS_OK;
+      return lazy.RIL.PDU_FCS_OK;
     }
 
     let status = message.status;
@@ -1962,16 +1979,16 @@ RadioInterface.prototype = {
     // "Service Rejected"(01100011) but shall store them exactly as received.
     if (
       status >= 0x80 ||
-      (status >= RIL.PDU_ST_0_RESERVED_BEGIN &&
-        status < RIL.PDU_ST_0_SC_SPECIFIC_BEGIN) ||
-      (status >= RIL.PDU_ST_1_RESERVED_BEGIN &&
-        status < RIL.PDU_ST_1_SC_SPECIFIC_BEGIN) ||
-      (status >= RIL.PDU_ST_2_RESERVED_BEGIN &&
-        status < RIL.PDU_ST_2_SC_SPECIFIC_BEGIN) ||
-      (status >= RIL.PDU_ST_3_RESERVED_BEGIN &&
-        status < RIL.PDU_ST_3_SC_SPECIFIC_BEGIN)
+      (status >= lazy.RIL.PDU_ST_0_RESERVED_BEGIN &&
+        status < lazy.RIL.PDU_ST_0_SC_SPECIFIC_BEGIN) ||
+      (status >= lazy.RIL.PDU_ST_1_RESERVED_BEGIN &&
+        status < lazy.RIL.PDU_ST_1_SC_SPECIFIC_BEGIN) ||
+      (status >= lazy.RIL.PDU_ST_2_RESERVED_BEGIN &&
+        status < lazy.RIL.PDU_ST_2_SC_SPECIFIC_BEGIN) ||
+      (status >= lazy.RIL.PDU_ST_3_RESERVED_BEGIN &&
+        status < lazy.RIL.PDU_ST_3_SC_SPECIFIC_BEGIN)
     ) {
-      status = RIL.PDU_ST_3_SERVICE_REJECTED;
+      status = lazy.RIL.PDU_ST_3_SERVICE_REJECTED;
     }
 
     // Pending. Waiting for next status report.
@@ -1979,13 +1996,13 @@ RadioInterface.prototype = {
       if (DEBUG) {
         this.debug("SMS-STATUS-REPORT: delivery still pending");
       }
-      return RIL.PDU_FCS_OK;
+      return lazy.RIL.PDU_FCS_OK;
     }
 
     let _deliveryStatus =
       status >>> 5 === 0x00
-        ? RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
-        : RIL.GECKO_SMS_DELIVERY_STATUS_ERROR;
+        ? lazy.RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
+        : lazy.RIL.GECKO_SMS_DELIVERY_STATUS_ERROR;
 
     let response = {
       rilMessageType: "updateSMSDeliveryStatus",
@@ -1997,8 +2014,8 @@ RadioInterface.prototype = {
     this.handleRilResponse(response);
 
     //TODO: Find better place to send ack.
-    this.sendRilRequest("ackSMS", { result: RIL.PDU_FCS_OK });
-    return RIL.PDU_FCS_OK;
+    this.sendRilRequest("ackSMS", { result: lazy.RIL.PDU_FCS_OK });
+    return lazy.RIL.PDU_FCS_OK;
   },
 
   /**
@@ -2011,7 +2028,7 @@ RadioInterface.prototype = {
    */
   readICCContacts(options) {
     if (!this.appType) {
-      options.errorMsg = RIL.CONTACT_ERR_REQUEST_NOT_SUPPORTED;
+      options.errorMsg = lazy.RIL.CONTACT_ERR_REQUEST_NOT_SUPPORTED;
       this.handleRilResponse(options);
       return;
     }
@@ -2077,7 +2094,7 @@ RadioInterface.prototype = {
     }.bind(this);
 
     if (!this.appType || !options.contact) {
-      onerror(RIL.CONTACT_ERR_REQUEST_NOT_SUPPORTED);
+      onerror(lazy.RIL.CONTACT_ERR_REQUEST_NOT_SUPPORTED);
       return;
     }
 
@@ -2123,11 +2140,11 @@ RadioInterface.prototype = {
   },
 
   getIccServiceState(options) {
-    if (options.service === RIL.GECKO_CARDSERVICE_FDN) {
+    if (options.service === lazy.RIL.GECKO_CARDSERVICE_FDN) {
       let ICCUtilsHelper = this.simIOcontext.ICCUtilsHelper;
       options.result = ICCUtilsHelper.isICCServiceAvailable("FDN");
     } else {
-      options.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+      options.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
     }
     this.handleRilResponse(options);
   },
@@ -2154,7 +2171,7 @@ RadioInterface.prototype = {
     let dst = parseInt(dateString.substr(21, 2), 10);
 
     let timeInMS = Date.UTC(
-      year + RIL.PDU_TIMESTAMP_YEAR_OFFSET,
+      year + lazy.RIL.PDU_TIMESTAMP_YEAR_OFFSET,
       month - 1,
       day,
       hours,
@@ -2178,12 +2195,12 @@ RadioInterface.prototype = {
     if (DEBUG) {
       this.debug("setTelephonyTime: " + nitzData);
     }
-    gNetworkTimeService.setTelephonyTime(this.clientId, nitzData);
+    lazy.gNetworkTimeService.setTelephonyTime(this.clientId, nitzData);
     this.debug("setTelephonyTime end");
   },
 
   handleIccMbdn(message) {
-    gVoicemailService.notifyInfoChanged(
+    lazy.gVoicemailService.notifyInfoChanged(
       this.clientId,
       message.number,
       message.alphaId
@@ -2192,7 +2209,7 @@ RadioInterface.prototype = {
 
   handleIccMwis(mwi) {
     // Note: returnNumber and returnMessage is not available from UICC.
-    gVoicemailService.notifyStatusChanged(
+    lazy.gVoicemailService.notifyStatusChanged(
       this.clientId,
       mwi.active,
       mwi.msgCount,
@@ -2208,7 +2225,7 @@ RadioInterface.prototype = {
   },
 
   _convertCbMessageClass(aMessageClass) {
-    let index = RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(aMessageClass);
+    let index = lazy.RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(aMessageClass);
     return index != -1
       ? index
       : Ci.nsICellBroadcastService.GSM_MESSAGE_CLASS_NORMAL;
@@ -2236,14 +2253,14 @@ RadioInterface.prototype = {
     let hash =
       original.serial + ":" + this.iccInfo.mcc + ":" + this.iccInfo.mnc + ":";
     switch (original.geographicalScope) {
-      case RIL.CB_GSM_GEOGRAPHICAL_SCOPE_CELL_WIDE_IMMEDIATE:
-      case RIL.CB_GSM_GEOGRAPHICAL_SCOPE_CELL_WIDE:
+      case lazy.RIL.CB_GSM_GEOGRAPHICAL_SCOPE_CELL_WIDE_IMMEDIATE:
+      case lazy.RIL.CB_GSM_GEOGRAPHICAL_SCOPE_CELL_WIDE:
         hash +=
           this.voiceRegistrationState.cell.gsmLocationAreaCode +
           ":" +
           this.voiceRegistrationState.cell.gsmCellId;
         break;
-      case RIL.CB_GSM_GEOGRAPHICAL_SCOPE_LOCATION_AREA_WIDE:
+      case lazy.RIL.CB_GSM_GEOGRAPHICAL_SCOPE_LOCATION_AREA_WIDE:
         hash += this.voiceRegistrationState.cell.gsmLocationAreaCode + ":";
         break;
       default:
@@ -2273,7 +2290,7 @@ RadioInterface.prototype = {
       return null;
     }
 
-    if (options.encoding == RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET) {
+    if (options.encoding == lazy.RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET) {
       options.pages[index] = original.data;
       delete original.data;
     } else {
@@ -2297,7 +2314,7 @@ RadioInterface.prototype = {
     delete this._receivedSmsCbPagesMap[hash];
 
     // Rebuild full body
-    if (options.encoding == RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET) {
+    if (options.encoding == lazy.RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET) {
       // Uint8Array doesn't have `concat`, so we have to merge all pages by hand.
       let fullDataLen = 0;
       for (let i = 1; i <= options.numPages; i++) {
@@ -2392,7 +2409,7 @@ RadioInterface.prototype = {
       );
     }
 
-    gCellBroadcastService.notifyMessageReceived(
+    lazy.gCellBroadcastService.notifyMessageReceived(
       this.clientId,
       gonkCellBroadcastMessage
     );
@@ -2407,7 +2424,7 @@ RadioInterface.prototype = {
 
     aRecords.forEach(function(aRecord) {
       if (aRecord.display) {
-        gMobileConnectionService.notifyCdmaInfoRecDisplay(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecDisplay(
           clientId,
           aRecord.display
         );
@@ -2415,7 +2432,7 @@ RadioInterface.prototype = {
       }
 
       if (aRecord.calledNumber) {
-        gMobileConnectionService.notifyCdmaInfoRecCalledPartyNumber(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecCalledPartyNumber(
           clientId,
           aRecord.calledNumber.type,
           aRecord.calledNumber.plan,
@@ -2427,7 +2444,7 @@ RadioInterface.prototype = {
       }
 
       if (aRecord.callingNumber) {
-        gMobileConnectionService.notifyCdmaInfoRecCallingPartyNumber(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecCallingPartyNumber(
           clientId,
           aRecord.callingNumber.type,
           aRecord.callingNumber.plan,
@@ -2439,7 +2456,7 @@ RadioInterface.prototype = {
       }
 
       if (aRecord.connectedNumber) {
-        gMobileConnectionService.notifyCdmaInfoRecConnectedPartyNumber(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecConnectedPartyNumber(
           clientId,
           aRecord.connectedNumber.type,
           aRecord.connectedNumber.plan,
@@ -2451,7 +2468,7 @@ RadioInterface.prototype = {
       }
 
       if (aRecord.signal) {
-        gMobileConnectionService.notifyCdmaInfoRecSignal(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecSignal(
           clientId,
           aRecord.signal.type,
           aRecord.signal.alertPitch,
@@ -2461,7 +2478,7 @@ RadioInterface.prototype = {
       }
 
       if (aRecord.redirect) {
-        gMobileConnectionService.notifyCdmaInfoRecRedirectingNumber(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecRedirectingNumber(
           clientId,
           aRecord.redirect.type,
           aRecord.redirect.plan,
@@ -2474,7 +2491,7 @@ RadioInterface.prototype = {
       }
 
       if (aRecord.lineControl) {
-        gMobileConnectionService.notifyCdmaInfoRecLineControl(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecLineControl(
           clientId,
           aRecord.lineControl.polarityIncluded,
           aRecord.lineControl.toggle,
@@ -2485,7 +2502,7 @@ RadioInterface.prototype = {
       }
 
       if (aRecord.clirCause) {
-        gMobileConnectionService.notifyCdmaInfoRecClir(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecClir(
           clientId,
           aRecord.clirCause
         );
@@ -2493,7 +2510,7 @@ RadioInterface.prototype = {
       }
 
       if (aRecord.audioControl) {
-        gMobileConnectionService.notifyCdmaInfoRecAudioControl(
+        lazy.gMobileConnectionService.notifyCdmaInfoRecAudioControl(
           clientId,
           aRecord.audioControl.upLink,
           aRecord.audioControl.downLink
@@ -2528,20 +2545,20 @@ RadioInterface.prototype = {
   // TODO: Bug 928861 - B2G NetworkManager: Provide a more generic function
   //                    for connecting
   setupDataCallByType(networkType) {
-    let connHandler = gDataCallManager.getDataCallHandler(this.clientId);
+    let connHandler = lazy.gDataCallManager.getDataCallHandler(this.clientId);
     connHandler.setupDataCallByType(networkType);
   },
 
   // TODO: Bug 928861 - B2G NetworkManager: Provide a more generic function
   //                    for connecting
   deactivateDataCallByType(networkType) {
-    let connHandler = gDataCallManager.getDataCallHandler(this.clientId);
+    let connHandler = lazy.gDataCallManager.getDataCallHandler(this.clientId);
     connHandler.deactivateDataCallByType(networkType);
   },
 
   // TODO: Bug 904514 - [meta] NetworkManager enhancement
   getDataCallStateByType(networkType) {
-    let connHandler = gDataCallManager.getDataCallHandler(this.clientId);
+    let connHandler = lazy.gDataCallManager.getDataCallHandler(this.clientId);
     return connHandler.getDataCallStateByType(networkType);
   },
 
@@ -2583,7 +2600,7 @@ RadioInterface.prototype = {
     if (typeof response.errorMsg == "string") {
       result.errorMsg = response.errorMsg;
     } else {
-      result.errorMsg = RIL.RIL_ERROR_TO_GECKO_ERROR[response.errorMsg];
+      result.errorMsg = lazy.RIL.RIL_ERROR_TO_GECKO_ERROR[response.errorMsg];
     }
 
     // Handle solic reponse by function then call the call back.
@@ -2900,7 +2917,7 @@ RadioInterface.prototype = {
             );
           }
           this.iccInfoPrivate.imsi = result.imsi = response.imsi;
-          gIccService.notifyImsiChanged(
+          lazy.gIccService.notifyImsiChanged(
             this.clientId,
             this.iccInfoPrivate.imsi
           );
@@ -3093,7 +3110,9 @@ RadioInterface.prototype = {
         }
         break;
       case "getVoiceRegistrationState":
-        this._receivedNetworkInfo(RIL.NETWORK_INFO_VOICE_REGISTRATION_STATE);
+        this._receivedNetworkInfo(
+          lazy.RIL.NETWORK_INFO_VOICE_REGISTRATION_STATE
+        );
         if (response.errorMsg == 0) {
           if (DEBUG) {
             this.debug(
@@ -3118,7 +3137,9 @@ RadioInterface.prototype = {
         }
         break;
       case "getDataRegistrationState":
-        this._receivedNetworkInfo(RIL.NETWORK_INFO_DATA_REGISTRATION_STATE);
+        this._receivedNetworkInfo(
+          lazy.RIL.NETWORK_INFO_DATA_REGISTRATION_STATE
+        );
         if (response.errorMsg == 0) {
           if (DEBUG) {
             this.debug(
@@ -3142,7 +3163,7 @@ RadioInterface.prototype = {
         }
         break;
       case "getOperator":
-        this._receivedNetworkInfo(RIL.NETWORK_INFO_OPERATOR);
+        this._receivedNetworkInfo(lazy.RIL.NETWORK_INFO_OPERATOR);
         if (response.errorMsg == 0) {
           if (DEBUG) {
             this.debug(
@@ -3167,7 +3188,7 @@ RadioInterface.prototype = {
         }
         break;
       case "getNetworkSelectionMode":
-        this._receivedNetworkInfo(RIL.NETWORK_INFO_NETWORK_SELECTION_MODE);
+        this._receivedNetworkInfo(lazy.RIL.NETWORK_INFO_NETWORK_SELECTION_MODE);
         if (response.errorMsg == 0) {
           if (DEBUG) {
             this.debug(
@@ -3410,7 +3431,7 @@ RadioInterface.prototype = {
           }
           result.serviceClass = response.enable
             ? response.serviceClass
-            : RIL.ICC_SERVICE_CLASS_NONE;
+            : lazy.RIL.ICC_SERVICE_CLASS_NONE;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3434,7 +3455,7 @@ RadioInterface.prototype = {
           }
           result.serviceClass = response.enable
             ? response.serviceClass
-            : RIL.ICC_SERVICE_CLASS_NONE;
+            : lazy.RIL.ICC_SERVICE_CLASS_NONE;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4525,17 +4546,17 @@ RadioInterface.prototype = {
 
   _disconnectCauseFromCode(aCauseCode) {
     // Treat it as CALL_FAIL_ERROR_UNSPECIFIED if the request failed.
-    let failCause = RIL.GECKO_CALL_ERROR_UNSPECIFIED;
+    let failCause = lazy.RIL.GECKO_CALL_ERROR_UNSPECIFIED;
     failCause =
-      RIL.RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[aCauseCode] || failCause;
+      lazy.RIL.RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[aCauseCode] || failCause;
 
     // Out Of Service case.
     if (
       !this.voiceRegistrationState.connected &&
-      (failCause === RIL.GECKO_CALL_ERROR_NORMAL_CALL_CLEARING ||
-        failCause === RIL.GECKO_CALL_ERROR_UNSPECIFIED)
+      (failCause === lazy.RIL.GECKO_CALL_ERROR_NORMAL_CALL_CLEARING ||
+        failCause === lazy.RIL.GECKO_CALL_ERROR_UNSPECIFIED)
     ) {
-      failCause = RIL.GECKO_CALL_ERROR_SERVICE_NOT_AVAILABLE;
+      failCause = lazy.RIL.GECKO_CALL_ERROR_SERVICE_NOT_AVAILABLE;
     }
     if (DEBUG) {
       this.debug("Last call fail cause: " + failCause);
@@ -4596,8 +4617,8 @@ RadioInterface.prototype = {
 
     // Pending network info is ready to be sent when no more messages
     // are waiting for responses, but the combined payload hasn't been sent.
-    for (let i = 0; i < RIL.NETWORK_INFO_MESSAGE_TYPES.length; i++) {
-      let msgType = RIL.NETWORK_INFO_MESSAGE_TYPES[i];
+    for (let i = 0; i < lazy.RIL.NETWORK_INFO_MESSAGE_TYPES.length; i++) {
+      let msgType = lazy.RIL.NETWORK_INFO_MESSAGE_TYPES[i];
       if (!(msgType in pending)) {
         if (DEBUG) {
           this.debug(
@@ -4634,8 +4655,8 @@ RadioInterface.prototype = {
     this.handleUnsolicitedMessage(this._pendingNetworkInfo);
 
     this._processingNetworkInfo = false;
-    for (let i = 0; i < RIL.NETWORK_INFO_MESSAGE_TYPES.length; i++) {
-      delete this._pendingNetworkInfo[RIL.NETWORK_INFO_MESSAGE_TYPES[i]];
+    for (let i = 0; i < lazy.RIL.NETWORK_INFO_MESSAGE_TYPES.length; i++) {
+      delete this._pendingNetworkInfo[lazy.RIL.NETWORK_INFO_MESSAGE_TYPES[i]];
     }
 
     if (this._needRepollNetworkInfo) {
@@ -4671,7 +4692,7 @@ RadioInterface.prototype = {
       curState.regState = regState;
 
       curState.state =
-        RIL.NETWORK_CREG_TO_GECKO_MOBILE_CONNECTION_STATE[regState];
+        lazy.RIL.NETWORK_CREG_TO_GECKO_MOBILE_CONNECTION_STATE[regState];
       curState.connected =
         regState == Ci.nsIRilResponseResult.RADIO_REG_STATE_REG_HOME ||
         regState == Ci.nsIRilResponseResult.RADIO_REG_STATE_REG_ROAMING;
@@ -4681,7 +4702,7 @@ RadioInterface.prototype = {
     }
 
     // Handle the reasonDataDenied
-    if (curState.state === RIL.GECKO_MOBILE_CONNECTION_STATE_DENIED) {
+    if (curState.state === lazy.RIL.GECKO_MOBILE_CONNECTION_STATE_DENIED) {
       if (
         curState.reasonDataDenied === undefined ||
         curState.reasonDataDenied !== newState.reasonDataDenied
@@ -4771,7 +4792,7 @@ RadioInterface.prototype = {
     if (curState.radioTech === undefined || curState.radioTech !== radioTech) {
       changed = true;
       curState.radioTech = radioTech;
-      curState.type = RIL.GECKO_RADIO_TECH[radioTech] || null;
+      curState.type = lazy.RIL.GECKO_RADIO_TECH[radioTech] || null;
     }
 
     // From TS 23.003, 0000 and 0xfffe are indicated that no valid LAI exists
@@ -4864,7 +4885,7 @@ RadioInterface.prototype = {
     if (stateChanged) {
       rs.rilMessageType = "voiceregistrationstatechange";
       this._sendNetworkInfoMessage(
-        RIL.NETWORK_INFO_VOICE_REGISTRATION_STATE,
+        lazy.RIL.NETWORK_INFO_VOICE_REGISTRATION_STATE,
         rs
       );
     }
@@ -4882,7 +4903,7 @@ RadioInterface.prototype = {
     if (stateChanged) {
       rs.rilMessageType = "dataregistrationstatechange";
       this._sendNetworkInfoMessage(
-        RIL.NETWORK_INFO_DATA_REGISTRATION_STATE,
+        lazy.RIL.NETWORK_INFO_DATA_REGISTRATION_STATE,
         rs
       );
     }
@@ -4903,7 +4924,7 @@ RadioInterface.prototype = {
       );
     }
 
-    gMobileConnectionService.notifyEmergencyCallbackModeChanged(
+    lazy.gMobileConnectionService.notifyEmergencyCallbackModeChanged(
       this.clientId,
       active,
       EMERGENCY_CB_MODE_TIMEOUT_MS
@@ -4949,14 +4970,14 @@ RadioInterface.prototype = {
     }
 
     switch (aRefreshResult.type) {
-      case RIL.SIM_FILE_UPDATE:
+      case lazy.RIL.SIM_FILE_UPDATE:
         if (DEBUG) {
           this.debug("handleSimRefresh with SIM_FILE_UPDATED");
         }
         simRecord.handleFileUpdate(aRefreshResult.efId);
         break;
-      case RIL.SIM_INIT:
-      case RIL.SIM_RESET:
+      case lazy.RIL.SIM_INIT:
+      case lazy.RIL.SIM_RESET:
         if (DEBUG) {
           this.debug("handleSimRefresh with SIM_FILE_INIT or SIM_FILE_RESET");
         }
@@ -5037,7 +5058,7 @@ RadioInterface.prototype = {
 
       this.operator.longName = longName;
       this.operator.shortName = shortName;
-      this.operator.state = RIL.RIL_QAN_STATE_TO_GECKO_STATE[state];
+      this.operator.state = lazy.RIL.RIL_QAN_STATE_TO_GECKO_STATE[state];
 
       let ICCUtilsHelper = this.simIOcontext.ICCUtilsHelper;
       if (ICCUtilsHelper.updateDisplayCondition() && this.iccInfo.iccid) {
@@ -5048,7 +5069,10 @@ RadioInterface.prototype = {
       // itself if operator name is overridden after checking, or we have to
       // do it by ourself.
       if (!this.overrideNetworkName()) {
-        this._sendNetworkInfoMessage(RIL.NETWORK_INFO_OPERATOR, this.operator);
+        this._sendNetworkInfoMessage(
+          lazy.RIL.NETWORK_INFO_OPERATOR,
+          this.operator
+        );
       }
     }
   },
@@ -5126,7 +5150,7 @@ RadioInterface.prototype = {
     this.operator.longName = networkName.fullName;
     this.operator.shortName = networkName.shortName;
 
-    this._sendNetworkInfoMessage(RIL.NETWORK_INFO_OPERATOR, this.operator);
+    this._sendNetworkInfoMessage(lazy.RIL.NETWORK_INFO_OPERATOR, this.operator);
     return true;
   },
 
@@ -5151,7 +5175,10 @@ RadioInterface.prototype = {
       this.operator.longName = this.iccInfoPrivate.ons;
       this.operator.shortName = this.iccInfoPrivate.ons_short_form || "";
 
-      this._sendNetworkInfoMessage(RIL.NETWORK_INFO_OPERATOR, this.operator);
+      this._sendNetworkInfoMessage(
+        lazy.RIL.NETWORK_INFO_OPERATOR,
+        this.operator
+      );
       return true;
     }
 
@@ -5168,7 +5195,10 @@ RadioInterface.prototype = {
     }
 
     let radioTech = this.voiceRegistrationState.radioTech;
-    if (radioTech == undefined || radioTech == RIL.NETWORK_CREG_TECH_UNKNOWN) {
+    if (
+      radioTech == undefined ||
+      radioTech == lazy.RIL.NETWORK_CREG_TECH_UNKNOWN
+    ) {
       result.errorMsg = "RadioTechUnavailable";
       return result;
     }
@@ -5177,8 +5207,8 @@ RadioInterface.prototype = {
     // http://androidxref.com/7.1.1_r6/xref/frameworks/base/telephony/java/android/telephony/NeighboringCellInfo.java#113
     if (
       !this._isGsmTechGroup(radioTech) ||
-      radioTech === RIL.NETWORK_CREG_TECH_GSM ||
-      radioTech === RIL.NETWORK_CREG_TECH_LTE
+      radioTech === lazy.RIL.NETWORK_CREG_TECH_GSM ||
+      radioTech === lazy.RIL.NETWORK_CREG_TECH_LTE
     ) {
       result.errorMsg = "UnsupportedRadioTech";
       return result;
@@ -5188,7 +5218,7 @@ RadioInterface.prototype = {
     let num = rilNeighboringCellIds.length;
     for (let i = 0; i < num; i++) {
       let cellId = {};
-      cellId.networkType = RIL.GECKO_RADIO_TECH[radioTech];
+      cellId.networkType = lazy.RIL.GECKO_RADIO_TECH[radioTech];
       cellId.signalStrength = rilNeighboringCellIds[i].rssi;
 
       let cid = rilNeighboringCellIds[i].cid;
@@ -5204,8 +5234,8 @@ RadioInterface.prototype = {
       }
 
       switch (radioTech) {
-        case RIL.NETWORK_CREG_TECH_GPRS:
-        case RIL.NETWORK_CREG_TECH_EDGE:
+        case lazy.RIL.NETWORK_CREG_TECH_GPRS:
+        case lazy.RIL.NETWORK_CREG_TECH_EDGE:
           cellId.gsmCellId = this.parseInt(cid.substring(4), -1, 16);
           cellId.gsmLocationAreaCode = this.parseInt(
             cid.substring(0, 4),
@@ -5213,11 +5243,11 @@ RadioInterface.prototype = {
             16
           );
           break;
-        case RIL.NETWORK_CREG_TECH_UMTS:
-        case RIL.NETWORK_CREG_TECH_HSDPA:
-        case RIL.NETWORK_CREG_TECH_HSUPA:
-        case RIL.NETWORK_CREG_TECH_HSPA:
-        case RIL.NETWORK_CREG_TECH_HSPAP:
+        case lazy.RIL.NETWORK_CREG_TECH_UMTS:
+        case lazy.RIL.NETWORK_CREG_TECH_HSDPA:
+        case lazy.RIL.NETWORK_CREG_TECH_HSUPA:
+        case lazy.RIL.NETWORK_CREG_TECH_HSPA:
+        case lazy.RIL.NETWORK_CREG_TECH_HSPAP:
           cellId.wcdmaPsc = this.parseInt(cid, -1, 16);
           break;
         default:
@@ -5303,8 +5333,8 @@ RadioInterface.prototype = {
     }
 
     let selectionMode = mode
-      ? RIL.GECKO_NETWORK_SELECTION_MANUAL
-      : RIL.GECKO_NETWORK_SELECTION_AUTOMATIC;
+      ? lazy.RIL.GECKO_NETWORK_SELECTION_MANUAL
+      : lazy.RIL.GECKO_NETWORK_SELECTION_AUTOMATIC;
     if (this.networkSelectionMode === selectionMode) {
       return;
     }
@@ -5315,7 +5345,7 @@ RadioInterface.prototype = {
     };
     this.networkSelectionMode = selectionMode;
     this._sendNetworkInfoMessage(
-      RIL.NETWORK_INFO_NETWORK_SELECTION_MODE,
+      lazy.RIL.NETWORK_INFO_NETWORK_SELECTION_MODE,
       options
     );
   },
@@ -5352,7 +5382,10 @@ RadioInterface.prototype = {
       this.debug("signal strength: " + JSON.stringify(signal));
     }
 
-    gMobileConnectionService.notifySignalStrengthChanged(this.clientId, signal);
+    lazy.gMobileConnectionService.notifySignalStrengthChanged(
+      this.clientId,
+      signal
+    );
   },
 
   handleUiccSubscription(response) {
@@ -5386,14 +5419,14 @@ RadioInterface.prototype = {
         this.cardState = Ci.nsIRilResponseResult.CARD_STATE_UNDETECTED;
         this.pin2CardState = Ci.nsIRilResponseResult.CARD_STATE_UNDETECTED;
 
-        gIccService.notifyCardStateChanged(
+        lazy.gIccService.notifyCardStateChanged(
           this.clientId,
           this.cardState,
           this.pin2CardState
         );
-        gRadioEnabledController.receiveCardState(this.clientId);
+        lazy.gRadioEnabledController.receiveCardState(this.clientId);
         this.iccInfo = { iccType: null };
-        gIccService.notifyIccInfoChanged(this.clientId, this.iccInfo);
+        lazy.gIccService.notifyIccInfoChanged(this.clientId, this.iccInfo);
       }
       return;
     }
@@ -5441,68 +5474,68 @@ RadioInterface.prototype = {
       // fetchICCRecords will need to read aid, so read aid here.
       this.aid = app.aidPtr;
       this.appType = app.appType;
-      this.iccInfo.iccType = RIL.GECKO_CARD_TYPE[this.appType];
+      this.iccInfo.iccType = lazy.RIL.GECKO_CARD_TYPE[this.appType];
 
       switch (app.appState) {
-        case RIL.CARD_APPSTATE_ILLEGAL:
-          newCardState = RIL.GECKO_CARDSTATE_ILLEGAL;
+        case lazy.RIL.CARD_APPSTATE_ILLEGAL:
+          newCardState = lazy.RIL.GECKO_CARDSTATE_ILLEGAL;
           break;
-        case RIL.CARD_APPSTATE_PIN:
-          newCardState = RIL.GECKO_CARDSTATE_PIN_REQUIRED;
+        case lazy.RIL.CARD_APPSTATE_PIN:
+          newCardState = lazy.RIL.GECKO_CARDSTATE_PIN_REQUIRED;
           break;
-        case RIL.CARD_APPSTATE_PUK:
-          newCardState = RIL.GECKO_CARDSTATE_PUK_REQUIRED;
+        case lazy.RIL.CARD_APPSTATE_PUK:
+          newCardState = lazy.RIL.GECKO_CARDSTATE_PUK_REQUIRED;
           break;
-        case RIL.CARD_APPSTATE_READY:
-          newCardState = RIL.GECKO_CARDSTATE_READY;
+        case lazy.RIL.CARD_APPSTATE_READY:
+          newCardState = lazy.RIL.GECKO_CARDSTATE_READY;
           break;
-        case RIL.CARD_APPSTATE_SUBSCRIPTION_PERSO:
-          newCardState = RIL.PERSONSUBSTATE[app.persoSubstate];
+        case lazy.RIL.CARD_APPSTATE_SUBSCRIPTION_PERSO:
+          newCardState = lazy.RIL.PERSONSUBSTATE[app.persoSubstate];
           break;
-        case RIL.CARD_APPSTATE_UNKNOWN:
-        case RIL.CARD_APPSTATE_DETECTED:
+        case lazy.RIL.CARD_APPSTATE_UNKNOWN:
+        case lazy.RIL.CARD_APPSTATE_DETECTED:
         // Fall through.
         default:
-          newCardState = RIL.GECKO_CARDSTATE_UNKNOWN;
+          newCardState = lazy.RIL.GECKO_CARDSTATE_UNKNOWN;
       }
 
       let pin1State = app.pin1Replaced ? iccStatus.universalPinState : app.pin1;
-      if (pin1State === RIL.CARD_PINSTATE_ENABLED_PERM_BLOCKED) {
-        newCardState = RIL.GECKO_CARDSTATE_PERMANENT_BLOCKED;
+      if (pin1State === lazy.RIL.CARD_PINSTATE_ENABLED_PERM_BLOCKED) {
+        newCardState = lazy.RIL.GECKO_CARDSTATE_PERMANENT_BLOCKED;
       }
 
       // Handle pin2 state.
       switch (app.pin2) {
-        case RIL.CARD_PINSTATE_ENABLED_NOT_VERIFIED:
-          newPin2CardState = RIL.GECKO_CARDSTATE_PIN_REQUIRED;
+        case lazy.RIL.CARD_PINSTATE_ENABLED_NOT_VERIFIED:
+          newPin2CardState = lazy.RIL.GECKO_CARDSTATE_PIN_REQUIRED;
           break;
-        case RIL.CARD_PINSTATE_ENABLED_VERIFIED:
-          newPin2CardState = RIL.GECKO_CARDSTATE_READY;
+        case lazy.RIL.CARD_PINSTATE_ENABLED_VERIFIED:
+          newPin2CardState = lazy.RIL.GECKO_CARDSTATE_READY;
           break;
-        case RIL.CARD_PINSTATE_ENABLED_BLOCKED:
-          newPin2CardState = RIL.GECKO_CARDSTATE_PUK_REQUIRED;
+        case lazy.RIL.CARD_PINSTATE_ENABLED_BLOCKED:
+          newPin2CardState = lazy.RIL.GECKO_CARDSTATE_PUK_REQUIRED;
           break;
-        case RIL.CARD_PINSTATE_ENABLED_PERM_BLOCKED:
-          newPin2CardState = RIL.GECKO_CARDSTATE_PERMANENT_BLOCKED;
+        case lazy.RIL.CARD_PINSTATE_ENABLED_PERM_BLOCKED:
+          newPin2CardState = lazy.RIL.GECKO_CARDSTATE_PERMANENT_BLOCKED;
           break;
         default:
-          newPin2CardState = RIL.GECKO_CARDSTATE_UNKNOWN;
+          newPin2CardState = lazy.RIL.GECKO_CARDSTATE_UNKNOWN;
       }
     } else {
       // Having incorrect app information, set card state to unknown.
-      newCardState = RIL.GECKO_CARDSTATE_UNKNOWN;
-      newPin2CardState = RIL.GECKO_CARDSTATE_UNKNOWN;
+      newCardState = lazy.RIL.GECKO_CARDSTATE_UNKNOWN;
+      newPin2CardState = lazy.RIL.GECKO_CARDSTATE_UNKNOWN;
     }
 
     //Read the iccid only when card app status change from
     //uninitialized,undetected,unknown to ready or locked
     if (
-      (this.cardState === RIL.GECKO_CARDSTATE_UNINITIALIZED ||
-        this.cardState === RIL.GECKO_CARDSTATE_UNDETECTED ||
-        this.cardState === RIL.GECKO_CARDSTATE_UNKNOWN) &&
-      newCardState != RIL.GECKO_CARDSTATE_UNINITIALIZED &&
-      newCardState != RIL.GECKO_CARDSTATE_UNDETECTED &&
-      newCardState != RIL.GECKO_CARDSTATE_UNKNOWN
+      (this.cardState === lazy.RIL.GECKO_CARDSTATE_UNINITIALIZED ||
+        this.cardState === lazy.RIL.GECKO_CARDSTATE_UNDETECTED ||
+        this.cardState === lazy.RIL.GECKO_CARDSTATE_UNKNOWN) &&
+      newCardState != lazy.RIL.GECKO_CARDSTATE_UNINITIALIZED &&
+      newCardState != lazy.RIL.GECKO_CARDSTATE_UNDETECTED &&
+      newCardState != lazy.RIL.GECKO_CARDSTATE_UNKNOWN
     ) {
       this.simIOcontext.ICCRecordHelper.readICCID();
     }
@@ -5516,7 +5549,7 @@ RadioInterface.prototype = {
 
     // This was moved down from CARD_APPSTATE_READY
     this.requestNetworkInfo();
-    if (newCardState == RIL.GECKO_CARDSTATE_READY) {
+    if (newCardState == lazy.RIL.GECKO_CARDSTATE_READY) {
       // Cache SIM/RUIM/ISIM aid(s) for later use.
       let usimApp = apps[iccStatus.gsmUmtsSubscriptionAppIndex];
       if (usimApp) {
@@ -5535,7 +5568,7 @@ RadioInterface.prototype = {
 
       // For type SIM, we need to check EF_phase first.
       // Other types of ICC we can send Terminal_Profile immediately.
-      if (this.appType == RIL.CARD_APPTYPE_SIM) {
+      if (this.appType == lazy.RIL.CARD_APPTYPE_SIM) {
         this.simIOcontext.SimRecordHelper.readSimPhase();
       } else if (
         libcutils.property_get("ro.moz.ril.send_stk_profile_dl", "false") ===
@@ -5549,12 +5582,12 @@ RadioInterface.prototype = {
 
     this.cardState = newCardState;
     this.pin2CardState = newPin2CardState;
-    gIccService.notifyCardStateChanged(
+    lazy.gIccService.notifyCardStateChanged(
       this.clientId,
       this.cardState,
       this.pin2CardState
     );
-    gRadioEnabledController.receiveCardState(this.clientId);
+    lazy.gRadioEnabledController.receiveCardState(this.clientId);
   },
   /* eslint-enable complexity */
 
@@ -5598,7 +5631,7 @@ RadioInterface.prototype = {
         meid: newMEID || null,
       };
 
-      gMobileConnectionService.notifyDeviceIdentitiesChanged(
+      lazy.gMobileConnectionService.notifyDeviceIdentitiesChanged(
         this.clientId,
         this.deviceIdentities.imei,
         this.deviceIdentities.imeisv,
@@ -5654,7 +5687,7 @@ RadioInterface.prototype = {
     if (DEBUG) {
       this.debug(
         "Radio tech is set to: " +
-          RIL.GECKO_RADIO_TECH[response.radioTech] +
+          lazy.RIL.GECKO_RADIO_TECH[response.radioTech] +
           ", it is a " +
           (isCdma ? "cdma" : "gsm") +
           " technology"
@@ -5726,7 +5759,7 @@ RadioInterface.prototype = {
       this.debug("setCallForward to sim, options:" + JSON.stringify(options));
     }
 
-    if (options.serviceClass & (RIL.ICC_SERVICE_CLASS_VOICE == 0)) {
+    if (options.serviceClass & (lazy.RIL.ICC_SERVICE_CLASS_VOICE == 0)) {
       if (DEBUG) {
         this.debug("setCallForwardToSim only support ICC_SERVICE_CLASS_VOICE");
       }
@@ -5734,7 +5767,7 @@ RadioInterface.prototype = {
     }
 
     // Only unconditional CF needs to set flag.
-    if (options.reason != RIL.CALL_FORWARD_REASON_UNCONDITIONAL) {
+    if (options.reason != lazy.RIL.CALL_FORWARD_REASON_UNCONDITIONAL) {
       return;
     }
 
@@ -5788,14 +5821,14 @@ RadioInterface.prototype = {
       call.uusinfo = uusInfos;
 
       //Add dummy values for upper layer
-      call.rttMode = RIL.RTT_MODE_OFF;
+      call.rttMode = lazy.RIL.RTT_MODE_OFF;
 
       if (call.isVoice) {
         calls[call.callIndex] = call;
       }
     }
 
-    gTelephonyService.notifyCurrentCalls(this.clientId, calls);
+    lazy.gTelephonyService.notifyCurrentCalls(this.clientId, calls);
     return calls;
   },
 
@@ -5811,7 +5844,7 @@ RadioInterface.prototype = {
 
     let rulesLength = rilCallForwardStatus.length;
     if (!rulesLength) {
-      result.errorMsg = RIL.GECKO_ERROR_GENERIC_FAILURE;
+      result.errorMsg = lazy.RIL.GECKO_ERROR_GENERIC_FAILURE;
       return result;
     }
 
@@ -5832,7 +5865,7 @@ RadioInterface.prototype = {
 
   handleSmscAddress(response) {
     let result = {};
-    let tosca = RIL.TOA_UNKNOWN;
+    let tosca = lazy.RIL.TOA_UNKNOWN;
     let smsc = response.smsc;
 
     let segments = smsc.split(",", 2);
@@ -5853,16 +5886,18 @@ RadioInterface.prototype = {
     // Convert the NPI value to the corresponding index of CALLED_PARTY_BCD_NPI
     // array. If the value does not present in the array, use
     // CALLED_PARTY_BCD_NPI_ISDN.
-    let npi = RIL.CALLED_PARTY_BCD_NPI.indexOf(tosca & 0xf);
+    let npi = lazy.RIL.CALLED_PARTY_BCD_NPI.indexOf(tosca & 0xf);
     if (npi === -1) {
-      npi = RIL.CALLED_PARTY_BCD_NPI.indexOf(RIL.CALLED_PARTY_BCD_NPI_ISDN);
+      npi = lazy.RIL.CALLED_PARTY_BCD_NPI.indexOf(
+        lazy.RIL.CALLED_PARTY_BCD_NPI_ISDN
+      );
     }
 
     // Extract TON.
     let ton = (tosca & 0x70) >> 4;
 
     // Ensure + sign if TON is international, and vice versa.
-    const TON_INTERNATIONAL = (RIL.TOA_INTERNATIONAL & 0x70) >> 4;
+    const TON_INTERNATIONAL = (lazy.RIL.TOA_INTERNATIONAL & 0x70) >> 4;
     if (ton === TON_INTERNATIONAL && smsc.charAt(0) !== "+") {
       smsc = "+" + smsc;
     } else if (smsc.charAt(0) === "+" && ton !== TON_INTERNATIONAL) {
@@ -5889,7 +5924,8 @@ RadioInterface.prototype = {
         shortName: rilAvailableNetworks[i].alphaShort,
         mcc: null,
         mnc: null,
-        state: RIL.RIL_QAN_STATE_TO_GECKO_STATE[rilAvailableNetworks[i].status],
+        state:
+          lazy.RIL.RIL_QAN_STATE_TO_GECKO_STATE[rilAvailableNetworks[i].status],
       };
 
       let networkTuple = rilAvailableNetworks[i].operatorNumeric;
@@ -5912,7 +5948,7 @@ RadioInterface.prototype = {
     for (let i = 0; i < rilCellInfoLists.length; i++) {
       let cellInfo = {};
       switch (rilCellInfoLists[i].cellInfoType) {
-        case RIL.CELL_INFO_TYPE_GSM:
+        case lazy.RIL.CELL_INFO_TYPE_GSM:
           //nsICellIdentityGsm
           cellInfo.mcc = rilCellInfoLists[i].gsm.cellIdentityGsm.mcc;
           cellInfo.mnc = rilCellInfoLists[i].gsm.cellIdentityGsm.mnc;
@@ -5929,7 +5965,7 @@ RadioInterface.prototype = {
             rilCellInfoLists[i].gsm.signalStrengthGsm.timingAdvance;
           break;
 
-        case RIL.CELL_INFO_TYPE_WCDMA:
+        case lazy.RIL.CELL_INFO_TYPE_WCDMA:
           //nsICellIdentityWcdma
           cellInfo.mcc = rilCellInfoLists[i].wcdma.cellIdentityWcdma.mcc;
           cellInfo.mnc = rilCellInfoLists[i].wcdma.cellIdentityWcdma.mnc;
@@ -5944,7 +5980,7 @@ RadioInterface.prototype = {
             rilCellInfoLists[i].wcdma.signalStrengthWcdma.bitErrorRate;
           break;
 
-        case RIL.CELL_INFO_TYPE_LTE:
+        case lazy.RIL.CELL_INFO_TYPE_LTE:
           //nsICellIdentityLte
           cellInfo.mcc = rilCellInfoLists[i].lte.cellIdentityLte.mcc;
           cellInfo.mnc = rilCellInfoLists[i].lte.cellIdentityLte.mnc;
@@ -5964,7 +6000,7 @@ RadioInterface.prototype = {
             rilCellInfoLists[i].lte.signalStrengthLte.timingAdvance;
           break;
 
-        case RIL.CELL_INFO_TYPE_TDSCDMA:
+        case lazy.RIL.CELL_INFO_TYPE_TDSCDMA:
           //nsICellIdentityTdScdma
           cellInfo.mcc = rilCellInfoLists[i].tdscdma.nsICellIdentityTdScdma.mcc;
           cellInfo.mnc = rilCellInfoLists[i].tdscdma.nsICellIdentityTdScdma.mnc;
@@ -5977,7 +6013,7 @@ RadioInterface.prototype = {
             rilCellInfoLists[i].tdscdma.signalStrengthTdScdma.rscp;
           break;
 
-        case RIL.CELL_INFO_TYPE_CDMA:
+        case lazy.RIL.CELL_INFO_TYPE_CDMA:
           //nsICellIdentityCdma
           cellInfo.networkId =
             rilCellInfoLists[i].cdma.cellIdentityCdma.networkId;
@@ -6024,10 +6060,10 @@ RadioInterface.prototype = {
     options.simResponse = iccIoResult.simResponse;
     // See 3GPP TS 11.11, clause 9.4.1 for operation success results.
     if (
-      options.sw1 !== RIL.ICC_STATUS_NORMAL_ENDING &&
-      options.sw1 !== RIL.ICC_STATUS_NORMAL_ENDING_WITH_EXTRA &&
-      options.sw1 !== RIL.ICC_STATUS_WITH_SIM_DATA &&
-      options.sw1 !== RIL.ICC_STATUS_WITH_RESPONSE_DATA
+      options.sw1 !== lazy.RIL.ICC_STATUS_NORMAL_ENDING &&
+      options.sw1 !== lazy.RIL.ICC_STATUS_NORMAL_ENDING_WITH_EXTRA &&
+      options.sw1 !== lazy.RIL.ICC_STATUS_WITH_SIM_DATA &&
+      options.sw1 !== lazy.RIL.ICC_STATUS_WITH_RESPONSE_DATA
     ) {
       if (DEBUG) {
         this.debug(
@@ -6045,7 +6081,7 @@ RadioInterface.prototype = {
         // We can get fail cause from sw1/sw2 (See TS 11.11 clause 9.4.1 and
         // ISO 7816-4 clause 6). But currently no one needs this information,
         // so simply reports "GenericFailure" for now.
-        options.onerror(RIL.GECKO_ERROR_GENERIC_FAILURE);
+        options.onerror(lazy.RIL.GECKO_ERROR_GENERIC_FAILURE);
       }
       delete this.tokenOptionsMap[token];
       return;
@@ -6140,7 +6176,7 @@ RadioInterface.prototype = {
         break;
       // For no sim case. OemHook api.
       case "iccGetSubsidyLockStatus":
-        message.lockType = RIL.GECKO_CARDLOCK_ALL;
+        message.lockType = lazy.RIL.GECKO_CARDLOCK_ALL;
         this.processGetPersonalizationStatus(message);
         break;
       case "enterDepersonalization":
@@ -6263,9 +6299,9 @@ RadioInterface.prototype = {
             );
           }
           message.langIndex =
-            message.langIndex || RIL.PDU_NL_IDENTIFIER_DEFAULT;
+            message.langIndex || lazy.RIL.PDU_NL_IDENTIFIER_DEFAULT;
           message.langShiftIndex =
-            message.langShiftIndex || RIL.PDU_NL_IDENTIFIER_DEFAULT;
+            message.langShiftIndex || lazy.RIL.PDU_NL_IDENTIFIER_DEFAULT;
 
           if (!message.segmentSeq) {
             // Fist segment to send
@@ -6310,14 +6346,17 @@ RadioInterface.prototype = {
       case "iccIO":
         let data = null;
         if (
-          message.command === RIL.ICC_COMMAND_UPDATE_RECORD &&
+          message.command === lazy.RIL.ICC_COMMAND_UPDATE_RECORD &&
           message.dataWriter
         ) {
           data = message.dataWriter;
         }
 
         let pin2 = null;
-        if (message.command === RIL.ICC_COMMAND_UPDATE_RECORD && message.pin2) {
+        if (
+          message.command === lazy.RIL.ICC_COMMAND_UPDATE_RECORD &&
+          message.pin2
+        ) {
           pin2 = message.pin2;
         }
         if (DEBUG) {
@@ -6518,7 +6557,7 @@ RadioInterface.prototype = {
         }
         this.rilworker.acknowledgeLastIncomingGsmSms(
           message.rilMessageToken,
-          message.result == RIL.PDU_FCS_OK,
+          message.result == lazy.RIL.PDU_FCS_OK,
           message.result
         );
         break;
@@ -6549,7 +6588,7 @@ RadioInterface.prototype = {
         }
         this.rilworker.setBarringPassword(
           message.rilMessageToken,
-          RIL.ICC_CB_FACILITY_BA_ALL,
+          lazy.RIL.ICC_CB_FACILITY_BA_ALL,
           message.pin || "",
           message.newPin || ""
         );
@@ -6691,9 +6730,9 @@ RadioInterface.prototype = {
         let networkType = message.type;
         if (
           networkType < 0 ||
-          networkType >= RIL.RIL_PREFERRED_NETWORK_TYPE_TO_GECKO.length
+          networkType >= lazy.RIL.RIL_PREFERRED_NETWORK_TYPE_TO_GECKO.length
         ) {
-          message.errorMsg = RIL.GECKO_ERROR_INVALID_ARGUMENTS;
+          message.errorMsg = lazy.RIL.GECKO_ERROR_INVALID_ARGUMENTS;
           this.handleRilResponse(message);
           return;
         }
@@ -7078,7 +7117,7 @@ RadioInterface.prototype = {
         break;
       default:
         this.debug(message.rilMessageType + " not supported.");
-        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
         this.handleRilResponse(message);
         break;
     }
@@ -7089,9 +7128,9 @@ RadioInterface.prototype = {
    * Helper for returning the TOA for the given dial string.
    */
   _toaFromString(number) {
-    let toa = RIL.TOA_UNKNOWN;
+    let toa = lazy.RIL.TOA_UNKNOWN;
     if (number && number.length > 0 && number[0] == "+") {
-      toa = RIL.TOA_INTERNATIONAL;
+      toa = lazy.RIL.TOA_INTERNATIONAL;
     }
     return toa;
   },
@@ -7276,13 +7315,13 @@ RadioInterface.prototype = {
 
   _getAidByAppType(appType) {
     switch (appType) {
-      case RIL.CARD_APPTYPE_SIM:
-      case RIL.CARD_APPTYPE_USIM:
+      case lazy.RIL.CARD_APPTYPE_SIM:
+      case lazy.RIL.CARD_APPTYPE_USIM:
         return this.simIOcontext.SimRecordHelper.aid;
-      case RIL.CARD_APPTYPE_RUIM:
-      case RIL.CARD_APPTYPE_CSIM:
+      case lazy.RIL.CARD_APPTYPE_RUIM:
+      case lazy.RIL.CARD_APPTYPE_CSIM:
         return this.simIOcontext.RuimRecordHelper.aid;
-      case RIL.CARD_APPTYPE_ISIM:
+      case lazy.RIL.CARD_APPTYPE_ISIM:
         return this.simIOcontext.ISimRecordHelper.aid;
     }
 
@@ -7298,7 +7337,8 @@ RadioInterface.prototype = {
    *        One of ICC_SERVICE_CLASS_* constants.
    */
   processQueryCallBarringStatus(message) {
-    message.facility = RIL.CALL_BARRING_PROGRAM_TO_FACILITY[message.program];
+    message.facility =
+      lazy.RIL.CALL_BARRING_PROGRAM_TO_FACILITY[message.program];
     message.password = ""; // For query no need to provide it.
 
     // For some operators, querying specific serviceClass doesn't work. We use
@@ -7323,7 +7363,8 @@ RadioInterface.prototype = {
    *        One of ICC_SERVICE_CLASS_* constants.
    */
   processSetCallBarring(message) {
-    message.facility = RIL.CALL_BARRING_PROGRAM_TO_FACILITY[message.program];
+    message.facility =
+      lazy.RIL.CALL_BARRING_PROGRAM_TO_FACILITY[message.program];
     this.setICCFacilityLock(message);
   },
 
@@ -7332,26 +7373,26 @@ RadioInterface.prototype = {
    */
   processIccUnlockCardLock(message) {
     switch (message.lockType) {
-      case RIL.GECKO_CARDLOCK_PIN:
+      case lazy.RIL.GECKO_CARDLOCK_PIN:
         this.enterICCPIN(message);
         break;
-      case RIL.GECKO_CARDLOCK_PIN2:
+      case lazy.RIL.GECKO_CARDLOCK_PIN2:
         this.enterICCPIN2(message);
         break;
-      case RIL.GECKO_CARDLOCK_PUK:
+      case lazy.RIL.GECKO_CARDLOCK_PUK:
         this.enterICCPUK(message);
         break;
-      case RIL.GECKO_CARDLOCK_PUK2:
+      case lazy.RIL.GECKO_CARDLOCK_PUK2:
         this.enterICCPUK2(message);
         break;
-      case RIL.GECKO_CARDLOCK_NCK:
-      case RIL.GECKO_CARDLOCK_NSCK:
-      case RIL.GECKO_CARDLOCK_CCK:
-      case RIL.GECKO_CARDLOCK_SPCK:
+      case lazy.RIL.GECKO_CARDLOCK_NCK:
+      case lazy.RIL.GECKO_CARDLOCK_NSCK:
+      case lazy.RIL.GECKO_CARDLOCK_CCK:
+      case lazy.RIL.GECKO_CARDLOCK_SPCK:
         this.enterDepersonalizationReq(message);
         break;
       default:
-        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
         this.handleRilResponse(message);
     }
   },
@@ -7482,7 +7523,7 @@ RadioInterface.prototype = {
       );
     } else {
       this.debug("can not get OemHook");
-      message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+      message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
       this.handleRilResponse(message);
     }
   },
@@ -7492,20 +7533,21 @@ RadioInterface.prototype = {
    */
   processIccSetCardLockEnabled(message) {
     switch (message.lockType) {
-      case RIL.GECKO_CARDLOCK_PIN: // Fall through.
-      case RIL.GECKO_CARDLOCK_FDN:
-        message.facility = RIL.GECKO_CARDLOCK_TO_FACILITY[message.lockType];
+      case lazy.RIL.GECKO_CARDLOCK_PIN: // Fall through.
+      case lazy.RIL.GECKO_CARDLOCK_FDN:
+        message.facility =
+          lazy.RIL.GECKO_CARDLOCK_TO_FACILITY[message.lockType];
         break;
       default:
-        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
         this.handleRilResponse(message);
         return;
     }
 
     message.serviceClass =
-      RIL.ICC_SERVICE_CLASS_VOICE |
-      RIL.ICC_SERVICE_CLASS_DATA |
-      RIL.ICC_SERVICE_CLASS_FAX;
+      lazy.RIL.ICC_SERVICE_CLASS_VOICE |
+      lazy.RIL.ICC_SERVICE_CLASS_DATA |
+      lazy.RIL.ICC_SERVICE_CLASS_FAX;
     this.setICCFacilityLock(message);
   },
 
@@ -7514,24 +7556,25 @@ RadioInterface.prototype = {
    */
   processIccGetCardLockEnabled(message) {
     switch (message.lockType) {
-      case RIL.GECKO_CARDLOCK_PIN:
-      case RIL.GECKO_CARDLOCK_FDN:
-        message.facility = RIL.GECKO_CARDLOCK_TO_FACILITY[message.lockType];
+      case lazy.RIL.GECKO_CARDLOCK_PIN:
+      case lazy.RIL.GECKO_CARDLOCK_FDN:
+        message.facility =
+          lazy.RIL.GECKO_CARDLOCK_TO_FACILITY[message.lockType];
         message.password = ""; // For query no need to provide pin.
         message.serviceClass =
-          RIL.ICC_SERVICE_CLASS_VOICE |
-          RIL.ICC_SERVICE_CLASS_DATA |
-          RIL.ICC_SERVICE_CLASS_FAX;
+          lazy.RIL.ICC_SERVICE_CLASS_VOICE |
+          lazy.RIL.ICC_SERVICE_CLASS_DATA |
+          lazy.RIL.ICC_SERVICE_CLASS_FAX;
         this.queryICCFacilityLock(message);
         break;
-      case RIL.GECKO_CARDLOCK_NCK:
-      case RIL.GECKO_CARDLOCK_NSCK:
-      case RIL.GECKO_CARDLOCK_CCK:
-      case RIL.GECKO_CARDLOCK_SPCK:
+      case lazy.RIL.GECKO_CARDLOCK_NCK:
+      case lazy.RIL.GECKO_CARDLOCK_NSCK:
+      case lazy.RIL.GECKO_CARDLOCK_CCK:
+      case lazy.RIL.GECKO_CARDLOCK_SPCK:
         this.processGetPersonalizationStatus(message);
         break;
       default:
-        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
         this.handleRilResponse(message);
     }
   },
@@ -7578,7 +7621,7 @@ RadioInterface.prototype = {
       );
     } else {
       this.debug("can not get OemHook");
-      message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+      message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
       this.handleRilResponse(message);
     }
   },
@@ -7588,14 +7631,14 @@ RadioInterface.prototype = {
    */
   processIccChangeCardLockPassword(message) {
     switch (message.lockType) {
-      case RIL.GECKO_CARDLOCK_PIN:
+      case lazy.RIL.GECKO_CARDLOCK_PIN:
         this.changeICCPIN(message);
         break;
-      case RIL.GECKO_CARDLOCK_PIN2:
+      case lazy.RIL.GECKO_CARDLOCK_PIN2:
         this.changeICCPIN2(message);
         break;
       default:
-        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
         this.handleRilResponse(message);
     }
   },
@@ -7652,31 +7695,31 @@ RadioInterface.prototype = {
     this.debug(
       "Current ril do not support processIccGetCardLockRetryCount api."
     );
-    message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+    message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
     this.handleRilResponse(message);
 
-    /*if (!RIL.RILQUIRKS_HAVE_QUERY_ICC_LOCK_RETRY_COUNT) {
+    /*if (!lazy.RIL.RILQUIRKS_HAVE_QUERY_ICC_LOCK_RETRY_COUNT) {
       // Only the emulator supports this request.
-      message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+      message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
       this.handleRilResponse(message);
       return;
     }
 
     switch (message.lockType) {
-      case RIL.GECKO_CARDLOCK_PIN:
-      case RIL.GECKO_CARDLOCK_PIN2:
-      case RIL.GECKO_CARDLOCK_PUK:
-      case RIL.GECKO_CARDLOCK_PUK2:
-      case RIL.GECKO_CARDLOCK_NCK:
-      case RIL.GECKO_CARDLOCK_NSCK:
-      case RIL.GECKO_CARDLOCK_CCK: // Fall through.
-      case RIL.GECKO_CARDLOCK_SPCK:
+      case lazy.RIL.GECKO_CARDLOCK_PIN:
+      case lazy.RIL.GECKO_CARDLOCK_PIN2:
+      case lazy.RIL.GECKO_CARDLOCK_PUK:
+      case lazy.RIL.GECKO_CARDLOCK_PUK2:
+      case lazy.RIL.GECKO_CARDLOCK_NCK:
+      case lazy.RIL.GECKO_CARDLOCK_NSCK:
+      case lazy.RIL.GECKO_CARDLOCK_CCK: // Fall through.
+      case lazy.RIL.GECKO_CARDLOCK_SPCK:
       // TODO: Bug 1116072: identify the mapping between RIL_PERSOSUBSTATE_SIM_SIM
       //       @ ril.h and TS 27.007, clause 8.65 for GECKO_CARDLOCK_SPCK.
-        message.selCode = RIL.GECKO_CARDLOCK_TO_SEL_CODE[message.lockType];
+        message.selCode = lazy.RIL.GECKO_CARDLOCK_TO_SEL_CODE[message.lockType];
         break;
       default:
-        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        message.errorMsg = lazy.RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
         this.handleRilResponse(message);
         return;
     }*/
@@ -7691,12 +7734,12 @@ RadioInterface.prototype = {
       );
     }
     let ton = message.typeOfNumber;
-    let npi = RIL.CALLED_PARTY_BCD_NPI[message.numberPlanIdentification];
+    let npi = lazy.RIL.CALLED_PARTY_BCD_NPI[message.numberPlanIdentification];
 
     // If any of the mandatory arguments is not available, return an error
     // immediately.
     if (ton === undefined || npi === undefined || !message.smscAddress) {
-      message.errorMsg = RIL.GECKO_ERROR_INVALID_ARGUMENTS;
+      message.errorMsg = lazy.RIL.GECKO_ERROR_INVALID_ARGUMENTS;
       //this.sendChromeMessage(options);
       return;
     }
@@ -7711,7 +7754,7 @@ RadioInterface.prototype = {
 
     // If the filtered number is an empty string, return an error immediately.
     if (number.length === 0) {
-      message.errorMsg = RIL.GECKO_ERROR_INVALID_ARGUMENTS;
+      message.errorMsg = lazy.RIL.GECKO_ERROR_INVALID_ARGUMENTS;
       //this.sendChromeMessage(message);
       return;
     }
@@ -7741,7 +7784,7 @@ RadioInterface.prototype = {
       return;
     }
 
-    if (message.command.typeOfCommand === RIL.STK_CMD_OPEN_CHANNEL) {
+    if (message.command.typeOfCommand === lazy.RIL.STK_CMD_OPEN_CHANNEL) {
       message.hasConfirmed = message.isYesNo;
       this.sendRilRequest("stkHandleCallSetup", message);
       return;
@@ -7754,7 +7797,8 @@ RadioInterface.prototype = {
     let command = message.command;
     // Command Details
     GsmPDUHelper.writeHexOctet(
-      RIL.COMPREHENSIONTLV_TAG_COMMAND_DETAILS | RIL.COMPREHENSIONTLV_FLAG_CR
+      lazy.RIL.COMPREHENSIONTLV_TAG_COMMAND_DETAILS |
+        lazy.RIL.COMPREHENSIONTLV_FLAG_CR
     );
     GsmPDUHelper.writeHexOctet(3);
     if (command) {
@@ -7774,14 +7818,14 @@ RadioInterface.prototype = {
     // comprehension not required.(CR=0)"
     // Since DEVICE_IDENTITIES and DURATION TLVs have Min=N,
     // the CR flag is not set.
-    GsmPDUHelper.writeHexOctet(RIL.COMPREHENSIONTLV_TAG_DEVICE_ID);
+    GsmPDUHelper.writeHexOctet(lazy.RIL.COMPREHENSIONTLV_TAG_DEVICE_ID);
     GsmPDUHelper.writeHexOctet(2);
-    GsmPDUHelper.writeHexOctet(RIL.STK_DEVICE_ID_ME);
-    GsmPDUHelper.writeHexOctet(RIL.STK_DEVICE_ID_SIM);
+    GsmPDUHelper.writeHexOctet(lazy.RIL.STK_DEVICE_ID_ME);
+    GsmPDUHelper.writeHexOctet(lazy.RIL.STK_DEVICE_ID_SIM);
 
     // Result
     GsmPDUHelper.writeHexOctet(
-      RIL.COMPREHENSIONTLV_TAG_RESULT | RIL.COMPREHENSIONTLV_FLAG_CR
+      lazy.RIL.COMPREHENSIONTLV_TAG_RESULT | lazy.RIL.COMPREHENSIONTLV_FLAG_CR
     );
     if ("additionalInformation" in message) {
       // In |12.12 Result| TS 11.14, the length of additional information is
@@ -7806,7 +7850,8 @@ RadioInterface.prototype = {
     // Item Identifier
     if (message.itemIdentifier != null) {
       GsmPDUHelper.writeHexOctet(
-        RIL.COMPREHENSIONTLV_TAG_ITEM_ID | RIL.COMPREHENSIONTLV_FLAG_CR
+        lazy.RIL.COMPREHENSIONTLV_TAG_ITEM_ID |
+          lazy.RIL.COMPREHENSIONTLV_FLAG_CR
       );
       GsmPDUHelper.writeHexOctet(1);
       GsmPDUHelper.writeHexOctet(message.itemIdentifier);
@@ -7814,17 +7859,17 @@ RadioInterface.prototype = {
 
     // No need to process Text data if user requests help information.
     if (
-      message.resultCode != RIL.STK_RESULT_HELP_INFO_REQUIRED &&
+      message.resultCode != lazy.RIL.STK_RESULT_HELP_INFO_REQUIRED &&
       command &&
       command.options
     ) {
       let coding = command.options.isUCS2
-        ? RIL.STK_TEXT_CODING_UCS2
+        ? lazy.RIL.STK_TEXT_CODING_UCS2
         : command.options.isPacked;
 
       coding = coding
-        ? RIL.STK_TEXT_CODING_GSM_7BIT_PACKED
-        : RIL.STK_TEXT_CODING_GSM_8BIT;
+        ? lazy.RIL.STK_TEXT_CODING_GSM_7BIT_PACKED
+        : lazy.RIL.STK_TEXT_CODING_GSM_8BIT;
       if (message.isYesNo !== undefined) {
         // Tag: GET_INKEY
         // When the ME issues a successful TERMINAL RESPONSE for a GET INKEY
@@ -7832,7 +7877,8 @@ RadioInterface.prototype = {
         // supply the value '01' when the answer is "positive" and the value
         // '00' when the answer is "negative" in the Text string data object.
         GsmPDUHelper.writeHexOctet(
-          RIL.COMPREHENSIONTLV_TAG_TEXT_STRING | RIL.COMPREHENSIONTLV_FLAG_CR
+          lazy.RIL.COMPREHENSIONTLV_TAG_TEXT_STRING |
+            lazy.RIL.COMPREHENSIONTLV_FLAG_CR
         );
         // Length: 2
         GsmPDUHelper.writeHexOctet(2);
@@ -7845,7 +7891,7 @@ RadioInterface.prototype = {
     }
 
     // Duration
-    if (message.resultCode === RIL.STK_RESULT_NO_RESPONSE_FROM_USER) {
+    if (message.resultCode === lazy.RIL.STK_RESULT_NO_RESPONSE_FROM_USER) {
       // In TS102 223, 6.4.2 GET INKEY, "if the UICC requests a variable timeout,
       // the terminal shall wait until either the user enters a single character
       // or the timeout expires. The timer starts when the text is displayed on
@@ -7855,7 +7901,7 @@ RadioInterface.prototype = {
       // is identical to the time unit of the requested variable timeout."
       let duration = command && command.options && command.options.duration;
       if (duration) {
-        GsmPDUHelper.writeHexOctet(RIL.COMPREHENSIONTLV_TAG_DURATION);
+        GsmPDUHelper.writeHexOctet(lazy.RIL.COMPREHENSIONTLV_TAG_DURATION);
         GsmPDUHelper.writeHexOctet(2);
         GsmPDUHelper.writeHexOctet(duration.timeUnit);
         GsmPDUHelper.writeHexOctet(duration.timeInterval);
@@ -7878,7 +7924,7 @@ RadioInterface.prototype = {
           imei = imei + "0";
         }
 
-        GsmPDUHelper.writeHexOctet(RIL.COMPREHENSIONTLV_TAG_IMEI);
+        GsmPDUHelper.writeHexOctet(lazy.RIL.COMPREHENSIONTLV_TAG_IMEI);
         GsmPDUHelper.writeHexOctet(8);
         for (let i = 0; i < imei.length / 2; i++) {
           GsmPDUHelper.writeHexOctet(parseInt(imei.substr(i * 2, 2), 16));
@@ -7901,7 +7947,9 @@ RadioInterface.prototype = {
       let timer = message.timer;
 
       if (timer.timerId) {
-        GsmPDUHelper.writeHexOctet(RIL.COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER);
+        GsmPDUHelper.writeHexOctet(
+          lazy.RIL.COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER
+        );
         GsmPDUHelper.writeHexOctet(1);
         GsmPDUHelper.writeHexOctet(timer.timerId);
       }
@@ -7932,10 +7980,10 @@ RadioInterface.prototype = {
    *          helpRequested
    */
   processSendStkMenuSelection(message) {
-    message.tag = RIL.BER_MENU_SELECTION_TAG;
+    message.tag = lazy.RIL.BER_MENU_SELECTION_TAG;
     message.deviceId = {
-      sourceId: RIL.STK_DEVICE_ID_KEYPAD,
-      destinationId: RIL.STK_DEVICE_ID_SIM,
+      sourceId: lazy.RIL.STK_DEVICE_ID_KEYPAD,
+      destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
     };
     this.sendICCEnvelopeCommand(message);
   },
@@ -7947,10 +7995,10 @@ RadioInterface.prototype = {
    *          timer
    */
   processSendStkTimerExpiration(message) {
-    message.tag = RIL.BER_TIMER_EXPIRATION_TAG;
+    message.tag = lazy.RIL.BER_TIMER_EXPIRATION_TAG;
     message.deviceId = {
-      sourceId: RIL.STK_DEVICE_ID_ME,
-      destinationId: RIL.STK_DEVICE_ID_SIM,
+      sourceId: lazy.RIL.STK_DEVICE_ID_ME,
+      destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
     };
     message.timerId = message.timer.timerId;
     message.timerValue = message.timer.timerValue;
@@ -7963,63 +8011,63 @@ RadioInterface.prototype = {
    *          event
    */
   processSendStkEventDownload(message) {
-    message.tag = RIL.BER_EVENT_DOWNLOAD_TAG;
+    message.tag = lazy.RIL.BER_EVENT_DOWNLOAD_TAG;
     message.eventList = message.event.eventType;
     switch (message.eventList) {
-      case RIL.STK_EVENT_TYPE_LOCATION_STATUS:
+      case lazy.RIL.STK_EVENT_TYPE_LOCATION_STATUS:
         message.deviceId = {
-          sourceId: RIL.STK_DEVICE_ID_ME,
-          destinationId: RIL.STK_DEVICE_ID_SIM,
+          sourceId: lazy.RIL.STK_DEVICE_ID_ME,
+          destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
         };
         message.locationStatus = message.event.locationStatus;
         // Location info should only be provided when locationStatus is normal.
-        if (message.locationStatus == RIL.STK_SERVICE_STATE_NORMAL) {
+        if (message.locationStatus == lazy.RIL.STK_SERVICE_STATE_NORMAL) {
           message.locationInfo = message.event.locationInfo;
         }
         break;
-      case RIL.STK_EVENT_TYPE_MT_CALL:
+      case lazy.RIL.STK_EVENT_TYPE_MT_CALL:
         message.deviceId = {
-          sourceId: RIL.STK_DEVICE_ID_NETWORK,
-          destinationId: RIL.STK_DEVICE_ID_SIM,
+          sourceId: lazy.RIL.STK_DEVICE_ID_NETWORK,
+          destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
         };
         message.transactionId = 0;
         message.address = message.event.number;
         break;
-      case RIL.STK_EVENT_TYPE_CALL_DISCONNECTED:
+      case lazy.RIL.STK_EVENT_TYPE_CALL_DISCONNECTED:
         message.cause = message.event.error;
       // Fall through.
-      case RIL.STK_EVENT_TYPE_CALL_CONNECTED:
+      case lazy.RIL.STK_EVENT_TYPE_CALL_CONNECTED:
         message.deviceId = {
           sourceId: message.event.isIssuedByRemote
-            ? RIL.STK_DEVICE_ID_NETWORK
-            : RIL.STK_DEVICE_ID_ME,
-          destinationId: RIL.STK_DEVICE_ID_SIM,
+            ? lazy.RIL.STK_DEVICE_ID_NETWORK
+            : lazy.RIL.STK_DEVICE_ID_ME,
+          destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
         };
         message.transactionId = 0;
         break;
-      case RIL.STK_EVENT_TYPE_USER_ACTIVITY:
+      case lazy.RIL.STK_EVENT_TYPE_USER_ACTIVITY:
         message.deviceId = {
-          sourceId: RIL.STK_DEVICE_ID_ME,
-          destinationId: RIL.STK_DEVICE_ID_SIM,
+          sourceId: lazy.RIL.STK_DEVICE_ID_ME,
+          destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
         };
         break;
-      case RIL.STK_EVENT_TYPE_IDLE_SCREEN_AVAILABLE:
+      case lazy.RIL.STK_EVENT_TYPE_IDLE_SCREEN_AVAILABLE:
         message.deviceId = {
-          sourceId: RIL.STK_DEVICE_ID_DISPLAY,
-          destinationId: RIL.STK_DEVICE_ID_SIM,
+          sourceId: lazy.RIL.STK_DEVICE_ID_DISPLAY,
+          destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
         };
         break;
-      case RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION:
+      case lazy.RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION:
         message.deviceId = {
-          sourceId: RIL.STK_DEVICE_ID_ME,
-          destinationId: RIL.STK_DEVICE_ID_SIM,
+          sourceId: lazy.RIL.STK_DEVICE_ID_ME,
+          destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
         };
         message.language = message.event.language;
         break;
-      case RIL.STK_EVENT_TYPE_BROWSER_TERMINATION:
+      case lazy.RIL.STK_EVENT_TYPE_BROWSER_TERMINATION:
         message.deviceId = {
-          sourceId: RIL.STK_DEVICE_ID_ME,
-          destinationId: RIL.STK_DEVICE_ID_SIM,
+          sourceId: lazy.RIL.STK_DEVICE_ID_ME,
+          destinationId: lazy.RIL.STK_DEVICE_ID_SIM,
         };
         message.terminationCause = message.event.terminationCause;
         break;
@@ -8061,7 +8109,8 @@ RadioInterface.prototype = {
     // Event List
     if (options.eventList != null) {
       GsmPDUHelper.writeHexOctet(
-        RIL.COMPREHENSIONTLV_TAG_EVENT_LIST | RIL.COMPREHENSIONTLV_FLAG_CR
+        lazy.RIL.COMPREHENSIONTLV_TAG_EVENT_LIST |
+          lazy.RIL.COMPREHENSIONTLV_FLAG_CR
       );
       GsmPDUHelper.writeHexOctet(1);
       GsmPDUHelper.writeHexOctet(options.eventList);
@@ -8069,7 +8118,8 @@ RadioInterface.prototype = {
 
     // Device Identifies
     GsmPDUHelper.writeHexOctet(
-      RIL.COMPREHENSIONTLV_TAG_DEVICE_ID | RIL.COMPREHENSIONTLV_FLAG_CR
+      lazy.RIL.COMPREHENSIONTLV_TAG_DEVICE_ID |
+        lazy.RIL.COMPREHENSIONTLV_FLAG_CR
     );
     GsmPDUHelper.writeHexOctet(2);
     GsmPDUHelper.writeHexOctet(options.deviceId.sourceId);
@@ -8078,7 +8128,8 @@ RadioInterface.prototype = {
     // Item Identifier
     if (options.itemIdentifier != null) {
       GsmPDUHelper.writeHexOctet(
-        RIL.COMPREHENSIONTLV_TAG_ITEM_ID | RIL.COMPREHENSIONTLV_FLAG_CR
+        lazy.RIL.COMPREHENSIONTLV_TAG_ITEM_ID |
+          lazy.RIL.COMPREHENSIONTLV_FLAG_CR
       );
       GsmPDUHelper.writeHexOctet(1);
       GsmPDUHelper.writeHexOctet(options.itemIdentifier);
@@ -8086,7 +8137,7 @@ RadioInterface.prototype = {
 
     // Help Request
     if (options.helpRequested) {
-      GsmPDUHelper.writeHexOctet(RIL.COMPREHENSIONTLV_TAG_HELP_REQUEST);
+      GsmPDUHelper.writeHexOctet(lazy.RIL.COMPREHENSIONTLV_TAG_HELP_REQUEST);
       GsmPDUHelper.writeHexOctet(0);
       // Help Request doesn't have value
     }
@@ -8094,7 +8145,8 @@ RadioInterface.prototype = {
     // Location Status
     if (options.locationStatus != null) {
       GsmPDUHelper.writeHexOctet(
-        RIL.COMPREHENSIONTLV_TAG_LOCATION_STATUS | RIL.COMPREHENSIONTLV_FLAG_CR
+        lazy.RIL.COMPREHENSIONTLV_TAG_LOCATION_STATUS |
+          lazy.RIL.COMPREHENSIONTLV_FLAG_CR
       );
       GsmPDUHelper.writeHexOctet(1);
       GsmPDUHelper.writeHexOctet(options.locationStatus);
@@ -8108,7 +8160,8 @@ RadioInterface.prototype = {
     // Transaction Id
     if (options.transactionId != null) {
       GsmPDUHelper.writeHexOctet(
-        RIL.COMPREHENSIONTLV_TAG_TRANSACTION_ID | RIL.COMPREHENSIONTLV_FLAG_CR
+        lazy.RIL.COMPREHENSIONTLV_TAG_TRANSACTION_ID |
+          lazy.RIL.COMPREHENSIONTLV_FLAG_CR
       );
       GsmPDUHelper.writeHexOctet(1);
       GsmPDUHelper.writeHexOctet(options.transactionId);
@@ -8117,7 +8170,8 @@ RadioInterface.prototype = {
     // Address
     if (options.address) {
       GsmPDUHelper.writeHexOctet(
-        RIL.COMPREHENSIONTLV_TAG_ADDRESS | RIL.COMPREHENSIONTLV_FLAG_CR
+        lazy.RIL.COMPREHENSIONTLV_TAG_ADDRESS |
+          lazy.RIL.COMPREHENSIONTLV_FLAG_CR
       );
       let addressLength =
         options.address[0] == "+"
@@ -8137,7 +8191,8 @@ RadioInterface.prototype = {
     // Timer Identifier
     if (options.timerId != null) {
       GsmPDUHelper.writeHexOctet(
-        RIL.COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER | RIL.COMPREHENSIONTLV_FLAG_CR
+        lazy.RIL.COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER |
+          lazy.RIL.COMPREHENSIONTLV_FLAG_CR
       );
       GsmPDUHelper.writeHexOctet(1);
       GsmPDUHelper.writeHexOctet(options.timerId);
@@ -8156,8 +8211,8 @@ RadioInterface.prototype = {
     // Browser Termination
     if (options.terminationCause != null) {
       GsmPDUHelper.writeHexOctet(
-        RIL.COMPREHENSIONTLV_TAG_BROWSER_TERMINATION_CAUSE |
-          RIL.COMPREHENSIONTLV_FLAG_CR
+        lazy.RIL.COMPREHENSIONTLV_TAG_BROWSER_TERMINATION_CAUSE |
+          lazy.RIL.COMPREHENSIONTLV_FLAG_CR
       );
       GsmPDUHelper.writeHexOctet(1);
       GsmPDUHelper.writeHexOctet(options.terminationCause);
@@ -8183,7 +8238,7 @@ RadioInterface.prototype = {
   processSetDataProfile(message) {
     // profileList must be a nsIDataProfile list.
     if (!(message.profileList instanceof Array)) {
-      message.errorMsg = RIL.GECKO_ERROR_INVALID_ARGUMENTS;
+      message.errorMsg = lazy.RIL.GECKO_ERROR_INVALID_ARGUMENTS;
       this.handleRilResponse(message);
       return;
     }
@@ -8229,7 +8284,7 @@ RadioInterface.prototype = {
     // Special handler for setRadioEnabled.
     if (rilMessageType === "setRadioEnabled") {
       // Forward it to gRadioEnabledController.
-      gRadioEnabledController.setRadioEnabled(
+      lazy.gRadioEnabledController.setRadioEnabled(
         this.clientId,
         message,
         callback.handleResponse
@@ -8253,7 +8308,7 @@ RadioInterface.prototype = {
 
     if (Ci.nsIOemHook) {
       this.debug("Init OemHook module.");
-      this.oemHook = gOemHookService.getOemHook(this.clientId);
+      this.oemHook = lazy.gOemHookService.getOemHook(this.clientId);
       if (this.oemHook) {
         this.oemHook.init(this);
       }
@@ -8281,7 +8336,7 @@ RadioInterface.prototype = {
     if (typeof response.errorMsg == "string") {
       result.errorMsg = response.errorMsg;
     } else {
-      result.errorMsg = RIL.RIL_ERROR_TO_GECKO_ERROR[response.errorMsg];
+      result.errorMsg = lazy.RIL.RIL_ERROR_TO_GECKO_ERROR[response.errorMsg];
     }
 
     switch (response.messageType) {
@@ -8322,7 +8377,7 @@ RadioInterface.prototype = {
                   "] < OEMHOOK_PERSONALIZATION_STATUS_REQ  error = "
               );
             }
-            result.errorMsg = RIL.GECKO_ERROR_GENERIC_FAILURE;
+            result.errorMsg = lazy.RIL.GECKO_ERROR_GENERIC_FAILURE;
           }
         } else if (DEBUG) {
           this.debug(

@@ -4,54 +4,50 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-const { PromiseUtils } = ChromeUtils.import(
-  "resource://gre/modules/PromiseUtils.jsm"
+const DATACALLINTERFACE_CID = Components.ID(
+  "{ff669306-4390-462a-989b-ba37fc42153f}"
+);
+const DATACALLINTERFACESERVICE_CID = Components.ID(
+  "{e23e9337-592d-40b9-8cef-7bd47c28b72e}"
 );
 
-const DATACALLINTERFACE_CONTRACTID = "@mozilla.org/datacall/interface;1";
-const DATACALLINTERFACESERVICE_CONTRACTID =
-  "@mozilla.org/datacall/interfaceservice;1";
-const DATACALLINTERFACE_CID =
-  Components.ID("{ff669306-4390-462a-989b-ba37fc42153f}");
-const DATACALLINTERFACESERVICE_CID =
-  Components.ID("{e23e9337-592d-40b9-8cef-7bd47c28b72e}");
+const TOPIC_XPCOM_SHUTDOWN = "xpcom-shutdown";
+const TOPIC_PREF_CHANGED = "nsPref:changed";
 
-const TOPIC_XPCOM_SHUTDOWN      = "xpcom-shutdown";
-const TOPIC_PREF_CHANGED        = "nsPref:changed";
+const lazy = {};
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
+  let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
 
-var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
+var RIL_DEBUG = ChromeUtils.import(
+  "resource://gre/modules/ril_consts_debug.js"
+);
 
-
-XPCOMUtils.defineLazyServiceGetter(this, "gRil",
-                                   "@mozilla.org/ril;1",
-                                   "nsIRadioInterfaceLayer");
+XPCOMUtils.defineLazyServiceGetter(
+  lazy,
+  "gRil",
+  "@mozilla.org/ril;1",
+  "nsIRadioInterfaceLayer"
+);
 
 //var DEBUG = RIL_DEBUG.DEBUG_RIL;
 var DEBUG = true;
 function updateDebugFlag() {
   // Read debug setting from pref
-  let debugPref;
-  try {
-    debugPref = Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
-  } catch (e) {
-    debugPref = false;
-  }
-  //DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
-  DEBUG = true;
+  let debugPref = Services.prefs.getBoolPref(
+    RIL_DEBUG.PREF_RIL_DEBUG_ENABLED,
+    false
+  );
+  DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
+  // DEBUG = true;
 }
 updateDebugFlag();
 
@@ -59,7 +55,7 @@ function DataCall(aAttributes) {
   for (let key in aAttributes) {
     if (key === "pdpType") {
       // Convert pdp type into constant int value.
-      this[key] = RIL.RIL_DATACALL_PDP_TYPES.indexOf(aAttributes[key]);
+      this[key] = lazy.RIL.RIL_DATACALL_PDP_TYPES.indexOf(aAttributes[key]);
       continue;
     }
 
@@ -79,39 +75,40 @@ DataCall.prototype = {
   dnses: null,
   gateways: null,
   pcscf: null,
-  mtu: -1
+  mtu: -1,
 };
 
 function DataCallInterfaceService() {
   this._dataCallInterfaces = [];
 
-  let numClients = gRil.numRadioInterfaces;
+  let numClients = lazy.gRil.numRadioInterfaces;
   for (let i = 0; i < numClients; i++) {
     this._dataCallInterfaces.push(new DataCallInterface(i));
   }
 
-  Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN, false);
-  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
+  Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
 }
 DataCallInterfaceService.prototype = {
-  classID:   DATACALLINTERFACESERVICE_CID,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIDataCallInterfaceService,
-                                         Ci.nsIGonkDataCallInterfaceService],
-                                         Ci.nsIObserver),
+  classID: DATACALLINTERFACESERVICE_CID,
+  QueryInterface: ChromeUtils.generateQI(
+    [Ci.nsIDataCallInterfaceService, Ci.nsIGonkDataCallInterfaceService],
+    Ci.nsIObserver
+  ),
 
   // An array of DataCallInterface instances.
   _dataCallInterfaces: null,
 
-  debug: function(aMessage) {
+  debug(aMessage) {
     dump("-*- DataCallInterfaceService: " + aMessage + "\n");
   },
 
   // nsIDataCallInterfaceService
 
-  getDataCallInterface: function(aClientId) {
+  getDataCallInterface(aClientId) {
     let dataCallInterface = this._dataCallInterfaces[aClientId];
     if (!dataCallInterface) {
-      throw Cr.NS_ERROR_UNEXPECTED;
+      throw Components.Exception("", Cr.NS_ERROR_UNEXPECTED);
     }
 
     return dataCallInterface;
@@ -119,14 +116,14 @@ DataCallInterfaceService.prototype = {
 
   // nsIGonkDataCallInterfaceService
 
-  notifyDataCallListChanged: function(aClientId, aCount, aDataCalls) {
+  notifyDataCallListChanged(aClientId, aCount, aDataCalls) {
     let dataCallInterface = this.getDataCallInterface(aClientId);
     dataCallInterface.handleDataCallListChanged(aCount, aDataCalls);
   },
 
   // nsIObserver
 
-  observe: function(aSubject, aTopic, aData) {
+  observe(aSubject, aTopic, aData) {
     switch (aTopic) {
       case TOPIC_PREF_CHANGED:
         if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
@@ -143,16 +140,18 @@ DataCallInterfaceService.prototype = {
 
 function DataCallInterface(aClientId) {
   this._clientId = aClientId;
-  this._radioInterface = gRil.getRadioInterface(aClientId);
+  this._radioInterface = lazy.gRil.getRadioInterface(aClientId);
   this._listeners = [];
 
-  if (DEBUG) this.debug("DataCallInterface: " + aClientId);
+  if (DEBUG) {
+    this.debug("DataCallInterface: " + aClientId);
+  }
 }
 DataCallInterface.prototype = {
-  classID:   DATACALLINTERFACE_CID,
+  classID: DATACALLINTERFACE_CID,
   QueryInterface: ChromeUtils.generateQI([Ci.nsIDataCallInterface]),
 
-  debug: function(aMessage) {
+  debug(aMessage) {
     dump("-*- DataCallInterface[" + this._clientId + "]: " + aMessage + "\n");
   },
 
@@ -164,82 +163,107 @@ DataCallInterface.prototype = {
 
   // nsIDataCallInterface
 
-  setupDataCall: function(aRadioTechnology, aProfile, aIsRoaming, aAllowRoaming,
-                          aCallback) {
-    this._radioInterface.sendWorkerMessage("setupDataCall", {
-      radioTechnology: aRadioTechnology,
-      profile: aProfile,
-      isRoaming: aIsRoaming,
-      allowRoaming: aAllowRoaming
-    }, (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-      } else {
-        let dataCall = new DataCall(aResponse.dcResponse);
-        aCallback.notifySetupDataCallSuccess(dataCall);
+  setupDataCall(
+    aRadioTechnology,
+    aProfile,
+    aIsRoaming,
+    aAllowRoaming,
+    aCallback
+  ) {
+    this._radioInterface.sendWorkerMessage(
+      "setupDataCall",
+      {
+        radioTechnology: aRadioTechnology,
+        profile: aProfile,
+        isRoaming: aIsRoaming,
+        allowRoaming: aAllowRoaming,
+      },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+        } else {
+          let dataCall = new DataCall(aResponse.dcResponse);
+          aCallback.notifySetupDataCallSuccess(dataCall);
+        }
       }
-    });
+    );
   },
 
-  deactivateDataCall: function(aCid, aReason, aCallback) {
-    this._radioInterface.sendWorkerMessage("deactivateDataCall", {
-      cid: aCid,
-      reason: aReason
-    }, (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-      } else {
-        aCallback.notifySuccess();
+  deactivateDataCall(aCid, aReason, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "deactivateDataCall",
+      {
+        cid: aCid,
+        reason: aReason,
+      },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+        } else {
+          aCallback.notifySuccess();
+        }
       }
-    });
+    );
   },
 
-  getDataCallList: function(aCallback) {
-    this._radioInterface.sendWorkerMessage("getDataCallList", null,
-      (aResponse) => {
+  getDataCallList(aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "getDataCallList",
+      null,
+      aResponse => {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
         } else {
           let dataCalls = aResponse.datacalls.map(
-            dataCall => new DataCall(dataCall));
+            dataCall => new DataCall(dataCall)
+          );
           aCallback.notifyGetDataCallListSuccess(dataCalls.length, dataCalls);
         }
-      });
-  },
-
-  setDataRegistration: function(aAttach, aCallback) {
-    this._radioInterface.sendWorkerMessage("setDataRegistration", {
-      attach: aAttach
-    }, (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-      } else {
-        aCallback.notifySuccess();
       }
-    });
+    );
   },
 
-  setInitialAttachApn: function(aProfile, aIsRoaming,) {
-    this._radioInterface.sendWorkerMessage("setInitialAttachApn", {
-      profile: aProfile,
-      isRoaming: aIsRoaming
-    }, (aResponse) => {
-      if (aResponse.errorMsg) {
-        if (DEBUG) {
-          this.debug("setInitialAttachApn errorMsg : " + aResponse.errorMsg);
+  setDataRegistration(aAttach, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "setDataRegistration",
+      {
+        attach: aAttach,
+      },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+        } else {
+          aCallback.notifySuccess();
         }
       }
-    });
+    );
   },
 
-  handleDataCallListChanged: function(aCount, aDataCalls) {
+  setInitialAttachApn(aProfile, aIsRoaming) {
+    this._radioInterface.sendWorkerMessage(
+      "setInitialAttachApn",
+      {
+        profile: aProfile,
+        isRoaming: aIsRoaming,
+      },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          if (DEBUG) {
+            this.debug("setInitialAttachApn errorMsg : " + aResponse.errorMsg);
+          }
+        }
+      }
+    );
+  },
+
+  handleDataCallListChanged(aCount, aDataCalls) {
     this._notifyAllListeners("notifyDataCallListChanged", [aCount, aDataCalls]);
   },
 
-  _notifyAllListeners: function(aMethodName, aArgs) {
+  _notifyAllListeners(aMethodName, aArgs) {
     let listeners = this._listeners.slice();
     for (let listener of listeners) {
-      if (this._listeners.indexOf(listener) == -1) {
+      if (!this._listeners.includes(listener)) {
         // Listener has been unregistered in previous run.
         continue;
       }
@@ -249,21 +273,23 @@ DataCallInterface.prototype = {
         handler.apply(listener, aArgs);
       } catch (e) {
         if (DEBUG) {
-          this.debug("listener for " + aMethodName + " threw an exception: " + e);
+          this.debug(
+            "listener for " + aMethodName + " threw an exception: " + e
+          );
         }
       }
     }
   },
 
-  registerListener: function(aListener) {
-    if (this._listeners.indexOf(aListener) >= 0) {
+  registerListener(aListener) {
+    if (this._listeners.includes(aListener)) {
       return;
     }
 
     this._listeners.push(aListener);
   },
 
-  unregisterListener: function(aListener) {
+  unregisterListener(aListener) {
     let index = this._listeners.indexOf(aListener);
     if (index >= 0) {
       this._listeners.splice(index, 1);

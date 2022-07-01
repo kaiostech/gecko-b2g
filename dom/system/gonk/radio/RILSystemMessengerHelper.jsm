@@ -9,14 +9,17 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyGetter(this, "RSM", function() {
-  let obj = {};
-  ChromeUtils.import("resource://gre/modules/RILSystemMessenger.jsm", obj);
-  return obj;
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "RSM", function() {
+  const { RILSystemMessenger } = ChromeUtils.import(
+    "resource://gre/modules/RILSystemMessenger.jsm"
+  );
+  return RILSystemMessenger;
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gStkCmdFactory",
   "@mozilla.org/icc/stkcmdfactory;1",
   "nsIStkCmdFactory"
@@ -27,7 +30,7 @@ const RILSYSTEMMESSENGERHELPER_CID = Components.ID(
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSystemMessenger",
   "@mozilla.org/systemmessage-service;1",
   "nsISystemMessageService"
@@ -51,9 +54,9 @@ function RILSystemMessengerHelper() {
   if (DEBUG) {
     debug("constructor");
   }
-  debug("RSM: " + JSON.stringify(RSM));
+  debug("RSM: " + JSON.stringify(lazy.RSM));
 
-  this.messenger = new RSM.RILSystemMessenger();
+  this.messenger = new lazy.RSM.RILSystemMessenger();
   this.messenger.broadcastMessage = (aType, aMessage, aOrigin = null) => {
     if (DEBUG) {
       debug(
@@ -65,14 +68,14 @@ function RILSystemMessengerHelper() {
     }
 
     if (aOrigin) {
-      gSystemMessenger.sendMessage(aType, aMessage, aOrigin);
+      lazy.gSystemMessenger.sendMessage(aType, aMessage, aOrigin);
     } else {
-      gSystemMessenger.broadcastMessage(aType, aMessage);
+      lazy.gSystemMessenger.broadcastMessage(aType, aMessage);
     }
   };
 
   this.messenger.createCommandMessage = aStkProactiveCmd => {
-    return gStkCmdFactory.createCommandMessage(aStkProactiveCmd);
+    return lazy.gStkCmdFactory.createCommandMessage(aStkProactiveCmd);
   };
 }
 RILSystemMessengerHelper.prototype = {

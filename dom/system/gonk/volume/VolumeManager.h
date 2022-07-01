@@ -30,7 +30,8 @@ namespace system {
 
 class VolumeInfo final {
  public:
-   // VolumeInfo could be accessed by mainthread in nsVolumeService or binder thread in VoldProxy
+  // VolumeInfo could be accessed by mainthread in nsVolumeService or binder
+  // thread in VoldProxy
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VolumeInfo)
 
   VolumeInfo(const nsACString& aId, int aType, const nsACString& aDiskId,

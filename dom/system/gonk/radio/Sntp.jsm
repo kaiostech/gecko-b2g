@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["Sntp"];
+const EXPORTED_SYMBOLS = ["Sntp"];
 
 // Set to true to see debug messages.
 var DEBUG = false;
@@ -27,7 +27,7 @@ var DEBUG = false;
  * @param port
  *        SNTP port.
  */
-this.Sntp = function Sntp(
+const Sntp = function Sntp(
   dataAvailableCb,
   maxRetryCount,
   refreshPeriodInSecs,

@@ -24,26 +24,28 @@ const NETWORKMANAGER_CID = Components.ID(
 
 const DEFAULT_PREFERRED_NETWORK_TYPE = Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET;
 
-XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "ppmm", function() {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gDNSService",
   "@mozilla.org/network/dns-service;1",
   "nsIDNSService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkService",
   "@mozilla.org/network/service;1",
   "nsINetworkService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gTetheringService",
   "@mozilla.org/tethering/service;1",
   "nsITetheringService"
@@ -446,14 +448,18 @@ Nat464Xlat.prototype = {
     this.nat64Debug("setupPrefix64Discovery aEnable:" + aEnable);
     // Set state discovering.
     this.nat64State = Ci.nsINat464XlatInfo.XLAT_STATE_DISCOVERING;
-    gNetworkService.setupPrefix64Discovery(this.ifaceName, aEnable, success => {
-      self.nat64Debug(
-        "setupPrefix64Discovery " +
-          aEnable +
-          " : " +
-          (success ? "success" : "fail")
-      );
-    });
+    lazy.gNetworkService.setupPrefix64Discovery(
+      this.ifaceName,
+      aEnable,
+      success => {
+        self.nat64Debug(
+          "setupPrefix64Discovery " +
+            aEnable +
+            " : " +
+            (success ? "success" : "fail")
+        );
+      }
+    );
   },
 
   shouldRunClat() {
@@ -509,7 +515,7 @@ Nat464Xlat.prototype = {
 
     this.nat64Debug("Starting clatd on " + this.ifaceName);
 
-    gNetworkService.startClatd(this.ifaceName, this.nat64Prefix, function(
+    lazy.gNetworkService.startClatd(this.ifaceName, this.nat64Prefix, function(
       success,
       clatdAddress
     ) {
@@ -539,7 +545,7 @@ Nat464Xlat.prototype = {
 
     this.nat64Debug("Stopping clatd");
 
-    gNetworkService.stopClatd(this.ifaceName, success => {
+    lazy.gNetworkService.stopClatd(this.ifaceName, success => {
       // Clean nat464Iface if the isRunning is false. Which means the clat do not start yet but turn off.
       // Whne clat start but stop in a short time, kernel will not lunch the clat interface, cause the isStarted value do not reset.
       if (!this.isRunning()) {
@@ -604,7 +610,7 @@ function NetworkManager() {
 
   this.setAndConfigureActive();
 
-  ppmm.addMessageListener("NetworkInterfaceList:ListInterface", this);
+  lazy.ppmm.addMessageListener("NetworkInterfaceList:ListInterface", this);
 
   // Used in resolveHostname().
   defineLazyRegExp(this, "REGEXP_IPV4", "^\\d{1,3}(?:\\.\\d{1,3}){3}$");
@@ -936,7 +942,7 @@ NetworkManager.prototype = {
               prePrefixLengths.value[index]
           );
           promises.push(
-            gNetworkService
+            lazy.gNetworkService
               .modifyRoute(
                 Ci.nsINetworkService.MODIFY_ROUTE_REMOVE,
                 aPreNetworkInfo.name,
@@ -963,7 +969,7 @@ NetworkManager.prototype = {
               extPrefixLengths.value[index]
           );
           promises.push(
-            gNetworkService
+            lazy.gNetworkService
               .modifyRoute(
                 Ci.nsINetworkService.MODIFY_ROUTE_ADD,
                 aExtNetworkInfo.name,
@@ -992,7 +998,7 @@ NetworkManager.prototype = {
         "Adding subnet routes: " + ips.value[i] + "/" + prefixLengths.value[i]
       );
       promises.push(
-        gNetworkService
+        lazy.gNetworkService
           .modifyRoute(
             Ci.nsINetworkService.MODIFY_ROUTE_ADD,
             aNetworkInfo.name,
@@ -1019,7 +1025,7 @@ NetworkManager.prototype = {
         "Removing subnet routes: " + ips.value[i] + "/" + prefixLengths.value[i]
       );
       promises.push(
-        gNetworkService
+        lazy.gNetworkService
           .modifyRoute(
             Ci.nsINetworkService.MODIFY_ROUTE_REMOVE,
             aNetworkInfo.name,
@@ -1269,7 +1275,7 @@ NetworkManager.prototype = {
         this._createNetwork(extNetworkInfo.name, extNetworkInfo.type)
           //Get the netid value.
           .then(() => {
-            return gNetworkService
+            return lazy.gNetworkService
               .getNetId(extNetworkInfo.name)
               .then(aNetId => {
                 debug("Stored aNetId = " + aNetId);
@@ -1330,7 +1336,7 @@ NetworkManager.prototype = {
           })
           .then(() => this.updateClat(extNetworkInfo))
           .then(() =>
-            gTetheringService.onExternalConnectionChanged(extNetworkInfo)
+            lazy.gTetheringService.onExternalConnectionChanged(extNetworkInfo)
           )
           .then(() => this.setAndConfigureActive())
           .then(() => {
@@ -1433,7 +1439,7 @@ NetworkManager.prototype = {
             );
           })
           .then(() =>
-            gTetheringService.onExternalConnectionChanged(preNetworkInfo)
+            lazy.gTetheringService.onExternalConnectionChanged(preNetworkInfo)
           )
           .then(() => this.setAndConfigureActive())
           .then(() => {
@@ -1631,7 +1637,7 @@ NetworkManager.prototype = {
       return;
     }
 
-    return gNetworkService.getInterfaceConfig(
+    return lazy.gNetworkService.getInterfaceConfig(
       clatIfaceLink.nat464Iface,
       function(success, result) {
         if (!success) {
@@ -1987,14 +1993,14 @@ NetworkManager.prototype = {
 
         promises.push(
           doAdd
-            ? gNetworkService.modifyRoute(
+            ? lazy.gNetworkService.modifyRoute(
                 Ci.nsINetworkService.MODIFY_ROUTE_ADD,
                 ifaceName,
                 aIpAddress,
                 getMaxPrefixLength(aIpAddress),
                 gateway
               )
-            : gNetworkService.modifyRoute(
+            : lazy.gNetworkService.modifyRoute(
                 Ci.nsINetworkService.MODIFY_ROUTE_REMOVE,
                 ifaceName,
                 aIpAddress,
@@ -2236,15 +2242,19 @@ NetworkManager.prototype = {
   _setSecondaryRoute(aDoAdd, aInterfaceName, aRoute) {
     return new Promise((aResolve, aReject) => {
       if (aDoAdd) {
-        gNetworkService.addSecondaryRoute(aInterfaceName, aRoute, aSuccess => {
-          if (!aSuccess) {
-            aReject("addSecondaryRoute failed");
-            return;
+        lazy.gNetworkService.addSecondaryRoute(
+          aInterfaceName,
+          aRoute,
+          aSuccess => {
+            if (!aSuccess) {
+              aReject("addSecondaryRoute failed");
+              return;
+            }
+            aResolve();
           }
-          aResolve();
-        });
+        );
       } else {
-        gNetworkService.removeSecondaryRoute(
+        lazy.gNetworkService.removeSecondaryRoute(
           aInterfaceName,
           aRoute,
           aSuccess => {
@@ -2466,9 +2476,9 @@ NetworkManager.prototype = {
         if (this._manageOfflineStatus) {
           Services.io.offline =
             !anyConnected &&
-            gTetheringService.wifiState ===
+            lazy.gTetheringService.wifiState ===
               Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
-            gTetheringService.usbState ===
+            lazy.gTetheringService.usbState ===
               Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
         }
 
@@ -2535,7 +2545,7 @@ NetworkManager.prototype = {
           },
         };
         debug("Calling gDNSService.asyncResolve: " + aHostname);
-        gDNSService.asyncResolve(
+        lazy.gDNSService.asyncResolve(
           aHostname,
           Ci.nsIDNSService.RESOLVE_TYPE_DEFAULT,
           0,
@@ -2587,55 +2597,72 @@ NetworkManager.prototype = {
   _setDNS(aNetworkInfo) {
     return new Promise((aResolve, aReject) => {
       let dnses = aNetworkInfo.getDnses();
-      gNetworkService.setDNS(aNetworkInfo.name, dnses.length, dnses, aError => {
-        if (aError) {
-          aReject("setDNS failed");
-          return;
+      lazy.gNetworkService.setDNS(
+        aNetworkInfo.name,
+        dnses.length,
+        dnses,
+        aError => {
+          if (aError) {
+            aReject("setDNS failed");
+            return;
+          }
+          aResolve();
         }
-        aResolve();
-      });
+      );
     });
   },
 
   _setMtu(aNetwork) {
     return new Promise((aResolve, aReject) => {
-      gNetworkService.setMtu(aNetwork.info.name, aNetwork.mtu, aSuccess => {
-        if (!aSuccess) {
-          debug("setMtu failed");
+      lazy.gNetworkService.setMtu(
+        aNetwork.info.name,
+        aNetwork.mtu,
+        aSuccess => {
+          if (!aSuccess) {
+            debug("setMtu failed");
+          }
+          // Always resolve.
+          aResolve();
         }
-        // Always resolve.
-        aResolve();
-      });
+      );
     });
   },
 
   _createNetwork(aInterfaceName, aNetworkType) {
     return new Promise((aResolve, aReject) => {
-      gNetworkService.createNetwork(aInterfaceName, aNetworkType, aSuccess => {
-        if (!aSuccess) {
-          aReject("createNetwork failed");
-          return;
+      lazy.gNetworkService.createNetwork(
+        aInterfaceName,
+        aNetworkType,
+        aSuccess => {
+          if (!aSuccess) {
+            aReject("createNetwork failed");
+            return;
+          }
+          aResolve();
         }
-        aResolve();
-      });
+      );
     });
   },
 
   _destroyNetwork(aInterfaceName, aNetworkType) {
     return new Promise((aResolve, aReject) => {
-      gNetworkService.destroyNetwork(aInterfaceName, aNetworkType, aSuccess => {
-        if (!aSuccess) {
-          debug("destroyNetwork failed");
+      lazy.gNetworkService.destroyNetwork(
+        aInterfaceName,
+        aNetworkType,
+        aSuccess => {
+          if (!aSuccess) {
+            debug("destroyNetwork failed");
+          }
+          // Always resolve.
+          aResolve();
         }
-        // Always resolve.
-        aResolve();
-      });
+      );
     });
   },
 
   _addInterfaceToNetwork(aNetId, aInterfaceName) {
     return new Promise((aResolve, aReject) => {
-      gNetworkService.addInterfaceToNetwork(
+      lazy.gNetworkService.addInterfaceToNetwork(
         aNetId,
         aInterfaceName,
         aSuccess => {
@@ -2651,7 +2678,7 @@ NetworkManager.prototype = {
 
   _removeInterfaceToNetwork(aNetId, aInterfaceName) {
     return new Promise((aResolve, aReject) => {
-      gNetworkService.removeInterfaceToNetwork(
+      lazy.gNetworkService.removeInterfaceToNetwork(
         aNetId,
         aInterfaceName,
         aSuccess => {
@@ -2667,7 +2694,7 @@ NetworkManager.prototype = {
 
   _resetRoutingTable(aInterfaceName) {
     return new Promise((aResolve, aReject) => {
-      gNetworkService.resetRoutingTable(aInterfaceName, aSuccess => {
+      lazy.gNetworkService.resetRoutingTable(aInterfaceName, aSuccess => {
         if (!aSuccess) {
           debug("resetRoutingTable failed");
         }
@@ -2724,7 +2751,7 @@ NetworkManager.prototype = {
         let removedLink = [];
         removedLink.push(aGateway);
 
-        gNetworkService.removeDefaultRoute(
+        lazy.gNetworkService.removeDefaultRoute(
           aPreNetworkInfo.name,
           removedLink.length,
           removedLink,
@@ -2749,7 +2776,7 @@ NetworkManager.prototype = {
         let addedLink = [];
         addedLink.push(aGateway);
 
-        gNetworkService.setDefaultRoute(
+        lazy.gNetworkService.setDefaultRoute(
           aExtNetworkInfo.name,
           addedLink.length,
           addedLink,
@@ -2771,7 +2798,7 @@ NetworkManager.prototype = {
     return new Promise((aResolve, aReject) => {
       let networkInfo = aNetwork.info;
 
-      gNetworkService.setDefaultNetwork(networkInfo.name, aSuccess => {
+      lazy.gNetworkService.setDefaultNetwork(networkInfo.name, aSuccess => {
         this.setNetworkProxy(aNetwork);
         this.updateDNSProperty(networkInfo.dnses);
         aResolve();
@@ -2781,7 +2808,7 @@ NetworkManager.prototype = {
 
   _setTcpBufferSize(tcpbuffersizes) {
     return new Promise((aResolve, aReject) => {
-      gNetworkService.setTcpBufferSize(tcpbuffersizes, aSuccess => {
+      lazy.gNetworkService.setTcpBufferSize(tcpbuffersizes, aSuccess => {
         if (!aSuccess) {
           debug("setTcpBufferSize failed");
         }
@@ -2932,7 +2959,9 @@ NetworkManager.prototype = {
         TOPIC_CONNECTION_STATE_CHANGED
       );
 
-      return gTetheringService.onExternalConnectionChanged(clatNetwork.info);
+      return lazy.gTetheringService.onExternalConnectionChanged(
+        clatNetwork.info
+      );
     });
   },
 

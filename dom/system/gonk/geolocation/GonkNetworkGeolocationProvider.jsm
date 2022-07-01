@@ -9,23 +9,23 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyModuleGetters(this, {
+const lazy = {};
+
+XPCOMUtils.defineLazyModuleGetters(lazy, {
   clearTimeout: "resource://gre/modules/Timer.jsm",
   LocationHelper: "resource://gre/modules/LocationHelper.jsm",
   setTimeout: "resource://gre/modules/Timer.jsm",
 });
 
-XPCOMUtils.defineLazyGlobalGetters(this, ["fetch"]);
-
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkManager",
   "@mozilla.org/network/manager;1",
   "nsINetworkManager"
@@ -41,14 +41,14 @@ const NETWORK_CHANGED_TOPIC = "network-active-changed";
 const HPE_CONFIDENCE = 95;
 
 XPCOMUtils.defineLazyPreferenceGetter(
-  this,
+  lazy,
   "gLoggingEnabled",
   "geo.provider.network.logging.enabled",
   false
 );
 
 function LOG(aMsg) {
-  if (gLoggingEnabled) {
+  if (lazy.gLoggingEnabled) {
     dump("*** WIFI GEO: " + aMsg + "\n");
   }
 }
@@ -382,7 +382,7 @@ GonkNetworkGeolocationProvider.prototype = {
     this.started = true;
 
     // Check whether there are any active network
-    if (gNetworkManager && gNetworkManager.activeNetworkInfo) {
+    if (lazy.gNetworkManager?.activeNetworkInfo) {
       this.hasNetwork = true;
     } else {
       this.hasNetwork = false;
@@ -439,7 +439,7 @@ GonkNetworkGeolocationProvider.prototype = {
 
     let wifiData = null;
     if (accessPoints) {
-      wifiData = LocationHelper.formatWifiAccessPoints(accessPoints);
+      wifiData = lazy.LocationHelper.formatWifiAccessPoints(accessPoints);
     }
     this.sendLocationRequest(wifiData);
   },
@@ -452,7 +452,7 @@ GonkNetworkGeolocationProvider.prototype = {
   getMobileInfo() {
     LOG("getMobileInfo called");
     try {
-      let service = gMobileConnectionService;
+      let service = lazy.gMobileConnectionService;
 
       let result = [];
       for (let i = 0; i < service.numItems; i++) {
@@ -651,7 +651,10 @@ GonkNetworkGeolocationProvider.prototype = {
 
     let compareUrl = Services.urlFormatter.formatURL(this._wifiCompareURL);
     let compare = await this.makeRequest(compareUrl, wifiData);
-    let distance = LocationHelper.distance(result.location, compare.location);
+    let distance = lazy.LocationHelper.distance(
+      result.location,
+      compare.location
+    );
     LOG(
       `compare reported reported: ${compare.location.lng}:${compare.location.lat}`
     );
@@ -673,13 +676,13 @@ GonkNetworkGeolocationProvider.prototype = {
       body: JSON.stringify(data),
     };
 
-    let timeoutId = setTimeout(
+    let timeoutId = lazy.setTimeout(
       () => fetchController.abort(),
       Services.prefs.getIntPref("geo.provider.network.timeout")
     );
 
     let req = await fetch(url, fetchOpts);
-    clearTimeout(timeoutId);
+    lazy.clearTimeout(timeoutId);
     let result = req.json();
     return result;
   },

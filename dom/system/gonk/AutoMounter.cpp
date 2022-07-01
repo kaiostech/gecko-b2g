@@ -633,7 +633,7 @@ bool AutoMounter::StartMtpServer() {
   // For debugging, Change the #if 0 to #if 1, and then attach gdb during
   // the 5 second interval below. Otherwise, configuring MTP will cause adb
   // (and thus gdb) to get bounced.
-#  if 0
+#if 0
   LOG("Sleeping");
   PRTime now = PR_Now();
   PRTime stopTime = now + 5000000;
@@ -642,7 +642,7 @@ bool AutoMounter::StartMtpServer() {
     sleep(1);
   }
   LOG("Sleep done");
-#  endif
+#endif
 
   sMozMtpServer = new MozMtpServer();
   if (!sMozMtpServer->Init()) {

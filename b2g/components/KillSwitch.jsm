@@ -125,4 +125,4 @@ KillSwitch.prototype = {
   ]),
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([KillSwitch]);
+const EXPORTED_SYMBOLS = ["KillSwitch"];

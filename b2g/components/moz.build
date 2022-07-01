@@ -12,10 +12,6 @@ DIRS += [
     "virtualcursor",
 ]
 
-EXTRA_COMPONENTS += [
-    "KillSwitch.js",
-]
-
 if CONFIG["MOZ_PRESENTATION"]:
     EXTRA_COMPONENTS += [
         "B2GPresentationDevicePrompt.js",
@@ -52,6 +48,7 @@ EXTRA_JS_MODULES += [
     "FilePicker.jsm",
     "GeckoBridge.jsm",
     "HelperAppDialog.jsm",
+    "KillSwitch.jsm",
     "KillSwitchMain.jsm",
     "MailtoProtocolHandler.jsm",
     "MultiscreenHandler.jsm",

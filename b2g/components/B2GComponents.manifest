@@ -1,10 +1,6 @@
 # Scrollbars
 category agent-style-sheets browser-content-stylesheet chrome://b2g/content/content.css
 
-# FilePicker.js
-component {436ff8f9-0acc-4b11-8ec7-e293efba3141} FilePicker.js
-contract @mozilla.org/filepicker;1 {436ff8f9-0acc-4b11-8ec7-e293efba3141}
-
 # HelperAppDialog.js
 component {710322af-e6ae-4b0c-b2c9-1474a87b077e} HelperAppDialog.js
 contract @mozilla.org/helperapplauncherdialog;1 {710322af-e6ae-4b0c-b2c9-1474a87b077e}

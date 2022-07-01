@@ -61,7 +61,7 @@ const AUDIO_FILTERS = [
 function FilePicker() {}
 
 FilePicker.prototype = {
-  classID: Components.ID("{436ff8f9-0acc-4b11-8ec7-e293efba3141}"),
+  classID: Components.ID("{bd57cee8-1dd1-11b2-9fe7-95cf4709aea3}"),
   QueryInterface: ChromeUtils.generateQI([Ci.nsIFilePicker]),
 
   /* members */
@@ -263,4 +263,4 @@ FilePicker.prototype = {
   },
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([FilePicker]);
+const EXPORTED_SYMBOLS = ["FilePicker"];

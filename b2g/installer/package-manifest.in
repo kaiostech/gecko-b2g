@@ -453,7 +453,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/chrome/remote.manifest
 #endif
 @RESPATH@/components/PaymentProviderStrategy.js
-@RESPATH@/components/FilePicker.js
 @RESPATH@/components/HelperAppDialog.js
 #ifdef MOZ_PRESENTATION
 @RESPATH@/components/B2GPresentationDevicePrompt.js

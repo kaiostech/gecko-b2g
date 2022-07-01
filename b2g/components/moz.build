@@ -13,7 +13,6 @@ DIRS += [
 ]
 
 EXTRA_COMPONENTS += [
-    "FilePicker.js",
     "HelperAppDialog.js",
     "KillSwitch.js",
 ]
@@ -51,6 +50,7 @@ EXTRA_JS_MODULES += [
     "dbg-browser-actors.js",
     "DirectoryProvider.jsm",
     "ErrorPage.jsm",
+    "FilePicker.jsm",
     "GeckoBridge.jsm",
     "KillSwitchMain.jsm",
     "MailtoProtocolHandler.jsm",

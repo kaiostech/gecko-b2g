@@ -13,7 +13,6 @@ DIRS += [
 ]
 
 EXTRA_COMPONENTS += [
-    "B2GAboutRedirector.js",
     "FilePicker.js",
     "HelperAppDialog.js",
     "KillSwitch.js",
@@ -48,6 +47,7 @@ EXTRA_JS_MODULES += [
     "AlertsService.jsm",
     "AppsServiceDelegate.jsm",
     "AppsUtils.jsm",
+    "B2GAboutRedirector.jsm",
     "B2GProcessSelector.jsm",
     "ChromeNotifications.jsm",
     "ContentPermissionPrompt.jsm",

@@ -454,7 +454,6 @@ bin/libfreebl_32int64_3.so
 #endif
 @RESPATH@/components/PaymentProviderStrategy.js
 @RESPATH@/components/RecoveryService.js
-@RESPATH@/components/B2GAboutRedirector.js
 @RESPATH@/components/FilePicker.js
 @RESPATH@/components/HelperAppDialog.js
 #ifdef MOZ_PRESENTATION

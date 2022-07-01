@@ -86,4 +86,4 @@ B2GAboutRedirector.prototype = {
   },
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([B2GAboutRedirector]);
+const EXPORTED_SYMBOLS = ["B2GAboutRedirector"];

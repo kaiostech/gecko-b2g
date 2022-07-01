@@ -95,25 +95,25 @@ nsresult Icc::NotifyEvent(const nsAString& aName) {
 
 nsresult Icc::NotifyStkEvent(const nsAString& aName,
                              nsIStkProactiveCmd* aStkProactiveCmd) {
-    JS::RootingContext* cx = RootingCx();
-    JS::Rooted<JS::Value> value(cx);
+  JS::RootingContext* cx = RootingCx();
+  JS::Rooted<JS::Value> value(cx);
 
-    nsCOMPtr<nsIStkCmdFactory> cmdFactory =
+  nsCOMPtr<nsIStkCmdFactory> cmdFactory =
       do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
-    NS_ENSURE_TRUE(cmdFactory, NS_ERROR_UNEXPECTED);
+  NS_ENSURE_TRUE(cmdFactory, NS_ERROR_UNEXPECTED);
 
-    cmdFactory->CreateCommandMessage(aStkProactiveCmd, &value);
-    NS_ENSURE_TRUE(value.isObject(), NS_ERROR_UNEXPECTED);
+  cmdFactory->CreateCommandMessage(aStkProactiveCmd, &value);
+  NS_ENSURE_TRUE(value.isObject(), NS_ERROR_UNEXPECTED);
 
-    StkCommandEventInit init;
-    init.mBubbles = false;
-    init.mCancelable = false;
-    init.mCommand = value;
+  StkCommandEventInit init;
+  init.mBubbles = false;
+  init.mCancelable = false;
+  init.mCommand = value;
 
-    RefPtr<StkCommandEvent> event =
+  RefPtr<StkCommandEvent> event =
       StkCommandEvent::Constructor(this, aName, init);
 
-    return DispatchTrustedEvent(event);
+  return DispatchTrustedEvent(event);
 }
 
 void Icc::UpdateIccInfo(nsIIccInfo* aIccInfo) {

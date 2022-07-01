@@ -37,6 +37,7 @@ dom/mobilemessage/tests/
 dom/cellbroadcast/tests/
 dom/telephony/test/
 dom/voicemail/test/
+dom/icc/tests/
 
 # build/ third-party code
 build/pgo/js-input/

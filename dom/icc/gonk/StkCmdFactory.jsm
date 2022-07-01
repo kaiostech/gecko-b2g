@@ -4,15 +4,7 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
-  // eslint-disable-next-line mozilla/reject-chromeutils-import-null
-  let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js", null);
-  return obj;
-});
+const RIL = ChromeUtils.import("resource://gre/modules/ril_consts.js");
 
 const GONK_STKCMDFACTORY_CID = Components.ID(
   "{7a663440-e336-11e4-8fd5-c3140a7ff307}"

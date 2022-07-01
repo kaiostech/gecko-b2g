@@ -38,15 +38,13 @@ const DATACALL_IPC_MSG_ENTRIES = [
   "DataCall:OnStateChanged",
 ];
 
-XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
-  return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
-});
+var RIL_DEBUG = ChromeUtils.import(
+  "resource://gre/modules/ril_consts_debug.js"
+);
 
-// eslint-disable-next-line mozilla/reject-chromeutils-import-params
-var RIL_DEBUG = {};
-ChromeUtils.import("resource://gre/modules/ril_consts_debug.js", RIL_DEBUG);
+const lazy = {};
 
-XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function () {
+XPCOMUtils.defineLazyGetter(lazy, "gDataCallHelper", function() {
   return {
     // Should match with enum DataCallState in DataCallManager webidl.
     convertToDataCallState(aState, aReason) {
@@ -183,7 +181,7 @@ DOMDataCallManager.prototype = {
   uninit() {
     // All requests that are still pending need to be invalidated
     // because the context is no longer valid.
-    this.forEachPromiseResolver((aKey) => {
+    this.forEachPromiseResolver(aKey => {
       this.takePromiseResolver(aKey).reject("DataCallManager got destroyed.");
     });
   },
@@ -214,8 +212,8 @@ DOMDataCallManager.prototype = {
           this._window,
           this._innerWindowId,
           dataCall.serviceId,
-          gDataCallHelper.convertToDataCallType(dataCall.type),
-          gDataCallHelper.convertToDataCallState(dataCall.state),
+          lazy.gDataCallHelper.convertToDataCallType(dataCall.type),
+          lazy.gDataCallHelper.convertToDataCallState(dataCall.state),
           dataCall.name,
           dataCall.addresses,
           dataCall.gateways,
@@ -230,7 +228,7 @@ DOMDataCallManager.prototype = {
         break;
       }
       case "DataCall:GetDataCallState:Resolved": {
-        let state = gDataCallHelper.convertToDataCallState(data.result);
+        let state = lazy.gDataCallHelper.convertToDataCallState(data.result);
         resolver.resolve(state);
         break;
       }
@@ -255,7 +253,7 @@ DOMDataCallManager.prototype = {
     }
 
     return this.createPromise((aResolve, aReject) => {
-      let networkType = gDataCallHelper.convertToNetworkType(aType);
+      let networkType = lazy.gDataCallHelper.convertToNetworkType(aType);
       if (networkType == Ci.nsINetworkInfo.NETWORK_TYPE_UNKNOWN) {
         aReject("Invalid data call type.");
         return;
@@ -271,7 +269,7 @@ DOMDataCallManager.prototype = {
         serviceId: aServiceId,
         windowId: this._innerWindowId,
       };
-      cpmm.sendAsyncMessage("DataCall:RequestDataCall", data);
+      Services.cpmm.sendAsyncMessage("DataCall:RequestDataCall", data);
     });
   },
 
@@ -281,7 +279,7 @@ DOMDataCallManager.prototype = {
     }
 
     return this.createPromise((aResolve, aReject) => {
-      let networkType = gDataCallHelper.convertToNetworkType(aType);
+      let networkType = lazy.gDataCallHelper.convertToNetworkType(aType);
       if (networkType == Ci.nsINetworkInfo.NETWORK_TYPE_UNKNOWN) {
         aReject("Invalid data call type.");
         return;
@@ -296,7 +294,7 @@ DOMDataCallManager.prototype = {
         type: networkType,
         serviceId: aServiceId,
       };
-      cpmm.sendAsyncMessage("DataCall:GetDataCallState", data);
+      Services.cpmm.sendAsyncMessage("DataCall:GetDataCallState", data);
     });
   },
 
@@ -402,11 +400,11 @@ DOMDataCall.prototype = {
   },
 
   _generateID() {
-    let uuidGenerator = Cc["@mozilla.org/uuid-generator;1"].getService(
-      Ci.nsIUUIDGenerator
-    );
     // generateUUID() gives a UUID surrounded by {...}, slice them off.
-    return uuidGenerator.generateUUID().toString().slice(1, -1);
+    return Services.uuid
+      .generateUUID()
+      .toString()
+      .slice(1, -1);
   },
 
   _sendMessage(aMessageName, aData) {
@@ -414,12 +412,12 @@ DOMDataCall.prototype = {
       aData = {};
     }
 
-    let networkType = gDataCallHelper.convertToNetworkType(this.type);
+    let networkType = lazy.gDataCallHelper.convertToNetworkType(this.type);
     aData.dataCallId = this._id;
     aData.serviceId = this._serviceId;
     aData.type = networkType;
 
-    cpmm.sendAsyncMessage(aMessageName, aData);
+    Services.cpmm.sendAsyncMessage(aMessageName, aData);
   },
 
   _isStateDisconnected() {
@@ -443,7 +441,7 @@ DOMDataCall.prototype = {
   },
 
   _handleStateChanged(aData) {
-    this.state = gDataCallHelper.convertToDataCallState(
+    this.state = lazy.gDataCallHelper.convertToDataCallState(
       aData.state,
       aData.reason
     );
@@ -478,7 +476,7 @@ DOMDataCall.prototype = {
   uninit() {
     // All requests that are still pending need to be invalidated
     // because the context is no longer valid.
-    this.forEachPromiseResolver((aKey) => {
+    this.forEachPromiseResolver(aKey => {
       this.takePromiseResolver(aKey).reject("DataCall got destroyed.");
     });
   },
@@ -627,7 +625,7 @@ DOMDataCall.prototype = {
 
       if (
         this.type ===
-        gDataCallHelper.convertToDataCallType(
+        lazy.gDataCallHelper.convertToDataCallType(
           Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE
         )
       ) {

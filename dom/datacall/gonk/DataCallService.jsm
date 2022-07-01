@@ -45,40 +45,37 @@ const TOPIC_CONNECTION_STATE_CHANGED = "network-connection-state-changed";
 const MESSAGE_CHILD_PROCESS_SHUTDOWN = "child-process-shutdown";
 const SETTINGS_DATA_DEFAULT_SERVICE_ID = "ril.data.defaultServiceId";
 
-XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
-  return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
-});
+const lazy = {};
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSettingsManager",
   "@mozilla.org/sidl-native/settings;1",
   "nsISettingsManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gRil",
   "@mozilla.org/ril;1",
   "nsIRadioInterfaceLayer"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkManager",
   "@mozilla.org/network/manager;1",
   "nsINetworkManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
 
-/* global RIL */
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
   return ChromeUtils.import("resource://gre/modules/ril_consts.js");
 });
 
@@ -91,13 +88,10 @@ let DEBUG = RIL_DEBUG.DEBUG_RIL;
 
 function updateDebugFlag() {
   // Read debug setting from pref
-  let debugPref;
-  try {
-    debugPref =
-      debugPref || Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
-  } catch (e) {
-    debugPref = false;
-  }
+  let debugPref = Services.prefs.getBoolPref(
+    RIL_DEBUG.PREF_RIL_DEBUG_ENABLED,
+    false
+  );
   DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
 }
 updateDebugFlag();
@@ -148,18 +142,17 @@ DataCallService.prototype = {
   },
 
   _registerMessageListeners() {
-    ppmm.addMessageListener(MESSAGE_CHILD_PROCESS_SHUTDOWN, this);
+    Services.ppmm.addMessageListener(MESSAGE_CHILD_PROCESS_SHUTDOWN, this);
     for (let msgName of DATACALL_IPC_MSG_ENTRIES) {
-      ppmm.addMessageListener(msgName, this);
+      Services.ppmm.addMessageListener(msgName, this);
     }
   },
 
   _unregisterMessageListeners() {
-    ppmm.removeMessageListener(MESSAGE_CHILD_PROCESS_SHUTDOWN, this);
+    Services.ppmm.removeMessageListener(MESSAGE_CHILD_PROCESS_SHUTDOWN, this);
     for (let msgName of DATACALL_IPC_MSG_ENTRIES) {
-      ppmm.removeMessageListener(msgName, this);
+      Services.ppmm.removeMessageListener(msgName, this);
     }
-    ppmm = null;
   },
 
   _createDataCall(aNetwork) {
@@ -300,8 +293,8 @@ DataCallService.prototype = {
   },
 
   _getNetworkInfo(aServiceId, aType) {
-    for (let networkId in gNetworkManager.allNetworkInfo) {
-      let networkInfo = gNetworkManager.allNetworkInfo[networkId];
+    for (let networkId in lazy.gNetworkManager.allNetworkInfo) {
+      let networkInfo = lazy.gNetworkManager.allNetworkInfo[networkId];
       if (networkInfo.type == aType) {
         try {
           if (networkInfo instanceof Ci.nsIRilNetworkInfo) {
@@ -353,25 +346,25 @@ DataCallService.prototype = {
       return;
     }
 
-    let ril = gRil.getRadioInterface(serviceId);
+    let ril = lazy.gRil.getRadioInterface(serviceId);
     if (!ril) {
       aTargetCallback({ errorMsg: "Can not get valid radio interface." });
       return;
     }
 
-    let connection = gMobileConnectionService.getItemByServiceId(
+    let connection = lazy.gMobileConnectionService.getItemByServiceId(
       this._dataDefaultServiceId
     );
 
     let dataInfo = connection && connection.data;
     let radioTechType = dataInfo && dataInfo.type;
-    let radioTechnology = RIL.GECKO_RADIO_TECH.indexOf(radioTechType);
+    let radioTechnology = lazy.RIL.GECKO_RADIO_TECH.indexOf(radioTechType);
 
     // This check avoids data call connection if the radio is not ready
     // yet after toggling off airplane mode.
     let radioState = connection && connection.radioState;
     if (radioState != Ci.nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED) {
-      if (radioTechnology != RIL.NETWORK_CREG_TECH_IWLAN) {
+      if (radioTechnology != lazy.RIL.NETWORK_CREG_TECH_IWLAN) {
         aTargetCallback({ errorMsg: "Radio state is off." });
         return;
       }
@@ -445,7 +438,7 @@ DataCallService.prototype = {
       aData.serviceId != undefined
         ? aData.serviceId
         : this._dataDefaultServiceId;
-    let ril = gRil.getRadioInterface(serviceId);
+    let ril = lazy.gRil.getRadioInterface(serviceId);
     if (!ril) {
       aTargetCallback({ errorMsg: "Can not get valid radio interface." });
       return;
@@ -486,7 +479,7 @@ DataCallService.prototype = {
     }
 
     let networkInfo = this._getNetworkInfo(aData.serviceId, aData.type);
-    gNetworkManager.addHostRoute(networkInfo, aData.host).then(
+    lazy.gNetworkManager.addHostRoute(networkInfo, aData.host).then(
       () => {
         aTargetCallback();
       },
@@ -502,7 +495,7 @@ DataCallService.prototype = {
     }
 
     let networkInfo = this._getNetworkInfo(aData.serviceId, aData.type);
-    gNetworkManager.removeHostRoute(networkInfo, aData.host).then(
+    lazy.gNetworkManager.removeHostRoute(networkInfo, aData.host).then(
       () => {
         aTargetCallback();
       },
@@ -513,7 +506,7 @@ DataCallService.prototype = {
   },
 
   _deactivateDataCall(aServiceId, aType, aTargetCallback) {
-    let ril = gRil.getRadioInterface(aServiceId);
+    let ril = lazy.gRil.getRadioInterface(aServiceId);
     if (!ril) {
       if (aTargetCallback) {
         aTargetCallback({ errorMsg: "Can not get valid radio interface." });
@@ -791,10 +784,10 @@ DataCallService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       this.debug("get " + aKey + " setting.");
       let self = this;
-      gSettingsManager.get(aKey, {
+      lazy.gSettingsManager.get(aKey, {
         resolve: info => {
           self.observeSetting(info);
         },
@@ -809,19 +802,22 @@ DataCallService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       this.debug(
         "set " + aKey + " setting with value = " + JSON.stringify(aValue)
       );
       let self = this;
-      gSettingsManager.set([{ name: aKey, value: JSON.stringify(aValue) }], {
-        resolve: () => {
-          self.debug(" Set " + aKey + " succedded. ");
-        },
-        reject: () => {
-          self.debug("Set " + aKey + " failed.");
-        },
-      });
+      lazy.gSettingsManager.set(
+        [{ name: aKey, value: JSON.stringify(aValue) }],
+        {
+          resolve: () => {
+            self.debug(" Set " + aKey + " succedded. ");
+          },
+          reject: () => {
+            self.debug("Set " + aKey + " failed.");
+          },
+        }
+      );
     }
   },
 
@@ -831,10 +827,10 @@ DataCallService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       this.debug("add " + aKey + " setting observer.");
       let self = this;
-      gSettingsManager.addObserver(aKey, this, {
+      lazy.gSettingsManager.addObserver(aKey, this, {
         resolve: () => {
           self.debug("observed " + aKey + " successed.");
         },
@@ -850,10 +846,10 @@ DataCallService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       this.debug("remove " + aKey + " setting observer.");
       let self = this;
-      gSettingsManager.removeObserver(aKey, this, {
+      lazy.gSettingsManager.removeObserver(aKey, this, {
         resolve: () => {
           self.debug("remove observer " + aKey + " successed.");
         },

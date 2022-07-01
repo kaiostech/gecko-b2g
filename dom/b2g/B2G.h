@@ -171,7 +171,7 @@ class B2G final : public DOMEventTargetHelper,
   static bool HasAuthorizationManagerSupport(JSContext* /* unused */,
                                              JSObject* aGlobal);
   already_AddRefed<Promise> GetUserConsent(const nsAString& secret,
-                                          ErrorResult& aRv);
+                                           ErrorResult& aRv);
 #  ifdef MOZ_WIDGET_GONK
   EngmodeManager* GetEngmodeManager(ErrorResult& aRv);
   static bool HasEngmodeManagerSupport(JSContext* /* unused */,

@@ -23,11 +23,11 @@ const { PasspointProvider, PasspointConfig } = ChromeUtils.import(
   "resource://gre/modules/PasspointConfiguration.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["PasspointManager"];
+const EXPORTED_SYMBOLS = ["PasspointManager"];
 
 var gDebug = false;
 
-this.PasspointManager = (function() {
+const PasspointManager = (function() {
   var passpointManager = {};
   var passpointEnabled = false;
   var mAnqpCache = new AnqpCache();

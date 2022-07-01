@@ -110,7 +110,8 @@ bool PasspointHandler::ReadyToRequest(const nsAString& aBssid) {
   AnqpRequestTime* requestTime;
   mozilla::TimeStamp currentTime = TimeStamp::Now();
   if (!mAnqpRequestTime.Get(aBssid, &requestTime)) {
-    mAnqpRequestTime.InsertOrUpdate(aBssid, MakeUnique<AnqpRequestTime>(currentTime));
+    mAnqpRequestTime.InsertOrUpdate(aBssid,
+                                    MakeUnique<AnqpRequestTime>(currentTime));
     return true;
   }
 

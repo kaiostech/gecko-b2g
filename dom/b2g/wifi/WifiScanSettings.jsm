@@ -10,12 +10,12 @@ const { WifiConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["WifiScanSettings", "WifiPnoSettings"];
+const EXPORTED_SYMBOLS = ["WifiScanSettings", "WifiPnoSettings"];
 
 /**
  * Describes WiFi scan settings.
  */
-this.WifiScanSettings = (function() {
+const WifiScanSettings = (function() {
   var wifiScanSettings = {};
 
   const SCAN_TYPE_LOW_SPAN = Ci.nsIScanSettings.SCAN_TYPE_LOW_SPAN;
@@ -51,7 +51,7 @@ this.WifiScanSettings = (function() {
 /**
  * Describes WiFi pno scan settings.
  */
-this.WifiPnoSettings = (function() {
+const WifiPnoSettings = (function() {
   var wifiPnoSettings = {};
 
   const DEFAULT_PNO_INTERVAL_MS = 20 * 1000;

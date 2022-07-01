@@ -20,7 +20,7 @@ function debug(aMsg) {
   console.log(`AlarmDB: ${aMsg}`);
 }
 
-this.AlarmDB = function AlarmDB() {
+const AlarmDB = function AlarmDB() {
   DEBUG && debug("AlarmDB()");
 };
 

@@ -273,7 +273,9 @@ already_AddRefed<GonkRecorderProfile> GonkRecorderProfile::CreateProfile(
 ProfileHashtable* GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId) {
   ProfileHashtable* profiles = sProfiles.Get(aCameraId);
   if (!profiles) {
-    profiles = sProfiles.InsertOrUpdate(aCameraId, MakeUnique<ProfileHashtable>()).get();
+    profiles =
+        sProfiles.InsertOrUpdate(aCameraId, MakeUnique<ProfileHashtable>())
+            .get();
 
     /* First handle the profiles with a known enum. We can process those
        efficently because MediaProfiles indexes their profiles that way. */

@@ -228,7 +228,8 @@ void InputMethodService::HandleTextChanged(const nsAString& aText) {
   proxy->OnTextChanged(NS_ConvertUTF16toUTF8(aText));
 }
 
-void InputMethodService::HandleSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset) {
+void InputMethodService::HandleSelectionChanged(uint32_t aStartOffset,
+                                                uint32_t aEndOffset) {
   IME_LOGD("InputMethodService::HandleSelectionChanged");
   RefPtr<KeyboardAppProxy> proxy = KeyboardAppProxy::GetInstance();
   if (!proxy) {

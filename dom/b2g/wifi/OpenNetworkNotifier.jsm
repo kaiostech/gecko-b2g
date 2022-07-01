@@ -6,11 +6,11 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["OpenNetworkNotifier"];
+const EXPORTED_SYMBOLS = ["OpenNetworkNotifier"];
 
 var gDebug = false;
 
-this.OpenNetworkNotifier = (function() {
+const OpenNetworkNotifier = (function() {
   var openNetworkNotifier = {};
 
   // For at Least scans before showing notification.

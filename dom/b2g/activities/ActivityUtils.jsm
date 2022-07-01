@@ -10,7 +10,7 @@ function debug(aMsg) {
   dump(`-*- ActivityUtils: ${aMsg}\n`);
 }
 
-this.EXPORTED_SYMBOLS = ["ActivityUtils"];
+const EXPORTED_SYMBOLS = ["ActivityUtils"];
 
 function ActivityUtils() {
   debug("constructor");

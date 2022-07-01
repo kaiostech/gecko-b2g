@@ -19,7 +19,7 @@ const { PasspointNetworkSelector } = ChromeUtils.import(
   "resource://gre/modules/PasspointNetworkSelector.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["WifiNetworkSelector"];
+const EXPORTED_SYMBOLS = ["WifiNetworkSelector"];
 
 var gDebug = false;
 
@@ -33,7 +33,7 @@ BssidDenylistStatus.prototype = {
   denylistedTimeStamp: WifiConstants.INVALID_TIME_STAMP,
 };
 
-this.WifiNetworkSelector = (function() {
+const WifiNetworkSelector = (function() {
   var wifiNetworkSelector = {};
 
   // Minimum time gap between last successful Network Selection and

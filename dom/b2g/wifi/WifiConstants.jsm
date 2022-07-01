@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["WifiConstants", "EAPConstants"];
+const EXPORTED_SYMBOLS = ["WifiConstants", "EAPConstants"];
 
 const WifiConstants = {
   // Set in wpa_supplicant "bssid" field if no specific AP restricted

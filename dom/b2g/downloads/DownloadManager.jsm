@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["DownloadManager", "DownloadObject"];
+const EXPORTED_SYMBOLS = ["DownloadManager", "DownloadObject"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
@@ -17,8 +17,9 @@ const { DownloadsIPC } = ChromeUtils.import(
   "resource://gre/modules/DownloadsIPC.jsm"
 );
 
+const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "volumeService",
   "@mozilla.org/telephony/volume-service;1",
   "nsIVolumeService"
@@ -177,7 +178,7 @@ DownloadManager.prototype = {
         // because XPConnect converts the NS_ERROR_NOT_AVAILABLE to an
         // exception.  So catch it.
         try {
-          volume = volumeService.getVolumeByName(
+          volume = lazy.volumeService.getVolumeByName(
             aAdoptDownloadDict.storageName
           );
         } catch (ex) {}
@@ -442,7 +443,7 @@ DownloadObject.prototype = {
       });
       // Now get the path for this storage area.
       if (storageName) {
-        let volume = volumeService.getVolumeByName(storageName);
+        let volume = lazy.volumeService.getVolumeByName(storageName);
         if (volume) {
           // Finally, create the relative path of the file that can be used
           // later on to retrieve the file via DeviceStorage. Our path

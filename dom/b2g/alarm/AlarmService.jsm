@@ -17,19 +17,21 @@ function debug(aMsg) {
   console.log(`AlarmService: ${aMsg}`);
 }
 
-XPCOMUtils.defineLazyGetter(this, "systemmessenger", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "systemmessenger", function() {
   return Cc["@mozilla.org/systemmessage-service;1"].getService(
     Ci.nsISystemMessageService
   );
 });
 
-XPCOMUtils.defineLazyGetter(this, "powerManagerService", function() {
+XPCOMUtils.defineLazyGetter(lazy, "powerManagerService", function() {
   return Cc["@mozilla.org/power/powermanagerservice;1"].getService(
     Ci.nsIPowerManagerService
   );
 });
 
-XPCOMUtils.defineLazyGetter(this, "timeService", function() {
+XPCOMUtils.defineLazyGetter(lazy, "timeService", function() {
   return Cc["@mozilla.org/sidl-native/time;1"].getService(Ci.nsITime);
 });
 
@@ -44,7 +46,7 @@ XPCOMUtils.defineLazyGetter(this, "timeService", function() {
  * in the parent process should do this.
  */
 
-this.AlarmService = {
+const AlarmService = {
   lastChromeId: 0,
 
   init: function init() {
@@ -61,15 +63,15 @@ this.AlarmService = {
 
     alarmHalService.setAlarmFiredCb(this._onAlarmFired.bind(this));
 
-    timeService.addObserver(
-      timeService.TIME_CHANGED,
+    lazy.timeService.addObserver(
+      lazy.timeService.TIME_CHANGED,
       {
         notify: aTimeInfo => {
           DEBUG &&
             debug(
               `TIME_CHANGED ${aTimeInfo?.reason} ${aTimeInfo?.delta} ${aTimeInfo?.timezone}`
             );
-          systemmessenger.broadcastMessage("system-time-change", {
+          lazy.systemmessenger.broadcastMessage("system-time-change", {
             reason: aTimeInfo?.reason,
             delta: aTimeInfo?.delta,
             timezone: aTimeInfo?.timezone,
@@ -83,8 +85,8 @@ this.AlarmService = {
     );
 
     let timezoneChangeCallback = this._onTimezoneChanged.bind(this);
-    timeService.addObserver(
-      timeService.TIMEZONE_CHANGED,
+    lazy.timeService.addObserver(
+      lazy.timeService.TIMEZONE_CHANGED,
       {
         notify: timezoneChangeCallback,
       },
@@ -267,7 +269,11 @@ this.AlarmService = {
       // Use try here in case newURI fails on invalid url.
       let origin = Services.io.newURI(aAlarm.url).prePath;
       DEBUG && debug("sendMessage to " + origin);
-      systemmessenger.sendMessage("alarm", this._publicAlarm(aAlarm), origin);
+      lazy.systemmessenger.sendMessage(
+        "alarm",
+        this._publicAlarm(aAlarm),
+        origin
+      );
     } catch (err) {
       DEBUG && debug("sendMessage failed. " + err);
     }
@@ -276,7 +282,7 @@ this.AlarmService = {
   _notifyAlarmObserver: function _notifyAlarmObserver(aAlarm) {
     DEBUG && debug("_notifyAlarmObserver()");
 
-    let wakeLock = powerManagerService.newWakeLock("cpu");
+    let wakeLock = lazy.powerManagerService.newWakeLock("cpu");
 
     let timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
     timer.initWithCallback(

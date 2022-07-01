@@ -10,13 +10,13 @@ const { WifiConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["WifiInfo"];
+const EXPORTED_SYMBOLS = ["WifiInfo"];
 
 /**
  * Describes the state of any Wifi connection that is active or
  * is in the process of being set up.
  */
-this.WifiInfo = function WifiInfo() {};
+const WifiInfo = function WifiInfo() {};
 WifiInfo.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIWifiInfo]),
   supplicantState: "UNINITIALIZED",

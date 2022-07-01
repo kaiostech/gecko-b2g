@@ -9,13 +9,15 @@ const { IndexedDBHelper } = ChromeUtils.import(
   "resource://gre/modules/IndexedDBHelper.jsm"
 );
 
+const lazy = {};
+
 ChromeUtils.defineModuleGetter(
-  this,
+  lazy,
   "ActivitiesServiceFilter",
   "resource://gre/modules/ActivitiesServiceFilter.jsm"
 );
 
-this.EXPORTED_SYMBOLS = [];
+const EXPORTED_SYMBOLS = [];
 
 const DEBUG = Services.prefs.getBoolPref("dom.activity.debug", false);
 function debug(aMsg) {
@@ -409,7 +411,7 @@ var Activities = {
     };
 
     let matchFunc = function matchFunc(aResult) {
-      return ActivitiesServiceFilter.match(
+      return lazy.ActivitiesServiceFilter.match(
         aMsg.options.data,
         aMsg.origin,
         aResult.description

@@ -12,7 +12,7 @@ const PERMISSIONSETTINGS_CID = Components.ID(
   "{cd2cf7a1-f4c1-487b-8c1b-1a71c7097431}"
 );
 
-this.EXPORTED_SYMBOLS = ["PermissionsManager"];
+const EXPORTED_SYMBOLS = ["PermissionsManager"];
 
 function PermissionsManager() {
   debug("Constructor");

@@ -17,8 +17,10 @@ function debug(aMsg) {
   console.log(`AlarmProxy: ${aMsg}`);
 }
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gPowerManagerService",
   "@mozilla.org/power/powermanagerservice;1",
   "nsIPowerManagerService"
@@ -67,7 +69,7 @@ AlarmProxy.prototype = {
       }
     }
 
-    let cpuLock = gPowerManagerService.newWakeLock("cpu");
+    let cpuLock = lazy.gPowerManagerService.newWakeLock("cpu");
     let timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
     // Start a timer to prevent from non-responding request.

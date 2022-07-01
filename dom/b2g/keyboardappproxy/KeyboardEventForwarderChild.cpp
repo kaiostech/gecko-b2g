@@ -118,13 +118,16 @@ IPCResult KeyboardEventForwarderChild::RecvTextChanged(const nsCString& aText) {
   return IPC_OK();
 }
 
-IPCResult KeyboardEventForwarderChild::RecvSelectionChanged(uint32_t aStartOffset, uint32_t aEndOffset) {
+IPCResult KeyboardEventForwarderChild::RecvSelectionChanged(
+    uint32_t aStartOffset, uint32_t aEndOffset) {
   MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
-          ("KeyboardEventForwarderChild::RecvSelectionChanged [%u, %u]", aStartOffset, aEndOffset));
+          ("KeyboardEventForwarderChild::RecvSelectionChanged [%u, %u]",
+           aStartOffset, aEndOffset));
   BrowserChild* browserChild = static_cast<BrowserChild*>(Manager());
   if (!browserChild) {
-    MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
-            ("KeyboardEventForwarderChild::RecvSelectionChanged no BrowserChild"));
+    MOZ_LOG(
+        gKeyboardAppProxyLog, LogLevel::Debug,
+        ("KeyboardEventForwarderChild::RecvSelectionChanged no BrowserChild"));
     return IPC_OK();
   }
   PresShell* presShell = browserChild->GetTopLevelPresShell();

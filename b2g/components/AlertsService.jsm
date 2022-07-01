@@ -274,4 +274,4 @@ AlertsService.prototype = {
   },
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([AlertsService]);
+const EXPORTED_SYMBOLS = ["AlertsService"];

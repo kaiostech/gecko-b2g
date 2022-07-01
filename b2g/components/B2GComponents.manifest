@@ -1,10 +1,6 @@
 # Scrollbars
 category agent-style-sheets browser-content-stylesheet chrome://b2g/content/content.css
 
-# AlertsService.js
-component {fe33c107-82a4-41d6-8c64-5353267e04c9} AlertsService.js
-contract @mozilla.org/system-alerts-service;1 {fe33c107-82a4-41d6-8c64-5353267e04c9}
-
 # TelProtocolHandler.js
 component {782775dd-7351-45ea-aff1-0ffa872cfdd2} TelProtocolHandler.js
 contract @mozilla.org/network/protocol;1?name=tel {782775dd-7351-45ea-aff1-0ffa872cfdd2}

@@ -13,7 +13,6 @@ DIRS += [
 ]
 
 EXTRA_COMPONENTS += [
-    "AlertsService.js",
     "B2GAboutRedirector.js",
     "FilePicker.js",
     "HelperAppDialog.js",
@@ -49,6 +48,7 @@ if CONFIG["MOZ_UPDATER"]:
 EXTRA_JS_MODULES += [
     "ActivityChannel.jsm",
     "AlertsHelper.jsm",
+    "AlertsService.jsm",
     "AppsServiceDelegate.jsm",
     "AppsUtils.jsm",
     "B2GProcessSelector.jsm",

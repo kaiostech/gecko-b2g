@@ -32,10 +32,6 @@ EXTRA_PP_COMPONENTS += [
     "B2GComponents.manifest",
 ]
 
-EXTRA_COMPONENTS += [
-    "RecoveryService.js",
-]
-
 if CONFIG["MOZ_UPDATER"]:
     EXTRA_COMPONENTS += [
         "UpdatePrompt.js",
@@ -64,6 +60,7 @@ EXTRA_JS_MODULES += [
     "PermissionsTable.jsm",
     "PersistentDataBlock.jsm",
     "ProcessGlobal.jsm",
+    "RecoveryService.jsm",
     "Screenshot.jsm",
     "ServiceWorkerAssistant.jsm",
     "SettingsPrefsSync.jsm",

@@ -169,4 +169,4 @@ RecoveryService.prototype = {
   },
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([RecoveryService]);
+const EXPORTED_SYMBOLS = ["RecoveryService"];

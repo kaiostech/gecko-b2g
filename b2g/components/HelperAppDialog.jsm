@@ -129,6 +129,4 @@ HelperAppLauncherDialog.prototype = {
   },
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([
-  HelperAppLauncherDialog,
-]);
+const EXPORTED_SYMBOLS = ["HelperAppLauncherDialog"];

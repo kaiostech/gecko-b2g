@@ -13,7 +13,6 @@ DIRS += [
 ]
 
 EXTRA_COMPONENTS += [
-    "HelperAppDialog.js",
     "KillSwitch.js",
 ]
 
@@ -52,6 +51,7 @@ EXTRA_JS_MODULES += [
     "ErrorPage.jsm",
     "FilePicker.jsm",
     "GeckoBridge.jsm",
+    "HelperAppDialog.jsm",
     "KillSwitchMain.jsm",
     "MailtoProtocolHandler.jsm",
     "MultiscreenHandler.jsm",

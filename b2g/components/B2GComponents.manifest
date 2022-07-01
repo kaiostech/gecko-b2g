@@ -1,10 +1,6 @@
 # Scrollbars
 category agent-style-sheets browser-content-stylesheet chrome://b2g/content/content.css
 
-# HelperAppDialog.js
-component {710322af-e6ae-4b0c-b2c9-1474a87b077e} HelperAppDialog.js
-contract @mozilla.org/helperapplauncherdialog;1 {710322af-e6ae-4b0c-b2c9-1474a87b077e}
-
 #ifdef MOZ_PRESENTATION
 # B2GPresentationDevicePrompt.js
 component {4a300c26-e99b-4018-ab9b-c48cf9bc4de1} B2GPresentationDevicePrompt.js

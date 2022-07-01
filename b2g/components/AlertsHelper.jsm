@@ -4,30 +4,28 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["AlertsEventHandler"];
+const EXPORTED_SYMBOLS = ["AlertsEventHandler"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "notificationStorage",
   "@mozilla.org/notificationStorage;1",
   "nsINotificationStorage"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "serviceWorkerManager",
   "@mozilla.org/serviceworkers/manager;1",
   "nsIServiceWorkerManager"
 );
-
-XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
-  return Services.ppmm;
-});
 
 function debug(str) {
   dump("=*= AlertsHelper.jsm : " + str + "\n");
@@ -67,7 +65,7 @@ var AlertsHelper = {
       this._embedderNotifications = embedderNotifications.wrappedJSObject;
     }, "web-embedder-notifications");
     for (let message of kMessages) {
-      ppmm.addMessageListener(message, this);
+      Services.ppmm.addMessageListener(message, this);
     }
   },
 
@@ -76,7 +74,7 @@ var AlertsHelper = {
       case "xpcom-shutdown":
         Services.obs.removeObserver(this, "xpcom-shutdown");
         for (let message of kMessages) {
-          ppmm.removeMessageListener(message, this);
+          Services.ppmm.removeMessageListener(message, this);
         }
         break;
     }
@@ -156,7 +154,7 @@ var AlertsHelper = {
             if (detail.action && typeof detail.action === "string") {
               userAction = detail.action;
             }
-            serviceWorkerManager.sendNotificationClickEvent(
+            lazy.serviceWorkerManager.sendNotificationClickEvent(
               originSuffix,
               scope,
               listener.dbId,
@@ -175,7 +173,7 @@ var AlertsHelper = {
               listener.mozbehavior
             );
           } else if (eventName == "notificationclose") {
-            serviceWorkerManager.sendNotificationCloseEvent(
+            lazy.serviceWorkerManager.sendNotificationCloseEvent(
               originSuffix,
               scope,
               listener.dbId,
@@ -195,7 +193,7 @@ var AlertsHelper = {
           }
         }
         if (detail.type === kDesktopNotificationClose && listener.dbId) {
-          notificationStorage.delete(listener.origin, listener.dbId);
+          lazy.notificationStorage.delete(listener.origin, listener.dbId);
         }
       }
     }

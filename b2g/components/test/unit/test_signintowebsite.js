@@ -22,10 +22,6 @@ XPCOMUtils.defineLazyModuleGetter(
 
 ChromeUtils.import("resource://gre/modules/identity/LogUtils.jsm");
 
-function log(...aMessageArgs) {
-  Logger.log.apply(Logger, ["test_signintowebsite"].concat(aMessageArgs));
-}
-
 function test_overall() {
   do_check_neq(MinimalIDService, null);
   run_next_test();

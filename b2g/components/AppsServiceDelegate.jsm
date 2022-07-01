@@ -4,10 +4,6 @@
 
 const EXPORTED_SYMBOLS = ["AppsServiceDelegate"];
 
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
-
 const { PermissionsInstaller } = ChromeUtils.import(
   "resource://gre/modules/PermissionsInstaller.jsm"
 );

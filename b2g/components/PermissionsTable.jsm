@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "AllPossiblePermissions",
   "PermissionsTable",
   "appendAccessToPermName",
@@ -24,7 +24,7 @@ const DENY_ACTION = Ci.nsIPermissionManager.DENY_ACTION;
 const PROMPT_ACTION = Ci.nsIPermissionManager.PROMPT_ACTION;
 
 // Permissions that are granted to all installed apps.
-this.defaultPermissions = [
+const defaultPermissions = [
   "vibration",
   "networkstats-perm",
   "lock-orientation",
@@ -37,7 +37,7 @@ this.defaultPermissions = [
  * by the names with non-alphanumeric character, such as "-", and could be
  * revised by the lint tools automatically.
  **/
-this.PermissionsTable = {
+const PermissionsTable = {
   "account-manager": {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
@@ -392,7 +392,7 @@ this.PermissionsTable = {
  * @param array aAccess
  * @returns array containing access:appended permission names.
  **/
-this.appendAccessToPermName = (aPermName, aAccess) => {
+const appendAccessToPermName = (aPermName, aAccess) => {
   if (!aAccess.length) {
     return [aPermName];
   }
@@ -409,7 +409,7 @@ this.appendAccessToPermName = (aPermName, aAccess) => {
  * @param string aAccess (optional)
  * @returns array containing expanded permission names.
  **/
-this.expandPermissions = (aPermName, aAccess) => {
+const expandPermissions = (aPermName, aAccess) => {
   if (!PermissionsTable[aPermName]) {
     let errorMsg =
       "PermissionsTable.jsm: expandPermissions: Unknown Permission: " +
@@ -472,8 +472,8 @@ this.expandPermissions = (aPermName, aAccess) => {
   return expandedPermNames;
 };
 
-this.permissionsReverseTable = {};
-this.AllPossiblePermissions = [];
+const permissionsReverseTable = {};
+const AllPossiblePermissions = [];
 
 (function() {
   // PermissionsTable as it is works well for direct searches, but not

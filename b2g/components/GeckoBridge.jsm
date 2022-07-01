@@ -6,7 +6,7 @@
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-this.EXPORTED_SYMBOLS = ["GeckoBridge"];
+const EXPORTED_SYMBOLS = ["GeckoBridge"];
 
 /*
   Preferences listed in kWatchedPrefs can be accessed by sidl.
@@ -55,7 +55,7 @@ function log(msg) {
   dump(`GeckoBridge: ${msg}\n`);
 }
 
-this.GeckoBridge = {
+const GeckoBridge = {
   start() {
     log(`Starting`);
     try {

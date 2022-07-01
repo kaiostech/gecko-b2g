@@ -11,12 +11,6 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
 const { TelURIParser } = ChromeUtils.import(
   "resource:///modules/TelURIParser.jsm"
 );

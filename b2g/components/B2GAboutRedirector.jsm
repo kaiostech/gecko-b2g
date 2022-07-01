@@ -2,16 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
 
-function debug(msg) {
-  console.log("B2GAboutRedirector: " + msg);
-}
+// function debug(msg) {
+//   console.log("B2GAboutRedirector: " + msg);
+// }
 
 function netErrorURL() {
   let systemManifestURL = Services.prefs.getCharPref("b2g.system_startup_url");

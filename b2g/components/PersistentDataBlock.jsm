@@ -14,7 +14,7 @@
 
 const DEBUG = false;
 
-this.EXPORTED_SYMBOLS = ["PersistentDataBlock"];
+const EXPORTED_SYMBOLS = ["PersistentDataBlock"];
 
 // This is a marker that will be written after digest in the partition.
 const PARTITION_MAGIC = 0x19901873;
@@ -39,16 +39,18 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
+const lazy = {};
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "AppConstants",
+ChromeUtils.defineModuleGetter(lazy, "OS", "resource://gre/modules/osfile.jsm");
+
+const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "libcutils", function() {
-  ChromeUtils.import("resource://gre/modules/systemlibs.js");
+XPCOMUtils.defineLazyGetter(lazy, "libcutils", function() {
+  const { libcutils } = ChromeUtils.import(
+    "resource://gre/modules/systemlibs.js"
+  );
   return libcutils;
 });
 
@@ -86,7 +88,7 @@ function arr2bstr(arr) {
   return bstr;
 }
 
-this.PersistentDataBlock = {
+const PersistentDataBlock = {
   /**
    * libc funcionality. Accessed via ctypes
    */
@@ -143,8 +145,8 @@ this.PersistentDataBlock = {
   init(mode) {
     debug("init()");
 
-    if (libcutils) {
-      this._libcutils = libcutils;
+    if (lazy.libcutils) {
+      this._libcutils = lazy.libcutils;
     }
 
     if (!this.ctypes) {
@@ -270,7 +272,7 @@ this.PersistentDataBlock = {
     let digest = { calculated: "", stored: "" };
     let partition;
     debug("_computeDigest: _dataBlockFile = " + this._dataBlockFile);
-    return OS.File.open(this._dataBlockFile, {
+    return lazy.OS.File.open(this._dataBlockFile, {
       existing: true,
       append: false,
       read: true,
@@ -400,7 +402,7 @@ this.PersistentDataBlock = {
   _doSetOemUnlockEnabled(isSetOemUnlockEnabled) {
     debug("_doSetOemUnlockEnabled()");
     let partition;
-    return OS.File.open(this._dataBlockFile, {
+    return lazy.OS.File.open(this._dataBlockFile, {
       existing: true,
       append: false,
       write: true,
@@ -409,7 +411,7 @@ this.PersistentDataBlock = {
         partition = _partition;
         return partition.setPosition(
           this._getBlockDeviceSize() - OEM_UNLOCK_ENABLED_BYTES,
-          OS.File.POS_START
+          lazy.OS.File.POS_START
         );
       })
       .then(() => {
@@ -453,7 +455,7 @@ this.PersistentDataBlock = {
     return this._computeDigest()
       .then(_digest => {
         digest = _digest;
-        return OS.File.open(this._dataBlockFile, {
+        return lazy.OS.File.open(this._dataBlockFile, {
           write: true,
           existing: true,
           append: false,
@@ -461,7 +463,7 @@ this.PersistentDataBlock = {
       })
       .then(_partition => {
         partition = _partition;
-        return partition.setPosition(DIGEST_OFFSET, OS.File.POS_START);
+        return partition.setPosition(DIGEST_OFFSET, lazy.OS.File.POS_START);
       })
       .then(() => {
         return partition.write(
@@ -540,7 +542,7 @@ this.PersistentDataBlock = {
   _formatPartition(isSetOemUnlockEnabled) {
     debug("_formatPartition()");
     let partition;
-    return OS.File.open(this._dataBlockFile, {
+    return lazy.OS.File.open(this._dataBlockFile, {
       write: true,
       existing: true,
       append: false,
@@ -653,7 +655,7 @@ this.PersistentDataBlock = {
     return this.getDataFieldSize()
       .then(_dataSize => {
         dataSize = _dataSize;
-        return OS.File.open(this._dataBlockFile, {
+        return lazy.OS.File.open(this._dataBlockFile, {
           read: true,
           existing: true,
           append: false,
@@ -663,7 +665,7 @@ this.PersistentDataBlock = {
         partition = _partition;
         return partition.setPosition(
           DIGEST_SIZE_BYTES + HEADER_SIZE_BYTES,
-          OS.File.POS_START
+          lazy.OS.File.POS_START
         );
       })
       .then(() => {
@@ -715,7 +717,7 @@ this.PersistentDataBlock = {
     }
 
     let partition;
-    return OS.File.open(this._dataBlockFile, {
+    return lazy.OS.File.open(this._dataBlockFile, {
       write: true,
       existing: true,
       append: false,
@@ -873,7 +875,7 @@ this.PersistentDataBlock = {
     log("getOemUnlockEnabled()");
     let ret = false;
     let partition;
-    return OS.File.open(this._dataBlockFile, {
+    return lazy.OS.File.open(this._dataBlockFile, {
       existing: true,
       append: false,
       read: true,
@@ -882,7 +884,7 @@ this.PersistentDataBlock = {
         partition = _partition;
         return partition.setPosition(
           this._getBlockDeviceSize() - OEM_UNLOCK_ENABLED_BYTES,
-          OS.File.POS_START
+          lazy.OS.File.POS_START
         );
       })
       .then(() => {
@@ -916,7 +918,7 @@ this.PersistentDataBlock = {
     debug("getDataFieldSize()");
     let partition;
     let dataLength = 0;
-    return OS.File.open(this._dataBlockFile, {
+    return lazy.OS.File.open(this._dataBlockFile, {
       read: true,
       existing: true,
       append: false,
@@ -924,7 +926,7 @@ this.PersistentDataBlock = {
       .then(_partition => {
         partition = _partition;
         // Skip the digest field
-        return partition.setPosition(DIGEST_SIZE_BYTES, OS.File.POS_START);
+        return partition.setPosition(DIGEST_SIZE_BYTES, lazy.OS.File.POS_START);
       })
       .then(() => {
         // Read the Magic field
@@ -981,5 +983,5 @@ if (!inParent) {
   log("PersistentDataBlock should only be living on parent side.");
   throw Components.Exception("", Cr.NS_ERROR_ABORT);
 } else {
-  this.PersistentDataBlock.init();
+  PersistentDataBlock.init();
 }

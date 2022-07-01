@@ -14,8 +14,10 @@ const { AppConstants } = ChromeUtils.import(
 
 const isGonk = AppConstants.platform === "gonk";
 
+const lazy = {};
+
 if (isGonk) {
-  XPCOMUtils.defineLazyGetter(this, "libcutils", function() {
+  XPCOMUtils.defineLazyGetter(lazy, "libcutils", function() {
     const { libcutils } = ChromeUtils.import(
       "resource://gre/modules/systemlibs.js"
     );
@@ -24,13 +26,13 @@ if (isGonk) {
 }
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSettingsManager",
   "@mozilla.org/sidl-native/settings;1",
   "nsISettingsManager"
 );
 
-this.EXPORTED_SYMBOLS = ["SettingsPrefsSync"];
+const EXPORTED_SYMBOLS = ["SettingsPrefsSync"];
 
 // Returns a settings.set(...) callback that just logs errors
 // with a custom message.
@@ -423,7 +425,7 @@ const kSettingsToObserve = {
   },
 };
 
-this.SettingsPrefsSync = {
+const SettingsPrefsSync = {
   // Initialize the synchronization and returns a promise that
   // resolves once we have done the early stage sync.
   start(aWindow) {
@@ -487,7 +489,7 @@ this.SettingsPrefsSync = {
     Services.obs.removeObserver(this, "xpcom-shutdown");
 
     this.settingsObservers.forEach(item => {
-      gSettingsManager.removeObserver(
+      lazy.gSettingsManager.removeObserver(
         item.key,
         item.observer,
         settingCallback(`Failed to add observer for ${item.key}`)
@@ -502,7 +504,7 @@ this.SettingsPrefsSync = {
 
   // Helper to add a setting observer and register it for later cleanup.
   addSettingsObserver(key, observer, message) {
-    gSettingsManager.addObserver(key, observer, settingCallback(message));
+    lazy.gSettingsManager.addObserver(key, observer, settingCallback(message));
     this.settingsObservers.push({ key, observer });
   },
 
@@ -510,7 +512,7 @@ this.SettingsPrefsSync = {
   // takes care of hiding the JSON stringification.
   getSettingWithDefault(name, defaultValue) {
     return new Promise(resolve => {
-      gSettingsManager.get(name, {
+      lazy.gSettingsManager.get(name, {
         resolve: setting => {
           resolve({ name: setting.name, value: JSON.parse(setting.value) });
         },
@@ -581,19 +583,23 @@ this.SettingsPrefsSync = {
     let build_fingerprint = null;
     if (isGonk) {
       hardware_info =
-        libcutils.property_get("ro.product.model.name") ||
-        libcutils.property_get("ro.hardware");
-      firmware_revision = libcutils.property_get("ro.firmware_revision");
-      product_manufacturer = libcutils.property_get("ro.product.manufacturer");
-      product_model = libcutils.property_get("ro.product.model");
-      product_device = libcutils.property_get("ro.product.device");
-      build_number = libcutils.property_get("ro.build.version.incremental");
-      sar_info = libcutils.property_get("ro.product.sar_value", "0");
-      version_tag = libcutils.property_get("ro.product.version_tag");
-      base_version = libcutils.property_get("ro.product.base_version");
-      product_fota = libcutils.property_get("ro.product.fota");
+        lazy.libcutils.property_get("ro.product.model.name") ||
+        lazy.libcutils.property_get("ro.hardware");
+      firmware_revision = lazy.libcutils.property_get("ro.firmware_revision");
+      product_manufacturer = lazy.libcutils.property_get(
+        "ro.product.manufacturer"
+      );
+      product_model = lazy.libcutils.property_get("ro.product.model");
+      product_device = lazy.libcutils.property_get("ro.product.device");
+      build_number = lazy.libcutils.property_get(
+        "ro.build.version.incremental"
+      );
+      sar_info = lazy.libcutils.property_get("ro.product.sar_value", "0");
+      version_tag = lazy.libcutils.property_get("ro.product.version_tag");
+      base_version = lazy.libcutils.property_get("ro.product.base_version");
+      product_fota = lazy.libcutils.property_get("ro.product.fota");
       cuRefStr = this.cuRef || null;
-      build_fingerprint = libcutils.property_get("ro.build.fingerprint");
+      build_fingerprint = lazy.libcutils.property_get("ro.build.fingerprint");
     }
 
     // Populate deviceinfo settings,
@@ -631,7 +637,7 @@ this.SettingsPrefsSync = {
           value: JSON.stringify(deviceInfo[name] || ""),
         });
       }
-      gSettingsManager.set(
+      lazy.gSettingsManager.set(
         settingsArray,
         settingCallback("Failure saving deviceinfo settings.")
       );
@@ -654,7 +660,7 @@ this.SettingsPrefsSync = {
           .toString()
           .replace(/[{}]/g, "");
         Services.prefs.setCharPref("app.update.custom", trackingId);
-        gSettingsManager.set(
+        lazy.gSettingsManager.set(
           [{ name: "app.update.custom", value: JSON.stringify(trackingId) }],
           settingCallback("Failure saving app.update.custom setting.")
         );
@@ -666,18 +672,14 @@ this.SettingsPrefsSync = {
 
   // Attach or detach AccessFu
   updateAccessFu(value) {
-    let accessibilityScope = {};
-    if (!("AccessFu" in accessibilityScope)) {
-      ChromeUtils.import(
-        "resource://gre/modules/accessibility/AccessFu.jsm",
-        accessibilityScope
-      );
-    }
+    const { AccessFu } = ChromeUtils.import(
+      "resource://gre/modules/accessibility/AccessFu.jsm"
+    );
 
     if (value) {
-      accessibilityScope.AccessFu.attach(this.window);
+      AccessFu.attach(this.window);
     } else {
-      accessibilityScope.AccessFu.detach();
+      AccessFu.detach();
     }
   },
 
@@ -730,7 +732,7 @@ this.SettingsPrefsSync = {
 
   // Synchronizes a set of preferences with matching settings.
   synchronizePrefs() {
-    gSettingsManager.getBatch(Object.keys(kSettingsToObserve), {
+    lazy.gSettingsManager.getBatch(Object.keys(kSettingsToObserve), {
       resolve: results => {
         let syncSettings = {};
         results.forEach(result => {
@@ -767,7 +769,7 @@ this.SettingsPrefsSync = {
 
             let setting = { name: key };
             setting.value = JSON.stringify(defaultValue);
-            gSettingsManager.set(
+            lazy.gSettingsManager.set(
               [setting],
               settingCallback(`Failed to set setting ${key}`)
             );
@@ -865,7 +867,7 @@ this.SettingsPrefsSync = {
                 "layers.low-precision-buffer"
               );
               let setting = [{ "layers.low-precision": prefValue }];
-              gSettingsManager.set(
+              lazy.gSettingsManager.set(
                 setting,
                 settingCallback("Failure saving low-precision-buffer settings.")
               );
@@ -896,7 +898,7 @@ this.SettingsPrefsSync = {
                 "layers.low-precision-opacity"
               );
               let setting = [{ "layers.low-opacity": prefValue == "0.5" }];
-              gSettingsManager.set(
+              lazy.gSettingsManager.set(
                 setting,
                 settingCallback(
                   "Failure saving low-precision-opacity settings."

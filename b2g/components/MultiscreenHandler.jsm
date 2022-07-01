@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["MultiscreenHandler"];
+const EXPORTED_SYMBOLS = ["MultiscreenHandler"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
@@ -14,7 +14,7 @@ function debug(aStr) {
 
 // Multi-screen support on b2g. The following implementation will open a new
 // top-level window once we receive a display connected event.
-let MultiscreenHandler = {
+const MultiscreenHandler = {
   topLevelWindows: new Map(),
   displays: [],
 
@@ -98,4 +98,3 @@ let MultiscreenHandler = {
 };
 
 MultiscreenHandler.init();
-this.MultiscreenHandler = MultiscreenHandler;

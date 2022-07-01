@@ -13,21 +13,13 @@ function debug(s) {
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "Services",
-  "resource://gre/modules/Services.jsm"
-);
-
+const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "cpmm",
   "@mozilla.org/childprocessmessagemanager;1",
   "nsIMessageSender"
@@ -60,10 +52,10 @@ KillSwitch.prototype = {
   enable() {
     DEBUG && debug("KillSwitch: enable");
 
-    cpmm.addMessageListener(kEnableKillSwitchOK, this);
-    cpmm.addMessageListener(kEnableKillSwitchKO, this);
+    lazy.cpmm.addMessageListener(kEnableKillSwitchOK, this);
+    lazy.cpmm.addMessageListener(kEnableKillSwitchKO, this);
     return this.createPromise((aResolve, aReject) => {
-      cpmm.sendAsyncMessage(kEnableKillSwitch, {
+      lazy.cpmm.sendAsyncMessage(kEnableKillSwitch, {
         requestID: this.getPromiseResolverId({
           resolve: aResolve,
           reject: aReject,
@@ -75,10 +67,10 @@ KillSwitch.prototype = {
   disable() {
     DEBUG && debug("KillSwitch: disable");
 
-    cpmm.addMessageListener(kDisableKillSwitchOK, this);
-    cpmm.addMessageListener(kDisableKillSwitchKO, this);
+    lazy.cpmm.addMessageListener(kDisableKillSwitchOK, this);
+    lazy.cpmm.addMessageListener(kDisableKillSwitchKO, this);
     return this.createPromise((aResolve, aReject) => {
-      cpmm.sendAsyncMessage(kDisableKillSwitch, {
+      lazy.cpmm.sendAsyncMessage(kDisableKillSwitch, {
         requestID: this.getPromiseResolverId({
           resolve: aResolve,
           reject: aReject,
@@ -90,10 +82,10 @@ KillSwitch.prototype = {
   receiveMessage(message) {
     DEBUG && debug("Received: " + message.name);
 
-    cpmm.removeMessageListener(kEnableKillSwitchOK, this);
-    cpmm.removeMessageListener(kEnableKillSwitchKO, this);
-    cpmm.removeMessageListener(kDisableKillSwitchOK, this);
-    cpmm.removeMessageListener(kDisableKillSwitchKO, this);
+    lazy.cpmm.removeMessageListener(kEnableKillSwitchOK, this);
+    lazy.cpmm.removeMessageListener(kEnableKillSwitchKO, this);
+    lazy.cpmm.removeMessageListener(kDisableKillSwitchOK, this);
+    lazy.cpmm.removeMessageListener(kDisableKillSwitchKO, this);
 
     let req = this.takePromiseResolver(message.data.requestID);
 

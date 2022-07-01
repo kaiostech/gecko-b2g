@@ -24,10 +24,11 @@
 #define MOBILEMANAGERDELEGATE_DEBUG
 
 #ifdef MOBILEMANAGERDELEGATE_DEBUG
-  static int s_mobile_debug = 1;
-# define MOBILEDEBUG(X) if (s_mobile_debug) printf_stderr("MobileManagerDelegate:%s\n", X);
+static int s_mobile_debug = 1;
+#  define MOBILEDEBUG(X) \
+    if (s_mobile_debug) printf_stderr("MobileManagerDelegate:%s\n", X);
 #else
-# define MOBILEDEBUG(X)
+#  define MOBILEDEBUG(X)
 #endif
 
 #define RETURN_IF_NULL_MSG(varname, msg) \
@@ -80,8 +81,7 @@ MobileManagerDelegateService::ConstructMobileManagerDelegate() {
   return service.forget();
 }
 
-bool
-MobileManagerDelegateService::ValidateCardId(int cardId) {
+bool MobileManagerDelegateService::ValidateCardId(int cardId) {
   nsCOMPtr<nsIRadioInterfaceLayer> ril = do_GetService("@mozilla.org/ril;1");
   NS_ENSURE_TRUE(ril, false);
 

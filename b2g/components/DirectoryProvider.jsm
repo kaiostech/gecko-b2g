@@ -6,9 +6,7 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
+
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
@@ -19,29 +17,31 @@ const LOCAL_DIR = "/data/local";
 const UPDATES_DIR = "updates/0";
 const FOTA_DIR = "updates/fota";
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  Services,
+  lazy,
   "env",
   "@mozilla.org/process/environment;1",
   "nsIEnvironment"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  Services,
+  lazy,
   "um",
   "@mozilla.org/updates/update-manager;1",
   "nsIUpdateManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  Services,
+  lazy,
   "volumeService",
   "@mozilla.org/telephony/volume-service;1",
   "nsIVolumeService"
 );
 
-XPCOMUtils.defineLazyGetter(this, "gExtStorage", function dp_gExtStorage() {
-  return Services.env.get("EXTERNAL_STORAGE");
+XPCOMUtils.defineLazyGetter(lazy, "gExtStorage", function dp_gExtStorage() {
+  return lazy.env.get("EXTERNAL_STORAGE");
 });
 
 // This exists to mark the affected code for bug 828858.
@@ -114,10 +114,10 @@ DirectoryProvider.prototype = {
     if (!volumePath) {
       return false;
     }
-    if (!Services.volumeService) {
+    if (!lazy.volumeService) {
       return false;
     }
-    let volume = Services.volumeService.createOrGetVolumeByPath(volumePath);
+    let volume = lazy.volumeService.createOrGetVolumeByPath(volumePath);
     if (!volume || volume.state !== Ci.nsIVolume.STATE_MOUNTED) {
       return false;
     }
@@ -132,20 +132,20 @@ DirectoryProvider.prototype = {
     requiredSpace,
     subdir
   ) {
-    if (!Services.volumeService) {
+    if (!lazy.volumeService) {
       return this.createUpdatesDir(LOCAL_DIR, subdir);
     }
 
-    let activeUpdate = Services.um.activeUpdate;
+    let activeUpdate = lazy.um.activeUpdate;
     if (gUseSDCard) {
-      if (this.volumeHasFreeSpace(gExtStorage, requiredSpace)) {
-        let extUpdateDir = this.createUpdatesDir(gExtStorage, subdir);
+      if (this.volumeHasFreeSpace(lazy.gExtStorage, requiredSpace)) {
+        let extUpdateDir = this.createUpdatesDir(lazy.gExtStorage, subdir);
         if (extUpdateDir !== null) {
           return extUpdateDir;
         }
         log(
           "Warning: " +
-            gExtStorage +
+            lazy.gExtStorage +
             " has enough free space for update " +
             activeUpdate.name +
             ", but is not writable"
@@ -174,7 +174,7 @@ DirectoryProvider.prototype = {
     let defaultUpdateDir = this.getDefaultUpdateDir();
     persistent.value = false;
 
-    let activeUpdate = Services.um.activeUpdate;
+    let activeUpdate = lazy.um.activeUpdate;
     if (!activeUpdate) {
       log(
         "Warning: No active update found, using default update dir: " +
@@ -242,13 +242,13 @@ DirectoryProvider.prototype = {
   },
 
   getDefaultUpdateDir: function dp_getDefaultUpdateDir() {
-    let path = gExtStorage;
+    let path = lazy.gExtStorage;
     if (!path) {
       path = LOCAL_DIR;
     }
 
-    if (Services.volumeService) {
-      let extVolume = Services.volumeService.createOrGetVolumeByPath(path);
+    if (lazy.volumeService) {
+      let extVolume = lazy.volumeService.createOrGetVolumeByPath(path);
       if (!extVolume) {
         path = LOCAL_DIR;
       }

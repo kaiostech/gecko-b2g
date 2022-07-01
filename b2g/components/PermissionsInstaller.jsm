@@ -20,7 +20,7 @@ const {
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-this.EXPORTED_SYMBOLS = ["PermissionsInstaller", "PermissionsHelper"];
+const EXPORTED_SYMBOLS = ["PermissionsInstaller", "PermissionsHelper"];
 
 const kPermManager = Ci.nsIPermissionManager;
 
@@ -90,7 +90,7 @@ const PermissionsHelper = {
   },
 };
 
-this.PermissionsInstaller = {
+const PermissionsInstaller = {
   /**
    * Install permissisions or remove deprecated permissions upon re-install.
    * @param object aFeatrues

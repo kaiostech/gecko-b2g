@@ -5,42 +5,28 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
+
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "uuidGenerator",
-  "@mozilla.org/uuid-generator;1",
-  "nsIUUIDGenerator"
-);
+const lazy = {};
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "notificationStorage",
   "@mozilla.org/notificationStorage;1",
   "nsINotificationStorage"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "serviceWorkerManager",
   "@mozilla.org/serviceworkers/manager;1",
   "nsIServiceWorkerManager"
 );
 
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "appsService",
-  "@mozilla.org/AppsService;1",
-  "nsIAppsService"
-);
-
-function debug(str) {
-  dump("=*= AlertsService.js : " + str + "\n");
-}
+// function debug(str) {
+//   dump("=*= AlertsService.js : " + str + "\n");
+// }
 
 // -----------------------------------------------------------------------
 // Alerts Service
@@ -152,7 +138,7 @@ AlertsService.prototype = {
   ) {
     let uid =
       aDetails.id == ""
-        ? "app-notif-" + uuidGenerator.generateUUID()
+        ? "app-notif-" + Services.uuid.generateUUID()
         : aDetails.id;
 
     this._listeners[uid] = {
@@ -224,7 +210,7 @@ AlertsService.prototype = {
         }
 
         if (eventName == "notificationclick") {
-          serviceWorkerManager.sendNotificationClickEvent(
+          lazy.serviceWorkerManager.sendNotificationClickEvent(
             originSuffix,
             scope,
             listener.dbId,
@@ -243,7 +229,7 @@ AlertsService.prototype = {
             listener.mozbehavior
           );
         } else if (eventName == "notificationclose") {
-          serviceWorkerManager.sendNotificationCloseEvent(
+          lazy.serviceWorkerManager.sendNotificationCloseEvent(
             originSuffix,
             scope,
             listener.dbId,
@@ -263,7 +249,7 @@ AlertsService.prototype = {
         }
       }
       if (topic === kTopicAlertFinished && listener.dbId) {
-        notificationStorage.delete(listener.origin, listener.dbId);
+        lazy.notificationStorage.delete(listener.origin, listener.dbId);
       }
     }
 

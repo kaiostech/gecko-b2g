@@ -10,7 +10,9 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyModuleGetters(this, {
+const lazy = {};
+
+XPCOMUtils.defineLazyModuleGetters(lazy, {
   ContextMenuUtils: "resource://gre/modules/ContextMenuUtils.jsm",
   ScreenshotUtils: "resource://gre/modules/ScreenshotUtils.jsm",
 });
@@ -25,7 +27,7 @@ class WebViewForContentChild extends JSWindowActorChild {
   }
 
   actorCreated() {
-    ContextMenuUtils.init(this);
+    lazy.ContextMenuUtils.init(this);
   }
 
   getBackgroundColor(browser, event) {
@@ -79,7 +81,7 @@ class WebViewForContentChild extends JSWindowActorChild {
     let { maxWidth, maxHeight, mimeType } = event.detail;
     let detail = { success: false };
     try {
-      let blob = await ScreenshotUtils.getScreenshot(
+      let blob = await lazy.ScreenshotUtils.getScreenshot(
         content,
         maxWidth,
         maxHeight,
@@ -107,7 +109,7 @@ class WebViewForContentChild extends JSWindowActorChild {
       while (
         bc &&
         bc.embedderElement &&
-        bc.embedderElement instanceof HTMLIFrameElement
+        HTMLIFrameElement.isInstance(bc.embedderElement)
       ) {
         bc = bc.parent;
       }
@@ -117,7 +119,7 @@ class WebViewForContentChild extends JSWindowActorChild {
 
     if (
       !browser ||
-      !(browser instanceof XULFrameElement) ||
+      !XULFrameElement.isInstance(browser) ||
       browser.isRemoteBrowser
     ) {
       // We only handle the window which is one of in-process <web-view>'s children.
@@ -155,7 +157,7 @@ class WebViewForContentChild extends JSWindowActorChild {
         break;
       }
       case "webview-fire-ctx-callback": {
-        ContextMenuUtils.handleContextMenuCallback(
+        lazy.ContextMenuUtils.handleContextMenuCallback(
           this,
           this.contentWindow,
           event.detail.menuitem
@@ -346,7 +348,7 @@ class WebViewForContentChild extends JSWindowActorChild {
     if (event.defaultPrevented) {
       return;
     }
-    let menuData = ContextMenuUtils.generateMenu(
+    let menuData = lazy.ContextMenuUtils.generateMenu(
       this,
       this.contentWindow,
       event
@@ -386,7 +388,7 @@ class WebViewForContentChild extends JSWindowActorChild {
       // click or long tap.
       event.preventDefault();
     } else {
-      ContextMenuUtils.cancel(this);
+      lazy.ContextMenuUtils.cancel(this);
     }
   }
 }

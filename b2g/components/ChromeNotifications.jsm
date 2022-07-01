@@ -4,15 +4,16 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["ChromeNotifications"];
+const EXPORTED_SYMBOLS = ["ChromeNotifications"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
+const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "appNotifier",
   "@mozilla.org/system-alerts-service;1",
   "nsIAppNotificationService"
@@ -24,7 +25,7 @@ function debug(s) {
   dump("-*- ChromeNotifications.jsm: " + s + "\n");
 }
 
-var ChromeNotifications = {
+const ChromeNotifications = {
   init() {
     Services.obs.addObserver(this, "xpcom-shutdown");
     Services.cpmm.addMessageListener(
@@ -51,7 +52,7 @@ var ChromeNotifications = {
         return;
       }
 
-      appNotifier.showAppNotification(
+      lazy.appNotifier.showAppNotification(
         notification.icon,
         notification.image || "",
         notification.title,

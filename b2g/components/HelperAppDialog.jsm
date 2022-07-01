@@ -3,14 +3,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
+const lazy = {};
 ChromeUtils.defineModuleGetter(
-  this,
+  lazy,
   "Downloads",
   "resource://gre/modules/Downloads.jsm"
 );
@@ -45,7 +40,7 @@ HelperAppLauncherDialog.prototype = {
     (async function() {
       let file = null;
       try {
-        let defaultFolder = await Downloads.getPreferredDownloadsDirectory();
+        let defaultFolder = await lazy.Downloads.getPreferredDownloadsDirectory();
         let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
         dir.initWithPath(defaultFolder);
         file = this.validateLeafName(dir, aDefaultFile, aSuggestedFileExt);

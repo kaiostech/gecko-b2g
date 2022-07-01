@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = [];
+const EXPORTED_SYMBOLS = [];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 

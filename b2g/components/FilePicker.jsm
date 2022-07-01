@@ -17,12 +17,6 @@
  * platform-specific code, you can't throw across an XPCOM method boundary.)
  */
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
 
@@ -224,7 +218,7 @@ FilePicker.prototype = {
     let name = data.result.name;
     if (
       !name &&
-      data.result.blob instanceof this.mParent.File &&
+      this.mParent.File.isInstance(data.result.blob) &&
       data.result.blob.name
     ) {
       name = data.result.blob.name;

@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["KillSwitchMain"];
+const EXPORTED_SYMBOLS = ["KillSwitchMain"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
@@ -15,22 +15,26 @@ const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
 
-ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
+const lazy = {};
+
+const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "settings",
   "@mozilla.org/settingsService;1",
   "nsISettingsService"
 );
 
 if (AppConstants.platform === "gonk") {
-  XPCOMUtils.defineLazyGetter(this, "libcutils", function() {
-    ChromeUtils.import("resource://gre/modules/systemlibs.js");
+  XPCOMUtils.defineLazyGetter(lazy, "libcutils", function() {
+    const { libcutils } = ChromeUtils.import(
+      "resource://gre/modules/systemlibs.js"
+    );
     return libcutils;
   });
 } else {
-  this.libcutils = null;
+  lazy.libcutils = null;
 }
 
 const DEBUG = false;
@@ -61,7 +65,7 @@ function debug(aStr) {
   dump("--*-- KillSwitchMain: " + aStr + "\n");
 }
 
-this.KillSwitchMain = {
+const KillSwitchMain = {
   _ksState: null,
   _libcutils: null,
 
@@ -97,8 +101,8 @@ this.KillSwitchMain = {
 
   init() {
     DEBUG && debug("init");
-    if (libcutils) {
-      this._libcutils = libcutils;
+    if (lazy.libcutils) {
+      this._libcutils = lazy.libcutils;
     }
 
     kMessages.forEach(m => {
@@ -213,7 +217,7 @@ this.KillSwitchMain = {
                 JSON.stringify(this._enabledValues.settings)
             );
 
-          let lock = settings.createLock();
+          let lock = lazy.settings.createLock();
           for (let key of Object.keys(this._enabledValues.settings)) {
             lock.set(key, this._enabledValues.settings[key], this);
           }
@@ -337,7 +341,7 @@ this.KillSwitchMain = {
       // For settings we have to wait all the callbacks to come back before
       // we can resolve or reject
       this._pendingSettingsGet = [];
-      let lock = settings.createLock();
+      let lock = lazy.settings.createLock();
       for (let key of Object.keys(this._enabledValues.settings)) {
         this._pendingSettingsGet.push(key);
         lock.get(key, getCallback);
@@ -422,7 +426,7 @@ this.KillSwitchMain = {
           // For settings we have to wait all the callbacks to come back before
           // we can resolve or reject
           this._pendingSettingsSet = [];
-          let lock = settings.createLock();
+          let lock = lazy.settings.createLock();
           for (let key of Object.keys(values.settings)) {
             this._pendingSettingsSet.push(key);
             lock.set(key, values.settings[key], saveCallback);
@@ -526,5 +530,5 @@ if (!inParent) {
   debug("KillSwitchMain should only be living on parent side.");
   throw Components.Exception("", Cr.NS_ERROR_ABORT);
 } else {
-  this.KillSwitchMain.init();
+  KillSwitchMain.init();
 }

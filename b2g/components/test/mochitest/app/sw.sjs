@@ -17,12 +17,16 @@ function handleRequest(request, response) {
 }
 
 function getScript(stateName) {
-  return "oninstall = function(evt) {" +
-           "evt.waitUntil(self.skipWaiting());" +
-         "}; " +
-         "onfetch = function(evt) {" +
-           "if (evt.request.url.indexOf('get-sw-version') > -1) {" +
-             "evt.respondWith(new Response('" + getState(stateName) + "'));" +
-           "}" +
-         "};";
+  return (
+    "oninstall = function(evt) {" +
+    "evt.waitUntil(self.skipWaiting());" +
+    "}; " +
+    "onfetch = function(evt) {" +
+    "if (evt.request.url.indexOf('get-sw-version') > -1) {" +
+    "evt.respondWith(new Response('" +
+    getState(stateName) +
+    "'));" +
+    "}" +
+    "};"
+  );
 }

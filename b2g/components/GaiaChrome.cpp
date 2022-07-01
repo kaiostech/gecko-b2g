@@ -196,7 +196,5 @@ static const mozilla::Module::CIDEntry kGaiaChromeCIDs[] = {
 static const mozilla::Module::ContractIDEntry kGaiaChromeContracts[] = {
     {"@mozilla.org/b2g/gaia-chrome;1", &kNS_GAIACHROME_CID}, {nullptr}};
 
-extern const mozilla::Module kGaiaChromeModule = {mozilla::Module::kVersion,
-                                                  kGaiaChromeCIDs,
-                                                  kGaiaChromeContracts,
-                                                  nullptr};
+extern const mozilla::Module kGaiaChromeModule = {
+    mozilla::Module::kVersion, kGaiaChromeCIDs, kGaiaChromeContracts, nullptr};

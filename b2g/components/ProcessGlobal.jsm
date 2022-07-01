@@ -18,13 +18,13 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
-);
+
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "settings",
   "@mozilla.org/settingsService;1",
   "nsISettingsService"
@@ -84,7 +84,7 @@ function toggleUnrestrictedDevtools(unrestricted) {
   // TODO: Remove once bug 1125916 is fixed.
   Services.prefs.setBoolPref("network.disable.ipc.security", unrestricted);
   Services.prefs.setBoolPref("dom.webcomponents.enabled", unrestricted);
-  let lock = settings.createLock();
+  let lock = lazy.settings.createLock();
   lock.set("developer.menu.enabled", unrestricted, null);
   lock.set("devtools.unrestricted", unrestricted, null);
 }
@@ -176,6 +176,19 @@ ProcessGlobal.prototype = {
     log("cleanupAfterWipe end.");
   },
 
+  init(inParent) {
+    Services.obs.addObserver(this, "console-api-log-event");
+    if (inParent) {
+      this._initActor();
+
+      Services.ppmm.addMessageListener("getProfD", () => {
+        return Services.dirsvc.get("ProfD", Ci.nsIFile).path;
+      });
+
+      this.cleanupAfterFactoryReset();
+    }
+  },
+
   observe: function pg_observe(subject, topic, data) {
     let inParent =
       Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
@@ -184,17 +197,10 @@ ProcessGlobal.prototype = {
         if (!inParent) {
           return;
         }
+        this.init(inParent);
+        break;
       case "content-process-ready-for-script":
-        Services.obs.addObserver(this, "console-api-log-event");
-        if (inParent) {
-          this._initActor();
-
-          Services.ppmm.addMessageListener("getProfD", () => {
-            return Services.dirsvc.get("ProfD", Ci.nsIFile).path;
-          });
-
-          this.cleanupAfterFactoryReset();
-        }
+        this.init(inParent);
         break;
       case "console-api-log-event": {
         // Pipe `console` log messages to the nsIConsoleService which

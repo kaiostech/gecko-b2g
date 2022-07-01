@@ -4,9 +4,9 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["Screenshot"];
+const EXPORTED_SYMBOLS = ["Screenshot"];
 
-this.Screenshot = {
+const Screenshot = {
   get(window) {
     let document = window.document;
 

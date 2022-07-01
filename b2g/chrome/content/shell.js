@@ -3,7 +3,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
- 
+
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
@@ -21,6 +21,8 @@ ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
 ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
 ChromeUtils.import("resource://gre/modules/ErrorPage.jsm");
 
+const lazy = {};
+
 XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
   const { MarionetteHelper } = ChromeUtils.import(
     "chrome://b2g/content/devtools/marionette.js"
@@ -29,7 +31,7 @@ XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  Services,
+  lazy,
   "virtualcursor",
   "@mozilla.org/virtualcursor/service;1",
   "nsIVirtualCursorService"
@@ -173,7 +175,7 @@ var shell = {
     window.addEventListener("sizemodechange", this);
     window.addEventListener("unload", this);
 
-    Services.virtualcursor.init(window);
+    lazy.virtualcursor.init(window);
 
     this.contentBrowser.addProgressListener(
       this._progressListener,
@@ -307,7 +309,10 @@ document.addEventListener(
     if (!isGonk || libcutils.property_get("ro.build.type") == "userdebug") {
       Services.tm.idleDispatchToMainThread(() => {
         Services.obs.notifyObservers(null, "browser-delayed-startup-finished");
-        Services.obs.notifyObservers(null, "browser-idle-startup-tasks-finished");
+        Services.obs.notifyObservers(
+          null,
+          "browser-idle-startup-tasks-finished"
+        );
       });
     }
 

@@ -6,7 +6,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["AccessFu"];
+const EXPORTED_SYMBOLS = ["AccessFu"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { Utils, PrefCache, Logger } = ChromeUtils.import(
@@ -18,11 +18,7 @@ const { PointerAdapter } = ChromeUtils.import(
 const { Presentation } = ChromeUtils.import(
   "resource://gre/modules/accessibility/Presentation.jsm"
 );
-ChromeUtils.defineModuleGetter(
-  this,
-  "Rect",
-  "resource://gre/modules/Geometry.jsm"
-);
+const { Rect } = ChromeUtils.import("resource://gre/modules/Geometry.jsm");
 
 const ACCESSFU_DISABLE = 0; // eslint-disable-line
 const ACCESSFU_ENABLE = 1;
@@ -36,7 +32,7 @@ let settingsManager = Cc["@mozilla.org/sidl-native/settings;1"].getService(
   Ci.nsISettingsManager
 );
 
-this.AccessFu = {
+const AccessFu = {
   /**
    * Initialize chrome-layer accessibility functionality.
    * If accessibility is enabled on the platform, then a special accessibility

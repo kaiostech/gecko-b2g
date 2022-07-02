@@ -10,52 +10,50 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "Services", function() {
-  const { Services } = ChromeUtils.import(
-    "resource://gre/modules/Services.jsm"
-  );
-  return Services;
-});
-XPCOMUtils.defineLazyGetter(this, "Utils", function() {
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
   const { Utils } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Utils;
 });
-XPCOMUtils.defineLazyGetter(this, "Logger", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
   const { Logger } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Logger;
 });
-XPCOMUtils.defineLazyGetter(this, "Presentation", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Presentation", function() {
   const { Presentation } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Presentation.jsm"
   );
   return Presentation;
 });
-XPCOMUtils.defineLazyGetter(this, "Roles", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Roles", function() {
   const { Roles } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return Roles;
 });
-XPCOMUtils.defineLazyGetter(this, "Events", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Events", function() {
   const { Events } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return Events;
 });
-XPCOMUtils.defineLazyGetter(this, "States", function() {
+XPCOMUtils.defineLazyGetter(lazy, "States", function() {
   const { States } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return States;
 });
 
-this.EXPORTED_SYMBOLS = ["EventManager"];
+const EXPORTED_SYMBOLS = ["EventManager"];
 
-this.EventManager = function EventManager(aContentScope, aContentControl) {
+const EventManager = function EventManager(aContentScope, aContentControl) {
   this.contentScope = aContentScope;
   this.contentControl = aContentControl;
   this.addEventListener = this.contentScope.addEventListener.bind(
@@ -70,13 +68,13 @@ this.EventManager = function EventManager(aContentScope, aContentControl) {
     .getInterface(Ci.nsIWebProgress);
 };
 
-this.EventManager.prototype = {
+EventManager.prototype = {
   editState: { editing: false },
 
   start: function start() {
     try {
       if (!this._started) {
-        Logger.debug("EventManager.start");
+        lazy.Logger.debug("EventManager.start");
 
         this._started = true;
 
@@ -96,13 +94,13 @@ this.EventManager.prototype = {
           this.addEventListener("touchmove", this);
         }
         Services.obs.addObserver(domNode => {
-          let acc = Utils.AccRetrieval.getAccessibleFor(domNode);
+          let acc = lazy.Utils.AccRetrieval.getAccessibleFor(domNode);
           if (acc == null) {
             // This event fires too early and the dom tree is still under
             // constructed, postpone it.
             this.queueEvent = domNode;
           } else {
-            this.present(Presentation.selected(acc));
+            this.present(lazy.Presentation.selected(acc));
           }
         }, "custom-accessible");
         Services.obs.addObserver(() => {
@@ -114,9 +112,9 @@ this.EventManager.prototype = {
 
         this._preDialogPosition = new WeakMap();
       }
-      this.present(Presentation.tabStateChanged(null, "newtab"));
+      this.present(lazy.Presentation.tabStateChanged(null, "newtab"));
     } catch (x) {
-      Logger.logException(x, "Failed to start EventManager");
+      lazy.Logger.logException(x, "Failed to start EventManager");
     }
   },
 
@@ -126,7 +124,7 @@ this.EventManager.prototype = {
     if (!this._started) {
       return;
     }
-    Logger.debug("EventManager.stop");
+    lazy.Logger.debug("EventManager.stop");
     AccessibilityEventObserver.removeListener(this);
     try {
       this._preDialogPosition = new WeakMap();
@@ -150,7 +148,7 @@ this.EventManager.prototype = {
   queueEvent: null,
 
   handleEvent: function handleEvent(aEvent) {
-    Logger.debug(() => {
+    lazy.Logger.debug(() => {
       return ["DOMEvent", aEvent.type];
     });
 
@@ -177,7 +175,7 @@ this.EventManager.prototype = {
           } else if (aEvent.target instanceof Ci.nsIDOMElement) {
             window = aEvent.target.ownerGlobal;
           }
-          this.present(Presentation.viewportChanged(window));
+          this.present(lazy.Presentation.viewportChanged(window));
           break;
         }
         case "touchstart":
@@ -192,29 +190,29 @@ this.EventManager.prototype = {
           // latest state.
           if (!aEvent.target.hidden) {
             this.present(
-              Presentation.editingModeChanged(this.editState.editing)
+              lazy.Presentation.editingModeChanged(this.editState.editing)
             );
             this.sendMsgFunc("AccessFu:Input", this.editState);
           }
       }
     } catch (x) {
-      Logger.logException(x, "Error handling DOM event");
+      lazy.Logger.logException(x, "Error handling DOM event");
     }
   },
 
   handleAccEvent: function handleAccEvent(aEvent) {
-    Logger.debug(() => {
+    lazy.Logger.debug(() => {
       return [
         "A11yEvent",
-        Logger.eventToString(aEvent),
-        Logger.accessibleToString(aEvent.accessible),
+        lazy.Logger.eventToString(aEvent),
+        lazy.Logger.accessibleToString(aEvent.accessible),
       ];
     });
 
     // Don't bother with non-content events in firefox.
     if (
-      Utils.MozBuildApp == "browser" &&
-      aEvent.eventType != Events.VIRTUALCURSOR_CHANGED &&
+      lazy.Utils.MozBuildApp == "browser" &&
+      aEvent.eventType != lazy.Events.VIRTUALCURSOR_CHANGED &&
       // XXX Bug 442005 results in DocAccessible::getDocType returning
       // NS_ERROR_FAILURE. Checking for aEvent.accessibleDocument.docType ==
       // 'window' does not currently work.
@@ -225,7 +223,7 @@ this.EventManager.prototype = {
     }
 
     switch (aEvent.eventType) {
-      case Events.VIRTUALCURSOR_CHANGED: {
+      case lazy.Events.VIRTUALCURSOR_CHANGED: {
         if (this.customAccessOutput) {
           // when customAccessOutput is true, skip it.
           // On bug 4294, when pop-up menu shows up, it isn't focused(if it
@@ -240,7 +238,7 @@ this.EventManager.prototype = {
         let pivot = aEvent.accessible.QueryInterface(Ci.nsIAccessibleDocument)
           .virtualCursor;
         let position = pivot.position;
-        if (position && position.role == Roles.INTERNAL_FRAME) {
+        if (position && position.role == lazy.Roles.INTERNAL_FRAME) {
           break;
         }
         let event = aEvent.QueryInterface(
@@ -251,17 +249,17 @@ this.EventManager.prototype = {
 
         if (
           this.editState.editing &&
-          !Utils.getState(position).contains(States.FOCUSED)
+          !lazy.Utils.getState(position).contains(lazy.States.FOCUSED)
         ) {
           // For the current UX spec, p. 8 of IME v1.0.3,
           // we don't need to change focus.
           // Readout module only needs to process the focus element.
-          if (Utils.widgetToolkit != "gonk") {
+          if (lazy.Utils.widgetToolkit != "gonk") {
             aEvent.accessibleDocument.takeFocus();
           }
         }
         this.present(
-          Presentation.pivotChanged(
+          lazy.Presentation.pivotChanged(
             position,
             oldAccessible,
             reason,
@@ -273,28 +271,28 @@ this.EventManager.prototype = {
 
         break;
       }
-      case Events.STATE_CHANGE: {
+      case lazy.Events.STATE_CHANGE: {
         let event = aEvent.QueryInterface(Ci.nsIAccessibleStateChangeEvent);
-        let state = Utils.getState(event);
-        if (state.contains(States.CHECKED)) {
-          if (aEvent.accessible.role === Roles.SWITCH) {
+        let state = lazy.Utils.getState(event);
+        if (state.contains(lazy.States.CHECKED)) {
+          if (aEvent.accessible.role === lazy.Roles.SWITCH) {
             this.present(
-              Presentation.actionInvoked(
+              lazy.Presentation.actionInvoked(
                 aEvent.accessible,
                 event.isEnabled ? "on" : "off"
               )
             );
           } else {
             this.present(
-              Presentation.actionInvoked(
+              lazy.Presentation.actionInvoked(
                 aEvent.accessible,
                 event.isEnabled ? "check" : "uncheck"
               )
             );
           }
-        } else if (state.contains(States.SELECTED)) {
+        } else if (state.contains(lazy.States.SELECTED)) {
           this.present(
-            Presentation.actionInvoked(
+            lazy.Presentation.actionInvoked(
               aEvent.accessible,
               event.isEnabled ? "select" : "unselect"
             )
@@ -302,26 +300,26 @@ this.EventManager.prototype = {
         }
         break;
       }
-      case Events.NAME_CHANGE: {
+      case lazy.Events.NAME_CHANGE: {
         let acc = aEvent.accessible;
         if (acc === this.contentControl.vc.position) {
-          this.present(Presentation.nameChanged(acc));
+          this.present(lazy.Presentation.nameChanged(acc));
         } else {
           let { liveRegion, isPolite } = this._handleLiveRegion(aEvent, [
             "text",
             "all",
           ]);
           if (liveRegion) {
-            this.present(Presentation.nameChanged(acc, isPolite));
+            this.present(lazy.Presentation.nameChanged(acc, isPolite));
           }
         }
         break;
       }
-      case Events.SCROLLING_START: {
+      case lazy.Events.SCROLLING_START: {
         this.contentControl.autoMove(aEvent.accessible);
         break;
       }
-      case Events.TEXT_CARET_MOVED: {
+      case lazy.Events.TEXT_CARET_MOVED: {
         let acc = aEvent.accessible.QueryInterface(Ci.nsIAccessibleText);
         let caretOffset = aEvent.QueryInterface(Ci.nsIAccessibleCaretMoveEvent)
           .caretOffset;
@@ -329,12 +327,12 @@ this.EventManager.prototype = {
         // We could get a caret move in an accessible that is not focused,
         // it doesn't mean we are not on any editable accessible. just not
         // on this one..
-        let state = Utils.getState(acc);
-        if (state.contains(States.FOCUSED)) {
+        let state = lazy.Utils.getState(acc);
+        if (state.contains(lazy.States.FOCUSED)) {
           this._setEditingMode(aEvent, caretOffset);
-          if (state.contains(States.EDITABLE)) {
+          if (state.contains(lazy.States.EDITABLE)) {
             this.present(
-              Presentation.textSelectionChanged(
+              lazy.Presentation.textSelectionChanged(
                 acc.getText(0, -1),
                 caretOffset,
                 caretOffset,
@@ -347,7 +345,7 @@ this.EventManager.prototype = {
         }
         break;
       }
-      case Events.OBJECT_ATTRIBUTE_CHANGED: {
+      case lazy.Events.OBJECT_ATTRIBUTE_CHANGED: {
         let evt = aEvent.QueryInterface(
           Ci.nsIAccessibleObjectAttributeChangedEvent
         );
@@ -355,24 +353,24 @@ this.EventManager.prototype = {
           // Only handle aria-hidden attribute change.
           break;
         }
-        let hidden = Utils.isHidden(aEvent.accessible);
+        let hidden = lazy.Utils.isHidden(aEvent.accessible);
         this[hidden ? "_handleHide" : "_handleShow"](evt);
         if (this.inTest) {
           this.sendMsgFunc("AccessFu:AriaHidden", { hidden });
         }
         break;
       }
-      case Events.SHOW: {
+      case lazy.Events.SHOW: {
         this._handleShow(aEvent);
         break;
       }
-      case Events.HIDE: {
+      case lazy.Events.HIDE: {
         let evt = aEvent.QueryInterface(Ci.nsIAccessibleHideEvent);
         this._handleHide(evt);
         break;
       }
-      case Events.TEXT_INSERTED:
-      case Events.TEXT_REMOVED: {
+      case lazy.Events.TEXT_INSERTED:
+      case lazy.Events.TEXT_REMOVED: {
         let { liveRegion, isPolite } = this._handleLiveRegion(aEvent, [
           "text",
           "all",
@@ -384,14 +382,16 @@ this.EventManager.prototype = {
         }
         break;
       }
-      case Events.FOCUS: {
+      case lazy.Events.FOCUS: {
         // Put vc where the focus is at
         let acc = aEvent.accessible;
         this._setEditingMode(aEvent);
         if (
-          [Roles.CHROME_WINDOW, Roles.DOCUMENT, Roles.APPLICATION].includes(
-            acc.role
-          ) === false
+          [
+            lazy.Roles.CHROME_WINDOW,
+            lazy.Roles.DOCUMENT,
+            lazy.Roles.APPLICATION,
+          ].includes(acc.role) === false
         ) {
           this.contentControl.autoMove(acc);
         }
@@ -401,17 +401,17 @@ this.EventManager.prototype = {
         }
         break;
       }
-      case Events.DOCUMENT_LOAD_COMPLETE: {
+      case lazy.Events.DOCUMENT_LOAD_COMPLETE: {
         let position = this.contentControl.vc.position;
         // Check if position is in the subtree of the DOCUMENT_LOAD_COMPLETE
         // event's dialog accesible or accessible document
         let subtreeRoot =
-          aEvent.accessible.role === Roles.DIALOG
+          aEvent.accessible.role === lazy.Roles.DIALOG
             ? aEvent.accessible
             : aEvent.accessibleDocument;
         if (
           aEvent.accessible === aEvent.accessibleDocument ||
-          (position && Utils.isInSubtree(position, subtreeRoot))
+          (position && lazy.Utils.isInSubtree(position, subtreeRoot))
         ) {
           // Do not automove into the document if the virtual cursor is already
           // positioned inside it.
@@ -421,28 +421,28 @@ this.EventManager.prototype = {
         this.contentControl.autoMove(aEvent.accessible, { delay: 500 });
         if (this.queueEvent) {
           // Reads the event that FE sent too early.
-          let acc = Utils.AccRetrieval.getAccessibleFor(this.queueEvent);
-          this.present(Presentation.selected(acc));
+          let acc = lazy.Utils.AccRetrieval.getAccessibleFor(this.queueEvent);
+          this.present(lazy.Presentation.selected(acc));
           this.queueEvent = null;
         }
         break;
       }
-      case Events.VALUE_CHANGE:
-      case Events.TEXT_VALUE_CHANGE: {
+      case lazy.Events.VALUE_CHANGE:
+      case lazy.Events.TEXT_VALUE_CHANGE: {
         let position = this.contentControl.vc.position;
         let target = aEvent.accessible;
         if (
           position === target ||
-          Utils.getEmbeddedControl(position) === target
+          lazy.Utils.getEmbeddedControl(position) === target
         ) {
-          this.present(Presentation.valueChanged(target));
+          this.present(lazy.Presentation.valueChanged(target));
         } else {
           let { liveRegion, isPolite } = this._handleLiveRegion(aEvent, [
             "text",
             "all",
           ]);
           if (liveRegion) {
-            this.present(Presentation.valueChanged(target, isPolite));
+            this.present(lazy.Presentation.valueChanged(target, isPolite));
           }
         }
         break;
@@ -469,12 +469,13 @@ this.EventManager.prototype = {
     }
 
     // Update editing state, both for presenter and other things
-    let state = Utils.getState(acc);
+    let state = lazy.Utils.getState(acc);
 
     let editState = {
       editing:
-        state.contains(States.EDITABLE) && state.contains(States.FOCUSED),
-      multiline: state.contains(States.MULTI_LINE),
+        state.contains(lazy.States.EDITABLE) &&
+        state.contains(lazy.States.FOCUSED),
+      multiline: state.contains(lazy.States.MULTI_LINE),
       atStart: caretOffset === 0,
       atEnd: caretOffset === characterCount,
     };
@@ -485,7 +486,7 @@ this.EventManager.prototype = {
     }
 
     if (editState.editing !== this.editState.editing) {
-      this.present(Presentation.editingModeChanged(editState.editing));
+      this.present(lazy.Presentation.editingModeChanged(editState.editing));
     }
 
     if (
@@ -510,11 +511,11 @@ this.EventManager.prototype = {
       return;
     }
     // Show for text is handled by the EVENT_TEXT_INSERTED handler.
-    if (aEvent.accessible.role === Roles.TEXT_LEAF) {
+    if (aEvent.accessible.role === lazy.Roles.TEXT_LEAF) {
       return;
     }
-    this._dequeueLiveEvent(Events.HIDE, liveRegion);
-    this.present(Presentation.liveRegion(liveRegion, isPolite, false));
+    this._dequeueLiveEvent(lazy.Events.HIDE, liveRegion);
+    this.present(lazy.Presentation.liveRegion(liveRegion, isPolite, false));
   },
 
   _handleHide: function _handleHide(aEvent) {
@@ -525,16 +526,16 @@ this.EventManager.prototype = {
     let acc = aEvent.accessible;
     if (liveRegion) {
       // Hide for text is handled by the EVENT_TEXT_REMOVED handler.
-      if (acc.role === Roles.TEXT_LEAF) {
+      if (acc.role === lazy.Roles.TEXT_LEAF) {
         return;
       }
-      this._queueLiveEvent(Events.HIDE, liveRegion, isPolite);
+      this._queueLiveEvent(lazy.Events.HIDE, liveRegion, isPolite);
     } else {
-      let vc = Utils.getVirtualCursor(this.contentScope.content.document);
+      let vc = lazy.Utils.getVirtualCursor(this.contentScope.content.document);
       if (
         vc.position &&
-        (Utils.getState(vc.position).contains(States.DEFUNCT) ||
-          Utils.isInSubtree(vc.position, acc))
+        (lazy.Utils.getState(vc.position).contains(lazy.States.DEFUNCT) ||
+          lazy.Utils.isInSubtree(vc.position, acc))
       ) {
         let position =
           this._preDialogPosition.get(aEvent.accessible.DOMNode) ||
@@ -596,32 +597,37 @@ this.EventManager.prototype = {
     }
 
     if (aLiveRegion) {
-      if (aEvent.eventType === Events.TEXT_REMOVED) {
+      if (aEvent.eventType === lazy.Events.TEXT_REMOVED) {
         this._queueLiveEvent(
-          Events.TEXT_REMOVED,
+          lazy.Events.TEXT_REMOVED,
           aLiveRegion,
           aIsPolite,
           modifiedText
         );
       } else {
-        this._dequeueLiveEvent(Events.TEXT_REMOVED, aLiveRegion);
+        this._dequeueLiveEvent(lazy.Events.TEXT_REMOVED, aLiveRegion);
         this.present(
-          Presentation.liveRegion(aLiveRegion, aIsPolite, false, modifiedText)
+          lazy.Presentation.liveRegion(
+            aLiveRegion,
+            aIsPolite,
+            false,
+            modifiedText
+          )
         );
       }
     } else {
       // bug 7239, when removing character from input field, we should read
       // "clear" rather than the character that is going to be removed.
-      if (aEvent.eventType === Events.TEXT_REMOVED) {
+      if (aEvent.eventType === lazy.Events.TEXT_REMOVED) {
         modifiedText = "clear";
-      } else if (aEvent.eventType === Events.TEXT_INSERTED) {
+      } else if (aEvent.eventType === lazy.Events.TEXT_INSERTED) {
         // When insert character from input field, need to replace the symbol to voice
         if (this.symbolVoiceMap.has(modifiedText)) {
           modifiedText = this.symbolVoiceMap.get(modifiedText);
         }
       }
       this.present(
-        Presentation.textChanged(
+        lazy.Presentation.textChanged(
           aEvent.accessible,
           isInserted,
           event.start,
@@ -638,7 +644,7 @@ this.EventManager.prototype = {
       return {};
     }
     let parseLiveAttrs = function parseLiveAttrs(aAccessible) {
-      let attrs = Utils.getAttributes(aAccessible);
+      let attrs = lazy.Utils.getAttributes(aAccessible);
       if (attrs["container-live"]) {
         return {
           live: attrs["container-live"],
@@ -676,7 +682,7 @@ this.EventManager.prototype = {
 
     // Determine if the type of the mutation is relevant. Default is additions
     // and text.
-    let isRelevant = Utils.matchAttributeValue(relevant, aRelevant);
+    let isRelevant = lazy.Utils.matchAttributeValue(relevant, aRelevant);
     if (!isRelevant) {
       return {};
     }
@@ -692,7 +698,7 @@ this.EventManager.prototype = {
       let queue = this._liveEventQueue.get(domNode);
       let nextEvent = queue[0];
       if (nextEvent.eventType === aEventType) {
-        Utils.win.clearTimeout(nextEvent.timeoutID);
+        lazy.Utils.win.clearTimeout(nextEvent.timeoutID);
         queue.shift();
         if (queue.length === 0) {
           this._liveEventQueue.delete(domNode);
@@ -712,10 +718,15 @@ this.EventManager.prototype = {
     }
     let eventHandler = {
       eventType: aEventType,
-      timeoutID: Utils.win.setTimeout(
+      timeoutID: lazy.Utils.win.setTimeout(
         this.present.bind(this),
         20, // Wait for a possible EVENT_SHOW or EVENT_TEXT_INSERTED event.
-        Presentation.liveRegion(aLiveRegion, aIsPolite, true, aModifiedText)
+        lazy.Presentation.liveRegion(
+          aLiveRegion,
+          aIsPolite,
+          true,
+          aModifiedText
+        )
       ),
     };
 
@@ -756,10 +767,10 @@ this.EventManager.prototype = {
     }
 
     if (tabstate) {
-      let docAcc = Utils.AccRetrieval.getAccessibleFor(
+      let docAcc = lazy.Utils.AccRetrieval.getAccessibleFor(
         aWebProgress.DOMWindow.document
       );
-      this.present(Presentation.tabStateChanged(docAcc, tabstate));
+      this.present(lazy.Presentation.tabStateChanged(docAcc, tabstate));
     }
   },
 
@@ -771,10 +782,10 @@ this.EventManager.prototype = {
     aLocation,
     aFlags
   ) {
-    let docAcc = Utils.AccRetrieval.getAccessibleFor(
+    let docAcc = lazy.Utils.AccRetrieval.getAccessibleFor(
       aWebProgress.DOMWindow.document
     );
-    this.present(Presentation.tabStateChanged(docAcc, "newdoc"));
+    this.present(lazy.Presentation.tabStateChanged(docAcc, "newdoc"));
   },
 
   onStatusChange: function onStatusChange() {},
@@ -844,7 +855,7 @@ const AccessibilityEventObserver = {
     }
     this.eventManagers.set(content, aEventManager);
     // Since at least one EventManager was registered, start listening.
-    Logger.debug(
+    lazy.Logger.debug(
       "AccessibilityEventObserver.addListener. Total:",
       this.listenerCount
     );
@@ -864,7 +875,7 @@ const AccessibilityEventObserver = {
       return;
     }
     this.listenerCount--;
-    Logger.debug(
+    lazy.Logger.debug(
       "AccessibilityEventObserver.removeListener. Total:",
       this.listenerCount
     );
@@ -903,11 +914,11 @@ const AccessibilityEventObserver = {
     }
     let event = aSubject.QueryInterface(Ci.nsIAccessibleEvent);
     if (!event.accessibleDocument) {
-      Logger.warning(
+      lazy.Logger.warning(
         "AccessibilityEventObserver.observe: no accessible document:",
-        Logger.eventToString(event),
+        lazy.Logger.eventToString(event),
         "accessible:",
-        Logger.accessibleToString(event.accessible)
+        lazy.Logger.accessibleToString(event.accessible)
       );
       return;
     }
@@ -917,23 +928,23 @@ const AccessibilityEventObserver = {
       let eventManager = this.getListener(content);
       if (!eventManager || !eventManager._started) {
         if (
-          Utils.MozBuildApp === "browser" &&
+          lazy.Utils.MozBuildApp === "browser" &&
           !(content instanceof Ci.nsIDOMChromeWindow)
         ) {
-          Logger.warning(
+          lazy.Logger.warning(
             "AccessibilityEventObserver.observe: ignored event:",
-            Logger.eventToString(event),
+            lazy.Logger.eventToString(event),
             "accessible:",
-            Logger.accessibleToString(event.accessible),
+            lazy.Logger.accessibleToString(event.accessible),
             "document:",
-            Logger.accessibleToString(event.accessibleDocument)
+            lazy.Logger.accessibleToString(event.accessibleDocument)
           );
         }
         return;
       }
       eventManager.handleAccEvent(event);
     } catch (x) {
-      Logger.logException(x, "Error handing accessible event");
+      lazy.Logger.logException(x, "Error handing accessible event");
     }
   },
 };

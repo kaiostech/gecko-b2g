@@ -6,55 +6,57 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "Utils", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
   const { Utils } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Utils;
 });
-XPCOMUtils.defineLazyGetter(this, "Logger", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
   const { Logger } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Logger;
 });
-XPCOMUtils.defineLazyGetter(this, "Roles", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Roles", function() {
   const { Roles } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return Roles;
 });
-XPCOMUtils.defineLazyGetter(this, "TraversalRules", function() {
+XPCOMUtils.defineLazyGetter(lazy, "TraversalRules", function() {
   const { TraversalRules } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Traversal.jsm"
   );
   return TraversalRules;
 });
-XPCOMUtils.defineLazyGetter(this, "TraversalHelper", function() {
+XPCOMUtils.defineLazyGetter(lazy, "TraversalHelper", function() {
   const { TraversalHelper } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Traversal.jsm"
   );
   return TraversalHelper;
 });
-XPCOMUtils.defineLazyGetter(this, "Presentation", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Presentation", function() {
   const { Presentation } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Presentation.jsm"
   );
   return Presentation;
 });
 
-this.EXPORTED_SYMBOLS = ["ContentControl"];
+const EXPORTED_SYMBOLS = ["ContentControl"];
 
 const MOVEMENT_GRANULARITY_CHARACTER = 1;
 const MOVEMENT_GRANULARITY_WORD = 2;
 const MOVEMENT_GRANULARITY_PARAGRAPH = 8;
 
-this.ContentControl = function ContentControl(aContentScope) {
+const ContentControl = function ContentControl(aContentScope) {
   this._contentScope = Cu.getWeakReference(aContentScope);
   this._childMessageSenders = new WeakMap();
 };
 
-this.ContentControl.prototype = {
+ContentControl.prototype = {
   messagesOfInterest: [
     "AccessFu:MoveCursor",
     "AccessFu:ClearCursor",
@@ -91,11 +93,11 @@ this.ContentControl.prototype = {
   },
 
   get vc() {
-    return Utils.getVirtualCursor(this.document);
+    return lazy.Utils.getVirtualCursor(this.document);
   },
 
   receiveMessage: function cc_receiveMessage(aMessage) {
-    Logger.debug(() => {
+    lazy.Logger.debug(() => {
       return [
         "ContentControl.receiveMessage",
         aMessage.name,
@@ -111,10 +113,13 @@ this.ContentControl.prototype = {
       if (func) {
         func.bind(this)(aMessage);
       } else {
-        Logger.warning("ContentControl: Unhandled message:", aMessage.name);
+        lazy.Logger.warning(
+          "ContentControl: Unhandled message:",
+          aMessage.name
+        );
       }
     } catch (x) {
-      Logger.logException(
+      lazy.Logger.logException(
         x,
         "Error handling message: " + JSON.stringify(aMessage.json)
       );
@@ -137,7 +142,7 @@ this.ContentControl.prototype = {
     }
 
     this._contentScope.get().sendAsyncMessage("AccessFu:DoScroll", {
-      bounds: Utils.getBounds(position, true),
+      bounds: lazy.Utils.getBounds(position, true),
       page: aMessage.json.direction === "forward" ? 1 : -1,
       horizontal: false,
     });
@@ -158,12 +163,12 @@ this.ContentControl.prototype = {
       return;
     }
 
-    let moved = TraversalHelper.move(vc, action, aMessage.json.rule);
+    let moved = lazy.TraversalHelper.move(vc, action, aMessage.json.rule);
 
     if (moved) {
       if (origin === "child") {
         // We just stepped out of a child, clear child cursor.
-        Utils.getMessageManager(aMessage.target).sendAsyncMessage(
+        lazy.Utils.getMessageManager(aMessage.target).sendAsyncMessage(
           "AccessFu:ClearCursor",
           {}
         );
@@ -187,7 +192,7 @@ this.ContentControl.prototype = {
     } else {
       this._contentScope
         .get()
-        .sendAsyncMessage("AccessFu:Present", Presentation.noMove(action));
+        .sendAsyncMessage("AccessFu:Present", lazy.Presentation.noMove(action));
     }
   },
 
@@ -197,7 +202,7 @@ this.ContentControl.prototype = {
         json: { x: aEvent.screenX, y: aEvent.screenY, rule: "Simple" },
       });
     }
-    if (!Utils.getMessageManager(aEvent.target)) {
+    if (!lazy.Utils.getMessageManager(aEvent.target)) {
       aEvent.preventDefault();
     } else {
       aEvent.target.focus();
@@ -206,7 +211,7 @@ this.ContentControl.prototype = {
 
   handleMoveToPoint: function cc_handleMoveToPoint(aMessage) {
     let [x, y] = [aMessage.json.x, aMessage.json.y];
-    let rule = TraversalRules[aMessage.json.rule];
+    let rule = lazy.TraversalRules[aMessage.json.rule];
 
     let dpr = this.window.devicePixelRatio;
     this.vc.moveToPoint(rule, x * dpr, y * dpr, true);
@@ -227,13 +232,16 @@ this.ContentControl.prototype = {
 
   handleActivate: function cc_handleActivate(aMessage) {
     let activateAccessible = aAccessible => {
-      Logger.debug(() => {
-        return ["activateAccessible", Logger.accessibleToString(aAccessible)];
+      lazy.Logger.debug(() => {
+        return [
+          "activateAccessible",
+          lazy.Logger.accessibleToString(aAccessible),
+        ];
       });
       try {
         if (
           aMessage.json.activateIfKey &&
-          !Utils.isActivatableOnFingerUp(aAccessible)
+          !lazy.Utils.isActivatableOnFingerUp(aAccessible)
         ) {
           // Only activate keys, don't do anything on other objects.
           return;
@@ -246,7 +254,7 @@ this.ContentControl.prototype = {
       if (aAccessible.actionCount > 0) {
         aAccessible.doAction(0);
       } else {
-        let control = Utils.getEmbeddedControl(aAccessible);
+        let control = lazy.Utils.getEmbeddedControl(aAccessible);
         if (control && control.actionCount > 0) {
           control.doAction(0);
         }
@@ -255,7 +263,7 @@ this.ContentControl.prototype = {
         // (via ARIA roles, etc.), so we need to generate a click.
         // Could possibly be made simpler in the future. Maybe core
         // engine could expose nsCoreUtiles::DispatchMouseEvent()?
-        let docAcc = Utils.AccRetrieval.getAccessibleFor(this.document);
+        let docAcc = lazy.Utils.AccRetrieval.getAccessibleFor(this.document);
         let docX = {},
           docY = {},
           docW = {},
@@ -296,24 +304,24 @@ this.ContentControl.prototype = {
         }
       }
 
-      if (!Utils.isActivatableOnFingerUp(aAccessible)) {
+      if (!lazy.Utils.isActivatableOnFingerUp(aAccessible)) {
         // Keys will typically have a sound of their own.
         this._contentScope
           .get()
           .sendAsyncMessage(
             "AccessFu:Present",
-            Presentation.actionInvoked(aAccessible, "click")
+            lazy.Presentation.actionInvoked(aAccessible, "click")
           );
       }
     };
 
-    let focusedAcc = Utils.AccRetrieval.getAccessibleFor(
+    let focusedAcc = lazy.Utils.AccRetrieval.getAccessibleFor(
       this.document.activeElement
     );
     if (
       focusedAcc &&
       this.vc.position === focusedAcc &&
-      focusedAcc.role === Roles.ENTRY
+      focusedAcc.role === lazy.Roles.ENTRY
     ) {
       let accText = focusedAcc.QueryInterface(Ci.nsIAccessibleText);
       let oldOffset = accText.caretOffset;
@@ -352,7 +360,7 @@ this.ContentControl.prototype = {
   },
 
   adjustRange: function cc_adjustRange(aAccessible, aStepUp) {
-    let acc = Utils.getEmbeddedControl(aAccessible) || aAccessible;
+    let acc = lazy.Utils.getEmbeddedControl(aAccessible) || aAccessible;
     try {
       acc.QueryInterface(Ci.nsIAccessibleValue);
     } catch (x) {
@@ -420,7 +428,7 @@ this.ContentControl.prototype = {
     aNewOffset
   ) {
     if (aOldOffset !== aNewOffset) {
-      let msg = Presentation.textSelectionChanged(
+      let msg = lazy.Presentation.textSelectionChanged(
         aText,
         aNewOffset,
         aNewOffset,
@@ -490,11 +498,14 @@ this.ContentControl.prototype = {
 
   getChildCursor: function cc_getChildCursor(aAccessible) {
     let acc = aAccessible || this.vc.position;
-    if (Utils.isAliveAndVisible(acc) && acc.role === Roles.INTERNAL_FRAME) {
+    if (
+      lazy.Utils.isAliveAndVisible(acc) &&
+      acc.role === lazy.Roles.INTERNAL_FRAME
+    ) {
       let domNode = acc.DOMNode;
       let mm = this._childMessageSenders.get(domNode, null);
       if (!mm) {
-        mm = Utils.getMessageManager(domNode);
+        mm = lazy.Utils.getMessageManager(domNode);
         mm.addWeakMessageListener("AccessFu:MoveCursor", this);
         this._childMessageSenders.set(domNode, mm);
       }
@@ -558,15 +569,15 @@ this.ContentControl.prototype = {
       let vc = this.vc;
       let acc = aAnchor;
       let rule = aOptions.onScreenOnly
-        ? TraversalRules.SimpleOnScreen
-        : TraversalRules.Simple;
+        ? lazy.TraversalRules.SimpleOnScreen
+        : lazy.TraversalRules.Simple;
       let forcePresentFunc = () => {
         if (aOptions.forcePresent) {
           this._contentScope
             .get()
             .sendAsyncMessage(
               "AccessFu:Present",
-              Presentation.pivotChanged(
+              lazy.Presentation.pivotChanged(
                 vc.position,
                 null,
                 Ci.nsIAccessiblePivot.REASON_NONE,
@@ -580,7 +591,7 @@ this.ContentControl.prototype = {
 
       if (
         aOptions.noOpIfOnScreen &&
-        Utils.isAliveAndVisible(vc.position, true)
+        lazy.Utils.isAliveAndVisible(vc.position, true)
       ) {
         forcePresentFunc();
         return;
@@ -588,8 +599,9 @@ this.ContentControl.prototype = {
 
       if (aOptions.moveToFocused) {
         acc =
-          Utils.AccRetrieval.getAccessibleFor(this.document.activeElement) ||
-          acc;
+          lazy.Utils.AccRetrieval.getAccessibleFor(
+            this.document.activeElement
+          ) || acc;
       }
 
       let moved = false;

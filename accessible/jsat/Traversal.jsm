@@ -6,7 +6,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["TraversalRules", "TraversalHelper"]; // jshint ignore:line
+const EXPORTED_SYMBOLS = ["TraversalRules", "TraversalHelper"]; // jshint ignore:line
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
@@ -15,31 +15,27 @@ const { Utils, PrefCache } = ChromeUtils.import(
   "resource://gre/modules/accessibility/Utils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "Roles", function() {
-  const { Roles } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Roles;
-});
+const lazy = {};
 
-XPCOMUtils.defineLazyGetter(this, "Filters", function() {
+const { Roles } = ChromeUtils.import(
+  "resource://gre/modules/accessibility/Constants.jsm"
+);
+
+XPCOMUtils.defineLazyGetter(lazy, "Filters", function() {
   const { Filters } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return Filters;
 });
-XPCOMUtils.defineLazyGetter(this, "States", function() {
+XPCOMUtils.defineLazyGetter(lazy, "States", function() {
   const { States } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return States;
 });
-XPCOMUtils.defineLazyGetter(this, "Prefilters", function() {
-  const { Prefilters } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Prefilters;
-});
+const { Prefilters } = ChromeUtils.import(
+  "resource://gre/modules/accessibility/Constants.jsm"
+);
 
 var gSkipEmptyImages = new PrefCache(
   "accessibility.accessfu.skip_empty_images"
@@ -60,7 +56,7 @@ function BaseTraversalRule(aRoles, aMatchFunc, aPreFilter, aContainerRule) {
   this._matchFunc =
     aMatchFunc ||
     function() {
-      return Filters.MATCH;
+      return lazy.Filters.MATCH;
     };
   this.preFilter = aPreFilter || gSimplePreFilter;
   this.containerRule = aContainerRule;
@@ -76,21 +72,21 @@ BaseTraversalRule.prototype = {
     let role = aAccessible.role;
     if (role == Roles.INTERNAL_FRAME) {
       return Utils.getMessageManager(aAccessible.DOMNode)
-        ? Filters.MATCH | Filters.IGNORE_SUBTREE
-        : Filters.IGNORE;
+        ? lazy.Filters.MATCH | lazy.Filters.IGNORE_SUBTREE
+        : lazy.Filters.IGNORE;
     }
 
     let matchResult =
       this._explicitMatchRoles.has(role) || !this._explicitMatchRoles.size
         ? this._matchFunc(aAccessible)
-        : Filters.IGNORE;
+        : lazy.Filters.IGNORE;
 
     // If we are on a label that nests a checkbox/radio we should land on it.
     // It is a bigger touch target, and it reduces clutter.
-    if (role == Roles.LABEL && !(matchResult & Filters.IGNORE_SUBTREE)) {
+    if (role == Roles.LABEL && !(matchResult & lazy.Filters.IGNORE_SUBTREE)) {
       let control = Utils.getEmbeddedControl(aAccessible);
       if (control && this._explicitMatchRoles.has(control.role)) {
-        matchResult = this._matchFunc(control) | Filters.IGNORE_SUBTREE;
+        matchResult = this._matchFunc(control) | lazy.Filters.IGNORE_SUBTREE;
       }
     }
 
@@ -164,17 +160,17 @@ var gSimpleMatchFunc = function gSimpleMatchFunc(aAccessible) {
     case Roles.COMBOBOX:
       // We don't want to ignore the subtree because this is often
       // where the list box hangs out.
-      return Filters.MATCH;
+      return lazy.Filters.MATCH;
     case Roles.TEXT_LEAF: {
       // Nameless text leaves are boring, skip them.
       let name = aAccessible.name;
-      return name && name.trim() ? Filters.MATCH : Filters.IGNORE;
+      return name && name.trim() ? lazy.Filters.MATCH : lazy.Filters.IGNORE;
     }
     case Roles.STATICTEXT:
       // Ignore prefix static text in list items. They are typically bullets or numbers.
       return Utils.isListItemDecorator(aAccessible)
-        ? Filters.IGNORE
-        : Filters.MATCH;
+        ? lazy.Filters.IGNORE
+        : lazy.Filters.MATCH;
     case Roles.GRAPHIC:
       return TraversalRules._shouldSkipImage(aAccessible);
     case Roles.HEADER:
@@ -186,13 +182,13 @@ var gSimpleMatchFunc = function gSimpleMatchFunc(aAccessible) {
         (aAccessible.childCount > 0 || aAccessible.name) &&
         (isSingleLineage(aAccessible) || isFlatSubtree(aAccessible))
       ) {
-        return Filters.MATCH | Filters.IGNORE_SUBTREE;
+        return lazy.Filters.MATCH | lazy.Filters.IGNORE_SUBTREE;
       }
-      return Filters.IGNORE;
+      return lazy.Filters.IGNORE;
     case Roles.GRID_CELL:
       return isSingleLineage(aAccessible) || isFlatSubtree(aAccessible)
-        ? Filters.MATCH | Filters.IGNORE_SUBTREE
-        : Filters.IGNORE;
+        ? lazy.Filters.MATCH | lazy.Filters.IGNORE_SUBTREE
+        : lazy.Filters.IGNORE;
     case Roles.LISTITEM: {
       let item =
         aAccessible.childCount === 2 &&
@@ -200,13 +196,13 @@ var gSimpleMatchFunc = function gSimpleMatchFunc(aAccessible) {
           ? aAccessible.lastChild
           : aAccessible;
       return isSingleLineage(item) || isFlatSubtree(item)
-        ? Filters.MATCH | Filters.IGNORE_SUBTREE
-        : Filters.IGNORE;
+        ? lazy.Filters.MATCH | lazy.Filters.IGNORE_SUBTREE
+        : lazy.Filters.IGNORE;
     }
     default:
       // Ignore the subtree, if there is one. So that we don't land on
       // the same content that was already presented by its parent.
-      return Filters.MATCH | Filters.IGNORE_SUBTREE;
+      return lazy.Filters.MATCH | lazy.Filters.IGNORE_SUBTREE;
   }
 };
 
@@ -216,7 +212,7 @@ var gSimplePreFilter =
   Prefilters.ARIA_HIDDEN |
   Prefilters.TRANSPARENT;
 
-this.TraversalRules = {
+const TraversalRules = {
   // jshint ignore:line
   Simple: new BaseTraversalRule(gSimpleTraversalRoles, gSimpleMatchFunc),
 
@@ -234,10 +230,10 @@ this.TraversalRules = {
     aAccessible
   ) {
     // We want to ignore links, only focus named anchors.
-    if (Utils.getState(aAccessible).contains(States.LINKED)) {
-      return Filters.IGNORE;
+    if (Utils.getState(aAccessible).contains(lazy.States.LINKED)) {
+      return lazy.Filters.IGNORE;
     }
-    return Filters.MATCH;
+    return lazy.Filters.MATCH;
   }),
 
   Button: new BaseTraversalRule([
@@ -254,8 +250,8 @@ this.TraversalRules = {
     [],
     function Landmark_match(aAccessible) {
       return Utils.getLandmarkName(aAccessible)
-        ? Filters.MATCH
-        : Filters.IGNORE;
+        ? lazy.Filters.MATCH
+        : lazy.Filters.IGNORE;
     },
     null,
     true
@@ -267,7 +263,7 @@ this.TraversalRules = {
     [],
     function Section_match(aAccessible) {
       if (aAccessible.role === Roles.HEADING) {
-        return Filters.MATCH;
+        return lazy.Filters.MATCH;
       }
 
       let matchedRole = Utils.matchRoles(aAccessible, [
@@ -280,7 +276,7 @@ this.TraversalRules = {
         "region",
       ]);
 
-      return matchedRole ? Filters.MATCH : Filters.IGNORE;
+      return matchedRole ? lazy.Filters.MATCH : lazy.Filters.IGNORE;
     },
     null,
     true
@@ -316,17 +312,19 @@ this.TraversalRules = {
   Heading: new BaseTraversalRule([Roles.HEADING], function Heading_match(
     aAccessible
   ) {
-    return aAccessible.childCount > 0 ? Filters.MATCH : Filters.IGNORE;
+    return aAccessible.childCount > 0
+      ? lazy.Filters.MATCH
+      : lazy.Filters.IGNORE;
   }),
 
   ListItem: new BaseTraversalRule([Roles.LISTITEM, Roles.TERM]),
 
   Link: new BaseTraversalRule([Roles.LINK], function Link_match(aAccessible) {
     // We want to ignore anchors, only focus real links.
-    if (Utils.getState(aAccessible).contains(States.LINKED)) {
-      return Filters.MATCH;
+    if (Utils.getState(aAccessible).contains(lazy.States.LINKED)) {
+      return lazy.Filters.MATCH;
     }
-    return Filters.IGNORE;
+    return lazy.Filters.IGNORE;
   }),
 
   /* For TalkBack's "Control" granularity. Form conrols and links */
@@ -355,11 +353,11 @@ this.TraversalRules = {
       // We want to ignore anchors, only focus real links.
       if (
         aAccessible.role == Roles.LINK &&
-        !Utils.getState(aAccessible).contains(States.LINKED)
+        !Utils.getState(aAccessible).contains(lazy.States.LINKED)
       ) {
-        return Filters.IGNORE;
+        return lazy.Filters.IGNORE;
       }
-      return Filters.MATCH;
+      return lazy.Filters.MATCH;
     }
   ),
 
@@ -381,11 +379,11 @@ this.TraversalRules = {
         child = child.nextSibling
       ) {
         if (child.role === Roles.TEXT_LEAF) {
-          return Filters.MATCH | Filters.IGNORE_SUBTREE;
+          return lazy.Filters.MATCH | lazy.Filters.IGNORE_SUBTREE;
         }
       }
 
-      return Filters.IGNORE;
+      return lazy.Filters.IGNORE;
     }
   ),
 
@@ -406,13 +404,13 @@ this.TraversalRules = {
 
   _shouldSkipImage: function _shouldSkipImage(aAccessible) {
     if (gSkipEmptyImages.value && aAccessible.name === "") {
-      return Filters.IGNORE;
+      return lazy.Filters.IGNORE;
     }
-    return Filters.MATCH;
+    return lazy.Filters.MATCH;
   },
 };
 
-this.TraversalHelper = {
+const TraversalHelper = {
   _helperPivotCache: null,
 
   get helperPivotCache() {

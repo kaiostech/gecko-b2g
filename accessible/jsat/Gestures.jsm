@@ -37,35 +37,37 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["GestureSettings", "GestureTracker"]; // jshint ignore:line
+const EXPORTED_SYMBOLS = ["GestureSettings", "GestureTracker"]; // jshint ignore:line
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "Utils", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
   const { Utils } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Utils;
 });
-XPCOMUtils.defineLazyGetter(this, "Logger", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
   const { Logger } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Logger;
 });
-XPCOMUtils.defineLazyGetter(this, "setTimeout", function() {
+XPCOMUtils.defineLazyGetter(lazy, "setTimeout", function() {
   const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
   return setTimeout;
 });
-XPCOMUtils.defineLazyGetter(this, "clearTimeout", function() {
+XPCOMUtils.defineLazyGetter(lazy, "clearTimeout", function() {
   const { clearTimeout } = ChromeUtils.import(
     "resource://gre/modules/Timer.jsm"
   );
   return clearTimeout;
 });
-XPCOMUtils.defineLazyGetter(this, "PromiseUtils", function() {
+XPCOMUtils.defineLazyGetter(lazy, "PromiseUtils", function() {
   const { PromiseUtils } = ChromeUtils.import(
     "resource://gre/modules/PromiseUtils.jsm"
   );
@@ -95,7 +97,8 @@ const TIMEOUT_MULTIPLIER = 1;
 // A single pointer down/up sequence periodically precedes the tripple swipe
 // gesture on Android. This delay acounts for that.
 const IS_ANDROID =
-  Utils.MozBuildApp === "mobile/android" && Utils.AndroidSdkVersion >= 14;
+  lazy.Utils.MozBuildApp === "mobile/android" &&
+  lazy.Utils.AndroidSdkVersion >= 14;
 
 /**
  * A point object containing distance travelled data.
@@ -153,7 +156,7 @@ Point.prototype = {
  * An externally accessible collection of settings used in gesture resolition.
  * @type {Object}
  */
-this.GestureSettings = {
+const GestureSettings = {
   // jshint ignore:line
   /**
    * Maximum duration of swipe
@@ -200,7 +203,7 @@ this.GestureSettings = {
  * gestures.
  * @type {Object}
  */
-this.GestureTracker = {
+const GestureTracker = {
   // jshint ignore:line
   /**
    * Reset GestureTracker to its initial state.
@@ -237,10 +240,10 @@ this.GestureTracker = {
    * @param  {Number} aTimeStamp A new pointer event timeStamp.
    */
   handle: function GestureTracker_handle(aDetail, aTimeStamp) {
-    Logger.gesture(() => {
+    lazy.Logger.gesture(() => {
       return [
         "Pointer event",
-        Utils.dpi,
+        lazy.Utils.dpi,
         "at:",
         aTimeStamp,
         JSON.stringify(aDetail),
@@ -360,10 +363,10 @@ function compileDetail(aType, aPoints, keyMap = { x: "startX", y: "startY" }) {
  */
 function Gesture(aTimeStamp, aPoints = {}, aLastEvent = undefined) {
   this.startTime = Date.now();
-  Logger.gesture("Creating", this.id, "gesture.");
+  lazy.Logger.gesture("Creating", this.id, "gesture.");
   this.points = aPoints;
   this.lastEvent = aLastEvent;
-  this._deferred = PromiseUtils.defer();
+  this._deferred = lazy.PromiseUtils.defer();
   // Call this._handleResolve or this._handleReject when the promise is
   // fulfilled with either resolve or reject.
   this.promise = this._deferred.promise.then(
@@ -390,8 +393,8 @@ Gesture.prototype = {
    * Clear the existing timer.
    */
   clearTimer: function Gesture_clearTimer() {
-    Logger.gesture("clearTimeout", this.type);
-    clearTimeout(this._timer);
+    lazy.Logger.gesture("clearTimeout", this.type);
+    lazy.clearTimeout(this._timer);
     delete this._timer;
   },
 
@@ -401,11 +404,11 @@ Gesture.prototype = {
    * started the gesture resolution sequence.
    */
   startTimer: function Gesture_startTimer(aTimeStamp) {
-    Logger.gesture("startTimer", this.type);
+    lazy.Logger.gesture("startTimer", this.type);
     this.clearTimer();
     let delay = this._getDelay(aTimeStamp);
     let handler = () => {
-      Logger.gesture("timer handler");
+      lazy.Logger.gesture("timer handler");
       this.clearTimer();
       if (!this._inProgress) {
         this._deferred.reject();
@@ -416,7 +419,7 @@ Gesture.prototype = {
     if (delay <= 0) {
       handler();
     } else {
-      this._timer = setTimeout(handler, delay);
+      this._timer = lazy.setTimeout(handler, delay);
     }
   },
 
@@ -485,12 +488,12 @@ Gesture.prototype = {
    * @param  {Object} aDetail a compiled mozAccessFuGesture detail structure.
    */
   _emit: function Gesture__emit(aDetail) {
-    let evt = new Utils.win.CustomEvent("mozAccessFuGesture", {
+    let evt = new lazy.Utils.win.CustomEvent("mozAccessFuGesture", {
       bubbles: true,
       cancelable: true,
       detail: aDetail,
     });
-    Utils.win.dispatchEvent(evt);
+    lazy.Utils.win.dispatchEvent(evt);
   },
 
   /**
@@ -552,9 +555,9 @@ Gesture.prototype = {
    */
   _handleResolve: function Gesture__handleResolve() {
     if (this.isComplete) {
-      return;
+      return null;
     }
-    Logger.gesture("Resolving", this.id, "gesture.");
+    lazy.Logger.gesture("Resolving", this.id, "gesture.");
     this.isComplete = true;
     this.clearTimer();
     let detail = this.compile();
@@ -577,9 +580,9 @@ Gesture.prototype = {
    */
   _handleReject: function Gesture__handleReject(aRejectTo) {
     if (this.isComplete) {
-      return;
+      return null;
     }
-    Logger.gesture("Rejecting", this.id, "gesture.");
+    lazy.Logger.gesture("Rejecting", this.id, "gesture.");
     this.isComplete = true;
     this.clearTimer();
     return {
@@ -661,7 +664,7 @@ TravelGesture.prototype.test = function TravelGesture_test() {
   }
   for (let identifier in this.points) {
     let point = this.points[identifier];
-    if (point.totalDistanceTraveled / Utils.dpi > this._threshold) {
+    if (point.totalDistanceTraveled / lazy.Utils.dpi > this._threshold) {
       this._deferred.reject(this._travelTo);
       return;
     }
@@ -771,8 +774,8 @@ TapGesture.prototype.pointerup = function TapGesture_pointerup(aPoints) {
     if (complete) {
       this.clearTimer();
       if (GestureSettings.maxGestureResolveTimeout) {
-        this._pointerUpTimer = setTimeout(() => {
-          clearTimeout(this._pointerUpTimer);
+        this._pointerUpTimer = lazy.setTimeout(() => {
+          lazy.clearTimeout(this._pointerUpTimer);
           delete this._pointerUpTimer;
           this._deferred.resolve();
         }, GestureSettings.maxGestureResolveTimeout);
@@ -790,7 +793,7 @@ TapGesture.prototype.pointerdown = function TapGesture_pointerdown(
   aTimeStamp
 ) {
   if (this._pointerUpTimer) {
-    clearTimeout(this._pointerUpTimer);
+    lazy.clearTimeout(this._pointerUpTimer);
     delete this._pointerUpTimer;
     this._deferred.reject(this._rejectToOnPointerDown);
   } else {
@@ -1000,7 +1003,7 @@ Swipe.prototype.test = function Swipe_test(aComplete) {
     let point = this.points[identifier];
     let directDistance = point.directDistanceTraveled;
     if (
-      directDistance / Utils.dpi >= SWIPE_MIN_DISTANCE ||
+      directDistance / lazy.Utils.dpi >= SWIPE_MIN_DISTANCE ||
       directDistance * DIRECTNESS_COEFF >= point.totalDistanceTraveled
     ) {
       reject = false;
@@ -1025,7 +1028,7 @@ Swipe.prototype.compile = function Swipe_compile() {
   });
   let deltaX = detail.deltaX;
   let deltaY = detail.deltaY;
-  let edge = EDGE * Utils.dpi;
+  let edge = EDGE * lazy.Utils.dpi;
   if (Math.abs(deltaX) > Math.abs(deltaY)) {
     // Horizontal swipe.
     let startPoints = detail.touches.map(touch => touch.x1);
@@ -1035,7 +1038,7 @@ Swipe.prototype.compile = function Swipe_compile() {
     } else {
       detail.type = type + "left";
       detail.edge =
-        Utils.win.screen.width - Math.max.apply(null, startPoints) <= edge;
+        lazy.Utils.win.screen.width - Math.max.apply(null, startPoints) <= edge;
     }
   } else {
     // Vertical swipe.
@@ -1046,7 +1049,8 @@ Swipe.prototype.compile = function Swipe_compile() {
     } else {
       detail.type = type + "up";
       detail.edge =
-        Utils.win.screen.height - Math.max.apply(null, startPoints) <= edge;
+        lazy.Utils.win.screen.height - Math.max.apply(null, startPoints) <=
+        edge;
     }
   }
   return detail;

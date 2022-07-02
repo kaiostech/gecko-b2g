@@ -14,44 +14,46 @@ const { Utils, PrefCache } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyGetter(this, "Logger", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
   const { Logger } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Logger;
 });
-XPCOMUtils.defineLazyGetter(this, "PivotContext", function() {
+XPCOMUtils.defineLazyGetter(lazy, "PivotContext", function() {
   const { PivotContext } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return PivotContext;
 });
-XPCOMUtils.defineLazyGetter(this, "UtteranceGenerator", function() {
+XPCOMUtils.defineLazyGetter(lazy, "UtteranceGenerator", function() {
   const { UtteranceGenerator } = ChromeUtils.import(
     "resource://gre/modules/accessibility/OutputGenerator.jsm"
   );
   return UtteranceGenerator;
 });
-XPCOMUtils.defineLazyGetter(this, "BriefGenerator", function() {
+XPCOMUtils.defineLazyGetter(lazy, "BriefGenerator", function() {
   const { BriefGenerator } = ChromeUtils.import(
     "resource://gre/modules/accessibility/OutputGenerator.jsm"
   );
   return BriefGenerator;
 });
-XPCOMUtils.defineLazyGetter(this, "BrailleGenerator", function() {
+XPCOMUtils.defineLazyGetter(lazy, "BrailleGenerator", function() {
   const { BrailleGenerator } = ChromeUtils.import(
     "resource://gre/modules/accessibility/OutputGenerator.jsm"
   );
   return BrailleGenerator;
 });
-XPCOMUtils.defineLazyGetter(this, "States", function() {
+XPCOMUtils.defineLazyGetter(lazy, "States", function() {
   const { States } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return States;
 });
 
-this.EXPORTED_SYMBOLS = ["Presentation"]; // jshint ignore:line
+const EXPORTED_SYMBOLS = ["Presentation"]; // jshint ignore:line
 
 /**
  * The interface for all presenter classes. A presenter could be, for example,
@@ -245,7 +247,7 @@ VisualPresenter.prototype.pivotChanged = function VisualPresenter_pivotChanged(
   aStartOffset,
   aEndOffset
 ) {
-  let aContext = new PivotContext(
+  let aContext = new lazy.PivotContext(
     aPosition,
     aOldPosition,
     aStartOffset,
@@ -279,7 +281,7 @@ VisualPresenter.prototype.pivotChanged = function VisualPresenter_pivotChanged(
       },
     };
   } catch (e) {
-    Logger.logException(e, "Failed to get bounds");
+    lazy.Logger.logException(e, "Failed to get bounds");
     return null;
   }
 };
@@ -333,7 +335,7 @@ AndroidPresenter.prototype.pivotChanged = function AndroidPresenter_pivotChanged
   aEndOffset,
   aReason
 ) {
-  let aContext = new PivotContext(
+  let aContext = new lazy.PivotContext(
     aPosition,
     aOldPosition,
     aStartOffset,
@@ -385,11 +387,11 @@ AndroidPresenter.prototype.pivotChanged = function AndroidPresenter_pivotChanged
       eventType: isExploreByTouch
         ? this.ANDROID_VIEW_HOVER_ENTER
         : focusEventType,
-      text: Utils.localize(UtteranceGenerator.genForContext(aContext)),
+      text: Utils.localize(lazy.UtteranceGenerator.genForContext(aContext)),
       bounds: aContext.bounds,
       clickable: aContext.accessible.actionCount > 0,
-      checkable: state.contains(States.CHECKABLE),
-      checked: state.contains(States.CHECKED),
+      checkable: state.contains(lazy.States.CHECKABLE),
+      checked: state.contains(lazy.States.CHECKED),
       brailleOutput,
     });
   }
@@ -409,9 +411,9 @@ AndroidPresenter.prototype.actionInvoked = function AndroidPresenter_actionInvok
   // Checkable objects use TalkBack's text derived from the event state,
   // so we don't populate the text here.
   let text = "";
-  if (!state.contains(States.CHECKABLE)) {
+  if (!state.contains(lazy.States.CHECKABLE)) {
     text = Utils.localize(
-      UtteranceGenerator.genForAction(aObject, aActionName)
+      lazy.UtteranceGenerator.genForAction(aObject, aActionName)
     );
   }
 
@@ -421,7 +423,7 @@ AndroidPresenter.prototype.actionInvoked = function AndroidPresenter_actionInvok
       {
         eventType: this.ANDROID_VIEW_CLICKED,
         text,
-        checked: state.contains(States.CHECKED),
+        checked: state.contains(lazy.States.CHECKED),
       },
     ],
   };
@@ -440,7 +442,7 @@ AndroidPresenter.prototype.tabStateChanged = function AndroidPresenter_tabStateC
   aPageState
 ) {
   return this.announce(
-    UtteranceGenerator.genForTabStateChange(aDocObj, aPageState)
+    lazy.UtteranceGenerator.genForTabStateChange(aDocObj, aPageState)
   );
 };
 
@@ -561,7 +563,7 @@ AndroidPresenter.prototype.viewportChanged = function AndroidPresenter_viewportC
 AndroidPresenter.prototype.editingModeChanged = function AndroidPresenter_editingModeChanged(
   aIsEditing
 ) {
-  return this.announce(UtteranceGenerator.genForEditingMode(aIsEditing));
+  return this.announce(lazy.UtteranceGenerator.genForEditingMode(aIsEditing));
 };
 
 AndroidPresenter.prototype.announce = function AndroidPresenter_announce(
@@ -592,7 +594,7 @@ AndroidPresenter.prototype.liveRegion = function AndroidPresenter_liveRegion(
   aModifiedText
 ) {
   return this.announce(
-    UtteranceGenerator.genForLiveRegion(aContext, aIsHide, aModifiedText)
+    lazy.UtteranceGenerator.genForLiveRegion(aContext, aIsHide, aModifiedText)
   );
 };
 
@@ -656,7 +658,7 @@ B2GPresenter.prototype.pivotChanged = function B2GPresenter_pivotChanged(
   aReason,
   aIsUserInput
 ) {
-  let aContext = new PivotContext(
+  let aContext = new lazy.PivotContext(
     aPosition,
     aOldPosition,
     aStartOffset,
@@ -670,7 +672,7 @@ B2GPresenter.prototype.pivotChanged = function B2GPresenter_pivotChanged(
     type: this.type,
     details: {
       eventType: "vc-change",
-      data: UtteranceGenerator.genForContext(aContext),
+      data: lazy.UtteranceGenerator.genForContext(aContext),
       options: {
         pattern: this.PIVOT_CHANGE_HAPTIC_PATTERN,
         isKey: Utils.isActivatableOnFingerUp(aContext.accessible),
@@ -701,7 +703,7 @@ B2GPresenter.prototype.valueChanged = function B2GPresenter_valueChanged(
   aIsPolite = true
 ) {
   // the editable value changes are handled in the text changed presenter
-  if (Utils.getState(aAccessible).contains(States.EDITABLE)) {
+  if (Utils.getState(aAccessible).contains(lazy.States.EDITABLE)) {
     return null;
   }
 
@@ -783,7 +785,7 @@ B2GPresenter.prototype.actionInvoked = function B2GPresenter_actionInvoked(
     type: this.type,
     details: {
       eventType: "action",
-      data: UtteranceGenerator.genForAction(aObject, aActionName),
+      data: lazy.UtteranceGenerator.genForAction(aObject, aActionName),
       options: {
         actionName: aActionName,
         accessibleName: aObject.name,
@@ -802,7 +804,7 @@ B2GPresenter.prototype.liveRegion = function B2GPresenter_liveRegion(
     type: this.type,
     details: {
       eventType: "liveregion-change",
-      data: UtteranceGenerator.genForLiveRegion(
+      data: lazy.UtteranceGenerator.genForLiveRegion(
         aContext,
         aIsHide,
         aModifiedText
@@ -851,7 +853,7 @@ AppFramePresenter.prototype.pivotChanged = function AppFramePresenter_pivotChang
   aReason,
   aIsUserInput
 ) {
-  let aContext = new PivotContext(
+  let aContext = new lazy.PivotContext(
     aPosition,
     aOldPosition,
     aStartOffset,
@@ -868,7 +870,7 @@ AppFramePresenter.prototype.pivotChanged = function AppFramePresenter_pivotChang
     type: this.type,
     details: {
       eventType: "vc-change",
-      data: BriefGenerator.genForContext(aContext),
+      data: lazy.BriefGenerator.genForContext(aContext),
       options: {
         pattern: this.PIVOT_CHANGE_HAPTIC_PATTERN,
         isKey: Utils.isActivatableOnFingerUp(aContext.accessible),
@@ -888,7 +890,7 @@ AppFramePresenter.prototype.actionInvoked = function AppFramePresenter_actionInv
     type: this.type,
     details: {
       eventType: "action",
-      data: BriefGenerator.genForAction(aObject, aActionName),
+      data: lazy.BriefGenerator.genForAction(aObject, aActionName),
       options: {
         actionName: aActionName,
         accessibleName: aObject.name,
@@ -907,7 +909,11 @@ AppFramePresenter.prototype.liveRegion = function AppFramePresenter_liveRegion(
     type: this.type,
     details: {
       eventType: "liveregion-change",
-      data: BriefGenerator.genForLiveRegion(aContext, aIsHide, aModifiedText),
+      data: lazy.BriefGenerator.genForLiveRegion(
+        aContext,
+        aIsHide,
+        aModifiedText
+      ),
       options: { enqueue: aIsPolite },
     },
   };
@@ -916,7 +922,7 @@ AppFramePresenter.prototype.liveRegion = function AppFramePresenter_liveRegion(
 AppFramePresenter.prototype.selected = function AppFramePresenter_selected(
   aAccessible
 ) {
-  let aContext = new PivotContext(aAccessible, null, -1, -1, true);
+  let aContext = new lazy.PivotContext(aAccessible, null, -1, -1, true);
   if (!aContext.accessible) {
     return null;
   }
@@ -924,7 +930,7 @@ AppFramePresenter.prototype.selected = function AppFramePresenter_selected(
     type: this.type,
     details: {
       eventType: "front-end-selected",
-      data: BriefGenerator.genForContext(aContext),
+      data: lazy.BriefGenerator.genForContext(aContext),
     },
   };
 };
@@ -944,7 +950,7 @@ BraillePresenter.prototype.pivotChanged = function BraillePresenter_pivotChanged
   aStartOffset,
   aEndOffset
 ) {
-  let aContext = new PivotContext(
+  let aContext = new lazy.PivotContext(
     aPosition,
     aOldPosition,
     aStartOffset,
@@ -957,9 +963,9 @@ BraillePresenter.prototype.pivotChanged = function BraillePresenter_pivotChanged
   return {
     type: this.type,
     details: {
-      output: Utils.localize(BrailleGenerator.genForContext(aContext)).join(
-        " "
-      ),
+      output: Utils.localize(
+        lazy.BrailleGenerator.genForContext(aContext)
+      ).join(" "),
       selectionStart: 0,
       selectionEnd: 0,
     },
@@ -980,7 +986,7 @@ BraillePresenter.prototype.textSelectionChanged = function BraillePresenter_text
   };
 };
 
-this.Presentation = {
+const Presentation = {
   // jshint ignore:line
   get presenters() {
     delete this.presenters;
@@ -1010,7 +1016,7 @@ this.Presentation = {
     aEndOffset,
     aIsUserInput
   ) {
-    let context = new PivotContext(
+    let context = new lazy.PivotContext(
       aPosition,
       aOldPosition,
       aStartOffset,
@@ -1104,7 +1110,7 @@ this.Presentation = {
     // XXX: Typically each presenter uses the UtteranceGenerator,
     // but there really isn't a point here.
     return this.presenters.map(p =>
-      p.announce(UtteranceGenerator.genForAnnouncement(aAnnouncement))
+      p.announce(lazy.UtteranceGenerator.genForAnnouncement(aAnnouncement))
     );
   },
 
@@ -1120,7 +1126,14 @@ this.Presentation = {
   ) {
     let context;
     if (!aModifiedText) {
-      context = new PivotContext(aAccessible, null, -1, -1, true, !!aIsHide);
+      context = new lazy.PivotContext(
+        aAccessible,
+        null,
+        -1,
+        -1,
+        true,
+        !!aIsHide
+      );
     }
     return this.presenters.map(p =>
       p.liveRegion(context, aIsPolite, aIsHide, aModifiedText)

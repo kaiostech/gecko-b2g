@@ -12,48 +12,46 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "Services", function() {
-  const { Services } = ChromeUtils.import(
-    "resource://gre/modules/Services.jsm"
-  );
-  return Services;
-});
-XPCOMUtils.defineLazyGetter(this, "Rect", function() {
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "Rect", function() {
   const { Rect } = ChromeUtils.import("resource://gre/modules/Geometry.jsm");
   return Rect;
 });
-XPCOMUtils.defineLazyGetter(this, "Roles", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Roles", function() {
   const { Roles } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return Roles;
 });
-XPCOMUtils.defineLazyGetter(this, "Events", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Events", function() {
   const { Events } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return Events;
 });
-XPCOMUtils.defineLazyGetter(this, "Relations", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Relations", function() {
   const { Relations } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return Relations;
 });
-XPCOMUtils.defineLazyGetter(this, "States", function() {
+XPCOMUtils.defineLazyGetter(lazy, "States", function() {
   const { States } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return States;
 });
-XPCOMUtils.defineLazyGetter(this, "PluralForm", function() {
+XPCOMUtils.defineLazyGetter(lazy, "PluralForm", function() {
   const { PluralForm } = ChromeUtils.import(
     "resource://gre/modules/PluralForm.jsm"
   );
   return PluralForm;
 });
 
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "Utils",
   "Logger",
   "PivotContext",
@@ -61,7 +59,7 @@ this.EXPORTED_SYMBOLS = [
   "SettingCache",
 ];
 
-this.Utils = {
+const Utils = {
   // jshint ignore:line
   _buildAppMap: {
     "{3c2e2abc-06d4-11e1-ac3b-374f68613e61}": "b2g",
@@ -292,7 +290,7 @@ this.Utils = {
             str = bundle.GetStringFromName(string);
           }
           if (count) {
-            str = PluralForm.get(count, str);
+            str = lazy.PluralForm.get(count, str);
             str = str.replace("#1", count);
           }
         } catch (e) {
@@ -370,7 +368,7 @@ this.Utils = {
       ? 1
       : this.getContentResolution(aAccessible);
 
-    return new Rect(objX.value, objY.value, objW.value, objH.value).scale(
+    return new lazy.Rect(objX.value, objY.value, objW.value, objH.value).scale(
       scale,
       scale
     );
@@ -401,7 +399,7 @@ this.Utils = {
       ? 1
       : this.getContentResolution(aAccessible);
 
-    return new Rect(objX.value, objY.value, objW.value, objH.value).scale(
+    return new lazy.Rect(objX.value, objY.value, objW.value, objH.value).scale(
       scale,
       scale
     );
@@ -485,9 +483,9 @@ this.Utils = {
     try {
       let state = this.getState(aAccessible);
       if (
-        state.contains(States.DEFUNCT) ||
-        state.contains(States.INVISIBLE) ||
-        (aIsOnScreen && state.contains(States.OFFSCREEN)) ||
+        state.contains(lazy.States.DEFUNCT) ||
+        state.contains(lazy.States.INVISIBLE) ||
+        (aIsOnScreen && state.contains(lazy.States.OFFSCREEN)) ||
         Utils.inHiddenSubtree(aAccessible)
       ) {
         return false;
@@ -506,6 +504,7 @@ this.Utils = {
         return value;
       }
     }
+    return null;
   },
 
   getLandmarkName: function getLandmarkName(aAccessible) {
@@ -539,7 +538,7 @@ this.Utils = {
   matchRoles: function matchRoles(aAccessible, aRoles) {
     let roles = this.getAttributes(aAccessible)["xml-roles"];
     if (!roles) {
-      return;
+      return null;
     }
 
     // Looking up a role that would match any in the provided roles.
@@ -548,7 +547,7 @@ this.Utils = {
 
   getEmbeddedControl: function getEmbeddedControl(aLabel) {
     if (aLabel) {
-      let relation = aLabel.getRelationByType(Relations.LABEL_FOR);
+      let relation = aLabel.getRelationByType(lazy.Relations.LABEL_FOR);
       for (let i = 0; i < relation.targetsCount; i++) {
         let target = relation.getTarget(i);
         if (target.parent === aLabel) {
@@ -570,7 +569,7 @@ this.Utils = {
     }
 
     return (
-      parent.role === Roles.LISTITEM &&
+      parent.role === lazy.Roles.LISTITEM &&
       parent.childCount > 1 &&
       aStaticText.indexInParent === 0
     );
@@ -592,7 +591,7 @@ this.Utils = {
   },
 
   isActivatableOnFingerUp: function isActivatableOnFingerUp(aAccessible) {
-    if (aAccessible.role === Roles.KEY) {
+    if (aAccessible.role === lazy.Roles.KEY) {
       return true;
     }
     let quick_activate = this.getAttributes(aAccessible)["moz-quick-activate"];
@@ -627,7 +626,7 @@ State.prototype = {
   },
 };
 
-this.Logger = {
+const Logger = {
   // jshint ignore:line
   GESTURE: -1,
   DEBUG: 0,
@@ -752,7 +751,7 @@ this.Logger = {
 
   eventToString: function eventToString(aEvent) {
     let str = Utils.AccRetrieval.getStringEventType(aEvent.eventType);
-    if (aEvent.eventType == Events.STATE_CHANGE) {
+    if (aEvent.eventType == lazy.Events.STATE_CHANGE) {
       let event = aEvent.QueryInterface(Ci.nsIAccessibleStateChangeEvent);
       let stateStrings = event.isExtraState
         ? Utils.AccRetrieval.getStringStates(0, event.state)
@@ -760,7 +759,7 @@ this.Logger = {
       str += " (" + stateStrings.item(0) + ")";
     }
 
-    if (aEvent.eventType == Events.VIRTUALCURSOR_CHANGED) {
+    if (aEvent.eventType == lazy.Events.VIRTUALCURSOR_CHANGED) {
       let event = aEvent.QueryInterface(
         Ci.nsIAccessibleVirtualCursorChangeEvent
       );
@@ -820,7 +819,7 @@ this.Logger = {
  * label. In this case the |accessible| field would be the embedded control,
  * and the |accessibleForBounds| field would be the label.
  */
-this.PivotContext = function PivotContext(
+const PivotContext = function PivotContext(
   aAccessible,
   aOldAccessible, // jshint ignore:line
   aStartOffset,
@@ -1095,10 +1094,10 @@ PivotContext.prototype = {
       }
       if (
         [
-          Roles.CELL,
-          Roles.COLUMNHEADER,
-          Roles.ROWHEADER,
-          Roles.MATHML_CELL,
+          lazy.Roles.CELL,
+          lazy.Roles.COLUMNHEADER,
+          lazy.Roles.ROWHEADER,
+          lazy.Roles.MATHML_CELL,
         ].includes(aAccessible.role) === false
       ) {
         return null;
@@ -1163,7 +1162,7 @@ PivotContext.prototype = {
     cellInfo.columnHeaders = [];
     if (
       cellInfo.columnChanged &&
-      cellInfo.current.role !== Roles.COLUMNHEADER
+      cellInfo.current.role !== lazy.Roles.COLUMNHEADER
     ) {
       cellInfo.columnHeaders = [
         ...getHeaders(cellInfo.current.columnHeaderCells),
@@ -1172,8 +1171,8 @@ PivotContext.prototype = {
     cellInfo.rowHeaders = [];
     if (
       cellInfo.rowChanged &&
-      (cellInfo.current.role === Roles.CELL ||
-        cellInfo.current.role === Roles.MATHML_CELL)
+      (cellInfo.current.role === lazy.Roles.CELL ||
+        cellInfo.current.role === lazy.Roles.MATHML_CELL)
     ) {
       cellInfo.rowHeaders = [...getHeaders(cellInfo.current.rowHeaderCells)];
     }
@@ -1192,14 +1191,14 @@ PivotContext.prototype = {
 
   _isDefunct: function _isDefunct(aAccessible) {
     try {
-      return Utils.getState(aAccessible).contains(States.DEFUNCT);
+      return Utils.getState(aAccessible).contains(lazy.States.DEFUNCT);
     } catch (x) {
       return true;
     }
   },
 };
 
-this.PrefCache = function PrefCache(aName, aCallback, aRunCallbackNow) {
+const PrefCache = function PrefCache(aName, aCallback, aRunCallbackNow) {
   // jshint ignore:line
   this.name = aName;
   this.callback = aCallback;
@@ -1258,7 +1257,7 @@ PrefCache.prototype = {
   ]),
 };
 
-this.SettingCache = function SettingCache(aName, aCallback, aOptions = {}) {
+const SettingCache = function SettingCache(aName, aCallback, aOptions = {}) {
   // jshint ignore:line
   this.value = aOptions.defaultValue;
   let runCallback = () => {

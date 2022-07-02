@@ -19,38 +19,37 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "Utils", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
   const { Utils } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Utils;
 });
-XPCOMUtils.defineLazyGetter(this, "PrefCache", function() {
+XPCOMUtils.defineLazyGetter(lazy, "PrefCache", function() {
   const { PrefCache } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return PrefCache;
 });
-XPCOMUtils.defineLazyGetter(this, "Logger", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
   const { Logger } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Logger;
 });
-XPCOMUtils.defineLazyGetter(this, "Roles", function() {
-  const { Roles } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Roles;
-});
-XPCOMUtils.defineLazyGetter(this, "States", function() {
+const { Roles } = ChromeUtils.import(
+  "resource://gre/modules/accessibility/Constants.jsm"
+);
+XPCOMUtils.defineLazyGetter(lazy, "States", function() {
   const { States } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Constants.jsm"
   );
   return States;
 });
 
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "UtteranceGenerator",
   "BriefGenerator", // jshint ignore:line
   "BrailleGenerator",
@@ -75,14 +74,14 @@ var OutputGenerator = {
       output.push.apply(output, self.genForObject(aAccessible, aContext));
     };
     let ignoreSubtree = function ignoreSubtree(aAccessible) {
-      let roleString = Utils.AccRetrieval.getStringRole(aAccessible.role);
+      let roleString = lazy.Utils.AccRetrieval.getStringRole(aAccessible.role);
       let nameRule = self.roleRuleMap[roleString] || 0;
       // Ignore subtree if the name is explicit and the role's name rule is the
       // NAME_FROM_SUBTREE_RULE.
       return (
         (nameRule & INCLUDE_VALUE && aAccessible.value) ||
         (nameRule & NAME_FROM_SUBTREE_RULE &&
-          Utils.getAttributes(aAccessible)["explicit-name"] === "true" &&
+          lazy.Utils.getAttributes(aAccessible)["explicit-name"] === "true" &&
           !(nameRule & IGNORE_EXPLICIT_NAME))
       );
     };
@@ -134,7 +133,7 @@ var OutputGenerator = {
    *    determined by {@link roleRuleMap}.
    */
   genForObject: function genForObject(aAccessible, aContext) {
-    let roleString = Utils.AccRetrieval.getStringRole(aAccessible.role);
+    let roleString = lazy.Utils.AccRetrieval.getStringRole(aAccessible.role);
     let func =
       this.objectOutputFunctions[OutputGenerator._getOutputName(roleString)] ||
       this.objectOutputFunctions.defaultFunc;
@@ -148,7 +147,7 @@ var OutputGenerator = {
     return func.apply(this, [
       aAccessible,
       roleString,
-      Utils.getState(aAccessible),
+      lazy.Utils.getState(aAccessible),
       flags,
       aContext,
     ]);
@@ -199,7 +198,7 @@ var OutputGenerator = {
   _addName: function _addName(aOutput, aAccessible, aFlags) {
     let name;
     if (
-      (Utils.getAttributes(aAccessible)["explicit-name"] === "true" &&
+      (lazy.Utils.getAttributes(aAccessible)["explicit-name"] === "true" &&
         !(aFlags & IGNORE_EXPLICIT_NAME)) ||
       aFlags & INCLUDE_NAME
     ) {
@@ -232,7 +231,7 @@ var OutputGenerator = {
    * @param {nsIAccessible} aAccessible current accessible object.
    */
   _addLandmark: function _addLandmark(aOutput, aAccessible) {
-    let landmarkName = Utils.getLandmarkName(aAccessible);
+    let landmarkName = lazy.Utils.getLandmarkName(aAccessible);
     if (!landmarkName) {
       return;
     }
@@ -276,7 +275,7 @@ var OutputGenerator = {
         // Per the MathML 3 spec, the latter happens iff the linethickness
         // attribute is of the form [zero-float][optional-unit]. In that case,
         // we use the string 'mathmlfractionwithoutbar'.
-        let linethickness = Utils.getAttributes(aAccessible).linethickness;
+        let linethickness = lazy.Utils.getAttributes(aAccessible).linethickness;
         if (linethickness) {
           let numberMatch = linethickness.match(/^(?:\d|\.)+/);
           if (numberMatch && !parseFloat(numberMatch[0])) {
@@ -292,7 +291,7 @@ var OutputGenerator = {
 
     // Get the math role based on the position in the parent accessible
     // (e.g. numerator for the first child of a mathmlfraction).
-    let mathRole = Utils.getMathRole(aAccessible);
+    let mathRole = lazy.Utils.getMathRole(aAccessible);
     if (mathRole) {
       aOutput[this.outputOrder === OUTPUT_DESC_FIRST ? "push" : "unshift"]({
         string: this._getOutputName(mathRole),
@@ -311,7 +310,7 @@ var OutputGenerator = {
    * @param {nsIAccessible} aAccessible current accessible object.
    */
   _addMencloseNotations: function _addMencloseNotations(aOutput, aAccessible) {
-    let notations = Utils.getAttributes(aAccessible).notation || "longdiv";
+    let notations = lazy.Utils.getAttributes(aAccessible).notation || "longdiv";
     aOutput[this.outputOrder === OUTPUT_DESC_FIRST ? "push" : "unshift"].apply(
       aOutput,
       notations.split(" ").map(notation => {
@@ -331,7 +330,7 @@ var OutputGenerator = {
       return;
     }
 
-    let typeName = Utils.getAttributes(aAccessible)["text-input-type"];
+    let typeName = lazy.Utils.getAttributes(aAccessible)["text-input-type"];
     // Ignore the the input type="text" case.
     if (!typeName || typeName === "text") {
       return;
@@ -345,7 +344,9 @@ var OutputGenerator = {
 
   get outputOrder() {
     if (!this._utteranceOrder) {
-      this._utteranceOrder = new PrefCache("accessibility.accessfu.utterance");
+      this._utteranceOrder = new lazy.PrefCache(
+        "accessibility.accessfu.utterance"
+      );
     }
     return typeof this._utteranceOrder.value === "number"
       ? this._utteranceOrder.value
@@ -524,7 +525,7 @@ var OutputGenerator = {
     label: function label(aAccessible, aRoleStr, aState, aFlags, aContext) {
       if (
         aContext.isNestedControl ||
-        aContext.accessible == Utils.getEmbeddedControl(aAccessible)
+        aContext.accessible == lazy.Utils.getEmbeddedControl(aAccessible)
       ) {
         // If we are on a nested control, or a nesting label,
         // we don't need the context.
@@ -535,7 +536,9 @@ var OutputGenerator = {
     },
 
     entry: function entry(aAccessible, aRoleStr, aState, aFlags) {
-      let rolestr = aState.contains(States.MULTI_LINE) ? "textarea" : "entry";
+      let rolestr = aState.contains(lazy.States.MULTI_LINE)
+        ? "textarea"
+        : "entry";
       return this.objectOutputFunctions.defaultFunc.apply(this, [
         aAccessible,
         rolestr,
@@ -568,7 +571,7 @@ var OutputGenerator = {
       try {
         table = aAccessible.QueryInterface(Ci.nsIAccessibleTable);
       } catch (x) {
-        Logger.logException(x);
+        lazy.Logger.logException(x);
         return output;
       }
       // Check if it's a layout table, and bail out if true.
@@ -645,7 +648,7 @@ var OutputGenerator = {
  * clicked event. Speaking only 'clicked' makes sense. Speaking 'button' does
  * not.
  */
-this.UtteranceGenerator = {
+const UtteranceGenerator = {
   // jshint ignore:line
   __proto__: OutputGenerator, // jshint ignore:line
 
@@ -846,7 +849,7 @@ this.UtteranceGenerator = {
     },
 
     statictext: function statictext(aAccessible) {
-      if (Utils.isListItemDecorator(aAccessible, true)) {
+      if (lazy.Utils.isListItemDecorator(aAccessible, true)) {
         return [];
       }
 
@@ -867,11 +870,11 @@ this.UtteranceGenerator = {
   },
 
   _addState: function _addState(aOutput, aState, aRoleStr) {
-    if (aState.contains(States.UNAVAILABLE)) {
+    if (aState.contains(lazy.States.UNAVAILABLE)) {
       aOutput.push({ string: "stateUnavailable" });
     }
 
-    if (aState.contains(States.READONLY)) {
+    if (aState.contains(lazy.States.READONLY)) {
       aOutput.push({ string: "stateReadonly" });
     }
 
@@ -880,10 +883,11 @@ this.UtteranceGenerator = {
     // XXX: this means the checked state is always appended to the end,
     // regardless of the utterance ordering preference.
     if (
-      (Utils.AndroidSdkVersion < 16 || Utils.MozBuildApp === "browser") &&
-      aState.contains(States.CHECKABLE)
+      (lazy.Utils.AndroidSdkVersion < 16 ||
+        lazy.Utils.MozBuildApp === "browser") &&
+      aState.contains(lazy.States.CHECKABLE)
     ) {
-      let checked = aState.contains(States.CHECKED);
+      let checked = aState.contains(lazy.States.CHECKED);
       let statetr;
       if (aRoleStr === "switch") {
         statetr = checked ? "stateOn" : "stateOff";
@@ -893,30 +897,30 @@ this.UtteranceGenerator = {
       aOutput.push({ string: statetr });
     }
 
-    if (aState.contains(States.PRESSED)) {
+    if (aState.contains(lazy.States.PRESSED)) {
       aOutput.push({ string: "statePressed" });
     }
 
-    if (aState.contains(States.EXPANDABLE)) {
-      let statetr = aState.contains(States.EXPANDED)
+    if (aState.contains(lazy.States.EXPANDABLE)) {
+      let statetr = aState.contains(lazy.States.EXPANDED)
         ? "stateExpanded"
         : "stateCollapsed";
       aOutput.push({ string: statetr });
     }
 
-    if (aState.contains(States.REQUIRED)) {
+    if (aState.contains(lazy.States.REQUIRED)) {
       aOutput.push({ string: "stateRequired" });
     }
 
-    if (aState.contains(States.TRAVERSED)) {
+    if (aState.contains(lazy.States.TRAVERSED)) {
       aOutput.push({ string: "stateTraversed" });
     }
 
-    if (aState.contains(States.HASPOPUP)) {
+    if (aState.contains(lazy.States.HASPOPUP)) {
       aOutput.push({ string: "stateHasPopup" });
     }
 
-    if (aState.contains(States.SELECTED)) {
+    if (aState.contains(lazy.States.SELECTED)) {
       aOutput.push({ string: "stateSelected" });
     }
   },
@@ -948,7 +952,7 @@ this.UtteranceGenerator = {
  * of the methods are overwritten by this version, which should be more suitable
  * for packaged app.
  */
-this.BriefGenerator = {
+const BriefGenerator = {
   // jshint ignore:line
   __proto__: UtteranceGenerator,
 
@@ -959,21 +963,21 @@ this.BriefGenerator = {
       output.push.apply(output, self.genForObject(aAccessible, aContext));
     };
     let addOutputInParents = function addOutputInParents(aAccessible) {
-      let roleString = Utils.AccRetrieval.getStringRole(aAccessible.role);
+      let roleString = lazy.Utils.AccRetrieval.getStringRole(aAccessible.role);
       if (roleString === "heading" || roleString === "pagetablist") {
         output.push.apply(output, self.genForObject(aAccessible, aContext));
         output.push(",");
       }
     };
     let ignoreSubtree = function ignoreSubtree(aAccessible) {
-      let roleString = Utils.AccRetrieval.getStringRole(aAccessible.role);
+      let roleString = lazy.Utils.AccRetrieval.getStringRole(aAccessible.role);
       let nameRule = self.roleRuleMap[roleString] || 0;
       // Ignore subtree if the name is explicit and the role's name rule is the
       // NAME_FROM_SUBTREE_RULE.
       return (
         (nameRule & INCLUDE_VALUE && aAccessible.value) ||
         (nameRule & NAME_FROM_SUBTREE_RULE &&
-          Utils.getAttributes(aAccessible)["explicit-name"] === "true" &&
+          lazy.Utils.getAttributes(aAccessible)["explicit-name"] === "true" &&
           !(nameRule & IGNORE_EXPLICIT_NAME))
       );
     };
@@ -998,7 +1002,7 @@ this.BriefGenerator = {
   },
 
   objectOutputFunctions: {
-    __proto__: this.UtteranceGenerator.objectOutputFunctions,
+    __proto__: UtteranceGenerator.objectOutputFunctions,
 
     _generateBaseOutput: function _generateBaseOutput(
       aAccessible,
@@ -1035,7 +1039,7 @@ this.BriefGenerator = {
   },
 };
 
-this.BrailleGenerator = {
+const BrailleGenerator = {
   // jshint ignore:line
   __proto__: OutputGenerator, // jshint ignore:line
 
@@ -1134,7 +1138,7 @@ this.BrailleGenerator = {
     statictext: function statictext(aAccessible) {
       // Since we customize the list bullet's output, we add the static
       // text from the first node in each listitem, so skip it here.
-      if (Utils.isListItemDecorator(aAccessible)) {
+      if (lazy.Utils.isListItemDecorator(aAccessible)) {
         return [];
       }
 
@@ -1193,16 +1197,16 @@ this.BrailleGenerator = {
   },
 
   _addState: function _addState(aBraille, aState, aRoleStr) {
-    if (aState.contains(States.CHECKABLE)) {
+    if (aState.contains(lazy.States.CHECKABLE)) {
       aBraille.push({
-        string: aState.contains(States.CHECKED)
+        string: aState.contains(lazy.States.CHECKED)
           ? this._getOutputName("stateChecked")
           : this._getOutputName("stateUnchecked"),
       });
     }
     if (aRoleStr === "toggle button") {
       aBraille.push({
-        string: aState.contains(States.PRESSED)
+        string: aState.contains(lazy.States.PRESSED)
           ? this._getOutputName("statePressed")
           : this._getOutputName("stateUnpressed"),
       });

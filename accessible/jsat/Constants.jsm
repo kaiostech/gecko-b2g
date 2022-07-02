@@ -19,27 +19,29 @@ function ConstantsMap(aObject, aPrefix, aMap = {}, aModifier = null) {
   return aMap;
 }
 
-XPCOMUtils.defineLazyGetter(this, "Roles", function() {
+const EXPORTED_SYMBOLS = [];
+
+XPCOMUtils.defineLazyGetter(EXPORTED_SYMBOLS, "Roles", function() {
   return ConstantsMap(Ci.nsIAccessibleRole, "ROLE_");
 });
 
-XPCOMUtils.defineLazyGetter(this, "Events", function() {
+XPCOMUtils.defineLazyGetter(EXPORTED_SYMBOLS, "Events", function() {
   return ConstantsMap(Ci.nsIAccessibleEvent, "EVENT_");
 });
 
-XPCOMUtils.defineLazyGetter(this, "Relations", function() {
+XPCOMUtils.defineLazyGetter(EXPORTED_SYMBOLS, "Relations", function() {
   return ConstantsMap(Ci.nsIAccessibleRelation, "RELATION_");
 });
 
-XPCOMUtils.defineLazyGetter(this, "Prefilters", function() {
+XPCOMUtils.defineLazyGetter(EXPORTED_SYMBOLS, "Prefilters", function() {
   return ConstantsMap(Ci.nsIAccessibleTraversalRule, "PREFILTER_");
 });
 
-XPCOMUtils.defineLazyGetter(this, "Filters", function() {
+XPCOMUtils.defineLazyGetter(EXPORTED_SYMBOLS, "Filters", function() {
   return ConstantsMap(Ci.nsIAccessibleTraversalRule, "FILTER_");
 });
 
-XPCOMUtils.defineLazyGetter(this, "States", function() {
+XPCOMUtils.defineLazyGetter(EXPORTED_SYMBOLS, "States", function() {
   let statesMap = ConstantsMap(Ci.nsIAccessibleStates, "STATE_", {}, val => {
     return { base: val, extended: 0 };
   });
@@ -48,12 +50,3 @@ XPCOMUtils.defineLazyGetter(this, "States", function() {
   });
   return statesMap;
 });
-
-this.EXPORTED_SYMBOLS = [
-  "Roles",
-  "Events",
-  "Relations",
-  "Filters",
-  "States",
-  "Prefilters",
-];

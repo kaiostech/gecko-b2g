@@ -246,6 +246,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022playmaker/soft/",
       collection: "independent-voices",
+      l10nId: {
+        description: "playmaker-colorway-description",
+        groupName: "playmaker-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-playmaker.avif",
     },
   ],
   [
@@ -254,6 +260,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022playmaker/balanced/",
       collection: "independent-voices",
+      l10nId: {
+        description: "playmaker-colorway-description",
+        groupName: "playmaker-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-playmaker.avif",
     },
   ],
   [
@@ -262,6 +274,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022playmaker/bold/",
       collection: "independent-voices",
+      l10nId: {
+        description: "playmaker-colorway-description",
+        groupName: "playmaker-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-playmaker.avif",
     },
   ],
   [
@@ -270,6 +288,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022expressionist/soft/",
       collection: "independent-voices",
+      l10nId: {
+        description: "expressionist-colorway-description",
+        groupName: "expressionist-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-expressionist.avif",
     },
   ],
   [
@@ -278,6 +302,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022expressionist/balanced/",
       collection: "independent-voices",
+      l10nId: {
+        description: "expressionist-colorway-description",
+        groupName: "expressionist-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-expressionist.avif",
     },
   ],
   [
@@ -286,6 +316,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022expressionist/bold/",
       collection: "independent-voices",
+      l10nId: {
+        description: "expressionist-colorway-description",
+        groupName: "expressionist-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-expressionist.avif",
     },
   ],
   [
@@ -294,6 +330,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022visionary/soft/",
       collection: "independent-voices",
+      l10nId: {
+        description: "visionary-colorway-description",
+        groupName: "visionary-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-visionary.avif",
     },
   ],
   [
@@ -302,6 +344,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022visionary/balanced/",
       collection: "independent-voices",
+      l10nId: {
+        description: "visionary-colorway-description",
+        groupName: "visionary-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-visionary.avif",
     },
   ],
   [
@@ -310,6 +358,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022visionary/bold/",
       collection: "independent-voices",
+      l10nId: {
+        description: "visionary-colorway-description",
+        groupName: "visionary-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-visionary.avif",
     },
   ],
   [
@@ -318,6 +372,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022activist/soft/",
       collection: "independent-voices",
+      l10nId: {
+        description: "activist-colorway-description",
+        groupName: "activist-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-activist.avif",
     },
   ],
   [
@@ -326,6 +386,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022activist/balanced/",
       collection: "independent-voices",
+      l10nId: {
+        description: "activist-colorway-description",
+        groupName: "activist-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-activist.avif",
     },
   ],
   [
@@ -334,6 +400,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022activist/bold/",
       collection: "independent-voices",
+      l10nId: {
+        description: "activist-colorway-description",
+        groupName: "activist-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-activist.avif",
     },
   ],
   [
@@ -342,6 +414,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022dreamer/soft/",
       collection: "independent-voices",
+      l10nId: {
+        description: "dreamer-colorway-description",
+        groupName: "dreamer-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-dreamer.avif",
     },
   ],
   [
@@ -350,6 +428,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022dreamer/balanced/",
       collection: "independent-voices",
+      l10nId: {
+        description: "dreamer-colorway-description",
+        groupName: "dreamer-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-dreamer.avif",
     },
   ],
   [
@@ -358,6 +442,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022dreamer/bold/",
       collection: "independent-voices",
+      l10nId: {
+        description: "dreamer-colorway-description",
+        groupName: "dreamer-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-dreamer.avif",
     },
   ],
   [
@@ -366,6 +456,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022innovator/soft/",
       collection: "independent-voices",
+      l10nId: {
+        description: "innovator-colorway-description",
+        groupName: "innovator-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-innovator.avif",
     },
   ],
   [
@@ -374,6 +470,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022innovator/balanced/",
       collection: "independent-voices",
+      l10nId: {
+        description: "innovator-colorway-description",
+        groupName: "innovator-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-innovator.avif",
     },
   ],
   [
@@ -382,6 +484,12 @@ const BuiltInThemeConfig = new Map([
       version: "1.1",
       path: "resource://builtin-themes/colorways/2022innovator/bold/",
       collection: "independent-voices",
+      l10nId: {
+        description: "innovator-colorway-description",
+        groupName: "innovator-colorway-name",
+      },
+      figureUrl:
+        "chrome://browser/content/colorways/independent-voices-innovator.avif",
     },
   ],
 ]);
@@ -416,7 +524,9 @@ const ColorwayCollections = [
       description: "colorway-collection-independent-voices-description",
     },
     cardImagePath:
-      "chrome://browser/content/colorways/colorway-collection-independent-voices.avif",
+      "chrome://browser/content/colorways/independent-voices-collection-banner.avif",
+    iconUrl:
+      "chrome://browser/content/colorways/independent-voices-collection.avif",
   },
 ];
 
@@ -436,7 +546,7 @@ function _applyColorwayConfig(collections) {
       const collectionConfig = collectionsMap.get(value.collection);
       BuiltInThemeConfig.set(key, {
         ...value,
-        ...collectionConfig,
+        expiry: collectionConfig.expiry,
       });
     }
   }

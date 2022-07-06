@@ -296,6 +296,8 @@ class Configuration(DescriptorProvider):
                 getter = lambda x: x.interface.isExposedInAnyWorklet()
             elif key == "isExposedInWindow":
                 getter = lambda x: x.interface.isExposedInWindow()
+            elif key == "isExposedInShadowRealms":
+                getter = lambda x: x.interface.isExposedInShadowRealms()
             elif key == "isSerializable":
                 getter = lambda x: x.interface.isSerializable()
             else:
@@ -682,6 +684,8 @@ class Descriptor(DescriptorProvider):
             config.maxProtoChainLength = max(
                 config.maxProtoChainLength, len(self.prototypeChain)
             )
+
+        self.hasOrdinaryObjectPrototype = desc.get("hasOrdinaryObjectPrototype", False)
 
     def binaryNameFor(self, name):
         return self._binaryNames.get(name, name)

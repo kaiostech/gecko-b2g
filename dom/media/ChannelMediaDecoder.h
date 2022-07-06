@@ -103,9 +103,11 @@ class ChannelMediaDecoder
 
   // Create a new state machine to run this decoder.
 #ifdef MOZ_WIDGET_GONK
-  MediaDecoderStateMachineProxy* CreateStateMachine();
+  MediaDecoderStateMachineProxy* CreateStateMachine(
+      bool aDisableExternalEngine);
 #else
-  MediaDecoderStateMachineBase* CreateStateMachine();
+  MediaDecoderStateMachineBase* CreateStateMachine(
+      bool aDisableExternalEngine) override;
 #endif
 
   nsresult Load(BaseMediaResource* aOriginal);

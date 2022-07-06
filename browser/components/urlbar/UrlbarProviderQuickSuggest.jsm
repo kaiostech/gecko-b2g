@@ -628,9 +628,11 @@ class ProviderQuickSuggest extends UrlbarProvider {
         // Always use lowercase to make the reporting consistent
         advertiser: result.payload.sponsoredAdvertiser.toLocaleLowerCase(),
         block_id: result.payload.sponsoredBlockId,
+        improve_suggest_experience_checked: UrlbarPrefs.get(
+          "quicksuggest.dataCollection.enabled"
+        ),
         position: telemetryResultIndex,
         request_id: result.payload.requestId,
-        scenario: UrlbarPrefs.get("quicksuggest.scenario"),
       };
 
       // impression
@@ -841,9 +843,11 @@ class ProviderQuickSuggest extends UrlbarProvider {
   async _fetchMerinoSuggestions(queryContext, searchString) {
     let instance = this.queryInstance;
 
-    // Set up the Merino session ID and related state.
+    // Set up the Merino session ID and related state. The session ID is a UUID
+    // without leading and trailing braces.
     if (!this._merinoSessionID) {
-      this._merinoSessionID = Services.uuid.generateUUID();
+      let uuid = Services.uuid.generateUUID().toString();
+      this._merinoSessionID = uuid.substring(1, uuid.length - 1);
       this._merinoSequenceNumber = 0;
       this._merinoSessionTimer?.cancel();
 

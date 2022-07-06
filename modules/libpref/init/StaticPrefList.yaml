@@ -2094,6 +2094,12 @@
   value: false
   mirror: always
 
+# Disable CacheStorage in private browsing mode.
+- name: dom.caches.hide_in_pbmode.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Disable capture attribute for input elements; only supported on GeckoView.
 - name: dom.capture.enabled
   type: bool
@@ -2628,10 +2634,16 @@
   value: false
   mirror: always
 
-# Enable indexedDB in private browsing mode.
+# Enable indexedDB in private browsing mode with encryption
 - name: dom.indexedDB.privateBrowsing.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Disable IndexedDB in private browsing mode.
+- name: dom.indexedDB.hide_in_pbmode.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.input_events.beforeinput.enabled
@@ -3751,6 +3763,12 @@
 - name: dom.serviceWorkers.testing.persistTemporarilyInstalledAddons
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Disable ServiceWorker in private browsing mode.
+- name: dom.serviceWorkers.hide_in_pbmode.enabled
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 - name: dom.workers.requestAnimationFrame
@@ -5673,13 +5691,14 @@
   mirror: always
 
 - name: gfx.direct3d11.reuse-decoder-device
-  type: RelaxedAtomicInt32
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: 1
-#else
-  value: -1
-#endif
-  mirror: always
+  type: bool
+  value: true
+  mirror: once
+# Enable reuse decoder device even when it is blocked.
+- name: gfx.direct3d11.reuse-decoder-device-force-enabled
+  type: bool
+  value: false
+  mirror: once
 
 - name: gfx.direct3d11.allow-keyed-mutex
   type: RelaxedAtomicBool
@@ -7008,6 +7027,14 @@
   value: false
   mirror: always
 
+# ShadowRealms: https://github.com/tc39/proposal-shadowrealm
+- name: javascript.options.experimental.shadow_realms
+  # Atomic, as we assert the preference, and that assertion may happen
+  # in a worker. 
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #ifdef NIGHTLY_BUILD
   # Experimental support for Iterator Helpers in JavaScript.
 -   name: javascript.options.experimental.iterator_helpers
@@ -7167,13 +7194,6 @@
   type: bool
   value: true
   mirror: always
-
-#if defined(ENABLE_WASM_SIMD)
--   name: javascript.options.wasm_simd
-    type: bool
-    value: true
-    mirror: always
-#endif  // defined(ENABLE_WASM_SIMD)
 
 #if defined(ENABLE_WASM_RELAXED_SIMD)
 -   name: javascript.options.wasm_relaxed_simd
@@ -9593,6 +9613,18 @@
     value: false
     mirror: always
 
+# Testing purpose, enable video stream for the media engine.
+-   name: media.wmf.media-engine.video-output.enabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
+# Testing purpose, enable media engine on channel decoder as well.
+-   name: media.wmf.media-engine.channel-decoder.enabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
 #endif  # MOZ_WMF
 
 - name: media.decoder-doctor.testing
@@ -10504,16 +10536,6 @@
 - name: network.cookie.staleThreshold
   type: uint32_t
   value: 60
-  mirror: always
-
-# Cookie lifetime policy. Possible values:
-# 0 - accept all cookies
-# 1 - deprecated. don't use it.
-# 2 - accept as session cookies
-# 3 - deprecated. don't use it.
-- name: network.cookie.lifetimePolicy
-  type: RelaxedAtomicInt32
-  value: 0
   mirror: always
 
 - name: network.cookie.sameSite.laxByDefault
@@ -11574,7 +11596,7 @@
 # Whether to enable echconfig.
 - name: network.dns.echconfig.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether to enable echconfig for http3.
@@ -13788,6 +13810,16 @@
   value: 100000 # 100KB
   mirror: always
 
+# WebGL and Canvas2D aren't allowed to be async by spec,
+# unless they have e.g.
+# https://html.spec.whatwg.org/multipage/canvas.html#2dcontext:dom-canvasrenderingcontext2dsettings-desynchronized
+# enabled, which defaults to false.
+# This pref enables async present in cases where it is allowed.
+- name: webgl.out-of-process.async-present
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Override the blocklist to assume that GL is threadsafe.
 - name: webgl.threadsafe-gl.force-enabled
   type: bool
@@ -13948,10 +13980,21 @@
   value: false
   mirror: always
 
-# Whether we should use the default accent color or the theme-provided one.
-- name: widget.use-theme-accent
+# Whether we should use the default accent color or the theme-provided one for
+# content (e.g. for form controls and CSS system colors).
+#
+# Turned off on Windows, for now (we always use the default blue-ish
+# accent-color there). We might want to turn this on there, though it's worth
+# thinking on what the behavior should be for grey-ish accent colors (which are
+# a thing on Windows and can cause confusion with things like disabled form
+# controls). Maybe it's just fine.
+- name: widget.non-native-theme.use-theme-accent
   type: RelaxedAtomicBool
+#ifdef XP_WIN
+  value: false
+#else
   value: true
+#endif
   mirror: always
 
 # Whether we should try to use WebRender to render widgets.
@@ -14213,6 +14256,15 @@
 - name: widget.windows.uwp-system-colors.enabled
   type: bool
   value: true
+  mirror: always
+
+# Whether we use the accent color for highlight as some other UWP apps do.
+#
+# false for now since it can cause some contrast-with-background issues
+# specially with grey accents, see bug 1776588.
+- name: widget.windows.uwp-system-colors.highlight-accent
+  type: bool
+  value: false
   mirror: always
 
 - name: widget.windows.window_occlusion_tracking_display_state.enabled

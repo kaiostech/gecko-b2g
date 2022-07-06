@@ -86,7 +86,6 @@ class gfxVarReceiver;
   _(UseEGL, bool, false)                                           \
   _(DrmRenderDevice, nsCString, nsCString())                       \
   _(UseDMABuf, bool, false)                                        \
-  _(UseVAAPI, bool, false)                                         \
   _(WebRenderRequiresHardwareDriver, bool, false)                  \
   _(SupportsThreadsafeGL, bool, false)                             \
   _(OffscreenCanvasDomainAllowlist, nsCString, nsCString())        \
@@ -94,7 +93,8 @@ class gfxVarReceiver;
   _(UseVP8HwDecode, bool, false)                                   \
   _(UseVP9HwDecode, bool, false)                                   \
   _(HwDecodedVideoZeroCopy, bool, false)                           \
-  _(UseDMABufSurfaceExport, bool, true)
+  _(UseDMABufSurfaceExport, bool, true)                            \
+  _(ReuseDecoderDevice, bool, false)
 
 /* Add new entries above this line. */
 

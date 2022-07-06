@@ -483,6 +483,9 @@ class PresShell final : public nsStubDocumentObserver,
   void PostPendingScrollAnchorAdjustment(
       layout::ScrollAnchorContainer* aContainer);
 
+  void PostPendingScrollResnap(nsIScrollableFrame* aScrollableFrame);
+  void FlushPendingScrollResnap();
+
   void CancelAllPendingReflows();
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void NotifyCounterStylesAreDirty();
@@ -2993,6 +2996,7 @@ class PresShell final : public nsStubDocumentObserver,
   nsTHashSet<nsIFrame*> mFramesToDirty;
   nsTHashSet<nsIScrollableFrame*> mPendingScrollAnchorSelection;
   nsTHashSet<nsIScrollableFrame*> mPendingScrollAnchorAdjustment;
+  nsTHashSet<nsIScrollableFrame*> mPendingScrollResnap;
 
   nsCallbackEventRequest* mFirstCallbackEventRequest = nullptr;
   nsCallbackEventRequest* mLastCallbackEventRequest = nullptr;

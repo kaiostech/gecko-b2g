@@ -179,9 +179,6 @@ let Player = {
     this.controls.addEventListener("mouseleave", () => {
       this.onMouseLeave();
     });
-    this.controls.addEventListener("mouseout", event => {
-      this.onMouseOut(event);
-    });
     this.controls.addEventListener("mouseenter", () => {
       this.onMouseEnter();
     });
@@ -345,6 +342,11 @@ let Player = {
             playerBottomControlsDOMRect: this.controlsBottom.getBoundingClientRect(),
           });
         }
+        // The subtitles settings panel gets selected when entering/exiting fullscreen even though
+        // user-select is set to none. I don't know why this happens or how to prevent so we just
+        // remove the selection when fullscreen is entered/exited.
+        let selection = window.getSelection();
+        selection.removeAllRanges();
         break;
       }
 
@@ -428,7 +430,15 @@ let Player = {
       }
 
       case "closed-caption": {
-        document.querySelector("#settings").classList.toggle("hide");
+        let settingsPanel = document.querySelector("#settings");
+        let settingsPanelVisible = !settingsPanel.classList.contains("hide");
+        if (settingsPanelVisible) {
+          settingsPanel.classList.add("hide");
+          this.controls.removeAttribute("donthide");
+        } else {
+          settingsPanel.classList.remove("hide");
+          this.controls.setAttribute("donthide", true);
+        }
         break;
       }
     }
@@ -680,7 +690,7 @@ let Player = {
   },
 
   onMouseLeave() {
-    if (!this.isFullscreen) {
+    if (!this.isFullscreen && !this.controls.getAttribute("donthide")) {
       this.isCurrentHover = false;
       if (
         !this.controls.getAttribute("showing") &&
@@ -692,19 +702,6 @@ let Player = {
           playerBottomControlsDOMRect: null,
         });
       }
-    }
-  },
-
-  /**
-   * Hide the settings panel when a mouse out occurs
-   * @param {Event} event The mouseout event
-   */
-  onMouseOut(event) {
-    if (
-      (event.target.id === "controls" || event.target.id === "close") &&
-      !event.relatedTarget
-    ) {
-      document.querySelector("#settings").classList.add("hide");
     }
   },
 
@@ -847,7 +844,7 @@ let Player = {
       });
     }
 
-    if (!revealIndefinitely) {
+    if (!revealIndefinitely && !this.controls.getAttribute("donthide")) {
       this.showingTimeout = setTimeout(() => {
         this.controls.removeAttribute("showing");
 

@@ -76,7 +76,8 @@ class MediaSourceDecoder : public MediaDecoder,
 #ifdef MOZ_WIDGET_GONK
   MediaDecoderStateMachineProxy* CreateStateMachine();
 #else
-  MediaDecoderStateMachineBase* CreateStateMachine();
+  MediaDecoderStateMachineBase* CreateStateMachine(
+      bool aDisableExternalEngine) override;
 #endif
   void DoSetMediaSourceDuration(double aDuration);
   media::TimeInterval ClampIntervalToEnd(const media::TimeInterval& aInterval);

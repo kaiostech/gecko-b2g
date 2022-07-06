@@ -17,13 +17,6 @@
 #include "mozilla/FileLocation.h"
 #include "mozilla/Omnijar.h"
 
-#define NS_GAIACHROME_CID                            \
-  {                                                  \
-    0x83f8f999, 0x6b87, 0x4dd8, {                    \
-      0xa0, 0x93, 0x72, 0x0b, 0xfb, 0x67, 0x4d, 0x38 \
-    }                                                \
-  }
-
 using namespace mozilla;
 
 StaticRefPtr<GaiaChrome> gGaiaChrome;
@@ -185,16 +178,3 @@ already_AddRefed<GaiaChrome> GaiaChrome::FactoryCreate() {
   RefPtr<GaiaChrome> service = gGaiaChrome.get();
   return service.forget();
 }
-
-NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(GaiaChrome, GaiaChrome::FactoryCreate)
-
-NS_DEFINE_NAMED_CID(NS_GAIACHROME_CID);
-
-static const mozilla::Module::CIDEntry kGaiaChromeCIDs[] = {
-    {&kNS_GAIACHROME_CID, false, nullptr, GaiaChromeConstructor}, {nullptr}};
-
-static const mozilla::Module::ContractIDEntry kGaiaChromeContracts[] = {
-    {"@mozilla.org/b2g/gaia-chrome;1", &kNS_GAIACHROME_CID}, {nullptr}};
-
-extern const mozilla::Module kGaiaChromeModule = {
-    mozilla::Module::kVersion, kGaiaChromeCIDs, kGaiaChromeContracts, nullptr};

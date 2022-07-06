@@ -236,9 +236,6 @@ static const char* GetPrefNameForFeature(int32_t aFeature) {
     case nsIGfxInfo::FEATURE_DMABUF:
       name = BLOCKLIST_PREF_BRANCH "dmabuf";
       break;
-    case nsIGfxInfo::FEATURE_VAAPI:
-      name = BLOCKLIST_PREF_BRANCH "vaapi";
-      break;
     case nsIGfxInfo::FEATURE_WEBGPU:
       name = BLOCKLIST_PREF_BRANCH "webgpu";
       break;
@@ -256,6 +253,9 @@ static const char* GetPrefNameForFeature(int32_t aFeature) {
       break;
     case nsIGfxInfo::FEATURE_DMABUF_SURFACE_EXPORT:
       name = BLOCKLIST_PREF_BRANCH "dmabuf.surface-export";
+      break;
+    case nsIGfxInfo::FEATURE_REUSE_DECODER_DEVICE:
+      name = BLOCKLIST_PREF_BRANCH "reuse-decoder-device";
       break;
     default:
       MOZ_ASSERT_UNREACHABLE("Unexpected nsIGfxInfo feature?!");
@@ -507,9 +507,6 @@ static int32_t BlocklistFeatureToGfxFeature(const nsAString& aFeature) {
   if (aFeature.EqualsLiteral("DMABUF")) {
     return nsIGfxInfo::FEATURE_DMABUF;
   }
-  if (aFeature.EqualsLiteral("VAAPI")) {
-    return nsIGfxInfo::FEATURE_VAAPI;
-  }
   if (aFeature.EqualsLiteral("WEBGPU")) {
     return nsIGfxInfo::FEATURE_WEBGPU;
   }
@@ -518,6 +515,9 @@ static int32_t BlocklistFeatureToGfxFeature(const nsAString& aFeature) {
   }
   if (aFeature.EqualsLiteral("HW_DECODED_VIDEO_ZERO_COPY")) {
     return nsIGfxInfo::FEATURE_HW_DECODED_VIDEO_ZERO_COPY;
+  }
+  if (aFeature.EqualsLiteral("REUSE_DECODER_DEVICE")) {
+    return nsIGfxInfo::FEATURE_REUSE_DECODER_DEVICE;
   }
   if (aFeature.EqualsLiteral("WEBRENDER_PARTIAL_PRESENT")) {
     return nsIGfxInfo::FEATURE_WEBRENDER_PARTIAL_PRESENT;
@@ -1258,7 +1258,8 @@ bool GfxInfoBase::DoesDriverVendorMatch(const nsAString& aBlocklistVendor,
 bool GfxInfoBase::IsFeatureAllowlisted(int32_t aFeature) const {
   return aFeature == nsIGfxInfo::FEATURE_WEBRENDER ||
          aFeature == nsIGfxInfo::FEATURE_VIDEO_OVERLAY ||
-         aFeature == nsIGfxInfo::FEATURE_HW_DECODED_VIDEO_ZERO_COPY;
+         aFeature == nsIGfxInfo::FEATURE_HW_DECODED_VIDEO_ZERO_COPY ||
+         aFeature == nsIGfxInfo::FEATURE_REUSE_DECODER_DEVICE;
 }
 
 nsresult GfxInfoBase::GetFeatureStatusImpl(
@@ -1398,10 +1399,10 @@ void GfxInfoBase::EvaluateDownloadedBlocklist(
                         nsIGfxInfo::FEATURE_ALLOW_WEBGL_OUT_OF_PROCESS,
                         nsIGfxInfo::FEATURE_X11_EGL,
                         nsIGfxInfo::FEATURE_DMABUF,
-                        nsIGfxInfo::FEATURE_VAAPI,
                         nsIGfxInfo::FEATURE_WEBGPU,
                         nsIGfxInfo::FEATURE_VIDEO_OVERLAY,
                         nsIGfxInfo::FEATURE_HW_DECODED_VIDEO_ZERO_COPY,
+                        nsIGfxInfo::FEATURE_REUSE_DECODER_DEVICE,
                         nsIGfxInfo::FEATURE_WEBRENDER_PARTIAL_PRESENT,
                         0};
 

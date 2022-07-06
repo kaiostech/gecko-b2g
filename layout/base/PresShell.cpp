@@ -202,6 +202,7 @@
 #include "nsIDocShellTreeOwner.h"
 #include "nsClassHashtable.h"
 #include "nsHashKeys.h"
+#include "ScrollSnap.h"
 #include "VisualViewport.h"
 #include "ZoomConstraintsClient.h"
 
@@ -1366,6 +1367,7 @@ void PresShell::Destroy() {
   mFramesToDirty.Clear();
   mPendingScrollAnchorSelection.Clear();
   mPendingScrollAnchorAdjustment.Clear();
+  mPendingScrollResnap.Clear();
 
   if (mViewManager) {
     // Clear the view manager's weak pointer back to |this| in case it
@@ -2251,6 +2253,7 @@ void PresShell::NotifyDestroyingFrame(nsIFrame* aFrame) {
     if (scrollableFrame) {
       mPendingScrollAnchorSelection.Remove(scrollableFrame);
       mPendingScrollAnchorAdjustment.Remove(scrollableFrame);
+      mPendingScrollResnap.Remove(scrollableFrame);
     }
   }
 }
@@ -2693,6 +2696,17 @@ void PresShell::FlushPendingScrollAnchorAdjustments() {
     scroll->Anchor()->ApplyAdjustments();
   }
   mPendingScrollAnchorAdjustment.Clear();
+}
+
+void PresShell::PostPendingScrollResnap(nsIScrollableFrame* aScrollableFrame) {
+  mPendingScrollResnap.Insert(aScrollableFrame);
+}
+
+void PresShell::FlushPendingScrollResnap() {
+  for (nsIScrollableFrame* scrollableFrame : mPendingScrollResnap) {
+    scrollableFrame->TryResnap();
+  }
+  mPendingScrollResnap.Clear();
 }
 
 void PresShell::FrameNeedsReflow(nsIFrame* aFrame,
@@ -4374,6 +4388,8 @@ void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
         }
       }
     }
+
+    FlushPendingScrollResnap();
 
     if (flushType >= FlushType::Layout) {
       if (!mIsDestroying) {
@@ -9573,12 +9589,11 @@ bool PresShell::DoReflow(nsIFrame* target, bool aInterruptible,
 
   nsDocShell* docShell =
       static_cast<nsDocShell*>(GetPresContext()->GetDocShell());
-  RefPtr<TimelineConsumers> timelines = TimelineConsumers::Get();
-  bool isTimelineRecording = timelines && timelines->HasConsumer(docShell);
+  bool isTimelineRecording = TimelineConsumers::HasConsumer(docShell);
 
   if (isTimelineRecording) {
-    timelines->AddMarkerForDocShell(docShell, "Reflow",
-                                    MarkerTracingType::START);
+    TimelineConsumers::AddMarkerForDocShell(docShell, "Reflow",
+                                            MarkerTracingType::START);
   }
 
   Maybe<uint64_t> innerWindowID;
@@ -9781,7 +9796,8 @@ bool PresShell::DoReflow(nsIFrame* target, bool aInterruptible,
   }
 
   if (isTimelineRecording) {
-    timelines->AddMarkerForDocShell(docShell, "Reflow", MarkerTracingType::END);
+    TimelineConsumers::AddMarkerForDocShell(docShell, "Reflow",
+                                            MarkerTracingType::END);
   }
 
   return !interrupted;

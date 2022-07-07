@@ -208,7 +208,8 @@ already_AddRefed<ChannelMediaDecoder> ChannelMediaDecoder::Clone(
 }
 
 #ifdef MOZ_WIDGET_GONK
-MediaDecoderStateMachineProxy* ChannelMediaDecoder::CreateStateMachine() {
+MediaDecoderStateMachineProxy* ChannelMediaDecoder::CreateStateMachine(
+    bool aDisableExternalEngine) {
   MOZ_ASSERT(NS_IsMainThread());
   MediaFormatReaderInit init;
   init.mVideoFrameContainer = GetVideoFrameContainer();

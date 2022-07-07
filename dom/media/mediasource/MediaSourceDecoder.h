@@ -74,7 +74,8 @@ class MediaSourceDecoder : public MediaDecoder,
 
  private:
 #ifdef MOZ_WIDGET_GONK
-  MediaDecoderStateMachineProxy* CreateStateMachine();
+  MediaDecoderStateMachineProxy* CreateStateMachine(
+      bool aDisableExternalEngine) override;
 #else
   MediaDecoderStateMachineBase* CreateStateMachine(
       bool aDisableExternalEngine) override;

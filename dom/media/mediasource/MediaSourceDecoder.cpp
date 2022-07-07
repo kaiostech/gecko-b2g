@@ -41,9 +41,15 @@ MediaSourceDecoder::MediaSourceDecoder(MediaDecoderInit& aInit)
 }
 
 #ifdef MOZ_WIDGET_GONK
-MediaDecoderStateMachineProxy* MediaSourceDecoder::CreateStateMachine() {
+MediaDecoderStateMachineProxy* MediaSourceDecoder::CreateStateMachine(
+    bool aDisableExternalEngine) {
   MOZ_ASSERT(NS_IsMainThread());
-  mDemuxer = new MediaSourceDemuxer(AbstractMainThread());
+  // if `mDemuxer` already exists, that means we're in the process of recreating
+  // the state machine. The track buffers are tied to the demuxer so we would
+  // need to reuse it.
+  if (!mDemuxer) {
+    mDemuxer = new MediaSourceDemuxer(AbstractMainThread());
+  }
   MediaFormatReaderInit init;
   init.mVideoFrameContainer = GetVideoFrameContainer();
   init.mKnowsCompositor = GetCompositor();

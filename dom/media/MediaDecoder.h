@@ -426,8 +426,13 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
 
   // Always return a state machine. If the decoder supports using external
   // engine, `aDisableExternalEngine` can disable the external engine if needed.
+#ifdef MOZ_WIDGET_GONK
+  virtual MediaDecoderStateMachineProxy* CreateStateMachine(
+      bool aDisableExternalEngine) MOZ_NONNULL_RETURN = 0;
+#else
   virtual MediaDecoderStateMachineBase* CreateStateMachine(
       bool aDisableExternalEngine) MOZ_NONNULL_RETURN = 0;
+#endif
 
   void SetStateMachineParameters();
 

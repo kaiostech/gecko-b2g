@@ -15,6 +15,7 @@
 #if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
 #  include "ICameraControl.h"
 #  include "MediaEngineGonkVideoSource.h"
+#  define SUPPORT_GONK_VIDEO_SOURCE
 #endif
 
 #define FAKE_ONDEVICECHANGE_EVENT_PERIOD_IN_MS 500
@@ -37,10 +38,12 @@ CubebDeviceEnumerator* GetEnumerator() {
 MediaEngineWebRTC::MediaEngineWebRTC() {
   AssertIsOnOwningThread();
 
+#ifndef SUPPORT_GONK_VIDEO_SOURCE
   GetChildAndCall(
       &CamerasChild::ConnectDeviceListChangeListener<MediaEngineWebRTC>,
       &mCameraListChangeListener, AbstractThread::MainThread(), this,
       &MediaEngineWebRTC::DeviceListChanged);
+#endif
   mMicrophoneListChangeListener =
       GetEnumerator()->OnAudioInputDeviceListChange().Connect(
           AbstractThread::MainThread(), this,
@@ -55,7 +58,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
     MediaSourceEnum aMediaSource, nsTArray<RefPtr<MediaDevice>>* aDevices) {
   AssertIsOnOwningThread();
 
-#if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
+#ifdef SUPPORT_GONK_VIDEO_SOURCE
   // Currently B2G only supports camera source.
   if (aMediaSource != MediaSourceEnum::Camera) {
     return;
@@ -281,7 +284,7 @@ RefPtr<MediaEngineSource> MediaEngineWebRTC::CreateSource(
     const MediaDevice* aMediaDevice) {
   MOZ_ASSERT(aMediaDevice->mEngine == this);
   if (MediaEngineSource::IsVideo(aMediaDevice->mMediaSource)) {
-#if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
+#ifdef SUPPORT_GONK_VIDEO_SOURCE
     return new MediaEngineGonkVideoSource(aMediaDevice);
 #else
     return new MediaEngineRemoteVideoSource(aMediaDevice);

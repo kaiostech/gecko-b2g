@@ -4,7 +4,7 @@
 #include "MediaEngineGonkVideoSource.h"
 
 #include "CameraControlListener.h"
-#include "GonkCameraImage.h"
+#include "gfxPlatform.h"
 #include "GrallocImages.h"
 #include "libyuv.h"
 #include "mozilla/dom/MediaTrackSettingsBinding.h"
@@ -316,23 +316,81 @@ void CameraControlWrapper::OnUserError(UserContext aContext, nsresult aError) {
   }
 }
 
-// ----------------------------------------------------------------------
+class MediaEngineGonkVideoSource::ScreenObserver final : public nsIObserver {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
 
-NS_INTERFACE_MAP_BEGIN(MediaEngineGonkVideoSource)
-  NS_INTERFACE_MAP_ENTRY(nsIObserver)
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
+  ScreenObserver(MediaEngineGonkVideoSource* aOwner)
+      : mOwner(aOwner), mOwnerThread(GetCurrentSerialEventTarget()) {}
 
-NS_IMPL_ADDREF(MediaEngineGonkVideoSource)
-NS_IMPL_RELEASE(MediaEngineGonkVideoSource)
+  void Start() {
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        "ScreenObserver::Start", [this, self = RefPtr<ScreenObserver>(this)]() {
+          nsCOMPtr<nsIObserverService> os = services::GetObserverService();
+          if (os) {
+            os->AddObserver(this, "screen-information-changed", false);
+          }
+          UpdateOrientation();
+        }));
+  }
+
+  void Stop() {
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        "ScreenObserver::Stop", [this, self = RefPtr<ScreenObserver>(this)]() {
+          nsCOMPtr<nsIObserverService> os = services::GetObserverService();
+          if (os) {
+            os->RemoveObserver(this, "screen-information-changed");
+          }
+        }));
+  }
+
+  void Shutdown() {
+    MOZ_ASSERT(mOwnerThread->IsOnCurrentThread());
+    mOwner = nullptr;
+  }
+
+  NS_IMETHOD Observe(nsISupports* aSubject, const char* aTopic,
+                     const char16_t* aData) override {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (!strcmp(aTopic, "screen-information-changed")) {
+      UpdateOrientation();
+    }
+    return NS_OK;
+  }
+
+ private:
+  ~ScreenObserver() = default;
+
+  void UpdateOrientation() {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    RefPtr<widget::Screen> screen =
+        widget::ScreenManager::GetSingleton().GetPrimaryScreen();
+    int angle = screen->GetOrientationAngle();
+    auto type = screen->GetOrientationType();
+
+    mOwnerThread->Dispatch(NS_NewRunnableFunction(
+        "ScreenObserver::UpdateOrientation",
+        [angle, type, this, self = RefPtr<ScreenObserver>(this)]() {
+          if (mOwner) {
+            mOwner->UpdateScreenConfiguration(angle, type);
+          }
+        }));
+  }
+
+  MediaEngineGonkVideoSource* mOwner = nullptr;
+  nsCOMPtr<nsISerialEventTarget> mOwnerThread;
+};
+
+NS_IMPL_ISUPPORTS(MediaEngineGonkVideoSource::ScreenObserver, nsIObserver)
 
 MediaEngineGonkVideoSource::MediaEngineGonkVideoSource(
     const MediaDevice* aMediaDevice)
     : MediaEngineCameraVideoSource(aMediaDevice),
       mDeviceName(NS_ConvertUTF16toUTF8(aMediaDevice->mRawName)),
       mMutex("MediaEngineGonkVideoSource::mMutex"),
-      mRotationBufferPool(false, 1) {
-  Init();
+      mRotation(0) {
+  MOZ_ASSERT(NS_IsMainThread());
 }
 
 MediaEngineGonkVideoSource::~MediaEngineGonkVideoSource() {}
@@ -397,6 +455,9 @@ nsresult MediaEngineGonkVideoSource::Allocate(
     return NS_ERROR_FAILURE;
   }
 
+  mScreenObserver = new ScreenObserver(this);
+
+  mWrapper = new CameraControlWrapper(mDeviceName);
   nsresult rv = mWrapper->Allocate(this);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -430,10 +491,12 @@ nsresult MediaEngineGonkVideoSource::Deallocate() {
 
   mTextureClientAllocator = nullptr;
   mImageContainer = nullptr;
-  mRotationBufferPool.Release();
 
-  nsresult rv = mWrapper->Deallocate();
-  NS_ENSURE_SUCCESS(rv, rv);
+  mScreenObserver->Shutdown();
+  mScreenObserver = nullptr;
+
+  mWrapper->Deallocate();
+  mWrapper = nullptr;
 
   LOG("Video device %s deallocated", mDeviceName.Data());
   return NS_OK;
@@ -461,14 +524,10 @@ nsresult MediaEngineGonkVideoSource::Start() {
     return rv;
   }
 
-  RefPtr<MediaEngineGonkVideoSource> self = this;
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      "MediaEngineGonkVideoSource::Start_m", [this, self]() {
-        // Update the initial configuration manually. Must be done after
-        // mWrapper->Start(), so we can get camera mount angle.
-        UpdateScreenConfiguration();
-      }));
+  // Must be called after mWrapper is started
+  mScreenObserver->Start();
 
+  RefPtr<MediaEngineGonkVideoSource> self = this;
   NS_DispatchToMainThread(NS_NewRunnableFunction(
       "MediaEngineGonkVideoSource::SetLastCapability",
       [settings = mSettings, updated = mSettingsUpdatedByFrame,
@@ -499,6 +558,8 @@ nsresult MediaEngineGonkVideoSource::Stop() {
     LOG("Stop failed");
     return rv;
   }
+
+  mScreenObserver->Stop();
 
   {
     MutexAutoLock lock(mMutex);
@@ -571,7 +632,9 @@ void MediaEngineGonkVideoSource::SetTrack(const RefPtr<MediaTrack>& aTrack,
   MOZ_ASSERT(!mTrack);
   MOZ_ASSERT(aTrack);
 
-  if (!mTextureClientAllocator) {
+  // If WebRender pref is disabled, we can't allocate gralloc texture on our
+  // own. In that case, we don't need to create TextureClient allocator.
+  if (gfxPlatform::WebRenderPrefEnabled() && !mTextureClientAllocator) {
     RefPtr<layers::ImageBridgeChild> bridge =
         layers::ImageBridgeChild::GetSingleton();
     mTextureClientAllocator = new layers::TextureClientRecycleAllocator(bridge);
@@ -590,23 +653,6 @@ void MediaEngineGonkVideoSource::SetTrack(const RefPtr<MediaTrack>& aTrack,
   }
 }
 
-/**
- * Initialization function for the video source, called by the
- * constructor.
- */
-
-void MediaEngineGonkVideoSource::Init() {
-  LOG("%s", __PRETTY_FUNCTION__);
-  AssertIsOnOwningThread();
-
-  mWrapper = new CameraControlWrapper(mDeviceName);
-  LOG("Video device %s initialized", mDeviceName.Data());
-
-  if (nsCOMPtr<nsIObserverService> os = services::GetObserverService()) {
-    os->AddObserver(this, "screen-information-changed", false);
-  }
-}
-
 static int GetRotateAmount(int aScreenAngle, int aCameraMountAngle,
                            bool aBackCamera) {
   if (aBackCamera) {
@@ -616,27 +662,18 @@ static int GetRotateAmount(int aScreenAngle, int aCameraMountAngle,
   }
 }
 
-nsresult MediaEngineGonkVideoSource::Observe(nsISupports* aSubject,
-                                             const char* aTopic,
-                                             const char16_t* aData) {
-  UpdateScreenConfiguration();
-  return NS_OK;
-}
+void MediaEngineGonkVideoSource::UpdateScreenConfiguration(
+    int aOrientationAngle, hal::ScreenOrientation aOrientationType) {
+  AssertIsOnOwningThread();
 
-void MediaEngineGonkVideoSource::UpdateScreenConfiguration() {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  RefPtr<widget::Screen> s =
-      widget::ScreenManager::GetSingleton().GetPrimaryScreen();
   int cameraAngle = mWrapper->GetCameraAngle();
   bool isBackCamera = mWrapper->GetIsBackCamera();
-  int rotation =
-      GetRotateAmount(s->GetOrientationAngle(), cameraAngle, isBackCamera);
+  int rotation = GetRotateAmount(aOrientationAngle, cameraAngle, isBackCamera);
   LOG("Orientation: %d (Camera %s isBackCamera %d MountAngle: %d)", rotation,
       mDeviceName.Data(), isBackCamera, cameraAngle);
 
   int orientation = 0;
-  switch (s->GetOrientationType()) {
+  switch (aOrientationType) {
     case hal::ScreenOrientation::PortraitPrimary:
       orientation = 0;
       break;
@@ -654,7 +691,7 @@ void MediaEngineGonkVideoSource::UpdateScreenConfiguration() {
   orientation = (isBackCamera ? orientation : (-orientation));
   mWrapper->SetPhotoOrientation(orientation);
 
-  MutexAutoLock lock(mMutex);
+  // Atomic
   mRotation = rotation;
 }
 
@@ -774,16 +811,69 @@ static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer,
 }
 
 static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer,
-                        rtc::scoped_refptr<webrtc::I420Buffer> aDstBuffer,
+                        layers::MappedYCbCrTextureData& aDstBuffer,
                         int aRotation) {
-  android_ycbcr dstYUV = {.y = const_cast<uint8_t*>(aDstBuffer->DataY()),
-                          .cb = const_cast<uint8_t*>(aDstBuffer->DataU()),
-                          .cr = const_cast<uint8_t*>(aDstBuffer->DataV()),
-                          .ystride = static_cast<size_t>(aDstBuffer->StrideY()),
-                          .cstride = static_cast<size_t>(aDstBuffer->StrideU()),
+  android_ycbcr dstYUV = {.y = aDstBuffer.y.data,
+                          .cb = aDstBuffer.cb.data,
+                          .cr = aDstBuffer.cr.data,
+                          .ystride = static_cast<size_t>(aDstBuffer.y.stride),
+                          .cstride = static_cast<size_t>(aDstBuffer.cb.stride),
                           .chroma_step = 1};
 
   return RotateBuffer(aSrcBuffer, dstYUV, aRotation);
+}
+
+already_AddRefed<layers::Image>
+MediaEngineGonkVideoSource::CreateI420GrallocImage(uint32_t aWidth,
+                                                   uint32_t aHeight) {
+  if (!mTextureClientAllocator) {
+    return nullptr;
+  }
+
+  RefPtr<layers::TextureClient> textureClient =
+      mTextureClientAllocator->CreateOrRecycle(
+          gfx::SurfaceFormat::YUV, IntSize(aWidth, aHeight),
+          layers::BackendSelector::Content, layers::TextureFlags::DEFAULT,
+          layers::ALLOC_DISALLOW_BUFFERTEXTURECLIENT);
+  if (!textureClient) {
+    return nullptr;
+  }
+
+  if (!textureClient->GetInternalData()->AsGrallocTextureData()) {
+    return nullptr;
+  }
+
+  RefPtr<layers::GrallocImage> image = new layers::GrallocImage();
+  image->AdoptData(textureClient, IntSize(aWidth, aHeight));
+  return image.forget();
+}
+
+already_AddRefed<layers::Image>
+MediaEngineGonkVideoSource::CreateI420PlanarYCbCrImage(uint32_t aWidth,
+                                                       uint32_t aHeight) {
+  if (!mImageContainer) {
+    return nullptr;
+  }
+
+  RefPtr<layers::PlanarYCbCrImage> image =
+      mImageContainer->CreatePlanarYCbCrImage();
+  if (!image) {
+    return nullptr;
+  }
+
+  auto ySize = IntSize(aWidth, aHeight);
+  auto uvSize = IntSize((aWidth + 1) / 2, (aHeight + 1) / 2);
+
+  layers::PlanarYCbCrData data;
+  data.mYStride = ySize.Width();
+  data.mCbCrStride = uvSize.Width();
+  data.mPictureRect = IntRect(0, 0, aWidth, aHeight);
+  data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
+  data.mColorDepth = gfx::ColorDepth::COLOR_8;
+  if (!image->CreateEmptyBuffer(data, ySize, uvSize)) {
+    return nullptr;
+  }
+  return image.forget();
 }
 
 // Rotate the source image and convert it to I420 format, which is mandatory in
@@ -791,65 +881,40 @@ static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer,
 already_AddRefed<layers::Image> MediaEngineGonkVideoSource::RotateImage(
     layers::Image* aImage, uint32_t aWidth, uint32_t aHeight) {
   sp<GraphicBuffer> srcBuffer = aImage->AsGrallocImage()->GetGraphicBuffer();
-  RefPtr<layers::PlanarYCbCrImage> image;
 
   uint32_t dstWidth = aWidth;
   uint32_t dstHeight = aHeight;
-  if (mRotation == 90 || mRotation == 270) {
+  int rotation = mRotation;
+  if (rotation == 90 || rotation == 270) {
     std::swap(dstWidth, dstHeight);
   }
 
-  MOZ_ASSERT(mTextureClientAllocator);
-  RefPtr<layers::TextureClient> textureClient =
-      mTextureClientAllocator->CreateOrRecycle(
-          gfx::SurfaceFormat::YUV, IntSize(dstWidth, dstHeight),
-          layers::BackendSelector::Content, layers::TextureFlags::DEFAULT,
-          layers::ALLOC_DISALLOW_BUFFERTEXTURECLIENT);
-  if (textureClient) {
-    sp<GraphicBuffer> dstBuffer = textureClient->GetInternalData()
-                                      ->AsGrallocTextureData()
-                                      ->GetGraphicBuffer();
+  RefPtr<layers::Image> image;
+  if (image = CreateI420GrallocImage(dstWidth, dstHeight)) {
+    sp<GraphicBuffer> dstBuffer = image->AsGrallocImage()->GetGraphicBuffer();
+    if (RotateBuffer(srcBuffer, dstBuffer, rotation) == -1) {
+      return nullptr;
+    }
+  } else if (image = CreateI420PlanarYCbCrImage(dstWidth, dstHeight)) {
+    RefPtr<layers::TextureClient> textureClient =
+        image->GetTextureClient(nullptr);
 
-    if (RotateBuffer(srcBuffer, dstBuffer, mRotation) == -1) {
+    layers::TextureClientAutoLock autoLock(textureClient,
+                                           layers::OpenMode::OPEN_WRITE_ONLY);
+    if (!autoLock.Succeeded()) {
       return nullptr;
     }
 
-    image = new GonkCameraImage();
-    image->AsGrallocImage()->AdoptData(textureClient,
-                                       IntSize(dstWidth, dstHeight));
-  } else {
-    // Handle out of gralloc case.
-    rtc::scoped_refptr<webrtc::I420Buffer> dstBuffer =
-        mRotationBufferPool.CreateBuffer(dstWidth, dstHeight);
-    if (!dstBuffer) {
-      MOZ_ASSERT_UNREACHABLE(
-          "We might fail to allocate a buffer, but with this "
-          "being a recycling pool that shouldn't happen");
+    layers::MappedYCbCrTextureData dstBuffer;
+    if (!textureClient->BorrowMappedYCbCrData(dstBuffer)) {
       return nullptr;
     }
 
-    if (RotateBuffer(srcBuffer, dstBuffer, mRotation) == -1) {
+    if (RotateBuffer(srcBuffer, dstBuffer, rotation) == -1) {
       return nullptr;
     }
 
-    layers::PlanarYCbCrData data;
-    data.mYChannel = const_cast<uint8_t*>(dstBuffer->DataY());
-    data.mYStride = dstBuffer->StrideY();
-    MOZ_ASSERT(dstBuffer->StrideU() == dstBuffer->StrideV());
-    data.mCbCrStride = dstBuffer->StrideU();
-    data.mCbChannel = const_cast<uint8_t*>(dstBuffer->DataU());
-    data.mCrChannel = const_cast<uint8_t*>(dstBuffer->DataV());
-    data.mPictureRect = IntRect(0, 0, dstBuffer->width(), dstBuffer->height());
-    data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
-    data.mYUVColorSpace = gfx::YUVColorSpace::BT601;
-
-    image = mImageContainer->CreatePlanarYCbCrImage();
-    if (!image->CopyData(data)) {
-      MOZ_ASSERT_UNREACHABLE(
-          "We might fail to allocate a buffer, but with this "
-          "being a recycling container that shouldn't happen");
-      return nullptr;
-    }
+    textureClient->MarkImmutable();
   }
   return image.forget();
 }

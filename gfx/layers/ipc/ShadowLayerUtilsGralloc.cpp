@@ -90,7 +90,7 @@ void ParamTraits<MagicGrallocBufferHandle>::Write(MessageWriter* aWriter,
     // These buffers can't die in transit because they're created
     // synchonously and the parent-side buffer can only be dropped if
     // there's a crash.
-    aWriter->WriteFileHandle(UniqueFileHandle(fds[n]));
+    aWriter->WriteFileHandle(UniqueFileHandle(dup(fds[n])));
   }
 }
 

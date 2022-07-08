@@ -7,6 +7,7 @@
 
 #include "nsIObserver.h"
 #include "MediaEngineCameraVideoSource.h"
+#include "mozilla/Atomics.h"
 #include "mozilla/Hal.h"
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
 #include "common_video/include/i420_buffer_pool.h"
@@ -15,12 +16,8 @@ namespace mozilla {
 
 class CameraControlWrapper;
 
-class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
-                                   public nsIObserver {
+class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource {
  public:
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSIOBSERVER
-
   explicit MediaEngineGonkVideoSource(const MediaDevice* aMediaDevice);
 
   nsresult Allocate(const dom::MediaTrackConstraints& aConstraints,
@@ -42,14 +39,21 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
   nsresult TakePhoto(MediaEnginePhotoCallback* aCallback) override;
 
  private:
+  class ScreenObserver;
+
   ~MediaEngineGonkVideoSource();
-  // Initialize the needed Video engine interfaces.
-  void Init();
 
   size_t NumCapabilities() const override;
   webrtc::CaptureCapability GetCapability(size_t aIndex) const override;
 
-  void UpdateScreenConfiguration();
+  void UpdateScreenConfiguration(int aOrientationAngle,
+                                 hal::ScreenOrientation aOrientationType);
+
+  already_AddRefed<layers::Image> CreateI420GrallocImage(uint32_t aWidth,
+                                                         uint32_t aHeight);
+
+  already_AddRefed<layers::Image> CreateI420PlanarYCbCrImage(uint32_t aWidth,
+                                                             uint32_t aHeight);
 
   already_AddRefed<layers::Image> RotateImage(layers::Image* aImage,
                                               uint32_t aWidth,
@@ -78,10 +82,6 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
   // after Start() and before the end of Stop().
   RefPtr<layers::ImageContainer> mImageContainer;
 
-  // A buffer pool used to manage the temporary buffer used when rotating
-  // incoming images. Camera thread only.
-  webrtc::I420BufferPool mRotationBufferPool;
-
   // The intrinsic size of the latest captured image, so we can feed black
   // images of the same size while stopped.
   // Set under mMutex on the Cameras thread. Accessed under one of the two.
@@ -91,11 +91,13 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
   // Set under mMutex on the owning thread. Accessed under one of the two.
   webrtc::CaptureCapability mCapability;
 
-  int mRotation = 0;
+  Atomic<int> mRotation;
 
   mutable nsTArray<webrtc::CaptureCapability> mHardcodedCapabilities;
 
   RefPtr<layers::TextureClientRecycleAllocator> mTextureClientAllocator;
+
+  RefPtr<ScreenObserver> mScreenObserver;
 
   RefPtr<CameraControlWrapper> mWrapper;
 };

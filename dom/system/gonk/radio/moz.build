@@ -38,6 +38,16 @@ UNIFIED_SOURCES += [
     "nsRilWorkerService.cpp",
 ]
 
+EXPORTS += [
+    "nsRilIndication.h",
+    "nsRilIndicationResult.h",
+    "nsRilResponse.h",
+    "nsRilResponseResult.h",
+    "nsRilResult.h",
+    "nsRilWorker.h",
+    "nsRilWorkerService.h",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

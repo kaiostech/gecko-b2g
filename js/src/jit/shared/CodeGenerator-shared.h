@@ -43,8 +43,6 @@ class CodeGeneratorShared : public LElementVisitor {
   MacroAssembler& ensureMasm(MacroAssembler* masm);
   mozilla::Maybe<IonHeapMacroAssembler> maybeMasm_;
 
-  bool useWasmStackArgumentAbi_;
-
  public:
   MacroAssembler& masm;
 
@@ -139,31 +137,25 @@ class CodeGeneratorShared : public LElementVisitor {
   // spills.
   uint32_t frameDepth_;
 
+  // Offset in bytes to the incoming arguments, relative to the frame pointer.
+  uint32_t offsetOfArgsFromFP_ = 0;
+
   // Offset in bytes of the stack region reserved for passed argument Values.
   uint32_t offsetOfPassedArgSlots_ = 0;
 
-  // For arguments to the current function.
-  inline uint32_t ArgToStackOffset(uint32_t slot) const;
-
-  inline uint32_t SlotToStackOffset(uint32_t slot) const;
-
   // For argument construction for calls. Argslots are Value-sized.
-  inline uint32_t StackOffsetOfPassedArg(uint32_t slot) const;
+  inline Address AddressOfPassedArg(uint32_t slot) const;
+  inline uint32_t UnusedStackBytesForCall(uint32_t numArgSlots) const;
 
-  inline uint32_t ToStackOffset(LAllocation a) const;
-  inline uint32_t ToStackOffset(const LAllocation* a) const;
-
+  template <BaseRegForAddress Base = BaseRegForAddress::Default>
   inline Address ToAddress(const LAllocation& a) const;
+
+  template <BaseRegForAddress Base = BaseRegForAddress::Default>
   inline Address ToAddress(const LAllocation* a) const;
 
   static inline Address ToAddress(Register elements, const LAllocation* index,
                                   Scalar::Type type,
                                   int32_t offsetAdjustment = 0);
-
-  // Returns the offset from FP to address incoming stack arguments
-  // when we use wasm stack argument abi (useWasmStackArgumentAbi()).
-  inline uint32_t ToFramePointerOffset(LAllocation a) const;
-  inline uint32_t ToFramePointerOffset(const LAllocation* a) const;
 
   uint32_t frameSize() const { return frameDepth_; }
 
@@ -171,10 +163,6 @@ class CodeGeneratorShared : public LElementVisitor {
   bool addNativeToBytecodeEntry(const BytecodeSite* site);
   void dumpNativeToBytecodeEntries();
   void dumpNativeToBytecodeEntry(uint32_t idx);
-
-  void setUseWasmStackArgumentAbi() { useWasmStackArgumentAbi_ = true; }
-
-  bool useWasmStackArgumentAbi() const { return useWasmStackArgumentAbi_; }
 
  public:
   MIRGenerator& mirGen() const { return *gen; }

@@ -1537,6 +1537,7 @@ void wasm::GenerateDirectCallFromJit(MacroAssembler& masm, const FuncExport& fe,
       case JitCallStackArg::Tag::Address: {
         // The address offsets were valid *before* we pushed our frame.
         Address src = stackArg.addr();
+        MOZ_ASSERT(src.base == masm.getStackPointer());
         src.offset += masm.framePushed() - framePushedAtStart;
         switch (iter.mirType()) {
           case MIRType::Double: {
@@ -2240,7 +2241,7 @@ static bool GenerateImportInterpExit(MacroAssembler& masm, const FuncImport& fi,
 // having boxed all the ABI arguments into the JIT stack frame layout.
 static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
                                   unsigned funcImportIndex, Label* throwLabel,
-                                  JitExitOffsets* offsets) {
+                                  CallableOffsets* offsets) {
   AutoCreatedBy acb(masm, "GenerateImportJitExit");
 
   AssertExpectedSP(masm);
@@ -2343,17 +2344,11 @@ static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
   // - or the value needs to be rooted, but nothing can cause a GC between
   //   here and CoerceInPlace, which roots before coercing to a primitive.
 
-  // The JIT callee clobbers all registers, including InstanceReg and
-  // FramePointer, so restore those here. During this sequence of
-  // instructions, FP can't be trusted by the profiling frame iterator.
-  offsets->untrustedFPStart = masm.currentOffset();
+  // The JIT callee clobbers all registers other than the frame pointer, so
+  // restore InstanceReg here.
   AssertStackAlignment(masm, JitStackAlignment, sizeOfRetAddrAndFP);
-
   masm.loadPtr(Address(masm.getStackPointer(), savedInstanceOffset),
                InstanceReg);
-  masm.moveStackPtrTo(FramePointer);
-  masm.addPtr(Imm32(masm.framePushed()), FramePointer);
-  offsets->untrustedFPEnd = masm.currentOffset();
 
   // The frame was aligned for the JIT ABI such that
   //   (sp - 2 * sizeof(void*)) % JitStackAlignment == 0
@@ -3077,11 +3072,12 @@ bool wasm::GenerateStubs(const ModuleEnvironment& env,
       continue;
     }
 
-    JitExitOffsets jitOffsets;
+    CallableOffsets jitOffsets;
     if (!GenerateImportJitExit(masm, fi, funcIndex, &throwLabel, &jitOffsets)) {
       return false;
     }
-    if (!code->codeRanges.emplaceBack(funcIndex, jitOffsets)) {
+    if (!code->codeRanges.emplaceBack(CodeRange::ImportJitExit, funcIndex,
+                                      jitOffsets)) {
       return false;
     }
   }

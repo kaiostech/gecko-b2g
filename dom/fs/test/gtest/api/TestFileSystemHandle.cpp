@@ -8,6 +8,10 @@
 
 #include "FileSystemMocks.h"
 
+#include "fs/FileSystemChildFactory.h"
+
+#include "mozilla/dom/FileSystemActorHolder.h"
+#include "mozilla/dom/FileSystemHandle.h"
 #include "mozilla/dom/FileSystemDirectoryHandle.h"
 #include "mozilla/dom/FileSystemFileHandle.h"
 #include "mozilla/dom/FileSystemHandle.h"
@@ -21,18 +25,23 @@ class TestFileSystemHandle : public ::testing::Test {
   void SetUp() override {
     mDirMetadata = FileSystemEntryMetadata("dir"_ns, u"Directory"_ns);
     mFileMetadata = FileSystemEntryMetadata("file"_ns, u"File"_ns);
+    mActor = MakeAndAddRef<FileSystemActorHolder>(
+        MakeUnique<FileSystemChildFactory>()->Create().take());
   }
+
+  void TearDown() override { mActor->RemoveActor(); }
 
   nsIGlobalObject* mGlobal = GetGlobal();
   FileSystemEntryMetadata mDirMetadata;
   FileSystemEntryMetadata mFileMetadata;
+  RefPtr<FileSystemActorHolder> mActor;
 };
 
 TEST_F(TestFileSystemHandle, createAndDestroyHandles) {
   RefPtr<FileSystemHandle> dirHandle =
-      new FileSystemDirectoryHandle(mGlobal, mDirMetadata);
+      new FileSystemDirectoryHandle(mGlobal, mActor, mDirMetadata);
   RefPtr<FileSystemHandle> fileHandle =
-      new FileSystemFileHandle(mGlobal, mFileMetadata);
+      new FileSystemFileHandle(mGlobal, mActor, mFileMetadata);
 
   EXPECT_TRUE(dirHandle);
   EXPECT_TRUE(fileHandle);
@@ -40,9 +49,9 @@ TEST_F(TestFileSystemHandle, createAndDestroyHandles) {
 
 TEST_F(TestFileSystemHandle, areFileNamesAsExpected) {
   RefPtr<FileSystemHandle> dirHandle =
-      new FileSystemDirectoryHandle(mGlobal, mDirMetadata);
+      new FileSystemDirectoryHandle(mGlobal, mActor, mDirMetadata);
   RefPtr<FileSystemHandle> fileHandle =
-      new FileSystemFileHandle(mGlobal, mFileMetadata);
+      new FileSystemFileHandle(mGlobal, mActor, mFileMetadata);
 
   auto GetEntryName = [](const RefPtr<FileSystemHandle>& aHandle) {
     DOMString domName;
@@ -62,16 +71,16 @@ TEST_F(TestFileSystemHandle, areFileNamesAsExpected) {
 TEST_F(TestFileSystemHandle, isParentObjectReturned) {
   ASSERT_TRUE(mGlobal);
   RefPtr<FileSystemHandle> dirHandle =
-      new FileSystemDirectoryHandle(mGlobal, mDirMetadata);
+      new FileSystemDirectoryHandle(mGlobal, mActor, mDirMetadata);
 
   ASSERT_EQ(mGlobal, dirHandle->GetParentObject());
 }
 
 TEST_F(TestFileSystemHandle, areHandleKindsAsExpected) {
   RefPtr<FileSystemHandle> dirHandle =
-      new FileSystemDirectoryHandle(mGlobal, mDirMetadata);
+      new FileSystemDirectoryHandle(mGlobal, mActor, mDirMetadata);
   RefPtr<FileSystemHandle> fileHandle =
-      new FileSystemFileHandle(mGlobal, mFileMetadata);
+      new FileSystemFileHandle(mGlobal, mActor, mFileMetadata);
 
   EXPECT_EQ(FileSystemHandleKind::Directory, dirHandle->Kind());
   EXPECT_EQ(FileSystemHandleKind::File, fileHandle->Kind());
@@ -79,9 +88,9 @@ TEST_F(TestFileSystemHandle, areHandleKindsAsExpected) {
 
 TEST_F(TestFileSystemHandle, isDifferentEntry) {
   RefPtr<FileSystemHandle> dirHandle =
-      new FileSystemDirectoryHandle(mGlobal, mDirMetadata);
+      new FileSystemDirectoryHandle(mGlobal, mActor, mDirMetadata);
   RefPtr<FileSystemHandle> fileHandle =
-      new FileSystemFileHandle(mGlobal, mFileMetadata);
+      new FileSystemFileHandle(mGlobal, mActor, mFileMetadata);
 
   IgnoredErrorResult rv;
   RefPtr<Promise> promise = dirHandle->IsSameEntry(*fileHandle, rv);
@@ -92,7 +101,7 @@ TEST_F(TestFileSystemHandle, isDifferentEntry) {
 
 TEST_F(TestFileSystemHandle, isSameEntry) {
   RefPtr<FileSystemHandle> fileHandle =
-      new FileSystemFileHandle(mGlobal, mFileMetadata);
+      new FileSystemFileHandle(mGlobal, mActor, mFileMetadata);
 
   IgnoredErrorResult rv;
   RefPtr<Promise> promise = fileHandle->IsSameEntry(*fileHandle, rv);

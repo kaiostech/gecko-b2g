@@ -95,6 +95,11 @@ ClassifierDummyChannel::ClassifierDummyChannel(nsIURI* aURI,
   SetLoadInfo(aLoadInfo);
 }
 
+ClassifierDummyChannel::~ClassifierDummyChannel() {
+  NS_ReleaseOnMainThread("ClassifierDummyChannel::mLoadInfo",
+                         mLoadInfo.forget());
+}
+
 void ClassifierDummyChannel::AddClassificationFlags(
     uint32_t aClassificationFlags, bool aThirdParty) {
   if (aThirdParty) {
@@ -790,6 +795,9 @@ NS_IMETHODIMP
 ClassifierDummyChannel::SetEarlyHintObserver(nsIEarlyHintObserver* aObserver) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
+
+void ClassifierDummyChannel::SetConnectionInfo(
+    mozilla::net::nsHttpConnectionInfo* aInfo) {}
 
 }  // namespace net
 }  // namespace mozilla

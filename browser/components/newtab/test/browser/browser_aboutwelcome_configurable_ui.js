@@ -77,21 +77,23 @@ add_task(async function test_aboutwelcome_with_customized_logo() {
   });
   const TEST_LOGO_JSON = JSON.stringify([TEST_LOGO_CONTENT]);
   const LOGO_HEIGHT = TEST_LOGO_CONTENT.content.logo.height;
-  const EXPECTED_LOGO_STYLE = `background: rgba(0, 0, 0, 0) url("${TEST_LOGO_URL}") no-repeat scroll center center / contain; height: ${LOGO_HEIGHT}`;
-  const DEFAULT_LOGO_STYLE =
-    'background: rgba(0, 0, 0, 0) url("chrome://branding/content/about-logo.svg")';
   let browser = await openAboutWelcome(TEST_LOGO_JSON);
 
   await test_screen_content(
     browser,
     "renders screen with customized logo",
     // Expected selectors:
-    [
-      "main.TEST_LOGO_STEP[pos='center']",
-      `div.brand-logo[style*='${EXPECTED_LOGO_STYLE}']`,
-    ],
-    // Unexpected selectors:
-    [`div.brand-logo[style*='${DEFAULT_LOGO_STYLE}']`]
+    ["main.TEST_LOGO_STEP[pos='center']", `div.brand-logo`]
+  );
+
+  await test_element_styles(
+    browser,
+    "div.brand-logo",
+    // Expected styles:
+    {
+      height: LOGO_HEIGHT,
+      "background-image": `url("${TEST_LOGO_URL}")`,
+    }
   );
 });
 
@@ -272,6 +274,81 @@ add_task(async function test_aboutwelcome_with_text_color_override() {
 });
 
 /**
+ * Test rendering a screen with a "progress bar" style step indicator
+ */
+add_task(async function test_aboutwelcome_with_progress_bar() {
+  let screens = [];
+  // we need at least three screens to test the progress bar styling
+  for (let i = 0; i < 3; i++) {
+    screens.push(
+      makeTestContent("TEST_PROGRESS_BAR_OVERRIDE_STEP", {
+        progress_bar: true,
+        primary_button: {
+          label: "next",
+          action: {
+            navigate: true,
+          },
+        },
+      })
+    );
+  }
+
+  let doExperimentCleanup = await ExperimentFakes.enrollWithFeatureConfig({
+    featureId: "aboutwelcome",
+    enabled: true,
+    value: {
+      screens,
+    },
+  });
+  let browser = await openAboutWelcome(JSON.stringify(screens));
+
+  // Advance to second screen
+  await onButtonClick(browser, "button.primary");
+
+  // Ensure step indicator has progress bar styles
+  await test_element_styles(
+    browser,
+    ".indicator",
+    // Expected styles:
+    {
+      height: "6px",
+      "padding-block": "0px",
+      margin: "0px",
+    }
+  );
+
+  // Both completed and current steps should have border color set
+  await test_element_styles(
+    browser,
+    ".indicator.complete",
+    // Expected styles:
+    {
+      "border-color": "rgb(0, 221, 255)",
+    }
+  );
+  await test_element_styles(
+    browser,
+    ".indicator.current",
+    // Expected styles:
+    {
+      "border-color": "rgb(0, 221, 255)",
+    }
+  );
+
+  // Upcoming steps should be gray
+  await test_element_styles(
+    browser,
+    ".indicator:not(.current):not(.complete)",
+    // Expected styles:
+    {
+      "border-color": "rgb(251, 251, 254)",
+    }
+  );
+
+  await doExperimentCleanup();
+});
+
+/**
  * Test rendering a screen with a dismiss button
  */
 add_task(async function test_aboutwelcome_dismiss_button() {
@@ -299,4 +376,47 @@ add_task(async function test_aboutwelcome_dismiss_button() {
   await onButtonClick(browser, "button.dismiss-button");
   const { callCount } = aboutWelcomeActor.onContentMessage;
   ok(callCount >= 1, `${callCount} Stub was called`);
+});
+
+/**
+ * Test rendering a screen with the "split" position
+ */
+add_task(async function test_aboutwelcome_split_position() {
+  const TEST_SPLIT_STEP = makeTestContent("TEST_SPLIT_STEP", {
+    position: "split",
+    hero_text: "hero test",
+  });
+
+  const TEST_SPLIT_JSON = JSON.stringify([TEST_SPLIT_STEP]);
+  let browser = await openAboutWelcome(TEST_SPLIT_JSON);
+
+  await test_screen_content(
+    browser,
+    "renders screen secondary section containing hero text",
+    // Expected selectors:
+    [`main.screen[pos="split"]`, `.section-secondary`, `.message-text h1`]
+  );
+
+  // Ensure secondary section has split template styling
+  await test_element_styles(
+    browser,
+    "main.screen .section-secondary",
+    // Expected styles:
+    {
+      display: "flex",
+      margin: "auto 0px auto auto",
+    }
+  );
+
+  // Ensure secondary action has button styling
+  await test_element_styles(
+    browser,
+    ".action-buttons .secondary-cta .secondary",
+    // Expected styles:
+    {
+      // Override default text-link styles
+      "background-color": "rgb(240, 240, 244)",
+      color: "rgb(0, 0, 0)",
+    }
+  );
 });

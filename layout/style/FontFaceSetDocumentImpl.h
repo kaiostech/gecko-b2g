@@ -26,7 +26,15 @@ class FontFaceSetDocumentImpl final : public FontFaceSetImpl,
   void Initialize();
   void Destroy() override;
 
-  dom::Document* Document() const override { return mDocument; }
+  bool IsOnOwningThread() override;
+  void DispatchToOwningThread(const char* aName,
+                              std::function<void()>&& aFunc) override;
+
+  void RefreshStandardFontLoadPrincipal() override;
+
+  dom::Document* GetDocument() const override { return mDocument; }
+
+  already_AddRefed<URLExtraData> GetURLExtraData() override;
 
   // gfxUserFontSet
 
@@ -97,9 +105,6 @@ class FontFaceSetDocumentImpl final : public FontFaceSetImpl,
 #ifdef DEBUG
   bool HasRuleFontFace(FontFaceImpl* aFontFace);
 #endif
-
-  already_AddRefed<gfxFontSrcPrincipal> CreateStandardFontLoadPrincipal()
-      const override;
 
   TimeStamp GetNavigationStartTimeStamp() override;
 

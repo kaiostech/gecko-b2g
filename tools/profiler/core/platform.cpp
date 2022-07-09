@@ -373,6 +373,30 @@ static constexpr uint32_t StartupExtraDefaultFeatures() {
   return ProfilerFeature::FileIOAll | ProfilerFeature::IPCMessages;
 }
 
+/* static */ mozilla::baseprofiler::detail::BaseProfilerMutex
+    ProfilingLog::gMutex;
+/* static */ mozilla::UniquePtr<Json::Value> ProfilingLog::gLog;
+
+/* static */ void ProfilingLog::Init() {
+  mozilla::baseprofiler::detail::BaseProfilerAutoLock lock{gMutex};
+  MOZ_ASSERT(!gLog);
+  gLog = mozilla::MakeUniqueFallible<Json::Value>(Json::objectValue);
+  if (gLog) {
+    (*gLog)[Json::StaticString{"profilingLogBegin" TIMESTAMP_JSON_SUFFIX}] =
+        ProfilingLog::Timestamp();
+  }
+}
+
+/* static */ void ProfilingLog::Destroy() {
+  mozilla::baseprofiler::detail::BaseProfilerAutoLock lock{gMutex};
+  MOZ_ASSERT(gLog);
+  gLog = nullptr;
+}
+
+/* static */ bool ProfilingLog::IsLockedOnCurrentThread() {
+  return gMutex.IsLockedOnCurrentThread();
+}
+
 // RAII class to lock the profiler mutex.
 // It provides a mechanism to determine if it is locked or not in order for
 // memory hooks to avoid re-entering the profiler locked state.
@@ -382,10 +406,12 @@ class MOZ_RAII PSAutoLock {
   PSAutoLock()
       : mLock([]() -> mozilla::baseprofiler::detail::BaseProfilerMutex& {
           // In DEBUG builds, *before* we attempt to lock gPSMutex, we want to
-          // check that the ThreadRegistry and ThreadRegistration mutexes are
-          // *not* locked on this thread, to avoid inversion deadlocks.
+          // check that the ThreadRegistry, ThreadRegistration, and ProfilingLog
+          // mutexes are *not* locked on this thread, to avoid inversion
+          // deadlocks.
           MOZ_ASSERT(!ThreadRegistry::IsRegistryMutexLockedOnCurrentThread());
           MOZ_ASSERT(!ThreadRegistration::IsDataMutexLockedOnCurrentThread());
+          MOZ_ASSERT(!ProfilingLog::IsLockedOnCurrentThread());
           return gPSMutex;
         }()) {}
 
@@ -743,11 +769,13 @@ class ActivePS {
   }
 
   ActivePS(
-      PSLockRef aLock, PowerOfTwo32 aCapacity, double aInterval,
-      uint32_t aFeatures, const char** aFilters, uint32_t aFilterCount,
-      uint64_t aActiveTabID, const Maybe<double>& aDuration,
+      PSLockRef aLock, const TimeStamp& aProfilingStartTime,
+      PowerOfTwo32 aCapacity, double aInterval, uint32_t aFeatures,
+      const char** aFilters, uint32_t aFilterCount, uint64_t aActiveTabID,
+      const Maybe<double>& aDuration,
       UniquePtr<ProfileBufferChunkManagerWithLocalLimit> aChunkManagerOrNull)
-      : mGeneration(sNextGeneration++),
+      : mProfilingStartTime(aProfilingStartTime),
+        mGeneration(sNextGeneration++),
         mCapacity(aCapacity),
         mDuration(aDuration),
         mInterval(aInterval),
@@ -776,6 +804,8 @@ class ActivePS {
             NewSamplerThread(aLock, mGeneration, aInterval, aFeatures)),
         mIsPaused(false),
         mIsSamplingPaused(false) {
+    ProfilingLog::Init();
+
     // Deep copy and lower-case aFilters.
     MOZ_ALWAYS_TRUE(mFilters.resize(aFilterCount));
     MOZ_ALWAYS_TRUE(mFiltersLowered.resize(aFilterCount));
@@ -852,6 +882,8 @@ class ActivePS {
       // We still control the chunk manager, remove it from the core buffer.
       profiler_get_core_buffer().ResetChunkManager();
     }
+
+    ProfilingLog::Destroy();
   }
 
   bool ThreadSelected(const char* aThreadName) {
@@ -883,14 +915,15 @@ class ActivePS {
 
  public:
   static void Create(
-      PSLockRef aLock, PowerOfTwo32 aCapacity, double aInterval,
-      uint32_t aFeatures, const char** aFilters, uint32_t aFilterCount,
-      uint64_t aActiveTabID, const Maybe<double>& aDuration,
+      PSLockRef aLock, const TimeStamp& aProfilingStartTime,
+      PowerOfTwo32 aCapacity, double aInterval, uint32_t aFeatures,
+      const char** aFilters, uint32_t aFilterCount, uint64_t aActiveTabID,
+      const Maybe<double>& aDuration,
       UniquePtr<ProfileBufferChunkManagerWithLocalLimit> aChunkManagerOrNull) {
     MOZ_ASSERT(!sInstance);
-    sInstance = new ActivePS(aLock, aCapacity, aInterval, aFeatures, aFilters,
-                             aFilterCount, aActiveTabID, aDuration,
-                             std::move(aChunkManagerOrNull));
+    sInstance = new ActivePS(aLock, aProfilingStartTime, aCapacity, aInterval,
+                             aFeatures, aFilters, aFilterCount, aActiveTabID,
+                             aDuration, std::move(aChunkManagerOrNull));
   }
 
   [[nodiscard]] static SamplerThread* Destroy(PSLockRef aLock) {
@@ -1035,6 +1068,8 @@ class ActivePS {
     }
     aWriter.EndObject();
   }
+
+  PS_GET_LOCKLESS(TimeStamp, ProfilingStartTime)
 
   PS_GET(uint32_t, Generation)
 
@@ -1378,6 +1413,8 @@ class ActivePS {
  private:
   // The singleton instance.
   static ActivePS* sInstance;
+
+  const TimeStamp mProfilingStartTime;
 
   // We need to track activity generations. If we didn't we could have the
   // following scenario.
@@ -2745,16 +2782,34 @@ static void StreamMetaJSCustomObject(
   // The "startTime" field holds the number of milliseconds since midnight
   // January 1, 1970 GMT. This grotty code computes (Now - (Now -
   // ProcessStartTime)) to convert CorePS::ProcessStartTime() into that form.
+  // Note: This is the only absolute time in the profile! All other timestamps
+  // are relative to this startTime.
   TimeDuration delta = TimeStamp::Now() - CorePS::ProcessStartTime();
   aWriter.DoubleProperty(
       "startTime",
       static_cast<double>(PR_Now() / 1000.0 - delta.ToMilliseconds()));
 
-  // Write the shutdownTime field. Unlike startTime, shutdownTime is not an
-  // absolute time stamp: It's relative to startTime. This is consistent with
-  // all other (non-"startTime") times anywhere in the profile JSON.
+  aWriter.DoubleProperty("profilingStartTime", (ActivePS::ProfilingStartTime() -
+                                                CorePS::ProcessStartTime())
+                                                   .ToMilliseconds());
+
+  if (const TimeStamp contentEarliestTime =
+          ActivePS::Buffer(aLock)
+              .UnderlyingChunkedBuffer()
+              .GetEarliestChunkStartTimeStamp();
+      !contentEarliestTime.IsNull()) {
+    aWriter.DoubleProperty(
+        "contentEarliestTime",
+        (contentEarliestTime - CorePS::ProcessStartTime()).ToMilliseconds());
+  } else {
+    aWriter.NullProperty("contentEarliestTime");
+  }
+
+  const double profilingEndTime = profiler_time();
+  aWriter.DoubleProperty("profilingEndTime", profilingEndTime);
+
   if (aIsShuttingDown) {
-    aWriter.DoubleProperty("shutdownTime", profiler_time());
+    aWriter.DoubleProperty("shutdownTime", profilingEndTime);
   } else {
     aWriter.NullProperty("shutdownTime");
   }
@@ -3302,6 +3357,20 @@ static void locked_profiler_stream_json_for_this_process(
                                           "Streamed pauses"));
   }
   aWriter.EndArray();
+
+  ProfilingLog::Access([&](Json::Value& aProfilingLogObject) {
+    aProfilingLogObject[Json::StaticString{
+        "profilingLogEnd" TIMESTAMP_JSON_SUFFIX}] = ProfilingLog::Timestamp();
+
+    aWriter.StartObjectProperty("profilingLog");
+    {
+      nsAutoCString pid;
+      pid.AppendInt(int64_t(profiler_current_process_id().ToNumber()));
+      Json::String logString = aProfilingLogObject.toStyledString();
+      aWriter.SplicedJSONProperty(pid, logString);
+    }
+    aWriter.EndObject();
+  });
 
   const double collectionEndMs = profiler_time();
 
@@ -5554,6 +5623,8 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
                                   const char** aFilters, uint32_t aFilterCount,
                                   uint64_t aActiveTabID,
                                   const Maybe<double>& aDuration) {
+  TimeStamp profilingStartTime = TimeStamp::Now();
+
   if (LOG_TEST) {
     LOG("locked_profiler_start");
     LOG("- capacity  = %u", unsigned(aCapacity.Value()));
@@ -5602,6 +5673,12 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
 
     if (baseChunkManager) {
       profilersHandOver = true;
+      if (const TimeStamp baseProfilingStartTime =
+              baseprofiler::detail::GetProfilingStartTime();
+          !baseProfilingStartTime.IsNull()) {
+        profilingStartTime = baseProfilingStartTime;
+      }
+
       BASE_PROFILER_MARKER_TEXT(
           "Profilers handover", PROFILER, MarkerTiming::IntervalStart(),
           "Transition from Base to Gecko Profiler, some data may be missing");
@@ -5641,8 +5718,9 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
 
   double interval = aInterval > 0 ? aInterval : PROFILER_DEFAULT_INTERVAL;
 
-  ActivePS::Create(aLock, capacity, interval, aFeatures, aFilters, aFilterCount,
-                   aActiveTabID, duration, std::move(baseChunkManager));
+  ActivePS::Create(aLock, profilingStartTime, capacity, interval, aFeatures,
+                   aFilters, aFilterCount, aActiveTabID, duration,
+                   std::move(baseChunkManager));
 
   // ActivePS::Create can only succeed or crash.
   MOZ_ASSERT(ActivePS::Exists(aLock));

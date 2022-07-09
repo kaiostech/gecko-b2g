@@ -4,13 +4,13 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const lazy = {};
+ChromeUtils.defineModuleGetter(
+  lazy,
+  "SyncedTabs",
+  "resource://services-sync/SyncedTabs.jsm"
 );
-XPCOMUtils.defineLazyModuleGetters(globalThis, {
-  SyncedTabs: "resource://services-sync/SyncedTabs.jsm",
-  Services: "resource://gre/modules/Services.jsm",
-});
 
 import {
   formatURIForDisplay,
@@ -39,6 +39,13 @@ class TabPickupList extends HTMLElement {
   }
 
   connectedCallback() {
+    this.placeholderContainer = document.getElementById(
+      "synced-tabs-placeholder"
+    );
+    this.tabPickupContainer = document.getElementById(
+      "tabpickup-tabs-container"
+    );
+
     this.addEventListener("click", this);
 
     this.getSyncedTabData();
@@ -64,9 +71,14 @@ class TabPickupList extends HTMLElement {
     window.open(item.dataset.targetURI, "_blank");
   }
 
+  togglePlaceholderVisibility(visible) {
+    this.placeholderContainer.toggleAttribute("hidden", !visible);
+    this.placeholderContainer.classList.toggle("empty-container", visible);
+  }
+
   async getSyncedTabData() {
     let tabs = [];
-    let clients = await SyncedTabs.getTabClients();
+    let clients = await lazy.SyncedTabs.getTabClients();
 
     for (let client of clients) {
       for (let tab of client.tabs) {
@@ -83,12 +95,17 @@ class TabPickupList extends HTMLElement {
   }
 
   updateTabsList(syncedTabs) {
+    // don't do anything while the loading state is active
+    if (this.tabPickupContainer.classList.contains("loading")) {
+      return;
+    }
+
     while (this.tabsList.firstChild) {
       this.tabsList.firstChild.remove();
     }
 
     if (!syncedTabs.length) {
-      // TODO show empty state placeholder, see bug 1774168
+      this.togglePlaceholderVisibility(true);
       this.tabsList.hidden = true;
       return;
     }
@@ -105,6 +122,7 @@ class TabPickupList extends HTMLElement {
 
     if (this.tabsList.hidden) {
       this.tabsList.hidden = false;
+      this.togglePlaceholderVisibility(false);
     }
   }
 

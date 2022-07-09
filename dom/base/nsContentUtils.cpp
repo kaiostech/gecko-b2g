@@ -2568,6 +2568,32 @@ nsINode* nsContentUtils::Retarget(nsINode* aTargetA, nsINode* aTargetB) {
 }
 
 // static
+nsINode* nsContentUtils::GetAnElementForTiming(Element* aTarget,
+                                               const Document* aDocument,
+                                               nsIGlobalObject* aGlobal) {
+  if (!aTarget->IsInComposedDoc()) {
+    return nullptr;
+  }
+
+  if (!aDocument) {
+    nsCOMPtr<nsPIDOMWindowInner> inner = do_QueryInterface(aGlobal);
+    if (!inner) {
+      return nullptr;
+    }
+    aDocument = inner->GetExtantDoc();
+  }
+
+  MOZ_ASSERT(aDocument);
+
+  if (aTarget->GetUncomposedDocOrConnectedShadowRoot() != aDocument ||
+      !aDocument->IsCurrentActiveDocument()) {
+    return nullptr;
+  }
+
+  return aTarget;
+}
+
+// static
 nsresult nsContentUtils::GetInclusiveAncestors(nsINode* aNode,
                                                nsTArray<nsINode*>& aArray) {
   while (aNode) {
@@ -7929,7 +7955,7 @@ static bool AllocateShmem(mozilla::dom::ContentChild* aChild,
   IShmemAllocator* allocator = aChild ? static_cast<IShmemAllocator*>(aChild)
                                       : static_cast<IShmemAllocator*>(aParent);
 
-  return allocator->AllocShmem(aSize, SharedMemory::TYPE_BASIC, aShmem);
+  return allocator->AllocShmem(aSize, aShmem);
 }
 
 static Shmem ConvertToShmem(mozilla::dom::ContentChild* aChild,
@@ -8220,7 +8246,7 @@ struct GetSurfaceDataShmem {
 
   ReturnType Allocate(size_t aSize) {
     Shmem shmem;
-    if (!mAllocator->AllocShmem(aSize, SharedMemory::TYPE_BASIC, &shmem)) {
+    if (!mAllocator->AllocShmem(aSize, &shmem)) {
       return Nothing();
     }
 

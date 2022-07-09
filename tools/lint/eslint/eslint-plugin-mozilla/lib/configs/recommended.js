@@ -57,17 +57,11 @@ module.exports = {
         // For all system modules, we expect no properties to need importing,
         // hence reject everything.
         "mozilla/reject-importGlobalProperties": ["error", "everything"],
+        "mozilla/reject-mixing-eager-and-lazy": "error",
         "mozilla/reject-top-level-await": "error",
         // TODO: Bug 1575506 turn `builtinGlobals` on here.
         // We can enable builtinGlobals for jsms due to their scopes.
         "no-redeclare": ["error", { builtinGlobals: false }],
-      },
-    },
-    {
-      // Temporarily disable until the proxy-based loader gets landed.
-      files: ["browser/components/urlbar/**"],
-      rules: {
-        "mozilla/reject-global-this": "off",
       },
     },
     {
@@ -89,6 +83,7 @@ module.exports = {
       files: ["**/*.mjs"],
       rules: {
         "mozilla/reject-import-system-module-from-non-system": "error",
+        "mozilla/reject-lazy-imports-into-globals": "error",
       },
     },
     {

@@ -9,6 +9,7 @@
 #include "gfxFontConstants.h"
 #include "gfxFontSrcPrincipal.h"
 #include "gfxFontSrcURI.h"
+#include "gfxFontUtils.h"
 #include "FontPreloader.h"
 #include "mozilla/css/Loader.h"
 #include "mozilla/dom/CSSFontFaceRule.h"
@@ -17,6 +18,7 @@
 #include "mozilla/dom/FontFaceImpl.h"
 #include "mozilla/dom/FontFaceSetBinding.h"
 #include "mozilla/dom/FontFaceSetDocumentImpl.h"
+#include "mozilla/dom/FontFaceSetWorkerImpl.h"
 #include "mozilla/dom/FontFaceSetIterator.h"
 #include "mozilla/dom/FontFaceSetLoadEvent.h"
 #include "mozilla/dom/FontFaceSetLoadEventBinding.h"
@@ -66,7 +68,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(FontFaceSet)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(FontFaceSet,
                                                   DOMEventTargetHelper)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_RAWPTR(mImpl->Document());
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE_RAWPTR(mImpl->GetDocument());
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mReady);
   for (size_t i = 0; i < tmp->mRuleFaces.Length(); i++) {
     NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRuleFaces[i].mFontFace);
@@ -100,9 +102,16 @@ FontFaceSet::FontFaceSet(nsIGlobalObject* aParent)
 FontFaceSet::~FontFaceSet() {
   // Assert that we don't drop any FontFaceSet objects during a Servo traversal,
   // since PostTraversalTask objects can hold raw pointers to FontFaceSets.
-  MOZ_ASSERT(!ServoStyleSet::IsInServoTraversal());
+  MOZ_ASSERT(!gfxFontUtils::IsInServoTraversal());
 
   Destroy();
+}
+
+/* static */ bool FontFaceSet::IsEnabled() {
+  if (NS_IsMainThread()) {
+    return StaticPrefs::layout_css_font_loading_api_enabled();
+  }
+  return StaticPrefs::layout_css_font_loading_api_workers_enabled();
 }
 
 /* static */ already_AddRefed<FontFaceSet> FontFaceSet::CreateForDocument(
@@ -111,6 +120,17 @@ FontFaceSet::~FontFaceSet() {
   RefPtr<FontFaceSetDocumentImpl> impl =
       new FontFaceSetDocumentImpl(set, aDocument);
   impl->Initialize();
+  set->mImpl = std::move(impl);
+  return set.forget();
+}
+
+/* static */ already_AddRefed<FontFaceSet> FontFaceSet::CreateForWorker(
+    nsIGlobalObject* aParent, WorkerPrivate* aWorkerPrivate) {
+  RefPtr<FontFaceSet> set = new FontFaceSet(aParent);
+  RefPtr<FontFaceSetWorkerImpl> impl = new FontFaceSetWorkerImpl(set);
+  if (NS_WARN_IF(!impl->Initialize(aWorkerPrivate))) {
+    return nullptr;
+  }
   set->mImpl = std::move(impl);
   return set.forget();
 }
@@ -175,8 +195,6 @@ bool FontFaceSet::ReadyPromiseIsPending() const {
 }
 
 Promise* FontFaceSet::GetReady(ErrorResult& aRv) {
-  MOZ_ASSERT(NS_IsMainThread());
-
   mImpl->EnsureReady();
 
   if (!mReady) {
@@ -358,9 +376,9 @@ void FontFaceSet::InsertRuleFontFace(FontFace* aFontFace, StyleOrigin aOrigin) {
 void FontFaceSet::DidRefresh() { mImpl->CheckLoadingFinished(); }
 
 void FontFaceSet::DispatchLoadingEventAndReplaceReadyPromise() {
-  AssertIsMainThreadOrServoFontMetricsLocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
 
-  if (ServoStyleSet* set = ServoStyleSet::Current()) {
+  if (ServoStyleSet* set = gfxFontUtils::CurrentServoStyleSet()) {
     // See comments in Gecko_GetFontMetrics.
     //
     // We can't just dispatch the runnable below if we're not on the main
@@ -376,7 +394,7 @@ void FontFaceSet::DispatchLoadingEventAndReplaceReadyPromise() {
   (new AsyncEventDispatcher(this, u"loading"_ns, CanBubble::eNo))
       ->PostDOMEvent();
 
-  if (PrefEnabled()) {
+  if (IsEnabled()) {
     if (mReady && mReady->State() != Promise::PromiseState::Pending) {
       if (GetParentObject()) {
         ErrorResult rv;
@@ -448,11 +466,6 @@ void FontFaceSet::DispatchLoadingFinishedEvent(
   RefPtr<FontFaceSetLoadEvent> event =
       FontFaceSetLoadEvent::Constructor(this, aType, init);
   (new AsyncEventDispatcher(this, event))->PostDOMEvent();
-}
-
-/* static */
-bool FontFaceSet::PrefEnabled() {
-  return StaticPrefs::layout_css_font_loading_api_enabled();
 }
 
 void FontFaceSet::FlushUserFontSet() { mImpl->FlushUserFontSet(); }

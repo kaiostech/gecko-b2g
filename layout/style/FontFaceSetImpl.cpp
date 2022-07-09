@@ -9,6 +9,7 @@
 #include "gfxFontConstants.h"
 #include "gfxFontSrcPrincipal.h"
 #include "gfxFontSrcURI.h"
+#include "gfxFontUtils.h"
 #include "mozilla/css/Loader.h"
 #include "mozilla/dom/CSSFontFaceRule.h"
 #include "mozilla/dom/DocumentInlines.h"
@@ -19,6 +20,7 @@
 #include "mozilla/dom/FontFaceSetLoadEvent.h"
 #include "mozilla/dom/FontFaceSetLoadEventBinding.h"
 #include "mozilla/dom/Promise.h"
+#include "mozilla/dom/WorkerCommon.h"
 #include "mozilla/FontPropertyTypes.h"
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/BasePrincipal.h"
@@ -65,7 +67,8 @@ using namespace mozilla::dom;
 NS_IMPL_ISUPPORTS0(FontFaceSetImpl)
 
 FontFaceSetImpl::FontFaceSetImpl(FontFaceSet* aOwner)
-    : mOwner(aOwner),
+    : mMutex("mozilla::dom::FontFaceSetImpl"),
+      mOwner(aOwner),
       mStatus(FontFaceSetLoadStatus::Loaded),
       mNonRuleFacesDirty(false),
       mHasLoadingFontFaces(false),
@@ -77,12 +80,14 @@ FontFaceSetImpl::FontFaceSetImpl(FontFaceSet* aOwner)
 FontFaceSetImpl::~FontFaceSetImpl() {
   // Assert that we don't drop any FontFaceSet objects during a Servo traversal,
   // since PostTraversalTask objects can hold raw pointers to FontFaceSets.
-  MOZ_ASSERT(!ServoStyleSet::IsInServoTraversal());
+  MOZ_ASSERT(!gfxFontUtils::IsInServoTraversal());
 
   Destroy();
 }
 
 void FontFaceSetImpl::Destroy() {
+  RecursiveMutexAutoLock lock(mMutex);
+
   for (const auto& key : mLoaders.Keys()) {
     key->Cancel();
   }
@@ -98,13 +103,12 @@ void FontFaceSetImpl::ParseFontShorthandForMatching(
     const nsACString& aFont, StyleFontFamilyList& aFamilyList,
     FontWeight& aWeight, FontStretch& aStretch, FontSlantStyle& aStyle,
     ErrorResult& aRv) {
-  auto* doc = Document();
-  if (NS_WARN_IF(!doc)) {
-    aRv.ThrowInvalidStateError("Missing document");
+  RefPtr<URLExtraData> url = GetURLExtraData();
+  if (!url) {
+    aRv.ThrowInvalidStateError("Missing URLExtraData");
     return;
   }
 
-  RefPtr<URLExtraData> url = ServoCSSParser::GetURLExtraData(doc);
   if (!ServoCSSParser::ParseFontShorthandForMatching(
           aFont, url, aFamilyList, aStyle, aStretch, aWeight)) {
     aRv.ThrowSyntaxError("Invalid font shorthand");
@@ -130,6 +134,8 @@ void FontFaceSetImpl::FindMatchingFontFaces(const nsACString& aFont,
                                             const nsAString& aText,
                                             nsTArray<FontFace*>& aFontFaces,
                                             ErrorResult& aRv) {
+  RecursiveMutexAutoLock lock(mMutex);
+
   StyleFontFamilyList familyList;
   FontWeight weight;
   FontStretch stretch;
@@ -188,6 +194,7 @@ void FontFaceSetImpl::FindMatchingFontFaces(const nsACString& aFont,
 void FontFaceSetImpl::FindMatchingFontFaces(
     const nsTHashSet<FontFace*>& aMatchingFaces,
     nsTArray<FontFace*>& aFontFaces) {
+  RecursiveMutexAutoLock lock(mMutex);
   for (FontFaceRecord& record : mNonRuleFaces) {
     FontFace* owner = record.mFontFace->GetOwner();
     if (owner && aMatchingFaces.Contains(owner)) {
@@ -197,15 +204,18 @@ void FontFaceSetImpl::FindMatchingFontFaces(
 }
 
 bool FontFaceSetImpl::ReadyPromiseIsPending() const {
+  RecursiveMutexAutoLock lock(mMutex);
   return mOwner && mOwner->ReadyPromiseIsPending();
 }
 
 FontFaceSetLoadStatus FontFaceSetImpl::Status() {
+  RecursiveMutexAutoLock lock(mMutex);
   FlushUserFontSet();
   return mStatus;
 }
 
 bool FontFaceSetImpl::Add(FontFaceImpl* aFontFace, ErrorResult& aRv) {
+  RecursiveMutexAutoLock lock(mMutex);
   FlushUserFontSet();
 
   if (aFontFace->IsInFontFaceSet(this)) {
@@ -239,6 +249,7 @@ bool FontFaceSetImpl::Add(FontFaceImpl* aFontFace, ErrorResult& aRv) {
 }
 
 void FontFaceSetImpl::Clear() {
+  RecursiveMutexAutoLock lock(mMutex);
   FlushUserFontSet();
 
   if (mNonRuleFaces.IsEmpty()) {
@@ -258,6 +269,7 @@ void FontFaceSetImpl::Clear() {
 }
 
 bool FontFaceSetImpl::Delete(FontFaceImpl* aFontFace) {
+  RecursiveMutexAutoLock lock(mMutex);
   FlushUserFontSet();
 
   if (aFontFace->HasRule()) {
@@ -290,6 +302,7 @@ bool FontFaceSetImpl::HasAvailableFontFace(FontFaceImpl* aFontFace) {
 }
 
 void FontFaceSetImpl::RemoveLoader(nsFontFaceLoader* aLoader) {
+  RecursiveMutexAutoLock lock(mMutex);
   mLoaders.RemoveEntry(aLoader);
 }
 
@@ -595,15 +608,6 @@ FontFaceSetImpl::FindOrCreateUserFontEntryFromFontFace(
 nsresult FontFaceSetImpl::LogMessage(gfxUserFontEntry* aUserFontEntry,
                                      uint32_t aSrcIndex, const char* aMessage,
                                      uint32_t aFlags, nsresult aStatus) {
-  MOZ_ASSERT(NS_IsMainThread() ||
-             ServoStyleSet::IsCurrentThreadInServoTraversal());
-
-  nsCOMPtr<nsIConsoleService> console(
-      do_GetService(NS_CONSOLESERVICE_CONTRACTID));
-  if (!console) {
-    return NS_ERROR_NOT_AVAILABLE;
-  }
-
   nsAutoCString familyName;
   nsAutoCString fontURI;
   aUserFontEntry->GetFamilyNameAndURIForLogging(aSrcIndex, familyName, fontURI);
@@ -638,6 +642,17 @@ nsresult FontFaceSetImpl::LogMessage(gfxUserFontEntry* aUserFontEntry,
   message.Append(fontURI);
 
   LOG(("userfonts (%p) %s", this, message.get()));
+
+  if (GetCurrentThreadWorkerPrivate()) {
+    // TODO(aosmond): Log to the console for workers. See bug 1778537.
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsIConsoleService> console(
+      do_GetService(NS_CONSOLESERVICE_CONTRACTID));
+  if (!console) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
 
   // try to give the user an indication of where the rule came from
   RawServoFontFaceRule* rule = FindRuleForUserFontEntry(aUserFontEntry);
@@ -745,8 +760,8 @@ nsresult FontFaceSetImpl::SyncLoadFontData(gfxUserFontEntry* aFontToLoad,
 }
 
 void FontFaceSetImpl::OnFontFaceStatusChanged(FontFaceImpl* aFontFace) {
-  AssertIsMainThreadOrServoFontMetricsLocked();
-
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
+  RecursiveMutexAutoLock lock(mMutex);
   MOZ_ASSERT(HasAvailableFontFace(aFontFace));
 
   mHasLoadingFontFacesIsDirty = true;
@@ -771,9 +786,9 @@ void FontFaceSetImpl::OnFontFaceStatusChanged(FontFaceImpl* aFontFace) {
 }
 
 void FontFaceSetImpl::DispatchCheckLoadingFinishedAfterDelay() {
-  AssertIsMainThreadOrServoFontMetricsLocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
 
-  if (ServoStyleSet* set = ServoStyleSet::Current()) {
+  if (ServoStyleSet* set = gfxFontUtils::CurrentServoStyleSet()) {
     // See comments in Gecko_GetFontMetrics.
     //
     // We can't just dispatch the runnable below if we're not on the main
@@ -786,24 +801,20 @@ void FontFaceSetImpl::DispatchCheckLoadingFinishedAfterDelay() {
     return;
   }
 
-  auto* doc = Document();
-  if (NS_WARN_IF(!doc)) {
-    return;
-  }
-
-  nsCOMPtr<nsIRunnable> checkTask =
-      NewRunnableMethod("dom::FontFaceSetImpl::CheckLoadingFinishedAfterDelay",
-                        this, &FontFaceSetImpl::CheckLoadingFinishedAfterDelay);
-  doc->Dispatch(TaskCategory::Other, checkTask.forget());
+  DispatchToOwningThread(
+      "FontFaceSetImpl::DispatchCheckLoadingFinishedAfterDelay",
+      [self = RefPtr{this}]() { self->CheckLoadingFinishedAfterDelay(); });
 }
 
 void FontFaceSetImpl::CheckLoadingFinishedAfterDelay() {
+  RecursiveMutexAutoLock lock(mMutex);
   mDelayedLoadCheck = false;
   CheckLoadingFinished();
 }
 
 void FontFaceSetImpl::CheckLoadingStarted() {
-  AssertIsMainThreadOrServoFontMetricsLocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
+  RecursiveMutexAutoLock lock(mMutex);
 
   if (!HasLoadingFontFaces()) {
     return;
@@ -816,12 +827,25 @@ void FontFaceSetImpl::CheckLoadingStarted() {
   }
 
   mStatus = FontFaceSetLoadStatus::Loading;
+
+  if (IsOnOwningThread()) {
+    OnLoadingStarted();
+    return;
+  }
+
+  DispatchToOwningThread("FontFaceSetImpl::CheckLoadingStarted",
+                         [self = RefPtr{this}]() { self->OnLoadingStarted(); });
+}
+
+void FontFaceSetImpl::OnLoadingStarted() {
+  RecursiveMutexAutoLock lock(mMutex);
   if (mOwner) {
     mOwner->DispatchLoadingEventAndReplaceReadyPromise();
   }
 }
 
 void FontFaceSetImpl::UpdateHasLoadingFontFaces() {
+  RecursiveMutexAutoLock lock(mMutex);
   mHasLoadingFontFacesIsDirty = false;
   mHasLoadingFontFaces = false;
   for (size_t i = 0; i < mNonRuleFaces.Length(); i++) {
@@ -833,6 +857,7 @@ void FontFaceSetImpl::UpdateHasLoadingFontFaces() {
 }
 
 bool FontFaceSetImpl::HasLoadingFontFaces() {
+  RecursiveMutexAutoLock lock(mMutex);
   if (mHasLoadingFontFacesIsDirty) {
     UpdateHasLoadingFontFaces();
   }
@@ -845,8 +870,7 @@ bool FontFaceSetImpl::MightHavePendingFontLoads() {
 }
 
 void FontFaceSetImpl::CheckLoadingFinished() {
-  MOZ_ASSERT(NS_IsMainThread());
-
+  RecursiveMutexAutoLock lock(mMutex);
   if (mDelayedLoadCheck) {
     // Wait until the runnable posted in OnFontFaceStatusChanged calls us.
     return;
@@ -864,18 +888,26 @@ void FontFaceSetImpl::CheckLoadingFinished() {
   }
 
   mStatus = FontFaceSetLoadStatus::Loaded;
+
+  if (IsOnOwningThread()) {
+    OnLoadingFinished();
+    return;
+  }
+
+  DispatchToOwningThread(
+      "FontFaceSetImpl::CheckLoadingFinished",
+      [self = RefPtr{this}]() { self->OnLoadingFinished(); });
+}
+
+void FontFaceSetImpl::OnLoadingFinished() {
+  RecursiveMutexAutoLock lock(mMutex);
   if (mOwner) {
     mOwner->MaybeResolve();
   }
 }
 
-/* static */
-bool FontFaceSetImpl::PrefEnabled() {
-  return StaticPrefs::layout_css_font_loading_api_enabled();
-}
-
 void FontFaceSetImpl::RefreshStandardFontLoadPrincipal() {
-  mStandardFontLoadPrincipal = CreateStandardFontLoadPrincipal();
+  RecursiveMutexAutoLock lock(mMutex);
   mAllowedFontLoads.Clear();
   IncrementGeneration(false);
 }
@@ -885,9 +917,7 @@ void FontFaceSetImpl::RefreshStandardFontLoadPrincipal() {
 
 already_AddRefed<gfxFontSrcPrincipal>
 FontFaceSetImpl::GetStandardFontLoadPrincipal() const {
-  if (!mStandardFontLoadPrincipal) {
-    mStandardFontLoadPrincipal = CreateStandardFontLoadPrincipal();
-  }
+  RecursiveMutexAutoLock lock(mMutex);
   return RefPtr{mStandardFontLoadPrincipal}.forget();
 }
 

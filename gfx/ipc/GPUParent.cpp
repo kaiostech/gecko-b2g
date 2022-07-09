@@ -38,6 +38,7 @@
 #include "mozilla/TimeStamp.h"
 #include "mozilla/dom/MemoryReportRequest.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/CanvasRenderThread.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/glean/GleanMetrics.h"
 #include "mozilla/image/ImageMemoryReporter.h"
@@ -364,6 +365,9 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
 
   // Make sure to do this *after* we update gfxVars above.
   if (gfxVars::UseWebRender()) {
+    if (gfxVars::UseCanvasRenderThread()) {
+      gfx::CanvasRenderThread::Start();
+    }
     wr::RenderThread::Start(aWrNamespace);
     image::ImageMemoryReporter::InitForWebRender();
   }
@@ -698,6 +702,9 @@ void GPUParent::ActorDestroy(ActorDestroyReason aWhy) {
         // compositor.
         if (wr::RenderThread::Get()) {
           wr::RenderThread::ShutDown();
+        }
+        if (gfx::CanvasRenderThread::Get()) {
+          gfx::CanvasRenderThread::ShutDown();
         }
 #ifdef XP_WIN
         if (widget::WinCompositorWindowThread::Get()) {

@@ -4,18 +4,19 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-XPCOMUtils.defineLazyModuleGetters(globalThis, {
-  SessionStore: "resource:///modules/sessionstore/SessionStore.jsm",
-});
+const lazy = {};
+ChromeUtils.defineModuleGetter(
+  lazy,
+  "SessionStore",
+  "resource:///modules/sessionstore/SessionStore.jsm"
+);
 
 import {
   formatURIForDisplay,
   convertTimestamp,
   createFaviconElement,
+  toggleContainer,
 } from "./helpers.mjs";
 
 const SS_NOTIFY_CLOSED_OBJECTS_CHANGED = "sessionstore-closed-objects-changed";
@@ -73,12 +74,12 @@ class RecentlyClosedTabsList extends HTMLElement {
     const item = event.target.closest(".closed-tab-li");
     const index = [...this.tabsList.children].indexOf(item);
 
-    SessionStore.undoCloseTab(getWindow(), index);
+    lazy.SessionStore.undoCloseTab(getWindow(), index);
     this.tabsList.removeChild(item);
   }
 
   initiateTabsList() {
-    let closedTabs = SessionStore.getClosedTabData(getWindow());
+    let closedTabs = lazy.SessionStore.getClosedTabData(getWindow());
     closedTabs = closedTabs.slice(0, this.maxTabsLength);
     this.closedTabsData = closedTabs;
 
@@ -90,7 +91,7 @@ class RecentlyClosedTabsList extends HTMLElement {
   }
 
   updateTabsList() {
-    let newClosedTabs = SessionStore.getClosedTabData(getWindow());
+    let newClosedTabs = lazy.SessionStore.getClosedTabData(getWindow());
     newClosedTabs = newClosedTabs.slice(0, this.maxTabsLength);
 
     if (this.closedTabsData.length && !newClosedTabs.length) {
@@ -251,7 +252,7 @@ class RecentlyClosedTabsContainer extends HTMLElement {
 
   handleEvent(event) {
     if (event.type == "click" && event.target == this.collapsibleButton) {
-      this.toggleTabs();
+      toggleContainer(this.collapsibleButton, this.collapsibleContainer);
     } else if (event.type == "TabSelect") {
       this.handleObservers(event.target.linkedBrowser.contentDocument);
     }
@@ -264,20 +265,10 @@ class RecentlyClosedTabsContainer extends HTMLElement {
 
   getClosedTabCount = () => {
     try {
-      return SessionStore.getClosedTabCount(getWindow());
+      return lazy.SessionStore.getClosedTabCount(getWindow());
     } catch (ex) {
       return 0;
     }
-  };
-
-  toggleTabs = () => {
-    const arrowUp = "arrow-up";
-    const arrowDown = "arrow-down";
-    const isOpen = this.collapsibleButton.classList.contains(arrowUp);
-
-    this.collapsibleButton.classList.toggle(arrowUp, !isOpen);
-    this.collapsibleButton.classList.toggle(arrowDown, isOpen);
-    this.collapsibleContainer.hidden = isOpen;
   };
 }
 customElements.define(

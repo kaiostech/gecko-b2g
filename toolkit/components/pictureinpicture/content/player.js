@@ -78,6 +78,10 @@ function showSubtitlesButton() {
   Player.showSubtitlesButton();
 }
 
+function hideSubtitlesButton() {
+  Player.hideSubtitlesButton();
+}
+
 /**
  * The Player object handles initializing the player, holds state, and handles
  * events for updating state.
@@ -439,8 +443,15 @@ let Player = {
           settingsPanel.classList.remove("hide");
           this.controls.setAttribute("donthide", true);
         }
-        break;
+        // Early return to prevent hiding the panel below
+        return;
       }
+    }
+    // If the click came from a element that is not inside the subtitles settings panel
+    // then we want to hide the panel
+    let settingsPanel = document.querySelector("#settings");
+    if (!settingsPanel.contains(event.target)) {
+      document.querySelector("#settings").classList.add("hide");
     }
   },
 
@@ -716,6 +727,13 @@ let Player = {
     // onToggleChange where this.captionsToggleEnabled will be updated
     if (!Services.prefs.getBoolPref(CAPTIONS_TOGGLE_ENABLED_PREF, true)) {
       document.querySelector("#subtitles-toggle").click();
+    }
+  },
+
+  hideSubtitlesButton() {
+    let subtitlesContent = document.querySelectorAll(".subtitles");
+    for (let ele of subtitlesContent) {
+      ele.hidden = true;
     }
   },
 

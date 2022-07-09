@@ -7,6 +7,7 @@
 #include "mozilla/dom/FontFace.h"
 
 #include <algorithm>
+#include "gfxFontUtils.h"
 #include "mozilla/dom/CSSFontFaceRule.h"
 #include "mozilla/dom/FontFaceBinding.h"
 #include "mozilla/dom/FontFaceImpl.h"
@@ -20,7 +21,6 @@
 #include "mozilla/ServoStyleSet.h"
 #include "mozilla/ServoUtils.h"
 #include "mozilla/StaticPrefs_layout.h"
-#include "mozilla/dom/Document.h"
 #include "nsStyleUtil.h"
 
 namespace mozilla {
@@ -72,13 +72,13 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(FontFace)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(FontFace)
 
-FontFace::FontFace(nsISupports* aParent)
+FontFace::FontFace(nsIGlobalObject* aParent)
     : mParent(aParent), mLoadedRejection(NS_OK) {}
 
 FontFace::~FontFace() {
   // Assert that we don't drop any FontFace objects during a Servo traversal,
   // since PostTraversalTask objects can hold raw pointers to FontFaces.
-  MOZ_ASSERT(!ServoStyleSet::IsInServoTraversal());
+  MOZ_ASSERT(!gfxFontUtils::IsInServoTraversal());
   Destroy();
 }
 
@@ -90,7 +90,7 @@ JSObject* FontFace::WrapObject(JSContext* aCx,
 }
 
 already_AddRefed<FontFace> FontFace::CreateForRule(
-    nsISupports* aGlobal, FontFaceSet* aFontFaceSet,
+    nsIGlobalObject* aGlobal, FontFaceSet* aFontFaceSet,
     RawServoFontFaceRule* aRule) {
   FontFaceSetImpl* setImpl = aFontFaceSet->GetImpl();
   MOZ_ASSERT(setImpl);
@@ -104,21 +104,19 @@ already_AddRefed<FontFace> FontFace::Constructor(
     const GlobalObject& aGlobal, const nsACString& aFamily,
     const UTF8StringOrArrayBufferOrArrayBufferView& aSource,
     const FontFaceDescriptors& aDescriptors, ErrorResult& aRv) {
-  nsISupports* global = aGlobal.GetAsSupports();
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(global);
-  if (!window) {
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+
+  FontFaceSet* set = global->Fonts();
+  if (!set) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
-  Document* doc = window->GetDoc();
-  if (!doc) {
+  FontFaceSetImpl* setImpl = set->GetImpl();
+  if (!setImpl) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
-
-  FontFaceSetImpl* setImpl = doc->Fonts()->GetImpl();
-  MOZ_ASSERT(setImpl);
 
   RefPtr<FontFace> obj = new FontFace(global);
   obj->mImpl = new FontFaceImpl(obj, setImpl);
@@ -242,8 +240,6 @@ void FontFace::SetSizeAdjust(const nsACString& aValue, ErrorResult& aRv) {
 FontFaceLoadStatus FontFace::Status() { return mImpl->Status(); }
 
 Promise* FontFace::Load(ErrorResult& aRv) {
-  MOZ_ASSERT(NS_IsMainThread());
-
   EnsurePromise();
 
   if (!mLoaded) {
@@ -256,8 +252,6 @@ Promise* FontFace::Load(ErrorResult& aRv) {
 }
 
 Promise* FontFace::GetLoaded(ErrorResult& aRv) {
-  MOZ_ASSERT(NS_IsMainThread());
-
   EnsurePromise();
 
   if (!mLoaded) {
@@ -269,13 +263,13 @@ Promise* FontFace::GetLoaded(ErrorResult& aRv) {
 }
 
 void FontFace::MaybeResolve() {
-  AssertIsMainThreadOrServoFontMetricsLocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
 
   if (!mLoaded) {
     return;
   }
 
-  if (ServoStyleSet* ss = ServoStyleSet::Current()) {
+  if (ServoStyleSet* ss = gfxFontUtils::CurrentServoStyleSet()) {
     // See comments in Gecko_GetFontMetrics.
     ss->AppendTask(PostTraversalTask::ResolveFontFaceLoadedPromise(this));
     return;
@@ -285,9 +279,9 @@ void FontFace::MaybeResolve() {
 }
 
 void FontFace::MaybeReject(nsresult aResult) {
-  AssertIsMainThreadOrServoFontMetricsLocked();
+  gfxFontUtils::AssertSafeThreadOrServoFontMetricsLocked();
 
-  if (ServoStyleSet* ss = ServoStyleSet::Current()) {
+  if (ServoStyleSet* ss = gfxFontUtils::CurrentServoStyleSet()) {
     // See comments in Gecko_GetFontMetrics.
     ss->AppendTask(
         PostTraversalTask::RejectFontFaceLoadedPromise(this, aResult));
@@ -301,38 +295,17 @@ void FontFace::MaybeReject(nsresult aResult) {
   }
 }
 
-already_AddRefed<URLExtraData> FontFace::GetURLExtraData() const {
-  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mParent);
-  nsCOMPtr<nsIPrincipal> principal = global->PrincipalOrNull();
-
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(mParent);
-  nsCOMPtr<nsIURI> docURI = window->GetDocumentURI();
-  nsCOMPtr<nsIURI> base = window->GetDocBaseURI();
-
-  // We pass RP_Unset when creating ReferrerInfo object here because it's not
-  // going to result to change referer policy in a resource request.
-  nsCOMPtr<nsIReferrerInfo> referrerInfo =
-      new ReferrerInfo(docURI, ReferrerPolicy::_empty);
-
-  RefPtr<URLExtraData> url = new URLExtraData(base, referrerInfo, principal);
-  return url.forget();
-}
-
 void FontFace::EnsurePromise() {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (mLoaded || !mImpl) {
+  if (mLoaded || !mImpl || !mParent) {
     return;
   }
-
-  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mParent);
 
   // If the pref is not set, don't create the Promise (which the page wouldn't
   // be able to get to anyway) as it causes the window.FontFace constructor
   // to be created.
-  if (global && FontFaceSet::PrefEnabled()) {
+  if (FontFaceSet::IsEnabled()) {
     ErrorResult rv;
-    mLoaded = Promise::Create(global, rv);
+    mLoaded = Promise::Create(mParent, rv);
 
     if (mImpl->Status() == FontFaceLoadStatus::Loaded) {
       mLoaded->MaybeResolve(this);

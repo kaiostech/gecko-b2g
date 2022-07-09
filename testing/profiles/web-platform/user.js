@@ -75,5 +75,6 @@ user_pref("layout.css.prefers-color-scheme.content-override", 1);
 // Force OffscreenCanvas support
 user_pref("gfx.offscreencanvas.enabled", true);
 user_pref("dom.workers.requestAnimationFrame", true);
+user_pref("layout.css.font-loading-api.workers.enabled", true);
 // system app url for b2g wpt tests
 user_pref("b2g.system_startup_url", "chrome://b2g/content/system/marionette.html");

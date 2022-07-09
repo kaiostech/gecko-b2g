@@ -2384,6 +2384,7 @@
   do_not_use_directly: true
 
 # Control whether `navigator.clipboard.readText()` is exposed to content.
+# Currently not supported by GeckoView, see bug 1776829.
 - name: dom.events.asyncClipboard.readText
   type: bool
   value: false
@@ -2491,7 +2492,7 @@
 # This matches other browsers but historically not Gecko.
 - name: dom.fullscreen.modal
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Whether the Gamepad API is enabled
@@ -5022,17 +5023,6 @@
 
 # If true, crash when a blocklisted preference is accessed in a subprocess
 - name: fission.enforceBlocklistedPrefsInSubprocesses
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# Temporary prefs to be used for a few weeks, then removed
-- name: fission.omitBlocklistedPrefsInSubprocesses.tmp
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: fission.enforceBlocklistedPrefsInSubprocesses.tmp
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -7910,8 +7900,12 @@
 
 # Set the number of device pixels per CSS pixel. A value <= 0 means choose
 # automatically based on user settings for the platform (e.g., "UI scale factor"
-# on Mac). A positive value is used as-is. This effectively controls the size
-# of a CSS "px". This is only used for windows on the screen, not for printing.
+# on Mac). If browser.display.os-zoom-behavior == 1, then a positive value
+# will be multiplied by the text scale factor; otherwise a positive value is
+# used as-is. This controls the size of a CSS "px" at 100% full-zoom.
+# The size of system fonts is also changed in proportion with the change in
+# "px" sizes. Use "ui.textScaleFactor" instead to only change the size of "px".
+# This is only used for windows on the screen, not for printing.
 - name: layout.css.devPixelsPerPx
   type: AtomicFloat
   value: -1.0f
@@ -7932,6 +7926,13 @@
 
 # Whether the `content-visibility` CSS property is enabled
 - name: layout.css.content-visibility.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
+# Whether the `contain-intrinsic-size` CSS property is enabled
+- name: layout.css.contain-intrinsic-size.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -7997,8 +7998,14 @@
 
 # Is support for document.fonts enabled?
 - name: layout.css.font-loading-api.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Is support for workerGlobalScope.fonts enabled?
+- name: layout.css.font-loading-api.workers.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Is support for the @font-face metrics override descriptors enabled?
@@ -10551,12 +10558,12 @@
 
 - name: network.cookie.sameSite.noneRequiresSecure
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: network.cookie.sameSite.schemeful
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: network.cookie.thirdparty.sessionOnly
@@ -13830,6 +13837,11 @@
 - name: webgl.threadsafe-gl.force-disabled
   type: bool
   value: false
+  mirror: once
+
+- name: webgl.use-canvas-render-thread
+  type: bool
+  value: @IS_NOT_ANDROID@
   mirror: once
 
 - name: webgl.override-unmasked-renderer

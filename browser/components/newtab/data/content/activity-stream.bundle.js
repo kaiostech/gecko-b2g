@@ -7750,31 +7750,6 @@ class _DSCard extends (external_React_default()).PureComponent {
       });
     }
 
-    if (this.props.lastCard) {
-      return /*#__PURE__*/external_React_default().createElement("div", {
-        className: "ds-card last-card-message"
-      }, /*#__PURE__*/external_React_default().createElement("div", {
-        className: "img-wrapper"
-      }, /*#__PURE__*/external_React_default().createElement("picture", {
-        className: "ds-image img loaded"
-      }, /*#__PURE__*/external_React_default().createElement("img", {
-        "data-l10n-id": "newtab-pocket-last-card-image",
-        className: "last-card-message-image",
-        src: "chrome://activity-stream/content/data/content/assets/caught-up-illustration.svg",
-        alt: "You\u2019re all caught up"
-      }))), /*#__PURE__*/external_React_default().createElement("div", {
-        className: "meta"
-      }, /*#__PURE__*/external_React_default().createElement("div", {
-        className: "info-wrap"
-      }, /*#__PURE__*/external_React_default().createElement("header", {
-        className: "title clamp",
-        "data-l10n-id": "newtab-pocket-last-card-title"
-      }), /*#__PURE__*/external_React_default().createElement("p", {
-        className: "ds-last-card-desc",
-        "data-l10n-id": "newtab-pocket-last-card-desc"
-      }))));
-    }
-
     const isButtonCTA = this.props.cta_variant === "button";
     const {
       is_video,
@@ -7918,9 +7893,6 @@ const DSCard = (0,external_ReactRedux_namespaceObject.connect)(state => ({
 }))(_DSCard);
 const PlaceholderDSCard = props => /*#__PURE__*/external_React_default().createElement(DSCard, {
   placeholder: true
-});
-const LastCardMessage = props => /*#__PURE__*/external_React_default().createElement(DSCard, {
-  lastCard: true
 });
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/DSEmptyState/DSEmptyState.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -8150,28 +8122,17 @@ const TopicsWidget = (0,external_ReactRedux_namespaceObject.connect)(state => ({
 
 
 
+
 const WIDGET_IDS = {
   TOPICS: 1
 };
-function DSSubHeader(props) {
+function DSSubHeader({
+  children
+}) {
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: "section-top-bar ds-sub-header"
   }, /*#__PURE__*/external_React_default().createElement("h3", {
     className: "section-title-container"
-  }, /*#__PURE__*/external_React_default().createElement("span", {
-    className: "section-title"
-  }, props.children)));
-}
-function GridContainer(props) {
-  const {
-    header,
-    className,
-    children
-  } = props;
-  return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, header && /*#__PURE__*/external_React_default().createElement(DSSubHeader, null, /*#__PURE__*/external_React_default().createElement(FluentOrText, {
-    message: header
-  })), /*#__PURE__*/external_React_default().createElement("div", {
-    className: `ds-card-grid ${className}`
   }, children));
 }
 function CardGrid_IntersectionObserver({
@@ -8211,14 +8172,20 @@ function CardGrid_IntersectionObserver({
   }, children);
 }
 function RecentSavesContainer({
-  className,
+  gridClassName = "",
   dispatch,
   windowObj = window,
-  items = 3
+  items = 3,
+  source = "CARDGRID_RECENT_SAVES"
 }) {
   const {
     recentSavesData,
-    isUserLoggedIn
+    isUserLoggedIn,
+    experimentData: {
+      utmCampaign,
+      utmContent,
+      utmSource
+    }
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.DiscoveryStream);
   const [visible, setVisible] = (0,external_React_namespaceObject.useState)(false);
   const onIntersecting = (0,external_React_namespaceObject.useCallback)(() => setVisible(true), []);
@@ -8248,7 +8215,7 @@ function RecentSavesContainer({
       key: `dscard-${(rec === null || rec === void 0 ? void 0 : rec.id) || index}`,
       id: rec.id,
       pos: index,
-      type: "CARDGRID_RECENT_SAVES",
+      type: source,
       image_src: rec.image_src,
       raw_image_src: rec.raw_image_src,
       word_count: rec.word_count,
@@ -8260,6 +8227,19 @@ function RecentSavesContainer({
       isRecentSave: true,
       dispatch: dispatch
     });
+  }
+
+  function onMyListClicked() {
+    dispatch(actionCreators.UserEvent({
+      event: "CLICK",
+      source: `${source}_VIEW_LIST`
+    }));
+  }
+
+  let queryParams = `?utm_source=${utmSource}`;
+
+  if (utmCampaign && utmContent) {
+    queryParams += `&utm_content=${utmContent}&utm_campaign=${utmCampaign}`;
   }
 
   const recentSavesCards = []; // We fill the cards with a for loop over an inline map because
@@ -8290,45 +8270,24 @@ function RecentSavesContainer({
   } // We are visible and logged in.
 
 
-  return /*#__PURE__*/external_React_default().createElement(GridContainer, {
-    className: className,
-    header: "Recently Saved to your List"
-  }, recentSavesCards);
+  return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement(DSSubHeader, null, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "section-title"
+  }, /*#__PURE__*/external_React_default().createElement(FluentOrText, {
+    message: "Recently Saved to your List"
+  })), /*#__PURE__*/external_React_default().createElement(SafeAnchor, {
+    onLinkClick: onMyListClicked,
+    className: "section-sub-link",
+    url: `https://getpocket.com/a${queryParams}`
+  }, /*#__PURE__*/external_React_default().createElement(FluentOrText, {
+    message: "View My List"
+  }))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: `ds-card-grid-recent-saves ${gridClassName}`
+  }, recentSavesCards));
 }
 class _CardGrid extends (external_React_default()).PureComponent {
-  constructor(props) {
-    super(props);
-    this.state = {
-      moreLoaded: false
-    };
-    this.loadMoreClicked = this.loadMoreClicked.bind(this);
-  }
-
-  loadMoreClicked() {
-    this.props.dispatch(actionCreators.UserEvent({
-      event: "CLICK",
-      source: "DS_LOAD_MORE_BUTTON"
-    }));
-    this.setState({
-      moreLoaded: true
-    });
-  }
-
-  get showLoadMore() {
-    const {
-      loadMore,
-      data,
-      loadMoreThreshold
-    } = this.props;
-    return loadMore && data.recommendations.length > loadMoreThreshold && !this.state.moreLoaded;
-  }
-
   renderCards() {
     var _widgets$positions, _widgets$data, _essentialReadsCards, _editorsPicksCards;
 
-    let {
-      items
-    } = this.props;
     const {
       DiscoveryStream
     } = this.props;
@@ -8338,13 +8297,12 @@ class _CardGrid extends (external_React_default()).PureComponent {
     } = DiscoveryStream;
     const showRecentSaves = prefs.showRecentSaves && recentSavesEnabled;
     const {
+      items,
       hybridLayout,
       hideCardBackground,
       fourCardLayout,
       hideDescriptions,
-      lastCardMessageEnabled,
       saveToPocketCard,
-      loadMoreThreshold,
       compactGrid,
       compactImages,
       imageGradient,
@@ -8356,14 +8314,6 @@ class _CardGrid extends (external_React_default()).PureComponent {
       editorsPicksHeader,
       widgets
     } = this.props;
-    let showLastCardMessage = lastCardMessageEnabled;
-
-    if (this.showLoadMore) {
-      items = loadMoreThreshold; // We don't want to show this until after load more has been clicked.
-
-      showLastCardMessage = false;
-    }
-
     const recs = this.props.data.recommendations.slice(0, items);
     const cards = [];
     let essentialReadsCards = [];
@@ -8410,13 +8360,6 @@ class _CardGrid extends (external_React_default()).PureComponent {
         cta_variant: this.props.cta_variant,
         is_video: this.props.enable_video_playheads && rec.is_video,
         is_collection: this.props.is_collection
-      }));
-    } // Replace last card with "you are all caught up card"
-
-
-    if (showLastCardMessage) {
-      cards.splice(cards.length - 1, 1, /*#__PURE__*/external_React_default().createElement(LastCardMessage, {
-        key: `dscard-last-${cards.length - 1}`
       }));
     }
 
@@ -8478,19 +8421,25 @@ class _CardGrid extends (external_React_default()).PureComponent {
     const hideDescriptionsClassName = !hideDescriptions ? `ds-card-grid-include-descriptions` : ``;
     const compactGridClassName = compactGrid ? `ds-card-grid-compact` : ``;
     const hybridLayoutClassName = hybridLayout ? `ds-card-grid-hybrid-layout` : ``;
-    const className = `ds-card-grid-${this.props.border} ${variantClass} ${hybridLayoutClassName} ${hideCardBackgroundClass} ${fourCardLayoutClass} ${hideDescriptionsClassName} ${compactGridClassName}`;
-    return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, ((_essentialReadsCards = essentialReadsCards) === null || _essentialReadsCards === void 0 ? void 0 : _essentialReadsCards.length) > 0 && /*#__PURE__*/external_React_default().createElement(GridContainer, {
-      className: className
+    const gridClassName = `ds-card-grid ds-card-grid-${this.props.border} ${variantClass} ${hybridLayoutClassName} ${hideCardBackgroundClass} ${fourCardLayoutClass} ${hideDescriptionsClassName} ${compactGridClassName}`;
+    return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, ((_essentialReadsCards = essentialReadsCards) === null || _essentialReadsCards === void 0 ? void 0 : _essentialReadsCards.length) > 0 && /*#__PURE__*/external_React_default().createElement("div", {
+      className: gridClassName
     }, essentialReadsCards), showRecentSaves && /*#__PURE__*/external_React_default().createElement(RecentSavesContainer, {
-      className: className,
+      gridClassName: gridClassName,
       dispatch: this.props.dispatch
-    }), ((_editorsPicksCards = editorsPicksCards) === null || _editorsPicksCards === void 0 ? void 0 : _editorsPicksCards.length) > 0 && /*#__PURE__*/external_React_default().createElement(GridContainer, {
-      className: className,
-      header: "Editor\u2019s Picks"
-    }, editorsPicksCards), (cards === null || cards === void 0 ? void 0 : cards.length) > 0 && /*#__PURE__*/external_React_default().createElement(GridContainer, {
-      className: className,
-      header: moreRecsHeader
-    }, cards));
+    }), ((_editorsPicksCards = editorsPicksCards) === null || _editorsPicksCards === void 0 ? void 0 : _editorsPicksCards.length) > 0 && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement(DSSubHeader, null, /*#__PURE__*/external_React_default().createElement("span", {
+      className: "section-title"
+    }, /*#__PURE__*/external_React_default().createElement(FluentOrText, {
+      message: "Editor\u2019s Picks"
+    }))), /*#__PURE__*/external_React_default().createElement("div", {
+      className: gridClassName
+    }, editorsPicksCards)), (cards === null || cards === void 0 ? void 0 : cards.length) > 0 && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, moreRecsHeader && /*#__PURE__*/external_React_default().createElement(DSSubHeader, null, /*#__PURE__*/external_React_default().createElement("span", {
+      className: "section-title"
+    }, /*#__PURE__*/external_React_default().createElement(FluentOrText, {
+      message: moreRecsHeader
+    }))), /*#__PURE__*/external_React_default().createElement("div", {
+      className: gridClassName
+    }, cards)));
   }
 
   render() {
@@ -8518,11 +8467,7 @@ class _CardGrid extends (external_React_default()).PureComponent {
       status: data.status,
       dispatch: this.props.dispatch,
       feed: this.props.feed
-    })) : this.renderCards(), this.showLoadMore && /*#__PURE__*/external_React_default().createElement("button", {
-      className: "ASRouterButton primary ds-card-grid-load-more-button",
-      onClick: this.loadMoreClicked,
-      "data-l10n-id": "newtab-pocket-load-more-stories-button"
-    }));
+    })) : this.renderCards());
   }
 
 }
@@ -8531,9 +8476,7 @@ _CardGrid.defaultProps = {
   items: 4,
   // Number of stories to display
   enable_video_playheads: false,
-  lastCardMessageEnabled: false,
-  saveToPocketCard: false,
-  loadMoreThreshold: 12
+  saveToPocketCard: false
 };
 const CardGrid = (0,external_ReactRedux_namespaceObject.connect)(state => ({
   Prefs: state.Prefs,
@@ -13909,8 +13852,6 @@ class _DiscoveryStreamBase extends (external_React_default()).PureComponent {
           essentialReadsHeader: component.properties.essentialReadsHeader,
           editorsPicksHeader: component.properties.editorsPicksHeader,
           readTime: component.properties.readTime,
-          loadMore: component.loadMore,
-          lastCardMessageEnabled: component.lastCardMessageEnabled,
           saveToPocketCard: component.saveToPocketCard,
           cta_variant: component.cta_variant,
           pocket_button_enabled: component.pocketButtonEnabled,

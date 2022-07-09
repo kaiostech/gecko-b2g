@@ -117,7 +117,7 @@ class WorkerMessageHandler {
     const WorkerTasks = [];
     const verbosity = (0, _util.getVerbosityLevel)();
     const apiVersion = docParams.apiVersion;
-    const workerVersion = '2.15.177';
+    const workerVersion = '2.15.224';
 
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
@@ -709,7 +709,7 @@ if (typeof window === "undefined" && !_is_node.isNodeJS && typeof self !== "unde
 Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
-exports.VerbosityLevel = exports.Util = exports.UnknownErrorException = exports.UnexpectedResponseException = exports.UNSUPPORTED_FEATURES = exports.TextRenderingMode = exports.StreamType = exports.RenderingIntentFlag = exports.PermissionFlag = exports.PasswordResponses = exports.PasswordException = exports.PageActionEventType = exports.OPS = exports.MissingPDFException = exports.LINE_FACTOR = exports.LINE_DESCENT_FACTOR = exports.InvalidPDFException = exports.ImageKind = exports.IDENTITY_MATRIX = exports.FormatError = exports.FontType = exports.FeatureTest = exports.FONT_IDENTITY_MATRIX = exports.DocumentActionEventType = exports.CMapCompressionType = exports.BaseException = exports.AnnotationType = exports.AnnotationStateModelType = exports.AnnotationReviewState = exports.AnnotationReplyType = exports.AnnotationMode = exports.AnnotationMarkedState = exports.AnnotationFlag = exports.AnnotationFieldFlag = exports.AnnotationEditorType = exports.AnnotationEditorPrefix = exports.AnnotationBorderStyleType = exports.AnnotationActionEventType = exports.AbortException = void 0;
+exports.VerbosityLevel = exports.Util = exports.UnknownErrorException = exports.UnexpectedResponseException = exports.UNSUPPORTED_FEATURES = exports.TextRenderingMode = exports.StreamType = exports.RenderingIntentFlag = exports.PermissionFlag = exports.PasswordResponses = exports.PasswordException = exports.PageActionEventType = exports.OPS = exports.MissingPDFException = exports.LINE_FACTOR = exports.LINE_DESCENT_FACTOR = exports.InvalidPDFException = exports.ImageKind = exports.IDENTITY_MATRIX = exports.FormatError = exports.FontType = exports.FeatureTest = exports.FONT_IDENTITY_MATRIX = exports.DocumentActionEventType = exports.CMapCompressionType = exports.BaseException = exports.AnnotationType = exports.AnnotationStateModelType = exports.AnnotationReviewState = exports.AnnotationReplyType = exports.AnnotationMode = exports.AnnotationMarkedState = exports.AnnotationFlag = exports.AnnotationFieldFlag = exports.AnnotationEditorType = exports.AnnotationEditorPrefix = exports.AnnotationEditorParamsType = exports.AnnotationBorderStyleType = exports.AnnotationActionEventType = exports.AbortException = void 0;
 exports.arrayByteLength = arrayByteLength;
 exports.arraysToBytes = arraysToBytes;
 exports.assert = assert;
@@ -766,11 +766,19 @@ exports.AnnotationMode = AnnotationMode;
 const AnnotationEditorPrefix = "pdfjs_internal_editor_";
 exports.AnnotationEditorPrefix = AnnotationEditorPrefix;
 const AnnotationEditorType = {
+  DISABLE: -1,
   NONE: 0,
   FREETEXT: 3,
   INK: 15
 };
 exports.AnnotationEditorType = AnnotationEditorType;
+const AnnotationEditorParamsType = {
+  FREETEXT_SIZE: 0,
+  FREETEXT_COLOR: 1,
+  INK_COLOR: 2,
+  INK_THICKNESS: 3
+};
+exports.AnnotationEditorParamsType = AnnotationEditorParamsType;
 const PermissionFlag = {
   PRINT: 0x04,
   MODIFY_CONTENTS: 0x08,
@@ -7561,6 +7569,22 @@ class WidgetAnnotation extends Annotation {
     return !!(this.data.fieldFlags & flag);
   }
 
+  static _getRotationMatrix(rotation, width, height) {
+    switch (rotation) {
+      case 90:
+        return [0, 1, -1, 0, width, 0];
+
+      case 180:
+        return [-1, 0, 0, -1, width, height];
+
+      case 270:
+        return [0, -1, 1, 0, 0, height];
+
+      default:
+        throw new Error("Invalid rotation");
+    }
+  }
+
   getRotationMatrix(annotationStorage) {
     const storageEntry = annotationStorage ? annotationStorage.get(this.data.id) : undefined;
     let rotation = storageEntry && storageEntry.rotation;
@@ -7575,20 +7599,7 @@ class WidgetAnnotation extends Annotation {
 
     const width = this.data.rect[2] - this.data.rect[0];
     const height = this.data.rect[3] - this.data.rect[1];
-
-    switch (rotation) {
-      case 90:
-        return [0, 1, -1, 0, width, 0];
-
-      case 180:
-        return [-1, 0, 0, -1, width, height];
-
-      case 270:
-        return [0, -1, 1, 0, 0, height];
-
-      default:
-        throw new Error("Invalid rotation");
-    }
+    return WidgetAnnotation._getRotationMatrix(rotation, width, height);
   }
 
   getBorderAndBackgroundAppearances(annotationStorage) {
@@ -8975,6 +8986,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
       color,
       fontSize,
       rect,
+      rotation,
       user,
       value
     } = annotation;
@@ -8988,7 +9000,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
     freetext.set("Contents", value);
     freetext.set("F", 4);
     freetext.set("Border", [0, 0, 0]);
-    freetext.set("Rotate", 0);
+    freetext.set("Rotate", rotation);
 
     if (user) {
       freetext.set("T", (0, _util.stringToUTF8String)(user));
@@ -9016,6 +9028,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
       color,
       fontSize,
       rect,
+      rotation,
       value
     } = annotation;
     const resources = new _primitives.Dict(xref);
@@ -9038,8 +9051,13 @@ class FreeTextAnnotation extends MarkupAnnotation {
       fontSize
     }, resources);
     const [x1, y1, x2, y2] = rect;
-    const w = x2 - x1;
-    const h = y2 - y1;
+    let w = x2 - x1;
+    let h = y2 - y1;
+
+    if (rotation % 180 !== 0) {
+      [w, h] = [h, w];
+    }
+
     const lines = value.split("\n");
     const scale = fontSize / 1000;
     let totalWidth = -Infinity;
@@ -9091,6 +9109,13 @@ class FreeTextAnnotation extends MarkupAnnotation {
     appearanceStreamDict.set("BBox", [0, 0, w, h]);
     appearanceStreamDict.set("Length", appearance.length);
     appearanceStreamDict.set("Resources", resources);
+
+    if (rotation) {
+      const matrix = WidgetAnnotation._getRotationMatrix(rotation, w, h);
+
+      appearanceStreamDict.set("Matrix", matrix);
+    }
+
     const ap = new _stream.StringStream(appearance);
     ap.dict = appearanceStreamDict;
     return ap;
@@ -9403,15 +9428,20 @@ class InkAnnotation extends MarkupAnnotation {
     apRef,
     ap
   }) {
+    const {
+      paths,
+      rect,
+      rotation
+    } = annotation;
     const ink = new _primitives.Dict(xref);
     ink.set("Type", _primitives.Name.get("Annot"));
     ink.set("Subtype", _primitives.Name.get("Ink"));
     ink.set("CreationDate", `D:${(0, _util.getModificationDate)()}`);
-    ink.set("Rect", annotation.rect);
-    ink.set("InkList", annotation.paths.map(p => p.points));
+    ink.set("Rect", rect);
+    ink.set("InkList", paths.map(p => p.points));
     ink.set("F", 4);
     ink.set("Border", [0, 0, 0]);
-    ink.set("Rotate", 0);
+    ink.set("Rotate", rotation);
     const n = new _primitives.Dict(xref);
     ink.set("AP", n);
 
@@ -9425,15 +9455,27 @@ class InkAnnotation extends MarkupAnnotation {
   }
 
   static async createNewAppearanceStream(annotation, xref, params) {
-    const [x1, y1, x2, y2] = annotation.rect;
-    const w = x2 - x1;
-    const h = y2 - y1;
-    const appearanceBuffer = [`${annotation.thickness} w`, `${(0, _default_appearance.getPdfColor)(annotation.color, false)}`];
+    const {
+      color,
+      rect,
+      rotation,
+      paths,
+      thickness
+    } = annotation;
+    const [x1, y1, x2, y2] = rect;
+    let w = x2 - x1;
+    let h = y2 - y1;
+
+    if (rotation % 180 !== 0) {
+      [w, h] = [h, w];
+    }
+
+    const appearanceBuffer = [`${thickness} w 1 J 1 j`, `${(0, _default_appearance.getPdfColor)(color, false)}`];
     const buffer = [];
 
     for (const {
       bezier
-    } of annotation.paths) {
+    } of paths) {
       buffer.length = 0;
       buffer.push(`${(0, _core_utils.numberToString)(bezier[0])} ${(0, _core_utils.numberToString)(bezier[1])} m`);
 
@@ -9453,6 +9495,13 @@ class InkAnnotation extends MarkupAnnotation {
     appearanceStreamDict.set("Type", _primitives.Name.get("XObject"));
     appearanceStreamDict.set("BBox", [0, 0, w, h]);
     appearanceStreamDict.set("Length", appearance.length);
+
+    if (rotation) {
+      const matrix = WidgetAnnotation._getRotationMatrix(rotation, w, h);
+
+      appearanceStreamDict.set("Matrix", matrix);
+    }
+
     const ap = new _stream.StringStream(appearance);
     ap.dict = appearanceStreamDict;
     return ap;
@@ -13615,6 +13664,8 @@ class PartialEvaluator {
             return;
 
           case _util.OPS.beginMarkedContent:
+            flushTextContentItem();
+
             if (includeMarkedContent) {
               textContent.items.push({
                 type: "beginMarkedContent",
@@ -13625,8 +13676,9 @@ class PartialEvaluator {
             break;
 
           case _util.OPS.beginMarkedContentProps:
+            flushTextContentItem();
+
             if (includeMarkedContent) {
-              flushTextContentItem();
               let mcid = null;
 
               if (args[1] instanceof _primitives.Dict) {
@@ -13643,8 +13695,9 @@ class PartialEvaluator {
             break;
 
           case _util.OPS.endMarkedContent:
+            flushTextContentItem();
+
             if (includeMarkedContent) {
-              flushTextContentItem();
               textContent.items.push({
                 type: "endMarkedContent"
               });
@@ -14646,7 +14699,12 @@ class TranslatedFont {
     const charProcs = this.dict.get("CharProcs");
     const fontResources = this.dict.get("Resources") || resources;
     const charProcOperatorList = Object.create(null);
-    const isEmptyBBox = !translatedFont.bbox || (0, _util.isArrayEqual)(translatedFont.bbox, [0, 0, 0, 0]);
+
+    const fontBBox = _util.Util.normalizeRect(translatedFont.bbox || [0, 0, 0, 0]),
+          width = fontBBox[2] - fontBBox[0],
+          height = fontBBox[3] - fontBBox[1];
+
+    const fontBBoxSize = Math.hypot(width, height);
 
     for (const key of charProcs.getKeys()) {
       loadCharProcsPromise = loadCharProcsPromise.then(() => {
@@ -14659,7 +14717,7 @@ class TranslatedFont {
           operatorList
         }).then(() => {
           if (operatorList.fnArray[0] === _util.OPS.setCharWidthAndBounds) {
-            this._removeType3ColorOperators(operatorList, isEmptyBBox);
+            this._removeType3ColorOperators(operatorList, fontBBoxSize);
           }
 
           charProcOperatorList[key] = operatorList.getIR();
@@ -14686,15 +14744,17 @@ class TranslatedFont {
     return this.type3Loaded;
   }
 
-  _removeType3ColorOperators(operatorList, isEmptyBBox = false) {
+  _removeType3ColorOperators(operatorList, fontBBoxSize = NaN) {
     const charBBox = _util.Util.normalizeRect(operatorList.argsArray[0].slice(2)),
           width = charBBox[2] - charBBox[0],
           height = charBBox[3] - charBBox[1];
 
+    const charBBoxSize = Math.hypot(width, height);
+
     if (width === 0 || height === 0) {
       operatorList.fnArray.splice(0, 1);
       operatorList.argsArray.splice(0, 1);
-    } else if (isEmptyBBox) {
+    } else if (fontBBoxSize === 0 || Math.round(charBBoxSize / fontBBoxSize) >= 10) {
       if (!this._bbox) {
         this._bbox = [Infinity, Infinity, -Infinity, -Infinity];
       }
@@ -63175,8 +63235,8 @@ Object.defineProperty(exports, "WorkerMessageHandler", ({
 
 var _worker = __w_pdfjs_require__(1);
 
-const pdfjsVersion = '2.15.177';
-const pdfjsBuild = 'cd35b9bfa';
+const pdfjsVersion = '2.15.224';
+const pdfjsBuild = 'bde46632d';
 })();
 
 /******/ 	return __webpack_exports__;

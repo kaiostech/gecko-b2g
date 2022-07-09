@@ -42,6 +42,8 @@ FontFaceSetDocumentImpl::FontFaceSetDocumentImpl(FontFaceSet* aOwner,
 FontFaceSetDocumentImpl::~FontFaceSetDocumentImpl() = default;
 
 void FontFaceSetDocumentImpl::Initialize() {
+  RecursiveMutexAutoLock lock(mMutex);
+
   MOZ_ASSERT(mDocument, "We should get a valid document from the caller!");
 
   // Record the state of the "bypass cache" flags from the docshell now,
@@ -80,7 +82,8 @@ void FontFaceSetDocumentImpl::Initialize() {
 
   mDocument->CSSLoader()->AddObserver(this);
 
-  mStandardFontLoadPrincipal = CreateStandardFontLoadPrincipal();
+  mStandardFontLoadPrincipal = MakeRefPtr<gfxFontSrcPrincipal>(
+      mDocument->NodePrincipal(), mDocument->PartitionedPrincipal());
 }
 
 void FontFaceSetDocumentImpl::Destroy() {
@@ -102,6 +105,30 @@ void FontFaceSetDocumentImpl::Destroy() {
   mDocument = nullptr;
 }
 
+bool FontFaceSetDocumentImpl::IsOnOwningThread() { return NS_IsMainThread(); }
+
+void FontFaceSetDocumentImpl::DispatchToOwningThread(
+    const char* aName, std::function<void()>&& aFunc) {
+  class FontFaceSetDocumentRunnable final : public Runnable {
+   public:
+    FontFaceSetDocumentRunnable(const char* aName,
+                                std::function<void()>&& aFunc)
+        : Runnable(aName), mFunc(std::move(aFunc)) {}
+
+    NS_IMETHOD Run() final {
+      mFunc();
+      return NS_OK;
+    }
+
+   private:
+    std::function<void()> mFunc;
+  };
+
+  RefPtr<FontFaceSetDocumentRunnable> runnable =
+      new FontFaceSetDocumentRunnable(aName, std::move(aFunc));
+  NS_DispatchToMainThread(runnable.forget());
+}
+
 uint64_t FontFaceSetDocumentImpl::GetInnerWindowID() {
   MOZ_ASSERT(NS_IsMainThread());
   if (!mDocument) {
@@ -120,11 +147,19 @@ nsPresContext* FontFaceSetDocumentImpl::GetPresContext() const {
   return mDocument->GetPresContext();
 }
 
-already_AddRefed<gfxFontSrcPrincipal>
-FontFaceSetDocumentImpl::CreateStandardFontLoadPrincipal() const {
+void FontFaceSetDocumentImpl::RefreshStandardFontLoadPrincipal() {
   MOZ_ASSERT(NS_IsMainThread());
-  return MakeAndAddRef<gfxFontSrcPrincipal>(mDocument->NodePrincipal(),
-                                            mDocument->PartitionedPrincipal());
+  RecursiveMutexAutoLock lock(mMutex);
+  mStandardFontLoadPrincipal = MakeRefPtr<gfxFontSrcPrincipal>(
+      mDocument->NodePrincipal(), mDocument->PartitionedPrincipal());
+  FontFaceSetImpl::RefreshStandardFontLoadPrincipal();
+}
+
+already_AddRefed<URLExtraData> FontFaceSetDocumentImpl::GetURLExtraData() {
+  if (!mDocument) {
+    return nullptr;
+  }
+  return do_AddRef(mDocument->DefaultStyleAttrURLData());
 }
 
 void FontFaceSetDocumentImpl::RemoveDOMContentLoadedListener() {
@@ -258,7 +293,10 @@ nsresult FontFaceSetDocumentImpl::StartLoad(gfxUserFontEntry* aUserFontEntry,
     }
   }
 
-  mLoaders.PutEntry(fontLoader);
+  {
+    RecursiveMutexAutoLock lock(mMutex);
+    mLoaders.PutEntry(fontLoader);
+  }
 
   net::PredictorLearn(src.mURI->get(), mDocument->GetDocumentURI(),
                       nsINetworkPredictor::LEARN_LOAD_SUBRESOURCE, loadGroup);
@@ -276,6 +314,7 @@ bool FontFaceSetDocumentImpl::IsFontLoadAllowed(const gfxFontFaceSrc& aSrc) {
   MOZ_ASSERT(aSrc.mSourceType == gfxFontFaceSrc::eSourceType_URL);
 
   if (ServoStyleSet::IsInServoTraversal()) {
+    RecursiveMutexAutoLock lock(mMutex);
     auto entry = mAllowedFontLoads.Lookup(&aSrc);
     MOZ_DIAGNOSTIC_ASSERT(entry, "Missed an update?");
     return entry ? *entry : false;
@@ -331,6 +370,8 @@ nsresult FontFaceSetDocumentImpl::CreateChannelForSyncLoadFontData(
 
 bool FontFaceSetDocumentImpl::UpdateRules(
     const nsTArray<nsFontFaceRuleContainer>& aRules) {
+  RecursiveMutexAutoLock lock(mMutex);
+
   // If there was a change to the mNonRuleFaces array, then there could
   // have been a modification to the user font set.
   bool modified = mNonRuleFacesDirty;
@@ -456,6 +497,8 @@ bool FontFaceSetDocumentImpl::UpdateRules(
 void FontFaceSetDocumentImpl::InsertRuleFontFace(
     FontFaceImpl* aFontFace, FontFace* aFontFaceOwner, StyleOrigin aSheetType,
     nsTArray<FontFaceRecord>& aOldRecords, bool& aFontSetModified) {
+  RecursiveMutexAutoLock lock(mMutex);
+
   nsAtom* fontFamily = aFontFace->GetFamilyName();
   if (!fontFamily) {
     // If there is no family name, this rule cannot contribute a
@@ -580,6 +623,8 @@ RawServoFontFaceRule* FontFaceSetDocumentImpl::FindRuleForUserFontEntry(
 }
 
 void FontFaceSetDocumentImpl::CacheFontLoadability() {
+  RecursiveMutexAutoLock lock(mMutex);
+
   // TODO(emilio): We could do it a bit more incrementally maybe?
   for (const auto& fontFamily : mFontFamilies.Values()) {
     fontFamily->ReadLock();
@@ -605,6 +650,7 @@ void FontFaceSetDocumentImpl::CacheFontLoadability() {
 void FontFaceSetDocumentImpl::DidRefresh() { CheckLoadingFinished(); }
 
 void FontFaceSetDocumentImpl::UpdateHasLoadingFontFaces() {
+  RecursiveMutexAutoLock lock(mMutex);
   FontFaceSetImpl::UpdateHasLoadingFontFaces();
 
   if (mHasLoadingFontFaces) {

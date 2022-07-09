@@ -206,7 +206,11 @@ RasterImage::GetHeight(int32_t* aHeight) {
 }
 
 //******************************************************************************
-nsresult RasterImage::GetNativeSizes(nsTArray<IntSize>& aNativeSizes) const {
+void RasterImage::MediaFeatureValuesChangedAllDocuments(
+    const mozilla::MediaFeatureChange& aChange) {}
+
+//******************************************************************************
+nsresult RasterImage::GetNativeSizes(nsTArray<IntSize>& aNativeSizes) {
   if (mError) {
     return NS_ERROR_FAILURE;
   }
@@ -225,7 +229,7 @@ nsresult RasterImage::GetNativeSizes(nsTArray<IntSize>& aNativeSizes) const {
 }
 
 //******************************************************************************
-size_t RasterImage::GetNativeSizesLength() const {
+size_t RasterImage::GetNativeSizesLength() {
   if (mError || !LoadHasSize()) {
     return 0;
   }

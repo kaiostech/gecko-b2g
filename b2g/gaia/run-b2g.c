@@ -20,7 +20,8 @@
 
 #define API_DAEMON "api-daemon/api-daemon"
 #define API_DAEMON_CONFIG "api-daemon/config.toml"
-#define DEVICE_CAPABILITY_CONFIG "DEVICE_CAPABILITY_CONFIG=./api-daemon/devicecapability.json"
+#define DEVICE_CAPABILITY_CONFIG \
+  "DEVICE_CAPABILITY_CONFIG=./api-daemon/devicecapability.json"
 #define DEFAULT_SETTINGS "gaia/profile/settings.json"
 
 void error(char* msg) { fprintf(stderr, "ERROR: %s\n", msg); }
@@ -73,12 +74,12 @@ int main(int argc, char* argv[], char* envp[]) {
   sprintf(apidaemon_envp[0], "%s", DEVICE_CAPABILITY_CONFIG);
 
   apidaemon_envp[1] = (char*)malloc(strlen(DEFAULT_SETTINGS) + strlen(cwd) + 1);
-  sprintf(apidaemon_envp[1], "DEFAULT_SETTINGS=%s/%s",cwd, DEFAULT_SETTINGS);
+  sprintf(apidaemon_envp[1], "DEFAULT_SETTINGS=%s/%s", cwd, DEFAULT_SETTINGS);
   apidaemon_envp[2] = NULL;
 
   if ((pid = fork()) == 0) {
-    // When b2g process is terminated, PR_SET_PDEATHSIG will be sent to kill the api-daemon
-    // process at the same time.
+    // When b2g process is terminated, PR_SET_PDEATHSIG will be sent to kill the
+    // api-daemon process at the same time.
     prctl(PR_SET_PDEATHSIG, SIGKILL);
     // api-daemon loads vhost.root_path and apps_service.root_path from
     // config.toml by relative path, so the current working directory must be
@@ -86,14 +87,16 @@ int main(int argc, char* argv[], char* envp[]) {
     if (chdir(cwd)) {
       printf("chdir to %s for api-daemon error.\n", cwd);
     }
-    execle(apidaemon_path, apidaemon_path, full_config_path, NULL, apidaemon_envp);
+    execle(apidaemon_path, apidaemon_path, full_config_path, NULL,
+           apidaemon_envp);
   } else if (pid < 0) {
     printf("fork api-daemon error\n");
   } else {
     // XXX: yes, the printf above says --profile and this execle uses -profile.
     // Bug 1088430 will change the execle to use --profile.
 #ifndef ENABLE_TOUCH_SUPPORT
-    execle(full_path, full_path, "-profile", full_profile_path, "-type", "bartype", NULL, envp);
+    execle(full_path, full_path, "-profile", full_profile_path, "-type",
+           "bartype", NULL, envp);
 #else
     execle(full_path, full_path, "-profile", full_profile_path, NULL, envp);
 #endif

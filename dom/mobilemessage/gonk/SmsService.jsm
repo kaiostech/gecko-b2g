@@ -12,7 +12,9 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var WAP_CONSTS = ChromeUtils.import("resource://gre/modules/wap_consts.js");
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
   let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
@@ -54,7 +56,7 @@ const DOM_MOBILE_MESSAGE_DELIVERY_ERROR = "error";
 const SMS_HANDLED_WAKELOCK_TIMEOUT = 5000;
 const SMS_SUPL_INIT_PORT = 7275;
 
-XPCOMUtils.defineLazyGetter(this, "gRadioInterfaces", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaces", function() {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -67,23 +69,23 @@ XPCOMUtils.defineLazyGetter(this, "gRadioInterfaces", function() {
   return interfaces;
 });
 
-XPCOMUtils.defineLazyGetter(this, "gSmsSegmentHelper", function() {
-  let ns = {};
-  ChromeUtils.import("resource://gre/modules/SmsSegmentHelper.jsm", ns);
+XPCOMUtils.defineLazyGetter(lazy, "gSmsSegmentHelper", function() {
+  let { SmsSegmentHelper } = ChromeUtils.import(
+    "resource://gre/modules/SmsSegmentHelper.jsm"
+  );
 
   // Initialize enabledGsmTableTuples from current MCC.
-  ns.SmsSegmentHelper.enabledGsmTableTuples = getEnabledGsmTableTuplesFromMcc();
+  SmsSegmentHelper.enabledGsmTableTuples = getEnabledGsmTableTuplesFromMcc();
 
-  return ns.SmsSegmentHelper;
+  return SmsSegmentHelper;
 });
 
-XPCOMUtils.defineLazyGetter(this, "gWAP", function() {
-  let ns = {};
-  ChromeUtils.import("resource://gre/modules/WapPushManager.jsm", ns);
+XPCOMUtils.defineLazyGetter(lazy, "gWAP", function() {
+  let ns = ChromeUtils.import("resource://gre/modules/WapPushManager.jsm");
   return ns;
 });
 
-XPCOMUtils.defineLazyGetter(this, "gSmsSendingSchedulers", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gSmsSendingSchedulers", function() {
   return {
     _schedulers: [],
     getSchedulerByServiceId(aServiceId) {
@@ -99,76 +101,77 @@ XPCOMUtils.defineLazyGetter(this, "gSmsSendingSchedulers", function() {
   };
 });
 
-XPCOMUtils.defineLazyGetter(this, "SIM", function() {
+XPCOMUtils.defineLazyGetter(lazy, "SIM", function() {
   return ChromeUtils.import("resource://gre/modules/simIOHelper.js");
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gCellBroadcastService",
   "@mozilla.org/cellbroadcast/cellbroadcastservice;1",
   "nsIGonkCellBroadcastService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileMessageDatabaseService",
   "@mozilla.org/mobilemessage/gonkmobilemessagedatabaseservice;1",
   "nsIGonkMobileMessageDatabaseService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileMessageService",
   "@mozilla.org/mobilemessage/mobilemessageservice;1",
   "nsIMobileMessageService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gPowerManagerService",
   "@mozilla.org/power/powermanagerservice;1",
   "nsIPowerManagerService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSmsMessenger",
   "@mozilla.org/ril/system-messenger-helper;1",
   "nsISmsMessenger"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gImsRegService",
   "@mozilla.org/mobileconnection/imsregservice;1",
   "nsIImsRegService"
 );
 
 XPCOMUtils.defineLazyModuleGetter(
-  this,
+  lazy,
   "gPhoneNumberUtils",
   "resource://gre/modules/PhoneNumberUtils.jsm",
   "PhoneNumberUtils"
 );
 
-XPCOMUtils.defineLazyGetter(this, "gSettingsObserver", function() {
-  let obj = {};
-  ChromeUtils.import("resource://gre/modules/RILSettingsObserver.jsm", obj);
+XPCOMUtils.defineLazyGetter(lazy, "gSettingsObserver", function() {
+  let obj = ChromeUtils.import(
+    "resource://gre/modules/RILSettingsObserver.jsm"
+  );
   return obj;
 });
 
@@ -194,7 +197,7 @@ function SmsService() {
 
   this._receivedSmsSegmentsMap = {};
 
-  this.settingsObserver = new gSettingsObserver.RILSettingsObserver();
+  this.settingsObserver = new lazy.gSettingsObserver.RILSettingsObserver();
   this.settingsObserver.handleSettingChanged = this.handleSettingChanged;
   this.settingsObserver
     .getSettingWithDefault(kSettingsDefaukltServiceId, true)
@@ -255,12 +258,12 @@ SmsService.prototype = {
   },
 
   _getIccInfo(aServiceId) {
-    let icc = gIccService.getIccByServiceId(aServiceId);
+    let icc = lazy.gIccService.getIccByServiceId(aServiceId);
     return icc ? icc.iccInfo : null;
   },
 
   _getCardState(aServiceId) {
-    let icc = gIccService.getIccByServiceId(aServiceId);
+    let icc = lazy.gIccService.getIccByServiceId(aServiceId);
     return icc ? icc.cardState : Ci.nsIIcc.CARD_STATE_UNKNOWN;
   },
 
@@ -284,7 +287,7 @@ SmsService.prototype = {
       if (DEBUG) {
         debug("Acquiring a CPU wake lock for handling SMS.");
       }
-      this._smsHandledWakeLock = gPowerManagerService.newWakeLock("cpu");
+      this._smsHandledWakeLock = lazy.gPowerManagerService.newWakeLock("cpu");
     }
     if (!this._smsHandledWakeLockTimer) {
       if (DEBUG) {
@@ -318,11 +321,11 @@ SmsService.prototype = {
   },
 
   _convertSmsMessageClassToString(aMessageClass) {
-    return RIL.GECKO_SMS_MESSAGE_CLASSES[aMessageClass] || null;
+    return lazy.RIL.GECKO_SMS_MESSAGE_CLASSES[aMessageClass] || null;
   },
 
   _convertSmsMessageClass(aMessageClass) {
-    let index = RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(aMessageClass);
+    let index = lazy.RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(aMessageClass);
 
     if (index < 0) {
       throw new Error("Invalid MessageClass: " + aMessageClass);
@@ -348,10 +351,10 @@ SmsService.prototype = {
 
   _convertSmsDeliveryStatus(aDeliveryStatus) {
     let index = [
-      RIL.GECKO_SMS_DELIVERY_STATUS_NOT_APPLICABLE,
-      RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS,
-      RIL.GECKO_SMS_DELIVERY_STATUS_PENDING,
-      RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
+      lazy.RIL.GECKO_SMS_DELIVERY_STATUS_NOT_APPLICABLE,
+      lazy.RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS,
+      lazy.RIL.GECKO_SMS_DELIVERY_STATUS_PENDING,
+      lazy.RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
     ].indexOf(aDeliveryStatus);
 
     if (index < 0) {
@@ -368,12 +371,12 @@ SmsService.prototype = {
       // with the notification.
       aRequest.notifySendMessageFailed(
         aErrorCode,
-        gMobileMessageService.createSmsMessage(
+        lazy.gMobileMessageService.createSmsMessage(
           aSendingMessage.id,
           aSendingMessage.threadId,
           aSendingMessage.iccId,
           DOM_MOBILE_MESSAGE_DELIVERY_ERROR,
-          RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
+          lazy.RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
           aSendingMessage.sender,
           aSendingMessage.receiver,
           aSendingMessage.body,
@@ -391,11 +394,11 @@ SmsService.prototype = {
       return;
     }
 
-    gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
+    lazy.gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
       aSendingMessage.id,
       null,
       DOM_MOBILE_MESSAGE_DELIVERY_ERROR,
-      RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
+      lazy.RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
       null,
       (aRv, aDomMessage) => {
         let smsMessage = null;
@@ -417,7 +420,7 @@ SmsService.prototype = {
    * Schedule the sending request.
    */
   _scheduleSending(aServiceId, aDomMessage, aSilent, aOptions, aRequest) {
-    gSmsSendingSchedulers.getSchedulerByServiceId(aServiceId).schedule({
+    lazy.gSmsSendingSchedulers.getSchedulerByServiceId(aServiceId).schedule({
       messageId: aDomMessage.id,
       onSend: () => {
         if (DEBUG) {
@@ -462,13 +465,15 @@ SmsService.prototype = {
       // Failed to send SMS out.
       if (aResponse.errorMsg) {
         let error = Ci.nsIMobileMessageCallback.UNKNOWN_ERROR;
-        if (aResponse.errorMsg === RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE) {
+        if (aResponse.errorMsg === lazy.RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE) {
           error = Ci.nsIMobileMessageCallback.NO_SIGNAL_ERROR;
-        } else if (aResponse.errorMsg === RIL.GECKO_ERROR_FDN_CHECK_FAILURE) {
+        } else if (
+          aResponse.errorMsg === lazy.RIL.GECKO_ERROR_FDN_CHECK_FAILURE
+        ) {
           error = Ci.nsIMobileMessageCallback.FDN_CHECK_ERROR;
         } else if (
-          aResponse.errorMsg === RIL.GECKO_ERROR_SMS_SEND_FAIL_RETRY &&
-          aOptions.retryCount < RIL.SMS_RETRY_MAX
+          aResponse.errorMsg === lazy.RIL.GECKO_ERROR_SMS_SEND_FAIL_RETRY &&
+          aOptions.retryCount < lazy.RIL.SMS_RETRY_MAX
         ) {
           aOptions.retryCount++;
           this._scheduleSending(
@@ -511,7 +516,7 @@ SmsService.prototype = {
           return false;
         } else if (
           aResponse.status === Ci.nsIImsMMTelFeature.SEND_STATUS_ERROR_RETRY &&
-          aOptions.retryCount < RIL.SMS_RETRY_MAX
+          aOptions.retryCount < lazy.RIL.SMS_RETRY_MAX
         ) {
           aOptions.retryCount++;
           this._scheduleSending(
@@ -546,7 +551,7 @@ SmsService.prototype = {
           // are read only so we just create a new sms instance to send along
           // with the notification.
           aRequest.notifyMessageSent(
-            gMobileMessageService.createSmsMessage(
+            lazy.gMobileMessageService.createSmsMessage(
               sentMessage.id,
               sentMessage.threadId,
               sentMessage.iccId,
@@ -566,7 +571,7 @@ SmsService.prototype = {
           return false;
         }
 
-        gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
+        lazy.gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
           sentMessage.id,
           null,
           DOM_MOBILE_MESSAGE_DELIVERY_SENT,
@@ -599,7 +604,7 @@ SmsService.prototype = {
 
       // Got valid deliveryStatus for the delivery to the remote party when
       // the status report is requested.
-      gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
+      lazy.gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
         sentMessage.id,
         null,
         sentMessage.delivery,
@@ -613,7 +618,8 @@ SmsService.prototype = {
           // TODO bug 832140 handle !Components.isSuccessCode(aRv)
 
           let [topic, notificationType] =
-            aResponse.deliveryStatus == RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
+            aResponse.deliveryStatus ==
+            lazy.RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
               ? [
                   kSmsDeliverySuccessObserverTopic,
                   Ci.nsISmsMessenger.NOTIFICATION_TYPE_DELIVERY_SUCCESS,
@@ -641,7 +647,7 @@ SmsService.prototype = {
       return;
     }
 
-    gRadioInterfaces[aServiceId].sendWorkerMessage(
+    lazy.gRadioInterfaces[aServiceId].sendWorkerMessage(
       "sendSMS",
       aOptions,
       sendSMSCallback
@@ -666,7 +672,7 @@ SmsService.prototype = {
     // because the system message mechamism will rewrap the object
     // based on the content window, which needs to know the properties.
     try {
-      gSmsMessenger.notifySms(
+      lazy.gSmsMessenger.notifySms(
         aNotificationType,
         aDomMessage.id,
         aDomMessage.threadId,
@@ -791,7 +797,7 @@ SmsService.prototype = {
     // we have to retrieve the port information from 1st segment and
     // save it into the cached options.
     if (
-      aSegment.teleservice === RIL.PDU_CDMA_MSG_TELESERVICE_ID_WAP &&
+      aSegment.teleservice === lazy.RIL.PDU_CDMA_MSG_TELESERVICE_ID_WAP &&
       seq === 1
     ) {
       if (
@@ -906,7 +912,7 @@ SmsService.prototype = {
       destinationPort: aMessage.destinationPort,
       serviceId: aServiceId,
     };
-    gWAP.WapPushManager.receiveWdpPDU(
+    lazy.gWAP.WapPushManager.receiveWdpPDU(
       aMessage.fullData,
       aMessage.fullData.length,
       0,
@@ -938,7 +944,7 @@ SmsService.prototype = {
 
   _handleSmsDataMessage(aMessage, aServiceId) {
     try {
-      gSmsMessenger.notifyDataSms(
+      lazy.gSmsMessenger.notifyDataSms(
         aServiceId,
         aMessage.iccId,
         aMessage.sender,
@@ -972,7 +978,7 @@ SmsService.prototype = {
       etwsPopup: false,
     };
 
-    gCellBroadcastService.notifyMessageReceived(
+    lazy.gCellBroadcastService.notifyMessageReceived(
       aServiceId,
       gonkCellBroadcastMessage
     );
@@ -990,7 +996,9 @@ SmsService.prototype = {
       aMwi.returnMessage
     );
 
-    gRadioInterfaces[aServiceId].sendWorkerMessage("updateMwis", { mwi: aMwi });
+    lazy.gRadioInterfaces[aServiceId].sendWorkerMessage("updateMwis", {
+      mwi: aMwi,
+    });
   },
 
   _portAddressedSmsApps: null,
@@ -999,7 +1007,7 @@ SmsService.prototype = {
       debug("_handleSmsReceived: " + JSON.stringify(aMessage));
     }
 
-    if (aMessage.messageType == RIL.PDU_CDMA_MSG_TYPE_BROADCAST) {
+    if (aMessage.messageType == lazy.RIL.PDU_CDMA_MSG_TYPE_BROADCAST) {
       this._handleCellbroadcastMessageReceived(aMessage, aServiceId);
       return true;
     }
@@ -1040,10 +1048,10 @@ SmsService.prototype = {
       aMessage.id = -1;
       aMessage.threadId = 0;
       aMessage.delivery = DOM_MOBILE_MESSAGE_DELIVERY_RECEIVED;
-      aMessage.deliveryStatus = RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS;
+      aMessage.deliveryStatus = lazy.RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS;
       aMessage.read = false;
 
-      let domMessage = gMobileMessageService.createSmsMessage(
+      let domMessage = lazy.gMobileMessageService.createSmsMessage(
         aMessage.id,
         aMessage.threadId,
         aMessage.iccId,
@@ -1112,9 +1120,9 @@ SmsService.prototype = {
 
     if (
       aMessage.messageClass !=
-      RIL.GECKO_SMS_MESSAGE_CLASSES[RIL.PDU_DCS_MSG_CLASS_0]
+      lazy.RIL.GECKO_SMS_MESSAGE_CLASSES[lazy.RIL.PDU_DCS_MSG_CLASS_0]
     ) {
-      gMobileMessageDatabaseService.saveReceivedMessage(
+      lazy.gMobileMessageDatabaseService.saveReceivedMessage(
         aMessage,
         notifyReceived
       );
@@ -1122,10 +1130,10 @@ SmsService.prototype = {
       aMessage.id = -1;
       aMessage.threadId = 0;
       aMessage.delivery = DOM_MOBILE_MESSAGE_DELIVERY_RECEIVED;
-      aMessage.deliveryStatus = RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS;
+      aMessage.deliveryStatus = lazy.RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS;
       aMessage.read = false;
 
-      let domMessage = gMobileMessageService.createSmsMessage(
+      let domMessage = lazy.gMobileMessageService.createSmsMessage(
         aMessage.id,
         aMessage.threadId,
         aMessage.iccId,
@@ -1154,20 +1162,20 @@ SmsService.prototype = {
   _sendAckSms(aRv, aMessage, aServiceId) {
     if (
       aMessage.messageClass ===
-      RIL.GECKO_SMS_MESSAGE_CLASSES[RIL.PDU_DCS_MSG_CLASS_2]
+      lazy.RIL.GECKO_SMS_MESSAGE_CLASSES[lazy.RIL.PDU_DCS_MSG_CLASS_2]
     ) {
       return;
     }
 
-    let result = RIL.PDU_FCS_OK;
+    let result = lazy.RIL.PDU_FCS_OK;
     if (!Components.isSuccessCode(aRv)) {
       if (DEBUG) {
         debug("Failed to handle received sms: " + aRv);
       }
       result =
         aRv === Cr.NS_ERROR_FILE_NO_DEVICE_SPACE
-          ? RIL.PDU_FCS_MEMORY_CAPACITY_EXCEEDED
-          : RIL.PDU_FCS_UNSPECIFIED;
+          ? lazy.RIL.PDU_FCS_MEMORY_CAPACITY_EXCEEDED
+          : lazy.RIL.PDU_FCS_UNSPECIFIED;
     }
 
     if (DEBUG) {
@@ -1176,7 +1184,7 @@ SmsService.prototype = {
     if (aMessage.imsMessage) {
       this._imsSmsProviders[aServiceId].acknowledgeSms(result);
     } else {
-      gRadioInterfaces[aServiceId].sendWorkerMessage("ackSMS", {
+      lazy.gRadioInterfaces[aServiceId].sendWorkerMessage("ackSMS", {
         result,
       });
     }
@@ -1197,12 +1205,15 @@ SmsService.prototype = {
       this._smsStorageAvailable = aIsAvailable;
       for (
         let serviceId = 0;
-        serviceId < gRadioInterfaces.length;
+        serviceId < lazy.gRadioInterfaces.length;
         serviceId++
       ) {
-        gRadioInterfaces[serviceId].sendWorkerMessage("reportSmsMemoryStatus", {
-          isAvailable: aIsAvailable,
-        });
+        lazy.gRadioInterfaces[serviceId].sendWorkerMessage(
+          "reportSmsMemoryStatus",
+          {
+            isAvailable: aIsAvailable,
+          }
+        );
       }
     }
   },
@@ -1222,7 +1233,7 @@ SmsService.prototype = {
       false
     );
 
-    let options = gSmsSegmentHelper.fragmentText(
+    let options = lazy.gSmsSegmentHelper.fragmentText(
       aText,
       null,
       strict7BitEncoding
@@ -1231,7 +1242,7 @@ SmsService.prototype = {
     if (options.segmentMaxSeq) {
       let lastSegment = options.segments[options.segmentMaxSeq - 1];
       charsInLastSegment = lastSegment.encodedBodyLength;
-      if (options.dcs == RIL.PDU_DCS_MSG_CODING_16BITS_ALPHABET) {
+      if (options.dcs == lazy.RIL.PDU_DCS_MSG_CODING_16BITS_ALPHABET) {
         // In UCS2 encoding, encodedBodyLength is in octets.
         charsInLastSegment /= 2;
       }
@@ -1247,7 +1258,7 @@ SmsService.prototype = {
   },
 
   send(aServiceId, aNumber, aMessage, aSilent, aRequest) {
-    if (aServiceId > gRadioInterfaces.length - 1) {
+    if (aServiceId > lazy.gRadioInterfaces.length - 1) {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
     if (DEBUG) {
@@ -1258,13 +1269,13 @@ SmsService.prototype = {
       false
     );
 
-    let options = gSmsSegmentHelper.fragmentText(
+    let options = lazy.gSmsSegmentHelper.fragmentText(
       aMessage,
       null,
       strict7BitEncoding
     );
 
-    options.number = gPhoneNumberUtils.normalize(aNumber);
+    options.number = lazy.gPhoneNumberUtils.normalize(aNumber);
     this.settingsObserver
       .getSettingWithDefault(kSettingsRequestStatusReport, true)
       .then(setting => {
@@ -1296,7 +1307,7 @@ SmsService.prototype = {
               smsMessage
             );
             aRequest.notifySendMessageFailed(
-              gMobileMessageDatabaseService.translateCrErrorToMessageCallbackError(
+              lazy.gMobileMessageDatabaseService.translateCrErrorToMessageCallbackError(
                 aRv
               ),
               smsMessage
@@ -1309,7 +1320,7 @@ SmsService.prototype = {
             Services.obs.notifyObservers(smsMessage, kSmsSendingObserverTopic);
           }
 
-          let connection = gMobileConnectionService.getItemByServiceId(
+          let connection = lazy.gMobileConnectionService.getItemByServiceId(
             aServiceId
           );
           // If the radio is disabled or the SIM card is not ready, just directly
@@ -1317,7 +1328,7 @@ SmsService.prototype = {
           let errorCode;
           let radioState = connection && connection.radioState;
 
-          if (!gPhoneNumberUtils.isPlainPhoneNumber(options.number)) {
+          if (!lazy.gPhoneNumberUtils.isPlainPhoneNumber(options.number)) {
             if (DEBUG) {
               debug(
                 "Error! Address is invalid when sending SMS: " + options.number
@@ -1327,7 +1338,7 @@ SmsService.prototype = {
           } else if (
             radioState == Ci.nsIMobileConnection.MOBILE_RADIO_STATE_UNKNOWN ||
             (radioState == Ci.nsIMobileConnection.MOBILE_RADIO_STATE_DISABLED &&
-              !gSmsSendingSchedulers
+              !lazy.gSmsSendingSchedulers
                 .getSchedulerByServiceId(aServiceId)
                 .isVoWifiConnected())
           ) {
@@ -1360,8 +1371,8 @@ SmsService.prototype = {
         // Don't save message into DB for silent SMS.
         if (aSilent) {
           let delivery = DOM_MOBILE_MESSAGE_DELIVERY_SENDING;
-          let deliveryStatus = RIL.GECKO_SMS_DELIVERY_STATUS_PENDING;
-          let domMessage = gMobileMessageService.createSmsMessage(
+          let deliveryStatus = lazy.RIL.GECKO_SMS_DELIVERY_STATUS_PENDING;
+          let domMessage = lazy.gMobileMessageService.createSmsMessage(
             -1, // id
             0, // threadId
             sendingMessage.iccId,
@@ -1380,7 +1391,7 @@ SmsService.prototype = {
           return;
         }
 
-        gMobileMessageDatabaseService.saveSendingMessage(
+        lazy.gMobileMessageDatabaseService.saveSendingMessage(
           sendingMessage,
           saveSendingMessageCallback
         );
@@ -1405,11 +1416,11 @@ SmsService.prototype = {
   },
 
   getSmscAddress(aServiceId, aRequest) {
-    if (aServiceId > gRadioInterfaces.length - 1) {
+    if (aServiceId > lazy.gRadioInterfaces.length - 1) {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
 
-    gRadioInterfaces[aServiceId].sendWorkerMessage(
+    lazy.gRadioInterfaces[aServiceId].sendWorkerMessage(
       "getSmscAddress",
       null,
       aResponse => {
@@ -1435,7 +1446,7 @@ SmsService.prototype = {
     aNumberPlanIdentification,
     aRequest
   ) {
-    if (aServiceId > gRadioInterfaces.length - 1) {
+    if (aServiceId > lazy.gRadioInterfaces.length - 1) {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
 
@@ -1445,7 +1456,7 @@ SmsService.prototype = {
       numberPlanIdentification: aNumberPlanIdentification,
     };
 
-    gRadioInterfaces[aServiceId].sendWorkerMessage(
+    lazy.gRadioInterfaces[aServiceId].sendWorkerMessage(
       "setSmscAddress",
       options,
       aResponse => {
@@ -1512,7 +1523,8 @@ SmsService.prototype = {
     // No need to access SmsSegmentStore for Class 0 SMS and Single SMS.
     if (
       !isMultipart ||
-      messageClass == RIL.GECKO_SMS_MESSAGE_CLASSES[RIL.PDU_DCS_MSG_CLASS_0]
+      messageClass ==
+        lazy.RIL.GECKO_SMS_MESSAGE_CLASSES[lazy.RIL.PDU_DCS_MSG_CLASS_0]
     ) {
       // `When a mobile terminated message is class 0 and the MS has the
       // capability of displaying short messages, the MS shall display the
@@ -1527,7 +1539,7 @@ SmsService.prototype = {
         this._processReceivedSmsSegment(segment)
       );
     } else {
-      gMobileMessageDatabaseService.saveSmsSegment(
+      lazy.gMobileMessageDatabaseService.saveSmsSegment(
         segment,
         (aRv, aCompleteMessage) => {
           handleReceivedAndAck(
@@ -1548,7 +1560,7 @@ SmsService.prototype = {
         if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           this._updateDebugFlag();
         } else if (aData === kPrefLastKnownSimMcc) {
-          gSmsSegmentHelper.enabledGsmTableTuples = getEnabledGsmTableTuplesFromMcc();
+          lazy.gSmsSegmentHelper.enabledGsmTableTuples = getEnabledGsmTableTuplesFromMcc();
         }
         break;
       case kDiskSpaceWatcherObserverTopic:
@@ -1573,14 +1585,18 @@ SmsService.prototype = {
       debug("_initImsSms");
     }
     this.imsSmsLinstensers = [];
-    for (let serviceId = 0; serviceId < gRadioInterfaces.length; serviceId++) {
+    for (
+      let serviceId = 0;
+      serviceId < lazy.gRadioInterfaces.length;
+      serviceId++
+    ) {
       let smsProvider = new ImsSmsProvider(this, serviceId);
       this._imsSmsProviders.push(smsProvider);
     }
   },
 
   _isIms(aServiceId) {
-    let imsHandler = gImsRegService.getHandlerByServiceId(aServiceId);
+    let imsHandler = lazy.gImsRegService.getHandlerByServiceId(aServiceId);
     if (!imsHandler) {
       if (DEBUG) {
         debug("_isIms: no imsHandler ");
@@ -1619,8 +1635,10 @@ SmsService.prototype = {
  */
 function getEnabledGsmTableTuplesFromMcc() {
   let mcc = Services.prefs.getCharPref(kPrefLastKnownSimMcc, 0);
-  let tuples = [[RIL.PDU_NL_IDENTIFIER_DEFAULT, RIL.PDU_NL_IDENTIFIER_DEFAULT]];
-  let extraTuples = RIL.PDU_MCC_NL_TABLE_TUPLES_MAPPING[mcc];
+  let tuples = [
+    [lazy.RIL.PDU_NL_IDENTIFIER_DEFAULT, lazy.RIL.PDU_NL_IDENTIFIER_DEFAULT],
+  ];
+  let extraTuples = lazy.RIL.PDU_MCC_NL_TABLE_TUPLES_MAPPING[mcc];
   if (extraTuples) {
     tuples = tuples.concat(extraTuples);
   }
@@ -1649,10 +1667,10 @@ SmsSendingScheduler.prototype = {
    * Ensure the handler is listening on MobileConnection events.
    */
   _ensureMoboConnObserverRegistration() {
-    let connection = gMobileConnectionService.getItemByServiceId(
+    let connection = lazy.gMobileConnectionService.getItemByServiceId(
       this._serviceId
     );
-    let imsReg = gImsRegService.getHandlerByServiceId(this._serviceId);
+    let imsReg = lazy.gImsRegService.getHandlerByServiceId(this._serviceId);
 
     if (connection) {
       try {
@@ -1679,10 +1697,10 @@ SmsSendingScheduler.prototype = {
    * Ensure the handler is not listening on MobileConnection events.
    */
   _ensureMoboConnObserverUnregistration() {
-    let connection = gMobileConnectionService.getItemByServiceId(
+    let connection = lazy.gMobileConnectionService.getItemByServiceId(
       this._serviceId
     );
-    let imsReg = gImsRegService.getHandlerByServiceId(this._serviceId);
+    let imsReg = lazy.gImsRegService.getHandlerByServiceId(this._serviceId);
 
     if (connection) {
       try {
@@ -1743,7 +1761,7 @@ SmsSendingScheduler.prototype = {
 
   isVoWifiConnected() {
     //FIXME
-    let imsHandler = gImsRegService.getHandlerByServiceId(this._serviceId);
+    let imsHandler = lazy.gImsRegService.getHandlerByServiceId(this._serviceId);
     if (!imsHandler) {
       if (DEBUG) {
         debug("isVoWifiConnected: no imsHandler ");
@@ -1762,7 +1780,7 @@ SmsSendingScheduler.prototype = {
    * Send all requests in the queue if voice connection is available.
    */
   send() {
-    let connection = gMobileConnectionService.getItemByServiceId(
+    let connection = lazy.gMobileConnectionService.getItemByServiceId(
       this._serviceId
     );
 
@@ -1838,7 +1856,7 @@ SmsSendingScheduler.prototype = {
    * nsIMobileConnectionListener implementation.
    */
   notifyVoiceChanged() {
-    let connection = gMobileConnectionService.getItemByServiceId(
+    let connection = lazy.gMobileConnectionService.getItemByServiceId(
       this._serviceId
     );
     let voiceInfo = connection && connection.voice;
@@ -1914,9 +1932,9 @@ function ImsSmsProvider(aSmsService, aServiceId) {
   this._lastIncomingMsgs = [];
   // For sim io context.
   this.clientId = "IMS_" + aServiceId; //to fit for radiointerface clientId
-  this.simIOContext = new SIM.Context(this);
+  this.simIOContext = new lazy.SIM.Context(this);
 
-  this._imsHandler = gImsRegService.getHandlerByServiceId(aServiceId);
+  this._imsHandler = lazy.gImsRegService.getHandlerByServiceId(aServiceId);
   if (this._imsHandler) {
     if (this._imsHandler.imsMMTelFeature) {
       if (DEBUG) {
@@ -1972,9 +1990,10 @@ ImsSmsProvider.prototype = {
     }
 
     aOptions.rilMessageToken = newToken;
-    aOptions.langIndex = aOptions.langIndex || RIL.PDU_NL_IDENTIFIER_DEFAULT;
+    aOptions.langIndex =
+      aOptions.langIndex || lazy.RIL.PDU_NL_IDENTIFIER_DEFAULT;
     aOptions.langShiftIndex =
-      aOptions.langShiftIndex || RIL.PDU_NL_IDENTIFIER_DEFAULT;
+      aOptions.langShiftIndex || lazy.RIL.PDU_NL_IDENTIFIER_DEFAULT;
 
     if (!aOptions.segmentSeq) {
       // Fist segment to send
@@ -2032,9 +2051,9 @@ ImsSmsProvider.prototype = {
       }
 
       let deliveryStatus = Ci.nsIImsMMTelFeature.DELIVER_STATUS_OK;
-      if (aStatus === RIL.PDU_FCS_OK) {
+      if (aStatus === lazy.RIL.PDU_FCS_OK) {
         deliveryStatus = Ci.nsIImsMMTelFeature.DELIVER_STATUS_OK;
-      } else if (aStatus === RIL.PDU_FCS_MEMORY_CAPACITY_EXCEEDED) {
+      } else if (aStatus === lazy.RIL.PDU_FCS_MEMORY_CAPACITY_EXCEEDED) {
         deliveryStatus = Ci.nsIImsMMTelFeature.DELIVER_STATUS_ERROR_NO_MEMORY;
       } else {
         deliveryStatus = Ci.nsIImsMMTelFeature.DELIVER_STATUS_ERROR_GENERIC;
@@ -2081,7 +2100,7 @@ ImsSmsProvider.prototype = {
       sender: aMessage.sender,
       pid: aMessage.pid,
       encoding: aMessage.encoding,
-      messageClass: RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(
+      messageClass: lazy.RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(
         aMessage.messageClass
       ),
       language: aMessage.language || null,
@@ -2194,16 +2213,16 @@ ImsSmsProvider.prototype = {
     // "Service Rejected"(01100011) but shall store them exactly as received.
     if (
       status >= 0x80 ||
-      (status >= RIL.PDU_ST_0_RESERVED_BEGIN &&
-        status < RIL.PDU_ST_0_SC_SPECIFIC_BEGIN) ||
-      (status >= RIL.PDU_ST_1_RESERVED_BEGIN &&
-        status < RIL.PDU_ST_1_SC_SPECIFIC_BEGIN) ||
-      (status >= RIL.PDU_ST_2_RESERVED_BEGIN &&
-        status < RIL.PDU_ST_2_SC_SPECIFIC_BEGIN) ||
-      (status >= RIL.PDU_ST_3_RESERVED_BEGIN &&
-        status < RIL.PDU_ST_3_SC_SPECIFIC_BEGIN)
+      (status >= lazy.RIL.PDU_ST_0_RESERVED_BEGIN &&
+        status < lazy.RIL.PDU_ST_0_SC_SPECIFIC_BEGIN) ||
+      (status >= lazy.RIL.PDU_ST_1_RESERVED_BEGIN &&
+        status < lazy.RIL.PDU_ST_1_SC_SPECIFIC_BEGIN) ||
+      (status >= lazy.RIL.PDU_ST_2_RESERVED_BEGIN &&
+        status < lazy.RIL.PDU_ST_2_SC_SPECIFIC_BEGIN) ||
+      (status >= lazy.RIL.PDU_ST_3_RESERVED_BEGIN &&
+        status < lazy.RIL.PDU_ST_3_SC_SPECIFIC_BEGIN)
     ) {
-      status = RIL.PDU_ST_3_SERVICE_REJECTED;
+      status = lazy.RIL.PDU_ST_3_SERVICE_REJECTED;
     }
 
     // Pending. Waiting for next status report.
@@ -2216,8 +2235,8 @@ ImsSmsProvider.prototype = {
 
     let deliveryStatus =
       status >>> 5 === 0x00
-        ? RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
-        : RIL.GECKO_SMS_DELIVERY_STATUS_ERROR;
+        ? lazy.RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
+        : lazy.RIL.GECKO_SMS_DELIVERY_STATUS_ERROR;
 
     let pendOp = this._pendingOp[aToken];
     if (pendOp) {

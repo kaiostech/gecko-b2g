@@ -95,8 +95,11 @@ class nsScreenGonk : public nsIScreen {
   NS_IMETHOD GetColorDepth(int32_t* aColorDepth) override;
   NS_IMETHOD GetRotation(uint32_t* aRotation) override;
   NS_IMETHOD SetRotation(uint32_t aRotation) override;
-  NS_IMETHOD GetRefreshRate(int32_t *aRefreshRate);
-  NS_IMETHOD GetIsPseudoDisplay(bool *aIsPseudoDisplay) { *aIsPseudoDisplay = false; return NS_OK; }
+  NS_IMETHOD GetRefreshRate(int32_t* aRefreshRate);
+  NS_IMETHOD GetIsPseudoDisplay(bool* aIsPseudoDisplay) {
+    *aIsPseudoDisplay = false;
+    return NS_OK;
+  }
 
   uint32_t GetId();
   NotifyDisplayChangedEvent GetEventVisibility();
@@ -211,15 +214,16 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
   static ScreenHelperGonk* GetSingleton();
 
   // Generic
-  already_AddRefed<Screen> MakeScreen(uint32_t id,
-       NotifyDisplayChangedEvent aEventVisibility = NotifyDisplayChangedEvent::Observable);
+  already_AddRefed<Screen> MakeScreen(
+      uint32_t id, NotifyDisplayChangedEvent aEventVisibility =
+                       NotifyDisplayChangedEvent::Observable);
   void Refresh();
 
-  void AddScreen(uint32_t aScreenId,
-       DisplayType aDisplayType,
-       LayoutDeviceIntRect aRect = LayoutDeviceIntRect(),
-       float aDensity = 1.0f,
-       NotifyDisplayChangedEvent aEventVisibility = NotifyDisplayChangedEvent::Observable);
+  void AddScreen(uint32_t aScreenId, DisplayType aDisplayType,
+                 LayoutDeviceIntRect aRect = LayoutDeviceIntRect(),
+                 float aDensity = 1.0f,
+                 NotifyDisplayChangedEvent aEventVisibility =
+                     NotifyDisplayChangedEvent::Observable);
   void RemoveScreen(uint32_t aId);
   already_AddRefed<Screen> ScreenForId(uint32_t aScreenId);
   already_AddRefed<nsScreenGonk> ScreenGonkForId(uint32_t aScreenId);

@@ -169,9 +169,11 @@ static inline audio_channel_representation_t
 audio_channel_mask_get_representation(audio_channel_mask_t channel) {
   // The right shift should be sufficient, but also "and" for safety in case
   // mask is not 32 bits
-  return (audio_channel_representation_t)(
-      (channel >> AUDIO_CHANNEL_COUNT_MAX) &
-      ((1 << AUDIO_CHANNEL_REPRESENTATION_LOG2) - 1));
+  return (
+      audio_channel_representation_t)((channel >> AUDIO_CHANNEL_COUNT_MAX) &
+                                      ((1
+                                        << AUDIO_CHANNEL_REPRESENTATION_LOG2) -
+                                       1));
 }
 
 /* Returns true if the channel mask is valid,

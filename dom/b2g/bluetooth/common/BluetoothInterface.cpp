@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include "BluetoothInterface.h"
 #ifdef MOZ_WIDGET_GONK
-#include <cutils/properties.h>
+#  include <cutils/properties.h>
 #endif
 #ifdef MOZ_B2G_BT_DAEMON
 #  include "BluetoothDaemonInterface.h"

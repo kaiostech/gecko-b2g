@@ -164,7 +164,10 @@ void BluetoothService::RegisterBluetoothSignalHandler(
 
   BluetoothSignalObserverList* ol;
   if (!mBluetoothSignalObserverTable.Get(aNodeName, &ol)) {
-    ol = mBluetoothSignalObserverTable.InsertOrUpdate(aNodeName, MakeUnique<BluetoothSignalObserverList>()).get();
+    ol = mBluetoothSignalObserverTable
+             .InsertOrUpdate(aNodeName,
+                             MakeUnique<BluetoothSignalObserverList>())
+             .get();
   }
 
   ol->AddObserver(aHandler);
@@ -486,8 +489,8 @@ NS_IMETHODIMP BluetoothService::Resolve(nsISettingInfo* info) {
 }
 
 // Implements nsISettingsGetResponse::Reject
-NS_IMETHODIMP BluetoothService::Reject([
-    [maybe_unused]] nsISettingError* error) {
+NS_IMETHODIMP BluetoothService::Reject(
+    [[maybe_unused]] nsISettingError* error) {
   if (error) {
     nsString name;
     error->GetName(name);

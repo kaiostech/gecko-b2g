@@ -15,7 +15,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["DeviceStateMonitor"];
+const EXPORTED_SYMBOLS = ["DeviceStateMonitor"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
@@ -50,7 +50,9 @@ const RadioIndicationFilterAll =
   RadioIndicationFilterFullNetworkState |
   RadioIndicationFilterDataCallDormancyChange;
 
-XPCOMUtils.defineLazyGetter(this, "gRadioInterfaces", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaces", function() {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -97,7 +99,7 @@ DeviceStateMonitor.prototype = {
   _isCharging: null,
 
   _setRadioIndicationFilter(aFilter) {
-    gRadioInterfaces.forEach(radioInterface => {
+    lazy.gRadioInterfaces.forEach(radioInterface => {
       radioInterface.sendWorkerMessage(
         "setUnsolResponseFilter",
         { filter: aFilter },

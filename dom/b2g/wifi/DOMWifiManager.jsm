@@ -20,7 +20,8 @@ const DOMWIFIMANAGER_CID = Components.ID(
   "{c9b5f09e-25d2-40ca-aef4-c4d13d93c706}"
 );
 
-XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
+const lazy = {};
+XPCOMUtils.defineLazyGetter(lazy, "cpmm", () => {
   return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
 });
 
@@ -184,7 +185,7 @@ DOMWifiManager.prototype = {
     ];
     this.initDOMRequestHelper(aWindow, messages);
 
-    var state = cpmm.sendSyncMessage("WifiManager:getState")[0];
+    var state = lazy.cpmm.sendSyncMessage("WifiManager:getState")[0];
     if (state) {
       this._currentNetwork = this._convertWifiNetwork(state.network);
       if (this._currentNetwork) {
@@ -251,7 +252,7 @@ DOMWifiManager.prototype = {
 
   _sendMessageForRequest(name, data, request) {
     let id = this.getRequestId(request);
-    cpmm.sendAsyncMessage(name, { data, rid: id, mid: this._id });
+    lazy.cpmm.sendAsyncMessage(name, { data, rid: id, mid: this._id });
   },
 
   /* eslint-disable complexity */
@@ -804,7 +805,7 @@ DOMWifiManager.prototype = {
   },
 };
 
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "DOMWifiManager",
   "WifiNetwork",
   "WifiConnection",

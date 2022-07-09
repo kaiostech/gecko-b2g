@@ -6,25 +6,28 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["PointerRelay", "PointerAdapter"]; // jshint ignore:line
+const EXPORTED_SYMBOLS = ["PointerRelay", "PointerAdapter"]; // jshint ignore:line
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-XPCOMUtils.defineLazyGetter(this, "Utils", function() {
+
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
   const { Utils } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Utils;
 });
-XPCOMUtils.defineLazyGetter(this, "Logger", function() {
+XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
   const { Logger } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
   );
   return Logger;
 });
 
-XPCOMUtils.defineLazyGetter(this, "GestureTracker", function() {
+XPCOMUtils.defineLazyGetter(lazy, "GestureTracker", function() {
   const { GestureTracker } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Gestures.jsm"
   );
@@ -46,7 +49,7 @@ var PointerRelay = {
   get _eventsOfInterest() {
     delete this._eventsOfInterest;
 
-    switch (Utils.widgetToolkit) {
+    switch (lazy.Utils.widgetToolkit) {
       case "android":
         this._eventsOfInterest = {
           touchstart: true,
@@ -75,7 +78,7 @@ var PointerRelay = {
           mouseup: true,
           click: false,
         };
-        if ("ontouchstart" in Utils.win) {
+        if ("ontouchstart" in lazy.Utils.win) {
           for (let eventType of ["touchstart", "touchmove", "touchend"]) {
             this._eventsOfInterest[eventType] = true;
           }
@@ -96,26 +99,26 @@ var PointerRelay = {
   },
 
   start: function PointerRelay_start(aOnPointerEvent) {
-    Logger.debug("PointerRelay.start");
+    lazy.Logger.debug("PointerRelay.start");
     this.onPointerEvent = aOnPointerEvent;
     for (let eventType in this._eventsOfInterest) {
-      Utils.win.addEventListener(eventType, this, true, true);
+      lazy.Utils.win.addEventListener(eventType, this, true, true);
     }
   },
 
   stop: function PointerRelay_stop() {
-    Logger.debug("PointerRelay.stop");
+    lazy.Logger.debug("PointerRelay.stop");
     delete this.lastPointerMove;
     delete this.onPointerEvent;
     for (let eventType in this._eventsOfInterest) {
-      Utils.win.removeEventListener(eventType, this, true, true);
+      lazy.Utils.win.removeEventListener(eventType, this, true, true);
     }
   },
 
   handleEvent: function PointerRelay_handleEvent(aEvent) {
     // Don't bother with chrome mouse events.
     if (
-      Utils.MozBuildApp === "browser" &&
+      lazy.Utils.MozBuildApp === "browser" &&
       aEvent.view.top instanceof Ci.nsIDOMChromeWindow
     ) {
       return;
@@ -138,7 +141,7 @@ var PointerRelay = {
     ];
 
     if (
-      Utils.widgetToolkit === "android" &&
+      lazy.Utils.widgetToolkit === "android" &&
       changedTouches.length === 1 &&
       changedTouches[0].identifier === 1
     ) {
@@ -175,22 +178,22 @@ var PointerRelay = {
   },
 };
 
-this.PointerAdapter = {
+const PointerAdapter = {
   // jshint ignore:line
   start: function PointerAdapter_start() {
-    Logger.debug("PointerAdapter.start");
-    GestureTracker.reset();
+    lazy.Logger.debug("PointerAdapter.start");
+    lazy.GestureTracker.reset();
     PointerRelay.start(this.handleEvent);
   },
 
   stop: function PointerAdapter_stop() {
-    Logger.debug("PointerAdapter.stop");
+    lazy.Logger.debug("PointerAdapter.stop");
     PointerRelay.stop();
-    GestureTracker.reset();
+    lazy.GestureTracker.reset();
   },
 
   handleEvent: function PointerAdapter_handleEvent(aDetail) {
     let timeStamp = Date.now();
-    GestureTracker.handle(aDetail, timeStamp);
+    lazy.GestureTracker.handle(aDetail, timeStamp);
   },
 };

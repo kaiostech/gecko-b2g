@@ -20,15 +20,15 @@ using ::android::hardware::Void;
 using ::android::hardware::radio::V1_0::ActivityStatsInfo;
 using ::android::hardware::radio::V1_0::AppState;
 using ::android::hardware::radio::V1_0::AppType;
+using ::android::hardware::radio::V1_0::Call;
+using ::android::hardware::radio::V1_0::CallForwardInfo;
+using ::android::hardware::radio::V1_0::CallForwardInfoStatus;
+using ::android::hardware::radio::V1_0::CallPresentation;
+using ::android::hardware::radio::V1_0::CallState;
 using ::android::hardware::radio::V1_0::CardState;
 using ::android::hardware::radio::V1_0::CardStatus;
 using ::android::hardware::radio::V1_0::Carrier;
 using ::android::hardware::radio::V1_0::CarrierRestrictions;
-using ::android::hardware::radio::V1_0::Call;
-using ::android::hardware::radio::V1_0::CallState;
-using ::android::hardware::radio::V1_0::CallForwardInfo;
-using ::android::hardware::radio::V1_0::CallForwardInfoStatus;
-using ::android::hardware::radio::V1_0::CallPresentation;
 using ::android::hardware::radio::V1_0::CdmaBroadcastSmsConfigInfo;
 using ::android::hardware::radio::V1_0::CdmaRoamingType;
 using ::android::hardware::radio::V1_0::CdmaSubscriptionSource;
@@ -37,7 +37,6 @@ using ::android::hardware::radio::V1_0::DataRegStateResult;
 using ::android::hardware::radio::V1_0::GsmBroadcastSmsConfigInfo;
 using ::android::hardware::radio::V1_0::HardwareConfig;
 using ::android::hardware::radio::V1_0::IccIoResult;
-using ::android::hardware::radio::V1_1::IRadioResponse;
 using ::android::hardware::radio::V1_0::LastCallFailCause;
 using ::android::hardware::radio::V1_0::LastCallFailCauseInfo;
 using ::android::hardware::radio::V1_0::LceDataInfo;
@@ -59,6 +58,7 @@ using ::android::hardware::radio::V1_0::TtyMode;
 using ::android::hardware::radio::V1_0::UusDcs;
 using ::android::hardware::radio::V1_0::UusType;
 using ::android::hardware::radio::V1_0::VoiceRegStateResult;
+using ::android::hardware::radio::V1_1::IRadioResponse;
 
 class nsRilWorker;
 class nsRilResponse : public IRadioResponse {
@@ -442,7 +442,8 @@ class nsRilResponse : public IRadioResponse {
 
   Return<void> acknowledgeRequest(int32_t serial);
 
-  Return<void> setCarrierInfoForImsiEncryptionResponse(const RadioResponseInfo& info);
+  Return<void> setCarrierInfoForImsiEncryptionResponse(
+      const RadioResponseInfo& info);
 
   Return<void> setSimCardPowerResponse_1_1(const RadioResponseInfo& info);
 
@@ -450,7 +451,8 @@ class nsRilResponse : public IRadioResponse {
 
   Return<void> stopNetworkScanResponse(const RadioResponseInfo& info);
 
-  Return<void> startKeepaliveResponse(const RadioResponseInfo& info , const KeepaliveStatus& status);
+  Return<void> startKeepaliveResponse(const RadioResponseInfo& info,
+                                      const KeepaliveStatus& status);
 
   Return<void> stopKeepaliveResponse(const RadioResponseInfo& info);
 

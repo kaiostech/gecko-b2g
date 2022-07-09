@@ -58,8 +58,8 @@ namespace android {
  */
 FramebufferSurface::FramebufferSurface(
     uint32_t width, uint32_t height, uint32_t format,
-    const sp<IGraphicBufferConsumer>& consumer,
-    DisplayUtils displayUtils, bool visibility)
+    const sp<IGraphicBufferConsumer>& consumer, DisplayUtils displayUtils,
+    bool visibility)
     : DisplaySurface(consumer),
       mCurrentSlot(BufferQueue::INVALID_BUFFER_SLOT),
       mCurrentBuffer(),
@@ -204,7 +204,7 @@ void FramebufferSurface::presentLocked(const int bufferSlot,
       }
 
       (void)mDisplayUtils.utils.hwcDisplay->setClientTarget(
-        bufferSlot, buffer, acquireFence, dataspace);
+          bufferSlot, buffer, acquireFence, dataspace);
 
       error = mDisplayUtils.utils.hwcDisplay->present(&mLastPresentFence);
       if (error != HWC2::Error::None) {
@@ -220,8 +220,8 @@ FrameCommitted:
   long usec = delta.tv_sec * 1000000 + delta.tv_usec;
   if (usec > 1000000) {  // show warning if delta is more than 1s.
     ALOGW("Frame delay is %ld us on %s", usec,
-      (mDisplayUtils.type == DisplayUtils::EXTERNAL)?
-      "Ext Screen" : "Primary Screen");
+          (mDisplayUtils.type == DisplayUtils::EXTERNAL) ? "Ext Screen"
+                                                         : "Primary Screen");
   }
   onFrameCommitted();
 }

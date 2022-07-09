@@ -264,4 +264,4 @@ TetheringManager.prototype = {
   },
 };
 
-this.EXPORTED_SYMBOLS = ["TetheringManager", "TetheringConfigInfo"];
+const EXPORTED_SYMBOLS = ["TetheringManager", "TetheringConfigInfo"];

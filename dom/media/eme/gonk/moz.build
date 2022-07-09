@@ -47,7 +47,7 @@ USE_LIBS += [
 ]
 
 OS_LIBS += [
-    'mediadrm',
+    "mediadrm",
 ]
 
 FINAL_LIBRARY = "xul"

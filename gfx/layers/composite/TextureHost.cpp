@@ -18,6 +18,7 @@
 #include "mozilla/layers/ISurfaceAllocator.h"  // for ISurfaceAllocator
 #include "mozilla/layers/ImageBridgeParent.h"  // for ImageBridgeParent
 #include "mozilla/layers/LayersSurfaces.h"     // for SurfaceDescriptor, etc
+#include "mozilla/layers/RemoteTextureMap.h"
 #include "mozilla/layers/TextureHostOGL.h"     // for TextureHostOGL
 #include "mozilla/layers/ImageDataSerializer.h"
 #include "mozilla/layers/TextureClient.h"
@@ -100,6 +101,9 @@ class TextureParent : public ParentActor<PTextureParent> {
 static bool WrapWithWebRenderTextureHost(ISurfaceAllocator* aDeallocator,
                                          LayersBackend aBackend,
                                          TextureFlags aFlags) {
+  if (!aDeallocator) {
+    return false;
+  }
   if ((aFlags & TextureFlags::SNAPSHOT) ||
       (!aDeallocator->UsesImageBridge() &&
        !aDeallocator->AsCompositorBridgeParentBase())) {
@@ -237,8 +241,7 @@ already_AddRefed<TextureHost> TextureHost::Create(
 
   if (result && WrapWithWebRenderTextureHost(aDeallocator, aBackend, aFlags)) {
     MOZ_ASSERT(aExternalImageId.isSome());
-    result =
-        new WebRenderTextureHost(aDesc, aFlags, result, aExternalImageId.ref());
+    result = new WebRenderTextureHost(aFlags, result, aExternalImageId.ref());
   }
 
   if (result) {
@@ -303,7 +306,7 @@ already_AddRefed<TextureHost> CreateBackendIndependentTextureHost(
           break;
         }
         case MemoryOrShmem::Tuintptr_t: {
-          if (!aDeallocator->IsSameProcess()) {
+          if (aDeallocator && !aDeallocator->IsSameProcess()) {
             NS_ERROR(
                 "A client process is trying to peek at our address space using "
                 "a MemoryTexture!");
@@ -351,6 +354,9 @@ TextureHost::~TextureHost() {
     // be destroyed by now. But we will hit assertions if we don't ReadUnlock
     // before destroying the lock itself.
     ReadUnlock();
+  }
+  if (mDestroyedCallback) {
+    mDestroyedCallback();
   }
 }
 

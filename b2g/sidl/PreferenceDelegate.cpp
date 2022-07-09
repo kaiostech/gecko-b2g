@@ -39,14 +39,12 @@ PreferenceDelegateService::ConstructPreferenceDelegate() {
     ClearOnShutdown(&gPreferenceDelegateService);
   }
 
-  RefPtr<PreferenceDelegateService> service =
-      gPreferenceDelegateService.get();
+  RefPtr<PreferenceDelegateService> service = gPreferenceDelegateService.get();
   return service.forget();
 }
 
 NS_IMETHODIMP
 PreferenceDelegateService::GetInt(const nsAString& key, int* value) {
-
   nsAutoCString nKey;
   LossyCopyUTF16toASCII(key, nKey);
 
@@ -60,7 +58,6 @@ PreferenceDelegateService::GetInt(const nsAString& key, int* value) {
 
 NS_IMETHODIMP
 PreferenceDelegateService::GetChar(const nsAString& key, nsAString& value) {
-
   nsAutoCString nKey;
   nsAutoString nValue;
   LossyCopyUTF16toASCII(key, nKey);
@@ -77,10 +74,8 @@ PreferenceDelegateService::GetChar(const nsAString& key, nsAString& value) {
   return NS_OK;
 }
 
-
 NS_IMETHODIMP
 PreferenceDelegateService::GetBool(const nsAString& key, bool* value) {
-
   nsAutoCString nKey;
   LossyCopyUTF16toASCII(key, nKey);
 
@@ -92,10 +87,8 @@ PreferenceDelegateService::GetBool(const nsAString& key, bool* value) {
   return NS_OK;
 }
 
-
 NS_IMETHODIMP
 PreferenceDelegateService::SetInt(const nsAString& key, const int value) {
-
   nsAutoCString nKey;
   LossyCopyUTF16toASCII(key, nKey);
 
@@ -103,8 +96,8 @@ PreferenceDelegateService::SetInt(const nsAString& key, const int value) {
 }
 
 NS_IMETHODIMP
-PreferenceDelegateService::SetChar(const nsAString& key, const nsAString& value) {
-
+PreferenceDelegateService::SetChar(const nsAString& key,
+                                   const nsAString& value) {
   nsAutoCString nKey;
   nsAutoCString nValue;
   LossyCopyUTF16toASCII(key, nKey);
@@ -115,7 +108,6 @@ PreferenceDelegateService::SetChar(const nsAString& key, const nsAString& value)
 
 NS_IMETHODIMP
 PreferenceDelegateService::SetBool(const nsAString& key, const bool value) {
-
   nsAutoCString nKey;
   LossyCopyUTF16toASCII(key, nKey);
 

@@ -153,6 +153,7 @@ include = [
   "ContainerType",
   "ContainerName",
   "ContentVisibility",
+  "ContainIntrinsicSize",
   "Origin",
   "RestyleHint",
   "TouchAction",

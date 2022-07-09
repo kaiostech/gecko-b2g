@@ -20,7 +20,7 @@
 #define mozilla_HwcComposer2D
 
 #include "hwchal/HwcHAL.h"  // for HwcHAL
-#include "HwcUtils.h"           // for RectVector
+#include "HwcUtils.h"       // for RectVector
 #include "Layers.h"
 #include "mozilla/layers/Composer2D.h"
 #include "mozilla/layers/FenceUtils.h"

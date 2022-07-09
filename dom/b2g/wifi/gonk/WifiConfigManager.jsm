@@ -16,11 +16,11 @@ const { WifiConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["WifiConfigManager"];
+const EXPORTED_SYMBOLS = ["WifiConfigManager"];
 
 var gDebug = false;
 
-this.WifiConfigManager = (function() {
+const WifiConfigManager = (function() {
   var configManager = {};
 
   var NETWORK_SELECTION_DISABLE_THRESHOLD = [

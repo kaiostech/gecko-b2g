@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["DownloadsIPC"];
+const EXPORTED_SYMBOLS = ["DownloadsIPC"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { PromiseUtils } = ChromeUtils.import(
@@ -35,7 +35,7 @@ const ipcMessages = [
   "Downloads:Adopt:Return",
 ];
 
-this.DownloadsIPC = {
+const DownloadsIPC = {
   downloads: {},
 
   init(aCallerOrigin, aGrantedForAll) {

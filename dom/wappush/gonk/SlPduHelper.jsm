@@ -4,25 +4,17 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
-var WSP = {};
-Cu.import("resource://gre/modules/WspPduHelper.jsm", WSP);
-var WBXML = {};
-Cu.import("resource://gre/modules/WbxmlPduHelper.jsm", WBXML);
-
-// set to true to see debug messages
-var DEBUG = WBXML.DEBUG_ALL | false;
+const WSP = ChromeUtils.import("resource://gre/modules/WspPduHelper.jsm");
+const WBXML = ChromeUtils.import("resource://gre/modules/WbxmlPduHelper.jsm");
 
 /**
  * Public identifier for SL
  *
  * @see http://technical.openmobilealliance.org/tech/omna/omna-wbxml-public-docid.aspx
  */
-const PUBLIC_IDENTIFIER_SL    = "-//WAPFORUM//DTD SL 1.0//EN";
+const PUBLIC_IDENTIFIER_SL = "-//WAPFORUM//DTD SL 1.0//EN";
 
-this.PduHelper = {
-
+const PduHelper = {
   /**
    * @param data
    *        A wrapped object containing raw PDU data.
@@ -39,7 +31,7 @@ this.PduHelper = {
   parse: function parse_sl(data, contentType) {
     // We only need content and contentType
     let msg = {
-      contentType: contentType
+      contentType,
     };
 
     /**
@@ -53,8 +45,8 @@ this.PduHelper = {
         tagTokenList: SL_TAG_FIELDS,
         attrTokenList: SL_ATTRIBUTE_FIELDS,
         valueTokenList: SL_VALUE_FIELDS,
-        globalTokenOverride: null
-      }
+        globalTokenOverride: null,
+      };
 
       try {
         let parseResult = WBXML.PduHelper.parse(data, appToken);
@@ -79,8 +71,7 @@ this.PduHelper = {
       msg.content = data.array;
     }
     return msg;
-
-  }
+  },
 };
 
 /**
@@ -88,12 +79,12 @@ this.PduHelper = {
  *
  * @see WAP-168-SERVICELOAD-20010731-A, clause 9.3.1
  */
-const SL_TAG_FIELDS = (function () {
+const SL_TAG_FIELDS = (function() {
   let names = {};
   function add(name, codepage, number) {
     let entry = {
-      name: name,
-      number: number,
+      name,
+      number,
     };
     if (!names[codepage]) {
       names[codepage] = {};
@@ -101,7 +92,7 @@ const SL_TAG_FIELDS = (function () {
     names[codepage][number] = entry;
   }
 
-  add("sl",       0,  0x05);
+  add("sl", 0, 0x05);
 
   return names;
 })();
@@ -111,13 +102,13 @@ const SL_TAG_FIELDS = (function () {
  *
  * @see WAP-168-SERVICELOAD-20010731-A, clause 9.3.2
  */
-const SL_ATTRIBUTE_FIELDS = (function () {
+const SL_ATTRIBUTE_FIELDS = (function() {
   let names = {};
   function add(name, value, codepage, number) {
     let entry = {
-      name: name,
-      value: value,
-      number: number,
+      name,
+      value,
+      number,
     };
     if (!names[codepage]) {
       names[codepage] = {};
@@ -125,24 +116,24 @@ const SL_ATTRIBUTE_FIELDS = (function () {
     names[codepage][number] = entry;
   }
 
-  add("action",       "execute-low",    0,  0x05);
-  add("action",       "execute-high",   0,  0x06);
-  add("action",       "cache",          0,  0x07);
-  add("href",         "",               0,  0x08);
-  add("href",         "http://",        0,  0x09);
-  add("href",         "http://www.",    0,  0x0A);
-  add("href",         "https://",       0,  0x0B);
-  add("href",         "https://www.",   0,  0x0C);
+  add("action", "execute-low", 0, 0x05);
+  add("action", "execute-high", 0, 0x06);
+  add("action", "cache", 0, 0x07);
+  add("href", "", 0, 0x08);
+  add("href", "http://", 0, 0x09);
+  add("href", "http://www.", 0, 0x0a);
+  add("href", "https://", 0, 0x0b);
+  add("href", "https://www.", 0, 0x0c);
 
   return names;
 })();
 
-const SL_VALUE_FIELDS = (function () {
+const SL_VALUE_FIELDS = (function() {
   let names = {};
   function add(value, codepage, number) {
     let entry = {
-      value: value,
-      number: number,
+      value,
+      number,
     };
     if (!names[codepage]) {
       names[codepage] = {};
@@ -150,15 +141,15 @@ const SL_VALUE_FIELDS = (function () {
     names[codepage][number] = entry;
   }
 
-  add(".com/",      0,  0x85);
-  add(".edu/",      0,  0x86);
-  add(".net/",      0,  0x87);
-  add(".org/",      0,  0x88);
+  add(".com/", 0, 0x85);
+  add(".edu/", 0, 0x86);
+  add(".net/", 0, 0x87);
+  add(".org/", 0, 0x88);
 
   return names;
 })();
 
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   // Parser
   "PduHelper",
 ];

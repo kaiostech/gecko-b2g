@@ -24,32 +24,22 @@ export function getFilenameFromPath(pathname) {
 const NoDomain = "(no domain)";
 const def = { path: "", search: "", group: "", filename: "" };
 
-export function getURL(source) {
-  const { url } = source;
-  if (!url) {
-    return def;
-  }
-  return getURLInternal(url);
-}
-
 /**
  * Compute the URL which may be displayed in the Source Tree.
  *
  * @param {String} url
  *        The source absolute URL as a string
- * @param {String} defaultDomain
- *        The host of the currently debugged web page.
+ * @param {String} extensionName
+ *        Optional, but mandatory when passing a moz-extension URL.
+ *        Name of the extension serving this moz-extension source.
  * @return URL Object
  *        A URL object to represent this source.
  */
-export function getDisplayURL(url, defaultDomain = "") {
+export function getDisplayURL(url, extensionName = null) {
   if (!url) {
     return def;
   }
-  return getURLInternal(url, defaultDomain);
-}
 
-function getURLInternal(url, defaultDomain) {
   const { pathname, search, protocol, host } = parse(url);
   const filename = getUnicodeUrlPath(getFilenameFromPath(pathname));
 
@@ -59,6 +49,16 @@ function getURLInternal(url, defaultDomain) {
       return def;
 
     case "moz-extension:":
+      return {
+        ...def,
+        path: pathname,
+        search,
+        filename,
+        // For moz-extension, we replace the uuid by the extension name
+        // that we receive from the SourceActor.extensionName attribute.
+        // `extensionName` might be null for content script of disabled add-ons.
+        group: extensionName || `${protocol}//${host}`,
+      };
     case "resource:":
       return {
         ...def,
@@ -67,17 +67,22 @@ function getURLInternal(url, defaultDomain) {
         filename,
         group: `${protocol}//${host || ""}`,
       };
-
     case "webpack:":
+      return {
+        ...def,
+        path: pathname,
+        search,
+        filename,
+        group: `Webpack`,
+      };
     case "ng:":
       return {
         ...def,
         path: pathname,
         search,
         filename,
-        group: `${protocol}//`,
+        group: `Angular`,
       };
-
     case "about:":
       // An about page is a special case
       return {
@@ -112,7 +117,7 @@ function getURLInternal(url, defaultDomain) {
           ...def,
           path: pathname,
           search,
-          group: defaultDomain || "",
+          group: "",
           filename,
         };
       }

@@ -171,10 +171,10 @@ void HwcComposer2D::Vsync(int aDisplay, nsecs_t aVsyncTimestamp) {
   // is avaliabe in gfxAndroidPlatform::GetGonkVsyncSource. At this
   // timing created VsyncSource doesn't be assigned to gfxPlatform yet.
 
-  RefPtr<VsyncSource> vsyncSource = gfxPlatform::GetPlatform()->GetGonkVsyncSource();
+  RefPtr<VsyncSource> vsyncSource =
+      gfxPlatform::GetPlatform()->GetGonkVsyncSource();
 
-  if (!gfxPlatform::Initialized() ||
-      !vsyncSource) {
+  if (!gfxPlatform::Initialized() || !vsyncSource) {
     return;
   }
 

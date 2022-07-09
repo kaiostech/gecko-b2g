@@ -50,7 +50,8 @@ class SmsChild : public PSmsChild {
 
   IPCResult RecvNotifyReadErrorMessage(const MobileMessageData& aMessage);
 
-  IPCResult RecvNotifyDeletedMessageInfo(const DeletedMessageInfoData& aDeletedInfo);
+  IPCResult RecvNotifyDeletedMessageInfo(
+      const DeletedMessageInfoData& aDeletedInfo);
 
   PSmsRequestChild* AllocPSmsRequestChild(const IPCSmsRequest& aRequest);
 
@@ -59,8 +60,7 @@ class SmsChild : public PSmsChild {
   PMobileMessageCursorChild* AllocPMobileMessageCursorChild(
       const IPCMobileMessageCursor& aCursor);
 
-  bool DeallocPMobileMessageCursorChild(
-      PMobileMessageCursorChild* aActor);
+  bool DeallocPMobileMessageCursorChild(PMobileMessageCursorChild* aActor);
 };
 
 class SmsRequestChild : public PSmsRequestChild {

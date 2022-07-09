@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["PermissionsManagerChild"];
+const EXPORTED_SYMBOLS = ["PermissionsManagerChild"];
 
 class PermissionsManagerChild extends JSWindowActorChild {
   getPermission(params) {

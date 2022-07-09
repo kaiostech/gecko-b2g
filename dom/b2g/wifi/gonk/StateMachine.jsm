@@ -8,11 +8,11 @@
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-this.EXPORTED_SYMBOLS = ["StateMachine"];
+const EXPORTED_SYMBOLS = ["StateMachine"];
 
 const DEBUG = false;
 
-this.StateMachine = function(aDebugTag) {
+const StateMachine = function(aDebugTag) {
   function debug(aMsg) {
     dump("-*- StateMachine:" + aDebugTag + ": " + aMsg);
   }

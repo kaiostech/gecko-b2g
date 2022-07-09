@@ -174,18 +174,18 @@ const client = RemoteSettings("nimbus-desktop-experiments");
 // no `add_task` because we want to run this setup before each test not before
 // the entire test suite.
 async function setup(experiment) {
+  // Store the experiment in RS local db to bypass synchronization.
+  await client.db.importChanges({}, Date.now(), [experiment], { clear: true });
   await SpecialPowers.pushPrefEnv({
     set: [
       ["app.shield.optoutstudies.enabled", true],
       ["datareporting.healthreport.uploadEnabled", true],
       [
         "browser.newtabpage.activity-stream.asrouter.providers.messaging-experiments",
-        `{"id":"messaging-experiments","enabled":true,"type":"remote-experiments","messageGroups":["cfr","spotlight","infobar","aboutwelcome"],"updateCycleInMs":0}`,
+        `{"id":"messaging-experiments","enabled":true,"type":"remote-experiments","updateCycleInMs":0}`,
       ],
     ],
   });
-
-  await client.db.importChanges({}, Date.now(), [experiment], { clear: true });
 }
 
 async function cleanup() {

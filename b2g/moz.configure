@@ -29,6 +29,7 @@ set_define("MOZ_B2G_OS_NAME", b2g_os_name)
 
 option("--with-gonk-gfx", nargs=0, help="Use the gonk widget layer")
 
+
 @depends_if("--with-gonk-gfx")
 def gonk_toolkit(_):
     return "cairo-gonk"

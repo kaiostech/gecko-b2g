@@ -9,29 +9,32 @@ const { AlarmService } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-this.EXPORTED_SYMBOLS = ["AppsUtils"];
+const EXPORTED_SYMBOLS = ["AppsUtils"];
 
 function debug(msg) {
   dump(`AppsUtils.js: ${msg}\n`);
 }
 
-this.AppsUtils = {
+const AppsUtils = {
   clearData(url) {
-    debug("clearData: " + url);
-    let uri = Services.io.newURI(url);
-    const kFlags =
-      Ci.nsIClearDataService.CLEAR_COOKIES |
-      Ci.nsIClearDataService.CLEAR_DOM_STORAGES |
-      Ci.nsIClearDataService.CLEAR_CLIENT_AUTH_REMEMBER_SERVICE |
-      Ci.nsIClearDataService.CLEAR_PLUGIN_DATA |
-      Ci.nsIClearDataService.CLEAR_EME |
-      Ci.nsIClearDataService.CLEAR_ALL_CACHES;
+    return new Promise(resolve => {
+      debug("clearData: " + url);
+      let uri = Services.io.newURI(url);
+      const kFlags =
+        Ci.nsIClearDataService.CLEAR_COOKIES |
+        Ci.nsIClearDataService.CLEAR_DOM_STORAGES |
+        Ci.nsIClearDataService.CLEAR_CLIENT_AUTH_REMEMBER_SERVICE |
+        Ci.nsIClearDataService.CLEAR_PLUGIN_DATA |
+        Ci.nsIClearDataService.CLEAR_EME |
+        Ci.nsIClearDataService.CLEAR_ALL_CACHES;
 
-    // This will clear cache, cookie etc as defined in the kFlags.
-    Services.clearData.deleteDataFromHost(uri.host, true, kFlags, result => {
-      debug("result: " + result);
+      // This will clear cache, cookie etc as defined in the kFlags.
+      Services.clearData.deleteDataFromHost(uri.host, true, kFlags, result => {
+        debug("result: " + result);
+        resolve(result);
+      });
+
+      AlarmService.removeByHost(uri.host);
     });
-
-    AlarmService.removeByHost(uri.host);
   },
 };

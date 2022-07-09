@@ -441,7 +441,6 @@ nsresult Telephony::HandleCallInfo(nsITelephonyCallInfo* aInfo) {
   id->UpdateNumberPresentation(numberPresentation);
   id->UpdateNamePresentation(namePresentation);
 
-
   nsAutoString disconnectedReason;
   aInfo->GetDisconnectedReason(disconnectedReason);
 
@@ -984,8 +983,8 @@ Telephony::SupplementaryServiceNotification(uint32_t aServiceId,
                                             int32_t aCode, int32_t aIndex,
                                             int32_t aType,
                                             const nsAString& aNumber) {
-  DispatchSsnEvent(u"suppservicenotification"_ns,
-                   aNotificationType, aCode, aIndex, aIndex, aNumber);
+  DispatchSsnEvent(u"suppservicenotification"_ns, aNotificationType, aCode,
+                   aIndex, aIndex, aNumber);
   return NS_OK;
 }
 
@@ -1015,8 +1014,7 @@ Telephony::NotifyConferenceError(const nsAString& aName,
 
 NS_IMETHODIMP
 Telephony::NotifyRingbackTone(bool aPlayRingbackTone) {
-  DispatchRingbackToneEvent(u"ringbacktone"_ns,
-                            aPlayRingbackTone);
+  DispatchRingbackToneEvent(u"ringbacktone"_ns, aPlayRingbackTone);
   return NS_OK;
 }
 
@@ -1028,8 +1026,7 @@ Telephony::NotifyTtyModeReceived(uint16_t aMode) {
 
 NS_IMETHODIMP
 Telephony::NotifyTelephonyCoverageLosing(uint16_t aType) {
-  DispatchTelephonyCoverageLosingEvent(
-      u"telephonycoveragelosing"_ns, aType);
+  DispatchTelephonyCoverageLosingEvent(u"telephonycoveragelosing"_ns, aType);
   return NS_OK;
 }
 

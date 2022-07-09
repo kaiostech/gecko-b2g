@@ -4,8 +4,7 @@
 
 "use strict";
 
-var WSP = {};
-ChromeUtils.import("resource://gre/modules/WspPduHelper.jsm", WSP);
+var WSP = ChromeUtils.import("resource://gre/modules/WspPduHelper.jsm");
 
 /**
  * Token flags
@@ -28,10 +27,10 @@ const STRING_TABLE_TOKEN = 0x83;
 const OPAQUE_TOKEN = 0xc3;
 
 // Set to true to enable debug message on all WBXML decoders.
-this.DEBUG_ALL = false;
+const DEBUG_ALL = false;
 
 // Enable debug message for WBXML decoder core.
-this.DEBUG = DEBUG_ALL | false;
+const DEBUG = DEBUG_ALL | false;
 
 /**
  * Handle WBXML code page switch.
@@ -43,7 +42,7 @@ this.DEBUG = DEBUG_ALL | false;
  *
  * @see WAP-192-WBXML-20010725-A, clause 5.8.4.7.2 and 5.8.1
  */
-this.WbxmlCodePageSwitch = {
+const WbxmlCodePageSwitch = {
   decode: function decode_wbxml_code_page_switch(data, decodeInfo) {
     let codePage = WSP.Octet.decode(data);
 
@@ -95,7 +94,7 @@ this.WbxmlCodePageSwitch = {
  * @see WAP-192-WBXML-20010725-A, clause 5.8.4.7.1
  *
  */
-this.WbxmlEnd = {
+const WbxmlEnd = {
   decode: function decode_wbxml_end(data, decodeInfo) {
     let tagInfo = decodeInfo.tagStack.pop();
     return "</" + tagInfo.name + ">";
@@ -114,7 +113,7 @@ this.WbxmlEnd = {
  *
  * @see WAP-192-WBXML-20010725-A, clause 6.1
  */
-this.escapeReservedCharacters = function escape_reserved_characters(str) {
+const escapeReservedCharacters = function escape_reserved_characters(str) {
   let dst = "";
 
   for (var i = 0; i < str.length; i++) {
@@ -147,7 +146,7 @@ this.escapeReservedCharacters = function escape_reserved_characters(str) {
  *
  * @see WAP-192-WBXML-20010725-A, clause 5.7
  */
-this.readStringTable = function decode_wbxml_read_string_table(
+const readStringTable = function decode_wbxml_read_string_table(
   start,
   stringTable,
   charset
@@ -170,7 +169,7 @@ this.readStringTable = function decode_wbxml_read_string_table(
   );
 };
 
-this.WbxmlStringTable = {
+const WbxmlStringTable = {
   decode: function decode_wbxml_string_table(data, decodeInfo) {
     let start = WSP.Octet.decode(data);
     let str = readStringTable(
@@ -194,7 +193,7 @@ this.WbxmlStringTable = {
  * @see WAP-192-WBXML-20010725-A, clause 5.8.4.1
  *
  */
-this.WbxmlInlineString = {
+const WbxmlInlineString = {
   decode: function decode_wbxml_inline_string(data, decodeInfo) {
     let charCode = WSP.Octet.decode(data);
     let stringData = [];
@@ -220,7 +219,7 @@ this.WbxmlInlineString = {
  * @see WAP-192-WBXML-20010725-A, clause 5.8.4.6
  *
  */
-this.WbxmlOpaque = {
+const WbxmlOpaque = {
   decode: function decode_wbxml_inline_opaque(data) {
     // Inline OPAQUE must be decoded based on application definition,
     // so it's illegal to run into OPAQUE type in general decoder.
@@ -231,7 +230,7 @@ this.WbxmlOpaque = {
   },
 };
 
-this.PduHelper = {
+const PduHelper = {
   /**
    * Parse WBXML encoded message into plain text.
    *
@@ -556,7 +555,7 @@ function debug(s) {
   }
 }
 
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   // Parser
   "PduHelper",
 ];

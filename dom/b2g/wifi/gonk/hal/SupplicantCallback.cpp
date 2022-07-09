@@ -363,11 +363,11 @@ void SupplicantStaIfaceCallback::NotifyAnqpQueryDone(
     nsCString iface(mInterfaceName);
     nsString bssid(NS_ConvertUTF8toUTF16(aBssid.c_str()));
 
-#define ASSIGN_ANQP_IF_EXIST(map, type, payload) \
-  do {                                           \
-    if (payload.size() > 0) {                    \
-      map.InsertOrUpdate((uint32_t)type, payload);          \
-    }                                            \
+#define ASSIGN_ANQP_IF_EXIST(map, type, payload)   \
+  do {                                             \
+    if (payload.size() > 0) {                      \
+      map.InsertOrUpdate((uint32_t)type, payload); \
+    }                                              \
   } while (0)
 
     AnqpResponseMap anqpData;

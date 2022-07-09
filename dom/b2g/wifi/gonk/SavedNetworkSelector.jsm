@@ -11,7 +11,7 @@ const { WifiConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["SavedNetworkSelector"];
+const EXPORTED_SYMBOLS = ["SavedNetworkSelector"];
 
 const BAND_AWARD_5GHZ = 40;
 const LAST_SELECTION_AWARD = 480;
@@ -28,7 +28,7 @@ function debug(aMsg) {
   }
 }
 
-this.SavedNetworkSelector = function SavedNetworkSelector() {};
+const SavedNetworkSelector = function SavedNetworkSelector() {};
 
 SavedNetworkSelector.prototype = {
   setDebug(aDebug) {

@@ -24,19 +24,20 @@ XPIDL_MODULE = "dom_system_gonk"
 
 EXPORTS += [
     "AudioChannelManager.h",
+    "AudioManager.h",
     "RndisController.h",
     "SystemProperty.h",
     "SystemWorkerManager.h",
 ]
 
 UNIFIED_SOURCES += [
-    'AudioChannelManager.cpp',
-    'AudioManager.cpp',
-    'AutoMounter.cpp',
-    'AutoMounterSetting.cpp',
-    'RndisController.cpp',
-    'SystemProperty.cpp',
-    'SystemWorkerManager.cpp',
+    "AudioChannelManager.cpp",
+    "AudioManager.cpp",
+    "AutoMounter.cpp",
+    "AutoMounterSetting.cpp",
+    "RndisController.cpp",
+    "SystemProperty.cpp",
+    "SystemWorkerManager.cpp",
 ]
 
 EXTRA_JS_MODULES += [

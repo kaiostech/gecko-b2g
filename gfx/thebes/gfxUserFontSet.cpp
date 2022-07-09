@@ -16,7 +16,6 @@
 #include "mozilla/Telemetry.h"
 #include "mozilla/gfx/2D.h"
 #include "gfxPlatformFontList.h"
-#include "mozilla/ServoStyleSet.h"
 #include "mozilla/PostTraversalTask.h"
 #include "gfxOTSUtils.h"
 #include "nsIFontLoadCompleteCallback.h"
@@ -102,7 +101,7 @@ gfxUserFontEntry::~gfxUserFontEntry() {
   // Assert that we don't drop any gfxUserFontEntry objects during a Servo
   // traversal, since PostTraversalTask objects can hold raw pointers to
   // gfxUserFontEntry objects.
-  MOZ_ASSERT(!ServoStyleSet::IsInServoTraversal());
+  MOZ_ASSERT(!gfxFontUtils::IsInServoTraversal());
 }
 
 bool gfxUserFontEntry::Matches(
@@ -254,11 +253,11 @@ gfxUserFontFamily::~gfxUserFontFamily() {
   MOZ_ASSERT(NS_IsMainThread());
 }
 
-gfxFontSrcPrincipal* gfxFontFaceSrc::LoadPrincipal(
+already_AddRefed<gfxFontSrcPrincipal> gfxFontFaceSrc::LoadPrincipal(
     const gfxUserFontSet& aFontSet) const {
   MOZ_ASSERT(mSourceType == eSourceType_URL);
   if (mUseOriginPrincipal && mOriginPrincipal) {
-    return mOriginPrincipal;
+    return RefPtr{mOriginPrincipal}.forget();
   }
   return aFontSet.GetStandardFontLoadPrincipal();
 }
@@ -469,7 +468,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aForceAsync) {
     else if (currSrc.mSourceType == gfxFontFaceSrc::eSourceType_URL) {
       if (gfxPlatform::GetPlatform()->IsFontFormatSupported(
               currSrc.mFormatFlags)) {
-        if (ServoStyleSet* set = ServoStyleSet::Current()) {
+        if (ServoStyleSet* set = gfxFontUtils::CurrentServoStyleSet()) {
           // Only support style worker threads synchronously getting
           // entries from the font cache when it's not a data: URI
           // @font-face that came from UA or user sheets, since we
@@ -498,7 +497,7 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aForceAsync) {
           return;
         }
 
-        if (ServoStyleSet* set = ServoStyleSet::Current()) {
+        if (ServoStyleSet* set = gfxFontUtils::CurrentServoStyleSet()) {
           // If we need to start a font load and we're on a style
           // worker thread, we have to defer it.
           set->AppendTask(PostTraversalTask::LoadFontEntry(this));
@@ -933,11 +932,15 @@ gfxUserFontSet::gfxUserFontSet()
   }
 }
 
-gfxUserFontSet::~gfxUserFontSet() {
+gfxUserFontSet::~gfxUserFontSet() { Destroy(); }
+
+void gfxUserFontSet::Destroy() {
   gfxPlatformFontList* fp = gfxPlatformFontList::PlatformFontList();
   if (fp) {
     fp->RemoveUserFontSet(this);
   }
+
+  mFontFamilies.Clear();
 }
 
 already_AddRefed<gfxUserFontEntry> gfxUserFontSet::FindOrCreateUserFontEntry(
@@ -1259,7 +1262,7 @@ gfxFontEntry* gfxUserFontSet::UserFontCache::GetFont(
   }
 
   // Ignore principal when looking up a data: URI.
-  gfxFontSrcPrincipal* principal =
+  RefPtr<gfxFontSrcPrincipal> principal =
       IgnorePrincipal(aSrc.mURI) ? nullptr
                                  : aSrc.LoadPrincipal(*aUserFontEntry.mFontSet);
 

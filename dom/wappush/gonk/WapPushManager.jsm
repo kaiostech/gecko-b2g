@@ -14,49 +14,43 @@ var WAP_CONSTS = ChromeUtils.import("resource://gre/modules/wap_consts.js");
 const DEBUG = false; // set to true to see debug messages
 const kWapSuplInitObserverTopic = "wap-supl-init";
 
+const lazy = {};
+
 /**
  * WAP Push decoders
  */
-XPCOMUtils.defineLazyGetter(this, "SI", function() {
-  let SI = {};
-  ChromeUtils.import("resource://gre/modules/SiPduHelper.jsm", SI);
-  return SI;
+XPCOMUtils.defineLazyGetter(lazy, "SI", function() {
+  return ChromeUtils.import("resource://gre/modules/SiPduHelper.jsm");
 });
 
-XPCOMUtils.defineLazyGetter(this, "SL", function() {
-  let SL = {};
-  ChromeUtils.import("resource://gre/modules/SlPduHelper.jsm", SL);
-  return SL;
+XPCOMUtils.defineLazyGetter(lazy, "SL", function() {
+  return ChromeUtils.import("resource://gre/modules/SlPduHelper.jsm");
 });
 
-XPCOMUtils.defineLazyGetter(this, "CP", function() {
-  let CP = {};
-  ChromeUtils.import("resource://gre/modules/CpPduHelper.jsm", CP);
-  return CP;
+XPCOMUtils.defineLazyGetter(lazy, "CP", function() {
+  return ChromeUtils.import("resource://gre/modules/CpPduHelper.jsm");
 });
 
-XPCOMUtils.defineLazyGetter(this, "WSP", function() {
-  let WSP = {};
-  ChromeUtils.import("resource://gre/modules/WspPduHelper.jsm", WSP);
-  return WSP;
+XPCOMUtils.defineLazyGetter(lazy, "WSP", function() {
+  return ChromeUtils.import("resource://gre/modules/WspPduHelper.jsm");
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSystemMessenger",
   "@mozilla.org/systemmessage-service;1",
   "nsISystemMessageService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyModuleGetter(
-  this,
+  lazy,
   "gPhoneNumberUtils",
   "resource://gre/modules/PhoneNumberUtils.jsm",
   "PhoneNumberUtils"
@@ -65,7 +59,7 @@ XPCOMUtils.defineLazyModuleGetter(
 /**
  * Helpers for WAP PDU processing.
  */
-this.WapPushManager = {
+const WapPushManager = {
   /**
    * Parse raw PDU data and deliver to a proper target.
    *
@@ -76,7 +70,7 @@ this.WapPushManager = {
    */
   processMessage: function processMessage(data, options) {
     try {
-      WSP.PduHelper.parse(data, true, options);
+      lazy.WSP.PduHelper.parse(data, true, options);
       debug("options: " + JSON.stringify(options));
     } catch (ex) {
       debug("Failed to parse sessionless WSP PDU: " + ex.message);
@@ -116,12 +110,12 @@ this.WapPushManager = {
       contentType === "text/vnd.wap.si" ||
       contentType === "application/vnd.wap.sic"
     ) {
-      msg = SI.PduHelper.parse(data, contentType);
+      msg = lazy.SI.PduHelper.parse(data, contentType);
     } else if (
       contentType === "text/vnd.wap.sl" ||
       contentType === "application/vnd.wap.slc"
     ) {
-      msg = SL.PduHelper.parse(data, contentType);
+      msg = lazy.SL.PduHelper.parse(data, contentType);
     } else if (
       contentType === "text/vnd.wap.connectivity-xml" ||
       contentType === "application/vnd.wap.connectivity-wbxml"
@@ -132,19 +126,19 @@ this.WapPushManager = {
         let sec = params && params.sec;
         let mac = params && params.mac;
         let octets = new Uint8Array(data.array);
-        authInfo = CP.Authenticator.check(
+        authInfo = lazy.CP.Authenticator.check(
           octets.subarray(data.offset),
           sec,
           mac,
           function getNetworkPin() {
-            let icc = gIccService.getIccByServiceId(options.serviceId);
+            let icc = lazy.gIccService.getIccByServiceId(options.serviceId);
             let imsi = icc ? icc.imsi : null;
-            return CP.Authenticator.formatImsi(imsi);
+            return lazy.CP.Authenticator.formatImsi(imsi);
           }
         );
       }
 
-      msg = CP.PduHelper.parse(data, contentType);
+      msg = lazy.CP.PduHelper.parse(data, contentType);
     } else if (contentType === "application/vnd.omaloc-supl-init") {
       let content = data.array.slice(data.offset);
       msg = {
@@ -161,13 +155,13 @@ this.WapPushManager = {
       };
     }
 
-    let sender = gPhoneNumberUtils.normalize(options.sourceAddress, false);
+    let sender = lazy.gPhoneNumberUtils.normalize(options.sourceAddress, false);
     //let parsedSender = PhoneNumberUtils.parse(sender);
     //if (parsedSender && parsedSender.internationalNumber) {
     //  sender = parsedSender.internationalNumber;
     //}
 
-    gSystemMessenger.broadcastMessage("wappush-received", {
+    lazy.gSystemMessenger.broadcastMessage("wappush-received", {
       sender,
       contentType: msg.contentType,
       content: msg.content,
@@ -212,4 +206,4 @@ function debug(s) {
   }
 }
 
-this.EXPORTED_SYMBOLS = ["WapPushManager"];
+const EXPORTED_SYMBOLS = ["WapPushManager"];

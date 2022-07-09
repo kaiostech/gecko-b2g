@@ -5,8 +5,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MobileMessageThreadInternal.h"
-#include "jsapi.h"            // For OBJECT_TO_JSVAL and JS_NewDateObjectMsec
-#include "nsJSUtils.h"        // For nsAutoJSString
+#include "jsapi.h"      // For OBJECT_TO_JSVAL and JS_NewDateObjectMsec
+#include "nsJSUtils.h"  // For nsAutoJSString
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 
 namespace mozilla {

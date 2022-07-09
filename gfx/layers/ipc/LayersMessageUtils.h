@@ -211,6 +211,30 @@ struct ParamTraits<mozilla::layers::CompositableHandleOwner>
           mozilla::layers::CompositableHandleOwner::InProcessManager> {};
 
 template <>
+struct ParamTraits<mozilla::layers::RemoteTextureId> {
+  typedef mozilla::layers::RemoteTextureId paramType;
+
+  static void Write(MessageWriter* writer, const paramType& param) {
+    WriteParam(writer, param.mId);
+  }
+  static bool Read(MessageReader* reader, paramType* result) {
+    return ReadParam(reader, &result->mId);
+  }
+};
+
+template <>
+struct ParamTraits<mozilla::layers::RemoteTextureOwnerId> {
+  typedef mozilla::layers::RemoteTextureOwnerId paramType;
+
+  static void Write(MessageWriter* writer, const paramType& param) {
+    WriteParam(writer, param.mId);
+  }
+  static bool Read(MessageReader* reader, paramType* result) {
+    return ReadParam(reader, &result->mId);
+  }
+};
+
+template <>
 struct ParamTraits<mozilla::layers::FrameMetrics>
     : BitfieldHelper<mozilla::layers::FrameMetrics> {
   typedef mozilla::layers::FrameMetrics paramType;
@@ -353,6 +377,10 @@ struct ParamTraits<mozilla::StyleScrollSnapStop>
           mozilla::StyleScrollSnapStop::Always> {};
 
 template <>
+struct ParamTraits<mozilla::ScrollSnapTargetId>
+    : public PlainOldDataSerializer<mozilla::ScrollSnapTargetId> {};
+
+template <>
 struct ParamTraits<mozilla::layers::ScrollSnapInfo::SnapTarget> {
   typedef mozilla::layers::ScrollSnapInfo::SnapTarget paramType;
 
@@ -361,13 +389,15 @@ struct ParamTraits<mozilla::layers::ScrollSnapInfo::SnapTarget> {
     WriteParam(aWriter, aParam.mSnapPositionY);
     WriteParam(aWriter, aParam.mSnapArea);
     WriteParam(aWriter, aParam.mScrollSnapStop);
+    WriteParam(aWriter, aParam.mTargetId);
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
     return ReadParam(aReader, &aResult->mSnapPositionX) &&
            ReadParam(aReader, &aResult->mSnapPositionY) &&
            ReadParam(aReader, &aResult->mSnapArea) &&
-           ReadParam(aReader, &aResult->mScrollSnapStop);
+           ReadParam(aReader, &aResult->mScrollSnapStop) &&
+           ReadParam(aReader, &aResult->mTargetId);
   }
 };
 
@@ -378,11 +408,13 @@ struct ParamTraits<mozilla::layers::ScrollSnapInfo::ScrollSnapRange> {
   static void Write(MessageWriter* aWriter, const paramType& aParam) {
     WriteParam(aWriter, aParam.mStart);
     WriteParam(aWriter, aParam.mEnd);
+    WriteParam(aWriter, aParam.mTargetId);
   }
 
   static bool Read(MessageReader* aReader, paramType* aResult) {
     return ReadParam(aReader, &aResult->mStart) &&
-           ReadParam(aReader, &aResult->mEnd);
+           ReadParam(aReader, &aResult->mEnd) &&
+           ReadParam(aReader, &aResult->mTargetId);
   }
 };
 

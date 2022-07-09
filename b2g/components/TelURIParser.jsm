@@ -6,12 +6,12 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["TelURIParser"];
+const EXPORTED_SYMBOLS = ["TelURIParser"];
 
 /**
  * Singleton providing functionality for parsing tel: and sms: URIs
  */
-this.TelURIParser = {
+const TelURIParser = {
   parseURI(scheme, uri) {
     // https://www.ietf.org/rfc/rfc2806.txt
     let subscriber = decodeURIComponent(uri.slice((scheme + ":").length));

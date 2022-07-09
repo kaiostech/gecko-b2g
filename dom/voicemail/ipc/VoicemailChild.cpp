@@ -119,8 +119,8 @@ VoicemailChild::~VoicemailChild() {
 // PVoicemailChild
 
 IPCResult VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
-                                           const nsString& aNumber,
-                                           const nsString& aDisplayName) {
+                                                const nsString& aNumber,
+                                                const nsString& aDisplayName) {
   nsCOMPtr<nsIVoicemailProvider> provider;
   NS_ENSURE_SUCCESS(GetItemByServiceId(aServiceId, getter_AddRefs(provider)),
                     IPC_FAIL(this, "No voicemail provider"));
@@ -140,11 +140,10 @@ IPCResult VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
   return IPC_OK();
 }
 
-IPCResult VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
-                                             const bool& aHasMessages,
-                                             const int32_t& aMessageCount,
-                                             const nsString& aReturnNumber,
-                                             const nsString& aReturnMessage) {
+IPCResult VoicemailChild::RecvNotifyStatusChanged(
+    const uint32_t& aServiceId, const bool& aHasMessages,
+    const int32_t& aMessageCount, const nsString& aReturnNumber,
+    const nsString& aReturnMessage) {
   nsCOMPtr<nsIVoicemailProvider> provider;
   NS_ENSURE_SUCCESS(GetItemByServiceId(aServiceId, getter_AddRefs(provider)),
                     IPC_FAIL(this, "No voicemail provider"));

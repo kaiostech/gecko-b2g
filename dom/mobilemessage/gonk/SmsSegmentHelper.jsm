@@ -4,21 +4,12 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
-  return obj;
-});
+const RIL = ChromeUtils.import("resource://gre/modules/ril_consts.js");
 
 /**
  * SmsSegmentHelper
  */
-this.SmsSegmentHelper = {
+const SmsSegmentHelper = {
   /**
    * Get valid SMS concatenation reference number.
    */
@@ -26,7 +17,7 @@ this.SmsSegmentHelper = {
   get nextSegmentRef() {
     let ref = this._segmentRef++;
 
-    this._segmentRef %= (this.segmentRef16Bit ? 65535 : 255);
+    this._segmentRef %= this.segmentRef16Bit ? 65535 : 255;
 
     // 0 is not a valid SMS concatenation reference number.
     return ref + 1;
@@ -50,7 +41,12 @@ this.SmsSegmentHelper = {
    * @note The algorithm used in this function must match exactly with
    *       GsmPDUHelper#writeStringAsSeptets.
    */
-  countGsm7BitSeptets: function(aMessage, aLangTable, aLangShiftTable, aStrict7BitEncoding) {
+  countGsm7BitSeptets(
+    aMessage,
+    aLangTable,
+    aLangShiftTable,
+    aStrict7BitEncoding
+  ) {
     let length = 0;
     for (let msgIndex = 0; msgIndex < aMessage.length; msgIndex++) {
       let c = aMessage.charAt(msgIndex);
@@ -80,9 +76,9 @@ this.SmsSegmentHelper = {
         // Bug 816082, when aStrict7BitEncoding is enabled, we should replace
         // characters that can't be encoded with GSM 7-Bit alphabets with '*'.
         c = "*";
-        if (aLangTable.indexOf(c) >= 0) {
+        if (aLangTable.includes(c)) {
           length++;
-        } else if (aLangShiftTable.indexOf(c) >= 0) {
+        } else if (aLangShiftTable.includes(c)) {
           length += 2;
         } else {
           // We can't even encode a '*' character with current configuration.
@@ -136,7 +132,7 @@ this.SmsSegmentHelper = {
     [RIL.PDU_NL_IDENTIFIER_DEFAULT, RIL.PDU_NL_IDENTIFIER_DEFAULT],
   ],
   segmentRef16Bit: false,
-  calculateUserDataLength7Bit: function(aMessage, aStrict7BitEncoding) {
+  calculateUserDataLength7Bit(aMessage, aStrict7BitEncoding) {
     let options = null;
     let minUserDataSeptets = Number.MAX_VALUE;
     for (let i = 0; i < this.enabledGsmTableTuples.length; i++) {
@@ -145,10 +141,12 @@ this.SmsSegmentHelper = {
       const langTable = RIL.PDU_NL_LOCKING_SHIFT_TABLES[langIndex];
       const langShiftTable = RIL.PDU_NL_SINGLE_SHIFT_TABLES[langShiftIndex];
 
-      let bodySeptets = this.countGsm7BitSeptets(aMessage,
-                                                  langTable,
-                                                  langShiftTable,
-                                                  aStrict7BitEncoding);
+      let bodySeptets = this.countGsm7BitSeptets(
+        aMessage,
+        langTable,
+        langShiftTable,
+        aStrict7BitEncoding
+      );
       if (bodySeptets < 0) {
         continue;
       }
@@ -162,11 +160,11 @@ this.SmsSegmentHelper = {
       }
 
       // Calculate full user data length, note the extra byte is for header len
-      let headerSeptets = Math.ceil((headerLen ? headerLen + 1 : 0) * 8 / 7);
+      let headerSeptets = Math.ceil(((headerLen ? headerLen + 1 : 0) * 8) / 7);
       let segmentSeptets = RIL.PDU_MAX_USER_DATA_7BIT;
-      if ((bodySeptets + headerSeptets) > segmentSeptets) {
+      if (bodySeptets + headerSeptets > segmentSeptets) {
         headerLen += this.segmentRef16Bit ? 6 : 5;
-        headerSeptets = Math.ceil((headerLen + 1) * 8 / 7);
+        headerSeptets = Math.ceil(((headerLen + 1) * 8) / 7);
       }
       segmentSeptets -= headerSeptets;
 
@@ -182,8 +180,8 @@ this.SmsSegmentHelper = {
         dcs: RIL.PDU_DCS_MSG_CODING_7BITS_ALPHABET,
         encodedFullBodyLength: bodySeptets,
         userDataHeaderLength: headerLen,
-        langIndex: langIndex,
-        langShiftIndex: langShiftIndex,
+        langIndex,
+        langShiftIndex,
         segmentMaxSeq: segments,
         segmentChars: segmentSeptets,
       };
@@ -203,12 +201,12 @@ this.SmsSegmentHelper = {
    *
    * @see #calculateUserDataLength().
    */
-  calculateUserDataLengthUCS2: function(aMessage) {
+  calculateUserDataLengthUCS2(aMessage) {
     let bodyChars = aMessage.length;
     let headerLen = 0;
     let headerChars = Math.ceil((headerLen ? headerLen + 1 : 0) / 2);
     let segmentChars = RIL.PDU_MAX_USER_DATA_UCS2;
-    if ((bodyChars + headerChars) > segmentChars) {
+    if (bodyChars + headerChars > segmentChars) {
       headerLen += this.segmentRef16Bit ? 6 : 5;
       headerChars = Math.ceil((headerLen + 1) / 2);
       segmentChars -= headerChars;
@@ -221,7 +219,7 @@ this.SmsSegmentHelper = {
       encodedFullBodyLength: bodyChars * 2,
       userDataHeaderLength: headerLen,
       segmentMaxSeq: segments,
-      segmentChars: segmentChars,
+      segmentChars,
     };
   },
 
@@ -254,8 +252,11 @@ this.SmsSegmentHelper = {
    *        This number might not be accurate for a multi-part message until
    *        it's processed by #fragmentText() again.
    */
-  calculateUserDataLength: function(aMessage, aStrict7BitEncoding) {
-    let options = this.calculateUserDataLength7Bit(aMessage, aStrict7BitEncoding);
+  calculateUserDataLength(aMessage, aStrict7BitEncoding) {
+    let options = this.calculateUserDataLength7Bit(
+      aMessage,
+      aStrict7BitEncoding
+    );
     if (!options) {
       options = this.calculateUserDataLengthUCS2(aMessage);
     }
@@ -280,9 +281,16 @@ this.SmsSegmentHelper = {
    *
    * @return an array of objects. See #fragmentText() for detailed definition.
    */
-  fragmentText7Bit: function(aText, aLangTable, aLangShiftTable, aSegmentSeptets, aStrict7BitEncoding) {
+  fragmentText7Bit(
+    aText,
+    aLangTable,
+    aLangShiftTable,
+    aSegmentSeptets,
+    aStrict7BitEncoding
+  ) {
     let ret = [];
-    let body = "", len = 0;
+    let body = "",
+      len = 0;
     // If the message is empty, we only push the empty message to ret.
     if (aText.length === 0) {
       ret.push({
@@ -314,21 +322,23 @@ this.SmsSegmentHelper = {
         inc = 2;
         if (septet < 0) {
           if (!aStrict7BitEncoding) {
-            throw new Error("Given text cannot be encoded with GSM 7-bit Alphabet!");
+            throw new Error(
+              "Given text cannot be encoded with GSM 7-bit Alphabet!"
+            );
           }
 
           // Bug 816082, when aStrict7BitEncoding is enabled, we should replace
           // characters that can't be encoded with GSM 7-Bit alphabets with '*'.
           c = "*";
-          if (aLangTable.indexOf(c) >= 0) {
+          if (aLangTable.includes(c)) {
             inc = 1;
           }
         }
       }
 
-      if ((len + inc) > aSegmentSeptets) {
+      if (len + inc > aSegmentSeptets) {
         ret.push({
-          body: body,
+          body,
           encodedBodyLength: len,
         });
         body = c;
@@ -341,7 +351,7 @@ this.SmsSegmentHelper = {
 
     if (len) {
       ret.push({
-        body: body,
+        body,
         encodedBodyLength: len,
       });
     }
@@ -359,7 +369,7 @@ this.SmsSegmentHelper = {
    *
    * @return an array of objects. See #fragmentText() for detailed definition.
    */
-  fragmentTextUCS2: function(aText, aSegmentChars) {
+  fragmentTextUCS2(aText, aSegmentChars) {
     let ret = [];
     // If the message is empty, we only push the empty message to ret.
     if (aText.length === 0) {
@@ -399,21 +409,24 @@ this.SmsSegmentHelper = {
    *
    * @return Populated options object.
    */
-  fragmentText: function(aText, aOptions, aStrict7BitEncoding) {
+  fragmentText(aText, aOptions, aStrict7BitEncoding) {
     if (!aOptions) {
       aOptions = this.calculateUserDataLength(aText, aStrict7BitEncoding);
     }
 
     if (aOptions.dcs == RIL.PDU_DCS_MSG_CODING_7BITS_ALPHABET) {
       const langTable = RIL.PDU_NL_LOCKING_SHIFT_TABLES[aOptions.langIndex];
-      const langShiftTable = RIL.PDU_NL_SINGLE_SHIFT_TABLES[aOptions.langShiftIndex];
-      aOptions.segments = this.fragmentText7Bit(aText,
-                                                langTable, langShiftTable,
-                                                aOptions.segmentChars,
-                                                aStrict7BitEncoding);
+      const langShiftTable =
+        RIL.PDU_NL_SINGLE_SHIFT_TABLES[aOptions.langShiftIndex];
+      aOptions.segments = this.fragmentText7Bit(
+        aText,
+        langTable,
+        langShiftTable,
+        aOptions.segmentChars,
+        aStrict7BitEncoding
+      );
     } else {
-      aOptions.segments = this.fragmentTextUCS2(aText,
-                                                aOptions.segmentChars);
+      aOptions.segments = this.fragmentTextUCS2(aText, aOptions.segmentChars);
     }
 
     // Re-sync aOptions.segmentMaxSeq with actual length of returning array.
@@ -425,7 +438,7 @@ this.SmsSegmentHelper = {
     }
 
     return aOptions;
-  }
+  },
 };
 
-this.EXPORTED_SYMBOLS = [ 'SmsSegmentHelper' ];
+const EXPORTED_SYMBOLS = ["SmsSegmentHelper"];

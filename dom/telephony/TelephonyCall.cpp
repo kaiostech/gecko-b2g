@@ -404,8 +404,8 @@ void TelephonyCall::NotifyRttModifyRequest(uint16_t aRttMode) {
   RttModifyRequestReceivedEventInit init;
   init.mMode = ConvertToTelephonyRttMode(aRttMode);
   RefPtr<RttModifyRequestReceivedEvent> event =
-      RttModifyRequestReceivedEvent::Constructor(
-          this, u"rttmodifyrequest"_ns, init);
+      RttModifyRequestReceivedEvent::Constructor(this, u"rttmodifyrequest"_ns,
+                                                 init);
   nsresult rv = DispatchTrustedEvent(event);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch rttmodifyrequest event!");
@@ -416,8 +416,8 @@ void TelephonyCall::NotifyRttModifyResponse(uint16_t aStatus) {
   RttModifyResponseReceivedEventInit init;
   init.mStatus = (unsigned short)aStatus;
   RefPtr<RttModifyResponseReceivedEvent> event =
-      RttModifyResponseReceivedEvent::Constructor(
-          this, u"rttmodifyresponse"_ns, init);
+      RttModifyResponseReceivedEvent::Constructor(this, u"rttmodifyresponse"_ns,
+                                                  init);
   nsresult rv = DispatchTrustedEvent(event);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch rttmodifyresponse event!");
@@ -427,8 +427,8 @@ void TelephonyCall::NotifyRttModifyResponse(uint16_t aStatus) {
 void TelephonyCall::NotifyRttMessage(const nsAString& aMessage) {
   RttMessageReceivedEventInit init;
   init.mMessage = aMessage;
-  RefPtr<RttMessageReceivedEvent> event = RttMessageReceivedEvent::Constructor(
-      this, u"rttmessage"_ns, init);
+  RefPtr<RttMessageReceivedEvent> event =
+      RttMessageReceivedEvent::Constructor(this, u"rttmessage"_ns, init);
   nsresult rv = DispatchTrustedEvent(event);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch rttmessage event!");

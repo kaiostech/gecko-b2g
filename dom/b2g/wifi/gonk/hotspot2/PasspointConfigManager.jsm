@@ -13,11 +13,11 @@ const { PasspointProvider } = ChromeUtils.import(
   "resource://gre/modules/PasspointConfiguration.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["PasspointConfigManager"];
+const EXPORTED_SYMBOLS = ["PasspointConfigManager"];
 
 var gDebug = false;
 
-this.PasspointConfigManager = (function() {
+const PasspointConfigManager = (function() {
   var passpointConfigManager = {};
   var providers = Object.create(null);
   var providerId = 0;

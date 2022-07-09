@@ -210,10 +210,10 @@ nsVolumeService::CreateOrGetVolumeByPath(const nsAString& aPath,
   // In order to support queries by the updater, we will fabricate a volume
   // from the pathname, so that the caller can determine the volume size.
   nsCOMPtr<nsIVolume> vol = new nsVolume(
-      u"fake"_ns, aPath, nsIVolume::STATE_MOUNTED,
-      -1 /* generation */, true /* isMediaPresent*/, false /* isSharing */,
-      false /* isFormatting */, true /* isFake */, false /* isUnmounting */,
-      false /* isRemovable */, false /* isHotSwappable*/);
+      u"fake"_ns, aPath, nsIVolume::STATE_MOUNTED, -1 /* generation */,
+      true /* isMediaPresent*/, false /* isSharing */, false /* isFormatting */,
+      true /* isFake */, false /* isUnmounting */, false /* isRemovable */,
+      false /* isHotSwappable*/);
   vol.forget(aResult);
   return NS_OK;
 }

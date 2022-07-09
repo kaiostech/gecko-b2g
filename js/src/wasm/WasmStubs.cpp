@@ -902,13 +902,10 @@ static void CallSymbolicAddress(MacroAssembler& masm, bool isAbsolute,
 }
 
 // Load instance's instance from the callee.
-static void GenerateJitEntryLoadInstance(MacroAssembler& masm,
-                                         unsigned frameSize) {
-  AssertExpectedSP(masm);
-
+static void GenerateJitEntryLoadInstance(MacroAssembler& masm) {
   // ScratchIonEntry := callee => JSFunction*
-  unsigned offset = frameSize + JitFrameLayout::offsetOfCalleeToken();
-  masm.loadFunctionFromCalleeToken(Address(masm.getStackPointer(), offset),
+  unsigned offset = JitFrameLayout::offsetOfCalleeToken();
+  masm.loadFunctionFromCalleeToken(Address(FramePointer, offset),
                                    ScratchIonEntry);
 
   // ScratchIonEntry := callee->getExtendedSlot(WASM_INSTANCE_SLOT)->toPrivate()
@@ -925,16 +922,14 @@ static void GenerateJitEntryThrow(MacroAssembler& masm, unsigned frameSize) {
 
   MOZ_ASSERT(masm.framePushed() == frameSize);
 
-  GenerateJitEntryLoadInstance(masm, frameSize);
-
   masm.freeStack(frameSize);
   MoveSPForJitABI(masm);
 
-  // The frame pointer is still set to FailFP. Restore it before entering the
-  // exit frame.
-  masm.loadPtr(
-      Address(masm.getStackPointer(), JitFrameLayout::offsetOfCallerFramePtr()),
-      FramePointer);
+  // The frame pointer is still set to FailFP. Restore it before using it to
+  // load the instance.
+  masm.moveStackPtrTo(FramePointer);
+
+  GenerateJitEntryLoadInstance(masm);
 
   masm.loadPtr(Address(InstanceReg, Instance::offsetOfCx()), ScratchIonEntry);
   masm.enterFakeExitFrameForWasm(ScratchIonEntry, ScratchIonEntry,
@@ -1037,7 +1032,7 @@ static bool GenerateJitEntry(MacroAssembler& masm, size_t funcExportIndex,
 
   uint32_t frameSize = masm.framePushed();
 
-  GenerateJitEntryLoadInstance(masm, frameSize);
+  GenerateJitEntryLoadInstance(masm);
 
   if (fe.funcType().hasUnexposableArgOrRet()) {
     CallSymbolicAddress(masm, !fe.hasEagerStubs(),
@@ -1061,8 +1056,7 @@ static bool GenerateJitEntry(MacroAssembler& masm, size_t funcExportIndex,
   // - the second loop will unbox the arguments into the right registers.
   Label oolCall;
   for (size_t i = 0; i < fe.funcType().args().length(); i++) {
-    unsigned jitArgOffset = frameSize + JitFrameLayout::offsetOfActualArg(i);
-    Address jitArgAddr(sp, jitArgOffset);
+    Address jitArgAddr(FramePointer, JitFrameLayout::offsetOfActualArg(i));
     masm.loadValue(jitArgAddr, scratchV);
 
     Label next;
@@ -1215,9 +1209,7 @@ static bool GenerateJitEntry(MacroAssembler& masm, size_t funcExportIndex,
   // Convert all the expected values to unboxed values on the stack.
   ArgTypeVector args(fe.funcType());
   for (WasmABIArgIter iter(args); !iter.done(); iter++) {
-    unsigned jitArgOffset =
-        frameSize + JitFrameLayout::offsetOfActualArg(iter.index());
-    Address argv(sp, jitArgOffset);
+    Address argv(FramePointer, JitFrameLayout::offsetOfActualArg(iter.index()));
     bool isStackArg = iter->kind() == ABIArg::Stack;
     switch (iter.mirType()) {
       case MIRType::Int32: {
@@ -1369,7 +1361,7 @@ static bool GenerateJitEntry(MacroAssembler& masm, size_t funcExportIndex,
           case RefType::Extern:
             // Per comment above, the call may have clobbered the instance
             // register, so reload since unboxing will need it.
-            GenerateJitEntryLoadInstance(masm, 0);
+            GenerateJitEntryLoadInstance(masm);
             UnboxAnyrefIntoValueReg(masm, InstanceReg, ReturnReg,
                                     JSReturnOperand, WasmJitEntryReturnScratch);
             break;
@@ -1416,7 +1408,7 @@ static bool GenerateJitEntry(MacroAssembler& masm, size_t funcExportIndex,
     argsIter++;
 
     // argument 2: effective address of start of argv
-    Address argv(sp, masm.framePushed() + JitFrameLayout::offsetOfActualArg(0));
+    Address argv(FramePointer, JitFrameLayout::offsetOfActualArgs());
     if (argsIter->kind() == ABIArg::GPR) {
       masm.computeEffectiveAddress(argv, argsIter->gpr());
     } else {
@@ -1545,6 +1537,7 @@ void wasm::GenerateDirectCallFromJit(MacroAssembler& masm, const FuncExport& fe,
       case JitCallStackArg::Tag::Address: {
         // The address offsets were valid *before* we pushed our frame.
         Address src = stackArg.addr();
+        MOZ_ASSERT(src.base == masm.getStackPointer());
         src.offset += masm.framePushed() - framePushedAtStart;
         switch (iter.mirType()) {
           case MIRType::Double: {
@@ -2248,7 +2241,7 @@ static bool GenerateImportInterpExit(MacroAssembler& masm, const FuncImport& fi,
 // having boxed all the ABI arguments into the JIT stack frame layout.
 static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
                                   unsigned funcImportIndex, Label* throwLabel,
-                                  JitExitOffsets* offsets) {
+                                  CallableOffsets* offsets) {
   AutoCreatedBy acb(masm, "GenerateImportJitExit");
 
   AssertExpectedSP(masm);
@@ -2351,17 +2344,11 @@ static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
   // - or the value needs to be rooted, but nothing can cause a GC between
   //   here and CoerceInPlace, which roots before coercing to a primitive.
 
-  // The JIT callee clobbers all registers, including InstanceReg and
-  // FramePointer, so restore those here. During this sequence of
-  // instructions, FP can't be trusted by the profiling frame iterator.
-  offsets->untrustedFPStart = masm.currentOffset();
+  // The JIT callee clobbers all registers other than the frame pointer, so
+  // restore InstanceReg here.
   AssertStackAlignment(masm, JitStackAlignment, sizeOfRetAddrAndFP);
-
   masm.loadPtr(Address(masm.getStackPointer(), savedInstanceOffset),
                InstanceReg);
-  masm.moveStackPtrTo(FramePointer);
-  masm.addPtr(Imm32(masm.framePushed()), FramePointer);
-  offsets->untrustedFPEnd = masm.currentOffset();
 
   // The frame was aligned for the JIT ABI such that
   //   (sp - 2 * sizeof(void*)) % JitStackAlignment == 0
@@ -3085,11 +3072,12 @@ bool wasm::GenerateStubs(const ModuleEnvironment& env,
       continue;
     }
 
-    JitExitOffsets jitOffsets;
+    CallableOffsets jitOffsets;
     if (!GenerateImportJitExit(masm, fi, funcIndex, &throwLabel, &jitOffsets)) {
       return false;
     }
-    if (!code->codeRanges.emplaceBack(funcIndex, jitOffsets)) {
+    if (!code->codeRanges.emplaceBack(CodeRange::ImportJitExit, funcIndex,
+                                      jitOffsets)) {
       return false;
     }
   }

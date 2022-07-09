@@ -14,6 +14,7 @@
 #include "nsIObserverService.h"
 #include "nsIAppShellService.h"
 #include "nsAppShellCID.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/ResultVariant.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_widget.h"
@@ -339,23 +340,25 @@ static IInspectable* GetUISettings() {
 #ifndef __MINGW32__
   // We need to keep this alive for ~ever so that change callbacks work as
   // expected, sigh.
-  static ComPtr<IInspectable> sUiSettingsAsInspectable;
+  static StaticRefPtr<IInspectable> sUiSettingsAsInspectable;
+
   if (!IsWin10OrLater()) {
     // Windows.UI.ViewManagement.UISettings is Win10+ only.
     return nullptr;
   }
 
   if (!sUiSettingsAsInspectable) {
+    ComPtr<IInspectable> uiSettingsAsInspectable;
     ::RoActivateInstance(
         HStringReference(RuntimeClass_Windows_UI_ViewManagement_UISettings)
             .Get(),
-        &sUiSettingsAsInspectable);
-    if (NS_WARN_IF(!sUiSettingsAsInspectable)) {
+        &uiSettingsAsInspectable);
+    if (NS_WARN_IF(!uiSettingsAsInspectable)) {
       return nullptr;
     }
 
     ComPtr<IUISettings5> uiSettings5;
-    if (SUCCEEDED(sUiSettingsAsInspectable.As(&uiSettings5))) {
+    if (SUCCEEDED(uiSettingsAsInspectable.As(&uiSettings5))) {
       EventRegistrationToken unusedToken;
       auto callback = Callback<ITypedEventHandler<
           UISettings*, UISettingsAutoHideScrollBarsChangedEventArgs*>>(
@@ -370,7 +373,7 @@ static IInspectable* GetUISettings() {
     }
 
     ComPtr<IUISettings2> uiSettings2;
-    if (SUCCEEDED(sUiSettingsAsInspectable.As(&uiSettings2))) {
+    if (SUCCEEDED(uiSettingsAsInspectable.As(&uiSettings2))) {
       EventRegistrationToken unusedToken;
       auto callback =
           Callback<ITypedEventHandler<UISettings*, IInspectable*>>([](auto...) {
@@ -384,7 +387,7 @@ static IInspectable* GetUISettings() {
     }
 
     ComPtr<IUISettings3> uiSettings3;
-    if (SUCCEEDED(sUiSettingsAsInspectable.As(&uiSettings3))) {
+    if (SUCCEEDED(uiSettingsAsInspectable.As(&uiSettings3))) {
       EventRegistrationToken unusedToken;
       auto callback =
           Callback<ITypedEventHandler<UISettings*, IInspectable*>>([](auto...) {
@@ -396,9 +399,12 @@ static IInspectable* GetUISettings() {
       (void)NS_WARN_IF(FAILED(
           uiSettings3->add_ColorValuesChanged(callback.Get(), &unusedToken)));
     }
+
+    sUiSettingsAsInspectable = dont_AddRef(uiSettingsAsInspectable.Detach());
+    ClearOnShutdown(&sUiSettingsAsInspectable);
   }
 
-  return sUiSettingsAsInspectable.Get();
+  return sUiSettingsAsInspectable.get();
 #else
   return nullptr;
 #endif
@@ -436,15 +442,24 @@ Maybe<nscolor> WindowsUIUtils::GetSystemColor(ColorScheme aScheme,
 
   // https://docs.microsoft.com/en-us/windows/apps/design/style/color
   // Is a useful resource to see which values have decent contrast.
-  if (aSysColor == COLOR_HIGHLIGHT) {
-    int tone = aScheme == ColorScheme::Light ? 0 : -1;
-    if (auto c = GetAccentColor(tone)) {
-      return c;
+  if (StaticPrefs::widget_windows_uwp_system_colors_highlight_accent()) {
+    if (aSysColor == COLOR_HIGHLIGHT) {
+      int tone = aScheme == ColorScheme::Light ? 0 : -1;
+      if (auto c = GetAccentColor(tone)) {
+        return c;
+      }
+    }
+    if (aSysColor == COLOR_HIGHLIGHTTEXT && GetAccentColor()) {
+      return Some(NS_RGBA(255, 255, 255, 255));
     }
   }
-  if (aSysColor == COLOR_HIGHLIGHTTEXT && GetAccentColor()) {
-    return Some(NS_RGBA(255, 255, 255, 255));
+
+  if (aScheme == ColorScheme::Dark) {
+    // There are no explicitly dark colors in UWP, other than the highlight
+    // colors above.
+    return Nothing();
   }
+
   auto knownType = [&]() -> Maybe<UIElementType> {
 #  define MAP(_win32, _uwp) \
     case COLOR_##_win32:    \

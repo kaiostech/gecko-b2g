@@ -4,26 +4,28 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = ["CustomHeaderInjector"];
+const EXPORTED_SYMBOLS = ["CustomHeaderInjector"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+
+const lazy = {};
 ChromeUtils.defineModuleGetter(
-  this,
+  lazy,
   "DeviceUtils",
   "resource://gre/modules/DeviceUtils.jsm"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
@@ -38,7 +40,7 @@ function debug(msg) {
   dump("-* CustomHeaderInjector *- " + msg + "\n");
 }
 
-this.CustomHeaderInjector = {
+const CustomHeaderInjector = {
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsIMobileConnectionListener,
     Ci.nsIIccListener,
@@ -72,10 +74,10 @@ this.CustomHeaderInjector = {
     Services.obs.addObserver(this, kTopicActiveNetwork);
     Services.obs.addObserver(this, kTopicPrefChange);
 
-    gIccService
+    lazy.gIccService
       .getIccByServiceId(this._defaultServiceId)
       .registerListener(this);
-    gMobileConnectionService
+    lazy.gMobileConnectionService
       .getItemByServiceId(this._defaultServiceId)
       .registerListener(this);
   },
@@ -100,19 +102,19 @@ this.CustomHeaderInjector = {
 
   initCustomHeaderValue() {
     // Get SIM mnc and mcc.
-    let iccInfo = DeviceUtils.iccInfo;
+    let iccInfo = lazy.DeviceUtils.iccInfo;
     this._deviceInfo.sim_mnc = iccInfo && iccInfo.mnc ? iccInfo.mnc : "";
     this._deviceInfo.sim_mcc = iccInfo && iccInfo.mcc ? iccInfo.mcc : "";
 
     // Get Network mnc and mcc.
-    this._deviceInfo.net_mnc = DeviceUtils.networkMnc;
-    this._deviceInfo.net_mcc = DeviceUtils.networkMcc;
+    this._deviceInfo.net_mnc = lazy.DeviceUtils.networkMnc;
+    this._deviceInfo.net_mcc = lazy.DeviceUtils.networkMcc;
 
     // Get Network connection type.
-    this._deviceInfo.net_type = DeviceUtils.networkType;
+    this._deviceInfo.net_type = lazy.DeviceUtils.networkType;
 
     // Get commercial reference.
-    let cuRef = DeviceUtils.cuRef;
+    let cuRef = lazy.DeviceUtils.cuRef;
     cuRef = !cuRef ? "" : cuRef.replace(/;/g, "\\u003B");
     this._deviceInfo.com_ref = cuRef;
 
@@ -121,7 +123,7 @@ this.CustomHeaderInjector = {
     // Get Device Id.
     this._deviceInfo.device_uid = "";
     promises.push(
-      DeviceUtils.getDeviceId().then(deviceid => {
+      lazy.DeviceUtils.getDeviceId().then(deviceid => {
         this._deviceInfo.device_uid = !deviceid
           ? ""
           : deviceid.replace(/;/g, "\\u003B");
@@ -173,11 +175,11 @@ this.CustomHeaderInjector = {
     // Network mnc, network mcc, network connection type may varies.
     // Otherwise, no need to rebuild the custom header.
     // Get Network mnc and mcc.
-    let netMnc = DeviceUtils.networkMnc;
-    let netMcc = DeviceUtils.networkMcc;
+    let netMnc = lazy.DeviceUtils.networkMnc;
+    let netMcc = lazy.DeviceUtils.networkMcc;
 
     // Get Network connection type.
-    let netType = DeviceUtils.networkType;
+    let netType = lazy.DeviceUtils.networkType;
 
     if (
       netMnc !== this._deviceInfo.net_mnc ||
@@ -192,7 +194,7 @@ this.CustomHeaderInjector = {
   },
 
   updateCustomHeaderIccValue() {
-    let iccInfo = DeviceUtils.iccInfo;
+    let iccInfo = lazy.DeviceUtils.iccInfo;
     // Get SIM mnc and mcc.
     let simMnc = iccInfo && iccInfo.mnc ? iccInfo.mnc : "";
     let simMcc = iccInfo && iccInfo.mcc ? iccInfo.mcc : "";

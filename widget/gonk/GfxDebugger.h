@@ -22,33 +22,29 @@
 namespace mozilla {
 namespace ipc {
 
-class GfxDebuggerConnector final : public UnixSocketConnector
-{
-public:
+class GfxDebuggerConnector final : public UnixSocketConnector {
+ public:
   friend class GfxDebugger;
 
-  GfxDebuggerConnector(const nsACString& aSocketName, const char** const aAllowedUsers);
+  GfxDebuggerConnector(const nsACString& aSocketName,
+                       const char** const aAllowedUsers);
 
   nsresult ConvertAddressToString(const struct sockaddr& aAddress,
-      socklen_t aAddressLength,
-      nsACString& aAddressString);
+                                  socklen_t aAddressLength,
+                                  nsACString& aAddressString);
 
   nsresult CreateListenSocket(struct sockaddr* aAddress,
-      socklen_t* aAddressLength,
-      int& aListenFd);
+                              socklen_t* aAddressLength, int& aListenFd);
 
-  nsresult AcceptStreamSocket(int aListenFd,
-      struct sockaddr* aAddress,
-      socklen_t* aAddressLen,
-      int& aStreamFd);
+  nsresult AcceptStreamSocket(int aListenFd, struct sockaddr* aAddress,
+                              socklen_t* aAddressLen, int& aStreamFd);
 
   nsresult CreateStreamSocket(struct sockaddr* aAddress,
-      socklen_t* aAddressLength,
-      int& aStreamFd);
+                              socklen_t* aAddressLength, int& aStreamFd);
 
   nsresult Duplicate(UnixSocketConnector*& aConnector);
 
-private:
+ private:
   nsCString mSocketName;
 
   const char** const mAllowedUsers;
@@ -63,18 +59,16 @@ private:
 
   nsresult CheckPermission(int aFd) const;
 
-  nsresult CreateAddress(struct sockaddr& aAddress, socklen_t& aAddressLength) const;
-
+  nsresult CreateAddress(struct sockaddr& aAddress,
+                         socklen_t& aAddressLength) const;
 };
 
-class GfxDebugger final
-: public StreamSocketConsumer
-  , public ListenSocketConsumer
-{
-public:
+class GfxDebugger final : public StreamSocketConsumer,
+                          public ListenSocketConsumer {
+ public:
   GfxDebugger();
 
-  static GfxDebugger *GetInstance();
+  static GfxDebugger* GetInstance();
 
   void Shutdown();
 
@@ -86,24 +80,27 @@ public:
 
   void OnDisconnect(int aIndex);
 
-  void SetLayerManager(mozilla::layers::LayerManagerComposite *lmc) { mLayerManager = lmc; }
+  void SetLayerManager(mozilla::layers::LayerManagerComposite* lmc) {
+    mLayerManager = lmc;
+  }
 
-  void SetCompositorBridge(mozilla::layers::CompositorBridgeParent *cbp) { mCompositorBridge = cbp; }
+  void SetCompositorBridge(mozilla::layers::CompositorBridgeParent* cbp) {
+    mCompositorBridge = cbp;
+  }
 
-  void SetSharedBufferManagerParent(mozilla::layers::SharedBufferManagerParent *sbmp) { mSharedBufferManagerParent = sbmp; }
+  void SetSharedBufferManagerParent(
+      mozilla::layers::SharedBufferManagerParent* sbmp) {
+    mSharedBufferManagerParent = sbmp;
+  }
 
-protected:
-
-private:
-  enum SocketType {
-    LISTEN_SOCKET,
-    STREAM_SOCKET
-  };
-  ~GfxDebugger() {};
+ protected:
+ private:
+  enum SocketType { LISTEN_SOCKET, STREAM_SOCKET };
+  ~GfxDebugger(){};
 
   nsCString mSocketName;
 
-  GfxDebuggerConnector *mConnector;
+  GfxDebuggerConnector* mConnector;
 
   RefPtr<ListenSocket> mListenSocket;
 
@@ -113,11 +110,11 @@ private:
 
   bool mShutdown;
 
-  mozilla::layers::LayerManagerComposite *mLayerManager;
+  mozilla::layers::LayerManagerComposite* mLayerManager;
 
-  mozilla::layers::CompositorBridgeParent *mCompositorBridge;
+  mozilla::layers::CompositorBridgeParent* mCompositorBridge;
 
-  mozilla::layers::SharedBufferManagerParent *mSharedBufferManagerParent;
+  mozilla::layers::SharedBufferManagerParent* mSharedBufferManagerParent;
 };
 
 }  // namespace ipc

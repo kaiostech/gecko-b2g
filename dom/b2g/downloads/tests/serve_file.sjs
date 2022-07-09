@@ -2,8 +2,8 @@
 
 function getQuery(request) {
   var query = {};
-  request.queryString.split('&').forEach(function (val) {
-    var [name, value] = val.split('=');
+  request.queryString.split("&").forEach(function(val) {
+    var [name, value] = val.split("=");
     query[name] = unescape(value);
   });
   return query;
@@ -20,14 +20,14 @@ function handleResponse() {
     if (bytesToWrite > 0) {
       // Figure out how many bytes to send, based on the rate limit.
       bytesToWrite =
-        (bytesToWrite > this.state.rate) ? this.state.rate : bytesToWrite;
+        bytesToWrite > this.state.rate ? this.state.rate : bytesToWrite;
 
       for (let i = 0; i < bytesToWrite; i++) {
         try {
           this.response.bodyOutputStream.write("0", 1);
         } catch (e) {
           // Connection was closed by client.
-          if (e == Components.results.NS_ERROR_NOT_AVAILABLE) {
+          if (e == Cr.NS_ERROR_NOT_AVAILABLE) {
             // There's no harm in calling this multiple times.
             this.response.finish();
 
@@ -49,8 +49,7 @@ function handleResponse() {
       // Wait until the next call to do anything else.
       return;
     }
-  }
-  else {
+  } else {
     // Not rate limited, write it all out.
     for (let i = 0; i < this.state.totalBytes; i++) {
       this.response.write("0");
@@ -87,12 +86,12 @@ function handleRequest(request, response) {
 
   // optional content type to be used by our response.
   if ("contentType" in query) {
-    contentType = query["contentType"];
+    contentType = query.contentType;
   }
 
   // optional size (in bytes) for generated file.
   if ("size" in query) {
-    size = parseInt(query["size"]);
+    size = parseInt(query.size);
   }
 
   // optional range request check.
@@ -102,7 +101,10 @@ function handleRequest(request, response) {
     description = "Partial Content";
 
     // We'll only support simple range byte style requests.
-    var [offset, total] = request.getHeader("range").slice("bytes=".length).split("-");
+    var [offset, total] = request
+      .getHeader("range")
+      .slice("bytes=".length)
+      .split("-");
     // Enforce valid Number values.
     offset = parseInt(offset);
     offset = isNaN(offset) ? 0 : offset;
@@ -130,27 +132,25 @@ function handleRequest(request, response) {
 
   // optional rate (in bytes/s) at which to send the file.
   if ("rate" in query) {
-    rate = parseInt(query["rate"]);
+    rate = parseInt(query.rate);
   }
 
   // The context for the responseHandler.
   var context = {
-    response: response,
+    response,
     state: {
-      contentType: contentType,
+      contentType,
       totalBytes: size,
       sentBytes: 0,
-      rate: rate
+      rate,
     },
-    timer: null
+    timer: null,
   };
 
   // The notify implementation for the timer.
   context.notify = handleResponse.bind(context);
 
-  context.timer =
-    Components.classes["@mozilla.org/timer;1"]
-              .createInstance(Components.interfaces.nsITimer);
+  context.timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
   // generate the content.
   response.setStatusLine(version, statusCode, description);
@@ -164,7 +164,6 @@ function handleRequest(request, response) {
   context.timer.initWithCallback(
     context,
     1000,
-    Components.interfaces.nsITimer.TYPE_REPEATING_SLACK
+    Ci.nsITimer.TYPE_REPEATING_SLACK
   );
-
 }

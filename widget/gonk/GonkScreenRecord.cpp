@@ -37,28 +37,27 @@
 using namespace android;
 
 #ifdef LOG_TAG
-#undef LOG_TAG
+#  undef LOG_TAG
 #endif
 #define LOG_TAG "GonkScreenRecord"
 
 #include <android/log.h>
-#define GS_LOGD(args...)  __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, args)
-#define GS_LOGI(args...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, args)
-#define GS_LOGW(args...)  __android_log_print(ANDROID_LOG_WARN, LOG_TAG, args)
-#define GS_LOGE(args...)  __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, args)
+#define GS_LOGD(args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, args)
+#define GS_LOGI(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, args)
+#define GS_LOGW(args...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, args)
+#define GS_LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, args)
 
 namespace mozilla {
 
 __attribute__((visibility("default"))) void HookSetVsyncAlwaysEnabled(
     bool aAlways);
 
-__attribute__((visibility("default"))) void HookEnableVsync(
-    bool aAlways);
+__attribute__((visibility("default"))) void HookEnableVsync(bool aAlways);
 
 #define GS_NUM_BUFFER_SLOTS (64)
 #define GS_USAGE_CPU_WRITE_OFTEN (3 << 4)
 
-static const uint32_t kFallbackWidth = 1280;        // 720p
+static const uint32_t kFallbackWidth = 1280;  // 720p
 static const uint32_t kFallbackHeight = 720;
 static const char* kMimeTypeAvc = "video/avc";
 
@@ -74,11 +73,11 @@ static status_t prepareEncoder(uint32_t videoWidth, uint32_t videoHeight,
                                float displayFps, sp<MediaCodec>* pCodec,
                                sp<IGraphicBufferProducer>* pBufferProducer) {
   status_t err;
-  uint32_t bitRate = 20000000;     // default 20Mbps
+  uint32_t bitRate = 20000000;  // default 20Mbps
   uint32_t bFrames = 0;
 
-  GS_LOGI("Configuring recorder for %dx%d %s at %.2fMbps\n",
-          videoWidth, videoHeight, kMimeTypeAvc, bitRate / 1000000.0);
+  GS_LOGI("Configuring recorder for %dx%d %s at %.2fMbps\n", videoWidth,
+          videoHeight, kMimeTypeAvc, bitRate / 1000000.0);
 
   sp<AMessage> format = new AMessage;
   format->setInt32(KEY_WIDTH, videoWidth);
@@ -101,13 +100,11 @@ static status_t prepareEncoder(uint32_t videoWidth, uint32_t videoHeight,
   sp<MediaCodec> codec;
   codec = MediaCodec::CreateByType(looper, kMimeTypeAvc, true);
   if (codec == NULL) {
-    GS_LOGE("ERROR: unable to create %s codec instance\n",
-            kMimeTypeAvc);
+    GS_LOGE("ERROR: unable to create %s codec instance\n", kMimeTypeAvc);
     return UNKNOWN_ERROR;
   }
 
-  err = codec->configure(format, NULL, NULL,
-                         MediaCodec::CONFIGURE_FLAG_ENCODE);
+  err = codec->configure(format, NULL, NULL, MediaCodec::CONFIGURE_FLAG_ENCODE);
   if (err != NO_ERROR) {
     GS_LOGE("ERROR: unable to configure %s codec at %dx%d (err=%d)\n",
             kMimeTypeAvc, videoWidth, videoHeight, err);
@@ -119,8 +116,7 @@ static status_t prepareEncoder(uint32_t videoWidth, uint32_t videoHeight,
   sp<IGraphicBufferProducer> bufferProducer;
   err = codec->createInputSurface(&bufferProducer);
   if (err != NO_ERROR) {
-    GS_LOGE("ERROR: unable to create encoder input surface (err=%d)\n",
-            err);
+    GS_LOGE("ERROR: unable to create encoder input surface (err=%d)\n", err);
     codec->release();
     return err;
   }
@@ -157,19 +153,19 @@ static status_t RGB565ToNV12(const uint8_t* src_rgb565, int src_stride_rgb565,
   int srcStride = src_stride_rgb565 * RGB565_FORMAT_BPP;
   int dstStride = dst_stride_y * NV12_FORMAT_BPP;
   for (int linePos = 0; linePos < height; linePos++) {
-    for (int bytePos = 0;bytePos < (width * RGB565_FORMAT_BPP); bytePos+= 2) {
+    for (int bytePos = 0; bytePos < (width * RGB565_FORMAT_BPP); bytePos += 2) {
       int pixelPos = bytePos / 2;
       uint8_t R = (src_rgb565[bytePos + 1] & 0xF8);
       uint8_t G = ((src_rgb565[bytePos] & 0xE0) >> 3) |
                   ((src_rgb565[bytePos + 1] & 0x07) << 5);
       uint8_t B = ((src_rgb565[bytePos] & 0x1F) << 3);
-      float Y =  0.257 * R + 0.504 * G + 0.098 * B +  16;
+      float Y = 0.257 * R + 0.504 * G + 0.098 * B + 16;
       dst_y[pixelPos] = (uint8_t)Y;
 
       // Store uv element for odd lines and pixels.
       if (IS_ODD(linePos) && IS_ODD(pixelPos)) {
         float U = -0.148 * R - 0.291 * G + 0.439 * B + 128;
-        float V =  0.439 * R - 0.368 * G - 0.071 * B + 128;
+        float V = 0.439 * R - 0.368 * G - 0.071 * B + 128;
         dst_uv[pixelPos] = (uint8_t)U;
         dst_uv[pixelPos + 1] = (uint8_t)V;
       }
@@ -186,17 +182,20 @@ static status_t RGB565ToNV12(const uint8_t* src_rgb565, int src_stride_rgb565,
   return NO_ERROR;
 }
 
-// This function will be invoked once vsync period expired. The main task will be:
+// This function will be invoked once vsync period expired. The main task will
+// be:
 // 1. Fetch display buffer from GonkDisplay.
 // 2. Convert the data from RGB to NV12.
 // 3. Push the prepared buffer into bufferQueue for encoder.
-void GonkScreenRecord::NotifyVsync(const int display, const TimeStamp& aVsyncTimestamp,
+void GonkScreenRecord::NotifyVsync(const int display,
+                                   const TimeStamp& aVsyncTimestamp,
                                    const TimeDuration& aVsyncPeriod) {
   if (gEncoderBufferProducer.get()) {
     void* srcBuffer;
-    sp<GraphicBuffer> frameBuffer = GetGonkDisplay()->GetFrameBuffer(
-        (DisplayType)display);
-    if (frameBuffer->lock(GraphicBuffer::USAGE_SW_READ_OFTEN, &srcBuffer) != OK) {
+    sp<GraphicBuffer> frameBuffer =
+        GetGonkDisplay()->GetFrameBuffer((DisplayType)display);
+    if (frameBuffer->lock(GraphicBuffer::USAGE_SW_READ_OFTEN, &srcBuffer) !=
+        OK) {
       GS_LOGE("Error: lock srcBuffer failed!!");
       return;
     }
@@ -206,18 +205,15 @@ void GonkScreenRecord::NotifyVsync(const int display, const TimeStamp& aVsyncTim
     sp<GraphicBuffer> dequeuedBuffer;
     android_ycbcr ycbcr;
     IGraphicBufferProducer::QueueBufferInput queueBufferInput(
-        (aVsyncTimestamp - TimeStamp()).ToMicroseconds() * 1000,
-        false,
+        (aVsyncTimestamp - TimeStamp()).ToMicroseconds() * 1000, false,
         HAL_DATASPACE_UNKNOWN,
-        Rect(frameBuffer->getWidth(), frameBuffer->getHeight()),
-        0,
-        0,
+        Rect(frameBuffer->getWidth(), frameBuffer->getHeight()), 0, 0,
         Fence::NO_FENCE);
     IGraphicBufferProducer::QueueBufferOutput queueBufferOutput;
 
-    gEncoderBufferProducer->dequeueBuffer(&dequeuedSlot, &dequeuedFence,
-        frameBuffer->getWidth(), frameBuffer->getHeight(),
-        0, (uint64_t)GS_USAGE_CPU_WRITE_OFTEN,
+    gEncoderBufferProducer->dequeueBuffer(
+        &dequeuedSlot, &dequeuedFence, frameBuffer->getWidth(),
+        frameBuffer->getHeight(), 0, (uint64_t)GS_USAGE_CPU_WRITE_OFTEN,
         nullptr, nullptr);
 
     if (dequeuedSlot < 0 || dequeuedSlot > GS_NUM_BUFFER_SLOTS) {
@@ -227,24 +223,25 @@ void GonkScreenRecord::NotifyVsync(const int display, const TimeStamp& aVsyncTim
 
     gEncoderBufferProducer->requestBuffer(dequeuedSlot, &dequeuedBuffer);
     if (dequeuedBuffer->lockYCbCr(GraphicBuffer::USAGE_SW_WRITE_OFTEN,
-        &ycbcr) != OK) {
+                                  &ycbcr) != OK) {
       GS_LOGE("Error: lock dstBuffer failed!!");
       goto unlockSrcBuffer;
     }
 
     if (RGB565ToNV12((uint8_t*)srcBuffer, frameBuffer->getStride(),
-      (uint8_t*)ycbcr.y, ycbcr.ystride, (uint8_t*)ycbcr.cb, ycbcr.cstride,
-      frameBuffer->getWidth(), frameBuffer->getHeight()) != OK) {
+                     (uint8_t*)ycbcr.y, ycbcr.ystride, (uint8_t*)ycbcr.cb,
+                     ycbcr.cstride, frameBuffer->getWidth(),
+                     frameBuffer->getHeight()) != OK) {
       GS_LOGE("Error: buffer conversion for RGB565ToNV12 failed!!");
       goto unlockAllBuffer;
     }
 
     gEncoderBufferProducer->queueBuffer(dequeuedSlot, queueBufferInput,
-        &queueBufferOutput);
+                                        &queueBufferOutput);
 
-unlockAllBuffer:
+  unlockAllBuffer:
     dequeuedBuffer->unlock();
-unlockSrcBuffer:
+  unlockSrcBuffer:
     frameBuffer->unlock();
   }
 
@@ -259,8 +256,8 @@ unlockSrcBuffer:
 
     mCurrentVsyncTask =
         NewCancelableRunnableMethod<int, TimeStamp, TimeDuration>(
-            "GonkScreenRecord::NotifyVsync", this, &GonkScreenRecord::NotifyVsync,
-            display, nextVsync, aVsyncPeriod);
+            "GonkScreenRecord::NotifyVsync", this,
+            &GonkScreenRecord::NotifyVsync, display, nextVsync, aVsyncPeriod);
 
     RefPtr<Runnable> addrefedTask = mCurrentVsyncTask;
     mVsyncThread->message_loop()->PostDelayedTask(addrefedTask.forget(),
@@ -288,7 +285,7 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
                            const sp<MediaMuxer>& muxer, FILE* rawFp,
                            const RefPtr<nsScreenGonk>& primaryScreen,
                            uint32_t rotation, uint32_t timeLimitSec) {
-  static int kTimeout = 250000;   // be responsive on signal
+  static int kTimeout = 250000;  // be responsive on signal
   status_t err;
   ssize_t trackIdx = -1;
   uint32_t debugNumFrames = 0;
@@ -317,7 +314,7 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
     }
 
     err = encoder->dequeueOutputBuffer(&bufIndex, &offset, &size, &ptsUsec,
-        &flags, kTimeout);
+                                       &flags, kTimeout);
     switch (err) {
       case NO_ERROR:
         // got a buffer
@@ -344,7 +341,7 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
             // We don't want to do this if all we've written is
             // the SPS/PPS data because mplayer gets confused.
             if ((flags & MediaCodec::BUFFER_FLAG_CODECCONFIG) == 0) {
-                fflush(rawFp);
+              fflush(rawFp);
             }
           } else {
             // The MediaMuxer docs are unclear, but it appears that we
@@ -356,10 +353,9 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
             ATRACE_NAME("write sample");
             assert(trackIdx != -1);
             // TODO
-            sp<ABuffer> buffer = new ABuffer(
-                buffers[bufIndex]->data(), buffers[bufIndex]->size());
-            err = muxer->writeSampleData(buffer, trackIdx,
-                ptsUsec, flags);
+            sp<ABuffer> buffer = new ABuffer(buffers[bufIndex]->data(),
+                                             buffers[bufIndex]->size());
+            err = muxer->writeSampleData(buffer, trackIdx, ptsUsec, flags);
             if (err != NO_ERROR) {
               GS_LOGE("Failed writing data to muxer (err=%d)\n", err);
               return err;
@@ -378,10 +374,10 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
           gStopRequested = true;
         }
         break;
-      case -EAGAIN:                       // INFO_TRY_AGAIN_LATER
+      case -EAGAIN:  // INFO_TRY_AGAIN_LATER
         GS_LOGD("Got -EAGAIN, looping");
         break;
-      case android::INFO_FORMAT_CHANGED:    // INFO_OUTPUT_FORMAT_CHANGED
+      case android::INFO_FORMAT_CHANGED:  // INFO_OUTPUT_FORMAT_CHANGED
       {
         // Format includes CSD, which we must provide to muxer.
         GS_LOGD("Encoder format changed");
@@ -392,13 +388,12 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
           GS_LOGD("Starting muxer");
           err = muxer->start();
           if (err != NO_ERROR) {
-              GS_LOGE("Unable to start muxer (err=%d)\n", err);
-              return err;
+            GS_LOGE("Unable to start muxer (err=%d)\n", err);
+            return err;
           }
         }
-      }
-      break;
-      case android::INFO_OUTPUT_BUFFERS_CHANGED:   // INFO_OUTPUT_BUFFERS_CHANGED
+      } break;
+      case android::INFO_OUTPUT_BUFFERS_CHANGED:  // INFO_OUTPUT_BUFFERS_CHANGED
         // Not expected for an encoder; handle it anyway.
         GS_LOGD("Encoder buffers changed");
         err = encoder->getOutputBuffers(&buffers);
@@ -418,14 +413,12 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
 
   GS_LOGD("Encoder stopping (req=%d)", gStopRequested);
   GS_LOGI("Encoder stopping; recorded %u frames in %" PRId64 " seconds\n",
-      debugNumFrames, nanoseconds_to_seconds(
-      systemTime(CLOCK_MONOTONIC) - startWhenNsec));
+          debugNumFrames,
+          nanoseconds_to_seconds(systemTime(CLOCK_MONOTONIC) - startWhenNsec));
   return NO_ERROR;
 }
 
-static inline uint32_t floorToEven(uint32_t num) {
-    return num & ~1;
-}
+static inline uint32_t floorToEven(uint32_t num) { return num & ~1; }
 
 /*
  * Main "do work" start point.
@@ -433,9 +426,9 @@ static inline uint32_t floorToEven(uint32_t num) {
  * Configures codec, muxer, and virtual display, then starts moving bits
  * around.
  */
-static status_t recordScreen(GonkScreenRecord* screenRecordInst, uint32_t displayId,
-                             uint32_t outputFormat, uint32_t timeLimitSec,
-                             const char* fileName) {
+static status_t recordScreen(GonkScreenRecord* screenRecordInst,
+                             uint32_t displayId, uint32_t outputFormat,
+                             uint32_t timeLimitSec, const char* fileName) {
   status_t err;
 
   // Start Binder thread pool.  MediaCodec needs to be able to receive
@@ -456,20 +449,21 @@ static status_t recordScreen(GonkScreenRecord* screenRecordInst, uint32_t displa
     // Currently only support RGB565 display buffer format.
     if (GONK_PIXEL_FORMAT_RGB_565 != screenGonk->GetSurfaceFormat()) {
       GS_LOGE("ERROR: unsupported display format 0x%x\n",
-          screenGonk->GetSurfaceFormat());
+              screenGonk->GetSurfaceFormat());
       return INVALID_OPERATION;
     }
     // Vsync period can be obtained through primary display.
-    vsyncPeriod = GetGonkDisplay()->GetDispNativeData(
-        DisplayType::DISPLAY_PRIMARY).mVsyncPeriod;
+    vsyncPeriod = GetGonkDisplay()
+                      ->GetDispNativeData(DisplayType::DISPLAY_PRIMARY)
+                      .mVsyncPeriod;
     fps = 1000000000.0 / (float)vsyncPeriod;
   } else {
     GS_LOGD("ERROR: unable to get primary screen\n");
     return NO_INIT;
   }
 
-  GS_LOGI("Main display is %dx%d @%.2ffps (orientation=%u)\n",
-      displayWidth, displayHeight, fps, rotation);
+  GS_LOGI("Main display is %dx%d @%.2ffps (orientation=%u)\n", displayWidth,
+          displayHeight, fps, rotation);
 
   // Encoder can't take odd number as config
   uint32_t videoWidth, videoHeight;
@@ -479,7 +473,7 @@ static status_t recordScreen(GonkScreenRecord* screenRecordInst, uint32_t displa
   // Configure and start the encoder.
   sp<MediaCodec> encoder;
   err = prepareEncoder(videoWidth, videoHeight, fps, &encoder,
-      &gEncoderBufferProducer);
+                       &gEncoderBufferProducer);
 
   if (err != NO_ERROR) {
     // fallback is defined for landscape; swap if we're in portrait
@@ -488,13 +482,13 @@ static status_t recordScreen(GonkScreenRecord* screenRecordInst, uint32_t displa
     uint32_t newHeight = needSwap ? kFallbackWidth : kFallbackHeight;
     if (videoWidth != newWidth && videoHeight != newHeight) {
       GS_LOGD("Retrying with 720p");
-      GS_LOGE("WARNING: failed at %dx%d, retrying at %dx%d\n",
-          videoWidth, videoHeight, newWidth, newHeight);
+      GS_LOGE("WARNING: failed at %dx%d, retrying at %dx%d\n", videoWidth,
+              videoHeight, newWidth, newHeight);
       videoWidth = newWidth;
       videoHeight = newHeight;
       err = prepareEncoder(videoWidth, videoHeight, fps, &encoder,
-          &gEncoderBufferProducer);
-      }
+                           &gEncoderBufferProducer);
+    }
   }
   if (err != NO_ERROR) return err;
 
@@ -519,7 +513,7 @@ static status_t recordScreen(GonkScreenRecord* screenRecordInst, uint32_t displa
         goto CleanUp;
       }
       int fd = open(fileName, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR,
-          S_IRUSR | S_IWUSR);
+                    S_IRUSR | S_IWUSR);
       if (fd < 0) {
         GS_LOGE("ERROR: couldn't open file\n");
         goto CleanUp;
@@ -542,19 +536,19 @@ static status_t recordScreen(GonkScreenRecord* screenRecordInst, uint32_t displa
   }
 
   if (OK != gEncoderBufferProducer->connect(nullptr, NATIVE_WINDOW_API_CPU,
-    false, &output)) {
+                                            false, &output)) {
     GS_LOGE("ERROR: failed to connect bufferProducer!\n");
     goto CleanUp;
   }
 
   vsyncTime = TimeStamp::Now();
-  vsyncPeriodDuration = mozilla::TimeDuration::FromMicroseconds(vsyncPeriod / 1000);
+  vsyncPeriodDuration =
+      mozilla::TimeDuration::FromMicroseconds(vsyncPeriod / 1000);
   // Kick SW Vsync to start screen recording.
   screenRecordInst->NotifyVsync(displayId, vsyncTime, vsyncPeriodDuration);
 
   // Main encoder loop.
-  err = runEncoder(encoder, muxer, rawFp, screenGonk,
-      rotation, timeLimitSec);
+  err = runEncoder(encoder, muxer, rawFp, screenGonk, rotation, timeLimitSec);
   if (err != NO_ERROR) {
     GS_LOGE("Encoder failed (err=%d)\n", err);
     // fall through to cleanup
@@ -578,8 +572,7 @@ CleanUp:
   return err;
 }
 
-int GonkScreenRecord::capture()
-{
+int GonkScreenRecord::capture() {
   if (mOutputFormat == FORMAT_MP4) {
     // MediaMuxer tries to create the file in the constructor, but we don't
     // learn about the failure until muxer.start(), which returns a generic
@@ -601,16 +594,17 @@ int GonkScreenRecord::capture()
   MOZ_RELEASE_ASSERT(mVsyncThread->Start(),
                      "GFX: Could not start software vsync thread");
 
-  status_t err = recordScreen(this, mDisplayId, mOutputFormat, mTimeLimitSec,
-      mFileName);
+  status_t err =
+      recordScreen(this, mDisplayId, mOutputFormat, mTimeLimitSec, mFileName);
   GS_LOGI(err == NO_ERROR ? "success" : "failed");
 
   if (mFinishCallback) {
     mFinishCallback(mStreamFd, err);
   }
 
-  mVsyncThread->message_loop()->PostTask(NewRunnableMethod(
-      "GonkScreenRecord::ClearVsyncTask", this, &GonkScreenRecord::ClearVsyncTask));
+  mVsyncThread->message_loop()->PostTask(
+      NewRunnableMethod("GonkScreenRecord::ClearVsyncTask", this,
+                        &GonkScreenRecord::ClearVsyncTask));
 
   // Wait for SW Vsync thread to finish and quit.
   mVsyncThread->Stop();

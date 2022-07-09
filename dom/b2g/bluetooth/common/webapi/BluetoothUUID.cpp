@@ -16,8 +16,7 @@ bool BluetoothUUID::sInShutdown = false;
 // static
 nsTHashMap<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDServiceTable;
 // static
-nsTHashMap<nsStringHashKey, uint32_t>*
-    BluetoothUUID::sUUIDCharacteristicTable;
+nsTHashMap<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDCharacteristicTable;
 // static
 nsTHashMap<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDDescriptorTable;
 
@@ -55,8 +54,8 @@ void BluetoothUUID::HandleShutdown() {
 void BluetoothUUID::InitServiceTable() {
   size_t length = sizeof(ServiceTable) / sizeof(BluetoothGattUUIDName);
   for (size_t i = 0; i < length; ++i) {
-    sUUIDServiceTable->InsertOrUpdate(NS_ConvertUTF8toUTF16(ServiceTable[i].name),
-                           ServiceTable[i].uuid);
+    sUUIDServiceTable->InsertOrUpdate(
+        NS_ConvertUTF8toUTF16(ServiceTable[i].name), ServiceTable[i].uuid);
   }
 }
 
@@ -74,8 +73,9 @@ void BluetoothUUID::InitCharacteristicTable() {
 void BluetoothUUID::InitDescriptorTable() {
   size_t length = sizeof(DescriptorTable) / sizeof(BluetoothGattUUIDName);
   for (size_t i = 0; i < length; ++i) {
-    sUUIDDescriptorTable->InsertOrUpdate(NS_ConvertUTF8toUTF16(DescriptorTable[i].name),
-                              DescriptorTable[i].uuid);
+    sUUIDDescriptorTable->InsertOrUpdate(
+        NS_ConvertUTF8toUTF16(DescriptorTable[i].name),
+        DescriptorTable[i].uuid);
   }
 }
 

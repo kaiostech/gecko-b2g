@@ -355,7 +355,7 @@ enum radio_state_t {
 #define SIGNAL (1 << 4)   /* Signal indicator change (read SIGSTATE) */
 #define INTF (1 << 5)     /* Interference cnt has fallen outside range */
 // #define SYNC (1 << 6)     /* RDS sync state change (read RDSSYNC) */
-#define AUDIO (1 << 7)    /* Audio Control indicator (read AUDIOIND) */
+#define AUDIO (1 << 7) /* Audio Control indicator (read AUDIOIND) */
 
 /* interrupt register 2 */
 #define RDSDAT (1 << 0)    /* New unread RDS data group available */

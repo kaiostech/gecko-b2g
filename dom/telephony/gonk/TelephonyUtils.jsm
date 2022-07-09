@@ -4,17 +4,16 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["TelephonyUtils"];
-
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
+const EXPORTED_SYMBOLS = ["TelephonyUtils"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-/* global TelephonyService */
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "TelephonyService",
   "@mozilla.org/telephony/telephonyservice;1",
   "nsITelephonyService"
@@ -22,13 +21,13 @@ XPCOMUtils.defineLazyServiceGetter(
 
 function getCurrentCalls(aFilter) {
   if (aFilter === undefined) {
-    aFilter = (call) => true;
+    aFilter = call => true;
   }
 
   let calls = [];
 
   // nsITelephonyService.enumerateCalls is synchronous.
-  TelephonyService.enumerateCalls({
+  lazy.TelephonyService.enumerateCalls({
     QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
     enumerateCallStateComplete() {},
     enumerateCallState(call) {
@@ -41,7 +40,7 @@ function getCurrentCalls(aFilter) {
   return calls;
 }
 
-this.TelephonyUtils = {
+const TelephonyUtils = {
   /**
    * Check whether there are any calls.
    *
@@ -49,7 +48,7 @@ this.TelephonyUtils = {
    * @return boolean
    */
   hasAnyCalls(aClientId) {
-    let calls = getCurrentCalls((call) => {
+    let calls = getCurrentCalls(call => {
       if (aClientId !== undefined && call.clientId !== aClientId) {
         return false;
       }
@@ -66,7 +65,7 @@ this.TelephonyUtils = {
    * @return boolean
    */
   hasConnectedCalls(aClientId) {
-    let calls = getCurrentCalls((call) => {
+    let calls = getCurrentCalls(call => {
       if (aClientId !== undefined && call.clientId !== aClientId) {
         return false;
       }
@@ -88,7 +87,7 @@ this.TelephonyUtils = {
     }
 
     let self = this;
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       let listener = {
         QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
 
@@ -96,7 +95,7 @@ this.TelephonyUtils = {
         enumerateCallState() {},
         callStateChanged() {
           if (!self.hasAnyCalls(aClientId)) {
-            TelephonyService.unregisterListener(this);
+            lazy.TelephonyService.unregisterListener(this);
             resolve();
           }
         },
@@ -106,7 +105,7 @@ this.TelephonyUtils = {
         notifyConferenceError() {},
       };
 
-      TelephonyService.registerListener(listener);
+      lazy.TelephonyService.registerListener(listener);
     });
   },
 };

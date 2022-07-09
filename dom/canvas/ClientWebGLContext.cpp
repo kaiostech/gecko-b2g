@@ -431,8 +431,25 @@ Maybe<layers::SurfaceDescriptor> ClientWebGLContext::GetFrontBuffer(
 
   const auto& child = mNotLost->outOfProcess;
   child->FlushPendingCmds();
+
+  bool asyncPresent = !vr && StaticPrefs::webgl_out_of_process_async_present();
+  if (asyncPresent) {
+    const auto textureId = layers::RemoteTextureId::GetNext();
+    auto& ownerId = fb ? fb->mOwnerId : mOwnerId;
+    if (!ownerId) {
+      ownerId = Some(layers::RemoteTextureOwnerId::GetNext());
+    }
+
+    if (!child->SendPresentFrontBufferToCompositor(fb ? fb->mId : 0, textureId,
+                                                   *ownerId))
+      return {};
+
+    return Some(layers::SurfaceDescriptorRemoteTexture(textureId, *ownerId));
+  }
+
   Maybe<layers::SurfaceDescriptor> ret;
   if (!child->SendGetFrontBuffer(fb ? fb->mId : 0, vr, &ret)) return {};
+
   return ret;
 }
 
@@ -4293,10 +4310,8 @@ void ClientWebGLContext::TexImage(uint8_t funcDims, GLenum imageTarget,
       MOZ_ASSERT(desc->sd);
       const auto byteCount = pShmem->Size<uint8_t>();
       const auto* const src = pShmem->get<uint8_t>();
-      const auto shmemType =
-          mozilla::ipc::SharedMemory::SharedMemoryType::TYPE_BASIC;
       mozilla::ipc::Shmem shmemForResend;
-      if (!child->AllocShmem(byteCount, shmemType, &shmemForResend)) {
+      if (!child->AllocShmem(byteCount, &shmemForResend)) {
         NS_WARNING("AllocShmem failed in TexImage");
         return;
       }

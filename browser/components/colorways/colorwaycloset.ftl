@@ -2,26 +2,20 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-colorway-collection-life-in-color = Life In Color
-colorway-collection-true-colors = True Colors
-colorway-collection-independent-voices = Independent Voices
-colorway-collection-independent-voices-description = Color can change culture. The latest colorways celebrate voices making the world a better place.
+colorway-collection-expiry-date-span = Expires { DATETIME($expiryDate, month: "long", day: "numeric") }
 
 colorway-intensity-selector-label = Intensity
 colorway-intensity-soft = Soft
 colorway-intensity-balanced = Balanced
+# "Bold" is used in the sense of bravery or courage, not in the sense of
+# emphasized text.
 colorway-intensity-bold = Bold
 
-# Subheading for colorway collection card in about:addons
-colorway-collection-independent-voices-subheading2 = Colors that change culture.
+# Label for the button to keep using the selected colorway in the browser
+colorway-closet-set-colorway-button = Set colorway
+colorway-closet-cancel-button = Cancel
 
-# Label for the button to start using the selected colorway in the browser
-set-colorway-button = Set Colorway
-colorway-collection-expiry-date-span = Expires { DATETIME($expiryDate, month: "long", day: "numeric") }
-
-colorway-fx-home-link = Use { -brand-product-name } Home for colorful new tabs
-colorway-fx-home-link-success = { -brand-product-name } Home is now your home page
-colorway-fx-home-apply-button = Apply
-colorway-fx-home-undo-button = Undo
-colorway-fx-home-try-colorways-button = Try colorways
-colorway-fx-home-try-colorways-label = New colorways are on the way
+colorway-homepage-reset-prompt = Make { -brand-product-name } Home your colorful homepage
+colorway-homepage-reset-success-message = { -brand-product-name } Home is now your homepage
+colorway-homepage-reset-apply-button = Apply
+colorway-homepage-reset-undo-button = Undo

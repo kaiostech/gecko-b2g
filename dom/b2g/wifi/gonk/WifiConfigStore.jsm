@@ -11,11 +11,11 @@ const { FileUtils } = ChromeUtils.import(
 );
 const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 
-this.EXPORTED_SYMBOLS = ["WifiConfigStore"];
+const EXPORTED_SYMBOLS = ["WifiConfigStore"];
 
 var gDebug = false;
 
-this.WifiConfigStore = (function() {
+const WifiConfigStore = (function() {
   var wifiConfigStore = {};
 
   const WIFI_CONFIG_PATH = "/data/misc/wifi/wifi_config.json";

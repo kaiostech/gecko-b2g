@@ -78,6 +78,10 @@ function showSubtitlesButton() {
   Player.showSubtitlesButton();
 }
 
+function hideSubtitlesButton() {
+  Player.hideSubtitlesButton();
+}
+
 /**
  * The Player object handles initializing the player, holds state, and handles
  * events for updating state.
@@ -178,9 +182,6 @@ let Player = {
 
     this.controls.addEventListener("mouseleave", () => {
       this.onMouseLeave();
-    });
-    this.controls.addEventListener("mouseout", event => {
-      this.onMouseOut(event);
     });
     this.controls.addEventListener("mouseenter", () => {
       this.onMouseEnter();
@@ -345,6 +346,11 @@ let Player = {
             playerBottomControlsDOMRect: this.controlsBottom.getBoundingClientRect(),
           });
         }
+        // The subtitles settings panel gets selected when entering/exiting fullscreen even though
+        // user-select is set to none. I don't know why this happens or how to prevent so we just
+        // remove the selection when fullscreen is entered/exited.
+        let selection = window.getSelection();
+        selection.removeAllRanges();
         break;
       }
 
@@ -428,9 +434,24 @@ let Player = {
       }
 
       case "closed-caption": {
-        document.querySelector("#settings").classList.toggle("hide");
-        break;
+        let settingsPanel = document.querySelector("#settings");
+        let settingsPanelVisible = !settingsPanel.classList.contains("hide");
+        if (settingsPanelVisible) {
+          settingsPanel.classList.add("hide");
+          this.controls.removeAttribute("donthide");
+        } else {
+          settingsPanel.classList.remove("hide");
+          this.controls.setAttribute("donthide", true);
+        }
+        // Early return to prevent hiding the panel below
+        return;
       }
+    }
+    // If the click came from a element that is not inside the subtitles settings panel
+    // then we want to hide the panel
+    let settingsPanel = document.querySelector("#settings");
+    if (!settingsPanel.contains(event.target)) {
+      document.querySelector("#settings").classList.add("hide");
     }
   },
 
@@ -680,7 +701,7 @@ let Player = {
   },
 
   onMouseLeave() {
-    if (!this.isFullscreen) {
+    if (!this.isFullscreen && !this.controls.getAttribute("donthide")) {
       this.isCurrentHover = false;
       if (
         !this.controls.getAttribute("showing") &&
@@ -695,19 +716,6 @@ let Player = {
     }
   },
 
-  /**
-   * Hide the settings panel when a mouse out occurs
-   * @param {Event} event The mouseout event
-   */
-  onMouseOut(event) {
-    if (
-      (event.target.id === "controls" || event.target.id === "close") &&
-      !event.relatedTarget
-    ) {
-      document.querySelector("#settings").classList.add("hide");
-    }
-  },
-
   showSubtitlesButton() {
     let subtitlesContent = document.querySelectorAll(".subtitles");
     for (let ele of subtitlesContent) {
@@ -719,6 +727,13 @@ let Player = {
     // onToggleChange where this.captionsToggleEnabled will be updated
     if (!Services.prefs.getBoolPref(CAPTIONS_TOGGLE_ENABLED_PREF, true)) {
       document.querySelector("#subtitles-toggle").click();
+    }
+  },
+
+  hideSubtitlesButton() {
+    let subtitlesContent = document.querySelectorAll(".subtitles");
+    for (let ele of subtitlesContent) {
+      ele.hidden = true;
     }
   },
 
@@ -847,7 +862,7 @@ let Player = {
       });
     }
 
-    if (!revealIndefinitely) {
+    if (!revealIndefinitely && !this.controls.getAttribute("donthide")) {
       this.showingTimeout = setTimeout(() => {
         this.controls.removeAttribute("showing");
 

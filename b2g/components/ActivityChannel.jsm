@@ -6,9 +6,9 @@
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-this.EXPORTED_SYMBOLS = ["ActivityChannel"];
+const EXPORTED_SYMBOLS = ["ActivityChannel"];
 
-this.ActivityChannel = function(aURI, aLoadInfo, aName, aDetails) {
+let ActivityChannel = function(aURI, aLoadInfo, aName, aDetails) {
   this._activityName = aName;
   this._activityDetails = aDetails;
   this.originalURI = aURI;
@@ -16,7 +16,7 @@ this.ActivityChannel = function(aURI, aLoadInfo, aName, aDetails) {
   this.loadInfo = aLoadInfo;
 };
 
-this.ActivityChannel.prototype = {
+ActivityChannel.prototype = {
   originalURI: null,
   URI: null,
   owner: null,

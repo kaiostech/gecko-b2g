@@ -35,24 +35,26 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 Cu.importGlobalProperties(["indexedDB"]);
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
   let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
 
-XPCOMUtils.defineLazyGetter(this, "SIM", function() {
+XPCOMUtils.defineLazyGetter(lazy, "SIM", function() {
   return ChromeUtils.import("resource://gre/modules/simIOHelper.js");
 });
 
 XPCOMUtils.defineLazyModuleGetter(
-  this,
+  lazy,
   "gPhoneNumberUtils",
   "resource://gre/modules/PhoneNumberUtils.jsm",
   "PhoneNumberUtils"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gContactsManager",
   "@mozilla.org/sidl-native/contacts;1",
   "nsIContactsManager"
@@ -142,22 +144,21 @@ const DEFAULT_READ_AHEAD_ENTRIES = 7;
 //const DEVICE_CAPABILITY_CONTROL = "device.capability.parental-control";
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileMessageService",
   "@mozilla.org/mobilemessage/mobilemessageservice;1",
   "nsIMobileMessageService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMMSService",
   "@mozilla.org/mms/gonkmmsservice;1",
   "nsIMmsService"
 );
 
-XPCOMUtils.defineLazyGetter(this, "MMS", function() {
-  let MMS = {};
-  ChromeUtils.import("resource://gre/modules/MmsPduHelper.jsm", MMS);
+XPCOMUtils.defineLazyGetter(lazy, "MMS", function() {
+  let MMS = ChromeUtils.import("resource://gre/modules/MmsPduHelper.jsm");
   return MMS;
 });
 
@@ -516,7 +517,7 @@ var DEBUG = RIL_DEBUG.DEBUG_RIL;
  * which is deprecated and no longer in use.
  * </p>
  */
-this.MobileMessageDB = function() {
+const MobileMessageDB = function() {
   this._updateDebugFlag();
 };
 MobileMessageDB.prototype = {
@@ -1056,7 +1057,7 @@ MobileMessageDB.prototype = {
       debug("createDomMessageFromRecord: " + JSON.stringify(aMessageRecord));
     }
     if (aMessageRecord.type == "sms") {
-      return gMobileMessageService.createSmsMessage(
+      return lazy.gMobileMessageService.createSmsMessage(
         aMessageRecord.id,
         aMessageRecord.threadId,
         aMessageRecord.iccId,
@@ -1117,7 +1118,7 @@ MobileMessageDB.prototype = {
       }
       let readReportRequested = headers["x-mms-read-report"] || false;
       let isGroup = aMessageRecord.isGroup || false;
-      return gMobileMessageService.createMmsMessage(
+      return lazy.gMobileMessageService.createMmsMessage(
         aMessageRecord.id,
         aMessageRecord.threadId,
         aMessageRecord.iccId,
@@ -1208,7 +1209,7 @@ MobileMessageDB.prototype = {
     // phonenumberutils will be "987654321" in this case.
 
     // Normalize address before searching for participant record.
-    let normalizedAddress = gPhoneNumberUtils.normalize(aAddress, false);
+    let normalizedAddress = lazy.gPhoneNumberUtils.normalize(aAddress, false);
     let allPossibleAddresses = [normalizedAddress];
 
     if (DEBUG) {
@@ -1263,7 +1264,10 @@ MobileMessageDB.prototype = {
 
         let participantRecord = cursor.value;
         for (let storedAddress of participantRecord.addresses) {
-          let match = gPhoneNumberUtils.match(normalizedAddress, storedAddress);
+          let match = lazy.gPhoneNumberUtils.match(
+            normalizedAddress,
+            storedAddress
+          );
           if (!match) {
             // 3) Else we fail to match current stored participant record.
             continue;
@@ -1750,9 +1754,9 @@ MobileMessageDB.prototype = {
   ) {
     let isReplaceTypePid =
       aMessageRecord.pid &&
-      ((aMessageRecord.pid >= RIL.PDU_PID_REPLACE_SHORT_MESSAGE_TYPE_1 &&
-        aMessageRecord.pid <= RIL.PDU_PID_REPLACE_SHORT_MESSAGE_TYPE_7) ||
-        aMessageRecord.pid == RIL.PDU_PID_RETURN_CALL_MESSAGE);
+      ((aMessageRecord.pid >= lazy.RIL.PDU_PID_REPLACE_SHORT_MESSAGE_TYPE_1 &&
+        aMessageRecord.pid <= lazy.RIL.PDU_PID_REPLACE_SHORT_MESSAGE_TYPE_7) ||
+        aMessageRecord.pid == lazy.RIL.PDU_PID_RETURN_CALL_MESSAGE);
 
     if (
       aMessageRecord.type != "sms" ||
@@ -1782,7 +1786,7 @@ MobileMessageDB.prototype = {
     let self = this;
     let typedSender = {
       address: aMessageRecord.sender,
-      type: MMS.Address.resolveType(aMessageRecord.sender),
+      type: lazy.MMS.Address.resolveType(aMessageRecord.sender),
     };
     this.findParticipantRecordByTypedAddress(
       aParticipantStore,
@@ -2025,17 +2029,17 @@ MobileMessageDB.prototype = {
    */
   forEachMatchedMmsDeliveryInfo(aDeliveryInfo, aNeedle, aCallback) {
     let typedAddress = {
-      type: MMS.Address.resolveType(aNeedle),
+      type: lazy.MMS.Address.resolveType(aNeedle),
       address: aNeedle,
     };
     let normalizedAddress;
     if (typedAddress.type === "PLMN") {
-      normalizedAddress = gPhoneNumberUtils.normalize(aNeedle, false);
+      normalizedAddress = lazy.gPhoneNumberUtils.normalize(aNeedle, false);
     }
 
     for (let element of aDeliveryInfo) {
       let typedStoredAddress = {
-        type: MMS.Address.resolveType(element.receiver),
+        type: lazy.MMS.Address.resolveType(element.receiver),
         address: element.receiver,
       };
       if (typedAddress.type !== typedStoredAddress.type) {
@@ -2055,12 +2059,14 @@ MobileMessageDB.prototype = {
       }
 
       // Both are of "PLMN" type.
-      let normalizedStoredAddress = gPhoneNumberUtils.normalize(
+      let normalizedStoredAddress = lazy.gPhoneNumberUtils.normalize(
         element.receiver,
         false
       );
 
-      if (gPhoneNumberUtils.match(normalizedAddress, normalizedStoredAddress)) {
+      if (
+        lazy.gPhoneNumberUtils.match(normalizedAddress, normalizedStoredAddress)
+      ) {
         aCallback(element);
       }
     }
@@ -2249,7 +2255,7 @@ MobileMessageDB.prototype = {
     let isSuccess = false;
     let slicedReceivers = receivers.slice();
     if (aMessage.phoneNumber) {
-      var normalizedAddress = gPhoneNumberUtils.normalize(
+      var normalizedAddress = lazy.gPhoneNumberUtils.normalize(
         aMessage.phoneNumber,
         false
       );
@@ -2258,7 +2264,10 @@ MobileMessageDB.prototype = {
         let foundIndex = -1;
         for (var i = 0; i < slicedReceivers.length; i++) {
           if (
-            gPhoneNumberUtils.match(slicedReceivers[i], aMessage.phoneNumber)
+            lazy.gPhoneNumberUtils.match(
+              slicedReceivers[i],
+              aMessage.phoneNumber
+            )
           ) {
             isSuccess = true;
             foundIndex = i;
@@ -2284,7 +2293,7 @@ MobileMessageDB.prototype = {
     slicedReceivers.forEach(function(aAddress) {
       threadParticipants.push({
         address: aAddress,
-        type: MMS.Address.resolveType(aAddress),
+        type: lazy.MMS.Address.resolveType(aAddress),
       });
     });
   },
@@ -2400,7 +2409,7 @@ MobileMessageDB.prototype = {
       return;
     }
 
-    let deletedInfo = gMobileMessageService.createDeletedMessageInfo(
+    let deletedInfo = lazy.gMobileMessageService.createDeletedMessageInfo(
       info.messageIds,
       info.messageIds.length,
       info.threadIds,
@@ -2457,7 +2466,7 @@ MobileMessageDB.prototype = {
       threadParticipants = [
         {
           address: aMessage.sender,
-          type: MMS.Address.resolveType(aMessage.sender),
+          type: lazy.MMS.Address.resolveType(aMessage.sender),
         },
       ];
       this.fillReceivedMmsThreadParticipants(aMessage, threadParticipants);
@@ -2466,7 +2475,7 @@ MobileMessageDB.prototype = {
       threadParticipants = [
         {
           address: aMessage.sender,
-          type: MMS.Address.resolveType(aMessage.sender),
+          type: lazy.MMS.Address.resolveType(aMessage.sender),
         },
       ];
     }
@@ -2495,7 +2504,7 @@ MobileMessageDB.prototype = {
           receiver: aMessage.phoneNumber,
           deliveryStatus: aMessage.deliveryStatus,
           deliveryTimestamp: 0,
-          readStatus: MMS.DOM_READ_STATUS_NOT_APPLICABLE,
+          readStatus: lazy.MMS.DOM_READ_STATUS_NOT_APPLICABLE,
           readTimestamp: 0,
         },
       ];
@@ -2509,7 +2518,7 @@ MobileMessageDB.prototype = {
       aMessage.deliveryTimestamp = 0;
 
       if (aMessage.pid == undefined) {
-        aMessage.pid = RIL.PDU_PID_DEFAULT;
+        aMessage.pid = lazy.RIL.PDU_PID_DEFAULT;
       }
     }
     aMessage.deliveryIndex = [aMessage.delivery, timestamp];
@@ -2594,7 +2603,7 @@ MobileMessageDB.prototype = {
     ));
     */
 
-    gContactsManager.findBlockedNumbers(
+    lazy.gContactsManager.findBlockedNumbers(
       {
         filterValue: aMessage.sender,
         filterOption: Ci.nsIFilterOption.FuzzyMatch,
@@ -2609,7 +2618,7 @@ MobileMessageDB.prototype = {
       }
     );
 
-    //FIXME: parentalControl need tobe implemented
+    //FIXME: parentalControl needs to be implemented
     /*
     if (parentalControlEnabled) {
       if (DEBUG) debug("Parent control feature work well");
@@ -2679,8 +2688,8 @@ MobileMessageDB.prototype = {
     } else if (aMessage.type == "mms") {
       let receivers = aMessage.receivers;
       let readStatus = aMessage.headers["x-mms-read-report"]
-        ? MMS.DOM_READ_STATUS_PENDING
-        : MMS.DOM_READ_STATUS_NOT_APPLICABLE;
+        ? lazy.MMS.DOM_READ_STATUS_PENDING
+        : lazy.MMS.DOM_READ_STATUS_NOT_APPLICABLE;
       aMessage.deliveryInfo = [];
       for (let i = 0; i < receivers.length; i++) {
         aMessage.deliveryInfo.push({
@@ -2711,7 +2720,7 @@ MobileMessageDB.prototype = {
       threadParticipants = [
         {
           address: aMessage.receiver,
-          type: MMS.Address.resolveType(aMessage.receiver),
+          type: lazy.MMS.Address.resolveType(aMessage.receiver),
         },
       ];
     } else if (aMessage.type == "mms") {
@@ -2863,7 +2872,7 @@ MobileMessageDB.prototype = {
             }
 
             aEntry.readStatus = aReadStatus;
-            if (aReadStatus == MMS.DOM_READ_STATUS_SUCCESS) {
+            if (aReadStatus == lazy.MMS.DOM_READ_STATUS_SUCCESS) {
               aEntry.readTimestamp = Date.now();
             } else {
               aEntry.readTimestamp = 0;
@@ -3087,7 +3096,8 @@ MobileMessageDB.prototype = {
           if (completeMessage) {
             // Rebuild full body
             if (
-              completeMessage.encoding == RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET
+              completeMessage.encoding ==
+              lazy.RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET
             ) {
               // Uint8Array doesn't have `concat`, so
               // we have to merge all segments by hand.
@@ -3148,7 +3158,9 @@ MobileMessageDB.prototype = {
             }
             aSmsSegment.receivedSegments = 1;
             aSmsSegment.segments = [];
-            if (aSmsSegment.encoding == RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET) {
+            if (
+              aSmsSegment.encoding == lazy.RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET
+            ) {
               aSmsSegment.segments[seq] = aSmsSegment.data;
             } else {
               aSmsSegment.segments[seq] = aSmsSegment.body;
@@ -3168,7 +3180,8 @@ MobileMessageDB.prototype = {
 
           if (segmentRecord.segments[seq]) {
             if (
-              segmentRecord.encoding == RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET &&
+              segmentRecord.encoding ==
+                lazy.RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET &&
               segmentRecord.encoding == aSmsSegment.encoding &&
               segmentRecord.segments[seq].length == aSmsSegment.data.length &&
               segmentRecord.segments[seq].every(function(aElement, aIndex) {
@@ -3182,8 +3195,10 @@ MobileMessageDB.prototype = {
             }
 
             if (
-              segmentRecord.encoding != RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET &&
-              aSmsSegment.encoding != RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET &&
+              segmentRecord.encoding !=
+                lazy.RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET &&
+              aSmsSegment.encoding !=
+                lazy.RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET &&
               segmentRecord.segments[seq] == aSmsSegment.body
             ) {
               if (DEBUG) {
@@ -3204,7 +3219,9 @@ MobileMessageDB.prototype = {
 
           segmentRecord.timestamp = aSmsSegment.timestamp;
 
-          if (segmentRecord.encoding == RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET) {
+          if (
+            segmentRecord.encoding == lazy.RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET
+          ) {
             segmentRecord.segments[seq] = aSmsSegment.data;
           } else {
             segmentRecord.segments[seq] = aSmsSegment.body;
@@ -3218,7 +3235,8 @@ MobileMessageDB.prototype = {
           // we have to retrieve the port information from 1st segment and
           // save it into the segmentRecord.
           if (
-            aSmsSegment.teleservice === RIL.PDU_CDMA_MSG_TELESERVICE_ID_WAP &&
+            aSmsSegment.teleservice ===
+              lazy.RIL.PDU_CDMA_MSG_TELESERVICE_ID_WAP &&
             seq === 1
           ) {
             if (
@@ -3357,10 +3375,10 @@ MobileMessageDB.prototype = {
           }
           let geometries = [];
           cellBroadcastRecord.geometries.forEach(geo => {
-            if (geo.type === RIL.GEOMETRY_TYPE_POLYGON) {
-              geometries.push(new SIM.Polygon(geo._vertices));
-            } else if (geo.type === RIL.GEOMETRY_TYPE_CIRCLE) {
-              geometries.push(new SIM.Circle(geo._center, geo._radius));
+            if (geo.type === lazy.RIL.GEOMETRY_TYPE_POLYGON) {
+              geometries.push(new lazy.SIM.Polygon(geo._vertices));
+            } else if (geo.type === lazy.RIL.GEOMETRY_TYPE_CIRCLE) {
+              geometries.push(new lazy.SIM.Circle(geo._center, geo._radius));
             } else if (DEBUG) {
               debug("Invalid geometry type: " + geo.type);
             }
@@ -3884,7 +3902,7 @@ MobileMessageDB.prototype = {
               }
               threadStore.put(threadRecord).onsuccess = function(event) {
                 if (readReportMessageId && readReportTo) {
-                  gMMSService.sendReadReport(
+                  lazy.gMMSService.sendReadReport(
                     readReportMessageId,
                     readReportTo,
                     messageRecord.iccId
@@ -4170,7 +4188,7 @@ var FilterSearcherHelper = {
       let typedAddresses = filter.numbers.map(function(number) {
         return {
           address: number,
-          type: MMS.Address.resolveType(number),
+          type: lazy.MMS.Address.resolveType(number),
         };
       });
       mmdb.findParticipantIdsByTypedAddresses(
@@ -4941,7 +4959,7 @@ GetThreadsCursor.prototype = {
       if (DEBUG) {
         debug("notifyCursorResult: " + JSON.stringify(threadRecord));
       }
-      let thread = gMobileMessageService.createThread(
+      let thread = lazy.gMobileMessageService.createThread(
         threadRecord.id,
         threadRecord.participantAddresses,
         threadRecord.lastTimestamp,
@@ -5000,7 +5018,7 @@ GetThreadsCursor.prototype = {
   },
 };
 
-this.EXPORTED_SYMBOLS = ["MobileMessageDB"];
+const EXPORTED_SYMBOLS = ["MobileMessageDB"];
 
 function debug(s) {
   //dump("MobileMessageDB: " + Array.slice(arguments).join(" ") + "\n");

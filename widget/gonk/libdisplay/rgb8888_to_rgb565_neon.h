@@ -1,5 +1,5 @@
-/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
- * Copyright (C) 2015 Acadine Technologies. All rights reserved.
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved. Copyright (C) 2015 Acadine Technologies. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 
 namespace mozilla {
 
-void Transform8888To565_NEON(uint8_t* outbuf, const uint8_t* inbuf, int PixelNum);
+void Transform8888To565_NEON(uint8_t* outbuf, const uint8_t* inbuf,
+                             int PixelNum);
 
 }
 #endif /* RGB8888_TO_RGB565_NEON_H */

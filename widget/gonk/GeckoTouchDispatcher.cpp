@@ -92,11 +92,10 @@ void GeckoTouchDispatcher::SetCompositorVsyncScheduler(
 }
 
 void GeckoTouchDispatcher::NotifyVsync(TimeStamp aVsyncTimestamp) {
-  if (!layers::APZThreadUtils::IsControllerThread()){
-    layers::APZThreadUtils::RunOnControllerThread(
-          NewRunnableMethod<TimeStamp>(
-              "GonkTouch", this, &GeckoTouchDispatcher::NotifyVsync,
-              aVsyncTimestamp));
+  if (!layers::APZThreadUtils::IsControllerThread()) {
+    layers::APZThreadUtils::RunOnControllerThread(NewRunnableMethod<TimeStamp>(
+        "GonkTouch", this, &GeckoTouchDispatcher::NotifyVsync,
+        aVsyncTimestamp));
     return;
   }
   layers::APZThreadUtils::AssertOnControllerThread();

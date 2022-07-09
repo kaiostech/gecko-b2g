@@ -93,9 +93,8 @@ Return<void> nsRilResponse::supplyIccPinForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"enterICCPIN"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"enterICCPIN"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
     DEBUG("supplyIccPinForAppResponse error = %d , retries = %d", rspInfo.error,
           remainingRetries);
@@ -110,9 +109,8 @@ Return<void> nsRilResponse::supplyIccPukForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"enterICCPUK"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"enterICCPUK"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
     DEBUG("supplyIccPukForAppResponse error = %d , retries = %d", rspInfo.error,
           remainingRetries);
@@ -178,9 +176,9 @@ Return<void> nsRilResponse::changeIccPin2ForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"changeICCPIN2"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"changeICCPIN2"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
     DEBUG("changeIccPin2ForAppResponse error = %d , retries = %d",
           rspInfo.error, remainingRetries);
@@ -204,9 +202,9 @@ Return<void> nsRilResponse::getCurrentCallsResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getCurrentCalls"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getCurrentCalls"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCalls = calls.size();
     DEBUG("getCurrentCalls numCalls= %d", numCalls);
@@ -261,9 +259,8 @@ Return<void> nsRilResponse::getIMSIForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"getIMSI"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"getIMSI"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateIMSI(NS_ConvertUTF8toUTF16(imsi.c_str()));
   } else {
@@ -350,9 +347,9 @@ Return<void> nsRilResponse::getSignalStrengthResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getSignalStrength"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getSignalStrength"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsSignalStrength> signalStrength =
         result->convertSignalStrength(sig_strength);
@@ -371,9 +368,9 @@ Return<void> nsRilResponse::getVoiceRegistrationStateResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getVoiceRegistrationState"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getVoiceRegistrationState"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     DEBUG("getVoiceRegistrationState success.");
     RefPtr<nsCellIdentity> cellIdentity =
@@ -398,9 +395,9 @@ Return<void> nsRilResponse::getDataRegistrationStateResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getDataRegistrationState"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getDataRegistrationState"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     DEBUG("getDataRegistrationState success.");
     RefPtr<nsCellIdentity> cellIdentity =
@@ -426,9 +423,8 @@ Return<void> nsRilResponse::getOperatorResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"getOperator"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"getOperator"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsOperatorInfo> operatorInfo =
         new nsOperatorInfo(NS_ConvertUTF8toUTF16(longName.c_str()),
@@ -463,9 +459,8 @@ Return<void> nsRilResponse::sendSmsResponse(const RadioResponseInfo& info,
                                             const SendSmsResult& sms) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"sendSMS"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"sendSMS"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
 
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsSendSmsResult> smsResult = new nsSendSmsResult(
@@ -494,9 +489,9 @@ Return<void> nsRilResponse::setupDataCallResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"setupDataCall"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"setupDataCall"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsSetupDataCallResult> datacallresponse =
         result->convertDcResponse(dcResponse);
@@ -514,9 +509,8 @@ Return<void> nsRilResponse::iccIOForAppResponse(const RadioResponseInfo& info,
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"iccIO"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"iccIO"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsIccIoResult> iccIoResult = new nsIccIoResult(
         iccIo.sw1, iccIo.sw2, NS_ConvertUTF8toUTF16(iccIo.simResponse.c_str()));
@@ -554,9 +548,8 @@ Return<void> nsRilResponse::getClirResponse(const RadioResponseInfo& info,
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"getCLIR"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"getCLIR"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateClir(n, m);
   } else {
@@ -581,9 +574,9 @@ Return<void> nsRilResponse::getCallForwardStatusResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"queryCallForwardStatus"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"queryCallForwardStatus"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCallForwardInfo = callForwardInfos.size();
     nsTArray<RefPtr<nsCallForwardInfo>> aCallForwardInfoLists(
@@ -620,9 +613,9 @@ Return<void> nsRilResponse::getCallWaitingResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"queryCallWaiting"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"queryCallWaiting"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateCallWaiting(enable, serviceClass);
   } else {
@@ -673,9 +666,9 @@ Return<void> nsRilResponse::getFacilityLockForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"queryICCFacilityLock"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"queryICCFacilityLock"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateServiceClass(response);
   } else {
@@ -690,9 +683,9 @@ Return<void> nsRilResponse::setFacilityLockForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"setICCFacilityLock"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"setICCFacilityLock"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
     DEBUG("setFacilityLockForAppResponse error = %d , retries = %d",
           rspInfo.error, retry);
@@ -716,9 +709,9 @@ Return<void> nsRilResponse::getNetworkSelectionModeResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getNetworkSelectionMode"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getNetworkSelectionMode"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   result->updateNetworkSelectionMode(manual);
   mRIL->sendRilResponseResult(result);
 
@@ -749,9 +742,9 @@ Return<void> nsRilResponse::getAvailableNetworksResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getAvailableNetworks"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getAvailableNetworks"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numNetworks = networkInfos.size();
     DEBUG("getAvailableNetworks numNetworks= %d", numNetworks);
@@ -795,9 +788,9 @@ Return<void> nsRilResponse::getBasebandVersionResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getBasebandVersion"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getBasebandVersion"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateBasebandVersion(NS_ConvertUTF8toUTF16(version.c_str()));
   }
@@ -828,9 +821,8 @@ Return<void> nsRilResponse::getMuteResponse(const RadioResponseInfo& info,
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"getMute"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"getMute"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateMute(enable);
   }
@@ -843,9 +835,8 @@ Return<void> nsRilResponse::getClipResponse(const RadioResponseInfo& info,
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(u"queryCLIP"_ns, rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      u"queryCLIP"_ns, rspInfo.serial, convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateClip(convertClipState(status));
   }
@@ -859,9 +850,9 @@ Return<void> nsRilResponse::getDataCallListResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getDataCallList"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getDataCallList"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numDataCall = dcResponse.size();
     nsTArray<RefPtr<nsSetupDataCallResult>> aDcLists(numDataCall);
@@ -985,9 +976,9 @@ Return<void> nsRilResponse::getPreferredNetworkTypeResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getPreferredNetworkType"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getPreferredNetworkType"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updatePreferredNetworkType(convertPreferredNetworkType(nw_type));
   }
@@ -1002,9 +993,9 @@ Return<void> nsRilResponse::getNeighboringCidsResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getNeighboringCellIds"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getNeighboringCellIds"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCells = cells.size();
     nsTArray<RefPtr<nsNeighboringCell>> aNeighboringCells(numCells);
@@ -1093,9 +1084,9 @@ Return<void> nsRilResponse::getPreferredVoicePrivacyResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"queryVoicePrivacyMode"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"queryVoicePrivacyMode"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateVoicePrivacy(enable);
   }
@@ -1229,9 +1220,9 @@ Return<void> nsRilResponse::getDeviceIdentityResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getDeviceIdentity"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getDeviceIdentity"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateDeviceIdentity(NS_ConvertUTF8toUTF16(imei.c_str()),
                                  NS_ConvertUTF8toUTF16(imeisv.c_str()),
@@ -1258,9 +1249,9 @@ Return<void> nsRilResponse::getSmscAddressResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getSmscAddress"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getSmscAddress"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateSmscAddress(NS_ConvertUTF8toUTF16(smsc.c_str()));
   }
@@ -1332,9 +1323,9 @@ Return<void> nsRilResponse::getVoiceRadioTechnologyResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getVoiceRadioTechnology"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getVoiceRadioTechnology"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateVoiceRadioTechnology(
         nsRilResult::convertRadioTechnology(rat));
@@ -1350,9 +1341,9 @@ Return<void> nsRilResponse::getCellInfoListResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getCellInfoList"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getCellInfoList"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCellInfo = cellInfo.size();
     nsTArray<RefPtr<nsRilCellInfo>> aCellInfoLists(numCellInfo);
@@ -1502,9 +1493,9 @@ Return<void> nsRilResponse::requestIccSimAuthenticationResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getIccAuthentication"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getIccAuthentication"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsIccIoResult> iccIoResult = new nsIccIoResult(
         iccIo.sw1, iccIo.sw2, NS_ConvertUTF8toUTF16(iccIo.simResponse.c_str()));
@@ -1542,9 +1533,9 @@ Return<void> nsRilResponse::getRadioCapabilityResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      u"getRadioCapability"_ns, rspInfo.serial,
-      convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(u"getRadioCapability"_ns, rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
 
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsRadioCapability> radioCapability = new nsRadioCapability(
@@ -1680,8 +1671,7 @@ Return<void> nsRilResponse::stopNetworkScanResponse(
 }
 
 Return<void> nsRilResponse::startKeepaliveResponse(
-    const RadioResponseInfo& info,
-    const KeepaliveStatus& status) {
+    const RadioResponseInfo& info, const KeepaliveStatus& status) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 

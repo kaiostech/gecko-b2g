@@ -28,46 +28,48 @@ const TETHERINGSERVICE_CID = Components.ID(
   "{527a4121-ee5a-4651-be9c-f46f59cf7c01}"
 );
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkManager",
   "@mozilla.org/network/manager;1",
   "nsINetworkManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkService",
   "@mozilla.org/network/service;1",
   "nsINetworkService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSettingsManager",
   "@mozilla.org/sidl-native/settings;1",
   "nsISettingsManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gRndisController",
   "@mozilla.org/network/rndiscontroller;1",
   "nsIRndisController"
 );
 
-XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
+XPCOMUtils.defineLazyGetter(lazy, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
 
-XPCOMUtils.defineLazyGetter(this, "gRil", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRil", function() {
   try {
     return Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
   } catch (e) {}
@@ -143,7 +145,7 @@ function TetheringService() {
 
   messages.forEach(
     function(msgName) {
-      ppmm.addMessageListener(msgName, this);
+      lazy.ppmm.addMessageListener(msgName, this);
     }.bind(this)
   );
 
@@ -168,7 +170,7 @@ function TetheringService() {
   this._internalInterface[TETHERING_TYPE_USB] = DEFAULT_USB_INTERFACE_NAME;
   this._internalInterface[TETHERING_TYPE_WIFI] = DEFAULT_WIFI_INTERFACE_NAME;
 
-  gNetworkService.createNetwork(
+  lazy.gNetworkService.createNetwork(
     DEFAULT_3G_INTERFACE_NAME,
     Ci.nsINetworkInfo.NETWORK_TYPE_UNKNOWN,
     function() {
@@ -356,10 +358,10 @@ TetheringService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       debug("get " + aKey + " setting.");
       let self = this;
-      gSettingsManager.get(aKey, {
+      lazy.gSettingsManager.get(aKey, {
         resolve: info => {
           self.observeSetting(info);
         },
@@ -376,9 +378,9 @@ TetheringService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       debug("add " + aKey + " setting observer.");
-      gSettingsManager.addObserver(aKey, this, {
+      lazy.gSettingsManager.addObserver(aKey, this, {
         resolve: () => {
           debug("observed " + aKey + " successed.");
         },
@@ -394,9 +396,9 @@ TetheringService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       debug("remove " + aKey + " setting observer.");
-      gSettingsManager.removeObserver(aKey, this, {
+      lazy.gSettingsManager.removeObserver(aKey, this, {
         resolve: () => {
           debug("remove observer " + aKey + " successed.");
         },
@@ -436,8 +438,8 @@ TetheringService.prototype = {
   },
 
   getNetworkInfo(aType, aServiceId) {
-    for (let networkId in gNetworkManager.allNetworkInfo) {
-      let networkInfo = gNetworkManager.allNetworkInfo[networkId];
+    for (let networkId in lazy.gNetworkManager.allNetworkInfo) {
+      let networkInfo = lazy.gNetworkManager.allNetworkInfo[networkId];
       if (networkInfo.type == aType) {
         try {
           if (networkInfo instanceof Ci.nsIRilNetworkInfo) {
@@ -455,7 +457,7 @@ TetheringService.prototype = {
 
   getActiveNetworkInfo() {
     if (this.dunRequired) {
-      let allNetworkInfo = gNetworkManager.allNetworkInfo;
+      let allNetworkInfo = lazy.gNetworkManager.allNetworkInfo;
       for (let networkId in allNetworkInfo) {
         let networkInfo = allNetworkInfo[networkId];
         if (
@@ -467,7 +469,7 @@ TetheringService.prototype = {
         }
       }
     } else {
-      return gNetworkManager.activeNetworkInfo;
+      return lazy.gNetworkManager.activeNetworkInfo;
     }
     return null;
   },
@@ -487,12 +489,12 @@ TetheringService.prototype = {
 
   setupDunConnection() {
     this.dunRetryTimer.cancel();
-    let connection = gMobileConnectionService.getItemByServiceId(
+    let connection = lazy.gMobileConnectionService.getItemByServiceId(
       this._dataDefaultServiceId
     );
     let data = connection && connection.data;
     if (data && data.state === "registered") {
-      let ril = gRil.getRadioInterface(this._dataDefaultServiceId);
+      let ril = lazy.gRil.getRadioInterface(this._dataDefaultServiceId);
 
       try {
         this.dunConnectTimer.cancel();
@@ -549,7 +551,7 @@ TetheringService.prototype = {
 
       if (dun && dun.state == Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED) {
         try {
-          gRil
+          lazy.gRil
             .getRadioInterface(this._dataDefaultServiceId)
             .deactivateDataCallByType(
               Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN
@@ -564,15 +566,15 @@ TetheringService.prototype = {
     this._dunActiveUsers++;
     // If Wifi active, enable tethering directly.
     if (
-      gNetworkManager.activeNetworkInfo &&
-      gNetworkManager.activeNetworkInfo.type ===
+      lazy.gNetworkManager.activeNetworkInfo &&
+      lazy.gNetworkManager.activeNetworkInfo.type ===
         Ci.nsINetworkInfo.NETWORK_TYPE_WIFI
     ) {
       debug(
         "Wifi active, enable tethering directly " +
-          gNetworkManager.activeNetworkInfo.name
+          lazy.gNetworkManager.activeNetworkInfo.name
       );
-      aCallback(gNetworkManager.activeNetworkInfo);
+      aCallback(lazy.gNetworkManager.activeNetworkInfo);
       return;
     }
     // else, trigger dun connection first.
@@ -696,7 +698,7 @@ TetheringService.prototype = {
 
     if (!aEnable) {
       aConfig.externalIfname = this._externalInterface[TETHERING_TYPE_WIFI];
-      gNetworkService.setWifiTethering(
+      lazy.gNetworkService.setWifiTethering(
         aEnable,
         aConfig,
         this.wifiTetheringResult.bind(this, aEnable, aConfig, aCallback)
@@ -718,7 +720,7 @@ TetheringService.prototype = {
         aConfig.dnses = aNetworkInfo ? aNetworkInfo.getDnses() : new Array(0);
         aConfig.ipv6Ip = this.getIpv6TetheringAddress(aNetworkInfo);
 
-        gNetworkService.setWifiTethering(
+        lazy.gNetworkService.setWifiTethering(
           aEnable,
           aConfig,
           this.wifiTetheringResult.bind(this, aEnable, aConfig, aCallback)
@@ -731,7 +733,7 @@ TetheringService.prototype = {
     this.setExternalInterface(TETHERING_TYPE_WIFI);
     aConfig.externalIfname = this._externalInterface[TETHERING_TYPE_WIFI];
 
-    gNetworkService.setWifiTethering(
+    lazy.gNetworkService.setWifiTethering(
       aEnable,
       aConfig,
       this.wifiTetheringResult.bind(this, aEnable, aConfig, aCallback)
@@ -803,7 +805,7 @@ TetheringService.prototype = {
     }
 
     if (!aEnable) {
-      gRndisController.setupRndis(false, {
+      lazy.gRndisController.setupRndis(false, {
         onResult(success) {
           self.setupRndisResult(success, false, aMsgCallback);
         },
@@ -830,7 +832,7 @@ TetheringService.prototype = {
           );
           return;
         }
-        gRndisController.setupRndis(true, {
+        lazy.gRndisController.setupRndis(true, {
           onResult(success) {
             self.setupRndisResult(success, true, aMsgCallback);
           },
@@ -839,7 +841,7 @@ TetheringService.prototype = {
       return;
     }
 
-    gRndisController.setupRndis(true, {
+    lazy.gRndisController.setupRndis(true, {
       onResult(success) {
         self.setupRndisResult(success, true, aMsgCallback);
       },
@@ -855,7 +857,7 @@ TetheringService.prototype = {
     );
 
     if (config === null) {
-      gRndisController.setupRndis(false, {
+      lazy.gRndisController.setupRndis(false, {
         onResult(success) {
           self.usbTetheringResult(aEnable, "Invalid config", aMsgCallback);
         },
@@ -863,7 +865,12 @@ TetheringService.prototype = {
       return;
     }
 
-    gNetworkService.setUSBTethering(aEnable, config, aMsgCallback, aCallback);
+    lazy.gNetworkService.setUSBTethering(
+      aEnable,
+      config,
+      aMsgCallback,
+      aCallback
+    );
   },
 
   getUsbInterface() {
@@ -899,7 +906,7 @@ TetheringService.prototype = {
         this.usbTetheringResult.bind(this, aEnable)
       );
     } else {
-      gRndisController.setupRndis(false, {
+      lazy.gRndisController.setupRndis(false, {
         onResult(success) {
           self.usbTetheringResult(
             aEnable,
@@ -923,7 +930,7 @@ TetheringService.prototype = {
       if (this.dunRequired) {
         this.handleDunConnection(false);
         if (aError == "Dun connection failed") {
-          gRndisController.setupRndis(true, {
+          lazy.gRndisController.setupRndis(true, {
             onResult(success) {
               self.setupRndisResult(success, true, aMsgCallback);
             },
@@ -932,7 +939,7 @@ TetheringService.prototype = {
         }
       }
       // Reset rndis when tethering cmd failed.
-      gRndisController.setupRndis(false, {
+      lazy.gRndisController.setupRndis(false, {
         onResult(success) {},
       });
       this._usbTetheringRequestRestart = false;
@@ -1071,7 +1078,7 @@ TetheringService.prototype = {
           if (dun && dun.state == Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED) {
             debug("Wifi connected, switch dun to Wifi as external interface.");
             try {
-              gRil
+              lazy.gRil
                 .getRadioInterface(this._dataDefaultServiceId)
                 .deactivateDataCallByType(
                   Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN
@@ -1106,7 +1113,7 @@ TetheringService.prototype = {
           // Update external aNetworkInfo interface.
           debug("Update upstream interface to " + aNetworkInfo.name);
           if (wifiTetheringEnabled) {
-            gNetworkService.updateUpStream(
+            lazy.gNetworkService.updateUpStream(
               TETHERING_TYPE_WIFI,
               previous[TETHERING_TYPE_WIFI],
               current[TETHERING_TYPE_WIFI],
@@ -1119,7 +1126,7 @@ TetheringService.prototype = {
               this.refineTetherSubnet(true);
               return;
             }
-            gNetworkService.updateUpStream(
+            lazy.gNetworkService.updateUpStream(
               TETHERING_TYPE_USB,
               previous[TETHERING_TYPE_USB],
               current[TETHERING_TYPE_USB],
@@ -1145,7 +1152,7 @@ TetheringService.prototype = {
         // Remove current forwarding forwarding rules
         debug("removing forwarding first before interface removed.");
         if (wifiTetheringEnabled) {
-          gNetworkService.removeUpStream(
+          lazy.gNetworkService.removeUpStream(
             current[TETHERING_TYPE_WIFI],
             aSuccess => {
               if (aSuccess) {
@@ -1160,7 +1167,7 @@ TetheringService.prototype = {
           );
         }
         if (usbTetheringEnabled) {
-          gNetworkService.removeUpStream(
+          lazy.gNetworkService.removeUpStream(
             current[TETHERING_TYPE_USB],
             aSuccess => {
               if (aSuccess) {
@@ -1200,7 +1207,7 @@ TetheringService.prototype = {
   },
 
   isAnyConnected() {
-    let allNetworkInfo = gNetworkManager.allNetworkInfo;
+    let allNetworkInfo = lazy.gNetworkManager.allNetworkInfo;
     for (let networkId in allNetworkInfo) {
       if (
         allNetworkInfo.hasOwnProperty(networkId) &&
@@ -1217,7 +1224,7 @@ TetheringService.prototype = {
   setExternalInterface(aType) {
     // Dun case, find Wifi or Dun as external interface.
     if (this.dunRequired) {
-      let allNetworkInfo = gNetworkManager.allNetworkInfo;
+      let allNetworkInfo = lazy.gNetworkManager.allNetworkInfo;
       this._externalInterface[aType] = null;
       for (let networkId in allNetworkInfo) {
         if (
@@ -1235,8 +1242,9 @@ TetheringService.prototype = {
         this._externalInterface[aType] = DEFAULT_3G_INTERFACE_NAME;
       }
       // Non Dun case, find available external interface.
-    } else if (gNetworkManager.activeNetworkInfo) {
-      this._externalInterface[aType] = gNetworkManager.activeNetworkInfo.name;
+    } else if (lazy.gNetworkManager.activeNetworkInfo) {
+      this._externalInterface[aType] =
+        lazy.gNetworkManager.activeNetworkInfo.name;
     } else {
       this._externalInterface[aType] = DEFAULT_3G_INTERFACE_NAME;
     }

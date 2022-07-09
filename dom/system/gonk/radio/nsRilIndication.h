@@ -24,9 +24,8 @@ using ::android::hardware::radio::V1_0::CdmaSmsMessage;
 using ::android::hardware::radio::V1_0::CdmaSubscriptionSource;
 using ::android::hardware::radio::V1_0::CellInfo;
 using ::android::hardware::radio::V1_0::HardwareConfig;
-using ::android::hardware::radio::V1_0::HardwareConfigType;
 using ::android::hardware::radio::V1_0::HardwareConfigState;
-using ::android::hardware::radio::V1_1::IRadioIndication;
+using ::android::hardware::radio::V1_0::HardwareConfigType;
 using ::android::hardware::radio::V1_0::LceDataInfo;
 using ::android::hardware::radio::V1_0::PcoDataInfo;
 using ::android::hardware::radio::V1_0::PhoneRestrictedState;
@@ -45,6 +44,7 @@ using ::android::hardware::radio::V1_0::SrvccState;
 using ::android::hardware::radio::V1_0::StkCcUnsolSsResult;
 using ::android::hardware::radio::V1_0::SuppSvcNotification;
 using ::android::hardware::radio::V1_0::UssdModeType;
+using ::android::hardware::radio::V1_1::IRadioIndication;
 
 class nsRilWorker;
 
@@ -177,10 +177,12 @@ class nsRilIndication : public IRadioIndication {
                           const ::android::hardware::hidl_string& reason);
 
   Return<void> carrierInfoForImsiEncryption(RadioIndicationType type);
- 
-  Return<void> networkScanResult(RadioIndicationType type, const NetworkScanResult& result);
- 
-  Return<void> keepaliveStatus(RadioIndicationType type, const KeepaliveStatus& status);
+
+  Return<void> networkScanResult(RadioIndicationType type,
+                                 const NetworkScanResult& result);
+
+  Return<void> keepaliveStatus(RadioIndicationType type,
+                               const KeepaliveStatus& status);
 
  private:
   void defaultResponse(const RadioIndicationType type,

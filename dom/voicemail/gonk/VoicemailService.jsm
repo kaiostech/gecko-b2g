@@ -5,26 +5,15 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+var RIL_DEBUG = ChromeUtils.import(
+  "resource://gre/modules/ril_consts_debug.js"
 );
 
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
+const GONK_VOICEMAIL_SERVICE_CID = Components.ID(
+  "{c332f318-1cce-4f02-b676-bb5031d10736}"
 );
-
-const { PromiseUtils } = ChromeUtils.import(
-  "resource://gre/modules/PromiseUtils.jsm"
-);
-
-var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
-
-const GONK_VOICEMAIL_SERVICE_CONTRACTID =
-  "@mozilla.org/voicemail/gonkvoicemailservice;1";
-const GONK_VOICEMAIL_SERVICE_CID =
-  Components.ID("{c332f318-1cce-4f02-b676-bb5031d10736}");
 
 const NS_MOBILE_CONNECTION_SERVICE_CONTRACTID =
   "@mozilla.org/mobileconnection/mobileconnectionservice;1";
@@ -61,8 +50,9 @@ VoicemailProvider.prototype = {
 
 function VoicemailService() {
   // Initialize |this._providers|.
-  let mcService = Cc[NS_MOBILE_CONNECTION_SERVICE_CONTRACTID]
-                  .getService(Ci.nsIMobileConnectionService);
+  let mcService = Cc[NS_MOBILE_CONNECTION_SERVICE_CONTRACTID].getService(
+    Ci.nsIMobileConnectionService
+  );
   let numItems = mcService.numItems;
   this._providers = [];
   for (let i = 0; i < numItems; i++) {
@@ -75,10 +65,10 @@ function VoicemailService() {
   this._defaultServiceId = this._getDefaultServiceId();
   this._updateDebugFlag();
 
-  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
-  Services.prefs.addObserver(kPrefDefaultServiceId, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
+  Services.prefs.addObserver(kPrefDefaultServiceId, this);
 
-  Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
+  Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
 }
 
 VoicemailService.prototype = {
@@ -86,20 +76,21 @@ VoicemailService.prototype = {
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsIVoicemailService,
     Ci.nsIGonkVoicemailService,
-    Ci.nsIObserver
+    Ci.nsIObserver,
   ]),
 
   _defaultServiceId: null,
   _providers: null,
 
-  _updateDebugFlag: function() {
+  _updateDebugFlag() {
     try {
-      DEBUG = RIL_DEBUG.DEBUG_RIL ||
-              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
+      DEBUG =
+        RIL_DEBUG.DEBUG_RIL ||
+        Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
-  _getDefaultServiceId: function() {
+  _getDefaultServiceId() {
     // TODO mark and set 0 first.
     //let id = Services.prefs.getIntPref(kPrefDefaultServiceId);
     let id = 0;
@@ -112,11 +103,11 @@ VoicemailService.prototype = {
 
   _listeners: null,
 
-  _notifyListeners: function(aMethodName, aItem) {
+  _notifyListeners(aMethodName, aItem) {
     let listeners = this._listeners.slice();
     for (let listener of listeners) {
       try {
-        listener[aMethodName].call(listener, aItem);
+        listener[aMethodName](listener, aItem);
       } catch (e) {
         if (DEBUG) {
           debug("listener for " + aMethodName + " threw an exception: " + e);
@@ -133,44 +124,52 @@ VoicemailService.prototype = {
     return this._providers.length;
   },
 
-  getItemByServiceId: function(aServiceId) {
+  getItemByServiceId(aServiceId) {
     let provider = this._providers[aServiceId];
     if (!provider) {
-      throw Cr.NS_ERROR_INVALID_ARG;
+      throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
     return provider;
   },
 
-  getDefaultItem: function() {
+  getDefaultItem() {
     return this.getItemByServiceId(this._defaultServiceId);
   },
 
-  registerListener: function(aListener) {
-    if (this._listeners.indexOf(aListener) >= 0) {
-      throw Cr.NS_ERROR_UNEXPECTED;
+  registerListener(aListener) {
+    if (this._listeners.includes(aListener)) {
+      throw Components.Exception("", Cr.NS_ERROR_UNEXPECTED);
     }
 
     this._listeners.push(aListener);
   },
 
-  unregisterListener: function(aListener) {
+  unregisterListener(aListener) {
     let index = this._listeners.indexOf(aListener);
     if (index < 0) {
       return Cr.NS_ERROR_FAILURE;
     }
 
     this._listeners.splice(index, 1);
+    return Cr.NS_OK;
   },
 
   /**
    * nsIGonkVoicemailService interface
    */
 
-  notifyStatusChanged: function(aServiceId, aHasMessages, aMessageCount,
-                                aReturnNumber, aReturnMessage) {
+  notifyStatusChanged(
+    aServiceId,
+    aHasMessages,
+    aMessageCount,
+    aReturnNumber,
+    aReturnMessage
+  ) {
     if (DEBUG) {
-      debug("notifyStatusChanged: " +
-            JSON.stringify(Array.prototype.slice.call(arguments)));
+      debug(
+        "notifyStatusChanged: " +
+          JSON.stringify(Array.prototype.slice.call(arguments))
+      );
     }
 
     let provider = this.getItemByServiceId(aServiceId);
@@ -201,10 +200,12 @@ VoicemailService.prototype = {
     }
   },
 
-  notifyInfoChanged: function(aServiceId, aNumber, aDisplayName) {
+  notifyInfoChanged(aServiceId, aNumber, aDisplayName) {
     if (DEBUG) {
-      debug("notifyInfoChanged: " +
-            JSON.stringify(Array.prototype.slice.call(arguments)));
+      debug(
+        "notifyInfoChanged: " +
+          JSON.stringify(Array.prototype.slice.call(arguments))
+      );
     }
 
     let provider = this.getItemByServiceId(aServiceId);
@@ -228,7 +229,7 @@ VoicemailService.prototype = {
    * nsIObserver interface.
    */
 
-  observe: function(aSubject, aTopic, aData) {
+  observe(aSubject, aTopic, aData) {
     switch (aTopic) {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
         if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
@@ -248,7 +249,7 @@ VoicemailService.prototype = {
         this._listeners = [];
         break;
     }
-  }
+  },
 };
 
 var EXPORTED_SYMBOLS = ["VoicemailService"];

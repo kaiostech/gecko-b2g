@@ -40,8 +40,9 @@ using namespace android;
   if (lowMemoryThresholdBytes) {
     uint32_t totalMemoryBytes = hal::GetTotalSystemMemory();
     if (totalMemoryBytes < lowMemoryThresholdBytes) {
-      DOM_CAMERA_LOGI("Low-memory platform with %d bytes of RAM (threshold: <%d bytes)\n",
-        totalMemoryBytes, lowMemoryThresholdBytes);
+      DOM_CAMERA_LOGI(
+          "Low-memory platform with %d bytes of RAM (threshold: <%d bytes)\n",
+          totalMemoryBytes, lowMemoryThresholdBytes);
       return true;
     }
   }

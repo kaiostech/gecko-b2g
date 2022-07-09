@@ -61,6 +61,12 @@ let AVAILABLE_PIP_OVERRIDES;
       },
     },
 
+    disneyplus: {
+      "https://*.disneyplus.com/*": {
+        videoWrapperScriptPath: "video-wrappers/disneyplus.js",
+      },
+    },
+
     funimation: {
       "https://*.funimation.com/*": {
         videoWrapperScriptPath: "video-wrappers/funimation.js",
@@ -146,8 +152,13 @@ let AVAILABLE_PIP_OVERRIDES;
     },
 
     youtube: {
+      /**
+       * The threshold of 0.7 is so that users can click on the "Skip Ads"
+       * button on the YouTube site player without accidentally triggering
+       * PiP.
+       */
       "https://*.youtube.com/*": {
-        visibilityThreshold: 0.9,
+        visibilityThreshold: 0.7,
         videoWrapperScriptPath: "video-wrappers/youtube.js",
       },
       "https://*.youtube-nocookie.com/*": {

@@ -21,10 +21,8 @@ TelephonyDialCallback::TelephonyDialCallback(nsPIDOMWindowInner* aWindow,
   MOZ_ASSERT(mTelephony);
 }
 
-
-nsresult
-TelephonyDialCallback::NotifyDialMMISuccess(JSContext* aCx,
-                                            const MMIResult& aResult) {
+nsresult TelephonyDialCallback::NotifyDialMMISuccess(JSContext* aCx,
+                                                     const MMIResult& aResult) {
   JS::Rooted<JS::Value> jsResult(aCx);
   if (!ToJSValue(aCx, aResult, &jsResult)) {
     JS_ClearPendingException(aCx);
@@ -95,7 +93,7 @@ TelephonyDialCallback::NotifyDialMMISuccessWithInteger(
   result.mServiceCode.Assign(mServiceCode);
   result.mStatusMessage.Assign(aStatusMessage);
   result.mAdditionalInformation.Construct().SetAsUnsignedShort() =
-  aAdditionalInformation;
+      aAdditionalInformation;
 
   return NotifyDialMMISuccess(cx, result);
 }
@@ -130,7 +128,7 @@ TelephonyDialCallback::NotifyDialMMISuccessWithStrings(
   }
 
   result.mAdditionalInformation.Construct().SetAsObject() =
-    &jsAdditionalInformation.toObject();
+      &jsAdditionalInformation.toObject();
 
   return NotifyDialMMISuccess(cx, result);
 }
@@ -157,12 +155,12 @@ TelephonyDialCallback::NotifyDialMMISuccessWithCallForwardingOptions(
 
     bool active = false;
     aResults[i]->GetActive(&active);
-    options.mActive = active? true : false;
+    options.mActive = active ? true : false;
 
     int16_t action = nsIMobileConnection::CALL_FORWARD_ACTION_UNKNOWN;
     aResults[i]->GetAction(&action);
     if (action != nsIMobileConnection::CALL_FORWARD_ACTION_UNKNOWN) {
-      options.mAction= action;
+      options.mAction = action;
     }
 
     int16_t reason = nsIMobileConnection::CALL_FORWARD_REASON_UNKNOWN;
@@ -197,7 +195,7 @@ TelephonyDialCallback::NotifyDialMMISuccessWithCallForwardingOptions(
   }
 
   result.mAdditionalInformation.Construct().SetAsObject() =
-    &jsAdditionalInformation.toObject();
+      &jsAdditionalInformation.toObject();
 
   return NotifyDialMMISuccess(cx, result);
 }

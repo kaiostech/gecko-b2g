@@ -64,7 +64,7 @@ function buildDefaultChoices(typesInfo) {
  * @param principal: principal of the permission requester
  */
 function hasDefaultPermissions(principal) {
-  return defaultPermissions.every((permission) => {
+  return defaultPermissions.every(permission => {
     let perm = Services.perms.testExactPermissionFromPrincipal(
       principal,
       permission
@@ -90,7 +90,7 @@ function rememberPermission(typesInfo, remember, granted, principal) {
     ? Ci.nsIPermissionManager.ALLOW_ACTION
     : Ci.nsIPermissionManager.DENY_ACTION;
 
-  typesInfo.forEach((perm) => {
+  typesInfo.forEach(perm => {
     // See https://bugzilla.mozilla.org/show_bug.cgi?id=1177242
     if (perm.permission == "video-capture") {
       Services.perms.addFromPrincipal(
@@ -198,7 +198,7 @@ ContentPermissionPrompt.prototype = {
     request,
     typesInfo
   ) {
-    typesInfo.forEach(function (type) {
+    typesInfo.forEach(function(type) {
       type.action = Services.perms.testExactPermissionFromPrincipal(
         request.principal,
         type.permission
@@ -221,7 +221,7 @@ ContentPermissionPrompt.prototype = {
     // If all permissions are allowed already, call allow() without prompting.
     if (
       typesInfo.every(
-        (type) => type.action == Ci.nsIPermissionManager.ALLOW_ACTION
+        type => type.action == Ci.nsIPermissionManager.ALLOW_ACTION
       )
     ) {
       debug("all permissions in the request are allowed.");
@@ -232,7 +232,7 @@ ContentPermissionPrompt.prototype = {
     // If some of the permissions are DENY_ACTION or UNKNOWN_ACTION,
     // call cancel() without prompting.
     if (
-      typesInfo.some((type) =>
+      typesInfo.some(type =>
         [
           Ci.nsIPermissionManager.DENY_ACTION,
           Ci.nsIPermissionManager.UNKNOWN_ACTION,
@@ -310,7 +310,7 @@ ContentPermissionPrompt.prototype = {
       return;
     }
 
-    let visibilitychangeHandler = function (event) {
+    let visibilitychangeHandler = function(event) {
       debug(`callback of ${event.type} ${JSON.stringify(event.detail)}`);
       if (!getIsVisible(request)) {
         debug("visibilitychange !getIsVisible, cancel.");
@@ -328,7 +328,7 @@ ContentPermissionPrompt.prototype = {
         "webview-visibilitychange",
         visibilitychangeHandler
       );
-      sendToBrowserWindow("prompt", request, typesInfo, (event) => {
+      sendToBrowserWindow("prompt", request, typesInfo, event => {
         debug(`callback of ${event.type} ${JSON.stringify(event.detail)}`);
         target.removeEventListener(
           "webview-visibilitychange",
@@ -360,4 +360,4 @@ ContentPermissionPrompt.prototype = {
 };
 
 //module initialization
-this.EXPORTED_SYMBOLS = ["ContentPermissionPrompt"];
+const EXPORTED_SYMBOLS = ["ContentPermissionPrompt"];

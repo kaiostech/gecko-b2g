@@ -10,7 +10,9 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
   return ChromeUtils.import("resource://gre/modules/ril_consts.js");
 });
 
@@ -27,28 +29,28 @@ const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 const B2G_SW_REGISTRATION_DONE_TOPIC_ID = "b2g-sw-registration-done";
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gRadioInterfaceLayer",
   "@mozilla.org/ril;1",
   "nsIRadioInterfaceLayer"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIGonkMobileConnectionService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccMessenger",
   "@mozilla.org/ril/system-messenger-helper;1",
   "nsIIccMessenger"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gStkCmdFactory",
   "@mozilla.org/icc/stkcmdfactory;1",
   "nsIStkCmdFactory"
@@ -165,7 +167,7 @@ IccContact.prototype = {
 function IccService() {
   this._iccs = [];
 
-  let numClients = gRadioInterfaceLayer.numRadioInterfaces;
+  let numClients = lazy.gRadioInterfaceLayer.numRadioInterfaces;
   for (let i = 0; i < numClients; i++) {
     this._iccs.push(new Icc(i));
   }
@@ -228,7 +230,10 @@ IccService.prototype = {
     }
 
     if (this._b2gSWRegistered) {
-      gIccMessenger.notifyStkProactiveCommand(icc.iccInfo.iccid, aStkcommand);
+      lazy.gIccMessenger.notifyStkProactiveCommand(
+        icc.iccInfo.iccid,
+        aStkcommand
+      );
     } else {
       // Cache command since SW registration is not ready yet.
       // TODO we should create getter api instead of delay broadcast.
@@ -337,7 +342,7 @@ IccService.prototype = {
     for (let iccid in this._cachedStkCmds) {
       let cmds = this._cachedStkCmds[iccid];
       cmds.forEach(stkCmd => {
-        gIccMessenger.notifyStkProactiveCommand(iccid, stkCmd);
+        lazy.gIccMessenger.notifyStkProactiveCommand(iccid, stkCmd);
       });
     }
     this._cachedStkCmds = {};
@@ -346,7 +351,7 @@ IccService.prototype = {
 
 function Icc(aClientId) {
   this._clientId = aClientId;
-  this._radioInterface = gRadioInterfaceLayer.getRadioInterface(aClientId);
+  this._radioInterface = lazy.gRadioInterfaceLayer.getRadioInterface(aClientId);
   this._listeners = [];
 }
 Icc.prototype = {
@@ -455,7 +460,7 @@ Icc.prototype = {
         lastKnownHomeNetwork += "-" + aIccInfo.spn;
       }
 
-      gMobileConnectionService.notifyLastHomeNetworkChanged(
+      lazy.gMobileConnectionService.notifyLastHomeNetworkChanged(
         this._clientId,
         lastKnownHomeNetwork
       );
@@ -463,7 +468,7 @@ Icc.prototype = {
 
     // If spn becomes available, we should check roaming again.
     if (!oldSpn && aIccInfo.spn) {
-      gMobileConnectionService.notifySpnAvailable(this._clientId);
+      lazy.gMobileConnectionService.notifySpnAvailable(this._clientId);
     }
   },
 
@@ -619,7 +624,7 @@ Icc.prototype = {
 
   matchMvno(aMvnoType, aMvnoData, aCallback) {
     if (!aMvnoData) {
-      aCallback.notifyError(RIL.GECKO_ERROR_INVALID_PARAMETER);
+      aCallback.notifyError(lazy.RIL.GECKO_ERROR_INVALID_PARAMETER);
       return;
     }
 
@@ -627,7 +632,7 @@ Icc.prototype = {
       case Ci.nsIIcc.CARD_MVNO_TYPE_IMSI:
         let imsi = this.imsi;
         if (!imsi) {
-          aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
+          aCallback.notifyError(lazy.RIL.GECKO_ERROR_GENERIC_FAILURE);
           break;
         }
         aCallback.notifySuccessWithBoolean(
@@ -637,7 +642,7 @@ Icc.prototype = {
       case Ci.nsIIcc.CARD_MVNO_TYPE_SPN:
         let spn = this.iccInfo && this.iccInfo.spn;
         if (!spn) {
-          aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
+          aCallback.notifyError(lazy.RIL.GECKO_ERROR_GENERIC_FAILURE);
           break;
         }
         aCallback.notifySuccessWithBoolean(spn == aMvnoData);
@@ -646,7 +651,7 @@ Icc.prototype = {
         let gid = this.iccInfo && this.iccInfo.gid1;
         let mvnoDataLength = aMvnoData.length;
         if (!gid) {
-          aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
+          aCallback.notifyError(lazy.RIL.GECKO_ERROR_GENERIC_FAILURE);
         } else if (mvnoDataLength > gid.length) {
           aCallback.notifySuccessWithBoolean(false);
         } else {
@@ -657,7 +662,7 @@ Icc.prototype = {
         }
         break;
       default:
-        aCallback.notifyError(RIL.GECKO_ERROR_MODE_NOT_SUPPORTED);
+        aCallback.notifyError(lazy.RIL.GECKO_ERROR_MODE_NOT_SUPPORTED);
         break;
     }
   },
@@ -742,8 +747,8 @@ Icc.prototype = {
   },
 
   sendStkResponse(aCommand, aResponse) {
-    let response = gStkCmdFactory.createResponseMessage(aResponse);
-    response.command = gStkCmdFactory.createCommandMessage(aCommand);
+    let response = lazy.gStkCmdFactory.createResponseMessage(aResponse);
+    response.command = lazy.gStkCmdFactory.createCommandMessage(aCommand);
     this._radioInterface.sendWorkerMessage("sendStkTerminalResponse", response);
   },
 
@@ -765,7 +770,7 @@ Icc.prototype = {
 
   sendStkEventDownload(aEvent) {
     this._radioInterface.sendWorkerMessage("sendStkEventDownload", {
-      event: gStkCmdFactory.createEventMessage(aEvent),
+      event: lazy.gStkCmdFactory.createEventMessage(aEvent),
     });
   },
 

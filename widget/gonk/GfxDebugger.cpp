@@ -268,8 +268,7 @@ void GfxDebugger::Listen() {
 static bool gRecordingInProgress = false;
 void OnScreenrecordFinish(int streamFd, int res) {
   // Dispatch the job back to main thread for notifying client.
-  nsCOMPtr<nsIRunnable> screenrecordFinishCB =
-    NS_NewRunnableFunction(
+  nsCOMPtr<nsIRunnable> screenrecordFinishCB = NS_NewRunnableFunction(
       "mozilla::ipc::GfxDebugger::ScreenrecordFinish",
       [streamFd, res]() -> void {
         Parcel reply;
@@ -277,8 +276,7 @@ void OnScreenrecordFinish(int streamFd, int res) {
         GD_LOGD("screenrecord result: %d", res);
         send(streamFd, reply.data(), reply.dataSize(), 0);
         gRecordingInProgress = false;
-      }
-    );
+      });
   NS_DispatchToMainThread(screenrecordFinishCB);
 }
 
@@ -322,7 +320,7 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
             Parcel reply;
             reply.writeCString(filename);
             GD_LOGD("filename=%s, strlen=%d, writed %d bytes", filename,
-              strlen(filename), reply.dataSize());
+                    strlen(filename), reply.dataSize());
             send(mConnector->mStreamFd, reply.data(), reply.dataSize(), 0);
             break;
           }
@@ -369,12 +367,12 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
             GD_LOGD("screenrecord[%s]:", filePath);
             // Dispatch the job to non main/IO thread to prevent B2G jobs
             // and composition jobs being blocked.
-            RefPtr<GonkScreenRecord> runnable =
-                new GonkScreenRecord(displayId, outputFormat, timeLimitSec,
-                  filePath, &OnScreenrecordFinish, mConnector->mStreamFd);
+            RefPtr<GonkScreenRecord> runnable = new GonkScreenRecord(
+                displayId, outputFormat, timeLimitSec, filePath,
+                &OnScreenrecordFinish, mConnector->mStreamFd);
 
             nsCOMPtr<nsIEventTarget> target =
-              do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+                do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
             MOZ_ASSERT(target);
 
             target->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
@@ -382,7 +380,7 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
             break;
           }
         }
-      } // case GD_CMD_SCREENRECORD
+      }  // case GD_CMD_SCREENRECORD
       break;
 
       default:

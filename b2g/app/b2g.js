@@ -1143,9 +1143,6 @@ pref("ril.support.primarysim.switch", false);
 // Enable app cell broadcast list configuration (apn.json)
 pref("dom.app_cb_configuration", true);
 
-// reboot reason
-pref("device.rebootReason", "normal");
-
 // Use chrome://b2g to use the in-tree system app, and chrome://system to
 // load it from either /system/b2g/webapps or /data/local/webapps
 // We keep the internal one has default to ensure we start.

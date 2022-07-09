@@ -14,7 +14,7 @@
  */
 
 #include "AudioManager.h"
-
+#include "android_audio/AudioSystem.h"
 #include "AudioChannelService.h"
 #include "BluetoothCommon.h"
 #include "BluetoothHfpManagerBase.h"
@@ -1779,20 +1779,3 @@ nsAutoCString AudioManager::GetParameters(const char* aKeys) {
 } /* namespace gonk */
 } /* namespace dom */
 } /* namespace mozilla */
-
-NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(AudioManager,
-                                         AudioManager::GetInstance);
-
-NS_DEFINE_NAMED_CID(NS_AUDIOMANAGER_CID);
-
-static const mozilla::Module::CIDEntry kAudioManagerCIDs[] = {
-    {&kNS_AUDIOMANAGER_CID, false, nullptr, AudioManagerConstructor},
-    {nullptr}};
-
-static const mozilla::Module::ContractIDEntry kAudioManagerContracts[] = {
-    {"@mozilla.org/telephony/audiomanager;1", &kNS_AUDIOMANAGER_CID},
-    {nullptr}};
-
-extern const mozilla::Module kAudioManagerModule = {
-    mozilla::Module::kVersion, kAudioManagerCIDs, kAudioManagerContracts,
-    nullptr};

@@ -6,8 +6,9 @@
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-var MMDB = {};
-ChromeUtils.import("resource://gre/modules/MobileMessageDB.jsm", MMDB);
+const { MobileMessageDB } = ChromeUtils.import(
+  "resource://gre/modules/MobileMessageDB.jsm"
+);
 
 const GONK_MOBILEMESSAGEDATABASESERVICE_CID = Components.ID(
   "{7db05024-8038-11e4-b7fa-a3edb6f1bf0c}"
@@ -23,7 +24,7 @@ function MobileMessageDatabaseService() {
   // by the time IndexedDB queries for it off the main thread. (See bug 743635.)
   Services.dirsvc.get("ProfD", Ci.nsIFile);
 
-  let mmdb = new MMDB.MobileMessageDB();
+  let mmdb = new MobileMessageDB();
   mmdb.init(DB_NAME, 0, mmdb.updatePendingTransactionToError.bind(mmdb));
   this.mmdb = mmdb;
 }

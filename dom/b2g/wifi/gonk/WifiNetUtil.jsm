@@ -13,20 +13,21 @@ const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
 
+const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkService",
   "@mozilla.org/network/service;1",
   "nsINetworkService"
 );
 
-this.EXPORTED_SYMBOLS = ["WifiNetUtil"];
+const EXPORTED_SYMBOLS = ["WifiNetUtil"];
 
 const DHCP_PROP = "init.svc.dhcpcd";
 const DHCP = "dhcpcd";
 const DEBUG = false;
 
-this.WifiNetUtil = function(controlMessage) {
+const WifiNetUtil = function(controlMessage) {
   function debug(msg) {
     if (DEBUG) {
       dump("-*- NetUtil: " + msg);
@@ -37,7 +38,7 @@ this.WifiNetUtil = function(controlMessage) {
 
   util.runDhcp = function(ifname, gen, callback) {
     util.stopDhcp(ifname, function() {
-      gNetworkService.dhcpRequest(ifname, function(success, dhcpInfo) {
+      lazy.gNetworkService.dhcpRequest(ifname, function(success, dhcpInfo) {
         if (!success) {
           callback({ info: null }, gen);
           return;
@@ -70,13 +71,13 @@ this.WifiNetUtil = function(controlMessage) {
   };
 
   util.startDhcpServer = function(config, callback) {
-    gNetworkService.setDhcpServer(true, config, function(error) {
+    lazy.gNetworkService.setDhcpServer(true, config, function(error) {
       callback(!error);
     });
   };
 
   util.stopDhcpServer = function(callback) {
-    gNetworkService.setDhcpServer(false, null, function(error) {
+    lazy.gNetworkService.setDhcpServer(false, null, function(error) {
       callback(!error);
     });
   };

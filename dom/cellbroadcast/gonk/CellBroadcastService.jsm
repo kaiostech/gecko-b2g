@@ -10,18 +10,13 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
-  // eslint-disable-next-line mozilla/reject-chromeutils-import-params
-  let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js", null);
-  return obj;
-});
+const RIL = ChromeUtils.import("resource://gre/modules/ril_consts.js");
 
-XPCOMUtils.defineLazyGetter(this, "RIL_DEBUG", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "RIL_DEBUG", function() {
   // eslint-disable-next-line mozilla/reject-chromeutils-import-params
-  let obj = ChromeUtils.import(
-    "resource://gre/modules/ril_consts_debug.js",
-    null
-  );
+  let obj = ChromeUtils.import("resource://gre/modules/ril_consts_debug.js");
   return obj;
 });
 
@@ -37,20 +32,20 @@ const kPrefCellBroadcastGeoFencingThreshold =
 const DEFAULT_MAXIMUM_WAIT_TIME = 30; // 30 seconds
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gCellbroadcastMessenger",
   "@mozilla.org/ril/system-messenger-helper;1",
   "nsICellbroadcastMessenger"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSettingsManager",
   "@mozilla.org/sidl-native/settings;1",
   "nsISettingsManager"
 );
 
-XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function() {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -59,20 +54,20 @@ XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gPowerManagerService",
   "@mozilla.org/power/powermanagerservice;1",
   "nsIPowerManagerService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileMessageDBService",
   "@mozilla.org/mobilemessage/gonkmobilemessagedatabaseservice;1",
   "nsIGonkMobileMessageDatabaseService"
 );
 
-XPCOMUtils.defineLazyGetter(this, "gGeolocation", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gGeolocation", function() {
   let geolocation = {};
   try {
     geolocation = Cc["@mozilla.org/geolocation;1"].getService(Ci.nsISupports);
@@ -157,8 +152,8 @@ CellBroadcastService.prototype = {
   _updateDebugFlag() {
     try {
       DEBUG =
-        RIL_DEBUG.DEBUG_RIL ||
-        Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
+        lazy.RIL_DEBUG.DEBUG_RIL ||
+        Services.prefs.getBoolPref(lazy.RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
@@ -174,9 +169,9 @@ CellBroadcastService.prototype = {
       return;
     }
 
-    let numOfRilClients = gRadioInterfaceLayer.numRadioInterfaces;
+    let numOfRilClients = lazy.gRadioInterfaceLayer.numRadioInterfaces;
     for (let clientId = 0; clientId < numOfRilClients; clientId++) {
-      gRadioInterfaceLayer
+      lazy.gRadioInterfaceLayer
         .getRadioInterface(clientId)
         .sendWorkerMessage("setCellBroadcastDisabled", {
           disabled: this._retrieveSettingValueByClient(clientId, aSettings),
@@ -192,7 +187,7 @@ CellBroadcastService.prototype = {
       return;
     }
 
-    let numOfRilClients = gRadioInterfaceLayer.numRadioInterfaces;
+    let numOfRilClients = lazy.gRadioInterfaceLayer.numRadioInterfaces;
     let responses = [];
     for (let clientId = 0; clientId < numOfRilClients; clientId++) {
       let newSearchList = this._retrieveSettingValueByClient(
@@ -215,7 +210,7 @@ CellBroadcastService.prototype = {
         return;
       }
 
-      gRadioInterfaceLayer.getRadioInterface(clientId).sendWorkerMessage(
+      lazy.gRadioInterfaceLayer.getRadioInterface(clientId).sendWorkerMessage(
         "setCellBroadcastSearchList",
         { searchList: newSearchList },
         function callback(aResponse) {
@@ -337,7 +332,7 @@ CellBroadcastService.prototype = {
   },
 
   _getRadioInterface(aClientId) {
-    let numOfRilClients = gRadioInterfaceLayer.numRadioInterfaces;
+    let numOfRilClients = lazy.gRadioInterfaceLayer.numRadioInterfaces;
     if (aClientId < 0 || aClientId >= numOfRilClients) {
       if (DEBUG) {
         debug("unexpedted client: " + aClientId);
@@ -345,7 +340,7 @@ CellBroadcastService.prototype = {
       throw Components.Exception("", Cr.NS_ERROR_NOT_AVAILABLE);
     }
 
-    let radioInterface = gRadioInterfaceLayer.getRadioInterface(aClientId);
+    let radioInterface = lazy.gRadioInterfaceLayer.getRadioInterface(aClientId);
     if (!radioInterface) {
       if (DEBUG) {
         debug("cannot retrieve radiointerface for client: " + aClientId);
@@ -366,7 +361,7 @@ CellBroadcastService.prototype = {
       if (DEBUG) {
         debug("Acquiring a CPU wake lock for handling CB");
       }
-      this._cbHandledWakeLock = gPowerManagerService.newWakeLock("cpu");
+      this._cbHandledWakeLock = lazy.gPowerManagerService.newWakeLock("cpu");
     }
     if (!this._cbHandledWakeLockTimer) {
       if (DEBUG) {
@@ -405,7 +400,7 @@ CellBroadcastService.prototype = {
         debug("Failed to delete cellbroadcast message");
       }
     };
-    gMobileMessageDBService.deleteCellBroadcastMessage(
+    lazy.gMobileMessageDBService.deleteCellBroadcastMessage(
       aGeometryMessage.serialNumber,
       aGeometryMessage.messageId,
       callback
@@ -445,7 +440,7 @@ CellBroadcastService.prototype = {
 
     let findCellbroadcastMessage = identity =>
       new Promise(resolve =>
-        gMobileMessageDBService.getCellBroadcastMessage(
+        lazy.gMobileMessageDBService.getCellBroadcastMessage(
           identity.serialNumber,
           identity.messageIdentifier,
           function(aRv, aMessageRecord, aCellBroadCastMessage) {
@@ -528,7 +523,7 @@ CellBroadcastService.prototype = {
         // Broadcast the message directly if the location is not available.
         this.broadcastGeometryMessage(aServiceId, aGeometryMessage);
       };
-      gGeolocation.getCurrentPosition(success, error, options);
+      lazy.gGeolocation.getCurrentPosition(success, error, options);
     } else {
       // Broadcast the message directly because no geo-fencing required.
       this.broadcastGeometryMessage(aServiceId, aGeometryMessage);
@@ -538,7 +533,7 @@ CellBroadcastService.prototype = {
   _broadcastCellBroadcastMessage(aServiceId, aCellBroadcastMessage) {
     this._acquireCbHandledWakeLock();
     // Broadcast CBS System message
-    gCellbroadcastMessenger.notifyCbMessageReceived(
+    lazy.gCellbroadcastMessenger.notifyCbMessageReceived(
       aServiceId,
       aCellBroadcastMessage.gsmGeographicalScope,
       aCellBroadcastMessage.messageCode,
@@ -600,7 +595,7 @@ CellBroadcastService.prototype = {
           );
         }
       };
-      gMobileMessageDBService.saveCellBroadcastMessage(
+      lazy.gMobileMessageDBService.saveCellBroadcastMessage(
         aCellBroadcastMessage,
         callback
       );
@@ -673,12 +668,12 @@ CellBroadcastService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       if (DEBUG) {
         debug("get " + aKey + " setting.");
       }
       let self = this;
-      gSettingsManager.get(aKey, {
+      lazy.gSettingsManager.get(aKey, {
         resolve: info => {
           self.observeSetting(info);
         },
@@ -696,24 +691,27 @@ CellBroadcastService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       if (DEBUG) {
         debug(
           "set " + aKey + " setting with value = " + JSON.stringify(aValue)
         );
       }
-      gSettingsManager.set([{ name: aKey, value: JSON.stringify(aValue) }], {
-        resolve: () => {
-          if (DEBUG) {
-            debug(" Set " + aKey + " succedded. ");
-          }
-        },
-        reject: () => {
-          if (DEBUG) {
-            debug("Set " + aKey + " failed.");
-          }
-        },
-      });
+      lazy.gSettingsManager.set(
+        [{ name: aKey, value: JSON.stringify(aValue) }],
+        {
+          resolve: () => {
+            if (DEBUG) {
+              debug(" Set " + aKey + " succedded. ");
+            }
+          },
+          reject: () => {
+            if (DEBUG) {
+              debug("Set " + aKey + " failed.");
+            }
+          },
+        }
+      );
     }
   },
 
@@ -723,11 +721,11 @@ CellBroadcastService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       if (DEBUG) {
         debug("add " + aKey + " setting observer.");
       }
-      gSettingsManager.addObserver(aKey, this, {
+      lazy.gSettingsManager.addObserver(aKey, this, {
         resolve: () => {
           if (DEBUG) {
             debug("observed " + aKey + " successed.");
@@ -747,11 +745,11 @@ CellBroadcastService.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       if (DEBUG) {
         debug("remove " + aKey + " setting observer.");
       }
-      gSettingsManager.removeObserver(aKey, this, {
+      lazy.gSettingsManager.removeObserver(aKey, this, {
         resolve: () => {
           if (DEBUG) {
             debug("remove observer " + aKey + " successed.");

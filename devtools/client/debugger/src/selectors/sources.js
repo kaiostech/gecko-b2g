@@ -5,7 +5,6 @@
 import { createSelector } from "reselect";
 import { shallowEqual } from "../utils/shallow-equal";
 import { getPathParts, getFileExtension } from "../utils/sources-tree/utils";
-import { getDisplayURL } from "../utils/sources-tree/getURL";
 
 import {
   getPrettySourceURL,
@@ -146,15 +145,6 @@ export function getDisplayedSourcesList(state) {
   return Object.values(getDisplayedSources(state)).flatMap(Object.values);
 }
 
-export function getExtensionNameBySourceUrl(state, url) {
-  const match = getSourceList(state).find(
-    source => source.url && source.url.startsWith(url)
-  );
-  if (match && match.extensionName) {
-    return match.extensionName;
-  }
-}
-
 // This is only used by tests
 export function getSourceCount(state) {
   return getSourcesMap(state).size;
@@ -240,18 +230,11 @@ export const getDisplayedSources = createSelector(
   (list, mainThreadHost) => {
     const result = {};
     for (const source of list) {
-      const displayURL = getDisplayURL(source.url, mainThreadHost);
-
-      // Ignore source which have not been able to be sorted in a group by getDisplayURL
-      // It should be only javascript: URLs and weird URLs without protocols.
-      if (!displayURL.group) {
-        continue;
-      }
-
       // Duplicate Source objects into a new dedicated type of "displayed source object"
       // with two additional fields: parts and displayURL.
       const displayedSource = {
         thread: source.thread,
+        isExtension: source.isExtension,
         isPrettyPrinted: source.isPrettyPrinted,
         isBlackBoxed: source.isBlackBoxed,
         isOriginal: source.isOriginal,
@@ -259,8 +242,8 @@ export const getDisplayedSources = createSelector(
         // quick-open codebase uses this attribute:
         relativeUrl: source.relativeUrl,
         id: source.id,
-        displayURL,
-        parts: getPathParts(displayURL, source.thread, mainThreadHost),
+        displayURL: source.displayURL,
+        parts: getPathParts(source.displayURL, source.thread, mainThreadHost),
       };
       const thread = displayedSource.thread;
 

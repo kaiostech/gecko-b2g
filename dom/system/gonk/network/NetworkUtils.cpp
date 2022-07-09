@@ -2128,8 +2128,8 @@ CommandResult NetworkUtils::startClatd(NetworkParams& aOptions) {
   }
 
   std::string clatAddress;
-  Status status =
-      gNetd->clatdStart(GET_CHAR(mIfname), GET_CHAR(mNat64Prefix), &clatAddress);
+  Status status = gNetd->clatdStart(GET_CHAR(mIfname), GET_CHAR(mNat64Prefix),
+                                    &clatAddress);
   result.mResult = status.isOk();
 
   if (result.mResult) {

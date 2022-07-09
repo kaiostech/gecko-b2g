@@ -41,7 +41,6 @@ class IGraphicBufferProducer;
 class IGraphicBufferConsumer;
 class String8;
 
-
 class DisplaySurface : public ConsumerBase {
  public:
   // beginFrame is called at the beginning of the composition loop, before
@@ -97,10 +96,8 @@ class DisplaySurface : public ConsumerBase {
   buffer_handle_t lastHandle;
 
  protected:
-    DisplaySurface(const sp<IGraphicBufferConsumer>& sc)
-        : ConsumerBase(sc, true)
-        , lastHandle(0)
-    { }
+  DisplaySurface(const sp<IGraphicBufferConsumer>& sc)
+      : ConsumerBase(sc, true), lastHandle(0) {}
   virtual ~DisplaySurface() {}
 };
 

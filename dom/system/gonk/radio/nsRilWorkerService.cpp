@@ -87,19 +87,3 @@ nsRilWorkerService::CreateRilWorkerService() {
   RefPtr<nsRilWorkerService> service = gRilWorkerService.get();
   return service.forget();
 }
-
-NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(
-    nsRilWorkerService, nsRilWorkerService::CreateRilWorkerService);
-
-NS_DEFINE_NAMED_CID(RILWORKERSERVICE_CID);
-
-static const mozilla::Module::CIDEntry kRilWorkerServiceCIDs[] = {
-    {&kRILWORKERSERVICE_CID, false, nullptr, nsRilWorkerServiceConstructor},
-    {nullptr}};
-
-static const mozilla::Module::ContractIDEntry kRilWorkerServiceContracts[] = {
-    {"@mozilla.org/rilworkerservice;1", &kRILWORKERSERVICE_CID}, {nullptr}};
-
-extern const mozilla::Module kRilWorkerServiceModule = {
-    mozilla::Module::kVersion, kRilWorkerServiceCIDs,
-    kRilWorkerServiceContracts, nullptr};

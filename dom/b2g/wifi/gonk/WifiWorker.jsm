@@ -6,7 +6,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["WifiWorker"];
+const EXPORTED_SYMBOLS = ["WifiWorker"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
@@ -199,75 +199,77 @@ const POWER_MODE_SCREEN_STATE = 1 << 1;
 const POWER_MODE_SETTING_CHANGED = 1 << 2;
 /* eslint-enable no-unused-vars */
 
-XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkManager",
   "@mozilla.org/network/manager;1",
   "nsINetworkManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkService",
   "@mozilla.org/network/service;1",
   "nsINetworkService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gTetheringService",
   "@mozilla.org/tethering/service;1",
   "nsITetheringService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSettingsManager",
   "@mozilla.org/sidl-native/settings;1",
   "nsISettingsManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gPowerManagerService",
   "@mozilla.org/power/powermanagerservice;1",
   "nsIPowerManagerService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gImsRegService",
   "@mozilla.org/mobileconnection/imsregservice;1",
   "nsIImsRegService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gTelephonyService",
   "@mozilla.org/telephony/telephonyservice;1",
   "nsITelephonyService"
 );
 
 XPCOMUtils.defineLazyModuleGetter(
-  this,
+  lazy,
   "gPhoneNumberUtils",
   "resource://gre/modules/PhoneNumberUtils.jsm",
   "PhoneNumberUtils"
@@ -834,7 +836,7 @@ var WifiManager = (function() {
       WifiNetworkInterface.info.state ==
       Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED
     ) {
-      gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
+      lazy.gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
     }
   }
 
@@ -870,10 +872,10 @@ var WifiManager = (function() {
         // and routing table is changed but still cannot connect to network
         // so the workaround here is disable interface the enable again to
         // trigger network reconnect with static ip.
-        gNetworkService.setInterfaceConfig(
+        lazy.gNetworkService.setInterfaceConfig(
           { ifname: manager.ifname, link: "down" },
           function(ok) {
-            gNetworkService.setInterfaceConfig(
+            lazy.gNetworkService.setInterfaceConfig(
               { ifname: manager.ifname, link: "up" },
               function(ok) {
                 callback(ok);
@@ -910,7 +912,7 @@ var WifiManager = (function() {
     }
 
     // Set ip, mask length, gateway, dns to network interface
-    gNetworkService.configureInterface(
+    lazy.gNetworkService.configureInterface(
       {
         ifname,
         ipaddr: staticIpInfo.ipaddr,
@@ -980,7 +982,7 @@ var WifiManager = (function() {
     // For now we do our own DHCP. In the future, this should be handed
     // off to the Network Manager or IpClient relate.
     // Start IPv6 provision.
-    gNetworkService.setIpv6Status(manager.ifname, true, function() {});
+    lazy.gNetworkService.setIpv6Status(manager.ifname, true, function() {});
 
     // Start IPv4 discovery.
     WifiConfigManager.fetchNetworkConfiguration(current, function() {
@@ -1065,7 +1067,7 @@ var WifiManager = (function() {
   function acquireWifiWakeLock() {
     if (!wifiWakeLock) {
       debug("Acquiring Wifi Wakelock");
-      wifiWakeLock = gPowerManagerService.newWakeLock("cpu");
+      wifiWakeLock = lazy.gPowerManagerService.newWakeLock("cpu");
     }
     if (!wifiWakeLockTimer) {
       debug("Creating Wifi WakeLock Timer");
@@ -1582,7 +1584,7 @@ var WifiManager = (function() {
 
   function simIdentityRequest(networkId, simIndex, prefix) {
     // For SIM & AKA/AKA' EAP method Only, get identity from ICC
-    let icc = gIccService.getIccByServiceId(simIndex - 1);
+    let icc = lazy.gIccService.getIccByServiceId(simIndex - 1);
     if (!icc || !icc.iccInfo || !icc.iccInfo.mcc || !icc.iccInfo.mnc) {
       debug("SIM is not ready or iccInfo is invalid");
       WifiConfigManager.updateNetworkSelectionStatus(
@@ -1619,7 +1621,7 @@ var WifiManager = (function() {
     let authResponse = [];
     let count = 0;
 
-    let icc = gIccService.getIccByServiceId(simIndex - 1);
+    let icc = lazy.gIccService.getIccByServiceId(simIndex - 1);
     for (let value in data) {
       let challenge = data[value];
       if (!challenge.length) {
@@ -1693,7 +1695,7 @@ var WifiManager = (function() {
   }
 
   function simUmtsAuthRequest(simIndex, rand, autn) {
-    let icc = gIccService.getIccByServiceId(simIndex - 1);
+    let icc = lazy.gIccService.getIccByServiceId(simIndex - 1);
     if (rand == null || autn == null) {
       debug("null rand or autn");
       return;
@@ -1829,7 +1831,7 @@ var WifiManager = (function() {
           // Register as network interface.
           WifiNetworkInterface.info.name = manager.ifname;
           if (!WifiNetworkInterface.registered) {
-            gNetworkManager.registerNetworkInterface(WifiNetworkInterface);
+            lazy.gNetworkManager.registerNetworkInterface(WifiNetworkInterface);
             WifiNetworkInterface.registered = true;
           }
           WifiNetworkInterface.info.state =
@@ -1838,10 +1840,10 @@ var WifiManager = (function() {
           WifiNetworkInterface.info.prefixLengths = [];
           WifiNetworkInterface.info.gateways = [];
           WifiNetworkInterface.info.dnses = [];
-          gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
+          lazy.gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
 
           manager.supplicantStarted = true;
-          gNetworkService.setInterfaceConfig(
+          lazy.gNetworkService.setInterfaceConfig(
             { ifname: manager.ifname, link: "up" },
             function(ok) {
               if (ok) {
@@ -1851,7 +1853,11 @@ var WifiManager = (function() {
             }
           );
 
-          gNetworkService.setIpv6Status(manager.ifname, false, function() {});
+          lazy.gNetworkService.setIpv6Status(
+            manager.ifname,
+            false,
+            function() {}
+          );
           BinderServices.wifi.onWifiStateChanged(
             WifiConstants.WIFI_STATE_ENABLED
           );
@@ -1860,7 +1866,7 @@ var WifiManager = (function() {
     } else {
       let imsCapability;
       try {
-        imsCapability = gImsRegService.getHandlerByServiceId(
+        imsCapability = lazy.gImsRegService.getHandlerByServiceId(
           manager.telephonyServiceId
         ).capability;
       } catch (e) {
@@ -1898,7 +1904,7 @@ var WifiManager = (function() {
     // until it does.
     manager.state = "UNINITIALIZED";
     manager.disconnect(function() {
-      gNetworkService.setInterfaceConfig(
+      lazy.gNetworkService.setInterfaceConfig(
         { ifname: manager.ifname, link: "down" },
         function(ok) {
           wifiCommand.stopWifi(function(result) {
@@ -1939,13 +1945,13 @@ var WifiManager = (function() {
           return;
         }
         var ifaceName = result.apInterface;
-        gNetworkService.setInterfaceConfig(
+        lazy.gNetworkService.setInterfaceConfig(
           { ifname: ifaceName, link: "up" },
           function(ok) {}
         );
         WifiNetworkInterface.info.name = ifaceName;
 
-        gTetheringService.setWifiTethering(
+        lazy.gTetheringService.setWifiTethering(
           enabled,
           WifiNetworkInterface.info.name,
           configuration,
@@ -1966,7 +1972,7 @@ var WifiManager = (function() {
         );
       });
     } else {
-      gTetheringService.setWifiTethering(
+      lazy.gTetheringService.setWifiTethering(
         enabled,
         WifiNetworkInterface.info.name,
         configuration,
@@ -1992,8 +1998,12 @@ var WifiManager = (function() {
   manager.connectionDropped = function(callback) {
     // If we got disconnected, kill the DHCP client and disable IPv6
     // in preparation for reconnection.
-    gNetworkService.setIpv6Status(WifiManager.ifname, false, function() {});
-    gNetworkService.resetRoutingTable(manager.ifname, function() {
+    lazy.gNetworkService.setIpv6Status(
+      WifiManager.ifname,
+      false,
+      function() {}
+    );
+    lazy.gNetworkService.resetRoutingTable(manager.ifname, function() {
       netUtil.stopDhcp(manager.ifname, function() {
         callback();
       });
@@ -2446,7 +2456,7 @@ var WifiNetworkInterface = {
       this.info.state == Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED
     ) {
       debug("WifiNetworkInterface changed, update network interface");
-      gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
+      lazy.gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
     }
   },
 
@@ -2529,7 +2539,7 @@ function WifiWorker() {
 
   messages.forEach(
     function(msgName) {
-      ppmm.addMessageListener(msgName, this);
+      lazy.ppmm.addMessageListener(msgName, this);
     }.bind(this)
   );
 
@@ -2556,7 +2566,7 @@ function WifiWorker() {
   this._listeners = [];
   this._wifiDisableDelayId = null;
 
-  gTelephonyService.registerListener(this);
+  lazy.gTelephonyService.registerListener(this);
 
   WifiManager.telephonyServiceId = this._getDefaultServiceId();
 
@@ -2785,7 +2795,7 @@ function WifiWorker() {
     debug("Connected to supplicant");
     // Register listener for mobileConnectionService
     if (!self.mobileConnectionRegistered) {
-      gMobileConnectionService
+      lazy.gMobileConnectionService
         .getItemByServiceId(WifiManager.telephonyServiceId)
         .registerListener(self);
       self.mobileConnectionRegistered = true;
@@ -2964,7 +2974,7 @@ function WifiWorker() {
         WifiNetworkInterface.info.prefixLengths = [];
         WifiNetworkInterface.info.gateways = [];
         WifiNetworkInterface.info.dnses = [];
-        gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
+        lazy.gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
         break;
       case "WPS_TIMEOUT":
         self._fireEvent("onwpstimeout", {});
@@ -3051,8 +3061,16 @@ function WifiWorker() {
 
       // Reset IPv6 interface to trigger neighbor solicit and
       // router solicit immediately.
-      gNetworkService.setIpv6Status(WifiManager.ifname, false, function() {});
-      gNetworkService.setIpv6Status(WifiManager.ifname, true, function() {});
+      lazy.gNetworkService.setIpv6Status(
+        WifiManager.ifname,
+        false,
+        function() {}
+      );
+      lazy.gNetworkService.setIpv6Status(
+        WifiManager.ifname,
+        true,
+        function() {}
+      );
     }
 
     // We start the connection information timer when we associate, but
@@ -3251,7 +3269,7 @@ function WifiWorker() {
   WifiManager.onregisterimslistener = function() {
     let imsService;
     try {
-      imsService = gImsRegService.getHandlerByServiceId(
+      imsService = lazy.gImsRegService.getHandlerByServiceId(
         WifiManager.telephonyServiceId
       );
     } catch (e) {
@@ -3499,7 +3517,7 @@ WifiWorker.prototype = {
 
   getCountryName() {
     for (let simId = 0; simId < WifiManager.numRil; simId++) {
-      let countryName = gPhoneNumberUtils.getCountryName(simId);
+      let countryName = lazy.gPhoneNumberUtils.getCountryName(simId);
       if (typeof countryName == "string") {
         return countryName.toUpperCase();
       }
@@ -4948,7 +4966,7 @@ WifiWorker.prototype = {
   shutdown() {
     debug("shutting down ...");
 
-    gTelephonyService.unregisterListener(this);
+    lazy.gTelephonyService.unregisterListener(this);
     this.handleWifiEnabled(false, function() {});
     this.removeSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
     this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE);
@@ -5032,14 +5050,14 @@ WifiWorker.prototype = {
         });
 
         if (this.mobileConnectionRegistered) {
-          gMobileConnectionService
+          lazy.gMobileConnectionService
             .getItemByServiceId(WifiManager.telephonyServiceId)
             .unregisterListener(this);
           this.mobileConnectionRegistered = false;
         }
 
         for (let simId = 0; simId < WifiManager.numRil; simId++) {
-          gIccService.getIccByServiceId(simId).unregisterListener(this);
+          lazy.gIccService.getIccByServiceId(simId).unregisterListener(this);
         }
         break;
 
@@ -5050,13 +5068,13 @@ WifiWorker.prototype = {
             return;
           }
           if (this.mobileConnectionRegistered) {
-            gMobileConnectionService
+            lazy.gMobileConnectionService
               .getItemByServiceId(WifiManager.telephonyServiceId)
               .unregisterListener(this);
             this.mobileConnectionRegistered = false;
           }
           WifiManager.telephonyServiceId = defaultServiceId;
-          gMobileConnectionService
+          lazy.gMobileConnectionService
             .getItemByServiceId(WifiManager.telephonyServiceId)
             .registerListener(this);
           this.mobileConnectionRegistered = true;
@@ -5237,11 +5255,11 @@ WifiWorker.prototype = {
 
   // Helper functions.
   getSettings(aKey) {
-    if (!aKey || !gSettingsManager) {
+    if (!aKey || !lazy.gSettingsManager) {
       return;
     }
 
-    gSettingsManager.get(aKey, {
+    lazy.gSettingsManager.get(aKey, {
       resolve: info => {
         this.observeSetting(info);
       },
@@ -5252,7 +5270,7 @@ WifiWorker.prototype = {
   },
 
   setSettings(aKey, aValue) {
-    if (!aKey || !gSettingsManager) {
+    if (!aKey || !lazy.gSettingsManager) {
       return;
     }
     if (aValue === null) {
@@ -5260,7 +5278,7 @@ WifiWorker.prototype = {
     }
 
     debug("Set " + aKey + " settings with value: " + JSON.stringify(aValue));
-    gSettingsManager.set([{ name: aKey, value: JSON.stringify(aValue) }], {
+    lazy.gSettingsManager.set([{ name: aKey, value: JSON.stringify(aValue) }], {
       resolve: () => {
         debug("Set " + aKey + " success");
       },
@@ -5271,11 +5289,11 @@ WifiWorker.prototype = {
   },
 
   addSettingsObserver(aKey) {
-    if (!aKey || !gSettingsManager) {
+    if (!aKey || !lazy.gSettingsManager) {
       return;
     }
 
-    gSettingsManager.addObserver(aKey, this, {
+    lazy.gSettingsManager.addObserver(aKey, this, {
       resolve: () => {
         debug("Observe " + aKey + " success");
       },
@@ -5286,11 +5304,11 @@ WifiWorker.prototype = {
   },
 
   removeSettingsObserver(aKey) {
-    if (!aKey || !gSettingsManager) {
+    if (!aKey || !lazy.gSettingsManager) {
       return;
     }
 
-    gSettingsManager.removeObserver(aKey, this, {
+    lazy.gSettingsManager.removeObserver(aKey, this, {
       resolve: () => {
         debug("Remove observer " + aKey + " success");
       },

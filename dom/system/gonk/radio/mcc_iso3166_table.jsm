@@ -6,9 +6,9 @@
 // Reference Data from:
 //           http://en.wikipedia.org/wiki/List_of_mobile_country_codes
 
-this.EXPORTED_SYMBOLS = ["MCC_ISO3166_TABLE"];
+const EXPORTED_SYMBOLS = ["MCC_ISO3166_TABLE"];
 
-this.MCC_ISO3166_TABLE = {
+const MCC_ISO3166_TABLE = {
   412: "AF",
   276: "AL",
   603: "DZ",

@@ -10,8 +10,10 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gSettingsManager",
   "@mozilla.org/sidl-native/settings;1",
   "nsISettingsManager"
@@ -39,7 +41,7 @@ updateDebugFlag();
 /**
  * RILSettingsObserver
  */
-this.RILSettingsObserver = function() {};
+const RILSettingsObserver = function() {};
 RILSettingsObserver.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsISettingsObserver]),
 
@@ -62,7 +64,7 @@ RILSettingsObserver.prototype = {
 
   getSettingWithDefault(aKey, aDefaultValue) {
     return new Promise(resolve => {
-      gSettingsManager.get(aKey, {
+      lazy.gSettingsManager.get(aKey, {
         resolve: setting => {
           if (DEBUG) {
             debug("get setting " + setting.name + " value: " + setting.value);
@@ -94,11 +96,11 @@ RILSettingsObserver.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       if (DEBUG) {
         debug("add " + aKey + " setting observer.");
       }
-      gSettingsManager.addObserver(aKey, this, {
+      lazy.gSettingsManager.addObserver(aKey, this, {
         resolve: () => {
           if (DEBUG) {
             debug("observed " + aKey + " successed.");
@@ -118,11 +120,11 @@ RILSettingsObserver.prototype = {
       return;
     }
 
-    if (gSettingsManager) {
+    if (lazy.gSettingsManager) {
       if (DEBUG) {
         debug("remove " + aKey + " setting observer.");
       }
-      gSettingsManager.removeObserver(aKey, this, {
+      lazy.gSettingsManager.removeObserver(aKey, this, {
         resolve: () => {
           if (DEBUG) {
             debug("remove observer " + aKey + " successed.");
@@ -138,4 +140,4 @@ RILSettingsObserver.prototype = {
   },
 };
 
-this.EXPORTED_SYMBOLS = ["RILSettingsObserver"];
+const EXPORTED_SYMBOLS = ["RILSettingsObserver"];

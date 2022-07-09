@@ -78,11 +78,12 @@ build:desktop:
     - .build:rules:delayed
   stage: build
 
-build:emulator:
-  extends:
-    - .build_emulator
-    - .build:rules:delayed
-  stage: build
+# TODO: re-enable in https://bugzilla.kaiostech.com/show_bug.cgi?id=131955
+# build:emulator:
+#   extends:
+#     - .build_emulator
+#     - .build:rules:delayed
+#   stage: build
 
 production:desktop:
   extends: .build_desktop

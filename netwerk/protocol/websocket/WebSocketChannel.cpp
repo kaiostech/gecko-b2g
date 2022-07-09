@@ -1226,6 +1226,7 @@ WebSocketChannel::~WebSocketChannel() {
   mListenerMT = nullptr;
 
   NS_ReleaseOnMainThread("WebSocketChannel::mLoadGroup", mLoadGroup.forget());
+  NS_ReleaseOnMainThread("WebSocketChannel::mLoadInfo", mLoadInfo.forget());
   NS_ReleaseOnMainThread("WebSocketChannel::mService", mService.forget());
   nsCOMPtr<nsIEventTarget> target;
   {
@@ -3718,7 +3719,8 @@ WebSocketChannel::OnTransportAvailable(nsISocketTransport* aTransport,
   return OnTransportAvailableInternal();
 }
 
-nsresult WebSocketChannel::OnWebSocketConnectionAvailable(
+NS_IMETHODIMP
+WebSocketChannel::OnWebSocketConnectionAvailable(
     WebSocketConnectionBase* aConnection) {
   if (!NS_IsMainThread()) {
     RefPtr<WebSocketChannel> self = this;

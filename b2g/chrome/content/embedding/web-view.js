@@ -20,14 +20,16 @@ const { AboutReaderParent } = ChromeUtils.import(
     "resource://gre/modules/XPCOMUtils.jsm"
   );
 
+  const lazy = {};
+
   XPCOMUtils.defineLazyServiceGetter(
-    Services,
+    lazy,
     "KeyboardAppProxy",
     "@mozilla.org/keyboardAppProxy;1",
     "nsIKeyboardAppProxy"
   );
 
-  XPCOMUtils.defineLazyGetter(Services, "DataControlService", function() {
+  XPCOMUtils.defineLazyGetter(lazy, "DataControlService", function() {
     try {
       return Cc["@kaiostech.com/datacontrolservice;1"].getService(
         Ci.nsIDataControlService
@@ -40,7 +42,7 @@ const { AboutReaderParent } = ChromeUtils.import(
   });
 
   XPCOMUtils.defineLazyServiceGetter(
-    Services,
+    lazy,
     "virtualcursor",
     "@mozilla.org/virtualcursor/service;1",
     "nsIVirtualCursorService"
@@ -572,7 +574,7 @@ const { AboutReaderParent } = ChromeUtils.import(
               }, 250);
               self.updateDCSState(false);
 
-              Services.virtualcursor.removeCursor(browser.frameLoader);
+              lazy.virtualcursor.removeCursor(browser.frameLoader);
               break;
             }
             case "ipc:content-shutdown": {
@@ -964,17 +966,17 @@ const { AboutReaderParent } = ChromeUtils.import(
     }
 
     updateDCSState(val) {
-      Services.DataControlService.updateVisible(this._pid, val);
+      lazy.DataControlService.updateVisible(this._pid, val);
     }
 
     activateKeyForwarding() {
       this.log(`activateKeyForwarding`);
-      Services.KeyboardAppProxy.activate(this.browser.frameLoader);
+      lazy.KeyboardAppProxy.activate(this.browser.frameLoader);
     }
 
     deactivateKeyForwarding() {
       this.log(`deactivateKeyForwarding`);
-      Services.KeyboardAppProxy.deactivate();
+      lazy.KeyboardAppProxy.deactivate();
     }
 
     download(url) {

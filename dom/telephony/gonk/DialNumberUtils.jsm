@@ -4,9 +4,9 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
-Cu.import("resource://gre/modules/systemlibs.js");
+const { libcutils } = ChromeUtils.import(
+  "resource://gre/modules/systemlibs.js"
+);
 
 const DEFAULT_EMERGENCY_NUMBERS = ["112", "911"];
 
@@ -19,14 +19,14 @@ const MMI_MATCH_GROUP_SIC = 6;
 const MMI_MATCH_GROUP_PWD_CONFIRM = 7;
 const MMI_MATCH_GROUP_DIALING_NUMBER = 8;
 
-var DialNumberUtils = {
+const DialNumberUtils = {
   /**
    * Check a given number against the list of emergency numbers provided by the
    * RIL.
    *
    * @param aClientId [optional] If provided, check ril.ecclist[aClientId].
    */
-  isEmergency: function(aNumber, aClientId) {
+  isEmergency(aNumber, aClientId) {
     // Check ril provided numbers first.
 
     let property = "ril.ecclist";
@@ -34,8 +34,9 @@ var DialNumberUtils = {
       property = "ril.ecclist" + aClientId;
     }
 
-    let numbers = libcutils.property_get(property) ||
-                  libcutils.property_get("ro.ril.ecclist");
+    let numbers =
+      libcutils.property_get(property) ||
+      libcutils.property_get("ro.ril.ecclist");
 
     if (numbers) {
       numbers = numbers.split(",");
@@ -43,7 +44,7 @@ var DialNumberUtils = {
       // No ecclist system property, so use our own list.
       numbers = DEFAULT_EMERGENCY_NUMBERS;
     }
-    return numbers.indexOf(aNumber) != -1;
+    return !numbers.includes(aNumber);
   },
 
   _mmiRegExp: (function() {
@@ -97,7 +98,7 @@ var DialNumberUtils = {
    * where SC = Service Code (2 or 3 digits) and SI = Supplementary Info
    * (variable length).
    */
-  parseMMI: function(aString) {
+  parseMMI(aString) {
     let matches = this._mmiRegExp.exec(aString);
     if (matches) {
       return {
@@ -108,14 +109,12 @@ var DialNumberUtils = {
         sib: matches[MMI_MATCH_GROUP_SIB],
         sic: matches[MMI_MATCH_GROUP_SIC],
         pwd: matches[MMI_MATCH_GROUP_PWD_CONFIRM],
-        dialNumber: matches[MMI_MATCH_GROUP_DIALING_NUMBER]
+        dialNumber: matches[MMI_MATCH_GROUP_DIALING_NUMBER],
       };
     }
 
     return null;
-  }
+  },
 };
 
-this.EXPORTED_SYMBOLS = [
-  "DialNumberUtils"
-];
+const EXPORTED_SYMBOLS = ["DialNumberUtils"];

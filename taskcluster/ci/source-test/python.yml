@@ -412,15 +412,30 @@ mozperftest:
         toolchain:
             by-platform:
                 linux1804-64/opt:
-                    - linux64-node-12
+                    - linux64-node
                 macosx1015-64/opt:
-                    - macosx64-node-12
+                    - macosx64-node
                 windows10-64/opt:
-                    - win64-node-12
+                    - win64-node
     when:
         files-changed:
             - 'testing/performance/**'
             - 'python/mozperftest/**'
+
+fxms-schemas:
+    description: Ensure messaging-system schemas are up-to-date
+    treeherder:
+        symbol: py3(fxms)
+    run:
+        using: run-task
+        cwd: '{checkout}'
+        command: >
+            cd browser/components/newtab/content-src/asrouter/schemas &&
+            python3 make-schemas.py --check
+    when:
+        files-changed:
+            - 'browser/components/newtab/content-src/asrouter/schemas/make-schemas.py'
+            - 'browser/components/newtab/content-src/**/*.schema.json'
 
 condprof:
     description: testing/condprofile unit tests
@@ -454,9 +469,9 @@ featuregates:
         toolchain:
             by-platform:
                 linux1804-64/opt:
-                    - linux64-node-12
+                    - linux64-node
                 windows10-64/opt:
-                    - win64-node-12
+                    - win64-node
     when:
         files-changed:
             - 'toolkit/components/featuregates/**'
@@ -529,11 +544,11 @@ telemetry-python:
         toolchain:
             by-platform:
                 linux1804-64/opt:
-                    - linux64-node-12
+                    - linux64-node
                 macosx1015-64/opt:
-                    - macosx64-node-12
+                    - macosx64-node
                 windows10-64/opt:
-                    - win64-node-12
+                    - win64-node
     when:
         files-changed:
             - 'toolkit/components/telemetry/**'

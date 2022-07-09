@@ -1628,6 +1628,13 @@ OriginTrials nsGlobalWindowInner::Trials() const {
   return OriginTrials::FromWindow(this);
 }
 
+FontFaceSet* nsGlobalWindowInner::Fonts() {
+  if (mDoc) {
+    return mDoc->Fonts();
+  }
+  return nullptr;
+}
+
 uint32_t nsGlobalWindowInner::GetPrincipalHashValue() const {
   if (mDoc) {
     return mDoc->NodePrincipal()->GetHashValue();
@@ -3254,6 +3261,14 @@ bool nsGlobalWindowInner::ContentPropertyEnabled(JSContext* aCx, JSObject*) {
 bool nsGlobalWindowInner::CachesEnabled(JSContext* aCx, JSObject*) {
   if (!StaticPrefs::dom_caches_enabled()) {
     return false;
+  }
+  if (StaticPrefs::dom_caches_hide_in_pbmode_enabled()) {
+    if (const nsCOMPtr<nsIGlobalObject> global =
+            xpc::CurrentNativeGlobal(aCx)) {
+      if (global->GetStorageAccess() == StorageAccess::ePrivateBrowsing) {
+        return false;
+      }
+    }
   }
   if (!JS::GetIsSecureContext(js::GetContextRealm(aCx))) {
     return StaticPrefs::dom_caches_testing_enabled() ||

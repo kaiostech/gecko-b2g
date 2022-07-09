@@ -1,5 +1,5 @@
-/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
- * Copyright 2013 Mozilla Foundation and Mozilla contributors
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights
+ * reserved. Copyright 2013 Mozilla Foundation and Mozilla contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 namespace android {
 class DisplaySurface;
 class IGraphicBufferProducer;
-}
+}  // namespace android
 
 namespace mozilla {
 
@@ -47,12 +47,7 @@ class MOZ_EXPORT GonkDisplay {
 
   struct DisplayNativeData {
     DisplayNativeData()
-        : mXdpi(0)
-         , mVsyncPeriod(0)
-         , mSurfaceformat(0)
-         , mWidth(0)
-         , mHeight(0)
-     {};
+        : mXdpi(0), mVsyncPeriod(0), mSurfaceformat(0), mWidth(0), mHeight(0){};
 
     float mXdpi;
     nsecs_t mVsyncPeriod;
@@ -135,9 +130,8 @@ class MOZ_EXPORT GonkDisplay {
   GonkDisplayInvalidateCBFun pInvalidateCBFun = nullptr;
 };
 
-MOZ_EXPORT __attribute__((weak))
-GonkDisplay* GetGonkDisplay();
+MOZ_EXPORT __attribute__((weak)) GonkDisplay* GetGonkDisplay();
 
-}  // namespace android
+}  // namespace mozilla
 
 #endif /* GONKDISPLAY_H */

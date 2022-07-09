@@ -39,8 +39,8 @@ mozilla::ipc::IPCResult TelephonyParent::RecvPTelephonyRequestConstructor(
       do_GetService(TELEPHONY_SERVICE_CONTRACTID);
 
   if (!service) {
-    return NS_SUCCEEDED(actor->GetCallback()->NotifyError(
-               u"InvalidStateError"_ns))
+    return NS_SUCCEEDED(
+               actor->GetCallback()->NotifyError(u"InvalidStateError"_ns))
                ? IPC_OK()
                : IPC_FAIL_NO_REASON(this);
   }

@@ -83,7 +83,7 @@ void VirtualCursorService::RemoveCursor(nsPIDOMWindowOuter* aWindow) {
     service->mCursorMap.Remove(aWindow);
     MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
             ("VirtualCursorProxy RemoveCursor, remains %d",
-            service->mCursorMap.Count()));
+             service->mCursorMap.Count()));
   }
 }
 

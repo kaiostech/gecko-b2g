@@ -22,13 +22,6 @@ ChromeUtils.defineModuleGetter(
   "resource://gre/modules/identity/LogUtils.jsm"
 );
 
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "uuidGenerator",
-  "@mozilla.org/uuid-generator;1",
-  "nsIUUIDGenerator"
-);
-
 const TEST_URL = "https://myfavoriteflan.com";
 const TEST_USER = "uumellmahaye1969@hotmail.com";
 const TEST_PRIVKEY = "i-am-a-secret";
@@ -48,7 +41,7 @@ function partial(fn) {
 }
 
 function uuid() {
-  return uuidGenerator.generateUUID().toString();
+  return Services.uuid.generateUUID().toString();
 }
 
 // create a mock "doc" object, which the Identity Service

@@ -28,6 +28,10 @@ class BackgroundParentImpl : public PBackgroundParent {
 
   bool DeallocPBackgroundTestParent(PBackgroundTestParent* aActor) override;
 
+  already_AddRefed<PBackgroundFileSystemParent>
+  AllocPBackgroundFileSystemParent(
+      const PrincipalInfo& aPrincipalInfo) override;
+
   already_AddRefed<PBackgroundIDBFactoryParent>
   AllocPBackgroundIDBFactoryParent(const LoggingInfo& aLoggingInfo) override;
 
@@ -211,6 +215,19 @@ class BackgroundParentImpl : public PBackgroundParent {
       const Maybe<DelegatedCredentialInfoArg>& aDcInfo,
       const uint32_t& aProviderFlags,
       const uint32_t& aCertVerifierFlags) override;
+
+  virtual already_AddRefed<mozilla::psm::PSelectTLSClientAuthCertParent>
+  AllocPSelectTLSClientAuthCertParent(
+      const nsCString& aHostName, const OriginAttributes& aOriginAttributes,
+      const int32_t& aPort, const uint32_t& aProviderFlags,
+      const uint32_t& aProviderTlsFlags, const ByteArray& aServerCertBytes,
+      const nsTArray<ByteArray>& aCANames) override;
+  virtual mozilla::ipc::IPCResult RecvPSelectTLSClientAuthCertConstructor(
+      PSelectTLSClientAuthCertParent* actor, const nsCString& aHostName,
+      const OriginAttributes& aOriginAttributes, const int32_t& aPort,
+      const uint32_t& aProviderFlags, const uint32_t& aProviderTlsFlags,
+      const ByteArray& aServerCertBytes,
+      nsTArray<ByteArray>&& aCANames) override;
 
   PBroadcastChannelParent* AllocPBroadcastChannelParent(
       const PrincipalInfo& aPrincipalInfo, const nsCString& aOrigin,

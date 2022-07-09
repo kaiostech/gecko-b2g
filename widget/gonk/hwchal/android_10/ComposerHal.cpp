@@ -105,8 +105,6 @@ Composer::CommandWriter::CommandWriter(uint32_t initialMaxSize)
 
 Composer::CommandWriter::~CommandWriter() {}
 
-
-
 Composer::Composer(const std::string& serviceName)
     : mWriter(kWriterInitialSize),
       mIsUsingVrComposer(serviceName == std::string("vr")) {
@@ -144,7 +142,6 @@ Composer::Composer(const std::string& serviceName)
   if (mClient == nullptr) {
     LOG_ALWAYS_FATAL("failed to create composer client");
   }
-
 }
 
 Composer::~Composer() = default;
@@ -478,7 +475,6 @@ Error Composer::setClientTarget(
     int acquireFence, Dataspace dataspace,
     const std::vector<IComposerClient::Rect>& damage) {
   mWriter.selectDisplay(display);
-
 
   const native_handle_t* handle = nullptr;
   if (target.get()) {

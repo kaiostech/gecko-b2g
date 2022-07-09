@@ -21,8 +21,10 @@ const TOPIC_PREF_CHANGED = "nsPref:changed";
 const TOPIC_XPCOM_SHUTDOWN = "xpcom-shutdown";
 const PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkWorker",
   "@mozilla.org/network/worker;1",
   "nsINetworkWorker"
@@ -73,7 +75,7 @@ NetworkWorkerRequestQueue.prototype = {
       }
     }
 
-    gNetworkWorker.postMessage(task.params);
+    lazy.gNetworkWorker.postMessage(task.params);
   },
 
   enqueue(aId, aParams, aSetupFunction) {
@@ -112,13 +114,13 @@ function NetworkService() {
 
   let self = this;
 
-  if (gNetworkWorker) {
+  if (lazy.gNetworkWorker) {
     let networkListener = {
       onEvent(aEvent) {
         self.handleWorkerMessage(aEvent);
       },
     };
-    gNetworkWorker.start(networkListener);
+    lazy.gNetworkWorker.start(networkListener);
   }
   // Callbacks to invoke when a reply arrives from the net_worker.
   this.controlCallbacks = Object.create(null);
@@ -157,9 +159,9 @@ NetworkService.prototype = {
       case TOPIC_XPCOM_SHUTDOWN:
         debug("NetworkService shutdown");
         this.shutdown = true;
-        if (gNetworkWorker) {
-          gNetworkWorker.shutdown();
-          gNetworkWorker = null;
+        if (lazy.gNetworkWorker) {
+          lazy.gNetworkWorker.shutdown();
+          lazy.gNetworkWorker = null;
         }
 
         Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
@@ -189,8 +191,8 @@ NetworkService.prototype = {
       return;
     }
 
-    if (gNetworkWorker) {
-      gNetworkWorker.postMessage(aParams);
+    if (lazy.gNetworkWorker) {
+      lazy.gNetworkWorker.postMessage(aParams);
     }
   },
 

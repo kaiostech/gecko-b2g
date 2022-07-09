@@ -1934,8 +1934,8 @@ void Document::GetFailedCertSecurityInfo(FailedCertSecurityInfo& aInfo,
     if (NS_WARN_IF(!sss)) {
       return;
     }
-    Unused << NS_WARN_IF(NS_FAILED(
-        sss->IsSecureURI(aURI, attrs, nullptr, nullptr, &aInfo.mHasHSTS)));
+    Unused << NS_WARN_IF(
+        NS_FAILED(sss->IsSecureURI(aURI, attrs, &aInfo.mHasHSTS)));
   }
   nsCOMPtr<nsIPublicKeyPinningService> pkps =
       do_GetService(NS_PKPSERVICE_CONTRACTID);
@@ -8041,11 +8041,10 @@ void Document::DispatchContentLoadedEvents() {
     MaybeResolveReadyForIdle();
   }
 
-  RefPtr<TimelineConsumers> timelines = TimelineConsumers::Get();
   nsIDocShell* docShell = this->GetDocShell();
 
-  if (timelines && timelines->HasConsumer(docShell)) {
-    timelines->AddMarkerForDocShell(
+  if (TimelineConsumers::HasConsumer(docShell)) {
+    TimelineConsumers::AddMarkerForDocShell(
         docShell,
         MakeUnique<DocLoadingTimelineMarker>("document::DOMContentLoaded"));
   }
@@ -14575,7 +14574,7 @@ bool Document::PopFullscreenElement(UpdateViewport aUpdateViewport) {
   }
 
   MOZ_ASSERT(removedElement->State().HasState(ElementState::FULLSCREEN));
-  removedElement->RemoveStates(ElementState::FULLSCREEN);
+  removedElement->RemoveStates(ElementState::FULLSCREEN | ElementState::MODAL);
   NotifyFullScreenChangedForMediaElement(*removedElement);
   // Reset iframe fullscreen flag.
   if (auto* iframe = HTMLIFrameElement::FromNode(removedElement)) {
@@ -14588,23 +14587,20 @@ bool Document::PopFullscreenElement(UpdateViewport aUpdateViewport) {
 }
 
 void Document::SetFullscreenElement(Element& aElement) {
-  aElement.AddStates(ElementState::FULLSCREEN);
+  ElementState statesToAdd = ElementState::FULLSCREEN;
+  if (StaticPrefs::dom_fullscreen_modal() && !IsInChromeDocShell()) {
+    // Don't make the document modal in chrome documents, since we don't want
+    // the browser UI like the context menu / etc to be inert.
+    statesToAdd |= ElementState::MODAL;
+  }
+  aElement.AddStates(statesToAdd);
   TopLayerPush(aElement);
   NotifyFullScreenChangedForMediaElement(aElement);
   UpdateViewportScrollbarOverrideForFullscreen(this);
 }
 
-static ElementState TopLayerModalStates() {
-  ElementState modalStates = ElementState::MODAL_DIALOG;
-  if (StaticPrefs::dom_fullscreen_modal()) {
-    modalStates |= ElementState::FULLSCREEN;
-  }
-  return modalStates;
-}
-
 void Document::TopLayerPush(Element& aElement) {
-  const bool modal =
-      aElement.State().HasAtLeastOneOfStates(TopLayerModalStates());
+  const bool modal = aElement.State().HasState(ElementState::MODAL);
 
   auto predictFunc = [&aElement](Element* element) {
     return element == &aElement;
@@ -14641,7 +14637,7 @@ void Document::TopLayerPush(Element& aElement) {
 }
 
 void Document::AddModalDialog(HTMLDialogElement& aDialogElement) {
-  aDialogElement.AddStates(ElementState::MODAL_DIALOG);
+  aDialogElement.AddStates(ElementState::MODAL);
   TopLayerPush(aDialogElement);
 }
 
@@ -14651,7 +14647,7 @@ void Document::RemoveModalDialog(HTMLDialogElement& aDialogElement) {
   };
   DebugOnly<Element*> removedElement = TopLayerPop(predicate);
   MOZ_ASSERT(removedElement == &aDialogElement);
-  aDialogElement.RemoveStates(ElementState::MODAL_DIALOG);
+  aDialogElement.RemoveStates(ElementState::MODAL);
 }
 
 Element* Document::TopLayerPop(FunctionRef<bool(Element*)> aPredicate) {
@@ -14692,15 +14688,14 @@ Element* Document::TopLayerPop(FunctionRef<bool(Element*)> aPredicate) {
     return nullptr;
   }
 
-  const ElementState modalStates = TopLayerModalStates();
-  const bool modal = removedElement->State().HasAtLeastOneOfStates(modalStates);
+  const bool modal = removedElement->State().HasState(ElementState::MODAL);
 
   if (modal) {
     removedElement->RemoveStates(ElementState::TOPMOST_MODAL);
     bool foundExistingModalElement = false;
     for (const nsWeakPtr& weakPtr : Reversed(mTopLayer)) {
       nsCOMPtr<Element> element(do_QueryReferent(weakPtr));
-      if (element && element->State().HasAtLeastOneOfStates(modalStates)) {
+      if (element && element->State().HasState(ElementState::MODAL)) {
         element->AddStates(ElementState::TOPMOST_MODAL);
         foundExistingModalElement = true;
         break;
@@ -16104,7 +16099,7 @@ gfxUserFontSet* Document::GetUserFontSet() {
     return nullptr;
   }
 
-  return mFontFaceSet->GetUserFontSet();
+  return mFontFaceSet->GetImpl();
 }
 
 void Document::FlushUserFontSet() {
@@ -16123,8 +16118,7 @@ void Document::FlushUserFontSet() {
     }
 
     if (!mFontFaceSet && !rules.IsEmpty()) {
-      nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(GetScopeObject());
-      mFontFaceSet = new FontFaceSet(window, this);
+      mFontFaceSet = FontFaceSet::CreateForDocument(this);
     }
 
     bool changed = false;
@@ -16156,8 +16150,7 @@ void Document::MarkUserFontSetDirty() {
 
 FontFaceSet* Document::Fonts() {
   if (!mFontFaceSet) {
-    nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(GetScopeObject());
-    mFontFaceSet = new FontFaceSet(window, this);
+    mFontFaceSet = FontFaceSet::CreateForDocument(this);
     FlushUserFontSet();
   }
   return mFontFaceSet;

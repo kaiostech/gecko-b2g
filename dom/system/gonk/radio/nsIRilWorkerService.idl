@@ -126,10 +126,3 @@ interface nsIRilWorkerService: nsISupports
 {
   nsIRilWorker getRilWorker(in unsigned long clientId);
 };
-
-%{C++
-#define RILWORKERSERVICE_CID \
-  { 0xce79588b, 0x53e6, 0x4212, { 0x98, 0x55, 0x36, 0xfe, 0x6b, 0xdc, 0x78, 0xd4 } }
-#define RILWORKERSERVICE_CONTRACTID \
-  "@mozilla.org/rilworkerservice;1"
-%}

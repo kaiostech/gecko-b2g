@@ -8,7 +8,9 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
   let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
@@ -16,7 +18,7 @@ XPCOMUtils.defineLazyGetter(this, "RIL", function() {
 /**
  * RILSystemMessenger
  */
-this.RILSystemMessenger = function() {};
+const RILSystemMessenger = function() {};
 RILSystemMessenger.prototype = {
   /**
    * Hook of Broadcast function
@@ -135,7 +137,7 @@ RILSystemMessenger.prototype = {
   },
 
   _convertSmsMessageClass(aMessageClass) {
-    return RIL.GECKO_SMS_MESSAGE_CLASSES[aMessageClass] || null;
+    return lazy.RIL.GECKO_SMS_MESSAGE_CLASSES[aMessageClass] || null;
   },
 
   _convertSmsDelivery(aDelivery) {
@@ -145,10 +147,10 @@ RILSystemMessenger.prototype = {
   _convertSmsDeliveryStatus(aDeliveryStatus) {
     return (
       [
-        RIL.GECKO_SMS_DELIVERY_STATUS_NOT_APPLICABLE,
-        RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS,
-        RIL.GECKO_SMS_DELIVERY_STATUS_PENDING,
-        RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
+        lazy.RIL.GECKO_SMS_DELIVERY_STATUS_NOT_APPLICABLE,
+        lazy.RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS,
+        lazy.RIL.GECKO_SMS_DELIVERY_STATUS_PENDING,
+        lazy.RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
       ][aDeliveryStatus] || null
     );
   },
@@ -225,15 +227,15 @@ RILSystemMessenger.prototype = {
   },
 
   _convertCbGsmGeographicalScope(aGeographicalScope) {
-    return RIL.CB_GSM_GEOGRAPHICAL_SCOPE_NAMES[aGeographicalScope] || null;
+    return lazy.RIL.CB_GSM_GEOGRAPHICAL_SCOPE_NAMES[aGeographicalScope] || null;
   },
 
   _convertCbMessageClass(aMessageClass) {
-    return RIL.GECKO_SMS_MESSAGE_CLASSES[aMessageClass] || null;
+    return lazy.RIL.GECKO_SMS_MESSAGE_CLASSES[aMessageClass] || null;
   },
 
   _convertCbEtwsWarningType(aWarningType) {
-    return RIL.CB_ETWS_WARNING_TYPE_NAMES[aWarningType] || null;
+    return lazy.RIL.CB_ETWS_WARNING_TYPE_NAMES[aWarningType] || null;
   },
 
   /**
@@ -476,4 +478,4 @@ RILSystemMessenger.prototype = {
   },
 };
 
-this.EXPORTED_SYMBOLS = ["RILSystemMessenger"];
+const EXPORTED_SYMBOLS = ["RILSystemMessenger"];

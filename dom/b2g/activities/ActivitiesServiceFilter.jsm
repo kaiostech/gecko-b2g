@@ -4,9 +4,9 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["ActivitiesServiceFilter"];
+const EXPORTED_SYMBOLS = ["ActivitiesServiceFilter"];
 
-this.ActivitiesServiceFilter = {
+const ActivitiesServiceFilter = {
   match(aValues, aOrigin, aDescription) {
     function matchValue(aValue, aFilter, aFilterObj) {
       if (aFilter !== null) {

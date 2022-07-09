@@ -11,9 +11,9 @@ const { FileUtils } = ChromeUtils.import(
 );
 const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 
-this.EXPORTED_SYMBOLS = ["TetheringConfigStore"];
+const EXPORTED_SYMBOLS = ["TetheringConfigStore"];
 
-this.TetheringConfigStore = (function() {
+const TetheringConfigStore = (function() {
   var tetheringConfigStore = {};
 
   // Sync from TetheringService

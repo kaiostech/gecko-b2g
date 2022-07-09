@@ -140,7 +140,8 @@ const PREF_DFPI_ENABLED_BY_DEFAULT =
 // Index of Private Browsing icon in firefox.exe
 // Must line up with the one in nsNativeAppSupportWin.h.
 const PRIVATE_BROWSING_ICON_INDEX = 5;
-const PREF_PRIVACY_SEGMENTATION = "browser.privacySegmentation.enabled";
+const PREF_PRIVATE_WINDOW_SEPARATION =
+  "browser.privacySegmentation.windowSeparation.enabled";
 const PREF_PRIVATE_BROWSING_SHORTCUT_CREATED =
   "browser.privacySegmentation.createdShortcut";
 
@@ -1908,10 +1909,6 @@ BrowserGlue.prototype = {
 
   _recordDataSanitizationPrefs() {
     Services.telemetry.scalarSet(
-      "datasanitization.network_cookie_lifetimePolicy",
-      Services.prefs.getIntPref("network.cookie.lifetimePolicy")
-    );
-    Services.telemetry.scalarSet(
       "datasanitization.privacy_sanitize_sanitizeOnShutdown",
       Services.prefs.getBoolPref("privacy.sanitize.sanitizeOnShutdown")
     );
@@ -2533,7 +2530,7 @@ BrowserGlue.prototype = {
           // Pref'ed off until Private Browsing window separation is enabled by default
           // to avoid a situation where a user pins the Private Browsing shortcut to
           // the Taskbar, which will end up launching into a different Taskbar icon.
-          Services.prefs.getBoolPref(PREF_PRIVACY_SEGMENTATION, false) &&
+          Services.prefs.getBoolPref(PREF_PRIVATE_WINDOW_SEPARATION, false) &&
           // Private Browsing shortcuts for packaged builds come with the package,
           // if they exist at all. We shouldn't try to create our own.
           !Services.sysinfo.getProperty("hasWinPackageId") &&

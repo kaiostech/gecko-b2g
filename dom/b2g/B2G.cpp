@@ -782,13 +782,13 @@ bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */,
 }
 
 already_AddRefed<Promise> B2G::GetUserConsent(const nsAString& secret,
-                                         ErrorResult& aRv) {
-    if (!mUserConsent) {
-        mUserConsent = UserConsent::Create(mOwner);
-    }
+                                              ErrorResult& aRv) {
+  if (!mUserConsent) {
+    mUserConsent = UserConsent::Create(mOwner);
+  }
 
-    RefPtr<Promise> p = mUserConsent->GetUserConsent(secret);
-    return p.forget();
+  RefPtr<Promise> p = mUserConsent->GetUserConsent(secret);
+  return p.forget();
 }
 
 #  ifdef MOZ_WIDGET_GONK

@@ -16,21 +16,23 @@ const { AnqpMatcher } = ChromeUtils.import(
   "resource://gre/modules/AnqpUtils.jsm"
 );
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gDataCallManager",
   "@mozilla.org/datacall/manager;1",
   "nsIDataCallManager"
 );
 
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "PasspointProvider",
   "PasspointConfig",
   "HomeSp",
@@ -45,7 +47,7 @@ function debug(aMsg) {
   }
 }
 // HomeSp
-this.HomeSp = function(homeSp) {
+const HomeSp = function(homeSp) {
   if (homeSp) {
     this.fqdn = homeSp.fqdn;
     this.friendlyName = homeSp.friendlyName;
@@ -56,7 +58,7 @@ this.HomeSp = function(homeSp) {
   }
 };
 
-this.HomeSp.prototype = {
+HomeSp.prototype = {
   fqdn: null,
 
   friendlyName: null,
@@ -71,7 +73,7 @@ this.HomeSp.prototype = {
 };
 
 // Credential
-this.Credential = function(credential) {
+const Credential = function(credential) {
   if (credential) {
     this.realm = credential.realm;
     this.imsi = credential.imsi;
@@ -79,7 +81,7 @@ this.Credential = function(credential) {
   }
 };
 
-this.Credential.prototype = {
+Credential.prototype = {
   realm: null,
 
   //TODO: Only implement SIM credential for Passpoint R1.
@@ -89,21 +91,21 @@ this.Credential.prototype = {
 };
 
 // PasspointConfig
-this.PasspointConfig = function(config) {
+const PasspointConfig = function(config) {
   if (config) {
     this.homeSp = new HomeSp(config.homeSp);
     this.credential = new Credential(config.credential);
   }
 };
 
-this.PasspointConfig.prototype = {
+PasspointConfig.prototype = {
   homeSp: null,
 
   credential: null,
 };
 
 // PasspointProvider
-this.PasspointProvider = function(passpointConfig) {
+const PasspointProvider = function(passpointConfig) {
   this.passpointConfig = new PasspointConfig(passpointConfig);
   if (this.passpointConfig.credential) {
     this.imsi = this.passpointConfig.credential.imsi;
@@ -111,7 +113,7 @@ this.PasspointProvider = function(passpointConfig) {
   }
 };
 
-this.PasspointProvider.prototype = {
+PasspointProvider.prototype = {
   passpointConfig: null,
 
   imsi: null,
@@ -121,8 +123,8 @@ this.PasspointProvider.prototype = {
   eapMethod: EAPConstants.INVALID_EAP,
 
   getMatchingSimImsi(imsi) {
-    let simSlot = gDataCallManager.dataDefaultServiceId;
-    let icc = gIccService.getIccByServiceId(simSlot);
+    let simSlot = lazy.gDataCallManager.dataDefaultServiceId;
+    let icc = lazy.gIccService.getIccByServiceId(simSlot);
 
     if (!icc || !icc.iccInfo || !icc.iccInfo.imsi) {
       debug("Invalid icc info");

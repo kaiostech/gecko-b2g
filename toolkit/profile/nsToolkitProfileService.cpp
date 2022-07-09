@@ -497,7 +497,6 @@ nsToolkitProfileService::nsToolkitProfileService()
 #ifdef MOZ_DEV_EDITION
   mUseDevEditionProfile = true;
 #endif
-  gService = this;
 }
 
 nsToolkitProfileService::~nsToolkitProfileService() {
@@ -2071,37 +2070,18 @@ nsToolkitProfileService::Flush() {
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsToolkitProfileFactory, nsIFactory)
-
-NS_IMETHODIMP
-nsToolkitProfileFactory::CreateInstance(const nsID& aIID, void** aResult) {
-  RefPtr<nsToolkitProfileService> profileService =
-      nsToolkitProfileService::gService;
-  if (!profileService) {
-    nsresult rv = NS_NewToolkitProfileService(getter_AddRefs(profileService));
-    if (NS_FAILED(rv)) return rv;
-  }
-  return profileService->QueryInterface(aIID, aResult);
-}
-
-nsresult NS_NewToolkitProfileFactory(nsIFactory** aResult) {
-  *aResult = new nsToolkitProfileFactory();
-
-  NS_ADDREF(*aResult);
-  return NS_OK;
-}
-
-nsresult NS_NewToolkitProfileService(nsToolkitProfileService** aResult) {
-  nsToolkitProfileService* profileService = new nsToolkitProfileService();
-  nsresult rv = profileService->Init();
-  if (NS_FAILED(rv)) {
-    NS_ERROR("nsToolkitProfileService::Init failed!");
-    delete profileService;
-    return rv;
+already_AddRefed<nsToolkitProfileService> NS_GetToolkitProfileService() {
+  if (!nsToolkitProfileService::gService) {
+    nsToolkitProfileService::gService = new nsToolkitProfileService();
+    nsresult rv = nsToolkitProfileService::gService->Init();
+    if (NS_FAILED(rv)) {
+      NS_ERROR("nsToolkitProfileService::Init failed!");
+      delete nsToolkitProfileService::gService;
+      return nullptr;
+    }
   }
 
-  NS_ADDREF(*aResult = profileService);
-  return NS_OK;
+  return do_AddRef(nsToolkitProfileService::gService);
 }
 
 nsresult XRE_GetFileFromPath(const char* aPath, nsIFile** aResult) {

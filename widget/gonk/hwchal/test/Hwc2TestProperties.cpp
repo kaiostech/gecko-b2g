@@ -30,10 +30,9 @@
 Hwc2TestBufferArea::Hwc2TestBufferArea(Hwc2TestCoverage coverage,
                                        const Area& displayArea)
     : Hwc2TestProperty(mBufferAreas, mCompositionSupport),
-      mScalars((coverage == Hwc2TestCoverage::Complete)
-                   ? mCompleteScalars
-                   : (coverage == Hwc2TestCoverage::Basic) ? mBasicScalars
-                                                           : mDefaultScalars),
+      mScalars((coverage == Hwc2TestCoverage::Complete) ? mCompleteScalars
+               : (coverage == Hwc2TestCoverage::Basic)  ? mBasicScalars
+                                                        : mDefaultScalars),
       mDisplayArea(displayArea) {
   update();
 }
@@ -141,11 +140,9 @@ const std::vector<HWC2::BlendMode> Hwc2TestBlendMode::mCompleteBlendModes = {
 Hwc2TestColor::Hwc2TestColor(Hwc2TestCoverage coverage,
                              HWC2::BlendMode blendMode)
     : Hwc2TestProperty(mColors, mCompositionSupport),
-      mBaseColors((coverage == Hwc2TestCoverage::Complete)
-                      ? mCompleteBaseColors
-                      : (coverage == Hwc2TestCoverage::Basic)
-                            ? mBasicBaseColors
-                            : mDefaultBaseColors),
+      mBaseColors((coverage == Hwc2TestCoverage::Complete) ? mCompleteBaseColors
+                  : (coverage == Hwc2TestCoverage::Basic)  ? mBasicBaseColors
+                                                          : mDefaultBaseColors),
       mBlendMode(blendMode) {
   update();
 }
@@ -302,12 +299,11 @@ const std::vector<android::ui::Dataspace>
 };
 
 Hwc2TestDisplayDimension::Hwc2TestDisplayDimension(Hwc2TestCoverage coverage)
-    : Hwc2TestProperty((coverage == Hwc2TestCoverage::Complete)
-                           ? mCompleteDisplayDimensions
-                           : (coverage == Hwc2TestCoverage::Basic)
-                                 ? mBasicDisplayDimensions
-                                 : mDefaultDisplayDimensions,
-                       mCompositionSupport) {}
+    : Hwc2TestProperty(
+          (coverage == Hwc2TestCoverage::Complete) ? mCompleteDisplayDimensions
+          : (coverage == Hwc2TestCoverage::Basic)  ? mBasicDisplayDimensions
+                                                   : mDefaultDisplayDimensions,
+          mCompositionSupport) {}
 
 std::string Hwc2TestDisplayDimension::dump() const {
   std::stringstream dmp;
@@ -351,11 +347,10 @@ const std::vector<UnsignedArea>
 Hwc2TestDisplayFrame::Hwc2TestDisplayFrame(Hwc2TestCoverage coverage,
                                            const Area& displayArea)
     : Hwc2TestProperty(mDisplayFrames, mCompositionSupport),
-      mFrectScalars((coverage == Hwc2TestCoverage::Complete)
-                        ? mCompleteFrectScalars
-                        : (coverage == Hwc2TestCoverage::Basic)
-                              ? mBasicFrectScalars
-                              : mDefaultFrectScalars),
+      mFrectScalars(
+          (coverage == Hwc2TestCoverage::Complete) ? mCompleteFrectScalars
+          : (coverage == Hwc2TestCoverage::Basic)  ? mBasicFrectScalars
+                                                   : mDefaultFrectScalars),
       mDisplayArea(displayArea) {
   update();
 }
@@ -432,11 +427,10 @@ const std::vector<float> Hwc2TestPlaneAlpha::mCompletePlaneAlphas = {
 Hwc2TestSourceCrop::Hwc2TestSourceCrop(Hwc2TestCoverage coverage,
                                        const Area& bufferArea)
     : Hwc2TestProperty(mSourceCrops, mCompositionSupport),
-      mFrectScalars((coverage == Hwc2TestCoverage::Complete)
-                        ? mCompleteFrectScalars
-                        : (coverage == Hwc2TestCoverage::Basic)
-                              ? mBasicFrectScalars
-                              : mDefaultFrectScalars),
+      mFrectScalars(
+          (coverage == Hwc2TestCoverage::Complete) ? mCompleteFrectScalars
+          : (coverage == Hwc2TestCoverage::Basic)  ? mBasicFrectScalars
+                                                   : mDefaultFrectScalars),
       mBufferArea(bufferArea) {
   update();
 }
@@ -490,11 +484,10 @@ const std::vector<android::FloatRect>
 
 Hwc2TestSurfaceDamage::Hwc2TestSurfaceDamage(Hwc2TestCoverage coverage)
     : Hwc2TestProperty(mSurfaceDamages, mCompositionSupport),
-      mRegionScalars((coverage == Hwc2TestCoverage::Complete)
-                         ? mCompleteRegionScalars
-                         : (coverage == Hwc2TestCoverage::Basic)
-                               ? mBasicRegionScalars
-                               : mDefaultRegionScalars) {
+      mRegionScalars(
+          (coverage == Hwc2TestCoverage::Complete) ? mCompleteRegionScalars
+          : (coverage == Hwc2TestCoverage::Basic)  ? mBasicRegionScalars
+                                                   : mDefaultRegionScalars) {
   update();
 }
 

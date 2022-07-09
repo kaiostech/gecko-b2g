@@ -226,8 +226,7 @@ inline bool IsNetscapeFormat(const nsACString& aBuffer) {
   return StringBeginsWith(
              aBuffer,
              "#--Netscape Communications Corporation MIME Information"_ns) ||
-         StringBeginsWith(aBuffer,
-                          "#--MCOM MIME Information"_ns);
+         StringBeginsWith(aBuffer, "#--MCOM MIME Information"_ns);
 }
 
 /*
@@ -779,15 +778,13 @@ nsresult nsOSHelperAppService::LookUpHandlerAndDescription(
 
   // maybe we have an entry for "aMajorType/*"?
   if (NS_FAILED(rv)) {
-    rv = DoLookUpHandlerAndDescription(aMajorType, u"*"_ns,
-                                       aHandler, aDescription, aMozillaFlags,
-                                       true);
+    rv = DoLookUpHandlerAndDescription(aMajorType, u"*"_ns, aHandler,
+                                       aDescription, aMozillaFlags, true);
   }
 
   if (NS_FAILED(rv)) {
-    rv = DoLookUpHandlerAndDescription(aMajorType, u"*"_ns,
-                                       aHandler, aDescription, aMozillaFlags,
-                                       false);
+    rv = DoLookUpHandlerAndDescription(aMajorType, u"*"_ns, aHandler,
+                                       aDescription, aMozillaFlags, false);
   }
 
   return rv;
@@ -1168,8 +1165,7 @@ already_AddRefed<nsMIMEInfoBase> nsOSHelperAppService::GetFromExtension(
     return nullptr;
   }
 
-  nsAutoCString mimeType(asciiMajorType + "/"_ns +
-                         asciiMinorType);
+  nsAutoCString mimeType(asciiMajorType + "/"_ns + asciiMinorType);
   RefPtr<nsMIMEInfoGonk> mimeInfo = new nsMIMEInfoGonk(mimeType);
 
   mimeInfo->AppendExtension(aFileExt);

@@ -125,7 +125,8 @@ android::binder::Status VoldListener::onVolumeStateChanged(
     const ::std::string& volId, int32_t state) {
   if (MessageLoop::current() != XRE_GetIOMessageLoop()) {
     XRE_GetIOMessageLoop()->PostTask(
-        NewRunnableFunction("onVolumeStateChanged::iothread", redirectVolumeStateChanged, volId, state));
+        NewRunnableFunction("onVolumeStateChanged::iothread",
+                            redirectVolumeStateChanged, volId, state));
     return android::binder::Status::ok();
   }
 
@@ -139,15 +140,14 @@ android::binder::Status VoldListener::onVolumeStateChanged(
       // setState of VolumeInfo
       via[volIndex]->setState(state);
       if (state == static_cast<int32_t>(VolumeInfo::State::kMounted)) {
-        RefPtr<Volume> vol = VolumeManager::FindAddVolumeByName(
-            "sdcard1"_ns, id);
+        RefPtr<Volume> vol =
+            VolumeManager::FindAddVolumeByName("sdcard1"_ns, id);
         // update state and set mountpoint of volume
         DBG("Add sdcard1 and update volume state!\n");
         vol->SetMountPoint(via[volIndex]->getMountPoint());
         vol->HandleVolumeStateChanged(state);
       } else {
-        RefPtr<Volume> vol =
-            VolumeManager::FindVolumeByName("sdcard1"_ns);
+        RefPtr<Volume> vol = VolumeManager::FindVolumeByName("sdcard1"_ns);
         if (!vol) {
           DBG("No volume name sdcard1 found!\n");
           break;

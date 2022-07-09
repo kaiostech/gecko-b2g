@@ -233,10 +233,6 @@
 #endif // DISABLE_MOZ_RIL_GEOLOC
 #endif // MOZ_WIDGET_GONK && MOZ_B2G_RIL
 
-#ifndef MOZ_WIDGET_GONK
-@RESPATH@/components/OopCommandLine.js
-@RESPATH@/components/CommandLine.js
-#endif
 @RESPATH@/components/extensions.manifest
 
 #ifdef MOZ_UPDATER
@@ -451,28 +447,10 @@ bin/libfreebl_32int64_3.so
 #endif
 @RESPATH@/chrome/chrome@JAREXT@
 @RESPATH@/chrome/chrome.manifest
-@RESPATH@/components/B2GComponents.manifest
 #if defined(ENABLE_WEBDRIVER) || !defined(MOZ_WIDGET_GONK)
 @RESPATH@/chrome/remote@JAREXT@
 @RESPATH@/chrome/remote.manifest
 #endif
-@RESPATH@/components/AlertsService.js
-@RESPATH@/components/AppsServiceDelegate.js
-@RESPATH@/components/DirectoryProvider.js
-@RESPATH@/components/ProcessGlobal.js
-@RESPATH@/components/PaymentProviderStrategy.js
-@RESPATH@/components/RecoveryService.js
-@RESPATH@/components/MailtoProtocolHandler.js
-@RESPATH@/components/SmsProtocolHandler.js
-@RESPATH@/components/TelProtocolHandler.js
-@RESPATH@/components/B2GAboutRedirector.js
-@RESPATH@/components/FilePicker.js
-@RESPATH@/components/HelperAppDialog.js
-#ifdef MOZ_PRESENTATION
-@RESPATH@/components/B2GPresentationDevicePrompt.js
-@RESPATH@/components/PresentationRequestUIGlue.js
-#endif
-@RESPATH@/components/KillSwitch.js
 
 #ifndef MOZ_WIDGET_GONK
 @RESPATH@/components/SimulatorScreen.js

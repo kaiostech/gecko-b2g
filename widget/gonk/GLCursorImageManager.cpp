@@ -201,7 +201,8 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     ErrorResult rv;
     image->ClassList()->Add(u"b2g-cursor"_ns, rv);
     image->ClassList()->Add(GetCursorElementClassID(supportedCursor), rv);
-    cursorElementHolder = doc->InsertAnonymousContent(*image, /* aForce */ false, rv);
+    cursorElementHolder =
+        doc->InsertAnonymousContent(*image, /* aForce */ false, rv);
 
     if (cursorElementHolder) {
       dom::Element& element = cursorElementHolder->ContentNode();
@@ -241,8 +242,7 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
 void GLCursorImageManager::RemoveCursorLoadRequest(nsCursor aCursor) {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   // Call CancelAndForgetObserver before destroy the imgIRequest object.
-  GLCursorLoadRequest& loadRequest =
-    mGLCursorLoadingRequestMap[aCursor];
+  GLCursorLoadRequest& loadRequest = mGLCursorLoadingRequestMap[aCursor];
   loadRequest.mRequest->CancelAndForgetObserver(NS_BINDING_ABORTED);
   mGLCursorLoadingRequestMap.erase(aCursor);
 }

@@ -6,8 +6,9 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-/* global RIL */
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+const lazy = {};
+
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
   return ChromeUtils.import("resource://gre/modules/ril_consts.js");
 });
 
@@ -15,7 +16,7 @@ var RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );
 
-XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function() {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -35,9 +36,9 @@ var DEBUG = RIL_DEBUG.DEBUG_RIL;
 function SubsidyLockService() {
   this._providers = [];
 
-  let numClients = gRadioInterfaceLayer.numRadioInterfaces;
+  let numClients = lazy.gRadioInterfaceLayer.numRadioInterfaces;
   for (let i = 0; i < numClients; i++) {
-    let radioInterface = gRadioInterfaceLayer.getRadioInterface(i);
+    let radioInterface = lazy.gRadioInterfaceLayer.getRadioInterface(i);
     let provider = new SubsidyLockProvider(i, radioInterface);
     this._providers.push(provider);
   }
@@ -179,13 +180,13 @@ SubsidyLockProvider.prototype = {
   //const long SUBSIDY_LOCK_SIM_SIM_PUK              = 10;
   convertGeckoPersoTypeToSubsidyLockType(aType) {
     switch (aType) {
-      case RIL.GECKO_CARDLOCK_NCK:
+      case lazy.RIL.GECKO_CARDLOCK_NCK:
         return 1;
-      case RIL.GECKO_CARDLOCK_NSCK:
+      case lazy.RIL.GECKO_CARDLOCK_NSCK:
         return 2;
-      case RIL.GECKO_CARDLOCK_CCK:
+      case lazy.RIL.GECKO_CARDLOCK_CCK:
         return 3;
-      case RIL.GECKO_CARDLOCK_SPCK:
+      case lazy.RIL.GECKO_CARDLOCK_SPCK:
         return 4;
       default:
         return 0;
@@ -195,13 +196,13 @@ SubsidyLockProvider.prototype = {
   convertSubsidyLockTypeToGeckoPersoType(aType) {
     switch (aType) {
       case 1:
-        return RIL.GECKO_CARDLOCK_NCK;
+        return lazy.RIL.GECKO_CARDLOCK_NCK;
       case 2:
-        return RIL.GECKO_CARDLOCK_NSCK;
+        return lazy.RIL.GECKO_CARDLOCK_NSCK;
       case 3:
-        return RIL.GECKO_CARDLOCK_CCK;
+        return lazy.RIL.GECKO_CARDLOCK_CCK;
       case 4:
-        return RIL.GECKO_CARDLOCK_SPCK;
+        return lazy.RIL.GECKO_CARDLOCK_SPCK;
       default:
         return 0;
     }

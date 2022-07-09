@@ -54,7 +54,8 @@ static double sDefStepOffset[] = {CURSOR_MOVE_PHASES};
 #define K_VIRTUALBOUNDARY_PIXEL 20
 #define K_MOVE_STEP_OFFSET_DEFAULT 5.0
 
-NS_IMPL_ISUPPORTS(CursorSimulator, nsIDOMEventListener, nsITimerCallback, nsINamed)
+NS_IMPL_ISUPPORTS(CursorSimulator, nsIDOMEventListener, nsITimerCallback,
+                  nsINamed)
 
 CursorSimulator::CursorSimulator(nsPIDOMWindowOuter* aWindow,
                                  nsIVirtualCursor* aDelegate)
@@ -80,7 +81,8 @@ CursorSimulator::CursorSimulator(nsPIDOMWindowOuter* aWindow,
       "dom.virtualcursor.move.short_click_offset", K_MOVE_STEP_OFFSET_DEFAULT);
 
   mEventTarget = mOuterWindow->GetChromeEventHandler();
-  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug, ("CursorSimulator construct %p\n", this));
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("CursorSimulator construct %p\n", this));
 }
 
 CursorSimulator::~CursorSimulator() {
@@ -98,8 +100,10 @@ void CursorSimulator::UpdatePos() {
   if (StaticPrefs::dom_meta_viewport_enabled()) {
     RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
     PresShell* presShell = doc->GetPresShell();
-    width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
-    height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+    width = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().width);
+    height = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().height);
   } else {
     mOuterWindow->GetInnerWidth(&width);
     mOuterWindow->GetInnerHeight(&height);
@@ -370,8 +374,10 @@ nsresult CursorSimulator::HandleNavigationKey(WidgetKeyboardEvent* aKeyEvent) {
   if (StaticPrefs::dom_meta_viewport_enabled()) {
     RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
     PresShell* presShell = doc->GetPresShell();
-    width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
-    height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+    width = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().width);
+    height = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().height);
   } else {
     mOuterWindow->GetInnerWidth(&width);
     mOuterWindow->GetInnerHeight(&height);
@@ -439,8 +445,10 @@ void CursorSimulator::CenterizeCursorIfNecessary() {
   if (StaticPrefs::dom_meta_viewport_enabled()) {
     RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
     PresShell* presShell = doc->GetPresShell();
-    width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
-    height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+    width = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().width);
+    height = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().height);
   } else {
     mOuterWindow->GetInnerWidth(&width);
     mOuterWindow->GetInnerHeight(&height);
@@ -492,8 +500,10 @@ nsresult CursorSimulator::Notify(nsITimer* aTimer) {
     if (!presShell) {
       return NS_OK;
     }
-    width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
-    height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+    width = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().width);
+    height = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().height);
   } else {
     mOuterWindow->GetInnerWidth(&width);
     mOuterWindow->GetInnerHeight(&height);
@@ -820,7 +830,7 @@ nsIScrollableFrame* CursorSimulator::FindScrollableFrame(nsIFrame* aFrame) {
   // Depends on direction to compute ScrollTarget
   CSSPoint directionPt(0, 0);
   EventStateManager::ComputeScrollTargetOptions options =
-    EventStateManager::COMPUTE_SCROLLABLE_TARGET_ALONG_X_Y_AXIS;
+      EventStateManager::COMPUTE_SCROLLABLE_TARGET_ALONG_X_Y_AXIS;
   switch (mDirection) {
     case CursorDirection::UP:
       directionPt.y = -1;
@@ -882,20 +892,21 @@ void CursorSimulator::CheckScrollable(int32_t& aScrollableX,
         aScrollFrame->GetScrollPortRect().Width());
 
     // visualViewport.pageTop
-    int32_t pageTop =
-        nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportOffset().y);
+    int32_t pageTop = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportOffset().y);
     // visualViewport.pageLeft
-    int32_t pageLeft =
-        nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportOffset().x);
+    int32_t pageLeft = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportOffset().x);
 
     // visualViewport.height
-    int32_t visualViewportHeight =
-        nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+    int32_t visualViewportHeight = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().height);
     // visualViewport.width
-    int32_t visualViewportWidth =
-        nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
+    int32_t visualViewportWidth = nsPresContext::AppUnitsToIntCSSPixels(
+        presShell->GetVisualViewportSize().width);
 
-    if (scrollHeight > visualViewportHeight && scrollWidth > visualViewportHeight) {
+    if (scrollHeight > visualViewportHeight &&
+        scrollWidth > visualViewportHeight) {
       scrollRangeMaxY = scrollHeight - visualViewportHeight;
       scrollRangeMaxX = scrollWidth - visualViewportWidth;
       scrollY = pageTop;

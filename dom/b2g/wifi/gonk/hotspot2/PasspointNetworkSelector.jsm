@@ -65,21 +65,23 @@ const IPV6_SCORES = [
   RESTRICTED_OR_UNKNOWN_IP_AWARDS, // IPV6_UNKNOWN
 ];
 
+const lazy = {};
+
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gDataCallManager",
   "@mozilla.org/datacall/manager;1",
   "nsIDataCallManager"
 );
 
-this.EXPORTED_SYMBOLS = ["PasspointNetworkSelector"];
+const EXPORTED_SYMBOLS = ["PasspointNetworkSelector"];
 
 var gDebug = false;
 
@@ -89,7 +91,7 @@ function debug(aMsg) {
   }
 }
 
-this.PasspointNetworkSelector = function PasspointNetworkSelector() {};
+let PasspointNetworkSelector = function PasspointNetworkSelector() {};
 
 PasspointNetworkSelector.prototype = {
   lastUserSelectedNetwork: WifiConfigManager.getLastSelectedNetwork(),
@@ -131,8 +133,8 @@ PasspointNetworkSelector.prototype = {
       let bestProvider = PasspointManager.matchProvider(result);
 
       if (bestProvider != null) {
-        let simSlot = gDataCallManager.dataDefaultServiceId;
-        let icc = gIccService.getIccByServiceId(simSlot);
+        let simSlot = lazy.gDataCallManager.dataDefaultServiceId;
+        let icc = lazy.gIccService.getIccByServiceId(simSlot);
 
         if (!icc || icc.cardState != Ci.nsIIcc.CARD_STATE_READY) {
           debug("Ignore provider since sim not ready");

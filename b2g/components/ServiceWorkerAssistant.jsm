@@ -8,6 +8,12 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { setTimeout, clearTimeout } = ChromeUtils.import(
   "resource://gre/modules/Timer.jsm"
 );
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 const serviceWorkerManager = Cc[
   "@mozilla.org/serviceworkers/manager;1"
@@ -17,7 +23,7 @@ const systemMessageService = Cc[
   "@mozilla.org/systemmessage-service;1"
 ].getService(Ci.nsISystemMessageService);
 
-this.EXPORTED_SYMBOLS = ["ServiceWorkerAssistant"];
+const EXPORTED_SYMBOLS = ["ServiceWorkerAssistant"];
 
 const DEBUG = true;
 function debug(aMsg) {
@@ -26,7 +32,19 @@ function debug(aMsg) {
   }
 }
 
-this.ServiceWorkerAssistant = {
+const isGonk = AppConstants.platform === "gonk";
+const lazy = {};
+
+if (isGonk) {
+  XPCOMUtils.defineLazyGetter(lazy, "libcutils", () => {
+    const { libcutils } = ChromeUtils.import(
+      "resource://gre/modules/systemlibs.js"
+    );
+    return libcutils;
+  });
+}
+
+const ServiceWorkerAssistant = {
   _timers: [],
 
   _hasContentReady: false,
@@ -38,8 +56,16 @@ this.ServiceWorkerAssistant = {
   _pendingRegistrations: [],
   _waitForRegistrations: false,
 
+  _requireUnregister: false,
+
   init() {
     Services.obs.addObserver(this, "ipc:first-content-process-created");
+
+    if (isGonk) {
+      this._requireUnregister =
+        lazy.libcutils.property_get("persist.b2g.reboot.reason") !== "normal";
+      lazy.libcutils.property_set("persist.b2g.reboot.reason", "unknown");
+    }
   },
 
   observe(aSubject, aTopic, aData) {
@@ -52,7 +78,8 @@ this.ServiceWorkerAssistant = {
           timer.principal,
           timer.scope,
           timer.script,
-          timer.updateViaCache
+          timer.updateViaCache,
+          timer.state
         );
       }
     }
@@ -79,7 +106,8 @@ this.ServiceWorkerAssistant = {
    * }
    *
    */
-  register(aManifestURL, aFeatures, aServiceWorkerOnly) {
+  register(aManifestURL, aFeatures, aState) {
+    let state = aState;
     let serviceworker = aFeatures.serviceworker;
     if (!serviceworker) {
       if (aFeatures.messages) {
@@ -94,7 +122,7 @@ this.ServiceWorkerAssistant = {
       }
       return;
     }
-    debug(`register ${aManifestURL}, sw only: ${aServiceWorkerOnly}`);
+    debug(`register ${aManifestURL}`);
 
     let appURI = Services.io.newURI(aManifestURL);
     let fullpath = function(aPath) {
@@ -129,16 +157,23 @@ this.ServiceWorkerAssistant = {
     debug(` script: ${script}`);
     debug(` scope: ${scope}`);
     debug(` updateViaCache: ${updateViaCache}`);
+    debug(` state: ${state}`);
 
     let ssm = Services.scriptSecurityManager;
     let principal = ssm.createContentPrincipal(appURI, {});
-    if (!aServiceWorkerOnly) {
+    if (state !== "onClear") {
       this._subscribeSystemMessages(aFeatures, principal, scope);
       this._registerActivities(aManifestURL, aFeatures, principal, scope);
     }
 
     if (this._hasContentReady) {
-      this._doRegisterServiceWorker(principal, scope, script, updateViaCache);
+      this._doRegisterServiceWorker(
+        principal,
+        scope,
+        script,
+        updateViaCache,
+        state
+      );
     } else {
       let last = this._timers.length;
       this._timers[last] = {
@@ -146,10 +181,17 @@ this.ServiceWorkerAssistant = {
         scope,
         script,
         updateViaCache,
+        state,
       };
 
       this._timers[last].id = setTimeout(() => {
-        this._doRegisterServiceWorker(principal, scope, script, updateViaCache);
+        this._doRegisterServiceWorker(
+          principal,
+          scope,
+          script,
+          updateViaCache,
+          state
+        );
         this._timers[last].isCallbackExecuted = true;
       }, 15000);
     }
@@ -165,13 +207,15 @@ this.ServiceWorkerAssistant = {
     Services.cpmm.sendAsyncMessage("Activities:UnregisterAll", aManifestURL);
 
     let scope = serviceWorkerManager.getScopeForUrl(principal, aManifestURL);
-    this._doUnregisterServiceWorker(principal, scope);
+    return this._doUnregisterServiceWorker(principal, scope);
   },
 
   update(aManifestURL, aFeatures) {
     debug(`update ${aManifestURL}`);
-    this.unregister(aManifestURL);
-    this.register(aManifestURL, aFeatures);
+    this.unregister(aManifestURL).then(msg => {
+      debug(`${msg}`);
+      this.register(aManifestURL, aFeatures, "onUpdate");
+    });
   },
 
   waitForRegistrations() {
@@ -185,6 +229,7 @@ this.ServiceWorkerAssistant = {
     Promise.allSettled(this._pendingRegistrations).then(() => {
       debug(`waitForRegistration done.`);
       this._pendingRegistrations = [];
+      this._requireUnregister = false;
       // Note: if this is only used to delay system messages, maybe
       // we should use an explicit api instead.
       Services.obs.notifyObservers(null, "b2g-sw-registration-done");
@@ -192,31 +237,49 @@ this.ServiceWorkerAssistant = {
   },
 
   _doUnregisterServiceWorker(aPrincipal, aScope) {
-    const unregisterCallback = {
-      unregisterSucceeded() {
-        debug(`unregister for scope: ${aScope} success!`);
-      },
-      unregisterFailed() {
-        debug(`unregister for scope: ${aScope} failed.`);
-      },
-      QueryInterface: ChromeUtils.generateQI([
-        "nsIServiceWorkerUnregisterCallback",
-      ]),
-    };
-    serviceWorkerManager.propagateUnregister(
-      aPrincipal,
-      unregisterCallback,
-      aScope
-    );
+    return new Promise(resolve => {
+      const unregisterCallback = {
+        unregisterSucceeded() {
+          resolve(`unregister for scope: ${aScope} success!`);
+        },
+        unregisterFailed() {
+          resolve(`unregister for scope: ${aScope} failed.`);
+        },
+        QueryInterface: ChromeUtils.generateQI([
+          "nsIServiceWorkerUnregisterCallback",
+        ]),
+      };
+      serviceWorkerManager.propagateUnregister(
+        aPrincipal,
+        unregisterCallback,
+        aScope
+      );
+    });
   },
 
-  _doRegisterServiceWorker(aPrincipal, aScope, aScript, aUpdateViaCache) {
-    debug(`_doRegisterServiceWorker: ${aScript}`);
-
-    this._doUnregisterServiceWorker(aPrincipal, aScope);
-
-    let promise = serviceWorkerManager
-      .register(aPrincipal, aScope, aScript, aUpdateViaCache)
+  _doRegisterServiceWorker(
+    aPrincipal,
+    aScope,
+    aScript,
+    aUpdateViaCache,
+    aState
+  ) {
+    let promise = new Promise(resolve => {
+      if (this._requireUnregister || aState === "onClear") {
+        resolve(this._doUnregisterServiceWorker(aPrincipal, aScope));
+      } else {
+        resolve("skip unregister");
+      }
+    })
+      .then(msg => {
+        debug(`${msg}`);
+        return serviceWorkerManager.register(
+          aPrincipal,
+          aScope,
+          aScript,
+          aUpdateViaCache
+        );
+      })
       .then(
         swRegInfo => {
           debug(`register ${aScript} success!`);
@@ -226,7 +289,9 @@ this.ServiceWorkerAssistant = {
         }
       );
 
-    this._pendingRegistrations.push(promise);
+    if (aState === "onBoot") {
+      this._pendingRegistrations.push(promise);
+    }
   },
 
   _subscribeSystemMessages(aFeatures, aPrincipal, aScope) {

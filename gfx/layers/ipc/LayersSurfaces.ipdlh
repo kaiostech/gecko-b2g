@@ -4,6 +4,7 @@
 
 include "gfxipc/ShadowLayerUtils.h";
 include "mozilla/GfxMessageUtils.h";
+include "mozilla/layers/LayersMessageUtils.h";
 
 using gfxPoint from "gfxPoint.h";
 using nsIntRegion from "nsRegion.h";
@@ -24,6 +25,8 @@ using mozilla::gfx::IntSize from "mozilla/gfx/Point.h";
 using gfxImageFormat from "gfxTypes.h";
 using mozilla::layers::GonkNativeHandle from "mozilla/layers/GonkNativeHandleUtils.h";
 using mozilla::layers::MaybeVideoBridgeSource from "mozilla/layers/VideoBridgeUtils.h";
+using mozilla::layers::RemoteTextureId from "mozilla/layers/LayersTypes.h";
+using mozilla::layers::RemoteTextureOwnerId from "mozilla/layers/LayersTypes.h";
 
 namespace mozilla {
 namespace layers {
@@ -193,6 +196,11 @@ struct OverlaySource {
   int64_t textureId;
 };
 
+[Comparable] struct SurfaceDescriptorRemoteTexture {
+  RemoteTextureId textureId;
+  RemoteTextureOwnerId ownerId;
+};
+
 [Comparable] union SurfaceDescriptor {
   SurfaceDescriptorBuffer;
   SurfaceDescriptorD3D10;
@@ -206,6 +214,7 @@ struct OverlaySource {
   SurfaceDescriptorSharedGLTexture;
   SurfaceDescriptorGPUVideo;
   SurfaceDescriptorRecorded;
+  SurfaceDescriptorRemoteTexture;
   null_t;
 };
 

@@ -172,7 +172,7 @@ NS_IMPL_CYCLE_COLLECTION(ScriptLoader, mNonAsyncExternalScriptInsertedRequests,
                          mXSLTRequests, mParserBlockingRequest,
                          mBytecodeEncodingQueue, mPreloads,
                          mPendingChildLoaders, mModuleLoader,
-                         mWebExtModuleLoaders)
+                         mWebExtModuleLoaders, mShadowRealmModuleLoaders)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(ScriptLoader)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(ScriptLoader)
@@ -277,6 +277,13 @@ void ScriptLoader::RegisterContentScriptModuleLoader(ModuleLoader* aLoader) {
   MOZ_ASSERT(aLoader->GetScriptLoader() == this);
 
   mWebExtModuleLoaders.AppendElement(aLoader);
+}
+
+void ScriptLoader::RegisterShadowRealmModuleLoader(ModuleLoader* aLoader) {
+  MOZ_ASSERT(aLoader);
+  MOZ_ASSERT(aLoader->GetScriptLoader() == this);
+
+  mShadowRealmModuleLoaders.AppendElement(aLoader);
 }
 
 // Collect telemtry data about the cache information, and the kind of source
@@ -1999,8 +2006,12 @@ nsresult ScriptLoader::FillCompileOptionsForRequest(
 
   aOptions->allocateInstantiationStorage = true;
 
-  if (ShouldApplyDelazifyStrategy(aRequest)) {
-    ApplyDelazifyStrategy(aOptions);
+  if (aOptions->forceFullParse()) {
+    // If code coverage is enabled, full-parsing is non revertable and asserts
+    // if any attempt to do so is made. Thus we should skip attempts to apply a
+    // different delazification strategy.
+  } else if (ShouldApplyDelazifyStrategy(aRequest)) {
+    ApplyDelazifyStrategy(aRequest, aOptions);
     mTotalFullParseSize +=
         aRequest->ScriptTextLength() > 0
             ? static_cast<uint32_t>(aRequest->ScriptTextLength())
@@ -2684,6 +2695,12 @@ bool ScriptLoader::HasPendingDynamicImports() const {
     }
   }
 
+  for (ModuleLoader* loader : mShadowRealmModuleLoaders) {
+    if (loader->HasPendingDynamicImports()) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -3295,7 +3312,8 @@ bool ScriptLoader::ShouldApplyDelazifyStrategy(ScriptLoadRequest* aRequest) {
   return false;
 }
 
-void ScriptLoader::ApplyDelazifyStrategy(JS::CompileOptions* aOptions) {
+void ScriptLoader::ApplyDelazifyStrategy(ScriptLoadRequest* aRequest,
+                                         JS::CompileOptions* aOptions) {
   JS::DelazificationOption strategy =
       JS::DelazificationOption::ParseEverythingEagerly;
   uint32_t strategyIndex =
@@ -3322,6 +3340,17 @@ void ScriptLoader::ApplyDelazifyStrategy(JS::CompileOptions* aOptions) {
   // ParseEverythingEagerly.
   if (strategyIndex <= uint32_t(strategy)) {
     strategy = JS::DelazificationOption(uint8_t(strategyIndex));
+  }
+
+  // When using inline script, we want to minimize time spent parsing before
+  // running the script and thus forbid choosing the eager delazification
+  // strategy. It might still be selected by others means such as through code
+  // coverage.
+  if (aRequest->HasScriptLoadContext() &&
+      aRequest->GetScriptLoadContext()->mIsInline) {
+    if (strategy == JS::DelazificationOption::ParseEverythingEagerly) {
+      strategy = JS::DelazificationOption::OnDemandOnly;
+    }
   }
 
   aOptions->setEagerDelazificationStrategy(strategy);
@@ -3519,6 +3548,10 @@ void ScriptLoader::ParsingComplete(bool aTerminated) {
   }
 
   for (ModuleLoader* loader : mWebExtModuleLoaders) {
+    loader->CancelAndClearDynamicImports();
+  }
+
+  for (ModuleLoader* loader : mShadowRealmModuleLoaders) {
     loader->CancelAndClearDynamicImports();
   }
 

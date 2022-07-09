@@ -10,11 +10,11 @@ const { WifiConstants, EAPConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["ScanResult", "WifiNetwork", "WifiConfigUtils"];
+const EXPORTED_SYMBOLS = ["ScanResult", "WifiNetwork", "WifiConfigUtils"];
 
 var gDebug = false;
 
-this.WifiConfigUtils = (function() {
+const WifiConfigUtils = (function() {
   var wifiConfigUtils = {};
 
   /* eslint-disable no-unused-vars */
@@ -751,7 +751,7 @@ this.WifiConfigUtils = (function() {
   return wifiConfigUtils;
 })();
 
-this.InfoElement = function InfoElement() {
+const InfoElement = function InfoElement() {
   this.id = 0;
   this.bytes = [];
 
@@ -763,7 +763,7 @@ InfoElement.api = {
   data: "rw",
 };
 
-this.WifiNetwork = function WifiNetwork(
+const WifiNetwork = function WifiNetwork(
   ssid,
   mode,
   frequency,
@@ -812,7 +812,7 @@ WifiNetwork.api = {
   wapiUserCertificate: "rw",
 };
 
-this.ScanResult = function ScanResult(ssid, bssid, frequency, flags, signal) {
+const ScanResult = function ScanResult(ssid, bssid, frequency, flags, signal) {
   WifiNetwork.call(
     this,
     ssid,

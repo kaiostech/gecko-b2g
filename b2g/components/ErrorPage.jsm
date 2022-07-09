@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["ErrorPage"];
+const EXPORTED_SYMBOLS = ["ErrorPage"];
 
 const kErrorPageFrameScript = "chrome://b2g/content/ErrorPage.js";
 
@@ -13,8 +13,9 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
+const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "CertOverrideService",
   "@mozilla.org/security/certoverride;1",
   "nsICertOverrideService"
@@ -123,7 +124,7 @@ SSLExceptions.prototype = {
       flags |= Ci.nsICertOverrideService.ERROR_TIME;
     }
 
-    CertOverrideService.rememberValidityOverride(
+    lazy.CertOverrideService.rememberValidityOverride(
       uri.asciiHost,
       uri.port,
       SSLStatus.serverCert,

@@ -16,7 +16,7 @@ namespace dom {
 
 class DOMMobileSignalStrength final : public nsISupports,
                                       public nsWrapperCache {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMMobileSignalStrength)
 
@@ -29,7 +29,7 @@ public:
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-// WebIDL interface
+  // WebIDL interface
   int16_t Level() const { return mLevel; }
 
   int16_t GsmSignalStrength() const { return mGsmSignalStrength; }
@@ -60,8 +60,8 @@ public:
 
   int32_t TdscdmaRscp() const { return mTdscdmaRscp; }
 
-private:
-  ~DOMMobileSignalStrength() {};
+ private:
+  ~DOMMobileSignalStrength(){};
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
 
@@ -90,7 +90,7 @@ private:
   int32_t mTdscdmaRscp;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_DOMMobileSignalStrength_h
+#endif  // mozilla_dom_DOMMobileSignalStrength_h

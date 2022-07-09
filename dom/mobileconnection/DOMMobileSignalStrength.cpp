@@ -21,7 +21,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMMobileSignalStrength)
 NS_INTERFACE_MAP_END
 
 DOMMobileSignalStrength::DOMMobileSignalStrength(nsPIDOMWindowInner* aWindow)
-    : mWindow(aWindow){}
+    : mWindow(aWindow) {}
 
 void DOMMobileSignalStrength::Update(nsIMobileSignalStrength* aInfo) {
   if (!aInfo) {
@@ -45,7 +45,7 @@ void DOMMobileSignalStrength::Update(nsIMobileSignalStrength* aInfo) {
   aInfo->GetTdscdmaRscp(&mTdscdmaRscp);
 }
 
-JSObject* DOMMobileSignalStrength::WrapObject(JSContext* aCx,
-                                              JS::Handle<JSObject*> aGivenProto) {
+JSObject* DOMMobileSignalStrength::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return DOMMobileSignalStrength_Binding::Wrap(aCx, this, aGivenProto);
 }

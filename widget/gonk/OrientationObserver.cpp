@@ -30,7 +30,6 @@
 using namespace mozilla;
 using namespace mozilla::hal;
 
-
 namespace {
 
 struct OrientationMapping {

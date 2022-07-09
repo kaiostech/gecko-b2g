@@ -204,8 +204,8 @@ class SearchService {
    *   The engine that is the default for this locale/region, ignoring any
    *   user changes to the default engine.
    */
-  get originalDefaultEngine() {
-    return this.#originalDefaultEngine();
+  get appDefaultEngine() {
+    return this.#appDefaultEngine();
   }
 
   /**
@@ -215,8 +215,8 @@ class SearchService {
    *   Note: if there is no default for this locale/region, then the non-private
    *   browsing engine will be returned.
    */
-  get originalPrivateDefaultEngine() {
-    return this.#originalDefaultEngine(this.#separatePrivateDefault);
+  get appPrivateDefaultEngine() {
+    return this.#appDefaultEngine(this.#separatePrivateDefault);
   }
 
   get isInitialized() {
@@ -360,7 +360,7 @@ class SearchService {
     this.#initStarted = false;
     this.#startupExtensions = new Set();
     this._engines.clear();
-    this.__sortedEngines = null;
+    this._cachedSortedEngines = null;
     this.#currentEngine = null;
     this.#currentPrivateEngine = null;
     this._searchDefault = null;
@@ -369,10 +369,10 @@ class SearchService {
     this._settings._batchTask?.disarm();
   }
 
-  resetToOriginalDefaultEngine() {
-    let originalDefaultEngine = this.originalDefaultEngine;
-    originalDefaultEngine.hidden = false;
-    this.defaultEngine = originalDefaultEngine;
+  resetToAppDefaultEngine() {
+    let appDefaultEngine = this.appDefaultEngine;
+    appDefaultEngine.hidden = false;
+    this.defaultEngine = appDefaultEngine;
   }
 
   async maybeSetAndOverrideDefault(extension) {
@@ -754,8 +754,8 @@ class SearchService {
     } // nothing to do!
 
     // Move the engine
-    var movedEngine = this.__sortedEngines.splice(currentIndex, 1)[0];
-    this.__sortedEngines.splice(newIndex, 0, movedEngine);
+    var movedEngine = this._cachedSortedEngines.splice(currentIndex, 1)[0];
+    this._cachedSortedEngines.splice(newIndex, 0, movedEngine);
 
     lazy.SearchUtils.notifyAction(
       engine,
@@ -999,12 +999,11 @@ class SearchService {
   _engines = null;
 
   /**
-   * An array of engine short names sorted into display order. The double __
-   * represents cached sorted engines.
+   * An array of engine short names sorted into display order.
    *
    * @type {array}
    */
-  __sortedEngines = null;
+  _cachedSortedEngines = null;
 
   /**
    * A flag to prevent setting of useSavedOrder when there's non-user
@@ -1085,10 +1084,10 @@ class SearchService {
   #observersAdded = false;
 
   get #sortedEngines() {
-    if (!this.__sortedEngines) {
+    if (!this._cachedSortedEngines) {
       return this.#buildSortedEngineList();
     }
-    return this.__sortedEngines;
+    return this._cachedSortedEngines;
   }
   /**
    * This reflects the combined values of the prefs for enabling the separate
@@ -1177,9 +1176,9 @@ class SearchService {
     }
     if (!name) {
       if (privateMode) {
-        this.#currentPrivateEngine = this.originalPrivateDefaultEngine;
+        this.#currentPrivateEngine = this.appPrivateDefaultEngine;
       } else {
-        this.#currentEngine = this.originalDefaultEngine;
+        this.#currentEngine = this.appDefaultEngine;
       }
     }
 
@@ -1425,7 +1424,7 @@ class SearchService {
    * @returns {SearchEngine}
    *   The engine that is default.
    */
-  #originalDefaultEngine(privateMode = false) {
+  #appDefaultEngine(privateMode = false) {
     let defaultEngine = this.#getEngineByWebExtensionDetails(
       privateMode && this.#searchPrivateDefault
         ? this.#searchPrivateDefault
@@ -1439,11 +1438,11 @@ class SearchService {
     if (privateMode) {
       // If for some reason we can't find the private mode engine, fall back
       // to the non-private one.
-      return this.#originalDefaultEngine(false);
+      return this.#appDefaultEngine(false);
     }
 
-    // Something unexpected as happened. In order to recover the original
-    // default engine, use the first visible engine which is the best we can do.
+    // Something unexpected has happened. In order to recover the app default
+    // engine, use the first visible engine which is the best we can do.
     return this.#sortedVisibleEngines[0];
   }
 
@@ -1496,7 +1495,7 @@ class SearchService {
     let newCurrentEngine = this._getEngineDefault(false)?.name;
     this._settings.setAttribute(
       "appDefaultEngine",
-      this.originalDefaultEngine?.name
+      this.appDefaultEngine?.name
     );
 
     if (
@@ -1670,12 +1669,12 @@ class SearchService {
     // 4) Remove any old engines.
 
     let {
-      engines: originalConfigEngines,
+      engines: appDefaultConfigEngines,
       privateDefault,
     } = await this._fetchEngineSelectorEngines();
 
     let enginesToRemove = [];
-    let configEngines = [...originalConfigEngines];
+    let configEngines = [...appDefaultConfigEngines];
     let oldEngineList = [...this._engines.values()];
 
     for (let engine of oldEngineList) {
@@ -1782,7 +1781,7 @@ class SearchService {
     }
 
     this.#setDefaultAndOrdersFromSelector(
-      originalConfigEngines,
+      appDefaultConfigEngines,
       privateDefault
     );
 
@@ -1875,12 +1874,12 @@ class SearchService {
     // been updated
     this._settings.setAttribute(
       "appDefaultEngine",
-      this.originalDefaultEngine?.name
+      this.appDefaultEngine?.name
     );
 
     this.#dontSetUseSavedOrder = false;
     // Clear out the sorted engines settings, so that we re-sort it if necessary.
-    this.__sortedEngines = null;
+    this._cachedSortedEngines = null;
     Services.obs.notifyObservers(
       null,
       lazy.SearchUtils.TOPIC_SEARCH_SERVICE,
@@ -1941,11 +1940,11 @@ class SearchService {
       // Not an update, just add the new engine.
       this._engines.set(engine.name, engine);
       // Only add the engine to the list of sorted engines if the initial list
-      // has already been built (i.e. if this.__sortedEngines is non-null). If
+      // has already been built (i.e. if this._cachedSortedEngines is non-null). If
       // it hasn't, we're loading engines from disk and the sorted engine list
       // will be built once we need it.
-      if (this.__sortedEngines && !this.#dontSetUseSavedOrder) {
-        this.__sortedEngines.push(engine);
+      if (this._cachedSortedEngines && !this.#dontSetUseSavedOrder) {
+        this._cachedSortedEngines.push(engine);
         this.#saveSortedEngineList();
       }
       lazy.SearchUtils.notifyAction(
@@ -2134,11 +2133,11 @@ class SearchService {
   }
 
   #buildSortedEngineList() {
-    // We must initialise __sortedEngines here to avoid infinite recursion
+    // We must initialise _cachedSortedEngines here to avoid infinite recursion
     // in the case of tests which don't define a default search engine.
     // If there's no default defined, then we revert to the first item in the
     // sorted list, but we can't do that if we don't have a list.
-    this.__sortedEngines = [];
+    this._cachedSortedEngines = [];
 
     // If the user has specified a custom engine order, read the order
     // information from the metadata instead of the default prefs.
@@ -2156,8 +2155,8 @@ class SearchService {
         // without us knowing, we may already have an engine in this slot. If
         // that happens, we just skip it - it will be added later on as an
         // unsorted engine.
-        if (orderNumber && !this.__sortedEngines[orderNumber - 1]) {
-          this.__sortedEngines[orderNumber - 1] = engine;
+        if (orderNumber && !this._cachedSortedEngines[orderNumber - 1]) {
+          this._cachedSortedEngines[orderNumber - 1] = engine;
           addedEngines[engine.name] = engine;
         } else {
           // We need to call #saveSortedEngineList so this gets sorted out.
@@ -2166,13 +2165,13 @@ class SearchService {
       }
 
       // Filter out any nulls for engines that may have been removed
-      var filteredEngines = this.__sortedEngines.filter(function(a) {
+      var filteredEngines = this._cachedSortedEngines.filter(function(a) {
         return !!a;
       });
-      if (this.__sortedEngines.length != filteredEngines.length) {
+      if (this._cachedSortedEngines.length != filteredEngines.length) {
         needToSaveEngineList = true;
       }
-      this.__sortedEngines = filteredEngines;
+      this._cachedSortedEngines = filteredEngines;
 
       if (needToSaveEngineList) {
         this.#saveSortedEngineList();
@@ -2191,11 +2190,13 @@ class SearchService {
       alphaEngines.sort((a, b) => {
         return collator.compare(a.name, b.name);
       });
-      return (this.__sortedEngines = this.__sortedEngines.concat(alphaEngines));
+      return (this._cachedSortedEngines = this._cachedSortedEngines.concat(
+        alphaEngines
+      ));
     }
     lazy.logConsole.debug("#buildSortedEngineList: using default orders");
 
-    return (this.__sortedEngines = this._sortEnginesByDefaults(
+    return (this._cachedSortedEngines = this._sortEnginesByDefaults(
       Array.from(this._engines.values())
     ));
   }
@@ -2224,16 +2225,16 @@ class SearchService {
       addedEngines.add(engine.name);
     }
 
-    // The original default engine should always be first in the list (except
+    // The app default engine should always be first in the list (except
     // for distros, that we should respect).
-    const originalDefault = this.originalDefaultEngine;
-    maybeAddEngineToSort(originalDefault);
+    const appDefault = this.appDefaultEngine;
+    maybeAddEngineToSort(appDefault);
 
     // If there's a private default, and it is different to the normal
     // default, then it should be second in the list.
-    const originalPrivateDefault = this.originalPrivateDefaultEngine;
-    if (originalPrivateDefault && originalPrivateDefault != originalDefault) {
-      maybeAddEngineToSort(originalPrivateDefault);
+    const appPrivateDefault = this.appPrivateDefaultEngine;
+    if (appPrivateDefault && appPrivateDefault != appDefault) {
+      maybeAddEngineToSort(appPrivateDefault);
     }
 
     let remainingEngines;
@@ -2267,10 +2268,7 @@ class SearchService {
    */
 
   get #sortedVisibleEngines() {
-    this.__sortedVisibleEngines = this.#sortedEngines.filter(
-      engine => !engine.hidden
-    );
-    return this.__sortedVisibleEngines;
+    return this.#sortedEngines.filter(engine => !engine.hidden);
   }
 
   /**
@@ -2483,9 +2481,9 @@ class SearchService {
             e.webExtension.id == extension.id && e.webExtension.locale == locale
         ) ?? {};
 
-      let originalName = engine.name;
+      let appDefaultName = engine.name;
       let name = manifest.chrome_settings_overrides.search_provider.name.trim();
-      if (originalName != name && this._engines.has(name)) {
+      if (appDefaultName != name && this._engines.has(name)) {
         throw new Error("Can't upgrade to the same name as an existing engine");
       }
 
@@ -2500,8 +2498,8 @@ class SearchService {
         configuration
       );
 
-      if (originalName != engine.name) {
-        this._engines.delete(originalName);
+      if (appDefaultName != engine.name) {
+        this._engines.delete(appDefaultName);
         this._engines.set(engine.name, engine);
         if (isDefault) {
           this._settings.setVerifiedAttribute("current", engine.name);
@@ -2509,7 +2507,7 @@ class SearchService {
         if (isDefaultPrivate) {
           this._settings.setVerifiedAttribute("private", engine.name);
         }
-        this.__sortedEngines = null;
+        this._cachedSortedEngines = null;
       }
     }
     return extensionEngines;
@@ -2576,15 +2574,15 @@ class SearchService {
 
   #internalRemoveEngine(engine) {
     // Remove the engine from _sortedEngines
-    if (this.__sortedEngines) {
-      var index = this.__sortedEngines.indexOf(engine);
+    if (this._cachedSortedEngines) {
+      var index = this._cachedSortedEngines.indexOf(engine);
       if (index == -1) {
         throw Components.Exception(
           "Can't find engine to remove in _sortedEngines!",
           Cr.NS_ERROR_FAILURE
         );
       }
-      this.__sortedEngines.splice(index, 1);
+      this._cachedSortedEngines.splice(index, 1);
     }
 
     // Remove the engine from the internal store
@@ -2616,10 +2614,10 @@ class SearchService {
    *   The appropriate search engine, or null if one could not be determined.
    */
   #findAndSetNewDefaultEngine({ privateMode, excludeEngineName = "" }) {
-    // First to the original default engine...
+    // First to the app default engine...
     let newDefault = privateMode
-      ? this.originalPrivateDefaultEngine
-      : this.originalDefaultEngine;
+      ? this.appPrivateDefaultEngine
+      : this.appDefaultEngine;
 
     if (
       !newDefault ||
@@ -2638,7 +2636,7 @@ class SearchService {
       if (firstVisible) {
         newDefault = firstVisible;
       } else if (newDefault) {
-        // then to the original if it is not the one that is excluded...
+        // then to the app default if it is not the one that is excluded...
         if (newDefault.name != excludeEngineName) {
           newDefault.hidden = false;
         } else {
@@ -2746,15 +2744,15 @@ class SearchService {
     }
 
     // If we change the default engine in the future, that change should impact
-    // users who have switched away from and then back to the build's "default"
-    // engine. So clear the user pref when the currentEngine is set to the
-    // build's default engine, so that the currentEngine getter falls back to
-    // whatever the default is.
+    // users who have switched away from and then back to the build's
+    // "app default" engine. So clear the user pref when the currentEngine is
+    // set to the build's app default engine, so that the currentEngine getter
+    // falls back to whatever the default is.
     let newName = newCurrentEngine.name;
-    const originalDefault = privateMode
-      ? this.originalPrivateDefaultEngine
-      : this.originalDefaultEngine;
-    if (newCurrentEngine == originalDefault) {
+    const appDefaultEngine = privateMode
+      ? this.appPrivateDefaultEngine
+      : this.appDefaultEngine;
+    if (newCurrentEngine == appDefaultEngine) {
       newName = "";
     }
 
@@ -2787,7 +2785,7 @@ class SearchService {
 
   #onSeparateDefaultPrefChanged() {
     // Clear out the sorted engines settings, so that we re-sort it if necessary.
-    this.__sortedEngines = null;
+    this._cachedSortedEngines = null;
     // We should notify if the normal default, and the currently saved private
     // default are different. Otherwise, save the energy.
     if (this.defaultEngine != this._getEngineDefault(true)) {

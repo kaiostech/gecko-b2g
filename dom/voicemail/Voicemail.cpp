@@ -206,8 +206,8 @@ Voicemail::NotifyStatusChanged(nsIVoicemailProvider* aProvider) {
   init.mCancelable = false;
   init.mStatus = GetOrCreateStatus(serviceId, aProvider);
 
-  RefPtr<VoicemailEvent> event = VoicemailEvent::Constructor(
-      this, u"statuschanged"_ns, init);
+  RefPtr<VoicemailEvent> event =
+      VoicemailEvent::Constructor(this, u"statuschanged"_ns, init);
   return DispatchTrustedEvent(event);
 }
 

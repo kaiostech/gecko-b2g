@@ -6,7 +6,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["AnqpCache", "AnqpData", "AnqpMatcher"];
+const EXPORTED_SYMBOLS = ["AnqpCache", "AnqpData", "AnqpMatcher"];
 
 const CACHE_SWEEP_INTERVAL_MILLISECONDS = 60 * 1000;
 const DATA_LIFETIME_MILLISECONDS = 60 * 60 * 1000;
@@ -19,14 +19,14 @@ function debug(aMsg) {
   }
 }
 
-this.AnqpData = function(anqpElements) {
+const AnqpData = function(anqpElements) {
   if (anqpElements) {
     this._anqpElements = anqpElements;
   }
   this._expiredTime = Date.now() + DATA_LIFETIME_MILLISECONDS;
 };
 
-this.AnqpData.prototype = {
+AnqpData.prototype = {
   _anqpElements: null,
 
   _expiredTime: 0,
@@ -103,12 +103,12 @@ this.AnqpData.prototype = {
   },
 };
 
-this.AnqpCache = function() {
+const AnqpCache = function() {
   this._anqpCaches = new Map();
   this._lastSweep = Date.now();
 };
 
-this.AnqpCache.prototype = {
+AnqpCache.prototype = {
   _anqpCaches: null,
 
   _lastSweep: 0,
@@ -146,7 +146,7 @@ this.AnqpCache.prototype = {
   },
 };
 
-this.AnqpMatcher = (function() {
+const AnqpMatcher = (function() {
   var anqpMatcher = {};
 
   const PLMNText = ["org", "3gppnetwork", "mcc*", "mnc*", "wlan"];

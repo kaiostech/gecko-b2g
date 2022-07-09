@@ -42,7 +42,8 @@ void NetIdManager::acquire(const nsString& aInterfaceName,
 
   // Update hash and return.
   mInterfaceToNetIdHash.InsertOrUpdate(aInterfaceName, *aNetIdInfo);
-  mNetIdToNetIdInfoHash.InsertOrUpdate(uint32_t(aNetIdInfo->mNetId), *aNetIdInfo);
+  mNetIdToNetIdInfoHash.InsertOrUpdate(uint32_t(aNetIdInfo->mNetId),
+                                       *aNetIdInfo);
 
   return;
 }

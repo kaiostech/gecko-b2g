@@ -10,6 +10,7 @@
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
+#include "mozilla/dom/ServiceWorker.h"
 
 class nsIGlobalWindow;
 

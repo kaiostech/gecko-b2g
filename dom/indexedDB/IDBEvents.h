@@ -12,6 +12,7 @@
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/Nullable.h"
 #include "nsStringFwd.h"
+#include "mozilla/dom/IDBFactory.h"
 
 #define IDBVERSIONCHANGEEVENT_IID                    \
   {                                                  \

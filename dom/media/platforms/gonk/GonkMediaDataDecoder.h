@@ -103,8 +103,6 @@ class GonkDecoderManager : public android::AHandler {
 
   android::sp<android::ICrypto> GetCrypto();
 
-  RefPtr<MediaByteBuffer> mCodecSpecificData;
-
   nsAutoCString mMimeType;
 
   // MediaCodedc's wrapper that performs the decoding.

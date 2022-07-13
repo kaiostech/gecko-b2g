@@ -54,20 +54,24 @@ already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateAudioDecoder(
 
 media::DecodeSupportSet GonkDecoderModule::SupportsMimeType(
     const nsACString& aMimeType, DecoderDoctorDiagnostics* aDiagnostics) const {
+  // TODO: get codec info from AOSP.
+  // Just assume SoftwareDecode for audio and HardwareDecode for video now.
   if (aMimeType.EqualsLiteral("audio/mp4a-latm") ||
       aMimeType.EqualsLiteral("audio/aac") ||
       aMimeType.EqualsLiteral("audio/mp4") ||
       aMimeType.EqualsLiteral("audio/3gpp") ||
       aMimeType.EqualsLiteral("audio/amr-wb") ||
       aMimeType.EqualsLiteral("audio/mpeg") ||
-      aMimeType.EqualsLiteral("audio/flac") ||
-      aMimeType.EqualsLiteral("video/mp4") ||
+      aMimeType.EqualsLiteral("audio/flac")) {
+    return media::DecodeSupport::SoftwareDecode;
+  }
+  if (aMimeType.EqualsLiteral("video/mp4") ||
       aMimeType.EqualsLiteral("video/mp4v-es") ||
       aMimeType.EqualsLiteral("video/avc") ||
       aMimeType.EqualsLiteral("video/3gpp")) {
-    return media::DecodeSupport::SoftwareDecode;
+    return media::DecodeSupport::HardwareDecode;
   }
-  return media::DecodeSupport::SoftwareDecode;
+  return media::DecodeSupport::Unsupported;
 }
 
 }  // namespace mozilla

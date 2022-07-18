@@ -6,16 +6,17 @@
 
 var EXPORTED_SYMBOLS = ["ScreenshotUtils"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const lazy = {};
+
 ChromeUtils.defineModuleGetter(
-  this,
+  lazy,
   "PromiseUtils",
   "resource://gre/modules/PromiseUtils.jsm"
 );
 
 var ScreenshotUtils = {
   getScreenshot(content, maxWidth, maxHeight, mimeType) {
-    let deferred = PromiseUtils.defer();
+    let deferred = lazy.PromiseUtils.defer();
 
     let takeScreenshotClosure = () => {
       this.takeScreenshot(content, maxWidth, maxHeight, mimeType, deferred);

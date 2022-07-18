@@ -4,8 +4,6 @@
 
 const EXPORTED_SYMBOLS = ["GlobalSimulatorScreen"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const GlobalSimulatorScreen = {
   mozOrientationLocked: false,
 

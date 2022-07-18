@@ -8,7 +8,6 @@ const EXPORTED_SYMBOLS = ["GonkDrmDB"];
 const { IndexedDBHelper } = ChromeUtils.import(
   "resource://gre/modules/IndexedDBHelper.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const GONKDRM_DB_NAME = "gonkdrm";
 const GONKDRM_DB_VERSION = 1;

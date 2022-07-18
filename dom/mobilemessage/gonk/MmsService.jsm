@@ -9,7 +9,6 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const GONK_MMSSERVICE_CID = Components.ID(
   "{9b069b8c-8697-11e4-a406-474f5190272b}"

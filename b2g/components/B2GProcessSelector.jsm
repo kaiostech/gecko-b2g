@@ -5,8 +5,6 @@
 
 // Process selector for b2g.
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 function B2GProcessSelector() {
   Services.obs.addObserver(embedderSelector => {
     this.embedderSelector = embedderSelector.wrappedJSObject;

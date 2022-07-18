@@ -23,10 +23,6 @@ XPCOMUtils.defineLazyModuleGetter(
 var DEBUG = false; // set to true to see debug messages
 
 this.MMS_VERSION = (function() {
-  const { Services } = ChromeUtils.import(
-    "resource://gre/modules/Services.jsm"
-  );
-
   try {
     return Services.prefs.getIntPref("dom.mms.version");
   } catch (ex) {}

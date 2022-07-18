@@ -8,8 +8,6 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 var WAP_CONSTS = ChromeUtils.import("resource://gre/modules/wap_consts.js");
 
 const lazy = {};

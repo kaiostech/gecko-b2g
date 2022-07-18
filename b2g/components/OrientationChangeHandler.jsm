@@ -6,8 +6,6 @@
 
 const EXPORTED_SYMBOLS = [];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 var window = Services.wm.getMostRecentWindow("navigator:browser");
 var system = window.document.getElementById("systemapp");
 

@@ -17,7 +17,6 @@
  * platform-specific code, you can't throw across an XPCOM method boundary.)
  */
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
 
 // FIXME: improve this list of filters.

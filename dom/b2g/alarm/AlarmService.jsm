@@ -7,7 +7,6 @@
 const EXPORTED_SYMBOLS = ["AlarmService"];
 
 const { AlarmDB } = ChromeUtils.import("resource://gre/modules/AlarmDB.jsm");
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );

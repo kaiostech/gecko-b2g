@@ -4,7 +4,6 @@
 
 "use strict";
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { IndexedDBHelper } = ChromeUtils.import(
   "resource://gre/modules/IndexedDBHelper.jsm"
 );

@@ -9,7 +9,6 @@ const EXPORTED_SYMBOLS = ["GonkDrmStorage"];
 const { GonkDrmDB } = ChromeUtils.import(
   "resource://gre/modules/GonkDrmDB.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const DEBUG = Services.prefs.getBoolPref("media.b2g.mediadrm.debug", false);
 

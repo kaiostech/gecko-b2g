@@ -21,8 +21,6 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 var RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );

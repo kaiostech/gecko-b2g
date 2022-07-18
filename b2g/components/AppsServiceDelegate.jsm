@@ -16,8 +16,6 @@ const { AppsUtils } = ChromeUtils.import(
   "resource://gre/modules/AppsUtils.jsm"
 );
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const DEBUG = 1;
 var log = DEBUG
   ? function log_dump(msg) {

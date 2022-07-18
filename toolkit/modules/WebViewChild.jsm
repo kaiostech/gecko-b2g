@@ -6,16 +6,17 @@
 
 var EXPORTED_SYMBOLS = ["WebViewChild"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyModuleGetters(this, {
+const lazy = {};
+
+XPCOMUtils.defineLazyModuleGetters(lazy, {
   ContextMenuUtils: "resource://gre/modules/ContextMenuUtils.jsm",
 });
 
-XPCOMUtils.defineLazyModuleGetters(this, {
+XPCOMUtils.defineLazyModuleGetters(lazy, {
   ScreenshotUtils: "resource://gre/modules/ScreenshotUtils.jsm",
 });
 
@@ -60,7 +61,7 @@ WebViewChild.prototype = {
   init(global) {
     this.global = global;
 
-    ContextMenuUtils.init(this);
+    lazy.ContextMenuUtils.init(this);
 
     let els = Services.els;
 
@@ -272,7 +273,7 @@ WebViewChild.prototype = {
       return;
     }
 
-    ScreenshotUtils.getScreenshot(
+    lazy.ScreenshotUtils.getScreenshot(
       content,
       data.maxWidth,
       data.maxHeight,
@@ -548,7 +549,7 @@ WebViewChild.prototype = {
     if (event.defaultPrevented || event.detail.nested) {
       return;
     }
-    let menuData = ContextMenuUtils.generateMenu(this, this.global, event);
+    let menuData = lazy.ContextMenuUtils.generateMenu(this, this.global, event);
 
     // The value returned by the contextmenu sync call is true if the embedder
     // called preventDefault() on its contextmenu event.
@@ -559,7 +560,7 @@ WebViewChild.prototype = {
     if (this.global.sendSyncMessage("WebView::contextmenu", menuData)[0]) {
       event.preventDefault();
     } else {
-      ContextMenuUtils.cancel(this);
+      lazy.ContextMenuUtils.cancel(this);
     }
   },
 
@@ -571,7 +572,7 @@ WebViewChild.prototype = {
 
   recvFireCtxCallback(data) {
     this.log(`Received fireCtxCallback message: (${data.json.menuitem})`);
-    ContextMenuUtils.handleContextMenuCallback(
+    lazy.ContextMenuUtils.handleContextMenuCallback(
       this,
       this.global,
       data.json.menuitem

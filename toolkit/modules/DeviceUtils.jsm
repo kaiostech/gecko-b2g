@@ -2,12 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-this.EXPORTED_SYMBOLS = ["DeviceUtils"];
+const EXPORTED_SYMBOLS = ["DeviceUtils"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
 );
@@ -17,37 +16,39 @@ const { AppConstants } = ChromeUtils.import(
 
 const isGonk = AppConstants.platform === "gonk";
 
+const lazy = {};
+
 if (isGonk) {
   ChromeUtils.defineModuleGetter(
-    this,
+    lazy,
     "libcutils",
     "resource://gre/modules/systemlibs.js"
   );
 }
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkManager",
   "@mozilla.org/network/manager;1",
   "nsINetworkManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gRil",
   "@mozilla.org/ril;1",
   "nsIRadioInterfaceLayer"
@@ -59,11 +60,8 @@ const HTTP_CODE_CREATED = 201;
 const HTTP_CODE_REQUEST_TIMEOUT = 408;
 const XHR_REQUEST_TIMEOUT = 60000;
 
-XPCOMUtils.defineLazyGetter(this, "console", () => {
-  let { ConsoleAPI } = ChromeUtils.import(
-    "resource://gre/modules/Console.jsm",
-    {}
-  );
+XPCOMUtils.defineLazyGetter(lazy, "console", () => {
+  let { ConsoleAPI } = ChromeUtils.import("resource://gre/modules/Console.jsm");
   return new ConsoleAPI({
     maxLogLevelPref: "toolkit.deviceUtils.loglevel",
     prefix: "DeviceUtils",
@@ -78,7 +76,7 @@ const device_type_map = {
   watch: 4000,
 };
 
-this.DeviceUtils = {
+const DeviceUtils = {
   device_info_cache: null,
   /**
    * Returns a Commercial Unit Reference which is vendor dependent.
@@ -94,24 +92,24 @@ this.DeviceUtils = {
           ? Services.prefs.getCharPref("device.commercial.ref")
           : undefined;
     } catch (e) {
-      console.error("get Commercial Unit Reference error=" + e);
+      lazy.console.error("get Commercial Unit Reference error=" + e);
     }
     return cuRefStr;
   },
 
   get iccInfo() {
-    let icc = gIccService.getIccByServiceId(0);
+    let icc = lazy.gIccService.getIccByServiceId(0);
     let iccInfo =
       icc && icc.cardState !== Ci.nsIIcc.CARD_STATE_UNDETECTED && icc.iccInfo;
-    if (!iccInfo && gMobileConnectionService.numItems > 1) {
-      icc = gIccService.getIccByServiceId(1);
+    if (!iccInfo && lazy.gMobileConnectionService.numItems > 1) {
+      icc = lazy.gIccService.getIccByServiceId(1);
       iccInfo = icc && icc.iccInfo;
     }
     return iccInfo;
   },
 
   get imei() {
-    let mobile = gMobileConnectionService.getItemByServiceId(0);
+    let mobile = lazy.gMobileConnectionService.getItemByServiceId(0);
     if (mobile && mobile.deviceIdentities) {
       return mobile.deviceIdentities.imei;
     }
@@ -122,15 +120,15 @@ this.DeviceUtils = {
 
   get networkType() {
     if (
-      !gNetworkManager.activeNetworkInfo ||
-      gNetworkManager.activeNetworkInfo.type ===
+      !lazy.gNetworkManager.activeNetworkInfo ||
+      lazy.gNetworkManager.activeNetworkInfo.type ===
         Ci.nsINetworkInfo.NETWORK_TYPE_UNKNOWN
     ) {
       return "unknown";
     }
 
     if (
-      gNetworkManager.activeNetworkInfo.type ===
+      lazy.gNetworkManager.activeNetworkInfo.type ===
       Ci.nsINetworkInfo.NETWORK_TYPE_WIFI
     ) {
       return "wifi";
@@ -139,7 +137,7 @@ this.DeviceUtils = {
   },
 
   getConn(id) {
-    let conn = gMobileConnectionService.getItemByServiceId(id);
+    let conn = lazy.gMobileConnectionService.getItemByServiceId(id);
     if (conn && conn.voice) {
       return conn.voice.network;
     }
@@ -149,7 +147,7 @@ this.DeviceUtils = {
   get networkMcc() {
     let network = this.getConn(0);
     let netMcc = network && network.mcc;
-    if (!netMcc && gMobileConnectionService.numItems > 1) {
+    if (!netMcc && lazy.gMobileConnectionService.numItems > 1) {
       network = this.getConn(1);
       netMcc = network && network.mcc;
     }
@@ -159,7 +157,7 @@ this.DeviceUtils = {
   get networkMnc() {
     let network = this.getConn(0);
     let netMnc = network && network.mnc;
-    if (!netMnc && gMobileConnectionService.numItems > 1) {
+    if (!netMnc && lazy.gMobileConnectionService.numItems > 1) {
       network = this.getConn(1);
       netMnc = network && network.mnc;
     }
@@ -169,8 +167,8 @@ this.DeviceUtils = {
   getDeviceId: function DeviceUtils_getDeviceId() {
     let deferred = PromiseUtils.defer();
     // TODO: need to check how to handle dual-SIM case.
-    if (typeof gMobileConnectionService != "undefined") {
-      let conn = gMobileConnectionService.getItemByServiceId(0);
+    if (typeof lazy.gMobileConnectionService != "undefined") {
+      let conn = lazy.gMobileConnectionService.getItemByServiceId(0);
       conn.getIdentities({
         notifyGetDeviceIdentitiesRequestSuccess(aResult) {
           if (aResult.imei && parseInt(aResult.imei) !== 0) {
@@ -191,13 +189,13 @@ this.DeviceUtils = {
   },
 
   getIccInfoArray: function DeviceUtils_getIccInfoArray() {
-    if (typeof gRil === "undefined" || gIccService === "undefined") {
+    if (typeof lazy.gRil === "undefined" || lazy.gIccService === "undefined") {
       return [];
     }
 
     let infoArray = [];
-    for (let i = 0; i < gRil.numRadioInterfaces; i++) {
-      let icc = gIccService.getIccByServiceId(i);
+    for (let i = 0; i < lazy.gRil.numRadioInterfaces; i++) {
+      let icc = lazy.gIccService.getIccByServiceId(i);
       if (icc && icc.iccInfo) {
         infoArray.push(icc.iccInfo);
       }
@@ -206,13 +204,13 @@ this.DeviceUtils = {
   },
 
   getMobileNetworkInfoArray: function DeviceUtils_getMobileNetworkInfoArray() {
-    if (typeof gMobileConnectionService === "undefined") {
+    if (typeof lazy.gMobileConnectionService === "undefined") {
       return [];
     }
 
     let infoArray = [];
-    for (let i = 0; i < gMobileConnectionService.numItems; i++) {
-      let conn = gMobileConnectionService.getItemByServiceId(i);
+    for (let i = 0; i < lazy.gMobileConnectionService.numItems; i++) {
+      let conn = lazy.gMobileConnectionService.getItemByServiceId(i);
       if (conn && conn.voice && conn.voice.network) {
         infoArray.push(conn.voice.network);
       }
@@ -264,7 +262,7 @@ this.DeviceUtils = {
       this.getDeviceId().then(
         device_id => {
           if (isGonk) {
-            let characteristics = libcutils.property_get(
+            let characteristics = lazy.libcutils.property_get(
               "ro.build.characteristics"
             );
             let device_type = characteristics
@@ -293,8 +291,8 @@ this.DeviceUtils = {
                   ? Services.prefs.getCharPref("b2g.version")
                   : undefined,
               device_type: device_type_map[device_type],
-              brand: libcutils.property_get("ro.product.brand"),
-              model: libcutils.property_get("ro.product.name"),
+              brand: lazy.libcutils.property_get("ro.product.brand"),
+              model: lazy.libcutils.property_get("ro.product.name"),
               uuid:
                 Services.prefs.getPrefType("app.update.custom") ==
                 Ci.nsIPrefBranch.PREF_STRING
@@ -369,7 +367,7 @@ this.DeviceUtils = {
       typeof apiKeyName !== "string" ||
       !apiKeyName.length
     ) {
-      console.error("Invalid Input");
+      lazy.console.error("Invalid Input");
       return Promise.reject(REQUEST_REJECT);
     }
 
@@ -400,7 +398,7 @@ this.DeviceUtils = {
           authorizationKey == "no-kaios-api-key"
         ) {
           deferred.reject(REQUEST_REJECT);
-          console.error("without API Key");
+          lazy.console.error("without API Key");
           return;
         }
 
@@ -420,7 +418,7 @@ this.DeviceUtils = {
             // When status is 0 we don't have a valid channel
             deferred.reject(REQUEST_REJECT);
           }
-          console.error(
+          lazy.console.error(
             "An error occurred during the transaction, status: " + xhr.status
           );
         };
@@ -428,11 +426,11 @@ this.DeviceUtils = {
         xhr.timeout = XHR_REQUEST_TIMEOUT;
         xhr.ontimeout = function() {
           deferred.reject(HTTP_CODE_REQUEST_TIMEOUT);
-          console.error("Fetch access token request timeout");
+          lazy.console.error("Fetch access token request timeout");
         };
 
         xhr.onload = function() {
-          console.debug("Get access token returned status: " + xhr.status);
+          lazy.console.debug("Get access token returned status: " + xhr.status);
           // only accept status code 200 and 201.
           let isStatusInvalid =
             xhr.channel instanceof Ci.nsIHttpChannel &&
@@ -440,7 +438,7 @@ this.DeviceUtils = {
             xhr.status != HTTP_CODE_CREATED;
           if (isStatusInvalid || !xhr.response || !xhr.response.access_token) {
             deferred.reject(xhr.status);
-            console.debug("Response: " + JSON.stringify(xhr.response));
+            lazy.console.debug("Response: " + JSON.stringify(xhr.response));
           } else {
             deferred.resolve(xhr.response);
           }
@@ -451,7 +449,7 @@ this.DeviceUtils = {
       },
       _ => {
         deferred.reject(REQUEST_REJECT);
-        console.error("An error occurred during getting device info");
+        lazy.console.error("An error occurred during getting device info");
       }
     );
 

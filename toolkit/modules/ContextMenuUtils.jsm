@@ -7,7 +7,6 @@
 
 var EXPORTED_SYMBOLS = ["ContextMenuUtils"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const kLongestReturnedString = 128;
 
 var ContextMenuUtils = {
@@ -108,8 +107,8 @@ var ContextMenuUtils = {
       .currentURI.spec;
     let content = global.content;
     if (
-      (elem instanceof content.HTMLAnchorElement && elem.href) ||
-      (elem instanceof content.HTMLAreaElement && elem.href)
+      (elem.isInstance(content.HTMLAnchorElement) && elem.href) ||
+      (elem.isInstance(content.HTMLAreaElement) && elem.href)
     ) {
       return {
         uri: elem.href,
@@ -120,10 +119,10 @@ var ContextMenuUtils = {
     if (elem instanceof Ci.nsIImageLoadingContent && elem.currentURI) {
       return { uri: elem.currentURI.spec, documentURI };
     }
-    if (elem instanceof content.HTMLImageElement) {
+    if (elem.isInstance(content.HTMLImageElement)) {
       return { uri: elem.src, documentURI };
     }
-    if (elem instanceof content.HTMLMediaElement) {
+    if (elem.isInstance(content.HTMLMediaElement)) {
       let hasVideo = !(
         elem.readyState >= elem.HAVE_METADATA &&
         (elem.videoWidth == 0 || elem.videoHeight == 0)
@@ -134,13 +133,16 @@ var ContextMenuUtils = {
         documentURI,
       };
     }
-    if (elem instanceof content.HTMLInputElement && elem.hasAttribute("name")) {
+    if (
+      elem.isInstance(content.HTMLInputElement) &&
+      elem.hasAttribute("name")
+    ) {
       // For input elements, we look for a parent <form> and if there is
       // one we return the form's method and action uri.
       let parent = elem.parentNode;
       while (parent) {
         if (
-          parent instanceof content.HTMLFormElement &&
+          parent.isInstance(content.HTMLFormElement) &&
           parent.hasAttribute("action")
         ) {
           let actionHref = global.docShell

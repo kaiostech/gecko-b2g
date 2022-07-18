@@ -16,10 +16,6 @@ document.addEventListener(
 );
 
 (function() {
-  const { Services } = ChromeUtils.import(
-    "resource://gre/modules/Services.jsm"
-  );
-
   // Grant "web-view" permission for default-app.
   Services.perms.addFromPrincipal(
     Services.scriptSecurityManager.createContentPrincipalFromOrigin(

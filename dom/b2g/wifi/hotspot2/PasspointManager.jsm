@@ -6,7 +6,6 @@
 
 "use strict";
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { AnqpCache } = ChromeUtils.import(
   "resource://gre/modules/AnqpUtils.jsm"
 );

@@ -8,7 +8,6 @@
 
 const EXPORTED_SYMBOLS = ["AccessFu"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { Utils, PrefCache, Logger } = ChromeUtils.import(
   "resource://gre/modules/accessibility/Utils.jsm"
 );

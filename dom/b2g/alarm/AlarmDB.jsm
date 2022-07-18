@@ -9,7 +9,6 @@ const EXPORTED_SYMBOLS = ["AlarmDB"];
 const { IndexedDBHelper } = ChromeUtils.import(
   "resource://gre/modules/IndexedDBHelper.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const ALARMDB_NAME = "alarms";
 const ALARMDB_VERSION = 1;

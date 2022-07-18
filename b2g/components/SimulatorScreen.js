@@ -8,7 +8,6 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { ComponentUtils } = ChromeUtils.import(
   "resource://gre/modules/ComponentUtils.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // const {} = ChromeUtils.import("resource://gre/modules/DOMRequestHelper.jsm");
 

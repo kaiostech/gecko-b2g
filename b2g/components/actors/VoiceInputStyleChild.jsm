@@ -6,8 +6,6 @@
 
 var EXPORTED_SYMBOLS = ["VoiceInputStyleChild"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const kPrefVoiceInputDebug = "voice-input.debug";
 const kPrefVoiceInputEnabled = "voice-input.enabled";
 const kPrefVoiceInputIconUrl = "voice-input.icon-url";

@@ -8,7 +8,6 @@ const EXPORTED_SYMBOLS = ["ErrorPage"];
 
 const kErrorPageFrameScript = "chrome://b2g/content/ErrorPage.js";
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );

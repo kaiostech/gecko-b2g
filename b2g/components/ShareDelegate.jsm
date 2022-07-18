@@ -5,8 +5,6 @@
 
 var EXPORTED_SYMBOLS = ["ShareDelegate"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const domBundle = Services.strings.createBundle(
   "chrome://global/locale/dom/dom.properties"
 );

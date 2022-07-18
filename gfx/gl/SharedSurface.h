@@ -167,6 +167,8 @@ class SurfaceFactory {
  public:
   const PartialSharedSurfaceDesc mDesc;
 
+  layers::TextureType GetConsumerType() const { return mDesc.consumerType; }
+
  protected:
   Mutex mMutex MOZ_UNANNOTATED;
 

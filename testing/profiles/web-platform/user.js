@@ -76,5 +76,9 @@ user_pref("layout.css.prefers-color-scheme.content-override", 1);
 user_pref("gfx.offscreencanvas.enabled", true);
 user_pref("dom.workers.requestAnimationFrame", true);
 user_pref("layout.css.font-loading-api.workers.enabled", true);
+// Enable WebDriver BiDi experimental commands and events during tests.
+user_pref("remote.experimental.enabled", true);
+// Disable always partitioning storage with the Storage Access API
+user_pref("privacy.partition.always_partition_third_party_non_cookie_storage", false);
 // system app url for b2g wpt tests
 user_pref("b2g.system_startup_url", "chrome://b2g/content/system/marionette.html");

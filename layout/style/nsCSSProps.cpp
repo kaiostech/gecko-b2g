@@ -40,16 +40,26 @@ static StaticAutoPtr<nsStaticCaseInsensitiveNameTable> gCounterDescTable;
 static StaticAutoPtr<nsTHashMap<nsCStringHashKey, nsCSSPropertyID>>
     gPropertyIDLNameTable;
 
-static const char* const kCSSRawFontDescs[] = {
+static constexpr const char* const kCSSRawFontDescs[] = {
 #define CSS_FONT_DESC(name_, method_) #name_,
 #include "nsCSSFontDescList.h"
 #undef CSS_FONT_DESC
 };
 
-static const char* const kCSSRawCounterDescs[] = {
+static constexpr const char* const kCSSRawCounterDescs[] = {
 #define CSS_COUNTER_DESC(name_, method_) #name_,
 #include "nsCSSCounterDescList.h"
 #undef CSS_COUNTER_DESC
+};
+
+static constexpr CSSPropFlags kFlagsTable[eCSSProperty_COUNT_with_aliases] = {
+#define CSS_PROP_LONGHAND(name_, id_, method_, flags_, ...) flags_,
+#define CSS_PROP_SHORTHAND(name_, id_, method_, flags_, ...) flags_,
+#define CSS_PROP_ALIAS(name_, aliasid_, id_, method_, flags_, ...) flags_,
+#include "mozilla/ServoCSSPropList.h"
+#undef CSS_PROP_ALIAS
+#undef CSS_PROP_SHORTHAND
+#undef CSS_PROP_LONGHAND
 };
 
 static nsStaticCaseInsensitiveNameTable* CreateStaticTable(
@@ -160,31 +170,29 @@ nsCSSFontDesc nsCSSProps::LookupFontDesc(const nsACString& aFontDesc) {
   return which;
 }
 
+static constexpr auto sDescNullStr = ""_ns;
+
 const nsCString& nsCSSProps::GetStringValue(nsCSSFontDesc aFontDescID) {
   MOZ_ASSERT(gFontDescTable, "no lookup table, needs addref");
   if (gFontDescTable) {
     return gFontDescTable->GetStringValue(int32_t(aFontDescID));
   }
-  static nsDependentCString sNullStr("");
-  return sNullStr;
+  return sDescNullStr;
 }
 
-const nsCString& nsCSSProps::GetStringValue(nsCSSCounterDesc aCounterDesc) {
+const nsCString& nsCSSProps::GetStringValue(nsCSSCounterDesc aCounterDescID) {
   MOZ_ASSERT(gCounterDescTable, "no lookup table, needs addref");
   if (gCounterDescTable) {
-    return gCounterDescTable->GetStringValue(int32_t(aCounterDesc));
+    return gCounterDescTable->GetStringValue(int32_t(aCounterDescID));
   }
-  static nsDependentCString sNullStr("");
-  return sNullStr;
+  return sDescNullStr;
 }
 
-const CSSPropFlags nsCSSProps::kFlagsTable[eCSSProperty_COUNT] = {
-#define CSS_PROP_LONGHAND(name_, id_, method_, flags_, ...) flags_,
-#define CSS_PROP_SHORTHAND(name_, id_, method_, flags_, ...) flags_,
-#include "mozilla/ServoCSSPropList.h"
-#undef CSS_PROP_SHORTHAND
-#undef CSS_PROP_LONGHAND
-};
+bool nsCSSProps::PropHasFlags(nsCSSPropertyID aProperty, Flags aFlags) {
+  MOZ_ASSERT(0 <= aProperty && aProperty < eCSSProperty_COUNT_with_aliases,
+             "out of range");
+  return (kFlagsTable[aProperty] & aFlags) == aFlags;
+}
 
 /* static */
 bool nsCSSProps::gPropertyEnabled[eCSSProperty_COUNT_with_aliases] = {
@@ -200,7 +208,8 @@ bool nsCSSProps::gPropertyEnabled[eCSSProperty_COUNT_with_aliases] = {
   IS_ENABLED_BY_DEFAULT(flags_),
 #define CSS_PROP_SHORTHAND(name_, id_, method_, flags_, ...) \
   IS_ENABLED_BY_DEFAULT(flags_),
-#define CSS_PROP_ALIAS(...) true,
+#define CSS_PROP_ALIAS(name_, aliasid_, id_, method_, flags_, ...) \
+  IS_ENABLED_BY_DEFAULT(flags_),
 #include "mozilla/ServoCSSPropList.h"
 #undef CSS_PROP_ALIAS
 #undef CSS_PROP_SHORTHAND

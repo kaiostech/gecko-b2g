@@ -21,8 +21,6 @@ var RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const TELEPHONY_REQUESTS = [
   "getCurrentCalls",
   "answerCall",

@@ -4,7 +4,6 @@
 
 "use strict";
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const lazy = {};
 ChromeUtils.defineModuleGetter(
   lazy,
@@ -17,6 +16,7 @@ import {
   convertTimestamp,
   createFaviconElement,
   toggleContainer,
+  nowThresholdMs,
 } from "./helpers.mjs";
 
 const SS_NOTIFY_CLOSED_OBJECTS_CHANGED = "sessionstore-closed-objects-changed";
@@ -30,6 +30,8 @@ class RecentlyClosedTabsList extends HTMLElement {
     super();
     this.maxTabsLength = 25;
     this.closedTabsData = [];
+    // We do this for testing purposes
+    this.nowThresholdMs = nowThresholdMs;
   }
 
   get tabsList() {
@@ -46,6 +48,11 @@ class RecentlyClosedTabsList extends HTMLElement {
   connectedCallback() {
     this.addEventListener("click", this);
     this.addEventListener("keydown", this);
+    this.intervalID = setInterval(this.updateTime, this.nowThresholdMs);
+  }
+
+  disconnectedCallback() {
+    clearInterval(this.intervalID);
   }
 
   handleEvent(event) {
@@ -54,6 +61,17 @@ class RecentlyClosedTabsList extends HTMLElement {
       (event.type == "keydown" && event.keyCode == KeyEvent.DOM_VK_RETURN)
     ) {
       this.openTabAndUpdate(event);
+    }
+  }
+
+  updateTime() {
+    const timeElements = this.querySelectorAll("span.closed-tab-li-time");
+
+    for (let timeEl of timeElements) {
+      timeEl.textContent = convertTimestamp(
+        parseInt(timeEl.getAttribute("data-timestamp")),
+        this.fluentStrings
+      );
     }
   }
 
@@ -165,12 +183,13 @@ class RecentlyClosedTabsList extends HTMLElement {
 
     if (targetURI) {
       url.textContent = formatURIForDisplay(targetURI);
+      url.title = targetURI;
       url.classList.add("closed-tab-li-url");
     }
 
     const time = document.createElement("span");
     time.textContent = convertTimestamp(tab.closedAt, this.fluentStrings);
-
+    time.setAttribute("data-timestamp", tab.closedAt);
     time.classList.add("closed-tab-li-time");
 
     li.append(title, url, time);

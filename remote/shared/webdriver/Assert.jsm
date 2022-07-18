@@ -6,8 +6,8 @@
 
 const EXPORTED_SYMBOLS = ["assert"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 const lazy = {};
@@ -17,8 +17,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   error: "chrome://remote/content/shared/webdriver/Errors.jsm",
   pprint: "chrome://remote/content/shared/Format.jsm",
 });
-
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const isB2G = () => Services.appinfo.name.toLowerCase() == "b2g";
 

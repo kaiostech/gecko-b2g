@@ -12,7 +12,6 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { Utils, PrefCache } = ChromeUtils.import(
   "resource://gre/modules/accessibility/Utils.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const lazy = {};
 

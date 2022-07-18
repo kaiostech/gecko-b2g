@@ -180,6 +180,9 @@ pref("app.update.langpack.enabled", true);
   pref("app.update.background.timeoutSec", 600);
   // By default, check for updates when the browser is not running every 7 hours.
   pref("app.update.background.interval", 25200);
+  // By default, snapshot Firefox Messaging System targeting for use by the
+  // background update task every 30 minutes.
+  pref("app.update.background.messaging.targeting.snapshot.intervalSec", 1800);
 #endif
 
 #ifdef XP_MACOSX
@@ -1106,6 +1109,10 @@ pref("browser.sessionstore.upgradeBackup.maxUpgradeBackups", 3);
 pref("browser.sessionstore.debug", false);
 // Forget closed windows/tabs after two weeks
 pref("browser.sessionstore.cleanup.forget_closed_after", 1209600000);
+// Platform collects data for session store
+pref("browser.sessionstore.platform_collection", true);
+// Platform collects session storage data for session store
+pref("browser.sessionstore.collect_session_storage", true);
 
 // Don't quit the browser when Ctrl + Q is pressed.
 pref("browser.quitShortcut.disabled", false);
@@ -1868,6 +1875,9 @@ pref("browser.contentblocking.reject-and-isolate-cookies.preferences.ui.enabled"
 //   Query parameter stripping:
 //     "qps": Query parameter stripping enabled
 //     "-qps": Query parameter stripping disabled
+//   Query parameter stripping for private windows:
+//     "qpsPBM": Query parameter stripping enabled in private windows
+//     "-qpsPBM": Query parameter stripping disabled in private windows
 //   Cookie behavior:
 //     "cookieBehavior0": cookie behaviour BEHAVIOR_ACCEPT
 //     "cookieBehavior1": cookie behaviour BEHAVIOR_REJECT_FOREIGN
@@ -1883,7 +1893,7 @@ pref("browser.contentblocking.reject-and-isolate-cookies.preferences.ui.enabled"
 //     "cookieBehaviorPBM4": cookie behaviour BEHAVIOR_REJECT_TRACKER
 //     "cookieBehaviorPBM5": cookie behaviour BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
 // One value from each section must be included in the browser.contentblocking.features.strict pref.
-pref("browser.contentblocking.features.strict", "tp,tpPrivate,cm,fp,stp,lvl2,rp,rpTop,ocsp,qps");
+pref("browser.contentblocking.features.strict", "tp,tpPrivate,cm,fp,stp,lvl2,rp,rpTop,ocsp,qps,qpsPBM");
 
 // Hide the "Change Block List" link for trackers/tracking content in the custom
 // Content Blocking/ETP panel. By default, it will not be visible. There is also

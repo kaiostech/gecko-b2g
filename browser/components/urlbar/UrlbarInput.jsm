@@ -6,10 +6,9 @@
 
 var EXPORTED_SYMBOLS = ["UrlbarInput"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
@@ -2450,7 +2449,7 @@ class UrlbarInput {
     try {
       const info = Services.uriFixup.getFixupURIInfo(
         value,
-        Ci.nsIURIFixup.FIXUP_FLAGS_MAKE_ALTERNATE_URI
+        Ci.nsIURIFixup.FIXUP_FLAG_FORCE_ALTERNATE_URI
       );
       value = info.fixedURI.spec;
     } catch (ex) {

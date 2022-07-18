@@ -3029,7 +3029,7 @@ static void DumpBeforePaintDisplayList(UniquePtr<std::stringstream>& aStream,
                                        nsDisplayList* aList,
                                        const nsRect& aVisibleRect) {
 #ifdef MOZ_DUMP_PAINTING
-  if (gfxEnv::DumpPaintToFile()) {
+  if (gfxEnv::MOZ_DUMP_PAINT_TO_FILE()) {
     nsCString string("dump-");
     // Include the process ID in the dump file name, to make sure that in an
     // e10s setup different processes don't clobber each other's dump files.
@@ -3043,7 +3043,7 @@ static void DumpBeforePaintDisplayList(UniquePtr<std::stringstream>& aStream,
   } else {
     gfxUtils::sDumpPaintFile = stderr;
   }
-  if (gfxEnv::DumpPaintToFile()) {
+  if (gfxEnv::MOZ_DUMP_PAINT_TO_FILE()) {
     *aStream << "<html><head><script>\n"
                 "var array = {};\n"
                 "function ViewImage(index) { \n"
@@ -3062,9 +3062,9 @@ static void DumpBeforePaintDisplayList(UniquePtr<std::stringstream>& aStream,
                   aVisibleRect.height)
                   .get();
   nsIFrame::PrintDisplayList(aBuilder, *aList, *aStream,
-                             gfxEnv::DumpPaintToFile());
+                             gfxEnv::MOZ_DUMP_PAINT_TO_FILE());
 
-  if (gfxEnv::DumpPaint() || gfxEnv::DumpPaintItems()) {
+  if (gfxEnv::MOZ_DUMP_PAINT() || gfxEnv::MOZ_DUMP_PAINT_ITEMS()) {
     // Flush stream now to avoid reordering dump output relative to
     // messages dumped by PaintRoot below.
     fprint_stderr(gfxUtils::sDumpPaintFile, *aStream);
@@ -3077,15 +3077,15 @@ static void DumpAfterPaintDisplayList(UniquePtr<std::stringstream>& aStream,
                                       nsDisplayList* aList) {
   *aStream << "Painting --- after optimization:\n";
   nsIFrame::PrintDisplayList(aBuilder, *aList, *aStream,
-                             gfxEnv::DumpPaintToFile());
+                             gfxEnv::MOZ_DUMP_PAINT_TO_FILE());
 
   fprint_stderr(gfxUtils::sDumpPaintFile, *aStream);
 
 #ifdef MOZ_DUMP_PAINTING
-  if (gfxEnv::DumpPaintToFile()) {
+  if (gfxEnv::MOZ_DUMP_PAINT_TO_FILE()) {
     *aStream << "</body></html>";
   }
-  if (gfxEnv::DumpPaintToFile()) {
+  if (gfxEnv::MOZ_DUMP_PAINT_TO_FILE()) {
     fclose(gfxUtils::sDumpPaintFile);
   }
 #endif
@@ -3446,7 +3446,7 @@ void nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext, nsIFrame* aFrame,
       std::move(dlTimerId));
 
   bool consoleNeedsDisplayList =
-      (gfxUtils::DumpDisplayList() || gfxEnv::DumpPaint()) &&
+      (gfxUtils::DumpDisplayList() || gfxEnv::MOZ_DUMP_PAINT()) &&
       builder->IsInActiveDocShell();
 #ifdef MOZ_DUMP_PAINTING
   FILE* savedDumpFile = gfxUtils::sDumpPaintFile;
@@ -6377,7 +6377,7 @@ static ImgDrawResult DrawImageInternal(
     gfxContext& aContext, nsPresContext* aPresContext, imgIContainer* aImage,
     const SamplingFilter aSamplingFilter, const nsRect& aDest,
     const nsRect& aFill, const nsPoint& aAnchor, const nsRect& aDirty,
-    const Maybe<SVGImageContext>& aSVGContext, uint32_t aImageFlags,
+    const SVGImageContext& aSVGContext, uint32_t aImageFlags,
     ExtendMode aExtendMode = ExtendMode::CLAMP, float aOpacity = 1.0) {
   ImgDrawResult result = ImgDrawResult::SUCCESS;
 
@@ -6406,16 +6406,14 @@ static ImgDrawResult DrawImageInternal(
 
     aContext.SetMatrixDouble(params.imageSpaceToDeviceSpace);
 
-    Maybe<SVGImageContext> fallbackContext;
-    if (!aSVGContext) {
-      // Use the default viewport.
-      fallbackContext.emplace(Some(params.svgViewportSize));
+    SVGImageContext newContext = aSVGContext;
+    if (!aSVGContext.GetViewportSize()) {
+      newContext.SetViewportSize(Some(params.svgViewportSize));
     }
 
     result = aImage->Draw(&aContext, params.size, params.region,
                           imgIContainer::FRAME_CURRENT, aSamplingFilter,
-                          aSVGContext ? aSVGContext : fallbackContext,
-                          aImageFlags, aOpacity);
+                          newContext, aImageFlags, aOpacity);
   }
 
   return result;
@@ -6425,7 +6423,7 @@ static ImgDrawResult DrawImageInternal(
 ImgDrawResult nsLayoutUtils::DrawSingleUnscaledImage(
     gfxContext& aContext, nsPresContext* aPresContext, imgIContainer* aImage,
     const SamplingFilter aSamplingFilter, const nsPoint& aDest,
-    const nsRect* aDirty, const Maybe<SVGImageContext>& aSVGContext,
+    const nsRect* aDirty, const SVGImageContext& aSVGContext,
     uint32_t aImageFlags, const nsRect* aSourceArea) {
   CSSIntSize imageSize;
   aImage->GetWidth(&imageSize.width);
@@ -6460,7 +6458,7 @@ ImgDrawResult nsLayoutUtils::DrawSingleUnscaledImage(
 ImgDrawResult nsLayoutUtils::DrawSingleImage(
     gfxContext& aContext, nsPresContext* aPresContext, imgIContainer* aImage,
     SamplingFilter aSamplingFilter, const nsRect& aDest, const nsRect& aDirty,
-    const Maybe<SVGImageContext>& aSVGContext, uint32_t aImageFlags,
+    const SVGImageContext& aSVGContext, uint32_t aImageFlags,
     const nsPoint* aAnchorPoint, const nsRect* aSourceArea) {
   nscoord appUnitsPerCSSPixel = AppUnitsPerCSSPixel();
   // NOTE(emilio): We can hardcode resolution to 1 here, since we're interested
@@ -6629,7 +6627,7 @@ IntSize nsLayoutUtils::ComputeImageContainerDrawingParameters(
     imgIContainer* aImage, nsIFrame* aForFrame,
     const LayoutDeviceRect& aDestRect, const LayoutDeviceRect& aFillRect,
     const StackingContextHelper& aSc, uint32_t aFlags,
-    Maybe<SVGImageContext>& aSVGContext, Maybe<ImageIntRegion>& aRegion) {
+    SVGImageContext& aSVGContext, Maybe<ImageIntRegion>& aRegion) {
   MOZ_ASSERT(aImage);
   MOZ_ASSERT(aForFrame);
 
@@ -6642,17 +6640,13 @@ IntSize nsLayoutUtils::ComputeImageContainerDrawingParameters(
   SVGImageContext::MaybeStoreContextPaint(aSVGContext, aForFrame, aImage);
   if ((scaleFactors.xScale != 1.0 || scaleFactors.yScale != 1.0) &&
       aImage->GetType() == imgIContainer::TYPE_VECTOR &&
-      (!aSVGContext || !aSVGContext->GetViewportSize())) {
+      (!aSVGContext.GetViewportSize())) {
     gfxSize gfxDestSize(aDestRect.Width(), aDestRect.Height());
     IntSize viewportSize = aImage->OptimalImageSizeForDest(
         gfxDestSize, imgIContainer::FRAME_CURRENT, samplingFilter, aFlags);
 
     CSSIntSize cssViewportSize(viewportSize.width, viewportSize.height);
-    if (!aSVGContext) {
-      aSVGContext.emplace(Some(cssViewportSize));
-    } else {
-      aSVGContext->SetViewportSize(Some(cssViewportSize));
-    }
+    aSVGContext.SetViewportSize(Some(cssViewportSize));
   }
 
   const gfx::Matrix& itm = aSc.GetInheritedTransform();
@@ -6725,7 +6719,7 @@ ImgDrawResult nsLayoutUtils::DrawBackgroundImage(
   CSSIntSize destCSSSize{nsPresContext::AppUnitsToIntCSSPixels(aDest.width),
                          nsPresContext::AppUnitsToIntCSSPixels(aDest.height)};
 
-  Maybe<SVGImageContext> svgContext(Some(SVGImageContext(Some(destCSSSize))));
+  SVGImageContext svgContext(Some(destCSSSize));
   SVGImageContext::MaybeStoreContextPaint(svgContext, aForFrame, aImage);
 
   /* Fast path when there is no need for image spacing */
@@ -6769,7 +6763,7 @@ ImgDrawResult nsLayoutUtils::DrawImage(
     const SamplingFilter aSamplingFilter, const nsRect& aDest,
     const nsRect& aFill, const nsPoint& aAnchor, const nsRect& aDirty,
     uint32_t aImageFlags, float aOpacity) {
-  Maybe<SVGImageContext> svgContext;
+  SVGImageContext svgContext;
   SVGImageContext::MaybeStoreContextPaint(svgContext, *aPresContext,
                                           *aComputedStyle, aImage);
 
@@ -7123,8 +7117,7 @@ SurfaceFromElementResult nsLayoutUtils::SurfaceFromOffscreenCanvas(
     // empty surface.
     result.mAlphaType = gfxAlphaType::Opaque;
     RefPtr<DrawTarget> ref =
-        aTarget ? aTarget
-                : gfxPlatform::GetPlatform()->ScreenReferenceDrawTarget();
+        aTarget ? aTarget : gfxPlatform::ThreadLocalScreenReferenceDrawTarget();
     if (ref->CanCreateSimilarDrawTarget(size, SurfaceFormat::B8G8R8A8)) {
       RefPtr<DrawTarget> dt =
           ref->CreateSimilarDrawTarget(size, SurfaceFormat::B8G8R8A8);

@@ -158,6 +158,7 @@ const AVAILABLE_SHIMS = [
         patterns: ["*://static.adsafeprotected.com/favicon.ico"],
         target: "https://redirect.firefox.etp/adsafeprotected_favicon",
         types: ["image", "imageset", "xmlhttprequest"],
+        onlyIfBlockedByETP: true,
       },
       {
         patterns: ["https://redirect.firefox.etp/adsafeprotected_favicon"],
@@ -165,7 +166,6 @@ const AVAILABLE_SHIMS = [
         types: ["image", "imageset", "xmlhttprequest"],
       },
     ],
-    onlyIfBlockedByETP: true,
   },
   {
     id: "AdSafeProtectedGoogleIMAAdapter",
@@ -415,6 +415,8 @@ const AVAILABLE_SHIMS = [
     file: "google-publisher-tags.js",
     matches: [
       "*://www.googletagservices.com/tag/js/gpt.js*",
+      "*://pagead2.googlesyndication.com/tag/js/gpt.js*",
+      "*://pagead2.googlesyndication.com/gpt/pubads_impl_*.js*",
       "*://securepubads.g.doubleclick.net/tag/js/gpt.js*",
       "*://securepubads.g.doubleclick.net/gpt/pubads_impl_*.js*",
     ],
@@ -576,6 +578,7 @@ const AVAILABLE_SHIMS = [
         ],
         target: "https://redirect.firefox.etp/stickadstv",
         types: ["image", "imageset", "xmlhttprequest"],
+        onlyIfBlockedByETP: true,
       },
       {
         patterns: ["https://redirect.firefox.etp/stickadstv"],
@@ -583,7 +586,6 @@ const AVAILABLE_SHIMS = [
         types: ["image", "imageset", "xmlhttprequest"],
       },
     ],
-    onlyIfBlockedByETP: true,
   },
   {
     id: "Vidible",
@@ -660,6 +662,7 @@ const AVAILABLE_SHIMS = [
     requestStorageAccessForRedirect: [
       ["*://web.powerva.microsoft.com/*", "*://login.microsoftonline.com/*"],
       ["*://teams.microsoft.com/*", "*://login.microsoftonline.com/*"],
+      ["*://*.teams.microsoft.us/*", "*://login.microsoftonline.us/*"],
     ],
     contentScripts: [
       {
@@ -667,6 +670,7 @@ const AVAILABLE_SHIMS = [
         matches: [
           "*://web.powerva.microsoft.com/*",
           "*://teams.microsoft.com/*",
+          "*://*.teams.microsoft.us/*",
         ],
         runAt: "document_start",
       },

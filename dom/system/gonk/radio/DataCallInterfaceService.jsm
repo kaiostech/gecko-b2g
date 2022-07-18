@@ -8,8 +8,6 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const DATACALLINTERFACE_CID = Components.ID(
   "{ff669306-4390-462a-989b-ba37fc42153f}"
 );

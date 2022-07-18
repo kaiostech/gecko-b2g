@@ -1288,6 +1288,10 @@ static bool ShouldMatchFocusVisible(nsPIDOMWindowOuter* aWindow,
     return true;
   }
 
+  if (aFocusFlags & nsIFocusManager::FLAG_NOSHOWRING) {
+    return false;
+  }
+
   if (aWindow->ShouldShowFocusRing()) {
     // The window decision also trumps any other heuristic.
     return true;
@@ -1307,10 +1311,6 @@ static bool ShouldMatchFocusVisible(nsPIDOMWindowOuter* aWindow,
         return true;
       }
     }
-  }
-
-  if (aFocusFlags & nsIFocusManager::FLAG_NOSHOWRING) {
-    return false;
   }
 
   switch (nsFocusManager::GetFocusMoveActionCause(aFocusFlags)) {
@@ -3794,8 +3794,8 @@ uint32_t nsFocusManager::ProgrammaticFocusFlags(const FocusOptions& aOptions) {
   if (aOptions.mPreventScroll) {
     flags |= FLAG_NOSCROLL;
   }
-  if (aOptions.mPreventFocusRing) {
-    flags |= FLAG_NOSHOWRING;
+  if (aOptions.mFocusVisible.WasPassed()) {
+    flags |= aOptions.mFocusVisible.Value() ? FLAG_SHOWRING : FLAG_NOSHOWRING;
   }
   if (UserActivation::IsHandlingKeyboardInput()) {
     flags |= FLAG_BYKEY;

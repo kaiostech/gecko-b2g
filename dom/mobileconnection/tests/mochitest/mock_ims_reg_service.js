@@ -11,7 +11,6 @@
 const {interfaces: Ci, utils: Cu, results: Cr, manager: Cm} = Components;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
 
 const IMSREGSERVICE_CONTRACTID = "@mozilla.org/mobileconnection/imsregservice;1";
 const IMSREGSERVICE_CID = Components.ID("{80297610-34fa-11e5-b68f-1365a9172f05}");

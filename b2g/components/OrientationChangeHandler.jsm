@@ -6,7 +6,6 @@
 
 const EXPORTED_SYMBOLS = [];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const window = Services.wm.getMostRecentWindow("navigator:browser");
 
 const OrientationChangeHandler = {

@@ -83,9 +83,6 @@ namespace js {
 
 class AutoAssertNoContentJS;
 class EnterDebuggeeNoExecute;
-#ifdef JS_TRACE_LOGGING
-class TraceLoggerThread;
-#endif
 
 }  // namespace js
 
@@ -977,6 +974,15 @@ struct JSRuntime {
   // of all instances registered in all JS::Realms. Accessed from watchdog
   // threads for purposes of wasm::InterruptRunningCode().
   js::ExclusiveData<js::wasm::InstanceVector> wasmInstances;
+
+  // A counter used when recording the order in which modules had their
+  // AsyncEvaluating field set to true. This is used to order queued
+  // evaluations. This is reset when the last module that was async evaluating
+  // is finished.
+  //
+  // See https://tc39.es/ecma262/#sec-async-module-execution-fulfilled step 10
+  // for use.
+  js::MainThreadData<uint32_t> moduleAsyncEvaluatingPostOrder;
 
   // The implementation-defined abstract operation HostResolveImportedModule.
   js::MainThreadData<JS::ModuleResolveHook> moduleResolveHook;

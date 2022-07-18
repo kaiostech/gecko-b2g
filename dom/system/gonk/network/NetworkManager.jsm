@@ -10,7 +10,6 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { BinderServices } = ChromeUtils.import(
   "resource://gre/modules/BinderServices.jsm"
 );

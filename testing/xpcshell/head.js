@@ -41,9 +41,7 @@ var _XPCSHELL_PROCESS;
 
 // Register the testing-common resource protocol early, to have access to its
 // modules.
-let { Services: _Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
+let _Services = Services;
 _register_modules_protocol_handler();
 
 let { AppConstants: _AppConstants } = ChromeUtils.import(
@@ -58,8 +56,8 @@ let { NetUtil: _NetUtil } = ChromeUtils.import(
   "resource://gre/modules/NetUtil.jsm"
 );
 
-let { XPCOMUtils: _XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+let { XPCOMUtils: _XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 let { OS: _OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");

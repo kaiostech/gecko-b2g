@@ -6,8 +6,6 @@
 
 var EXPORTED_SYMBOLS = ["SelectionActionParent"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 class SelectionActionParent extends JSWindowActorParent {
   receiveMessage(message) {
     switch (message.name) {

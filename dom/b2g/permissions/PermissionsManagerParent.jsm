@@ -10,7 +10,6 @@ function debug(s) {
 
 const EXPORTED_SYMBOLS = ["PermissionsManagerParent"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { PermissionsTable, permissionsReverseTable } = ChromeUtils.import(
   "resource://gre/modules/PermissionsTable.jsm"
 );

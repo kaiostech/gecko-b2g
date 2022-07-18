@@ -23,8 +23,6 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 ChromeUtils.import("resource://gre/modules/systemlibs.js");
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );

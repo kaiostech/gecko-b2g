@@ -3,10 +3,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+var { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 var { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
@@ -1929,7 +1928,6 @@ var gBrowserInit = {
     Services.obs.addObserver(gKeywordURIFixup, "keyword-uri-fixup");
 
     BrowserOffline.init();
-    IndexedDBPromptHelper.init();
     CanvasPermissionPromptHelper.init();
     WebAuthnPromptHelper.init();
 
@@ -2593,7 +2591,6 @@ var gBrowserInit = {
         MenuTouchModeObserver.uninit();
       }
       BrowserOffline.uninit();
-      IndexedDBPromptHelper.uninit();
       CanvasPermissionPromptHelper.uninit();
       WebAuthnPromptHelper.uninit();
       PanelUI.uninit();
@@ -6496,7 +6493,7 @@ function showFullScreenViewContextMenuItems(popup) {
   }
   let autoHide = popup.querySelector(".fullscreen-context-autohide");
   if (autoHide) {
-    FullScreen.getAutohide(autoHide);
+    FullScreen.updateAutohideMenuitem(autoHide);
   }
 }
 
@@ -7707,88 +7704,6 @@ var BrowserOffline = {
     }
 
     this._uiElement.setAttribute("checked", aOffline);
-  },
-};
-
-var IndexedDBPromptHelper = {
-  _permissionsPrompt: "indexedDB-permissions-prompt",
-  _permissionsResponse: "indexedDB-permissions-response",
-
-  _notificationIcon: "indexedDB-notification-icon",
-
-  init: function IndexedDBPromptHelper_init() {
-    Services.obs.addObserver(this, this._permissionsPrompt);
-  },
-
-  uninit: function IndexedDBPromptHelper_uninit() {
-    Services.obs.removeObserver(this, this._permissionsPrompt);
-  },
-
-  observe: function IndexedDBPromptHelper_observe(subject, topic, data) {
-    if (topic != this._permissionsPrompt) {
-      throw new Error("Unexpected topic!");
-    }
-
-    var request = subject.QueryInterface(Ci.nsIIDBPermissionsRequest);
-
-    var browser = request.browserElement;
-    if (browser.ownerGlobal != window) {
-      // Only listen for notifications for browsers in our chrome window.
-      return;
-    }
-
-    // Get the host name if available or the file path otherwise.
-    var host = browser.currentURI.asciiHost || browser.currentURI.pathQueryRef;
-
-    var message;
-    var responseTopic;
-    if (topic == this._permissionsPrompt) {
-      message = gNavigatorBundle.getFormattedString("offlineApps.available3", [
-        host,
-      ]);
-      responseTopic = this._permissionsResponse;
-    }
-
-    var observer = request.responseObserver;
-
-    var mainAction = {
-      label: gNavigatorBundle.getString("offlineApps.allow.label"),
-      accessKey: gNavigatorBundle.getString("offlineApps.allow.accesskey"),
-      callback() {
-        observer.observe(
-          null,
-          responseTopic,
-          Ci.nsIPermissionManager.ALLOW_ACTION
-        );
-      },
-    };
-
-    var secondaryActions = [
-      {
-        label: gNavigatorBundle.getString("offlineApps.block.label"),
-        accessKey: gNavigatorBundle.getString("offlineApps.block.accesskey"),
-        callback() {
-          observer.observe(
-            null,
-            responseTopic,
-            Ci.nsIPermissionManager.DENY_ACTION
-          );
-        },
-      },
-    ];
-
-    PopupNotifications.show(
-      browser,
-      topic,
-      message,
-      this._notificationIcon,
-      mainAction,
-      secondaryActions,
-      {
-        persistent: true,
-        hideClose: true,
-      }
-    );
   },
 };
 

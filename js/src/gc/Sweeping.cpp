@@ -37,7 +37,6 @@
 #include "proxy/DeadObjectProxy.h"
 #include "vm/HelperThreads.h"
 #include "vm/JSContext.h"
-#include "vm/TraceLogging.h"
 #include "vm/WrapperObject.h"
 
 #include "gc/PrivateIterators-inl.h"
@@ -399,9 +398,6 @@ BackgroundSweepTask::BackgroundSweepTask(GCRuntime* gc)
     : GCParallelTask(gc, gcstats::PhaseKind::SWEEP, GCUse::Finalizing) {}
 
 void BackgroundSweepTask::run(AutoLockHelperThreadState& lock) {
-  AutoTraceLog logSweeping(TraceLoggerForCurrentThread(),
-                           TraceLogger_GCSweeping);
-
   gc->sweepFromBackgroundThread(lock);
 }
 
@@ -439,8 +435,6 @@ BackgroundFreeTask::BackgroundFreeTask(GCRuntime* gc)
 }
 
 void BackgroundFreeTask::run(AutoLockHelperThreadState& lock) {
-  AutoTraceLog logFreeing(TraceLoggerForCurrentThread(), TraceLogger_GCFree);
-
   gc->freeFromBackgroundThread(lock);
 }
 

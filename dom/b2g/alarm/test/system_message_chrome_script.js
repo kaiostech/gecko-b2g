@@ -4,8 +4,6 @@
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const systemMessenger = Cc["@mozilla.org/system-message-internal;1"].getService(
   Ci.nsISystemMessagesInternal
 );

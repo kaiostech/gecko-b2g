@@ -40,12 +40,9 @@ var EXPORTED_SYMBOLS = [
  * to run in the same process of the existing addon debugging browser element).
  */
 
-console.log(`ext-Extension.jsm loaded`);
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
@@ -527,7 +524,6 @@ var ExtensionAddonObserver = {
         principal,
         "WebExtensions-unlimitedStorage"
       );
-      Services.perms.removeFromPrincipal(principal, "indexedDB");
       Services.perms.removeFromPrincipal(principal, "persistent-storage");
     }
 
@@ -2887,11 +2883,6 @@ class Extension extends ExtensionData {
       );
       Services.perms.addFromPrincipal(
         principal,
-        "indexedDB",
-        Services.perms.ALLOW_ACTION
-      );
-      Services.perms.addFromPrincipal(
-        principal,
         "persistent-storage",
         Services.perms.ALLOW_ACTION
       );
@@ -2909,14 +2900,12 @@ class Extension extends ExtensionData {
           principal,
           "WebExtensions-unlimitedStorage"
         );
-        Services.perms.removeFromPrincipal(principal, "indexedDB");
         Services.perms.removeFromPrincipal(principal, "persistent-storage");
       }
     } else if (
       reason === "APP_STARTUP" &&
       this.hasPermission("unlimitedStorage") &&
-      (testPermission("indexedDB") !== Services.perms.ALLOW_ACTION ||
-        testPermission("persistent-storage") !== Services.perms.ALLOW_ACTION)
+      testPermission("persistent-storage") !== Services.perms.ALLOW_ACTION
     ) {
       // If the extension does have the unlimitedStorage permission, but the
       // expected site permissions are missing during the app startup, then

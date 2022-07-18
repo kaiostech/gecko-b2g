@@ -11,7 +11,6 @@ const EXPORTED_SYMBOLS = ["WifiWorker"];
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const { libcutils, netHelpers } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"

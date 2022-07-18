@@ -4341,29 +4341,6 @@ void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
       LAYOUT_TELEMETRY_RECORD_BASE(Restyle);
 
       mPresContext->RestyleManager()->ProcessPendingRestyles();
-    }
-
-    // Now those constructors or events might have posted restyle
-    // events.  At the same time, we still need up-to-date style data.
-    // In particular, reflow depends on style being completely up to
-    // date.  If it's not, then style reparenting, which can
-    // happen during reflow, might suddenly pick up the new rules and
-    // we'll end up with frames whose style doesn't match the frame
-    // type.
-    if (MOZ_LIKELY(!mIsDestroying)) {
-      nsAutoScriptBlocker scriptBlocker;
-      Maybe<uint64_t> innerWindowID;
-      if (auto* window = mDocument->GetInnerWindow()) {
-        innerWindowID = Some(window->WindowID());
-      }
-      AutoProfilerStyleMarker tracingStyleFlush(std::move(mStyleCause),
-                                                innerWindowID);
-      PerfStats::AutoMetricRecording<PerfStats::Metric::Styling> autoRecording;
-      LAYOUT_TELEMETRY_RECORD_BASE(Restyle);
-
-      mPresContext->RestyleManager()->ProcessPendingRestyles();
-      // Clear mNeedStyleFlush here agagin to make this flag work properly for
-      // optimization since the flag might have set in ProcessPendingRestyles().
       mNeedStyleFlush = false;
     }
 
@@ -5415,9 +5392,9 @@ bool PresShell::IsTransparentContainerElement() const {
     if (BrowsingContext* bc = pc->Document()->GetBrowsingContext()) {
       switch (bc->GetEmbedderColorScheme()) {
         case dom::PrefersColorSchemeOverride::Light:
-          return DefaultBackgroundColorScheme() == ColorScheme::Light;
+          return pc->DefaultBackgroundColorScheme() == ColorScheme::Light;
         case dom::PrefersColorSchemeOverride::Dark:
-          return DefaultBackgroundColorScheme() == ColorScheme::Dark;
+          return pc->DefaultBackgroundColorScheme() == ColorScheme::Dark;
         case dom::PrefersColorSchemeOverride::None:
         case dom::PrefersColorSchemeOverride::EndGuard_:
           break;
@@ -5447,34 +5424,11 @@ bool PresShell::IsTransparentContainerElement() const {
   return false;
 }
 
-ColorScheme PresShell::DefaultBackgroundColorScheme() const {
-  Document* doc = GetDocument();
-  // Use a dark background for top-level about:blank that is inaccessible to
-  // content JS.
-  {
-    BrowsingContext* bc = doc->GetBrowsingContext();
-    if (bc && bc->IsTop() && !bc->HasOpener() && doc->GetDocumentURI() &&
-        NS_IsAboutBlank(doc->GetDocumentURI())) {
-      return doc->PreferredColorScheme(Document::IgnoreRFP::Yes);
-    }
-  }
-  // Prefer the root color-scheme (since generally the default canvas
-  // background comes from the root element's background-color), and fall back
-  // to the default color-scheme if not available.
-  if (auto* frame = mFrameConstructor->GetRootElementStyleFrame()) {
-    return LookAndFeel::ColorSchemeForFrame(frame);
-  }
-  return doc->DefaultColorScheme();
-}
-
 nscolor PresShell::GetDefaultBackgroundColorToDraw() const {
-  if (!mPresContext || !mPresContext->GetBackgroundColorDraw()) {
+  if (!mPresContext) {
     return NS_RGB(255, 255, 255);
   }
-
-  return mPresContext->PrefSheetPrefs()
-      .ColorsFor(DefaultBackgroundColorScheme())
-      .mDefaultBackground;
+  return mPresContext->DefaultBackgroundColor();
 }
 
 void PresShell::UpdateCanvasBackground() {

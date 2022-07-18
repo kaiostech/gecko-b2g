@@ -103,6 +103,7 @@ const char* const XPCJSRuntime::mStrings[] = {
     "Ci",               // IDX_CI
     "Cr",               // IDX_CR
     "Cu",               // IDX_CU
+    "Services",         // IDX_SERVICES
     "wrappedJSObject",  // IDX_WRAPPED_JSOBJECT
     "prototype",        // IDX_PROTOTYPE
     "eval",             // IDX_EVAL
@@ -1949,10 +1950,6 @@ void ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats& rtStats,
                 rtStats.runtime.scriptData,
                 "The table holding script data shared in the runtime.");
 
-  RREPORT_BYTES(rtPath + "runtime/tracelogger"_ns, KIND_HEAP,
-                rtStats.runtime.tracelogger,
-                "The memory used for the tracelogger (per-runtime).");
-
   nsCString nonNotablePath =
       rtPath +
       nsPrintfCString(
@@ -2532,12 +2529,6 @@ void JSReporter::CollectReports(WindowPaths* windowPaths,
 
   REPORT_BYTES("explicit/xpconnect/js-module-loader"_ns, KIND_HEAP,
                jsModuleLoaderSize, "XPConnect's JS module loader.");
-
-  // Report tracelogger (global).
-
-  REPORT_BYTES(
-      "explicit/js-non-window/tracelogger"_ns, KIND_HEAP, gStats.tracelogger,
-      "The memory used for the tracelogger, including the graph and events.");
 
   // Report HelperThreadState.
 

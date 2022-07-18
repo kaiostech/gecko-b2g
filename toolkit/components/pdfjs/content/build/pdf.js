@@ -1361,7 +1361,7 @@ async function _fetchDocument(worker, source, pdfDataRangeTransport, docId) {
 
   const workerId = await worker.messageHandler.sendWithPromise("GetDocRequest", {
     docId,
-    apiVersion: '2.15.224',
+    apiVersion: '2.15.259',
     source: {
       data: source.data,
       url: source.url,
@@ -3394,9 +3394,9 @@ class InternalRenderTask {
 
 }
 
-const version = '2.15.224';
+const version = '2.15.259';
 exports.version = version;
-const build = 'bde46632d';
+const build = '41b2f52f7';
 exports.build = build;
 
 /***/ }),
@@ -3509,7 +3509,11 @@ class AnnotationStorage {
     const clone = new Map();
 
     for (const [key, val] of this._storage) {
-      clone.set(key, val instanceof _editor.AnnotationEditor ? val.serialize() : val);
+      const serialized = val instanceof _editor.AnnotationEditor ? val.serialize() : val;
+
+      if (serialized) {
+        clone.set(key, serialized);
+      }
     }
 
     return clone;
@@ -3564,9 +3568,9 @@ Object.defineProperty(exports, "__esModule", ({
 }));
 exports.AnnotationEditor = void 0;
 
-var _tools = __w_pdfjs_require__(7);
-
 var _util = __w_pdfjs_require__(1);
+
+var _tools = __w_pdfjs_require__(7);
 
 class AnnotationEditor {
   #isInEditMode = false;
@@ -3619,7 +3623,10 @@ class AnnotationEditor {
 
     event.preventDefault();
     this.commitOrRemove();
-    this.parent.setActiveEditor(null);
+
+    if (!target?.id?.startsWith(_util.AnnotationEditorPrefix)) {
+      this.parent.setActiveEditor(null);
+    }
   }
 
   commitOrRemove() {
@@ -4128,11 +4135,6 @@ class AnnotationEditorUIManager {
     }
 
     this.#allLayers.clear();
-
-    for (const editor of this.#allEditors.values()) {
-      editor.destroy();
-    }
-
     this.#allEditors.clear();
     this.#activeEditor = null;
     this.#clipboardManager.destroy();
@@ -4388,7 +4390,9 @@ class AnnotationEditorUIManager {
 
       cmd = () => {
         for (const editor of editors) {
-          editor.remove();
+          if (!editor.isEmpty()) {
+            editor.remove();
+          }
         }
       };
 
@@ -10343,11 +10347,11 @@ var _ink = __w_pdfjs_require__(23);
 
 class AnnotationEditorLayer {
   #boundClick;
-  #boundMouseover;
   #editors = new Map();
+  #isCleaningUp = false;
   #uiManager;
   static _initialized = false;
-  static _keyboardManager = new _tools.KeyboardManager([[["ctrl+a", "mac+meta+a"], AnnotationEditorLayer.prototype.selectAll], [["ctrl+c", "mac+meta+c"], AnnotationEditorLayer.prototype.copy], [["ctrl+v", "mac+meta+v"], AnnotationEditorLayer.prototype.paste], [["ctrl+x", "mac+meta+x"], AnnotationEditorLayer.prototype.cut], [["ctrl+z", "mac+meta+z"], AnnotationEditorLayer.prototype.undo], [["ctrl+y", "ctrl+shift+Z", "mac+meta+shift+Z"], AnnotationEditorLayer.prototype.redo], [["ctrl+Backspace", "mac+Backspace", "mac+ctrl+Backspace", "mac+alt+Backspace"], AnnotationEditorLayer.prototype.delete]]);
+  static _keyboardManager = new _tools.KeyboardManager([[["ctrl+a", "mac+meta+a"], AnnotationEditorLayer.prototype.selectAll], [["ctrl+c", "mac+meta+c"], AnnotationEditorLayer.prototype.copy], [["ctrl+v", "mac+meta+v"], AnnotationEditorLayer.prototype.paste], [["ctrl+x", "mac+meta+x"], AnnotationEditorLayer.prototype.cut], [["ctrl+z", "mac+meta+z"], AnnotationEditorLayer.prototype.undo], [["ctrl+y", "ctrl+shift+Z", "mac+meta+shift+Z"], AnnotationEditorLayer.prototype.redo], [["Backspace", "alt+Backspace", "ctrl+Backspace", "shift+Backspace", "mac+Backspace", "mac+alt+Backspace", "mac+ctrl+Backspace", "Delete", "ctrl+Delete", "shift+Delete"], AnnotationEditorLayer.prototype.delete]]);
 
   constructor(options) {
     if (!AnnotationEditorLayer._initialized) {
@@ -10363,7 +10367,6 @@ class AnnotationEditorLayer {
     this.pageIndex = options.pageIndex;
     this.div = options.div;
     this.#boundClick = this.click.bind(this);
-    this.#boundMouseover = this.mouseover.bind(this);
 
     for (const editor of this.#uiManager.getEditors(options.pageIndex)) {
       this.add(editor);
@@ -10376,35 +10379,39 @@ class AnnotationEditorLayer {
     this.#uiManager.updateToolbar(mode);
   }
 
-  updateMode(mode) {
-    switch (mode) {
-      case _util.AnnotationEditorType.INK:
-        this.div.addEventListener("mouseover", this.#boundMouseover);
-        this.div.removeEventListener("click", this.#boundClick);
-        break;
+  updateMode(mode = this.#uiManager.getMode()) {
+    this.#cleanup();
 
-      case _util.AnnotationEditorType.FREETEXT:
-        this.div.removeEventListener("mouseover", this.#boundMouseover);
-        this.div.addEventListener("click", this.#boundClick);
-        break;
-
-      default:
-        this.div.removeEventListener("mouseover", this.#boundMouseover);
-        this.div.removeEventListener("click", this.#boundClick);
+    if (mode === _util.AnnotationEditorType.INK) {
+      this.addInkEditorIfNeeded(false);
     }
 
     this.setActiveEditor(null);
   }
 
-  setEditingState(isEditing) {
-    this.#uiManager.setEditingState(isEditing);
+  addInkEditorIfNeeded(isCommitting) {
+    if (!isCommitting && this.#uiManager.getMode() !== _util.AnnotationEditorType.INK) {
+      return;
+    }
+
+    if (!isCommitting) {
+      for (const editor of this.#editors.values()) {
+        if (editor.isEmpty()) {
+          editor.setInBackground();
+          return;
+        }
+      }
+    }
+
+    const editor = this.#createAndAddNewEditor({
+      offsetX: 0,
+      offsetY: 0
+    });
+    editor.setInBackground();
   }
 
-  mouseover(event) {
-    if (event.target === this.div && event.buttons === 0 && !this.#uiManager.hasActive()) {
-      const editor = this.#createAndAddNewEditor(event);
-      editor.setInBackground();
-    }
+  setEditingState(isEditing) {
+    this.#uiManager.setEditingState(isEditing);
   }
 
   addCommands(params) {
@@ -10464,11 +10471,12 @@ class AnnotationEditorLayer {
       currentActive.commitOrRemove();
     }
 
+    this.#uiManager.allowClick = this.#uiManager.getMode() === _util.AnnotationEditorType.INK;
+
     if (editor) {
       this.unselectAll();
       this.div.removeEventListener("click", this.#boundClick);
     } else {
-      this.#uiManager.allowClick = this.#uiManager.getMode() === _util.AnnotationEditorType.INK;
       this.div.addEventListener("click", this.#boundClick);
     }
   }
@@ -10491,6 +10499,10 @@ class AnnotationEditorLayer {
     if (this.#uiManager.isActive(editor) || this.#editors.size === 0) {
       this.setActiveEditor(null);
       this.#uiManager.allowClick = true;
+    }
+
+    if (!this.#isCleaningUp) {
+      this.addInkEditorIfNeeded(false);
     }
   }
 
@@ -10649,17 +10661,31 @@ class AnnotationEditorLayer {
     this.#uiManager.removeLayer(this);
   }
 
+  #cleanup() {
+    this.#isCleaningUp = true;
+
+    for (const editor of this.#editors.values()) {
+      if (editor.isEmpty()) {
+        editor.remove();
+      }
+    }
+
+    this.#isCleaningUp = false;
+  }
+
   render(parameters) {
     this.viewport = parameters.viewport;
     (0, _tools.bindEvents)(this, this.div, ["dragover", "drop", "keydown"]);
     this.div.addEventListener("click", this.#boundClick);
     this.setDimensions();
+    this.updateMode();
   }
 
   update(parameters) {
     this.setActiveEditor(null);
     this.viewport = parameters.viewport;
     this.setDimensions();
+    this.updateMode();
   }
 
   get scaleFactor() {
@@ -10976,6 +11002,10 @@ class FreeTextEditor extends _editor.AnnotationEditor {
   }
 
   serialize() {
+    if (this.isEmpty()) {
+      return null;
+    }
+
     const padding = FreeTextEditor._internalPadding * this.parent.scaleFactor;
     const rect = this.getRect(padding, padding);
 
@@ -11006,12 +11036,20 @@ Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
 exports.InkEditor = void 0;
+Object.defineProperty(exports, "fitCurve", ({
+  enumerable: true,
+  get: function () {
+    return _pdfjsFitCurve.fitCurve;
+  }
+}));
 
 var _util = __w_pdfjs_require__(1);
 
 var _editor = __w_pdfjs_require__(6);
 
-var _fit_curve = __w_pdfjs_require__(24);
+var _pdfjsFitCurve = __w_pdfjs_require__(24);
+
+const RESIZER_SIZE = 16;
 
 class InkEditor extends _editor.AnnotationEditor {
   #aspectRatio = 0;
@@ -11022,6 +11060,7 @@ class InkEditor extends _editor.AnnotationEditor {
   #boundCanvasMouseup;
   #boundCanvasMousedown;
   #disableEditing = false;
+  #isCanvasInitialized = false;
   #observer = null;
   #realWidth = 0;
   #realHeight = 0;
@@ -11032,8 +11071,8 @@ class InkEditor extends _editor.AnnotationEditor {
     super({ ...params,
       name: "inkEditor"
     });
-    this.color = params.color || InkEditor._defaultColor || _editor.AnnotationEditor._defaultLineColor;
-    this.thickness = params.thickness || InkEditor._defaultThickness;
+    this.color = params.color || null;
+    this.thickness = params.thickness || null;
     this.paths = [];
     this.bezierPath2D = [];
     this.currentPath = [];
@@ -11181,7 +11220,6 @@ class InkEditor extends _editor.AnnotationEditor {
     }
 
     super.enableEditMode();
-    this.canvas.style.cursor = "pointer";
     this.div.draggable = false;
     this.canvas.addEventListener("mousedown", this.#boundCanvasMousedown);
     this.canvas.addEventListener("mouseup", this.#boundCanvasMouseup);
@@ -11193,7 +11231,6 @@ class InkEditor extends _editor.AnnotationEditor {
     }
 
     super.disableEditMode();
-    this.canvas.style.cursor = "auto";
     this.div.draggable = !this.isEmpty();
     this.div.classList.remove("editing");
     this.canvas.removeEventListener("mousedown", this.#boundCanvasMousedown);
@@ -11202,7 +11239,6 @@ class InkEditor extends _editor.AnnotationEditor {
 
   onceAdded() {
     this.div.draggable = !this.isEmpty();
-    this.div.focus();
   }
 
   isEmpty() {
@@ -11240,6 +11276,13 @@ class InkEditor extends _editor.AnnotationEditor {
   }
 
   #startDrawing(x, y) {
+    if (!this.#isCanvasInitialized) {
+      this.#isCanvasInitialized = true;
+      this.#setCanvasDims();
+      this.thickness ||= InkEditor._defaultThickness;
+      this.color ||= InkEditor._defaultColor || _editor.AnnotationEditor._defaultLineColor;
+    }
+
     this.currentPath.push([x, y]);
     this.#setStroke();
     this.ctx.beginPath();
@@ -11259,7 +11302,7 @@ class InkEditor extends _editor.AnnotationEditor {
     let bezier;
 
     if (this.currentPath.length !== 2 || this.currentPath[0][0] !== x || this.currentPath[0][1] !== y) {
-      bezier = (0, _fit_curve.fitCurve)(this.currentPath, 30, null);
+      bezier = (0, _pdfjsFitCurve.fitCurve)(this.currentPath, 30, null);
     } else {
       const xy = [x, y];
       bezier = [[xy, xy.slice(), xy.slice(), xy]];
@@ -11330,6 +11373,7 @@ class InkEditor extends _editor.AnnotationEditor {
     this.#disableEditing = true;
     this.div.classList.add("disabled");
     this.#fitToContent();
+    this.parent.addInkEditorIfNeeded(true);
   }
 
   focusin() {
@@ -11379,6 +11423,7 @@ class InkEditor extends _editor.AnnotationEditor {
 
   #createCanvas() {
     this.canvas = document.createElement("canvas");
+    this.canvas.width = this.canvas.height = 0;
     this.canvas.className = "inkEditorCanvas";
     this.div.append(this.canvas);
     this.ctx = this.canvas.getContext("2d");
@@ -11408,19 +11453,22 @@ class InkEditor extends _editor.AnnotationEditor {
     }
 
     super.render();
-    this.div.classList.add("editing");
     const [x, y, w, h] = this.#getInitialBBox();
     this.setAt(x, y, 0, 0);
     this.setDims(w, h);
     this.#createCanvas();
 
     if (this.width) {
+      this.#isCanvasInitialized = true;
       const [parentWidth, parentHeight] = this.parent.viewportBaseDimensions;
       this.setAt(baseX * parentWidth, baseY * parentHeight, this.width * parentWidth, this.height * parentHeight);
       this.setDims(this.width * parentWidth, this.height * parentHeight);
       this.#setCanvasDims();
       this.#redraw();
       this.div.classList.add("disabled");
+    } else {
+      this.div.classList.add("editing");
+      this.enableEditMode();
     }
 
     this.#createObserver();
@@ -11428,6 +11476,10 @@ class InkEditor extends _editor.AnnotationEditor {
   }
 
   #setCanvasDims() {
+    if (!this.#isCanvasInitialized) {
+      return;
+    }
+
     const [parentWidth, parentHeight] = this.parent.viewportBaseDimensions;
     this.canvas.width = this.width * parentWidth;
     this.canvas.height = this.height * parentHeight;
@@ -11446,7 +11498,7 @@ class InkEditor extends _editor.AnnotationEditor {
     this.#realHeight = roundedHeight;
     this.canvas.style.visibility = "hidden";
 
-    if (this.#aspectRatio) {
+    if (this.#aspectRatio && Math.abs(this.#aspectRatio - width / height) > 1e-2) {
       height = Math.ceil(width / this.#aspectRatio);
       this.setDims(width, height);
     }
@@ -11607,17 +11659,35 @@ class InkEditor extends _editor.AnnotationEditor {
     this.width = width / parentWidth;
     this.height = height / parentHeight;
     this.#aspectRatio = width / height;
+    const {
+      style
+    } = this.div;
+
+    if (this.#aspectRatio >= 1) {
+      style.minHeight = `${RESIZER_SIZE}px`;
+      style.minWidth = `${Math.round(this.#aspectRatio * RESIZER_SIZE)}px`;
+    } else {
+      style.minWidth = `${RESIZER_SIZE}px`;
+      style.minHeight = `${Math.round(RESIZER_SIZE / this.#aspectRatio)}px`;
+    }
+
     const prevTranslationX = this.translationX;
     const prevTranslationY = this.translationY;
     this.translationX = -bbox[0];
     this.translationY = -bbox[1];
     this.#setCanvasDims();
     this.#redraw();
+    this.#realWidth = width;
+    this.#realHeight = height;
     this.setDims(width, height);
     this.translate(prevTranslationX - this.translationX, prevTranslationY - this.translationY);
   }
 
   serialize() {
+    if (this.isEmpty()) {
+      return null;
+    }
+
     const rect = this.getRect(0, 0);
     const height = this.rotation % 180 === 0 ? rect[3] - rect[1] : rect[2] - rect[0];
 
@@ -11640,14 +11710,24 @@ exports.InkEditor = InkEditor;
 
 /***/ }),
 /* 24 */
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __w_pdfjs_require__) => {
 
 
 
 Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
+exports.fitCurve = void 0;
+
+const fitCurve = __w_pdfjs_require__(25);
+
 exports.fitCurve = fitCurve;
+
+/***/ }),
+/* 25 */
+/***/ ((module) => {
+
+
 
 function fitCurve(points, maxError, progressCallback) {
   if (!Array.isArray(points)) {
@@ -11655,7 +11735,7 @@ function fitCurve(points, maxError, progressCallback) {
   }
 
   points.forEach(point => {
-    if (!Array.isArray(point) || point.some(item => typeof item !== "number") || point.length !== points[0].length) {
+    if (!Array.isArray(point) || point.some(item => typeof item !== 'number') || point.length !== points[0].length) {
       throw Error("Each point should be an array of numbers. Each point should have the same amount of numbers.");
     }
   });
@@ -11673,7 +11753,7 @@ function fitCurve(points, maxError, progressCallback) {
 
 function fitCubic(points, leftTangent, rightTangent, error, progressCallback) {
   const MaxIterations = 20;
-  let bezCurve, uPrime, maxError, prevErr, splitPoint, prevSplit, centerVector, beziers, dist, i;
+  var bezCurve, u, uPrime, maxError, prevErr, splitPoint, prevSplit, centerVector, toCenterTangent, fromCenterTangent, beziers, dist, i;
 
   if (points.length === 2) {
     dist = maths.vectorLen(maths.subtract(points[0], points[1])) / 3.0;
@@ -11681,7 +11761,7 @@ function fitCubic(points, leftTangent, rightTangent, error, progressCallback) {
     return [bezCurve];
   }
 
-  const u = chordLengthParameterize(points);
+  u = chordLengthParameterize(points);
   [bezCurve, maxError, splitPoint] = generateAndReport(points, u, u, leftTangent, rightTangent, progressCallback);
 
   if (maxError === 0 || maxError < error) {
@@ -11700,9 +11780,9 @@ function fitCubic(points, leftTangent, rightTangent, error, progressCallback) {
       if (maxError < error) {
         return [bezCurve];
       } else if (splitPoint === prevSplit) {
-        const errChange = maxError / prevErr;
+        let errChange = maxError / prevErr;
 
-        if (errChange > 0.9999 && errChange < 1.0001) {
+        if (errChange > .9999 && errChange < 1.0001) {
           break;
         }
       }
@@ -11720,21 +11800,24 @@ function fitCubic(points, leftTangent, rightTangent, error, progressCallback) {
     [centerVector[0], centerVector[1]] = [-centerVector[1], centerVector[0]];
   }
 
-  const toCenterTangent = maths.normalize(centerVector);
-  const fromCenterTangent = maths.mulItems(toCenterTangent, -1);
+  toCenterTangent = maths.normalize(centerVector);
+  fromCenterTangent = maths.mulItems(toCenterTangent, -1);
   beziers = beziers.concat(fitCubic(points.slice(0, splitPoint + 1), leftTangent, toCenterTangent, error, progressCallback));
   beziers = beziers.concat(fitCubic(points.slice(splitPoint), fromCenterTangent, rightTangent, error, progressCallback));
   return beziers;
 }
 
+;
+
 function generateAndReport(points, paramsOrig, paramsPrime, leftTangent, rightTangent, progressCallback) {
-  const bezCurve = generateBezier(points, paramsPrime, leftTangent, rightTangent);
-  const [maxError, splitPoint] = computeMaxError(points, bezCurve, paramsOrig);
+  var bezCurve, maxError, splitPoint;
+  bezCurve = generateBezier(points, paramsPrime, leftTangent, rightTangent, progressCallback);
+  [maxError, splitPoint] = computeMaxError(points, bezCurve, paramsOrig);
 
   if (progressCallback) {
     progressCallback({
       bez: bezCurve,
-      points,
+      points: points,
       params: paramsOrig,
       maxErr: maxError,
       maxPoint: splitPoint
@@ -11745,13 +11828,29 @@ function generateAndReport(points, paramsOrig, paramsPrime, leftTangent, rightTa
 }
 
 function generateBezier(points, parameters, leftTangent, rightTangent) {
-  let a, tmp, u, ux;
-  const firstPoint = points[0];
-  const lastPoint = points.at(-1);
-  const bezCurve = [firstPoint, null, null, lastPoint];
-  const A = maths.zeros_Xx2x2(parameters.length);
+  var bezCurve,
+      A,
+      a,
+      C,
+      X,
+      det_C0_C1,
+      det_C0_X,
+      det_X_C1,
+      alpha_l,
+      alpha_r,
+      epsilon,
+      segLength,
+      i,
+      len,
+      tmp,
+      u,
+      ux,
+      firstPoint = points[0],
+      lastPoint = points[points.length - 1];
+  bezCurve = [firstPoint, null, null, lastPoint];
+  A = maths.zeros_Xx2x2(parameters.length);
 
-  for (let i = 0, len = parameters.length; i < len; i++) {
+  for (i = 0, len = parameters.length; i < len; i++) {
     u = parameters[i];
     ux = 1 - u;
     a = A[i];
@@ -11759,10 +11858,10 @@ function generateBezier(points, parameters, leftTangent, rightTangent) {
     a[1] = maths.mulItems(rightTangent, 3 * ux * (u * u));
   }
 
-  const C = [[0, 0], [0, 0]];
-  const X = [0, 0];
+  C = [[0, 0], [0, 0]];
+  X = [0, 0];
 
-  for (let i = 0, len = points.length; i < len; i++) {
+  for (i = 0, len = points.length; i < len; i++) {
     u = parameters[i];
     a = A[i];
     C[0][0] += maths.dot(a[0], a[0]);
@@ -11774,13 +11873,13 @@ function generateBezier(points, parameters, leftTangent, rightTangent) {
     X[1] += maths.dot(a[1], tmp);
   }
 
-  const det_C0_C1 = C[0][0] * C[1][1] - C[1][0] * C[0][1];
-  const det_C0_X = C[0][0] * X[1] - C[1][0] * X[0];
-  const det_X_C1 = X[0] * C[1][1] - X[1] * C[0][1];
-  const alpha_l = det_C0_C1 === 0 ? 0 : det_X_C1 / det_C0_C1;
-  const alpha_r = det_C0_C1 === 0 ? 0 : det_C0_X / det_C0_C1;
-  const segLength = maths.vectorLen(maths.subtract(firstPoint, lastPoint));
-  const epsilon = 1.0e-6 * segLength;
+  det_C0_C1 = C[0][0] * C[1][1] - C[1][0] * C[0][1];
+  det_C0_X = C[0][0] * X[1] - C[1][0] * X[0];
+  det_X_C1 = X[0] * C[1][1] - X[1] * C[0][1];
+  alpha_l = det_C0_C1 === 0 ? 0 : det_X_C1 / det_C0_C1;
+  alpha_r = det_C0_C1 === 0 ? 0 : det_C0_X / det_C0_C1;
+  segLength = maths.vectorLen(maths.subtract(firstPoint, lastPoint));
+  epsilon = 1.0e-6 * segLength;
 
   if (alpha_l < epsilon || alpha_r < epsilon) {
     bezCurve[1] = maths.addArrays(firstPoint, maths.mulItems(leftTangent, segLength / 3.0));
@@ -11793,25 +11892,31 @@ function generateBezier(points, parameters, leftTangent, rightTangent) {
   return bezCurve;
 }
 
+;
+
 function reparameterize(bezier, points, parameters) {
   return parameters.map((p, i) => newtonRaphsonRootFind(bezier, points[i], p));
 }
 
+;
+
 function newtonRaphsonRootFind(bez, point, u) {
-  const d = maths.subtract(bezier.q(bez, u), point),
-        qprime = bezier.qprime(bez, u),
-        numerator = maths.mulMatrix(d, qprime),
-        denominator = maths.sum(maths.squareItems(qprime)) + 2 * maths.mulMatrix(d, bezier.qprimeprime(bez, u));
+  var d = maths.subtract(bezier.q(bez, u), point),
+      qprime = bezier.qprime(bez, u),
+      numerator = maths.mulMatrix(d, qprime),
+      denominator = maths.sum(maths.squareItems(qprime)) + 2 * maths.mulMatrix(d, bezier.qprimeprime(bez, u));
 
   if (denominator === 0) {
     return u;
+  } else {
+    return u - numerator / denominator;
   }
-
-  return u - numerator / denominator;
 }
 
+;
+
 function chordLengthParameterize(points) {
-  let u = [],
+  var u = [],
       currU,
       prevU,
       prevP;
@@ -11825,8 +11930,10 @@ function chordLengthParameterize(points) {
   return u;
 }
 
+;
+
 function computeMaxError(points, bez, parameters) {
-  let dist, maxDist, splitPoint, v, i, count, point, t;
+  var dist, maxDist, splitPoint, v, i, count, point, t;
   maxDist = 0;
   splitPoint = Math.floor(points.length / 2);
   const t_distMap = mapTtoRelativeDistances(bez, 10);
@@ -11846,13 +11953,15 @@ function computeMaxError(points, bez, parameters) {
   return [maxDist, splitPoint];
 }
 
-function mapTtoRelativeDistances(bez, B_parts) {
-  let B_t_curr;
-  let B_t_dist = [0];
-  let B_t_prev = bez[0];
-  let sumLen = 0;
+;
 
-  for (let i = 1; i <= B_parts; i++) {
+var mapTtoRelativeDistances = function (bez, B_parts) {
+  var B_t_curr;
+  var B_t_dist = [0];
+  var B_t_prev = bez[0];
+  var sumLen = 0;
+
+  for (var i = 1; i <= B_parts; i++) {
     B_t_curr = bezier.q(bez, i / B_parts);
     sumLen += maths.vectorLen(maths.subtract(B_t_curr, B_t_prev));
     B_t_dist.push(sumLen);
@@ -11861,7 +11970,7 @@ function mapTtoRelativeDistances(bez, B_parts) {
 
   B_t_dist = B_t_dist.map(x => x / sumLen);
   return B_t_dist;
-}
+};
 
 function find_t(bez, param, t_distMap, B_parts) {
   if (param < 0) {
@@ -11872,9 +11981,9 @@ function find_t(bez, param, t_distMap, B_parts) {
     return 1;
   }
 
-  let lenMax, lenMin, tMax, tMin, t;
+  var lenMax, lenMin, tMax, tMin, t;
 
-  for (let i = 1; i <= B_parts; i++) {
+  for (var i = 1; i <= B_parts; i++) {
     if (param <= t_distMap[i]) {
       tMin = (i - 1) / B_parts;
       tMax = i / B_parts;
@@ -11894,7 +12003,7 @@ function createTangent(pointA, pointB) {
 
 class maths {
   static zeros_Xx2x2(x) {
-    const zs = [];
+    var zs = [];
 
     while (x--) {
       zs.push([0, 0]);
@@ -11951,19 +12060,19 @@ class maths {
 
 class bezier {
   static q(ctrlPoly, t) {
-    const tx = 1.0 - t;
-    const pA = maths.mulItems(ctrlPoly[0], tx * tx * tx),
-          pB = maths.mulItems(ctrlPoly[1], 3 * tx * tx * t),
-          pC = maths.mulItems(ctrlPoly[2], 3 * tx * t * t),
-          pD = maths.mulItems(ctrlPoly[3], t * t * t);
+    var tx = 1.0 - t;
+    var pA = maths.mulItems(ctrlPoly[0], tx * tx * tx),
+        pB = maths.mulItems(ctrlPoly[1], 3 * tx * tx * t),
+        pC = maths.mulItems(ctrlPoly[2], 3 * tx * t * t),
+        pD = maths.mulItems(ctrlPoly[3], t * t * t);
     return maths.addArrays(maths.addArrays(pA, pB), maths.addArrays(pC, pD));
   }
 
   static qprime(ctrlPoly, t) {
-    const tx = 1.0 - t;
-    const pA = maths.mulItems(maths.subtract(ctrlPoly[1], ctrlPoly[0]), 3 * tx * tx),
-          pB = maths.mulItems(maths.subtract(ctrlPoly[2], ctrlPoly[1]), 6 * tx * t),
-          pC = maths.mulItems(maths.subtract(ctrlPoly[3], ctrlPoly[2]), 3 * t * t);
+    var tx = 1.0 - t;
+    var pA = maths.mulItems(maths.subtract(ctrlPoly[1], ctrlPoly[0]), 3 * tx * tx),
+        pB = maths.mulItems(maths.subtract(ctrlPoly[2], ctrlPoly[1]), 6 * tx * t),
+        pC = maths.mulItems(maths.subtract(ctrlPoly[3], ctrlPoly[2]), 3 * t * t);
     return maths.addArrays(maths.addArrays(pA, pB), pC);
   }
 
@@ -11973,8 +12082,12 @@ class bezier {
 
 }
 
+module.exports = fitCurve;
+module.exports.fitCubic = fitCubic;
+module.exports.createTangent = createTangent;
+
 /***/ }),
-/* 25 */
+/* 26 */
 /***/ ((__unused_webpack_module, exports, __w_pdfjs_require__) => {
 
 
@@ -11990,9 +12103,9 @@ var _display_utils = __w_pdfjs_require__(8);
 
 var _annotation_storage = __w_pdfjs_require__(5);
 
-var _scripting_utils = __w_pdfjs_require__(26);
+var _scripting_utils = __w_pdfjs_require__(27);
 
-var _xfa_layer = __w_pdfjs_require__(27);
+var _xfa_layer = __w_pdfjs_require__(28);
 
 const DEFAULT_TAB_INDEX = 1000;
 const DEFAULT_FONT_SIZE = 9;
@@ -13338,9 +13451,9 @@ class PushButtonWidgetAnnotationElement extends LinkAnnotationElement {
       container.title = this.data.alternativeText;
     }
 
-    if (this.enableScripting && this.hasJSActions) {
-      const linkElement = container.lastChild;
+    const linkElement = container.lastChild;
 
+    if (this.enableScripting && this.hasJSActions && linkElement) {
       this._setDefaultPropertiesFromJS(linkElement);
 
       linkElement.addEventListener("updatefromsandbox", jsEvent => {
@@ -14342,7 +14455,7 @@ class AnnotationLayer {
 exports.AnnotationLayer = AnnotationLayer;
 
 /***/ }),
-/* 26 */
+/* 27 */
 /***/ ((__unused_webpack_module, exports) => {
 
 
@@ -14411,7 +14524,7 @@ class ColorConverters {
 exports.ColorConverters = ColorConverters;
 
 /***/ }),
-/* 27 */
+/* 28 */
 /***/ ((__unused_webpack_module, exports, __w_pdfjs_require__) => {
 
 
@@ -14518,26 +14631,38 @@ class XfaLayer {
     }
 
     for (const [key, value] of Object.entries(attributes)) {
-      if (value === null || value === undefined || key === "dataId") {
+      if (value === null || value === undefined) {
         continue;
       }
 
-      if (key !== "style") {
-        if (key === "textContent") {
-          html.textContent = value;
-        } else if (key === "class") {
+      switch (key) {
+        case "class":
           if (value.length) {
             html.setAttribute(key, value.join(" "));
           }
-        } else {
-          if (isHTMLAnchorElement && (key === "href" || key === "newWindow")) {
-            continue;
+
+          break;
+
+        case "dataId":
+          break;
+
+        case "id":
+          html.setAttribute("data-element-id", value);
+          break;
+
+        case "style":
+          Object.assign(html.style, value);
+          break;
+
+        case "textContent":
+          html.textContent = value;
+          break;
+
+        default:
+          if (!isHTMLAnchorElement || key !== "href" && key !== "newWindow") {
+            html.setAttribute(key, value);
           }
 
-          html.setAttribute(key, value);
-        }
-      } else {
-        Object.assign(html.style, value);
       }
     }
 
@@ -14659,7 +14784,7 @@ class XfaLayer {
 exports.XfaLayer = XfaLayer;
 
 /***/ }),
-/* 28 */
+/* 29 */
 /***/ ((__unused_webpack_module, exports, __w_pdfjs_require__) => {
 
 
@@ -14671,6 +14796,8 @@ exports.TextLayerRenderTask = void 0;
 exports.renderTextLayer = renderTextLayer;
 
 var _util = __w_pdfjs_require__(1);
+
+var _display_utils = __w_pdfjs_require__(8);
 
 const MAX_TEXT_DIVS_TO_RENDER = 100000;
 const DEFAULT_FONT_SIZE = 30;
@@ -15160,6 +15287,10 @@ class TextLayerRenderTask {
     textContentItemsStr,
     enhanceTextSelection
   }) {
+    if (enhanceTextSelection) {
+      (0, _display_utils.deprecated)("The `enhanceTextSelection` functionality will be removed in the future.");
+    }
+
     this._textContent = textContent;
     this._textContentStream = textContentStream;
     this._container = container;
@@ -15443,7 +15574,7 @@ function renderTextLayer(renderParameters) {
 }
 
 /***/ }),
-/* 29 */
+/* 30 */
 /***/ ((__unused_webpack_module, exports, __w_pdfjs_require__) => {
 
 
@@ -15738,20 +15869,20 @@ var _annotation_editor_layer = __w_pdfjs_require__(21);
 
 var _tools = __w_pdfjs_require__(7);
 
-var _annotation_layer = __w_pdfjs_require__(25);
+var _annotation_layer = __w_pdfjs_require__(26);
 
 var _worker_options = __w_pdfjs_require__(15);
 
 var _is_node = __w_pdfjs_require__(3);
 
-var _text_layer = __w_pdfjs_require__(28);
+var _text_layer = __w_pdfjs_require__(29);
 
-var _svg = __w_pdfjs_require__(29);
+var _svg = __w_pdfjs_require__(30);
 
-var _xfa_layer = __w_pdfjs_require__(27);
+var _xfa_layer = __w_pdfjs_require__(28);
 
-const pdfjsVersion = '2.15.224';
-const pdfjsBuild = 'bde46632d';
+const pdfjsVersion = '2.15.259';
+const pdfjsBuild = '41b2f52f7';
 ;
 })();
 

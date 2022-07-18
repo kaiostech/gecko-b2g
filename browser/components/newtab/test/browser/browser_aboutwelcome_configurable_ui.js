@@ -107,8 +107,8 @@ add_task(async function test_aboutwelcome_with_url_backdrop() {
 
   let doExperimentCleanup = await ExperimentFakes.enrollWithFeatureConfig({
     featureId: "aboutwelcome",
-    enabled: true,
     value: {
+      enabled: true,
       backdrop: TEST_BACKDROP_VALUE,
       screens: [TEST_URL_BACKDROP_CONTENT],
     },
@@ -135,8 +135,8 @@ add_task(async function test_aboutwelcome_with_color_backdrop() {
 
   let doExperimentCleanup = await ExperimentFakes.enrollWithFeatureConfig({
     featureId: "aboutwelcome",
-    enabled: true,
     value: {
+      enabled: true,
       backdrop: TEST_BACKDROP_COLOR,
       screens: [TEST_BACKDROP_COLOR_CONTENT],
     },
@@ -234,8 +234,8 @@ add_task(async function test_aboutwelcome_with_text_color_override() {
 
   let doExperimentCleanup = await ExperimentFakes.enrollWithFeatureConfig({
     featureId: "aboutwelcome",
-    enabled: true,
     value: {
+      enabled: true,
       screens,
     },
   });
@@ -295,8 +295,8 @@ add_task(async function test_aboutwelcome_with_progress_bar() {
 
   let doExperimentCleanup = await ExperimentFakes.enrollWithFeatureConfig({
     featureId: "aboutwelcome",
-    enabled: true,
     value: {
+      enabled: true,
       screens,
     },
   });
@@ -415,8 +415,8 @@ add_task(async function test_aboutwelcome_split_position() {
     // Expected styles:
     {
       // Override default text-link styles
-      "background-color": "rgb(240, 240, 244)",
-      color: "rgb(0, 0, 0)",
+      "background-color": "rgb(43, 42, 51)",
+      color: "rgb(251, 251, 254)",
     }
   );
 });

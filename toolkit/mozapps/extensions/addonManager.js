@@ -10,8 +10,8 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 const lazy = {};
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -45,8 +45,6 @@ const MSG_INSTALL_EVENT = "WebAPIInstallEvent";
 const MSG_INSTALL_CLEANUP = "WebAPICleanup";
 const MSG_ADDON_EVENT_REQ = "WebAPIAddonEventRequest";
 const MSG_ADDON_EVENT = "WebAPIAddonEvent";
-
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var AddonManager, AddonManagerPrivate;
 function amManager() {

@@ -1826,7 +1826,7 @@ static bool HasTerminalNewline(const nsTextFrame* aFrame) {
 static gfxFont::Metrics GetFirstFontMetrics(gfxFontGroup* aFontGroup,
                                             bool aVerticalMetrics) {
   if (!aFontGroup) return gfxFont::Metrics();
-  gfxFont* font = aFontGroup->GetFirstValidFont();
+  RefPtr<gfxFont> font = aFontGroup->GetFirstValidFont();
   return font->GetMetrics(aVerticalMetrics ? nsFontMetrics::eVertical
                                            : nsFontMetrics::eHorizontal);
 }
@@ -4169,28 +4169,20 @@ void nsTextPaintStyle::InitCommonColors() {
     return;
   }
 
-  auto bgFrame = nsCSSRendering::FindNonTransparentBackgroundFrame(mFrame);
-  nscolor defaultBgColor = mPresContext->DefaultBackgroundColor();
-  nscolor bgColor = bgFrame.mFrame ? bgFrame.mFrame->GetVisitedDependentColor(
-                                         &nsStyleBackground::mBackgroundColor)
-                                   : defaultBgColor;
-
-  mFrameBackgroundColor = NS_ComposeColors(defaultBgColor, bgColor);
+  auto bgColor = nsCSSRendering::FindEffectiveBackgroundColor(mFrame);
+  mFrameBackgroundColor = bgColor.mColor;
 
   mSystemFieldForegroundColor =
       LookAndFeel::Color(LookAndFeel::ColorID::Fieldtext, mFrame);
   mSystemFieldBackgroundColor =
       LookAndFeel::Color(LookAndFeel::ColorID::Field, mFrame);
 
-  if (bgFrame.mIsThemed) {
+  if (bgColor.mIsThemed) {
     // Assume a native widget has sufficient contrast always
     mSufficientContrast = 0;
     mInitCommonColors = true;
     return;
   }
-
-  NS_ASSERTION(NS_GET_A(defaultBgColor) == 255,
-               "default background color is not opaque");
 
   nscolor defaultWindowBackgroundColor =
       LookAndFeel::Color(LookAndFeel::ColorID::Window, mFrame);
@@ -5654,10 +5646,11 @@ void nsTextFrame::UnionAdditionalOverflow(nsPresContext* aPresContext,
 
     bool useVerticalMetrics = verticalRun && mTextRun->UseCenterBaseline();
     nsFontMetrics* fontMetrics = aProvider.GetFontMetrics();
+    RefPtr<gfxFont> font =
+        fontMetrics->GetThebesFontGroup()->GetFirstValidFont();
     const gfxFont::Metrics& metrics =
-        fontMetrics->GetThebesFontGroup()->GetFirstValidFont()->GetMetrics(
-            useVerticalMetrics ? nsFontMetrics::eVertical
-                               : nsFontMetrics::eHorizontal);
+        font->GetMetrics(useVerticalMetrics ? nsFontMetrics::eVertical
+                                            : nsFontMetrics::eHorizontal);
 
     params.defaultLineThickness = metrics.underlineSize;
     params.lineSize.height = ComputeDecorationLineThickness(
@@ -6591,7 +6584,8 @@ void nsTextFrame::PaintTextSelectionDecorations(
     }
   }
 
-  gfxFont* firstFont = aParams.provider->GetFontGroup()->GetFirstValidFont();
+  RefPtr<gfxFont> firstFont =
+      aParams.provider->GetFontGroup()->GetFirstValidFont();
   bool verticalRun = mTextRun->IsVertical();
   bool useVerticalMetrics = verticalRun && mTextRun->UseCenterBaseline();
   bool rightUnderline = useVerticalMetrics && IsUnderlineRight(*Style());
@@ -7554,7 +7548,7 @@ bool nsTextFrame::CombineSelectionUnderlineRect(nsPresContext* aPresContext,
   nsRect givenRect = aRect;
 
   gfxFontGroup* fontGroup = GetInflatedFontGroupForFrame(this);
-  gfxFont* firstFont = fontGroup->GetFirstValidFont();
+  RefPtr<gfxFont> firstFont = fontGroup->GetFirstValidFont();
   WritingMode wm = GetWritingMode();
   bool verticalRun = wm.IsVertical();
   bool useVerticalMetrics = verticalRun && !wm.IsSideways();

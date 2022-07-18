@@ -6,8 +6,6 @@
 
 "use strict";
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const EXPORTED_SYMBOLS = ["StateMachine"];
 
 const DEBUG = false;

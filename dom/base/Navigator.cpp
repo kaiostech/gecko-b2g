@@ -269,9 +269,9 @@ void Navigator::GetUserAgent(nsAString& aUserAgent, CallerType aCallerType,
   }
 
   nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
-
-  nsresult rv = GetUserAgent(window, doc ? doc->NodePrincipal() : nullptr,
-                             aCallerType == CallerType::System, aUserAgent);
+  nsresult rv = GetUserAgent(
+      mWindow, doc, aCallerType == CallerType::System ? Some(false) : Nothing(),
+      aUserAgent);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.Throw(rv);
   }
@@ -302,7 +302,7 @@ void Navigator::GetAppVersion(nsAString& aAppVersion, CallerType aCallerType,
   nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
 
   nsresult rv = GetAppVersion(
-      aAppVersion, doc ? doc->NodePrincipal() : nullptr,
+      aAppVersion, doc,
       /* aUsePrefOverriddenValue = */ aCallerType != CallerType::System);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.Throw(rv);
@@ -312,7 +312,7 @@ void Navigator::GetAppVersion(nsAString& aAppVersion, CallerType aCallerType,
 void Navigator::GetAppName(nsAString& aAppName, CallerType aCallerType) const {
   nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
 
-  AppName(aAppName, doc ? doc->NodePrincipal() : nullptr,
+  AppName(aAppName, doc,
           /* aUsePrefOverriddenValue = */ aCallerType != CallerType::System);
 }
 
@@ -417,7 +417,7 @@ void Navigator::GetPlatform(nsAString& aPlatform, CallerType aCallerType,
   nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
 
   nsresult rv = GetPlatform(
-      aPlatform, doc ? doc->NodePrincipal() : nullptr,
+      aPlatform, doc,
       /* aUsePrefOverriddenValue = */ aCallerType != CallerType::System);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.Throw(rv);
@@ -1920,15 +1920,14 @@ void Navigator::ClearPlatformCache() {
   Navigator_Binding::ClearCachedPlatformValue(this);
 }
 
-nsresult Navigator::GetPlatform(nsAString& aPlatform,
-                                nsIPrincipal* aCallerPrincipal,
+nsresult Navigator::GetPlatform(nsAString& aPlatform, Document* aCallerDoc,
                                 bool aUsePrefOverriddenValue) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aUsePrefOverriddenValue) {
     // If fingerprinting resistance is on, we will spoof this value. See
     // nsRFPService.h for details about spoofed values.
-    if (nsContentUtils::ShouldResistFingerprinting(aCallerPrincipal)) {
+    if (nsContentUtils::ShouldResistFingerprinting(aCallerDoc)) {
       aPlatform.AssignLiteral(SPOOFED_PLATFORM);
       return NS_OK;
     }
@@ -1964,15 +1963,14 @@ nsresult Navigator::GetPlatform(nsAString& aPlatform,
 }
 
 /* static */
-nsresult Navigator::GetAppVersion(nsAString& aAppVersion,
-                                  nsIPrincipal* aCallerPrincipal,
+nsresult Navigator::GetAppVersion(nsAString& aAppVersion, Document* aCallerDoc,
                                   bool aUsePrefOverriddenValue) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aUsePrefOverriddenValue) {
     // If fingerprinting resistance is on, we will spoof this value. See
     // nsRFPService.h for details about spoofed values.
-    if (nsContentUtils::ShouldResistFingerprinting(aCallerPrincipal)) {
+    if (nsContentUtils::ShouldResistFingerprinting(aCallerDoc)) {
       aAppVersion.AssignLiteral(SPOOFED_APPVERSION);
       return NS_OK;
     }
@@ -2009,14 +2007,14 @@ nsresult Navigator::GetAppVersion(nsAString& aAppVersion,
 }
 
 /* static */
-void Navigator::AppName(nsAString& aAppName, nsIPrincipal* aCallerPrincipal,
+void Navigator::AppName(nsAString& aAppName, Document* aCallerDoc,
                         bool aUsePrefOverriddenValue) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aUsePrefOverriddenValue) {
     // If fingerprinting resistance is on, we will spoof this value. See
     // nsRFPService.h for details about spoofed values.
-    if (nsContentUtils::ShouldResistFingerprinting(aCallerPrincipal)) {
+    if (nsContentUtils::ShouldResistFingerprinting(aCallerDoc)) {
       aAppName.AssignLiteral(SPOOFED_APPNAME);
       return;
     }
@@ -2039,14 +2037,33 @@ void Navigator::ClearUserAgentCache() {
 }
 
 nsresult Navigator::GetUserAgent(nsPIDOMWindowInner* aWindow,
-                                 nsIPrincipal* aCallerPrincipal,
-                                 bool aIsCallerChrome, nsAString& aUserAgent) {
+                                 Document* aCallerDoc,
+                                 Maybe<bool> aShouldResistFingerprinting,
+                                 nsAString& aUserAgent) {
   MOZ_ASSERT(NS_IsMainThread());
+
+  /*
+    ResistFingerprinting is migrating to fine-grained control based off
+    either a channel or Principal+OriginAttributes
+
+    This function can be called from Workers, Main Thread, and at least one
+    other (unusual) case.
+
+    For Main Thread, we will generally have a window and an associated
+    Document, for Workers we will not.
+
+    If aShouldResistFingerprinting is provided, we should respect it.
+    If it is not provided, we will use aCallerDoc to determine our behavior.
+  */
+
+  bool shouldResistFingerprinting =
+      aShouldResistFingerprinting.isSome()
+          ? aShouldResistFingerprinting.value()
+          : nsContentUtils::ShouldResistFingerprinting(aCallerDoc);
 
   // We will skip the override and pass to httpHandler to get spoofed userAgent
   // when 'privacy.resistFingerprinting' is true.
-  if (!aIsCallerChrome &&
-      !nsContentUtils::ShouldResistFingerprinting(aCallerPrincipal)) {
+  if (!shouldResistFingerprinting) {
     nsAutoString override;
     nsresult rv =
         mozilla::Preferences::GetString("general.useragent.override", override);
@@ -2060,8 +2077,7 @@ nsresult Navigator::GetUserAgent(nsPIDOMWindowInner* aWindow,
   // When the caller is content and 'privacy.resistFingerprinting' is true,
   // return a spoofed userAgent which reveals the platform but not the
   // specific OS version, etc.
-  if (!aIsCallerChrome &&
-      nsContentUtils::ShouldResistFingerprinting(aCallerPrincipal)) {
+  if (shouldResistFingerprinting) {
     nsAutoCString spoofedUA;
     nsRFPService::GetSpoofedUserAgent(spoofedUA, false);
     CopyASCIItoUTF16(spoofedUA, aUserAgent);
@@ -2083,12 +2099,7 @@ nsresult Navigator::GetUserAgent(nsPIDOMWindowInner* aWindow,
 
   CopyASCIItoUTF16(ua, aUserAgent);
 
-  // When the caller is content, we will always return spoofed userAgent and
-  // ignore the User-Agent header from the document channel when
-  // 'privacy.resistFingerprinting' is true.
-  if (!aWindow ||
-      (nsContentUtils::ShouldResistFingerprinting(aCallerPrincipal) &&
-       !aIsCallerChrome)) {
+  if (!aWindow) {
     return NS_OK;
   }
 

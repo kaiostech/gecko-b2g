@@ -6,8 +6,6 @@
 
 const EXPORTED_SYMBOLS = ["MultiscreenHandler"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 function debug(aStr) {
   // dump("MultiscreenHandler: " + aStr + "\n");
 }

@@ -126,9 +126,6 @@
   exports.embedder = embedder;
 
   // Hacks.
-  const { Services } = ChromeUtils.import(
-    "resource://gre/modules/Services.jsm"
-  );
   // Force a Mobile User Agent string.
   Services.prefs.setCharPref(
     "general.useragent.override",

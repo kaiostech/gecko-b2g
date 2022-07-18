@@ -27,10 +27,9 @@ const PREF_SYNC_PREFS_PREFIX = "services.sync.prefs.sync.";
 // this special control pref at the same time they flip the default.
 const PREF_SYNC_SEEN_PREFIX = "services.sync.prefs.sync-seen.";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { Preferences } = ChromeUtils.import(
   "resource://gre/modules/Preferences.jsm"
 );

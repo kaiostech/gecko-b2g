@@ -91,6 +91,10 @@ class mozJSModuleLoader final : public nsIMemoryReporter {
       JS::MutableHandleObject aModuleExports, bool aIgnoreExports,
       bool* aFound);
 
+#ifdef STARTUP_RECORDER_ENABLED
+  void RecordImportStack(JSContext* aCx, const nsACString& aLocation);
+#endif
+
   nsresult Unload(const nsACString& aResourceURI);
   nsresult IsModuleLoaded(const nsACString& aResourceURI, bool* aRetval);
   nsresult IsJSModuleLoaded(const nsACString& aResourceURI, bool* aRetval);
@@ -103,6 +107,8 @@ class mozJSModuleLoader final : public nsIMemoryReporter {
                                          JS::MutableHandleScript aScriptOut);
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
+
+  bool DefineJSServices(JSContext* aCx, JS::Handle<JSObject*> aGlobal);
 
  protected:
   mozJSModuleLoader();
@@ -117,6 +123,8 @@ class mozJSModuleLoader final : public nsIMemoryReporter {
 
   void CreateLoaderGlobal(JSContext* aCx, const nsACString& aLocation,
                           JS::MutableHandleObject aGlobal);
+
+  bool CreateJSServices(JSContext* aCx);
 
   JSObject* GetSharedGlobal(JSContext* aCx);
 
@@ -177,9 +185,6 @@ class mozJSModuleLoader final : public nsIMemoryReporter {
       obj = nullptr;
       thisObjectKey = nullptr;
       location = nullptr;
-#ifdef STARTUP_RECORDER_ENABLED
-      importStack.Truncate();
-#endif
     }
 
     size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
@@ -189,9 +194,6 @@ class mozJSModuleLoader final : public nsIMemoryReporter {
     JS::PersistentRootedScript thisObjectKey;
     char* location;
     nsCString resolvedURL;
-#ifdef STARTUP_RECORDER_ENABLED
-    nsCString importStack;
-#endif
   };
 
   class FallbackModuleEntry {
@@ -220,6 +222,9 @@ class mozJSModuleLoader final : public nsIMemoryReporter {
   nsClassHashtable<nsCStringHashKey, ModuleEntry> mImports;
   nsTHashMap<nsCStringHashKey, ModuleEntry*> mInProgressImports;
   nsClassHashtable<nsCStringHashKey, FallbackModuleEntry> mFallbackImports;
+#ifdef STARTUP_RECORDER_ENABLED
+  nsTHashMap<nsCStringHashKey, nsCString> mImportStacks;
+#endif
 
   // A map of on-disk file locations which are loaded as modules to the
   // pre-resolved URIs they were loaded from. Used to prevent the same file
@@ -227,7 +232,11 @@ class mozJSModuleLoader final : public nsIMemoryReporter {
   nsClassHashtable<nsCStringHashKey, nsCString> mLocations;
 
   bool mInitialized;
+#ifdef DEBUG
+  bool mIsInitializingLoaderGlobal = false;
+#endif
   JS::PersistentRooted<JSObject*> mLoaderGlobal;
+  JS::PersistentRooted<JSObject*> mServicesObj;
 
   RefPtr<mozilla::loader::ComponentModuleLoader> mModuleLoader;
 };

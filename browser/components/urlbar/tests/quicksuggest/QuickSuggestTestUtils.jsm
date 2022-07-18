@@ -5,10 +5,9 @@
 
 const EXPORTED_SYMBOLS = ["QuickSuggestTestUtils"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const {
   CONTEXTUAL_SERVICES_PING_TYPES,

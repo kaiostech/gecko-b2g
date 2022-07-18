@@ -6,8 +6,8 @@
 
 const EXPORTED_SYMBOLS = ["script"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 const { Module } = ChromeUtils.import(
@@ -127,7 +127,7 @@ class ScriptModule extends Module {
    *
    * @param {Object=} options
    * @param {Array<RemoteValue>=} arguments
-   *     The arguments to pass to the function call. [unsupported]
+   *     The arguments to pass to the function call.
    * @param {boolean} awaitPromise
    *     Determines if the command should wait for the return value of the
    *     expression to resolve, if this return value is a Promise.
@@ -139,7 +139,7 @@ class ScriptModule extends Module {
    *     The target for the evaluation, which either matches the definition for
    *     a RealmTarget or for ContextTarget.
    * @param {RemoteValue=} this
-   *     The value of the this keyword for the function call. [unsupported]
+   *     The value of the this keyword for the function call.
    *
    * @returns {ScriptEvaluateResult}
    *
@@ -149,6 +149,9 @@ class ScriptModule extends Module {
    *     If the target cannot be found.
    */
   async callFunction(options = {}) {
+    // TODO: Bug 1778976. Remove once command is fully supported.
+    this.assertExperimentalCommandsEnabled("script.callFunction");
+
     const {
       arguments: commandArguments = null,
       awaitPromise,
@@ -175,15 +178,6 @@ class ScriptModule extends Module {
         commandArguments,
         `Expected "arguments" to be an array, got ${commandArguments}`
       );
-      throw new lazy.error.UnsupportedOperationError(
-        `"arguments" parameter is not supported yet`
-      );
-    }
-
-    if (thisParameter != null) {
-      throw new lazy.error.UnsupportedOperationError(
-        `"this" parameter is not supported yet`
-      );
     }
 
     const { contextId, realmId, sandbox } = this.#assertTarget(target);
@@ -199,6 +193,7 @@ class ScriptModule extends Module {
         awaitPromise,
         commandArguments,
         functionDeclaration,
+        thisParameter,
       },
     });
 
@@ -229,6 +224,9 @@ class ScriptModule extends Module {
    *     If the target cannot be found.
    */
   async evaluate(options = {}) {
+    // TODO: Bug 1778976. Remove once command is fully supported.
+    this.assertExperimentalCommandsEnabled("script.evaluate");
+
     const {
       awaitPromise,
       expression: source,

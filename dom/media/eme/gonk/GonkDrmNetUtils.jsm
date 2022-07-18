@@ -6,10 +6,6 @@
 
 const EXPORTED_SYMBOLS = ["GonkDrmNetUtils"];
 
-Cu.importGlobalProperties(["fetch"]);
-
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const DEBUG = Services.prefs.getBoolPref("media.b2g.mediadrm.debug", false);
 
 function debug(msg) {

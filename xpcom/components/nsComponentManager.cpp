@@ -205,9 +205,7 @@ class MOZ_STACK_CLASS EntryWrapper final {
    * Returns the description string for the module this entry belongs to.
    * Currently always returns "<unknown module>".
    */
-  nsCString ModuleDescription() {
-    return "<unknown module>"_ns;
-  }
+  nsCString ModuleDescription() { return "<unknown module>"_ns; }
 
  private:
   Variant<nsFactoryEntry*, const StaticModule*> mEntry;
@@ -441,7 +439,7 @@ nsresult nsComponentManagerImpl::Init() {
   mStatus = NORMAL;
 
   MOZ_ASSERT(!XRE_IsContentProcess() ||
-             CONTRACTID_HASHTABLE_INITIAL_LENGTH <= 8 ||
+                 CONTRACTID_HASHTABLE_INITIAL_LENGTH <= 8 ||
                  mFactories.Count() > CONTRACTID_HASHTABLE_INITIAL_LENGTH / 3,
              "Initial component hashtable size is too large");
 
@@ -1258,27 +1256,6 @@ nsComponentManagerImpl::AutoRegister(nsIFile* aLocation) {
 }
 
 NS_IMETHODIMP
-nsComponentManagerImpl::AutoUnregister(nsIFile* aLocation) {
-  NS_ERROR("AutoUnregister not implemented.");
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-nsComponentManagerImpl::RegisterFactoryLocation(
-    const nsCID& aCID, const char* aClassName, const char* aContractID,
-    nsIFile* aFile, const char* aLoaderStr, const char* aType) {
-  NS_ERROR("RegisterFactoryLocation not implemented.");
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-nsComponentManagerImpl::UnregisterFactoryLocation(const nsCID& aCID,
-                                                  nsIFile* aFile) {
-  NS_ERROR("UnregisterFactoryLocation not implemented.");
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
 nsComponentManagerImpl::IsCIDRegistered(const nsCID& aClass, bool* aResult) {
   *aResult = LookupByCID(aClass).isSome();
   return NS_OK;
@@ -1308,12 +1285,6 @@ nsComponentManagerImpl::GetContractIDs(nsTArray<nsCString>& aResult) {
   }
 
   return NS_OK;
-}
-
-NS_IMETHODIMP
-nsComponentManagerImpl::CIDToContractID(const nsCID& aClass, char** aResult) {
-  NS_ERROR("CIDTOContractID not implemented");
-  return NS_ERROR_FACTORY_NOT_REGISTERED;
 }
 
 NS_IMETHODIMP
@@ -1380,8 +1351,7 @@ size_t nsComponentManagerImpl::SizeOfIncludingThis(
 ////////////////////////////////////////////////////////////////////////////////
 
 nsFactoryEntry::nsFactoryEntry(const nsCID& aCID, nsIFactory* aFactory)
-    : mCID(aCID), mFactory(aFactory) {
-}
+    : mCID(aCID), mFactory(aFactory) {}
 
 already_AddRefed<nsIFactory> nsFactoryEntry::GetFactory() {
   nsComponentManagerImpl::gComponentManager->mLock.AssertNotCurrentThreadOwns();

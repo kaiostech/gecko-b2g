@@ -602,7 +602,7 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
 
   mIPCOpen = true;
 
-  if constexpr (SessionStoreUtils::NATIVE_LISTENER) {
+  if (StaticPrefs::browser_sessionstore_platform_collection_AtStartup()) {
     mSessionStoreChild = SessionStoreChild::GetOrCreate(mBrowsingContext);
   }
 
@@ -1690,13 +1690,19 @@ bool BrowserChild::NotifyAPZStateChange(
     const layers::GeckoContentController::APZStateChange& aChange,
     const int& aArg) {
   mAPZEventState->ProcessAPZStateChange(aViewId, aChange, aArg);
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
   if (aChange ==
       layers::GeckoContentController::APZStateChange::eTransformEnd) {
     // This is used by tests to determine when the APZ is done doing whatever
     // it's doing. XXX generify this as needed when writing additional tests.
-    nsCOMPtr<nsIObserverService> observerService =
-        mozilla::services::GetObserverService();
     observerService->NotifyObservers(nullptr, "APZ:TransformEnd", nullptr);
+    observerService->NotifyObservers(nullptr, "PanZoom:StateChange",
+                                     u"NOTHING");
+  } else if (aChange ==
+             layers::GeckoContentController::APZStateChange::eTransformBegin) {
+    observerService->NotifyObservers(nullptr, "PanZoom:StateChange",
+                                     u"PANNING");
   }
   return true;
 }

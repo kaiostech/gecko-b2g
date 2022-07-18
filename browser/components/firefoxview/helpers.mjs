@@ -2,34 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const lazy = {};
+ChromeUtils.defineModuleGetter(
+  lazy,
+  "BrowserUtils",
+  "resource://gre/modules/BrowserUtils.jsm"
+);
 ChromeUtils.defineModuleGetter(
   lazy,
   "PlacesUIUtils",
   "resource:///modules/PlacesUIUtils.jsm"
 );
 
+// Cutoff of 1.5 minutes + 1 second to determine what text string to display
+export const nowThresholdMs = 91000;
+
 export function formatURIForDisplay(uriString) {
-  // TODO: Bug 1764816: Make sure we handle file:///, jar:, blob, IP4/IP6 etc. addresses
-  let uri;
-  try {
-    uri = Services.io.newURI(uriString);
-  } catch (ex) {
-    return uriString;
-  }
-  if (!uri.asciiHost) {
-    return uriString;
-  }
-  let displayHost;
-  try {
-    // This might fail if it's an IP address or doesn't have more than 1 part
-    displayHost = Services.eTLD.getBaseDomain(uri);
-  } catch (ex) {
-    return uri.displayHostPort;
-  }
-  return displayHost.length ? displayHost : uriString;
+  return lazy.BrowserUtils.formatURIStringForDisplay(uriString);
 }
 
 export function convertTimestamp(timestamp, fluentStrings) {
@@ -38,8 +27,6 @@ export function convertTimestamp(timestamp, fluentStrings) {
     {}
   );
   const elapsed = Date.now() - timestamp;
-  // Cutoff of 1.5 minutes + 1 second to determine what text string to display
-  const nowThresholdMs = 91000;
   let formattedTime;
   if (elapsed <= nowThresholdMs) {
     // Use a different string for very recent timestamps

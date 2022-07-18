@@ -19,7 +19,6 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { Sntp } = ChromeUtils.import("resource://gre/modules/Sntp.jsm");
 
 var RIL_DEBUG = ChromeUtils.import(

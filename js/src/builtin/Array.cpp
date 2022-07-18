@@ -4377,8 +4377,8 @@ static const JSFunctionSpec array_methods[] = {
     JS_SELF_HOSTED_FN("map", "ArrayMap", 1, 0),
     JS_SELF_HOSTED_FN("filter", "ArrayFilter", 1, 0),
 #ifdef NIGHTLY_BUILD
-    JS_SELF_HOSTED_FN("groupBy", "ArrayGroupBy", 1, 0),
-    JS_SELF_HOSTED_FN("groupByToMap", "ArrayGroupByToMap", 1, 0),
+    JS_SELF_HOSTED_FN("group", "ArrayGroup", 1, 0),
+    JS_SELF_HOSTED_FN("groupToMap", "ArrayGroupToMap", 1, 0),
 #endif
     JS_SELF_HOSTED_FN("reduce", "ArrayReduce", 1, 0),
     JS_SELF_HOSTED_FN("reduceRight", "ArrayReduceRight", 1, 0),
@@ -4660,20 +4660,14 @@ static bool array_proto_finish(JSContext* cx, JS::HandleObject ctor,
       !DefineDataProperty(cx, unscopables, cx->names().fill, value) ||
       !DefineDataProperty(cx, unscopables, cx->names().find, value) ||
       !DefineDataProperty(cx, unscopables, cx->names().findIndex, value) ||
+      !DefineDataProperty(cx, unscopables, cx->names().findLast, value) ||
+      !DefineDataProperty(cx, unscopables, cx->names().findLastIndex, value) ||
       !DefineDataProperty(cx, unscopables, cx->names().flat, value) ||
       !DefineDataProperty(cx, unscopables, cx->names().flatMap, value) ||
       !DefineDataProperty(cx, unscopables, cx->names().includes, value) ||
       !DefineDataProperty(cx, unscopables, cx->names().keys, value) ||
       !DefineDataProperty(cx, unscopables, cx->names().values, value)) {
     return false;
-  }
-
-  if (cx->realm()->creationOptions().getArrayFindLastEnabled()) {
-    if (!DefineDataProperty(cx, unscopables, cx->names().findLast, value) ||
-        !DefineDataProperty(cx, unscopables, cx->names().findLastIndex,
-                            value)) {
-      return false;
-    }
   }
 
 #ifdef NIGHTLY_BUILD

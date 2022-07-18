@@ -255,9 +255,37 @@ enum class ModuleStatus : int32_t {
   Linking,
   Linked,
   Evaluating,
+  EvaluatingAsync,
   Evaluated,
-  Evaluated_Error  // Sub-state of Evaluated with error value set.
+
+  // Sub-state of Evaluated with error value set.
+  //
+  // This is not returned from ModuleObject::status(); use hadEvaluationError()
+  // to check this.
+  Evaluated_Error
 };
+
+// Special values for ModuleObject's AsyncEvaluatingPostOrderSlot slot, which is
+// used to implement the AsyncEvaluation field of cyclic module records.
+//
+// The spec requires us to distinguish true, false, and 'never previously set to
+// true', as well as the order in which the field was set to true for async
+// evaluating modules.
+//
+// This is arranged by using an integer to record the order. Both undefined and
+// ASYNC_EVALUATING_POST_ORDER_FALSE are used to mean false, with undefined also
+// meaning never previously set to true.
+//
+// See https://tc39.es/ecma262/#sec-cyclic-module-records for field defintion.
+// See https://tc39.es/ecma262/#sec-async-module-execution-fulfilled for sort
+// requirement.
+
+// False value that also indicates that the field was previously true.
+constexpr uint32_t ASYNC_EVALUATING_POST_ORDER_FALSE = 0;
+
+// Initial value for the runtime's counter used to generate these values; the
+// first non-false value.
+constexpr uint32_t ASYNC_EVALUATING_POST_ORDER_INIT = 1;
 
 class ModuleObject : public NativeObject {
  public:
@@ -278,7 +306,7 @@ class ModuleObject : public NativeObject {
     FunctionDeclarationsSlot,
     DFSIndexSlot,
     DFSAncestorIndexSlot,
-    AsyncSlot,
+    HasTopLevelAwaitSlot,
     AsyncEvaluatingPostOrderSlot,
     TopLevelCapabilitySlot,
     AsyncParentModulesSlot,
@@ -339,17 +367,17 @@ class ModuleObject : public NativeObject {
 
   static PromiseObject* createTopLevelCapability(JSContext* cx,
                                                  Handle<ModuleObject*> module);
-  bool isAsync() const;
+  bool hasTopLevelAwait() const;
   bool isAsyncEvaluating() const;
   bool wasAsyncEvaluating() const;
   void setAsyncEvaluating();
   void setAsyncEvaluatingFalse();
   void setEvaluationError(HandleValue newValue);
   void setPendingAsyncDependencies(uint32_t newValue);
-  void setInitialTopLevelCapability(HandleObject promiseObj);
+  void setInitialTopLevelCapability(Handle<PromiseObject*> capability);
   bool hasTopLevelCapability() const;
-  JSObject* maybeTopLevelCapability() const;
-  JSObject* topLevelCapability() const;
+  PromiseObject* maybeTopLevelCapability() const;
+  PromiseObject* topLevelCapability() const;
   ListObject* asyncParentModules() const;
   mozilla::Maybe<uint32_t> maybePendingAsyncDependencies() const;
   uint32_t pendingAsyncDependencies() const;
@@ -381,7 +409,7 @@ class ModuleObject : public NativeObject {
 
   static bool createEnvironment(JSContext* cx, Handle<ModuleObject*> self);
 
-  bool initAsyncSlots(JSContext* cx, bool isAsync,
+  bool initAsyncSlots(JSContext* cx, bool hasTopLevelAwait,
                       HandleObject asyncParentModulesList);
 
   static bool GatherAsyncParentCompletions(
@@ -404,21 +432,6 @@ JSObject* GetOrCreateModuleMetaObject(JSContext* cx, HandleObject module);
 ModuleObject* CallModuleResolveHook(JSContext* cx,
                                     HandleValue referencingPrivate,
                                     HandleObject moduleRequest);
-
-// https://tc39.es/proposal-top-level-await/#sec-asyncmodulexecutionfulfilled
-void AsyncModuleExecutionFulfilled(JSContext* cx, Handle<ModuleObject*> module);
-
-// https://tc39.es/proposal-top-level-await/#sec-asyncmodulexecutionrejected
-void AsyncModuleExecutionRejected(JSContext* cx, Handle<ModuleObject*> module,
-                                  HandleValue error);
-
-// https://tc39.es/proposal-top-level-await/#sec-asyncmodulexecutionfulfilled
-bool AsyncModuleExecutionFulfilledHandler(JSContext* cx, unsigned argc,
-                                          Value* vp);
-
-// https://tc39.es/proposal-top-level-await/#sec-asyncmodulexecutionrejected
-bool AsyncModuleExecutionRejectedHandler(JSContext* cx, unsigned argc,
-                                         Value* vp);
 
 JSObject* StartDynamicModuleImport(JSContext* cx, HandleScript script,
                                    HandleValue specifier, HandleValue options);

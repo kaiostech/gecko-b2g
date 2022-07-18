@@ -6,8 +6,6 @@
 
 var EXPORTED_SYMBOLS = ["WebViewExporterChild"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 function IsValidKey(aKey) {
   const blockList = [
     "constructor",

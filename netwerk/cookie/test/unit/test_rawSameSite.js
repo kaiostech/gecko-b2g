@@ -1,5 +1,4 @@
 const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function inChildProcess() {
   return Services.appinfo.processType != Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
@@ -49,6 +48,10 @@ add_task(async _ => {
       true
     );
     Services.prefs.setBoolPref("network.cookie.sameSite.laxByDefault", true);
+    Services.prefs.setBoolPref(
+      "network.cookie.sameSite.noneRequiresSecure",
+      true
+    );
   }
 
   let uri = NetUtil.newURI("http://example.org/");

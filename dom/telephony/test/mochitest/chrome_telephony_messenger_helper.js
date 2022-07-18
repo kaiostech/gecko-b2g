@@ -8,7 +8,6 @@ const PAGE_URI = "http://mochi.test:8888/tests/dom/telephony/test/mochitest/test
 const MANIFEST_URI = "http://mochi.test:8888/manifest.webapp";
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gTelephonyMessenger",
                                    "@mozilla.org/ril/system-messenger-helper;1",

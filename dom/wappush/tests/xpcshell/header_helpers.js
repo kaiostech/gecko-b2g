@@ -3,8 +3,6 @@
 
 "use strict";
 
-var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 function do_check_eq(actual, expected) {
   Assert.equal(actual, expected);
 }

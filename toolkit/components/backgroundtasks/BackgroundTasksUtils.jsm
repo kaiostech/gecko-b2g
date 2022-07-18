@@ -5,9 +5,8 @@
 
 var EXPORTED_SYMBOLS = ["BackgroundTasksUtils"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 const lazy = {};
@@ -220,6 +219,35 @@ var BackgroundTasksUtils = {
   },
 
   /**
+   * Reads the snapshotted Firefox Messaging System targeting out of a profile.
+   *
+   * If no `lock` is given, the default profile is locked and the preferences
+   * read from it.  If `lock` is given, read from the given lock's directory.
+   *
+   * @param {nsIProfileLock} [lock] optional lock to use
+   * @returns {string}
+   */
+  async readFirefoxMessagingSystemTargetingSnapshot(lock = null) {
+    if (!lock) {
+      return this.withProfileLock(profileLock =>
+        this.readFirefoxMessagingSystemTargetingSnapshot(profileLock)
+      );
+    }
+
+    this._throwIfNotLocked(lock);
+
+    let snapshotFile = lock.directory.clone();
+    snapshotFile.append("targeting.snapshot.json");
+
+    lazy.log.info(
+      `readFirefoxMessagingSystemTargetingSnapshot: will read Firefox Messaging ` +
+        `System targeting snapshot from ${snapshotFile.path}`
+    );
+
+    return IOUtils.readJSON(snapshotFile.path);
+  },
+
+  /**
    * Reads the Telemetry Client ID out of a profile.
    *
    * If no `lock` is given, the default profile is locked and the preferences
@@ -245,9 +273,7 @@ var BackgroundTasksUtils = {
       `readPreferences: will read Telemetry client ID from ${stateFile.path}`
     );
 
-    // This JSON is always UTF-8.
-    let data = await IOUtils.readUTF8(stateFile.path);
-    let state = JSON.parse(data);
+    let state = await IOUtils.readJSON(stateFile.path);
 
     return state.clientID;
   },

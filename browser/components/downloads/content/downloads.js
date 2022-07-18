@@ -31,20 +31,14 @@
 
 "use strict";
 
-var { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+var { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 ChromeUtils.defineModuleGetter(
   this,
   "DownloadsViewUI",
   "resource:///modules/DownloadsViewUI.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "DownloadsSubview",
-  "resource:///modules/DownloadsSubview.jsm"
 );
 ChromeUtils.defineModuleGetter(
   this,
@@ -540,7 +534,10 @@ var DownloadsPanel = {
     if (document.activeElement && this.panel.contains(document.activeElement)) {
       return;
     }
-    let focusOptions = { preventFocusRing: !!this._preventFocusRing };
+    let focusOptions = {};
+    if (this._preventFocusRing) {
+      focusOptions.focusRing = false;
+    }
     if (DownloadsView.richListBox.itemCount > 0) {
       DownloadsView.richListBox.selectedIndex = 0;
       DownloadsView.richListBox.focus(focusOptions);

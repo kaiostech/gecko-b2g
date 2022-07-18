@@ -6,8 +6,8 @@
 
 var EXPORTED_SYMBOLS = ["deserialize", "serialize"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 const lazy = {};
@@ -139,10 +139,6 @@ function deserializeKeyValueList(/* realm, */ serializedKeyValueList) {
 function deserialize(/* realm, */ serializedValue) {
   const { objectId, type, value } = serializedValue;
 
-  if (type !== undefined) {
-    lazy.assert.string(type, `Expected "type" to be a string, got ${type}`);
-  }
-
   // With an objectId present deserialize as remote reference.
   if (objectId !== undefined) {
     lazy.assert.string(
@@ -156,6 +152,8 @@ function deserialize(/* realm, */ serializedValue) {
     );
     return undefined;
   }
+
+  lazy.assert.string(type, `Expected "type" to be a string, got ${type}`);
 
   // Primitive protocol values
   switch (type) {

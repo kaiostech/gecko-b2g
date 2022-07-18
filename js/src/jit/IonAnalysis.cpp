@@ -14,8 +14,6 @@
 #include "jit/MIRGenerator.h"
 #include "jit/MIRGraph.h"
 #include "util/CheckedArithmetic.h"
-#include "vm/TraceLogging.h"
-#include "vm/TraceLoggingTypes.h"
 
 #include "vm/BytecodeUtil-inl.h"
 
@@ -2726,9 +2724,6 @@ bool jit::AccountForCFGChanges(MIRGenerator* mir, MIRGraph& graph,
 
   // If needed, update alias analysis dependencies.
   if (updateAliasAnalysis) {
-    TraceLoggerThread* logger = TraceLoggerForCurrentThread();
-    AutoTraceLog log(logger, TraceLogger_AliasAnalysis);
-
     if (!AliasAnalysis(mir, graph).analyze()) {
       return false;
     }

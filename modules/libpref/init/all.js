@@ -133,8 +133,6 @@ pref("browser.download.forbid_open_with", false);
 // WebAlarms
 pref("dom.alarm.enabled", false);
 
-// Whether or not indexedDB experimental features are enabled.
-pref("dom.indexedDB.experimental", false);
 // Enable indexedDB logging.
 pref("dom.indexedDB.logging.enabled", true);
 // Detailed output in log messages.
@@ -258,8 +256,6 @@ pref("media.volume_scale", "1.0");
 // Whether we should play videos opened in a "video document", i.e. videos
 // opened as top-level documents, as opposed to inside a media element.
 pref("media.play-stand-alone", true);
-
-pref("media.hardware-video-decoding.enabled", true);
 
 #ifdef MOZ_WMF
   pref("media.wmf.dxva.enabled", true);
@@ -802,7 +798,7 @@ pref("view_source.editor.args", "");
 pref("nglayout.enable_drag_images", true);
 
 // URI fixup prefs
-pref("browser.fixup.alternate.enabled", true);
+pref("browser.fixup.alternate.enabled", false);
 pref("browser.fixup.alternate.prefix", "www.");
 pref("browser.fixup.alternate.protocol", "https");
 pref("browser.fixup.alternate.suffix", ".com");
@@ -4249,6 +4245,13 @@ pref("services.common.log.logger.tokenserverclient", "Debug");
   // 2: CDP (Chrome DevTools Protocol)
   // 3: WebDriver BiDi + CDP
   pref("remote.active-protocols", 3);
+
+  // Enable WebDriver BiDi experimental commands and events.
+  #if defined(NIGHTLY_BUILD)
+    pref("remote.experimental.enabled", true);
+  #else
+    pref("remote.experimental.enabled", false);
+  #endif
 
   // Defines the verbosity of the internal logger.
   //

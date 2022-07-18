@@ -6,10 +6,10 @@
 
 var EXPORTED_SYMBOLS = ["UrlbarView"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
 const lazy = {};
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
@@ -1727,6 +1727,9 @@ class UrlbarView {
         node.style[styleName] = value;
       }
       if (update.l10n) {
+        if (update.l10n.cacheable) {
+          await this._l10nCache.ensureAll([update.l10n]);
+        }
         this._setElementL10n(node, {
           id: update.l10n.id,
           args: update.l10n.args || undefined,
@@ -1896,6 +1899,11 @@ class UrlbarView {
               id: "urlbar-group-search-suggestions",
               args: { engine: engineName },
             };
+          }
+          break;
+        case lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC:
+          if (row.result.providerName == "quickactions") {
+            return { id: "urlbar-group-quickactions" };
           }
           break;
       }

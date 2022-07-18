@@ -8,8 +8,8 @@ import { toggleContainer } from "./helpers.mjs";
 
 const { switchToTabHavingURI } = window.docShell.chromeEventHandler.ownerGlobal;
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 const SYNC_TABS_PREF = "services.sync.engine.tabs";
 const RECENT_TABS_SYNC = "services.sync.lastTabFetch";
@@ -23,7 +23,6 @@ const tabsSetupFlowManager = new (class {
     this.sync = {};
 
     XPCOMUtils.defineLazyModuleGetters(this, {
-      Services: "resource://gre/modules/Services.jsm",
       SyncedTabs: "resource://services-sync/SyncedTabs.jsm",
     });
     XPCOMUtils.defineLazyGetter(this, "fxAccounts", () => {
@@ -103,17 +102,17 @@ const tabsSetupFlowManager = new (class {
   async initialize(elem) {
     this.elem = elem;
     this.elem.addEventListener("click", this);
-    this.Services.obs.addObserver(this, this.sync.UIState.ON_UPDATE);
-    this.Services.obs.addObserver(this, "fxaccounts:device_connected");
-    this.Services.obs.addObserver(this, "fxaccounts:device_disconnected");
+    Services.obs.addObserver(this, this.sync.UIState.ON_UPDATE);
+    Services.obs.addObserver(this, "fxaccounts:device_connected");
+    Services.obs.addObserver(this, "fxaccounts:device_disconnected");
 
     await this.fxAccounts.getSignedInUser();
     this.maybeUpdateUI();
   }
   uninit() {
-    this.Services.obs.removeObserver(this, this.sync.UIState.ON_UPDATE);
-    this.Services.obs.removeObserver(this, "fxaccounts:device_connected");
-    this.Services.obs.removeObserver(this, "fxaccounts:device_disconnected");
+    Services.obs.removeObserver(this, this.sync.UIState.ON_UPDATE);
+    Services.obs.removeObserver(this, "fxaccounts:device_connected");
+    Services.obs.removeObserver(this, "fxaccounts:device_disconnected");
   }
   get fxaSignedIn() {
     return (
@@ -201,7 +200,7 @@ const tabsSetupFlowManager = new (class {
   syncOpenTabs(containerElem) {
     // Flip the pref on.
     // The observer should trigger re-evaluating state and advance to next step
-    this.Services.prefs.setBoolPref(SYNC_TABS_PREF, true);
+    Services.prefs.setBoolPref(SYNC_TABS_PREF, true);
   }
 })();
 
@@ -210,9 +209,6 @@ class TabsPickupContainer extends HTMLElement {
     super();
     this.manager = null;
     this._currentSetupStateIndex = -1;
-    XPCOMUtils.defineLazyModuleGetters(this, {
-      Services: "resource://gre/modules/Services.jsm",
-    });
   }
   get setupContainerElem() {
     return this.querySelector(".sync-setup-container");
@@ -251,7 +247,7 @@ class TabsPickupContainer extends HTMLElement {
       }
       for (let elem of cloned.querySelectorAll("a[data-support-url]")) {
         elem.href =
-          this.Services.urlFormatter.formatURLPref("app.support.baseURL") +
+          Services.urlFormatter.formatURLPref("app.support.baseURL") +
           elem.dataset.supportUrl;
       }
     }
@@ -275,6 +271,7 @@ class TabsPickupContainer extends HTMLElement {
     let setupElem = this.setupContainerElem;
     let tabsElem = this.tabsContainerElem;
     const stateIndex = this._currentSetupStateIndex;
+    const isLoading = stateIndex == 3;
 
     // show/hide either the setup or tab list containers, creating each as necessary
     if (stateIndex < 3) {
@@ -296,15 +293,14 @@ class TabsPickupContainer extends HTMLElement {
         "tabpickup-tabs-container"
       );
       tabsElem = this.tabsContainerElem;
-      tabsElem.classList.toggle("loading", stateIndex == 3);
     }
     if (setupElem) {
       setupElem.hidden = true;
     }
     tabsElem.hidden = false;
+    tabsElem.classList.toggle("loading", isLoading);
 
     if (stateIndex == 4) {
-      tabsElem.classList.toggle("loading", false);
       this.collapsibleButton.hidden = false;
     }
   }

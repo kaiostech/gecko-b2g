@@ -618,11 +618,6 @@
   value: 1.0f
   mirror: always
 
-- name: apz.minimap.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: apz.mvm.force-enabled
   type: RelaxedAtomicBool
   value: true
@@ -1473,6 +1468,24 @@
   value: 15000
   mirror: always
 
+# Platform collection of data for session store
+- name: browser.sessionstore.platform_collection
+  type: bool
+  value: @IS_NOT_ANDROID@
+  mirror: once
+
+# Platform collection of session storage data for session store
+- name: browser.sessionstore.collect_session_storage
+  type: bool
+  value: @IS_NOT_ANDROID@
+  mirror: once
+
+# Platform collection of zoom data for session store
+- name: browser.sessionstore.collect_zoom
+  type: bool
+  value: @IS_NOT_ANDROID@
+  mirror: once
+
 # Causes SessionStore to ignore non-final update messages from
 # browser tabs that were not caused by a flush from the parent.
 # This is a testing flag and should not be used by end-users.
@@ -1932,7 +1945,7 @@
 # This only works when sessionHistoryInParent is enabled.
 - name: docshell.shistory.bfcache.ship_allow_beforeunload_listeners
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -2464,7 +2477,7 @@
 
 # Whether or not File Handle is enabled.
 - name: dom.fileHandle.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -2629,12 +2642,6 @@
 #endif
   mirror: always
 
-# Enable passing the "storage" option to indexedDB.open.
-- name: dom.indexedDB.storageOption.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # Enable indexedDB in private browsing mode with encryption
 - name: dom.indexedDB.privateBrowsing.enabled
   type: RelaxedAtomicBool
@@ -2645,6 +2652,24 @@
 - name: dom.indexedDB.hide_in_pbmode.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether or not indexedDB test mode is enabled.
+- name: dom.indexedDB.testing
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Whether or not indexedDB experimental features are enabled.
+- name: dom.indexedDB.experimental
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Whether or not indexedDB preprocessing is enabled.
+- name: dom.indexedDB.preprocessing
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 - name: dom.input_events.beforeinput.enabled
@@ -3797,6 +3822,19 @@
 - name: dom.storage_access.enabled
   type: bool
   value: false
+  mirror: always
+
+# Forward-Declared Storage-access API.
+- name: dom.storage_access.forward_declared.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# How long the Forward-Declared Storage-access API allows between pair requests
+# in seconds
+- name: dom.storage_access.forward_declared.lifetime
+  type: uint32_t
+  value: 15 * 60
   mirror: always
 
 # The maximum number of origins that a given third-party tracker is allowed
@@ -5458,6 +5496,11 @@
 #endif
   mirror: always
 
+- name: gfx.canvas.accelerated.async-present
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 - name: gfx.canvas.accelerated.cache-items
   type: RelaxedAtomicUint32
   value: 2048
@@ -5935,7 +5978,7 @@
 # Enable OffscreenCanvas everywhere.
 - name: gfx.offscreencanvas.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Enable OffscreenCanvas based on the domain allowlist.
@@ -7020,7 +7063,7 @@
 # ShadowRealms: https://github.com/tc39/proposal-shadowrealm
 - name: javascript.options.experimental.shadow_realms
   # Atomic, as we assert the preference, and that assertion may happen
-  # in a worker. 
+  # in a worker.
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -7038,12 +7081,6 @@
     value: true
     mirror: always
 #endif  // NIGHTLY_BUILD
-
-  # Experimental support for Array.findLast/Array.findLastIndex in JavaScript.
--   name: javascript.options.experimental.array_find_last
-    type: bool
-    value: false
-    mirror: always
 
 # Experimental support for class static blocks in JavaScript.
 -   name: javascript.options.experimental.class_static_blocks
@@ -7482,16 +7519,6 @@
   value: false
   mirror: always
 
-- name: layers.low-precision-buffer
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.low-precision-resolution
-  type: AtomicFloat
-  value: 0.25f
-  mirror: always
-
 # Whether to animate simple opacity and transforms on the compositor.
 - name: layers.offmainthreadcomposition.async-animations
   type: bool
@@ -7831,6 +7858,11 @@
   value: 6.0
   mirror: always
 
+# Whether the `animation-composition` in css-animations-2 is enabled.
+- name: layout.css.animation-composition.enabled
+  type: bool
+  value: false
+  mirror: always
 
 # Whether the `aspect-ratio` in css-sizing-4 is enabled.
 - name: layout.css.aspect-ratio.enabled
@@ -8005,7 +8037,7 @@
 # Is support for workerGlobalScope.fonts enabled?
 - name: layout.css.font-loading-api.workers.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Is support for the @font-face metrics override descriptors enabled?
@@ -9497,13 +9529,13 @@
     value: false
     mirror: always
 
-#ifdef MOZ_WAYLAND
+#ifdef MOZ_WIDGET_GTK
 # Use VA-API for ffmpeg video playback on Linux
 - name: media.ffmpeg.vaapi.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
-#endif # MOZ_WAYLAND
+#endif # MOZ_WIDGET_GTK
 #endif  # MOZ_FFMPEG
 
 -   name: media.ffvpx.enabled
@@ -9638,6 +9670,11 @@
   type: bool
   value: false
   mirror: always
+
+- name: media.hardware-video-decoding.enabled
+  type: bool
+  value: true
+  mirror: once
 
 - name: media.hardware-video-decoding.force-enabled
   type: bool
@@ -10558,12 +10595,12 @@
 
 - name: network.cookie.sameSite.noneRequiresSecure
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: network.cookie.sameSite.schemeful
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: network.cookie.thirdparty.sessionOnly
@@ -12321,6 +12358,12 @@
   value: true
   mirror: always
 
+# Always partition web storage APIs except cookies.
+- name: privacy.partition.always_partition_third_party_non_cookie_storage
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 - name: privacy.partition.bloburl_per_agent_cluster
   type: RelaxedAtomicBool
   value: false
@@ -13084,6 +13127,13 @@
   value: false
   mirror: always
 
+# This pref controls whether the `prefers-color-scheme` value of SVG images
+# reacts to the embedder `color-scheme` in content.
+- name: svg.embedder-prefers-color-scheme.content.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Enables the 'context-fill' and 'context-stroke' keywords for particular
 # domains. We expect this list to be Mozilla-controlled properties, since the
 # 'context-*' keywords are not part of any spec. We expect to remove this
@@ -13825,6 +13875,12 @@
 - name: webgl.out-of-process.async-present
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Forces async present to wait for a sync, even while using remote textures.
+- name: webgl.out-of-process.async-present.force-sync
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # Override the blocklist to assume that GL is threadsafe.

@@ -19,7 +19,6 @@
 #include "jit/ScriptFromCalleeToken.h"
 #include "vm/JSContext.h"
 #include "vm/Stack.h"
-#include "vm/TraceLogging.h"
 
 #include "vm/JSScript-inl.h"
 #include "vm/Probes-inl.h"
@@ -103,7 +102,7 @@ static constexpr uint32_t FAKE_EXITFP_FOR_BAILOUT_ADDR = 0xba2;
 static uint8_t* const FAKE_EXITFP_FOR_BAILOUT =
     reinterpret_cast<uint8_t*>(FAKE_EXITFP_FOR_BAILOUT_ADDR);
 
-static_assert(!(FAKE_EXITFP_FOR_BAILOUT_ADDR & wasm::ExitOrJitEntryFPTag),
+static_assert(!(FAKE_EXITFP_FOR_BAILOUT_ADDR & wasm::ExitFPTag),
               "FAKE_EXITFP_FOR_BAILOUT could be mistaken as a low-bit tagged "
               "wasm exit fp");
 
@@ -124,9 +123,6 @@ bool jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo) {
   JSJitFrameIter frame(jitActivations->asJit());
   MOZ_ASSERT(!frame.ionScript()->invalidated());
   JitFrameLayout* currentFramePtr = frame.jsFrame();
-
-  TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
-  TraceLogTimestamp(logger, TraceLogger_Bailout);
 
   JitSpew(JitSpew_IonBailouts, "Took bailout! Snapshot offset: %u",
           frame.snapshotOffset());
@@ -196,9 +192,6 @@ bool jit::InvalidationBailout(InvalidationBailoutStack* sp,
   BailoutFrameInfo bailoutData(jitActivations, sp);
   JSJitFrameIter frame(jitActivations->asJit());
   JitFrameLayout* currentFramePtr = frame.jsFrame();
-
-  TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
-  TraceLogTimestamp(logger, TraceLogger_Invalidation);
 
   JitSpew(JitSpew_IonBailouts, "Took invalidation bailout! Snapshot offset: %u",
           frame.snapshotOffset());

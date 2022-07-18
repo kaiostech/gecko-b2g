@@ -607,11 +607,9 @@ static nscoord ListImageDefaultLength(const nsImageFrame& aFrame) {
   auto* pc = aFrame.PresContext();
   RefPtr<nsFontMetrics> fm =
       nsLayoutUtils::GetFontMetricsForComputedStyle(aFrame.Style(), pc);
-  auto emAU = fm->GetThebesFontGroup()
-                  ->GetFirstValidFont()
-                  ->GetMetrics(fm->Orientation())
-                  .emHeight *
-              pc->AppUnitsPerDevPixel();
+  RefPtr<gfxFont> font = fm->GetThebesFontGroup()->GetFirstValidFont();
+  auto emAU =
+      font->GetMetrics(fm->Orientation()).emHeight * pc->AppUnitsPerDevPixel();
   return std::max(NSToCoordRound(0.4f * emAU),
                   nsPresContext::CSSPixelsToAppUnits(1));
 }
@@ -1703,7 +1701,7 @@ ImgDrawResult nsImageFrame::DisplayAltFeedback(gfxContext& aRenderingContext,
       result = nsLayoutUtils::DrawSingleImage(
           aRenderingContext, PresContext(), imgCon,
           nsLayoutUtils::GetSamplingFilterForFrame(this), dest, aDirtyRect,
-          /* no SVGImageContext */ Nothing(), aFlags);
+          SVGImageContext(), aFlags);
     }
 
     // If we could not draw the icon, just draw some graffiti in the mean time.
@@ -1748,8 +1746,7 @@ ImgDrawResult nsImageFrame::DisplayAltFeedback(gfxContext& aRenderingContext,
   // If there's still room, display the alt-text
   if (!inner.IsEmpty()) {
     nsAutoString altText;
-    nsCSSFrameConstructor::GetAlternateTextFor(
-        mContent->AsElement(), mContent->NodeInfo()->NameAtom(), altText);
+    nsCSSFrameConstructor::GetAlternateTextFor(*mContent->AsElement(), altText);
     DisplayAltText(PresContext(), aRenderingContext, altText, inner);
   }
 
@@ -1883,7 +1880,7 @@ ImgDrawResult nsImageFrame::DisplayAltFeedbackWithoutLayer(
       const int32_t factor = PresContext()->AppUnitsPerDevPixel();
       LayoutDeviceRect destRect(LayoutDeviceRect::FromAppUnits(dest, factor));
 
-      Maybe<SVGImageContext> svgContext;
+      SVGImageContext svgContext;
       Maybe<ImageIntRegion> region;
       IntSize decodeSize =
           nsLayoutUtils::ComputeImageContainerDrawingParameters(
@@ -1958,8 +1955,7 @@ ImgDrawResult nsImageFrame::DisplayAltFeedbackWithoutLayer(
     RefPtr<gfxContext> captureCtx = gfxContext::CreateOrNull(textDrawer);
 
     nsAutoString altText;
-    nsCSSFrameConstructor::GetAlternateTextFor(
-        mContent->AsElement(), mContent->NodeInfo()->NameAtom(), altText);
+    nsCSSFrameConstructor::GetAlternateTextFor(*mContent->AsElement(), altText);
     DisplayAltText(PresContext(), *captureCtx.get(), altText, inner);
 
     textDrawer->TerminateShadows();
@@ -2141,7 +2137,7 @@ bool nsDisplayImage::CreateWebRenderCommands(
   LayoutDeviceRect destRect(
       LayoutDeviceRect::FromAppUnits(GetDestRect(), factor));
 
-  Maybe<SVGImageContext> svgContext;
+  SVGImageContext svgContext;
   Maybe<ImageIntRegion> region;
   IntSize decodeSize = nsLayoutUtils::ComputeImageContainerDrawingParameters(
       mImage, mFrame, destRect, destRect, aSc, flags, svgContext, region);
@@ -2239,7 +2235,7 @@ ImgDrawResult nsImageFrame::PaintImage(gfxContext& aRenderingContext,
       constraintRect, mIntrinsicSize, mIntrinsicRatio, StylePosition(),
       &anchorPoint);
 
-  Maybe<SVGImageContext> svgContext;
+  SVGImageContext svgContext;
   SVGImageContext::MaybeStoreContextPaint(svgContext, this, aImage);
 
   ImgDrawResult result = nsLayoutUtils::DrawSingleImage(

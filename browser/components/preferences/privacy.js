@@ -332,13 +332,13 @@ function initTCPRolloutSection() {
   let updateTCPRolloutSectionVisibilityState = () => {
     // For phase 2 we always hide the TCP preferences section. TCP will be
     // enabled by default in "standard" ETP mode.
-    if (NimbusFeatures.tcpByDefault.isEnabled()) {
+    if (NimbusFeatures.tcpByDefault.getVariable("enabled")) {
       document.getElementById("etpStandardTCPRolloutBox").hidden = true;
       return;
     }
 
     let onboardingEnabled =
-      NimbusFeatures.tcpPreferences.isEnabled() ||
+      NimbusFeatures.tcpPreferences.getVariable("enabled") ||
       (dfpiPref.value && dfpiPref.hasUserValue);
     document.getElementById(
       "etpStandardTCPRolloutBox"

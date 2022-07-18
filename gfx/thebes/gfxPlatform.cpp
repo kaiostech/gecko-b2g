@@ -50,6 +50,7 @@
 
 #include "gfxCrashReporterUtils.h"
 #include "gfxPlatform.h"
+#include "gfxPlatformWorker.h"
 
 #include "gfxBlur.h"
 #include "gfxEnv.h"
@@ -389,11 +390,11 @@ void CrashStatsLogForwarder::CrashAction(LogReason aReason) {
 #ifndef RELEASE_OR_BETA
   // Non-release builds crash by default, but will use telemetry
   // if this environment variable is present.
-  static bool useTelemetry = gfxEnv::GfxDevCrashTelemetry();
+  static bool useTelemetry = gfxEnv::MOZ_GFX_CRASH_TELEMETRY();
 #else
   // Release builds use telemetry by default, but will crash instead
   // if this environment variable is present.
-  static bool useTelemetry = !gfxEnv::GfxDevCrashMozCrash();
+  static bool useTelemetry = !gfxEnv::MOZ_GFX_CRASH_MOZ_CRASH();
 #endif
 
   if (useTelemetry) {
@@ -2288,10 +2289,26 @@ mozilla::LogModule* gfxPlatform::GetLog(eGfxLog aWhichLog) {
 }
 
 RefPtr<mozilla::gfx::DrawTarget> gfxPlatform::ScreenReferenceDrawTarget() {
+  MOZ_ASSERT_IF(XRE_IsContentProcess(), NS_IsMainThread());
   return (mScreenReferenceDrawTarget)
              ? mScreenReferenceDrawTarget
              : gPlatform->CreateOffscreenContentDrawTarget(
                    IntSize(1, 1), SurfaceFormat::B8G8R8A8, true);
+}
+
+/* static */ RefPtr<mozilla::gfx::DrawTarget>
+gfxPlatform::ThreadLocalScreenReferenceDrawTarget() {
+  if (NS_IsMainThread() && gPlatform) {
+    return gPlatform->ScreenReferenceDrawTarget();
+  }
+
+  gfxPlatformWorker* platformWorker = gfxPlatformWorker::Get();
+  if (platformWorker) {
+    return platformWorker->ScreenReferenceDrawTarget();
+  }
+
+  return Factory::CreateDrawTarget(BackendType::SKIA, IntSize(1, 1),
+                                   SurfaceFormat::B8G8R8A8);
 }
 
 mozilla::gfx::SurfaceFormat gfxPlatform::Optimal2DFormatForContent(
@@ -2377,9 +2394,11 @@ void gfxPlatform::InitAcceleration() {
   // explicit.
   MOZ_ASSERT(NS_IsMainThread(), "can only initialize prefs on the main thread");
 
+#ifndef MOZ_WIDGET_GTK
   nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
   nsCString discardFailureId;
   int32_t status;
+#endif
 
   if (XRE_IsParentProcess()) {
     gfxVars::SetBrowserTabsRemoteAutostart(BrowserTabsRemoteAutostart());
@@ -2404,27 +2423,29 @@ void gfxPlatform::InitAcceleration() {
 #endif
   }
 
-  if (Preferences::GetBool("media.hardware-video-decoding.enabled", false) &&
-#ifdef XP_WIN
-      Preferences::GetBool("media.wmf.dxva.enabled", true) &&
-#endif
-      NS_SUCCEEDED(
-          gfxInfo->GetFeatureStatus(nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING,
-                                    discardFailureId, &status))) {
-    if (status == nsIGfxInfo::FEATURE_STATUS_OK ||
-#ifdef MOZ_WAYLAND
-        StaticPrefs::media_ffmpeg_vaapi_enabled() ||
-#endif
-        StaticPrefs::media_hardware_video_decoding_force_enabled_AtStartup()) {
-      sLayersSupportsHardwareVideoDecoding = true;
+  if (StaticPrefs::media_hardware_video_decoding_enabled_AtStartup()) {
+#ifdef MOZ_WIDGET_GTK
+    sLayersSupportsHardwareVideoDecoding =
+        gfxPlatformGtk::GetPlatform()->InitVAAPIConfig(
+            StaticPrefs::
+                media_hardware_video_decoding_force_enabled_AtStartup() ||
+            StaticPrefs::media_ffmpeg_vaapi_enabled());
+#else
+    if (
+#  ifdef XP_WIN
+        Preferences::GetBool("media.wmf.dxva.enabled", true) &&
+#  endif
+        NS_SUCCEEDED(gfxInfo->GetFeatureStatus(
+            nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING, discardFailureId,
+            &status))) {
+      if (status == nsIGfxInfo::FEATURE_STATUS_OK ||
+          StaticPrefs::
+              media_hardware_video_decoding_force_enabled_AtStartup()) {
+        sLayersSupportsHardwareVideoDecoding = true;
+      }
     }
-  }
-
-#ifdef MOZ_WAYLAND
-  sLayersSupportsHardwareVideoDecoding =
-      gfxPlatformGtk::GetPlatform()->InitVAAPIConfig(
-          sLayersSupportsHardwareVideoDecoding);
 #endif
+  }
 
   sLayersAccelerationPrefsInitialized = true;
 

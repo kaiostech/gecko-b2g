@@ -30,7 +30,6 @@
 #include "vm/JSScript.h"       // ScriptSource, UncompressedSourceCache
 #include "vm/ModuleBuilder.h"  // js::ModuleBuilder
 #include "vm/Time.h"           // AutoIncrementalTimer
-#include "vm/TraceLogging.h"
 #include "wasm/AsmJS.h"
 
 #include "vm/GeckoProfiler-inl.h"
@@ -578,76 +577,6 @@ class MOZ_STACK_CLASS StandaloneFunctionCompiler final
                              FunctionAsyncKind asyncKind,
                              const Maybe<uint32_t>& parameterListEnd);
 };
-
-AutoFrontendTraceLog::AutoFrontendTraceLog(JSContext* cx,
-                                           const TraceLoggerTextId id,
-                                           const ErrorReporter& errorReporter)
-#ifdef JS_TRACE_LOGGING
-    : logger_(TraceLoggerForCurrentThread(cx)) {
-  if (!logger_) {
-    return;
-  }
-
-  // If the tokenizer hasn't yet gotten any tokens, use the line and column
-  // numbers from CompileOptions.
-  uint32_t line, column;
-  if (errorReporter.hasTokenizationStarted()) {
-    line = errorReporter.options().lineno;
-    column = errorReporter.options().column;
-  } else {
-    errorReporter.currentLineAndColumn(&line, &column);
-  }
-  frontendEvent_.emplace(TraceLogger_Frontend, errorReporter.getFilename(),
-                         line, column);
-  frontendLog_.emplace(logger_, *frontendEvent_);
-  typeLog_.emplace(logger_, id);
-}
-#else
-{
-}
-#endif
-
-AutoFrontendTraceLog::AutoFrontendTraceLog(JSContext* cx,
-                                           const TraceLoggerTextId id,
-                                           const ErrorReporter& errorReporter,
-                                           FunctionBox* funbox)
-#ifdef JS_TRACE_LOGGING
-    : logger_(TraceLoggerForCurrentThread(cx)) {
-  if (!logger_) {
-    return;
-  }
-
-  frontendEvent_.emplace(TraceLogger_Frontend, errorReporter.getFilename(),
-                         funbox->extent().lineno, funbox->extent().column);
-  frontendLog_.emplace(logger_, *frontendEvent_);
-  typeLog_.emplace(logger_, id);
-}
-#else
-{
-}
-#endif
-
-AutoFrontendTraceLog::AutoFrontendTraceLog(JSContext* cx,
-                                           const TraceLoggerTextId id,
-                                           const ErrorReporter& errorReporter,
-                                           ParseNode* pn)
-#ifdef JS_TRACE_LOGGING
-    : logger_(TraceLoggerForCurrentThread(cx)) {
-  if (!logger_) {
-    return;
-  }
-
-  uint32_t line, column;
-  errorReporter.lineAndColumnAt(pn->pn_pos.begin, &line, &column);
-  frontendEvent_.emplace(TraceLogger_Frontend, errorReporter.getFilename(),
-                         line, column);
-  frontendLog_.emplace(logger_, *frontendEvent_);
-  typeLog_.emplace(logger_, id);
-}
-#else
-{
-}
-#endif
 
 template <typename Unit>
 bool SourceAwareCompiler<Unit>::createSourceAndParser(JSContext* cx) {

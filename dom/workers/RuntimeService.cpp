@@ -1166,13 +1166,13 @@ bool RuntimeService::RegisterWorker(WorkerPrivate& aWorkerPrivate) {
   } else {
     if (!mNavigatorPropertiesLoaded) {
       Navigator::AppName(mNavigatorProperties.mAppName,
-                         aWorkerPrivate.GetPrincipal(),
+                         aWorkerPrivate.GetDocument(),
                          false /* aUsePrefOverriddenValue */);
       if (NS_FAILED(Navigator::GetAppVersion(
-              mNavigatorProperties.mAppVersion, aWorkerPrivate.GetPrincipal(),
+              mNavigatorProperties.mAppVersion, aWorkerPrivate.GetDocument(),
               false /* aUsePrefOverriddenValue */)) ||
           NS_FAILED(Navigator::GetPlatform(
-              mNavigatorProperties.mPlatform, aWorkerPrivate.GetPrincipal(),
+              mNavigatorProperties.mPlatform, aWorkerPrivate.GetDocument(),
               false /* aUsePrefOverriddenValue */))) {
         UnregisterWorker(aWorkerPrivate);
         return false;
@@ -1265,12 +1265,6 @@ void RuntimeService::UnregisterWorker(WorkerPrivate& aWorkerPrivate) {
       MOZ_ASSERT(domainInfo->mQueuedWorkers.IsEmpty());
       mDomainMap.Remove(domain);
     }
-  }
-
-  if (aWorkerPrivate.IsServiceWorker()) {
-    AssertIsOnMainThread();
-    Telemetry::AccumulateTimeDelta(Telemetry::SERVICE_WORKER_LIFE_TIME,
-                                   aWorkerPrivate.CreationTimeStamp());
   }
 
   // NB: For Shared Workers we used to call ShutdownOnMainThread on the

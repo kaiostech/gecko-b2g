@@ -37,6 +37,8 @@ using mozilla::Utf8Unit;
 ////////////////////////////////////////////////////////////////////////////////
 // Public API
 
+using NameList = GCVector<JSAtom*, 0, SystemAllocPolicy>;
+
 JS_PUBLIC_API JS::SupportedAssertionsHook JS::GetSupportedAssertionsHook(
     JSRuntime* rt) {
   AssertHeapIsIdle();
@@ -332,10 +334,9 @@ static ArrayObject* NewList(JSContext* cx) {
   return NewArrayWithNullProto(cx);
 }
 
-static bool ArrayContainsName(Handle<ArrayObject*> array,
-                              Handle<JSAtom*> name) {
-  for (uint32_t i = 0; i < array->length(); i++) {
-    if (array->getDenseElement(i) == StringValue(name)) {
+static bool ContainsElement(Handle<NameList> list, JSAtom* atom) {
+  for (JSAtom* a : list) {
+    if (a == atom) {
       return true;
     }
   }
@@ -368,26 +369,23 @@ static size_t CountElements(Handle<ModuleVector> stack, ModuleObject* module) {
 
 // https://tc39.es/ecma262/#sec-getexportednames
 // ES2023 16.2.1.6.2 GetExportedNames
-static ArrayObject* ModuleGetExportedNames(
-    JSContext* cx, Handle<ModuleObject*> module,
-    MutableHandle<ModuleSet> exportStarSet) {
+static bool ModuleGetExportedNames(JSContext* cx, Handle<ModuleObject*> module,
+                                   MutableHandle<ModuleSet> exportStarSet,
+                                   MutableHandle<NameList> exportedNames) {
   // Step 4. Let exportedNames be a new empty List.
-  Rooted<ArrayObject*> exportedNames(cx, NewList(cx));
-  if (!exportedNames) {
-    return nullptr;
-  }
+  MOZ_ASSERT(exportedNames.empty());
 
   // Step 2. If exportStarSet contains module, then:
   if (exportStarSet.has(module)) {
     // Step 2.a. We've reached the starting point of an export * circularity.
     // Step 2.b. Return a new empty List.
-    return exportedNames;
+    return true;
   }
 
   // Step 3. Append module to exportStarSet.
   if (!exportStarSet.put(module)) {
     ReportOutOfMemory(cx);
-    return nullptr;
+    return false;
   }
 
   // Step 5. For each ExportEntry Record e of module.[[LocalExportEntries]], do:
@@ -399,8 +397,9 @@ static ArrayObject* ModuleGetExportedNames(
              .as<ExportEntryObject>();
     // Step 5.a. Assert: module provides the direct binding for this export.
     // Step 5.b. Append e.[[ExportName]] to exportedNames.
-    if (!NewbornArrayPush(cx, exportedNames, StringValue(e->exportName()))) {
-      return nullptr;
+    if (!exportedNames.append(e->exportName())) {
+      ReportOutOfMemory(cx);
+      return false;
     }
   }
 
@@ -414,8 +413,9 @@ static ArrayObject* ModuleGetExportedNames(
              .as<ExportEntryObject>();
     // Step 6.a. Assert: module imports a specific binding for this export.
     // Step 6.b. Append e.[[ExportName]] to exportedNames.
-    if (!NewbornArrayPush(cx, exportedNames, StringValue(e->exportName()))) {
-      return nullptr;
+    if (!exportedNames.append(e->exportName())) {
+      ReportOutOfMemory(cx);
+      return false;
     }
   }
 
@@ -436,27 +436,27 @@ static ArrayObject* ModuleGetExportedNames(
     requestedModule = HostResolveImportedModule(cx, module, moduleRequest,
                                                 ModuleStatus::Unlinked);
     if (!requestedModule) {
-      return nullptr;
+      return false;
     }
 
     // Step 7.b. Let starNames be ?
     //           requestedModule.GetExportedNames(exportStarSet).
-    starNames = ModuleGetExportedNames(cx, requestedModule, exportStarSet);
-    if (!starNames) {
-      return nullptr;
+    Rooted<NameList> starNames(cx);
+    if (!ModuleGetExportedNames(cx, requestedModule, exportStarSet,
+                                &starNames)) {
+      return false;
     }
 
     // Step 7.c. For each element n of starNames, do:
-    for (uint32_t j = 0; j != starNames->length(); j++) {
-      name = &starNames->getDenseElement(j).toString()->asAtom();
-
+    for (JSAtom* name : starNames) {
       // Step 7.c.i. If SameValue(n, "default") is false, then:
       if (name != cx->names().default_) {
         // Step 7.c.i.1. If n is not an element of exportedNames, then:
-        if (!ArrayContainsName(exportedNames, name)) {
+        if (!ContainsElement(exportedNames, name)) {
           // Step 7.c.i.1.a. Append n to exportedNames.
-          if (!NewbornArrayPush(cx, exportedNames, StringValue(name))) {
-            return nullptr;
+          if (!exportedNames.append(name)) {
+            ReportOutOfMemory(cx);
+            return false;
           }
         }
       }
@@ -464,7 +464,7 @@ static ArrayObject* ModuleGetExportedNames(
   }
 
   // Step 8. Return exportedNames.
-  return exportedNames;
+  return true;
 }
 
 static ModuleObject* HostResolveImportedModule(
@@ -710,9 +710,8 @@ ModuleNamespaceObject* js::GetOrCreateModuleNamespace(
   if (!ns) {
     // Step 3.a. Let exportedNames be ? module.GetExportedNames().
     Rooted<ModuleSet> exportStarSet(cx);
-    Rooted<ArrayObject*> exportedNames(cx);
-    exportedNames = ModuleGetExportedNames(cx, module, &exportStarSet);
-    if (!exportedNames) {
+    Rooted<NameList> exportedNames(cx);
+    if (!ModuleGetExportedNames(cx, module, &exportStarSet, &exportedNames)) {
       return nullptr;
     }
 
@@ -725,8 +724,8 @@ ModuleNamespaceObject* js::GetOrCreateModuleNamespace(
     // Step 3.c. For each element name of exportedNames, do:
     Rooted<JSAtom*> name(cx);
     Rooted<Value> resolution(cx);
-    for (uint32_t i = 0; i != exportedNames->length(); i++) {
-      name = &exportedNames->getDenseElement(i).toString()->asAtom();
+    for (JSAtom* atom : exportedNames) {
+      name = atom;
 
       // Step 3.c.i. Let resolution be ? module.ResolveExport(name).
       if (!ModuleResolveExport(cx, module, name, &resolution)) {
@@ -1076,8 +1075,8 @@ bool js::ModuleLink(JSContext* cx, Handle<ModuleObject*> module) {
   // Step 5. Assert: module.[[Status]] is linked, evaluating-async, or
   //         evaluated.
   MOZ_ASSERT(module->status() == ModuleStatus::Linked ||
-             module->status() == ModuleStatus::Evaluated ||
-             module->status() == ModuleStatus::Evaluated_Error);
+             module->status() == ModuleStatus::EvaluatingAsync ||
+             module->status() == ModuleStatus::Evaluated);
 
   // Step 6. Assert: stack is empty.
   MOZ_ASSERT(stack.empty());
@@ -1095,8 +1094,8 @@ static bool InnerModuleLinking(JSContext* cx, Handle<ModuleObject*> module,
   //         evaluated, then:
   if (module->status() == ModuleStatus::Linking ||
       module->status() == ModuleStatus::Linked ||
-      module->status() == ModuleStatus::Evaluated ||
-      module->status() == ModuleStatus::Evaluated_Error) {
+      module->status() == ModuleStatus::EvaluatingAsync ||
+      module->status() == ModuleStatus::Evaluated) {
     // Step 2.a. Return index.
     *indexOut = index;
     return true;
@@ -1158,8 +1157,8 @@ static bool InnerModuleLinking(JSContext* cx, Handle<ModuleObject*> module,
     //             evaluating-async, or evaluated.
     MOZ_ASSERT(requiredModule->status() == ModuleStatus::Linking ||
                requiredModule->status() == ModuleStatus::Linked ||
-               requiredModule->status() == ModuleStatus::Evaluated ||
-               requiredModule->status() == ModuleStatus::Evaluated_Error);
+               requiredModule->status() == ModuleStatus::EvaluatingAsync ||
+               requiredModule->status() == ModuleStatus::Evaluated);
 
     // Step 9.c.ii. Assert: requiredModule.[[Status]] is linking if and only if
     //              requiredModule is in stack.
@@ -1221,16 +1220,40 @@ bool js::ModuleEvaluate(JSContext* cx, Handle<ModuleObject*> moduleArg,
   // Step 2. Assert: module.[[Status]] is linked, evaluating-async, or
   //         evaluated.
   if (module->status() != ModuleStatus::Linked &&
-      module->status() != ModuleStatus::Evaluated &&
-      module->status() != ModuleStatus::Evaluated_Error) {
+      module->status() != ModuleStatus::EvaluatingAsync &&
+      module->status() != ModuleStatus::Evaluated) {
     JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
                              JSMSG_BAD_MODULE_STATUS);
     return false;
   }
 
+  // Note: we return early in the error case, as the spec assumes we can get the
+  // cycle root of |module| which may not be available.
+  if (module->hadEvaluationError()) {
+    Rooted<PromiseObject*> capability(cx);
+    if (!module->hasTopLevelCapability()) {
+      capability = ModuleObject::createTopLevelCapability(cx, module);
+      if (!capability) {
+        return false;
+      }
+
+      Rooted<Value> error(cx, module->evaluationError());
+      if (!ModuleObject::topLevelCapabilityReject(cx, module, error)) {
+        return false;
+      }
+    }
+
+    capability = module->topLevelCapability();
+    MOZ_ASSERT(JS::GetPromiseState(capability) == JS::PromiseState::Rejected);
+    MOZ_ASSERT(JS::GetPromiseResult(capability) == module->evaluationError());
+    result.set(ObjectValue(*capability));
+    return true;
+  }
+
   // Step 3. If module.[[Status]] is evaluating-async or evaluated, set module
   //         to module.[[CycleRoot]].
-  if (module->status() == ModuleStatus::Evaluated) {
+  if (module->status() == ModuleStatus::EvaluatingAsync ||
+      module->status() == ModuleStatus::Evaluated) {
     module = module->getCycleRoot();
   }
 
@@ -1285,7 +1308,7 @@ bool js::ModuleEvaluate(JSContext* cx, Handle<ModuleObject*> moduleArg,
     }
 
     // Step 9.b. Assert: module.[[Status]] is evaluated.
-    MOZ_ASSERT(module->status() == ModuleStatus::Evaluated_Error);
+    MOZ_ASSERT(module->status() == ModuleStatus::Evaluated);
 
     // Step 9.c. Assert: module.[[EvaluationError]] is result.
     MOZ_ASSERT(module->evaluationError() == error);
@@ -1298,9 +1321,11 @@ bool js::ModuleEvaluate(JSContext* cx, Handle<ModuleObject*> moduleArg,
   } else {
     // Step 10. Else:
     // Step 10.a. Assert: module.[[Status]] is evaluating-async or evaluated.
-    // Step 10.b. Assert: module.[[EvaluationError]] is empty.
-    MOZ_ASSERT(module->status() == ModuleStatus::Evaluating ||
+    MOZ_ASSERT(module->status() == ModuleStatus::EvaluatingAsync ||
                module->status() == ModuleStatus::Evaluated);
+
+    // Step 10.b. Assert: module.[[EvaluationError]] is empty.
+    MOZ_ASSERT(!module->hadEvaluationError());
 
     // Step 10.c. If module.[[AsyncEvaluation]] is false, then:
     if (!module->isAsyncEvaluating()) {
@@ -1329,19 +1354,22 @@ static bool InnerModuleEvaluation(JSContext* cx, Handle<ModuleObject*> module,
                                   MutableHandle<ModuleVector> stack,
                                   size_t index, size_t* indexOut) {
   // Step 2. If module.[[Status]] is evaluating-async or evaluated, then:
-  // Step 2.a. If module.[[EvaluationError]] is empty, return index.
-  // Step 2.b. Otherwise, return ? module.[[EvaluationError]].
-  // Step 3. If module.[[Status]] is evaluating, return index.
+  if (module->status() == ModuleStatus::EvaluatingAsync ||
+      module->status() == ModuleStatus::Evaluated) {
+    // Step 2.a. If module.[[EvaluationError]] is empty, return index.
+    if (!module->hadEvaluationError()) {
+      *indexOut = index;
+      return true;
+    }
 
-  // This section is rearranged since we don't have an evaluating-async state
-  // but we do have an 'evaluation produced an error' state.
-  if (module->hadEvaluationError()) {
+    // Step 2.b. Otherwise, return ? module.[[EvaluationError]].
     Rooted<Value> error(cx, module->evaluationError());
     cx->setPendingException(error, ShouldCaptureStack::Maybe);
     return false;
   }
-  if (module->status() == ModuleStatus::Evaluating ||
-      module->status() == ModuleStatus::Evaluated) {
+
+  // Step 3. If module.[[Status]] is evaluating, return index.
+  if (module->status() == ModuleStatus::Evaluating) {
     *indexOut = index;
     return true;
   }
@@ -1402,6 +1430,7 @@ static bool InnerModuleEvaluation(JSContext* cx, Handle<ModuleObject*> module,
     // Step 11.d.i. Assert: requiredModule.[[Status]] is either evaluating,
     //              evaluating-async, or evaluated.
     MOZ_ASSERT(requiredModule->status() == ModuleStatus::Evaluating ||
+               requiredModule->status() == ModuleStatus::EvaluatingAsync ||
                requiredModule->status() == ModuleStatus::Evaluated);
 
     // Step 11.d.ii. Assert: requiredModule.[[Status]] is evaluating if and only
@@ -1423,11 +1452,12 @@ static bool InnerModuleEvaluation(JSContext* cx, Handle<ModuleObject*> module,
 
       // Step 11.d.iv.2. Assert: requiredModule.[[Status]] is evaluating-async
       //                 or evaluated.
-      MOZ_ASSERT(requiredModule->status() >= ModuleStatus::Evaluated);
+      MOZ_ASSERT(requiredModule->status() >= ModuleStatus::EvaluatingAsync ||
+                 requiredModule->status() == ModuleStatus::Evaluated);
 
       // Step 11.d.iv.3. If requiredModule.[[EvaluationError]] is not empty,
       //                 return ? requiredModule.[[EvaluationError]].
-      if (requiredModule->status() == ModuleStatus::Evaluated_Error) {
+      if (requiredModule->hadEvaluationError()) {
         Rooted<Value> error(cx, requiredModule->evaluationError());
         cx->setPendingException(error, ShouldCaptureStack::Maybe);
         return false;
@@ -1450,7 +1480,7 @@ static bool InnerModuleEvaluation(JSContext* cx, Handle<ModuleObject*> module,
 
   // Step 12. If module.[[PendingAsyncDependencies]] > 0 or module.[[HasTLA]] is
   //          true, then:
-  if (module->pendingAsyncDependencies() > 0 || module->isAsync()) {
+  if (module->pendingAsyncDependencies() > 0 || module->hasTopLevelAwait()) {
     // Step 12.a. Assert: module.[[AsyncEvaluation]] is false and was never
     //            previously set to true.
     MOZ_ASSERT(!module->isAsyncEvaluating() && !module->wasAsyncEvaluating());
@@ -1494,11 +1524,13 @@ static bool InnerModuleEvaluation(JSContext* cx, Handle<ModuleObject*> module,
 
       // Step 16.b.iv. If requiredModule.[[AsyncEvaluation]] is false, set
       //               requiredModule.[[Status]] to evaluated.
-      // Step 16.b.v. Otherwise, set requiredModule.[[Status]] to
-      //              evaluating-async.
-
-      // Bug 1777972: We don't have a separate evaluating-async state.
-      requiredModule->setStatus(ModuleStatus::Evaluated);
+      if (!requiredModule->isAsyncEvaluating()) {
+        requiredModule->setStatus(ModuleStatus::Evaluated);
+      } else {
+        // Step 16.b.v. Otherwise, set requiredModule.[[Status]] to
+        //              evaluating-async.
+        requiredModule->setStatus(ModuleStatus::EvaluatingAsync);
+      }
 
       // Step 16.b.vi. If requiredModule and module are the same Module Record,
       //               set done to true.
@@ -1519,10 +1551,10 @@ static bool InnerModuleEvaluation(JSContext* cx, Handle<ModuleObject*> module,
 static bool ExecuteAsyncModule(JSContext* cx, Handle<ModuleObject*> module) {
   // Step 1. Assert: module.[[Status]] is evaluating or evaluating-async.
   MOZ_ASSERT(module->status() == ModuleStatus::Evaluating ||
-             module->status() == ModuleStatus::Evaluated);
+             module->status() == ModuleStatus::EvaluatingAsync);
 
   // Step 2. Assert: module.[[HasTLA]] is true.
-  MOZ_ASSERT(module->isAsync());
+  MOZ_ASSERT(module->hasTopLevelAwait());
 
   // Steps 3 - 8 are performed by the AsyncAwait opcode.
 
@@ -1531,47 +1563,13 @@ static bool ExecuteAsyncModule(JSContext* cx, Handle<ModuleObject*> module) {
   return ModuleObject::execute(cx, module);
 }
 
-struct EvalOrderComparator {
-  bool operator()(ModuleObject* a, ModuleObject* b, bool* lessOrEqualp) {
-    int32_t result = int32_t(a->getAsyncEvaluatingPostOrder()) -
-                     int32_t(b->getAsyncEvaluatingPostOrder());
-    *lessOrEqualp = (result <= 0);
-    return true;
-  }
-};
-
-bool js::GatherAvailableModuleAncestors(
-    JSContext* cx, Handle<ModuleObject*> module,
-    MutableHandle<ModuleVector> sortedList) {
-  MOZ_ASSERT(module->status() == ModuleStatus::Evaluated);
-  MOZ_ASSERT(sortedList.empty());
-
-  if (!::GatherAvailableModuleAncestors(cx, module, sortedList)) {
-    return false;
-  }
-
-  // Sort the list as per 16.2.1.5.2.4 AsyncModuleExecutionFulfilled:
-  //
-  // Step 10. Let sortedExecList be a List whose elements are the elements of
-  //          execList, in the order in which they had their [[AsyncEvaluation]]
-  //          fields set to true in InnerModuleEvaluation.
-
-  Rooted<ModuleVector> scratch(cx);
-  if (!scratch.resize(sortedList.length())) {
-    ReportOutOfMemory(cx);
-    return false;
-  }
-
-  MOZ_ALWAYS_TRUE(MergeSort(sortedList.begin(), sortedList.length(),
-                            scratch.begin(), EvalOrderComparator()));
-  return true;
-}
-
 // https://tc39.es/ecma262/#sec-gather-available-ancestors
 // ES2023 16.2.1.5.2.3 GatherAvailableAncestors
 static bool GatherAvailableModuleAncestors(
     JSContext* cx, Handle<ModuleObject*> module,
     MutableHandle<ModuleVector> execList) {
+  MOZ_ASSERT(module->status() == ModuleStatus::EvaluatingAsync);
+
   // Step 1. For each Cyclic Module Record m of module.[[AsyncParentModules]],
   //         do:
   Rooted<ListObject*> asyncParentModules(cx, module->asyncParentModules());
@@ -1581,12 +1579,13 @@ static bool GatherAvailableModuleAncestors(
 
     // Step 1.a. If execList does not contain m and
     //           m.[[CycleRoot]].[[EvaluationError]] is empty, then:
-    if (!m->getCycleRoot()->hadEvaluationError() &&
+    //
+    // Note: we also check whether m.[[EvaluationError]] is empty since an error
+    // in synchronous execution can prevent the CycleRoot field from being set.
+    if (!m->hadEvaluationError() && !m->getCycleRoot()->hadEvaluationError() &&
         !ContainsElement(execList, m)) {
       // Step 1.a.i. Assert: m.[[Status]] is evaluating-async.
-
-      // Bug 1777972: We don't have a separate evaluating-async state.
-      MOZ_ASSERT(m->status() == ModuleStatus::Evaluated);
+      MOZ_ASSERT(m->status() == ModuleStatus::EvaluatingAsync);
 
       // Step 1.a.ii. Assert: m.[[EvaluationError]] is empty.
       MOZ_ASSERT(!m->hadEvaluationError());
@@ -1610,8 +1609,8 @@ static bool GatherAvailableModuleAncestors(
 
         // Step 1.a.vi.2. If m.[[HasTLA]] is false, perform
         //                GatherAvailableAncestors(m, execList).
-        if (!m->isAsync() &&
-            !::GatherAvailableModuleAncestors(cx, m, execList)) {
+        if (!m->hasTopLevelAwait() &&
+            !GatherAvailableModuleAncestors(cx, m, execList)) {
           return false;
         }
       }
@@ -1620,4 +1619,226 @@ static bool GatherAvailableModuleAncestors(
 
   // Step 2. Return unused.
   return true;
+}
+
+struct EvalOrderComparator {
+  bool operator()(ModuleObject* a, ModuleObject* b, bool* lessOrEqualp) {
+    int32_t result = int32_t(a->getAsyncEvaluatingPostOrder()) -
+                     int32_t(b->getAsyncEvaluatingPostOrder());
+    *lessOrEqualp = (result <= 0);
+    return true;
+  }
+};
+
+static void RejectExecutionWithPendingException(JSContext* cx,
+                                                Handle<ModuleObject*> module) {
+  // If there is no exception pending then we have been interrupted or have
+  // OOM'd and all bets are off. We reject the execution by throwing
+  // undefined. Not much more we can do.
+  RootedValue exception(cx);
+  if (cx->isExceptionPending()) {
+    std::ignore = cx->getPendingException(&exception);
+  }
+  cx->clearPendingException();
+  AsyncModuleExecutionRejected(cx, module, exception);
+}
+
+// https://tc39.es/ecma262/#sec-async-module-execution-fulfilled
+// ES2023 16.2.1.5.2.4 AsyncModuleExecutionFulfilled
+void js::AsyncModuleExecutionFulfilled(JSContext* cx,
+                                       Handle<ModuleObject*> module) {
+  // Step 1. If module.[[Status]] is evaluated, then:
+  if (module->status() == ModuleStatus::Evaluated) {
+    // Step 1.a. Assert: module.[[EvaluationError]] is not empty.
+    MOZ_ASSERT(module->hadEvaluationError());
+
+    // Step 1.b. Return unused.
+    return;
+  }
+
+  // Step 2. Assert: module.[[Status]] is evaluating-async.
+  MOZ_ASSERT(module->status() == ModuleStatus::EvaluatingAsync);
+
+  // Step 3. Assert: module.[[AsyncEvaluation]] is true.
+  MOZ_ASSERT(module->isAsyncEvaluating());
+
+  // Step 4. Assert: module.[[EvaluationError]] is empty.
+  MOZ_ASSERT(!module->hadEvaluationError());
+
+  // The following steps are performed in a different order from the
+  // spec. Gather available module ancestors before mutating the module object
+  // as this can fail in our implementation.
+
+  // Step 8. Let execList be a new empty List.
+  Rooted<ModuleVector> execList(cx);
+
+  // Step 9. Perform GatherAvailableAncestors(module, execList).
+  if (!GatherAvailableModuleAncestors(cx, module, &execList)) {
+    RejectExecutionWithPendingException(cx, module);
+    return;
+  }
+
+  // Step 10. Let sortedExecList be a List whose elements are the elements of
+  //          execList, in the order in which they had their [[AsyncEvaluation]]
+  //          fields set to true in InnerModuleEvaluation.
+
+  Rooted<ModuleVector> scratch(cx);
+  if (!scratch.resize(execList.length())) {
+    ReportOutOfMemory(cx);
+    RejectExecutionWithPendingException(cx, module);
+    return;
+  }
+
+  MOZ_ALWAYS_TRUE(MergeSort(execList.begin(), execList.length(),
+                            scratch.begin(), EvalOrderComparator()));
+
+  // Step 11. Assert: All elements of sortedExecList have their
+  //          [[AsyncEvaluation]] field set to true,
+  //          [[PendingAsyncDependencies]] field set to 0, and
+  //          [[EvaluationError]] field set to empty.
+#ifdef DEBUG
+  for (ModuleObject* m : execList) {
+    MOZ_ASSERT(m->isAsyncEvaluating());
+    MOZ_ASSERT(m->pendingAsyncDependencies() == 0);
+    MOZ_ASSERT(!m->hadEvaluationError());
+  }
+#endif
+
+  // Return to original order of steps.
+
+  ModuleObject::onTopLevelEvaluationFinished(module);
+
+  // Step 5. Set module.[[AsyncEvaluation]] to false.
+  module->setAsyncEvaluatingFalse();
+
+  // Step 6. Set module.[[Status]] to evaluated.
+  module->setStatus(ModuleStatus::Evaluated);
+
+  // Step 7. If module.[[TopLevelCapability]] is not empty, then:
+  if (module->hasTopLevelCapability()) {
+    // Step 7.a. Assert: module.[[CycleRoot]] is module.
+    MOZ_ASSERT(module->getCycleRoot() == module);
+
+    // Step 7.b. Perform ! Call(module.[[TopLevelCapability]].[[Resolve]],
+    //           undefined, undefined).
+    if (!ModuleObject::topLevelCapabilityResolve(cx, module)) {
+      // If Resolve fails, there's nothing more we can do here.
+      cx->clearPendingException();
+    }
+  }
+
+  // Step 12. For each Cyclic Module Record m of sortedExecList, do:
+  Rooted<ModuleObject*> m(cx);
+  for (ModuleObject* obj : execList) {
+    m = obj;
+
+    // Step 12.a. If m.[[Status]] is evaluated, then:
+    if (m->status() == ModuleStatus::Evaluated) {
+      // Step 12.a.i. Assert: m.[[EvaluationError]] is not empty.
+      MOZ_ASSERT(m->hadEvaluationError());
+    } else if (m->hasTopLevelAwait()) {
+      // Step 12.b. Else if m.[[HasTLA]] is true, then:
+      // Step 12.b.i. Perform ExecuteAsyncModule(m).
+      MOZ_ALWAYS_TRUE(ExecuteAsyncModule(cx, m));
+    } else {
+      // Step 12.c. Else:
+      // Step 12.c.i. Let result be m.ExecuteModule().
+      bool ok = ModuleObject::execute(cx, m);
+
+      // Step 12.c.ii. If result is an abrupt completion, then:
+      if (!ok) {
+        // Step 12.c.ii.1. Perform AsyncModuleExecutionRejected(m,
+        //                 result.[[Value]]).
+        RejectExecutionWithPendingException(cx, m);
+      } else {
+        // Step 12.c.iii. Else:
+        // Step 12.c.iii.1. Set m.[[Status]] to evaluated.
+        m->setStatus(ModuleStatus::Evaluated);
+
+        // Note: This step is no longer in the spec. We do this to ensure the
+        // that the async evaluating state is set to false after evaluation has
+        // finished.
+        m->setAsyncEvaluatingFalse();
+
+        // Step 12.c.iii.2. If m.[[TopLevelCapability]] is not empty, then:
+        if (m->hasTopLevelCapability()) {
+          // Step 12.c.iii.2.a. Assert: m.[[CycleRoot]] is m.
+          MOZ_ASSERT(m->getCycleRoot() == m);
+
+          // Step 12.c.iii.2.b. Perform !
+          //                    Call(m.[[TopLevelCapability]].[[Resolve]],
+          //                    undefined, undefined).
+          if (!ModuleObject::topLevelCapabilityResolve(cx, m)) {
+            // If Resolve fails, there's nothing more we can do here.
+            cx->clearPendingException();
+          }
+        }
+      }
+    }
+  }
+
+  // Step 13. Return unused.
+}
+
+// https://tc39.es/ecma262/#sec-async-module-execution-rejected
+// ES2023 16.2.1.5.2.5 AsyncModuleExecutionRejected
+void js::AsyncModuleExecutionRejected(JSContext* cx,
+                                      Handle<ModuleObject*> module,
+                                      HandleValue error) {
+  // Step 1. If module.[[Status]] is evaluated, then:
+  if (module->status() == ModuleStatus::Evaluated) {
+    // Step 1.a. Assert: module.[[EvaluationError]] is not empty
+    MOZ_ASSERT(module->hadEvaluationError());
+
+    // Step 1.b. Return unused.
+    return;
+  }
+
+  // Step 2. Assert: module.[[Status]] is evaluating-async.
+  MOZ_ASSERT(module->status() == ModuleStatus::EvaluatingAsync);
+
+  // Step 3. Assert: module.[[AsyncEvaluation]] is true.
+  MOZ_ASSERT(module->isAsyncEvaluating());
+
+  // Step 4. 4. Assert: module.[[EvaluationError]] is empty.
+  MOZ_ASSERT(!module->hadEvaluationError());
+
+  ModuleObject::onTopLevelEvaluationFinished(module);
+
+  // Step 5. Set module.[[EvaluationError]] to ThrowCompletion(error).
+  module->setEvaluationError(error);
+
+  // Step 6. Set module.[[Status]] to evaluated.
+  MOZ_ASSERT(module->status() == ModuleStatus::Evaluated);
+
+  // Note: This step is no longer in the spec. We do this to ensure the
+  // that the async evaluating state is set to false after evaluation has
+  // finished.
+  module->setAsyncEvaluatingFalse();
+
+  // Step 7. For each Cyclic Module Record m of module.[[AsyncParentModules]],
+  //         do:
+  Rooted<ListObject*> parents(cx, module->asyncParentModules());
+  Rooted<ModuleObject*> parent(cx);
+  for (uint32_t i = 0; i < parents->length(); i++) {
+    parent = &parents->get(i).toObject().as<ModuleObject>();
+
+    // Step 7.a. Perform AsyncModuleExecutionRejected(m, error).
+    AsyncModuleExecutionRejected(cx, parent, error);
+  }
+
+  // Step 8. If module.[[TopLevelCapability]] is not empty, then:
+  if (module->hasTopLevelCapability()) {
+    // Step 8.a. Assert: module.[[CycleRoot]] is module.
+    MOZ_ASSERT(module->getCycleRoot() == module);
+
+    // Step 8.b. Perform ! Call(module.[[TopLevelCapability]].[[Reject]],
+    //           undefined, error).
+    if (!ModuleObject::topLevelCapabilityReject(cx, module, error)) {
+      // If Reject fails, there's nothing more we can do here.
+      cx->clearPendingException();
+    }
+  }
+
+  // Step 9. Return unused.
 }

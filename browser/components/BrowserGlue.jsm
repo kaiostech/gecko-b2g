@@ -9,15 +9,18 @@ var EXPORTED_SYMBOLS = [
   "DefaultBrowserCheck",
 ];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
 
 const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  PageDataService: "resource:///modules/pagedata/PageDataService.sys.mjs",
+});
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AboutNewTab: "resource:///modules/AboutNewTab.jsm",
@@ -55,7 +58,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   Interactions: "resource:///modules/Interactions.jsm",
   Log: "resource://gre/modules/Log.jsm",
   LoginBreaches: "resource:///modules/LoginBreaches.jsm",
-  PageDataService: "resource:///modules/pagedata/PageDataService.jsm",
   NetUtil: "resource://gre/modules/NetUtil.jsm",
   NewTabUtils: "resource://gre/modules/NewTabUtils.jsm",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
@@ -1216,6 +1218,10 @@ BrowserGlue.prototype = {
       this._matchCBCategory
     );
     Services.prefs.removeObserver(
+      "privacy.query_stripping.enabled.pbmode",
+      this._matchCBCategory
+    );
+    Services.prefs.removeObserver(
       ContentBlockingCategoriesPrefs.PREF_CB_CATEGORY,
       this._updateCBCategory
     );
@@ -1736,6 +1742,10 @@ BrowserGlue.prototype = {
       this._matchCBCategory
     );
     Services.prefs.addObserver(
+      "privacy.query_stripping.enabled.pbmode",
+      this._matchCBCategory
+    );
+    Services.prefs.addObserver(
       ContentBlockingCategoriesPrefs.PREF_CB_CATEGORY,
       this._updateCBCategory
     );
@@ -1780,7 +1790,7 @@ BrowserGlue.prototype = {
     // rollout.
     // Avoid overwriting cookie behavior set by enterprise policy.
     if (
-      lazy.NimbusFeatures.tcpByDefault.isEnabled() &&
+      lazy.NimbusFeatures.tcpByDefault.getVariable("enabled") &&
       !hasCookieBehaviorPolicy()
     ) {
       Services.telemetry.scalarSet(
@@ -2796,6 +2806,14 @@ BrowserGlue.prototype = {
               lazy.RemoteAgent.running) &&
             Services.prefs.getBoolPref("app.update.disabledForTesting", false);
           if (!disabledForTesting) {
+            try {
+              lazy.BackgroundUpdate.scheduleFirefoxMessagingSystemTargetingSnapshotting();
+            } catch (e) {
+              Cu.reportError(
+                "There was an error scheduling Firefox Messaging System targeting snapshotting: " +
+                  e
+              );
+            }
             lazy.BackgroundUpdate.maybeScheduleBackgroundUpdateTask();
           }
         },
@@ -4351,7 +4369,9 @@ BrowserGlue.prototype = {
         return "disallow-postUpdate";
       }
 
-      return lazy.NimbusFeatures.upgradeDialog.isEnabled() ? "" : "disabled";
+      return lazy.NimbusFeatures.upgradeDialog.getVariable("enabled")
+        ? ""
+        : "disabled";
     })();
 
     // Record why the dialog is showing or not.
@@ -4802,6 +4822,7 @@ var ContentBlockingCategoriesPrefs = {
         "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation": null,
         "privacy.partition.network_state.ocsp_cache": null,
         "privacy.query_stripping.enabled": null,
+        "privacy.query_stripping.enabled.pbmode": null,
       },
       standard: {
         "network.cookie.cookieBehavior": null,
@@ -4816,6 +4837,7 @@ var ContentBlockingCategoriesPrefs = {
         "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation": null,
         "privacy.partition.network_state.ocsp_cache": null,
         "privacy.query_stripping.enabled": null,
+        "privacy.query_stripping.enabled.pbmode": null,
       },
     };
     let type = "strict";
@@ -4919,6 +4941,16 @@ var ContentBlockingCategoriesPrefs = {
           break;
         case "-qps":
           this.CATEGORY_PREFS[type]["privacy.query_stripping.enabled"] = false;
+          break;
+        case "qpsPBM":
+          this.CATEGORY_PREFS[type][
+            "privacy.query_stripping.enabled.pbmode"
+          ] = true;
+          break;
+        case "-qpsPBM":
+          this.CATEGORY_PREFS[type][
+            "privacy.query_stripping.enabled.pbmode"
+          ] = false;
           break;
         case "cookieBehavior0":
           this.CATEGORY_PREFS[type]["network.cookie.cookieBehavior"] =
@@ -5610,7 +5642,7 @@ var AboutHomeStartupCache = {
 
     this.setDeferredResult(this.CACHE_RESULT_SCALARS.UNSET);
 
-    this._enabled = lazy.NimbusFeatures.abouthomecache.isEnabled();
+    this._enabled = !!lazy.NimbusFeatures.abouthomecache.getVariable("enabled");
 
     if (!this._enabled) {
       this.recordResult(this.CACHE_RESULT_SCALARS.DISABLED);

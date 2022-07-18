@@ -4,7 +4,6 @@
 var { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
 );
-var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 ChromeUtils.defineModuleGetter(
   this,
   "PlacesUtils",
@@ -146,7 +145,6 @@ async function setupMSExperimentWithMessage(message) {
   );
   let doExperimentCleanup = await ExperimentFakes.enrollWithFeatureConfig({
     featureId: "pbNewtab",
-    enabled: true,
     value: message,
   });
   await SpecialPowers.pushPrefEnv({

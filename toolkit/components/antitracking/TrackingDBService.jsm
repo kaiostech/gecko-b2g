@@ -4,12 +4,11 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
 const { Sqlite } = ChromeUtils.import("resource://gre/modules/Sqlite.jsm");
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const SCHEMA_VERSION = 1;
 const TRACKERS_BLOCKED_COUNT = "contentblocking.trackers_blocked_count";

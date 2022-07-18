@@ -13,7 +13,6 @@ import AccessibleImage from "../shared/AccessibleImage";
 
 import {
   getGeneratedSourceByURL,
-  hasPrettyTab as checkHasPrettyTab,
   getContext,
   getSourceContent,
 } from "../../selectors";
@@ -41,9 +40,8 @@ class SourceTreeItem extends Component {
       expanded: PropTypes.bool.isRequired,
       focusItem: PropTypes.func.isRequired,
       focused: PropTypes.bool.isRequired,
-      getSourcesGroups: PropTypes.func.isRequired,
+      getBlackBoxSourcesGroups: PropTypes.func.isRequired,
       hasMatchingGeneratedSource: PropTypes.bool.isRequired,
-      hasPrettyTab: PropTypes.bool.isRequired,
       item: PropTypes.object.isRequired,
       loadSourceText: PropTypes.func.isRequired,
       projectRoot: PropTypes.string.isRequired,
@@ -54,6 +52,7 @@ class SourceTreeItem extends Component {
       sourceContent: PropTypes.object,
       threads: PropTypes.array.isRequired,
       toggleBlackBox: PropTypes.func.isRequired,
+      isSourceBlackBoxed: PropTypes.bool.isRequired,
     };
   }
 
@@ -102,10 +101,10 @@ class SourceTreeItem extends Component {
         if (source) {
           const blackBoxMenuItem = {
             id: "node-menu-blackbox",
-            label: source.isBlackBoxed
+            label: this.props.isSourceBlackBoxed
               ? L10N.getStr("ignoreContextItem.unignore")
               : L10N.getStr("ignoreContextItem.ignore"),
-            accesskey: source.isBlackBoxed
+            accesskey: this.props.isSourceBlackBoxed
               ? L10N.getStr("ignoreContextItem.unignore.accesskey")
               : L10N.getStr("ignoreContextItem.ignore.accesskey"),
             disabled: !shouldBlackbox(source),
@@ -176,13 +175,12 @@ class SourceTreeItem extends Component {
 
   addBlackboxAllOption = (menuOptions, item) => {
     const { cx, depth, projectRoot } = this.props;
-    const { sourcesInside, sourcesOuside } = this.props.getSourcesGroups(item);
-    const allInsideBlackBoxed = sourcesInside.every(
-      source => source.isBlackBoxed
-    );
-    const allOusideBlackBoxed = sourcesOuside.every(
-      source => source.isBlackBoxed
-    );
+    const {
+      sourcesInside,
+      sourcesOutside,
+      allInsideBlackBoxed,
+      allOutsideBlackBoxed,
+    } = this.props.getBlackBoxSourcesGroups(item);
 
     let blackBoxInsideMenuItemLabel;
     let blackBoxOutsideMenuItemLabel;
@@ -190,8 +188,8 @@ class SourceTreeItem extends Component {
       blackBoxInsideMenuItemLabel = allInsideBlackBoxed
         ? L10N.getStr("unignoreAllInGroup.label")
         : L10N.getStr("ignoreAllInGroup.label");
-      if (sourcesOuside.length > 0) {
-        blackBoxOutsideMenuItemLabel = allOusideBlackBoxed
+      if (sourcesOutside.length > 0) {
+        blackBoxOutsideMenuItemLabel = allOutsideBlackBoxed
           ? L10N.getStr("unignoreAllOutsideGroup.label")
           : L10N.getStr("ignoreAllOutsideGroup.label");
       }
@@ -199,8 +197,8 @@ class SourceTreeItem extends Component {
       blackBoxInsideMenuItemLabel = allInsideBlackBoxed
         ? L10N.getStr("unignoreAllInDir.label")
         : L10N.getStr("ignoreAllInDir.label");
-      if (sourcesOuside.length > 0) {
-        blackBoxOutsideMenuItemLabel = allOusideBlackBoxed
+      if (sourcesOutside.length > 0) {
+        blackBoxOutsideMenuItemLabel = allOutsideBlackBoxed
           ? L10N.getStr("unignoreAllOutsideDir.label")
           : L10N.getStr("ignoreAllOutsideDir.label");
       }
@@ -216,14 +214,14 @@ class SourceTreeItem extends Component {
         this.props.blackBoxSources(cx, sourcesInside, !allInsideBlackBoxed),
     };
 
-    if (sourcesOuside.length > 0) {
+    if (sourcesOutside.length > 0) {
       menuOptions.push({
         id: "node-blackbox-all",
         label: L10N.getStr("ignoreAll.label"),
         submenu: [
           blackBoxInsideMenuItem,
           {
-            id: allOusideBlackBoxed
+            id: allOutsideBlackBoxed
               ? "node-unblackbox-all-outside"
               : "node-blackbox-all-outside",
             label: blackBoxOutsideMenuItemLabel,
@@ -231,8 +229,8 @@ class SourceTreeItem extends Component {
             click: () =>
               this.props.blackBoxSources(
                 cx,
-                sourcesOuside,
-                !allOusideBlackBoxed
+                sourcesOutside,
+                !allOutsideBlackBoxed
               ),
           },
         ],
@@ -270,7 +268,7 @@ class SourceTreeItem extends Component {
   }
 
   renderIcon(item, depth) {
-    const { projectRoot, source, hasPrettyTab, threads } = this.props;
+    const { projectRoot, source, threads } = this.props;
 
     if (item.name === "Webpack") {
       return <AccessibleImage className="webpack" />;
@@ -317,14 +315,6 @@ class SourceTreeItem extends Component {
         return <AccessibleImage className="globe-small" />;
       }
       return <AccessibleImage className="folder" />;
-    }
-
-    if (source?.isBlackBoxed) {
-      return <AccessibleImage className="blackBox" />;
-    }
-
-    if (hasPrettyTab) {
-      return <AccessibleImage className="prettyPrint" />;
     }
 
     if (source) {
@@ -413,7 +403,6 @@ const mapStateToProps = (state, props) => {
   return {
     cx: getContext(state),
     hasMatchingGeneratedSource: getHasMatchingGeneratedSource(state, source),
-    hasPrettyTab: source ? checkHasPrettyTab(state, source.url) : false,
     sourceContent: source ? getSourceContentValue(state, source) : null,
   };
 };

@@ -21,6 +21,7 @@
 #include "mozilla/UniquePtr.h"
 #include "FilterDescription.h"
 #include "gfx2DGlue.h"
+#include "gfxFontConstants.h"
 #include "nsICanvasRenderingContextInternal.h"
 #include "nsColor.h"
 #include "nsIFrame.h"
@@ -308,6 +309,9 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
   void GetDirection(nsAString& aDirection);
   void SetDirection(const nsAString& aDirection);
 
+  void GetFontKerning(nsAString& aFontKerning);
+  void SetFontKerning(const nsAString& aFontKerning);
+
   void ClosePath() override {
     EnsureWritablePath();
 
@@ -592,8 +596,11 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
                    ErrorResult& aError);
 
   // Returns whether the font was successfully updated.
-  virtual bool SetFontInternal(const nsACString& aFont,
-                               mozilla::ErrorResult& aError);
+  bool SetFontInternal(const nsACString& aFont, mozilla::ErrorResult& aError);
+
+  // Helper for SetFontInternal in the case where we have no PresShell.
+  bool SetFontInternalDisconnected(const nsACString& aFont,
+                                   mozilla::ErrorResult& aError);
 
   // Clears the target and updates mOpaque based on mOpaqueAttrValue and
   // mContextAttributesHasAlpha.
@@ -892,6 +899,14 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
 
   enum class TextDirection : uint8_t { LTR, RTL, INHERIT };
 
+  // Match values from the style system, so we don't have to bother mapping
+  // between them when setting up an nsFont.
+  enum class FontKerning : uint8_t {
+    AUTO = NS_FONT_KERNING_AUTO,
+    NORMAL = NS_FONT_KERNING_NORMAL,
+    NONE = NS_FONT_KERNING_NONE
+  };
+
  protected:
   gfxFontGroup* GetCurrentFontStyle();
 
@@ -960,6 +975,7 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
     TextAlign textAlign = TextAlign::START;
     TextBaseline textBaseline = TextBaseline::ALPHABETIC;
     TextDirection textDirection = TextDirection::INHERIT;
+    FontKerning fontKerning = FontKerning::AUTO;
 
     nscolor shadowColor = 0;
 

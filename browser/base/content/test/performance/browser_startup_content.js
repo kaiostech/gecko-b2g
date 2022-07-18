@@ -25,9 +25,8 @@ const known_scripts = {
     // General utilities
     "resource://gre/modules/AppConstants.jsm",
     "resource://gre/modules/DeferredTask.jsm",
-    "resource://gre/modules/Services.jsm", // bug 1464542
     "resource://gre/modules/Timer.jsm",
-    "resource://gre/modules/XPCOMUtils.jsm",
+    "resource://gre/modules/XPCOMUtils.sys.mjs",
 
     // Logging related
     "resource://gre/modules/Log.jsm",
@@ -132,7 +131,12 @@ add_task(async function() {
         );
         let collectStacks = AppConstants.NIGHTLY_BUILD || AppConstants.DEBUG;
         let modules = {};
-        for (let module of Cu.loadedModules) {
+        for (let module of Cu.loadedJSModules) {
+          modules[module] = collectStacks
+            ? Cu.getModuleImportStack(module)
+            : "";
+        }
+        for (let module of Cu.loadedESModules) {
           modules[module] = collectStacks
             ? Cu.getModuleImportStack(module)
             : "";

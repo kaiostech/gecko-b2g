@@ -1383,6 +1383,14 @@ class ContentParent final : public PContentParent,
           aReason,
       CompleteAllowAccessForResolver&& aResolver);
 
+  mozilla::ipc::IPCResult RecvSetAllowStorageAccessRequestFlag(
+      nsIPrincipal* aEmbeddedPrincipal, nsIURI* aEmbeddingOrigin,
+      SetAllowStorageAccessRequestFlagResolver&& aResolver);
+
+  mozilla::ipc::IPCResult RecvTestAllowStorageAccessRequestFlag(
+      nsIPrincipal* aEmbeddingPrincipal, nsIURI* aEmbeddedOrigin,
+      TestAllowStorageAccessRequestFlagResolver&& aResolver);
+
   mozilla::ipc::IPCResult RecvStoreUserInteractionAsPermission(
       const Principal& aPrincipal);
 

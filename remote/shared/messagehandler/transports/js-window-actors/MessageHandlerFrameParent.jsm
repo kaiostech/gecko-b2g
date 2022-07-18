@@ -6,8 +6,8 @@
 
 var EXPORTED_SYMBOLS = ["MessageHandlerFrameParent"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 const lazy = {};
@@ -18,6 +18,12 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
     "chrome://remote/content/shared/messagehandler/RootMessageHandlerRegistry.jsm",
   WindowGlobalMessageHandler:
     "chrome://remote/content/shared/messagehandler/WindowGlobalMessageHandler.jsm",
+});
+
+XPCOMUtils.defineLazyGetter(lazy, "WebDriverError", () => {
+  return ChromeUtils.import(
+    "chrome://remote/content/shared/webdriver/Errors.jsm"
+  ).error.WebDriverError;
 });
 
 /**
@@ -86,7 +92,12 @@ class MessageHandlerFrameParent extends JSWindowActorParent {
     );
 
     if (result?.error) {
-      throw lazy.error.MessageHandlerError.fromJSON(result.error);
+      if (result.isMessageHandlerError) {
+        throw lazy.error.MessageHandlerError.fromJSON(result.error);
+      }
+
+      // TODO: Do not assume WebDriver is the session protocol, see Bug 1779026.
+      throw lazy.WebDriverError.fromJSON(result.error);
     }
 
     return result;

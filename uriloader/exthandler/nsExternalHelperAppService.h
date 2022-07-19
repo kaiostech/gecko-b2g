@@ -125,6 +125,13 @@ class nsExternalHelperAppService : public nsIExternalHelperAppService,
   // Internal method. Only called directly from tests.
   static nsresult EscapeURI(nsIURI* aURI, nsIURI** aResult);
 
+  /**
+   * Logging Module. Usage: set MOZ_LOG=HelperAppService:level, where level
+   * should be 2 for errors, 3 for debug messages from the cross- platform
+   * nsExternalHelperAppService, and 4 for os-specific debug messages.
+   */
+  static mozilla::LazyLogModule sLog;
+
  protected:
   virtual ~nsExternalHelperAppService();
 
@@ -166,13 +173,6 @@ class nsExternalHelperAppService : public nsIExternalHelperAppService,
    * @return true if the extension was found, false otherwise.
    */
   bool GetTypeFromExtras(const nsACString& aExtension, nsACString& aMIMEType);
-
-  /**
-   * Logging Module. Usage: set MOZ_LOG=HelperAppService:level, where level
-   * should be 2 for errors, 3 for debug messages from the cross- platform
-   * nsExternalHelperAppService, and 4 for os-specific debug messages.
-   */
-  static mozilla::LazyLogModule mLog;
 
   // friend, so that it can access the nspr log module.
   friend class nsExternalAppHandler;
@@ -374,6 +374,12 @@ class nsExternalAppHandler final : public nsIStreamListener,
   bool mHandleInternally;
 
   /**
+   * True if any dialog (e.g. unknown content type or file picker) is shown —
+   * can stop downloads panel from opening, to avoid redundant interruptions.
+   */
+  bool mDialogShowing;
+
+  /**
    * One of the REASON_ constants from nsIHelperAppLauncherDialog. Indicates the
    * reason the dialog was shown (unknown content type, server requested it,
    * etc).
@@ -519,7 +525,7 @@ class nsExternalAppHandler final : public nsIStreamListener,
                         const nsString& path);
 
   /**
-   * Set in nsHelperDlgApp.js. This is always null after the user has chosen an
+   * Set in HelperAppDlg.jsm. This is always null after the user has chosen an
    * action.
    */
   nsCOMPtr<nsIWebProgressListener2> mDialogProgressListener;

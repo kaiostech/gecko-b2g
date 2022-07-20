@@ -16733,7 +16733,7 @@ nsresult Document::HasStorageAccessSync(bool& aHasStorageAccess) {
   // access or is denied cookies.
   Maybe<bool> resultBecausePreviousPermission =
       StorageAccessAPIHelper::CheckExistingPermissionDecidesStorageAccessAPI(
-          this);
+          this, false);
   if (resultBecausePreviousPermission.isSome()) {
     if (resultBecausePreviousPermission.value()) {
       aHasStorageAccess = true;
@@ -17013,7 +17013,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
   // document's storage key.
   Maybe<bool> resultBecausePreviousPermission =
       StorageAccessAPIHelper::CheckExistingPermissionDecidesStorageAccessAPI(
-          this);
+          this, true);
   if (resultBecausePreviousPermission.isSome()) {
     if (resultBecausePreviousPermission.value()) {
       promise->MaybeResolveWithUndefined();

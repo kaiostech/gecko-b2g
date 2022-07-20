@@ -5056,13 +5056,13 @@
 # If true, do not send blocklisted preference values to the subprocess
 - name: fission.omitBlocklistedPrefsInSubprocesses
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # If true, crash when a blocklisted preference is accessed in a subprocess
 - name: fission.enforceBlocklistedPrefsInSubprocesses
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -8641,12 +8641,6 @@
   value: 1000
   mirror: always
 
-# Is layout of CSS outline-style:auto enabled?
-- name: layout.css.outline-style-auto.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Pref to control enabling scroll anchoring.
 - name: layout.css.scroll-anchoring.enabled
   type: bool
@@ -12081,6 +12075,12 @@
 - name: privacy.trackingprotection.emailtracking.enabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Collecting 3rd party emailtracking telemetry.
+- name: privacy.trackingprotection.emailtracking.data_collection.enabled
+  type: bool
+  value: true
   mirror: always
 
 # Whether Origin Telemetry should be enabled.

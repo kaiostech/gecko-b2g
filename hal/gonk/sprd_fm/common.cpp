@@ -207,7 +207,7 @@ int COM_seek(int fd, int* freq, int band, int dir, int lev) {
   if (ret == 0) {
     *freq = parm.freq;
   }
-  LOGD("%s, [fd=%d] [ret=%d]\n", __func__, fd, ret);
+  LOGD("%s, [fd=%d] [ret=%d] [freq=%d]\n", __func__, fd, ret, parm.freq);
   return ret;
 }
 

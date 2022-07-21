@@ -86,7 +86,7 @@ static pthread_t sRDSThread;
 static hal::FMRadioSettings sRadioSettings;
 static bool sMsmFMMode = 1;
 static bool sRDSSupported;
-static unsigned short sFrequency = 975;
+static unsigned sFrequency = 97500;
 
 static int g_idx = -1;
 extern struct fmr_ds fmr_data;
@@ -139,7 +139,7 @@ static void* runMsmFMRadio(void*) {
   }
 
   FMR_ana_switch_inner(g_idx);
-  rc = FMR_pwr_up(g_idx, sFrequency);  // if success, then ret = 0; else ret < 0
+  rc = FMR_pwr_up(g_idx, sFrequency / 10);  // if success, then ret = 0; else ret < 0
 
   sRadioEnabled = (rc == FM_SUCCESS);
   int support = -1;
@@ -225,11 +225,11 @@ void FMRadioSeek(const hal::FMRadioSeekDirection& aDirection) {
   bool isSeekUp =
       aDirection == hal::FMRadioSeekDirection::FM_RADIO_SEEK_DIRECTION_UP;
   HAL_LOG("sFrequency=%d", sFrequency);
-  tmp_freq = sFrequency * 10;
+  tmp_freq = sFrequency / 10;
 
   ret = FMR_seek(g_idx, tmp_freq, isSeekUp, &ret_freq);
   if (ret >= 0 && (ret_freq != 0)) {
-    sFrequency = ret_freq / 10;
+    sFrequency = ret_freq * 10;
     HAL_LOG("sFrequency=%d", sFrequency);
   } else {
     ret = -1;
@@ -264,11 +264,11 @@ void SetFMRadioFrequency(const uint32_t frequency) {
   if (iFre > FM_UE_FREQ_MAX) iFre = FM_UE_FREQ_MAX;
   HAL_LOG("SetFMRadioFrequency= %d, iFre=%d\n", frequency, iFre);
 
-  rc = FMR_tune(g_idx, iFre);
+  rc = FMR_tune(g_idx, iFre * 10);
   if (rc < 0) {
     HAL_LOG("Could not set radio frequency,rc=%d", rc);
   } else {
-    sFrequency = (frequency / 100);
+    sFrequency = frequency;
     HAL_LOG("set radio frequency success!");
   }
 
@@ -282,7 +282,7 @@ void SetFMRadioFrequency(const uint32_t frequency) {
 uint32_t GetFMRadioFrequency() {
   if (!sRadioEnabled) return 0;
 
-  return sFrequency * 100;
+  return sFrequency;
 }
 
 bool IsFMRadioOn() { return sRadioEnabled; }

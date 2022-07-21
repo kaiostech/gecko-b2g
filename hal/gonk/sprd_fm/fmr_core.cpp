@@ -91,9 +91,9 @@ int FMR_init(mozilla::hal::FMRadioSettings aInfo) {
   pfmr_data[idx] = &fmr_data;
   memset(pfmr_data[idx], 0, sizeof(struct fmr_ds));
   FMR_band(idx) = aInfo.country();
-  FMR_high_band(idx) = aInfo.upperLimit() / 100;
-  FMR_low_band(idx) = aInfo.lowerLimit() / 100;
-  FMR_seek_space(idx) = aInfo.spaceType() / 100;
+  FMR_high_band(idx) = aInfo.upperLimit() / 10;
+  FMR_low_band(idx) = aInfo.lowerLimit() / 10;
+  FMR_seek_space(idx) = aInfo.spaceType() / 10;
   pfmr_data[idx]->init_func = FM_interface_init;
   if (pfmr_data[idx]->init_func == NULL) {
     LOGE("%s init_func error, %s\n", __func__, dlerror());
@@ -138,6 +138,7 @@ int FMR_close_dev(int idx) {
   return ret;
 }
 
+// The unit of freq is 10kHz
 int FMR_pwr_up(int idx, int freq) {
   int ret = 0;
 
@@ -235,6 +236,7 @@ int FMR_get_bler(int idx, int* bler) {
   return ret;
 }
 
+// The unit of freq is 10kHz
 int FMR_tune(int idx, int freq) {
   int ret = 0;
 
@@ -474,6 +476,7 @@ int FMR_seek_Channel(int idx, int start_freq, int min_freq, int max_freq,
   return 0;
 }
 
+// The unit of start_freq is 10kHz
 int FMR_seek(int idx, int start_freq, int dir, int* ret_freq) {
   fm_s32 ret = 0;
   fm_s32 band_channel_no = 0;
@@ -515,14 +518,14 @@ int FMR_seek(int idx, int start_freq, int dir, int* ret_freq) {
       "dir=%d\n",
       start_freq, band_channel_no, seek_space, min_freq, max_freq, dir);
 
-  int tmp_freq = (dir == 1) ? (start_freq / 10 + 1) : (start_freq / 10 - 1);
+  int tmp_freq = (dir == 1) ? (start_freq + 10) : (start_freq - 10);
   ret = FMR_cbk_tbl(idx).seek(FMR_fd(idx), &tmp_freq, fmr_data.cfg_data.band,
                               !dir, 0);
   LOGE("hardware seek, ret: %d, current freq: %d\n", ret, tmp_freq);
 
   if (0 == ret) {
     if (tmp_freq != 0) {
-      *ret_freq = (tmp_freq * 10);
+      *ret_freq = tmp_freq;
       LOGE("hardware seek, ret: %d, ret freq: %d\n", ret, *ret_freq);
       ret = FMR_tune(idx, tmp_freq);
     } else {
@@ -531,7 +534,7 @@ int FMR_seek(int idx, int start_freq, int dir, int* ret_freq) {
           "hardware seek channel none, ret: %d, set start_freq: %d as tune "
           "value\n",
           ret, *ret_freq);
-      ret = FMR_tune(idx, start_freq / 10);
+      ret = FMR_tune(idx, start_freq);
     }
   }
 

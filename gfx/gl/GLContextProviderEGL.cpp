@@ -88,6 +88,7 @@
 #  if defined(MOZ_WAYLAND)
 #    include <gdk/gdkwayland.h>
 #    include <wayland-egl.h>
+#    include "mozilla/WidgetUtilsGtk.h"
 #    include "mozilla/widget/nsWaylandDisplay.h"
 #  endif
 #endif

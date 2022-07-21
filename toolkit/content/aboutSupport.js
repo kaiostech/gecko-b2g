@@ -25,11 +25,9 @@ ChromeUtils.defineModuleGetter(
   "PluralForm",
   "resource://gre/modules/PluralForm.jsm"
 );
-ChromeUtils.defineModuleGetter(
-  this,
-  "PlacesDBUtils",
-  "resource://gre/modules/PlacesDBUtils.jsm"
-);
+ChromeUtils.defineESModuleGetters(this, {
+  PlacesDBUtils: "resource://gre/modules/PlacesDBUtils.sys.mjs",
+});
 ChromeUtils.defineModuleGetter(
   this,
   "ProcessType",
@@ -1332,16 +1330,6 @@ function copyRawDataToClipboard(button) {
         null,
         Ci.nsIClipboard.kGlobalClipboard
       );
-      if (AppConstants.platform == "android") {
-        // Present a snackbar notification.
-        var { Snackbars } = ChromeUtils.import(
-          "resource://gre/modules/Snackbars.jsm"
-        );
-        let rawDataCopiedString = await document.l10n.formatValue(
-          "raw-data-copied"
-        );
-        Snackbars.show(rawDataCopiedString, Snackbars.LENGTH_SHORT);
-      }
     });
   } catch (err) {
     if (button) {
@@ -1389,15 +1377,6 @@ async function copyContentsToClipboard() {
     null,
     Services.clipboard.kGlobalClipboard
   );
-
-  if (AppConstants.platform == "android") {
-    // Present a snackbar notification.
-    var { Snackbars } = ChromeUtils.import(
-      "resource://gre/modules/Snackbars.jsm"
-    );
-    let textCopiedString = await document.l10n.formatValue("text-copied");
-    Snackbars.show(textCopiedString, Snackbars.LENGTH_SHORT);
-  }
 }
 
 // Return the plain text representation of an element.  Do a little bit

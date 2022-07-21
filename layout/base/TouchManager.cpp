@@ -473,9 +473,7 @@ bool TouchManager::ShouldConvertTouchToPointer(const Touch* aTouch,
       return false;
     }
     case eTouchMove: {
-      // Always fire first pointermove event.
-      return info.mTouch->mMessage != eTouchMove ||
-             !aTouch->Equals(info.mTouch);
+      return !aTouch->Equals(info.mTouch);
     }
     default:
       break;

@@ -3,7 +3,9 @@
   "$id": "file:///ToolbarBadgeMessage.schema.json",
   "title": "ToolbarBadgeMessage",
   "description": "A template that specifies to which element in the browser toolbar to add a notification.",
-  "version": "1.1.0",
+  "allOf": [
+    { "$ref": "file:///FxMSCommon.schema.json#/$defs/Message" }
+  ],
   "type": "object",
   "properties": {
     "content": {
@@ -30,24 +32,12 @@
           "description": "Optional delay in ms after which to show the notification"
         },
         "badgeDescription": {
-          "type": "object",
-          "description": "This is used in combination with the badged button to offer a text based alternative to the visual badging. Example 'New Feature: What's New'",
-          "properties": {
-            "string_id": {
-              "type": "string",
-              "description": "Fluent string id"
-            }
-          },
-          "required": [
-            "string_id"
-          ]
+          "$ref": "file:///FxMSCommon.schema.json#/$defs/localizedText",
+          "description": "This is used in combination with the badged button to offer a text based alternative to the visual badging. Example 'New Feature: What's New'"
         }
       },
       "additionalProperties": true,
       "required": ["target"]
-    },
-    "targeting": {
-      "type": "string"
     },
     "template": {
       "type": "string",
@@ -55,9 +45,5 @@
     }
   },
   "additionalProperties": true,
-  "required": [
-    "content",
-    "targeting",
-    "template"
-  ]
+  "required": ["targeting"]
 }

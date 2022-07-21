@@ -10,6 +10,7 @@ import re
 
 from redo import retry
 from taskgraph.parameters import Parameters
+from taskgraph.target_tasks import _target_task, get_method
 from taskgraph.util.taskcluster import find_task_id
 
 from gecko_taskgraph import try_option_syntax, GECKO
@@ -20,8 +21,6 @@ from gecko_taskgraph.util.attributes import (
 from gecko_taskgraph.util.platforms import platform_family
 from gecko_taskgraph.util.hg import find_hg_revision_push_info, get_hg_commit_message
 
-
-_target_task_methods = {}
 
 # Some tasks show up in the target task set, but are possibly special cases,
 # uncommon tasks, or tasks running against limited hardware set that they
@@ -48,19 +47,6 @@ UNCOMMON_TRY_TASK_LABELS = [
     # versions are faster to run. This is mostly perf tests.
     r"-shippable(?!.*(awsy|browsertime|marionette-headless|mochitest-devtools-chrome-fis|raptor|talos|web-platform-tests-wdspec-headless|mochitest-plain-headless))",  # noqa - too long
 ]
-
-
-def _target_task(name):
-    def wrap(func):
-        _target_task_methods[name] = func
-        return func
-
-    return wrap
-
-
-def get_method(method):
-    """Get a target_task_method to pass to a TaskGraphGenerator."""
-    return _target_task_methods[method]
 
 
 def index_exists(index_path, reason=""):
@@ -1296,7 +1282,11 @@ def target_tasks_system_symbols(full_task_graph, parameters, graph_config):
     Select tasks for scraping and uploading system symbols.
     """
     for name, task in full_task_graph.tasks.items():
-        if task.kind in ["system-symbols", "system-symbols-upload"]:
+        if task.kind in [
+            "system-symbols",
+            "system-symbols-upload",
+            "system-symbols-reprocess",
+        ]:
             yield name
 
 

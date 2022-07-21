@@ -1669,12 +1669,6 @@
   value: true
   mirror: always
 
-# Is support for CanvasRenderingContext2D's hitRegion APIs enabled?
-- name: canvas.hitregions.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Is support for CanvasRenderingContext2D's createConicGradient API enabled?
 - name: canvas.createConicGradient.enabled
   type: RelaxedAtomicBool
@@ -4369,6 +4363,12 @@
 - name: dom.vr.webxr.quantization
   type: AtomicFloat
   value: 0.05f
+  mirror: always
+
+# Whether MouseEvent.region is exposed as a property.
+- name: dom.mouse_event.region.enabled
+  type: bool
+  value: false
   mirror: always
 
 #ifdef XP_WIN
@@ -10594,7 +10594,7 @@
 
 - name: network.cookie.sameSite.schemeful
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: network.cookie.thirdparty.sessionOnly
@@ -14081,6 +14081,12 @@
 #else
   value: true
 #endif
+  mirror: always
+
+# Whether the outline style should be one big stroke or two contrasting strokes
+- name: widget.non-native-theme.solid-outline-style
+  type: bool
+  value: false
   mirror: always
 
 # Preference to disable dark scrollbar implementation.

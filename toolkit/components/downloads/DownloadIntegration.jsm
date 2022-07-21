@@ -81,11 +81,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/uriloader/external-protocol-service;1",
   "nsIExternalProtocolService"
 );
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "RuntimePermissions",
-  "resource://gre/modules/RuntimePermissions.jsm"
-);
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "volumeService",
@@ -467,21 +462,6 @@ var DownloadIntegration = {
     }
 
     return Promise.resolve(shouldBlock);
-  },
-
-  /**
-   * Checks to determine whether to block downloads for not granted runtime permissions.
-   *
-   * @return {Promise}
-   * @resolves The boolean indicates to block downloads or not.
-   */
-  async shouldBlockForRuntimePermissions() {
-    return (
-      AppConstants.platform == "android" &&
-      !(await lazy.RuntimePermissions.waitForPermissions(
-        lazy.RuntimePermissions.WRITE_EXTERNAL_STORAGE
-      ))
-    );
   },
 
   /**

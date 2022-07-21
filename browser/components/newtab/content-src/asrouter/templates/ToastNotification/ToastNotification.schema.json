@@ -3,53 +3,21 @@
   "$id": "file:///ToastNotification.schema.json",
   "title": "ToastNotification",
   "description": "A template for toast notifications displayed by the Alert service.",
-  "version": "1.0.0",
+  "allOf": [
+    { "$ref": "file:///FxMSCommon.schema.json#/$defs/Message" }
+  ],
   "type": "object",
-  "definitions": {
-    "localizableText": {
-      "oneOf": [
-        {
-          "type": "string",
-          "description": "The string to be rendered."
-        },
-        {
-          "type": "object",
-          "properties": {
-            "string_id": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "string_id"
-          ],
-          "description": "Id of localized string to be rendered."
-        }
-      ]
-    }
-  },
   "properties": {
     "content": {
       "type": "object",
       "properties": {
         "title": {
-          "allOf": [
-            {
-              "$ref": "#/definitions/localizableText"
-            },
-            {
-              "description": "Id of localized string or message override of toast notification title"
-            }
-          ]
+          "$ref": "file:///FxMSCommon.schema.json#/$defs/localizableText",
+          "description": "Id of localized string or message override of toast notification title"
         },
         "body": {
-          "allOf": [
-            {
-              "$ref": "#/definitions/localizableText"
-            },
-            {
-              "description": "Id of localized string or message override of toast notification body"
-            }
-          ]
+          "$ref": "file:///FxMSCommon.schema.json#/$defs/localizableText",
+          "description": "Id of localized string or message override of toast notification body"
         },
         "icon_url": {
           "description": "The URL of the image used as an icon of the toast notification.",
@@ -80,31 +48,9 @@
         "body"
       ]
     },
-    "targeting": {
-      "type": "string",
-      "description": "A JEXL expression representing targeting information"
-    },
     "template": {
       "type": "string",
       "const": "toast_notification"
-    },
-    "trigger": {
-      "type": "object",
-      "description": "An action to trigger potentially showing the message",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "A string identifying the trigger action"
-        },
-        "params": {
-          "type": "array",
-          "description": "An optional array of string parameters for the trigger action",
-          "items": {
-            "anyOf": [{ "type": "integer" }, { "type": "string" }]
-          }
-        }
-      },
-      "required": ["id"]
     }
   },
   "required": [

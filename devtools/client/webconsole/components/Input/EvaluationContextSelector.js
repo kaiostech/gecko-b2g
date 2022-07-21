@@ -232,12 +232,16 @@ class EvaluationContextSelector extends Component {
 
   render() {
     const { webConsoleUI, targets, selectedTarget } = this.props;
-    const doc = webConsoleUI.document;
-    const { toolbox } = webConsoleUI.wrapper;
 
-    if (targets.length <= 1) {
+    // Don't render if there's only one target.
+    // Also bail out if the console is being destroyed (where WebConsoleUI.wrapper gets
+    // nullified).
+    if (targets.length <= 1 || !webConsoleUI.wrapper) {
       return null;
     }
+
+    const doc = webConsoleUI.document;
+    const { toolbox } = webConsoleUI.wrapper;
 
     return MenuButton(
       {
@@ -246,9 +250,7 @@ class EvaluationContextSelector extends Component {
         label: this.getLabel(),
         className:
           "webconsole-evaluation-selector-button devtools-button devtools-dropdown-button" +
-          (selectedTarget && !selectedTarget.isTopLevel
-            ? " webconsole-evaluation-selector-button-non-top"
-            : ""),
+          (selectedTarget && !selectedTarget.isTopLevel ? " checked" : ""),
         title: l10n.getStr("webconsole.input.selector.tooltip"),
       },
       // We pass the children in a function so we don't require the MenuItem and MenuList

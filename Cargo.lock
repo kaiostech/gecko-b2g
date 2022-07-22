@@ -2089,6 +2089,7 @@ dependencies = [
  "serde_json",
  "thin-vec",
  "thiserror",
+ "url",
  "xpcom",
 ]
 

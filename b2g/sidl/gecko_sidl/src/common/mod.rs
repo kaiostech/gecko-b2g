@@ -187,3 +187,40 @@ impl From<std::time::SystemTime> for SystemTime {
         SystemTime(v)
     }
 }
+
+// The type used to represent Blobs on the Rust side.
+// Copied from api-daemon/common/src/lib.rs
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Blob {
+    mime_type: String,
+    data: Vec<u8>,
+}
+
+impl Blob {
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    pub fn mime_type(&self) -> String {
+        self.mime_type.clone()
+    }
+
+    pub fn data(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    pub fn set_mime_type(&mut self, mime_type: &str) {
+        self.mime_type = mime_type.into();
+    }
+
+    pub fn set_data(&mut self, data: &[u8]) {
+        self.data = data.to_vec();
+    }
+}
+
+// Re-export url::Url to make it available to generated code.
+pub use url::Url;

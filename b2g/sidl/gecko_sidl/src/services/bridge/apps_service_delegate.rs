@@ -96,6 +96,9 @@ impl SessionObject for AppsServiceDelegate {
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnUninstall(manifest_url)) => {
                 self.post_task(AppsServiceCommand::OnUninstall(manifest_url), request_id);
             }
+            Ok(GeckoBridgeToClient::AppsServiceDelegateOnLaunch(manifest_url)) => {
+                self.post_task(AppsServiceCommand::OnLaunch(manifest_url), request_id);
+            }
             _ => {
                 error!(
                     "AppsServiceDelegate::on_request unexpected message: {:?}",
@@ -147,6 +150,9 @@ enum AppsServiceCommand {
         String, // b2g_features
     ),
     OnUninstall(
+        String, // manifest_url
+    ),
+    OnLaunch(
         String, // manifest_url
     ),
     GetUa(),
@@ -229,14 +235,21 @@ impl SidlTask for AppsServiceDelegateTask {
                     unsafe {
                         object.OnUpdate(&*manifest_url as &nsAString, &*value as &nsAString);
                     }
-                    GeckoBridgeFromClient::AppsServiceDelegateOnUninstallSuccess
+                    GeckoBridgeFromClient::AppsServiceDelegateOnUpdateSuccess
                 }
                 AppsServiceCommand::OnUninstall(manifest_url) => {
                     let url = nsString::from(manifest_url);
                     unsafe {
                         object.OnUninstall(&*url as &nsAString);
                     }
-                    GeckoBridgeFromClient::AppsServiceDelegateOnUpdateSuccess
+                    GeckoBridgeFromClient::AppsServiceDelegateOnUninstallSuccess
+                }
+                AppsServiceCommand::OnLaunch(manifest_url) => {
+                    let url = nsString::from(manifest_url);
+                    unsafe {
+                        object.OnLaunch(&*url as &nsAString);
+                    }
+                    GeckoBridgeFromClient::AppsServiceDelegateOnLaunchSuccess
                 }
                 AppsServiceCommand::GetUa() => {
                     let mut ua = nsString::new();

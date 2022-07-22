@@ -5,8 +5,10 @@
 // This file is generated. Do not edit.
 // @generated
 
+#![allow(clippy::large_enum_variant)]
+
 #[allow(unused_imports)]
-use crate::common::{JsonValue, ObjectRef, SystemTime};
+use crate::common::{Blob, JsonValue, ObjectRef, SystemTime, Url};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =

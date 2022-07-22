@@ -226,8 +226,12 @@ AppsServiceDelegate.prototype = {
     log(`onUninstall: ${aManifestUrl}`);
     PermissionsInstaller.uninstallPermissions(aManifestUrl);
     this._processServiceWorker(aManifestUrl, undefined, "onUninstall");
-    AppsUtils.clearBrowserData(aManifestUrl);
-    AppsUtils.clearStorage(aManifestUrl);
+    AppsUtils.clearData(aManifestUrl);
     this._removeFromAppsList(aManifestUrl);
+  },
+
+  onLaunch(aManifestUrl) {
+    log(`onLaunch: ${aManifestUrl}`);
+    Services.obs.notifyObservers(null, "on-launch-app", aManifestUrl);
   },
 };

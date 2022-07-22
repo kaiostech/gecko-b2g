@@ -5,12 +5,14 @@
 // This file is generated. Do not edit.
 // @generated
 
+#![allow(clippy::large_enum_variant)]
+
 #[allow(unused_imports)]
-use crate::common::{JsonValue, ObjectRef, SystemTime};
+use crate::common::{Blob, JsonValue, ObjectRef, SystemTime, Url};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =
-    "7d8a63753d27db79a379c39e4dc9785bd04e8f6a8fe2fec676c7d4965e8414bf";
+    "cae7f5c6f9ca9610b8ddf39345746641a92ad0e08a051ec4b90ac4a9a9cf66";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -96,36 +98,38 @@ pub enum GeckoBridgeFromClient {
     AppsServiceDelegateOnClearError,              // 17
     AppsServiceDelegateOnInstallSuccess,          // 18
     AppsServiceDelegateOnInstallError,            // 19
-    AppsServiceDelegateOnUninstallSuccess,        // 20
-    AppsServiceDelegateOnUninstallError,          // 21
-    AppsServiceDelegateOnUpdateSuccess,           // 22
-    AppsServiceDelegateOnUpdateError,             // 23
-    MobileManagerDelegateGetCardInfoSuccess(String), // 24
-    MobileManagerDelegateGetCardInfoError,        // 25
-    MobileManagerDelegateGetMncMccSuccess(NetworkOperator), // 26
-    MobileManagerDelegateGetMncMccError,          // 27
-    NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 28
-    NetworkManagerDelegateGetNetworkInfoError,    // 29
-    PowerManagerDelegateRequestWakelockSuccess(ObjectRef), // 30
-    PowerManagerDelegateRequestWakelockError,     // 31
-    PowerManagerDelegateSetScreenEnabledSuccess,  // 32
-    PowerManagerDelegateSetScreenEnabledError,    // 33
-    PreferenceDelegateGetBoolSuccess(bool),       // 34
-    PreferenceDelegateGetBoolError,               // 35
-    PreferenceDelegateGetCharSuccess(String),     // 36
-    PreferenceDelegateGetCharError,               // 37
-    PreferenceDelegateGetIntSuccess(i64),         // 38
-    PreferenceDelegateGetIntError,                // 39
-    PreferenceDelegateSetBoolSuccess,             // 40
-    PreferenceDelegateSetBoolError,               // 41
-    PreferenceDelegateSetCharSuccess,             // 42
-    PreferenceDelegateSetCharError,               // 43
-    PreferenceDelegateSetIntSuccess,              // 44
-    PreferenceDelegateSetIntError,                // 45
-    WakelockGetTopicSuccess(String),              // 46
-    WakelockGetTopicError,                        // 47
-    WakelockUnlockSuccess,                        // 48
-    WakelockUnlockError,                          // 49
+    AppsServiceDelegateOnLaunchSuccess,           // 20
+    AppsServiceDelegateOnLaunchError,             // 21
+    AppsServiceDelegateOnUninstallSuccess,        // 22
+    AppsServiceDelegateOnUninstallError,          // 23
+    AppsServiceDelegateOnUpdateSuccess,           // 24
+    AppsServiceDelegateOnUpdateError,             // 25
+    MobileManagerDelegateGetCardInfoSuccess(String), // 26
+    MobileManagerDelegateGetCardInfoError,        // 27
+    MobileManagerDelegateGetMncMccSuccess(NetworkOperator), // 28
+    MobileManagerDelegateGetMncMccError,          // 29
+    NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 30
+    NetworkManagerDelegateGetNetworkInfoError,    // 31
+    PowerManagerDelegateRequestWakelockSuccess(ObjectRef), // 32
+    PowerManagerDelegateRequestWakelockError,     // 33
+    PowerManagerDelegateSetScreenEnabledSuccess,  // 34
+    PowerManagerDelegateSetScreenEnabledError,    // 35
+    PreferenceDelegateGetBoolSuccess(bool),       // 36
+    PreferenceDelegateGetBoolError,               // 37
+    PreferenceDelegateGetCharSuccess(String),     // 38
+    PreferenceDelegateGetCharError,               // 39
+    PreferenceDelegateGetIntSuccess(i64),         // 40
+    PreferenceDelegateGetIntError,                // 41
+    PreferenceDelegateSetBoolSuccess,             // 42
+    PreferenceDelegateSetBoolError,               // 43
+    PreferenceDelegateSetCharSuccess,             // 44
+    PreferenceDelegateSetCharError,               // 45
+    PreferenceDelegateSetIntSuccess,              // 46
+    PreferenceDelegateSetIntError,                // 47
+    WakelockGetTopicSuccess(String),              // 48
+    WakelockGetTopicError,                        // 49
+    WakelockUnlockSuccess,                        // 50
+    WakelockUnlockError,                          // 51
 }
 
 #[derive(Debug, Deserialize)]
@@ -155,19 +159,20 @@ pub enum GeckoBridgeToClient {
     AppsServiceDelegateOnBootDone,                         // 22
     AppsServiceDelegateOnClear(String, String, JsonValue), // 23
     AppsServiceDelegateOnInstall(String, JsonValue),       // 24
-    AppsServiceDelegateOnUninstall(String),                // 25
-    AppsServiceDelegateOnUpdate(String, JsonValue),        // 26
-    MobileManagerDelegateGetCardInfo(i64, CardInfoType),   // 27
-    MobileManagerDelegateGetMncMcc(i64, bool),             // 28
-    NetworkManagerDelegateGetNetworkInfo,                  // 29
-    PowerManagerDelegateRequestWakelock(String),           // 30
-    PowerManagerDelegateSetScreenEnabled(bool, bool),      // 31
-    PreferenceDelegateGetBool(String),                     // 32
-    PreferenceDelegateGetChar(String),                     // 33
-    PreferenceDelegateGetInt(String),                      // 34
-    PreferenceDelegateSetBool(String, bool),               // 35
-    PreferenceDelegateSetChar(String, String),             // 36
-    PreferenceDelegateSetInt(String, i64),                 // 37
-    WakelockGetTopic,                                      // 38
-    WakelockUnlock,                                        // 39
+    AppsServiceDelegateOnLaunch(String),                   // 25
+    AppsServiceDelegateOnUninstall(String),                // 26
+    AppsServiceDelegateOnUpdate(String, JsonValue),        // 27
+    MobileManagerDelegateGetCardInfo(i64, CardInfoType),   // 28
+    MobileManagerDelegateGetMncMcc(i64, bool),             // 29
+    NetworkManagerDelegateGetNetworkInfo,                  // 30
+    PowerManagerDelegateRequestWakelock(String),           // 31
+    PowerManagerDelegateSetScreenEnabled(bool, bool),      // 32
+    PreferenceDelegateGetBool(String),                     // 33
+    PreferenceDelegateGetChar(String),                     // 34
+    PreferenceDelegateGetInt(String),                      // 35
+    PreferenceDelegateSetBool(String, bool),               // 36
+    PreferenceDelegateSetChar(String, String),             // 37
+    PreferenceDelegateSetInt(String, i64),                 // 38
+    WakelockGetTopic,                                      // 39
+    WakelockUnlock,                                        // 40
 }

@@ -123,6 +123,10 @@
     embedder.launchPreallocatedProcess();
   });
 
+  embedder.addEventListener("launch-app", e => {
+    log(`Embedder event: ${e.type} ${JSON.stringify(e.detail)}`);
+  });
+
   exports.embedder = embedder;
 
   // Hacks.

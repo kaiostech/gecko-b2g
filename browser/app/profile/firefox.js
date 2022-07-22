@@ -1634,6 +1634,7 @@ pref("messaging-system.log", "warn");
 pref("messaging-system.rsexperimentloader.enabled", true);
 pref("messaging-system.rsexperimentloader.collection_id", "nimbus-desktop-experiments");
 pref("nimbus.debug", false);
+pref("nimbus.validation.enabled", true);
 
 // Enable the DOM fullscreen API.
 pref("full-screen-api.enabled", true);
@@ -1937,6 +1938,9 @@ pref("browser.promo.focus.disallowed_regions", "cn");
 
 // Default to enabling focus promos to be shown where allowed.
 pref("browser.promo.focus.enabled", true);
+
+// Default to enabling pin promos to be shown where allowed.
+pref("browser.promo.pin.enabled", true);
 
 // Comma separated string of mozilla vpn supported platforms.
 pref("browser.contentblocking.report.vpn_platforms", "win,mac,linux");

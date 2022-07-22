@@ -216,9 +216,93 @@ struct SelfHostedLazyScript {
   }
 };
 
-}  // namespace js
+// An interface for reporting telemetry from within SpiderMonkey. Reporting data
+// to this interface will forward it to the embedding if a telemetry callback
+// was registered. It is the embedding's responsibility to store and/or combine
+// repeated samples for each metric.
+class Metrics {
+ private:
+  JSRuntime* rt_;
 
-struct JSTelemetrySender;
+ public:
+  explicit Metrics(JSRuntime* rt) : rt_(rt) {}
+
+  // Records a TimeDuration metric. These are converted to integers when being
+  // recorded so choose an appropriate scale. In the future these will be Glean
+  // Timing Distribution metrics.
+  struct TimeDuration_S {
+    using SourceType = mozilla::TimeDuration;
+    static uint32_t convert(SourceType td) { return uint32_t(td.ToSeconds()); }
+  };
+  struct TimeDuration_MS {
+    using SourceType = mozilla::TimeDuration;
+    static uint32_t convert(SourceType td) {
+      return uint32_t(td.ToMilliseconds());
+    }
+  };
+  struct TimeDuration_US {
+    using SourceType = mozilla::TimeDuration;
+    static uint32_t convert(SourceType td) {
+      return uint32_t(td.ToMicroseconds());
+    }
+  };
+
+  // Record a metric in bytes. In the future these will be Glean Memory
+  // Distribution metrics.
+  struct MemoryDistribution {
+    using SourceType = size_t;
+    static uint32_t convert(SourceType sz) {
+      return static_cast<uint32_t>(std::min(sz, size_t(UINT32_MAX)));
+    }
+  };
+
+  // Record a metric for a quanity of items. This doesn't currently have a Glean
+  // analogue and we avoid using MemoryDistribution directly to avoid confusion
+  // about units.
+  using QuantityDistribution = MemoryDistribution;
+
+  // Record the distribution of boolean values. In the future this will be a
+  // Glean Rate metric.
+  struct Boolean {
+    using SourceType = bool;
+    static uint32_t convert(SourceType sample) {
+      return static_cast<uint32_t>(sample);
+    }
+  };
+
+  // Record the distribution of an enumeration value. This records integer
+  // values so take care not to redefine the value of enum values. In the
+  // future, these should become Glean Labeled Counter metrics.
+  struct Enumeration {
+    using SourceType = int;
+    static uint32_t convert(SourceType sample) {
+      MOZ_ASSERT(sample <= 100);
+      return static_cast<uint32_t>(sample);
+    }
+  };
+
+  // Record a percentage distribution which is an integer in the range 0 to 100.
+  // In the future, this will be a Glean Custom Distribution unless they add a
+  // better match.
+  struct Percentage {
+    using SourceType = int;
+    static uint32_t convert(SourceType sample) {
+      MOZ_ASSERT(sample <= 100);
+      return static_cast<uint32_t>(sample);
+    }
+  };
+
+  inline void addTelemetry(JSMetric id, uint32_t sample);
+
+#define DECLARE_METRIC_HELPER(NAME, TY)                \
+  void NAME(TY::SourceType sample) {                   \
+    addTelemetry(JSMetric::NAME, TY::convert(sample)); \
+  }
+  FOR_EACH_JS_METRIC(DECLARE_METRIC_HELPER)
+#undef DECLARE_METRIC_HELPER
+};
+
+}  // namespace js
 
 struct JSRuntime {
  private:
@@ -281,6 +365,8 @@ struct JSRuntime {
 
   inline JSContext* mainContextFromOwnThread();
 
+  js::Metrics metrics() { return js::Metrics(this); }
+
   /*
    * The start of the range stored in the profiler sample buffer, as measured
    * after the most recent sample.
@@ -318,12 +404,8 @@ struct JSRuntime {
   js::MainThreadData<JSSetUseCounterCallback> useCounterCallback;
 
  public:
-  // Accumulates data for Firefox telemetry. |id| is the ID of a JS_TELEMETRY_*
-  // histogram. |key| provides an additional key to identify the histogram.
-  // |sample| is the data to add to the histogram.
-  void addTelemetry(int id, uint32_t sample, const char* key = nullptr);
-
-  JSTelemetrySender getTelemetrySender() const;
+  // Accumulates data for Firefox telemetry.
+  void addTelemetry(JSMetric id, uint32_t sample);
 
   void setTelemetryCallback(JSRuntime* rt,
                             JSAccumulateTelemetryDataCallback callback);
@@ -1054,35 +1136,11 @@ struct JSRuntime {
       shadowRealmGlobalCreationCallback;
 };
 
-// Context for sending telemetry to the embedder from any thread, main or
-// helper.  Obtain a |JSTelemetrySender| by calling |getTelemetrySender()| on
-// the |JSRuntime|.
-struct JSTelemetrySender {
- private:
-  friend struct JSRuntime;
-
-  JSAccumulateTelemetryDataCallback callback_;
-
-  explicit JSTelemetrySender(JSAccumulateTelemetryDataCallback callback)
-      : callback_(callback) {}
-
- public:
-  JSTelemetrySender() : callback_(nullptr) {}
-  JSTelemetrySender(const JSTelemetrySender& other) = default;
-  explicit JSTelemetrySender(JSRuntime* runtime)
-      : JSTelemetrySender(runtime->getTelemetrySender()) {}
-
-  // Accumulates data for Firefox telemetry. |id| is the ID of a JS_TELEMETRY_*
-  // histogram. |key| provides an additional key to identify the histogram.
-  // |sample| is the data to add to the histogram.
-  void addTelemetry(int id, uint32_t sample, const char* key = nullptr) {
-    if (callback_) {
-      callback_(id, sample, key);
-    }
-  }
-};
-
 namespace js {
+
+void Metrics::addTelemetry(JSMetric id, uint32_t sample) {
+  rt_->addTelemetry(id, sample);
+}
 
 static MOZ_ALWAYS_INLINE void MakeRangeGCSafe(Value* vec, size_t len) {
   // Don't PodZero here because JS::Value is non-trivial.

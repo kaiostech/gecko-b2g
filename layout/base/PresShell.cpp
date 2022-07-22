@@ -3023,7 +3023,8 @@ static void AssertNoFramesOrStyleDataInDescendants(Element& aElement) {
     if (c == &aElement) {
       continue;
     }
-    MOZ_ASSERT(!c->GetPrimaryFrame());
+    // FIXME(emilio): The <area> check is needed because of bug 135040.
+    MOZ_ASSERT(!c->GetPrimaryFrame() || c->IsHTMLElement(nsGkAtoms::area));
     MOZ_ASSERT(!c->IsElement() || !c->AsElement()->HasServoData());
   }
 }

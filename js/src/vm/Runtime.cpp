@@ -306,14 +306,10 @@ void JSRuntime::destroyRuntime() {
 #endif
 }
 
-void JSRuntime::addTelemetry(int id, uint32_t sample, const char* key) {
+void JSRuntime::addTelemetry(JSMetric id, uint32_t sample) {
   if (telemetryCallback) {
-    (*telemetryCallback)(id, sample, key);
+    (*telemetryCallback)(id, sample);
   }
-}
-
-JSTelemetrySender JSRuntime::getTelemetrySender() const {
-  return JSTelemetrySender(telemetryCallback);
 }
 
 void JSRuntime::setTelemetryCallback(

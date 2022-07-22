@@ -18,6 +18,7 @@ embedder.addEventListener("runtime-ready", e => {
 ## WebEmbedder object
 
 The `WebEmbedder` constructor accepts one parameter used to provide the supported delegates:
+
 ```js
 const embedder = new WebEmbedder({
   windowProvider: <WindowProvider implementation>,
@@ -27,11 +28,13 @@ const embedder = new WebEmbedder({
   imeHandler: <imeHandler implementation>,
 });
 ```
+
 All delegates are optional.
 
 ### Methods
 
 The `WebEmbedder` object exposes the following methods:
+
 - `launchPreallocatedProcess()`: this will create a new content process with no content.
 - `addSystemEventListener(type, listener, useCapture)`: proxies the `Services.els` method of the same name, using the shell document as a target.
 - `removeSystemEventListener(type, listener, useCapture)`: proxies the `Services.els` method of the same name, using the shell document as a target.
@@ -65,6 +68,7 @@ The `WebEmbedder` object exposes the following methods:
 ### Events
 
 Since the `WebEmbedder` object extends `EventTarget` you can attach event listeners on it. The list of events that can be dispatched is:
+
 - `runtime-ready`: this event is dispatched once the the embedder is setup. At this point you can safely call methods on the object itself.
 - `daemon-disconnected`: this event is dispatched when the api-daemon connectivity is lost.
 - `daemon-reconnected`: this event is dispatched when the api-daemon connectivity is available again.
@@ -85,13 +89,14 @@ Since the `WebEmbedder` object extends `EventTarget` you can attach event listen
 - `caret-state-changed`: this event is dispatched when the accessible-caret changes. See [`CaretStateChangedEvent.webidl`](https://searchfox.org/mozilla-central/source/dom/webidl/CaretStateChangedEvent.webidl) for `detail`.
 - `sw-registration-done`: this event is dispatched when all service workers defined in webmanifests has done processing registrations during system bootup.
 - `activity-aborted`: this event is dispatched when a processing activity is aborted by shutdown of handler's service worker, shutdown of handler's service worker hosted process, or cancel of activity requester.
-    - `Event.detail` is ```{ reason: "activity-canceled/process-shutdown/service-worker-shutdown", id: "activity uid", name: "activity name", caller: "caller origin", handler: "handler origin" }```
+  - `Event.detail` is `{ reason: "activity-canceled/process-shutdown/service-worker-shutdown", id: "activity uid", name: "activity name", caller: "caller origin", handler: "handler origin" }`
 - `activity-opened`: this event is dispatched when caller has start an activity, a.k.a. activity.start().
-    - `Event.detail` is ```{ id: "activity uid", name: "activity name", caller: "caller origin" }```
+  - `Event.detail` is `{ id: "activity uid", name: "activity name", caller: "caller origin" }`
 - `activity-closed`: this event is dispatched when a started activity is done processing, a.k.a. activity.start() is resolve/reject.
-    - `Event.detail` is ```{ id: "activity uid", name: "activity name", caller: "caller origin", handler: "handler origin" }```
+  - `Event.detail` is `{ id: "activity uid", name: "activity name", caller: "caller origin", handler: "handler origin" }`
 - `before-clear-app-storage`: this event is dispatched to notify that the app storage is going to be cleared.
-    - `Event.detail` is ```{ url : "the url of the app whose storage is going to be cleared." }```
+  - `Event.detail` is `{ url : "the url of the app whose storage is going to be cleared." }`
+- `launch-app`: this event is dispatched when the appscmd utility request an app to be launched. `Event.detail` is `{ manifestUrl : "the manifest url of the app to launch." }`
 
 ## WindowProvider delegate
 
@@ -123,6 +128,7 @@ This delegate is responsible for displaying desktop notifications UI.
 ## Methods
 
 - `showNotification(notification)`. The `notification` parameter is an object with the following properties:
+
   - `type`: a string equals to "desktop-notification".
   - `id`: a unique id for this notification.
   - `icon`: the url of the icon for this notification.
@@ -160,8 +166,8 @@ This delegate is responsible for screen reader.
 ## Methods
 
 - `showScreenReader(data)`. The `data` parameter is an object with the following properties:
- - `type`: the event type. Valid value: `accessibility-output`.
- - `details`: the PresentationData of accessible.
+- `type`: the event type. Valid value: `accessibility-output`.
+- `details`: the PresentationData of accessible.
 
 ## imeHandler delegate
 
@@ -192,6 +198,7 @@ This delegate handle focus/blur from IME to inform system useful information.
 A wrapper which represents the editing element and provides interfaces to control it.
 
 ### Methods
+
 - `setSelectedOption`: setup selected option of the current editing element.
 - `setSelectedOptions`: setup selected options of the current editing element.
 - `removeFocus`: remove focus from the current editing element.

@@ -11,6 +11,7 @@ interface nsIAppsServiceDelegate : nsISupports {
     void onInstall(in AString aManifestUrl, in AString aValue);
     void onUpdate(in AString aManifestUrl, in AString aValue);
     void onUninstall(in AString aManifestUrl);
+    void onLaunch(in AString aManifestUrl);
     AString getUa();
 };
 

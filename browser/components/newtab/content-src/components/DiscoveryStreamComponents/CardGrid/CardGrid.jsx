@@ -180,10 +180,7 @@ export function RecentSavesContainer({
 
 export class _CardGrid extends React.PureComponent {
   renderCards() {
-    const { DiscoveryStream } = this.props;
     const prefs = this.props.Prefs.values;
-    const { recentSavesEnabled } = DiscoveryStream;
-    const showRecentSaves = prefs.showRecentSaves && recentSavesEnabled;
     const {
       items,
       hybridLayout,
@@ -201,7 +198,9 @@ export class _CardGrid extends React.PureComponent {
       essentialReadsHeader,
       editorsPicksHeader,
       widgets,
+      recentSavesEnabled,
     } = this.props;
+    const showRecentSaves = prefs.showRecentSaves && recentSavesEnabled;
 
     const recs = this.props.data.recommendations.slice(0, items);
     const cards = [];
@@ -304,10 +303,6 @@ export class _CardGrid extends React.PureComponent {
       }
     }
 
-    // Used for CSS overrides to default styling (eg: "hero")
-    const variantClass = this.props.display_variant
-      ? `ds-card-grid-${this.props.display_variant}`
-      : ``;
     const hideCardBackgroundClass = hideCardBackground
       ? `ds-card-grid-hide-background`
       : ``;
@@ -322,7 +317,7 @@ export class _CardGrid extends React.PureComponent {
       ? `ds-card-grid-hybrid-layout`
       : ``;
 
-    const gridClassName = `ds-card-grid ds-card-grid-${this.props.border} ${variantClass} ${hybridLayoutClassName} ${hideCardBackgroundClass} ${fourCardLayoutClass} ${hideDescriptionsClassName} ${compactGridClassName}`;
+    const gridClassName = `ds-card-grid ds-card-grid-border ${hybridLayoutClassName} ${hideCardBackgroundClass} ${fourCardLayoutClass} ${hideDescriptionsClassName} ${compactGridClassName}`;
 
     return (
       <>
@@ -401,7 +396,6 @@ export class _CardGrid extends React.PureComponent {
 }
 
 _CardGrid.defaultProps = {
-  border: `border`,
   items: 4, // Number of stories to display
   saveToPocketCard: false,
 };

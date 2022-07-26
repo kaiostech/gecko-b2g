@@ -659,7 +659,7 @@ IntrinsicSize nsSubDocumentFrame::GetIntrinsicSize() {
 
     if (auto size = olc->GetSubdocumentIntrinsicSize()) {
       // Use the intrinsic size from the child SVG document, if available.
-      return containAxes.ContainIntrinsicSize(*size, GetWritingMode());
+      return containAxes.ContainIntrinsicSize(*size, *this);
     }
   }
 
@@ -673,7 +673,7 @@ IntrinsicSize nsSubDocumentFrame::GetIntrinsicSize() {
 
   // We must be an HTML <iframe>. Return fallback size.
   return containAxes.ContainIntrinsicSize(IntrinsicSize(kFallbackIntrinsicSize),
-                                          GetWritingMode());
+                                          *this);
 }
 
 /* virtual */

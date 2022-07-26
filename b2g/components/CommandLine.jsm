@@ -4,22 +4,21 @@
 
 // Small helper to expose nsICommandLine object to chrome code
 
-function CommandlineHandler() {
-  this.wrappedJSObject = this;
-}
+const EXPORTED_SYMBOLS = ["B2gCommandlineHandler"];
 
-CommandlineHandler.prototype = {
+class B2gCommandlineHandler {
+  constructor() {
+    this.wrappedJSObject = this;
+  }
+
   handle(cmdLine) {
     this.cmdLine = cmdLine;
     let win = Services.wm.getMostRecentWindow("navigator:browser");
     if (win && win.shell) {
       win.shell.handleCmdLine();
     }
-  },
+  }
 
-  helpInfo: "",
-  classID: Components.ID("{385993fe-8710-4621-9fb1-00a09d8bec37}"),
-  QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
+  helpInfo = "";
+  QueryInterface =  ChromeUtils.generateQI(["nsICommandLineHandler"]);
 };
-
-const EXPORTED_SYMBOLS = ["CommandLineHandler"];

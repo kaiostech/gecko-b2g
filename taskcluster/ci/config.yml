@@ -362,9 +362,6 @@ merge-automation:
                   version-bump: "major"
                   new-suffix: 'a1'
             replacements:
-                - - "xpcom/components/Module.h"
-                  - "static const unsigned int kVersion = {current_major_version};"
-                  - "static const unsigned int kVersion = {next_major_version};"
                 - - "services/sync/modules/constants.js"
                   - 'WEAVE_VERSION: "1.{current_weave_version}.0"'
                   - 'WEAVE_VERSION: "1.{next_weave_version}.0"'
@@ -549,12 +546,12 @@ workers:
             implementation: generic-worker
             os: linux-bitbar
             worker-type: 'gecko-{alias}'
-        t-linux(-large|-xlarge|-xlarge-source|-metal):
+        t-linux(-large|-xlarge|-xlarge-source):
             provisioner: '{trust-domain}-t'
             implementation: docker-worker
             os: linux
-            worker-type: '{alias}'
-        t-linux(-large|-xlarge|-xlarge-source)-gcp:
+            worker-type: '{alias}-gcp'
+        t-linux-metal:
             provisioner: '{trust-domain}-t'
             implementation: docker-worker
             os: linux

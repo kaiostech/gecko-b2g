@@ -27,6 +27,17 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"
 delta = "1.1.0 -> 1.1.1"
 
+[[audits.ashmem]]
+who = "Matthew Gregan <kinetik@flim.org>"
+criteria = "safe-to-deploy"
+version = "0.1.2"
+notes = """
+Small unsafe wrapper around Android 8.0's ASharedMemory native API that falls
+back to older private ioctl-based API at runtime on earlier OS releases.  The
+shim code is small and doesn't inspect the API arguments, so is unlikely to
+expose any safety issues beyond those presented by the native OS API.
+"""
+
 [[audits.atomic_refcell]]
 who = "Bobby Holley <bholley@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -99,6 +110,12 @@ criteria = "safe-to-deploy"
 version = "50.1.2"
 notes = "Maintained by the Glean team at Mozilla"
 
+[[audits.glean]]
+who = "Jan-Erik Rediger <jrediger@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "50.1.2 -> 50.1.3"
+notes = "Unchanged from last version"
+
 [[audits.glean-core]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -110,6 +127,12 @@ who = "Travis Long <tlong@mozilla.com>"
 criteria = "safe-to-deploy"
 version = "50.1.2"
 notes = "Maintained by the Glean team at Mozilla"
+
+[[audits.glean-core]]
+who = "Jan-Erik Rediger <jrediger@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "50.1.2 -> 50.1.3"
+notes = "Bug fix release with minimal changes, changes done by myself"
 
 [[audits.linked-hash-map]]
 who = "Aria Beingessner <a.beingessner@gmail.com>"

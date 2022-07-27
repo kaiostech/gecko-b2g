@@ -25,7 +25,7 @@ bool SpeechSynthesisParent::SendInit() {
 
 PSpeechSynthesisRequestParent*
 SpeechSynthesisParent::AllocPSpeechSynthesisRequestParent(
-    const nsString& aText, const nsString& aLang, const nsString& aUri,
+    const nsAString& aText, const nsAString& aLang, const nsAString& aUri,
     const float& aVolume, const float& aRate, const float& aPitch,
     const bool& aIsChrome) {
   RefPtr<SpeechTaskParent> task =
@@ -42,8 +42,8 @@ bool SpeechSynthesisParent::DeallocPSpeechSynthesisRequestParent(
 
 mozilla::ipc::IPCResult
 SpeechSynthesisParent::RecvPSpeechSynthesisRequestConstructor(
-    PSpeechSynthesisRequestParent* aActor, const nsString& aText,
-    const nsString& aLang, const nsString& aUri, const float& aVolume,
+    PSpeechSynthesisRequestParent* aActor, const nsAString& aText,
+    const nsAString& aLang, const nsAString& aUri, const float& aVolume,
     const float& aRate, const float& aPitch, const bool& aIsChrome) {
   MOZ_ASSERT(aActor);
   SpeechSynthesisRequestParent* actor =
@@ -123,7 +123,7 @@ nsresult SpeechTaskParent::DispatchStartImpl(const nsAString& aUri) {
 
   if (mState != TASK_STATE_CANCEL) {
     mState = TASK_STATE_SPEAK;
-    if (NS_WARN_IF(!(mActor->SendOnStart(nsString(aUri))))) {
+    if (NS_WARN_IF(!(mActor->SendOnStart(aUri)))) {
       return NS_ERROR_FAILURE;
     }
   }
@@ -205,8 +205,8 @@ nsresult SpeechTaskParent::DispatchBoundaryImpl(const nsAString& aName,
     return NS_OK;
   }
 
-  if (NS_WARN_IF(!(mActor->SendOnBoundary(nsString(aName), aElapsedTime,
-                                          aCharIndex, aCharLength, argc)))) {
+  if (NS_WARN_IF(!(mActor->SendOnBoundary(aName, aElapsedTime, aCharIndex,
+                                          aCharLength, argc)))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -221,8 +221,7 @@ nsresult SpeechTaskParent::DispatchMarkImpl(const nsAString& aName,
     return NS_OK;
   }
 
-  if (NS_WARN_IF(
-          !(mActor->SendOnMark(nsString(aName), aElapsedTime, aCharIndex)))) {
+  if (NS_WARN_IF(!(mActor->SendOnMark(aName, aElapsedTime, aCharIndex)))) {
     return NS_ERROR_FAILURE;
   }
 

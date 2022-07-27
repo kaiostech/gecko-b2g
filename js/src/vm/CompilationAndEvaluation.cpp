@@ -31,6 +31,7 @@
 #include "util/CompleteFile.h"     // js::FileContents, js::ReadCompleteFile
 #include "util/StringBuffer.h"     // js::StringBuffer
 #include "vm/EnvironmentObject.h"  // js::CreateNonSyntacticEnvironmentChain
+#include "vm/ErrorReporting.h"     // js::MainThreadErrorContext
 #include "vm/FunctionFlags.h"      // js::FunctionFlags
 #include "vm/Interpreter.h"        // js::Execute
 #include "vm/JSContext.h"          // JSContext
@@ -67,7 +68,8 @@ static JSScript* CompileSourceBuffer(JSContext* cx,
   AssertHeapIsIdle();
   CHECK_THREAD(cx);
 
-  return frontend::CompileGlobalScript(cx, options, srcBuf, scopeKind);
+  MainThreadErrorContext ec(cx);
+  return frontend::CompileGlobalScript(cx, &ec, options, srcBuf, scopeKind);
 }
 
 JSScript* JS::Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
@@ -91,10 +93,11 @@ static JSScript* CompileSourceBufferAndStartIncrementalEncoding(
   ScopeKind scopeKind =
       options.nonSyntacticScope ? ScopeKind::NonSyntactic : ScopeKind::Global;
 
+  MainThreadErrorContext ec(cx);
   Rooted<frontend::CompilationInput> input(cx,
                                            frontend::CompilationInput(options));
   auto stencil = frontend::CompileGlobalScriptToExtensibleStencil(
-      cx, input.get(), srcBuf, scopeKind);
+      cx, &ec, input.get(), srcBuf, scopeKind);
   if (!stencil) {
     return nullptr;
   }
@@ -230,11 +233,12 @@ JS_PUBLIC_API bool JS_Utf8BufferIsCompilableUnit(JSContext* cx,
     return false;
   }
 
+  MainThreadErrorContext ec(cx);
   JS::AutoSuppressWarningReporter suppressWarnings(cx);
-  Parser<FullParseHandler, char16_t> parser(cx, options, chars.get(), length,
-                                            /* foldConstants = */ true,
-                                            compilationState,
-                                            /* syntaxParser = */ nullptr);
+  Parser<FullParseHandler, char16_t> parser(
+      cx, &ec, options, chars.get(), length,
+      /* foldConstants = */ true, compilationState,
+      /* syntaxParser = */ nullptr);
   if (!parser.checkOptions() || !parser.parse()) {
     // We ran into an error. If it was because we ran out of source, we
     // return false so our caller knows to try to collect more buffered
@@ -564,8 +568,9 @@ static bool EvaluateSourceBuffer(JSContext* cx, ScopeKind scopeKind,
   options.setNonSyntacticScope(scopeKind == ScopeKind::NonSyntactic);
   options.setIsRunOnce(true);
 
+  MainThreadErrorContext ec(cx);
   RootedScript script(
-      cx, frontend::CompileGlobalScript(cx, options, srcBuf, scopeKind));
+      cx, frontend::CompileGlobalScript(cx, &ec, options, srcBuf, scopeKind));
   if (!script) {
     return false;
   }

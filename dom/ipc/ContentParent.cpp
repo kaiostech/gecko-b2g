@@ -1596,7 +1596,7 @@ bool ContentParent::ValidatePrincipal(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvRemovePermission(
-    const IPC::Principal& aPrincipal, const nsCString& aPermissionType,
+    const IPC::Principal& aPrincipal, const nsACString& aPermissionType,
     nsresult* aRv) {
   if (!ValidatePrincipal(aPrincipal)) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
@@ -3754,7 +3754,7 @@ mozilla::ipc::IPCResult ContentParent::RecvPlayEventSound(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvGetIconForExtension(
-    const nsCString& aFileExt, const uint32_t& aIconSize,
+    const nsACString& aFileExt, const uint32_t& aIconSize,
     nsTArray<uint8_t>* bits) {
 #ifdef MOZ_WIDGET_ANDROID
   NS_ASSERTION(AndroidBridge::Bridge() != nullptr,
@@ -4872,7 +4872,7 @@ already_AddRefed<PNeckoParent> ContentParent::AllocPNeckoParent() {
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvInitStreamFilter(
-    const uint64_t& aChannelId, const nsString& aAddonId,
+    const uint64_t& aChannelId, const nsAString& aAddonId,
     InitStreamFilterResolver&& aResolver) {
   extensions::StreamFilterParent::Create(this, aChannelId, aAddonId)
       ->Then(
@@ -4918,9 +4918,9 @@ mozilla::ipc::IPCResult ContentParent::RecvPInputMethodServiceConstructor(
 already_AddRefed<PExternalHelperAppParent>
 ContentParent::AllocPExternalHelperAppParent(
     nsIURI* uri, const Maybe<mozilla::net::LoadInfoArgs>& aLoadInfoArgs,
-    const nsCString& aMimeContentType, const nsCString& aContentDisposition,
+    const nsACString& aMimeContentType, const nsACString& aContentDisposition,
     const uint32_t& aContentDispositionHint,
-    const nsString& aContentDispositionFilename, const bool& aForceSave,
+    const nsAString& aContentDispositionFilename, const bool& aForceSave,
     const int64_t& aContentLength, const bool& aWasFileChannel,
     nsIURI* aReferrer, const MaybeDiscarded<BrowsingContext>& aContext,
     const bool& aShouldCloseWindow) {
@@ -4932,10 +4932,10 @@ ContentParent::AllocPExternalHelperAppParent(
 
 mozilla::ipc::IPCResult ContentParent::RecvPExternalHelperAppConstructor(
     PExternalHelperAppParent* actor, nsIURI* uri,
-    const Maybe<LoadInfoArgs>& loadInfoArgs, const nsCString& aMimeContentType,
-    const nsCString& aContentDisposition,
+    const Maybe<LoadInfoArgs>& loadInfoArgs, const nsACString& aMimeContentType,
+    const nsACString& aContentDisposition,
     const uint32_t& aContentDispositionHint,
-    const nsString& aContentDispositionFilename, const bool& aForceSave,
+    const nsAString& aContentDispositionFilename, const bool& aForceSave,
     const int64_t& aContentLength, const bool& aWasFileChannel,
     nsIURI* aReferrer, const MaybeDiscarded<BrowsingContext>& aContext,
     const bool& aShouldCloseWindow) {
@@ -5084,7 +5084,7 @@ mozilla::ipc::IPCResult ContentParent::RecvStartVisitedQueries(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvSetURITitle(nsIURI* uri,
-                                                       const nsString& title) {
+                                                       const nsAString& title) {
   if (!uri) {
     return IPC_FAIL_NO_REASON(this);
   }
@@ -5186,7 +5186,7 @@ mozilla::ipc::IPCResult ContentParent::RecvShowAlert(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentParent::RecvCloseAlert(const nsString& aName) {
+mozilla::ipc::IPCResult ContentParent::RecvCloseAlert(const nsAString& aName) {
   nsCOMPtr<nsIAlertsService> sysAlerts(components::Alerts::Service());
   if (sysAlerts) {
     sysAlerts->CloseAlert(aName);
@@ -5214,7 +5214,7 @@ mozilla::ipc::IPCResult ContentParent::RecvOpenNotificationSettings(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvNotificationEvent(
-    const nsString& aType, const NotificationEventData& aData) {
+    const nsAString& aType, const NotificationEventData& aData) {
   nsCOMPtr<nsIServiceWorkerManager> swm =
       mozilla::components::ServiceWorkerManager::Service();
   if (NS_WARN_IF(!swm)) {
@@ -5243,7 +5243,7 @@ mozilla::ipc::IPCResult ContentParent::RecvNotificationEvent(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvSyncMessage(
-    const nsString& aMsg, const ClonedMessageData& aData,
+    const nsAString& aMsg, const ClonedMessageData& aData,
     nsTArray<StructuredCloneData>* aRetvals) {
   AUTO_PROFILER_LABEL_DYNAMIC_LOSSY_NSSTRING("ContentParent::RecvSyncMessage",
                                              OTHER, aMsg);
@@ -5261,7 +5261,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSyncMessage(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvAsyncMessage(
-    const nsString& aMsg, const ClonedMessageData& aData) {
+    const nsAString& aMsg, const ClonedMessageData& aData) {
   AUTO_PROFILER_LABEL_DYNAMIC_LOSSY_NSSTRING("ContentParent::RecvAsyncMessage",
                                              OTHER, aMsg);
   MMPrinter::Print("ContentParent::RecvAsyncMessage", aMsg, aData);
@@ -5351,12 +5351,12 @@ ContentParent::HandleEvent(GeolocationPositionError* positionError) {
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvConsoleMessage(
-    const nsString& aMessage) {
+    const nsAString& aMessage) {
   nsresult rv;
   nsCOMPtr<nsIConsoleService> consoleService =
       do_GetService(NS_CONSOLESERVICE_CONTRACTID, &rv);
   if (NS_SUCCEEDED(rv)) {
-    RefPtr<nsConsoleMessage> msg(new nsConsoleMessage(aMessage.get()));
+    RefPtr<nsConsoleMessage> msg(new nsConsoleMessage(aMessage));
     msg->SetIsForwardedFromContentProcess(true);
     consoleService->LogMessageWithMode(msg, nsIConsoleService::SuppressLog);
   }
@@ -5364,8 +5364,8 @@ mozilla::ipc::IPCResult ContentParent::RecvConsoleMessage(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvReportFrameTimingData(
-    uint64_t aInnerWindowId, const nsString& entryName,
-    const nsString& initiatorType, UniquePtr<PerformanceTimingData>&& aData) {
+    uint64_t aInnerWindowId, const nsAString& entryName,
+    const nsAString& initiatorType, UniquePtr<PerformanceTimingData>&& aData) {
   if (!aData) {
     return IPC_FAIL(this, "aData should not be null");
   }
@@ -5385,10 +5385,10 @@ mozilla::ipc::IPCResult ContentParent::RecvReportFrameTimingData(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvScriptError(
-    const nsString& aMessage, const nsString& aSourceName,
-    const nsString& aSourceLine, const uint32_t& aLineNumber,
+    const nsAString& aMessage, const nsAString& aSourceName,
+    const nsAString& aSourceLine, const uint32_t& aLineNumber,
     const uint32_t& aColNumber, const uint32_t& aFlags,
-    const nsCString& aCategory, const bool& aFromPrivateWindow,
+    const nsACString& aCategory, const bool& aFromPrivateWindow,
     const uint64_t& aInnerWindowId, const bool& aFromChromeContext) {
   return RecvScriptErrorInternal(aMessage, aSourceName, aSourceLine,
                                  aLineNumber, aColNumber, aFlags, aCategory,
@@ -5396,10 +5396,10 @@ mozilla::ipc::IPCResult ContentParent::RecvScriptError(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvScriptErrorWithStack(
-    const nsString& aMessage, const nsString& aSourceName,
-    const nsString& aSourceLine, const uint32_t& aLineNumber,
+    const nsAString& aMessage, const nsAString& aSourceName,
+    const nsAString& aSourceLine, const uint32_t& aLineNumber,
     const uint32_t& aColNumber, const uint32_t& aFlags,
-    const nsCString& aCategory, const bool& aFromPrivateWindow,
+    const nsACString& aCategory, const bool& aFromPrivateWindow,
     const bool& aFromChromeContext, const ClonedMessageData& aFrame) {
   return RecvScriptErrorInternal(
       aMessage, aSourceName, aSourceLine, aLineNumber, aColNumber, aFlags,
@@ -5407,10 +5407,10 @@ mozilla::ipc::IPCResult ContentParent::RecvScriptErrorWithStack(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvScriptErrorInternal(
-    const nsString& aMessage, const nsString& aSourceName,
-    const nsString& aSourceLine, const uint32_t& aLineNumber,
+    const nsAString& aMessage, const nsAString& aSourceName,
+    const nsAString& aSourceLine, const uint32_t& aLineNumber,
     const uint32_t& aColNumber, const uint32_t& aFlags,
-    const nsCString& aCategory, const bool& aFromPrivateWindow,
+    const nsACString& aCategory, const bool& aFromPrivateWindow,
     const bool& aFromChromeContext, const ClonedMessageData* aStack) {
   nsresult rv;
   nsCOMPtr<nsIConsoleService> consoleService =
@@ -5450,8 +5450,7 @@ mozilla::ipc::IPCResult ContentParent::RecvScriptErrorInternal(
   }
 
   rv = msg->Init(aMessage, aSourceName, aSourceLine, aLineNumber, aColNumber,
-                 aFlags, aCategory.get(), aFromPrivateWindow,
-                 aFromChromeContext);
+                 aFlags, aCategory, aFromPrivateWindow, aFromChromeContext);
   if (NS_FAILED(rv)) return IPC_OK();
 
   msg->SetIsForwardedFromContentProcess(true);
@@ -5463,7 +5462,7 @@ mozilla::ipc::IPCResult ContentParent::RecvScriptErrorInternal(
 bool ContentParent::DoLoadMessageManagerScript(const nsAString& aURL,
                                                bool aRunInGlobalScope) {
   MOZ_ASSERT(!aRunInGlobalScope);
-  return SendLoadProcessScript(nsString(aURL));
+  return SendLoadProcessScript(aURL);
 }
 
 nsresult ContentParent::DoSendAsyncMessage(const nsAString& aMessage,
@@ -5472,7 +5471,7 @@ nsresult ContentParent::DoSendAsyncMessage(const nsAString& aMessage,
   if (!BuildClonedMessageData(aHelper, data)) {
     return NS_ERROR_DOM_DATA_CLONE_ERR;
   }
-  if (!SendAsyncMessage(nsString(aMessage), data)) {
+  if (!SendAsyncMessage(aMessage, data)) {
     return NS_ERROR_UNEXPECTED;
   }
   return NS_OK;
@@ -5572,7 +5571,7 @@ bool ContentParent::ShouldContinueFromReplyTimeout() {
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvRecordingDeviceEvents(
-    const nsString& aRecordingStatus, const nsString& aPageURL,
+    const nsAString& aRecordingStatus, const nsAString& aPageURL,
     const bool& aIsAudio, const bool& aIsVideo) {
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
@@ -5585,7 +5584,7 @@ mozilla::ipc::IPCResult ContentParent::RecvRecordingDeviceEvents(
     props->SetPropertyAsAString(u"requestURL"_ns, aPageURL);
 
     obs->NotifyObservers((nsIPropertyBag2*)props, "recording-device-ipc-events",
-                         aRecordingStatus.get());
+                         PromiseFlatString(aRecordingStatus).get());
   } else {
     NS_WARNING(
         "Could not get the Observer service for "
@@ -5881,12 +5880,13 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
     PBrowserParent* aThisTab, BrowsingContext& aParent, bool aSetOpener,
     const uint32_t& aChromeFlags, const bool& aCalledFromJS,
     const bool& aForPrinting, const bool& aForWindowDotPrint,
-    nsIURI* aURIToLoad, const nsCString& aFeatures,
-    BrowserParent* aNextRemoteBrowser, const nsString& aName, nsresult& aResult,
-    nsCOMPtr<nsIRemoteTab>& aNewRemoteTab, bool* aWindowIsNew,
-    int32_t& aOpenLocation, nsIPrincipal* aTriggeringPrincipal,
-    nsIReferrerInfo* aReferrerInfo, bool aLoadURI,
-    nsIContentSecurityPolicy* aCsp, const OriginAttributes& aOriginAttributes) {
+    nsIURI* aURIToLoad, const nsACString& aFeatures,
+    BrowserParent* aNextRemoteBrowser, const nsAString& aName,
+    nsresult& aResult, nsCOMPtr<nsIRemoteTab>& aNewRemoteTab,
+    bool* aWindowIsNew, int32_t& aOpenLocation,
+    nsIPrincipal* aTriggeringPrincipal, nsIReferrerInfo* aReferrerInfo,
+    bool aLoadURI, nsIContentSecurityPolicy* aCsp,
+    const OriginAttributes& aOriginAttributes) {
   // The content process should never be in charge of computing whether or
   // not a window should be private - the parent will do that.
   const uint32_t badFlags = nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW |
@@ -5984,8 +5984,9 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
       aOpenLocation == nsIBrowserDOMWindow::OPEN_PRINT_BROWSER) {
     RefPtr<Element> openerElement = do_QueryObject(frame);
 
+    nsAutoCString features(aFeatures);
     nsCOMPtr<nsIOpenURIInFrameParams> params =
-        new nsOpenURIInFrameParams(openInfo, openerElement, aFeatures);
+        new nsOpenURIInFrameParams(openInfo, openerElement, features);
     params->SetReferrerInfo(aReferrerInfo);
     MOZ_ASSERT(aTriggeringPrincipal, "need a valid triggeringPrincipal");
     params->SetTriggeringPrincipal(aTriggeringPrincipal);
@@ -6099,7 +6100,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
     PBrowserParent* aNewTab, const uint32_t& aChromeFlags,
     const bool& aCalledFromJS, const bool& aForPrinting,
     const bool& aForPrintPreview, nsIURI* aURIToLoad,
-    const nsCString& aFeatures, const IPC::Principal& aTriggeringPrincipal,
+    const nsACString& aFeatures, const IPC::Principal& aTriggeringPrincipal,
     nsIContentSecurityPolicy* aCsp, nsIReferrerInfo* aReferrerInfo,
     const OriginAttributes& aOriginAttributes,
     CreateWindowResolver&& aResolve) {
@@ -6217,7 +6218,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
 mozilla::ipc::IPCResult ContentParent::RecvCreateWindowInDifferentProcess(
     PBrowserParent* aThisTab, const MaybeDiscarded<BrowsingContext>& aParent,
     const uint32_t& aChromeFlags, const bool& aCalledFromJS, nsIURI* aURIToLoad,
-    const nsCString& aFeatures, const nsString& aName,
+    const nsACString& aFeatures, const nsAString& aName,
     nsIPrincipal* aTriggeringPrincipal, nsIContentSecurityPolicy* aCsp,
     nsIReferrerInfo* aReferrerInfo, const OriginAttributes& aOriginAttributes) {
   MOZ_DIAGNOSTIC_ASSERT(!nsContentUtils::IsSpecialName(aName));
@@ -6277,13 +6278,13 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindowInDifferentProcess(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvShutdownProfile(
-    const nsCString& aProfile) {
+    const nsACString& aProfile) {
   profiler_received_exit_profile(aProfile);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvShutdownPerfStats(
-    const nsCString& aPerfStats) {
+    const nsACString& aPerfStats) {
   PerfStats::StorePerfStats(this, aPerfStats);
   return IPC_OK();
 }
@@ -6363,11 +6364,10 @@ mozilla::ipc::IPCResult ContentParent::RecvGetHyphDict(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvGraphicsError(
-    const nsCString& aError) {
-  gfx::LogForwarder* lf = gfx::Factory::GetLogForwarder();
-  if (lf) {
+    const nsACString& aError) {
+  if (gfx::LogForwarder* lf = gfx::Factory::GetLogForwarder()) {
     std::stringstream message;
-    message << "CP+" << aError.get();
+    message << "CP+" << aError;
     lf->UpdateStringsVector(message.str());
   }
   return IPC_OK();
@@ -6427,7 +6427,7 @@ mozilla::ipc::IPCResult ContentParent::RecvGetDeviceStorageLocations(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvNotifyBenchmarkResult(
-    const nsString& aCodecName, const uint32_t& aDecodeFPS)
+    const nsAString& aCodecName, const uint32_t& aDecodeFPS)
 
 {
   if (aCodecName.EqualsLiteral("VP9")) {
@@ -6439,8 +6439,8 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyBenchmarkResult(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvNotifyPushObservers(
-    const nsCString& aScope, const IPC::Principal& aPrincipal,
-    const nsString& aMessageId) {
+    const nsACString& aScope, const IPC::Principal& aPrincipal,
+    const nsAString& aMessageId) {
   if (!ValidatePrincipal(aPrincipal)) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
   }
@@ -6450,8 +6450,8 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyPushObservers(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvNotifyPushObserversWithData(
-    const nsCString& aScope, const IPC::Principal& aPrincipal,
-    const nsString& aMessageId, nsTArray<uint8_t>&& aData) {
+    const nsACString& aScope, const IPC::Principal& aPrincipal,
+    const nsAString& aMessageId, nsTArray<uint8_t>&& aData) {
   if (!ValidatePrincipal(aPrincipal)) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
   }
@@ -6463,7 +6463,7 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyPushObserversWithData(
 
 mozilla::ipc::IPCResult
 ContentParent::RecvNotifyPushSubscriptionChangeObservers(
-    const nsCString& aScope, const IPC::Principal& aPrincipal) {
+    const nsACString& aScope, const IPC::Principal& aPrincipal) {
   if (!ValidatePrincipal(aPrincipal)) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
   }
@@ -6473,8 +6473,8 @@ ContentParent::RecvNotifyPushSubscriptionChangeObservers(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvPushError(
-    const nsCString& aScope, const IPC::Principal& aPrincipal,
-    const nsString& aMessage, const uint32_t& aFlags) {
+    const nsACString& aScope, const IPC::Principal& aPrincipal,
+    const nsAString& aMessage, const uint32_t& aFlags) {
   if (!ValidatePrincipal(aPrincipal)) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
   }
@@ -6485,7 +6485,7 @@ mozilla::ipc::IPCResult ContentParent::RecvPushError(
 
 mozilla::ipc::IPCResult
 ContentParent::RecvNotifyPushSubscriptionModifiedObservers(
-    const nsCString& aScope, const IPC::Principal& aPrincipal) {
+    const nsACString& aScope, const IPC::Principal& aPrincipal) {
   if (!ValidatePrincipal(aPrincipal)) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
   }
@@ -6549,7 +6549,7 @@ void ContentParent::BroadcastBlobURLUnregistration(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvStoreAndBroadcastBlobURLRegistration(
-    const nsCString& aURI, const IPCBlob& aBlob, const Principal& aPrincipal,
+    const nsACString& aURI, const IPCBlob& aBlob, const Principal& aPrincipal,
     const Maybe<nsID>& aAgentClusterId) {
   if (!ValidatePrincipal(aPrincipal, {ValidatePrincipalOptions::AllowSystem})) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
@@ -6573,7 +6573,7 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreAndBroadcastBlobURLRegistration(
 
 mozilla::ipc::IPCResult
 ContentParent::RecvUnstoreAndBroadcastBlobURLUnregistration(
-    const nsCString& aURI, const Principal& aPrincipal) {
+    const nsACString& aURI, const Principal& aPrincipal) {
   if (!ValidatePrincipal(aPrincipal, {ValidatePrincipalOptions::AllowSystem})) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, __func__);
   }
@@ -6623,7 +6623,7 @@ bool ContentParent::HandleWindowsMessages(const Message& aMsg) const {
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvGetFilesRequest(
-    const nsID& aUUID, const nsString& aDirectoryPath,
+    const nsID& aUUID, const nsAString& aDirectoryPath,
     const bool& aRecursiveFlag) {
   MOZ_ASSERT(!mGetFilesPendingRequests.GetWeak(aUUID));
 
@@ -6863,8 +6863,8 @@ void ContentParent::TransmitBlobDataIfBlobURL(nsIURI* aURI) {
   }
 }
 
-void ContentParent::EnsurePermissionsByKey(const nsCString& aKey,
-                                           const nsCString& aOrigin) {
+void ContentParent::EnsurePermissionsByKey(const nsACString& aKey,
+                                           const nsACString& aOrigin) {
   // NOTE: Make sure to initialize the permission manager before updating the
   // mActivePermissionKeys list. If the permission manager is being initialized
   // by this call to GetPermissionManager, and we've added the key to
@@ -7130,7 +7130,7 @@ mozilla::ipc::IPCResult
 ContentParent::RecvStorageAccessPermissionGrantedForOrigin(
     uint64_t aTopLevelWindowId,
     const MaybeDiscarded<BrowsingContext>& aParentContext,
-    const Principal& aTrackingPrincipal, const nsCString& aTrackingOrigin,
+    const Principal& aTrackingPrincipal, const nsACString& aTrackingOrigin,
     const int& aAllowMode,
     const Maybe<ContentBlockingNotifier::StorageAccessPermissionGrantedReason>&
         aReason,
@@ -7165,7 +7165,7 @@ ContentParent::RecvStorageAccessPermissionGrantedForOrigin(
 mozilla::ipc::IPCResult ContentParent::RecvCompleteAllowAccessFor(
     const MaybeDiscarded<BrowsingContext>& aParentContext,
     uint64_t aTopLevelWindowId, const Principal& aTrackingPrincipal,
-    const nsCString& aTrackingOrigin, uint32_t aCookieBehavior,
+    const nsACString& aTrackingOrigin, uint32_t aCookieBehavior,
     const ContentBlockingNotifier::StorageAccessPermissionGrantedReason&
         aReason,
     CompleteAllowAccessForResolver&& aResolver) {
@@ -8073,7 +8073,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCommitBrowsingContextTransaction(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvBlobURLDataRequest(
-    const nsCString& aBlobURL, nsIPrincipal* aTriggeringPrincipal,
+    const nsACString& aBlobURL, nsIPrincipal* aTriggeringPrincipal,
     nsIPrincipal* aLoadingPrincipal, const OriginAttributes& aOriginAttributes,
     uint64_t aInnerWindowId, const Maybe<nsID>& aAgentClusterId,
     BlobURLDataRequestResolver&& aResolver) {
@@ -8171,7 +8171,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSynchronizeLayoutHistoryState(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryTitle(
-    const MaybeDiscarded<BrowsingContext>& aContext, const nsString& aTitle) {
+    const MaybeDiscarded<BrowsingContext>& aContext, const nsAString& aTitle) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
@@ -8216,7 +8216,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryScrollPosition(
 
 mozilla::ipc::IPCResult
 ContentParent::RecvSessionHistoryEntryStoreWindowNameInContiguousEntries(
-    const MaybeDiscarded<BrowsingContext>& aContext, const nsString& aName) {
+    const MaybeDiscarded<BrowsingContext>& aContext, const nsAString& aName) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }

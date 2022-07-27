@@ -36,6 +36,7 @@
 #include "vm/BigIntType.h"   // ParseBigIntLiteral, BigIntLiteralIsZero
 #include "vm/BindingKind.h"  // BindingKind
 #include "vm/EnvironmentObject.h"
+#include "vm/ErrorContext.h"
 #include "vm/GeneratorAndAsyncKind.h"  // GeneratorKind, FunctionAsyncKind
 #include "vm/HelperThreads.h"          // js::StartOffThreadParseScript
 #include "vm/HelperThreadState.h"
@@ -4688,9 +4689,10 @@ static already_AddRefed<JS::Stencil> CompileGlobalScriptToStencilImpl(
   ScopeKind scopeKind =
       options.nonSyntacticScope ? ScopeKind::NonSyntactic : ScopeKind::Global;
 
+  MainThreadErrorContext ec(cx);
   Rooted<CompilationInput> input(cx, CompilationInput(options));
   RefPtr<JS::Stencil> stencil = js::frontend::CompileGlobalScriptToStencil(
-      cx, cx->tempLifoAlloc(), input.get(), srcBuf, scopeKind);
+      cx, &ec, cx->tempLifoAlloc(), input.get(), srcBuf, scopeKind);
   if (!stencil) {
     return nullptr;
   }
@@ -4718,9 +4720,10 @@ static already_AddRefed<JS::Stencil> CompileModuleScriptToStencilImpl(
   JS::CompileOptions options(cx, optionsInput);
   options.setModule();
 
+  MainThreadErrorContext ec(cx);
   Rooted<CompilationInput> input(cx, CompilationInput(options));
   RefPtr<JS::Stencil> stencil =
-      js::frontend::ParseModuleToStencil(cx, input.get(), srcBuf);
+      js::frontend::ParseModuleToStencil(cx, &ec, input.get(), srcBuf);
   if (!stencil) {
     return nullptr;
   }

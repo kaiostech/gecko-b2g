@@ -1957,7 +1957,7 @@ class DatabaseOperationBase : public Runnable,
   template <typename KeyTransformation>
   static nsresult MaybeBindKeyToStatement(
       const Key& aKey, mozIStorageStatement* aStatement,
-      const nsCString& aParameterName,
+      const nsACString& aParameterName,
       const KeyTransformation& aKeyTransformation);
 
   template <typename KeyTransformation>
@@ -2182,7 +2182,7 @@ class WaitForTransactionsHelper final : public Runnable {
   } mState;
 
  public:
-  WaitForTransactionsHelper(const nsCString& aDatabaseId,
+  WaitForTransactionsHelper(const nsACString& aDatabaseId,
                             nsIRunnable* aCallback)
       : Runnable("dom::indexedDB::WaitForTransactionsHelper"),
         mDatabaseId(aDatabaseId),
@@ -2462,7 +2462,7 @@ class Database final
       nsTArray<nsString>&& aObjectStoreNames, const Mode& aMode) override;
 
   PBackgroundMutableFileParent* AllocPBackgroundMutableFileParent(
-      const nsString& aName, const nsString& aType) override;
+      const nsAString& aName, const nsAString& aType) override;
 
   bool DeallocPBackgroundMutableFileParent(
       PBackgroundMutableFileParent* aActor) override;
@@ -2723,7 +2723,7 @@ class TransactionBase : public AtomicSafeRefCounted<TransactionBase> {
 
   uint64_t TransactionId() const { return *mTransactionId; }
 
-  const nsCString& DatabaseId() const { return mDatabaseId; }
+  const nsACString& DatabaseId() const { return mDatabaseId; }
 
   Mode GetMode() const { return mMode; }
 
@@ -3001,7 +3001,7 @@ class VersionChangeTransaction final
 
   mozilla::ipc::IPCResult RecvRenameObjectStore(
       const IndexOrObjectStoreId& aObjectStoreId,
-      const nsString& aName) override;
+      const nsAString& aName) override;
 
   mozilla::ipc::IPCResult RecvCreateIndex(
       const IndexOrObjectStoreId& aObjectStoreId,
@@ -3013,7 +3013,7 @@ class VersionChangeTransaction final
 
   mozilla::ipc::IPCResult RecvRenameIndex(
       const IndexOrObjectStoreId& aObjectStoreId,
-      const IndexOrObjectStoreId& aIndexId, const nsString& aName) override;
+      const IndexOrObjectStoreId& aIndexId, const nsAString& aName) override;
 
   PBackgroundIDBRequestParent* AllocPBackgroundIDBRequestParent(
       const RequestParams& aParams) override;
@@ -3197,7 +3197,7 @@ class FactoryOp
   FlippedOnce<false> mInPrivateBrowsing;
 
  public:
-  const nsCString& Origin() const {
+  const nsACString& Origin() const {
     AssertIsOnOwningThread();
 
     return mOriginMetadata.mOrigin;
@@ -3209,7 +3209,7 @@ class FactoryOp
     return !mDatabaseFilePath.IsEmpty();
   }
 
-  const nsString& DatabaseFilePath() const {
+  const nsAString& DatabaseFilePath() const {
     AssertIsOnOwningThread();
     MOZ_ASSERT(!mDatabaseFilePath.IsEmpty());
 
@@ -4404,8 +4404,8 @@ class IndexCursorBase : public CursorBase {
     nsCString mContinueToQuery;
     nsCString mContinuePrimaryKeyQuery;
 
-    const nsCString& GetContinueQuery(const bool hasContinueKey,
-                                      const bool hasContinuePrimaryKey) const {
+    const nsACString& GetContinueQuery(const bool hasContinueKey,
+                                       const bool hasContinuePrimaryKey) const {
       return hasContinuePrimaryKey ? mContinuePrimaryKeyQuery
              : hasContinueKey      ? mContinueToQuery
                                    : mContinueQuery;
@@ -4426,8 +4426,8 @@ class ObjectStoreCursorBase : public CursorBase {
     nsCString mContinueQuery;
     nsCString mContinueToQuery;
 
-    const nsCString& GetContinueQuery(const bool hasContinueKey,
-                                      const bool hasContinuePrimaryKey) const {
+    const nsACString& GetContinueQuery(const bool hasContinueKey,
+                                       const bool hasContinuePrimaryKey) const {
       MOZ_ASSERT(!hasContinuePrimaryKey);
       return hasContinueKey ? mContinueToQuery : mContinueQuery;
     }
@@ -4627,7 +4627,7 @@ class CursorOpBaseHelperBase {
   void PopulateExtraResponses(mozIStorageStatement* aStmt,
                               uint32_t aMaxExtraCount,
                               const size_t aInitialResponseSize,
-                              const nsCString& aOperation,
+                              const nsACString& aOperation,
                               Key* const aOptPreviousSortKey);
 
  protected:
@@ -4686,7 +4686,7 @@ class ObjectStoreOpenOpHelper : protected CommonOpenOpHelper<CursorType> {
   using CommonOpenOpHelper<CursorType>::AppendConditionClause;
 
   void PrepareKeyConditionClauses(const nsACString& aDirectionClause,
-                                  const nsCString& aQueryStart);
+                                  const nsACString& aQueryStart);
 };
 
 template <IDBCursorType CursorType>
@@ -4823,8 +4823,8 @@ class Utils final : public PBackgroundIndexedDBUtilsParent {
   mozilla::ipc::IPCResult RecvDeleteMe() override;
 
   mozilla::ipc::IPCResult RecvGetFileReferences(
-      const PersistenceType& aPersistenceType, const nsCString& aOrigin,
-      const nsString& aDatabaseName, const int64_t& aFileId, int32_t* aRefCnt,
+      const PersistenceType& aPersistenceType, const nsACString& aOrigin,
+      const nsAString& aDatabaseName, const int64_t& aFileId, int32_t* aRefCnt,
       int32_t* aDBRefCnt, bool* aResult) override;
 };
 
@@ -5278,7 +5278,7 @@ Maintenance::DirectoryInfo::DirectoryInfo(
   MOZ_ASSERT(!mFullOriginMetadata->mOrigin.IsEmpty());
 #ifdef DEBUG
   MOZ_ASSERT(!mDatabasePaths->IsEmpty());
-  for (const nsString& databasePath : *mDatabasePaths) {
+  for (const nsAString& databasePath : *mDatabasePaths) {
     MOZ_ASSERT(!databasePath.IsEmpty());
   }
 #endif
@@ -5325,7 +5325,7 @@ class DatabaseMaintenance final : public Runnable {
   DatabaseMaintenance(Maintenance* aMaintenance, DirectoryLock* aDirectoryLock,
                       PersistenceType aPersistenceType,
                       const OriginMetadata& aOriginMetadata,
-                      const nsString& aDatabasePath,
+                      const nsAString& aDatabasePath,
                       const Maybe<CipherKey>& aMaybeKey)
       : Runnable("dom::indexedDB::DatabaseMaintenance"),
         mMaintenance(aMaintenance),
@@ -5340,7 +5340,7 @@ class DatabaseMaintenance final : public Runnable {
     mDirectoryLockId = mDirectoryLock->Id();
   }
 
-  const nsString& DatabasePath() const { return mDatabasePath; }
+  const nsAString& DatabasePath() const { return mDatabasePath; }
 
   void WaitForCompletion(nsIRunnable* aCallback) {
     AssertIsOnBackgroundThread();
@@ -6350,7 +6350,7 @@ constexpr nsLiteralCString GetComparisonOperatorString(
   return ""_ns;
 }
 
-nsAutoCString GetKeyClause(const nsCString& aColumnName,
+nsAutoCString GetKeyClause(const nsACString& aColumnName,
                            const ComparisonOperator aComparisonOperator,
                            const nsLiteralCString& aStmtParamName) {
   return aColumnName + " "_ns +
@@ -6622,7 +6622,7 @@ nsresult DispatchAndReturnFileReferences(
 class DeserializeIndexValueHelper final : public Runnable {
  public:
   DeserializeIndexValueHelper(int64_t aIndexID, const KeyPath& aKeyPath,
-                              bool aMultiEntry, const nsCString& aLocale,
+                              bool aMultiEntry, const nsACString& aLocale,
                               StructuredCloneReadInfoParent& aCloneReadInfo,
                               nsTArray<IndexUpdateInfo>& aUpdateInfoArray)
       : Runnable("DeserializeIndexValueHelper"),
@@ -6745,7 +6745,7 @@ class DeserializeIndexValueHelper final : public Runnable {
 
 auto DeserializeIndexValueToUpdateInfos(
     int64_t aIndexID, const KeyPath& aKeyPath, bool aMultiEntry,
-    const nsCString& aLocale, StructuredCloneReadInfoParent& aCloneReadInfo) {
+    const nsACString& aLocale, StructuredCloneReadInfoParent& aCloneReadInfo) {
   MOZ_ASSERT(!NS_IsMainThread());
 
   using ArrayType = AutoTArray<IndexUpdateInfo, 32>;
@@ -7971,7 +7971,7 @@ uint64_t ConnectionPool::Start(
 
   auto& blockingTransactions = dbInfo->mBlockingTransactions;
 
-  for (const nsString& objectStoreName : aObjectStoreNames) {
+  for (const nsAString& objectStoreName : aObjectStoreNames) {
     TransactionInfoPair* blockInfo =
         blockingTransactions.GetOrInsertNew(objectStoreName);
 
@@ -8067,7 +8067,7 @@ void ConnectionPool::WaitForDatabasesToComplete(
 
   bool mayRunCallbackImmediately = true;
 
-  for (const nsCString& databaseId : aDatabaseIds) {
+  for (const nsACString& databaseId : aDatabaseIds) {
     MOZ_ASSERT(!databaseId.IsEmpty());
 
     if (CloseDatabaseWhenIdleInternal(databaseId)) {
@@ -10126,8 +10126,8 @@ mozilla::ipc::IPCResult Database::RecvPBackgroundIDBTransactionConstructor(
 }
 
 Database::PBackgroundMutableFileParent*
-Database::AllocPBackgroundMutableFileParent(const nsString& aName,
-                                            const nsString& aType) {
+Database::AllocPBackgroundMutableFileParent(const nsAString& aName,
+                                            const nsAString& aType) {
   MOZ_CRASH(
       "PBackgroundMutableFileParent actors should be constructed "
       "manually!");
@@ -11437,7 +11437,7 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvDeleteObjectStore(
 }
 
 mozilla::ipc::IPCResult VersionChangeTransaction::RecvRenameObjectStore(
-    const IndexOrObjectStoreId& aObjectStoreId, const nsString& aName) {
+    const IndexOrObjectStoreId& aObjectStoreId, const nsAString& aName) {
   AssertIsOnBackgroundThread();
 
   if (NS_WARN_IF(!aObjectStoreId)) {
@@ -11617,7 +11617,7 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvDeleteIndex(
 
 mozilla::ipc::IPCResult VersionChangeTransaction::RecvRenameIndex(
     const IndexOrObjectStoreId& aObjectStoreId,
-    const IndexOrObjectStoreId& aIndexId, const nsString& aName) {
+    const IndexOrObjectStoreId& aIndexId, const nsAString& aName) {
   AssertIsOnBackgroundThread();
 
   if (NS_WARN_IF(!aObjectStoreId)) {
@@ -12549,7 +12549,7 @@ nsresult QuotaClient::UpgradeStorageFrom1_0To2_0(nsIFile* aDirectory) {
   QM_TRY(CollectEachInRange(
       subdirsToProcess,
       [&databaseFilenames = databaseFilenames,
-       aDirectory](const nsString& subdirName) -> Result<Ok, nsresult> {
+       aDirectory](const nsAString& subdirName) -> Result<Ok, nsresult> {
         // If the directory has the correct suffix then it should exist in
         // databaseFilenames.
         nsDependentSubstring subdirNameBase;
@@ -12713,7 +12713,8 @@ nsresult QuotaClient::GetUsageForOriginInternal(
         subdirsToProcess,
         [&directory, &obsoleteFilenames = obsoleteFilenames,
          &databaseFilenames = databaseFilenames, aPersistenceType,
-         &aOriginMetadata](const nsString& subdirName) -> Result<Ok, nsresult> {
+         &aOriginMetadata](
+            const nsAString& subdirName) -> Result<Ok, nsresult> {
           // The directory must have the correct suffix.
           nsDependentSubstring subdirNameBase;
           QM_TRY(QM_OR_ELSE_WARN(
@@ -13712,7 +13713,7 @@ nsresult Maintenance::BeginDatabaseMaintenance() {
   for (DirectoryInfo& directoryInfo : mDirectoryInfos) {
     RefPtr<DirectoryLock> directoryLock;
 
-    for (const nsString& databasePath : *directoryInfo.mDatabasePaths) {
+    for (const nsAString& databasePath : *directoryInfo.mDatabasePaths) {
       if (Helper::IsSafeToRunMaintenance(databasePath)) {
         if (!directoryLock) {
           directoryLock = mDirectoryLock->SpecializeForClient(
@@ -14411,7 +14412,7 @@ uint64_t DatabaseOperationBase::ReinterpretDoubleAsUInt64(double aDouble) {
 template <typename KeyTransformation>
 nsresult DatabaseOperationBase::MaybeBindKeyToStatement(
     const Key& aKey, mozIStorageStatement* const aStatement,
-    const nsCString& aParameterName,
+    const nsACString& aParameterName,
     const KeyTransformation& aKeyTransformation) {
   MOZ_ASSERT(!IsOnBackgroundThread());
   MOZ_ASSERT(aStatement);
@@ -15789,7 +15790,7 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
 
-  const nsString& databaseName = mCommonParams.metadata().name();
+  const nsAString& databaseName = mCommonParams.metadata().name();
   const PersistenceType persistenceType =
       mCommonParams.metadata().persistenceType();
 
@@ -16196,7 +16197,7 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
                 const nsCString& systemLocale =
                     IndexedDatabaseManager::GetLocale();
                 if (!systemLocale.IsEmpty() && isAutoLocale &&
-                    !indexedLocale.EqualsASCII(systemLocale.get())) {
+                    !indexedLocale.Equals(systemLocale)) {
                   QM_TRY(MOZ_TO_RESULT(UpdateLocaleAwareIndex(
                       aConnection, indexMetadata->mCommonMetadata,
                       systemLocale)));
@@ -16988,7 +16989,7 @@ nsresult DeleteDatabaseOp::DoDatabaseWork() {
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
 
-  const nsString& databaseName = mCommonParams.metadata().name();
+  const nsAString& databaseName = mCommonParams.metadata().name();
   const PersistenceType persistenceType =
       mCommonParams.metadata().persistenceType();
 
@@ -20619,7 +20620,7 @@ CursorOpBaseHelperBase<CursorType>::PopulateResponseFromStatement(
 template <IDBCursorType CursorType>
 void CursorOpBaseHelperBase<CursorType>::PopulateExtraResponses(
     mozIStorageStatement* const aStmt, const uint32_t aMaxExtraCount,
-    const size_t aInitialResponseSize, const nsCString& aOperation,
+    const size_t aInitialResponseSize, const nsACString& aOperation,
     Key* const aOptPreviousSortKey) {
   mOp.AssertIsOnConnectionThread();
 
@@ -20668,7 +20669,8 @@ void CursorOpBaseHelperBase<CursorType>::PopulateExtraResponses(
             "%.0s Dropping too large (%" PRIu32 "/%zu)",
             IDB_LOG_ID_STRING(mOp.mBackgroundChildLoggingId),
             mOp.mTransactionLoggingSerialNumber, mOp.mLoggingSerialNumber,
-            aOperation.get(), extraCount, accumulatedResponseSize);
+            PromiseFlatCString(aOperation).get(), extraCount,
+            accumulatedResponseSize);
 
         break;
       }
@@ -20685,7 +20687,7 @@ void CursorOpBaseHelperBase<CursorType>::PopulateExtraResponses(
       "%.0s Populated (%" PRIu32 "/%" PRIu32 ")",
       IDB_LOG_ID_STRING(mOp.mBackgroundChildLoggingId),
       mOp.mTransactionLoggingSerialNumber, mOp.mLoggingSerialNumber,
-      aOperation.get(), extraCount, aMaxExtraCount);
+      PromiseFlatCString(aOperation).get(), extraCount, aMaxExtraCount);
 }
 
 template <IDBCursorType CursorType>
@@ -20724,7 +20726,7 @@ void Cursor<CursorType>::SetOptionalKeyRange(
 
 template <IDBCursorType CursorType>
 void ObjectStoreOpenOpHelper<CursorType>::PrepareKeyConditionClauses(
-    const nsACString& aDirectionClause, const nsCString& aQueryStart) {
+    const nsACString& aDirectionClause, const nsACString& aQueryStart) {
   const bool isIncreasingOrder = IsIncreasingOrder(GetCursor().mDirection);
 
   nsAutoCString keyRangeClause;
@@ -21352,8 +21354,8 @@ mozilla::ipc::IPCResult Utils::RecvDeleteMe() {
 }
 
 mozilla::ipc::IPCResult Utils::RecvGetFileReferences(
-    const PersistenceType& aPersistenceType, const nsCString& aOrigin,
-    const nsString& aDatabaseName, const int64_t& aFileId, int32_t* aRefCnt,
+    const PersistenceType& aPersistenceType, const nsACString& aOrigin,
+    const nsAString& aDatabaseName, const int64_t& aFileId, int32_t* aRefCnt,
     int32_t* aDBRefCnt, bool* aResult) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aRefCnt);

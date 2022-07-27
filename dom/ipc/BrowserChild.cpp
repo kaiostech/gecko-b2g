@@ -743,7 +743,7 @@ NS_IMETHODIMP
 BrowserChild::SetLinkStatus(const nsAString& aStatusText) {
   // We can only send the status after the ipc machinery is set up
   if (IPCOpen()) {
-    SendSetLinkStatus(nsString(aStatusText));
+    SendSetLinkStatus(aStatusText);
   }
   return NS_OK;
 }
@@ -2422,17 +2422,17 @@ mozilla::ipc::IPCResult BrowserChild::RecvNormalPrioritySelectionEvent(
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvInsertText(
-    const nsString& aStringToInsert) {
+    const nsAString& aStringToInsert) {
   // Use normal event path to reach focused document.
   WidgetContentCommandEvent localEvent(true, eContentCommandInsertText,
                                        mPuppetWidget);
-  localEvent.mString = Some(aStringToInsert);
+  localEvent.mString = Some(nsString(aStringToInsert));
   DispatchWidgetEventViaAPZ(localEvent);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvNormalPriorityInsertText(
-    const nsString& aStringToInsert) {
+    const nsAString& aStringToInsert) {
   return RecvInsertText(aStringToInsert);
 }
 
@@ -2479,8 +2479,8 @@ bool BrowserChild::DeallocPDocAccessibleChild(
 }
 #endif
 
-PColorPickerChild* BrowserChild::AllocPColorPickerChild(const nsString&,
-                                                        const nsString&) {
+PColorPickerChild* BrowserChild::AllocPColorPickerChild(const nsAString&,
+                                                        const nsAString&) {
   MOZ_CRASH("unused");
   return nullptr;
 }
@@ -2491,7 +2491,7 @@ bool BrowserChild::DeallocPColorPickerChild(PColorPickerChild* aColorPicker) {
   return true;
 }
 
-PFilePickerChild* BrowserChild::AllocPFilePickerChild(const nsString&,
+PFilePickerChild* BrowserChild::AllocPFilePickerChild(const nsAString&,
                                                       const int16_t&) {
   MOZ_CRASH("unused");
   return nullptr;
@@ -2519,7 +2519,7 @@ RefPtr<VsyncMainChild> BrowserChild::GetVsyncChild() {
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvActivateFrameEvent(
-    const nsString& aType, const bool& capture) {
+    const nsAString& aType, const bool& capture) {
   nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
   NS_ENSURE_TRUE(window, IPC_OK());
   nsCOMPtr<EventTarget> chromeHandler = window->GetChromeEventHandler();
@@ -2530,7 +2530,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvActivateFrameEvent(
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvLoadRemoteScript(
-    const nsString& aURL, const bool& aRunInGlobalScope) {
+    const nsAString& aURL, const bool& aRunInGlobalScope) {
   if (!InitBrowserChildMessageManager())
     // This can happen if we're half-destroyed.  It's not a fatal
     // error.
@@ -2548,7 +2548,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadRemoteScript(
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvAsyncMessage(
-    const nsString& aMessage, const ClonedMessageData& aData) {
+    const nsAString& aMessage, const ClonedMessageData& aData) {
   AUTO_PROFILER_LABEL_DYNAMIC_LOSSY_NSSTRING("BrowserChild::RecvAsyncMessage",
                                              OTHER, aMessage);
   MMPrinter::Print("BrowserChild::RecvAsyncMessage", aMessage, aData);

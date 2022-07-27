@@ -24,6 +24,7 @@
 
 #include "builtin/Array.h"
 #include "builtin/BigInt.h"
+#include "vm/ErrorContext.h"
 #ifdef JS_HAS_INTL_API
 #  include "builtin/intl/Collator.h"
 #  include "builtin/intl/DateTimeFormat.h"
@@ -2589,9 +2590,10 @@ bool JSRuntime::initSelfHostingStencil(JSContext* cx,
   if (!input) {
     return false;
   }
+  MainThreadErrorContext ec(cx);
   RefPtr<frontend::CompilationStencil> stencil =
-      frontend::CompileGlobalScriptToStencil(cx, cx->tempLifoAlloc(), *input,
-                                             srcBuf, ScopeKind::Global);
+      frontend::CompileGlobalScriptToStencil(cx, &ec, cx->tempLifoAlloc(),
+                                             *input, srcBuf, ScopeKind::Global);
   if (!stencil) {
     return false;
   }

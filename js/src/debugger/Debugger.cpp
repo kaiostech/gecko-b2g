@@ -965,13 +965,19 @@ NativeResumeMode DebugAPI::slowPathOnNativeCall(JSContext* cx,
   // The onNativeCall hook is fired when self hosted functions are called,
   // and any other self hosted function or C++ native that is directly called
   // by the self hosted function is considered to be part of the same
-  // native call.
+  // native call, except for the following 2 cases:
+  //
+  //  * callContentFunction and constructContentFunction,
+  //    which uses CallReason::CallContent
+  //  * Function.prototype.call and Function.prototype.apply,
+  //    which uses CallReason::FunCall
   //
   // We check this only after checking that debuggerList has items in order
   // to avoid unnecessary calls to cx->currentScript(), which can be expensive
   // when the top frame is in jitcode.
   JSScript* script = cx->currentScript();
-  if (script && script->selfHosted()) {
+  if (script && script->selfHosted() && reason != CallReason::CallContent &&
+      reason != CallReason::FunCall) {
     return NativeResumeMode::Continue;
   }
 
@@ -2298,6 +2304,12 @@ bool Debugger::fireNativeCall(JSContext* cx, const CallArgs& args,
   JSAtom* reasonAtom = nullptr;
   switch (reason) {
     case CallReason::Call:
+      reasonAtom = cx->names().call;
+      break;
+    case CallReason::CallContent:
+      reasonAtom = cx->names().call;
+      break;
+    case CallReason::FunCall:
       reasonAtom = cx->names().call;
       break;
     case CallReason::Getter:
@@ -6109,9 +6121,10 @@ bool Debugger::isCompilableUnit(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
+  MainThreadErrorContext ec(cx);
   JS::AutoSuppressWarningReporter suppressWarnings(cx);
   frontend::Parser<frontend::FullParseHandler, char16_t> parser(
-      cx, options, chars.twoByteChars(), length,
+      cx, &ec, options, chars.twoByteChars(), length,
       /* foldConstants = */ true, compilationState,
       /* syntaxParser = */ nullptr);
   if (!parser.checkOptions() || !parser.parse()) {

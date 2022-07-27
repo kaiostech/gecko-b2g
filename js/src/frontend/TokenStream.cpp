@@ -490,10 +490,11 @@ SourceCoords::LineToken SourceCoords::lineToken(uint32_t offset) const {
   return LineToken(indexFromOffset(offset), offset);
 }
 
-TokenStreamAnyChars::TokenStreamAnyChars(JSContext* cx,
+TokenStreamAnyChars::TokenStreamAnyChars(JSContext* cx, ErrorContext* ec,
                                          const ReadOnlyCompileOptions& options,
                                          StrictModeGetter* smg)
     : cx(cx),
+      ec(ec),
       options_(options),
       strictModeGetter_(smg),
       filename_(options.filename()),
@@ -512,11 +513,11 @@ TokenStreamAnyChars::TokenStreamAnyChars(JSContext* cx,
 
 template <typename Unit>
 TokenStreamCharsBase<Unit>::TokenStreamCharsBase(JSContext* cx,
-                                                 ParserAtomsTable* pasrerAtoms,
+                                                 ParserAtomsTable* parserAtoms,
                                                  const Unit* units,
                                                  size_t length,
                                                  size_t startOffset)
-    : TokenStreamCharsShared(cx, pasrerAtoms),
+    : TokenStreamCharsShared(cx, parserAtoms),
       sourceUnits(units, length, startOffset) {}
 
 bool FillCharBufferFromSourceNormalizingAsciiLineBreaks(CharBuffer& charBuffer,
@@ -580,9 +581,9 @@ bool FillCharBufferFromSourceNormalizingAsciiLineBreaks(CharBuffer& charBuffer,
 
 template <typename Unit, class AnyCharsAccess>
 TokenStreamSpecific<Unit, AnyCharsAccess>::TokenStreamSpecific(
-    JSContext* cx, ParserAtomsTable* pasrerAtoms,
+    JSContext* cx, ParserAtomsTable* parserAtoms,
     const ReadOnlyCompileOptions& options, const Unit* units, size_t length)
-    : TokenStreamChars<Unit, AnyCharsAccess>(cx, pasrerAtoms, units, length,
+    : TokenStreamChars<Unit, AnyCharsAccess>(cx, parserAtoms, units, length,
                                              options.scriptSourceOffset) {}
 
 bool TokenStreamAnyChars::checkOptions() {
@@ -609,7 +610,7 @@ void TokenStreamAnyChars::reportErrorNoOffsetVA(unsigned errorNumber,
   ErrorMetadata metadata;
   computeErrorMetadataNoOffset(&metadata);
 
-  ReportCompileErrorLatin1(cx, std::move(metadata), nullptr, errorNumber, args);
+  ReportCompileErrorLatin1(ec, std::move(metadata), nullptr, errorNumber, args);
 }
 
 [[nodiscard]] MOZ_ALWAYS_INLINE bool
@@ -1039,7 +1040,7 @@ MOZ_COLD void TokenStreamChars<Utf8Unit, AnyCharsAccess>::internalEncodingError(
       break;
     }
 
-    ReportCompileErrorLatin1(anyChars.cx, std::move(err), std::move(notes),
+    ReportCompileErrorLatin1(anyChars.ec, std::move(err), std::move(notes),
                              errorNumber, &args);
   } while (false);
 

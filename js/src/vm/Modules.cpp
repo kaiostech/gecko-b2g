@@ -23,6 +23,7 @@
 #include "js/RootingAPI.h"         // JS::MutableHandle
 #include "js/Value.h"              // JS::Value
 #include "vm/EnvironmentObject.h"  // js::ModuleEnvironmentObject
+#include "vm/ErrorContext.h"       // js::MainThreadErrorContext
 #include "vm/JSContext.h"          // CHECK_THREAD, JSContext
 #include "vm/JSObject.h"           // JSObject
 #include "vm/Runtime.h"            // JSRuntime
@@ -113,7 +114,8 @@ static JSObject* CompileModuleHelper(JSContext* cx,
   AssertHeapIsIdle();
   CHECK_THREAD(cx);
 
-  return frontend::CompileModule(cx, options, srcBuf);
+  MainThreadErrorContext ec(cx);
+  return frontend::CompileModule(cx, &ec, options, srcBuf);
 }
 
 JS_PUBLIC_API JSObject* JS::CompileModule(JSContext* cx,

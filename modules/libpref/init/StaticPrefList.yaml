@@ -358,11 +358,7 @@
 
 - name: apz.axis_lock.breakout_angle
   type: AtomicFloat
-#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
-  value: float(M_PI / 4.0)    # 45 degrees
-#else
   value: float(M_PI / 8.0)    # 22.5 degrees
-#endif
   mirror: always
   include: <cmath>
 
@@ -379,21 +375,25 @@
 
 - name: apz.axis_lock.lock_angle
   type: AtomicFloat
-#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
-  value: float(M_PI / 4.0)    # 45 degrees
-#else
   value: float(M_PI / 6.0)    # 30 degrees
-#endif
   mirror: always
   include: <cmath>
 
-# Whether to lock touch scrolling to one axis at a time.
+# Whether to lock touch scrolling to one axis at a time. When a new
+# axis lock mode is added, the APZCAxisLockCompatTester GTest shoud
+# be updated to include the lock mode value.
 # 0 = FREE (No locking at all)
 # 1 = STANDARD (Once locked, remain locked until scrolling ends)
 # 2 = STICKY (Allow lock to be broken, with hysteresis)
+# 3 = DOMINANT_AXIS (Only allow movement on one axis at a time, only
+#     applies to touchpad scrolling)
 - name: apz.axis_lock.mode
   type: RelaxedAtomicInt32
+#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
+  value: 3
+#else
   value: 2
+#endif
   mirror: always
 
 - name: apz.content_response_timeout
@@ -678,12 +678,12 @@
 # Fetch displayport updates early from the message queue.
 - name: apz.pinch_lock.mode
   type: RelaxedAtomicInt32
-  value: 1
+  value: 2
   mirror: always
 
 - name: apz.pinch_lock.scroll_lock_threshold
   type: AtomicFloat
-  value: 1.0f / 32.0f   # 1/32 inches
+  value: 1.0f / 16.0f   # 1/16 inches
   mirror: always
 
 - name: apz.pinch_lock.span_breakout_threshold
@@ -698,7 +698,7 @@
 
 - name: apz.pinch_lock.buffer_max_age
   type: int32_t
-  value: 50   # milliseconds
+  value: 80   # milliseconds
   mirror: once
 
 - name: apz.popups.enabled
@@ -5627,11 +5627,16 @@
   mirror: always
 
 #ifdef XP_MACOSX
-  # Create specialized video-only layers for video content, and
-  # attempt to isolate video layers in fullscreen windows.
+  # Create specialized video-only layers for video content in
+  # fullscreen windows. Consistently works well on Apple Silicon,
+  # some issues remain on Intel hardware.
 -   name: gfx.core-animation.specialize-video
     type: RelaxedAtomicBool
-    value: @IS_EARLY_BETA_OR_EARLIER@
+#if defined(_ARM64_)
+    value: true
+#else
+    value: false
+#endif
     mirror: always
 #endif
 
@@ -5978,7 +5983,7 @@
 # Enable OffscreenCanvas everywhere.
 - name: gfx.offscreencanvas.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Enable OffscreenCanvas based on the domain allowlist.
@@ -6317,7 +6322,7 @@
   # Whether to use a yuv video overlay layers with DirectComposition
 -   name: gfx.webrender.dcomp-video-yuv-overlay-win
     type: bool
-    value: true
+    value: false
     mirror: once
 -   name: gfx.webrender.dcomp-video-vp-scaling-win
     type: bool
@@ -7984,7 +7989,7 @@
 
 - name: layout.css.linear-easing-function.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -8037,7 +8042,7 @@
 # Is support for workerGlobalScope.fonts enabled?
 - name: layout.css.font-loading-api.workers.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Is support for the @font-face metrics override descriptors enabled?

@@ -37,13 +37,13 @@
 #include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
 #include "mozilla/BasicEvents.h"        // for Modifiers, MODIFIER_*
 #include "mozilla/ClearOnShutdown.h"    // for ClearOnShutdown
-#include "mozilla/ComputedTimingFunction.h"  // for ComputedTimingFunction
-#include "mozilla/EventForwards.h"           // for nsEventStatus_*
-#include "mozilla/EventStateManager.h"       // for EventStateManager
-#include "mozilla/MouseEvents.h"             // for WidgetWheelEvent
-#include "mozilla/Preferences.h"             // for Preferences
-#include "mozilla/RecursiveMutex.h"          // for RecursiveMutexAutoLock, etc
-#include "mozilla/RefPtr.h"                  // for RefPtr
+#include "mozilla/ServoStyleConsts.h"   // for StyleComputedTimingFunction
+#include "mozilla/EventForwards.h"      // for nsEventStatus_*
+#include "mozilla/EventStateManager.h"  // for EventStateManager
+#include "mozilla/MouseEvents.h"        // for WidgetWheelEvent
+#include "mozilla/Preferences.h"        // for Preferences
+#include "mozilla/RecursiveMutex.h"     // for RecursiveMutexAutoLock, etc
+#include "mozilla/RefPtr.h"             // for RefPtr
 #include "mozilla/ScrollTypes.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_general.h"
@@ -80,7 +80,6 @@
 #include "nsMathUtils.h"  // for NS_hypot
 #include "nsPoint.h"      // for nsIntPoint
 #include "nsStyleConsts.h"
-#include "nsTimingFunction.h"
 #include "nsTArray.h"        // for nsTArray, nsTArray_Impl, etc
 #include "nsThreadUtils.h"   // for NS_IsMainThread
 #include "nsViewportInfo.h"  // for kViewportMinScale, kViewportMaxScale
@@ -505,12 +504,12 @@ typedef PlatformSpecificStateBase
 /**
  * Computed time function used for sampling frames of a zoom to animation.
  */
-StaticAutoPtr<ComputedTimingFunction> gZoomAnimationFunction;
+StaticAutoPtr<StyleComputedTimingFunction> gZoomAnimationFunction;
 
 /**
  * Computed time function used for curving up velocity when it gets high.
  */
-StaticAutoPtr<ComputedTimingFunction> gVelocityCurveFunction;
+StaticAutoPtr<StyleComputedTimingFunction> gVelocityCurveFunction;
 
 /**
  * The estimated duration of a paint for the purposes of calculating a new
@@ -648,8 +647,8 @@ class ZoomAnimation : public AsyncPanZoomAnimation {
 
     // Sample the zoom at the current time point.  The sampled zoom
     // will affect the final computed resolution.
-    float sampledPosition = gZoomAnimationFunction->GetValue(
-        animPosition, StyleEasingBeforeFlag::Unset);
+    float sampledPosition =
+        gZoomAnimationFunction->At(animPosition, /* aBeforeFlag = */ false);
 
     // We scale the scrollOffset linearly with sampledPosition, so the zoom
     // needs to scale inversely to match.
@@ -699,14 +698,15 @@ void AsyncPanZoomController::InitializeGlobalState() {
 
   MOZ_ASSERT(NS_IsMainThread());
 
-  gZoomAnimationFunction =
-      new ComputedTimingFunction(nsTimingFunction(StyleTimingKeyword::Ease));
+  gZoomAnimationFunction = new StyleComputedTimingFunction(
+      StyleComputedTimingFunction::Keyword(StyleTimingKeyword::Ease));
   ClearOnShutdown(&gZoomAnimationFunction);
-  gVelocityCurveFunction = new ComputedTimingFunction(
-      nsTimingFunction(StaticPrefs::apz_fling_curve_function_x1_AtStartup(),
-                       StaticPrefs::apz_fling_curve_function_y1_AtStartup(),
-                       StaticPrefs::apz_fling_curve_function_x2_AtStartup(),
-                       StaticPrefs::apz_fling_curve_function_y2_AtStartup()));
+  gVelocityCurveFunction =
+      new StyleComputedTimingFunction(StyleComputedTimingFunction::CubicBezier(
+          StaticPrefs::apz_fling_curve_function_x1_AtStartup(),
+          StaticPrefs::apz_fling_curve_function_y1_AtStartup(),
+          StaticPrefs::apz_fling_curve_function_x2_AtStartup(),
+          StaticPrefs::apz_fling_curve_function_y2_AtStartup()));
   ClearOnShutdown(&gVelocityCurveFunction);
 
   uint64_t sysmem = PR_GetPhysicalMemorySize();
@@ -827,6 +827,10 @@ ScreenCoord AsyncPanZoomController::GetSecondTapTolerance() const {
 /* static */ AsyncPanZoomController::AxisLockMode
 AsyncPanZoomController::GetAxisLockMode() {
   return static_cast<AxisLockMode>(StaticPrefs::apz_axis_lock_mode());
+}
+
+bool AsyncPanZoomController::UsingStatefulAxisLock() const {
+  return (GetAxisLockMode() == STANDARD || GetAxisLockMode() == STICKY);
 }
 
 /* static */ AsyncPanZoomController::PinchLockMode
@@ -2567,19 +2571,18 @@ nsEventStatus AsyncPanZoomController::OnPanBegin(
 
   StartTouch(aEvent.mLocalPanStartPoint, aEvent.mTimeStamp);
 
-  if (GetAxisLockMode() == FREE) {
+  if (!UsingStatefulAxisLock()) {
     SetState(PANNING);
-    return nsEventStatus_eConsumeNoDefault;
-  }
-
-  float dx = aEvent.mPanDisplacement.x, dy = aEvent.mPanDisplacement.y;
-
-  if (dx || dy) {
-    double angle = atan2(dy, dx);  // range [-pi, pi]
-    angle = fabs(angle);           // range [0, pi]
-    HandlePanning(angle);
   } else {
-    SetState(PANNING);
+    float dx = aEvent.mPanDisplacement.x, dy = aEvent.mPanDisplacement.y;
+
+    if (dx != 0.0f || dy != 0.0f) {
+      double angle = atan2(dy, dx);  // range [-pi, pi]
+      angle = fabs(angle);           // range [0, pi]
+      HandlePanning(angle);
+    } else {
+      SetState(PANNING);
+    }
   }
 
   // Call into OnPan in order to process any delta included in this event.
@@ -2654,6 +2657,21 @@ AsyncPanZoomController::GetDisplacementsForPanGesture(
   AdjustDeltaForAllowedScrollDirections(
       logicalPanDisplacement,
       GetCurrentPanGestureBlock()->GetAllowedScrollDirections());
+
+  if (GetAxisLockMode() == DOMINANT_AXIS) {
+    // Given a pan gesture and both directions have a delta, implement
+    // dominant axis scrolling and only use the delta for the larger
+    // axis.
+    if (logicalPanDisplacement.y != 0 && logicalPanDisplacement.x != 0) {
+      if (fabs(logicalPanDisplacement.y) >= fabs(logicalPanDisplacement.x)) {
+        logicalPanDisplacement.x = 0;
+        physicalPanDisplacement.x = 0;
+      } else {
+        logicalPanDisplacement.y = 0;
+        physicalPanDisplacement.y = 0;
+      }
+    }
+  }
 
   return {logicalPanDisplacement, physicalPanDisplacement};
 }
@@ -3240,6 +3258,8 @@ void AsyncPanZoomController::HandlePanning(double aAngle) {
   bool canScrollVertical =
       !mY.IsAxisLocked() && overscrollHandoffChain->CanScrollInDirection(
                                 this, ScrollDirection::eVertical);
+
+  MOZ_ASSERT(UsingStatefulAxisLock());
 
   if (!canScrollHorizontal || !canScrollVertical) {
     SetState(PANNING);

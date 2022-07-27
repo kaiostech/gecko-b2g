@@ -114,6 +114,7 @@ mozilla::ipc::IPCResult TCPSocketParent::RecvResume() {
 
 mozilla::ipc::IPCResult TCPSocketParent::RecvData(
     const SendableData& aData, const uint32_t& aTrackingNumber) {
+  NS_ENSURE_TRUE(mSocket, IPC_OK());
   ErrorResult rv;
 
   switch (aData.type()) {

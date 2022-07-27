@@ -201,6 +201,11 @@ nsresult TelephonyListener::HandleCallInfo(nsITelephonyCallInfo* aInfo,
               !disconnectedReason.IsEmpty()),
              "disconnectedReason of an disconnected call must be nonempty.");
 
+  if (prevCallState == callState) {
+    BT_LOGD("No callState change, do nothing on IMS call.");
+    return NS_OK;
+  }
+
   // IMS call may directly send ALERTING without DIALING and fail several PTS
   // test cases. Therefore, fake a DIALING state if it's missing.
   if (isOutgoing && callState == nsITelephonyService::CALL_STATE_ALERTING &&

@@ -44,8 +44,8 @@ SandboxOpenedFile::SandboxOpenedFile(const char* aPath, Error)
 int SandboxOpenedFile::GetDesc(int aFlags) const {
   int accessMode = aFlags & O_ACCMODE;
   if ((accessMode & mFlags) != accessMode) {
-    SANDBOX_LOG_ERROR("non-read-only open of file %s attempted (flags=0%o)",
-                      Path(), aFlags);
+    SANDBOX_LOG("non-read-only open of file %s attempted (flags=0%o)",
+                Path(), aFlags);
     return -1;
   }
 
@@ -55,14 +55,14 @@ int SandboxOpenedFile::GetDesc(int aFlags) const {
     if (fd >= 0) {
       fd = dup(fd);
       if (fd < 0) {
-        SANDBOX_LOG_ERROR("dup: %s", strerror(errno));
+        SANDBOX_LOG_ERRNO("dup");
       }
     }
   } else {
     fd = TakeDesc();
   }
   if (fd < 0 && !mExpectError) {
-    SANDBOX_LOG_ERROR("OpenedFiles denied to multiple open of file %s", Path());
+    SANDBOX_LOG("unexpected multiple open of file %s", Path());
   }
   return fd;
 }
@@ -81,7 +81,7 @@ int SandboxOpenedFiles::GetDesc(const char* aPath, int aFlags) const {
     }
   }
   if (SandboxInfo::Get().Test(SandboxInfo::kVerbose)) {
-    SANDBOX_LOG_ERROR("OpenedFiles denied to open file %s", aPath);
+    SANDBOX_LOG("OpenedFiles denied to open file %s", aPath);
   }
   return -1;
 }

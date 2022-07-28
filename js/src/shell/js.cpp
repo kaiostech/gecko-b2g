@@ -5585,6 +5585,14 @@ static bool RegisterModule(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+static bool ClearModules(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  ShellContext* sc = GetShellContext(cx);
+  sc->moduleLoader->clearModules(cx);
+  args.rval().setUndefined();
+  return true;
+}
+
 static bool ModuleLink(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -9396,6 +9404,10 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
 "  Register a module with the module loader, so that subsequent import from\n"
 "  |specifier| will resolve to |module|.  Returns |module|."),
 
+    JS_FN_HELP("clearModules", ClearModules, 0, 0,
+"clearModules()",
+"  Clear knowledge of all loaded modules."),
+
     JS_FN_HELP("moduleLink", ModuleLink, 1, 0,
 "moduleLink(moduleOjbect)",
 "  Link a module graph, performing the spec's Link method."),
@@ -11056,21 +11068,12 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
                strcmp(str, "baseline+optimized") == 0) {
       MOZ_ASSERT(enableWasmBaseline);
       MOZ_ASSERT(enableWasmOptimizing);
-#ifdef ENABLE_WASM_CRANELIFT
-    } else if (strcmp(str, "cranelift") == 0) {
-      enableWasmBaseline = false;
-      enableWasmOptimizing = true;
-    } else if (strcmp(str, "baseline+cranelift") == 0) {
-      MOZ_ASSERT(enableWasmBaseline);
-      enableWasmOptimizing = true;
-#else
     } else if (strcmp(str, "ion") == 0) {
       enableWasmBaseline = false;
       enableWasmOptimizing = true;
     } else if (strcmp(str, "baseline+ion") == 0) {
       MOZ_ASSERT(enableWasmBaseline);
       enableWasmOptimizing = true;
-#endif
     } else {
       return OptionFailure("wasm-compiler", str);
     }
@@ -11117,13 +11120,7 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
       .setWasm(enableWasm)
       .setWasmForTrustedPrinciples(enableWasm)
       .setWasmBaseline(enableWasmBaseline)
-#if defined(ENABLE_WASM_CRANELIFT)
-      .setWasmCranelift(enableWasmOptimizing)
-      .setWasmIon(false)
-#else
-      .setWasmCranelift(false)
       .setWasmIon(enableWasmOptimizing)
-#endif
 
 #define WASM_FEATURE(NAME, ...) .setWasm##NAME(enableWasm##NAME)
           JS_FOR_WASM_FEATURES(WASM_FEATURE, WASM_FEATURE, WASM_FEATURE)
@@ -11524,13 +11521,7 @@ static void SetWorkerContextOptions(JSContext* cx) {
       .setAsmJS(enableAsmJS)
       .setWasm(enableWasm)
       .setWasmBaseline(enableWasmBaseline)
-#if defined(ENABLE_WASM_CRANELIFT)
-      .setWasmCranelift(enableWasmOptimizing)
-      .setWasmIon(false)
-#else
-      .setWasmCranelift(false)
       .setWasmIon(enableWasmOptimizing)
-#endif
 #define WASM_FEATURE(NAME, ...) .setWasm##NAME(enableWasm##NAME)
           JS_FOR_WASM_FEATURES(WASM_FEATURE, WASM_FEATURE, WASM_FEATURE)
 #undef WASM_FEATURE
@@ -12056,13 +12047,8 @@ int main(int argc, char** argv) {
       !op.addStringOption(
           '\0', "wasm-compiler", "[option]",
           "Choose to enable a subset of the wasm compilers, valid options are "
-          "'none', 'baseline', 'ion', 'cranelift', 'optimizing', "
-          "'baseline+ion', "
-          "'baseline+cranelift', 'baseline+optimizing'. Choosing 'ion' when "
-          "Ion is "
-          "not available or 'cranelift' when Cranelift is not available will "
-          "fail; "
-          "use 'optimizing' for cross-compiler compatibility.") ||
+          "'none', 'baseline', 'ion', 'optimizing', "
+          "'baseline+ion', 'baseline+optimizing'.") ||
       !op.addBoolOption('\0', "wasm-verbose",
                         "Enable WebAssembly verbose logging") ||
       !op.addBoolOption('\0', "disable-wasm-huge-memory",
@@ -12844,9 +12830,8 @@ int main(int argc, char** argv) {
     static char buf[n_avail];
     // `n_needed` depends on the compiler name specified.  However, it can't
     // be arbitrarily long, since previous flag-checking should have limited
-    // it to a set of known possibilities: "baseline", "ion", "cranelift",
-    // "baseline+ion", "baseline+cranelift", etc.  Still, assert this for
-    // safety.
+    // it to a set of known possibilities: "baseline", "ion",
+    // "baseline+ion",  Still, assert this for safety.
     MOZ_RELEASE_ASSERT(n_needed < n_avail);
     memset(buf, 0, sizeof(buf));
     SprintfBuf(buf, n_avail, "--%s=%s", "wasm-compiler", wasm_compiler);

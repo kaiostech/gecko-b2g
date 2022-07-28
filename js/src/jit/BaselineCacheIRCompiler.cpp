@@ -52,9 +52,10 @@ BaseValueIndex CacheRegisterAllocator::addressOf(MacroAssembler& masm,
 
 // BaselineCacheIRCompiler compiles CacheIR to BaselineIC native code.
 BaselineCacheIRCompiler::BaselineCacheIRCompiler(JSContext* cx,
+                                                 TempAllocator& alloc,
                                                  const CacheIRWriter& writer,
                                                  uint32_t stubDataOffset)
-    : CacheIRCompiler(cx, writer, stubDataOffset, Mode::Baseline,
+    : CacheIRCompiler(cx, alloc, writer, stubDataOffset, Mode::Baseline,
                       StubFieldPolicy::Address),
       makesGCCalls_(false) {}
 
@@ -2138,8 +2139,9 @@ ICAttachResult js::jit::AttachBaselineCacheIRStub(
   JitCode* code = jitZone->getBaselineCacheIRStubCode(lookup, &stubInfo);
   if (!code) {
     // We have to generate stub code.
-    JitContext jctx(cx, nullptr);
-    BaselineCacheIRCompiler comp(cx, writer, stubDataOffset);
+    TempAllocator temp(&cx->tempLifoAlloc());
+    JitContext jctx(cx);
+    BaselineCacheIRCompiler comp(cx, temp, writer, stubDataOffset);
     if (!comp.init(kind)) {
       return ICAttachResult::OOM;
     }

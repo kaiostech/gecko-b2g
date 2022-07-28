@@ -164,11 +164,9 @@ class UniqueJSONStrings;
 class SpliceableJSONWriter : public JSONWriter {
  public:
   explicit SpliceableJSONWriter(UniquePtr<JSONWriteFunc> aWriter)
-      : JSONWriter(std::move(aWriter)) {}
+      : JSONWriter(std::move(aWriter), JSONWriter::SingleLineStyle) {}
 
-  void StartBareList(CollectionStyle aStyle = MultiLineStyle) {
-    StartCollection(scEmptyString, scEmptyString, aStyle);
-  }
+  void StartBareList() { StartCollection(scEmptyString, scEmptyString); }
 
   void EndBareList() { EndCollection(scEmptyString); }
 
@@ -319,13 +317,35 @@ class SpliceableJSONWriter : public JSONWriter {
   // index as an array element.
   inline void UniqueStringElement(const Span<const char>& aStr);
 
+  // THe following functions override JSONWriter functions non-virtually. The
+  // goal is to try and prevent calls that specify a style, which would be
+  // ignored anyway because the whole thing is single-lined. It's fine if some
+  // calls still make it through a `JSONWriter&`, no big deal.
+  void Start() { JSONWriter::Start(); }
+  void StartArrayProperty(const Span<const char>& aName) {
+    JSONWriter::StartArrayProperty(aName);
+  }
+  template <size_t N>
+  void StartArrayProperty(const char (&aName)[N]) {
+    JSONWriter::StartArrayProperty(Span<const char>(aName, N));
+  }
+  void StartArrayElement() { JSONWriter::StartArrayElement(); }
+  void StartObjectProperty(const Span<const char>& aName) {
+    JSONWriter::StartObjectProperty(aName);
+  }
+  template <size_t N>
+  void StartObjectProperty(const char (&aName)[N]) {
+    JSONWriter::StartObjectProperty(Span<const char>(aName, N));
+  }
+  void StartObjectElement() { JSONWriter::StartObjectElement(); }
+
  private:
   UniqueJSONStrings* mUniqueStrings = nullptr;
 };
 
 class SpliceableChunkedJSONWriter final : public SpliceableJSONWriter {
  public:
-  explicit SpliceableChunkedJSONWriter()
+  SpliceableChunkedJSONWriter()
       : SpliceableJSONWriter(MakeUnique<ChunkedJSONWriteFunc>()) {}
 
   // Access the ChunkedJSONWriteFunc as reference-to-const, usually to copy data
@@ -407,13 +427,11 @@ class JSONSchemaWriter {
 class UniqueJSONStrings {
  public:
   // Start an empty list of unique strings.
-  MFBT_API explicit UniqueJSONStrings(
-      JSONWriter::CollectionStyle aStyle = JSONWriter::MultiLineStyle);
+  MFBT_API UniqueJSONStrings();
 
   // Start with a copy of the strings from another list.
-  MFBT_API explicit UniqueJSONStrings(
-      const UniqueJSONStrings& aOther, ProgressLogger aProgressLogger,
-      JSONWriter::CollectionStyle aStyle = JSONWriter::MultiLineStyle);
+  MFBT_API UniqueJSONStrings(const UniqueJSONStrings& aOther,
+                             ProgressLogger aProgressLogger);
 
   MFBT_API ~UniqueJSONStrings();
 

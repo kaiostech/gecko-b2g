@@ -141,7 +141,7 @@ MOZ_NEVER_INLINE static void SigSysHandler(int nr, siginfo_t* info,
 
   // TODO, someday when this is enabled on MIPS: include the two extra
   // args in the error message.
-  SANDBOX_LOG_ERROR(
+  SANDBOX_LOG(
       "seccomp sandbox violation: pid %d, tid %d, syscall %d,"
       " args %d %d %d %d %d %d.%s",
       report.mPid, report.mTid, report.mSyscall, report.mArgs[0],
@@ -221,22 +221,20 @@ static void InstallSigSysHandler(void) {
     if (!aUseTSync && errno == ETXTBSY) {
       return false;
     }
-    SANDBOX_LOG_ERROR("prctl(PR_SET_NO_NEW_PRIVS) failed: %s", strerror(errno));
+    SANDBOX_LOG_ERRNO("prctl(PR_SET_NO_NEW_PRIVS) failed");
     MOZ_CRASH("prctl(PR_SET_NO_NEW_PRIVS)");
   }
 
   if (aUseTSync) {
     if (syscall(__NR_seccomp, SECCOMP_SET_MODE_FILTER,
                 SECCOMP_FILTER_FLAG_TSYNC, aProg) != 0) {
-      SANDBOX_LOG_ERROR("thread-synchronized seccomp failed: %s",
-                        strerror(errno));
+      SANDBOX_LOG_ERRNO("thread-synchronized seccomp failed");
       MOZ_CRASH("seccomp+tsync failed, but kernel supports tsync");
     }
   } else {
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, (unsigned long)aProg, 0,
               0)) {
-      SANDBOX_LOG_ERROR("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed: %s",
-                        strerror(errno));
+      SANDBOX_LOG_ERRNO("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
       MOZ_CRASH("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER)");
     }
   }
@@ -316,7 +314,7 @@ static void BroadcastSetThreadSandbox(const sock_fprog* aFilter) {
   myTid = syscall(__NR_gettid);
   taskdp = opendir("/proc/self/task");
   if (taskdp == nullptr) {
-    SANDBOX_LOG_ERROR("opendir /proc/self/task: %s\n", strerror(errno));
+    SANDBOX_LOG_ERRNO("opendir /proc/self/task");
     MOZ_CRASH("failed while trying to open directory /proc/self/task");
   }
 
@@ -347,12 +345,12 @@ static void BroadcastSetThreadSandbox(const sock_fprog* aFilter) {
       gSetSandboxDone = 0;
       if (syscall(__NR_tgkill, pid, tid, tsyncSignum) != 0) {
         if (errno == ESRCH) {
-          SANDBOX_LOG_ERROR("Thread %d unexpectedly exited.", tid);
+          SANDBOX_LOG("Thread %d unexpectedly exited.", tid);
           // Rescan threads, in case it forked before exiting.
           sandboxProgress = true;
           continue;
         }
-        SANDBOX_LOG_ERROR("tgkill(%d,%d): %s\n", pid, tid, strerror(errno));
+        SANDBOX_LOG_ERRNO("tgkill(%d,%d)", pid, tid);
         MOZ_CRASH("failed while trying to send a signal to a thread");
       }
       // It's unlikely, but if the thread somehow manages to exit
@@ -380,7 +378,7 @@ static void BroadcastSetThreadSandbox(const sock_fprog* aFilter) {
         if (syscall(__NR_futex, reinterpret_cast<int*>(&gSetSandboxDone),
                     FUTEX_WAIT, 0, &futexTimeout) != 0) {
           if (errno != EWOULDBLOCK && errno != ETIMEDOUT && errno != EINTR) {
-            SANDBOX_LOG_ERROR("FUTEX_WAIT: %s\n", strerror(errno));
+            SANDBOX_LOG_ERRNO("FUTEX_WAIT");
             MOZ_CRASH("failed during FUTEX_WAIT");
           }
         }
@@ -394,7 +392,7 @@ static void BroadcastSetThreadSandbox(const sock_fprog* aFilter) {
         // Has the thread ceased to exist?
         if (syscall(__NR_tgkill, pid, tid, 0) != 0) {
           if (errno == ESRCH) {
-            SANDBOX_LOG_ERROR("Thread %d unexpectedly exited.", tid);
+            SANDBOX_LOG("Thread %d unexpectedly exited.", tid);
           }
           // Rescan threads, in case it forked before exiting.
           // Also, if it somehow failed in a way that wasn't ESRCH,
@@ -407,7 +405,7 @@ static void BroadcastSetThreadSandbox(const sock_fprog* aFilter) {
         if (now.tv_sec > timeLimit.tv_sec ||
             (now.tv_sec == timeLimit.tv_sec &&
              now.tv_nsec > timeLimit.tv_nsec)) {
-          SANDBOX_LOG_ERROR(
+          SANDBOX_LOG(
               "Thread %d unresponsive for %d seconds."
               "  Killing process.",
               tid, crashDelay);
@@ -423,8 +421,8 @@ static void BroadcastSetThreadSandbox(const sock_fprog* aFilter) {
   oldHandler = signal(tsyncSignum, SIG_DFL);
   if (oldHandler != SetThreadSandboxHandler) {
     // See the comment on FindFreeSignalNumber about race conditions.
-    SANDBOX_LOG_ERROR("handler for signal %d was changed to %p!", tsyncSignum,
-                      oldHandler);
+    SANDBOX_LOG("handler for signal %d was changed to %p!", tsyncSignum,
+                oldHandler);
     MOZ_CRASH("handler for the signal was changed to another");
   }
   gSeccompTsyncBroadcastSignum = 0;
@@ -481,7 +479,7 @@ void SandboxEarlyInit() {
     // masked.
     const int tsyncSignum = FindFreeSignalNumber();
     if (tsyncSignum == 0) {
-      SANDBOX_LOG_ERROR("No available signal numbers!");
+      SANDBOX_LOG("No available signal numbers!");
       MOZ_CRASH("failed while trying to find a free signal number");
     }
     gSeccompTsyncBroadcastSignum = tsyncSignum;
@@ -498,8 +496,7 @@ void SandboxEarlyInit() {
       } else {
         MOZ_CRASH("failed because the signal is in use by another handler");
       }
-      SANDBOX_LOG_ERROR("signal %d in use by handler %p!\n", tsyncSignum,
-                        oldHandler);
+      SANDBOX_LOG("signal %d in use by handler %p!\n", tsyncSignum, oldHandler);
     }
   }
 }
@@ -566,7 +563,7 @@ static void SetCurrentProcessSandbox(
     return sandbox::bpf_dsl::Trap(
         [](const sandbox::arch_seccomp_data&, void* aux) -> intptr_t {
           auto error = reinterpret_cast<const char*>(aux);
-          SANDBOX_LOG_ERROR("Panic: %s", error);
+          SANDBOX_LOG("Panic: %s", error);
           MOZ_CRASH("Sandbox Panic");
           // unreachable
         },
@@ -603,12 +600,12 @@ static void SetCurrentProcessSandbox(
   const SandboxInfo info = SandboxInfo::Get();
   if (info.Test(SandboxInfo::kHasSeccompTSync)) {
     if (info.Test(SandboxInfo::kVerbose)) {
-      SANDBOX_LOG_ERROR("using seccomp tsync");
+      SANDBOX_LOG("using seccomp tsync");
     }
     ApplySandboxWithTSync(&fprog);
   } else {
     if (info.Test(SandboxInfo::kVerbose)) {
-      SANDBOX_LOG_ERROR("no tsync support; using signal broadcast");
+      SANDBOX_LOG("no tsync support; using signal broadcast");
     }
     BroadcastSetThreadSandbox(&fprog);
   }
@@ -655,7 +652,7 @@ bool SetContentProcessSandbox(ContentProcessSandboxParams&& aParams) {
       // Property "media.settings.xml" is used to indicate the media profile
       // to load for camera recording requirement. If the property is empty,
       // we need to raise error log here.
-      SANDBOX_LOG_ERROR("No media profile is pre-opened for camera");
+      SANDBOX_LOG("No media profile is pre-opened for camera");
     } else {
       aParams.mFiles->Add(value, SandboxOpenedFile::Dup::NO, O_RDONLY);
     }
@@ -688,8 +685,7 @@ void SetMediaPluginSandbox(const char* aFilePath) {
 
   SandboxOpenedFile plugin(aFilePath);
   if (!plugin.IsOpen()) {
-    SANDBOX_LOG_ERROR("failed to open plugin file %s: %s", aFilePath,
-                      strerror(errno));
+    SANDBOX_LOG_ERRNO("failed to open plugin file %s", aFilePath);
     MOZ_CRASH("failed while trying to open the plugin file ");
   }
 

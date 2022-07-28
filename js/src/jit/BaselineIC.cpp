@@ -2445,7 +2445,8 @@ bool FallbackICCodeCompiler::emit_CloseIter() {
 }
 
 bool JitRuntime::generateBaselineICFallbackCode(JSContext* cx) {
-  StackMacroAssembler masm;
+  TempAllocator temp(&cx->tempLifoAlloc());
+  StackMacroAssembler masm(cx, temp);
   AutoCreatedBy acb(masm, "JitRuntime::generateBaselineICFallbackCode");
 
   BaselineICFallbackCode& fallbackCode = baselineICFallbackCode_.ref();

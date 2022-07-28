@@ -816,8 +816,8 @@ class FunctionCompiler {
   // About Wasm SIMD as supported by Ion:
   //
   // The expectation is that Ion will only ever support SIMD on x86 and x64,
-  // since Cranelift will be the optimizing compiler for Arm64, ARMv7 will cease
-  // to be a tier-1 platform soon, and MIPS64 will never implement SIMD.
+  // since ARMv7 will cease to be a tier-1 platform soon, and MIPS64 will never
+  // implement SIMD.
   //
   // The division of the operations into MIR nodes reflects that expectation,
   // and is a good fit for x86/x64.  Should the expectation change we'll
@@ -6825,7 +6825,7 @@ bool wasm::IonCompileFunctions(const ModuleEnvironment& moduleEnv,
   MOZ_ASSERT(compilerEnv.optimizedBackend() == OptimizedBackend::Ion);
 
   TempAllocator alloc(&lifo);
-  JitContext jitContext(&alloc);
+  JitContext jitContext;
   MOZ_ASSERT(IsCompilingWasm());
   WasmMacroAssembler masm(alloc, moduleEnv);
 #if defined(JS_CODEGEN_ARM64)

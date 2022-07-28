@@ -21,7 +21,6 @@ fi
 # Disable a bunch of non critical stuff
 ac_add_options --disable-printing
 ac_add_options --disable-updater
-ac_add_options --disable-cranelift
 # Disable telemetry
 ac_add_options MOZ_TELEMETRY_REPORTING=
 

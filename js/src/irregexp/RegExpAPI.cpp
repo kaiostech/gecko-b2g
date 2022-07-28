@@ -467,6 +467,7 @@ enum class AssembleResult {
     bool useNativeCode, bool isLatin1) {
   // Because we create a StackMacroAssembler, this function is not allowed
   // to GC. If needed, we allocate and throw errors in the caller.
+  jit::TempAllocator temp(&cx->tempLifoAlloc());
   Maybe<jit::JitContext> jctx;
   Maybe<js::jit::StackMacroAssembler> stack_masm;
   UniquePtr<RegExpMacroAssembler> masm;
@@ -476,8 +477,8 @@ enum class AssembleResult {
                  : NativeRegExpMacroAssembler::UC16;
     // If we are compiling native code, we need a macroassembler,
     // which needs a jit context.
-    jctx.emplace(cx, nullptr);
-    stack_masm.emplace();
+    jctx.emplace(cx);
+    stack_masm.emplace(cx, temp);
 #ifdef DEBUG
     // It would be much preferable to use `class AutoCreatedBy` here, but we
     // may be operating without an assembler at all if `useNativeCode` is

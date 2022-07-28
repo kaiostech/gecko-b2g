@@ -53,7 +53,7 @@ using JS::ToInt32;
 using mozilla::CheckedInt;
 
 TrampolinePtr MacroAssembler::preBarrierTrampoline(MIRType type) {
-  const JitRuntime* rt = GetJitContext()->runtime->jitRuntime();
+  const JitRuntime* rt = runtime()->jitRuntime();
   return rt->preBarrier(type);
 }
 
@@ -263,8 +263,7 @@ void MacroAssembler::checkAllocatorState(Label* fail) {
 
 #ifdef JS_GC_ZEAL
   // Don't execute the inline path if gc zeal or tracing are active.
-  const uint32_t* ptrZealModeBits =
-      GetJitContext()->runtime->addressOfGCZealModeBits();
+  const uint32_t* ptrZealModeBits = runtime()->addressOfGCZealModeBits();
   branch32(Assembler::NotEqual, AbsoluteAddress(ptrZealModeBits), Imm32(0),
            fail);
 #endif
@@ -272,7 +271,7 @@ void MacroAssembler::checkAllocatorState(Label* fail) {
   // Don't execute the inline path if the realm has an object metadata callback,
   // as the metadata to use for the object may vary between executions of the
   // op.
-  if (GetJitContext()->realm()->hasAllocationMetadataBuilder()) {
+  if (realm()->hasAllocationMetadataBuilder()) {
     jump(fail);
   }
 }
@@ -315,7 +314,7 @@ void MacroAssembler::nurseryAllocateObject(Register result, Register temp,
 
   // No explicit check for nursery.isEnabled() is needed, as the comparison
   // with the nursery's end will always fail in such cases.
-  CompileZone* zone = GetJitContext()->realm()->zone();
+  CompileZone* zone = realm()->zone();
   size_t thingSize = gc::Arena::thingSize(allocKind);
   size_t totalSize = thingSize;
   if (nDynamicSlots) {
@@ -344,7 +343,7 @@ void MacroAssembler::nurseryAllocateObject(Register result, Register temp,
 // Inlined version of FreeSpan::allocate. This does not fill in slots_.
 void MacroAssembler::freeListAllocate(Register result, Register temp,
                                       gc::AllocKind allocKind, Label* fail) {
-  CompileZone* zone = GetJitContext()->realm()->zone();
+  CompileZone* zone = realm()->zone();
   int thingSize = int(gc::Arena::thingSize(allocKind));
 
   Label fallback;
@@ -381,9 +380,8 @@ void MacroAssembler::freeListAllocate(Register result, Register temp,
 
   bind(&success);
 
-  if (GetJitContext()->runtime->geckoProfiler().enabled()) {
-    uint32_t* countAddress =
-        GetJitContext()->runtime->addressOfTenuredAllocCount();
+  if (runtime()->geckoProfiler().enabled()) {
+    uint32_t* countAddress = runtime()->addressOfTenuredAllocCount();
     movePtr(ImmPtr(countAddress), temp);
     add32(Imm32(1), Address(temp, 0));
   }
@@ -395,7 +393,7 @@ void MacroAssembler::callFreeStub(Register slots) {
 
   push(regSlots);
   movePtr(slots, regSlots);
-  call(GetJitContext()->runtime->jitRuntime()->freeStub());
+  call(runtime()->jitRuntime()->freeStub());
   pop(regSlots);
 }
 
@@ -526,7 +524,7 @@ void MacroAssembler::nurseryAllocateString(Register result, Register temp,
   // No explicit check for nursery.isEnabled() is needed, as the comparison
   // with the nursery's end will always fail in such cases.
 
-  CompileZone* zone = GetJitContext()->realm()->zone();
+  CompileZone* zone = realm()->zone();
   uint64_t* allocStrsPtr = &zone->zone()->nurseryAllocatedStrings.ref();
   inc64(AbsoluteAddress(allocStrsPtr));
   size_t thingSize = gc::Arena::thingSize(allocKind);
@@ -545,7 +543,7 @@ void MacroAssembler::nurseryAllocateBigInt(Register result, Register temp,
   // No explicit check for nursery.isEnabled() is needed, as the comparison
   // with the nursery's end will always fail in such cases.
 
-  CompileZone* zone = GetJitContext()->realm()->zone();
+  CompileZone* zone = realm()->zone();
   size_t thingSize = gc::Arena::thingSize(gc::AllocKind::BIGINT);
 
   bumpPointerAllocate(result, temp, fail, zone,
@@ -584,7 +582,7 @@ void MacroAssembler::bumpPointerAllocate(Register result, Register temp,
   storePtr(result, Address(temp, 0));
   subPtr(Imm32(size), result);
 
-  if (GetJitContext()->runtime->geckoProfiler().enabled()) {
+  if (runtime()->geckoProfiler().enabled()) {
     uint32_t* countAddress = zone->addressOfNurseryAllocCount();
     CheckedInt<int32_t> counterOffset =
         (CheckedInt<uintptr_t>(uintptr_t(countAddress)) -
@@ -1748,18 +1746,16 @@ void MacroAssembler::isCallableOrConstructor(bool isCallable, Register obj,
 }
 
 void MacroAssembler::loadJSContext(Register dest) {
-  JitContext* jcx = GetJitContext();
-  movePtr(ImmPtr(jcx->runtime->mainContextPtr()), dest);
+  movePtr(ImmPtr(runtime()->mainContextPtr()), dest);
 }
 
-static const uint8_t* ContextRealmPtr() {
-  return (
-      static_cast<const uint8_t*>(GetJitContext()->runtime->mainContextPtr()) +
-      JSContext::offsetOfRealm());
+static const uint8_t* ContextRealmPtr(CompileRuntime* rt) {
+  return (static_cast<const uint8_t*>(rt->mainContextPtr()) +
+          JSContext::offsetOfRealm());
 }
 
 void MacroAssembler::switchToRealm(Register realm) {
-  storePtr(realm, AbsoluteAddress(ContextRealmPtr()));
+  storePtr(realm, AbsoluteAddress(ContextRealmPtr(runtime())));
 }
 
 void MacroAssembler::switchToRealm(const void* realm, Register scratch) {
@@ -1795,7 +1791,8 @@ void MacroAssembler::debugAssertContextRealm(const void* realm,
 #ifdef DEBUG
   Label ok;
   movePtr(ImmPtr(realm), scratch);
-  branchPtr(Assembler::Equal, AbsoluteAddress(ContextRealmPtr()), scratch, &ok);
+  branchPtr(Assembler::Equal, AbsoluteAddress(ContextRealmPtr(runtime())),
+            scratch, &ok);
   assumeUnreachable("Unexpected context realm");
   bind(&ok);
 #endif
@@ -1815,8 +1812,8 @@ void MacroAssembler::setIsCrossRealmArrayConstructor(Register obj,
   loadPtr(Address(obj, JSObject::offsetOfShape()), output);
   loadPtr(Address(output, Shape::offsetOfBaseShape()), output);
   loadPtr(Address(output, BaseShape::offsetOfRealm()), output);
-  branchPtr(Assembler::Equal, AbsoluteAddress(ContextRealmPtr()), output,
-            &isFalse);
+  branchPtr(Assembler::Equal, AbsoluteAddress(ContextRealmPtr(runtime())),
+            output, &isFalse);
 
   // The object must be a function.
   branchTestObjIsFunction(Assembler::NotEqual, obj, output, obj, &isFalse);
@@ -2149,21 +2146,19 @@ void MacroAssembler::loadBaselineFramePtr(Register framePtr, Register dest) {
   subPtr(Imm32(BaselineFrame::Size()), dest);
 }
 
-static const uint8_t* ContextInlinedICScriptPtr() {
-  return (
-      static_cast<const uint8_t*>(GetJitContext()->runtime->mainContextPtr()) +
-      JSContext::offsetOfInlinedICScript());
+static const uint8_t* ContextInlinedICScriptPtr(CompileRuntime* rt) {
+  return (static_cast<const uint8_t*>(rt->mainContextPtr()) +
+          JSContext::offsetOfInlinedICScript());
 }
 
 void MacroAssembler::storeICScriptInJSContext(Register icScript) {
-  storePtr(icScript, AbsoluteAddress(ContextInlinedICScriptPtr()));
+  storePtr(icScript, AbsoluteAddress(ContextInlinedICScriptPtr(runtime())));
 }
 
 void MacroAssembler::handleFailure() {
   // Re-entry code is irrelevant because the exception will leave the
   // running function and never come back
-  TrampolinePtr excTail =
-      GetJitContext()->runtime->jitRuntime()->getExceptionTail();
+  TrampolinePtr excTail = runtime()->jitRuntime()->getExceptionTail();
   jump(excTail);
 }
 
@@ -2634,55 +2629,12 @@ void MacroAssembler::alignJitStackBasedOnNArgs(uint32_t argc) {
 
 // ===============================================================
 
-MacroAssembler::MacroAssembler(JSContext* cx)
-    : wasmMaxOffsetGuardLimit_(0),
-      framePushed_(0),
-#ifdef DEBUG
-      inCall_(false),
-#endif
-      dynamicAlignment_(false),
-      emitProfilingInstrumentation_(false) {
-  jitContext_.emplace(cx, (js::jit::TempAllocator*)nullptr);
-  alloc_.emplace(&cx->tempLifoAlloc());
-  moveResolver_.setAllocator(*jitContext_->temp);
-#if defined(JS_CODEGEN_ARM)
-  initWithAllocator();
-  m_buffer.id = GetJitContext()->getNextAssemblerId();
-#elif defined(JS_CODEGEN_ARM64)
-  initWithAllocator();
-  armbuffer_.id = GetJitContext()->getNextAssemblerId();
-#endif
-}
-
-MacroAssembler::MacroAssembler()
-    : wasmMaxOffsetGuardLimit_(0),
-      framePushed_(0),
-#ifdef DEBUG
-      inCall_(false),
-#endif
-      dynamicAlignment_(false),
-      emitProfilingInstrumentation_(false) {
-  JitContext* jcx = GetJitContext();
-
-  if (!jcx->temp) {
-    JSContext* cx = jcx->cx;
-    MOZ_ASSERT(cx);
-    alloc_.emplace(&cx->tempLifoAlloc());
-  }
-
-  moveResolver_.setAllocator(*jcx->temp);
-
-#if defined(JS_CODEGEN_ARM)
-  initWithAllocator();
-  m_buffer.id = jcx->getNextAssemblerId();
-#elif defined(JS_CODEGEN_ARM64)
-  initWithAllocator();
-  armbuffer_.id = jcx->getNextAssemblerId();
-#endif
-}
-
-MacroAssembler::MacroAssembler(WasmToken, TempAllocator& alloc)
-    : wasmMaxOffsetGuardLimit_(0),
+MacroAssembler::MacroAssembler(TempAllocator& alloc,
+                               CompileRuntime* maybeRuntime,
+                               CompileRealm* maybeRealm)
+    : maybeRuntime_(maybeRuntime),
+      maybeRealm_(maybeRealm),
+      wasmMaxOffsetGuardLimit_(0),
       framePushed_(0),
 #ifdef DEBUG
       inCall_(false),
@@ -2690,21 +2642,25 @@ MacroAssembler::MacroAssembler(WasmToken, TempAllocator& alloc)
       dynamicAlignment_(false),
       emitProfilingInstrumentation_(false) {
   moveResolver_.setAllocator(alloc);
+}
 
-#if defined(JS_CODEGEN_ARM)
-  initWithAllocator();
-  m_buffer.id = 0;
-#elif defined(JS_CODEGEN_ARM64)
-  initWithAllocator();
-  // Stubs + builtins + the baseline compiler all require the native SP,
-  // not the PSP.
-  SetStackPointer64(sp);
-  armbuffer_.id = 0;
-#endif
+StackMacroAssembler::StackMacroAssembler(JSContext* cx, TempAllocator& alloc)
+    : MacroAssembler(alloc, CompileRuntime::get(cx->runtime()),
+                     CompileRealm::get(cx->realm())) {}
+
+IonHeapMacroAssembler::IonHeapMacroAssembler(TempAllocator& alloc,
+                                             CompileRealm* realm)
+    : MacroAssembler(alloc, realm->runtime(), realm) {
+  MOZ_ASSERT(CurrentThreadIsIonCompiling());
 }
 
 WasmMacroAssembler::WasmMacroAssembler(TempAllocator& alloc, bool limitedSize)
-    : MacroAssembler(WasmToken(), alloc) {
+    : MacroAssembler(alloc) {
+#if defined(JS_CODEGEN_ARM64)
+  // Stubs + builtins + the baseline compiler all require the native SP,
+  // not the PSP.
+  SetStackPointer64(sp);
+#endif
   if (!limitedSize) {
     setUnlimitedBuffer();
   }
@@ -2713,7 +2669,12 @@ WasmMacroAssembler::WasmMacroAssembler(TempAllocator& alloc, bool limitedSize)
 WasmMacroAssembler::WasmMacroAssembler(TempAllocator& alloc,
                                        const wasm::ModuleEnvironment& env,
                                        bool limitedSize)
-    : MacroAssembler(WasmToken(), alloc) {
+    : MacroAssembler(alloc) {
+#if defined(JS_CODEGEN_ARM64)
+  // Stubs + builtins + the baseline compiler all require the native SP,
+  // not the PSP.
+  SetStackPointer64(sp);
+#endif
   setWasmMaxOffsetGuardLimit(
       wasm::GetMaxOffsetGuardLimit(env.hugeMemoryEnabled()));
   if (!limitedSize) {
@@ -3929,19 +3890,28 @@ void MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
   bind(&done);
 }
 
-CodeOffset MacroAssembler::wasmCallRef(const wasm::CallSiteDesc& desc,
-                                       const wasm::CalleeDesc& callee) {
+void MacroAssembler::wasmCallRef(const wasm::CallSiteDesc& desc,
+                                 const wasm::CalleeDesc& callee,
+                                 CodeOffset* fastCallOffset,
+                                 CodeOffset* slowCallOffset) {
   MOZ_ASSERT(callee.which() == wasm::CalleeDesc::FuncRef);
   const Register calleeScratch = WasmCallRefCallScratchReg0;
   const Register calleeFnObj = WasmCallRefReg;
 
-  storePtr(InstanceReg,
-           Address(getStackPointer(), WasmCallerInstanceOffsetBeforeCall));
+  // Load from the function's WASM_INSTANCE_SLOT extended slot, and decide
+  // whether to take the fast path or the slow path.
 
-  // Get InstanceReg from the function's WASM_INSTANCE_SLOT extended slot.
+  Label fastCall;
+  Label done;
+  const Register newInstanceTemp = WasmCallRefCallScratchReg1;
   size_t instanceSlotOffset = FunctionExtended::offsetOfExtendedSlot(
       FunctionExtended::WASM_INSTANCE_SLOT);
-  loadPtr(Address(calleeFnObj, instanceSlotOffset), InstanceReg);
+  loadPtr(Address(calleeFnObj, instanceSlotOffset), newInstanceTemp);
+  branchPtr(Assembler::Equal, InstanceReg, newInstanceTemp, &fastCall);
+
+  storePtr(InstanceReg,
+           Address(getStackPointer(), WasmCallerInstanceOffsetBeforeCall));
+  movePtr(newInstanceTemp, InstanceReg);
   storePtr(InstanceReg,
            Address(getStackPointer(), WasmCalleeInstanceOffsetBeforeCall));
 
@@ -3955,15 +3925,30 @@ CodeOffset MacroAssembler::wasmCallRef(const wasm::CallSiteDesc& desc,
       FunctionExtended::WASM_FUNC_UNCHECKED_ENTRY_SLOT);
   loadPtr(Address(calleeFnObj, uncheckedEntrySlotOffset), calleeScratch);
 
-  CodeOffset raOffset = call(desc, calleeScratch);
+  *slowCallOffset = call(desc, calleeScratch);
 
   // Restore registers and realm and back to this caller's.
   loadPtr(Address(getStackPointer(), WasmCallerInstanceOffsetBeforeCall),
           InstanceReg);
   loadWasmPinnedRegsFromInstance();
   switchToWasmInstanceRealm(ABINonArgReturnReg0, ABINonArgReturnReg1);
+  jump(&done);
 
-  return raOffset;
+  // Fast path: just load WASM_FUNC_UNCHECKED_ENTRY_SLOT value and go.
+  // The instance and pinned registers are the same as in the caller.
+
+  bind(&fastCall);
+
+  loadPtr(Address(calleeFnObj, uncheckedEntrySlotOffset), calleeScratch);
+
+  // We use a different type of call site for the fast call since the instance
+  // slots in the frame do not have valid values.
+
+  wasm::CallSiteDesc newDesc(desc.lineOrBytecode(),
+                             wasm::CallSiteDesc::FuncRefFast);
+  *fastCallOffset = call(newDesc, calleeScratch);
+
+  bind(&done);
 }
 
 void MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc) {

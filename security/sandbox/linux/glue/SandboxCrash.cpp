@@ -62,13 +62,12 @@ static void SandboxLogJSStack(void) {
     frame->GetName(cx, funName);
 
     if (!funName.IsVoid() || !fileName.IsVoid()) {
-      SANDBOX_LOG_ERROR("JS frame %d: %s %s line %d", i,
-                        funName.IsVoid() ? "(anonymous)"
-                                         : NS_ConvertUTF16toUTF8(funName).get(),
-                        fileName.IsVoid()
-                            ? "(no file)"
-                            : NS_ConvertUTF16toUTF8(fileName).get(),
-                        lineNumber);
+      SANDBOX_LOG("JS frame %d: %s %s line %d", i,
+                  funName.IsVoid() ? "(anonymous)"
+                                   : NS_ConvertUTF16toUTF8(funName).get(),
+                  fileName.IsVoid() ? "(no file)"
+                                    : NS_ConvertUTF16toUTF8(fileName).get(),
+                  lineNumber);
     }
 
     frame = frame->GetCaller(cx);
@@ -82,7 +81,7 @@ static void SandboxPrintStackFrame(uint32_t aFrameNumber, void* aPC, void* aSP,
 
   MozDescribeCodeAddress(aPC, &details);
   MozFormatCodeAddressDetails(buf, sizeof(buf), aFrameNumber, aPC, &details);
-  SANDBOX_LOG_ERROR("frame %s", buf);
+  SANDBOX_LOG("frame %s", buf);
 }
 
 static void SandboxLogCStack(const void* aFirstFramePC) {
@@ -91,7 +90,7 @@ static void SandboxLogCStack(const void* aFirstFramePC) {
   // x86 frame pointer walking may or may not work (bug 1082276).
 
   MozStackWalk(SandboxPrintStackFrame, aFirstFramePC, /* max */ 0, nullptr);
-  SANDBOX_LOG_ERROR("end of stack.");
+  SANDBOX_LOG("end of stack.");
 }
 
 static void SandboxCrash(int nr, siginfo_t* info, void* void_context,
@@ -100,7 +99,7 @@ static void SandboxCrash(int nr, siginfo_t* info, void* void_context,
   bool dumped = CrashReporter::WriteMinidumpForSigInfo(nr, info, void_context);
 
   if (!dumped) {
-    SANDBOX_LOG_ERROR(
+    SANDBOX_LOG(
         "crash reporter is disabled (or failed);"
         " trying stack trace:");
     SandboxLogCStack(aFirstFramePC);

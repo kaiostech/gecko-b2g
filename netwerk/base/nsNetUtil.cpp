@@ -2609,7 +2609,8 @@ nsresult NS_MaybeOpenChannelUsingAsyncOpen(nsIChannel* aChannel,
 }
 
 nsILoadInfo::CrossOriginEmbedderPolicy
-NS_GetCrossOriginEmbedderPolicyFromHeader(const nsACString& aHeader) {
+NS_GetCrossOriginEmbedderPolicyFromHeader(
+    const nsACString& aHeader, bool aIsOriginTrialCoepCredentiallessEnabled) {
   nsCOMPtr<nsISFVService> sfv = GetSFVService();
 
   nsCOMPtr<nsISFVItem> item;
@@ -2638,7 +2639,8 @@ NS_GetCrossOriginEmbedderPolicyFromHeader(const nsACString& aHeader) {
   if (embedderPolicy.EqualsLiteral("require-corp")) {
     return nsILoadInfo::EMBEDDER_POLICY_REQUIRE_CORP;
   } else if (embedderPolicy.EqualsLiteral("credentialless") &&
-             StaticPrefs::browser_tabs_remote_coep_credentialless()) {
+             IsCoepCredentiallessEnabled(
+                 aIsOriginTrialCoepCredentiallessEnabled)) {
     return nsILoadInfo::EMBEDDER_POLICY_CREDENTIALLESS;
   }
 
@@ -3904,4 +3906,10 @@ void CheckForBrokenChromeURL(nsILoadInfo* aLoadInfo, nsIURI* aURI) {
   } else {
     printf_stderr("Missing chrome or resource URL: %s\n", spec.get());
   }
+}
+
+bool IsCoepCredentiallessEnabled(bool aIsOriginTrialCoepCredentiallessEnabled) {
+  return StaticPrefs::
+             browser_tabs_remote_coep_credentialless_DoNotUseDirectly() ||
+         aIsOriginTrialCoepCredentiallessEnabled;
 }

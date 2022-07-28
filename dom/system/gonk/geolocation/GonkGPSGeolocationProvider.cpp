@@ -874,20 +874,23 @@ Return<void> GnssCallback::gnssStatusCb(
   DBG("%s", msgStream);
 
 #ifdef HAS_KOOST_MODULES
-  if (gGnssMonitorEnabled && !mGnssMonitor) {
-    mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
-  }
-  if (mGnssMonitor) {
-    mGnssMonitor->UpdateGnssStatus(
-        static_cast<nsIGnssMonitor::GnssStatusValue>(status));
+  NS_DispatchToMainThread(
+      NS_NewRunnableFunction("UpdateGnssStatusTask", [this, status]() {
+        if (gGnssMonitorEnabled && !mGnssMonitor) {
+          mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
+        }
+        if (mGnssMonitor) {
+          mGnssMonitor->UpdateGnssStatus(
+              static_cast<nsIGnssMonitor::GnssStatusValue>(status));
 
-    if (status == IGnssCallback::GnssStatusValue::SESSION_END) {
-      // clear SvInfo and NMEA when GNSS session is ended
-      nsTArray<RefPtr<nsIGnssSvInfo>> emptySvList;
-      mGnssMonitor->UpdateSvInfo(emptySvList);
-      mGnssMonitor->UpdateNmea(nullptr);
-    }
-  }
+          if (status == IGnssCallback::GnssStatusValue::SESSION_END) {
+            // clear SvInfo and NMEA when GNSS session is ended
+            nsTArray<RefPtr<nsIGnssSvInfo>> emptySvList;
+            mGnssMonitor->UpdateSvInfo(emptySvList);
+            mGnssMonitor->UpdateNmea(nullptr);
+          }
+        }
+      }));
 #endif
 
   return Void();
@@ -904,13 +907,16 @@ Return<void> GnssCallback::gnssNmeaCb(
   DBG("%s: timestamp: %lld", __FUNCTION__, timestamp);
 
 #ifdef HAS_KOOST_MODULES
-  if (gGnssMonitorEnabled && !mGnssMonitor) {
-    mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
-  }
-  if (mGnssMonitor) {
-    nsCString msg(nmea.c_str(), nmea.size());
-    mGnssMonitor->UpdateNmea(new b2g::GnssNmea(timestamp, msg));
-  }
+  NS_DispatchToMainThread(
+      NS_NewRunnableFunction("UpdateNmeaTask", [this, nmea, timestamp]() {
+        if (gGnssMonitorEnabled && !mGnssMonitor) {
+          mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
+        }
+        if (mGnssMonitor) {
+          nsCString msg(nmea.c_str(), nmea.size());
+          mGnssMonitor->UpdateNmea(new b2g::GnssNmea(timestamp, msg));
+        }
+      }));
 #endif
 
   return Void();
@@ -978,20 +984,25 @@ Return<void> GnssCallback::gnssSvStatusCb_2_0(
   DBG("%s: numSvs: %u", __FUNCTION__, svInfoList.size());
 
 #ifdef HAS_KOOST_MODULES
-  if (gGnssMonitorEnabled && !mGnssMonitor) {
-    mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
-  }
-  if (mGnssMonitor) {
-    nsTArray<RefPtr<nsIGnssSvInfo>> svList;
-    for (const GnssSvInfo& sv : svInfoList) {
-      svList.AppendElement(new b2g::GnssSvInfo(
-          sv.v1_0.svid,
-          static_cast<nsIGnssSvInfo::GnssConstellationType>(sv.constellation),
-          sv.v1_0.cN0Dbhz, sv.v1_0.elevationDegrees, sv.v1_0.azimuthDegrees,
-          sv.v1_0.carrierFrequencyHz, sv.v1_0.svFlag));
-    }
-    mGnssMonitor->UpdateSvInfo(svList);
-  }
+  NS_DispatchToMainThread(
+      NS_NewRunnableFunction("UpdateSvInfoTask", [this, svInfoList]() {
+        if (gGnssMonitorEnabled && !mGnssMonitor) {
+          mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
+        }
+        if (mGnssMonitor) {
+          nsTArray<RefPtr<nsIGnssSvInfo>> svList;
+          for (const GnssSvInfo& sv : svInfoList) {
+            svList.AppendElement(new b2g::GnssSvInfo(
+                sv.v1_0.svid,
+                static_cast<nsIGnssSvInfo::GnssConstellationType>(
+                    sv.constellation),
+                sv.v1_0.cN0Dbhz, sv.v1_0.elevationDegrees,
+                sv.v1_0.azimuthDegrees, sv.v1_0.carrierFrequencyHz,
+                sv.v1_0.svFlag));
+          }
+          mGnssMonitor->UpdateSvInfo(svList);
+        }
+      }));
 #endif
 
   return Void();

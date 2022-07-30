@@ -8,10 +8,8 @@
 #include "mozilla/dom/TestInterfaceJSMaplikeSetlikeIterableBinding.h"
 #include "nsPIDOMWindow.h"
 #include "mozilla/dom/BindingUtils.h"
-#include "mozilla/dom/IterableIterator.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(TestInterfaceAsyncIterableDouble, mParent)
 
@@ -26,12 +24,9 @@ NS_INTERFACE_MAP_END
 TestInterfaceAsyncIterableDouble::TestInterfaceAsyncIterableDouble(
     nsPIDOMWindowInner* aParent)
     : mParent(aParent) {
-  mValues.AppendElement(std::pair<nsString, nsString>(u"a"_ns,
-                                                      u"b"_ns));
-  mValues.AppendElement(std::pair<nsString, nsString>(u"c"_ns,
-                                                      u"d"_ns));
-  mValues.AppendElement(std::pair<nsString, nsString>(u"e"_ns,
-                                                      u"f"_ns));
+  mValues.AppendElement(std::pair<nsString, nsString>(u"a"_ns, u"b"_ns));
+  mValues.AppendElement(std::pair<nsString, nsString>(u"c"_ns, u"d"_ns));
+  mValues.AppendElement(std::pair<nsString, nsString>(u"e"_ns, u"f"_ns));
 }
 
 // static
@@ -59,64 +54,73 @@ nsPIDOMWindowInner* TestInterfaceAsyncIterableDouble::GetParentObject() const {
   return mParent;
 }
 
-void TestInterfaceAsyncIterableDouble::InitAsyncIterator(itrType* aIterator) {
-  *mIterators.AppendElement() = aIterator;
+void TestInterfaceAsyncIterableDouble::InitAsyncIterator(Iterator* aIterator) {
   UniquePtr<IteratorData> data(new IteratorData(0));
   aIterator->SetData((void*)data.release());
 }
 
 void TestInterfaceAsyncIterableDouble::DestroyAsyncIterator(
-    itrType* aIterator) {
-  mIterators.RemoveElement(aIterator);
-  auto data = reinterpret_cast<IteratorData*>(aIterator->GetData());
+    Iterator* aIterator) {
+  auto* data = reinterpret_cast<IteratorData*>(aIterator->GetData());
   delete data;
 }
 
 already_AddRefed<Promise> TestInterfaceAsyncIterableDouble::GetNextPromise(
-    JSContext* aCx, itrType* aIterator, ErrorResult& aRv) {
+    JSContext* aCx, Iterator* aIterator, ErrorResult& aRv) {
   RefPtr<Promise> promise = Promise::Create(mParent->AsGlobal(), aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
 
-  auto data = reinterpret_cast<IteratorData*>(aIterator->GetData());
+  auto* data = reinterpret_cast<IteratorData*>(aIterator->GetData());
   data->mPromise = promise;
 
-  // In real world, promise might resolved asynchronously, especially when IPC
-  // is involved, we shall be able to resolve the promise later since it is
-  // stored in mIterators.
-
-  // Test data: ['a', 'b'], ['c', 'd'], ['e', 'f']
-  uint32_t idx = data->mIndex;
-  if (idx >= mValues.Length()) {
-    IteratorUtils::ResolvePromiseWithUndefined(aCx, data->mPromise, aRv);
-  } else {
-    JS::Rooted<JS::Value> key(aCx);
-    JS::Rooted<JS::Value> value(aCx);
-    switch (aIterator->GetIteratorType()) {
-      case IterableIteratorBase::IteratorType::Keys:
-        Unused << ToJSValue(aCx, mValues[idx].first, &key);
-        IteratorUtils::ResolvePromiseWithKeyOrValue(aCx, data->mPromise, key,
-                                                    aRv);
-        break;
-      case IterableIteratorBase::IteratorType::Values:
-        Unused << ToJSValue(aCx, mValues[idx].second, &value);
-        IteratorUtils::ResolvePromiseWithKeyOrValue(aCx, data->mPromise, value,
-                                                    aRv);
-        break;
-      case IterableIteratorBase::IteratorType::Entries:
-        Unused << ToJSValue(aCx, mValues[idx].first, &key);
-        Unused << ToJSValue(aCx, mValues[idx].second, &value);
-        IteratorUtils::ResolvePromiseWithKeyAndValue(aCx, data->mPromise, key,
-                                                     value, aRv);
-        break;
-    }
-
-    data->mIndex++;
-  }
+  IterableIteratorBase::IteratorType type = aIterator->GetIteratorType();
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "TestInterfaceAsyncIterableDouble::GetNextPromise",
+      [data, type, self = RefPtr{this}] { self->ResolvePromise(data, type); }));
 
   return promise.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+void TestInterfaceAsyncIterableDouble::ResolvePromise(
+    IteratorData* aData, IterableIteratorBase::IteratorType aType) {
+  AutoJSAPI jsapi;
+  if (NS_WARN_IF(!jsapi.Init(mParent))) {
+    return;
+  }
+  JSContext* cx = jsapi.cx();
+  ErrorResult rv;
+
+  // Test data: ['a', 'b'], ['c', 'd'], ['e', 'f']
+  uint32_t idx = aData->mIndex;
+  if (idx >= mValues.Length()) {
+    iterator_utils::ResolvePromiseForFinished(cx, aData->mPromise, rv);
+  } else {
+    JS::Rooted<JS::Value> key(cx);
+    JS::Rooted<JS::Value> value(cx);
+    switch (aType) {
+      case IterableIteratorBase::IteratorType::Keys:
+        Unused << ToJSValue(cx, mValues[idx].first, &key);
+        iterator_utils::ResolvePromiseWithKeyOrValue(cx, aData->mPromise, key,
+                                                     rv);
+        break;
+      case IterableIteratorBase::IteratorType::Values:
+        Unused << ToJSValue(cx, mValues[idx].second, &value);
+        iterator_utils::ResolvePromiseWithKeyOrValue(cx, aData->mPromise, value,
+                                                     rv);
+        break;
+      case IterableIteratorBase::IteratorType::Entries:
+        Unused << ToJSValue(cx, mValues[idx].first, &key);
+        Unused << ToJSValue(cx, mValues[idx].second, &value);
+        iterator_utils::ResolvePromiseWithKeyAndValue(cx, aData->mPromise, key,
+                                                      value, rv);
+        break;
+    }
+
+    aData->mIndex++;
+    aData->mPromise = nullptr;
+  }
+}
+
+}  // namespace mozilla::dom

@@ -90,7 +90,7 @@ already_AddRefed<Promise> FileIterable::GetNextPromise(JSContext* aCx,
   data->mPromises.InsertElementAt(0, promise);
 
   if (mState == EnumerateState::Done) {
-    IteratorUtils::ResolvePromiseWithUndefined(aCx, promise, aRv);
+    iterator_utils::ResolvePromiseForFinished(aCx, promise, aRv);
     DS_LOG_DEBUG("Iteration complete, resolve next() with undefined.");
   } else if (mState == EnumerateState::Abort) {
     RejectWithReason(promise, mRejectReason);
@@ -127,7 +127,7 @@ void FileIterable::FireSuccess(JS::Handle<JS::Value> aResult) {
   }
   JSContext* cx = jsapi.cx();
   ErrorResult rv;
-  IteratorUtils::ResolvePromiseWithKeyOrValue(cx, promise, aResult, rv);
+  iterator_utils::ResolvePromiseWithKeyOrValue(cx, promise, aResult, rv);
   DS_LOG_DEBUG("Resolve next() with a file.");
 }
 
@@ -178,7 +178,7 @@ void FileIterable::FireDone() {
   }
   JSContext* cx = jsapi.cx();
   ErrorResult rv;
-  IteratorUtils::ResolvePromiseWithUndefined(cx, promise, rv);
+  iterator_utils::ResolvePromiseForFinished(cx, promise, rv);
   DS_LOG_DEBUG("Iteration complete, resolve next() with undefined.");
 }
 

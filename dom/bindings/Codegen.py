@@ -22168,7 +22168,7 @@ class CGIterableMethodGenerator(CGGeneric):
                     """
                 typedef ${iterClass} itrType;
                 RefPtr<itrType> result(new itrType(self,
-                                                   itrType::IterableIteratorType::${itrMethod},
+                                                   itrType::IteratorType::${itrMethod},
                                                    &${ifaceName}Iterator_Binding::Wrap));
                 """,
                     iterClass=iteratorNativeType(descriptor),
@@ -22184,7 +22184,7 @@ class CGIterableMethodGenerator(CGGeneric):
                     """
                 typedef ${iterClass} itrType;
                 RefPtr<itrType> result(new itrType(self,
-                                                   itrType::IterableIteratorType::${itrMethod},
+                                                   itrType::IteratorType::${itrMethod},
                                                    &${ifaceName}AsyncIterator_Binding::Wrap));
                 self->InitAsyncIterator(result.get());
                 """,

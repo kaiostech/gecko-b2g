@@ -179,14 +179,6 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
 
   js::ContextData<JS::ContextOptions> options_;
 
-  // Free lists for allocating in the current zone.
-  js::ContextData<js::gc::FreeLists*> freeLists_;
-
-  // This is reset each time we switch zone, then added to the variable in the
-  // zone when we switch away from it.  This would be a js::ThreadData but we
-  // need to take its address.
-  uint32_t allocsThisZoneSinceMinorGC_;
-
   // Thread that the JSContext is currently running on, if in use.
   js::ThreadId currentThread_;
 
@@ -250,11 +242,6 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
     return kind_ == js::ContextKind::HelperThread;
   }
 
-  js::gc::FreeLists& freeLists() {
-    MOZ_ASSERT(freeLists_);
-    return *freeLists_;
-  }
-
   template <typename T>
   bool isInsideCurrentZone(T thing) const {
     return thing->zoneFromAnyThread() == zone_;
@@ -278,18 +265,6 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
   void recoverFromOutOfMemory();
 
   void reportAllocationOverflow() { js::ReportAllocationOverflow(this); }
-
-  void noteTenuredAlloc() { allocsThisZoneSinceMinorGC_++; }
-
-  uint32_t* addressOfTenuredAllocCount() {
-    return &allocsThisZoneSinceMinorGC_;
-  }
-
-  uint32_t getAndResetAllocsThisZoneSinceMinorGC() {
-    uint32_t allocs = allocsThisZoneSinceMinorGC_;
-    allocsThisZoneSinceMinorGC_ = 0;
-    return allocs;
-  }
 
   // Accessors for immutable runtime data.
   JSAtomState& names() { return *runtime_->commonNames; }
@@ -327,8 +302,7 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
 
   inline void enterAtomsZone();
   inline void leaveAtomsZone(JS::Realm* oldRealm);
-  enum IsAtomsZone { AtomsZone, NotAtomsZone };
-  inline void setZone(js::Zone* zone, IsAtomsZone isAtomsZone);
+  inline void setZone(js::Zone* zone);
 
   friend class js::AutoAllocInAtomsZone;
   friend class js::AutoMaybeLeaveAtomsZone;

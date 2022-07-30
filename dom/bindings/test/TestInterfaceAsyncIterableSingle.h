@@ -37,22 +37,28 @@ class TestInterfaceAsyncIterableSingle final : public nsISupports,
   static already_AddRefed<TestInterfaceAsyncIterableSingle> Constructor(
       const GlobalObject& aGlobal, ErrorResult& rv);
 
-  using itrType = AsyncIterableIterator<TestInterfaceAsyncIterableSingle>;
-  void InitAsyncIterator(itrType* aIterator);
-  void DestroyAsyncIterator(itrType* aIterator);
-  already_AddRefed<Promise> GetNextPromise(JSContext* aCx, itrType* aIterator,
+  using Iterator = AsyncIterableIterator<TestInterfaceAsyncIterableSingle>;
+  void InitAsyncIterator(Iterator* aIterator);
+  void DestroyAsyncIterator(Iterator* aIterator);
+  already_AddRefed<Promise> GetNextPromise(JSContext* aCx, Iterator* aIterator,
                                            ErrorResult& aRv);
 
  private:
-  virtual ~TestInterfaceAsyncIterableSingle() = default;
-  nsCOMPtr<nsPIDOMWindowInner> mParent;
   struct IteratorData {
-    IteratorData(int32_t aIndex) : mIndex(aIndex) {}
-    ~IteratorData() { mPromise = nullptr; }
-    WeakPtr<Promise> mPromise;
+    explicit IteratorData(int32_t aIndex) : mIndex(aIndex) {}
+    ~IteratorData() {
+      if (mPromise) {
+        mPromise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+        mPromise = nullptr;
+      }
+    }
+    RefPtr<Promise> mPromise;
     uint32_t mIndex;
   };
-  nsTArray<WeakPtr<itrType>> mIterators;
+  virtual ~TestInterfaceAsyncIterableSingle() = default;
+  void ResolvePromise(IteratorData* aData);
+
+  nsCOMPtr<nsPIDOMWindowInner> mParent;
 };
 
 }  // namespace dom

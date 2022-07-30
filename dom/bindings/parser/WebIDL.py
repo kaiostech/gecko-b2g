@@ -4812,9 +4812,13 @@ class IDLAsyncIterable(IDLMaplikeOrSetlikeOrIterableBase):
         )
         self.iteratorType = None
         self.argList = argList
+        if argList is not None:
+            raise WebIDLError(
+                "Arguments of async iterable are not supported yet. Please reference Bug 1781730."
+            )
 
     def __str__(self):
-        return "declared iterable with key '%s' and value '%s'" % (
+        return "declared async iterable with key '%s' and value '%s'" % (
             self.keyType,
             self.valueType,
         )
@@ -8879,7 +8883,6 @@ class Parser(Tokenizer):
                     itr_suffix = "Iterator"
                 else:
                     itr_suffix = "AsyncIterator"
-                    pass
                 itr_ident = IDLUnresolvedIdentifier(
                     iface.location, iface.identifier.name + itr_suffix
                 )
@@ -8887,8 +8890,6 @@ class Parser(Tokenizer):
                     classNameOverride = iface.identifier.name + " Iterator"
                 elif iterable.isAsyncIterable():
                     classNameOverride = iface.identifier.name + " AsyncIterator"
-                else:
-                    raise UnknownError
                 itr_iface = IDLInterface(
                     iface.location,
                     self.globalScope(),

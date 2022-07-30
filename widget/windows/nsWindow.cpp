@@ -979,6 +979,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
   }
 
   mIsRTL = aInitData->mRTL;
+  mForMenupopupFrame = aInitData->mForMenupopupFrame;
   mOpeningAnimationSuppressed = aInitData->mIsAnimationSuppressed;
   mAlwaysOnTop = aInitData->mAlwaysOnTop;
   mResizable = aInitData->mResizable;
@@ -1019,7 +1020,8 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
     }
   }
 
-  const wchar_t* className = GetWindowClass();
+  const wchar_t* className = ChooseWindowClass(mWindowType, mForMenupopupFrame);
+
   if (aInitData->mWindowType == eWindowType_toplevel && !aParent &&
       !sFirstTopLevelWindowCreated) {
     sFirstTopLevelWindowCreated = true;
@@ -1314,9 +1316,9 @@ void nsWindow::Destroy() {
  *
  **************************************************************/
 
+/* static */
 const wchar_t* nsWindow::RegisterWindowClass(const wchar_t* aClassName,
-                                             UINT aExtraStyle,
-                                             LPWSTR aIconID) const {
+                                             UINT aExtraStyle, LPWSTR aIconID) {
   WNDCLASSW wc;
   if (::GetClassInfoW(nsToolkit::mDllInstance, aClassName, &wc)) {
     // already registered
@@ -1331,7 +1333,7 @@ const wchar_t* nsWindow::RegisterWindowClass(const wchar_t* aClassName,
   wc.hIcon =
       aIconID ? ::LoadIconW(::GetModuleHandleW(nullptr), aIconID) : nullptr;
   wc.hCursor = nullptr;
-  wc.hbrBackground = mBrush;
+  wc.hbrBackground = nullptr;
   wc.lpszMenuName = nullptr;
   wc.lpszClassName = aClassName;
 
@@ -1346,16 +1348,21 @@ const wchar_t* nsWindow::RegisterWindowClass(const wchar_t* aClassName,
 
 static LPWSTR const gStockApplicationIcon = MAKEINTRESOURCEW(32512);
 
-// Return the proper window class for everything except popups.
-const wchar_t* nsWindow::GetWindowClass() const {
-  switch (mWindowType) {
+/* static */
+const wchar_t* nsWindow::ChooseWindowClass(nsWindowType aWindowType,
+                                           bool aForMenupopupFrame) {
+  MOZ_ASSERT_IF(aForMenupopupFrame, aWindowType == eWindowType_popup);
+  switch (aWindowType) {
     case eWindowType_invisible:
       return RegisterWindowClass(kClassNameHidden, 0, gStockApplicationIcon);
     case eWindowType_dialog:
       return RegisterWindowClass(kClassNameDialog, 0, 0);
     case eWindowType_popup:
-      return RegisterWindowClass(kClassNameDropShadow, CS_DROPSHADOW,
-                                 gStockApplicationIcon);
+      if (aForMenupopupFrame) {
+        return RegisterWindowClass(kClassNameDropShadow, CS_DROPSHADOW,
+                                   gStockApplicationIcon);
+      }
+      [[fallthrough]];
     default:
       return RegisterWindowClass(GetMainWindowClass(), 0,
                                  gStockApplicationIcon);
@@ -1674,7 +1681,9 @@ void nsWindow::Show(bool bState) {
 #endif  // defined(ACCESSIBILITY)
   }
 
-  if (mWindowType == eWindowType_popup) {
+  if (mForMenupopupFrame) {
+    MOZ_ASSERT(ChooseWindowClass(mWindowType, mForMenupopupFrame) ==
+               kClassNameDropShadow);
     const bool shouldUseDropShadow = [&] {
       if (mTransparencyMode == eTransparencyTransparent) {
         return false;
@@ -3751,9 +3760,10 @@ void* nsWindow::GetNativeData(uint32_t aDataType) {
   switch (aDataType) {
     case NS_NATIVE_TMP_WINDOW:
       return (void*)::CreateWindowExW(
-          mIsRTL ? WS_EX_LAYOUTRTL : 0, GetWindowClass(), L"", WS_CHILD,
-          CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, mWnd,
-          nullptr, nsToolkit::mDllInstance, nullptr);
+          mIsRTL ? WS_EX_LAYOUTRTL : 0,
+          ChooseWindowClass(mWindowType, /* aForMenupopupFrame = */ false), L"",
+          WS_CHILD, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+          mWnd, nullptr, nsToolkit::mDllInstance, nullptr);
     case NS_NATIVE_WIDGET:
     case NS_NATIVE_WINDOW:
     case NS_NATIVE_WINDOW_WEBRTC_DEVICE_ID:
@@ -4947,8 +4957,108 @@ LRESULT CALLBACK nsWindow::WindowProc(HWND hWnd, UINT msg, WPARAM wParam,
                                                wParam, lParam);
 }
 
+namespace geckoprofiler::markers {
+
+struct WindowProcMarker {
+  static constexpr Span<const char> MarkerTypeName() {
+    return MakeStringSpan("WindowProc");
+  }
+  static void StreamJSONMarkerData(baseprofiler::SpliceableJSONWriter& aWriter,
+                                   UINT aMsg, WPARAM aWParam, LPARAM aLParam) {
+    aWriter.IntProperty("uMsg", aMsg);
+    const char* name;
+    if (aMsg < WM_USER) {
+      const auto eventMsgInfo = mozilla::widget::gAllEvents.find(aMsg);
+      if (eventMsgInfo != mozilla::widget::gAllEvents.end()) {
+        name = eventMsgInfo->second.mStr;
+      } else {
+        name = "ui message";
+      }
+    } else if (aMsg >= WM_USER && aMsg < WM_APP) {
+      name = "WM_USER message";
+    } else if (aMsg >= WM_APP && aMsg < 0xC000) {
+      name = "WM_APP message";
+    } else if (aMsg >= 0xC000 && aMsg < 0x10000) {
+      name = "registered windows message";
+    } else {
+      name = "system message";
+    }
+    aWriter.StringProperty("name", MakeStringSpan(name));
+
+    if (aWParam) {
+      aWriter.IntProperty("wParam", aWParam);
+    }
+    if (aLParam) {
+      aWriter.IntProperty("lParam", aLParam);
+    }
+  }
+
+  static MarkerSchema MarkerTypeDisplay() {
+    using MS = MarkerSchema;
+    MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
+    schema.AddKeyFormat("uMsg", MS::Format::Integer);
+    schema.SetChartLabel("{marker.data.name} ({marker.data.uMsg})");
+    schema.SetTableLabel(
+        "{marker.name} - {marker.data.name} ({marker.data.uMsg})");
+    schema.SetTooltipLabel("{marker.name} - {marker.data.name}");
+    schema.AddKeyFormat("wParam", MS::Format::Integer);
+    schema.AddKeyFormat("lParam", MS::Format::Integer);
+    return schema;
+  }
+};
+
+}  // namespace geckoprofiler::markers
+
+class MOZ_RAII AutoProfilerMessageMarker {
+ public:
+  explicit AutoProfilerMessageMarker(HWND hWnd, UINT msg, WPARAM wParam,
+                                     LPARAM lParam)
+      : mMsg(msg), mWParam(wParam), mLParam(lParam) {
+    if (profiler_thread_is_being_profiled_for_markers()) {
+      mOptions.emplace(MarkerOptions(MarkerTiming::IntervalStart()));
+      nsWindow* win = WinUtils::GetNSWindowPtr(hWnd);
+      if (win) {
+        nsIWidgetListener* wl = win->GetWidgetListener();
+        if (wl) {
+          PresShell* presShell = wl->GetPresShell();
+          if (presShell) {
+            Document* doc = presShell->GetDocument();
+            if (doc) {
+              mOptions->Set(MarkerInnerWindowId(doc->InnerWindowID()));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  ~AutoProfilerMessageMarker() {
+    if (!profiler_thread_is_being_profiled_for_markers()) {
+      return;
+    }
+
+    if (mOptions) {
+      mOptions->TimingRef().SetIntervalEnd();
+    } else {
+      mOptions.emplace(MarkerOptions(MarkerTiming::IntervalEnd()));
+    }
+    profiler_add_marker("WindowProc", ::mozilla::baseprofiler::category::OTHER,
+                        std::move(*mOptions),
+                        geckoprofiler::markers::WindowProcMarker{}, mMsg,
+                        mWParam, mLParam);
+  }
+
+ protected:
+  Maybe<MarkerOptions> mOptions;
+  UINT mMsg;
+  WPARAM mWParam;
+  LPARAM mLParam;
+};
+
 LRESULT CALLBACK nsWindow::WindowProcInternal(HWND hWnd, UINT msg,
                                               WPARAM wParam, LPARAM lParam) {
+  AutoProfilerMessageMarker marker(hWnd, msg, wParam, lParam);
+
   if (::GetWindowLongPtrW(hWnd, GWLP_ID) == eFakeTrackPointScrollableID) {
     // This message was sent to the FAKETRACKPOINTSCROLLABLE.
     if (msg == WM_HSCROLL) {

@@ -259,7 +259,7 @@ dependencies = [
 [[package]]
 name = "audioipc"
 version = "0.2.5"
-source = "git+https://github.com/mozilla/audioipc?rev=6848974a4a91ebd3e18333c9a96a421d619a2dc8#6848974a4a91ebd3e18333c9a96a421d619a2dc8"
+source = "git+https://github.com/mozilla/audioipc?rev=fb7a2b12ced3b43e6a268621989c6191d1ed7e39#fb7a2b12ced3b43e6a268621989c6191d1ed7e39"
 dependencies = [
  "ashmem",
  "audio_thread_priority",
@@ -288,7 +288,7 @@ dependencies = [
 [[package]]
 name = "audioipc-client"
 version = "0.4.0"
-source = "git+https://github.com/mozilla/audioipc?rev=6848974a4a91ebd3e18333c9a96a421d619a2dc8#6848974a4a91ebd3e18333c9a96a421d619a2dc8"
+source = "git+https://github.com/mozilla/audioipc?rev=fb7a2b12ced3b43e6a268621989c6191d1ed7e39#fb7a2b12ced3b43e6a268621989c6191d1ed7e39"
 dependencies = [
  "audio_thread_priority",
  "audioipc",
@@ -302,7 +302,7 @@ dependencies = [
 [[package]]
 name = "audioipc-server"
 version = "0.2.3"
-source = "git+https://github.com/mozilla/audioipc?rev=6848974a4a91ebd3e18333c9a96a421d619a2dc8#6848974a4a91ebd3e18333c9a96a421d619a2dc8"
+source = "git+https://github.com/mozilla/audioipc?rev=fb7a2b12ced3b43e6a268621989c6191d1ed7e39#fb7a2b12ced3b43e6a268621989c6191d1ed7e39"
 dependencies = [
  "audio_thread_priority",
  "audioipc",
@@ -318,20 +318,21 @@ dependencies = [
 [[package]]
 name = "audioipc2"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=85e9839059f4bf8f68130825b8fd02c39a6a51b9#85e9839059f4bf8f68130825b8fd02c39a6a51b9"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=499b95580c8b276e52bd9757d735249504202e5c#499b95580c8b276e52bd9757d735249504202e5c"
 dependencies = [
  "arrayvec",
  "ashmem",
  "audio_thread_priority",
  "bincode",
- "bytes 0.4.12",
+ "byteorder",
+ "bytes 1.1.0",
  "cc",
  "cubeb",
  "error-chain",
  "iovec",
  "libc",
  "log",
- "memmap2 0.2.999",
+ "memmap2 0.5.4",
  "mio 0.8.0",
  "scopeguard",
  "serde",
@@ -344,7 +345,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-client"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=85e9839059f4bf8f68130825b8fd02c39a6a51b9#85e9839059f4bf8f68130825b8fd02c39a6a51b9"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=499b95580c8b276e52bd9757d735249504202e5c#499b95580c8b276e52bd9757d735249504202e5c"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -355,7 +356,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-server"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=85e9839059f4bf8f68130825b8fd02c39a6a51b9#85e9839059f4bf8f68130825b8fd02c39a6a51b9"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=499b95580c8b276e52bd9757d735249504202e5c#499b95580c8b276e52bd9757d735249504202e5c"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -1599,6 +1600,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "flagset"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cda653ca797810c02f7ca4b804b40b8b95ae046eb989d356bce17919a8c25499"
+
+[[package]]
 name = "flate2"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2729,7 +2736,7 @@ version = "0.3.100"
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2#20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fdc257c896c6deb9f293676ec9508123611dec62#fdc257c896c6deb9f293676ec9508123611dec62"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2743,7 +2750,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2#20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fdc257c896c6deb9f293676ec9508123611dec62#fdc257c896c6deb9f293676ec9508123611dec62"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2752,7 +2759,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2#20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fdc257c896c6deb9f293676ec9508123611dec62#fdc257c896c6deb9f293676ec9508123611dec62"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2765,7 +2772,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2#20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fdc257c896c6deb9f293676ec9508123611dec62#fdc257c896c6deb9f293676ec9508123611dec62"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2775,12 +2782,12 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2#20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fdc257c896c6deb9f293676ec9508123611dec62#fdc257c896c6deb9f293676ec9508123611dec62"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2#20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fdc257c896c6deb9f293676ec9508123611dec62#fdc257c896c6deb9f293676ec9508123611dec62"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -2792,7 +2799,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2#20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fdc257c896c6deb9f293676ec9508123611dec62#fdc257c896c6deb9f293676ec9508123611dec62"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2802,7 +2809,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2#20d01b2c01a5be01d3dea3ec7a1ede2fdda3d9d2"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fdc257c896c6deb9f293676ec9508123611dec62#fdc257c896c6deb9f293676ec9508123611dec62"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -5801,40 +5808,46 @@ version = "0.2.100"
 
 [[package]]
 name = "wasm-encoder"
-version = "0.7.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49cfbd7c23474849807ecde008c82eb38d303b07ec61d48f45b65f3c8cdd2770"
+checksum = "f76068e87fe9b837a6bc2ccded66784173eadb828c4168643e9fddf6f9ed2e61"
 dependencies = [
  "leb128",
 ]
 
 [[package]]
 name = "wasm-smith"
-version = "0.8.0"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "440458e050ee2731e85af3368ee58e23d4728d597809a88f841a24778876f2b6"
+checksum = "b73250e61e41d0e467b78559c7d761841005d724384bb0b78d52ff974acf5520"
 dependencies = [
  "arbitrary",
+ "flagset",
  "indexmap",
  "leb128",
  "wasm-encoder",
+ "wasmparser",
 ]
 
 [[package]]
 name = "wasmparser"
-version = "0.78.2"
+version = "0.87.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52144d4c78e5cf8b055ceab8e5fa22814ce4315d6002ad32cfd914f37c12fd65"
+checksum = "5c04e207cd2e8ecb6f9bd28a2cf3119b4c6bfeee6fe3a25cc1daf8041d00a875"
+dependencies = [
+ "indexmap",
+]
 
 [[package]]
 name = "wast"
-version = "41.0.0"
+version = "44.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f882898b8b817cc4edc16aa3692fdc087b356edc8cc0c2164f5b5181e31c3870"
+checksum = "5f474d1b1cb7d92e5360b293f28e8bc9b2d115197a5bbf76bdbfba9161cf9cdc"
 dependencies = [
  "leb128",
  "memchr",
  "unicode-width",
+ "wasm-encoder",
 ]
 
 [[package]]

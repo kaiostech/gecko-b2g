@@ -39,71 +39,32 @@
 
 namespace mozilla::dom {
 
-class IteratorUtils {
- public:
-  static void ResolvePromiseWithUndefined(JSContext* aCx, Promise* aPromise,
-                                          ErrorResult& aRv) {
-    MOZ_ASSERT(aPromise);
+namespace iterator_utils {
+void DictReturn(JSContext* aCx, JS::MutableHandle<JSObject*> aResult,
+                bool aDone, JS::Handle<JS::Value> aValue, ErrorResult& aRv);
 
-    RootedDictionary<IterableKeyOrValueResult> dict(aCx);
-    JS::Rooted<JS::Value> value(aCx, JS::UndefinedValue());
-    dict.mDone = true;
-    dict.mValue = value;
-    JS::Rooted<JS::Value> dictValue(aCx);
-    if (!ToJSValue(aCx, dict, &dictValue)) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
-    aPromise->MaybeResolve(dictValue);
-  }
+void KeyAndValueReturn(JSContext* aCx, JS::Handle<JS::Value> aKey,
+                       JS::Handle<JS::Value> aValue,
+                       JS::MutableHandle<JSObject*> aResult, ErrorResult& aRv);
 
-  static void ResolvePromiseWithKeyOrValue(JSContext* aCx, Promise* aPromise,
-                                           JS::Handle<JS::Value> aKeyOrValue,
-                                           ErrorResult& aRv) {
-    MOZ_ASSERT(aPromise);
+void ResolvePromiseForFinished(JSContext* aCx, Promise* aPromise,
+                               ErrorResult& aRv);
 
-    RootedDictionary<IterableKeyOrValueResult> dict(aCx);
-    dict.mDone = false;
-    dict.mValue = aKeyOrValue;
-    JS::Rooted<JS::Value> dictValue(aCx);
-    if (!ToJSValue(aCx, dict, &dictValue)) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
-    aPromise->MaybeResolve(dictValue);
-  }
+void ResolvePromiseWithKeyOrValue(JSContext* aCx, Promise* aPromise,
+                                  JS::Handle<JS::Value> aKeyOrValue,
+                                  ErrorResult& aRv);
 
-  static void ResolvePromiseWithKeyAndValue(JSContext* aCx, Promise* aPromise,
-                                            JS::Handle<JS::Value> aKey,
-                                            JS::Handle<JS::Value> aValue,
-                                            ErrorResult& aRv) {
-    MOZ_ASSERT(aPromise);
-
-    RootedDictionary<IterableKeyAndValueResult> dict(aCx);
-    dict.mDone = false;
-    if (!dict.mValue.AppendElement(aKey, mozilla::fallible)) {
-      aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
-      return;
-    }
-    if (!dict.mValue.AppendElement(aValue, mozilla::fallible)) {
-      aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
-      return;
-    }
-    JS::Rooted<JS::Value> dictValue(aCx);
-    if (!ToJSValue(aCx, dict, &dictValue)) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
-    aPromise->MaybeResolve(dictValue);
-  }
-};
+void ResolvePromiseWithKeyAndValue(JSContext* aCx, Promise* aPromise,
+                                   JS::Handle<JS::Value> aKey,
+                                   JS::Handle<JS::Value> aValue,
+                                   ErrorResult& aRv);
+}  // namespace iterator_utils
 
 class IterableIteratorBase : public nsISupports {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(IterableIteratorBase)
-  typedef enum { Keys = 0, Values, Entries } IterableIteratorType;
-  using IteratorType = IterableIteratorType;
+  typedef enum { Keys = 0, Values, Entries } IteratorType;
 
   IterableIteratorBase() = default;
 
@@ -159,7 +120,7 @@ class IterableIterator final : public IterableIteratorBase {
                            JS::Handle<JSObject*> aGivenProto,
                            JS::MutableHandle<JSObject*> aReflector);
 
-  explicit IterableIterator(T* aIterableObj, IterableIteratorType aIteratorType,
+  explicit IterableIterator(T* aIterableObj, IteratorType aIteratorType,
                             WrapFunc aWrapFunc)
       : mIterableObj(aIterableObj),
         mIteratorType(aIteratorType),
@@ -185,27 +146,27 @@ class IterableIterator final : public IterableIteratorBase {
             ErrorResult& aRv) {
     JS::Rooted<JS::Value> value(aCx, JS::UndefinedValue());
     if (mIndex >= this->mIterableObj->GetIterableLength()) {
-      DictReturn(aCx, aResult, true, value, aRv);
+      iterator_utils::DictReturn(aCx, aResult, true, value, aRv);
       return;
     }
     switch (mIteratorType) {
-      case IterableIteratorType::Keys: {
+      case IteratorType::Keys: {
         if (!GetKeyAtIndex(aCx, mIndex, &value)) {
           aRv.Throw(NS_ERROR_FAILURE);
           return;
         }
-        DictReturn(aCx, aResult, false, value, aRv);
+        iterator_utils::DictReturn(aCx, aResult, false, value, aRv);
         break;
       }
-      case IterableIteratorType::Values: {
+      case IteratorType::Values: {
         if (!GetValueAtIndex(aCx, mIndex, &value)) {
           aRv.Throw(NS_ERROR_FAILURE);
           return;
         }
-        DictReturn(aCx, aResult, false, value, aRv);
+        iterator_utils::DictReturn(aCx, aResult, false, value, aRv);
         break;
       }
-      case IterableIteratorType::Entries: {
+      case IteratorType::Entries: {
         JS::Rooted<JS::Value> key(aCx);
         if (!GetKeyAtIndex(aCx, mIndex, &key)) {
           aRv.Throw(NS_ERROR_FAILURE);
@@ -215,7 +176,7 @@ class IterableIterator final : public IterableIteratorBase {
           aRv.Throw(NS_ERROR_FAILURE);
           return;
         }
-        KeyAndValueReturn(aCx, key, value, aResult, aRv);
+        iterator_utils::KeyAndValueReturn(aCx, key, value, aResult, aRv);
         break;
       }
       default:
@@ -227,45 +188,6 @@ class IterableIterator final : public IterableIteratorBase {
   bool WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto,
                   JS::MutableHandle<JSObject*> aObj) {
     return (*mWrapFunc)(aCx, this, aGivenProto, aObj);
-  }
-
- protected:
-  static void DictReturn(JSContext* aCx, JS::MutableHandle<JSObject*> aResult,
-                         bool aDone, JS::Handle<JS::Value> aValue,
-                         ErrorResult& aRv) {
-    RootedDictionary<IterableKeyOrValueResult> dict(aCx);
-    dict.mDone = aDone;
-    dict.mValue = aValue;
-    JS::Rooted<JS::Value> dictValue(aCx);
-    if (!ToJSValue(aCx, dict, &dictValue)) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
-    aResult.set(&dictValue.toObject());
-  }
-
-  static void KeyAndValueReturn(JSContext* aCx, JS::Handle<JS::Value> aKey,
-                                JS::Handle<JS::Value> aValue,
-                                JS::MutableHandle<JSObject*> aResult,
-                                ErrorResult& aRv) {
-    RootedDictionary<IterableKeyAndValueResult> dict(aCx);
-    dict.mDone = false;
-    // Dictionary values are a Sequence, which is a FallibleTArray, so we need
-    // to check returns when appending.
-    if (!dict.mValue.AppendElement(aKey, mozilla::fallible)) {
-      aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
-      return;
-    }
-    if (!dict.mValue.AppendElement(aValue, mozilla::fallible)) {
-      aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
-      return;
-    }
-    JS::Rooted<JS::Value> dictValue(aCx);
-    if (!ToJSValue(aCx, dict, &dictValue)) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return;
-    }
-    aResult.set(&dictValue.toObject());
   }
 
  protected:
@@ -283,7 +205,7 @@ class IterableIterator final : public IterableIteratorBase {
   // Binding Implementation object that we're iterating over.
   RefPtr<T> mIterableObj;
   // Tells whether this is a key, value, or entries iterator.
-  IterableIteratorType mIteratorType;
+  IteratorType mIteratorType;
   // Function pointer to binding-type-specific Wrap() call for this iterator.
   WrapFunc mWrapFunc;
   // Current index of iteration.
@@ -291,22 +213,18 @@ class IterableIterator final : public IterableIteratorBase {
 };
 
 template <typename T>
-class AsyncIterableIterator final
-    : public IterableIteratorBase,
-      public SupportsWeakPtr {
+class AsyncIterableIterator final : public IterableIteratorBase,
+                                    public SupportsWeakPtr {
  public:
-
   typedef bool (*WrapFunc)(JSContext* aCx, AsyncIterableIterator<T>* aObject,
                            JS::Handle<JSObject*> aGivenProto,
                            JS::MutableHandle<JSObject*> aReflector);
 
-  explicit AsyncIterableIterator(T* aIterableObj,
-                                 IterableIteratorType aIteratorType,
+  explicit AsyncIterableIterator(T* aIterableObj, IteratorType aIteratorType,
                                  WrapFunc aWrapFunc)
       : mIterableObj(aIterableObj),
         mIteratorType(aIteratorType),
-        mWrapFunc(aWrapFunc),
-        mData(nullptr) {
+        mWrapFunc(aWrapFunc) {
     MOZ_ASSERT(mIterableObj);
     MOZ_ASSERT(mWrapFunc);
   }
@@ -324,8 +242,7 @@ class AsyncIterableIterator final
       aRv.Throw(NS_ERROR_FAILURE);
       return;
     }
-    JS::Rooted<JSObject*> promiseObj(aCx, promise->PromiseObj());
-    aResult.set(promiseObj);
+    aResult.set(promise->PromiseObj());
   }
 
   bool WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto,
@@ -334,10 +251,20 @@ class AsyncIterableIterator final
   }
 
  protected:
-  virtual ~AsyncIterableIterator() = default;
+  virtual ~AsyncIterableIterator() {
+    // As long as iterable object does not hold strong ref to its iterators,
+    // iterators will not be added to CC graph, thus make sure
+    // DestroyAsyncIterator still take place.
+    if (mIterableObj) {
+      mIterableObj->DestroyAsyncIterator(this);
+    }
+  }
 
   // Since we're templated on a binding, we need to possibly CC it, but can't do
   // that through macros. So it happens here.
+  // DestroyAsyncIterator is expected to assume that its AsyncIterableIterator
+  // does not need access to mData anymore. AsyncIterator does not manage mData
+  // so it should be release and null out explicitly.
   void UnlinkHelper() final {
     mIterableObj->DestroyAsyncIterator(this);
     mIterableObj = nullptr;
@@ -351,11 +278,11 @@ class AsyncIterableIterator final
   // Binding Implementation object that we're iterating over.
   RefPtr<T> mIterableObj;
   // Tells whether this is a key, value, or entries iterator.
-  IterableIteratorType mIteratorType;
+  IteratorType mIteratorType;
   // Function pointer to binding-type-specific Wrap() call for this iterator.
   WrapFunc mWrapFunc;
   // Opaque data of the backing object.
-  void* mData;
+  void* mData{nullptr};
 };
 
 }  // namespace mozilla::dom

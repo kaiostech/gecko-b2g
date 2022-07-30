@@ -186,8 +186,10 @@ UNIFIED_SOURCES += [
 
 if CONFIG["CPU_ARCH"].startswith("x86"):
     SOURCES += [
+        "SIMD_avx2.cpp",
         "SSE.cpp",
     ]
+    SOURCES["SIMD_avx2.cpp"].flags += ["-mavx2"]
 
 if CONFIG["MOZ_BUILD_APP"] not in (
     "memory",

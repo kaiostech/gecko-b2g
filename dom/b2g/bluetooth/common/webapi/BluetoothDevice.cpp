@@ -237,7 +237,7 @@ BluetoothDeviceAttribute BluetoothDevice::ConvertStringToDeviceAttribute(
   using namespace mozilla::dom::BluetoothDeviceAttributeValues;
 
   for (size_t index = 0; index < ArrayLength(strings) - 1; index++) {
-    if (aString.EqualsIgnoreCase(strings[index].value, strings[index].length)) {
+    if (aString.EqualsIgnoreCase(strings[index].value)) {
       return static_cast<BluetoothDeviceAttribute>(index);
     }
   }

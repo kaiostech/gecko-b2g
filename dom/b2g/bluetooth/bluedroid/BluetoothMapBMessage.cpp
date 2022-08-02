@@ -65,7 +65,7 @@ static int ReadLine(const char*& aNextLineStart, nsACString& aLine) {
 static bool ExtractParameter(const nsAutoCString& aCurrLine,
                              const char* aPattern, nsACString& aParam) {
   aParam.Truncate();
-  if (aCurrLine.Find(aPattern, false, 0, PL_strlen(aPattern)) == kNotFound) {
+  if (aCurrLine.Find(aPattern, 0) == kNotFound) {
     return false;
   }
 

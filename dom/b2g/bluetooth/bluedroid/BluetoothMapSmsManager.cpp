@@ -1739,7 +1739,7 @@ void BluetoothMapSmsManager::HandleSmsMmsMsgListing(
   mCurrentFolder->GetPath(currentFolderPath);
 
   // Sanity checks on folder path for enhancing fault tolerance.
-  if (!name.IsEmpty() && currentFolderPath.Find("telecom/msg/") != -1) {
+  if (!name.IsEmpty() && currentFolderPath.Find(u"telecom/msg/"_ns) != -1) {
     BT_WARNING("The target folder of MAP-msg-listing is unsupproted.");
     // Go up 1 level
     BluetoothMapFolder* parent = mCurrentFolder->GetParentFolder();
@@ -1947,7 +1947,7 @@ void BluetoothMapSmsManager::HandleSmsMmsPushMessage(
   //   2. Get receipent subject
   //   3. Send it to Gaia
   // Otherwise reply NotAcceptable error code.
-  if (name.Find("outbox") == -1) {
+  if (name.Find(u"outbox"_ns) == -1) {
     BT_LOGR("Can't push message to any folder other than 'outbox'");
     ReplyToPut(ObexResponseCode::NotAcceptable);
     return;

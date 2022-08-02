@@ -284,7 +284,7 @@ nsresult GfxInfo::GetFeatureStatusImpl(
     // even attempt to cache them. See bug 1615574.
     auto glStrings = new GLStrings();
     const bool isAdreno3xx =
-        glStrings->Renderer().Find("Adreno (TM) 3", /*ignoreCase*/ true) >= 0;
+        glStrings->Renderer().Find("Adreno (TM) 3") >= 0;
     if (isAdreno3xx) {
       *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
       aFailureId = "FEATURE_FAILURE_ADRENO_3XX";
@@ -296,7 +296,7 @@ nsresult GfxInfo::GetFeatureStatusImpl(
     // See bug 1704783.
     auto glStrings = new GLStrings();
     const bool isPowerVRRogue =
-        glStrings->Renderer().Find("PowerVR Rogue", /*ignoreCase*/ true) >= 0;
+        glStrings->Renderer().Find("PowerVR Rogue") >= 0;
     if (isPowerVRRogue) {
       *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
       aFailureId = "FEATURE_FAILURE_POWERVR_ROGUE";

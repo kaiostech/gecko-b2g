@@ -683,7 +683,7 @@ bool BluetoothOppManager::CreateFile() {
   // based on the MIME type of OBEX header.
   if (!mContentType.IsEmpty()) {
     // find seperator '.' from the last 6 characters.
-    int32_t offset = mFileName.RFindChar('.', -1, 6);
+    int32_t offset = mFileName.RFindChar('.');
 
     // whether the file extension is between 1 to 5 characters
     if (offset == kNotFound ||
@@ -812,7 +812,7 @@ void BluetoothOppManager::RetrieveSentFileName() {
   }
 
   // find seperator '.' from the last 6 characters.
-  offset = mFileName.RFindChar('.', -1, 6);
+  offset = mFileName.RFindChar('.');
 
   // whether the length of file extension is between 1 to 5
   if (offset == kNotFound ||

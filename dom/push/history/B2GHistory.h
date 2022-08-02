@@ -15,7 +15,7 @@ class B2GHistory final : public mozilla::BaseHistory {
 
   // IHistory
   NS_IMETHOD VisitURI(nsIWidget*, nsIURI*, nsIURI* aLastVisitedURI,
-                      uint32_t aFlags) final;
+                      uint32_t aFlags, uint64_t aBrowserId) final;
   NS_IMETHOD SetURITitle(nsIURI*, const nsAString&) final;
 
   // BaseHistory

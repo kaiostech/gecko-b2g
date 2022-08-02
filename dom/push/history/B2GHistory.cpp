@@ -35,7 +35,7 @@ void B2GHistory::StartPendingVisitedQueries(PendingVisitedQueries&& aQueries) {
 
 NS_IMETHODIMP
 B2GHistory::VisitURI(nsIWidget* aWidget, nsIURI* aURI, nsIURI* aLastVisitedURI,
-                     uint32_t aFlags) {
+                     uint32_t aFlags, uint64_t aBrowserId) {
   nsAutoCString documentURI;
   aURI->GetSpec(documentURI);
   if (documentURI.EqualsASCII("about:blank")) {

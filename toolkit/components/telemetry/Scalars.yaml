@@ -1452,23 +1452,6 @@ contentblocking:
       - main
 
 privacy:
-  dfpi_rollout_enabledByDefault:
-    bug_numbers:
-      - 1740232
-      - 1758828
-    description: >
-      Records if a client is opted into dFPI in standard ETP mode as part of the
-      rollout experiment. 0: opted out, 1: opted in, 2: not part of the
-      experiment
-    expires: "106"
-    kind: uint
-    notification_emails:
-      - pbz@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - main
   dfpi_rollout_tcpByDefault_feature:
     bug_numbers:
       - 1767415
@@ -1949,6 +1932,7 @@ os.environment:
   launched_to_handle:
     bug_numbers:
       - 1243603
+      - 1781984
     description: >
       Records counts for when Firefox was launched afresh (i.e., was not already
       running) to handle a file type or protocol with `-osint -url ...`.  The
@@ -1961,7 +1945,7 @@ os.environment:
       recorded as ".<other extension>" or "<other protocol>", respectively
       (neither of which are valid extension or protocol identifiers).
     keyed: true
-    expires: "106"
+    expires: never
     kind: uint
     notification_emails:
       - application-update-telemetry-alerts@mozilla.com
@@ -1976,6 +1960,7 @@ os.environment:
   invoked_to_handle:
     bug_numbers:
       - 1243603
+      - 1781984
     description: >
       Records counts for when Firefox was invoked (i.e., was already running and
       was not launched) to handle a file type or protocol with `-osint -url
@@ -1989,7 +1974,7 @@ os.environment:
       respectively (neither of which are valid extension or protocol
       identifiers).
     keyed: true
-    expires: "106"
+    expires: never
     kind: uint
     notification_emails:
       - application-update-telemetry-alerts@mozilla.com
@@ -2004,6 +1989,7 @@ os.environment:
   is_default_handler:
     bug_numbers:
       - 1743914
+      - 1781984
     description: >
       Records whether Firefox was the default handler for particular file types
       or protocols.  The result is split into keys which represent the file
@@ -2012,7 +1998,7 @@ os.environment:
       and/or a subset of the protocol schemes that Firefox registers to may be
       recorded.
     keyed: true
-    expires: "106"
+    expires: never
     kind: boolean
     notification_emails:
       - application-update-telemetry-alerts@mozilla.com

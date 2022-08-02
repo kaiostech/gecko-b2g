@@ -1470,6 +1470,7 @@ function _loadURI(browser, uri, params = {}) {
     csp,
     remoteTypeOverride,
     hasValidUserGestureActivation,
+    globalHistoryOptions,
   } = params || {};
   let loadFlags =
     params.loadFlags || params.flags || Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
@@ -1509,6 +1510,17 @@ function _loadURI(browser, uri, params = {}) {
 
   // XXX(nika): Is `browser.isNavigating` necessary anymore?
   browser.isNavigating = true;
+
+  if (globalHistoryOptions?.triggeringSponsoredURL) {
+    browser.setAttribute(
+      "triggeringSponsoredURL",
+      globalHistoryOptions.triggeringSponsoredURL
+    );
+    const time =
+      globalHistoryOptions.triggeringSponsoredURLVisitTimeMS || Date.now();
+    browser.setAttribute("triggeringSponsoredURLVisitTimeMS", time);
+  }
+
   let loadURIOptions = {
     triggeringPrincipal,
     csp,
@@ -2494,6 +2506,8 @@ var gBrowserInit = {
     DownloadsButton.uninit();
 
     gAccessibilityServiceIndicator.uninit();
+
+    FirefoxViewHandler.uninit();
 
     if (gToolbarKeyNavEnabled) {
       ToolbarKeyboardNavigator.uninit();
@@ -8204,14 +8218,16 @@ function undoCloseTab(aIndex) {
     aIndex !== undefined
       ? [aIndex]
       : new Array(SessionStore.getLastClosedTabCount(window)).fill(0);
+  let tabsRemoved = false;
   for (let index of tabsToRemove) {
     if (SessionStore.getClosedTabCount(window) > index) {
       tab = SessionStore.undoCloseTab(window, index);
-
-      if (blankTabToRemove) {
-        gBrowser.removeTab(blankTabToRemove);
-      }
+      tabsRemoved = true;
     }
+  }
+
+  if (tabsRemoved && blankTabToRemove) {
+    gBrowser.removeTab(blankTabToRemove);
   }
 
   return tab;
@@ -9911,11 +9927,24 @@ var ConfirmationHint = {
 var FirefoxViewHandler = {
   tab: null,
   init() {
+    const { FirefoxViewNotificationManager } = ChromeUtils.importESModule(
+      "resource:///modules/firefox-view-notification-manager.sys.mjs"
+    );
     if (
       AppConstants.NIGHTLY_BUILD &&
       !Services.prefs.getBoolPref("browser.tabs.firefox-view")
     ) {
       document.getElementById("menu_openFirefoxView").hidden = true;
+    } else {
+      let shouldShow = FirefoxViewNotificationManager.shouldNotificationDotBeShowing();
+      this.toggleNotificationDot(shouldShow);
+    }
+    Services.obs.addObserver(this, "firefoxview-notification-dot-update");
+    this.observerAdded = true;
+  },
+  uninit() {
+    if (this.observerAdded) {
+      Services.obs.removeObserver(this, "firefoxview-notification-dot-update");
     }
   },
   openTab() {
@@ -9923,6 +9952,7 @@ var FirefoxViewHandler = {
       this.tab = gBrowser.addTrustedTab("about:firefoxview", { index: 0 });
       this.tab.addEventListener("TabClose", this, { once: true });
       gBrowser.tabContainer.addEventListener("TabSelect", this);
+      window.addEventListener("activate", this);
       gBrowser.hideTab(this.tab);
     }
     gBrowser.selectedTab = this.tab;
@@ -9938,6 +9968,25 @@ var FirefoxViewHandler = {
         this.tab = null;
         gBrowser.tabContainer.removeEventListener("TabSelect", this);
         break;
+      case "activate":
+        if (this.tab?.selected) {
+          Services.obs.notifyObservers(
+            null,
+            "firefoxview-notification-dot-update",
+            "false"
+          );
+        }
+        break;
     }
+  },
+  observe(sub, topic, data) {
+    if (topic === "firefoxview-notification-dot-update") {
+      let shouldShow = data === "true";
+      this.toggleNotificationDot(shouldShow);
+    }
+  },
+  toggleNotificationDot(shouldShow) {
+    let fxViewButton = document.getElementById("firefox-view-button");
+    fxViewButton?.setAttribute("attention", shouldShow);
   },
 };

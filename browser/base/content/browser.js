@@ -1770,7 +1770,6 @@ var gBrowserInit = {
     gPrivateBrowsingUI.init();
     BrowserSearch.init();
     BrowserPageActions.init();
-    gAccessibilityServiceIndicator.init();
     if (gToolbarKeyNavEnabled) {
       ToolbarKeyboardNavigator.init();
     }
@@ -2504,8 +2503,6 @@ var gBrowserInit = {
     SidebarUI.uninit();
 
     DownloadsButton.uninit();
-
-    gAccessibilityServiceIndicator.uninit();
 
     FirefoxViewHandler.uninit();
 
@@ -8374,75 +8371,6 @@ const gRemoteControl = {
   },
 };
 
-const gAccessibilityServiceIndicator = {
-  init() {
-    // Pref to enable accessibility service indicator.
-    Services.prefs.addObserver("accessibility.indicator.enabled", this);
-    // Accessibility service init/shutdown event.
-    Services.obs.addObserver(this, "a11y-init-or-shutdown");
-    this._update(Services.appinfo.accessibilityEnabled);
-  },
-
-  _update(accessibilityEnabled = false) {
-    if (this.enabled && accessibilityEnabled) {
-      this._active = true;
-      document.documentElement.setAttribute("accessibilitymode", "true");
-      [
-        ...document.querySelectorAll(".accessibility-indicator"),
-      ].forEach(indicator =>
-        ["click", "keypress"].forEach(type =>
-          indicator.addEventListener(type, this)
-        )
-      );
-    } else if (this._active) {
-      this._active = false;
-      document.documentElement.removeAttribute("accessibilitymode");
-      [
-        ...document.querySelectorAll(".accessibility-indicator"),
-      ].forEach(indicator =>
-        ["click", "keypress"].forEach(type =>
-          indicator.removeEventListener(type, this)
-        )
-      );
-    }
-  },
-
-  observe(subject, topic, data) {
-    if (
-      topic == "nsPref:changed" &&
-      data === "accessibility.indicator.enabled"
-    ) {
-      this._update(Services.appinfo.accessibilityEnabled);
-    } else if (topic === "a11y-init-or-shutdown") {
-      // When "a11y-init-or-shutdown" event is fired, "1" indicates that
-      // accessibility service is started and "0" that it is shut down.
-      this._update(data === "1");
-    }
-  },
-
-  get enabled() {
-    return Services.prefs.getBoolPref("accessibility.indicator.enabled");
-  },
-
-  handleEvent({ key, type }) {
-    if (
-      (type === "keypress" && [" ", "Enter"].includes(key)) ||
-      type === "click"
-    ) {
-      let a11yServicesSupportURL = Services.urlFormatter.formatURLPref(
-        "accessibility.support.url"
-      );
-      // This is a known URL coming from trusted UI
-      openTrustedLinkIn(a11yServicesSupportURL, "tab");
-    }
-  },
-
-  uninit() {
-    Services.prefs.removeObserver("accessibility.indicator.enabled", this);
-    Services.obs.removeObserver(this, "a11y-init-or-shutdown");
-  },
-};
-
 // Note that this is also called from non-browser windows on OSX, which do
 // share menu items but not much else. See nonbrowser-mac.js.
 var gPrivateBrowsingUI = {
@@ -9926,6 +9854,9 @@ var ConfirmationHint = {
 
 var FirefoxViewHandler = {
   tab: null,
+  get button() {
+    return document.getElementById("firefox-view-button");
+  },
   init() {
     const { FirefoxViewNotificationManager } = ChromeUtils.importESModule(
       "resource:///modules/firefox-view-notification-manager.sys.mjs"
@@ -9937,7 +9868,7 @@ var FirefoxViewHandler = {
       document.getElementById("menu_openFirefoxView").hidden = true;
     } else {
       let shouldShow = FirefoxViewNotificationManager.shouldNotificationDotBeShowing();
-      this.toggleNotificationDot(shouldShow);
+      this._toggleNotificationDot(shouldShow);
     }
     Services.obs.addObserver(this, "firefoxview-notification-dot-update");
     this.observerAdded = true;
@@ -9960,33 +9891,34 @@ var FirefoxViewHandler = {
   handleEvent(e) {
     switch (e.type) {
       case "TabSelect":
-        document
-          .getElementById("firefox-view-button")
-          ?.toggleAttribute("open", e.target == this.tab);
+        this.button?.toggleAttribute("open", e.target == this.tab);
+        this._removeNotificationDotIfTabSelected();
         break;
       case "TabClose":
         this.tab = null;
         gBrowser.tabContainer.removeEventListener("TabSelect", this);
         break;
       case "activate":
-        if (this.tab?.selected) {
-          Services.obs.notifyObservers(
-            null,
-            "firefoxview-notification-dot-update",
-            "false"
-          );
-        }
+        this._removeNotificationDotIfTabSelected();
         break;
     }
   },
   observe(sub, topic, data) {
     if (topic === "firefoxview-notification-dot-update") {
       let shouldShow = data === "true";
-      this.toggleNotificationDot(shouldShow);
+      this._toggleNotificationDot(shouldShow);
     }
   },
-  toggleNotificationDot(shouldShow) {
-    let fxViewButton = document.getElementById("firefox-view-button");
-    fxViewButton?.setAttribute("attention", shouldShow);
+  _removeNotificationDotIfTabSelected() {
+    if (this.tab?.selected) {
+      Services.obs.notifyObservers(
+        null,
+        "firefoxview-notification-dot-update",
+        "false"
+      );
+    }
+  },
+  _toggleNotificationDot(shouldShow) {
+    this.button?.toggleAttribute("attention", shouldShow);
   },
 };

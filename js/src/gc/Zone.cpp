@@ -54,16 +54,20 @@ void ZoneAllocator::fixupAfterMovingGC() {
 #endif
 }
 
-void js::ZoneAllocator::updateMemoryCountersOnGCStart() {
+void js::ZoneAllocator::updateSchedulingStateOnGCStart() {
   gcHeapSize.updateOnGCStart();
   mallocHeapSize.updateOnGCStart();
   jitHeapSize.updateOnGCStart();
+  perZoneGCTime = mozilla::TimeDuration();
 }
 
 void js::ZoneAllocator::updateGCStartThresholds(GCRuntime& gc) {
   bool isAtomsZone = JS::Zone::from(this)->isAtomsZone();
-  gcHeapThreshold.updateStartThreshold(gcHeapSize.retainedBytes(), gc.tunables,
-                                       gc.schedulingState, isAtomsZone);
+  gcHeapThreshold.updateStartThreshold(
+      gcHeapSize.retainedBytes(), smoothedAllocationRate.ref(),
+      smoothedCollectionRate.ref(), gc.tunables, gc.schedulingState,
+      isAtomsZone);
+
   mallocHeapThreshold.updateStartThreshold(mallocHeapSize.retainedBytes(),
                                            gc.tunables, gc.schedulingState);
 }

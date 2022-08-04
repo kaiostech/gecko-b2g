@@ -6,14 +6,18 @@
 
 #include "ToastNotificationHandler.h"
 
-#include "WidgetUtils.h"
-#include "WinTaskbar.h"
-#include "WinUtils.h"
+#include <windows.foundation.h>
+
 #include "imgIContainer.h"
 #include "imgIRequest.h"
-#include "mozilla/WindowsVersion.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/Result.h"
+#include "mozilla/Tokenizer.h"
+#include "mozilla/WindowsVersion.h"
+#include "nsAppDirectoryServiceDefs.h"
+#include "nsAppRunner.h"
 #include "nsDirectoryServiceDefs.h"
+#include "nsDirectoryServiceUtils.h"
 #include "nsIDUtils.h"
 #include "nsIStringBundle.h"
 #include "nsIURI.h"
@@ -22,23 +26,14 @@
 #include "nsNetUtil.h"
 #include "nsPIDOMWindow.h"
 #include "nsProxyRelease.h"
+#include "nsXREDirProvider.h"
+#include "WidgetUtils.h"
+#include "WinUtils.h"
 
 #include "ToastNotification.h"
 
 namespace mozilla {
 namespace widget {
-
-typedef ABI::Windows::Foundation::ITypedEventHandler<
-    ABI::Windows::UI::Notifications::ToastNotification*, IInspectable*>
-    ToastActivationHandler;
-typedef ABI::Windows::Foundation::ITypedEventHandler<
-    ABI::Windows::UI::Notifications::ToastNotification*,
-    ABI::Windows::UI::Notifications::ToastDismissedEventArgs*>
-    ToastDismissedHandler;
-typedef ABI::Windows::Foundation::ITypedEventHandler<
-    ABI::Windows::UI::Notifications::ToastNotification*,
-    ABI::Windows::UI::Notifications::ToastFailedEventArgs*>
-    ToastFailedHandler;
 
 using namespace ABI::Windows::Data::Xml::Dom;
 using namespace ABI::Windows::Foundation;
@@ -46,6 +41,17 @@ using namespace ABI::Windows::UI::Notifications;
 using namespace Microsoft::WRL;
 using namespace Microsoft::WRL::Wrappers;
 using namespace mozilla;
+
+// Needed to disambiguate internal and Windows `ToastNotification` classes.
+typedef ABI::Windows::UI::Notifications::ToastNotification WinToastNotification;
+typedef ITypedEventHandler<WinToastNotification*, IInspectable*>
+    ToastActivationHandler;
+typedef ITypedEventHandler<WinToastNotification*, ToastDismissedEventArgs*>
+    ToastDismissedHandler;
+typedef ITypedEventHandler<WinToastNotification*, ToastFailedEventArgs*>
+    ToastFailedHandler;
+typedef Collections::IVectorView<WinToastNotification*>
+    IVectorView_ToastNotification;
 
 NS_IMPL_ISUPPORTS(ToastNotificationHandler, nsIAlertNotificationImageListener)
 
@@ -80,6 +86,7 @@ static bool SetAttribute(IXmlElement* element, const HStringReference& name,
 
 static bool AddActionNode(IXmlDocument* toastXml, IXmlNode* actionsNode,
                           const nsAString& actionTitle,
+                          const nsAString& launchArg,
                           const nsAString& actionArgs,
                           const nsAString& actionPlacement = u""_ns) {
   ComPtr<IXmlElement> action;
@@ -91,8 +98,15 @@ static bool AddActionNode(IXmlDocument* toastXml, IXmlNode* actionsNode,
       SetAttribute(action.Get(), HStringReference(L"content"), actionTitle);
   NS_ENSURE_TRUE(success, false);
 
-  success =
-      SetAttribute(action.Get(), HStringReference(L"arguments"), actionArgs);
+  // Action arguments overwrite the toast's launch arguments, so we need to
+  // prepend the launch arguments necessary for the Notification Server to
+  // reconstruct the toast's origin.
+  //
+  // Web Notification actions are arbitrary strings; to prevent breaking launch
+  // argument parsing the action argument must be last. All delimiters after
+  // `action` are part of the action arugment.
+  nsAutoString args = launchArg + u"\naction\n"_ns + actionArgs;
+  success = SetAttribute(action.Get(), HStringReference(L"arguments"), args);
   NS_ENSURE_TRUE(success, false);
 
   if (!actionPlacement.IsEmpty()) {
@@ -108,23 +122,61 @@ static bool AddActionNode(IXmlDocument* toastXml, IXmlNode* actionsNode,
 
   ComPtr<IXmlNode> appendedChild;
   hr = actionsNode->AppendChild(actionNode.Get(), &appendedChild);
-  if (NS_WARN_IF(FAILED(hr))) {
-    return false;
-  }
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
 
   return true;
+}
+
+// clang - format off
+/* Populate the launch argument so the COM server can reconstruct the toast
+ * origin.
+ *
+ *   program
+ *   {MOZ_APP_NAME}
+ *   profile
+ *   {path to profile}
+ */
+// clang-format on
+static Result<nsString, nsresult> GetLaunchArgument() {
+  nsString launchArg;
+
+  // When the preference is false, the COM notification server will be invoked,
+  // discover that there is no `program`, and exit (successfully), after which
+  // Windows will invoke the in-product Windows 8-style callbacks.  When true,
+  // the COM notification server will launch Firefox with sufficient arguments
+  // for Firefox to handle the notification.
+  if (!Preferences::GetBool(
+          "alerts.useSystemBackend.windows.notificationserver.enabled",
+          false)) {
+    // Include dummy key/value so that newline appended arguments aren't off by
+    // one line.
+    launchArg += u"invalid key\ninvalid value"_ns;
+    return launchArg;
+  }
+
+  // `program` argument.
+  launchArg += u"program\n"_ns MOZ_APP_NAME;
+
+  // `profile` argument
+  nsCOMPtr<nsIFile> profDir;
+  MOZ_TRY(NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,
+                                 getter_AddRefs(profDir)));
+  nsAutoString profilePath;
+  MOZ_TRY(profDir->GetPath(profilePath));
+  launchArg += u"\nprofile\n"_ns + profilePath;
+
+  return launchArg;
 }
 
 static ComPtr<IToastNotificationManagerStatics>
 GetToastNotificationManagerStatics() {
   ComPtr<IToastNotificationManagerStatics> toastNotificationManagerStatics;
-  if (NS_WARN_IF(FAILED(GetActivationFactory(
-          HStringReference(
-              RuntimeClass_Windows_UI_Notifications_ToastNotificationManager)
-              .Get(),
-          &toastNotificationManagerStatics)))) {
-    return nullptr;
-  }
+  HRESULT hr = GetActivationFactory(
+      HStringReference(
+          RuntimeClass_Windows_UI_Notifications_ToastNotificationManager)
+          .Get(),
+      &toastNotificationManagerStatics);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
 
   return toastNotificationManagerStatics;
 }
@@ -148,7 +200,6 @@ void ToastNotificationHandler::UnregisterHandler() {
     mNotification->remove_Dismissed(mDismissedToken);
     mNotification->remove_Activated(mActivatedToken);
     mNotification->remove_Failed(mFailedToken);
-    mNotifier->Hide(mNotification.Get());
   }
 
   mNotification = nullptr;
@@ -244,6 +295,17 @@ ComPtr<IXmlDocument> ToastNotificationHandler::CreateToastXmlDocument() {
                            u"reminder"_ns);
     NS_ENSURE_TRUE(success, nullptr);
   }
+  ComPtr<IXmlElement> toastElement;
+  hr = toastNodeRoot.As(&toastElement);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+
+  auto maybeLaunchArg = GetLaunchArgument();
+  NS_ENSURE_TRUE(maybeLaunchArg.isOk(), nullptr);
+  nsString launchArg = maybeLaunchArg.unwrap();
+
+  success =
+      SetAttribute(toastElement.Get(), HStringReference(L"launch"), launchArg);
+  NS_ENSURE_TRUE(success, nullptr);
 
   ComPtr<IXmlElement> actions;
   hr = toastXml->CreateElement(HStringReference(L"actions").Get(), &actions);
@@ -292,14 +354,14 @@ ComPtr<IXmlDocument> ToastNotificationHandler::CreateToastXmlDocument() {
     NS_ENSURE_SUCCESS(ns, nullptr);
 
     AddActionNode(toastXml.Get(), actionsNode.Get(), disableButtonTitle,
-                  u"snooze"_ns, u"contextmenu"_ns);
+                  launchArg, u"snooze"_ns, u"contextmenu"_ns);
   }
 
   nsAutoString settingsButtonTitle;
   bundle->GetStringFromName("webActions.settings.label", settingsButtonTitle);
   success =
       AddActionNode(toastXml.Get(), actionsNode.Get(), settingsButtonTitle,
-                    u"settings"_ns, u"contextmenu"_ns);
+                    launchArg, u"settings"_ns, u"contextmenu"_ns);
   NS_ENSURE_TRUE(success, nullptr);
 
   for (const auto& action : mActions) {
@@ -312,8 +374,8 @@ ComPtr<IXmlDocument> ToastNotificationHandler::CreateToastXmlDocument() {
     ns = action->GetAction(actionString);
     NS_ENSURE_SUCCESS(ns, nullptr);
 
-    success =
-        AddActionNode(toastXml.Get(), actionsNode.Get(), title, actionString);
+    success = AddActionNode(toastXml.Get(), actionsNode.Get(), title, launchArg,
+                            actionString);
     NS_ENSURE_TRUE(success, nullptr);
   }
 
@@ -409,18 +471,33 @@ bool ToastNotificationHandler::CreateWindowsNotificationFromXml(
       &mFailedToken);
   NS_ENSURE_TRUE(SUCCEEDED(hr), false);
 
+  ComPtr<IToastNotification2> notification2;
+  hr = mNotification.As(&notification2);
+
+  // Add tag, needed to check if toast is still present in the action center
+  // when we receive a dismiss timeout.
+  //
+  // Note that the Web Notifications API also exposes a "tag" element which can
+  // be used to override a current notification. This should be emulated at the
+  // DOM level as allowing webpages to overwrite Windows tags directly allows
+  // pages to override each other's notifications.
+  nsIDToCString uuidString(nsID::GenerateUUID());
+  size_t len = strlen(uuidString.get());
+  MOZ_ASSERT(len == NSID_LENGTH - 1);
+  nsAutoString tag;
+  CopyASCIItoUTF16(nsDependentCSubstring(uuidString.get(), len), tag);
+  HString hTag;
+  hTag.Set(tag.get());
+  notification2->put_Tag(hTag.Get());
+
   ComPtr<IToastNotificationManagerStatics> toastNotificationManagerStatics =
       GetToastNotificationManagerStatics();
   NS_ENSURE_TRUE(SUCCEEDED(hr), false);
 
-  nsAutoString uid;
-  if (NS_WARN_IF(!WinTaskbar::GetAppUserModelID(uid))) {
-    return false;
-  }
-
-  HSTRING uidStr =
-      HStringReference(static_cast<const wchar_t*>(uid.get())).Get();
-  hr = toastNotificationManagerStatics->CreateToastNotifierWithId(uidStr,
+  HString aumid;
+  hr = aumid.Set(mAumid.get());
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+  hr = toastNotificationManagerStatics->CreateToastNotifierWithId(aumid.Get(),
                                                                   &mNotifier);
   NS_ENSURE_TRUE(SUCCEEDED(hr), false);
 
@@ -446,7 +523,8 @@ HRESULT
 ToastNotificationHandler::OnActivate(IToastNotification* notification,
                                      IInspectable* inspectable) {
   if (mAlertListener) {
-    nsAutoString argString;
+    // Extract the `action` value from the argument string.
+    nsAutoString actionString;
     if (inspectable) {
       ComPtr<IToastActivatedEventArgs> eventArgs;
       HRESULT hr = inspectable->QueryInterface(
@@ -456,17 +534,36 @@ ToastNotificationHandler::OnActivate(IToastNotification* notification,
         hr = eventArgs->get_Arguments(arguments.GetAddressOf());
         if (SUCCEEDED(hr)) {
           uint32_t len = 0;
-          const wchar_t* buffer = arguments.GetRawBuffer(&len);
+          const char16_t* buffer = (char16_t*)arguments.GetRawBuffer(&len);
           if (buffer) {
-            argString.Assign(buffer, len);
+            // Toast arguments are a newline separated key/value combination of
+            // launch arguments and an optional action argument provided as an
+            // argument to the toast's constructor. After the `action` key is
+            // found, the remainder of toast argument (including newlines) is
+            // the `action` value.
+            Tokenizer16 parse(buffer);
+            nsDependentSubstring token;
+
+            while (parse.ReadUntil(Tokenizer16::Token::NewLine(), token)) {
+              if (token == u"action"_ns) {
+                Unused << parse.ReadUntil(Tokenizer16::Token::EndOfFile(),
+                                          actionString);
+              } else {
+                // Next line is a value in a key/value pair, skip.
+                parse.SkipUntil(Tokenizer16::Token::NewLine());
+              }
+              // Skip newline.
+              Tokenizer16::Token unused;
+              Unused << parse.Next(unused);
+            }
           }
         }
       }
     }
 
-    if (argString.EqualsLiteral("settings")) {
+    if (actionString.EqualsLiteral("settings")) {
       mAlertListener->Observe(nullptr, "alertsettingscallback", mCookie.get());
-    } else if (argString.EqualsLiteral("snooze")) {
+    } else if (actionString.EqualsLiteral("snooze")) {
       mAlertListener->Observe(nullptr, "alertdisablecallback", mCookie.get());
     } else if (mClickable) {
       // When clicking toast, focus moves to another process, but we want to set
@@ -493,9 +590,89 @@ ToastNotificationHandler::OnActivate(IToastNotification* notification,
   return S_OK;
 }
 
+// A single toast message can receive multiple dismiss events, at most one for
+// the popup and at most one for the action center. We can't simply count
+// dismiss events as the user may have disabled either popups or action center
+// notifications, therefore we have to check if the toast remains in the history
+// (action center) to determine if the toast is fully dismissed.
+static bool NotificationStillPresent(
+    ComPtr<IToastNotification>& current_notification, nsString& nsAumid) {
+  HRESULT hr = S_OK;
+
+  ComPtr<IToastNotification2> current_notification2;
+  hr = current_notification.As(&current_notification2);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+
+  HString current_id;
+  hr = current_notification2->get_Tag(current_id.GetAddressOf());
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+
+  ComPtr<IToastNotificationManagerStatics> manager =
+      GetToastNotificationManagerStatics();
+  if (!manager) {
+    return false;
+  }
+
+  ComPtr<IToastNotificationManagerStatics2> manager2;
+  hr = manager.As(&manager2);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+
+  ComPtr<IToastNotificationHistory> history;
+  hr = manager2->get_History(&history);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+  ComPtr<IToastNotificationHistory2> history2;
+  hr = history.As(&history2);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+
+  HString aumid;
+  hr = aumid.Set(nsAumid.get());
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+
+  ComPtr<IVectorView_ToastNotification> toasts;
+  hr = history2->GetHistoryWithId(aumid.Get(), &toasts);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+
+  unsigned int hist_size;
+  hr = toasts->get_Size(&hist_size);
+  NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+  for (unsigned int i = 0; i < hist_size; i++) {
+    ComPtr<IToastNotification> hist_toast;
+    hr = toasts->GetAt(i, &hist_toast);
+    if (NS_WARN_IF(FAILED(hr))) {
+      continue;
+    }
+
+    ComPtr<IToastNotification2> hist_toast2;
+    hr = hist_toast.As(&hist_toast2);
+    NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+
+    HString history_id;
+    hr = hist_toast2->get_Tag(history_id.GetAddressOf());
+    NS_ENSURE_TRUE(SUCCEEDED(hr), false);
+
+    // We can not directly compare IToastNotification objects; their IUnknown
+    // pointers should be equivalent but under inspection were not. Therefore we
+    // use the notification's tag instead.
+    if (current_id == history_id) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 HRESULT
 ToastNotificationHandler::OnDismiss(IToastNotification* notification,
                                     IToastDismissedEventArgs* aArgs) {
+  // AddRef as ComPtr doesn't own the object and shouldn't release.
+  notification->AddRef();
+  ComPtr<IToastNotification> comptrNotification(notification);
+  // Don't dismiss notifications when they are still in the action center. We
+  // can receive multiple dismiss events.
+  if (NotificationStillPresent(comptrNotification, mAumid)) {
+    return S_OK;
+  }
+
   SendFinished();
   mBackend->RemoveHandler(mName, this);
   return S_OK;

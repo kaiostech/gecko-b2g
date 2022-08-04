@@ -1380,6 +1380,12 @@
   value: 5000
   mirror: always
 
+# Number of seconds till the sponsored session is timeout.
+- name: browser.places.sponsoredSession.timeoutSecs
+  type: RelaxedAtomicUint32
+  value: 3600
+  mirror: always
+
 # Force usage of in-memory (rather than file on disk) media cache for video streaming when private browsing
 - name: browser.privatebrowsing.forceMediaMemoryCache
   type: bool
@@ -1471,7 +1477,11 @@
 # Platform collection of data for session store
 - name: browser.sessionstore.platform_collection
   type: bool
-  value: @IS_NOT_ANDROID@
+#if defined(ANDROID) || defined(MOZ_THUNDERBIRD)
+  value: false
+#else
+  value: true
+#endif
   mirror: once
 
 # Platform collection of session storage data for session store
@@ -1492,6 +1502,16 @@
 - name: browser.sessionstore.debug.no_auto_updates
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+#
+- name: browser.swipe.navigation-icon-move-distance
+  type: uint32_t
+#ifdef XP_WIN
+  value: 100
+#else
+  value: 0
+#endif
   mirror: always
 
 # Whether we should draw the tabs on top of the titlebar.
@@ -3723,7 +3743,7 @@
 
 - name: dom.select_events.textcontrols.selectstart.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: dom.separate_event_queue_for_post_message.enabled
@@ -5907,6 +5927,13 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+
+#ifdef MOZ_WIDGET_GTK
+-   name: gfx.font_rendering.fontconfig.max_generic_substitutions
+    type: RelaxedAtomicUint32
+    value: 3
+    mirror: always
+#endif
 
 #if defined(XP_WIN)
 # Whether the DirectWrite bold simulation should be used when a bold font-weight
@@ -13822,6 +13849,11 @@
 - name: webgl.enable-webgl2
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+- name: webgl.fake-verts.max
+  type: RelaxedAtomicUint32
+  value: 10*1000*1000  # 10M as vec4 is count*4*4 = 160MB
   mirror: always
 
 - name: webgl.force-enabled

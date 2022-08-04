@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>CSS Pseudo-Elements Test: highlight selectors getComputedStyle for currentcolor</title>
+<title>CSS Pseudo-Elements Test: implicit defaulting of ‘color’ in :root highlights</title>
 <link rel="help" href="https://drafts.csswg.org/css-pseudo/#highlight-selectors">
 <link rel="match" href="reference/highlight-pseudos-currentcolor-inheritance-computed-002-ref.html">
 <p>Pass if text below is green on lime, and the text itself represents green, not initial (black).</p>
@@ -9,7 +9,7 @@
 <style>
   main { color: green; }
   :root::selection { background-color: lime; }
-  :root::highlight(foo) { background-color: lime;}
+  :root::highlight(foo) { background-color: lime; }
 </style>
 <script>
   const [selection, highlight] = document.querySelectorAll("main");

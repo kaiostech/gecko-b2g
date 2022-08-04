@@ -1113,8 +1113,6 @@ pref("browser.sessionstore.upgradeBackup.maxUpgradeBackups", 3);
 pref("browser.sessionstore.debug", false);
 // Forget closed windows/tabs after two weeks
 pref("browser.sessionstore.cleanup.forget_closed_after", 1209600000);
-// Platform collects data for session store
-pref("browser.sessionstore.platform_collection", true);
 // Platform collects session storage data for session store
 pref("browser.sessionstore.collect_session_storage", true);
 
@@ -1482,7 +1480,7 @@ pref("services.sync.syncedTabs.showRemoteIcons", true);
 // A preference (in milliseconds) controlling if we sync after a tab change and
 // how long to delay before we schedule the sync
 // Anything <= 0 means disabled
-pref("services.sync.syncedTabs.syncDelayAfterTabChange", 0);
+pref("services.sync.syncedTabs.syncDelayAfterTabChange", 5000);
 
 // Whether the character encoding menu is under the main Firefox button. This
 // preference is a string so that localizers can alter it.
@@ -2290,20 +2288,15 @@ pref("devtools.toolbox.splitconsoleHeight", 100);
 pref("devtools.toolbox.tabsOrder", "");
 
 // The fission pref for enabling the "Multiprocess Browser Toolbox", which will
-// make it possible to debug anything in Firefox (See Bug 1570639 for more
-// information).
-#if defined(NIGHTLY_BUILD)
+// make it possible to debug anything in Firefox (See Bug 1570639 for more information).
 pref("devtools.browsertoolbox.fission", true);
-#else
-pref("devtools.browsertoolbox.fission", false);
-#endif
 
 // When the Multiprocess Browser Toolbox is enabled, you can configure the scope of it:
 // - "everything" will enable debugging absolutely everything in the browser
 //   All processes, all documents, all workers, all add-ons.
 // - "parent-process" will restrict debugging to the parent process
 //   All privileged javascript, documents and workers running in the parent process.
-pref("devtools.browsertoolbox.scope", "everything");
+pref("devtools.browsertoolbox.scope", "parent-process");
 
 // This preference will enable watching top-level targets from the server side.
 pref("devtools.target-switching.server.enabled", true);

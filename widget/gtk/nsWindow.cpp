@@ -4923,7 +4923,7 @@ void nsWindow::OnScaleChanged() {
   // produces flickering.
   // Re-enable compositor again when remote content is updated or
   // timeout happens.
-  PauseCompositor();
+  PauseCompositorFlickering();
 
   // Force scale factor recalculation
   mWindowScaleFactorChanged = true;
@@ -5322,19 +5322,12 @@ void nsWindow::ConfigureCompositor() {
       return;
     }
 
-    MOZ_DIAGNOSTIC_ASSERT(mCompositorState == COMPOSITOR_ENABLED);
-    MOZ_ASSERT(mCompositorWidgetDelegate);
-    mCompositorWidgetDelegate->EnableRendering(GetX11Window(),
-                                               GetShapedState());
+    // Compositor will be resumed later by ResumeCompositorFlickering().
+    if (mCompositorState == COMPOSITOR_PAUSED_FLICKERING) {
+      return;
+    }
 
-    // As WaylandStartVsync needs mCompositorWidgetDelegate this is the right
-    // time to start it.
-    WaylandStartVsync();
-
-    CompositorBridgeChild* remoteRenderer = GetRemoteRenderer();
-    MOZ_ASSERT(remoteRenderer);
-    remoteRenderer->SendResumeAsync();
-    remoteRenderer->SendForcePresent(wr::RenderReasons::WIDGET);
+    ResumeCompositorImpl();
   };
 
   if (GdkIsWaylandDisplay()) {
@@ -6101,12 +6094,6 @@ void nsWindow::NativeMoveResize(bool aMoved, bool aResized) {
   }
 }
 
-static int WindowResumeCompositor(void* data) {
-  nsWindow* window = static_cast<nsWindow*>(data);
-  window->ResumeCompositor();
-  return true;
-}
-
 // We pause compositor to avoid rendering of obsoleted remote content which
 // produces flickering.
 // Re-enable compositor again when remote content is updated or
@@ -6116,7 +6103,7 @@ static int WindowResumeCompositor(void* data) {
 // in milliseconds.
 #define COMPOSITOR_PAUSE_TIMEOUT (1000)
 
-void nsWindow::PauseCompositor() {
+void nsWindow::PauseCompositorFlickering() {
   bool pauseCompositor = (mWindowType == eWindowType_toplevel) &&
                          mCompositorState == COMPOSITOR_ENABLED &&
                          mCompositorWidgetDelegate && !mIsDestroyed;
@@ -6124,7 +6111,7 @@ void nsWindow::PauseCompositor() {
     return;
   }
 
-  LOG("nsWindow::PauseCompositor()");
+  LOG("nsWindow::PauseCompositorFlickering()");
 
   if (mCompositorPauseTimeoutID) {
     g_source_remove(mCompositorPauseTimeoutID);
@@ -6136,7 +6123,15 @@ void nsWindow::PauseCompositor() {
     remoteRenderer->SendPause();
     mCompositorState = COMPOSITOR_PAUSED_FLICKERING;
     mCompositorPauseTimeoutID = (int)g_timeout_add(
-        COMPOSITOR_PAUSE_TIMEOUT, &WindowResumeCompositor, this);
+        COMPOSITOR_PAUSE_TIMEOUT,
+        [](void* data) -> gint {
+          nsWindow* window = static_cast<nsWindow*>(data);
+          if (!window->IsDestroyed()) {
+            window->ResumeCompositorFlickering();
+          }
+          return true;
+        },
+        this);
   }
 }
 
@@ -6144,10 +6139,10 @@ bool nsWindow::IsWaitingForCompositorResume() {
   return mCompositorState == COMPOSITOR_PAUSED_FLICKERING;
 }
 
-void nsWindow::ResumeCompositor() {
+void nsWindow::ResumeCompositorFlickering() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
-  LOG("nsWindow::ResumeCompositor()\n");
+  LOG("nsWindow::ResumeCompositorFlickering()\n");
 
   if (mIsDestroyed || !IsWaitingForCompositorResume()) {
     LOG("  early quit\n");
@@ -6159,17 +6154,33 @@ void nsWindow::ResumeCompositor() {
     mCompositorPauseTimeoutID = 0;
   }
 
+  ResumeCompositorImpl();
+}
+
+void nsWindow::ResumeCompositorFromCompositorThread() {
+  nsCOMPtr<nsIRunnable> event =
+      NewRunnableMethod("nsWindow::ResumeCompositorFlickering", this,
+                        &nsWindow::ResumeCompositorFlickering);
+  NS_DispatchToMainThread(event.forget());
+}
+
+void nsWindow::ResumeCompositorImpl() {
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+
+  LOG("nsWindow::ResumeCompositorImpl()\n");
+
+  MOZ_DIAGNOSTIC_ASSERT(mCompositorWidgetDelegate);
+  mCompositorWidgetDelegate->EnableRendering(GetX11Window(), GetShapedState());
+
+  // As WaylandStartVsync needs mCompositorWidgetDelegate this is the right
+  // time to start it.
+  WaylandStartVsync();
+
   CompositorBridgeChild* remoteRenderer = GetRemoteRenderer();
   MOZ_RELEASE_ASSERT(remoteRenderer);
   remoteRenderer->SendResumeAsync();
   remoteRenderer->SendForcePresent(wr::RenderReasons::WIDGET);
   mCompositorState = COMPOSITOR_ENABLED;
-}
-
-void nsWindow::ResumeCompositorFromCompositorThread() {
-  nsCOMPtr<nsIRunnable> event = NewRunnableMethod(
-      "nsWindow::ResumeCompositor", this, &nsWindow::ResumeCompositor);
-  NS_DispatchToMainThread(event.forget());
 }
 
 void nsWindow::WaylandStartVsync() {

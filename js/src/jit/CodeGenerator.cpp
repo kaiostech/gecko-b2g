@@ -16253,8 +16253,8 @@ void CodeGenerator::visitGuardInt32IsNonNegative(
   bailoutCmp32(Assembler::LessThan, index, Imm32(0), lir->snapshot());
 }
 
-void CodeGenerator::visitGuardIndexGreaterThanDenseInitLength(
-    LGuardIndexGreaterThanDenseInitLength* lir) {
+void CodeGenerator::visitGuardIndexIsNotDenseElement(
+    LGuardIndexIsNotDenseElement* lir) {
   Register object = ToRegister(lir->object());
   Register index = ToRegister(lir->index());
   Register temp = ToRegister(lir->temp0());
@@ -16263,12 +16263,17 @@ void CodeGenerator::visitGuardIndexGreaterThanDenseInitLength(
   // Load obj->elements.
   masm.loadPtr(Address(object, NativeObject::offsetOfElements()), temp);
 
-  // Ensure index >= initLength.
-  Label outOfBounds;
+  // Ensure index >= initLength or the element is a hole.
+  Label notDense;
   Address capacity(temp, ObjectElements::offsetOfInitializedLength());
-  masm.spectreBoundsCheck32(index, capacity, spectreTemp, &outOfBounds);
+  masm.spectreBoundsCheck32(index, capacity, spectreTemp, &notDense);
+
+  BaseValueIndex element(temp, index);
+  masm.branchTestMagic(Assembler::Equal, element, &notDense);
+
   bailout(lir->snapshot());
-  masm.bind(&outOfBounds);
+
+  masm.bind(&notDense);
 }
 
 void CodeGenerator::visitGuardIndexIsValidUpdateOrAdd(
@@ -16310,7 +16315,7 @@ void CodeGenerator::visitCallAddOrUpdateSparseElement(
   pushArg(object);
 
   using Fn =
-      bool (*)(JSContext*, Handle<ArrayObject*>, int32_t, HandleValue, bool);
+      bool (*)(JSContext*, Handle<NativeObject*>, int32_t, HandleValue, bool);
   callVM<Fn, js::AddOrUpdateSparseElementHelper>(lir);
 }
 
@@ -16322,7 +16327,7 @@ void CodeGenerator::visitCallGetSparseElement(LCallGetSparseElement* lir) {
   pushArg(object);
 
   using Fn =
-      bool (*)(JSContext*, Handle<ArrayObject*>, int32_t, MutableHandleValue);
+      bool (*)(JSContext*, Handle<NativeObject*>, int32_t, MutableHandleValue);
   callVM<Fn, js::GetSparseElementHelper>(lir);
 }
 

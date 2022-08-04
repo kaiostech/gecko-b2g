@@ -20,6 +20,7 @@
 #include "mozilla/EnumSet.h"
 #include "mozilla/IntegerRange.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/Result.h"
 #include "mozilla/dom/AbstractRange.h"
 #include "mozilla/dom/AncestorIterator.h"
 #include "mozilla/dom/Element.h"
@@ -1950,6 +1951,19 @@ class HTMLEditUtils final {
       const Element& aEditingHost);
 
   /**
+   * ComputePointToPutCaretInElementIfOutside() returns a good point in aElement
+   * to put caret if aCurrentPoint is outside of aElement.
+   *
+   * @param aElement        The result is a point in aElement.
+   * @param aCurrentPoint   The current (candidate) caret point.  Only if this
+   *                        is outside aElement, returns a point in aElement.
+   */
+  template <typename EditorDOMPointType, typename EditorDOMPointTypeInput>
+  static Result<EditorDOMPointType, nsresult>
+  ComputePointToPutCaretInElementIfOutside(
+      const Element& aElement, const EditorDOMPointTypeInput& aCurrentPoint);
+
+  /**
    * Content-based query returns true if <aProperty aAttribute=aValue> effects
    * aNode.  If <aProperty aAttribute=aValue> contains aNode, but
    * <aProperty aAttribute=SomeOtherValue> also contains aNode and the second is
@@ -2182,32 +2196,7 @@ class MOZ_STACK_CLASS SelectedTableCellScanner final {
     }
   }
 
-  explicit SelectedTableCellScanner(const AutoRangeArray& aRanges) {
-    if (aRanges.Ranges().IsEmpty()) {
-      return;
-    }
-    Element* firstSelectedCellElement =
-        HTMLEditUtils::GetTableCellElementIfOnlyOneSelected(
-            aRanges.FirstRangeRef());
-    if (!firstSelectedCellElement) {
-      return;  // We're not in table cell selection mode.
-    }
-    mSelectedCellElements.SetCapacity(aRanges.Ranges().Length());
-    mSelectedCellElements.AppendElement(*firstSelectedCellElement);
-    for (uint32_t i = 1; i < aRanges.Ranges().Length(); i++) {
-      nsRange* range = aRanges.Ranges()[i];
-      if (NS_WARN_IF(!range) || NS_WARN_IF(!range->IsPositioned())) {
-        continue;  // Shouldn't occur in normal conditions.
-      }
-      // Just ignore selection ranges which do not select only one table
-      // cell element.  This is possible case if web apps sets multiple
-      // selections and first range selects a table cell element.
-      if (Element* selectedCellElement =
-              HTMLEditUtils::GetTableCellElementIfOnlyOneSelected(*range)) {
-        mSelectedCellElements.AppendElement(*selectedCellElement);
-      }
-    }
-  }
+  explicit SelectedTableCellScanner(const AutoRangeArray& aRanges);
 
   bool IsInTableCellSelectionMode() const {
     return !mSelectedCellElements.IsEmpty();

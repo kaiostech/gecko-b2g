@@ -9,6 +9,7 @@
 
 #include <new>
 #include <utility>
+#include <functional>
 #include "PLDHashTable.h"
 #include "ThebesRLBoxTypes.h"
 #include "gfxFontVariations.h"
@@ -392,7 +393,7 @@ class gfxFontCache final
   // This gets called when the timeout has expired on a single-refcount
   // font; we just delete it.
   void NotifyExpiredLocked(gfxFont* aFont, const AutoLock&)
-      REQUIRES(mMutex) override;
+      MOZ_REQUIRES(mMutex) override;
   void NotifyHandlerEnd() override;
 
   void DestroyDiscard(nsTArray<RefPtr<gfxFont>>& aDiscard);
@@ -440,13 +441,13 @@ class gfxFontCache final
     RefPtr<gfxFont> mFont;
   };
 
-  nsTHashtable<HashEntry> mFonts GUARDED_BY(mMutex);
+  nsTHashtable<HashEntry> mFonts MOZ_GUARDED_BY(mMutex);
 
-  nsTArray<RefPtr<gfxFont>> mTrackerDiscard GUARDED_BY(mMutex);
+  nsTArray<RefPtr<gfxFont>> mTrackerDiscard MOZ_GUARDED_BY(mMutex);
 
   static void WordCacheExpirationTimerCallback(nsITimer* aTimer, void* aCache);
 
-  nsCOMPtr<nsITimer> mWordCacheExpirationTimer GUARDED_BY(mMutex);
+  nsCOMPtr<nsITimer> mWordCacheExpirationTimer MOZ_GUARDED_BY(mMutex);
   std::atomic<bool> mTimerRunning = false;
 };
 
@@ -1803,16 +1804,12 @@ class gfxFont {
                            nsAtom* aLanguage,
                            mozilla::gfx::ShapedTextFlags aOrientation);
 
-  // Get a ShapedWord representing the given text (either 8- or 16-bit)
-  // for use in setting up a gfxTextRun.
-  template <typename T>
-  gfxShapedWord* GetShapedWord(DrawTarget* aDrawTarget, const T* aText,
-                               uint32_t aLength, uint32_t aHash,
-                               Script aRunScript, nsAtom* aLanguage,
-                               bool aVertical, int32_t aAppUnitsPerDevUnit,
-                               mozilla::gfx::ShapedTextFlags aFlags,
-                               RoundingFlags aRounding,
-                               gfxTextPerfMetrics* aTextPerf);
+  // Get a ShapedWord representing a single space for use in setting up a
+  // gfxTextRun.
+  bool ProcessSingleSpaceShapedWord(
+      DrawTarget* aDrawTarget, bool aVertical, int32_t aAppUnitsPerDevUnit,
+      mozilla::gfx::ShapedTextFlags aFlags, RoundingFlags aRounding,
+      const std::function<void(gfxShapedWord*)>& aCallback);
 
   // Called by the gfxFontCache timer to increment the age of all the words,
   // so that they'll expire after a sufficient period of non-use.
@@ -1826,7 +1823,7 @@ class gfxFont {
       ClearCachedWordsLocked();
     }
   }
-  void ClearCachedWordsLocked() REQUIRES(mLock) {
+  void ClearCachedWordsLocked() MOZ_REQUIRES(mLock) {
     MOZ_ASSERT(mWordCache);
     mWordCache->Clear();
   }
@@ -2049,6 +2046,17 @@ class gfxFont {
 
   void CheckForFeaturesInvolvingSpace() const;
 
+  // Get a ShapedWord representing the given text (either 8- or 16-bit)
+  // for use in setting up a gfxTextRun.
+  template <typename T, typename Func>
+  bool ProcessShapedWordInternal(DrawTarget* aDrawTarget, const T* aText,
+                                 uint32_t aLength, uint32_t aHash,
+                                 Script aRunScript, nsAtom* aLanguage,
+                                 bool aVertical, int32_t aAppUnitsPerDevUnit,
+                                 mozilla::gfx::ShapedTextFlags aFlags,
+                                 RoundingFlags aRounding,
+                                 gfxTextPerfMetrics* aTextPerf, Func aCallback);
+
   // whether a given feature is included in feature settings from both the
   // font and the style. aFeatureOn set if resolved feature value is non-zero
   bool HasFeatureSet(uint32_t aFeature, bool& aFeatureOn);
@@ -2145,14 +2153,15 @@ class gfxFont {
     mozilla::UniquePtr<gfxShapedWord> mShapedWord;
   };
 
-  mozilla::UniquePtr<nsTHashtable<CacheHashEntry>> mWordCache GUARDED_BY(mLock);
+  mozilla::UniquePtr<nsTHashtable<CacheHashEntry>> mWordCache
+      MOZ_GUARDED_BY(mLock);
 
   static const uint32_t kShapedWordCacheMaxAge = 3;
 
   nsTArray<mozilla::UniquePtr<gfxGlyphExtents>> mGlyphExtentsArray
-      GUARDED_BY(mLock);
+      MOZ_GUARDED_BY(mLock);
   mozilla::UniquePtr<nsTHashSet<GlyphChangeObserver*>> mGlyphChangeObservers
-      GUARDED_BY(mLock);
+      MOZ_GUARDED_BY(mLock);
 
   // a copy of the font without antialiasing, if needed for separate
   // measurement by mathml code

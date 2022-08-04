@@ -2544,17 +2544,22 @@ AttachDecision GetPropIRGenerator::tryAttachSparseElement(
   NativeObject* nobj = &obj->as<NativeObject>();
 
   // Stub doesn't handle negative indices.
-  if (index > INT_MAX) {
+  if (index > INT32_MAX) {
     return AttachDecision::NoAction;
   }
 
-  // We also need to be past the end of the dense capacity, to ensure sparse.
-  if (index < nobj->getDenseInitializedLength()) {
+  // The object must have sparse elements.
+  if (!nobj->isIndexed()) {
     return AttachDecision::NoAction;
   }
 
-  // Only handle Array objects in this stub.
-  if (!nobj->is<ArrayObject>()) {
+  // The index must not be for a dense element.
+  if (nobj->containsDenseElement(index)) {
+    return AttachDecision::NoAction;
+  }
+
+  // Only handle ArrayObject and PlainObject in this stub.
+  if (!nobj->is<ArrayObject>() && !nobj->is<PlainObject>()) {
     return AttachDecision::NoAction;
   }
 
@@ -2571,11 +2576,16 @@ AttachDecision GetPropIRGenerator::tryAttachSparseElement(
     return AttachDecision::NoAction;
   }
 
-  // Ensure that obj is an Array.
-  writer.guardClass(objId, GuardClassKind::Array);
+  // Ensure that obj is an ArrayObject or PlainObject.
+  if (nobj->is<ArrayObject>()) {
+    writer.guardClass(objId, GuardClassKind::Array);
+  } else {
+    MOZ_ASSERT(nobj->is<PlainObject>());
+    writer.guardClass(objId, GuardClassKind::PlainObject);
+  }
 
   // The helper we are going to call only applies to non-dense elements.
-  writer.guardIndexGreaterThanDenseInitLength(objId, indexId);
+  writer.guardIndexIsNotDenseElement(objId, indexId);
 
   // Ensures we are able to efficiently able to map to an integral jsid.
   writer.guardInt32IsNonNegative(indexId);
@@ -2669,7 +2679,7 @@ AttachDecision GetPropIRGenerator::tryAttachGenericElement(
     NativeObject* nobj = &obj->as<NativeObject>();
     TestMatchingNativeReceiver(writer, nobj, objId);
   }
-  writer.guardIndexGreaterThanDenseInitLength(objId, indexId);
+  writer.guardIndexIsNotDenseElement(objId, indexId);
   writer.callNativeGetElementResult(objId, indexId);
   writer.returnFromIC();
 
@@ -4227,7 +4237,7 @@ AttachDecision SetPropIRGenerator::tryAttachSetDenseElementHole(
   return AttachDecision::Attach;
 }
 
-// Add an IC for adding or updating a sparse array element.
+// Add an IC for adding or updating a sparse element.
 AttachDecision SetPropIRGenerator::tryAttachAddOrUpdateSparseElement(
     HandleObject obj, ObjOperandId objId, uint32_t index,
     Int32OperandId indexId, ValOperandId rhsId) {
@@ -4249,39 +4259,46 @@ AttachDecision SetPropIRGenerator::tryAttachAddOrUpdateSparseElement(
   }
 
   // Stub doesn't handle negative indices.
-  if (index > INT_MAX) {
+  if (index > INT32_MAX) {
     return AttachDecision::NoAction;
   }
 
-  // We also need to be past the end of the dense capacity, to ensure sparse.
-  if (index < nobj->getDenseInitializedLength()) {
+  // The index must not be for a dense element.
+  if (nobj->containsDenseElement(index)) {
     return AttachDecision::NoAction;
   }
 
-  // Only handle Array objects in this stub.
-  if (!nobj->is<ArrayObject>()) {
+  // Only handle ArrayObject and PlainObject in this stub.
+  if (!nobj->is<ArrayObject>() && !nobj->is<PlainObject>()) {
     return AttachDecision::NoAction;
   }
-  ArrayObject* aobj = &nobj->as<ArrayObject>();
 
   // Don't attach if we're adding to an array with non-writable length.
-  bool isAdd = (index >= aobj->length());
-  if (isAdd && !aobj->lengthIsWritable()) {
-    return AttachDecision::NoAction;
+  if (nobj->is<ArrayObject>()) {
+    ArrayObject* aobj = &nobj->as<ArrayObject>();
+    bool isAdd = (index >= aobj->length());
+    if (isAdd && !aobj->lengthIsWritable()) {
+      return AttachDecision::NoAction;
+    }
   }
 
   // Check for class hooks or indexed properties on the prototype chain that
   // we're not allowed to shadow.
-  if (!CanAttachAddElement(aobj, /* isInit = */ false,
+  if (!CanAttachAddElement(nobj, /* isInit = */ false,
                            AllowIndexedReceiver::Yes)) {
     return AttachDecision::NoAction;
   }
 
-  // Ensure we are still talking about an array class.
-  writer.guardClass(objId, GuardClassKind::Array);
+  // Ensure that obj is an ArrayObject or PlainObject.
+  if (nobj->is<ArrayObject>()) {
+    writer.guardClass(objId, GuardClassKind::Array);
+  } else {
+    MOZ_ASSERT(nobj->is<PlainObject>());
+    writer.guardClass(objId, GuardClassKind::PlainObject);
+  }
 
   // The helper we are going to call only applies to non-dense elements.
-  writer.guardIndexGreaterThanDenseInitLength(objId, indexId);
+  writer.guardIndexIsNotDenseElement(objId, indexId);
 
   // Guard extensible: We may be trying to add a new element, and so we'd best
   // be able to do so safely.
@@ -4293,19 +4310,21 @@ AttachDecision SetPropIRGenerator::tryAttachAddOrUpdateSparseElement(
   // Shape guard the prototype chain to avoid shadowing indexes from appearing.
   // Guard the prototype of the receiver explicitly, because the receiver's
   // shape is not being guarded as a proxy for that.
-  GuardReceiverProto(writer, aobj, objId);
+  GuardReceiverProto(writer, nobj, objId);
 
   // Dense elements may appear on the prototype chain (and prototypes may
   // have a different notion of which elements are dense), but they can
   // only be data properties, so our specialized Set handler is ok to bind
   // to them.
   if (IsPropertySetOp(op)) {
-    ShapeGuardProtoChain(writer, aobj, objId);
+    ShapeGuardProtoChain(writer, nobj, objId);
   }
 
   // Ensure that if we're adding an element to the object, the object's
   // length is writable.
-  writer.guardIndexIsValidUpdateOrAdd(objId, indexId);
+  if (nobj->is<ArrayObject>()) {
+    writer.guardIndexIsValidUpdateOrAdd(objId, indexId);
+  }
 
   writer.callAddOrUpdateSparseElementHelper(
       objId, indexId, rhsId,
@@ -10087,6 +10106,7 @@ AttachDecision CallIRGenerator::tryAttachStub() {
     case JSOp::CallContent:
     case JSOp::CallIgnoresRv:
     case JSOp::CallIter:
+    case JSOp::CallContentIter:
     case JSOp::SpreadCall:
     case JSOp::New:
     case JSOp::NewContent:

@@ -286,7 +286,7 @@ MobileSignalStrength.prototype = {
       ss.lteRsrq >= 3 && ss.lteRsrq <= 20 ? -ss.lteRsrq : SIGNAL_UNKNOWN_VALUE;
     ss.lteRssnr =
       ss.lteRssnr >= -200 && ss.lteRssnr <= 300
-        ? -ss.lteRssnr
+        ? ss.lteRssnr
         : SIGNAL_UNKNOWN_VALUE;
 
     ss.tdscdmaRscp =

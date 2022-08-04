@@ -17,10 +17,6 @@ export MOZILLA_OFFICIAL=1
 # TODO: Will enable sandbox once Bug-83319 has been fixed.
 ac_add_options --disable-sandbox
 
-ac_add_options --enable-wasm-simd
-ac_add_options --enable-wasm-function-references
-ac_add_options --enable-wasm-type-reflections
-
 # Disable until we figure CI issues
 # ac_add_options --enable-clang-plugin
 

@@ -147,10 +147,6 @@ fi
 # configure just checks the file exists, and we don't use it afterwards...
 ac_add_options --with-android-lldb-server=$HOME/.mozbuild/clang/bin/clang
 
-# All the nice wasm things.
-ac_add_options --enable-wasm-function-references
-ac_add_options --enable-wasm-type-reflections
-
 if [ -n "$MOZ_SAFE_BROWSING" ]; then
   ac_add_options --enable-safebrowsing
 fi

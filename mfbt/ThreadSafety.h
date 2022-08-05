@@ -19,11 +19,7 @@
 // analysis tools to identify potential thread safety issues.
 
 #ifndef mozilla_ThreadSafety_h
-
-// Workaround redifinition of CAPABILITY in Gonk unified builds.
-#if !defined(MOZ_WIDGET_GONK)
 #define mozilla_ThreadSafety_h
-#endif
 
 #include "mozilla/Attributes.h"
 

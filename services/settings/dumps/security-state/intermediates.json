@@ -1,6 +1,204 @@
 {
   "data": [
     {
+      "schema": 1659746933206,
+      "derHash": "t2ovsWJyFiIq+ksCXPTaey5Oyh7HvPdcXH8E+gnIJjo=",
+      "subject": "CN=TrustOcean SSL CA - ECC - 2018,OU=ECC Domain Validation Secure Server - 2018,O=TrustOcean Ltd.,L=Denver,ST=CO,C=US",
+      "subjectDN": "MIGjMQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ08xDzANBgNVBAcTBkRlbnZlcjEYMBYGA1UEChMPVHJ1c3RPY2VhbiBMdGQuMTMwMQYDVQQLEypFQ0MgRG9tYWluIFZhbGlkYXRpb24gU2VjdXJlIFNlcnZlciAtIDIwMTgxJzAlBgNVBAMTHlRydXN0T2NlYW4gU1NMIENBIC0gRUNDIC0gMjAxOA==",
+      "whitelist": false,
+      "attachment": {
+        "hash": "8563213d0beedc0bfe2aeaf6eea186a61ed41cc23c14a763c1ba2c84517a3a00",
+        "size": 1362,
+        "filename": "PKd-ld-FuxfPZ5wgPJhWwsUah7IUyvrd0dVMuPAcCHw=.pem",
+        "location": "security-state-staging/intermediates/dcc8872f-13cc-416b-b26c-72c8733ead48.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "PKd+ld+FuxfPZ5wgPJhWwsUah7IUyvrd0dVMuPAcCHw=",
+      "crlite_enrolled": false,
+      "id": "90f1d6dd-0284-4beb-9154-f681754b0384",
+      "last_modified": 1659747423216
+    },
+    {
+      "schema": 1659704223603,
+      "derHash": "O/fPS2GSO651p8JX9VBwAD7Pcn4c2mufy4VR/GSdb+s=",
+      "subject": "CN=GlobeSSL DV Certification Authority 2,O=Globe Hosting\\, Inc.,L=Wilmington,ST=DE,C=US",
+      "subjectDN": "MH0xCzAJBgNVBAYTAlVTMQswCQYDVQQIEwJERTETMBEGA1UEBxMKV2lsbWluZ3RvbjEcMBoGA1UEChMTR2xvYmUgSG9zdGluZywgSW5jLjEuMCwGA1UEAxMlR2xvYmVTU0wgRFYgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkgMg==",
+      "whitelist": false,
+      "attachment": {
+        "hash": "c70f8758f89a5a215393c93d186b22f43da0b0f148d6226d96c339271c9d9ad6",
+        "size": 2150,
+        "filename": "lQ_FKBR5nsUo6XzQqIOg6_wickZMgocia2x_uINY_uw=.pem",
+        "location": "security-state-staging/intermediates/70120228-d3eb-46ce-8660-044d1c900414.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "lQ/FKBR5nsUo6XzQqIOg6/wickZMgocia2x/uINY/uw=",
+      "crlite_enrolled": false,
+      "id": "78baa603-1046-4055-bcea-dbb019a819d2",
+      "last_modified": 1659747423205
+    },
+    {
+      "schema": 1659703716627,
+      "derHash": "lErOlh2zFr62lOAcMCxG/tQNwCkXKefa9YVQw8tV55E=",
+      "subject": "CN=Telekom Security ServerID OV Class 2 CA,O=Deutsche Telekom Security GmbH,C=DE",
+      "subjectDN": "MGgxCzAJBgNVBAYTAkRFMScwJQYDVQQKDB5EZXV0c2NoZSBUZWxla29tIFNlY3VyaXR5IEdtYkgxMDAuBgNVBAMMJ1RlbGVrb20gU2VjdXJpdHkgU2VydmVySUQgT1YgQ2xhc3MgMiBDQQ==",
+      "whitelist": false,
+      "attachment": {
+        "hash": "70e43ea614f84f9dd411477e4adbb898f90e8e0efdcc88f3ee5de240120b1eb1",
+        "size": 1951,
+        "filename": "9K4RwKQgzd-IOm-vvVnHkFwvlV12A4LOuuuJ7_2Wo8Q=.pem",
+        "location": "security-state-staging/intermediates/1dc83dc9-3eb5-4f1a-b57c-b793fc38ab0c.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "9K4RwKQgzd+IOm+vvVnHkFwvlV12A4LOuuuJ7/2Wo8Q=",
+      "crlite_enrolled": false,
+      "id": "3f08d71a-ac2c-4364-8649-54709b155eac",
+      "last_modified": 1659704223146
+    },
+    {
+      "schema": 1659703717516,
+      "derHash": "UJLODj9w8v2VYcNGI7VG99Mz7xtjPBR9EpDijemGojA=",
+      "subject": "CN=Telekom Security ServerID EV Class 3 CA,O=Deutsche Telekom Security GmbH,C=DE",
+      "subjectDN": "MGgxCzAJBgNVBAYTAkRFMScwJQYDVQQKDB5EZXV0c2NoZSBUZWxla29tIFNlY3VyaXR5IEdtYkgxMDAuBgNVBAMMJ1RlbGVrb20gU2VjdXJpdHkgU2VydmVySUQgRVYgQ2xhc3MgMyBDQQ==",
+      "whitelist": false,
+      "attachment": {
+        "hash": "fb69758c6600c18b5dba70d05af48463d183d2ff66177c5cb5efddd3218e1ceb",
+        "size": 1967,
+        "filename": "sLVgLe1nM8JMIbUmVZO-i7BiMeC6eHi-ezBmAduziBM=.pem",
+        "location": "security-state-staging/intermediates/9ed8c27e-49e6-46f7-af3c-ffa5f93479b6.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "sLVgLe1nM8JMIbUmVZO+i7BiMeC6eHi+ezBmAduziBM=",
+      "crlite_enrolled": false,
+      "id": "6444a572-8d81-4739-990d-40d7f53f47be",
+      "last_modified": 1659704223139
+    },
+    {
+      "schema": 1659617319739,
+      "derHash": "r9ep9iQLEcBtD2ck1E9FTg1eMX1cz/a4GNVyRO7VoZk=",
+      "subject": "CN=Positiwise OV SSL CA,O=Positiwise Software LLC,C=US",
+      "subjectDN": "ME4xCzAJBgNVBAYTAlVTMSAwHgYDVQQKExdQb3NpdGl3aXNlIFNvZnR3YXJlIExMQzEdMBsGA1UEAxMUUG9zaXRpd2lzZSBPViBTU0wgQ0E=",
+      "whitelist": false,
+      "attachment": {
+        "hash": "c4ec2c1e05e468d6247f1f67567d5c1437ff5797ef9506b388ab557499e416a8",
+        "size": 2251,
+        "filename": "_HOHQG8BYGtjcdTsmB0eQrdSw2NwbRkfzyQF2M0b_co=.pem",
+        "location": "security-state-staging/intermediates/fdc0d0de-779e-4ed4-b480-e0927eac2eeb.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "/HOHQG8BYGtjcdTsmB0eQrdSw2NwbRkfzyQF2M0b/co=",
+      "crlite_enrolled": false,
+      "id": "3f9817fc-bac5-4bf3-a8af-6ad620556e43",
+      "last_modified": 1659617823015
+    },
+    {
+      "schema": 1659617320606,
+      "derHash": "/KxiTWGykzp25Lg+/b6Wo+pdrdA9DJp00TR+HSMN5N4=",
+      "subject": "CN=Positiwise EV SSL CA,O=Positiwise Software LLC,C=US",
+      "subjectDN": "ME4xCzAJBgNVBAYTAlVTMSAwHgYDVQQKExdQb3NpdGl3aXNlIFNvZnR3YXJlIExMQzEdMBsGA1UEAxMUUG9zaXRpd2lzZSBFViBTU0wgQ0E=",
+      "whitelist": false,
+      "attachment": {
+        "hash": "f624afa22b06c6e84dcd89da70c4128623b5ae1b3a44a09b3ec39c1e56db733b",
+        "size": 2243,
+        "filename": "emmcOPyAVo6LIPla_I-MPpiNAvseJXgTSOudm_tynlM=.pem",
+        "location": "security-state-staging/intermediates/bcee9cca-570b-48b8-a0cb-105ebc1e26cd.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "emmcOPyAVo6LIPla/I+MPpiNAvseJXgTSOudm/tynlM=",
+      "crlite_enrolled": false,
+      "id": "bf92d805-ec1a-498e-8a47-5f30fe40dfe6",
+      "last_modified": 1659617823008
+    },
+    {
+      "schema": 1659617321409,
+      "derHash": "7DlNop/WInbPhhTBCN6hJPJ9RZ0zL7yp3SyFtePNpc8=",
+      "subject": "CN=Positiwise DV SSL CA,O=Positiwise Software LLC,C=US",
+      "subjectDN": "ME4xCzAJBgNVBAYTAlVTMSAwHgYDVQQKExdQb3NpdGl3aXNlIFNvZnR3YXJlIExMQzEdMBsGA1UEAxMUUG9zaXRpd2lzZSBEViBTU0wgQ0E=",
+      "whitelist": false,
+      "attachment": {
+        "hash": "3e0549b00df190225f3368aa91834ebe8ce10a9d5043f98e29ad33e50c769b9d",
+        "size": 2251,
+        "filename": "wxLKruYttl1r1VfuyraoK42ynOZh5C-0gVygSGGIipQ=.pem",
+        "location": "security-state-staging/intermediates/eec72944-f23d-4fd7-af54-2e8bef884ac3.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "wxLKruYttl1r1VfuyraoK42ynOZh5C+0gVygSGGIipQ=",
+      "crlite_enrolled": false,
+      "id": "37a41017-a262-4ab3-83bb-7c484c39226e",
+      "last_modified": 1659617823001
+    },
+    {
+      "schema": 1659487717052,
+      "derHash": "M4RrVFpJyb5JA8YOAXE8G9Tk7zHqZc2V1p5ieU8wuUE=",
+      "subject": "CN=DigiCert Trusted Root G4,OU=www.digicert.com,O=DigiCert Inc,C=US",
+      "subjectDN": "MGIxCzAJBgNVBAYTAlVTMRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5jb20xITAfBgNVBAMTGERpZ2lDZXJ0IFRydXN0ZWQgUm9vdCBHNA==",
+      "whitelist": false,
+      "attachment": {
+        "hash": "d320aaa4e99e185779fe19dba121e5ee319db377b0c6a3aa6f3f3970db6f8b7e",
+        "size": 1983,
+        "filename": "Wd8xe_qfTwq3ylFNd3IpaqLHZbh2ZNCLluVzmeNkcpw=.pem",
+        "location": "security-state-staging/intermediates/66893dc7-1be7-433a-8144-0eae9b9d0e63.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "Wd8xe/qfTwq3ylFNd3IpaqLHZbh2ZNCLluVzmeNkcpw=",
+      "crlite_enrolled": false,
+      "id": "b2b75b02-f724-47d0-b1fb-6d20723bca10",
+      "last_modified": 1659488223102
+    },
+    {
+      "schema": 1659487717752,
+      "derHash": "vmoNnh0RXyKT9qvxGz7I6ILiRCbu6wmqpQNZeZPneiU=",
+      "subject": "CN=TERENA SSL High Assurance CA 3,O=TERENA,L=Amsterdam,ST=Noord-Holland,C=NL",
+      "subjectDN": "MHMxCzAJBgNVBAYTAk5MMRYwFAYDVQQIEw1Ob29yZC1Ib2xsYW5kMRIwEAYDVQQHEwlBbXN0ZXJkYW0xDzANBgNVBAoTBlRFUkVOQTEnMCUGA1UEAxMeVEVSRU5BIFNTTCBIaWdoIEFzc3VyYW5jZSBDQSAz",
+      "whitelist": false,
+      "attachment": {
+        "hash": "effd0b7540a7b55bbbeb9e6a80bcdbd3b388bcd57d806539c76f81519c9d7595",
+        "size": 1752,
+        "filename": "XaQOs7GKv4Gx4JRA8ZmihabSl9wxIPx-hQBmJ54WmCs=.pem",
+        "location": "security-state-staging/intermediates/1bbb351c-9d45-49c1-b318-f589af9d1196.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "XaQOs7GKv4Gx4JRA8ZmihabSl9wxIPx+hQBmJ54WmCs=",
+      "crlite_enrolled": false,
+      "id": "181cc0ed-5e29-45f4-8d8a-642c6de7cd5e",
+      "last_modified": 1659488223090
+    },
+    {
+      "schema": 1659444515401,
+      "derHash": "5TppGT4i+uzIM/gGMb4V4CCgTCC7Z5/TUfDLlcAInlA=",
+      "subject": "CN=ANTIC DV CA,O=National Agency for Information and Communication Technologies,C=CM",
+      "subjectDN": "MGwxCzAJBgNVBAYTAkNNMUcwRQYDVQQKDD5OYXRpb25hbCBBZ2VuY3kgZm9yIEluZm9ybWF0aW9uIGFuZCBDb21tdW5pY2F0aW9uIFRlY2hub2xvZ2llczEUMBIGA1UEAwwLQU5USUMgRFYgQ0E=",
+      "whitelist": false,
+      "attachment": {
+        "hash": "836f3dfa4b79f6d065ef8167ee20614b60b2ebb956ddf14a551c18ba0eb30810",
+        "size": 1764,
+        "filename": "jbDVk1kQG6bLQ7ol0O08PnkeGy7Pjaz1Ez2qS_o__y0=.pem",
+        "location": "security-state-staging/intermediates/f422ae01-c4b2-4515-8808-5926402ec56a.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "jbDVk1kQG6bLQ7ol0O08PnkeGy7Pjaz1Ez2qS/o//y0=",
+      "crlite_enrolled": false,
+      "id": "e5e8a7bc-69f8-4b24-b673-017f81218771",
+      "last_modified": 1659445023122
+    },
+    {
+      "schema": 1659358623486,
+      "derHash": "lzpBJ2/9AeAnoqrUnjTDeEbT6Xb/amILZxLjODIEGqY=",
+      "subject": "CN=Go Daddy Secure Certificate Authority - G2,OU=http://certs.godaddy.com/repository/,O=GoDaddy.com\\, Inc.,L=Scottsdale,ST=Arizona,C=US",
+      "subjectDN": "MIG0MQswCQYDVQQGEwJVUzEQMA4GA1UECBMHQXJpem9uYTETMBEGA1UEBxMKU2NvdHRzZGFsZTEaMBgGA1UEChMRR29EYWRkeS5jb20sIEluYy4xLTArBgNVBAsTJGh0dHA6Ly9jZXJ0cy5nb2RhZGR5LmNvbS9yZXBvc2l0b3J5LzEzMDEGA1UEAxMqR28gRGFkZHkgU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcy",
+      "whitelist": false,
+      "attachment": {
+        "hash": "a111efc20329e87b541cfc3e7f526fc54bb24624fddf210f4347b9fadfb1ab6b",
+        "size": 1727,
+        "filename": "8Rw90Ej3Ttt8RRkrg-WYDS9n7IS03bk5bjP_UXPtaY8=.pem",
+        "location": "security-state-staging/intermediates/a2a04dfe-6201-4d0a-b8cf-80d2975bfb51.pem",
+        "mimetype": "application/x-pem-file"
+      },
+      "pubKeyHash": "8Rw90Ej3Ttt8RRkrg+WYDS9n7IS03bk5bjP/UXPtaY8=",
+      "crlite_enrolled": false,
+      "id": "549c92e2-3738-4c8c-ae37-407e4e6158ce",
+      "last_modified": 1659380223084
+    },
+    {
       "schema": 1659337023517,
       "derHash": "eGeq6QXrjVVjX/67v4zwWmO5s5BmXeI2esEHPpKRNyg=",
       "subject": "CN=Thawte CN RSA CA G1,OU=www.digicert.com,O=DigiCert Inc,C=US",
@@ -2339,24 +2537,6 @@
       "crlite_enrolled": false,
       "id": "ef25e7fa-720b-412c-bf83-aba79dc2aa8e",
       "last_modified": 1656593823398
-    },
-    {
-      "schema": 1656464223718,
-      "derHash": "lzpBJ2/9AeAnoqrUnjTDeEbT6Xb/amILZxLjODIEGqY=",
-      "subject": "CN=Go Daddy Secure Certificate Authority - G2,OU=http://certs.godaddy.com/repository/,O=GoDaddy.com\\, Inc.,L=Scottsdale,ST=Arizona,C=US",
-      "subjectDN": "MIG0MQswCQYDVQQGEwJVUzEQMA4GA1UECBMHQXJpem9uYTETMBEGA1UEBxMKU2NvdHRzZGFsZTEaMBgGA1UEChMRR29EYWRkeS5jb20sIEluYy4xLTArBgNVBAsTJGh0dHA6Ly9jZXJ0cy5nb2RhZGR5LmNvbS9yZXBvc2l0b3J5LzEzMDEGA1UEAxMqR28gRGFkZHkgU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcy",
-      "whitelist": false,
-      "attachment": {
-        "hash": "a111efc20329e87b541cfc3e7f526fc54bb24624fddf210f4347b9fadfb1ab6b",
-        "size": 1727,
-        "filename": "8Rw90Ej3Ttt8RRkrg-WYDS9n7IS03bk5bjP_UXPtaY8=.pem",
-        "location": "security-state-staging/intermediates/a2a04dfe-6201-4d0a-b8cf-80d2975bfb51.pem",
-        "mimetype": "application/x-pem-file"
-      },
-      "pubKeyHash": "8Rw90Ej3Ttt8RRkrg+WYDS9n7IS03bk5bjP/UXPtaY8=",
-      "crlite_enrolled": true,
-      "id": "549c92e2-3738-4c8c-ae37-407e4e6158ce",
-      "last_modified": 1656485823136
     },
     {
       "schema": 1656463729081,
@@ -13321,24 +13501,6 @@
       "last_modified": 1641481037105
     },
     {
-      "schema": 1641477716589,
-      "derHash": "vmoNnh0RXyKT9qvxGz7I6ILiRCbu6wmqpQNZeZPneiU=",
-      "subject": "CN=TERENA SSL High Assurance CA 3,O=TERENA,L=Amsterdam,ST=Noord-Holland,C=NL",
-      "subjectDN": "MHMxCzAJBgNVBAYTAk5MMRYwFAYDVQQIEw1Ob29yZC1Ib2xsYW5kMRIwEAYDVQQHEwlBbXN0ZXJkYW0xDzANBgNVBAoTBlRFUkVOQTEnMCUGA1UEAxMeVEVSRU5BIFNTTCBIaWdoIEFzc3VyYW5jZSBDQSAz",
-      "whitelist": false,
-      "attachment": {
-        "hash": "effd0b7540a7b55bbbeb9e6a80bcdbd3b388bcd57d806539c76f81519c9d7595",
-        "size": 1752,
-        "filename": "XaQOs7GKv4Gx4JRA8ZmihabSl9wxIPx-hQBmJ54WmCs=.pem",
-        "location": "security-state-staging/intermediates/1bbb351c-9d45-49c1-b318-f589af9d1196.pem",
-        "mimetype": "application/x-pem-file"
-      },
-      "pubKeyHash": "XaQOs7GKv4Gx4JRA8ZmihabSl9wxIPx+hQBmJ54WmCs=",
-      "crlite_enrolled": true,
-      "id": "181cc0ed-5e29-45f4-8d8a-642c6de7cd5e",
-      "last_modified": 1641481037085
-    },
-    {
       "schema": 1641477715075,
       "derHash": "GUAL5bejH7czkXcAeJ0vCiRxwMnVBsDlBMBsFtfLF8A=",
       "subject": "CN=DigiCert SHA2 High Assurance Server CA,OU=www.digicert.com,O=DigiCert Inc,C=US",
@@ -21349,24 +21511,6 @@
       "last_modified": 1562108431124
     },
     {
-      "schema": 1562108428868,
-      "derHash": "CzOSEtfP8XosWeNWabWOdzUBM3UKeNqUBHcO3UcN73Y=",
-      "subject": "CN=GlobalSign Organization Validation CA - SHA256 - G2,O=GlobalSign nv-sa,C=BE",
-      "subjectDN": "MGYxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMTwwOgYDVQQDEzNHbG9iYWxTaWduIE9yZ2FuaXphdGlvbiBWYWxpZGF0aW9uIENBIC0gU0hBMjU2IC0gRzI=",
-      "whitelist": false,
-      "attachment": {
-        "hash": "0e6fef16a9dfd3b1fc541bf1ed445460dda807a212171958df2ea10863a94d13",
-        "size": 1581,
-        "filename": "IQBnNBEiFuhj-8x6X8XLgh01V9Ic5_V3IRQLNFFc7v4=.pem",
-        "location": "security-state-staging/intermediates/c31bd046-861b-47b4-b83f-7da8f65eb61e.pem",
-        "mimetype": "application/x-pem-file"
-      },
-      "pubKeyHash": "IQBnNBEiFuhj+8x6X8XLgh01V9Ic5/V3IRQLNFFc7v4=",
-      "crlite_enrolled": true,
-      "id": "065d9c56-c2d7-42eb-8986-f6e198626d65",
-      "last_modified": 1562108429611
-    },
-    {
       "schema": 1562108425078,
       "derHash": "NFcQZ1JAAhKQOjVFyjsu84SkVpcr2VHY2EDBsKN576E=",
       "subject": "CN=Sectigo ECC Organization Validation Secure Server CA,O=Sectigo Limited,L=Salford,ST=Greater Manchester,C=GB",
@@ -22013,24 +22157,6 @@
       "crlite_enrolled": false,
       "id": "f48c0b76-fdb4-48ef-8265-f5936ac95931",
       "last_modified": 1562025656207
-    },
-    {
-      "schema": 1562025654686,
-      "derHash": "t2ovsWJyFiIq+ksCXPTaey5Oyh7HvPdcXH8E+gnIJjo=",
-      "subject": "CN=TrustOcean SSL CA - ECC - 2018,OU=ECC Domain Validation Secure Server - 2018,O=TrustOcean Ltd.,L=Denver,ST=CO,C=US",
-      "subjectDN": "MIGjMQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ08xDzANBgNVBAcTBkRlbnZlcjEYMBYGA1UEChMPVHJ1c3RPY2VhbiBMdGQuMTMwMQYDVQQLEypFQ0MgRG9tYWluIFZhbGlkYXRpb24gU2VjdXJlIFNlcnZlciAtIDIwMTgxJzAlBgNVBAMTHlRydXN0T2NlYW4gU1NMIENBIC0gRUNDIC0gMjAxOA==",
-      "whitelist": false,
-      "attachment": {
-        "hash": "8563213d0beedc0bfe2aeaf6eea186a61ed41cc23c14a763c1ba2c84517a3a00",
-        "size": 1362,
-        "filename": "PKd-ld-FuxfPZ5wgPJhWwsUah7IUyvrd0dVMuPAcCHw=.pem",
-        "location": "security-state-staging/intermediates/dcc8872f-13cc-416b-b26c-72c8733ead48.pem",
-        "mimetype": "application/x-pem-file"
-      },
-      "pubKeyHash": "PKd+ld+FuxfPZ5wgPJhWwsUah7IUyvrd0dVMuPAcCHw=",
-      "crlite_enrolled": true,
-      "id": "90f1d6dd-0284-4beb-9154-f681754b0384",
-      "last_modified": 1562025655462
     },
     {
       "schema": 1562025647187,
@@ -23617,24 +23743,6 @@
       "last_modified": 1562025096954
     },
     {
-      "schema": 1562025094676,
-      "derHash": "kz5KLY2x/5/w5QjqfxY34HT2YP5vNloiM9/CtSyInZg=",
-      "subject": "CN=AlphaSSL CA - SHA256 - G2,O=AlphaSSL",
-      "subjectDN": "MDcxETAPBgNVBAoTCEFscGhhU1NMMSIwIAYDVQQDExlBbHBoYVNTTCBDQSAtIFNIQTI1NiAtIEcy",
-      "whitelist": false,
-      "attachment": {
-        "hash": "387ae998795c0cb5d04b22c0bbfb366d42adc2767c993a0b6254218326a44c7b",
-        "size": 1512,
-        "filename": "amMeV6gb9QNx0Zf7FtJ19Wa_t2B7KpCF_1n2Js3UuSU=.pem",
-        "location": "security-state-staging/intermediates/0c0cebe7-5e9b-4eac-b906-9e157cfd6a82.pem",
-        "mimetype": "application/x-pem-file"
-      },
-      "pubKeyHash": "amMeV6gb9QNx0Zf7FtJ19Wa/t2B7KpCF/1n2Js3UuSU=",
-      "crlite_enrolled": true,
-      "id": "6044f076-a6cf-4215-82f0-8b5ff9aa3ffc",
-      "last_modified": 1562025095417
-    },
-    {
       "schema": 1562025089412,
       "derHash": "fOHbfRbpv+gGkyFKPXxiY6okeJ45kBfmnt5IAuz29xE=",
       "subject": "CN=NETLOCK Trust Qualified SCD CA,O=NETLOCK Ltd.,L=Budapest,C=HU",
@@ -24263,24 +24371,6 @@
       "crlite_enrolled": true,
       "id": "acc298cc-782a-430e-96f7-3ba5d0bc27cf",
       "last_modified": 1562024827724
-    },
-    {
-      "schema": 1562024817950,
-      "derHash": "Zp53J6kr5y2XGOFpItwbwUkrGvM/pHk+aNh3jxmi6+A=",
-      "subject": "CN=GlobalSign Domain Validation CA - SHA256 - G2,O=GlobalSign nv-sa,C=BE",
-      "subjectDN": "MGAxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMTYwNAYDVQQDEy1HbG9iYWxTaWduIERvbWFpbiBWYWxpZGF0aW9uIENBIC0gU0hBMjU2IC0gRzI=",
-      "whitelist": false,
-      "attachment": {
-        "hash": "a1bfe295fb75b101ae4073c6fbcf06f41c7f851774b0b9fd6b9cac8bea35926a",
-        "size": 1573,
-        "filename": "PL1_TTDEe9Cm2lb2X0tixyQC7zaPREm_V0IHJscTCmw=.pem",
-        "location": "security-state-staging/intermediates/29e7705d-08aa-4026-aa35-5039e8543166.pem",
-        "mimetype": "application/x-pem-file"
-      },
-      "pubKeyHash": "PL1/TTDEe9Cm2lb2X0tixyQC7zaPREm/V0IHJscTCmw=",
-      "crlite_enrolled": true,
-      "id": "b87cbd17-c73d-4c6b-a126-fb3cff29f8f3",
-      "last_modified": 1562024818708
     },
     {
       "schema": 1562024815714,
@@ -24985,24 +25075,6 @@
       "last_modified": 1562023913938
     },
     {
-      "schema": 1562023899695,
-      "derHash": "O/fPS2GSO651p8JX9VBwAD7Pcn4c2mufy4VR/GSdb+s=",
-      "subject": "CN=GlobeSSL DV Certification Authority 2,O=Globe Hosting\\, Inc.,L=Wilmington,ST=DE,C=US",
-      "subjectDN": "MH0xCzAJBgNVBAYTAlVTMQswCQYDVQQIEwJERTETMBEGA1UEBxMKV2lsbWluZ3RvbjEcMBoGA1UEChMTR2xvYmUgSG9zdGluZywgSW5jLjEuMCwGA1UEAxMlR2xvYmVTU0wgRFYgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkgMg==",
-      "whitelist": false,
-      "attachment": {
-        "hash": "c70f8758f89a5a215393c93d186b22f43da0b0f148d6226d96c339271c9d9ad6",
-        "size": 2150,
-        "filename": "lQ_FKBR5nsUo6XzQqIOg6_wickZMgocia2x_uINY_uw=.pem",
-        "location": "security-state-staging/intermediates/70120228-d3eb-46ce-8660-044d1c900414.pem",
-        "mimetype": "application/x-pem-file"
-      },
-      "pubKeyHash": "lQ/FKBR5nsUo6XzQqIOg6/wickZMgocia2x/uINY/uw=",
-      "crlite_enrolled": true,
-      "id": "78baa603-1046-4055-bcea-dbb019a819d2",
-      "last_modified": 1562023900467
-    },
-    {
       "schema": 1562023898215,
       "derHash": "9r+Isqjc1P60AVmE7C8UJ8gBfRQM9B8i7mieDWcYAS8=",
       "subject": "CN=WoTrus OV SSL CA,O=WoTrus CA Limited,C=CN",
@@ -25633,5 +25705,5 @@
       "last_modified": 1559865863642
     }
   ],
-  "timestamp": 1659358623040
+  "timestamp": 1659747423216
 }

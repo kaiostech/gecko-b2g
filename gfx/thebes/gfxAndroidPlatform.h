@@ -41,19 +41,19 @@ class gfxAndroidPlatform final : public gfxPlatform {
       override;
 
 #ifdef MOZ_WIDGET_GONK
-    virtual bool IsInGonkEmulator() const override { return mIsInGonkEmulator; }
+  virtual bool IsInGonkEmulator() const override { return mIsInGonkEmulator; }
 #endif
+
+  static bool CheckVariationFontSupport() {
+    // We build with in-tree FreeType, so we know it is a new enough
+    // version to support variations.
+    return true;
+  }
 
  protected:
   void InitAcceleration() override;
 
   bool AccelerateLayersByDefault() override { return true; }
-
-  bool CheckVariationFontSupport() override {
-    // We build with in-tree FreeType, so we know it is a new enough
-    // version to support variations.
-    return true;
-  }
 
  private:
   gfxImageFormat mOffscreenFormat;

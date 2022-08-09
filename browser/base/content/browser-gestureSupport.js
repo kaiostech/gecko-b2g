@@ -428,7 +428,24 @@ var gGestureSupport = {
    *        The direction for the swipe event
    */
   processSwipeEvent: function GS_processSwipeEvent(aEvent, aDir) {
-    this._doAction(aEvent, ["swipe", aDir.toLowerCase()]);
+    let dir = aDir.toLowerCase();
+    // This is a bit of a hack. Ideally we would like our pref names to not
+    // associate a direction (eg left) with a history action (eg back), and
+    // instead name them something like HistoryLeft/Right and then intercept
+    // that in this file and turn it into the back or forward command, but
+    // that involves sending whether we are in LTR or not into _doAction and
+    // _getCommand and then having them recognize that these command needs to
+    // be interpreted differently for rtl/ltr (but not other commands), which
+    // seems more brittle (have to keep all the places in sync) and more code.
+    // So we'll just live with presenting the wrong semantics in the prefs.
+    if (!gHistorySwipeAnimation.isLTR) {
+      if (dir == "right") {
+        dir = "left";
+      } else if (dir == "left") {
+        dir = "right";
+      }
+    }
+    this._doAction(aEvent, ["swipe", dir]);
   },
 
   /**
@@ -754,15 +771,16 @@ var gHistorySwipeAnimation = {
     // partially out of the viewport.
     let translate =
       Math.abs(aVal) * 4 * translateDistance - 0.2 * translateDistance;
-    if (!this.isLTR) {
-      translate = -translate;
-    }
 
     // Clamp inside [-20% of translateDistance, 80% of translateDistance].
     translate = Math.min(
       Math.max(-translateDistance * 0.2, translate),
       translateDistance * 0.8
     );
+
+    if (!this.isLTR) {
+      translate = -translate;
+    }
 
     if ((aVal >= 0 && this.isLTR) || (aVal <= 0 && !this.isLTR)) {
       // The intention is to go back.

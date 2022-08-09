@@ -257,6 +257,49 @@ add_task(async function test_WebExtensionPolicy() {
   }
 });
 
+// mozExtensionHostname is normalized to lower case when using
+// policy.getURL whereas using policy.getByHostname does
+// not.  Tests below will fail without case insensitive
+// comparisons in ExtensionPolicyService
+add_task(async function test_WebExtensionPolicy_case_sensitivity() {
+  const id = "policy-case@mochitest";
+  const uuid = "BAD93A23-125C-4B24-ABFC-1CA2692B0610";
+
+  const baseURL = "file:///foo/";
+  const mozExtURL = `moz-extension://${uuid}/`;
+  const mozExtURI = newURI(mozExtURL);
+
+  let policy = new WebExtensionPolicy({
+    id: id,
+    mozExtensionHostname: uuid,
+    baseURL,
+    localizeCallback() {},
+    allowedOrigins: new MatchPatternSet([]),
+    permissions: ["<all_urls>"],
+  });
+  policy.active = true;
+
+  equal(
+    WebExtensionPolicy.getByHostname(uuid)?.mozExtensionHostname,
+    policy.mozExtensionHostname,
+    "Hostname lookup should match policy"
+  );
+
+  equal(
+    WebExtensionPolicy.getByHostname(uuid.toLowerCase())?.mozExtensionHostname,
+    policy.mozExtensionHostname,
+    "Hostname lookup should match policy"
+  );
+
+  equal(policy.getURL(), mozExtURI.spec, "Urls should match policy");
+  ok(
+    policy.sourceMayAccessPath(mozExtURI, "/bar.baz"),
+    "Extension path should be accessible to self"
+  );
+
+  policy.active = false;
+});
+
 add_task(async function test_WebExtensionPolicy_V3() {
   const id = "foo@bar.baz";
   const uuid = "ca9d3f23-125c-4b24-abfc-1ca2692b0610";
@@ -268,6 +311,8 @@ add_task(async function test_WebExtensionPolicy_V3() {
   const baseURL = "file:///foo/";
   const mozExtURL = `moz-extension://${uuid}/`;
   const mozExtURI = newURI(mozExtURL);
+  const fooSite = newURI("http://foo.bar/");
+  const exampleSite = newURI("https://example.com/");
 
   let policy = new WebExtensionPolicy({
     id,
@@ -296,6 +341,11 @@ add_task(async function test_WebExtensionPolicy_V3() {
     ],
   });
   policy.active = true;
+  equal(
+    WebExtensionPolicy.getByHostname(uuid),
+    policy,
+    "Hostname lookup should match policy"
+  );
 
   let policy2 = new WebExtensionPolicy({
     id: id2,
@@ -306,6 +356,11 @@ add_task(async function test_WebExtensionPolicy_V3() {
     permissions: ["<all_urls>"],
   });
   policy2.active = true;
+  equal(
+    WebExtensionPolicy.getByHostname(uuid2),
+    policy2,
+    "Hostname lookup should match policy"
+  );
 
   let policy3 = new WebExtensionPolicy({
     id: id3,
@@ -316,6 +371,11 @@ add_task(async function test_WebExtensionPolicy_V3() {
     permissions: ["<all_urls>"],
   });
   policy3.active = true;
+  equal(
+    WebExtensionPolicy.getByHostname(uuid3),
+    policy3,
+    "Hostname lookup should match policy"
+  );
 
   ok(
     policy.isWebAccessiblePath("/bar.baz"),
@@ -340,6 +400,26 @@ add_task(async function test_WebExtensionPolicy_V3() {
     "Web-accessible path should not be accessible due to scheme mismatch"
   );
 
+  // non-matching site cannot access url
+  ok(
+    policy.sourceMayAccessPath(fooSite, "/bar.baz"),
+    "Web-accessible path should be accessible to foo.bar site"
+  );
+  ok(
+    !policy.sourceMayAccessPath(fooSite, "/foo.bar.baz"),
+    "Web-accessible path should not be accessible to foo.bar site"
+  );
+
+  // non-matching site cannot access url
+  ok(
+    !policy.sourceMayAccessPath(exampleSite, "/bar.baz"),
+    "Web-accessible path should not be accessible to example.com"
+  );
+  ok(
+    !policy.sourceMayAccessPath(exampleSite, "/foo.bar.baz"),
+    "Web-accessible path should not be accessible to example.com"
+  );
+
   let extURI = newURI(policy2.getURL(""));
   ok(
     !policy.sourceMayAccessPath(extURI, "/bar.baz"),
@@ -352,7 +432,7 @@ add_task(async function test_WebExtensionPolicy_V3() {
 
   extURI = newURI(policy3.getURL(""));
   ok(
-    !policy.sourceMayAccessPath(extURI, "/bar.baz"),
+    policy.sourceMayAccessPath(extURI, "/bar.baz"),
     "Web-accessible path should be accessible to other extension"
   );
   ok(

@@ -96,6 +96,12 @@ class TabPickupList extends HTMLElement {
     event.preventDefault();
     const item = event.target.closest(".synced-tab-li");
     window.open(item.dataset.targetURI, "_blank");
+
+    let index = [...this.tabsList.children].indexOf(item);
+
+    Services.telemetry.recordEvent("firefoxview", "tab_pickup", "tabs", null, {
+      position: (++index).toString(),
+    });
   }
 
   togglePlaceholderVisibility(visible) {
@@ -104,7 +110,7 @@ class TabPickupList extends HTMLElement {
   }
 
   async getSyncedTabData() {
-    let tabs = await lazy.SyncedTabs.getRecentTabs(this.maxTabsLength);
+    let tabs = await lazy.SyncedTabs.getRecentTabs(50);
 
     this.updateTabsList(tabs);
   }
@@ -143,6 +149,8 @@ class TabPickupList extends HTMLElement {
         this.intervalID = setInterval(() => this.updateTime(), lazy.timeMsPref);
       }
     }
+
+    this.sendTabTelemetry(syncedTabs.length);
   }
 
   generatePlaceholder() {
@@ -203,15 +211,12 @@ class TabPickupList extends HTMLElement {
     url.classList.add("synced-tab-li-url");
     device.classList.add("synced-tab-li-device");
 
-    // the first list item is diffent from second and third
+    // the first list item is different from the second and third
     if (index == 0) {
       const badge = this.createBadge();
       li.append(favicon, badge, title, url, device, time);
     } else {
-      const urlWithDevice = document.createElement("span");
-      urlWithDevice.append(url, " • ", device);
-      urlWithDevice.classList.add("synced-tab-li-url-device");
-      li.append(favicon, title, urlWithDevice, time);
+      li.append(favicon, title, url, device, time);
     }
 
     return li;
@@ -228,6 +233,12 @@ class TabPickupList extends HTMLElement {
     dot.classList.add("dot");
     badge.append(dot, badgeText);
     return badge;
+  }
+
+  sendTabTelemetry(numTabs) {
+    Services.telemetry.recordEvent("firefoxview", "synced_tabs", "tabs", null, {
+      count: numTabs.toString(),
+    });
   }
 }
 

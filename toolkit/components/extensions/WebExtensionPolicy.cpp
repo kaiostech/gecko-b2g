@@ -159,11 +159,9 @@ bool WebAccessibleResource::IsExtensionMatch(const URLInfo& aURI) {
   if (!mExtensionIDs) {
     return false;
   }
-  if (mExtensionIDs->Contains(nsGkAtoms::_asterisk)) {
-    return true;
-  }
   WebExtensionPolicy* policy = EPS().GetByHost(aURI.Host());
-  return policy && mExtensionIDs->Contains(policy->Id());
+  return policy && (mExtensionIDs->Contains(nsGkAtoms::_asterisk) ||
+                    mExtensionIDs->Contains(policy->Id()));
 }
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WebAccessibleResource)
@@ -182,7 +180,6 @@ WebExtensionPolicy::WebExtensionPolicy(GlobalObject& aGlobal,
                                        const WebExtensionInit& aInit,
                                        ErrorResult& aRv)
     : mId(NS_AtomizeMainThread(aInit.mId)),
-      mHostname(aInit.mMozExtensionHostname),
       mName(aInit.mName),
       mManifestVersion(aInit.mManifestVersion),
       mExtensionPageCSP(aInit.mExtensionPageCSP),
@@ -192,6 +189,10 @@ WebExtensionPolicy::WebExtensionPolicy(GlobalObject& aGlobal,
       mPermissions(new AtomSet(aInit.mPermissions)) {
   MatchPatternOptions options;
   options.mRestrictSchemes = !HasPermission(nsGkAtoms::mozillaAddons);
+
+  // In practice this is not necessary, but in tests where the uuid
+  // passed in is not lowercased various tests can fail.
+  ToLowerCase(aInit.mMozExtensionHostname, mHostname);
 
   mHostPermissions = ParseMatches(aGlobal, aInit.mAllowedOrigins, options,
                                   ErrorBehavior::CreateEmptyPattern, aRv);
@@ -770,9 +771,17 @@ bool MozDocumentMatcher::Matches(const DocInfo& aDoc,
   }
 
   auto& urlinfo = aDoc.PrincipalURL();
-  if (mHasActiveTabPermission && aDoc.ShouldMatchActiveTabPermission() &&
-      MatchPattern::MatchesAllURLs(urlinfo)) {
-    return true;
+  if (mExtension && mExtension->ManifestVersion() >= 3) {
+    // In MV3, activeTab only allows access to same-origin iframes.
+    if (mHasActiveTabPermission && aDoc.IsSameOriginWithTop() &&
+        MatchPattern::MatchesAllURLs(urlinfo)) {
+      return true;
+    }
+  } else {
+    if (mHasActiveTabPermission && aDoc.ShouldMatchActiveTabPermission() &&
+        MatchPattern::MatchesAllURLs(urlinfo)) {
+      return true;
+    }
   }
 
   return MatchesURI(urlinfo, aIgnorePermissions);
@@ -957,6 +966,17 @@ bool WindowShouldMatchActiveTab(nsPIDOMWindowOuter* aWin) {
 bool DocInfo::ShouldMatchActiveTabPermission() const {
   struct Matcher {
     bool operator()(Window aWin) { return WindowShouldMatchActiveTab(aWin); }
+    bool operator()(LoadInfo aLoadInfo) { return false; }
+  };
+  return mObj.match(Matcher());
+}
+
+bool DocInfo::IsSameOriginWithTop() const {
+  struct Matcher {
+    bool operator()(Window aWin) {
+      WindowContext* wc = aWin->GetCurrentInnerWindow()->GetWindowContext();
+      return wc && wc->SameOriginWithTop();
+    }
     bool operator()(LoadInfo aLoadInfo) { return false; }
   };
   return mObj.match(Matcher());

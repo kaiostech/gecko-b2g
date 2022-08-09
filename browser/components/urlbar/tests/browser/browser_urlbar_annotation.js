@@ -5,13 +5,27 @@
 
 // Test whether a visit information is annotated correctly when picking a result.
 
+if (AppConstants.platform === "macosx") {
+  requestLongerTimeout(2);
+}
+
+const FRECENCY = {
+  ORGANIC: 2000,
+  SPONSORED: -1,
+  BOOKMARKED: 2075,
+};
+
 const {
   VISIT_SOURCE_ORGANIC,
   VISIT_SOURCE_SPONSORED,
   VISIT_SOURCE_BOOKMARKED,
+  VISIT_SOURCE_SEARCHED,
 } = PlacesUtils.history;
 
 async function assertDatabase({ targetURL, expected }) {
+  const frecency = await PlacesTestUtils.fieldInDB(targetURL, "frecency");
+  Assert.equal(frecency, expected.frecency, "Frecency is correct");
+
   const placesId = await PlacesTestUtils.fieldInDB(targetURL, "id");
   const expectedTriggeringPlaceId = expected.triggerURL
     ? await PlacesTestUtils.fieldInDB(expected.triggerURL, "id")
@@ -91,6 +105,7 @@ add_task(async function basic() {
       },
       expected: {
         source: VISIT_SOURCE_SPONSORED,
+        frecency: FRECENCY.SPONSORED,
       },
     },
     {
@@ -108,6 +123,7 @@ add_task(async function basic() {
       ],
       expected: {
         source: VISIT_SOURCE_BOOKMARKED,
+        frecency: FRECENCY.BOOKMARKED,
       },
     },
     {
@@ -126,6 +142,7 @@ add_task(async function basic() {
       ],
       expected: {
         source: VISIT_SOURCE_SPONSORED,
+        frecency: FRECENCY.BOOKMARKED,
       },
     },
     {
@@ -136,6 +153,7 @@ add_task(async function basic() {
       },
       expected: {
         source: VISIT_SOURCE_ORGANIC,
+        frecency: FRECENCY.ORGANIC,
       },
     },
   ];
@@ -181,6 +199,7 @@ add_task(async function redirection() {
       targetURL: payload.url,
       expected: {
         source: VISIT_SOURCE_SPONSORED,
+        frecency: FRECENCY.SPONSORED,
       },
     });
     await assertDatabase({
@@ -188,6 +207,7 @@ add_task(async function redirection() {
       expected: {
         source: VISIT_SOURCE_SPONSORED,
         triggerURL: payload.url,
+        frecency: FRECENCY.SPONSORED,
       },
     });
   });
@@ -195,4 +215,86 @@ add_task(async function redirection() {
   await PlacesUtils.history.clear();
   await PlacesUtils.bookmarks.eraseEverything();
   UrlbarProvidersManager.unregisterProvider(provider);
+});
+
+add_task(async function search() {
+  const originalDefaultEngine = await Services.search.getDefault();
+  await SearchTestUtils.installSearchExtension({
+    name: "test engine",
+    keyword: "@test",
+  });
+
+  const testData = [
+    {
+      description: "Searched result",
+      input: "@test abc",
+      resultURL: "https://example.com/?q=abc",
+      expected: {
+        source: VISIT_SOURCE_SEARCHED,
+        frecency: FRECENCY.ORGANIC,
+      },
+    },
+    {
+      description: "Searched bookmarked result",
+      input: "@test abc",
+      resultURL: "https://example.com/?q=abc",
+      bookmarks: [
+        {
+          parentGuid: PlacesUtils.bookmarks.toolbarGuid,
+          url: Services.io.newURI("https://example.com/?q=abc"),
+          title: "test bookmark",
+        },
+      ],
+      expected: {
+        source: VISIT_SOURCE_BOOKMARKED,
+        frecency: FRECENCY.BOOKMARKED,
+      },
+    },
+  ];
+
+  for (const {
+    description,
+    input,
+    resultURL,
+    bookmarks,
+    expected,
+  } of testData) {
+    info(description);
+    await BrowserTestUtils.withNewTab("about:blank", async () => {
+      for (const bookmark of bookmarks || []) {
+        await PlacesUtils.bookmarks.insert(bookmark);
+      }
+
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({
+        window,
+        value: input,
+      });
+      const onLoad = BrowserTestUtils.browserLoaded(
+        gBrowser.selectedBrowser,
+        false,
+        resultURL
+      );
+      EventUtils.synthesizeKey("KEY_Enter");
+      await onLoad;
+      await assertDatabase({ targetURL: resultURL, expected });
+
+      // Open another URL to check whther the source is not inherited.
+      const payload = { url: "http://example.com/" };
+      const provider = registerProvider(payload);
+      await pickResult({ input, payloadURL: payload.url });
+      await assertDatabase({
+        targetURL: payload.url,
+        expected: {
+          source: VISIT_SOURCE_ORGANIC,
+          frecency: FRECENCY.ORGANIC,
+        },
+      });
+      UrlbarProvidersManager.unregisterProvider(provider);
+
+      await PlacesUtils.history.clear();
+      await PlacesUtils.bookmarks.eraseEverything();
+    });
+  }
+
+  await Services.search.setDefault(originalDefaultEngine);
 });

@@ -2501,7 +2501,11 @@ AttachDecision GetPropIRGenerator::tryAttachDenseElement(
     return AttachDecision::NoAction;
   }
 
-  TestMatchingNativeReceiver(writer, nobj, objId);
+  if (mode_ == ICState::Mode::Megamorphic) {
+    writer.guardIsNativeObject(objId);
+  } else {
+    TestMatchingNativeReceiver(writer, nobj, objId);
+  }
   writer.loadDenseElementResult(objId, indexId);
   writer.returnFromIC();
 
@@ -3217,8 +3221,12 @@ AttachDecision HasPropIRGenerator::tryAttachDense(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
-  // Guard shape to ensure object class is NativeObject.
-  TestMatchingNativeReceiver(writer, nobj, objId);
+  if (mode_ == ICState::Mode::Megamorphic) {
+    writer.guardIsNativeObject(objId);
+  } else {
+    // Guard shape to ensure object class is NativeObject.
+    TestMatchingNativeReceiver(writer, nobj, objId);
+  }
   writer.loadDenseElementExistsResult(objId, indexId);
   writer.returnFromIC();
 
@@ -5956,9 +5964,6 @@ AttachDecision InlinableNativeIRGenerator::tryAttachUnsafeGetReservedSlot(
     case InlinableNative::IntrinsicUnsafeGetStringFromReservedSlot:
       writer.loadFixedSlotTypedResult(objId, offset, ValueType::String);
       break;
-    case InlinableNative::IntrinsicUnsafeGetBooleanFromReservedSlot:
-      writer.loadFixedSlotTypedResult(objId, offset, ValueType::Boolean);
-      break;
     default:
       MOZ_CRASH("unexpected native");
   }
@@ -6717,6 +6722,39 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStringFromCodePoint() {
   writer.returnFromIC();
 
   trackAttached("StringFromCodePoint");
+  return AttachDecision::Attach;
+}
+
+AttachDecision InlinableNativeIRGenerator::tryAttachStringStartsWith() {
+  // Need one string argument.
+  if (argc_ != 1 || !args_[0].isString()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Ensure |this| is a primitive string value.
+  if (!thisval_.isString()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  initializeInputOperand();
+
+  // Guard callee is the 'startsWith' native function.
+  emitNativeCalleeGuard();
+
+  // Guard this is a string.
+  ValOperandId thisValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::This, argc_);
+  StringOperandId strId = writer.guardToString(thisValId);
+
+  // Guard string argument.
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  StringOperandId searchStrId = writer.guardToString(argId);
+
+  writer.stringStartsWithResult(strId, searchStrId);
+  writer.returnFromIC();
+
+  trackAttached("StringStartsWith");
   return AttachDecision::Attach;
 }
 
@@ -9544,7 +9582,6 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
     case InlinableNative::IntrinsicUnsafeGetObjectFromReservedSlot:
     case InlinableNative::IntrinsicUnsafeGetInt32FromReservedSlot:
     case InlinableNative::IntrinsicUnsafeGetStringFromReservedSlot:
-    case InlinableNative::IntrinsicUnsafeGetBooleanFromReservedSlot:
       return tryAttachUnsafeGetReservedSlot(native);
     case InlinableNative::IntrinsicUnsafeSetReservedSlot:
       return tryAttachUnsafeSetReservedSlot();
@@ -9626,6 +9663,8 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
       return tryAttachStringFromCharCode();
     case InlinableNative::StringFromCodePoint:
       return tryAttachStringFromCodePoint();
+    case InlinableNative::StringStartsWith:
+      return tryAttachStringStartsWith();
     case InlinableNative::StringToLowerCase:
       return tryAttachStringToLowerCase();
     case InlinableNative::StringToUpperCase:

@@ -143,6 +143,94 @@ const ONBOARDING_MESSAGES = () => [
           },
         },
         {
+          id: "UPGRADE_COLORWAY",
+          content: {
+            position: "split",
+            background:
+              "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+            progress_bar: true,
+            logo: {},
+            title: "Choose the color that inspires you",
+            subtitle: "Independent voices can change culture.",
+            tiles: {
+              type: "colorway",
+              action: {
+                theme: "<event>",
+              },
+              defaultVariationIndex: 1,
+              systemVariations: ["light", "automatic", "dark"],
+              variations: ["soft", "balanced", "bold"],
+              colorways: [
+                {
+                  id: "default",
+                  label: {
+                    string_id: "mr2-onboarding-theme-label-default",
+                  },
+                  tooltip: {
+                    string_id: "mr2-onboarding-default-theme-tooltip",
+                  },
+                  description: "Use my current Firefox colors",
+                },
+                {
+                  id: "playmaker",
+                  label: "Playmaker",
+                  tooltip: "Playmaker",
+                  description:
+                    "You are Playmaker. You create opportunities to win and help everyone around you elevate their game.",
+                },
+                {
+                  id: "expressionist",
+                  label: "Expressionist",
+                  tooltip: "Expressionist",
+                  description:
+                    "You are Expressionist. You see the world differently and your creations stir the emotions of others.",
+                },
+                {
+                  id: "visionary",
+                  label: "Visionary",
+                  tooltip: "Visionary",
+                  description:
+                    "You are Visionary. You question the status quo and move others to imagine a better future.",
+                },
+                {
+                  id: "activist",
+                  label: "Activist",
+                  tooltip: "Activist",
+                  description:
+                    "You are Activist. You leave the world a better place than you found it and lead others to believe.",
+                },
+                {
+                  id: "dreamer",
+                  label: "Dreamer",
+                  tooltip: "Dreamer",
+                  description:
+                    "You are Dreamer. You believe that fortune favors the bold and inspire others to be brave.",
+                },
+                {
+                  id: "innovator",
+                  label: "Innovator",
+                  tooltip: "Innovator",
+                  description:
+                    "You are Innovator. You see opportunities everywhere and make an impact on the lives of everyone around you.",
+                },
+              ],
+            },
+            primary_button: {
+              label: "Set colorway",
+              action: {
+                navigate: true,
+              },
+            },
+            secondary_button: {
+              label: "Skip this step",
+              action: {
+                theme: "automatic",
+                navigate: true,
+              },
+            },
+          },
+        },
+        {
           id: "UPGRADE_GRATITUDE",
           content: {
             position: "split",
@@ -449,6 +537,76 @@ const ONBOARDING_MESSAGES = () => [
       infoTitleEnabled: false,
     },
     targeting: "true",
+  },
+  {
+    id: "PB_NEWTAB_PIN_PROMO",
+    template: "pb_newtab",
+    type: "default",
+    groups: ["pbNewtab"],
+    content: {
+      infoBody: "fluent:about-private-browsing-info-description-simplified",
+      infoEnabled: true,
+      infoIcon: "chrome://global/skin/icons/indicator-private-browsing.svg",
+      infoLinkText: "fluent:about-private-browsing-learn-more-link",
+      infoTitle: "",
+      infoTitleEnabled: false,
+      promoEnabled: true,
+      promoType: "PIN",
+      promoHeader: "fluent:about-private-browsing-pin-promo-header",
+      promoImageLarge:
+        "chrome://browser/content/assets/private-promo-asset.svg",
+      promoLinkText: "fluent:about-private-browsing-pin-promo-link-text",
+      promoLinkType: "button",
+      promoSectionStyle: "below-search",
+      promoTitle: "fluent:about-private-browsing-pin-promo-title",
+      promoTitleEnabled: true,
+      promoButton: {
+        action: {
+          type: "MULTI_ACTION",
+          data: {
+            actions: [
+              {
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name:
+                      "browser.privacySegmentation.windowSeparation.enabled",
+                    value: true,
+                  },
+                },
+              },
+              {
+                type: "PIN_FIREFOX_TO_TASKBAR",
+                data: {
+                  privatePin: true,
+                },
+              },
+              {
+                type: "BLOCK_MESSAGE",
+                data: {
+                  id: "PB_NEWTAB_PIN_PROMO",
+                },
+              },
+              {
+                type: "OPEN_ABOUT_PAGE",
+                data: { args: "privatebrowsing", where: "current" },
+              },
+            ],
+          },
+        },
+      },
+    },
+    priority: 3,
+    frequency: {
+      custom: [
+        {
+          cap: 3,
+          period: 604800000, // Max 3 per week
+        },
+      ],
+      lifetime: 12,
+    },
+    targeting: "doesAppNeedPrivatePin",
   },
 ];
 

@@ -2636,12 +2636,68 @@ void MMinMax::trySpecializeFloat32(TempAllocator& alloc) {
 }
 
 MDefinition* MMinMax::foldsTo(TempAllocator& alloc) {
+  MOZ_ASSERT(lhs()->type() == type());
+  MOZ_ASSERT(rhs()->type() == type());
+
   if (lhs() == rhs()) {
     return lhs();
   }
+
+  // Fold min/max operations with same inputs.
+  if (lhs()->isMinMax() || rhs()->isMinMax()) {
+    auto* other = lhs()->isMinMax() ? lhs()->toMinMax() : rhs()->toMinMax();
+    auto* operand = lhs()->isMinMax() ? rhs() : lhs();
+
+    if (operand == other->lhs() || operand == other->rhs()) {
+      if (isMax() == other->isMax()) {
+        // min(x, min(x, y)) = min(x, y)
+        // max(x, max(x, y)) = max(x, y)
+        return other;
+      }
+      if (!IsFloatingPointType(type())) {
+        // When neither value is NaN:
+        // max(x, min(x, y)) = x
+        // min(x, max(x, y)) = x
+        return operand;
+      }
+    }
+  }
+
   if (!lhs()->isConstant() && !rhs()->isConstant()) {
     return this;
   }
+
+  auto foldConstants = [&alloc](MDefinition* lhs, MDefinition* rhs,
+                                bool isMax) -> MConstant* {
+    MOZ_ASSERT(lhs->type() == rhs->type());
+    MOZ_ASSERT(lhs->toConstant()->isTypeRepresentableAsDouble());
+    MOZ_ASSERT(rhs->toConstant()->isTypeRepresentableAsDouble());
+
+    double lnum = lhs->toConstant()->numberToDouble();
+    double rnum = rhs->toConstant()->numberToDouble();
+
+    double result;
+    if (isMax) {
+      result = js::math_max_impl(lnum, rnum);
+    } else {
+      result = js::math_min_impl(lnum, rnum);
+    }
+
+    // The folded MConstant should maintain the same MIRType with the original
+    // inputs.
+    if (lhs->type() == MIRType::Int32) {
+      int32_t cast;
+      if (mozilla::NumberEqualsInt32(result, &cast)) {
+        return MConstant::New(alloc, Int32Value(cast));
+      }
+      return nullptr;
+    }
+    if (lhs->type() == MIRType::Float32) {
+      return MConstant::NewFloat32(alloc, result);
+    }
+    MOZ_ASSERT(lhs->type() == MIRType::Double);
+    return MConstant::New(alloc, DoubleValue(result));
+  };
 
   // Directly apply math utility to compare the rhs() and lhs() when
   // they are both constants.
@@ -2651,28 +2707,8 @@ MDefinition* MMinMax::foldsTo(TempAllocator& alloc) {
       return this;
     }
 
-    double lnum = lhs()->toConstant()->numberToDouble();
-    double rnum = rhs()->toConstant()->numberToDouble();
-
-    double result;
-    if (isMax()) {
-      result = js::math_max_impl(lnum, rnum);
-    } else {
-      result = js::math_min_impl(lnum, rnum);
-    }
-
-    // The folded MConstant should maintain the same MIRType with
-    // the original MMinMax.
-    if (type() == MIRType::Int32) {
-      int32_t cast;
-      if (mozilla::NumberEqualsInt32(result, &cast)) {
-        return MConstant::New(alloc, Int32Value(cast));
-      }
-    } else if (type() == MIRType::Float32) {
-      return MConstant::NewFloat32(alloc, result);
-    } else {
-      MOZ_ASSERT(type() == MIRType::Double);
-      return MConstant::New(alloc, DoubleValue(result));
+    if (auto* folded = foldConstants(lhs(), rhs(), isMax())) {
+      return folded;
     }
   }
 
@@ -2703,16 +2739,63 @@ MDefinition* MMinMax::foldsTo(TempAllocator& alloc) {
     }
   }
 
-  if ((operand->isArrayLength() || operand->isArrayBufferViewLength() ||
-       operand->isArgumentsLength()) &&
-      constant->type() == MIRType::Int32) {
-    MOZ_ASSERT(operand->type() == MIRType::Int32);
+  auto foldLength = [](MDefinition* operand, MConstant* constant,
+                       bool isMax) -> MDefinition* {
+    if ((operand->isArrayLength() || operand->isArrayBufferViewLength() ||
+         operand->isArgumentsLength() || operand->isStringLength()) &&
+        constant->type() == MIRType::Int32) {
+      // (Array|ArrayBufferView|Arguments|String)Length is always >= 0.
+      // max(array.length, cte <= 0) = array.length
+      // min(array.length, cte <= 0) = cte
+      if (constant->toInt32() <= 0) {
+        return isMax ? operand : constant;
+      }
+    }
+    return nullptr;
+  };
 
-    // (Typed)ArrayLength and ArgumentsLength is always >= 0.
-    // max(array.length, cte <= 0) = array.length
-    // min(array.length, cte <= 0) = cte
-    if (constant->toInt32() <= 0) {
-      return isMax() ? operand : constant;
+  if (auto* folded = foldLength(operand, constant, isMax())) {
+    return folded;
+  }
+
+  // Attempt to fold nested min/max operations which are produced by
+  // self-hosted built-in functions.
+  if (operand->isMinMax()) {
+    auto* other = operand->toMinMax();
+    MOZ_ASSERT(other->lhs()->type() == type());
+    MOZ_ASSERT(other->rhs()->type() == type());
+
+    MConstant* otherConstant = nullptr;
+    MDefinition* otherOperand = nullptr;
+    if (other->lhs()->isConstant()) {
+      otherConstant = other->lhs()->toConstant();
+      otherOperand = other->rhs();
+    } else if (other->rhs()->isConstant()) {
+      otherConstant = other->rhs()->toConstant();
+      otherOperand = other->lhs();
+    }
+
+    if (otherConstant && constant->isTypeRepresentableAsDouble() &&
+        otherConstant->isTypeRepresentableAsDouble()) {
+      if (isMax() == other->isMax()) {
+        // Fold min(x, min(y, z)) to min(min(x, y), z) with constant min(x, y).
+        // Fold max(x, max(y, z)) to max(max(x, y), z) with constant max(x, y).
+        if (auto* left = foldConstants(constant, otherConstant, isMax())) {
+          block()->insertBefore(this, left);
+          return MMinMax::New(alloc, left, otherOperand, type(), isMax());
+        }
+      } else {
+        // Fold min(x, max(y, z)) to max(min(x, y), min(x, z)).
+        // Fold max(x, min(y, z)) to min(max(x, y), max(x, z)).
+        //
+        // But only do this when min(x, z) can also be simplified.
+        if (auto* right = foldLength(otherOperand, constant, isMax())) {
+          if (auto* left = foldConstants(constant, otherConstant, isMax())) {
+            block()->insertBefore(this, left);
+            return MMinMax::New(alloc, left, right, type(), !isMax());
+          }
+        }
+      }
     }
   }
 
@@ -2969,20 +3052,6 @@ bool MMathFunction::isFloat32Commutative() const {
   switch (function_) {
     case UnaryMathFunction::Floor:
     case UnaryMathFunction::Ceil:
-    case UnaryMathFunction::Round:
-    case UnaryMathFunction::Trunc:
-      return true;
-    default:
-      return false;
-  }
-}
-
-bool MMathFunction::canRecoverOnBailout() const {
-  switch (function_) {
-    case UnaryMathFunction::Sin:
-    case UnaryMathFunction::Log:
-    case UnaryMathFunction::Ceil:
-    case UnaryMathFunction::Floor:
     case UnaryMathFunction::Round:
     case UnaryMathFunction::Trunc:
       return true;
@@ -4353,6 +4422,100 @@ MDefinition* MCompare::tryFoldStringCompare(TempAllocator& alloc) {
   return MCompare::New(alloc, left, right, jsop(), MCompare::Compare_Int32);
 }
 
+MDefinition* MCompare::tryFoldStringSubstring(TempAllocator& alloc) {
+  if (compareType() != Compare_String) {
+    return this;
+  }
+  if (!IsEqualityOp(jsop())) {
+    return this;
+  }
+
+  auto* left = lhs();
+  MOZ_ASSERT(left->type() == MIRType::String);
+
+  auto* right = rhs();
+  MOZ_ASSERT(right->type() == MIRType::String);
+
+  // One operand must be a constant string.
+  if (!left->isConstant() && !right->isConstant()) {
+    return this;
+  }
+
+  // The constant string must be non-empty.
+  auto* constant =
+      left->isConstant() ? left->toConstant() : right->toConstant();
+  if (constant->toString()->empty()) {
+    return this;
+  }
+
+  // The other operand must be a substring operation.
+  auto* operand = left->isConstant() ? right : left;
+  if (!operand->isSubstr()) {
+    return this;
+  }
+
+  // We want to match this pattern:
+  // Substr(string, Constant(0), Min(Constant(length), StringLength(string)))
+  auto* substr = operand->toSubstr();
+
+  auto isConstantZero = [](auto* def) {
+    return def->isConstant() && def->toConstant()->isInt32(0);
+  };
+
+  if (!isConstantZero(substr->begin())) {
+    return this;
+  }
+
+  auto* length = substr->length();
+  if (length->isBitOr()) {
+    // Unnecessary bit-ops haven't yet been removed.
+    auto* bitOr = length->toBitOr();
+    if (isConstantZero(bitOr->lhs())) {
+      length = bitOr->rhs();
+    } else if (isConstantZero(bitOr->rhs())) {
+      length = bitOr->lhs();
+    }
+  }
+  if (!length->isMinMax() || length->toMinMax()->isMax()) {
+    return this;
+  }
+
+  auto* min = length->toMinMax();
+  if (!min->lhs()->isConstant() && !min->rhs()->isConstant()) {
+    return this;
+  }
+
+  auto* minConstant = min->lhs()->isConstant() ? min->lhs()->toConstant()
+                                               : min->rhs()->toConstant();
+
+  auto* minOperand = min->lhs()->isConstant() ? min->rhs() : min->lhs();
+  if (!minOperand->isStringLength() ||
+      minOperand->toStringLength()->string() != substr->string()) {
+    return this;
+  }
+
+  static_assert(JSString::MAX_LENGTH < INT32_MAX,
+                "string length can be casted to int32_t");
+
+  // Ensure the string length matches the substring's length.
+  if (!minConstant->isInt32(int32_t(constant->toString()->length()))) {
+    return this;
+  }
+
+  // Now fold code like |str.substring(0, 2) == "aa"| to |str.startsWith("aa")|.
+
+  auto* startsWith = MStringStartsWith::New(alloc, substr->string(), constant);
+  if (jsop() == JSOp::Eq || jsop() == JSOp::StrictEq) {
+    return startsWith;
+  }
+
+  // Invert for inequality.
+  MOZ_ASSERT(jsop() == JSOp::Ne || jsop() == JSOp::StrictNe);
+
+  block()->insertBefore(this, startsWith);
+  return MNot::New(alloc, startsWith);
+}
+
 MDefinition* MCompare::foldsTo(TempAllocator& alloc) {
   bool result;
 
@@ -4374,6 +4537,10 @@ MDefinition* MCompare::foldsTo(TempAllocator& alloc) {
   }
 
   if (MDefinition* folded = tryFoldStringCompare(alloc); folded != this) {
+    return folded;
+  }
+
+  if (MDefinition* folded = tryFoldStringSubstring(alloc); folded != this) {
     return folded;
   }
 

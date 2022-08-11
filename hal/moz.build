@@ -100,12 +100,12 @@ elif CONFIG["OS_TARGET"] == "Linux":
         "fallback/FallbackFMRadio.cpp",
         "fallback/FallbackNetwork.cpp",
         "fallback/FallbackPowerSupply.cpp",
-        "fallback/FallbackProcessPriority.cpp",
         "fallback/FallbackScreenConfiguration.cpp",
         "fallback/FallbackSensor.cpp",
         "fallback/FallbackUsbManager.cpp",
         "fallback/FallbackVibration.cpp",
         "linux/LinuxMemory.cpp",
+        "linux/LinuxProcessPriority.cpp",
     ]
     if CONFIG["MOZ_ENABLE_DBUS"]:
         UNIFIED_SOURCES += [

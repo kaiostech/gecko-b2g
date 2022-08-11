@@ -444,6 +444,10 @@ class nsWindow final : public nsBaseWidget {
   void PauseCompositorFlickering();
   bool IsWaitingForCompositorResume();
 
+  // Force hide this window, remove compositor etc. to avoid
+  // rendering queue blocking (see Bug 1782948).
+  void ClearRenderingQueue();
+
  protected:
   virtual ~nsWindow();
 
@@ -799,6 +803,7 @@ class nsWindow final : public nsBaseWidget {
   void ShowWaylandToplevelWindow();
   void HideWaylandToplevelWindow();
   void WaylandPopupHideTooltips();
+  void WaylandPopupCloseOrphanedPopups();
   void AppendPopupToHierarchyList(nsWindow* aToplevelWindow);
   void WaylandPopupHierarchyHideTemporary();
   void WaylandPopupHierarchyShowTemporaryHidden();
@@ -814,6 +819,8 @@ class nsWindow final : public nsBaseWidget {
   void WaylandPopupHideClosedPopups();
   void WaylandPopupMove();
   bool WaylandPopupRemoveNegativePosition(int* aX = nullptr, int* aY = nullptr);
+  bool WaylandPopupCheckAndGetAnchor(GdkRectangle* aPopupAnchor);
+  bool WaylandPopupAnchorAdjustForParentPopup(GdkRectangle* aPopupAnchor);
   nsWindow* WaylandPopupGetTopmostWindow();
   bool IsPopupInLayoutPopupChain(nsTArray<nsIWidget*>* aLayoutWidgetHierarchy,
                                  bool aMustMatchParent);

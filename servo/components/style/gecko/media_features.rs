@@ -893,4 +893,5 @@ pub static MEDIA_FEATURES: [QueryFeatureDescription; 60] = [
         GTKCSDReversedPlacement
     ),
     lnf_int_feature!(atom!("-moz-system-dark-theme"), SystemUsesDarkTheme),
+    bool_pref_feature!(atom!("-moz-box-flexbox-emulation"), "layout.css.moz-box-flexbox-emulation.enabled"),
 ];

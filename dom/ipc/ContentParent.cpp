@@ -7291,10 +7291,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCompleteAllowAccessFor(
     return IPC_OK();
   }
 
-  if (!aTrackingPrincipal) {
-    return IPC_FAIL(this, "No principal");
-  }
-
   StorageAccessAPIHelper::CompleteAllowAccessFor(
       aParentContext.get_canonical(), aTopLevelWindowId, aTrackingPrincipal,
       aTrackingOrigin, aCookieBehavior, aReason, nullptr)
@@ -7431,6 +7427,38 @@ mozilla::ipc::IPCResult ContentParent::RecvTestCookiePermissionDecided(
       StorageAccessAPIHelper::CheckCookiesPermittedDecidesStorageAccessAPI(
           cjs, aPrincipal);
   aResolver(result);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvTestStorageAccessPermission(
+    nsIPrincipal* aEmbeddingPrincipal, const nsCString& aEmbeddedOrigin,
+    const TestStorageAccessPermissionResolver&& aResolver) {
+  // Get the permission manager and build the key.
+  RefPtr<PermissionManager> permManager = PermissionManager::GetInstance();
+  if (!permManager) {
+    aResolver(Nothing());
+    return IPC_OK();
+  }
+  nsCString requestPermissionKey;
+  AntiTrackingUtils::CreateStoragePermissionKey(aEmbeddedOrigin,
+                                                requestPermissionKey);
+
+  // Test the permission
+  uint32_t access = nsIPermissionManager::UNKNOWN_ACTION;
+  nsresult rv = permManager->TestPermissionFromPrincipal(
+      aEmbeddingPrincipal, requestPermissionKey, &access);
+  if (NS_FAILED(rv)) {
+    aResolver(Nothing());
+    return IPC_OK();
+  }
+  if (access == nsIPermissionManager::ALLOW_ACTION) {
+    aResolver(Some(true));
+  } else if (access == nsIPermissionManager::DENY_ACTION) {
+    aResolver(Some(false));
+  } else {
+    aResolver(Nothing());
+  }
+
   return IPC_OK();
 }
 

@@ -1398,6 +1398,10 @@ class ContentParent final : public PContentParent,
       const MaybeDiscarded<BrowsingContext>& aContext, nsIPrincipal* aPrincipal,
       const TestCookiePermissionDecidedResolver&& aResolver);
 
+  mozilla::ipc::IPCResult RecvTestStorageAccessPermission(
+      nsIPrincipal* aEmbeddingPrincipal, const nsCString& aEmbeddedOrigin,
+      const TestStorageAccessPermissionResolver&& aResolver);
+
   mozilla::ipc::IPCResult RecvNotifyMediaPlaybackChanged(
       const MaybeDiscarded<BrowsingContext>& aContext,
       MediaPlaybackState aState);

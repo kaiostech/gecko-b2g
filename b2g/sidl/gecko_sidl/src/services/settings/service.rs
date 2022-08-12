@@ -45,14 +45,13 @@ macro_rules! sidl_callback_for_resolve_settings_array {
             type Error = $error;
 
             fn resolve(&self, value: &Self::Success) {
-                let mut list: thin_vec::ThinVec<xpcom::RefPtr<xpcom::interfaces::nsISettingInfo>> =
-                    ThinVec::new();
+                let mut list: thin_vec::ThinVec<Option<RefPtr<nsISettingInfo>>> = ThinVec::new();
                 for settinginfo in value {
                     let settinginfo_xpcom = SettingInfoXpcom::new(&settinginfo);
                     unsafe {
                         settinginfo_xpcom.AddRef();
                         let xpcom_coerce = settinginfo_xpcom.coerce::<nsISettingInfo>();
-                        list.push(RefPtr::new(xpcom_coerce));
+                        list.push(Some(RefPtr::new(xpcom_coerce)));
                     }
                 }
                 unsafe {
@@ -476,10 +475,10 @@ impl SettingsManagerXpcom {
         Ok(())
     }
 
-    xpcom_method!(set => Set(settings: *const ThinVec<RefPtr<nsISettingInfo>>, callback: *const nsISidlDefaultResponse));
+    xpcom_method!(set => Set(settings: *const ThinVec<Option<RefPtr<nsISettingInfo>>>, callback: *const nsISidlDefaultResponse));
     fn set(
         &self,
-        settings: &ThinVec<RefPtr<nsISettingInfo>>,
+        settings: &ThinVec<Option<RefPtr<nsISettingInfo>>>,
         callback: &nsISidlDefaultResponse,
     ) -> Result<(), nsresult> {
         debug!("SettingsManagerXpcom::set");
@@ -488,28 +487,32 @@ impl SettingsManagerXpcom {
         let settings_info: Vec<SettingInfo> = settings
             .iter()
             .filter_map(|item| {
-                let mut name = nsString::new();
-                let mut value = nsString::new();
-                unsafe {
-                    if item.GetName(&mut *name) != NS_OK {
-                        return None;
+                if let Some(item) = item {
+                    let mut name = nsString::new();
+                    let mut value = nsString::new();
+                    unsafe {
+                        if item.GetName(&mut *name) != NS_OK {
+                            return None;
+                        }
+                        if item.GetValue(&mut *value) != NS_OK {
+                            return None;
+                        };
                     }
-                    if item.GetValue(&mut *value) != NS_OK {
-                        return None;
-                    };
-                }
 
-                let json: serde_json::Value = match serde_json::from_str(&value.to_string()) {
-                    Ok(json) => json,
-                    Err(err) => {
-                        error!("Invalid json `{}` : {}", value, err);
-                        return None;
-                    }
-                };
-                Some(SettingInfo {
-                    name: name.to_string(),
-                    value: json.into(),
-                })
+                    let json: serde_json::Value = match serde_json::from_str(&value.to_string()) {
+                        Ok(json) => json,
+                        Err(err) => {
+                            error!("Invalid json `{}` : {}", value, err);
+                            return None;
+                        }
+                    };
+                    Some(SettingInfo {
+                        name: name.to_string(),
+                        value: json.into(),
+                    })
+                } else {
+                    None
+                }
             })
             .collect();
 

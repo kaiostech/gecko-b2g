@@ -716,7 +716,7 @@ impl GeckoBridgeXpcom {
         Ok(())
     }
 
-    xpcom_method!(register_token => RegisterToken(token: *const nsAString, url: *const nsAString, settings: *const ThinVec<nsString>, callback: *const nsISidlDefaultResponse));
+    xpcom_method!(register_token => RegisterToken(token: *const nsAString, url: *const nsAString, xpermissions: *const ThinVec<nsString>, callback: *const nsISidlDefaultResponse));
     fn register_token(
         &self,
         token: &nsAString,
@@ -739,10 +739,10 @@ impl GeckoBridgeXpcom {
         Ok(())
     }
 
-    xpcom_method!(import_sim_contacts => ImportSimContacts(contacts: *const ThinVec<RefPtr<nsISimContactInfo>>, callback: *const nsISidlDefaultResponse));
+    xpcom_method!(import_sim_contacts => ImportSimContacts(contacts: *const ThinVec<Option<RefPtr<nsISimContactInfo>>>, callback: *const nsISidlDefaultResponse));
     fn import_sim_contacts(
         &self,
-        contacts: &ThinVec<RefPtr<nsISimContactInfo>>,
+        contacts: &ThinVec<Option<RefPtr<nsISimContactInfo>>>,
         callback: &nsISidlDefaultResponse,
     ) -> Result<(), nsresult> {
         debug!("GeckoBridgeXpcom::import_sim_contacts");
@@ -751,37 +751,41 @@ impl GeckoBridgeXpcom {
         let contacts_info: Vec<SimContactInfo> = contacts
             .iter()
             .filter_map(|item| {
-                let mut id = nsString::new();
-                let mut tel = nsString::new();
-                let mut email = nsString::new();
-                let mut name = nsString::new();
-                let mut category = nsString::new();
+                if let Some(item) = item {
+                    let mut id = nsString::new();
+                    let mut tel = nsString::new();
+                    let mut email = nsString::new();
+                    let mut name = nsString::new();
+                    let mut category = nsString::new();
 
-                unsafe {
-                    if item.GetId(&mut *id) != NS_OK {
-                        return None;
+                    unsafe {
+                        if item.GetId(&mut *id) != NS_OK {
+                            return None;
+                        }
+                        if item.GetTel(&mut *tel) != NS_OK {
+                            return None;
+                        }
+                        if item.GetEmail(&mut *email) != NS_OK {
+                            return None;
+                        }
+                        if item.GetName(&mut *name) != NS_OK {
+                            return None;
+                        }
+                        if item.GetCategory(&mut *category) != NS_OK {
+                            return None;
+                        }
                     }
-                    if item.GetTel(&mut *tel) != NS_OK {
-                        return None;
-                    }
-                    if item.GetEmail(&mut *email) != NS_OK {
-                        return None;
-                    }
-                    if item.GetName(&mut *name) != NS_OK {
-                        return None;
-                    }
-                    if item.GetCategory(&mut *category) != NS_OK {
-                        return None;
-                    }
+
+                    Some(SimContactInfo {
+                        id: id.to_string(),
+                        tel: tel.to_string(),
+                        email: email.to_string(),
+                        name: name.to_string(),
+                        category: category.to_string(),
+                    })
+                } else {
+                    None
                 }
-
-                Some(SimContactInfo {
-                    id: id.to_string(),
-                    tel: tel.to_string(),
-                    email: email.to_string(),
-                    name: name.to_string(),
-                    category: category.to_string(),
-                })
             })
             .collect();
 

@@ -110,10 +110,6 @@ bool wasm::DecodeLocalEntries(Decoder& d, const TypeContext& types,
       return false;
     }
 
-    if (!type.isDefaultable()) {
-      return d.fail("cannot have a non-defaultable local");
-    }
-
     if (!locals->appendN(type, count)) {
       return false;
     }
@@ -178,7 +174,7 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
                                     const uint8_t* bodyEnd, Decoder* d) {
   ValidatingOpIter iter(env, *d);
 
-  if (!iter.startFunction(funcIndex)) {
+  if (!iter.startFunction(funcIndex, locals)) {
     return false;
   }
 
@@ -588,6 +584,10 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
           case uint32_t(GcOp::ArrayNew): {
             uint32_t unusedUint;
             CHECK(iter.readArrayNew(&unusedUint, &nothing, &nothing));
+          }
+          case uint32_t(GcOp::ArrayNewFixed): {
+            uint32_t unusedUint1, unusedUint2;
+            CHECK(iter.readArrayNewFixed(&unusedUint1, &unusedUint2));
           }
           case uint32_t(GcOp::ArrayNewDefault): {
             uint32_t unusedUint;

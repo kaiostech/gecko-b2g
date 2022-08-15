@@ -5862,7 +5862,7 @@
 #if !defined(MOZ_WIDGET_ANDROID)
 - name: gfx.egl.prefer-gles.enabled
   type: bool
-#if defined(MOZ_WIDGET_GTK) && defined(_ARM64_)
+#if defined(MOZ_WIDGET_GTK) && defined(MOZ_AARCH64)
   value: true
 #else
   value: false
@@ -8868,12 +8868,6 @@
 # Prefs starting with "mathml."
 #---------------------------------------------------------------------------
 
-# Whether to disable deprecated "radical" notation for the menclose element.
-- name: mathml.deprecated_menclose_notation_radical.disabled
-  type: bool
-  value: true
-  mirror: always
-
 # Whether to disable legacy names "thickmathspace", "mediummathspace",
 # "thickmathspace" etc for length attributes.
 - name: mathml.mathspace_names.disabled
@@ -11716,7 +11710,25 @@
   value: false
   mirror: always
 
-#  This is used for a temporary workaround for a web-compat issue. If pref is
+# When true we will dispatch a background task (separate process) to
+# delete the cache folder at shutdown in order to avoid shutdown hangs.
+- name: network.cache.shutdown_purge_in_background_task
+  type: RelaxedAtomicBool
+#if defined(NIGHTLY_BUILD) && defined(XP_WIN)
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
+
+# Number of seconds to wait for the cache folder to be renamed before
+# the background task forcefully exists.
+- name: network.cache.shutdown_purge_folder_wait_seconds
+  type: RelaxedAtomicUint32
+  value: 10
+  mirror: always
+
+# This is used for a temporary workaround for a web-compat issue. If pref is
 # true CORS preflight requests are allowed to send client certificates.
 - name: network.cors_preflight.allow_client_cert
   type: RelaxedAtomicBool

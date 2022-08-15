@@ -130,11 +130,18 @@ struct OverlaySource {
   bool isOpaque;
 };
 
+[Comparable] struct SurfaceDescriptorDcompSurface {
+  FileDescriptor handle;
+  IntSize size;
+  SurfaceFormat format;
+};
+
 [Comparable] union RemoteDecoderVideoSubDescriptor {
   SurfaceDescriptorD3D10;
   SurfaceDescriptorDXGIYCbCr;
   SurfaceDescriptorDMABuf;
   SurfaceDescriptorMacIOSurface;
+  SurfaceDescriptorDcompSurface;
   null_t;
 };
 
@@ -215,6 +222,7 @@ struct OverlaySource {
   SurfaceDescriptorGPUVideo;
   SurfaceDescriptorRecorded;
   SurfaceDescriptorRemoteTexture;
+  SurfaceDescriptorDcompSurface;
   null_t;
 };
 

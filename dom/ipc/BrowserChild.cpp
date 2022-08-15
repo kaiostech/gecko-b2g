@@ -3554,12 +3554,6 @@ mozilla::ipc::IPCResult BrowserChild::RecvUIResolutionChanged(
   if (aDpi > 0) {
     mPuppetWidget->UpdateBackingScaleCache(aDpi, aRounding, aScale);
   }
-  nsCOMPtr<Document> document(GetTopLevelDocument());
-  RefPtr<nsPresContext> presContext =
-      document ? document->GetPresContext() : nullptr;
-  if (presContext) {
-    presContext->UIResolutionChangedSync();
-  }
 
   ScreenIntSize screenSize = GetInnerSize();
   if (mHasValidInnerSize && oldScreenSize != screenSize) {
@@ -3573,6 +3567,13 @@ mozilla::ipc::IPCResult BrowserChild::RecvUIResolutionChanged(
     mPuppetWidget->Resize(screenRect.x + mClientOffset.x + mChromeOffset.x,
                           screenRect.y + mClientOffset.y + mChromeOffset.y,
                           screenSize.width, screenSize.height, true);
+  }
+
+  nsCOMPtr<Document> document(GetTopLevelDocument());
+  RefPtr<nsPresContext> presContext =
+      document ? document->GetPresContext() : nullptr;
+  if (presContext) {
+    presContext->UIResolutionChangedSync();
   }
 
   return IPC_OK();

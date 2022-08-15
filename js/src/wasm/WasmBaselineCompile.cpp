@@ -5639,6 +5639,9 @@ void BaseCompiler::emitCompareRef(Assembler::Condition compareOp,
 
 bool BaseCompiler::emitInstanceCall(uint32_t lineOrBytecode,
                                     const SymbolicAddressSignature& builtin) {
+  // See declaration (WasmBCClass.h) for info on the relationship between the
+  // compiler's value stack and the argument order for the to-be-called
+  // function.
   const MIRType* argTypes = builtin.argTypes;
   MOZ_ASSERT(argTypes[0] == MIRType::Pointer);
 
@@ -6348,22 +6351,33 @@ void BaseCompiler::emitGcNullCheck(RegRef rp) {
 }
 
 RegPtr BaseCompiler::emitGcArrayGetData(RegRef rp) {
+  // `rp` points at an OutLineTypedObject.  Return a reg holding the value of
+  // its `data_` field.
   RegPtr rdata = needPtr();
   // An array is always an outline typed object
   masm.loadPtr(Address(rp, OutlineTypedObject::offsetOfData()), rdata);
   return rdata;
 }
 
-RegI32 BaseCompiler::emitGcArrayGetLength(RegPtr rdata,
-                                          bool adjustDataPointer) {
-  STATIC_ASSERT_ARRAYLENGTH_IS_U32;
+void BaseCompiler::emitGcArrayAdjustDataPointer(RegPtr rdata) {
+  // `rdata` points at the start of an OutlineTypedObject's out of line array
+  // (iow it holds the value of a OutLineTypedObject::data_ field).  Move it
+  // forwards so it points at the first byte of the first array element stored
+  // there.
+  STATIC_ASSERT_NUMELEMENTS_IS_U32;
+  masm.addPtr(ImmWord(OutlineTypedObject::offsetOfNumElements() +
+                      sizeof(OutlineTypedObject::NumElements)),
+              rdata);
+}
+
+RegI32 BaseCompiler::emitGcArrayGetNumElements(RegPtr rdata,
+                                               bool adjustDataPointer) {
+  STATIC_ASSERT_NUMELEMENTS_IS_U32;
   RegI32 length = needI32();
-  masm.load32(Address(rdata, OutlineTypedObject::offsetOfArrayLength()),
+  masm.load32(Address(rdata, OutlineTypedObject::offsetOfNumElements()),
               length);
   if (adjustDataPointer) {
-    masm.addPtr(ImmWord(OutlineTypedObject::offsetOfArrayLength() +
-                        sizeof(OutlineTypedObject::ArrayLength)),
-                rdata);
+    emitGcArrayAdjustDataPointer(rdata);
   }
   return length;
 }
@@ -6820,40 +6834,111 @@ bool BaseCompiler::emitArrayNew() {
   // Acquire the data pointers from the object
   RegPtr rdata = emitGcArrayGetData(rp);
 
-  // Acquire the array length and adjust the data pointer to be immediately
-  // after the array length header
-  RegI32 length = emitGcArrayGetLength(rdata, true);
+  // Acquire the number of elements and adjust the data pointer to be
+  // immediately after the number-of-elements header.
+  RegI32 numElements = emitGcArrayGetNumElements(rdata, true);
 
   // Free the barrier reg after we've allocated all registers
   if (arrayType.elementType_.isRefRepr()) {
     freePtr(RegPtr(PreBarrierReg));
   }
 
-  // Perform an initialization loop using `length` as the loop variable,
+  // Perform an initialization loop using `numElements` as the loop variable,
   // counting down to zero.
   Label done;
   Label loop;
-  // Skip initialization if length = 0
-  masm.branch32(Assembler::Equal, length, Imm32(0), &done);
+  // Skip initialization if numElements = 0
+  masm.branch32(Assembler::Equal, numElements, Imm32(0), &done);
   masm.bind(&loop);
 
   // Move to the next element
-  masm.sub32(Imm32(1), length);
+  masm.sub32(Imm32(1), numElements);
 
-  // Assign value to array[length]. All registers are preserved
-  if (!emitGcArraySet(rp, rdata, length, arrayType, value)) {
+  // Assign value to array[numElements]. All registers are preserved
+  if (!emitGcArraySet(rp, rdata, numElements, arrayType, value)) {
     return false;
   }
 
   // Loop back if there are still elements to initialize
-  masm.branch32(Assembler::GreaterThan, length, Imm32(0), &loop);
+  masm.branch32(Assembler::GreaterThan, numElements, Imm32(0), &loop);
   masm.bind(&done);
 
-  freeI32(length);
+  freeI32(numElements);
   freeAny(value);
   freePtr(rdata);
   pushRef(rp);
 
+  return true;
+}
+
+bool BaseCompiler::emitArrayNewFixed() {
+  uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
+
+  uint32_t typeIndex, numElements;
+  if (!iter_.readArrayNewFixed(&typeIndex, &numElements)) {
+    return false;
+  }
+
+  if (deadCode_) {
+    return true;
+  }
+
+  const ArrayType& arrayType = (*moduleEnv_.types)[typeIndex].arrayType();
+
+  // At this point, the top section of the value stack contains the values to
+  // be used to initialise the array, with index 0 as the topmost value.  Push
+  // the required number of elements and the required type on, since the call
+  // to SASigArrayNew will use them.
+  pushI32(numElements);
+  emitGcCanon(typeIndex);
+  if (!emitInstanceCall(lineOrBytecode, SASigArrayNew)) {
+    return false;
+  }
+
+  // Reserve this register early if we will need it so that it is not taken by
+  // any register used in this function.
+  bool avoidPreBarrierReg = arrayType.elementType_.isRefRepr();
+  if (avoidPreBarrierReg) {
+    needPtr(RegPtr(PreBarrierReg));
+  }
+
+  // Get hold of the pointer to the array, as created by SASigArrayNew.
+  RegRef rp = popRef();
+
+  // Acquire the data pointers from the object
+  RegPtr rdata = emitGcArrayGetData(rp);
+
+  // Free the barrier reg if we previously reserved it.
+  if (avoidPreBarrierReg) {
+    freePtr(RegPtr(PreBarrierReg));
+  }
+
+  // Adjust the data pointer to be immediately after the array length header
+  emitGcArrayAdjustDataPointer(rdata);
+
+  // Generate straight-line initialization code.  We could do better here if
+  // there was a version of ::emitGcArraySet that took `index` as a `uint32_t`
+  // rather than a general value-in-a-reg.
+  for (uint32_t i = 0; i < numElements; i++) {
+    if (avoidPreBarrierReg) {
+      needPtr(RegPtr(PreBarrierReg));
+    }
+    AnyReg value = popAny();
+    pushI32(i);
+    RegI32 index = popI32();
+    if (avoidPreBarrierReg) {
+      freePtr(RegPtr(PreBarrierReg));
+    }
+    if (!emitGcArraySet(rp, rdata, index, arrayType, value)) {
+      return false;
+    }
+    freeI32(index);
+    freeAny(value);
+  }
+
+  freePtr(rdata);
+
+  pushRef(rp);
   return true;
 }
 
@@ -6898,13 +6983,13 @@ bool BaseCompiler::emitArrayGet(FieldExtension extension) {
   // Acquire the data pointer from the object
   RegPtr rdata = emitGcArrayGetData(rp);
 
-  // Acquire the array length and adjust the data pointer to be immediately
-  // after the array length header
-  RegI32 length = emitGcArrayGetLength(rdata, true);
+  // Acquire the number of elements and adjust the data pointer to be
+  // immediately after the number-of-elements header
+  RegI32 numElements = emitGcArrayGetNumElements(rdata, true);
 
   // Bounds check the index
-  emitGcArrayBoundsCheck(index, length);
-  freeI32(length);
+  emitGcArrayBoundsCheck(index, numElements);
+  freeI32(numElements);
 
   // Load the value
   uint32_t shift = arrayType.elementType_.indexingShift();
@@ -6957,9 +7042,9 @@ bool BaseCompiler::emitArraySet() {
   // Acquire the data pointer from the object
   RegPtr rdata = emitGcArrayGetData(rp);
 
-  // Acquire the array length and adjust the data pointer to be immediately
-  // after the array length header
-  RegI32 length = emitGcArrayGetLength(rdata, true);
+  // Acquire the number of elements and adjust the data pointer to be
+  // immediately after the number-of-elements header
+  RegI32 numElements = emitGcArrayGetNumElements(rdata, true);
 
   // Free the barrier reg after we've allocated all registers
   if (arrayType.elementType_.isRefRepr()) {
@@ -6967,8 +7052,8 @@ bool BaseCompiler::emitArraySet() {
   }
 
   // Bounds check the index
-  emitGcArrayBoundsCheck(index, length);
-  freeI32(length);
+  emitGcArrayBoundsCheck(index, numElements);
+  freeI32(numElements);
 
   // Pull the value out of the stack now that we need it.
   popAny(value);
@@ -7008,8 +7093,8 @@ bool BaseCompiler::emitArrayLen() {
   RegPtr rdata = emitGcArrayGetData(rp);
   freeRef(rp);
 
-  // Acquire the length from the array
-  pushI32(emitGcArrayGetLength(rdata, false));
+  // Acquire the number of elements from the array
+  pushI32(emitGcArrayGetNumElements(rdata, false));
   freePtr(rdata);
 
   return true;
@@ -8392,7 +8477,7 @@ bool BaseCompiler::emitBody() {
 
   MOZ_ASSERT(stackMapGenerator_.framePushedAtEntryToBody.isSome());
 
-  if (!iter_.startFunction(func_.index)) {
+  if (!iter_.startFunction(func_.index, locals_)) {
     return false;
   }
 
@@ -9227,6 +9312,8 @@ bool BaseCompiler::emitBody() {
             CHECK_NEXT(emitStructSet());
           case uint32_t(GcOp::ArrayNew):
             CHECK_NEXT(emitArrayNew());
+          case uint32_t(GcOp::ArrayNewFixed):
+            CHECK_NEXT(emitArrayNewFixed());
           case uint32_t(GcOp::ArrayNewDefault):
             CHECK_NEXT(emitArrayNewDefault());
           case uint32_t(GcOp::ArrayGet):
@@ -10318,6 +10405,17 @@ void BaseCompiler::assertStackInvariants() const {
     }
   }
   MOZ_ASSERT(size == fr.dynamicHeight());
+}
+
+void BaseCompiler::showStack(const char* who) const {
+  fprintf(stderr, "Stack at %s {{\n", who);
+  size_t n = 0;
+  for (const Stk& elem : stk_) {
+    fprintf(stderr, "  [%zu] ", n++);
+    elem.showStackElem();
+    fprintf(stderr, "\n");
+  }
+  fprintf(stderr, "}}\n");
 }
 #endif
 

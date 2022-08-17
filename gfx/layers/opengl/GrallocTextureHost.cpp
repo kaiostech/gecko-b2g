@@ -105,7 +105,7 @@ static GLenum TextureTargetForAndroidPixelFormat(android::PixelFormat aFormat) {
 
 GrallocTextureHostOGL::GrallocTextureHostOGL(
     TextureFlags aFlags, const SurfaceDescriptorGralloc& aDescriptor)
-    : TextureHost(aFlags),
+    : TextureHost(TextureHostType::AndroidHardwareBuffer, aFlags),
       mGrallocHandle(aDescriptor),
       mSize(0, 0),
       mCropSize(0, 0),

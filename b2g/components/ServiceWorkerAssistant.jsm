@@ -61,8 +61,9 @@ const ServiceWorkerAssistant = {
     Services.obs.addObserver(this, "ipc:first-content-process-created");
 
     if (isGonk) {
-      this._requireUnregister =
-        lazy.libcutils.property_get("persist.b2g.reboot.reason") !== "normal";
+      let reason = lazy.libcutils.property_get("persist.b2g.reboot.reason");
+      debug(`Reboot reason: ${reason}`);
+      this._requireUnregister = reason !== "normal";
       lazy.libcutils.property_set("persist.b2g.reboot.reason", "unknown");
     }
   },

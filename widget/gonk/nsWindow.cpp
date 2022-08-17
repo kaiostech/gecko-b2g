@@ -264,7 +264,8 @@ class DispatchTouchInputOnMainThread : public mozilla::Runnable {
 
 /*static*/ void nsWindow::KickOffCompositionImpl(
     CompositorBridgeParent* aCompositorBridge) {
-  aCompositorBridge->Invalidate();
+  // Removed in https://bugzilla.mozilla.org/show_bug.cgi?id=1785021
+  // aCompositorBridge->Invalidate();
   aCompositorBridge->ScheduleComposition(wr::RenderReasons::FLUSH);
 }
 

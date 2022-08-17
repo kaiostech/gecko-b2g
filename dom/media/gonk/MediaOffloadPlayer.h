@@ -70,6 +70,9 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   MediaEventSource<DecoderDoctorEvent>& OnDecoderDoctorEvent() {
     return mOnDecoderDoctorEvent;
   }
+  MediaEventProducer<VideoInfo, AudioInfo>& OnTrackInfoUpdatedEvent() {
+    return mOnTrackInfoUpdatedEvent;
+  }
   MediaEventSource<NextFrameStatus>& OnNextFrameStatus() {
     return mOnNextFrameStatus;
   }
@@ -174,7 +177,8 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   void NotifyPlaybackEvent(MediaPlaybackEvent aEvent);
   void NotifyPlaybackError(MediaResult aError);
   void NotifyNextFrameStatus(NextFrameStatus aStatus);
-
+  void NotifyTrackInfoUpdated();
+ 
   /*
    * Canonicals.
    */
@@ -231,6 +235,7 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   MediaEventProducer<NextFrameStatus> mOnNextFrameStatus;
   MediaEventProducerExc<RefPtr<VideoFrameContainer>>
       mOnSecondaryVideoContainerInstalled;
+  MediaEventProducer<VideoInfo, AudioInfo> mOnTrackInfoUpdatedEvent;
 };
 
 }  // namespace mozilla

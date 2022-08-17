@@ -539,6 +539,7 @@ ARCHIVE_FILES = {
                 "moz-http2/**",
                 "node-http2/**",
                 "node-ip/**",
+                "node-ws/**",
                 "dns-packet/**",
                 "odoh-wasm/**",
                 "remotexpcshelltests.py",

@@ -2,6 +2,12 @@ $max-z-index: 2147483647;
 
 .onboardingContainer.featureCallout {
   position: absolute;
+  transition: opacity 0.5s ease;
+
+  &.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
 
   &,
   & .outer-wrapper {
@@ -21,7 +27,6 @@ $max-z-index: 2147483647;
       z-index: $max-z-index - 1;
       height: fit-content;
       min-height: unset;
-      background-color: transparent;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 
       .logo-container {
@@ -30,6 +35,12 @@ $max-z-index: 2147483647;
 
         .brand-logo {
           margin: 30px 45px 0;
+          // This may not work for all future messages, 
+          // so we may want to make flipping the logo 
+          // image in RTL mode configurable
+          &:dir(rtl) {
+            transform: rotateY(180deg);
+          }
         }
       }
 

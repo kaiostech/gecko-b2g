@@ -74,7 +74,7 @@ const ONBOARDING_MESSAGES = () => [
             position: "split",
             progress_bar: "true",
             background:
-              "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+              "url('chrome://activity-stream/content/data/content/assets/mr-pintaskbar.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(83.12% 83.12% at 80.59% 16.88%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
             logo: {},
             title: "Thank you for loving Firefox",
             subtitle:
@@ -102,7 +102,7 @@ const ONBOARDING_MESSAGES = () => [
             position: "split",
             progress_bar: "true",
             background:
-              "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+              "url('chrome://activity-stream/content/data/content/assets/mr-settodefault.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(113% 87.18% at 93.5% 73.82%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
             logo: {},
             title: "Make Firefox your go-to browser",
             subtitle:
@@ -131,7 +131,7 @@ const ONBOARDING_MESSAGES = () => [
             position: "split",
             progress_bar: "true",
             background:
-              "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+              "url('chrome://activity-stream/content/data/content/assets/mr-import.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(120.14% 108.82% at 69.5% 100%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
             logo: {},
             title: "Lightning-fast setup",
             subtitle:
@@ -159,8 +159,9 @@ const ONBOARDING_MESSAGES = () => [
           id: "UPGRADE_COLORWAY",
           content: {
             position: "split",
+            split_narrow_bkg_position: "-100px",
             background:
-              "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+              "url('chrome://browser/content/colorways/assets/independent-voices-collection.avif') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
             progress_bar: true,
             logo: {},
             title: "Choose the color that inspires you",
@@ -248,7 +249,7 @@ const ONBOARDING_MESSAGES = () => [
           content: {
             position: "split",
             background:
-              "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+              "url('chrome://activity-stream/content/data/content/assets/mr-mobilecrosspromo.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(109.62% 64.62% at 9.75% 62.91%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
             progress_bar: true,
             logo: {},
             title: "Hop from laptop to phone and back again",
@@ -279,12 +280,51 @@ const ONBOARDING_MESSAGES = () => [
           },
         },
         {
-          id: "UPGRADE_GRATITUDE",
+          id: "UPGRADE_PIN_PRIVATE_WINDOW",
           content: {
             position: "split",
             progress_bar: "true",
             background:
-              "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+              "url('chrome://activity-stream/content/data/content/assets/mr-pintaskbar.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(83.12% 83.12% at 80.59% 16.88%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
+            logo: {},
+            title: {
+              string_id: "mr2022-upgrade-onboarding-pin-private-window-header",
+            },
+            subtitle: {
+              string_id:
+                "mr2022-upgrade-onboarding-pin-private-window-subtitle",
+            },
+            primary_button: {
+              label: {
+                string_id:
+                  "mr2022-upgrade-onboarding-pin-private-window-primary-button-label",
+              },
+              action: {
+                type: "PIN_FIREFOX_TO_TASKBAR",
+                data: {
+                  privatePin: true,
+                },
+                navigate: true,
+              },
+            },
+            secondary_button: {
+              label: {
+                string_id: "mr2022-onboarding-skip-step-button-label",
+              },
+              action: {
+                navigate: true,
+              },
+            },
+          },
+        },
+        {
+          id: "UPGRADE_GRATITUDE",
+          content: {
+            position: "split",
+            progress_bar: "true",
+            split_narrow_bkg_position: "-60px",
+            background:
+              "url('chrome://activity-stream/content/data/content/assets/mr-gratitude.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(124% 67.28% at 0% 39.91%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
             logo: {},
             title: "You’re helping us build a better web",
             subtitle:
@@ -704,8 +744,8 @@ const OnboardingMessageProvider = {
     }
     return translatedMessages;
   },
-  async _doesAppNeedPin() {
-    const needPin = await lazy.ShellService.doesAppNeedPin();
+  async _doesAppNeedPin(privateBrowsing = false) {
+    const needPin = await lazy.ShellService.doesAppNeedPin(privateBrowsing);
     return needPin;
   },
   async _doesAppNeedDefault() {
@@ -737,6 +777,7 @@ const OnboardingMessageProvider = {
     );
     const needPin = await this._doesAppNeedPin();
     const needDefault = await this._doesAppNeedDefault();
+    const needPrivatePin = await this._doesAppNeedPin(true);
 
     //If a user has Firefox as default remove import screen
     if (!needDefault) {
@@ -774,6 +815,15 @@ const OnboardingMessageProvider = {
     // Remove mobile download screen if user has sync enabled
     if (lazy.usesFirefoxSync && lazy.mobileDevices > 0) {
       removeScreens(screen => screen.id === "UPGRADE_MOBILE_DOWNLOAD");
+    }
+
+    // If a user has Firefox private pinned remove pin private window screen
+    // We also remove standalone pin private window screen if a user doesn't have
+    // Firefox pinned in which case the option is shown as checkbox with UPGRADE_PIN_FIREFOX screen
+    if (!needPrivatePin || needPin) {
+      removeScreens(screen =>
+        screen.id?.startsWith("UPGRADE_PIN_PRIVATE_WINDOW")
+      );
     }
 
     return message;

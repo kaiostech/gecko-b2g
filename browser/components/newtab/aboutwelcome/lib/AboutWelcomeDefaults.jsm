@@ -270,14 +270,15 @@ const MR_ABOUT_WELCOME_DEFAULT = {
     "browser.aboutwelcome.transitions",
     true
   ),
-  backdrop: "#438ab6",
+  backdrop:
+    "var(--mr-welcome-background-color) var(--mr-welcome-background-gradient)",
   screens: [
     {
       id: "AW_PIN_FIREFOX",
       content: {
         position: "split",
         background:
-          "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+          "url('chrome://activity-stream/content/data/content/assets/mr-pintaskbar.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(83.12% 83.12% at 80.59% 16.88%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
         progress_bar: true,
         logo: {},
         title: "Open up an amazing internet",
@@ -315,7 +316,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
       content: {
         position: "split",
         background:
-          "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+          "var(--in-content-page-background) radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
         progress_bar: true,
         logo: {},
         title: { string_id: "onboarding-live-language-header" },
@@ -340,7 +341,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
       content: {
         position: "split",
         background:
-          "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+          "url('chrome://activity-stream/content/data/content/assets/mr-settodefault.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(113% 87.18% at 93.5% 73.82%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
         progress_bar: true,
         logo: {},
         title: "Make Firefox your go-to browser",
@@ -366,7 +367,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
       content: {
         position: "split",
         background:
-          "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+          "url('chrome://activity-stream/content/data/content/assets/mr-import.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(120.14% 108.82% at 69.5% 100%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
         progress_bar: true,
         logo: {},
         title: "Lightning fast setup",
@@ -395,8 +396,9 @@ const MR_ABOUT_WELCOME_DEFAULT = {
       id: "AW_CHOOSE_COLORWAY",
       content: {
         position: "split",
+        split_narrow_bkg_position: "-100px",
         background:
-          "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+          "url('chrome://browser/content/colorways/assets/independent-voices-collection.avif') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
         progress_bar: true,
         logo: {},
         title: "Choose the color that inspires you",
@@ -484,7 +486,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
       content: {
         position: "split",
         background:
-          "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+          "url('chrome://activity-stream/content/data/content/assets/mr-mobilecrosspromo.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(109.62% 64.62% at 9.75% 62.91%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
         progress_bar: true,
         logo: {},
         title: "Hop from laptop to phone and back again",
@@ -518,8 +520,9 @@ const MR_ABOUT_WELCOME_DEFAULT = {
       id: "AW_GRATITUDE",
       content: {
         position: "split",
+        split_narrow_bkg_position: "-60px",
         background:
-          "radial-gradient(83.12% 83.12% at 80.59% 16.88%, #9059FF 0%, #3A8EE6 54.51%, #A0C4EA 100%)",
+          "url('chrome://activity-stream/content/data/content/assets/mr-gratitude.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(124% 67.28% at 0% 39.91%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
         progress_bar: true,
         logo: {},
         title: "You’re helping us build a better web.",

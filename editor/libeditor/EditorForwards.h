@@ -117,8 +117,10 @@ class WSScanResult;                 // WSRunObject.h
  * structs
  ******************************************************************************/
 
-struct PropItem;   // mozilla/TypeInState.h
-struct RangeItem;  // mozilla/SelectionState.h
+struct EditorInlineStyle;          // HTMLEditHelpers.h
+struct EditorInlineStyleAndValue;  // HTMLEditHelpers.h
+struct PropItem;                   // mozilla/TypeInState.h
+struct RangeItem;                  // mozilla/SelectionState.h
 
 /******************************************************************************
  * template classes

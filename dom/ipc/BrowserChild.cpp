@@ -65,7 +65,9 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/JSWindowActorChild.h"
+#include "mozilla/dom/ImageDocument.h"
 #include "mozilla/dom/LoadURIOptionsBinding.h"
+#include "mozilla/dom/MediaDocument.h"
 #include "mozilla/dom/MessageManagerBinding.h"
 #include "mozilla/dom/MouseEventBinding.h"
 #include "mozilla/dom/Nullable.h"
@@ -1542,6 +1544,25 @@ mozilla::ipc::IPCResult BrowserChild::RecvSetIsUnderHiddenEmbedderElement(
   if (RefPtr<PresShell> presShell = GetTopLevelPresShell()) {
     presShell->SetIsUnderHiddenEmbedderElement(aIsUnderHiddenEmbedderElement);
   }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserChild::RecvUpdateRemoteStyle(
+    const StyleImageRendering& aImageRendering) {
+  BrowsingContext* context = GetBrowsingContext();
+  if (!context) {
+    return IPC_OK();
+  }
+
+  Document* document = context->GetDocument();
+  if (!document) {
+    return IPC_OK();
+  }
+
+  if (document->IsImageDocument()) {
+    document->AsImageDocument()->UpdateRemoteStyle(aImageRendering);
+  }
+
   return IPC_OK();
 }
 

@@ -230,22 +230,9 @@ module.exports = {
       ],
     },
     {
-      files: [
-        "netwerk/cookie/test/browser/**",
-        "netwerk/test/browser/**",
-        "netwerk/test/mochitests/**",
-        "netwerk/test/unit*/**",
-      ],
+      files: ["netwerk/test/mochitests/**", "netwerk/test/unit*/**"],
       rules: {
-        "mozilla/no-arbitrary-setTimeout": "off",
-        "mozilla/no-define-cc-etc": "off",
-        "consistent-return": "off",
-        "no-eval": "off",
-        "no-global-assign": "off",
-        "no-nested-ternary": "off",
-        "no-redeclare": "off",
-        "no-shadow": "off",
-        "no-throw-literal": "off",
+        "no-shadow": "warn",
       },
     },
     {

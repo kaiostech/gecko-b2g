@@ -88,6 +88,9 @@ const SUPPORTED_STRATEGIES = new Set([
 // commands if no window manager is present.
 const TIMEOUT_NO_WINDOW_MANAGER = 5000;
 
+// Observer topic to wait for until the browser window is ready.
+const TOPIC_BROWSER_READY = "browser-delayed-startup-finished";
+
 /**
  * The Marionette WebDriver services provides a standard conforming
  * implementation of the W3C WebDriver specification.
@@ -508,7 +511,7 @@ GeckoDriver.prototype.newSession = async function(cmd) {
     lazy.registerCommandsActor();
     lazy.enableEventsActor();
 
-    Services.obs.addObserver(this, "browser-delayed-startup-finished");
+    Services.obs.addObserver(this, TOPIC_BROWSER_READY);
   } catch (e) {
     throw new lazy.error.SessionNotCreatedError(e);
   }
@@ -561,7 +564,7 @@ GeckoDriver.prototype.handleEvent = function({ target, type }) {
 
 GeckoDriver.prototype.observe = function(subject, topic, data) {
   switch (topic) {
-    case "browser-delayed-startup-finished":
+    case TOPIC_BROWSER_READY:
       this.registerListenersForWindow(subject);
       break;
   }
@@ -2351,7 +2354,11 @@ GeckoDriver.prototype.deleteSession = function() {
     this.dialogObserver = null;
   }
 
-  Services.obs.removeObserver(this, "browser-delayed-startup-finished");
+  try {
+    Services.obs.removeObserver(this, TOPIC_BROWSER_READY);
+  } catch (e) {
+    lazy.logger.debug(`Failed to remove observer "${TOPIC_BROWSER_READY}"`);
+  }
 
   this.importedScripts.clear();
 

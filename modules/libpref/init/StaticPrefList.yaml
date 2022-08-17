@@ -42,10 +42,11 @@
 #   and JS code).
 #
 # - `type` is one of `bool`, `int32_t`, `uint32_t`, `float`, an atomic version
-#   of one of those, or `String`. Note that float prefs are stored internally
-#   as strings. The C++ preprocessor doesn't like template syntax in a macro
-#   argument, so use the typedefs defined in StaticPrefsBase.h; for example,
-#   use `RelaxedAtomicBool` instead of `Atomic<bool, Relaxed>`.
+#   of one of those, `String` or `DataMutexString`. Note that float prefs are
+#   stored internally as strings. The C++ preprocessor doesn't like template
+#   syntax in a macro argument, so use the typedefs defined in
+#   StaticPrefsBase.h; for example, use `RelaxedAtomicBool` instead of
+#   `Atomic<bool, Relaxed>`.
 #
 # - `value` is the default value. Its type should be appropriate for
 #   <cpp-type>, otherwise the generated code will fail to compile. A complex
@@ -399,7 +400,7 @@
 #     applies to touchpad scrolling)
 - name: apz.axis_lock.mode
   type: RelaxedAtomicInt32
-#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
+#if defined(XP_MACOSX)
   value: 3
 #else
   value: 2
@@ -561,7 +562,12 @@
     value: true
     mirror: always
 
-# Mode to use when receiving kinetic scroll input.
+-   name: apz.gtk.pangesture.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
+# Mode to use when receiving pan gesture input.
 #
 #  * 0: Auto mode (uses the default behavior, subject to change).
 #  * 1: Page mode: Uses gtk deltas as a percentage of the page size to scroll. This mode matches:
@@ -572,17 +578,17 @@
 #
 #    https://webkit-search.igalia.com/webkit/rev/215039ef09d6bfd6e088175bfe30788d95b9705d/Source/WebKit/Shared/gtk/WebEventFactory.cpp#265-296
 #    (multiplied then by pixelsPerLineStep which in GNOME-web is 40).
--   name: apz.gtk.kinetic_scroll.delta_mode
+-   name: apz.gtk.pangesture.delta_mode
     type: uint32_t
     value: 0
     mirror: always
 
--   name: apz.gtk.kinetic_scroll.page_delta_mode_multiplier
+-   name: apz.gtk.pangesture.page_delta_mode_multiplier
     type: float
     value: 1.0f
     mirror: always
 
--   name: apz.gtk.kinetic_scroll.pixel_delta_mode_multiplier
+-   name: apz.gtk.pangesture.pixel_delta_mode_multiplier
     type: float
     value: 40.0f
     mirror: always
@@ -1630,6 +1636,23 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# When this pref is enabled, <object> and <embed> elements will create
+# synthetic documents when the resource type they're loading is an image.
+- name: browser.opaqueResponseBlocking.syntheticBrowsingContext
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: once
+
+# When this pref is enabled, <object> and <embed> elements will filter the
+# browsing contexts created for the synthetic browsing contexts for the
+# synthetic documents when browser.opaqueResponseBlocking.syntheticBrowsingContext
+# is enabled from `Window.frames`, `Window.length` and named targeting.
+- name: browser.opaqueResponseBlocking.syntheticBrowsingContext.filter
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: once
+  do_not_use_directly: true
+
 # When true, zooming will be enabled on all sites, even ones that declare
 # user-scalable=no.
 - name: browser.ui.zoom.force-user-scalable
@@ -1859,6 +1882,33 @@
 - name: converter.html2txt.always_include_ruby
   type: bool
   value: false
+  mirror: always
+
+#---------------------------------------------------------------------------
+# Prefs starting with "cookiebanners."
+#---------------------------------------------------------------------------
+
+# Controls the cookie banner handling mode.
+# 0: Disables all cookie banner handling.
+# 1: Reject-all if possible, otherwise do nothing.
+# 2: Reject-all if possible, otherwise accept-all.
+- name: cookiebanners.service.mode
+  type: uint32_t
+  value: 0
+  mirror: always
+
+# Enables the cookie banner cookie injector.
+- name: cookiebanners.cookieInjector.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# By default, how many seconds in the future cookies should expire after they
+# have been injected. Defaults to 12 months. Individual cookie rules may
+# override this.
+- name: cookiebanners.cookieInjector.defaultExpiryRelative
+  type: uint32_t
+  value: 31536000
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -5922,6 +5972,11 @@
     mirror: always
 #endif
 
+- name: gfx.font_rendering.colr_v1.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: gfx.font_rendering.opentype_svg.enabled
   type: RelaxedAtomicBool
   value: true
@@ -6046,9 +6101,9 @@
 
 # Domains included in the allowlist.
 - name: gfx.offscreencanvas.domain-allowlist
-  type: String
+  type: DataMutexString
   value: "*.zoom.us,zoom.us"
-  mirror: never
+  mirror: always
 
 - name: gfx.omta.background-color
   type: bool
@@ -7952,7 +8007,7 @@
 # Whether we should avoid exposing styles of elements outside the flat tree in getComputedStyle().
 - name: layout.css.computed-style.styles-outside-flat-tree
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # Are implicit tracks in computed grid templates serialized?
@@ -12433,7 +12488,7 @@
 # Partition the service workers unconditionally when dFPI is enabled.
 - name: privacy.partition.serviceWorkers
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Enables / disables the URL query string stripping in normal browsing mode
@@ -13961,14 +14016,14 @@
   mirror: once
 
 - name: webgl.override-unmasked-renderer
-  type: String
+  type: DataMutexString
   value: ""
-  mirror: never
+  mirror: always
 
 - name: webgl.override-unmasked-vendor
-  type: String
+  type: DataMutexString
   value: ""
-  mirror: never
+  mirror: always
 
 - name: webgl.power-preference-override
   type: RelaxedAtomicInt32

@@ -1201,16 +1201,16 @@ void nsWindow::HideWaylandPopupWindow(bool aTemporaryHide,
   if (mPopupClosed) {
     LOG("  Clearing mMoveToRectPopupSize\n");
     mMoveToRectPopupSize = {};
-  }
-
 #ifdef MOZ_WAYLAND
-  if (moz_container_wayland_is_waiting_to_show(mContainer)) {
-    // We need to clear rendering queue, see Bug 1782948.
-    LOG("  popup failed to show by Wayland compositor, clear rendering queue.");
-    moz_container_wayland_clear_waiting_to_show_flag(mContainer);
-    ClearRenderingQueue();
-  }
+    if (moz_container_wayland_is_waiting_to_show(mContainer)) {
+      // We need to clear rendering queue, see Bug 1782948.
+      LOG("  popup failed to show by Wayland compositor, clear rendering "
+          "queue.");
+      moz_container_wayland_clear_waiting_to_show_flag(mContainer);
+      ClearRenderingQueue();
+    }
 #endif
+  }
 }
 
 void nsWindow::HideWaylandToplevelWindow() {
@@ -1263,8 +1263,8 @@ void nsWindow::WaylandPopupHideTooltips() {
 }
 
 void nsWindow::WaylandPopupCloseOrphanedPopups() {
-  LOG("nsWindow::WaylandPopupCloseOrphanedPopups");
 #ifdef MOZ_WAYLAND
+  LOG("nsWindow::WaylandPopupCloseOrphanedPopups");
   MOZ_ASSERT(mWaylandToplevel == nullptr, "Should be called on toplevel only!");
 
   nsWindow* popup = mWaylandPopupNext;
@@ -1572,11 +1572,12 @@ void nsWindow::LogPopupHierarchy() {
     while (popup) {
       nsPrintfCString indentString("%*s", indent, " ");
       LOG("%s %s %s nsWindow [%p] Menu %d Permanent %d ContextMenu %d "
-          "Anchored %d Visible %d\n",
+          "Anchored %d Visible %d MovedByRect %d\n",
           indentString.get(), popup->GetFrameTag().get(),
           popup->GetPopupTypeName().get(), popup, popup->WaylandPopupIsMenu(),
           popup->WaylandPopupIsPermanent(), popup->mPopupContextMenu,
-          popup->mPopupAnchored, gtk_widget_is_visible(popup->mShell));
+          popup->mPopupAnchored, gtk_widget_is_visible(popup->mShell),
+          popup->mPopupUseMoveToRect);
       indent += 4;
       popup = popup->mWaylandPopupNext;
     }
@@ -1593,12 +1594,12 @@ void nsWindow::LogPopupHierarchy() {
       nsPrintfCString indentString("%*s", (int)(i + 1) * 4, " ");
       if (window) {
         LOG("%s %s %s nsWindow [%p] Menu %d Permanent %d ContextMenu %d "
-            "Anchored %d Visible %d\n",
+            "Anchored %d Visible %d MovedByRect %d\n",
             indentString.get(), window->GetFrameTag().get(),
             window->GetPopupTypeName().get(), window,
             window->WaylandPopupIsMenu(), window->WaylandPopupIsPermanent(),
             window->mPopupContextMenu, window->mPopupAnchored,
-            gtk_widget_is_visible(window->mShell));
+            gtk_widget_is_visible(window->mShell), window->mPopupUseMoveToRect);
       } else {
         LOG("%s null window\n", indentString.get());
       }
@@ -2513,18 +2514,29 @@ void nsWindow::WaylandPopupMove() {
   LOG("  popup use move to rect %d", mPopupUseMoveToRect);
 
   if (!mPopupUseMoveToRect) {
+    // Visible widgets can't be positioned.
+    if (gtk_widget_is_visible(mShell)) {
+      HideWaylandPopupWindow(/* aTemporaryHide */ true,
+                             /* aRemoveFromPopupList */ false);
+    }
+
     // Workaround for https://gitlab.gnome.org/GNOME/gtk/-/issues/4308
-    // Tooltips/Utility popus are created as subsurfaces with relative position.
-    // Menu uses absolute positions.
-    if (mPopupHint == ePopupTypeMenu) {
-      LOG("  use gtk_window_move(%d, %d) for hidden widget\n", mPopupPosition.x,
-          mPopupPosition.y);
-      gtk_window_move(GTK_WINDOW(mShell), mPopupPosition.x, mPopupPosition.y);
-    } else {
-      LOG("  use gtk_window_move(%d, %d) for visible widget\n",
+    // Tooltips/Utility popups are created as subsurfaces with relative
+    // position.
+    bool useRelativeCoordinates =
+        gtk_window_get_type_hint(GTK_WINDOW(mShell)) ==
+            GDK_WINDOW_TYPE_HINT_UTILITY ||
+        gtk_window_get_type_hint(GTK_WINDOW(mShell)) ==
+            GDK_WINDOW_TYPE_HINT_TOOLTIP;
+    if (useRelativeCoordinates) {
+      LOG("  use relative gtk_window_move(%d, %d) for tooltips\n",
           mRelativePopupPosition.x, mRelativePopupPosition.y);
       gtk_window_move(GTK_WINDOW(mShell), mRelativePopupPosition.x,
                       mRelativePopupPosition.y);
+    } else {
+      LOG("  use absolute gtk_window_move(%d, %d) for menus\n",
+          mPopupPosition.x, mPopupPosition.y);
+      gtk_window_move(GTK_WINDOW(mShell), mPopupPosition.x, mPopupPosition.y);
     }
     // Layout already should be aware of our bounds, since we didn't change it
     // from the widget side for flipping or so.
@@ -4716,7 +4728,7 @@ void nsWindow::OnScrollEvent(GdkEventScroll* aEvent) {
       GdkInputSource source = gdk_device_get_source(device);
       if (source == GDK_SOURCE_TOUCHSCREEN || source == GDK_SOURCE_TOUCHPAD ||
           mCurrentSynthesizedTouchpadPan.mTouchpadGesturePhase.isSome()) {
-        if (StaticPrefs::apz_gtk_kinetic_scroll_enabled() &&
+        if (StaticPrefs::apz_gtk_pangesture_enabled() &&
             gtk_check_version(3, 20, 0) == nullptr) {
           static auto sGdkEventIsScrollStopEvent =
               (gboolean(*)(const GdkEvent*))dlsym(
@@ -4762,14 +4774,14 @@ void nsWindow::OnScrollEvent(GdkEventScroll* aEvent) {
           mCurrentSynthesizedTouchpadPan.mTouchpadGesturePhase.reset();
 
           const bool isPageMode =
-              StaticPrefs::apz_gtk_kinetic_scroll_delta_mode() != 2;
+              StaticPrefs::apz_gtk_pangesture_delta_mode() != 2;
           const double multiplier =
               isPageMode
-                  ? StaticPrefs::
-                        apz_gtk_kinetic_scroll_page_delta_mode_multiplier()
+                  ? StaticPrefs::apz_gtk_pangesture_page_delta_mode_multiplier()
                   : StaticPrefs::
-                            apz_gtk_kinetic_scroll_pixel_delta_mode_multiplier() *
+                            apz_gtk_pangesture_pixel_delta_mode_multiplier() *
                         FractionalScaleFactor();
+
           ScreenPoint deltas(float(aEvent->delta_x * multiplier),
                              float(aEvent->delta_y * multiplier));
 
@@ -4780,7 +4792,8 @@ void nsWindow::OnScrollEvent(GdkEventScroll* aEvent) {
               KeymapWrapper::ComputeKeyModifiers(aEvent->state));
           panEvent.mDeltaType = isPageMode ? PanGestureInput::PANDELTA_PAGE
                                            : PanGestureInput::PANDELTA_PIXEL;
-          panEvent.mSimulateMomentum = true;
+          panEvent.mSimulateMomentum =
+              StaticPrefs::apz_gtk_kinetic_scroll_enabled();
 
           panEvent
               .mRequiresContentResponseIfCannotScrollHorizontallyInStartDirection =
@@ -5118,6 +5131,7 @@ void nsWindow::OnDragDataReceivedEvent(GtkWidget* aWidget,
   LOGDRAG("nsWindow::OnDragDataReceived(%p)\n", (void*)this);
 
   RefPtr<nsDragService> dragService = nsDragService::GetInstance();
+  nsDragService::AutoEventLoop loop(dragService);
   dragService->TargetDataReceived(aWidget, aDragContext, aX, aY, aSelectionData,
                                   aInfo, aTime);
 }
@@ -5450,7 +5464,7 @@ void nsWindow::ConfigureCompositor() {
 
   LOG("nsWindow::ConfigureCompositor()");
   auto startCompositing = [self = RefPtr{this}, this]() -> void {
-    LOG("  moz_container_wayland_add_initial_draw_callback "
+    LOG("  moz_container_wayland_add_or_fire_initial_draw_callback "
         "ConfigureCompositor");
 
     // too late
@@ -5458,9 +5472,14 @@ void nsWindow::ConfigureCompositor() {
       LOG("  quit, mIsDestroyed = %d mIsMapped = %d", mIsDestroyed, mIsMapped);
       return;
     }
-
     // Compositor will be resumed later by ResumeCompositorFlickering().
     if (mCompositorState == COMPOSITOR_PAUSED_FLICKERING) {
+      LOG("  quit, will be resumed by ResumeCompositorFlickering.");
+      return;
+    }
+    // Compositor will be resumed at nsWindow::SetCompositorWidgetDelegate().
+    if (!mCompositorWidgetDelegate) {
+      LOG("  quit, missing mCompositorWidgetDelegate");
       return;
     }
 
@@ -5469,8 +5488,8 @@ void nsWindow::ConfigureCompositor() {
 
   if (GdkIsWaylandDisplay()) {
 #ifdef MOZ_WAYLAND
-    moz_container_wayland_add_initial_draw_callback(mContainer,
-                                                    startCompositing);
+    moz_container_wayland_add_or_fire_initial_draw_callback(mContainer,
+                                                            startCompositing);
 #endif
   } else {
     startCompositing();
@@ -8183,14 +8202,10 @@ gboolean WindowDragMotionHandler(GtkWidget* aWidget,
           innerMostWindow.get(), retx, rety);
 
   RefPtr<nsDragService> dragService = nsDragService::GetInstance();
+  nsDragService::AutoEventLoop loop(dragService);
   if (!dragService->ScheduleMotionEvent(innerMostWindow, aDragContext, point,
                                         aTime)) {
     return FALSE;
-  }
-  // We need to reply to drag_motion event on Wayland immediately,
-  // see Bug 1730203.
-  if (GdkIsWaylandDisplay()) {
-    dragService->ReplyToDragMotion();
   }
   return TRUE;
 }
@@ -8211,6 +8226,8 @@ void WindowDragLeaveHandler(GtkWidget* aWidget) {
   }
 
   RefPtr<nsDragService> dragService = nsDragService::GetInstance();
+  nsDragService::AutoEventLoop loop(dragService);
+
   nsWindow* mostRecentDragWindow = dragService->GetMostRecentDestWindow();
   if (!mostRecentDragWindow) {
     // This can happen when the target will not accept a drop.  A GTK drag
@@ -8270,6 +8287,7 @@ gboolean WindowDragDropHandler(GtkWidget* aWidget, GdkDragContext* aDragContext,
           innerMostWindow.get(), retx, rety);
 
   RefPtr<nsDragService> dragService = nsDragService::GetInstance();
+  nsDragService::AutoEventLoop loop(dragService);
   return dragService->ScheduleDropEvent(innerMostWindow, aDragContext, point,
                                         aTime);
 }

@@ -25,6 +25,7 @@ class BaseNodeHTTPServerCode {
     resp.setHeader("Content-Length", response.length);
     resp.writeHead(404);
     resp.end(response);
+    return undefined;
   }
 }
 
@@ -258,6 +259,10 @@ class BaseProxyCode {
         // The socket will error out when we kill the connection
         // just ignore it.
       });
+    clientSocket.on("error", e => {
+      // Sometimes we got ECONNRESET error on windows platform.
+      // Ignore it for now.
+    });
   }
 }
 
@@ -411,6 +416,7 @@ class HTTP2ProxyCode {
     };
     const http2 = require("http2");
     global.proxy = http2.createSecureServer(options);
+    global.socketCounts = {};
     this.setupProxy();
 
     await global.proxy.listen(port);
@@ -462,6 +468,8 @@ class HTTP2ProxyCode {
       const net = require("net");
       const socket = net.connect(port, "127.0.0.1", () => {
         try {
+          global.socketCounts[socket.remotePort] =
+            (global.socketCounts[socket.remotePort] || 0) + 1;
           stream.respond({ ":status": 200 });
           socket.pipe(stream);
           stream.pipe(socket);
@@ -495,6 +503,10 @@ class HTTP2ProxyCode {
       });
     });
   }
+
+  static socketCount(port) {
+    return global.socketCounts[port];
+  }
 }
 
 class NodeHTTP2ProxyServer extends BaseHTTPProxy {
@@ -511,6 +523,75 @@ class NodeHTTP2ProxyServer extends BaseHTTPProxy {
     this._port = await this.execute(`HTTP2ProxyCode.startServer(${port})`);
 
     this.registerFilter();
+  }
+
+  async socketCount(port) {
+    let count = this.execute(`HTTP2ProxyCode.socketCount(${port})`);
+    return count;
+  }
+}
+
+// websocket server
+
+class NodeWebSocketServerCode extends BaseNodeHTTPServerCode {
+  static messageHandler(data) {
+    if (global.wsInputHandler) {
+      global.wsInputHandler(data);
+      return;
+    }
+
+    global.ws.send("test");
+  }
+
+  static async startServer(port) {
+    const fs = require("fs");
+    const options = {
+      key: fs.readFileSync(__dirname + "/http2-cert.key"),
+      cert: fs.readFileSync(__dirname + "/http2-cert.pem"),
+    };
+    const https = require("https");
+    global.server = https.createServer(
+      options,
+      BaseNodeHTTPServerCode.globalHandler
+    );
+
+    let node_ws_root = `${__dirname}/../node-ws`;
+    const WebSocket = require(`${node_ws_root}/lib/websocket`);
+    WebSocket.Server = require(`${node_ws_root}/lib/websocket-server`);
+    global.webSocketServer = new WebSocket.Server({ server: global.server });
+    global.webSocketServer.on("connection", function connection(ws) {
+      global.ws = ws;
+      ws.on("message", NodeWebSocketServerCode.messageHandler);
+    });
+
+    await global.server.listen(port);
+    let serverPort = global.server.address().port;
+    await ADB.forwardPort(serverPort);
+
+    return serverPort;
+  }
+}
+
+class NodeWebSocketServer extends BaseNodeServer {
+  _protocol = "wss";
+  /// Starts the server
+  /// @port - default 0
+  ///    when provided, will attempt to listen on that port.
+  async start(port = 0) {
+    this.processId = await NodeServer.fork();
+
+    await this.execute(BaseNodeHTTPServerCode);
+    await this.execute(NodeWebSocketServerCode);
+    await this.execute(ADB);
+    this._port = await this.execute(
+      `NodeWebSocketServerCode.startServer(${port})`
+    );
+    await this.execute(`global.path_handlers = {};`);
+    await this.execute(`global.wsInputHandler = null;`);
+  }
+
+  async registerMessageHandler(handler) {
+    return this.execute(`global.wsInputHandler = ${handler.toString()}`);
   }
 }
 

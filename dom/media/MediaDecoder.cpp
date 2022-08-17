@@ -506,6 +506,23 @@ void MediaDecoder::OnNextFrameStatus(
   }
 }
 
+void MediaDecoder::OnTrackInfoUpdated(const VideoInfo& aVideoInfo,
+                                      const AudioInfo& aAudioInfo) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_DIAGNOSTIC_ASSERT(!IsShutdown());
+
+  // Note that we don't check HasVideo() or HasAudio() here, because
+  // those are checks for existing validity. If we always set the values
+  // to what we receive, then we can go from not-video to video, for
+  // example.
+  mInfo->mVideo = aVideoInfo;
+  mInfo->mAudio = aAudioInfo;
+
+  Invalidate();
+
+  EnsureTelemetryReported();
+}
+
 void MediaDecoder::OnSecondaryVideoContainerInstalled(
     const RefPtr<VideoFrameContainer>& aSecondaryVideoContainer) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -589,6 +606,8 @@ void MediaDecoder::SetStateMachineParameters() {
       mAbstractMainThread, this, &MediaDecoder::OnMediaNotSeekable);
   mOnNextFrameStatus = mDecoderStateMachine->OnNextFrameStatus().Connect(
       mAbstractMainThread, this, &MediaDecoder::OnNextFrameStatus);
+  mOnTrackInfoUpdated = mDecoderStateMachine->OnTrackInfoUpdatedEvent().Connect(
+      mAbstractMainThread, this, &MediaDecoder::OnTrackInfoUpdated);
   mOnSecondaryVideoContainerInstalled =
       mDecoderStateMachine->OnSecondaryVideoContainerInstalled().Connect(
           mAbstractMainThread, this,
@@ -617,6 +636,7 @@ void MediaDecoder::DisconnectEvents() {
   mOnWaitingForKey.Disconnect();
   mOnDecodeWarning.Disconnect();
   mOnNextFrameStatus.Disconnect();
+  mOnTrackInfoUpdated.Disconnect();
   mOnSecondaryVideoContainerInstalled.Disconnect();
   mOnStoreDecoderBenchmark.Disconnect();
 }

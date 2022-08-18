@@ -1977,8 +1977,13 @@ DataCall.prototype = {
       aDataCall.failCause &&
       aDataCall.failCause != Ci.nsIDataCallInterface.DATACALL_FAIL_NONE
     ) {
-      errorMsg =
-        RIL.RIL_DATACALL_FAILCAUSE_TO_GECKO_DATACALL_ERROR[aDataCall.failCause];
+      errorMsg = RIL.RIL_DATACALL_FAILCAUSE_TO_GECKO_DATACALL_ERROR[
+        aDataCall.failCause
+      ]
+        ? RIL.RIL_DATACALL_FAILCAUSE_TO_GECKO_DATACALL_ERROR[
+            aDataCall.failCause
+          ]
+        : RIL.GECKO_DATACALL_ERROR_UNSPECIFIED;
     }
 
     if (errorMsg) {

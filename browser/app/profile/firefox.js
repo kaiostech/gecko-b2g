@@ -403,6 +403,7 @@ pref("browser.urlbar.suggest.calculator",           false);
   // Enable QuickActions and its urlbar search mode button.
   pref("browser.urlbar.suggest.quickactions", true);
   pref("browser.urlbar.shortcuts.quickactions", true);
+  pref("browser.urlbar.quickactions.showPrefs", true);
 #endif
 
 // When `browser.urlbar.bestMatch.enabled` is true, this controls whether best
@@ -2716,4 +2717,4 @@ pref("browser.places.snapshots.expiration.userManaged.days", 420);
 
 // If the user has seen the Firefox View feature tour this value reflects the tour
 // message id, the id of the last screen they saw, and whether they completed the tour
-pref("browser.firefox-view.feature-tour", "{\"message\":\"FIREFOX_VIEW_FEATURE_TOUR\",\"screen\":\"\",\"complete\":true}");
+pref("browser.firefox-view.feature-tour", "{\"message\":\"\",\"screen\":\"\",\"complete\":true}");

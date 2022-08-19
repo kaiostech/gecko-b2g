@@ -21,7 +21,6 @@
     <script type="module" src="chrome://browser/content/colorways-card.mjs"></script>
     <script type="module" src="chrome://browser/content/recently-closed-tabs.mjs"></script>
     <script type="module" src="chrome://browser/content/tab-pickup-list.mjs"></script>
-    <script type="module" src="chrome://browser/content/featureCallout.mjs"></script>
     <script src="chrome://browser/content/contentTheme.js"></script>
   </head>
 
@@ -148,8 +147,8 @@
           </div>
         </template>
         <template id="colorways-active-collection-template">
-          <figure>
-            <img id="colorways-collection-figure">
+          <figure role="presentation">
+            <img id="colorways-collection-figure" role="presentation">
           </figure>
           <header>
             <h1 id="colorways-collection-title"></h1>

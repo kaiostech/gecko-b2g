@@ -3334,18 +3334,6 @@
     "n_values": 16,
     "description": "SSL Handshake Key Exchange Algorithm for resumed handshake (null=0, rsa=1, dh=2, fortezza=3, ecdh=4)"
   },
-  "CLIENT_CERTIFICATE_SCAN_TIME": {
-    "record_in_processes": ["main", "socket"],
-    "products": ["firefox"],
-    "alert_emails": ["seceng-telemetry@mozilla.com", "dkeeler@mozilla.com"],
-    "expires_in_version": "106",
-    "releaseChannelCollection": "opt-out",
-    "kind": "exponential",
-    "high": 60000,
-    "n_buckets": 100,
-    "description": "ms elapsed time scanning for client certificates",
-    "bug_numbers": [1711154, 1736628, 1763524]
-  },
   "CRLITE_VS_OCSP_RESULT": {
     "record_in_processes": ["main", "socket"],
     "products": ["firefox", "fennec"],
@@ -10662,25 +10650,25 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["jwatt@jwatt.org", "emilio@mozilla.com"],
-    "expires_in_version": "105",
+    "expires_in_version": "112",
     "description": "Milliseconds taken from when a print is initiated (typically by the user) to when the platform code is sent the print settings to create the initial print preview document.",
     "kind": "exponential",
     "high": 10000,
     "n_buckets": 50,
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1663733, 1714261, 1745270]
+    "bug_numbers": [1663733, 1714261, 1745270, 1777398]
   },
   "PRINT_INIT_TO_PREVIEW_DOC_SHOWN_MS" : {
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["jwatt@jwatt.org", "emilio@mozilla.com"],
-    "expires_in_version": "105",
+    "expires_in_version": "112",
     "description": "Milliseconds taken from when a print is initiated (typically by the user) to when the initial print preview document is shown.",
     "kind": "exponential",
     "high": 10000,
     "n_buckets": 50,
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1663733, 1714261, 1745270]
+    "bug_numbers": [1663733, 1714261, 1745270, 1777398]
   },
   "DEVTOOLS_COLD_TOOLBOX_OPEN_DELAY_MS": {
     "record_in_processes": ["main"],

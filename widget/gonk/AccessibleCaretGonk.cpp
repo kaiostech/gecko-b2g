@@ -3,12 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/PresShell.h"
-
+#include "mozilla/StaticPrefs_layout.h"
 #include "AccessibleCaretGonk.h"
-
 #include "AccessibleCaretLogger.h"
 #include "nsCaret.h"
-
 #include "nsLayoutUtils.h"
 
 namespace mozilla {

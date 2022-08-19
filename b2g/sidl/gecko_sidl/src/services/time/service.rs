@@ -320,11 +320,8 @@ task_receiver_success!(
     i64
 );
 
-#[derive(xpcom)]
-#[xpimplements(nsITime)]
-#[xpimplements(nsISidlConnectionObserver)]
-#[refcnt = "atomic"]
-struct InitTimeXpcom {
+#[xpcom(implement(nsITime, nsISidlConnectionObserver), atomic)]
+struct TimeXpcom {
     // The underlying UDS transport we are connected to.
     transport: UdsTransport,
     // The core service we use to get an instance of the Time service.

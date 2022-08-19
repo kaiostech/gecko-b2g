@@ -10,10 +10,8 @@ use nsstring::*;
 use xpcom::RefPtr;
 
 // XPCOM implementation of nsITimeInfo, used to dispatch TimeInfo to observers.
-#[derive(xpcom)]
-#[xpimplements(nsITimeInfo)]
-#[refcnt = "atomic"]
-pub struct InitTimeInfoXpcom {
+#[xpcom(implement(nsITimeInfo), atomic)]
+pub struct TimeInfoXpcom {
     reason: i16,
     timezone: nsString,
     delta: i64,

@@ -12,10 +12,8 @@ use std::cell::Cell;
 use xpcom::interfaces::{nsIDaemonManager, nsISidlConnectionObserver};
 use xpcom::RefPtr;
 
-#[derive(xpcom)]
-#[xpimplements(nsIDaemonManager)]
-#[refcnt = "atomic"]
-pub struct InitDaemonManagerXpcom {
+#[xpcom(implement(nsIDaemonManager), atomic)]
+pub struct DaemonManagerXpcom {
     transport: UdsTransport,
     observer: Cell<Option<usize>>,
 }

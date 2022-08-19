@@ -409,11 +409,8 @@ task_receiver!(
     SettingsFactoryRemoveObserverError
 );
 
-#[derive(xpcom)]
-#[xpimplements(nsISettingsManager)]
-#[xpimplements(nsISidlConnectionObserver)]
-#[refcnt = "atomic"]
-struct InitSettingsManagerXpcom {
+#[xpcom(implement(nsISettingsManager, nsISidlConnectionObserver), atomic)]
+struct SettingsManagerXpcom {
     // The underlying UDS transport we are connected to.
     transport: UdsTransport,
     // The core service we use to get an instance of the SettingsManager service.

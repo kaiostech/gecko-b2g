@@ -9,10 +9,8 @@ use nsstring::*;
 use xpcom::RefPtr;
 
 // XPCOM implementation of nsISettingError, used when rejecting a Get() call.
-#[derive(xpcom)]
-#[xpimplements(nsISettingError)]
-#[refcnt = "atomic"]
-pub struct InitSettingErrorXpcom {
+#[xpcom(implement(nsISettingError), atomic)]
+pub struct SettingErrorXpcom {
     name: nsString,
     value: u16,
 }

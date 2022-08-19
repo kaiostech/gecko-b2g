@@ -209,11 +209,8 @@ impl Drop for ContactsManagerImpl {
     }
 }
 
-#[derive(xpcom)]
-#[xpimplements(nsIContactsManager)]
-#[xpimplements(nsISidlConnectionObserver)]
-#[refcnt = "atomic"]
-struct InitContactsManagerXpcom {
+#[xpcom(implement(nsIContactsManager, nsISidlConnectionObserver), atomic)]
+struct ContactsManagerXpcom {
     // The underlying UDS transport we are connected to.
     transport: UdsTransport,
     // The core service we use to get an instance of the ContactsManager service.

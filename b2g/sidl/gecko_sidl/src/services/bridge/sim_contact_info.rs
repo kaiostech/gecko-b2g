@@ -9,10 +9,8 @@ use nsstring::*;
 use xpcom::RefPtr;
 
 // XPCOM implementation of nsISimContactInfo, used to dispatch SimContactInfo to events and observers.
-#[derive(xpcom)]
-#[xpimplements(nsISimContactInfo)]
-#[refcnt = "atomic"]
-pub struct InitSimContactInfoXpcom {
+#[xpcom(implement(nsISimContactInfo), atomic)]
+pub struct SimContactInfoXpcom {
     id: nsString,
     tel: nsString,
     email: nsString,

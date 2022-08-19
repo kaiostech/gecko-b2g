@@ -9,10 +9,8 @@ use nsstring::*;
 use xpcom::RefPtr;
 
 // XPCOM implementation of nsIBlockedNumberFindOptions, used to dispatch BlockedNumberFindOptions to events and observers.
-#[derive(xpcom)]
-#[xpimplements(nsIBlockedNumberFindOptions)]
-#[refcnt = "atomic"]
-pub struct InitBlockedNumberFindOptionsXpcom {
+#[xpcom(implement(nsIBlockedNumberFindOptions), atomic)]
+pub struct BlockedNumberFindOptionsXpcom {
     filter_value: nsString,
     filter_option: u16,
 }

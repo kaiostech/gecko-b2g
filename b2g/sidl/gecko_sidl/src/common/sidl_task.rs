@@ -29,10 +29,8 @@ pub trait SidlTask {
 /// This is a simplified version of moz_task::TaskRunnable that doesn't dispatch
 /// back to the calling thread since it's the Rust i/o thread that is not an xpcom
 /// event target.
-#[derive(xpcom)]
-#[xpimplements(nsIRunnable)]
-#[refcnt = "atomic"]
-pub struct InitSidlRunnable {
+#[xpcom(implement(nsIRunnable), atomic)]
+pub struct SidlRunnable {
     pub name: &'static str,
     task: Box<dyn SidlTask + Send + Sync>,
 }

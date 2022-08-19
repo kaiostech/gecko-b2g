@@ -9,10 +9,8 @@ use xpcom::interfaces::nsISidlDefaultResponse;
 use xpcom::RefPtr;
 
 // XPCOM implementation of nsISidlDefaultResponse, used when we need a dummy implementation.
-#[derive(xpcom)]
-#[xpimplements(nsISidlDefaultResponse)]
-#[refcnt = "atomic"]
-pub struct InitSidlDefaultResponseXpcom {}
+#[xpcom(implement(nsISidlDefaultResponse), atomic)]
+pub struct SidlDefaultResponseXpcom {}
 
 impl SidlDefaultResponseXpcom {
     pub fn new() -> RefPtr<Self> {

@@ -13,10 +13,8 @@ use xpcom::{
 };
 
 // XPCOM implementation of nsISettingInfo, used to dispatch SettingInfo to events and observers.
-#[derive(xpcom)]
-#[xpimplements(nsISettingInfo)]
-#[refcnt = "atomic"]
-pub struct InitSettingInfoXpcom {
+#[xpcom(implement(nsISettingInfo), atomic)]
+pub struct SettingInfoXpcom {
     name: nsString,
     value: nsString,
 }

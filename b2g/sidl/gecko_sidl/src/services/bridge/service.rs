@@ -516,11 +516,8 @@ task_receiver!(
     GeckoFeaturesImportSimContactsError
 );
 
-#[derive(xpcom)]
-#[xpimplements(nsIGeckoBridge)]
-#[xpimplements(nsISidlConnectionObserver)]
-#[refcnt = "atomic"]
-struct InitGeckoBridgeXpcom {
+#[xpcom(implement(nsISidlConnectionObserver, nsIGeckoBridge), atomic)]
+struct GeckoBridgeXpcom {
     // The underlying UDS transport we are connected to.
     transport: UdsTransport,
     // The core service we use to get an instance of the GeckoBridge service.

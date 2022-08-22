@@ -437,6 +437,14 @@ NetworkStatsDB.prototype = {
         data.push(sample);
       }
 
+      // If the incoming data is non-accumulative, the new
+      // |rxTotalBytes|/|txTotalBytes| needs to be updated by adding new
+      // |rxBytes|/|txBytes| to the last |rxTotalBytes|/|txTotalBytes|.
+      if (!aIsAccumulative) {
+        aNewSample.rxTotalBytes = aNewSample.rxBytes + lastSample.rxTotalBytes;
+        aNewSample.txTotalBytes = aNewSample.txBytes + lastSample.txTotalBytes;
+      }
+
       data.push(aNewSample);
       this._saveStats(aTxn, aStore, data);
       return;

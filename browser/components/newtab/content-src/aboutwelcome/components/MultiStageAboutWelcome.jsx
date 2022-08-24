@@ -216,6 +216,10 @@ export const SecondaryCTA = props => {
   let targetElement = props.position
     ? `secondary_button_${props.position}`
     : `secondary_button`;
+  const buttonStyling = props.content.secondary_button?.has_arrow_icon
+    ? `secondary text-link arrow-icon`
+    : `secondary text-link`;
+
   return (
     <div
       className={
@@ -227,7 +231,7 @@ export const SecondaryCTA = props => {
       </Localized>
       <Localized text={props.content[targetElement].label}>
         <button
-          className="secondary text-link"
+          className={buttonStyling}
           value={targetElement}
           onClick={props.handleAction}
         />
@@ -284,7 +288,8 @@ export class WelcomeScreen extends React.PureComponent {
 
   async handleAction(event) {
     let { props } = this;
-    let { value } = event.currentTarget;
+    const value =
+      event.currentTarget.value ?? event.currentTarget.getAttribute("value");
     let targetContent =
       props.content[value] ||
       props.content.tiles ||

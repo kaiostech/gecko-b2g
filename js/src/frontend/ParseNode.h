@@ -1601,7 +1601,7 @@ class NumericLiteral : public ParseNode {
   void setDecimalPoint(DecimalPoint d) { decimalPoint_ = d; }
 
   // Return the decimal string representation of this numeric literal.
-  TaggedParserAtomIndex toAtom(JSContext* cx,
+  TaggedParserAtomIndex toAtom(ErrorContext* ec,
                                ParserAtomsTable& parserAtoms) const;
 };
 
@@ -1936,7 +1936,8 @@ class RegExpLiteral : public ParseNode {
       : ParseNode(ParseNodeKind::RegExpExpr, pos), index_(dataIndex) {}
 
   // Create a RegExp object of this RegExp literal.
-  RegExpObject* create(JSContext* cx, ParserAtomsTable& parserAtoms,
+  RegExpObject* create(JSContext* cx, ErrorContext* ec,
+                       ParserAtomsTable& parserAtoms,
                        CompilationAtomCache& atomCache,
                        ExtensibleCompilationStencil& stencil) const;
 
@@ -2257,6 +2258,7 @@ class ClassMethod : public BinaryNode {
 class ClassField : public BinaryNode {
   bool isStatic_;
 #ifdef ENABLE_DECORATORS
+  bool hasAccessor_;
   ListNode* decorators_;
 #endif
 
@@ -2264,12 +2266,18 @@ class ClassField : public BinaryNode {
   ClassField(ParseNode* name, ParseNode* initializer, bool isStatic
 #ifdef ENABLE_DECORATORS
              ,
-             ListNode* decorators
+             ListNode* decorators, bool hasAccessor
 #endif
              )
       : BinaryNode(ParseNodeKind::ClassField, initializer->pn_pos, name,
                    initializer),
-        isStatic_(isStatic) {
+        isStatic_(isStatic)
+#ifdef ENABLE_DECORATORS
+        ,
+        hasAccessor_(hasAccessor),
+        decorators_(decorators)
+#endif
+  {
   }
 
   static bool test(const ParseNode& node) {
@@ -2286,6 +2294,7 @@ class ClassField : public BinaryNode {
 
 #ifdef ENABLE_DECORATORS
   ListNode* decorators() const { return decorators_; }
+  bool hasAccessor() const { return hasAccessor_; }
 #endif
 };
 
@@ -2470,13 +2479,13 @@ void DumpParseTree(ParserBase* parser, ParseNode* pn, GenericPrinter& out,
 
 class ParseNodeAllocator {
  public:
-  explicit ParseNodeAllocator(JSContext* cx, LifoAlloc& alloc)
-      : cx(cx), alloc(alloc) {}
+  explicit ParseNodeAllocator(ErrorContext* ec, LifoAlloc& alloc)
+      : ec(ec), alloc(alloc) {}
 
   void* allocNode(size_t size);
 
  private:
-  JSContext* cx;
+  ErrorContext* ec;
   LifoAlloc& alloc;
 };
 

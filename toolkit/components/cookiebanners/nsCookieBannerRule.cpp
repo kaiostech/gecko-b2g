@@ -59,6 +59,12 @@ nsCookieBannerRule::GetDomain(nsACString& aDomain) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+nsCookieBannerRule::SetDomain(const nsACString& aDomain) {
+  mDomain.Assign(aDomain);
+  return NS_OK;
+}
+
 nsTArray<nsCOMPtr<nsICookieRule>>& nsCookieBannerRule::Cookies(bool isOptOut) {
   if (isOptOut) {
     return mCookiesOptOut;
@@ -82,6 +88,28 @@ nsCookieBannerRule::GetCookiesOptIn(nsTArray<RefPtr<nsICookieRule>>& aCookies) {
   for (nsICookieRule* cookie : cookies) {
     aCookies.AppendElement(cookie);
   }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsCookieBannerRule::GetClickRule(nsIClickRule** aClickRule) {
+  NS_IF_ADDREF(*aClickRule = mClickRule);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsCookieBannerRule::AddClickRule(const nsACString& aPresence,
+                                 const nsACString& aHide,
+                                 const nsACString& aOptOut,
+                                 const nsACString& aOptIn) {
+  mClickRule = MakeRefPtr<nsClickRule>(aPresence, aHide, aOptOut, aOptIn);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsCookieBannerRule::ClearClickRule() {
+  mClickRule = nullptr;
+
   return NS_OK;
 }
 

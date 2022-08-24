@@ -20,7 +20,6 @@
 #include "js/Id.h"                                 // INT_TO_JSID
 #include "js/RootingAPI.h"                         // Rooted
 #include "js/TypeDecls.h"                          // RootedId, RootedValue
-#include "vm/JSAtom.h"                             // JSAtom
 #include "vm/JSObject.h"                           // TenuredObject
 #include "vm/JSONPrinter.h"                        // js::JSONPrinter
 #include "vm/NativeObject.h"                       // NativeDefineDataProperty
@@ -34,7 +33,7 @@
 
 namespace js {
 
-bool ObjLiteralWriter::checkForDuplicatedNames(JSContext* cx) {
+bool ObjLiteralWriter::checkForDuplicatedNames(ErrorContext* ec) {
   if (!mightContainDuplicatePropertyNames_) {
     return true;
   }
@@ -47,7 +46,7 @@ bool ObjLiteralWriter::checkForDuplicatedNames(JSContext* cx) {
       propNameSet;
 
   if (!propNameSet.reserve(propertyCount_)) {
-    js::ReportOutOfMemory(cx);
+    js::ReportOutOfMemory(ec);
     return false;
   }
 

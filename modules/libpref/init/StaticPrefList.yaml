@@ -1897,11 +1897,14 @@
   value: 0
   mirror: always
 
-# Enables the cookie banner cookie injector.
+# Enables the cookie banner cookie injector. The cookie banner cookie injector
+# depends on the above `cookiebanners.service.mode` pref: it would be disabled
+# if the servcie mode is disabled.
 - name: cookiebanners.cookieInjector.enabled
   type: bool
   value: true
   mirror: always
+
 
 # By default, how many seconds in the future cookies should expire after they
 # have been injected. Defaults to 12 months. Individual cookie rules may
@@ -1909,6 +1912,27 @@
 - name: cookiebanners.cookieInjector.defaultExpiryRelative
   type: uint32_t
   value: 31536000
+  mirror: always
+
+# Enables the cookie banner auto clicking. The cookie banner auto clicking
+# depends on the above `cookiebanners.service.mode` pref: it would be disabled
+# if the servcie mode is disabled.
+- name: cookiebanners.bannerClicking.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# The maximum time in ms for detecting banner and button elements for cookie
+# banner auto clicking.
+- name: cookiebanners.bannerClicking.timeout
+  type: uint32_t
+  value: 3000
+  mirror: always
+
+# Whether or not banner auto clicking test mode is enabled.
+- name: cookiebanners.bannerClicking.testing
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -3278,6 +3302,13 @@
 - name: dom.permissions.revoke.enable
   type: bool
   value: false
+  mirror: always
+
+# This enables width and height attributes and map these attributes to img
+# element's style.
+- name: dom.picture_source_dimension_attributes.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Is support for Element.requestPointerLock enabled?
@@ -7952,6 +7983,13 @@
   value: true
   mirror: always
   rust: true
+
+# This pref controls whether the `prefers-color-scheme` value of iframes images
+# reacts to the embedder `color-scheme` in content.
+- name: layout.css.iframe-embedder-prefers-color-scheme.content.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 # The minimum contrast ratio between the accent color foreground and background
 # colors.
@@ -14481,7 +14519,7 @@
 
 - name: widget.windows.hide_cursor_when_typing
   type: bool
-  value: true
+  value: false
   mirror: always
 
 # Whether to apply logic intended to improve taskbar behavior involving

@@ -8,16 +8,17 @@
 
 #include "js/CompilationAndEvaluation.h"
 
-#include "mozilla/Maybe.h"      // mozilla::None, mozilla::Some
-#include "mozilla/TextUtils.h"  // mozilla::IsAscii
-#include "mozilla/Utf8.h"       // mozilla::Utf8Unit
+#include "mozilla/Maybe.h"  // mozilla::None, mozilla::Some
+#include "mozilla/Utf8.h"   // mozilla::Utf8Unit
 
 #include <utility>  // std::move
 
 #include "jsapi.h"    // JS_WrapValue
 #include "jstypes.h"  // JS_PUBLIC_API
 
+#include "debugger/DebugAPI.h"
 #include "frontend/BytecodeCompilation.h"  // frontend::CompileGlobalScript
+#include "frontend/BytecodeCompiler.h"     // frontend::IsIdentifier
 #include "frontend/CompilationStencil.h"  // for frontened::{CompilationStencil, BorrowingCompilationStencil, CompilationGCOutput}
 #include "frontend/Parser.h"       // frontend::Parser, frontend::ParseGoal
 #include "js/CharacterEncoding.h"  // JS::UTF8Chars, JS::UTF8CharsToNewTwoByteCharsZ
@@ -31,13 +32,11 @@
 #include "util/CompleteFile.h"     // js::FileContents, js::ReadCompleteFile
 #include "util/StringBuffer.h"     // js::StringBuffer
 #include "vm/EnvironmentObject.h"  // js::CreateNonSyntacticEnvironmentChain
-#include "vm/ErrorReporting.h"     // js::MainThreadErrorContext
-#include "vm/FunctionFlags.h"      // js::FunctionFlags
+#include "vm/ErrorContext.h"       // js::MainThreadErrorContext
 #include "vm/Interpreter.h"        // js::Execute
 #include "vm/JSContext.h"          // JSContext
 
-#include "debugger/DebugAPI-inl.h"  // js::DebugAPI
-#include "vm/JSContext-inl.h"       // JSContext::check
+#include "vm/JSContext-inl.h"  // JSContext::check
 
 using mozilla::Utf8Unit;
 
@@ -158,7 +157,8 @@ JS_PUBLIC_API bool JS::StartIncrementalEncoding(JSContext* cx,
       return false;
     }
 
-    if (!initial->steal(cx, std::move(stencil))) {
+    MainThreadErrorContext ec(cx);
+    if (!initial->steal(&ec, std::move(stencil))) {
       return false;
     }
   }
@@ -222,20 +222,20 @@ JS_PUBLIC_API bool JS_Utf8BufferIsCompilableUnit(JSContext* cx,
   using frontend::ParseGoal;
   using frontend::Parser;
 
+  MainThreadErrorContext ec(cx);
   CompileOptions options(cx);
   Rooted<frontend::CompilationInput> input(cx,
                                            frontend::CompilationInput(options));
-  if (!input.get().initForGlobal(cx)) {
+  if (!input.get().initForGlobal(cx, &ec)) {
     return false;
   }
 
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
   frontend::CompilationState compilationState(cx, allocScope, input.get());
-  if (!compilationState.init(cx)) {
+  if (!compilationState.init(cx, &ec)) {
     return false;
   }
 
-  MainThreadErrorContext ec(cx);
   JS::AutoSuppressWarningReporter suppressWarnings(cx);
   Parser<FullParseHandler, char16_t> parser(
       cx, &ec, cx->stackLimitForCurrentPrincipal(), options, chars.get(),

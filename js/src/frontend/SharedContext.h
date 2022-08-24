@@ -30,11 +30,14 @@
 struct JS_PUBLIC_API JSContext;
 
 namespace JS {
-class ReadOnlyCompileOptions;
+class JS_PUBLIC_API ReadOnlyCompileOptions;
 struct WasmModule;
 }  // namespace JS
 
 namespace js {
+
+class ErrorContext;
+
 namespace frontend {
 
 struct CompilationState;
@@ -139,6 +142,7 @@ class SuspendableContext;
 class SharedContext {
  public:
   JSContext* const cx_;
+  ErrorContext* const ec_;
 
  protected:
   // See: BaseScript::immutableFlags_
@@ -198,7 +202,7 @@ class SharedContext {
   }
 
  public:
-  SharedContext(JSContext* cx, Kind kind,
+  SharedContext(JSContext* cx, ErrorContext* ec, Kind kind,
                 const JS::ReadOnlyCompileOptions& options,
                 Directives directives, SourceExtent extent);
 
@@ -280,7 +284,7 @@ class MOZ_STACK_CLASS GlobalSharedContext : public SharedContext {
  public:
   GlobalScope::ParserData* bindings;
 
-  GlobalSharedContext(JSContext* cx, ScopeKind scopeKind,
+  GlobalSharedContext(JSContext* cx, ErrorContext* ec, ScopeKind scopeKind,
                       const JS::ReadOnlyCompileOptions& options,
                       Directives directives, SourceExtent extent);
 
@@ -296,8 +300,8 @@ class MOZ_STACK_CLASS EvalSharedContext : public SharedContext {
  public:
   EvalScope::ParserData* bindings;
 
-  EvalSharedContext(JSContext* cx, CompilationState& compilationState,
-                    SourceExtent extent);
+  EvalSharedContext(JSContext* cx, ErrorContext* ec,
+                    CompilationState& compilationState, SourceExtent extent);
 };
 
 inline EvalSharedContext* SharedContext::asEvalContext() {
@@ -309,7 +313,7 @@ enum class HasHeritage { No, Yes };
 
 class SuspendableContext : public SharedContext {
  public:
-  SuspendableContext(JSContext* cx, Kind kind,
+  SuspendableContext(JSContext* cx, ErrorContext* ec, Kind kind,
                      const JS::ReadOnlyCompileOptions& options,
                      Directives directives, SourceExtent extent,
                      bool isGenerator, bool isAsync);
@@ -423,7 +427,7 @@ class FunctionBox : public SuspendableContext {
 
   // End of fields.
 
-  FunctionBox(JSContext* cx, SourceExtent extent,
+  FunctionBox(JSContext* cx, ErrorContext* ec, SourceExtent extent,
               CompilationState& compilationState, Directives directives,
               GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
               bool isInitialCompilation, TaggedParserAtomIndex atom,

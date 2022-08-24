@@ -14,11 +14,12 @@
 
 #include "jstypes.h"  // JS_PUBLIC_API
 
+#include "builtin/AtomicsObject.h"
 #include "ds/TraceableFifo.h"
 #include "frontend/NameCollections.h"
 #include "gc/Memory.h"
 #include "irregexp/RegExpTypes.h"
-#include "js/CharacterEncoding.h"
+#include "jit/PcScriptCache.h"
 #include "js/ContextOptions.h"  // JS::ContextOptions
 #include "js/Exception.h"
 #include "js/GCVector.h"
@@ -31,7 +32,6 @@
 #include "threading/ProtectedData.h"
 #include "util/StructuredSpewer.h"
 #include "vm/Activation.h"  // js::Activation
-#include "vm/ErrorReporting.h"
 #include "vm/MallocProvider.h"
 #include "vm/Runtime.h"
 #include "vm/SharedStencil.h"  // js::SharedImmutableScriptDataTable
@@ -46,10 +46,6 @@ namespace js {
 class AutoAllocInAtomsZone;
 class AutoMaybeLeaveAtomsZone;
 class AutoRealm;
-
-namespace frontend {
-class WellKnownParserAtoms;
-}  // namespace frontend
 
 namespace jit {
 class ICScript;
@@ -253,6 +249,7 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
     return thing->compartment() == compartment();
   }
 
+  void onOutOfMemory();
   void* onOutOfMemory(js::AllocFunction allocFunc, arena_id_t arena,
                       size_t nbytes, void* reallocPtr = nullptr) {
     if (isHelperThreadContext()) {
@@ -267,7 +264,7 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
   /* Clear the pending exception (if any) due to OOM. */
   void recoverFromOutOfMemory();
 
-  void reportAllocationOverflow() { js::ReportAllocationOverflow(this); }
+  void reportAllocationOverflow();
 
   // Accessors for immutable runtime data.
   JSAtomState& names() { return *runtime_->commonNames; }

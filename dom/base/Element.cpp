@@ -706,6 +706,37 @@ nsIScrollableFrame* Element::GetScrollFrame(nsIFrame** aFrame,
   return nullptr;
 }
 
+bool Element::CheckVisibility(const CheckVisibilityOptions& aOptions) {
+  nsIFrame* f =
+      GetPrimaryFrame(aOptions.mFlush ? FlushType::Frames : FlushType::None);
+  if (!f) {
+    // 1. If this does not have an associated box, return false.
+    return false;
+  }
+
+  if (f->AncestorHidesContent()) {
+    // 2. If a shadow-including ancestor of this has content-visibility: hidden,
+    // return false.
+    return false;
+  }
+
+  if (aOptions.mCheckOpacity && f->Style()->IsInOpacityZeroSubtree()) {
+    // 3. If the checkOpacity dictionary member of options is true, and this, or
+    // a shadow-including ancestor of this, has a computed opacity value of 0,
+    // return false.
+    return false;
+  }
+
+  if (aOptions.mCheckVisibilityCSS && !f->StyleVisibility()->IsVisible()) {
+    // 4. If the checkVisibilityCSS dictionary member of options is true, and
+    // this is invisible, return false.
+    return false;
+  }
+
+  // 5. Return true
+  return true;
+}
+
 void Element::ScrollIntoView(const BooleanOrScrollIntoViewOptions& aObject) {
   if (aObject.IsScrollIntoViewOptions()) {
     return ScrollIntoView(aObject.GetAsScrollIntoViewOptions());
@@ -2029,6 +2060,15 @@ void Element::UnbindFromTree(bool aNullParent) {
         // when a custom element is disconnected.
         nsContentUtils::UnregisterUnresolvedElement(this);
       }
+    }
+
+    if (HasLastRememberedBSize() || HasLastRememberedISize()) {
+      // Need to remove the last remembered size at the next ResizeObserver
+      // opportunity, so observe the element. But if already observed, we still
+      // want the callback to be invoked even if the size was already 0x0, so
+      // unobserve it first.
+      document->UnobserveForLastRememberedSize(*this);
+      document->ObserveForLastRememberedSize(*this);
     }
   }
 

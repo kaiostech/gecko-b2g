@@ -8,7 +8,6 @@
 #define vm_ErrorReporting_h
 
 #include <stdarg.h>
-#include <utility>
 
 #include "jsfriendapi.h"  // for ScriptEnvironmentPreparer
 
@@ -120,13 +119,6 @@ class GlobalObject;
 extern void ReportErrorToGlobal(JSContext* cx,
                                 JS::Handle<js::GlobalObject*> global,
                                 JS::HandleValue error);
-
-enum ErrorArgumentsType {
-  ArgumentsAreUnicode,
-  ArgumentsAreASCII,
-  ArgumentsAreLatin1,
-  ArgumentsAreUTF8
-};
 
 enum class IsWarning { No, Yes };
 

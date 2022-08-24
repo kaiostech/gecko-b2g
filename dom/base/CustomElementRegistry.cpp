@@ -22,6 +22,7 @@
 #include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/AutoRestore.h"
 #include "mozilla/HoldDropJSObjects.h"
+#include "mozilla/UseCounter.h"
 #include "nsContentUtils.h"
 #include "nsHTMLTags.h"
 #include "jsapi.h"
@@ -389,8 +390,7 @@ class MOZ_RAII AutoConstructionStackEntry final {
 
 }  // namespace
 
-// Only needed for refcounted objects.
-NS_IMPL_CYCLE_COLLECTION_CLASS(CustomElementRegistry)
+NS_IMPL_CYCLE_COLLECTION_MULTI_ZONE_JSHOLDER_CLASS(CustomElementRegistry)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(CustomElementRegistry)
   tmp->mConstructors.clear();
@@ -867,6 +867,8 @@ void CustomElementRegistry::Define(
    */
   nsAutoString localName(aName);
   if (aOptions.mExtends.WasPassed()) {
+    doc->SetUseCounter(eUseCounter_custom_CustomizedBuiltin);
+
     RefPtr<nsAtom> extendsAtom(NS_Atomize(aOptions.mExtends.Value()));
     if (nsContentUtils::IsCustomElementName(extendsAtom, kNameSpaceID_XHTML)) {
       aRv.ThrowNotSupportedError(

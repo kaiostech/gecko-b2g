@@ -648,7 +648,7 @@ var gPageIcons = {
 var gInitialPages = [
   "about:blank",
   "about:home",
-  ...(AppConstants.NIGHTLY_BUILD ? ["about:firefoxview"] : []),
+  "about:firefoxview",
   "about:newtab",
   "about:privatebrowsing",
   "about:sessionrestore",
@@ -2173,12 +2173,21 @@ var gBrowserInit = {
       }
 
       // For custom new window URLs that are not empty, we need to wait for the
-      // page to load before we select the URL bar. So we set the
-      // _selectUrlbarOnLoad flag here and will make use of it in
-      // onLocationChange.
+      // page to load before we select the URL bar. So we listen for the "SetURI"
+      // event called in onLocationChange, then select the URL bar.
       if (!isBlankPageURL(uriToLoad) && HomePage.get(window) == uriToLoad) {
-        gBrowserInit._selectUrlbarOnLoad = true;
-        gBrowserInit._initiallyFocusedElement = initiallyFocusedElement;
+        gURLBar.inputField.addEventListener(
+          "SetURI",
+          () => {
+            if (
+              initiallyFocusedElement ==
+              document.commandDispatcher.focusedElement
+            ) {
+              gURLBar.select();
+            }
+          },
+          { once: true }
+        );
         shouldRemoveFocusedAttribute = false;
         return;
       }
@@ -2540,8 +2549,6 @@ var gBrowserInit = {
 
     DownloadsButton.uninit();
 
-    FirefoxViewHandler.uninit();
-
     if (gToolbarKeyNavEnabled) {
       ToolbarKeyboardNavigator.uninit();
     }
@@ -2610,6 +2617,7 @@ var gBrowserInit = {
       CanvasPermissionPromptHelper.uninit();
       WebAuthnPromptHelper.uninit();
       PanelUI.uninit();
+      FirefoxViewHandler.uninit();
     }
 
     // Final window teardown, do this last.
@@ -5427,17 +5435,6 @@ var XULBrowserWindow = {
     // if this is a document navigation then PopupNotifications will be updated
     // via TabsProgressListener.onLocationChange and we do not want it called twice
     gURLBar.setURI(aLocationURI, aIsSimulated, isSessionRestore);
-
-    if (gBrowserInit._selectUrlbarOnLoad) {
-      if (
-        document.commandDispatcher.focusedElement ==
-        gBrowserInit._initiallyFocusedElement
-      ) {
-        gURLBar.select();
-      }
-      gBrowserInit._selectUrlbarOnLoad = false;
-      gBrowserInit._initiallyFocusedElement = null;
-    }
 
     BookmarkingUI.onLocationChange();
     // If we've actually changed document, update the toolbar visibility.
@@ -9917,23 +9914,21 @@ var FirefoxViewHandler = {
     return document.getElementById("firefox-view-button");
   },
   init() {
-    if (!AppConstants.NIGHTLY_BUILD) {
-      return;
-    }
     const { FirefoxViewNotificationManager } = ChromeUtils.importESModule(
       "resource:///modules/firefox-view-notification-manager.sys.mjs"
     );
     if (!Services.prefs.getBoolPref("browser.tabs.firefox-view")) {
       document.getElementById("menu_openFirefoxView").hidden = true;
     } else {
-      let shouldShow = FirefoxViewNotificationManager.shouldNotificationDotBeShowing();
-      this._toggleNotificationDot(shouldShow);
+      this._toggleNotificationDot(
+        FirefoxViewNotificationManager.shouldNotificationDotBeShowing()
+      );
     }
     Services.obs.addObserver(this, "firefoxview-notification-dot-update");
-    this.observerAdded = true;
+    this._observerAdded = true;
   },
   uninit() {
-    if (this.observerAdded) {
+    if (this._observerAdded) {
       Services.obs.removeObserver(this, "firefoxview-notification-dot-update");
     }
   },

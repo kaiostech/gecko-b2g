@@ -65,7 +65,7 @@ body {
           transform: unset;
         }
 
-        &:not([pos='split']), {
+        &:not([pos='split']) {
           .section-main {
             margin-block: $noodle-buffer auto;
           }
@@ -288,8 +288,6 @@ body {
             min-height: 330px;
 
             .language-switcher-container {
-              text-align: initial;
-
               .secondary {
                 margin-inline-start: 0;
                 margin: 5px 0;
@@ -326,6 +324,17 @@ body {
                   text-decoration: none;
                   // sass-lint:disable-block no-important
                   background-color: var(--in-content-button-background-hover) !important;
+                }
+              }
+
+              .arrow-icon {
+                background: url('chrome://browser/skin/forward.svg') no-repeat right 8px center;
+                background-size: 12px;
+                padding-inline-end: 24px;
+
+                &:dir(rtl) {
+                  background-image: url('chrome://browser/skin/back.svg');
+                  background-position-x: left 8px;
                 }
               }
             }
@@ -400,7 +409,7 @@ body {
 
         h1 {
           font-weight: 700;
-          font-size: clamp(52px, 4vw, 104px);
+          font-size: 47px;
           line-height: 110%;
           max-width: 340px;
           text-align: initial;
@@ -474,7 +483,7 @@ body {
           height: 150px;
 
           h1 {
-            font-size: clamp(35px, 4vw, 104px);
+            font-size: 35px;
             text-align: center;
             white-space: normal;
           }
@@ -654,8 +663,8 @@ body {
       }
     }
 
-    .cta-paragraph button {
-      &.text-link {
+    .cta-paragraph {
+      a {
         margin: 0;
         text-decoration: underline;
         cursor: pointer;

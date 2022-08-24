@@ -14,10 +14,8 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/Sprintf.h"
-#include "mozilla/TextUtils.h"
 #include "mozilla/Utf8.h"  // mozilla::ConvertUtf16ToUtf8
 
-#include <stdarg.h>
 #include <string.h>
 #ifdef ANDROID
 #  include <android/log.h>
@@ -30,14 +28,10 @@
 
 #include "jsapi.h"  // JS_SetNativeStackQuota
 #include "jsexn.h"
-#include "jspubtd.h"
 #include "jstypes.h"
 
-#include "gc/GCContext.h"
-#include "gc/Marking.h"
-#include "gc/PublicIterators.h"
+#include "gc/GC.h"
 #include "irregexp/RegExpAPI.h"
-#include "jit/PcScriptCache.h"
 #include "jit/Simulator.h"
 #include "js/CallAndConstruct.h"  // JS::Call
 #include "js/CharacterEncoding.h"
@@ -59,28 +53,18 @@
 #include "vm/ErrorContext.h"
 #include "vm/ErrorObject.h"
 #include "vm/ErrorReporting.h"
-#include "vm/HelperThreadState.h"
-#include "vm/Iteration.h"
-#include "vm/JSAtom.h"
 #include "vm/JSFunction.h"
 #include "vm/JSObject.h"
-#include "vm/JSScript.h"
 #include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/Realm.h"
-#include "vm/Shape.h"
 #include "vm/StringType.h"     // StringToNewUTF8CharsZ
 #include "vm/ToSource.h"       // js::ValueToSource
 #include "vm/WellKnownAtom.h"  // js_*_str
 
 #include "vm/Compartment-inl.h"
-#include "vm/JSObject-inl.h"
-#include "vm/JSScript-inl.h"
 #include "vm/Stack-inl.h"
 
 using namespace js;
-
-using mozilla::DebugOnly;
-using mozilla::PodArrayZero;
 
 #ifdef DEBUG
 JSContext* js::MaybeGetJSContext() {
@@ -264,15 +248,7 @@ bool AutoResolving::alreadyStartedSlow() const {
   return false;
 }
 
-/*
- * Since memory has been exhausted, avoid the normal error-handling path which
- * allocates an error object, report and callstack. Instead simply throw the
- * static atom "out of memory".
- *
- * Furthermore, callers of ReportOutOfMemory (viz., malloc) assume a GC does
- * not occur, so GC must be avoided or suppressed.
- */
-JS_PUBLIC_API void js::ReportOutOfMemory(JSContext* cx) {
+static void MaybeReportOutOfMemoryForDifferentialTesting() {
   /*
    * OOMs are non-deterministic, especially across different execution modes
    * (e.g. interpreter vs JIT). When doing differential testing, print to stderr
@@ -281,33 +257,55 @@ JS_PUBLIC_API void js::ReportOutOfMemory(JSContext* cx) {
   if (js::SupportDifferentialTesting()) {
     fprintf(stderr, "ReportOutOfMemory called\n");
   }
+}
+
+/*
+ * Since memory has been exhausted, avoid the normal error-handling path which
+ * allocates an error object, report and callstack. Instead simply throw the
+ * static atom "out of memory".
+ *
+ * Furthermore, callers of ReportOutOfMemory (viz., malloc) assume a GC does
+ * not occur, so GC must be avoided or suppressed.
+ */
+void JSContext::onOutOfMemory() {
+  runtime()->hadOutOfMemory = true;
+  gc::AutoSuppressGC suppressGC(this);
+
+  /* Report the oom. */
+  if (JS::OutOfMemoryCallback oomCallback = runtime()->oomCallback) {
+    oomCallback(this, runtime()->oomCallbackData);
+  }
+
+  // If we OOM early in process startup, this may be unavailable so just return
+  // instead of crashing unexpectedly.
+  if (MOZ_UNLIKELY(!runtime()->hasInitializedSelfHosting())) {
+    return;
+  }
+
+  RootedValue oomMessage(this, StringValue(names().outOfMemory));
+  setPendingException(oomMessage, nullptr);
+  MOZ_ASSERT(status == JS::ExceptionStatus::Throwing);
+  status = JS::ExceptionStatus::OutOfMemory;
+
+#ifdef DEBUG
+  hadNondeterministicException_ = true;
+#endif
+}
+
+JS_PUBLIC_API void js::ReportOutOfMemory(JSContext* cx) {
+  MaybeReportOutOfMemoryForDifferentialTesting();
 
   if (cx->isHelperThreadContext()) {
     return cx->addPendingOutOfMemory();
   }
 
-  cx->runtime()->hadOutOfMemory = true;
-  gc::AutoSuppressGC suppressGC(cx);
+  cx->onOutOfMemory();
+}
 
-  /* Report the oom. */
-  if (JS::OutOfMemoryCallback oomCallback = cx->runtime()->oomCallback) {
-    oomCallback(cx, cx->runtime()->oomCallbackData);
-  }
+JS_PUBLIC_API void js::ReportOutOfMemory(ErrorContext* ec) {
+  MaybeReportOutOfMemoryForDifferentialTesting();
 
-  // If we OOM early in process startup, this may be unavailable so just return
-  // instead of crashing unexpectedly.
-  if (MOZ_UNLIKELY(!cx->runtime()->hasInitializedSelfHosting())) {
-    return;
-  }
-
-  RootedValue oomMessage(cx, StringValue(cx->names().outOfMemory));
-  cx->setPendingException(oomMessage, nullptr);
-  MOZ_ASSERT(cx->status == JS::ExceptionStatus::Throwing);
-  cx->status = JS::ExceptionStatus::OutOfMemory;
-
-#ifdef DEBUG
-  cx->hadNondeterministicException_ = true;
-#endif
+  ec->onOutOfMemory();
 }
 
 static void MaybeReportOverRecursedForDifferentialTesting() {
@@ -384,13 +382,13 @@ void js::ReportAllocationOverflow(JSContext* cx) {
   if (!cx) {
     return;
   }
+  MOZ_ASSERT(cx->isMainThreadContext());
 
-  if (cx->isHelperThreadContext()) {
-    return;
-  }
+  cx->reportAllocationOverflow();
+}
 
-  gc::AutoSuppressGC suppressGC(cx);
-  JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_ALLOC_OVERFLOW);
+void js::ReportAllocationOverflow(ErrorContext* ec) {
+  ec->onAllocationOverflow();
 }
 
 /* |callee| requires a usage string provided by JS_DefineFunctionsWithHelp. */
@@ -741,6 +739,16 @@ void JSContext::recoverFromOutOfMemory() {
       clearPendingException();
     }
   }
+}
+
+void JSContext::reportAllocationOverflow() {
+  if (isHelperThreadContext()) {
+    return;
+  }
+
+  gc::AutoSuppressGC suppressGC(this);
+  JS_ReportErrorNumberASCII(this, GetErrorMessage, nullptr,
+                            JSMSG_ALLOC_OVERFLOW);
 }
 
 JS::StackKind JSContext::stackKindForCurrentPrincipal() {

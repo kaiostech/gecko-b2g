@@ -7581,7 +7581,6 @@ nsPIDOMWindowOuter::nsPIDOMWindowOuter(uint64_t aWindowID)
       mModalStateDepth(0),
       mSuppressEventHandlingDepth(0),
       mIsBackground(false),
-      mDesktopModeViewport(false),
       mIsRootOuterWindow(false),
       mInnerWindow(nullptr),
       mWindowID(aWindowID),

@@ -39,6 +39,7 @@
 #include "util/Unicode.h"
 #include "vm/ArrayBufferObject.h"
 #include "vm/BytecodeUtil.h"
+#include "vm/Compartment.h"
 #include "vm/Iteration.h"
 #include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/ProxyObject.h"
@@ -1137,8 +1138,6 @@ static bool IsWindowProxyForScriptGlobal(JSScript* script, JSObject* obj) {
 static ObjOperandId GuardAndLoadWindowProxyWindow(CacheIRWriter& writer,
                                                   ObjOperandId objId,
                                                   GlobalObject* windowObj) {
-  // Note: update AddCacheIRGetPropFunction in BaselineInspector.cpp when making
-  // changes here.
   writer.guardClass(objId, GuardClassKind::WindowProxy);
   ObjOperandId windowObjId = writer.loadWrapperTarget(objId);
   writer.guardSpecificObject(windowObjId, windowObj);
@@ -10855,9 +10854,6 @@ AttachDecision CompareIRGenerator::tryAttachStub() {
 
   constexpr uint8_t lhsIndex = 0;
   constexpr uint8_t rhsIndex = 1;
-
-  static_assert(lhsIndex == 0 && rhsIndex == 1,
-                "Indexes relied upon by baseline inspector");
 
   ValOperandId lhsId(writer.setInputOperandId(lhsIndex));
   ValOperandId rhsId(writer.setInputOperandId(rhsIndex));

@@ -458,11 +458,10 @@ void TCPSocket::NotifyCopyComplete(nsresult aStatus) {
 }
 
 void TCPSocket::ActivateTLS() {
-  nsCOMPtr<nsISupports> securityInfo;
-  mTransport->GetSecurityInfo(getter_AddRefs(securityInfo));
-  nsCOMPtr<nsISSLSocketControl> socketControl = do_QueryInterface(securityInfo);
-  if (socketControl) {
-    socketControl->StartTLS();
+  nsCOMPtr<nsISSLSocketControl> tlsSocketControl;
+  mTransport->GetTlsSocketControl(getter_AddRefs(tlsSocketControl));
+  if (tlsSocketControl) {
+    tlsSocketControl->StartTLS();
   }
 }
 

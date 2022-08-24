@@ -32,12 +32,14 @@
 
 #include "jsmath.h"
 
+#include "frontend/BytecodeCompiler.h"    // CompileStandaloneFunction
 #include "frontend/FunctionSyntaxKind.h"  // FunctionSyntaxKind
 #include "frontend/ParseNode.h"
 #include "frontend/Parser.h"
 #include "frontend/ParserAtom.h"     // ParserAtomsTable, TaggedParserAtomIndex
 #include "frontend/SharedContext.h"  // TopLevelFunction
 #include "frontend/TaggedParserAtomIndexHasher.h"  // TaggedParserAtomIndexHasher
+#include "gc/GC.h"
 #include "gc/Policy.h"
 #include "jit/InlinableNatives.h"
 #include "js/BuildId.h"  // JS::BuildIdCharVector
@@ -56,6 +58,7 @@
 #include "vm/ErrorReporting.h"
 #include "vm/FunctionFlags.h"          // js::FunctionFlags
 #include "vm/GeneratorAndAsyncKind.h"  // js::GeneratorKind, js::FunctionAsyncKind
+#include "vm/Interpreter.h"
 #include "vm/SelfHosting.h"
 #include "vm/Time.h"
 #include "vm/TypedArrayObject.h"
@@ -1420,7 +1423,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
 
     auto AddMathFunction = [this](const char* name,
                                   AsmJSMathBuiltinFunction func) {
-      auto atom = parserAtoms_.internAscii(cx_, name, strlen(name));
+      auto atom = parserAtoms_.internAscii(ec_, name, strlen(name));
       if (!atom) {
         return false;
       }
@@ -1449,7 +1452,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
     };
 
     auto AddMathConstant = [this](const char* name, double cst) {
-      auto atom = parserAtoms_.internAscii(cx_, name, strlen(name));
+      auto atom = parserAtoms_.internAscii(ec_, name, strlen(name));
       if (!atom) {
         return false;
       }

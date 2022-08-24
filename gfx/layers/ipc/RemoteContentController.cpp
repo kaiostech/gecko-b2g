@@ -256,6 +256,23 @@ void RemoteContentController::UpdateOverscrollVelocity(
     if (rootController) {
       rootController->UpdateOverscrollVelocity(aGuid, aX, aY, aIsRootContent);
     }
+  } else if (XRE_IsGPUProcess()) {
+    if (!mCompositorThread->IsOnCurrentThread()) {
+      mCompositorThread->Dispatch(
+          NewRunnableMethod<ScrollableLayerGuid, float, float, bool>(
+              "layers::RemoteContentController::UpdateOverscrollVelocity", this,
+              &RemoteContentController::UpdateOverscrollVelocity, aGuid, aX, aY,
+              aIsRootContent));
+      return;
+    }
+
+    MOZ_RELEASE_ASSERT(mCompositorThread->IsOnCurrentThread());
+    GeckoContentController* rootController =
+        CompositorBridgeParent::GetGeckoContentControllerForRoot(
+            aGuid.mLayersId);
+    MOZ_RELEASE_ASSERT(rootController->IsRemote());
+    Unused << static_cast<RemoteContentController*>(rootController)
+                  ->SendUpdateOverscrollVelocity(aGuid, aX, aY, aIsRootContent);
   }
 }
 
@@ -281,6 +298,23 @@ void RemoteContentController::UpdateOverscrollOffset(
     if (rootController) {
       rootController->UpdateOverscrollOffset(aGuid, aX, aY, aIsRootContent);
     }
+  } else if (XRE_IsGPUProcess()) {
+    if (!mCompositorThread->IsOnCurrentThread()) {
+      mCompositorThread->Dispatch(
+          NewRunnableMethod<ScrollableLayerGuid, float, float, bool>(
+              "layers::RemoteContentController::UpdateOverscrollOffset", this,
+              &RemoteContentController::UpdateOverscrollOffset, aGuid, aX, aY,
+              aIsRootContent));
+      return;
+    }
+
+    MOZ_RELEASE_ASSERT(mCompositorThread->IsOnCurrentThread());
+    GeckoContentController* rootController =
+        CompositorBridgeParent::GetGeckoContentControllerForRoot(
+            aGuid.mLayersId);
+    MOZ_RELEASE_ASSERT(rootController->IsRemote());
+    Unused << static_cast<RemoteContentController*>(rootController)
+                  ->SendUpdateOverscrollOffset(aGuid, aX, aY, aIsRootContent);
   }
 }
 

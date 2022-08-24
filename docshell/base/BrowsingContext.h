@@ -163,6 +163,7 @@ enum class ExplicitActiveStatus : uint8_t {
   FIELD(UseGlobalHistory, bool)                                               \
   FIELD(TargetTopLevelLinkClicksToBlankInternal, bool)                        \
   FIELD(FullscreenAllowedByOwner, bool)                                       \
+  FIELD(ForceDesktopViewport, bool)                                           \
   /*                                                                          \
    * "is popup" in the spec.                                                  \
    * Set only on top browsing contexts.                                       \
@@ -596,6 +597,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
                                 : ExplicitActiveStatus::Inactive,
                       aRv);
   }
+
+  bool ForceDesktopViewport() const { return GetForceDesktopViewport(); }
 
   bool AuthorStyleDisabledDefault() const {
     return GetAuthorStyleDisabledDefault();
@@ -1193,6 +1196,16 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   CanSetResult CanSet(FieldIndex<IDX_AllowJavascript>, bool aValue,
                       ContentParent* aSource);
   void DidSet(FieldIndex<IDX_AllowJavascript>, bool aOldValue);
+
+  bool CanSet(FieldIndex<IDX_ForceDesktopViewport>, bool aValue,
+              ContentParent* aSource) {
+    return IsTop() && XRE_IsParentProcess();
+  }
+
+  // TODO(emilio): Maybe handle the flag being set dynamically without
+  // navigating? The previous code didn't do it tho, and a reload is probably
+  // worth it regardless.
+  // void DidSet(FieldIndex<IDX_ForceDesktopViewport>, bool aOldValue);
 
   bool CanSet(FieldIndex<IDX_HasRestoreData>, bool aNewValue,
               ContentParent* aSource);

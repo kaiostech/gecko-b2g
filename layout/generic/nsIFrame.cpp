@@ -1414,9 +1414,46 @@ void nsIFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
     }
   }
 
+  if (IsPrimaryFrame()) {
+    HandleLastRememberedSize();
+  }
+
   RemoveStateBits(NS_FRAME_SIMPLE_EVENT_REGIONS | NS_FRAME_SIMPLE_DISPLAYLIST);
 
   mMayHaveRoundedCorners = true;
+}
+
+void nsIFrame::HandleLastRememberedSize() {
+  MOZ_ASSERT(IsPrimaryFrame());
+  // Storing a last remembered size requires contain-intrinsic-size, and using
+  // a previously stored last remembered size requires content-visibility.
+  if (!StaticPrefs::layout_css_contain_intrinsic_size_enabled() ||
+      !StaticPrefs::layout_css_content_visibility_enabled()) {
+    return;
+  }
+  auto* element = Element::FromNodeOrNull(mContent);
+  if (!element) {
+    return;
+  }
+  const WritingMode wm = GetWritingMode();
+  const nsStylePosition* stylePos = StylePosition();
+  bool canRememberBSize = stylePos->ContainIntrinsicBSize(wm).IsAutoLength();
+  bool canRememberISize = stylePos->ContainIntrinsicISize(wm).IsAutoLength();
+  if (!canRememberBSize) {
+    element->RemoveLastRememberedBSize();
+  }
+  if (!canRememberISize) {
+    element->RemoveLastRememberedISize();
+  }
+  if (canRememberBSize || canRememberISize) {
+    const auto containAxes = StyleDisplay()->GetContainSizeAxes();
+    if ((canRememberBSize && !containAxes.mBContained) ||
+        (canRememberISize && !containAxes.mIContained)) {
+      PresContext()->Document()->ObserveForLastRememberedSize(*element);
+      return;
+    }
+  }
+  PresContext()->Document()->UnobserveForLastRememberedSize(*element);
 }
 
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
@@ -6244,8 +6281,7 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   const bool isOrthogonal = aWM.IsOrthogonalTo(alignCB->GetWritingMode());
   const bool isAutoISize = styleISize.IsAuto();
   const bool isAutoBSize =
-      nsLayoutUtils::IsAutoBSize(styleBSize, aCBSize.BSize(aWM)) ||
-      aFlags.contains(ComputeSizeFlag::UseAutoBSize);
+      nsLayoutUtils::IsAutoBSize(styleBSize, aCBSize.BSize(aWM));
   // Compute inline-axis size
   if (!isAutoISize) {
     auto iSizeResult = ComputeISizeValue(
@@ -6414,19 +6450,16 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
   result.ISize(aWM) = std::max(minISize, result.ISize(aWM));
 
   // Compute block-axis size
-  // (but not if we have auto bsize or if we received the "UseAutoBSize"
-  // flag -- then, we'll just stick with the bsize that we already calculated
-  // in the initial ComputeAutoSize() call. However, if we have a valid
-  // preferred aspect ratio, we still have to compute the block size because
-  // aspect ratio affects the intrinsic content size.)
+  // (but not if we have auto bsize  -- then, we'll just stick with the bsize
+  // that we already calculated in the initial ComputeAutoSize() call. However,
+  // if we have a valid preferred aspect ratio, we still have to compute the
+  // block size because aspect ratio affects the intrinsic content size.)
   if (!isAutoBSize) {
     result.BSize(aWM) = nsLayoutUtils::ComputeBSizeValue(
         aCBSize.BSize(aWM), boxSizingAdjust.BSize(aWM),
         styleBSize.AsLengthPercentage());
-  } else if (MOZ_UNLIKELY(isGridItem) &&
-             // FIXME: Any better way to refine the auto check here?
-             styleBSize.IsAuto() &&
-             !aFlags.contains(ComputeSizeFlag::UseAutoBSize) &&
+  } else if (MOZ_UNLIKELY(isGridItem) && styleBSize.IsAuto() &&
+             !aFlags.contains(ComputeSizeFlag::IsGridMeasuringReflow) &&
              !IsTrueOverflowContainer() &&
              !alignCB->IsMasonry(isOrthogonal ? eLogicalAxisInline
                                               : eLogicalAxisBlock)) {
@@ -6602,8 +6635,7 @@ Maybe<nscoord> nsIFrame::ComputeInlineSizeFromAspectRatio(
   const StyleSize& styleBSize = aSizeOverrides.mStyleBSize
                                     ? *aSizeOverrides.mStyleBSize
                                     : StylePosition()->BSize(aWM);
-  if (aFlags.contains(ComputeSizeFlag::UseAutoBSize) ||
-      nsLayoutUtils::IsAutoBSize(styleBSize, aCBSize.BSize(aWM))) {
+  if (nsLayoutUtils::IsAutoBSize(styleBSize, aCBSize.BSize(aWM))) {
     return Nothing();
   }
 

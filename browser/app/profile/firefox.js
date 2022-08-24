@@ -654,9 +654,8 @@ pref("browser.privatebrowsing.enable-new-logo", false);
 pref("browser.privacySegmentation.enabled", false);
 
 // Temporary pref to control whether or not Private Browsing windows show up
-// as separate icons in the Windows taskbar. This will be removed and become
-// the default behaviour with 106.
-pref("browser.privacySegmentation.windowSeparation.enabled", false);
+// as separate icons in the Windows taskbar.
+pref("browser.privacySegmentation.windowSeparation.enabled", true);
 
 // Use dark theme variant for PBM windows. This is only supported if the theme
 // sets darkTheme data.
@@ -742,7 +741,7 @@ pref("browser.tabs.tabMinWidth", 76);
 pref("browser.tabs.secondaryTextUnsupportedLocales", "ar,bn,bo,ckb,fa,gu,he,hi,ja,km,kn,ko,lo,mr,my,ne,pa,si,ta,te,th,ur,zh");
 
 //Control the visibility of Tab Manager Menu.
-pref("browser.tabs.tabmanager.enabled", false);
+pref("browser.tabs.tabmanager.enabled", true);
 
 // When tabs opened by links in other tabs via a combination of
 // browser.link.open_newwindow being set to 3 and target="_blank" etc are
@@ -1906,7 +1905,7 @@ pref("browser.contentblocking.reject-and-isolate-cookies.preferences.ui.enabled"
 //     "cookieBehaviorPBM4": cookie behaviour BEHAVIOR_REJECT_TRACKER
 //     "cookieBehaviorPBM5": cookie behaviour BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
 // One value from each section must be included in the browser.contentblocking.features.strict pref.
-pref("browser.contentblocking.features.strict", "tp,tpPrivate,cm,fp,stp,lvl2,rp,rpTop,ocsp,qps,qpsPBM");
+pref("browser.contentblocking.features.strict", "tp,tpPrivate,cookieBehavior5,cookieBehaviorPBM5,cm,fp,stp,lvl2,rp,rpTop,ocsp,qps,qpsPBM");
 
 // Hide the "Change Block List" link for trackers/tracking content in the custom
 // Content Blocking/ETP panel. By default, it will not be visible. There is also

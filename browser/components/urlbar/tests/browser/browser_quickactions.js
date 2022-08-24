@@ -270,5 +270,90 @@ add_task(async function test_other_search_mode() {
     engineName: defaultEngine.name,
     entry: "typed",
   });
+  await UrlbarTestUtils.promisePopupClose(window, () => {
+    EventUtils.synthesizeKey("KEY_Escape");
+  });
   Services.search.setDefault(oldDefaultEngine);
+});
+
+let COMMANDS_TESTS = [
+  ["add-ons", async () => isSelected("button[name=discover]")],
+  ["plugins", async () => isSelected("button[name=plugin]")],
+  ["extensions", async () => isSelected("button[name=extension]")],
+  ["themes", async () => isSelected("button[name=theme]")],
+];
+
+let isSelected = async selector =>
+  SpecialPowers.spawn(gBrowser.selectedBrowser, [selector], arg => {
+    return ContentTaskUtils.waitForCondition(() =>
+      content.document.querySelector(arg)?.hasAttribute("selected")
+    );
+  });
+
+add_task(async function test_pages() {
+  for (const [cmd, testFun] of COMMANDS_TESTS) {
+    info(`Testing ${cmd} command is triggered`);
+    let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser);
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({
+      window,
+      value: cmd,
+    });
+    EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
+
+    Assert.ok(
+      await testFun(),
+      `The command "${cmd}" passed completed its test`
+    );
+    await BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function test_about_pages_refocused() {
+  const testData = [
+    {
+      input: "downloads",
+      uri: "about:downloads",
+    },
+    {
+      input: "logins",
+      uri: "about:logins",
+    },
+    {
+      input: "settings",
+      uri: "about:preferences",
+    },
+  ];
+
+  for (const { input, uri } of testData) {
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({
+      window,
+      value: input,
+    });
+
+    info("Open about page by quick action");
+    let originalTab = gBrowser.selectedTab;
+    let onLoad = BrowserTestUtils.waitForNewTab(gBrowser, uri);
+    EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    let newTab = await onLoad;
+
+    info("Do the same quick action in original tab");
+    gBrowser.selectedTab = originalTab;
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({
+      window,
+      value: input,
+    });
+    EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    Assert.equal(
+      gBrowser.selectedTab,
+      newTab,
+      "Switched to the tab that is opening the about page"
+    );
+    Assert.equal(gBrowser.tabs.length, 2, "Not opened a new tab");
+
+    BrowserTestUtils.removeTab(newTab);
+  }
 });

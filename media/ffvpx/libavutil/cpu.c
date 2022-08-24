@@ -43,7 +43,6 @@
 #include <sys/param.h>
 #endif
 #include <sys/types.h>
-#include <sys/sysctl.h>
 #endif
 #if HAVE_UNISTD_H
 #include <unistd.h>

@@ -504,10 +504,6 @@ nsresult nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer) {
     return NS_ERROR_FAILURE;
   }
 
-  gfx::IntRect rect = GetRect().ToUnknownRect();
-  compositorParent->ForceComposeToTarget(wr::RenderReasons::SNAPSHOT, mTarget,
-                                         &rect);
-
   // Convert from BGR to RGB
   // XXX this is a temporary solution. It consumes extra cpu cycles,
   if (NeedsRBSwap(GetSurfaceFormat())) {

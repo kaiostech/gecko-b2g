@@ -2060,7 +2060,7 @@
 # Whether CanvasRenderingContext2D.mozCurrentTransform is enabled.
 - name: dom.mozCurrentTransform.enabled
   type: bool
-  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: always
 
 # Allow cut/copy
@@ -2204,12 +2204,6 @@
 - name: dom.caches.testing.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Disable CacheStorage in private browsing mode.
-- name: dom.caches.hide_in_pbmode.enabled
-  type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Disable capture attribute for input elements; only supported on GeckoView.
@@ -2720,12 +2714,6 @@
 - name: dom.indexedDB.privateBrowsing.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Disable IndexedDB in private browsing mode.
-- name: dom.indexedDB.hide_in_pbmode.enabled
-  type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether or not indexedDB test mode is enabled.
@@ -3894,12 +3882,6 @@
   value: false
   mirror: always
 
-# Disable ServiceWorker in private browsing mode.
-- name: dom.serviceWorkers.hide_in_pbmode.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: dom.workers.requestAnimationFrame
   type: RelaxedAtomicBool
   value: true
@@ -4817,7 +4799,7 @@
 # Controls if a content script will be aborted on child process shutdown.
 - name: dom.abort_script_on_child_shutdown
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.max_chrome_script_run_time
@@ -8214,6 +8196,13 @@
   mirror: always
   rust: true
 
+# Is support for the tech() function in the @font-face src descriptor enabled?
+- name: layout.css.font-tech.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 # Visibility level of font families available to CSS font-matching:
 #   1 - only base system fonts
 #   2 - also fonts from optional language packs
@@ -8996,12 +8985,6 @@
 
 # Whether to disable deprecated numalign/denomalign/align attributes
 - name: mathml.deprecated_alignment_attributes.disabled
-  type: bool
-  value: true
-  mirror: always
-
-# Whether to disable subscriptshift and superscriptshift attributes.
-- name: mathml.script_shift_attributes.disabled
   type: bool
   value: true
   mirror: always

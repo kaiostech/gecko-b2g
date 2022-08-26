@@ -16,7 +16,6 @@
   locale/@AB_CD@/global/browser.properties              (%chrome/global/browser.properties)
   locale/@AB_CD@/global/commonDialogs.properties        (%chrome/global/commonDialogs.properties)
   locale/@AB_CD@/global/contentAreaCommands.properties  (%chrome/global/contentAreaCommands.properties)
-  locale/@AB_CD@/global/datetimebox.dtd                 (%chrome/global/datetimebox.dtd)
 #ifndef MOZ_FENNEC
   locale/@AB_CD@/global/editMenuOverlay.dtd             (%chrome/global/editMenuOverlay.dtd)
 #endif
@@ -26,7 +25,6 @@
 #ifndef MOZ_FENNEC
   locale/@AB_CD@/global/findbar.properties              (%chrome/global/findbar.properties)
 #endif
-  locale/@AB_CD@/global/globalKeys.dtd                  (%chrome/global/globalKeys.dtd)
   locale/@AB_CD@/global/intl.css                        (%chrome/global/intl.css)
   locale/@AB_CD@/global/intl.properties                 (%chrome/global/intl.properties)
   locale/@AB_CD@/global/keys.properties                 (%chrome/global/keys.properties)

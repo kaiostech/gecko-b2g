@@ -134,7 +134,6 @@ class WorkerScriptLoader final : public nsINamed {
   nsCOMPtr<nsIEventTarget> mSyncLoopTarget;
   JS::loader::ScriptLoadRequestList mLoadingRequests;
   JS::loader::ScriptLoadRequestList mLoadedRequests;
-  Maybe<ClientInfo> mClientInfo;
   Maybe<ServiceWorkerDescriptor> mController;
   WorkerScriptType mWorkerScriptType;
   Maybe<nsresult> mCancelMainThread;
@@ -150,8 +149,6 @@ class WorkerScriptLoader final : public nsINamed {
                      nsIEventTarget* aSyncLoopTarget,
                      const nsTArray<nsString>& aScriptURLs,
                      const mozilla::Encoding* aDocumentEncoding,
-                     const Maybe<ClientInfo>& aClientInfo,
-                     const Maybe<ServiceWorkerDescriptor>& aController,
                      bool aIsMainScript, WorkerScriptType aWorkerScriptType,
                      ErrorResult& aRv);
 
@@ -206,6 +203,8 @@ class WorkerScriptLoader final : public nsINamed {
     aName.AssignLiteral("WorkerScriptLoader");
     return NS_OK;
   }
+
+  nsIGlobalObject* GetGlobal();
 
   void LoadingFinished(ScriptLoadRequest* aRequest, nsresult aRv);
 

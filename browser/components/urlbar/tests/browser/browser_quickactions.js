@@ -11,6 +11,9 @@ ChromeUtils.defineESModuleGetters(this, {
   UrlbarProviderQuickActions:
     "resource:///modules/UrlbarProviderQuickActions.sys.mjs",
 });
+XPCOMUtils.defineLazyModuleGetters(this, {
+  DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.jsm",
+});
 
 const DUMMY_PAGE =
   "http://example.com/browser/browser/base/content/test/general/dummy_page.html";
@@ -66,6 +69,26 @@ add_task(async function basic() {
   EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
   Assert.equal(testActionCalled, 1, "Test actionwas called");
+});
+
+add_task(async function test_label_command() {
+  info("A prefix of the label matches");
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "Open Dow",
+  });
+  Assert.equal(
+    UrlbarTestUtils.getResultCount(window),
+    2,
+    "We matched the action"
+  );
+
+  let { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 1);
+  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.DYNAMIC);
+  Assert.equal(result.providerName, "quickactions");
+  await UrlbarTestUtils.promisePopupClose(window, () => {
+    EventUtils.synthesizeKey("KEY_Escape");
+  });
 });
 
 add_task(async function enter_search_mode_button() {
@@ -356,4 +379,179 @@ add_task(async function test_about_pages_refocused() {
 
     BrowserTestUtils.removeTab(newTab);
   }
+});
+
+const assertActionButtonStatus = async (name, expectedEnabled, description) => {
+  await BrowserTestUtils.waitForCondition(() =>
+    window.document.querySelector(`[data-key=${name}]`)
+  );
+  const target = window.document.querySelector(`[data-key=${name}]`);
+  Assert.equal(!target.hasAttribute("disabled"), expectedEnabled, description);
+};
+
+add_task(async function test_inspector() {
+  const testData = [
+    {
+      description: "Test for 'about:' page",
+      page: "about:home",
+      isDevToolsUser: true,
+      actionEnabled: true,
+    },
+    {
+      description: "Test for another 'about:' page",
+      page: "about:about",
+      isDevToolsUser: true,
+      actionEnabled: true,
+    },
+    {
+      description: "Test for another devtools-toolbox page",
+      page: "about:devtools-toolbox",
+      isDevToolsUser: true,
+      actionEnabled: false,
+    },
+    {
+      description: "Test for web content",
+      page: "http://example.com",
+      isDevToolsUser: true,
+      actionEnabled: true,
+    },
+    {
+      description: "Test for disabled DevTools",
+      page: "http://example.com",
+      prefs: [["devtools.policy.disabled", true]],
+      isDevToolsUser: true,
+      actionEnabled: false,
+    },
+    {
+      description: "Test for not DevTools user",
+      page: "http://example.com",
+      isDevToolsUser: false,
+      actionEnabled: false,
+    },
+  ];
+
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser);
+
+  for (const {
+    description,
+    page,
+    prefs = [],
+    isDevToolsUser,
+    actionEnabled,
+  } of testData) {
+    info(description);
+
+    info("Set preferences");
+    await SpecialPowers.pushPrefEnv({
+      set: [...prefs, ["devtools.selfxss.count", isDevToolsUser ? 5 : 0]],
+    });
+
+    info("Check the button status");
+    const onLoad = BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
+    BrowserTestUtils.loadURI(gBrowser.selectedBrowser, page);
+    await onLoad;
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({
+      window,
+      value: "inspector",
+    });
+    await assertActionButtonStatus(
+      "inspect",
+      actionEnabled,
+      "The status of action button is correct"
+    );
+
+    await SpecialPowers.popPrefEnv();
+
+    if (!actionEnabled) {
+      continue;
+    }
+
+    info("Do inspect action");
+    EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    await BrowserTestUtils.waitForCondition(
+      () => DevToolsShim.hasToolboxForTab(gBrowser.selectedTab),
+      "Wait for opening inspector for current selected tab"
+    );
+    const toolbox = await DevToolsShim.getToolboxForTab(gBrowser.selectedTab);
+    await BrowserTestUtils.waitForCondition(
+      () => toolbox.currentToolId === "inspector",
+      "Wait until the inspector is selected"
+    );
+
+    info("Do inspect action again in the same page during opening inspector");
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({
+      window,
+      value: "inspector",
+    });
+    await assertActionButtonStatus(
+      "inspect",
+      false,
+      "The action button should be disabled since the inspector is already opening"
+    );
+
+    info(
+      "Select another tool to check whether the inspector will be selected in next test even if the previous tool is not inspector"
+    );
+    await toolbox.selectTool("options");
+    await toolbox.destroy();
+  }
+
+  // Clean up.
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_viewsource() {
+  info("Check the button status of when the page is not web content");
+  const tab = await BrowserTestUtils.openNewForegroundTab({
+    gBrowser,
+    opening: "about:home",
+    waitForLoad: true,
+  });
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "viewsource",
+  });
+  await assertActionButtonStatus(
+    "viewsource",
+    true,
+    "Should be enabled even if the page is not web content"
+  );
+
+  info("Check the button status of when the page is web content");
+  BrowserTestUtils.loadURI(gBrowser.selectedBrowser, "http://example.com");
+  await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "viewsource",
+  });
+  await assertActionButtonStatus(
+    "viewsource",
+    true,
+    "Should be enabled on web content as well"
+  );
+
+  info("Do view source action");
+  const onLoad = BrowserTestUtils.waitForNewTab(
+    gBrowser,
+    "view-source:http://example.com/"
+  );
+  EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+  EventUtils.synthesizeKey("KEY_Enter", {}, window);
+  const viewSourceTab = await onLoad;
+
+  info("Do view source action on the view-source page");
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "viewsource",
+  });
+  await assertActionButtonStatus(
+    "viewsource",
+    false,
+    "Should be disabled since the page is view-source content"
+  );
+
+  // Clean up.
+  BrowserTestUtils.removeTab(viewSourceTab);
+  BrowserTestUtils.removeTab(tab);
 });

@@ -100,6 +100,7 @@ const ONBOARDING_MESSAGES = () => [
               action: {
                 navigate: true,
               },
+              has_arrow_icon: true,
             },
           },
         },
@@ -133,6 +134,7 @@ const ONBOARDING_MESSAGES = () => [
               action: {
                 navigate: true,
               },
+              has_arrow_icon: true,
             },
           },
         },
@@ -168,6 +170,7 @@ const ONBOARDING_MESSAGES = () => [
               action: {
                 navigate: true,
               },
+              has_arrow_icon: true,
             },
           },
         },
@@ -303,6 +306,7 @@ const ONBOARDING_MESSAGES = () => [
                 theme: "automatic",
                 navigate: true,
               },
+              has_arrow_icon: true,
             },
           },
         },
@@ -334,7 +338,7 @@ const ONBOARDING_MESSAGES = () => [
                 data: {
                   args:
                     "https://www.mozilla.org/firefox/mobile/get-app/?utm_medium=firefox-desktop&utm_source=onboarding-modal&utm_campaign=mr2022&utm_content=existing-global",
-                  where: "tabshifted",
+                  where: "tab",
                 },
               },
             },
@@ -345,6 +349,7 @@ const ONBOARDING_MESSAGES = () => [
               action: {
                 navigate: true,
               },
+              has_arrow_icon: true,
             },
           },
         },
@@ -383,6 +388,7 @@ const ONBOARDING_MESSAGES = () => [
               action: {
                 navigate: true,
               },
+              has_arrow_icon: true,
             },
           },
         },

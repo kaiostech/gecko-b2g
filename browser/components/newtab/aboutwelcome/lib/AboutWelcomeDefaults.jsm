@@ -305,6 +305,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
           action: {
             navigate: true,
           },
+          has_arrow_icon: true,
         },
         secondary_button_top: {
           label: {
@@ -390,6 +391,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
           action: {
             navigate: true,
           },
+          has_arrow_icon: true,
         },
       },
     },
@@ -425,6 +427,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
           action: {
             navigate: true,
           },
+          has_arrow_icon: true,
         },
       },
     },
@@ -555,6 +558,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
             theme: "automatic",
             navigate: true,
           },
+          has_arrow_icon: true,
         },
       },
     },
@@ -586,7 +590,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
             data: {
               args:
                 "https://www.mozilla.org/firefox/mobile/get-app/?utm_medium=firefox-desktop&utm_source=onboarding-modal&utm_campaign=mr2022&utm_content=new-global",
-              where: "tabshifted",
+              where: "tab",
             },
           },
         },
@@ -597,6 +601,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
           action: {
             navigate: true,
           },
+          has_arrow_icon: true,
         },
       },
     },

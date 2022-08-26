@@ -158,25 +158,10 @@ async function tearDown(sandbox) {
 add_setup(async function() {
   // we only use this for the first test, then we reset it
   Services.prefs.lockPref("identity.fxaccounts.enabled");
-
-  if (!Services.prefs.getBoolPref("browser.tabs.firefox-view")) {
-    info(
-      "firefox-view pref was off, toggling it on and adding the tabstrip widget"
-    );
-    await SpecialPowers.pushPrefEnv({
-      set: [["browser.tabs.firefox-view", true]],
-    });
-    CustomizableUI.addWidgetToArea(
-      "firefox-view-button",
-      CustomizableUI.AREA_TABSTRIP,
-      0
-    );
-    registerCleanupFunction(() => {
-      CustomizableUI.removeWidgetFromArea("firefox-view-button");
-      // reset internal state so it doesn't affect the next tests
-      TabsSetupFlowManager.resetInternalState();
-    });
-  }
+  registerCleanupFunction(() => {
+    // reset internal state so it doesn't affect the next tests
+    TabsSetupFlowManager.resetInternalState();
+  });
 
   await promiseSyncReady();
   // gSync.init() is called in a requestIdleCallback. Force its initialization.
@@ -193,7 +178,10 @@ add_setup(async function() {
 });
 
 add_task(async function test_sync_admin_disabled() {
-  const sandbox = setupMocks({ state: UIState.STATUS_NOT_CONFIGURED });
+  const sandbox = setupMocks({
+    state: UIState.STATUS_NOT_CONFIGURED,
+    syncEnabled: false,
+  });
   await withFirefoxView({}, async browser => {
     const { document } = browser.contentWindow;
 
@@ -237,7 +225,10 @@ add_task(async function test_sync_admin_disabled() {
 
 add_task(async function test_unconfigured_initial_state() {
   await clearAllParentTelemetryEvents();
-  const sandbox = setupMocks({ state: UIState.STATUS_NOT_CONFIGURED });
+  const sandbox = setupMocks({
+    state: UIState.STATUS_NOT_CONFIGURED,
+    syncEnabled: false,
+  });
   await withFirefoxView({}, async browser => {
     Services.obs.notifyObservers(null, UIState.ON_UPDATE);
     await waitForVisibleStep(browser, {
@@ -274,7 +265,6 @@ add_task(async function test_unconfigured_initial_state() {
     );
   });
   await tearDown(sandbox);
-  gBrowser.removeTab(gBrowser.selectedTab);
 });
 
 add_task(async function test_signed_in() {
@@ -333,7 +323,6 @@ add_task(async function test_signed_in() {
     );
   });
   await tearDown(sandbox);
-  gBrowser.removeTab(gBrowser.selectedTab);
 });
 
 add_task(async function test_2nd_desktop_connected() {
@@ -913,8 +902,9 @@ add_task(async function test_sync_error_try_again() {
 });
 
 add_task(async function test_sync_disconnected_error() {
+  // it's possible for fxa to be enabled but sync not enabled.
   const sandbox = setupMocks({
-    state: UIState.STATUS_NOT_CONFIGURED,
+    state: UIState.STATUS_SIGNED_IN,
     syncEnabled: false,
   });
   await withFirefoxView({}, async browser => {
@@ -924,6 +914,7 @@ add_task(async function test_sync_disconnected_error() {
     Services.obs.notifyObservers(null, UIState.ON_UPDATE);
 
     await waitForElementVisible(browser, "#tabpickup-steps", true);
+    info("Waiting for the tabpickup error step to be visible");
     await waitForVisibleStep(browser, {
       expectedVisible: "#tabpickup-steps-view0",
     });
@@ -932,6 +923,9 @@ add_task(async function test_sync_disconnected_error() {
       "#tabpickup-steps-view0-header"
     );
 
+    info(
+      "Waiting for a mutation condition to ensure the right syncing error message"
+    );
     await BrowserTestUtils.waitForMutationCondition(
       errorStateHeader,
       { childList: true },

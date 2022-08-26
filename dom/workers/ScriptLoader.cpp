@@ -250,20 +250,9 @@ void LoadAllScripts(WorkerPrivate* aWorkerPrivate,
     return;
   }
 
-  Maybe<ClientInfo> clientInfo;
-  Maybe<ServiceWorkerDescriptor> controller;
-  nsIGlobalObject* global =
-      aWorkerScriptType == WorkerScript
-          ? static_cast<nsIGlobalObject*>(aWorkerPrivate->GlobalScope())
-          : aWorkerPrivate->DebuggerGlobalScope();
-
-  clientInfo = global->GetClientInfo();
-  controller = global->GetController();
-
   RefPtr<loader::WorkerScriptLoader> loader = new loader::WorkerScriptLoader(
       aWorkerPrivate, std::move(aOriginStack), syncLoopTarget, aScriptURLs,
-      aDocumentEncoding, clientInfo, controller, aIsMainScript,
-      aWorkerScriptType, aRv);
+      aDocumentEncoding, aIsMainScript, aWorkerScriptType, aRv);
 
   if (NS_WARN_IF(aRv.Failed())) {
     return;
@@ -434,14 +423,10 @@ WorkerScriptLoader::WorkerScriptLoader(
     WorkerPrivate* aWorkerPrivate,
     UniquePtr<SerializedStackHolder> aOriginStack,
     nsIEventTarget* aSyncLoopTarget, const nsTArray<nsString>& aScriptURLs,
-    const mozilla::Encoding* aDocumentEncoding,
-    const Maybe<ClientInfo>& aClientInfo,
-    const Maybe<ServiceWorkerDescriptor>& aController, bool aIsMainScript,
+    const mozilla::Encoding* aDocumentEncoding, bool aIsMainScript,
     WorkerScriptType aWorkerScriptType, ErrorResult& aRv)
     : mOriginStack(std::move(aOriginStack)),
       mSyncLoopTarget(aSyncLoopTarget),
-      mClientInfo(aClientInfo),
-      mController(aController),
       mWorkerScriptType(aWorkerScriptType),
       mCancelMainThread(Nothing()),
       mRv(aRv) {
@@ -465,10 +450,17 @@ WorkerScriptLoader::WorkerScriptLoader(
     return;
   }
 
+  nsIGlobalObject* global = GetGlobal();
+
+  Maybe<ClientInfo> clientInfo = global->GetClientInfo();
+  mController = global->GetController();
+
   for (const nsString& aScriptURL : aScriptURLs) {
     WorkerLoadContext::Kind kind =
         WorkerLoadContext::GetKind(aIsMainScript, IsDebuggerScript());
-    RefPtr<WorkerLoadContext> loadContext = new WorkerLoadContext(kind);
+
+    RefPtr<WorkerLoadContext> loadContext =
+        new WorkerLoadContext(kind, clientInfo);
 
     // Create ScriptLoadRequests for this WorkerScriptLoader
     ReferrerPolicy aReferrerPolicy = mWorkerRef->Private()->GetReferrerPolicy();
@@ -535,6 +527,14 @@ nsIURI* WorkerScriptLoader::GetBaseURI() {
   NS_ASSERTION(baseURI, "Should have been set already!");
 
   return baseURI;
+}
+
+nsIGlobalObject* WorkerScriptLoader::GetGlobal() {
+  mWorkerRef->Private()->AssertIsOnWorkerThread();
+  return mWorkerScriptType == WorkerScript
+             ? static_cast<nsIGlobalObject*>(
+                   mWorkerRef->Private()->GlobalScope())
+             : mWorkerRef->Private()->DebuggerGlobalScope();
 }
 
 void WorkerScriptLoader::LoadingFinished(ScriptLoadRequest* aRequest,
@@ -784,9 +784,10 @@ nsresult WorkerScriptLoader::LoadScript(ScriptLoadRequest* aRequest) {
 
     rv = ChannelFromScriptURL(
         principal, parentDoc, mWorkerRef->Private(), loadGroup, ios, secMan,
-        aRequest->mURI, mClientInfo, mController, loadContext->IsTopLevel(),
-        mWorkerScriptType, mWorkerRef->Private()->ContentPolicyType(),
-        loadFlags, mWorkerRef->Private()->CookieJarSettings(), referrerInfo,
+        aRequest->mURI, loadContext->mClientInfo, mController,
+        loadContext->IsTopLevel(), mWorkerScriptType,
+        mWorkerRef->Private()->ContentPolicyType(), loadFlags,
+        mWorkerRef->Private()->CookieJarSettings(), referrerInfo,
         getter_AddRefs(channel));
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
@@ -818,7 +819,7 @@ nsresult WorkerScriptLoader::LoadScript(ScriptLoadRequest* aRequest) {
   }
 
   if (loadContext->IsTopLevel()) {
-    MOZ_DIAGNOSTIC_ASSERT(mClientInfo.isSome());
+    MOZ_DIAGNOSTIC_ASSERT(loadContext->mClientInfo.isSome());
 
     // In order to get the correct foreign partitioned prinicpal, we need to
     // set the `IsThirdPartyContextToTopWindow` to the channel's loadInfo.
@@ -828,7 +829,9 @@ nsresult WorkerScriptLoader::LoadScript(ScriptLoadRequest* aRequest) {
     loadInfo->SetIsThirdPartyContextToTopWindow(
         mWorkerRef->Private()->IsThirdPartyContextToTopWindow());
 
-    rv = AddClientChannelHelper(channel, std::move(mClientInfo),
+    Maybe<ClientInfo> clientInfo;
+    clientInfo.emplace(loadContext->mClientInfo.ref());
+    rv = AddClientChannelHelper(channel, std::move(clientInfo),
                                 Maybe<ClientInfo>(),
                                 mWorkerRef->Private()->HybridEventTarget());
     if (NS_WARN_IF(NS_FAILED(rv))) {

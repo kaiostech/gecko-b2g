@@ -216,8 +216,10 @@ class ZoneList {
   bool isEmpty() const;
   Zone* front() const;
 
+  void prepend(Zone* zone);
   void append(Zone* zone);
-  void transferFrom(ZoneList& other);
+  void prependList(ZoneList&& other);
+  void appendList(ZoneList&& other);
   Zone* removeFront();
   void clear();
 
@@ -284,18 +286,18 @@ class GCRuntime {
  public:
   explicit GCRuntime(JSRuntime* rt);
   [[nodiscard]] bool init(uint32_t maxbytes);
+  bool wasInitialized() const { return initialized; }
   void finishRoots();
   void finish();
 
-#ifdef DEBUG
-  void assertNoPermanentSharedThings();
-#endif
+  Zone* atomsZone() {
+    Zone* zone = zones()[0];
+    MOZ_ASSERT(JS::shadow::Zone::from(zone)->isAtomsZone());
+    return zone;
+  }
 
-  void freezePermanentSharedThings();
-  template <typename T>
-  void freezeAtomsZoneArenas(AllocKind kind, ArenaList& arenaList);
-  void restorePermanentSharedThings();
-  void restoreAtomsZoneArenas(AllocKind kind, ArenaList& arenaList);
+  [[nodiscard]] bool freezeSharedAtomsZone();
+  void restoreSharedAtomsZone();
 
   JS::HeapState heapState() const { return heapState_; }
 
@@ -627,10 +629,11 @@ class GCRuntime {
   template <AllowGC allowGC>
   static JSObject* tryNewTenuredObject(JSContext* cx, AllocKind kind,
                                        size_t thingSize, size_t nDynamicSlots);
-  template <typename T, AllowGC allowGC>
-  static T* tryNewTenuredThing(JSContext* cx, AllocKind kind, size_t thingSize);
   template <AllowGC allowGC>
-  JSString* tryNewNurseryString(JSContext* cx, size_t thingSize,
+  static TenuredCell* tryNewTenuredThing(JSContext* cx, AllocKind kind,
+                                         size_t thingSize);
+  template <AllowGC allowGC>
+  Cell* tryNewNurseryStringCell(JSContext* cx, size_t thingSize,
                                 AllocKind kind);
   template <AllowGC allowGC>
   JS::BigInt* tryNewNurseryBigInt(JSContext* cx, size_t thingSize,
@@ -838,7 +841,7 @@ class GCRuntime {
                           SortedArenaList& sweepList);
   IncrementalProgress sweepPropMapTree(JS::GCContext* gcx, SliceBudget& budget);
   void endSweepPhase(bool lastGC);
-  void queueZonesAndStartBackgroundSweep(ZoneList& zones);
+  void queueZonesAndStartBackgroundSweep(ZoneList&& zones);
   void sweepFromBackgroundThread(AutoLockHelperThreadState& lock);
   void startBackgroundFree();
   void freeFromBackgroundThread(AutoLockHelperThreadState& lock);
@@ -927,16 +930,17 @@ class GCRuntime {
  public:
   JSRuntime* const rt;
 
-  // The unique atoms zone.
-  WriteOnceData<Zone*> atomsZone;
-
   // Embedders can use this zone however they wish.
   MainThreadData<JS::Zone*> systemZone;
 
   MainThreadData<JS::GCContext> mainThreadContext;
 
  private:
-  // All zones in the runtime, except the atoms zone.
+  // For parent runtimes, a zone containing atoms that is shared by child
+  // runtimes.
+  MainThreadData<Zone*> sharedAtomsZone_;
+
+  // All zones in the runtime. The first element is always the atoms zone.
   MainThreadOrGCTaskData<ZoneVector> zones_;
 
   // Any activity affecting the heap.
@@ -1030,6 +1034,7 @@ class GCRuntime {
   MainThreadData<mozilla::TimeStamp> lastGCStartTime_;
   MainThreadData<mozilla::TimeStamp> lastGCEndTime_;
 
+  WriteOnceData<bool> initialized;
   MainThreadData<bool> incrementalGCEnabled;
   MainThreadData<bool> perZoneGCEnabled;
 

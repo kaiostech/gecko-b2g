@@ -2459,7 +2459,7 @@ void CreateDependentString::generateFallback(MacroAssembler& masm) {
     if (kind == FallbackKind::FatInlineString) {
       masm.callWithABI<Fn, AllocateFatInlineString>();
     } else {
-      masm.callWithABI<Fn, AllocateString>();
+      masm.callWithABI<Fn, AllocateDependentString>();
     }
     masm.storeCallPointerResult(string_);
 
@@ -16587,6 +16587,22 @@ void CodeGenerator::visitCallNativeGetElement(LCallNativeGetElement* lir) {
 
   pushArg(index);
   pushArg(TypedOrValueRegister(MIRType::Object, AnyRegister(object)));
+  pushArg(object);
+
+  using Fn = bool (*)(JSContext*, Handle<NativeObject*>, HandleValue, int32_t,
+                      MutableHandleValue);
+  callVM<Fn, js::NativeGetElement>(lir);
+}
+
+void CodeGenerator::visitCallNativeGetElementSuper(
+    LCallNativeGetElementSuper* lir) {
+  Register object = ToRegister(lir->object());
+  Register index = ToRegister(lir->index());
+  ValueOperand receiver =
+      ToValue(lir, LCallNativeGetElementSuper::ReceiverIndex);
+
+  pushArg(index);
+  pushArg(receiver);
   pushArg(object);
 
   using Fn = bool (*)(JSContext*, Handle<NativeObject*>, HandleValue, int32_t,

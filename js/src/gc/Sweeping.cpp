@@ -389,11 +389,11 @@ void GCRuntime::assertBackgroundSweepingFinished() {
 #endif
 }
 
-void GCRuntime::queueZonesAndStartBackgroundSweep(ZoneList& zones) {
+void GCRuntime::queueZonesAndStartBackgroundSweep(ZoneList&& zones) {
   {
     AutoLockHelperThreadState lock;
     MOZ_ASSERT(!requestSliceAfterBackgroundTask);
-    backgroundSweepZones.ref().transferFrom(zones);
+    backgroundSweepZones.ref().appendList(std::move(zones));
     if (sweepOnBackgroundThread) {
       sweepTask.startOrRunIfIdle(lock);
     }
@@ -414,7 +414,7 @@ void BackgroundSweepTask::run(AutoLockHelperThreadState& lock) {
 void GCRuntime::sweepFromBackgroundThread(AutoLockHelperThreadState& lock) {
   do {
     ZoneList zones;
-    zones.transferFrom(backgroundSweepZones.ref());
+    zones.appendList(std::move(backgroundSweepZones.ref()));
 
     AutoUnlockHelperThreadState unlock(lock);
     sweepBackgroundThings(zones);
@@ -632,6 +632,8 @@ bool Compartment::findSweepGroupEdges() {
 }
 
 bool Zone::findSweepGroupEdges(Zone* atomsZone) {
+  MOZ_ASSERT_IF(this != atomsZone, !isAtomsZone());
+
 #ifdef DEBUG
   if (FinalizationObservers* observers = finalizationObservers()) {
     observers->checkTables();
@@ -687,7 +689,7 @@ static bool AddEdgesForMarkQueue(GCMarker& marker) {
 
 bool GCRuntime::findSweepGroupEdges() {
   for (GCZonesIter zone(this); !zone.done(); zone.next()) {
-    if (!zone->findSweepGroupEdges(atomsZone)) {
+    if (!zone->findSweepGroupEdges(atomsZone())) {
       return false;
     }
   }
@@ -1612,23 +1614,19 @@ IncrementalProgress GCRuntime::endSweepingSweepGroup(JS::GCContext* gcx,
   }
 
   /*
-   * Start background thread to sweep zones if required, sweeping the atoms
-   * zone last if present.
+   * Start background thread to sweep zones if required, sweeping any atoms
+   * zones last if present.
    */
-  bool sweepAtomsZone = false;
   ZoneList zones;
   for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
     if (zone->isAtomsZone()) {
-      sweepAtomsZone = true;
-    } else {
       zones.append(zone);
+    } else {
+      zones.prepend(zone);
     }
   }
-  if (sweepAtomsZone) {
-    zones.append(atomsZone);
-  }
 
-  queueZonesAndStartBackgroundSweep(zones);
+  queueZonesAndStartBackgroundSweep(std::move(zones));
 
   return Finished;
 }
@@ -1784,7 +1782,7 @@ void GCRuntime::startSweepingAtomsTable() {
 
 IncrementalProgress GCRuntime::sweepAtomsTable(JS::GCContext* gcx,
                                                SliceBudget& budget) {
-  if (!atomsZone->isGCSweeping()) {
+  if (!atomsZone()->isGCSweeping()) {
     return Finished;
   }
 

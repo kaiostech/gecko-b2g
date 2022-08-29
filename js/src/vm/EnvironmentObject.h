@@ -342,8 +342,6 @@ class CallObject : public EnvironmentObject {
                                           HandleObject enclosing,
                                           gc::InitialHeap heap);
 
-  static CallObject* create(JSContext* cx, HandleFunction callee,
-                            HandleObject enclosing);
   static CallObject* create(JSContext* cx, AbstractFramePtr frame);
 
   static CallObject* createHollowForDebug(JSContext* cx, HandleFunction callee);
@@ -604,7 +602,6 @@ class BlockLexicalEnvironmentObject : public ScopedLexicalEnvironmentObject {
 
 class NamedLambdaObject : public BlockLexicalEnvironmentObject {
   static NamedLambdaObject* create(JSContext* cx, HandleFunction callee,
-                                   HandleFunction replacement,
                                    HandleObject enclosing,
                                    gc::InitialHeap heap);
 

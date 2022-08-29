@@ -6671,33 +6671,17 @@ class MLoadElementHole : public MTernaryInstruction, public NoTypePolicy::Data {
   ALLOW_CLONE(MLoadElementHole)
 };
 
-class MStoreElementCommon {
-  MIRType elementType_;
-  bool needsBarrier_;
-
- protected:
-  MStoreElementCommon() : elementType_(MIRType::Value), needsBarrier_(false) {}
-
- public:
-  MIRType elementType() const { return elementType_; }
-  void setElementType(MIRType elementType) {
-    MOZ_ASSERT(elementType != MIRType::None);
-    elementType_ = elementType;
-  }
-  bool needsBarrier() const { return needsBarrier_; }
-  void setNeedsBarrier() { needsBarrier_ = true; }
-};
-
 // Store a value to a dense array slots vector.
 class MStoreElement : public MTernaryInstruction,
-                      public MStoreElementCommon,
                       public NoFloatPolicy<2>::Data {
   bool needsHoleCheck_;
+  bool needsBarrier_;
 
   MStoreElement(MDefinition* elements, MDefinition* index, MDefinition* value,
-                bool needsHoleCheck)
+                bool needsHoleCheck, bool needsBarrier)
       : MTernaryInstruction(classOpcode, elements, index, value) {
     needsHoleCheck_ = needsHoleCheck;
+    needsBarrier_ = needsBarrier;
     MOZ_ASSERT(elements->type() == MIRType::Elements);
     MOZ_ASSERT(index->type() == MIRType::Int32);
     MOZ_ASSERT(value->type() != MIRType::MagicHole);
@@ -6708,9 +6692,25 @@ class MStoreElement : public MTernaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, elements), (1, index), (2, value))
 
+  static MStoreElement* NewUnbarriered(TempAllocator& alloc,
+                                       MDefinition* elements,
+                                       MDefinition* index, MDefinition* value,
+                                       bool needsHoleCheck) {
+    return new (alloc)
+        MStoreElement(elements, index, value, needsHoleCheck, false);
+  }
+
+  static MStoreElement* NewBarriered(TempAllocator& alloc,
+                                     MDefinition* elements, MDefinition* index,
+                                     MDefinition* value, bool needsHoleCheck) {
+    return new (alloc)
+        MStoreElement(elements, index, value, needsHoleCheck, true);
+  }
+
   AliasSet getAliasSet() const override {
     return AliasSet::Store(AliasSet::Element);
   }
+  bool needsBarrier() const { return needsBarrier_; }
   bool needsHoleCheck() const { return needsHoleCheck_; }
   bool fallible() const { return needsHoleCheck(); }
 
@@ -6744,8 +6744,8 @@ class MStoreHoleValueElement : public MBinaryInstruction,
 // vector.
 class MStoreElementHole
     : public MQuaternaryInstruction,
-      public MStoreElementCommon,
       public MixPolicy<SingleObjectPolicy, NoFloatPolicy<3>>::Data {
+
   MStoreElementHole(MDefinition* object, MDefinition* elements,
                     MDefinition* index, MDefinition* value)
       : MQuaternaryInstruction(classOpcode, object, elements, index, value) {
@@ -7751,14 +7751,12 @@ class MAddAndStoreSlot
 class MStoreDynamicSlot : public MBinaryInstruction,
                           public NoFloatPolicy<1>::Data {
   uint32_t slot_;
-  MIRType slotType_;
   bool needsBarrier_;
 
   MStoreDynamicSlot(MDefinition* slots, uint32_t slot, MDefinition* value,
                     bool barrier)
       : MBinaryInstruction(classOpcode, slots, value),
         slot_(slot),
-        slotType_(MIRType::Value),
         needsBarrier_(barrier) {
     MOZ_ASSERT(slots->type() == MIRType::Slots);
   }
@@ -7779,13 +7777,7 @@ class MStoreDynamicSlot : public MBinaryInstruction,
   }
 
   uint32_t slot() const { return slot_; }
-  MIRType slotType() const { return slotType_; }
-  void setSlotType(MIRType slotType) {
-    MOZ_ASSERT(slotType != MIRType::None);
-    slotType_ = slotType;
-  }
   bool needsBarrier() const { return needsBarrier_; }
-  void setNeedsBarrier() { needsBarrier_ = true; }
   AliasSet getAliasSet() const override {
     return AliasSet::Store(AliasSet::DynamicSlot);
   }

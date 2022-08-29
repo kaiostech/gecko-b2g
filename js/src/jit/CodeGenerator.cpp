@@ -3930,7 +3930,7 @@ void CodeGenerator::visitStoreDynamicSlotT(LStoreDynamicSlotT* lir) {
 
   MIRType valueType = lir->mir()->value()->type();
   ConstantOrRegister value = ToConstantOrRegister(lir->value(), valueType);
-  masm.storeUnboxedValue(value, valueType, dest, lir->mir()->slotType());
+  masm.storeUnboxedValue(value, valueType, dest);
 }
 
 void CodeGenerator::visitStoreDynamicSlotV(LStoreDynamicSlotV* lir) {
@@ -11406,7 +11406,6 @@ void CodeGenerator::visitSpectreMaskIndex(LSpectreMaskIndex* lir) {
 class OutOfLineStoreElementHole : public OutOfLineCodeBase<CodeGenerator> {
   LInstruction* ins_;
   Label rejoinStore_;
-  Label callStub_;
   bool strict_;
 
  public:
@@ -11420,7 +11419,6 @@ class OutOfLineStoreElementHole : public OutOfLineCodeBase<CodeGenerator> {
   }
   LInstruction* ins() const { return ins_; }
   Label* rejoinStore() { return &rejoinStore_; }
-  Label* callStub() { return &callStub_; }
   bool strict() const { return strict_; }
 };
 
@@ -11439,18 +11437,16 @@ void CodeGenerator::emitStoreHoleCheck(Register elements,
 }
 
 void CodeGenerator::emitStoreElementTyped(const LAllocation* value,
-                                          MIRType valueType,
-                                          MIRType elementType,
-                                          Register elements,
+                                          MIRType valueType, Register elements,
                                           const LAllocation* index) {
   MOZ_ASSERT(valueType != MIRType::MagicHole);
   ConstantOrRegister v = ToConstantOrRegister(value, valueType);
   if (index->isConstant()) {
     Address dest(elements, ToInt32(index) * sizeof(js::Value));
-    masm.storeUnboxedValue(v, valueType, dest, elementType);
+    masm.storeUnboxedValue(v, valueType, dest);
   } else {
     BaseObjectElementIndex dest(elements, ToRegister(index));
-    masm.storeUnboxedValue(v, valueType, dest, elementType);
+    masm.storeUnboxedValue(v, valueType, dest);
   }
 }
 
@@ -11466,8 +11462,8 @@ void CodeGenerator::visitStoreElementT(LStoreElementT* store) {
     emitStoreHoleCheck(elements, index, store->snapshot());
   }
 
-  emitStoreElementTyped(store->value(), store->mir()->value()->type(),
-                        store->mir()->elementType(), elements, index);
+  emitStoreElementTyped(store->value(), store->mir()->value()->type(), elements,
+                        index);
 }
 
 void CodeGenerator::visitStoreElementV(LStoreElementV* lir) {
@@ -11515,13 +11511,11 @@ void CodeGenerator::visitStoreElementHoleT(LStoreElementHoleT* lir) {
   Address initLength(elements, ObjectElements::offsetOfInitializedLength());
   masm.spectreBoundsCheck32(index, initLength, spectreTemp, ool->entry());
 
-  if (lir->mir()->needsBarrier()) {
-    emitPreBarrier(elements, lir->index());
-  }
+  emitPreBarrier(elements, lir->index());
 
   masm.bind(ool->rejoinStore());
-  emitStoreElementTyped(lir->value(), lir->mir()->value()->type(),
-                        lir->mir()->elementType(), elements, lir->index());
+  emitStoreElementTyped(lir->value(), lir->mir()->value()->type(), elements,
+                        lir->index());
 
   masm.bind(ool->rejoin());
 }
@@ -11539,9 +11533,7 @@ void CodeGenerator::visitStoreElementHoleV(LStoreElementHoleV* lir) {
   Address initLength(elements, ObjectElements::offsetOfInitializedLength());
   masm.spectreBoundsCheck32(index, initLength, spectreTemp, ool->entry());
 
-  if (lir->mir()->needsBarrier()) {
-    emitPreBarrier(elements, lir->index());
-  }
+  emitPreBarrier(elements, lir->index());
 
   masm.bind(ool->rejoinStore());
   masm.storeValue(value, BaseObjectElementIndex(elements, index));
@@ -11554,7 +11546,6 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
   Register object, elements;
   LInstruction* ins = ool->ins();
   const LAllocation* index;
-  MIRType valueType;
   mozilla::Maybe<ConstantOrRegister> value;
   Register spectreTemp;
 
@@ -11563,7 +11554,6 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
     object = ToRegister(store->object());
     elements = ToRegister(store->elements());
     index = store->index();
-    valueType = store->mir()->value()->type();
     value.emplace(
         TypedOrValueRegister(ToValue(store, LStoreElementHoleV::ValueIndex)));
     spectreTemp = ToTempRegisterOrInvalid(store->temp0());
@@ -11572,11 +11562,11 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
     object = ToRegister(store->object());
     elements = ToRegister(store->elements());
     index = store->index();
-    valueType = store->mir()->value()->type();
     if (store->value()->isConstant()) {
       value.emplace(
           ConstantOrRegister(store->value()->toConstant()->toJSValue()));
     } else {
+      MIRType valueType = store->mir()->value()->type();
       value.emplace(
           TypedOrValueRegister(valueType, ToAnyRegister(store->value())));
     }
@@ -11590,19 +11580,20 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
   // condition flags sticking from the incoming branch.
   // Also note: this branch does not need Spectre mitigations, doing that for
   // the capacity check below is sufficient.
+  Label callStub;
 #if defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64) || \
     defined(JS_CODEGEN_LOONG64)
   // Had to reimplement for MIPS because there are no flags.
   Address initLength(elements, ObjectElements::offsetOfInitializedLength());
-  masm.branch32(Assembler::NotEqual, initLength, indexReg, ool->callStub());
+  masm.branch32(Assembler::NotEqual, initLength, indexReg, &callStub);
 #else
-  masm.j(Assembler::NotEqual, ool->callStub());
+  masm.j(Assembler::NotEqual, &callStub);
 #endif
 
   // Check array capacity.
   masm.spectreBoundsCheck32(
       indexReg, Address(elements, ObjectElements::offsetOfCapacity()),
-      spectreTemp, ool->callStub());
+      spectreTemp, &callStub);
 
   // Update initialized length. The capacity guard above ensures this won't
   // overflow, due to MAX_DENSE_ELEMENTS_COUNT.
@@ -11620,19 +11611,10 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
 
   masm.sub32(Imm32(1), indexReg);
 
-  if (ins->isStoreElementHoleT() && valueType != MIRType::Double) {
-    // The inline path for StoreElementHoleT does not always store the type tag,
-    // so we do the store on the OOL path. We use MIRType::None for the element
-    // type so that emitStoreElementTyped will always store the type tag.
-    emitStoreElementTyped(ins->toStoreElementHoleT()->value(), valueType,
-                          MIRType::None, elements, index);
-    masm.jump(ool->rejoin());
-  } else {
-    // Jump to the inline path where we will store the value.
-    masm.jump(ool->rejoinStore());
-  }
+  // Jump to the inline path where we will store the value.
+  masm.jump(ool->rejoinStore());
 
-  masm.bind(ool->callStub());
+  masm.bind(&callStub);
   saveLive(ins);
 
   pushArg(Imm32(ool->strict()));

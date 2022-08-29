@@ -2282,9 +2282,8 @@ bool WarpCacheIRTranspiler::emitStoreDenseElement(ObjOperandId objId,
   add(barrier);
 
   bool needsHoleCheck = true;
-  auto* store =
-      MStoreElement::New(alloc(), elements, index, rhs, needsHoleCheck);
-  store->setNeedsBarrier();
+  auto* store = MStoreElement::NewBarriered(alloc(), elements, index, rhs,
+                                            needsHoleCheck);
   addEffectful(store);
   return resumeAfter(store);
 }
@@ -2304,12 +2303,9 @@ bool WarpCacheIRTranspiler::emitStoreDenseElementHole(ObjOperandId objId,
   add(barrier);
 
   MInstruction* store;
-  MStoreElementCommon* common;
   if (handleAdd) {
     // TODO(post-Warp): Consider changing MStoreElementHole to match IC code.
-    auto* ins = MStoreElementHole::New(alloc(), obj, elements, index, rhs);
-    store = ins;
-    common = ins;
+    store = MStoreElementHole::New(alloc(), obj, elements, index, rhs);
   } else {
     auto* length = MInitializedLength::New(alloc(), elements);
     add(length);
@@ -2317,12 +2313,9 @@ bool WarpCacheIRTranspiler::emitStoreDenseElementHole(ObjOperandId objId,
     index = addBoundsCheck(index, length);
 
     bool needsHoleCheck = false;
-    auto* ins =
-        MStoreElement::New(alloc(), elements, index, rhs, needsHoleCheck);
-    store = ins;
-    common = ins;
+    store = MStoreElement::NewBarriered(alloc(), elements, index, rhs,
+                                        needsHoleCheck);
   }
-  common->setNeedsBarrier();
   addEffectful(store);
 
   return resumeAfter(store);

@@ -3609,7 +3609,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSetClipboard(
 
   rv = nsContentUtils::IPCTransferableToTransferable(
       aDataTransfer, aIsPrivateData, aRequestingPrincipal, aContentPolicyType,
-      true /* aAddDataFlavor */, trans, this);
+      true /* aAddDataFlavor */, trans);
   NS_ENSURE_SUCCESS(rv, IPC_OK());
 
   clipboard->SetData(trans, nullptr, aWhichClipboard);
@@ -3728,7 +3728,7 @@ mozilla::ipc::IPCResult ContentParent::RecvGetClipboardAsync(
   }
 
   // Resolve the promise
-  aResolver(ipcDataTransfer);
+  aResolver(std::move(ipcDataTransfer));
   return IPC_OK();
 }
 
@@ -5655,10 +5655,10 @@ mozilla::ipc::IPCResult ContentParent::RecvCopyFavicon(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvFindImageText(
-    ShmemImage&& aImage, nsTArray<nsCString>&& aLanguages,
+    IPCImage&& aImage, nsTArray<nsCString>&& aLanguages,
     FindImageTextResolver&& aResolver) {
   RefPtr<DataSourceSurface> surf =
-      nsContentUtils::IPCImageToSurface(std::move(aImage), this);
+      nsContentUtils::IPCImageToSurface(std::move(aImage));
   if (!surf) {
     aResolver(TextRecognitionResultOrError("Failed to read image"_ns));
     return IPC_OK();
@@ -5919,7 +5919,8 @@ void ContentParent::MaybeInvokeDragSession(BrowserParent* aParent) {
 
       RefPtr<WindowContext> sourceWC;
       session->GetSourceWindowContext(getter_AddRefs(sourceWC));
-      mozilla::Unused << SendInvokeDragSession(sourceWC, dataTransfers, action);
+      mozilla::Unused << SendInvokeDragSession(
+          sourceWC, std::move(dataTransfers), action);
     }
   }
 }
@@ -7228,9 +7229,8 @@ mozilla::ipc::IPCResult ContentParent::RecvBHRThreadHang(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvAddCertException(
-    const nsACString& aSerializedCert, uint32_t aFlags,
-    const nsACString& aHostName, int32_t aPort,
-    const OriginAttributes& aOriginAttributes, bool aIsTemporary,
+    const nsACString& aSerializedCert, const nsACString& aHostName,
+    int32_t aPort, const OriginAttributes& aOriginAttributes, bool aIsTemporary,
     AddCertExceptionResolver&& aResolver) {
   nsCOMPtr<nsISupports> certObj;
   nsresult rv = NS_DeserializeObject(aSerializedCert, getter_AddRefs(certObj));
@@ -7245,7 +7245,7 @@ mozilla::ipc::IPCResult ContentParent::RecvAddCertException(
         rv = NS_ERROR_FAILURE;
       } else {
         rv = overrideService->RememberValidityOverride(
-            aHostName, aPort, aOriginAttributes, cert, aFlags, aIsTemporary);
+            aHostName, aPort, aOriginAttributes, cert, aIsTemporary);
       }
     }
   }

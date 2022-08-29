@@ -1370,9 +1370,9 @@ void gfxPlatform::ShutdownLayersIPC() {
 
     // This could be running on either the Compositor or the Renderer thread.
     gfx::CanvasManagerParent::Shutdown();
-    RemoteTextureMap::Shutdown();
     // This has to happen after shutting down the child protocols.
     layers::CompositorThreadHolder::Shutdown();
+    RemoteTextureMap::Shutdown();
     image::ImageMemoryReporter::ShutdownForWebRender();
     // There is a case that RenderThread exists when UseWebRender() is
     // false. This could happen when WebRender was fallbacked to compositor.

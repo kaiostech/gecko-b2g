@@ -15,6 +15,8 @@ ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
 
 ChromeUtils.defineESModuleGetters(this, {
   BrowserSearchTelemetry: "resource:///modules/BrowserSearchTelemetry.sys.mjs",
+  FirefoxViewNotificationManager:
+    "resource:///modules/firefox-view-notification-manager.sys.mjs",
   PlacesTransactions: "resource://gre/modules/PlacesTransactions.sys.mjs",
   PlacesUIUtils: "resource:///modules/PlacesUIUtils.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
@@ -1689,7 +1691,7 @@ var gBrowserInit = {
 
     BrowserWindowTracker.track(window);
 
-    FirefoxViewHandler.earlyInit();
+    FirefoxViewHandler.init();
     gNavToolbox.palette = document.getElementById(
       "BrowserToolbarPalette"
     ).content;
@@ -1972,8 +1974,6 @@ var gBrowserInit = {
 
     ctrlTab.readPref();
     Services.prefs.addObserver(ctrlTab.prefName, ctrlTab);
-
-    FirefoxViewHandler.init();
 
     // The object handling the downloads indicator is initialized here in the
     // delayed startup function, but the actual indicator element is not loaded
@@ -2551,6 +2551,8 @@ var gBrowserInit = {
 
     NewTabPagePreloading.removePreloadedBrowser(window);
 
+    FirefoxViewHandler.uninit();
+
     // Now either cancel delayedStartup, or clean up the services initialized from
     // it.
     if (this._boundDelayedStartup) {
@@ -2611,7 +2613,6 @@ var gBrowserInit = {
       CanvasPermissionPromptHelper.uninit();
       WebAuthnPromptHelper.uninit();
       PanelUI.uninit();
-      FirefoxViewHandler.uninit();
     }
 
     // Final window teardown, do this last.
@@ -4019,7 +4020,7 @@ const BrowserSearch = {
     );
   },
 
-  addEngine(browser, engine, uri) {
+  addEngine(browser, engine) {
     if (!this._searchInitComplete) {
       // We haven't finished initialising search yet. This means we can't
       // call getEngineByName here. Since this is only on start-up and unlikely
@@ -4037,8 +4038,6 @@ const BrowserSearch = {
     var hidden = false;
     // If this engine (identified by title) is already in the list, add it
     // to the list of hidden engines rather than to the main list.
-    // XXX This will need to be changed when engines are identified by URL;
-    // see bug 335102.
     if (Services.search.getEngineByName(engine.title)) {
       hidden = true;
     }
@@ -4344,18 +4343,6 @@ const BrowserSearch = {
    */
   get searchBar() {
     return document.getElementById("searchbar");
-  },
-
-  get searchEnginesURL() {
-    return formatURL("browser.search.searchEnginesURL", true);
-  },
-
-  loadAddEngines: function BrowserSearch_loadAddEngines() {
-    var newWindowPref = Services.prefs.getIntPref(
-      "browser.link.open_newwindow"
-    );
-    var where = newWindowPref == 3 ? "tab" : "window";
-    openTrustedLinkIn(this.searchEnginesURL, where);
   },
 
   /**
@@ -8351,20 +8338,6 @@ function ReportSiteIssue() {
 }
 
 /**
- * Format a URL
- * eg:
- * echo formatURL("https://addons.mozilla.org/%LOCALE%/%APP%/%VERSION%/");
- * > https://addons.mozilla.org/en-US/firefox/3.0a1/
- *
- * Currently supported built-ins are LOCALE, APP, and any value from nsIXULAppInfo, uppercased.
- */
-function formatURL(aFormat, aIsPref) {
-  return aIsPref
-    ? Services.urlFormatter.formatURLPref(aFormat)
-    : Services.urlFormatter.formatURL(aFormat);
-}
-
-/**
  * When the browser is being controlled from out-of-process,
  * e.g. when Marionette or the remote debugging protocol is used,
  * we add a visual hint to the browser UI to indicate to the user
@@ -9904,32 +9877,35 @@ var ConfirmationHint = {
 
 var FirefoxViewHandler = {
   tab: null,
+  _enabled: false,
   get button() {
     return document.getElementById("firefox-view-button");
   },
-  earlyInit() {
-    if (!Services.prefs.getBoolPref("browser.tabs.firefox-view")) {
-      document.getElementById("menu_openFirefoxView").hidden = true;
-      this.button.remove();
-    }
-  },
   init() {
-    if (!Services.prefs.getBoolPref("browser.tabs.firefox-view")) {
-      return;
+    this._updateEnabledState();
+    Services.prefs.addObserver("browser.tabs.firefox-view", this);
+
+    if (this._enabled) {
+      this._toggleNotificationDot(
+        FirefoxViewNotificationManager.shouldNotificationDotBeShowing()
+      );
     }
-    const { FirefoxViewNotificationManager } = ChromeUtils.importESModule(
-      "resource:///modules/firefox-view-notification-manager.sys.mjs"
-    );
-    this._toggleNotificationDot(
-      FirefoxViewNotificationManager.shouldNotificationDotBeShowing()
-    );
     Services.obs.addObserver(this, "firefoxview-notification-dot-update");
-    this._observerAdded = true;
   },
   uninit() {
-    if (this._observerAdded) {
-      Services.obs.removeObserver(this, "firefoxview-notification-dot-update");
-    }
+    Services.obs.removeObserver(this, "firefoxview-notification-dot-update");
+    Services.prefs.removeObserver("browser.tabs.firefox-view", this);
+  },
+  _updateEnabledState() {
+    this._enabled = Services.prefs.getBoolPref("browser.tabs.firefox-view");
+    // We use a root attribute because there's no guarantee the button is in the
+    // DOM, and visibility changes need to take effect even if it isn't in the DOM
+    // right now.
+    document.documentElement.toggleAttribute(
+      "firefoxviewhidden",
+      !this._enabled
+    );
+    document.getElementById("menu_openFirefoxView").hidden = !this._enabled;
   },
   openTab(event) {
     if (event?.type == "mousedown" && event?.button != 0) {
@@ -9951,6 +9927,7 @@ var FirefoxViewHandler = {
         this.button?.toggleAttribute("open", e.target == this.tab);
         this.button?.setAttribute("aria-selected", e.target == this.tab);
         this._removeNotificationDotIfTabSelected();
+        this._recordViewIfTabSelected();
         break;
       case "TabClose":
         this.tab = null;
@@ -9963,9 +9940,14 @@ var FirefoxViewHandler = {
     }
   },
   observe(sub, topic, data) {
-    if (topic === "firefoxview-notification-dot-update") {
-      let shouldShow = data === "true";
-      this._toggleNotificationDot(shouldShow);
+    switch (topic) {
+      case "firefoxview-notification-dot-update":
+        let shouldShow = data === "true";
+        this._toggleNotificationDot(shouldShow);
+        break;
+      case "nsPref:changed":
+        this._updateEnabledState();
+        break;
     }
   },
   _removeNotificationDotIfTabSelected() {
@@ -9975,6 +9957,16 @@ var FirefoxViewHandler = {
         "firefoxview-notification-dot-update",
         "false"
       );
+    }
+  },
+  _recordViewIfTabSelected() {
+    if (this.tab?.selected) {
+      const PREF_NAME = "browser.firefox-view.view-count";
+      const MAX_VIEW_COUNT = 10;
+      let viewCount = Services.prefs.getIntPref(PREF_NAME, 0);
+      if (viewCount < MAX_VIEW_COUNT) {
+        Services.prefs.setIntPref(PREF_NAME, viewCount + 1);
+      }
     }
   },
   _toggleNotificationDot(shouldShow) {

@@ -394,11 +394,11 @@ void GCRuntime::queueZonesAndStartBackgroundSweep(ZoneList&& zones) {
     AutoLockHelperThreadState lock;
     MOZ_ASSERT(!requestSliceAfterBackgroundTask);
     backgroundSweepZones.ref().appendList(std::move(zones));
-    if (sweepOnBackgroundThread) {
+    if (useBackgroundThreads) {
       sweepTask.startOrRunIfIdle(lock);
     }
   }
-  if (!sweepOnBackgroundThread) {
+  if (!useBackgroundThreads) {
     sweepTask.join();
     sweepTask.runFromMainThread();
   }
@@ -762,7 +762,7 @@ void GCRuntime::getNextSweepGroup() {
   }
 
   for (Zone* zone = currentSweepGroup; zone; zone = zone->nextNodeInGroup()) {
-    MOZ_ASSERT(zone->isGCMarkingBlackOnly());
+    MOZ_ASSERT(zone->gcState() == zone->initialMarkingState());
     MOZ_ASSERT(!zone->isQueuedForBackgroundSweep());
   }
 
@@ -772,7 +772,7 @@ void GCRuntime::getNextSweepGroup() {
     // Abort collection of subsequent sweep groups.
     for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
       MOZ_ASSERT(!zone->gcNextGraphComponent);
-      zone->changeGCState(Zone::MarkBlackOnly, Zone::NoGC);
+      zone->changeGCState(zone->initialMarkingState(), Zone::NoGC);
       zone->arenas.unmarkPreMarkedFreeCells();
       zone->arenas.mergeArenasFromCollectingLists();
       zone->clearGCSliceThresholds();
@@ -1070,7 +1070,7 @@ IncrementalProgress GCRuntime::beginMarkingSweepGroup(JS::GCContext* gcx,
   // will be marked through, as they are not marked with
   // TraceCrossCompartmentEdge.
   for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
-    zone->changeGCState(Zone::MarkBlackOnly, Zone::MarkBlackAndGray);
+    zone->changeGCState(zone->initialMarkingState(), Zone::MarkBlackAndGray);
   }
 
   AutoSetMarkColor setColorGray(marker, MarkColor::Gray);
@@ -2297,7 +2297,7 @@ void GCRuntime::endSweepPhase(bool destroyingRuntime) {
 
   gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::SWEEP);
 
-  MOZ_ASSERT_IF(destroyingRuntime, !sweepOnBackgroundThread);
+  MOZ_ASSERT_IF(destroyingRuntime, !useBackgroundThreads);
 
   {
     gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::DESTROY);
@@ -2328,7 +2328,7 @@ void GCRuntime::endSweepPhase(bool destroyingRuntime) {
 #ifdef DEBUG
   for (ZonesIter zone(this, WithAtoms); !zone.done(); zone.next()) {
     for (auto i : AllAllocKinds()) {
-      MOZ_ASSERT_IF(!IsBackgroundFinalized(i) || !sweepOnBackgroundThread,
+      MOZ_ASSERT_IF(!IsBackgroundFinalized(i) || !useBackgroundThreads,
                     zone->arenas.collectingArenaList(i).isEmpty());
     }
   }

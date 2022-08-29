@@ -107,8 +107,7 @@ static T* CreateEnvironmentObject(JSContext* cx, Handle<Shape*> shape,
 }
 
 CallObject* CallObject::create(JSContext* cx, Handle<Shape*> shape) {
-  gc::InitialHeap heap = GetInitialHeap(GenericObject, &class_);
-  return CreateEnvironmentObject<CallObject>(cx, shape, heap);
+  return CreateEnvironmentObject<CallObject>(cx, shape);
 }
 
 /*
@@ -148,38 +147,22 @@ CallObject* CallObject::createTemplateObject(JSContext* cx, HandleScript script,
   return callObj;
 }
 
-/*
- * Construct a call object for the given bindings.  If this is a call object
- * for a function invocation, callee should be the function being called.
- * Otherwise it must be a call object for eval of strict mode code, and callee
- * must be null.
- */
-CallObject* CallObject::create(JSContext* cx, HandleFunction callee,
-                               HandleObject enclosing) {
-  RootedScript script(cx, callee->nonLazyScript());
-  gc::InitialHeap heap = gc::DefaultHeap;
-  CallObject* callobj =
-      CallObject::createTemplateObject(cx, script, enclosing, heap);
-  if (!callobj) {
-    return nullptr;
-  }
-
-  callobj->initFixedSlot(CALLEE_SLOT, ObjectValue(*callee));
-
-  return callobj;
-}
-
 CallObject* CallObject::create(JSContext* cx, AbstractFramePtr frame) {
   MOZ_ASSERT(frame.isFunctionFrame());
   cx->check(frame);
 
   RootedObject envChain(cx, frame.environmentChain());
   RootedFunction callee(cx, frame.callee());
+  RootedScript script(cx, callee->nonLazyScript());
 
-  CallObject* callobj = create(cx, callee, envChain);
+  gc::InitialHeap heap = gc::DefaultHeap;
+  CallObject* callobj =
+      CallObject::createTemplateObject(cx, script, envChain, heap);
   if (!callobj) {
     return nullptr;
   }
+
+  callobj->initFixedSlot(CALLEE_SLOT, ObjectValue(*callee));
 
   if (!frame.script()->bodyScope()->as<FunctionScope>().hasParameterExprs()) {
     // If there are no defaults, copy the aliased arguments into the call
@@ -1043,7 +1026,6 @@ BlockLexicalEnvironmentObject* BlockLexicalEnvironmentObject::recreate(
 /* static */
 NamedLambdaObject* NamedLambdaObject::create(JSContext* cx,
                                              HandleFunction callee,
-                                             HandleFunction func,
                                              HandleObject enclosing,
                                              gc::InitialHeap heap) {
   MOZ_ASSERT(callee->isNamedLambda());
@@ -1072,14 +1054,14 @@ NamedLambdaObject* NamedLambdaObject::create(JSContext* cx,
     return nullptr;
   }
 
-  obj->initFixedSlot(lambdaSlot(), ObjectValue(*func));
+  obj->initFixedSlot(lambdaSlot(), ObjectValue(*callee));
   return static_cast<NamedLambdaObject*>(obj);
 }
 
 /* static */
 NamedLambdaObject* NamedLambdaObject::createTemplateObject(
     JSContext* cx, HandleFunction callee, gc::InitialHeap heap) {
-  return create(cx, callee, callee, nullptr, heap);
+  return create(cx, callee, nullptr, heap);
 }
 
 /* static */
@@ -1087,7 +1069,7 @@ NamedLambdaObject* NamedLambdaObject::create(JSContext* cx,
                                              AbstractFramePtr frame) {
   RootedFunction fun(cx, frame.callee());
   RootedObject enclosing(cx, frame.environmentChain());
-  return create(cx, fun, fun, enclosing, gc::DefaultHeap);
+  return create(cx, fun, enclosing, gc::DefaultHeap);
 }
 
 /* static */

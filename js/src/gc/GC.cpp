@@ -415,7 +415,7 @@ GCRuntime::GCRuntime(JSRuntime* rt)
       lastMarkSlice(false),
       safeToYield(true),
       markOnBackgroundThreadDuringSweeping(false),
-      sweepOnBackgroundThread(false),
+      useBackgroundThreads(false),
 #ifdef DEBUG
       hadShutdownGC(false),
 #endif
@@ -1780,7 +1780,7 @@ void GCRuntime::startDecommit() {
   }
 #endif
 
-  if (sweepOnBackgroundThread) {
+  if (useBackgroundThreads) {
     decommitTask.start();
     return;
   }
@@ -2265,8 +2265,11 @@ static bool ShouldCleanUpEverything(JS::GCOptions options) {
   return options == JS::GCOptions::Shutdown || options == JS::GCOptions::Shrink;
 }
 
-static bool ShouldSweepOnBackgroundThread(JS::GCReason reason) {
-  return reason != JS::GCReason::DESTROY_RUNTIME && CanUseExtraThreads();
+static bool ShouldUseBackgroundThreads(bool isIncremental,
+                                       JS::GCReason reason) {
+  bool shouldUse = isIncremental && CanUseExtraThreads();
+  MOZ_ASSERT_IF(reason == JS::GCReason::DESTROY_RUNTIME, !shouldUse);
+  return shouldUse;
 }
 
 void GCRuntime::startCollection(JS::GCReason reason) {
@@ -2278,7 +2281,6 @@ void GCRuntime::startCollection(JS::GCReason reason) {
 
   initialReason = reason;
   cleanUpEverything = ShouldCleanUpEverything(gcOptions());
-  sweepOnBackgroundThread = ShouldSweepOnBackgroundThread(reason);
   isCompacting = shouldCompact();
   rootsRemoved = false;
   lastGCStartTime_ = ReallyNow();
@@ -2484,11 +2486,15 @@ bool GCRuntime::beginPreparePhase(JS::GCReason reason, AutoGCSession& session) {
   /*
    * Start a parallel task to clear all mark state for the zones we are
    * collecting. This is linear in the size of the heap we are collecting and so
-   * can be slow. This happens concurrently with the mutator and GC proper does
-   * not start until this is complete.
+   * can be slow. This usually happens concurrently with the mutator and GC
+   * proper does not start until this is complete.
    */
   unmarkTask.initZones();
-  unmarkTask.start();
+  if (useBackgroundThreads) {
+    unmarkTask.start();
+  } else {
+    unmarkTask.runFromMainThread();
+  }
 
   /*
    * Process any queued source compressions during the start of a major
@@ -2681,6 +2687,15 @@ AutoUpdateLiveCompartments::~AutoUpdateLiveCompartments() {
   }
 }
 
+Zone::GCState Zone::initialMarkingState() const {
+  if (isAtomsZone()) {
+    // Don't delay gray marking in the atoms zone like we do in other zones.
+    return MarkBlackAndGray;
+  }
+
+  return MarkBlackOnly;
+}
+
 void GCRuntime::beginMarkPhase(AutoGCSession& session) {
   /*
    * Mark phase.
@@ -2698,7 +2713,7 @@ void GCRuntime::beginMarkPhase(AutoGCSession& session) {
 
   for (GCZonesIter zone(this); !zone.done(); zone.next()) {
     // Incremental marking barriers are enabled at this point.
-    zone->changeGCState(Zone::Prepare, Zone::MarkBlackOnly);
+    zone->changeGCState(Zone::Prepare, zone->initialMarkingState());
 
     // Merge arenas allocated during the prepare phase, then move all arenas to
     // the collecting arena lists.
@@ -3070,7 +3085,7 @@ GCRuntime::IncrementalResult GCRuntime::resetIncrementalGC(
       }
 
       for (GCZonesIter zone(this); !zone.done(); zone.next()) {
-        zone->changeGCState(Zone::MarkBlackOnly, Zone::NoGC);
+        zone->changeGCState(zone->initialMarkingState(), Zone::NoGC);
         zone->clearGCSliceThresholds();
         zone->arenas.unmarkPreMarkedFreeCells();
         zone->arenas.mergeArenasFromCollectingLists();
@@ -3186,6 +3201,7 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
 
   initialState = incrementalState;
   isIncremental = !budget.isUnlimited();
+  useBackgroundThreads = ShouldUseBackgroundThreads(isIncremental, reason);
 
 #ifdef JS_GC_ZEAL
   // Do the incremental collection type specified by zeal mode if the collection

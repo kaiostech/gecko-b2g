@@ -272,11 +272,24 @@ int32_t HyperTextAccessibleBase::OffsetAtPoint(int32_t aX, int32_t aY,
                             /* aIncludeOrigin */ false);
   // XXX: We should create a TextLeafRange object for this hypertext and move
   // this search inside the TextLeafRange class.
-  for (; !point.ContainsPoint(coords.x, coords.y) && point != endPoint;
-       point = point.FindBoundary(nsIAccessibleText::BOUNDARY_CHAR, eDirNext,
-                                  /* aIncludeOrigin */ false)) {
-  };
-  return point.ContainsPoint(coords.x, coords.y) ? point.mOffset : -1;
+  // If there are no characters in this container, we might have moved endPoint
+  // before point. In that case, we shouldn't try to move further forward, as
+  // that might result in an infinite loop.
+  if (point <= endPoint) {
+    for (; !point.ContainsPoint(coords.x, coords.y) && point != endPoint;
+         point = point.FindBoundary(nsIAccessibleText::BOUNDARY_CHAR, eDirNext,
+                                    /* aIncludeOrigin */ false)) {
+    }
+  }
+  if (!point.ContainsPoint(coords.x, coords.y)) {
+    return -1;
+  }
+  DebugOnly<bool> ok = false;
+  int32_t htOffset;
+  std::tie(ok, htOffset) =
+      TransformOffset(point.mAcc, point.mOffset, /* aIsEndOffset */ false);
+  MOZ_ASSERT(ok, "point should be a descendant of this");
+  return htOffset;
 }
 
 TextLeafPoint HyperTextAccessibleBase::ToTextLeafPoint(int32_t aOffset,

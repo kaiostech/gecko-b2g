@@ -2341,7 +2341,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvAsyncMessage(
 
 mozilla::ipc::IPCResult BrowserParent::RecvSetCursor(
     const nsCursor& aCursor, const bool& aHasCustomCursor,
-    const nsCString& aCursorData, const uint32_t& aWidth,
+    Maybe<BigBuffer>&& aCursorData, const uint32_t& aWidth,
     const uint32_t& aHeight, const float& aResolutionX,
     const float& aResolutionY, const uint32_t& aStride,
     const gfx::SurfaceFormat& aFormat, const uint32_t& aHotspotX,
@@ -2357,16 +2357,14 @@ mozilla::ipc::IPCResult BrowserParent::RecvSetCursor(
 
   nsCOMPtr<imgIContainer> cursorImage;
   if (aHasCustomCursor) {
-    if (aHeight * aStride != aCursorData.Length() ||
+    if (!aCursorData || aHeight * aStride != aCursorData->Size() ||
         aStride < aWidth * gfx::BytesPerPixel(aFormat)) {
       return IPC_FAIL(this, "Invalid custom cursor data");
     }
     const gfx::IntSize size(aWidth, aHeight);
     RefPtr<gfx::DataSourceSurface> customCursor =
-        gfx::CreateDataSourceSurfaceFromData(
-            size, aFormat,
-            reinterpret_cast<const uint8_t*>(aCursorData.BeginReading()),
-            aStride);
+        gfx::CreateDataSourceSurfaceFromData(size, aFormat, aCursorData->Data(),
+                                             aStride);
 
     RefPtr<gfxDrawable> drawable = new gfxSurfaceDrawable(customCursor, size);
     cursorImage = image::ImageOps::CreateFromDrawable(drawable);
@@ -3238,11 +3236,12 @@ bool BrowserParent::SendInsertText(const nsString& aStringToInsert) {
 }
 
 bool BrowserParent::SendPasteTransferable(
-    const IPCDataTransfer& aDataTransfer, const bool& aIsPrivateData,
+    IPCDataTransfer&& aDataTransfer, const bool& aIsPrivateData,
     nsIPrincipal* aRequestingPrincipal,
     const nsContentPolicyType& aContentPolicyType) {
   return PBrowserParent::SendPasteTransferable(
-      aDataTransfer, aIsPrivateData, aRequestingPrincipal, aContentPolicyType);
+      std::move(aDataTransfer), aIsPrivateData, aRequestingPrincipal,
+      aContentPolicyType);
 }
 
 /* static */
@@ -3876,7 +3875,7 @@ nsresult BrowserParent::HandleEvent(Event* aEvent) {
 
 mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     nsTArray<IPCDataTransfer>&& aTransfers, const uint32_t& aAction,
-    Maybe<Shmem>&& aVisualDnDData, const uint32_t& aStride,
+    Maybe<BigBuffer>&& aVisualDnDData, const uint32_t& aStride,
     const gfx::SurfaceFormat& aFormat, const LayoutDeviceIntRect& aDragRect,
     nsIPrincipal* aPrincipal, nsIContentSecurityPolicy* aCsp,
     const CookieJarSettingsArgs& aCookieJarSettingsArgs,
@@ -3900,11 +3899,10 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
       this, std::move(aTransfers), aDragRect, aPrincipal, aCsp,
       cookieJarSettings, aSourceWindowContext.GetMaybeDiscarded());
 
-  if (!aVisualDnDData.isNothing() && aVisualDnDData.ref().IsReadable() &&
-      aVisualDnDData.ref().Size<char>() >= aDragRect.height * aStride) {
+  if (aVisualDnDData && aVisualDnDData->Size() >= aDragRect.height * aStride) {
     dragStartData->SetVisualization(gfx::CreateDataSourceSurfaceFromData(
         gfx::IntSize(aDragRect.width, aDragRect.height), aFormat,
-        aVisualDnDData.ref().get<uint8_t>(), aStride));
+        aVisualDnDData->Data(), aStride));
   }
 
   nsCOMPtr<nsIDragService> dragService =
@@ -3916,10 +3914,6 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
   presShell->GetPresContext()
       ->EventStateManager()
       ->BeginTrackingRemoteDragGesture(mFrameElement, dragStartData);
-
-  if (aVisualDnDData.isSome()) {
-    Unused << DeallocShmem(aVisualDnDData.ref());
-  }
 
   return IPC_OK();
 }

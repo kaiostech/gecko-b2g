@@ -1956,6 +1956,7 @@ void APZCTreeManager::ProcessTouchInput(InputHandlingState& aState,
     RecursiveMutexAutoLock lock(mTreeLock);
     // Repopulate mTouchBlockHitResult from the input state.
     mTouchBlockHitResult = mHitTester->CloneHitTestResult(lock, aState.mHit);
+    hitScrollbarNode = std::move(aState.mHit.mScrollbarNode);
 
     // Check if this event starts a scrollbar touch-drag. The conditions
     // checked are similar to the ones we check for MOUSE_INPUT starting
@@ -2757,12 +2758,10 @@ ParentLayerPoint APZCTreeManager::DispatchFling(
     // Note: it's important to compare |residualVelocity| to |availableVelocity|
     // here and not to |transformedHandoffState.mVelocity|, since the latter
     // may have been modified by AdjustHandoffVelocityForOverscrollBehavior().
-    if (!FuzzyEqualsAdditive(availableVelocity.x, residualVelocity.x,
-                             COORDINATE_EPSILON)) {
+    if (!current->IsZero(availableVelocity.x - residualVelocity.x)) {
       finalResidualVelocity.x *= (residualVelocity.x / availableVelocity.x);
     }
-    if (!FuzzyEqualsAdditive(availableVelocity.y, residualVelocity.y,
-                             COORDINATE_EPSILON)) {
+    if (!current->IsZero(availableVelocity.y - residualVelocity.y)) {
       finalResidualVelocity.y *= (residualVelocity.y / availableVelocity.y);
     }
 

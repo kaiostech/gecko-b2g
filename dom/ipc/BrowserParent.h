@@ -390,7 +390,7 @@ class BrowserParent final : public PBrowserParent,
 
   mozilla::ipc::IPCResult RecvSetCursor(
       const nsCursor& aValue, const bool& aHasCustomCursor,
-      const nsCString& aCursorData, const uint32_t& aWidth,
+      Maybe<BigBuffer>&& aCursorData, const uint32_t& aWidth,
       const uint32_t& aHeight, const float& aResolutionX,
       const float& aResolutionY, const uint32_t& aStride,
       const gfx::SurfaceFormat& aFormat, const uint32_t& aHotspotX,
@@ -629,7 +629,7 @@ class BrowserParent final : public PBrowserParent,
 
   bool SendInsertText(const nsString& aStringToInsert);
 
-  bool SendPasteTransferable(const IPCDataTransfer& aDataTransfer,
+  bool SendPasteTransferable(IPCDataTransfer&& aDataTransfer,
                              const bool& aIsPrivateData,
                              nsIPrincipal* aRequestingPrincipal,
                              const nsContentPolicyType& aContentPolicyType);
@@ -690,7 +690,7 @@ class BrowserParent final : public PBrowserParent,
 
   mozilla::ipc::IPCResult RecvInvokeDragSession(
       nsTArray<IPCDataTransfer>&& aTransfers, const uint32_t& aAction,
-      Maybe<Shmem>&& aVisualDnDData, const uint32_t& aStride,
+      Maybe<BigBuffer>&& aVisualDnDData, const uint32_t& aStride,
       const gfx::SurfaceFormat& aFormat, const LayoutDeviceIntRect& aDragRect,
       nsIPrincipal* aPrincipal, nsIContentSecurityPolicy* aCsp,
       const CookieJarSettingsArgs& aCookieJarSettingsArgs,

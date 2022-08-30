@@ -685,6 +685,8 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
   policy->AddPath(rdonly, "/dev/__properties__/u:object_r:exported_system_prop:s0");  // For persist.sys.timezone
   policy->AddPath(wronly, "/dev/socket/logdw");
 
+  policy->AddPath(rdonly, "/dev/__properties__/u:object_r:default_prop:s0");  // For persist.media.metrics.enabled
+
   // To access ecc list
   policy->AddPath(rdonly, "/dev/__properties__/u:object_r:radio_prop:s0"); // For ro.ril.ecclist, ril.ecclist, ril.ecclist1
 #endif // MOZ_WIDGET_GONK

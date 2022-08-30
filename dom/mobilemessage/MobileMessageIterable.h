@@ -60,7 +60,7 @@ class MobileMessageIterable final : public nsISupports, public nsWrapperCache {
   static already_AddRefed<MobileMessageIterable> Constructor(
       const GlobalObject& aGlobal, ErrorResult& rv);
   using itrType = AsyncIterableIterator<MobileMessageIterable>;
-  void InitAsyncIterator(itrType* aIterator);
+  void InitAsyncIterator(itrType* aIterator, ErrorResult& aError);
   void DestroyAsyncIterator(itrType* aIterator);
   already_AddRefed<Promise> GetNextPromise(JSContext* aCx, itrType* aIterator,
                                            ErrorResult& aRv);

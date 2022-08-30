@@ -35,7 +35,7 @@ class FileIterable final : public nsISupports, public nsWrapperCache {
                                JS::Handle<JSObject*> aGivenProto) override;
 
   using itrType = AsyncIterableIterator<FileIterable>;
-  void InitAsyncIterator(itrType* aIterator);
+  void InitAsyncIterator(itrType* aIterator, ErrorResult& aError);
   void DestroyAsyncIterator(itrType* aIterator);
   already_AddRefed<Promise> GetNextPromise(JSContext* aCx, itrType* aIterator,
                                            ErrorResult& aRv);

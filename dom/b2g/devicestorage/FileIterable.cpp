@@ -39,7 +39,7 @@ JSObject* FileIterable::WrapObject(JSContext* aCx,
 
 nsIGlobalObject* FileIterable::GetParentObject() const { return mGlobal; }
 
-void FileIterable::InitAsyncIterator(itrType* aIterator) {
+void FileIterable::InitAsyncIterator(itrType* aIterator, ErrorResult& aError) {
   // From the spec of async iterator, an iterable can initialize multiple
   // iterators, and each iterator restarts the iteration from begining.
   // However, FileIterable as a replacement of DOMCursor, can only initialize

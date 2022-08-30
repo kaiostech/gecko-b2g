@@ -52,7 +52,7 @@ nsPIDOMWindowInner* MobileMessageIterable::GetParentObject() const {
   return mParent;
 }
 
-void MobileMessageIterable::InitAsyncIterator(itrType* aIterator) {
+void MobileMessageIterable::InitAsyncIterator(itrType* aIterator, ErrorResult& aError) {
   mIterator = aIterator;
   UniquePtr<IteratorData> data(new IteratorData());
   aIterator->SetData((void*)data.release());

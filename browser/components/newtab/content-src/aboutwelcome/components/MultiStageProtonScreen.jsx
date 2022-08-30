@@ -54,11 +54,20 @@ export const MultiStageProtonScreen = props => {
 
 export const ProtonScreenActionButtons = props => {
   const { content } = props;
+  const defaultValue = content.checkbox?.defaultValue;
 
-  const [isChecked, setIsChecked] = useState(false);
+  const [isChecked, setIsChecked] = useState(defaultValue || false);
+
+  if (!content.primary_button && !content.secondary_button) {
+    return null;
+  }
 
   return (
-    <div className="action-buttons">
+    <div
+      className={`action-buttons ${
+        content.dual_action_buttons ? "dual-action-buttons" : ""
+      }`}
+    >
       <Localized text={content.primary_button?.label}>
         <button
           className="primary"
@@ -76,6 +85,7 @@ export const ProtonScreenActionButtons = props => {
           <input
             type="checkbox"
             id="action-checkbox"
+            checked={isChecked}
             onChange={() => {
               setIsChecked(!isChecked);
             }}

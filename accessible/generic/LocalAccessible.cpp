@@ -1367,6 +1367,10 @@ void LocalAccessible::DOMAttributeChanged(int32_t aNameSpaceID,
     SendCache(CacheDomain::Actions, CacheUpdateType::Update);
   }
 
+  if (aAttribute == nsGkAtoms::href) {
+    mDoc->QueueCacheUpdate(this, CacheDomain::Value);
+  }
+
   if (aAttribute == nsGkAtoms::aria_controls ||
       aAttribute == nsGkAtoms::aria_flowto) {
     mDoc->QueueCacheUpdate(this, CacheDomain::Relations);
@@ -2498,6 +2502,20 @@ void LocalAccessible::BindToParent(LocalAccessible* aParent,
     // for the next tick before the cache update is sent.
     mDoc->QueueCacheUpdate(aParent, CacheDomain::Table);
   }
+
+#if defined(XP_WIN)
+  if (StaticPrefs::accessibility_cache_enabled_AtStartup() &&
+      aParent->HasOwnContent() && aParent->mContent->IsMathMLElement()) {
+    // For any change in a MathML subtree, update the innerHTML cache on the
+    // root math element.
+    for (LocalAccessible* acc = aParent; acc; acc = acc->LocalParent()) {
+      if (acc->HasOwnContent() &&
+          acc->mContent->IsMathMLElement(nsGkAtoms::math)) {
+        mDoc->QueueCacheUpdate(acc, CacheDomain::InnerHTML);
+      }
+    }
+  }
+#endif  // defined(XP_WIN)
 }
 
 // LocalAccessible protected
@@ -3149,6 +3167,7 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
     // 1. Accessible is an HTML input type that holds a number.
     // 2. Accessible has a numeric value and an aria-valuetext.
     // 3. Accessible is an HTML input type that holds text.
+    // 4. Accessible is a link, in which case value is the target URL.
     // ... for all other cases we divine the value remotely.
     bool cacheValueText = false;
     if (HasNumericValue()) {
@@ -3161,7 +3180,7 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
                         mContent->AsElement()->HasAttr(
                             kNameSpaceID_None, nsGkAtoms::aria_valuetext));
     } else {
-      cacheValueText = IsTextField();
+      cacheValueText = IsTextField() || IsHTMLLink();
     }
 
     if (cacheValueText) {
@@ -3592,6 +3611,15 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
       }
     }
   }
+
+#if defined(XP_WIN)
+  if (aCacheDomain & CacheDomain::InnerHTML && HasOwnContent() &&
+      mContent->IsMathMLElement(nsGkAtoms::math)) {
+    nsString innerHTML;
+    mContent->AsElement()->GetInnerHTML(innerHTML, IgnoreErrors());
+    fields->SetAttribute(nsGkAtoms::html, std::move(innerHTML));
+  }
+#endif  // defined(XP_WIN)
 
   if (aUpdateType == CacheUpdateType::Initial) {
     // Add fields which never change and thus only need to be included in the

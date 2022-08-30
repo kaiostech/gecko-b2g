@@ -96,6 +96,29 @@ const ONBOARDING_MESSAGES = () => [
                 type: "PIN_FIREFOX_TO_TASKBAR",
               },
             },
+            checkbox: {
+              label: {
+                string_id: "mr2022-onboarding-existing-pin-checkbox-label",
+              },
+              defaultValue: true,
+              action: {
+                type: "MULTI_ACTION",
+                navigate: true,
+                data: {
+                  actions: [
+                    {
+                      type: "PIN_FIREFOX_TO_TASKBAR",
+                      data: {
+                        privatePin: true,
+                      },
+                    },
+                    {
+                      type: "PIN_FIREFOX_TO_TASKBAR",
+                    },
+                  ],
+                },
+              },
+            },
             secondary_button: {
               label: {
                 string_id: "mr2022-onboarding-secondary-skip-button-label",
@@ -408,6 +431,60 @@ const ONBOARDING_MESSAGES = () => [
                 navigate: true,
               },
               has_arrow_icon: true,
+            },
+          },
+        },
+        {
+          id: "UPGRADE_PRIVACY_SEGMENTATION",
+          content: {
+            position: "split",
+            progress_bar: "true",
+            dual_action_buttons: true,
+            background:
+              "url('chrome://activity-stream/content/data/content/assets/mr-pintaskbar.svg') var(--mr-secondary-position) no-repeat, var(--in-content-page-background) radial-gradient(83.12% 83.12% at 80.59% 16.88%, rgba(103, 51, 205, 0.75) 0%, rgba(0, 108, 207, 0.75) 54.51%, rgba(128, 199, 247, 0.75) 100%)",
+            logo: {},
+            title: {
+              string_id: "mr2022-onboarding-privacy-segmentation-title",
+            },
+            subtitle: {
+              string_id: "mr2022-onboarding-privacy-segmentation-subtitle",
+            },
+            cta_paragraph: {
+              text: {
+                string_id: "mr2022-onboarding-privacy-segmentation-text-cta",
+              },
+            },
+            primary_button: {
+              label: {
+                string_id:
+                  "mr2022-onboarding-privacy-segmentation-button-primary-label",
+              },
+              action: {
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "browser.privacySegmentation.enabled",
+                    value: true,
+                  },
+                },
+                navigate: true,
+              },
+            },
+            secondary_button: {
+              label: {
+                string_id:
+                  "mr2022-onboarding-privacy-segmentation-button-secondary-label",
+              },
+              action: {
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "browser.privacySegmentation.enabled",
+                    value: false,
+                  },
+                },
+                navigate: true,
+              },
             },
           },
         },
@@ -895,6 +972,9 @@ const OnboardingMessageProvider = {
     let removeDefault = !needDefault;
     // If user doesn't need pin, update screen to set "default" or "get started" configuration
     if (!needPin && pinScreen) {
+      // don't need to show the checkbox
+      delete pinScreen.content.checkbox;
+
       removeDefault = true;
       let primary = pinScreen.content.primary_button;
       if (needDefault) {
@@ -919,6 +999,22 @@ const OnboardingMessageProvider = {
       }
     }
 
+    // If a user has Firefox private pinned remove pin private window screen
+    // We also remove standalone pin private window screen if a user doesn't have
+    // Firefox pinned in which case the option is shown as checkbox with UPGRADE_PIN_FIREFOX screen
+    if (!needPrivatePin || needPin) {
+      removeScreens(screen =>
+        screen.id?.startsWith("UPGRADE_PIN_PRIVATE_WINDOW")
+      );
+    }
+
+    //If privatePin, remove checkbox from pinscreen
+    if (!needPrivatePin) {
+      delete content.screens?.find(
+        screen => screen.id === "UPGRADE_PIN_FIREFOX"
+      )?.content?.checkbox;
+    }
+
     if (removeDefault) {
       removeScreens(screen => screen.id?.startsWith("UPGRADE_SET_DEFAULT"));
     }
@@ -936,15 +1032,6 @@ const OnboardingMessageProvider = {
       mobileContent.cta_paragraph.text = {
         string_id: "mr2022-onboarding-no-mobile-download-cta-text",
       };
-    }
-
-    // If a user has Firefox private pinned remove pin private window screen
-    // We also remove standalone pin private window screen if a user doesn't have
-    // Firefox pinned in which case the option is shown as checkbox with UPGRADE_PIN_FIREFOX screen
-    if (!needPrivatePin || needPin) {
-      removeScreens(screen =>
-        screen.id?.startsWith("UPGRADE_PIN_PRIVATE_WINDOW")
-      );
     }
 
     // Remove colorways screen if there is no active colorways collection

@@ -321,6 +321,25 @@ body {
               }
             }
 
+            &.dual-action-buttons {
+
+              button {
+                padding: 8px 16px;
+              }
+
+              .secondary-cta {
+                display: block;
+                position: relative;
+                bottom: unset;
+                margin-block: 5px 0;
+
+                .secondary {
+                  margin-inline: 0;
+                  font-size: 13px;
+                }
+              }
+            }
+
             .secondary-cta {
               position: absolute;
               bottom: -30px;
@@ -346,6 +365,8 @@ body {
                 background: url('chrome://browser/skin/forward.svg') no-repeat right 8px center;
                 background-size: 12px;
                 padding-inline-end: 24px;
+                -moz-context-properties: fill;
+                fill: currentColor;
 
                 &:dir(rtl) {
                   background-image: url('chrome://browser/skin/back.svg');

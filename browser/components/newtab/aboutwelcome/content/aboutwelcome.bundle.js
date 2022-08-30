@@ -671,14 +671,20 @@ const MultiStageProtonScreen = props => {
   });
 };
 const ProtonScreenActionButtons = props => {
-  var _content$primary_butt, _content$primary_butt2;
+  var _content$checkbox, _content$primary_butt, _content$primary_butt2;
 
   const {
     content
   } = props;
-  const [isChecked, setIsChecked] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+  const defaultValue = (_content$checkbox = content.checkbox) === null || _content$checkbox === void 0 ? void 0 : _content$checkbox.defaultValue;
+  const [isChecked, setIsChecked] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(defaultValue || false);
+
+  if (!content.primary_button && !content.secondary_button) {
+    return null;
+  }
+
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
-    className: "action-buttons"
+    className: `action-buttons ${content.dual_action_buttons ? "dual-action-buttons" : ""}`
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
     text: (_content$primary_butt = content.primary_button) === null || _content$primary_butt === void 0 ? void 0 : _content$primary_butt.label
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", {
@@ -695,6 +701,7 @@ const ProtonScreenActionButtons = props => {
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", {
     type: "checkbox",
     id: "action-checkbox",
+    checked: isChecked,
     onChange: () => {
       setIsChecked(!isChecked);
     }
@@ -1367,7 +1374,7 @@ function LanguageSwitcher(props) {
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", {
     value: "decline_waiting",
     type: "button",
-    className: "secondary text-link",
+    className: "secondary text-link arrow-icon",
     onClick: handleAction
   })))), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
     style: {

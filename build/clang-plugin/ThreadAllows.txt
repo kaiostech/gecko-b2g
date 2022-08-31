@@ -7,7 +7,6 @@ AutoTestThread
 AwaitIdleMixed
 AwaitIdlePaused
 BGReadURLs
-BHMgr Monitor
 BHMgr Processor
 CameraThread
 COM Intcpt Log

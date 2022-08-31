@@ -2640,74 +2640,42 @@
 # pairs.
 - name: dom.image-lazy-loading.root-margin.top
   type: float
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: 100 # 100%
-#else
-  value: 300
-#endif
+  value: 600
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.top.percentage
   type: bool
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: true
-#else
   value: false
-#endif
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.bottom
   type: float
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: 100 # 100%
-#else
-  value: 300
-#endif
+  value: 600
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.bottom.percentage
   type: bool
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: true
-#else
   value: false
-#endif
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.left
   type: float
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: 100 # 100%
-#else
-  value: 300
-#endif
+  value: 600
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.left.percentage
   type: bool
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: true
-#else
   value: false
-#endif
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.right
   type: float
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: 100 # 100%
-#else
-  value: 300
-#endif
+  value: 600
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.right.percentage
   type: bool
-#if defined(EARLY_BETA_OR_EARLIER)
-  value: true
-#else
   value: false
-#endif
   mirror: always
 
 # Enable indexedDB in private browsing mode with encryption
@@ -4832,6 +4800,13 @@
 - name: dom.b2g_ipv6_addr_mode
   type: int32_t
   value: 0
+  mirror: always
+
+# Initialize Resize Observer's last reported size to -1x-1, and not 0x0,
+# as per CSSWG resolution: https://github.com/w3c/csswg-drafts/issues/3664
+- name: dom.resize_observer.last_reported_size_invalid
+  type: bool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------

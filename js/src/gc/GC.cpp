@@ -943,13 +943,10 @@ bool GCRuntime::freezeSharedAtomsZone() {
   MOZ_ASSERT(!atomsZone()->wasGCStarted());
   MOZ_ASSERT(!atomsZone()->needsIncrementalBarrier());
 
-  sharedAtomsZone_ = atomsZone();
-  zones().clear();
-
-  sharedAtomsZone_->arenas.clearFreeLists();
+  atomsZone()->arenas.clearFreeLists();
 
   for (auto kind : AllAllocKinds()) {
-    for (auto thing = sharedAtomsZone_->cellIterUnsafe<TenuredCell>(kind);
+    for (auto thing = atomsZone()->cellIterUnsafe<TenuredCell>(kind);
          !thing.done(); thing.next()) {
       TenuredCell* cell = thing.getCell();
       MOZ_ASSERT((cell->is<JSString>() &&
@@ -959,6 +956,9 @@ bool GCRuntime::freezeSharedAtomsZone() {
       cell->markBlack();
     }
   }
+
+  sharedAtomsZone_ = atomsZone();
+  zones().clear();
 
   UniquePtr<Zone> zone = MakeUnique<Zone>(rt, Zone::AtomsZone);
   if (!zone || !zone->init()) {
@@ -2708,7 +2708,6 @@ void GCRuntime::beginMarkPhase(AutoGCSession& session) {
   incMajorGcNumber();
 
   marker.start();
-  marker.clearMarkCount();
   MOZ_ASSERT(marker.isDrained());
 
   for (GCZonesIter zone(this); !zone.done(); zone.next()) {
@@ -3047,6 +3046,8 @@ AutoMajorGCProfilerEntry::AutoMajorGCProfilerEntry(GCRuntime* gc)
 
 GCRuntime::IncrementalResult GCRuntime::resetIncrementalGC(
     GCAbortReason reason) {
+  MOZ_ASSERT(reason != GCAbortReason::None);
+
   // Drop as much work as possible from an ongoing incremental GC so
   // we can start a new GC after it has finished.
   if (incrementalState == State::NotActive) {

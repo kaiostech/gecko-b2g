@@ -18,9 +18,8 @@
 #include "mozilla/dom/ImageBitmapBinding.h"
 #include "mozilla/dom/ImageUtils.h"
 #include "api/video/video_frame.h"
-#include "common_video/include/i420_buffer_pool.h"
+#include "common_video/include/video_frame_buffer_pool.h"
 #include "common_video/include/video_frame_buffer.h"
-#include "rtc_base/keep_ref_until_done.h"
 
 #ifdef MOZ_WIDGET_GONK
 #  include "GrallocImages.h"
@@ -313,7 +312,7 @@ class VideoFrameConverter {
     if (aFrame.mForceBlack) {
       // Send a black image.
       rtc::scoped_refptr<webrtc::I420Buffer> buffer =
-          mBufferPool.CreateBuffer(aFrame.mSize.width, aFrame.mSize.height);
+          mBufferPool.CreateI420Buffer(aFrame.mSize.width, aFrame.mSize.height);
       if (!buffer) {
         MOZ_DIAGNOSTIC_ASSERT(false,
                               "Buffers not leaving scope except for "
@@ -327,7 +326,7 @@ class VideoFrameConverter {
 
       MOZ_LOG(gVideoFrameConverterLog, LogLevel::Verbose,
               ("VideoFrameConverter %p: Sending a black video frame", this));
-      webrtc::I420Buffer::SetBlack(buffer);
+      webrtc::I420Buffer::SetBlack(buffer.get());
 
       VideoFrameConverted(webrtc::VideoFrame::Builder()
                               .set_video_frame_buffer(buffer)
@@ -359,7 +358,9 @@ class VideoFrameConverter {
     }
 #endif
 
-    if (layers::PlanarYCbCrImage* image = aFrame.mImage->AsPlanarYCbCrImage()) {
+    RefPtr<layers::PlanarYCbCrImage> image =
+        aFrame.mImage->AsPlanarYCbCrImage();
+    if (image) {
       dom::ImageUtils utils(image);
       if (utils.GetFormat() == dom::ImageBitmapFormat::YUV420P &&
           image->GetData()) {
@@ -369,7 +370,7 @@ class VideoFrameConverter {
                 aFrame.mImage->GetSize().width, aFrame.mImage->GetSize().height,
                 data->mYChannel, data->mYStride, data->mCbChannel,
                 data->mCbCrStride, data->mCrChannel, data->mCbCrStride,
-                rtc::KeepRefUntilDone(image));
+                [image] { /* keep reference alive*/ });
 
         MOZ_LOG(gVideoFrameConverterLog, LogLevel::Verbose,
                 ("VideoFrameConverter %p: Sending an I420 video frame", this));
@@ -383,7 +384,7 @@ class VideoFrameConverter {
     }
 
     rtc::scoped_refptr<webrtc::I420Buffer> buffer =
-        mBufferPool.CreateBuffer(aFrame.mSize.width, aFrame.mSize.height);
+        mBufferPool.CreateI420Buffer(aFrame.mSize.width, aFrame.mSize.height);
     if (!buffer) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
       ++mFramesDropped;
@@ -429,7 +430,7 @@ class VideoFrameConverter {
 
   // Accessed only from mTaskQueue.
   MediaEventListener mPacingListener;
-  webrtc::I420BufferPool mBufferPool;
+  webrtc::VideoFrameBufferPool mBufferPool;
   FrameToProcess mLastFrameQueuedForProcessing;
   Maybe<FrameConverted> mLastFrameConverted;
   bool mActive = false;

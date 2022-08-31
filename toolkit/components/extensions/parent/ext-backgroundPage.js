@@ -408,6 +408,7 @@ this.backgroundPage = class extends ExtensionAPI {
 
     extension.terminateBackground = async ({
       ignoreDevToolsAttached = false,
+      disableResetIdleForTest = false, // Disable all reset idle checks for testing purpose.
     } = {}) => {
       await bgStartupPromise;
       if (!this.extension || this.extension.hasShutdown) {
@@ -433,8 +434,29 @@ this.backgroundPage = class extends ExtensionAPI {
       // the native messaging API have already an higher barrier due to having to specify a native messaging
       // host app in their manifest and the user also have to install the native app separately as a native
       // application).
-      if (extension.backgroundContext?.hasActiveNativeAppPorts) {
-        extension.emit("background-script-reset-idle");
+      if (
+        !disableResetIdleForTest &&
+        extension.backgroundContext?.hasActiveNativeAppPorts
+      ) {
+        extension.emit("background-script-reset-idle", {
+          reason: "hasActiveNativeAppPorts",
+        });
+        return;
+      }
+
+      if (
+        !disableResetIdleForTest &&
+        extension.backgroundContext?.pendingRunListenerPromisesCount
+      ) {
+        extension.emit("background-script-reset-idle", {
+          reason: "pendingListeners",
+          pendingListeners:
+            extension.backgroundContext.pendingRunListenerPromisesCount,
+        });
+        // Clear the pending promises being tracked when we have reset the idle
+        // once because some where still pending, so that the pending listeners
+        // calls can reset the idle timer only once.
+        extension.backgroundContext.clearPendingRunListenerPromises();
         return;
       }
 
@@ -463,8 +485,10 @@ this.backgroundPage = class extends ExtensionAPI {
           Cu.reportError(err);
           return false;
         });
-        if (hasActiveStreamFilter) {
-          extension.emit("background-script-reset-idle");
+        if (!disableResetIdleForTest && hasActiveStreamFilter) {
+          extension.emit("background-script-reset-idle", {
+            reason: "hasActiveStreamFilter",
+          });
           return;
         }
 
@@ -490,7 +514,7 @@ this.backgroundPage = class extends ExtensionAPI {
       this.onShutdown(false);
       EventManager.clearPrimedListeners(this.extension, false);
       // Setup background startup listeners for next primed event.
-      return this.primeBackground(false);
+      await this.primeBackground(false);
     };
 
     // Persistent backgrounds are started immediately except during APP_STARTUP.

@@ -70,8 +70,7 @@ class WebrtcGonkH264VideoDecoder
 
   ~WebrtcGonkH264VideoDecoder();
 
-  int32_t InitDecode(const webrtc::VideoCodec* aCodecSettings,
-                     int32_t aNumOfCores) override;
+  bool Configure(const webrtc::VideoDecoder::Settings& settings) override;
 
   int32_t Decode(const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
                  int64_t aRenderTimeMs = -1) override;
@@ -80,8 +79,6 @@ class WebrtcGonkH264VideoDecoder
       webrtc::DecodedImageCallback* aCallback) override;
 
   int32_t Release() override;
-
-  bool PrefersLateDecoding() const override { return true; }
 
   const char* ImplementationName() const override { return "Gonk"; }
 

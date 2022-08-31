@@ -464,12 +464,13 @@ void WebrtcGonkVideoEncoder::OnDrainOutputBuffer(size_t aIndex, size_t aOffset,
 
   sp<FrameInfo> frameInfo = mFrameInfoQueue.Pop(aTimeUs);
 
-  webrtc::EncodedImage encoded(buffer->data(), buffer->size(), buffer->size());
+  webrtc::EncodedImage encoded;
+  encoded.SetEncodedData(
+      webrtc::EncodedImageBuffer::Create(buffer->data(), buffer->size()));
   encoded._encodedWidth = frameInfo->mWidth;
   encoded._encodedHeight = frameInfo->mHeight;
   encoded.SetTimestamp(frameInfo->mTimestamp);
   encoded.capture_time_ms_ = frameInfo->mRenderTimeMs;
-  encoded._completeFrame = true;
 
   if (aFlags & MediaCodec::BUFFER_FLAG_SYNCFRAME) {
     encoded._frameType = webrtc::VideoFrameType::kVideoFrameKey;
@@ -775,7 +776,7 @@ void WebrtcGonkVideoDecoder::OnNewFrame() {
   LOGD("Decoder:%p frame decoded, latency %" PRId64 " ms", this, latency);
 
   rtc::scoped_refptr<ImageBuffer> imageBuffer =
-      new rtc::RefCountedObject<ImageBuffer>(std::move(image));
+      rtc::make_ref_counted<ImageBuffer>(std::move(image));
   webrtc::VideoFrame videoFrame(imageBuffer, mDecodedFrameInfo->mTimestamp,
                                 mDecodedFrameInfo->mRenderTimeMs,
                                 webrtc::kVideoRotation_0);

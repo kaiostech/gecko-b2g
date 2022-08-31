@@ -32,24 +32,25 @@ WebrtcGonkVP8VideoDecoder::WebrtcGonkVP8VideoDecoder() {
   mReservation = new android::OMXCodecReservation(false);
 }
 
-int32_t WebrtcGonkVP8VideoDecoder::InitDecode(
-    const webrtc::VideoCodec* aCodecSettings, int32_t aNumOfCores) {
+bool WebrtcGonkVP8VideoDecoder::Configure(
+    const webrtc::VideoDecoder::Settings& aCodecSettings) {
   LOGD("Decoder:%p initializing", this);
 
   if (!mReservation->ReserveOMXCodec()) {
     LOGE("Decoder:%p failed to reserve codec", this);
-    return WEBRTC_VIDEO_CODEC_ERROR;
+    return false;
   }
 
   mDecoder = new android::WebrtcGonkVideoDecoder();
   if (mDecoder->Init(this, android::MEDIA_MIMETYPE_VIDEO_VP8,
-                     aCodecSettings->width,
-                     aCodecSettings->height) != android::OK) {
+                     aCodecSettings.max_render_resolution().Width(),
+                     aCodecSettings.max_render_resolution().Height()) !=
+      android::OK) {
     mDecoder = nullptr;
     LOGE("Decoder:%p failed to initialize", this);
-    return WEBRTC_VIDEO_CODEC_ERROR;
+    return false;
   }
-  return WEBRTC_VIDEO_CODEC_OK;
+  return true;
 }
 
 int32_t WebrtcGonkVP8VideoDecoder::Decode(

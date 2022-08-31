@@ -10,7 +10,6 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/Hal.h"
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
-#include "common_video/include/i420_buffer_pool.h"
 
 namespace mozilla {
 

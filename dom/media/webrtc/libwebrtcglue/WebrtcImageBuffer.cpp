@@ -59,7 +59,7 @@ rtc::scoped_refptr<webrtc::I420BufferInterface> ImageBuffer::GrallocToI420() {
                                 static_cast<uint8_t*>(ycbcr.y), ycbcr.ystride,
                                 static_cast<uint8_t*>(ycbcr.cb), ycbcr.cstride,
                                 static_cast<uint8_t*>(ycbcr.cr), ycbcr.cstride,
-                                rtc::KeepRefUntilDone(holder));
+                                [holder] { /* keep reference alive*/ });
 }
 #endif
 

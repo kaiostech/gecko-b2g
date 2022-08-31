@@ -286,7 +286,6 @@ webrtc::VideoEncoder::EncoderInfo WebrtcGonkH264VideoEncoder::GetEncoderInfo()
   info.supports_native_handle = true;
   info.implementation_name = "Gonk";
   info.is_hardware_accelerated = true;
-  info.has_internal_source = false;
   info.supports_simulcast = false;
   return info;
 }
@@ -297,24 +296,25 @@ WebrtcGonkH264VideoDecoder::WebrtcGonkH264VideoDecoder() {
   mReservation = new android::OMXCodecReservation(false);
 }
 
-int32_t WebrtcGonkH264VideoDecoder::InitDecode(
-    const webrtc::VideoCodec* aCodecSettings, int32_t aNumOfCores) {
+bool WebrtcGonkH264VideoDecoder::Configure(
+    const webrtc::VideoDecoder::Settings& aCodecSettings) {
   LOGD("Decoder:%p initializing", this);
 
   if (!mReservation->ReserveOMXCodec()) {
     LOGE("Decoder:%p failed to reserve codec", this);
-    return WEBRTC_VIDEO_CODEC_ERROR;
+    return false;
   }
 
   mDecoder = new android::WebrtcGonkVideoDecoder();
   if (mDecoder->Init(this, android::MEDIA_MIMETYPE_VIDEO_AVC,
-                     aCodecSettings->width,
-                     aCodecSettings->height) != android::OK) {
+                     aCodecSettings.max_render_resolution().Width(),
+                     aCodecSettings.max_render_resolution().Height()) !=
+      android::OK) {
     mDecoder = nullptr;
     LOGE("Decoder:%p failed to initialize", this);
-    return WEBRTC_VIDEO_CODEC_ERROR;
+    return false;
   }
-  return WEBRTC_VIDEO_CODEC_OK;
+  return true;
 }
 
 int32_t WebrtcGonkH264VideoDecoder::Decode(

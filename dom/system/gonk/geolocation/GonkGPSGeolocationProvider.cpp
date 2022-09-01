@@ -1195,6 +1195,12 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
     LOG("ObserveSetting: logging: %d", gDebug_isLoggingEnabled);
   } else if (name.Equals(kSettingGeolocationEnabled)) {
     gGeolocationEnabled = value.EqualsLiteral("true");
+#ifdef B2G_ZAXIS_GEOLOCATION
+    // This is customized for Z-axis feature. Z-axis feature requires accessing
+    // geolocation when geolocation setting is turned off. To allow it, we force
+    // `gGeolocationEnabled` being true and let GPS HAL always can be inited.
+    gGeolocationEnabled = true;
+#endif
     LOG("ObserveSetting: geolocation-enabled: %d", gGeolocationEnabled);
 
     // Initialize GonkGPSGeolocationProvider

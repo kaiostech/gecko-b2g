@@ -3806,11 +3806,8 @@ void WarnIgnoredPreload(const mozilla::dom::Document& aDoc, nsIURI& aURI) {
                                   "PreloadIgnoredInvalidAttr", params);
 }
 
-}  // namespace net
-}  // namespace mozilla
-
-nsresult NS_HasRootDomain(const nsACString& aInput, const nsACString& aHost,
-                          bool* aResult) {
+nsresult HasRootDomain(const nsACString& aInput, const nsACString& aHost,
+                       bool* aResult) {
   if (NS_WARN_IF(!aResult)) {
     return NS_ERROR_FAILURE;
   }
@@ -3913,3 +3910,6 @@ bool IsCoepCredentiallessEnabled(bool aIsOriginTrialCoepCredentiallessEnabled) {
              browser_tabs_remote_coep_credentialless_DoNotUseDirectly() ||
          aIsOriginTrialCoepCredentiallessEnabled;
 }
+
+}  // namespace net
+}  // namespace mozilla

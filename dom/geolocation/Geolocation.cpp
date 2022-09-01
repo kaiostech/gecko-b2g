@@ -309,22 +309,27 @@ nsGeolocationRequest::Allow(JS::Handle<JS::Value> aChoices) {
     }
   }
 
+  // Non-cached location request
+  bool allowedRequest = mIsWatchPositionRequest || !canUseCache;
+  if (allowedRequest) {
+    // let the locator know we're pending
+    // we will now be owned by the locator
+    mLocator->NotifyAllowedRequest(this);
+  }
+
   // Kick off the geo device, if it isn't already running
   nsresult rv = gs->StartDevice();
 
   if (NS_FAILED(rv)) {
+    if (allowedRequest) {
+      mLocator->RemoveRequest(this);
+    }
     // Location provider error
     NotifyError(GeolocationPositionError_Binding::POSITION_UNAVAILABLE);
     return NS_OK;
   }
 
   gs->UpdateAccuracy(WantsHighAccuracy());
-
-  if (mIsWatchPositionRequest || !canUseCache) {
-    // let the locator know we're pending
-    // we will now be owned by the locator
-    mLocator->NotifyAllowedRequest(this);
-  }
 
   SetTimeoutTimer();
 

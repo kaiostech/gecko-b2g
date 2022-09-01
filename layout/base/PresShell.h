@@ -346,15 +346,17 @@ class PresShell final : public nsStubDocumentObserver,
   MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult Initialize();
 
   /**
-   * Reflow the frame model into a new width and height.  The
+   * Schedule a reflow for the frame model into a new width and height.  The
    * coordinates for aWidth and aHeight must be in standard nscoord's.
+   *
+   * Returns whether layout might have changed.
    */
-  MOZ_CAN_RUN_SCRIPT nsresult
-  ResizeReflow(nscoord aWidth, nscoord aHeight,
-               ResizeReflowOptions = ResizeReflowOptions::NoOption);
-  MOZ_CAN_RUN_SCRIPT nsresult ResizeReflowIgnoreOverride(nscoord aWidth,
-                                                         nscoord aHeight,
-                                                         ResizeReflowOptions);
+  MOZ_CAN_RUN_SCRIPT void ResizeReflow(
+      nscoord aWidth, nscoord aHeight,
+      ResizeReflowOptions = ResizeReflowOptions::NoOption);
+  MOZ_CAN_RUN_SCRIPT bool ResizeReflowIgnoreOverride(
+      nscoord aWidth, nscoord aHeight,
+      ResizeReflowOptions = ResizeReflowOptions::NoOption);
 
   /**
    * Add this pres shell to the refresh driver to be observed for resize
@@ -382,7 +384,7 @@ class PresShell final : public nsStubDocumentObserver,
    * This is what ResizeReflowIgnoreOverride does when not shrink-wrapping (that
    * is, when ResizeReflowOptions::BSizeLimit is not specified).
    */
-  void SimpleResizeReflow(nscoord aWidth, nscoord aHeight, ResizeReflowOptions);
+  bool SimpleResizeReflow(nscoord aWidth, nscoord aHeight);
 
  public:
   /**
@@ -1273,6 +1275,11 @@ class PresShell final : public nsStubDocumentObserver,
   NS_IMETHOD RepaintSelection(RawSelectionType aRawSelectionType) override;
   void SelectionWillTakeFocus() override;
   void SelectionWillLoseFocus() override;
+
+  // Implements the "focus fix-up rule". Returns true if the focus moved (in
+  // which case we might need to update layout again).
+  // See https://github.com/whatwg/html/issues/8225
+  MOZ_CAN_RUN_SCRIPT bool FixUpFocus();
 
   /**
    * Set a "resolution" for the document, which if not 1.0 will

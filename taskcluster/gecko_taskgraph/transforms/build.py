@@ -178,6 +178,11 @@ def use_profile_data(config, jobs):
             # LTO linkage needs more open files than the default from run-task.
             job["worker"]["env"].update({"MOZ_LIMIT_NOFILE": "8192"})
 
+        if job.get("use-sccache"):
+            raise Exception(
+                "use-sccache is incompatible with use-pgo in {}".format(job["name"])
+            )
+
         yield job
 
 
@@ -209,4 +214,24 @@ def enable_full_crashsymbols(config, jobs):
         else:
             logger.debug("Disabling full symbol generation for %s", job["name"])
             job["attributes"].pop("enable-full-crashsymbols", None)
+        yield job
+
+
+@transforms.add
+def set_expiry(config, jobs):
+    for job in jobs:
+        attributes = job["attributes"]
+        if (
+            "shippable" in attributes
+            and attributes["shippable"]
+            and config.kind
+            in {
+                "build",
+            }
+        ):
+            expiration_policy = "long"
+        else:
+            expiration_policy = "medium"
+
+        job["expiration-policy"] = expiration_policy
         yield job

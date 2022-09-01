@@ -19,25 +19,11 @@ const lazy = {};
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   assert: "chrome://remote/content/shared/webdriver/Assert.jsm",
   error: "chrome://remote/content/shared/webdriver/Errors.jsm",
+  OwnershipModel: "chrome://remote/content/webdriver-bidi/RemoteValue.jsm",
   TabManager: "chrome://remote/content/shared/TabManager.jsm",
   WindowGlobalMessageHandler:
     "chrome://remote/content/shared/messagehandler/WindowGlobalMessageHandler.jsm",
 });
-
-/**
- * @typedef {Object} OwnershipModel
- **/
-
-/**
- * Enum of ownership models supported by the script module.
- *
- * @readonly
- * @enum {OwnershipModel}
- **/
-const OwnershipModel = {
-  None: "none",
-  Root: "root",
-};
 
 class ScriptModule extends Module {
   destroy() {}
@@ -112,8 +98,9 @@ class ScriptModule extends Module {
    *     expression to resolve, if this return value is a Promise.
    * @param {string} functionDeclaration
    *     The expression to evaluate.
-   * @param {OwnershipModel=} resultOwnership [unsupported]
-   *     The ownership model to use for the results of this evaluation.
+   * @param {OwnershipModel=} resultOwnership
+   *     The ownership model to use for the results of this evaluation. Defaults
+   *     to `OwnershipModel.None`.
    * @param {Object} target
    *     The target for the evaluation, which either matches the definition for
    *     a RealmTarget or for ContextTarget.
@@ -135,7 +122,7 @@ class ScriptModule extends Module {
       arguments: commandArguments = null,
       awaitPromise,
       functionDeclaration,
-      resultOwnership = OwnershipModel.None,
+      resultOwnership = lazy.OwnershipModel.None,
       target = {},
       this: thisParameter = null,
     } = options;
@@ -173,6 +160,7 @@ class ScriptModule extends Module {
         commandArguments,
         functionDeclaration,
         realmId,
+        resultOwnership,
         sandbox,
         thisParameter,
       },
@@ -191,8 +179,9 @@ class ScriptModule extends Module {
    *     expression to resolve, if this return value is a Promise.
    * @param {string} expression
    *     The expression to evaluate.
-   * @param {OwnershipModel=} resultOwnership [unsupported]
-   *     The ownership model to use for the results of this evaluation.
+   * @param {OwnershipModel=} resultOwnership
+   *     The ownership model to use for the results of this evaluation. Defaults
+   *     to `OwnershipModel.None`.
    * @param {Object} target
    *     The target for the evaluation, which either matches the definition for
    *     a RealmTarget or for ContextTarget.
@@ -211,7 +200,7 @@ class ScriptModule extends Module {
     const {
       awaitPromise,
       expression: source,
-      resultOwnership = OwnershipModel.None,
+      resultOwnership = lazy.OwnershipModel.None,
       target = {},
     } = options;
 
@@ -240,6 +229,7 @@ class ScriptModule extends Module {
         awaitPromise,
         expression: source,
         realmId,
+        resultOwnership,
         sandbox,
       },
     });
@@ -248,10 +238,14 @@ class ScriptModule extends Module {
   }
 
   #assertResultOwnership(resultOwnership) {
-    if (![OwnershipModel.None, OwnershipModel.Root].includes(resultOwnership)) {
+    if (
+      ![lazy.OwnershipModel.None, lazy.OwnershipModel.Root].includes(
+        resultOwnership
+      )
+    ) {
       throw new lazy.error.InvalidArgumentError(
         `Expected "resultOwnership" to be one of ${Object.values(
-          OwnershipModel
+          lazy.OwnershipModel
         )}, got ${resultOwnership}`
       );
     }

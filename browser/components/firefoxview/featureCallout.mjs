@@ -12,8 +12,13 @@ const lazy = {};
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AboutWelcomeParent: "resource:///actors/AboutWelcomeParent.jsm",
+  ASRouter: "resource://activity-stream/lib/ASRouter.jsm",
 });
 
+// When expanding the use of Feature Callout
+// to new about: pages, make `progressPref` a
+// configurable field on callout messages and
+// use it to determine which pref to observe
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "featureTourProgress",
@@ -36,7 +41,7 @@ async function _handlePrefChange() {
     container?.classList.add("hidden");
     // wait for fade out transition
     setTimeout(async () => {
-      _loadConfig(lazy.featureTourProgress.message);
+      await _loadConfig();
       container?.remove();
       await _renderCallout();
     }, TRANSITION_MS);
@@ -78,170 +83,6 @@ let READY = false;
 
 const TRANSITION_MS = 500;
 const CONTAINER_ID = "root";
-const MESSAGES = [
-  {
-    id: "FIREFOX_VIEW_FEATURE_TOUR",
-    template: "multistage",
-    backdrop: "transparent",
-    transitions: false,
-    disableHistoryUpdates: true,
-    screens: [
-      {
-        id: "FEATURE_CALLOUT_1",
-        parent_selector: "#tab-pickup-container",
-        content: {
-          position: "callout",
-          arrow_position: "top",
-          title: {
-            string_id: "callout-firefox-view-tab-pickup-title",
-          },
-          subtitle: {
-            string_id: "callout-firefox-view-tab-pickup-subtitle",
-          },
-          logo: {
-            imageURL: "chrome://browser/content/callout-tab-pickup.svg",
-            darkModeImageURL:
-              "chrome://browser/content/callout-tab-pickup-dark.svg",
-            height: "128px",
-          },
-          primary_button: {
-            label: {
-              string_id: "callout-primary-advance-button-label",
-            },
-            action: {
-              type: "SET_PREF",
-              data: {
-                pref: {
-                  name: "browser.firefox-view.feature-tour",
-                  value: JSON.stringify({
-                    message: "FIREFOX_VIEW_FEATURE_TOUR",
-                    screen: "FEATURE_CALLOUT_2",
-                    complete: false,
-                  }),
-                },
-              },
-            },
-          },
-          dismiss_button: {
-            action: {
-              type: "SET_PREF",
-              data: {
-                pref: {
-                  name: "browser.firefox-view.feature-tour",
-                  value: JSON.stringify({
-                    message: "FIREFOX_VIEW_FEATURE_TOUR",
-                    screen: "FEATURE_CALLOUT_1",
-                    complete: true,
-                  }),
-                },
-              },
-            },
-          },
-        },
-      },
-      {
-        id: "FEATURE_CALLOUT_2",
-        parent_selector: "#recently-closed-tabs-container",
-        content: {
-          position: "callout",
-          arrow_position: "bottom",
-          title: {
-            string_id: "callout-firefox-view-recently-closed-title",
-          },
-          subtitle: {
-            string_id: "callout-firefox-view-recently-closed-subtitle",
-          },
-          primary_button: {
-            label: {
-              string_id: "callout-primary-advance-button-label",
-            },
-            action: {
-              type: "SET_PREF",
-              data: {
-                pref: {
-                  name: "browser.firefox-view.feature-tour",
-                  value: JSON.stringify({
-                    message: "FIREFOX_VIEW_FEATURE_TOUR",
-                    screen: "FEATURE_CALLOUT_3",
-                    complete: false,
-                  }),
-                },
-              },
-            },
-          },
-          dismiss_button: {
-            action: {
-              type: "SET_PREF",
-              data: {
-                pref: {
-                  name: "browser.firefox-view.feature-tour",
-                  value: JSON.stringify({
-                    message: "FIREFOX_VIEW_FEATURE_TOUR",
-                    screen: "FEATURE_CALLOUT_2",
-                    complete: true,
-                  }),
-                },
-              },
-            },
-          },
-        },
-      },
-      {
-        id: "FEATURE_CALLOUT_3",
-        parent_selector: "#colorways.content-container",
-        content: {
-          position: "callout",
-          arrow_position: "end",
-          title: {
-            string_id: "callout-firefox-view-colorways-title",
-          },
-          subtitle: {
-            string_id: "callout-firefox-view-colorways-subtitle",
-          },
-          logo: {
-            imageURL: "chrome://browser/content/callout-colorways.svg",
-            darkModeImageURL:
-              "chrome://browser/content/callout-colorways-dark.svg",
-            height: "128px",
-          },
-          primary_button: {
-            label: {
-              string_id: "callout-primary-complete-button-label",
-            },
-            action: {
-              type: "SET_PREF",
-              data: {
-                pref: {
-                  name: "browser.firefox-view.feature-tour",
-                  value: JSON.stringify({
-                    message: "FIREFOX_VIEW_FEATURE_TOUR",
-                    screen: "",
-                    complete: true,
-                  }),
-                },
-              },
-            },
-          },
-          dismiss_button: {
-            action: {
-              type: "SET_PREF",
-              data: {
-                pref: {
-                  name: "browser.firefox-view.feature-tour",
-                  value: JSON.stringify({
-                    message: "FIREFOX_VIEW_FEATURE_TOUR",
-                    screen: "FEATURE_CALLOUT_3",
-                    complete: true,
-                  }),
-                },
-              },
-            },
-          },
-        },
-      },
-    ],
-  },
-];
 
 function _createContainer() {
   let parent = document.querySelector(CURRENT_SCREEN?.parent_selector);
@@ -275,15 +116,10 @@ function _positionCallout() {
   // All possible arrow positions
   const arrowPositions = ["top", "bottom", "end", "start"];
   const arrowPosition = CURRENT_SCREEN?.content?.arrow_position || "top";
-  // Length of arrow pointer in pixels
-  const arrowLength = 12;
-  // Callout should overlap the parent element by
-  // 15% of the latter's width or height
-  const overlap = 0.15;
-  // Number of pixels that the callout should overlap the element it describes,
-  // including the length of the element's arrow pointer
-  const parentHeightOverlap = parentEl.offsetHeight * overlap - arrowLength;
-  const parentWidthOverlap = parentEl.offsetWidth * overlap - arrowLength;
+  // Callout should overlap the parent element by 17px (so the box, not
+  // including the arrow, will overlap by 5px)
+  const arrowWidth = 12;
+  const overlap = 17 - arrowWidth;
   // Is the document layout right to left?
   const RTL = document.dir === "rtl";
 
@@ -321,14 +157,14 @@ function _positionCallout() {
         document.body.offsetHeight -
         getOffset(parentEl).top -
         parentEl.offsetHeight +
-        parentHeightOverlap,
-      neededSpace: container.offsetHeight - parentHeightOverlap,
+        overlap,
+      neededSpace: container.offsetHeight - overlap,
       position() {
         // Point to an element above the callout
         let containerTop =
-          getOffset(parentEl).top + parentEl.offsetHeight - parentHeightOverlap;
+          getOffset(parentEl).top + parentEl.offsetHeight - overlap;
         container.style.top = `${Math.max(
-          container.offsetHeight - parentHeightOverlap,
+          container.offsetHeight - overlap,
           containerTop
         )}px`;
         centerHorizontally(container, parentEl);
@@ -336,26 +172,24 @@ function _positionCallout() {
       },
     },
     bottom: {
-      availableSpace: getOffset(parentEl).top + parentHeightOverlap,
-      neededSpace: container.offsetHeight - parentHeightOverlap,
+      availableSpace: getOffset(parentEl).top + overlap,
+      neededSpace: container.offsetHeight - overlap,
       position() {
         // Point to an element below the callout
         let containerTop =
-          getOffset(parentEl).top -
-          container.offsetHeight +
-          parentHeightOverlap;
+          getOffset(parentEl).top - container.offsetHeight + overlap;
         container.style.top = `${Math.max(0, containerTop)}px`;
         centerHorizontally(container, parentEl);
         container.classList.add("arrow-bottom");
       },
     },
     right: {
-      availableSpace: getOffset(parentEl).left + parentHeightOverlap,
-      neededSpace: container.offsetWidth - parentWidthOverlap,
+      availableSpace: getOffset(parentEl).left + overlap,
+      neededSpace: container.offsetWidth - overlap,
       position() {
         // Point to an element to the right of the callout
         let containerLeft =
-          getOffset(parentEl).left - container.offsetWidth + parentWidthOverlap;
+          getOffset(parentEl).left - container.offsetWidth + overlap;
         if (RTL) {
           // Account for cases where the document body may be narrow than the window
           containerLeft -= window.innerWidth - document.body.offsetWidth;
@@ -367,19 +201,17 @@ function _positionCallout() {
     },
     left: {
       availableSpace:
-        document.body.offsetWidth -
-        getOffset(parentEl).right +
-        parentWidthOverlap,
-      neededSpace: container.offsetWidth - parentWidthOverlap,
+        document.body.offsetWidth - getOffset(parentEl).right + overlap,
+      neededSpace: container.offsetWidth - overlap,
       position() {
         // Point to an element to the left of the callout
         let containerLeft =
-          getOffset(parentEl).left + parentEl.offsetWidth - parentWidthOverlap;
+          getOffset(parentEl).left + parentEl.offsetWidth - overlap;
         if (RTL) {
           // Account for cases where the document body may be narrow than the window
           containerLeft -= window.innerWidth - document.body.offsetWidth;
         }
-        container.style.left = `${(container.offsetWidth - parentWidthOverlap,
+        container.style.left = `${(container.offsetWidth - overlap,
         containerLeft)}px`;
         container.style.top = `${getOffset(parentEl).top}px`;
         container.classList.add("arrow-inline-start");
@@ -511,31 +343,15 @@ function _observeRender(container) {
   RENDER_OBSERVER?.observe(container, { childList: true });
 }
 
-function _loadConfig(messageId) {
-  // If the parent element a screen describes doesn't exist, remove screen
-  // and ensure last screen displays the final primary CTA
-  // (for example, when there are no active colorways in about:firefoxview)
-  function _getRelevantScreens(screens) {
-    const finalCTA = screens[screens.length - 1].content.primary_button;
-    screens = screens.filter((s, i) => {
-      return document.querySelector(s.parent_selector);
-    });
-    if (screens.length) {
-      screens[screens.length - 1].content.primary_button = finalCTA;
-    }
-    return screens;
-  }
-
-  let content = MESSAGES.find(m => m.id === messageId);
-  const screenId = lazy.featureTourProgress.screen;
-  let screenIndex;
-  if (content?.screens?.length && screenId) {
-    content.screens = _getRelevantScreens(content.screens);
-    screenIndex = content.screens.findIndex(s => s.id === screenId);
-    content.startScreen = screenIndex;
-  }
-  CURRENT_SCREEN = content?.screens?.[screenIndex || 0];
-  CONFIG = content;
+async function _loadConfig() {
+  await lazy.ASRouter.waitForInitialized;
+  let result = await lazy.ASRouter.sendTriggerMessage({
+    // triggerId and triggerContext
+    id: "featureCalloutCheck",
+    context: { source: document.location.pathname.toLowerCase() },
+  });
+  CONFIG = result.message.content;
+  CURRENT_SCREEN = CONFIG?.screens?.[CONFIG?.startScreen || 0];
 }
 
 async function _renderCallout() {
@@ -555,9 +371,9 @@ async function showFeatureCallout(messageId) {
     return;
   }
 
-  _loadConfig(messageId);
+  await _loadConfig();
 
-  if (!CONFIG) {
+  if (!CONFIG?.screens?.length) {
     return;
   }
 

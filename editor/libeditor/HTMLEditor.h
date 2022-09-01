@@ -16,7 +16,6 @@
 #include "mozilla/HTMLEditHelpers.h"
 #include "mozilla/ManualNAC.h"
 #include "mozilla/Result.h"
-#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/BlobImpl.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/File.h"
@@ -360,10 +359,7 @@ class HTMLEditor final : public EditorBase,
    * with "font style elements" like <b>, <i>, etc, and <blockquote> to indent,
    * align attribute to align contents, returns false.
    */
-  bool IsCSSEnabled() const {
-    return !IsMailEditor() && mCSSEditUtils &&
-           mCSSEditUtils->IsCSSPrefChecked();
-  }
+  bool IsCSSEnabled() const { return !IsMailEditor() && mIsCSSPrefChecked; }
 
   /**
    * Enable/disable object resizers for <img> elements, <table> elements,
@@ -4455,8 +4451,6 @@ class HTMLEditor final : public EditorBase,
   // direction or Gecko's traditional direction.
   bool mUseGeckoTraditionalJoinSplitBehavior = true;
 
-  UniquePtr<CSSEditUtils> mCSSEditUtils;
-
   // resizing
   bool mIsObjectResizingEnabled;
   bool mIsResizing;
@@ -4473,6 +4467,8 @@ class HTMLEditor final : public EditorBase,
 
   // inline table editing
   bool mIsInlineTableEditingEnabled;
+
+  bool mIsCSSPrefChecked;
 
   // resizing
   ManualNACPtr mTopLeftHandle;

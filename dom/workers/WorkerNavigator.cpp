@@ -40,9 +40,22 @@ namespace mozilla::dom {
 
 using namespace workerinternals;
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WorkerNavigator, mStorageManager,
-                                      mConnection, mMediaCapabilities, mWebGpu,
-                                      mB2G, mLocks);
+NS_IMPL_CYCLE_COLLECTION_CLASS(WorkerNavigator)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(WorkerNavigator)
+  tmp->Invalidate();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(WorkerNavigator)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStorageManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mConnection)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaCapabilities)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebGpu)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mB2G)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocks)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(WorkerNavigator)
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WorkerNavigator, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WorkerNavigator, Release)
@@ -51,7 +64,7 @@ WorkerNavigator::WorkerNavigator(const NavigatorProperties& aProperties,
                                  bool aOnline)
     : mProperties(aProperties), mOnline(aOnline) {}
 
-WorkerNavigator::~WorkerNavigator() = default;
+WorkerNavigator::~WorkerNavigator() { Invalidate(); }
 
 /* static */
 already_AddRefed<WorkerNavigator> WorkerNavigator::Create(bool aOnLine) {
@@ -64,6 +77,21 @@ already_AddRefed<WorkerNavigator> WorkerNavigator::Create(bool aOnLine) {
   RefPtr<WorkerNavigator> navigator = new WorkerNavigator(properties, aOnLine);
 
   return navigator.forget();
+}
+
+void WorkerNavigator::Invalidate() {
+  if (mStorageManager) {
+    mStorageManager->Shutdown();
+    mStorageManager = nullptr;
+  }
+
+  mConnection = nullptr;
+
+  mMediaCapabilities = nullptr;
+
+  mWebGpu = nullptr;
+
+  mLocks = nullptr;
 }
 
 JSObject* WorkerNavigator::WrapObject(JSContext* aCx,

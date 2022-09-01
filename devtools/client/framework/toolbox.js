@@ -948,9 +948,12 @@ Toolbox.prototype = {
 
       await fluentInitPromise;
 
+      // Mount the ToolboxController component and update all its state
+      // that can be updated synchronousl
       this._mountReactComponent(fluentL10n.getBundles());
       this._buildDockOptions();
-      this._buildTabs();
+      this._buildInitialPanelDefinitions();
+      this._setDebugTargetData();
 
       // Forward configuration flags to the DevTools server.
       this._applyCacheSettings();
@@ -967,9 +970,6 @@ Toolbox.prototype = {
         "aria-label",
         L10N.getStr("toolbox.label")
       );
-
-      // Set debug target data on the ToolboxController component.
-      this._setDebugTargetData();
 
       this.webconsolePanel = this.doc.querySelector(
         "#toolbox-panel-webconsole"
@@ -993,6 +993,9 @@ Toolbox.prototype = {
       if (!toolDef || !toolDef.isToolSupported(this)) {
         this._defaultToolId = "webconsole";
       }
+
+      // Update all ToolboxController state that can only be done asynchronously
+      await this._setInitialMeatballState();
 
       // Start rendering the toolbox toolbar before selecting the tool, as the tools
       // can take a few hundred milliseconds seconds to start up.
@@ -1858,9 +1861,10 @@ Toolbox.prototype = {
   },
 
   /**
-   * Initiate ToolboxTabs React component and all it's properties. Do the initial render.
+   * This will fetch the panel definitions from the constants in definitions module
+   * and populate the state within the ToolboxController component.
    */
-  async _buildTabs() {
+  async _buildInitialPanelDefinitions() {
     // Get the initial list of tab definitions. This list can be amended at a later time
     // by tools registering themselves.
     const definitions = gDevTools.getToolDefinitionArray();
@@ -1871,20 +1875,37 @@ Toolbox.prototype = {
       definition =>
         definition.isToolSupported(this) && definition.id !== "options"
     );
+  },
 
-    // Do async lookups for the target browser's state.
-    if (this.isBrowserChromeTarget) {
-      // Parallelize the asynchronous calls, so that the DOM is only updated once when
-      // updating the React components.
-      const [disableAutohide, pseudoLocale] = await Promise.all([
-        this._isDisableAutohideEnabled(),
-        this.getPseudoLocale(),
-      ]);
+  async _setInitialMeatballState() {
+    let disableAutohide, pseudoLocale;
+    // Popup auto-hide disabling is only available in browser toolbox and webextension toolboxes.
+    if (
+      this.isBrowserToolbox ||
+      this.descriptorFront.isWebExtensionDescriptor
+    ) {
+      disableAutohide = await this._isDisableAutohideEnabled();
+    }
+    // Pseudo locale items are only displayed in the browser toolbox
+    if (this.isBrowserToolbox) {
+      pseudoLocale = await this.getPseudoLocale();
+    }
+    // Parallelize the asynchronous calls, so that the DOM is only updated once when
+    // updating the React components.
+    if (typeof disableAutohide == "boolean") {
       this.component.setDisableAutohide(disableAutohide);
+    }
+    if (typeof pseudoLocale == "string") {
       this.component.setPseudoLocale(pseudoLocale);
     }
   },
 
+  /**
+   * Initiate ToolboxController React component and all it's properties. Do the initial render.
+   *
+   * @param {Object} fluentBundles
+   *        A FluentBundle instance used to display any localized text in the React component.
+   */
   _mountReactComponent(fluentBundles) {
     // Ensure the toolbar doesn't try to render until the tool is ready.
     const element = this.React.createElement(this.ToolboxController, {
@@ -3257,12 +3278,6 @@ Toolbox.prototype = {
     return this._preferenceFrontRequest;
   },
 
-  // The auto-hide of pop-ups feature and pseudo-localization require targeting
-  // browser chrome.
-  get isBrowserChromeTarget() {
-    return this.target.chrome;
-  },
-
   /**
    * See: https://firefox-source-docs.mozilla.org/l10n/fluent/tutorial.html#manually-testing-ui-with-pseudolocalization
    *
@@ -3286,10 +3301,7 @@ Toolbox.prototype = {
    * @returns {"bidi" | "accented" | "none" | undefined}
    */
   async getPseudoLocale() {
-    // Ensure that the tools are open and the feature is available in this
-    // context.
-    await this.isOpen;
-    if (!this.isBrowserChromeTarget) {
+    if (!this.isBrowserToolbox) {
       return undefined;
     }
 
@@ -3312,17 +3324,20 @@ Toolbox.prototype = {
 
     front.setBoolPref(DISABLE_AUTOHIDE_PREF, toggledValue);
 
-    if (this.isBrowserChromeTarget) {
+    if (
+      this.isBrowserToolbox ||
+      this.descriptorFront.isWebExtensionDescriptor
+    ) {
       this.component.setDisableAutohide(toggledValue);
     }
     this._autohideHasBeenToggled = true;
   },
 
   async _isDisableAutohideEnabled() {
-    // Ensure that the tools are open and the feature is available in this
-    // context.
-    await this.isOpen;
-    if (!this.isBrowserChromeTarget) {
+    if (
+      !this.isBrowserToolbox &&
+      !this.descriptorFront.isWebExtensionDescriptor
+    ) {
       return false;
     }
 
@@ -4602,7 +4617,12 @@ Toolbox.prototype = {
    * Sets basic information on the DebugTargetInfo component
    */
   _setDebugTargetData() {
-    if (this.hostType === Toolbox.HostType.PAGE) {
+    // Note that local WebExtension are debugged via WINDOW host,
+    // but we still want to display target data.
+    if (
+      this.hostType === Toolbox.HostType.PAGE ||
+      this.descriptorFront.isWebExtensionDescriptor
+    ) {
       // Displays DebugTargetInfo which shows the basic information of debug target,
       // if `about:devtools-toolbox` URL opens directly.
       // DebugTargetInfo requires this._debugTargetData to be populated

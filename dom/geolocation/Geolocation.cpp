@@ -481,6 +481,16 @@ nsresult nsGeolocationService::Init() {
   }
 
   if (XRE_IsContentProcess()) {
+#ifdef MOZ_B2G
+    nsCOMPtr<nsISettingsManager> settings =
+        do_GetService("@mozilla.org/sidl-native/settings;1");
+    if (settings) {
+      nsString key = GEO_SETTINGS_ENABLED;
+      settings->Get(key, this);
+      settings->AddObserver(key, this, this);
+    }
+#endif
+
     return NS_OK;
   }
 
@@ -491,16 +501,6 @@ nsresult nsGeolocationService::Init() {
   }
 
   obs->AddObserver(this, "xpcom-shutdown", false);
-
-#ifdef MOZ_B2G
-  nsCOMPtr<nsISettingsManager> settings =
-      do_GetService("@mozilla.org/sidl-native/settings;1");
-  if (settings) {
-    nsString key = GEO_SETTINGS_ENABLED;
-    settings->Get(key, this);
-    settings->AddObserver(key, this, this);
-  }
-#endif
 
 #ifdef MOZ_WIDGET_ANDROID
   mProvider = new AndroidLocationProvider();
@@ -704,16 +704,16 @@ nsresult nsGeolocationService::StartDevice() {
   SetDisconnectTimer();
 
   if (XRE_IsContentProcess()) {
+#ifdef MOZ_B2G
+    if (!sGeoSettingEnabled) {
+      return NS_ERROR_NOT_AVAILABLE;
+    }
+#endif
+
     ContentChild* cpc = ContentChild::GetSingleton();
     cpc->SendAddGeolocationListener(HighAccuracyRequested());
     return NS_OK;
   }
-
-#ifdef MOZ_B2G
-  if (!sGeoSettingEnabled) {
-    return NS_ERROR_NOT_AVAILABLE;
-  }
-#endif
 
   // Start them up!
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();

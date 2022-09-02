@@ -214,6 +214,7 @@ let JSWINDOWACTORS = {
       },
     },
 
+    allFrames: true,
     enablePreference: "cookiebanners.bannerClicking.enabled",
   },
 
@@ -418,7 +419,7 @@ let JSWINDOWACTORS = {
   // 'ViewSource:LoadSource' or 'ViewSource:LoadSourceWithSelection'.
   ViewSource: {
     child: {
-      moduleURI: "resource://gre/actors/ViewSourceChild.jsm",
+      esModuleURI: "resource://gre/actors/ViewSourceChild.sys.mjs",
     },
 
     allFrames: true,
@@ -427,10 +428,10 @@ let JSWINDOWACTORS = {
   // This actor is for the view-source page itself.
   ViewSourcePage: {
     parent: {
-      moduleURI: "resource://gre/actors/ViewSourcePageParent.jsm",
+      esModuleURI: "resource://gre/actors/ViewSourcePageParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource://gre/actors/ViewSourcePageChild.jsm",
+      esModuleURI: "resource://gre/actors/ViewSourcePageChild.sys.mjs",
       events: {
         pageshow: { capture: true },
         click: {},

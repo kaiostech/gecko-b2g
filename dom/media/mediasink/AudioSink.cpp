@@ -36,10 +36,8 @@ using media::TimeUnit;
 
 AudioSink::AudioSink(AbstractThread* aThread,
                      MediaQueue<AudioData>& aAudioQueue, const AudioInfo& aInfo,
-                     AudioDeviceInfo* aAudioDevice, dom::AudioChannel aChannel)
-    : mInfo(aInfo),
-      mAudioDevice(aAudioDevice),
-      mChannel(aChannel),
+                     dom::AudioChannel aChannel)
+    : mChannel(aChannel),
       mPlaying(true),
       mWritten(0),
       mErrored(false),
@@ -92,7 +90,7 @@ AudioSink::~AudioSink() {
 }
 
 nsresult AudioSink::InitializeAudioStream(
-    const PlaybackParams& aParams,
+    const PlaybackParams& aParams, const RefPtr<AudioDeviceInfo>& aAudioDevice,
     AudioSink::InitializationType aInitializationType) {
   if (aInitializationType == AudioSink::InitializationType::UNMUTING) {
     // Consider the stream to be audible immediately, before initialization
@@ -120,7 +118,7 @@ nsresult AudioSink::InitializeAudioStream(
   MOZ_ASSERT(!mAudioStream);
   mAudioStream =
       new AudioStream(*this, mOutputRate, mOutputChannels, channelMap, mChannel);
-  nsresult rv = mAudioStream->Init(mAudioDevice);
+  nsresult rv = mAudioStream->Init(aAudioDevice);
   if (NS_FAILED(rv)) {
     mAudioStream->Shutdown();
     mAudioStream = nullptr;

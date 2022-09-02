@@ -49,9 +49,11 @@ class AudioSinkWrapper : public MediaSink {
   template <typename Function>
   AudioSinkWrapper(AbstractThread* aOwnerThread,
                    MediaQueue<AudioData>& aAudioQueue, const Function& aFunc,
-                   double aVolume, double aPlaybackRate, bool aPreservesPitch)
+                   double aVolume, double aPlaybackRate, bool aPreservesPitch,
+                   RefPtr<AudioDeviceInfo> aAudioDevice)
       : mOwnerThread(aOwnerThread),
         mCreator(new CreatorImpl<Function>(aFunc)),
+        mAudioDevice(std::move(aAudioDevice)),
         mIsStarted(false),
         mParams(aVolume, aPlaybackRate, aPreservesPitch),
         // Give an invalid value to facilitate debug if used before playback
@@ -80,6 +82,8 @@ class AudioSinkWrapper : public MediaSink {
   void Stop() override;
   bool IsStarted() const override;
   bool IsPlaying() const override;
+
+  const AudioDeviceInfo* AudioDevice() const override { return mAudioDevice; }
 
   void Shutdown() override;
 
@@ -129,6 +133,9 @@ class AudioSinkWrapper : public MediaSink {
   const RefPtr<AbstractThread> mOwnerThread;
   UniquePtr<Creator> mCreator;
   UniquePtr<AudioSink> mAudioSink;
+  // The output device this AudioSink is playing data to. The system's default
+  // device is used if this is null.
+  const RefPtr<AudioDeviceInfo> mAudioDevice;
   // Will only exist when media has an audio track.
   RefPtr<EndedPromise> mEndedPromise;
   MozPromiseHolder<EndedPromise> mEndedPromiseHolder;

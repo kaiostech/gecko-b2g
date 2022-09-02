@@ -96,7 +96,7 @@ var NotificationDB = {
     var promise = IOUtils.readUTF8(NOTIFICATION_STORE_PATH);
     return promise.then(
       data => {
-        if (data.length > 0) {
+        if (data.length) {
           // Preprocessing phase intends to cleanly separate any migration-related
           // tasks.
           try {

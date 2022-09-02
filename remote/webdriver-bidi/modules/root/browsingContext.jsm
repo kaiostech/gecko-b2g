@@ -513,10 +513,22 @@ class BrowsingContextModule extends Module {
       return;
     }
 
-    const contextInfo = this.#getBrowsingContextInfo(browsingContext, {
+    const browsingContextInfo = this.#getBrowsingContextInfo(browsingContext, {
       maxDepth: 0,
     });
-    this.emitEvent("browsingContext.contextCreated", contextInfo);
+
+    // This event is emitted from the parent process but for a given browsing
+    // context. Set the event's contextInfo to the message handler corresponding
+    // to this browsing context.
+    const contextInfo = {
+      contextId: browsingContext.id,
+      type: lazy.WindowGlobalMessageHandler.type,
+    };
+    this.emitEvent(
+      "browsingContext.contextCreated",
+      browsingContextInfo,
+      contextInfo
+    );
   };
 
   #subscribeEvent(event) {
@@ -549,14 +561,6 @@ class BrowsingContextModule extends Module {
         this.#unsubscribeEvent(event);
       }
     }
-  }
-
-  _subscribeEvent(params) {
-    return this.addEventSessionData("browsingContext", params.event);
-  }
-
-  _unsubscribeEvent(params) {
-    return this.removeEventSessionData("browsingContext", params.event);
   }
 
   static get supportedEvents() {

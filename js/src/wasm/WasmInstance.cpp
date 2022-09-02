@@ -1198,6 +1198,178 @@ bool Instance::initElems(uint32_t tableIndex, const ElemSegment& seg,
   return TypedObject::createArray(cx, rttValue, numElements);
 }
 
+// Creates an (OutlineTypedObject) array containing `numElements` of type
+// described by `arrayDescr`.  Initialises it with data copied from the data
+// segment whose index is `segIndex`, starting at byte offset `segByteOffset`
+// in the segment.  Traps if the segment doesn't hold enough bytes to fill the
+// array.
+/* static */ void* Instance::arrayNewData(Instance* instance,
+                                          uint32_t segByteOffset,
+                                          uint32_t numElements,
+                                          void* arrayDescr, uint32_t segIndex) {
+  MOZ_ASSERT(SASigArrayNewData.failureMode == FailureMode::FailOnNullPtr);
+  JSContext* cx = instance->cx();
+
+  // Check that the data segment is valid for use.
+  MOZ_RELEASE_ASSERT(size_t(segIndex) < instance->passiveDataSegments_.length(),
+                     "ensured by validation");
+  const DataSegment* seg = instance->passiveDataSegments_[segIndex];
+
+  // `seg` will be nullptr if the segment has already been 'data.drop'ed
+  // (either implicitly in the case of 'active' segments during instantiation,
+  // or explicitly by the data.drop instruction.)  In that case we can
+  // continue only if there's no need to copy any data out of it.
+  if (!seg && (numElements != 0 || segByteOffset != 0)) {
+    ReportTrapError(cx, JSMSG_WASM_OUT_OF_BOUNDS);
+    return nullptr;
+  }
+  // At this point, if `seg` is null then `numElements` and `segByteOffset`
+  // are both zero.
+
+  Rooted<RttValue*> rttValue(cx, (RttValue*)arrayDescr);
+  MOZ_ASSERT(rttValue);
+
+  Rooted<TypedObject*> objTO(
+      cx, TypedObject::createArray(cx, rttValue, numElements));
+  if (!objTO) {
+    // TypedObject::createArray will have reported OOM.
+    return nullptr;
+  }
+  MOZ_RELEASE_ASSERT(objTO->is<OutlineTypedObject>());
+
+  Rooted<OutlineTypedObject*> objOTO(
+      cx, static_cast<OutlineTypedObject*>(objTO.get()));
+  MOZ_ASSERT(objOTO->numElements() == numElements);
+
+  if (!seg) {
+    // A zero-length array was requested and has been created, so we're done.
+    return objOTO;
+  }
+
+  // Compute the number of bytes to copy, ensuring it's below 2^32.
+  CheckedUint32 numBytesToCopy =
+      CheckedUint32(numElements) *
+      CheckedUint32(rttValue->typeDef().arrayType().elementType_.size());
+  if (!numBytesToCopy.isValid()) {
+    // Because the request implies that 2^32 or more bytes are to be copied.
+    ReportTrapError(cx, JSMSG_WASM_OUT_OF_BOUNDS);
+    return nullptr;
+  }
+
+  // Range-check the copy.  The obvious thing to do is to compute the offset
+  // of the last byte to copy, but that would cause underflow in the
+  // zero-length-and-zero-offset case.  Instead, compute that value plus one;
+  // in other words the offset of the first byte *not* to copy.
+  CheckedUint32 lastByteOffsetPlus1 =
+      CheckedUint32(segByteOffset) + numBytesToCopy;
+
+  CheckedUint32 numBytesAvailable(seg->bytes.length());
+  if (!lastByteOffsetPlus1.isValid() || !numBytesAvailable.isValid() ||
+      lastByteOffsetPlus1.value() > numBytesAvailable.value()) {
+    // Because the last byte to copy doesn't exist inside `seg->bytes`.
+    ReportTrapError(cx, JSMSG_WASM_OUT_OF_BOUNDS);
+    return nullptr;
+  }
+
+  // Because `numBytesToCopy` is an in-range `CheckedUint32`, the cast to
+  // `size_t` is safe even on a 32-bit target.
+  memcpy(objOTO->addressOfElementZero(), &seg->bytes[segByteOffset],
+         size_t(numBytesToCopy.value()));
+
+  return objOTO;
+}
+
+// This is almost identical to ::arrayNewData, apart from the final part that
+// actually copies the data.  It creates an (OutlineTypedObject) array
+// containg `numElements` of type described by `arrayDescr`.  Initialises it
+// with data copied from the element segment whose index is `segIndex`,
+// starting at element number `segElemIndex` in the segment.  Traps if the
+// segment doesn't hold enough elements to fill the array.
+/* static */ void* Instance::arrayNewElem(Instance* instance,
+                                          uint32_t segElemIndex,
+                                          uint32_t numElements,
+                                          void* arrayDescr, uint32_t segIndex) {
+  MOZ_ASSERT(SASigArrayNewElem.failureMode == FailureMode::FailOnNullPtr);
+  JSContext* cx = instance->cx();
+
+  // Check that the element segment is valid for use.
+  MOZ_RELEASE_ASSERT(size_t(segIndex) < instance->passiveElemSegments_.length(),
+                     "ensured by validation");
+  const ElemSegment* seg = instance->passiveElemSegments_[segIndex];
+
+  // As with ::arrayNewData, if `seg` is nullptr then we can only safely copy
+  // zero elements from it.
+  if (!seg && (numElements != 0 || segElemIndex != 0)) {
+    ReportTrapError(cx, JSMSG_WASM_OUT_OF_BOUNDS);
+    return nullptr;
+  }
+  // At this point, if `seg` is null then `numElements` and `segElemIndex`
+  // are both zero.
+
+  Rooted<RttValue*> rttValue(cx, (RttValue*)arrayDescr);
+  MOZ_ASSERT(rttValue);
+  // The element segment is an array of uint32_t indicating function indices,
+  // which we'll have to dereference (to produce real function pointers)
+  // before parking them in the array.  Hence each array element must be a
+  // machine word.
+  MOZ_RELEASE_ASSERT(rttValue->typeDef().arrayType().elementType_.size() ==
+                     sizeof(void*));
+
+  Rooted<TypedObject*> objTO(
+      cx, TypedObject::createArray(cx, rttValue, numElements));
+  if (!objTO) {
+    // TypedObject::createArray will have reported OOM.
+    return nullptr;
+  }
+  MOZ_RELEASE_ASSERT(objTO->is<OutlineTypedObject>());
+
+  Rooted<OutlineTypedObject*> objOTO(
+      cx, static_cast<OutlineTypedObject*>(objTO.get()));
+  MOZ_ASSERT(objOTO->numElements() == numElements);
+
+  if (!seg) {
+    // A zero-length array was requested and has been created, so we're done.
+    return objOTO;
+  }
+
+  // Range-check the copy.  As in ::arrayNewData, compute the index of the
+  // last element to copy, plus one.
+  CheckedUint32 lastIndexPlus1 =
+      CheckedUint32(segElemIndex) + CheckedUint32(numElements);
+
+  CheckedUint32 numElemsAvailable(seg->elemFuncIndices.length());
+  if (!lastIndexPlus1.isValid() || !numElemsAvailable.isValid() ||
+      lastIndexPlus1.value() > numElemsAvailable.value()) {
+    // Because the last element to copy doesn't exist inside
+    // `seg->elemFuncIndices`.
+    ReportTrapError(cx, JSMSG_WASM_OUT_OF_BOUNDS);
+    return nullptr;
+  }
+
+  // Do the initialisation, converting function indices into code pointers as
+  // we go.
+  void** dst = (void**)objOTO->addressOfElementZero();
+  const uint32_t* src = &seg->elemFuncIndices[segElemIndex];
+  for (uint32_t i = 0; i < numElements; i++) {
+    uint32_t funcIndex = src[i];
+    FieldType elemType = rttValue->typeDef().arrayType().elementType_;
+    MOZ_RELEASE_ASSERT(elemType.isRefType());
+    RootedVal value(cx, elemType.refType());
+    if (funcIndex == NullFuncIndex) {
+      // value remains null
+    } else {
+      void* funcRef = Instance::refFunc(instance, funcIndex);
+      if (funcRef == AnyRef::invalid().forCompiledCode()) {
+        return nullptr;  // OOM, which has already been reported.
+      }
+      value = Val(elemType.refType(), FuncRef::fromCompiledCode(funcRef));
+    }
+    value.get().writeToHeapLocation(&dst[i]);
+  }
+
+  return objOTO;
+}
+
 /* static */ void* Instance::exceptionNew(Instance* instance, JSObject* tag) {
   MOZ_ASSERT(SASigExceptionNew.failureMode == FailureMode::FailOnNullPtr);
   JSContext* cx = instance->cx();

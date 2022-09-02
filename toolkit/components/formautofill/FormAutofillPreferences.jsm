@@ -40,10 +40,10 @@ const {
   ENABLED_AUTOFILL_CREDITCARDS_REAUTH_PREF,
 } = FormAutofill;
 const {
-  MANAGE_ADDRESSES_KEYWORDS,
-  EDIT_ADDRESS_KEYWORDS,
-  MANAGE_CREDITCARDS_KEYWORDS,
-  EDIT_CREDITCARD_KEYWORDS,
+  MANAGE_ADDRESSES_L10N_IDS,
+  EDIT_ADDRESS_L10N_IDS,
+  MANAGE_CREDITCARDS_L10N_IDS,
+  EDIT_CREDITCARD_L10N_IDS,
 } = FormAutofillUtils;
 // Add credit card enabled flag in telemetry environment for recording the number of
 // users who disable/enable the credit card autofill feature.
@@ -148,10 +148,8 @@ FormAutofillPreferences.prototype = {
 
       // Add preferences search support
       savedAddressesBtn.setAttribute(
-        "searchkeywords",
-        MANAGE_ADDRESSES_KEYWORDS.concat(EDIT_ADDRESS_KEYWORDS)
-          .map(key => this.bundle.GetStringFromName(key))
-          .join("\n")
+        "search-l10n-ids",
+        MANAGE_ADDRESSES_L10N_IDS.concat(EDIT_ADDRESS_L10N_IDS).join(",")
       );
 
       // Manually set the checked state
@@ -218,10 +216,8 @@ FormAutofillPreferences.prototype = {
 
       // Add preferences search support
       savedCreditCardsBtn.setAttribute(
-        "searchkeywords",
-        MANAGE_CREDITCARDS_KEYWORDS.concat(EDIT_CREDITCARD_KEYWORDS)
-          .map(key => this.bundle.GetStringFromName(key))
-          .join("\n")
+        "search-l10n-ids",
+        MANAGE_CREDITCARDS_L10N_IDS.concat(EDIT_CREDITCARD_L10N_IDS).join(",")
       );
 
       // Manually set the checked state

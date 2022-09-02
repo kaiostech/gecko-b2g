@@ -43,13 +43,13 @@ class AudioSink : private AudioStream::DataSource {
   };
 
   AudioSink(AbstractThread* aThread, MediaQueue<AudioData>& aAudioQueue,
-            const AudioInfo& aInfo, AudioDeviceInfo* aAudioDevice,
-            dom::AudioChannel aChannel);
+            const AudioInfo& aInfo, dom::AudioChannel aChannel);
 
   ~AudioSink();
 
   // Allocate and initialize mAudioStream. Returns NS_OK on success.
   nsresult InitializeAudioStream(const PlaybackParams& aParams,
+                                 const RefPtr<AudioDeviceInfo>& aAudioDevice,
                                  InitializationType aInitializationType);
 
   // Start audio playback.
@@ -84,8 +84,6 @@ class AudioSink : private AudioStream::DataSource {
   MediaEventSource<bool>& AudibleEvent() { return mAudibleEvent; }
 
   void GetDebugInfo(dom::MediaSinkDebugInfo& aInfo);
-
-  const RefPtr<AudioDeviceInfo>& AudioDevice() { return mAudioDevice; }
 
   // This returns true if the audio callbacks are being called, and so the
   // audio stream-based clock is moving forward.
@@ -129,12 +127,6 @@ class AudioSink : private AudioStream::DataSource {
   // position returned by GetPosition() is mono-increasing in spite of audio
   // stream error. Used on the task queue of MDSM only.
   media::TimeUnit mLastGoodPosition;
-
-  const AudioInfo mInfo;
-
-  // The output device this AudioSink is playing data to. The system's default
-  // device is used if this is null.
-  const RefPtr<AudioDeviceInfo> mAudioDevice;
 
   const dom::AudioChannel mChannel;
 

@@ -145,18 +145,6 @@ panelmultiview[transitioning] > .panel-viewcontainer > .panel-viewstack > panelv
   overflow-y: hidden;
 }
 
-#downloadsPanel,
-#widget-overflow,
-#appMenu-popup,
-#customizationui-widget-panel,
-#identity-popup,
-#permission-popup,
-#protections-popup,
-#appMenu-notification-popup,
-#editBookmarkPanel {
-  margin-top: -4px;
-}
-
 #BMB_bookmarksPopup {
   margin-top: -8px;
 }
@@ -168,15 +156,12 @@ panelmultiview[transitioning] > .panel-viewcontainer > .panel-viewstack > panelv
   padding: var(--panel-subview-body-padding);
 }
 
-toolbarseparator + .panel-subview-body,
-.subview-subheader + .panel-subview-body {
-  padding: 0;
+.panel-subview-body:not(:last-child) {
+  padding-bottom: 0;
 }
 
-#appmenu-developer-tools-view.panel-subview-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+toolbarseparator + .panel-subview-body {
+  padding-top: 0;
 }
 
 .panel-view-body-unscrollable {
@@ -870,11 +855,6 @@ panelmultiview[mainViewId="PanelUI-fxa"] #PanelUI-remotetabs-syncnow {
   list-style-image: url(chrome://browser/skin/fxa/sync-illustration-issue.svg);
 }
 
-.PanelUI-fxa-signin-button > .toolbarbutton-text,
-.PanelUI-remotetabs-button > .toolbarbutton-text {
-  display: -moz-box;
-}
-
 #PanelUI-remotetabs[mainview] { /* panel anchored to toolbar button might be too skinny */
   min-width: 19em;
 }
@@ -1102,7 +1082,7 @@ panelview .toolbarbutton-1,
 
 .subviewbutton > .toolbarbutton-text {
   text-align: start;
-  display: -moz-box;
+  display: block;
 }
 
 .panel-subview-footer-button {
@@ -1477,11 +1457,6 @@ toolbarpaletteitem[place="menu-panel"] > toolbaritem {
   [overflowedItem=true]
 ):hover > separator {
   margin: 0;
-}
-
-#widget-overflow-mainView .panel-subview-body {
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .widget-overflow-list {

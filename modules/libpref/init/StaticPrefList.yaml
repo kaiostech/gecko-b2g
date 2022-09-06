@@ -8757,6 +8757,13 @@
   mirror: always
   rust: true
 
+# Pref to control whether to suspend also RefreshDriver::Tick when the page
+# itself is suspended because of some synchronous operation, like sync XHR.
+- name: layout.skip_ticks_while_page_suspended
+  type: bool
+  value: true
+  mirror: always
+
 # Pref to control how many consecutive scroll-anchoring adjustments (since the
 # most recent user scroll) we'll average, before we consider whether to
 # automatically turn off scroll anchoring. When we hit this threshold, the
@@ -8944,6 +8951,13 @@
 #---------------------------------------------------------------------------
 # Prefs starting with "mathml."
 #---------------------------------------------------------------------------
+
+# Whether to disable MathML3 implementations for maction and semantics.
+- name: mathml.legacy_maction_and_semantics_implementations.disabled
+  type: bool
+  value: true
+  mirror: always
+  rust: true
 
 # Whether to disable legacy names "thickmathspace", "mediummathspace",
 # "thickmathspace" etc for length attributes.
@@ -9707,12 +9721,6 @@
 
 # Using Windows Media Foundation Media Engine for encrypted playback
 -   name: media.wmf.media-engine.enabled
-    type: RelaxedAtomicBool
-    value: false
-    mirror: always
-
-# Testing purpose, enable video stream for the media engine.
--   name: media.wmf.media-engine.video-output.enabled
     type: RelaxedAtomicBool
     value: false
     mirror: always

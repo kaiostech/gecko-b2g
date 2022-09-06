@@ -121,7 +121,8 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
 #endif
   // Initialize GPU process with consuming end of PVideoBridge.
   void InitVideoBridge(
-      mozilla::ipc::Endpoint<PVideoBridgeParent>&& aVideoBridge);
+      mozilla::ipc::Endpoint<PVideoBridgeParent>&& aVideoBridge,
+      layers::VideoBridgeSource aSource);
 
   // Maps the layer tree and process together so that aOwningPID is allowed
   // to access aLayersId across process.

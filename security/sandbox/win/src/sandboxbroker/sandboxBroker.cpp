@@ -1266,8 +1266,13 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
     return false;
   }
 
-  auto result =
-      SetJobLevel(mPolicy, sandbox::JOB_LOCKDOWN, 0 /* ui_exceptions */);
+  auto jobLevel = sandbox::JOB_LOCKDOWN;
+#ifdef MOZ_WMF_MEDIA_ENGINE
+  if (aSandbox == mozilla::ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM) {
+    jobLevel = sandbox::JOB_INTERACTIVE;
+  }
+#endif
+  auto result = SetJobLevel(mPolicy, jobLevel, 0 /* ui_exceptions */);
   SANDBOX_ENSURE_SUCCESS(
       result,
       "SetJobLevel should never fail with these arguments, what happened?");
@@ -1276,13 +1281,24 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
   if (aSandbox == mozilla::ipc::SandboxingKind::UTILITY_AUDIO_DECODING_WMF) {
     lockdownLevel = sandbox::USER_LIMITED;
   }
+#ifdef MOZ_WMF_MEDIA_ENGINE
+  if (aSandbox == mozilla::ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM) {
+    lockdownLevel = sandbox::USER_RESTRICTED_NON_ADMIN;
+  }
+#endif
   result = mPolicy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
                                   lockdownLevel);
   SANDBOX_ENSURE_SUCCESS(
       result,
       "SetTokenLevel should never fail with these arguments, what happened?");
 
-  result = mPolicy->SetAlternateDesktop(true);
+  bool useAlternateWindowStation = true;
+#ifdef MOZ_WMF_MEDIA_ENGINE
+  if (aSandbox == mozilla::ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM) {
+    useAlternateWindowStation = false;
+  }
+#endif
+  result = mPolicy->SetAlternateDesktop(useAlternateWindowStation);
   if (NS_WARN_IF(result != sandbox::SBOX_ALL_OK)) {
     LOG_W("SetAlternateDesktop failed, result: %i, last error: %lx", result,
           ::GetLastError());
@@ -1293,8 +1309,13 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
                          "SetIntegrityLevel should never fail with these "
                          "arguments, what happened?");
 
-  result =
-      mPolicy->SetDelayedIntegrityLevel(sandbox::INTEGRITY_LEVEL_UNTRUSTED);
+  auto integrityLevel = sandbox::INTEGRITY_LEVEL_UNTRUSTED;
+#ifdef MOZ_WMF_MEDIA_ENGINE
+  if (aSandbox == mozilla::ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM) {
+    integrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
+  }
+#endif
+  result = mPolicy->SetDelayedIntegrityLevel(integrityLevel);
   SANDBOX_ENSURE_SUCCESS(result,
                          "SetDelayedIntegrityLevel should never fail with "
                          "these arguments, what happened?");
@@ -1327,7 +1348,11 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
 
   // Win32k lockdown might not work on earlier versions
   // Bug 1719212, 1769992
-  if (IsWin10FallCreatorsUpdateOrLater()) {
+  if (IsWin10FallCreatorsUpdateOrLater()
+#ifdef MOZ_WMF_MEDIA_ENGINE
+      && aSandbox != mozilla::ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM
+#endif
+  ) {
     result = AddWin32kLockdownPolicy(mPolicy, false);
     SANDBOX_ENSURE_SUCCESS(result, "Failed to add the win32k lockdown policy");
   }
@@ -1341,12 +1366,17 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
   // on 32 and 64 archs
   //
   // TODO: Bug 1773005 - AAC seems to not work on Windows < 1703
-  if (aSandbox != mozilla::ipc::SandboxingKind::UTILITY_AUDIO_DECODING_WMF) {
+  if (aSandbox != mozilla::ipc::SandboxingKind::UTILITY_AUDIO_DECODING_WMF
+#ifdef MOZ_WMF_MEDIA_ENGINE
+      && aSandbox != mozilla::ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM
+#endif
+  ) {
 #if !defined(__MINGW32__) && !defined(__MINGW64__)
     mitigations |= sandbox::MITIGATION_DYNAMIC_CODE_DISABLE;
 #endif  // !defined(__MINGW32__) && !defined(__MINGW64__)
   } else {
-    if (IsWin10CreatorsUpdateOrLater()) {
+    if (IsWin10CreatorsUpdateOrLater() &&
+        aSandbox == mozilla::ipc::SandboxingKind::UTILITY_AUDIO_DECODING_WMF) {
 #if defined(_M_X64) && !defined(__MINGW64__)
       mitigations |= sandbox::MITIGATION_DYNAMIC_CODE_DISABLE;
 #endif  // defined(_M_X64) && !defined(__MINGW64__)
@@ -1383,6 +1413,9 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
     case mozilla::ipc::SandboxingKind::GENERIC_UTILITY:
     case mozilla::ipc::SandboxingKind::UTILITY_AUDIO_DECODING_GENERIC:
     case mozilla::ipc::SandboxingKind::UTILITY_AUDIO_DECODING_WMF:
+#if MOZ_WMF_MEDIA_ENGINE
+    case mozilla::ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM:
+#endif
       // Nothing specific to perform yet?
       break;
 

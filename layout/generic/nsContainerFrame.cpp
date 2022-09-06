@@ -918,7 +918,7 @@ LogicalSize nsContainerFrame::ComputeAutoSize(
                                  : StylePosition()->ISize(aWM);
     if (styleISize.IsAuto()) {
       result.ISize(aWM) =
-          ShrinkWidthToFit(aRenderingContext, availBased, aFlags);
+          ShrinkISizeToFit(aRenderingContext, availBased, aFlags);
     }
   } else {
     result.ISize(aWM) = availBased;
@@ -2365,7 +2365,7 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
   nscoord iSize, minISize, maxISize, bSize, minBSize, maxBSize;
   enum class Stretch {
     // stretch to fill the CB (preserving intrinsic ratio) in the relevant axis
-    StretchPreservingRatio,  // XXX not used yet
+    StretchPreservingRatio,
     // stretch to fill the CB in the relevant axis
     Stretch,
     // no stretching in the relevant axis

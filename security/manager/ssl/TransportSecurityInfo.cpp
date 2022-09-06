@@ -54,6 +54,8 @@ TransportSecurityInfo::TransportSecurityInfo()
       mSignatureSchemeName(),
       mIsAcceptedEch(false),
       mIsDelegatedCredential(false),
+      mMadeOCSPRequests(false),
+      mUsedPrivateDNS(false),
       mNPNCompleted(false),
       mResumed(false),
       mIsBuiltCertChainRootBuiltInRoot(false),
@@ -205,7 +207,7 @@ TransportSecurityInfo::Write(nsIObjectOutputStream* aStream) {
   // Re-purpose mErrorMessageCached to represent serialization version
   // If string doesn't match exact version it will be treated as older
   // serialization.
-  rv = aStream->WriteWStringZ(NS_ConvertUTF8toUTF16("8").get());
+  rv = aStream->WriteWStringZ(NS_ConvertUTF8toUTF16("9").get());
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -288,6 +290,16 @@ TransportSecurityInfo::Write(nsIObjectOutputStream* aStream) {
   }
 
   rv = aStream->WriteStringZ(mPeerId.get());
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  rv = aStream->WriteBoolean(mMadeOCSPRequests);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  rv = aStream->WriteBoolean(mUsedPrivateDNS);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -790,6 +802,22 @@ TransportSecurityInfo::Read(nsIObjectInputStream* aStream) {
     }
   }
 
+  if (serVersionParsedToInt >= 9) {
+    rv = aStream->ReadBoolean(&mMadeOCSPRequests);
+    CHILD_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv),
+                            "Deserialization should not fail");
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    rv = aStream->ReadBoolean(&mUsedPrivateDNS);
+    CHILD_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv),
+                            "Deserialization should not fail");
+    if (NS_FAILED(rv)) {
+      return rv;
+    };
+  }
+
   return NS_OK;
 }
 
@@ -822,6 +850,8 @@ void TransportSecurityInfo::SerializeToIPC(IPC::MessageWriter* aWriter) {
   WriteParam(aWriter, mIsBuiltCertChainRootBuiltInRoot);
   WriteParam(aWriter, mIsAcceptedEch);
   WriteParam(aWriter, mPeerId);
+  WriteParam(aWriter, mMadeOCSPRequests);
+  WriteParam(aWriter, mUsedPrivateDNS);
 }
 
 bool TransportSecurityInfo::DeserializeFromIPC(IPC::MessageReader* aReader) {
@@ -848,7 +878,9 @@ bool TransportSecurityInfo::DeserializeFromIPC(IPC::MessageReader* aReader) {
       !ReadParam(aReader, &mNPNCompleted) ||
       !ReadParam(aReader, &mNegotiatedNPN) || !ReadParam(aReader, &mResumed) ||
       !ReadParam(aReader, &mIsBuiltCertChainRootBuiltInRoot) ||
-      !ReadParam(aReader, &mIsAcceptedEch) || !ReadParam(aReader, &mPeerId)) {
+      !ReadParam(aReader, &mIsAcceptedEch) || !ReadParam(aReader, &mPeerId) ||
+      !ReadParam(aReader, &mMadeOCSPRequests) ||
+      !ReadParam(aReader, &mUsedPrivateDNS)) {
     return false;
   }
 
@@ -1176,6 +1208,21 @@ TransportSecurityInfo::GetCertificateTransparencyStatus(
   MutexAutoLock lock(mMutex);
 
   *aCertificateTransparencyStatus = mCertificateTransparencyStatus;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+TransportSecurityInfo::GetMadeOCSPRequests(bool* aMadeOCSPRequests) {
+  MutexAutoLock lock(mMutex);
+
+  *aMadeOCSPRequests = mMadeOCSPRequests;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+TransportSecurityInfo::GetUsedPrivateDNS(bool* aUsedPrivateDNS) {
+  MutexAutoLock lock(mMutex);
+  *aUsedPrivateDNS = mUsedPrivateDNS;
   return NS_OK;
 }
 

@@ -27,6 +27,10 @@ SandboxingKind GetSandboxingKindFromLocation(RemoteDecodeIn aLocation) {
     case RemoteDecodeIn::UtilityProcess_WMF:
       return SandboxingKind::UTILITY_AUDIO_DECODING_WMF;
 #endif
+#ifdef MOZ_WMF_MEDIA_ENGINE
+    case RemoteDecodeIn::UtilityProcess_MFMediaEngineCDM:
+      return SandboxingKind::MF_MEDIA_ENGINE_CDM;
+#endif
     default:
       MOZ_ASSERT_UNREACHABLE("Unsupported RemoteDecodeIn");
       return SandboxingKind::COUNT;
@@ -45,8 +49,27 @@ RemoteDecodeIn GetRemoteDecodeInFromKind(SandboxingKind aKind) {
     case SandboxingKind::UTILITY_AUDIO_DECODING_WMF:
       return RemoteDecodeIn::UtilityProcess_WMF;
 #endif
+#ifdef MOZ_WMF_MEDIA_ENGINE
+    case SandboxingKind::MF_MEDIA_ENGINE_CDM:
+      return RemoteDecodeIn::UtilityProcess_MFMediaEngineCDM;
+#endif
     default:
       MOZ_ASSERT_UNREACHABLE("Unsupported SandboxingKind");
+      return RemoteDecodeIn::Unspecified;
+  }
+}
+
+RemoteDecodeIn GetRemoteDecodeInFromVideoBridgeSource(
+    layers::VideoBridgeSource aSource) {
+  switch (aSource) {
+    case layers::VideoBridgeSource::RddProcess:
+      return RemoteDecodeIn::RddProcess;
+    case layers::VideoBridgeSource::GpuProcess:
+      return RemoteDecodeIn::GpuProcess;
+    case layers::VideoBridgeSource::MFMediaEngineCDMProcess:
+      return RemoteDecodeIn::UtilityProcess_MFMediaEngineCDM;
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unsupported VideoBridgeSource");
       return RemoteDecodeIn::Unspecified;
   }
 }
@@ -66,6 +89,10 @@ const char* RemoteDecodeInToStr(RemoteDecodeIn aLocation) {
 #ifdef XP_WIN
     case RemoteDecodeIn::UtilityProcess_WMF:
       return "Utility WMF";
+#endif
+#ifdef MOZ_WMF_MEDIA_ENGINE
+    case RemoteDecodeIn::UtilityProcess_MFMediaEngineCDM:
+      return "Utiltiy MF Media Engine CDM";
 #endif
     default:
       MOZ_ASSERT_UNREACHABLE("Unsupported RemoteDecodeIn");

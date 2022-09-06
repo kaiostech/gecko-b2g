@@ -11,6 +11,7 @@
 #include "mozilla/XorShift128PlusRNG.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "jit/AtomicOp.h"
 #include "jit/AtomicOperations.h"
@@ -445,7 +446,8 @@ void MacroAssembler::createGCObject(Register obj, Register temp,
 void MacroAssembler::createPlainGCObject(
     Register result, Register shape, Register temp, Register temp2,
     uint32_t numFixedSlots, uint32_t numDynamicSlots, gc::AllocKind allocKind,
-    gc::InitialHeap initialHeap, Label* fail, const AllocSiteInput& allocSite) {
+    gc::InitialHeap initialHeap, Label* fail, const AllocSiteInput& allocSite,
+    bool initContents /* = true */) {
   MOZ_ASSERT(gc::IsObjectAllocKind(allocKind));
   MOZ_ASSERT(shape != temp, "shape can overlap with temp2, but not temp");
 
@@ -468,8 +470,10 @@ void MacroAssembler::createPlainGCObject(
            Address(result, NativeObject::offsetOfElements()));
 
   // Initialize fixed slots.
-  fillSlotsWithUndefined(Address(result, NativeObject::getFixedSlotOffset(0)),
-                         temp, 0, numFixedSlots);
+  if (initContents) {
+    fillSlotsWithUndefined(Address(result, NativeObject::getFixedSlotOffset(0)),
+                           temp, 0, numFixedSlots);
+  }
 
   // Initialize dynamic slots.
   if (numDynamicSlots > 0) {
@@ -736,9 +740,8 @@ void MacroAssembler::fillSlotsWithUninitialized(Address base, Register temp,
                              MagicValue(JS_UNINITIALIZED_LEXICAL));
 }
 
-static void FindStartOfUninitializedAndUndefinedSlots(
-    const TemplateNativeObject& templateObj, uint32_t nslots,
-    uint32_t* startOfUninitialized, uint32_t* startOfUndefined) {
+static std::pair<uint32_t, uint32_t> FindStartOfUninitializedAndUndefinedSlots(
+    const TemplateNativeObject& templateObj, uint32_t nslots) {
   MOZ_ASSERT(nslots == templateObj.slotSpan());
   MOZ_ASSERT(nslots > 0);
 
@@ -748,7 +751,7 @@ static void FindStartOfUninitializedAndUndefinedSlots(
       break;
     }
   }
-  *startOfUndefined = first;
+  uint32_t startOfUndefined = first;
 
   if (first != 0 && IsUninitializedLexical(templateObj.getSlot(first - 1))) {
     for (; first != 0; --first) {
@@ -756,10 +759,10 @@ static void FindStartOfUninitializedAndUndefinedSlots(
         break;
       }
     }
-    *startOfUninitialized = first;
-  } else {
-    *startOfUninitialized = *startOfUndefined;
   }
+  uint32_t startOfUninitialized = first;
+
+  return {startOfUninitialized, startOfUndefined};
 }
 
 void MacroAssembler::initTypedArraySlots(Register obj, Register temp,
@@ -833,8 +836,9 @@ void MacroAssembler::initTypedArraySlots(Register obj, Register temp,
 }
 
 void MacroAssembler::initGCSlots(Register obj, Register temp,
-                                 const TemplateNativeObject& templateObj,
-                                 bool initContents) {
+                                 const TemplateNativeObject& templateObj) {
+  MOZ_ASSERT(!templateObj.isArrayObject());
+
   // Slots of non-array objects are required to be initialized.
   // Use the values currently in the template object.
   uint32_t nslots = templateObj.slotSpan();
@@ -855,13 +859,11 @@ void MacroAssembler::initGCSlots(Register obj, Register temp,
   //
   // The template object may be a CallObject, in which case we need to
   // account for uninitialized lexical slots as well as undefined
-  // slots. Unitialized lexical slots appears in CallObjects if the function
+  // slots. Uninitialized lexical slots appears in CallObjects if the function
   // has parameter expressions, in which case closed over parameters have
   // TDZ. Uninitialized slots come before undefined slots in CallObjects.
-  uint32_t startOfUninitialized = nslots;
-  uint32_t startOfUndefined = nslots;
-  FindStartOfUninitializedAndUndefinedSlots(
-      templateObj, nslots, &startOfUninitialized, &startOfUndefined);
+  auto [startOfUninitialized, startOfUndefined] =
+      FindStartOfUninitializedAndUndefinedSlots(templateObj, nslots);
   MOZ_ASSERT(startOfUninitialized <= nfixed);  // Reserved slots must be fixed.
   MOZ_ASSERT(startOfUndefined >= startOfUninitialized);
   MOZ_ASSERT_IF(!templateObj.isCallObject(),
@@ -871,16 +873,14 @@ void MacroAssembler::initGCSlots(Register obj, Register temp,
   copySlotsFromTemplate(obj, templateObj, 0, startOfUninitialized);
 
   // Fill the rest of the fixed slots with undefined and uninitialized.
-  if (initContents) {
-    size_t offset = NativeObject::getFixedSlotOffset(startOfUninitialized);
-    fillSlotsWithUninitialized(Address(obj, offset), temp, startOfUninitialized,
-                               std::min(startOfUndefined, nfixed));
+  size_t offset = NativeObject::getFixedSlotOffset(startOfUninitialized);
+  fillSlotsWithUninitialized(Address(obj, offset), temp, startOfUninitialized,
+                             std::min(startOfUndefined, nfixed));
 
-    if (startOfUndefined < nfixed) {
-      offset = NativeObject::getFixedSlotOffset(startOfUndefined);
-      fillSlotsWithUndefined(Address(obj, offset), temp, startOfUndefined,
-                             nfixed);
-    }
+  if (startOfUndefined < nfixed) {
+    offset = NativeObject::getFixedSlotOffset(startOfUndefined);
+    fillSlotsWithUndefined(Address(obj, offset), temp, startOfUndefined,
+                           nfixed);
   }
 
   if (ndynamic) {
@@ -927,6 +927,9 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
     }
 
     if (ntemplate.isArrayObject()) {
+      // Can't skip initializing reserved slots.
+      MOZ_ASSERT(initContents);
+
       int elementsOffset = NativeObject::offsetOfFixedElements();
 
       computeEffectiveAddress(Address(obj, elementsOffset), temp);
@@ -953,10 +956,13 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
       // then this would need to store emptyObjectElementsShared in that case.
       MOZ_ASSERT(!ntemplate.isSharedMemory());
 
+      // Can't skip initializing reserved slots.
+      MOZ_ASSERT(initContents);
+
       storePtr(ImmPtr(emptyObjectElements),
                Address(obj, NativeObject::offsetOfElements()));
 
-      initGCSlots(obj, temp, ntemplate, initContents);
+      initGCSlots(obj, temp, ntemplate);
     }
   } else {
     MOZ_CRASH("Unknown object");

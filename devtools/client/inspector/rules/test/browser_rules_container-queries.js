@@ -27,18 +27,6 @@ const TEST_URI = `
         color: tomato;
       }
     }
-
-    @layer mylayer {
-      @container mycontainer (min-width: 3em) {
-        @media screen {
-          @container mycontainer (min-width: 4rem) {
-            h1, [test-hint="nested"] {
-              background: gold;
-            }
-          }
-        }
-      }
-    }
   </style>
   <h1>Hello @container!</h1>
 `;
@@ -67,15 +55,6 @@ add_task(async function() {
     {
       selector: `h1, [test-hint="nocontainername"]`,
       ancestorRulesData: ["@container (width > 0px)"],
-    },
-    {
-      selector: `h1, [test-hint="nested"]`,
-      ancestorRulesData: [
-        `@layer mylayer`,
-        `@container mycontainer (min-width: 3em)`,
-        `@media screen`,
-        `@container mycontainer (min-width: 4rem)`,
-      ],
     },
   ];
 

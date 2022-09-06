@@ -446,7 +446,11 @@ class TabsPanel extends TabsListBase {
       return;
     }
 
-    if (event.target !== this.containerNode) {
+    let target = event.relatedTarget;
+    while (target && target != this.containerNode) {
+      target = target.parentNode;
+    }
+    if (target) {
       return;
     }
 
@@ -484,12 +488,13 @@ class TabsPanel extends TabsListBase {
   }
 
   _setDropTarget(row, direction) {
-    this._clearDropTarget();
-
     this.dropTargetRow = row;
     this.dropTargetDirection = direction;
 
-    let offset = this.dropIndicator.parentNode.getBoundingClientRect().top;
+    const holder = this.dropIndicator.parentNode;
+    const holderOffset = holder.getBoundingClientRect().top;
+
+    // Set top to before/after the target row.
     let top;
     if (this.dropTargetDirection === -1) {
       if (this.dropTargetRow.previousSibling) {
@@ -504,7 +509,13 @@ class TabsPanel extends TabsListBase {
       top = rect.top + rect.height;
     }
 
-    this.dropIndicator.style.top = `${top - offset - 12}px`;
+    // Avoid overflowing the sub view body.
+    const indicatorHeight = 12;
+    const subViewBody = holder.parentNode;
+    const subViewBodyRect = subViewBody.getBoundingClientRect();
+    top = Math.min(top, subViewBodyRect.bottom - indicatorHeight);
+
+    this.dropIndicator.style.top = `${top - holderOffset - 12}px`;
     this.dropIndicator.collapsed = false;
   }
 

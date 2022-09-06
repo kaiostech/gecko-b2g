@@ -14,12 +14,6 @@ namespace dom {
 
 NS_IMPL_ISUPPORTS(InputMethodServiceChild, nsIEditableSupportListener)
 
-InputMethodServiceChild::InputMethodServiceChild(
-    nsIEditableSupportListener* aListener)
-    : mRequester(aListener) {
-  IME_LOGD("InputMethodServiceChild::Constructor[%p]", this);
-}
-
 InputMethodServiceChild::InputMethodServiceChild() {
   IME_LOGD("InputMethodServiceChild::Constructor[%p]", this);
 }

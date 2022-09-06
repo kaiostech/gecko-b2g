@@ -7,37 +7,37 @@
 [scriptable, uuid(0c046c04-f5cf-11ea-86f6-b355bbbba80f)]
 interface nsIEditableSupportListener : nsISupports
 {
-  void onSetComposition(in uint32_t aId, in nsresult aStatus);
-  void onEndComposition(in uint32_t aId, in nsresult aStatus);
-  void onKeydown(in uint32_t aId, in nsresult aStatus);
-  void onKeyup(in uint32_t aId, in nsresult aStatus);
-  void onSendKey(in uint32_t aId, in nsresult aStatus);
-  void onDeleteBackward(in uint32_t aId, in nsresult aStatus);
-  void onSetSelectedOption(in uint32_t aId, in nsresult aStatus);
-  void onSetSelectedOptions(in uint32_t aId, in nsresult aStatus);
-  void onRemoveFocus(in uint32_t aId, in nsresult aStatus);
-  void onGetSelectionRange(in uint32_t aId, in nsresult aStatus, in int32_t aStart, in int32_t aEnd);
-  void onGetText(in uint32_t aId, in nsresult aStatus, in AString aText);
-  void onSetValue(in uint32_t aId, in nsresult aStatus);
-  void onClearAll(in uint32_t aId, in nsresult aStatus);
-  void onReplaceSurroundingText(in uint32_t aId, in nsresult aStatus);
+  void onSetComposition(in uint64_t aId, in nsresult aStatus);
+  void onEndComposition(in uint64_t aId, in nsresult aStatus);
+  void onKeydown(in uint64_t aId, in nsresult aStatus);
+  void onKeyup(in uint64_t aId, in nsresult aStatus);
+  void onSendKey(in uint64_t aId, in nsresult aStatus);
+  void onDeleteBackward(in uint64_t aId, in nsresult aStatus);
+  void onSetSelectedOption(in uint64_t aId, in nsresult aStatus);
+  void onSetSelectedOptions(in uint64_t aId, in nsresult aStatus);
+  void onRemoveFocus(in uint64_t aId, in nsresult aStatus);
+  void onGetSelectionRange(in uint64_t aId, in nsresult aStatus, in int32_t aStart, in int32_t aEnd);
+  void onGetText(in uint64_t aId, in nsresult aStatus, in AString aText);
+  void onSetValue(in uint64_t aId, in nsresult aStatus);
+  void onClearAll(in uint64_t aId, in nsresult aStatus);
+  void onReplaceSurroundingText(in uint64_t aId, in nsresult aStatus);
 };
 
 [scriptable, uuid(44bf6cea-f5db-11ea-b598-ff5a3d009e25)]
 interface nsIEditableSupport : nsISupports
 {
-  void SetComposition(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aText);
-  void EndComposition(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aText);
-  void Keydown(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aKey);
-  void Keyup(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aKey);
-  void SendKey(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aKey);
-  void DeleteBackward(in uint32_t aId, in nsIEditableSupportListener aListener);
-  void SetSelectedOption(in uint32_t aId, in nsIEditableSupportListener aListener, in int32_t aOptionindex);
-  void SetSelectedOptions(in uint32_t aId, in nsIEditableSupportListener aListener, in Array<int32_t> aOptionindexes);
-  void RemoveFocus(in uint32_t aId, in nsIEditableSupportListener aListener);
-  void GetSelectionRange(in uint32_t aId, in nsIEditableSupportListener aListener);
-  void GetText(in uint32_t aId, in nsIEditableSupportListener aListener, in int32_t aOffset, in int32_t aLength);
-  void SetValue(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aValue);
-  void ClearAll(in uint32_t aId, in nsIEditableSupportListener aListener);
-  void ReplaceSurroundingText(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aText, in int32_t aOffset, in int32_t aLength);
+  void SetComposition(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aText);
+  void EndComposition(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aText);
+  void Keydown(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aKey);
+  void Keyup(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aKey);
+  void SendKey(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aKey);
+  void DeleteBackward(in uint64_t aId, in nsIEditableSupportListener aListener);
+  void SetSelectedOption(in uint64_t aId, in nsIEditableSupportListener aListener, in int32_t aOptionindex);
+  void SetSelectedOptions(in uint64_t aId, in nsIEditableSupportListener aListener, in Array<int32_t> aOptionindexes);
+  void RemoveFocus(in uint64_t aId, in nsIEditableSupportListener aListener);
+  void GetSelectionRange(in uint64_t aId, in nsIEditableSupportListener aListener);
+  void GetText(in uint64_t aId, in nsIEditableSupportListener aListener, in int32_t aOffset, in int32_t aLength);
+  void SetValue(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aValue);
+  void ClearAll(in uint64_t aId, in nsIEditableSupportListener aListener);
+  void ReplaceSurroundingText(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aText, in int32_t aOffset, in int32_t aLength);
 };

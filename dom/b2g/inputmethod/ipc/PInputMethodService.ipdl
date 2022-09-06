@@ -10,66 +10,66 @@ namespace mozilla {
 namespace dom {
 
 struct SetCompositionRequest {
-  uint32_t id;
+  uint64_t id;
   nsString text;
 };
 
 struct EndCompositionRequest {
-  uint32_t id;
+  uint64_t id;
   nsString text;
 };
 
 struct KeydownRequest {
-  uint32_t id;
+  uint64_t id;
   nsString key;
 };
 
 struct KeyupRequest {
-  uint32_t id;
+  uint64_t id;
   nsString key;
 };
 
 struct SendKeyRequest {
-  uint32_t id;
+  uint64_t id;
   nsString key;
 };
 
 struct DeleteBackwardRequest {
-  uint32_t id;
+  uint64_t id;
 };
 
 struct SetSelectedOptionRequest {
-  uint32_t id;
+  uint64_t id;
   int32_t optionIndex;
 };
 
 struct SetSelectedOptionsRequest {
-  uint32_t id;
+  uint64_t id;
   int32_t[] optionIndexes;
 };
 
 struct CommonRequest {
-  uint32_t id;
+  uint64_t id;
   nsString requestName;
 };
 
 struct GetSelectionRangeRequest {
-  uint32_t id;
+  uint64_t id;
 };
 
 struct GetTextRequest {
-  uint32_t id;
+  uint64_t id;
   int32_t offset;
   int32_t length;
 };
 
 struct SetValueRequest {
-  uint32_t id;
+  uint64_t id;
   nsString value;
 };
 
 struct ReplaceSurroundingTextRequest {
-  uint32_t id;
+  uint64_t id;
   nsString text;
   int32_t offset;
   int32_t length;
@@ -134,60 +134,60 @@ struct HandleBlurRequest {
 };
 
 struct SetCompositionResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
 };
 
 struct EndCompositionResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
 };
 
 struct KeydownResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
 };
 
 struct KeyupResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
 };
 
 struct SendKeyResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
 };
 
 struct DeleteBackwardResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
 };
 
 struct SetSelectedOptionResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
 };
 
 struct SetSelectedOptionsResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
 };
 
 struct CommonResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
   nsString responseName;
 };
 
 struct GetSelectionRangeResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
   int32_t start;
   int32_t end;
 };
 
 struct GetTextResponse {
-  uint32_t id;
+  uint64_t id;
   nsresult status;
   nsString text;
 };

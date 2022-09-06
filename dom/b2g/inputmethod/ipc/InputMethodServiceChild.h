@@ -25,7 +25,6 @@ class InputMethodServiceChild final
  public:
   NS_DECL_ISUPPORTS
 
-  explicit InputMethodServiceChild(nsIEditableSupportListener* aListener);
   InputMethodServiceChild();
 
   // setup the real 'EditableSupport' object to handle the requests
@@ -36,24 +35,16 @@ class InputMethodServiceChild final
   // The real 'EditableSupport' object to handle the requests
   nsIEditableSupport* GetEditableSupport() override { return mEditableSupport; }
 
-  // The 'requester' that should be informed once the requests are done.
-  nsIEditableSupportListener* GetEditableSupportListener(
-      uint32_t aId) override {
-    return mRequester;
-  }
-
  protected:
   IPCResult RecvResponse(const InputMethodResponse& aResponse) {
     IPCResult result =
         InputMethodServiceCommon<PInputMethodServiceChild>::RecvResponse(
             aResponse);
-    Unused << Send__delete__(this);
     return result;
   }
 
  private:
   ~InputMethodServiceChild();
-  RefPtr<nsIEditableSupportListener> mRequester;
   RefPtr<nsIEditableSupport> mEditableSupport;
 };
 

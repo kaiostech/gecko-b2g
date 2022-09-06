@@ -5,7 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/InputMethodHandler.h"
-#include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/InputMethodService.h"
 #include "mozilla/dom/InputMethodServiceChild.h"
 #include "mozilla/dom/Promise.h"
@@ -18,27 +17,33 @@ NS_IMPL_ISUPPORTS(InputMethodHandler, nsIEditableSupportListener)
 
 /*static*/
 already_AddRefed<InputMethodHandler> InputMethodHandler::Create(
-    Promise* aPromise) {
+    Promise* aPromise, InputMethodServiceChild* aServiceChild) {
   IME_LOGD("--InputMethodHandler::Create");
-  RefPtr<InputMethodHandler> handler = new InputMethodHandler(aPromise);
+  RefPtr<InputMethodHandler> handler =
+      new InputMethodHandler(aPromise, aServiceChild);
 
   return handler.forget();
 }
 
 /*static*/
-already_AddRefed<InputMethodHandler> InputMethodHandler::Create() {
+already_AddRefed<InputMethodHandler> InputMethodHandler::Create(
+    InputMethodServiceChild* aServiceChild) {
   IME_LOGD("--InputMethodHandler::Create without promise");
-  RefPtr<InputMethodHandler> handler = new InputMethodHandler();
+  RefPtr<InputMethodHandler> handler = new InputMethodHandler(aServiceChild);
 
   return handler.forget();
 }
 
-InputMethodHandler::InputMethodHandler(Promise* aPromise)
-    : mPromise(aPromise) {}
+InputMethodHandler::InputMethodHandler(Promise* aPromise,
+                                       InputMethodServiceChild* aServiceChild)
+    : mPromise(aPromise), mServiceChild(aServiceChild) {}
+
+InputMethodHandler::InputMethodHandler(InputMethodServiceChild* aServiceChild)
+    : mServiceChild(aServiceChild) {}
 
 // nsIEditableSupportListener methods.
 NS_IMETHODIMP
-InputMethodHandler::OnSetComposition(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnSetComposition(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnSetComposition");
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
@@ -54,7 +59,7 @@ InputMethodHandler::OnSetComposition(uint32_t aId, nsresult aStatus) {
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnEndComposition(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnEndComposition(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnEndComposition");
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
@@ -70,7 +75,7 @@ InputMethodHandler::OnEndComposition(uint32_t aId, nsresult aStatus) {
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnKeydown(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnKeydown(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnKeydown");
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
@@ -86,7 +91,7 @@ InputMethodHandler::OnKeydown(uint32_t aId, nsresult aStatus) {
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnKeyup(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnKeyup(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnKeyup");
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
@@ -102,7 +107,7 @@ InputMethodHandler::OnKeyup(uint32_t aId, nsresult aStatus) {
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnSendKey(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnSendKey(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnSendKey");
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
@@ -118,7 +123,7 @@ InputMethodHandler::OnSendKey(uint32_t aId, nsresult aStatus) {
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnDeleteBackward(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnDeleteBackward(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnDeleteBackward");
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
@@ -136,25 +141,25 @@ InputMethodHandler::OnDeleteBackward(uint32_t aId, nsresult aStatus) {
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnSetSelectedOption(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnSetSelectedOption(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnSetSelectedOption");
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnSetSelectedOptions(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnSetSelectedOptions(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnSetSelectedOptions");
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnRemoveFocus(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnRemoveFocus(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnRemoveFocus");
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnGetSelectionRange(uint32_t aId, nsresult aStatus,
+InputMethodHandler::OnGetSelectionRange(uint64_t aId, nsresult aStatus,
                                         int32_t aStart, int32_t aEnd) {
   IME_LOGD("--InputMethodHandler::OnGetSelectionRange");
   if (mPromise) {
@@ -175,7 +180,7 @@ InputMethodHandler::OnGetSelectionRange(uint32_t aId, nsresult aStatus,
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnGetText(uint32_t aId, nsresult aStatus,
+InputMethodHandler::OnGetText(uint64_t aId, nsresult aStatus,
                               const nsAString& aText) {
   IME_LOGD("--InputMethodHandler::OnGetText");
   if (mPromise) {
@@ -194,19 +199,19 @@ InputMethodHandler::OnGetText(uint32_t aId, nsresult aStatus,
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnSetValue(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnSetValue(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnSetValue");
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnClearAll(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnClearAll(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnClearAll");
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodHandler::OnReplaceSurroundingText(uint32_t aId, nsresult aStatus) {
+InputMethodHandler::OnReplaceSurroundingText(uint64_t aId, nsresult aStatus) {
   IME_LOGD("--InputMethodHandler::OnReplaceSurroundingText");
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
@@ -219,213 +224,204 @@ InputMethodHandler::OnReplaceSurroundingText(uint32_t aId, nsresult aStatus) {
   return NS_OK;
 }
 
-nsresult InputMethodHandler::SetComposition(const nsAString& aText) {
+nsresult InputMethodHandler::SetComposition(uint64_t aId,
+                                            const nsAString& aText) {
   nsString text(aText);
   // TODO use a pure interface, and make it point to either the remote version
   // or the local version at Listener's creation.
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::SetComposition content process");
     // Call from content process.
-    SendRequest(contentChild, SetCompositionRequest(0, text));
+    SendRequest(aId, SetCompositionRequest(aId, text));
   } else {
     IME_LOGD("--InputMethodHandler::SetComposition in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->SetComposition(0, this, aText);
+    service->SetComposition(aId, this, aText);
   }
   return NS_OK;
 }
 
-nsresult InputMethodHandler::EndComposition(const nsAString& aText) {
+nsresult InputMethodHandler::EndComposition(uint64_t aId,
+                                            const nsAString& aText) {
   nsString text(aText);
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::EndComposition content process");
     // Call from content process.
-    SendRequest(contentChild, EndCompositionRequest(0, text));
+    SendRequest(aId, EndCompositionRequest(aId, text));
   } else {
     IME_LOGD("--InputMethodHandler::EndComposition in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->EndComposition(0, this, aText);
+    service->EndComposition(aId, this, aText);
   }
   return NS_OK;
 }
 
-nsresult InputMethodHandler::Keydown(const nsAString& aKey) {
+nsresult InputMethodHandler::Keydown(uint64_t aId, const nsAString& aKey) {
   nsString key(aKey);
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::Keydown content process");
     // Call from content process.
-    SendRequest(contentChild, KeydownRequest(0, key));
+    SendRequest(aId, KeydownRequest(aId, key));
   } else {
     IME_LOGD("--InputMethodHandler::Keydown in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->Keydown(0, this, aKey);
+    service->Keydown(aId, this, aKey);
   }
   return NS_OK;
 }
 
-nsresult InputMethodHandler::Keyup(const nsAString& aKey) {
+nsresult InputMethodHandler::Keyup(uint64_t aId, const nsAString& aKey) {
   nsString key(aKey);
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::Keyup content process");
     // Call from content process.
-    SendRequest(contentChild, KeyupRequest(0, key));
+    SendRequest(aId, KeyupRequest(aId, key));
   } else {
     IME_LOGD("--InputMethodHandler::Keyup in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->Keyup(0, this, aKey);
+    service->Keyup(aId, this, aKey);
   }
   return NS_OK;
 }
 
-nsresult InputMethodHandler::SendKey(const nsAString& aKey) {
+nsresult InputMethodHandler::SendKey(uint64_t aId, const nsAString& aKey) {
   nsString key(aKey);
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::SendKey content process");
     // Call from content process.
-    SendRequest(contentChild, SendKeyRequest(0, key));
+    SendRequest(aId, SendKeyRequest(aId, key));
   } else {
     IME_LOGD("--InputMethodHandler::SendKey in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->SendKey(0, this, aKey);
+    service->SendKey(aId, this, aKey);
   }
   return NS_OK;
 }
 
-nsresult InputMethodHandler::DeleteBackward() {
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+nsresult InputMethodHandler::DeleteBackward(uint64_t aId) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::DeleteBackward content process");
     // Call from content process.
-    SendRequest(contentChild, DeleteBackwardRequest(0));
+    SendRequest(aId, DeleteBackwardRequest(aId));
   } else {
     IME_LOGD("--InputMethodHandler::DeleteBackward in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->DeleteBackward(0, this);
+    service->DeleteBackward(aId, this);
   }
   return NS_OK;
 }
 
-void InputMethodHandler::RemoveFocus() {
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+void InputMethodHandler::RemoveFocus(uint64_t aId) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::RemoveFocus content process");
     // Call from content process.
-    CommonRequest request(0, u"RemoveFocus"_ns);
-    SendRequest(contentChild, request);
+    CommonRequest request(aId, u"RemoveFocus"_ns);
+    SendRequest(aId, request);
   } else {
     IME_LOGD("--InputMethodHandler::RemoveFocus in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->RemoveFocus(0, this);
+    service->RemoveFocus(aId, this);
   }
 }
 
-nsresult InputMethodHandler::GetSelectionRange() {
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+nsresult InputMethodHandler::GetSelectionRange(uint64_t aId) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::GetSelectionRange content process");
     // Call from content process.
-    SendRequest(contentChild, GetSelectionRangeRequest());
+    SendRequest(aId, GetSelectionRangeRequest(aId));
   } else {
     IME_LOGD("--InputMethodHandler::GetSelectionRange in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->GetSelectionRange(0, this);
+    service->GetSelectionRange(aId, this);
   }
   return NS_OK;
 }
 
-nsresult InputMethodHandler::GetText(int32_t aOffset, int32_t aLength) {
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+nsresult InputMethodHandler::GetText(uint64_t aId, int32_t aOffset,
+                                     int32_t aLength) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::GetText content process");
     // Call from content process.
-    GetTextRequest request(0, aOffset, aLength);
-    SendRequest(contentChild, request);
+    GetTextRequest request(aId, aOffset, aLength);
+    SendRequest(aId, request);
   } else {
     IME_LOGD("--InputMethodHandler::GetText in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->GetText(0, this, aOffset, aLength);
+    service->GetText(aId, this, aOffset, aLength);
   }
   return NS_OK;
 }
 
-void InputMethodHandler::SetValue(const nsAString& aValue) {
+void InputMethodHandler::SetValue(uint64_t aId, const nsAString& aValue) {
   nsString value(aValue);
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::SetValue content process");
     // Call from content process.
-    SendRequest(contentChild, SetValueRequest(0, value));
+    SendRequest(aId, SetValueRequest(aId, value));
   } else {
     IME_LOGD("--InputMethodHandler::SetValue in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->SetValue(0, this, aValue);
+    service->SetValue(aId, this, aValue);
   }
 }
 
-void InputMethodHandler::ClearAll() {
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+void InputMethodHandler::ClearAll(uint64_t aId) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::ClearAll content process");
     // Call from content process.
-    CommonRequest request(0, u"ClearAll"_ns);
-    SendRequest(contentChild, request);
+    CommonRequest request(aId, u"ClearAll"_ns);
+    SendRequest(aId, request);
   } else {
     IME_LOGD("--InputMethodHandler::ClearAll in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->ClearAll(0, this);
+    service->ClearAll(aId, this);
   }
 }
 
-nsresult InputMethodHandler::ReplaceSurroundingText(const nsAString& aText,
+nsresult InputMethodHandler::ReplaceSurroundingText(uint64_t aId,
+                                                    const nsAString& aText,
                                                     int32_t aOffset,
                                                     int32_t aLength) {
   nsString text(aText);
-  ContentChild* contentChild = ContentChild::GetSingleton();
-  if (contentChild) {
+  if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::ReplaceSurroundingText content process");
-    ReplaceSurroundingTextRequest request(0, text, aOffset, aLength);
-    SendRequest(contentChild, request);
+    ReplaceSurroundingTextRequest request(aId, text, aOffset, aLength);
+    SendRequest(aId, request);
   } else {
     IME_LOGD("--InputMethodHandler::ReplaceSurroundingText in-process");
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->ReplaceSurroundingText(0, this, aText, aOffset, aLength);
+    service->ReplaceSurroundingText(aId, this, aText, aOffset, aLength);
   }
   return NS_OK;
 }
 
-void InputMethodHandler::SendRequest(ContentChild* aContentChild,
+void InputMethodHandler::SendRequest(uint64_t aId,
                                      const InputMethodRequest& aRequest) {
-  InputMethodServiceChild* child = new InputMethodServiceChild(this);
-  aContentChild->SendPInputMethodServiceConstructor(child);
-  child->SendRequest(aRequest);
+  mServiceChild->SetEditableSupportListener(aId, this);
+  mServiceChild->SendRequest(aRequest);
 }
 
 }  // namespace dom

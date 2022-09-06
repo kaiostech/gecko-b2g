@@ -22,10 +22,19 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
   // Or the helper object which forwards the requests (on the chrome process)
   virtual nsIEditableSupport* GetEditableSupport() = 0;
 
-  // May be the requester which should be informed (on the content process)
-  // Or the helper object which forwards the responses (on the chrome process)
-  virtual nsIEditableSupportListener* GetEditableSupportListener(
-      uint32_t aId) = 0;
+  // Listener may be the requester which should be informed (on the content
+  // process). Or the helper object which forwards the responses (on the chrome
+  // process).
+  nsTHashMap<nsUint64HashKey, RefPtr<nsIEditableSupportListener>> mRequestMap;
+
+  void SetEditableSupportListener(uint64_t aId,
+                                  nsIEditableSupportListener* aListener) {
+    mRequestMap.InsertOrUpdate(aId, aListener);
+  }
+
+  nsIEditableSupportListener* GetEditableSupportListener(uint64_t aId) {
+    return mRequestMap.Lookup(aId).Data();
+  }
 
  protected:
   mozilla::ipc::IPCResult RecvRequest(const InputMethodRequest& aRequest) {
@@ -116,90 +125,100 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
   }
 
   mozilla::ipc::IPCResult RecvResponse(const InputMethodResponse& aResponse) {
+    uint64_t id = 0;
     switch (aResponse.type()) {
       case InputMethodResponse::TSetCompositionResponse: {
         const SetCompositionResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnSetComposition(response.id(), response.status());
+                GetEditableSupportListener(id)) {
+          listener->OnSetComposition(id, response.status());
         }
         break;
       }
       case InputMethodResponse::TEndCompositionResponse: {
         const EndCompositionResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnEndComposition(response.id(), response.status());
+                GetEditableSupportListener(id)) {
+          listener->OnEndComposition(id, response.status());
         }
         break;
       }
       case InputMethodResponse::TKeydownResponse: {
         const KeydownResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnKeydown(response.id(), response.status());
+                GetEditableSupportListener(id)) {
+          listener->OnKeydown(id, response.status());
         }
         break;
       }
       case InputMethodResponse::TKeyupResponse: {
         const KeyupResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnKeyup(response.id(), response.status());
+                GetEditableSupportListener(id)) {
+          listener->OnKeyup(id, response.status());
         }
         break;
       }
       case InputMethodResponse::TSendKeyResponse: {
         const SendKeyResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnSendKey(response.id(), response.status());
+                GetEditableSupportListener(id)) {
+          listener->OnSendKey(id, response.status());
         }
         break;
       }
       case InputMethodResponse::TDeleteBackwardResponse: {
         const DeleteBackwardResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnDeleteBackward(response.id(), response.status());
+                GetEditableSupportListener(id)) {
+          listener->OnDeleteBackward(id, response.status());
         }
         break;
       }
       case InputMethodResponse::TSetSelectedOptionResponse: {
         const SetSelectedOptionResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnSetSelectedOption(response.id(), response.status());
+                GetEditableSupportListener(id)) {
+          listener->OnSetSelectedOption(id, response.status());
         }
         break;
       }
       case InputMethodResponse::TSetSelectedOptionsResponse: {
         const SetSelectedOptionsResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnSetSelectedOptions(response.id(), response.status());
+                GetEditableSupportListener(id)) {
+          listener->OnSetSelectedOptions(id, response.status());
         }
         break;
       }
       case InputMethodResponse::TCommonResponse: {
         const CommonResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
+                GetEditableSupportListener(id)) {
           if (response.responseName() == u"RemoveFocus"_ns) {
-            listener->OnRemoveFocus(response.id(), response.status());
+            listener->OnRemoveFocus(id, response.status());
           } else if (response.responseName() == u"SetValue"_ns) {
-            listener->OnSetValue(response.id(), response.status());
+            listener->OnSetValue(id, response.status());
           } else if (response.responseName() == u"ClearAll"_ns) {
-            listener->OnClearAll(response.id(), response.status());
+            listener->OnClearAll(id, response.status());
           } else if (response.responseName() == u"ReplaceSurroundingText"_ns) {
-            listener->OnReplaceSurroundingText(response.id(),
-                                               response.status());
+            listener->OnReplaceSurroundingText(id, response.status());
           }
         }
         break;
       }
       case InputMethodResponse::TGetSelectionRangeResponse: {
         const GetSelectionRangeResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
                 GetEditableSupportListener(response.id())) {
           listener->OnGetSelectionRange(response.id(), response.status(),
@@ -209,10 +228,10 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
       }
       case InputMethodResponse::TGetTextResponse: {
         const GetTextResponse& response = aResponse;
+        id = response.id();
         if (RefPtr<nsIEditableSupportListener> listener =
-                GetEditableSupportListener(response.id())) {
-          listener->OnGetText(response.id(), response.status(),
-                              response.text());
+                GetEditableSupportListener(id)) {
+          listener->OnGetText(id, response.status(), response.text());
         }
         break;
       }
@@ -222,6 +241,9 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
             "InputMethodServiceCommon RecvResponse unknown response type.");
       }
     }
+
+    mRequestMap.Remove(id);
+
     return IPC_OK();
   }
 };

@@ -18,6 +18,7 @@ namespace mozilla {
 namespace dom {
 
 class Promise;
+class InputMethodServiceChild;
 
 class InputMethod final : public nsISupports, public nsWrapperCache {
  public:
@@ -52,8 +53,10 @@ class InputMethod final : public nsISupports, public nsWrapperCache {
 
  protected:
   ~InputMethod() = default;
+  void Init();
 
   nsCOMPtr<nsIGlobalObject> mGlobal;
+  RefPtr<InputMethodServiceChild> mServiceChild;
 };
 
 }  // namespace dom

@@ -15,39 +15,44 @@ namespace dom {
 
 class Promise;
 class InputMethodRequest;
+class InputMethodServiceChild;
 
 class InputMethodHandler final : public nsIEditableSupportListener {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEDITABLESUPPORTLISTENER
 
-  static already_AddRefed<InputMethodHandler> Create(Promise* aPromise);
-  static already_AddRefed<InputMethodHandler> Create();
+  static already_AddRefed<InputMethodHandler> Create(
+      Promise* aPromise, InputMethodServiceChild* aServiceChild);
+  static already_AddRefed<InputMethodHandler> Create(
+      InputMethodServiceChild* aServiceChild);
 
-  nsresult SetComposition(const nsAString& aText);
-  nsresult EndComposition(const nsAString& aText);
-  nsresult Keydown(const nsAString& aKey);
-  nsresult Keyup(const nsAString& aKey);
-  nsresult SendKey(const nsAString& aKey);
-  nsresult DeleteBackward();
+  nsresult SetComposition(uint64_t aId, const nsAString& aText);
+  nsresult EndComposition(uint64_t aId, const nsAString& aText);
+  nsresult Keydown(uint64_t aId, const nsAString& aKey);
+  nsresult Keyup(uint64_t aId, const nsAString& aKey);
+  nsresult SendKey(uint64_t aId, const nsAString& aKey);
+  nsresult DeleteBackward(uint64_t aId);
 
-  void RemoveFocus();
-  nsresult GetSelectionRange();
-  nsresult GetText(int32_t aOffset, int32_t aLength);
-  void SetValue(const nsAString& aValue);
-  void ClearAll();
-  nsresult ReplaceSurroundingText(const nsAString& aText, int32_t aOffset,
-                                  int32_t aLength);
+  void RemoveFocus(uint64_t aId);
+  nsresult GetSelectionRange(uint64_t aId);
+  nsresult GetText(uint64_t aId, int32_t aOffset, int32_t aLength);
+  void SetValue(uint64_t aId, const nsAString& aValue);
+  void ClearAll(uint64_t aId);
+  nsresult ReplaceSurroundingText(uint64_t aId, const nsAString& aText,
+                                  int32_t aOffset, int32_t aLength);
 
  private:
-  explicit InputMethodHandler(Promise* aPromise);
-  InputMethodHandler() = default;
+  explicit InputMethodHandler(Promise* aPromise,
+                              InputMethodServiceChild* aServiceChild);
+  InputMethodHandler(InputMethodServiceChild* aServiceChild);
   ~InputMethodHandler() = default;
 
   void Initialize();
-  void SendRequest(ContentChild* aContentChild,
-                   const InputMethodRequest& aRequest);
+  void SendRequest(uint64_t aId, const InputMethodRequest& aRequest);
+
   RefPtr<Promise> mPromise;
+  RefPtr<InputMethodServiceChild> mServiceChild;
 };
 
 }  // namespace dom

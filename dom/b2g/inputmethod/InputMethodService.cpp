@@ -45,7 +45,7 @@ already_AddRefed<InputMethodService> InputMethodService::GetInstance() {
 
 // interfaces of nsIEditableSupport
 NS_IMETHODIMP InputMethodService::SetComposition(
-    uint32_t aId, nsIEditableSupportListener* aListener,
+    uint64_t aId, nsIEditableSupportListener* aListener,
     const nsAString& aText) {
   IME_LOGD("InputMethodService::SetComposition");
   if (mEditableSupport) {
@@ -57,7 +57,7 @@ NS_IMETHODIMP InputMethodService::SetComposition(
 }
 
 NS_IMETHODIMP InputMethodService::EndComposition(
-    uint32_t aId, nsIEditableSupportListener* aListener,
+    uint64_t aId, nsIEditableSupportListener* aListener,
     const nsAString& aText) {
   IME_LOGD("InputMethodService::EndComposition. mEditableSupport:[%p]",
            mEditableSupport.get());
@@ -69,7 +69,7 @@ NS_IMETHODIMP InputMethodService::EndComposition(
   return NS_OK;
 }
 
-NS_IMETHODIMP InputMethodService::Keydown(uint32_t aId,
+NS_IMETHODIMP InputMethodService::Keydown(uint64_t aId,
                                           nsIEditableSupportListener* aListener,
                                           const nsAString& aKey) {
   IME_LOGD("InputMethodService::Keydown");
@@ -81,7 +81,7 @@ NS_IMETHODIMP InputMethodService::Keydown(uint32_t aId,
   return NS_OK;
 }
 
-NS_IMETHODIMP InputMethodService::Keyup(uint32_t aId,
+NS_IMETHODIMP InputMethodService::Keyup(uint64_t aId,
                                         nsIEditableSupportListener* aListener,
                                         const nsAString& aKey) {
   IME_LOGD("InputMethodService::Keyup");
@@ -93,7 +93,7 @@ NS_IMETHODIMP InputMethodService::Keyup(uint32_t aId,
   return NS_OK;
 }
 
-NS_IMETHODIMP InputMethodService::SendKey(uint32_t aId,
+NS_IMETHODIMP InputMethodService::SendKey(uint64_t aId,
                                           nsIEditableSupportListener* aListener,
                                           const nsAString& aKey) {
   IME_LOGD("InputMethodService::SendKey");
@@ -106,7 +106,7 @@ NS_IMETHODIMP InputMethodService::SendKey(uint32_t aId,
 }
 
 NS_IMETHODIMP InputMethodService::DeleteBackward(
-    uint32_t aId, nsIEditableSupportListener* aListener) {
+    uint64_t aId, nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodService::DeleteBackward");
   if (mEditableSupport) {
     mEditableSupport->DeleteBackward(aId, aListener);
@@ -117,18 +117,18 @@ NS_IMETHODIMP InputMethodService::DeleteBackward(
 }
 
 NS_IMETHODIMP InputMethodService::SetSelectedOption(
-    uint32_t aId, nsIEditableSupportListener* aListener, int32_t aOptionIndex) {
+    uint64_t aId, nsIEditableSupportListener* aListener, int32_t aOptionIndex) {
   return NS_OK;
 }
 
 NS_IMETHODIMP InputMethodService::SetSelectedOptions(
-    uint32_t aId, nsIEditableSupportListener* aListener,
+    uint64_t aId, nsIEditableSupportListener* aListener,
     const nsTArray<int32_t>& aOptionIndexes) {
   return NS_OK;
 }
 
 NS_IMETHODIMP InputMethodService::RemoveFocus(
-    uint32_t aId, nsIEditableSupportListener* aListener) {
+    uint64_t aId, nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodService::RemoveFocus");
   if (mEditableSupport) {
     mEditableSupport->RemoveFocus(aId, aListener);
@@ -139,7 +139,7 @@ NS_IMETHODIMP InputMethodService::RemoveFocus(
 }
 
 NS_IMETHODIMP InputMethodService::GetSelectionRange(
-    uint32_t aId, nsIEditableSupportListener* aListener) {
+    uint64_t aId, nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodService::GetSelectionRange");
   if (mEditableSupport) {
     mEditableSupport->GetSelectionRange(aId, aListener);
@@ -149,7 +149,7 @@ NS_IMETHODIMP InputMethodService::GetSelectionRange(
   return NS_OK;
 }
 
-NS_IMETHODIMP InputMethodService::GetText(uint32_t aId,
+NS_IMETHODIMP InputMethodService::GetText(uint64_t aId,
                                           nsIEditableSupportListener* aListener,
                                           int32_t aOffset, int32_t aLength) {
   IME_LOGD("InputMethodService::GetText");
@@ -162,7 +162,7 @@ NS_IMETHODIMP InputMethodService::GetText(uint32_t aId,
 }
 
 NS_IMETHODIMP InputMethodService::SetValue(
-    uint32_t aId, nsIEditableSupportListener* aListener,
+    uint64_t aId, nsIEditableSupportListener* aListener,
     const nsAString& aValue) {
   IME_LOGD("InputMethodService::SetValue:[%s]",
            NS_ConvertUTF16toUTF8(aValue).get());
@@ -175,7 +175,7 @@ NS_IMETHODIMP InputMethodService::SetValue(
 }
 
 NS_IMETHODIMP InputMethodService::ClearAll(
-    uint32_t aId, nsIEditableSupportListener* aListener) {
+    uint64_t aId, nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodService::ClearAll");
   if (mEditableSupport) {
     mEditableSupport->ClearAll(aId, aListener);
@@ -186,7 +186,7 @@ NS_IMETHODIMP InputMethodService::ClearAll(
 }
 
 NS_IMETHODIMP InputMethodService::ReplaceSurroundingText(
-    uint32_t aId, nsIEditableSupportListener* aListener, const nsAString& aText,
+    uint64_t aId, nsIEditableSupportListener* aListener, const nsAString& aText,
     int32_t aOffset, int32_t aLength) {
   IME_LOGD("InputMethodService::ReplaceSurroundingText");
   if (mEditableSupport) {

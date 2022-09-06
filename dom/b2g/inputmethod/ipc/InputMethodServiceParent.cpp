@@ -125,16 +125,6 @@ nsIEditableSupport* InputMethodServiceParent::GetEditableSupport() {
   return instance;
 }
 
-nsIEditableSupportListener*
-InputMethodServiceParent::GetEditableSupportListener(uint32_t aId) {
-  auto entry = mRequestMap.Lookup(aId);
-  MOZ_ASSERT(entry);
-  auto listener = entry.Data();
-  IME_LOGD("InputMethodServiceParent::GetEditableSupportListener count [%d]",
-           mRequestMap.Count());
-  return listener;
-}
-
 IPCResult InputMethodServiceParent::RecvRequest(
     const InputMethodRequest& aRequest) {
   RefPtr<InputMethodService> service = InputMethodService::GetInstance();
@@ -188,143 +178,143 @@ IPCResult InputMethodServiceParent::RecvRequest(
 // unique id on the chrome process to identify the request. When receiving the
 // response from the child side, we get the listener by id and invoke the
 // listener
-static uint32_t sRequestId = 0;
+static uint64_t sRequestId = 0;
 
 NS_IMETHODIMP
-InputMethodServiceParent::SetComposition(uint32_t aId,
+InputMethodServiceParent::SetComposition(uint64_t aId,
                                          nsIEditableSupportListener* aListener,
                                          const nsAString& aText) {
   IME_LOGD("InputMethodServiceParent::SetComposition");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(SetCompositionRequest(sRequestId, nsString(aText)));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(SetCompositionRequest(aId, nsString(aText)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::EndComposition(uint32_t aId,
+InputMethodServiceParent::EndComposition(uint64_t aId,
                                          nsIEditableSupportListener* aListener,
                                          const nsAString& aText) {
   IME_LOGD("InputMethodServiceParent::EndComposition");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(EndCompositionRequest(sRequestId, nsString(aText)));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(EndCompositionRequest(aId, nsString(aText)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::Keydown(uint32_t aId,
+InputMethodServiceParent::Keydown(uint64_t aId,
                                   nsIEditableSupportListener* aListener,
                                   const nsAString& aKey) {
   IME_LOGD("InputMethodServiceParent::Keydown");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(KeydownRequest(sRequestId, nsString(aKey)));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(KeydownRequest(aId, nsString(aKey)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::Keyup(uint32_t aId,
+InputMethodServiceParent::Keyup(uint64_t aId,
                                 nsIEditableSupportListener* aListener,
                                 const nsAString& aKey) {
   IME_LOGD("InputMethodServiceParent::Keyup");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(KeyupRequest(sRequestId, nsString(aKey)));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(KeyupRequest(aId, nsString(aKey)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::SendKey(uint32_t aId,
+InputMethodServiceParent::SendKey(uint64_t aId,
                                   nsIEditableSupportListener* aListener,
                                   const nsAString& aKey) {
   IME_LOGD("InputMethodServiceParent::SendKey");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(SendKeyRequest(sRequestId, nsString(aKey)));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(SendKeyRequest(aId, nsString(aKey)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
 InputMethodServiceParent::DeleteBackward(
-    uint32_t aId, nsIEditableSupportListener* aListener) {
+    uint64_t aId, nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodServiceParent::DeleteBackward");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(DeleteBackwardRequest(sRequestId));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(DeleteBackwardRequest(aId));
   return NS_OK;
 }
 
 NS_IMETHODIMP
 InputMethodServiceParent::SetSelectedOption(
-    uint32_t aId, nsIEditableSupportListener* aListener, int32_t aOptionIndex) {
+    uint64_t aId, nsIEditableSupportListener* aListener, int32_t aOptionIndex) {
   IME_LOGD("InputMethodServiceParent::SetSelectedOption");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(SetSelectedOptionRequest(sRequestId, aOptionIndex));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(SetSelectedOptionRequest(aId, aOptionIndex));
   return NS_OK;
 }
 
 NS_IMETHODIMP
 InputMethodServiceParent::SetSelectedOptions(
-    uint32_t aId, nsIEditableSupportListener* aListener,
+    uint64_t aId, nsIEditableSupportListener* aListener,
     const nsTArray<int32_t>& aOptionIndexes) {
   IME_LOGD("InputMethodServiceParent::SetSelectedOptions");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(SetSelectedOptionsRequest(sRequestId, aOptionIndexes));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(SetSelectedOptionsRequest(aId, aOptionIndexes));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::RemoveFocus(uint32_t aId,
+InputMethodServiceParent::RemoveFocus(uint64_t aId,
                                       nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodServiceParent::RemoveFocus");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  CommonRequest request(sRequestId, u"RemoveFocus"_ns);
+  SetEditableSupportListener(aId, aListener);
+  CommonRequest request(aId, u"RemoveFocus"_ns);
   Unused << SendRequest(request);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 InputMethodServiceParent::GetSelectionRange(
-    uint32_t aId, nsIEditableSupportListener* aListener) {
+    uint64_t aId, nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodServiceParent::GetSelectionRange");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(GetSelectionRangeRequest(sRequestId));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(GetSelectionRangeRequest(aId));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::GetText(uint32_t aId,
+InputMethodServiceParent::GetText(uint64_t aId,
                                   nsIEditableSupportListener* aListener,
                                   int32_t aOffset, int32_t aLength) {
   IME_LOGD("InputMethodServiceParent::GetText");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(GetTextRequest(sRequestId, aOffset, aLength));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(GetTextRequest(aId, aOffset, aLength));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::SetValue(uint32_t aId,
+InputMethodServiceParent::SetValue(uint64_t aId,
                                    nsIEditableSupportListener* aListener,
                                    const nsAString& aValue) {
   IME_LOGD("InputMethodServiceParent::SetValue");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(SetValueRequest(sRequestId, nsString(aValue)));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(SetValueRequest(aId, nsString(aValue)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::ClearAll(uint32_t aId,
+InputMethodServiceParent::ClearAll(uint64_t aId,
                                    nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodServiceParent::ClearAll");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  CommonRequest request(sRequestId, u"ClearAll"_ns);
+  SetEditableSupportListener(aId, aListener);
+  CommonRequest request(aId, u"ClearAll"_ns);
   Unused << SendRequest(request);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 InputMethodServiceParent::ReplaceSurroundingText(
-    uint32_t aId, nsIEditableSupportListener* aListener, const nsAString& aText,
+    uint64_t aId, nsIEditableSupportListener* aListener, const nsAString& aText,
     int32_t aOffset, int32_t aLength) {
   IME_LOGD("InputMethodServiceParent::ReplaceSurroundingText");
-  mRequestMap.InsertOrUpdate(++sRequestId, aListener);
-  Unused << SendRequest(ReplaceSurroundingTextRequest(
-      sRequestId, nsString(aText), aOffset, aLength));
+  SetEditableSupportListener(aId, aListener);
+  Unused << SendRequest(
+      ReplaceSurroundingTextRequest(aId, nsString(aText), aOffset, aLength));
   return NS_OK;
 }
 

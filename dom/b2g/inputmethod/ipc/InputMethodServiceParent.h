@@ -27,7 +27,6 @@ class InputMethodServiceParent final
   InputMethodServiceParent();
 
   nsIEditableSupport* GetEditableSupport() override;
-  nsIEditableSupportListener* GetEditableSupportListener(uint32_t aId) override;
 
  protected:
   IPCResult RecvRequest(const InputMethodRequest& aRequest);
@@ -35,62 +34,12 @@ class InputMethodServiceParent final
     IPCResult result =
         InputMethodServiceCommon<PInputMethodServiceParent>::RecvResponse(
             aResponse);
-
-    switch (aResponse.type()) {
-      case InputMethodResponse::TSetCompositionResponse: {
-        mRequestMap.Remove(((const SetCompositionResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TEndCompositionResponse: {
-        mRequestMap.Remove(((const EndCompositionResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TKeydownResponse: {
-        mRequestMap.Remove(((const KeydownResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TKeyupResponse: {
-        mRequestMap.Remove(((const KeyupResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TSendKeyResponse: {
-        mRequestMap.Remove(((const SendKeyResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TDeleteBackwardResponse: {
-        mRequestMap.Remove(((const DeleteBackwardResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TSetSelectedOptionResponse: {
-        mRequestMap.Remove(((const SetSelectedOptionResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TSetSelectedOptionsResponse: {
-        mRequestMap.Remove(((const SetSelectedOptionsResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TCommonResponse: {
-        mRequestMap.Remove(((const CommonResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TGetSelectionRangeResponse: {
-        mRequestMap.Remove(((const GetSelectionRangeResponse&)aResponse).id());
-        break;
-      }
-      case InputMethodResponse::TGetTextResponse: {
-        mRequestMap.Remove(((const GetTextResponse&)aResponse).id());
-        break;
-      }
-      default:
-        break;
-    }
     return result;
   }
   void ActorDestroy(ActorDestroyReason why) override;
 
  private:
   ~InputMethodServiceParent();
-  nsTHashMap<nsUint32HashKey, RefPtr<nsIEditableSupportListener>> mRequestMap;
 };
 
 }  // namespace dom

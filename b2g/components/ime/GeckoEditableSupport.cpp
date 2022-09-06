@@ -891,7 +891,7 @@ GeckoEditableSupport::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
 
 // nsIEditableSupport methods.
 NS_IMETHODIMP
-GeckoEditableSupport::SetComposition(uint32_t aId,
+GeckoEditableSupport::SetComposition(uint64_t aId,
                                      nsIEditableSupportListener* aListener,
                                      const nsAString& aText) {
   RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
@@ -931,7 +931,7 @@ GeckoEditableSupport::SetComposition(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::EndComposition(uint32_t aId,
+GeckoEditableSupport::EndComposition(uint64_t aId,
                                      nsIEditableSupportListener* aListener,
                                      const nsAString& aText) {
   RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
@@ -968,7 +968,7 @@ GeckoEditableSupport::EndComposition(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::Keydown(uint32_t aId,
+GeckoEditableSupport::Keydown(uint64_t aId,
                               nsIEditableSupportListener* aListener,
                               const nsAString& aKey) {
   RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
@@ -1006,7 +1006,7 @@ GeckoEditableSupport::Keydown(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::Keyup(uint32_t aId, nsIEditableSupportListener* aListener,
+GeckoEditableSupport::Keyup(uint64_t aId, nsIEditableSupportListener* aListener,
                             const nsAString& aKey) {
   RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
   if (!dispatcher) {
@@ -1041,7 +1041,7 @@ GeckoEditableSupport::Keyup(uint32_t aId, nsIEditableSupportListener* aListener,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::SendKey(uint32_t aId,
+GeckoEditableSupport::SendKey(uint64_t aId,
                               nsIEditableSupportListener* aListener,
                               const nsAString& aKey) {
   RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
@@ -1080,7 +1080,7 @@ GeckoEditableSupport::SendKey(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::DeleteBackward(uint32_t aId,
+GeckoEditableSupport::DeleteBackward(uint64_t aId,
                                      nsIEditableSupportListener* aListener) {
   IME_LOGD("-- GeckoEditableSupport::DeleteBackward");
 
@@ -1105,7 +1105,7 @@ GeckoEditableSupport::DeleteBackward(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::SetSelectedOption(uint32_t aId,
+GeckoEditableSupport::SetSelectedOption(uint64_t aId,
                                         nsIEditableSupportListener* aListener,
                                         int32_t aOptionIndex) {
   IME_LOGD("-- EditableSupport SetSelectedOption");
@@ -1159,7 +1159,7 @@ GeckoEditableSupport::SetSelectedOption(uint32_t aId,
 
 NS_IMETHODIMP
 GeckoEditableSupport::SetSelectedOptions(
-    uint32_t aId, nsIEditableSupportListener* aListener,
+    uint64_t aId, nsIEditableSupportListener* aListener,
     const nsTArray<int32_t>& aOptionIndexes) {
   IME_LOGD("-- EditableSupport SetSelectedOption");
   IME_LOGD("-- EditableSupport aOptionIndexes.Length():[%ld]",
@@ -1218,7 +1218,7 @@ GeckoEditableSupport::SetSelectedOptions(
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::RemoveFocus(uint32_t aId,
+GeckoEditableSupport::RemoveFocus(uint64_t aId,
                                   nsIEditableSupportListener* aListener) {
   IME_LOGD("-- GeckoEditableSupport::RemoveFocus");
   nsresult rv = NS_ERROR_ABORT;
@@ -1243,7 +1243,7 @@ GeckoEditableSupport::RemoveFocus(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::GetSelectionRange(uint32_t aId,
+GeckoEditableSupport::GetSelectionRange(uint64_t aId,
                                         nsIEditableSupportListener* aListener) {
   IME_LOGD("-- GeckoEditableSupport GetSelectionRange");
 
@@ -1269,7 +1269,7 @@ GeckoEditableSupport::GetSelectionRange(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::GetText(uint32_t aId,
+GeckoEditableSupport::GetText(uint64_t aId,
                               nsIEditableSupportListener* aListener,
                               int32_t aOffset, int32_t aLength) {
   IME_LOGD("-- GeckoEditableSupport GetText");
@@ -1310,7 +1310,7 @@ GeckoEditableSupport::GetText(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::SetValue(uint32_t aId,
+GeckoEditableSupport::SetValue(uint64_t aId,
                                nsIEditableSupportListener* aListener,
                                const nsAString& aValue) {
   RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
@@ -1391,7 +1391,7 @@ GeckoEditableSupport::SetValue(uint32_t aId,
 }
 
 NS_IMETHODIMP
-GeckoEditableSupport::ClearAll(uint32_t aId,
+GeckoEditableSupport::ClearAll(uint64_t aId,
                                nsIEditableSupportListener* aListener) {
   IME_LOGD("-- GeckoEditableSupport::ClearAll");
   nsresult rv = NS_ERROR_ABORT;
@@ -1446,7 +1446,7 @@ GeckoEditableSupport::ClearAll(uint32_t aId,
 
 NS_IMETHODIMP
 GeckoEditableSupport::ReplaceSurroundingText(
-    uint32_t aId, nsIEditableSupportListener* aListener, const nsAString& aText,
+    uint64_t aId, nsIEditableSupportListener* aListener, const nsAString& aText,
     int32_t aOffset, int32_t aLength) {
   IME_LOGD("-- GeckoEditableSupport::ReplaceSurroundingText");
   IME_LOGD("-- EditableSupport aText:[%s]", NS_ConvertUTF16toUTF8(aText).get());

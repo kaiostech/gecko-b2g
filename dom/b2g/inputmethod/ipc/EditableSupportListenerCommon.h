@@ -20,70 +20,70 @@ class EditableSupportListenerCommon : public nsIEditableSupportListener,
  public:
   // nsIEditableSupportListener methods.
   NS_IMETHODIMP
-  OnSetComposition(uint32_t aId, nsresult aStatus) {
+  OnSetComposition(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnSetComposition");
     Unused << T::SendResponse(SetCompositionResponse(aId, aStatus));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnEndComposition(uint32_t aId, nsresult aStatus) {
+  OnEndComposition(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnEndComposition");
     Unused << T::SendResponse(EndCompositionResponse(aId, aStatus));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnKeydown(uint32_t aId, nsresult aStatus) {
+  OnKeydown(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnKeydown");
     Unused << T::SendResponse(KeydownResponse(aId, aStatus));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnKeyup(uint32_t aId, nsresult aStatus) {
+  OnKeyup(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnKeyup");
     Unused << T::SendResponse(KeyupResponse(aId, aStatus));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnSendKey(uint32_t aId, nsresult aStatus) {
+  OnSendKey(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnSendKey");
     Unused << T::SendResponse(SendKeyResponse(aId, aStatus));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnDeleteBackward(uint32_t aId, nsresult aStatus) {
+  OnDeleteBackward(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnDeleteBackward");
     Unused << T::SendResponse(DeleteBackwardResponse(aId, aStatus));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnSetSelectedOption(uint32_t aId, nsresult aStatus) {
+  OnSetSelectedOption(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnSetSelectedOption");
     Unused << T::SendResponse(SetSelectedOptionResponse(aId, aStatus));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnSetSelectedOptions(uint32_t aId, nsresult aStatus) {
+  OnSetSelectedOptions(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnSetSelectedOptions");
     Unused << T::SendResponse(SetSelectedOptionsResponse(aId, aStatus));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnRemoveFocus(uint32_t aId, nsresult aStatus) {
+  OnRemoveFocus(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnRemoveFocus");
     Unused << T::SendResponse(CommonResponse(aId, aStatus, u"RemoveFocus"_ns));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnGetSelectionRange(uint32_t aId, nsresult aStatus, int32_t aStart,
+  OnGetSelectionRange(uint64_t aId, nsresult aStatus, int32_t aStart,
                       int32_t aEnd) {
     Unused << T::SendResponse(
         GetSelectionRangeResponse(aId, aStatus, aStart, aEnd));
@@ -92,7 +92,7 @@ class EditableSupportListenerCommon : public nsIEditableSupportListener,
   }
 
   NS_IMETHODIMP
-  OnGetText(uint32_t aId, nsresult aStatus, const nsAString& aText) {
+  OnGetText(uint64_t aId, nsresult aStatus, const nsAString& aText) {
     IME_LOGD("Listener::OnGetText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
     nsString text(aText);
     Unused << T::SendResponse(GetTextResponse(aId, aStatus, text));
@@ -100,21 +100,21 @@ class EditableSupportListenerCommon : public nsIEditableSupportListener,
   }
 
   NS_IMETHODIMP
-  OnSetValue(uint32_t aId, nsresult aStatus) {
+  OnSetValue(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnSetValue");
     Unused << T::SendResponse(CommonResponse(aId, aStatus, u"SetValue"_ns));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnClearAll(uint32_t aId, nsresult aStatus) {
+  OnClearAll(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnClearAll");
     Unused << T::SendResponse(CommonResponse(aId, aStatus, u"ClearAll"_ns));
     return NS_OK;
   }
 
   NS_IMETHODIMP
-  OnReplaceSurroundingText(uint32_t aId, nsresult aStatus) {
+  OnReplaceSurroundingText(uint64_t aId, nsresult aStatus) {
     IME_LOGD("Listener::OnReplaceSurroundingText");
     Unused << T::SendResponse(
         CommonResponse(aId, aStatus, u"ReplaceSurroundingText"_ns));

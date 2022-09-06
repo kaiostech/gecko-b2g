@@ -8,6 +8,7 @@
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/InputMethodHandler.h"
+#include "mozilla/dom/InputMethodServiceChild.h"
 #include "nsIDocShell.h"
 #include "nsIGlobalObject.h"
 #include "mozilla/dom/IMELog.h"
@@ -17,8 +18,26 @@ using namespace mozilla::widget;
 namespace mozilla {
 namespace dom {
 
+namespace {
+
+static uint64_t sId = 0;
+
+}  // namespace
+
 InputMethod::InputMethod(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
   MOZ_ASSERT(aGlobal);
+  Init();
+}
+
+void InputMethod::Init() {
+  if (sId == 0) {
+    sId = uint64_t(getpid()) << 32;
+  }
+  ContentChild* cc = ContentChild::GetSingleton();
+  if (cc && mServiceChild == nullptr) {
+    mServiceChild = new InputMethodServiceChild();
+    cc->SendPInputMethodServiceConstructor(mServiceChild);
+  }
 }
 
 already_AddRefed<Promise> InputMethod::SetComposition(const nsAString& aText) {
@@ -29,8 +48,9 @@ already_AddRefed<Promise> InputMethod::SetComposition(const nsAString& aText) {
 
   IME_LOGD("-- InputMethod::SetComposition");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
-  nsresult result = handler->SetComposition(aText);
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
+  nsresult result = handler->SetComposition(++sId, aText);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -46,9 +66,10 @@ already_AddRefed<Promise> InputMethod::EndComposition(
 
   IME_LOGD("-- InputMethod::EndComposition");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
-  nsresult result =
-      handler->EndComposition(aText.WasPassed() ? aText.Value() : VoidString());
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
+  nsresult result = handler->EndComposition(
+      ++sId, aText.WasPassed() ? aText.Value() : VoidString());
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -64,8 +85,9 @@ already_AddRefed<Promise> InputMethod::Keydown(const nsAString& aKey) {
 
   IME_LOGD("-- InputMethod::Keydown");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
-  nsresult result = handler->Keydown(aKey);
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
+  nsresult result = handler->Keydown(++sId, aKey);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -81,8 +103,9 @@ already_AddRefed<Promise> InputMethod::Keyup(const nsAString& aKey) {
 
   IME_LOGD("-- InputMethod::Keyup");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
-  nsresult result = handler->Keyup(aKey);
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
+  nsresult result = handler->Keyup(++sId, aKey);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -98,8 +121,9 @@ already_AddRefed<Promise> InputMethod::SendKey(const nsAString& aKey) {
 
   IME_LOGD("-- InputMethod::SendKey");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
-  nsresult result = handler->SendKey(aKey);
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
+  nsresult result = handler->SendKey(++sId, aKey);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -115,8 +139,9 @@ already_AddRefed<Promise> InputMethod::DeleteBackward() {
 
   IME_LOGD("-- InputMethod::DeleteBackward");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
-  nsresult result = handler->DeleteBackward();
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
+  nsresult result = handler->DeleteBackward(++sId);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -127,8 +152,9 @@ already_AddRefed<Promise> InputMethod::DeleteBackward() {
 void InputMethod::RemoveFocus() {
   IME_LOGD("-- InputMethod::RemoveFocus");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create();
-  handler->RemoveFocus();
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(mServiceChild);
+  handler->RemoveFocus(++sId);
 }
 
 already_AddRefed<Promise> InputMethod::GetSelectionRange() {
@@ -137,8 +163,9 @@ already_AddRefed<Promise> InputMethod::GetSelectionRange() {
   ENSURE_SUCCESS(rv, nullptr);
   IME_LOGD("-- InputMethod::GetSelectionRange");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
-  nsresult result = handler->GetSelectionRange();
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
+  nsresult result = handler->GetSelectionRange(++sId);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -153,10 +180,11 @@ already_AddRefed<Promise> InputMethod::GetText(
   ENSURE_SUCCESS(rv, nullptr);
   IME_LOGD("-- InputMethod::GetText");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
   int32_t offset = aOffset.WasPassed() ? aOffset.Value() : 0;
   int32_t length = aLength.WasPassed() ? aLength.Value() : -1;
-  nsresult result = handler->GetText(offset, length);
+  nsresult result = handler->GetText(++sId, offset, length);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -168,15 +196,17 @@ void InputMethod::SetValue(const nsAString& aValue) {
   IME_LOGD("-- InputMethod::SetValue:[%s]",
            NS_ConvertUTF16toUTF8(aValue).get());
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create();
-  handler->SetValue(aValue);
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(mServiceChild);
+  handler->SetValue(++sId, aValue);
 }
 
 void InputMethod::ClearAll() {
   IME_LOGD("-- InputMethod::ClearAll");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create();
-  handler->ClearAll();
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(mServiceChild);
+  handler->ClearAll(++sId);
 }
 
 already_AddRefed<Promise> InputMethod::ReplaceSurroundingText(
@@ -188,10 +218,12 @@ already_AddRefed<Promise> InputMethod::ReplaceSurroundingText(
   ENSURE_SUCCESS(rv, nullptr);
   IME_LOGD("-- InputMethod::ReplaceSurroundingText");
 
-  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  RefPtr<InputMethodHandler> handler =
+      InputMethodHandler::Create(promise, mServiceChild);
   int32_t offset = aOffset.WasPassed() ? aOffset.Value() : 0;
   int32_t length = aLength.WasPassed() ? aLength.Value() : 0;
-  nsresult result = handler->ReplaceSurroundingText(aText, offset, length);
+  nsresult result =
+      handler->ReplaceSurroundingText(++sId, aText, offset, length);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }

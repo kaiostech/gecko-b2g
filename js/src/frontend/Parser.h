@@ -747,7 +747,8 @@ class MOZ_STACK_CLASS GeneralParser : public PerHandlerParser<ParseHandler> {
   // Implement ErrorReportMixin.
 
   [[nodiscard]] bool computeErrorMetadata(
-      ErrorMetadata* err, const ErrorReportMixin::ErrorOffset& offset) override;
+      ErrorMetadata* err,
+      const ErrorReportMixin::ErrorOffset& offset) const override;
 
   using Base::error;
   using Base::errorAt;
@@ -1084,7 +1085,7 @@ class MOZ_STACK_CLASS GeneralParser : public PerHandlerParser<ParseHandler> {
       YieldHandling yieldHandling, ParseContext::Scope& catchParamScope);
   DebuggerStatementType debuggerStatement();
 
-  ListNodeType variableStatement(YieldHandling yieldHandling);
+  DeclarationListNodeType variableStatement(YieldHandling yieldHandling);
 
   LabeledStatementType labeledStatement(YieldHandling yieldHandling);
   Node labeledItem(YieldHandling yieldHandling);
@@ -1092,8 +1093,8 @@ class MOZ_STACK_CLASS GeneralParser : public PerHandlerParser<ParseHandler> {
   TernaryNodeType ifStatement(YieldHandling yieldHandling);
   Node consequentOrAlternative(YieldHandling yieldHandling);
 
-  ListNodeType lexicalDeclaration(YieldHandling yieldHandling,
-                                  DeclarationKind kind);
+  DeclarationListNodeType lexicalDeclaration(YieldHandling yieldHandling,
+                                             DeclarationKind kind);
 
   NameNodeType moduleExportName();
 
@@ -1150,9 +1151,10 @@ class MOZ_STACK_CLASS GeneralParser : public PerHandlerParser<ParseHandler> {
   // Otherwise, for for-in/of loops, the next token is the ')' ending the
   // loop-head.  Additionally, the expression that the loop iterates over was
   // parsed into |*forInOrOfExpression|.
-  ListNodeType declarationList(YieldHandling yieldHandling, ParseNodeKind kind,
-                               ParseNodeKind* forHeadKind = nullptr,
-                               Node* forInOrOfExpression = nullptr);
+  DeclarationListNodeType declarationList(YieldHandling yieldHandling,
+                                          ParseNodeKind kind,
+                                          ParseNodeKind* forHeadKind = nullptr,
+                                          Node* forInOrOfExpression = nullptr);
 
   // The items in a declaration list are either patterns or names, with or
   // without initializers.  These two methods parse a single pattern/name and
@@ -1267,7 +1269,8 @@ class MOZ_STACK_CLASS GeneralParser : public PerHandlerParser<ParseHandler> {
   inline bool checkExportedNamesForArrayBinding(ListNodeType array);
   inline bool checkExportedNamesForObjectBinding(ListNodeType obj);
   inline bool checkExportedNamesForDeclaration(Node node);
-  inline bool checkExportedNamesForDeclarationList(ListNodeType node);
+  inline bool checkExportedNamesForDeclarationList(
+      DeclarationListNodeType node);
   inline bool checkExportedNameForFunction(FunctionNodeType funNode);
   inline bool checkExportedNameForClass(ClassNodeType classNode);
   inline bool checkExportedNameForClause(NameNodeType nameNode);
@@ -1613,7 +1616,8 @@ class MOZ_STACK_CLASS Parser<SyntaxParseHandler, Unit> final
   inline bool checkExportedNamesForArrayBinding(ListNodeType array);
   inline bool checkExportedNamesForObjectBinding(ListNodeType obj);
   inline bool checkExportedNamesForDeclaration(Node node);
-  inline bool checkExportedNamesForDeclarationList(ListNodeType node);
+  inline bool checkExportedNamesForDeclarationList(
+      DeclarationListNodeType node);
   inline bool checkExportedNameForFunction(FunctionNodeType funNode);
   inline bool checkExportedNameForClass(ClassNodeType classNode);
   inline bool checkExportedNameForClause(NameNodeType nameNode);
@@ -1759,7 +1763,7 @@ class MOZ_STACK_CLASS Parser<FullParseHandler, Unit> final
   bool checkExportedNamesForArrayBinding(ListNodeType array);
   bool checkExportedNamesForObjectBinding(ListNodeType obj);
   bool checkExportedNamesForDeclaration(Node node);
-  bool checkExportedNamesForDeclarationList(ListNodeType node);
+  bool checkExportedNamesForDeclarationList(DeclarationListNodeType node);
   bool checkExportedNameForFunction(FunctionNodeType funNode);
   bool checkExportedNameForClass(ClassNodeType classNode);
   inline bool checkExportedNameForClause(NameNodeType nameNode);

@@ -6,6 +6,7 @@
 
 #include "fs/FileSystemRequestHandler.h"
 
+#include "FileSystemEntryMetadataArray.h"
 #include "fs/FileSystemConstants.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/FileSystemDirectoryHandle.h"
@@ -36,27 +37,22 @@ RefPtr<File> MakeGetFileResult(nsIGlobalObject* aGlobal, const nsString& aName,
   return result;
 }
 
-void GetDirectoryContentsResponseHandler(
-    nsIGlobalObject* aGlobal, FileSystemGetEntriesResponse&& aResponse,
-    ArrayAppendable& aSink, RefPtr<FileSystemManager>& aManager) {
+bool MakeResolution(nsIGlobalObject* aGlobal,
+                    FileSystemGetEntriesResponse&& aResponse,
+                    const bool& /* aResult */,
+                    RefPtr<FileSystemEntryMetadataArray>& aSink) {
   // TODO: Add page size to FileSystemConstants, preallocate and handle overflow
   const auto& listing = aResponse.get_FileSystemDirectoryListing();
 
-  nsTArray<RefPtr<FileSystemHandle>> batch;
-
   for (const auto& it : listing.files()) {
-    RefPtr<FileSystemHandle> handle =
-        new FileSystemFileHandle(aGlobal, aManager, it);
-    batch.AppendElement(handle);
+    aSink->AppendElement(it);
   }
 
   for (const auto& it : listing.directories()) {
-    RefPtr<FileSystemHandle> handle =
-        new FileSystemDirectoryHandle(aGlobal, aManager, it);
-    batch.AppendElement(handle);
+    aSink->AppendElement(it);
   }
 
-  aSink.append(batch);
+  return true;
 }
 
 RefPtr<FileSystemDirectoryHandle> MakeResolution(
@@ -146,31 +142,6 @@ void ResolveCallback(
   } else {
     aPromise->MaybeResolveWithUndefined();
   }
-}
-
-// NOLINTBEGIN(readability-inconsistent-declaration-parameter-name)
-template <>
-void ResolveCallback(FileSystemGetEntriesResponse&& aResponse,
-                     // NOLINTNEXTLINE(performance-unnecessary-value-param)
-                     RefPtr<Promise> aPromise, ArrayAppendable& aSink,
-                     RefPtr<FileSystemManager>& aManager) {
-  // NOLINTEND(readability-inconsistent-declaration-parameter-name)
-  MOZ_ASSERT(aPromise);
-  QM_TRY(OkIf(Promise::PromiseState::Pending == aPromise->State()), QM_VOID);
-
-  if (FileSystemGetEntriesResponse::Tnsresult == aResponse.type()) {
-    aPromise->MaybeReject(aResponse.get_nsresult());
-    return;
-  }
-
-  GetDirectoryContentsResponseHandler(
-      aPromise->GetParentObject(),
-      std::forward<FileSystemDirectoryListing>(
-          aResponse.get_FileSystemDirectoryListing()),
-      aSink, aManager);
-
-  // TODO: Remove this when sink is ready
-  aPromise->MaybeReject(NS_ERROR_NOT_IMPLEMENTED);
 }
 
 template <>
@@ -352,23 +323,15 @@ void FileSystemRequestHandler::GetEntries(
     RefPtr<FileSystemManager>& aManager, const EntryId& aDirectory,
     PageNumber aPage,
     RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
-    ArrayAppendable& aSink) {
+    RefPtr<FileSystemEntryMetadataArray>& aSink) {
   MOZ_ASSERT(aManager);
   MOZ_ASSERT(!aDirectory.IsEmpty());
   MOZ_ASSERT(aPromise);
 
   FileSystemGetEntriesRequest request(aDirectory, aPage);
 
-  using TOverload = void (*)(FileSystemGetEntriesResponse&&, RefPtr<Promise>,
-                             ArrayAppendable&, RefPtr<FileSystemManager>&);
-
-  // We are not allowed to pass a promise to an external function in a lambda
-  auto&& onResolve =
-      static_cast<std::function<void(FileSystemGetEntriesResponse &&)>>(
-          // NOLINTNEXTLINE(modernize-avoid-bind)
-          std::bind(static_cast<TOverload>(ResolveCallback),
-                    std::placeholders::_1, aPromise, std::ref(aSink),
-                    aManager));
+  auto&& onResolve = SelectResolveCallback<FileSystemGetEntriesResponse, bool>(
+      aPromise, aSink);
 
   auto&& onReject = GetRejectCallback(aPromise);
 

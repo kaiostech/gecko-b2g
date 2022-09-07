@@ -193,8 +193,7 @@ class GlobalHelperThreadState {
 
   bool useInternalThreadPool_ = true;
 
-  ParseTask* removeFinishedParseTask(JSContext* cx, ParseTaskKind kind,
-                                     JS::OffThreadToken* token);
+  ParseTask* removeFinishedParseTask(JSContext* cx, JS::OffThreadToken* token);
 
  public:
   void addSizeOfIncludingThis(JS::GlobalStats* stats,
@@ -399,30 +398,20 @@ class GlobalHelperThreadState {
       const AutoLockHelperThreadState& lock, bool checkExecutionStatus);
 
  private:
-  UniquePtr<ParseTask> finishParseTaskCommon(JSContext* cx, ParseTaskKind kind,
+  UniquePtr<ParseTask> finishParseTaskCommon(JSContext* cx,
                                              JS::OffThreadToken* token);
 
-  already_AddRefed<frontend::CompilationStencil> finishCompileToStencilTask(
-      JSContext* cx, ParseTaskKind kind, JS::OffThreadToken* token,
-      JS::InstantiationStorage* storage);
   bool finishMultiParseTask(JSContext* cx, ParseTaskKind kind,
                             JS::OffThreadToken* token,
                             mozilla::Vector<RefPtr<JS::Stencil>>* stencils);
 
  public:
-  void cancelParseTask(JSRuntime* rt, ParseTaskKind kind,
-                       JS::OffThreadToken* token);
+  void cancelParseTask(JSRuntime* rt, JS::OffThreadToken* token);
   void destroyParseTask(JSRuntime* rt, ParseTask* parseTask);
 
   void trace(JSTracer* trc);
 
-  already_AddRefed<frontend::CompilationStencil> finishCompileToStencilTask(
-      JSContext* cx, JS::OffThreadToken* token,
-      JS::InstantiationStorage* storage);
-  already_AddRefed<frontend::CompilationStencil>
-  finishCompileModuleToStencilTask(JSContext* cx, JS::OffThreadToken* token,
-                                   JS::InstantiationStorage* storage);
-  already_AddRefed<frontend::CompilationStencil> finishDecodeStencilTask(
+  already_AddRefed<frontend::CompilationStencil> finishStencilTask(
       JSContext* cx, JS::OffThreadToken* token,
       JS::InstantiationStorage* storage);
   bool finishMultiStencilsDecodeTask(
@@ -609,7 +598,7 @@ struct DelazifyStrategy {
   // This function is called with the script index of:
   //  - top-level script, when starting the off-thread delazification.
   //  - functions added by `add` and delazified by `DelazifyTask`.
-  [[nodiscard]] bool add(JSContext* cx,
+  [[nodiscard]] bool add(ErrorContext* ec,
                          const frontend::CompilationStencil& stencil,
                          ScriptIndex index);
 };
@@ -682,6 +671,10 @@ struct DelazifyTask : public mozilla::LinkedListElement<DelazifyTask>,
   OffThreadErrorContext ec_;
 
   // Create a new DelazifyTask and initialize it.
+  //
+  // In case of early failure, no errors are reported, as a DelazifyTask is an
+  // optimization and the VM should remain working even without this
+  // optimization in place.
   static UniquePtr<DelazifyTask> Create(
       JSContext* cx, JSRuntime* runtime,
       const JS::ContextOptions& contextOptions,
@@ -691,7 +684,7 @@ struct DelazifyTask : public mozilla::LinkedListElement<DelazifyTask>,
   DelazifyTask(JSRuntime* runtime, const JS::ContextOptions& options);
 
   [[nodiscard]] bool init(
-      JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+      const JS::ReadOnlyCompileOptions& options,
       UniquePtr<frontend::ExtensibleCompilationStencil>&& initial);
 
   // This function is called by delazify task thread to know whether the task

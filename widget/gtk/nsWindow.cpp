@@ -335,6 +335,11 @@ static bool gBlockActivateEvent = false;
 static bool gGlobalsInitialized = false;
 static bool gUseAspectRatio = true;
 static uint32_t gLastTouchID = 0;
+// See Bug 1777269 for details. We don't know if the suspected leave notify
+// event is a correct one when we get it.
+// Store it and issue it later from enter notify event if it's correct,
+// throw it away otherwise.
+static GUniquePtr<GdkEventCrossing> sStoredLeaveNotifyEvent;
 
 #define NS_WINDOW_TITLE_MAX_LENGTH 4095
 #define kWindowPositionSlop 20
@@ -610,6 +615,14 @@ void nsWindow::Destroy() {
   if (gFocusWindow == this) {
     LOG("automatically losing focus...\n");
     gFocusWindow = nullptr;
+  }
+
+  if (sStoredLeaveNotifyEvent) {
+    nsWindow* window =
+        get_window_for_gdk_window(sStoredLeaveNotifyEvent->window);
+    if (window == this) {
+      sStoredLeaveNotifyEvent = nullptr;
+    }
   }
 
   gtk_widget_destroy(mShell);
@@ -1687,7 +1700,6 @@ bool nsWindow::WaylandPopupConfigure() {
   GdkWindowTypeHint gtkTypeHint;
   switch (mPopupHint) {
     case ePopupTypeMenu:
-    case ePopupTypePanel:
       // GDK_WINDOW_TYPE_HINT_POPUP_MENU is mapped as xdg_popup by default.
       // We use this type for all menu popups.
       gtkTypeHint = GDK_WINDOW_TYPE_HINT_POPUP_MENU;
@@ -1841,7 +1853,8 @@ void nsWindow::UpdateWaylandPopupHierarchy() {
         // popups are adjacent.
         return false;
       }
-      if (popup->WaylandPopupIsFirst() &&
+      if (popup->mPopupHint == ePopupTypePanel &&
+          popup->WaylandPopupIsFirst() &&
           popup->WaylandPopupFitsToplevelWindow()) {
         // Workaround for https://gitlab.gnome.org/GNOME/gtk/-/issues/1986
         // Bug 1760276 - don't use move-to-rect when popup is inside main
@@ -7828,8 +7841,27 @@ static gboolean enter_notify_event_cb(GtkWidget* widget,
     return TRUE;
   }
 
-  window->OnEnterNotifyEvent(event);
+  // We have stored leave notify - check if it's the correct one and
+  // fire it before enter notify in such case.
+  if (sStoredLeaveNotifyEvent) {
+    auto clearNofityEvent =
+        MakeScopeExit([&] { sStoredLeaveNotifyEvent = nullptr; });
+    if (event->x_root == sStoredLeaveNotifyEvent->x_root &&
+        event->y_root == sStoredLeaveNotifyEvent->y_root &&
+        window->ApplyEnterLeaveMutterWorkaround()) {
+      // Enter/Leave notify events has the same coordinates
+      // and uses know buggy window config.
+      // Consider it as a bogus one.
+      return TRUE;
+    }
+    RefPtr<nsWindow> leftWindow =
+        get_window_for_gdk_window(sStoredLeaveNotifyEvent->window);
+    if (leftWindow) {
+      leftWindow->OnLeaveNotifyEvent(sStoredLeaveNotifyEvent.get());
+    }
+  }
 
+  window->OnEnterNotifyEvent(event);
   return TRUE;
 }
 
@@ -7852,7 +7884,15 @@ static gboolean leave_notify_event_cb(GtkWidget* widget,
   RefPtr<nsWindow> window = get_window_for_gdk_window(event->window);
   if (!window) return TRUE;
 
-  window->OnLeaveNotifyEvent(event);
+  if (window->ApplyEnterLeaveMutterWorkaround()) {
+    // The leave event is potentially wrong, don't fire it now but store
+    // it for further check at enter_notify_event_cb().
+    sStoredLeaveNotifyEvent.reset(reinterpret_cast<GdkEventCrossing*>(
+        gdk_event_copy(reinterpret_cast<GdkEvent*>(event))));
+  } else {
+    sStoredLeaveNotifyEvent = nullptr;
+    window->OnLeaveNotifyEvent(event);
+  }
 
   return TRUE;
 }
@@ -9611,4 +9651,43 @@ void nsWindow::ClearRenderingQueue() {
     mWidgetListener->RequestWindowClose(this);
   }
   DestroyLayerManager();
+}
+
+// Apply workaround for Mutter compositor bug (mzbz#1777269).
+//
+// When we open a popup window (tooltip for instance) attached to
+// GDK_WINDOW_TYPE_HINT_UTILITY parent popup, Mutter compositor sends bogus
+// leave/enter events to the GDK_WINDOW_TYPE_HINT_UTILITY popup.
+// That leads to immediate tooltip close. As a workaround ignore these
+// bogus events.
+//
+// We need to check two affected window types:
+//
+// - toplevel window with at least two child popups where the first one is
+//   GDK_WINDOW_TYPE_HINT_UTILITY.
+// - GDK_WINDOW_TYPE_HINT_UTILITY popup with a child popup
+//
+// We need to mask two bogus leave/enter sequences:
+//  1) Leave (popup) -> Enter (toplevel)
+//  2) Leave (toplevel) -> Enter (popup)
+//
+// TODO: persistent (non-tracked) popups with tooltip/child popups?
+//
+bool nsWindow::ApplyEnterLeaveMutterWorkaround() {
+  // Leave (toplevel) case
+  if (mWindowType == eWindowType_toplevel && mWaylandPopupNext &&
+      mWaylandPopupNext->mWaylandPopupNext &&
+      gtk_window_get_type_hint(GTK_WINDOW(mWaylandPopupNext->GetGtkWidget())) ==
+          GDK_WINDOW_TYPE_HINT_UTILITY) {
+    LOG("nsWindow::ApplyEnterLeaveMutterWorkaround(): leave toplevel");
+    return true;
+  }
+  // Leave (popup) case
+  if (IsWaylandPopup() && mWaylandPopupNext &&
+      gtk_window_get_type_hint(GTK_WINDOW(mShell)) ==
+          GDK_WINDOW_TYPE_HINT_UTILITY) {
+    LOG("nsWindow::ApplyEnterLeaveMutterWorkaround(): leave popup");
+    return true;
+  }
+  return false;
 }

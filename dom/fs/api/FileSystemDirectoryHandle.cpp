@@ -5,8 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "FileSystemDirectoryHandle.h"
-#include "fs/FileSystemRequestHandler.h"
 
+#include "FileSystemDirectoryIteratorFactory.h"
+#include "fs/FileSystemRequestHandler.h"
+#include "js/StructuredClone.h"
+#include "js/TypeDecls.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/FileSystemDirectoryHandleBinding.h"
 #include "mozilla/dom/FileSystemDirectoryIterator.h"
@@ -15,6 +18,7 @@
 #include "mozilla/dom/PFileSystemManager.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/StorageManager.h"
+#include "nsJSUtils.h"
 
 namespace mozilla::dom {
 
@@ -47,30 +51,42 @@ FileSystemHandleKind FileSystemDirectoryHandle::Kind() const {
   return FileSystemHandleKind::Directory;
 }
 
-already_AddRefed<FileSystemDirectoryIterator>
-FileSystemDirectoryHandle::Entries() {
-  return MakeRefPtr<FileSystemDirectoryIterator>(GetParentObject()).forget();
+void FileSystemDirectoryHandle::InitAsyncIterator(
+    FileSystemDirectoryHandle::iterator_t* aIterator, ErrorResult& aError) {
+  aIterator->SetData(
+      static_cast<void*>(fs::FileSystemDirectoryIteratorFactory::Create(
+                             mMetadata, aIterator->GetIteratorType())
+                             .release()));
 }
 
-already_AddRefed<FileSystemDirectoryIterator>
-FileSystemDirectoryHandle::Keys() {
-  return MakeRefPtr<FileSystemDirectoryIterator>(GetParentObject()).forget();
+void FileSystemDirectoryHandle::DestroyAsyncIterator(
+    FileSystemDirectoryHandle::iterator_t* aIterator) {
+  auto* it =
+      static_cast<FileSystemDirectoryIterator::Impl*>(aIterator->GetData());
+  delete it;
+  aIterator->SetData(nullptr);
 }
 
-already_AddRefed<FileSystemDirectoryIterator>
-FileSystemDirectoryHandle::Values() {
-  return MakeRefPtr<FileSystemDirectoryIterator>(GetParentObject()).forget();
+already_AddRefed<Promise> FileSystemDirectoryHandle::GetNextPromise(
+    JSContext* /* aCx */, FileSystemDirectoryHandle::iterator_t* aIterator,
+    ErrorResult& aError) {
+  return static_cast<FileSystemDirectoryIterator::Impl*>(aIterator->GetData())
+      ->Next(mGlobal, mManager, aError);
 }
 
 already_AddRefed<Promise> FileSystemDirectoryHandle::GetFileHandle(
     const nsAString& aName, const FileSystemGetFileOptions& aOptions,
     ErrorResult& aError) {
+  MOZ_ASSERT(!mMetadata.entryId().IsEmpty());
+
   RefPtr<Promise> promise = Promise::Create(GetParentObject(), aError);
   if (aError.Failed()) {
     return nullptr;
   }
 
-  promise->MaybeReject(NS_ERROR_NOT_IMPLEMENTED);
+  fs::Name name(aName);
+  fs::FileSystemChildMetadata metadata(mMetadata.entryId(), name);
+  mRequestHandler->GetFileHandle(mManager, metadata, aOptions.mCreate, promise);
 
   return promise.forget();
 }
@@ -78,12 +94,17 @@ already_AddRefed<Promise> FileSystemDirectoryHandle::GetFileHandle(
 already_AddRefed<Promise> FileSystemDirectoryHandle::GetDirectoryHandle(
     const nsAString& aName, const FileSystemGetDirectoryOptions& aOptions,
     ErrorResult& aError) {
+  MOZ_ASSERT(!mMetadata.entryId().IsEmpty());
+
   RefPtr<Promise> promise = Promise::Create(GetParentObject(), aError);
   if (aError.Failed()) {
     return nullptr;
   }
 
-  promise->MaybeReject(NS_ERROR_NOT_IMPLEMENTED);
+  fs::Name name(aName);
+  fs::FileSystemChildMetadata metadata(mMetadata.entryId(), name);
+  mRequestHandler->GetDirectoryHandle(mManager, metadata, aOptions.mCreate,
+                                      promise);
 
   return promise.forget();
 }
@@ -91,12 +112,18 @@ already_AddRefed<Promise> FileSystemDirectoryHandle::GetDirectoryHandle(
 already_AddRefed<Promise> FileSystemDirectoryHandle::RemoveEntry(
     const nsAString& aName, const FileSystemRemoveOptions& aOptions,
     ErrorResult& aError) {
+  MOZ_ASSERT(!mMetadata.entryId().IsEmpty());
+
   RefPtr<Promise> promise = Promise::Create(GetParentObject(), aError);
   if (aError.Failed()) {
     return nullptr;
   }
 
-  promise->MaybeReject(NS_ERROR_NOT_IMPLEMENTED);
+  fs::Name name(aName);
+  fs::FileSystemChildMetadata metadata(mMetadata.entryId(), name);
+
+  mRequestHandler->RemoveEntry(mManager, metadata, aOptions.mRecursive,
+                               promise);
 
   return promise.forget();
 }
@@ -111,6 +138,33 @@ already_AddRefed<Promise> FileSystemDirectoryHandle::Resolve(
   promise->MaybeReject(NS_ERROR_NOT_IMPLEMENTED);
 
   return promise.forget();
+}
+
+// [Serializable] implementation
+
+// static
+already_AddRefed<FileSystemDirectoryHandle>
+FileSystemDirectoryHandle::ReadStructuredClone(
+    JSContext* aCx, nsIGlobalObject* aGlobal,
+    JSStructuredCloneReader* aReader) {
+  uint32_t kind = static_cast<uint32_t>(FileSystemHandleKind::EndGuard_);
+
+  if (!JS_ReadBytes(aReader, reinterpret_cast<void*>(&kind),
+                    sizeof(uint32_t))) {
+    return nullptr;
+  }
+
+  if (kind != static_cast<uint32_t>(FileSystemHandleKind::Directory)) {
+    return nullptr;
+  }
+
+  RefPtr<FileSystemDirectoryHandle> result =
+      FileSystemHandle::ConstructDirectoryHandle(aCx, aGlobal, aReader);
+  if (!result) {
+    return nullptr;
+  }
+
+  return result.forget();
 }
 
 }  // namespace mozilla::dom

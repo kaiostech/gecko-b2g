@@ -3867,6 +3867,11 @@
   value: false
   mirror: always
 
+- name: dom.sitepermsaddon-provider.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Whether automatic storage access granting heuristics should be turned on.
 - name: dom.storage_access.auto_grants
   type: bool
@@ -5572,6 +5577,13 @@
   type: int32_t
   value: 0
   mirror: once
+
+#if defined(XP_MACOSX)
+- name: gfx.cairo_quartz_cg_layer.enabled
+  type: bool
+  value: false
+  mirror: always
+#endif
 
 - name: gfx.canvas.accelerated
   type: RelaxedAtomicBool
@@ -8445,12 +8457,6 @@
   value: 1.0f
   mirror: always
 
-- name: layout.css.supports-selector.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Tuning of the smooth scroll motion used by CSSOM-View scroll-behavior.
 # Spring-constant controls the strength of the simulated MSD
 # (Mass-Spring-Damper).
@@ -8951,6 +8957,12 @@
 #---------------------------------------------------------------------------
 # Prefs starting with "mathml."
 #---------------------------------------------------------------------------
+
+# Whether to disable layout of invalid markup as an error message.
+- name: mathml.error_message_layout_for_invalid_markup.disabled
+  type: bool
+  value: true
+  mirror: always
 
 # Whether to disable MathML3 implementations for maction and semantics.
 - name: mathml.legacy_maction_and_semantics_implementations.disabled

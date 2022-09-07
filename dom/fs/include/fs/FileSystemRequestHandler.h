@@ -22,12 +22,8 @@ namespace fs {
 
 class FileSystemChildMetadata;
 class FileSystemEntryMetadata;
+class FileSystemEntryMetadataArray;
 class FileSystemEntryPair;
-
-class ArrayAppendable {
- public:
-  void append(const nsTArray<RefPtr<FileSystemHandle>>& /* aBatch */) {}
-};
 
 class FileSystemRequestHandler {
  public:
@@ -48,7 +44,8 @@ class FileSystemRequestHandler {
 
   virtual void GetEntries(RefPtr<FileSystemManager>& aManager,
                           const EntryId& aDirectory, PageNumber aPage,
-                          RefPtr<Promise> aPromise, ArrayAppendable& aSink);
+                          RefPtr<Promise> aPromise,
+                          RefPtr<FileSystemEntryMetadataArray>& aSink);
 
   virtual void RemoveEntry(RefPtr<FileSystemManager>& aManager,
                            const FileSystemChildMetadata& aEntry,

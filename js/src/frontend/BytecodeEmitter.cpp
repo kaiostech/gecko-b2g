@@ -133,6 +133,7 @@ static bool ShouldSuppressBreakpointsAndSourceNotes(
 BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, ErrorContext* ec,
                                  JS::NativeStackLimit stackLimit,
                                  SharedContext* sc,
+                                 const ErrorReporter& errorReporter,
                                  CompilationState& compilationState,
                                  EmitterMode emitterMode)
     : sc(sc),
@@ -142,6 +143,7 @@ BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, ErrorContext* ec,
       parent(parent),
       bytecodeSection_(cx, sc->extent().lineno, sc->extent().column),
       perScriptData_(cx, compilationState),
+      errorReporter_(errorReporter),
       compilationState(compilationState),
       suppressBreakpointsAndSourceNotes(
           ShouldSuppressBreakpointsAndSourceNotes(sc, emitterMode)),
@@ -150,24 +152,19 @@ BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, ErrorContext* ec,
   MOZ_ASSERT_IF(parent, ec == parent->ec);
 }
 
-BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent,
-                                 BCEParserHandle* handle, SharedContext* sc,
-                                 CompilationState& compilationState,
-                                 EmitterMode emitterMode)
+BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, SharedContext* sc)
     : BytecodeEmitter(parent, parent->ec, parent->stackLimit, sc,
-                      compilationState, emitterMode) {
-  parser = handle;
-}
+                      parent->errorReporter_, parent->compilationState,
+                      parent->emitterMode) {}
 
 BytecodeEmitter::BytecodeEmitter(ErrorContext* ec,
                                  JS::NativeStackLimit stackLimit,
                                  const EitherParser& parser, SharedContext* sc,
                                  CompilationState& compilationState,
                                  EmitterMode emitterMode)
-    : BytecodeEmitter(nullptr, ec, stackLimit, sc, compilationState,
-                      emitterMode) {
+    : BytecodeEmitter(nullptr, ec, stackLimit, sc, parser.errorReporter(),
+                      compilationState, emitterMode) {
   ep_.emplace(parser);
-  this->parser = ep_.ptr();
 }
 
 void BytecodeEmitter::initFromBodyPosition(TokenPos bodyPosition) {
@@ -558,15 +555,15 @@ bool BytecodeEmitter::updateLineNumberNotes(uint32_t offset) {
     return true;
   }
 
-  ErrorReporter* er = &parser->errorReporter();
+  const ErrorReporter& er = errorReporter();
   bool onThisLine;
-  if (!er->isOnThisLine(offset, bytecodeSection().currentLine(), &onThisLine)) {
-    er->errorNoOffset(JSMSG_OUT_OF_MEMORY);
+  if (!er.isOnThisLine(offset, bytecodeSection().currentLine(), &onThisLine)) {
+    er.errorNoOffset(JSMSG_OUT_OF_MEMORY);
     return false;
   }
 
   if (!onThisLine) {
-    unsigned line = er->lineAt(offset);
+    unsigned line = er.lineAt(offset);
     unsigned delta = line - bytecodeSection().currentLine();
 
     // If we use a `SetLine` note below, we want it to be relative to the
@@ -614,7 +611,7 @@ bool BytecodeEmitter::updateSourceCoordNotes(uint32_t offset) {
     return true;
   }
 
-  uint32_t columnIndex = parser->errorReporter().columnAt(offset);
+  uint32_t columnIndex = errorReporter().columnAt(offset);
   MOZ_ASSERT(columnIndex <= ColumnLimit);
 
   // Assert colspan is always representable.
@@ -1456,8 +1453,8 @@ void BytecodeEmitter::reportError(ParseNode* pn, unsigned errorNumber, ...) {
   va_list args;
   va_start(args, errorNumber);
 
-  parser->errorReporter().errorWithNotesAtVA(nullptr, AsVariant(offset),
-                                             errorNumber, &args);
+  errorReporter().errorWithNotesAtVA(nullptr, AsVariant(offset), errorNumber,
+                                     &args);
 
   va_end(args);
 }
@@ -1466,8 +1463,8 @@ void BytecodeEmitter::reportError(uint32_t offset, unsigned errorNumber, ...) {
   va_list args;
   va_start(args, errorNumber);
 
-  parser->errorReporter().errorWithNotesAtVA(nullptr, AsVariant(offset),
-                                             errorNumber, &args);
+  errorReporter().errorWithNotesAtVA(nullptr, AsVariant(offset), errorNumber,
+                                     &args);
 
   va_end(args);
 }
@@ -2392,7 +2389,7 @@ bool BytecodeEmitter::emitScript(ParseNode* body) {
     switchToMain();
 
     ParseNode* scopeBody = scope->scopeBody();
-    if (!emitLexicalScopeBody(scopeBody, EMIT_LINENOTE)) {
+    if (!emitLexicalScopeBody(scopeBody)) {
       return false;
     }
 
@@ -2489,8 +2486,7 @@ bool BytecodeEmitter::getNslots(uint32_t* nslots) {
 
 bool BytecodeEmitter::emitFunctionScript(FunctionNode* funNode) {
   MOZ_ASSERT(inPrologue());
-  ListNode* paramsBody = &funNode->body()->as<ListNode>();
-  MOZ_ASSERT(paramsBody->isKind(ParseNodeKind::ParamsBody));
+  ParamsBodyNode* paramsBody = funNode->body();
   FunctionBox* funbox = sc->asFunctionBox();
 
   setScriptStartOffsetIfUnset(paramsBody->pn_pos.begin);
@@ -2514,7 +2510,7 @@ bool BytecodeEmitter::emitFunctionScript(FunctionNode* funNode) {
     return false;
   }
 
-  if (!emitTree(paramsBody->last())) {
+  if (!emitTree(paramsBody->body())) {
     //              [stack]
     return false;
   }
@@ -4631,12 +4627,12 @@ bool BytecodeEmitter::emitShortCircuitAssignment(AssignmentNode* node) {
 bool BytecodeEmitter::emitCallSiteObjectArray(JSOp op, ListNode* cookedOrRaw,
                                               GCThingIndex* outArrayIndex) {
   DebugOnly<uint32_t> count = cookedOrRaw->count();
-  ParseNode* pn = cookedOrRaw->head();
+  ParseNode* head = cookedOrRaw->head();
 
   // The first element of a call-site node is the raw-values list. Skip over it.
   if (cookedOrRaw->isKind(ParseNodeKind::CallSiteObj)) {
-    MOZ_ASSERT(pn->isKind(ParseNodeKind::ArrayExpr));
-    pn = pn->pn_next;
+    MOZ_ASSERT(head->isKind(ParseNodeKind::ArrayExpr));
+    head = head->pn_next;
     count--;
   } else {
     MOZ_ASSERT(cookedOrRaw->isKind(ParseNodeKind::ArrayExpr));
@@ -4647,14 +4643,15 @@ bool BytecodeEmitter::emitCallSiteObjectArray(JSOp op, ListNode* cookedOrRaw,
   writer.beginArray(op);
   writer.beginDenseArrayElements();
 
-  DebugOnly<size_t> idx;
-  for (idx = 0; pn; idx++, pn = pn->pn_next) {
+  DebugOnly<size_t> idx = 0;
+  for (ParseNode* pn : cookedOrRaw->contentsFrom(head)) {
     MOZ_ASSERT(pn->isKind(ParseNodeKind::TemplateStringExpr) ||
                pn->isKind(ParseNodeKind::RawUndefinedExpr));
 
     if (!emitObjLiteralValue(writer, pn)) {
       return false;
     }
+    idx++;
   }
   MOZ_ASSERT(idx == count);
 
@@ -5354,7 +5351,7 @@ bool BytecodeEmitter::emitInitializeForInOrOfTarget(TernaryNode* forHead) {
   // If the for-in/of loop didn't have a variable declaration, per-loop
   // initialization is just assigning the iteration value to a target
   // expression.
-  if (!parser->astGenerator().isDeclarationList(target)) {
+  if (!target->is<DeclarationListNode>()) {
     return emitAssignmentOrInit(ParseNodeKind::AssignExpr, target, nullptr);
     //              [stack] ... ITERVAL
   }
@@ -5365,19 +5362,17 @@ bool BytecodeEmitter::emitInitializeForInOrOfTarget(TernaryNode* forHead) {
   // assignment to that name (which does *not* necessarily assign to the
   // variable!) must be generated.
 
-  if (!updateSourceCoordNotes(target->pn_pos.begin)) {
+  auto* declarationList = &target->as<DeclarationListNode>();
+  if (!updateSourceCoordNotes(declarationList->pn_pos.begin)) {
     return false;
   }
 
-  MOZ_ASSERT(target->isForLoopDeclaration());
-  target = parser->astGenerator().singleBindingFromDeclaration(
-      &target->as<ListNode>());
+  target = declarationList->singleBinding();
 
   NameNode* nameNode = nullptr;
   if (target->isKind(ParseNodeKind::Name)) {
     nameNode = &target->as<NameNode>();
-  } else if (target->isKind(ParseNodeKind::AssignExpr) ||
-             target->isKind(ParseNodeKind::InitExpr)) {
+  } else if (target->isKind(ParseNodeKind::AssignExpr)) {
     BinaryNode* assignNode = &target->as<BinaryNode>();
     if (assignNode->left()->is<NameNode>()) {
       nameNode = &assignNode->left()->as<NameNode>();
@@ -5413,8 +5408,7 @@ bool BytecodeEmitter::emitInitializeForInOrOfTarget(TernaryNode* forHead) {
   }
 
   MOZ_ASSERT(
-      !target->isKind(ParseNodeKind::AssignExpr) &&
-          !target->isKind(ParseNodeKind::InitExpr),
+      !target->isKind(ParseNodeKind::AssignExpr),
       "for-in/of loop destructuring declarations can't have initializers");
 
   MOZ_ASSERT(target->isKind(ParseNodeKind::ArrayExpr) ||
@@ -5528,11 +5522,11 @@ bool BytecodeEmitter::emitForIn(ForNode* forInLoop,
   // Annex B: Evaluate the var-initializer expression if present.
   // |for (var i = initializer in expr) { ... }|
   ParseNode* forInTarget = forInHead->kid1();
-  if (parser->astGenerator().isDeclarationList(forInTarget)) {
-    ParseNode* decl = parser->astGenerator().singleBindingFromDeclaration(
-        &forInTarget->as<ListNode>());
-    if (decl->isKind(ParseNodeKind::AssignExpr) ||
-        decl->isKind(ParseNodeKind::InitExpr)) {
+  if (forInTarget->is<DeclarationListNode>()) {
+    auto* declarationList = &forInTarget->as<DeclarationListNode>();
+
+    ParseNode* decl = declarationList->singleBinding();
+    if (decl->isKind(ParseNodeKind::AssignExpr)) {
       BinaryNode* assignNode = &decl->as<BinaryNode>();
       if (assignNode->left()->is<NameNode>()) {
         NameNode* nameNode = &assignNode->left()->as<NameNode>();
@@ -5645,7 +5639,9 @@ bool BytecodeEmitter::emitCStyleFor(
     // Emit the `init` clause, whether it's an expression or a variable
     // declaration. (The loop variables were hoisted into an enclosing
     // scope, but we still need to emit code for the initializers.)
-    if (init->isForLoopDeclaration()) {
+    if (init->is<DeclarationListNode>()) {
+      MOZ_ASSERT(!init->as<DeclarationListNode>().empty());
+
       if (!emitTree(init)) {
         //          [stack]
         return false;
@@ -5778,7 +5774,7 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
       return false;
     }
 
-    BytecodeEmitter bce2(this, parser, funbox, compilationState, emitterMode);
+    BytecodeEmitter bce2(this, funbox);
     if (!bce2.init(funNode->pn_pos)) {
       return false;
     }
@@ -6021,9 +6017,6 @@ bool BytecodeEmitter::emitReturn(UnaryNode* returnNode) {
     return false;
   }
 
-  if (!updateSourceCoordNotes(returnNode->pn_pos.begin)) {
-    return false;
-  }
   if (!markStepBreakpoint()) {
     return false;
   }
@@ -7165,8 +7158,7 @@ bool BytecodeEmitter::emitSelfHostedCallFunction(CallNode* callNode, JSOp op) {
     }
   }
 
-  for (ParseNode* argpn = thisOrNewTarget->pn_next; argpn;
-       argpn = argpn->pn_next) {
+  for (ParseNode* argpn : argsList->contentsFrom(thisOrNewTarget->pn_next)) {
     if (!emitTree(argpn)) {
       //            [stack] CALLEE ... ARGS...
       return false;
@@ -7738,7 +7730,7 @@ bool BytecodeEmitter::emitCalleeAndThis(ParseNode* callee, ParseNode* call,
       break;
     case ParseNodeKind::SuperBase:
       MOZ_ASSERT(call->isKind(ParseNodeKind::SuperCallExpr));
-      MOZ_ASSERT(parser->astGenerator().isSuperBase(callee));
+      MOZ_ASSERT(callee->isKind(ParseNodeKind::SuperBase));
       if (!cone.emitSuperCallee()) {
         //          [stack] CALLEE IsConstructing
         return false;
@@ -7859,7 +7851,7 @@ bool BytecodeEmitter::emitArguments(ListNode* argsList, bool isCall,
       //            [stack] CALLEE THIS
       return false;
     }
-    if (!emitArray(argsList->head(), argc)) {
+    if (!emitArray(argsList)) {
       //            [stack] CALLEE THIS ARR
       return false;
     }
@@ -8498,13 +8490,6 @@ bool BytecodeEmitter::emitShortCircuit(ListNode* node) {
 
   TDZCheckCache tdzCache(this);
 
-  /* Left-associative operator chain: avoid too much recursion. */
-  ParseNode* expr = node->head();
-
-  if (!emitTree(expr)) {
-    return false;
-  }
-
   JSOp op;
   switch (node->getKind()) {
     case ParseNodeKind::OrExpr:
@@ -8521,15 +8506,11 @@ bool BytecodeEmitter::emitShortCircuit(ListNode* node) {
   }
 
   JumpList jump;
-  if (!emitJump(op, &jump)) {
-    return false;
-  }
-  if (!emit1(JSOp::Pop)) {
-    return false;
-  }
 
-  /* Emit nodes between the head and the tail. */
-  while ((expr = expr->pn_next)->pn_next) {
+  // Left-associative operator chain: avoid too much recursion.
+  //
+  // Emit all nodes but the last.
+  for (ParseNode* expr : node->contentsTo(node->last())) {
     if (!emitTree(expr)) {
       return false;
     }
@@ -8540,7 +8521,9 @@ bool BytecodeEmitter::emitShortCircuit(ListNode* node) {
       return false;
     }
   }
-  if (!emitTree(expr)) {
+
+  // Emit the last node
+  if (!emitTree(node->last())) {
     return false;
   }
 
@@ -8552,20 +8535,24 @@ bool BytecodeEmitter::emitShortCircuit(ListNode* node) {
 
 bool BytecodeEmitter::emitSequenceExpr(
     ListNode* node, ValueUsage valueUsage /* = ValueUsage::WantValue */) {
-  for (ParseNode* child = node->head();; child = child->pn_next) {
+  for (ParseNode* child : node->contentsTo(node->last())) {
     if (!updateSourceCoordNotes(child->pn_pos.begin)) {
       return false;
     }
-    if (!emitTree(child,
-                  child->pn_next ? ValueUsage::IgnoreValue : valueUsage)) {
+    if (!emitTree(child, ValueUsage::IgnoreValue)) {
       return false;
-    }
-    if (!child->pn_next) {
-      break;
     }
     if (!emit1(JSOp::Pop)) {
       return false;
     }
+  }
+
+  ParseNode* child = node->last();
+  if (!updateSourceCoordNotes(child->pn_pos.begin)) {
+    return false;
+  }
+  if (!emitTree(child, valueUsage)) {
+    return false;
   }
   return true;
 }
@@ -8726,8 +8713,8 @@ void BytecodeEmitter::isPropertyListObjLiteralCompatible(ListNode* obj,
   *withoutValues = keysOK;
 }
 
-bool BytecodeEmitter::isArrayObjLiteralCompatible(ParseNode* arrayHead) {
-  for (ParseNode* elem = arrayHead; elem; elem = elem->pn_next) {
+bool BytecodeEmitter::isArrayObjLiteralCompatible(ListNode* array) {
+  for (ParseNode* elem : array->contents()) {
     if (elem->isKind(ParseNodeKind::Spread)) {
       return false;
     }
@@ -8762,7 +8749,7 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
 
         ParseNode* nameExpr = field->name().as<UnaryNode>().kid();
 
-        if (!emitTree(nameExpr, ValueUsage::WantValue, EMIT_LINENOTE)) {
+        if (!emitTree(nameExpr, ValueUsage::WantValue)) {
           //        [stack] CTOR OBJ ARRAY KEY
           return false;
         }
@@ -9274,7 +9261,7 @@ bool BytecodeEmitter::emitDestructuringRestExclusionSetObjLiteral(
   return true;
 }
 
-bool BytecodeEmitter::emitObjLiteralArray(ParseNode* arrayHead) {
+bool BytecodeEmitter::emitObjLiteralArray(ListNode* array) {
   MOZ_ASSERT(checkSingletonContext());
 
   constexpr JSOp op = JSOp::Object;
@@ -9283,7 +9270,7 @@ bool BytecodeEmitter::emitObjLiteralArray(ParseNode* arrayHead) {
   writer.beginArray(op);
 
   writer.beginDenseArrayElements();
-  for (ParseNode* elem = arrayHead; elem; elem = elem->pn_next) {
+  for (ParseNode* elem : array->contents()) {
     if (!emitObjLiteralValue(writer, elem)) {
       return false;
     }
@@ -9656,11 +9643,11 @@ bool BytecodeEmitter::emitPrivateMethodInitializer(
     return false;
   }
 
-  BytecodeEmitter bce2(this, parser, funbox, compilationState, emitterMode);
+  BytecodeEmitter bce2(this, funbox);
   if (!bce2.init(funNode->pn_pos)) {
     return false;
   }
-  ListNode* paramsBody = &funNode->body()->as<ListNode>();
+  ParamsBodyNode* paramsBody = funNode->body();
   FunctionScriptEmitter fse(&bce2, funbox, Nothing(), Nothing());
   if (!fse.prepareForParameters()) {
     //              [stack]
@@ -10081,14 +10068,14 @@ bool BytecodeEmitter::emitArrayLiteral(ListNode* array) {
   // Emit JSOp::Object if the array consists entirely of primitive values and we
   // are in a singleton context.
   if (checkSingletonContext() && !array->hasNonConstInitializer() &&
-      array->head() && isArrayObjLiteralCompatible(array->head())) {
-    return emitObjLiteralArray(array->head());
+      !array->empty() && isArrayObjLiteralCompatible(array)) {
+    return emitObjLiteralArray(array);
   }
 
-  return emitArray(array->head(), array->count());
+  return emitArray(array);
 }
 
-bool BytecodeEmitter::emitArray(ParseNode* arrayHead, uint32_t count) {
+bool BytecodeEmitter::emitArray(ListNode* array) {
   /*
    * Emit code for [a, b, c] that is equivalent to constructing a new
    * array and in source order evaluating each element value and adding
@@ -10099,7 +10086,7 @@ bool BytecodeEmitter::emitArray(ParseNode* arrayHead, uint32_t count) {
    */
 
   uint32_t nspread = 0;
-  for (ParseNode* elem = arrayHead; elem; elem = elem->pn_next) {
+  for (ParseNode* elem : array->contents()) {
     if (elem->isKind(ParseNodeKind::Spread)) {
       nspread++;
     }
@@ -10111,6 +10098,8 @@ bool BytecodeEmitter::emitArray(ParseNode* arrayHead, uint32_t count) {
                 "required by BaselineCompiler::emit_NewArray, "
                 "BaselineCompiler::emit_InitElemArray, "
                 "and DoSetElemFallback's handling of JSOp::InitElemArray");
+
+  uint32_t count = array->count();
   MOZ_ASSERT(count >= nspread);
   MOZ_ASSERT(count <= NativeObject::MAX_DENSE_ELEMENTS_COUNT,
              "the parser must throw an error if the array exceeds maximum "
@@ -10123,41 +10112,28 @@ bool BytecodeEmitter::emitArray(ParseNode* arrayHead, uint32_t count) {
     return false;
   }
 
-  ParseNode* elem = arrayHead;
-  uint32_t index;
+  uint32_t index = 0;
   bool afterSpread = false;
-  for (index = 0; elem; index++, elem = elem->pn_next) {
-    if (!afterSpread && elem->isKind(ParseNodeKind::Spread)) {
-      afterSpread = true;
-      if (!emitNumberOp(index)) {
-        //          [stack] ARRAY INDEX
-        return false;
-      }
-    }
-    if (!updateSourceCoordNotes(elem->pn_pos.begin)) {
-      return false;
-    }
-
-    SelfHostedIter selfHostedIter = SelfHostedIter::Deny;
-    if (elem->isKind(ParseNodeKind::Elision)) {
-      if (!emit1(JSOp::Hole)) {
-        return false;
-      }
-    } else {
-      ParseNode* expr;
-      if (elem->isKind(ParseNodeKind::Spread)) {
-        expr = elem->as<UnaryNode>().kid();
-
-        selfHostedIter = getSelfHostedIterFor(expr);
-      } else {
-        expr = elem;
-      }
-      if (!emitTree(expr, ValueUsage::WantValue, EMIT_LINENOTE)) {
-        //          [stack] ARRAY INDEX? VALUE
-        return false;
-      }
-    }
+  for (ParseNode* elem : array->contents()) {
     if (elem->isKind(ParseNodeKind::Spread)) {
+      if (!afterSpread) {
+        afterSpread = true;
+        if (!emitNumberOp(index)) {
+          //        [stack] ARRAY INDEX
+          return false;
+        }
+      }
+
+      ParseNode* expr = elem->as<UnaryNode>().kid();
+      SelfHostedIter selfHostedIter = getSelfHostedIterFor(expr);
+
+      if (!updateSourceCoordNotes(elem->pn_pos.begin)) {
+        return false;
+      }
+      if (!emitTree(expr, ValueUsage::WantValue)) {
+        //          [stack] ARRAY INDEX VALUE
+        return false;
+      }
       if (!emitIterator(selfHostedIter)) {
         //          [stack] ARRAY INDEX NEXT ITER
         return false;
@@ -10174,15 +10150,35 @@ bool BytecodeEmitter::emitArray(ParseNode* arrayHead, uint32_t count) {
         //          [stack] ARRAY INDEX
         return false;
       }
-    } else if (afterSpread) {
-      if (!emit1(JSOp::InitElemInc)) {
+    } else {
+      if (!updateSourceCoordNotes(elem->pn_pos.begin)) {
         return false;
       }
-    } else {
-      if (!emitUint32Operand(JSOp::InitElemArray, index)) {
-        return false;
+      if (elem->isKind(ParseNodeKind::Elision)) {
+        if (!emit1(JSOp::Hole)) {
+          return false;
+        }
+      } else {
+        if (!emitTree(elem, ValueUsage::WantValue)) {
+          //        [stack] ARRAY INDEX? VALUE
+          return false;
+        }
+      }
+
+      if (afterSpread) {
+        if (!emit1(JSOp::InitElemInc)) {
+          //        [stack] ARRAY (INDEX+1)
+          return false;
+        }
+      } else {
+        if (!emitUint32Operand(JSOp::InitElemArray, index)) {
+          //        [stack] ARRAY
+          return false;
+        }
       }
     }
+
+    index++;
   }
   MOZ_ASSERT(index == count);
   if (afterSpread) {
@@ -10393,24 +10389,22 @@ bool BytecodeEmitter::emitTypeof(UnaryNode* typeofNode, JSOp op) {
   return emit1(op);
 }
 
-bool BytecodeEmitter::emitFunctionFormalParameters(ListNode* paramsBody) {
-  ParseNode* funBody = paramsBody->last();
+bool BytecodeEmitter::emitFunctionFormalParameters(ParamsBodyNode* paramsBody) {
   FunctionBox* funbox = sc->asFunctionBox();
 
   bool hasRest = funbox->hasRest();
 
   FunctionParamsEmitter fpe(this, funbox);
-  for (ParseNode* arg = paramsBody->head(); arg != funBody;
-       arg = arg->pn_next) {
+  for (ParseNode* arg : paramsBody->parameters()) {
     ParseNode* bindingElement = arg;
     ParseNode* initializer = nullptr;
-    if (arg->isKind(ParseNodeKind::AssignExpr) ||
-        arg->isKind(ParseNodeKind::InitExpr)) {
+    if (arg->isKind(ParseNodeKind::AssignExpr)) {
       bindingElement = arg->as<BinaryNode>().left();
       initializer = arg->as<BinaryNode>().right();
     }
     bool hasInitializer = !!initializer;
-    bool isRest = hasRest && arg->pn_next == funBody;
+    bool isRest =
+        hasRest && arg->pn_next == *std::end(paramsBody->parameters());
     bool isDestructuring = !bindingElement->isKind(ParseNodeKind::Name);
 
     // Left-hand sides are either simple names or destructuring patterns.
@@ -11699,7 +11693,7 @@ bool BytecodeEmitter::intoScriptStencil(ScriptIndex scriptIndex) {
 
   // Hand over the ImmutableScriptData instance generated by BCE.
   auto* sharedData =
-      SharedImmutableScriptData::createWith(cx, std::move(immutableScriptData));
+      SharedImmutableScriptData::createWith(ec, std::move(immutableScriptData));
   if (!sharedData) {
     return false;
   }

@@ -2335,7 +2335,7 @@ FunctionNode* Parser<FullParseHandler, Unit>::standaloneFunction(
     return null();
   }
 
-  ListNodeType argsbody = handler_.newList(ParseNodeKind::ParamsBody, pos());
+  ParamsBodyNodeType argsbody = handler_.newParamsBody(pos());
   if (!argsbody) {
     return null();
   }
@@ -2653,7 +2653,7 @@ bool GeneralParser<ParseHandler, Unit>::functionArguments(
     // Record the start of function source (for FunctionToString).
     setFunctionStartAtCurrentToken(funbox);
 
-    ListNodeType argsbody = handler_.newList(ParseNodeKind::ParamsBody, pos());
+    ParamsBodyNodeType argsbody = handler_.newParamsBody(pos());
     if (!argsbody) {
       return false;
     }
@@ -2688,7 +2688,7 @@ bool GeneralParser<ParseHandler, Unit>::functionArguments(
   // Record the start of function source (for FunctionToString).
   setFunctionStartAtCurrentToken(funbox);
 
-  ListNodeType argsbody = handler_.newList(ParseNodeKind::ParamsBody, pos());
+  ParamsBodyNodeType argsbody = handler_.newParamsBody(pos());
   if (!argsbody) {
     return false;
   }
@@ -3107,8 +3107,7 @@ GeneralParser<ParseHandler, Unit>::functionDefinition(
     tokenStream.rewind(start);
     this->compilationState_.rewind(startObj);
 
-    // functionFormalParametersAndBody may have already set body before
-    // failing.
+    // functionFormalParametersAndBody may have already set body before failing.
     handler_.setFunctionFormalParametersAndBody(funNode, null());
   }
 
@@ -4860,7 +4859,7 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::declarationName(
 }
 
 template <class ParseHandler, typename Unit>
-typename ParseHandler::ListNodeType
+typename ParseHandler::DeclarationListNodeType
 GeneralParser<ParseHandler, Unit>::declarationList(
     YieldHandling yieldHandling, ParseNodeKind kind,
     ParseNodeKind* forHeadKind /* = nullptr */,
@@ -4883,7 +4882,7 @@ GeneralParser<ParseHandler, Unit>::declarationList(
       MOZ_CRASH("Unknown declaration kind");
   }
 
-  ListNodeType decl = handler_.newDeclarationList(kind, pos());
+  DeclarationListNodeType decl = handler_.newDeclarationList(kind, pos());
   if (!decl) {
     return null();
   }
@@ -4930,7 +4929,7 @@ GeneralParser<ParseHandler, Unit>::declarationList(
 }
 
 template <class ParseHandler, typename Unit>
-typename ParseHandler::ListNodeType
+typename ParseHandler::DeclarationListNodeType
 GeneralParser<ParseHandler, Unit>::lexicalDeclaration(
     YieldHandling yieldHandling, DeclarationKind kind) {
   MOZ_ASSERT(kind == DeclarationKind::Const || kind == DeclarationKind::Let);
@@ -4946,7 +4945,7 @@ GeneralParser<ParseHandler, Unit>::lexicalDeclaration(
    *
    * See 8.1.1.1.6 and the note in 13.2.1.
    */
-  ListNodeType decl = declarationList(
+  DeclarationListNodeType decl = declarationList(
       yieldHandling, kind == DeclarationKind::Const ? ParseNodeKind::ConstDecl
                                                     : ParseNodeKind::LetDecl);
   if (!decl || !matchOrInsertSemicolon()) {
@@ -5543,7 +5542,7 @@ inline bool GeneralParser<ParseHandler, Unit>::checkExportedNamesForDeclaration(
 
 template <typename Unit>
 bool Parser<FullParseHandler, Unit>::checkExportedNamesForDeclarationList(
-    ListNode* node) {
+    DeclarationListNodeType node) {
   for (ParseNode* binding : node->contents()) {
     if (binding->isKind(ParseNodeKind::AssignExpr)) {
       binding = binding->as<AssignmentNode>().left();
@@ -5562,7 +5561,7 @@ bool Parser<FullParseHandler, Unit>::checkExportedNamesForDeclarationList(
 template <typename Unit>
 inline bool
 Parser<SyntaxParseHandler, Unit>::checkExportedNamesForDeclarationList(
-    ListNodeType node) {
+    DeclarationListNodeType node) {
   MOZ_ALWAYS_FALSE(abortIfSyntaxParser());
   return false;
 }
@@ -5570,7 +5569,7 @@ Parser<SyntaxParseHandler, Unit>::checkExportedNamesForDeclarationList(
 template <class ParseHandler, typename Unit>
 inline bool
 GeneralParser<ParseHandler, Unit>::checkExportedNamesForDeclarationList(
-    ListNodeType node) {
+    DeclarationListNodeType node) {
   return asFinalParser()->checkExportedNamesForDeclarationList(node);
 }
 
@@ -5980,7 +5979,8 @@ GeneralParser<ParseHandler, Unit>::exportVariableStatement(uint32_t begin) {
 
   MOZ_ASSERT(anyChars.isCurrentTokenType(TokenKind::Var));
 
-  ListNodeType kid = declarationList(YieldIsName, ParseNodeKind::VarStmt);
+  DeclarationListNodeType kid =
+      declarationList(YieldIsName, ParseNodeKind::VarStmt);
   if (!kid) {
     return null();
   }
@@ -6083,7 +6083,7 @@ GeneralParser<ParseHandler, Unit>::exportLexicalDeclaration(
   MOZ_ASSERT_IF(kind == DeclarationKind::Let,
                 anyChars.isCurrentTokenType(TokenKind::Let));
 
-  ListNodeType kid = lexicalDeclaration(YieldIsName, kind);
+  DeclarationListNodeType kid = lexicalDeclaration(YieldIsName, kind);
   if (!kid) {
     return null();
   }
@@ -8421,9 +8421,9 @@ GeneralParser<ParseHandler, Unit>::synthesizeConstructorBody(
     FunctionNodeType funNode, FunctionBox* funbox) {
   MOZ_ASSERT(funbox->isClassConstructor());
 
-  // Create a ListNode for the parameters + body (there are no parameters).
-  ListNodeType argsbody =
-      handler_.newList(ParseNodeKind::ParamsBody, synthesizedBodyPos);
+  // Create a ParamsBodyNode for the parameters + body (there are no
+  // parameters).
+  ParamsBodyNodeType argsbody = handler_.newParamsBody(synthesizedBodyPos);
   if (!argsbody) {
     return null();
   }
@@ -8584,8 +8584,7 @@ GeneralParser<ParseHandler, Unit>::privateMethodInitializer(
   pc_->functionScope().useAsVarScope(pc_);
 
   // Add empty parameter list.
-  ListNodeType argsbody =
-      handler_.newList(ParseNodeKind::ParamsBody, propNamePos);
+  ParamsBodyNodeType argsbody = handler_.newParamsBody(propNamePos);
   if (!argsbody) {
     return null();
   }
@@ -8727,9 +8726,9 @@ GeneralParser<ParseHandler, Unit>::staticClassBlock(
   handler_.setEndPosition(funNode, wholeBodyPos.end);
   setFunctionEndFromCurrentToken(funbox);
 
-  // Create a ListNode for the parameters + body (there are no parameters).
-  ListNodeType argsbody =
-      handler_.newList(ParseNodeKind::ParamsBody, wholeBodyPos);
+  // Create a ParamsBodyNode for the parameters + body (there are no
+  // parameters).
+  ParamsBodyNodeType argsbody = handler_.newParamsBody(wholeBodyPos);
   if (!argsbody) {
     return null();
   }
@@ -8835,9 +8834,9 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
   handler_.setEndPosition(funNode, wholeInitializerPos.end);
   setFunctionEndFromCurrentToken(funbox);
 
-  // Create a ListNode for the parameters + body (there are no parameters).
-  ListNodeType argsbody =
-      handler_.newList(ParseNodeKind::ParamsBody, wholeInitializerPos);
+  // Create a ParamsBodyNode for the parameters + body (there are no
+  // parameters).
+  ParamsBodyNodeType argsbody = handler_.newParamsBody(wholeInitializerPos);
   if (!argsbody) {
     return null();
   }
@@ -8937,8 +8936,8 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
   }
 
   // Synthesize an property init.
-  AssignmentNodeType initializerPropInit = handler_.newAssignment(
-      ParseNodeKind::InitExpr, propAssignFieldAccess, initializerExpr);
+  BinaryNodeType initializerPropInit =
+      handler_.newInitExpr(propAssignFieldAccess, initializerExpr);
   if (!initializerPropInit) {
     return null();
   }
@@ -9015,10 +9014,11 @@ bool ParserBase::nextTokenContinuesLetDeclaration(TokenKind next) {
 }
 
 template <class ParseHandler, typename Unit>
-typename ParseHandler::ListNodeType
+typename ParseHandler::DeclarationListNodeType
 GeneralParser<ParseHandler, Unit>::variableStatement(
     YieldHandling yieldHandling) {
-  ListNodeType vars = declarationList(yieldHandling, ParseNodeKind::VarStmt);
+  DeclarationListNodeType vars =
+      declarationList(yieldHandling, ParseNodeKind::VarStmt);
   if (!vars) {
     return null();
   }
@@ -10591,7 +10591,7 @@ bool ParserBase::checkAndMarkSuperScope() {
 
 template <class ParseHandler, typename Unit>
 bool GeneralParser<ParseHandler, Unit>::computeErrorMetadata(
-    ErrorMetadata* err, const ErrorReportMixin::ErrorOffset& offset) {
+    ErrorMetadata* err, const ErrorReportMixin::ErrorOffset& offset) const {
   if (offset.is<ErrorReportMixin::Current>()) {
     return tokenStream.computeErrorMetadata(err, AsVariant(pos().begin));
   }

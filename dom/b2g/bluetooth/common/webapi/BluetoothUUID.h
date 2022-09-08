@@ -24,7 +24,7 @@ class StringOrUnsignedLong;
 class BluetoothUUID final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothUUID)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(BluetoothUUID)
 
   nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 

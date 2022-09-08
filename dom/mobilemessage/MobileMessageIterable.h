@@ -51,7 +51,7 @@ class MobileMessageIterable final : public nsISupports, public nsWrapperCache {
 
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileMessageIterable)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(MobileMessageIterable)
   explicit MobileMessageIterable(nsPIDOMWindowInner* aParent,
                                  nsICursorContinueCallback* aCallback);
   nsPIDOMWindowInner* GetParentObject() const;

@@ -20,7 +20,7 @@ namespace dom {
 class TelephonyCallId final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TelephonyCallId)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(TelephonyCallId)
 
   TelephonyCallId(nsPIDOMWindowInner* aWindow, const nsAString& aNumber,
                   uint16_t aNumberPresentation, const nsAString& aName,

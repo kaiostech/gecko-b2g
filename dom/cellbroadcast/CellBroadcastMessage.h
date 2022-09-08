@@ -22,7 +22,7 @@ class CellBroadcastEtwsInfo;
 class CellBroadcastMessage final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CellBroadcastMessage)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CellBroadcastMessage)
 
   CellBroadcastMessage(nsPIDOMWindowInner* aWindow, uint32_t aServiceId,
                        uint32_t aGsmGeographicalScope, uint16_t aMessageCode,
@@ -89,7 +89,7 @@ class CellBroadcastMessage final : public nsISupports, public nsWrapperCache {
 class CellBroadcastEtwsInfo final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CellBroadcastEtwsInfo)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CellBroadcastEtwsInfo)
 
   CellBroadcastEtwsInfo(nsPIDOMWindowInner* aWindow, uint32_t aWarningType,
                         bool aEmergencyUserAlert, bool aPopup);

@@ -105,7 +105,7 @@ class PostErrorRunnable final : public ActivityRequestHandlerProxyRunnable {
 
 }  // anonymous namespace
 
-NS_IMPL_CYCLE_COLLECTION_MULTI_ZONE_JSHOLDER_CLASS(WebActivityRequestHandler)
+NS_IMPL_CYCLE_COLLECTION_CLASS(WebActivityRequestHandler)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(WebActivityRequestHandler)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END

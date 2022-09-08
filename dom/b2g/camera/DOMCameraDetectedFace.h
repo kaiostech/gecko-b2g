@@ -19,7 +19,7 @@ namespace dom {
 class DOMCameraDetectedFace final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMCameraDetectedFace)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(DOMCameraDetectedFace)
 
   // Because this header's filename doesn't match its C++ or DOM-facing
   // classname, we can't rely on the [Func="..."] WebIDL tag to implicitly

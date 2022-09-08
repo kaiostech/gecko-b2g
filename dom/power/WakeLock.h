@@ -34,8 +34,8 @@ class WakeLock final : public nsIDOMEventListener,
   NS_DECL_NSIWAKELOCK
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(WakeLock,
-                                                         nsIDOMEventListener)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS_AMBIGUOUS(WakeLock,
+                                                        nsIDOMEventListener)
 
   // Note: WakeLock lives for the lifetime of the document in order to avoid
   // exposing GC behavior to pages. This means that

@@ -36,8 +36,8 @@ class nsDOMCameraManager final : public nsIObserver,
                                  public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsDOMCameraManager,
-                                                         nsIObserver)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS_AMBIGUOUS(nsDOMCameraManager,
+                                                        nsIObserver)
   NS_DECL_NSIOBSERVER
 
   // Because this header's filename doesn't match its C++ or DOM-facing

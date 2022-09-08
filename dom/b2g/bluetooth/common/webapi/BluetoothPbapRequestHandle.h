@@ -27,7 +27,7 @@ class BluetoothPbapRequestHandle final : public nsISupports,
                                          public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothPbapRequestHandle)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(BluetoothPbapRequestHandle)
 
   static already_AddRefed<BluetoothPbapRequestHandle> Create(
       nsPIDOMWindowInner* aOwner);

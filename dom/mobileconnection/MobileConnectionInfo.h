@@ -23,7 +23,7 @@ class MobileConnectionInfo final : public nsIMobileConnectionInfo,
  public:
   NS_DECL_NSIMOBILECONNECTIONINFO
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileConnectionInfo)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(MobileConnectionInfo)
 
   explicit MobileConnectionInfo(nsPIDOMWindowInner* aWindow);
 

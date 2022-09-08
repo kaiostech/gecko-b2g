@@ -18,7 +18,7 @@ namespace dom {
 class ImsDeviceConfiguration final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ImsDeviceConfiguration)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(ImsDeviceConfiguration)
 
   ImsDeviceConfiguration(nsPIDOMWindowInner* aWindow,
                          const nsTArray<ImsBearer>& aBearers);

@@ -22,7 +22,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 class BluetoothPairingHandle final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothPairingHandle)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(BluetoothPairingHandle)
 
   static already_AddRefed<BluetoothPairingHandle> Create(
       nsPIDOMWindowInner* aOwner, const nsAString& aDeviceAddress,

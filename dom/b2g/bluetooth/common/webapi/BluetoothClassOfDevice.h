@@ -21,7 +21,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 class BluetoothClassOfDevice final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothClassOfDevice)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(BluetoothClassOfDevice)
 
   static already_AddRefed<BluetoothClassOfDevice> Create(
       nsPIDOMWindowInner* aOwner);

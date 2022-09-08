@@ -37,7 +37,7 @@ class BluetoothConnectionHandle final : public nsISupports,
                                         public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothConnectionHandle)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(BluetoothConnectionHandle)
 
   static already_AddRefed<BluetoothConnectionHandle> Create(
       nsPIDOMWindowInner* aOwner, uint16_t aServiceUuid);

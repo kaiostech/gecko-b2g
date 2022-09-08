@@ -36,7 +36,7 @@ class BluetoothGattCharacteristic final : public nsISupports,
 
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothGattCharacteristic)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(BluetoothGattCharacteristic)
 
   /****************************************************************************
    * Attribute Getters

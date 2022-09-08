@@ -84,7 +84,7 @@ class nsCdmaIccInfo final : public nsIccInfo, public nsICdmaIccInfo {
 class IccInfo : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IccInfo)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(IccInfo)
 
   explicit IccInfo(nsPIDOMWindowInner* aWindow);
   explicit IccInfo(const icc::IccInfoData& aData);

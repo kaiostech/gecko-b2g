@@ -18,7 +18,7 @@ class MobileCellInfo final : public nsIMobileCellInfo, public nsWrapperCache {
  public:
   NS_DECL_NSIMOBILECELLINFO
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileCellInfo)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(MobileCellInfo)
 
   explicit MobileCellInfo(nsPIDOMWindowInner* aWindow);
 

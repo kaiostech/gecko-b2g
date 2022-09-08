@@ -20,7 +20,7 @@ class KeyboardEvent;
 class KeyboardEventGenerator final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(KeyboardEventGenerator)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(KeyboardEventGenerator)
 
   static already_AddRefed<KeyboardEventGenerator> Constructor(
       const GlobalObject& aGlobal, ErrorResult& aRv);

@@ -280,7 +280,7 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
 }
 
 void AlarmManager::Remove(long aId) {
-  LOG("AlarmManager::Remove aId:[%d] NS_IsMainThread:[%s]", aId,
+  LOG("AlarmManager::Remove aId:[%ld] NS_IsMainThread:[%s]", aId,
       NS_IsMainThread() ? "true" : "false");
   if (NS_WARN_IF(!mImpl)) {
     LOG("!mImpl");

@@ -32,7 +32,7 @@ class CameraRecorderVideoProfile final : public nsISupports,
                                          public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraRecorderVideoProfile)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CameraRecorderVideoProfile)
 
   explicit CameraRecorderVideoProfile(
       nsISupports* aParent,
@@ -72,7 +72,7 @@ class CameraRecorderAudioProfile final : public nsISupports,
                                          public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraRecorderAudioProfile)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CameraRecorderAudioProfile)
 
   explicit CameraRecorderAudioProfile(
       nsISupports* aParent,
@@ -106,7 +106,7 @@ class CameraRecorderAudioProfile final : public nsISupports,
 class CameraRecorderProfile final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraRecorderProfile)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CameraRecorderProfile)
 
   explicit CameraRecorderProfile(
       nsISupports* aParent, const ICameraControl::RecorderProfile& aProfile);
@@ -150,7 +150,7 @@ class CameraClosedListenerProxy;
 class CameraRecorderProfiles final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraRecorderProfiles)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CameraRecorderProfiles)
 
   explicit CameraRecorderProfiles(nsISupports* aParent,
                                   ICameraControl* aCameraControl);
@@ -181,7 +181,7 @@ class CameraRecorderProfiles final : public nsISupports, public nsWrapperCache {
 class CameraCapabilities final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraCapabilities)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CameraCapabilities)
 
   // Because this header's filename doesn't match its C++ or DOM-facing
   // classname, we can't rely on the [Func="..."] WebIDL tag to implicitly

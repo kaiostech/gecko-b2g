@@ -26,7 +26,7 @@ class AsyncIterableIterator;
 class FileIterable final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(FileIterable)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(FileIterable)
 
   explicit FileIterable(nsIGlobalObject* aGlobal,
                         DeviceStorageCursorRequest* aRequest);

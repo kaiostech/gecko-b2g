@@ -75,7 +75,7 @@ class WebActivity final : public nsISupports,
 {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(WebActivity)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(WebActivity)
 
   nsIGlobalObject* GetParentObject() const { return mGlobal; }
 

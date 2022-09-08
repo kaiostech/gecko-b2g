@@ -175,8 +175,6 @@ using namespace mozilla::layout;
 using namespace mozilla::widget;
 using mozilla::layers::GeckoContentController;
 
-NS_IMPL_ISUPPORTS(ContentListener, nsIDOMEventListener)
-
 static const char BEFORE_FIRST_PAINT[] = "before-first-paint";
 
 static uint32_t sConsecutiveTouchMoveCount = 0;
@@ -217,15 +215,6 @@ bool BrowserChild::UpdateFrame(const RepaintRequest& aRequest) {
     return true;
   }
   return true;
-}
-
-NS_IMETHODIMP
-ContentListener::HandleEvent(Event* aEvent) {
-  RemoteDOMEvent remoteEvent;
-  remoteEvent.mEvent = aEvent;
-  NS_ENSURE_STATE(remoteEvent.mEvent);
-  mBrowserChild->SendEvent(remoteEvent);
-  return NS_OK;
 }
 
 class BrowserChild::DelayedDeleteRunnable final : public Runnable,
@@ -2538,17 +2527,6 @@ RefPtr<VsyncMainChild> BrowserChild::GetVsyncChild() {
   }
 #endif
   return mVsyncChild;
-}
-
-mozilla::ipc::IPCResult BrowserChild::RecvActivateFrameEvent(
-    const nsAString& aType, const bool& capture) {
-  nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
-  NS_ENSURE_TRUE(window, IPC_OK());
-  nsCOMPtr<EventTarget> chromeHandler = window->GetChromeEventHandler();
-  NS_ENSURE_TRUE(chromeHandler, IPC_OK());
-  RefPtr<ContentListener> listener = new ContentListener(this);
-  chromeHandler->AddEventListener(aType, listener, capture);
-  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvLoadRemoteScript(

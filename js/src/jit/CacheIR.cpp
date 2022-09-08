@@ -2994,6 +2994,18 @@ static bool NeedEnvironmentShapeGuard(JSObject* envObj) {
   return false;
 }
 
+static ValOperandId EmitLoadEnvironmentSlot(CacheIRWriter& writer,
+                                            NativeObject* holder,
+                                            ObjOperandId holderId,
+                                            uint32_t slot) {
+  if (holder->isFixedSlot(slot)) {
+    return writer.loadFixedSlot(holderId,
+                                NativeObject::getFixedSlotOffset(slot));
+  }
+  size_t dynamicSlotIndex = holder->dynamicSlotIndex(slot);
+  return writer.loadDynamicSlot(holderId, dynamicSlotIndex);
+}
+
 AttachDecision GetNameIRGenerator::tryAttachEnvironmentName(ObjOperandId objId,
                                                             HandleId id) {
   if (IsGlobalOp(JSOp(*pc_)) || script_->hasNonSyntacticScope()) {
@@ -3033,6 +3045,7 @@ AttachDecision GetNameIRGenerator::tryAttachEnvironmentName(ObjOperandId objId,
     return AttachDecision::NoAction;
   }
   if (holder->getSlot(prop->slot()).isMagic()) {
+    MOZ_ASSERT(holder->is<EnvironmentObject>());
     return AttachDecision::NoAction;
   }
 
@@ -3051,14 +3064,12 @@ AttachDecision GetNameIRGenerator::tryAttachEnvironmentName(ObjOperandId objId,
     env = env->enclosingEnvironment();
   }
 
-  if (holder->isFixedSlot(prop->slot())) {
-    writer.loadEnvironmentFixedSlotResult(
-        lastObjId, NativeObject::getFixedSlotOffset(prop->slot()));
-  } else {
-    size_t dynamicSlotOffset =
-        holder->dynamicSlotIndex(prop->slot()) * sizeof(Value);
-    writer.loadEnvironmentDynamicSlotResult(lastObjId, dynamicSlotOffset);
+  ValOperandId resId =
+      EmitLoadEnvironmentSlot(writer, holder, lastObjId, prop->slot());
+  if (holder->is<EnvironmentObject>()) {
+    writer.guardIsNotUninitializedLexical(resId);
   }
+  writer.loadOperandResult(resId);
   writer.returnFromIC();
 
   trackAttached("EnvironmentName");
@@ -3199,6 +3210,13 @@ AttachDecision BindNameIRGenerator::tryAttachEnvironmentName(ObjOperandId objId,
     lastObjId = writer.loadEnclosingEnvironment(lastObjId);
     env = env->enclosingEnvironment();
   }
+
+  if (prop.isSome() && holder->is<EnvironmentObject>()) {
+    ValOperandId valId =
+        EmitLoadEnvironmentSlot(writer, holder, lastObjId, prop->slot());
+    writer.guardIsNotUninitializedLexical(valId);
+  }
+
   writer.loadObjectResult(lastObjId);
   writer.returnFromIC();
 

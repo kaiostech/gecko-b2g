@@ -129,7 +129,7 @@ class nsFrameLoader final : public nsStubMutationObserver,
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_FRAMELOADER_IID)
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(nsFrameLoader)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(nsFrameLoader)
 
   NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
   nsresult CheckForRecursiveLoad(nsIURI* aURI);
@@ -212,9 +212,6 @@ class nsFrameLoader final : public nsStubMutationObserver,
    * clear the weak owner content reference.
    */
   void Destroy(bool aForProcessSwitch = false);
-
-  void ActivateFrameEvent(const nsAString& aType, bool aCapture,
-                          mozilla::ErrorResult& aRv);
 
   void RequestUpdatePosition(mozilla::ErrorResult& aRv);
 

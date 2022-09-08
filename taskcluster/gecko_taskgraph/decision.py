@@ -13,7 +13,8 @@ from collections import defaultdict
 
 import yaml
 from redo import retry
-from taskgraph.create import create_tasks, testing
+from taskgraph import create
+from taskgraph.create import create_tasks
 from taskgraph.parameters import Parameters
 from taskgraph.taskgraph import TaskGraph
 from taskgraph.util.python_path import find_object
@@ -209,7 +210,7 @@ def taskgraph_decision(options, parameters=None):
         write_artifacts=True,
     )
 
-    if not testing:
+    if not create.testing:
         # set additional index paths for the decision task
         set_decision_indexes(decision_task_id, tgg.parameters, tgg.graph_config)
 

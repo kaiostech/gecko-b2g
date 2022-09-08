@@ -133,17 +133,6 @@ class BrowserChildMessageManager : public ContentFrameMessageManager,
   ~BrowserChildMessageManager();
 };
 
-class ContentListener final : public nsIDOMEventListener {
- public:
-  explicit ContentListener(BrowserChild* aBrowserChild)
-      : mBrowserChild(aBrowserChild) {}
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSIDOMEVENTLISTENER
- protected:
-  ~ContentListener() = default;
-  BrowserChild* mBrowserChild;
-};
-
 /**
  * BrowserChild implements the child actor part of the PBrowser protocol. See
  * PBrowser for more information.
@@ -427,9 +416,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
       const IPCDataTransfer& aDataTransfer, const bool& aIsPrivateData,
       nsIPrincipal* aRequestingPrincipal,
       const nsContentPolicyType& aContentPolicyType);
-
-  mozilla::ipc::IPCResult RecvActivateFrameEvent(const nsAString& aType,
-                                                 const bool& aCapture);
 
   mozilla::ipc::IPCResult RecvLoadRemoteScript(const nsAString& aURL,
                                                const bool& aRunInGlobalScope);

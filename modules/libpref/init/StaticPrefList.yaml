@@ -8824,10 +8824,10 @@
   value: true
   mirror: always
 
-# Is support for -webkit-line-clamp enabled?
-- name: layout.css.webkit-line-clamp.enabled
+# Is support for -webkit-line-clamp on regular blocks enabled?
+- name: layout.css.webkit-line-clamp.block.enabled
   type: bool
-  value: true
+  value: false
   mirror: always
 
 # Is 'content:none' supported on (non-pseudo) elements?
@@ -8998,6 +8998,18 @@
   type: bool
 #if defined(XP_MACOSX)
   value: @IS_NIGHTLY_BUILD@
+#else
+  value: true
+#endif
+  mirror: always
+
+# Whether to disable fallback for mathvariant=italic/bold/bold-italic via
+# styling when lacking proper fonts for Mathematical Alphanumeric Symbols.
+# We expect all OSes to have relevant fonts, except Android, see bug 1789083.
+- name: mathml.mathvariant_styling_fallback.disabled
+  type: bool
+#if defined(ANDROID)
+  value: false
 #else
   value: true
 #endif
@@ -10158,7 +10170,7 @@
   # acceleration for decoding.
 -   name: media.navigator.mediadatadecoder_vpx_enabled
     type: RelaxedAtomicBool
-#if defined(NIGHTLY_BUILD)
+#if defined(NIGHTLY_BUILD) || defined(MOZ_WIDGET_GTK)
     value: true
 #else
     value: false

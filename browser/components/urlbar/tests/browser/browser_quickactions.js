@@ -7,6 +7,8 @@
 
 "use strict";
 
+requestLongerTimeout(2);
+
 ChromeUtils.defineESModuleGetters(this, {
   UrlbarProviderQuickActions:
     "resource:///modules/UrlbarProviderQuickActions.sys.mjs",
@@ -30,6 +32,9 @@ add_setup(async function setup() {
       ["browser.urlbar.shortcuts.quickactions", true],
       ["screenshots.browser.component.enabled", true],
       ["extensions.screenshots.disabled", false],
+      // about:addons page holds last visit, as then will open the page if visit
+      // about:addons URL, clear it.
+      ["extensions.ui.lastCategory", ""],
     ],
   });
 
@@ -339,48 +344,90 @@ add_task(async function test_pages() {
 add_task(async function test_about_pages_refocused() {
   const testData = [
     {
-      input: "downloads",
+      firstInput: "downloads",
       uri: "about:downloads",
     },
     {
-      input: "logins",
+      firstInput: "logins",
       uri: "about:logins",
     },
     {
-      input: "settings",
+      firstInput: "settings",
       uri: "about:preferences",
+    },
+    {
+      firstInput: "plugins",
+      secondInput: "add-ons",
+      uri: "about:addons",
+      component: "button[name=plugin]",
+    },
+    {
+      firstLoad: "about:preferences#home",
+      secondInput: "settings",
+      uri: "about:preferences#home",
     },
   ];
 
-  for (const { input, uri } of testData) {
+  for (const {
+    firstInput,
+    firstLoad,
+    secondInput,
+    uri,
+    component,
+  } of testData) {
+    info("Setup initial state");
+    let firstTab = await BrowserTestUtils.openNewForegroundTab(gBrowser);
+    let onLoad = BrowserTestUtils.browserLoaded(
+      gBrowser.selectedBrowser,
+      false,
+      uri
+    );
+    if (firstLoad) {
+      info("Load initial URI");
+      BrowserTestUtils.loadURI(gBrowser.selectedBrowser, uri);
+    } else {
+      info("Open about page by quick action");
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({
+        window,
+        value: firstInput,
+      });
+      EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+      EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    }
+    await onLoad;
+
+    if (component) {
+      info("Check whether the component is in the page");
+      Assert.ok(await isSelected(component), "There is expected component");
+    }
+
+    info("Do the second quick action in second tab");
+    let secondTab = await BrowserTestUtils.openNewForegroundTab(gBrowser);
     await UrlbarTestUtils.promiseAutocompleteResultPopup({
       window,
-      value: input,
-    });
-
-    info("Open about page by quick action");
-    let originalTab = gBrowser.selectedTab;
-    let onLoad = BrowserTestUtils.waitForNewTab(gBrowser, uri);
-    EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
-    EventUtils.synthesizeKey("KEY_Enter", {}, window);
-    let newTab = await onLoad;
-
-    info("Do the same quick action in original tab");
-    gBrowser.selectedTab = originalTab;
-    await UrlbarTestUtils.promiseAutocompleteResultPopup({
-      window,
-      value: input,
+      value: secondInput || firstInput,
     });
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
     Assert.equal(
       gBrowser.selectedTab,
-      newTab,
+      firstTab,
       "Switched to the tab that is opening the about page"
     );
-    Assert.equal(gBrowser.tabs.length, 2, "Not opened a new tab");
+    Assert.equal(
+      gBrowser.selectedBrowser.currentURI.spec,
+      uri,
+      "URI is not changed"
+    );
+    Assert.equal(gBrowser.tabs.length, 3, "Not opened a new tab");
 
-    BrowserTestUtils.removeTab(newTab);
+    if (component) {
+      info("Check whether the component is still in the page");
+      Assert.ok(await isSelected(component), "There is expected component");
+    }
+
+    BrowserTestUtils.removeTab(secondTab);
+    BrowserTestUtils.removeTab(firstTab);
   }
 });
 

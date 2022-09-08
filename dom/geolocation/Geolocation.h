@@ -142,8 +142,8 @@ class Geolocation final : public nsIGeolocationUpdate,
                           public nsIDOMEventListener {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(Geolocation,
-                                                         nsIGeolocationUpdate)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS_AMBIGUOUS(Geolocation,
+                                                        nsIGeolocationUpdate)
 
   NS_DECL_NSIGEOLOCATIONUPDATE
   NS_DECL_NSIDOMEVENTLISTENER

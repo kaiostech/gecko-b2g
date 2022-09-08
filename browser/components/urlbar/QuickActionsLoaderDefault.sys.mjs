@@ -35,7 +35,9 @@ let openUrl = url => {
   let window = lazy.BrowserWindowTracker.getTopWindow();
 
   if (url.startsWith("about:")) {
-    window.switchToTabHavingURI(Services.io.newURI(url), true);
+    window.switchToTabHavingURI(Services.io.newURI(url), true, {
+      ignoreFragment: "whenComparing",
+    });
   } else {
     window.gBrowser.loadOneTab(url, {
       inBackground: false,
@@ -73,7 +75,7 @@ const DEFAULT_ACTIONS = {
     l10nCommands: ["quickactions-cmd-addons2", "quickactions-addons"],
     icon: "chrome://mozapps/skin/extensions/category-extensions.svg",
     label: "quickactions-addons",
-    onPick: openAddonsUrl("addons://discover/"),
+    onPick: () => openUrl("about:addons"),
   },
   bookmarks: {
     l10nCommands: ["quickactions-cmd-bookmarks", "quickactions-bookmarks"],

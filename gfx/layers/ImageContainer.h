@@ -122,6 +122,9 @@ class Image {
 
   int32_t GetSerial() const { return mSerial; }
 
+  bool IsDRM() const { return mIsDRM; }
+  void SetIsDRM(bool aIsDRM) { mIsDRM = aIsDRM; }
+
   virtual already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() = 0;
 
   virtual GrallocImage* AsGrallocImage() { return nullptr; }
@@ -158,7 +161,10 @@ class Image {
       TextureClient* tcOverride = nullptr);
 
   Image(void* aImplData, ImageFormat aFormat)
-      : mImplData(aImplData), mSerial(++sSerialCounter), mFormat(aFormat) {}
+      : mImplData(aImplData),
+        mSerial(++sSerialCounter),
+        mFormat(aFormat),
+        mIsDRM(false) {}
 
   // Protected destructor, to discourage deletion outside of Release():
   virtual ~Image() = default;
@@ -171,6 +177,7 @@ class Image {
   void* mImplData;
   int32_t mSerial;
   ImageFormat mFormat;
+  bool mIsDRM;
 
   static mozilla::Atomic<int32_t> sSerialCounter;
 };

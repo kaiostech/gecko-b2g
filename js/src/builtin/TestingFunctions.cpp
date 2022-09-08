@@ -1082,8 +1082,8 @@ static bool WasmGlobalFromArrayBuffer(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   // Copy the bytes from buffer into a tagged val
-  wasm::RootedVal val(cx, valType);
-  val.get().readFromRootedLocation(buffer->dataPointer());
+  wasm::RootedVal val(cx);
+  val.get().initFromRootedLocation(valType, buffer->dataPointer());
 
   // Create the global object
   RootedObject proto(
@@ -2651,7 +2651,7 @@ class HasChildTracer final : public JS::CallbackTracer {
   RootedValue child_;
   bool found_;
 
-  void onChild(JS::GCCellPtr thing) override {
+  void onChild(JS::GCCellPtr thing, const char* name) override {
     if (thing.asCell() == child_.toGCThing()) {
       found_ = true;
     }

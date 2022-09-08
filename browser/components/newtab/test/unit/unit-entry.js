@@ -600,8 +600,48 @@ const TEST_GLOBAL = {
       locale: {
         set() {},
       },
+      newtabCategory: {
+        set() {},
+      },
+      homepageCategory: {
+        set() {},
+      },
+    },
+    newtabSearch: {
+      enabled: {
+        set() {},
+      },
+    },
+    pocket: {
+      enabled: {
+        set() {},
+      },
+      impression: {
+        record() {},
+      },
+      isSignedIn: {
+        set() {},
+      },
+      sponsoredStoriesEnabled: {
+        set() {},
+      },
+      click: {
+        record() {},
+      },
+      save: {
+        record() {},
+      },
+      topicClick: {
+        record() {},
+      },
     },
     topsites: {
+      enabled: {
+        set() {},
+      },
+      sponsoredEnabled: {
+        set() {},
+      },
       impression: {
         record() {},
       },

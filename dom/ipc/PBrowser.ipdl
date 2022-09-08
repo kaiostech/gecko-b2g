@@ -268,8 +268,6 @@ parent:
      */
     async DropLinks(nsString[] aLinks);
 
-    async Event(RemoteDOMEvent aEvent);
-
     sync SyncMessage(nsString aMessage, ClonedMessageData aData)
       returns (StructuredCloneData[] retval);
 
@@ -896,11 +894,6 @@ child:
                             bool aIsPrivateData,
                             nsIPrincipal aRequestingPrincipal,
                             nsContentPolicyType aContentPolicyType);
-
-    /**
-     * Activate event forwarding from client to parent.
-     */
-    async ActivateFrameEvent(nsString aType, bool capture);
 
     async LoadRemoteScript(nsString aURL, bool aRunInGlobalScope);
 

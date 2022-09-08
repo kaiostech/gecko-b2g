@@ -2425,13 +2425,23 @@ class _ParamTraits:
         writeswitch.addcase(
             DefaultLabel(),
             StmtBlock(
-                [cls.fatalError(cls.writervar, "unknown union type"), StmtReturn()]
+                [
+                    cls.fatalError(
+                        cls.writervar, "unknown variant of union " + uniontype.name()
+                    ),
+                    StmtReturn(),
+                ]
             ),
         )
         readswitch.addcase(
             DefaultLabel(),
             StmtBlock(
-                [cls.fatalError(cls.readervar, "unknown union type"), StmtReturn.FALSE]
+                [
+                    cls.fatalError(
+                        cls.readervar, "unknown variant of union " + uniontype.name()
+                    ),
+                    StmtReturn.FALSE,
+                ]
             ),
         )
 
@@ -4849,7 +4859,7 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
             $*{prologue}
 
             UniquePtr<MessageChannel::UntypedCallbackHolder> untypedCallback =
-                GetIPCChannel()->PopCallback(${msgvar});
+                GetIPCChannel()->PopCallback(${msgvar}, Id());
 
             typedef MessageChannel::CallbackHolder<${resolvetype}> CallbackHolder;
             auto* callback = static_cast<CallbackHolder*>(untypedCallback.get());
@@ -4880,7 +4890,10 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
         return (lbl, case)
 
     def genAsyncSendMethod(self, md):
-        method = MethodDefn(self.makeSendMethodDecl(md))
+        decl = self.makeSendMethodDecl(md)
+        if "VirtualSendImpl" in md.attributes:
+            decl.methodspec = MethodSpec.VIRTUAL
+        method = MethodDefn(decl)
         msgvar, stmts = self.makeMessage(md, errfnSend)
         retvar, sendstmts = self.sendAsync(md, msgvar)
 
@@ -4890,7 +4903,10 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
 
         # Add the promise overload if we need one.
         if md.returns:
-            promisemethod = MethodDefn(self.makeSendMethodDecl(md, promise=True))
+            decl = self.makeSendMethodDecl(md, promise=True)
+            if "VirtualSendImpl" in md.attributes:
+                decl.methodspec = MethodSpec.VIRTUAL
+            promisemethod = MethodDefn(decl)
             stmts = self.sendAsyncWithPromise(md)
             promisemethod.addstmts(stmts)
 
@@ -5397,6 +5413,7 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
                         send,
                         args=[
                             ExprMove(msgexpr),
+                            ExprVar(md.pqReplyId()),
                             ExprMove(resolvefn),
                             ExprMove(rejectfn),
                         ],

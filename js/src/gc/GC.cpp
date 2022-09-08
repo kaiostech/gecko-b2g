@@ -2178,7 +2178,7 @@ bool GCRuntime::shouldPreserveJITCode(Realm* realm,
 
 #ifdef DEBUG
 class CompartmentCheckTracer final : public JS::CallbackTracer {
-  void onChild(JS::GCCellPtr thing) override;
+  void onChild(JS::GCCellPtr thing, const char* name) override;
   bool edgeIsInCrossCompartmentMap(JS::GCCellPtr dst);
 
  public:
@@ -2217,7 +2217,7 @@ static bool InCrossCompartmentMap(JSRuntime* rt, JSObject* src,
   return false;
 }
 
-void CompartmentCheckTracer::onChild(JS::GCCellPtr thing) {
+void CompartmentCheckTracer::onChild(JS::GCCellPtr thing, const char* name) {
   Compartment* comp =
       MapGCThingTyped(thing, [](auto t) { return t->maybeCompartment(); });
   if (comp && compartment) {
@@ -4735,16 +4735,16 @@ js::gc::ClearEdgesTracer::ClearEdgesTracer(JSRuntime* rt)
                         JS::WeakMapTraceAction::TraceKeysAndValues) {}
 
 template <typename T>
-T* js::gc::ClearEdgesTracer::onEdge(T* thing) {
+void js::gc::ClearEdgesTracer::onEdge(T** thingp, const char* name) {
   // We don't handle removing pointers to nursery edges from the store buffer
   // with this tracer. Check that this doesn't happen.
+  T* thing = *thingp;
   MOZ_ASSERT(!IsInsideNursery(thing));
 
   // Fire the pre-barrier since we're removing an edge from the graph.
   InternalBarrierMethods<T*>::preBarrier(thing);
 
-  // Return nullptr to clear the edge.
-  return nullptr;
+  *thingp = nullptr;
 }
 
 void GCRuntime::setPerformanceHint(PerformanceHint hint) {

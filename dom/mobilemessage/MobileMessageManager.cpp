@@ -170,8 +170,8 @@ already_AddRefed<DOMRequest> MobileMessageManager::Send(
 
   // Use the default one unless |aSendParams.serviceId| is available.
   uint32_t serviceId;
-  if (aSendParams.mServiceId) {
-    serviceId = aSendParams.mServiceId;
+  if (aSendParams.mServiceId.WasPassed()) {
+    serviceId = aSendParams.mServiceId.Value();
   } else {
     nsresult rv = smsService->GetSmsDefaultServiceId(&serviceId);
     if (NS_FAILED(rv)) {
@@ -196,8 +196,8 @@ void MobileMessageManager::Send(const Sequence<nsString>& aNumbers,
 
   // Use the default one unless |aSendParams.serviceId| is available.
   uint32_t serviceId;
-  if (aSendParams.mServiceId) {
-    serviceId = aSendParams.mServiceId;
+  if (aSendParams.mServiceId.WasPassed()) {
+    serviceId = aSendParams.mServiceId.Value();
   } else {
     nsresult rv = smsService->GetSmsDefaultServiceId(&serviceId);
     if (NS_FAILED(rv)) {
@@ -229,8 +229,8 @@ already_AddRefed<DOMRequest> MobileMessageManager::SendMMS(
   // Use the default one unless |aSendParams.serviceId| is available.
   uint32_t serviceId;
   nsresult rv;
-  if (aSendParams.mServiceId) {
-    serviceId = aSendParams.mServiceId;
+  if (aSendParams.mServiceId.WasPassed()) {
+    serviceId = aSendParams.mServiceId.Value();
   } else {
     rv = mmsService->GetMmsDefaultServiceId(&serviceId);
     if (NS_FAILED(rv)) {

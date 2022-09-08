@@ -41,12 +41,12 @@ dictionary MmsParameters {
 };
 
 dictionary SmsSendParameters {
-  unsigned long serviceId = 0; // The ID of the RIL service which needs to be
+  unsigned long serviceId; // The ID of the RIL service which needs to be
                            // specified under the multi-sim scenario.
 };
 
 dictionary MmsSendParameters {
-  unsigned long serviceId = 0; // The ID of the RIL service which needs to be
+  unsigned long serviceId; // The ID of the RIL service which needs to be
                            // specified under the multi-sim scenario.
 };
 

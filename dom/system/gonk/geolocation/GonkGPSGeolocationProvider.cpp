@@ -483,7 +483,8 @@ GonkGPSGeolocationProvider::Startup() {
     if (NS_SUCCEEDED(rv)) {
       nsString key;
       rv = formatter->FormatURLPref(u"geo.authorization.key"_ns, key);
-      if (NS_SUCCEEDED(rv) && !key.IsEmpty()) {
+      if (NS_SUCCEEDED(rv) &&
+          !key.EqualsLiteral("no-gonk-geolocation-api-key")) {
         mNetworkLocationProvider = do_CreateInstance(
             "@mozilla.org/geolocation/gonk-network-geolocation-provider;1");
         if (mNetworkLocationProvider) {

@@ -91,7 +91,7 @@ input {
   border: 1px solid #CFCFD8;
   box-shadow: 0 2px 14px rgba(58, 57, 68, 0.2);
   border-radius: 4px;
-  padding-block: 0 40px;
+  padding-block: 0 24px;
   width: 25em;
 }
 .onboardingContainer.featureCallout .screen[pos=callout] .section-main .main-content .steps {
@@ -101,6 +101,9 @@ input {
 .onboardingContainer.featureCallout .screen[pos=callout] .section-main .main-content .dismiss-button {
   margin-block: 25px -45px;
   z-index: 1;
+}
+.onboardingContainer.featureCallout .screen[pos=callout] .action-buttons {
+  margin-block: 0 16px;
 }
 .onboardingContainer.featureCallout .screen[pos=callout] .action-buttons .primary,
 .onboardingContainer.featureCallout .screen[pos=callout] .action-buttons .secondary-cta .secondary {
@@ -207,6 +210,9 @@ body {
 :root[dialogroot] body {
   padding: 0;
 }
+:root[dialogroot] .onboardingContainer {
+  height: 100%;
+}
 :root[dialogroot] .onboardingContainer:dir(rtl) {
   transform: unset;
 }
@@ -215,19 +221,6 @@ body {
 }
 :root[dialogroot] .onboardingContainer .screen:dir(rtl) {
   transform: unset;
-}
-:root[dialogroot] .onboardingContainer .screen:not([pos=split]) .section-main {
-  margin-block: 106px auto;
-}
-:root[dialogroot] .onboardingContainer .screen.with-noodles .section-main,
-:root[dialogroot] .onboardingContainer .screen.with-noodles .section-secondary {
-  margin-block: 156px auto;
-}
-@media only screen and (min-width: 800px) {
-  :root[dialogroot] .onboardingContainer .screen[pos=split] .section-main,
-:root[dialogroot] .onboardingContainer .screen[pos=split] .section-secondary {
-    margin-block: 156px auto;
-  }
 }
 
 .welcome-container .onboardingContainer {
@@ -366,6 +359,7 @@ body {
 }
 .onboardingContainer .screen[pos=split] {
   margin: auto;
+  min-height: 550px;
 }
 .onboardingContainer .screen[pos=split] .section-secondary,
 .onboardingContainer .screen[pos=split] .section-main {
@@ -582,6 +576,7 @@ body {
 @media only screen and (max-width: 800px) {
   .onboardingContainer .screen[pos=split] {
     flex-direction: column;
+    min-height: 500px;
   }
   .onboardingContainer .screen[pos=split] .section-secondary,
 .onboardingContainer .screen[pos=split] .section-main {

@@ -310,7 +310,7 @@ class nsWindow final : public nsBaseWidget {
    * Window utilities
    */
   nsWindow* GetTopLevelWindow(bool aStopOnDialogOrPopup);
-  WNDPROC GetPrevWindowProc() { return mPrevWndProc; }
+  WNDPROC GetPrevWindowProc() { return mPrevWndProc.valueOr(nullptr); }
   WindowHook& GetWindowHook() { return mWindowHook; }
   nsWindow* GetParentWindow(bool aIncludeOwner);
 
@@ -526,7 +526,8 @@ class nsWindow final : public nsBaseWidget {
 
   WPARAM wParamFromGlobalMouseState();
 
-  void SubclassWindow(BOOL bState);
+  bool AssociateWithNativeWindow();
+  void DissociateFromNativeWindow();
   bool CanTakeFocus();
   bool UpdateNonClientMargins(int32_t aSizeMode = -1,
                               bool aReflowWindow = true);
@@ -678,6 +679,7 @@ class nsWindow final : public nsBaseWidget {
 
   void AsyncUpdateWorkspaceID(Desktop& aDesktop);
 
+  // See bug 603793
   static bool HasBogusPopupsDropShadowOnMultiMonitor();
 
   static void InitMouseWheelScrollData();
@@ -699,22 +701,15 @@ class nsWindow final : public nsBaseWidget {
   static bool sTouchInjectInitialized;
   static InjectTouchInputPtr sInjectTouchFuncPtr;
   static uint32_t sInstanceCount;
-  static TriStateBool sCanQuit;
   static nsWindow* sCurrentWindow;
-  static BOOL sIsOleInitialized;
+  static bool sIsOleInitialized;
   static Cursor sCurrentCursor;
-  static bool sSwitchKeyboardLayout;
   static bool sJustGotDeactivate;
   static bool sJustGotActivate;
   static bool sIsInMouseCapture;
-  static bool sHaveInitializedPrefs;
   static bool sIsRestoringSession;
-  static bool sFirstTopLevelWindowCreated;
 
-  // Always use the helper method to read this property.  See bug 603793.
-  static TriStateBool sHasBogusPopupsDropShadowOnMultiMonitor;
-
-  // Hook Data Memebers for Dropdowns. sProcessHook Tells the
+  // Hook Data Members for Dropdowns. sProcessHook Tells the
   // hook methods whether they should be processing the hook
   // messages.
   static HHOOK sMsgFilterHook;
@@ -725,15 +720,9 @@ class nsWindow final : public nsBaseWidget {
   static HWND sRollupMsgWnd;
   static UINT sHookTimerId;
 
-  // Mouse Clicks - static variable definitions for figuring
-  // out 1 - 3 Clicks.
-  static POINT sLastMousePoint;
+  // Used to prevent dispatching mouse events that do not originate from user
+  // input.
   static POINT sLastMouseMovePoint;
-  static LONG sLastMouseDownTime;
-  static LONG sLastClickCount;
-  static BYTE sLastMouseButton;
-
-  static bool sNeedsToInitMouseWheelSettings;
 
   nsClassHashtable<nsUint32HashKey, PointerInfo> mActivePointers;
 
@@ -749,7 +738,7 @@ class nsWindow final : public nsBaseWidget {
   nsIntPoint mLastPoint;
   HWND mWnd = nullptr;
   HWND mTransitionWnd = nullptr;
-  WNDPROC mPrevWndProc = nullptr;
+  mozilla::Maybe<WNDPROC> mPrevWndProc;
   HBRUSH mBrush;
   IMEContext mDefaultIMC;
   HDEVNOTIFY mDeviceNotifyHandle = nullptr;

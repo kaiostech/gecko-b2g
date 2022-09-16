@@ -154,14 +154,14 @@ void RemoteTextureMap::PushTexture(
         if (front->mTextureData && front->mTextureData->AsBufferTextureData()) {
           owner->mRecycledTextures.push(std::move(front->mTextureData));
         }
-        owner->mUsingTextureDataHolders.pop();
+        owner->mUsingTextureDataHolders.pop_front();
       } else if (front->mTextureHost &&
                  front->mTextureHost->NumCompositableRefs() >= 0) {
         // Remote texture is still in use by WebRender.
         break;
       } else {
         MOZ_ASSERT_UNREACHABLE("unexpected to be called");
-        owner->mUsingTextureDataHolders.pop();
+        owner->mUsingTextureDataHolders.pop_front();
       }
     }
   }
@@ -181,9 +181,35 @@ void RemoteTextureMap::RegisterTextureOwner(const RemoteTextureOwnerId aOwnerId,
   mTextureOwners.emplace(key, std::move(owner));
 }
 
+void RemoteTextureMap::KeepTextureDataAliveForTextureHostIfNecessary(
+    const MutexAutoLock& aProofOfLock,
+    std::deque<UniquePtr<TextureDataHolder>>& aHolders) {
+  for (auto& holder : aHolders) {
+    // If remote texture of TextureHost still exist, keep
+    // gl::SharedSurface/TextureData alive while the TextureHost is alive.
+    if (holder->mTextureHost &&
+        holder->mTextureHost->NumCompositableRefs() >= 0) {
+      RefPtr<nsISerialEventTarget> eventTarget =
+          MessageLoop::current()->SerialEventTarget();
+      RefPtr<Runnable> runnable = NS_NewRunnableFunction(
+          "RemoteTextureMap::UnregisterTextureOwner::Runnable",
+          [data = std::move(holder->mTextureData),
+           surface = std::move(holder->mSharedSurface)]() {});
+
+      auto destroyedCallback = [eventTarget = std::move(eventTarget),
+                                runnable = std::move(runnable)]() mutable {
+        eventTarget->Dispatch(runnable.forget());
+      };
+
+      holder->mTextureHost->SetDestroyedCallback(destroyedCallback);
+    }
+  }
+}
+
 void RemoteTextureMap::UnregisterTextureOwner(
     const RemoteTextureOwnerId aOwnerId, const base::ProcessId aForPid) {
   UniquePtr<TextureOwner> releasingOwner;  // Release outside the mutex
+  RefPtr<TextureHost> releasingTexture;    // Release outside the mutex
   {
     MutexAutoLock lock(mMutex);
 
@@ -193,6 +219,16 @@ void RemoteTextureMap::UnregisterTextureOwner(
       MOZ_ASSERT_UNREACHABLE("unexpected to be called");
       return;
     }
+
+    if (it->second->mLatestTextureHost) {
+      // Release CompositableRef in mMutex
+      releasingTexture = it->second->mLatestTextureHost;
+      it->second->mLatestTextureHost = nullptr;
+    }
+
+    KeepTextureDataAliveForTextureHostIfNecessary(
+        lock, it->second->mUsingTextureDataHolders);
+
     releasingOwner = std::move(it->second);
     mTextureOwners.erase(it);
   }
@@ -204,6 +240,8 @@ void RemoteTextureMap::UnregisterTextureOwners(
     const base::ProcessId aForPid) {
   std::vector<UniquePtr<TextureOwner>>
       releasingOwners;  // Release outside the mutex
+  std::vector<RefPtr<TextureHost>>
+      releasingTextures;  // Release outside the mutex
   {
     MutexAutoLock lock(mMutex);
 
@@ -214,6 +252,16 @@ void RemoteTextureMap::UnregisterTextureOwners(
         MOZ_ASSERT_UNREACHABLE("unexpected to be called");
         continue;
       }
+
+      if (it->second->mLatestTextureHost) {
+        // Release CompositableRef in mMutex
+        releasingTextures.emplace_back(it->second->mLatestTextureHost);
+        it->second->mLatestTextureHost = nullptr;
+      }
+
+      KeepTextureDataAliveForTextureHostIfNecessary(
+          lock, it->second->mUsingTextureDataHolders);
+
       releasingOwners.push_back(std::move(it->second));
       mTextureOwners.erase(it);
     }
@@ -268,7 +316,7 @@ void RemoteTextureMap::UpdateTexture(const MutexAutoLock& aProofOfLock,
 
     UniquePtr<TextureDataHolder> holder = std::move(front);
     aOwner->mWaitingTextureDataHolders.pop();
-    aOwner->mUsingTextureDataHolders.push(std::move(holder));
+    aOwner->mUsingTextureDataHolders.push_back(std::move(holder));
   }
 }
 

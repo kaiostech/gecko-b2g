@@ -4,10 +4,9 @@
 
 "use strict";
 
-const Services = require("Services");
-const {
-  WatcherRegistry,
-} = require("devtools/server/actors/watcher/WatcherRegistry.jsm");
+const { WatcherRegistry } = ChromeUtils.importESModule(
+  "resource://devtools/server/actors/watcher/WatcherRegistry.sys.mjs"
+);
 
 loader.lazyRequireGetter(
   this,

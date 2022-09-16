@@ -254,7 +254,11 @@ struct EmbedderColorSchemes {
   FIELD(ParentInitiatedNavigationEpoch, uint64_t)                             \
   /* This browsing context is for a synthetic image document wrapping an      \
    * image embedded in <object> or <embed>. */                                \
-  FIELD(SyntheticDocumentContainer, bool)
+  FIELD(SyntheticDocumentContainer, bool)                                     \
+  /* If true, this document is embedded within a content document,  either    \
+   * loaded in the parent (e.g. about:addons or the devtools toolbox), or in  \
+   * a content process. */                                                    \
+  FIELD(EmbeddedInContentDocument, bool)
 
 // BrowsingContext, in this context, is the cross process replicated
 // environment in which information about documents is stored. In
@@ -892,7 +896,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void HistoryGo(int32_t aOffset, uint64_t aHistoryEpoch,
                  bool aRequireUserInteraction, bool aUserActivation,
-                 std::function<void(int32_t&&)>&& aResolver);
+                 std::function<void(Maybe<int32_t>&&)>&& aResolver);
 
   bool ShouldUpdateSessionHistory(uint32_t aLoadType);
 
@@ -1222,6 +1226,11 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   bool CanSet(FieldIndex<IDX_HasRestoreData>, bool aNewValue,
               ContentParent* aSource);
+
+  bool CanSet(FieldIndex<IDX_EmbeddedInContentDocument>, bool,
+              ContentParent* aSource) {
+    return CheckOnlyEmbedderCanSet(aSource);
+  }
 
   template <size_t I, typename T>
   bool CanSet(FieldIndex<I>, const T&, ContentParent*) {

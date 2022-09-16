@@ -13,7 +13,7 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 const lazy = {};
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
-  AppInfo: "chrome://remote/content/marionette/appinfo.js",
+  AppInfo: "chrome://remote/content/shared/AppInfo.jsm",
   error: "chrome://remote/content/shared/webdriver/Errors.jsm",
   EventPromise: "chrome://remote/content/shared/Sync.jsm",
   MessageManagerDestroyedPromise: "chrome://remote/content/marionette/sync.js",
@@ -214,6 +214,10 @@ browser.Context = class {
   closeTab() {
     // If the current window is not a browser then close it directly. Do the
     // same if only one remaining tab is open, or no tab selected at all.
+    //
+    // Note: For GeckoView there will always be a single tab only. But for
+    // consistency with other platforms a specific condition has been added
+    // below as well even it's not really used.
     if (
       !this.tabBrowser ||
       !this.tabBrowser.tabs ||
@@ -229,23 +233,20 @@ browser.Context = class {
     let tabClosed;
     let promises;
 
-    switch (lazy.AppInfo.name) {
-      case "Firefox":
-        tabClosed = new lazy.EventPromise(this.tab, "TabClose");
-        this.tabBrowser.removeTab(this.tab);
-        promises = [destroyed, tabClosed];
-        break;
-
-      case "b2g":
-        this.tabBrowser.removeTab(this.tab);
-        // TODO: check why `destroyed` doesn't resolve.
-        promises = [];
-        break;
-
-      default:
-        throw new lazy.error.UnsupportedOperationError(
-          `closeTab() not supported in ${lazy.AppInfo.name}`
-        );
+    if (lazy.AppInfo.isAndroid) {
+      lazy.TabManager.removeTab(this.tab);
+    } else if (lazy.AppInfo.isFirefox) {
+      tabClosed = new lazy.EventPromise(this.tab, "TabClose");
+      this.tabBrowser.removeTab(this.tab);
+      promises = [destroyed, tabClosed];
+    } else if (lazy.AppInfo.isB2G) {
+      this.tabBrowser.removeTab(this.tab);
+      // TODO: check why `destroyed` doesn't resolve.
+      promises = [];
+    } else {
+      throw new lazy.error.UnsupportedOperationError(
+        `closeTab() not supported for ${lazy.AppInfo.name}`
+      );
     }
 
     return Promise.all(promises);
@@ -257,39 +258,37 @@ browser.Context = class {
   async openTab(focus = false) {
     let tab = null;
 
-    switch (lazy.AppInfo.name) {
-      case "Firefox":
-        const opened = new lazy.EventPromise(this.window, "TabOpen");
-        this.window.BrowserOpenTab();
-        await opened;
+    // Bug 1533058 - For Firefox the TabManager cannot be used yet. As such
+    // handle opening a tab differently for Android.
+    if (lazy.AppInfo.isAndroid) {
+      tab = await lazy.TabManager.addTab({ focus, window: this.window });
+    } else if (lazy.AppInfo.isFirefox) {
+      const opened = new lazy.EventPromise(this.window, "TabOpen");
+      this.window.BrowserOpenTab();
+      await opened;
 
-        tab = this.tabBrowser.selectedTab;
+      tab = this.tabBrowser.selectedTab;
 
-        // The new tab is always selected by default. If focus is not wanted,
-        // the previously tab needs to be selected again.
-        if (!focus) {
-          this.tabBrowser.selectedTab = this.tab;
-        }
+      // The new tab is always selected by default. If focus is not wanted,
+      // the previously tab needs to be selected again.
+      if (!focus) {
+        this.tabBrowser.selectedTab = this.tab;
+      }
+    } else if (lazy.AppInfo.isB2G) {
+      // Use the embedder api to create a new window.
+      this.window.browserDOMWindow.openURIInFrame(
+        Services.io.newURI("about:blank"), // url
+        null, // opener info
+        Ci.nsIBrowserDOMWindow.OPEN_NEWTAB,
+        0, // flags
+        null // name
+      );
 
-        break;
-
-      case "b2g":
-        // Use the embedder api to create a new window.
-        this.window.browserDOMWindow.openURIInFrame(
-          Services.io.newURI("about:blank"), // url
-          null, // opener info
-          Ci.nsIBrowserDOMWindow.OPEN_NEWTAB,
-          0, // flags
-          null // name
-        );
-
-        tab = this.tabBrowser.selectedTab;
-        break;
-
-      default:
-        throw new lazy.error.UnsupportedOperationError(
-          `openTab() not supported in ${lazy.AppInfo.name}`
-        );
+      tab = this.tabBrowser.selectedTab;
+    } else {
+      throw new lazy.error.UnsupportedOperationError(
+        `openTab() not supported for ${lazy.AppInfo.name}`
+      );
     }
 
     return tab;

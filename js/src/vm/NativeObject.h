@@ -608,15 +608,17 @@ class NativeObject : public JSObject {
 
   bool isSharedMemory() const { return getElementsHeader()->isSharedMemory(); }
 
-  // Update the object's shape, keeping the number of allocated slots in sync
-  // with the object's new slot span.
-  MOZ_ALWAYS_INLINE bool setShapeAndUpdateSlots(JSContext* cx, Shape* newShape);
+  // Update the object's shape and allocate slots if needed to match the shape's
+  // slot span.
+  MOZ_ALWAYS_INLINE bool setShapeAndAddNewSlots(JSContext* cx, Shape* newShape,
+                                                uint32_t oldSpan,
+                                                uint32_t newSpan);
 
-  // Optimized version of setShapeAndUpdateSlots for adding a single property
-  // with a slot.
-  MOZ_ALWAYS_INLINE bool setShapeAndUpdateSlotsForNewSlot(JSContext* cx,
-                                                          Shape* newShape,
-                                                          uint32_t slot);
+  // Methods optimized for adding/removing a single slot. Must only be used for
+  // non-dictionary objects.
+  MOZ_ALWAYS_INLINE bool setShapeAndAddNewSlot(JSContext* cx, Shape* newShape,
+                                               uint32_t slot);
+  void setShapeAndRemoveLastSlot(JSContext* cx, Shape* newShape, uint32_t slot);
 
   MOZ_ALWAYS_INLINE bool canReuseShapeForNewProperties(Shape* newShape) const {
     Shape* oldShape = shape();
@@ -671,12 +673,6 @@ class NativeObject : public JSObject {
 #else
   void checkShapeConsistency() {}
 #endif
-
-  /*
-   * Update the slot span directly for a dictionary object, and allocate
-   * slots to cover the new span if necessary.
-   */
-  bool ensureSlotsForDictionaryObject(JSContext* cx, uint32_t span);
 
   void maybeFreeDictionaryPropSlots(JSContext* cx, DictionaryPropMap* map,
                                     uint32_t mapLength);
@@ -884,6 +880,7 @@ class NativeObject : public JSObject {
    * the slots must track changes in the slot span.
    */
   bool growSlots(JSContext* cx, uint32_t oldCapacity, uint32_t newCapacity);
+  bool growSlotsForNewSlot(JSContext* cx, uint32_t numFixed, uint32_t slot);
   void shrinkSlots(JSContext* cx, uint32_t oldCapacity, uint32_t newCapacity);
 
   bool allocateSlots(JSContext* cx, uint32_t newCapacity);
@@ -1149,10 +1146,6 @@ class NativeObject : public JSObject {
   static constexpr uint32_t MAX_FIXED_SLOTS =
       JS::shadow::Object::MAX_FIXED_SLOTS;
 
- protected:
-  MOZ_ALWAYS_INLINE bool updateSlotsForSpan(JSContext* cx, size_t oldSpan,
-                                            size_t newSpan);
-
  private:
   void prepareElementRangeForOverwrite(size_t start, size_t end) {
     MOZ_ASSERT(end <= getDenseInitializedLength());
@@ -1230,10 +1223,26 @@ class NativeObject : public JSObject {
     fixedSlots()[slot].set(this, HeapSlot::Slot, slot, value);
   }
 
+  void setDynamicSlot(uint32_t numFixed, uint32_t slot, const Value& value) {
+    MOZ_ASSERT(numFixedSlots() == numFixed);
+    MOZ_ASSERT(slot >= numFixed);
+    MOZ_ASSERT(slot - numFixed < getSlotsHeader()->capacity());
+    checkStoredValue(value);
+    slots_[slot - numFixed].set(this, HeapSlot::Slot, slot, value);
+  }
+
   void initFixedSlot(uint32_t slot, const Value& value) {
     MOZ_ASSERT(slotIsFixed(slot));
     checkStoredValue(value);
     fixedSlots()[slot].init(this, HeapSlot::Slot, slot, value);
+  }
+
+  void initDynamicSlot(uint32_t numFixed, uint32_t slot, const Value& value) {
+    MOZ_ASSERT(numFixedSlots() == numFixed);
+    MOZ_ASSERT(slot >= numFixed);
+    MOZ_ASSERT(slot - numFixed < getSlotsHeader()->capacity());
+    checkStoredValue(value);
+    slots_[slot - numFixed].init(this, HeapSlot::Slot, slot, value);
   }
 
   template <typename T>

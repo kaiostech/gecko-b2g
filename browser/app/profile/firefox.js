@@ -277,7 +277,7 @@ pref("browser.shell.defaultBrowserCheckCount", 0);
 pref("browser.shell.setDefaultBrowserUserChoice", true);
 // When setting the default browser on Windows 10 using the UserChoice
 // registry keys, also try to set Firefox as the default PDF handler.
-pref("browser.shell.setDefaultPDFHandler", false);
+pref("browser.shell.setDefaultPDFHandler", true);
 // When setting Firefox as the default PDF handler (subject to conditions
 // above), only set Firefox as the default PDF handler when the existing handler
 // is a known browser, and not when existing handler is another PDF handler such
@@ -400,6 +400,7 @@ pref("browser.urlbar.suggest.calculator",           false);
   pref("browser.urlbar.suggest.quickactions", true);
   pref("browser.urlbar.shortcuts.quickactions", true);
   pref("browser.urlbar.quickactions.showPrefs", true);
+  pref("browser.urlbar.quickactions.showInZeroPrefix", true);
 #endif
 
 // When `browser.urlbar.bestMatch.enabled` is true, this controls whether best
@@ -653,9 +654,8 @@ pref("browser.privatebrowsing.enable-new-logo", true);
 pref("browser.dataFeatureRecommendations.enabled", false);
 
 // Temporary pref to control whether or not Private Browsing windows show up
-// as separate icons in the Windows taskbar. This will be removed and become
-// the default behaviour with 106.
-pref("browser.privacySegmentation.windowSeparation.enabled", false);
+// as separate icons in the Windows taskbar.
+pref("browser.privateWindowSeparation.enabled", true);
 
 // Use dark theme variant for PBM windows. This is only supported if the theme
 // sets darkTheme data.
@@ -2714,6 +2714,6 @@ pref("browser.places.snapshots.expiration.userManaged.days", 420);
 
 // If the user has seen the Firefox View feature tour this value reflects the tour
 // message id, the id of the last screen they saw, and whether they completed the tour
-pref("browser.firefox-view.feature-tour", "{\"message\":\"FIREFOX_VIEW_FEATURE_TOUR\",\"screen\":\"\",\"complete\":true}");
+pref("browser.firefox-view.feature-tour", "{\"message\":\"FIREFOX_VIEW_FEATURE_TOUR\",\"screen\":\"FEATURE_CALLOUT_1\",\"complete\":false}");
 // Number of times the user visited about:firefoxview
 pref("browser.firefox-view.view-count", 0);

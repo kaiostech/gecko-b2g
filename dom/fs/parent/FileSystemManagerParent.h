@@ -34,35 +34,40 @@ class FileSystemManagerParent : public PFileSystemManagerParent {
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FileSystemManagerParent, override)
 
-  mozilla::ipc::IPCResult RecvGetRootHandleMsg(
-      GetRootHandleMsgResolver&& aResolver);
+  void AssertIsOnIOTarget() const;
 
-  mozilla::ipc::IPCResult RecvGetDirectoryHandleMsg(
+  const RefPtr<fs::data::FileSystemDataManager>& DataManagerStrongRef() const;
+
+  mozilla::ipc::IPCResult RecvGetRootHandle(GetRootHandleResolver&& aResolver);
+
+  mozilla::ipc::IPCResult RecvGetDirectoryHandle(
       FileSystemGetHandleRequest&& aRequest,
-      GetDirectoryHandleMsgResolver&& aResolver);
+      GetDirectoryHandleResolver&& aResolver);
 
-  mozilla::ipc::IPCResult RecvGetFileHandleMsg(
-      FileSystemGetHandleRequest&& aRequest,
-      GetFileHandleMsgResolver&& aResolver);
-
-  mozilla::ipc::IPCResult RecvGetFileMsg(FileSystemGetFileRequest&& aRequest,
-                                         GetFileMsgResolver&& aResolver);
-
-  mozilla::ipc::IPCResult RecvResolveMsg(FileSystemResolveRequest&& aRequest,
-                                         ResolveMsgResolver&& aResolver);
-
-  mozilla::ipc::IPCResult RecvGetEntriesMsg(
-      FileSystemGetEntriesRequest&& aRequest,
-      GetEntriesMsgResolver&& aResolver);
-
-  mozilla::ipc::IPCResult RecvRemoveEntryMsg(
-      FileSystemRemoveEntryRequest&& aRequest,
-      RemoveEntryMsgResolver&& aResolver);
-
-  mozilla::ipc::IPCResult RecvCloseFile(FileSystemGetFileRequest&& aRequest);
+  mozilla::ipc::IPCResult RecvGetFileHandle(
+      FileSystemGetHandleRequest&& aRequest, GetFileHandleResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvGetAccessHandle(
-      FileSystemGetFileRequest&& aRequest, GetAccessHandleResolver&& aResolver);
+      const FileSystemGetAccessHandleRequest& aRequest,
+      GetAccessHandleResolver&& aResolver);
+
+  mozilla::ipc::IPCResult RecvGetFile(FileSystemGetFileRequest&& aRequest,
+                                      GetFileResolver&& aResolver);
+
+  mozilla::ipc::IPCResult RecvResolve(FileSystemResolveRequest&& aRequest,
+                                      ResolveResolver&& aResolver);
+
+  mozilla::ipc::IPCResult RecvGetEntries(FileSystemGetEntriesRequest&& aRequest,
+                                         GetEntriesResolver&& aResolver);
+
+  mozilla::ipc::IPCResult RecvRemoveEntry(
+      FileSystemRemoveEntryRequest&& aRequest, RemoveEntryResolver&& aResolver);
+
+  mozilla::ipc::IPCResult RecvMoveEntry(FileSystemMoveEntryRequest&& aRequest,
+                                        MoveEntryResolver&& aResolver);
+
+  mozilla::ipc::IPCResult RecvRenameEntry(
+      FileSystemRenameEntryRequest&& aRequest, MoveEntryResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvGetWritable(FileSystemGetFileRequest&& aRequest,
                                           GetWritableResolver&& aResolver);

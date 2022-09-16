@@ -13,8 +13,8 @@ origin:
 
   license: MIT
 
-  release: commit 7318622fa1bfa507f6e77b4bf38844f9d7c1af36 Wed Aug 18 23:17:18 2021 -0700
-  revision: 7318622fa1bfa507f6e77b4bf38844f9d7c1af36
+  release: commit 92af460e46a82d60140b5a1df1379feb79730d3a Mon Sep 12 12:00:05 2022 -0700
+  revision: 92af460e46a82d60140b5a1df1379feb79730d3a
 
 
 updatebot:
@@ -23,4 +23,5 @@ updatebot:
 
 vendoring:
   source-hosting: github
-  url: https://github.com/KhronosGroup/WebGL/tree/main/sdk/tests
+  url: https://github.com/FirefoxGraphics/khronos-webgl/
+

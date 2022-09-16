@@ -22,8 +22,6 @@
  */
 
 var { Ci, Cu, Cr, Cc } = require("chrome");
-var Services = require("Services");
-const ChromeUtils = require("ChromeUtils");
 var { ActorRegistry } = require("devtools/server/actors/utils/actor-registry");
 var DevToolsUtils = require("devtools/shared/DevToolsUtils");
 var { assert } = DevToolsUtils;
@@ -33,8 +31,8 @@ var {
 var makeDebugger = require("devtools/server/actors/utils/make-debugger");
 const InspectorUtils = require("InspectorUtils");
 const Targets = require("devtools/server/actors/targets/index");
-const { TargetActorRegistry } = ChromeUtils.import(
-  "resource://devtools/server/actors/targets/target-actor-registry.jsm"
+const { TargetActorRegistry } = ChromeUtils.importESModule(
+  "resource://devtools/server/actors/targets/target-actor-registry.sys.mjs"
 );
 const { PrivateBrowsingUtils } = ChromeUtils.import(
   "resource://gre/modules/PrivateBrowsingUtils.jsm"

@@ -12,9 +12,6 @@
  * browser window is ready (i.e. fired browser-delayed-startup-finished event)
  **/
 
-const Services = require("Services");
-const ChromeUtils = require("ChromeUtils");
-
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserToolboxLauncher:
@@ -413,6 +410,8 @@ var gDevToolsBrowser = (exports.gDevToolsBrowser = {
       Services.prompt.alert(null, "", msg);
       throw new Error(msg);
     }
+
+    return null;
   },
 
   /**

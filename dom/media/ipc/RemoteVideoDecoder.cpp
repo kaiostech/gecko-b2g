@@ -281,7 +281,7 @@ MediaResult RemoteVideoDecoderParent::ProcessDecodedData(
                 : (XRE_IsRDDProcess()
                        ? VideoBridgeSource::RddProcess
                        : VideoBridgeSource::MFMediaEngineCDMProcess),
-            size, sd),
+            size, video->mImage->GetColorDepth(), sd),
         video->mFrameID);
 
     array.AppendElement(std::move(output));

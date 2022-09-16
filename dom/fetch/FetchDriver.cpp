@@ -179,7 +179,8 @@ void AlternativeDataStreamListener::Cancel() {
   if (mChannel && mStatus != AlternativeDataStreamListener::FALLBACK) {
     // if mStatus is fallback, we need to keep channel to forward request back
     // to FetchDriver
-    mChannel->Cancel(NS_BINDING_ABORTED);
+    mChannel->CancelWithReason(NS_BINDING_ABORTED,
+                               "AlternativeDataStreamListener::Cancel"_ns);
     mChannel = nullptr;
   }
   mStatus = AlternativeDataStreamListener::CANCELED;
@@ -943,7 +944,8 @@ FetchDriver::OnStartRequest(nsIRequest* aRequest) {
   // channel will call in with an errored OnStartRequest().
 
   if (mFromPreload && mAborted) {
-    aRequest->Cancel(NS_BINDING_ABORTED);
+    aRequest->CancelWithReason(NS_BINDING_ABORTED,
+                               "FetchDriver::OnStartRequest aborted"_ns);
     return NS_BINDING_ABORTED;
   }
 
@@ -1045,13 +1047,13 @@ FetchDriver::OnStartRequest(nsIRequest* aRequest) {
       if (NS_SUCCEEDED(rv) && !contentCharset.IsEmpty()) {
         contentType += ";charset="_ns + contentCharset;
       }
+
+      IgnoredErrorResult result;
+      response->Headers()->Append("Content-Type"_ns, contentType, result);
+      MOZ_ASSERT(!result.Failed());
     }
 
-    IgnoredErrorResult result;
-    response->Headers()->Append("Content-Type"_ns, contentType, result);
-    MOZ_ASSERT(!result.Failed());
-
-    if (contentLength >= 0) {
+    if (contentLength > 0) {
       nsAutoCString contentLenStr;
       contentLenStr.AppendInt(contentLength);
 
@@ -1639,7 +1641,8 @@ void FetchDriver::RunAbortAlgorithm() {
   }
 
   if (mChannel) {
-    mChannel->Cancel(NS_BINDING_ABORTED);
+    mChannel->CancelWithReason(NS_BINDING_ABORTED,
+                               "FetchDriver::RunAbortAlgorithm"_ns);
     mChannel = nullptr;
   }
 

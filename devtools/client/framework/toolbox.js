@@ -27,8 +27,6 @@ var { Ci, Cc } = require("chrome");
 const { debounce } = require("devtools/shared/debounce");
 const { throttle } = require("devtools/shared/throttle");
 const { safeAsyncMethod } = require("devtools/shared/async-utils");
-var Services = require("Services");
-var ChromeUtils = require("ChromeUtils");
 var { gDevTools } = require("devtools/client/framework/devtools");
 var EventEmitter = require("devtools/shared/event-emitter");
 const Selection = require("devtools/client/framework/selection");
@@ -969,9 +967,8 @@ Toolbox.prototype = {
       this.webconsolePanel = this.doc.querySelector(
         "#toolbox-panel-webconsole"
       );
-      this.webconsolePanel.height = Services.prefs.getIntPref(
-        SPLITCONSOLE_HEIGHT_PREF
-      );
+      this.webconsolePanel.style.height =
+        Services.prefs.getIntPref(SPLITCONSOLE_HEIGHT_PREF) + "px";
       this.webconsolePanel.addEventListener(
         "resize",
         this._saveSplitConsoleHeight
@@ -1732,7 +1729,7 @@ Toolbox.prototype = {
   _saveSplitConsoleHeight() {
     Services.prefs.setIntPref(
       SPLITCONSOLE_HEIGHT_PREF,
-      this.webconsolePanel.height
+      parseInt(this.webconsolePanel.style.height, 10)
     );
   },
 
@@ -3343,7 +3340,7 @@ Toolbox.prototype = {
     ) {
       // We are not targetting a regular WindowGlobalTargetActor (it can be either an
       // addon or browser toolbox actor), or EFT is enabled.
-      return Promise.resolve();
+      return;
     }
 
     try {
@@ -3390,12 +3387,12 @@ Toolbox.prototype = {
   async onHighlightFrame(frameIdOrTargetActorId) {
     // Only enable frame highlighting when the top level document is targeted
     if (!this.rootFrameSelected) {
-      return;
+      return null;
     }
 
     const frameInfo = this.frameMap.get(frameIdOrTargetActorId);
     if (!frameInfo) {
-      return;
+      return null;
     }
 
     let nodeFront;
@@ -3932,7 +3929,8 @@ Toolbox.prototype = {
       objectGrip.preview &&
       objectGrip.preview.nodeType === domNodeConstants.ELEMENT_NODE
     ) {
-      return this.viewElementInInspector(objectGrip, inspectFromAnnotation);
+      await this.viewElementInInspector(objectGrip, inspectFromAnnotation);
+      return;
     }
 
     if (objectGrip.class == "Function") {
@@ -3942,7 +3940,8 @@ Toolbox.prototype = {
       }
 
       const { url, line, column } = objectGrip.location;
-      return this.viewSourceInDebugger(url, line, column);
+      await this.viewSourceInDebugger(url, line, column);
+      return;
     }
 
     if (objectGrip.type !== "null" && objectGrip.type !== "undefined") {
@@ -4304,7 +4303,7 @@ Toolbox.prototype = {
   async viewGeneratedSourceInStyleEditor(url) {
     if (typeof url !== "string") {
       console.warn("Failed to open generated source, no url given");
-      return;
+      return false;
     }
 
     // The style editor hides the generated file if the file has original
@@ -4322,7 +4321,7 @@ Toolbox.prototype = {
   async viewSourceInStyleEditorByURL(url, line, column) {
     if (typeof url !== "string") {
       console.warn("Failed to open source, no url given");
-      return;
+      return false;
     }
     if (typeof line !== "number") {
       console.warn(
@@ -4346,7 +4345,7 @@ Toolbox.prototype = {
   async viewSourceInStyleEditorByFront(stylesheetFront, line, column) {
     if (!stylesheetFront || typeof stylesheetFront !== "object") {
       console.warn("Failed to open source, no stylesheet given");
-      return;
+      return false;
     }
     if (typeof line !== "number") {
       console.warn(
@@ -4385,7 +4384,7 @@ Toolbox.prototype = {
   async viewGeneratedSourceInDebugger(url) {
     if (typeof url !== "string") {
       console.warn("Failed to open generated source, no url given");
-      return;
+      return false;
     }
 
     return viewSource.viewSourceInDebugger(this, url, null, null, null, null);
@@ -4408,7 +4407,7 @@ Toolbox.prototype = {
   ) {
     if (typeof sourceURL !== "string" && typeof sourceId !== "string") {
       console.warn("Failed to open generated source, no url/id given");
-      return;
+      return false;
     }
     if (typeof sourceLine !== "number") {
       console.warn(

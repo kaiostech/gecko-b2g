@@ -8,6 +8,7 @@
 
 #include "mozilla/dom/DOMMozPromiseRequestHolder.h"
 #include "mozilla/dom/NavigationPreloadManager.h"
+#include "mozilla/dom/NavigationPreloadManagerBinding.h"
 #include "mozilla/dom/Notification.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PushManager.h"
@@ -17,10 +18,14 @@
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/SystemMessageManager.h"
 #include "mozilla/dom/WorkerPrivate.h"
+#include "mozilla/ipc/PBackgroundChild.h"
+#include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ScopeExit.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsPIDOMWindow.h"
-#include "RemoteServiceWorkerRegistrationImpl.h"
+#include "ServiceWorkerRegistrationChild.h"
+
+using mozilla::ipc::ResponseRejectReason;
 
 namespace mozilla::dom {
 
@@ -43,23 +48,41 @@ const uint64_t kInvalidUpdateFoundId = 0;
 
 ServiceWorkerRegistration::ServiceWorkerRegistration(
     nsIGlobalObject* aGlobal,
-    const ServiceWorkerRegistrationDescriptor& aDescriptor,
-    ServiceWorkerRegistration::Inner* aInner)
+    const ServiceWorkerRegistrationDescriptor& aDescriptor)
     : DOMEventTargetHelper(aGlobal),
       mDescriptor(aDescriptor),
-      mInner(aInner),
+      mShutdown(false),
       mScheduledUpdateFoundId(kInvalidUpdateFoundId),
       mDispatchedUpdateFoundId(kInvalidUpdateFoundId) {
-  MOZ_DIAGNOSTIC_ASSERT(mInner);
+  ::mozilla::ipc::PBackgroundChild* parentActor =
+      ::mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread();
+  if (NS_WARN_IF(!parentActor)) {
+    Shutdown();
+    return;
+  }
+
+  auto actor = ServiceWorkerRegistrationChild::Create();
+  if (NS_WARN_IF(!actor)) {
+    Shutdown();
+    return;
+  }
+
+  PServiceWorkerRegistrationChild* sentActor =
+      parentActor->SendPServiceWorkerRegistrationConstructor(
+          actor, aDescriptor.ToIPC());
+  if (NS_WARN_IF(!sentActor)) {
+    Shutdown();
+    return;
+  }
+  MOZ_DIAGNOSTIC_ASSERT(sentActor == actor);
+
+  mActor = std::move(actor);
+  mActor->SetOwner(this);
 
   KeepAliveIfHasListenersFor(nsGkAtoms::onupdatefound);
-
-  mInner->SetServiceWorkerRegistration(this);
 }
 
-ServiceWorkerRegistration::~ServiceWorkerRegistration() {
-  mInner->ClearServiceWorkerRegistration(this);
-}
+ServiceWorkerRegistration::~ServiceWorkerRegistration() { Shutdown(); }
 
 JSObject* ServiceWorkerRegistration::WrapObject(
     JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
@@ -74,11 +97,8 @@ ServiceWorkerRegistration::CreateForMainThread(
   MOZ_ASSERT(aWindow);
   MOZ_ASSERT(NS_IsMainThread());
 
-  const RefPtr<Inner> inner =
-      new RemoteServiceWorkerRegistrationImpl(aDescriptor);
-
   RefPtr<ServiceWorkerRegistration> registration =
-      new ServiceWorkerRegistration(aWindow->AsGlobal(), aDescriptor, inner);
+      new ServiceWorkerRegistration(aWindow->AsGlobal(), aDescriptor);
   // This is not called from within the constructor, as it may call content code
   // which can cause the deletion of the registration, so we need to keep a
   // strong reference while calling it.
@@ -96,11 +116,8 @@ ServiceWorkerRegistration::CreateForWorker(
   MOZ_DIAGNOSTIC_ASSERT(aGlobal);
   aWorkerPrivate->AssertIsOnWorkerThread();
 
-  const RefPtr<Inner> inner =
-      new RemoteServiceWorkerRegistrationImpl(aDescriptor);
-
   RefPtr<ServiceWorkerRegistration> registration =
-      new ServiceWorkerRegistration(aGlobal, aDescriptor, inner);
+      new ServiceWorkerRegistration(aGlobal, aDescriptor);
   // This is not called from within the constructor, as it may call content code
   // which can cause the deletion of the registration, so we need to keep a
   // strong reference while calling it.
@@ -148,9 +165,9 @@ already_AddRefed<ServiceWorker> ServiceWorkerRegistration::GetActive() const {
 
 already_AddRefed<NavigationPreloadManager>
 ServiceWorkerRegistration::NavigationPreload() {
+  RefPtr<ServiceWorkerRegistration> reg = this;
   if (!mNavigationPreloadManager) {
-    mNavigationPreloadManager =
-        MakeRefPtr<NavigationPreloadManager>(GetParentObject(), mInner);
+    mNavigationPreloadManager = MakeRefPtr<NavigationPreloadManager>(reg);
   }
   RefPtr<NavigationPreloadManager> ref = mNavigationPreloadManager;
   return ref.forget();
@@ -194,11 +211,6 @@ ServiceWorkerUpdateViaCache ServiceWorkerRegistration::GetUpdateViaCache(
 }
 
 already_AddRefed<Promise> ServiceWorkerRegistration::Update(ErrorResult& aRv) {
-  if (!mInner) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return nullptr;
-  }
-
   nsIGlobalObject* global = GetParentObject();
   if (!global) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
@@ -240,9 +252,28 @@ already_AddRefed<Promise> ServiceWorkerRegistration::Update(ErrorResult& aRv) {
 
   RefPtr<ServiceWorkerRegistration> self = this;
 
-  mInner->Update(
+  if (!mActor) {
+    outer->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+    return outer.forget();
+  }
+
+  mActor->SendUpdate(
       newestWorkerDescriptor.ref().ScriptURL(),
-      [outer, self](const ServiceWorkerRegistrationDescriptor& aDesc) {
+      [outer,
+       self](const IPCServiceWorkerRegistrationDescriptorOrCopyableErrorResult&
+                 aResult) {
+        if (aResult.type() ==
+            IPCServiceWorkerRegistrationDescriptorOrCopyableErrorResult::
+                TCopyableErrorResult) {
+          // application layer error
+          const auto& rv = aResult.get_CopyableErrorResult();
+          MOZ_DIAGNOSTIC_ASSERT(rv.Failed());
+          outer->MaybeReject(CopyableErrorResult(rv));
+          return;
+        }
+        // success
+        const auto& ipcDesc =
+            aResult.get_IPCServiceWorkerRegistrationDescriptor();
         nsIGlobalObject* global = self->GetParentObject();
         // It's possible this binding was detached from the global.  In cases
         // where we use IPC with Promise callbacks, we use
@@ -264,14 +295,18 @@ already_AddRefed<Promise> ServiceWorkerRegistration::Update(ErrorResult& aRv) {
           return;
         }
         RefPtr<ServiceWorkerRegistration> ref =
-            global->GetOrCreateServiceWorkerRegistration(aDesc);
+            global->GetOrCreateServiceWorkerRegistration(
+                ServiceWorkerRegistrationDescriptor(ipcDesc));
         if (!ref) {
           outer->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
           return;
         }
         outer->MaybeResolve(ref);
       },
-      [outer, self](ErrorResult&& aRv) { outer->MaybeReject(std::move(aRv)); });
+      [outer](ResponseRejectReason&& aReason) {
+        // IPC layer error
+        outer->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+      });
 
   return outer.forget();
 }
@@ -289,18 +324,28 @@ already_AddRefed<Promise> ServiceWorkerRegistration::Unregister(
     return nullptr;
   }
 
-  if (!mInner) {
+  if (!mActor) {
     outer->MaybeResolve(false);
     return outer.forget();
   }
 
-  mInner->Unregister([outer](bool aSuccess) { outer->MaybeResolve(aSuccess); },
-                     [outer](ErrorResult&& aRv) {
-                       // register() should be resilient and resolve false
-                       // instead of rejecting in most cases.
-                       aRv.SuppressException();
-                       outer->MaybeResolve(false);
-                     });
+  mActor->SendUnregister(
+      [outer](Tuple<bool, CopyableErrorResult>&& aResult) {
+        if (Get<1>(aResult).Failed()) {
+          // application layer error
+          // register() should be resilient and resolve false instead of
+          // rejecting in most cases.
+          Get<1>(aResult).SuppressException();
+          outer->MaybeResolve(false);
+          return;
+        }
+        // success
+        outer->MaybeResolve(Get<0>(aResult));
+      },
+      [outer](ResponseRejectReason&& aReason) {
+        // IPC layer error
+        outer->MaybeResolve(false);
+      });
 
   return outer.forget();
 }
@@ -377,6 +422,76 @@ already_AddRefed<Promise> ServiceWorkerRegistration::GetNotifications(
   WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
   worker->AssertIsOnWorkerThread();
   return Notification::WorkerGet(worker, aOptions, scope, aRv);
+}
+
+void ServiceWorkerRegistration::SetNavigationPreloadEnabled(
+    bool aEnabled, ServiceWorkerBoolCallback&& aSuccessCB,
+    ServiceWorkerFailureCallback&& aFailureCB) {
+  if (!mActor) {
+    aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+    return;
+  }
+
+  mActor->SendSetNavigationPreloadEnabled(
+      aEnabled,
+      [successCB = std::move(aSuccessCB), aFailureCB](bool aResult) {
+        if (!aResult) {
+          aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+          return;
+        }
+        successCB(aResult);
+      },
+      [aFailureCB](ResponseRejectReason&& aReason) {
+        aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+      });
+}
+
+void ServiceWorkerRegistration::SetNavigationPreloadHeader(
+    const nsCString& aHeader, ServiceWorkerBoolCallback&& aSuccessCB,
+    ServiceWorkerFailureCallback&& aFailureCB) {
+  if (!mActor) {
+    aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+    return;
+  }
+
+  mActor->SendSetNavigationPreloadHeader(
+      aHeader,
+      [successCB = std::move(aSuccessCB), aFailureCB](bool aResult) {
+        if (!aResult) {
+          aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+          return;
+        }
+        successCB(aResult);
+      },
+      [aFailureCB](ResponseRejectReason&& aReason) {
+        aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+      });
+}
+
+void ServiceWorkerRegistration::GetNavigationPreloadState(
+    NavigationPreloadGetStateCallback&& aSuccessCB,
+    ServiceWorkerFailureCallback&& aFailureCB) {
+  if (!mActor) {
+    aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+    return;
+  }
+
+  mActor->SendGetNavigationPreloadState(
+      [successCB = std::move(aSuccessCB),
+       aFailureCB](Maybe<IPCNavigationPreloadState>&& aState) {
+        if (NS_WARN_IF(!aState)) {
+          aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+          return;
+        }
+
+        NavigationPreloadState state;
+        state.mEnabled = aState.ref().enabled();
+        state.mHeaderValue.Construct(std::move(aState.ref().headerValue()));
+        successCB(std::move(state));
+      },
+      [aFailureCB](ResponseRejectReason&& aReason) {
+        aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+      });
 }
 
 const ServiceWorkerRegistrationDescriptor&
@@ -566,6 +681,31 @@ ServiceWorkerRegistration::GetSystemMessageManager(ErrorResult& aRv) {
 
   RefPtr<SystemMessageManager> ret = mSystemMessageManager;
   return ret.forget();
+}
+
+void ServiceWorkerRegistration::RevokeActor(
+    ServiceWorkerRegistrationChild* aActor) {
+  MOZ_DIAGNOSTIC_ASSERT(mActor);
+  MOZ_DIAGNOSTIC_ASSERT(mActor == aActor);
+  mActor->RevokeOwner(this);
+  mActor = nullptr;
+
+  mShutdown = true;
+
+  RegistrationCleared();
+}
+
+void ServiceWorkerRegistration::Shutdown() {
+  if (mShutdown) {
+    return;
+  }
+  mShutdown = true;
+
+  if (mActor) {
+    mActor->RevokeOwner(this);
+    mActor->MaybeStartTeardown();
+    mActor = nullptr;
+  }
 }
 
 }  // namespace mozilla::dom

@@ -701,8 +701,7 @@ const MESSAGES = () => [
                 type: "SET_PREF",
                 data: {
                   pref: {
-                    name:
-                      "browser.privacySegmentation.windowSeparation.enabled",
+                    name: "browser.privateWindowSeparation.enabled",
                     value: true,
                   },
                 },
@@ -764,6 +763,7 @@ const MESSAGES = () => [
         },
         { action: "callback", title: "Callback" },
       ],
+      tag: "test_toast_notification",
     },
     groups: ["panel-test-provider"],
     targeting: "!hasActiveEnterprisePolicies",

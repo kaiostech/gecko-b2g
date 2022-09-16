@@ -1874,7 +1874,8 @@ class HTMLMediaElement::ChannelLoader final {
   void Cancel() {
     mCancelled = true;
     if (mChannel) {
-      mChannel->Cancel(NS_BINDING_ABORTED);
+      mChannel->CancelWithReason(NS_BINDING_ABORTED,
+                                 "HTMLMediaElement::ChannelLoader::Cancel"_ns);
       mChannel = nullptr;
     }
   }
@@ -2157,6 +2158,10 @@ bool HTMLMediaElement::IsVideoDecodingSuspended() const {
 
 double HTMLMediaElement::TotalVideoPlayTime() const {
   return mDecoder ? mDecoder->GetTotalVideoPlayTimeInSeconds() : -1.0;
+}
+
+double HTMLMediaElement::TotalVideoHDRPlayTime() const {
+  return mDecoder ? mDecoder->GetTotalVideoHDRPlayTimeInSeconds() : -1.0;
 }
 
 double HTMLMediaElement::VisiblePlayTime() const {

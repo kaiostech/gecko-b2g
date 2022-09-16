@@ -585,7 +585,7 @@ class nsFlexContainerFrame final : public nsContainerFrame {
    *                        that we call, to interpret aFramePos correctly).
    */
   void MoveFlexItemToFinalPosition(const FlexItem& aItem,
-                                   mozilla::LogicalPoint& aFramePos,
+                                   const mozilla::LogicalPoint& aFramePos,
                                    const nsSize& aContainerSize);
   /**
    * Helper-function to reflow a child frame, at its final position determined
@@ -605,7 +605,7 @@ class nsFlexContainerFrame final : public nsContainerFrame {
   nsReflowStatus ReflowFlexItem(const FlexboxAxisTracker& aAxisTracker,
                                 const ReflowInput& aReflowInput,
                                 const FlexItem& aItem,
-                                mozilla::LogicalPoint& aFramePos,
+                                const mozilla::LogicalPoint& aFramePos,
                                 const mozilla::LogicalSize& aAvailableSize,
                                 const nsSize& aContainerSize);
 

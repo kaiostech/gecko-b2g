@@ -264,15 +264,9 @@ void RemoteAccessibleBase<Derived>::Value(nsString& aValue) const {
     }
 
     if (IsCombobox()) {
-      Pivot p = Pivot(const_cast<RemoteAccessibleBase<Derived>*>(this));
-      PivotStateRule rule(states::ACTIVE);
-      Accessible* option = p.First(rule);
-      if (!option) {
-        option =
-            const_cast<RemoteAccessibleBase<Derived>*>(this)->GetSelectedItem(
-                0);
-      }
-
+      // For combo boxes, rely on selection state to determine the value.
+      const Accessible* option =
+          const_cast<RemoteAccessibleBase<Derived>*>(this)->GetSelectedItem(0);
       if (option) {
         option->Name(aValue);
       }
@@ -614,7 +608,10 @@ LayoutDeviceIntRect RemoteAccessibleBase<Derived>::BoundsWithOffset(
     // This block is not thread safe because it queries a LocalAccessible.
     // It is also not needed in Android since the only local accessible is
     // the outer doc browser that has an offset of 0.
-    if (LocalAccessible* localAcc = const_cast<Accessible*>(acc)->AsLocal()) {
+    // acc could be null if the OuterDocAccessible died before the top level
+    // DocAccessibleParent.
+    if (LocalAccessible* localAcc =
+            acc ? const_cast<Accessible*>(acc)->AsLocal() : nullptr) {
       // LocalAccessible::Bounds returns screen-relative bounds in
       // dev pixels.
       LayoutDeviceIntRect localBounds = localAcc->Bounds();

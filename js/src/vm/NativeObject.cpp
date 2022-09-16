@@ -226,23 +226,6 @@ mozilla::Maybe<PropertyInfo> js::NativeObject::lookupPure(jsid id) {
   return mozilla::Nothing();
 }
 
-bool NativeObject::ensureSlotsForDictionaryObject(JSContext* cx,
-                                                  uint32_t span) {
-  MOZ_ASSERT(inDictionaryMode());
-
-  size_t oldSpan = dictionaryModeSlotSpan();
-  if (oldSpan == span) {
-    return true;
-  }
-
-  if (!updateSlotsForSpan(cx, oldSpan, span)) {
-    return false;
-  }
-
-  setDictionaryModeSlotSpan(span);
-  return true;
-}
-
 bool NativeObject::growSlots(JSContext* cx, uint32_t oldCapacity,
                              uint32_t newCapacity) {
   MOZ_ASSERT(newCapacity > oldCapacity);
@@ -290,6 +273,20 @@ bool NativeObject::growSlots(JSContext* cx, uint32_t oldCapacity,
 
   MOZ_ASSERT(hasDynamicSlots());
   return true;
+}
+
+bool NativeObject::growSlotsForNewSlot(JSContext* cx, uint32_t numFixed,
+                                       uint32_t slot) {
+  MOZ_ASSERT(slotSpan() == slot);
+  MOZ_ASSERT(shape()->numFixedSlots() == numFixed);
+  MOZ_ASSERT(slot >= numFixed);
+
+  uint32_t newCapacity = calculateDynamicSlots(numFixed, slot + 1, getClass());
+
+  uint32_t oldCapacity = numDynamicSlots();
+  MOZ_ASSERT(oldCapacity < newCapacity);
+
+  return growSlots(cx, oldCapacity, newCapacity);
 }
 
 bool NativeObject::allocateSlots(JSContext* cx, uint32_t newCapacity) {
@@ -1023,7 +1020,22 @@ bool NativeObject::allocDictionarySlot(JSContext* cx, Handle<NativeObject*> obj,
 
   *slotp = slotSpan;
 
-  return obj->ensureSlotsForDictionaryObject(cx, slotSpan + 1);
+  uint32_t numFixed = obj->numFixedSlots();
+  if (slotSpan < numFixed) {
+    obj->initFixedSlot(slotSpan, UndefinedValue());
+    obj->setDictionaryModeSlotSpan(slotSpan + 1);
+    return true;
+  }
+
+  uint32_t dynamicSlotIndex = slotSpan - numFixed;
+  if (dynamicSlotIndex >= obj->numDynamicSlots()) {
+    if (MOZ_UNLIKELY(!obj->growSlotsForNewSlot(cx, numFixed, slotSpan))) {
+      return false;
+    }
+  }
+  obj->initDynamicSlot(numFixed, slotSpan, UndefinedValue());
+  obj->setDictionaryModeSlotSpan(slotSpan + 1);
+  return true;
 }
 
 void NativeObject::freeDictionarySlot(uint32_t slot) {
@@ -1332,7 +1344,7 @@ bool js::AddSlotAndCallAddPropHook(JSContext* cx, Handle<NativeObject*> obj,
   MOZ_ASSERT(!id.isInt());
 
   uint32_t slot = newShape->lastProperty().slot();
-  if (!obj->setShapeAndUpdateSlotsForNewSlot(cx, newShape, slot)) {
+  if (!obj->setShapeAndAddNewSlot(cx, newShape, slot)) {
     return false;
   }
   obj->initSlot(slot, v);

@@ -246,8 +246,7 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
     // The one exception is nsUnknownDecoder, which works in the parent
     // (and we need to know what the content type is before we can
     // decide if it will be handled in the parent), so we run that here.
-    if (mContentType.LowerCaseEqualsASCII(UNKNOWN_CONTENT_TYPE) ||
-        mContentType.IsEmpty()) {
+    if (mContentType.LowerCaseEqualsASCII(UNKNOWN_CONTENT_TYPE)) {
       return nsDocumentOpenInfo::TryStreamConversion(aChannel);
     }
 
@@ -1091,7 +1090,8 @@ void DocumentLoadListener::NotifyDocumentChannelFailed() {
       },
       []() {});
 
-  Cancel(NS_BINDING_ABORTED);
+  Cancel(NS_BINDING_ABORTED,
+         "DocumentLoadListener::NotifyDocumentChannelFailed"_ns);
 }
 
 void DocumentLoadListener::Disconnect(bool aContinueNavigating) {
@@ -1117,7 +1117,8 @@ void DocumentLoadListener::Disconnect(bool aContinueNavigating) {
   }
 }
 
-void DocumentLoadListener::Cancel(const nsresult& aStatusCode) {
+void DocumentLoadListener::Cancel(const nsresult& aStatusCode,
+                                  const nsACString& aReason) {
   LOG(
       ("DocumentLoadListener Cancel [this=%p, "
        "aStatusCode=%" PRIx32 " ]",
@@ -1126,7 +1127,7 @@ void DocumentLoadListener::Cancel(const nsresult& aStatusCode) {
     return;
   }
   if (mChannel) {
-    mChannel->Cancel(aStatusCode);
+    mChannel->CancelWithReason(aStatusCode, aReason);
   }
 
   DisconnectListeners(aStatusCode, aStatusCode);
@@ -1739,14 +1740,16 @@ bool DocumentLoadListener::MaybeTriggerProcessSwitch(
   if (!browsingContext->IsOwnedByProcess(GetContentProcessId(mContentParent))) {
     MOZ_LOG(gProcessIsolationLog, LogLevel::Error,
             ("Process Switch Abort: context no longer owned by creator"));
-    Cancel(NS_BINDING_ABORTED);
+    Cancel(NS_BINDING_ABORTED,
+           "Process Switch Abort: context no longer owned by creator"_ns);
     return false;
   }
 
   if (browsingContext->IsReplaced()) {
     MOZ_LOG(gProcessIsolationLog, LogLevel::Warning,
             ("Process Switch Abort: replaced browsing context"));
-    Cancel(NS_BINDING_ABORTED);
+    Cancel(NS_BINDING_ABORTED,
+           "Process Switch Abort: replaced browsing context"_ns);
     return false;
   }
 
@@ -1764,7 +1767,8 @@ bool DocumentLoadListener::MaybeTriggerProcessSwitch(
     MOZ_LOG(gProcessIsolationLog, LogLevel::Error,
             ("Process Switch Abort: CheckIsolationForNavigation Failed with %s",
              GetStaticErrorName(optionsResult.inspectErr())));
-    Cancel(optionsResult.unwrapErr());
+    Cancel(optionsResult.unwrapErr(),
+           "Process Switch Abort: CheckIsolationForNavigation Failed"_ns);
     return false;
   }
 
@@ -2444,7 +2448,9 @@ DocumentLoadListener::OnStartRequest(nsIRequest* aRequest) {
         LOG(
             ("DocumentLoadListener::RedirectToRealChannel failed because "
              "browsingContext no longer owned by creator"));
-        Cancel(NS_BINDING_ABORTED);
+        Cancel(NS_BINDING_ABORTED,
+               "DocumentLoadListener::RedirectToRealChannel failed because "
+               "browsingContext no longer owned by creator"_ns);
         return NS_OK;
       }
       MOZ_DIAGNOSTIC_ASSERT(

@@ -169,17 +169,6 @@ panelview[mainview] > .panel-header {
   transition: height var(--panelui-subview-transition-duration);
 }
 
-@media (-moz-box-flexbox-emulation) {
-  #tabbrowser-tabs {
-    /* Without this, the tabs container width extends beyond the window width */
-    width: 0;
-  }
-  .tab-stack {
-    /* Without this, pinned tabs get a bit too tall when the tabstrip overflows. */
-    vertical-align: top;
-  }
-}
-
 @supports not -moz-bool-pref("browser.tabs.tabmanager.enabled") {
   #tabbrowser-tabs:not([overflow="true"], [hashiddentabs]) ~ #alltabs-button {
     display: none;
@@ -991,20 +980,25 @@ browser[tabmodalPromptShowing], browser[tabDialogShowing] {
 
 /* Status panel */
 
-#statuspanel {
+#statuspanel:not([hidden]) {
   display: block;
-  margin-top: -3em;
+
   max-width: calc(100% - 5px);
   pointer-events: none;
 
+  /* Take a bit more space vertically for the mouse tracker to hit us more
+   * easily */
+  padding-top: 2em;
+
   position: absolute;
   bottom: 0;
-  inset-inline-start: 0;
+  left: 0;
 }
 
-#statuspanel[mirror] {
-  inset-inline-start: auto;
-  inset-inline-end: 0;
+#statuspanel:not([mirror]):-moz-locale-dir(rtl),
+#statuspanel[mirror]:-moz-locale-dir(ltr) {
+  left: auto;
+  right: 0;
 }
 
 #statuspanel[sizelimit] {
@@ -1019,7 +1013,7 @@ browser[tabmodalPromptShowing], browser[tabDialogShowing] {
   transition: opacity 120ms ease-out, visibility 120ms;
 }
 
-#statuspanel:is([type=overLink], [inactive][previoustype=overLink]) > #statuspanel-inner {
+#statuspanel:is([type=overLink], [inactive][previoustype=overLink]) {
   direction: ltr;
 }
 
@@ -1031,12 +1025,6 @@ browser[tabmodalPromptShowing], browser[tabDialogShowing] {
 
 #statuspanel[inactive][previoustype=overLink] {
   transition: opacity 200ms ease-out, visibility 200ms;
-}
-
-#statuspanel-inner {
-  height: 3em;
-  width: 100%;
-  -moz-box-align: end;
 }
 
 /*** Visibility of downloads indicator controls ***/
@@ -1530,21 +1518,15 @@ toolbar[keyNav=true]:not([collapsed=true], [customizing=true]) toolbartabstop {
 
 .dialogBox {
   background-clip: content-box;
-  border-radius: 8px;
   display: -moz-box;
   margin: 0 3vw;
   padding: 0;
   overflow-x: auto;
 }
 
-.dialogBox:not(.noShadow) {
+.dialogBox:not(.spotlightBox) {
   box-shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.2);
-}
-
-.dialogBox.fullScreen {
-  height: 100vh;
-  width: 100vw;
-  margin: 0;
+  border-radius: 8px;
 }
 
 /*
@@ -1572,11 +1554,17 @@ toolbar[keyNav=true]:not([collapsed=true], [customizing=true]) toolbartabstop {
   --box-max-height-margin: calc(100vh - var(--box-top-px) - var(--box-block-margin));
   --box-max-width-ratio: 70vw;
   --box-max-height-ratio: calc(var(--box-ideal-height) / var(--box-ideal-width) * var(--box-max-width-ratio));
-  max-width: min(max(var(--box-ideal-width) * 1px, var(--box-max-width-ratio)), var(--box-max-width-margin));
-  max-height: min(max(var(--box-ideal-height) * 1px, var(--box-max-height-ratio)), var(--box-max-height-margin));
+  --box-max-height-requested: 100vh;
+  --box-max-width-requested: 100vw;
+  --box-max-height-remaining: calc(100vh - var(--box-top-px));
   width: 100vw;
   height: 100vh;
   margin: 0;
+}
+
+.dialogBox:not(.spotlightBox)[sizeto="available"] {
+  max-width: min(max(var(--box-ideal-width) * 1px, var(--box-max-width-ratio)), var(--box-max-width-margin), var(--box-max-width-requested));
+  max-height: min(max(var(--box-ideal-height) * 1px, var(--box-max-height-ratio)), var(--box-max-height-margin), var(--box-max-height-requested), var(--box-max-height-remaining));
 }
 
 @media (min-width: 550px) {
@@ -1603,6 +1591,11 @@ toolbar[keyNav=true]:not([collapsed=true], [customizing=true]) toolbartabstop {
   }
 }
 
+.dialogStack .dialogBox.spotlightBox[sizeto="available"] {
+  /* Tab modal: subtract the navigator toolbox height from the dialog height. */
+  height: calc(100vh - var(--box-top-px, 0px));
+}
+
 .content-prompt-dialog > .dialogOverlay {
   display: grid;
   place-content: center;
@@ -1611,8 +1604,9 @@ toolbar[keyNav=true]:not([collapsed=true], [customizing=true]) toolbartabstop {
   grid-auto-rows: min(90%, var(--doc-height-px));
 }
 
-:not(.content-prompt-dialog) > .dialogOverlay > .dialogBox {
-  /* Make dialogs overlap with upper chrome UI. */
+:not(.content-prompt-dialog) > .dialogOverlay > .dialogBox:not(.spotlightBox) {
+  /* Make dialogs overlap with upper chrome UI. Not necessary for Spotlight
+  dialogs that are intended to be centered above the window or content area. */
   margin-top: -5px;
 }
 
@@ -1635,14 +1629,18 @@ toolbar[keyNav=true]:not([collapsed=true], [customizing=true]) toolbartabstop {
   );
 }
 
+#window-modal-dialog.spotlight {
+  /* Spotlight window modal dialogs should be equal in size to the window. */
+  margin: revert;
+  max-height: 100%;
+  max-width: 100%;
+}
+
 .dialogFrame {
   margin: 0;
   -moz-box-flex: 1;
   /* Default dialog dimensions */
   width: 34em;
-  /* will get overridden, but need to change the default so small
-   * dialogs don't end up being 150px tall */
-  height: 80px;
 }
 
 /* Override default <html:dialog> styles */

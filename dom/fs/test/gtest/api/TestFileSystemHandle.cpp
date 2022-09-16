@@ -4,13 +4,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "gtest/gtest.h"
-
 #include "FileSystemMocks.h"
-
 #include "fs/FileSystemChildFactory.h"
-
-#include "mozilla/dom/FileSystemHandle.h"
+#include "gtest/gtest.h"
 #include "mozilla/dom/FileSystemDirectoryHandle.h"
 #include "mozilla/dom/FileSystemFileHandle.h"
 #include "mozilla/dom/FileSystemHandle.h"
@@ -96,11 +92,11 @@ TEST_F(TestFileSystemHandle, isDifferentEntry) {
   RefPtr<Promise> promise = dirHandle->IsSameEntry(*fileHandle, rv);
   ASSERT_TRUE(rv.ErrorCodeIs(NS_OK));
   ASSERT_TRUE(promise);
-  ASSERT_EQ(Promise::PromiseState::Rejected, promise->State());
+  ASSERT_EQ(Promise::PromiseState::Resolved, promise->State());
 
   nsString result;
   ASSERT_NSEQ(NS_OK, GetAsString(promise, result));
-  ASSERT_STREQ(u"NS_ERROR_NOT_IMPLEMENTED"_ns, result);
+  ASSERT_STREQ(u"false"_ns, result);
 }
 
 TEST_F(TestFileSystemHandle, isSameEntry) {
@@ -111,11 +107,11 @@ TEST_F(TestFileSystemHandle, isSameEntry) {
   RefPtr<Promise> promise = fileHandle->IsSameEntry(*fileHandle, rv);
   ASSERT_TRUE(rv.ErrorCodeIs(NS_OK));
   ASSERT_TRUE(promise);
-  ASSERT_EQ(Promise::PromiseState::Rejected, promise->State());
+  ASSERT_EQ(Promise::PromiseState::Resolved, promise->State());
 
   nsString result;
   ASSERT_NSEQ(NS_OK, GetAsString(promise, result));
-  ASSERT_STREQ(u"NS_ERROR_NOT_IMPLEMENTED"_ns, result);
+  ASSERT_STREQ(u"true"_ns, result);
 }
 
 }  // namespace mozilla::dom::fs::test

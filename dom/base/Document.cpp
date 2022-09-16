@@ -772,6 +772,18 @@ OnloadBlocker::GetStatus(nsresult* status) {
   return NS_OK;
 }
 
+NS_IMETHODIMP OnloadBlocker::SetCanceledReason(const nsACString& aReason) {
+  return SetCanceledReasonImpl(aReason);
+}
+
+NS_IMETHODIMP OnloadBlocker::GetCanceledReason(nsACString& aReason) {
+  return GetCanceledReasonImpl(aReason);
+}
+
+NS_IMETHODIMP OnloadBlocker::CancelWithReason(nsresult aStatus,
+                                              const nsACString& aReason) {
+  return CancelWithReasonImpl(aStatus, aReason);
+}
 NS_IMETHODIMP
 OnloadBlocker::Cancel(nsresult status) { return NS_OK; }
 NS_IMETHODIMP
@@ -6687,10 +6699,12 @@ void Document::SetHeaderData(nsAtom* aHeaderField, const nsAString& aData) {
     if (mTrials.IsEnabled(OriginTrial::CoepCredentialless)) {
       InitCOEP(mChannel);
 
-      WindowContext* ctx = GetWindowContext();
-      MOZ_ASSERT(ctx);
-      if (mEmbedderPolicy) {
-        Unused << ctx->SetEmbedderPolicy(mEmbedderPolicy.value());
+      // If we still don't have a WindowContext, WindowContext::OnNewDocument
+      // will take care of this.
+      if (WindowContext* ctx = GetWindowContext()) {
+        if (mEmbedderPolicy) {
+          Unused << ctx->SetEmbedderPolicy(mEmbedderPolicy.value());
+        }
       }
     }
   }

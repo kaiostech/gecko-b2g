@@ -58,6 +58,7 @@
 #include "mozilla/dom/SafeRefPtr.h"
 #include "mozilla/dom/ServiceWorkerBinding.h"
 #include "mozilla/dom/ServiceWorkerGlobalScopeBinding.h"
+#include "mozilla/dom/SystemMessageEventBinding.h"
 #include "mozilla/dom/WorkerCommon.h"
 #include "mozilla/dom/WorkerRef.h"
 #include "mozilla/dom/WorkerScope.h"
@@ -902,8 +903,7 @@ class SystemMessageEventOp final : public ExtendableEventOp,
 
     GlobalObject globalObj(aCx, aWorkerPrivate->GlobalScope()->GetWrapper());
     RefPtr<SystemMessageEvent> event = SystemMessageEvent::Constructor(
-        globalObj, u"systemmessage"_ns, args.messageName(), smei,
-        result);
+        globalObj, u"systemmessage"_ns, args.messageName(), smei, result);
     if (NS_WARN_IF(result.Failed())) {
       RejectAll(NS_ERROR_FAILURE);
       return false;

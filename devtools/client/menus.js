@@ -26,7 +26,6 @@
  */
 
 const { Cu } = require("chrome");
-const ChromeUtils = require("ChromeUtils");
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -34,7 +33,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://devtools/client/framework/browser-toolbox/Launcher.sys.mjs",
 });
 
-loader.lazyRequireGetter(this, "Services", "Services");
 loader.lazyRequireGetter(this, "flags", "devtools/shared/flags");
 
 loader.lazyRequireGetter(

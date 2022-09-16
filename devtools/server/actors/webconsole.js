@@ -9,9 +9,7 @@
 const { ActorClassWithSpec, Actor } = require("devtools/shared/protocol");
 const { webconsoleSpec } = require("devtools/shared/specs/webconsole");
 
-const Services = require("Services");
 const { Cc, Ci, Cu } = require("chrome");
-const ChromeUtils = require("ChromeUtils");
 const { DevToolsServer } = require("devtools/server/devtools-server");
 const { ThreadActor } = require("devtools/server/actors/thread");
 const { ObjectActor } = require("devtools/server/actors/object");

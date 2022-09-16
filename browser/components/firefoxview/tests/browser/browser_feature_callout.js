@@ -120,9 +120,10 @@ add_task(async function feature_callout_syncs_across_visits_and_tabs() {
   );
 
   await clickPrimaryButton(tab2Doc);
-  gBrowser.selectedTab = tab1;
-  await waitForCalloutScreen(tab1Doc, 3);
 
+  gBrowser.selectedTab = tab1;
+  tab1.focus();
+  await waitForCalloutScreen(tab1Doc, 3);
   ok(
     tab1Doc.querySelector(".FEATURE_CALLOUT_3"),
     "First tab's Feature Callout advances to the next screen when the tour is advanced in second tab"
@@ -138,6 +139,7 @@ add_task(async function feature_callout_syncs_across_visits_and_tabs() {
   );
 
   gBrowser.selectedTab = tab2;
+  tab2.focus();
   await waitForCalloutRemoved(tab2Doc);
 
   ok(
@@ -182,136 +184,6 @@ add_task(async function feature_callout_closes_on_dismiss() {
     }
   );
 });
-
-add_task(
-  async function feature_callout_first_screen_positioned_below_element() {
-    await SpecialPowers.pushPrefEnv({
-      set: [[featureTourPref, defaultPrefValue]],
-    });
-
-    await BrowserTestUtils.withNewTab(
-      {
-        gBrowser,
-        url: "about:firefoxview",
-      },
-      async browser => {
-        const { document } = browser.contentWindow;
-        await waitForCalloutScreen(document, 1);
-        let parentTop = document
-          .querySelector("#tab-pickup-container")
-          .getBoundingClientRect().top;
-        let containerTop = document
-          .querySelector(calloutSelector)
-          .getBoundingClientRect().top;
-        ok(
-          parentTop < containerTop,
-          "Feature Callout is positioned below parent element when callout is configured to point from the top"
-        );
-      }
-    );
-  }
-);
-
-add_task(
-  async function feature_callout_second_screen_positioned_above_element() {
-    await SpecialPowers.pushPrefEnv({
-      set: [[featureTourPref, getPrefValueByScreen(2)]],
-    });
-
-    await BrowserTestUtils.withNewTab(
-      {
-        gBrowser,
-        url: "about:firefoxview",
-      },
-      async browser => {
-        const { document } = browser.contentWindow;
-        await waitForCalloutScreen(document, 2);
-        let parentTop = document
-          .querySelector("#recently-closed-tabs-container")
-          .getBoundingClientRect().top;
-        let containerTop = document
-          .querySelector(calloutSelector)
-          .getBoundingClientRect().top;
-
-        ok(
-          parentTop > containerTop,
-          "Feature Callout is positioned above parent element when callout is configured to point from the bottom"
-        );
-      }
-    );
-  }
-);
-
-add_task(
-  async function feature_callout_third_screen_positioned_left_of_element() {
-    await SpecialPowers.pushPrefEnv({
-      set: [[featureTourPref, getPrefValueByScreen(3)]],
-    });
-
-    await BrowserTestUtils.withNewTab(
-      {
-        gBrowser,
-        url: "about:firefoxview",
-      },
-      async browser => {
-        const { document } = browser.contentWindow;
-        await waitForCalloutScreen(document, 3);
-        let parentLeft = document
-          .querySelector("#colorways.content-container")
-          .getBoundingClientRect().left;
-        let containerLeft = document
-          .querySelector(calloutSelector)
-          .getBoundingClientRect().left;
-
-        ok(
-          parentLeft > containerLeft,
-          "Feature Callout is positioned left of parent element when callout is configured at end of callout"
-        );
-      }
-    );
-  }
-);
-
-add_task(
-  async function feature_callout_third_screen_position_respects_RTL_layouts() {
-    await SpecialPowers.pushPrefEnv({
-      set: [
-        [featureTourPref, getPrefValueByScreen(3)],
-        // Set layout direction to right to left
-        ["intl.l10n.pseudo", "bidi"],
-      ],
-    });
-
-    await BrowserTestUtils.withNewTab(
-      {
-        gBrowser,
-        url: "about:firefoxview",
-      },
-      async browser => {
-        const { document } = browser.contentWindow;
-        await waitForCalloutScreen(document, 3);
-        let parentLeft = document
-          .querySelector("#colorways")
-          .getBoundingClientRect().left;
-        let containerLeft = document
-          .querySelector(calloutSelector)
-          .getBoundingClientRect().left;
-
-        ok(
-          parentLeft < containerLeft,
-          "Feature Callout is positioned right of parent element when callout is configured at end of callout in right to left layouts"
-        );
-      }
-    );
-
-    await SpecialPowers.pushPrefEnv({
-      set: [
-        // Revert layout direction to left to right
-        ["intl.l10n.pseudo", ""],
-      ],
-    });
-  }
-);
 
 add_task(async function feature_callout_only_highlights_existing_elements() {
   // Third comma-separated value of the pref is set to a string value once a user completes the tour
@@ -377,6 +249,40 @@ add_task(async function feature_callout_arrow_is_not_flipped_on_ltr() {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.firefox-view.feature-tour", getPrefValueByScreen(3)]],
   });
+  await BrowserTestUtils.withNewTab(
+    {
+      gBrowser,
+      url: "about:firefoxview",
+    },
+    async browser => {
+      const { document } = browser.contentWindow;
+      await BrowserTestUtils.waitForCondition(() => {
+        return document.querySelector(
+          `${calloutSelector}.arrow-inline-end:not(.hidden)`
+        );
+      });
+      ok(
+        true,
+        "Feature Callout arrow parent has arrow-end class when arrow direction is set to 'end'"
+      );
+    }
+  );
+});
+
+add_task(async function feature_callout_respects_cfr_features_pref() {
+  async function toggleCFRFeaturesPref(value, extraPrefs = []) {
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        [
+          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
+          value,
+        ],
+        ...extraPrefs,
+      ],
+    });
+  }
+
+  await toggleCFRFeaturesPref(true, [[featureTourPref, defaultPrefValue]]);
 
   await BrowserTestUtils.withNewTab(
     {
@@ -385,14 +291,40 @@ add_task(async function feature_callout_arrow_is_not_flipped_on_ltr() {
     },
     async browser => {
       const { document } = browser.contentWindow;
-      await waitForCalloutScreen(document, 3);
-      let arrowParent = document.querySelector(
-        ".callout-arrow.arrow-inline-end"
+
+      await waitForCalloutScreen(document, 1);
+      ok(
+        document.querySelector(calloutSelector),
+        "Feature Callout element exists"
       );
 
+      await toggleCFRFeaturesPref(false);
+      await waitForCalloutRemoved(document);
       ok(
-        arrowParent,
-        "Feature Callout arrow parent has arrow-end class when arrow direction is set to 'end'"
+        !document.querySelector(calloutSelector),
+        "Feature Callout element was removed because CFR pref was disabled"
+      );
+    }
+  );
+
+  await BrowserTestUtils.withNewTab(
+    {
+      gBrowser,
+      url: "about:firefoxview",
+    },
+    async browser => {
+      const { document } = browser.contentWindow;
+
+      ok(
+        !document.querySelector(calloutSelector),
+        "Feature Callout element was not created because CFR pref was disabled"
+      );
+
+      await toggleCFRFeaturesPref(true);
+      await waitForCalloutScreen(document, 1);
+      ok(
+        document.querySelector(calloutSelector),
+        "Feature Callout element was created because CFR pref was enabled"
       );
     }
   );

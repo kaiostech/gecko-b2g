@@ -5,8 +5,6 @@
 "use strict";
 
 const { Cu } = require("chrome");
-const Services = require("Services");
-const ChromeUtils = require("ChromeUtils");
 
 const {
   DevToolsShim,
@@ -612,7 +610,7 @@ DevTools.prototype = {
         console.log(
           "Can't open a toolbox for this document as this is debugged from its opener tab"
         );
-        return;
+        return null;
       }
     }
     const descriptor = await TabDescriptorFactory.createDescriptorForTab(tab);

@@ -183,14 +183,9 @@ pref("dom.keyboardevent.keypress.hack.use_legacy_keycode_and_charcode.addl", "")
 // explanation for the detail.
 pref("dom.mouseevent.click.hack.use_legacy_non-primary_dispatch", "");
 
-// Text recognition is a macOS 10.15+ feature that is currently in development.
-// It is surfaced through the browser's context menu. There is no need to pref it
-// on by OS, as there is a specific check if that version of the OS supports the feature.
-#ifdef EARLY_BETA_OR_EARLIER
-  pref("dom.text-recognition.enabled", true);
-#else
-  pref("dom.text-recognition.enabled", false);
-#endif
+// Text recognition is a platform dependent feature, so even if this preference is
+// enabled here, the feature may not be visible in all browsers.
+pref("dom.text-recognition.enabled", true);
 
 // Fastback caching - if this pref is negative, then we calculate the number
 // of content viewers to cache based on the amount of available memory.
@@ -229,11 +224,7 @@ pref("browser.triple_click_selects_paragraph", true);
 pref("pdfjs.annotationMode", 2);
 
 // Enable editing in the PDF viewer.
-#ifdef EARLY_BETA_OR_EARLIER
-  pref("pdfjs.annotationEditorMode", 0);
-#else
-  pref("pdfjs.annotationEditorMode", -1);
-#endif
+pref("pdfjs.annotationEditorMode", 0);
 
 // Enable JavaScript support in the PDF viewer.
 pref("pdfjs.enableScripting", true);
@@ -2086,7 +2077,11 @@ pref("extensions.eventPages.enabled", true);
 // (only allowing same extension urls to be used as action popup urls).
 pref("extensions.manifestV2.actionsPopupURLRestricted", false);
 // Whether "manifest_version: 3" extensions should be allowed to install successfully.
-pref("extensions.manifestV3.enabled", false);
+#ifdef EARLY_BETA_OR_EARLIER
+  pref("extensions.manifestV3.enabled", true);
+#else
+  pref("extensions.manifestV3.enabled", false);
+#endif
 // Whether to enable the unified extensions feature.
 pref("extensions.unifiedExtensions.enabled", false);
 
@@ -3617,10 +3612,10 @@ pref("extensions.webcompat-reporter.newIssueEndpoint", "https://webcompat.com/is
 #endif
 
 // Add-on content security policies.
-pref("extensions.webextensions.base-content-security-policy", "script-src 'self' https://* http://localhost:* http://127.0.0.1:* moz-extension: blob: filesystem: 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline'; object-src 'self' moz-extension: blob: filesystem:;");
-pref("extensions.webextensions.base-content-security-policy.v3", "script-src 'self' 'wasm-unsafe-eval' http://localhost:* http://127.0.0.1:*; object-src 'self';");
-pref("extensions.webextensions.default-content-security-policy", "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';");
-pref("extensions.webextensions.default-content-security-policy.v3", "script-src 'self'; object-src 'self';");
+pref("extensions.webextensions.base-content-security-policy", "script-src 'self' https://* http://localhost:* http://127.0.0.1:* moz-extension: blob: filesystem: 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline';");
+pref("extensions.webextensions.base-content-security-policy.v3", "script-src 'self' 'wasm-unsafe-eval';");
+pref("extensions.webextensions.default-content-security-policy", "script-src 'self' 'wasm-unsafe-eval';");
+pref("extensions.webextensions.default-content-security-policy.v3", "script-src 'self';");
 
 
 pref("network.buffer.cache.count", 24);

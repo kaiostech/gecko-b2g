@@ -8,6 +8,7 @@
 #define _MOZILLA_GFX_DRAWTARGETWEBGL_H
 
 #include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/PathSkia.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/WeakPtr.h"
 #include "mozilla/ThreadLocal.h"
@@ -82,13 +83,27 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
   // Whether or not the WebGL context has valid contents and is being drawn to
   bool mWebglValid = true;
   // Whether or not the clip state has changed since last used by SharedContext.
-  bool mClipDirty = true;
+  bool mClipChanged = true;
+  // Whether or not the clip state needs to be refreshed. Sometimes the clip
+  // state may be overwritten and require a refresh later, even though it has
+  // not changed.
+  bool mRefreshClipState = true;
   // The framebuffer has been modified and should be copied to the swap chain.
   bool mNeedsPresent = true;
   // The number of layers currently pushed.
   int32_t mLayerDepth = 0;
 
   RefPtr<TextureHandle> mSnapshotTexture;
+
+  // Store a log of clips currently pushed so that they can be used to init
+  // the clip state of temporary DTs.
+  struct ClipStack {
+    Matrix mTransform;
+    Rect mRect;
+    RefPtr<const Path> mPath;
+  };
+
+  std::vector<ClipStack> mClipStack;
 
   // UsageProfile stores per-frame counters for significant profiling events
   // that assist in determining whether acceleration should still be used for
@@ -170,7 +185,7 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
     RefPtr<WebGLFramebufferJS> mScratchFramebuffer;
     // Buffer filled with zero data for initializing textures.
     RefPtr<WebGLBufferJS> mZeroBuffer;
-    IntSize mZeroSize;
+    size_t mZeroSize = 0;
     // 1x1 texture with solid white mask for disabling clipping
     RefPtr<WebGLTextureJS> mNoClipMask;
 
@@ -351,9 +366,16 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
                    const IntPoint& aDestination) override;
   void FillRect(const Rect& aRect, const Pattern& aPattern,
                 const DrawOptions& aOptions = DrawOptions()) override;
+  bool StrokeRectAccel(const Rect& aRect, const Pattern& aPattern,
+                       const StrokeOptions& aStrokeOptions,
+                       const DrawOptions& aOptions);
   void StrokeRect(const Rect& aRect, const Pattern& aPattern,
                   const StrokeOptions& aStrokeOptions = StrokeOptions(),
                   const DrawOptions& aOptions = DrawOptions()) override;
+  bool StrokeLineAccel(const Point& aStart, const Point& aEnd,
+                       const Pattern& aPattern,
+                       const StrokeOptions& aStrokeOptions,
+                       const DrawOptions& aOptions);
   void StrokeLine(const Point& aStart, const Point& aEnd,
                   const Pattern& aPattern,
                   const StrokeOptions& aStrokeOptions = StrokeOptions(),

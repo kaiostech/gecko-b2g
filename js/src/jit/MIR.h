@@ -4430,6 +4430,11 @@ class MMinMaxArray : public MUnaryInstruction, public SingleObjectPolicy::Data {
       : MUnaryInstruction(classOpcode, array), isMax_(isMax) {
     MOZ_ASSERT(type == MIRType::Int32 || type == MIRType::Double);
     setResultType(type);
+
+    // We can't DCE this, even if the result is unused, in case one of the
+    // elements of the array is an object with a `valueOf` function that
+    // must be called.
+    setGuard();
   }
 
  public:
@@ -6745,6 +6750,7 @@ class MStoreHoleValueElement : public MBinaryInstruction,
 class MStoreElementHole
     : public MQuaternaryInstruction,
       public MixPolicy<SingleObjectPolicy, NoFloatPolicy<3>>::Data {
+  bool needsNegativeIntCheck_ = true;
 
   MStoreElementHole(MDefinition* object, MDefinition* elements,
                     MDefinition* index, MDefinition* value)
@@ -6758,6 +6764,10 @@ class MStoreElementHole
   INSTRUCTION_HEADER(StoreElementHole)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object), (1, elements), (2, index), (3, value))
+
+  bool needsNegativeIntCheck() const { return needsNegativeIntCheck_; }
+
+  void collectRangeInfoPreTrunc() override;
 
   ALLOW_CLONE(MStoreElementHole)
 };
@@ -7216,6 +7226,10 @@ class MLoadFixedSlot : public MUnaryInstruction,
 
   AliasType mightAlias(const MDefinition* store) const override;
 
+#ifdef JS_JITSPEW
+  void printOpcode(GenericPrinter& out) const override;
+#endif
+
   ALLOW_CLONE(MLoadFixedSlot)
 };
 
@@ -7258,6 +7272,10 @@ class MLoadFixedSlotAndUnbox : public MUnaryInstruction,
   }
 
   AliasType mightAlias(const MDefinition* store) const override;
+
+#ifdef JS_JITSPEW
+  void printOpcode(GenericPrinter& out) const override;
+#endif
 
   ALLOW_CLONE(MLoadFixedSlotAndUnbox);
 };
@@ -7340,6 +7358,10 @@ class MStoreFixedSlot
   void setNeedsBarrier(bool needsBarrier = true) {
     needsBarrier_ = needsBarrier;
   }
+
+#ifdef JS_JITSPEW
+  void printOpcode(GenericPrinter& out) const override;
+#endif
 
   ALLOW_CLONE(MStoreFixedSlot)
 };
@@ -7688,26 +7710,6 @@ class MLoadDynamicSlot : public MUnaryInstruction, public NoTypePolicy::Data {
 #endif
 
   ALLOW_CLONE(MLoadDynamicSlot)
-};
-
-// Allocate a new BlockLexicalEnvironmentObject.
-class MNewLexicalEnvironmentObject : public MUnaryInstruction,
-                                     public SingleObjectPolicy::Data {
-  CompilerGCPointer<LexicalScope*> scope_;
-
-  MNewLexicalEnvironmentObject(MDefinition* enclosing, LexicalScope* scope)
-      : MUnaryInstruction(classOpcode, enclosing), scope_(scope) {
-    setResultType(MIRType::Object);
-  }
-
- public:
-  INSTRUCTION_HEADER(NewLexicalEnvironmentObject)
-  TRIVIAL_NEW_WRAPPERS
-  NAMED_OPERANDS((0, enclosing))
-
-  LexicalScope* scope() const { return scope_; }
-  bool possiblyCalls() const override { return true; }
-  AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
 class MAddAndStoreSlot

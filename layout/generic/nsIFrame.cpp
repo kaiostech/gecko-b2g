@@ -1449,8 +1449,12 @@ void nsIFrame::HandleLastRememberedSize() {
     const auto containAxes = StyleDisplay()->GetContainSizeAxes();
     if ((canRememberBSize && !containAxes.mBContained) ||
         (canRememberISize && !containAxes.mIContained)) {
-      PresContext()->Document()->ObserveForLastRememberedSize(*element);
-      return;
+      bool isNonReplacedInline = IsFrameOfType(nsIFrame::eLineParticipant) &&
+                                 !IsFrameOfType(nsIFrame::eReplaced);
+      if (!isNonReplacedInline) {
+        PresContext()->Document()->ObserveForLastRememberedSize(*element);
+        return;
+      }
     }
   }
   PresContext()->Document()->UnobserveForLastRememberedSize(*element);
@@ -6263,8 +6267,9 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
     }
   }
   const bool isFlexItem =
-      IsFlexItem() &&
-      !parentFrame->HasAnyStateBits(NS_STATE_FLEX_IS_EMULATING_LEGACY_BOX);
+      IsFlexItem() && !parentFrame->HasAnyStateBits(
+                          NS_STATE_FLEX_IS_EMULATING_LEGACY_WEBKIT_BOX |
+                          NS_STATE_FLEX_IS_EMULATING_LEGACY_MOZ_BOX);
   // This variable only gets set (and used) if isFlexItem is true.  It
   // indicates which axis (in this frame's own WM) corresponds to its
   // flex container's main axis.
@@ -10401,8 +10406,7 @@ nsIFrame::Focusable nsIFrame::IsFocusable(bool aWithMouse) {
   }
 
   PseudoStyleType pseudo = Style()->GetPseudoType();
-  if (pseudo == PseudoStyleType::anonymousFlexItem ||
-      pseudo == PseudoStyleType::anonymousGridItem) {
+  if (pseudo == PseudoStyleType::anonymousItem) {
     return {};
   }
 

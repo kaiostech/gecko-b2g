@@ -1537,6 +1537,10 @@ double MediaDecoder::GetTotalVideoPlayTimeInSeconds() const {
   return mTelemetryProbesReporter->GetTotalVideoPlayTimeInSeconds();
 }
 
+double MediaDecoder::GetTotalVideoHDRPlayTimeInSeconds() const {
+  return mTelemetryProbesReporter->GetTotalVideoHDRPlayTimeInSeconds();
+}
+
 double MediaDecoder::GetVisibleVideoPlayTimeInSeconds() const {
   return mTelemetryProbesReporter->GetVisibleVideoPlayTimeInSeconds();
 }

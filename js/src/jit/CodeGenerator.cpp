@@ -4004,48 +4004,74 @@ void CodeGenerator::visitHomeObjectSuperBase(LHomeObjectSuperBase* lir) {
   masm.bind(&done);
 }
 
+template <class T>
+static T* ToConstantObject(MDefinition* def) {
+  MOZ_ASSERT(def->isConstant());
+  return &def->toConstant()->toObject().as<T>();
+}
+
 void CodeGenerator::visitNewLexicalEnvironmentObject(
     LNewLexicalEnvironmentObject* lir) {
-  pushArg(Imm32(gc::DefaultHeap));
-  pushArg(ToRegister(lir->enclosing()));
-  pushArg(ImmGCPtr(lir->mir()->scope()));
+  Register output = ToRegister(lir->output());
+  Register temp = ToRegister(lir->temp0());
+
+  auto* templateObj = ToConstantObject<BlockLexicalEnvironmentObject>(
+      lir->mir()->templateObj());
+  auto* scope = &templateObj->scope();
+  gc::InitialHeap initialHeap = gc::DefaultHeap;
 
   using Fn =
-      BlockLexicalEnvironmentObject* (*)(JSContext*, Handle<LexicalScope*>,
-                                         HandleObject, gc::InitialHeap);
-  callVM<Fn, BlockLexicalEnvironmentObject::create>(lir);
+      BlockLexicalEnvironmentObject* (*)(JSContext*, Handle<LexicalScope*>);
+  auto* ool =
+      oolCallVM<Fn, BlockLexicalEnvironmentObject::createWithoutEnclosing>(
+          lir, ArgList(ImmGCPtr(scope)), StoreRegisterTo(output));
+
+  TemplateObject templateObject(templateObj);
+  masm.createGCObject(output, temp, templateObject, initialHeap, ool->entry());
+
+  masm.bind(ool->rejoin());
 }
 
 void CodeGenerator::visitNewClassBodyEnvironmentObject(
     LNewClassBodyEnvironmentObject* lir) {
-  pushArg(Imm32(gc::DefaultHeap));
-  pushArg(ToRegister(lir->enclosing()));
-  pushArg(ImmGCPtr(lir->mir()->scope()));
+  Register output = ToRegister(lir->output());
+  Register temp = ToRegister(lir->temp0());
 
-  using Fn =
-      ClassBodyLexicalEnvironmentObject* (*)(JSContext*,
-                                             Handle<ClassBodyScope*>,
-                                             HandleObject, gc::InitialHeap);
-  callVM<Fn, ClassBodyLexicalEnvironmentObject::create>(lir);
+  auto* templateObj = ToConstantObject<ClassBodyLexicalEnvironmentObject>(
+      lir->mir()->templateObj());
+  auto* scope = &templateObj->scope();
+  gc::InitialHeap initialHeap = gc::DefaultHeap;
+
+  using Fn = ClassBodyLexicalEnvironmentObject* (*)(JSContext*,
+                                                    Handle<ClassBodyScope*>);
+  auto* ool =
+      oolCallVM<Fn, ClassBodyLexicalEnvironmentObject::createWithoutEnclosing>(
+          lir, ArgList(ImmGCPtr(scope)), StoreRegisterTo(output));
+
+  TemplateObject templateObject(templateObj);
+  masm.createGCObject(output, temp, templateObject, initialHeap, ool->entry());
+
+  masm.bind(ool->rejoin());
 }
 
 void CodeGenerator::visitNewVarEnvironmentObject(
     LNewVarEnvironmentObject* lir) {
-  pushArg(ToRegister(lir->enclosing()));
-  pushArg(ImmGCPtr(lir->mir()->scope()));
+  Register output = ToRegister(lir->output());
+  Register temp = ToRegister(lir->temp0());
 
-  using Fn =
-      VarEnvironmentObject* (*)(JSContext*, Handle<Scope*>, HandleObject);
-  callVM<Fn, VarEnvironmentObject::create>(lir);
-}
+  auto* templateObj =
+      ToConstantObject<VarEnvironmentObject>(lir->mir()->templateObj());
+  auto* scope = &templateObj->scope().as<VarScope>();
+  gc::InitialHeap initialHeap = gc::DefaultHeap;
 
-void CodeGenerator::visitCopyLexicalEnvironmentObject(
-    LCopyLexicalEnvironmentObject* lir) {
-  pushArg(Imm32(lir->mir()->copySlots()));
-  pushArg(ToRegister(lir->env()));
+  using Fn = VarEnvironmentObject* (*)(JSContext*, Handle<VarScope*>);
+  auto* ool = oolCallVM<Fn, VarEnvironmentObject::createWithoutEnclosing>(
+      lir, ArgList(ImmGCPtr(scope)), StoreRegisterTo(output));
 
-  using Fn = JSObject* (*)(JSContext*, HandleObject, bool);
-  callVM<Fn, jit::CopyLexicalEnvironmentObject>(lir);
+  TemplateObject templateObject(templateObj);
+  masm.createGCObject(output, temp, templateObject, initialHeap, ool->entry());
+
+  masm.bind(ool->rejoin());
 }
 
 void CodeGenerator::visitGuardShape(LGuardShape* guard) {
@@ -5050,6 +5076,22 @@ void CodeGenerator::visitPostWriteElementBarrierV(
   auto ool = new (alloc())
       OutOfLineCallPostWriteElementBarrier(lir, lir->object(), lir->index());
   visitPostWriteBarrierCommonV(lir, ool);
+}
+
+void CodeGenerator::visitAssertCanElidePostWriteBarrier(
+    LAssertCanElidePostWriteBarrier* lir) {
+  Register object = ToRegister(lir->object());
+  ValueOperand value =
+      ToValue(lir, LAssertCanElidePostWriteBarrier::ValueIndex);
+  Register temp = ToRegister(lir->temp0());
+
+  Label ok;
+  masm.branchPtrInNurseryChunk(Assembler::Equal, object, temp, &ok);
+  masm.branchValueIsNurseryCell(Assembler::NotEqual, value, temp, &ok);
+
+  masm.assumeUnreachable("Unexpected missing post write barrier");
+
+  masm.bind(&ok);
 }
 
 void CodeGenerator::visitCallNative(LCallNative* call) {
@@ -7147,12 +7189,9 @@ void CodeGenerator::visitNewNamedLambdaObject(LNewNamedLambdaObject* lir) {
   Register tempReg = ToRegister(lir->temp0());
   const CompileInfo& info = lir->mir()->block()->info();
 
-  // If we have a template object, we can inline call object creation.
-  using Fn =
-      js::NamedLambdaObject* (*)(JSContext*, HandleFunction, gc::InitialHeap);
-  OutOfLineCode* ool = oolCallVM<Fn, NamedLambdaObject::createTemplateObject>(
-      lir, ArgList(info.funMaybeLazy(), Imm32(gc::DefaultHeap)),
-      StoreRegisterTo(objReg));
+  using Fn = js::NamedLambdaObject* (*)(JSContext*, HandleFunction);
+  OutOfLineCode* ool = oolCallVM<Fn, NamedLambdaObject::createWithoutEnclosing>(
+      lir, ArgList(info.funMaybeLazy()), StoreRegisterTo(objReg));
 
   TemplateObject templateObject(lir->mir()->templateObj());
 
@@ -7168,8 +7207,8 @@ void CodeGenerator::visitNewCallObject(LNewCallObject* lir) {
 
   CallObject* templateObj = lir->mir()->templateObject();
 
-  using Fn = JSObject* (*)(JSContext*, Handle<Shape*>);
-  OutOfLineCode* ool = oolCallVM<Fn, NewCallObject>(
+  using Fn = CallObject* (*)(JSContext*, Handle<Shape*>);
+  OutOfLineCode* ool = oolCallVM<Fn, CallObject::createWithShape>(
       lir, ArgList(ImmGCPtr(templateObj->shape())), StoreRegisterTo(objReg));
 
   // Inline call object creation, using the OOL path only for tricky cases.
@@ -11567,20 +11606,22 @@ void CodeGenerator::visitSpectreMaskIndex(LSpectreMaskIndex* lir) {
 class OutOfLineStoreElementHole : public OutOfLineCodeBase<CodeGenerator> {
   LInstruction* ins_;
   Label rejoinStore_;
-  bool strict_;
 
  public:
-  explicit OutOfLineStoreElementHole(LInstruction* ins, bool strict)
-      : ins_(ins), strict_(strict) {
+  explicit OutOfLineStoreElementHole(LInstruction* ins) : ins_(ins) {
     MOZ_ASSERT(ins->isStoreElementHoleV() || ins->isStoreElementHoleT());
   }
 
   void accept(CodeGenerator* codegen) override {
     codegen->visitOutOfLineStoreElementHole(this);
   }
+
+  MStoreElementHole* mir() const {
+    return ins_->isStoreElementHoleV() ? ins_->toStoreElementHoleV()->mir()
+                                       : ins_->toStoreElementHoleT()->mir();
+  }
   LInstruction* ins() const { return ins_; }
   Label* rejoinStore() { return &rejoinStore_; }
-  bool strict() const { return strict_; }
 };
 
 void CodeGenerator::emitStoreHoleCheck(Register elements,
@@ -11661,8 +11702,7 @@ void CodeGenerator::visitStoreHoleValueElement(LStoreHoleValueElement* lir) {
 }
 
 void CodeGenerator::visitStoreElementHoleT(LStoreElementHoleT* lir) {
-  OutOfLineStoreElementHole* ool =
-      new (alloc()) OutOfLineStoreElementHole(lir, current->mir()->strict());
+  auto* ool = new (alloc()) OutOfLineStoreElementHole(lir);
   addOutOfLineCode(ool, lir->mir());
 
   Register elements = ToRegister(lir->elements());
@@ -11682,8 +11722,7 @@ void CodeGenerator::visitStoreElementHoleT(LStoreElementHoleT* lir) {
 }
 
 void CodeGenerator::visitStoreElementHoleV(LStoreElementHoleV* lir) {
-  OutOfLineStoreElementHole* ool =
-      new (alloc()) OutOfLineStoreElementHole(lir, current->mir()->strict());
+  auto* ool = new (alloc()) OutOfLineStoreElementHole(lir);
   addOutOfLineCode(ool, lir->mir());
 
   Register elements = ToRegister(lir->elements());
@@ -11704,9 +11743,8 @@ void CodeGenerator::visitStoreElementHoleV(LStoreElementHoleV* lir) {
 
 void CodeGenerator::visitOutOfLineStoreElementHole(
     OutOfLineStoreElementHole* ool) {
-  Register object, elements;
+  Register object, elements, index;
   LInstruction* ins = ool->ins();
-  const LAllocation* index;
   mozilla::Maybe<ConstantOrRegister> value;
   Register spectreTemp;
 
@@ -11714,7 +11752,7 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
     LStoreElementHoleV* store = ins->toStoreElementHoleV();
     object = ToRegister(store->object());
     elements = ToRegister(store->elements());
-    index = store->index();
+    index = ToRegister(store->index());
     value.emplace(
         TypedOrValueRegister(ToValue(store, LStoreElementHoleV::ValueIndex)));
     spectreTemp = ToTempRegisterOrInvalid(store->temp0());
@@ -11722,7 +11760,7 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
     LStoreElementHoleT* store = ins->toStoreElementHoleT();
     object = ToRegister(store->object());
     elements = ToRegister(store->elements());
-    index = store->index();
+    index = ToRegister(store->index());
     if (store->value()->isConstant()) {
       value.emplace(
           ConstantOrRegister(store->value()->toConstant()->toJSValue()));
@@ -11734,8 +11772,6 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
     spectreTemp = ToTempRegisterOrInvalid(store->temp0());
   }
 
-  Register indexReg = ToRegister(index);
-
   // If index == initializedLength, try to bump the initialized length inline.
   // If index > initializedLength, call a stub. Note that this relies on the
   // condition flags sticking from the incoming branch.
@@ -11746,49 +11782,48 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
     defined(JS_CODEGEN_LOONG64)
   // Had to reimplement for MIPS because there are no flags.
   Address initLength(elements, ObjectElements::offsetOfInitializedLength());
-  masm.branch32(Assembler::NotEqual, initLength, indexReg, &callStub);
+  masm.branch32(Assembler::NotEqual, initLength, index, &callStub);
 #else
   masm.j(Assembler::NotEqual, &callStub);
 #endif
 
   // Check array capacity.
   masm.spectreBoundsCheck32(
-      indexReg, Address(elements, ObjectElements::offsetOfCapacity()),
-      spectreTemp, &callStub);
+      index, Address(elements, ObjectElements::offsetOfCapacity()), spectreTemp,
+      &callStub);
 
   // Update initialized length. The capacity guard above ensures this won't
   // overflow, due to MAX_DENSE_ELEMENTS_COUNT.
-  masm.add32(Imm32(1), indexReg);
-  masm.store32(indexReg,
+  masm.add32(Imm32(1), index);
+  masm.store32(index,
                Address(elements, ObjectElements::offsetOfInitializedLength()));
 
   // Update length if length < initializedLength.
   Label dontUpdate;
   masm.branch32(Assembler::AboveOrEqual,
-                Address(elements, ObjectElements::offsetOfLength()), indexReg,
+                Address(elements, ObjectElements::offsetOfLength()), index,
                 &dontUpdate);
-  masm.store32(indexReg, Address(elements, ObjectElements::offsetOfLength()));
+  masm.store32(index, Address(elements, ObjectElements::offsetOfLength()));
   masm.bind(&dontUpdate);
 
-  masm.sub32(Imm32(1), indexReg);
+  masm.sub32(Imm32(1), index);
 
   // Jump to the inline path where we will store the value.
   masm.jump(ool->rejoinStore());
 
   masm.bind(&callStub);
+
+  if (ool->mir()->needsNegativeIntCheck()) {
+    bailoutCmp32(Assembler::LessThan, index, Imm32(0), ins->snapshot());
+  }
+
   saveLive(ins);
 
-  pushArg(Imm32(ool->strict()));
   pushArg(value.ref());
-  if (index->isConstant()) {
-    pushArg(Imm32(ToInt32(index)));
-  } else {
-    pushArg(ToRegister(index));
-  }
+  pushArg(index);
   pushArg(object);
 
-  using Fn = bool (*)(JSContext*, Handle<NativeObject*>, int32_t, HandleValue,
-                      bool strict);
+  using Fn = bool (*)(JSContext*, Handle<NativeObject*>, int32_t, HandleValue);
   callVM<Fn, jit::SetDenseElement>(ins);
 
   restoreLive(ins);
@@ -14131,9 +14166,7 @@ void CodeGenerator::visitLoadElementHole(LLoadElementHole* lir) {
 
     masm.bind(&outOfBounds);
 
-    Label negative;
-    masm.branch32(Assembler::LessThan, index, Imm32(0), &negative);
-    bailoutFrom(&negative, lir->snapshot());
+    bailoutCmp32(Assembler::LessThan, index, Imm32(0), lir->snapshot());
 
     masm.bind(&loadUndefined);
   } else {

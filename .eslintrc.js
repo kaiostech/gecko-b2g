@@ -22,28 +22,28 @@ function removeOverrides(config) {
   return config;
 }
 
-const ignorePatterns = [
-  ...fs
-    .readFileSync(
-      path.join(__dirname, "tools", "rewriting", "ThirdPartyPaths.txt")
-    )
-    .toString("utf-8")
-    .split("\n"),
-  ...fs
-    .readFileSync(
-      path.join(
-        __dirname,
-        "devtools",
-        "client",
-        "debugger",
-        "src",
-        ".eslintignore"
-      )
-    )
-    .toString("utf-8")
+function readFile(path) {
+  return fs
+    .readFileSync(path, { encoding: "utf-8" })
     .split("\n")
-    .filter(p => p && !p.startsWith("#"))
-    .map(p => `devtools/client/debugger/src/${p}`),
+    .filter(p => p && !p.startsWith("#"));
+}
+
+const ignorePatterns = [
+  ...readFile(
+    path.join(__dirname, "tools", "rewriting", "ThirdPartyPaths.txt")
+  ),
+  ...readFile(path.join(__dirname, "tools", "rewriting", "Generated.txt")),
+  ...readFile(
+    path.join(
+      __dirname,
+      "devtools",
+      "client",
+      "debugger",
+      "src",
+      ".eslintignore"
+    )
+  ).map(p => `devtools/client/debugger/src/${p}`),
 ];
 const httpTestingPaths = [
   "**/*mixedcontent",
@@ -328,7 +328,6 @@ module.exports = {
         "dom/xml/test/**",
         "dom/xslt/tests/**",
         "dom/xul/test/**",
-        "dom/ipc/test.xhtml",
       ],
       rules: {
         "consistent-return": "off",
@@ -445,7 +444,6 @@ module.exports = {
         "dom/events/test/test_bug679494.xhtml",
         "dom/indexedDB/test/test_globalObjects_chrome.xhtml",
         "dom/indexedDB/test/test_wrappedArray.xhtml",
-        "dom/ipc/test.xhtml",
         "dom/ipc/tests/test_process_error.xhtml",
         "dom/notification/test/chrome/test_notification_system_principal.xhtml",
         "dom/security/test/general/test_bug1277803.xhtml",

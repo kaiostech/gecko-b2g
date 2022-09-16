@@ -183,7 +183,7 @@ const SpecialMessageActions = {
     const allowedPrefs = [
       "browser.dataFeatureRecommendations.enabled",
       "browser.startup.homepage",
-      "browser.privacySegmentation.windowSeparation.enabled",
+      "browser.privateWindowSeparation.enabled",
       "browser.firefox-view.feature-tour",
     ];
 
@@ -393,6 +393,12 @@ const SpecialMessageActions = {
         throw new Error(
           `Special message action with type ${action.type} is unsupported.`
         );
+      case "CLICK_ELEMENT":
+        const clickElement = window.document.querySelector(
+          action.data.selector
+        );
+        clickElement?.click();
+        break;
     }
   },
 };

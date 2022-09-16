@@ -7,12 +7,11 @@
 const { storageTypePool } = require("devtools/server/actors/storage");
 const EventEmitter = require("devtools/shared/event-emitter");
 const { Ci } = require("chrome");
-const Services = require("Services");
 
 loader.lazyRequireGetter(
   this,
   "getAddonIdForWindowGlobal",
-  "devtools/server/actors/watcher/browsing-context-helpers.jsm",
+  "devtools/server/actors/watcher/browsing-context-helpers.sys.mjs",
   true
 );
 

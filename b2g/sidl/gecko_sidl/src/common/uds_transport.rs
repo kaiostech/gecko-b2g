@@ -25,7 +25,7 @@ use std::result::Result as StdResult;
 use std::sync::Arc;
 use std::thread;
 use thiserror::Error as ThisError;
-use xpcom::interfaces::nsISidlConnectionObserver;
+use xpcom::interfaces::{nsIPrefService, nsISidlConnectionObserver};
 
 #[derive(ThisError, Debug)]
 pub enum UdsError {
@@ -176,7 +176,7 @@ impl ConnectionObservers {
 // Similar to https://searchfox.org/mozilla-central/rev/23b89f8c85c3898cc95c96c90afd6c304aad0158/toolkit/components/glean/src/init/mod.rs#267
 // but using 'GetBranch()' instead of 'GetDefaultBranch()' to pick up prefs from user prefs files.
 fn fallible_get_char_pref(name: &str, default_value: &str) -> Result<nsCString, nsresult> {
-    if let Some(pref_service) = xpcom::services::get_PrefService() {
+    if let Ok(pref_service) = xpcom::components::Preferences::service::<nsIPrefService>() {
         let branch = xpcom::getter_addrefs(|p| {
             // Safe because:
             //  * `null` is explicitly allowed per documentation

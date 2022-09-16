@@ -8,6 +8,7 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/Components.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/DeviceStorageBinding.h"
@@ -27,7 +28,6 @@
 #include "mozilla/EventListenerManager.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Scoped.h"
-#include "mozilla/Services.h"
 #include "mozilla/ipc/BackgroundUtils.h"  // for PrincipalInfoToPrincipal
 
 #include "nsArrayUtils.h"
@@ -209,7 +209,7 @@ DeviceStorageTypeChecker* DeviceStorageTypeChecker::CreateOrGet() {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIStringBundleService> stringService =
-      mozilla::services::GetStringBundleService();
+      mozilla::components::StringBundle::Service();
   if (!stringService) {
     return nullptr;
   }

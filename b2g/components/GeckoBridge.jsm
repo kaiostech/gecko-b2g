@@ -67,6 +67,9 @@ const GeckoBridge = {
       return;
     }
 
+    // A dynamic list to observe prefs for api-daemon.
+    this._prefs = [];
+
     // Any of these could fail, but we don't want to stop at the first failure.
     [
       {
@@ -127,6 +130,7 @@ const GeckoBridge = {
     this.setNetworkManagerDelegate();
 
     Services.obs.addObserver(this, "api-daemon-reconnected");
+    Services.obs.addObserver(this, "preference-delegate-notify");
   },
 
   observe(subject, topic, data) {
@@ -138,6 +142,15 @@ const GeckoBridge = {
       kWatchedPrefs.forEach(pref => {
         this.setPref(pref);
       });
+      this._prefs.forEach(pref => {
+        this.setPref(pref);
+      });
+    } else if (topic == "preference-delegate-notify") {
+      if (!kWatchedPrefs.includes(data) &&
+          !this._prefs.includes(data)) {
+        this._prefs.push(data);
+        Services.prefs.addObserver(data, this);
+      }
     } else {
       this.setPref(data);
     }

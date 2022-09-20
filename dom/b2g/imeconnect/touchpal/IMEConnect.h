@@ -393,7 +393,7 @@ struct DictFile {
 class IMEConnect final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IMEConnect)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(IMEConnect)
 
   static already_AddRefed<IMEConnect> Constructor(const GlobalObject& aGlobal,
                                                   ErrorResult& aRv);

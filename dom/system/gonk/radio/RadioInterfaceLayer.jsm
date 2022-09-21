@@ -47,6 +47,10 @@ var TelephonyRequestQueue = ChromeUtils.import(
   "resource://gre/modules/TelephonyRequestQueue.jsm"
 );
 
+const { setTimeout } = ChromeUtils.import(
+  "resource://gre/modules/Timer.jsm"
+);
+
 // Ril quirk to always turn the radio off for the client without SIM card
 // except hw default client.
 var RILQUIRKS_RADIO_OFF_WO_CARD =
@@ -4645,8 +4649,7 @@ RadioInterface.prototype = {
 
     // Send the message on the next tick of the worker's loop, so we give the
     // last message a chance to call _sendNetworkInfoMessage first.
-    //setTimeout(this._sendPendingNetworkInfo.bind(this), 0);
-    this._sendPendingNetworkInfo();
+    setTimeout(this._sendPendingNetworkInfo.bind(this), 0);
   },
 
   _sendPendingNetworkInfo() {

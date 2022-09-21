@@ -8,9 +8,11 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/ModuleUtils.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/Services.h"
 #include "nsServiceManagerUtils.h"
 #include "nsXULAppAPI.h"
 #include "nsQueryObject.h"
+#include "nsIObserverService.h"
 
 using namespace mozilla;
 
@@ -43,11 +45,23 @@ PreferenceDelegateService::ConstructPreferenceDelegate() {
   return service.forget();
 }
 
+void PreferenceDelegateService::NotifyObservers(const nsAString& aKey) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+  if (!obs) {
+    return;
+  }
+  nsString key(aKey);
+  obs->NotifyObservers(nullptr, "preference-delegate-notify", key.get());
+}
+
 NS_IMETHODIMP
 PreferenceDelegateService::GetInt(const nsAString& key, int* value) {
   nsAutoCString nKey;
   LossyCopyUTF16toASCII(key, nKey);
 
+  NotifyObservers(key);
   nsresult rv = Preferences::GetInt(nKey.get(), value);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_FAILURE;
@@ -62,6 +76,7 @@ PreferenceDelegateService::GetChar(const nsAString& key, nsAString& value) {
   nsAutoString nValue;
   LossyCopyUTF16toASCII(key, nKey);
 
+  NotifyObservers(key);
   nsresult rv = Preferences::GetString(nKey.get(), nValue);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_FAILURE;
@@ -79,6 +94,7 @@ PreferenceDelegateService::GetBool(const nsAString& key, bool* value) {
   nsAutoCString nKey;
   LossyCopyUTF16toASCII(key, nKey);
 
+  NotifyObservers(key);
   nsresult rv = Preferences::GetBool(nKey.get(), value);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_FAILURE;

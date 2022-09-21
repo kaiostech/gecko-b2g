@@ -1501,25 +1501,8 @@ uint32_t AudioManager::GetDeviceForStream(int32_t aStream) {
 }
 
 uint32_t AudioManager::GetDeviceForFm() {
-#if defined(PRODUCT_MANUFACTURER_SPRD)
-  // On SPRD devices, FM radio only supports speaker or headphone path, so
-  // manually decide its routing.
-  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_FM);
-  if (force == AUDIO_POLICY_FORCE_SPEAKER) {
-    return AUDIO_DEVICE_OUT_SPEAKER;
-  }
-  if (mConnectedDevices.Get(AUDIO_DEVICE_OUT_WIRED_HEADSET, nullptr)) {
-    return AUDIO_DEVICE_OUT_WIRED_HEADSET;
-  }
-  if (mConnectedDevices.Get(AUDIO_DEVICE_OUT_WIRED_HEADPHONE, nullptr)) {
-    return AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
-  }
-  // No headset/headphone plugged in. No force speaker.
-  return AUDIO_DEVICE_OUT_SPEAKER;
-#else
   // Assume that FM radio supports the same routing of music stream.
   return GetDeviceForStream(AUDIO_STREAM_MUSIC);
-#endif
 }
 
 /* static */

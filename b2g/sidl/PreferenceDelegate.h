@@ -23,6 +23,8 @@ class PreferenceDelegateService final : public nsIPreferenceDelegate {
  private:
   PreferenceDelegateService();
   ~PreferenceDelegateService();
+
+  void NotifyObservers(const nsAString& aKey);
 };
 
 }  // namespace mozilla

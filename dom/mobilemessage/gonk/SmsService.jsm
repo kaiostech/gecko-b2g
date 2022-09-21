@@ -198,9 +198,13 @@ function SmsService() {
   this.settingsObserver = new lazy.gSettingsObserver.RILSettingsObserver();
   this.settingsObserver.handleSettingChanged = this.handleSettingChanged;
   this.settingsObserver
-    .getSettingWithDefault(kSettingsDefaukltServiceId, true)
+    .getSettingWithDefault(kSettingsDefaukltServiceId, 0)
     .then(setting => {
-      this.smsDefaultServiceId = setting.value;
+      if (setting.value < 0 || setting.value >= gRadioInterfaces.length) {
+        this.smsDefaultServiceId = 0;
+      } else {
+        this.smsDefaultServiceId = setting.value;
+      }
     });
 
   this.settingsObserver.addSettingObserver(kSettingsDefaukltServiceId);
@@ -1618,7 +1622,11 @@ SmsService.prototype = {
     }
     switch (aName) {
       case kSettingsDefaukltServiceId:
-        this.smsDefaultServiceId = aResult;
+        if (aResult < 0 || aResult >= gRadioInterfaces.length) {
+          this.smsDefaultServiceId = 0;
+        } else {
+          this.smsDefaultServiceId = aResult;
+        }
         break;
     }
   },

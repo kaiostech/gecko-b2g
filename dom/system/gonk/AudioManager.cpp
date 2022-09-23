@@ -435,55 +435,6 @@ NS_IMETHODIMP VolumeInitCallback::Reject(nsISettingError* aSettingError) {
   return NS_ERROR_NOT_AVAILABLE;
 }
 
-class VolumeSetCallback final : public nsISidlDefaultResponse {
- public:
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSISIDLDEFAULTRESPONSE
-
- protected:
-  ~VolumeSetCallback() = default;
-};
-
-NS_IMPL_ISUPPORTS(VolumeSetCallback, nsISidlDefaultResponse)
-
-NS_IMETHODIMP
-VolumeSetCallback::Resolve() { return NS_OK; }
-
-NS_IMETHODIMP
-VolumeSetCallback::Reject() { return NS_ERROR_FAILURE; }
-
-class VolumeAddObserverCallback final : public nsISidlDefaultResponse {
- public:
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSISIDLDEFAULTRESPONSE
-
- protected:
-  ~VolumeAddObserverCallback() = default;
-};
-
-NS_IMPL_ISUPPORTS(VolumeAddObserverCallback, nsISidlDefaultResponse)
-NS_IMETHODIMP
-VolumeAddObserverCallback::Resolve() { return NS_OK; }
-
-NS_IMETHODIMP
-VolumeAddObserverCallback::Reject() { return NS_ERROR_FAILURE; }
-
-class VolumeRemoveObserverCallback final : public nsISidlDefaultResponse {
- public:
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSISIDLDEFAULTRESPONSE
-
- protected:
-  ~VolumeRemoveObserverCallback() = default;
-};
-
-NS_IMPL_ISUPPORTS(VolumeRemoveObserverCallback, nsISidlDefaultResponse)
-NS_IMETHODIMP
-VolumeRemoveObserverCallback::Resolve() { return NS_OK; }
-
-NS_IMETHODIMP
-VolumeRemoveObserverCallback::Reject() { return NS_ERROR_FAILURE; }
-
 class VolumeSettingsObserver final : public nsISettingsObserver {
  public:
   NS_DECL_ISUPPORTS
@@ -515,6 +466,28 @@ VolumeSettingsObserver::ObserveSetting(nsISettingInfo* aSettingInfo) {
   }
   return NS_OK;
 }
+
+class GenericSidlCallback final : public nsISidlDefaultResponse {
+ public:
+  NS_DECL_ISUPPORTS
+
+  NS_IMETHODIMP Resolve() override { return NS_OK; }
+
+  NS_IMETHODIMP Reject() override {
+    LOGE("GenericSidlCallback::Rejet, call site %s", mCallSite.get());
+    return NS_OK;
+  }
+
+  explicit GenericSidlCallback(const char* aCallSite) : mCallSite(aCallSite) {}
+
+ protected:
+  ~GenericSidlCallback() = default;
+
+ private:
+  nsCString mCallSite;
+};
+
+NS_IMPL_ISUPPORTS(GenericSidlCallback, nsISidlDefaultResponse)
 
 static void BinderDeadCallback(android::status_t aErr) {
   if (aErr != android::DEAD_OBJECT) {
@@ -963,7 +936,7 @@ void AudioManager::Init() {
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
   if (settingsManager) {
-    auto callback = MakeRefPtr<VolumeAddObserverCallback>();
+    auto callback = MakeRefPtr<GenericSidlCallback>(__func__);
     mVolumeSettingsObserver = MakeRefPtr<VolumeSettingsObserver>();
     for (const auto& data : gVolumeData) {
       // FE use mChannelName only for the key.
@@ -1014,7 +987,7 @@ AudioManager::~AudioManager() {
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
   if (settingsManager) {
-    auto callback = MakeRefPtr<VolumeRemoveObserverCallback>();
+    auto callback = MakeRefPtr<GenericSidlCallback>(__func__);
     for (const auto& data : gVolumeData) {
       // We also need to get the value with mChannelName. FE use mChannelName
       // only for the key.
@@ -1461,7 +1434,7 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
     nsCOMPtr<nsISettingsManager> settingsManager =
         do_GetService(SETTINGS_MANAGER);
     if (settingsManager) {
-      auto callback = MakeRefPtr<VolumeSetCallback>();
+      auto callback = MakeRefPtr<GenericSidlCallback>(__func__);
       settingsManager->Set(settings, callback);
     } else {
       LOGE("Fail to get SETTINGS_MANAGER to set the volume.");

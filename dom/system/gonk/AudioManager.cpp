@@ -963,16 +963,12 @@ void AudioManager::Init() {
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
   if (settingsManager) {
-    if (!mVolumeAddObserverCallback) {
-      mVolumeAddObserverCallback = new VolumeAddObserverCallback();
-    }
-    if (!mVolumeSettingsObserver) {
-      mVolumeSettingsObserver = new VolumeSettingsObserver();
-    }
+    auto callback = MakeRefPtr<VolumeAddObserverCallback>();
+    mVolumeSettingsObserver = MakeRefPtr<VolumeSettingsObserver>();
     for (const auto& data : gVolumeData) {
       // FE use mChannelName only for the key.
       settingsManager->AddObserver(data.mChannelName, mVolumeSettingsObserver,
-                                   mVolumeAddObserverCallback);
+                                   callback);
     }
   } else {
     LOGE("Failed to Get SETTINGS MANAGER to AddObserver!");
@@ -1018,15 +1014,12 @@ AudioManager::~AudioManager() {
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
   if (settingsManager) {
-    if (!mVolumeRemoveObserverCallback) {
-      mVolumeRemoveObserverCallback = new VolumeRemoveObserverCallback();
-    }
+    auto callback = MakeRefPtr<VolumeRemoveObserverCallback>();
     for (const auto& data : gVolumeData) {
       // We also need to get the value with mChannelName. FE use mChannelName
       // only for the key.
       settingsManager->RemoveObserver(data.mChannelName,
-                                      mVolumeSettingsObserver,
-                                      mVolumeRemoveObserverCallback);
+                                      mVolumeSettingsObserver, callback);
     }
   } else {
     LOGE("Failed to Get SETTINGS MANAGER to RemoveObserver!");
@@ -1386,19 +1379,15 @@ void AudioManager::InitVolumeFromDatabase() {
     return;
   }
 
-  if (!mVolumeInitCallback) {
-    mVolumeInitCallback = new VolumeInitCallback();
-  }
-
-  mVolumeInitCallback->GetPromise()->Then(
-      AbstractThread::MainThread(), __func__, this,
-      &AudioManager::InitDeviceVolumeSucceeded,
-      &AudioManager::InitDeviceVolumeFailed);
+  auto callback = MakeRefPtr<VolumeInitCallback>();
+  callback->GetPromise()->Then(AbstractThread::MainThread(), __func__, this,
+                               &AudioManager::InitDeviceVolumeSucceeded,
+                               &AudioManager::InitDeviceVolumeFailed);
 
   for (const auto& data : gVolumeData) {
     // We also need to get the value with mChannelName. FE use mChannelName only
     // for the key.
-    settingsManager->Get(data.mChannelName, mVolumeInitCallback);
+    settingsManager->Get(data.mChannelName, callback);
 
     auto& streamState = mStreamStates[data.mStreamType];
     if (!streamState->IsDeviceSpecificVolume()) {
@@ -1409,7 +1398,7 @@ void AudioManager::InitVolumeFromDatabase() {
     for (const auto& deviceInfo : kAudioDeviceInfos) {
       // append device suffix to the channel name
       nsAutoString name = data.mChannelName + u"."_ns + deviceInfo.tag;
-      settingsManager->Get(name, mVolumeInitCallback);
+      settingsManager->Get(name, callback);
     }
   }
 }
@@ -1472,8 +1461,8 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
     nsCOMPtr<nsISettingsManager> settingsManager =
         do_GetService(SETTINGS_MANAGER);
     if (settingsManager) {
-      mVolumeSetCallback = new VolumeSetCallback();
-      settingsManager->Set(settings, mVolumeSetCallback);
+      auto callback = MakeRefPtr<VolumeSetCallback>();
+      settingsManager->Set(settings, callback);
     } else {
       LOGE("Fail to get SETTINGS_MANAGER to set the volume.");
     }

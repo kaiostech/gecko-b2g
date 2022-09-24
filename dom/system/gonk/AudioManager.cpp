@@ -285,8 +285,10 @@ void AudioManager::HandleAudioFlingerDied() {
   // Restore call state
   AudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState));
 
-  // Restore master volume
+  // Restore master volume/mono/balance
   AudioSystem::setMasterVolume(1.0);
+  AudioSystem::setMasterMono(mMasterMono);
+  AudioSystem::setMasterBalance(mMasterBalance);
 
   // Restore stream volumes
   for (auto& streamState : mStreamStates) {
@@ -867,10 +869,8 @@ void AudioManager::Init() {
   if (settingsManager) {
     auto callback = MakeRefPtr<GenericSidlCallback>(__func__);
     mAudioSettingsObserver = MakeRefPtr<AudioSettingsObserver>();
-    for (const auto& data : gVolumeData) {
-      // FE use mChannelName only for the key.
-      settingsManager->AddObserver(data.mChannelName, mAudioSettingsObserver,
-                                   callback);
+    for (const auto& name : AudioSettingNames(false)) {
+      settingsManager->AddObserver(name, mAudioSettingsObserver, callback);
     }
   } else {
     LOGE("Failed to Get SETTINGS MANAGER to AddObserver!");
@@ -917,11 +917,8 @@ AudioManager::~AudioManager() {
       do_GetService(SETTINGS_MANAGER);
   if (settingsManager) {
     auto callback = MakeRefPtr<GenericSidlCallback>(__func__);
-    for (const auto& data : gVolumeData) {
-      // We also need to get the value with mChannelName. FE use mChannelName
-      // only for the key.
-      settingsManager->RemoveObserver(data.mChannelName, mAudioSettingsObserver,
-                                      callback);
+    for (const auto& name : AudioSettingNames(false)) {
+      settingsManager->RemoveObserver(name, mAudioSettingsObserver, callback);
     }
   } else {
     LOGE("Failed to Get SETTINGS MANAGER to RemoveObserver!");
@@ -1280,27 +1277,8 @@ void AudioManager::ReadAudioSettings() {
     return;
   }
 
-  nsTArray<nsString> names;
-  for (const auto& data : gVolumeData) {
-    // We also need to get the value with mChannelName. FE use mChannelName only
-    // for the key.
-    names.AppendElement(data.mChannelName);
-
-    auto& streamState = mStreamStates[data.mStreamType];
-    if (!streamState->IsDeviceSpecificVolume()) {
-      // volume type has no specific volume for different device
-      continue;
-    }
-
-    for (const auto& deviceInfo : kAudioDeviceInfos) {
-      // append device suffix to the channel name
-      nsAutoString name = data.mChannelName + u"."_ns + deviceInfo.tag;
-      names.AppendElement(name);
-    }
-  }
-
   auto callback = MakeRefPtr<AudioSettingsGetCallback>();
-  settingsManager->GetBatch(names, callback);
+  settingsManager->GetBatch(AudioSettingNames(true), callback);
 }
 
 void AudioManager::ReadAudioSettingsFinished() {
@@ -1371,6 +1349,9 @@ void AudioManager::MaybeWriteVolumeSettings(bool aForce) {
 
 void AudioManager::OnAudioSettingChanged(const nsAString& aName,
                                          const nsAString& aValue) {
+  LOG("%s, {%s: %s}", __func__, NS_ConvertUTF16toUTF8(aName).get(),
+      NS_ConvertUTF16toUTF8(aValue).get());
+
   if (StringBeginsWith(aName, u"audio.volume."_ns)) {
     // The key from FE in the first booting would be like
     // "audio.volumes.content" (without device suffix). For such cases, we
@@ -1398,6 +1379,20 @@ void AudioManager::OnAudioSettingChanged(const nsAString& aName,
            NS_ConvertUTF16toUTF8(aValue).get());
       return;
     }
+  } else if (aName.Equals(u"accessibility.force_mono_audio"_ns)) {
+    mMasterMono = aValue.Equals(u"true"_ns);
+    AudioSystem::setMasterMono(mMasterMono);
+  } else if (aName.Equals(u"accessibility.volume_balance"_ns)) {
+    nsresult rv;
+    int32_t balance = aValue.ToInteger(&rv);
+    if (NS_FAILED(rv)) {
+      LOGE("%s, incorrect balance value, {%s: %s}", __func__,
+           NS_ConvertUTF16toUTF8(aName).get(),
+           NS_ConvertUTF16toUTF8(aValue).get());
+      return;
+    }
+    mMasterBalance = std::clamp(balance, 0, 100) / 100.0f;
+    AudioSystem::setMasterBalance(mMasterBalance);
   }
 }
 
@@ -1428,6 +1423,29 @@ nsresult AudioManager::ParseVolumeSetting(const nsAString& aName,
     }
   }
   return NS_ERROR_FAILURE;
+}
+
+nsTArray<nsString> AudioManager::AudioSettingNames(bool aInitializing) {
+  nsTArray<nsString> names;
+  for (const auto& [channelName, streamType] : gVolumeData) {
+    // Get the setting of each channel name. FE uses only the channel name
+    // (without device suffix) as the key.
+    names.AppendElement(channelName);
+
+    // At initializing stage, if this stream type uses device-specific volume
+    // setting, also get the settings with device suffix. These settings are
+    // only used by Gecko internally, and only need to be read once after each
+    // boot.
+    if (aInitializing && mStreamStates[streamType]->IsDeviceSpecificVolume()) {
+      for (const auto& [deviceTag, deviceValue] : kAudioDeviceInfos) {
+        names.AppendElement(channelName + u"."_ns + deviceTag);
+      }
+    }
+  }
+
+  names.AppendElement(u"accessibility.force_mono_audio"_ns);
+  names.AppendElement(u"accessibility.volume_balance"_ns);
+  return names;
 }
 
 uint32_t AudioManager::GetDevicesForStream(int32_t aStream) {

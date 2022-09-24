@@ -139,6 +139,10 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
   float mFmContentVolume = 1.0f;
 
+  bool mMasterMono = false;
+
+  float mMasterBalance = 0.5f;
+
   void HandleBluetoothStatusChanged(nsISupports* aSubject, const char* aTopic,
                                     const nsCString aAddress);
 
@@ -159,6 +163,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   nsresult ParseVolumeSetting(const nsAString& aName, const nsAString& aValue,
                               int32_t* aStream, uint32_t* aDevice,
                               uint32_t* aVolIndex);
+  nsTArray<nsString> AudioSettingNames(bool aInitializing);
 
   void UpdateHeadsetConnectionState(hal::SwitchState aState);
   void UpdateDeviceConnectionState(bool aIsConnected, uint32_t aDevice,

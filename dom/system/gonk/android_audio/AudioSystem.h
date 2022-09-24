@@ -156,6 +156,12 @@ class AudioSystem {
 
   static const sp<IAudioPolicyService> get_audio_policy_service();
 
+  static status_t setMasterMono(bool mono);
+  static status_t getMasterMono(bool *mono);
+
+  static status_t setMasterBalance(float balance);
+  static status_t getMasterBalance(float *balance);
+
   static float getStreamVolumeDB(audio_stream_type_t stream, int index,
                                  audio_devices_t device);
 

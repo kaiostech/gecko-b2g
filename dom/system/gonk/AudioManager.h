@@ -34,8 +34,8 @@ namespace dom {
 namespace gonk {
 
 class AudioPortCallbackHolder;
+class AudioSettingsObserver;
 class VolumeCurves;
-class VolumeSettingsObserver;
 
 class AudioManager final : public nsIAudioManager, public nsIObserver {
  public:
@@ -175,11 +175,11 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   ~AudioManager();
   void Init();
 
-  RefPtr<VolumeSettingsObserver> mVolumeSettingsObserver;
+  RefPtr<AudioSettingsObserver> mAudioSettingsObserver;
 
   friend class AudioSettingsGetCallback;
+  friend class AudioSettingsObserver;
   friend class GonkAudioPortCallback;
-  friend class VolumeSettingsObserver;
   friend class VolumeStreamState;
 };
 

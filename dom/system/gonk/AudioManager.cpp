@@ -389,37 +389,24 @@ class AudioSettingsGetCallback final : public nsISettingsGetBatchResponse {
 
 NS_IMPL_ISUPPORTS(AudioSettingsGetCallback, nsISettingsGetBatchResponse)
 
-class VolumeSettingsObserver final : public nsISettingsObserver {
+class AudioSettingsObserver final : public nsISettingsObserver {
  public:
   NS_DECL_ISUPPORTS
-  NS_DECL_NSISETTINGSOBSERVER
+
+  NS_IMETHOD ObserveSetting(nsISettingInfo* aSetting) override {
+    nsString name, value;
+    aSetting->GetName(name);
+    aSetting->GetValue(value);
+    RefPtr<AudioManager> audioManager = AudioManager::GetInstance();
+    audioManager->OnAudioSettingChanged(name, value);
+    return NS_OK;
+  }
 
  protected:
-  ~VolumeSettingsObserver() = default;
+  ~AudioSettingsObserver() = default;
 };
 
-NS_IMPL_ISUPPORTS(VolumeSettingsObserver, nsISettingsObserver)
-NS_IMETHODIMP
-VolumeSettingsObserver::ObserveSetting(nsISettingInfo* aSettingInfo) {
-  nsString name, value;
-  aSettingInfo->GetName(name);
-  aSettingInfo->GetValue(value);
-
-  // To process the volume control on each volume categories according to
-  // change of settings
-  nsresult errorCode;
-  uint32_t volIndex = value.ToInteger(&errorCode);
-  MOZ_ASSERT(NS_SUCCEEDED(errorCode));
-
-  for (const auto& data : gVolumeData) {
-    if (name == data.mChannelName) {
-      RefPtr<AudioManager> audioManager = AudioManager::GetInstance();
-      audioManager->SetStreamVolumeIndex(data.mStreamType, volIndex);
-      return NS_OK;
-    }
-  }
-  return NS_OK;
-}
+NS_IMPL_ISUPPORTS(AudioSettingsObserver, nsISettingsObserver)
 
 class GenericSidlCallback final : public nsISidlDefaultResponse {
  public:
@@ -879,10 +866,10 @@ void AudioManager::Init() {
       do_GetService(SETTINGS_MANAGER);
   if (settingsManager) {
     auto callback = MakeRefPtr<GenericSidlCallback>(__func__);
-    mVolumeSettingsObserver = MakeRefPtr<VolumeSettingsObserver>();
+    mAudioSettingsObserver = MakeRefPtr<AudioSettingsObserver>();
     for (const auto& data : gVolumeData) {
       // FE use mChannelName only for the key.
-      settingsManager->AddObserver(data.mChannelName, mVolumeSettingsObserver,
+      settingsManager->AddObserver(data.mChannelName, mAudioSettingsObserver,
                                    callback);
     }
   } else {
@@ -933,8 +920,8 @@ AudioManager::~AudioManager() {
     for (const auto& data : gVolumeData) {
       // We also need to get the value with mChannelName. FE use mChannelName
       // only for the key.
-      settingsManager->RemoveObserver(data.mChannelName,
-                                      mVolumeSettingsObserver, callback);
+      settingsManager->RemoveObserver(data.mChannelName, mAudioSettingsObserver,
+                                      callback);
     }
   } else {
     LOGE("Failed to Get SETTINGS MANAGER to RemoveObserver!");

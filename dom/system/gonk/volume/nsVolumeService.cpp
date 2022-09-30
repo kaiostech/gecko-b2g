@@ -29,6 +29,7 @@
 #include "nsXULAppAPI.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/Services.h"
+#include "mozilla/Preferences.h"
 #include "base/task.h"
 
 #undef VOLUME_MANAGER_LOG_TAG
@@ -36,6 +37,9 @@
 #include "VolumeManagerLog.h"
 
 #include <stdlib.h>
+
+#define VOLUME_STATE_PREF_NAME "b2g.volume.state"
+#define FOTA_OBSERVE_VOLUME_NAME "b2g.volume.monitored"
 
 using namespace mozilla::dom;
 using namespace mozilla::services;
@@ -101,6 +105,7 @@ nsVolumeService::nsVolumeService()
     return;
   }
   pmService->AddWakeLockListener(this);
+  Preferences::SetCString(VOLUME_STATE_PREF_NAME, "");
 }
 
 nsVolumeService::~nsVolumeService() {}
@@ -372,6 +377,18 @@ void nsVolumeService::UpdateVolume(nsVolume* aVolume, bool aNotifyObservers) {
       mVolumeArray.ReplaceElementAt(volIndex, aVolume);
     }
     aVolume->UpdateMountLock(vol);
+  }
+
+  nsCString volumeName;
+  if (Preferences::GetCString(FOTA_OBSERVE_VOLUME_NAME, volumeName) != NS_OK) {
+     volumeName.Assign("sdcard1");
+  }
+
+  if (volumeName.Equals(aVolume->NameStr())) {
+    char volumeNameAndState[128] = {0};
+    snprintf(volumeNameAndState, 128, "%s:%s", volumeName.get(), aVolume->StateStr());
+    Preferences::SetCString(VOLUME_STATE_PREF_NAME, volumeNameAndState);
+    DBG("Volume name and state: %s", volumeNameAndState);
   }
 
   if (!aNotifyObservers) {

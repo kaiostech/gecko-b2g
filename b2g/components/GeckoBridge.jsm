@@ -17,6 +17,7 @@ const EXPORTED_SYMBOLS = ["GeckoBridge"];
 const kWatchedPrefs = [
   "app.update.custom",
   "b2g.version",
+  "b2g.volume.state",
   "device.bt",
   "device.cdma-apn",
   "device.commercial.ref",

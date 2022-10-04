@@ -111,6 +111,7 @@ this.NetworkStatsService = {
     // Object to store network interfaces, each network interface is composed
     // by a network object (network type and network Id) and a interfaceName
     // that contains the name of the physical interface (wlan0, rmnet0, etc.).
+    // InterfaceNames array may contain multiple interface with same netId.
     // The network type can be 0 for wifi or 1 for mobile. On the other hand,
     // the network id is '0' for wifi or the iccid for mobile (SIM).
     // Each networkInterface is placed in the _networks object by the index of
@@ -129,7 +130,9 @@ this.NetworkStatsService = {
     let netId = this.getNetworkId("0", NET_TYPE_WIFI);
     this._networks[netId] = {
       network: { id: "0", type: NET_TYPE_WIFI },
+      // TODO: temporay leave interfaceName until someone refactory quota alarm.
       interfaceName: null,
+      interfaceNames: [],
       status: NETWORK_STATUS_STANDBY,
     };
 
@@ -336,10 +339,14 @@ this.NetworkStatsService = {
     if (!this._networks[netId]) {
       this._networks[netId] = Object.create(null);
       this._networks[netId].network = { id, type: aNetworkInfo.type };
+      this._networks[netId].interfaceNames = [];
     }
 
     this._networks[netId].status = NETWORK_STATUS_READY;
     this._networks[netId].interfaceName = aNetworkInfo.name;
+    if (!this._networks[netId].interfaceNames.includes(aNetworkInfo.name)) {
+      this._networks[netId].interfaceNames.push(aNetworkInfo.name);
+    }
     return netId;
   },
 
@@ -803,14 +810,14 @@ this.NetworkStatsService = {
       return;
     }
 
-    let interfaceName = this._networks[aNetId].interfaceName;
-    debug("Update stats for " + interfaceName);
+    let interfaceNames = this._networks[aNetId].interfaceNames;
+    debug("Update stats for " + JSON.stringify(interfaceNames));
 
     // Request stats to NetworkService, which will get stats from netd, passing
     // 'networkStatsAvailable' as a callback.
-    if (interfaceName) {
+    if (interfaceNames.length != 0) {
       networkService.getNetworkInterfaceStats(
-        interfaceName,
+        interfaceNames,
         this.networkStatsAvailable.bind(this, aCallback, aNetId)
       );
       return;

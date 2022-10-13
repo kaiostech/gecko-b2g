@@ -45,13 +45,13 @@ class CameraPreviewMediaStream : public ProcessedMediaTrack {
  public:
   CameraPreviewMediaStream();
 
-  void AddAudioOutput(void* aKey) override;
-  void SetAudioOutputVolume(void* aKey, float aVolume) override;
-  void RemoveAudioOutput(void* aKey) override;
-  void AddVideoOutput(VideoFrameContainer* aContainer) override;
+  void AddAudioOutput(void* aKey);
+  void SetAudioOutputVolume(void* aKey, float aVolume);
+  void RemoveAudioOutput(void* aKey);
+  void AddVideoOutput(VideoFrameContainer* aContainer);
   void RemoveVideoOutput(VideoFrameContainer* aContainer) override;
-  void Suspend() override {}
-  void Resume() override {}
+  void Suspend() {}
+  void Resume() {}
   void AddListener(MediaTrackListener* aListener) override;
   RefPtr<GenericPromise> RemoveListener(MediaTrackListener* aListener) override;
   void Destroy() override;

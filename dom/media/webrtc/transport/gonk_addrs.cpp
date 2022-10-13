@@ -89,7 +89,6 @@ nsresult GetInterfaces(std::vector<NetworkInterface>* aInterfaces) {
     }
 
     free(prefixs);
-    NS_FREE_XPCOM_ALLOCATED_POINTER_ARRAY(count, ips);
 
     if (interface.addrs.empty()) {
       continue;

@@ -1309,7 +1309,7 @@
     webViewDownload(url) {
       console.log(`webViewDownload ${url}`);
       let uri = Services.io.newURI(url);
-      let channel = LazyModules.NetUtil.newChannel({
+      let channel = lazy.NetUtil.newChannel({
         uri,
         loadingPrincipal: this.contentPrincipal,
         securityFlags:

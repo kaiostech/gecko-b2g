@@ -349,6 +349,8 @@ class ServiceWorkerPrivate final : public RemoteWorkerObserver {
     const RefPtr<RemoteWorkerControllerChild> mActor;
   };
 
+  RefPtr<RAIIActorPtrHolder> mControllerChild;
+
   RemoteWorkerData mRemoteWorkerData;
 
   TimeStamp mServiceWorkerLaunchTimeStart;

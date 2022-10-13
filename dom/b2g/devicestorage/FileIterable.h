@@ -9,6 +9,7 @@
 
 #include "nsCOMPtr.h"
 #include "nsWrapperCache.h"
+#include "mozilla/dom/IterableIterator.h"
 
 class nsIGlobalObject;
 class DeviceStorageCursorRequest;
@@ -19,9 +20,6 @@ class ErrorResult;
 class File;
 
 namespace dom {
-
-template <typename T>
-class AsyncIterableIterator;
 
 class FileIterable final : public nsISupports, public nsWrapperCache {
  public:
@@ -34,11 +32,17 @@ class FileIterable final : public nsISupports, public nsWrapperCache {
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  using itrType = AsyncIterableIterator<FileIterable>;
-  void InitAsyncIterator(itrType* aIterator, ErrorResult& aError);
-  void DestroyAsyncIterator(itrType* aIterator);
-  already_AddRefed<Promise> GetNextPromise(JSContext* aCx, itrType* aIterator,
-                                           ErrorResult& aRv);
+  struct IteratorData {
+    nsTArray<RefPtr<Promise>> mPromises;
+  };
+
+  using Iterator = AsyncIterableIterator<FileIterable>;
+
+  void InitAsyncIteratorData(IteratorData& aData, Iterator::IteratorType aType,
+                             ErrorResult& aError) {}
+
+  already_AddRefed<Promise> GetNextIterationResult(Iterator* aIterator,
+                                                   ErrorResult& aRv);
 
   void FireSuccess(JS::Handle<JS::Value> aResult);
   void FireError(const nsString& aReason);
@@ -49,18 +53,9 @@ class FileIterable final : public nsISupports, public nsWrapperCache {
   ~FileIterable();
   void RejectWithReason(Promise* aPromise, const nsString& aReason);
 
-  struct IteratorData {
-    IteratorData() {}
-    ~IteratorData() {
-      mPromises.RemoveElementsAt(0, mPromises.Length());
-      mPromises.Clear();
-    }
-    nsTArray<RefPtr<Promise>> mPromises;
-  };
-
   enum EnumerateState { Initialized = 0, Prepared, Looping, Abort, Done };
 
-  WeakPtr<itrType> mIterator;
+  RefPtr<Iterator> mIterator;
   nsCOMPtr<nsIGlobalObject> mGlobal;
   RefPtr<DeviceStorageCursorRequest> mRequest;
   EnumerateState mState;

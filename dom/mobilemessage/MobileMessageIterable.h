@@ -7,6 +7,7 @@
 #ifndef mozilla_dom_MobileMessageIterable_h
 #define mozilla_dom_MobileMessageIterable_h
 
+#include "mozilla/dom/IterableIterator.h"
 #include "mozilla/dom/UnionTypes.h"
 #include "nsCOMPtr.h"
 #include "nsWrapperCache.h"
@@ -36,8 +37,6 @@ namespace mozilla {
 class ErrorResult;
 namespace dom {
 
-template <typename T>
-class AsyncIterableIterator;
 class MmsMessage;
 class OwningSmsMessageOrMmsMessage;
 class SmsMessage;
@@ -59,27 +58,23 @@ class MobileMessageIterable final : public nsISupports, public nsWrapperCache {
                                JS::Handle<JSObject*> aGivenProto) override;
   static already_AddRefed<MobileMessageIterable> Constructor(
       const GlobalObject& aGlobal, ErrorResult& rv);
-  using itrType = AsyncIterableIterator<MobileMessageIterable>;
-  void InitAsyncIterator(itrType* aIterator, ErrorResult& aError);
-  void DestroyAsyncIterator(itrType* aIterator);
-  already_AddRefed<Promise> GetNextPromise(JSContext* aCx, itrType* aIterator,
-                                           ErrorResult& aRv);
+
+  struct IteratorData {
+    nsTArray<RefPtr<Promise>> mPromises;
+  };
+  using Iterator = AsyncIterableIterator<MobileMessageIterable>;
+  void InitAsyncIteratorData(IteratorData& aData, Iterator::IteratorType aType,
+                             ErrorResult& aError) {}
+  already_AddRefed<Promise> GetNextIterationResult(Iterator* aIterator,
+                                                   ErrorResult& aRv);
+
   void FireSuccess();
   void FireError(const nsAString& aReason);
   void FireDone();
 
  private:
   virtual ~MobileMessageIterable() = default;
-  struct IteratorData {
-    IteratorData() {}
-    ~IteratorData() {
-      mPromises.RemoveElementsAt(0, mPromises.Length());
-      mPromises.Clear();
-    }
-    nsTArray<RefPtr<Promise>> mPromises;
-  };
-
-  WeakPtr<itrType> mIterator;
+  RefPtr<Iterator> mIterator;
   nsCOMPtr<nsPIDOMWindowInner> mParent;
   nsCOMPtr<nsICursorContinueCallback> mContinueCallback;
   nsTArray<nsCOMPtr<nsISupports>> mPendingResults;

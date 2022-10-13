@@ -7,13 +7,12 @@
 #include "mozilla/dom/FileIterable.h"
 #include "mozilla/dom/FileIterableBinding.h"
 #include "mozilla/dom/BindingUtils.h"
-#include "mozilla/dom/IterableIterator.h"
 #include "nsDeviceStorage.h"
 
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(FileIterable, mGlobal)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(FileIterable, mGlobal, mIterator)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(FileIterable)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(FileIterable)
@@ -39,41 +38,16 @@ JSObject* FileIterable::WrapObject(JSContext* aCx,
 
 nsIGlobalObject* FileIterable::GetParentObject() const { return mGlobal; }
 
-void FileIterable::InitAsyncIterator(itrType* aIterator, ErrorResult& aError) {
-  // From the spec of async iterator, an iterable can initialize multiple
-  // iterators, and each iterator restarts the iteration from begining.
-  // However, FileIterable as a replacement of DOMCursor, can only initialize
-  // an iterator once, and iterate results once. This behavior is to match the
-  // behavior of DOMCursor, and the original design of
-  // DeviceStorage.enumerate().
-  if (mIterator) {
-    DS_LOG_WARN("This FileIterable has already initialized an iterator.");
-    return;
-  }
-  mIterator = aIterator;
-  UniquePtr<IteratorData> data(new IteratorData());
-  aIterator->SetData((void*)data.release());
-}
-
-void FileIterable::DestroyAsyncIterator(itrType* aIterator) {
-  if (mIterator == aIterator) {
-    if (mRequest) {
-      DS_LOG_WARN("Abort by iterator.");
-    }
-
-    auto data = reinterpret_cast<IteratorData*>(aIterator->GetData());
-    delete data;
-    mIterator = nullptr;
-  }
-}
-
-already_AddRefed<Promise> FileIterable::GetNextPromise(JSContext* aCx,
-                                                       itrType* aIterator,
-                                                       ErrorResult& aRv) {
+already_AddRefed<Promise> FileIterable::GetNextIterationResult(
+    Iterator* aIterator, ErrorResult& aRv) {
   DS_LOG_DEBUG("next() called by iterator.");
   RefPtr<Promise> promise = Promise::Create(mGlobal, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
+  }
+
+  if (!mIterator) {
+    mIterator = aIterator;
   }
 
   if (mIterator != aIterator) {
@@ -82,12 +56,8 @@ already_AddRefed<Promise> FileIterable::GetNextPromise(JSContext* aCx,
     return promise.forget();
   }
 
-  auto data = reinterpret_cast<IteratorData*>(aIterator->GetData());
-  if (!data) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return nullptr;
-  }
-  data->mPromises.InsertElementAt(0, promise);
+  IteratorData& data = mIterator->Data();
+  data.mPromises.InsertElementAt(0, promise);
 
   if (mState == EnumerateState::Done) {
     iterator_utils::ResolvePromiseForFinished(promise);
@@ -111,12 +81,8 @@ void FileIterable::FireSuccess(JS::Handle<JS::Value> aResult) {
     return;
   }
 
-  auto data = reinterpret_cast<IteratorData*>(mIterator->GetData());
-  if (!data) {
-    DS_LOG_ERROR("no data.");
-    return;
-  }
-  auto promise = data->mPromises.PopLastElement();
+  IteratorData& data = mIterator->Data();
+  auto promise = data.mPromises.PopLastElement();
   if (!promise) {
     DS_LOG_ERROR("no promise to resolve.");
     return;
@@ -134,12 +100,8 @@ void FileIterable::FireError(const nsString& aReason) {
     return;
   }
 
-  auto data = reinterpret_cast<IteratorData*>(mIterator->GetData());
-  if (!data) {
-    DS_LOG_ERROR("no data.");
-    return;
-  }
-  auto promise = data->mPromises.PopLastElement();
+  IteratorData& data = mIterator->Data();
+  auto promise = data.mPromises.PopLastElement();
   if (!promise) {
     DS_LOG_ERROR("no promise to resolve.");
     return;
@@ -155,12 +117,8 @@ void FileIterable::FireDone() {
     DS_LOG_ERROR("File iterator is destroyed or has not initialized.");
     return;
   }
-  auto data = reinterpret_cast<IteratorData*>(mIterator->GetData());
-  if (!data) {
-    DS_LOG_ERROR("no data.");
-    return;
-  }
-  auto promise = data->mPromises.PopLastElement();
+  IteratorData& data = mIterator->Data();
+  auto promise = data.mPromises.PopLastElement();
   if (!promise) {
     DS_LOG_ERROR("no promise to resolve.");
     return;

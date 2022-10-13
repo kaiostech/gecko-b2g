@@ -7,6 +7,7 @@
 #include "TelephonyDialCallback.h"
 #include "nsIMobileCallForwardingOptions.h"
 #include "nsIMobileConnectionService.h"
+#include "mozilla/dom/RootedDictionary.h"
 
 using namespace mozilla::dom;
 using namespace mozilla::dom::telephony;

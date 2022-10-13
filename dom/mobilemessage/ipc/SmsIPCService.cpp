@@ -14,6 +14,7 @@
 #include "mozilla/Preferences.h"
 #include "nsString.h"
 #include "mozilla/dom/IPCBlobUtils.h"
+#include "mozilla/dom/RootedDictionary.h"
 
 using namespace mozilla::dom;
 using namespace mozilla::dom::mobilemessage;

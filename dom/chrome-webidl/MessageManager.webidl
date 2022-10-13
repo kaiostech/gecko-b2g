@@ -275,7 +275,7 @@ interface mixin MessageListenerManagerMixin
    * listeners will be added to the message in the future.
    */
   [Throws]
-  void removeMessageListenerHashEntry(DOMString messageName);
+  undefined removeMessageListenerHashEntry(DOMString messageName);
 };
 
 /**

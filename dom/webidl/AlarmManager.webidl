@@ -20,5 +20,5 @@ dictionary AlarmOptions {
   interface AlarmManager {
     Promise<any> getAll();
     Promise<long> add(AlarmOptions options);
-    void remove(long id);
+    undefined remove(long id);
   };

@@ -38,6 +38,7 @@
 #include "mozilla/StaticPrefs_font.h"
 #include "mozilla/StaticPrefs_image.h"
 #include "mozilla/StaticPrefs_layout.h"
+#include "mozilla/StaticPrefs_toolkit.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/TouchEvents.h"
@@ -2438,9 +2439,7 @@ PresShell::ScrollLine(bool aForward) {
       GetScrollableFrameToScroll(VerticalScrollDirection);
   ScrollMode scrollMode = apz::GetScrollModeForOrigin(ScrollOrigin::Lines);
   if (scrollFrame) {
-    int32_t lineCount =
-        Preferences::GetInt("toolkit.scrollbox.verticalScrollDistance",
-                            NS_DEFAULT_VERTICAL_SCROLL_DISTANCE);
+    int32_t lineCount = StaticPrefs::toolkit_scrollbox_verticalScrollDistance();
     scrollFrame->ScrollBy(
         nsIntPoint(0, aForward ? lineCount : -lineCount), ScrollUnit::LINES,
         scrollMode, nullptr, mozilla::ScrollOrigin::NotSpecified,
@@ -2455,9 +2454,7 @@ PresShell::ScrollCharacter(bool aRight) {
       GetScrollableFrameToScroll(HorizontalScrollDirection);
   ScrollMode scrollMode = apz::GetScrollModeForOrigin(ScrollOrigin::Lines);
   if (scrollFrame) {
-    int32_t h =
-        Preferences::GetInt("toolkit.scrollbox.horizontalScrollDistance",
-                            NS_DEFAULT_HORIZONTAL_SCROLL_DISTANCE);
+    int32_t h = StaticPrefs::toolkit_scrollbox_horizontalScrollDistance();
     scrollFrame->ScrollBy(
         nsIntPoint(aRight ? h : -h, 0), ScrollUnit::LINES, scrollMode, nullptr,
         mozilla::ScrollOrigin::NotSpecified, nsIScrollableFrame::NOT_MOMENTUM,
@@ -3728,7 +3725,7 @@ void PresShell::DoScrollContentIntoView() {
   NS_ASSERTION(mDidInitialize, "should have done initial reflow by now");
 
   nsIFrame* frame = mContentToScrollTo->GetPrimaryFrame();
-  if (!frame || frame->AncestorHidesContent()) {
+  if (!frame || frame->IsHiddenByContentVisibilityOnAnyAncestor()) {
     mContentToScrollTo->RemoveProperty(nsGkAtoms::scrolling);
     mContentToScrollTo = nullptr;
     return;
@@ -3807,7 +3804,7 @@ bool PresShell::ScrollFrameRectIntoView(nsIFrame* aFrame, const nsRect& aRect,
                                         ScrollAxis aHorizontal,
                                         ScrollFlags aScrollFlags,
                                         const nsIFrame* aTarget) {
-  if (aFrame->AncestorHidesContent()) {
+  if (aFrame->IsHiddenByContentVisibilityOnAnyAncestor()) {
     return false;
   }
 
@@ -3969,38 +3966,24 @@ void PresShell::ClearMouseCaptureOnView(nsView* aView) {
 }
 
 void PresShell::ClearMouseCapture() {
-  nsIContent* capturingContent = GetCapturingContent();
-  if (!capturingContent) {
-    AllowMouseCapture(false);
-    return;
-  }
-
   ReleaseCapturingContent();
   AllowMouseCapture(false);
 }
 
 void PresShell::ClearMouseCapture(nsIFrame* aFrame) {
-  MOZ_ASSERT(
-      aFrame && aFrame->GetParent() &&
-          aFrame->GetParent()->Type() == LayoutFrameType::Deck,
-      "This function should only be called with a child frame of <deck>");
+  MOZ_ASSERT(aFrame);
 
   nsIContent* capturingContent = GetCapturingContent();
   if (!capturingContent) {
-    AllowMouseCapture(false);
     return;
   }
 
   nsIFrame* capturingFrame = capturingContent->GetPrimaryFrame();
-  if (!capturingFrame) {
-    ReleaseCapturingContent();
-    AllowMouseCapture(false);
-    return;
-  }
-
-  if (nsLayoutUtils::IsAncestorFrameCrossDocInProcess(aFrame, capturingFrame)) {
-    ReleaseCapturingContent();
-    AllowMouseCapture(false);
+  const bool shouldClear =
+      !capturingFrame ||
+      nsLayoutUtils::IsAncestorFrameCrossDocInProcess(aFrame, capturingFrame);
+  if (shouldClear) {
+    ClearMouseCapture();
   }
 }
 
@@ -4375,14 +4358,18 @@ void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
 
       mPresContext->FlushFontFeatureValues();
 
+      mPresContext->FlushFontPaletteValues();
+
       // Flush any requested SMIL samples.
       if (mDocument->HasAnimationController()) {
         mDocument->GetAnimationController()->FlushResampleRequests();
       }
+    }
 
-      if (aFlush.mFlushAnimations && mPresContext->EffectCompositor()) {
-        mPresContext->EffectCompositor()->PostRestyleForThrottledAnimations();
-      }
+    // The FlushResampleRequests() above flushed style changes.
+    if (MOZ_LIKELY(!mIsDestroying) && aFlush.mFlushAnimations &&
+        mPresContext->EffectCompositor()) {
+      mPresContext->EffectCompositor()->PostRestyleForThrottledAnimations();
     }
 
     // The FlushResampleRequests() above flushed style changes.
@@ -4661,20 +4648,11 @@ void PresShell::ReconstructFrames() {
     return;
   }
 
-  // Have to make sure that the content notifications are flushed before we
-  // start messing with the frame model; otherwise we can get content doubling.
-  //
-  // Also make sure that styles are flushed before calling into the frame
-  // constructor, since that's what it expects.
-  mDocument->FlushPendingNotifications(FlushType::Style);
-
-  if (mIsDestroying) {
-    return;
+  if (Element* root = mDocument->GetRootElement()) {
+    PostRecreateFramesFor(root);
   }
 
-  nsAutoCauseReflowNotifier crNotifier(this);
-  mFrameConstructor->ReconstructDocElementHierarchy(
-      nsCSSFrameConstructor::InsertionKind::Sync);
+  mDocument->FlushPendingNotifications(FlushType::Frames);
 }
 
 nsresult PresShell::RenderDocument(const nsRect& aRect,
@@ -5391,7 +5369,7 @@ void PresShell::AddCanvasBackgroundColorItem(
   // cases (it will usually be a viewport frame when we have a canvas frame in
   // the (sub)tree).
   if (!(aFlags & AddCanvasBackgroundColorFlags::ForceDraw) &&
-      !nsCSSRendering::IsCanvasFrame(aFrame)) {
+      !aFrame->IsViewportFrame() && !aFrame->IsPageContentFrame()) {
     return;
   }
 
@@ -5986,6 +5964,7 @@ void PresShell::ClearApproximatelyVisibleFramesList(
 
 void PresShell::MarkFramesInSubtreeApproximatelyVisible(
     nsIFrame* aFrame, const nsRect& aRect, bool aRemoveOnly /* = false */) {
+  MOZ_DIAGNOSTIC_ASSERT(aFrame, "aFrame arg should be a valid frame pointer");
   MOZ_ASSERT(aFrame->PresShell() == this, "wrong presshell");
 
   if (aFrame->TrackingVisibility() && aFrame->StyleVisibility()->IsVisible() &&
@@ -6068,6 +6047,11 @@ void PresShell::MarkFramesInSubtreeApproximatelyVisible(
     }
 
     for (nsIFrame* child : list) {
+      // Note: This assert should be trivially satisfied, just by virtue of how
+      // nsFrameList and its iterator works (with nullptr being an end-of-list
+      // sentinel which should terminate the loop).  But we do somehow get
+      // crash reports inside this loop that suggest `child` is null...
+      MOZ_DIAGNOSTIC_ASSERT(child, "shouldn't have null values in child lists");
       nsRect r = rect - child->GetPosition();
       if (!r.IntersectRect(r, child->InkOverflowRect())) {
         continue;
@@ -9487,6 +9471,8 @@ void PresShell::WillDoReflow() {
 
   mPresContext->FlushFontFeatureValues();
 
+  mPresContext->FlushFontPaletteValues();
+
   mLastReflowStart = GetPerformanceNowUnclamped();
 }
 
@@ -10203,9 +10189,10 @@ static bool CompareTrees(nsPresContext* aFirstPresContext,
     LayoutDeviceIntRect r1, r2;
     nsView* v1;
     nsView* v2;
-    for (nsFrameList::Enumerator e1(kids1), e2(kids2);; e1.Next(), e2.Next()) {
-      nsIFrame* k1 = e1.get();
-      nsIFrame* k2 = e2.get();
+    for (auto kids1Iter = kids1.begin(), kids2Iter = kids2.begin();;
+         ++kids1Iter, ++kids2Iter) {
+      nsIFrame* k1 = *kids1Iter;
+      nsIFrame* k2 = *kids2Iter;
       if (((nullptr == k1) && (nullptr != k2)) ||
           ((nullptr != k1) && (nullptr == k2))) {
         ok = false;
@@ -11921,7 +11908,7 @@ void PresShell::EnsureReflowIfFrameHasHiddenContent(nsIFrame* aFrame) {
   nsIFrame* topmostFrameWithContentHidden = nullptr;
   for (nsIFrame* cur = aFrame->GetInFlowParent(); cur;
        cur = cur->GetInFlowParent()) {
-    if (cur->IsContentHidden()) {
+    if (cur->HidesContent()) {
       topmostFrameWithContentHidden = cur;
       mHiddenContentInForcedLayout.Insert(cur->GetContent());
     }

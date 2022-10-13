@@ -7,12 +7,8 @@
 #ifndef mozilla_dom_serviceworkerprivate_h
 #define mozilla_dom_serviceworkerprivate_h
 
-#include <type_traits>
 #include <functional>
-
-#include "nsCOMPtr.h"
-#include "nsISupportsImpl.h"
-#include "nsTArray.h"
+#include <type_traits>
 
 #include "mozilla/Attributes.h"
 #include "mozilla/MozPromise.h"
@@ -23,7 +19,9 @@
 #include "mozilla/dom/RemoteWorkerController.h"
 #include "mozilla/dom/RemoteWorkerTypes.h"
 #include "mozilla/dom/ServiceWorkerOpArgs.h"
-#include "mozilla/dom/WorkerPrivate.h"
+#include "nsCOMPtr.h"
+#include "nsISupportsImpl.h"
+#include "nsTArray.h"
 
 #define NOTIFICATION_CLICK_EVENT_NAME u"notificationclick"
 #define NOTIFICATION_CLOSE_EVENT_NAME u"notificationclose"
@@ -81,6 +79,7 @@ class ServiceWorkerPrivate final : public RemoteWorkerObserver {
 
   using PromiseExtensionWorkerHasListener = MozPromise<bool, nsresult, false>;
 
+ public:
   explicit ServiceWorkerPrivate(ServiceWorkerInfo* aInfo);
 
   nsresult SendSystemMessageEvent(const nsAString& aMessageName,
@@ -169,6 +168,76 @@ class ServiceWorkerPrivate final : public RemoteWorkerObserver {
   static void UpdateRunning(int32_t aDelta, int32_t aFetchDelta);
 
  private:
+  // Timer callbacks
+  void NoteIdleWorkerCallback(nsITimer* aTimer);
+
+  void TerminateWorkerCallback(nsITimer* aTimer);
+
+  void RenewKeepAliveToken();
+
+  void ResetIdleTimeout();
+
+  void AddToken();
+
+  void ReleaseToken();
+
+  already_AddRefed<KeepAliveToken> CreateEventKeepAliveToken();
+
+  nsresult SpawnWorkerIfNeeded();
+
+  ~ServiceWorkerPrivate();
+
+  nsresult Initialize();
+
+  /**
+   * RemoteWorkerObserver
+   */
+  void CreationFailed() override;
+
+  void CreationSucceeded() override;
+
+  void ErrorReceived(const ErrorValue& aError) override;
+
+  void LockNotified(bool aCreated) final {
+    // no-op for service workers
+  }
+
+  void Terminated() override;
+
+  // Refreshes only the parts of mRemoteWorkerData that may change over time.
+  void RefreshRemoteWorkerData(
+      const RefPtr<ServiceWorkerRegistrationInfo>& aRegistration);
+
+  nsresult SendPushEventInternal(
+      RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
+      ServiceWorkerPushEventOpArgs&& aArgs);
+
+  // Setup the navigation preload by the intercepted channel and the
+  // RegistrationInfo.
+  RefPtr<FetchServicePromises> SetupNavigationPreload(
+      nsCOMPtr<nsIInterceptedChannel>& aChannel,
+      const RefPtr<ServiceWorkerRegistrationInfo>& aRegistration);
+
+  nsresult SendFetchEventInternal(
+      RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
+      ParentToParentServiceWorkerFetchEventOpArgs&& aArgs,
+      nsCOMPtr<nsIInterceptedChannel>&& aChannel,
+      RefPtr<FetchServicePromises>&& aPreloadResponseReadyPromises);
+
+  nsresult SendSystemMessageEventInternal(
+      RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
+      ServiceWorkerSystemMessageEventOpArgs&& aArgs);
+
+  void Shutdown();
+
+  RefPtr<GenericNonExclusivePromise> ShutdownInternal(
+      uint32_t aShutdownStateId);
+
+  nsresult ExecServiceWorkerOp(
+      ServiceWorkerOpArgs&& aArgs,
+      std::function<void(ServiceWorkerOpResult&&)>&& aSuccessCallback,
+      std::function<void()>&& aFailureCallback = [] {});
+
   class PendingFunctionalEvent {
    public:
     PendingFunctionalEvent(
@@ -234,6 +303,8 @@ class ServiceWorkerPrivate final : public RemoteWorkerObserver {
     RefPtr<FetchServicePromises> mPreloadResponseReadyPromises;
   };
 
+  nsTArray<UniquePtr<PendingFunctionalEvent>> mPendingFunctionalEvents;
+
   /**
    * It's possible that there are still in-progress operations when a
    * a termination operation is issued. In this case, it's important to keep
@@ -278,97 +349,26 @@ class ServiceWorkerPrivate final : public RemoteWorkerObserver {
     const RefPtr<RemoteWorkerControllerChild> mActor;
   };
 
-  enum WakeUpReason {
-    FetchEvent = 0,
-    PushEvent,
-    PushSubscriptionChangeEvent,
-    MessageEvent,
-    NotificationClickEvent,
-    NotificationCloseEvent,
-    LifeCycleEvent,
-    AttachEvent,
-    SystemMessageEvent,
-    Unknown
-  };
+  RemoteWorkerData mRemoteWorkerData;
 
-  // Timer callbacks
-  void NoteIdleWorkerCallback(nsITimer* aTimer);
+  TimeStamp mServiceWorkerLaunchTimeStart;
 
-  void TerminateWorkerCallback(nsITimer* aTimer);
+  // Counters for Telemetry - totals running simultaneously, and those that
+  // handle Fetch, plus Max values for each
+  static uint32_t sRunningServiceWorkers;
+  static uint32_t sRunningServiceWorkersFetch;
+  static uint32_t sRunningServiceWorkersMax;
+  static uint32_t sRunningServiceWorkersFetchMax;
 
-  void RenewKeepAliveToken(WakeUpReason aWhy);
-
-  void ResetIdleTimeout();
-
-  void AddToken();
-
-  void ReleaseToken();
-
-  nsresult SpawnWorkerIfNeeded();
-
-  ~ServiceWorkerPrivate();
-
-  already_AddRefed<KeepAliveToken> CreateEventKeepAliveToken();
-
-  nsresult Initialize();
-
-  bool WorkerIsDead() const;
-
-  /**
-   * RemoteWorkerObserver
-   */
-  void CreationFailed() override;
-
-  void CreationSucceeded() override;
-
-  void ErrorReceived(const ErrorValue& aError) override;
-
-  void LockNotified(bool aCreated) final {
-    // no-op for service workers
-  }
-
-  void Terminated() override;
-
-  // Refreshes only the parts of mRemoteWorkerData that may change over time.
-  void RefreshRemoteWorkerData(
-      const RefPtr<ServiceWorkerRegistrationInfo>& aRegistration);
-
-  nsresult SendSystemMessageEventInternal(
-      RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
-      ServiceWorkerSystemMessageEventOpArgs&& aArgs);
-
-  nsresult SendPushEventInternal(
-      RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
-      ServiceWorkerPushEventOpArgs&& aArgs);
-
-  // Setup the navigation preload by the intercepted channel and the
-  // RegistrationInfo.
-  RefPtr<FetchServicePromises> SetupNavigationPreload(
-      nsCOMPtr<nsIInterceptedChannel>& aChannel,
-      const RefPtr<ServiceWorkerRegistrationInfo>& aRegistration);
-
-  nsresult SendFetchEventInternal(
-      RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
-      ParentToParentServiceWorkerFetchEventOpArgs&& aArgs,
-      nsCOMPtr<nsIInterceptedChannel>&& aChannel,
-      RefPtr<FetchServicePromises>&& aPreloadResponseReadyPromises);
-
-  void Shutdown();
-
-  RefPtr<GenericNonExclusivePromise> ShutdownInternal(
-      uint32_t aShutdownStateId);
-
-  nsresult ExecServiceWorkerOp(
-      ServiceWorkerOpArgs&& aArgs,
-      std::function<void(ServiceWorkerOpResult&&)>&& aSuccessCallback,
-      std::function<void()>&& aFailureCallback = [] {});
+  // We know the state after we've evaluated the worker, and we then store
+  // it in the registration.  The only valid state transition should be
+  // from Unknown to Enabled or Disabled.
+  enum { Unknown, Enabled, Disabled } mHandlesFetch{Unknown};
 
   // The info object owns us. It is possible to outlive it for a brief period
   // of time if there are pending waitUntil promises, in which case it
   // will be null and |SpawnWorkerIfNeeded| will always fail.
   ServiceWorkerInfo* MOZ_NON_OWNING_REF mInfo;
-
-  nsTArray<UniquePtr<PendingFunctionalEvent>> mPendingFunctionalEvents;
 
   nsCOMPtr<nsITimer> mIdleWorkerTimer;
 
@@ -391,24 +391,6 @@ class ServiceWorkerPrivate final : public RemoteWorkerObserver {
 #ifdef DEBUG
   bool mIdlePromiseObtained = false;
 #endif
-
-  RefPtr<RAIIActorPtrHolder> mControllerChild;
-
-  RemoteWorkerData mRemoteWorkerData;
-
-  TimeStamp mServiceWorkerLaunchTimeStart;
-
-  // Counters for Telemetry - totals running simultaneously, and those that
-  // handle Fetch, plus Max values for each
-  static uint32_t sRunningServiceWorkers;
-  static uint32_t sRunningServiceWorkersFetch;
-  static uint32_t sRunningServiceWorkersMax;
-  static uint32_t sRunningServiceWorkersFetchMax;
-
-  // We know the state after we've evaluated the worker, and we then store
-  // it in the registration.  The only valid state transition should be
-  // from Unknown to Enabled or Disabled.
-  enum { UnknownState, Enabled, Disabled } mHandlesFetch{UnknownState};
 };
 
 }  // namespace dom

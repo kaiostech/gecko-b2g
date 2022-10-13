@@ -14,11 +14,14 @@ const { AppConstants } = ChromeUtils.import(
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
+});
+
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AddonRepository: "resource://gre/modules/addons/AddonRepository.jsm",
   AttributionCode: "resource:///modules/AttributionCode.jsm",
-  BuiltInThemes: "resource:///modules/BuiltInThemes.jsm",
-  BrowserUtils: "resource://gre/modules/BrowserUtils.jsm",
 });
 
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -463,7 +466,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                 string_id: "mr2022-onboarding-colorway-label-default",
               },
               tooltip: {
-                string_id: "mr2022-onboarding-colorway-tooltip-default",
+                string_id: "mr2022-onboarding-colorway-tooltip-default2",
               },
               description: {
                 string_id: "mr2022-onboarding-colorway-description-default",
@@ -475,7 +478,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                 string_id: "mr2022-onboarding-colorway-label-playmaker",
               },
               tooltip: {
-                string_id: "mr2022-onboarding-colorway-tooltip-playmaker",
+                string_id: "mr2022-onboarding-colorway-tooltip-playmaker2",
               },
               description: {
                 string_id: "mr2022-onboarding-colorway-description-playmaker",
@@ -487,7 +490,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                 string_id: "mr2022-onboarding-colorway-label-expressionist",
               },
               tooltip: {
-                string_id: "mr2022-onboarding-colorway-tooltip-expressionist",
+                string_id: "mr2022-onboarding-colorway-tooltip-expressionist2",
               },
               description: {
                 string_id:
@@ -500,7 +503,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                 string_id: "mr2022-onboarding-colorway-label-visionary",
               },
               tooltip: {
-                string_id: "mr2022-onboarding-colorway-tooltip-visionary",
+                string_id: "mr2022-onboarding-colorway-tooltip-visionary2",
               },
               description: {
                 string_id: "mr2022-onboarding-colorway-description-visionary",
@@ -512,7 +515,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                 string_id: "mr2022-onboarding-colorway-label-activist",
               },
               tooltip: {
-                string_id: "mr2022-onboarding-colorway-tooltip-activist",
+                string_id: "mr2022-onboarding-colorway-tooltip-activist2",
               },
               description: {
                 string_id: "mr2022-onboarding-colorway-description-activist",
@@ -524,7 +527,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                 string_id: "mr2022-onboarding-colorway-label-dreamer",
               },
               tooltip: {
-                string_id: "mr2022-onboarding-colorway-tooltip-dreamer",
+                string_id: "mr2022-onboarding-colorway-tooltip-dreamer2",
               },
               description: {
                 string_id: "mr2022-onboarding-colorway-description-dreamer",
@@ -536,7 +539,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
                 string_id: "mr2022-onboarding-colorway-label-innovator",
               },
               tooltip: {
-                string_id: "mr2022-onboarding-colorway-tooltip-innovator",
+                string_id: "mr2022-onboarding-colorway-tooltip-innovator2",
               },
               description: {
                 string_id: "mr2022-onboarding-colorway-description-innovator",
@@ -546,7 +549,8 @@ const MR_ABOUT_WELCOME_DEFAULT = {
         },
         primary_button: {
           label: {
-            string_id: "mr2022-onboarding-colorway-primary-button-label",
+            string_id:
+              "mr2022-onboarding-colorway-primary-button-label-continue",
           },
           action: {
             persistActiveTheme: true,
@@ -761,6 +765,30 @@ function evaluateWelcomeScreenButtonLabel(removeDefault, content) {
     : "mr1-onboarding-set-default-only-primary-button-label";
 }
 
+function prepareMobileDownload(screens) {
+  let mobileContent = screens.find(screen => screen.id === "AW_MOBILE_DOWNLOAD")
+    ?.content;
+
+  if (!mobileContent) {
+    return;
+  }
+  if (!lazy.BrowserUtils.sendToDeviceEmailsSupported()) {
+    // If send to device emails are not supported for a user's locale,
+    // remove the send to device link and update the screen text
+    delete mobileContent.cta_paragraph.action;
+    mobileContent.cta_paragraph.text = {
+      string_id: "mr2022-onboarding-no-mobile-download-cta-text",
+    };
+  }
+  // Update CN specific QRCode url
+  if (AppConstants.isChinaRepack()) {
+    mobileContent.hero_image.url = `${mobileContent.hero_image.url.slice(
+      0,
+      mobileContent.hero_image.url.indexOf(".svg")
+    )}-cn.svg`;
+  }
+}
+
 function prepareMRContent(content) {
   // Expand with logic for finalized MR designs
   const { screens } = content;
@@ -769,16 +797,8 @@ function prepareMRContent(content) {
   // and syncing to a mobile device
   if (lazy.usesFirefoxSync && lazy.mobileDevices > 0) {
     removeScreens(screen => screen.id === "AW_MOBILE_DOWNLOAD", screens);
-  } else if (!lazy.BrowserUtils.sendToDeviceEmailsSupported()) {
-    // If send to device emails are not supported for a user's locale,
-    // remove the send to device link and update the screen text
-    let mobileContent = screens.find(
-      screen => screen.id === "AW_MOBILE_DOWNLOAD"
-    ).content;
-    delete mobileContent.cta_paragraph.action;
-    mobileContent.cta_paragraph.text = {
-      string_id: "mr2022-onboarding-no-mobile-download-cta-text",
-    };
+  } else {
+    prepareMobileDownload(screens);
   }
 
   // Remove colorways screen if there is no active colorways collection

@@ -67,6 +67,7 @@
 #include "mozilla/MouseEvents.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/SwipeTracker.h"
 #include "mozilla/TouchEvents.h"
 #include "mozilla/TimeStamp.h"
@@ -1107,7 +1108,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
         // we choose to make it look like regular Firefox in terms of the icon
         // it uses (which also means we shouldn't use the Private Browsing
         // AUMID).
-        !Preferences::GetBool("browser.privatebrowsing.autostart", false)) {
+        !StaticPrefs::browser_privatebrowsing_autostart()) {
       RefPtr<IPropertyStore> pPropStore;
       if (!FAILED(SHGetPropertyStoreForWindow(mWnd, IID_IPropertyStore,
                                               getter_AddRefs(pPropStore)))) {
@@ -9315,6 +9316,14 @@ bool nsWindow::HandleAppCommandMsg(const MSG& aAppCommandMsg,
   *aRetValue = consumed ? 1 : 0;
   return consumed;
 }
+
+#ifdef DEBUG
+nsresult nsWindow::SetHiDPIMode(bool aHiDPI) {
+  return WinUtils::SetHiDPIMode(aHiDPI);
+}
+
+nsresult nsWindow::RestoreHiDPIMode() { return WinUtils::RestoreHiDPIMode(); }
+#endif
 
 static nsSizeMode GetSizeModeForWindowFrame(HWND aWnd, bool aFullscreenMode) {
   WINDOWPLACEMENT pl;

@@ -13,7 +13,7 @@ var { Preferences } = ChromeUtils.import(
 
 let searchIcon;
 
-add_task(async function init() {
+add_setup(async function() {
   let searchbar = await gCUITestUtils.addSearchBar();
   registerCleanupFunction(() => {
     gCUITestUtils.removeSearchBar();
@@ -25,7 +25,10 @@ add_task(async function init() {
     getRootDirectory(gTestPath) + "testEngine_diacritics.xml"
   );
   registerCleanupFunction(async () => {
-    await Services.search.setDefault(defaultEngine);
+    await Services.search.setDefault(
+      defaultEngine,
+      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    );
     Services.prefs.clearUserPref("browser.search.hiddenOneOffs");
   });
 });

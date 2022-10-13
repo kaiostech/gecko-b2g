@@ -79,9 +79,11 @@ include = [
   "BreakBetween",
   "BreakWithin",
   "BorderStyle",
+  "BoolInteger",
   "OutlineStyle",
   "CaptionSide",
   "FontSizeAdjust",
+  "FontPalette",
   "ComputedFontStretchRange",
   "ComputedFontStyleDescriptor",
   "ComputedFontWeightRange",
@@ -110,6 +112,7 @@ include = [
   "UnicodeRange",
   "UserSelect",
   "Float",
+  "Clear",
   "OverscrollBehavior",
   "ScrollSnapAlign",
   "ScrollSnapAxis",
@@ -207,6 +210,7 @@ include = [
   "SVGPaintKind",
   "GridTemplateComponent",
   "TextEmphasisStyle",
+  "TextEmphasisPosition",
   "VariantAlternatesList",
   "PaintOrder",
   "SVGPaintOrder",
@@ -306,6 +310,8 @@ renaming_overrides_prefixing = true
 "ServoTraversalFlags" = "ServoTraversalFlags"
 "ServoStyleSetSizes" = "ServoStyleSetSizes"
 "BeforeFlag" = "StyleEasingBeforeFlag"
+"FontPaletteValueSet" = "gfx::FontPaletteValueSet"
+"PaletteValues" = "gfx::FontPaletteValueSet::PaletteValues"
 
 [export.body]
 "CSSPixelLength" = """
@@ -943,5 +949,11 @@ renaming_overrides_prefixing = true
 "FontFaceSourceTechFlags" = """
   inline static StyleFontFaceSourceTechFlags Empty() {
     return StyleFontFaceSourceTechFlags{0};
+  }
+"""
+
+"FontPalette" = """
+  inline static StyleFontPalette Normal() {
+    return StyleFontPalette{StyleAtom(nsGkAtoms::normal->ToAddRefed())};
   }
 """

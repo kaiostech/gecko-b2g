@@ -175,7 +175,7 @@
 #include "util/WindowsWrapper.h"
 #include "vm/ArgumentsObject.h"
 #include "vm/Compression.h"
-#include "vm/ErrorContext.h"
+#include "vm/ErrorContext.h"  // AutoReportFrontendContext
 #include "vm/ErrorObject.h"
 #include "vm/ErrorReporting.h"
 #include "vm/HelperThreads.h"
@@ -2414,7 +2414,7 @@ static bool Evaluate(JSContext* cx, unsigned argc, Value* vp) {
       return false;
     }
 
-    MainThreadErrorContext ec(cx);
+    AutoReportFrontendContext ec(cx);
     if (!SetSourceOptions(cx, &ec, script->scriptSource(), displayURL,
                           sourceMapURL)) {
       return false;
@@ -4840,7 +4840,7 @@ static bool ParseModule(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   RootedObject module(
       cx, frontend::CompileModule(cx, &ec, cx->stackLimitForCurrentPrincipal(),
                                   options, srcBuf));
@@ -4969,7 +4969,7 @@ static bool InstantiateModuleStencil(JSContext* cx, uint32_t argc, Value* vp) {
   }
 
   /* Prepare the CompilationStencil for decoding. */
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   Rooted<frontend::CompilationInput> input(cx,
                                            frontend::CompilationInput(options));
   if (!input.get().initForModule(cx, &ec)) {
@@ -5028,7 +5028,7 @@ static bool InstantiateModuleStencilXDR(JSContext* cx, uint32_t argc,
   }
 
   /* Prepare the CompilationStencil for decoding. */
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   Rooted<frontend::CompilationInput> input(cx,
                                            frontend::CompilationInput(options));
   if (!input.get().initForModule(cx, &ec)) {
@@ -5044,11 +5044,13 @@ static bool InstantiateModuleStencilXDR(JSContext* cx, uint32_t argc,
     return false;
   }
   if (!succeeded) {
+    ec.clearAutoReport();
     JS_ReportErrorASCII(cx, "Decoding failure");
     return false;
   }
 
   if (!stencil.isModule()) {
+    ec.clearAutoReport();
     JS_ReportErrorASCII(cx,
                         "instantiateModuleStencilXDR: Module stencil expected");
     return false;
@@ -5297,7 +5299,7 @@ static bool DumpAST(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
                     js::frontend::ParseGoal goal) {
   using namespace js::frontend;
 
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   Parser<FullParseHandler, Unit> parser(
       cx, &ec, cx->stackLimitForCurrentPrincipal(), options, units, length,
       /* foldConstants = */ false, compilationState,
@@ -5349,7 +5351,7 @@ template <typename Unit>
     return false;
   }
 
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   js::frontend::NoScopeBindingCache scopeCache;
   UniquePtr<frontend::ExtensibleCompilationStencil> stencil;
   if (goal == frontend::ParseGoal::Script) {
@@ -5522,7 +5524,7 @@ static bool FrontendTest(JSContext* cx, unsigned argc, Value* vp,
             return false;
           }
 
-          MainThreadErrorContext ec(cx);
+          AutoReportFrontendContext ec(cx);
           Rooted<frontend::CompilationInput> input(
               cx, frontend::CompilationInput(options));
           UniquePtr<frontend::ExtensibleCompilationStencil> stencil;
@@ -5532,6 +5534,7 @@ static bool FrontendTest(JSContext* cx, unsigned argc, Value* vp,
             return false;
           }
           if (!stencil) {
+            ec.clearAutoReport();
             JS_ReportErrorASCII(cx, "SmooshMonkey failed to parse");
             return false;
           }
@@ -5574,7 +5577,7 @@ static bool FrontendTest(JSContext* cx, unsigned argc, Value* vp,
     return true;
   }
 
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   Rooted<frontend::CompilationInput> input(cx,
                                            frontend::CompilationInput(options));
   if (goal == frontend::ParseGoal::Script) {
@@ -5657,7 +5660,7 @@ static bool SyntaxParse(JSContext* cx, unsigned argc, Value* vp) {
   const char16_t* chars = stableChars.twoByteRange().begin().get();
   size_t length = scriptContents->length();
 
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   Rooted<frontend::CompilationInput> input(cx,
                                            frontend::CompilationInput(options));
   if (!input.get().initForGlobal(cx, &ec)) {
@@ -5680,14 +5683,14 @@ static bool SyntaxParse(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   bool succeeded = parser.parse();
-  if (cx->isExceptionPending()) {
+  if (ec.hadErrors()) {
     return false;
   }
 
   if (!succeeded && !parser.hadAbortedSyntaxParse()) {
     // If no exception is posted, either there was an OOM or a language
     // feature unhandled by the syntax parser was encountered.
-    MOZ_ASSERT(cx->runtime()->hadOutOfMemory);
+    MOZ_ASSERT(ec.hadOutOfMemory());
     return false;
   }
 

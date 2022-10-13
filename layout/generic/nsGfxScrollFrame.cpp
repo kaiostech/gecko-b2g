@@ -51,6 +51,7 @@
 #include "mozilla/ScrollbarPreferences.h"
 #include "mozilla/ScrollingMetrics.h"
 #include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/StaticPrefs_toolkit.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/SVGOuterSVGFrame.h"
 #include "mozilla/ViewportUtils.h"
@@ -584,9 +585,8 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput& aState,
 
   // First, compute our inside-border size and scrollport size
   // XXXldb Can we depend more on ComputeSize here?
-  nsSize kidSize =
-      aState.mReflowInput.mStyleDisplay->GetContainSizeAxes().ContainSize(
-          aKidMetrics->PhysicalSize(), *aState.mReflowInput.mFrame);
+  nsSize kidSize = GetContainSizeAxes().ContainSize(
+      aKidMetrics->PhysicalSize(), *aState.mReflowInput.mFrame);
   const nsSize desiredInsideBorderSize = kidSize + scrollbarGutterSize;
   aState.mInsideBorderSize =
       ComputeInsideBorderSize(aState, desiredInsideBorderSize);
@@ -997,9 +997,8 @@ void nsHTMLScrollFrame::ReflowContents(ScrollReflowInput& aState,
        aState.mReflowedContentsWithVScrollbar) &&
       aState.mVScrollbar != ShowScrollbar::Always &&
       aState.mHScrollbar != ShowScrollbar::Always) {
-    nsSize kidSize =
-        aState.mReflowInput.mStyleDisplay->GetContainSizeAxes().ContainSize(
-            kidDesiredSize.PhysicalSize(), *aState.mReflowInput.mFrame);
+    nsSize kidSize = GetContainSizeAxes().ContainSize(
+        kidDesiredSize.PhysicalSize(), *aState.mReflowInput.mFrame);
     nsSize insideBorderSize = ComputeInsideBorderSize(aState, kidSize);
     nsRect scrolledRect = mHelper.GetUnsnappedScrolledRectInternal(
         kidDesiredSize.ScrollableOverflow(), insideBorderSize);
@@ -1578,7 +1577,7 @@ NS_IMPL_FRAMEARENA_HELPERS(nsXULScrollFrame)
 
 nsXULScrollFrame::nsXULScrollFrame(ComputedStyle* aStyle,
                                    nsPresContext* aPresContext, bool aIsRoot)
-    : nsBoxFrame(aStyle, aPresContext, kClassID, aIsRoot),
+    : nsBoxFrame(aStyle, aPresContext, kClassID),
       mHelper(ALLOW_THIS_IN_INITIALIZER_LIST(this), aIsRoot) {
   SetXULLayoutManager(nullptr);
 }
@@ -1758,8 +1757,7 @@ void ScrollFrameHelper::ScrollByLine(nsScrollbarFrame* aScrollbar,
   nsIntPoint delta;
   if (isHorizontal) {
     const double kScrollMultiplier =
-        Preferences::GetInt("toolkit.scrollbox.horizontalScrollDistance",
-                            NS_DEFAULT_HORIZONTAL_SCROLL_DISTANCE);
+        StaticPrefs::toolkit_scrollbox_horizontalScrollDistance();
     delta.x = aDirection * kScrollMultiplier;
     if (GetLineScrollAmount().width * delta.x > GetPageScrollAmount().width) {
       // The scroll frame is so small that the delta would be more
@@ -1770,8 +1768,7 @@ void ScrollFrameHelper::ScrollByLine(nsScrollbarFrame* aScrollbar,
     }
   } else {
     const double kScrollMultiplier =
-        Preferences::GetInt("toolkit.scrollbox.verticalScrollDistance",
-                            NS_DEFAULT_VERTICAL_SCROLL_DISTANCE);
+        StaticPrefs::toolkit_scrollbox_verticalScrollDistance();
     delta.y = aDirection * kScrollMultiplier;
     if (GetLineScrollAmount().height * delta.y > GetPageScrollAmount().height) {
       // The scroll frame is so small that the delta would be more
@@ -2471,10 +2468,27 @@ void ScrollFrameHelper::AsyncScrollCallback(ScrollFrameHelper* aInstance,
                                  aInstance->mAsyncScroll->TakeSnapTargetIds());
 }
 
+void ScrollFrameHelper::SetTransformingByAPZ(bool aTransforming) {
+  if (mTransformingByAPZ && !aTransforming) {
+    PostScrollEndEvent();
+  }
+  mTransformingByAPZ = aTransforming;
+  if (!mozilla::css::TextOverflow::HasClippedTextOverflow(mOuter) ||
+      mozilla::css::TextOverflow::HasBlockEllipsis(mScrolledFrame)) {
+    // If the block has some overflow marker stuff we should kick off a paint
+    // because we have special behaviour for it when APZ scrolling is active.
+    mOuter->SchedulePaint();
+  }
+}
+
 void ScrollFrameHelper::CompleteAsyncScroll(
     const nsRect& aRange, UniquePtr<ScrollSnapTargetIds> aSnapTargetIds,
     ScrollOrigin aOrigin) {
   SetLastSnapTargetIds(std::move(aSnapTargetIds));
+
+  bool isNotHandledByApz =
+      nsLayoutUtils::CanScrollOriginClobberApz(aOrigin) ||
+      ScrollAnimationState().contains(AnimationState::MainThread);
 
   // Apply desired destination range since this is the last step of scrolling.
   RemoveObservers();
@@ -2486,7 +2500,17 @@ void ScrollFrameHelper::CompleteAsyncScroll(
   // We are done scrolling, set our destination to wherever we actually ended
   // up scrolling to.
   mDestination = GetScrollPosition();
-  PostScrollEndEvent();
+  // Post a `scrollend` event for scrolling not handled by APZ, including:
+  //
+  //  - programmatic instant scrolls
+  //  - the end of a smooth scroll animation running on the main thread
+  //
+  // For scrolling handled by APZ, the `scrollend` event is posted in
+  // SetTransformingByAPZ() when the APZC is transitioning from a transforming
+  // to a non-transforming state (e.g. a transition from PANNING to NOTHING).
+  if (isNotHandledByApz) {
+    PostScrollEndEvent();
+  }
 }
 
 bool ScrollFrameHelper::HasBgAttachmentLocal() const {
@@ -5207,12 +5231,8 @@ static nsSize GetScrollPortSizeExcludingHeadersAndFooters(
     const nsRect& aScrollPort) {
   AutoTArray<TopAndBottom, 10> list;
   if (aViewportFrame) {
-    nsFrameList fixedFrames =
-        aViewportFrame->GetChildList(nsIFrame::kFixedList);
-    for (nsFrameList::Enumerator iterator(fixedFrames); !iterator.AtEnd();
-         iterator.Next()) {
-      AddToListIfHeaderFooter(iterator.get(), aViewportFrame, aScrollPort,
-                              list);
+    for (nsIFrame* f : aViewportFrame->GetChildList(nsIFrame::kFixedList)) {
+      AddToListIfHeaderFooter(f, aViewportFrame, aScrollPort, list);
     }
   }
 
@@ -5488,12 +5508,23 @@ void ScrollFrameHelper::PostScrollEndEvent() {
 void ScrollFrameHelper::FireScrollEndEvent() {
   MOZ_ASSERT(mOuter->GetContent());
   MOZ_ASSERT(mScrollEndEvent);
+
+  RefPtr<nsPresContext> presContext = mOuter->PresContext();
   mScrollEndEvent->Revoke();
   mScrollEndEvent = nullptr;
 
-  nsContentUtils::DispatchEventOnlyToChrome(
-      mOuter->GetContent()->OwnerDoc(), mOuter->GetContent(), u"scrollend"_ns,
-      CanBubble::eYes, Cancelable::eNo);
+  nsEventStatus status = nsEventStatus_eIgnore;
+  WidgetGUIEvent event(true, eScrollend, nullptr);
+  event.mFlags.mBubbles = mIsRoot;
+  event.mFlags.mCancelable = false;
+  // If apz.scrollend-event.content.enabled is not set, the event should
+  // only be dispatched to the browser chrome.
+  event.mFlags.mOnlyChromeDispatch =
+      !StaticPrefs::apz_scrollend_event_content_enabled();
+  RefPtr<nsINode> target = mIsRoot
+                               ? static_cast<nsINode*>(presContext->Document())
+                               : mOuter->GetContent();
+  EventDispatcher::Dispatch(target, presContext, &event, nullptr, &status);
 }
 
 void ScrollFrameHelper::ReloadChildFrames() {
@@ -5994,7 +6025,7 @@ ScrollFrameHelper::ScrollEndEvent::ScrollEndEvent(ScrollFrameHelper* aHelper)
   mHelper->mOuter->PresContext()->RefreshDriver()->PostScrollEvent(this);
 }
 
-NS_IMETHODIMP
+MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
 ScrollFrameHelper::ScrollEndEvent::Run() {
   if (mHelper) {
     mHelper->FireScrollEndEvent();
@@ -6815,8 +6846,7 @@ bool ScrollFrameHelper::ReflowFinished() {
     AutoWeakFrame weakFrame(mOuter);
     if (vScroll) {
       const double kScrollMultiplier =
-          Preferences::GetInt("toolkit.scrollbox.verticalScrollDistance",
-                              NS_DEFAULT_VERTICAL_SCROLL_DISTANCE);
+          StaticPrefs::toolkit_scrollbox_verticalScrollDistance();
       nscoord increment = lineScrollAmount.height * kScrollMultiplier;
       // We normally use (visualViewportSize.height - increment) for height of
       // page scrolling.  However, it is too small when increment is very large.
@@ -6834,8 +6864,7 @@ bool ScrollFrameHelper::ReflowFinished() {
     }
     if (hScroll) {
       const double kScrollMultiplier =
-          Preferences::GetInt("toolkit.scrollbox.horizontalScrollDistance",
-                              NS_DEFAULT_HORIZONTAL_SCROLL_DISTANCE);
+          StaticPrefs::toolkit_scrollbox_horizontalScrollDistance();
       nscoord increment = lineScrollAmount.width * kScrollMultiplier;
       FinishReflowForScrollbar(
           hScroll, scrollRange.x, scrollRange.XMost(), scrollPos.x,

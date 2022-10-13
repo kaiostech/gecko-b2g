@@ -12,8 +12,8 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
-const { NewTabUtils } = ChromeUtils.import(
-  "resource://gre/modules/NewTabUtils.jsm"
+const { NewTabUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/NewTabUtils.sys.mjs"
 );
 const { ShellService } = ChromeUtils.import(
   "resource:///modules/ShellService.jsm"
@@ -21,20 +21,23 @@ const { ShellService } = ChromeUtils.import(
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  ProfileAge: "resource://gre/modules/ProfileAge.sys.mjs",
+  Region: "resource://gre/modules/Region.sys.mjs",
+  BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
+});
+
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   ASRouterPreferences: "resource://activity-stream/lib/ASRouterPreferences.jsm",
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   ClientEnvironment: "resource://normandy/lib/ClientEnvironment.jsm",
-  ProfileAge: "resource://gre/modules/ProfileAge.jsm",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.jsm",
   AttributionCode: "resource:///modules/AttributionCode.jsm",
   TargetingContext: "resource://messaging-system/targeting/Targeting.jsm",
-  Region: "resource://gre/modules/Region.jsm",
   TelemetrySession: "resource://gre/modules/TelemetrySession.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
   AboutNewTab: "resource:///modules/AboutNewTab.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
-  BuiltInThemes: "resource:///modules/BuiltInThemes.jsm",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
 });
 
@@ -790,6 +793,15 @@ const TargetingGetters = {
     return (
       lazy.NimbusFeatures.majorRelease2022.getVariable("onboarding") === false
     );
+  },
+  /**
+   * The distribution id, if any.
+   * @return {string}
+   */
+  get distributionId() {
+    return Services.prefs
+      .getDefaultBranch(null)
+      .getCharPref("distribution.id", "");
   },
 };
 

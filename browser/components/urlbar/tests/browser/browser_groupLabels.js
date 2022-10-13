@@ -28,7 +28,7 @@ if (AppConstants.platform == "macosx") {
   requestLongerTimeout(3);
 }
 
-add_task(async function init() {
+add_setup(async function() {
   Assert.ok(
     UrlbarPrefs.get("showSearchSuggestionsFirst"),
     "Precondition: Search suggestions shown first by default"
@@ -55,11 +55,17 @@ add_task(async function init() {
   // Add a mock engine so we don't hit the network.
   await SearchTestUtils.installSearchExtension();
   let oldDefaultEngine = await Services.search.getDefault();
-  await Services.search.setDefault(Services.search.getEngineByName("Example"));
+  await Services.search.setDefault(
+    Services.search.getEngineByName("Example"),
+    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+  );
 
   registerCleanupFunction(async () => {
     await PlacesUtils.history.clear();
-    Services.search.setDefault(oldDefaultEngine);
+    Services.search.setDefault(
+      oldDefaultEngine,
+      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    );
   });
 });
 
@@ -603,11 +609,17 @@ async function withSuggestions(
     getRootDirectory(gTestPath) + engineBasename
   );
   let oldDefaultEngine = await Services.search.getDefault();
-  await Services.search.setDefault(engine);
+  await Services.search.setDefault(
+    engine,
+    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+  );
   try {
     await callback(engine);
   } finally {
-    await Services.search.setDefault(oldDefaultEngine);
+    await Services.search.setDefault(
+      oldDefaultEngine,
+      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    );
     await Services.search.removeEngine(engine);
     await SpecialPowers.popPrefEnv();
   }

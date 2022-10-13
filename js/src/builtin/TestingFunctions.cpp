@@ -101,7 +101,7 @@
 #include "util/DifferentialTesting.h"
 #include "util/StringBuffer.h"
 #include "util/Text.h"
-#include "vm/ErrorContext.h"
+#include "vm/ErrorContext.h"  // AutoReportFrontendContext
 #include "vm/ErrorObject.h"
 #include "vm/GlobalObject.h"
 #include "vm/HelperThreads.h"
@@ -3733,6 +3733,10 @@ static bool SettlePromiseNow(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
+  if (IsPromiseWithDefaultResolvingFunction(promise)) {
+    SetAlreadyResolvedPromiseWithDefaultResolvingFunction(promise);
+  }
+
   int32_t flags = promise->flags();
   promise->setFixedSlot(
       PromiseSlot_Flags,
@@ -6309,7 +6313,7 @@ static bool CompileToStencil(JSContext* cx, uint32_t argc, Value* vp) {
     return false;
   }
 
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   if (!SetSourceOptions(cx, &ec, stencil->source, displayURL, sourceMapURL)) {
     return false;
   }
@@ -6446,7 +6450,7 @@ static bool CompileToStencilXDR(JSContext* cx, uint32_t argc, Value* vp) {
   }
 
   /* Compile the script text to stencil. */
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   frontend::NoScopeBindingCache scopeCache;
   Rooted<frontend::CompilationInput> input(cx,
                                            frontend::CompilationInput(options));
@@ -6527,7 +6531,7 @@ static bool EvalStencilXDR(JSContext* cx, uint32_t argc, Value* vp) {
   }
 
   /* Prepare the CompilationStencil for decoding. */
-  MainThreadErrorContext ec(cx);
+  AutoReportFrontendContext ec(cx);
   Rooted<frontend::CompilationInput> input(cx,
                                            frontend::CompilationInput(options));
   if (!input.get().initForGlobal(cx, &ec)) {
@@ -6543,11 +6547,13 @@ static bool EvalStencilXDR(JSContext* cx, uint32_t argc, Value* vp) {
     return false;
   }
   if (!succeeded) {
+    ec.clearAutoReport();
     JS_ReportErrorASCII(cx, "Decoding failure");
     return false;
   }
 
   if (stencil.isModule()) {
+    ec.clearAutoReport();
     JS_ReportErrorASCII(cx,
                         "evalStencilXDR: Module stencil cannot be evaluated. "
                         "Use instantiateModuleStencilXDR instead");
@@ -7269,6 +7275,83 @@ static bool TimeSinceCreation(JSContext* cx, unsigned argc, Value* vp) {
       (mozilla::TimeStamp::Now() - mozilla::TimeStamp::ProcessCreation())
           .ToMilliseconds();
   args.rval().setNumber(when);
+  return true;
+}
+
+static bool GetInnerMostEnvironmentObject(JSContext* cx, unsigned argc,
+                                          Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  FrameIter iter(cx);
+  if (iter.done()) {
+    args.rval().setNull();
+    return true;
+  }
+
+  args.rval().setObjectOrNull(iter.environmentChain(cx));
+  return true;
+}
+
+static bool GetEnclosingEnvironmentObject(JSContext* cx, unsigned argc,
+                                          Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  if (!args.requireAtLeast(cx, "getEnclosingEnvironmentObject", 1)) {
+    return false;
+  }
+
+  if (!args[0].isObject()) {
+    args.rval().setUndefined();
+    return true;
+  }
+
+  JSObject* envObj = &args[0].toObject();
+
+  if (envObj->is<EnvironmentObject>()) {
+    EnvironmentObject* env = &envObj->as<EnvironmentObject>();
+    args.rval().setObject(env->enclosingEnvironment());
+    return true;
+  }
+
+  if (envObj->is<DebugEnvironmentProxy>()) {
+    DebugEnvironmentProxy* envProxy = &envObj->as<DebugEnvironmentProxy>();
+    args.rval().setObject(envProxy->enclosingEnvironment());
+    return true;
+  }
+
+  args.rval().setNull();
+  return true;
+}
+
+static bool GetEnvironmentObjectType(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  if (!args.requireAtLeast(cx, "getEnvironmentObjectType", 1)) {
+    return false;
+  }
+
+  if (!args[0].isObject()) {
+    args.rval().setUndefined();
+    return true;
+  }
+
+  JSObject* envObj = &args[0].toObject();
+
+  if (envObj->is<EnvironmentObject>()) {
+    EnvironmentObject* env = &envObj->as<EnvironmentObject>();
+    JSString* str = JS_NewStringCopyZ(cx, env->typeString());
+    args.rval().setString(str);
+    return true;
+  }
+  if (envObj->is<DebugEnvironmentProxy>()) {
+    DebugEnvironmentProxy* envProxy = &envObj->as<DebugEnvironmentProxy>();
+    EnvironmentObject* env = &envProxy->environment();
+    char buf[256] = {'\0'};
+    SprintfLiteral(buf, "[DebugProxy] %s", env->typeString());
+    JSString* str = JS_NewStringCopyZ(cx, buf);
+    args.rval().setString(str);
+    return true;
+  }
+
+  args.rval().setUndefined();
   return true;
 }
 
@@ -9004,6 +9087,18 @@ JS_FN_HELP("isInStencilCache", IsInStencilCache, 1, 0,
 JS_FN_HELP("waitForStencilCache", WaitForStencilCache, 1, 0,
 "waitForStencilCache(fun)",
 "  Block main thread execution until the function is made available in the cache."),
+
+JS_FN_HELP("getInnerMostEnvironmentObject", GetInnerMostEnvironmentObject, 0, 0,
+"getInnerMostEnvironmentObject()",
+"  Return the inner-most environment object for current execution."),
+
+JS_FN_HELP("getEnclosingEnvironmentObject", GetEnclosingEnvironmentObject, 1, 0,
+"getEnclosingEnvironmentObject(env)",
+"  Return the enclosing environment object for given environment object."),
+
+JS_FN_HELP("getEnvironmentObjectType", GetEnvironmentObjectType, 1, 0,
+"getEnvironmentObjectType(env)",
+"  Return a string represents the type of given environment object."),
 
     JS_FS_HELP_END
 };

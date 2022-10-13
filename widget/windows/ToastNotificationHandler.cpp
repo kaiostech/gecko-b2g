@@ -435,8 +435,9 @@ ComPtr<IXmlDocument> ToastNotificationHandler::CreateToastXmlDocument() {
   MOZ_LOG(sWASLog, LogLevel::Debug,
           ("launchArg: '%s'", NS_ConvertUTF16toUTF8(launchArg).get()));
 
-  // On modern Windows (10+), use newer toast layout, which makes images larger.
-  if (IsWin10OrLater()) {
+  // On modern Windows (10+), use newer toast layout, which makes images larger,
+  // for system (chrome-privileged) toasts.
+  if (IsWin10OrLater() && mIsSystemPrincipal) {
     ComPtr<IXmlNodeList> bindingElements;
     hr = toastXml->GetElementsByTagName(HStringReference(L"binding").Get(),
                                         &bindingElements);
@@ -596,6 +597,21 @@ bool ToastNotificationHandler::ShowAlert() {
   }
 
   return CreateWindowsNotificationFromXml(toastXml);
+}
+
+void ToastNotificationHandler::HideIfPrivate() {
+  if (mInPrivateBrowsing) {
+    HideAlert();
+  }
+}
+
+void ToastNotificationHandler::HideAlert() {
+  if (mNotifier && mNotification) {
+    mNotifier->Hide(mNotification.Get());
+
+    SendFinished();
+    mBackend->RemoveHandler(mName, this);
+  }
 }
 
 bool ToastNotificationHandler::CreateWindowsNotificationFromXml(

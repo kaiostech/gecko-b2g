@@ -43,7 +43,6 @@
 #include "nsDirectoryServiceUtils.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsAppDirectoryServiceDefs.h"
-#include "nsIMemory.h"
 #include "nsMemory.h"
 #include "nsPresContext.h"
 #include "gfxFontConstants.h"
@@ -1474,12 +1473,15 @@ void gfxFT2FontList::FindFonts() {
         font = systemFontIterator_next(iter);
       }
 
-      // We don't yet support COLRv1 fonts (bug 1740525). Newer android versions
-      // have COLRv1 emoji font, and a legacy and hidden CBDT font we
-      // understand, so try to find NotoColorEmojiLegacy.ttf explicitly for now.
-      nsAutoCString legacyEmojiFont(androidFontsRoot);
-      legacyEmojiFont.Append("/NotoColorEmojiLegacy.ttf");
-      AppendFacesFromFontFile(legacyEmojiFont, mFontNameCache.get(), kStandard);
+      if (!StaticPrefs::gfx_font_rendering_colr_v1_enabled()) {
+        // We turn off COLRv1 fonts support. Newer android versions have
+        // COLRv1 emoji font, and a legacy and hidden CBDT font we understand,
+        // so try to find NotoColorEmojiLegacy.ttf explicitly for now.
+        nsAutoCString legacyEmojiFont(androidFontsRoot);
+        legacyEmojiFont.Append("/NotoColorEmojiLegacy.ttf");
+        AppendFacesFromFontFile(legacyEmojiFont, mFontNameCache.get(),
+                                kStandard);
+      }
 
       systemFontIterator_close(iter);
     } else {
@@ -1515,11 +1517,9 @@ void gfxFT2FontList::FindFonts() {
   // Look for fonts stored in omnijar, unless we're on a low-memory
   // device where we don't want to spend the RAM to decompress them.
   // (Prefs may disable this, or force-enable it even with low memory.)
-  bool lowmem;
-  nsCOMPtr<nsIMemory> mem = nsMemory::GetGlobalMemoryService();
   if (StaticPrefs::gfx_bundled_fonts_activate_AtStartup() > 0 ||
       (StaticPrefs::gfx_bundled_fonts_activate_AtStartup() < 0 &&
-       NS_SUCCEEDED(mem->IsLowMemoryPlatform(&lowmem)) && !lowmem)) {
+       !nsMemory::IsLowMemoryPlatform())) {
     TimeStamp start = TimeStamp::Now();
     FindFontsInOmnijar(mFontNameCache.get());
     TimeStamp end = TimeStamp::Now();

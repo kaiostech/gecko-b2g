@@ -11,14 +11,14 @@ const { DevToolsLoader } = ChromeUtils.import(
 loader.lazyRequireGetter(
   this,
   "DevToolsServer",
-  "devtools/server/devtools-server",
+  "resource://devtools/server/devtools-server.js",
   true
 );
 // eslint-disable-next-line mozilla/reject-some-requires
 loader.lazyRequireGetter(
   this,
   "DevToolsClient",
-  "devtools/client/devtools-client",
+  "resource://devtools/client/devtools-client.js",
   true
 );
 
@@ -48,6 +48,18 @@ exports.CommandsFactory = {
 
     const descriptor = await client.mainRoot.getTab({ tab, isWebExtension });
     descriptor.doNotAttachThreadActor = isWebExtension;
+    const commands = await createCommandsDictionary(descriptor);
+    return commands;
+  },
+
+  /**
+   * Chrome mochitest don't have access to any "tab",
+   * so that the only way to attach to a fake tab is call RootFront.getTab
+   * without any argument.
+   */
+  async forCurrentTabInChromeMochitest() {
+    const client = await createLocalClient();
+    const descriptor = await client.mainRoot.getTab();
     const commands = await createCommandsDictionary(descriptor);
     return commands;
   },
@@ -109,6 +121,30 @@ exports.CommandsFactory = {
     return commands;
   },
 
+  /**
+   * Create commands for a worker in a local tab.
+   *
+   * @param {Tab} tab: The local tab into which the worker runs.
+   * @param {String} workerUrl: The URL of the worker to debug.
+   * @returns {Object} Commands
+   */
+  async forLocalTabWorker(tab, workerUrl) {
+    // For now, the root actor doesn't support instantiating a worker descriptor
+    // for a worker running in a content process (it supports only for parent process workers).
+    // So that we have to first instantiate a commands for the related tab.
+    // Then we can fetch the worker descriptor via the top level target front.
+    const tabCommands = await this.forTab(tab);
+    await tabCommands.targetCommand.startListening();
+    const {
+      workers,
+    } = await tabCommands.targetCommand.targetFront.listWorkers();
+
+    const workerDescriptor = workers.find(worker => worker.url == workerUrl);
+
+    const commands = await createCommandsDictionary(workerDescriptor);
+    return commands;
+  },
+
   async forAddon(id) {
     const client = await createLocalClient();
 
@@ -148,7 +184,7 @@ exports.CommandsFactory = {
       freshCompartment: true,
     });
     const { DevToolsServer: customDevToolsServer } = customLoader.require(
-      "devtools/server/devtools-server"
+      "resource://devtools/server/devtools-server.js"
     );
 
     customDevToolsServer.init();

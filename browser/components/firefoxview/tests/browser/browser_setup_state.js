@@ -27,15 +27,6 @@ function promiseSyncReady() {
   return service.whenLoaded();
 }
 
-async function touchLastTabFetch() {
-  // lastTabFetch stores a timestamp in *seconds*.
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  info("updating lastFetch:" + nowSeconds);
-  Services.prefs.setIntPref("services.sync.lastTabFetch", nowSeconds);
-  // wait so all pref observers can complete
-  await TestUtils.waitForTick();
-}
-
 var gSandbox;
 function setupMocks({ fxaDevices = null, state, syncEnabled = true }) {
   gUIStateStatus = state || UIState.STATUS_SIGNED_IN;
@@ -86,69 +77,6 @@ async function setupWithDesktopDevices() {
   return sandbox;
 }
 
-async function waitForVisibleStep(browser, expected) {
-  const { document } = browser.contentWindow;
-
-  const deck = document.querySelector(".sync-setup-container");
-  const nextStepElem = deck.querySelector(expected.expectedVisible);
-  const stepElems = deck.querySelectorAll(".setup-step");
-
-  await BrowserTestUtils.waitForMutationCondition(
-    deck,
-    {
-      attributeFilter: ["selected-view"],
-    },
-    () => {
-      return BrowserTestUtils.is_visible(nextStepElem);
-    }
-  );
-
-  for (let elem of stepElems) {
-    if (elem == nextStepElem) {
-      ok(
-        BrowserTestUtils.is_visible(elem),
-        `Expected ${elem.id || elem.className} to be visible`
-      );
-    } else {
-      ok(
-        BrowserTestUtils.is_hidden(elem),
-        `Expected ${elem.id || elem.className} to be hidden`
-      );
-    }
-  }
-}
-
-function checkMobilePromo(browser, expected = {}) {
-  const { document } = browser.contentWindow;
-  const promoElem = document.querySelector(
-    "#tab-pickup-container > .promo-box"
-  );
-  const successElem = document.querySelector(
-    "#tab-pickup-container > .confirmation-message-box"
-  );
-
-  info("checkMobilePromo: " + JSON.stringify(expected));
-  if (expected.mobilePromo) {
-    ok(BrowserTestUtils.is_visible(promoElem), "Mobile promo is visible");
-  } else {
-    ok(
-      !promoElem || BrowserTestUtils.is_hidden(promoElem),
-      "Mobile promo is hidden"
-    );
-  }
-  if (expected.mobileConfirmation) {
-    ok(
-      BrowserTestUtils.is_visible(successElem),
-      "Success confirmation is visible"
-    );
-  } else {
-    ok(
-      !successElem || BrowserTestUtils.is_hidden(successElem),
-      "Success confirmation is hidden"
-    );
-  }
-}
-
 async function tearDown(sandbox) {
   sandbox?.restore();
   Services.prefs.clearUserPref("services.sync.lastTabFetch");
@@ -177,6 +105,19 @@ add_setup(async function() {
 
 add_task(async function test_unconfigured_initial_state() {
   await clearAllParentTelemetryEvents();
+  // test with the pref set to show FEATURE TOUR CALLOUT
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.firefox-view.feature-tour",
+        JSON.stringify({
+          message: "FIREFOX_VIEW_FEATURE_TOUR",
+          screen: `FEATURE_CALLOUT_1`,
+          complete: false,
+        }),
+      ],
+    ],
+  });
   const sandbox = setupMocks({
     state: UIState.STATUS_NOT_CONFIGURED,
     syncEnabled: false,
@@ -309,9 +250,9 @@ add_task(async function test_2nd_desktop_connected() {
     is(fxAccounts.device.recentDeviceList?.length, 2, "2 devices connected");
     ok(
       fxAccounts.device.recentDeviceList?.every(
-        device => device.type !== "mobile"
+        device => device.type !== "mobile" && device.type !== "tablet"
       ),
-      "No connected device is type:mobile"
+      "No connected device is type:mobile or type:tablet"
     );
     checkMobilePromo(browser, {
       mobilePromo: false,
@@ -353,9 +294,53 @@ add_task(async function test_mobile_connected() {
     is(fxAccounts.device.recentDeviceList?.length, 2, "2 devices connected");
     ok(
       fxAccounts.device.recentDeviceList?.some(
-        device => device.type !== "mobile"
+        device => device.type == "mobile"
       ),
       "A connected device is type:mobile"
+    );
+    checkMobilePromo(browser, {
+      mobilePromo: false,
+      mobileConfirmation: false,
+    });
+  });
+  await tearDown(sandbox);
+});
+
+add_task(async function test_tablet_connected() {
+  const sandbox = setupMocks({
+    state: UIState.STATUS_SIGNED_IN,
+    fxaDevices: [
+      {
+        id: 1,
+        name: "This Device",
+        isCurrentDevice: true,
+        type: "desktop",
+      },
+      {
+        id: 2,
+        name: "Other Device",
+        type: "tablet",
+      },
+    ],
+  });
+  await withFirefoxView({}, async browser => {
+    // ensure tab sync is false so we don't skip onto next step
+    ok(
+      !Services.prefs.getBoolPref("services.sync.engine.tabs", false),
+      "services.sync.engine.tabs is initially false"
+    );
+
+    Services.obs.notifyObservers(null, UIState.ON_UPDATE);
+    await waitForVisibleSetupStep(browser, {
+      expectedVisible: "#tabpickup-steps-view3",
+    });
+
+    is(fxAccounts.device.recentDeviceList?.length, 2, "2 devices connected");
+    ok(
+      fxAccounts.device.recentDeviceList?.some(
+        device => device.type == "tablet"
+      ),
+      "A connected device is type:tablet"
     );
     checkMobilePromo(browser, {
       mobilePromo: false,
@@ -424,134 +409,13 @@ add_task(async function test_tab_sync_enabled() {
       mobilePromo: false,
       mobileConfirmation: false,
     });
-
+    await waitForElementVisible(browser, ".featureCallout .FEATURE_CALLOUT_1");
+    ok(true, "Tab pickup product tour screen renders when sync is enabled");
     ok(
       Services.prefs.getBoolPref("services.sync.engine.tabs", false),
       "tab sync pref should be enabled after button click"
     );
   });
-  await tearDown(sandbox);
-});
-
-add_task(async function test_tab_sync_loading() {
-  const sandbox = setupMocks({
-    state: UIState.STATUS_SIGNED_IN,
-    fxaDevices: [
-      {
-        id: 1,
-        name: "This Device",
-        isCurrentDevice: true,
-        type: "desktop",
-      },
-      {
-        id: 2,
-        name: "Other Device",
-        type: "mobile",
-      },
-    ],
-  });
-  await withFirefoxView({}, async browser => {
-    Services.obs.notifyObservers(null, UIState.ON_UPDATE);
-
-    await SpecialPowers.pushPrefEnv({
-      set: [["services.sync.engine.tabs", true]],
-    });
-
-    const { document } = browser.contentWindow;
-    const tabsContainer = document.querySelector("#tabpickup-tabs-container");
-    const tabsList = document.querySelector(
-      "#tabpickup-tabs-container tab-pickup-list"
-    );
-    const loadingElem = document.querySelector(
-      "#tabpickup-tabs-container .loading-content"
-    );
-    const setupElem = document.querySelector("#tabpickup-steps");
-
-    await waitForElementVisible(browser, "#tabpickup-steps", false);
-    await waitForElementVisible(browser, "#tabpickup-tabs-container", true);
-    checkMobilePromo(browser, {
-      mobilePromo: false,
-      mobileConfirmation: false,
-    });
-
-    function checkLoadingState(isLoading = false) {
-      if (isLoading) {
-        ok(
-          tabsContainer.classList.contains("loading"),
-          "Tabs container has loading class"
-        );
-        BrowserTestUtils.is_visible(
-          loadingElem,
-          "Loading content is visible when loading"
-        );
-        !tabsList ||
-          BrowserTestUtils.is_hidden(
-            tabsList,
-            "Synced tabs list is not visible when loading"
-          );
-        !setupElem ||
-          BrowserTestUtils.is_hidden(
-            setupElem,
-            "Setup content is not visible when loading"
-          );
-      } else {
-        ok(
-          !tabsContainer.classList.contains("loading"),
-          "Tabs container has no loading class"
-        );
-        !loadingElem ||
-          BrowserTestUtils.is_hidden(
-            loadingElem,
-            "Loading content is not visible when tabs are loaded"
-          );
-        BrowserTestUtils.is_visible(
-          tabsList,
-          "Synced tabs list is visible when loaded"
-        );
-        !setupElem ||
-          BrowserTestUtils.is_hidden(
-            setupElem,
-            "Setup content is not visible when tabs are loaded"
-          );
-      }
-    }
-    checkLoadingState(true);
-
-    await touchLastTabFetch();
-
-    await BrowserTestUtils.waitForMutationCondition(
-      tabsContainer,
-      { attributeFilter: ["class"], attributes: true },
-      () => {
-        return !tabsContainer.classList.contains("loading");
-      }
-    );
-    checkLoadingState(false);
-    checkMobilePromo(browser, {
-      mobilePromo: false,
-      mobileConfirmation: false,
-    });
-
-    // Simulate stale data by setting lastTabFetch to 10mins ago
-    const TEN_MINUTES_MS = 1000 * 60 * 10;
-    const staleFetchSeconds = Math.floor((Date.now() - TEN_MINUTES_MS) / 1000);
-    info("updating lastFetch:" + staleFetchSeconds);
-    Services.prefs.setIntPref("services.sync.lastTabFetch", staleFetchSeconds);
-
-    await BrowserTestUtils.waitForMutationCondition(
-      tabsContainer,
-      { attributeFilter: ["class"], attributes: true },
-      () => {
-        return tabsContainer.classList.contains("loading");
-      }
-    );
-    checkLoadingState(true);
-    checkMobilePromo(browser, {
-      mobilePromo: false,
-      mobileConfirmation: false,
-    });
-  });
-  await SpecialPowers.popPrefEnv();
   await tearDown(sandbox);
 });
 
@@ -761,4 +625,80 @@ add_task(async function test_mobile_promo_windows() {
     await BrowserTestUtils.closeWindow(win2);
   });
   await tearDown(sandbox);
+});
+
+add_task(async function test_keyboard_focus_after_tab_pickup_opened() {
+  // Reset various things touched by other tests in this file so that
+  // we have a sufficiently clean environment.
+
+  TabsSetupFlowManager.resetInternalState();
+
+  // Ensure that the tab-pickup section doesn't need to be opened.
+  Services.prefs.clearUserPref(
+    "browser.tabs.firefox-view.ui-state.tab-pickup.open"
+  );
+
+  // make sure the feature tour doesn't get in the way
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [
+        "browser.firefox-view.feature-tour",
+        JSON.stringify({
+          message: "FIREFOX_VIEW_FEATURE_TOUR",
+          screen: `FEATURE_CALLOUT_1`,
+          complete: true,
+        }),
+      ],
+    ],
+  });
+
+  // Let's be deterministic about the basic UI state!
+  const sandbox = setupMocks({
+    state: UIState.STATUS_NOT_CONFIGURED,
+    syncEnabled: false,
+  });
+
+  await BrowserTestUtils.withNewTab(
+    {
+      gBrowser,
+      url: "about:firefoxview",
+    },
+    async browser => {
+      const { document } = browser.contentWindow;
+
+      is(
+        document.activeElement.localName,
+        "body",
+        "document body element is initially focused"
+      );
+
+      const tab = () => {
+        info("Tab keypress synthesized");
+        EventUtils.synthesizeKey("KEY_Tab");
+      };
+
+      tab();
+
+      let tabPickupContainer = document.querySelector(
+        "#tab-pickup-container summary.page-section-header"
+      );
+      is(
+        document.activeElement,
+        tabPickupContainer,
+        "tab pickup container header has focus"
+      );
+
+      tab();
+
+      is(
+        document.activeElement.id,
+        "firefoxview-tabpickup-step-signin-primarybutton",
+        "tab pickup primary button has focus"
+      );
+    }
+  );
+
+  // cleanup time
+  await tearDown(sandbox);
+  await SpecialPowers.popPrefEnv();
 });

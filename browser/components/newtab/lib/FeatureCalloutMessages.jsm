@@ -67,6 +67,86 @@ function add24HourImpressionJEXLTargeting(
 const MESSAGES = () => {
   let messages = [
     {
+      id: "FIREFOX_VIEW_SPOTLIGHT",
+      template: "spotlight",
+      content: {
+        id: "FIREFOX_VIEW_PROMO",
+        template: "multistage",
+        modal: "tab",
+        screens: [
+          {
+            id: "DEFAULT_MODAL_UI",
+            content: {
+              title: {
+                fontSize: "32px",
+                fontWeight: 400,
+                string_id: "firefoxview-spotlight-promo-title",
+              },
+              subtitle: {
+                fontSize: "15px",
+                fontWeight: 400,
+                marginBlock: "10px",
+                marginInline: "40px",
+                string_id: "firefoxview-spotlight-promo-subtitle",
+              },
+              logo: { height: "48px" },
+              primary_button: {
+                label: {
+                  string_id: "firefoxview-spotlight-promo-primarybutton",
+                },
+                action: {
+                  type: "SET_PREF",
+                  data: {
+                    pref: {
+                      name: FIREFOX_VIEW_PREF,
+                      value: JSON.stringify({
+                        message: "FIREFOX_VIEW_FEATURE_TOUR",
+                        screen: "FEATURE_CALLOUT_1",
+                        complete: false,
+                      }),
+                    },
+                  },
+                  navigate: true,
+                },
+              },
+              secondary_button: {
+                label: {
+                  string_id: "firefoxview-spotlight-promo-secondarybutton",
+                },
+                action: {
+                  type: "SET_PREF",
+                  data: {
+                    pref: {
+                      name: FIREFOX_VIEW_PREF,
+                      value: JSON.stringify({
+                        message: "FIREFOX_VIEW_FEATURE_TOUR",
+                        screen: "",
+                        complete: true,
+                      }),
+                    },
+                  },
+                  navigate: true,
+                },
+              },
+            },
+          },
+        ],
+      },
+      priority: 1,
+      frequency: {
+        lifetime: 1,
+      },
+      trigger: {
+        id: "featureCalloutCheck",
+      },
+      targeting: `!inMr2022Holdback && source == "firefoxview" &&
+       !'browser.newtabpage.activity-stream.asrouter.providers.cfr'|preferenceIsUserSet &&
+       ${matchCurrentScreenTargeting(
+         FIREFOX_VIEW_PREF,
+         "FIREFOX_VIEW_SPOTLIGHT"
+       )}`,
+    },
+    {
       id: "FIREFOX_VIEW_FEATURE_TOUR_1",
       template: "feature_callout",
       content: {
@@ -78,7 +158,7 @@ const MESSAGES = () => {
         screens: [
           {
             id: "FEATURE_CALLOUT_1",
-            parent_selector: "#tabpickup-steps",
+            parent_selector: "#tab-pickup-container",
             content: {
               position: "callout",
               arrow_position: "top",
@@ -134,7 +214,7 @@ const MESSAGES = () => {
         ],
       },
       priority: 1,
-      targeting: `source == "firefoxview" && colorwaysActive && ${matchCurrentScreenTargeting(
+      targeting: `!inMr2022Holdback && source == "firefoxview" && colorwaysActive && ${matchCurrentScreenTargeting(
         FIREFOX_VIEW_PREF,
         "FEATURE_CALLOUT_1"
       )}`,
@@ -152,7 +232,7 @@ const MESSAGES = () => {
         screens: [
           {
             id: "FEATURE_CALLOUT_1",
-            parent_selector: "#tabpickup-steps",
+            parent_selector: "#tab-pickup-container",
             content: {
               position: "callout",
               arrow_position: "top",
@@ -207,7 +287,7 @@ const MESSAGES = () => {
         ],
       },
       priority: 1,
-      targeting: `source == "firefoxview" && !colorwaysActive && ${matchCurrentScreenTargeting(
+      targeting: `!inMr2022Holdback && source == "firefoxview" && !colorwaysActive && ${matchCurrentScreenTargeting(
         FIREFOX_VIEW_PREF,
         "FEATURE_CALLOUT_1"
       )}`,
@@ -276,7 +356,7 @@ const MESSAGES = () => {
         ],
       },
       priority: 1,
-      targeting: `source == "firefoxview" && colorwaysActive && ${matchCurrentScreenTargeting(
+      targeting: `!inMr2022Holdback && source == "firefoxview" && colorwaysActive && ${matchCurrentScreenTargeting(
         FIREFOX_VIEW_PREF,
         "FEATURE_CALLOUT_2"
       )}`,
@@ -344,7 +424,7 @@ const MESSAGES = () => {
         ],
       },
       priority: 1,
-      targeting: `source == "firefoxview" && !colorwaysActive && ${matchCurrentScreenTargeting(
+      targeting: `!inMr2022Holdback && source == "firefoxview" && !colorwaysActive && ${matchCurrentScreenTargeting(
         FIREFOX_VIEW_PREF,
         "FEATURE_CALLOUT_2"
       )}`,
@@ -419,7 +499,7 @@ const MESSAGES = () => {
         ],
       },
       priority: 1,
-      targeting: `source == "firefoxview" && colorwaysActive && ${matchCurrentScreenTargeting(
+      targeting: `!inMr2022Holdback && source == "firefoxview" && colorwaysActive && ${matchCurrentScreenTargeting(
         FIREFOX_VIEW_PREF,
         "FEATURE_CALLOUT_3"
       )}`,
@@ -457,8 +537,8 @@ const MESSAGES = () => {
           },
         ],
       },
-      priority: 2,
-      targeting: `source == "firefoxview" && "browser.firefox-view.view-count" | preferenceValue > 3 && colorwaysActive && !userEnabledActiveColorway`,
+      priority: 3,
+      targeting: `!inMr2022Holdback && source == "firefoxview" && "browser.firefox-view.view-count" | preferenceValue > 3 && colorwaysActive && !userEnabledActiveColorway`,
       frequency: { lifetime: 1 },
       trigger: { id: "featureCalloutCheck" },
     },
@@ -474,7 +554,7 @@ const MESSAGES = () => {
         screens: [
           {
             id: "FIREFOX_VIEW_TAB_PICKUP_REMINDER",
-            parent_selector: "#tabpickup-steps",
+            parent_selector: "#tab-pickup-container",
             content: {
               position: "callout",
               arrow_position: "top",
@@ -492,6 +572,19 @@ const MESSAGES = () => {
                   "chrome://browser/content/callout-tab-pickup-dark.svg",
                 height: "128px",
               },
+              primary_button: {
+                label: {
+                  string_id: "mr1-onboarding-get-started-primary-button-label",
+                },
+                action: {
+                  type: "CLICK_ELEMENT",
+                  navigate: true,
+                  data: {
+                    selector:
+                      "#tab-pickup-container button.primary:not(#error-state-button)",
+                  },
+                },
+              },
               dismiss_button: {
                 action: {
                   navigate: true,
@@ -501,8 +594,8 @@ const MESSAGES = () => {
           },
         ],
       },
-      priority: 1,
-      targeting: `source == "firefoxview" && "browser.firefox-view.view-count" | preferenceValue > 2
+      priority: 2,
+      targeting: `!inMr2022Holdback && source == "firefoxview" && "browser.firefox-view.view-count" | preferenceValue > 2
     && (("identity.fxaccounts.enabled" | preferenceValue == false) || !(("services.sync.engine.tabs" | preferenceValue == true) && ("services.sync.username" | preferenceValue)))`,
       frequency: {
         lifetime: 1,

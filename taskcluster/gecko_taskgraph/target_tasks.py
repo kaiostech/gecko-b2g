@@ -532,30 +532,6 @@ def target_tasks_mozilla_release(full_task_graph, parameters, graph_config):
     ]
 
 
-@_target_task("mozilla_esr91_tasks")
-def target_tasks_mozilla_esr91(full_task_graph, parameters, graph_config):
-    """Select the set of tasks required for a promotable beta or release build
-    of desktop, without android CI. The candidates build process involves a pipeline
-    of builds and signing, but does not include beetmover or balrog jobs."""
-
-    def filter(task):
-        if not filter_release_tasks(task, parameters):
-            return False
-
-        if not standard_filter(task, parameters):
-            return False
-
-        platform = task.attributes.get("build_platform")
-
-        # Android is not built on esr91.
-        if platform and "android" in platform:
-            return False
-
-        return True
-
-    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
-
-
 @_target_task("mozilla_esr102_tasks")
 def target_tasks_mozilla_esr102(full_task_graph, parameters, graph_config):
     """Select the set of tasks required for a promotable beta or release build
@@ -1113,7 +1089,6 @@ def target_tasks_release_simulation(full_task_graph, parameters, graph_config):
         "nightly": "mozilla-central",
         "beta": "mozilla-beta",
         "release": "mozilla-release",
-        "esr91": "mozilla-esr91",
         "esr102": "mozilla-esr102",
     }
     target_project = project_by_release.get(parameters["release_type"])
@@ -1171,6 +1146,18 @@ def target_tasks_daily_beta_perf(full_task_graph, parameters, graph_config):
     """
     Select performance tests on the beta branch to be run daily
     """
+    index_path = (
+        f"{graph_config['trust-domain']}.v2.{parameters['project']}.revision."
+        f"{parameters['head_rev']}.taskgraph.decision-daily-beta-perf"
+    )
+    if os.environ.get("MOZ_AUTOMATION") and retry(
+        index_exists,
+        args=(index_path,),
+        kwargs={
+            "reason": "to avoid triggering multiple daily beta perftests off of the same revision",
+        },
+    ):
+        return []
 
     def filter(task):
         platform = task.attributes.get("test_platform")
@@ -1198,6 +1185,47 @@ def target_tasks_daily_beta_perf(full_task_graph, parameters, graph_config):
                 if "webgl" in try_name:
                     return True
                 if "tp6m" in try_name:
+                    return True
+
+        return False
+
+    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+
+
+@_target_task("weekly_release_perf")
+def target_tasks_weekly_release_perf(full_task_graph, parameters, graph_config):
+    """
+    Select performance tests on the release branch to be run weekly
+    """
+
+    def filter(task):
+        platform = task.attributes.get("test_platform")
+        attributes = task.attributes
+        try_name = attributes.get("raptor_try_name")
+
+        if attributes.get("unittest_suite") != "raptor":
+            return False
+
+        if platform and accept_raptor_android_build(platform):
+            # Select browsertime & geckoview specific tests
+            if "browsertime" and "geckoview" in try_name:
+                if "g5" in platform:
+                    return False
+                if "power" in try_name:
+                    return False
+                if "cpu" in try_name:
+                    return False
+                if "profiling" in try_name:
+                    return False
+                if "-live" in try_name:
+                    return False
+                if "speedometer" in try_name:
+                    return True
+                if "webgl" in try_name:
+                    return True
+                if "tp6m" in try_name:
+                    return True
+                if "youtube-playback" in try_name:
                     return True
 
         return False

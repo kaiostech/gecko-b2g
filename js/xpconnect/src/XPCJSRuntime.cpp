@@ -718,20 +718,16 @@ void XPCJSRuntime::TraceNativeBlackRoots(JSTracer* trc) {
 
 void XPCJSRuntime::TraceAdditionalNativeGrayRoots(JSTracer* trc) {
   XPCWrappedNativeScope::TraceWrappedNativesInAllScopes(this, trc);
-
-  for (XPCRootSetElem* e = mWrappedJSRoots; e; e = e->GetNextRoot()) {
-    static_cast<nsXPCWrappedJS*>(e)->TraceJS(trc);
-  }
 }
 
 void XPCJSRuntime::TraverseAdditionalNativeRoots(
     nsCycleCollectionNoteRootCallback& cb) {
   XPCWrappedNativeScope::SuspectAllWrappers(cb);
 
-  for (XPCRootSetElem* e = mWrappedJSRoots; e; e = e->GetNextRoot()) {
-    cb.NoteXPCOMRoot(
-        ToSupports(static_cast<nsXPCWrappedJS*>(e)),
-        nsXPCWrappedJS::NS_CYCLE_COLLECTION_INNERCLASS::GetParticipant());
+  auto* parti = NS_CYCLE_COLLECTION_PARTICIPANT(nsXPCWrappedJS);
+  for (auto* wjs : mSubjectToFinalizationWJS) {
+    MOZ_DIAGNOSTIC_ASSERT(wjs->IsSubjectToFinalization());
+    cb.NoteXPCOMRoot(ToSupports(wjs), parti);
   }
 }
 
@@ -1090,14 +1086,6 @@ size_t CompartmentPrivate::SizeOfIncludingThis(MallocSizeOf mallocSizeOf) {
 
 /***************************************************************************/
 
-void XPCJSRuntime::SystemIsBeingShutDown() {
-  // We don't want to track wrapped JS roots after this point since we're
-  // making them !IsValid anyway through SystemIsBeingShutDown.
-  while (mWrappedJSRoots) {
-    mWrappedJSRoots->RemoveFromRootSet();
-  }
-}
-
 void XPCJSRuntime::Shutdown(JSContext* cx) {
   // This destructor runs before ~CycleCollectedJSContext, which does the actual
   // JS_DestroyContext() call. But destroying the context triggers one final GC,
@@ -1121,6 +1109,8 @@ void XPCJSRuntime::Shutdown(JSContext* cx) {
 
   // Prevent ~LinkedList assertion failures if we leaked things.
   mWrappedNativeScopes.clear();
+
+  mSubjectToFinalizationWJS.clear();
 
   CycleCollectedJSRuntime::Shutdown(cx);
 }
@@ -2288,6 +2278,9 @@ void JSReporter::CollectReports(WindowPaths* windowPaths,
   mozJSModuleLoader* loader = mozJSModuleLoader::Get();
   size_t jsModuleLoaderSize =
       loader ? loader->SizeOfIncludingThis(JSMallocSizeOf) : 0;
+  mozJSModuleLoader* devToolsLoader = mozJSModuleLoader::GetDevToolsLoader();
+  size_t jsDevToolsModuleLoaderSize =
+      devToolsLoader ? devToolsLoader->SizeOfIncludingThis(JSMallocSizeOf) : 0;
 
   // This is the second step (see above).  First we report stuff in the
   // "explicit" tree, then we report other stuff.
@@ -2519,6 +2512,8 @@ void JSReporter::CollectReports(WindowPaths* windowPaths,
 
   REPORT_BYTES("explicit/xpconnect/js-module-loader"_ns, KIND_HEAP,
                jsModuleLoaderSize, "XPConnect's JS module loader.");
+  REPORT_BYTES("explicit/xpconnect/js-devtools-module-loader"_ns, KIND_HEAP,
+               jsDevToolsModuleLoaderSize, "DevTools's JS module loader.");
 
   // Report HelperThreadState.
 
@@ -2786,7 +2781,6 @@ XPCJSRuntime::XPCJSRuntime(JSContext* aCx)
       mGCIsRunning(false),
       mNativesToReleaseArray(),
       mDoingFinalization(false),
-      mWrappedJSRoots(nullptr),
       mAsyncSnowWhiteFreer(new AsyncFreeSnowWhite()) {
   MOZ_COUNT_CTOR_INHERITED(XPCJSRuntime, CycleCollectedJSRuntime);
 }
@@ -3042,34 +3036,6 @@ void XPCJSRuntime::DebugDump(int16_t depth) {
 }
 
 /***************************************************************************/
-
-void XPCRootSetElem::AddToRootSet(XPCRootSetElem** listHead) {
-  MOZ_ASSERT(!mSelfp, "Must be not linked");
-
-  mSelfp = listHead;
-  mNext = *listHead;
-  if (mNext) {
-    MOZ_ASSERT(mNext->mSelfp == listHead, "Must be list start");
-    mNext->mSelfp = &mNext;
-  }
-  *listHead = this;
-}
-
-void XPCRootSetElem::RemoveFromRootSet() {
-  JS::NotifyGCRootsRemoved(XPCJSContext::Get()->Context());
-
-  MOZ_ASSERT(mSelfp, "Must be linked");
-
-  MOZ_ASSERT(*mSelfp == this, "Link invariant");
-  *mSelfp = mNext;
-  if (mNext) {
-    mNext->mSelfp = mSelfp;
-  }
-#ifdef DEBUG
-  mSelfp = nullptr;
-  mNext = nullptr;
-#endif
-}
 
 void XPCJSRuntime::AddGCCallback(xpcGCCallback cb) {
   MOZ_ASSERT(cb, "null callback");

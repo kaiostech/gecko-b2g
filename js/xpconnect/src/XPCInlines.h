@@ -15,8 +15,9 @@
 
 /***************************************************************************/
 
-inline void XPCJSRuntime::AddWrappedJSRoot(nsXPCWrappedJS* wrappedJS) {
-  wrappedJS->AddToRootSet(&mWrappedJSRoots);
+inline void XPCJSRuntime::AddSubjectToFinalizationWJS(
+    nsXPCWrappedJS* wrappedJS) {
+  mSubjectToFinalizationWJS.insertBack(wrappedJS);
 }
 
 /***************************************************************************/

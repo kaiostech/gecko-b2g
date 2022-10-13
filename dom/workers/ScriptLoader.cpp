@@ -391,10 +391,10 @@ WorkerScriptLoader::WorkerScriptLoader(
     : mOriginStack(std::move(aOriginStack)),
       mSyncLoopTarget(aSyncLoopTarget),
       mWorkerScriptType(aWorkerScriptType),
-      mCancelMainThread(Nothing()),
       mRv(aRv),
       mCleanedUp(false),
-      mCleanUpLock("cleanUpLock") {
+      mCleanUpLock("cleanUpLock"),
+      mCancelMainThread(Nothing()) {
   aWorkerPrivate->AssertIsOnWorkerThread();
   MOZ_ASSERT(aSyncLoopTarget);
 
@@ -534,7 +534,7 @@ nsIURI* WorkerScriptLoader::GetInitialBaseURI() {
   return baseURI;
 }
 
-nsIURI* WorkerScriptLoader::GetBaseURI() {
+nsIURI* WorkerScriptLoader::GetBaseURI() const {
   MOZ_ASSERT(mWorkerRef);
   nsIURI* baseURI;
   baseURI = mWorkerRef->Private()->GetBaseURI();
@@ -656,6 +656,9 @@ nsresult WorkerScriptLoader::OnStreamComplete(ScriptLoadRequest* aRequest,
                                               nsresult aStatus) {
   AssertIsOnMainThread();
 
+  // We expect our callers to runtime-check this in advance.
+  MOZ_ASSERT(!IsCancelled());
+
   LoadingFinished(aRequest, aStatus);
   return NS_OK;
 }
@@ -680,13 +683,26 @@ void WorkerScriptLoader::CancelMainThread(
 
     mCancelMainThread = Some(aCancelResult);
 
-    // In the case of a cancellation, service workers fetching from the
-    // cache will still be doing work despite CancelMainThread. Eagerly
-    // clear the promises associated with these scripts.
     for (WorkerLoadContext* loadContext : *aContextList) {
+      // In the case of a cancellation, service workers fetching from the
+      // cache will still be doing work despite CancelMainThread. Eagerly
+      // clear the promises associated with these scripts.
       if (loadContext->IsAwaitingPromise()) {
+        // This will trigger LoadingFinished if we do not set the cancel flag
+        // ahead of time. But, as we do that above, this should not be a
+        // concern.
         loadContext->mCachePromise->MaybeReject(NS_BINDING_ABORTED);
         loadContext->mCachePromise = nullptr;
+      }
+      // Both Service workers and other scripts may or may not have been started
+      // at this point. Regardless of their status, call loadingFinished on them
+      // with the cancel result. This must be done eagerly! Otherwise, the
+      // worker private may not live long enough (for example if the browser is
+      // shutting down).
+      if (!loadContext->mLoadingFinished) {
+        // Eagerly signal that we aborted to ensure proper cleanup.
+        // DO NOT wait on LoadHandlers to complete!
+        LoadingFinished(loadContext->mRequest, aCancelResult);
       }
     }
   }
@@ -940,6 +956,23 @@ void WorkerScriptLoader::DispatchMaybeMoveToLoadedList(
   }
 }
 
+nsresult WorkerScriptLoader::FillCompileOptionsForRequest(
+    JSContext* cx, ScriptLoadRequest* aRequest, JS::CompileOptions* aOptions,
+    JS::MutableHandle<JSScript*> aIntroductionScript) {
+  // The full URL shouldn't be exposed to the debugger. See Bug 1634872
+  aOptions->setFileAndLine(aRequest->mURL.get(), 1);
+  aOptions->setNoScriptRval(true);
+
+  aOptions->setMutedErrors(
+      aRequest->GetWorkerLoadContext()->mMutedErrorFlag.value());
+
+  if (aRequest->mSourceMapURL) {
+    aOptions->setSourceMapURL(aRequest->mSourceMapURL->get());
+  }
+
+  return NS_OK;
+}
+
 bool WorkerScriptLoader::EvaluateScript(JSContext* aCx,
                                         ScriptLoadRequest* aRequest) {
   mWorkerRef->Private()->AssertIsOnWorkerThread();
@@ -951,8 +984,7 @@ bool WorkerScriptLoader::EvaluateScript(JSContext* aCx,
   MOZ_ASSERT(!mRv.Failed(), "Who failed it and why?");
   mRv.MightThrowJSException();
   if (NS_FAILED(loadContext->mLoadResult)) {
-    nsAutoString url = NS_ConvertUTF8toUTF16(aRequest->mURL);
-    workerinternals::ReportLoadError(mRv, loadContext->mLoadResult, url);
+    ReportErrorToConsole(aRequest, loadContext->mLoadResult);
     return false;
   }
 
@@ -968,22 +1000,23 @@ bool WorkerScriptLoader::EvaluateScript(JSContext* aCx,
   }
 
   JS::CompileOptions options(aCx);
-  // The full URL shouldn't be exposed to the debugger. See Bug 1634872
-  options.setFileAndLine(aRequest->mURL.get(), 1).setNoScriptRval(true);
+  // The introduction script is used by the DOM script loader as a way
+  // to fill the Debugger Metadata for the JS Execution context. We don't use
+  // the JS Execution context as we are not making use of async compilation
+  // (delegation to another worker to produce bytecode or compile a string to a
+  // JSScript), so it is not used in this context.
+  JS::Rooted<JSScript*> unusedIntroductionScript(aCx);
+  nsresult rv = FillCompileOptionsForRequest(aCx, aRequest, &options,
+                                             &unusedIntroductionScript);
 
-  MOZ_ASSERT(loadContext->mMutedErrorFlag.isSome());
-  options.setMutedErrors(loadContext->mMutedErrorFlag.valueOr(true));
-
-  if (aRequest->mSourceMapURL) {
-    options.setSourceMapURL(aRequest->mSourceMapURL->get());
-  }
+  MOZ_ASSERT(NS_SUCCEEDED(rv), "Filling compile options should not fail");
 
   // Our ErrorResult still shouldn't be a failure.
   MOZ_ASSERT(!mRv.Failed(), "Who failed it and why?");
 
   // Get the source text.
   ScriptLoadRequest::MaybeSourceText maybeSource;
-  nsresult rv = aRequest->GetScriptSource(aCx, &maybeSource);
+  rv = aRequest->GetScriptSource(aCx, &maybeSource);
   if (NS_FAILED(rv)) {
     mRv.StealExceptionFromJSContext(aCx);
     return false;
@@ -1010,8 +1043,8 @@ void WorkerScriptLoader::TryShutdown() {
 }
 
 void WorkerScriptLoader::ShutdownScriptLoader(bool aResult, bool aMutedError) {
-  mWorkerRef->Private()->AssertIsOnWorkerThread();
   MOZ_ASSERT(AllScriptsExecuted());
+  mWorkerRef->Private()->AssertIsOnWorkerThread();
 
   if (!aResult) {
     // At this point there are two possibilities:
@@ -1042,13 +1075,21 @@ void WorkerScriptLoader::ShutdownScriptLoader(bool aResult, bool aMutedError) {
   {
     MutexAutoLock lock(CleanUpLock());
 
+    mWorkerRef->Private()->AssertIsOnWorkerThread();
     mWorkerRef->Private()->StopSyncLoop(mSyncLoopTarget, aResult);
 
     // Signal cleanup
     mCleanedUp = true;
+
     // Allow worker shutdown.
     mWorkerRef = nullptr;
   }
+}
+
+void WorkerScriptLoader::ReportErrorToConsole(ScriptLoadRequest* aRequest,
+                                              nsresult aResult) const {
+  nsAutoString url = NS_ConvertUTF8toUTF16(aRequest->mURL);
+  workerinternals::ReportLoadError(mRv, aResult, url);
 }
 
 void WorkerScriptLoader::LogExceptionToConsole(JSContext* aCx,

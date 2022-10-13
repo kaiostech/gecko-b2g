@@ -163,6 +163,7 @@
 
 #    include <fstream>
 
+#    include "BinaryPath.h"
 #    include "SpecialSystemDirectory.h"
 #    include "nsILineInputStream.h"
 #    include "mozilla/ipc/UtilityProcessSandboxing.h"
@@ -865,8 +866,23 @@ void ContentChild::Init(mozilla::ipc::UntypedEndpoint&& aEndpoint,
 #endif
 }
 
+void ContentChild::AddProfileToProcessName(const nsACString& aProfile) {
+  nsCOMPtr<nsIPrincipal> isolationPrincipal =
+      ContentParent::CreateRemoteTypeIsolationPrincipal(mRemoteType);
+  if (isolationPrincipal) {
+    // DEFAULT_PRIVATE_BROWSING_ID is the value when it's not private
+    if (isolationPrincipal->OriginAttributesRef().mPrivateBrowsingId !=
+        nsIScriptSecurityManager::DEFAULT_PRIVATE_BROWSING_ID) {
+      return;
+    }
+  }
+
+  mProcessName = aProfile + ":"_ns + mProcessName;  //<profile_name>:example.com
+}
+
 void ContentChild::SetProcessName(const nsACString& aName,
-                                  const nsACString* aSite) {
+                                  const nsACString* aSite,
+                                  const nsACString* aCurrentProfile) {
   char* name;
   if ((name = PR_GetEnv("MOZ_DEBUG_APP_PROCESS")) && aName.EqualsASCII(name)) {
 #ifdef OS_POSIX
@@ -887,6 +903,9 @@ void ContentChild::SetProcessName(const nsACString& aName,
   } else {
     profiler_set_process_name(aName);
   }
+
+  mProcessName = aName;
+
   // Requires pref flip
   if (aSite && StaticPrefs::fission_processSiteNames()) {
     nsCOMPtr<nsIPrincipal> isolationPrincipal =
@@ -914,28 +933,29 @@ void ContentChild::SetProcessName(const nsACString& aName,
           nsAutoCString originSuffix;
           isolationPrincipal->GetOriginSuffix(originSuffix);
           schemeless.Append(originSuffix);
-          mozilla::ipc::SetThisProcessName(schemeless.get());
-          MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
-                  ("Changed name of process %d to %s", getpid(),
-                   PromiseFlatCString(schemeless).get()));
+          mProcessName = schemeless;
         } else
 #endif
         {
-          mozilla::ipc::SetThisProcessName(PromiseFlatCString(*aSite).get());
-          MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
-                  ("Changed name of process %d to %s", getpid(),
-                   PromiseFlatCString(*aSite).get()));
+          mProcessName = *aSite;
         }
-
-        mProcessName = *aSite;
-        return;
       }
     }
   }
+
+  if (StaticPrefs::fission_processProfileName() && aCurrentProfile &&
+      !aCurrentProfile->IsEmpty()) {
+    AddProfileToProcessName(*aCurrentProfile);
+  }
+
   // else private window, don't change process name, or the pref isn't set
-  // mProcessName is always flat
-  mProcessName = aName;
+  // mProcessName is always flat (mProcessName == aName)
+
   mozilla::ipc::SetThisProcessName(mProcessName.get());
+
+  MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
+          ("Changed name of process %d to %s", getpid(),
+           PromiseFlatCString(mProcessName).get()));
 }
 
 static nsresult GetCreateWindowParams(nsIOpenWindowInfo* aOpenWindowInfo,
@@ -2928,7 +2948,7 @@ mozilla::ipc::IPCResult ContentChild::RecvAppInfo(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvRemoteType(
-    const nsCString& aRemoteType) {
+    const nsCString& aRemoteType, const nsCString& aProfile) {
   if (aRemoteType == mRemoteType) {
     // Allocation of preallocated processes that are still launching can
     // cause this
@@ -2963,29 +2983,32 @@ mozilla::ipc::IPCResult ContentChild::RecvRemoteType(
 
   // Update the process name so about:memory's process names are more obvious.
   if (aRemoteType == FILE_REMOTE_TYPE) {
-    SetProcessName("file:// Content"_ns);
+    SetProcessName("file:// Content"_ns, nullptr, &aProfile);
   } else if (aRemoteType == EXTENSION_REMOTE_TYPE) {
-    SetProcessName("WebExtensions"_ns);
+    SetProcessName("WebExtensions"_ns, nullptr, &aProfile);
   } else if (aRemoteType == PRIVILEGEDABOUT_REMOTE_TYPE) {
-    SetProcessName("Privileged Content"_ns);
+    SetProcessName("Privileged Content"_ns, nullptr, &aProfile);
   } else if (remoteTypePrefix == WITH_COOP_COEP_REMOTE_TYPE) {
 #ifdef NIGHTLY_BUILD
-    SetProcessName("WebCOOP+COEP Content"_ns);
+    SetProcessName("WebCOOP+COEP Content"_ns, nullptr, &aProfile);
 #else
-    SetProcessName("Isolated Web Content"_ns);  // to avoid confusing people
+    SetProcessName("Isolated Web Content"_ns, nullptr,
+                   &aProfile);  // to avoid confusing people
 #endif
   } else if (remoteTypePrefix == FISSION_WEB_REMOTE_TYPE) {
     // The profiler can sanitize out the eTLD+1
     nsDependentCSubstring etld =
         Substring(aRemoteType, FISSION_WEB_REMOTE_TYPE.Length() + 1);
-    SetProcessName("Isolated Web Content"_ns, &etld);
+    SetProcessName("Isolated Web Content"_ns, &etld, &aProfile);
   } else if (remoteTypePrefix == SERVICEWORKER_REMOTE_TYPE) {
     // The profiler can sanitize out the eTLD+1
     nsDependentCSubstring etld =
         Substring(aRemoteType, SERVICEWORKER_REMOTE_TYPE.Length() + 1);
-    SetProcessName("Isolated Service Worker"_ns, &etld);
+    SetProcessName("Isolated Service Worker"_ns, &etld, &aProfile);
+  } else {
+    // else "prealloc" or "web" type -> "Web Content"
+    SetProcessName("Web Content"_ns, nullptr, &aProfile);
   }
-  // else "prealloc" or "web" type -> "Web Content" already set
 
   // Turn off Spectre mitigations in isolated web content processes.
   if (StaticPrefs::javascript_options_spectre_disable_for_isolated_content() &&
@@ -3465,9 +3488,9 @@ void ContentChild::ShutdownInternal() {
     SendShutdownPerfStats(PerfStats::CollectLocalPerfStatsJSON());
   }
 
-  // Start a timer that will insure we quickly exit after a reasonable
-  // period of time. Prevents shutdown hangs after our connection to the
-  // parent closes.
+  // Start a timer that will ensure we quickly exit after a reasonable period
+  // of time. Prevents shutdown hangs after our connection to the parent
+  // closes or when the parent is too busy to ever kill us.
   CrashReporter::AppendToCrashReportAnnotation(
       CrashReporter::Annotation::IPCShutdownState, "StartForceKillTimer"_ns);
   StartForceKillTimer();
@@ -3475,7 +3498,16 @@ void ContentChild::ShutdownInternal() {
   CrashReporter::AppendToCrashReportAnnotation(
       CrashReporter::Annotation::IPCShutdownState,
       "SendFinishShutdown (sending)"_ns);
+
+  // Notify the parent that we are done with shutdown. This is sent with high
+  // priority and will just flag we are done.
+  Unused << SendNotifyShutdownSuccess();
+
+  // Now tell the parent to actually destroy our channel which will make end
+  // our process. This is expected to be the last event the parent will
+  // ever process for this ContentChild.
   bool sent = SendFinishShutdown();
+
   CrashReporter::AppendToCrashReportAnnotation(
       CrashReporter::Annotation::IPCShutdownState,
       sent ? "SendFinishShutdown (sent)"_ns : "SendFinishShutdown (failed)"_ns);
@@ -4659,24 +4691,30 @@ mozilla::ipc::IPCResult ContentChild::RecvScriptError(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvReportFrameTimingData(
-    uint64_t innerWindowId, const nsString& entryName,
+    const mozilla::Maybe<LoadInfoArgs>& loadInfoArgs, const nsString& entryName,
     const nsString& initiatorType, UniquePtr<PerformanceTimingData>&& aData) {
   if (!aData) {
     return IPC_FAIL(this, "aData should not be null");
   }
 
-  auto* innerWindow = nsGlobalWindowInner::GetInnerWindowWithId(innerWindowId);
-  if (!innerWindow) {
+  if (loadInfoArgs.isNothing()) {
+    return IPC_FAIL(this, "loadInfoArgs should not be null");
+  }
+
+  nsCOMPtr<nsILoadInfo> loadInfo;
+  nsresult rv = mozilla::ipc::LoadInfoArgsToLoadInfo(loadInfoArgs,
+                                                     getter_AddRefs(loadInfo));
+  if (NS_FAILED(rv)) {
+    MOZ_DIAGNOSTIC_ASSERT(false, "LoadInfoArgsToLoadInfo failed");
     return IPC_OK();
   }
 
-  mozilla::dom::Performance* performance = innerWindow->GetPerformance();
-  if (!performance) {
-    return IPC_OK();
+  // It is important to call LoadInfo::GetPerformanceStorage instead of simply
+  // getting the performance object via the innerWindowID in order to perform
+  // necessary cross origin checks.
+  if (PerformanceStorage* storage = loadInfo->GetPerformanceStorage()) {
+    storage->AddEntry(entryName, initiatorType, std::move(aData));
   }
-
-  performance->AsPerformanceStorage()->AddEntry(entryName, initiatorType,
-                                                std::move(aData));
   return IPC_OK();
 }
 
@@ -5279,6 +5317,7 @@ OpenBSDUnveilPaths(const nsACString& uPath, const nsACString& pledgePath) {
 bool StartOpenBSDSandbox(GeckoProcessType type, ipc::SandboxingKind kind) {
   nsAutoCString pledgeFile;
   nsAutoCString unveilFile;
+  char binaryPath[MAXPATHLEN];
 
   switch (type) {
     case GeckoProcessType_Default: {
@@ -5316,13 +5355,6 @@ bool StartOpenBSDSandbox(GeckoProcessType type, ipc::SandboxingKind kind) {
       MOZ_RELEASE_ASSERT(kind <= SandboxingKind::COUNT,
                          "Should define a sandbox");
       switch (kind) {
-        case ipc::SandboxingKind::UTILITY_AUDIO_DECODING_GENERIC:
-          OpenBSDFindPledgeUnveilFilePath("pledge.utility-audioDecoder",
-                                          pledgeFile);
-          OpenBSDFindPledgeUnveilFilePath("unveil.utility-audioDecoder",
-                                          unveilFile);
-          break;
-
         case ipc::SandboxingKind::GENERIC_UTILITY:
         default:
           OpenBSDFindPledgeUnveilFilePath("pledge.utility", pledgeFile);
@@ -5334,6 +5366,11 @@ bool StartOpenBSDSandbox(GeckoProcessType type, ipc::SandboxingKind kind) {
     default:
       MOZ_ASSERT(false, "unknown process type");
       return false;
+  }
+
+  nsresult rv = mozilla::BinaryPath::Get(binaryPath);
+  if (NS_FAILED(rv)) {
+    errx(1, "failed to cache binary path ?");
   }
 
   if (NS_WARN_IF(NS_FAILED(OpenBSDUnveilPaths(unveilFile, pledgeFile)))) {

@@ -26,6 +26,7 @@ Locally, Raptor can be invoked with the following command:
    debugging
    contributing
    test-list
+   metrics
 
 .. contents::
    :depth: 2
@@ -10396,199 +10397,6 @@ Tests for page-load performance. The links direct to the actual websites that ar
 
 
 
-.. dropdown:: google-docs-canvas
-   :container: + anchor-id-google-docs-canvas-d
-
-   **Owner**: PerfTest Team
-
-   * **alert on**: fcp, loadtime, ContentfulSpeedIndex, PerceptualSpeedIndex, SpeedIndex, FirstVisualChange, LastVisualChange
-   * **alert threshold**: 2.0
-   * **apps**: firefox, chrome, chromium
-   * **browser cycles**: 25
-   * **expected**: pass
-   * **gecko profile entries**: 14000000
-   * **gecko profile interval**: 1
-   * **lower is better**: true
-   * **page cycles**: 25
-   * **page timeout**: 60000
-   * **playback**: mitmproxy
-   * **playback pageset manifest**: mitm6-linux-firefox-google-docs-canvas.manifest
-   * **playback version**: 6.0.2
-   * **test url**: `<https://docs.google.com/document/d/1vUnn0ePU-ynArE1OdxyEHXR2G0sl74ja_st_4OOzlgE/preview>`__
-   * **type**: pageload
-   * **unit**: ms
-   * **use live sites**: false
-   * **Test Task**:
-
-   .. list-table:: **test-linux1804-64-clang-trunk-qr/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-tp6-firefox-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-linux1804-64-qr/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-tp6-firefox-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-linux1804-64-shippable-qr/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-tp6-chrome-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6-chromium-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6-firefox-google-docs-canvas**
-        - ✅
-        - ✅
-        - ✅
-        - ✅
-
-
-   .. list-table:: **test-macosx1015-64-shippable-qr/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-tp6-chrome-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6-chromium-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6-firefox-google-docs-canvas**
-        - ✅
-        - ✅
-        - ✅
-        - ✅
-
-
-   .. list-table:: **test-windows10-32-qr/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-tp6-firefox-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows10-32-shippable-qr/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-tp6-chrome-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6-chromium-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6-firefox-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows10-64-qr/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-tp6-firefox-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-
-
-   .. list-table:: **test-windows10-64-shippable-qr/opt**
-      :widths: 30 15 15 15 15
-      :header-rows: 1
-
-      * - **Test Name**
-        - mozilla-central
-        - autoland
-        - mozilla-release
-        - mozilla-beta
-      * - **browsertime-tp6-chrome-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6-chromium-google-docs-canvas**
-        - ❌
-        - ❌
-        - ❌
-        - ❌
-      * - **browsertime-tp6-firefox-google-docs-canvas**
-        - ✅
-        - ✅
-        - ✅
-        - ✅
-
-
-
 .. dropdown:: google-mail
    :container: + anchor-id-google-mail-d
 
@@ -16798,7 +16606,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
       * - **browsertime-tp6m-geckoview-wikipedia**
         - ✅
-        - ❌
+        - ✅
         - ❌
         - ❌
       * - **browsertime-tp6m-geckoview-wikipedia-nofis**
@@ -16905,7 +16713,7 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
       * - **browsertime-tp6m-geckoview-wikipedia**
         - ✅
-        - ❌
+        - ✅
         - ❌
         - ❌
       * - **browsertime-tp6m-geckoview-wikipedia-nofis**
@@ -29332,7 +29140,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
       * - **browsertime-tp6m-geckoview-google-search-restaurants**
         - ✅
-        - ❌
+        - ✅
         - ❌
         - ❌
       * - **browsertime-tp6m-geckoview-google-search-restaurants-nofis**
@@ -29439,7 +29247,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
       * - **browsertime-tp6m-geckoview-google-search-restaurants**
         - ✅
-        - ❌
+        - ✅
         - ❌
         - ❌
       * - **browsertime-tp6m-geckoview-google-search-restaurants-nofis**
@@ -32714,7 +32522,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
       * - **browsertime-tp6m-geckoview-wikipedia**
         - ✅
-        - ❌
+        - ✅
         - ❌
         - ❌
       * - **browsertime-tp6m-geckoview-wikipedia-nofis**
@@ -32821,7 +32629,7 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
       * - **browsertime-tp6m-geckoview-wikipedia**
         - ✅
-        - ❌
+        - ✅
         - ❌
         - ❌
       * - **browsertime-tp6m-geckoview-wikipedia-nofis**

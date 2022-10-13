@@ -1,36 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-html {
-  box-sizing: border-box;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: inherit;
-}
-
-*::-moz-focus-inner {
-  border: 0;
-}
-
-body {
-  margin: 0;
-}
-
-button,
-input {
-  background-color: inherit;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-}
-
-[hidden] {
-  display: none !important;
-}
-
 .onboardingContainer.featureCallout {
   position: absolute;
   transition: opacity 0.5s ease;
@@ -97,10 +67,20 @@ input {
 .onboardingContainer.featureCallout .screen[pos=callout] .section-main .main-content .steps {
   align-self: baseline;
   margin: -38px 30px -30px;
+  padding-block: 0;
 }
 .onboardingContainer.featureCallout .screen[pos=callout] .section-main .main-content .dismiss-button {
   margin-block: 25px -45px;
   z-index: 1;
+}
+@media (prefers-contrast) {
+  .onboardingContainer.featureCallout .screen[pos=callout] .section-main .main-content .dismiss-button {
+    background-color: var(--in-content-button-background);
+  }
+  .onboardingContainer.featureCallout .screen[pos=callout] .section-main .main-content .dismiss-button:hover {
+    background-color: var(--in-content-primary-button-background);
+    color: var(--in-content-primary-button-text-color);
+  }
 }
 .onboardingContainer.featureCallout .screen[pos=callout] .action-buttons {
   margin-block: 0 16px;
@@ -120,6 +100,16 @@ input {
 }
 .onboardingContainer.featureCallout .screen[pos=callout] .action-buttons .primary:hover {
   background-color: var(--in-content-button-background-hover);
+}
+@media (prefers-contrast) {
+  .onboardingContainer.featureCallout .screen[pos=callout] .action-buttons .primary {
+    color: var(--in-content-button-text-color);
+    border: 1px solid var(--in-content-button-border-color);
+  }
+  .onboardingContainer.featureCallout .screen[pos=callout] .action-buttons .primary:hover {
+    background-color: var(--in-content-primary-button-background);
+    color: var(--in-content-primary-button-text-color);
+  }
 }
 .onboardingContainer.featureCallout .screen[pos=callout] .action-buttons .secondary-cta {
   float: inline-end;
@@ -180,26 +170,6 @@ html {
   height: 100%;
 }
 
-body {
-  --grey-subtitle-1: #696977;
-  --newtab-button-secondary-color: #0060DF;
-  --mr-welcome-background-color: #F8F6F4;
-  --mr-welcome-background-gradient: linear-gradient(0deg, rgba(144, 89, 255, 0.2) 0%, rgba(2, 144, 238, 0.2) 100%);
-  --mr-screen-background-color: #F8F6F4;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Ubuntu", "Helvetica Neue", sans-serif;
-  font-size: 16px;
-  position: relative;
-}
-@media (prefers-color-scheme: dark) {
-  body {
-    --grey-subtitle-1: #FFF;
-    --newtab-button-secondary-color: #FFF;
-    --mr-welcome-background-color: #333336;
-    --mr-welcome-background-gradient: linear-gradient(0deg, rgba(144, 89, 255, 0.3) 0%, rgba(2, 144, 238, 0.3) 100%);
-    --mr-screen-background-color: #62697A;
-  }
-}
-
 .dummy {
   background: var(--mr-welcome-background-color) var(--mr-welcome-background-gradient) var(--mr-secondary-position) var(--mr-screen-background-color);
 }
@@ -212,6 +182,7 @@ body {
 }
 :root[dialogroot] .onboardingContainer {
   height: 100%;
+  background-color: transparent;
 }
 :root[dialogroot] .onboardingContainer:dir(rtl) {
   transform: unset;
@@ -229,12 +200,32 @@ body {
 }
 
 .onboardingContainer {
+  --grey-subtitle-1: #696977;
+  --newtab-button-secondary-color: #0060DF;
+  --mr-welcome-background-color: #F8F6F4;
+  --mr-screen-heading-color: var(--in-content-text-color);
+  --mr-welcome-background-gradient: linear-gradient(0deg, rgba(144, 89, 255, 0.2) 0%, rgba(2, 144, 238, 0.2) 100%);
+  --mr-screen-background-color: #F8F6F4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Ubuntu", "Helvetica Neue", sans-serif;
+  font-size: 16px;
+  position: relative;
   text-align: center;
   height: 100vh;
   --transition: 0.6s opacity, 0.6s scale, 0.6s rotate, 0.6s translate;
 }
-@media (prefers-contrast: more) {
+@media (prefers-color-scheme: dark) {
   .onboardingContainer {
+    --grey-subtitle-1: #FFF;
+    --newtab-button-secondary-color: #FFF;
+    --mr-welcome-background-color: #333336;
+    --mr-welcome-background-gradient: linear-gradient(0deg, rgba(144, 89, 255, 0.3) 0%, rgba(2, 144, 238, 0.3) 100%);
+    --mr-screen-background-color: #62697A;
+  }
+}
+@media (prefers-contrast) {
+  .onboardingContainer {
+    --mr-screen-background-color: buttontext;
+    --mr-screen-heading-color: buttonface;
     background-color: var(--in-content-page-background);
   }
 }
@@ -278,6 +269,7 @@ body {
   padding: 0;
   transition: var(--transition);
   z-index: 1;
+  box-sizing: border-box;
 }
 .onboardingContainer .main-content.no-steps {
   padding-bottom: 48px;
@@ -398,14 +390,8 @@ body {
 .onboardingContainer .screen[pos=split] .section-main .main-content .main-content-inner {
   min-height: 330px;
 }
-.onboardingContainer .screen[pos=split] .section-main .main-content .main-content-inner .language-switcher-container .secondary {
-  margin-inline-start: 0;
-  margin: 5px 0;
-  color: var(--in-content-primary-button-text-color);
-  background-color: var(--in-content-primary-button-background);
-}
-.onboardingContainer .screen[pos=split] .section-main .main-content .main-content-inner .language-switcher-container .secondary:hover {
-  background-color: var(--in-content-primary-button-background-hover);
+.onboardingContainer .screen[pos=split] .section-main .main-content .main-content-inner .language-switcher-container .primary {
+  margin-bottom: 5px;
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons {
   position: relative;
@@ -441,10 +427,9 @@ body {
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .secondary-cta .secondary {
   background-color: var(--in-content-button-background) !important;
-  color: var(--in-content-button-text-color);
   border: 1px solid var(--in-content-button-border-color);
   line-height: 12px;
-  font-size: 10px;
+  font-size: 0.72em;
   font-weight: 600;
   padding: 8px 16px;
 }
@@ -454,15 +439,17 @@ body {
   color: var(--in-content-button-text-color-hover);
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .secondary-cta .arrow-icon {
-  background: url("chrome://browser/skin/forward.svg") no-repeat right 8px center;
-  background-size: 12px;
-  padding-inline-end: 24px;
   -moz-context-properties: fill;
   fill: currentColor;
 }
-.onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .secondary-cta .arrow-icon:dir(rtl) {
+.onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .secondary-cta .arrow-icon::after {
+  content: "";
+  padding-inline-end: 12px;
+  margin-inline-start: 4px;
+  background: url("chrome://browser/skin/forward.svg") no-repeat center/12px;
+}
+.onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .secondary-cta .arrow-icon:dir(rtl)::after {
   background-image: url("chrome://browser/skin/back.svg");
-  background-position-x: left 8px;
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .logo-container {
   text-align: start;
@@ -520,6 +507,7 @@ body {
   margin: auto auto auto 0;
 }
 .onboardingContainer .screen[pos=split] .section-secondary h1 {
+  color: var(--mr-screen-heading-color);
   font-weight: 700;
   font-size: 47px;
   line-height: 110%;
@@ -555,6 +543,7 @@ body {
   transition: var(--transition);
   font-size: 13px;
   line-height: 1.5;
+  min-height: 4.5em;
   margin-block: 10px 20px;
 }
 .onboardingContainer .screen[pos=split] .tiles-theme-container .theme {
@@ -576,7 +565,7 @@ body {
 @media only screen and (max-width: 800px) {
   .onboardingContainer .screen[pos=split] {
     flex-direction: column;
-    min-height: 500px;
+    min-height: 550px;
   }
   .onboardingContainer .screen[pos=split] .section-secondary,
 .onboardingContainer .screen[pos=split] .section-main {
@@ -592,10 +581,15 @@ body {
   .onboardingContainer .screen[pos=split] .section-secondary .hero-image img {
     margin: 6px 0;
   }
+  .onboardingContainer .screen[pos=split] .section-secondary .message-text {
+    margin-inline: auto;
+  }
   .onboardingContainer .screen[pos=split] .section-secondary h1 {
     font-size: 35px;
     text-align: center;
     white-space: normal;
+    margin-inline: auto;
+    margin-block: 14px 6px;
   }
   .onboardingContainer .screen[pos=split] .section-secondary:dir(rtl) {
     margin: auto auto 0;
@@ -603,7 +597,7 @@ body {
   }
   .onboardingContainer .screen[pos=split] .section-main {
     margin: 0 auto auto;
-    height: 400px;
+    height: 450px;
   }
   .onboardingContainer .screen[pos=split] .section-main .main-content {
     border-radius: 0 0 8px 8px;
@@ -942,7 +936,7 @@ body {
   border-radius: 2px;
   color: #FFF;
 }
-@media (prefers-contrast: more) {
+@media (prefers-contrast) {
   .onboardingContainer .colorway-variations .variation-button {
     outline: 2px solid var(--in-content-button-border-color);
     border-radius: 2px;
@@ -1237,6 +1231,7 @@ body {
   transition: var(--transition);
   z-index: -1;
   height: 48px;
+  box-sizing: border-box;
 }
 .onboardingContainer .steps.has-helptext {
   padding-bottom: 0;
@@ -1250,6 +1245,7 @@ body {
   border-radius: 5px;
   border: 3px solid var(--in-content-button-text-color);
   opacity: 0.25;
+  box-sizing: inherit;
 }
 .onboardingContainer .steps .indicator.current {
   opacity: 1;

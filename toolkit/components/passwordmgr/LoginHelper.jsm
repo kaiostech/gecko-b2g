@@ -18,11 +18,9 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 const lazy = {};
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "OSKeyStore",
-  "resource://gre/modules/OSKeyStore.jsm"
-);
+ChromeUtils.defineESModuleGetters(lazy, {
+  OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
+});
 
 /**
  * A helper class to deal with CSV import rows.
@@ -1424,7 +1422,7 @@ const LoginHelper = {
    * @returns {boolean} True if any of the rules matches
    */
   isInferredEmailField(element) {
-    const expr = /email/i;
+    const expr = /email|邮箱/i;
 
     if (element.type == "email") {
       return true;

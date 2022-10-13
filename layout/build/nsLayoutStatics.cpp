@@ -35,7 +35,6 @@
 #include "nsRepeatService.h"
 #include "nsFloatManager.h"
 #include "nsSprocketLayout.h"
-#include "nsStackLayout.h"
 #include "nsTextControlFrame.h"
 #include "txMozillaXSLTProcessor.h"
 #include "nsTreeSanitizer.h"
@@ -339,7 +338,6 @@ void nsLayoutStatics::Shutdown() {
   nsColorNames::ReleaseTable();
   nsCSSProps::ReleaseTable();
   nsRepeatService::Shutdown();
-  nsStackLayout::Shutdown();
 
   nsXULContentUtils::Finish();
   nsXULPrototypeCache::ReleaseGlobals();

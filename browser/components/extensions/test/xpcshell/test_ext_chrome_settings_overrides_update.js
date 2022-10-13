@@ -5,10 +5,14 @@
 const { AddonTestUtils } = ChromeUtils.import(
   "resource://testing-common/AddonTestUtils.jsm"
 );
+
+ChromeUtils.defineESModuleGetters(this, {
+  PromiseUtils: "resource://gre/modules/PromiseUtils.sys.mjs",
+});
+
 XPCOMUtils.defineLazyModuleGetters(this, {
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
-  PromiseUtils: "resource://gre/modules/PromiseUtils.jsm",
   RemoteSettings: "resource://services-settings/remote-settings.js",
   sinon: "resource://testing-common/Sinon.jsm",
 });
@@ -588,7 +592,10 @@ async function test_default_search_on_updating_addons_installed_before_bug175776
       extensionInfo.manifest.chrome_settings_overrides.search_provider.name
     );
   }
-  await Services.search.setDefault(initialEngine);
+  await Services.search.setDefault(
+    initialEngine,
+    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+  );
 
   let defaultEngineName = (await Services.search.getDefault()).name;
   Assert.equal(

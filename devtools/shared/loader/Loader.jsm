@@ -11,11 +11,8 @@
 var { Loader, Require, resolveURI, unload } = ChromeUtils.import(
   "resource://devtools/shared/loader/base-loader.js"
 );
-var { requireRawId } = ChromeUtils.import(
-  "resource://devtools/shared/loader/loader-plugin-raw.jsm"
-);
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
+var { requireRawId } = ChromeUtils.importESModule(
+  "resource://devtools/shared/loader/loader-plugin-raw.sys.mjs"
 );
 
 const EXPORTED_SYMBOLS = [
@@ -101,7 +98,6 @@ function DevToolsLoader({
     "devtools/shared/locales": "chrome://devtools-shared/locale",
     "devtools/startup/locales": "chrome://devtools-startup/locale",
     "toolkit/locales": "chrome://global/locale",
-    ...this.devPaths,
   };
 
   this.loader = new Loader({
@@ -132,9 +128,14 @@ function DevToolsLoader({
 
   this.require = Require(this.loader, { id: "devtools" });
 
+  // Services can't be imported from a Sandbox,
+  // so hand over a reference to builtin-modules.js (all all other modules)
+  // via the globals.
+  this.loader.globals.Services = Services;
+
   // Fetch custom pseudo modules and globals
   const { modules, globals } = this.require(
-    "devtools/shared/loader/builtin-modules"
+    "resource://devtools/shared/loader/builtin-modules.js"
   );
 
   // Register custom pseudo modules to the current loader instance
@@ -167,31 +168,11 @@ function DevToolsLoader({
   // let { loader } = ChromeUtils.import("resource://devtools/shared/loader/Loader.jsm");
   // loader.lazyGetter(...);
   this.lazyGetter = globals.loader.lazyGetter;
-  this.lazyImporter = globals.loader.lazyImporter;
   this.lazyServiceGetter = globals.loader.lazyServiceGetter;
   this.lazyRequireGetter = globals.loader.lazyRequireGetter;
 }
 
 DevToolsLoader.prototype = {
-  get devPaths() {
-    if (AppConstants.DEBUG_JS_MODULES) {
-      return {
-        "devtools/client/shared/vendor/react":
-          "resource://devtools/client/shared/vendor/react-dev",
-        "devtools/client/shared/vendor/react-dom":
-          "resource://devtools/client/shared/vendor/react-dom-dev",
-        "devtools/client/shared/vendor/react-dom-server":
-          "resource://devtools/client/shared/vendor/react-dom-server-dev",
-        "devtools/client/shared/vendor/react-prop-types":
-          "resource://devtools/client/shared/vendor/react-prop-types-dev",
-        "devtools/client/shared/vendor/react-dom-test-utils":
-          "resource://devtools/client/shared/vendor/react-dom-test-utils-dev",
-      };
-    }
-
-    return {};
-  },
-
   destroy(reason = "shutdown") {
     unload(this.loader, reason);
     delete this.loader;

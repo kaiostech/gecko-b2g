@@ -61,9 +61,9 @@ xpcshell:
                     default: []
             socketprocess_networking:
                 by-test-platform:
-                    macosx.*-64(-shippable|-devedition|-asan)?(-qr)?/.*: ['autoland', 'mozilla-central']
+                    macosx.*-64(-shippable|-devedition)?(-qr)?/.*: ['autoland', 'mozilla-central']
                     linux1804-64(-qr)?/debug: ['autoland', 'mozilla-central']
-                    windows.*(-shippable|-devedition|-asan|.*-qr)?/.*: ['autoland', 'mozilla-central']
+                    windows.*(-shippable|-devedition.*-qr)?/.*: ['autoland', 'mozilla-central']
                     windows10-64-2004-asan-qr/opt: []  # No XPCShell on ASAN yet
                     default: []
             no-fission:
@@ -76,6 +76,7 @@ xpcshell:
             default:
                 by-test-platform:
                     android.*: []
+                    windows10-64-2004-asan-qr/opt: []  # No XPCShell on ASAN yet
                     .*-tsan-qr/opt: ['trunk']
                     default: built-projects
     chunks:

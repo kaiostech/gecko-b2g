@@ -397,6 +397,7 @@ pref("browser.urlbar.suggest.calculator",           false);
 
 #if defined(EARLY_BETA_OR_EARLIER)
   // Enable QuickActions and its urlbar search mode button.
+  pref("browser.urlbar.quickactions.enabled", true);
   pref("browser.urlbar.suggest.quickactions", true);
   pref("browser.urlbar.shortcuts.quickactions", true);
   pref("browser.urlbar.quickactions.showPrefs", true);
@@ -774,6 +775,7 @@ pref("browser.tabs.tooltipsShowPidAndActiveness", false);
 #endif
 
 pref("browser.tabs.firefox-view", true);
+pref("browser.tabs.firefox-view.logLevel", "Warn");
 
 // allow_eval_* is enabled on Firefox Desktop only at this
 // point in time
@@ -1368,6 +1370,7 @@ pref("services.sync.prefs.sync.browser.crashReports.unsubmittedCheck.autoSubmit2
 pref("services.sync.prefs.sync.browser.ctrlTab.sortByRecentlyUsed", true);
 pref("services.sync.prefs.sync.browser.discovery.enabled", true);
 pref("services.sync.prefs.sync.browser.download.useDownloadDir", true);
+pref("services.sync.prefs.sync.browser.firefox-view.feature-tour", true);
 pref("services.sync.prefs.sync.browser.formfill.enable", true);
 pref("services.sync.prefs.sync.browser.link.open_newwindow", true);
 pref("services.sync.prefs.sync.browser.menu.showViewImageInfo", true);
@@ -1394,6 +1397,7 @@ pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.section.highli
 pref("services.sync.prefs.sync.browser.newtabpage.enabled", true);
 pref("services.sync.prefs.sync.browser.newtabpage.pinned", true);
 pref("services.sync.prefs.sync.browser.offline-apps.notify", true);
+pref("services.sync.prefs.sync.browser.pdfjs.feature-tour", true);
 pref("services.sync.prefs.sync.browser.safebrowsing.downloads.enabled", true);
 pref("services.sync.prefs.sync.browser.safebrowsing.downloads.remote.block_potentially_unwanted", true);
 pref("services.sync.prefs.sync.browser.safebrowsing.malware.enabled", true);
@@ -2120,9 +2124,6 @@ pref("extensions.pocket.showHome", true);
 // Possibilities are: `control`, `control-one-button`, `variant_a`, `variant_b`, `variant_c`
 pref("extensions.pocket.loggedOutVariant", "control");
 
-// Enable the new Pocket panels.
-pref("extensions.pocket.refresh.layout.enabled", true);
-
 // Just for the new Pocket panels, enables the email signup button.
 pref("extensions.pocket.refresh.emailButton.enabled", false);
 // Hides the recently saved section in the home panel.
@@ -2293,6 +2294,11 @@ pref("devtools.toolbox.zoomValue", "1");
 pref("devtools.toolbox.splitconsoleEnabled", false);
 pref("devtools.toolbox.splitconsoleHeight", 100);
 pref("devtools.toolbox.tabsOrder", "");
+// This is only used for local Web Extension debugging,
+// and allows to keep the window on top of all others,
+// so that you can debug the Firefox window, while keeping the devtools
+// always visible
+pref("devtools.toolbox.alwaysOnTop", true);
 
 // The fission pref for enabling the "Multiprocess Browser Toolbox", which will
 // make it possible to debug anything in Firefox (See Bug 1570639 for more information).
@@ -2714,6 +2720,17 @@ pref("browser.places.snapshots.expiration.userManaged.days", 420);
 
 // If the user has seen the Firefox View feature tour this value reflects the tour
 // message id, the id of the last screen they saw, and whether they completed the tour
-pref("browser.firefox-view.feature-tour", "{\"message\":\"FIREFOX_VIEW_FEATURE_TOUR\",\"screen\":\"FEATURE_CALLOUT_1\",\"complete\":false}");
+pref("browser.firefox-view.feature-tour", "{\"message\":\"FIREFOX_VIEW_FEATURE_TOUR\",\"screen\":\"FIREFOX_VIEW_SPOTLIGHT\",\"complete\":false}");
 // Number of times the user visited about:firefoxview
 pref("browser.firefox-view.view-count", 0);
+
+// If the user has seen the pdf.js feature tour this value reflects the tour
+// message id, the id of the last screen they saw, and whether they completed the tour
+pref("browser.pdfjs.feature-tour", "{\"message\":\"PDF_JS_FEATURE_TOUR\",\"screen\":\"\",\"complete\":false}");
+
+// Enables cookie banner handling in Nightly in Private Browsing Mode. See
+// StaticPrefList.yaml for a description of the prefs.
+#ifdef NIGHTLY_BUILD
+  pref("cookiebanners.service.mode.privateBrowsing", 1);
+  pref("cookiebanners.bannerClicking.enabled", true);
+#endif

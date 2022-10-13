@@ -55,7 +55,7 @@ struct OverlaySource {
   uint32_t arrayIndex;
   SurfaceFormat format;
   IntSize size;
-  YUVColorSpace yUVColorSpace;
+  ColorSpace2 colorSpace;
   ColorRange colorRange;
 };
 

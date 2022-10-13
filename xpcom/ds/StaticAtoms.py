@@ -2249,6 +2249,9 @@ STATIC_ATOMS = [
     Atom("monospace", "monospace"),
     Atom("mozfixed", "-moz-fixed"),
     Atom("moz_fixed_pos_containing_block", "-moz-fixed-pos-containing-block"),
+    # Standard font-palette identifiers
+    Atom("light", "light"),
+    Atom("dark", "dark"),
     # IPC stuff
     # Atom("Remote", "remote"),  # "remote" is present above
     Atom("RemoteId", "_remote_id"),
@@ -2433,6 +2436,8 @@ STATIC_ATOMS = [
     Atom("onsupportedkeyschange", "onsupportedkeyschange"),
     # media query for MathML Core's implementation of maction/semantics
     Atom("_moz_mathml_core_maction_and_semantics", "-moz-mathml-core-maction-and-semantics"),
+    # media query for MathML Core's implementation of ms
+    Atom("_moz_mathml_core_ms", "-moz-mathml-core-ms"),
     # Contextual Identity / Containers
     Atom("usercontextid", "usercontextid"),
     Atom("geckoViewSessionContextId", "geckoViewSessionContextId"),

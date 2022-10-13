@@ -123,7 +123,8 @@ class ContentChild final : public PContentChild,
   const AppInfo& GetAppInfo() { return mAppInfo; }
 
   void SetProcessName(const nsACString& aName,
-                      const nsACString* aETLDplus1 = nullptr);
+                      const nsACString* aETLDplus1 = nullptr,
+                      const nsACString* aCurrentProfile = nullptr);
 
   void GetProcessName(nsACString& aName) const;
 
@@ -398,7 +399,8 @@ class ContentChild final : public PContentChild,
                                              const nsString& aPath,
                                              const nsCString& aReason);
 
-  mozilla::ipc::IPCResult RecvRemoteType(const nsCString& aRemoteType);
+  mozilla::ipc::IPCResult RecvRemoteType(const nsCString& aRemoteType,
+                                         const nsCString& aProfile);
 
   void PreallocInit();
 
@@ -839,8 +841,9 @@ class ContentChild final : public PContentChild,
       const uint64_t& aInnerWindowId, const bool& aFromChromeContext);
 
   mozilla::ipc::IPCResult RecvReportFrameTimingData(
-      uint64_t innerWindowId, const nsString& entryName,
-      const nsString& initiatorType, UniquePtr<PerformanceTimingData>&& aData);
+      const mozilla::Maybe<LoadInfoArgs>& loadInfoArgs,
+      const nsString& entryName, const nsString& initiatorType,
+      UniquePtr<PerformanceTimingData>&& aData);
 
   mozilla::ipc::IPCResult RecvLoadURI(
       const MaybeDiscarded<BrowsingContext>& aContext,
@@ -908,6 +911,7 @@ class ContentChild final : public PContentChild,
   hal::ProcessPriority GetProcessPriority() const { return mProcessPriority; }
 
  private:
+  void AddProfileToProcessName(const nsACString& aProfile);
   mozilla::ipc::IPCResult RecvFlushFOGData(FlushFOGDataResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvUpdateMediaCodecsSupported(

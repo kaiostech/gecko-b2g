@@ -36,15 +36,18 @@ const { AppConstants } = ChromeUtils.import(
 const { PrivateBrowsingUtils } = ChromeUtils.import(
   "resource://gre/modules/PrivateBrowsingUtils.jsm"
 );
-const { CreditCard } = ChromeUtils.import(
-  "resource://gre/modules/CreditCard.jsm"
+const { CreditCard } = ChromeUtils.importESModule(
+  "resource://gre/modules/CreditCard.sys.mjs"
 );
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  FormLikeFactory: "resource://gre/modules/FormLikeFactory.sys.mjs",
+});
+
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   DeferredTask: "resource://gre/modules/DeferredTask.jsm",
-  FormLikeFactory: "resource://gre/modules/FormLikeFactory.jsm",
   LoginFormFactory: "resource://gre/modules/LoginFormFactory.jsm",
   LoginRecipesContent: "resource://gre/modules/LoginRecipes.jsm",
   LoginHelper: "resource://gre/modules/LoginHelper.jsm",
@@ -2325,6 +2328,10 @@ class LoginManagerChild extends JSWindowActorChild {
       targetField,
       ...docState._getFormFields(form, true, recipes, { ignoreConnect }),
     };
+
+    if (fields.usernameField) {
+      lazy.gFormFillService.markAsLoginManagerField(fields.usernameField);
+    }
 
     // It's possible the field triggering this message isn't one of those found by _getFormFields' heuristics
     if (

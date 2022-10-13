@@ -24,6 +24,9 @@ class RefPtr;
 
 namespace mozilla {
 
+template <typename V, typename E>
+class Result;
+
 template <typename T>
 class OwningNonNull;
 
@@ -73,6 +76,7 @@ using EditorRawDOMPointInText = EditorDOMPointBase<dom::Text*, nsIContent*>;
 
 class AutoPendingStyleCacheArray;  // mozilla/PendingStyles.h
 class AutoSelectionRangeArray;     // mozilla/EditorUtils.h
+class CaretPoint;                  // mozilla/EditorUtils.h
 class ChangeStyleTransaction;      // mozilla/ChangeStyleTransaction.h
 class CSSEditUtils;                // mozilla/CSSEditUtils.h
 class EditActionResult;            // mozilla/EditorUtils.h
@@ -142,6 +146,11 @@ class ReplaceRangeDataBase;  // mozilla/EditorUtils.h
 using CreateContentResult = CreateNodeResultBase<nsIContent>;
 using CreateElementResult = CreateNodeResultBase<dom::Element>;
 using CreateTextResult = CreateNodeResultBase<dom::Text>;
+
+// InsertParagraphResult is an alias of CreateElementResult because it returns
+// new paragraph from point of view of users (i.e., right paragraph if split)
+// instead of newly created paragraph element.
+using InsertParagraphResult = CreateElementResult;
 
 using EditorDOMRange = EditorDOMRangeBase<EditorDOMPoint>;
 using EditorRawDOMRange = EditorDOMRangeBase<EditorRawDOMPoint>;

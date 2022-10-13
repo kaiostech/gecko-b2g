@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 /**
  * This module exports the UrlbarPrefs singleton, which manages preferences for
  * the urlbar. It also provides access to urlbar Nimbus variables as if they are
@@ -15,12 +13,12 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  Region: "resource://gre/modules/Region.sys.mjs",
   UrlbarUtils: "resource:///modules/UrlbarUtils.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
-  Region: "resource://gre/modules/Region.jsm",
 });
 
 const PREF_URLBAR_BRANCH = "browser.urlbar.";
@@ -229,8 +227,12 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // must also be enabled, from Sync preferences.
   ["suggest.remotetab", true],
 
-  // Whether results will include QuickActions.
+  // Whether results will include QuickActions in the default search mode.
   ["suggest.quickactions", false],
+
+  // If disabled, QuickActions will not be included in either the default search
+  // mode or the QuickActions search mode.
+  ["quickactions.enabled", false],
 
   // Whether we show the Actions section in about:preferences.
   ["quickactions.showPrefs", false],

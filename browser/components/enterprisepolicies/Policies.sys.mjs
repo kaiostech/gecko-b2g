@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const { AppConstants } = ChromeUtils.import(
@@ -28,6 +26,7 @@ XPCOMUtils.defineLazyServiceGetters(lazy, {
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BookmarksPolicies: "resource:///modules/policies/BookmarksPolicies.sys.mjs",
+  FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   ProxyPolicies: "resource:///modules/policies/ProxyPolicies.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
 });
@@ -35,7 +34,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   CustomizableUI: "resource:///modules/CustomizableUI.jsm",
-  FileUtils: "resource://gre/modules/FileUtils.jsm",
 });
 
 const PREF_LOGLEVEL = "browser.policies.loglevel";
@@ -359,6 +357,7 @@ export var Policies = {
     onBeforeUIStartup(manager, param) {
       if (param) {
         blockAboutPage(manager, "about:support");
+        manager.disallowFeature("aboutSupport");
       }
     },
   },
@@ -2088,7 +2087,10 @@ export var Policies = {
               }
               if (defaultEngine) {
                 try {
-                  await Services.search.setDefault(defaultEngine);
+                  await Services.search.setDefault(
+                    defaultEngine,
+                    Ci.nsISearchService.CHANGE_REASON_ENTERPRISE
+                  );
                 } catch (ex) {
                   lazy.log.error("Unable to set the default search engine", ex);
                 }
@@ -2119,7 +2121,10 @@ export var Policies = {
               }
               if (defaultPrivateEngine) {
                 try {
-                  await Services.search.setDefaultPrivate(defaultPrivateEngine);
+                  await Services.search.setDefaultPrivate(
+                    defaultPrivateEngine,
+                    Ci.nsISearchService.CHANGE_REASON_ENTERPRISE
+                  );
                 } catch (ex) {
                   lazy.log.error(
                     "Unable to set the default private search engine",

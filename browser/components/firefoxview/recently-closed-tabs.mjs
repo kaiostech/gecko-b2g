@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 const lazy = {};
 ChromeUtils.defineModuleGetter(
   lazy,
@@ -26,6 +24,8 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 const SS_NOTIFY_CLOSED_OBJECTS_CHANGED = "sessionstore-closed-objects-changed";
 const SS_NOTIFY_CLOSED_OBJECTS_TAB_STATE_CHANGED =
   "sessionstore-closed-objects-tab-state-changed";
+const UI_OPEN_STATE =
+  "browser.tabs.firefox-view.ui-state.recently-closed-tabs.open";
 
 function getWindow() {
   return window.browsingContext.embedderWindowGlobal.browsingContext.window;
@@ -282,6 +282,7 @@ class RecentlyClosedTabsContainer extends HTMLDetailsElement {
     );
     this.addEventListener("toggle", this);
     getWindow().gBrowser.tabContainer.addEventListener("TabSelect", this);
+    this.open = Services.prefs.getBoolPref(UI_OPEN_STATE, true);
   }
 
   cleanup() {

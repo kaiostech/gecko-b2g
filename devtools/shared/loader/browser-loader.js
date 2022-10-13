@@ -18,7 +18,7 @@ const lazy = {};
 loader.lazyRequireGetter(
   lazy,
   "getMockedModule",
-  "devtools/shared/loader/browser-loader-mocks",
+  "resource://devtools/shared/loader/browser-loader-mocks.js",
   {}
 );
 
@@ -179,7 +179,6 @@ function BrowserLoaderBuilder({
       // Allow modules to use the DevToolsLoader lazy loading helpers.
       loader: {
         lazyGetter: loader.lazyGetter,
-        lazyImporter: loader.lazyImporter,
         lazyServiceGetter: loader.lazyServiceGetter,
         lazyRequireGetter: this.lazyRequireGetter.bind(this),
       },

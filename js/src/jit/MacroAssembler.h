@@ -710,9 +710,12 @@ class MacroAssembler : public MacroAssemblerSpecific {
   //
   //    There are overloads to allow calls to registers and addresses.
   //
-  // 5) Take care of the ReturnReg or ReturnDoubleReg
+  // 5) Take care of the result
   //
-  //      masm.mov(ReturnReg, scratch1);
+  //      masm.storeCallPointerResult(scratch1);
+  //      masm.storeCallBoolResult(scratch1);
+  //      masm.storeCallInt32Result(scratch1);
+  //      masm.storeCallFloatResult(scratch1);
   //
   // 6) Restore the potentially clobbered volatile registers
   //
@@ -5003,6 +5006,13 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   void setIsDefinitelyTypedArrayConstructor(Register obj, Register output);
 
+  void loadMegamorphicCache(Register dest);
+
+  void emitMegamorphicCacheLookup(PropertyKey id, Register obj,
+                                  Register scratch1, Register scratch2,
+                                  Register scratch3, ValueOperand output,
+                                  Label* fail, Label* cacheHit);
+
   void loadDOMExpandoValueGuardGeneration(
       Register obj, ValueOperand output,
       JS::ExpandoAndGeneration* expandoAndGeneration, uint64_t generation,
@@ -5273,7 +5283,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
   // on the stack, such that the JitFrameLayout would be correctly aligned on
   // the JitStackAlignment.
   void alignJitStackBasedOnNArgs(Register nargs, bool countIncludesThis);
-  void alignJitStackBasedOnNArgs(uint32_t argc);
+  void alignJitStackBasedOnNArgs(uint32_t argc, bool countIncludesThis);
 
   inline void assertStackAlignment(uint32_t alignment, int32_t offset = 0);
 

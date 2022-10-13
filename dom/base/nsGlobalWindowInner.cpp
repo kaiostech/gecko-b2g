@@ -3401,12 +3401,11 @@ void nsGlobalWindowInner::SetOpener(JSContext* aCx,
   RedefineProperty(aCx, "opener", aOpener, aError);
 }
 
-void nsGlobalWindowInner::GetEvent(JSContext* aCx,
-                                   JS::MutableHandle<JS::Value> aRetval) {
+void nsGlobalWindowInner::GetEvent(OwningEventOrUndefined& aRetval) {
   if (mEvent) {
-    Unused << nsContentUtils::WrapNative(aCx, mEvent, aRetval);
+    aRetval.SetAsEvent() = mEvent;
   } else {
-    aRetval.setUndefined();
+    aRetval.SetUndefined();
   }
 }
 
@@ -3940,7 +3939,15 @@ void nsGlobalWindowInner::ResizeBy(int32_t aWidthDif, int32_t aHeightDif,
 
 void nsGlobalWindowInner::SizeToContent(CallerType aCallerType,
                                         ErrorResult& aError) {
-  FORWARD_TO_OUTER_OR_THROW(SizeToContentOuter, (aCallerType, aError),
+  FORWARD_TO_OUTER_OR_THROW(SizeToContentOuter, (aCallerType, 0, 0, aError),
+                            aError, );
+}
+
+void nsGlobalWindowInner::SizeToContentConstrained(int32_t aMaxWidth,
+                                                   int32_t aMaxHeight,
+                                                   ErrorResult& aError) {
+  FORWARD_TO_OUTER_OR_THROW(SizeToContentOuter,
+                            (CallerType::System, aMaxWidth, aMaxHeight, aError),
                             aError, );
 }
 

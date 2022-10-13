@@ -28,6 +28,10 @@ testFeature:
       type: int
       fallbackPref: nimbus.testing.testInt
       description: Int pref used by platform API tests
+    testSetString:
+      type: string
+      setPref: nimbus.testing.testSetString
+      description: A string pref set by Nimbus tests
 search:
   description: The Search Services
   owner: search-and-suggest-program@mozilla.com
@@ -42,6 +46,12 @@ search:
     extraParams:
       type: json
       description: Query parameters values for search engine configurations.
+    seperatePrivateDefaultUIEnabled:
+      type: boolean
+      description: Whether the UI for the separate private default feature is enabled.
+    seperatePrivateDefaultUrlbarResultEnabled:
+      type: boolean
+      description: Whether the urlbar result for the separate private default is shown.
 urlbar:
   description: The Address Bar
   owner: search-and-suggest-program@mozilla.com
@@ -269,6 +279,14 @@ pocketNewtab:
       type: string
       fallbackPref: browser.newtabpage.activity-stream.discoverystream.spoc-positions
       description: CSV string of spoc position indexes on newtab grid
+    spocAdTypes:
+      type: string
+      fallbackPref: browser.newtabpage.activity-stream.discoverystream.spocAdTypes
+      description: CSV string of data to set the spoc content.
+    spocZoneIds:
+      type: string
+      fallbackPref: browser.newtabpage.activity-stream.discoverystream.spocZoneIds
+      description: CSV string of data to set the spoc content.
     widgetPositions:
       type: string
       fallbackPref: browser.newtabpage.activity-stream.discoverystream.widget-positions
@@ -396,16 +414,18 @@ pocketNewtab:
         browser.newtabpage.activity-stream.discoverystream.spocs.personalized
       description: >-
         Enables Pocket sponsored content personalization.
+    spocsCacheTimeout:
+      type: int
+      fallbackPref: >-
+        browser.newtabpage.activity-stream.discoverystream.spocs.cacheTimeout
+      description: >-
+        Set sponsored content cache timeout in minutes.
 saveToPocket:
   description: The save to Pocket feature
   owner: sdowne@getpocket.com
   hasExposure: false
   isEarlyStartup: true
   variables:
-    layoutRefresh:
-      type: boolean
-      fallbackPref: extensions.pocket.refresh.layout.enabled
-      description: Enable the new Pocket panels.
     emailButton:
       type: boolean
       fallbackPref: extensions.pocket.refresh.emailButton.enabled

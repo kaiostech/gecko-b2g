@@ -13,6 +13,7 @@ const { TestUtils } = ChromeUtils.import(
 
 const HOMEPAGE_PREF = "browser.startup.homepage";
 const NEWTAB_PREF = "browser.newtabpage.enabled";
+const PINPBM_DISABLED_PREF = "browser.startup.upgradeDialog.pinPBM.disabled";
 
 // A bunch of the helper functions here are variants of the helper functions in
 // browser_aboutwelcome_multistage_mr.js, because the onboarding
@@ -161,6 +162,7 @@ add_task(async function test_aboutwelcome_upgrade_mr_prefs_off() {
 
 /**
  * Test homepage/newtab prefs start off as non-defaults and do not change
+ * Unchecking checkbox which is checked by default
  */
 add_task(
   async function test_aboutwelcome_upgrade_mr_prefs_non_default_unchecked() {
@@ -188,6 +190,7 @@ add_task(
       //Unexpected selectors:
       []
     );
+    browser.document.querySelector("#action-checkbox").click();
 
     await clickVisibleButton(browser, ".action-buttons button.primary");
     await waitForDialogClose(browser);
@@ -208,6 +211,7 @@ add_task(
 
 /**
  * Test homepage/newtab prefs start off as non-defaults and do change
+ * checkbox is checked by default
  */
 add_task(
   async function test_aboutwelcome_upgrade_mr_prefs_non_default_checked() {
@@ -234,8 +238,6 @@ add_task(
       //Unexpected selectors:
       []
     );
-
-    browser.document.querySelector("#action-checkbox").click();
 
     await clickVisibleButton(browser, ".action-buttons button.primary");
     await waitForDialogClose(browser);
@@ -360,7 +362,7 @@ add_task(
 add_task(async function test_aboutwelcome_privacy_segmentation_pref() {
   async function testPrivacySegmentation(enabled = false) {
     await pushPrefs(["browser.privacySegmentation.preferences.show", enabled]);
-    let screenIds = ["UPGRADE_PRIVACY_SEGMENTATION", "UPGRADE_GRATITUDE"];
+    let screenIds = ["UPGRADE_DATA_RECOMMENDATION", "UPGRADE_GRATITUDE"];
     let browser = await openMRUpgradeWelcome(screenIds);
     await test_upgrade_screen_content(
       browser,
@@ -396,5 +398,27 @@ add_task(async function test_aboutwelcome_upgrade_show_firefox_view() {
   assertFirefoxViewTabSelected(gBrowser.ownerGlobal);
 
   closeFirefoxViewTab();
+  await BrowserTestUtils.removeTab(gBrowser.selectedTab);
+});
+
+/*
+ *Checkbox shouldn't be shown if pinPBMDisabled pref is true
+ */
+add_task(async function test_aboutwelcome_upgrade_mr_private_pin_not_needed() {
+  OnboardingMessageProvider._doesAppNeedPin.resolves(true);
+  await pushPrefs([PINPBM_DISABLED_PREF, true]);
+
+  const browser = await openMRUpgradeWelcome(["UPGRADE_PIN_FIREFOX"]);
+
+  await test_upgrade_screen_content(
+    browser,
+    //Expected selectors
+    ["main.UPGRADE_PIN_FIREFOX"],
+    //Unexpected selectors:
+    ["input#action-checkbox"]
+  );
+
+  await clickVisibleButton(browser, ".action-buttons button.secondary");
+  await waitForDialogClose(browser);
   await BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });

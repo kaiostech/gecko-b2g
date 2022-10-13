@@ -341,42 +341,42 @@ mr2022-onboarding-import-primary-button-label-no-attribution = Import from previ
 
 mr2022-onboarding-colorway-title = Choose the color that inspires you
 mr2022-onboarding-colorway-subtitle = Independent voices can change culture.
-mr2022-onboarding-colorway-primary-button-label = Set colorway
+mr2022-onboarding-colorway-primary-button-label-continue = Set and continue
 mr2022-onboarding-existing-colorway-checkbox-label = Make { -firefox-home-brand-name } your colorful homepage
 
 mr2022-onboarding-colorway-label-default = Default
-mr2022-onboarding-colorway-tooltip-default =
-  .title = Default
+mr2022-onboarding-colorway-tooltip-default2 =
+  .title = Current { -brand-short-name } colors
 mr2022-onboarding-colorway-description-default = <b>Use my current { -brand-short-name } colors.</b>
 
 mr2022-onboarding-colorway-label-playmaker = Playmaker
-mr2022-onboarding-colorway-tooltip-playmaker =
-  .title = Playmaker
+mr2022-onboarding-colorway-tooltip-playmaker2 =
+  .title = Playmaker (red)
 mr2022-onboarding-colorway-description-playmaker = <b>You are a Playmaker.</b> You create opportunities to win and help everyone around you elevate their game.
 
 mr2022-onboarding-colorway-label-expressionist = Expressionist
-mr2022-onboarding-colorway-tooltip-expressionist =
-  .title = Expressionist
+mr2022-onboarding-colorway-tooltip-expressionist2 =
+  .title = Expressionist (yellow)
 mr2022-onboarding-colorway-description-expressionist = <b>You are an Expressionist.</b> You see the world differently and your creations stir the emotions of others.
 
 mr2022-onboarding-colorway-label-visionary = Visionary
-mr2022-onboarding-colorway-tooltip-visionary =
-  .title = Visionary
+mr2022-onboarding-colorway-tooltip-visionary2 =
+  .title = Visionary (green)
 mr2022-onboarding-colorway-description-visionary = <b>You are a Visionary.</b> You question the status quo and move others to imagine a better future.
 
 mr2022-onboarding-colorway-label-activist = Activist
-mr2022-onboarding-colorway-tooltip-activist =
-  .title = Activist
+mr2022-onboarding-colorway-tooltip-activist2 =
+  .title = Activist (blue)
 mr2022-onboarding-colorway-description-activist = <b>You are an Activist.</b> You leave the world a better place than you found it and lead others to believe.
 
 mr2022-onboarding-colorway-label-dreamer = Dreamer
-mr2022-onboarding-colorway-tooltip-dreamer =
-  .title = Dreamer
+mr2022-onboarding-colorway-tooltip-dreamer2 =
+  .title = Dreamer (purple)
 mr2022-onboarding-colorway-description-dreamer = <b>You are a Dreamer.</b> You believe that fortune favors the bold and inspire others to be brave.
 
 mr2022-onboarding-colorway-label-innovator = Innovator
-mr2022-onboarding-colorway-tooltip-innovator =
-  .title = Innovator
+mr2022-onboarding-colorway-tooltip-innovator2 =
+  .title = Innovator (orange)
 mr2022-onboarding-colorway-description-innovator = <b>You are an Innovator.</b> You see opportunities everywhere and make an impact on the lives of everyone around you.
 
 ## MR2022 Multistage Mobile Download screen strings
@@ -406,7 +406,7 @@ mr2022-onboarding-privacy-segmentation-button-secondary-label = Show detailed in
 
 ## MR2022 Multistage Gratitude screen strings
 
-mr2022-onboarding-gratitude-title = You’re helping us build a better web.
+mr2022-onboarding-gratitude-title = You’re helping us build a better web
 mr2022-onboarding-gratitude-subtitle = Thank you for using { -brand-short-name }, backed by the Mozilla Foundation. With your support, we’re working to make the internet more open, accessible, and better for everyone.
 mr2022-onboarding-gratitude-primary-button-label = See what’s new
 mr2022-onboarding-gratitude-secondary-button-label = Start browsing

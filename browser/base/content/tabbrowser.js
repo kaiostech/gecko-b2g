@@ -27,10 +27,10 @@
       ChromeUtils.defineESModuleGetters(this, {
         UrlbarProviderOpenTabs:
           "resource:///modules/UrlbarProviderOpenTabs.sys.mjs",
+        PictureInPicture: "resource://gre/modules/PictureInPicture.sys.mjs",
       });
       XPCOMUtils.defineLazyModuleGetters(this, {
         E10SUtils: "resource://gre/modules/E10SUtils.jsm",
-        PictureInPicture: "resource://gre/modules/PictureInPicture.jsm",
       });
       XPCOMUtils.defineLazyServiceGetters(this, {
         MacSharingService: [
@@ -679,10 +679,7 @@
         return;
       }
 
-      if (aTab.hidden) {
-        this.showTab(aTab);
-      }
-
+      this.showTab(aTab);
       this.moveTabTo(aTab, this._numPinnedTabs);
       aTab.setAttribute("pinned", "true");
       this._updateTabBarForPinnedTabs();
@@ -1096,9 +1093,7 @@
 
       this._selectedBrowser = newBrowser;
       this._selectedTab = newTab;
-      if (newTab != FirefoxViewHandler.tab) {
-        this.showTab(newTab);
-      }
+      this.showTab(newTab);
 
       this._appendStatusPanel();
 
@@ -1386,6 +1381,10 @@
 
         if (!window.fullScreen || newTab.isEmpty) {
           if (this._asyncTabSwitching) {
+            // Set _awaitingSetURI flag to suppress popup notification
+            // explicitly while tab switching asynchronously.
+            newBrowser._awaitingSetURI = true;
+
             // The onLocationChange event called in updateCurrentBrowser() will
             // be captured in browser.js, then it calls gURLBar.setURI(). In case
             // of that doing processing of here before doing above processing,
@@ -1399,6 +1398,7 @@
                 if (currentActiveElement === document.activeElement) {
                   gURLBar.select();
                 }
+                delete newBrowser._awaitingSetURI;
               },
               { once: true }
             );
@@ -3268,7 +3268,8 @@
 
       // Ensure we have an index if one was not provided.
       if (typeof index != "number") {
-        // Move the new tab after another tab if needed.
+        // Move the new tab after another tab if needed, to the end otherwise.
+        index = Infinity;
         if (
           !bulkOrderedOpen &&
           ((openerTab &&
@@ -3281,9 +3282,12 @@
             openerTab && this._lastRelatedTabMap.get(openerTab);
           let previousTab = lastRelatedTab || openerTab || this.selectedTab;
           if (previousTab.multiselected) {
-            index = this.selectedTabs[this.selectedTabs.length - 1]._tPos + 1;
-          } else {
+            previousTab = this.selectedTabs.at(-1);
+          }
+          if (!previousTab.hidden) {
             index = previousTab._tPos + 1;
+          } else if (previousTab == FirefoxViewHandler.tab) {
+            index = 0;
           }
 
           if (lastRelatedTab) {
@@ -3295,8 +3299,6 @@
           if (openerTab) {
             this._lastRelatedTabMap.set(openerTab, tab);
           }
-        } else {
-          index = Infinity;
         }
       }
       // Ensure index is within bounds.
@@ -3728,7 +3730,7 @@
       }
 
       this._clearMultiSelectionLocked = false;
-      this.avoidSingleSelectedTab();
+      this._avoidSingleSelectedTab();
       // Don't use document.l10n.setAttributes because the FTL file is loaded
       // lazily and we won't be able to resolve the string.
       document.getElementById("History:UndoCloseTab").setAttribute(
@@ -4665,20 +4667,21 @@
     },
 
     showTab(aTab) {
-      if (aTab.hidden) {
-        aTab.removeAttribute("hidden");
-        this._invalidateCachedTabs();
-
-        this.tabContainer._updateCloseButtons();
-        this.tabContainer._updateHiddenTabsStatus();
-
-        this.tabContainer._setPositionalAttributes();
-
-        let event = document.createEvent("Events");
-        event.initEvent("TabShow", true, false);
-        aTab.dispatchEvent(event);
-        SessionStore.deleteCustomTabValue(aTab, "hiddenBy");
+      if (!aTab.hidden || aTab == FirefoxViewHandler.tab) {
+        return;
       }
+      aTab.removeAttribute("hidden");
+      this._invalidateCachedTabs();
+
+      this.tabContainer._updateCloseButtons();
+      this.tabContainer._updateHiddenTabsStatus();
+
+      this.tabContainer._setPositionalAttributes();
+
+      let event = document.createEvent("Events");
+      event.initEvent("TabShow", true, false);
+      aTab.dispatchEvent(event);
+      SessionStore.deleteCustomTabValue(aTab, "hiddenBy");
     },
 
     hideTab(aTab, aSource) {
@@ -5161,26 +5164,25 @@
      * B and C closing
      * A[pinned] being the only multi-selected tab, selection should be cleared.
      */
-    avoidSingleSelectedTab() {
+    _avoidSingleSelectedTab() {
       if (this.multiSelectedTabsCount == 1) {
         this.clearMultiSelectedTabs();
       }
     },
 
-    switchToNextMultiSelectedTab() {
+    _switchToNextMultiSelectedTab() {
       this._clearMultiSelectionLocked = true;
 
       // Guarantee that _clearMultiSelectionLocked lock gets released.
       try {
-        let lastMultiSelectedTab = gBrowser.lastMultiSelectedTab;
-        if (lastMultiSelectedTab != gBrowser.selectedTab) {
-          gBrowser.selectedTab = lastMultiSelectedTab;
+        let lastMultiSelectedTab = this.lastMultiSelectedTab;
+        if (!lastMultiSelectedTab.selected) {
+          this.selectedTab = lastMultiSelectedTab;
         } else {
           let selectedTabs = ChromeUtils.nondeterministicGetWeakSetKeys(
             this._multiSelectedTabsSet
-          ).filter(tab => tab.isConnected && !tab.closing);
-          let length = selectedTabs.length;
-          gBrowser.selectedTab = selectedTabs[length - 1];
+          ).filter(this._mayTabBeMultiselected);
+          this.selectedTab = selectedTabs.at(-1);
         }
       } catch (e) {
         Cu.reportError(e);
@@ -5203,8 +5205,11 @@
       let { selectedTab, _multiSelectedTabsSet } = this;
       let tabs = ChromeUtils.nondeterministicGetWeakSetKeys(
         _multiSelectedTabsSet
-      ).filter(tab => tab.isConnected && !tab.closing);
-      if (!_multiSelectedTabsSet.has(selectedTab)) {
+      ).filter(this._mayTabBeMultiselected);
+      if (
+        !_multiSelectedTabsSet.has(selectedTab) &&
+        this._mayTabBeMultiselected(selectedTab)
+      ) {
         tabs.push(selectedTab);
       }
       return tabs.sort((a, b) => a._tPos > b._tPos);
@@ -5213,7 +5218,7 @@
     get multiSelectedTabsCount() {
       return ChromeUtils.nondeterministicGetWeakSetKeys(
         this._multiSelectedTabsSet
-      ).filter(tab => tab.isConnected && !tab.closing).length;
+      ).filter(this._mayTabBeMultiselected).length;
     },
 
     get lastMultiSelectedTab() {
@@ -5223,13 +5228,17 @@
       if (tab && tab.isConnected && this._multiSelectedTabsSet.has(tab)) {
         return tab;
       }
-      let selectedTab = gBrowser.selectedTab;
+      let selectedTab = this.selectedTab;
       this.lastMultiSelectedTab = selectedTab;
       return selectedTab;
     },
 
     set lastMultiSelectedTab(aTab) {
       this._lastMultiSelectedTabRef = Cu.getWeakReference(aTab);
+    },
+
+    _mayTabBeMultiselected(aTab) {
+      return aTab.isConnected && !aTab.closing && !aTab.hidden;
     },
 
     _startMultiSelectChange() {
@@ -5250,9 +5259,9 @@
       }
       if (this._multiSelectChangeRemovals.size) {
         if (this._multiSelectChangeRemovals.has(selectedTab)) {
-          this.switchToNextMultiSelectedTab();
+          this._switchToNextMultiSelectedTab();
         }
-        this.avoidSingleSelectedTab();
+        this._avoidSingleSelectedTab();
         noticeable = true;
       }
       this._multiSelectChangeStarted = false;

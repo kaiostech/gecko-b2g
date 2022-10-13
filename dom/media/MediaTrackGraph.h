@@ -279,9 +279,9 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   void SetGraphImpl(MediaTrackGraph* aGraph);
 
   // Control API.
-  virtual void AddAudioOutput(void* aKey);
-  virtual void SetAudioOutputVolume(void* aKey, float aVolume);
-  virtual void RemoveAudioOutput(void* aKey);
+  void AddAudioOutput(void* aKey);
+  void SetAudioOutputVolume(void* aKey, float aVolume);
+  void RemoveAudioOutput(void* aKey);
   // Since a stream can be played multiple ways, we need to be able to
   // play to multiple VideoFrameContainers.
   // Only the first enabled video track is played.
@@ -292,8 +292,8 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   // Suspend message reaches the graph, the track stops processing. It
   // ignores its inputs and produces silence/no video until Resumed. Its
   // current time does not advance.
-  virtual void Suspend();
-  virtual void Resume();
+  void Suspend();
+  void Resume();
   // Events will be dispatched by calling methods of aListener.
   virtual void AddListener(MediaTrackListener* aListener);
   virtual RefPtr<GenericPromise> RemoveListener(MediaTrackListener* aListener);
@@ -305,7 +305,7 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
    * Note that the listener will be notified on the MediaTrackGraph thread
    * with whether the installation of it at the source was successful or not.
    */
-  virtual void AddDirectListener(DirectMediaTrackListener* aListener);
+  void AddDirectListener(DirectMediaTrackListener* aListener);
 
   /**
    * Removes aListener from the source track of this track.
@@ -314,7 +314,7 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
    * about this, removing when the source cannot be found, or when the listener
    * had already been removed does nothing.
    */
-  virtual void RemoveDirectListener(DirectMediaTrackListener* aListener);
+  void RemoveDirectListener(DirectMediaTrackListener* aListener);
 
   // A disabled track has video replaced by black, and audio replaced by
   // silence.

@@ -344,7 +344,7 @@
               class="accessory-button"
               data-l10n-id="choose-button"
               search-l10n-ids="
-                webpage-languages-window.title,
+                webpage-languages-window2.title,
                 languages-description,
                 languages-customize-moveup.label,
                 languages-customize-movedown.label,
@@ -501,7 +501,7 @@
   </hbox>
 #ifdef MOZ_UPDATER
   <vbox id="updateBox">
-    <stack id="updateDeck" orient="vertical">
+    <deck id="updateDeck" orient="vertical">
       <hbox id="checkForUpdates" align="start">
         <spacer flex="1"/>
         <button id="checkForUpdatesButton"
@@ -570,7 +570,7 @@
       <hbox id="manualUpdate" align="start">
         <image class="face-sad"/>
         <description flex="1" data-l10n-id="update-manual">
-          <label id="manualLink" data-l10n-name="manual-link" is="text-link"/>
+          <label class="manualLink" data-l10n-name="manual-link" is="text-link"/>
         </description>
         <spacer flex="1"/>
         <button data-l10n-id="update-checkForUpdatesButton"
@@ -593,7 +593,17 @@
                 is="highlightable-button"
                 disabled="true"/>
       </hbox>
-    </stack>
+      <hbox id="internalError" align="start">
+        <image class="face-sad"/>
+        <description flex="1" data-l10n-id="update-internal-error">
+          <label class="manualLink" data-l10n-name="manual-link" is="text-link"/>
+        </description>
+        <spacer flex="1"/>
+        <button data-l10n-id="update-checkForUpdatesButton"
+                is="highlightable-button"
+                disabled="true"/>
+      </hbox>
+    </deck>
   </vbox>
 #endif
 
@@ -776,7 +786,7 @@
               data-l10n-id="network-proxy-connection-settings"
               searchkeywords="doh trr"
               search-l10n-ids="
-                connection-window.title,
+                connection-window2.title,
                 connection-proxy-option-no.label,
                 connection-proxy-option-auto.label,
                 connection-proxy-option-system.label,

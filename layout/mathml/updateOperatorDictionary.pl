@@ -76,7 +76,6 @@ if ($ARGV[0] eq "compare" && $#ARGV == 1) {
 #      0   | description
 #      1   | lspace
 #      2   | rspace
-#      3   | minsize
 #      4   | largeop
 #      5   | movablelimits
 #      6   | stretchy
@@ -84,11 +83,7 @@ if ($ARGV[0] eq "compare" && $#ARGV == 1) {
 #      8   | accent
 #      9   | fence
 #     10   | symmetric
-#     11   | priority
-#     12   | linebreakstyle
 #     13   | direction
-#     14   | integral
-#     15   | mirrorable
 
 # 1) build %moz_hash from $MOZ_DICTIONARY
 
@@ -109,7 +104,6 @@ while (<$file>) {
     $value[0] = $3;
     if (m/^(.*)lspace:(\d)(.*)$/) { $value[1] = $2; } else { $value[1] = "5"; }
     if (m/^(.*)rspace:(\d)(.*)$/) { $value[2] = $2; } else { $value[2] = "5"; }
-    if (m/^(.*)minsize:(\d)(.*)$/) { $value[3] = $2; } else { $value[3] = "1"; }
     $value[4] = (m/^(.*)largeop(.*)$/);
     $value[5] = (m/^(.*)movablelimits(.*)$/);
     $value[6] = (m/^(.*)stretchy(.*)$/);
@@ -117,12 +111,8 @@ while (<$file>) {
     $value[8] = (m/^(.*)accent(.*)$/);
     $value[9] = (m/^(.*)fence(.*)$/);
     $value[10] = (m/^(.*)symmetric(.*)$/);
-    $value[11] = ""; # we don't store "priority" in our dictionary
-    $value[12] = ""; # we don't store "linebreakstyle" in our dictionary
     if (m/^(.*)direction:([a-z]*)(.*)$/) { $value[13] = $2; }
     else { $value[13] = ""; }
-    $value[14] = (m/^(.*)integral(.*)$/);
-    $value[15] = (m/^(.*)mirrorable(.*)$/);
 
     # 1.3) save the key and value
     $moz_hash{$key} = [ @value ];
@@ -144,6 +134,19 @@ if ($ARGV[0] eq "check") {
     @moz_keys = (keys %moz_hash);
     # check the validity of our private data
     while ($key = pop(@moz_keys)) {
+
+        if ($key =~ /\\u.+\\u.+\\u.+/) {
+            $valid = 0;
+            $nb_errors++;
+            print $file_syntax_errors "error: \"$key\" has more than 2 characters\n";
+        }
+
+        if ($key =~ /\\u20D2\./ || $key =~ /\\u0338\./) {
+            $valid = 0;
+            $nb_errors++;
+            print $file_syntax_errors "error: \"$key\" ends with character U+20D2 or U+0338\n";
+        }
+
         @moz = @{ $moz_hash{$key} };
         $entry = &generateEntry($key, @moz);
         $valid = 1;
@@ -156,25 +159,12 @@ if ($ARGV[0] eq "check") {
             print $file_syntax_errors "error: invalid direction \"$moz[13]\"\n";
         }
 
-        if (!@moz[4] && @moz[14]) {
-            $valid = 0;
-            $nb_warnings++;
-            print $file_syntax_errors "warning: operator is integral but not largeop\n";
-        }
-
         if (@moz[4] && !(@moz[13] eq "vertical")) {
             $valid = 0;
             $nb_errors++;
             print $file_syntax_errors "error: operator is largeop but does not have vertical direction\n";
         }
         
-        $_ = @moz[0];
-        if ((m/^(.*)[iI]ntegral(.*)$/) && !@moz[14]) {
-            $valid = 0;
-            $nb_warnings++;
-            print $file_syntax_errors "warning: operator contains the term \"integral\" in its comment, but is not integral\n";
-        }
-
         if (!$valid) {
             print $file_syntax_errors $entry;
             print $file_syntax_errors "\n";
@@ -277,6 +267,12 @@ foreach my $entry ($doc->findnodes('/root/entry')) {
     $key = "operator.";
 
     $_ = $entry->getAttribute("unicode");
+
+    # Skip non-BMP Arabic characters that are handled specially.
+    if ($_ == "U1EEF0" || $_ == "U1EEF1") {
+        next;
+    }
+
     $_ = "$_-";
     while (m/^U?0(\w*)-(.*)$/) {
         # Concatenate .\uNNNN
@@ -294,8 +290,6 @@ foreach my $entry ($doc->findnodes('/root/entry')) {
     if ($value[1] eq "") { $value[1] = "5"; }
     $value[2] = $entry->getAttribute("rspace");
     if ($value[2] eq "") { $value[2] = "5"; }
-    $value[3] = $entry->getAttribute("minsize");
-    if ($value[3] eq "") { $value[3] = "1"; }
 
     $_ = $entry->getAttribute("properties");
     $value[4] = (m/^(.*)largeop(.*)$/);
@@ -304,14 +298,10 @@ foreach my $entry ($doc->findnodes('/root/entry')) {
     $value[7] = (m/^(.*)separator(.*)$/);
     $value[9] = (m/^(.*)fence(.*)$/);
     $value[10] = (m/^(.*)symmetric(.*)$/);
-    $value[15] = (m/^(.*)mirrorable(.*)$/);
-    $value[11] = $entry->getAttribute("priority");
-    $value[12] = $entry->getAttribute("linebreakstyle");
 
     # not stored in the WG dictionary
     $value[8] = ""; # accent
     $value[13] = ""; # direction
-    $value[14] = ""; # integral
 
     # 3.3) save the key and value
     push(@wg_keys, $key);
@@ -430,14 +420,12 @@ sub generateCommon {
     # helper function to generate the string of data shared by both dictionaries
     my(@v) = @_;
     $entry = "lspace:$v[1] rspace:$v[2]";
-    if ($v[3] ne "1") { $entry = "$entry minsize:$v[3]"; }
     if ($v[4]) { $entry = "$entry largeop"; }
     if ($v[5]) { $entry = "$entry movablelimits"; }
     if ($v[6]) { $entry = "$entry stretchy"; }
     if ($v[7]) { $entry = "$entry separator"; }
     if ($v[9]) { $entry = "$entry fence"; }
     if ($v[10]) { $entry = "$entry symmetric"; }
-    if ($v[15]) { $entry = "$entry mirrorable"; }
     return $entry;
 }
 
@@ -449,7 +437,6 @@ sub completeCommon {
 
     if ($v_moz[8]) { $entry = "$entry accent"; }
     if ($v_moz[13]) { $entry = "$entry direction:$v_moz[13]"; }
-    if ($v_moz[14]) { $entry = "$entry integral"; }
 
     if ($v_moz[0]) {
         # keep our previous comment

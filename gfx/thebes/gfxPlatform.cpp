@@ -24,6 +24,7 @@
 #include "mozilla/gfx/CanvasManagerParent.h"
 #include "mozilla/gfx/CanvasRenderThread.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/EnumTypeTraits.h"
 #include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_bidi.h"
@@ -605,7 +606,7 @@ static void WebRenderBatchingPrefChangeCallback(const char* aPrefName, void*) {
 static void WebRenderBlobTileSizePrefChangeCallback(const char* aPrefName,
                                                     void*) {
   uint32_t tileSize = Preferences::GetUint(
-      StaticPrefs::GetPrefName_gfx_webrender_blob_tile_size(), 512);
+      StaticPrefs::GetPrefName_gfx_webrender_blob_tile_size(), 256);
   gfx::gfxVars::SetWebRenderBlobTileSize(tileSize);
 }
 
@@ -1852,13 +1853,15 @@ bool gfxPlatform::IsFontFormatSupported(
   }
   StyleFontFaceSourceTechFlags unsupportedTechnologies =
       StyleFontFaceSourceTechFlags::INCREMENTAL |
-      StyleFontFaceSourceTechFlags::PALETTES |
       StyleFontFaceSourceTechFlags::COLOR_SBIX;
   if (!StaticPrefs::gfx_downloadable_fonts_keep_color_bitmaps()) {
     unsupportedTechnologies |= StyleFontFaceSourceTechFlags::COLOR_CBDT;
   }
   if (!StaticPrefs::gfx_font_rendering_colr_v1_enabled()) {
     unsupportedTechnologies |= StyleFontFaceSourceTechFlags::COLOR_COLRV1;
+  }
+  if (!StaticPrefs::layout_css_font_palette_enabled()) {
+    unsupportedTechnologies |= StyleFontFaceSourceTechFlags::PALETTES;
   }
   if (!StaticPrefs::layout_css_font_variations_enabled()) {
     unsupportedTechnologies |= StyleFontFaceSourceTechFlags::VARIATIONS;
@@ -2093,6 +2096,14 @@ const mozilla::gfx::ContentDeviceData* gfxPlatform::GetInitContentDeviceData() {
   return gContentDeviceInitData;
 }
 
+CMSMode GfxColorManagementMode() {
+  const auto mode = StaticPrefs::gfx_color_management_mode();
+  if (mode >= 0 && mode < UnderlyingValue(CMSMode::AllCount)) {
+    return CMSMode(mode);
+  }
+  return CMSMode::Off;
+}
+
 void gfxPlatform::InitializeCMS() {
   if (gCMSInitialized) {
     return;
@@ -2111,12 +2122,7 @@ void gfxPlatform::InitializeCMS() {
     return;
   }
 
-  {
-    int32_t mode = StaticPrefs::gfx_color_management_mode();
-    if (mode >= 0 && mode < int32_t(CMSMode::AllCount)) {
-      gCMSMode = CMSMode(mode);
-    }
-  }
+  gCMSMode = GfxColorManagementMode();
 
   gCMSsRGBProfile = qcms_profile_sRGB();
 

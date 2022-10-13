@@ -108,7 +108,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(AudioContext)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mWorklet)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPromiseGripArray)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingResumePromises)
-  if (tmp->mSuspendCalled || !tmp->mIsStarted) {
+  if (tmp->mTracksAreSuspended || !tmp->mIsStarted) {
     NS_IMPL_CYCLE_COLLECTION_UNLINK(mActiveNodes)
   }
   // mDecodeJobs owns the WebAudioDecodeJob objects whose lifetime is managed
@@ -127,7 +127,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(AudioContext,
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWorklet)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPromiseGripArray)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPendingResumePromises)
-  if (tmp->mSuspendCalled || !tmp->mIsStarted) {
+  if (tmp->mTracksAreSuspended || !tmp->mIsStarted) {
     NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mActiveNodes)
   }
   // mDecodeJobs owns the WebAudioDecodeJob objects whose lifetime is managed
@@ -162,13 +162,14 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
       mIsOffline(aIsOffline),
       mIsStarted(!aIsOffline),
       mIsShutDown(false),
+      mIsDisconnecting(false),
       mCloseCalled(false),
       // Realtime contexts start with suspended tracks until an
       // AudioCallbackDriver is running.
-      mSuspendCalled(!aIsOffline),
-      mIsDisconnecting(false),
+      mTracksAreSuspended(!aIsOffline),
       mWasAllowedToStart(true),
       mSuspendedByContent(false),
+      mSuspendedByChrome(aWindow->IsSuspended()),
       mWasEverAllowedToStart(false),
       mWasEverBlockedToStart(false),
       mWouldBeAllowedToStart(true) {
@@ -201,7 +202,7 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
     AUTOPLAY_LOG("AudioContext %p is not allowed to start", this);
     ReportBlocked();
   } else if (!mIsOffline) {
-    ResumeInternal(AudioContextOperationFlags::SendStateChange);
+    ResumeInternal();
   }
 
   // The context can't be muted until it has a destination.
@@ -234,7 +235,7 @@ void AudioContext::StartBlockedAudioContextIfAllowed() {
   // not if it was a result of the AudioContext starting after having been
   // blocked because of the auto-play policy.
   if (isAllowedToPlay && !mSuspendedByContent) {
-    ResumeInternal(AudioContextOperationFlags::SendStateChange);
+    ResumeInternal();
   } else {
     ReportBlocked();
   }
@@ -1055,6 +1056,8 @@ void AudioContext::SuspendFromChrome() {
   if (mIsOffline || mIsShutDown) {
     return;
   }
+  MOZ_ASSERT(!mSuspendedByChrome);
+  mSuspendedByChrome = true;
   SuspendInternal(nullptr, Preferences::GetBool("dom.audiocontext.testing")
                                ? AudioContextOperationFlags::SendStateChange
                                : AudioContextOperationFlags::None);
@@ -1067,11 +1070,12 @@ void AudioContext::SuspendInternal(void* aPromise,
   Destination()->Suspend();
 
   nsTArray<RefPtr<mozilla::MediaTrack>> tracks;
-  // If mSuspendCalled is true then we already suspended all our tracks,
+  // If mTracksAreSuspended is true then we already suspended all our tracks,
   // so don't suspend them again (since suspend(); suspend(); resume(); should
   // cancel both suspends). But we still need to do ApplyAudioContextOperation
   // to ensure our new promise is resolved.
-  if (!mSuspendCalled) {
+  if (!mTracksAreSuspended) {
+    mTracksAreSuspended = true;
     tracks = GetAllTracks();
   }
   auto promise = Graph()->ApplyAudioContextOperation(
@@ -1085,8 +1089,6 @@ void AudioContext::SuspendInternal(void* aPromise,
         },
         [] { MOZ_CRASH("Unexpected rejection"); });
   }
-
-  mSuspendCalled = true;
 }
 
 void AudioContext::ResumeFromChrome() {
@@ -1102,9 +1104,12 @@ void AudioContext::ResumeFromChrome() {
   if (mIsOffline || mIsShutDown) {
     return;
   }
-  ResumeInternal(Preferences::GetBool("dom.audiocontext.testing")
-                     ? AudioContextOperationFlags::SendStateChange
-                     : AudioContextOperationFlags::None);
+  MOZ_ASSERT(mSuspendedByChrome);
+  mSuspendedByChrome = false;
+  if (!mWasAllowedToStart) {
+    return;
+  }
+  ResumeInternal();
 }
 
 already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
@@ -1137,7 +1142,7 @@ already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
   AUTOPLAY_LOG("Trying to resume AudioContext %p, IsAllowedToPlay=%d", this,
                isAllowedToPlay);
   if (isAllowedToPlay) {
-    ResumeInternal(AudioContextOperationFlags::SendStateChange);
+    ResumeInternal();
   } else {
     ReportBlocked();
   }
@@ -1147,32 +1152,38 @@ already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
   return promise.forget();
 }
 
-void AudioContext::ResumeInternal(AudioContextOperationFlags aFlags) {
+void AudioContext::ResumeInternal() {
   MOZ_ASSERT(!mIsOffline);
   AUTOPLAY_LOG("Allow to resume AudioContext %p", this);
   mWasAllowedToStart = true;
 
+  if (mSuspendedByChrome || mSuspendedByContent || mCloseCalled) {
+    MOZ_ASSERT(mTracksAreSuspended);
+    return;
+  }
+
   Destination()->Resume();
 
   nsTArray<RefPtr<mozilla::MediaTrack>> tracks;
-  // If mSuspendCalled is false then we already resumed all our tracks,
+  // If mTracksAreSuspended is false then we already resumed all our tracks,
   // so don't resume them again (since suspend(); resume(); resume(); should
   // be OK). But we still need to do ApplyAudioContextOperation
   // to ensure our new promise is resolved.
-  if (mSuspendCalled) {
+  if (mTracksAreSuspended) {
+    mTracksAreSuspended = false;
     tracks = GetAllTracks();
   }
-  auto promise = Graph()->ApplyAudioContextOperation(
-      DestinationTrack(), std::move(tracks), AudioContextOperation::Resume);
-  if (aFlags & AudioContextOperationFlags::SendStateChange) {
-    promise->Then(
-        GetMainThread(), "AudioContext::OnStateChanged",
-        [self = RefPtr<AudioContext>(this)](AudioContextState aNewState) {
-          self->OnStateChanged(nullptr, aNewState);
-        },
-        [] {});  // Promise may be rejected after graph shutdown.
-  }
-  mSuspendCalled = false;
+  // Check for statechange even when resumed from chrome because content may
+  // have called Resume() before chrome resumed the window.
+  Graph()
+      ->ApplyAudioContextOperation(DestinationTrack(), std::move(tracks),
+                                   AudioContextOperation::Resume)
+      ->Then(
+          GetMainThread(), "AudioContext::OnStateChanged",
+          [self = RefPtr<AudioContext>(this)](AudioContextState aNewState) {
+            self->OnStateChanged(nullptr, aNewState);
+          },
+          [] {});  // Promise may be rejected after graph shutdown.
 }
 
 void AudioContext::UpdateAutoplayAssumptionStatus() {
@@ -1288,10 +1299,10 @@ void AudioContext::CloseInternal(void* aPromise,
     Destination()->Close();
 
     nsTArray<RefPtr<mozilla::MediaTrack>> tracks;
-    // If mSuspendCalled or mCloseCalled are true then we already suspended
+    // If mTracksAreSuspended or mCloseCalled are true then we already suspended
     // all our tracks, so don't suspend them again. But we still need to do
     // ApplyAudioContextOperation to ensure our new promise is resolved.
-    if (!mSuspendCalled && !mCloseCalled) {
+    if (!mTracksAreSuspended && !mCloseCalled) {
       tracks = GetAllTracks();
     }
     auto promise = Graph()->ApplyAudioContextOperation(

@@ -80,8 +80,7 @@ ${helpers.predefined_type(
     "computed::Clear::None",
     engines="gecko servo-2013",
     animation_value_type="discrete",
-    gecko_ffi_name="mBreakType",
-    spec="https://drafts.csswg.org/css-box/#propdef-clear",
+    spec="https://drafts.csswg.org/css2/#propdef-clear",
     servo_restyle_damage="rebuild_and_reflow",
 )}
 
@@ -446,7 +445,7 @@ ${helpers.predefined_type(
 ${helpers.predefined_type(
     "container-type",
     "ContainerType",
-    "computed::ContainerType::NONE",
+    "computed::ContainerType::NORMAL",
     engines="gecko",
     animation_value_type="none",
     gecko_pref="layout.css.container-queries.enabled",

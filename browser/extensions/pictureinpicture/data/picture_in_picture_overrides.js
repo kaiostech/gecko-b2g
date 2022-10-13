@@ -9,7 +9,7 @@
 let AVAILABLE_PIP_OVERRIDES;
 
 {
-  // See PictureInPictureControls.jsm for these values.
+  // See PictureInPictureControls.sys.mjs for these values.
   // eslint-disable-next-line no-unused-vars
   const TOGGLE_POLICIES = browser.pictureInPictureChild.getPolicies();
 
@@ -61,6 +61,12 @@ let AVAILABLE_PIP_OVERRIDES;
       },
     },
 
+    brightcove: {
+      "https://*.brightcove.com/*": {
+        videoWrapperScriptPath: "video-wrappers/videojsWrapper.js",
+      },
+    },
+
     dailymotion: {
       "https://*.dailymotion.com/*": {
         videoWrapperScriptPath: "video-wrappers/dailymotion.js",
@@ -70,6 +76,12 @@ let AVAILABLE_PIP_OVERRIDES;
     disneyplus: {
       "https://*.disneyplus.com/*": {
         videoWrapperScriptPath: "video-wrappers/disneyplus.js",
+      },
+    },
+
+    frontendMasters: {
+      "https://*.frontendmasters.com/*": {
+        videoWrapperScriptPath: "video-wrappers/videojsWrapper.js",
       },
     },
 
@@ -136,6 +148,9 @@ let AVAILABLE_PIP_OVERRIDES;
       "https://*.pbs.org/*": {
         videoWrapperScriptPath: "video-wrappers/videojsWrapper.js",
       },
+      "https://*.pbskids.org/*": {
+        videoWrapperScriptPath: "video-wrappers/videojsWrapper.js",
+      },
     },
 
     piped: {
@@ -172,6 +187,12 @@ let AVAILABLE_PIP_OVERRIDES;
     voot: {
       "https://*.voot.com/*": {
         videoWrapperScriptPath: "video-wrappers/voot.js",
+      },
+    },
+
+    wired: {
+      "https://*.wired.com/*": {
+        videoWrapperScriptPath: "video-wrappers/videojsWrapper.js",
       },
     },
 

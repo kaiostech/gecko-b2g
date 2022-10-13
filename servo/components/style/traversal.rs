@@ -8,7 +8,7 @@ use crate::context::{ElementCascadeInputs, SharedStyleContext, StyleContext};
 use crate::data::{ElementData, ElementStyles};
 use crate::dom::{NodeInfo, OpaqueNode, TElement, TNode};
 use crate::invalidation::element::restyle_hints::RestyleHint;
-use crate::matching::{ChildCascadeRequirement, MatchMethods};
+use crate::matching::{ChildRestyleRequirement, MatchMethods};
 use crate::selector_parser::PseudoElement;
 use crate::sharing::StyleSharingTarget;
 use crate::style_resolver::{PseudoElementResolution, StyleResolverForElement};
@@ -19,10 +19,8 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 
 /// A cache from element reference to known-valid computed style.
-pub type UndisplayedStyleCache = HashMap<
-    selectors::OpaqueElement,
-    servo_arc::Arc<crate::properties::ComputedValues>,
->;
+pub type UndisplayedStyleCache =
+    HashMap<selectors::OpaqueElement, servo_arc::Arc<crate::properties::ComputedValues>>;
 
 /// A per-traversal-level chunk of data. This is sent down by the traversal, and
 /// currently only holds the dom depth for the bloom filter.
@@ -336,9 +334,8 @@ where
         }
 
         ancestor = ancestor.unwrap().traversal_parent();
-        layout_parent_style = ancestor.and_then(|a| {
-            a.borrow_data().map(|data| data.styles.primary().clone())
-        });
+        layout_parent_style =
+            ancestor.and_then(|a| a.borrow_data().map(|data| data.styles.primary().clone()));
     }
 
     for ancestor in ancestors_requiring_style_resolution.iter().rev() {
@@ -423,19 +420,19 @@ pub fn recalc_style_at<E, D, F>(
         data
     );
 
-    let mut child_cascade_requirement = ChildCascadeRequirement::CanSkipCascade;
+    let mut child_restyle_requirement = ChildRestyleRequirement::CanSkipCascade;
 
     // Compute style for this element if necessary.
     if compute_self {
-        child_cascade_requirement = compute_style(traversal_data, context, element, data);
+        child_restyle_requirement = compute_style(traversal_data, context, element, data);
 
         if element.is_in_native_anonymous_subtree() {
             // We must always cascade native anonymous subtrees, since they
             // may have pseudo-elements underneath that would inherit from the
             // closest non-NAC ancestor instead of us.
-            child_cascade_requirement = cmp::max(
-                child_cascade_requirement,
-                ChildCascadeRequirement::MustCascadeChildren,
+            child_restyle_requirement = cmp::max(
+                child_restyle_requirement,
+                ChildRestyleRequirement::MustCascadeChildren,
             );
         }
 
@@ -472,10 +469,10 @@ pub fn recalc_style_at<E, D, F>(
     let propagated_hint = data.hint.propagate(&flags);
 
     trace!(
-        "propagated_hint={:?}, cascade_requirement={:?}, \
+        "propagated_hint={:?}, restyle_requirement={:?}, \
          is_display_none={:?}, implementing_pseudo={:?}",
         propagated_hint,
-        child_cascade_requirement,
+        child_restyle_requirement,
         data.styles.is_display_none(),
         element.implemented_pseudo_element()
     );
@@ -504,7 +501,7 @@ pub fn recalc_style_at<E, D, F>(
     // it's useless to style children.
     let mut traverse_children = has_dirty_descendants_for_this_restyle ||
         !propagated_hint.is_empty() ||
-        !child_cascade_requirement.can_skip_cascade() ||
+        !child_restyle_requirement.can_skip_cascade() ||
         is_servo_nonincremental_layout();
 
     traverse_children = traverse_children && !data.styles.is_display_none();
@@ -516,7 +513,7 @@ pub fn recalc_style_at<E, D, F>(
             element,
             data,
             propagated_hint,
-            child_cascade_requirement,
+            child_restyle_requirement,
             is_initial_style,
             note_child,
         );
@@ -549,7 +546,7 @@ fn compute_style<E>(
     context: &mut StyleContext<E>,
     element: E,
     data: &mut ElementData,
-) -> ChildCascadeRequirement
+) -> ChildRestyleRequirement
 where
     E: TElement,
 {
@@ -734,7 +731,7 @@ fn note_children<E, D, F>(
     element: E,
     data: &ElementData,
     propagated_hint: RestyleHint,
-    cascade_requirement: ChildCascadeRequirement,
+    restyle_requirement: ChildRestyleRequirement,
     is_initial_style: bool,
     mut note_child: F,
 ) where
@@ -771,12 +768,12 @@ fn note_children<E, D, F>(
 
         if let Some(ref mut child_data) = child_data {
             let mut child_hint = propagated_hint;
-            match cascade_requirement {
-                ChildCascadeRequirement::CanSkipCascade => {},
-                ChildCascadeRequirement::MustCascadeDescendants => {
+            match restyle_requirement {
+                ChildRestyleRequirement::CanSkipCascade => {},
+                ChildRestyleRequirement::MustCascadeDescendants => {
                     child_hint |= RestyleHint::RECASCADE_SELF | RestyleHint::RECASCADE_DESCENDANTS;
                 },
-                ChildCascadeRequirement::MustCascadeChildrenIfInheritResetStyle => {
+                ChildRestyleRequirement::MustCascadeChildrenIfInheritResetStyle => {
                     use crate::computed_value_flags::ComputedValueFlags;
                     if child_data
                         .styles
@@ -787,8 +784,11 @@ fn note_children<E, D, F>(
                         child_hint |= RestyleHint::RECASCADE_SELF;
                     }
                 },
-                ChildCascadeRequirement::MustCascadeChildren => {
+                ChildRestyleRequirement::MustCascadeChildren => {
                     child_hint |= RestyleHint::RECASCADE_SELF;
+                },
+                ChildRestyleRequirement::MustMatchDescendants => {
+                    child_hint |= RestyleHint::restyle_subtree();
                 },
             }
 

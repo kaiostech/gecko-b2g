@@ -4,45 +4,45 @@
 
 "use strict";
 
-const { l10n } = require("devtools/shared/inspector/css-logic");
+const { l10n } = require("resource://devtools/shared/inspector/css-logic.js");
 const {
   InplaceEditor,
   editableField,
-} = require("devtools/client/shared/inplace-editor");
+} = require("resource://devtools/client/shared/inplace-editor.js");
 const {
   createChild,
   appendText,
   advanceValidate,
   blurOnMultipleProperties,
-} = require("devtools/client/inspector/shared/utils");
-const { throttle } = require("devtools/shared/throttle");
+} = require("resource://devtools/client/inspector/shared/utils.js");
+const { throttle } = require("resource://devtools/shared/throttle.js");
 const {
   style: { ELEMENT_STYLE },
-} = require("devtools/shared/constants");
+} = require("resource://devtools/shared/constants.js");
 
 loader.lazyRequireGetter(
   this,
   "openContentLink",
-  "devtools/client/shared/link",
+  "resource://devtools/client/shared/link.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   ["parseDeclarations", "parseSingleValue"],
-  "devtools/shared/css/parsing-utils",
+  "resource://devtools/shared/css/parsing-utils.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "findCssSelector",
-  "devtools/shared/inspector/css-logic",
+  "resource://devtools/shared/inspector/css-logic.js",
   true
 );
-loader.lazyRequireGetter(
-  this,
+const lazy = {};
+ChromeUtils.defineModuleGetter(
+  lazy,
   "AppConstants",
-  "resource://gre/modules/AppConstants.jsm",
-  true
+  "resource://gre/modules/AppConstants.jsm"
 );
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -1341,7 +1341,8 @@ TextPropertyEditor.prototype = {
    * @returns {Boolean}
    */
   _hasSmallIncrementModifier(event) {
-    const modifier = AppConstants.platform === "macosx" ? "altKey" : "ctrlKey";
+    const modifier =
+      lazy.AppConstants.platform === "macosx" ? "altKey" : "ctrlKey";
     return event[modifier] === true;
   },
 

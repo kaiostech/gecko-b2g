@@ -8,9 +8,11 @@
 
 #include "FileSystemDatabaseManager.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/dom/FileBlobImpl.h"
 #include "mozilla/dom/FileSystemAccessHandleParent.h"
 #include "mozilla/dom/FileSystemDataManager.h"
 #include "mozilla/dom/FileSystemTypes.h"
+#include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/QMResult.h"
 #include "mozilla/dom/quota/ForwardDecls.h"
 #include "mozilla/dom/quota/QuotaCommon.h"
@@ -36,7 +38,7 @@ namespace mozilla::dom {
 FileSystemManagerParent::FileSystemManagerParent(
     RefPtr<fs::data::FileSystemDataManager> aDataManager,
     const EntryId& aRootEntry)
-    : mDataManager(std::move(aDataManager)), mRootEntry(aRootEntry) {}
+    : mDataManager(std::move(aDataManager)), mRootResponse(aRootEntry) {}
 
 FileSystemManagerParent::~FileSystemManagerParent() {
   LOG(("Destroying FileSystemManagerParent %p", this));
@@ -57,8 +59,7 @@ IPCResult FileSystemManagerParent::RecvGetRootHandle(
     GetRootHandleResolver&& aResolver) {
   AssertIsOnIOTarget();
 
-  FileSystemGetHandleResponse response(mRootEntry);
-  aResolver(response);
+  aResolver(mRootResponse);
 
   return IPC_OK();
 }
@@ -134,8 +135,7 @@ mozilla::ipc::IPCResult FileSystemManagerParent::RecvGetAccessHandle(
   fs::Path path;
   nsCOMPtr<nsIFile> file;
   QM_TRY(MOZ_TO_RESULT(mDataManager->MutableDatabaseManagerPtr()->GetFile(
-             {aRequest.entryId(), aRequest.entryId()}, type,
-             lastModifiedMilliSeconds, path, file)),
+             aRequest.entryId(), type, lastModifiedMilliSeconds, path, file)),
          IPC_OK(), reportError);
 
   if (MOZ_LOG_TEST(gOPFSLog, mozilla::LogLevel::Debug)) {
@@ -173,9 +173,40 @@ IPCResult FileSystemManagerParent::RecvGetFile(
     FileSystemGetFileRequest&& aRequest, GetFileResolver&& aResolver) {
   AssertIsOnIOTarget();
 
-  FileSystemGetFileResponse response(NS_ERROR_NOT_IMPLEMENTED);
-  aResolver(response);
+  // XXX Spec https://www.w3.org/TR/FileAPI/#dfn-file wants us to snapshot the
+  // state of the file at getFile() time
 
+  // You can create a File with getFile() even if the file is locked
+  // XXX factor out this part of the code for accesshandle/ and getfile
+  auto reportError = [aResolver](nsresult rv) {
+    LOG(("getFile() Failed!"));
+    aResolver(rv);
+  };
+
+  nsString type;
+  fs::TimeStamp lastModifiedMilliSeconds;
+  fs::Path path;
+  nsCOMPtr<nsIFile> fileObject;
+  QM_TRY(MOZ_TO_RESULT(mDataManager->MutableDatabaseManagerPtr()->GetFile(
+             aRequest.entryId(), type, lastModifiedMilliSeconds, path,
+             fileObject)),
+         IPC_OK(), reportError);
+
+  if (MOZ_LOG_TEST(gOPFSLog, mozilla::LogLevel::Debug)) {
+    nsAutoString path;
+    if (NS_SUCCEEDED(fileObject->GetPath(path))) {
+      LOG(("Opening %s", NS_ConvertUTF16toUTF8(path).get()));
+    }
+  }
+
+  RefPtr<BlobImpl> blob = MakeRefPtr<FileBlobImpl>(fileObject);
+
+  IPCBlob ipcBlob;
+  QM_TRY(MOZ_TO_RESULT(IPCBlobUtils::Serialize(blob, ipcBlob)), IPC_OK(),
+         reportError);
+
+  aResolver(
+      FileSystemFileProperties(lastModifiedMilliSeconds, ipcBlob, type, path));
   return IPC_OK();
 }
 
@@ -270,7 +301,7 @@ IPCResult FileSystemManagerParent::RecvRemoveEntry(
                 IPC_OK(), reportError);
 
   if (!isDeleted) {
-    FileSystemRemoveEntryResponse response(NS_ERROR_UNEXPECTED);
+    FileSystemRemoveEntryResponse response(NS_ERROR_DOM_NOT_FOUND_ERR);
     aResolver(response);
 
     return IPC_OK();
@@ -296,17 +327,9 @@ IPCResult FileSystemManagerParent::RecvMoveEntry(
     aResolver(response);
   };
 
-  QM_TRY_UNWRAP(EntryId parentId,
-                mDataManager->MutableDatabaseManagerPtr()->GetParentEntryId(
-                    aRequest.handle().entryId()),
-                IPC_OK(), reportError);
-  FileSystemChildMetadata sourceHandle;
-  sourceHandle.parentId() = parentId;
-  sourceHandle.childName() = aRequest.handle().entryName();
-
   QM_TRY_UNWRAP(bool moved,
                 mDataManager->MutableDatabaseManagerPtr()->MoveEntry(
-                    sourceHandle, aRequest.destHandle()),
+                    aRequest.handle(), aRequest.destHandle()),
                 IPC_OK(), reportError);
 
   fs::FileSystemMoveEntryResponse response(moved ? NS_OK : NS_ERROR_FAILURE);
@@ -329,21 +352,9 @@ IPCResult FileSystemManagerParent::RecvRenameEntry(
     aResolver(response);
   };
 
-  QM_TRY_UNWRAP(EntryId parentId,
-                mDataManager->MutableDatabaseManagerPtr()->GetParentEntryId(
-                    aRequest.handle().entryId()),
-                IPC_OK(), reportError);
-  FileSystemChildMetadata sourceHandle;
-  sourceHandle.parentId() = parentId;
-  sourceHandle.childName() = aRequest.handle().entryName();
-
-  FileSystemChildMetadata newHandle;
-  newHandle.parentId() = parentId;
-  newHandle.childName() = aRequest.name();
-
   QM_TRY_UNWRAP(bool moved,
-                mDataManager->MutableDatabaseManagerPtr()->MoveEntry(
-                    sourceHandle, newHandle),
+                mDataManager->MutableDatabaseManagerPtr()->RenameEntry(
+                    aRequest.handle(), aRequest.name()),
                 IPC_OK(), reportError);
 
   fs::FileSystemMoveEntryResponse response(moved ? NS_OK : NS_ERROR_FAILURE);

@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 @use 'sass:math';
-@import '../styles/normalize';
 @import '../styles/feature-callout';
 
 $break-point-small: 570px;
@@ -14,35 +13,12 @@ $logo-size: 80px;
 $main-section-width: 504px;
 $split-section-width: 400px;
 $split-screen-height: 550px;
-$small-main-section-height: 400px;
+$small-main-section-height: 450px;
 $small-secondary-section-height: 100px;
 $noodle-buffer: 106px;
 
 html {
   height: 100%;
-}
-
-body {
-  // sass-lint:disable no-color-literals
-
-  --grey-subtitle-1: #696977;
-  --newtab-button-secondary-color: #0060DF;
-  --mr-welcome-background-color: #F8F6F4;
-  --mr-welcome-background-gradient: linear-gradient(0deg, rgba(144, 89, 255, 0.2) 0%, rgba(2, 144, 238, 0.2) 100%);
-  --mr-screen-background-color: #F8F6F4;
-
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Ubuntu',
-  'Helvetica Neue', sans-serif;
-  font-size: 16px;
-  position: relative;
-
-  @media (prefers-color-scheme: dark) {
-    --grey-subtitle-1: #FFF;
-    --newtab-button-secondary-color: #FFF;
-    --mr-welcome-background-color: #333336;
-    --mr-welcome-background-gradient: linear-gradient(0deg, rgba(144, 89, 255, 0.3) 0%, rgba(2, 144, 238, 0.3) 100%);
-    --mr-screen-background-color: #62697A;
-  }
 }
 
 // Below variables are used via config JSON in AboutWelcomeDefaults
@@ -69,6 +45,7 @@ body {
       // vertical scrollbar to appear, which takes up horizontal space, causing
       // the horizontal scrollbar to appear, and so on.
       height: 100%;
+      background-color: transparent;
 
       &:dir(rtl) {
         transform: unset;
@@ -96,10 +73,33 @@ body {
 }
 
 .onboardingContainer {
+  // sass-lint:disable no-color-literals
+
+  --grey-subtitle-1: #696977;
+  --newtab-button-secondary-color: #0060DF;
+  --mr-welcome-background-color: #F8F6F4;
+  --mr-screen-heading-color: var(--in-content-text-color);
+  --mr-welcome-background-gradient: linear-gradient(0deg, rgba(144, 89, 255, 0.2) 0%, rgba(2, 144, 238, 0.2) 100%);
+  --mr-screen-background-color: #F8F6F4;
+
+  @media (prefers-color-scheme: dark) {
+    --grey-subtitle-1: #FFF;
+    --newtab-button-secondary-color: #FFF;
+    --mr-welcome-background-color: #333336;
+    --mr-welcome-background-gradient: linear-gradient(0deg, rgba(144, 89, 255, 0.3) 0%, rgba(2, 144, 238, 0.3) 100%);
+    --mr-screen-background-color: #62697A;
+  }
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Ubuntu',
+  'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  position: relative;
   text-align: center;
   height: 100vh;
 
-  @media (prefers-contrast: more) {
+  @media (prefers-contrast) {
+    --mr-screen-background-color: buttontext;
+    --mr-screen-heading-color: buttonface;
     background-color: var(--in-content-page-background);
   }
 
@@ -151,6 +151,7 @@ body {
     padding: 0;
     transition: var(--transition);
     z-index: 1;
+    box-sizing: border-box;
 
     &.no-steps {
       padding-bottom: 48px;
@@ -298,15 +299,8 @@ body {
             min-height: 330px;
 
             .language-switcher-container {
-              .secondary {
-                margin-inline-start: 0;
-                margin: 5px 0;
-                color: var(--in-content-primary-button-text-color);
-                background-color: var(--in-content-primary-button-background);
-
-                &:hover {
-                  background-color: var(--in-content-primary-button-background-hover);
-                }
+              .primary {
+                margin-bottom: 5px;
               }
             }
           }
@@ -354,10 +348,9 @@ body {
               .secondary {
                 // sass-lint:disable-block no-important
                 background-color: var(--in-content-button-background) !important;
-                color: var(--in-content-button-text-color);
                 border: 1px solid var(--in-content-button-border-color);
                 line-height: 12px;
-                font-size: 10px;
+                font-size: 0.72em;
                 font-weight: 600;
                 padding: 8px 16px;
 
@@ -370,15 +363,18 @@ body {
               }
 
               .arrow-icon {
-                background: url('chrome://browser/skin/forward.svg') no-repeat right 8px center;
-                background-size: 12px;
-                padding-inline-end: 24px;
                 -moz-context-properties: fill;
                 fill: currentColor;
 
-                &:dir(rtl) {
+                &::after {
+                  content: '';
+                  padding-inline-end: 12px;
+                  margin-inline-start: 4px;
+                  background: url('chrome://browser/skin/forward.svg') no-repeat center / 12px;
+                }
+
+                &:dir(rtl)::after {
                   background-image: url('chrome://browser/skin/back.svg');
-                  background-position-x: left 8px;
                 }
               }
             }
@@ -452,6 +448,7 @@ body {
         }
 
         h1 {
+          color: var(--mr-screen-heading-color);
           font-weight: 700;
           font-size: 47px;
           line-height: 110%;
@@ -490,6 +487,7 @@ body {
           transition: var(--transition);
           font-size: 13px;
           line-height: 1.5;
+          min-height: 4.5em;
           margin-block: 10px 20px;
         }
 
@@ -536,10 +534,16 @@ body {
             margin: 6px 0;
           }
 
+          .message-text {
+            margin-inline: auto;
+          }
+
           h1 {
             font-size: 35px;
             text-align: center;
             white-space: normal;
+            margin-inline: auto;
+            margin-block: 14px 6px;
           }
 
           &:dir(rtl) {
@@ -977,7 +981,7 @@ body {
         color: #FFF;
       }
 
-      @media (prefers-contrast: more) {
+      @media (prefers-contrast) {
         outline: 2px solid var(--in-content-button-border-color);
         border-radius: 2px;
 
@@ -1346,6 +1350,7 @@ body {
     transition: var(--transition);
     z-index: -1;
     height: 48px;
+    box-sizing: border-box;
 
     &.has-helptext {
       padding-bottom: 0;
@@ -1361,6 +1366,7 @@ body {
       // using border will show up in Windows High Contrast Mode to improve accessibility.
       border: 3px solid var(--in-content-button-text-color);
       opacity: 0.25;
+      box-sizing: inherit;
 
       &.current {
         opacity: 1;

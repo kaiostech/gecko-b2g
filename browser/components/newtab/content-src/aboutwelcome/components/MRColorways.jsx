@@ -60,6 +60,7 @@ export function computeVariationIndex(
 export function Colorways(props) {
   let {
     colorways,
+    darkVariation,
     defaultVariationIndex,
     systemVariations,
     variations,
@@ -118,8 +119,16 @@ export function Colorways(props) {
     //We don't want the default theme to be selected
     const randomIndex = Math.floor(Math.random() * (colorways.length - 1)) + 1;
     const randomColorwayId = colorways[randomIndex].id;
-    const value = `${randomColorwayId}-${variations[variationIndex]}`;
 
+    // Change the variation to be the dark variation if configured and dark.
+    // Additional colorway changes will remain dark while system is unchanged.
+    if (
+      darkVariation !== undefined &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    ) {
+      variations[variationIndex] = variations[darkVariation];
+    }
+    const value = `${randomColorwayId}-${variations[variationIndex]}`;
     props.handleAction({ currentTarget: { value } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -143,12 +152,12 @@ export function Colorways(props) {
                   colorwayName: label,
                 })}
               >
-                <Localized text={typeof label === "object" ? label : {}}>
+                <Localized text={typeof tooltip === "object" ? tooltip : {}}>
                   <span
                     className="sr-only colorway label"
                     id={`${id}-label`}
                     data-l10n-args={JSON.stringify({
-                      colorwayName: label,
+                      colorwayName: tooltip,
                     })}
                   />
                 </Localized>

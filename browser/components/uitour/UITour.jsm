@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-"use strict";
-
 var EXPORTED_SYMBOLS = ["UITour"];
 
 const { XPCOMUtils } = ChromeUtils.importESModule(
@@ -15,18 +13,21 @@ const { AppConstants } = ChromeUtils.import(
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  AboutReaderParent: "resource:///actors/AboutReaderParent.sys.mjs",
+  BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
+  ProfileAge: "resource://gre/modules/ProfileAge.sys.mjs",
+  ResetProfile: "resource://gre/modules/ResetProfile.sys.mjs",
+  UpdateUtils: "resource://gre/modules/UpdateUtils.sys.mjs",
+});
+
 XPCOMUtils.defineLazyModuleGetters(lazy, {
-  AboutReaderParent: "resource:///actors/AboutReaderParent.jsm",
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.jsm",
-  BuiltInThemes: "resource:///modules/BuiltInThemes.jsm",
   CustomizableUI: "resource:///modules/CustomizableUI.jsm",
   FxAccounts: "resource://gre/modules/FxAccounts.jsm",
   PanelMultiView: "resource:///modules/PanelMultiView.jsm",
-  ProfileAge: "resource://gre/modules/ProfileAge.jsm",
-  ResetProfile: "resource://gre/modules/ResetProfile.jsm",
   TelemetryController: "resource://gre/modules/TelemetryController.jsm",
-  UpdateUtils: "resource://gre/modules/UpdateUtils.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "fxAccounts", () => {
@@ -1963,7 +1964,9 @@ var UITour = {
       Services.search.getVisibleEngines().then(engines => {
         for (let engine of engines) {
           if (engine.identifier == aID) {
-            Services.search.setDefault(engine).finally(resolve);
+            Services.search
+              .setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UITOUR)
+              .finally(resolve);
             return;
           }
         }

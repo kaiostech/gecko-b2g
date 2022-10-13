@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
@@ -1073,7 +1071,17 @@ export class SearchOneOffs {
         button.engine = currentEngine;
       }
 
-      Services.search[engineType] = this._contextEngine;
+      if (isPrivateButton) {
+        Services.search.setDefaultPrivate(
+          this._contextEngine,
+          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR_CONTEXT
+        );
+      } else {
+        Services.search.setDefault(
+          this._contextEngine,
+          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR_CONTEXT
+        );
+      }
     }
   }
 

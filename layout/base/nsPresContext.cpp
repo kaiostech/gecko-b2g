@@ -217,7 +217,7 @@ void nsPresContext::ForceReflowForFontInfoUpdate(bool aNeedsReframe) {
 
   // We also need to trigger restyling for ex/ch units changes to take effect,
   // if needed.
-  auto restyleHint = UsesFontMetricDependentFontUnits()
+  auto restyleHint = StyleSet()->UsesFontMetrics()
                          ? RestyleHint::RecascadeSubtree()
                          : RestyleHint{0};
 
@@ -275,11 +275,10 @@ nsPresContext::nsPresContext(dom::Document* aDocument, nsPresContextType aType)
       mPendingUIResolutionChanged(false),
       mPendingFontInfoUpdateReflowFromStyle(false),
       mIsGlyph(false),
-      mUsesFontMetricDependentFontUnits(false),
       mCounterStylesDirty(true),
       mFontFeatureValuesDirty(true),
+      mFontPaletteValuesDirty(true),
       mIsVisual(false),
-      mHasWarnedAboutPositionedTableParts(false),
       mHasWarnedAboutTooLargeDashedOrDottedRadius(false),
       mQuirkSheetAdded(false),
       mHadNonBlankPaint(false),
@@ -552,7 +551,7 @@ void nsPresContext::PreferenceChanged(const char* aPrefName) {
       float oldWidthDevPixels = oldWidthAppUnits / oldAppUnitsPerDevPixel;
       float oldHeightDevPixels = oldHeightAppUnits / oldAppUnitsPerDevPixel;
 
-      AppUnitsPerDevPixelChanged();
+      UIResolutionChangedInternal();
 
       nscoord width = NSToCoordRound(oldWidthDevPixels * AppUnitsPerDevPixel());
       nscoord height =
@@ -609,7 +608,7 @@ void nsPresContext::PreferenceChanged(const char* aPrefName) {
       // Changes to font_rendering prefs need to trigger a reflow
       StringBeginsWith(prefName, "gfx.font_rendering."_ns)) {
     changeHint |= NS_STYLE_HINT_REFLOW;
-    if (UsesFontMetricDependentFontUnits()) {
+    if (StyleSet()->UsesFontMetrics()) {
       restyleHint |= RestyleHint::RecascadeSubtree();
     }
   }
@@ -1837,6 +1836,7 @@ void nsPresContext::RebuildAllStyleData(nsChangeHint aExtraHint,
   mDocument->MarkUserFontSetDirty();
   MarkCounterStylesDirty();
   MarkFontFeatureValuesDirty();
+  MarkFontPaletteValuesDirty();
   PostRebuildAllStyleDataEvent(aExtraHint, aRestyleHint);
 }
 
@@ -1845,9 +1845,6 @@ void nsPresContext::PostRebuildAllStyleDataEvent(
   if (!mPresShell) {
     // We must have been torn down. Nothing to do here.
     return;
-  }
-  if (aRestyleHint.DefinitelyRecascadesAllSubtree()) {
-    mUsesFontMetricDependentFontUnits = false;
   }
   RestyleManager()->RebuildAllStyleData(aExtraHint, aRestyleHint);
 }
@@ -2050,9 +2047,8 @@ void nsPresContext::UserFontSetUpdated(gfxUserFontEntry* aUpdatedFont) {
   // TODO(emilio): We could be more granular if we knew which families have
   // potentially changed.
   if (!aUpdatedFont) {
-    auto hint = UsesFontMetricDependentFontUnits()
-                    ? RestyleHint::RecascadeSubtree()
-                    : RestyleHint{0};
+    auto hint = StyleSet()->UsesFontMetrics() ? RestyleHint::RecascadeSubtree()
+                                              : RestyleHint{0};
     PostRebuildAllStyleDataEvent(NS_STYLE_HINT_REFLOW, hint);
     return;
   }
@@ -2786,11 +2782,31 @@ void nsPresContext::FlushFontFeatureValues() {
     return;  // we've been torn down
   }
 
-  if (mFontFeatureValuesDirty) {
-    ServoStyleSet* styleSet = mPresShell->StyleSet();
-    mFontFeatureValuesLookup = styleSet->BuildFontFeatureValueSet();
-    mFontFeatureValuesDirty = false;
+  if (!mFontFeatureValuesDirty) {
+    return;
   }
+
+  ServoStyleSet* styleSet = mPresShell->StyleSet();
+  mFontFeatureValuesLookup = styleSet->BuildFontFeatureValueSet();
+  mFontFeatureValuesDirty = false;
+}
+
+void nsPresContext::FlushFontPaletteValues() {
+  if (!mPresShell) {
+    return;  // we've been torn down
+  }
+
+  if (!mFontPaletteValuesDirty) {
+    return;
+  }
+
+  ServoStyleSet* styleSet = mPresShell->StyleSet();
+  mFontPaletteValueSet = styleSet->BuildFontPaletteValueSet();
+  mFontPaletteValuesDirty = false;
+
+  // Even if we're not reflowing anything, a change to the palette means we
+  // need to repaint in order to show the new colors.
+  InvalidatePaintedLayers();
 }
 
 void nsPresContext::SetVisibleArea(const nsRect& r) {

@@ -759,8 +759,8 @@ void nsMathMLChar::SetData(nsString& aData) {
 static bool IsSizeOK(nscoord a, nscoord b, uint32_t aHint) {
   // Normal: True if 'a' is around +/-10% of the target 'b' (10% is
   // 1-DelimiterFactor). This often gives a chance to the base size to
-  // win, especially in the context of <mfenced> without tall elements
-  // or in sloppy markups without protective <mrow></mrow>
+  // win, especially in the context of sloppy markups without protective
+  // <mrow></mrow>
   bool isNormal =
       (aHint & NS_STRETCH_NORMAL) &&
       Abs<float>(a - b) < (1.0f - NS_MATHML_DELIMITER_FACTOR) * float(b);
@@ -997,7 +997,7 @@ bool nsMathMLChar::StretchEnumContext::TryVariants(
             aGlyphTable->MakeTextRun(mDrawTarget, oneDevPixel, *aFontGroup, ch);
         nsBoundingMetrics bm = MeasureTextRun(mDrawTarget, textRun.get());
         float largeopFactor = kLargeOpFactor;
-        if (NS_STRETCH_INTEGRAL & mStretchHint) {
+        if (nsMathMLOperators::IsIntegralOperator(mChar->mData)) {
           // integrals are drawn taller
           largeopFactor = kIntegralFactor;
         }
@@ -1614,7 +1614,7 @@ nsresult nsMathMLChar::StretchInternal(
 
     // increase the height if it is not largeopFactor times larger
     // than the initial one.
-    if (NS_STRETCH_INTEGRAL & aStretchHint) {
+    if (nsMathMLOperators::IsIntegralOperator(mData)) {
       // integrals are drawn taller
       largeopFactor = kIntegralFactor;
     }
@@ -1639,9 +1639,9 @@ nsresult nsMathMLChar::Stretch(nsIFrame* aForFrame, DrawTarget* aDrawTarget,
                                const nsBoundingMetrics& aContainerSize,
                                nsBoundingMetrics& aDesiredStretchSize,
                                uint32_t aStretchHint, bool aRTL) {
-  NS_ASSERTION(!(aStretchHint & ~(NS_STRETCH_VARIABLE_MASK |
-                                  NS_STRETCH_LARGEOP | NS_STRETCH_INTEGRAL)),
-               "Unexpected stretch flags");
+  NS_ASSERTION(
+      !(aStretchHint & ~(NS_STRETCH_VARIABLE_MASK | NS_STRETCH_LARGEOP)),
+      "Unexpected stretch flags");
 
   mDraw = DRAW_NORMAL;
   mMirrored = aRTL && nsMathMLOperators::IsMirrorableOperator(mData);

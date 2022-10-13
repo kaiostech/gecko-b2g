@@ -502,7 +502,10 @@ bool ClientWebGLContext::UpdateWebRenderCanvasData(
     return true;
   }
 
+  const auto& size = DrawingBufferSize();
+
   if (!IsContextLost() && !renderer && mNotLost->mCanvasRenderer &&
+      mNotLost->mCanvasRenderer->GetSize() == gfx::IntSize(size.x, size.y) &&
       aCanvasData->SetCanvasRenderer(mNotLost->mCanvasRenderer)) {
     mNotLost->mCanvasRenderer->SetDirty();
     mResetLayer = false;
@@ -896,12 +899,10 @@ ClientWebGLContext::SetContextOptions(JSContext* cx,
   if (attributes.mAntialias.WasPassed()) {
     newOpts.antialias = attributes.mAntialias.Value();
   }
-
+  newOpts.ignoreColorSpace = true;
   if (attributes.mColorSpace.WasPassed()) {
-    newOpts.colorSpace = attributes.mColorSpace.Value();
-  }
-  if (StaticPrefs::gfx_color_management_native_srgb()) {
     newOpts.ignoreColorSpace = false;
+    newOpts.colorSpace = attributes.mColorSpace.Value();
   }
 
   // Don't do antialiasing if we've disabled MSAA.

@@ -7,10 +7,12 @@ const TEST_URI =
 const { DevToolsLoader } = ChromeUtils.import(
   "resource://devtools/shared/loader/Loader.jsm"
 );
-const { createCommandsDictionary } = require("devtools/shared/commands/index");
+const {
+  createCommandsDictionary,
+} = require("resource://devtools/shared/commands/index.js");
 const {
   descriptorFromURL,
-} = require("devtools/client/framework/descriptor-from-url");
+} = require("resource://devtools/client/framework/descriptor-from-url.js");
 
 Services.prefs.setBoolPref("devtools.debugger.remote-enabled", true);
 Services.prefs.setBoolPref("devtools.debugger.prompt-connection", false);
@@ -78,8 +80,12 @@ add_task(async function() {
 async function setupDevToolsServer(webSocket) {
   info("Create a separate loader instance for the DevToolsServer.");
   const loader = new DevToolsLoader();
-  const { DevToolsServer } = loader.require("devtools/server/devtools-server");
-  const { SocketListener } = loader.require("devtools/shared/security/socket");
+  const { DevToolsServer } = loader.require(
+    "resource://devtools/server/devtools-server.js"
+  );
+  const { SocketListener } = loader.require(
+    "resource://devtools/shared/security/socket.js"
+  );
 
   DevToolsServer.init();
   DevToolsServer.registerAllActors();

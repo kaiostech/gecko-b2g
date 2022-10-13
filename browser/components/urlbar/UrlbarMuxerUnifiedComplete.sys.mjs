@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 /**
  * This module exports a component used to sort results in a UrlbarQueryContext.
  */
@@ -1083,10 +1081,11 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
     // are other results and all of them are searches.  It should not be shown
     // if the user typed an alias because that's an explicit engine choice.
     if (
-      state.canShowPrivateSearch &&
-      (result.type != UrlbarUtils.RESULT_TYPE.SEARCH ||
-        result.payload.providesSearchMode ||
-        (result.heuristic && result.payload.keyword))
+      !Services.search.separatePrivateDefaultUrlbarResultEnabled ||
+      (state.canShowPrivateSearch &&
+        (result.type != UrlbarUtils.RESULT_TYPE.SEARCH ||
+          result.payload.providesSearchMode ||
+          (result.heuristic && result.payload.keyword)))
     ) {
       state.canShowPrivateSearch = false;
     }

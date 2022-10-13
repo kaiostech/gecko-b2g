@@ -34,6 +34,7 @@
 
     init() {
       this.arrowScrollbox = this.querySelector("arrowscrollbox");
+      this.arrowScrollbox.addEventListener("wheel", this, true);
 
       this.baseConnect();
 
@@ -1006,6 +1007,14 @@
       event.stopPropagation();
     }
 
+    on_wheel(event) {
+      if (
+        Services.prefs.getBoolPref("toolkit.tabbox.switchByScrolling", false)
+      ) {
+        event.stopImmediatePropagation();
+      }
+    }
+
     getTabTitleMessageId() {
       // Normal tab title is used also in the permanent private browsing mode.
       return PrivateBrowsingUtils.isWindowPrivate(window) &&
@@ -1092,6 +1101,7 @@
           }
 
           this._positionPinnedTabs();
+          this._updateCloseButtons();
         },
         true
       );
@@ -1109,6 +1119,7 @@
 
         this.setAttribute("overflow", "true");
         this._positionPinnedTabs();
+        this._updateCloseButtons();
         this._handleTabSelect(true);
       });
 

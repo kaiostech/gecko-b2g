@@ -27,12 +27,12 @@
   </head>
 
   <body>
-    <nav class="content-container">
+    <div id="logo-container" class="content-container">
       <div class="brand-logo">
         <span class="brand-icon"></span>
         <span class="brand-feature-name" data-l10n-id="firefoxview-page-title"></span>
       </div>
-    </nav>
+    </div>
     <main>
       <template id="sync-setup-template">
         <named-deck class="sync-setup-container" role="region" aria-labelledby="collapsible-synced-tabs-header" data-prefix="id:">
@@ -49,7 +49,7 @@
             <h2 data-prefix="id:-view1-header" data-l10n-id="firefoxview-tabpickup-step-signin-header" class="card-header"></h2>
             <section class="card-body">
               <p class="step-content" data-l10n-id="firefoxview-tabpickup-step-signin-description"></p>
-              <button class="primary" data-action="view1-primary-action" data-l10n-id="firefoxview-tabpickup-step-signin-primarybutton"></button>
+              <button id="firefoxview-tabpickup-step-signin-primarybutton" class="primary" data-action="view1-primary-action" data-l10n-id="firefoxview-tabpickup-step-signin-primarybutton"></button>
             </section>
             <footer>
               <progress data-prefix="id:-view1-progress" class="step-progress" max="100" value="11"></progress>
@@ -141,7 +141,7 @@
         </div>
       </details>
 
-      <aside class="content-container" is="colorways-card">
+      <aside id="colorway-landmark" class="content-container" is="colorways-card">
         <template id="colorways-no-collection-template">
           <div class="content-container">
             <div id="no-current-colorway-collection-notice" data-l10n-id="firefoxview-no-current-colorway-collection"></div>
@@ -162,7 +162,7 @@
       </aside>
 
       <details class="content-container" is="recently-closed-tabs-container" id="recently-closed-tabs-container" open>
-        <summary class="page-section-header" data-l10n-id="firefoxview-collapse-button-hide">
+        <summary id="recently-closed-tabs-header-section" class="page-section-header" data-l10n-id="firefoxview-collapse-button-hide">
           <h1 id="recently-closed-tabs-header" data-l10n-id="firefoxview-closed-tabs-title"></h1>
           <span class="twisty icon" aria-role="presentation"></span>
           <p class="section-description" data-l10n-id="firefoxview-closed-tabs-description2"></p>

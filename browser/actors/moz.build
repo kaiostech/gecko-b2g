@@ -7,7 +7,7 @@
 with Files("**"):
     BUG_COMPONENT = ("Firefox", "General")
 
-with Files("ContentSearch*.jsm"):
+with Files("ContentSearch*.sys.mjs"):
     BUG_COMPONENT = ("Firefox", "Search")
 
 with Files("AboutReaderParent.jsm"):
@@ -16,7 +16,7 @@ with Files("AboutReaderParent.jsm"):
 with Files("LightweightThemeChild.jsm"):
     BUG_COMPONENT = ("WebExtensions", "Themes")
 
-with Files("PageInfoChild.jsm"):
+with Files("PageInfoChild.sys.mjs"):
     BUG_COMPONENT = ("Firefox", "Page Info Window")
 
 with Files("PageStyleChild.jsm"):
@@ -42,19 +42,19 @@ FINAL_TARGET_FILES.actors += [
     "AboutPrivateBrowsingParent.jsm",
     "AboutProtectionsChild.jsm",
     "AboutProtectionsParent.jsm",
-    "AboutReaderChild.jsm",
-    "AboutReaderParent.jsm",
+    "AboutReaderChild.sys.mjs",
+    "AboutReaderParent.sys.mjs",
     "AboutTabCrashedChild.sys.mjs",
     "AboutTabCrashedParent.sys.mjs",
     "BlockedSiteChild.jsm",
     "BlockedSiteParent.jsm",
     "BrowserProcessChild.sys.mjs",
-    "BrowserTabChild.jsm",
-    "BrowserTabParent.jsm",
+    "BrowserTabChild.sys.mjs",
+    "BrowserTabParent.sys.mjs",
     "ClickHandlerChild.jsm",
     "ClickHandlerParent.jsm",
-    "ContentSearchChild.jsm",
-    "ContentSearchParent.jsm",
+    "ContentSearchChild.sys.mjs",
+    "ContentSearchParent.sys.mjs",
     "ContextMenuChild.jsm",
     "ContextMenuParent.jsm",
     "DecoderDoctorChild.jsm",
@@ -63,14 +63,12 @@ FINAL_TARGET_FILES.actors += [
     "DOMFullscreenParent.jsm",
     "EncryptedMediaChild.jsm",
     "EncryptedMediaParent.jsm",
-    "FormValidationChild.jsm",
-    "FormValidationParent.jsm",
+    "FormValidationChild.sys.mjs",
+    "FormValidationParent.sys.mjs",
     "LightweightThemeChild.jsm",
     "LinkHandlerChild.jsm",
     "LinkHandlerParent.jsm",
-    "NetErrorChild.jsm",
-    "NetErrorParent.jsm",
-    "PageInfoChild.jsm",
+    "PageInfoChild.sys.mjs",
     "PageStyleChild.jsm",
     "PageStyleParent.jsm",
     "PluginChild.jsm",

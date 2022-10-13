@@ -113,7 +113,7 @@ this.VideoControlsWidget = class {
     this.impl.onPrefChange(prefName, prefValue);
   }
 
-  // If you change this, also change SEEK_TIME_SECS in PictureInPictureChild.jsm
+  // If you change this, also change SEEK_TIME_SECS in PictureInPictureChild.sys.mjs
   static SEEK_TIME_SECS = 5;
 
   static isPictureInPictureVideo(someVideo) {

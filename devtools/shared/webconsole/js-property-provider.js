@@ -14,15 +14,15 @@ if (!isWorker) {
   loader.lazyRequireGetter(
     this,
     "getSyntaxTrees",
-    "devtools/shared/webconsole/parser-helper",
+    "resource://devtools/shared/webconsole/parser-helper.js",
     true
   );
 }
-loader.lazyRequireGetter(
-  this,
+const lazy = {};
+ChromeUtils.defineModuleGetter(
+  lazy,
   "Reflect",
-  "resource://gre/modules/reflect.jsm",
-  true
+  "resource://gre/modules/reflect.jsm"
 );
 loader.lazyRequireGetter(
   this,
@@ -31,7 +31,7 @@ loader.lazyRequireGetter(
     "shouldInputBeAutocompleted",
     "shouldInputBeEagerlyEvaluated",
   ],
-  "devtools/shared/webconsole/analyze-input-string",
+  "resource://devtools/shared/webconsole/analyze-input-string.js",
   true
 );
 
@@ -561,7 +561,7 @@ function prepareReturnedObject({
         // In order to know if the property is suited for dot notation, we use Reflect
         // to parse an expression where we try to access the property with a dot. If it
         // throws, this means that we need to do an element access instead.
-        Reflect.parse(`({${match}: true})`);
+        lazy.Reflect.parse(`({${match}: true})`);
       } catch (e) {
         matches.delete(match);
       }

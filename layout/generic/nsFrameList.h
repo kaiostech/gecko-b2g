@@ -72,6 +72,9 @@ struct PostFrameDestroyData {
  */
 class nsFrameList {
  public:
+  class Iterator;
+  class Slice;
+
   nsFrameList() : mFirstChild(nullptr), mLastChild(nullptr) {}
 
   nsFrameList(nsIFrame* aFirstFrame, nsIFrame* aLastFrame)
@@ -138,8 +141,6 @@ class nsFrameList {
     aFrameList.Clear();
   }
 
-  class Slice;
-
   /**
    * Append aFrameList to this list.  If aParent is not null,
    * reparents the newly added frames.  Clears out aFrameList and
@@ -166,12 +167,22 @@ class nsFrameList {
   void RemoveFrame(nsIFrame* aFrame);
 
   /**
-   * Take the frames after aAfterFrame out of the frame list.  If
-   * aAfterFrame is null, removes the entire list.
-   * @param aAfterFrame a frame in this list, or null
-   * @return the removed frames, if any
+   * Take all the frames before aFrame out of the frame list; aFrame and all the
+   * frames after it stay in this list. If aFrame is nullptr, remove the entire
+   * frame list.
+   * @param aFrame a frame in this frame list, or nullptr.
+   * @return the removed frames, if any.
    */
-  nsFrameList RemoveFramesAfter(nsIFrame* aAfterFrame);
+  [[nodiscard]] nsFrameList TakeFramesBefore(nsIFrame* aFrame);
+
+  /**
+   * Take all the frames after aFrame out of the frame list; aFrame and all the
+   * frames before it stay in this list. If aFrame is nullptr, removes the
+   * entire list.
+   * @param aFrame a frame in this list, or nullptr.
+   * @return the removed frames, if any.
+   */
+  [[nodiscard]] nsFrameList TakeFramesAfter(nsIFrame* aFrame);
 
   /**
    * Take the first frame (if any) out of the frame list.
@@ -236,8 +247,6 @@ class nsFrameList {
   Slice InsertFrames(nsContainerFrame* aParent, nsIFrame* aPrevSibling,
                      nsFrameList& aFrameList);
 
-  class FrameLinkEnumerator;
-
   /**
    * Split this list just before the first frame that matches aPredicate,
    * and return a nsFrameList containing all the frames before it. The
@@ -259,24 +268,13 @@ class nsFrameList {
                          nsIFrame*>::value,
         "aPredicate should be of this function signature: bool(nsIFrame*)");
 
-    FrameLinkEnumerator link(*this);
-    link.Find(aPredicate);
-    return ExtractHead(link);
+    for (nsIFrame* f : *this) {
+      if (aPredicate(f)) {
+        return TakeFramesBefore(f);
+      }
+    }
+    return std::move(*this);
   }
-
-  /**
-   * Split this frame list such that all the frames before the link pointed to
-   * by aLink end up in the returned list, while the remaining frames stay in
-   * this list.  After this call, aLink points to the beginning of this list.
-   */
-  nsFrameList ExtractHead(FrameLinkEnumerator& aLink);
-
-  /**
-   * Split this frame list such that all the frames coming after the link
-   * pointed to by aLink end up in the returned list, while the frames before
-   * that link stay in this list.  After this call, aLink is at end.
-   */
-  nsFrameList ExtractTail(FrameLinkEnumerator& aLink);
 
   nsIFrame* FirstChild() const { return mFirstChild; }
 
@@ -452,59 +450,6 @@ class nsFrameList {
     nsIFrame* mFrame;            // our current frame.
     const nsIFrame* const mEnd;  // The first frame we should NOT enumerate.
                                  // May be null.
-  };
-
-  /**
-   * A class that can be used to enumerate links between frames.  When created
-   * from an nsFrameList, it points to the "link" immediately before the first
-   * frame.  It can then be advanced until it points to the "link" immediately
-   * after the last frame.  At any position, PrevFrame() and NextFrame() are
-   * the frames before and after the given link.  This means PrevFrame() is
-   * null when the enumerator is at the beginning of the list and NextFrame()
-   * is null when it's AtEnd().
-   */
-  class FrameLinkEnumerator : private Enumerator {
-   public:
-    friend class nsFrameList;
-
-    explicit FrameLinkEnumerator(const nsFrameList& aList)
-        : Enumerator(aList), mPrev(nullptr) {}
-
-    FrameLinkEnumerator(const FrameLinkEnumerator& aOther) = default;
-
-    /* This constructor needs to know about nsIFrame, and nsIFrame will need to
-       know about nsFrameList methods, so in order to inline this put
-       the implementation in nsIFrame.h */
-    inline FrameLinkEnumerator(const nsFrameList& aList, nsIFrame* aPrevFrame);
-
-    void operator=(const FrameLinkEnumerator& aOther) {
-      MOZ_ASSERT(&List() == &aOther.List(), "Different lists?");
-      mFrame = aOther.mFrame;
-      mPrev = aOther.mPrev;
-    }
-
-    inline void Next();
-
-    /**
-     * Find the first frame from the current position that satisfies
-     * aPredicate, and stop at it. If no such frame exists, then this method
-     * advances to the end of the list.
-     *
-     * aPredicate should be of this function signature: bool(nsIFrame*).
-     *
-     * Note: Find() needs to see the definition of Next(), so put this
-     * definition in nsIFrame.h.
-     */
-    template <typename Predicate>
-    inline void Find(Predicate&& aPredicate);
-
-    bool AtEnd() const { return Enumerator::AtEnd(); }
-
-    nsIFrame* PrevFrame() const { return mPrev; }
-    nsIFrame* NextFrame() const { return mFrame; }
-
-   protected:
-    nsIFrame* mPrev;
   };
 
   class Iterator {

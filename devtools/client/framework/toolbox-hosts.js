@@ -4,20 +4,20 @@
 
 "use strict";
 
-const EventEmitter = require("devtools/shared/event-emitter");
+const EventEmitter = require("resource://devtools/shared/event-emitter.js");
 
 loader.lazyRequireGetter(
   this,
   "gDevToolsBrowser",
-  "devtools/client/framework/devtools-browser",
+  "resource://devtools/client/framework/devtools-browser.js",
   true
 );
 
-loader.lazyRequireGetter(
-  this,
+const lazy = {};
+ChromeUtils.defineModuleGetter(
+  lazy,
   "PrivateBrowsingUtils",
-  "resource://gre/modules/PrivateBrowsingUtils.jsm",
-  true
+  "resource://gre/modules/PrivateBrowsingUtils.jsm"
 );
 
 /* A host should always allow this much space for the page to be displayed.
@@ -105,10 +105,11 @@ BottomHost.prototype = {
     if (!this._destroyed) {
       this._destroyed = true;
 
-      Services.prefs.setIntPref(
-        this.heightPref,
-        parseInt(this.frame.style.height, 10)
-      );
+      const height = parseInt(this.frame.style.height, 10);
+      if (!isNaN(height)) {
+        Services.prefs.setIntPref(this.heightPref, height);
+      }
+
       this._browserContainer.removeChild(this._splitter);
       this._browserContainer.removeChild(this.frame);
       this.frame = null;
@@ -151,10 +152,11 @@ class SidebarHost {
       ownerDocument,
       "devtools-toolbox-side-iframe"
     );
-    this.frame.width = Math.min(
-      Services.prefs.getIntPref(this.widthPref),
-      this._browserPanel.clientWidth - MIN_PAGE_SIZE
-    );
+    this.frame.style.width =
+      Math.min(
+        Services.prefs.getIntPref(this.widthPref),
+        this._browserPanel.clientWidth - MIN_PAGE_SIZE
+      ) + "px";
 
     // We should consider the direction when changing the dock position.
     const topWindow = this.hostTab.ownerDocument.defaultView.top;
@@ -193,7 +195,11 @@ class SidebarHost {
     if (!this._destroyed) {
       this._destroyed = true;
 
-      Services.prefs.setIntPref(this.widthPref, this.frame.width);
+      const width = parseInt(this.frame.style.width, 10);
+      if (!isNaN(width)) {
+        Services.prefs.setIntPref(this.widthPref, width);
+      }
+
       this._browserPanel.removeChild(this._splitter);
       this._browserPanel.removeChild(this.frame);
     }
@@ -250,7 +256,7 @@ WindowHost.prototype = {
       // the owner window was passed in the host options.
       const owner =
         this.hostTab?.ownerGlobal || this.options?.browserContentToolboxOpener;
-      if (owner && PrivateBrowsingUtils.isWindowPrivate(owner)) {
+      if (owner && lazy.PrivateBrowsingUtils.isWindowPrivate(owner)) {
         flags += ",private";
       }
 
@@ -260,6 +266,13 @@ WindowHost.prototype = {
       // and non-fission frames. See Bug 1650963.
       if (this.hostTab && !this.hostTab.ownerGlobal.gFissionBrowser) {
         flags += ",non-fission";
+      }
+
+      // When debugging local Web Extension, the toolbox is opened in an
+      // always foremost top level window in order to be kept visible
+      // when interacting with the Firefox Window.
+      if (this.options?.alwaysOnTop) {
+        flags += ",alwaysontop";
       }
 
       const win = Services.ww.openWindow(

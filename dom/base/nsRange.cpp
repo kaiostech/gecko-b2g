@@ -141,7 +141,7 @@ nsRange::nsRange(nsINode* aNode)
       mNextStartRef(nullptr),
       mNextEndRef(nullptr) {
   // printf("Size of nsRange: %zu\n", sizeof(nsRange));
-  static_assert(sizeof(nsRange) <= 192,
+  static_assert(sizeof(nsRange) <= 208,
                 "nsRange size shouldn't be increased as far as possible");
 }
 
@@ -3145,11 +3145,11 @@ static bool IsVisibleAndNotInReplacedElement(nsIFrame* aFrame) {
       aFrame->HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
     return false;
   }
-  if (aFrame->IsContentHidden()) {
+  if (aFrame->HidesContent()) {
     return false;
   }
   for (nsIFrame* f = aFrame->GetParent(); f; f = f->GetParent()) {
-    if (f->IsContentHidden()) {
+    if (f->HidesContent()) {
       return false;
     }
     if (f->IsFrameOfType(nsIFrame::eReplaced) &&

@@ -35,12 +35,15 @@ add_setup(async function() {
   let engine = await SearchTestUtils.promiseNewSearchEngine(
     getRootDirectory(gTestPath) + "testEngine.xml"
   );
-  await Services.search.setDefault(engine);
+  await Services.search.setDefault(
+    engine,
+    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+  );
 
   // First cleanup the form history in case other tests left things there.
   await new Promise((resolve, reject) => {
     info("cleanup the search history");
-    searchbar.FormHistory.update(
+    FormHistory.update(
       { op: "remove", fieldname: "searchbar-history" },
       { handleCompletion: resolve, handleError: reject }
     );
@@ -51,14 +54,17 @@ add_setup(async function() {
     let addOps = kValues.map(value => {
       return { op: "add", fieldname: "searchbar-history", value };
     });
-    searchbar.FormHistory.update(addOps, {
+    FormHistory.update(addOps, {
       handleCompletion: resolve,
       handleError: reject,
     });
   });
 
   registerCleanupFunction(async () => {
-    await Services.search.setDefault(defaultEngine);
+    await Services.search.setDefault(
+      defaultEngine,
+      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    );
     gCUITestUtils.removeSearchBar();
   });
 });
@@ -457,5 +463,5 @@ add_task(async function cleanup() {
   let removeOps = kValues.map(value => {
     return { op: "remove", fieldname: "searchbar-history", value };
   });
-  searchbar.FormHistory.update(removeOps);
+  FormHistory.update(removeOps);
 });

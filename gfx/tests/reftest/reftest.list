@@ -19,7 +19,7 @@ fuzzy(0-11,0-4) fails-if(useDrawSnapshot) == 1474722.html 1474722-ref.html
 fails-if(useDrawSnapshot) == 1501195.html 1501195-ref.html
 == 1519754.html 1519754-ref.html
 skip-if(!asyncPan) == 1524261.html 1524261-ref.html
-fuzzy-if(!useDrawSnapshot,14-14,44-300) == 1524353.html 1524353-ref.html
+fuzzy-if(!useDrawSnapshot,14-14,44-95) == 1524353.html 1524353-ref.html
 == 1523776.html 1523776-ref.html
 == bug1523410-translate-scale-snap.html bug1523410-translate-scale-snap-ref.html
 == 1523080.html 1523080-ref.html
@@ -36,3 +36,4 @@ pref(image.downscale-during-decode.enabled,true) skip-if(Android) fuzzy-if(useDr
 != 1761685-1.html 1761685-1-ref.html
 == 1761460.html 1761460-ref.html
 pref(layout.css.backdrop-filter.enabled,true) == 1765862.html 1765862-ref.html
+!= 1792527-1.html 1792527-1-ref.html

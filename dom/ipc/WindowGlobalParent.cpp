@@ -21,6 +21,7 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/BrowserHost.h"
 #include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/IdentityCredential.h"
 #include "mozilla/dom/MediaController.h"
 #include "mozilla/dom/WindowGlobalChild.h"
 #include "mozilla/dom/ChromeUtils.h"
@@ -972,35 +973,6 @@ void WindowGlobalParent::DrawSnapshotInternal(gfx::CrossProcessPaint* aPaint,
       });
 }
 
-already_AddRefed<Promise> WindowGlobalParent::GetSecurityInfo(
-    ErrorResult& aRv) {
-  RefPtr<BrowserParent> browserParent = GetBrowserParent();
-  if (NS_WARN_IF(!browserParent)) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return nullptr;
-  }
-
-  nsIGlobalObject* global = GetParentObject();
-  RefPtr<Promise> promise = Promise::Create(global, aRv);
-  if (aRv.Failed()) {
-    return nullptr;
-  }
-
-  SendGetSecurityInfo(
-      [promise](const nsCOMPtr<nsITransportSecurityInfo>& aSecurityInfo) {
-        if (aSecurityInfo) {
-          promise->MaybeResolve(aSecurityInfo);
-        } else {
-          promise->MaybeResolveWithUndefined();
-        }
-      },
-      [promise](ResponseRejectReason&& aReason) {
-        promise->MaybeReject(NS_ERROR_FAILURE);
-      });
-
-  return promise.forget();
-}
-
 /**
  * Accumulated page use counter data for a given top-level content document.
  */
@@ -1374,6 +1346,20 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvReloadWithHttpsOnlyException() {
 
   BrowsingContext()->Top()->LoadURI(loadState, /* setNavigating */ true);
 
+  return IPC_OK();
+}
+
+IPCResult WindowGlobalParent::RecvDiscoverIdentityCredentialFromExternalSource(
+    const IdentityCredentialRequestOptions& aOptions,
+    const DiscoverIdentityCredentialFromExternalSourceResolver& aResolver) {
+  IdentityCredential::DiscoverFromExternalSourceInMainProcess(
+      DocumentPrincipal(), aOptions)
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [aResolver](const IPCIdentityCredential& aResult) {
+            return aResolver(Some(aResult));
+          },
+          [aResolver](nsresult aErr) { aResolver(Nothing()); });
   return IPC_OK();
 }
 

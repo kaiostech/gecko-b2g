@@ -253,14 +253,17 @@ XPCOMUtils.defineLazyServiceGetters(lazy, {
   gScreenManager: ["@mozilla.org/gfx/screenmanager;1", "nsIScreenManager"],
 });
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.sys.mjs",
+  PromiseUtils: "resource://gre/modules/PromiseUtils.sys.mjs",
+});
+
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
-  DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.jsm",
   E10SUtils: "resource://gre/modules/E10SUtils.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
   PrivacyFilter: "resource://gre/modules/sessionstore/PrivacyFilter.jsm",
-  PromiseUtils: "resource://gre/modules/PromiseUtils.jsm",
   RunState: "resource:///modules/sessionstore/RunState.jsm",
   SessionCookies: "resource:///modules/sessionstore/SessionCookies.jsm",
   SessionFile: "resource:///modules/sessionstore/SessionFile.jsm",
@@ -506,6 +509,11 @@ var SessionStore = {
 
   isBrowserInCrashedSet(browser) {
     return SessionStoreInternal.isBrowserInCrashedSet(browser);
+  },
+
+  // this is used for testing purposes
+  resetNextClosedId() {
+    SessionStoreInternal._nextClosedId = 0;
   },
 
   /**
@@ -3975,6 +3983,16 @@ var SessionStoreInternal = {
       }
     }
 
+    if (
+      tabbrowser.tabs.length > tabbrowser.visibleTabs.length &&
+      tabbrowser.visibleTabs.length === removableTabs.length
+    ) {
+      // If all the visible tabs are also removable and the selected tab is hidden or removeable, we will later remove
+      // all "removable" tabs causing the browser to automatically close because the only tab left is hidden.
+      // To prevent the browser from automatically closing, we will leave one other visible tab open.
+      removableTabs.shift();
+    }
+
     if (tabbrowser.tabs.length == removableTabs.length) {
       canOverwriteTabs = true;
     } else {
@@ -4258,6 +4276,17 @@ var SessionStoreInternal = {
     return Promise.all(windowOpenedPromises);
   },
 
+  /** reset closedId's from previous sessions to ensure these IDs are unique
+   * @param tabData
+   *        an array of data to be restored
+   * @returns the updated tabData array
+   */
+  _resetClosedIds(tabData) {
+    for (let entry of tabData) {
+      entry.closedId = this._nextClosedId++;
+    }
+    return tabData;
+  },
   /**
    * restore features to a single window
    * @param aWindow
@@ -4381,6 +4410,8 @@ var SessionStoreInternal = {
     }
 
     let newClosedTabsData = winData._closedTabs || [];
+    newClosedTabsData = this._resetClosedIds(newClosedTabsData);
+
     let newLastClosedTabGroupCount = winData._lastClosedTabGroupCount || -1;
 
     if (overwriteTabs || firstWindow) {

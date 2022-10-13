@@ -149,7 +149,6 @@ class AudioSinkWrapper : public MediaSink {
   bool mAudioEnded;
   MozPromiseRequestHolder<EndedPromise> mAudioSinkEndedPromise;
   MediaQueue<AudioData>& mAudioQueue;
-  Maybe<media::TimeUnit> mLastPacketEndTime;
 };
 
 }  // namespace mozilla

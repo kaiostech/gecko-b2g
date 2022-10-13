@@ -45,7 +45,6 @@ namespace jit {
   _(ArrayConstructorOneArg, js::ArrayConstructorOneArg)                        \
   _(ArrayFromArgumentsObject, js::ArrayFromArgumentsObject)                    \
   _(ArrayJoin, js::jit::ArrayJoin)                                             \
-  _(ArrayPushDense, js::jit::ArrayPushDense)                                   \
   _(ArraySliceDense, js::ArraySliceDense)                                      \
   _(AsyncFunctionAwait, js::AsyncFunctionAwait)                                \
   _(AsyncFunctionResolve, js::AsyncFunctionResolve)                            \
@@ -234,11 +233,10 @@ namespace jit {
   _(RegExpTesterRaw, js::RegExpTesterRaw)                                      \
   _(SameValue, js::SameValue)                                                  \
   _(SetArrayLength, js::jit::SetArrayLength)                                   \
-  _(SetDenseElement, js::jit::SetDenseElement)                                 \
+  _(SetElementMegamorphic, js::jit::SetElementMegamorphic)                     \
   _(SetElementSuper, js::SetElementSuper)                                      \
   _(SetFunctionName, js::SetFunctionName)                                      \
   _(SetIntrinsicOperation, js::SetIntrinsicOperation)                          \
-  _(SetObjectElementWithReceiver, js::SetObjectElementWithReceiver)            \
   _(SetObjectHas, js::jit::SetObjectHas)                                       \
   _(SetPropertySuper, js::SetPropertySuper)                                    \
   _(StartDynamicModuleImport, js::StartDynamicModuleImport)                    \

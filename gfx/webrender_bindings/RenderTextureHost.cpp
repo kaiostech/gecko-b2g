@@ -13,22 +13,17 @@ namespace mozilla {
 namespace wr {
 
 void ActivateBindAndTexParameteri(gl::GLContext* aGL, GLenum aActiveTexture,
-                                  GLenum aBindTarget, GLuint aBindTexture,
-                                  wr::ImageRendering aRendering) {
+                                  GLenum aBindTarget, GLuint aBindTexture) {
   aGL->fActiveTexture(aActiveTexture);
   aGL->fBindTexture(aBindTarget, aBindTexture);
+  // Initialize the mip filters to linear by default.
   aGL->fTexParameteri(aBindTarget, LOCAL_GL_TEXTURE_MIN_FILTER,
-                      aRendering == wr::ImageRendering::Pixelated
-                          ? LOCAL_GL_NEAREST
-                          : LOCAL_GL_LINEAR);
+                      LOCAL_GL_LINEAR);
   aGL->fTexParameteri(aBindTarget, LOCAL_GL_TEXTURE_MAG_FILTER,
-                      aRendering == wr::ImageRendering::Pixelated
-                          ? LOCAL_GL_NEAREST
-                          : LOCAL_GL_LINEAR);
+                      LOCAL_GL_LINEAR);
 }
 
-RenderTextureHost::RenderTextureHost()
-    : mCachedRendering(wr::ImageRendering::Auto), mIsFromDRMSource(false) {
+RenderTextureHost::RenderTextureHost() : mIsFromDRMSource(false) {
   MOZ_COUNT_CTOR(RenderTextureHost);
 }
 
@@ -37,20 +32,14 @@ RenderTextureHost::~RenderTextureHost() {
   MOZ_COUNT_DTOR(RenderTextureHost);
 }
 
-bool RenderTextureHost::IsFilterUpdateNecessary(wr::ImageRendering aRendering) {
-  return mCachedRendering != aRendering;
-}
-
 wr::WrExternalImage RenderTextureHost::Lock(uint8_t aChannelIndex,
-                                            gl::GLContext* aGL,
-                                            wr::ImageRendering aRendering) {
+                                            gl::GLContext* aGL) {
   return InvalidToWrExternalImage();
 }
 
 wr::WrExternalImage RenderTextureHost::LockSWGL(uint8_t aChannelIndex,
                                                 void* aContext,
-                                                RenderCompositor* aCompositor,
-                                                wr::ImageRendering aRendering) {
+                                                RenderCompositor* aCompositor) {
   return InvalidToWrExternalImage();
 }
 

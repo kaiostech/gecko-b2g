@@ -4,11 +4,9 @@
 
 "use strict";
 
-const { Cu } = require("chrome");
-
-const {
-  DevToolsShim,
-} = require("chrome://devtools-startup/content/DevToolsShim.jsm");
+const { DevToolsShim } = ChromeUtils.importESModule(
+  "chrome://devtools-startup/content/DevToolsShim.sys.mjs"
+);
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -19,52 +17,57 @@ ChromeUtils.defineESModuleGetters(lazy, {
 loader.lazyRequireGetter(
   this,
   "TabDescriptorFactory",
-  "devtools/client/framework/tab-descriptor-factory",
+  "resource://devtools/client/framework/tab-descriptor-factory.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "CommandsFactory",
-  "devtools/shared/commands/commands-factory",
+  "resource://devtools/shared/commands/commands-factory.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "ToolboxHostManager",
-  "devtools/client/framework/toolbox-host-manager",
+  "resource://devtools/client/framework/toolbox-host-manager.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "BrowserConsoleManager",
-  "devtools/client/webconsole/browser-console-manager",
+  "resource://devtools/client/webconsole/browser-console-manager.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "Toolbox",
-  "devtools/client/framework/toolbox",
+  "resource://devtools/client/framework/toolbox.js",
   true
 );
 
-loader.lazyRequireGetter(this, "Telemetry", "devtools/client/shared/telemetry");
+loader.lazyRequireGetter(
+  this,
+  "Telemetry",
+  "resource://devtools/client/shared/telemetry.js"
+);
 
 const {
   defaultTools: DefaultTools,
   defaultThemes: DefaultThemes,
-} = require("devtools/client/definitions");
-const EventEmitter = require("devtools/shared/event-emitter");
+} = require("resource://devtools/client/definitions.js");
+const EventEmitter = require("resource://devtools/shared/event-emitter.js");
 const {
   getTheme,
   setTheme,
   getAutoTheme,
   addThemeObserver,
   removeThemeObserver,
-} = require("devtools/client/shared/theme");
+} = require("resource://devtools/client/shared/theme.js");
 
 const FORBIDDEN_IDS = new Set(["toolbox", ""]);
 const MAX_ORDINAL = 99;
 const POPUP_DEBUG_PREF = "devtools.popups.debug";
+const DEVTOOLS_ALWAYS_ON_TOP = "devtools.toolbox.alwaysOnTop";
 
 /**
  * DevTools is a class that represents a set of developer tools, it holds a
@@ -184,7 +187,9 @@ DevTools.prototype = {
       toolId = tool;
       tool = this._tools.get(tool);
     } else {
-      const { Deprecated } = require("resource://gre/modules/Deprecated.jsm");
+      const { Deprecated } = ChromeUtils.import(
+        "resource://gre/modules/Deprecated.jsm"
+      );
       Deprecated.warning(
         "Deprecation WARNING: gDevTools.unregisterTool(tool) is " +
           "deprecated. You should unregister a tool using its toolId: " +
@@ -582,7 +587,7 @@ DevTools.prototype = {
    * arguments description.
    *
    * Also used by 3rd party tools (eg wptrunner) and exposed by
-   * DevToolsShim.jsm.
+   * DevToolsShim.sys.mjs.
    *
    * @param {XULTab} tab
    *        The tab the toolbox will debug
@@ -655,6 +660,11 @@ DevTools.prototype = {
 
     return this.showToolbox(commands.descriptorFront, {
       hostType: Toolbox.HostType.WINDOW,
+      hostOptions: {
+        // The toolbox is always displayed on top so that we can keep
+        // the DevTools visible while interacting with the Firefox window.
+        alwaysOnTop: Services.prefs.getBoolPref(DEVTOOLS_ALWAYS_ON_TOP, false),
+      },
     });
   },
 
@@ -802,7 +812,7 @@ DevTools.prototype = {
   openBrowserConsole() {
     const {
       BrowserConsoleManager,
-    } = require("devtools/client/webconsole/browser-console-manager");
+    } = require("resource://devtools/client/webconsole/browser-console-manager.js");
     BrowserConsoleManager.openBrowserConsoleOrFocus();
   },
 

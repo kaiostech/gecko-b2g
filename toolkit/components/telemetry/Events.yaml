@@ -198,7 +198,8 @@ addonsManager:
         The source that originally triggered the add-on installation, one of "about:addons",
         "about:debugging", "about:preferences", "amo", "disco", "distribution",
         "extension", "enterprise-policy", "file-url", "geckoview-app", "gmp-plugin",
-        "internal", "plugin", "rtamo", "sync", "system-addon", "temporary-addon", "unknown".
+        "internal", "plugin", "rtamo", "siteperm-addon-provider" "sync", "system-addon",
+        "temporary-addon", "unknown".
         For events with method set to "sideload", the source value is derived from the XPIProvider
         location name (e.g. possible values are "app-builtin", "app-global", "app-profile",
         "app-system-addons", "app-system-defaults", "app-system-local", "app-system-profile",
@@ -207,7 +208,7 @@ addonsManager:
         The method used by the source to install the add-on (included when the source can use more than one,
         e.g. install events with source "about:addons" may have "install-from-file" or "url" as method),
         one of "amWebAPI", "drag-and-drop", "installTrigger", "install-from-file", "link",
-        "management-webext-api", "sideload", "url", "product-updates".
+        "management-webext-api", "sideload", "synthetic-install", "url", "product-updates".
       num_strings: The number of permission description strings in the extension permission doorhanger
       updated_from: Determine if an update has been requested by the user or the application ("app" / "user")
       install_origins: This flag indicates whether install_origins is defined in the addon manifest. ("1" / "0")
@@ -571,8 +572,11 @@ creditcard:
       User interactions for credit card autofill forms
       Expected values are store in extra_keys and are varies depends on the methods
         'detected': Recorded when a form is recognized as a credit card form.
-                    "true" or an integer between 0-100 when the field is identified in the form, "false" otherwise
-                    When the value is an integer number, the value indicates the confidence value from fathom (normalized to 0-100)
+                    The possible value of cc_* in extra_keys are "true", "false", or an integer between 0-100
+                    When the value is "true", the field is identified via autocomplete attribute
+                    When the value is "false", the field is not detected in the form
+                    When the value is an integer greater than 0, the value indicates the confidence value from fathom (normalized to 0-100)
+                    When the value is an 0, then the field is identified by regexp-based heuristic
         'popup_shown': Recorded when autofill popup is shown. Using field_name to record the field
                        that triggers this event
         'filled': Recorded when a form is autofiled. Possible values are
@@ -2124,9 +2128,10 @@ security.ui.protections:
       - 1661756
       - 1678201
       - 1739287
+      - 1787249
     description: >
       User arrived on the protection report. This also includes a 'value' attribute which defaults to 'direct' or will be the value that a referring website addds to the url. This also indicates if the vpn banner has been seen.
-    expiry_version: "107"
+    expiry_version: never
     record_in_processes: ["content"]
     release_channel_collection: opt-out
     notification_emails:
@@ -2147,9 +2152,10 @@ security.ui.protections:
       - 1643428
       - 1678201
       - 1739287
+      - 1787249
     description: >
       User closed on the protection report.
-    expiry_version: "107"
+    expiry_version: never
     record_in_processes: ["content"]
     release_channel_collection: opt-out
     notification_emails:
@@ -2171,6 +2177,7 @@ security.ui.protections:
       - 1661756
       - 1678201
       - 1739287
+      - 1787249
     description: >
       User interaction by click events on the protection report.
     objects: [
@@ -2189,7 +2196,7 @@ security.ui.protections:
       "vpn_app_link_android",
       "vpn_app_link_ios",
     ]
-    expiry_version: "107"
+    expiry_version: never
     record_in_processes: ["content"]
     release_channel_collection: opt-out
     notification_emails:
@@ -2208,12 +2215,13 @@ security.ui.app_menu:
       - 1643428
       - 1678201
       - 1739287
+      - 1787249
     description: >
       Privacy and Security click events on app menu.
     objects: [
       "open_full_report",
     ]
-    expiry_version: "107"
+    expiry_version: never
     record_in_processes:
       - main
     release_channel_collection: opt-out
@@ -2232,9 +2240,10 @@ security.ui.protectionspopup:
       - 1643428
       - 1678201
       - 1739287
+      - 1787249
     description: >
       How many times the protections panel was opened.
-    expiry_version: "107"
+    expiry_version: never
     notification_emails:
       - pbz@mozilla.com
       - seceng-telemetry@mozilla.com
@@ -2267,9 +2276,10 @@ security.ui.protectionspopup:
       - 1643428
       - 1678201
       - 1739287
+      - 1787249
     description: >
       User interaction by click events in the protections panel.
-    expiry_version: "107"
+    expiry_version: never
     notification_emails:
       - pbz@mozilla.com
       - seceng-telemetry@mozilla.com
@@ -3582,3 +3592,28 @@ firefoxview:
       - 1779642
     expiry_version: "never"
     release_channel_collection: opt-out
+
+
+search:
+  engine:
+    objects: ["change_default", "change_private"]
+    release_channel_collection: opt-out
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    description: >
+      Recorded when the default search engine is changed, the value field
+      records the action used to trigger the change of default. For possible
+      values, see `REASON_CHANGE_MAP` in
+      https://searchfox.org/mozilla-central/source/toolkit/components/search/SearchService.sys.mjs
+    bug_numbers: [1634555]
+    notification_emails:
+      - fx-search-telemetry@mozilla.com
+      - rev-data@mozilla.com
+    expiry_version: never
+    extra_keys:
+      prev_id: The id of the previous default engine.
+      new_id: The id of the new default engine.
+      new_name: The display name of the new default engine.
+      new_load_path: The path relating to where the new default engine was installed/loaded from.
+      new_sub_url: The new submission URL of the new default engine.

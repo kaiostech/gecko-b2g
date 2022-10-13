@@ -39,7 +39,7 @@ const syncedTabsData1 = [
     id: 2,
     type: "client",
     name: "My iphone",
-    clientType: "mobile",
+    clientType: "phone",
     lastModified: 1655727832930,
     tabs: [
       {
@@ -152,11 +152,6 @@ function assertFirefoxViewTab(w) {
   ok(w.FirefoxViewHandler.tab, "Firefox View tab exists");
   ok(w.FirefoxViewHandler.tab?.hidden, "Firefox View tab is hidden");
   is(
-    w.gBrowser.tabs.indexOf(w.FirefoxViewHandler.tab),
-    0,
-    "Firefox View tab is the first tab"
-  );
-  is(
     w.gBrowser.visibleTabs.indexOf(w.FirefoxViewHandler.tab),
     -1,
     "Firefox View tab is not in the list of visible tabs"
@@ -175,7 +170,7 @@ async function openFirefoxViewTab(w) {
     w
   );
   assertFirefoxViewTab(w);
-  is(w.gBrowser.tabContainer.selectedIndex, 0, "Firefox View tab is selected");
+  ok(w.FirefoxViewHandler.tab.selected, "Firefox View tab is selected");
   await BrowserTestUtils.browserLoaded(w.FirefoxViewHandler.tab.linkedBrowser);
   return w.FirefoxViewHandler.tab;
 }
@@ -299,10 +294,12 @@ async function setupListState(browser) {
     set: [["services.sync.engine.tabs", true]],
   });
 
-  Services.obs.notifyObservers(null, UIState.ON_UPDATE);
+  UIState.refresh();
   const recentFetchTime = Math.floor(Date.now() / 1000);
   info("updating lastFetch:" + recentFetchTime);
   Services.prefs.setIntPref("services.sync.lastTabFetch", recentFetchTime);
+
+  Services.obs.notifyObservers(null, UIState.ON_UPDATE);
 
   await waitForElementVisible(browser, "#tabpickup-steps", false);
   await waitForElementVisible(browser, "#tabpickup-tabs-container", true);
@@ -310,6 +307,10 @@ async function setupListState(browser) {
   const tabsContainer = browser.contentWindow.document.querySelector(
     "#tabpickup-tabs-container"
   );
+  // fake a sync completion, as UIState.UI_UPDATE with a signed-in status will have
+  // triggered a sync when we have 0 tabs
+  Services.obs.notifyObservers(null, "weave:service:sync:finish");
+
   await BrowserTestUtils.waitForMutationCondition(
     tabsContainer,
     { attributeFilter: ["class"], attributes: true },
@@ -317,4 +318,44 @@ async function setupListState(browser) {
       return !tabsContainer.classList.contains("loading");
     }
   );
+}
+
+function checkMobilePromo(browser, expected = {}) {
+  const { document } = browser.contentWindow;
+  const promoElem = document.querySelector(
+    "#tab-pickup-container > .promo-box"
+  );
+  const successElem = document.querySelector(
+    "#tab-pickup-container > .confirmation-message-box"
+  );
+
+  info("checkMobilePromo: " + JSON.stringify(expected));
+  if (expected.mobilePromo) {
+    ok(BrowserTestUtils.is_visible(promoElem), "Mobile promo is visible");
+  } else {
+    ok(
+      !promoElem || BrowserTestUtils.is_hidden(promoElem),
+      "Mobile promo is hidden"
+    );
+  }
+  if (expected.mobileConfirmation) {
+    ok(
+      BrowserTestUtils.is_visible(successElem),
+      "Success confirmation is visible"
+    );
+  } else {
+    ok(
+      !successElem || BrowserTestUtils.is_hidden(successElem),
+      "Success confirmation is hidden"
+    );
+  }
+}
+
+async function touchLastTabFetch() {
+  // lastTabFetch stores a timestamp in *seconds*.
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  info("updating lastFetch:" + nowSeconds);
+  Services.prefs.setIntPref("services.sync.lastTabFetch", nowSeconds);
+  // wait so all pref observers can complete
+  await TestUtils.waitForTick();
 }

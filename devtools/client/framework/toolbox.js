@@ -12,6 +12,7 @@ const SOURCE_MAP_WORKER_ASSETS =
 const MAX_ORDINAL = 99;
 const SPLITCONSOLE_ENABLED_PREF = "devtools.toolbox.splitconsoleEnabled";
 const SPLITCONSOLE_HEIGHT_PREF = "devtools.toolbox.splitconsoleHeight";
+const DEVTOOLS_ALWAYS_ON_TOP = "devtools.toolbox.alwaysOnTop";
 const DISABLE_AUTOHIDE_PREF = "ui.popup.disable_autohide";
 const PSEUDO_LOCALE_PREF = "intl.l10n.pseudo";
 const HOST_HISTOGRAM = "DEVTOOLS_TOOLBOX_HOST";
@@ -23,32 +24,39 @@ const BROWSERTOOLBOX_SCOPE_PREF = "devtools.browsertoolbox.scope";
 const BROWSERTOOLBOX_SCOPE_EVERYTHING = "everything";
 const BROWSERTOOLBOX_SCOPE_PARENTPROCESS = "parent-process";
 
-var { Ci, Cc } = require("chrome");
-const { debounce } = require("devtools/shared/debounce");
-const { throttle } = require("devtools/shared/throttle");
-const { safeAsyncMethod } = require("devtools/shared/async-utils");
-var { gDevTools } = require("devtools/client/framework/devtools");
-var EventEmitter = require("devtools/shared/event-emitter");
-const Selection = require("devtools/client/framework/selection");
-var Telemetry = require("devtools/client/shared/telemetry");
-const { getUnicodeUrl } = require("devtools/client/shared/unicode-url");
-var { DOMHelpers } = require("devtools/shared/dom-helpers");
-const { KeyCodes } = require("devtools/client/shared/keycodes");
+const { debounce } = require("resource://devtools/shared/debounce.js");
+const { throttle } = require("resource://devtools/shared/throttle.js");
+const {
+  safeAsyncMethod,
+} = require("resource://devtools/shared/async-utils.js");
+var { gDevTools } = require("resource://devtools/client/framework/devtools.js");
+var EventEmitter = require("resource://devtools/shared/event-emitter.js");
+const Selection = require("resource://devtools/client/framework/selection.js");
+var Telemetry = require("resource://devtools/client/shared/telemetry.js");
+const {
+  getUnicodeUrl,
+} = require("resource://devtools/client/shared/unicode-url.js");
+var { DOMHelpers } = require("resource://devtools/shared/dom-helpers.js");
+const { KeyCodes } = require("resource://devtools/client/shared/keycodes.js");
 const {
   FluentL10n,
-} = require("devtools/client/shared/fluent-l10n/fluent-l10n");
+} = require("resource://devtools/client/shared/fluent-l10n/fluent-l10n.js");
 
 var Startup = Cc["@mozilla.org/devtools/startup-clh;1"].getService(
   Ci.nsISupports
 ).wrappedJSObject;
 
-const { createCommandsDictionary } = require("devtools/shared/commands/index");
+const {
+  createCommandsDictionary,
+} = require("resource://devtools/shared/commands/index.js");
 
 const { BrowserLoader } = ChromeUtils.import(
   "resource://devtools/shared/loader/browser-loader.js"
 );
 
-const { MultiLocalizationHelper } = require("devtools/shared/l10n");
+const {
+  MultiLocalizationHelper,
+} = require("resource://devtools/shared/l10n.js");
 const L10N = new MultiLocalizationHelper(
   "devtools/client/locales/toolbox.properties",
   "chrome://branding/locale/brand.properties"
@@ -57,144 +65,148 @@ const L10N = new MultiLocalizationHelper(
 loader.lazyRequireGetter(
   this,
   "registerStoreObserver",
-  "devtools/client/shared/redux/subscriber",
+  "resource://devtools/client/shared/redux/subscriber.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "createToolboxStore",
-  "devtools/client/framework/store",
+  "resource://devtools/client/framework/store.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   ["registerWalkerListeners"],
-  "devtools/client/framework/actions/index",
+  "resource://devtools/client/framework/actions/index.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   ["selectTarget"],
-  "devtools/shared/commands/target/actions/targets",
+  "resource://devtools/shared/commands/target/actions/targets.js",
   true
 );
 
-loader.lazyRequireGetter(
-  this,
+const lazy = {};
+ChromeUtils.defineModuleGetter(
+  lazy,
   "AppConstants",
-  "resource://gre/modules/AppConstants.jsm",
-  true
+  "resource://gre/modules/AppConstants.jsm"
 );
-loader.lazyRequireGetter(this, "flags", "devtools/shared/flags");
+loader.lazyRequireGetter(this, "flags", "resource://devtools/shared/flags.js");
 loader.lazyRequireGetter(
   this,
   "KeyShortcuts",
-  "devtools/client/shared/key-shortcuts"
+  "resource://devtools/client/shared/key-shortcuts.js"
 );
-loader.lazyRequireGetter(this, "ZoomKeys", "devtools/client/shared/zoom-keys");
+loader.lazyRequireGetter(
+  this,
+  "ZoomKeys",
+  "resource://devtools/client/shared/zoom-keys.js"
+);
 loader.lazyRequireGetter(
   this,
   "ToolboxButtons",
-  "devtools/client/definitions",
+  "resource://devtools/client/definitions.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "SourceMapURLService",
-  "devtools/client/framework/source-map-url-service",
+  "resource://devtools/client/framework/source-map-url-service.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "BrowserConsoleManager",
-  "devtools/client/webconsole/browser-console-manager",
+  "resource://devtools/client/webconsole/browser-console-manager.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "viewSource",
-  "devtools/client/shared/view-source"
+  "resource://devtools/client/shared/view-source.js"
 );
 loader.lazyRequireGetter(
   this,
   "buildHarLog",
-  "devtools/client/netmonitor/src/har/har-builder-utils",
+  "resource://devtools/client/netmonitor/src/har/har-builder-utils.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "NetMonitorAPI",
-  "devtools/client/netmonitor/src/api",
+  "resource://devtools/client/netmonitor/src/api.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "sortPanelDefinitions",
-  "devtools/client/framework/toolbox-tabs-order-manager",
+  "resource://devtools/client/framework/toolbox-tabs-order-manager.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "createEditContextMenu",
-  "devtools/client/framework/toolbox-context-menu",
+  "resource://devtools/client/framework/toolbox-context-menu.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "getSelectedTarget",
-  "devtools/shared/commands/target/selectors/targets",
+  "resource://devtools/shared/commands/target/selectors/targets.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "remoteClientManager",
-  "devtools/client/shared/remote-debugging/remote-client-manager.js",
+  "resource://devtools/client/shared/remote-debugging/remote-client-manager.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "ResponsiveUIManager",
-  "devtools/client/responsive/manager"
+  "resource://devtools/client/responsive/manager.js"
 );
 loader.lazyRequireGetter(
   this,
   "DevToolsUtils",
-  "devtools/shared/DevToolsUtils"
+  "resource://devtools/shared/DevToolsUtils.js"
 );
 loader.lazyRequireGetter(
   this,
   "NodePicker",
-  "devtools/client/inspector/node-picker"
+  "resource://devtools/client/inspector/node-picker.js"
 );
 
 loader.lazyGetter(this, "domNodeConstants", () => {
-  return require("devtools/shared/dom-node-constants");
+  return require("resource://devtools/shared/dom-node-constants.js");
 });
 
 loader.lazyRequireGetter(
   this,
   "NodeFront",
-  "devtools/client/fronts/node",
+  "resource://devtools/client/fronts/node.js",
   true
 );
 
 loader.lazyRequireGetter(
   this,
   "PICKER_TYPES",
-  "devtools/shared/picker-constants"
+  "resource://devtools/shared/picker-constants.js"
 );
 
 loader.lazyRequireGetter(
   this,
   "HarAutomation",
-  "devtools/client/netmonitor/src/har/har-automation",
+  "resource://devtools/client/netmonitor/src/har/har-automation.js",
   true
 );
 
 loader.lazyRequireGetter(
   this,
   "getThreadOptions",
-  "devtools/client/shared/thread-utils",
+  "resource://devtools/client/shared/thread-utils.js",
   true
 );
 
@@ -276,6 +288,7 @@ function Toolbox(
   this._toolUnregistered = this._toolUnregistered.bind(this);
   this._refreshHostTitle = this._refreshHostTitle.bind(this);
   this.toggleNoAutohide = this.toggleNoAutohide.bind(this);
+  this.toggleAlwaysOnTop = this.toggleAlwaysOnTop.bind(this);
   this.disablePseudoLocale = () => this.changePseudoLocale("none");
   this.enableAccentedPseudoLocale = () => this.changePseudoLocale("accented");
   this.enableBidiPseudoLocale = () => this.changePseudoLocale("bidi");
@@ -292,6 +305,7 @@ function Toolbox(
   );
   this._saveSplitConsoleHeight = this._saveSplitConsoleHeight.bind(this);
   this._onFocus = this._onFocus.bind(this);
+  this._onBlur = this._onBlur.bind(this);
   this._onBrowserMessage = this._onBrowserMessage.bind(this);
   this._onTabsOrderUpdated = this._onTabsOrderUpdated.bind(this);
   this._onToolbarFocus = this._onToolbarFocus.bind(this);
@@ -327,6 +341,14 @@ function Toolbox(
   // `component` might be null if the toolbox was destroying during the throttling
   this._throttledSetToolboxButtons = throttle(
     () => this.component?.setToolboxButtons(this.toolbarButtons),
+    500,
+    this
+  );
+
+  this._debounceUpdateFocusedState = debounce(
+    () => {
+      this.component?.setFocusedState(this._isToolboxFocused);
+    },
     500,
     this
   );
@@ -1104,6 +1126,7 @@ Toolbox.prototype = {
       this._splitConsoleOnKeypress
     );
     this._chromeEventHandler.addEventListener("focus", this._onFocus, true);
+    this._chromeEventHandler.addEventListener("blur", this._onBlur, true);
     this._chromeEventHandler.addEventListener(
       "contextmenu",
       this._onContextMenu
@@ -1126,6 +1149,7 @@ Toolbox.prototype = {
       this._splitConsoleOnKeypress
     );
     this._chromeEventHandler.removeEventListener("focus", this._onFocus, true);
+    this._chromeEventHandler.removeEventListener("focus", this._onBlur, true);
     this._chromeEventHandler.removeEventListener(
       "contextmenu",
       this._onContextMenu
@@ -1192,7 +1216,9 @@ Toolbox.prototype = {
     }
 
     // Add zoom-related shortcuts.
-    if (!this._hostOptions || this._hostOptions.zoom === true) {
+    if (this.hostType != Toolbox.HostType.PAGE) {
+      // When the toolbox is rendered in a tab (ie host type is PAGE), the
+      // zoom should be handled by the default browser shortcuts.
       ZoomKeys.register(this.win, this.shortcuts);
     }
   },
@@ -1255,7 +1281,7 @@ Toolbox.prototype = {
       L10N.getStr("toolbox.toggleToolboxF12.key"),
       this.closeToolbox
     );
-    if (AppConstants.platform == "macosx") {
+    if (lazy.AppConstants.platform == "macosx") {
       shortcuts.on(
         L10N.getStr("toolbox.toggleToolboxOSX.key"),
         this.closeToolbox
@@ -1459,7 +1485,7 @@ Toolbox.prototype = {
 
     const {
       ParserDispatcher,
-    } = require("devtools/client/debugger/src/workers/parser/index");
+    } = require("resource://devtools/client/debugger/src/workers/parser/index.js");
 
     this._parserService = new ParserDispatcher();
     this._parserService.start(
@@ -1727,10 +1753,10 @@ Toolbox.prototype = {
   },
 
   _saveSplitConsoleHeight() {
-    Services.prefs.setIntPref(
-      SPLITCONSOLE_HEIGHT_PREF,
-      parseInt(this.webconsolePanel.style.height, 10)
-    );
+    const height = parseInt(this.webconsolePanel.style.height, 10);
+    if (!isNaN(height)) {
+      Services.prefs.setIntPref(SPLITCONSOLE_HEIGHT_PREF, height);
+    }
   },
 
   /**
@@ -1753,12 +1779,16 @@ Toolbox.prototype = {
 
     if (openedConsolePanel) {
       deck.collapsed = true;
+      deck.removeAttribute("expanded");
       splitter.hidden = true;
       webconsolePanel.collapsed = false;
+      webconsolePanel.setAttribute("expanded", "");
     } else {
       deck.collapsed = false;
+      deck.toggleAttribute("expanded", !this.splitConsole);
       splitter.hidden = !this.splitConsole;
       webconsolePanel.collapsed = !this.splitConsole;
+      webconsolePanel.removeAttribute("expanded");
     }
   },
 
@@ -1886,6 +1916,16 @@ Toolbox.prototype = {
     if (typeof pseudoLocale == "string") {
       this.component.setPseudoLocale(pseudoLocale);
     }
+    if (
+      this.descriptorFront.isWebExtensionDescriptor &&
+      this.hostType === Toolbox.HostType.WINDOW
+    ) {
+      const alwaysOnTop = Services.prefs.getBoolPref(
+        DEVTOOLS_ALWAYS_ON_TOP,
+        false
+      );
+      this.component.setAlwaysOnTop(alwaysOnTop);
+    }
   },
 
   /**
@@ -1904,6 +1944,7 @@ Toolbox.prototype = {
       toggleOptions: this.toggleOptions,
       toggleSplitConsole: this.toggleSplitConsole,
       toggleNoAutohide: this.toggleNoAutohide,
+      toggleAlwaysOnTop: this.toggleAlwaysOnTop,
       disablePseudoLocale: this.disablePseudoLocale,
       enableAccentedPseudoLocale: this.enableAccentedPseudoLocale,
       enableBidiPseudoLocale: this.enableBidiPseudoLocale,
@@ -2977,8 +3018,11 @@ Toolbox.prototype = {
    * If the console is split and we are focusing an element outside
    * of the console, then store the newly focused element, so that
    * it can be restored once the split console closes.
+   *
+   * @param Element originalTarget
+   *        The DOM Element that just got focused.
    */
-  _onFocus({ originalTarget }) {
+  _updateLastFocusedElementForSplitConsole(originalTarget) {
     // Ignore any non element nodes, or any elements contained
     // within the webconsole frame.
     const webconsoleURL = gDevTools.getToolDefinition("webconsole").url;
@@ -2990,6 +3034,22 @@ Toolbox.prototype = {
     }
 
     this._lastFocusedElement = originalTarget;
+  },
+
+  // Report if the toolbox is currently focused,
+  // or the focus in elsewhere in the browser or another app.
+  _isToolboxFocused: false,
+
+  _onFocus({ originalTarget }) {
+    this._isToolboxFocused = true;
+    this._debounceUpdateFocusedState();
+
+    this._updateLastFocusedElementForSplitConsole(originalTarget);
+  },
+
+  _onBlur() {
+    this._isToolboxFocused = false;
+    this._debounceUpdateFocusedState();
   },
 
   _onTabsOrderUpdated() {
@@ -3319,6 +3379,25 @@ Toolbox.prototype = {
       this.component.setDisableAutohide(toggledValue);
     }
     this._autohideHasBeenToggled = true;
+  },
+
+  /**
+   * Toggling "always on top" behavior is a bit special.
+   *
+   * We toggle the preference and then destroy and re-create the toolbox
+   * as there is no way to change this behavior on an existing window
+   * (see bug 1788946).
+   */
+  async toggleAlwaysOnTop() {
+    const currentValue = Services.prefs.getBoolPref(
+      DEVTOOLS_ALWAYS_ON_TOP,
+      false
+    );
+    Services.prefs.setBoolPref(DEVTOOLS_ALWAYS_ON_TOP, !currentValue);
+
+    const addonId = this.descriptorFront.id;
+    await this.destroy();
+    gDevTools.showToolboxForWebExtension(addonId);
   },
 
   async _isDisableAutohideEnabled() {

@@ -7,6 +7,10 @@ XPCOMUtils.defineLazyModuleGetters(globalThis, {
   SessionStore: "resource:///modules/sessionstore/SessionStore.jsm",
 });
 
+const { TabsSetupFlowManager } = ChromeUtils.importESModule(
+  "resource:///modules/firefox-view-tabs-setup-manager.sys.mjs"
+);
+
 const URLs = [
   "http://mochi.test:8888/browser/",
   "http://www.example.com/",
@@ -22,6 +26,9 @@ const RECENTLY_CLOSED_EVENT = [
 const CLOSED_TABS_OPEN_EVENT = [
   ["firefoxview", "closed_tabs_open", "tabs", "false"],
 ];
+
+const RECENTLY_CLOSED_STATE_PREF =
+  "browser.tabs.firefox-view.ui-state.recently-closed-tabs.open";
 
 async function add_new_tab(URL) {
   let tab = BrowserTestUtils.addTab(gBrowser, URL);
@@ -351,13 +358,21 @@ add_task(async function test_time_updates_correctly() {
   );
 });
 
-add_task(async function test_arrow_keys() {
+add_task(async function test_keyboard_navigation() {
+  await SpecialPowers.clearUserPref(RECENTLY_CLOSED_STATE_PREF);
   Services.obs.notifyObservers(null, "browser:purge-session-history");
   is(
     SessionStore.getClosedTabCount(window),
     0,
     "Closed tab count after purging session history"
   );
+
+  const sandbox = sinon.createSandbox();
+  let setupCompleteStub = sandbox.stub(
+    TabsSetupFlowManager,
+    "isTabSyncSetupComplete"
+  );
+  setupCompleteStub.returns(true);
 
   await open_then_close(URLs[0]);
   await open_then_close(URLs[1]);
@@ -379,6 +394,25 @@ add_task(async function test_arrow_keys() {
         info("Arrow up");
         EventUtils.synthesizeKey("KEY_ArrowUp");
       };
+      const enter = () => {
+        info("Enter");
+        EventUtils.synthesizeKey("KEY_Enter");
+      };
+
+      let summary = document.getElementById(
+        "recently-closed-tabs-header-section"
+      );
+      let details = document.getElementById("recently-closed-tabs-container");
+      ok(
+        details.open,
+        "Recently closed details should be initially open on load"
+      );
+      summary.focus();
+      enter();
+      ok(!details.open, "Recently closed details should be closed");
+      enter();
+      ok(details.open, "Recently closed details should be opened");
+
       list[0].focus();
       ok(list[0].matches(":focus"), "The first link is focused");
       arrowDown();

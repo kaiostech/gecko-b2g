@@ -3,17 +3,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
-const protocol = require("devtools/shared/protocol");
-const { watcherSpec } = require("devtools/shared/specs/watcher");
+const protocol = require("resource://devtools/shared/protocol.js");
+const { watcherSpec } = require("resource://devtools/shared/specs/watcher.js");
 
-const Resources = require("devtools/server/actors/resources/index");
+const Resources = require("resource://devtools/server/actors/resources/index.js");
 const { TargetActorRegistry } = ChromeUtils.importESModule(
   "resource://devtools/server/actors/targets/target-actor-registry.sys.mjs"
 );
 const { WatcherRegistry } = ChromeUtils.importESModule(
   "resource://devtools/server/actors/watcher/WatcherRegistry.sys.mjs"
 );
-const Targets = require("devtools/server/actors/targets/index");
+const Targets = require("resource://devtools/server/actors/targets/index.js");
 const { getAllBrowsingContextsForContext } = ChromeUtils.importESModule(
   "resource://devtools/server/actors/watcher/browsing-context-helpers.sys.mjs"
 );
@@ -22,47 +22,47 @@ const TARGET_HELPERS = {};
 loader.lazyRequireGetter(
   TARGET_HELPERS,
   Targets.TYPES.FRAME,
-  "devtools/server/actors/watcher/target-helpers/frame-helper"
+  "resource://devtools/server/actors/watcher/target-helpers/frame-helper.js"
 );
 loader.lazyRequireGetter(
   TARGET_HELPERS,
   Targets.TYPES.PROCESS,
-  "devtools/server/actors/watcher/target-helpers/process-helper"
+  "resource://devtools/server/actors/watcher/target-helpers/process-helper.js"
 );
 loader.lazyRequireGetter(
   TARGET_HELPERS,
   Targets.TYPES.WORKER,
-  "devtools/server/actors/watcher/target-helpers/worker-helper"
+  "resource://devtools/server/actors/watcher/target-helpers/worker-helper.js"
 );
 
 loader.lazyRequireGetter(
   this,
   "NetworkParentActor",
-  "devtools/server/actors/network-monitor/network-parent",
+  "resource://devtools/server/actors/network-monitor/network-parent.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "BlackboxingActor",
-  "devtools/server/actors/blackboxing",
+  "resource://devtools/server/actors/blackboxing.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "BreakpointListActor",
-  "devtools/server/actors/breakpoint-list",
+  "resource://devtools/server/actors/breakpoint-list.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "TargetConfigurationActor",
-  "devtools/server/actors/target-configuration",
+  "resource://devtools/server/actors/target-configuration.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "ThreadConfigurationActor",
-  "devtools/server/actors/thread-configuration",
+  "resource://devtools/server/actors/thread-configuration.js",
   true
 );
 

@@ -331,10 +331,6 @@ criteria = "safe-to-deploy"
 version = "0.11.1"
 criteria = "safe-to-deploy"
 
-[[exemptions.comedy]]
-version = "0.2.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.cookie]]
 version = "0.16.0"
 criteria = "safe-to-run"
@@ -527,10 +523,6 @@ criteria = "safe-to-deploy"
 version = "0.4.4"
 criteria = "safe-to-deploy"
 
-[[exemptions.filetime_win]]
-version = "0.2.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.flate2]]
 version = "1.0.24"
 criteria = "safe-to-deploy"
@@ -721,10 +713,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.inherent]]
 version = "1.0.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.inplace_it]]
-version = "0.3.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.instant]]
@@ -1085,10 +1073,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.range-alloc]]
 version = "0.1.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.raw-window-handle]]
-version = "0.4.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.redox_syscall]]

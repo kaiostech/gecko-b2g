@@ -820,10 +820,6 @@ class EditorDOMPointBase final {
     return true;
   }
 
-  bool HasChildMovedFromContainer() const {
-    return mChild && mChild->GetParentNode() != mParent;
-  }
-
   bool IsStartOfContainer() const {
     // If we're referring the first point in the container:
     //   If mParent is not a container like a text node, mOffset is 0.
@@ -1373,6 +1369,13 @@ inline void ImplCycleCollectionTraverse(
  */
 class MOZ_STACK_CLASS AutoEditorDOMPointOffsetInvalidator final {
  public:
+  AutoEditorDOMPointOffsetInvalidator() = delete;
+  AutoEditorDOMPointOffsetInvalidator(
+      const AutoEditorDOMPointOffsetInvalidator&) = delete;
+  AutoEditorDOMPointOffsetInvalidator(AutoEditorDOMPointOffsetInvalidator&&) =
+      delete;
+  const AutoEditorDOMPointOffsetInvalidator& operator=(
+      const AutoEditorDOMPointOffsetInvalidator&) = delete;
   explicit AutoEditorDOMPointOffsetInvalidator(EditorDOMPoint& aPoint)
       : mPoint(aPoint), mCanceled(false) {
     MOZ_ASSERT(aPoint.IsSetAndValid());
@@ -1412,12 +1415,27 @@ class MOZ_STACK_CLASS AutoEditorDOMPointOffsetInvalidator final {
   nsCOMPtr<nsIContent> mChild;
 
   bool mCanceled;
+};
 
-  AutoEditorDOMPointOffsetInvalidator() = delete;
-  AutoEditorDOMPointOffsetInvalidator(
-      const AutoEditorDOMPointOffsetInvalidator& aOther) = delete;
-  const AutoEditorDOMPointOffsetInvalidator& operator=(
-      const AutoEditorDOMPointOffsetInvalidator& aOther) = delete;
+class MOZ_STACK_CLASS AutoEditorDOMRangeOffsetsInvalidator final {
+ public:
+  explicit AutoEditorDOMRangeOffsetsInvalidator(EditorDOMRange& aRange)
+      : mStartInvalidator(const_cast<EditorDOMPoint&>(aRange.StartRef())),
+        mEndInvalidator(const_cast<EditorDOMPoint&>(aRange.EndRef())) {}
+
+  void InvalidateOffsets() {
+    mStartInvalidator.InvalidateOffset();
+    mEndInvalidator.InvalidateOffset();
+  }
+
+  void Cancel() {
+    mStartInvalidator.Cancel();
+    mEndInvalidator.Cancel();
+  }
+
+ private:
+  AutoEditorDOMPointOffsetInvalidator mStartInvalidator;
+  AutoEditorDOMPointOffsetInvalidator mEndInvalidator;
 };
 
 /**
@@ -1432,6 +1450,13 @@ class MOZ_STACK_CLASS AutoEditorDOMPointOffsetInvalidator final {
  */
 class MOZ_STACK_CLASS AutoEditorDOMPointChildInvalidator final {
  public:
+  AutoEditorDOMPointChildInvalidator() = delete;
+  AutoEditorDOMPointChildInvalidator(
+      const AutoEditorDOMPointChildInvalidator&) = delete;
+  AutoEditorDOMPointChildInvalidator(AutoEditorDOMPointChildInvalidator&&) =
+      delete;
+  const AutoEditorDOMPointChildInvalidator& operator=(
+      const AutoEditorDOMPointChildInvalidator&) = delete;
   explicit AutoEditorDOMPointChildInvalidator(EditorDOMPoint& aPoint)
       : mPoint(aPoint), mCanceled(false) {
     MOZ_ASSERT(aPoint.IsSetAndValid());
@@ -1458,12 +1483,27 @@ class MOZ_STACK_CLASS AutoEditorDOMPointChildInvalidator final {
   EditorDOMPoint& mPoint;
 
   bool mCanceled;
+};
 
-  AutoEditorDOMPointChildInvalidator() = delete;
-  AutoEditorDOMPointChildInvalidator(
-      const AutoEditorDOMPointChildInvalidator& aOther) = delete;
-  const AutoEditorDOMPointChildInvalidator& operator=(
-      const AutoEditorDOMPointChildInvalidator& aOther) = delete;
+class MOZ_STACK_CLASS AutoEditorDOMRangeChildrenInvalidator final {
+ public:
+  explicit AutoEditorDOMRangeChildrenInvalidator(EditorDOMRange& aRange)
+      : mStartInvalidator(const_cast<EditorDOMPoint&>(aRange.StartRef())),
+        mEndInvalidator(const_cast<EditorDOMPoint&>(aRange.EndRef())) {}
+
+  void InvalidateChildren() {
+    mStartInvalidator.InvalidateChild();
+    mEndInvalidator.InvalidateChild();
+  }
+
+  void Cancel() {
+    mStartInvalidator.Cancel();
+    mEndInvalidator.Cancel();
+  }
+
+ private:
+  AutoEditorDOMPointChildInvalidator mStartInvalidator;
+  AutoEditorDOMPointChildInvalidator mEndInvalidator;
 };
 
 }  // namespace mozilla

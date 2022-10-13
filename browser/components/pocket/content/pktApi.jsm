@@ -48,11 +48,9 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 const lazy = {};
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "IndexedDB",
-  "resource://gre/modules/IndexedDB.jsm"
-);
+ChromeUtils.defineESModuleGetters(lazy, {
+  IndexedDB: "resource://gre/modules/IndexedDB.sys.mjs",
+});
 ChromeUtils.defineModuleGetter(
   lazy,
   "PrivateBrowsingUtils",
@@ -760,6 +758,7 @@ var pktApi = (function() {
             list: Object.values(data.list)
               .map(item => ({
                 ...item,
+                id: parseInt(item.item_id || item.resolved_id, 10),
                 time_added: parseInt(item.time_added),
               }))
               .sort((a, b) => b.time_added - a.time_added),

@@ -36,6 +36,7 @@
 #include "nsIThrottledInputChannel.h"
 #include "nsITimedChannel.h"
 #include "nsITraceableChannel.h"
+#include "nsITransportSecurityInfo.h"
 #include "nsIURI.h"
 #include "nsIUploadChannel2.h"
 #include "nsStringEnumerator.h"
@@ -428,7 +429,8 @@ class HttpBaseChannel : public nsHashPropertyBag,
   const NetAddr& GetSelfAddr() { return mSelfAddr; }
   const NetAddr& GetPeerAddr() { return mPeerAddr; }
 
-  [[nodiscard]] nsresult OverrideSecurityInfo(nsISupports* aSecurityInfo);
+  [[nodiscard]] nsresult OverrideSecurityInfo(
+      nsITransportSecurityInfo* aSecurityInfo);
 
  public: /* Necko internal use only... */
   int64_t GetAltDataLength() { return mAltDataLength; }
@@ -549,7 +551,6 @@ class HttpBaseChannel : public nsHashPropertyBag,
   // was fired.
   void NotifySetCookie(const nsACString& aCookie);
 
-  mozilla::dom::PerformanceStorage* GetPerformanceStorage();
   void MaybeReportTimingData();
   nsIURI* GetReferringPage();
   nsPIDOMWindowInner* GetInnerDOMWindow();
@@ -687,7 +688,7 @@ class HttpBaseChannel : public nsHashPropertyBag,
   UniquePtr<nsHttpHeaderArray> mResponseTrailers;
   RefPtr<nsHttpConnectionInfo> mConnectionInfo;
   nsCOMPtr<nsIProxyInfo> mProxyInfo;
-  nsCOMPtr<nsISupports> mSecurityInfo;
+  nsCOMPtr<nsITransportSecurityInfo> mSecurityInfo;
   nsCOMPtr<nsIHttpUpgradeListener> mUpgradeProtocolCallback;
   UniquePtr<nsString> mContentDispositionFilename;
   nsCOMPtr<nsIConsoleReportCollector> mReportCollector;
@@ -714,6 +715,7 @@ class HttpBaseChannel : public nsHashPropertyBag,
   TimeStamp mAsyncOpenTime;
   TimeStamp mCacheReadStart;
   TimeStamp mCacheReadEnd;
+  TimeStamp mTransactionPendingTime;
   TimeStamp mLaunchServiceWorkerStart;
   TimeStamp mLaunchServiceWorkerEnd;
   TimeStamp mDispatchFetchEventStart;

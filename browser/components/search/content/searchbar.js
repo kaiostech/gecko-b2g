@@ -9,6 +9,17 @@
 // This is loaded into chrome windows with the subscript loader. Wrap in
 // a block to prevent accidentally leaking globals onto `window`.
 {
+  const lazy = {};
+
+  ChromeUtils.defineESModuleGetters(lazy, {
+    SearchSuggestionController:
+      "resource://gre/modules/SearchSuggestionController.sys.mjs",
+  });
+
+  XPCOMUtils.defineLazyModuleGetters(lazy, {
+    FormHistory: "resource://gre/modules/FormHistory.jsm",
+  });
+
   /**
    * Defines the search bar element.
    */
@@ -101,13 +112,6 @@
 
       window.addEventListener("unload", this.destroy);
 
-      this.FormHistory = ChromeUtils.import(
-        "resource://gre/modules/FormHistory.jsm"
-      ).FormHistory;
-      this.SearchSuggestionController = ChromeUtils.importESModule(
-        "resource://gre/modules/SearchSuggestionController.sys.mjs"
-      ).SearchSuggestionController;
-
       Services.obs.addObserver(this.observer, "browser-search-engine-modified");
       Services.obs.addObserver(this.observer, "browser-search-service");
 
@@ -164,9 +168,15 @@
 
     set currentEngine(val) {
       if (PrivateBrowsingUtils.isWindowPrivate(window)) {
-        Services.search.defaultPrivateEngine = val;
+        Services.search.setDefaultPrivate(
+          val,
+          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR
+        );
       } else {
-        Services.search.defaultEngine = val;
+        Services.search.setDefault(
+          val,
+          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR
+        );
       }
     }
 
@@ -384,11 +394,11 @@
       if (
         aData &&
         !PrivateBrowsingUtils.isWindowPrivate(window) &&
-        this.FormHistory.enabled &&
+        lazy.FormHistory.enabled &&
         aData.length <=
-          this.SearchSuggestionController.SEARCH_HISTORY_MAX_VALUE_LENGTH
+          lazy.SearchSuggestionController.SEARCH_HISTORY_MAX_VALUE_LENGTH
       ) {
-        this.FormHistory.update(
+        lazy.FormHistory.update(
           {
             op: "bump",
             fieldname: textBox.getAttribute("autocompletesearchparam"),
@@ -595,7 +605,7 @@
           this._buildContextMenu();
         }
 
-        BrowserSearch.searchBar._textbox.closePopup();
+        this._textbox.closePopup();
 
         // Make sure the context menu isn't opened via keyboard shortcut. Check for text selection
         // before updating the state of any menu items.
@@ -701,10 +711,8 @@
           let numItems = suggestionsHidden ? 0 : popup.matchCount;
           return popup.oneOffButtons.handleKeyDown(aEvent, numItems, true);
         } else if (aEvent.keyCode == KeyEvent.DOM_VK_ESCAPE) {
-          let undoCount = this.textbox.editor.transactionManager
-            .numberOfUndoItems;
-          if (undoCount) {
-            this.textbox.editor.undo(undoCount);
+          if (this.textbox.editor.canUndo) {
+            this.textbox.editor.undoAll();
           } else {
             this.textbox.select();
           }
@@ -790,7 +798,7 @@
 
       // override |onTextEntered| in autocomplete.xml
       this.textbox.onTextEntered = event => {
-        this.textbox.editor.transactionManager.clearUndoStack();
+        this.textbox.editor.clearUndoRedo();
 
         let engine;
         let oneOff = this.textbox.selectedButton;
@@ -870,14 +878,13 @@
       this._menupopup.addEventListener("command", event => {
         switch (event.originalTarget) {
           case this._pasteAndSearchMenuItem:
-            BrowserSearch.pasteAndSearch(event);
+            this.select();
+            goDoCommand("cmd_paste");
+            this.handleSearchCommand(event);
             break;
           case clearHistoryItem:
             let param = this.textbox.getAttribute("autocompletesearchparam");
-            BrowserSearch.searchBar.FormHistory.update(
-              { op: "remove", fieldname: param },
-              null
-            );
+            lazy.FormHistory.update({ op: "remove", fieldname: param }, null);
             this.textbox.value = "";
             break;
           default:

@@ -59,6 +59,7 @@ class nsIRemoteTab;
 class nsITimer;
 class ParentIdleListener;
 class nsIWidget;
+class nsIX509Cert;
 
 namespace mozilla {
 class PRemoteSpellcheckEngineParent;
@@ -469,6 +470,8 @@ class ContentParent final : public PContentParent,
                                                   const ContentParentId& aCpId);
 
   mozilla::ipc::IPCResult RecvFinishShutdown();
+
+  mozilla::ipc::IPCResult RecvNotifyShutdownSuccess();
 
   void MaybeInvokeDragSession(BrowserParent* aParent);
 
@@ -1162,8 +1165,9 @@ class ContentParent final : public PContentParent,
       const uint64_t& aInnerWindowId, const bool& aIsFromChromeContext);
 
   mozilla::ipc::IPCResult RecvReportFrameTimingData(
-      uint64_t innerWindowId, const nsAString& entryName,
-      const nsAString& initiatorType, UniquePtr<PerformanceTimingData>&& aData);
+      const mozilla::Maybe<LoadInfoArgs>& loadInfoArgs,
+      const nsAString& entryName, const nsAString& initiatorType,
+      UniquePtr<PerformanceTimingData>&& aData);
 
   mozilla::ipc::IPCResult RecvScriptErrorWithStack(
       const nsAString& aMessage, const nsAString& aSourceName,
@@ -1360,9 +1364,9 @@ class ContentParent final : public PContentParent,
   mozilla::ipc::IPCResult RecvBHRThreadHang(const HangDetails& aHangDetails);
 
   mozilla::ipc::IPCResult RecvAddCertException(
-      const nsACString& aSerializedCert, const nsACString& aHostName,
-      int32_t aPort, const OriginAttributes& aOriginAttributes,
-      bool aIsTemporary, AddCertExceptionResolver&& aResolver);
+      nsIX509Cert* aCert, const nsACString& aHostName, int32_t aPort,
+      const OriginAttributes& aOriginAttributes, bool aIsTemporary,
+      AddCertExceptionResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvAutomaticStorageAccessPermissionCanBeGranted(
       nsIPrincipal* aPrincipal,
@@ -1624,6 +1628,7 @@ class ContentParent final : public PContentParent,
   bool mIsAPreallocBlocker;  // We called AddBlocker for this ContentParent
 
   nsCString mRemoteType;
+  nsCString mProfile;
   nsCOMPtr<nsIPrincipal> mRemoteTypeIsolationPrincipal;
 
   ContentParentId mChildID;
@@ -1776,6 +1781,8 @@ class ContentParent final : public PContentParent,
 
   static uint32_t sMaxContentProcesses;
   static Maybe<TimeStamp> sLastContentProcessLaunch;
+
+  bool mIsNotifiedShutdownSuccess = false;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(ContentParent, NS_CONTENTPARENT_IID)

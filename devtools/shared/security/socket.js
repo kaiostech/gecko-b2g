@@ -4,8 +4,6 @@
 
 "use strict";
 
-var { Ci, Cc, CC, Cr } = require("chrome");
-
 // Ensure PSM is initialized to support TLS sockets
 Cc["@mozilla.org/psm;1"].getService(Ci.nsISupports);
 
@@ -14,47 +12,54 @@ var { dumpn } = DevToolsUtils;
 loader.lazyRequireGetter(
   this,
   "WebSocketServer",
-  "devtools/server/socket/websocket-server"
+  "resource://devtools/server/socket/websocket-server.js"
 );
 loader.lazyRequireGetter(
   this,
   "DebuggerTransport",
-  "devtools/shared/transport/transport",
+  "resource://devtools/shared/transport/transport.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "WebSocketDebuggerTransport",
-  "devtools/shared/transport/websocket-transport"
+  "resource://devtools/shared/transport/websocket-transport.js"
 );
 loader.lazyRequireGetter(
   this,
   "discovery",
-  "devtools/shared/discovery/discovery"
+  "resource://devtools/shared/discovery/discovery.js"
 );
 loader.lazyRequireGetter(
   this,
   "Authenticators",
-  "devtools/shared/security/auth",
+  "resource://devtools/shared/security/auth.js",
   true
 );
 loader.lazyRequireGetter(
   this,
   "AuthenticationResult",
-  "devtools/shared/security/auth",
+  "resource://devtools/shared/security/auth.js",
   true
 );
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  DevToolsSocketStatus:
+    "resource://devtools/shared/security/DevToolsSocketStatus.sys.mjs",
+});
+
 loader.lazyRequireGetter(
   this,
-  "DevToolsSocketStatus",
-  "resource://devtools/shared/security/DevToolsSocketStatus.jsm",
-  true
+  "EventEmitter",
+  "resource://devtools/shared/event-emitter.js"
 );
 
-loader.lazyRequireGetter(this, "EventEmitter", "devtools/shared/event-emitter");
-
 DevToolsUtils.defineLazyGetter(this, "nsFile", () => {
-  return CC("@mozilla.org/file/local;1", "nsIFile", "initWithPath");
+  return Components.Constructor(
+    "@mozilla.org/file/local;1",
+    "nsIFile",
+    "initWithPath"
+  );
 });
 
 DevToolsUtils.defineLazyGetter(this, "socketTransportService", () => {
@@ -315,9 +320,8 @@ function _isInputAlive(input) {
  *            mechanism. Defaults is false.
  *          fromBrowserToolbox:
  *            Should only be passed when opening a socket for a Browser Toolbox
- *            session. This will skip notifying DevToolsSocketStatus
- *            about the opened socket, to avoid triggering the visual cue in the
- *            URL bar.
+ *            session. DevToolsSocketStatus will track the socket separately to
+ *            avoid triggering the visual cue in the URL bar.
  *          portOrPath:
  *            The port or path to listen on.
  *            If given an integer, the port to listen on.  Use -1 to choose any available
@@ -410,9 +414,9 @@ SocketListener.prototype = {
       dumpn("Socket listening on: " + (self.port || self.portOrPath));
     })()
       .then(() => {
-        if (!self.fromBrowserToolbox) {
-          DevToolsSocketStatus.notifySocketOpened();
-        }
+        lazy.DevToolsSocketStatus.notifySocketOpened({
+          fromBrowserToolbox: self.fromBrowserToolbox,
+        });
         this._advertise();
       })
       .catch(e => {
@@ -458,9 +462,9 @@ SocketListener.prototype = {
       this._socket.close();
       this._socket = null;
 
-      if (!this.fromBrowserToolbox) {
-        DevToolsSocketStatus.notifySocketClosed();
-      }
+      lazy.DevToolsSocketStatus.notifySocketClosed({
+        fromBrowserToolbox: this.fromBrowserToolbox,
+      });
     }
     this._devToolsServer.removeSocketListener(this);
   },

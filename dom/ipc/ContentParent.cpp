@@ -209,7 +209,6 @@
 #include "nsHyphenationManager.h"
 #include "nsIAlertsService.h"
 #include "nsIAppShell.h"
-#include "nsIAppStartup.h"
 #include "nsIAppWindow.h"
 #include "nsIAsyncInputStream.h"
 #include "nsIBidiKeyboard.h"
@@ -260,7 +259,6 @@
 #include "nsReadableUtils.h"
 #include "nsSHistory.h"
 #include "nsScriptError.h"
-#include "nsSerializationHelper.h"
 #include "nsServiceManagerUtils.h"
 #include "nsStreamUtils.h"
 #include "nsStyleSheetService.h"
@@ -382,6 +380,9 @@ using namespace mozilla::system;
 
 // For VP9Benchmark::sBenchmarkFpsPref
 #include "Benchmark.h"
+
+#include "nsIToolkitProfileService.h"
+#include "nsIToolkitProfile.h"
 
 static NS_DEFINE_CID(kCClipboardCID, NS_CLIPBOARD_CID);
 
@@ -1170,7 +1171,9 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
     if (!preallocated->IsLaunching()) {
       // Specialize this process for the appropriate remote type, and activate
       // it.
-      Unused << preallocated->SendRemoteType(preallocated->mRemoteType);
+
+      Unused << preallocated->SendRemoteType(preallocated->mRemoteType,
+                                             preallocated->mProfile);
 
       nsCOMPtr<nsIObserverService> obs =
           mozilla::services::GetObserverService();
@@ -1978,10 +1981,8 @@ void MaybeLogBlockShutdownDiagnostics(ContentParent* aSelf, const char* aMsg,
                                       const char* aFile, int32_t aLine) {
 #if defined(MOZ_DIAGNOSTIC_ASSERT_ENABLED)
   if (aSelf->IsBlockingShutdown()) {
-    nsAutoCString logmsg;
-    logmsg.AppendPrintf("ContentParent: id=%p - ", aSelf);
-    logmsg.Append(aMsg);
-    NS_DebugBreak(NS_DEBUG_WARNING, logmsg.get(), nullptr, aFile, aLine);
+    MOZ_LOG(ContentParent::GetLog(), LogLevel::Info,
+            ("ContentParent: id=%p - %s at %s(%d)", aSelf, aMsg, aFile, aLine));
   }
 #else
   Unused << aSelf;
@@ -2068,11 +2069,24 @@ void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
   ShutDownMessageManager();
 }
 
+mozilla::ipc::IPCResult ContentParent::RecvNotifyShutdownSuccess() {
+  if (!mShutdownPending) {
+    return IPC_FAIL(this, "RecvNotifyShutdownSuccess without mShutdownPending");
+  }
+
+  mIsNotifiedShutdownSuccess = true;
+
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult ContentParent::RecvFinishShutdown() {
+  if (!mShutdownPending) {
+    return IPC_FAIL(this, "RecvFinishShutdown without mShutdownPending");
+  }
+
   // At this point, we already called ShutDownProcess once with
   // SEND_SHUTDOWN_MESSAGE. To actually close the channel, we call
   // ShutDownProcess again with CLOSE_CHANNEL.
-  MOZ_ASSERT(mShutdownPending);
   if (mCalledClose) {
     MaybeLogBlockShutdownDiagnostics(
         this, "RecvFinishShutdown: Channel already closed.", __FILE__,
@@ -3134,6 +3148,19 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
     cps->GetState(&xpcomInit.captivePortalState());
   }
 
+  if (StaticPrefs::fission_processProfileName()) {
+    nsCOMPtr<nsIToolkitProfileService> profileSvc =
+        do_GetService(NS_PROFILESERVICE_CONTRACTID);
+    if (profileSvc) {
+      nsCOMPtr<nsIToolkitProfile> currentProfile;
+      nsresult rv =
+          profileSvc->GetCurrentProfile(getter_AddRefs(currentProfile));
+      if (NS_SUCCEEDED(rv) && currentProfile) {
+        currentProfile->GetName(mProfile);
+      }
+    }
+  }
+
   nsIBidiKeyboard* bidi = nsContentUtils::GetBidiKeyboard();
 
   xpcomInit.isLangRTL() = false;
@@ -3304,7 +3331,8 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   // Send the child its remote type. On Mac, this needs to be sent prior
   // to the message we send to enable the Sandbox (SendStartProcessSandbox)
   // because different remote types require different sandbox privileges.
-  Unused << SendRemoteType(mRemoteType);
+
+  Unused << SendRemoteType(mRemoteType, mProfile);
 
   ScriptPreloader::InitContentChild(*this);
 
@@ -4612,8 +4640,8 @@ void ContentParent::GeneratePairedMinidump(const char* aReason) {
   // Something has gone wrong to get us here, so we generate a minidump
   // of the parent and child for submission to the crash server unless we're
   // already shutting down.
-  nsCOMPtr<nsIAppStartup> appStartup = components::AppStartup::Service();
-  if (mCrashReporter && !appStartup->GetShuttingDown() &&
+  if (mCrashReporter &&
+      !AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed) &&
       StaticPrefs::dom_ipc_tabs_createKillHardCrashReports_AtStartup()) {
     // GeneratePairedMinidump creates two minidumps for us - the main
     // one is for the content process we're about to kill, and the other
@@ -4663,10 +4691,16 @@ void ContentParent::KillHard(const char* aReason) {
   mForceKillTimer = nullptr;
 
   RemoveShutdownBlockers();
+  nsCString reason = nsDependentCString(aReason);
 
-  GeneratePairedMinidump(aReason);
-
-  nsDependentCString reason(aReason);
+  // If we find mIsNotifiedShutdownSuccess there is no reason to blame this
+  // content process, most probably our parent process is just slow in
+  // processing its own main thread queue.
+  if (!mIsNotifiedShutdownSuccess) {
+    GeneratePairedMinidump(aReason);
+  } else {
+    reason = nsDependentCString("KillHard after IsNotifiedShutdownSuccess.");
+  }
   Telemetry::Accumulate(Telemetry::SUBPROCESS_KILL_HARD, reason, 1);
 
   ProcessHandle otherProcessHandle;
@@ -4676,7 +4710,9 @@ void ContentParent::KillHard(const char* aReason) {
   }
 
   if (!KillProcess(otherProcessHandle, base::PROCESS_END_KILLED_BY_USER)) {
-    mCrashReporter->DeleteCrashReport();
+    if (mCrashReporter) {
+      mCrashReporter->DeleteCrashReport();
+    }
     NS_WARNING("failed to kill subprocess!");
   }
 
@@ -5472,14 +5508,19 @@ mozilla::ipc::IPCResult ContentParent::RecvConsoleMessage(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvReportFrameTimingData(
-    uint64_t aInnerWindowId, const nsAString& entryName,
-    const nsAString& initiatorType, UniquePtr<PerformanceTimingData>&& aData) {
+    const mozilla::Maybe<LoadInfoArgs>& loadInfoArgs,
+    const nsAString& entryName, const nsAString& initiatorType,
+    UniquePtr<PerformanceTimingData>&& aData) {
   if (!aData) {
     return IPC_FAIL(this, "aData should not be null");
   }
 
+  if (loadInfoArgs.isNothing()) {
+    return IPC_FAIL(this, "loadInfoArgs should not be null");
+  }
+
   RefPtr<WindowGlobalParent> parent =
-      WindowGlobalParent::GetByInnerWindowId(aInnerWindowId);
+      WindowGlobalParent::GetByInnerWindowId(loadInfoArgs->innerWindowID());
   if (!parent || !parent->GetContentParent()) {
     return IPC_OK();
   }
@@ -5488,7 +5529,7 @@ mozilla::ipc::IPCResult ContentParent::RecvReportFrameTimingData(
              "No need to bounce around if in the same process");
 
   Unused << parent->GetContentParent()->SendReportFrameTimingData(
-      aInnerWindowId, entryName, initiatorType, std::move(aData));
+      loadInfoArgs, entryName, initiatorType, std::move(aData));
   return IPC_OK();
 }
 
@@ -7227,26 +7268,17 @@ mozilla::ipc::IPCResult ContentParent::RecvBHRThreadHang(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvAddCertException(
-    const nsACString& aSerializedCert, const nsACString& aHostName,
-    int32_t aPort, const OriginAttributes& aOriginAttributes, bool aIsTemporary,
+    nsIX509Cert* aCert, const nsACString& aHostName, int32_t aPort,
+    const OriginAttributes& aOriginAttributes, bool aIsTemporary,
     AddCertExceptionResolver&& aResolver) {
-  nsCOMPtr<nsISupports> certObj;
-  nsresult rv = NS_DeserializeObject(aSerializedCert, getter_AddRefs(certObj));
-  if (NS_SUCCEEDED(rv)) {
-    nsCOMPtr<nsIX509Cert> cert = do_QueryInterface(certObj);
-    if (!cert) {
-      rv = NS_ERROR_INVALID_ARG;
-    } else {
-      nsCOMPtr<nsICertOverrideService> overrideService =
-          do_GetService(NS_CERTOVERRIDE_CONTRACTID);
-      if (!overrideService) {
-        rv = NS_ERROR_FAILURE;
-      } else {
-        rv = overrideService->RememberValidityOverride(
-            aHostName, aPort, aOriginAttributes, cert, aIsTemporary);
-      }
-    }
+  nsCOMPtr<nsICertOverrideService> overrideService =
+      do_GetService(NS_CERTOVERRIDE_CONTRACTID);
+  if (!overrideService) {
+    aResolver(NS_ERROR_FAILURE);
+    return IPC_OK();
   }
+  nsresult rv = overrideService->RememberValidityOverride(
+      aHostName, aPort, aOriginAttributes, aCert, aIsTemporary);
   aResolver(rv);
   return IPC_OK();
 }
@@ -8315,11 +8347,15 @@ mozilla::ipc::IPCResult ContentParent::RecvHistoryCommit(
     const bool& aCloneEntryChildren, const bool& aChannelExpired,
     const uint32_t& aCacheKey) {
   if (!aContext.IsDiscarded()) {
-    aContext.get_canonical()->SessionHistoryCommit(
-        aLoadID, aChangeID, aLoadType, aPersist, aCloneEntryChildren,
-        aChannelExpired, aCacheKey);
+    CanonicalBrowsingContext* canonical = aContext.get_canonical();
+    if (!canonical) {
+      return IPC_FAIL(
+          this, "Could not get canonical. aContext.get_canonical() fails.");
+    }
+    canonical->SessionHistoryCommit(aLoadID, aChangeID, aLoadType, aPersist,
+                                    aCloneEntryChildren, aChannelExpired,
+                                    aCacheKey);
   }
-
   return IPC_OK();
 }
 

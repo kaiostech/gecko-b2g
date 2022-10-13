@@ -358,9 +358,15 @@ var ctrlTab = {
   },
 
   attachTab: function ctrlTab_attachTab(aTab, aPos) {
-    if (aTab.closing) {
+    // If the tab is hidden, don't add it to the list unless it's selected
+    // (Normally hidden tabs would be unhidden when selected, but that doesn't
+    // happen for Firefox View).
+    if (aTab.closing || (aTab.hidden && !aTab.selected)) {
       return;
     }
+
+    // If the tab is already in the list, remove it before re-inserting it.
+    this.detachTab(aTab);
 
     if (aPos == 0) {
       this._recentlyUsedTabs.unshift(aTab);
@@ -563,8 +569,13 @@ var ctrlTab = {
         }
         break;
       case "TabSelect":
-        this.detachTab(event.target);
         this.attachTab(event.target, 0);
+        // If the previous tab was hidden (e.g. Firefox View), remove it from
+        // the list when it's deselected.
+        let previousTab = event.detail.previousTab;
+        if (previousTab.hidden) {
+          this.detachTab(previousTab);
+        }
         break;
       case "TabOpen":
         this.attachTab(event.target, 1);

@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 import {
   UrlbarProvider,
   UrlbarUtils,
@@ -18,14 +16,15 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 // These prefs are relative to the `browser.urlbar` branch.
-const ENABLED_PREF = "suggest.quickactions";
+const ENABLED_PREF = "quickactions.enabled";
+const SUGGEST_PREF = "suggest.quickactions";
 const MATCH_IN_PHRASE_PREF = "quickactions.matchInPhrase";
 const SHOW_IN_ZERO_PREFIX_PREF = "quickactions.showInZeroPrefix";
 const DYNAMIC_TYPE_NAME = "quickactions";
 
 // When the urlbar is first focused and no search term has been
 // entered we show a limited number of results.
-const ACTIONS_SHOWN_FOCUS = 5;
+const ACTIONS_SHOWN_FOCUS = 4;
 
 // Default icon shown for actions if no custom one is provided.
 const DEFAULT_ICON = "chrome://global/skin/icons/settings.svg";
@@ -85,8 +84,8 @@ class ProviderQuickActions extends UrlbarProvider {
   isActive(queryContext) {
     return (
       lazy.UrlbarPrefs.get(ENABLED_PREF) &&
-      (!queryContext.searchMode ||
-        queryContext.searchMode.source == UrlbarUtils.RESULT_SOURCE.ACTIONS)
+      ((lazy.UrlbarPrefs.get(SUGGEST_PREF) && !queryContext.searchMode) ||
+        queryContext.searchMode?.source == UrlbarUtils.RESULT_SOURCE.ACTIONS)
     );
   }
 
@@ -131,7 +130,7 @@ class ProviderQuickActions extends UrlbarProvider {
     // but not when we are in the normal url mode on first focus.
     if (
       results.length > ACTIONS_SHOWN_FOCUS &&
-      !queryContext.searchString &&
+      !input &&
       !queryContext.searchMode
     ) {
       results.length = ACTIONS_SHOWN_FOCUS;
@@ -189,15 +188,9 @@ class ProviderQuickActions extends UrlbarProvider {
                   ],
                 },
                 {
-                  name: `div-${i}`,
-                  tag: "div",
-                  children: [
-                    {
-                      name: `label-${i}`,
-                      tag: "span",
-                      attributes: { class: "urlbarView-label" },
-                    },
-                  ],
+                  name: `label-${i}`,
+                  tag: "span",
+                  attributes: { class: "urlbarView-label" },
                 },
               ],
             };
@@ -214,6 +207,7 @@ class ProviderQuickActions extends UrlbarProvider {
             "data-key": "onboarding-button",
             role: "button",
             class: "urlbarView-button urlbarView-button-help",
+            "data-l10n-id": "quickactions-learn-more",
           },
         },
       ],

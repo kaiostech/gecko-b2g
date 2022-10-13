@@ -4,28 +4,37 @@
 
 "use strict";
 
-const { AddonManager } = require("resource://gre/modules/AddonManager.jsm");
+const { AddonManager } = ChromeUtils.import(
+  "resource://gre/modules/AddonManager.jsm"
+);
 const {
   remoteClientManager,
-} = require("devtools/client/shared/remote-debugging/remote-client-manager");
+} = require("resource://devtools/client/shared/remote-debugging/remote-client-manager.js");
 
-const { l10n } = require("devtools/client/aboutdebugging/src/modules/l10n");
+const {
+  l10n,
+} = require("resource://devtools/client/aboutdebugging/src/modules/l10n.js");
 
 const {
   isSupportedDebugTargetPane,
-} = require("devtools/client/aboutdebugging/src/modules/debug-target-support");
+} = require("resource://devtools/client/aboutdebugging/src/modules/debug-target-support.js");
 
 const {
   openTemporaryExtension,
   uninstallAddon,
-} = require("devtools/client/aboutdebugging/src/modules/extensions-helper");
+} = require("resource://devtools/client/aboutdebugging/src/modules/extensions-helper.js");
 
 const {
   getCurrentClient,
   getCurrentRuntime,
-} = require("devtools/client/aboutdebugging/src/modules/runtimes-state-helper");
+} = require("resource://devtools/client/aboutdebugging/src/modules/runtimes-state-helper.js");
 
 const {
+  gDevTools,
+} = require("resource://devtools/client/framework/devtools.js");
+
+const {
+  DEBUG_TARGETS,
   DEBUG_TARGET_PANE,
   REQUEST_EXTENSIONS_FAILURE,
   REQUEST_EXTENSIONS_START,
@@ -49,9 +58,9 @@ const {
   TERMINATE_EXTENSION_BGSCRIPT_SUCCESS,
   TERMINATE_EXTENSION_BGSCRIPT_START,
   RUNTIMES,
-} = require("devtools/client/aboutdebugging/src/constants");
+} = require("resource://devtools/client/aboutdebugging/src/constants.js");
 
-const Actions = require("devtools/client/aboutdebugging/src/actions/index");
+const Actions = require("resource://devtools/client/aboutdebugging/src/actions/index.js");
 
 function getTabForUrl(url) {
   for (const navigator of Services.wm.getEnumerator("navigator:browser")) {
@@ -72,29 +81,39 @@ function inspectDebugTarget(type, id) {
   return async ({ dispatch, getState }) => {
     const runtime = getCurrentRuntime(getState().runtimes);
 
-    const urlParams = {
-      id,
-      type,
-    };
-
-    if (runtime.id !== RUNTIMES.THIS_FIREFOX) {
-      urlParams.remoteId = remoteClientManager.getRemoteId(
-        runtime.id,
-        runtime.type
-      );
-    }
-
-    const url = `about:devtools-toolbox?${new window.URLSearchParams(
-      urlParams
-    )}`;
-
-    const existingTab = getTabForUrl(url);
-    if (existingTab) {
-      const navigator = existingTab.ownerGlobal;
-      navigator.gBrowser.selectedTab = existingTab;
-      navigator.focus();
+    if (
+      type == DEBUG_TARGETS.EXTENSION &&
+      runtime.id === RUNTIMES.THIS_FIREFOX
+    ) {
+      // Bug 1780912: To avoid UX issues when debugging local web extensions,
+      // we are opening the toolbox in an independant window.
+      // Whereas all others are opened in new tabs.
+      gDevTools.showToolboxForWebExtension(id);
     } else {
-      window.open(url);
+      const urlParams = {
+        id,
+        type,
+      };
+
+      if (runtime.id !== RUNTIMES.THIS_FIREFOX) {
+        urlParams.remoteId = remoteClientManager.getRemoteId(
+          runtime.id,
+          runtime.type
+        );
+      }
+
+      const url = `about:devtools-toolbox?${new window.URLSearchParams(
+        urlParams
+      )}`;
+
+      const existingTab = getTabForUrl(url);
+      if (existingTab) {
+        const navigator = existingTab.ownerGlobal;
+        navigator.gBrowser.selectedTab = existingTab;
+        navigator.focus();
+      } else {
+        window.open(url);
+      }
     }
 
     dispatch(

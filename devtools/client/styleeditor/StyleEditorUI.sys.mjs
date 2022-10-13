@@ -5,64 +5,65 @@
 const { loader, require } = ChromeUtils.import(
   "resource://devtools/shared/loader/Loader.jsm"
 );
-const EventEmitter = require("devtools/shared/event-emitter");
+const EventEmitter = require("resource://devtools/shared/event-emitter.js");
+
 const {
   getString,
   text,
   showFilePicker,
   optionsPopupMenu,
-} = require("resource://devtools/client/styleeditor/StyleEditorUtil.jsm");
-const {
-  StyleSheetEditor,
-} = require("resource://devtools/client/styleeditor/StyleSheetEditor.jsm");
-const { PluralForm } = require("devtools/shared/plural-form");
-const { PrefObserver } = require("devtools/client/shared/prefs");
+} = ChromeUtils.import(
+  "resource://devtools/client/styleeditor/StyleEditorUtil.jsm"
+);
+const { StyleSheetEditor } = ChromeUtils.import(
+  "resource://devtools/client/styleeditor/StyleSheetEditor.jsm"
+);
+const { PluralForm } = require("resource://devtools/shared/plural-form.js");
+const { PrefObserver } = require("resource://devtools/client/shared/prefs.js");
 
-const KeyShortcuts = require("devtools/client/shared/key-shortcuts");
+const KeyShortcuts = require("resource://devtools/client/shared/key-shortcuts.js");
 
 const lazy = {};
 
 loader.lazyRequireGetter(
   lazy,
   "KeyCodes",
-  "devtools/client/shared/keycodes",
+  "resource://devtools/client/shared/keycodes.js",
   true
 );
 
 loader.lazyRequireGetter(
   lazy,
   "OriginalSource",
-  "devtools/client/styleeditor/original-source",
+  "resource://devtools/client/styleeditor/original-source.js",
   true
 );
 
-loader.lazyRequireGetter(
+ChromeUtils.defineModuleGetter(
   lazy,
   "FileUtils",
-  "resource://gre/modules/FileUtils.jsm",
-  true
+  "resource://gre/modules/FileUtils.jsm"
 );
-loader.lazyRequireGetter(
+ChromeUtils.defineModuleGetter(
   lazy,
   "NetUtil",
-  "resource://gre/modules/NetUtil.jsm",
-  true
+  "resource://gre/modules/NetUtil.jsm"
 );
 loader.lazyRequireGetter(
   lazy,
   "ResponsiveUIManager",
-  "devtools/client/responsive/manager"
+  "resource://devtools/client/responsive/manager.js"
 );
 loader.lazyRequireGetter(
   lazy,
   "openContentLink",
-  "devtools/client/shared/link",
+  "resource://devtools/client/shared/link.js",
   true
 );
 loader.lazyRequireGetter(
   lazy,
   "copyString",
-  "devtools/shared/platform/clipboard",
+  "resource://devtools/shared/platform/clipboard.js",
   true
 );
 
@@ -337,7 +338,7 @@ export class StyleEditorUI extends EventEmitter {
     );
 
     const nav = this.#panelDoc.querySelector(".splitview-controller");
-    nav.setAttribute("width", Services.prefs.getIntPref(PREF_NAV_WIDTH));
+    nav.style.width = Services.prefs.getIntPref(PREF_NAV_WIDTH) + "px";
   }
 
   #clearFilterInput() {
@@ -955,24 +956,23 @@ export class StyleEditorUI extends EventEmitter {
     );
 
     const sidebar = details.querySelector(".stylesheet-sidebar");
-    sidebar.setAttribute(
-      "width",
-      Services.prefs.getIntPref(PREF_SIDEBAR_WIDTH)
-    );
+    sidebar.style.width = Services.prefs.getIntPref(PREF_SIDEBAR_WIDTH) + "px";
 
     const splitter = details.querySelector(".devtools-side-splitter");
     splitter.addEventListener(
       "mousemove",
       () => {
-        const sidebarWidth = sidebar.getAttribute("width");
-        Services.prefs.setIntPref(PREF_SIDEBAR_WIDTH, sidebarWidth);
+        const sidebarWidth = parseInt(sidebar.style.width, 10);
+        if (!isNaN(sidebarWidth)) {
+          Services.prefs.setIntPref(PREF_SIDEBAR_WIDTH, sidebarWidth);
 
-        // update all @media sidebars for consistency
-        const sidebars = [
-          ...this.#panelDoc.querySelectorAll(".stylesheet-sidebar"),
-        ];
-        for (const mediaSidebar of sidebars) {
-          mediaSidebar.setAttribute("width", sidebarWidth);
+          // update all @media sidebars for consistency
+          const sidebars = [
+            ...this.#panelDoc.querySelectorAll(".stylesheet-sidebar"),
+          ];
+          for (const mediaSidebar of sidebars) {
+            mediaSidebar.style.width = sidebarWidth + "px";
+          }
         }
       },
       eventListenersConfig
@@ -1702,8 +1702,10 @@ export class StyleEditorUI extends EventEmitter {
     this.#tplSummary = null;
 
     const sidebar = this.#panelDoc.querySelector(".splitview-controller");
-    const sidebarWidth = sidebar.getAttribute("width");
-    Services.prefs.setIntPref(PREF_NAV_WIDTH, sidebarWidth);
+    const sidebarWidth = parseInt(sidebar.style.width, 10);
+    if (!isNaN(sidebarWidth)) {
+      Services.prefs.setIntPref(PREF_NAV_WIDTH, sidebarWidth);
+    }
 
     if (this.#sourceMapPrefObserver) {
       this.#sourceMapPrefObserver.off(

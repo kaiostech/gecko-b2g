@@ -166,6 +166,17 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.2.2 -> 0.2.4"
 
+[[audits.comedy]]
+who = "Nick Alexander <nalexander@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.2.0"
+notes = """
+The comedy crate was written by Adam Gashlin for Mozilla's use.  The entire
+comedy 0.2.0 crate is full of `unsafe` code and makes many assumptions about
+memory and layout, but there is no particular processing of untrusted input
+here.
+"""
+
 [[audits.cpufeatures]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
@@ -233,7 +244,25 @@ notes = """
 Mozilla-developed package.
 """
 
+[[audits.cubeb]]
+who = "Matthew Gregan <kinetik@flim.org>"
+criteria = "safe-to-deploy"
+delta = "0.10.1 -> 0.10.2"
+
 [[audits.cubeb-backend]]
+who = "Matthew Gregan <kinetik@flim.org>"
+criteria = "safe-to-deploy"
+version = "0.10.1"
+notes = """
+Mozilla-developed package.
+"""
+
+[[audits.cubeb-backend]]
+who = "Matthew Gregan <kinetik@flim.org>"
+criteria = "safe-to-deploy"
+delta = "0.10.1 -> 0.10.2"
+
+[[audits.cubeb-core]]
 who = "Matthew Gregan <kinetik@flim.org>"
 criteria = "safe-to-deploy"
 version = "0.10.1"
@@ -244,10 +273,7 @@ Mozilla-developed package.
 [[audits.cubeb-core]]
 who = "Matthew Gregan <kinetik@flim.org>"
 criteria = "safe-to-deploy"
-version = "0.10.1"
-notes = """
-Mozilla-developed package.
-"""
+delta = "0.10.1 -> 0.10.2"
 
 [[audits.cubeb-sys]]
 who = "Matthew Gregan <kinetik@flim.org>"
@@ -256,6 +282,17 @@ version = "0.10.1"
 notes = """
 Mozilla-developed package.
 """
+
+[[audits.cubeb-sys]]
+who = "Matthew Gregan <kinetik@flim.org>"
+criteria = "safe-to-deploy"
+delta = "0.10.1 -> 0.10.2"
+
+[[audits.d3d12]]
+who = "Jim Blandy <jimb@red-bean.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.1 -> 0.5.0"
+notes = "The commits between 0.4.1 and 0.5.0 were all audited by Dzmitry Malyshau or myself."
 
 [[audits.derive_arbitrary]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
@@ -325,6 +362,16 @@ delta = "0.4.4 -> 0.4.5"
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "1.7.0 -> 1.8.0"
+
+[[audits.filetime_win]]
+who = "Nick Alexander <nalexander@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.2.0"
+notes = """
+filetime_win was written by Adam Gashlin for Mozilla's use.  The `unsafe` code
+blocks in filetime_win 0.2.0 are straight-forward invocations of `mem::zeroed`
+and expected invocations of Win32 APIs (with error handling as appropriate).
+"""
 
 [[audits.flagset]]
 who = "Ryan Hunt <rhunt@eqrion.net>"
@@ -475,6 +522,11 @@ criteria = "safe-to-deploy"
 delta = "51.1.0 -> 51.2.0"
 notes = "Maintained by the Glean team at Mozilla"
 
+[[audits.glean]]
+who = "Perry McManis <pmcmanis@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "51.2.0 -> 51.4.0"
+
 [[audits.glean-core]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -510,6 +562,11 @@ who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "51.1.0 -> 51.2.0"
 notes = "Bug fix release with minimal changes, changes done by myself"
+
+[[audits.glean-core]]
+who = "Perry McManis <pmcmanis@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "51.2.0 -> 51.4.0"
 
 [[audits.goblin]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
@@ -621,6 +678,12 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.4 -> 0.5.7"
 
+[[audits.metal]]
+who = "Jim Blandy <jimb@red-bean.com>"
+criteria = "safe-to-deploy"
+delta = "0.23.1 -> 0.24.0"
+notes = "This audit treats Dzmitry Malyshau (kvark) as a trusted reviewer."
+
 [[audits.naga]]
 who = "Dzmitry Malyshau <kvark@fastmail.com>"
 criteria = "safe-to-deploy"
@@ -632,6 +695,11 @@ Mozilla at the beginning of February 2022. This audit statement was
 collected by Jim Blandy, a Mozilla employee, over email in July 2022:
 Dzmitry was shown, and agreed to, the 'safe-to-deploy' text.
 """
+
+[[audits.naga]]
+who = "Jim Blandy <jimb@red-bean.com>"
+criteria = "safe-to-deploy"
+delta = "0.8.0 -> 0.9.0"
 
 [[audits.new_debug_unreachable]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
@@ -757,6 +825,12 @@ criteria = "safe-to-deploy"
 version = "0.1.1"
 notes = "This is a trivial crate."
 
+[[audits.prio]]
+who = "Simon Friedberger <simon@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.8.4"
+notes = "The crate does not use any unsafe code or ambient capabilities and thus meets the criteria for safe-to-deploy. The cryptography itself should be considered experimental at this phase and is currently undergoing a thorough audit organized by Cloudflare."
+
 [[audits.proc-macro2]]
 who = "Nika Layzell <nika@thelayzells.com>"
 criteria = "safe-to-deploy"
@@ -828,6 +902,12 @@ logic, and will not abstract away `Sync` trait bounds.
 The core logic is very simple, and acts as an abstraction trait for `Cell<T>`
 and `AtomicT`.
 """
+
+[[audits.raw-window-handle]]
+who = "Jim Blandy <jimb@red-bean.com>"
+criteria = "safe-to-deploy"
+version = "0.5.0"
+notes = "I looked through all the sources of the v0.5.0 crate."
 
 [[audits.rayon]]
 who = "Josh Stone <jistone@redhat.com>"
@@ -1144,6 +1224,11 @@ criteria = "safe-to-deploy"
 delta = "0.19.3 -> 0.19.6"
 notes = "Maintained by the Glean and Application Services team."
 
+[[audits.uniffi]]
+who = "Perry McManis <pmcmanis@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.19.6 -> 0.20.0"
+
 [[audits.uniffi_bindgen]]
 who = "Travis Long <tlong@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -1155,6 +1240,11 @@ who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.19.3 -> 0.19.6"
 notes = "Maintained by the Glean and Application Services team."
+
+[[audits.uniffi_bindgen]]
+who = "Perry McManis <pmcmanis@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.19.6 -> 0.20.0"
 
 [[audits.uniffi_build]]
 who = "Travis Long <tlong@mozilla.com>"
@@ -1168,6 +1258,11 @@ criteria = "safe-to-deploy"
 delta = "0.19.3 -> 0.19.6"
 notes = "Maintained by the Glean and Application Services team."
 
+[[audits.uniffi_build]]
+who = "Perry McManis <pmcmanis@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.19.6 -> 0.20.0"
+
 [[audits.uniffi_macros]]
 who = "Travis Long <tlong@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -1179,12 +1274,22 @@ who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.19.3 -> 0.19.6"
 notes = "Maintained by the Glean and Application Services team."
+
+[[audits.uniffi_macros]]
+who = "Perry McManis <pmcmanis@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.19.6 -> 0.20.0"
 
 [[audits.uniffi_meta]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 version = "0.19.6"
 notes = "Maintained by the Glean and Application Services team."
+
+[[audits.uniffi_meta]]
+who = "Perry McManis <pmcmanis@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.19.6 -> 0.20.0"
 
 [[audits.void]]
 who = "Bobby Holley <bobbyholley@gmail.com>"

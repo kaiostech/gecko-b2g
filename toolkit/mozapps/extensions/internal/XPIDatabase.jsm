@@ -20,14 +20,18 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
-const { FileUtils } = ChromeUtils.import(
-  "resource://gre/modules/FileUtils.jsm"
+const { FileUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/FileUtils.sys.mjs"
 );
 
 const lazy = {};
 
 XPCOMUtils.defineLazyServiceGetters(lazy, {
   ThirdPartyUtil: ["@mozilla.org/thirdpartyutil;1", "mozIThirdPartyUtil"],
+});
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  PermissionsUtils: "resource://gre/modules/PermissionsUtils.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
@@ -38,8 +42,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   DeferredTask: "resource://gre/modules/DeferredTask.jsm",
   ExtensionData: "resource://gre/modules/Extension.jsm",
   ExtensionUtils: "resource://gre/modules/ExtensionUtils.jsm",
-  PermissionsUtils: "resource://gre/modules/PermissionsUtils.jsm",
-
   Blocklist: "resource://gre/modules/Blocklist.jsm",
   UpdateChecker: "resource://gre/modules/addons/XPIInstall.jsm",
   XPIInstall: "resource://gre/modules/addons/XPIInstall.jsm",
@@ -48,24 +50,26 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   verifyBundleSignedState: "resource://gre/modules/addons/XPIInstall.jsm",
 });
 
-// WARNING: BuiltInThemes.jsm may be provided by the host application (e.g.
+// WARNING: BuiltInThemes.sys.mjs may be provided by the host application (e.g.
 // Firefox), or it might not exist at all. Use with caution, as we don't
-// want things to completely fall if that module can't be loaded.
+// want things to completely fail if that module can't be loaded.
 XPCOMUtils.defineLazyGetter(lazy, "BuiltInThemes", () => {
   try {
-    let { BuiltInThemes } = ChromeUtils.import(
-      "resource:///modules/BuiltInThemes.jsm"
+    let { BuiltInThemes } = ChromeUtils.importESModule(
+      "resource:///modules/BuiltInThemes.sys.mjs"
     );
     return BuiltInThemes;
   } catch (e) {
-    Cu.reportError(`Unable to load BuiltInThemes.jsm: ${e}`);
+    Cu.reportError(`Unable to load BuiltInThemes.sys.mjs: ${e}`);
   }
   return undefined;
 });
 
 const { nsIBlocklistService } = Ci;
 
-const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
+const { Log } = ChromeUtils.importESModule(
+  "resource://gre/modules/Log.sys.mjs"
+);
 const LOGGER_ID = "addons.xpi-utils";
 
 const nsIFile = Components.Constructor(

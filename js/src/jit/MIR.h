@@ -6767,6 +6767,12 @@ class MStoreElementHole
 
   bool needsNegativeIntCheck() const { return needsNegativeIntCheck_; }
 
+  AliasSet getAliasSet() const override {
+    // StoreElementHole can update the initialized length, the array length
+    // or reallocate obj->elements.
+    return AliasSet::Store(AliasSet::ObjectFields | AliasSet::Element);
+  }
+
   void collectRangeInfoPreTrunc() override;
 
   ALLOW_CLONE(MStoreElementHole)
@@ -7808,17 +7814,17 @@ class MSetPropertyCache : public MTernaryInstruction,
   bool strict() const { return strict_; }
 };
 
-class MCallSetElement : public MTernaryInstruction,
-                        public CallSetElementPolicy::Data {
+class MMegamorphicSetElement : public MTernaryInstruction,
+                               public MegamorphicSetElementPolicy::Data {
   bool strict_;
 
-  MCallSetElement(MDefinition* object, MDefinition* index, MDefinition* value,
-                  bool strict)
+  MMegamorphicSetElement(MDefinition* object, MDefinition* index,
+                         MDefinition* value, bool strict)
       : MTernaryInstruction(classOpcode, object, index, value),
         strict_(strict) {}
 
  public:
-  INSTRUCTION_HEADER(CallSetElement)
+  INSTRUCTION_HEADER(MegamorphicSetElement)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object), (1, index), (2, value))
 
@@ -9001,7 +9007,8 @@ class MObjectStaticProto : public MUnaryInstruction,
   }
   AliasType mightAlias(const MDefinition* def) const override {
     // These instructions never modify the [[Prototype]].
-    if (def->isAddAndStoreSlot() || def->isAllocateAndStoreSlot()) {
+    if (def->isAddAndStoreSlot() || def->isAllocateAndStoreSlot() ||
+        def->isStoreElementHole() || def->isArrayPush()) {
       return AliasType::NoAlias;
     }
     return AliasType::MayAlias;

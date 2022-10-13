@@ -503,7 +503,7 @@ linux64-devedition/opt:
     treeherder:
         platform: linux64-devedition/opt
         symbol: B
-    worker-type: b-linux
+    worker-type: b-linux-gcp
     worker:
         max-run-time: 7200
         env:
@@ -565,7 +565,7 @@ linux/opt:
         secrets: true
         tooltool-downloads: public
         need-xvfb: true
-    run-on-projects: ['mozilla-beta', 'mozilla-release', 'mozilla-esr91', 'mozilla-esr102']
+    run-on-projects: ['mozilla-beta', 'mozilla-release', 'mozilla-esr102']
     use-sccache: true
     fetches:
         toolchain:
@@ -726,7 +726,7 @@ linux-devedition/opt:
     treeherder:
         platform: linux32-devedition/opt
         symbol: B
-    worker-type: b-linux
+    worker-type: b-linux-gcp
     worker:
         max-run-time: 7200
         env:
@@ -775,7 +775,7 @@ linux-shippable/opt:
     treeherder:
         platform: linux32-shippable/opt
         symbol: Bpgo(B)
-    worker-type: b-linux
+    worker-type: b-linux-gcp
     worker:
         max-run-time: 9000
         env:
@@ -817,7 +817,7 @@ linux-reproduced/opt:
     treeherder:
         platform: linux32-shippable/opt
         symbol: Bpgo(repr)
-    worker-type: b-linux
+    worker-type: b-linux-gcp
     worker:
         max-run-time: 9000
         env:
@@ -861,7 +861,7 @@ linux64-reproduced/opt:
     treeherder:
         platform: linux64-shippable/opt
         symbol: Bpgo(repr)
-    worker-type: b-linux
+    worker-type: b-linux-gcp
     worker:
         max-run-time: 9000
         env:
@@ -1265,7 +1265,7 @@ linux64-asan-reporter-shippable/opt:
         platform: linux64-asan-reporter/opt
         symbol: BoR
     run-on-projects: ['mozilla-central']
-    worker-type: b-linux
+    worker-type: b-linux-gcp
     worker:
         env:
             PERFHERDER_EXTRA_OPTIONS: asan-reporter
@@ -1360,7 +1360,7 @@ linux64-shippable/opt:
         platform: linux64-shippable/opt
         symbol: Bpgo(B)
     run-on-projects: ['release']
-    worker-type: b-linux
+    worker-type: b-linux-gcp
     worker:
         max-run-time: 9000
         env:

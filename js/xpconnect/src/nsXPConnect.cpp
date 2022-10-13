@@ -120,7 +120,6 @@ nsXPConnect::~nsXPConnect() {
                            JS::GCReason::XPCONNECT_SHUTDOWN);
 
   XPCWrappedNativeScope::SystemIsBeingShutDown();
-  mRuntime->SystemIsBeingShutDown();
 
   // The above causes us to clean up a bunch of XPConnect data structures,
   // after which point we need to GC to clean everything up. We need to do
@@ -173,7 +172,7 @@ void nsXPConnect::ReleaseXPConnectSingleton() {
     NS_RELEASE2(xpc, cnt);
   }
 
-  mozJSModuleLoader::Shutdown();
+  mozJSModuleLoader::ShutdownLoaders();
 }
 
 // static

@@ -39,7 +39,7 @@ if (DEBUG_ALLOCATIONS) {
   });
 
   const { allocationTracker } = loader.require(
-    "devtools/shared/test-helpers/allocation-tracker"
+    "resource://devtools/shared/test-helpers/allocation-tracker.js"
   );
   const tracker = allocationTracker({ watchAllGlobals: true });
   registerCleanupFunction(() => {
@@ -61,37 +61,39 @@ const { loader, require } = ChromeUtils.import(
 // Whereas many head.js files from mochitest import this file via loadSubScript
 // and already expose Services as a global.
 
-const { gDevTools } = require("devtools/client/framework/devtools");
+const {
+  gDevTools,
+} = require("resource://devtools/client/framework/devtools.js");
 const {
   TabDescriptorFactory,
-} = require("devtools/client/framework/tab-descriptor-factory");
+} = require("resource://devtools/client/framework/tab-descriptor-factory.js");
 const {
   CommandsFactory,
-} = require("devtools/shared/commands/commands-factory");
-const DevToolsUtils = require("devtools/shared/DevToolsUtils");
+} = require("resource://devtools/shared/commands/commands-factory.js");
+const DevToolsUtils = require("resource://devtools/shared/DevToolsUtils.js");
 
-const KeyShortcuts = require("devtools/client/shared/key-shortcuts");
+const KeyShortcuts = require("resource://devtools/client/shared/key-shortcuts.js");
 
 loader.lazyRequireGetter(
   this,
   "ResponsiveUIManager",
-  "devtools/client/responsive/manager"
+  "resource://devtools/client/responsive/manager.js"
 );
 loader.lazyRequireGetter(
   this,
   "localTypes",
-  "devtools/client/responsive/types"
+  "resource://devtools/client/responsive/types.js"
 );
 loader.lazyRequireGetter(
   this,
   "ResponsiveMessageHelper",
-  "devtools/client/responsive/utils/message"
+  "resource://devtools/client/responsive/utils/message.js"
 );
 
 loader.lazyRequireGetter(
   this,
   "FluentReact",
-  "devtools/client/shared/vendor/fluent-react"
+  "resource://devtools/client/shared/vendor/fluent-react.js"
 );
 
 const TEST_DIR = gTestPath.substr(0, gTestPath.lastIndexOf("/"));
@@ -154,7 +156,7 @@ try {
 }
 
 // Force devtools to be initialized so menu items and keyboard shortcuts get installed
-require("devtools/client/framework/devtools-browser");
+require("resource://devtools/client/framework/devtools-browser.js");
 
 // All tests are asynchronous
 if (isMochitest) {
@@ -234,7 +236,7 @@ registerCleanupFunction(() => {
 
 var {
   BrowserConsoleManager,
-} = require("devtools/client/webconsole/browser-console-manager");
+} = require("resource://devtools/client/webconsole/browser-console-manager.js");
 
 registerCleanupFunction(async function cleanup() {
   // Closing the browser console if there's one
@@ -255,7 +257,9 @@ registerCleanupFunction(async function cleanup() {
   await waitForTick();
 
   // All connections must be cleaned up by the test when the test ends.
-  const { DevToolsServer } = require("devtools/server/devtools-server");
+  const {
+    DevToolsServer,
+  } = require("resource://devtools/server/devtools-server.js");
   ok(
     !DevToolsServer.hasConnection(),
     "The main process DevToolsServer has no pending connection when the test ends"
@@ -1423,7 +1427,7 @@ async function registerActorInContentProcess(url, options) {
       );
       const {
         ActorRegistry,
-      } = require("devtools/server/actors/utils/actor-registry");
+      } = require("resource://devtools/server/actors/utils/actor-registry.js");
       ActorRegistry.registerModule(args.url, args.options);
     }
   );
@@ -1519,7 +1523,9 @@ let allDownloads = [];
  *                  screenshot appears in the private window, not the non-private one (See Bug 1783373)
  */
 async function waitUntilScreenshot({ isWindowPrivate = false } = {}) {
-  const { Downloads } = require("resource://gre/modules/Downloads.jsm");
+  const { Downloads } = ChromeUtils.import(
+    "resource://gre/modules/Downloads.jsm"
+  );
   const list = await Downloads.getList(Downloads.ALL);
 
   return new Promise(function(resolve) {
@@ -1553,7 +1559,9 @@ async function waitUntilScreenshot({ isWindowPrivate = false } = {}) {
  */
 async function resetDownloads() {
   info("Reset downloads");
-  const { Downloads } = require("resource://gre/modules/Downloads.jsm");
+  const { Downloads } = ChromeUtils.import(
+    "resource://gre/modules/Downloads.jsm"
+  );
   const downloadList = await Downloads.getList(Downloads.ALL);
   const downloads = await downloadList.getAll();
   for (const download of downloads) {
@@ -2003,7 +2011,7 @@ async function closeRDM(tab, options) {
 }
 
 function getInputStream(data) {
-  const BufferStream = CC(
+  const BufferStream = Components.Constructor(
     "@mozilla.org/io/arraybuffer-input-stream;1",
     "nsIArrayBufferInputStream",
     "setData"

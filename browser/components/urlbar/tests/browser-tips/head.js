@@ -15,6 +15,7 @@ Services.scriptloader.loadSubScript(
 );
 
 ChromeUtils.defineESModuleGetters(this, {
+  ResetProfile: "resource://gre/modules/ResetProfile.sys.mjs",
   UrlbarProviderInterventions:
     "resource:///modules/UrlbarProviderInterventions.sys.mjs",
   UrlbarProvidersManager: "resource:///modules/UrlbarProvidersManager.sys.mjs",
@@ -23,7 +24,6 @@ ChromeUtils.defineESModuleGetters(this, {
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   HttpServer: "resource://testing-common/httpd.js",
-  ResetProfile: "resource://gre/modules/ResetProfile.jsm",
   TelemetryTestUtils: "resource://testing-common/TelemetryTestUtils.jsm",
 });
 
@@ -704,5 +704,8 @@ function resetSearchTipsProvider() {
 async function setDefaultEngine(name) {
   let engine = (await Services.search.getEngines()).find(e => e.name == name);
   Assert.ok(engine);
-  await Services.search.setDefault(engine);
+  await Services.search.setDefault(
+    engine,
+    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+  );
 }

@@ -312,6 +312,7 @@ this.SyncedTabsPanelList = class SyncedTabsPanelList {
 
     let showMoreItem = document.createXULElement("toolbarbutton");
     showMoreItem.setAttribute("itemtype", "showmorebutton");
+    showMoreItem.setAttribute("closemenu", "none");
     showMoreItem.classList.add(
       "subviewbutton",
       "subviewbutton-nav",
@@ -346,7 +347,9 @@ var gSync = {
 
   get log() {
     if (!this._log) {
-      const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
+      const { Log } = ChromeUtils.importESModule(
+        "resource://gre/modules/Log.sys.mjs"
+      );
       let syncLog = Log.repository.getLogger("Sync.Browser");
       syncLog.manageLevelFromPref("services.sync.log.logger.browser");
       this._log = syncLog;

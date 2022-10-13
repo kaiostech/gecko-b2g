@@ -22,8 +22,8 @@ XPCOMUtils.defineLazyServiceGetter(
   Ci.nsIApplicationReputationService
 );
 
-const { Integration } = ChromeUtils.import(
-  "resource://gre/modules/Integration.jsm"
+const { Integration } = ChromeUtils.importESModule(
+  "resource://gre/modules/Integration.sys.mjs"
 );
 Integration.downloads.defineModuleGetter(
   lazy,
@@ -110,9 +110,6 @@ nsUnknownContentTypeDialogProgressListener.prototype = {
  * comprised of:
  *   - a JS constructor function
  *   - a prototype providing all the interface methods and implementation stuff
- *
- * In addition, this file implements an nsIModule object that registers the
- * nsUnknownContentTypeDialog component.
  */
 
 const PREF_BD_USEDOWNLOADDIR = "browser.download.useDownloadDir";
@@ -130,8 +127,8 @@ const { DownloadUtils } = ChromeUtils.import(
 const { Downloads } = ChromeUtils.import(
   "resource://gre/modules/Downloads.jsm"
 );
-const { FileUtils } = ChromeUtils.import(
-  "resource://gre/modules/FileUtils.jsm"
+const { FileUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/FileUtils.sys.mjs"
 );
 
 /* ctor
@@ -459,29 +456,6 @@ nsUnknownContentTypeDialog.prototype = {
       var validatedFile = DownloadPaths.createNiceUniqueFile(aLocalFolder);
     } else {
       validatedFile = aLocalFolder;
-    }
-
-    if (AppConstants.platform == "win") {
-      let ext;
-      try {
-        // We can fail here if there's no primary extension set
-        ext = "." + this.mLauncher.MIMEInfo.primaryExtension;
-      } catch (e) {}
-
-      // Append a file extension if it's an executable that doesn't have one
-      // but make sure we actually have an extension to add
-      let leaf = validatedFile.leafName;
-      if (
-        ext &&
-        !leaf.toLowerCase().endsWith(ext.toLowerCase()) &&
-        validatedFile.isExecutable()
-      ) {
-        validatedFile.remove(false);
-        aLocalFolder.leafName = leaf + ext;
-        if (!aAllowExisting) {
-          validatedFile = DownloadPaths.createNiceUniqueFile(aLocalFolder);
-        }
-      }
     }
 
     return validatedFile;

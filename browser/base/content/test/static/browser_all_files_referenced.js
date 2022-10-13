@@ -30,6 +30,8 @@ var gExceptionPaths = [
   "chrome://activity-stream/content/data/content/tippytop/favicons/",
   // These resources are referenced by messages delivered through Remote Settings
   "chrome://activity-stream/content/data/content/assets/remote/",
+  "chrome://activity-stream/content/data/content/assets/mobile-download-qr-new-user-cn.svg",
+  "chrome://activity-stream/content/data/content/assets/mobile-download-qr-existing-user-cn.svg",
   "chrome://browser/content/assets/moz-vpn.svg",
   "chrome://browser/content/assets/vpn-logo.svg",
   "chrome://browser/content/assets/focus-promo.png",
@@ -51,7 +53,7 @@ var gExceptionPaths = [
 
   // Paths from this folder are constructed in NetErrorParent.jsm based on
   // the type of cert or net error the user is encountering.
-  "chrome://browser/content/certerror/supportpages/",
+  "chrome://global/content/neterror/supportpages/",
 
   // Points to theme preview images, which are defined in browser/ but only used
   // in toolkit/mozapps/extensions/content/aboutaddons.js.
@@ -83,6 +85,7 @@ if (AppConstants.MOZ_BACKGROUNDTASKS) {
   gExceptionPaths.push("resource://app/defaults/backgroundtasks/");
   // `BackgroundTask_id.jsm` is loaded at runtime by `app --backgroundtask id ...`.
   gExceptionPaths.push("resource://gre/modules/backgroundtasks/");
+  gExceptionPaths.push("resource://app/modules/backgroundtasks/");
 }
 
 // Bug 1710546 https://bugzilla.mozilla.org/show_bug.cgi?id=1710546
@@ -360,7 +363,7 @@ if (!isDevtools) {
   // resource://devtools/shared/worker/loader.js,
   // resource://devtools/shared/loader/builtin-modules.js
   if (!AppConstants.ENABLE_WEBDRIVER) {
-    whitelist.add("resource://gre/modules/jsdebugger.jsm");
+    whitelist.add("resource://gre/modules/jsdebugger.sys.mjs");
   }
 }
 

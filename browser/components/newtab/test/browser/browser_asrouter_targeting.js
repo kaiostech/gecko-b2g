@@ -4,16 +4,11 @@ const { ASRouterTargeting, QueryCache } = ChromeUtils.import(
 const { AddonTestUtils } = ChromeUtils.import(
   "resource://testing-common/AddonTestUtils.jsm"
 );
-const { BuiltInThemes } = ChromeUtils.import(
-  "resource:///modules/BuiltInThemes.jsm"
+const { BuiltInThemes } = ChromeUtils.importESModule(
+  "resource:///modules/BuiltInThemes.sys.mjs"
 );
 const { CFRMessageProvider } = ChromeUtils.import(
   "resource://activity-stream/lib/CFRMessageProvider.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "ProfileAge",
-  "resource://gre/modules/ProfileAge.jsm"
 );
 ChromeUtils.defineModuleGetter(
   this,
@@ -25,13 +20,11 @@ ChromeUtils.defineModuleGetter(
   "ShellService",
   "resource:///modules/ShellService.jsm"
 );
-ChromeUtils.defineModuleGetter(
-  this,
-  "NewTabUtils",
-  "resource://gre/modules/NewTabUtils.jsm"
-);
 ChromeUtils.defineESModuleGetters(this, {
+  NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
   PlacesTestUtils: "resource://testing-common/PlacesTestUtils.sys.mjs",
+  ProfileAge: "resource://gre/modules/ProfileAge.sys.mjs",
+  Region: "resource://gre/modules/Region.sys.mjs",
 });
 ChromeUtils.defineModuleGetter(
   this,
@@ -40,11 +33,6 @@ ChromeUtils.defineModuleGetter(
 );
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "Region",
-  "resource://gre/modules/Region.jsm"
 );
 ChromeUtils.defineModuleGetter(
   this,
@@ -1280,4 +1268,20 @@ add_task(async function test_mr2022Holdback() {
 
     await doExperimentCleanup();
   }
+});
+
+add_task(async function test_distributionId() {
+  is(
+    ASRouterTargeting.Environment.distributionId,
+    "",
+    "Should return an empty distribution Id"
+  );
+
+  Services.prefs.getDefaultBranch(null).setCharPref("distribution.id", "test");
+
+  is(
+    ASRouterTargeting.Environment.distributionId,
+    "test",
+    "Should return the correct distribution Id"
+  );
 });

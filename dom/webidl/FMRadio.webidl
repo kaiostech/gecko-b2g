@@ -109,7 +109,7 @@ interface FMRadio : EventTarget {
    * Power the FM radio off. The disabled event will be fired if this request
    * completes successfully.
    */
-  Promise<void> disable();
+  Promise<undefined> disable();
 
   /**
    * Power the FM radio on, and tune the radio to the given frequency in MHz.
@@ -117,7 +117,7 @@ interface FMRadio : EventTarget {
    * and frequencychange event will be fired if this request completes
    * successfully.
    */
-  Promise<void> enable(double frequency);
+  Promise<undefined> enable(double frequency);
 
   /**
    * Tune the FM radio to the given frequency. This will fail if the given
@@ -128,7 +128,7 @@ interface FMRadio : EventTarget {
    * sucess (or wait for the frequencychange event to fire), and then read the
    * frequency attribute.
    */
-  Promise<void> setFrequency(double frequency);
+  Promise<undefined> setFrequency(double frequency);
 
   /**
    * Tell the FM radio to seek up to the next channel. If the frequency is
@@ -137,7 +137,7 @@ interface FMRadio : EventTarget {
    * Only one seek is allowed at once: If the radio is seeking when the seekUp
    * is called, error will be fired.
    */
-  Promise<void> seekUp();
+  Promise<undefined> seekUp();
 
   /**
    * Tell the FM radio to seek down to the next channel. If the frequency is
@@ -146,26 +146,26 @@ interface FMRadio : EventTarget {
    * Only one seek is allowed at once: If the radio is seeking when the
    * seekDown is called, error will be fired.
    */
-  Promise<void> seekDown();
+  Promise<undefined> seekDown();
 
   /**
    * Cancel the seek action. If the radio is not currently seeking up or down,
    * error will be fired.
    */
-  Promise<void> cancelSeek();
+  Promise<undefined> cancelSeek();
 
   /**
    * Enable RDS reception.
    *
    * If the radio is off, RDS will be enabled when the radio is turned on.
    */
-  Promise<void> enableRDS();
+  Promise<undefined> enableRDS();
 
   /**
    * Disable RDS reception.
    *
    * If the radio is off, RDS will not be enabled when the radio is turned on.
    */
-  Promise<void> disableRDS();
+  Promise<undefined> disableRDS();
 };
 

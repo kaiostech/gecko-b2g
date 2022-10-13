@@ -18,5 +18,5 @@ interface WebActivity {
   [Throws]
   Promise<any> start();
 
-  void cancel();
+  undefined cancel();
 };

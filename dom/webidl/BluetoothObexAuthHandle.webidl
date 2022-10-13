@@ -11,10 +11,10 @@ interface BluetoothObexAuthHandle
    * operation fails.
    */
   [NewObject]
-  Promise<void> setPassword(DOMString aPassword);
+  Promise<undefined> setPassword(DOMString aPassword);
 
   // Reject the OBEX authentication request. The promise will be rejected if
   // operation fails.
   [NewObject]
-  Promise<void> reject();
+  Promise<undefined> reject();
 };

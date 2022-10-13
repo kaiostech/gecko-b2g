@@ -14,7 +14,7 @@ interface VideoCallProvider : EventTarget {
    *        To close camera if parameter camera is not given.
    */
   [Throws]
-  Promise<void> setCamera(optional DOMString camera);
+  Promise<undefined> setCamera(optional DOMString camera);
 
   /**
    * To get preview media stream.
@@ -40,14 +40,14 @@ interface VideoCallProvider : EventTarget {
    *        current device's orientation, one of values 0, 90, 180 and 270.
    */
   [Throws]
-  Promise<void> setOrientation(unsigned short orientation);
+  Promise<undefined> setOrientation(unsigned short orientation);
 
   /**
    * To zoom in, zoom out the camera.
    * TBD
    */
   [Throws]
-  Promise<void> setZoom(float zoom);
+  Promise<undefined> setZoom(float zoom);
 
   /**
    * To request a session modification.
@@ -60,7 +60,7 @@ interface VideoCallProvider : EventTarget {
    *         the requested video call
    */
   [Throws]
-  Promise<void> sendSessionModifyRequest(optional VideoCallProfile from={}, optional VideoCallProfile to={});
+  Promise<undefined> sendSessionModifyRequest(optional VideoCallProfile from={}, optional VideoCallProfile to={});
 
   /**
    * To response a media session modification.
@@ -70,14 +70,14 @@ interface VideoCallProvider : EventTarget {
    *        The response video call profile.
    */
   [Throws]
-  Promise<void> sendSessionModifyResponse(optional VideoCallProfile response={});
+  Promise<undefined> sendSessionModifyResponse(optional VideoCallProfile response={});
 
   /**
    * To know current camera's capabilities.
    * The result will be notified via onchangecameracapabilities event.
    */
   [Throws]
-  Promise<void> requestCameraCapabilities();
+  Promise<undefined> requestCameraCapabilities();
 
   /**
    * When receiving remote session modification request.

@@ -58,7 +58,7 @@ interface BluetoothGattCharacteristic
   [NewObject]
   Promise<ArrayBuffer>  readValue();
   [NewObject]
-  Promise<void>         writeValue(ArrayBuffer value);
+  Promise<undefined>    writeValue(ArrayBuffer value);
 
   /**
    * Start or stop subscribing notifications of this characteristic from the
@@ -67,9 +67,9 @@ interface BluetoothGattCharacteristic
    * This API will be rejected if this characteristic is in the server role.
    */
   [NewObject]
-  Promise<void> startNotifications();
+  Promise<undefined> startNotifications();
   [NewObject]
-  Promise<void> stopNotifications();
+  Promise<undefined> stopNotifications();
 
   /**
    * Add a BLE descriptor to the local GATT characteristic.

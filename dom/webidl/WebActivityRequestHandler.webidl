@@ -7,9 +7,9 @@
 [Exposed=ServiceWorker]
 interface WebActivityRequestHandler {
   [Throws]
-  void postResult(any result);
+  undefined postResult(any result);
 
-  void postError(DOMString error);
+  undefined postError(DOMString error);
 
   [Pure, Cached, Frozen, Throws]
   readonly attribute WebActivityOptions source;

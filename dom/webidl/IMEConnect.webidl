@@ -15,9 +15,9 @@ interface IMEConnect {
   unsigned long setLanguage(unsigned long lid);
 
   [Throws]
-  void setLetter (unsigned long hexPrefix, unsigned long hexLetter);
+  undefined setLetter (unsigned long hexPrefix, unsigned long hexLetter);
 
-  void setLetterMultiTap(unsigned long keyCode, unsigned long tapCount, unsigned short prevUnichar);
+  undefined setLetterMultiTap(unsigned long keyCode, unsigned long tapCount, unsigned short prevUnichar);
 
   DOMString getWordCandidates(DOMString letters, optional sequence<DOMString> context = []);
 
@@ -26,7 +26,7 @@ interface IMEConnect {
   DOMString getComposingWords(DOMString letters, long indicator);
 
   [Throws]
-  void importDictionary(Blob dictionary);
+  undefined importDictionary(Blob dictionary);
 
   readonly attribute DOMString candidateWord;
 

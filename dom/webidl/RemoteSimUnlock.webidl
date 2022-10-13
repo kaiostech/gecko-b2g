@@ -77,7 +77,7 @@ interface RemoteSimUnlock {
    * @return Void.
    */
   [Throws]
-  Promise<void> closeRF();
+  Promise<undefined> closeRF();
 
   /**
    * To get the version mode from property.

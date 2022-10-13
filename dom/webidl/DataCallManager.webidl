@@ -110,7 +110,7 @@ interface DataCall : EventTarget {
    * @return If success, promise is resolved. Otherwise, rejected with an error
    *         message.
    */
-  Promise<void> addHostRoute(DOMString host);
+  Promise<undefined> addHostRoute(DOMString host);
 
   /**
    * Remove host route to stop routing traffic to a host via this data call.
@@ -121,7 +121,7 @@ interface DataCall : EventTarget {
    * @return If success, promise is resolved. Otherwise, rejected with an error
    *         message.
    */
-  Promise<void> removeHostRoute(DOMString host);
+  Promise<undefined> removeHostRoute(DOMString host);
 
   /**
    * Release this data call. Once the DataCall is released, state becomes
@@ -130,7 +130,7 @@ interface DataCall : EventTarget {
    * @return If success, promise is resolved. Otherwise, rejected with an error
    *         message.
    */
-  Promise<void> releaseDataCall();
+  Promise<undefined> releaseDataCall();
 
   // Fired when attribute state changed.
   attribute EventHandler onstatechanged;

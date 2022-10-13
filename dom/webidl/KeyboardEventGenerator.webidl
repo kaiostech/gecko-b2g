@@ -9,5 +9,5 @@ interface KeyboardEventGenerator {
   [Throws]
   constructor();
   [Throws]
-  void generate(KeyboardEvent event);
+  undefined generate(KeyboardEvent event);
 };

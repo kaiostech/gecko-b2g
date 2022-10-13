@@ -18,7 +18,7 @@ interface BluetoothPairingHandle
    * pairing request type is not enterpincodereq or operation fails.
    */
   [NewObject]
-  Promise<void> setPinCode(DOMString aPinCode);
+  Promise<undefined> setPinCode(DOMString aPinCode);
 
   /**
    * Accept pairing requests. The promise will be rejected if the pairing
@@ -26,9 +26,9 @@ interface BluetoothPairingHandle
    * operation fails.
    */
   [NewObject]
-  Promise<void> accept();
+  Promise<undefined> accept();
 
   // Reject pairing requests. The promise will be rejected if operation fails.
   [NewObject]
-  Promise<void> reject();
+  Promise<undefined> reject();
 };

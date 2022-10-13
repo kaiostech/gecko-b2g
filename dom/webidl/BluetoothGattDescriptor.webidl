@@ -28,5 +28,5 @@ interface BluetoothGattDescriptor
   [NewObject]
   Promise<ArrayBuffer>  readValue();
   [NewObject]
-  Promise<void>         writeValue(ArrayBuffer value);
+  Promise<undefined>    writeValue(ArrayBuffer value);
 };

@@ -180,7 +180,7 @@ interface CameraControl : MediaStream
   [Throws]
   sequence<CameraRegion> getMeteringAreas();
   [Throws]
-  void setMeteringAreas(optional sequence<CameraRegion> meteringAreas);
+  undefined setMeteringAreas(optional sequence<CameraRegion> meteringAreas);
 
   /* an array of one or more objects that define where the camera will
      perform auto-focusing, with the same definition as meteringAreas.
@@ -193,7 +193,7 @@ interface CameraControl : MediaStream
   [Throws]
   sequence<CameraRegion> getFocusAreas();
   [Throws]
-  void setFocusAreas(optional sequence<CameraRegion> focusAreas);
+  undefined setFocusAreas(optional sequence<CameraRegion> focusAreas);
 
   /* focal length in millimetres */
   [Throws]
@@ -283,7 +283,7 @@ interface CameraControl : MediaStream
   [Throws]
   CameraSize getPictureSize();
   [Throws]
-  void setPictureSize(optional CameraSize size = {});
+  undefined setPictureSize(optional CameraSize size = {});
 
   /* if the image blob to be returned by takePicture() supports lossy
      compression, this setting controls the quality-size trade-off;
@@ -305,7 +305,7 @@ interface CameraControl : MediaStream
   [Throws]
   CameraSize getThumbnailSize();
   [Throws]
-  void setThumbnailSize(optional CameraSize size = {});
+  undefined setThumbnailSize(optional CameraSize size = {});
 
   /* the angle, in degrees, that the image sensor is mounted relative
      to the display; e.g. if 'sensorAngle' is 270 degrees (or -90 degrees),
@@ -357,29 +357,29 @@ interface CameraControl : MediaStream
      If the success/error callbacks are not used, one may determine success by
      waiting for the recorderstatechange event. */
   [Throws]
-  Promise<void> startRecording(CameraStartRecordingOptions options,
+  Promise<undefined> startRecording(CameraStartRecordingOptions options,
                                DeviceStorage storageArea,
                                DOMString filename);
 
   /* stop recording video. */
   [Throws]
-  void stopRecording();
+  undefined stopRecording();
 
   /* pause recording video. The camera remains active but audio and video
      frames are no longer saved in the output file. If called when not
      recording or already paused, it fails silently. */
   [Throws]
-  void pauseRecording();
+  undefined pauseRecording();
 
   /* resume recording video while paused. If called when not recording or
      not paused, it fails silently. */
   [Throws]
-  void resumeRecording();
+  undefined resumeRecording();
 
   /* call in or after the takePicture() onSuccess callback to
      resume the camera preview stream. */
   [Throws]
-  void resumePreview();
+  undefined resumePreview();
 
   /* release the camera so that other applications can use it; you should
      probably call this whenever the camera is not longer in the foreground
@@ -388,7 +388,7 @@ interface CameraControl : MediaStream
      once this is called, the camera control object is to be considered
      defunct; a new instance will need to be created to access the camera. */
   [Throws, BinaryName="ReleaseHardware"]
-  Promise<void> release();
+  Promise<undefined> release();
 
   /* changes the camera configuration on the fly. */
   [Throws]
@@ -412,7 +412,7 @@ interface CameraControl : MediaStream
      current state until this method is called.
   */
   [Throws]
-  void resumeContinuousFocus();
+  undefined resumeContinuousFocus();
 };
 
 /* The information of the each face detected by a camera device, e.g.
@@ -502,14 +502,14 @@ partial interface CameraControl
      This method throws an exception if face detection fails to start.
   */
   [Throws]
-  void startFaceDetection();
+  undefined startFaceDetection();
 
   /* Stops the face detection.
 
      This method throws an exception if face detection can't be stopped.
   */
   [Throws]
-  void stopFaceDetection();
+  undefined stopFaceDetection();
 
   /* CameraFacesDetectedEvent */
   //[Pref="camera.control.face_detection.enabled"]

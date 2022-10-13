@@ -17,13 +17,13 @@ interface AudioChannelHandler : EventTarget {
   Promise<float> getVolume();
 
   [Throws]
-  Promise<void> setVolume(float aVolume);
+  Promise<undefined> setVolume(float aVolume);
 
   [Throws]
   Promise<boolean> getMuted();
 
   [Throws]
-  Promise<void> setMuted(boolean aMuted);
+  Promise<undefined> setMuted(boolean aMuted);
 
   [Throws]
   Promise<boolean> isActive();

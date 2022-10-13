@@ -10,18 +10,18 @@ interface DOMVirtualCursor {
    * Throws an exception if no permissions.
    */
   [Throws]
-  void enable();
+  undefined enable();
 
   /**
    * Disable virtual cursor on this window
    * Throws an exception if no permissions.
    */
   [Throws]
-  void disable();
+  undefined disable();
   readonly attribute boolean enabled;
 
   [ChromeOnly]
-  void startPanning();
-  void stopPanning();
+  undefined startPanning();
+  undefined stopPanning();
   readonly attribute boolean isPanning;
 };

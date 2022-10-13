@@ -236,9 +236,9 @@ partial interface B2G {
    *  - locked and visible
    */
   [Exposed=Window]
-  void addWakeLockListener(MozWakeLockListener aListener);
+  undefined addWakeLockListener(MozWakeLockListener aListener);
   [Exposed=Window]
-  void removeWakeLockListener(MozWakeLockListener aListener);
+  undefined removeWakeLockListener(MozWakeLockListener aListener);
 
   /**
    * Query the wake lock state of the topic.
@@ -299,5 +299,5 @@ partial interface B2G {
    * chance to process and consume the events.
    */
   [ChromeOnly]
-  void setDispatchKeyToContentFirst(boolean enable);
+  undefined setDispatchKeyToContentFirst(boolean enable);
 };

@@ -37,7 +37,7 @@ interface DownloadManager : EventTarget {
   // will have a new state of "finalized".  (After the download is finalized, no
   // further events will be generated on it.)
   [Func="B2G::HasDownloadsPermission"]
-  void clearAllDone();
+  undefined clearAllDone();
 
   // Add completed downloads from applications that must perform the download
   // process themselves. For example, email.  The method is resolved with a

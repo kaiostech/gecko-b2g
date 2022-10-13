@@ -52,7 +52,7 @@ interface ImsRegHandler : EventTarget {
    *         Rejected with error message, otherwise.
    */
   [Throws]
-  Promise<void> setEnabled(boolean enabled);
+  Promise<undefined> setEnabled(boolean enabled);
 
   /**
    * Current enabled state of IMS.
@@ -71,7 +71,7 @@ interface ImsRegHandler : EventTarget {
    *         Rejected with error message, otherwise.
    */
   [Throws]
-  Promise<void> setPreferredProfile(ImsProfile profile);
+  Promise<undefined> setPreferredProfile(ImsProfile profile);
 
   /**
    * The preferred IMS profile currently applied.
@@ -101,7 +101,7 @@ interface ImsRegHandler : EventTarget {
    *         Rejected with error message, otherwise.
    */
   [Throws]
-  Promise<void> setRttEnabled(boolean enabled);
+  Promise<undefined> setRttEnabled(boolean enabled);
 
   /**
    * Current enabled state of IMS RTT.

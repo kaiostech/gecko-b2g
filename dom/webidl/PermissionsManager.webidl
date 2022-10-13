@@ -9,9 +9,9 @@ interface PermissionsManager
 {
   Promise<DOMString> get(DOMString permission, DOMString origin);
 
-  void set(DOMString permission, DOMString value, DOMString origin);
+  undefined set(DOMString permission, DOMString value, DOMString origin);
 
   Promise<boolean> isExplicit(DOMString permission, DOMString origin);
 
-  void remove(DOMString permission, DOMString origin);
+  undefined remove(DOMString permission, DOMString origin);
 };

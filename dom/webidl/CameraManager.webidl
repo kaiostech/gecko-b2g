@@ -74,5 +74,5 @@ interface CameraManager
    *          Resolved with the sensor angle (in degrees), e.g.: [0, 90, 180, 270].
    */
   //[Throws]
-  //Promise<void> getCameraSensorAngle(DOMString camera);
+  //Promise<undefined> getCameraSensorAngle(DOMString camera);
 };

@@ -14,5 +14,5 @@ interface WakeLock
      * @throw NS_ERROR_DOM_INVALID_STATE_ERR if already unlocked.
      */
     [Throws]
-    void unlock();
+    undefined unlock();
 };

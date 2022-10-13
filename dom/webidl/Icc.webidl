@@ -228,7 +228,7 @@ interface Icc : EventTarget
    *        @see StkResponse for the detail of response.
    */
   [Throws]
-  void sendStkResponse(any command, any response);
+  undefined sendStkResponse(any command, any response);
 
   /**
    * Send the "Menu Selection" envelope command to ICC for menu selection.
@@ -239,7 +239,7 @@ interface Icc : EventTarget
    *        true if user requests to provide help information, false otherwise.
    */
   [Throws]
-  void sendStkMenuSelection(unsigned short itemIdentifier,
+  undefined sendStkMenuSelection(unsigned short itemIdentifier,
                             boolean helpRequested);
 
   /**
@@ -253,7 +253,7 @@ interface Icc : EventTarget
    *        @see StkTimer
    */
   [Throws]
-  void sendStkTimerExpiration(any timer);
+  undefined sendStkTimerExpiration(any timer);
 
   /**
    * Send "Event Download" envelope command to ICC.
@@ -268,7 +268,7 @@ interface Icc : EventTarget
    *        - StkBrowserTerminationEvent
    */
   [Throws]
-  void sendStkEventDownload(any event);
+  undefined sendStkEventDownload(any event);
 
   /**
    * The 'stkcommand' event is notified whenever STK proactive command is

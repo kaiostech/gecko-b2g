@@ -86,9 +86,9 @@ interface BluetoothGattServer : EventTarget
    * disconnecting to other devices.
    */
   [NewObject]
-  Promise<void> connect(DOMString address);
+  Promise<undefined> connect(DOMString address);
   [NewObject]
-  Promise<void> disconnect(DOMString address);
+  Promise<undefined> disconnect(DOMString address);
 
   /**
    * Start or stop advertising data to nearby devices.
@@ -100,9 +100,9 @@ interface BluetoothGattServer : EventTarget
    * device connects to the local device.
    */
   [NewObject]
-  Promise<void> startAdvertising(optional BluetoothAdvertisingData advData = {});
+  Promise<undefined> startAdvertising(optional BluetoothAdvertisingData advData = {});
   [NewObject]
-  Promise<void> stopAdvertising();
+  Promise<undefined> stopAdvertising();
 
   /**
    * Add a BLE service to the local GATT server.
@@ -111,7 +111,7 @@ interface BluetoothGattServer : EventTarget
    * server.
    */
   [NewObject]
-  Promise<void> addService(BluetoothGattService service);
+  Promise<undefined> addService(BluetoothGattService service);
 
   /**
    * Remove a BLE service to the local GATT server.
@@ -120,14 +120,14 @@ interface BluetoothGattServer : EventTarget
    * server.
    */
   [NewObject]
-  Promise<void> removeService(BluetoothGattService service);
+  Promise<undefined> removeService(BluetoothGattService service);
 
   /**
    * Notify the remote BLE device that the value of a characteristic has been
    * changed.
    */
   [NewObject]
-  Promise<void> notifyCharacteristicChanged(
+  Promise<undefined> notifyCharacteristicChanged(
     DOMString address,
     BluetoothGattCharacteristic characteristic,
     boolean confirm);
@@ -136,6 +136,6 @@ interface BluetoothGattServer : EventTarget
    * Send a read/write response to a remote BLE client
    */
   [NewObject]
-  Promise<void> sendResponse(
+  Promise<undefined> sendResponse(
     DOMString address, unsigned short status, long requestId);
 };

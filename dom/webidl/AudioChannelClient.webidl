@@ -16,12 +16,12 @@ interface AudioChannelClient : EventTarget {
   // This function is useful for APP which wants background music/FM to be
   // muted.
   [Throws]
-  void requestChannel();
+  undefined requestChannel();
 
   // Called when APP no longer wants to occupy the audio channel. APP must call
   // this function if it has called requestChannel().
   [Throws]
-  void abandonChannel();
+  undefined abandonChannel();
 
   // This event is dispatched when muted state changes. APP should check
   // channelMuted attribute to know current muted state.

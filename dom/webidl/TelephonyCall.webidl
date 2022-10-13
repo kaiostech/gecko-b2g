@@ -100,7 +100,7 @@ interface TelephonyCall : EventTarget {
    *        We suggest answer as RTT by default.
    */
   [NewObject]
-  Promise<void> answer(unsigned short type, optional boolean isRtt);
+  Promise<undefined> answer(unsigned short type, optional boolean isRtt);
 
   /**
    * @param unwanted
@@ -108,27 +108,27 @@ interface TelephonyCall : EventTarget {
    *        Only applicable when markable is true
    */
   [NewObject]
-  Promise<void> hangUp(optional boolean unwanted);
+  Promise<undefined> hangUp(optional boolean unwanted);
   [NewObject]
-  Promise<void> hold();
+  Promise<undefined> hold();
   [NewObject]
-  Promise<void> resume();
+  Promise<undefined> resume();
 
   /**
    * To request RTT upgrade/downgrade request.
    */
   [Throws]
-  Promise<void> sendRttModifyRequest(boolean enable);
+  Promise<undefined> sendRttModifyRequest(boolean enable);
   /**
    * To response a RTT request.
    */
   [Throws]
-  Promise<void> sendRttModifyResponse(boolean status);
+  Promise<undefined> sendRttModifyResponse(boolean status);
   /**
    * To send out a RTT message.
    */
   [Throws]
-  Promise<void> sendRttMessage(DOMString message);
+  Promise<undefined> sendRttMessage(DOMString message);
 
   attribute EventHandler onstatechange;
   attribute EventHandler ondialing;

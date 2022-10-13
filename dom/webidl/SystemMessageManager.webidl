@@ -7,5 +7,5 @@
 [Exposed=(Window,Worker), Pref="dom.systemMessage.enabled"]
 interface SystemMessageManager {
   [Throws]
-  Promise<void> subscribe(DOMString messageName);
+  Promise<undefined> subscribe(DOMString messageName);
 };

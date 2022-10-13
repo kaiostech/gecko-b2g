@@ -34,9 +34,9 @@ interface BluetoothGatt : EventTarget
    *   3) Promise is resolved or rejected according to the operation result.
    */
   [NewObject]
-  Promise<void>                                     connect();
+  Promise<undefined>                                connect();
   [NewObject]
-  Promise<void>                                     disconnect();
+  Promise<undefined>                                disconnect();
 
   /**
    * Discover services, characteristics, descriptors offered by the remote GATT
@@ -44,7 +44,7 @@ interface BluetoothGatt : EventTarget
    * operation fails.
    */
   [NewObject]
-  Promise<void>                                     discoverServices();
+  Promise<undefined>                                discoverServices();
 
   /**
    * Read RSSI for the remote BLE device if the connectState is connected.

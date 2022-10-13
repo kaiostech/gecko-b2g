@@ -24,7 +24,7 @@ interface InputMethod {
    * Remove focus from the current input, usable by Gaia System app, globally,
    * regardless of the current focus state.
    */
-  void removeFocus();
+  undefined removeFocus();
 
   Promise<sequence<long>> getSelectionRange();
 
@@ -41,10 +41,10 @@ interface InputMethod {
    * If the value passed in parameter isn't valid (in the term of HTML5
    * Forms Validation), the value will simply be ignored by the element.
    */
-  void setValue(DOMString value);
+  undefined setValue(DOMString value);
 
   // Select and delete all editable content including selection|text|node.
-  void clearAll();
+  undefined clearAll();
 
   /**
    * Commit text to current input field and replace text around

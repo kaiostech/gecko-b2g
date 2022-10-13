@@ -69,7 +69,7 @@ interface Telephony : EventTarget {
    * Hangup all calls.
    */
   [Throws]
-  Promise<void> hangUpAllCalls(optional unsigned long serviceId);
+  Promise<undefined> hangUpAllCalls(optional unsigned long serviceId);
 
   /**
    * Send a series of DTMF tones.
@@ -84,25 +84,25 @@ interface Telephony : EventTarget {
    *    Default value is as user setting dom.telephony.defaultServiceId.
    */
   [Throws]
-  Promise<void> sendTones(DOMString tones, optional unsigned long pauseDuration = 3000, optional unsigned long toneDuration = 70, optional unsigned long serviceId);
+  Promise<undefined> sendTones(DOMString tones, optional unsigned long pauseDuration = 3000, optional unsigned long toneDuration = 70, optional unsigned long serviceId);
 
   [Throws]
-  void startTone(DOMString tone, optional unsigned long serviceId);
+  undefined startTone(DOMString tone, optional unsigned long serviceId);
 
   [Throws]
-  void stopTone(optional unsigned long serviceId);
+  undefined stopTone(optional unsigned long serviceId);
 
   // Calling this method, the app will be treated as owner of the telephony
   // calls from the AudioChannel policy.
   [Throws]
   // CheckAllPermissions="audio-channel-telephony"]
-  void ownAudioChannel();
+  undefined ownAudioChannel();
 
   [NewObject]
-  Promise<void> sendUSSD(DOMString ussd, optional unsigned long serviceId);
+  Promise<undefined> sendUSSD(DOMString ussd, optional unsigned long serviceId);
 
   [NewObject]
-  Promise<void> cancelUSSD(optional unsigned long serviceId);
+  Promise<undefined> cancelUSSD(optional unsigned long serviceId);
 
   /**
    * Test purpose.
@@ -145,7 +145,7 @@ interface Telephony : EventTarget {
 
   // Async notification that object initialization is done.
   [Throws]
-  readonly attribute Promise<void> ready;
+  readonly attribute Promise<undefined> ready;
 
   attribute EventHandler onincoming;
   attribute EventHandler oncallschanged;

@@ -117,24 +117,24 @@ interface BluetoothAdapter : EventTarget {
    * request, and the last one indicates adapter.state becomes enabled/disabled.
    */
   [NewObject, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> enable();
+  Promise<undefined> enable();
   [NewObject, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> disable();
+  Promise<undefined> disable();
 
   [NewObject, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> setName(DOMString name);
+  Promise<undefined> setName(DOMString name);
   [NewObject]
-  Promise<void> setDiscoverable(boolean discoverable);
+  Promise<undefined> setDiscoverable(boolean discoverable);
 
   [NewObject]
   Promise<BluetoothDiscoveryHandle> startDiscovery();
   [NewObject]
-  Promise<void> stopDiscovery();
+  Promise<undefined> stopDiscovery();
 
   [NewObject]
-  Promise<void> pair(DOMString deviceAddress);
+  Promise<undefined> pair(DOMString deviceAddress);
   [NewObject]
-  Promise<void> unpair(DOMString deviceAddress);
+  Promise<undefined> unpair(DOMString deviceAddress);
 
   sequence<BluetoothDevice> getPairedDevices();
 
@@ -149,7 +149,7 @@ interface BluetoothAdapter : EventTarget {
 
   [NewObject,
    Func="mozilla::dom::bluetooth::BluetoothManager::B2GGattClientEnabled"]
-  Promise<void> stopLeScan(BluetoothDiscoveryHandle discoveryHandle);
+  Promise<undefined> stopLeScan(BluetoothDiscoveryHandle discoveryHandle);
 
 
   [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
@@ -220,7 +220,7 @@ interface BluetoothAdapter : EventTarget {
 
   // MAP event report
   [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> sendMessageEvent(octet masId, Blob eventObject);
+  Promise<undefined> sendMessageEvent(octet masId, Blob eventObject);
 };
 
 enum BluetoothAdapterState

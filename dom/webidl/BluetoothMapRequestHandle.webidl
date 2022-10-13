@@ -11,14 +11,14 @@ interface BluetoothMapRequestHandle
    * rejected if the MAP request operation fails.
    */
   [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> replyToFolderListing(octet masId, DOMString folders);
+  Promise<undefined> replyToFolderListing(octet masId, DOMString folders);
 
   /**
    * Reply the Messages-Listing object to the MAP request. The Promise will
    * be rejected if the MAP request operation fails.
    */
   [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> replyToMessagesListing(
+  Promise<undefined> replyToMessagesListing(
     octet masId,
     Blob messageslisting,
     boolean newmessage,
@@ -30,26 +30,26 @@ interface BluetoothMapRequestHandle
    * if the MAP request operation fails.
    */
   [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> replyToGetMessage(octet masId, Blob bmessage);
+  Promise<undefined> replyToGetMessage(octet masId, Blob bmessage);
 
   /**
    * Reply SetMessage object to the MAP request. The Promise will be rejected
    * if the MAP request operation fails.
    */
   [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> replyToSetMessageStatus(octet masId, boolean status);
+  Promise<undefined> replyToSetMessageStatus(octet masId, boolean status);
 
   /**
    * Reply SendMessage request to the MAP request. The Promise will be rejected
    * if the MAP request operation fails.
    */
   [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> replyToSendMessage(octet masId, DOMString handleId, boolean status);
+  Promise<undefined> replyToSendMessage(octet masId, DOMString handleId, boolean status);
 
   /**
    * Reply Message-Update object to the MAP request. The Promise will be
    * rejected if the MAP request operation fails.
    */
   [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
-  Promise<void> replyToMessageUpdate(octet masId, boolean status);
+  Promise<undefined> replyToMessageUpdate(octet masId, boolean status);
 };

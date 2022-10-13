@@ -209,7 +209,7 @@ interface MobileMessageManager : EventTarget
    *         Resolve if success. Otherwise, reject with error cause.
    */
   [NewObject]
-  Promise<void> setSmscAddress(optional SmscAddress smscAddress={},
+  Promise<undefined> setSmscAddress(optional SmscAddress smscAddress={},
                                optional unsigned long serviceId);
 
   attribute EventHandler onreceived;

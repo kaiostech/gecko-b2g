@@ -47,7 +47,7 @@ interface BluetoothGattService
    * service of the same GATT server. Otherwise this API will be rejected.
    */
   [NewObject]
-  Promise<void> addIncludedService(BluetoothGattService service);
+  Promise<undefined> addIncludedService(BluetoothGattService service);
 };
 
 dictionary BluetoothGattServiceInit

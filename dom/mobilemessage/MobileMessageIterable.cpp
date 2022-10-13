@@ -123,14 +123,14 @@ already_AddRefed<Promise> MobileMessageIterable::GetNextPromise(
 
     JS::Rooted<JS::Value> value(aCx);
     Unused << ToJSValue(aCx, result, &value);
-    iterator_utils::ResolvePromiseWithKeyOrValue(aCx, promise, value, aRv);
+    promise->MaybeResolve(value);
     mPendingResults.RemoveElementAt(mPendingResults.Length() - 1);
     return promise.forget();
   }
 
   if (mDone) {
     LOG_DEBUG("Mobilemessage iteration has been done");
-    iterator_utils::ResolvePromiseForFinished(aCx, promise, aRv);
+    iterator_utils::ResolvePromiseForFinished(promise);
     return promise.forget();
   }
   data->mPromises.InsertElementAt(0, promise);
@@ -197,9 +197,7 @@ void MobileMessageIterable::FireSuccess() {
   JSContext* cx = jsapi.cx();
   JS::Rooted<JS::Value> value(cx);
   Unused << ToJSValue(cx, result, &value);
-
-  ErrorResult rv;
-  iterator_utils::ResolvePromiseWithKeyOrValue(cx, promise, value, rv);
+  promise->MaybeResolve(value);
   mPendingResults.RemoveElementAt(mPendingResults.Length() - 1);
 }
 
@@ -250,14 +248,7 @@ void MobileMessageIterable::FireDone() {
     return;
   }
 
-  AutoJSAPI jsapi;
-  if (NS_WARN_IF(!jsapi.Init(mParent))) {
-    return;
-  }
-
-  JSContext* cx = jsapi.cx();
-  ErrorResult rv;
-  iterator_utils::ResolvePromiseForFinished(cx, promise, rv);
+  iterator_utils::ResolvePromiseForFinished(promise);
   LOG_DEBUG("Iteration complete, resolve next() with undefined.");
 }
 

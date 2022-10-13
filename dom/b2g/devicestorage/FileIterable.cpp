@@ -90,7 +90,7 @@ already_AddRefed<Promise> FileIterable::GetNextPromise(JSContext* aCx,
   data->mPromises.InsertElementAt(0, promise);
 
   if (mState == EnumerateState::Done) {
-    iterator_utils::ResolvePromiseForFinished(aCx, promise, aRv);
+    iterator_utils::ResolvePromiseForFinished(promise);
     DS_LOG_DEBUG("Iteration complete, resolve next() with undefined.");
   } else if (mState == EnumerateState::Abort) {
     RejectWithReason(promise, mRejectReason);
@@ -121,13 +121,7 @@ void FileIterable::FireSuccess(JS::Handle<JS::Value> aResult) {
     DS_LOG_ERROR("no promise to resolve.");
     return;
   }
-  AutoJSAPI jsapi;
-  if (NS_WARN_IF(!jsapi.Init(mGlobal))) {
-    return;
-  }
-  JSContext* cx = jsapi.cx();
-  ErrorResult rv;
-  iterator_utils::ResolvePromiseWithKeyOrValue(cx, promise, aResult, rv);
+  promise->MaybeResolve(aResult);
   DS_LOG_DEBUG("Resolve next() with a file.");
 }
 
@@ -171,14 +165,7 @@ void FileIterable::FireDone() {
     DS_LOG_ERROR("no promise to resolve.");
     return;
   }
-
-  AutoJSAPI jsapi;
-  if (NS_WARN_IF(!jsapi.Init(mGlobal))) {
-    return;
-  }
-  JSContext* cx = jsapi.cx();
-  ErrorResult rv;
-  iterator_utils::ResolvePromiseForFinished(cx, promise, rv);
+  iterator_utils::ResolvePromiseForFinished(promise);
   DS_LOG_DEBUG("Iteration complete, resolve next() with undefined.");
 }
 

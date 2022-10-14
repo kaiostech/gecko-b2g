@@ -58,18 +58,16 @@ void nsLocalSecureBrowserUI::RecomputeSecurityFlags() {
   // Only https is considered secure (it is possible to have e.g. an http URI
   // with a channel that has a securityInfo that indicates the connection is
   // secure - e.g. h2/alt-svc or by visiting an http URI over an https proxy).
+  nsCOMPtr<nsITransportSecurityInfo> securityInfo;
   if (isSecure) {
-    nsCOMPtr<nsISupports> secInfo;
     if (nsIChannel* failedChannel = doc->GetFailedChannel()) {
-      Unused << failedChannel->GetSecurityInfo(getter_AddRefs(secInfo));
+      Unused << failedChannel->GetSecurityInfo(getter_AddRefs(securityInfo));
     } else {
       // When there's no failed channel we should have a regular
       // security info on the document. In some cases there's no
       // security info at all, i.e. on HTTP sites.
-      secInfo = doc->GetSecurityInfo();
+      securityInfo = doc->GetSecurityInfo();
     }
-    nsCOMPtr<nsITransportSecurityInfo> securityInfo =
-        do_QueryInterface(secInfo);
 
     if (securityInfo) {
       nsresult rv = securityInfo->GetSecurityState(&mState);
@@ -175,7 +173,7 @@ nsLocalSecureBrowserUI::GetSecInfo(nsITransportSecurityInfo** aSecInfo) {
     return NS_ERROR_FAILURE;
   }
 
-  nsCOMPtr<nsISupports> secInfo;
+  nsCOMPtr<nsITransportSecurityInfo> secInfo;
   // First check if there's a failed channel, in case of a certificate
   // error.
   if (nsIChannel* failedChannel = doc->GetFailedChannel()) {
@@ -187,7 +185,6 @@ nsLocalSecureBrowserUI::GetSecInfo(nsITransportSecurityInfo** aSecInfo) {
     secInfo = doc->GetSecurityInfo();
   }
 
-  nsCOMPtr<nsITransportSecurityInfo> transSecInfo = do_QueryInterface(secInfo);
-  transSecInfo.forget(aSecInfo);
+  secInfo.forget(aSecInfo);
   return NS_OK;
 }

@@ -74,18 +74,24 @@ export const TabsSetupFlowManager = new (class {
       lazy.gNetworkLinkService.isLinkUp;
     this.syncIsWorking = true;
     this.syncIsConnected = lazy.UIState.get().syncEnabled;
+    this.didFxaTabOpen = false;
 
     this.registerSetupState({
       uiStateIndex: 0,
       name: "error-state",
       exitConditions: () => {
+        const fxaStatus = lazy.UIState.get().status;
         return (
           this.networkIsOnline &&
           (this.syncIsWorking || this.syncHasWorked) &&
           !Services.prefs.prefIsLocked(FXA_ENABLED) &&
-          // its only an error for sync to not be connected if we are signed-in.
-          (this.syncIsConnected ||
-            lazy.UIState.get().status !== lazy.UIState.STATUS_SIGNED_IN) &&
+          // it's an error for sync to not be connected if we are signed-in,
+          // or for sync to be connected if the FxA status is "login_failed",
+          // which can happen if a user updates their password on another device
+          ((!this.syncIsConnected &&
+            fxaStatus !== lazy.UIState.STATUS_SIGNED_IN) ||
+            (this.syncIsConnected &&
+              fxaStatus !== lazy.UIState.STATUS_LOGIN_FAILED)) &&
           // We treat a locked primary password as an error if we are signed-in.
           // If the user dismisses the prompt to unlock, they can use the "Try again" button to prompt again
           (!this.isPrimaryPasswordLocked || !this.fxaSignedIn)
@@ -183,11 +189,14 @@ export const TabsSetupFlowManager = new (class {
     // this ordering is important for dealing with multiple errors at once
     const errorStates = {
       "network-offline": !this.networkIsOnline,
+      "fxa-admin-disabled": Services.prefs.prefIsLocked(FXA_ENABLED),
+      "sync-disconnected":
+        !this.syncIsConnected ||
+        (this.syncIsConnected &&
+          lazy.UIState.get().status === lazy.UIState.STATUS_LOGIN_FAILED),
       "sync-error":
         (!this.syncIsWorking && !this.syncHasWorked) ||
         this.isPrimaryPasswordLocked,
-      "fxa-admin-disabled": Services.prefs.prefIsLocked(FXA_ENABLED),
-      "sync-disconnected": !this.syncIsConnected,
     };
 
     for (let [type, value] of Object.entries(errorStates)) {
@@ -302,9 +311,11 @@ export const TabsSetupFlowManager = new (class {
         break;
       case SYNC_SERVICE_ERROR:
         this.logger.debug(`Handling ${SYNC_SERVICE_ERROR}`);
-        this._waitingForTabs = false;
-        this.syncIsWorking = false;
-        this.maybeUpdateUI(true);
+        if (lazy.UIState.get().status == lazy.UIState.STATUS_SIGNED_IN) {
+          this._waitingForTabs = false;
+          this.syncIsWorking = false;
+          this.maybeUpdateUI(true);
+        }
         break;
       case NETWORK_STATUS_CHANGED:
         this.networkIsOnline = data == "online";
@@ -521,9 +532,13 @@ export const TabsSetupFlowManager = new (class {
   }
 
   async openFxASignup(window) {
+    if (!(await lazy.fxAccounts.constructor.canConnectAccount())) {
+      return;
+    }
     const url = await lazy.fxAccounts.constructor.config.promiseConnectAccountURI(
       "firefoxview"
     );
+    this.didFxaTabOpen = true;
     openTabInWindow(window, url, true);
     Services.telemetry.recordEvent("firefoxview", "fxa_continue", "sync", null);
   }
@@ -532,6 +547,7 @@ export const TabsSetupFlowManager = new (class {
     const url = await lazy.fxAccounts.constructor.config.promisePairingURI({
       entrypoint: "fx-view",
     });
+    this.didFxaTabOpen = true;
     openTabInWindow(window, url, true);
     Services.telemetry.recordEvent("firefoxview", "fxa_mobile", "sync", null, {
       has_devices: this.secondaryDeviceConnected.toString(),

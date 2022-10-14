@@ -69,11 +69,7 @@ pref("security.pki.mitm_canary_issuer.enabled", true);
 pref("security.pki.mitm_detected", false);
 
 // Intermediate CA Preloading settings
-#if !defined(MOZ_WIDGET_ANDROID)
-  pref("security.remote_settings.intermediates.enabled", true);
-#else
-  pref("security.remote_settings.intermediates.enabled", false);
-#endif
+pref("security.remote_settings.intermediates.enabled", true);
 pref("security.remote_settings.intermediates.downloads_per_poll", 5000);
 pref("security.remote_settings.intermediates.parallel_downloads", 8);
 
@@ -1970,7 +1966,11 @@ pref("extensions.manifestV2.actionsPopupURLRestricted", false);
   pref("extensions.manifestV3.enabled", false);
 #endif
 // Whether to enable the unified extensions feature.
-pref("extensions.unifiedExtensions.enabled", false);
+#ifdef NIGHTLY_BUILD
+  pref("extensions.unifiedExtensions.enabled", true);
+#else
+  pref("extensions.unifiedExtensions.enabled", false);
+#endif
 
 // Modifier key prefs: default to Windows settings,
 // menu access key = alt, accelerator key = control.

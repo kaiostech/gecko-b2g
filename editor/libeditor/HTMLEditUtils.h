@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_HTMLEditUtils_h
-#define mozilla_HTMLEditUtils_h
+#ifndef HTMLEditUtils_h
+#define HTMLEditUtils_h
 
 /**
  * This header declares/defines static helper methods as members of
@@ -12,11 +12,12 @@
  * HTMLEditor, see HTMLEditHelpers.h.
  */
 
+#include "EditorBase.h"
+#include "EditorDOMPoint.h"
+#include "EditorForwards.h"
+#include "EditorUtils.h"
+
 #include "mozilla/Attributes.h"
-#include "mozilla/EditorBase.h"
-#include "mozilla/EditorDOMPoint.h"
-#include "mozilla/EditorForwards.h"
-#include "mozilla/EditorUtils.h"
 #include "mozilla/EnumSet.h"
 #include "mozilla/IntegerRange.h"
 #include "mozilla/Maybe.h"
@@ -27,6 +28,7 @@
 #include "mozilla/dom/HTMLBRElement.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/Text.h"
+
 #include "nsContentUtils.h"
 #include "nsCRT.h"
 #include "nsGkAtoms.h"
@@ -595,6 +597,17 @@ class HTMLEditUtils final {
     }
     return IsContentInclusiveDescendantOfLink(*commonAncestorNode->AsContent(),
                                               aFoundLinkElement);
+  }
+
+  /**
+   * Whether aElement has at least one attribute except _moz_dirty attribute or
+   * has no attribute or only has _moz_dirty attribute.
+   */
+  static bool ElementHasAttributesExceptMozDirty(const Element& aElement) {
+    uint32_t attrCount = aElement.GetAttrCount();
+    return attrCount > 1 ||
+           (attrCount == 1u &&
+            !aElement.GetAttrNameAt(0)->Equals(nsGkAtoms::mozdirty));
   }
 
   /**
@@ -2038,6 +2051,20 @@ class HTMLEditUtils final {
   }
 
   /**
+   * CollectAllChildren() collects all child nodes of aParentNode.
+   */
+  static void CollectAllChildren(
+      const nsINode& aParentNode,
+      nsTArray<OwningNonNull<nsIContent>>& aOutArrayOfContents) {
+    MOZ_ASSERT(aOutArrayOfContents.IsEmpty());
+    aOutArrayOfContents.SetCapacity(aParentNode.GetChildCount());
+    for (nsIContent* childContent = aParentNode.GetFirstChild(); childContent;
+         childContent = childContent->GetNextSibling()) {
+      aOutArrayOfContents.AppendElement(*childContent);
+    }
+  }
+
+  /**
    * CollectChildren() collects child nodes of aNode (starting from
    * first editable child, but may return non-editable children after it).
    *
@@ -2254,4 +2281,4 @@ class MOZ_STACK_CLASS SelectedTableCellScanner final {
 
 }  // namespace mozilla
 
-#endif  // #ifndef mozilla_HTMLEditUtils_h
+#endif  // #ifndef HTMLEditUtils_h

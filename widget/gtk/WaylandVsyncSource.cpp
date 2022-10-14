@@ -12,6 +12,8 @@
 #  include "nsISupportsImpl.h"
 #  include "MainThreadUtils.h"
 #  include "mozilla/ScopeExit.h"
+#  include "nsGtkUtils.h"
+#  include "mozilla/StaticPrefs_layout.h"
 
 #  include <gdk/gdkwayland.h>
 
@@ -20,8 +22,9 @@
 #    include "nsTArray.h"
 #    include "Units.h"
 extern mozilla::LazyLogModule gWidgetVsync;
-#    define LOG(...) \
-      MOZ_LOG(gWidgetVsync, mozilla::LogLevel::Debug, (__VA_ARGS__))
+#    define LOG(str, ...)                             \
+      MOZ_LOG(gWidgetVsync, mozilla::LogLevel::Debug, \
+              ("[nsWindow %p]: " str, GetWindow(), ##__VA_ARGS__))
 #  else
 #    define LOG(...)
 #  endif /* MOZ_LOGGING */
@@ -68,15 +71,18 @@ Maybe<TimeDuration> WaylandVsyncSource::GetFastestVsyncRate() {
   return retVal;
 }
 
-WaylandVsyncSource::WaylandVsyncSource()
+WaylandVsyncSource::WaylandVsyncSource(nsWindow* aWindow)
     : mMutex("WaylandVsyncSource"),
       mIsShutdown(false),
       mVsyncEnabled(false),
       mMonitorEnabled(false),
       mCallbackRequested(false),
       mContainer(nullptr),
+      mWindow(aWindow),
       mVsyncRate(TimeDuration::FromMilliseconds(1000.0 / 60.0)),
-      mLastVsyncTimeStamp(TimeStamp::Now()) {
+      mLastVsyncTimeStamp(TimeStamp::Now()),
+      mIdleTimerID(0),
+      mIdleTimeout(1000 / StaticPrefs::layout_throttled_frame_rate()) {
   MOZ_ASSERT(NS_IsMainThread());
 
   gWaylandVsyncSources.AppendElement(this);
@@ -89,9 +95,7 @@ WaylandVsyncSource::~WaylandVsyncSource() {
 void WaylandVsyncSource::MaybeUpdateSource(MozContainer* aContainer) {
   MutexAutoLock lock(mMutex);
 
-  LOG("WaylandVsyncSource::MaybeUpdateSource mContainer (nsWindow %p) fps %f",
-      aContainer ? moz_container_get_nsWindow(aContainer) : nullptr,
-      GetFPS(mVsyncRate));
+  LOG("WaylandVsyncSource::MaybeUpdateSource fps %f", GetFPS(mVsyncRate));
 
   if (aContainer == mContainer) {
     LOG("  mContainer is the same, quit.");
@@ -224,9 +228,45 @@ void WaylandVsyncSource::SetupFrameCallback(const MutexAutoLock& aProofOfLock) {
                              this);
     wl_surface_commit(surface);
     wl_display_flush(WaylandDisplayGet()->GetDisplay());
+
+    if (!mIdleTimerID) {
+      mIdleTimerID = (int)g_timeout_add(
+          mIdleTimeout,
+          [](void* data) -> gint {
+            WaylandVsyncSource* vsync = static_cast<WaylandVsyncSource*>(data);
+            vsync->IdleCallback();
+            return true;
+          },
+          this);
+    }
   }
 
   mCallbackRequested = true;
+}
+
+void WaylandVsyncSource::IdleCallback() {
+  LOG("WaylandVsyncSource::IdleCallback");
+
+  MutexAutoLock lock(mMutex);
+
+  if (!mVsyncEnabled || !mMonitorEnabled) {
+    // We are unwanted by either our creator or our consumer, so we just stop
+    // here without setting up a new frame callback.
+    LOG("  quit, mVsyncEnabled %d mMonitorEnabled %d", mVsyncEnabled,
+        mMonitorEnabled);
+    return;
+  }
+
+  guint duration = static_cast<guint>(
+      (TimeStamp::Now() - mLastVsyncTimeStamp).ToMilliseconds());
+  if (duration >= mIdleTimeout) {
+    LOG("  fire idle vsync");
+    CalculateVsyncRate(lock, TimeStamp::Now());
+    mLastVsyncTimeStamp = TimeStamp::Now();
+
+    MutexAutoUnlock unlock(mMutex);
+    NotifyVsync(mLastVsyncTimeStamp, mLastVsyncTimeStamp + GetVsyncRate());
+  }
 }
 
 void WaylandVsyncSource::FrameCallback(uint32_t aTime) {
@@ -323,6 +363,7 @@ void WaylandVsyncSource::Shutdown() {
   mIsShutdown = true;
   mVsyncEnabled = false;
   mCallbackRequested = false;
+  MozClearHandleID(mIdleTimerID, g_source_remove);
 }
 
 }  // namespace mozilla

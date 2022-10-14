@@ -11342,7 +11342,11 @@
 # prevent proxies from being used for that specific request.
 - name: network.proxy.allow_bypass
   type: bool
+#ifdef MOZ_PROXY_BYPASS_PROTECTION
+  value: false
+#else
   value: true
+#endif
   mirror: always
 
 - name: network.proxy.parse_pac_on_socket_process
@@ -11377,12 +11381,6 @@
   mirror: always
 
 - name: network.http.stale_while_revalidate.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Whether to cache SSL resumption tokens in necko.
-- name: network.ssl_tokens_cache_enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always

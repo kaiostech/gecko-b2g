@@ -684,6 +684,18 @@ criteria = "safe-to-deploy"
 delta = "0.23.1 -> 0.24.0"
 notes = "This audit treats Dzmitry Malyshau (kvark) as a trusted reviewer."
 
+[[audits.mozprofile]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-deploy"
+version = "0.9.0"
+notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
+
+[[audits.mozrunner]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-deploy"
+version = "0.15.0"
+notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
+
 [[audits.naga]]
 who = "Dzmitry Malyshau <kvark@fastmail.com>"
 criteria = "safe-to-deploy"
@@ -940,6 +952,33 @@ delta = "0.6.26 -> 0.6.27"
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.7.0 -> 0.7.1"
+
+[[audits.rure]]
+who = "Nika Layzell <nika@thelayzells.com>"
+criteria = "safe-to-deploy"
+version = "0.2.2"
+notes = """
+This is a fairly straightforward FFI wrapper crate for `regex`, maintained by
+the `regex` developers in the same repository.
+
+This crate is explicitly designed for FFI use, and should not be used directly
+by Rust code. The exported `extern \"C\"` functions are not marked as `unsafe`,
+meaning that it is technically incorrect to use them from within Rust code,
+however they are reasonable to use from C code.
+
+The unsafe code in this crate heavily depends on the C caller maintaining
+invariants, however these invariants are clearly documented in the `rure.h`
+file, bundled with the crate.
+
+I have checked the signatures of each function both in C++ and in the Rust to
+ensure they match.  In some places, the c `rure.h` header file is missing a
+`const` qualifier which could be present given the Rust code, however this will
+have no impact on ABI, and is fairly normal for FFI crates.
+
+Panics are handled in all Rust FFI methods, meaning that projects which do not
+disable unwinding will still consistently abort (using `libc::abort()`) if a
+panic occurs in the Rust code.
+"""
 
 [[audits.rust_decimal]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
@@ -1314,6 +1353,11 @@ who = "Yury Delendik <ydelendik@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.14.0 -> 0.15.0"
 
+[[audits.wasm-encoder]]
+who = "Yury Delendik <ydelendik@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.16.0 -> 0.17.0"
+
 [[audits.wasm-smith]]
 who = "Ryan Hunt <rhunt@eqrion.net>"
 criteria = "safe-to-deploy"
@@ -1324,6 +1368,11 @@ notes = "Maintained by the Bytecode Alliance, with contributions from Mozilla. I
 who = "Yury Delendik <ydelendik@mozilla.com>"
 criteria = "safe-to-run"
 delta = "0.11.2 -> 0.11.3"
+
+[[audits.wasm-smith]]
+who = "Yury Delendik <ydelendik@mozilla.com>"
+criteria = "safe-to-run"
+delta = "0.11.4 -> 0.11.5"
 
 [[audits.wasmparser]]
 who = "Ryan Hunt <rhunt@eqrion.net>"
@@ -1336,6 +1385,11 @@ who = "Yury Delendik <ydelendik@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.87.0 -> 0.88.0"
 
+[[audits.wasmparser]]
+who = "Yury Delendik <ydelendik@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.89.1 -> 0.91.0"
+
 [[audits.wast]]
 who = "Ryan Hunt <rhunt@eqrion.net>"
 criteria = "safe-to-deploy"
@@ -1346,6 +1400,11 @@ notes = "Maintained by the Bytecode Alliance, with contributions from Mozilla. w
 who = "Yury Delendik <ydelendik@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "44.0.0 -> 45.0.0"
+
+[[audits.wast]]
+who = "Yury Delendik <ydelendik@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "46.0.0 -> 47.0.0"
 
 [[audits.webdriver]]
 who = "Henrik Skupin <mail@hskupin.info>"

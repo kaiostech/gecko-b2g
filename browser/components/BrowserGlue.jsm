@@ -417,10 +417,10 @@ let JSWINDOWACTORS = {
 
   ClickHandler: {
     parent: {
-      moduleURI: "resource:///actors/ClickHandlerParent.jsm",
+      esModuleURI: "resource:///actors/ClickHandlerParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/ClickHandlerChild.jsm",
+      esModuleURI: "resource:///actors/ClickHandlerChild.sys.mjs",
       events: {
         chromelinkclick: { capture: true, mozSystemGroup: true },
       },
@@ -437,10 +437,10 @@ let JSWINDOWACTORS = {
    */
   MiddleMousePasteHandler: {
     parent: {
-      moduleURI: "resource:///actors/ClickHandlerParent.jsm",
+      esModuleURI: "resource:///actors/ClickHandlerParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/ClickHandlerChild.jsm",
+      esModuleURI: "resource:///actors/ClickHandlerChild.sys.mjs",
       events: {
         auxclick: { capture: true, mozSystemGroup: true },
       },
@@ -521,11 +521,11 @@ let JSWINDOWACTORS = {
 
   EncryptedMedia: {
     parent: {
-      moduleURI: "resource:///actors/EncryptedMediaParent.jsm",
+      esModuleURI: "resource:///actors/EncryptedMediaParent.sys.mjs",
     },
 
     child: {
-      moduleURI: "resource:///actors/EncryptedMediaChild.jsm",
+      esModuleURI: "resource:///actors/EncryptedMediaChild.sys.mjs",
       observers: ["mediakeys-request"],
     },
 
@@ -2572,12 +2572,16 @@ BrowserGlue.prototype = {
               desc + ".lnk",
               appdir
             );
-            // Once we've successfully created this, set this so we never do it again.
-            Services.prefs.setBoolPref(
-              PREF_PRIVATE_BROWSING_SHORTCUT_CREATED,
-              true
-            );
           }
+          // We always set this as long as no exception has been thrown. This
+          // ensure that it is `true` both if we created one because it didn't
+          // exist, or if it already existed (most likely because it was created
+          // by the installer). This avoids the need to call `hasMatchingShortcut`
+          // again, which necessarily does pointless I/O.
+          Services.prefs.setBoolPref(
+            PREF_PRIVATE_BROWSING_SHORTCUT_CREATED,
+            true
+          );
         },
       },
 
@@ -3495,7 +3499,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 130;
+    const UI_VERSION = 131;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     const PROFILE_DIR = Services.dirsvc.get("ProfD", Ci.nsIFile).path;
@@ -4294,6 +4298,10 @@ BrowserGlue.prototype = {
     // Bug 1793366: migrate sidebar persisted attribute from width to style.
     if (currentUIVersion < 130) {
       migrateXULAttributeToStyle("sidebar-box", "width");
+    }
+
+    if (currentUIVersion < 131) {
+      xulStore.removeValue(BROWSER_DOCURL, "urlbar-container", "width");
     }
 
     // Update the migration version.

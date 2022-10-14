@@ -1005,10 +1005,10 @@ image.update-throbber {
 }
 
 .search-tooltip {
-  max-width: 150px;
-  font-size: 1.25rem;
+  max-width: 10em;
+  font-size: 1rem;
   position: absolute;
-  padding: 0 10px;
+  padding: 0 .7em;
   background-color: #ffe900;
   color: #000;
   border: 1px solid #d7b600;
@@ -1043,6 +1043,7 @@ image.update-throbber {
 }
 
 .search-tooltip > span {
+  display: block;
   user-select: none;
   white-space: nowrap;
   overflow: hidden;

@@ -4,7 +4,9 @@
 
 #include "HTMLEditor.h"
 
+#include "CSSEditUtils.h"
 #include "HTMLEditUtils.h"
+
 #include "mozilla/Attributes.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellInlines.h"
@@ -113,7 +115,7 @@ void ElementDeletionObserver::ParentChainChanged(nsIContent* aContent) {
   NS_RELEASE_THIS();
 }
 
-void ElementDeletionObserver::NodeWillBeDestroyed(const nsINode* aNode) {
+void ElementDeletionObserver::NodeWillBeDestroyed(nsINode* aNode) {
   NS_ASSERTION(aNode == mNativeAnonNode || aNode == mObservedElement,
                "Wrong aNode!");
   if (aNode == mNativeAnonNode) {

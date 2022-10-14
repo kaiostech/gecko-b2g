@@ -476,17 +476,15 @@ void nsTableFrame::ResetRowIndices(
   OrderRowGroups(rowGroups);
 
   nsTHashSet<nsTableRowGroupFrame*> excludeRowGroups;
-  nsFrameList::Enumerator excludeRowGroupsEnumerator(aRowGroupsToExclude);
-  while (!excludeRowGroupsEnumerator.AtEnd()) {
+  for (nsIFrame* excludeRowGroup : aRowGroupsToExclude) {
     excludeRowGroups.Insert(
-        static_cast<nsTableRowGroupFrame*>(excludeRowGroupsEnumerator.get()));
+        static_cast<nsTableRowGroupFrame*>(excludeRowGroup));
 #ifdef DEBUG
     {
       // Check to make sure that the row indices of all rows in excluded row
       // groups are '0' (i.e. the initial value since they haven't been added
       // yet)
-      const nsFrameList& rowFrames =
-          excludeRowGroupsEnumerator.get()->PrincipalChildList();
+      const nsFrameList& rowFrames = excludeRowGroup->PrincipalChildList();
       for (nsIFrame* r : rowFrames) {
         auto* row = static_cast<nsTableRowFrame*>(r);
         MOZ_ASSERT(row->GetRowIndex() == 0,
@@ -495,7 +493,6 @@ void nsTableFrame::ResetRowIndices(
       }
     }
 #endif
-    excludeRowGroupsEnumerator.Next();
   }
 
   int32_t rowIndex = 0;
@@ -517,32 +514,23 @@ void nsTableFrame::ResetRowIndices(
 void nsTableFrame::InsertColGroups(int32_t aStartColIndex,
                                    const nsFrameList::Slice& aColGroups) {
   int32_t colIndex = aStartColIndex;
-  nsFrameList::Enumerator colGroups(aColGroups);
-  for (; !colGroups.AtEnd(); colGroups.Next()) {
-    MOZ_ASSERT(colGroups.get()->IsTableColGroupFrame());
-    nsTableColGroupFrame* cgFrame =
-        static_cast<nsTableColGroupFrame*>(colGroups.get());
-    cgFrame->SetStartColumnIndex(colIndex);
-    // XXXbz this sucks.  AddColsToTable will actually remove colgroups from
-    // the list we're traversing!  Need to fix things here.  :( I guess this is
-    // why the old code used pointer-to-last-frame as opposed to
-    // pointer-to-frame-after-last....
 
-    // How about dealing with this by storing a const reference to the
-    // mNextSibling of the framelist's last frame, instead of storing a pointer
-    // to the first-after-next frame?  Will involve making nsFrameList friend
-    // of nsIFrame, but it's time for that anyway.
-    cgFrame->AddColsToTable(colIndex, false,
-                            colGroups.get()->PrincipalChildList());
+  // XXX: We cannot use range-based for loop because AddColsToTable() can
+  // destroy the nsTableColGroupFrame in the slice we're traversing! Need to
+  // check the validity of *colGroupIter.
+  auto colGroupIter = aColGroups.begin();
+  for (auto colGroupIterEnd = aColGroups.end();
+       *colGroupIter && colGroupIter != colGroupIterEnd; ++colGroupIter) {
+    MOZ_ASSERT((*colGroupIter)->IsTableColGroupFrame());
+    auto* cgFrame = static_cast<nsTableColGroupFrame*>(*colGroupIter);
+    cgFrame->SetStartColumnIndex(colIndex);
+    cgFrame->AddColsToTable(colIndex, false, cgFrame->PrincipalChildList());
     int32_t numCols = cgFrame->GetColCount();
     colIndex += numCols;
   }
 
-  nsFrameList::Enumerator remainingColgroups =
-      colGroups.GetUnlimitedEnumerator();
-  if (!remainingColgroups.AtEnd()) {
-    nsTableColGroupFrame::ResetColIndices(
-        static_cast<nsTableColGroupFrame*>(remainingColgroups.get()), colIndex);
+  for (; *colGroupIter; ++colGroupIter) {
+    nsTableColGroupFrame::ResetColIndices(*colGroupIter, colIndex);
   }
 }
 
@@ -854,7 +842,7 @@ int32_t nsTableFrame::InsertRows(nsTableRowGroupFrame* aRowGroupFrame,
     TableArea damageArea(0, 0, 0, 0);
     bool shouldRecalculateIndex = !IsDeletedRowIndexRangesEmpty();
     if (shouldRecalculateIndex) {
-      ResetRowIndices(nsFrameList::Slice(mFrames, nullptr, nullptr));
+      ResetRowIndices(nsFrameList::Slice(nullptr, nullptr));
     }
     int32_t origNumRows = cellMap->GetRowCount();
     int32_t numNewRows = aRowFrames.Length();
@@ -1052,9 +1040,8 @@ void nsTableFrame::InsertRowGroups(const nsFrameList::Slice& aRowGroups) {
     // and M is number of rowgroups we have!
     uint32_t rgIndex;
     for (rgIndex = 0; rgIndex < orderedRowGroups.Length(); rgIndex++) {
-      for (nsFrameList::Enumerator rowgroups(aRowGroups); !rowgroups.AtEnd();
-           rowgroups.Next()) {
-        if (orderedRowGroups[rgIndex] == rowgroups.get()) {
+      for (nsIFrame* rowGroup : aRowGroups) {
+        if (orderedRowGroups[rgIndex] == rowGroup) {
           nsTableRowGroupFrame* priorRG =
               (0 == rgIndex) ? nullptr : orderedRowGroups[rgIndex - 1];
           // create and add the cell map for the row group
@@ -1069,13 +1056,12 @@ void nsTableFrame::InsertRowGroups(const nsFrameList::Slice& aRowGroups) {
 
     // now that the cellmaps are reordered too insert the rows
     for (rgIndex = 0; rgIndex < orderedRowGroups.Length(); rgIndex++) {
-      for (nsFrameList::Enumerator rowgroups(aRowGroups); !rowgroups.AtEnd();
-           rowgroups.Next()) {
-        if (orderedRowGroups[rgIndex] == rowgroups.get()) {
+      for (nsIFrame* rowGroup : aRowGroups) {
+        if (orderedRowGroups[rgIndex] == rowGroup) {
           nsTableRowGroupFrame* priorRG =
               (0 == rgIndex) ? nullptr : orderedRowGroups[rgIndex - 1];
           // collect the new row frames in an array and add them to the table
-          int32_t numRows = CollectRows(rowgroups.get(), rows);
+          int32_t numRows = CollectRows(rowGroup, rows);
           if (numRows > 0) {
             int32_t rowIndex = 0;
             if (priorRG) {
@@ -2142,14 +2128,14 @@ void nsTableFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList) {
       mColGroups.InsertFrame(this, lastColGroup, f);
       // Insert the colgroup and its cols into the table
       InsertColGroups(startColIndex,
-                      nsFrameList::Slice(mColGroups, f, f->GetNextSibling()));
+                      nsFrameList::Slice(f, f->GetNextSibling()));
     } else if (IsRowGroup(display->mDisplay)) {
       DrainSelfOverflowList();  // ensure the last frame is in mFrames
       // Append the new row group frame to the sibling chain
       mFrames.AppendFrame(nullptr, f);
 
       // insert the row group and its rows into the table
-      InsertRowGroups(nsFrameList::Slice(mFrames, f, nullptr));
+      InsertRowGroups(nsFrameList::Slice(f, nullptr));
     } else {
       // Nothing special to do, just add the frame to our child list
       MOZ_ASSERT_UNREACHABLE(
@@ -2394,7 +2380,7 @@ void nsTableFrame::DoRemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
     if (cellMap) {
       cellMap->Synchronize(this);
       // Create an empty slice
-      ResetRowIndices(nsFrameList::Slice(mFrames, nullptr, nullptr));
+      ResetRowIndices(nsFrameList::Slice(nullptr, nullptr));
       TableArea damageArea;
       cellMap->RebuildConsideringCells(nullptr, nullptr, 0, 0, false,
                                        damageArea);

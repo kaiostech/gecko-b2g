@@ -165,6 +165,22 @@
   border-bottom: 1px solid #CFCFD8;
   border-inline-start: 1px solid #CFCFD8;
 }
+.onboardingContainer.featureCallout.arrow-top-end::before, .onboardingContainer.featureCallout.arrow-top-end::after {
+  top: -12px;
+  inset-inline-end: 12px;
+}
+.onboardingContainer.featureCallout.arrow-top-end::before {
+  border-top: 1px solid #CFCFD8;
+  border-inline-start: 1px solid #CFCFD8;
+}
+.onboardingContainer.featureCallout.arrow-top-start::before, .onboardingContainer.featureCallout.arrow-top-start::after {
+  top: -12px;
+  inset-inline-start: 12px;
+}
+.onboardingContainer.featureCallout.arrow-top-start::before {
+  border-top: 1px solid #CFCFD8;
+  border-inline-start: 1px solid #CFCFD8;
+}
 
 html {
   height: 100%;
@@ -349,6 +365,12 @@ html {
   font-weight: normal;
   line-height: 20px;
 }
+.onboardingContainer .screen:not([pos=split]) .secondary-cta.top button {
+  color: #FFF;
+}
+.onboardingContainer .screen:not([pos=split]) .secondary-cta.top button:hover {
+  color: #E0E0E6;
+}
 .onboardingContainer .screen[pos=split] {
   margin: auto;
   min-height: 550px;
@@ -360,11 +382,6 @@ html {
 }
 .onboardingContainer .screen[pos=split] .secondary-cta.top {
   padding-inline-end: 0;
-}
-@media (max-height: 650px) and (max-width: 990px) {
-  .onboardingContainer .screen[pos=split] .secondary-cta.top {
-    display: none;
-  }
 }
 .onboardingContainer .screen[pos=split] .secondary-cta.top button {
   color: var(--in-content-page-color);
@@ -656,6 +673,26 @@ html {
   }
   .onboardingContainer .screen[pos=split] .section-main:dir(rtl) .main-content {
     border-radius: 0 0 8px 8px;
+  }
+}
+@media only screen and (max-height: 650px) and (min-width: 800px) and (max-width: 990px) {
+  .onboardingContainer .screen[pos=split] .section-main {
+    position: relative;
+  }
+  .onboardingContainer .screen[pos=split] .section-main .secondary-cta.top {
+    padding: 0;
+    top: 20px;
+    inset-inline-end: 20px;
+  }
+}
+@media only screen and (max-height: 650px) and (max-width: 590px) {
+  .onboardingContainer .screen[pos=split] .section-main {
+    position: relative;
+  }
+  .onboardingContainer .screen[pos=split] .section-main .secondary-cta.top {
+    padding: 0;
+    top: 0;
+    inset-inline-end: 0;
   }
 }
 .onboardingContainer .brand-logo {
@@ -1181,12 +1218,6 @@ html {
   top: 10px;
   inset-inline-end: 20px;
   z-index: 2;
-}
-.onboardingContainer .secondary-cta.top button {
-  color: #FFF;
-}
-.onboardingContainer .secondary-cta.top button:hover {
-  color: #E0E0E6;
 }
 .onboardingContainer .secondary-cta span {
   color: var(--grey-subtitle-1);

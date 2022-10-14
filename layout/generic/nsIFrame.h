@@ -5725,26 +5725,25 @@ inline bool nsFrameList::StartRemoveFrame(nsIFrame* aFrame) {
   return ContinueRemoveFrame(aFrame);
 }
 
-inline void nsFrameList::Enumerator::Next() {
-  NS_ASSERTION(!AtEnd(), "Should have checked AtEnd()!");
-  mFrame = mFrame->GetNextSibling();
-}
-
 // Operators of nsFrameList::Iterator
 // ---------------------------------------------------
 
-inline nsFrameList::Iterator& nsFrameList::Iterator::operator++() {
-  mCurrent = mCurrent->GetNextSibling();
-  return *this;
+inline nsIFrame* nsFrameList::ForwardFrameTraversal::Next(nsIFrame* aFrame) {
+  MOZ_ASSERT(aFrame);
+  return aFrame->GetNextSibling();
+}
+inline nsIFrame* nsFrameList::ForwardFrameTraversal::Prev(nsIFrame* aFrame) {
+  MOZ_ASSERT(aFrame);
+  return aFrame->GetPrevSibling();
 }
 
-inline nsFrameList::Iterator& nsFrameList::Iterator::operator--() {
-  if (!mCurrent) {
-    mCurrent = mList.LastChild();
-  } else {
-    mCurrent = mCurrent->GetPrevSibling();
-  }
-  return *this;
+inline nsIFrame* nsFrameList::BackwardFrameTraversal::Next(nsIFrame* aFrame) {
+  MOZ_ASSERT(aFrame);
+  return aFrame->GetPrevSibling();
+}
+inline nsIFrame* nsFrameList::BackwardFrameTraversal::Prev(nsIFrame* aFrame) {
+  MOZ_ASSERT(aFrame);
+  return aFrame->GetNextSibling();
 }
 
 #endif /* nsIFrame_h___ */

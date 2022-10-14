@@ -10,6 +10,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   pprint: "chrome://remote/content/shared/Format.sys.mjs",
 });
 
+const isB2G = () => Services.appinfo.name.toLowerCase() == "b2g";
+
 /**
  * Shorthands for common assertions made in WebDriver.
  *
@@ -89,6 +91,20 @@ assert.mobile = function(msg = "") {
     msg,
     lazy.error.UnsupportedOperationError
   )(lazy.AppInfo.isAndroid);
+};
+
+/**
+ * Asserts that the current application runs on b2g (Desktop or Device).
+ *
+ * @param {string=} msg
+ *     Custom error message.
+ *
+ * @throws {UnsupportedOperationError}
+ *     If current application is not running on Android.
+ */
+assert.b2g = function(msg = "") {
+  msg = msg || "Only supported in B2G";
+  assert.that(isB2G, msg, lazy.error.UnsupportedOperationError)();
 };
 
 /**

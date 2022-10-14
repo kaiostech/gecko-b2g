@@ -102,6 +102,8 @@ export var TabManager = {
   getTabBrowser(win) {
     if (lazy.AppInfo.isAndroid) {
       return new lazy.MobileTabBrowser(win);
+    } else if (lazy.AppInfo.isB2G) {
+      return win.MarionetteHelper;
     } else if (lazy.AppInfo.isFirefox) {
       return win.gBrowser;
     }
@@ -256,10 +258,10 @@ export var TabManager = {
    * @param {Tab} tab
    *     Tab to remove.
    */
-  async removeTab(tab) {
+  removeTab(tab) {
     const ownerWindow = this._getWindowForTab(tab);
     const tabBrowser = this.getTabBrowser(ownerWindow);
-    await tabBrowser.removeTab(tab);
+    tabBrowser.removeTab(tab);
   },
 
   /**
@@ -292,6 +294,6 @@ export var TabManager = {
     // `.linkedBrowser.ownerGlobal` works both with Firefox Desktop and Mobile.
     // Other accessors (eg `.ownerGlobal` or `.browser.ownerGlobal`) fail on one
     // of the platforms.
-    return tab.linkedBrowser.ownerGlobal;
+    return tab?.linkedBrowser.ownerGlobal;
   },
 };

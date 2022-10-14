@@ -58,6 +58,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WebDriverSession: "chrome://remote/content/shared/webdriver/Session.sys.mjs",
   windowManager: "chrome://remote/content/shared/WindowManager.sys.mjs",
   WindowState: "chrome://remote/content/marionette/browser.sys.mjs",
+  evaluate: "chrome://remote/content/marionette/evaluate.sys.mjs",
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "logger", () =>
@@ -121,9 +122,21 @@ export function GeckoDriver(server) {
   // Use content context by default
   this.context = lazy.Context.Content;
 
+  this.importedScripts = new lazy.evaluate.ScriptStorage();
+
   // used for modal dialogs or tab modal alerts
   this.dialog = null;
   this.dialogObserver = null;
+
+  // promise that resolves once we have loaded the system app.
+  this.b2gLoaded = new Promise(resolve => {
+    let win = Services.wm.getMostRecentWindow("navigator:browser");
+    if (win && win.shell.isReady) {
+      resolve();
+    } else {
+      Services.obs.addObserver(resolve, "shell-ready");
+    }
+  });
 }
 
 /**
@@ -469,14 +482,20 @@ GeckoDriver.prototype.newSession = async function(cmd) {
       }
 
       if (this.curBrowser.tab) {
-        const browsingContext = this.curBrowser.contentBrowser.browsingContext;
-        this.currentSession.contentBrowsingContext = browsingContext;
+        // B2G default focuses on system app when session is initialized.
+        if (lazy.AppInfo.isB2G) {
+          this.switchToSystemWindow();
+        } else {
+          const browsingContext = this.curBrowser.contentBrowser
+            .browsingContext;
+          this.currentSession.contentBrowsingContext = browsingContext;
 
-        await lazy.waitForInitialNavigationCompleted(
-          browsingContext.webProgress
-        );
+          await lazy.waitForInitialNavigationCompleted(
+            browsingContext.webProgress
+          );
 
-        this.curBrowser.contentBrowser.focus();
+          this.curBrowser.contentBrowser.focus();
+        }
       }
 
       // Check if there is already an open dialog for the selected browser window.
@@ -775,6 +794,8 @@ GeckoDriver.prototype.execute_ = async function(
     line,
     async,
   };
+
+  script = this.importedScripts.concat(script);
 
   return this.getActor().executeScript(script, args, opts);
 };
@@ -1101,7 +1122,13 @@ GeckoDriver.prototype.getWindowRect = async function() {
  *     Not applicable to application.
  */
 GeckoDriver.prototype.setWindowRect = async function(cmd) {
-  lazy.assert.desktop();
+  if (lazy.AppInfo.isB2G) {
+    lazy.assert.b2g();
+    await this.switchToMarionetteWindow();
+  } else {
+    lazy.assert.desktop();
+  }
+
   lazy.assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
@@ -1180,15 +1207,49 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
 };
 
 /**
- * Switch current top-level browsing context by name or server-assigned
- * ID.  Searches for windows by name, then ID.  Content windows take
+ * Only for B2G, switch working browsing context to System app.
+ */
+GeckoDriver.prototype.switchToSystemWindow = async function() {
+  lazy.assert.b2g();
+  await this.b2gLoaded;
+  let systemAppUrl = Services.prefs.getCharPref("b2g.system_startup_url");
+  const found = lazy.windowManager.findWindowByOrigin(new URL(systemAppUrl).origin);
+  if (found) {
+    const focus = false;
+    await this.setWindowHandle(found, focus);
+    return this.curBrowser.contentBrowser.browsingContext.id;
+  }
+  throw new error.NoSuchWindowError(`Unable to locate system app window`);
+};
+
+GeckoDriver.prototype.switchToMarionetteWindow = async function() {
+  lazy.assert.b2g();
+  await this.b2gLoaded;
+
+  await this.curBrowser.openTab(true);
+  const found = lazy.windowManager.findMarionetteWindow();
+  if (found) {
+    const focus = false;
+    await this.setWindowHandle(found, focus);
+    return this.curBrowser.contentBrowser.browsingContext.id;
+  }
+  throw new error.NoSuchWindowError(`Unable to locate marionette window`);
+};
+
+/**
+ * Switch current top-level browsing context by server-assigned ID.
+ * If B2G, just switch working browsing context by ID or URL origin.
+ * Searches for windows by ID, then origin. Content windows take
  * precedence.
  *
  * @param {string} handle
  *     Handle of the window to switch to.
+ * @param {string} origin
+ *     Only for B2G, URL origin of the B2G app window to switch to.
  * @param {boolean=} focus
  *     A boolean value which determines whether to focus
- *     the window. Defaults to true.
+ *     the window. Defaults to true. B2G forces to be false to app window
+ *     controlled by system app or user behaviors.
  *
  * @throws {InvalidArgumentError}
  *     If <var>handle</var> is not a string or <var>focus</var> not a boolean.
@@ -1196,18 +1257,41 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
  *     Top-level browsing context has been discarded.
  */
 GeckoDriver.prototype.switchToWindow = async function(cmd) {
-  const { focus = true, handle } = cmd.parameters;
+  let focus = true;
+  if (!lazy.AppInfo.isB2G && typeof cmd.parameters.focus != "undefined") {
+    focus = lazy.assert.boolean(
+      cmd.parameters.focus,
+      lazy.pprint`Expected "focus" to be a boolean, got ${cmd.parameters.focus}`
+    );
+  } else {
+    // B2G doesn't switch focus.
+    focus = false;
+  }
 
-  lazy.assert.string(
-    handle,
-    lazy.pprint`Expected "handle" to be a string, got ${handle}`
-  );
-  lazy.assert.boolean(
-    focus,
-    lazy.pprint`Expected "focus" to be a boolean, got ${focus}`
-  );
+  let handle = null;
+  if (typeof cmd.parameters.handle != "undefined") {
+    handle = lazy.assert.string(
+      cmd.parameters.handle,
+      lazy.pprint`Expected "handle" to be a string, got ${cmd.parameters.handle}`
+    );
+  }
 
-  const found = lazy.windowManager.findWindowByHandle(handle);
+  let origin = null;
+  if (typeof cmd.parameters.origin != "undefined") {
+    origin = lazy.assert.string(
+      cmd.parameters.origin,
+      lazy.pprint`Expected "origin" to be a string, got ${cmd.parameters.origin}`
+    );
+
+    lazy.assert.boolean(
+      origin == new URL(origin).origin,
+      lazy.pprint`Expected "origin" to be a origin of an URL, got ${origin}`
+    );
+  }
+
+  const found = origin
+    ? lazy.windowManager.findWindowByOrigin(origin)
+    : lazy.windowManager.findWindowByHandle(handle);
 
   let selected = false;
   if (found) {
@@ -2270,6 +2354,8 @@ GeckoDriver.prototype.deleteSession = function() {
     lazy.logger.debug(`Failed to remove observer "${TOPIC_BROWSER_READY}"`);
   }
 
+  this.importedScripts.clear();
+
   lazy.clearElementIdCache();
 
   // Always unregister actors after all other observers
@@ -3109,6 +3195,27 @@ GeckoDriver.prototype.print = async function(cmd) {
   };
 };
 
+/**
+ * Import script to the Script Storage of GeckoDriver.
+ * Scripts can be cleared with the {@code clearImportedScripts} command.
+ *
+ * @param {string} script
+ *     Script to include. If the script is byte-by-byte equal to an
+ *     existing imported script, it is not imported.
+ */
+GeckoDriver.prototype.importScript = function(cmd, resp) {
+  let script = cmd.parameters.script;
+  this.importedScripts.add(script);
+};
+
+/**
+ * Clear all scripts that are imported into the Script Storage of GeckoDriver.
+ * Scripts can be imported using the {@code importScript} command.
+ */
+GeckoDriver.prototype.clearImportedScripts = function(cmd, resp) {
+  this.importedScripts.clear();
+};
+
 GeckoDriver.prototype.setPermission = async function(cmd) {
   const { descriptor, state, oneRealm = false } = cmd.parameters;
 
@@ -3131,6 +3238,8 @@ GeckoDriver.prototype.commands = {
   "Marionette:SetContext": GeckoDriver.prototype.setContext,
   "Marionette:SetScreenOrientation": GeckoDriver.prototype.setScreenOrientation,
   "Marionette:SingleTap": GeckoDriver.prototype.singleTap,
+  "Marionette:importScript": GeckoDriver.prototype.importScript,
+  "Marionette:clearImportedScripts": GeckoDriver.prototype.clearImportedScripts,
 
   // Addon service
   "Addon:Install": GeckoDriver.prototype.installAddon,
@@ -3205,6 +3314,7 @@ GeckoDriver.prototype.commands = {
   "WebDriver:SwitchToParentFrame": GeckoDriver.prototype.switchToParentFrame,
   "WebDriver:SwitchToWindow": GeckoDriver.prototype.switchToWindow,
   "WebDriver:TakeScreenshot": GeckoDriver.prototype.takeScreenshot,
+  "B2G:SwitchToSystemWindow": GeckoDriver.prototype.switchToSystemWindow,
 };
 
 async function exitFullscreen(win) {

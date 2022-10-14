@@ -61,3 +61,7 @@ XPCOMUtils.defineLazyGetter(AppInfo, "isFirefox", () => {
 XPCOMUtils.defineLazyGetter(AppInfo, "isThunderbird", () => {
   return Services.appinfo.ID == ID_THUNDERBIRD;
 });
+
+XPCOMUtils.defineLazyGetter(AppInfo, "isB2G", () => {
+  return Services.appinfo.name.toLowerCase() == "b2g"
+});

@@ -205,7 +205,7 @@ browser.Context = class {
    * @throws UnsupportedOperationError
    *     If tab handling for the current application isn't supported.
    */
-  async closeTab() {
+  closeTab() {
     // If the current window is not a browser then close it directly. Do the
     // same if only one remaining tab is open, or no tab selected at all.
     //
@@ -225,19 +225,25 @@ browser.Context = class {
       this.messageManager
     );
     let tabClosed;
+    let promises;
 
     if (lazy.AppInfo.isAndroid) {
-      await lazy.TabManager.removeTab(this.tab);
+      lazy.TabManager.removeTab(this.tab);
     } else if (lazy.AppInfo.isFirefox) {
       tabClosed = new lazy.EventPromise(this.tab, "TabClose");
-      await this.tabBrowser.removeTab(this.tab);
+      this.tabBrowser.removeTab(this.tab);
+      promises = [destroyed, tabClosed];
+    } else if (lazy.AppInfo.isB2G) {
+      this.tabBrowser.removeTab(this.tab);
+      // TODO: check why `destroyed` doesn't resolve.
+      promises = [];
     } else {
       throw new lazy.error.UnsupportedOperationError(
         `closeTab() not supported for ${lazy.AppInfo.name}`
       );
     }
 
-    return Promise.all([destroyed, tabClosed]);
+    return Promise.all(promises);
   }
 
   /**
@@ -262,6 +268,17 @@ browser.Context = class {
       if (!focus) {
         this.tabBrowser.selectedTab = this.tab;
       }
+    } else if (lazy.AppInfo.isB2G) {
+      // Use the embedder api to create a new window.
+      this.window.browserDOMWindow.openURIInFrame(
+        Services.io.newURI("about:blank"), // url
+        null, // opener info
+        Ci.nsIBrowserDOMWindow.OPEN_NEWTAB,
+        0, // flags
+        null // name
+      );
+
+      tab = this.tabBrowser.selectedTab;
     } else {
       throw new lazy.error.UnsupportedOperationError(
         `openTab() not supported for ${lazy.AppInfo.name}`

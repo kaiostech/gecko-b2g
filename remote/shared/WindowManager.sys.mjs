@@ -77,6 +77,70 @@ class WindowManager {
   }
 
   /**
+   * B2G specific function
+   * Find a specific window matching the provided origin.
+   *
+   * @param {String} origin
+   *     The origin of a content browser,
+   *
+   * @return {Object} A window properties object,
+   *     @see :js:func:`GeckoDriver#getWindowProperties`
+   */
+   findWindowByOrigin(origin) {
+    for (const win of this.windows) {
+      // Check if the chrome window has a tab browser, and that it
+      // contains a tab with the wanted origin.
+      const tabBrowser = lazy.TabManager.getTabBrowser(win);
+      if (tabBrowser && tabBrowser.tabs) {
+        for (let i = 0; i < tabBrowser.tabs.length; ++i) {
+          let contentBrowser = lazy.TabManager.getBrowserForTab(tabBrowser.tabs[i]);
+          try {
+            let winOrigin = new URL(contentBrowser.src).origin;
+            if (origin == winOrigin) {
+              return this.getWindowProperties(win, { tabIndex: i });
+            }
+          } catch (e) {
+            // Ignore error, eg. when contentBrowser is not ready.
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * B2G specific function
+   * Find a marionette tab.
+   *
+   * @return {Object} A window properties object,
+   *     @see :js:func:`GeckoDriver#getWindowProperties`
+   */
+   findMarionetteWindow() {
+    const systemSrc = Services.prefs.getCharPref("b2g.system_startup_url");
+    for (const win of this.windows) {
+      // Check if the chrome window has a tab browser, and that it
+      // contains a tab with the wanted origin.
+      const tabBrowser = lazy.TabManager.getTabBrowser(win);
+      if (tabBrowser && tabBrowser.tabs) {
+        for (let i = 0; i < tabBrowser.tabs.length; ++i) {
+          let contentBrowser = lazy.TabManager.getBrowserForTab(tabBrowser.tabs[i]);
+          try {
+            // We don't want to report the system app itself, only "content" tabs.
+            if (systemSrc != contentBrowser.src) {
+              return this.getWindowProperties(win, { tabIndex: i });
+            }
+          } catch (e) {
+            // Ignore error, eg. when contentBrowser is not ready.
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * A set of properties describing a window and that should allow to uniquely
    * identify it. The described window can either be a Chrome Window or a
    * Content Window.

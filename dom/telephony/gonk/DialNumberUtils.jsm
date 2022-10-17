@@ -44,7 +44,7 @@ const DialNumberUtils = {
       // No ecclist system property, so use our own list.
       numbers = DEFAULT_EMERGENCY_NUMBERS;
     }
-    return !numbers.includes(aNumber);
+    return numbers.includes(aNumber);
   },
 
   _mmiRegExp: (function() {

@@ -13,7 +13,6 @@ use nsstring::{nsCString, nsString};
 use selectors::{NthIndexCache, SelectorList};
 use servo_arc::{Arc, ArcBorrow, RawOffsetArc};
 use smallvec::SmallVec;
-use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::iter;
@@ -116,6 +115,7 @@ use style::selector_parser::PseudoElementCascadeType;
 use style::shared_lock::{Locked, SharedRwLockReadGuard, StylesheetGuards, ToCssWithGuard};
 use style::string_cache::{Atom, WeakAtom};
 use style::style_adjuster::StyleAdjuster;
+use style::stylesheets::container_rule::ContainerSizeQuery;
 use style::stylesheets::import_rule::ImportSheet;
 use style::stylesheets::keyframes_rule::{Keyframe, KeyframeSelector, KeyframesStepValue};
 use style::stylesheets::layer_rule::LayerOrder;
@@ -5915,17 +5915,15 @@ fn create_context_for_animation<'a>(
     parent_style: Option<&'a ComputedValues>,
     for_smil_animation: bool,
     rule_cache_conditions: &'a mut RuleCacheConditions,
+    container_size_query: ContainerSizeQuery<'a>,
 ) -> Context<'a> {
-    Context {
-        builder: StyleBuilder::for_animation(per_doc_data.stylist.device(), style, parent_style),
-        cached_system_font: None,
-        in_media_query: false,
-        quirks_mode: per_doc_data.stylist.quirks_mode(),
+    Context::new_for_animation(
+        StyleBuilder::for_animation(per_doc_data.stylist.device(), style, parent_style),
         for_smil_animation,
-        for_non_inherited_property: None,
-        container_info: None,
-        rule_cache_conditions: RefCell::new(rule_cache_conditions),
-    }
+        per_doc_data.stylist.quirks_mode(),
+        rule_cache_conditions,
+        container_size_query,
+    )
 }
 
 struct PropertyAndIndex {
@@ -6002,6 +6000,7 @@ pub extern "C" fn Servo_GetComputedKeyframeValues(
         .map(|d| d.styles.primary())
         .map(|x| &**x);
 
+    let container_size_query = ContainerSizeQuery::for_element(element);
     let mut conditions = Default::default();
     let mut context = create_context_for_animation(
         &data,
@@ -6009,6 +6008,7 @@ pub extern "C" fn Servo_GetComputedKeyframeValues(
         parent_style,
         /* for_smil_animation = */ false,
         &mut conditions,
+        container_size_query,
     );
 
     let restriction = pseudo.and_then(|p| p.property_restriction());
@@ -6125,6 +6125,7 @@ pub extern "C" fn Servo_GetAnimationValues(
         .map(|d| d.styles.primary())
         .map(|x| &**x);
 
+    let container_size_query = ContainerSizeQuery::for_element(element);
     let mut conditions = Default::default();
     let mut context = create_context_for_animation(
         &data,
@@ -6132,6 +6133,7 @@ pub extern "C" fn Servo_GetAnimationValues(
         parent_style,
         /* for_smil_animation = */ true,
         &mut conditions,
+        container_size_query,
     );
 
     let default_values = data.default_computed_values();
@@ -6176,6 +6178,7 @@ pub extern "C" fn Servo_AnimationValue_Compute(
         .map(|d| d.styles.primary())
         .map(|x| &**x);
 
+    let container_size_query = ContainerSizeQuery::for_element(element);
     let mut conditions = Default::default();
     let mut context = create_context_for_animation(
         &data,
@@ -6183,6 +6186,7 @@ pub extern "C" fn Servo_AnimationValue_Compute(
         parent_style,
         /* for_smil_animation = */ false,
         &mut conditions,
+        container_size_query,
     );
 
     let default_values = data.default_computed_values();

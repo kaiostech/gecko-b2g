@@ -306,12 +306,14 @@ nsPoint ViewportFrame::AdjustReflowInputForScrollbars(
   if (scrollingFrame) {
     WritingMode wm = aReflowInput->GetWritingMode();
     LogicalMargin scrollbars(wm, scrollingFrame->GetActualScrollbarSizes());
-    aReflowInput->SetComputedISize(aReflowInput->ComputedISize() -
-                                   scrollbars.IStartEnd(wm));
+    aReflowInput->SetComputedISize(
+        aReflowInput->ComputedISize() - scrollbars.IStartEnd(wm),
+        ReflowInput::ResetResizeFlags::No);
     aReflowInput->SetAvailableISize(aReflowInput->AvailableISize() -
                                     scrollbars.IStartEnd(wm));
-    aReflowInput->SetComputedBSizeWithoutResettingResizeFlags(
-        aReflowInput->ComputedBSize() - scrollbars.BStartEnd(wm));
+    aReflowInput->SetComputedBSize(
+        aReflowInput->ComputedBSize() - scrollbars.BStartEnd(wm),
+        ReflowInput::ResetResizeFlags::No);
     return nsPoint(scrollbars.Left(wm), scrollbars.Top(wm));
   }
   return nsPoint(0, 0);

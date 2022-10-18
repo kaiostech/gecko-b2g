@@ -320,10 +320,10 @@ let JSWINDOWACTORS = {
 
   AboutProtections: {
     parent: {
-      moduleURI: "resource:///actors/AboutProtectionsParent.jsm",
+      esModuleURI: "resource:///actors/AboutProtectionsParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/AboutProtectionsChild.jsm",
+      esModuleURI: "resource:///actors/AboutProtectionsChild.sys.mjs",
 
       events: {
         DOMDocElementInserted: { capture: true },
@@ -386,10 +386,10 @@ let JSWINDOWACTORS = {
 
   BlockedSite: {
     parent: {
-      moduleURI: "resource:///actors/BlockedSiteParent.jsm",
+      esModuleURI: "resource:///actors/BlockedSiteParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/BlockedSiteChild.jsm",
+      esModuleURI: "resource:///actors/BlockedSiteChild.sys.mjs",
       events: {
         AboutBlockedLoaded: { wantUntrusted: true },
         click: {},
@@ -487,11 +487,11 @@ let JSWINDOWACTORS = {
 
   DecoderDoctor: {
     parent: {
-      moduleURI: "resource:///actors/DecoderDoctorParent.jsm",
+      esModuleURI: "resource:///actors/DecoderDoctorParent.sys.mjs",
     },
 
     child: {
-      moduleURI: "resource:///actors/DecoderDoctorChild.jsm",
+      esModuleURI: "resource:///actors/DecoderDoctorChild.sys.mjs",
       observers: ["decoder-doctor-notification"],
     },
 
@@ -501,11 +501,11 @@ let JSWINDOWACTORS = {
 
   DOMFullscreen: {
     parent: {
-      moduleURI: "resource:///actors/DOMFullscreenParent.jsm",
+      esModuleURI: "resource:///actors/DOMFullscreenParent.sys.mjs",
     },
 
     child: {
-      moduleURI: "resource:///actors/DOMFullscreenChild.jsm",
+      esModuleURI: "resource:///actors/DOMFullscreenChild.sys.mjs",
       events: {
         "MozDOMFullscreen:Request": {},
         "MozDOMFullscreen:Entered": {},

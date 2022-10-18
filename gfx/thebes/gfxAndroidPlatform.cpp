@@ -76,10 +76,6 @@ class FreetypeReporter final : public nsIMemoryReporter,
 
 NS_IMPL_ISUPPORTS(FreetypeReporter, nsIMemoryReporter)
 
-template <>
-CountingAllocatorBase<FreetypeReporter>::AmountType
-    CountingAllocatorBase<FreetypeReporter>::sAmount(0);
-
 static FT_MemoryRec_ sFreetypeMemoryRecord;
 
 gfxAndroidPlatform::gfxAndroidPlatform() {

@@ -77,7 +77,6 @@ EXPORTS += [
     "nsINIParser.h",
     "nsInterfaceRequestorAgg.h",
     "nsISizeOf.h",
-    "nsISupportsBase.h",
     "nsISupportsImpl.h",
     "nsISupportsUtils.h",
     "nsIWeakReferenceUtils.h",

@@ -200,7 +200,7 @@ function SmsService() {
   this.settingsObserver
     .getSettingWithDefault(kSettingsDefaukltServiceId, 0)
     .then(setting => {
-      if (setting.value < 0 || setting.value >= gRadioInterfaces.length) {
+      if (setting.value < 0 || setting.value >= lazy.gRadioInterfaces.length) {
         this.smsDefaultServiceId = 0;
       } else {
         this.smsDefaultServiceId = setting.value;

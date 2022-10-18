@@ -11,10 +11,10 @@ const { XPCOMUtils } = ChromeUtils.import(
 const lazy = {};
 
 XPCOMUtils.defineLazyGetter(lazy, "RSM", function() {
-  const { RILSystemMessenger } = ChromeUtils.import(
+  let obj = ChromeUtils.import(
     "resource://gre/modules/RILSystemMessenger.jsm"
   );
-  return RILSystemMessenger;
+  return obj;
 });
 
 XPCOMUtils.defineLazyServiceGetter(

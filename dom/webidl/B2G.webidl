@@ -301,3 +301,9 @@ partial interface B2G {
   [ChromeOnly]
   undefined setDispatchKeyToContentFirst(boolean enable);
 };
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.networkStats.enabled", Func="B2G::HasNetworkStatsSupport"]
+  readonly attribute NetworkStatsManager networkStats;
+};

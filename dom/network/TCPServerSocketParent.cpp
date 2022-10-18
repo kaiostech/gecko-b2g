@@ -12,6 +12,9 @@
 #include "mozilla/Unused.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/TCPServerSocketEvent.h"
+#include "mozilla/dom/ContentParent.h"
+#include "mozilla/dom/CanonicalBrowsingContext.h"
+#include "mozilla/dom/WindowGlobalParent.h"
 
 namespace mozilla::dom {
 
@@ -105,6 +108,10 @@ mozilla::ipc::IPCResult TCPServerSocketParent::RecvRequestDelete() {
 
 void TCPServerSocketParent::OnConnect(TCPServerSocketEvent* event) {
   RefPtr<TCPSocket> socket = event->Socket();
+  nsAutoCString origin;
+  bool isApp = false;
+  GetOrigin(origin, &isApp);
+  socket->SetOrigin(origin, isApp);
 
   RefPtr<TCPSocketParent> socketParent = new TCPSocketParent();
   socketParent->SetSocket(socket);
@@ -112,6 +119,36 @@ void TCPServerSocketParent::OnConnect(TCPServerSocketEvent* event) {
   socket->SetSocketBridgeParent(socketParent);
 
   SendCallbackAccept(socketParent);
+}
+
+void TCPServerSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp) {
+  const PContentParent* content = Manager()->Manager();
+  if (PBrowserParent* browser =
+          SingleManagedOrNull(content->ManagedPBrowserParent())) {
+    CanonicalBrowsingContext* browsingContext =
+        static_cast<BrowserParent*>(browser)->GetBrowsingContext()->Top();
+    if (!browsingContext) {
+      return;
+    }
+
+    WindowGlobalParent* window = browsingContext->GetCurrentWindowGlobal();
+    if (!window) {
+      return;
+    }
+
+    nsCOMPtr<nsIPrincipal> principal = window->DocumentPrincipal();
+    if (principal) {
+      principal->GetOrigin(aOrigin);
+      nsCOMPtr<nsIPermissionManager> permMgr =
+          mozilla::services::GetPermissionManager();
+      uint32_t perm = nsIPermissionManager::DENY_ACTION;
+      if (permMgr) {
+        permMgr->TestExactPermissionFromPrincipal(
+            principal, "networkstats-perm"_ns, &perm);
+        *aIsApp = perm == nsIPermissionManager::ALLOW_ACTION;
+      }
+    }
+  }
 }
 
 }  // namespace mozilla::dom

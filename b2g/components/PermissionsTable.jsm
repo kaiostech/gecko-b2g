@@ -260,9 +260,10 @@ const PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
-  mobilenetwork: {
+  "networkstats-manage": {
     pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
   },
   permissions: {
     pwa: DENY_ACTION,

@@ -36,6 +36,7 @@ class TCPServerSocketParent : public mozilla::net::PTCPServerSocketParent,
   void ReleaseIPDLReference();
 
   void OnConnect(TCPServerSocketEvent* event);
+  void GetOrigin(nsAutoCString& aOrigin, bool* aIsApp);
 
  private:
   ~TCPServerSocketParent();

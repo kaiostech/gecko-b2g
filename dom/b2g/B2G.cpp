@@ -47,6 +47,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mInputMethod)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPermissionsManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mNetworkStatsManager)
 #ifdef MOZ_B2G_RIL
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCellBroadcast)
@@ -669,6 +670,13 @@ bool B2G::HasTetheringManagerSupport(JSContext* /* unused */,
   return innerWindow ? CheckPermission("tethering"_ns, innerWindow) : false;
 }
 
+/* static */
+bool B2G::HasNetworkStatsSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("networkstats-manage"_ns, innerWindow)
+                     : false;
+}
+
 DownloadManager* B2G::GetDownloadManager(ErrorResult& aRv) {
   if (!mDownloadManager) {
     if (!mOwner) {
@@ -1157,6 +1165,23 @@ nsresult B2G::MainThreadInit() {
   }
 
   return rv;
+}
+
+NetworkStatsManager* B2G::GetNetworkStats(ErrorResult& aRv) {
+  if (!mNetworkStatsManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mNetworkStatsManager = ConstructJSImplementation<NetworkStatsManager>(
+        "@mozilla.org/networkStatsManager;1", GetParentObject(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+
+  return mNetworkStatsManager;
 }
 
 }  // namespace dom

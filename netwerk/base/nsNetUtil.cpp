@@ -112,6 +112,8 @@
 #include "MediaContainerType.h"
 #include "DecoderTraits.h"
 #include "imgLoader.h"
+#include "nsGlobalWindow.h"
+#include "nsIPermission.h"
 
 #if defined(MOZ_THUNDERBIRD) || defined(MOZ_SUITE)
 #  include "nsNewMailnewsURI.h"
@@ -3264,6 +3266,36 @@ bool NS_ShouldClassifyChannel(nsIChannel* aChannel) {
   // load.
   return !(loadInfo->TriggeringPrincipal()->IsSystemPrincipal() &&
            ExtContentPolicy::TYPE_DOCUMENT != type);
+}
+
+bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin,
+                         bool* aIsApp) {
+  if (!aChannel) {
+    return false;
+  }
+
+  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
+  if (!loadInfo) {
+    return false;
+  }
+
+  nsCOMPtr<nsIPrincipal> principal = loadInfo->GetTopLevelPrincipal();
+  if (!principal) {
+    return false;
+  }
+
+  principal->GetOrigin(aOrigin);
+
+  nsCOMPtr<nsIPermissionManager> permMgr =
+      mozilla::services::GetPermissionManager();
+  uint32_t perm = nsIPermissionManager::DENY_ACTION;
+  if (permMgr) {
+    permMgr->TestExactPermissionFromPrincipal(principal, "networkstats-perm"_ns,
+                                              &perm);
+    *aIsApp = perm == nsIPermissionManager::ALLOW_ACTION;
+  }
+
+  return true;
 }
 
 namespace mozilla {

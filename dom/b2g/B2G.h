@@ -20,6 +20,7 @@
 #include "mozilla/dom/FlipManager.h"
 #include "mozilla/dom/InputMethod.h"
 #include "mozilla/dom/TetheringManagerBinding.h"
+#include "mozilla/dom/NetworkStatsManagerBinding.h"
 
 #ifdef MOZ_B2G_RIL
 #  include "mozilla/dom/CellBroadcast.h"
@@ -106,6 +107,7 @@ class B2G final : public DOMEventTargetHelper,
   InputMethod* GetInputMethod(ErrorResult& aRv);
   static bool HasInputPermission(JSContext* /* unused */, JSObject* aGlobal);
   TetheringManager* GetTetheringManager(ErrorResult& aRv);
+  NetworkStatsManager* GetNetworkStats(ErrorResult& aRv);
 
 #ifdef MOZ_B2G_RIL
   IccManager* GetIccManager(ErrorResult& aRv);
@@ -133,6 +135,8 @@ class B2G final : public DOMEventTargetHelper,
 
   ExternalAPI* GetExternalapi(ErrorResult& aRv);
   DOMVirtualCursor* GetVirtualCursor(ErrorResult& aRv);
+  static bool HasNetworkStatsSupport(JSContext* /* unused */,
+                                     JSObject* aGlobal);
 
 #ifdef MOZ_B2G_BT
   bluetooth::BluetoothManager* GetBluetooth(ErrorResult& aRv);
@@ -236,6 +240,7 @@ class B2G final : public DOMEventTargetHelper,
   RefPtr<FlipManager> mFlipManager;
   RefPtr<InputMethod> mInputMethod;
   RefPtr<TetheringManager> mTetheringManager;
+  RefPtr<NetworkStatsManager> mNetworkStatsManager;
 #ifdef MOZ_B2G_RIL
   RefPtr<CellBroadcast> mCellBroadcast;
   RefPtr<IccManager> mIccManager;

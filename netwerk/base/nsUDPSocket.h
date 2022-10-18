@@ -13,6 +13,10 @@
 #include "nsASocketHandler.h"
 #include "nsCycleCollectionParticipant.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "nsINetworkInterface.h"
+#endif
+
 //-----------------------------------------------------------------------------
 
 namespace mozilla {
@@ -55,6 +59,8 @@ class nsUDPSocket final : public nsASocketHandler, public nsIUDPSocket {
                                   const PRNetAddr& aIface);
   nsresult SetMulticastInterfaceInternal(const PRNetAddr& aIface);
 
+  void SaveNetworkStats(bool aEnforce);
+
   void CloseSocket();
 
   // lock protects access to mListener;
@@ -71,6 +77,11 @@ class nsUDPSocket final : public nsASocketHandler, public nsIUDPSocket {
 
   uint64_t mByteReadCount{0};
   uint64_t mByteWriteCount{0};
+
+  nsAutoCString mOrigin;
+#ifdef MOZ_WIDGET_GONK
+  nsMainThreadPtrHandle<nsINetworkInfo> mActiveNetworkInfo;
+#endif
 };
 
 //-----------------------------------------------------------------------------

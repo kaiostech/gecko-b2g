@@ -461,7 +461,7 @@ pref("dom.alarm.enabled", true);
 
 // NetworkStats
 #ifdef MOZ_WIDGET_GONK
-pref("dom.mozNetworkStats.enabled", true);
+pref("dom.networkStats.enabled", true);
 #endif
 
 // ResourceStats

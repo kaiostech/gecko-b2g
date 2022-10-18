@@ -28,6 +28,10 @@
 #include "nsTHashMap.h"
 #include "nsThreadUtils.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "nsINetworkInterface.h"
+#endif
+
 //-----------------------------------------------------------------------------
 
 class nsIDNSHTTPSSVCRecord;
@@ -490,6 +494,22 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   bool mPassedRatePacing{false};
   bool mSynchronousRatePaceRequest{false};
   nsCOMPtr<nsICancelable> mTokenBucketCancel;
+  uint64_t mCountRecv{0};
+  uint64_t mCountSent{0};
+  bool mIsApp{false};
+  nsAutoCString mOrigin;
+#ifdef MOZ_WIDGET_GONK
+  nsMainThreadPtrHandle<nsINetworkInfo> mActiveNetworkInfo;
+#endif
+  nsresult SaveNetworkStats(bool);
+  void CountRecvBytes(uint64_t recvBytes) {
+    mCountRecv += recvBytes;
+    SaveNetworkStats(false);
+  }
+  void CountSentBytes(uint64_t sentBytes) {
+    mCountSent += sentBytes;
+    SaveNetworkStats(false);
+  }
 
   void CollectTelemetryForUploads();
 

@@ -61,6 +61,11 @@
 #include "nsTransportUtils.h"
 #include "sslerr.h"
 #include "SpeculativeTransaction.h"
+#include "nsNetUtil.h"
+
+#ifdef MOZ_WIDGET_GONK
+#  include "NetStatistics.h"
+#endif
 
 //-----------------------------------------------------------------------------
 
@@ -228,6 +233,15 @@ nsresult nsHttpTransaction::Init(
   mTopBrowsingContextId = topBrowsingContextId;
 
   mTrafficCategory = trafficCategory;
+
+  nsCOMPtr<nsIChannel> channel = do_QueryInterface(eventsink);
+  NS_GetTopOriginInfo(channel, mOrigin, &mIsApp);
+
+#ifdef MOZ_WIDGET_GONK
+  if (!mOrigin.IsEmpty()) {
+    GetActiveNetworkInfo(mActiveNetworkInfo);
+  }
+#endif
 
   LOG1(("nsHttpTransaction %p SetRequestContext %p\n", this, requestContext));
   mRequestContext = requestContext;
@@ -723,6 +737,7 @@ nsresult nsHttpTransaction::ReadRequestSegment(nsIInputStream* stream,
 
   LOG(("nsHttpTransaction::ReadRequestSegment %p read=%u", trans, *countRead));
 
+  trans->CountSentBytes(*countRead);
   trans->mSentData = true;
   return NS_OK;
 }
@@ -832,6 +847,7 @@ nsresult nsHttpTransaction::WritePipeSegment(nsIOutputStream* stream,
        *countWritten));
 
   MOZ_ASSERT(*countWritten > 0, "bad writer");
+  trans->CountRecvBytes(*countWritten);
   trans->mReceivedData = true;
   trans->mTransferSize += *countWritten;
 
@@ -983,6 +999,42 @@ nsresult nsHttpTransaction::WriteSegments(nsAHttpSegmentWriter* writer,
   }
 
   return rv;
+}
+
+nsresult nsHttpTransaction::SaveNetworkStats(bool enforce) {
+#ifdef MOZ_WIDGET_GONK
+  // Check if active network and origin are valid.
+  if (!mActiveNetworkInfo || mOrigin.IsEmpty()) {
+    return NS_OK;
+  }
+
+  if (mCountRecv <= 0 && mCountSent <= 0) {
+    // There is no traffic, no need to save.
+    return NS_OK;
+  }
+
+  // If |enforce| is false, the traffic amount is saved
+  // only when the total amount exceeds the predefined
+  // threshold.
+  uint64_t totalBytes = mCountRecv + mCountSent;
+  if (!enforce && totalBytes < NETWORK_STATS_THRESHOLD) {
+    return NS_OK;
+  }
+
+  // Create the event to save the network statistics.
+  // the event is then dispatched to the main thread.
+  RefPtr<Runnable> event = new SaveNetworkStatsEvent(
+      mOrigin, mActiveNetworkInfo, mCountRecv, mCountSent, false, mIsApp);
+  NS_DispatchToMainThread(event);
+
+  // Reset the counters after saving.
+  mCountSent = 0;
+  mCountRecv = 0;
+
+  return NS_OK;
+#else
+  return NS_ERROR_NOT_IMPLEMENTED;
+#endif
 }
 
 bool nsHttpTransaction::ProxyConnectFailed() { return mProxyConnectFailed; }
@@ -1689,6 +1741,10 @@ void nsHttpTransaction::Close(nsresult reason) {
     // TLS version is not a problem.
     reason = NS_ERROR_ABORT;
   }
+
+  // save network statistics in the end of transaction
+  SaveNetworkStats(true);
+
   mStatus = reason;
   mTransactionDone = true;  // forcibly flag the transaction as complete
   mClosed = true;

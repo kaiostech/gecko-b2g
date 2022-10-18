@@ -39,6 +39,10 @@
 #  include "mozilla/StaticPrefs_fuzzing.h"
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+#  include "NetStatistics.h"
+#endif
+
 namespace mozilla {
 namespace net {
 
@@ -246,7 +250,10 @@ nsUDPSocket::nsUDPSocket() {
 
 nsUDPSocket::~nsUDPSocket() { CloseSocket(); }
 
-void nsUDPSocket::AddOutputBytes(uint64_t aBytes) { mByteWriteCount += aBytes; }
+void nsUDPSocket::AddOutputBytes(uint64_t aBytes) {
+  mByteWriteCount += aBytes;
+  SaveNetworkStats(false);
+}
 
 void nsUDPSocket::OnMsgClose() {
   UDPSOCKET_LOG(("nsUDPSocket::OnMsgClose [this=%p]\n", this));
@@ -417,6 +424,7 @@ void nsUDPSocket::OnSocketReady(PRFileDesc* fd, int16_t outFlags) {
     return;
   }
   mByteReadCount += count;
+  SaveNetworkStats(false);
 
   FallibleTArray<uint8_t> data;
   if (!data.AppendElements(buff, count, fallible)) {
@@ -458,6 +466,7 @@ void nsUDPSocket::OnSocketDetached(PRFileDesc* fd) {
     NS_ASSERTION(mFD == fd, "wrong file descriptor");
     CloseSocket();
   }
+  SaveNetworkStats(true);
 
   if (mSyncListener) {
     mSyncListener->OnStopListening(this, mCondition);
@@ -564,6 +573,7 @@ nsUDPSocket::InitWithAddress(const NetAddr* aAddr, nsIPrincipal* aPrincipal,
 
   if (aPrincipal) {
     mOriginAttributes = aPrincipal->OriginAttributesRef();
+    aPrincipal->GetOrigin(mOrigin);
   }
   //
   // configure listening socket...
@@ -584,6 +594,12 @@ nsUDPSocket::InitWithAddress(const NetAddr* aAddr, nsIPrincipal* aPrincipal,
       return rv;
     }
     UDPSOCKET_LOG(("Successfully attached fuzzing IOLayer.\n"));
+  }
+#endif
+
+#ifdef MOZ_WIDGET_GONK
+  if (!mOrigin.IsEmpty()) {
+    GetActiveNetworkInfo(mActiveNetworkInfo);
   }
 #endif
 
@@ -695,6 +711,7 @@ nsUDPSocket::Close() {
       // expects this happen synchronously.
       CloseSocket();
 
+      SaveNetworkStats(true);
       return NS_OK;
     }
   }
@@ -718,6 +735,32 @@ nsUDPSocket::GetLocalAddr(nsINetAddr** aResult) {
   result.forget(aResult);
 
   return NS_OK;
+}
+
+void nsUDPSocket::SaveNetworkStats(bool aEnforce) {
+#ifdef MOZ_WIDGET_GONK
+  if (!mActiveNetworkInfo || mOrigin.IsEmpty()) {
+    return;
+  }
+
+  if (mByteReadCount == 0 && mByteWriteCount == 0) {
+    return;
+  }
+
+  uint64_t total = mByteReadCount + mByteWriteCount;
+  if (aEnforce || total > NETWORK_STATS_THRESHOLD) {
+    // Create the event to save the network statistics.
+    // the event is then dispathed to the main thread.
+    RefPtr<Runnable> event =
+        new SaveNetworkStatsEvent(mOrigin, mActiveNetworkInfo, mByteReadCount,
+                                  mByteWriteCount, false, false);
+    NS_DispatchToMainThread(event);
+
+    // Reset the counters after saving.
+    mByteReadCount = 0;
+    mByteWriteCount = 0;
+  }
+#endif
 }
 
 void nsUDPSocket::CloseSocket() {

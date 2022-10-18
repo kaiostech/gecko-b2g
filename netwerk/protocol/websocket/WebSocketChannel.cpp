@@ -68,6 +68,10 @@
 #include "prnetdb.h"
 #include "zlib.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "NetStatistics.h"
+#endif
+
 // rather than slurp up all of nsIWebSocket.idl, which lives outside necko, just
 // dupe one constant we need from it
 #define CLOSE_GOING_AWAY 1001
@@ -1181,6 +1185,10 @@ WebSocketChannel::WebSocketChannel()
       mDynamicOutput(nullptr),
       mPrivateBrowsing(false),
       mConnectionLogService(nullptr),
+      mCountRecv(0),
+      mCountSent(0),
+      mIsApp(false),
+      mTopOrigin(EmptyCString()),
       mMutex("WebSocketChannel::mMutex") {
   MOZ_ASSERT(NS_IsMainThread(), "not main thread");
 
@@ -1349,6 +1357,16 @@ void WebSocketChannel::BeginOpenInternal() {
     AbortSession(NS_ERROR_UNEXPECTED);
     return;
   }
+
+    if (localChannel) {
+    NS_GetTopOriginInfo(localChannel, mTopOrigin, &mIsApp);
+  }
+
+#ifdef MOZ_WIDGET_GONK
+  if (!mTopOrigin.IsEmpty()) {
+    GetActiveNetworkInfo(mActiveNetworkInfo);
+  }
+#endif
 
   rv = NS_MaybeOpenChannelUsingAsyncOpen(localChannel, this);
 
@@ -3583,6 +3601,7 @@ WebSocketChannel::Close(uint16_t code, const nsACString& reason) {
   LOG(("WebSocketChannel::Close() %p\n", this));
   MOZ_ASSERT(NS_IsMainThread(), "not main thread");
 
+  SaveNetworkStats(true);
   {
     MutexAutoLock lock(mMutex);
 
@@ -4080,6 +4099,9 @@ WebSocketChannel::OnInputStreamReady(nsIAsyncInputStream* aStream) {
     LOG(("WebSocketChannel::OnInputStreamReady: read %u rv %" PRIx32 "\n",
          count, static_cast<uint32_t>(rv)));
 
+    // accumulate received bytes
+    CountRecvBytes(count);
+
     if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
       mSocketIn->AsyncWait(this, 0, 0, mIOThread);
       return NS_OK;
@@ -4148,6 +4170,9 @@ WebSocketChannel::OnOutputStreamReady(nsIAsyncOutputStream* aStream) {
       rv = mSocketOut->Write(sndBuf, toSend, &amtSent);
       LOG(("WebSocketChannel::OnOutputStreamReady: write %u rv %" PRIx32 "\n",
            amtSent, static_cast<uint32_t>(rv)));
+
+      // accumulate sent bytes
+      CountSentBytes(amtSent);
 
       if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
         mSocketOut->AsyncWait(this, 0, 0, mIOThread);
@@ -4274,6 +4299,43 @@ void WebSocketChannel::OnTCPClosed() { mTCPClosed = true; }
 
 nsresult WebSocketChannel::OnDataReceived(uint8_t* aData, uint32_t aCount) {
   return ProcessInput(aData, aCount);
+}
+
+nsresult WebSocketChannel::SaveNetworkStats(bool enforce) {
+#ifdef MOZ_WIDGET_GONK
+  // Check if the active network and top origin are valid.
+  if (!mActiveNetworkInfo || mTopOrigin.IsEmpty()) {
+    return NS_OK;
+  }
+
+  uint64_t countRecv = mCountRecv.exchange(0);
+  uint64_t countSent = mCountSent.exchange(0);
+
+  if (countRecv == 0 && countSent == 0) {
+    // There is no traffic, no need to save.
+    return NS_OK;
+  }
+
+  // If |enforce| is false, the traffic amount is saved
+  // only when the total amount exceeds the predefined
+  // threshold.
+  uint64_t totalBytes = countRecv + countSent;
+  if (!enforce && totalBytes < NETWORK_STATS_THRESHOLD) {
+    mCountRecv += countRecv;
+    mCountSent += countSent;
+    return NS_OK;
+  }
+
+  // Create the event to save the network statistics.
+  // the event is then dispatched to the main thread.
+  RefPtr<Runnable> event = new SaveNetworkStatsEvent(
+      mTopOrigin, mActiveNetworkInfo, countRecv, countSent, false, mIsApp);
+  NS_DispatchToMainThread(event);
+
+  return NS_OK;
+#else
+  return NS_ERROR_NOT_IMPLEMENTED;
+#endif
 }
 
 }  // namespace net

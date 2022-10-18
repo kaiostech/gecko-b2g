@@ -47,6 +47,12 @@
 #include "nsStringStream.h"
 #include "secerr.h"
 #include "sslerr.h"
+#ifdef MOZ_WIDGET_GONK
+#  include "nsINetworkStatsServiceProxy.h"
+#  include "nsINetworkManager.h"
+#  include "nsINetworkInterface.h"
+#endif
+
 #ifdef MOZ_B2G
 #  include "nsIPermissionManager.h"
 #endif
@@ -159,7 +165,14 @@ TCPSocket::TCPSocket(nsIGlobalObject* aGlobal, const nsAString& aHost,
       mSuspendCount(0),
       mTrackingNumber(0),
       mWaitingForStartTLS(false),
+#ifdef MOZ_WIDGET_GONK
+      mTxBytes(0),
+      mRxBytes(0),
+      mIsApp(false),
+      mOrigin("unknown"),
+#endif
       mObserversActive(false) {
+
   if (aGlobal) {
     nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal);
     if (window) {
@@ -294,6 +307,14 @@ nsresult TCPSocket::InitWithTransport(nsISocketTransport* aTransport) {
   int32_t port;
   mTransport->GetPort(&port);
   mPort = port;
+
+#ifdef MOZ_WIDGET_GONK
+  nsCOMPtr<nsINetworkManager> networkManager =
+      do_GetService("@mozilla.org/network/manager;1");
+  if (networkManager) {
+    networkManager->GetActiveNetworkInfo(getter_AddRefs(mActiveNetworkInfo));
+  }
+#endif
 
   return NS_OK;
 }
@@ -592,6 +613,12 @@ void TCPSocket::Resume(mozilla::ErrorResult& aRv) {
 }
 
 nsresult TCPSocket::MaybeReportErrorAndCloseIfOpen(nsresult status) {
+#ifdef MOZ_WIDGET_GONK
+  // Save network statistics once the connection is closed.
+  // For now this function is Gonk-specific.
+  SaveNetworkStats(true);
+#endif
+
   // If we're closed, we've already reported the error or just don't need to
   // report the error.
   if (mReadyState == TCPReadyState::Closed) {
@@ -859,6 +886,12 @@ bool TCPSocket::Send(nsIInputStream* aStream, uint32_t aByteLength) {
   CalculateBufferedAmount();
   EnsureCopying();
 
+#ifdef MOZ_WIDGET_GONK
+  // Collect transmitted amount for network statistics.
+  mTxBytes += aByteLength;
+  SaveNetworkStats(false);
+#endif
+
   return !bufferFull;
 }
 
@@ -1019,6 +1052,12 @@ TCPSocket::OnStartRequest(nsIRequest* aRequest) { return NS_OK; }
 NS_IMETHODIMP
 TCPSocket::OnDataAvailable(nsIRequest* aRequest, nsIInputStream* aStream,
                            uint64_t aOffset, uint32_t aCount) {
+#ifdef MOZ_WIDGET_GONK
+  // Collect received amount for network statistics.
+  mRxBytes += aCount;
+  SaveNetworkStats(false);
+#endif
+
   if (mUseArrayBuffers) {
     nsTArray<uint8_t> buffer;
     buffer.SetCapacity(aCount);
@@ -1096,6 +1135,13 @@ void TCPSocket::SetSocketBridgeParent(TCPSocketParent* aBridgeParent) {
   mSocketBridgeParent = aBridgeParent;
 }
 
+void TCPSocket::SetOrigin(nsAutoCString& aOrigin, bool aIsApp) {
+#ifdef MOZ_WIDGET_GONK
+  mOrigin = aOrigin;
+  mIsApp = aIsApp;
+#endif
+}
+
 NS_IMETHODIMP
 TCPSocket::UpdateReadyState(uint32_t aReadyState) {
   MOZ_ASSERT(mSocketBridgeChild);
@@ -1118,6 +1164,37 @@ TCPSocket::UpdateBufferedAmount(uint32_t aBufferedAmount,
   }
   return NS_OK;
 }
+
+#ifdef MOZ_WIDGET_GONK
+void TCPSocket::SaveNetworkStats(bool aEnforce) {
+  if (!mTxBytes && !mRxBytes) {
+    // There is no traffic at all. No need to save statistics.
+    return;
+  }
+
+  // If "enforce" is false, the traffic amount is saved to
+  // NetworkStatsServiceProxy only when the total amount exceeds the predefined
+  // threshold value. The purpose is to avoid too much overhead for collecting
+  // statistics.
+  uint32_t totalBytes = mTxBytes + mRxBytes;
+  if (!aEnforce && totalBytes < NETWORK_STATS_THRESHOLD) {
+    return;
+  }
+
+  nsCOMPtr<nsINetworkStatsServiceProxy> nssProxy =
+      do_GetService("@mozilla.org/networkstatsServiceProxy;1");
+  if (!nssProxy) {
+    return;
+  }
+
+  nssProxy->SaveAppStats(mOrigin, mActiveNetworkInfo, PR_Now(), mRxBytes,
+                         mTxBytes, false, mIsApp, nullptr);
+
+  // Reset the counters once the statistics is saved to
+  // NetworkStatsServiceProxy.
+  mTxBytes = mRxBytes = 0;
+}
+#endif
 
 NS_IMETHODIMP
 TCPSocket::Observe(nsISupports* aSubject, const char* aTopic,

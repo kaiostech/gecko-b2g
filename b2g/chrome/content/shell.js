@@ -53,6 +53,8 @@ if (isGonk) {
     );
     return libcutils;
   });
+
+  ChromeUtils.import("resource://gre/modules/NetworkStatsService.jsm");
 }
 
 try {

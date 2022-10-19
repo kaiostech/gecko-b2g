@@ -107,6 +107,10 @@
 #  include "windows.h"
 #endif
 
+#if defined(MOZ_WIDGET_GTK)
+#  include "mozilla/WidgetUtilsGtk.h"
+#endif  // defined(MOZ_WIDGET_GTK)
+
 using namespace mozilla;
 
 using ipc::FileDescriptor;
@@ -4860,6 +4864,23 @@ nsresult Preferences::InitInitialObjects(bool aIsStartup) {
     NS_WARNING("Error parsing application default preferences.");
   }
 
+#if defined(MOZ_WIDGET_GTK)
+  // Under Flatpak/Snap package, load /etc/firefox/defaults/pref/*.js.
+  if (mozilla::widget::IsRunningUnderFlatpakOrSnap()) {
+    nsCOMPtr<nsIFile> defaultSnapPrefDir;
+    rv = NS_GetSpecialDirectory(NS_OS_SYSTEM_CONFIG_DIR,
+                                getter_AddRefs(defaultSnapPrefDir));
+    NS_ENSURE_SUCCESS(rv, rv);
+    defaultSnapPrefDir->AppendNative("defaults"_ns);
+    defaultSnapPrefDir->AppendNative("pref"_ns);
+
+    rv = pref_LoadPrefsInDir(defaultSnapPrefDir, nullptr, 0);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("Error parsing application default preferences under Snap.");
+    }
+  }
+#endif
+
   // Load jar:$app/omni.jar!/defaults/preferences/*.js
   // or jar:$gre/omni.jar!/defaults/preferences/*.js.
   RefPtr<nsZipArchive> appJarReader = Omnijar::GetReader(Omnijar::APP);
@@ -6000,7 +6021,6 @@ static const PrefListEntry sParentOnlyPrefBranchList[] = {
     PREF_LIST_ENTRY("media.gmp-manager.lastCheck"),
     PREF_LIST_ENTRY("places.database.lastMaintenance"),
     PREF_LIST_ENTRY("privacy.purge_trackers.last_purge"),
-    PREF_LIST_ENTRY("security.sandbox.content.tempDirSuffix"),
     PREF_LIST_ENTRY("storage.vacuum.last.places.sqlite"),
     PREF_LIST_ENTRY("toolkit.startup.last_success"),
 
@@ -6052,6 +6072,7 @@ static const PrefListEntry sDynamicPrefOverrideList[]{
     PREF_LIST_ENTRY("media.video_loopback_dev"),
     PREF_LIST_ENTRY("media.webspeech.service.endpoint"),
     PREF_LIST_ENTRY("network.gio.supported-protocols"),
+    PREF_LIST_ENTRY("network.security.ports.banned.override"),
     PREF_LIST_ENTRY("pdfjs."),
     PREF_LIST_ENTRY("print.printer_"),
     PREF_LIST_ENTRY("print_printer"),

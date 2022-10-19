@@ -4,9 +4,7 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
-);
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 
@@ -14,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserSearchTelemetry: "resource:///modules/BrowserSearchTelemetry.sys.mjs",
   ExtensionSearchHandler:
     "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   PromiseUtils: "resource://gre/modules/PromiseUtils.sys.mjs",
   SearchUIUtils: "resource:///modules/SearchUIUtils.sys.mjs",
   SearchUtils: "resource://gre/modules/SearchUtils.sys.mjs",
@@ -34,7 +33,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   CONTEXTUAL_SERVICES_PING_TYPES:
     "resource:///modules/PartnerLinkAttribution.jsm",
   ObjectUtils: "resource://gre/modules/ObjectUtils.jsm",
-  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
   ReaderMode: "resource://gre/modules/ReaderMode.jsm",
   PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.jsm",
 });
@@ -326,24 +324,25 @@ export class UrlbarInput {
    * @param {boolean} [dueToSessionRestore]
    *        True if this is being called due to session restore and false
    *        otherwise.
-   * @param {nsIURI} [originalUri]
-   *        The uri may have been re-directed, so if originalUri exists,
-   *        we can recover the uri used to make a request. This is also used
-   *        as a means of knowing if the caller is a GET request.
+   * @param {boolean} [dontShowSearchTerms]
+   *        True if userTypedValue should not be overidden by search terms
+   *        and false otherwise.
    */
   setURI(
     uri = null,
     dueToTabSwitch = false,
     dueToSessionRestore = false,
-    originalUri = null
+    dontShowSearchTerms = false
   ) {
     if (
+      !dontShowSearchTerms &&
       lazy.UrlbarPrefs.get("showSearchTerms") &&
       !lazy.UrlbarPrefs.get("browser.search.widget.inNavBar") &&
-      this.window.gBrowser.userTypedValue == null &&
-      !dueToTabSwitch
+      this.window.gBrowser.userTypedValue == null
     ) {
-      let term = this._getSearchTermIfDefaultSerpUrl(originalUri ?? uri);
+      let term = this._getSearchTermIfDefaultSerpUrl(
+        this.window.gBrowser.selectedBrowser.originalURI ?? uri
+      );
       if (term) {
         this.window.gBrowser.userTypedValue = term;
       }
@@ -731,11 +730,11 @@ export class UrlbarInput {
     // Don't add further handling here, the catch above is our last resort.
   }
 
-  handleRevert() {
+  handleRevert(dontShowSearchTerms = false) {
     this.window.gBrowser.userTypedValue = null;
     // Nullify search mode before setURI so it won't try to restore it.
     this.searchMode = null;
-    this.setURI(null, true);
+    this.setURI(null, true, false, dontShowSearchTerms);
     if (this.value && this.focused) {
       this.select();
     }

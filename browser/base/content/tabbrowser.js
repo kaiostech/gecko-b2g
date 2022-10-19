@@ -29,9 +29,6 @@
           "resource:///modules/UrlbarProviderOpenTabs.sys.mjs",
         PictureInPicture: "resource://gre/modules/PictureInPicture.sys.mjs",
       });
-      XPCOMUtils.defineLazyModuleGetters(this, {
-        E10SUtils: "resource://gre/modules/E10SUtils.jsm",
-      });
       XPCOMUtils.defineLazyServiceGetters(this, {
         MacSharingService: [
           "@mozilla.org/widget/macsharingservice;1",
@@ -6765,6 +6762,13 @@
             // Removing the tab's image here causes flickering, wait until the
             // load is complete.
             this.mBrowser.mIconURL = null;
+          }
+
+          if (
+            aRequest instanceof Ci.nsIChannel &&
+            !isBlankPageURL(aRequest.originalURI.spec)
+          ) {
+            this.mBrowser.originalURI = aRequest.originalURI;
           }
         }
 

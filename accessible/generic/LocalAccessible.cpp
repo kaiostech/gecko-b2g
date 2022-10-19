@@ -2294,18 +2294,15 @@ void LocalAccessible::AppendTextTo(nsAString& aText, uint32_t aStartOffset,
   // accessible. Text accessible overrides this method to return enclosed text.
   if (aStartOffset != 0 || aLength == 0) return;
 
-  nsIFrame* frame = GetFrame();
-  if (!frame) {
-    if (nsCoreUtils::IsDisplayContents(mContent)) {
-      aText += kEmbeddedObjectChar;
-    }
-    return;
-  }
-
   MOZ_ASSERT(mParent,
              "Called on accessible unbound from tree. Result can be wrong.");
-
-  if (frame->IsBrFrame()) {
+  nsIFrame* frame = GetFrame();
+  // We handle something becoming display: none async, which means we won't have
+  // a frame when we're queuing text removed events. Thus, it's important that
+  // we produce text here even if there's no frame. Otherwise, we won't fire a
+  // text removed event at all, which might leave client caches (e.g. NVDA
+  // virtual buffers) with dead nodes.
+  if (IsHTMLBr() || (frame && frame->IsBrFrame())) {
     aText += kForcedNewLineChar;
   } else if (mParent && nsAccUtils::MustPrune(mParent)) {
     // Expose the embedded object accessible as imaginary embedded object
@@ -3195,6 +3192,12 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
 
       nsTHashSet<LocalAccessible*> inViewAccs;
       nsTArray<uint64_t> viewportCache;
+      // Layout considers table rows fully occluded by their containing cells.
+      // This means they don't have their own display list items, and they won't
+      // show up in the list returned from GetFramesForArea. To prevent table
+      // rows from appearing offscreen, we manually add any rows for which we
+      // have on-screen cells.
+      LocalAccessible* prevParentRow = nullptr;
       for (nsIFrame* frame : frames) {
         nsIContent* content = frame->GetContent();
         if (!content) {
@@ -3213,8 +3216,28 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
         if (acc->IsTextLeaf() && nsAccUtils::MustPrune(acc->LocalParent())) {
           acc = acc->LocalParent();
         }
-
-        if (acc->IsImageMap()) {
+        if (acc->IsTableCell()) {
+          LocalAccessible* parent = acc->LocalParent();
+          if (parent && parent->IsTableRow() && parent != prevParentRow) {
+            // If we've entered a new row since the last cell we saw, add the
+            // previous parent row to our viewport cache here to maintain
+            // hittesting order. Keep track of the current parent row.
+            if (prevParentRow && inViewAccs.EnsureInserted(prevParentRow)) {
+              viewportCache.AppendElement(prevParentRow->ID());
+            }
+            prevParentRow = parent;
+          }
+        } else if (acc->IsTable()) {
+          // If we've encountered a table, we know we've already
+          // handled all of this table's content (because we're traversing
+          // in hittesting order). Add our table's final row to the viewport
+          // cache before adding the table itself. Reset our marker for the next
+          // table.
+          if (prevParentRow && inViewAccs.EnsureInserted(prevParentRow)) {
+            viewportCache.AppendElement(prevParentRow->ID());
+          }
+          prevParentRow = nullptr;
+        } else if (acc->IsImageMap()) {
           // Layout doesn't walk image maps, so we do that
           // manually here. We do this before adding the map itself
           // so the children come earlier in the hittesting order.

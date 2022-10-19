@@ -17,16 +17,16 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   UrlbarQuickSuggest: "resource:///modules/UrlbarQuickSuggest.sys.mjs",
   UrlbarResult: "resource:///modules/UrlbarResult.sys.mjs",
+  clearInterval: "resource://gre/modules/Timer.sys.mjs",
+  setInterval: "resource://gre/modules/Timer.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
-  clearInterval: "resource://gre/modules/Timer.jsm",
   CONTEXTUAL_SERVICES_PING_TYPES:
     "resource:///modules/PartnerLinkAttribution.jsm",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
   PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.jsm",
-  setInterval: "resource://gre/modules/Timer.jsm",
 });
 
 const TIMESTAMP_TEMPLATE = "%YYYYMMDDHH%";
@@ -887,12 +887,12 @@ class ProviderQuickSuggest extends UrlbarProvider {
     );
     this._merinoSequenceNumber++;
 
-    let clientVariants = lazy.UrlbarPrefs.get("merino.clientVariants");
+    let clientVariants = lazy.UrlbarPrefs.get("merinoClientVariants");
     if (clientVariants) {
       url.searchParams.set(MERINO_PARAMS.CLIENT_VARIANTS, clientVariants);
     }
 
-    let providers = lazy.UrlbarPrefs.get("merino.providers");
+    let providers = lazy.UrlbarPrefs.get("merinoProviders");
     if (providers) {
       url.searchParams.set(MERINO_PARAMS.PROVIDERS, providers);
     } else if (

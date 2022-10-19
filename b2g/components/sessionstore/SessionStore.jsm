@@ -20,6 +20,9 @@ var SessionStore = {
   getSessionHistory(tab, updatedCallback) {
     // Don't do anything for now.
   },
+
+  // Used by browser-custom-element.js
+  maybeExitCrashedState() {},
 };
 
 // Freeze the SessionStore object. We don't want anyone to modify it.

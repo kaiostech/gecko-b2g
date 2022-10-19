@@ -7,8 +7,8 @@
 // This is loaded into all XUL windows. Wrap in a block to prevent
 // leaking to window scope.
 {
-  const { AppConstants } = ChromeUtils.import(
-    "resource://gre/modules/AppConstants.jsm"
+  const { AppConstants } = ChromeUtils.importESModule(
+    "resource://gre/modules/AppConstants.sys.mjs"
   );
 
   const { XPCOMUtils } = ChromeUtils.importESModule(
@@ -106,6 +106,8 @@
       this._documentContentType = null;
 
       this._inPermitUnload = new WeakSet();
+
+      this._originalURI = null;
 
       /**
        * These are managed by the tabbrowser:
@@ -232,6 +234,8 @@
       };
 
       this._documentURI = null;
+
+      this._originalURI = null;
 
       this._documentContentType = null;
 
@@ -733,6 +737,16 @@
         );
       }
       return this._audioChannels;
+    }
+
+    set originalURI(aURI) {
+      if (aURI instanceof Ci.nsIURI) {
+        this._originalURI = aURI;
+      }
+    }
+
+    get originalURI() {
+      return this._originalURI;
     }
 
     _wrapURIChangeCall(fn) {

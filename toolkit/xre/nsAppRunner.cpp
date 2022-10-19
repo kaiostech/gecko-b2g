@@ -1787,7 +1787,7 @@ nsXULAppInfo::GetUserCanElevate(bool* aUserCanElevate) {
 #endif
 
 NS_IMETHODIMP
-nsXULAppInfo::GetEnabled(bool* aEnabled) {
+nsXULAppInfo::GetCrashReporterEnabled(bool* aEnabled) {
   *aEnabled = CrashReporter::GetEnabled();
   return NS_OK;
 }

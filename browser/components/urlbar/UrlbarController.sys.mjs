@@ -4,9 +4,8 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
-);
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -311,7 +310,7 @@ export class UrlbarController {
           if (this.view.isOpen) {
             this.view.close();
           } else {
-            this.input.handleRevert();
+            this.input.handleRevert(true);
           }
         }
         event.preventDefault();

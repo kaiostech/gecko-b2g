@@ -98,4 +98,8 @@
 #  define NS_UNIX_XDG_VIDEOS_DIR       "XDGVids"
 #endif
 
+#if defined(MOZ_WIDGET_GTK)
+#  define NS_OS_SYSTEM_CONFIG_DIR "SysConfD"
+#endif  // defined(MOZ_WIDGET_GTK)
+
 #endif

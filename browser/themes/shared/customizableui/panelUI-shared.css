@@ -1441,7 +1441,6 @@ toolbarpaletteitem[place="menu-panel"] > toolbaritem {
 
 toolbaritem[overflowedItem=true],
 .widget-overflow-list .toolbarbutton-1 {
-  width: 100%;
   max-width: var(--menu-panel-width-wide);
   background-repeat: no-repeat;
   background-position: 0 center;
@@ -1729,6 +1728,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] > .radio-label-box {
   overflow: hidden;
   transition: margin-bottom .25s;
   border-top: 1px solid var(--panel-separator-color);
+  box-sizing: border-box;
 }
 
 #protections-popup #messaging-system-message-container[disabled] {

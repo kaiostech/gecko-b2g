@@ -1870,7 +1870,7 @@ with only_when(compile_environment):
     )
 
     with only_when("--with-system-libvpx"):
-        vpx = pkg_check_modules("MOZ_LIBVPX", "vpx >= 1.8.0")
+        vpx = pkg_check_modules("MOZ_LIBVPX", "vpx >= 1.10.0")
 
         check_header(
             "vpx/vpx_decoder.h",
@@ -2458,9 +2458,7 @@ with only_when(requires_wasm_sandboxing & compile_environment):
 
     set_config("WASM_CXX", wasm_cxx_with_flags)
 
-    wasm_compile_flags = dependable(
-        ["-fno-exceptions", "-fno-strict-aliasing", "-Qunused-arguments"]
-    )
+    wasm_compile_flags = dependable(["-fno-exceptions", "-fno-strict-aliasing"])
     option(env="WASM_CFLAGS", nargs=1, help="Options to pass to WASM_CC")
 
     @depends("WASM_CFLAGS", wasm_compile_flags)

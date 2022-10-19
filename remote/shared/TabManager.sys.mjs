@@ -103,7 +103,7 @@ export var TabManager = {
     if (lazy.AppInfo.isAndroid) {
       return new lazy.MobileTabBrowser(win);
     } else if (lazy.AppInfo.isB2G) {
-      return win.MarionetteHelper;
+      return win?.MarionetteHelper;
     } else if (lazy.AppInfo.isFirefox) {
       return win.gBrowser;
     }
@@ -312,6 +312,10 @@ export var TabManager = {
   selectTab(tab) {
     const ownerWindow = this._getWindowForTab(tab);
     const tabBrowser = this.getTabBrowser(ownerWindow);
+
+    if  (!tabBrowser) {
+      return Promise.reject();
+    }
 
     if (tab === tabBrowser.selectedTab) {
       return Promise.resolve();

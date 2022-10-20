@@ -15,7 +15,7 @@
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileMessageIterable, mParent)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileMessageIterable, mParent, mIterator)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MobileMessageIterable)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(MobileMessageIterable)

@@ -776,6 +776,7 @@ pref("browser.tabs.tooltipsShowPidAndActiveness", false);
 
 pref("browser.tabs.firefox-view", true);
 pref("browser.tabs.firefox-view.logLevel", "Warn");
+pref("browser.tabs.firefox-view.notify-for-tabs", false);
 
 // allow_eval_* is enabled on Firefox Desktop only at this
 // point in time
@@ -1585,6 +1586,11 @@ pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint-query", "");
 pref("browser.newtabpage.activity-stream.discoverystream.sponsored-collections.enabled", false);
 
+// Changes the spoc content.
+pref("browser.newtabpage.activity-stream.discoverystream.spocAdTypes", "");
+pref("browser.newtabpage.activity-stream.discoverystream.spocZoneIds", "");
+pref("browser.newtabpage.activity-stream.discoverystream.spocSiteId", "");
+
 pref("browser.newtabpage.activity-stream.discoverystream.sendToPocket.enabled", false);
 
 // List of regions that do not get stories, regardless of locale-list-config.
@@ -2105,9 +2111,25 @@ pref("dom.ipc.processPrelaunch.enabled", false);
 pref("dom.ipc.processPrelaunch.enabled", true);
 #endif
 
+pref("browser.migrate.brave.enabled", true);
+pref("browser.migrate.canary.enabled", true);
+
+pref("browser.migrate.chrome.enabled", true);
 // See comments in bug 1340115 on how we got to these numbers.
 pref("browser.migrate.chrome.history.limit", 2000);
 pref("browser.migrate.chrome.history.maxAgeInDays", 180);
+
+pref("browser.migrate.chrome-beta.enabled", true);
+pref("browser.migrate.chrome-dev.enabled", true);
+pref("browser.migrate.chromium.enabled", true);
+pref("browser.migrate.chromium-360se.enabled", true);
+pref("browser.migrate.chromium-edge.enabled", true);
+pref("browser.migrate.chromium-edge-beta.enabled", true);
+pref("browser.migrate.edge.enabled", true);
+pref("browser.migrate.firefox.enabled", true);
+pref("browser.migrate.ie.enabled", true);
+pref("browser.migrate.safari.enabled", true);
+
 pref("browser.migrate.showBookmarksToolbarAfterMigration", true);
 
 pref("extensions.pocket.api", "api.getpocket.com");

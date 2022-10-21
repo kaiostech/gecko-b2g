@@ -165,7 +165,7 @@ EventHub::Device::Device(int fd, int32_t id, const String8& path,
       path(path),
       identifier(identifier),
       classes(0),
-      configuration(NULL),
+      configuration(nullptr),
       virtualKeyMap(NULL),
       ffEffectPlaying(false),
       ffEffectId(-1),
@@ -182,7 +182,6 @@ EventHub::Device::Device(int fd, int32_t id, const String8& path,
 
 EventHub::Device::~Device() {
   close();
-  delete configuration;
   delete virtualKeyMap;
 }
 
@@ -1252,7 +1251,7 @@ status_t EventHub::openDeviceLocked(const char* devicePath) {
   if (device->classes & INPUT_DEVICE_CLASS_KEYBOARD) {
     // Register the keyboard as a built-in keyboard if it is eligible.
     if (!keyMapStatus && mBuiltInKeyboardId == NO_BUILT_IN_KEYBOARD &&
-        isEligibleBuiltInKeyboard(device->identifier, device->configuration,
+        isEligibleBuiltInKeyboard(device->identifier, device->configuration.get(),
                                   &device->keyMap)) {
       mBuiltInKeyboardId = device->id;
     }
@@ -1381,15 +1380,16 @@ void EventHub::loadConfigurationLocked(Device* device) {
     ALOGD("No input device configuration file found for device '%s'.",
           device->identifier.name.string());
   } else {
-    status_t status;
-        // =
-        // FIXME: too many arguments to function call, expected 1, have 2;
-        // PropertyMap::load(device->configurationFile, &device->configuration);
-    if (status) {
+    android::base::Result<std::unique_ptr<PropertyMap>> propertyMap =
+      PropertyMap::load(device->configurationFile);
+    if (propertyMap.ok()) {
+      device->configuration = std::move(*propertyMap);
+    } else {
       ALOGE(
-          "Error loading input device configuration file for device '%s'.  "
+          "Error loading input device configuration file for device '%s' : error %d.  "
           "Using default configuration.",
-          device->identifier.name.string());
+          device->identifier.name.string(),
+          propertyMap.error().code());
     }
   }
 }
@@ -1407,7 +1407,7 @@ status_t EventHub::loadVirtualKeyMapLocked(Device* device) {
 }
 
 status_t EventHub::loadKeyMapLocked(Device* device) {
-  return device->keyMap.load(device->identifier, device->configuration);
+  return device->keyMap.load(device->identifier, device->configuration.get());
 }
 
 bool EventHub::isExternalDeviceLocked(Device* device) {

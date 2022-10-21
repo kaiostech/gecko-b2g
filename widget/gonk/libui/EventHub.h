@@ -351,7 +351,7 @@ class EventHub : public EventHubInterface {
     uint8_t propBitmask[(INPUT_PROP_MAX + 1) / 8];
 
     String8 configurationFile;
-    PropertyMap* configuration;
+    std::unique_ptr<PropertyMap> configuration;
     VirtualKeyMap* virtualKeyMap;
     KeyMap keyMap;
 

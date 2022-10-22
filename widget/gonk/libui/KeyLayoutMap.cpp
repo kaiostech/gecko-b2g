@@ -219,6 +219,10 @@ status_t KeyLayoutMap::Parser::parse() {
         mTokenizer->skipDelimiters(WHITESPACE);
         status_t status = parseLed();
         if (status) return status;
+      } else if (keywordToken == "sensor") {
+        mTokenizer->skipDelimiters(WHITESPACE);
+        status_t status = parseSensor();
+        if (status) return status;
       } else {
         ALOGE("%s: Expected keyword, got '%s'.",
               mTokenizer->getLocation().string(), keywordToken.string());
@@ -450,5 +454,32 @@ status_t KeyLayoutMap::Parser::parseLed() {
   led.ledCode = ledCode;
   map.add(code, led);
   return NO_ERROR;
+}
+
+// Parse sensor type and data index mapping, as below format
+// sensor <raw abs> <sensor type> <sensor data index>
+// raw abs : the linux abs code of the axis
+// sensor type : string name of InputDeviceSensorType
+// sensor data index : the data index of sensor, out of [X, Y, Z]
+// Examples:
+// sensor 0x00 ACCELEROMETER X
+// sensor 0x01 ACCELEROMETER Y
+// sensor 0x02 ACCELEROMETER Z
+// sensor 0x03 GYROSCOPE X
+// sensor 0x04 GYROSCOPE Y
+// sensor 0x05 GYROSCOPE Z
+//
+// B2G: dummy implementation since we need a larger libui update to be more
+//      in sync with upstream.
+status_t KeyLayoutMap::Parser::parseSensor() {
+    String8 codeToken = mTokenizer->nextToken(WHITESPACE);
+
+    mTokenizer->skipDelimiters(WHITESPACE);
+    String8 sensorTypeToken = mTokenizer->nextToken(WHITESPACE);
+
+    mTokenizer->skipDelimiters(WHITESPACE);
+    String8 sensorDataIndexToken = mTokenizer->nextToken(WHITESPACE);
+
+    return NO_ERROR;
 }
 };  // namespace android

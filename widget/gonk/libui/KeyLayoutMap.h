@@ -116,6 +116,7 @@ class KeyLayoutMap : public RefBase {
     status_t parseKey();
     status_t parseAxis();
     status_t parseLed();
+    status_t parseSensor();
   };
 };
 

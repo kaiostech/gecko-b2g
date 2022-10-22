@@ -87,19 +87,35 @@ String8 getInputDeviceConfigurationFilePathByName(
     const String8& name, InputDeviceConfigurationFileType type) {
   // Search system repository.
   String8 path;
-  path.setTo(getenv("ANDROID_ROOT"));
-  path.append("/usr/");
-  appendInputDeviceConfigurationFileRelativePath(path, name, type);
+
+  // Treblized input device config files will be located /product/usr, /system_ext/usr,
+  // /odm/usr or /vendor/usr.
+  // These files may also be in the com.android.input.config APEX.
+  const char* rootsForPartition[]{
+          "/product",
+          "/system_ext",
+          "/odm",
+          "/vendor",
+          "/apex/com.android.input.config/etc",
+          getenv("ANDROID_ROOT"),
+  };
+  for (size_t i = 0; i < std::size(rootsForPartition); i++) {
+    if (rootsForPartition[i] == nullptr) {
+        continue;
+    }
+    path = rootsForPartition[i];
+    path.append("/usr/");
+    appendInputDeviceConfigurationFileRelativePath(path, name, type);
 #if DEBUG_PROBE
-  ALOGD(
-      "Probing for system provided input device configuration file: path='%s'",
-      path.string());
+    ALOGD("Probing for system provided input device configuration file: path='%s'",
+          path.string());
 #endif
-  if (!access(path.string(), R_OK)) {
+    if (!access(path.c_str(), R_OK)) {
 #if DEBUG_PROBE
-    ALOGD("Found");
+      ALOGD("Found");
 #endif
-    return path;
+      return path;
+    }
   }
 
   // Search user repository.

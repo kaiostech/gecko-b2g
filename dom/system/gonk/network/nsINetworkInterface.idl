@@ -85,6 +85,11 @@ interface nsINetworkInfo : nsISupports
    */
   readonly attribute long detailedState;
 
+  /*
+   * The meter value indicate that this interface will be charged or not.
+   */
+  readonly attribute bool meter;
+
   /**
    * Get the list of ip addresses and prefix lengths, ip address could be IPv4
    * or IPv6, typically 1 IPv4 or 1 IPv6 or one of each.

@@ -238,6 +238,7 @@ function ExtraNetworkInfo(aNetworkInfo) {
     this.pcscf = aNetworkInfo.getPcscf();
   }
   this.netId = aNetworkInfo.netId;
+  this.meter = aNetworkInfo.meter;
   //For Clat only
   this.stackedLinkInfo = new StackedLinkInfo(aNetworkInfo.stackedLinkInfo);
 }

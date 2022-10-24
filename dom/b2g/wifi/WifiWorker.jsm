@@ -2476,6 +2476,8 @@ var WifiNetworkInterface = {
 
     gateways: [],
 
+    meter: false,
+
     getAddresses(ips, prefixLengths) {
       ips.value = this.ips.slice();
       prefixLengths.value = this.prefixLengths.slice();

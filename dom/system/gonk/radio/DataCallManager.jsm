@@ -371,6 +371,21 @@ DataCallManager.prototype = {
       }*/
       handler.updateApnSettings(aApnList);
     }
+    // Once got the apn, loading the meter list config if any.
+    if (aApnList && aApnList.length > 0) {
+      let meterInterfaceList = null;
+      if (gCustomizationInfo) {
+        meterInterfaceList = gCustomizationInfo.getCustomizedValue(
+          aClientId,
+          "meterInterfaceList",
+          []
+        );
+      }
+      if (meterInterfaceList.length > 0) {
+        this.debug("meterInterfaceList:" + JSON.stringify(meterInterfaceList));
+        handler.configMeter(meterInterfaceList);
+      }
+    }
 
     // Once got the apn, loading the white list config if any.
     if (aApnList && aApnList.length > 0) {
@@ -664,6 +679,35 @@ function convertToDataCallType(aNetworkType) {
   }
 }
 
+function convertApnType(aApnType) {
+  switch (aApnType) {
+    case "default":
+      return NETWORK_TYPE_MOBILE;
+    case "mms":
+      return NETWORK_TYPE_MOBILE_MMS;
+    case "supl":
+      return NETWORK_TYPE_MOBILE_SUPL;
+    case "ims":
+      return NETWORK_TYPE_MOBILE_IMS;
+    case "dun":
+      return NETWORK_TYPE_MOBILE_DUN;
+    case "fota":
+      return NETWORK_TYPE_MOBILE_FOTA;
+    case "ia":
+      return NETWORK_TYPE_MOBILE_IA;
+    case "xcap":
+      return NETWORK_TYPE_MOBILE_XCAP;
+    case "cbs":
+      return NETWORK_TYPE_MOBILE_CBS;
+    case "hipri":
+      return NETWORK_TYPE_MOBILE_HIPRI;
+    case "Emergency":
+      return NETWORK_TYPE_MOBILE_ECC;
+    default:
+      return NETWORK_TYPE_UNKNOWN;
+  }
+}
+
 function convertToDataCallState(aState) {
   switch (aState) {
     case NETWORK_STATE_CONNECTING:
@@ -789,35 +833,6 @@ DataCallHandler.prototype = {
     );
   },
 
-  _convertApnType(aApnType) {
-    switch (aApnType) {
-      case "default":
-        return NETWORK_TYPE_MOBILE;
-      case "mms":
-        return NETWORK_TYPE_MOBILE_MMS;
-      case "supl":
-        return NETWORK_TYPE_MOBILE_SUPL;
-      case "ims":
-        return NETWORK_TYPE_MOBILE_IMS;
-      case "dun":
-        return NETWORK_TYPE_MOBILE_DUN;
-      case "fota":
-        return NETWORK_TYPE_MOBILE_FOTA;
-      case "ia":
-        return NETWORK_TYPE_MOBILE_IA;
-      case "xcap":
-        return NETWORK_TYPE_MOBILE_XCAP;
-      case "cbs":
-        return NETWORK_TYPE_MOBILE_CBS;
-      case "hipri":
-        return NETWORK_TYPE_MOBILE_HIPRI;
-      case "Emergency":
-        return NETWORK_TYPE_MOBILE_ECC;
-      default:
-        return NETWORK_TYPE_UNKNOWN;
-    }
-  },
-
   /*_compareDataCallOptions: function(aDataCall, aNewDataCall) {
     return aDataCall.dataProfile.apn == aNewDataCall.dataProfile.apn &&
            aDataCall.dataProfile.user == aNewDataCall.dataProfile.user &&
@@ -880,7 +895,7 @@ DataCallHandler.prototype = {
       }
       //Create apn type map to DC list.
       for (let i = 0; i < inputApnSetting.types.length; i++) {
-        let networkType = this._convertApnType(inputApnSetting.types[i]);
+        let networkType = convertApnType(inputApnSetting.types[i]);
         if (networkType === NETWORK_TYPE_UNKNOWN) {
           if (DEBUG) {
             this.debug("Invalid apn type: " + networkType);
@@ -945,6 +960,21 @@ DataCallHandler.prototype = {
     // Notify the binder the apn is ready.
     BinderServices.datacall.onApnReady(this.clientId, readyApnTypes);
     this.debug("_setupApnSettings done. ");
+  },
+
+  configMeter(aMeterNetworkType) {
+    aMeterNetworkType.forEach(
+      function(apnType) {
+        let networkType = convertApnType(apnType);
+        let networkInterface = this.dataNetworkInterfaces.get(networkType);
+        if (networkInterface) {
+          networkInterface.info.meter = true;
+          this.debug("Config meter apn type:" + apnType);
+        } else {
+          this.debug("No such meter apn type:" + apnType);
+        }
+      }.bind(this)
+    );
   },
 
   /**
@@ -1083,7 +1113,7 @@ DataCallHandler.prototype = {
 
       for (let i = 0; i < inputApnSetting.types.length; i++) {
         let apnType = inputApnSetting.types[i];
-        let networkType = this._convertApnType(apnType);
+        let networkType = convertApnType(apnType);
         if (networkType == NETWORK_TYPE_MOBILE_IA) {
           iaApnSetting = inputApnSetting;
         } else if (networkType == NETWORK_TYPE_MOBILE) {
@@ -2645,6 +2675,7 @@ function RILNetworkInfo(aClientId, aType, aNetworkInterface) {
   this.serviceId = aClientId;
   this.type = aType;
   this.reason = Ci.nsINetworkInfo.REASON_NONE;
+  this.meter = false;
 
   this.networkInterface = aNetworkInterface;
 }
@@ -2656,6 +2687,9 @@ RILNetworkInfo.prototype = {
   ]),
 
   networkInterface: null,
+
+  // For check if this interface is meter or not.
+  meter: false,
 
   getDataCall() {
     let dataCallsList = this.networkInterface.dataCallsList;

@@ -3221,13 +3221,6 @@
   value: 0
   mirror: always
 
-# Origin trial state for OffscreenCanvas.
-# 0: normal, 1: always-enabled, 2: always-disabled
-- name: dom.origin-trials.offscreen-canvas.state
-  type: RelaxedAtomicInt32
-  value: 0
-  mirror: always
-
 # Origin trial state for COEP: Credentialless.
 # 0: normal, 1: always-enabled, 2: always-disabled
 - name: dom.origin-trials.coep-credentialless.state
@@ -5691,7 +5684,7 @@
 #if defined(XP_MACOSX)
 - name: gfx.cairo_quartz_cg_layer.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 #endif
 
@@ -6204,18 +6197,6 @@
 - name: gfx.offscreencanvas.enabled
   type: RelaxedAtomicBool
   value: true
-  mirror: always
-
-# Enable OffscreenCanvas based on the domain allowlist.
-- name: gfx.offscreencanvas.domain-enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Domains included in the allowlist.
-- name: gfx.offscreencanvas.domain-allowlist
-  type: DataMutexString
-  value: "*.zoom.us,zoom.us"
   mirror: always
 
 - name: gfx.omta.background-color
@@ -8334,6 +8315,13 @@
 - name: layout.css.font-tech.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is support for font-variant-emoji enabled?
+- name: layout.css.font-variant-emoji.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -12068,6 +12056,11 @@
   type: bool
   value: false
   mirror: once
+
+- name: network.allow_large_stack_size_for_socket_thread
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 #---------------------------------------------------------------------------
 # Prefs starting with "nglayout."

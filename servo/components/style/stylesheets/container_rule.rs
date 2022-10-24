@@ -225,7 +225,12 @@ impl ContainerCondition {
     }
 
     /// Tries to match a container query condition for a given element.
-    pub(crate) fn matches<E>(&self, device: &Device, element: E) -> bool
+    pub(crate) fn matches<E>(
+        &self,
+        device: &Device,
+        element: E,
+        invalidation_flags: &mut ComputedValueFlags,
+    ) -> bool
     where
         E: TElement,
     {
@@ -240,7 +245,15 @@ impl ContainerCondition {
             device,
             info,
             size_query_container_lookup,
-            |context| self.condition.matches(context),
+            |context| {
+                let matches = self.condition.matches(context);
+                if context.style().flags().contains(ComputedValueFlags::USES_VIEWPORT_UNITS) {
+                    // TODO(emilio): Might need something similar to improve
+                    // invalidation of font relative container-query lengths.
+                    invalidation_flags.insert(ComputedValueFlags::USES_VIEWPORT_UNITS_ON_CONTAINER_QUERIES);
+                }
+                matches
+            },
         )
     }
 }
@@ -362,9 +375,7 @@ pub struct ContainerSizeQueryResult {
 impl ContainerSizeQueryResult {
     fn get_viewport_size(context: &Context) -> Size2D<Au> {
         use crate::values::specified::ViewportVariant;
-        context
-            .device()
-            .au_viewport_size_for_viewport_unit_resolution(ViewportVariant::Small)
+        context.viewport_size_for_viewport_unit_resolution(ViewportVariant::Small)
     }
 
     fn get_logical_viewport_size(context: &Context) -> LogicalSize<Au> {

@@ -17,6 +17,8 @@ There is also documentation for the `HTTP server we use for unit tests`_.
    new_to_necko_resources
    network_test_guidelines.md
    url_parsers.md
+   webtransport/webtransport
    captive_portals.md
+   neqo_triage_guideline.md
 
 .. _HTTP server we use for unit tests: http_server_for_testing.html

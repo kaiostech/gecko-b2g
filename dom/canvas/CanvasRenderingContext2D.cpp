@@ -3446,6 +3446,7 @@ static void SerializeFontForCanvas(const StyleFontFamilyList& aList,
   // font-weight is serialized as a number
   if (!aStyle.weight.IsNormal()) {
     aUsedFont.AppendFloat(aStyle.weight.ToFloat());
+    aUsedFont.Append(" ");
   }
 
   // font-stretch is serialized using CSS Fonts 3 keywords, not percentages.
@@ -3525,15 +3526,16 @@ bool CanvasRenderingContext2D::SetFontInternalDisconnected(
   // TODO: For workers, should we be passing a language? Where from?
 
   // TODO: Cache fontGroups in the Worker (use an nsFontCache?)
-  gfxFontGroup* fontGroup = gfxPlatform::GetPlatform()->CreateFontGroup(
-      nullptr,           // aPresContext
-      list,              // aFontFamilyList
-      &fontStyle,        // aStyle
-      language,          // aLanguage
-      explicitLanguage,  // aExplicitLanguage
-      nullptr,           // aTextPerf
-      fontFaceSetImpl,   // aUserFontSet
-      1.0);              // aDevToCssSize
+  gfxFontGroup* fontGroup =
+      new gfxFontGroup(nullptr,           // aPresContext
+                       list,              // aFontFamilyList
+                       &fontStyle,        // aStyle
+                       language,          // aLanguage
+                       explicitLanguage,  // aExplicitLanguage
+                       nullptr,           // aTextPerf
+                       fontFaceSetImpl,   // aUserFontSet
+                       1.0,               // aDevToCssSize
+                       StyleFontVariantEmoji::Normal);
   CurrentState().fontGroup = fontGroup;
   SerializeFontForCanvas(list, fontStyle, CurrentState().font);
   CurrentState().fontFont = nsFont(StyleFontFamily{list, false, false},
@@ -4326,10 +4328,10 @@ gfxFontGroup* CanvasRenderingContext2D::GetCurrentFontStyle() {
       gfxFloat devToCssSize = gfxFloat(perDevPixel) / gfxFloat(perCSSPixel);
       const auto* sans =
           Servo_FontFamily_Generic(StyleGenericFontFamily::SansSerif);
-      fontGroup = gfxPlatform::GetPlatform()->CreateFontGroup(
+      fontGroup = new gfxFontGroup(
           presContext, sans->families, &style, language, explicitLanguage,
           presContext ? presContext->GetTextPerfMetrics() : nullptr, nullptr,
-          devToCssSize);
+          devToCssSize, StyleFontVariantEmoji::Normal);
       if (fontGroup) {
         CurrentState().font = kDefaultFontStyle;
       } else {

@@ -77,9 +77,13 @@ NetworkStatsServiceProxy.prototype = {
         aIsApp
     );
 
-    // Treat non app & suffix without "localhost" as browser app.
-    if (!aOrigin.endsWith(".localhost") && !aIsApp) {
-      aOrigin = "http://system.localhost";
+    if (!aOrigin.endsWith(".localhost")) {
+      if (aOrigin == "[System Principal]") {
+        aOrigin = "http://system.localhost";
+        // Treat non app & suffix without "localhost" as browser app.
+      } else if (!aIsApp) {
+        aOrigin = "http://search.localhost";
+      }
     }
 
     if (aCallback) {

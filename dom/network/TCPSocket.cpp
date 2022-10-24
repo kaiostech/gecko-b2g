@@ -169,7 +169,7 @@ TCPSocket::TCPSocket(nsIGlobalObject* aGlobal, const nsAString& aHost,
       mTxBytes(0),
       mRxBytes(0),
       mIsApp(false),
-      mOrigin("unknown"),
+      mOrigin("[System Principal]"),
 #endif
       mObserversActive(false) {
 

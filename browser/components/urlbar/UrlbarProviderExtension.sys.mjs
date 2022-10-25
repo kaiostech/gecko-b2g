@@ -72,6 +72,8 @@ export class UrlbarProviderExtension extends UrlbarProvider {
 
   /**
    * The provider's name.
+   *
+   * @returns {string}
    */
   get name() {
     return this._name;
@@ -80,6 +82,8 @@ export class UrlbarProviderExtension extends UrlbarProvider {
   /**
    * The provider's type.  The type of extension providers is always
    * UrlbarUtils.PROVIDER_TYPE.EXTENSION.
+   *
+   * @returns {UrlbarUtils.PROVIDER_TYPE}
    */
   get type() {
     return UrlbarUtils.PROVIDER_TYPE.EXTENSION;
@@ -143,7 +147,7 @@ export class UrlbarProviderExtension extends UrlbarProvider {
    *
    * @param {string} eventName
    *   The name of the event to listen to.
-   * @param {function} listener
+   * @param {Function} listener
    *   The function that will be called when the event is fired.
    */
   setEventListener(eventName, listener) {
@@ -193,7 +197,7 @@ export class UrlbarProviderExtension extends UrlbarProvider {
    *
    * @param {UrlbarQueryContext} context
    *   The query context.
-   * @param {function} addCallback
+   * @param {Function} addCallback
    *   The callback invoked by this method to add each result.
    */
   async startQuery(context, addCallback) {

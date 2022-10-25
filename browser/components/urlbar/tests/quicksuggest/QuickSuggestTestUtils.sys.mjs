@@ -156,12 +156,12 @@ class QSTestUtils {
    * be updated again during the test, and also optionally sets it up with mock
    * data.
    *
-   * @param {array} [results]
+   * @param {Array} [results]
    *   Array of quick suggest result objects. If not given, then this function
    *   won't set up any mock data.
    * @param {object} [config]
    *   Configuration object.
-   * @returns {function}
+   * @returns {Function}
    *   A cleanup function. You only need to call this function if you're in a
    *   browser chrome test and you did not also call `init`. You can ignore it
    *   otherwise.
@@ -204,7 +204,7 @@ class QSTestUtils {
    *
    * @param {object} value
    *   Define any desired Nimbus variables in this object.
-   * @returns {function}
+   * @returns {Function}
    *   A cleanup function that will remove the mock rollout.
    */
   async initNimbusFeature(value = {}) {
@@ -238,6 +238,7 @@ class QSTestUtils {
    * `DEFAULT_CONFIG` before your test finishes. See also `withConfig()`.
    *
    * @param {object} config
+   *   The config to be applied. See {@link UrlbarQuickSuggest._setConfig}
    */
   setConfig(config) {
     lazy.UrlbarQuickSuggest._setConfig(config);
@@ -247,8 +248,14 @@ class QSTestUtils {
    * Sets the quick suggest configuration, calls your callback, and restores the
    * default configuration.
    *
-   * @param {object} config
-   * @param {function} callback
+   * @param {object} options
+   *   The options object.
+   * @param {object} options.config
+   *   The configuration that should be used with the callback
+   * @param {Function} options.callback
+   *   Will be called with the configuration applied
+   *
+   * @see {@link setConfig}
    */
   async withConfig({ config, callback }) {
     this.setConfig(config);
@@ -282,18 +289,21 @@ class QSTestUtils {
   /**
    * Asserts a result is a quick suggest result.
    *
-   * @param {string} url
+   * @param {object} [options]
+   *   The options object.
+   * @param {string} options.url
    *   The expected URL. At least one of `url` and `originalUrl` must be given.
-   * @param {string} originalUrl
+   * @param {string} options.originalUrl
    *   The expected original URL (the URL with an unreplaced timestamp
    *   template). At least one of `url` and `originalUrl` must be given.
-   * @param {object} window
-   * @param {number} [index]
+   * @param {object} options.window
+   *   The window that should be used for this assertion
+   * @param {number} [options.index]
    *   The expected index of the quick suggest result. Pass -1 to use the index
    *   of the last result.
-   * @param {boolean} [isSponsored]
+   * @param {boolean} [options.isSponsored]
    *   Whether the result is expected to be sponsored.
-   * @param {boolean} [isBestMatch]
+   * @param {boolean} [options.isBestMatch]
    *   Whether the result is expected to be a best match.
    * @returns {result}
    *   The quick suggest result.
@@ -398,6 +408,7 @@ class QSTestUtils {
    * Asserts a result is not a quick suggest result.
    *
    * @param {object} window
+   *   The window that should be used for this assertion
    * @param {number} index
    *   The index of the result.
    */
@@ -417,6 +428,7 @@ class QSTestUtils {
    * Asserts that none of the results are quick suggest results.
    *
    * @param {object} window
+   *   The window that should be used for this assertion
    */
   async assertNoQuickSuggestResults(window) {
     for (let i = 0; i < lazy.UrlbarTestUtils.getResultCount(window); i++) {
@@ -462,7 +474,7 @@ class QSTestUtils {
    * suggest category, use `TelemetryTestUtils.assertEvents()` directly or pass
    * in a filter override for `category`.
    *
-   * @param {array} expectedEvents
+   * @param {Array} expectedEvents
    *   List of expected telemetry events.
    * @param {object} filterOverrides
    *   Extra properties to set in the filter object.
@@ -511,7 +523,7 @@ class QSTestUtils {
    * @param {object} spy
    *   A `sinon.spy` object. See `createTelemetryPingSpy()`. This method resets
    *   the spy before returning.
-   * @param {array} pings
+   * @param {Array} pings
    *   The expected pings in the order they are expected to be recorded. Each
    *   item in this array should be an object: `{ type, payload }`
    *
@@ -606,15 +618,16 @@ class QSTestUtils {
    * Asserts that URLs in a result's payload have the timestamp template
    * substring replaced with real timestamps.
    *
-   * @param {UrlbarResult} result
+   * @param {UrlbarResult} result The results to check
    * @param {object} urls
    *   An object that contains the expected payload properties with template
    *   substrings. For example:
-   *
+   *   ```js
    *   {
    *     url: "http://example.com/foo-%YYYYMMDDHH%",
    *     sponsoredClickUrl: "http://example.com/bar-%YYYYMMDDHH%",
    *   }
+   *   ```
    */
   assertTimestampsReplaced(result, urls) {
     let {
@@ -672,9 +685,12 @@ class QSTestUtils {
    * Calls a callback while enrolled in a mock Nimbus experiment. The experiment
    * is automatically unenrolled and cleaned up after the callback returns.
    *
-   * @param {function} callback
    * @param {object} options
-   *   See enrollExperiment().
+   *   Options for the mock experiment.
+   * @param {Function} options.callback
+   *   The callback to call while enrolled in the mock experiment.
+   * @param {object} options.options
+   *   See {@link enrollExperiment}.
    */
   async withExperiment({ callback, ...options }) {
     let doExperimentCleanup = await this.enrollExperiment(options);
@@ -685,9 +701,11 @@ class QSTestUtils {
   /**
    * Enrolls in a mock Nimbus experiment.
    *
-   * @param {object} [valueOverrides]
+   * @param {object} options
+   *   Options for the mock experiment.
+   * @param {object} [options.valueOverrides]
    *   Values for feature variables.
-   * @returns {function}
+   * @returns {Promise<Function>}
    *   The experiment cleanup function (async).
    */
   async enrollExperiment({ valueOverrides = {} }) {
@@ -743,9 +761,6 @@ class QSTestUtils {
    *
    * @param {boolean} expectedRecorded
    *   Whether the event is expected to be recorded.
-   * @param {string} [branchSlug]
-   *   If the event is expected to be recorded, then this should be the name of
-   *   the experiment branch for which it was recorded.
    */
   async assertExposureEvent(expectedRecorded) {
     this.Assert.equal(

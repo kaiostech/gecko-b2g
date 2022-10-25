@@ -127,6 +127,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
 
   /**
    * Returns the name of this provider.
+   *
    * @returns {string} the name of this provider.
    */
   get name() {
@@ -135,6 +136,8 @@ class ProviderQuickSuggest extends UrlbarProvider {
 
   /**
    * The type of the provider.
+   *
+   * @returns {UrlbarUtils.PROVIDER_TYPE}
    */
   get type() {
     return UrlbarUtils.PROVIDER_TYPE.NETWORK;
@@ -189,6 +192,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * Whether this provider should be invoked for the given context.
    * If this method returns false, the providers manager won't start a query
    * with this provider, to save on resources.
+   *
    * @param {UrlbarQueryContext} queryContext The query context object
    * @returns {boolean} Whether this provider should be invoked for the search.
    */
@@ -216,12 +220,13 @@ class ProviderQuickSuggest extends UrlbarProvider {
   }
 
   /**
-   * Starts querying.
+   * Starts querying. Extended classes should return a Promise resolved when the
+   * provider is done searching AND returning results.
+   *
    * @param {UrlbarQueryContext} queryContext The query context object
-   * @param {function} addCallback Callback invoked by the provider to add a new
+   * @param {Function} addCallback Callback invoked by the provider to add a new
    *        result. A UrlbarResult should be passed to it.
-   * @note Extended classes should return a Promise resolved when the provider
-   *       is done searching AND returning results.
+   * @returns {Promise}
    */
   async startQuery(queryContext, addCallback) {
     let instance = this.queryInstance;
@@ -388,6 +393,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * provider and the type of result.
    *
    * @param {UrlbarQueryContext} queryContext
+   *   The query context.
    * @param {UrlbarResult} result
    *   The result that should be blocked.
    * @returns {boolean}
@@ -732,6 +738,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * Cancels the current query.
    *
    * @param {UrlbarQueryContext} queryContext
+   *   The query context.
    */
   cancelQuery(queryContext) {
     // Cancel the Merino timeout timer so it doesn't fire and record a timeout.
@@ -762,7 +769,9 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * regardless of their real timestamp values.
    *
    * @param {string} url
+   *   The URL to check.
    * @param {UrlbarResult} result
+   *   The quick suggest result. Will compare {@link url} to `result.payload.url`
    * @returns {boolean}
    *   Whether `url` is equivalent to `result.payload.url`.
    */
@@ -806,8 +815,10 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * Fetches remote settings suggestions.
    *
    * @param {UrlbarQueryContext} queryContext
+   *   The query context.
    * @param {string} searchString
-   * @returns {array}
+   *   The search string.
+   * @returns {Array}
    *   The remote settings suggestions. If there are no matches, an empty array
    *   is returned.
    */
@@ -840,8 +851,10 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * Fetches Merino suggestions.
    *
    * @param {UrlbarQueryContext} queryContext
+   *   The query context.
    * @param {string} searchString
-   * @returns {array}
+   *   The search string.
+   * @returns {Array}
    *   The Merino suggestions or null if there's an error or unexpected
    *   response.
    */
@@ -1020,6 +1033,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * provider itself should be active.
    *
    * @param {object} suggestion
+   *   The suggestion to check.
    * @returns {boolean}
    *   Whether the suggestion can be added.
    */
@@ -1402,13 +1416,17 @@ class ProviderQuickSuggest extends UrlbarProvider {
   /**
    * Records an impression cap telemetry event.
    *
-   * @param {string} eventType
+   * @param {object} options
+   *   Options object
+   * @param {"hit" | "reset"} options.eventType
    *   One of: "hit", "reset"
-   * @param {string} suggestionType
+   * @param {string} options.suggestionType
    *   One of: "sponsored", "nonsponsored"
-   * @param {object} stat
+   * @param {object} options.stat
    *   The stats object whose max count was hit or whose counter was reset.
-   * @param {number} eventDateMs
+   * @param {number} options.eventCount
+   *   The number of intervals that elapsed since the last event.
+   * @param {number} options.eventDateMs
    *   The `eventDate` that should be recorded in the event's `extra` object.
    *   We include this in `extra` even though events are timestamped because
    *   "reset" events are batched during periods where the user doesn't perform
@@ -1507,6 +1525,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * Returns the SHA-1 digest of a string as a 40-character hex-encoded string.
    *
    * @param {string} string
+   *   The string to convert to SHA-1
    * @returns {string}
    *   The hex-encoded digest of the given string.
    */

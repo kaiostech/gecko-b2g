@@ -142,7 +142,8 @@ class InternalHeaders final {
   bool IsValidHeaderValue(const nsCString& aLowerName,
                           const nsCString& aNormalizedValue, ErrorResult& aRv);
   bool IsImmutable(ErrorResult& aRv) const;
-  bool IsForbiddenRequestHeader(const nsCString& aName) const;
+  bool IsForbiddenRequestHeader(const nsCString& aName,
+                                const nsACString& aValue) const;
   bool IsForbiddenRequestNoCorsHeader(const nsCString& aName) const;
   bool IsForbiddenRequestNoCorsHeader(const nsCString& aName,
                                       const nsACString& aValue) const;
@@ -155,7 +156,7 @@ class InternalHeaders final {
   bool IsInvalidMutableHeader(const nsCString& aName, const nsACString& aValue,
                               ErrorResult& aRv) const {
     return IsInvalidName(aName, aRv) || IsInvalidValue(aValue, aRv) ||
-           IsImmutable(aRv) || IsForbiddenRequestHeader(aName) ||
+           IsImmutable(aRv) || IsForbiddenRequestHeader(aName, aValue) ||
            IsForbiddenRequestNoCorsHeader(aName, aValue) ||
            IsForbiddenResponseHeader(aName);
   }

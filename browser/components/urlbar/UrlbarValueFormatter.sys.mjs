@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 export class UrlbarValueFormatter {
   /**
    * @param {UrlbarInput} urlbarInput
+   *   The parent instance of UrlbarInput
    */
   constructor(urlbarInput) {
     this.urlbarInput = urlbarInput;
@@ -461,6 +462,7 @@ export class UrlbarValueFormatter {
 
   /**
    * Passes DOM events to the _on_<event type> methods.
+   *
    * @param {Event} event
    *   DOM event.
    */

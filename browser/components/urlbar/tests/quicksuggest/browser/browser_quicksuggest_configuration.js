@@ -1756,6 +1756,7 @@ add_task(async function() {
  * such objects, one per enrollment.
  *
  * @param {object} options
+ *   Function options.
  * @param {object} options.initialPrefsToSet
  *   An object: { userBranch, defaultBranch }
  *   `userBranch` and `defaultBranch` are objects that map pref names (relative
@@ -1999,14 +2000,16 @@ add_task(async function() {
  * sticky prefs (defined by `POLICY_PREF`). Pref policies should apply to the
  * quick suggest sticky prefs just as they do to non-sticky prefs.
  *
- * @param {object} prefPolicy
+ * @param {object} options
+ *   Options object.
+ * @param {object} options.prefPolicy
  *   An object `{ Status, Value }` that will be included in the policy.
- * @param {boolean} expectedDefault
+ * @param {boolean} options.expectedDefault
  *   The expected default-branch pref value after setting the policy.
- * @param {boolean} expectedUser
+ * @param {boolean} options.expectedUser
  *   The expected user-branch pref value after setting the policy or undefined
  *   if the pref should not exist on the user branch.
- * @param {boolean} expectedLocked
+ * @param {boolean} options.expectedLocked
  *   Whether the pref is expected to be locked after setting the policy.
  */
 async function doPolicyTest({

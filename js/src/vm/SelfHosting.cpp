@@ -845,6 +845,25 @@ bool js::intrinsic_NewRegExpStringIterator(JSContext* cx, unsigned argc,
   return true;
 }
 
+bool js::intrinsic_CreateAsyncFromSyncIterator(JSContext* cx, unsigned argc,
+                                               Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  MOZ_ASSERT(args.length() == 2);
+  MOZ_ASSERT(args.get(0).isObject());
+
+  RootedObject iter(cx, &args.get(0).toObject());
+  RootedValue nextMethod(cx, args.get(1));
+
+  RootedObject syncIter(cx,
+                        js::CreateAsyncFromSyncIterator(cx, iter, nextMethod));
+  if (!syncIter) {
+    return false;
+  }
+
+  args.rval().setObject(*syncIter);
+  return true;
+}
+
 js::PropertyName* js::GetClonedSelfHostedFunctionName(const JSFunction* fun) {
   if (!fun->isExtended()) {
     return nullptr;
@@ -1851,6 +1870,8 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("ConstructorForTypedArray", intrinsic_ConstructorForTypedArray, 1, 0),
     JS_FN("CopyDataPropertiesOrGetOwnKeys",
           intrinsic_CopyDataPropertiesOrGetOwnKeys, 3, 0),
+    JS_FN("CreateAsyncFromSyncIterator", intrinsic_CreateAsyncFromSyncIterator,
+          2, 0),
     JS_FN("CreateMapIterationResultPair",
           intrinsic_CreateMapIterationResultPair, 0, 0),
     JS_FN("CreateSetIterationResult", intrinsic_CreateSetIterationResult, 0, 0),

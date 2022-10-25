@@ -21,6 +21,7 @@ System messages are messages from the system, they are sent by the system based 
 | data-sms-received                         | sms                  |
 | icc-stkcommand                            | settings:read, settings:write |
 | media-button                              |                      |
+| networkstats-alarm                        | networkstats-manage  |
 | sms-delivery-error                        | sms                  |
 | sms-delivery-success                      | sms                  |
 | sms-failed                                | sms                  |

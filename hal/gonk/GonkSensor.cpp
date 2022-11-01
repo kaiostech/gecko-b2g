@@ -23,25 +23,58 @@ using namespace mozilla::hal;
 namespace mozilla {
 namespace hal_impl {
 
+static nsCOMPtr<nsIThread> mSensorsThread = nullptr;
+
 static GonkSensorsHal* sSensorsHal = nullptr;
 
 void EnableSensorNotifications(SensorType aSensor) {
-  if (!sSensorsHal) {
-    sSensorsHal = GonkSensorsHal::GetInstance();
-  }
-  sSensorsHal->ActivateSensor(aSensor);
+  MOZ_ASSERT(NS_IsMainThread());
 
-  static bool isRegistered = false;
-  if (!isRegistered) {
-    isRegistered = sSensorsHal->RegisterSensorDataCallback(&NotifySensorChange);
+  if (mSensorsThread == nullptr) {
+    nsresult rv =
+        NS_NewNamedThread("GonkSensors", getter_AddRefs(mSensorsThread));
+    if (NS_FAILED(rv)) {
+      mSensorsThread = nullptr;
+    }
+  }
+
+  if (mSensorsThread) {
+    mSensorsThread->Dispatch(
+        NS_NewRunnableFunction("ActivateSensor", [aSensor]() {
+          if (!sSensorsHal) {
+            sSensorsHal = GonkSensorsHal::GetInstance();
+          }
+          sSensorsHal->ActivateSensor(aSensor);
+
+          static bool isRegistered = false;
+          if (!isRegistered) {
+            isRegistered =
+                sSensorsHal->RegisterSensorDataCallback(&NotifySensorChange);
+          }
+        }));
   }
 }
 
 void DisableSensorNotifications(SensorType aSensor) {
-  if (!sSensorsHal) {
-    sSensorsHal = GonkSensorsHal::GetInstance();
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (mSensorsThread == nullptr) {
+    nsresult rv =
+        NS_NewNamedThread("GonkSensors", getter_AddRefs(mSensorsThread));
+    if (NS_FAILED(rv)) {
+      mSensorsThread = nullptr;
+    }
   }
-  sSensorsHal->DeactivateSensor(aSensor);
+
+  if (mSensorsThread) {
+    mSensorsThread->Dispatch(
+        NS_NewRunnableFunction("DeactivateSensor", [aSensor]() {
+          if (!sSensorsHal) {
+            sSensorsHal = GonkSensorsHal::GetInstance();
+          }
+          sSensorsHal->DeactivateSensor(aSensor);
+        }));
+  }
 }
 
 }  // namespace hal_impl

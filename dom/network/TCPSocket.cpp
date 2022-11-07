@@ -1172,6 +1172,16 @@ void TCPSocket::SaveNetworkStats(bool aEnforce) {
     return;
   }
 
+  // Exculde localhost traffic to be saved
+  nsString host;
+  this->GetHost(host);
+  if (!host.IsEmpty() &&
+    (StringEndsWith(host, NS_LITERAL_STRING_FROM_CSTRING(".localhost")) ||
+    host.EqualsLiteral("localhost") ||
+    host.EqualsLiteral("127.0.0.1"))) {
+    return;
+  }
+
   // If "enforce" is false, the traffic amount is saved to
   // NetworkStatsServiceProxy only when the total amount exceeds the predefined
   // threshold value. The purpose is to avoid too much overhead for collecting

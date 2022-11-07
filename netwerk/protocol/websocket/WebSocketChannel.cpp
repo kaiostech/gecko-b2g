@@ -1189,6 +1189,7 @@ WebSocketChannel::WebSocketChannel()
       mCountSent(0),
       mIsApp(false),
       mTopOrigin(EmptyCString()),
+      mIsLoopback(false),
       mMutex("WebSocketChannel::mMutex") {
   MOZ_ASSERT(NS_IsMainThread(), "not main thread");
 
@@ -1359,7 +1360,7 @@ void WebSocketChannel::BeginOpenInternal() {
   }
 
     if (localChannel) {
-    NS_GetTopOriginInfo(localChannel, mTopOrigin, &mIsApp);
+    NS_GetTopOriginInfo(localChannel, mTopOrigin, &mIsApp, &mIsLoopback);
   }
 
 #ifdef MOZ_WIDGET_GONK
@@ -4305,6 +4306,10 @@ nsresult WebSocketChannel::SaveNetworkStats(bool enforce) {
 #ifdef MOZ_WIDGET_GONK
   // Check if the active network and top origin are valid.
   if (!mActiveNetworkInfo || mTopOrigin.IsEmpty()) {
+    return NS_OK;
+  }
+
+  if (mIsLoopback) {
     return NS_OK;
   }
 

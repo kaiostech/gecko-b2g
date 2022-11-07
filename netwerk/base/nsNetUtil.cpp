@@ -3269,9 +3269,24 @@ bool NS_ShouldClassifyChannel(nsIChannel* aChannel) {
 }
 
 bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin,
-                         bool* aIsApp) {
+                         bool* aIsApp, bool* aIsLoopback) {
   if (!aChannel) {
     return false;
+  }
+
+  nsCOMPtr<nsIURI> uri;
+  aChannel->GetURI(getter_AddRefs(uri));
+  *aIsLoopback = false;
+
+  if (uri) {
+    nsAutoCString host;
+    nsresult rv = uri->GetHost(host);
+    if (NS_SUCCEEDED(rv) && !host.IsEmpty() &&
+        (StringEndsWith(host, ".localhost"_ns) ||
+        host.EqualsLiteral("localhost") ||
+        host.EqualsLiteral("127.0.0.1"))) {
+          *aIsLoopback = true;
+    }
   }
 
   nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();

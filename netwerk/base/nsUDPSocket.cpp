@@ -743,6 +743,12 @@ void nsUDPSocket::SaveNetworkStats(bool aEnforce) {
     return;
   }
 
+  bool isLocal = false;
+  this->IsLocal(&isLocal);
+  if (isLocal) {
+    return;
+  }
+
   if (mByteReadCount == 0 && mByteWriteCount == 0) {
     return;
   }

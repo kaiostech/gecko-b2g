@@ -235,7 +235,7 @@ nsresult nsHttpTransaction::Init(
   mTrafficCategory = trafficCategory;
 
   nsCOMPtr<nsIChannel> channel = do_QueryInterface(eventsink);
-  NS_GetTopOriginInfo(channel, mOrigin, &mIsApp);
+  NS_GetTopOriginInfo(channel, mOrigin, &mIsApp, &mIsLoopback);
 
 #ifdef MOZ_WIDGET_GONK
   if (!mOrigin.IsEmpty()) {
@@ -1005,6 +1005,10 @@ nsresult nsHttpTransaction::SaveNetworkStats(bool enforce) {
 #ifdef MOZ_WIDGET_GONK
   // Check if active network and origin are valid.
   if (!mActiveNetworkInfo || mOrigin.IsEmpty()) {
+    return NS_OK;
+  }
+
+  if (mIsLoopback) {
     return NS_OK;
   }
 

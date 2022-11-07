@@ -378,7 +378,7 @@ bool BaseCompiler::beginFunction() {
   }
 
   GenerateFunctionPrologue(
-      masm, *moduleEnv_.funcs[func_.index].typeId,
+      masm, CallIndirectId::forFunc(moduleEnv_, func_.index),
       compilerEnv_.mode() == CompileMode::Tier1 ? Some(func_.index) : Nothing(),
       &offsets_);
 
@@ -1574,15 +1574,16 @@ bool BaseCompiler::callIndirect(uint32_t funcTypeIndex, uint32_t tableIndex,
                                 const Stk& indexVal, const FunctionCall& call,
                                 CodeOffset* fastCallOffset,
                                 CodeOffset* slowCallOffset) {
-  const TypeIdDesc& funcTypeId = moduleEnv_.typeIds[funcTypeIndex];
-  MOZ_ASSERT(funcTypeId.kind() != TypeIdDescKind::None);
+  CallIndirectId callIndirectId =
+      CallIndirectId::forFuncType(moduleEnv_, funcTypeIndex);
+  MOZ_ASSERT(callIndirectId.kind() != CallIndirectIdKind::None);
 
   const TableDesc& table = moduleEnv_.tables[tableIndex];
 
   loadI32(indexVal, RegI32(WasmTableCallIndexReg));
 
   CallSiteDesc desc(bytecodeOffset(), CallSiteDesc::Indirect);
-  CalleeDesc callee = CalleeDesc::wasmTable(table, funcTypeId);
+  CalleeDesc callee = CalleeDesc::wasmTable(table, callIndirectId);
   OutOfLineCode* oob = addOutOfLineCode(
       new (alloc_) OutOfLineAbortingTrap(Trap::OutOfBounds, bytecodeOffset()));
   if (!oob) {
@@ -4706,7 +4707,7 @@ bool BaseCompiler::emitCall() {
 
   CodeOffset raOffset;
   if (import) {
-    raOffset = callImport(moduleEnv_.funcImportGlobalDataOffsets[funcIndex],
+    raOffset = callImport(moduleEnv_.offsetOfFuncImportInstanceData(funcIndex),
                           baselineCall);
   } else {
     raOffset = callDefinition(funcIndex, baselineCall);
@@ -6305,12 +6306,11 @@ void BaseCompiler::emitBarrieredClear(RegPtr valueAddr) {
 #ifdef ENABLE_WASM_GC
 
 void BaseCompiler::emitGcCanon(uint32_t typeIndex) {
-  const TypeIdDesc& typeId = moduleEnv_.typeIds[typeIndex];
   RegRef rp = needRef();
 #  ifndef RABALDR_PIN_INSTANCE
   fr.loadInstancePtr(InstanceReg);
 #  endif
-  masm.loadWasmGlobalPtr(typeId.globalDataOffset(), rp);
+  masm.loadWasmGlobalPtr(moduleEnv_.offsetOfTypeId(typeIndex), rp);
   pushRef(rp);
 }
 
@@ -7170,15 +7170,17 @@ bool BaseCompiler::emitRefCast() {
   return true;
 }
 
-bool BaseCompiler::emitBrOnCast() {
+bool BaseCompiler::emitBrOnCastCommon(bool onSuccess) {
   MOZ_ASSERT(!hasLatentOp());
 
-  uint32_t relativeDepth;
+  uint32_t labelRelativeDepth;
   BaseNothingVector unused_values{};
-  uint32_t typeIndex;
-  ResultType branchTargetType;
-  if (!iter_.readBrOnCast(&relativeDepth, &typeIndex, &branchTargetType,
-                          &unused_values)) {
+  uint32_t castTypeIndex;
+  ResultType labelType;
+  if (onSuccess ? !iter_.readBrOnCast(&labelRelativeDepth, &castTypeIndex,
+                                      &labelType, &unused_values)
+                : !iter_.readBrOnCastFail(&labelRelativeDepth, &castTypeIndex,
+                                          &labelType, &unused_values)) {
     return false;
   }
 
@@ -7186,7 +7188,7 @@ bool BaseCompiler::emitBrOnCast() {
     return true;
   }
 
-  Control& target = controlItem(relativeDepth);
+  Control& target = controlItem(labelRelativeDepth);
   target.bceSafeOnExit &= bceSafe_;
 
   RegRef refPtr = popRef();
@@ -7196,7 +7198,7 @@ bool BaseCompiler::emitBrOnCast() {
   moveRef(refPtr, castedPtr);
   pushRef(castedPtr);
   pushRef(refPtr);
-  emitGcCanon(typeIndex);
+  emitGcCanon(castTypeIndex);
 
   // 2. ref.test : [ref, rtt] -> [i32]
   if (!emitInstanceCall(SASigRefTest)) {
@@ -7205,7 +7207,7 @@ bool BaseCompiler::emitBrOnCast() {
 
   // 3. br_if $l : [T*, ref, i32] -> [T*, ref]
   BranchState b(&target.label, target.stackHeight, InvertBranch(false),
-                branchTargetType);
+                labelType);
   if (b.hasBlockResults()) {
     needResultRegisters(b.resultType);
   }
@@ -7213,8 +7215,9 @@ bool BaseCompiler::emitBrOnCast() {
   if (b.hasBlockResults()) {
     freeResultRegisters(b.resultType);
   }
-  if (!jumpConditionalWithResults(&b, Assembler::NotEqual, condition,
-                                  Imm32(0))) {
+  if (!jumpConditionalWithResults(
+          &b, (onSuccess ? Assembler::NotEqual : Assembler::Equal), condition,
+          Imm32(0))) {
     return false;
   }
   freeI32(condition);
@@ -9366,7 +9369,9 @@ bool BaseCompiler::emitBody() {
           case uint32_t(GcOp::RefCast):
             CHECK_NEXT(emitRefCast());
           case uint32_t(GcOp::BrOnCast):
-            CHECK_NEXT(emitBrOnCast());
+            CHECK_NEXT(emitBrOnCastCommon(/*onSuccess=*/true));
+          case uint32_t(GcOp::BrOnCastFail):
+            CHECK_NEXT(emitBrOnCastCommon(/*onSuccess=*/false));
           default:
             break;
         }  // switch (op.b1)

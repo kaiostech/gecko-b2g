@@ -57,8 +57,8 @@ bool nsRubyTextContainerFrame::IsFrameOfType(uint32_t aFlags) const {
 
 /* virtual */
 void nsRubyTextContainerFrame::SetInitialChildList(ChildListID aListID,
-                                                   nsFrameList& aChildList) {
-  nsContainerFrame::SetInitialChildList(aListID, aChildList);
+                                                   nsFrameList&& aChildList) {
+  nsContainerFrame::SetInitialChildList(aListID, std::move(aChildList));
   if (aListID == kPrincipalList) {
     UpdateSpanFlag();
   }
@@ -66,17 +66,17 @@ void nsRubyTextContainerFrame::SetInitialChildList(ChildListID aListID,
 
 /* virtual */
 void nsRubyTextContainerFrame::AppendFrames(ChildListID aListID,
-                                            nsFrameList& aFrameList) {
-  nsContainerFrame::AppendFrames(aListID, aFrameList);
+                                            nsFrameList&& aFrameList) {
+  nsContainerFrame::AppendFrames(aListID, std::move(aFrameList));
   UpdateSpanFlag();
 }
 
 /* virtual */
 void nsRubyTextContainerFrame::InsertFrames(
     ChildListID aListID, nsIFrame* aPrevFrame,
-    const nsLineList::iterator* aPrevFrameLine, nsFrameList& aFrameList) {
+    const nsLineList::iterator* aPrevFrameLine, nsFrameList&& aFrameList) {
   nsContainerFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine,
-                                 aFrameList);
+                                 std::move(aFrameList));
   UpdateSpanFlag();
 }
 

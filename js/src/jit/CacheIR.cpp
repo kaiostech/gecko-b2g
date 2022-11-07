@@ -57,6 +57,7 @@
 #include "vm/JSObject-inl.h"
 #include "vm/JSScript-inl.h"
 #include "vm/NativeObject-inl.h"
+#include "vm/PlainObject-inl.h"
 #include "vm/StringObject-inl.h"
 #include "wasm/WasmInstance-inl.h"
 
@@ -754,13 +755,19 @@ static void TestMatchingHolder(CacheIRWriter& writer, NativeObject* obj,
   writer.guardShapeForOwnProperties(objId, obj->shape());
 }
 
+enum class IsCrossCompartment { No, Yes };
+
 // Emit a shape guard for all objects on the proto chain. This does NOT include
 // the receiver; callers must ensure the receiver's proto is the first proto by
 // either emitting a shape guard or a prototype guard for |objId|.
 //
 // Note: this relies on shape implying proto.
+template <IsCrossCompartment MaybeCrossCompartment = IsCrossCompartment::No>
 static void ShapeGuardProtoChain(CacheIRWriter& writer, NativeObject* obj,
                                  ObjOperandId objId) {
+  uint32_t depth = 0;
+  static const uint32_t MAX_CACHED_LOADS = 4;
+
   while (true) {
     JSObject* proto = obj->staticPrototype();
     if (!proto) {
@@ -768,7 +775,20 @@ static void ShapeGuardProtoChain(CacheIRWriter& writer, NativeObject* obj,
     }
 
     obj = &proto->as<NativeObject>();
-    objId = writer.loadProto(objId);
+
+    // After guarding the shape of an object, we can safely bake that
+    // object's proto into the stub data. Compared to LoadProto, this
+    // takes one load instead of three (object -> shape -> baseshape
+    // -> proto). We cap the depth to avoid bloating the size of the
+    // stub data. To avoid compartment mismatch, we skip this optimization
+    // in the cross-compartment case.
+    if (depth < MAX_CACHED_LOADS &&
+        MaybeCrossCompartment == IsCrossCompartment::No) {
+      objId = writer.loadObject(obj);
+    } else {
+      objId = writer.loadProto(objId);
+    }
+    depth++;
 
     writer.guardShape(objId, obj->shape());
   }
@@ -798,11 +818,9 @@ static ObjOperandId ShapeGuardProtoChainForCrossCompartmentHolder(
   }
 }
 
-enum class SlotReadType { Normal, CrossCompartment };
-
 // Emit guards for reading a data property on |holder|. Returns the holder's
 // OperandId.
-template <SlotReadType MaybeCrossCompartment = SlotReadType::Normal>
+template <IsCrossCompartment MaybeCrossCompartment = IsCrossCompartment::No>
 static ObjOperandId EmitReadSlotGuard(CacheIRWriter& writer, NativeObject* obj,
                                       NativeObject* holder,
                                       ObjOperandId objId) {
@@ -813,7 +831,7 @@ static ObjOperandId EmitReadSlotGuard(CacheIRWriter& writer, NativeObject* obj,
     return objId;
   }
 
-  if (MaybeCrossCompartment == SlotReadType::CrossCompartment) {
+  if (MaybeCrossCompartment == IsCrossCompartment::Yes) {
     // Guard proto chain integrity.
     // We use a variant of guards that avoid baking in any cross-compartment
     // object pointers.
@@ -830,6 +848,7 @@ static ObjOperandId EmitReadSlotGuard(CacheIRWriter& writer, NativeObject* obj,
   return holderId;
 }
 
+template <IsCrossCompartment MaybeCrossCompartment = IsCrossCompartment::No>
 static void EmitMissingPropGuard(CacheIRWriter& writer, NativeObject* obj,
                                  ObjOperandId objId) {
   TestMatchingNativeReceiver(writer, obj, objId);
@@ -837,10 +856,10 @@ static void EmitMissingPropGuard(CacheIRWriter& writer, NativeObject* obj,
   // The property does not exist. Guard on everything in the prototype
   // chain. This is guaranteed to see only Native objects because of
   // CanAttachNativeGetProp().
-  ShapeGuardProtoChain(writer, obj, objId);
+  ShapeGuardProtoChain<MaybeCrossCompartment>(writer, obj, objId);
 }
 
-template <SlotReadType MaybeCrossCompartment = SlotReadType::Normal>
+template <IsCrossCompartment MaybeCrossCompartment = IsCrossCompartment::No>
 static void EmitReadSlotResult(CacheIRWriter& writer, NativeObject* obj,
                                NativeObject* holder, PropertyInfo prop,
                                ObjOperandId objId) {
@@ -853,9 +872,10 @@ static void EmitReadSlotResult(CacheIRWriter& writer, NativeObject* obj,
   EmitLoadSlotResult(writer, holderId, holder, prop);
 }
 
+template <IsCrossCompartment MaybeCrossCompartment = IsCrossCompartment::No>
 static void EmitMissingPropResult(CacheIRWriter& writer, NativeObject* obj,
                                   ObjOperandId objId) {
-  EmitMissingPropGuard(writer, obj, objId);
+  EmitMissingPropGuard<MaybeCrossCompartment>(writer, obj, objId);
   writer.loadUndefinedResult();
 }
 
@@ -1298,13 +1318,14 @@ AttachDecision GetPropIRGenerator::tryAttachCrossCompartmentWrapper(
 
   ObjOperandId unwrappedId = wrapperTargetId;
   if (holder) {
-    EmitReadSlotResult<SlotReadType::CrossCompartment>(
-        writer, unwrappedNative, holder, *prop, unwrappedId);
+    EmitReadSlotResult<IsCrossCompartment::Yes>(writer, unwrappedNative, holder,
+                                                *prop, unwrappedId);
     writer.wrapResult();
     writer.returnFromIC();
     trackAttached("CCWSlot");
   } else {
-    EmitMissingPropResult(writer, unwrappedNative, unwrappedId);
+    EmitMissingPropResult<IsCrossCompartment::Yes>(writer, unwrappedNative,
+                                                   unwrappedId);
     writer.returnFromIC();
     trackAttached("CCWMissing");
   }
@@ -6128,26 +6149,20 @@ AttachDecision InlinableNativeIRGenerator::tryAttachIsSuspendedGenerator() {
   return AttachDecision::Attach;
 }
 
-AttachDecision InlinableNativeIRGenerator::tryAttachToObject(
-    InlinableNative native) {
+AttachDecision InlinableNativeIRGenerator::tryAttachToObject() {
   // Self-hosted code calls this with a single argument.
-  MOZ_ASSERT_IF(native == InlinableNative::IntrinsicToObject, argc_ == 1);
+  MOZ_ASSERT(argc_ == 1);
 
   // Need a single object argument.
   // TODO(Warp): Support all or more conversions to object.
-  // Note: ToObject and Object differ in their behavior for undefined/null.
-  if (argc_ != 1 || !args_[0].isObject()) {
+  if (!args_[0].isObject()) {
     return AttachDecision::NoAction;
   }
 
   // Initialize the input operand.
   initializeInputOperand();
 
-  // Guard callee is the 'Object' function.
   // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
-  if (native == InlinableNative::Object) {
-    emitNativeCalleeGuard();
-  }
 
   // Guard that the argument is an object.
   ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
@@ -6157,12 +6172,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachToObject(
   writer.loadObjectResult(objId);
   writer.returnFromIC();
 
-  if (native == InlinableNative::IntrinsicToObject) {
-    trackAttached("ToObject");
-  } else {
-    MOZ_ASSERT(native == InlinableNative::Object);
-    trackAttached("Object");
-  }
+  trackAttached("ToObject");
   return AttachDecision::Attach;
 }
 
@@ -7615,6 +7625,18 @@ StringOperandId IRGenerator::emitToStringGuard(ValOperandId id,
                                                const Value& v) {
   if (v.isString()) {
     return writer.guardToString(id);
+  }
+  if (v.isBoolean()) {
+    BooleanOperandId boolId = writer.guardToBoolean(id);
+    return writer.booleanToString(boolId);
+  }
+  if (v.isNull()) {
+    writer.guardIsNull(id);
+    return writer.loadConstantString(cx_->names().null);
+  }
+  if (v.isUndefined()) {
+    writer.guardIsUndefined(id);
+    return writer.loadConstantString(cx_->names().undefined);
   }
   if (v.isInt32()) {
     Int32OperandId intId = writer.guardToInt32(id);
@@ -9197,6 +9219,75 @@ AttachDecision InlinableNativeIRGenerator::tryAttachObjectCreate() {
   return AttachDecision::Attach;
 }
 
+AttachDecision InlinableNativeIRGenerator::tryAttachObjectConstructor() {
+  // Expecting no arguments or a single object argument.
+  // TODO(Warp): Support all or more conversions to object.
+  if (argc_ > 1) {
+    return AttachDecision::NoAction;
+  }
+  if (argc_ == 1 && !args_[0].isObject()) {
+    return AttachDecision::NoAction;
+  }
+
+  PlainObject* templateObj = nullptr;
+  if (argc_ == 0) {
+    // Stub doesn't support metadata builder
+    if (cx_->realm()->hasAllocationMetadataBuilder()) {
+      return AttachDecision::NoAction;
+    }
+
+    // Create a temporary object to act as the template object.
+    templateObj = NewPlainObjectWithAllocKind(cx_, NewObjectGCKind());
+    if (!templateObj) {
+      cx_->recoverFromOutOfMemory();
+      return AttachDecision::NoAction;
+    }
+  }
+
+  // Initialize the input operand.
+  initializeInputOperand();
+
+  // Guard callee and newTarget (if constructing) are this Object constructor
+  // function.
+  emitNativeCalleeGuard();
+
+  if (argc_ == 0) {
+    // TODO: Support pre-tenuring.
+    gc::AllocSite* site = script()->zone()->unknownAllocSite();
+    MOZ_ASSERT(site);
+
+    uint32_t numFixedSlots = templateObj->numUsedFixedSlots();
+    uint32_t numDynamicSlots = templateObj->numDynamicSlots();
+    gc::AllocKind allocKind = templateObj->allocKindForTenure();
+    Shape* shape = templateObj->shape();
+
+    writer.guardNoAllocationMetadataBuilder(
+        cx_->realm()->addressOfMetadataBuilder());
+    writer.newPlainObjectResult(numFixedSlots, numDynamicSlots, allocKind,
+                                shape, site);
+  } else {
+    // Use standard call flags when this is an inline Function.prototype.call(),
+    // because GetIndexOfArgument() doesn't yet support |CallFlags::FunCall|.
+    CallFlags flags = flags_;
+    if (flags.getArgFormat() == CallFlags::FunCall) {
+      flags = CallFlags(CallFlags::Standard);
+    }
+
+    // Guard that the argument is an object.
+    ValOperandId argId =
+        writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_, flags);
+    ObjOperandId objId = writer.guardToObject(argId);
+
+    // Return the object.
+    writer.loadObjectResult(objId);
+  }
+
+  writer.returnFromIC();
+
+  trackAttached("ObjectConstructor");
+  return AttachDecision::Attach;
+}
+
 AttachDecision InlinableNativeIRGenerator::tryAttachArrayConstructor() {
   // Only optimize the |Array()| and |Array(n)| cases (with or without |new|)
   // for now. Note that self-hosted code calls this without |new| via std_Array.
@@ -9641,6 +9732,8 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
         return tryAttachTypedArrayConstructor();
       case InlinableNative::String:
         return tryAttachStringConstructor();
+      case InlinableNative::Object:
+        return tryAttachObjectConstructor();
       default:
         break;
     }
@@ -9746,7 +9839,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
     case InlinableNative::IntrinsicIsSuspendedGenerator:
       return tryAttachIsSuspendedGenerator();
     case InlinableNative::IntrinsicToObject:
-      return tryAttachToObject(native);
+      return tryAttachToObject();
     case InlinableNative::IntrinsicToInteger:
       return tryAttachToInteger();
     case InlinableNative::IntrinsicToLength:
@@ -9918,7 +10011,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
 
     // Object natives.
     case InlinableNative::Object:
-      return tryAttachToObject(native);
+      return tryAttachObjectConstructor();
     case InlinableNative::ObjectCreate:
       return tryAttachObjectCreate();
     case InlinableNative::ObjectIs:
@@ -11566,16 +11659,11 @@ AttachDecision BinaryArithIRGenerator::tryAttachStub() {
   // more specialized Int32 IC if it is possible.
   TRY_ATTACH(tryAttachDouble());
 
-  // String x String
+  // String x {String,Number,Boolean,Null,Undefined}
   TRY_ATTACH(tryAttachStringConcat());
 
   // String x Object
   TRY_ATTACH(tryAttachStringObjectConcat());
-
-  TRY_ATTACH(tryAttachStringNumberConcat());
-
-  // String + Boolean
-  TRY_ATTACH(tryAttachStringBooleanConcat());
 
   // Arithmetic operations or bitwise operations with BigInt operands
   TRY_ATTACH(tryAttachBigInt());
@@ -11753,14 +11841,20 @@ AttachDecision BinaryArithIRGenerator::tryAttachInt32() {
   return AttachDecision::Attach;
 }
 
-AttachDecision BinaryArithIRGenerator::tryAttachStringNumberConcat() {
+AttachDecision BinaryArithIRGenerator::tryAttachStringConcat() {
   // Only Addition
   if (op_ != JSOp::Add) {
     return AttachDecision::NoAction;
   }
 
-  if (!(lhs_.isString() && rhs_.isNumber()) &&
-      !(lhs_.isNumber() && rhs_.isString())) {
+  // One side must be a string, the other side a primitive value we can easily
+  // convert to a string.
+  auto canConvertToString = [](const Value& v) {
+    return v.isString() || v.isNumber() || v.isBoolean() ||
+           v.isNullOrUndefined();
+  };
+  if (!(lhs_.isString() && canConvertToString(rhs_)) &&
+      !(canConvertToString(lhs_) && rhs_.isString())) {
     return AttachDecision::NoAction;
   }
 
@@ -11769,63 +11863,6 @@ AttachDecision BinaryArithIRGenerator::tryAttachStringNumberConcat() {
 
   StringOperandId lhsStrId = emitToStringGuard(lhsId, lhs_);
   StringOperandId rhsStrId = emitToStringGuard(rhsId, rhs_);
-
-  writer.callStringConcatResult(lhsStrId, rhsStrId);
-
-  writer.returnFromIC();
-  trackAttached("BinaryArith.StringNumberConcat");
-  return AttachDecision::Attach;
-}
-
-AttachDecision BinaryArithIRGenerator::tryAttachStringBooleanConcat() {
-  // Only Addition
-  if (op_ != JSOp::Add) {
-    return AttachDecision::NoAction;
-  }
-
-  if ((!lhs_.isString() || !rhs_.isBoolean()) &&
-      (!lhs_.isBoolean() || !rhs_.isString())) {
-    return AttachDecision::NoAction;
-  }
-
-  ValOperandId lhsId(writer.setInputOperandId(0));
-  ValOperandId rhsId(writer.setInputOperandId(1));
-
-  auto guardToString = [&](ValOperandId id, const Value& v) {
-    if (v.isString()) {
-      return writer.guardToString(id);
-    }
-    MOZ_ASSERT(v.isBoolean());
-    BooleanOperandId boolId = writer.guardToBoolean(id);
-    return writer.booleanToString(boolId);
-  };
-
-  StringOperandId lhsStrId = guardToString(lhsId, lhs_);
-  StringOperandId rhsStrId = guardToString(rhsId, rhs_);
-
-  writer.callStringConcatResult(lhsStrId, rhsStrId);
-
-  writer.returnFromIC();
-  trackAttached("BinaryArith.StringBooleanConcat");
-  return AttachDecision::Attach;
-}
-
-AttachDecision BinaryArithIRGenerator::tryAttachStringConcat() {
-  // Only Addition
-  if (op_ != JSOp::Add) {
-    return AttachDecision::NoAction;
-  }
-
-  // Check guards
-  if (!lhs_.isString() || !rhs_.isString()) {
-    return AttachDecision::NoAction;
-  }
-
-  ValOperandId lhsId(writer.setInputOperandId(0));
-  ValOperandId rhsId(writer.setInputOperandId(1));
-
-  StringOperandId lhsStrId = writer.guardToString(lhsId);
-  StringOperandId rhsStrId = writer.guardToString(rhsId);
 
   writer.callStringConcatResult(lhsStrId, rhsStrId);
 

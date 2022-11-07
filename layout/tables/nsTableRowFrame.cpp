@@ -206,12 +206,12 @@ void nsTableRowFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
 }
 
 void nsTableRowFrame::AppendFrames(ChildListID aListID,
-                                   nsFrameList& aFrameList) {
+                                   nsFrameList&& aFrameList) {
   NS_ASSERTION(aListID == kPrincipalList, "unexpected child list");
 
   DrainSelfOverflowList();  // ensure the last frame is in mFrames
   const nsFrameList::Slice& newCells =
-      mFrames.AppendFrames(nullptr, aFrameList);
+      mFrames.AppendFrames(nullptr, std::move(aFrameList));
 
   // Add the new cell frames to the table
   nsTableFrame* tableFrame = GetTableFrame();
@@ -229,7 +229,7 @@ void nsTableRowFrame::AppendFrames(ChildListID aListID,
 
 void nsTableRowFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
                                    const nsLineList::iterator* aPrevFrameLine,
-                                   nsFrameList& aFrameList) {
+                                   nsFrameList&& aFrameList) {
   NS_ASSERTION(aListID == kPrincipalList, "unexpected child list");
   NS_ASSERTION(!aPrevFrame || aPrevFrame->GetParent() == this,
                "inserting after sibling frame with different parent");
@@ -237,14 +237,14 @@ void nsTableRowFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
     // This is actually an append (though our caller didn't figure that out),
     // and our append codepath is both simpler/faster _and_ less buggy.
     // https://bugzilla.mozilla.org/show_bug.cgi?id=1388898 tracks the bugginess
-    AppendFrames(aListID, aFrameList);
+    AppendFrames(aListID, std::move(aFrameList));
     return;
   }
 
   DrainSelfOverflowList();  // ensure aPrevFrame is in mFrames
   // Insert Frames in the frame list
   const nsFrameList::Slice& newCells =
-      mFrames.InsertFrames(nullptr, aPrevFrame, aFrameList);
+      mFrames.InsertFrames(nullptr, aPrevFrame, std::move(aFrameList));
 
   nsTableCellFrame* prevCellFrame =
       static_cast<nsTableCellFrame*>(nsTableFrame::GetFrameAtOrBefore(

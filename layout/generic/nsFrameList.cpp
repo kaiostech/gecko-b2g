@@ -52,13 +52,6 @@ void nsFrameList::DestroyFramesFrom(
   mLastChild = nullptr;
 }
 
-void nsFrameList::SetFrames(nsIFrame* aFrameList) {
-  MOZ_ASSERT(!mFirstChild, "Losing frames");
-
-  mFirstChild = aFrameList;
-  mLastChild = nsLayoutUtils::GetLastSibling(mFirstChild);
-}
-
 void nsFrameList::RemoveFrame(nsIFrame* aFrame) {
   MOZ_ASSERT(aFrame, "null ptr");
 #ifdef DEBUG_FRAME_LIST
@@ -120,7 +113,7 @@ void nsFrameList::DestroyFrame(nsIFrame* aFrame) {
 
 nsFrameList::Slice nsFrameList::InsertFrames(nsContainerFrame* aParent,
                                              nsIFrame* aPrevSibling,
-                                             nsFrameList& aFrameList) {
+                                             nsFrameList&& aFrameList) {
   MOZ_ASSERT(aFrameList.NotEmpty(), "Unexpected empty list");
 
   if (aParent) {

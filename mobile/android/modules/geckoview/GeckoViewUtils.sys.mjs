@@ -5,15 +5,16 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { Log } from "resource://gre/modules/Log.sys.mjs";
 
-const { clearTimeout, setTimeout } = ChromeUtils.importESModule(
-  "resource://gre/modules/Timer.sys.mjs"
-);
+import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  EventDispatcher: "resource://gre/modules/Messaging.sys.mjs",
+});
+
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AndroidLog: "resource://gre/modules/AndroidLog.jsm",
-  EventDispatcher: "resource://gre/modules/Messaging.jsm",
 });
 
 /**
@@ -374,7 +375,7 @@ export var GeckoViewUtils = {
 
   /**
    * Add logging functions to the specified scope that forward to the given
-   * Log.jsm logger. Currently "debug" and "warn" functions are supported. To
+   * Log.sys.mjs logger. Currently "debug" and "warn" functions are supported. To
    * log something, call the function through a template literal:
    *
    *   function foo(bar, baz) {

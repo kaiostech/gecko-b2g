@@ -71,8 +71,15 @@ class VendorPython(MozbuildObject):
                 _purge_vendor_dir(vendor_dir)
                 self._extract(tmp, vendor_dir, keep_extra_files)
 
-            shutil.copy(lockfiles.pip_lockfile, str(vendor_dir / "requirements.txt"))
-            shutil.copy(lockfiles.poetry_lockfile, str(poetry_lockfile))
+            requirements_out = vendor_dir / "requirements.txt"
+
+            # since requirements.out and poetry.lockfile are both outputs from
+            # third party code, they may contain carriage returns on Windows. We
+            # should strip the carriage returns to maintain consistency in our output
+            # regardless of which platform is doing the vendoring. We can do this and
+            # the copying at the same time to minimize reads and writes.
+            _copy_file_strip_carriage_return(lockfiles.pip_lockfile, requirements_out)
+            _copy_file_strip_carriage_return(lockfiles.poetry_lockfile, poetry_lockfile)
             self.repository.add_remove_files(vendor_dir)
 
     def _extract(self, src, dest, keep_extra_files=False):
@@ -121,7 +128,7 @@ class VendorPython(MozbuildObject):
 
 def _sort_requirements_in(requirements_in: Path):
     requirements = {}
-    with open(requirements_in) as f:
+    with requirements_in.open(mode="r", newline="\n") as f:
         comments = []
         for line in f.readlines():
             line = line.strip()
@@ -132,7 +139,7 @@ def _sort_requirements_in(requirements_in: Path):
             requirements[name] = version, comments
             comments = []
 
-    with open(requirements_in, "w") as f:
+    with requirements_in.open(mode="w", newline="\n") as f:
         for name, (version, comments) in sorted(requirements.items()):
             if comments:
                 f.write("{}\n".format("\n".join(comments)))
@@ -140,20 +147,27 @@ def _sort_requirements_in(requirements_in: Path):
 
 
 def remove_environment_markers_from_requirements_txt(requirements_txt: Path):
-    with open(requirements_txt) as f:
+    with requirements_txt.open(mode="r", newline="\n") as f:
         lines = f.readlines()
     markerless_lines = []
+    continuation_token = " \\"
     for line in lines:
-        if not line.startswith(" ") and not line.startswith("#"):
+        line = line.rstrip()
+
+        if not line.startswith(" ") and not line.startswith("#") and ";" in line:
+            has_continuation_token = line.endswith(continuation_token)
             # The first line of each requirement looks something like:
             #   package-name==X.Y; python_version>=3.7
-            # We can scrub the environment marker by splitting on the
-            # semicolon
-            markerless_lines.append(line.split(";")[0])
+            # We can scrub the environment marker by splitting on the semicolon
+            line = line.split(";")[0]
+            if has_continuation_token:
+                line += continuation_token
+            markerless_lines.append(line)
         else:
             markerless_lines.append(line)
-    with open(requirements_txt, "w") as f:
-        f.writelines(markerless_lines)
+
+    with requirements_txt.open(mode="w", newline="\n") as f:
+        f.write("\n".join(markerless_lines))
 
 
 def _purge_vendor_dir(vendor_dir):
@@ -163,9 +177,8 @@ def _purge_vendor_dir(vendor_dir):
         "dlmanager",
         # gyp's package on PyPI doesn't have any downloadable files.
         "gyp",
-        # We manage installing "virtualenv" package manually, and we have a custom
-        # "virtualenv.py" entry module.
-        "virtualenv",
+        # We keep some wheels vendored in "_venv" for use in Mozharness
+        "_venv",
         # We manage vendoring "vsdownload" with a moz.yaml file (there is no module
         # on PyPI).
         "vsdownload",
@@ -188,3 +201,7 @@ def _denormalize_symlinks(target):
             link_target = os.path.realpath(f.path)
             os.unlink(f.path)
             shutil.copyfile(link_target, f.path)
+
+
+def _copy_file_strip_carriage_return(file_src: Path, file_dst):
+    shutil.copyfileobj(file_src.open(mode="r"), file_dst.open(mode="w", newline="\n"))

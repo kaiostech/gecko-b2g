@@ -10,8 +10,8 @@ let { RemoteSettings } = ChromeUtils.import(
 let { _AboutLogins } = ChromeUtils.import(
   "resource:///actors/AboutLoginsParent.jsm"
 );
-let { OSKeyStoreTestUtils } = ChromeUtils.import(
-  "resource://testing-common/OSKeyStoreTestUtils.jsm"
+let { OSKeyStoreTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/OSKeyStoreTestUtils.sys.mjs"
 );
 var { LoginTestUtils } = ChromeUtils.import(
   "resource://testing-common/LoginTestUtils.jsm"
@@ -103,7 +103,7 @@ add_setup(async function setup_head() {
     }
 
     if (msg.errorMessage.includes('Unknown event: ["jsonfile", "load"')) {
-      // Ignore telemetry errors from JSONFile.jsm.
+      // Ignore telemetry errors from JSONFile.sys.mjs.
       return;
     }
 

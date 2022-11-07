@@ -38,8 +38,8 @@
 // NOTE: Allowing rejections on an entire directory should be avoided.
 //       Normally you should use "expectUncaughtRejection" to flag individual
 //       failures.
-const { PromiseTestUtils } = ChromeUtils.import(
-  "resource://testing-common/PromiseTestUtils.jsm"
+const { PromiseTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/PromiseTestUtils.sys.mjs"
 );
 PromiseTestUtils.allowMatchingRejectionsGlobally(
   /Message manager disconnected/
@@ -364,7 +364,7 @@ async function triggerBrowserActionWithKeyboard(
   await showBrowserAction(extension, win);
 
   let group = getBrowserActionWidget(extension);
-  let node = group.forWindow(win).node;
+  let node = group.forWindow(win).node.firstElementChild;
 
   if (group.areaType == CustomizableUI.TYPE_TOOLBAR) {
     await focusButtonAndPressKey(key, node, modifiers);
@@ -411,11 +411,14 @@ async function toggleBookmarksToolbar(visible = true) {
   );
 }
 
-async function openContextMenuInPopup(extension, selector = "body") {
-  let contentAreaContextMenu = document.getElementById(
-    "contentAreaContextMenu"
-  );
-  let browser = await awaitExtensionPanel(extension);
+async function openContextMenuInPopup(
+  extension,
+  selector = "body",
+  win = window
+) {
+  let doc = win.document;
+  let contentAreaContextMenu = doc.getElementById("contentAreaContextMenu");
+  let browser = await awaitExtensionPanel(extension, win);
 
   // Ensure that the document layout has been flushed before triggering the mouse event
   // (See Bug 1519808 for a rationale).
@@ -513,9 +516,10 @@ async function openContextMenu(selector = "#img1", win = window) {
   return contentAreaContextMenu;
 }
 
-async function closeContextMenu(contextMenu) {
+async function closeContextMenu(contextMenu, win = window) {
+  let doc = win.document;
   let contentAreaContextMenu =
-    contextMenu || document.getElementById("contentAreaContextMenu");
+    contextMenu || doc.getElementById("contentAreaContextMenu");
   let popupHiddenPromise = BrowserTestUtils.waitForEvent(
     contentAreaContextMenu,
     "popuphidden"

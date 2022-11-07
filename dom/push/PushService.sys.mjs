@@ -4,9 +4,7 @@
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
-const { clearTimeout, setTimeout } = ChromeUtils.importESModule(
-  "resource://gre/modules/Timer.sys.mjs"
-);
+import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 export var PushServiceWebSocket;
@@ -30,7 +28,6 @@ XPCOMUtils.defineLazyServiceGetter(
 
 ChromeUtils.defineESModuleGetters(lazy, {
   PushCrypto: "resource://gre/modules/PushCrypto.sys.mjs",
-  PushServiceAndroidGCM: "resource://gre/modules/PushServiceAndroidGCM.sys.mjs",
   pushBroadcastService: "resource://gre/modules/PushBroadcastService.sys.mjs",
 });
 
@@ -44,7 +41,7 @@ const CONNECTION_PROTOCOLS = (function() {
     ));
     return [PushServiceWebSocket, PushServiceHttp2];
   }
-  return [lazy.PushServiceAndroidGCM];
+  return [];
 })();
 
 XPCOMUtils.defineLazyGetter(lazy, "console", () => {

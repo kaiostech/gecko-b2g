@@ -134,7 +134,7 @@ add_task(async function test_should_fire_on_addon_update() {
     useAddonManager: "permanent",
     manifest: {
       version: "1.0",
-      applications: {
+      browser_specific_settings: {
         gecko: {
           id: EXTENSION_ID,
           update_url: `http://localhost:${port}/test_update.json`,
@@ -162,7 +162,7 @@ add_task(async function test_should_fire_on_addon_update() {
   let webExtensionFile = createTempWebExtensionFile({
     manifest: {
       version: "2.0",
-      applications: {
+      browser_specific_settings: {
         gecko: {
           id: EXTENSION_ID,
         },
@@ -228,7 +228,7 @@ add_task(async function test_should_fire_on_browser_update() {
     useAddonManager: "permanent",
     manifest: {
       version: "1.0",
-      applications: {
+      browser_specific_settings: {
         gecko: {
           id: EXTENSION_ID,
         },
@@ -300,7 +300,7 @@ add_task(async function test_should_not_fire_on_reload() {
     useAddonManager: "permanent",
     manifest: {
       version: "1.0",
-      applications: {
+      browser_specific_settings: {
         gecko: {
           id: EXTENSION_ID,
         },
@@ -340,7 +340,7 @@ add_task(async function test_should_not_fire_on_restart() {
     useAddonManager: "permanent",
     manifest: {
       version: "1.0",
-      applications: {
+      browser_specific_settings: {
         gecko: {
           id: EXTENSION_ID,
         },
@@ -382,7 +382,7 @@ add_task(async function test_temporary_installation() {
     useAddonManager: "temporary",
     manifest: {
       version: "1.0",
-      applications: {
+      browser_specific_settings: {
         gecko: {
           id: EXTENSION_ID,
         },
@@ -417,7 +417,7 @@ add_task(
       useAddonManager: "permanent",
       manifest: {
         version: "1.0",
-        applications: {
+        browser_specific_settings: {
           gecko: {
             id: EXTENSION_ID,
           },
@@ -512,6 +512,85 @@ add_task(
     await expectEvents(extension, {
       onStartupFired: false,
       onInstalledFired: false,
+    });
+
+    await extension.unload();
+    await promiseShutdownManager();
+  }
+);
+
+// Verify we don't regress the issue related to runtime.onStartup persistent
+// listener being cleared from the startup data as part of priming all listeners
+// while terminating the event page on idle timeout (Bug 1796586).
+add_task(
+  {
+    pref_set: [["extensions.eventPages.enabled", true]],
+  },
+  async function test_runtime_onStartup_eventpage() {
+    const EXTENSION_ID = "test_eventpage_onStartup@tests.mozilla.org";
+
+    await promiseStartupManager();
+
+    let extension = ExtensionTestUtils.loadExtension({
+      useAddonManager: "permanent",
+      manifest: {
+        version: "1.0",
+        browser_specific_settings: {
+          gecko: {
+            id: EXTENSION_ID,
+          },
+        },
+        permissions: ["browserSettings"],
+        background: {
+          persistent: false,
+        },
+      },
+      background,
+    });
+
+    await extension.startup();
+
+    await expectEvents(extension, {
+      onStartupFired: false,
+      onInstalledFired: true,
+      onInstalledReason: "install",
+      onInstalledTemporary: false,
+    });
+
+    info("Simulated idle timeout");
+    extension.terminateBackground();
+    await extension.awaitMessage("suspended");
+    await promiseExtensionEvent(extension, "shutdown-background-script");
+
+    // onStartup remains persisted, but not primed
+    assertPersistentListeners(extension, "runtime", "onStartup", {
+      primed: false,
+      persisted: true,
+    });
+
+    info(`test onStartup filed after restart`);
+    await promiseRestartManager();
+
+    // onStartup is a bit special.  During APP_STARTUP we do not
+    // prime this, we just start since it needs to.
+    assertPersistentListeners(extension, "runtime", "onStartup", {
+      primed: false,
+      persisted: true,
+    });
+    await extension.awaitBackgroundStarted();
+
+    info("test expectEvents");
+    await expectEvents(extension, {
+      onStartupFired: true,
+      onInstalledFired: false,
+    });
+
+    extension.terminateBackground();
+    await extension.awaitMessage("suspended");
+    await promiseExtensionEvent(extension, "shutdown-background-script");
+    assertPersistentListeners(extension, "runtime", "onStartup", {
+      primed: false,
+      persisted: true,
     });
 
     await extension.unload();

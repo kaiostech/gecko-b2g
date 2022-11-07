@@ -4,6 +4,7 @@
 
 from __future__ import print_function, absolute_import
 
+import json
 import logging
 import os
 import pathlib
@@ -74,8 +75,11 @@ excluded_from_imports_prefix = list(
             "devtools/client/debugger/src/workers/parser/tests/fixtures/",
             "devtools/client/debugger/test/mochitest/examples/sourcemapped/fixtures/",
             "devtools/client/webconsole/test/browser/test-syntaxerror-worklet.js",
+            "devtools/server/tests/xpcshell/test_framebindings-03.js",
+            "devtools/server/tests/xpcshell/test_framebindings-04.js",
             "devtools/shared/tests/xpcshell/test_eventemitter_basic.js",
             "devtools/shared/tests/xpcshell/test_eventemitter_static.js",
+            "dom/base/crashtests/module-with-syntax-error.js",
             "dom/base/test/file_bug687859-16.js",
             "dom/base/test/file_bug687859-16.js",
             "dom/base/test/file_js_cache_syntax_error.js",
@@ -83,6 +87,8 @@ excluded_from_imports_prefix = list(
             "dom/canvas/test/reftest/webgl-utils.js",
             "dom/encoding/test/file_utf16_be_bom.js",
             "dom/encoding/test/file_utf16_le_bom.js",
+            "dom/html/test/bug649134/file_bug649134-1.sjs",
+            "dom/html/test/bug649134/file_bug649134-2.sjs",
             "dom/media/webrtc/tests/mochitests/identity/idp-bad.js",
             "dom/serviceworkers/test/file_js_cache_syntax_error.js",
             "dom/serviceworkers/test/parse_error_worker.js",
@@ -92,7 +98,9 @@ excluded_from_imports_prefix = list(
             "dom/xhr/tests/browser_blobFromFile.js",
             "image/test/browser/browser_image.js",
             "js/xpconnect/tests/chrome/test_bug732665_meta.js",
+            "js/xpconnect/tests/mochitest/class_static_worker.js",
             "js/xpconnect/tests/unit/bug451678_subscript.js",
+            "js/xpconnect/tests/unit/es6module_parse_error.js",
             "js/xpconnect/tests/unit/recursive_importA.jsm",
             "js/xpconnect/tests/unit/recursive_importB.jsm",
             "js/xpconnect/tests/unit/syntax_error.jsm",
@@ -103,9 +111,10 @@ excluded_from_imports_prefix = list(
             "js/xpconnect/tests/unit/test_unload.js",
             "modules/libpref/test/unit/data/testParser.js",
             "python/mozbuild/mozbuild/test/",
-            "remote/shared/messagehandler/test/browser/resources/modules/root/invalid.jsm",
+            "remote/shared/messagehandler/test/browser/resources/modules/root/invalid.sys.mjs",
             "testing/talos/talos/startup_test/sessionrestore/profile-manywindows/sessionstore.js",
             "testing/talos/talos/startup_test/sessionrestore/profile/sessionstore.js",
+            "toolkit/components/reader/Readerable.jsm",
             "toolkit/components/workerloader/tests/moduleF-syntax-error.js",
             "tools/lint/test/",
             "tools/update-packaging/test/",
@@ -115,6 +124,7 @@ excluded_from_imports_prefix = list(
             # Files has macro.
             "browser/app/profile/firefox.js",
             "browser/branding/official/pref/firefox-branding.js",
+            "browser/components/enterprisepolicies/schemas/schema.jsm",
             "browser/locales/en-US/firefox-l10n.js",
             "mobile/android/app/geckoview-prefs.js",
             "mobile/android/app/mobile.js",
@@ -123,7 +133,10 @@ excluded_from_imports_prefix = list(
             "modules/libpref/init/all.js",
             "testing/condprofile/condprof/tests/profile/user.js",
             "testing/mozbase/mozprofile/tests/files/prefs_with_comments.js",
+            "toolkit/modules/AppConstants.sys.mjs",
             "toolkit/mozapps/update/tests/data/xpcshellConstantsPP.js",
+            # Uniffi templates
+            "toolkit/components/uniffi-bindgen-gecko-js/src/templates/js/",
         ],
     )
 )
@@ -198,21 +211,12 @@ class HgUtils(VCSUtils):
     def find_all_jss(self, path):
         jss = []
 
-        cmd = ["hg", "files", f'set:glob:"{path}/**/*.jsm"']
-        for line in self.run(cmd):
-            js = pathlib.Path(line)
-            if is_excluded_from_imports(js):
-                continue
-            jss.append(js)
-
-        cmd = ["hg", "files", f'set:glob:"{path}/**/*.js"']
-        for line in self.run(cmd):
-            js = pathlib.Path(line)
-            if is_excluded_from_imports(js):
-                continue
-            jss.append(js)
-
-        cmd = ["hg", "files", f'set:glob:"{path}/**/*.sys.mjs"']
+        cmd = [
+            "hg",
+            "files",
+            f'set:glob:"{path}/**/*.jsm" or glob:"{path}/**/*.js" or '
+            + f'glob:"{path}/**/*.mjs" or glob:"{path}/**/*.sjs"',
+        ]
         for line in self.run(cmd):
             js = pathlib.Path(line)
             if is_excluded_from_imports(js):
@@ -260,21 +264,14 @@ class GitUtils(VCSUtils):
     def find_all_jss(self, path):
         jss = []
 
-        cmd = ["git", "ls-files", f"{path}/*.jsm"]
-        for line in self.run(cmd):
-            js = pathlib.Path(line)
-            if is_excluded_from_imports(js):
-                continue
-            jss.append(js)
-
-        cmd = ["git", "ls-files", f"{path}/*.js"]
-        for line in self.run(cmd):
-            js = pathlib.Path(line)
-            if is_excluded_from_imports(js):
-                continue
-            jss.append(js)
-
-        cmd = ["git", "ls-files", f"{path}/*.mjs"]
+        cmd = [
+            "git",
+            "ls-files",
+            f"{path}/*.jsm",
+            f"{path}/*.js",
+            f"{path}/*.mjs",
+            f"{path}/*.sjs",
+        ]
         for line in self.run(cmd):
             js = pathlib.Path(line)
             if is_excluded_from_imports(js):
@@ -544,6 +541,31 @@ def try_rename_in(command_context, path, target, jsm_name, esm_name, jsm_path):
     return True
 
 
+def try_rename_uri_in(command_context, target, jsm_name, esm_name, jsm_uri, esm_uri):
+    """Replace the occurrences of `jsm_uri` with `esm_uri` in `target` file."""
+
+    def info(text):
+        command_context.log(logging.INFO, "esmify", {}, f"[INFO] {text}")
+
+    modified = False
+    content = ""
+    with open(target, "r") as f:
+        for line in f:
+            if jsm_uri in line:
+                modified = True
+                line = line.replace(jsm_uri, esm_uri)
+
+            content += line
+
+    if modified:
+        info(f"  {str(target)}")
+        info(f"    {jsm_name} => {esm_name}")
+        with open(target, "w", newline="\n") as f:
+            f.write(content)
+
+    return True
+
+
 def try_rename_components_conf(command_context, path, jsm_name, esm_name):
     """Replace the occurrences of `jsm_name` with `esm_name` in components.conf
     file."""
@@ -590,6 +612,44 @@ def esmify_path(jsm_path):
     return esm_path
 
 
+path_to_uri_map = None
+
+
+def load_path_to_uri_map():
+    global path_to_uri_map
+
+    if path_to_uri_map:
+        return
+
+    if "ESMIFY_MAP_JSON" in os.environ:
+        json_map = pathlib.Path(os.environ["ESMIFY_MAP_JSON"])
+    else:
+        json_map = pathlib.Path(__file__).parent / "map.json"
+
+    with open(json_map, "r") as f:
+        uri_to_path_map = json.loads(f.read())
+
+    path_to_uri_map = dict()
+
+    for uri, paths in uri_to_path_map.items():
+        if type(paths) is str:
+            paths = [paths]
+
+        for path in paths:
+            path_to_uri_map[path] = uri
+
+
+def find_jsm_uri(jsm_path):
+    load_path_to_uri_map()
+
+    path = path_sep_from_native(jsm_path)
+
+    if path in path_to_uri_map:
+        return path_to_uri_map[path]
+
+    return None
+
+
 def rename_single_file(command_context, vcs_utils, jsm_path, summary):
     """Rename `jsm_path` to .sys.mjs, and fix references to the file in build
     and test definitions."""
@@ -629,6 +689,46 @@ def rename_single_file(command_context, vcs_utils, jsm_path, summary):
 
     if try_rename_components_conf(command_context, jsm_path, jsm_name, esm_name):
         renamed = True
+
+    uri_target_files = [
+        pathlib.Path(
+            "browser", "base", "content", "test", "performance", "browser_startup.js"
+        ),
+        pathlib.Path(
+            "browser",
+            "base",
+            "content",
+            "test",
+            "performance",
+            "browser_startup_content.js",
+        ),
+        pathlib.Path(
+            "browser",
+            "base",
+            "content",
+            "test",
+            "performance",
+            "browser_startup_content_subframe.js",
+        ),
+        pathlib.Path(
+            "toolkit",
+            "components",
+            "backgroundtasks",
+            "tests",
+            "browser",
+            "browser_xpcom_graph_wait.js",
+        ),
+    ]
+
+    jsm_uri = find_jsm_uri(jsm_path)
+    if jsm_uri:
+        esm_uri = re.sub(r"\.(jsm|js|jsm\.js)$", ".sys.mjs", jsm_uri)
+
+        for target in uri_target_files:
+            if try_rename_uri_in(
+                command_context, target, jsm_uri, esm_uri, jsm_name, esm_name
+            ):
+                renamed = True
 
     if not renamed:
         summary.no_refs.append([jsm_path, None])

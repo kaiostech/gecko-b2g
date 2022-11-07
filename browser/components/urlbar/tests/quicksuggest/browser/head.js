@@ -12,9 +12,11 @@ Services.scriptloader.loadSubScript(
 );
 
 ChromeUtils.defineESModuleGetters(this, {
+  QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
+  QuickSuggestRemoteSettingsClient:
+    "resource:///modules/QuickSuggestRemoteSettingsClient.sys.mjs",
   UrlbarProviderQuickSuggest:
     "resource:///modules/UrlbarProviderQuickSuggest.sys.mjs",
-  UrlbarQuickSuggest: "resource:///modules/UrlbarQuickSuggest.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(this, {
@@ -22,12 +24,17 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 });
 
 XPCOMUtils.defineLazyGetter(this, "QuickSuggestTestUtils", () => {
-  const { QuickSuggestTestUtils: module } = ChromeUtils.importESModule(
+  const { QuickSuggestTestUtils: Utils } = ChromeUtils.importESModule(
     "resource://testing-common/QuickSuggestTestUtils.sys.mjs"
   );
-  module.init(this);
-  registerCleanupFunction(() => module.uninit());
-  return module;
+  return new Utils(this);
+});
+
+XPCOMUtils.defineLazyGetter(this, "MerinoTestUtils", () => {
+  const { MerinoTestUtils: Utils } = ChromeUtils.importESModule(
+    "resource://testing-common/MerinoTestUtils.sys.mjs"
+  );
+  return new Utils(this);
 });
 
 registerCleanupFunction(async () => {
@@ -35,6 +42,3 @@ registerCleanupFunction(async () => {
   // interfering with the next test.
   await UrlbarTestUtils.promisePopupClose(window);
 });
-
-const ONBOARDING_URI =
-  "chrome://browser/content/urlbar/quicksuggestOnboarding.html";

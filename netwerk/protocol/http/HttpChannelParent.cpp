@@ -1169,6 +1169,11 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
     responseHead = &cleanedUpResponseHead;
   }
 
+  if (chan && chan->ChannelBlockedByOpaqueResponse() &&
+      chan->CachedOpaqueResponseBlockingPref()) {
+    responseHead->ClearHeaders();
+  }
+
   chan->GetIsResolvedByTRR(&args.isResolvedByTRR());
   chan->GetAllRedirectsSameOrigin(&args.allRedirectsSameOrigin());
   chan->GetCrossOriginOpenerPolicy(&args.openerPolicy());
@@ -1231,14 +1236,16 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
 
   if (!args.timing().domainLookupEnd().IsNull() &&
       !args.timing().connectStart().IsNull()) {
-    nsCString protocolVersion;
+    nsAutoCString protocolVersion;
     mChannel->GetProtocolVersion(protocolVersion);
     uint32_t classOfServiceFlags = 0;
     mChannel->GetClassFlags(&classOfServiceFlags);
+    nsAutoCString cosString;
+    ClassOfService::ToString(classOfServiceFlags, cosString);
+    nsAutoCString key(
+        nsPrintfCString("%s_%s", protocolVersion.get(), cosString.get()));
     Telemetry::AccumulateTimeDelta(
-        Telemetry::NETWORK_DNS_END_TO_CONNECT_START_EXP_MS,
-        protocolVersion + "_"_ns +
-            ClassOfService::ToString(classOfServiceFlags),
+        Telemetry::NETWORK_DNS_END_TO_CONNECT_START_EXP_MS, key,
         args.timing().domainLookupEnd(), args.timing().connectStart());
   }
 
@@ -1678,8 +1685,11 @@ HttpChannelParent::StartRedirect(nsIChannel* newChannel, uint32_t redirectFlags,
     // We only want to hide the special internal redirect from nsHttpChannel
     // to InterceptedHttpChannel.  We want to allow through internal redirects
     // initiated from the InterceptedHttpChannel even if they are to another
-    // InterceptedHttpChannel.
-    if (!oldIntercepted && newIntercepted) {
+    // InterceptedHttpChannel, except the interception reset, since
+    // corresponding HttpChannelChild/Parent objects can be reused for reset
+    // case.
+    if ((!oldIntercepted && newIntercepted) ||
+        (oldIntercepted && !newIntercepted && oldIntercepted->IsReset())) {
       // We need to move across the reserved and initial client information
       // to the new channel.  Normally this would be handled by the child
       // ClientChannelHelper, but that is not notified of this redirect since
@@ -1699,15 +1709,22 @@ HttpChannelParent::StartRedirect(nsIChannel* newChannel, uint32_t redirectFlags,
         newLoadInfo->SetInitialClientInfo(initialClientInfo.ref());
       }
 
-      // Re-link the HttpChannelParent to the new InterceptedHttpChannel.
+      // If this is ServiceWorker fallback redirect, info HttpChannelChild to
+      // detach StreamFilters. Otherwise StreamFilters will be attached twice
+      // on the same HttpChannelChild when opening the new nsHttpChannel.
+      if (oldIntercepted) {
+        Unused << DetachStreamFilters();
+      }
+
+      // Re-link the HttpChannelParent to the new channel.
       nsCOMPtr<nsIChannel> linkedChannel;
       rv = NS_LinkRedirectChannels(mRedirectChannelId, this,
                                    getter_AddRefs(linkedChannel));
       NS_ENSURE_SUCCESS(rv, rv);
       MOZ_ASSERT(linkedChannel == newChannel);
 
-      // We immediately store the InterceptedHttpChannel as our nested
-      // mChannel.  None of the redirect IPC messaging takes place.
+      // We immediately store the channel as our nested mChannel.
+      // None of the redirect IPC messaging takes place.
       mChannel = do_QueryObject(newChannel);
 
       callback->OnRedirectVerifyCallback(NS_OK);
@@ -2000,6 +2017,20 @@ auto HttpChannelParent::AttachStreamFilter(
   return InvokeAsync(mBgParent->GetBackgroundTarget(), mBgParent.get(),
                      __func__, &HttpBackgroundChannelParent::AttachStreamFilter,
                      std::move(aParentEndpoint), std::move(aChildEndpoint));
+}
+
+auto HttpChannelParent::DetachStreamFilters() -> RefPtr<GenericPromise> {
+  LOG(("HttpChannelParent::DeattachStreamFilter [this=%p]", this));
+  MOZ_ASSERT(!mAfterOnStartRequestBegun);
+
+  if (NS_WARN_IF(mIPCClosed)) {
+    return GenericPromise::CreateAndReject(NS_ERROR_FAILURE, __func__);
+  }
+
+  MOZ_ASSERT(mBgParent);
+  return InvokeAsync(mBgParent->GetBackgroundTarget(), mBgParent.get(),
+                     __func__,
+                     &HttpBackgroundChannelParent::DetachStreamFilters);
 }
 
 void HttpChannelParent::SetCookie(nsCString&& aCookie) {

@@ -14,8 +14,8 @@ const { TestUtils } = ChromeUtils.import(
   "resource://testing-common/TestUtils.jsm"
 );
 
-XPCOMUtils.defineLazyModuleGetters(this, {
-  RegionTestUtils: "resource://testing-common/RegionTestUtils.jsm",
+ChromeUtils.defineESModuleGetters(this, {
+  RegionTestUtils: "resource://testing-common/RegionTestUtils.sys.mjs",
 });
 
 const INTERVAL_PREF = "browser.region.update.interval";
@@ -27,7 +27,7 @@ const histogram = Services.telemetry.getHistogramById(
   "SEARCH_SERVICE_COUNTRY_FETCH_RESULT"
 );
 
-// Region.jsm will call init() on startup and sent a background
+// Region.sys.mjs will call init() on startup and sent a background
 // task to fetch the region, ensure we have completed this before
 // running the rest of the tests.
 add_task(async function test_startup() {

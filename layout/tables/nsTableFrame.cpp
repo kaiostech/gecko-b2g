@@ -300,9 +300,9 @@ void nsTableFrame::UnregisterPositionedTablePart(nsIFrame* aFrame,
 // XXX this needs to be cleaned up so that the frame constructor breaks out col
 // group frames into a separate child list, bug 343048.
 void nsTableFrame::SetInitialChildList(ChildListID aListID,
-                                       nsFrameList& aChildList) {
+                                       nsFrameList&& aChildList) {
   if (aListID != kPrincipalList) {
-    nsContainerFrame::SetInitialChildList(aListID, aChildList);
+    nsContainerFrame::SetInitialChildList(aListID, std::move(aChildList));
     return;
   }
 
@@ -697,7 +697,7 @@ void nsTableFrame::AppendAnonymousColFrames(
   nsFrameList& cols = aColGroupFrame->GetWritableChildList();
   nsIFrame* oldLastCol = cols.LastChild();
   const nsFrameList::Slice& newCols =
-      cols.InsertFrames(nullptr, oldLastCol, newColFrames);
+      cols.InsertFrames(nullptr, oldLastCol, std::move(newColFrames));
   if (aAddToTable) {
     // get the starting col index in the cache
     int32_t startColIndex;
@@ -1998,7 +1998,8 @@ void nsTableFrame::PushChildren(const RowGroupArray& aRowGroups,
     // When pushing and pulling frames we need to check for whether any
     // views need to be reparented.
     ReparentFrameViewList(frames, this, nextInFlow);
-    nextInFlow->mFrames.InsertFrames(nextInFlow, prevSibling, frames);
+    nextInFlow->mFrames.InsertFrames(nextInFlow, prevSibling,
+                                     std::move(frames));
   } else {
     // Add the frames to our overflow list.
     SetOverflowFrames(std::move(frames));
@@ -2097,7 +2098,7 @@ void nsTableFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
   }
 }
 
-void nsTableFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList) {
+void nsTableFrame::AppendFrames(ChildListID aListID, nsFrameList&& aFrameList) {
   NS_ASSERTION(aListID == kPrincipalList || aListID == kColGroupList,
                "unexpected child list");
 
@@ -2116,7 +2117,7 @@ void nsTableFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList) {
       if (MOZ_UNLIKELY(GetPrevInFlow())) {
         nsFrameList colgroupFrame(f, f);
         auto firstInFlow = static_cast<nsTableFrame*>(FirstInFlow());
-        firstInFlow->AppendFrames(aListID, colgroupFrame);
+        firstInFlow->AppendFrames(aListID, std::move(colgroupFrame));
         continue;
       }
       nsTableColGroupFrame* lastColGroup =
@@ -2155,7 +2156,7 @@ void nsTableFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList) {
 
 void nsTableFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
                                 const nsLineList::iterator* aPrevFrameLine,
-                                nsFrameList& aFrameList) {
+                                nsFrameList&& aFrameList) {
   // The frames in aFrameList can be a mix of row group frames and col group
   // frames. The problem is that they should go in separate child lists so
   // we need to deal with that here...
@@ -2168,7 +2169,7 @@ void nsTableFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
   if ((aPrevFrame && !aPrevFrame->GetNextSibling()) ||
       (!aPrevFrame && GetChildList(aListID).IsEmpty())) {
     // Treat this like an append; still a workaround for bug 343048.
-    AppendFrames(aListID, aFrameList);
+    AppendFrames(aListID, std::move(aFrameList));
     return;
   }
 
@@ -2182,9 +2183,9 @@ void nsTableFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
       return aFrame->StyleDisplay()->mDisplay != display;
     });
     if (display == mozilla::StyleDisplay::TableColumnGroup) {
-      colGroupList.AppendFrames(nullptr, head);
+      colGroupList.AppendFrames(nullptr, std::move(head));
     } else {
-      principalList.AppendFrames(nullptr, head);
+      principalList.AppendFrames(nullptr, std::move(head));
     }
   } while (aFrameList.NotEmpty());
 
@@ -2218,7 +2219,7 @@ void nsTableFrame::HomogenousInsertFrames(ChildListID aListID,
 #endif
   if (MOZ_UNLIKELY(isColGroup && GetPrevInFlow())) {
     auto firstInFlow = static_cast<nsTableFrame*>(FirstInFlow());
-    firstInFlow->AppendFrames(aListID, aFrameList);
+    firstInFlow->AppendFrames(aListID, std::move(aFrameList));
     return;
   }
   if (aPrevFrame) {
@@ -2282,7 +2283,7 @@ void nsTableFrame::HomogenousInsertFrames(ChildListID aListID,
     NS_ASSERTION(aListID == kColGroupList, "unexpected child list");
     // Insert the column group frames
     const nsFrameList::Slice& newColgroups =
-        mColGroups.InsertFrames(this, aPrevFrame, aFrameList);
+        mColGroups.InsertFrames(this, aPrevFrame, std::move(aFrameList));
     // find the starting col index for the first new col group
     int32_t startColIndex = 0;
     if (aPrevFrame) {
@@ -2300,14 +2301,14 @@ void nsTableFrame::HomogenousInsertFrames(ChildListID aListID,
     DrainSelfOverflowList();  // ensure aPrevFrame is in mFrames
     // Insert the frames in the sibling chain
     const nsFrameList::Slice& newRowGroups =
-        mFrames.InsertFrames(nullptr, aPrevFrame, aFrameList);
+        mFrames.InsertFrames(nullptr, aPrevFrame, std::move(aFrameList));
 
     InsertRowGroups(newRowGroups);
   } else {
     NS_ASSERTION(aListID == kPrincipalList, "unexpected child list");
     MOZ_ASSERT_UNREACHABLE("How did we even get here?");
     // Just insert the frame and don't worry about reflowing it
-    mFrames.InsertFrames(nullptr, aPrevFrame, aFrameList);
+    mFrames.InsertFrames(nullptr, aPrevFrame, std::move(aFrameList));
     return;
   }
 

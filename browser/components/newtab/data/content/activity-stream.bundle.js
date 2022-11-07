@@ -425,7 +425,7 @@ const actionUtils = {
 
 const MESSAGE_TYPE_LIST = ["BLOCK_MESSAGE_BY_ID", "USER_ACTION", "IMPRESSION", "TRIGGER", "NEWTAB_MESSAGE_REQUEST", // PB is Private Browsing
 "PBNEWTAB_MESSAGE_REQUEST", "DOORHANGER_TELEMETRY", "TOOLBAR_BADGE_TELEMETRY", "TOOLBAR_PANEL_TELEMETRY", "MOMENTS_PAGE_TELEMETRY", "INFOBAR_TELEMETRY", "SPOTLIGHT_TELEMETRY", "TOAST_NOTIFICATION_TELEMETRY", "AS_ROUTER_TELEMETRY_USER_EVENT", // Admin types
-"ADMIN_CONNECT_STATE", "UNBLOCK_MESSAGE_BY_ID", "UNBLOCK_ALL", "BLOCK_BUNDLE", "UNBLOCK_BUNDLE", "DISABLE_PROVIDER", "ENABLE_PROVIDER", "EVALUATE_JEXL_EXPRESSION", "EXPIRE_QUERY_CACHE", "FORCE_ATTRIBUTION", "FORCE_WHATSNEW_PANEL", "CLOSE_WHATSNEW_PANEL", "OVERRIDE_MESSAGE", "MODIFY_MESSAGE_JSON", "RESET_PROVIDER_PREF", "SET_PROVIDER_USER_PREF", "RESET_GROUPS_STATE"];
+"ADMIN_CONNECT_STATE", "UNBLOCK_MESSAGE_BY_ID", "UNBLOCK_ALL", "BLOCK_BUNDLE", "UNBLOCK_BUNDLE", "DISABLE_PROVIDER", "ENABLE_PROVIDER", "EVALUATE_JEXL_EXPRESSION", "EXPIRE_QUERY_CACHE", "FORCE_ATTRIBUTION", "FORCE_WHATSNEW_PANEL", "FORCE_PRIVATE_BROWSING_WINDOW", "CLOSE_WHATSNEW_PANEL", "OVERRIDE_MESSAGE", "MODIFY_MESSAGE_JSON", "RESET_PROVIDER_PREF", "SET_PROVIDER_USER_PREF", "RESET_GROUPS_STATE"];
 const MESSAGE_TYPE_HASH = MESSAGE_TYPE_LIST.reduce((hash, value) => {
   hash[value] = value;
   return hash;
@@ -975,7 +975,10 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
     this.setAttribution = this.setAttribution.bind(this);
     this.onCopyTargetingParams = this.onCopyTargetingParams.bind(this);
     this.onNewTargetingParams = this.onNewTargetingParams.bind(this);
-    this.resetPanel = this.resetPanel.bind(this);
+    this.handleOpenPB = this.handleOpenPB.bind(this);
+    this.selectPBMessage = this.selectPBMessage.bind(this);
+    this.resetPBJSON = this.resetPBJSON.bind(this);
+    this.resetPBMessageState = this.resetPBMessageState.bind(this);
     this.toggleJSON = this.toggleJSON.bind(this);
     this.toggleAllMessages = this.toggleAllMessages.bind(this);
     this.resetGroups = this.resetGroups.bind(this);
@@ -987,6 +990,7 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
       messageGroupsFilter: "all",
       collapsedMessages: [],
       modifiedMessages: [],
+      selectedPBMessage: "",
       evaluationStatus: {},
       stringTargetingParameters: null,
       newStringTargetingParameters: null,
@@ -1063,31 +1067,43 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
     }));
   }
 
-  resetAllJSON() {
-    let messageCheckboxes = document.querySelectorAll('input[type="checkbox"]');
-
-    for (const checkbox of messageCheckboxes) {
-      let trimmedId = checkbox.id.replace(" checkbox", "");
-      let message = this.state.messages.filter(msg => msg.id === trimmedId);
-      let msgId = message[0].id;
-      document.getElementById(`${msgId}-textarea`).value = JSON.stringify(message[0], null, 2);
-    }
-
-    this.setState({
-      WNMessages: []
-    });
-  }
-
-  resetPanel() {
-    this.resetAllJSON();
-  }
-
   handleOverride(id) {
     return () => ASRouterUtils.overrideMessage(id).then(state => {
       this.setStateFromParent(state);
       this.props.notifyContent({
         message: state.message
       });
+    });
+  }
+
+  resetPBMessageState() {
+    // Iterate over Private Browsing messages and block/unblock each one to clear impressions
+    const PBMessages = this.state.messages.filter(message => message.template === "pb_newtab"); // messages from state go here
+
+    PBMessages.forEach(message => {
+      if (message !== null && message !== void 0 && message.id) {
+        ASRouterUtils.blockById(message.id);
+        ASRouterUtils.unblockById(message.id);
+      }
+    }); // Clear the selected messages & radio buttons
+
+    document.getElementById("clear radio").checked = true;
+    this.selectPBMessage("clear");
+  }
+
+  resetPBJSON(msg) {
+    // reset the displayed JSON for the given message
+    document.getElementById(`${msg.id}-textarea`).value = JSON.stringify(msg, null, 2);
+  }
+
+  handleOpenPB() {
+    ASRouterUtils.sendMessage({
+      type: "FORCE_PRIVATE_BROWSING_WINDOW",
+      data: {
+        message: {
+          content: this.state.selectedPBMessage
+        }
+      }
     });
   }
 
@@ -1377,6 +1393,27 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
     }, JSON.stringify(msg, null, 2))))));
   }
 
+  selectPBMessage(msgId) {
+    if (msgId === "clear") {
+      this.setState({
+        selectedPBMessage: ""
+      });
+    } else {
+      let selected = document.getElementById(`${msgId} radio`);
+      let msg = JSON.parse(document.getElementById(`${msgId}-textarea`).value);
+
+      if (selected.checked) {
+        this.setState({
+          selectedPBMessage: msg === null || msg === void 0 ? void 0 : msg.content
+        });
+      } else {
+        this.setState({
+          selectedPBMessage: ""
+        });
+      }
+    }
+  }
+
   modifyJson(content) {
     const message = JSON.parse(document.getElementById(`${content.id}-textarea`).value);
     return ASRouterUtils.modifyMessageJson(message).then(state => {
@@ -1385,6 +1422,51 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
         message: state.message
       });
     });
+  }
+
+  renderPBMessageItem(msg) {
+    const isBlocked = this.state.messageBlockList.includes(msg.id) || this.state.messageBlockList.includes(msg.campaign);
+    const impressions = this.state.messageImpressions[msg.id] ? this.state.messageImpressions[msg.id].length : 0;
+    const isCollapsed = this.state.collapsedMessages.includes(msg.id);
+    let itemClassName = "message-item";
+
+    if (isBlocked) {
+      itemClassName += " blocked";
+    }
+
+    return /*#__PURE__*/external_React_default().createElement("tr", {
+      className: itemClassName,
+      key: `${msg.id}-${msg.provider}`
+    }, /*#__PURE__*/external_React_default().createElement("td", {
+      className: "message-id"
+    }, /*#__PURE__*/external_React_default().createElement("span", null, msg.id, " ", /*#__PURE__*/external_React_default().createElement("br", null), /*#__PURE__*/external_React_default().createElement("br", null), "(", impressions, " impressions)")), /*#__PURE__*/external_React_default().createElement("td", null, /*#__PURE__*/external_React_default().createElement(ToggleMessageJSON, {
+      msgId: `${msg.id}`,
+      toggleJSON: this.toggleJSON,
+      isCollapsed: isCollapsed
+    })), /*#__PURE__*/external_React_default().createElement("td", null, /*#__PURE__*/external_React_default().createElement("input", {
+      type: "radio",
+      id: `${msg.id} radio`,
+      name: "PB_message_radio",
+      style: {
+        marginBottom: 20
+      },
+      onClick: () => this.selectPBMessage(msg.id),
+      disabled: isBlocked
+    }), /*#__PURE__*/external_React_default().createElement("button", {
+      className: `button ${isBlocked ? "" : " primary"}`,
+      onClick: isBlocked ? this.handleUnblock(msg) : this.handleBlock(msg)
+    }, isBlocked ? "Unblock" : "Block"), /*#__PURE__*/external_React_default().createElement("button", {
+      className: "ASRouterButton slim button",
+      onClick: e => this.resetPBJSON(msg)
+    }, "Reset JSON")), /*#__PURE__*/external_React_default().createElement("td", {
+      className: `message-summary`
+    }, /*#__PURE__*/external_React_default().createElement("pre", {
+      className: isCollapsed ? "collapsed" : "expanded"
+    }, /*#__PURE__*/external_React_default().createElement("textarea", {
+      id: `${msg.id}-textarea`,
+      className: "wnp-textarea",
+      name: msg.id
+    }, JSON.stringify(msg, null, 2)))));
   }
 
   toggleAllMessages(messagesToShow) {
@@ -1406,7 +1488,7 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
       return null;
     }
 
-    const messagesToShow = this.state.messageFilter === "all" ? this.state.messages : this.state.messages.filter(message => message.provider === this.state.messageFilter);
+    const messagesToShow = this.state.messageFilter === "all" ? this.state.messages : this.state.messages.filter(message => message.provider === this.state.messageFilter && message.template !== "pb_newtab");
     return /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("button", {
       className: "ASRouterButton slim" // eslint-disable-next-line react/jsx-no-bind
       ,
@@ -1425,6 +1507,15 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
 
     const messagesToShow = this.state.messageGroupsFilter === "all" ? this.state.messages.filter(m => m.groups.length) : this.state.messages.filter(message => message.groups.includes(this.state.messageGroupsFilter));
     return /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, messagesToShow.map(msg => this.renderMessageItem(msg))));
+  }
+
+  renderPBMessages() {
+    if (!this.state.messages) {
+      return null;
+    }
+
+    const messagesToShow = this.state.messages.filter(message => message.template === "pb_newtab");
+    return /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, messagesToShow.map(msg => this.renderPBMessageItem(msg))));
   }
 
   renderMessageFilter() {
@@ -1716,10 +1807,47 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
     return /*#__PURE__*/external_React_default().createElement("p", null, "No errors");
   }
 
+  renderPBTab() {
+    if (!this.state.messages) {
+      return null;
+    }
+
+    let messagesToShow = this.state.messages.filter(message => message.template === "pb_newtab");
+    return /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("p", {
+      className: "helpLink"
+    }, /*#__PURE__*/external_React_default().createElement("span", {
+      className: "icon icon-small-spacer icon-info"
+    }), " ", /*#__PURE__*/external_React_default().createElement("span", null, "To view an available message, select its radio button and click \"Open a Private Browsing Window\".", /*#__PURE__*/external_React_default().createElement("br", null), "To modify a message, make changes to the JSON first, then select the radio button. (To make new changes, click \"Reset Message State\", make your changes, and reselect the radio button.)", /*#__PURE__*/external_React_default().createElement("br", null), "Click \"Reset Message State\" to clear all message impressions and view messages in a clean state.", /*#__PURE__*/external_React_default().createElement("br", null), "Note that ContentSearch functions do not work in debug mode.")), /*#__PURE__*/external_React_default().createElement("div", null, /*#__PURE__*/external_React_default().createElement("button", {
+      className: "ASRouterButton primary button",
+      onClick: this.handleOpenPB
+    }, "Open a Private Browsing Window"), /*#__PURE__*/external_React_default().createElement("button", {
+      className: "ASRouterButton primary button",
+      style: {
+        marginInlineStart: 12
+      },
+      onClick: this.resetPBMessageState
+    }, "Reset Message State"), /*#__PURE__*/external_React_default().createElement("br", null), /*#__PURE__*/external_React_default().createElement("input", {
+      type: "radio",
+      id: `clear radio`,
+      name: "PB_message_radio",
+      value: "clearPBMessage",
+      style: {
+        display: "none"
+      }
+    }), /*#__PURE__*/external_React_default().createElement("h2", null, "Messages"), /*#__PURE__*/external_React_default().createElement("button", {
+      className: "ASRouterButton slim button" // eslint-disable-next-line react/jsx-no-bind
+      ,
+      onClick: e => this.toggleAllMessages(messagesToShow)
+    }, "Collapse/Expand All"), this.renderPBMessages()));
+  }
+
   getSection() {
     const [section] = this.props.location.routes;
 
     switch (section) {
+      case "private":
+        return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("h2", null, "Private Browsing Messages"), this.renderPBTab());
+
       case "targeting":
         return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("h2", null, "Targeting Utilities"), /*#__PURE__*/external_React_default().createElement("button", {
           className: "button",
@@ -1775,6 +1903,8 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
     }, /*#__PURE__*/external_React_default().createElement("ul", null, /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("a", {
       href: "#devtools"
     }, "General")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("a", {
+      href: "#devtools-private"
+    }, "Private Browsing")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("a", {
       href: "#devtools-targeting"
     }, "Targeting")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("a", {
       href: "#devtools-groups"
@@ -6912,10 +7042,25 @@ class DSLinkMenu extends (external_React_default()).PureComponent {
   }
 
 }
+;// CONCATENATED MODULE: ./content-src/components/TopSites/TopSitesConstants.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+const TOP_SITES_SOURCE = "TOP_SITES";
+const TOP_SITES_CONTEXT_MENU_OPTIONS = ["CheckPinTopSite", "EditTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "DeleteUrl"];
+const TOP_SITES_SPOC_CONTEXT_MENU_OPTIONS = ["PinTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "ShowPrivacyInfo"];
+const TOP_SITES_SPONSORED_POSITION_CONTEXT_MENU_OPTIONS = ["OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "AboutSponsored"]; // the special top site for search shortcut experiment can only have the option to unpin (which removes) the topsite
+
+const TOP_SITES_SEARCH_SHORTCUTS_CONTEXT_MENU_OPTIONS = ["CheckPinTopSite", "Separator", "BlockUrl"]; // minimum size necessary to show a rich icon instead of a screenshot
+
+const MIN_RICH_FAVICON_SIZE = 96; // minimum size necessary to show any icon
+
+const MIN_SMALL_FAVICON_SIZE = 16;
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamImpressionStats/ImpressionStats.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 
 
 const ImpressionStats_VISIBLE = "visible";
@@ -6972,7 +7117,23 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
         data: {
           flightId: this.props.flightId
         }
-      }));
+      })); // Record sponsored topsites impressions if the source is `TOP_SITES_SOURCE`.
+
+      if (this.props.source === TOP_SITES_SOURCE) {
+        for (const card of cards) {
+          this.props.dispatch(actionCreators.OnlyToMain({
+            type: actionTypes.TOP_SITES_IMPRESSION_STATS,
+            data: {
+              type: "impression",
+              tile_id: card.id,
+              source: "newtab",
+              advertiser: card.advertiser,
+              position: card.pos + 1 // positions are 1-based for telemetry
+
+            }
+          }));
+        }
+      }
     }
 
     if (this._needsImpressionStats(cards)) {
@@ -10034,20 +10195,6 @@ class Topics extends (external_React_default()).PureComponent {
   }
 
 }
-;// CONCATENATED MODULE: ./content-src/components/TopSites/TopSitesConstants.js
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this file,
- * You can obtain one at http://mozilla.org/MPL/2.0/. */
-const TOP_SITES_SOURCE = "TOP_SITES";
-const TOP_SITES_CONTEXT_MENU_OPTIONS = ["CheckPinTopSite", "EditTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "DeleteUrl"];
-const TOP_SITES_SPOC_CONTEXT_MENU_OPTIONS = ["PinTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "ShowPrivacyInfo"];
-const TOP_SITES_SPONSORED_POSITION_CONTEXT_MENU_OPTIONS = ["OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "AboutSponsored"]; // the special top site for search shortcut experiment can only have the option to unpin (which removes) the topsite
-
-const TOP_SITES_SEARCH_SHORTCUTS_CONTEXT_MENU_OPTIONS = ["CheckPinTopSite", "Separator", "BlockUrl"]; // minimum size necessary to show a rich icon instead of a screenshot
-
-const MIN_RICH_FAVICON_SIZE = 96; // minimum size necessary to show any icon
-
-const MIN_SMALL_FAVICON_SIZE = 16;
 ;// CONCATENATED MODULE: ./content-src/components/TopSites/SearchShortcutsForm.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -11485,7 +11632,7 @@ class TopSiteLink extends (external_React_default()).PureComponent {
 
 
   _allowDrop(e) {
-    return (this.dragged || !this.props.link.sponsored_position) && e.dataTransfer.types.includes("text/topsite-index");
+    return (this.dragged || !this.props.link.sponsored_position && !this.props.link.shim) && e.dataTransfer.types.includes("text/topsite-index");
   }
 
   onDragEvent(event) {
@@ -11501,7 +11648,7 @@ class TopSiteLink extends (external_React_default()).PureComponent {
       case "dragstart":
         event.target.blur();
 
-        if (this.props.link.sponsored_position) {
+        if (this.props.link.sponsored_position || this.props.link.shim) {
           event.preventDefault();
           break;
         }
@@ -11775,7 +11922,8 @@ class TopSiteLink extends (external_React_default()).PureComponent {
       rows: [{
         id: link.id,
         pos: link.pos,
-        shim: link.shim && link.shim.impression
+        shim: link.shim && link.shim.impression,
+        advertiser: title.toLocaleLowerCase()
       }],
       dispatch: this.props.dispatch,
       source: TOP_SITES_SOURCE
@@ -11871,6 +12019,7 @@ class TopSite extends (external_React_default()).PureComponent {
       })); // Fire off a spoc specific impression.
 
       if (this.props.link.type === SPOC_TYPE) {
+        // Record a Pocket click.
         this.props.dispatch(actionCreators.ImpressionStats({
           source: TOP_SITES_SOURCE,
           click: 0,
@@ -11879,6 +12028,18 @@ class TopSite extends (external_React_default()).PureComponent {
             pos: this.props.link.pos,
             shim: this.props.link.shim && this.props.link.shim.click
           }]
+        })); // Record a click for sponsored topsites.
+
+        const title = this.props.link.label || this.props.link.hostname;
+        this.props.dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.TOP_SITES_IMPRESSION_STATS,
+          data: {
+            type: "click",
+            position: this.props.link.pos + 1,
+            tile_id: this.props.link.id,
+            advertiser: title.toLocaleLowerCase(),
+            source: NEWTAB_SOURCE
+          }
         }));
       }
 
@@ -13456,7 +13617,6 @@ const selectLayoutRender = ({
 
 
 
-
 class TopSites_TopSites_TopSites extends (external_React_default()).PureComponent {
   // Find a SPOC that doesn't already exist in User's TopSites
   getFirstAvailableSpoc(topSites, data) {
@@ -13472,40 +13632,12 @@ class TopSites_TopSites_TopSites extends (external_React_default()).PureComponen
     // Spoc domains are in the format 'sponsorname.com'
 
     return spocs.find(spoc => !userTopSites.has(spoc.url) && !userTopSites.has(`http://${spoc.domain}`) && !userTopSites.has(`https://${spoc.domain}`) && !userTopSites.has(`http://www.${spoc.domain}`) && !userTopSites.has(`https://www.${spoc.domain}`));
-  } // Find the first empty or unpinned index we can place the SPOC in.
-  // Return -1 if no available index and we should push it at the end.
+  } // For the time being we only support 1 position.
 
 
-  getFirstAvailableIndex(topSites, promoAlignment) {
-    if (promoAlignment === "left") {
-      return topSites.findIndex(topSite => !topSite || !topSite.isPinned);
-    } // The row isn't full so we can push it to the end of the row.
+  insertSpocContent(TopSites, data, promoPosition) {
+    var _topSites$promoPositi;
 
-
-    if (topSites.length < TOP_SITES_MAX_SITES_PER_ROW) {
-      return -1;
-    } // If the row is full, we can check the row first for unpinned topsites to replace.
-    // Else we can check after the row. This behavior is how unpinned topsites move while drag and drop.
-
-
-    let endOfRow = TOP_SITES_MAX_SITES_PER_ROW - 1;
-
-    for (let i = endOfRow; i >= 0; i--) {
-      if (!topSites[i] || !topSites[i].isPinned) {
-        return i;
-      }
-    }
-
-    for (let i = endOfRow + 1; i < topSites.length; i++) {
-      if (!topSites[i] || !topSites[i].isPinned) {
-        return i;
-      }
-    }
-
-    return -1;
-  }
-
-  insertSpocContent(TopSites, data, promoAlignment) {
     if (!TopSites.rows || TopSites.rows.length === 0 || !data.spocs || data.spocs.length === 0) {
       return null;
     }
@@ -13530,36 +13662,11 @@ class TopSites_TopSites_TopSites extends (external_React_default()).PureComponen
       // For now we are assuming position based on intended position.
       // Actual position can shift based on other content.
       // We also hard code left and right to be 0 and 7.
-      // We send the intended postion in the ping.
-      pos: promoAlignment === "left" ? 0 : 7
+      // We send the intended position in the ping.
+      pos: promoPosition
     };
-    const firstAvailableIndex = this.getFirstAvailableIndex(topSites, promoAlignment);
-
-    if (firstAvailableIndex === -1) {
-      topSites.push(link);
-    } else {
-      // Normal insertion will not work since pinned topsites are in their correct index already
-      // Similar logic is done to handle drag and drop with pinned topsites in TopSite.jsx
-      let shiftedTopSite = topSites[firstAvailableIndex];
-      let index = firstAvailableIndex + 1; // Shift unpinned topsites to the right by finding the next unpinned topsite to replace
-
-      while (shiftedTopSite) {
-        if (index === topSites.length) {
-          topSites.push(shiftedTopSite);
-          shiftedTopSite = null;
-        } else if (topSites[index] && topSites[index].isPinned) {
-          index += 1;
-        } else {
-          const nextTopSite = topSites[index];
-          topSites[index] = shiftedTopSite;
-          shiftedTopSite = nextTopSite;
-          index += 1;
-        }
-      }
-
-      topSites[firstAvailableIndex] = link;
-    }
-
+    const replaceCount = (_topSites$promoPositi = topSites[promoPosition]) !== null && _topSites$promoPositi !== void 0 && _topSites$promoPositi.show_sponsored_label ? 1 : 0;
+    topSites.splice(promoPosition, replaceCount, link);
     return { ...TopSites,
       rows: topSites
     };
@@ -13569,10 +13676,10 @@ class TopSites_TopSites_TopSites extends (external_React_default()).PureComponen
     const {
       header = {},
       data,
-      promoAlignment,
+      promoPositions,
       TopSites
     } = this.props;
-    const TopSitesWithSpoc = TopSites && data && promoAlignment ? this.insertSpocContent(TopSites, data, promoAlignment) : null;
+    const TopSitesWithSpoc = TopSites && data && promoPositions !== null && promoPositions !== void 0 && promoPositions.length ? this.insertSpocContent(TopSites, data, promoPositions[0].index) : null;
     return /*#__PURE__*/external_React_default().createElement("div", {
       className: `ds-top-sites ${TopSitesWithSpoc ? "top-sites-spoc" : ""}`
     }, /*#__PURE__*/external_React_default().createElement(TopSites_TopSites, {
@@ -13679,21 +13786,23 @@ class _DiscoveryStreamBase extends (external_React_default()).PureComponent {
   }
 
   renderComponent(component, embedWidth) {
+    var _component$spocs, _component$spocs$posi;
+
     switch (component.type) {
       case "Highlights":
         return /*#__PURE__*/external_React_default().createElement(Highlights, null);
 
       case "TopSites":
-        let promoAlignment;
+        let positions = [];
 
-        if (component.spocs && component.spocs.positions && component.spocs.positions.length) {
-          promoAlignment = component.spocs.positions[0].index === 0 ? "left" : "right";
+        if (component !== null && component !== void 0 && (_component$spocs = component.spocs) !== null && _component$spocs !== void 0 && (_component$spocs$posi = _component$spocs.positions) !== null && _component$spocs$posi !== void 0 && _component$spocs$posi.length) {
+          positions = component.spocs.positions;
         }
 
         return /*#__PURE__*/external_React_default().createElement(DiscoveryStreamComponents_TopSites_TopSites_TopSites, {
           header: component.header,
           data: component.data,
-          promoAlignment: promoAlignment
+          promoPositions: positions
         });
 
       case "TextPromo":

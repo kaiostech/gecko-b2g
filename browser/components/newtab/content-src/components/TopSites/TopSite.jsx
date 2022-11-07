@@ -37,7 +37,8 @@ export class TopSiteLink extends React.PureComponent {
    */
   _allowDrop(e) {
     return (
-      (this.dragged || !this.props.link.sponsored_position) &&
+      (this.dragged ||
+        (!this.props.link.sponsored_position && !this.props.link.shim)) &&
       e.dataTransfer.types.includes("text/topsite-index")
     );
   }
@@ -52,7 +53,7 @@ export class TopSiteLink extends React.PureComponent {
         break;
       case "dragstart":
         event.target.blur();
-        if (this.props.link.sponsored_position) {
+        if (this.props.link.sponsored_position || this.props.link.shim) {
           event.preventDefault();
           break;
         }
@@ -339,6 +340,7 @@ export class TopSiteLink extends React.PureComponent {
                   id: link.id,
                   pos: link.pos,
                   shim: link.shim && link.shim.impression,
+                  advertiser: title.toLocaleLowerCase(),
                 },
               ]}
               dispatch={this.props.dispatch}
@@ -434,6 +436,7 @@ export class TopSite extends React.PureComponent {
 
       // Fire off a spoc specific impression.
       if (this.props.link.type === SPOC_TYPE) {
+        // Record a Pocket click.
         this.props.dispatch(
           ac.ImpressionStats({
             source: TOP_SITES_SOURCE,
@@ -445,6 +448,21 @@ export class TopSite extends React.PureComponent {
                 shim: this.props.link.shim && this.props.link.shim.click,
               },
             ],
+          })
+        );
+
+        // Record a click for sponsored topsites.
+        const title = this.props.link.label || this.props.link.hostname;
+        this.props.dispatch(
+          ac.OnlyToMain({
+            type: at.TOP_SITES_IMPRESSION_STATS,
+            data: {
+              type: "click",
+              position: this.props.link.pos + 1,
+              tile_id: this.props.link.id,
+              advertiser: title.toLocaleLowerCase(),
+              source: NEWTAB_SOURCE,
+            },
           })
         );
       }

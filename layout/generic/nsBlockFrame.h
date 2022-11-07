@@ -116,11 +116,11 @@ class nsBlockFrame : public nsContainerFrame {
   void Init(nsIContent* aContent, nsContainerFrame* aParent,
             nsIFrame* aPrevInFlow) override;
   void SetInitialChildList(ChildListID aListID,
-                           nsFrameList& aChildList) override;
-  void AppendFrames(ChildListID aListID, nsFrameList& aFrameList) override;
+                           nsFrameList&& aChildList) override;
+  void AppendFrames(ChildListID aListID, nsFrameList&& aFrameList) override;
   void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
                     const nsLineList::iterator* aPrevFrameLine,
-                    nsFrameList& aFrameList) override;
+                    nsFrameList&& aFrameList) override;
   void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
   nsContainerFrame* GetContentInsertionFrame() override;
   void AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult) override;
@@ -513,7 +513,7 @@ class nsBlockFrame : public nsContainerFrame {
    * aPrevSiblingLine, if present, must be the line containing aPrevSibling.
    * Providing it will make this function faster.
    */
-  void AddFrames(nsFrameList& aFrameList, nsIFrame* aPrevSibling,
+  void AddFrames(nsFrameList&& aFrameList, nsIFrame* aPrevSibling,
                  const nsLineList::iterator* aPrevSiblingLine);
 
   // Return the :-moz-block-ruby-content child frame, if any.
@@ -870,10 +870,12 @@ class nsBlockFrame : public nsContainerFrame {
     explicit nsAutoOOFFrameList(nsBlockFrame* aBlock)
         : mPropValue(aBlock->GetOverflowOutOfFlows()), mBlock(aBlock) {
       if (mPropValue) {
-        mList = *mPropValue;
+        mList = std::move(*mPropValue);
       }
     }
-    ~nsAutoOOFFrameList() { mBlock->SetOverflowOutOfFlows(mList, mPropValue); }
+    ~nsAutoOOFFrameList() {
+      mBlock->SetOverflowOutOfFlows(std::move(mList), mPropValue);
+    }
 
    protected:
     nsFrameList* const mPropValue;
@@ -882,7 +884,9 @@ class nsBlockFrame : public nsContainerFrame {
   friend struct nsAutoOOFFrameList;
 
   nsFrameList* GetOverflowOutOfFlows() const;
-  void SetOverflowOutOfFlows(const nsFrameList& aList, nsFrameList* aPropValue);
+
+  // This takes ownership of the frames in aList.
+  void SetOverflowOutOfFlows(nsFrameList&& aList, nsFrameList* aPropValue);
 
   /**
    * @return the inside ::marker frame or nullptr if we don't have one.

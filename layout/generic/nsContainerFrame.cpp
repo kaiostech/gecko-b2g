@@ -75,7 +75,7 @@ void nsContainerFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 }
 
 void nsContainerFrame::SetInitialChildList(ChildListID aListID,
-                                           nsFrameList& aChildList) {
+                                           nsFrameList&& aChildList) {
 #ifdef DEBUG
   nsIFrame::VerifyDirtyBitSet(aChildList);
   for (nsIFrame* f : aChildList) {
@@ -85,7 +85,7 @@ void nsContainerFrame::SetInitialChildList(ChildListID aListID,
   if (aListID == kPrincipalList) {
     MOZ_ASSERT(mFrames.IsEmpty(),
                "unexpected second call to SetInitialChildList");
-    mFrames.SetFrames(aChildList);
+    mFrames = std::move(aChildList);
   } else if (aListID == kBackdropList) {
     MOZ_ASSERT(StyleDisplay()->mTopLayer != StyleTopLayer::None,
                "Only top layer frames should have backdrop");
@@ -105,7 +105,7 @@ void nsContainerFrame::SetInitialChildList(ChildListID aListID,
                  "The placeholder should points to a backdrop frame");
     }
 #endif
-    nsFrameList* list = new (PresShell()) nsFrameList(aChildList);
+    nsFrameList* list = new (PresShell()) nsFrameList(std::move(aChildList));
     SetProperty(BackdropProperty(), list);
   } else {
     MOZ_ASSERT_UNREACHABLE("Unexpected child list");
@@ -113,7 +113,7 @@ void nsContainerFrame::SetInitialChildList(ChildListID aListID,
 }
 
 void nsContainerFrame::AppendFrames(ChildListID aListID,
-                                    nsFrameList& aFrameList) {
+                                    nsFrameList&& aFrameList) {
   MOZ_ASSERT(aListID == kPrincipalList || aListID == kNoReflowPrincipalList,
              "unexpected child list");
 
@@ -122,7 +122,7 @@ void nsContainerFrame::AppendFrames(ChildListID aListID,
   }
 
   DrainSelfOverflowList();  // ensure the last frame is in mFrames
-  mFrames.AppendFrames(this, aFrameList);
+  mFrames.AppendFrames(this, std::move(aFrameList));
 
   if (aListID != kNoReflowPrincipalList) {
     PresShell()->FrameNeedsReflow(this, IntrinsicDirty::TreeChange,
@@ -132,7 +132,7 @@ void nsContainerFrame::AppendFrames(ChildListID aListID,
 
 void nsContainerFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
                                     const nsLineList::iterator* aPrevFrameLine,
-                                    nsFrameList& aFrameList) {
+                                    nsFrameList&& aFrameList) {
   MOZ_ASSERT(aListID == kPrincipalList || aListID == kNoReflowPrincipalList,
              "unexpected child list");
   NS_ASSERTION(!aPrevFrame || aPrevFrame->GetParent() == this,
@@ -143,7 +143,7 @@ void nsContainerFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
   }
 
   DrainSelfOverflowList();  // ensure aPrevFrame is in mFrames
-  mFrames.InsertFrames(this, aPrevFrame, aFrameList);
+  mFrames.InsertFrames(this, aPrevFrame, std::move(aFrameList));
 
   if (aListID != kNoReflowPrincipalList) {
     PresShell()->FrameNeedsReflow(this, IntrinsicDirty::TreeChange,
@@ -1441,7 +1441,7 @@ nsFrameList nsContainerFrame::StealFramesAfter(nsIFrame* aChild) {
   }
 
   NS_ERROR("StealFramesAfter: can't find aChild");
-  return nsFrameList::EmptyList();
+  return nsFrameList();
 }
 
 /*
@@ -1546,7 +1546,7 @@ void nsContainerFrame::PushChildren(nsIFrame* aFromChild,
     for (nsIFrame* f = aFromChild; f; f = f->GetNextSibling()) {
       nsContainerFrame::ReparentFrameView(f, this, nextInFlow);
     }
-    nextInFlow->mFrames.InsertFrames(nextInFlow, nullptr, tail);
+    nextInFlow->mFrames.InsertFrames(nextInFlow, nullptr, std::move(tail));
   } else {
     // Add the frames to our overflow list
     SetOverflowFrames(std::move(tail));
@@ -1935,7 +1935,7 @@ bool nsContainerFrame::MoveOverflowToChildList() {
       // views need to be reparented.
       nsContainerFrame::ReparentFrameViewList(*prevOverflowFrames, prevInFlow,
                                               this);
-      mFrames.AppendFrames(this, *prevOverflowFrames);
+      mFrames.AppendFrames(this, std::move(*prevOverflowFrames));
       result = true;
     }
   }
@@ -2056,7 +2056,7 @@ void nsContainerFrame::MergeSortedFrameLists(nsFrameList& aDest,
   nsIFrame* dest = aDest.FirstChild();
   for (nsIFrame* src = aSrc.FirstChild(); src;) {
     if (!dest) {
-      aDest.AppendFrames(nullptr, aSrc);
+      aDest.AppendFrames(nullptr, std::move(aSrc));
       break;
     }
     nsIContent* srcContent = FrameForDOMPositionComparison(src)->GetContent();
@@ -2115,7 +2115,7 @@ bool nsContainerFrame::MoveInlineOverflowToChildList(nsIFrame* aLineContainer) {
       nsContainerFrame::ReparentFrameViewList(*prevOverflowFrames, prevInFlow,
                                               this);
       // Prepend overflow frames to the list.
-      mFrames.InsertFrames(this, nullptr, *prevOverflowFrames);
+      mFrames.InsertFrames(this, nullptr, std::move(*prevOverflowFrames));
       result = true;
     }
   }
@@ -2127,7 +2127,7 @@ bool nsContainerFrame::MoveInlineOverflowToChildList(nsIFrame* aLineContainer) {
 bool nsContainerFrame::DrainSelfOverflowList() {
   AutoFrameListPtr overflowFrames(PresContext(), StealOverflowFrames());
   if (overflowFrames) {
-    mFrames.AppendFrames(nullptr, *overflowFrames);
+    mFrames.AppendFrames(nullptr, std::move(*overflowFrames));
     return true;
   }
   return false;

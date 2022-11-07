@@ -39,12 +39,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUIUtils: "resource:///modules/PlacesUIUtils.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
   ScreenshotsUtils: "resource:///modules/ScreenshotsUtils.sys.mjs",
   SearchSERPTelemetry: "resource:///modules/SearchSERPTelemetry.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   SnapshotMonitor: "resource:///modules/SnapshotMonitor.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
-  UrlbarQuickSuggest: "resource:///modules/UrlbarQuickSuggest.sys.mjs",
   WebChannel: "resource://gre/modules/WebChannel.sys.mjs",
   WindowsRegistry: "resource://gre/modules/WindowsRegistry.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -288,10 +288,10 @@ let JSWINDOWACTORS = {
 
   AboutPocket: {
     parent: {
-      moduleURI: "resource:///actors/AboutPocketParent.jsm",
+      esModuleURI: "resource:///actors/AboutPocketParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/AboutPocketChild.jsm",
+      esModuleURI: "resource:///actors/AboutPocketChild.sys.mjs",
 
       events: {
         DOMDocElementInserted: { capture: true },
@@ -319,7 +319,7 @@ let JSWINDOWACTORS = {
       },
     },
 
-    matches: ["about:privatebrowsing"],
+    matches: ["about:privatebrowsing*"],
   },
 
   AboutProtections: {
@@ -741,7 +741,7 @@ let JSWINDOWACTORS = {
       "about:home*",
       "about:newtab*",
       "about:welcome*",
-      "about:privatebrowsing",
+      "about:privatebrowsing*",
     ],
     remoteTypes: ["privilegedabout"],
   },
@@ -2246,23 +2246,6 @@ BrowserGlue.prototype = {
     _checkGPCPref();
   },
 
-  _monitorPrivacySegmentationPref() {
-    const PREF_ENABLED = "browser.dataFeatureRecommendations.enabled";
-    const EVENT_CATEGORY = "privacy_segmentation";
-
-    let checkPrivacySegmentationPref = () => {
-      let isEnabled = Services.prefs.getBoolPref(PREF_ENABLED, false);
-      Services.telemetry.recordEvent(
-        EVENT_CATEGORY,
-        isEnabled ? "enable" : "disable",
-        "pref"
-      );
-    };
-
-    Services.telemetry.setEventRecordingEnabled(EVENT_CATEGORY, true);
-    Services.prefs.addObserver(PREF_ENABLED, checkPrivacySegmentationPref);
-  },
-
   // All initial windows have opened.
   _onWindowsRestored: function BG__onWindowsRestored() {
     if (this._windowsWereRestored) {
@@ -2340,7 +2323,6 @@ BrowserGlue.prototype = {
     this._setupSearchDetection();
 
     this._monitorGPCPref();
-    this._monitorPrivacySegmentationPref();
   },
 
   /**
@@ -2856,7 +2838,7 @@ BrowserGlue.prototype = {
 
       {
         task: () => {
-          lazy.UrlbarQuickSuggest.init();
+          lazy.QuickSuggest.init();
         },
       },
 
@@ -2974,6 +2956,21 @@ BrowserGlue.prototype = {
       () => Services.search.runBackgroundChecks(),
 
       () => lazy.BrowserUsageTelemetry.reportInstallationTelemetry(),
+
+      async () => {
+        let win = lazy.BrowserWindowTracker.getTopWindow({ private: false });
+        if (!win) {
+          return;
+        }
+
+        if (typeof win.navigator.requestMIDIAccess != "function") {
+          return;
+        }
+
+        const { inputs, outputs } = await win.navigator.requestMIDIAccess();
+        const hasMIDIDevices = inputs.size + outputs.size > 0;
+        Services.telemetry.scalarSet("dom.midi.has_devices", hasMIDIDevices);
+      },
     ];
 
     for (let task of idleTasks) {
@@ -3268,7 +3265,7 @@ BrowserGlue.prototype = {
       false
     ); // Do not export.
     if (autoExportHTML) {
-      // Sqlite.jsm and Places shutdown happen at profile-before-change, thus,
+      // Sqlite.sys.mjs and Places shutdown happen at profile-before-change, thus,
       // to be on the safe side, this should run earlier.
       lazy.AsyncShutdown.profileChangeTeardown.addBlocker(
         "Places: export bookmarks.html",
@@ -4427,7 +4424,7 @@ BrowserGlue.prototype = {
     if (willPrompt) {
       let win = lazy.BrowserWindowTracker.getTopWindow();
       DefaultBrowserCheck.prompt(win);
-    } else if (await lazy.UrlbarQuickSuggest.maybeShowOnboardingDialog()) {
+    } else if (await lazy.QuickSuggest.maybeShowOnboardingDialog()) {
       return;
     }
 
@@ -5150,7 +5147,7 @@ var ContentBlockingCategoriesPrefs = {
  * While there are some built-in permission prompts, createPermissionPrompt
  * can also be overridden by system add-ons or tests to provide new ones.
  *
- * This override ability is provided by Integration.jsm. See
+ * This override ability is provided by Integration.sys.mjs. See
  * PermissionUI.jsm for an example of how to provide a new prompt
  * from an add-on.
  */

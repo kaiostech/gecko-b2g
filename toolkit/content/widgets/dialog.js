@@ -12,52 +12,6 @@
   );
 
   class MozDialog extends MozXULElement {
-    constructor() {
-      super();
-
-      this.attachShadow({ mode: "open" });
-
-      document.addEventListener(
-        "keypress",
-        event => {
-          if (event.keyCode == KeyEvent.DOM_VK_RETURN) {
-            this._hitEnter(event);
-          } else if (
-            event.keyCode == KeyEvent.DOM_VK_ESCAPE &&
-            !event.defaultPrevented
-          ) {
-            this.cancelDialog();
-          }
-        },
-        { mozSystemGroup: true }
-      );
-
-      if (AppConstants.platform == "macosx") {
-        document.addEventListener(
-          "keypress",
-          event => {
-            if (event.key == "." && event.metaKey) {
-              this.cancelDialog();
-            }
-          },
-          true
-        );
-      } else {
-        this.addEventListener("focus", this, true);
-        this.shadowRoot.addEventListener("focus", this, true);
-      }
-
-      // listen for when window is closed via native close buttons
-      window.addEventListener("close", event => {
-        if (!this.cancelDialog()) {
-          event.preventDefault();
-        }
-      });
-
-      // for things that we need to initialize after onload fires
-      window.addEventListener("load", () => this._postLoadInit());
-    }
-
     static get observedAttributes() {
       return super.observedAttributes.concat("subdialog");
     }
@@ -127,6 +81,11 @@
       if (this.delayConnectedCallback()) {
         return;
       }
+      if (this.hasConnected) {
+        return;
+      }
+      this.hasConnected = true;
+      this.attachShadow({ mode: "open" });
 
       document.documentElement.setAttribute("role", "dialog");
 
@@ -147,6 +106,50 @@
 
       window.moveToAlertPosition = this.moveToAlertPosition;
       window.centerWindowOnScreen = this.centerWindowOnScreen;
+
+      document.addEventListener(
+        "keypress",
+        event => {
+          if (event.keyCode == KeyEvent.DOM_VK_RETURN) {
+            this._hitEnter(event);
+          } else if (
+            event.keyCode == KeyEvent.DOM_VK_ESCAPE &&
+            !event.defaultPrevented
+          ) {
+            this.cancelDialog();
+          }
+        },
+        { mozSystemGroup: true }
+      );
+
+      if (AppConstants.platform == "macosx") {
+        document.addEventListener(
+          "keypress",
+          event => {
+            if (event.key == "." && event.metaKey) {
+              this.cancelDialog();
+            }
+          },
+          true
+        );
+      } else {
+        this.addEventListener("focus", this, true);
+        this.shadowRoot.addEventListener("focus", this, true);
+      }
+
+      // listen for when window is closed via native close buttons
+      window.addEventListener("close", event => {
+        if (!this.cancelDialog()) {
+          event.preventDefault();
+        }
+      });
+
+      // Call postLoadInit for things that we need to initialize after onload.
+      if (document.readyState == "complete") {
+        this._postLoadInit();
+      } else {
+        window.addEventListener("load", event => this._postLoadInit());
+      }
     }
 
     set buttons(val) {
@@ -210,7 +213,7 @@
         }
         return 0;
       })();
-      window.sizeToContentConstrained(prefWidth, 0);
+      window.sizeToContentConstrained({ prefWidth });
     }
 
     moveToAlertPosition() {
@@ -329,9 +332,8 @@
       this._setInitialFocusIfNeeded();
       if (this._l10nButtons.length) {
         await document.l10n.translateElements(this._l10nButtons);
-        // FIXME(emilio): Should this be outside the if condition?
-        this._sizeToPreferredSize();
       }
+      this._sizeToPreferredSize();
       await this._snapCursorToDefaultButtonIfNeeded();
     }
 
@@ -343,6 +345,11 @@
         return;
       }
       try {
+        // FIXME(emilio, bug 1797624): This setTimeout() ensures enough time
+        // has passed so that the dialog vertical margin has been set by the
+        // front-end. For subdialogs, cursor positioning should probably be
+        // done by the opener instead, once the dialog is positioned.
+        await new Promise(r => setTimeout(r, 0));
         await window.promiseDocumentFlushed(() => {});
         window.notifyDefaultButtonLoaded(defaultButton);
       } catch (e) {}

@@ -85,10 +85,10 @@ class WorkerThread;
 // SharedMutex is a small wrapper around an (internal) reference-counted Mutex
 // object. It exists to avoid changing a lot of code to use Mutex* instead of
 // Mutex&.
-class MOZ_CAPABILITY SharedMutex {
+class MOZ_CAPABILITY("mutex") SharedMutex {
   using Mutex = mozilla::Mutex;
 
-  class MOZ_CAPABILITY RefCountedMutex final : public Mutex {
+  class MOZ_CAPABILITY("mutex") RefCountedMutex final : public Mutex {
    public:
     explicit RefCountedMutex(const char* aName) : Mutex(aName) {}
 
@@ -1116,7 +1116,8 @@ class WorkerPrivate final
   // If the worker shutdown status is equal or greater then aFailStatus, this
   // operation will fail and nullptr will be returned. See WorkerStatus.h for
   // more information about the correct value to use.
-  already_AddRefed<nsIEventTarget> CreateNewSyncLoop(WorkerStatus aFailStatus);
+  already_AddRefed<nsISerialEventTarget> CreateNewSyncLoop(
+      WorkerStatus aFailStatus);
 
   bool RunCurrentSyncLoop();
 
@@ -1474,7 +1475,7 @@ class WorkerPrivate final
 
 class AutoSyncLoopHolder {
   CheckedUnsafePtr<WorkerPrivate> mWorkerPrivate;
-  nsCOMPtr<nsIEventTarget> mTarget;
+  nsCOMPtr<nsISerialEventTarget> mTarget;
   uint32_t mIndex;
 
  public:
@@ -1504,7 +1505,7 @@ class AutoSyncLoopHolder {
     return workerPrivate->RunCurrentSyncLoop();
   }
 
-  nsIEventTarget* GetEventTarget() const {
+  nsISerialEventTarget* GetSerialEventTarget() const {
     // This can be null if CreateNewSyncLoop() fails.
     return mTarget;
   }

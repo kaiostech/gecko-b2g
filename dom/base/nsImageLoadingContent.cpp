@@ -252,15 +252,8 @@ void nsImageLoadingContent::OnLoadComplete(imgIRequest* aRequest,
   // Fire the appropriate DOM event.
   if (NS_SUCCEEDED(aStatus)) {
     FireEvent(u"load"_ns);
-
-    // Do not fire loadend event for multipart/x-mixed-replace image streams.
-    bool isMultipart;
-    if (NS_FAILED(aRequest->GetMultipart(&isMultipart)) || !isMultipart) {
-      FireEvent(u"loadend"_ns);
-    }
   } else {
     FireEvent(u"error"_ns);
-    FireEvent(u"loadend"_ns);
   }
 
   SVGObserverUtils::InvalidateDirectRenderingObservers(
@@ -987,7 +980,6 @@ nsImageLoadingContent::LoadImageWithChannel(nsIChannel* aChannel,
   if (!mCurrentRequest) aChannel->GetURI(getter_AddRefs(mCurrentURI));
 
   FireEvent(u"error"_ns);
-  FireEvent(u"loadend"_ns);
   return rv;
 }
 
@@ -1063,14 +1055,10 @@ nsresult nsImageLoadingContent::LoadImage(nsIURI* aNewURI, bool aForce,
     return NS_OK;
   }
 
-  // Fire loadstart event if required
-  FireEvent(u"loadstart"_ns);
-
   if (!mLoadingEnabled) {
     // XXX Why fire an error here? seems like the callers to SetLoadingEnabled
     // don't want/need it.
     FireEvent(u"error"_ns);
-    FireEvent(u"loadend"_ns);
     return NS_OK;
   }
 
@@ -1100,7 +1088,6 @@ nsresult nsImageLoadingContent::LoadImage(nsIURI* aNewURI, bool aForce,
     ClearPendingRequest(NS_BINDING_ABORTED, Some(OnNonvisible::DiscardImages));
 
     FireEvent(u"error"_ns);
-    FireEvent(u"loadend"_ns);
     return NS_OK;
   }
 
@@ -1180,16 +1167,16 @@ nsresult nsImageLoadingContent::LoadImage(nsIURI* aNewURI, bool aForce,
     TrackImage(req);
     ResetAnimationIfNeeded();
 
-    // Handle cases when we just ended up with a pending request but it's
-    // already done.  In that situation we have to synchronously switch that
-    // request to being the current request, because websites depend on that
-    // behavior.
-    if (req == mPendingRequest) {
-      uint32_t pendingLoadStatus;
-      rv = req->GetImageStatus(&pendingLoadStatus);
-      if (NS_SUCCEEDED(rv) &&
-          (pendingLoadStatus & imgIRequest::STATUS_LOAD_COMPLETE)) {
-        MakePendingRequestCurrent();
+    // Handle cases when we just ended up with a request but it's already done.
+    // In that situation we have to synchronously switch that request to being
+    // the current request, because websites depend on that behavior.
+    {
+      uint32_t loadStatus;
+      if (NS_SUCCEEDED(req->GetImageStatus(&loadStatus)) &&
+          (loadStatus & imgIRequest::STATUS_LOAD_COMPLETE)) {
+        if (req == mPendingRequest) {
+          MakePendingRequestCurrent();
+        }
         MOZ_ASSERT(mCurrentRequest,
                    "How could we not have a current request here?");
 
@@ -1207,7 +1194,6 @@ nsresult nsImageLoadingContent::LoadImage(nsIURI* aNewURI, bool aForce,
     }
 
     FireEvent(u"error"_ns);
-    FireEvent(u"loadend"_ns);
   }
 
   return NS_OK;

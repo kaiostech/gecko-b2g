@@ -144,7 +144,7 @@ pref("app.update.notifyDuringDownload", false);
 // default value to migrate to the new location that this data is now stored
 // (which is in a file in the update directory). Because of this, this pref
 // should no longer be used directly. Instead, getAppUpdateAutoEnabled and
-// getAppUpdateAutoEnabled from UpdateUtils.jsm should be used.
+// getAppUpdateAutoEnabled from UpdateUtils.sys.mjs should be used.
 #ifndef XP_WIN
   pref("app.update.auto", true);
 #endif
@@ -497,8 +497,13 @@ pref("browser.urlbar.richSuggestions.tail", true);
 // If true, top sites may include sponsored ones.
 pref("browser.urlbar.sponsoredTopSites", false);
 
-// If true, show the search term in the URL bar for the users default engine.
-pref("browser.urlbar.showSearchTerms", false);
+// Global toggle for whether the show search terms feature
+// can be used at all, and enabled/disabled by the user.
+pref("browser.urlbar.showSearchTerms.featureGate", false);
+
+// If true, show the search term in the Urlbar while on
+// a default search engine results page.
+pref("browser.urlbar.showSearchTerms.enabled", true);
 
 // Controls the empty search behavior in Search Mode:
 //  0 - Show nothing
@@ -1247,13 +1252,6 @@ pref("browser.bookmarks.editDialog.delayedApply.enabled", false);
   // See - security/sandbox/win/src/sandboxbroker/sandboxBroker.cpp
   // SetSecurityLevelForContentProcess() for what the different settings mean.
   pref("security.sandbox.content.level", 6);
-
-  // This controls the strength of the Windows GPU process sandbox.  Changes
-  // will require restart.
-  // For information on what the level number means, see
-  // SetSecurityLevelForGPUProcess() in
-  // security/sandbox/win/src/sandboxbroker/sandboxBroker.cpp
-  pref("security.sandbox.gpu.level", 0);
 #endif
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
@@ -1589,6 +1587,8 @@ pref("browser.newtabpage.activity-stream.discoverystream.sponsored-collections.e
 // Changes the spoc content.
 pref("browser.newtabpage.activity-stream.discoverystream.spocAdTypes", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocZoneIds", "");
+pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesAdTypes", "");
+pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesZoneIds", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocSiteId", "");
 
 pref("browser.newtabpage.activity-stream.discoverystream.sendToPocket.enabled", false);
@@ -1649,12 +1649,16 @@ pref("browser.aboutwelcome.templateMR", true);
 pref("browser.messaging-system.whatsNewPanel.enabled", true);
 
 // Experiment Manager
-// See Console.jsm LOG_LEVELS for all possible values
+// See Console.sys.mjs LOG_LEVELS for all possible values
 pref("messaging-system.log", "warn");
 pref("messaging-system.rsexperimentloader.enabled", true);
 pref("messaging-system.rsexperimentloader.collection_id", "nimbus-desktop-experiments");
 pref("nimbus.debug", false);
 pref("nimbus.validation.enabled", true);
+
+// Nimbus QA prefs. Used to monitor pref-setting test experiments.
+pref("nimbus.qa.pref-1", "default");
+pref("nimbus.qa.pref-2", "default");
 
 // Enable the DOM fullscreen API.
 pref("full-screen-api.enabled", true);
@@ -1941,7 +1945,7 @@ pref("browser.contentblocking.report.show_mobile_app", true);
 pref("browser.send_to_device_locales", "de,en-GB,en-US,es-AR,es-CL,es-ES,es-MX,fr,id,pl,pt-BR,ru,zh-TW");
 
 // Avoid advertising in certain regions. Comma separated string of two letter ISO 3166-1 country codes.
-// We're currently blocking all of Ukraine (ua), but would prefer to block just Crimea (ua-43). Currently, the Mozilla Location Service APIs used by Region.jsm only exposes the country, not the subdivision.
+// We're currently blocking all of Ukraine (ua), but would prefer to block just Crimea (ua-43). Currently, the Mozilla Location Service APIs used by Region.sys.mjs only exposes the country, not the subdivision.
 pref("browser.vpn_promo.disallowed_regions", "ae,by,cn,cu,iq,ir,kp,om,ru,sd,sy,tm,tr,ua");
 
 // Default to enabling VPN promo messages to be shown when specified and allowed
@@ -2129,6 +2133,7 @@ pref("browser.migrate.edge.enabled", true);
 pref("browser.migrate.firefox.enabled", true);
 pref("browser.migrate.ie.enabled", true);
 pref("browser.migrate.safari.enabled", true);
+pref("browser.migrate.opera.enabled", false);
 
 pref("browser.migrate.showBookmarksToolbarAfterMigration", true);
 
@@ -2177,8 +2182,8 @@ pref("signon.suggestImportCount", 3);
 pref("print.use_simplify_page", true);
 
 // Space separated list of URLS that are allowed to send objects (instead of
-// only strings) through webchannels. This list is duplicated in mobile/android/app/mobile.js
-pref("webchannel.allowObject.urlWhitelist", "https://content.cdn.mozilla.net https://support.mozilla.org https://install.mozilla.org");
+// only strings) through webchannels. Bug 1275612 tracks removing this pref and capability.
+pref("webchannel.allowObject.urlWhitelist", "https://content.cdn.mozilla.net https://install.mozilla.org");
 
 // Whether or not the browser should scan for unsubmitted
 // crash reports, and then show a notification for submitting
@@ -2748,14 +2753,16 @@ pref("browser.firefox-view.view-count", 0);
 
 // If the user has seen the pdf.js feature tour this value reflects the tour
 // message id, the id of the last screen they saw, and whether they completed the tour
-pref("browser.pdfjs.feature-tour", "{\"message\":\"PDF_JS_FEATURE_TOUR\",\"screen\":\"\",\"complete\":false}");
+pref("browser.pdfjs.feature-tour", "{\"screen\":\"FEATURE_CALLOUT_1\",\"complete\":false}");
 
 // Enables cookie banner handling in Nightly in Private Browsing Mode. See
 // StaticPrefList.yaml for a description of the prefs.
 #ifdef NIGHTLY_BUILD
   pref("cookiebanners.service.mode.privateBrowsing", 1);
-  pref("cookiebanners.bannerClicking.enabled", true);
 #endif
+
+// Enables the cookie banner desktop UI.
+pref("cookiebanners.ui.desktop.enabled", false);
 
 // We only want to enable this pref for Desktop nightlies.
 #ifdef NIGHTLY_BUILD

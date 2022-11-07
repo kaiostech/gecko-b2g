@@ -211,7 +211,7 @@ include = [
   "GridTemplateComponent",
   "TextEmphasisStyle",
   "TextEmphasisPosition",
-  "VariantAlternatesList",
+  "FontVariantAlternates",
   "PaintOrder",
   "SVGPaintOrder",
   "ClipRectOrAuto",

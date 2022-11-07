@@ -401,18 +401,17 @@ enum class StylePositionProperty : uint8_t {
   Sticky,
 };
 
-// FRAME/FRAMESET/IFRAME specific values including backward compatibility.
-// Boolean values with the same meaning (e.g. 1 & yes) may need to be
-// distinguished for correct mode processing
-#define NS_STYLE_FRAME_YES 0
-#define NS_STYLE_FRAME_NO 1
-#define NS_STYLE_FRAME_0 2
-#define NS_STYLE_FRAME_1 3
-#define NS_STYLE_FRAME_ON 4
-#define NS_STYLE_FRAME_OFF 5
-#define NS_STYLE_FRAME_AUTO 6
-#define NS_STYLE_FRAME_SCROLL 7
-#define NS_STYLE_FRAME_NOSCROLL 8
+enum class FrameBorderProperty : uint8_t { Yes, No, One, Zero };
+
+enum class ScrollingAttribute : uint8_t {
+  Yes,
+  No,
+  On,
+  Off,
+  Scroll,
+  Noscroll,
+  Auto
+};
 
 // See nsStyleList
 #define NS_STYLE_LIST_STYLE_CUSTOM -1  // for @counter-style
@@ -482,14 +481,6 @@ enum class StyleObjectFit : uint8_t {
 #define NS_STYLE_TEXT_DECORATION_STYLE_DOUBLE 4
 #define NS_STYLE_TEXT_DECORATION_STYLE_WAVY 5
 #define NS_STYLE_TEXT_DECORATION_STYLE_MAX NS_STYLE_TEXT_DECORATION_STYLE_WAVY
-
-// See nsStyleText
-#define NS_STYLE_TEXT_TRANSFORM_NONE 0
-#define NS_STYLE_TEXT_TRANSFORM_CAPITALIZE 1
-#define NS_STYLE_TEXT_TRANSFORM_LOWERCASE 2
-#define NS_STYLE_TEXT_TRANSFORM_UPPERCASE 3
-#define NS_STYLE_TEXT_TRANSFORM_FULL_WIDTH 4
-#define NS_STYLE_TEXT_TRANSFORM_FULL_SIZE_KANA 5
 
 // See nsStyleDisplay
 enum class StyleTopLayer : uint8_t {
@@ -572,23 +563,6 @@ enum class StyleEmptyCells : uint8_t {
 #define NS_STYLE_CELL_SCOPE_COL 1
 #define NS_STYLE_CELL_SCOPE_ROWGROUP 2
 #define NS_STYLE_CELL_SCOPE_COLGROUP 3
-
-// See nsStylePage
-#define NS_STYLE_PAGE_MARKS_NONE 0x00
-#define NS_STYLE_PAGE_MARKS_CROP 0x01
-#define NS_STYLE_PAGE_MARKS_REGISTER 0x02
-
-// See nsStylePage
-#define NS_STYLE_PAGE_SIZE_AUTO 0
-#define NS_STYLE_PAGE_SIZE_PORTRAIT 1
-#define NS_STYLE_PAGE_SIZE_LANDSCAPE 2
-
-// See nsStyleBreaks
-#define NS_STYLE_PAGE_BREAK_AUTO 0
-#define NS_STYLE_PAGE_BREAK_ALWAYS 1
-#define NS_STYLE_PAGE_BREAK_AVOID 2
-#define NS_STYLE_PAGE_BREAK_LEFT 3
-#define NS_STYLE_PAGE_BREAK_RIGHT 4
 
 // See nsStyleUIReset
 enum class StyleImeMode : uint8_t {

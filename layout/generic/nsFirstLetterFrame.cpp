@@ -67,7 +67,7 @@ void nsFirstLetterFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 }
 
 void nsFirstLetterFrame::SetInitialChildList(ChildListID aListID,
-                                             nsFrameList& aChildList) {
+                                             nsFrameList&& aChildList) {
   MOZ_ASSERT(aListID == kPrincipalList,
              "Principal child list is the only "
              "list that nsFirstLetterFrame should set via this function");
@@ -78,7 +78,7 @@ void nsFirstLetterFrame::SetInitialChildList(ChildListID aListID,
     nsLayoutUtils::MarkDescendantsDirty(f);  // Drops cached textruns
   }
 
-  mFrames.SetFrames(aChildList);
+  mFrames = std::move(aChildList);
 }
 
 nsresult nsFirstLetterFrame::GetChildFrameContainingOffset(
@@ -314,8 +314,8 @@ void nsFirstLetterFrame::CreateContinuationForFloatingParent(
   // kNoReflowPrincipalList because this is just like creating a continuation
   // except we have to insert it in a different place and we don't want a
   // reflow command to try to be issued.
-  nsFrameList temp(continuation, continuation);
-  parent->InsertFrames(kNoReflowPrincipalList, placeholderFrame, nullptr, temp);
+  parent->InsertFrames(kNoReflowPrincipalList, placeholderFrame, nullptr,
+                       nsFrameList(continuation, continuation));
 
   *aContinuation = continuation;
 }
@@ -333,7 +333,7 @@ void nsFirstLetterFrame::DrainOverflowFrames(nsPresContext* aPresContext) {
       // views need to be reparented.
       nsContainerFrame::ReparentFrameViewList(*overflowFrames, prevInFlow,
                                               this);
-      mFrames.InsertFrames(this, nullptr, *overflowFrames);
+      mFrames.InsertFrames(this, nullptr, std::move(*overflowFrames));
     }
   }
 
@@ -341,7 +341,7 @@ void nsFirstLetterFrame::DrainOverflowFrames(nsPresContext* aPresContext) {
   AutoFrameListPtr overflowFrames(aPresContext, StealOverflowFrames());
   if (overflowFrames) {
     NS_ASSERTION(mFrames.NotEmpty(), "overflow list w/o frames");
-    mFrames.AppendFrames(nullptr, *overflowFrames);
+    mFrames.AppendFrames(nullptr, std::move(*overflowFrames));
   }
 
   // Now repair our first frames ComputedStyle (since we only reflow

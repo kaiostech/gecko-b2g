@@ -1712,6 +1712,9 @@ class ContentParent final : public PContentParent,
   uint8_t mIsInPool : 1;
   uint8_t mIsUsed : 1;
 
+  // True if we already created a GMP service.
+  uint8_t mGMPCreated : 1;
+
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   bool mBlockShutdownCalled;
 #endif
@@ -1787,11 +1790,11 @@ class ContentParent final : public PContentParent,
 
 NS_DEFINE_STATIC_IID_ACCESSOR(ContentParent, NS_CONTENTPARENT_IID)
 
-// This is the C++ version of remoteTypePrefix in E10SUtils.jsm.
+// This is the C++ version of remoteTypePrefix in E10SUtils.sys.mjs.
 const nsDependentCSubstring RemoteTypePrefix(
     const nsACString& aContentProcessType);
 
-// This is based on isWebRemoteType in E10SUtils.jsm.
+// This is based on isWebRemoteType in E10SUtils.sys.mjs.
 bool IsWebRemoteType(const nsACString& aContentProcessType);
 
 bool IsWebCoopCoepRemoteType(const nsACString& aContentProcessType);

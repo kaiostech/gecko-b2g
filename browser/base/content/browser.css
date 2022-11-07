@@ -32,6 +32,21 @@ body {
   min-width: -moz-fit-content;
 }
 
+#appcontent,
+#browser,
+#tabbrowser-tabbox,
+#tabbrowser-tabpanels,
+.browserSidebarContainer {
+  /* Allow devtools with large specified width/height to shrink */
+  min-width: 0;
+  min-height: 0;
+}
+
+.browserContainer {
+  /* .browserContainer only contains the devtools when docked horizontally */
+  min-height: 0;
+}
+
 /* We set large flex on both containers to allow the devtools toolbox to
  * set a flex value itself. We don't want the toolbox to actually take up free
  * space, but we do want it to collapse when the window shrinks, and with
@@ -428,15 +443,15 @@ toolbarpaletteitem {
     list-style-image: var(--webextension-toolbar-image-dark, inherit);
   }
 
-  .webextension-browser-action[cui-areatype="menu-panel"] {
+  toolbaritem[cui-areatype="menu-panel"] > .webextension-browser-action {
     list-style-image: var(--webextension-menupanel-image, inherit);
   }
 
-  :root[lwt-popup-brighttext] .webextension-browser-action[cui-areatype="menu-panel"] {
+  :root[lwt-popup-brighttext] toolbaritem[cui-areatype="menu-panel"] > .webextension-browser-action {
     list-style-image: var(--webextension-menupanel-image-light, inherit);
   }
 
-  :root:not([lwt-popup-brighttext]) .webextension-browser-action[cui-areatype="menu-panel"]:-moz-lwtheme {
+  :root:not([lwt-popup-brighttext]) toolbaritem[cui-areatype="menu-panel"] > .webextension-browser-action:-moz-lwtheme {
     list-style-image: var(--webextension-menupanel-image-dark, inherit);
   }
 
@@ -458,15 +473,15 @@ toolbarpaletteitem {
     list-style-image: var(--webextension-toolbar-image-2x-dark, inherit);
   }
 
-  .webextension-browser-action[cui-areatype="menu-panel"] {
+  toolbaritem[cui-areatype="menu-panel"] > .webextension-browser-action {
     list-style-image: var(--webextension-menupanel-image-2x, inherit);
   }
 
-  :root[lwt-popup-brighttext] .webextension-browser-action[cui-areatype="menu-panel"] {
+  :root[lwt-popup-brighttext] toolbaritem[cui-areatype="menu-panel"] > .webextension-browser-action {
     list-style-image: var(--webextension-menupanel-image-2x-light, inherit);
   }
 
-  :root:not([lwt-popup-brighttext]) .webextension-browser-action[cui-areatype="menu-panel"]:-moz-lwtheme {
+  :root:not([lwt-popup-brighttext]) toolbaritem[cui-areatype="menu-panel"] > .webextension-browser-action:-moz-lwtheme {
     list-style-image: var(--webextension-menupanel-image-2x-dark, inherit);
   }
 

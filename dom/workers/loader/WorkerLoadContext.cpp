@@ -5,21 +5,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "WorkerLoadContext.h"
-#include "CacheLoadHandler.h"  // CacheCreator refptr
+#include "CacheLoadHandler.h"  // CacheCreator
 
 namespace mozilla {
 namespace dom {
 
 WorkerLoadContext::WorkerLoadContext(Kind aKind,
                                      const Maybe<ClientInfo>& aClientInfo)
-    : JS::loader::LoadContextBase(JS::loader::ContextKind::Worker),
+    : JS::loader::LoadContextNoCCBase(JS::loader::ContextKind::Worker),
       mKind(aKind),
       mClientInfo(aClientInfo){};
 
 void WorkerLoadContext::SetCacheCreator(
     RefPtr<workerinternals::loader::CacheCreator> aCacheCreator) {
   AssertIsOnMainThread();
-  mCacheCreator = aCacheCreator;
+  mCacheCreator =
+      new nsMainThreadPtrHolder<workerinternals::loader::CacheCreator>(
+          "WorkerLoadContext::mCacheCreator", aCacheCreator);
 }
 
 void WorkerLoadContext::ClearCacheCreator() {
@@ -29,7 +31,8 @@ void WorkerLoadContext::ClearCacheCreator() {
 
 RefPtr<workerinternals::loader::CacheCreator>
 WorkerLoadContext::GetCacheCreator() {
-  return mCacheCreator;
+  AssertIsOnMainThread();
+  return mCacheCreator.get();
 }
 
 }  // namespace dom

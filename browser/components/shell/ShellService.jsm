@@ -15,13 +15,13 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   WindowsRegistry: "resource://gre/modules/WindowsRegistry.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
-  Subprocess: "resource://gre/modules/Subprocess.jsm",
 });
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -37,7 +37,7 @@ XPCOMUtils.defineLazyGetter(lazy, "log", () => {
   );
   let consoleOptions = {
     // tip: set maxLogLevel to "debug" and use log.debug() to create detailed
-    // messages during development. See LOG_LEVELS in Console.jsm for details.
+    // messages during development. See LOG_LEVELS in Console.sys.mjs for details.
     maxLogLevel: "debug",
     maxLogLevelPref: "browser.shell.loglevel",
     prefix: "ShellService",

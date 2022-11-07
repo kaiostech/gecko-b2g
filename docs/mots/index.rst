@@ -458,7 +458,8 @@ Infrastructure and tools used to generate, submit and process crash reports. Thi
       -
         | `Kris Wright (KrisWright) <https://people.mozilla.org/s?query=KrisWright>`__
         | `Calixte Denizet (calixte) <https://people.mozilla.org/s?query=calixte>`__
-        | `Aria Beingessner (Gankra) <https://people.mozilla.org/s?query=Gankra>`__
+    * - Peer(s) Emeritus
+      - Aria Beingessner
     * - Includes
       -
         | `toolkit/crashreporter/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=toolkit/crashreporter/\*\*/\*>`__
@@ -535,13 +536,12 @@ Windows dynamic linker instrumentation and blocking
 
     * - Owner(s)
       -
-        | `Toshihito Kikuchi (toshi) <https://people.mozilla.org/s?query=toshi>`__
+        | `David Parks (handyman) <https://people.mozilla.org/s?query=handyman>`__
     * - Peer(s)
       -
-        | `David Parks (handyman) <https://people.mozilla.org/s?query=handyman>`__
         | `Molly Howell (mhowell) <https://people.mozilla.org/s?query=mhowell>`__
     * - Owner(s) Emeritus
-      - Aaron Klotz
+      - Aaron Klotz, Toshihito Kikuchi
     * - Includes
       -
         | `toolkit/xre/dllservices/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=toolkit/xre/dllservices/\*\*/\*>`__
@@ -1016,14 +1016,13 @@ Native message-passing between threads and processes
         | `Nika Layzell (nika) <https://people.mozilla.org/s?query=nika>`__
     * - Peer(s)
       -
-        | `Jim Mathies (jimm) <https://people.mozilla.org/s?query=jimm>`__
         | `Jed Davis (jld) <https://people.mozilla.org/s?query=jld>`__
         | `Andrew McCreight (mccr8) <https://people.mozilla.org/s?query=mccr8>`__
         | `David Parks (handyman) <https://people.mozilla.org/s?query=handyman>`__
     * - Owner(s) Emeritus
       - Chris Jones, Bill McCloskey, Jed Davis
     * - Peer(s) Emeritus
-      - Benjamin Smedberg, Ben Turner, David Anderson, Kan-Ru Chen, Bevis Tseng, Ben Kelly
+      - Benjamin Smedberg, Ben Turner, David Anderson, Kan-Ru Chen, Bevis Tseng, Ben Kelly, Jim Mathies
     * - Includes
       -
         | `ipc/glue/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=ipc/glue/\*\*/\*>`__
@@ -1048,17 +1047,23 @@ JavaScript engine (SpiderMonkey)
         | `Jan de Mooij (jandem) <https://people.mozilla.org/s?query=jandem>`__
     * - Peer(s)
       -
+        | `Yoshi Cheng-Hao Huang (allstars.chh) <https://people.mozilla.org/s?query=allstars.chh>`__
         | `André Bargull (anba) <https://people.mozilla.org/s?query=anba>`__
         | `Tooru Fujisawa (arai) <https://people.mozilla.org/s?query=arai>`__
         | `Bobby Holley (bholley) <https://people.mozilla.org/s?query=bholley>`__
+        | `Bryan Thrall (bthrall) <https://people.mozilla.org/s?query=bthrall>`__
+        | `Dan Minor (dminor) <https://people.mozilla.org/s?query=dminor>`__
         | `Tom Schuster (evilpie) <https://people.mozilla.org/s?query=evilpie>`__
         | `Iain Ireland (iain) <https://people.mozilla.org/s?query=iain>`__
         | `Jon Coppeard (jonco) <https://people.mozilla.org/s?query=jonco>`__
+        | `Julian Seward (jseward) <https://people.mozilla.org/s?query=jseward>`__
         | `Matthew Gaudet (mgaudet) <https://people.mozilla.org/s?query=mgaudet>`__
         | `Nicolas B (nbp) <https://people.mozilla.org/s?query=nbp>`__
+        | `Ryan Hunt (rhunt) <https://people.mozilla.org/s?query=rhunt>`__
         | `Steve Fink (sfink) <https://people.mozilla.org/s?query=sfink>`__
         | `Ted Campbell (tcampbell) <https://people.mozilla.org/s?query=tcampbell>`__
         | `Yulia Startsev (yulia) <https://people.mozilla.org/s?query=yulia>`__
+        | `Yury Delendik (yury) <https://people.mozilla.org/s?query=yury>`__
     * - Owner(s) Emeritus
       - Brendan Eich, Dave Mandelin, Luke Wagner, Jason Orendorff
     * - Peer(s) Emeritus
@@ -1234,10 +1239,11 @@ The JAR handling code (protocol handler, stream implementation, and zipreader/zi
 
     * - Owner(s)
       -
-        | `vgosu <https://people.mozilla.org/s?query=vgosu>`__
+        | `Valentin Gosu (valentin) <https://people.mozilla.org/s?query=valentin>`__
     * - Peer(s)
       -
         | `Kershaw Chang (kershaw) <https://people.mozilla.org/s?query=kershaw>`__
+        | `Randell Jesup (jesup) <https://people.mozilla.org/s?query=jesup>`__
     * - Owner(s) Emeritus
       - Taras Glek, Michael Wu, Aaron Klotz
     * - Peer(s) Emeritus
@@ -1449,11 +1455,10 @@ Integration with Microsoft Distributed COM
     * - Owner(s)
       -
         | `James Teh (Jamie) <https://people.mozilla.org/s?query=Jamie>`__
-    * - Peer(s)
-      -
-        | `Jim Mathies (jimm) <https://people.mozilla.org/s?query=jimm>`__
     * - Owner(s) Emeritus
       - Aaron Klotz
+    * - Peer(s) Emeritus
+      - Jim Mathies
     * - Includes
       -
         | `ipc/mscom/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=ipc/mscom/\*\*/\*>`__
@@ -1473,17 +1478,15 @@ The Mozilla Networking Library
 
     * - Owner(s)
       -
-        | `Dragana Damjanovic (dragana) <https://people.mozilla.org/s?query=dragana>`__
+        | `Valentin Gosu (valentin) <https://people.mozilla.org/s?query=valentin>`__
     * - Peer(s)
       -
-        | `Honza Bambas (mayhemer) <https://people.mozilla.org/s?query=mayhemer>`__
-        | `Michal Novotny (michal) <https://people.mozilla.org/s?query=michal>`__
-        | `Valentin Gosu (valentin) <https://people.mozilla.org/s?query=valentin>`__
         | `Kershaw Chang (kershaw) <https://people.mozilla.org/s?query=kershaw>`__
+        | `Randell Jesup (jesup) <https://people.mozilla.org/s?query=jesup>`__
     * - Owner(s) Emeritus
-      - Patrick McManus, Christian Biesinger
+      - Dragana Damjanovic, Patrick McManus, Christian Biesinger
     * - Peer(s) Emeritus
-      - Shih-Chiang Chien, Boris Zbarsky, Steve Workman, Nick Hurley, Daniel Stenberg, Jason Duell, Junior Hsu
+      - Michal Novotny, Honza Bambas, Shih-Chiang Chien, Boris Zbarsky, Steve Workman, Nick Hurley, Daniel Stenberg, Jason Duell, Junior Hsu
     * - Includes
       -
         | `netwerk/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=netwerk/\*\*/\*>`__
@@ -1500,12 +1503,16 @@ The Mozilla Networking Library
         | `netwerk/system/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=netwerk/system/\*\*/\*>`__
         | `netwerk/test/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=netwerk/test/\*\*/\*>`__
         | `netwerk/testserver/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=netwerk/testserver/\*\*/\*>`__
+        | `dom/fetch/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=dom/fetch/\*\*/\*>`__
+        | `dom/xhr/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=dom/xhr/\*\*/\*>`__
+        | `dom/network/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=dom/network/\*\*/\*>`__
+        | `dom/websocket/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=dom/websocket/\*\*/\*>`__
     * - Group
       - dev-tech-network
     * - URL
       - http://www.mozilla.org/projects/netlib/, https://developer.mozilla.org/en/Necko
     * - Bugzilla Components
-      - Core::Networking, Core::Networking: Cache, Core::Networking: Cookies, Core::Networking: FTP, Core::Networking: File, Core::Networking: HTTP, Core::Networking: JAR, Core::Networking: Websockets
+      - Core::Networking, Core::Networking: Cache, Core::Networking: Cookies, Core::Networking: FTP, Core::Networking: File, Core::Networking: HTTP, Core::Networking: JAR, Core::Networking: Websockets, Core::DOM: Networking
 
 Core: NodeJS usage, tools, and style
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1631,10 +1638,9 @@ NPAPI Plugin support.
 
     * - Owner(s)
       -
-        | `Jim Mathies (jimm) <https://people.mozilla.org/s?query=jimm>`__
-    * - Peer(s)
-      -
         | `David Parks (handyman) <https://people.mozilla.org/s?query=handyman>`__
+    * - Owner(s) Emeritus
+      - Jim Mathies
     * - Peer(s) Emeritus
       - Josh Aas, John Schoenick, Robert O'Callahan, Johnny Stenback, Benjamin Smedberg
     * - Includes
@@ -1815,12 +1821,10 @@ Sandboxing for the Windows platform
     * - Peer(s)
       -
         | `David Parks (handyman) <https://people.mozilla.org/s?query=handyman>`__
-        | `Jim Mathies (jimm) <https://people.mozilla.org/s?query=jimm>`__
-        | `Toshihito Kikuchi (toshi) <https://people.mozilla.org/s?query=toshi>`__
     * - Owner(s) Emeritus
       - Tim Abraldes (https://mozillians.org/en-US/u/TimAbraldes)
     * - Peer(s) Emeritus
-      - Brian Bondy, Aaron Klotz
+      - Brian Bondy, Aaron Klotz, Jim Mathies, Toshihito Kikuchi
     * - Includes
       -
         | `security/sandbox/win/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=security/sandbox/win/\*\*/\*>`__
@@ -2364,9 +2368,9 @@ Top level Widget
 
     * - Owner(s)
       -
-        | `Jim Mathies (jimm) <https://people.mozilla.org/s?query=jimm>`__
+        | `Stephen A Pohl (spohl) <https://people.mozilla.org/s?query=spohl>`__
     * - Owner(s) Emeritus
-      - Vladimir Vukicevic, Robert O'Callahan
+      - Vladimir Vukicevic, Robert O'Callahan, Jim Mathies
     * - Peer(s) Emeritus
       - Stuart Parmenter
     * - Includes
@@ -2481,14 +2485,15 @@ Windows widget support
 
     * - Owner(s)
       -
-        | `Jim Mathies (jimm) <https://people.mozilla.org/s?query=jimm>`__
+        | `Chris Martin (cmartin) <https://people.mozilla.org/s?query=cmartin>`__
     * - Peer(s)
       -
-        | `Chris Martin (cmartin) <https://people.mozilla.org/s?query=cmartin>`__
-        | `Toshihito Kikuchi (toshi) <https://people.mozilla.org/s?query=toshi>`__
+        | `David Parks (handyman) <https://people.mozilla.org/s?query=handyman>`__
         | `Molly Howell (mhowell) <https://people.mozilla.org/s?query=mhowell>`__
+    * - Owner(s) Emeritus
+      - Jim Mathies
     * - Peer(s) Emeritus
-      - Rob Strong, Vladimir Vukicevic, Brad Lassey, Brian Bondy, Christian Biesinger, Doug Turner, Josh 'timeless' Soref, Rob Arnold, Aaron Klotz, Neil Rashbrook
+      - Rob Strong, Vladimir Vukicevic, Brad Lassey, Brian Bondy, Christian Biesinger, Doug Turner, Josh 'timeless' Soref, Rob Arnold, Aaron Klotz, Neil Rashbrook, Toshihito Kikuchi
     * - Includes
       -
         | `widget/windows/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=widget/windows/\*\*/\*>`__
@@ -2726,6 +2731,7 @@ Extension management back-end.
         | `Luca Greco (rpl) <https://people.mozilla.org/s?query=rpl>`__
         | `Tomislav Jovanovic (zombie) <https://people.mozilla.org/s?query=zombie>`__
         | `Rob Wu (robwu) <https://people.mozilla.org/s?query=robwu>`__
+        | `William Durand (willdurand) <https://people.mozilla.org/s?query=willdurand>`__
     * - Owner(s) Emeritus
       - Robert Strong, Andrew Swan, Kris Maglione
     * - Includes
@@ -2818,6 +2824,7 @@ The style rules used in the desktop UI.
       -
         | `Itiel (itiel_yn8) <https://people.mozilla.org/s?query=itiel_yn8>`__
         | `Sam Foster (sfoster) <https://people.mozilla.org/s?query=sfoster>`__
+        | `Amy Churchwell (amy) <https://people.mozilla.org/s?query=amy>`__
     * - Peer(s) Emeritus
       - Tim Nguyen
     * - Includes
@@ -2864,7 +2871,8 @@ The downloads UI and service.
     * - Peer(s)
       -
         | `Gijs <https://people.mozilla.org/s?query=Gijs>`__
-        | `Micah (mtigley) <https://people.mozilla.org/s?query=mtigley>`__
+    * - Peer(s) Emeritus
+      - Micah Tigley
     * - Includes
       -
         | `browser/components/downloads/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=browser/components/downloads/\*\*/\*>`__
@@ -2882,7 +2890,7 @@ System policies for controlling Firefox.
 
     * - Owner(s)
       -
-        | `Please use mozilla (mkaply) <https://people.mozilla.org/s?query=mkaply>`__
+        | `Mike Kaply (mkaply) <https://people.mozilla.org/s?query=mkaply>`__
     * - Peer(s)
       -
         | `Dão Gottwald (dao) <https://people.mozilla.org/s?query=dao>`__
@@ -2957,11 +2965,10 @@ The system for delivering in-product messaging.
 
     * - Owner(s)
       -
-        | `Andrei Oprea (aoprea) <https://people.mozilla.org/s?query=aoprea>`__
+        | `Punam Dahiya (pdahiya) <https://people.mozilla.org/s?query=pdahiya>`__
     * - Peer(s)
       -
         | `Nan Jiang (nanj) <https://people.mozilla.org/s?query=nanj>`__
-        | `Punam Dahiya (pdahiya) <https://people.mozilla.org/s?query=pdahiya>`__
         | `Ed Lee (Mardak) <https://people.mozilla.org/s?query=Mardak>`__
         | `Kate Hudson (k88hudson) <https://people.mozilla.org/s?query=k88hudson>`__
     * - Includes
@@ -2982,12 +2989,12 @@ Windows process for bootstrapping the browser process.
 
     * - Owner(s)
       -
-        | `Toshihito Kikuchi (toshi) <https://people.mozilla.org/s?query=toshi>`__
+        | `Molly Howell (mhowell) <https://people.mozilla.org/s?query=mhowell>`__
     * - Peer(s)
       -
         | `Molly Howell (mhowell) <https://people.mozilla.org/s?query=mhowell>`__
     * - Owner(s) Emeritus
-      - Aaron Klotz
+      - Aaron Klotz, Toshihito Kikuchi
     * - Includes
       -
         | `browser/app/winlauncher/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=browser/app/winlauncher/\*\*/\*>`__
@@ -3095,9 +3102,9 @@ Managing, saving and filling logins.
       - Toolkit::Password Manager, Toolkit::Password Manager: Site, Compatibility, Firefox::about:logins
 
 
-Preferences
-===========
-The front-end preferences system.
+Picture-in-Picture
+==================
+A component that allows video elements to be pulled out into an always-on-top window.
 
 
 .. list-table::
@@ -3106,18 +3113,18 @@ The front-end preferences system.
 
     * - Owner(s)
       -
-        | `jaws <https://people.mozilla.org/s?query=jaws>`__
+        | `Molly Howell (mhowell) <https://people.mozilla.org/s?query=mhowell>`__
+        | `Mike Conley (mconley) <https://people.mozilla.org/s?query=mconley>`__
     * - Peer(s)
       -
-        | `Mark Striemer (mstriemer) <https://people.mozilla.org/s?query=mstriemer>`__
-        | `Gijs <https://people.mozilla.org/s?query=Gijs>`__
-    * - Peer(s) Emeritus
-      - Tim Nguyen
+        | `Niklas Baumgardner (niklas) <https://people.mozilla.org/s?query=niklas>`__
+        | `kpatenio (kpatenio) <https://people.mozilla.org/s?query=kpatenio>`__
+    * - Owner(s) Emeritus
+      - Micah Tigley
     * - Includes
       -
-        | `browser/components/preferences/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=browser/components/preferences/\*\*/\*>`__
-        | `browser/themes/\*/preferences <https://searchfox.org/mozilla-central/search?q=&path=browser/themes/\*/preferences>`__
-        | `toolkit/mozapps/preferences <https://searchfox.org/mozilla-central/search?q=&path=toolkit/mozapps/preferences>`__
+        | `toolkit/components/pictureinpicture <https://searchfox.org/mozilla-central/search?q=&path=toolkit/components/pictureinpicture>`__
+        | `browser/extensions/pictureinpicture <https://searchfox.org/mozilla-central/search?q=&path=browser/extensions/pictureinpicture>`__
 
 
 Profile Migration
@@ -3187,6 +3194,7 @@ The search service, address bar and address bar autocomplete.
         | `Dale Harvey (daleharvey) <https://people.mozilla.org/s?query=daleharvey>`__
         | `Marco Bonardo (mak) <https://people.mozilla.org/s?query=mak>`__
         | `Dão Gottwald (dao) <https://people.mozilla.org/s?query=dao>`__
+        | `Mandy Cheang (mcheang) <https://people.mozilla.org/s?query=mcheang>`__
     * - Peer(s) Emeritus
       - Michael de Boer
     * - Includes
@@ -3251,6 +3259,33 @@ Restoring a user's session after starting Firefox.
         | `toolkit/components/sessionstore/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=toolkit/components/sessionstore/\*\*/\*>`__
     * - Bugzilla Components
       - Firefox::Session Restore
+
+
+Settings UI
+===========
+The front-end settings user interface.
+
+
+.. list-table::
+    :stub-columns: 1
+    :widths: 30 70
+
+    * - Owner(s)
+      -
+        | `jaws <https://people.mozilla.org/s?query=jaws>`__
+    * - Peer(s)
+      -
+        | `Mark Striemer (mstriemer) <https://people.mozilla.org/s?query=mstriemer>`__
+        | `Gijs <https://people.mozilla.org/s?query=Gijs>`__
+        | `Dave Townsend (mossop) <https://people.mozilla.org/s?query=mossop>`__
+        | `Mike Conley (mconley) <https://people.mozilla.org/s?query=mconley>`__
+    * - Peer(s) Emeritus
+      - Tim Nguyen
+    * - Includes
+      -
+        | `browser/components/preferences/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=browser/components/preferences/\*\*/\*>`__
+        | `browser/themes/\*/preferences <https://searchfox.org/mozilla-central/search?q=&path=browser/themes/\*/preferences>`__
+        | `toolkit/mozapps/preferences <https://searchfox.org/mozilla-central/search?q=&path=toolkit/mozapps/preferences>`__
 
 
 Tabbed Browser

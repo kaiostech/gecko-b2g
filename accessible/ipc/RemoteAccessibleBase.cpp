@@ -693,6 +693,49 @@ Relation RemoteAccessibleBase<Derived>::RelationByType(
     return Relation();
   }
 
+  if (aType == RelationType::LINKS_TO && Role() == roles::LINK) {
+    Pivot p = Pivot(mDoc);
+    nsString href;
+    Value(href);
+    if (!href.IsEmpty()) {
+      // `Value` will give us the entire URL, we're only interested in the ID
+      // after the hash. Split that part out.
+      for (auto s : href.Split('#')) {
+        href = s;
+      }
+      if (href.IsEmpty()) {
+        // This can happen if we encounter a link with an empty anchor:
+        // ie. <a href="#">hi</a>
+        return Relation();
+      }
+
+      MustPruneSameDocRule rule;
+      Accessible* nameMatch = nullptr;
+      for (Accessible* match = p.Next(mDoc, rule); match;
+           match = p.Next(match, rule)) {
+        nsString currID;
+        match->DOMNodeID(currID);
+        MOZ_ASSERT(match->IsRemote());
+        if (href.Equals(currID)) {
+          return Relation(match->AsRemote());
+        }
+        if (!nameMatch) {
+          nsString currName = match->AsRemote()->GetCachedHTMLNameAttribute();
+          if (match->TagName() == nsGkAtoms::a && href.Equals(currName)) {
+            // If we find an element with a matching ID, we should return
+            // that, but if we don't we should return the first anchor with
+            // a matching name. To avoid doing two traversals, store the first
+            // name match here.
+            nameMatch = match;
+          }
+        }
+      }
+      return nameMatch ? Relation(nameMatch->AsRemote()) : Relation();
+    }
+
+    return Relation();
+  }
+
   // Handle ARIA tree, treegrid parent/child relations. Each of these cases
   // relies on cached group info. To find the parent of an accessible, use the
   // unified conceptual parent.
@@ -724,12 +767,65 @@ Relation RemoteAccessibleBase<Derived>::RelationByType(
     return Relation();
   }
 
+  if (aType == RelationType::MEMBER_OF) {
+    Relation rel = Relation();
+    // HTML radio buttons with cached names should be grouped.
+    if (IsHTMLRadioButton()) {
+      nsString name = GetCachedHTMLNameAttribute();
+      if (name.IsEmpty()) {
+        return rel;
+      }
+
+      RemoteAccessible* ancestor = RemoteParent();
+      while (ancestor && ancestor->Role() != roles::FORM && ancestor != mDoc) {
+        ancestor = ancestor->RemoteParent();
+      }
+      Pivot p = Pivot(ancestor);
+      PivotRadioNameRule rule(name);
+      Accessible* match = p.Next(ancestor, rule);
+      while (match) {
+        rel.AppendTarget(match->AsRemote());
+        match = p.Next(match, rule);
+      }
+      return rel;
+    }
+
+    if (IsARIARole(nsGkAtoms::radio)) {
+      // ARIA radio buttons should be grouped by their radio group
+      // parent, if one exists.
+      RemoteAccessible* currParent = RemoteParent();
+      while (currParent && currParent->Role() != roles::RADIO_GROUP) {
+        currParent = currParent->RemoteParent();
+      }
+
+      if (currParent && currParent->Role() == roles::RADIO_GROUP) {
+        // If we found a radiogroup parent, search for all
+        // roles::RADIOBUTTON children and add them to our relation.
+        // This search will include the radio button this method
+        // was called from, which is expected.
+        Pivot p = Pivot(currParent);
+        PivotRoleRule rule(roles::RADIOBUTTON);
+        Accessible* match = p.Next(currParent, rule);
+        while (match) {
+          MOZ_ASSERT(match->IsRemote(),
+                     "We should only be traversing the remote tree.");
+          rel.AppendTarget(match->AsRemote());
+          match = p.Next(match, rule);
+        }
+      }
+    }
+    // By webkit's standard, aria radio buttons do not get grouped
+    // if they lack a group parent, so we return an empty
+    // relation here if the above check fails.
+    return rel;
+  }
+
   Relation rel;
   if (!mCachedFields) {
     return rel;
   }
 
-  for (auto data : kRelationTypeAtoms) {
+  for (const auto& data : kRelationTypeAtoms) {
     if (data.mType != aType ||
         (data.mValidTag && TagName() != data.mValidTag)) {
       continue;
@@ -972,6 +1068,17 @@ RemoteAccessibleBase<Derived>::GetCachedARIAAttributes() const {
     return attrs;
   }
   return nullptr;
+}
+
+template <class Derived>
+nsString RemoteAccessibleBase<Derived>::GetCachedHTMLNameAttribute() const {
+  if (mCachedFields) {
+    if (auto maybeName =
+            mCachedFields->GetAttribute<nsString>(nsGkAtoms::attributeName)) {
+      return *maybeName;
+    }
+  }
+  return nsString();
 }
 
 template <class Derived>
@@ -1372,6 +1479,24 @@ void RemoteAccessibleBase<Derived>::InvalidateGroupInfo() {
   if (mCachedFields) {
     mCachedFields->Remove(nsGkAtoms::group);
   }
+}
+
+template <class Derived>
+void RemoteAccessibleBase<Derived>::GetPositionAndSetSize(int32_t* aPosInSet,
+                                                          int32_t* aSetSize) {
+  if (IsHTMLRadioButton()) {
+    *aSetSize = 0;
+    Relation rel = RelationByType(RelationType::MEMBER_OF);
+    while (Accessible* radio = rel.Next()) {
+      ++*aSetSize;
+      if (radio == this) {
+        *aPosInSet = *aSetSize;
+      }
+    }
+    return;
+  }
+
+  Accessible::GetPositionAndSetSize(aPosInSet, aSetSize);
 }
 
 template <class Derived>

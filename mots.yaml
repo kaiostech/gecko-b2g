@@ -2,7 +2,7 @@
 ---
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2022-10-24T12:52:11.112046'
+updated_at: '2022-10-28T09:16:02.176101'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -37,10 +37,18 @@ people:
     bmo_id: 329611
     name: Aki Sasaki
     nick: aki
+  - &allstarschh
+    bmo_id: 434670
+    name: Yoshi Cheng-Hao Huang
+    nick: allstars.chh
   - &alwu
     bmo_id: 517691
     name: Alastor Wu
     nick: alwu
+  - &amy
+    bmo_id: 622155
+    name: Amy Churchwell
+    nick: amy
   - &anba
     bmo_id: 339940
     name: André Bargull
@@ -137,6 +145,10 @@ people:
     bmo_id: 596517
     name: Brian Stack
     nick: bstack
+  - &bthrall
+    bmo_id: 700441
+    name: Bryan Thrall
+    nick: bthrall
   - &bwc
     bmo_id: 478411
     name: Byron Campen
@@ -308,10 +320,6 @@ people:
     bmo_id: 417288
     name: Nathan Froyd
     nick: froydnj
-  - &Gankra
-    bmo_id: 452386
-    name: Aria Beingessner
-    nick: Gankra
   - &gbrown
     bmo_id: 411471
     name: Geoff Brown
@@ -508,6 +516,10 @@ people:
     bmo_id: 106098
     name: Kris Maglione
     nick: kmag
+  - &kpatenio
+    bmo_id: 690690
+    name: kpatenio
+    nick: kpatenio
   - &KrisWright
     bmo_id: 617144
     name: Kris Wright
@@ -568,6 +580,10 @@ people:
     bmo_id: 406194
     name: Andrew McCreight
     nick: mccr8
+  - &mcheang
+    bmo_id: 638884
+    name: Mandy Cheang
+    nick: mcheang
   - &mconley
     bmo_id: 403756
     name: Mike Conley
@@ -584,8 +600,7 @@ people:
     bmo_id: 550257
     name: Molly Howell
     nick: mhowell
-  - &michal
-    bmo_id: 268625
+  - bmo_id: 268625
     name: Michal Novotny
     nick: michal
   - &mikokm
@@ -593,8 +608,8 @@ people:
     name: Miko Mynttinen
     nick: mikokm
   - &mkaply
-    bmo_id: 566790
-    name: Please use mozilla
+    bmo_id: 7313
+    name: Mike Kaply
     nick: mkaply
   - &morgan
     bmo_id: 618000
@@ -628,10 +643,6 @@ people:
     bmo_id: 438654
     name: Martin Thomson
     nick: mt
-  - &mtigley
-    bmo_id: 618808
-    name: Micah
-    nick: mtigley
   - &nalexander
     bmo_id: 432887
     name: Nick Alexander
@@ -831,10 +842,6 @@ people:
     bmo_id: 415378
     name: Valentin Gosu
     nick: valentin
-  - &vgosu
-    bmo_id: 449469
-    name: ''
-    nick: vgosu
   - &Waldo
     bmo_id: 83595
     name: Jeff Walden
@@ -863,6 +870,10 @@ people:
     bmo_id: 600802
     name: Yulia Startsev
     nick: yulia
+  - &yury
+    bmo_id: 382167
+    name: Yury Delendik
+    nick: yury
   - &yzen
     bmo_id: 458165
     name: Yura Zenevich
@@ -1208,6 +1219,8 @@ modules:
       - ipc/glue/CrashReporter/**/*
       - mobile/android/geckoview/src/main/java/org/mozilla/geckoview/CrashReporter.java
     meta:
+      peers_emeritus:
+        - Aria Beingessner
       group: dev-platform
       url: https://firefox-source-docs.mozilla.org/toolkit/crashreporter/crashreporter/index.html
       components:
@@ -1217,7 +1230,6 @@ modules:
     peers:
       - *KrisWright
       - *calixte
-      - *Gankra
     machine_name: core_crash_reporting
 
   - name: 'Core: C++/Rust usage, tools, and style'
@@ -1272,12 +1284,12 @@ modules:
     meta:
       owners_emeritus:
         - Aaron Klotz
+        - *toshi
       components:
         - Core::DLL Services
     owners:
-      - *toshi
-    peers:
       - *handyman
+    peers:
       - *mhowell
     machine_name: core_dll_services
 
@@ -1660,13 +1672,13 @@ modules:
         - Kan-Ru Chen
         - Bevis Tseng
         - Ben Kelly
+        - *jimm
       group: dev-platform
       components:
         - Core::IPC
     owners:
       - *nika
     peers:
-      - *jimm
       - *jld
       - *mccr8
       - *handyman
@@ -1713,17 +1725,23 @@ modules:
     owners:
       - *jandem
     peers:
+      - *allstarschh
       - *anba
       - *arai
       - *bholley
+      - *bthrall
+      - *dminor
       - *evilpie
       - *iain
       - *jonco
+      - *jseward
       - *mgaudet
       - *nbp
+      - *rhunt
       - *sfink
       - *tcampbell
       - *yulia
+      - *yury
     machine_name: core_javascript
 
   - name: 'Core: JavaScript JIT'
@@ -1867,9 +1885,10 @@ modules:
       components:
         - 'Core::Networking: JAR'
     owners:
-      - *vgosu
+      - *valentin
     peers:
       - *kershaw
+      - *jesup
     machine_name: core_libjar
 
   - name: 'Core: MathML'
@@ -2013,13 +2032,13 @@ modules:
     meta:
       owners_emeritus:
         - Aaron Klotz
+      peers_emeritus:
+        - *jimm
       group: dev-platform
       components:
         - 'Core::IPC: MSCOM'
     owners:
       - *Jamie
-    peers:
-      - *jimm
     machine_name: core_mscom
 
   - name: 'Core: Necko'
@@ -2039,11 +2058,18 @@ modules:
       - netwerk/system/**/*
       - netwerk/test/**/*
       - netwerk/testserver/**/*
+      - dom/fetch/**/*
+      - dom/xhr/**/*
+      - dom/network/**/*
+      - dom/websocket/**/*
     meta:
       owners_emeritus:
+        - Dragana Damjanovic
         - Patrick McManus
         - Christian Biesinger
       peers_emeritus:
+        - Michal Novotny
+        - Honza Bambas
         - Shih-Chiang Chien
         - Boris Zbarsky
         - Steve Workman
@@ -2062,13 +2088,12 @@ modules:
         - 'Core::Networking: HTTP'
         - 'Core::Networking: JAR'
         - 'Core::Networking: Websockets'
+        - 'Core::DOM: Networking'
     owners:
-      - *dragana
-    peers:
-      - *mayhemer
-      - *michal
       - *valentin
+    peers:
       - *kershaw
+      - *jesup
     machine_name: core_necko
 
   - name: 'Core: NodeJS usage, tools, and style'
@@ -2168,6 +2193,8 @@ modules:
       - dom/plugins/**/*
       - modules/plugin/**/*
     meta:
+      owners_emeritus:
+        - *jimm
       peers_emeritus:
         - Josh Aas
         - John Schoenick
@@ -2178,8 +2205,6 @@ modules:
       components:
         - Core::Plug-ins
     owners:
-      - *jimm
-    peers:
       - *handyman
     machine_name: core_plugins
 
@@ -2209,7 +2234,7 @@ modules:
     includes:
     # TODO
     # Implementation and consumers of Private Browsing APIs in nsILoadContext,
-    # nsIPrivateBrowsingChannel, PrivateBrowsingUtils.jsm and the related glue code. '
+    # nsIPrivateBrowsingChannel, PrivateBrowsingUtils.sys.mjs and the related glue code. '
     meta:
       owners_emeritus:
         - Ehsan Akhgari
@@ -2303,6 +2328,8 @@ modules:
       peers_emeritus:
         - Brian Bondy
         - Aaron Klotz
+        - *jimm
+        - *toshi
       group: dev-platform
       url: 'https://wiki.mozilla.org/Security/Sandbox '
       components:
@@ -2311,8 +2338,6 @@ modules:
       - *bobowen
     peers:
       - *handyman
-      - *jimm
-      - *toshi
     machine_name: core_sandboxing_windows
 
   - name: 'Core: security'
@@ -2700,6 +2725,7 @@ modules:
       owners_emeritus:
         - Vladimir Vukicevic
         - Robert O'Callahan
+        - *jimm
       peers_emeritus:
         - Stuart Parmenter
       group: dev-platform
@@ -2708,7 +2734,7 @@ modules:
         - Core::Widget
         - 'Core::Printing: Setup'
     owners:
-      - *jimm
+      - *spohl
     machine_name: core_widget
 
   - name: 'Core: Widget - Android'
@@ -2780,6 +2806,8 @@ modules:
     includes:
       - widget/windows/**/*
     meta:
+      owners_emeritus:
+        - *jimm
       peers_emeritus:
         - Rob Strong
         - Vladimir Vukicevic
@@ -2791,14 +2819,14 @@ modules:
         - Rob Arnold
         - Aaron Klotz
         - Neil Rashbrook
+        - *toshi
       group: dev-platform
       components:
         - 'Core::Widget: Win32'
     owners:
-      - *jimm
-    peers:
       - *cmartin
-      - *toshi
+    peers:
+      - *handyman
       - *mhowell
     machine_name: core_widget_windows
 
@@ -3001,6 +3029,7 @@ modules:
           - *rpl
           - *zombie
           - *robwu
+          - *willdurand
         machine_name: addons_manager
 
       - name: Add-ons Manager UI
@@ -3062,6 +3091,7 @@ modules:
         peers:
           - *itielyn8
           - *sfoster
+          - *amy
         machine_name: desktop_theme
 
       - name: Desktop UI
@@ -3081,12 +3111,13 @@ modules:
         includes:
           - browser/components/downloads/**/*
           - toolkit/mozapps/downloads/**/*
-        meta: {}
+        meta:
+          peers_emeritus:
+            - Micah Tigley
         owners:
           - *mak
         peers:
           - *Gijs
-          - *mtigley
         machine_name: download_manager
 
       - name: Enterprise Policies
@@ -3142,10 +3173,9 @@ modules:
           components:
             - Firefox::Messaging System
         owners:
-          - *aoprea
+          - *pdahiya
         peers:
           - *nanj
-          - *pdahiya
           - *Mardak
           - *k88hudson
         machine_name: inproduct_messaging
@@ -3157,10 +3187,11 @@ modules:
         meta:
           owners_emeritus:
             - Aaron Klotz
+            - *toshi
           components:
             - Firefox::Launcher Process
         owners:
-          - *toshi
+          - *mhowell
         peers:
           - *mhowell
         machine_name: launcher_process
@@ -3230,21 +3261,23 @@ modules:
           - *sfoster
         machine_name: password_manager
 
-      - name: Preferences
-        description: The front-end preferences system.
+      - machine_name: firefox_pip
+        name: Picture-in-Picture
+        description: A component that allows video elements to be pulled out into
+          an always-on-top window.
         includes:
-          - browser/components/preferences/**/*
-          - browser/themes/*/preferences
-          - toolkit/mozapps/preferences
-        meta:
-          peers_emeritus:
-            - Tim Nguyen
+          - toolkit/components/pictureinpicture
+          - browser/extensions/pictureinpicture
+        excludes: []
         owners:
-          - *jaws
+          - *mhowell
+          - *mconley
         peers:
-          - *mstriemer
-          - *Gijs
-        machine_name: preferences
+          - *niklas
+          - *kpatenio
+        meta:
+          owners_emeritus:
+            - Micah Tigley
 
       - name: Profile Migration
         description: Migrating data from other browsers.
@@ -3297,6 +3330,7 @@ modules:
           - *daleharvey
           - *mak
           - *dao
+          - *mcheang
         machine_name: search_and_address_bar
 
       - name: Security and Privacy UI
@@ -3341,6 +3375,24 @@ modules:
         peers:
           - *farre
         machine_name: session_restore
+
+      - name: Settings UI
+        description: The front-end settings user interface.
+        includes:
+          - browser/components/preferences/**/*
+          - browser/themes/*/preferences
+          - toolkit/mozapps/preferences
+        meta:
+          peers_emeritus:
+            - Tim Nguyen
+        owners:
+          - *jaws
+        peers:
+          - *mstriemer
+          - *Gijs
+          - *mossop
+          - *mconley
+        machine_name: settings_ui
 
       - name: Tabbed Browser
         description: The UI component controlling browser tabs.
@@ -3633,5 +3685,5 @@ modules:
         machine_name: webextensions
     machine_name: toolkit
 hashes:
-  config: 8850b02f61b1f5e8519c87ec75a421c770337650
-  export: bc0c9447bd355bf9554147d9065fb4b5ff11240c
+  config: 20bf74c6395f41505f814c9cb6f1d23d03b1d7ae
+  export: f8100ab782235179d9bc6382e950d0d9d9d046f1

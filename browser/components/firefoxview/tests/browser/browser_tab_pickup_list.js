@@ -15,7 +15,7 @@ const twoTabs = [
     title: "Phabricator Home",
     url: "https://phabricator.services.mozilla.com/",
     icon: "https://phabricator.services.mozilla.com/favicon.d25d81d39065.ico",
-    lastUsed: 1655745700, // Mon, 20 Jun 2022 17:21:40 GMT
+    lastUsed: 1655745700000, // Mon, 20 Jun 2022 17:21:40 GMT
   },
   {
     type: "tab",
@@ -23,7 +23,7 @@ const twoTabs = [
     url: "https://www.mozilla.org/en-US/privacy/firefox/",
     icon:
       "https://www.mozilla.org/media/img/favicons/mozilla/favicon.d25d81d39065.ico",
-    lastUsed: 1655745700, // Mon, 20 Jun 2022 17:21:40 GMT
+    lastUsed: 1655745700000, // Mon, 20 Jun 2022 17:21:40 GMT
   },
 ];
 const syncedTabsData2 = structuredClone(syncedTabsData1);
@@ -42,7 +42,7 @@ const syncedTabsData3 = [
         title: "Sandboxes - Sinon.JS",
         url: "https://sinonjs.org/releases/latest/sandbox/",
         icon: "https://sinonjs.org/assets/images/favicon.png",
-        lastUsed: 1655391592, // Thu Jun 16 2022 14:59:52 GMT+0000
+        lastUsed: 1655391592000, // Thu Jun 16 2022 14:59:52 GMT+0000
       },
     ],
   },
@@ -64,10 +64,15 @@ const syncedTabsData5 = [
         title: "Example2",
         url: "https://example.com",
         icon: "https://example/favicon.png",
-        lastUsed: Math.floor((Date.now() - 1000 * 60) / 1000), // This is one minute from now, which is below the threshold for 'Just now'
+        lastUsed: Math.floor(Date.now() - 1000 * 60), // This is one minute from now, which is below the threshold for 'Just now'
       },
     ],
   },
+];
+
+const NO_TABS_EVENTS = [
+  ["firefoxview", "entered", "firefoxview", undefined],
+  ["firefoxview", "synced_tabs", "tabs", undefined, { count: "0" }],
 ];
 
 const TAB_PICKUP_EVENT = [
@@ -86,38 +91,8 @@ const TAB_PICKUP_OPEN_EVENT = [
   ["firefoxview", "tab_pickup_open", "tabs", "false"],
 ];
 
-const TAB_PICKUP_STATE_PREF =
-  "browser.tabs.firefox-view.ui-state.tab-pickup.open";
-
-function cleanup() {
-  Services.prefs.clearUserPref("services.sync.engine.tabs");
-  Services.prefs.clearUserPref("services.sync.lastTabFetch");
-  Services.prefs.clearUserPref(TAB_PICKUP_STATE_PREF);
-}
-
 registerCleanupFunction(async function() {
-  cleanup();
-});
-
-add_task(async function test_keyboard_accessibility() {
-  await withFirefoxView({}, async browser => {
-    const win = browser.ownerGlobal;
-    const { document } = browser.contentWindow;
-    const enter = async () => {
-      info("Enter");
-      EventUtils.synthesizeKey("KEY_Enter", {}, win);
-    };
-    let details = document.getElementById("tab-pickup-container");
-    let summary = details.querySelector("summary");
-    ok(summary, "summary element should exist");
-    ok(details.open, "Tab pickup container should be initially open on load");
-    summary.focus();
-    await enter();
-    ok(!details.open, "Tab pickup container should be closed");
-    await enter();
-    ok(details.open, "Tab pickup container should be opened");
-  });
-  cleanup();
+  cleanup_tab_pickup();
 });
 
 add_task(async function test_tab_list_ordering() {
@@ -189,7 +164,7 @@ add_task(async function test_tab_list_ordering() {
     );
 
     sandbox.restore();
-    cleanup();
+    cleanup_tab_pickup();
   });
 });
 
@@ -265,11 +240,12 @@ add_task(async function test_empty_list_items() {
     );
 
     sandbox.restore();
-    cleanup();
+    cleanup_tab_pickup();
   });
 });
 
 add_task(async function test_empty_list() {
+  await clearAllParentTelemetryEvents();
   await withFirefoxView({}, async browser => {
     const { document } = browser.contentWindow;
 
@@ -295,6 +271,25 @@ add_task(async function test_empty_list() {
       "collapsible container should have correct styling when the list is empty"
     );
 
+    await TestUtils.waitForCondition(
+      () => {
+        let events = Services.telemetry.snapshotEvents(
+          Ci.nsITelemetry.DATASET_PRERELEASE_CHANNELS,
+          false
+        ).parent;
+        return events && events.length >= 2;
+      },
+      "Waiting for entered and synced_tabs firefoxview telemetry events.",
+      200,
+      100
+    );
+
+    TelemetryTestUtils.assertEvents(
+      NO_TABS_EVENTS,
+      { category: "firefoxview" },
+      { clear: true, process: "parent" }
+    );
+
     syncedTabsMock.returns(mockTabs2);
     // Initiate a synced tabs update
     Services.obs.notifyObservers(null, "services.sync.tabs.changed");
@@ -314,7 +309,7 @@ add_task(async function test_empty_list() {
     });
 
     sandbox.restore();
-    cleanup();
+    cleanup_tab_pickup();
   });
 });
 
@@ -416,7 +411,7 @@ add_task(async function test_time_updates_correctly() {
     );
 
     sandbox.restore();
-    cleanup();
+    cleanup_tab_pickup();
     await SpecialPowers.popPrefEnv();
   });
 });
@@ -464,6 +459,119 @@ add_task(async function test_tabs_sync_on_user_page_reload() {
       () => timeLabel.textContent.includes("now")
     );
     sandbox.restore();
-    cleanup();
+    cleanup_tab_pickup();
+  });
+
+  add_task(async function test_keyboard_navigation() {
+    // Setting this pref allows the test to run as expected on MacOS
+    await SpecialPowers.pushPrefEnv({ set: [["accessibility.tabfocus", 7]] });
+    TabsSetupFlowManager.resetInternalState();
+    await BrowserTestUtils.withNewTab(
+      {
+        gBrowser,
+        url: "about:firefoxview",
+      },
+      async browser => {
+        const { document } = browser.contentWindow;
+        const sandbox = setupRecentDeviceListMocks();
+        const syncedTabsMock = sandbox.stub(SyncedTabs, "getRecentTabs");
+        let mockTabs1 = getMockTabData(syncedTabsData1);
+        syncedTabsMock.returns(mockTabs1);
+
+        await setupListState(browser);
+        const tab = (shiftKey = false) => {
+          info(`${shiftKey ? "Shift + Tab" : "Tab"}`);
+          EventUtils.synthesizeKey("KEY_Tab", { shiftKey });
+        };
+        const arrowDown = () => {
+          info("Arrow Down");
+          EventUtils.synthesizeKey("KEY_ArrowDown");
+        };
+        const arrowUp = () => {
+          info("Arrow Up");
+          EventUtils.synthesizeKey("KEY_ArrowUp");
+        };
+        const arrowLeft = () => {
+          info("Arrow Left");
+          EventUtils.synthesizeKey("KEY_ArrowLeft");
+        };
+        const arrowRight = () => {
+          info("Arrow Right");
+          EventUtils.synthesizeKey("KEY_ArrowRight");
+        };
+
+        let syncedTabsLinks = document
+          .querySelector("ol.synced-tabs-list")
+          .querySelectorAll("a");
+        let summary = document
+          .getElementById("tab-pickup-container")
+          .querySelector("summary");
+        summary.focus();
+        tab();
+        is(
+          syncedTabsLinks[0],
+          document.activeElement,
+          "First synced tab should be focused"
+        );
+        arrowDown();
+        is(
+          syncedTabsLinks[1],
+          document.activeElement,
+          "Second synced tab should be focused"
+        );
+        arrowDown();
+        is(
+          syncedTabsLinks[2],
+          document.activeElement,
+          "Third synced tab should be focused"
+        );
+        arrowDown();
+        is(
+          syncedTabsLinks[2],
+          document.activeElement,
+          "Third synced tab should still be focused"
+        );
+        arrowUp();
+        is(
+          syncedTabsLinks[1],
+          document.activeElement,
+          "Second synced tab should be focused"
+        );
+        arrowLeft();
+        is(
+          syncedTabsLinks[0],
+          document.activeElement,
+          "First synced tab should be focused"
+        );
+        arrowRight();
+        is(
+          syncedTabsLinks[1],
+          document.activeElement,
+          "Second synced tab should be focused"
+        );
+        arrowDown();
+        is(
+          syncedTabsLinks[2],
+          document.activeElement,
+          "Third synced tab should be focused"
+        );
+        arrowLeft();
+        is(
+          syncedTabsLinks[0],
+          document.activeElement,
+          "First synced tab should be focused"
+        );
+
+        tab(true);
+        is(
+          summary,
+          document.activeElement,
+          "Summary element should be focused when shift tabbing away from list"
+        );
+
+        sandbox.restore();
+        cleanup_tab_pickup();
+      }
+    );
   });
 });

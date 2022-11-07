@@ -1,4 +1,5 @@
 {
+    "collationUCAData": "implicithan",
     "featureFilters": {
         "brkitr_dictionaries": {
             "filterType": "exclude"
@@ -158,7 +159,9 @@
             ],
             "rules": [
                 "-/UCARules",
-                "-/collations/*/Sequence"
+                "-/collations/*/Sequence",
+                "-/collations/big5han",
+                "-/collations/gb2312han"
             ]
         },
         {

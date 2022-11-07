@@ -120,9 +120,11 @@
            fullscreentoolbar="true" mode="icons" customizable="true"
            customizationtarget="nav-bar-customization-target"
            overflowable="true"
-           overflowbutton="nav-bar-overflow-button"
-           overflowtarget="widget-overflow-list"
-           overflowpanel="widget-overflow"
+           default-overflowbutton="nav-bar-overflow-button"
+           default-overflowtarget="widget-overflow-list"
+           default-overflowpanel="widget-overflow"
+           addon-webext-overflowbutton="unified-extensions-button"
+           addon-webext-overflowtarget="overflowed-extensions-list"
            context="toolbar-context-menu">
 
     <toolbartabstop/>
@@ -302,6 +304,8 @@
                        data-l10n-id="urlbar-midi-notification-anchor"/>
                 <image id="webauthn-notification-icon" class="notification-anchor-icon" role="button"
                        data-l10n-id="urlbar-web-authn-anchor"/>
+                <image id="identity-credential-notification-icon" class="notification-anchor-icon" role="button"
+                      data-l10n-id="urlbar-identity-credential-anchor"/>
                 <image id="storage-access-notification-icon" class="notification-anchor-icon storage-access-icon" role="button"
                        data-l10n-id="urlbar-storage-access-anchor"/>
               </box>
@@ -336,7 +340,7 @@
                    class="urlbar-icon"
                    onclick="gURLBar.handleCommand(event);"
                    data-l10n-id="urlbar-go-button"/>
-            <hbox id="page-action-buttons" context="pageActionContextMenu">
+            <hbox id="page-action-buttons" context="pageActionContextMenu" align="center">
               <toolbartabstop/>
               <hbox id="contextual-feature-recommendation" role="button" hidden="true">
                 <hbox id="cfr-label-container">

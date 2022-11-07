@@ -46,7 +46,7 @@ typedef mozilla::CSSAlignUtils::AlignJustifyFlags AlignJustifyFlags;
 
 void nsAbsoluteContainingBlock::SetInitialChildList(nsIFrame* aDelegatingFrame,
                                                     ChildListID aListID,
-                                                    nsFrameList& aChildList) {
+                                                    nsFrameList&& aChildList) {
   MOZ_ASSERT(mChildListID == aListID, "unexpected child list name");
 #ifdef DEBUG
   nsIFrame::VerifyDirtyBitSet(aChildList);
@@ -54,19 +54,19 @@ void nsAbsoluteContainingBlock::SetInitialChildList(nsIFrame* aDelegatingFrame,
     MOZ_ASSERT(f->GetParent() == aDelegatingFrame, "Unexpected parent");
   }
 #endif
-  mAbsoluteFrames.SetFrames(aChildList);
+  mAbsoluteFrames = std::move(aChildList);
 }
 
 void nsAbsoluteContainingBlock::AppendFrames(nsIFrame* aDelegatingFrame,
                                              ChildListID aListID,
-                                             nsFrameList& aFrameList) {
+                                             nsFrameList&& aFrameList) {
   NS_ASSERTION(mChildListID == aListID, "unexpected child list");
 
   // Append the frames to our list of absolutely positioned frames
 #ifdef DEBUG
   nsIFrame::VerifyDirtyBitSet(aFrameList);
 #endif
-  mAbsoluteFrames.AppendFrames(nullptr, aFrameList);
+  mAbsoluteFrames.AppendFrames(nullptr, std::move(aFrameList));
 
   // no damage to intrinsic widths, since absolutely positioned frames can't
   // change them
@@ -77,7 +77,7 @@ void nsAbsoluteContainingBlock::AppendFrames(nsIFrame* aDelegatingFrame,
 void nsAbsoluteContainingBlock::InsertFrames(nsIFrame* aDelegatingFrame,
                                              ChildListID aListID,
                                              nsIFrame* aPrevFrame,
-                                             nsFrameList& aFrameList) {
+                                             nsFrameList&& aFrameList) {
   NS_ASSERTION(mChildListID == aListID, "unexpected child list");
   NS_ASSERTION(!aPrevFrame || aPrevFrame->GetParent() == aDelegatingFrame,
                "inserting after sibling frame with different parent");
@@ -85,7 +85,7 @@ void nsAbsoluteContainingBlock::InsertFrames(nsIFrame* aDelegatingFrame,
 #ifdef DEBUG
   nsIFrame::VerifyDirtyBitSet(aFrameList);
 #endif
-  mAbsoluteFrames.InsertFrames(nullptr, aPrevFrame, aFrameList);
+  mAbsoluteFrames.InsertFrames(nullptr, aPrevFrame, std::move(aFrameList));
 
   // no damage to intrinsic widths, since absolutely positioned frames can't
   // change them

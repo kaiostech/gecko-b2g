@@ -11,10 +11,10 @@ const {
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   UrlbarProviderQuickSuggest:
     "resource:///modules/UrlbarProviderQuickSuggest.sys.mjs",
-  UrlbarQuickSuggest: "resource:///modules/UrlbarQuickSuggest.sys.mjs",
   UrlbarUtils: "resource:///modules/UrlbarUtils.sys.mjs",
 });
 
@@ -28,11 +28,14 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   TestUtils: "resource://testing-common/TestUtils.jsm",
 });
 
+let gTestScope;
+
 XPCOMUtils.defineLazyGetter(lazy, "UrlbarTestUtils", () => {
   const { UrlbarTestUtils: module } = ChromeUtils.importESModule(
     "resource://testing-common/UrlbarTestUtils.sys.mjs"
   );
-  module.init(QuickSuggestTestUtils._testScope);
+  module.init(gTestScope);
+  gTestScope.registerCleanupFunction?.(() => module.uninit());
   return module;
 });
 
@@ -74,16 +77,10 @@ const DEFAULT_PING_PAYLOADS = {
   },
 };
 
-const LEARN_MORE_URL =
-  Services.urlFormatter.formatURLPref("app.support.baseURL") +
-  "firefox-suggest";
-
-const TELEMETRY_EVENT_CATEGORY = "contextservices.quicksuggest";
-
-// On `init`, the following properties and methods are copied from the test
-// scope to the `TestUtils` object so they can be easily accessed. Be careful
-// about assuming a particular property will be defined because depending on the
-// scope -- browser test or xpcshell test -- some may not be.
+// The following properties and methods are copied from the test scope to the
+// test utils object so they can be easily accessed. Be careful about assuming a
+// particular property will be defined because depending on the scope -- browser
+// test or xpcshell test -- some may not be.
 const TEST_SCOPE_PROPERTIES = [
   "Assert",
   "EventUtils",
@@ -94,61 +91,44 @@ const TEST_SCOPE_PROPERTIES = [
 /**
  * Test utils for quick suggest.
  */
-class QSTestUtils {
-  get LEARN_MORE_URL() {
-    return LEARN_MORE_URL;
+export class QuickSuggestTestUtils {
+  /**
+   * @param {object} scope
+   *   The global JS scope where tests are being run. This allows the instance
+   *   to access test helpers like `Assert` that are available in the scope.
+   */
+  constructor(scope) {
+    if (!scope) {
+      throw new Error("QuickSuggestTestUtils() must be called with a scope");
+    }
+    gTestScope = scope;
+    for (let p of TEST_SCOPE_PROPERTIES) {
+      this[p] = scope[p];
+    }
+    // If you add other properties to `this`, null them in `uninit()`.
+
+    Services.telemetry.clearScalars();
+
+    scope.registerCleanupFunction?.(() => this.uninit());
   }
 
-  get BEST_MATCH_LEARN_MORE_URL() {
-    return lazy.UrlbarProviderQuickSuggest.bestMatchHelpUrl;
-  }
-
-  get SCALARS() {
-    return lazy.UrlbarProviderQuickSuggest.TELEMETRY_SCALARS;
-  }
-
-  get TELEMETRY_EVENT_CATEGORY() {
-    return TELEMETRY_EVENT_CATEGORY;
+  /**
+   * Uninitializes the utils. If they were created with a test scope that
+   * defines `registerCleanupFunction()`, you don't need to call this yourself
+   * because it will automatically be called as a cleanup function. Otherwise
+   * you'll need to call this.
+   */
+  uninit() {
+    gTestScope = null;
+    for (let p of TEST_SCOPE_PROPERTIES) {
+      this[p] = null;
+    }
+    Services.telemetry.clearScalars();
   }
 
   get DEFAULT_CONFIG() {
     // Return a clone so callers can modify it.
     return Cu.cloneInto(DEFAULT_CONFIG, this);
-  }
-
-  /**
-   * Call to init the utils. This allows this instance to access test helpers
-   * available in the test's scope like Assert.
-   *
-   * @param {object} scope
-   *   The global scope where tests are being run.
-   */
-  init(scope) {
-    if (!scope) {
-      throw new Error(
-        "QuickSuggestTestUtils.init() must be called with a scope"
-      );
-    }
-    this._testScope = scope;
-    for (let p of TEST_SCOPE_PROPERTIES) {
-      this[p] = scope[p];
-    }
-    // If you add other properties to `this`, null them in uninit().
-
-    Services.telemetry.clearScalars();
-  }
-
-  /**
-   * Tests that call `init` should call this function in their cleanup callback,
-   * or else their scope will affect subsequent tests. This is usually only
-   * required for tests outside browser/components/urlbar.
-   */
-  uninit() {
-    this._testScope = null;
-    for (let p of TEST_SCOPE_PROPERTIES) {
-      this[p] = null;
-    }
-    Services.telemetry.clearScalars();
   }
 
   /**
@@ -167,27 +147,23 @@ class QSTestUtils {
    *   otherwise.
    */
   async ensureQuickSuggestInit(results = null, config = DEFAULT_CONFIG) {
-    this.info?.("ensureQuickSuggestInit calling UrlbarQuickSuggest.init()");
-    lazy.UrlbarQuickSuggest.init();
+    this.info?.("ensureQuickSuggestInit calling QuickSuggest.init()");
+    lazy.QuickSuggest.init();
 
-    this.info?.(
-      "ensureQuickSuggestInit awaiting UrlbarQuickSuggest.readyPromise"
-    );
-    await lazy.UrlbarQuickSuggest.readyPromise;
-    this.info?.(
-      "ensureQuickSuggestInit done awaiting UrlbarQuickSuggest.readyPromise"
-    );
+    this.info?.("ensureQuickSuggestInit awaiting readyPromise");
+    await lazy.QuickSuggest.remoteSettings.readyPromise;
+    this.info?.("ensureQuickSuggestInit done awaiting readyPromise");
 
     // Stub _queueSettingsSync() so any actual remote settings syncs that happen
     // during the test are ignored.
     let sandbox = lazy.sinon.createSandbox();
-    sandbox.stub(lazy.UrlbarQuickSuggest, "_queueSettingsSync");
+    sandbox.stub(lazy.QuickSuggest.remoteSettings, "_queueSettingsSync");
     let cleanup = () => sandbox.restore();
     this.registerCleanupFunction?.(cleanup);
 
     if (results) {
-      lazy.UrlbarQuickSuggest._resultsByKeyword.clear();
-      await lazy.UrlbarQuickSuggest._addResults(results);
+      lazy.QuickSuggest.remoteSettings._resultsByKeyword.clear();
+      await lazy.QuickSuggest.remoteSettings._addResults(results);
     }
     if (config) {
       this.setConfig(config);
@@ -238,10 +214,11 @@ class QSTestUtils {
    * `DEFAULT_CONFIG` before your test finishes. See also `withConfig()`.
    *
    * @param {object} config
-   *   The config to be applied. See {@link UrlbarQuickSuggest._setConfig}
+   *   The config to be applied. See
+   *   {@link QuickSuggestRemoteSettingsClient._setConfig}
    */
   setConfig(config) {
-    lazy.UrlbarQuickSuggest._setConfig(config);
+    lazy.QuickSuggest.remoteSettings._setConfig(config);
   }
 
   /**
@@ -384,7 +361,11 @@ class QSTestUtils {
 
     let helpButton = row._buttons.get("help");
     this.Assert.ok(helpButton, "The help button should be present");
-    this.Assert.equal(result.payload.helpUrl, LEARN_MORE_URL, "Result helpURL");
+    this.Assert.equal(
+      result.payload.helpUrl,
+      lazy.QuickSuggest.HELP_URL,
+      "Result helpURL"
+    );
 
     let blockButton = row._buttons.get("block");
     if (!isBestMatch) {
@@ -450,7 +431,9 @@ class QSTestUtils {
       true,
       true
     );
-    for (let scalarName of Object.values(this.SCALARS)) {
+    for (let scalarName of Object.values(
+      lazy.UrlbarProviderQuickSuggest.TELEMETRY_SCALARS
+    )) {
       if (scalarName in expectedIndexesByScalarName) {
         lazy.TelemetryTestUtils.assertKeyedScalar(
           scalars,
@@ -485,7 +468,7 @@ class QSTestUtils {
     lazy.TelemetryTestUtils.assertEvents(
       expectedEvents,
       {
-        category: QuickSuggestTestUtils.TELEMETRY_EVENT_CATEGORY,
+        category: lazy.QuickSuggest.TELEMETRY_EVENT_CATEGORY,
         ...filterOverrides,
       },
       options
@@ -630,10 +613,7 @@ class QSTestUtils {
    *   ```
    */
   assertTimestampsReplaced(result, urls) {
-    let {
-      TIMESTAMP_TEMPLATE,
-      TIMESTAMP_LENGTH,
-    } = lazy.UrlbarProviderQuickSuggest;
+    let { TIMESTAMP_TEMPLATE, TIMESTAMP_LENGTH } = lazy.QuickSuggest;
 
     // Parse the timestamp strings from each payload property and save them in
     // `urls[key].timestamp`.
@@ -753,7 +733,7 @@ class QSTestUtils {
 
     Services.telemetry.clearEvents();
     lazy.NimbusFeatures.urlbar._didSendExposureEvent = false;
-    lazy.UrlbarQuickSuggest._recordedExposureEvent = false;
+    lazy.QuickSuggest._recordedExposureEvent = false;
   }
 
   /**
@@ -764,7 +744,7 @@ class QSTestUtils {
    */
   async assertExposureEvent(expectedRecorded) {
     this.Assert.equal(
-      lazy.UrlbarQuickSuggest._recordedExposureEvent,
+      lazy.QuickSuggest._recordedExposureEvent,
       expectedRecorded,
       "_recordedExposureEvent is correct"
     );
@@ -796,5 +776,3 @@ class QSTestUtils {
     });
   }
 }
-
-export var QuickSuggestTestUtils = new QSTestUtils();

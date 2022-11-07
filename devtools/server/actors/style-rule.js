@@ -312,6 +312,8 @@ const StyleRuleActor = protocol.ActorClassWithSpec(styleRuleSpec, {
         // Indicates whether StyleRuleActor implements and can use the setRuleText method.
         // It cannot use it if the stylesheet was programmatically mutated via the CSSOM.
         canSetRuleText: this.canSetRuleText,
+        // @backward-compat { version 108 } Can be removed once 108 hits release.
+        hasGetQueryContainerForNode: true,
       },
     };
 
@@ -1119,6 +1121,26 @@ const StyleRuleActor = protocol.ActorClassWithSpec(styleRuleSpec, {
 
       return { ruleProps, isMatching };
     });
+  },
+
+  getQueryContainerForNode(ancestorRuleIndex, nodeFront) {
+    const ancestorRule = this.ancestorRules[ancestorRuleIndex];
+    if (!ancestorRule) {
+      console.error(
+        `Couldn't not find an ancestor rule at index ${ancestorRuleIndex}`
+      );
+      return null;
+    }
+
+    const containerEl = ancestorRule.rawRule.queryContainerFor(
+      nodeFront.rawNode
+    );
+
+    if (!containerEl) {
+      return null;
+    }
+
+    return this.pageStyle.walker.getNode(containerEl);
   },
 
   /**

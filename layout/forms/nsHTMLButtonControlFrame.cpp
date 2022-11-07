@@ -379,13 +379,13 @@ void nsHTMLButtonControlFrame::AppendDirectlyOwnedAnonBoxes(
 
 #ifdef DEBUG
 void nsHTMLButtonControlFrame::AppendFrames(ChildListID aListID,
-                                            nsFrameList& aFrameList) {
+                                            nsFrameList&& aFrameList) {
   MOZ_CRASH("unsupported operation");
 }
 
 void nsHTMLButtonControlFrame::InsertFrames(
     ChildListID aListID, nsIFrame* aPrevFrame,
-    const nsLineList::iterator* aPrevFrameLine, nsFrameList& aFrameList) {
+    const nsLineList::iterator* aPrevFrameLine, nsFrameList&& aFrameList) {
   MOZ_CRASH("unsupported operation");
 }
 

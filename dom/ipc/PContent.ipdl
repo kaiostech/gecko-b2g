@@ -566,6 +566,7 @@ struct XPCOMInitData
     L10nFileSourceDescriptor[] l10nFileSources;
     DynamicScalarDefinition[] dynamicScalarDefs;
     MetricMask perfStatsMask;
+    nsCString trrDomain;
 };
 
 struct VisitedQueryResult

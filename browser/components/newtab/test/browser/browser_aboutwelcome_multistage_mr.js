@@ -222,11 +222,7 @@ add_task(async function test_aboutwelcome_mr_template_get_started() {
     //Expected selectors:
     ["main.AW_GET_STARTED"],
     //Unexpected selectors:
-    [
-      "main.AW_PIN_FIREFOX",
-      "main.AW_ONLY_DEFAULT",
-      ".action-buttons .secondary",
-    ]
+    ["main.AW_PIN_FIREFOX", "main.AW_ONLY_DEFAULT"]
   );
 
   await cleanup();
@@ -291,6 +287,32 @@ add_task(async function test_aboutwelcome_show_firefox_view() {
   // cleanup
   await SpecialPowers.popPrefEnv(); // for setAboutWelcomeMultiStage
   closeFirefoxViewTab();
+  await cleanup();
+});
+
+add_task(async function test_aboutwelcome_video_content() {
+  const TEST_CONTENT = [
+    {
+      id: "VIDEO_ONBOARDING",
+      content: {
+        position: "center",
+        logo: {},
+        title: "Video onboarding",
+        secondary_button: {
+          label: "Skip video",
+          action: {
+            navigate: true,
+          },
+        },
+        has_video: true,
+      },
+    },
+  ];
+  await setAboutWelcomeMultiStage(JSON.stringify(TEST_CONTENT));
+  let { cleanup, browser } = await openMRAboutWelcome();
+
+  await test_screen_content(browser, ["main.with-video"], []);
+  await SpecialPowers.popPrefEnv();
   await cleanup();
 });
 

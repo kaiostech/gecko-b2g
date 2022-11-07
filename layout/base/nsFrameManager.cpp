@@ -60,19 +60,19 @@ void nsFrameManager::Destroy() {
 //----------------------------------------------------------------------
 void nsFrameManager::AppendFrames(nsContainerFrame* aParentFrame,
                                   ChildListID aListID,
-                                  nsFrameList& aFrameList) {
+                                  nsFrameList&& aFrameList) {
   if (aParentFrame->IsAbsoluteContainer() &&
       aListID == aParentFrame->GetAbsoluteListID()) {
     aParentFrame->GetAbsoluteContainingBlock()->AppendFrames(
-        aParentFrame, aListID, aFrameList);
+        aParentFrame, aListID, std::move(aFrameList));
   } else {
-    aParentFrame->AppendFrames(aListID, aFrameList);
+    aParentFrame->AppendFrames(aListID, std::move(aFrameList));
   }
 }
 
 void nsFrameManager::InsertFrames(nsContainerFrame* aParentFrame,
                                   ChildListID aListID, nsIFrame* aPrevFrame,
-                                  nsFrameList& aFrameList) {
+                                  nsFrameList&& aFrameList) {
   MOZ_ASSERT(
       !aPrevFrame ||
           (!aPrevFrame->GetNextContinuation() ||
@@ -84,9 +84,10 @@ void nsFrameManager::InsertFrames(nsContainerFrame* aParentFrame,
   if (aParentFrame->IsAbsoluteContainer() &&
       aListID == aParentFrame->GetAbsoluteListID()) {
     aParentFrame->GetAbsoluteContainingBlock()->InsertFrames(
-        aParentFrame, aListID, aPrevFrame, aFrameList);
+        aParentFrame, aListID, aPrevFrame, std::move(aFrameList));
   } else {
-    aParentFrame->InsertFrames(aListID, aPrevFrame, nullptr, aFrameList);
+    aParentFrame->InsertFrames(aListID, aPrevFrame, nullptr,
+                               std::move(aFrameList));
   }
 }
 

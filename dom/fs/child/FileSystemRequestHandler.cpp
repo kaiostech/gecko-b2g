@@ -8,6 +8,7 @@
 
 #include "FileSystemEntryMetadataArray.h"
 #include "fs/FileSystemConstants.h"
+#include "mozilla/ResultVariant.h"
 #include "mozilla/dom/BlobImpl.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/FileSystemAccessHandleChild.h"
@@ -21,6 +22,7 @@
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/quota/QuotaCommon.h"
+#include "mozilla/ipc/RandomAccessStreamUtils.h"
 
 namespace mozilla {
 extern LazyLogModule gOPFSLog;
@@ -94,11 +96,17 @@ RefPtr<FileSystemSyncAccessHandle> MakeResolution(
     const RefPtr<FileSystemSyncAccessHandle>& /* aReturns */,
     const FileSystemEntryMetadata& aMetadata,
     RefPtr<FileSystemManager>& aManager) {
-  auto* const actor = static_cast<FileSystemAccessHandleChild*>(
-      aResponse.get_PFileSystemAccessHandleChild());
+  auto& properties = aResponse.get_FileSystemAccessHandleProperties();
 
-  RefPtr<FileSystemSyncAccessHandle> result =
-      new FileSystemSyncAccessHandle(aGlobal, aManager, actor, aMetadata);
+  QM_TRY_UNWRAP(nsCOMPtr<nsIRandomAccessStream> stream,
+                DeserializeRandomAccessStream(properties.streamParams()),
+                nullptr);
+
+  auto* const actor =
+      static_cast<FileSystemAccessHandleChild*>(properties.accessHandleChild());
+
+  RefPtr<FileSystemSyncAccessHandle> result = new FileSystemSyncAccessHandle(
+      aGlobal, aManager, actor, std::move(stream), aMetadata);
 
   actor->SetAccessHandle(result);
 
@@ -131,9 +139,14 @@ void ResolveCallback(
     return;
   }
 
-  aPromise->MaybeResolve(MakeResolution(aPromise->GetParentObject(),
-                                        std::forward<TResponse>(aResponse),
-                                        std::forward<Args>(args)...));
+  auto result = MakeResolution(aPromise->GetParentObject(),
+                               std::forward<TResponse>(aResponse),
+                               std::forward<Args>(args)...);
+  if (!result) {
+    aPromise->MaybeReject(NS_ERROR_FAILURE);
+  }
+
+  aPromise->MaybeResolve(result);
 }
 
 template <>

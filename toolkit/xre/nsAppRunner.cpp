@@ -295,6 +295,7 @@ extern const char gToolkitBuildID[];
 static nsIProfileLock* gProfileLock;
 #if defined(MOZ_HAS_REMOTE)
 static nsRemoteService* gRemoteService;
+bool gRestartWithoutRemote = false;
 #endif
 
 int gRestartArgc;
@@ -737,16 +738,6 @@ nsIXULRuntime::ContentWin32kLockdownState GetLiveWin32kLockdownState() {
       return nsIXULRuntime::ContentWin32kLockdownState::
           IncompatibleMitigationPolicy;
     }
-  }
-
-  // Win32k Lockdown requires WebRender, but WR is not currently guaranteed
-  // on all computers. It can also fail to initialize and fallback to
-  // non-WR render path.
-  //
-  // We don't want a situation where "Win32k Lockdown + No WR" occurs
-  // without the user explicitly requesting unsupported behavior.
-  if (!gfx::gfxVars::UseWebRender()) {
-    return nsIXULRuntime::ContentWin32kLockdownState::MissingWebRender;
   }
 
   // Non-native theming is required as well
@@ -2240,7 +2231,7 @@ static void DumpHelp() {
 }
 
 static inline void DumpVersion() {
-  if (gAppData->vendor) {
+  if (gAppData->vendor && *gAppData->vendor) {
     printf("%s ", (const char*)gAppData->vendor);
   }
   printf("%s ", (const char*)gAppData->name);
@@ -2249,14 +2240,14 @@ static inline void DumpVersion() {
   // For example, for beta, we would display 42.0b2 instead of 42.0
   printf("%s", MOZ_STRINGIFY(MOZ_APP_VERSION_DISPLAY));
 
-  if (gAppData->copyright) {
+  if (gAppData->copyright && *gAppData->copyright) {
     printf(", %s", (const char*)gAppData->copyright);
   }
   printf("\n");
 }
 
 static inline void DumpFullVersion() {
-  if (gAppData->vendor) {
+  if (gAppData->vendor && *gAppData->vendor) {
     printf("%s ", (const char*)gAppData->vendor);
   }
   printf("%s ", (const char*)gAppData->name);
@@ -2267,7 +2258,7 @@ static inline void DumpFullVersion() {
 
   printf("%s ", (const char*)gAppData->buildID);
   printf("%s ", (const char*)PlatformBuildID());
-  if (gAppData->copyright) {
+  if (gAppData->copyright && *gAppData->copyright) {
     printf(", %s", (const char*)gAppData->copyright);
   }
   printf("\n");
@@ -2615,6 +2606,12 @@ nsresult LaunchChild(bool aBlankCommandLine, bool aTryExec) {
     gRestartArgc = 1;
     gRestartArgv[gRestartArgc] = nullptr;
   }
+
+#if defined(MOZ_HAS_REMOTE)
+  if (gRestartWithoutRemote) {
+    SaveToEnv("MOZ_NO_REMOTE=1");
+  }
+#endif
 
   SaveToEnv("MOZ_LAUNCHED_CHILD=1");
 #if defined(MOZ_LAUNCHER_PROCESS)
@@ -4385,9 +4382,10 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   if (ar == ARG_FOUND || EnvHasValue("MOZ_NO_REMOTE")) {
     mDisableRemoteClient = true;
     mDisableRemoteServer = true;
-    if (!EnvHasValue("MOZ_NO_REMOTE")) {
-      SaveToEnv("MOZ_NO_REMOTE=1");
-    }
+    gRestartWithoutRemote = true;
+    // We don't want to propagate MOZ_NO_REMOTE to potential child
+    // process.
+    SaveToEnv("MOZ_NO_REMOTE=");
   }
 
   ar = CheckArg("new-instance");
@@ -5221,14 +5219,26 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
 
 #if defined(MOZ_SANDBOX)
 void AddSandboxAnnotations() {
-  // Include the sandbox content level, regardless of platform
-  int level = GetEffectiveContentSandboxLevel();
+  {
+    // Include the sandbox content level, regardless of platform
+    int level = GetEffectiveContentSandboxLevel();
 
-  nsAutoCString levelString;
-  levelString.AppendInt(level);
+    nsAutoCString levelString;
+    levelString.AppendInt(level);
 
-  CrashReporter::AnnotateCrashReport(
-      CrashReporter::Annotation::ContentSandboxLevel, levelString);
+    CrashReporter::AnnotateCrashReport(
+        CrashReporter::Annotation::ContentSandboxLevel, levelString);
+  }
+
+  {
+    int level = GetEffectiveGpuSandboxLevel();
+
+    nsAutoCString levelString;
+    levelString.AppendInt(level);
+
+    CrashReporter::AnnotateCrashReport(
+        CrashReporter::Annotation::GpuSandboxLevel, levelString);
+  }
 
   // Include whether or not this instance is capable of content sandboxing
   bool sandboxCapable = false;

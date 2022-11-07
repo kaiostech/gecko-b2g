@@ -3382,7 +3382,9 @@ nsTextFrame::PropertyProvider::PropertyProvider(
       mOffsetFromBlockOriginForTabs(aOffsetFromBlockOriginForTabs),
       mJustificationArrayStart(0),
       mReflowing(true),
-      mWhichTextRun(aWhichTextRun) {}
+      mWhichTextRun(aWhichTextRun) {
+  NS_ASSERTION(mStart.IsInitialized(), "Start not initialized?");
+}
 
 nsTextFrame::PropertyProvider::PropertyProvider(
     nsTextFrame* aFrame, const gfxSkipCharsIterator& aStart,
@@ -7028,13 +7030,14 @@ void nsTextFrame::PaintText(const PaintTextParams& aParams,
           this, aParams.context, nscoord(aParams.framePt.x) + frameWidth,
           -mAscent);
     }
-    textBaselinePt.y =
-        reversed ? aParams.framePt.y + frameHeight : aParams.framePt.y;
+    textBaselinePt.y = reversed ? aParams.framePt.y.value + frameHeight
+                                : aParams.framePt.y.value;
   } else {
-    textBaselinePt = gfx::Point(
-        reversed ? aParams.framePt.x + frameWidth : aParams.framePt.x,
-        nsLayoutUtils::GetSnappedBaselineY(this, aParams.context,
-                                           aParams.framePt.y, mAscent));
+    textBaselinePt =
+        gfx::Point(reversed ? aParams.framePt.x.value + frameWidth
+                            : aParams.framePt.x.value,
+                   nsLayoutUtils::GetSnappedBaselineY(
+                       this, aParams.context, aParams.framePt.y, mAscent));
   }
   Range range = ComputeTransformedRange(provider);
   uint32_t startOffset = range.start;
@@ -7282,7 +7285,7 @@ void nsTextFrame::DrawTextRunAndDecorations(
   // pt is the physical point where the decoration is to be drawn,
   // relative to the frame; one of its coordinates will be updated below.
   params.pt = Point(x / app, y / app);
-  Float& bCoord = verticalDec ? params.pt.x : params.pt.y;
+  Float& bCoord = verticalDec ? params.pt.x.value : params.pt.y.value;
   params.lineSize = Size(measure / app, 0);
   params.ascent = ascent;
   params.vertical = verticalDec;
@@ -7356,13 +7359,13 @@ void nsTextFrame::DrawTextRunAndDecorations(
     const bool isInlineReversed = mTextRun->IsInlineReversed();
     if (verticalDec) {
       clipRect.x = aParams.framePt.x + visualRect.x;
-      clipRect.y =
-          isInlineReversed ? aTextBaselinePt.y - clipLength : aTextBaselinePt.y;
+      clipRect.y = isInlineReversed ? aTextBaselinePt.y.value - clipLength
+                                    : aTextBaselinePt.y.value;
       clipRect.width = visualRect.width;
       clipRect.height = clipLength;
     } else {
-      clipRect.x =
-          isInlineReversed ? aTextBaselinePt.x - clipLength : aTextBaselinePt.x;
+      clipRect.x = isInlineReversed ? aTextBaselinePt.x.value - clipLength
+                                    : aTextBaselinePt.x.value;
       clipRect.y = aParams.framePt.y + visualRect.y;
       clipRect.width = clipLength;
       clipRect.height = visualRect.height;
@@ -8489,27 +8492,17 @@ nsIFrame::FrameSearchResult nsTextFrame::PeekOffsetWord(
   return CONTINUE;
 }
 
-// TODO this needs to be deCOMtaminated with the interface fixed in
-// nsIFrame.h, but we won't do that until the old textframe is gone.
-nsresult nsTextFrame::CheckVisibility(nsPresContext* aContext,
-                                      int32_t aStartIndex, int32_t aEndIndex,
-                                      bool aRecurse, bool* aFinished,
-                                      bool* aRetval) {
-  if (!aRetval) return NS_ERROR_NULL_POINTER;
-
+bool nsTextFrame::HasVisibleText() {
   // Text in the range is visible if there is at least one character in the
   // range that is not skipped and is mapped by this frame (which is the primary
   // frame) or one of its continuations.
   for (nsTextFrame* f = this; f; f = f->GetNextContinuation()) {
     int32_t dummyOffset = 0;
     if (f->PeekOffsetNoAmount(true, &dummyOffset) == FOUND) {
-      *aRetval = true;
-      return NS_OK;
+      return true;
     }
   }
-
-  *aRetval = false;
-  return NS_OK;
+  return false;
 }
 
 std::pair<int32_t, int32_t> nsTextFrame::GetOffsets() const {
@@ -9333,9 +9326,9 @@ void nsTextFrame::SetLength(int32_t aLength, nsLineLayout* aLineLayout,
           PresShell()->FrameConstructor()->CreateContinuingFrame(this,
                                                                  GetParent());
       nsTextFrame* next = static_cast<nsTextFrame*>(newFrame);
-      nsFrameList temp(next, next);
       GetParent()->InsertFrames(kNoReflowPrincipalList, this,
-                                aLineLayout->GetLine(), temp);
+                                aLineLayout->GetLine(),
+                                nsFrameList(next, next));
       f = next;
     }
 

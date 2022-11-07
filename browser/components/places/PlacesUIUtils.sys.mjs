@@ -11,6 +11,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  MigrationUtils: "resource:///modules/MigrationUtils.sys.mjs",
   PlacesTransactions: "resource://gre/modules/PlacesTransactions.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
@@ -20,7 +21,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
   CustomizableUI: "resource:///modules/CustomizableUI.jsm",
-  MigrationUtils: "resource:///modules/MigrationUtils.jsm",
   OpenInTabsUtils: "resource:///modules/OpenInTabsUtils.jsm",
   PluralForm: "resource://gre/modules/PluralForm.jsm",
   Weave: "resource://services-sync/main.js",
@@ -523,17 +523,8 @@ export var PlacesUIUtils = {
   async showBookmarkDialog(aInfo, aParentWindow = null) {
     this.lastBookmarkDialogDeferred = lazy.PromiseUtils.defer();
 
-    // Preserve size attributes differently based on the fact the dialog has
-    // a folder picker or not, since it needs more horizontal space than the
-    // other controls.
-    let hasFolderPicker =
-      !("hiddenRows" in aInfo) || !aInfo.hiddenRows.includes("folderPicker");
-    // Use a different chrome url to persist different sizes.
-    let dialogURL = hasFolderPicker
-      ? "chrome://browser/content/places/bookmarkProperties2.xhtml"
-      : "chrome://browser/content/places/bookmarkProperties.xhtml";
-
-    let features = "centerscreen,chrome,modal,resizable=yes";
+    let dialogURL = "chrome://browser/content/places/bookmarkProperties.xhtml";
+    let features = "centerscreen,chrome,modal";
     let bookmarkGuid;
 
     if (

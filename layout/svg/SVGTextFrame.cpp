@@ -1112,12 +1112,12 @@ class TextNodeIterator {
   /**
    * The root under which all Text will be iterated over.
    */
-  nsIContent* mRoot;
+  nsIContent* const mRoot;
 
   /**
    * The node rooting the subtree to track.
    */
-  nsIContent* mSubtree;
+  nsIContent* const mSubtree;
 
   /**
    * The current node during iteration.
@@ -1418,7 +1418,7 @@ void TextNodeCorrespondenceRecorder::TraverseAndRecord(nsIFrame* aFrame) {
  * Note that any text frames that are empty -- whose ContentLength() is 0 --
  * will be skipped over.
  */
-class TextFrameIterator {
+class MOZ_STACK_CLASS TextFrameIterator {
  public:
   /**
    * Constructs a TextFrameIterator for the specified SVGTextFrame
@@ -1536,12 +1536,12 @@ class TextFrameIterator {
   /**
    * The root frame we are iterating through.
    */
-  SVGTextFrame* mRootFrame;
+  SVGTextFrame* const mRootFrame;
 
   /**
    * The frame for the subtree we are also interested in tracking.
    */
-  const nsIFrame* mSubtree;
+  const nsIFrame* const mSubtree;
 
   /**
    * The current value of the iterator.
@@ -1927,7 +1927,7 @@ TextRenderedRun TextRenderedRunIterator::First() {
 /**
  * Iterator for characters within an SVGTextFrame.
  */
-class CharIterator {
+class MOZ_STACK_CLASS CharIterator {
   using Range = gfxTextRun::Range;
 
  public:
@@ -2025,7 +2025,7 @@ class CharIterator {
    * Returns whether the current character is a skipped character.
    */
   bool IsOriginalCharSkipped() const {
-    return mSkipCharsIterator->IsOriginalCharSkipped();
+    return mSkipCharsIterator.IsOriginalCharSkipped();
   }
 
   /**
@@ -2134,14 +2134,14 @@ class CharIterator {
   /**
    * The subtree we were constructed with.
    */
-  nsIContent* mSubtree;
+  nsIContent* const mSubtree;
 #endif
 
   /**
    * A gfxSkipCharsIterator for the text frame the current character is
    * a part of.
    */
-  Maybe<gfxSkipCharsIterator> mSkipCharsIterator;
+  gfxSkipCharsIterator mSkipCharsIterator;
 
   // Cache for information computed by IsOriginalCharTrimmed.
   mutable nsTextFrame* mFrameForTrimCheck;
@@ -2194,8 +2194,7 @@ CharIterator::CharIterator(SVGTextFrame* aSVGTextFrame,
       mLengthAdjustScaleFactor(aSVGTextFrame->mLengthAdjustScaleFactor),
       mPostReflow(aPostReflow) {
   if (!AtEnd()) {
-    mSkipCharsIterator =
-        Some(TextFrame()->EnsureTextRun(nsTextFrame::eInflated));
+    mSkipCharsIterator = TextFrame()->EnsureTextRun(nsTextFrame::eInflated);
     mTextRun = TextFrame()->GetTextRun(nsTextFrame::eInflated);
     mTextElementCharIndex = mFrameIterator.UndisplayedCharacters();
     UpdateGlyphStartTextElementCharIndex();
@@ -2283,15 +2282,15 @@ bool CharIterator::AdvanceToSubtree() {
 
 bool CharIterator::IsClusterAndLigatureGroupStart() const {
   return mTextRun->IsLigatureGroupStart(
-             mSkipCharsIterator->GetSkippedOffset()) &&
-         mTextRun->IsClusterStart(mSkipCharsIterator->GetSkippedOffset());
+             mSkipCharsIterator.GetSkippedOffset()) &&
+         mTextRun->IsClusterStart(mSkipCharsIterator.GetSkippedOffset());
 }
 
 const gfxTextRun::GlyphRun& CharIterator::GlyphRun() const {
   uint32_t numRuns;
   const gfxTextRun::GlyphRun* glyphRuns = mTextRun->GetGlyphRuns(&numRuns);
   uint32_t runIndex = mTextRun->FindFirstGlyphRunContaining(
-      mSkipCharsIterator->GetSkippedOffset());
+      mSkipCharsIterator.GetSkippedOffset());
   MOZ_ASSERT(runIndex < numRuns);
   return glyphRuns[runIndex];
 }
@@ -2314,7 +2313,7 @@ bool CharIterator::IsOriginalCharTrimmed() const {
 
   // A character is trimmed if it is outside the mTrimmedOffset/mTrimmedLength
   // range and it is not a significant newline character.
-  uint32_t index = mSkipCharsIterator->GetOriginalOffset();
+  uint32_t index = mSkipCharsIterator.GetOriginalOffset();
   return !(
       (index >= mTrimmedOffset && index < mTrimmedOffset + mTrimmedLength) ||
       (index >= mTrimmedOffset + mTrimmedLength &&
@@ -2331,7 +2330,7 @@ gfxFloat CharIterator::GetAdvance(nsPresContext* aContext) const {
       TextFrame()->EnsureTextRun(nsTextFrame::eInflated);
   nsTextFrame::PropertyProvider provider(TextFrame(), start);
 
-  uint32_t offset = mSkipCharsIterator->GetSkippedOffset();
+  uint32_t offset = mSkipCharsIterator.GetSkippedOffset();
   gfxFloat advance =
       mTextRun->GetAdvanceWidth(Range(offset, offset + 1), &provider);
   return aContext->AppUnitsToGfxUnits(advance) * mLengthAdjustScaleFactor *
@@ -2346,8 +2345,8 @@ bool CharIterator::NextCharacter() {
   mTextElementCharIndex++;
 
   // Advance within the current text run.
-  mSkipCharsIterator->AdvanceOriginal(1);
-  if (mSkipCharsIterator->GetOriginalOffset() < TextFrame()->GetContentEnd()) {
+  mSkipCharsIterator.AdvanceOriginal(1);
+  if (mSkipCharsIterator.GetOriginalOffset() < TextFrame()->GetContentEnd()) {
     // We're still within the part of the text run for the current text frame.
     UpdateGlyphStartTextElementCharIndex();
     return true;
@@ -2361,11 +2360,11 @@ bool CharIterator::NextCharacter() {
   mTextElementCharIndex += undisplayed;
   if (!TextFrame()) {
     // We're at the end.
-    mSkipCharsIterator.reset();
+    mSkipCharsIterator = gfxSkipCharsIterator();
     return false;
   }
 
-  mSkipCharsIterator = Some(TextFrame()->EnsureTextRun(nsTextFrame::eInflated));
+  mSkipCharsIterator = TextFrame()->EnsureTextRun(nsTextFrame::eInflated);
   mTextRun = TextFrame()->GetTextRun(nsTextFrame::eInflated);
   UpdateGlyphStartTextElementCharIndex();
   return true;
@@ -2468,9 +2467,9 @@ class SVGTextDrawPathCallbacks final : public nsTextFrame::DrawPathCallbacks {
    */
   void StrokeGeometry();
 
-  SVGTextFrame* mSVGTextFrame;
+  SVGTextFrame* const mSVGTextFrame;
   gfxContext& mContext;
-  nsTextFrame* mFrame;
+  nsTextFrame* const mFrame;
   const gfxMatrix& mCanvasTM;
   imgDrawingParams& mImgParams;
 
@@ -5309,9 +5308,9 @@ Point SVGTextFrame::TransformFramePointToTextChild(
       // The point was closer to this rendered run's rect than any others
       // we've seen so far.
       pointInRun.x =
-          clamped(pointInRunUserSpace.x, runRect.X(), runRect.XMost());
+          clamped(pointInRunUserSpace.x.value, runRect.X(), runRect.XMost());
       pointInRun.y =
-          clamped(pointInRunUserSpace.y, runRect.Y(), runRect.YMost());
+          clamped(pointInRunUserSpace.y.value, runRect.Y(), runRect.YMost());
       hit = run;
     }
   }

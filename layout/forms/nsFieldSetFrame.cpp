@@ -388,7 +388,7 @@ void nsFieldSetFrame::Reflow(nsPresContext* aPresContext,
     if (prevOverflowFrames) {
       nsContainerFrame::ReparentFrameViewList(*prevOverflowFrames, prevInFlow,
                                               this);
-      mFrames.InsertFrames(this, nullptr, *prevOverflowFrames);
+      mFrames.InsertFrames(this, nullptr, std::move(*prevOverflowFrames));
     }
   }
 
@@ -782,8 +782,8 @@ void nsFieldSetFrame::Reflow(nsPresContext* aPresContext,
 }
 
 void nsFieldSetFrame::SetInitialChildList(ChildListID aListID,
-                                          nsFrameList& aChildList) {
-  nsContainerFrame::SetInitialChildList(aListID, aChildList);
+                                          nsFrameList&& aChildList) {
+  nsContainerFrame::SetInitialChildList(aListID, std::move(aChildList));
   if (nsBlockFrame* legend = do_QueryFrame(GetLegend())) {
     // A rendered legend always establish a new formatting context.
     // https://html.spec.whatwg.org/multipage/rendering.html#rendered-legend
@@ -795,23 +795,23 @@ void nsFieldSetFrame::SetInitialChildList(ChildListID aListID,
 }
 
 void nsFieldSetFrame::AppendFrames(ChildListID aListID,
-                                   nsFrameList& aFrameList) {
+                                   nsFrameList&& aFrameList) {
   MOZ_ASSERT(aListID == kNoReflowPrincipalList &&
                  HasAnyStateBits(NS_FRAME_FIRST_REFLOW),
              "AppendFrames should only be used from "
              "nsCSSFrameConstructor::ConstructFieldSetFrame");
-  nsContainerFrame::AppendFrames(aListID, aFrameList);
+  nsContainerFrame::AppendFrames(aListID, std::move(aFrameList));
   MOZ_ASSERT(GetInner(), "at this point we should have an inner frame");
 }
 
 void nsFieldSetFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
                                    const nsLineList::iterator* aPrevFrameLine,
-                                   nsFrameList& aFrameList) {
+                                   nsFrameList&& aFrameList) {
   MOZ_ASSERT(aListID == kPrincipalList && !aPrevFrame && !GetLegend(),
              "InsertFrames should only be used to prepend a rendered legend "
              "from nsCSSFrameConstructor::ConstructFramesFromItemList");
   nsContainerFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine,
-                                 aFrameList);
+                                 std::move(aFrameList));
   MOZ_ASSERT(GetLegend());
   if (nsBlockFrame* legend = do_QueryFrame(GetLegend())) {
     // A rendered legend always establish a new formatting context.
@@ -935,13 +935,13 @@ void nsFieldSetFrame::EnsureChildContinuation(nsIFrame* aChild,
     }
     if (aStatus.IsOverflowIncomplete()) {
       if (nsFrameList* eoc = GetExcessOverflowContainers()) {
-        eoc->AppendFrames(nullptr, nifs);
+        eoc->AppendFrames(nullptr, std::move(nifs));
       } else {
         SetExcessOverflowContainers(std::move(nifs));
       }
     } else {
       if (nsFrameList* oc = GetOverflowFrames()) {
-        oc->AppendFrames(nullptr, nifs);
+        oc->AppendFrames(nullptr, std::move(nifs));
       } else {
         SetOverflowFrames(std::move(nifs));
       }

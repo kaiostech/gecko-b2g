@@ -39,12 +39,12 @@ void nsPopupSetFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 }
 
 void nsPopupSetFrame::AppendFrames(ChildListID aListID,
-                                   nsFrameList& aFrameList) {
+                                   nsFrameList&& aFrameList) {
   if (aListID == kPopupList) {
     AddPopupFrameList(aFrameList);
     return;
   }
-  nsBoxFrame::AppendFrames(aListID, aFrameList);
+  nsBoxFrame::AppendFrames(aListID, std::move(aFrameList));
 }
 
 void nsPopupSetFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
@@ -57,23 +57,24 @@ void nsPopupSetFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
 
 void nsPopupSetFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
                                    const nsLineList::iterator* aPrevFrameLine,
-                                   nsFrameList& aFrameList) {
+                                   nsFrameList&& aFrameList) {
   if (aListID == kPopupList) {
     AddPopupFrameList(aFrameList);
     return;
   }
-  nsBoxFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine, aFrameList);
+  nsBoxFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine,
+                           std::move(aFrameList));
 }
 
 void nsPopupSetFrame::SetInitialChildList(ChildListID aListID,
-                                          nsFrameList& aChildList) {
+                                          nsFrameList&& aChildList) {
   if (aListID == kPopupList) {
     NS_ASSERTION(mPopupList.IsEmpty(),
                  "SetInitialChildList on non-empty child list");
     AddPopupFrameList(aChildList);
     return;
   }
-  nsBoxFrame::SetInitialChildList(aListID, aChildList);
+  nsBoxFrame::SetInitialChildList(aListID, std::move(aChildList));
 }
 
 const nsFrameList& nsPopupSetFrame::GetChildList(ChildListID aListID) const {
@@ -133,5 +134,5 @@ void nsPopupSetFrame::AddPopupFrameList(nsFrameList& aPopupFrameList) {
         "adding wrong type of frame in popupset's ::popupList");
   }
 #endif
-  mPopupList.InsertFrames(nullptr, nullptr, aPopupFrameList);
+  mPopupList.InsertFrames(nullptr, nullptr, std::move(aPopupFrameList));
 }

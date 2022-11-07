@@ -20,10 +20,6 @@ extern LazyLogModule gOPFSLog;
 
 class ErrorResult;
 
-namespace ipc {
-class FileDescriptor;
-}  // namespace ipc
-
 namespace dom {
 
 class FileSystemAccessHandleChild;
@@ -32,28 +28,23 @@ class FileSystemManager;
 class MaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer;
 class Promise;
 
-namespace fs {
-class FileSystemRequestHandler;
-}  // namespace fs
-
 class FileSystemSyncAccessHandle final : public nsISupports,
                                          public nsWrapperCache {
  public:
   FileSystemSyncAccessHandle(nsIGlobalObject* aGlobal,
                              RefPtr<FileSystemManager>& aManager,
                              RefPtr<FileSystemAccessHandleChild> aActor,
-                             const fs::FileSystemEntryMetadata& aMetadata,
-                             fs::FileSystemRequestHandler* aRequestHandler);
-
-  FileSystemSyncAccessHandle(nsIGlobalObject* aGlobal,
-                             RefPtr<FileSystemManager>& aManager,
-                             RefPtr<FileSystemAccessHandleChild> aActor,
+                             nsCOMPtr<nsIRandomAccessStream> aStream,
                              const fs::FileSystemEntryMetadata& aMetadata);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(FileSystemSyncAccessHandle)
 
+  void LastRelease();
+
   void ClearActor();
+
+  void Close();
 
   // WebIDL Boilerplate
   nsIGlobalObject* GetParentObject() const;
@@ -81,15 +72,22 @@ class FileSystemSyncAccessHandle final : public nsISupports,
  private:
   virtual ~FileSystemSyncAccessHandle();
 
+  uint64_t ReadOrWrite(
+      const MaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer& aBuffer,
+      const FileSystemReadWriteOptions& aOptions, const bool aRead,
+      ErrorResult& aRv);
+
   nsCOMPtr<nsIGlobalObject> mGlobal;
 
   RefPtr<FileSystemManager> mManager;
 
   RefPtr<FileSystemAccessHandleChild> mActor;
 
+  nsCOMPtr<nsIRandomAccessStream> mStream;
+
   const fs::FileSystemEntryMetadata mMetadata;
 
-  const UniquePtr<fs::FileSystemRequestHandler> mRequestHandler;
+  bool mClosed;
 };
 
 }  // namespace dom

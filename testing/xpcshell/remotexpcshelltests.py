@@ -638,6 +638,7 @@ class XPCShellRemote(xpcshell.XPCShellTests, object):
             "BadCertAndPinningServer",
             "DelegatedCredentialsServer",
             "EncryptedClientHelloServer",
+            "FaultyServer",
             "OCSPStaplingServer",
             "GenerateOCSPResponse",
             "SanctionsTestServer",

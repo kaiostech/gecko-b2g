@@ -4224,8 +4224,8 @@ void CodeGenerator::visitMegamorphicLoadSlot(LMegamorphicLoadSlot* lir) {
 
   Label bail, cacheHit;
   if (JitOptions.enableWatchtowerMegamorphic) {
-    masm.emitMegamorphicCacheLookup(NameToId(lir->mir()->name()), obj, temp0,
-                                    temp1, temp2, output, &bail, &cacheHit);
+    masm.emitMegamorphicCacheLookup(lir->mir()->name(), obj, temp0, temp1,
+                                    temp2, output, &bail, &cacheHit);
   }
 
   masm.branchIfNonNativeObj(obj, temp0, &bail);
@@ -4234,12 +4234,12 @@ void CodeGenerator::visitMegamorphicLoadSlot(LMegamorphicLoadSlot* lir) {
   masm.moveStackPtrTo(temp2);
 
   using Fn =
-      bool (*)(JSContext * cx, JSObject * obj, PropertyName * name, Value * vp);
+      bool (*)(JSContext * cx, JSObject * obj, PropertyKey id, Value * vp);
   masm.setupAlignedABICall();
   masm.loadJSContext(temp0);
   masm.passABIArg(temp0);
   masm.passABIArg(obj);
-  masm.movePtr(ImmGCPtr(lir->mir()->name()), temp1);
+  masm.movePropertyKey(lir->mir()->name(), temp1);
   masm.passABIArg(temp1);
   masm.passABIArg(temp2);
 
@@ -4326,7 +4326,17 @@ void CodeGenerator::visitMegamorphicHasProp(LMegamorphicHasProp* lir) {
   ValueOperand idVal = ToValue(lir, LMegamorphicHasProp::IdIndex);
   Register temp0 = ToRegister(lir->temp0());
   Register temp1 = ToRegister(lir->temp1());
+  Register temp2 = ToRegister(lir->temp2());
   Register output = ToRegister(lir->output());
+
+  Label bail, cacheHit;
+  if (JitOptions.enableWatchtowerMegamorphic) {
+    masm.emitMegamorphicCacheLookupExists(idVal, obj, temp0, temp1, temp2,
+                                          output, &bail, &cacheHit,
+                                          lir->mir()->hasOwn());
+  }
+
+  masm.branchIfNonNativeObj(obj, temp0, &bail);
 
   // idVal will be in vp[0], result will be stored in vp[1].
   masm.reserveStack(sizeof(Value));
@@ -4353,12 +4363,15 @@ void CodeGenerator::visitMegamorphicHasProp(LMegamorphicHasProp* lir) {
   Label ok;
   masm.branchIfTrueBool(temp0, &ok);
   masm.freeStack(sizeof(Value));  // Discard result Value.
-  bailout(lir->snapshot());
+  masm.jump(&bail);
 
   masm.bind(&ok);
   masm.setFramePushed(framePushed);
   masm.unboxBoolean(Address(masm.getStackPointer(), 0), output);
   masm.freeStack(sizeof(Value));
+  masm.bind(&cacheHit);
+
+  bailoutFrom(&bail, lir->snapshot());
 }
 
 void CodeGenerator::visitGuardIsNotArrayBufferMaybeShared(
@@ -12814,7 +12827,7 @@ static bool CreateStackMapFromLSafepoint(LSafepoint& safepoint,
 }
 
 bool CodeGenerator::generateWasm(
-    wasm::TypeIdDesc funcTypeId, wasm::BytecodeOffset trapOffset,
+    wasm::CallIndirectId callIndirectId, wasm::BytecodeOffset trapOffset,
     const wasm::ArgTypeVector& argTypes, const RegisterOffsets& trapExitLayout,
     size_t trapExitLayoutNumWords, wasm::FuncOffsets* offsets,
     wasm::StackMaps* stackMaps, wasm::Decoder* decoder) {
@@ -12824,7 +12837,8 @@ bool CodeGenerator::generateWasm(
 
   size_t nInboundStackArgBytes = StackArgAreaSizeUnaligned(argTypes);
 
-  wasm::GenerateFunctionPrologue(masm, funcTypeId, mozilla::Nothing(), offsets);
+  wasm::GenerateFunctionPrologue(masm, callIndirectId, mozilla::Nothing(),
+                                 offsets);
 
   MOZ_ASSERT(masm.framePushed() == 0);
 
@@ -17312,7 +17326,7 @@ void CodeGenerator::emitIonToWasmCallBase(LIonToWasmCallBase<NumDefs>* lir) {
             break;
           case wasm::RefType::Func:
           case wasm::RefType::Eq:
-          case wasm::RefType::TypeIndex:
+          case wasm::RefType::TypeRef:
             MOZ_CRASH("unexpected argument type when calling from ion to wasm");
         }
         break;
@@ -17389,7 +17403,7 @@ void CodeGenerator::emitIonToWasmCallBase(LIonToWasmCallBase<NumDefs>* lir) {
             // API to do so.
             MOZ_ASSERT(lir->mir()->type() == MIRType::Value);
             break;
-          case wasm::RefType::TypeIndex:
+          case wasm::RefType::TypeRef:
             MOZ_CRASH("unexpected return type when calling from ion to wasm");
         }
         break;

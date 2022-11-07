@@ -141,8 +141,8 @@ nsIFrame* nsBoxFrame::SlowOrdinalGroupAwareSibling(nsIFrame* aBox, bool aNext) {
 }
 
 void nsBoxFrame::SetInitialChildList(ChildListID aListID,
-                                     nsFrameList& aChildList) {
-  nsContainerFrame::SetInitialChildList(aListID, aChildList);
+                                     nsFrameList&& aChildList) {
+  nsContainerFrame::SetInitialChildList(aListID, std::move(aChildList));
   if (aListID == kPrincipalList) {
     // initialize our list of infos.
     nsBoxLayoutState state(PresContext());
@@ -202,13 +202,6 @@ void nsBoxFrame::CacheAttributes() {
 
   GetInitialVAlignment(mValign);
   GetInitialHAlignment(mHalign);
-
-  bool equalSize = false;
-  GetInitialEqualSize(equalSize);
-  if (equalSize)
-    AddStateBits(NS_STATE_EQUAL_SIZE);
-  else
-    RemoveStateBits(NS_STATE_EQUAL_SIZE);
 
   bool autostretch = !!(mState & NS_STATE_AUTO_STRETCH);
   GetInitialAutoStretch(autostretch);
@@ -339,22 +332,6 @@ void nsBoxFrame::GetInitialDirection(bool& aIsNormal) {
   if (boxInfo->mBoxDirection == StyleBoxDirection::Reverse) {
     aIsNormal = !aIsNormal;  // Invert our direction.
   }
-}
-
-/* Returns true if it was set.
- */
-bool nsBoxFrame::GetInitialEqualSize(bool& aEqualSize) {
-  // see if we are a vertical or horizontal box.
-  if (!GetContent() || !GetContent()->IsElement()) return false;
-
-  if (GetContent()->AsElement()->AttrValueIs(kNameSpaceID_None,
-                                             nsGkAtoms::equalsize,
-                                             nsGkAtoms::always, eCaseMatters)) {
-    aEqualSize = true;
-    return true;
-  }
-
-  return false;
 }
 
 /* Returns true if it was set.
@@ -757,7 +734,7 @@ void nsBoxFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
 
 void nsBoxFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
                               const nsLineList::iterator* aPrevFrameLine,
-                              nsFrameList& aFrameList) {
+                              nsFrameList&& aFrameList) {
   NS_ASSERTION(!aPrevFrame || aPrevFrame->GetParent() == this,
                "inserting after sibling frame with different parent");
   NS_ASSERTION(!aPrevFrame || mFrames.ContainsFrame(aPrevFrame),
@@ -768,7 +745,7 @@ void nsBoxFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
 
   // insert the child frames
   const nsFrameList::Slice& newFrames =
-      mFrames.InsertFrames(this, aPrevFrame, aFrameList);
+      mFrames.InsertFrames(this, aPrevFrame, std::move(aFrameList));
 
   // notify the layout manager
   if (mLayoutManager)
@@ -778,13 +755,14 @@ void nsBoxFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
                                 NS_FRAME_HAS_DIRTY_CHILDREN);
 }
 
-void nsBoxFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList) {
+void nsBoxFrame::AppendFrames(ChildListID aListID, nsFrameList&& aFrameList) {
   MOZ_ASSERT(aListID == kPrincipalList, "We don't support out-of-flow kids");
 
   nsBoxLayoutState state(PresContext());
 
   // append the new frames
-  const nsFrameList::Slice& newFrames = mFrames.AppendFrames(this, aFrameList);
+  const nsFrameList::Slice& newFrames =
+      mFrames.AppendFrames(this, std::move(aFrameList));
 
   // notify the layout manager
   if (mLayoutManager) mLayoutManager->ChildrenAppended(this, state, newFrames);
@@ -815,8 +793,7 @@ nsresult nsBoxFrame::AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
       aAttribute == nsGkAtoms::minwidth || aAttribute == nsGkAtoms::maxwidth ||
       aAttribute == nsGkAtoms::minheight ||
       aAttribute == nsGkAtoms::maxheight || aAttribute == nsGkAtoms::orient ||
-      aAttribute == nsGkAtoms::pack || aAttribute == nsGkAtoms::dir ||
-      aAttribute == nsGkAtoms::equalsize) {
+      aAttribute == nsGkAtoms::pack || aAttribute == nsGkAtoms::dir) {
     if (aAttribute == nsGkAtoms::align || aAttribute == nsGkAtoms::valign ||
         aAttribute == nsGkAtoms::orient || aAttribute == nsGkAtoms::pack ||
         aAttribute == nsGkAtoms::dir) {
@@ -839,13 +816,6 @@ nsresult nsBoxFrame::AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
 
       GetInitialVAlignment(mValign);
       GetInitialHAlignment(mHalign);
-
-      bool equalSize = false;
-      GetInitialEqualSize(equalSize);
-      if (equalSize)
-        AddStateBits(NS_STATE_EQUAL_SIZE);
-      else
-        RemoveStateBits(NS_STATE_EQUAL_SIZE);
 
       bool autostretch = !!(mState & NS_STATE_AUTO_STRETCH);
       GetInitialAutoStretch(autostretch);

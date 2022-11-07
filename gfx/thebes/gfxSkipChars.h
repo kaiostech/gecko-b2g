@@ -7,7 +7,6 @@
 #define GFX_SKIP_CHARS_H
 
 #include "mozilla/Attributes.h"
-#include "mozilla/NotNull.h"
 #include "nsTArray.h"
 
 /*
@@ -133,7 +132,7 @@ class MOZ_STACK_CLASS gfxSkipCharsIterator {
   gfxSkipCharsIterator(const gfxSkipChars& aSkipChars,
                        int32_t aOriginalStringToSkipCharsOffset,
                        int32_t aOriginalStringOffset)
-      : mSkipChars(mozilla::WrapNotNull(&aSkipChars)),
+      : mSkipChars(&aSkipChars),
         mOriginalStringOffset(0),
         mSkippedStringOffset(0),
         mCurrentRangeIndex(-1),
@@ -143,7 +142,7 @@ class MOZ_STACK_CLASS gfxSkipCharsIterator {
 
   explicit gfxSkipCharsIterator(const gfxSkipChars& aSkipChars,
                                 int32_t aOriginalStringToSkipCharsOffset = 0)
-      : mSkipChars(mozilla::WrapNotNull(&aSkipChars)),
+      : mSkipChars(&aSkipChars),
         mOriginalStringOffset(0),
         mSkippedStringOffset(0),
         mOriginalStringToSkipCharsOffset(aOriginalStringToSkipCharsOffset) {
@@ -153,6 +152,22 @@ class MOZ_STACK_CLASS gfxSkipCharsIterator {
   }
 
   gfxSkipCharsIterator(const gfxSkipCharsIterator& aIterator) = default;
+
+  /**
+   * The empty constructor creates an object that is useless until it is
+   * assigned.
+   */
+  gfxSkipCharsIterator()
+      : mSkipChars(nullptr),
+        mOriginalStringOffset(0),
+        mSkippedStringOffset(0),
+        mCurrentRangeIndex(0),
+        mOriginalStringToSkipCharsOffset(0) {}
+
+  /**
+   * Return true if this iterator is properly initialized and usable.
+   */
+  bool IsInitialized() const { return mSkipChars != nullptr; }
 
   /**
    * Set the iterator to aOriginalStringOffset in the original string.
@@ -218,7 +233,7 @@ class MOZ_STACK_CLASS gfxSkipCharsIterator {
   }
 
  private:
-  mozilla::NotNull<const gfxSkipChars*> mSkipChars;
+  const gfxSkipChars* mSkipChars;
 
   // Current position
   int32_t mOriginalStringOffset;

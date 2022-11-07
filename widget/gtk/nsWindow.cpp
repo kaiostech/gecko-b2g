@@ -964,7 +964,7 @@ void nsWindow::ResizeInt(const Maybe<LayoutDeviceIntPoint>& aMove,
   const bool moved = aMove && *aMove != mBounds.TopLeft();
   if (moved) {
     mBounds.MoveTo(*aMove);
-    LOG("  with move to left:%d top:%d", aMove->x, aMove->y);
+    LOG("  with move to left:%d top:%d", aMove->x.value, aMove->y.value);
   }
 
   ConstrainSize(&aSize.width, &aSize.height);
@@ -1135,8 +1135,9 @@ void nsWindow::RemovePopupFromHierarchyList() {
 // as a workaround just fool around and place the popup temporary to 0,0.
 bool nsWindow::WaylandPopupRemoveNegativePosition(int* aX, int* aY) {
   // https://gitlab.gnome.org/GNOME/gtk/-/issues/4071 applies to temporary
-  // windows only, i.e. tooltips & DND windows.
-  if (mPopupType != ePopupTypeTooltip) {
+  // windows only
+  GdkWindow* window = gtk_widget_get_window(mShell);
+  if (!window || gdk_window_get_window_type(window) != GDK_WINDOW_TEMP) {
     return false;
   }
 
@@ -1144,25 +1145,23 @@ bool nsWindow::WaylandPopupRemoveNegativePosition(int* aX, int* aY) {
 
   int x, y;
   gtk_window_get_position(GTK_WINDOW(mShell), &x, &y);
-  if (x >= 0 || y >= 0) {
-    LOG("  coordinates are correct (%d, %d)", x, y);
-    return false;
+  bool moveBack = (x < 0 && y < 0);
+  if (moveBack) {
+    gtk_window_move(GTK_WINDOW(mShell), 0, 0);
+    if (aX) {
+      *aX = x;
+    }
+    if (aY) {
+      *aY = y;
+    }
   }
 
-  // We need to reset coordinates of both GtkWindow and GtkWindow
-  LOG("  wrong coord (%d, %d) move to 0,0", x, y);
-  GdkWindow* window = gtk_widget_get_window(mShell);
-  gdk_window_move(window, 0, 0);
-  gtk_window_move(GTK_WINDOW(mShell), 0, 0);
-
-  if (aX) {
-    *aX = x;
-  }
-  if (aY) {
-    *aY = y;
+  gdk_window_get_geometry(window, &x, &y, nullptr, nullptr);
+  if (x < 0 && y < 0) {
+    gdk_window_move(window, 0, 0);
   }
 
-  return true;
+  return moveBack;
 }
 
 void nsWindow::ShowWaylandPopupWindow() {
@@ -1516,7 +1515,7 @@ void nsWindow::WaylandPopupHierarchyCalculatePositions() {
           NS_WARNING("Anchored popup does not match layout!");
         }
       }
-      GdkPoint parent = WaylandGetParentPosition();
+      GdkPoint parent = popup->WaylandGetParentPosition();
 
       LOG("  popup [%p] uses transformed coordinates\n", popup);
       LOG("    parent position [%d, %d]\n", parent.x, parent.y);
@@ -2088,6 +2087,9 @@ void nsWindow::WaylandPopupSetDirectPosition() {
 
   GtkWindow* parentGtkWindow = gtk_window_get_transient_for(GTK_WINDOW(mShell));
   nsWindow* window = get_window_for_gtk_widget(GTK_WIDGET(parentGtkWindow));
+  if (!window) {
+    return;
+  }
   GdkWindow* gdkWindow =
       gtk_widget_get_window(GTK_WIDGET(window->GetMozContainer()));
 
@@ -2331,6 +2333,44 @@ static ResolvedPopupMargin ResolveMargin(nsMenuPopupFrame* aFrame,
 
   return {margin, offset};
 }
+
+#ifdef MOZ_LOGGING
+void nsWindow::LogPopupAnchorHints(int aHints) {
+  static struct hints_ {
+    int hint;
+    char name[100];
+  } hints[] = {
+      {GDK_ANCHOR_FLIP_X, "GDK_ANCHOR_FLIP_X"},
+      {GDK_ANCHOR_FLIP_Y, "GDK_ANCHOR_FLIP_Y"},
+      {GDK_ANCHOR_SLIDE_X, "GDK_ANCHOR_SLIDE_X"},
+      {GDK_ANCHOR_SLIDE_Y, "GDK_ANCHOR_SLIDE_Y"},
+      {GDK_ANCHOR_RESIZE_X, "GDK_ANCHOR_RESIZE_X"},
+      {GDK_ANCHOR_RESIZE_Y, "GDK_ANCHOR_RESIZE_X"},
+  };
+
+  LOG("  PopupAnchorHints");
+  for (const auto& hint : hints) {
+    if (hint.hint & aHints) {
+      LOG("    %s", hint.name);
+    }
+  }
+}
+
+void nsWindow::LogPopupGravity(GdkGravity aGravity) {
+  static char gravity[][100]{"NONE",
+                             "GDK_GRAVITY_NORTH_WEST",
+                             "GDK_GRAVITY_NORTH",
+                             "GDK_GRAVITY_NORTH_EAST",
+                             "GDK_GRAVITY_WEST",
+                             "GDK_GRAVITY_CENTER",
+                             "GDK_GRAVITY_EAST",
+                             "GDK_GRAVITY_SOUTH_WEST",
+                             "GDK_GRAVITY_SOUTH",
+                             "GDK_GRAVITY_SOUTH_EAST",
+                             "GDK_GRAVITY_STATIC"};
+  LOG("    %s", gravity[aGravity]);
+}
+#endif
 
 const nsWindow::WaylandPopupMoveToRectParams
 nsWindow::WaylandPopupGetPositionFromLayout() {
@@ -2655,7 +2695,20 @@ void nsWindow::WaylandPopupMoveImpl() {
   }
   mWaitingForMoveToRectCallback = true;
 
-  LOG("  call move-to-rect");
+#ifdef MOZ_LOGGING
+  if (LOG_ENABLED()) {
+    LOG("  Call move-to-rect");
+    LOG("  Anchor rect [%d, %d] -> [%d x %d]", gtkAnchorRect.x, gtkAnchorRect.y,
+        gtkAnchorRect.width, gtkAnchorRect.height);
+    LOG("  Offset [%d, %d]", offset.x, offset.y);
+    LOG("  AnchorType");
+    LogPopupGravity(mPopupMoveToRectParams.mAnchorRectType);
+    LOG("  PopupAnchorType");
+    LogPopupGravity(mPopupMoveToRectParams.mPopupAnchorType);
+    LogPopupAnchorHints(mPopupMoveToRectParams.mHints);
+  }
+#endif
+
   sGdkWindowMoveToRect(gdkWindow, &gtkAnchorRect,
                        mPopupMoveToRectParams.mAnchorRectType,
                        mPopupMoveToRectParams.mPopupAnchorType,
@@ -3586,9 +3639,14 @@ void nsWindow::SetIcon(const nsAString& aIconSpec) {
     }
 */
 LayoutDeviceIntPoint nsWindow::WidgetToScreenOffset() {
+  // Don't use gdk_window_get_origin() on wl_subsurface Wayland popups
+  // https://gitlab.gnome.org/GNOME/gtk/-/issues/5287
+  if (IsWaylandPopup() && !mPopupUseMoveToRect) {
+    return mBounds.TopLeft();
+  }
   nsIntPoint origin(0, 0);
   if (mGdkWindow) {
-    gdk_window_get_origin(mGdkWindow, &origin.x, &origin.y);
+    gdk_window_get_origin(mGdkWindow, &origin.x.value, &origin.y.value);
   }
   return GdkPointToDevicePixels({origin.x, origin.y});
 }
@@ -5990,7 +6048,10 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
           parentnsWindow->mGtkWindowRoleName.get());
       GtkWindow* parentWidget = GTK_WINDOW(parentnsWindow->GetGtkWidget());
       gtk_window_set_transient_for(GTK_WINDOW(mShell), parentWidget);
-      if (GdkIsWaylandDisplay() && gtk_window_get_modal(parentWidget)) {
+
+      // If popup parent is modal, we need to make popup modal on Wayland too.
+      if (GdkIsWaylandDisplay() && mPopupHint != ePopupTypeTooltip &&
+          gtk_window_get_modal(parentWidget)) {
         gtk_window_set_modal(GTK_WINDOW(mShell), true);
       }
     }
@@ -9246,11 +9307,15 @@ nsresult nsWindow::SynthesizeNativeTouchPadPinch(
       reinterpret_cast<GdkEventTouchpadPinch*>(&event);
   touchpad_event->type = GDK_TOUCHPAD_PINCH;
 
-  const LayoutDeviceIntPoint widgetToScreenOffset = WidgetToScreenOffset();
-
-  ScreenPoint pointInWindow = ViewAs<ScreenPixel>(
-      aPoint - widgetToScreenOffset,
+  const ScreenIntPoint widgetToScreenOffset = ViewAs<ScreenPixel>(
+      WidgetToScreenOffset(),
       PixelCastJustification::LayoutDeviceIsScreenForUntransformedEvent);
+
+  ScreenPoint pointInWindow =
+      ViewAs<ScreenPixel>(
+          aPoint,
+          PixelCastJustification::LayoutDeviceIsScreenForUntransformedEvent) -
+      widgetToScreenOffset;
 
   gdouble dx = 0, dy = 0;
 
@@ -9282,9 +9347,11 @@ nsresult nsWindow::SynthesizeNativeTouchPadPinch(
   touchpad_event->time = GDK_CURRENT_TIME;
   touchpad_event->scale = aScale;
   touchpad_event->x_root = DevicePixelsToGdkCoordRoundDown(
-      mCurrentSynthesizedTouchpadPinch.mBeginFocus.x + widgetToScreenOffset.x);
+      mCurrentSynthesizedTouchpadPinch.mBeginFocus.x +
+      ScreenCoord(widgetToScreenOffset.x));
   touchpad_event->y_root = DevicePixelsToGdkCoordRoundDown(
-      mCurrentSynthesizedTouchpadPinch.mBeginFocus.y + widgetToScreenOffset.y);
+      mCurrentSynthesizedTouchpadPinch.mBeginFocus.y +
+      ScreenCoord(widgetToScreenOffset.y));
 
   touchpad_event->x = DevicePixelsToGdkCoordRoundDown(
       mCurrentSynthesizedTouchpadPinch.mBeginFocus.x);

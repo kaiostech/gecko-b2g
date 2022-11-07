@@ -58,6 +58,16 @@ extern crate audio_thread_priority;
 // #[cfg(not(target_os = "android"))]
 extern crate webext_storage_bridge;
 
+
+// Build on Gonk for now.
+// #[cfg(not(target_os = "android"))]
+extern crate tabs;
+
+#[cfg(not(target_os = "android"))]
+mod reexport_tabs {
+    tabs::uniffi_reexport_scaffolding!();
+}
+
 #[cfg(feature = "webrtc")]
 extern crate mdns_service;
 extern crate neqo_glue;

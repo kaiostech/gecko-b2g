@@ -10,11 +10,11 @@ const { PromiseUtils } = ChromeUtils.importESModule(
 const { setTimeout } = ChromeUtils.importESModule(
   "resource://gre/modules/Timer.sys.mjs"
 );
-const { PromiseTestUtils } = ChromeUtils.import(
-  "resource://testing-common/PromiseTestUtils.jsm"
+const { PromiseTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/PromiseTestUtils.sys.mjs"
 );
 
-// Tests for PromiseUtils.jsm
+// Tests for PromiseUtils.sys.mjs
 
 // Tests for PromiseUtils.defer()
 

@@ -196,8 +196,13 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // Whether to show search suggestions before general results.
   ["showSearchSuggestionsFirst", true],
 
-  // Whether to show search term in the URL bar for the users default engine.
-  ["showSearchTerms", false],
+  // Global toggle for whether the show search terms feature
+  // can be used at all, and enabled/disabled by the user.
+  ["showSearchTerms.featureGate", false],
+
+  // If true, show the search term in the Urlbar while on
+  // a default search engine results page.
+  ["showSearchTerms.enabled", true],
 
   // Whether speculative connections should be enabled.
   ["speculativeConnect.enabled", true],
@@ -280,9 +285,6 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // JSON'ed object of quick suggest impression stats. Used for implementing
   // impression frequency caps for quick suggest suggestions.
   ["quicksuggest.impressionCaps.stats", ""],
-
-  // Whether to show QuickSuggest related logs.
-  ["quicksuggest.log", false],
 
   // The user's response to the Firefox Suggest online opt-in dialog.
   ["quicksuggest.onboardingDialogChoice", ""],

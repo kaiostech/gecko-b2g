@@ -616,8 +616,8 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus) {
   if (StaticPrefs::dom_virtualcursor_enabled()) {
     if (aEvent->mMessage == eMouseMove) {
       LayoutDeviceIntPoint position(
-          std::clamp(aEvent->mRefPoint.x, 0, mBounds.width),
-          std::clamp(aEvent->mRefPoint.y, 0, mBounds.height));
+          std::clamp(int(aEvent->mRefPoint.x), 0, mBounds.width),
+          std::clamp(int(aEvent->mRefPoint.y), 0, mBounds.height));
 
       EnsureGLCursorImageManager();
       mGLCursorImageManager->SetGLCursorPosition(position);

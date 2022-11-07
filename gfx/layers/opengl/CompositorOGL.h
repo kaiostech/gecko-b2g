@@ -227,7 +227,7 @@ class CompositorOGL final : public Compositor {
       aCursorPos,
       RefPtr<gfx::DataSourceSurface> aSource,
       nsIntSize aCursorSize,
-      nsIntPoint aHotspot);
+      LayoutDeviceIntPoint aHotspot);
 
   ipc::FileDescriptor GetReleaseFence();
 

@@ -23,6 +23,10 @@ ChromeUtils.defineModuleGetter(
   "ExtensionPermissions",
   "resource://gre/modules/ExtensionPermissions.jsm"
 );
+ChromeUtils.defineESModuleGetters(lazy, {
+  SITEPERMS_ADDON_TYPE:
+    "resource://gre/modules/addons/siteperms-addon-utils.sys.mjs",
+});
 
 customElements.define(
   "addon-progress-notification",
@@ -662,7 +666,20 @@ var gXPInstallObserver = {
           while (message.firstChild) {
             message.firstChild.remove();
           }
-          if (hasHost) {
+
+          if (
+            // Use a install prompt message when the only addon being installed is a SitePerms addon
+            // (NOTE: AOM doesn't support anymore installing multiple addons at the same time anymore,
+            // and so a sitepermission addon type is expected to be always the only entry in installInfo.installs).
+            installInfo.installs.every(
+              ({ addon }) => addon?.type === lazy.SITEPERMS_ADDON_TYPE
+            )
+          ) {
+            message.textContent = gNavigatorBundle.getFormattedString(
+              "sitePermissionsInstallPromptMessage.message",
+              [options.name]
+            );
+          } else if (hasHost) {
             let text = gNavigatorBundle.getString(
               "xpinstallPromptMessage.message"
             );
@@ -1382,9 +1399,6 @@ var gUnifiedExtensions = {
     }
 
     if (this.isEnabled) {
-      MozXULElement.insertFTLIfNeeded("preview/originControls.ftl");
-      MozXULElement.insertFTLIfNeeded("preview/unifiedExtensions.ftl");
-
       this._button = document.getElementById("unified-extensions-button");
       // TODO: Bug 1778684 - Auto-hide button when there is no active extension.
       this._button.hidden = false;
@@ -1453,7 +1467,7 @@ var gUnifiedExtensions = {
       if (!aBrowser[attr]) {
         // A hacky way of setting the popup anchor outside the usual url bar
         // icon box, similar to how it was done for CFR.
-        // See: https://searchfox.org/mozilla-central/rev/847b64cc28b74b44c379f9bff4f415b97da1c6d7/toolkit/modules/PopupNotifications.jsm#42
+        // See: https://searchfox.org/mozilla-central/rev/c5c002f81f08a73e04868e0c2bf0eb113f200b03/toolkit/modules/PopupNotifications.sys.mjs#40
         aBrowser[attr] = aWindow.document.getElementById(
           anchorID
           // Anchor on the toolbar icon to position the popup right below the
@@ -1520,8 +1534,27 @@ var gUnifiedExtensions = {
     }
   },
 
+  _panel: null,
+  get panel() {
+    // Lazy load the unified-extensions-panel panel the first time we need to display it.
+    if (!this._panel) {
+      let template = document.getElementById(
+        "unified-extensions-panel-template"
+      );
+      template.replaceWith(template.content);
+      this._panel = document.getElementById("unified-extensions-panel");
+      CustomizableUI.addPanelCloseListeners(this._panel);
+    }
+    return this._panel;
+  },
+
   async togglePanel(aEvent) {
     if (!CustomizationHandler.isCustomizing()) {
+      if (aEvent && aEvent.button !== 0) {
+        return;
+      }
+
+      let panel = this.panel;
       // The button should directly open `about:addons` when there is no active
       // extension to show in the panel.
       if ((await this.getActiveExtensions()).length === 0) {
@@ -1551,10 +1584,13 @@ var gUnifiedExtensions = {
       }
 
       if (this._button.open) {
-        PanelMultiView.hidePopup(this._listView.closest("panel"));
+        PanelMultiView.hidePopup(panel);
         this._button.open = false;
       } else {
-        PanelUI.showSubView("unified-extensions-view", this._button, aEvent);
+        panel.hidden = false;
+        PanelMultiView.openPopup(panel, this._button, {
+          triggerEvent: aEvent,
+        });
       }
     }
 

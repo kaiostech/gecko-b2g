@@ -72,6 +72,7 @@
 #include "mozilla/dom/HTMLTableElement.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/SVGGeometryFrame.h"
@@ -368,7 +369,11 @@ void nsAccessibilityService::NotifyOfPossibleBoundsChange(
       StaticPrefs::accessibility_cache_enabled_AtStartup()) {
     DocAccessible* document = GetDocAccessible(aPresShell);
     if (document) {
-      LocalAccessible* accessible = document->GetAccessible(aContent);
+      // DocAccessible::GetAccessible() won't return the document if a root
+      // element like body is passed.
+      LocalAccessible* accessible = aContent == document->GetContent()
+                                        ? document
+                                        : document->GetAccessible(aContent);
       if (accessible) {
         document->QueueCacheUpdate(accessible, CacheDomain::Bounds);
       }
@@ -385,7 +390,11 @@ void nsAccessibilityService::NotifyOfComputedStyleChange(
 
   DocAccessible* document = GetDocAccessible(aPresShell);
   if (document) {
-    LocalAccessible* accessible = document->GetAccessible(aContent);
+    // DocAccessible::GetAccessible() won't return the document if a root
+    // element like body is passed.
+    LocalAccessible* accessible = aContent == document->GetContent()
+                                      ? document
+                                      : document->GetAccessible(aContent);
     if (accessible) {
       accessible->MaybeQueueCacheUpdateForStyleChanges();
     }
@@ -1218,6 +1227,9 @@ mozilla::Monitor& nsAccessibilityService::GetAndroidMonitor() {
 // nsAccessibilityService private
 
 bool nsAccessibilityService::Init() {
+  AUTO_PROFILER_MARKER_TEXT("nsAccessibilityService::Init", A11Y, {}, ""_ns);
+  // DO NOT ADD CODE ABOVE HERE: THIS CODE IS MEASURING TIMINGS.
+
   // Initialize accessible document manager.
   if (!DocManager::Init()) return false;
 
@@ -1522,7 +1534,7 @@ void nsAccessibilityService::MarkupAttributes(
       }
 
       nsString value;
-      el->GetAttr(kNameSpaceID_None, info->DOMAttrName, value);
+      el->GetAttr(info->DOMAttrName, value);
 
       if (!value.IsEmpty()) {
         aAttributes->SetAttribute(info->name, std::move(value));

@@ -847,16 +847,30 @@ function ArrayFromAsync(asyncItems, mapfn = undefined, thisArg = undefined) {
     }
 
     // Step 3.c. Let usingAsyncIterator be ? GetMethod(asyncItems, @@asyncIterator).
-    let usingAsyncIterator = GetMethod(
-      asyncItems,
-      GetBuiltinSymbol("asyncIterator")
-    );
-    let usingSyncIterator = undefined;
+    let usingAsyncIterator = asyncItems[GetBuiltinSymbol("asyncIterator")];
+    if (usingAsyncIterator === null) {
+      usingAsyncIterator = undefined;
+    }
 
-    // Step 3.d. If usingAsyncIterator is undefined, then
-    if (usingAsyncIterator === undefined) {
+    let usingSyncIterator = undefined;
+    if (usingAsyncIterator !== undefined) {
+      if (!IsCallable(usingAsyncIterator)) {
+        ThrowTypeError(JSMSG_NOT_ITERABLE, ToSource(asyncItems));
+      }
+    } else {
+      // Step 3.d. If usingAsyncIterator is undefined, then
+
       // Step 3.d.i. Let usingSyncIterator be ? GetMethod(asyncItems, @@iterator).
-      usingSyncIterator = GetMethod(asyncItems, GetBuiltinSymbol("iterator"));
+      usingSyncIterator = asyncItems[GetBuiltinSymbol("iterator")];
+      if (usingSyncIterator === null) {
+        usingSyncIterator = undefined;
+      }
+
+      if (usingSyncIterator !== undefined) {
+        if (!IsCallable(usingSyncIterator)) {
+          ThrowTypeError(JSMSG_NOT_ITERABLE, ToSource(asyncItems));
+        }
+      }
     }
 
     // Step 3.e. If IsConstructor(C) is true, then
@@ -866,175 +880,120 @@ function ArrayFromAsync(asyncItems, mapfn = undefined, thisArg = undefined) {
     let A = IsConstructor(C) ? constructContentFunction(C, C) : [];
 
     // Step 3.g. Let iteratorRecord be undefined.
-    let iteratorRecord = undefined;
-
-    // Step 3.h. If usingAsyncIterator is not undefined, then
-    if (usingAsyncIterator !== undefined) {
-      //     Step 3.h.i. Set iteratorRecord to ? GetIterator(asyncItems, async, usingAsyncIterator).
-      iteratorRecord = GetIterator(asyncItems, "async", usingAsyncIterator);
-    } else if (usingSyncIterator !== undefined) {
-      // Step 3.i. Else if usingSyncIterator is not undefined, then
-      //     Step 3.i.i. Set iteratorRecord to ? CreateAsyncFromSyncIterator(GetIterator(asyncItems, sync, usingSyncIterator)).
-      let asyncIterator = GetIterator(asyncItems, "sync", usingSyncIterator);
-
-      // SpiderMonkey's CreateAsyncFromSyncIterator doesn't return an iterator record
-      // with named slots; so we need to create our own iterator record.
-      let asyncFromSyncIteratorObject = CreateAsyncFromSyncIterator(
-        asyncIterator.iterator,
-        asyncIterator.nextMethod
-      );
-
-      iteratorRecord = {
-        __proto__: null,
-        iterator: UnsafeGetReservedSlot(
-          asyncFromSyncIteratorObject,
-          ASYNC_FROM_SYNC_ITERATOR_OBJECT_ITERATOR_SLOT
-        ),
-        nextMethod: UnsafeGetReservedSlot(
-          asyncFromSyncIteratorObject,
-          ASYNC_FROM_SYNC_ITERATOR_OBJECT_NEXT_METHOD_SLOT
-        ),
-        // https://tc39.es/ecma262/#sec-createasyncfromsynciterator
-        done: false,
-      };
-    }
-
     // Step 3.j. If iteratorRecord is not undefined, then ...
-    // Step 3.k. Else, (Reordered)
-    if (iteratorRecord === undefined) {
-      // Step 3.k.i. NOTE: asyncItems is neither an AsyncIterable nor an Iterable so assume it is an array-like object.
-      // Step 3.k.ii. Let arrayLike be ! ToObject(asyncItems).
-      let arrayLike = ToObject(asyncItems);
+    if (usingAsyncIterator !== undefined || usingSyncIterator !== undefined) {
+      // Note: The published spec as of f6acfc4f0277e625f13fd22068138aec61a12df3
+      //       is incorrect. See https://github.com/tc39/proposal-array-from-async/issues/33
+      //       Here we use the implementation provided by @bakkot in that bug
+      //       in lieu for now; This allows to use a for-await loop below.
 
-      // Step 3.k.iii. Let len be ? LengthOfArrayLike(arrayLike).
-      let len = ToLength(arrayLike.length);
-      // Step 3.k.iv. If IsConstructor(C) is true, then
-      //     Step 3.k.iv.1. Let A be ? Construct(C, « 𝔽(len) »).
-      // Step 3.k.v. Else,
-      //     Step 3.k.v.1. Let A be ? ArrayCreate(len).
-      // Note: This double construction isn't great, issue is open:
-      // https://github.com/tc39/proposal-array-from-async/issues/35
-      let A = IsConstructor(C)
-        ? constructContentFunction(C, C, len)
-        : std_Array(len);
+      // Steps 3.h-i are implicit through the for-await loop.
 
-      // Step 3.k.vi. Let k be 0.
+      // Step 3.h. If usingAsyncIterator is not undefined, then
+      //     Step 3.h.i. Set iteratorRecord to ? GetIterator(asyncItems, async, usingAsyncIterator).
+      // Step 3.i. Else if usingSyncIterator is not undefined, then
+      //     Set iteratorRecord to ? CreateAsyncFromSyncIterator(GetIterator(asyncItems, sync, usingSyncIterator)).
+
+      // Step 3.j.i. Let k be 0.
       let k = 0;
-      // Step 3.k.vii. Repeat, while k < len,
 
-      while (k < len) {
-        // Step 3.k.vii.1. Let Pk be ! ToString(𝔽(k)).
-        // Step 3.k.vii.2. Let kValue be ? Get(arrayLike, Pk).
-        // Step 3.k.vii.3. Let kValue be ? Await(kValue).
-        let kValue = await arrayLike[k];
-
-        // Step 3.k.vii.4. If mapping is true, then
-        //     Step 3.k.vii.4.a. Let mappedValue be ? Call(mapfn, thisArg, « kValue, 𝔽(k) »).
-        //     Step 3.k.vii.4.b. Let mappedValue be ? Await(mappedValue).
-        // Step 3.k.vii.5. Else, let mappedValue be kValue.
-        let mappedValue = mapping
-          ? await callContentFunction(mapfn, thisArg, kValue, k)
-          : kValue;
-
-        // Step 3.k.vii.6. Perform ? CreateDataPropertyOrThrow(A, Pk, mappedValue).
-        DefineDataProperty(A, k, mappedValue);
-
-        // Step 3.k.vii.7. Set k to k + 1.
-        k = k + 1;
-      }
-
-      // Step 3.k.viii. Perform ? Set(A, "length", 𝔽(len), true).
-      A.length = len;
-
-      // Step 3.k.ix. Return Completion Record { [[Type]]: return, [[Value]]: A, [[Target]]: empty }.
-      return A;
-    }
-
-    // Step 3.j.i. Let k be 0.
-    let k = 0;
-
-    // We wrap the below steps in a try {} finally {} block to allow us to implement
-    // the required semantics for IfAbruptCloseAsyncIterator;
-    let mustClose = false;
-    try {
       // Step 3.j.ii. Repeat,
-      do {
+      for await (let nextValue of allowContentIterWith(
+        asyncItems,
+        usingAsyncIterator,
+        usingSyncIterator
+      )) {
         // Following in the steps of Array.from, we don't actually implement 3.j.ii.1.
         // The comment in Array.from also applies here; we should only encounter this
         // after a huge loop around a proxy
-        //  Step 3.j.ii.1. If k ≥ 2**53 - 1, then
-        //      Step 3.j.ii.1.a. Let error be ThrowCompletion(a newly created TypeError object).
-        //      Step 3.j.ii.1.b. Return ? AsyncIteratorClose(iteratorRecord, error).
-        //  Step 3.j.ii.2. Let Pk be ! ToString(𝔽(k)).
+        // Step 3.j.ii.1. If k ≥ 2**53 - 1, then
+        //     Step 3.j.ii.1.a. Let error be ThrowCompletion(a newly created TypeError object).
+        //     Step 3.j.ii.1.b. Return ? AsyncIteratorClose(iteratorRecord, error).
+        // Step 3.j.ii.2. Let Pk be ! ToString(𝔽(k)).
 
-        // Note: The published spec as of f6acfc4f0277e625f13fd22068138aec61a12df3
-        //       is incorrect. See https://github.com/tc39/proposal-array-from-async/issues/33
-        //       Here we use the implementation provided by @bakkot in that bug
-        //       in lieu for now;
-        // 1. Let nextResult be ? Call(iteratorRecord.[[NextMethod]], iteratorRecord.[[Iterator]]).
-        let nextResult = callContentFunction(
-          iteratorRecord.nextMethod,
-          iteratorRecord.iterator
-        );
+        // Step 3.j.ii.3. Let next be ? Await(IteratorStep(iteratorRecord)).
 
-        // 1. Set nextResult to ? Await(nextResult).
-        nextResult = await nextResult;
+        // Step 3.j.ii.5. Let nextValue be ? IteratorValue(next). (Implicit through the for-await loop).
 
-        // 1. If nextResult is not an Object, throw a TypeError exception.
-        if (!IsObject(nextResult)) {
-          ThrowTypeError(JSMSG_OBJECT_REQUIRED, nextResult);
-        }
-
-        // 1. Let done be ? IteratorComplete(nextResult).
-        let done = nextResult.done;
-
-        // 1. if done is true.
-        if (done) {
-          // Step 3.j.ii.4.a. Perform ? Set(A, "length", 𝔽(k), true).
-          A.length = k;
-
-          // Step 3.j.ii.4.b. Return Completion Record { [[Type]]: return, [[Value]]: A, [[Target]]: empty }.
-          return A;
-        }
-
-        // Step 3.j.ii.5. Let nextValue be ? IteratorValue(next).
-        let nextValue = nextResult.value;
-
-        // Step 3.j.ii.7. Else, let mappedValue be nextValue. (reordered)
+        // Step 3.j.ii.7. Else, let mappedValue be nextValue. (Reordered)
         let mappedValue = nextValue;
-
-        // Start handling the IfAbruptCloseAsyncIterator checks in the finally block
-        // here.
-        mustClose = true;
 
         // Step 3.j.ii.6. If mapping is true, then
         if (mapping) {
           // Step 3.j.ii.6.a. Let mappedValue be Call(mapfn, thisArg, « nextValue, 𝔽(k) »).
+          // Step 3.j.ii.6.b. IfAbruptCloseAsyncIterator(mappedValue, iteratorRecord).
+          //   Abrupt completion will be handled by the for-await loop.
           mappedValue = callContentFunction(mapfn, thisArg, nextValue, k);
 
-          // Step 3.j.ii.6.b. IfAbruptCloseAsyncIterator(mappedValue, iteratorRecord).
-          //   Abrupt completion will be handled by the finally block this code
-          //   is wrapped in, along with the mustClose state variable.
           // Step 3.j.ii.6.c. Set mappedValue to Await(mappedValue).
-          mappedValue = await mappedValue;
           // Step 3.j.ii.6.d. IfAbruptCloseAsyncIterator(mappedValue, iteratorRecord).
+          mappedValue = await mappedValue;
         }
 
         // Step 3.j.ii.8. Let defineStatus be CreateDataPropertyOrThrow(A, Pk, mappedValue).
         // Step 3.j.ii.9. If defineStatus is an abrupt completion, return ? AsyncIteratorClose(iteratorRecord, defineStatus).
         DefineDataProperty(A, k, mappedValue);
 
-        // No more IfAbruptCloseAsyncIterator, so mustClose becomes false here.
-        mustClose = false;
-
         // Step 3.j.ii.10. Set k to k + 1.
         k = k + 1;
-      } while (true);
-    } finally {
-      if (mustClose) {
-        AsyncIteratorClose(iteratorRecord);
       }
+
+      // Step 3.j.ii.4. If next is false, then (Reordered)
+
+      // Step 3.j.ii.4.a. Perform ? Set(A, "length", 𝔽(k), true).
+      A.length = k;
+
+      // Step 3.j.ii.4.b. Return Completion Record { [[Type]]: return, [[Value]]: A, [[Target]]: empty }.
+      return A;
     }
+
+    // Step 3.k. Else,
+
+    // Step 3.k.i. NOTE: asyncItems is neither an AsyncIterable nor an Iterable so assume it is an array-like object.
+    // Step 3.k.ii. Let arrayLike be ! ToObject(asyncItems).
+    let arrayLike = ToObject(asyncItems);
+
+    // Step 3.k.iii. Let len be ? LengthOfArrayLike(arrayLike).
+    let len = ToLength(arrayLike.length);
+
+    // Step 3.k.iv. If IsConstructor(C) is true, then
+    //     Step 3.k.iv.1. Let A be ? Construct(C, « 𝔽(len) »).
+    // Step 3.k.v. Else,
+    //     Step 3.k.v.1. Let A be ? ArrayCreate(len).
+    // Note: This double construction isn't great, issue is open:
+    // https://github.com/tc39/proposal-array-from-async/issues/35
+    A = IsConstructor(C) ? constructContentFunction(C, C, len) : std_Array(len);
+
+    // Step 3.k.vi. Let k be 0.
+    let k = 0;
+
+    // Step 3.k.vii. Repeat, while k < len,
+    while (k < len) {
+      // Step 3.k.vii.1. Let Pk be ! ToString(𝔽(k)).
+      // Step 3.k.vii.2. Let kValue be ? Get(arrayLike, Pk).
+      // Step 3.k.vii.3. Let kValue be ? Await(kValue).
+      let kValue = await arrayLike[k];
+
+      // Step 3.k.vii.4. If mapping is true, then
+      //     Step 3.k.vii.4.a. Let mappedValue be ? Call(mapfn, thisArg, « kValue, 𝔽(k) »).
+      //     Step 3.k.vii.4.b. Let mappedValue be ? Await(mappedValue).
+      // Step 3.k.vii.5. Else, let mappedValue be kValue.
+      let mappedValue = mapping
+        ? await callContentFunction(mapfn, thisArg, kValue, k)
+        : kValue;
+
+      // Step 3.k.vii.6. Perform ? CreateDataPropertyOrThrow(A, Pk, mappedValue).
+      DefineDataProperty(A, k, mappedValue);
+
+      // Step 3.k.vii.7. Set k to k + 1.
+      k = k + 1;
+    }
+
+    // Step 3.k.viii. Perform ? Set(A, "length", 𝔽(len), true).
+    A.length = len;
+
+    // Step 3.k.ix. Return Completion Record { [[Type]]: return, [[Value]]: A, [[Target]]: empty }.
+    return A;
   };
 
   // Step 4. Perform AsyncFunctionStart(promiseCapability, fromAsyncClosure).
@@ -1175,7 +1134,7 @@ function ArrayToLocaleString(locales, options) {
   if (firstElement === undefined || firstElement === null) {
     R = "";
   } else {
-    #if JS_HAS_INTL_API
+#if JS_HAS_INTL_API
     R = ToString(
       callContentFunction(
         firstElement.toLocaleString,
@@ -1184,11 +1143,11 @@ function ArrayToLocaleString(locales, options) {
         options
       )
     );
-    #else
+#else
     R = ToString(
       callContentFunction(firstElement.toLocaleString, firstElement)
     );
-    #endif
+#endif
   }
 
   // Step 3 (reordered).
@@ -1203,7 +1162,7 @@ function ArrayToLocaleString(locales, options) {
     // Steps 9.a, 9.c-e.
     R += separator;
     if (!(nextElement === undefined || nextElement === null)) {
-      #if JS_HAS_INTL_API
+#if JS_HAS_INTL_API
       R += ToString(
         callContentFunction(
           nextElement.toLocaleString,
@@ -1212,11 +1171,11 @@ function ArrayToLocaleString(locales, options) {
           options
         )
       );
-      #else
+#else
       R += ToString(
         callContentFunction(nextElement.toLocaleString, nextElement)
       );
-      #endif
+#endif
     }
   }
 
@@ -1292,7 +1251,7 @@ function IsConcatSpreadable(O) {
   if (!IsObject(O) // eslint-disable-line prettier/prettier
 #ifdef ENABLE_RECORD_TUPLE
     && !IsTuple(O) // eslint-disable-line prettier/prettier
-  #endif
+#endif
   ) {
     return false;
   }
@@ -1305,11 +1264,11 @@ function IsConcatSpreadable(O) {
     return ToBoolean(spreadable);
   }
 
-  #ifdef ENABLE_RECORD_TUPLE
+#ifdef ENABLE_RECORD_TUPLE
   if (IsTuple(O)) {
     return true;
   }
-  #endif
+#endif
 
   // Step 4.
   return IsArray(O);
@@ -1340,10 +1299,10 @@ function ArrayConcat(arg1) {
   while (true) {
     // Steps 5.b-c.
     if (IsConcatSpreadable(E)) {
-      #ifdef ENABLE_RECORD_TUPLE
+#ifdef ENABLE_RECORD_TUPLE
       // FIXME: spec bug - steps below expect that |E| is an object.
       E = ToObject(E);
-      #endif
+#endif
 
       // Step 5.c.ii.
       len = ToLength(E.length);

@@ -804,8 +804,10 @@ void CursorSimulator::AdjustMoveOffset(CSSIntSize& aWindowSize,
 
   CSSPoint cssSize(aWindowSize.width, aWindowSize.height);
   CSSToDevPixel(cssSize, devSize);
-  LayoutDeviceIntPoint boundaryDevSize(std::min(devSize.x, mScreenWidth) - 1,
-                                       std::min(devSize.y, mScreenHeight) - 1);
+  LayoutDeviceIntPoint screen(mScreenWidth, mScreenHeight);
+
+  LayoutDeviceIntPoint boundaryDevSize(std::min(devSize.x, screen.x) - 1,
+                                       std::min(devSize.y, screen.y) - 1);
   CSSPoint boundaryCSSSize;
   DevToCSSPixel(boundaryDevSize, boundaryCSSSize);
   CSSPoint cursorPos;

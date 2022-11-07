@@ -125,6 +125,8 @@ Structure:
             count: <number>,  // desktop only, e.g. 8, or null on failure - logical cpus
             cores: <number>, // desktop only, e.g., 4, or null on failure - physical cores
             vendor: <string>, // desktop only, e.g. "GenuineIntel", or null on failure
+            name: <string>, // desktop only, e.g. "Intel(R) Core(TM) i9-8950HK CPU @ 2.90GHz",
+                            // or null on failure
             family: <number>, // desktop only, null on failure
             model: <number, // desktop only, null on failure
             stepping: <number>, // desktop only, null on failure
@@ -448,6 +450,10 @@ The following is a partial list of `collected preferences <https://searchfox.org
 - ``media.gmp-manager.lastCheck``: When the gmp-manager last checked for updates as seconds since Jan 1, 1970.
 
 - ``media.gmp-manager.lastEmptyCheck``: When the gmp-manager last checked for updates and there was nothing to install as seconds since Jan 1, 1970.
+
+- ``nimbus.qa.pref-1``: Used to monitor the results of pref-setting test experiments.
+
+- ``nimbus.qa.pref-2``: Used to monitor the results of pref-setting test experiments.
 
 attribution
 ~~~~~~~~~~~

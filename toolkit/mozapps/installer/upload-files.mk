@@ -268,6 +268,7 @@ NO_PKG_FILES += \
 	BadCertAndPinningServer* \
 	DelegatedCredentialsServer* \
 	EncryptedClientHelloServer* \
+	FaultyServer* \
 	OCSPStaplingServer* \
 	SanctionsTestServer* \
 	GenerateOCSPResponse* \

@@ -3688,7 +3688,7 @@ CSSIntPoint nsGlobalWindowOuter::GetScreenXY(CallerType aCallerType,
   }
 
   LayoutDeviceIntPoint windowPos;
-  aError = treeOwnerAsWin->GetPosition(&windowPos.x, &windowPos.y);
+  aError = treeOwnerAsWin->GetPosition(&windowPos.x.value, &windowPos.y.value);
 
   RefPtr<nsPresContext> presContext = mDocShell->GetPresContext();
   if (!presContext) {
@@ -5340,7 +5340,7 @@ void nsGlobalWindowOuter::MoveToOuter(int32_t aXPos, int32_t aYPos,
   }
 
   CSSIntPoint cssPos(aXPos, aYPos);
-  CheckSecurityLeftAndTop(&cssPos.x, &cssPos.y, aCallerType);
+  CheckSecurityLeftAndTop(&cssPos.x.value, &cssPos.y.value, aCallerType);
 
   nsDeviceContext* context = presContext->DeviceContext();
 
@@ -5385,7 +5385,7 @@ void nsGlobalWindowOuter::MoveByOuter(int32_t aXDif, int32_t aYDif,
   cssPos.x += aXDif;
   cssPos.y += aYDif;
 
-  CheckSecurityLeftAndTop(&cssPos.x, &cssPos.y, aCallerType);
+  CheckSecurityLeftAndTop(&cssPos.x.value, &cssPos.y.value, aCallerType);
 
   LayoutDeviceIntPoint newDevPos = RoundedToInt(cssPos * cssScale);
   aError = treeOwnerAsWin->SetPosition(newDevPos.x, newDevPos.y);
@@ -5468,8 +5468,7 @@ void nsGlobalWindowOuter::ResizeByOuter(int32_t aWidthDif, int32_t aHeightDif,
 }
 
 void nsGlobalWindowOuter::SizeToContentOuter(CallerType aCallerType,
-                                             int32_t aMaxWidth,
-                                             int32_t aMaxHeight,
+                                             const SizeToContentConstraints& aConstraints,
                                              ErrorResult& aError) {
   if (!mDocShell) {
     return;
@@ -5492,7 +5491,7 @@ void nsGlobalWindowOuter::SizeToContentOuter(CallerType aCallerType,
     return aError.Throw(NS_ERROR_FAILURE);
   }
 
-  auto contentSize = cv->GetContentSize(aMaxWidth, aMaxHeight);
+  auto contentSize = cv->GetContentSize(aConstraints.mMaxWidth, aConstraints.mMaxHeight, aConstraints.mPrefWidth);
   if (!contentSize) {
     return aError.Throw(NS_ERROR_FAILURE);
   }

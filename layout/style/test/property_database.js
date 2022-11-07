@@ -32,19 +32,6 @@ function IsCSSPropertyPrefEnabled(prefName) {
   return false;
 }
 
-// Returns true if WebRender is enabled. Otherwise, returns false
-function IsWebRenderEnabled() {
-  try {
-    return SpecialPowers.Cc["@mozilla.org/gfx/info;1"].getService(
-      SpecialPowers.Ci.nsIGfxInfo
-    ).WebRenderEnabled;
-  } catch (ex) {
-    ok(false, "Failed to check WebRender's enabled state");
-  }
-
-  return false;
-}
-
 // True longhand properties.
 const CSS_TYPE_LONGHAND = 0;
 
@@ -5537,7 +5524,6 @@ var gCSSProperties = {
       "font-variant-alternates",
       "font-variant-caps",
       "font-variant-east-asian",
-      "font-variant-emoji",
       "font-variant-ligatures",
       "font-variant-numeric",
       "font-variant-position",
@@ -5805,7 +5791,6 @@ var gCSSProperties = {
       "font-variant-alternates",
       "font-variant-caps",
       "font-variant-east-asian",
-      "font-variant-emoji",
       "font-variant-ligatures",
       "font-variant-numeric",
       "font-variant-position",
@@ -5925,25 +5910,6 @@ var gCSSProperties = {
       "full-width proportional-width",
       "ruby simplified ruby",
       "jis78 ruby simplified",
-    ],
-  },
-  "font-variant-emoji": {
-    domProp: "fontVariantEmoji",
-    inherited: true,
-    type: CSS_TYPE_LONGHAND,
-    applies_to_first_letter: true,
-    applies_to_first_line: true,
-    applies_to_marker: true,
-    applies_to_placeholder: true,
-    applies_to_cue: true,
-    initial_values: ["normal"],
-    other_values: ["text", "emoji", "unicode"],
-    invalid_values: [
-      "none",
-      "auto",
-      "text emoji",
-      "auto text",
-      "normal, unicode",
     ],
   },
   "font-variant-ligatures": {
@@ -12063,6 +12029,30 @@ if (IsCSSPropertyPrefEnabled("layout.css.font-palette.enabled")) {
   };
 }
 
+if (IsCSSPropertyPrefEnabled("layout.css.font-variant-emoji.enabled")) {
+  gCSSProperties["font"].subproperties.push("font-variant-emoji");
+  gCSSProperties["font-variant"].subproperties.push("font-variant-emoji");
+  gCSSProperties["font-variant-emoji"] = {
+    domProp: "fontVariantEmoji",
+    inherited: true,
+    type: CSS_TYPE_LONGHAND,
+    applies_to_first_letter: true,
+    applies_to_first_line: true,
+    applies_to_marker: true,
+    applies_to_placeholder: true,
+    applies_to_cue: true,
+    initial_values: ["normal"],
+    other_values: ["text", "emoji", "unicode"],
+    invalid_values: [
+      "none",
+      "auto",
+      "text emoji",
+      "auto text",
+      "normal, unicode",
+    ],
+  };
+}
+
 var isGridTemplateSubgridValueEnabled = IsCSSPropertyPrefEnabled(
   "layout.css.grid-template-subgrid-value.enabled"
 );
@@ -13510,10 +13500,7 @@ if (IsCSSPropertyPrefEnabled("layout.css.linear-easing-function.enabled")) {
   );
 }
 
-if (
-  IsCSSPropertyPrefEnabled("layout.css.backdrop-filter.enabled") &&
-  IsWebRenderEnabled()
-) {
+if (IsCSSPropertyPrefEnabled("layout.css.backdrop-filter.enabled")) {
   gCSSProperties["backdrop-filter"] = {
     domProp: "backdropFilter",
     inherited: false,

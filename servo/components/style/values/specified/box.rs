@@ -1515,30 +1515,28 @@ pub enum ContentVisibility {
     Visible,
 }
 
-bitflags! {
-    #[derive(MallocSizeOf, SpecifiedValueInfo, ToComputedValue, ToCss, Parse, ToResolvedValue, ToShmem)]
-    #[repr(C)]
-    #[allow(missing_docs)]
-    #[css(bitflags(single="normal", mixed="size,inline-size", overlapping_bits))]
-    /// https://drafts.csswg.org/css-contain-3/#container-type
-    ///
-    /// TODO: block-size is on the spec but it seems it was removed? WPTs don't
-    /// support it, see https://github.com/w3c/csswg-drafts/issues/7179.
-    pub struct ContainerType: u8 {
-        /// The `normal` variant.
-        const NORMAL = 0;
-        /// The `inline-size` variant.
-        const INLINE_SIZE = 1 << 0;
-        /// The `size` variant, exclusive with `inline-size` (they sharing bits
-        /// guarantees this).
-        const SIZE = 1 << 1 | Self::INLINE_SIZE.bits;
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, MallocSizeOf, SpecifiedValueInfo, ToComputedValue, ToCss, Parse, ToResolvedValue, ToShmem)]
+#[repr(u8)]
+#[allow(missing_docs)]
+/// https://drafts.csswg.org/css-contain-3/#container-type
+pub enum ContainerType {
+    /// The `normal` variant.
+    Normal,
+    /// The `inline-size` variant.
+    InlineSize,
+    /// The `size` variant.
+    Size,
 }
 
 impl ContainerType {
+    /// Is this container-type: normal?
+    pub fn is_normal(self) -> bool {
+        self == Self::Normal
+    }
+
     /// Is this type containing size in any way?
-    pub fn is_size_container_type(&self) -> bool {
-        self.intersects(ContainerType::SIZE | ContainerType::INLINE_SIZE)
+    pub fn is_size_container_type(self) -> bool {
+        !self.is_normal()
     }
 }
 
@@ -1567,17 +1565,15 @@ impl ContainerName {
     pub fn is_none(&self) -> bool {
         self.0.is_empty()
     }
-}
 
-impl Parse for ContainerName {
-    fn parse<'i, 't>(
-        _: &ParserContext,
-        input: &mut Parser<'i, 't>,
+    fn parse_internal<'i>(
+        input: &mut Parser<'i, '_>,
+        for_query: bool,
     ) -> Result<Self, ParseError<'i>> {
         let mut idents = vec![];
         let location = input.current_source_location();
         let first = input.expect_ident()?;
-        if first.eq_ignore_ascii_case("none") {
+        if !for_query && first.eq_ignore_ascii_case("none") {
             return Ok(Self::none());
         }
         const DISALLOWED_CONTAINER_NAMES: &'static [&'static str] =
@@ -1587,13 +1583,34 @@ impl Parse for ContainerName {
             first,
             DISALLOWED_CONTAINER_NAMES,
         )?);
-        while let Ok(name) = input.try_parse(|input| {
-            let ident = input.expect_ident()?;
-            CustomIdent::from_ident(location, &ident, DISALLOWED_CONTAINER_NAMES)
-        }) {
-            idents.push(name);
+        if !for_query {
+            while let Ok(name) = input.try_parse(|input| {
+                let ident = input.expect_ident()?;
+                CustomIdent::from_ident(location, &ident, DISALLOWED_CONTAINER_NAMES)
+            }) {
+                idents.push(name);
+            }
         }
         Ok(ContainerName(idents.into()))
+    }
+
+    /// https://github.com/w3c/csswg-drafts/issues/7203
+    /// Only a single name allowed in @container rule.
+    /// Disallow none for container-name in @container rule.
+    pub fn parse_for_query<'i, 't>(
+        _: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        Self::parse_internal(input, /* for_query = */ true)
+    }
+}
+
+impl Parse for ContainerName {
+    fn parse<'i, 't>(
+        _: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        Self::parse_internal(input, /* for_query = */ false)
     }
 }
 

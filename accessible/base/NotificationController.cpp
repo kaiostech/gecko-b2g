@@ -17,7 +17,7 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/ipc/ProcessChild.h"
 #include "mozilla/PresShell.h"
-#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/Telemetry.h"
 
@@ -611,9 +611,12 @@ void NotificationController::ProcessMutationEvents() {
 // NotificationCollector: private
 
 void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
+  AUTO_PROFILER_MARKER_TEXT("NotificationController::WillRefresh", A11Y, {},
+                            ""_ns);
   Telemetry::AutoTimer<Telemetry::A11Y_TREE_UPDATE_TIMING_MS> timer;
+  // DO NOT ADD CODE ABOVE THIS BLOCK: THIS CODE IS MEASURING TIMINGS.
 
-  AUTO_PROFILER_LABEL("NotificationController::WillRefresh", OTHER);
+  AUTO_PROFILER_LABEL("NotificationController::WillRefresh", A11Y);
 
   // If the document accessible that notification collector was created for is
   // now shut down, don't process notifications anymore.

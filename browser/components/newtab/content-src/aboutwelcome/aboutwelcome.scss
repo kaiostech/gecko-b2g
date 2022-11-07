@@ -16,6 +16,7 @@ $split-screen-height: 550px;
 $small-main-section-height: 450px;
 $small-secondary-section-height: 100px;
 $noodle-buffer: 106px;
+$video-section-width: 800px;
 
 html {
   height: 100%;
@@ -189,6 +190,10 @@ html {
     height: 100%;
     min-height: 500px;
     overflow: hidden;
+    --in-content-link-color: var(--in-content-primary-button-background);
+    --in-content-link-color-hover: var(--in-content-primary-button-background-hover);
+    --in-content-link-color-active: var(--in-content-primary-button-background-active);
+    --in-content-link-color-visited: var(--in-content-link-color);
 
     &.light-text {
       --in-content-page-color: rgb(251, 251, 254);
@@ -197,10 +202,6 @@ html {
       --in-content-primary-button-background: rgb(0, 221, 255);
       --in-content-primary-button-background-hover: rgb(128, 235, 255);
       --in-content-primary-button-background-active: rgb(170, 242, 255);
-      --in-content-link-color: var(--in-content-primary-button-background);
-      --in-content-link-color-hover: var(--in-content-primary-button-background-hover);
-      --in-content-link-color-active: var(--in-content-primary-button-background-active);
-      --in-content-link-color-visited: var(--in-content-link-color);
       --checkbox-checked-bgcolor: var(--in-content-primary-button-background);
       --in-content-button-text-color: var(--in-content-page-color);
     }
@@ -214,10 +215,6 @@ html {
       --in-content-primary-button-background-active: #053E94;
       --in-content-primary-button-border-color: transparent;
       --in-content-primary-button-border-hover: transparent;
-      --in-content-link-color: var(--blue-60);
-      --in-content-link-color-hover: var(--blue-70);
-      --in-content-link-color-active: var(--blue-80);
-      --in-content-link-color-visited: var(--blue-60);
       --checkbox-checked-bgcolor: var(--in-content-primary-button-background);
       --in-content-button-text-color: var(--in-content-page-color);
     }
@@ -237,6 +234,23 @@ html {
 
         .section-main {
           height: $main-section-width;
+        }
+      }
+
+      &.with-video {
+        justify-content: center;
+        background: none;
+        align-items: center;
+
+        .section-main {
+          width: $video-section-width;
+          height: $split-screen-height;
+        }
+
+        .main-content {
+          background-color: var(--mr-welcome-background-color);
+          border-radius: 8px;
+          box-shadow: 0 2px 14px rgba(58, 57, 68, 0.2);
         }
       }
     }
@@ -266,6 +280,20 @@ html {
     &[pos='split'] {
       margin: auto;
       min-height: $split-screen-height;
+
+      &::before {
+        content: '';
+        position: absolute;
+        box-shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.2);
+        width: $split-section-width + $split-section-width;
+        height: $split-screen-height;
+        border-radius: 8px;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: auto;
+      }
 
       .section-secondary,
       .section-main {
@@ -459,7 +487,6 @@ html {
       .section-secondary {
         --mr-secondary-position: center center / auto 350px;
         border-radius: 8px 0 0 8px;
-        box-shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.2);
         margin: auto 0 auto auto;
         display: flex;
         align-items: center;
@@ -546,6 +573,10 @@ html {
       @media only screen and (max-width: 800px) {
         flex-direction: column;
         min-height: $small-main-section-height + $small-secondary-section-height;
+
+        &::before {
+          width: $split-section-width;
+        }
 
         .section-secondary,
         .section-main {

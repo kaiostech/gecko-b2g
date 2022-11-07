@@ -243,12 +243,6 @@ const { GlobalState } = ChromeUtils.import(
 
 const lazy = {};
 
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "SessionHistory",
-  "resource://gre/modules/sessionstore/SessionHistory.jsm"
-);
-
 XPCOMUtils.defineLazyServiceGetters(lazy, {
   gScreenManager: ["@mozilla.org/gfx/screenmanager;1", "nsIScreenManager"],
 });
@@ -256,7 +250,9 @@ XPCOMUtils.defineLazyServiceGetters(lazy, {
 ChromeUtils.defineESModuleGetters(lazy, {
   DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
+  PrivacyFilter: "resource://gre/modules/sessionstore/PrivacyFilter.sys.mjs",
   PromiseUtils: "resource://gre/modules/PromiseUtils.sys.mjs",
+  SessionHistory: "resource://gre/modules/sessionstore/SessionHistory.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
@@ -264,7 +260,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
-  PrivacyFilter: "resource://gre/modules/sessionstore/PrivacyFilter.jsm",
   RunState: "resource:///modules/sessionstore/RunState.jsm",
   SessionCookies: "resource:///modules/sessionstore/SessionCookies.jsm",
   SessionFile: "resource:///modules/sessionstore/SessionFile.jsm",
@@ -1524,7 +1519,12 @@ var SessionStoreInternal = {
       case "TabClose":
         // `adoptedBy` will be set if the tab was closed because it is being
         // moved to a new window.
-        if (!aEvent.detail.adoptedBy) {
+        if (aEvent.detail.adoptedBy) {
+          this.onMoveToNewWindow(
+            target.linkedBrowser,
+            aEvent.detail.adoptedBy.linkedBrowser
+          );
+        } else {
           this.onTabClose(win, target);
         }
         this.onTabRemove(win, target);
@@ -2609,6 +2609,20 @@ var SessionStoreInternal = {
 
     // Store closed-tab data for undo.
     this.maybeSaveClosedTab(aWindow, aTab, tabState);
+  },
+
+  /**
+   * Flush and copy tab state when moving a tab to a new window.
+   * @param aFromBrowser
+   *        Browser reference.
+   * @param aToBrowser
+   *        Browser reference.
+   */
+  onMoveToNewWindow(aFromBrowser, aToBrowser) {
+    lazy.TabStateFlusher.flush(aFromBrowser).then(() => {
+      let tabState = lazy.TabStateCache.get(aFromBrowser.permanentKey);
+      lazy.TabStateCache.update(aToBrowser.permanentKey, tabState);
+    });
   },
 
   /**

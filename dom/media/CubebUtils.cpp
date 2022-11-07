@@ -37,7 +37,7 @@
 #include "audioipc2_client_ffi_generated.h"
 #include <cmath>
 #include <thread>
-#include "AudioThreadRegistry.h"
+#include "CallbackThreadRegistry.h"
 #include "mozilla/StaticPrefs_media.h"
 
 #if defined (MOZ_WIDGET_GONK)
@@ -123,7 +123,6 @@ size_t sAudioIPCShmAreaSize;
 StaticAutoPtr<char> sBrandName;
 StaticAutoPtr<char> sCubebBackendName;
 StaticAutoPtr<char> sCubebOutputDeviceName;
-StaticAutoPtr<AudioThreadRegistry> sAudioThreadRegistry;
 #ifdef MOZ_WIDGET_ANDROID
 // Counts the number of time a request for switching to global "communication
 // mode" has been received. If this is > 0, global communication mode is to be
@@ -730,7 +729,9 @@ void InitLibrary() {
   }
 #endif
 
-  sAudioThreadRegistry = new AudioThreadRegistry;
+  // Ensure the CallbackThreadRegistry is not created in an audio callback by
+  // creating it now.
+  Unused << CallbackThreadRegistry::Get();
 }
 
 void ShutdownLibrary() {
@@ -751,7 +752,6 @@ void ShutdownLibrary() {
   sIPCConnection = nullptr;
   ShutdownAudioIPCServer();
 #endif
-  sAudioThreadRegistry = nullptr;
 }
 
 bool SandboxEnabled() {
@@ -762,8 +762,6 @@ bool SandboxEnabled() {
   return false;
 #endif
 }
-
-AudioThreadRegistry* GetAudioThreadRegistry() { return sAudioThreadRegistry; }
 
 uint32_t MaxNumberOfChannels() {
   cubeb* cubebContext = GetCubebContext();

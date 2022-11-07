@@ -33,6 +33,7 @@ DIRS += [
     "contextualidentity",
     "crashes",
     "crashmonitor",
+    "credentialmanagement",
     "diskspacewatcher",
     "downloads",
     "enterprisepolicies",
@@ -78,7 +79,6 @@ DIRS += [
     "timermanager",
     "tooltiptext",
     "typeaheadfind",
-    "uniffi-js",
     "utils",
     "url-classifier",
     "urlformatter",
@@ -98,6 +98,8 @@ if CONFIG["MOZ_BUILD_APP"] != "mobile/android":
         "narrate",
         "reader",
         "viaduct",
+        "uniffi-js",
+        "uniffi-bindgen-gecko-js/components",
     ]
 
 if CONFIG["BUILD_CTYPES"]:

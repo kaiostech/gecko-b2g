@@ -5,6 +5,7 @@
 include protocol PFileSystemAccessHandle;
 
 include IPCBlob;
+include RandomAccessStreamParams;
 
 using mozilla::dom::fs::ContentType from "mozilla/dom/FileSystemTypes.h";
 using mozilla::dom::fs::EntryId from "mozilla/dom/FileSystemTypes.h";
@@ -126,10 +127,16 @@ struct FileSystemGetAccessHandleRequest
   EntryId entryId;
 };
 
+struct FileSystemAccessHandleProperties
+{
+  RandomAccessStreamParams streamParams;
+  PFileSystemAccessHandle accessHandle;
+};
+
 union FileSystemGetAccessHandleResponse
 {
   nsresult;
-  PFileSystemAccessHandle;
+  FileSystemAccessHandleProperties;
 };
 
 /**
@@ -382,7 +389,7 @@ async protocol PFileSystemManager
       returns (uint64_t aQuotaGranted);
 
  child:
-  async PFileSystemAccessHandle(FileDescriptor fileDescriptor);
+  async PFileSystemAccessHandle();
 
   async CloseAll()
       returns(nsresult rv);

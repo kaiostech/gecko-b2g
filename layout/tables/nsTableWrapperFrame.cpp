@@ -83,7 +83,7 @@ void nsTableWrapperFrame::GetChildLists(nsTArray<ChildList>* aLists) const {
 }
 
 void nsTableWrapperFrame::SetInitialChildList(ChildListID aListID,
-                                              nsFrameList& aChildList) {
+                                              nsFrameList&& aChildList) {
   if (kCaptionList == aListID) {
 #ifdef DEBUG
     nsIFrame::VerifyDirtyBitSet(aChildList);
@@ -94,25 +94,25 @@ void nsTableWrapperFrame::SetInitialChildList(ChildListID aListID,
     // the frame constructor already checked for table-caption display type
     MOZ_ASSERT(mCaptionFrames.IsEmpty(),
                "already have child frames in CaptionList");
-    mCaptionFrames.SetFrames(aChildList);
+    mCaptionFrames = std::move(aChildList);
   } else {
     MOZ_ASSERT(kPrincipalList != aListID ||
                    (aChildList.FirstChild() &&
                     aChildList.FirstChild() == aChildList.LastChild() &&
                     aChildList.FirstChild()->IsTableFrame()),
                "expected a single table frame in principal child list");
-    nsContainerFrame::SetInitialChildList(aListID, aChildList);
+    nsContainerFrame::SetInitialChildList(aListID, std::move(aChildList));
   }
 }
 
 void nsTableWrapperFrame::AppendFrames(ChildListID aListID,
-                                       nsFrameList& aFrameList) {
+                                       nsFrameList&& aFrameList) {
   // We only have two child frames: the inner table and a caption frame.
   // The inner frame is provided when we're initialized, and it cannot change
   MOZ_ASSERT(kCaptionList == aListID, "unexpected child list");
   MOZ_ASSERT(aFrameList.IsEmpty() || aFrameList.FirstChild()->IsTableCaption(),
              "appending non-caption frame to captionList");
-  mCaptionFrames.AppendFrames(nullptr, aFrameList);
+  mCaptionFrames.AppendFrames(nullptr, std::move(aFrameList));
 
   // Reflow the new caption frame. It's already marked dirty, so
   // just tell the pres shell.
@@ -126,13 +126,13 @@ void nsTableWrapperFrame::AppendFrames(ChildListID aListID,
 
 void nsTableWrapperFrame::InsertFrames(
     ChildListID aListID, nsIFrame* aPrevFrame,
-    const nsLineList::iterator* aPrevFrameLine, nsFrameList& aFrameList) {
+    const nsLineList::iterator* aPrevFrameLine, nsFrameList&& aFrameList) {
   MOZ_ASSERT(kCaptionList == aListID, "unexpected child list");
   MOZ_ASSERT(aFrameList.IsEmpty() || aFrameList.FirstChild()->IsTableCaption(),
              "inserting non-caption frame into captionList");
   MOZ_ASSERT(!aPrevFrame || aPrevFrame->GetParent() == this,
              "inserting after sibling frame with different parent");
-  mCaptionFrames.InsertFrames(nullptr, aPrevFrame, aFrameList);
+  mCaptionFrames.InsertFrames(nullptr, aPrevFrame, std::move(aFrameList));
 
   // Reflow the new caption frame. It's already marked dirty, so
   // just tell the pres shell.

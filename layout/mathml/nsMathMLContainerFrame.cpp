@@ -702,17 +702,17 @@ nsresult nsMathMLContainerFrame::ChildListChanged(int32_t aModType) {
 }
 
 void nsMathMLContainerFrame::AppendFrames(ChildListID aListID,
-                                          nsFrameList& aFrameList) {
+                                          nsFrameList&& aFrameList) {
   MOZ_ASSERT(aListID == kPrincipalList);
-  mFrames.AppendFrames(this, aFrameList);
+  mFrames.AppendFrames(this, std::move(aFrameList));
   ChildListChanged(dom::MutationEvent_Binding::ADDITION);
 }
 
 void nsMathMLContainerFrame::InsertFrames(
     ChildListID aListID, nsIFrame* aPrevFrame,
-    const nsLineList::iterator* aPrevFrameLine, nsFrameList& aFrameList) {
+    const nsLineList::iterator* aPrevFrameLine, nsFrameList&& aFrameList) {
   MOZ_ASSERT(aListID == kPrincipalList);
-  mFrames.InsertFrames(this, aPrevFrame, aFrameList);
+  mFrames.InsertFrames(this, aPrevFrame, std::move(aFrameList));
   ChildListChanged(dom::MutationEvent_Binding::ADDITION);
 }
 

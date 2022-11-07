@@ -45,7 +45,7 @@ function test() {
 }
 
 registerCleanupFunction(function() {
-  // Troubleshoot.jsm is imported into the global scope -- the window -- above.
+  // Troubleshoot.sys.mjs is imported into the global scope -- the window -- above.
   // If it's not deleted, it outlives the test and is reported as a leak.
   delete window.Troubleshoot;
 });
@@ -1042,6 +1042,10 @@ const SNAPSHOT_SCHEMA = {
         contentWin32kLockdownState: {
           required: AppConstants.MOZ_SANDBOX,
           type: "string",
+        },
+        supportSandboxGpuLevel: {
+          required: AppConstants.MOZ_SANDBOX,
+          type: "number",
         },
         syscallLog: {
           required: AppConstants.platform == "linux",

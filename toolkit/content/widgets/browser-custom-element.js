@@ -108,6 +108,7 @@
       this._inPermitUnload = new WeakSet();
 
       this._originalURI = null;
+      this._showingSearchTerms = false;
 
       /**
        * These are managed by the tabbrowser:
@@ -236,6 +237,8 @@
       this._documentURI = null;
 
       this._originalURI = null;
+
+      this._showingSearchTerms = false;
 
       this._documentContentType = null;
 
@@ -749,6 +752,14 @@
       return this._originalURI;
     }
 
+    set showingSearchTerms(val) {
+      this._showingSearchTerms = !!val;
+    }
+
+    get showingSearchTerms() {
+      return this._showingSearchTerms;
+    }
+
     _wrapURIChangeCall(fn) {
       if (!this.isRemoteBrowser) {
         this.isNavigating = true;
@@ -1083,8 +1094,9 @@
     }
 
     /**
-     * This is necessary because the destructor doesn't always get called when
-     * we are removed from a tabbrowser. This will be explicitly called by tabbrowser.
+     * This is necessary because custom elements don't have a "real" destructor.
+     * This method is called explicitly by tabbrowser, when changing remoteness,
+     * and when we're disconnected or the window unloads.
      */
     destroy() {
       elementsToDestroyOnUnload.delete(this);
@@ -1898,6 +1910,7 @@
             "_contentPrincipal",
             "_contentPartitionedPrincipal",
             "_isSyntheticDocument",
+            "_originalURI",
           ]
         );
       }

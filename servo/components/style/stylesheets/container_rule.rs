@@ -114,18 +114,18 @@ pub struct ContainerLookupResult<E> {
 }
 
 fn container_type_axes(ty_: ContainerType, wm: WritingMode) -> FeatureFlags {
-    if ty_.contains(ContainerType::SIZE) {
-        return FeatureFlags::all_container_axes();
+    match ty_ {
+        ContainerType::Size => FeatureFlags::all_container_axes(),
+        ContainerType::InlineSize => {
+            let physical_axis = if wm.is_vertical() {
+                FeatureFlags::CONTAINER_REQUIRES_HEIGHT_AXIS
+            } else {
+                FeatureFlags::CONTAINER_REQUIRES_WIDTH_AXIS
+            };
+            FeatureFlags::CONTAINER_REQUIRES_INLINE_AXIS | physical_axis
+        },
+        ContainerType::Normal => FeatureFlags::empty(),
     }
-    if ty_.contains(ContainerType::INLINE_SIZE) {
-        let physical_axis = if wm.is_vertical() {
-            FeatureFlags::CONTAINER_REQUIRES_HEIGHT_AXIS
-        } else {
-            FeatureFlags::CONTAINER_REQUIRES_WIDTH_AXIS
-        };
-        return FeatureFlags::CONTAINER_REQUIRES_INLINE_AXIS | physical_axis;
-    }
-    FeatureFlags::empty()
 }
 
 enum TraversalResult<T> {
@@ -157,12 +157,8 @@ impl ContainerCondition {
         context: &ParserContext,
         input: &mut Parser<'a, '_>,
     ) -> Result<Self, ParseError<'a>> {
-        use crate::parser::Parse;
-
-        // FIXME: This is a bit ambiguous:
-        // https://github.com/w3c/csswg-drafts/issues/7203
         let name = input
-            .try_parse(|input| ContainerName::parse(context, input))
+            .try_parse(|input| ContainerName::parse_for_query(context, input))
             .ok()
             .unwrap_or_else(ContainerName::none);
         let condition = QueryCondition::parse(context, input, FeatureType::Container)?;
@@ -265,51 +261,44 @@ pub struct ContainerInfo {
     wm: WritingMode,
 }
 
-fn get_container(context: &Context) -> ContainerInfo {
-    if let Some(ref info) = context.container_info {
-        return info.clone();
-    }
-    ContainerInfo {
-        size: context.device().au_viewport_size(),
-        wm: WritingMode::horizontal_tb(),
-    }
+fn eval_width(context: &Context) -> Option<CSSPixelLength> {
+    let info = context.container_info.as_ref()?;
+    Some(CSSPixelLength::new(info.size.width.to_f32_px()))
 }
 
-fn eval_width(context: &Context) -> CSSPixelLength {
-    let info = get_container(context);
-    CSSPixelLength::new(info.size.width.to_f32_px())
+fn eval_height(context: &Context) -> Option<CSSPixelLength> {
+    let info = context.container_info.as_ref()?;
+    Some(CSSPixelLength::new(info.size.height.to_f32_px()))
 }
 
-fn eval_height(context: &Context) -> CSSPixelLength {
-    let info = get_container(context);
-    CSSPixelLength::new(info.size.height.to_f32_px())
-}
-
-fn eval_inline_size(context: &Context) -> CSSPixelLength {
-    let info = get_container(context);
-    CSSPixelLength::new(
+fn eval_inline_size(context: &Context) -> Option<CSSPixelLength> {
+    let info = context.container_info.as_ref()?;
+    Some(CSSPixelLength::new(
         LogicalSize::from_physical(info.wm, info.size)
             .inline
             .to_f32_px(),
-    )
+    ))
 }
 
-fn eval_block_size(context: &Context) -> CSSPixelLength {
-    let info = get_container(context);
-    CSSPixelLength::new(
+fn eval_block_size(context: &Context) -> Option<CSSPixelLength> {
+    let info = context.container_info.as_ref()?;
+    Some(CSSPixelLength::new(
         LogicalSize::from_physical(info.wm, info.size)
             .block
             .to_f32_px(),
-    )
+    ))
 }
 
-fn eval_aspect_ratio(context: &Context) -> Ratio {
-    let info = get_container(context);
-    Ratio::new(info.size.width.0 as f32, info.size.height.0 as f32)
+fn eval_aspect_ratio(context: &Context) -> Option<Ratio> {
+    let info = context.container_info.as_ref()?;
+    Some(Ratio::new(info.size.width.0 as f32, info.size.height.0 as f32))
 }
 
 fn eval_orientation(context: &Context, value: Option<Orientation>) -> bool {
-    let info = get_container(context);
+    let info = match context.container_info.as_ref() {
+        Some(info) => info,
+        None => return false,
+    };
     Orientation::eval(info.size, value)
 }
 
@@ -320,31 +309,31 @@ pub static CONTAINER_FEATURES: [QueryFeatureDescription; 6] = [
     feature!(
         atom!("width"),
         AllowsRanges::Yes,
-        Evaluator::Length(eval_width),
+        Evaluator::OptionalLength(eval_width),
         FeatureFlags::CONTAINER_REQUIRES_WIDTH_AXIS,
     ),
     feature!(
         atom!("height"),
         AllowsRanges::Yes,
-        Evaluator::Length(eval_height),
+        Evaluator::OptionalLength(eval_height),
         FeatureFlags::CONTAINER_REQUIRES_HEIGHT_AXIS,
     ),
     feature!(
         atom!("inline-size"),
         AllowsRanges::Yes,
-        Evaluator::Length(eval_inline_size),
+        Evaluator::OptionalLength(eval_inline_size),
         FeatureFlags::CONTAINER_REQUIRES_INLINE_AXIS,
     ),
     feature!(
         atom!("block-size"),
         AllowsRanges::Yes,
-        Evaluator::Length(eval_block_size),
+        Evaluator::OptionalLength(eval_block_size),
         FeatureFlags::CONTAINER_REQUIRES_BLOCK_AXIS,
     ),
     feature!(
         atom!("aspect-ratio"),
         AllowsRanges::Yes,
-        Evaluator::NumberRatio(eval_aspect_ratio),
+        Evaluator::OptionalNumberRatio(eval_aspect_ratio),
         // XXX from_bits_truncate is const, but the pipe operator isn't, so this
         // works around it.
         FeatureFlags::from_bits_truncate(
@@ -476,7 +465,7 @@ impl<'a> ContainerSizeQuery<'a> {
         let container_type = box_style.clone_container_type();
         let size = e.primary_box_size();
         match container_type {
-            ContainerType::SIZE => {
+            ContainerType::Size=> {
                 TraversalResult::Done(
                     ContainerSizeQueryResult {
                         width: Some(size.width),
@@ -484,7 +473,7 @@ impl<'a> ContainerSizeQuery<'a> {
                     }
                 )
             },
-            ContainerType::INLINE_SIZE => {
+            ContainerType::InlineSize => {
                 if wm.is_horizontal() {
                     TraversalResult::Done(
                         ContainerSizeQueryResult {
@@ -501,7 +490,7 @@ impl<'a> ContainerSizeQuery<'a> {
                     )
                 }
             },
-            _ => TraversalResult::InProgress,
+            ContainerType::Normal => TraversalResult::InProgress,
         }
     }
 

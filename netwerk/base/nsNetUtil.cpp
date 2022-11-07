@@ -3268,7 +3268,7 @@ bool NS_ShouldClassifyChannel(nsIChannel* aChannel) {
            ExtContentPolicy::TYPE_DOCUMENT != type);
 }
 
-bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin,
+bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin, nsACString& aURL,
                          bool* aIsApp, bool* aIsLoopback,
                          nsACString& aManifestURL) {
   if (!aChannel) {
@@ -3301,6 +3301,7 @@ bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin,
   }
 
   principal->GetOrigin(aOrigin);
+  principal->GetSpec(aURL);
 
   nsCOMPtr<nsIPermissionManager> permMgr =
       mozilla::services::GetPermissionManager();

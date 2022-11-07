@@ -4,10 +4,19 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { NetworkStatsService } = ChromeUtils.import(
   "resource://gre/modules/NetworkStatsService.jsm"
+);
+
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "AppsServiceDelegate",
+  "@mozilla.org/sidl-native/appsservice;1",
+  "nsIAppsServiceDelegate"
 );
 
 const NETWORKSTATSSERVICEPROXY_CID = Components.ID(
@@ -45,6 +54,7 @@ NetworkStatsServiceProxy.prototype = {
    */
   saveAppStats: function saveAppStats(
     aOrigin,
+    aURL,
     aNetworkInfo,
     aRxBytes,
     aTxBytes,
@@ -63,6 +73,8 @@ NetworkStatsServiceProxy.prototype = {
     debug(
       "saveAppStats: " +
         aOrigin +
+        " URL:" +
+        aURL +
         " NetworkType:" +
         aNetworkInfo.type +
         " RX:" +
@@ -77,9 +89,25 @@ NetworkStatsServiceProxy.prototype = {
         aManifestURL
     );
 
+    // Here is to determine stats should be collected into which
+    // manifest URL as an Id to be stored.
+    // Case 1: System Principal origin will be collected into the
+    // System App manifest URL.
+    // Case 2: A non-localhost origin with default app permission means
+    // it is a PWA. The manifest URL should fetch from AppsServiceDelegate for
+    // runtime manifest URL.
+    // Case 3: A non-localhost origin without default app permission and without manifest URL
+    // info means it is contained by Browser App or a popup window.
+    // Case 4: A localhost origin stats should be stored into manifest URL by argument
+    // or appending origin with "/manifest.webmanifest" instead.
     if (!aOrigin.endsWith(".localhost")) {
       if (aOrigin == "[System Principal]") {
         aManifestURL = "http://system.localhost/manifest.webmanifest";
+      } else if (aIsApp && AppsServiceDelegate) {
+        let pwaManifestURL = AppsServiceDelegate.getManifestUrlByScopeUrl(aURL);
+        if (pwaManifestURL) {
+          aManifestURL = pwaManifestURL;
+        }
       } else if (!aManifestURL) {
         aManifestURL = "http://search.localhost/manifest.webmanifest";
       }

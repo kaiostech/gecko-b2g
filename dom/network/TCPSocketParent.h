@@ -71,7 +71,7 @@ class TCPSocketParent : public mozilla::net::PTCPSocketParent,
   void SetSocket(TCPSocket* socket);
   nsresult GetHost(nsAString& aHost);
   nsresult GetPort(uint16_t* aPort);
-  void GetOrigin(nsAutoCString& aOrigin, bool* aIsApp,
+  void GetOrigin(nsAutoCString& aOrigin, nsAutoCString& aURL, bool* aIsApp,
                  nsAutoCString& aManifestURL);
 
  private:

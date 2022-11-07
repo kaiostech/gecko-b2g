@@ -635,7 +635,7 @@ bool NS_UsePrivateBrowsing(nsIChannel* channel);
  * Gets Origin from channel's nsILoadContext.
  * Returns false if error or channel's callbacks don't implement nsILoadContext.
  */
-bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin,
+bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin, nsACString& aURL,
                          bool* aIsApp, bool* aIsLoopback,
                          nsACString& aManifestURL);
 

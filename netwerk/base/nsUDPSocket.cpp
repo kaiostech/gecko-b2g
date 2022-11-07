@@ -756,10 +756,11 @@ void nsUDPSocket::SaveNetworkStats(bool aEnforce) {
   uint64_t total = mByteReadCount + mByteWriteCount;
   if (aEnforce || total > NETWORK_STATS_THRESHOLD) {
     nsAutoCString manifestURL;
+    nsAutoCString url;
     // Create the event to save the network statistics.
     // the event is then dispathed to the main thread.
     RefPtr<Runnable> event =
-        new SaveNetworkStatsEvent(mOrigin, mActiveNetworkInfo, mByteReadCount,
+        new SaveNetworkStatsEvent(mOrigin, url, mActiveNetworkInfo, mByteReadCount,
                                   mByteWriteCount, false, false, manifestURL);
     NS_DispatchToMainThread(event);
 

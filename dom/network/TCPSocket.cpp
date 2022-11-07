@@ -170,6 +170,7 @@ TCPSocket::TCPSocket(nsIGlobalObject* aGlobal, const nsAString& aHost,
       mRxBytes(0),
       mIsApp(false),
       mOrigin("[System Principal]"),
+      mURL(EmptyCString()),
       mManifestURL(EmptyCString()),
 #endif
       mObserversActive(false) {
@@ -1136,10 +1137,11 @@ void TCPSocket::SetSocketBridgeParent(TCPSocketParent* aBridgeParent) {
   mSocketBridgeParent = aBridgeParent;
 }
 
-void TCPSocket::SetOrigin(nsAutoCString& aOrigin, bool aIsApp,
+void TCPSocket::SetOrigin(nsAutoCString& aOrigin, nsAutoCString& aURL, bool aIsApp,
                           nsAutoCString& aManifestURL) {
 #ifdef MOZ_WIDGET_GONK
   mOrigin = aOrigin;
+  mURL = aURL;
   mIsApp = aIsApp;
   mManifestURL = aManifestURL;
 #endif
@@ -1200,7 +1202,7 @@ void TCPSocket::SaveNetworkStats(bool aEnforce) {
     return;
   }
 
-  nssProxy->SaveAppStats(mOrigin, mActiveNetworkInfo, mRxBytes, mTxBytes, false,
+  nssProxy->SaveAppStats(mOrigin, mURL, mActiveNetworkInfo, mRxBytes, mTxBytes, false,
                          mIsApp, mManifestURL, nullptr);
 
   // Reset the counters once the statistics is saved to

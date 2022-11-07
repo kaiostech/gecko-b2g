@@ -1189,6 +1189,7 @@ WebSocketChannel::WebSocketChannel()
       mCountSent(0),
       mIsApp(false),
       mTopOrigin(EmptyCString()),
+      mURL(EmptyCString()),
       mIsLoopback(false),
       mManifestURL(EmptyCString()),
       mMutex("WebSocketChannel::mMutex") {
@@ -1361,7 +1362,7 @@ void WebSocketChannel::BeginOpenInternal() {
   }
 
     if (localChannel) {
-    NS_GetTopOriginInfo(localChannel, mTopOrigin, &mIsApp,
+    NS_GetTopOriginInfo(localChannel, mTopOrigin, mURL, &mIsApp,
                         &mIsLoopback, mManifestURL);
   }
 
@@ -4336,7 +4337,7 @@ nsresult WebSocketChannel::SaveNetworkStats(bool enforce) {
   // Create the event to save the network statistics.
   // the event is then dispatched to the main thread.
   RefPtr<Runnable> event =
-      new SaveNetworkStatsEvent(mTopOrigin, mActiveNetworkInfo, countRecv,
+      new SaveNetworkStatsEvent(mTopOrigin, mURL, mActiveNetworkInfo, countRecv,
                                 countSent, false, mIsApp, mManifestURL);
   NS_DispatchToMainThread(event);
 

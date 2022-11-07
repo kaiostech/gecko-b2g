@@ -498,6 +498,7 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   uint64_t mCountSent{0};
   bool mIsApp{false};
   nsAutoCString mOrigin;
+  nsAutoCString mURL;
   bool mIsLoopback{false};
   nsAutoCString mManifestURL;
 #ifdef MOZ_WIDGET_GONK

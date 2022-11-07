@@ -235,7 +235,7 @@ nsresult nsHttpTransaction::Init(
   mTrafficCategory = trafficCategory;
 
   nsCOMPtr<nsIChannel> channel = do_QueryInterface(eventsink);
-  NS_GetTopOriginInfo(channel, mOrigin, &mIsApp, &mIsLoopback,
+  NS_GetTopOriginInfo(channel, mOrigin, mURL, &mIsApp, &mIsLoopback,
                       mManifestURL);
 
 #ifdef MOZ_WIDGET_GONK
@@ -1029,7 +1029,7 @@ nsresult nsHttpTransaction::SaveNetworkStats(bool enforce) {
   // Create the event to save the network statistics.
   // the event is then dispatched to the main thread.
   RefPtr<Runnable> event =
-      new SaveNetworkStatsEvent(mOrigin, mActiveNetworkInfo, mCountRecv,
+      new SaveNetworkStatsEvent(mOrigin, mURL, mActiveNetworkInfo, mCountRecv,
                                 mCountSent, false, mIsApp, mManifestURL);
   NS_DispatchToMainThread(event);
 

@@ -367,6 +367,7 @@ class WebSocketChannel : public BaseWebSocketChannel,
   Atomic<uint64_t, Relaxed> mCountSent;
   bool mIsApp;
   nsAutoCString mTopOrigin;
+  nsAutoCString mURL;
   bool mIsLoopback;
   nsAutoCString mManifestURL;
 #ifdef MOZ_WIDGET_GONK

@@ -22,6 +22,7 @@ interface nsINetworkStatsServiceProxy : nsISupports
   /*
    * An interface used to record per-app traffic data.
    * @param aOrigin origin
+   * @param aURL URL
    * @param aNetworkInterface network
    * @param aRxBytes received data amount
    * @param aTxBytes transmitted data amount
@@ -31,6 +32,7 @@ interface nsINetworkStatsServiceProxy : nsISupports
    * @param aCallback an optional callback
    */
   void saveAppStats(in ACString aOrigin,
+                    in ACString aURL,
                     in nsINetworkInfo aNetworkInfo,
                     in unsigned long long aRxBytes,
                     in unsigned long long aTxBytes,

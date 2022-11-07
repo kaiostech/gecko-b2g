@@ -109,10 +109,11 @@ mozilla::ipc::IPCResult TCPServerSocketParent::RecvRequestDelete() {
 void TCPServerSocketParent::OnConnect(TCPServerSocketEvent* event) {
   RefPtr<TCPSocket> socket = event->Socket();
   nsAutoCString origin;
+  nsAutoCString url;
   bool isApp = false;
   nsAutoCString manifestURL;
-  GetOrigin(origin, &isApp, manifestURL);
-  socket->SetOrigin(origin, isApp, manifestURL);
+  GetOrigin(origin, url, &isApp, manifestURL);
+  socket->SetOrigin(origin, url, isApp, manifestURL);
 
   RefPtr<TCPSocketParent> socketParent = new TCPSocketParent();
   socketParent->SetSocket(socket);
@@ -122,7 +123,7 @@ void TCPServerSocketParent::OnConnect(TCPServerSocketEvent* event) {
   SendCallbackAccept(socketParent);
 }
 
-void TCPServerSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp,
+void TCPServerSocketParent::GetOrigin(nsAutoCString& aOrigin, nsAutoCString& aURL, bool* aIsApp,
                                       nsAutoCString& aManifestURL) {
   const PContentParent* content = Manager()->Manager();
   if (PBrowserParent* browser =
@@ -141,6 +142,7 @@ void TCPServerSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp,
     nsCOMPtr<nsIPrincipal> principal = window->DocumentPrincipal();
     if (principal) {
       principal->GetOrigin(aOrigin);
+      principal->GetSpec(aURL);
       nsCOMPtr<nsIPermissionManager> permMgr =
           mozilla::services::GetPermissionManager();
       uint32_t perm = nsIPermissionManager::DENY_ACTION;

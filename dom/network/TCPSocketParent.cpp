@@ -79,12 +79,13 @@ mozilla::ipc::IPCResult TCPSocketParent::RecvOpen(
     const nsString& aHost, const uint16_t& aPort, const bool& aUseSSL,
     const bool& aUseArrayBuffers) {
   nsAutoCString origin;
+  nsAutoCString url;
   bool isApp = false;
   nsAutoCString manifestURL;
-  GetOrigin(origin, &isApp, manifestURL);
+  GetOrigin(origin, url, &isApp, manifestURL);
 
   mSocket = new TCPSocket(nullptr, aHost, aPort, aUseSSL, aUseArrayBuffers);
-  mSocket->SetOrigin(origin, isApp, manifestURL);
+  mSocket->SetOrigin(origin, url, isApp, manifestURL);
   mSocket->SetSocketBridgeParent(this);
   NS_ENSURE_SUCCESS(mSocket->Init(nullptr), IPC_OK());
   return IPC_OK();
@@ -214,7 +215,7 @@ nsresult TCPSocketParent::GetPort(uint16_t* aPort) {
   return NS_OK;
 }
 
-void TCPSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp, nsAutoCString& aManifestURL) {
+void TCPSocketParent::GetOrigin(nsAutoCString& aOrigin, nsAutoCString& aURL, bool* aIsApp, nsAutoCString& aManifestURL) {
   const PContentParent* content = Manager()->Manager();
   if (PBrowserParent* browser =
           SingleManagedOrNull(content->ManagedPBrowserParent())) {

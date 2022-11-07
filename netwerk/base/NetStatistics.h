@@ -51,14 +51,15 @@ class SaveNetworkStatsEvent : public Runnable {
       nsAutoCString& aOrigin,
       nsMainThreadPtrHandle<nsINetworkInfo>& aActiveNetworkInfo,
       uint64_t aCountRecv, uint64_t aCountSent, bool aIsAccumulative,
-      bool aIsApp)
+      bool aIsApp, nsAutoCString& aManifestURL)
       : mozilla::Runnable("SaveNetworkStatsEventTask"),
         mOrigin(aOrigin),
         mActiveNetworkInfo(aActiveNetworkInfo),
         mCountRecv(aCountRecv),
         mCountSent(aCountSent),
         mIsAccumulative(aIsAccumulative),
-        mIsApp(aIsApp) {
+        mIsApp(aIsApp),
+        mManifestURL(aManifestURL) {
     MOZ_ASSERT(!mOrigin.IsEmpty());
     MOZ_ASSERT(mActiveNetworkInfo);
   }
@@ -75,8 +76,8 @@ class SaveNetworkStatsEvent : public Runnable {
 
     // save the network stats through NetworkStatsServiceProxy
     mNetworkStatsServiceProxy->SaveAppStats(
-        mOrigin, mActiveNetworkInfo, mCountRecv, mCountSent,
-        mIsAccumulative, mIsApp, nullptr);
+        mOrigin, mActiveNetworkInfo, mCountRecv, mCountSent, mIsAccumulative,
+        mIsApp, mManifestURL, nullptr);
 
     return NS_OK;
   }
@@ -88,6 +89,7 @@ class SaveNetworkStatsEvent : public Runnable {
   uint64_t mCountSent;
   bool mIsApp;
   bool mIsAccumulative;
+  nsAutoCString mManifestURL;
 };
 
 }  // namespace net

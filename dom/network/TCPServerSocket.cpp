@@ -149,8 +149,9 @@ TCPServerSocket::OnSocketAccepted(nsIServerSocket* aServer,
   if (mServerBridgeParent) {
     nsAutoCString origin;
     bool isApp = false;
-    mServerBridgeParent->GetOrigin(origin, &isApp);
-    socket->SetOrigin(origin, isApp);
+    nsAutoCString manifestURL;
+    mServerBridgeParent->GetOrigin(origin, &isApp, manifestURL);
+    socket->SetOrigin(origin, isApp, manifestURL);
   }
   FireEvent(u"connect"_ns, socket);
   return NS_OK;

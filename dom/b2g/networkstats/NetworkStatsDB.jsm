@@ -18,8 +18,12 @@ const { IndexedDBHelper } = ChromeUtils.import(
 );
 
 const DB_NAME = "net_stats";
-const DB_VERSION = 1;
-const STATS_STORE_NAME = "net_stats_store";
+const DB_VERSION = 2;
+const DEPRECATED_STATS_STORE_NAME = [
+  "net_stats_store", // existed in DB version 1
+];
+
+const STATS_STORE_NAME = "net_stats_store_v2";
 const ALARMS_STORE_NAME = "net_alarm";
 
 // Constant defining the maximum values allowed per interface. If more, older
@@ -96,9 +100,12 @@ NetworkStatsDB.prototype = {
         });
 
         // Create object store for networkStats.
-        let newObjectStore = db.createObjectStore(STATS_STORE_NAME, {
-          keyPath: ["origin", "serviceType", "network", "timestamp"],
-        });
+        let newObjectStore = db.createObjectStore(
+          DEPRECATED_STATS_STORE_NAME[0],
+          {
+            keyPath: ["origin", "serviceType", "network", "timestamp"],
+          }
+        );
         newObjectStore.createIndex("origin", "origin", { unique: false });
         newObjectStore.createIndex("network", "network", { unique: false });
         newObjectStore.createIndex("networkType", "networkType", {
@@ -116,6 +123,45 @@ NetworkStatsDB.prototype = {
         newObjectStore.createIndex("txTotalBytes", "txTotalBytes", {
           unique: false,
         });
+        upgradeNextVersion();
+      },
+      function upgrade1to2() {
+        if (DEBUG) {
+          debug("Upgrade 1 to 2: Replace origin by manifestURL.");
+        }
+
+        let newObjectStore;
+        let deprecatedName = DEPRECATED_STATS_STORE_NAME[0];
+        // Create object store for networkStats.
+        newObjectStore = db.createObjectStore(STATS_STORE_NAME, {
+          keyPath: ["manifestURL", "serviceType", "network", "timestamp"],
+        });
+        newObjectStore.createIndex("network", "network", { unique: false });
+        // Copy records from the current object store to the new one.
+        objectStore = aTransaction.objectStore(deprecatedName);
+        objectStore.openCursor().onsuccess = function(event) {
+          let cursor = event.target.result;
+          if (!cursor) {
+            db.deleteObjectStore(deprecatedName);
+            // upgrade1to2 completed now.
+            return;
+          }
+          let newStats = {};
+          let oldStats = cursor.value;
+          let origin = oldStats.origin;
+          delete oldStats.origin;
+          if (origin.endsWith(".localhost")) {
+            newStats.manifestURL = origin + "/manifest.webmanifest";
+          } else if (origin == "default" || origin == "") {
+            newStats.manifestURL = origin;
+          }
+          Object.assign(newStats, oldStats);
+
+          if (newStats.manifestURL) {
+            newObjectStore.put(newStats);
+          }
+          cursor.continue();
+        };
       },
     ];
 
@@ -149,7 +195,7 @@ NetworkStatsDB.prototype = {
 
   importData: function importData(aStats) {
     let stats = {
-      origin: aStats.origin,
+      manifestURL: aStats.manifestURL,
       serviceType: aStats.serviceType,
       network: [aStats.networkId, aStats.networkType],
       timestamp: aStats.timestamp,
@@ -166,7 +212,7 @@ NetworkStatsDB.prototype = {
 
   exportData: function exportData(aStats) {
     let stats = {
-      origin: aStats.origin,
+      manifestURL: aStats.manifestURL,
       serviceType: aStats.serviceType,
       networkId: aStats.network[0],
       networkType: aStats.network[1],
@@ -193,7 +239,7 @@ NetworkStatsDB.prototype = {
     let timestamp = this.normalizeDate(aStats.date);
 
     let stats = {
-      origin: aStats.origin,
+      manifestURL: aStats.manifestURL,
       serviceType: aStats.serviceType,
       networkId: aStats.networkId,
       networkType: aStats.networkType,
@@ -215,8 +261,18 @@ NetworkStatsDB.prototype = {
         debug("Filtered time: " + new Date(timestamp));
         debug("New stats: " + JSON.stringify(stats));
 
-        let lowerFilter = [stats.origin, stats.serviceType, stats.network, 0];
-        let upperFilter = [stats.origin, stats.serviceType, stats.network, ""];
+        let lowerFilter = [
+          stats.manifestURL,
+          stats.serviceType,
+          stats.network,
+          0,
+        ];
+        let upperFilter = [
+          stats.manifestURL,
+          stats.serviceType,
+          stats.network,
+          "",
+        ];
         let range = IDBKeyRange.bound(lowerFilter, upperFilter, false, false);
 
         let request = aStore.openCursor(range, "prev");
@@ -271,7 +327,7 @@ NetworkStatsDB.prototype = {
           this._removeOldStats(
             aTxn,
             aStore,
-            stats.origin,
+            stats.manifestURL,
             stats.serviceType,
             stats.network,
             stats.timestamp
@@ -366,7 +422,7 @@ NetworkStatsDB.prototype = {
       for (let i = diff - 2; i >= 0; i--) {
         let time = aNewSample.timestamp - SAMPLE_RATE * (i + 1);
         let sample = {
-          origin: aNewSample.origin,
+          manifestURL: aNewSample.manifestURL,
           serviceType: aNewSample.serviceType,
           network: aNewSample.network,
           timestamp: time,
@@ -421,7 +477,7 @@ NetworkStatsDB.prototype = {
   _removeOldStats: function _removeOldStats(
     aTxn,
     aStore,
-    aOrigin,
+    aManifestURL,
     aServiceType,
     aNetwork,
     aDate
@@ -433,8 +489,8 @@ NetworkStatsDB.prototype = {
       filterDate = 0;
     }
 
-    let lowerFilter = [aOrigin, aServiceType, aNetwork, 0];
-    let upperFilter = [aOrigin, aServiceType, aNetwork, filterDate];
+    let lowerFilter = [aManifestURL, aServiceType, aNetwork, 0];
+    let upperFilter = [aManifestURL, aServiceType, aNetwork, filterDate];
     let range = IDBKeyRange.bound(lowerFilter, upperFilter, false, false);
     let lastSample = null;
     let self = this;
@@ -482,7 +538,7 @@ NetworkStatsDB.prototype = {
         request.onsuccess = function onsuccess(event) {
           let cursor = event.target.result;
           if (cursor) {
-            if (!sample && cursor.value.origin == "") {
+            if (!sample && cursor.value.manifestURL == "") {
               sample = cursor.value;
             }
 
@@ -495,7 +551,7 @@ NetworkStatsDB.prototype = {
             let timestamp = new Date();
             timestamp = self.normalizeDate(timestamp);
             sample.timestamp = timestamp;
-            sample.origin = "";
+            sample.manifestURL = "";
             sample.serviceType = "";
             sample.rxBytes = 0;
             sample.txBytes = 0;
@@ -635,20 +691,20 @@ NetworkStatsDB.prototype = {
 
   find: function find(
     aResultCb,
-    aOrigin,
+    aManifestURL,
     aServiceType,
     aNetwork,
     aStart,
     aEnd,
-    aAppOrigin
+    aAppManifestURL
   ) {
     let offset = new Date().getTimezoneOffset() * 60 * 1000;
     let start = this.normalizeDate(aStart);
     let end = this.normalizeDate(aEnd);
 
     debug(
-      "Find samples for origin: " +
-        aOrigin +
+      "Find samples for manifestURL: " +
+        aManifestURL +
         " serviceType: " +
         aServiceType +
         " network: " +
@@ -666,8 +722,8 @@ NetworkStatsDB.prototype = {
       "readonly",
       function(aTxn, aStore) {
         let network = [aNetwork.id, aNetwork.type];
-        let lowerFilter = [aOrigin, aServiceType, network, start];
-        let upperFilter = [aOrigin, aServiceType, network, end];
+        let lowerFilter = [aManifestURL, aServiceType, network, start];
+        let upperFilter = [aManifestURL, aServiceType, network, end];
         let range = IDBKeyRange.bound(lowerFilter, upperFilter, false, false);
 
         let data = [];
@@ -675,7 +731,7 @@ NetworkStatsDB.prototype = {
         if (!aTxn.result) {
           aTxn.result = {};
         }
-        aTxn.result.appOrigin = aAppOrigin;
+        aTxn.result.appManifestURL = aAppManifestURL;
         aTxn.result.serviceType = aServiceType;
         aTxn.result.network = aNetwork;
         aTxn.result.start = aStart;

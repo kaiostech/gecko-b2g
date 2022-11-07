@@ -368,6 +368,7 @@ class WebSocketChannel : public BaseWebSocketChannel,
   bool mIsApp;
   nsAutoCString mTopOrigin;
   bool mIsLoopback;
+  nsAutoCString mManifestURL;
 #ifdef MOZ_WIDGET_GONK
   nsMainThreadPtrHandle<nsINetworkInfo> mActiveNetworkInfo;
 #endif

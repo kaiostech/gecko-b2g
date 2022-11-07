@@ -110,8 +110,9 @@ void TCPServerSocketParent::OnConnect(TCPServerSocketEvent* event) {
   RefPtr<TCPSocket> socket = event->Socket();
   nsAutoCString origin;
   bool isApp = false;
-  GetOrigin(origin, &isApp);
-  socket->SetOrigin(origin, isApp);
+  nsAutoCString manifestURL;
+  GetOrigin(origin, &isApp, manifestURL);
+  socket->SetOrigin(origin, isApp, manifestURL);
 
   RefPtr<TCPSocketParent> socketParent = new TCPSocketParent();
   socketParent->SetSocket(socket);
@@ -121,7 +122,8 @@ void TCPServerSocketParent::OnConnect(TCPServerSocketEvent* event) {
   SendCallbackAccept(socketParent);
 }
 
-void TCPServerSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp) {
+void TCPServerSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp,
+                                      nsAutoCString& aManifestURL) {
   const PContentParent* content = Manager()->Manager();
   if (PBrowserParent* browser =
           SingleManagedOrNull(content->ManagedPBrowserParent())) {
@@ -146,6 +148,22 @@ void TCPServerSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp) {
         permMgr->TestExactPermissionFromPrincipal(
             principal, "networkstats-perm"_ns, &perm);
         *aIsApp = perm == nsIPermissionManager::ALLOW_ACTION;
+      }
+    }
+
+    RefPtr<dom::Element> element = browsingContext->GetEmbedderElement();
+    if (!element) {
+      return;
+    }
+
+    RefPtr<dom::Element> parentElement = element->GetParentElement();
+    if (parentElement) {
+      nsAutoString manifestURLStr;
+      nsAutoString tagName;
+      parentElement->GetTagName(tagName);
+      if (tagName.LowerCaseEqualsLiteral("web-view")) {
+        parentElement->GetAttribute(u"data-manifest-url"_ns, manifestURLStr);
+        aManifestURL.Assign(NS_ConvertUTF16toUTF8(manifestURLStr));
       }
     }
   }

@@ -94,7 +94,7 @@ const NETWORKSTATS_CID = Components.ID(
 
 function NetworkStats(aWindow, aStats) {
   debug("NetworkStats Constructor");
-  this.appOrigin = aStats.appOrigin || null;
+  this.appManifestURL = aStats.appManifestURL || null;
   this.serviceType = aStats.serviceType || null;
   this.network = new aWindow.NetworkStatsInterface(aStats.network);
   this.start = aStats.start ? new aWindow.Date(aStats.start.getTime()) : null;
@@ -165,14 +165,14 @@ NetworkStatsManager.prototype = {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
 
-    // appOrigin is used to query network statistics by app;
+    // appManifestURL is used to query network statistics by app;
     // serviceType is used to query network statistics by system service.
     // It is illegal to specify both of them at the same time.
-    if (aOptions.appOrigin && aOptions.serviceType) {
+    if (aOptions.appManifestURL && aOptions.serviceType) {
       throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
     }
 
-    let appOrigin = aOptions.appOrigin;
+    let appManifestURL = aOptions.appManifestURL;
     let serviceType = aOptions.serviceType;
 
     // TODO Bug 929410 Date object cannot correctly pass through cpmm/ppmm IPC
@@ -185,7 +185,7 @@ NetworkStatsManager.prototype = {
       network: aNetwork.toJSON(),
       start: aStart,
       end: aEnd,
-      appOrigin,
+      appManifestURL,
       serviceType,
       id: this.getRequestId(request),
     });

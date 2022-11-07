@@ -80,10 +80,11 @@ mozilla::ipc::IPCResult TCPSocketParent::RecvOpen(
     const bool& aUseArrayBuffers) {
   nsAutoCString origin;
   bool isApp = false;
-  GetOrigin(origin, &isApp);
+  nsAutoCString manifestURL;
+  GetOrigin(origin, &isApp, manifestURL);
 
   mSocket = new TCPSocket(nullptr, aHost, aPort, aUseSSL, aUseArrayBuffers);
-  mSocket->SetOrigin(origin, isApp);
+  mSocket->SetOrigin(origin, isApp, manifestURL);
   mSocket->SetSocketBridgeParent(this);
   NS_ENSURE_SUCCESS(mSocket->Init(nullptr), IPC_OK());
   return IPC_OK();
@@ -213,7 +214,7 @@ nsresult TCPSocketParent::GetPort(uint16_t* aPort) {
   return NS_OK;
 }
 
-void TCPSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp) {
+void TCPSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp, nsAutoCString& aManifestURL) {
   const PContentParent* content = Manager()->Manager();
   if (PBrowserParent* browser =
           SingleManagedOrNull(content->ManagedPBrowserParent())) {
@@ -238,6 +239,22 @@ void TCPSocketParent::GetOrigin(nsAutoCString& aOrigin, bool* aIsApp) {
         permMgr->TestExactPermissionFromPrincipal(
             principal, "networkstats-perm"_ns, &perm);
         *aIsApp = perm == nsIPermissionManager::ALLOW_ACTION;
+      }
+    }
+
+    RefPtr<dom::Element> element = browsingContext->GetEmbedderElement();
+    if (!element) {
+      return;
+    }
+
+    RefPtr<dom::Element> parentElement = element->GetParentElement();
+    if (parentElement) {
+      nsAutoString manifestURLStr;
+      nsAutoString tagName;
+      parentElement->GetTagName(tagName);
+      if (tagName.LowerCaseEqualsLiteral("web-view")) {
+        parentElement->GetAttribute(u"data-manifest-url"_ns, manifestURLStr);
+        aManifestURL.Assign(NS_ConvertUTF16toUTF8(manifestURLStr));
       }
     }
   }

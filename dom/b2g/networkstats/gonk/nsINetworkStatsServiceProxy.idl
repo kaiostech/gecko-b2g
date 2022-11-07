@@ -27,6 +27,7 @@ interface nsINetworkStatsServiceProxy : nsISupports
    * @param aTxBytes transmitted data amount
    * @param aIsAccumulative is stats accumulative
    * @param aIsApp to determine it's app or not
+   * @param aManifestURL manifest URL
    * @param aCallback an optional callback
    */
   void saveAppStats(in ACString aOrigin,
@@ -35,6 +36,7 @@ interface nsINetworkStatsServiceProxy : nsISupports
                     in unsigned long long aTxBytes,
                     in boolean aIsAccumulative,
                     in boolean aIsApp,
+                    in ACString aManifestURL,
          [optional] in nsINetworkStatsServiceProxyCallback aCallback);
 
   /*

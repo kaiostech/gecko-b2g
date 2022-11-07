@@ -499,6 +499,7 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   bool mIsApp{false};
   nsAutoCString mOrigin;
   bool mIsLoopback{false};
+  nsAutoCString mManifestURL;
 #ifdef MOZ_WIDGET_GONK
   nsMainThreadPtrHandle<nsINetworkInfo> mActiveNetworkInfo;
 #endif

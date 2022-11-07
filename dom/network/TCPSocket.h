@@ -141,7 +141,8 @@ class TCPSocket final : public DOMEventTargetHelper,
   // Initialize this socket's associated IPC actor in the parent process.
   void SetSocketBridgeParent(TCPSocketParent* aBridgeParent);
   // Initialize this socket's associated app origin.
-  void SetOrigin(nsAutoCString& aOrigin, bool aIsApp);
+  void SetOrigin(nsAutoCString& aOrigin, bool aIsApp,
+                 nsAutoCString& aManifestURL);
 
   static bool SocketEnabled();
 
@@ -263,6 +264,8 @@ class TCPSocket final : public DOMEventTargetHelper,
   bool mIsApp;
   // The origin of app used by this socket.
   nsAutoCString mOrigin;
+  // The manifest URL of app used by this socket.
+  nsAutoCString mManifestURL;
   // The name of the active network used by this socket.
   nsCOMPtr<nsINetworkInfo> mActiveNetworkInfo;
 #endif

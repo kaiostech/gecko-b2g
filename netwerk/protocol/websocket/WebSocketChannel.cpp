@@ -1190,6 +1190,7 @@ WebSocketChannel::WebSocketChannel()
       mIsApp(false),
       mTopOrigin(EmptyCString()),
       mIsLoopback(false),
+      mManifestURL(EmptyCString()),
       mMutex("WebSocketChannel::mMutex") {
   MOZ_ASSERT(NS_IsMainThread(), "not main thread");
 
@@ -1360,7 +1361,8 @@ void WebSocketChannel::BeginOpenInternal() {
   }
 
     if (localChannel) {
-    NS_GetTopOriginInfo(localChannel, mTopOrigin, &mIsApp, &mIsLoopback);
+    NS_GetTopOriginInfo(localChannel, mTopOrigin, &mIsApp,
+                        &mIsLoopback, mManifestURL);
   }
 
 #ifdef MOZ_WIDGET_GONK
@@ -4333,8 +4335,9 @@ nsresult WebSocketChannel::SaveNetworkStats(bool enforce) {
 
   // Create the event to save the network statistics.
   // the event is then dispatched to the main thread.
-  RefPtr<Runnable> event = new SaveNetworkStatsEvent(
-      mTopOrigin, mActiveNetworkInfo, countRecv, countSent, false, mIsApp);
+  RefPtr<Runnable> event =
+      new SaveNetworkStatsEvent(mTopOrigin, mActiveNetworkInfo, countRecv,
+                                countSent, false, mIsApp, mManifestURL);
   NS_DispatchToMainThread(event);
 
   return NS_OK;

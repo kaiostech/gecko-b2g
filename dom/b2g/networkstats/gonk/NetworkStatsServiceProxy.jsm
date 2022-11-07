@@ -50,6 +50,7 @@ NetworkStatsServiceProxy.prototype = {
     aTxBytes,
     aIsAccumulative,
     aIsApp,
+    aManifestURL,
     aCallback
   ) {
     if (!aNetworkInfo) {
@@ -71,16 +72,24 @@ NetworkStatsServiceProxy.prototype = {
         " Accumulative:" +
         aIsAccumulative +
         " IsApp:" +
-        aIsApp
+        aIsApp +
+        " Manifest URL:" +
+        aManifestURL
     );
 
     if (!aOrigin.endsWith(".localhost")) {
       if (aOrigin == "[System Principal]") {
-        aOrigin = "http://system.localhost";
-        // Treat non app & suffix without "localhost" as browser app.
-      } else if (!aIsApp) {
-        aOrigin = "http://search.localhost";
+        aManifestURL = "http://system.localhost/manifest.webmanifest";
+      } else if (!aManifestURL) {
+        aManifestURL = "http://search.localhost/manifest.webmanifest";
       }
+    } else if (!aManifestURL) {
+      aManifestURL = aOrigin + "/manifest.webmanifest";
+    }
+
+    if (!aManifestURL.startsWith("http")) {
+      debug("Invalid manifest URL : " + aManifestURL);
+      return;
     }
 
     if (aCallback) {
@@ -88,7 +97,7 @@ NetworkStatsServiceProxy.prototype = {
     }
 
     NetworkStatsService.saveStats(
-      aOrigin,
+      aManifestURL,
       "",
       aNetworkInfo,
       aRxBytes,

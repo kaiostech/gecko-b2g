@@ -9,12 +9,12 @@
 dictionary NetworkStatsGetOptions
 {
   /**
-   * App origin is used to filter network stats by app, while service type
+   * App manifest URL is used to filter network stats by app, while service type
    * is used to filter stats by system service.
    * Note that, these two options cannot be specified at the same time for now;
    * others, an NS_ERROR_NOT_IMPLMENTED exception will be thrown.
    */
-  DOMString? appOrigin = null;
+  DOMString? appManifestURL = null;
   DOMString serviceType = "";
 };
 
@@ -31,10 +31,10 @@ dictionary NetworkStatsAlarmOptions
  Pref="dom.networkStats.enabled"]
 interface NetworkStats {
   /**
-   * App origin of an application for specifying the per-app stats of the
+   * App manifest URL of an application for specifying the per-app stats of the
    * specified app.
    */
-  readonly attribute DOMString    appOrigin;
+  readonly attribute DOMString    appManifestURL;
 
   /**
    * Service type is used to retrieve the corresponding "system-only" stats.

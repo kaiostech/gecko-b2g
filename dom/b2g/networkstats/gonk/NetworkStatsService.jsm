@@ -585,19 +585,19 @@ this.NetworkStatsService = {
    * In order to return updated stats, first is performed a call to
    * updateAllStats function, which will get last stats from netd
    * and update the database.
-   * Then, depending on the request (stats per origin or total stats)
+   * Then, depending on the request (stats per manifestURL or total stats)
    * it retrieve them from database and return to the manager.
    */
   getSamples: function getSamples(mm, msg) {
     let network = msg.network;
 
-    let origin = "default";
-    let appOrigin = "default";
-    if (msg.appOrigin) {
-      origin = msg.appOrigin;
-      appOrigin = msg.appOrigin;
+    let manifestURL = "default";
+    let appManifestURL = "default";
+    if (msg.appManifestURL) {
+      manifestURL = msg.appManifestURL;
+      appManifestURL = msg.appManifestURL;
     }
-    //TODO: Need a method to check whether this origin is valid or not.
+    //TODO: Need a method to check whether this manifestURL is valid or not.
     /*
     if (appManifestURL) {
       appId = appsService.getAppLocalIdByManifestURL(appManifestURL);
@@ -625,12 +625,12 @@ this.NetworkStatsService = {
             result: aResult,
           });
         },
-        origin,
+        manifestURL,
         serviceType,
         network,
         start,
         end,
-        appOrigin
+        appManifestURL
       );
     }.bind(this);
 
@@ -652,10 +652,15 @@ this.NetworkStatsService = {
           debug(
             "getstats for network " + network.id + " of type " + network.type
           );
-          debug("origin: " + origin + " from appOrigin: " + appOrigin);
+          debug(
+            "manifestURL: " +
+              manifestURL +
+              " from appManifestURL: " +
+              appManifestURL
+          );
           debug("serviceType: " + serviceType);
 
-          if (origin != "default" || serviceType) {
+          if (manifestURL != "default" || serviceType) {
             this.updateCachedStats(callback);
             return;
           }
@@ -678,12 +683,12 @@ this.NetworkStatsService = {
               result: aResult,
             });
           },
-          origin,
+          manifestURL,
           serviceType,
           network,
           start,
           end,
-          appOrigin
+          appManifestURL
         );
       }.bind(this)
     );
@@ -991,7 +996,7 @@ this.NetworkStatsService = {
       }
 
       let stats = {
-        origin: "default",
+        manifestURL: "default",
         serviceType: "",
         networkId: this._networks[aNetId].network.id,
         networkType: this._networks[aNetId].network.type,
@@ -1081,7 +1086,7 @@ this.NetworkStatsService = {
    * Function responsible for receiving stats which are not from netd.
    */
   saveStats: function saveStats(
-    aOrigin,
+    aManifestURL,
     aServiceType,
     aNetworkInfo,
     aRxBytes,
@@ -1097,22 +1102,22 @@ this.NetworkStatsService = {
       return;
     }
 
-    // Check if |aConnectionType|, |aOrigin| and |aServiceType| are valid.
-    // There are two invalid cases for the combination of |aOrigin| and
+    // Check if |aConnectionType|, |aManifestURL| and |aServiceType| are valid.
+    // There are two invalid cases for the combination of |aManifestURL| and
     // |aServiceType|:
-    // a. Both |aOrigin| is non-zero and |aServiceType| is non-empty.
-    // b. Both |aOrigin| is zero and |aServiceType| is empty.
+    // a. Both |aManifestURL| is non-zero and |aServiceType| is non-empty.
+    // b. Both |aManifestURL| is zero and |aServiceType| is empty.
     if (
       !this._networks[netId] ||
-      (aOrigin && aServiceType) ||
-      (!aOrigin && !aServiceType)
+      (aManifestURL && aServiceType) ||
+      (!aManifestURL && !aServiceType)
     ) {
-      debug("Invalid network interface, origin or serviceType");
+      debug("Invalid network interface, manifestURL or serviceType");
       return;
     }
 
     let stats = {
-      origin: aOrigin,
+      manifestURL: aManifestURL,
       serviceType: aServiceType,
       networkId: this._networks[netId].network.id,
       networkType: this._networks[netId].network.type,
@@ -1137,7 +1142,7 @@ this.NetworkStatsService = {
   writeCache: function writeCache(aStats, aCallback) {
     debug(
       "saveStats: " +
-        aStats.origin +
+        aStats.manifestURL +
         " " +
         aStats.serviceType +
         " " +
@@ -1152,10 +1157,10 @@ this.NetworkStatsService = {
         aStats.txBytes
     );
 
-    // Generate an unique key from |origin|, |serviceType| and
+    // Generate an unique key from |manifestURL|, |serviceType| and
     // |netId|, which is used to retrieve data in |cachedStats|.
     let netId = this.getNetworkId(aStats.networkId, aStats.networkType);
-    let key = aStats.origin + "" + aStats.serviceType + "" + netId;
+    let key = aStats.manifestURL + "" + aStats.serviceType + "" + netId;
 
     // |cachedStats| only keeps the data with the same date.
     // If the incoming date is different from |cachedStatsDate|,
@@ -1178,7 +1183,7 @@ this.NetworkStatsService = {
       return;
     }
 
-    // Try to find the matched row in the cached by |origin| and |connectionType|.
+    // Try to find the matched row in the cached by |manifestURL| and |connectionType|.
     // If not found, save the incoming data into the cached.
     let cachedStats = this.cachedStats[key];
     if (!cachedStats) {

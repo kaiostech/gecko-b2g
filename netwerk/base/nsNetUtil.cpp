@@ -3269,7 +3269,8 @@ bool NS_ShouldClassifyChannel(nsIChannel* aChannel) {
 }
 
 bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin,
-                         bool* aIsApp, bool* aIsLoopback) {
+                         bool* aIsApp, bool* aIsLoopback,
+                         nsACString& aManifestURL) {
   if (!aChannel) {
     return false;
   }
@@ -3308,6 +3309,29 @@ bool NS_GetTopOriginInfo(nsIChannel* aChannel, nsACString& aOrigin,
     permMgr->TestExactPermissionFromPrincipal(principal, "networkstats-perm"_ns,
                                               &perm);
     *aIsApp = perm == nsIPermissionManager::ALLOW_ACTION;
+  }
+
+  RefPtr<dom::BrowsingContext> bc;
+  loadInfo->GetBrowsingContext(getter_AddRefs(bc));
+
+  if (!bc) {
+    return false;
+  }
+
+  RefPtr<dom::Element> element = bc->GetEmbedderElement();
+  if (!element) {
+    return false;
+  }
+
+  RefPtr<dom::Element> parentElement = element->GetParentElement();
+  if (parentElement) {
+    nsAutoString manifestURLStr;
+    nsAutoString tagName;
+    parentElement->GetTagName(tagName);
+    if (tagName.LowerCaseEqualsLiteral("web-view")) {
+      parentElement->GetAttribute(u"data-manifest-url"_ns, manifestURLStr);
+      aManifestURL.Assign(NS_ConvertUTF16toUTF8(manifestURLStr));
+    }
   }
 
   return true;

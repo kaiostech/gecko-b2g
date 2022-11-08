@@ -969,8 +969,8 @@ DataCallHandler.prototype = {
     }
 
     let meterInterfaceList = [];
-    if (gCustomizationInfo) {
-      meterInterfaceList = gCustomizationInfo.getCustomizedValue(
+    if (lazy.customizationInfo) {
+      meterInterfaceList = lazy.customizationInfo.getCustomizedValue(
         this.clientId,
         "meterInterfaceList",
         []

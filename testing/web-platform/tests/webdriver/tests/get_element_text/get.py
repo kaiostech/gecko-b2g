@@ -35,16 +35,16 @@ def test_no_such_element_with_invalid_value(session):
     response = get_element_text(session, element.id)
     assert_error(response, "no such element")
 
+# Disabling on b2g since multiple chrome windows are not supported.
+# def test_no_such_element_from_other_window_handle(session, inline):
+#     session.url = inline("<div id='parent'><p/>")
+#     element = session.find.css("#parent", all=False)
 
-def test_no_such_element_from_other_window_handle(session, inline):
-    session.url = inline("<div id='parent'><p/>")
-    element = session.find.css("#parent", all=False)
+#     new_handle = session.new_window()
+#     session.window_handle = new_handle
 
-    new_handle = session.new_window()
-    session.window_handle = new_handle
-
-    response = get_element_text(session, element.id)
-    assert_error(response, "no such element")
+#     response = get_element_text(session, element.id)
+#     assert_error(response, "no such element")
 
 
 def test_no_such_element_from_other_frame(session, iframe, inline):

@@ -1154,6 +1154,7 @@ RadioInterface.prototype = {
           );
         }
 
+        this.cardState = lazy.RIL.GECKO_CARDSTATE_UNKNOWN;
         lazy.gMobileConnectionService.notifyModemRestart(
           this.clientId,
           message.reason

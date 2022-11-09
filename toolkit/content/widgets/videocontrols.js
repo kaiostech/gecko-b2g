@@ -321,9 +321,6 @@ this.VideoControlsImplWidget = class {
         if (this._isAudioOnly) {
           this.video.style.height = `${CONTROL_PANEL_HEIGHT}px`;
           this.video.style.width = "100%";
-        } else {
-          this.video.style.removeProperty("height");
-          this.video.style.removeProperty("width");
         }
       },
 

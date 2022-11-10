@@ -189,6 +189,8 @@ class ProviderQuickSuggest extends UrlbarProvider {
     let isSuggestionBestMatch = false;
     if (typeof suggestion._test_is_best_match == "boolean") {
       isSuggestionBestMatch = suggestion._test_is_best_match;
+    } else if (suggestion?.is_top_pick) {
+      isSuggestionBestMatch = true;
     } else if (lazy.QuickSuggest.remoteSettings.config.best_match) {
       let { best_match } = lazy.QuickSuggest.remoteSettings.config;
       isSuggestionBestMatch =
@@ -297,7 +299,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
     }
 
     this.logger.info("Blocking result: " + JSON.stringify(result));
-    lazy.QuickSuggest.blockSuggestion(result.payload.originalUrl);
+    lazy.QuickSuggest.blockedSuggestions.add(result.payload.originalUrl);
     this._recordEngagementTelemetry(result, queryContext.isPrivate, "block");
     return true;
   }
@@ -372,7 +374,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
    */
   _recordEngagementTelemetry(result, isPrivate, selType) {
     // Update impression stats.
-    lazy.QuickSuggest.updateImpressionStats(
+    lazy.QuickSuggest.impressionCaps.updateStats(
       result.payload.isSponsored ? "sponsored" : "nonsponsored"
     );
 
@@ -595,7 +597,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
         lazy.UrlbarPrefs.get("quickSuggestImpressionCapsNonSponsoredEnabled"))
     ) {
       let type = suggestion.is_sponsored ? "sponsored" : "nonsponsored";
-      let hitStats = lazy.QuickSuggest.impressionCapHitStats(type);
+      let hitStats = lazy.QuickSuggest.impressionCaps.getHitStats(type);
       if (hitStats) {
         this.logger.info("Impression cap(s) hit, not adding suggestion");
         this.logger.debug(JSON.stringify({ type, hitStats }));
@@ -604,7 +606,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
     }
 
     // Return false if the suggestion is blocked.
-    if (await lazy.QuickSuggest.isSuggestionBlocked(suggestion.url)) {
+    if (await lazy.QuickSuggest.blockedSuggestions.has(suggestion.url)) {
       this.logger.info("Suggestion blocked, not adding suggestion");
       return false;
     }

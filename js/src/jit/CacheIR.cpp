@@ -9,8 +9,6 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/FloatingPoint.h"
 
-#include <tuple>
-
 #include "jsapi.h"
 #include "jsmath.h"
 
@@ -35,6 +33,7 @@
 #include "js/ScalarType.h"          // js::Scalar::Type
 #include "js/Wrapper.h"
 #include "proxy/DOMProxy.h"  // js::GetDOMProxyHandlerFamily
+#include "util/DifferentialTesting.h"
 #include "util/Unicode.h"
 #include "vm/ArrayBufferObject.h"
 #include "vm/BytecodeUtil.h"
@@ -402,6 +401,8 @@ AttachDecision GetPropIRGenerator::tryAttachStub() {
       TRY_ATTACH(tryAttachDataView(obj, objId, id));
       TRY_ATTACH(tryAttachArrayBufferMaybeShared(obj, objId, id));
       TRY_ATTACH(tryAttachRegExp(obj, objId, id));
+      TRY_ATTACH(tryAttachMap(obj, objId, id));
+      TRY_ATTACH(tryAttachSet(obj, objId, id));
       TRY_ATTACH(tryAttachNative(obj, objId, id, receiverId));
       TRY_ATTACH(tryAttachModuleNamespace(obj, objId, id));
       TRY_ATTACH(tryAttachWindowProxy(obj, objId, id));
@@ -2035,6 +2036,100 @@ AttachDecision GetPropIRGenerator::tryAttachRegExp(HandleObject obj,
   writer.returnFromIC();
 
   trackAttached("RegExpFlag");
+  return AttachDecision::Attach;
+}
+
+AttachDecision GetPropIRGenerator::tryAttachMap(HandleObject obj,
+                                                ObjOperandId objId,
+                                                HandleId id) {
+  if (!obj->is<MapObject>()) {
+    return AttachDecision::NoAction;
+  }
+  auto* mapObj = &obj->as<MapObject>();
+
+  if (mode_ != ICState::Mode::Specialized) {
+    return AttachDecision::NoAction;
+  }
+
+  // Receiver should be the object.
+  if (isSuper()) {
+    return AttachDecision::NoAction;
+  }
+
+  if (!id.isAtom(cx_->names().size)) {
+    return AttachDecision::NoAction;
+  }
+
+  NativeObject* holder = nullptr;
+  Maybe<PropertyInfo> prop;
+  NativeGetPropKind kind =
+      CanAttachNativeGetProp(cx_, obj, id, &holder, &prop, pc_);
+  if (kind != NativeGetPropKind::NativeGetter) {
+    return AttachDecision::NoAction;
+  }
+
+  auto& fun = holder->getGetter(*prop)->as<JSFunction>();
+  if (!MapObject::isOriginalSizeGetter(fun.native())) {
+    return AttachDecision::NoAction;
+  }
+
+  maybeEmitIdGuard(id);
+
+  // Emit all the normal guards for calling this native, but specialize
+  // callNativeGetterResult.
+  EmitCallGetterResultGuards(writer, mapObj, holder, id, *prop, objId, mode_);
+
+  writer.mapSizeResult(objId);
+  writer.returnFromIC();
+
+  trackAttached("MapSize");
+  return AttachDecision::Attach;
+}
+
+AttachDecision GetPropIRGenerator::tryAttachSet(HandleObject obj,
+                                                ObjOperandId objId,
+                                                HandleId id) {
+  if (!obj->is<SetObject>()) {
+    return AttachDecision::NoAction;
+  }
+  auto* setObj = &obj->as<SetObject>();
+
+  if (mode_ != ICState::Mode::Specialized) {
+    return AttachDecision::NoAction;
+  }
+
+  // Receiver should be the object.
+  if (isSuper()) {
+    return AttachDecision::NoAction;
+  }
+
+  if (!id.isAtom(cx_->names().size)) {
+    return AttachDecision::NoAction;
+  }
+
+  NativeObject* holder = nullptr;
+  Maybe<PropertyInfo> prop;
+  NativeGetPropKind kind =
+      CanAttachNativeGetProp(cx_, obj, id, &holder, &prop, pc_);
+  if (kind != NativeGetPropKind::NativeGetter) {
+    return AttachDecision::NoAction;
+  }
+
+  auto& fun = holder->getGetter(*prop)->as<JSFunction>();
+  if (!SetObject::isOriginalSizeGetter(fun.native())) {
+    return AttachDecision::NoAction;
+  }
+
+  maybeEmitIdGuard(id);
+
+  // Emit all the normal guards for calling this native, but specialize
+  // callNativeGetterResult.
+  EmitCallGetterResultGuards(writer, setObj, holder, id, *prop, objId, mode_);
+
+  writer.setSizeResult(objId);
+  writer.returnFromIC();
+
+  trackAttached("SetSize");
   return AttachDecision::Attach;
 }
 
@@ -5471,26 +5566,35 @@ void InlinableNativeIRGenerator::emitNativeCalleeGuard() {
   // native from a different realm.
   MOZ_ASSERT(callee_->isNativeWithoutJitEntry());
 
-  MOZ_ASSERT(flags_.getArgFormat() == CallFlags::Standard ||
-             flags_.getArgFormat() == CallFlags::FunCall);
-
   ObjOperandId calleeObjId;
-  if (flags_.getArgFormat() == CallFlags::FunCall) {
-    MOZ_ASSERT(generator_.writer.numOperandIds() > 0, "argcId is initialized");
-
-    Int32OperandId argcId(0);
-    calleeObjId = generator_.emitFunCallGuard(argcId);
-  } else {
+  if (flags_.getArgFormat() == CallFlags::Standard) {
     ValOperandId calleeValId =
         writer.loadArgumentFixedSlot(ArgumentKind::Callee, argc_, flags_);
     calleeObjId = writer.guardToObject(calleeValId);
+  } else if (flags_.getArgFormat() == CallFlags::Spread) {
+    ValOperandId calleeValId =
+        writer.loadArgumentFixedSlot(ArgumentKind::Callee, argc_, flags_);
+    calleeObjId = writer.guardToObject(calleeValId);
+  } else if (flags_.getArgFormat() == CallFlags::FunCall) {
+    MOZ_ASSERT(generator_.writer.numOperandIds() > 0, "argcId is initialized");
+
+    Int32OperandId argcId(0);
+    calleeObjId = generator_.emitFunCallOrApplyGuard(argcId);
+  } else {
+    MOZ_ASSERT(flags_.getArgFormat() == CallFlags::FunApplyArray);
+    MOZ_ASSERT(generator_.writer.numOperandIds() > 0, "argcId is initialized");
+
+    Int32OperandId argcId(0);
+    calleeObjId = generator_.emitFunApplyGuard(argcId);
   }
 
   writer.guardSpecificFunction(calleeObjId, callee_);
 
   // If we're constructing we also need to guard newTarget == callee.
   if (flags_.isConstructing()) {
+    MOZ_ASSERT(flags_.getArgFormat() == CallFlags::Standard);
     MOZ_ASSERT(&newTarget_.toObject() == callee_);
+
     ValOperandId newTargetValId =
         writer.loadArgumentFixedSlot(ArgumentKind::NewTarget, argc_, flags_);
     ObjOperandId newTargetObjId = writer.guardToObject(newTargetValId);
@@ -5498,35 +5602,13 @@ void InlinableNativeIRGenerator::emitNativeCalleeGuard() {
   }
 }
 
-ObjOperandId
-InlinableNativeIRGenerator::emitNativeCalleeGuardAndLoadArgsArray() {
-  // Note: we rely on GuardSpecificFunction to also guard against the same
-  // native from a different realm.
-  MOZ_ASSERT(callee_->isNativeWithoutJitEntry());
-
-  MOZ_ASSERT(flags_.getArgFormat() == CallFlags::Spread ||
-             flags_.getArgFormat() == CallFlags::FunApplyArray);
-
-  MOZ_ASSERT(!flags_.isConstructing());
-
-  ObjOperandId calleeObjId;
-  ObjOperandId argObjId;
-  if (flags_.getArgFormat() == CallFlags::FunApplyArray) {
-    MOZ_ASSERT(generator_.writer.numOperandIds() > 0, "argcId is initialized");
-
-    Int32OperandId argcId(0);
-    std::tie(calleeObjId, argObjId) =
-        generator_.emitFunApplyGuard(argcId, flags_.getArgFormat());
-  } else {
-    ValOperandId calleeValId =
-        writer.loadArgumentFixedSlot(ArgumentKind::Callee, argc_, flags_);
-    calleeObjId = writer.guardToObject(calleeValId);
-    argObjId = writer.loadSpreadArgs();
+ObjOperandId InlinableNativeIRGenerator::emitLoadArgsArray() {
+  if (flags_.getArgFormat() == CallFlags::Spread) {
+    return writer.loadSpreadArgs();
   }
 
-  writer.guardSpecificFunction(calleeObjId, callee_);
-
-  return argObjId;
+  MOZ_ASSERT(flags_.getArgFormat() == CallFlags::FunApplyArray);
+  return generator_.emitFunApplyArgsGuard(flags_.getArgFormat());
 }
 
 void IRGenerator::emitCalleeGuard(ObjOperandId calleeId, JSFunction* callee) {
@@ -5543,11 +5625,11 @@ void IRGenerator::emitCalleeGuard(ObjOperandId calleeId, JSFunction* callee) {
   }
 }
 
-ObjOperandId CallIRGenerator::emitFunCallGuard(Int32OperandId argcId) {
+ObjOperandId CallIRGenerator::emitFunCallOrApplyGuard(Int32OperandId argcId) {
   JSFunction* callee = &callee_.toObject().as<JSFunction>();
-  MOZ_ASSERT(callee->native() == fun_call);
+  MOZ_ASSERT(callee->native() == fun_call || callee->native() == fun_apply);
 
-  // Guard that callee is the |fun_call| native function.
+  // Guard that callee is the |fun_call| or |fun_apply| native function.
   ValOperandId calleeValId =
       writer.loadArgumentDynamicSlot(ArgumentKind::Callee, argcId);
   ObjOperandId calleeObjId = writer.guardToObject(calleeValId);
@@ -5559,23 +5641,21 @@ ObjOperandId CallIRGenerator::emitFunCallGuard(Int32OperandId argcId) {
   return writer.guardToObject(thisValId);
 }
 
-std::pair<ObjOperandId, ObjOperandId> CallIRGenerator::emitFunApplyGuard(
-    Int32OperandId argcId, CallFlags::ArgFormat format) {
+ObjOperandId CallIRGenerator::emitFunCallGuard(Int32OperandId argcId) {
+  MOZ_ASSERT(callee_.toObject().as<JSFunction>().native() == fun_call);
+
+  return emitFunCallOrApplyGuard(argcId);
+}
+
+ObjOperandId CallIRGenerator::emitFunApplyGuard(Int32OperandId argcId) {
+  MOZ_ASSERT(callee_.toObject().as<JSFunction>().native() == fun_apply);
+
+  return emitFunCallOrApplyGuard(argcId);
+}
+
+ObjOperandId CallIRGenerator::emitFunApplyArgsGuard(
+    CallFlags::ArgFormat format) {
   MOZ_ASSERT(argc_ == 2);
-
-  JSFunction* callee = &callee_.toObject().as<JSFunction>();
-  MOZ_ASSERT(callee->native() == fun_apply);
-
-  // Guard that callee is the |fun_apply| native function.
-  ValOperandId calleeValId =
-      writer.loadArgumentDynamicSlot(ArgumentKind::Callee, argcId);
-  ObjOperandId calleeObjId = writer.guardToObject(calleeValId);
-  writer.guardSpecificFunction(calleeObjId, callee);
-
-  // Guard that |this| is an object.
-  ValOperandId thisValId =
-      writer.loadArgumentDynamicSlot(ArgumentKind::This, argcId);
-  ObjOperandId thisObjId = writer.guardToObject(thisValId);
 
   ValOperandId argValId =
       writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
@@ -5597,7 +5677,7 @@ std::pair<ObjOperandId, ObjOperandId> CallIRGenerator::emitFunApplyGuard(
     writer.guardArrayIsPacked(argObjId);
   }
 
-  return {thisObjId, argObjId};
+  return argObjId;
 }
 
 AttachDecision InlinableNativeIRGenerator::tryAttachArrayPush() {
@@ -7579,8 +7659,11 @@ AttachDecision InlinableNativeIRGenerator::tryAttachSpreadMathMinMax(
   // Initialize the input operand.
   initializeInputOperand();
 
-  // Guard callee is this Math function and load the argument array.
-  ObjOperandId argsId = emitNativeCalleeGuardAndLoadArgsArray();
+  // Guard callee is this Math function.
+  emitNativeCalleeGuard();
+
+  // Load the argument array.
+  ObjOperandId argsId = emitLoadArgsArray();
 
   if (int32Result) {
     writer.int32MinMaxArrayResult(argsId, isMax);
@@ -9450,7 +9533,7 @@ AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
     return AttachDecision::NoAction;
   }
 
-  if (argc_ != 2) {
+  if (argc_ > 2) {
     return AttachDecision::NoAction;
   }
 
@@ -9467,7 +9550,11 @@ AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
   }
 
   CallFlags::ArgFormat format = CallFlags::Standard;
-  if (args_[1].isObject() && args_[1].toObject().is<ArgumentsObject>()) {
+  if (argc_ < 2) {
+    // |fun.apply()| and |fun.apply(thisValue)| are equivalent to |fun.call()|
+    // resp. |fun.call(thisValue)|.
+    format = CallFlags::FunCall;
+  } else if (args_[1].isObject() && args_[1].toObject().is<ArgumentsObject>()) {
     auto* argsObj = &args_[1].toObject().as<ArgumentsObject>();
     if (argsObj->hasOverriddenElement() || argsObj->anyArgIsForwarded() ||
         argsObj->hasOverriddenLength() ||
@@ -9507,12 +9594,38 @@ AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
     TRY_ATTACH(nativeGen.tryAttachStub());
   }
 
-  ObjOperandId thisObjId;
-  std::tie(thisObjId, std::ignore) = emitFunApplyGuard(argcId, format);
+  // Don't inline when no arguments are passed, cf. |tryAttachFunCall()|.
+  if (mode_ == ICState::Mode::Specialized && !isScripted &&
+      format == CallFlags::FunCall && argc_ > 0) {
+    MOZ_ASSERT(argc_ == 1);
 
-  // We always MaxUnrolledArgCopy here because the fixed argc is meaningless
-  // in a FunApply case.
-  uint32_t fixedArgc = MaxUnrolledArgCopy;
+    HandleValue newTarget = NullHandleValue;
+    HandleValue thisValue = args_[0];
+    HandleValueArray args = HandleValueArray::empty();
+
+    // Check for specific native-function optimizations.
+    InlinableNativeIRGenerator nativeGen(*this, target, newTarget, thisValue,
+                                         args, targetFlags);
+    TRY_ATTACH(nativeGen.tryAttachStub());
+  }
+
+  ObjOperandId thisObjId = emitFunApplyGuard(argcId);
+
+  uint32_t fixedArgc;
+  if (format == CallFlags::FunApplyArray ||
+      format == CallFlags::FunApplyArgsObj) {
+    emitFunApplyArgsGuard(format);
+
+    // We always use MaxUnrolledArgCopy here because the fixed argc is
+    // meaningless in a FunApply case.
+    fixedArgc = MaxUnrolledArgCopy;
+  } else {
+    MOZ_ASSERT(format == CallFlags::FunCall);
+
+    // Whereas for the FunCall case we need to use the actual fixed argc value.
+    fixedArgc = ClampFixedArgc(argc_);
+  }
+
   if (mode_ == ICState::Mode::Specialized) {
     // Ensure that |this| is the expected target function.
     emitCalleeGuard(thisObjId, target);
@@ -9702,6 +9815,29 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(HandleFunction callee,
                                        args_, flags);
   return nativeGen.tryAttachStub();
 }
+
+#ifdef FUZZING_JS_FUZZILLI
+AttachDecision InlinableNativeIRGenerator::tryAttachFuzzilliHash() {
+  if (argc_ != 1) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  initializeInputOperand();
+
+  // Guard callee is the 'fuzzilli_hash' native function.
+  emitNativeCalleeGuard();
+
+  ValOperandId argValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+
+  writer.fuzzilliHashResult(argValId);
+  writer.returnFromIC();
+
+  trackAttached("FuzzilliHash");
+  return AttachDecision::Attach;
+}
+#endif
 
 AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
   if (!callee_->hasJitInfo() ||
@@ -10105,11 +10241,23 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStub() {
 
     // Testing functions.
     case InlinableNative::TestBailout:
+      if (js::SupportDifferentialTesting()) {
+        return AttachDecision::NoAction;
+      }
       return tryAttachBailout();
     case InlinableNative::TestAssertFloat32:
       return tryAttachAssertFloat32();
     case InlinableNative::TestAssertRecoveredOnBailout:
+      if (js::SupportDifferentialTesting()) {
+        return AttachDecision::NoAction;
+      }
       return tryAttachAssertRecoveredOnBailout();
+
+#ifdef FUZZING_JS_FUZZILLI
+    // Fuzzilli function
+    case InlinableNative::FuzzilliHash:
+      return tryAttachFuzzilliHash();
+#endif
 
     case InlinableNative::Limit:
       break;

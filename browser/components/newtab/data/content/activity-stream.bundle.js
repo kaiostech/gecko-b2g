@@ -7048,7 +7048,7 @@ class DSLinkMenu extends (external_React_default()).PureComponent {
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 const TOP_SITES_SOURCE = "TOP_SITES";
 const TOP_SITES_CONTEXT_MENU_OPTIONS = ["CheckPinTopSite", "EditTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "DeleteUrl"];
-const TOP_SITES_SPOC_CONTEXT_MENU_OPTIONS = ["PinTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "ShowPrivacyInfo"];
+const TOP_SITES_SPOC_CONTEXT_MENU_OPTIONS = ["OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "ShowPrivacyInfo"];
 const TOP_SITES_SPONSORED_POSITION_CONTEXT_MENU_OPTIONS = ["OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "AboutSponsored"]; // the special top site for search shortcut experiment can only have the option to unpin (which removes) the topsite
 
 const TOP_SITES_SEARCH_SHORTCUTS_CONTEXT_MENU_OPTIONS = ["CheckPinTopSite", "Separator", "BlockUrl"]; // minimum size necessary to show a rich icon instead of a screenshot
@@ -11614,7 +11614,16 @@ function TopSite_extends() { TopSite_extends = Object.assign || function (target
 
 
 const SPOC_TYPE = "SPOC";
-const NEWTAB_SOURCE = "newtab";
+const NEWTAB_SOURCE = "newtab"; // For cases if we want to know if this is sponsored by either sponsored_position or type.
+// We have two sources for sponsored topsites, and
+// sponsored_position is set by one sponsored source, and type is set by another.
+// This is not called in all cases, sometimes we want to know if it's one source
+// or the other. This function is only applicable in cases where we only care if it's either.
+
+function isSponsored(link) {
+  return (link === null || link === void 0 ? void 0 : link.sponsored_position) || (link === null || link === void 0 ? void 0 : link.type) === SPOC_TYPE;
+}
+
 class TopSiteLink extends (external_React_default()).PureComponent {
   constructor(props) {
     super(props);
@@ -11632,7 +11641,7 @@ class TopSiteLink extends (external_React_default()).PureComponent {
 
 
   _allowDrop(e) {
-    return (this.dragged || !this.props.link.sponsored_position && !this.props.link.shim) && e.dataTransfer.types.includes("text/topsite-index");
+    return (this.dragged || !isSponsored(this.props.link)) && e.dataTransfer.types.includes("text/topsite-index");
   }
 
   onDragEvent(event) {
@@ -11648,7 +11657,7 @@ class TopSiteLink extends (external_React_default()).PureComponent {
       case "dragstart":
         event.target.blur();
 
-        if (this.props.link.sponsored_position || this.props.link.shim) {
+        if (isSponsored(this.props.link)) {
           event.preventDefault();
           break;
         }
@@ -11974,7 +11983,7 @@ class TopSite extends (external_React_default()).PureComponent {
       value.search_vendor = this.props.link.hostname;
     }
 
-    if (this.props.link.type === SPOC_TYPE || this.props.link.sponsored_position) {
+    if (isSponsored(this.props.link)) {
       value.card_type = "spoc";
     }
 
@@ -12278,8 +12287,8 @@ class TopSiteList extends (external_React_default()).PureComponent {
     const topSites = this._getTopSites();
 
     topSites[this.state.draggedIndex] = null;
-    const preview = topSites.map(site => site && (site.isPinned || site.sponsored_position) ? site : null);
-    const unpinned = topSites.filter(site => site && !site.isPinned && !site.sponsored_position);
+    const preview = topSites.map(site => site && (site.isPinned || isSponsored(site)) ? site : null);
+    const unpinned = topSites.filter(site => site && !site.isPinned && !isSponsored(site));
     const siteToInsert = Object.assign({}, this.state.draggedSite, {
       isPinned: true,
       isDragged: true
@@ -12303,7 +12312,7 @@ class TopSiteList extends (external_React_default()).PureComponent {
       while (index > this.state.draggedIndex ? holeIndex < index : holeIndex > index) {
         let nextIndex = holeIndex + shiftingStep;
 
-        while (preview[nextIndex] && preview[nextIndex].sponsored_position) {
+        while (isSponsored(preview[nextIndex])) {
           nextIndex += shiftingStep;
         }
 

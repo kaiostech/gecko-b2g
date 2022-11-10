@@ -273,31 +273,7 @@ void DocAccessible::ApplyARIAState(uint64_t* aState) const {
 Accessible* DocAccessible::FocusedChild() {
   // Return an accessible for the current global focus, which does not have to
   // be contained within the current document.
-  if (Accessible* focusedAcc = FocusMgr()->FocusedAccessible()) {
-    return focusedAcc;
-  }
-  nsFocusManager* focusManagerDOM = nsFocusManager::GetFocusManager();
-
-  if (!focusManagerDOM) {
-    return nullptr;
-  }
-
-  if (!XRE_IsParentProcess()) {
-    // DocAccessibleParent's don't exist in the content
-    // process, so we can't return anything useful if this
-    // is the case.
-    return nullptr;
-  }
-  // If we call GetFocusedBrowsingContext from the chrome process
-  // it returns the BrowsingContext for the focused _window_, which
-  // is not helpful here. Instead use GetFocusedBrowsingContextInChrome
-  // which returns the content BrowsingContext that has focus.
-  dom::BrowsingContext* focusedContext =
-      focusManagerDOM->GetFocusedBrowsingContextInChrome();
-
-  DocAccessibleParent* focusedDoc =
-      DocAccessibleParent::GetFrom(focusedContext);
-  return focusedDoc ? focusedDoc->GetFocusedAcc() : nullptr;
+  return FocusMgr()->FocusedAccessible();
 }
 
 void DocAccessible::TakeFocus() const {
@@ -1844,6 +1820,21 @@ bool DocAccessible::UpdateAccessibleOnAttrChange(dom::Element* aElement,
   if (aAttribute == nsGkAtoms::type) {
     // If the input[type] changes, we should recreate the accessible.
     RecreateAccessible(aElement);
+    return true;
+  }
+
+  if (aElement->IsHTMLElement(nsGkAtoms::img) && aAttribute == nsGkAtoms::alt) {
+    // If alt text changes on an img element, we may want to create or remove an
+    // accessible for that img.
+    if (nsAccessibilityService::ShouldCreateImgAccessible(aElement, this)) {
+      if (GetAccessible(aElement)) {
+        // If the accessible already exists, there's no need to create one.
+        return false;
+      }
+      ContentInserted(aElement, aElement->GetNextSibling());
+    } else {
+      ContentRemoved(aElement);
+    }
     return true;
   }
 

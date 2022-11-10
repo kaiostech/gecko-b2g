@@ -5,27 +5,22 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  NetworkHelper: "resource://devtools/shared/webconsole/NetworkHelper.sys.mjs",
+  NetworkHelper:
+    "resource://devtools/shared/network-observer/NetworkHelper.sys.mjs",
 });
 
 /**
- * Module to fetch cache objects from CacheStorageService
- * and return them as an object.
+ * Global cache session object.
  */
-export const CacheEntry = {
-  /**
-   * Flag for cache session being initialized.
-   */
-  isCacheSessionInitialized: false,
-  /**
-   * Cache session object.
-   */
-  cacheSession: null,
+let gCacheSession = null;
 
-  /**
-   * Initializes our cache session / cache storage session.
-   */
-  initializeCacheSession(request) {
+/**
+ * Get (and create if necessary) a cache session / cache storage session.
+ *
+ * @param {nsIRequest} request
+ */
+function getCacheSession(request) {
+  if (!gCacheSession) {
     try {
       const cacheService = Services.cache2;
       if (cacheService) {
@@ -34,80 +29,87 @@ export const CacheEntry = {
           // Get default load context if we can't fetch.
           loadContext = Services.loadContextInfo.default;
         }
-        this.cacheSession = cacheService.diskCacheStorage(loadContext);
-        this.isCacheSessionInitialized = true;
+        gCacheSession = cacheService.diskCacheStorage(loadContext);
       }
     } catch (e) {
-      this.isCacheSessionInitialized = false;
+      gCacheSession = null;
     }
-  },
+  }
 
-  /**
-   * Parses a cache descriptor returned from the backend into a
-   * usable object.
-   *
-   * @param Object descriptor The descriptor from the backend.
-   */
-  parseCacheDescriptor(descriptor) {
-    const descriptorObj = {};
-    try {
-      if (descriptor.storageDataSize) {
-        descriptorObj.dataSize = descriptor.storageDataSize;
+  return gCacheSession;
+}
+
+/**
+ * Parses a cache entry returned from the backend to build a response cache
+ * object.
+ *
+ * @param {nsICacheEntry} cacheEntry
+ *     The cache entry from the backend.
+ *
+ * @returns {Object}
+ *     A responseCache object expected by RDP.
+ */
+function buildResponseCacheObject(cacheEntry) {
+  const cacheObject = {};
+  try {
+    if (cacheEntry.storageDataSize) {
+      cacheObject.storageDataSize = cacheEntry.storageDataSize;
+    }
+  } catch (e) {
+    // We just need to handle this in case it's a js file of 0B.
+  }
+  if (cacheEntry.expirationTime) {
+    cacheObject.expirationTime = cacheEntry.expirationTime;
+  }
+  if (cacheEntry.fetchCount) {
+    cacheObject.fetchCount = cacheEntry.fetchCount;
+  }
+  if (cacheEntry.lastFetched) {
+    cacheObject.lastFetched = cacheEntry.lastFetched;
+  }
+  if (cacheEntry.lastModified) {
+    cacheObject.lastModified = cacheEntry.lastModified;
+  }
+  if (cacheEntry.deviceID) {
+    cacheObject.deviceID = cacheEntry.deviceID;
+  }
+  return cacheObject;
+}
+
+/**
+ * Does the fetch for the cache entry from the session.
+ *
+ * @param {nsIRequest} request
+ *     The request object.
+ *
+ * @returns {Promise}
+ *     Promise which resolve a response cache object object, or null if none
+ *     was available.
+ */
+export function getResponseCacheObject(request) {
+  const cacheSession = getCacheSession(request);
+  if (!cacheSession) {
+    return null;
+  }
+
+  return new Promise(resolve => {
+    cacheSession.asyncOpenURI(
+      request.URI,
+      "",
+      Ci.nsICacheStorage.OPEN_SECRETLY,
+      {
+        onCacheEntryCheck: entry => {
+          return Ci.nsICacheEntryOpenCallback.ENTRY_WANTED;
+        },
+        onCacheEntryAvailable: (cacheEntry, isnew, status) => {
+          if (cacheEntry) {
+            const cacheObject = buildResponseCacheObject(cacheEntry);
+            resolve(cacheObject);
+          } else {
+            resolve(null);
+          }
+        },
       }
-    } catch (e) {
-      // We just need to handle this in case it's a js file of 0B.
-    }
-    if (descriptor.expirationTime) {
-      descriptorObj.expires = descriptor.expirationTime;
-    }
-    if (descriptor.fetchCount) {
-      descriptorObj.fetchCount = descriptor.fetchCount;
-    }
-    if (descriptor.lastFetched) {
-      descriptorObj.lastFetched = descriptor.lastFetched;
-    }
-    if (descriptor.lastModified) {
-      descriptorObj.lastModified = descriptor.lastModified;
-    }
-    if (descriptor.deviceID) {
-      descriptorObj.device = descriptor.deviceID;
-    }
-    return descriptorObj;
-  },
-
-  /**
-   * Does the fetch for the cache descriptor from the session.
-   *
-   * @param string request
-   *        The request object.
-   * @param Function onCacheDescriptorAvailable
-   *        callback function.
-   */
-  getCacheEntry(request, onCacheDescriptorAvailable) {
-    if (!this.isCacheSessionInitialized) {
-      this.initializeCacheSession(request);
-    }
-    if (this.cacheSession) {
-      this.cacheSession.asyncOpenURI(
-        request.URI,
-        "",
-        Ci.nsICacheStorage.OPEN_SECRETLY,
-        {
-          onCacheEntryCheck: entry => {
-            return Ci.nsICacheEntryOpenCallback.ENTRY_WANTED;
-          },
-          onCacheEntryAvailable: (descriptor, isnew, status) => {
-            if (descriptor) {
-              const descriptorObj = this.parseCacheDescriptor(descriptor);
-              onCacheDescriptorAvailable(descriptorObj);
-            } else {
-              onCacheDescriptorAvailable(null);
-            }
-          },
-        }
-      );
-    } else {
-      onCacheDescriptorAvailable(null);
-    }
-  },
-};
+    );
+  });
+}

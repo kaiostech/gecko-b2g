@@ -83,6 +83,24 @@ a11y:
     release_channel_collection: opt-out
     keyed: false
 
+  invert_colors:
+    bug_numbers:
+      - 1794626
+    description: >
+      Boolean tracking if the user has an invert colors OS
+      setting enabled.
+    expires: never
+    kind: boolean
+    notification_emails:
+      - accessibility@mozilla.com
+      - mreschenberg@mozilla.com
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+    release_channel_collection: opt-out
+    keyed: false
+
   theme:
     bug_numbers:
       - 1022528
@@ -2825,7 +2843,7 @@ devtools.tooltip:
     bug_numbers:
       - 1553471
     description: >
-      Number of times a tooltip was shown, keyed by tooltip type. Currently supported types are "image", "font-family", "inactive-css", "css-compatibility" and "variable."
+      Number of times a tooltip was shown, keyed by tooltip type. Currently supported types are "image", "font-family", "inactive-css", "css-compatibility", "css-query-container" and "variable."
     expires: never
     kind: uint
     keyed: true
@@ -5047,46 +5065,6 @@ update:
 
 # The following section contains search counters.
 browser.search:
-  with_ads:
-    bug_numbers:
-      - 1495548
-      - 1505411
-      - 1664849
-    description: >
-      Records counts of SERP pages with adverts displayed. The key format is ‘<provider>:<sap|organic>’.
-    expires: never
-    keyed: true
-    kind: uint
-    notification_emails:
-      - fx-search-telemetry@mozilla.com
-      - rev-data@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - main
-
-  ad_clicks:
-    bug_numbers:
-      - 1495548
-      - 1505411
-      - 1664849
-    description: >
-      Records clicks of adverts on SERP pages. The key format is ‘<provider>:<sap|organic>’.
-    expires: never
-    keyed: true
-    kind: uint
-    notification_emails:
-      - fx-search-telemetry@mozilla.com
-      - rev-data@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - main
-
   data_transferred:
     bug_numbers:
       - 1614777

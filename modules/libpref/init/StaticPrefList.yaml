@@ -314,6 +314,15 @@
   value: false
   mirror: always
 
+# After a user has executed a pan gesture, we may receive momentum phase pan
+# gestures from the OS. This specifies how long we should wait following the
+# pan end gesture for possible momentum phase pan gestures before sending the
+# TransformEnd notification.
+- name: apz.scrollend-event.content.delay_ms
+  type: RelaxedAtomicInt32
+  value: 100
+  mirror: always
+
 - name: apz.wr.activate_all_scroll_frames
   type: RelaxedAtomicBool
   value: false
@@ -2106,12 +2115,6 @@
 # Whether Alarm API is exposed to the web.
 - name: dom.alarm.enabled
   type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# Whether CanvasRenderingContext2D.mozCurrentTransform is enabled.
-- name: dom.mozCurrentTransform.enabled
-  type: bool
   value: false
   mirror: always
 
@@ -3949,7 +3952,7 @@
 
 - name: dom.sitepermsaddon-provider.enabled
   type: bool
-  value: false
+  value: @IS_NOT_ANDROID@
   mirror: always
 
 # Whether automatic storage access granting heuristics should be turned on.
@@ -3998,6 +4001,15 @@
 
 # Whether the File System API is enabled
 - name: dom.fs.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Whether the WritableFileStream is enabled on the main thread.
+# WritableFileStream currently does all IO on the current thread which is okish
+# for workers but not for the main thread. The situation will change after bug
+# 1798513.
+- name: dom.fs.main_thread_writable_file_stream
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -6013,6 +6025,11 @@
   value: 1
   mirror: always
 
+- name: gfx.display.max-frame-rate
+  type: RelaxedAtomicInt32
+  value: 0
+  mirror: always
+
 # Whether to preserve color bitmap tables in fonts (bypassing OTS).
 # Currently these are supported only on platforms where we use Freetype
 # to render fonts (Linux/Gtk and Android).
@@ -7523,7 +7540,7 @@
   # Experimental support for Array Grouping in JavaScript.
 -   name: javascript.options.experimental.array_grouping
     type: bool
-    value: true
+    value: false
     mirror: always
 #endif  // NIGHTLY_BUILD
 
@@ -9356,6 +9373,25 @@
 - name: media.autoplay.blocking_policy
   type: uint32_t
   value: 0
+  mirror: always
+
+# Whether to allow autoplay on extension background pages.
+- name: media.autoplay.allow-extension-background-pages
+  type: bool
+  value: true
+  mirror: always
+
+# Block autoplay, asking for permission by default.
+# 0=Allowed, 1=Blocked, 5=All Blocked
+- name: media.autoplay.default
+  type: int32_t
+  value: 1
+  mirror: always
+
+# Wether to block autoplay for webaudio
+- name: media.autoplay.block-webaudio
+  type: bool
+  value: false
   mirror: always
 
 # File-backed MediaCache size.
@@ -13202,6 +13238,12 @@
   value: true
   mirror: always
 
+# unsafe-hashes source keyword
+- name: security.csp.unsafe-hashes.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # The script-src-attr and script-src-elem directive
 - name: security.csp.script-src-attr-elem.enabled
   type: bool
@@ -13812,6 +13854,12 @@
 #---------------------------------------------------------------------------
 # Prefs starting with "toolkit."
 #---------------------------------------------------------------------------
+
+# Makes removeDirectory background task wait for the given milliseconds before removal.
+- name: toolkit.background_tasks.remove_directory.testing.sleep_ms
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
 
 # Returns true if BHR is disabled.
 - name: toolkit.content-background-hang-monitor.disabled
@@ -14983,22 +15031,6 @@
   type: bool
   value: true
   mirror: once
-
-#---------------------------------------------------------------------------
-# Prefs starting with "xul."
-#---------------------------------------------------------------------------
-
-# Pref to control whether arrow-panel animations are enabled or not.
-# Transitions are currently disabled on Linux due to rendering issues on
-# certain configurations.
-- name: xul.panel-animations.enabled
-  type: bool
-#ifdef MOZ_WIDGET_GTK
-  value: false
-#else
-  value: true
-#endif
-  mirror: always
 
 #---------------------------------------------------------------------------
 # Prefs starting with "zoom."

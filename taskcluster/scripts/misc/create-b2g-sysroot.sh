@@ -238,9 +238,13 @@ if test -f ${lib_c}; then
     rsync --times --no-relative --copy-links \
         "${lib_c}" \
         "${dest}/b2g-sysroot/libs/"
-else
+elif test -f "${src}/out/target/product/${GONK_PRODUCT_NAME}/apex/com.android.runtime/lib${BINSUFFIX}/bionic/libc.so"; then
     rsync --times --no-relative --copy-links \
         "${src}/out/target/product/${GONK_PRODUCT_NAME}/apex/com.android.runtime/lib${BINSUFFIX}/bionic/libc.so" \
+        "${dest}/b2g-sysroot/libs/"
+else
+    rsync --times --no-relative --copy-links \
+        "${src}/out/target/product/${GONK_PRODUCT_NAME}/obj/SHARED_LIBRARIES/libc_intermediates/libc.so" \
         "${dest}/b2g-sysroot/libs/"
 fi
 

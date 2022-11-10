@@ -175,7 +175,7 @@ ENameValueFlag LocalAccessible::Name(nsString& aName) const {
     }
   }
 
-  if (nameFlag != eNoNameOnPurpose) aName.SetIsVoid(true);
+  aName.SetIsVoid(true);
 
   return nameFlag;
 }
@@ -1425,6 +1425,9 @@ void LocalAccessible::DOMAttributeChanged(int32_t aNameSpaceID,
       RefPtr<AccEvent> event =
           new AccSelChangeEvent(widget, this, selChangeType);
       mDoc->FireDelayedEvent(event);
+      if (aAttribute == nsGkAtoms::aria_selected) {
+        mDoc->QueueCacheUpdate(this, CacheDomain::State);
+      }
     }
 
     return;
@@ -1473,42 +1476,6 @@ uint64_t LocalAccessible::State() {
   // Apply ARIA states to be sure accessible states will be overridden.
   ApplyARIAState(&state);
 
-  // If this is an ARIA item of the selectable widget and if it's focused and
-  // not marked unselected explicitly (i.e. aria-selected="false") then expose
-  // it as selected to make ARIA widget authors life easier.
-  const nsRoleMapEntry* roleMapEntry = ARIARoleMap();
-  if (roleMapEntry && !(state & states::SELECTED) &&
-      (!mContent->IsElement() ||
-       !nsAccUtils::ARIAAttrValueIs(mContent->AsElement(),
-                                    nsGkAtoms::aria_selected, nsGkAtoms::_false,
-                                    eCaseMatters))) {
-    // Special case for tabs: focused tab or focus inside related tab panel
-    // implies selected state.
-    if (roleMapEntry->role == roles::PAGETAB) {
-      if (state & states::FOCUSED) {
-        state |= states::SELECTED;
-      } else {
-        // If focus is in a child of the tab panel surely the tab is selected!
-        Relation rel = RelationByType(RelationType::LABEL_FOR);
-        LocalAccessible* relTarget = nullptr;
-        while ((relTarget = rel.LocalNext())) {
-          if (relTarget->Role() == roles::PROPERTYPAGE &&
-              FocusMgr()->IsFocusWithin(relTarget)) {
-            state |= states::SELECTED;
-          }
-        }
-      }
-    } else if (state & states::FOCUSED) {
-      LocalAccessible* container =
-          nsAccUtils::GetSelectableContainer(this, state);
-      if (container &&
-          !nsAccUtils::HasDefinedARIAToken(container->GetContent(),
-                                           nsGkAtoms::aria_multiselectable)) {
-        state |= states::SELECTED;
-      }
-    }
-  }
-
   const uint32_t kExpandCollapseStates = states::COLLAPSED | states::EXPANDED;
   if ((state & kExpandCollapseStates) == kExpandCollapseStates) {
     // Cannot be both expanded and collapsed -- this happens in ARIA expanded
@@ -1534,16 +1501,7 @@ uint64_t LocalAccessible::State() {
     state |= states::EXPANDABLE;
   }
 
-  // For some reasons DOM node may have not a frame. We tract such accessibles
-  // as invisible.
-  nsIFrame* frame = GetFrame();
-  if (!frame) return state;
-
-  Maybe<float> opacity = Opacity();
-  if (opacity && *opacity == 1.0f && !(state & states::INVISIBLE)) {
-    state |= states::OPAQUE1;
-  }
-
+  ApplyImplicitState(state);
   return state;
 }
 
@@ -3532,12 +3490,24 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
 
   // State is only included in the initial push. Thereafter, cached state is
   // updated via events.
-  if (aCacheDomain & CacheDomain::State &&
-      aUpdateType == CacheUpdateType::Initial) {
-    uint64_t state = State();
-    // Exclude states which must be calculated by RemoteAccessible.
-    state &= ~kRemoteCalculatedStates;
-    fields->SetAttribute(nsGkAtoms::state, state);
+  if (aCacheDomain & CacheDomain::State) {
+    if (aUpdateType == CacheUpdateType::Initial) {
+      // Most states are updated using state change events, so we only send
+      // these for the initial cache push.
+      uint64_t state = State();
+      // Exclude states which must be calculated by RemoteAccessible.
+      state &= ~kRemoteCalculatedStates;
+      fields->SetAttribute(nsGkAtoms::state, state);
+    }
+    // If aria-selected isn't specified, there may be no SELECTED state.
+    // However, aria-selected can be implicit in some cases when an item is
+    // focused. We don't want to do this if aria-selected is explicitly
+    // set to "false", so we need to differentiate between false and unset.
+    if (auto ariaSelected = ARIASelected()) {
+      fields->SetAttribute(nsGkAtoms::aria_selected, *ariaSelected);
+    } else if (aUpdateType == CacheUpdateType::Update) {
+      fields->SetAttribute(nsGkAtoms::aria_selected, DeleteEntry());  // Unset.
+    }
   }
 
   if (aCacheDomain & CacheDomain::GroupInfo && mContent) {
@@ -3585,9 +3555,9 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
       fields->SetAttribute(nsGkAtoms::display, display);
     }
 
-    Maybe<float> opacity = Opacity();
-    if (opacity && !(NativeState() & states::INVISIBLE)) {
-      fields->SetAttribute(nsGkAtoms::opacity, *opacity);
+    float opacity = Opacity();
+    if (opacity != 1.0f) {
+      fields->SetAttribute(nsGkAtoms::opacity, opacity);
     } else {
       fields->SetAttribute(nsGkAtoms::opacity, DeleteEntry());
     }
@@ -3863,12 +3833,12 @@ already_AddRefed<nsAtom> LocalAccessible::DisplayStyle() const {
   return nullptr;
 }
 
-Maybe<float> LocalAccessible::Opacity() const {
+float LocalAccessible::Opacity() const {
   if (nsIFrame* frame = GetFrame()) {
-    return Some(frame->StyleEffects()->mOpacity);
+    return frame->StyleEffects()->mOpacity;
   }
 
-  return Nothing();
+  return 1.0f;
 }
 
 void LocalAccessible::DOMNodeID(nsString& aID) const {
@@ -3905,6 +3875,20 @@ void LocalAccessible::LiveRegionAttributes(nsAString* aLive,
   if (aBusy) {
     nsAccUtils::GetARIAAttr(el, nsGkAtoms::aria_busy, *aBusy);
   }
+}
+
+Maybe<bool> LocalAccessible::ARIASelected() const {
+  if (dom::Element* el = Elm()) {
+    nsStaticAtom* atom =
+        nsAccUtils::NormalizeARIAToken(el, nsGkAtoms::aria_selected);
+    if (atom == nsGkAtoms::_true) {
+      return Some(true);
+    }
+    if (atom == nsGkAtoms::_false) {
+      return Some(false);
+    }
+  }
+  return Nothing();
 }
 
 void LocalAccessible::StaticAsserts() const {

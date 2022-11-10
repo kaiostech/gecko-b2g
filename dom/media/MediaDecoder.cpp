@@ -121,7 +121,7 @@ class MediaMemoryTracker : public nsIMemoryReporter {
     }
   }
 
-  static RefPtr<MediaMemoryPromise> GetSizes() {
+  static RefPtr<MediaMemoryPromise> GetSizes(dom::Document* aDoc) {
     MOZ_ASSERT(NS_IsMainThread());
     DecodersArray& decoders = Decoders();
 
@@ -139,9 +139,11 @@ class MediaMemoryTracker : public nsIMemoryReporter {
     size_t audioSize = 0;
 
     for (auto&& decoder : decoders) {
-      videoSize += decoder->SizeOfVideoQueue();
-      audioSize += decoder->SizeOfAudioQueue();
-      decoder->AddSizeOfResources(resourceSizes);
+      if (decoder->GetOwner()->GetDocument() == aDoc) {
+        videoSize += decoder->SizeOfVideoQueue();
+        audioSize += decoder->SizeOfAudioQueue();
+        decoder->AddSizeOfResources(resourceSizes);
+      }
     }
 
     return resourceSizes->Promise()->Then(
@@ -159,8 +161,8 @@ class MediaMemoryTracker : public nsIMemoryReporter {
 
 StaticRefPtr<MediaMemoryTracker> MediaMemoryTracker::sUniqueInstance;
 
-RefPtr<MediaMemoryPromise> GetMediaMemorySizes() {
-  return MediaMemoryTracker::GetSizes();
+RefPtr<MediaMemoryPromise> GetMediaMemorySizes(dom::Document* aDoc) {
+  return MediaMemoryTracker::GetSizes(aDoc);
 }
 
 LazyLogModule gMediaTimerLog("MediaTimer");

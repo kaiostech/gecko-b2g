@@ -195,7 +195,7 @@ static nsresult UnescapeFragment(const nsACString& aFragment, nsIURI* aURI,
  * Obtains the directory to use.  This tends to vary per platform, and
  * needs to be consistent throughout our codepaths. For platforms where
  * helper apps use the downloads directory, this should be kept in
- * sync with DownloadIntegration.jsm.
+ * sync with DownloadIntegration.sys.mjs.
  *
  * Optionally skip availability of the directory and storage.
  */
@@ -602,7 +602,7 @@ static const nsExtraMimeTypeEntry extraMimeEntries[] = {
     {VIDEO_WEBM, "webm", "Web Media Video"},
     {AUDIO_WEBM, "webm", "Web Media Audio"},
     {AUDIO_MP3, "mp3,mpega,mp2", "MPEG Audio"},
-    {VIDEO_MP4, "mp4", "MPEG-4 Video"},
+    {VIDEO_MP4, "mp4,m4a,m4b", "MPEG-4 Video"},
     {AUDIO_MP4, "m4a,m4b", "MPEG-4 Audio"},
     {VIDEO_RAW, "yuv", "Raw YUV Video"},
     {AUDIO_WAV, "wav", "Waveform Audio"},

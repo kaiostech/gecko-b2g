@@ -340,6 +340,9 @@ class LookAndFeel {
     DynamicRange,
     VideoDynamicRange,
 
+    /** Whether XUL panel animations are enabled. */
+    PanelAnimations,
+
     /*
      * Not an ID; used to define the range of valid IDs.  Must be last.
      */

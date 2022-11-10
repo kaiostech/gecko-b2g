@@ -225,9 +225,7 @@ ENameValueFlag RemoteAccessibleBase<Derived>::Name(nsString& aName) const {
   }
 
   MOZ_ASSERT(aName.IsEmpty());
-  if (nameFlag != eNoNameOnPurpose) {
-    aName.SetIsVoid(true);
-  }
+  aName.SetIsVoid(true);
   return nameFlag;
 }
 
@@ -1098,24 +1096,14 @@ uint64_t RemoteAccessibleBase<Derived>::State() {
       }
     }
 
-    // Fetch our current opacity value from the cache.
-    auto opacity = Opacity();
-    if (opacity && *opacity == 1.0f) {
-      state |= states::OPAQUE1;
-    } else {
-      // If we can't retrieve an opacity value, or if the value we retrieve
-      // is less than one, ensure the OPAQUE1 bit is cleared.
-      // It's possible this bit was set in the cached `rawState` vector, but
-      // we've since been notified of a style change invalidating that state.
-      state &= ~states::OPAQUE1;
-    }
-
     auto* browser = static_cast<dom::BrowserParent*>(Document()->Manager());
     if (browser == dom::BrowserParent::GetFocused()) {
       if (this == Document()->GetFocusedAcc()) {
         state |= states::FOCUSED;
       }
     }
+
+    ApplyImplicitState(state);
 
     auto* cbc = mDoc->GetBrowsingContext();
     if (cbc && !cbc->IsActive()) {
@@ -1289,14 +1277,14 @@ already_AddRefed<nsAtom> RemoteAccessibleBase<Derived>::DisplayStyle() const {
 }
 
 template <class Derived>
-Maybe<float> RemoteAccessibleBase<Derived>::Opacity() const {
+float RemoteAccessibleBase<Derived>::Opacity() const {
   if (mCachedFields) {
-    // GetAttribute already returns a Maybe<float>, so we don't
-    // need to do any additional manipulation.
-    return mCachedFields->GetAttribute<float>(nsGkAtoms::opacity);
+    if (auto opacity = mCachedFields->GetAttribute<float>(nsGkAtoms::opacity)) {
+      return *opacity;
+    }
   }
 
-  return Nothing();
+  return 1.0f;
 }
 
 template <class Derived>
@@ -1325,6 +1313,14 @@ void RemoteAccessibleBase<Derived>::LiveRegionAttributes(
   if (aBusy) {
     attrs->GetAttribute(nsGkAtoms::aria_busy, *aBusy);
   }
+}
+
+template <class Derived>
+Maybe<bool> RemoteAccessibleBase<Derived>::ARIASelected() const {
+  if (mCachedFields) {
+    return mCachedFields->GetAttribute<bool>(nsGkAtoms::aria_selected);
+  }
+  return Nothing();
 }
 
 template <class Derived>
@@ -1710,6 +1706,31 @@ Maybe<int32_t> RemoteAccessibleBase<Derived>::GetIntARIAAttr(
     }
   }
   return Nothing();
+}
+
+template <class Derived>
+size_t RemoteAccessibleBase<Derived>::SizeOfIncludingThis(
+    MallocSizeOf aMallocSizeOf) {
+  return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
+}
+
+template <class Derived>
+size_t RemoteAccessibleBase<Derived>::SizeOfExcludingThis(
+    MallocSizeOf aMallocSizeOf) {
+  size_t size = 0;
+
+  // Count attributes.
+  if (mCachedFields) {
+    size += mCachedFields->SizeOfIncludingThis(aMallocSizeOf);
+  }
+
+  // Count children
+  size += mChildren.ShallowSizeOfExcludingThis(aMallocSizeOf);
+  for (Derived* child : mChildren) {
+    size += child->SizeOfIncludingThis(aMallocSizeOf);
+  }
+
+  return size;
 }
 
 template class RemoteAccessibleBase<RemoteAccessible>;

@@ -807,7 +807,7 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
 typedef MozPromise<mozilla::dom::MediaMemoryInfo, nsresult, true>
     MediaMemoryPromise;
 
-RefPtr<MediaMemoryPromise> GetMediaMemorySizes();
+RefPtr<MediaMemoryPromise> GetMediaMemorySizes(dom::Document* aDoc);
 
 }  // namespace mozilla
 

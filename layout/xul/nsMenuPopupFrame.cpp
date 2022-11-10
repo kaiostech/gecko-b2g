@@ -16,7 +16,6 @@
 #include "nsWidgetsCID.h"
 #include "nsMenuFrame.h"
 #include "nsMenuBarFrame.h"
-#include "nsPopupSetFrame.h"
 #include "nsPIDOMWindow.h"
 #include "nsFrameManager.h"
 #include "mozilla/dom/Document.h"
@@ -51,7 +50,6 @@
 #include "mozilla/MouseEvents.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/Services.h"
-#include "mozilla/StaticPrefs_xul.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Event.h"
@@ -553,6 +551,27 @@ void nsMenuPopupFrame::ConstrainSizeForWayland(nsSize& aSize) const {
 #endif
 }
 
+void nsMenuPopupFrame::Reflow(nsPresContext* aPresContext,
+                              ReflowOutput& aDesiredSize,
+                              const ReflowInput& aReflowInput,
+                              nsReflowStatus& aStatus) {
+  MarkInReflow();
+  DO_GLOBAL_REFLOW_COUNT("nsMenuPopupFrame");
+  DISPLAY_REFLOW(aPresContext, this, aReflowInput, aDesiredSize, aStatus);
+  MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
+
+  nsBoxLayoutState state(aPresContext, aReflowInput.mRenderingContext,
+                         &aReflowInput, aReflowInput.mReflowDepth);
+  LayoutPopup(state, nullptr, false);
+
+  const auto wm = GetWritingMode();
+  LogicalSize boxSize = GetLogicalSize(wm);
+  aDesiredSize.SetSize(wm, boxSize);
+  aDesiredSize.SetBlockStartAscent(boxSize.BSize(wm));
+  aDesiredSize.SetOverflowAreasToDesiredBounds();
+  FinishAndStoreOverflow(&aDesiredSize, aReflowInput.mStyleDisplay);
+}
+
 void nsMenuPopupFrame::LayoutPopup(nsBoxLayoutState& aState,
                                    nsIFrame* aParentMenu, bool aSizedToPopup) {
   if (IsNativeMenu()) {
@@ -694,7 +713,7 @@ void nsMenuPopupFrame::LayoutPopup(nsBoxLayoutState& aState,
 
     // If the animate attribute is set to open, check for a transition and wait
     // for it to finish before firing the popupshown event.
-    if (StaticPrefs::xul_panel_animations_enabled() &&
+    if (LookAndFeel::GetInt(LookAndFeel::IntID::PanelAnimations) &&
         mContent->AsElement()->AttrValueIs(kNameSpaceID_None,
                                            nsGkAtoms::animate, nsGkAtoms::open,
                                            eCaseMatters) &&
@@ -1015,7 +1034,7 @@ void nsMenuPopupFrame::ShowPopup(bool aIsContextMenu) {
     // do we need an actual reflow here?
     // is SetPopupPosition all that is needed?
     PresShell()->FrameNeedsReflow(this, IntrinsicDirty::TreeChange,
-                                  NS_FRAME_HAS_DIRTY_CHILDREN);
+                                  NS_FRAME_IS_DIRTY);
 
     if (mPopupType == ePopupTypeMenu) {
       nsCOMPtr<nsISound> sound(do_GetService("@mozilla.org/sound;1"));

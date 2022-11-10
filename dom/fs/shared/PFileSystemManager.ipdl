@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PFileSystemAccessHandle;
+include protocol PFileSystemWritableFileStream;
 
 include IPCBlob;
 include RandomAccessStreamParams;
@@ -140,6 +141,27 @@ union FileSystemGetAccessHandleResponse
 };
 
 /**
+ * Contains entry handle information.
+ */
+struct FileSystemGetWritableRequest
+{
+  EntryId entryId;
+  bool keepData;
+};
+
+struct FileSystemWritableFileStreamProperties
+{
+  FileDescriptor fileDescriptor;
+  PFileSystemWritableFileStream writableFileStream;
+};
+
+union FileSystemGetWritableFileStreamResponse
+{
+  nsresult;
+  FileSystemWritableFileStreamProperties;
+};
+
+/**
  * Represents a pair of file system entries which
  * are not necessarily connected by a path.
  */
@@ -232,6 +254,7 @@ struct FileSystemQuotaRequest
 async protocol PFileSystemManager
 {
   manages PFileSystemAccessHandle;
+  manages PFileSystemWritableFileStream;
 
  parent:
   /**
@@ -310,8 +333,9 @@ async protocol PFileSystemManager
   /**
    * TODO: documentation
    */
-  async GetWritable(FileSystemGetFileRequest request)
-      returns(FileSystemGetAccessHandleResponse fileData);
+  [VirtualSendImpl]
+  async GetWritable(FileSystemGetWritableRequest request)
+      returns(FileSystemGetWritableFileStreamResponse fileData);
 
   /**
    * Initiates an asynchronous request for the file system path
@@ -390,6 +414,7 @@ async protocol PFileSystemManager
 
  child:
   async PFileSystemAccessHandle();
+  async PFileSystemWritableFileStream();
 
   async CloseAll()
       returns(nsresult rv);

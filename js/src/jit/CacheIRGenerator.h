@@ -11,7 +11,6 @@
 #include "mozilla/Attributes.h"
 
 #include <stdint.h>
-#include <utility>
 
 #include "jstypes.h"
 #include "NamespaceImports.h"
@@ -125,6 +124,10 @@ class MOZ_RAII GetPropIRGenerator : public IRGenerator {
                                                  HandleId id);
   AttachDecision tryAttachRegExp(HandleObject obj, ObjOperandId objId,
                                  HandleId id);
+  AttachDecision tryAttachMap(HandleObject obj, ObjOperandId objId,
+                              HandleId id);
+  AttachDecision tryAttachSet(HandleObject obj, ObjOperandId objId,
+                              HandleId id);
   AttachDecision tryAttachModuleNamespace(HandleObject obj, ObjOperandId objId,
                                           HandleId id);
   AttachDecision tryAttachWindowProxy(HandleObject obj, ObjOperandId objId,
@@ -490,9 +493,10 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   ScriptedThisResult getThisShapeForScripted(HandleFunction calleeFunc,
                                              MutableHandle<Shape*> result);
 
+  ObjOperandId emitFunCallOrApplyGuard(Int32OperandId argcId);
   ObjOperandId emitFunCallGuard(Int32OperandId argcId);
-  std::pair<ObjOperandId, ObjOperandId> emitFunApplyGuard(
-      Int32OperandId argcId, CallFlags::ArgFormat format);
+  ObjOperandId emitFunApplyGuard(Int32OperandId argcId);
+  ObjOperandId emitFunApplyArgsGuard(CallFlags::ArgFormat format);
 
   AttachDecision tryAttachFunCall(HandleFunction calleeFunc);
   AttachDecision tryAttachFunApply(HandleFunction calleeFunc);
@@ -532,7 +536,7 @@ class MOZ_RAII InlinableNativeIRGenerator {
 
   void emitNativeCalleeGuard();
 
-  ObjOperandId emitNativeCalleeGuardAndLoadArgsArray();
+  ObjOperandId emitLoadArgsArray();
 
   void initializeInputOperand() {
     // The input operand is already initialized for FunCall and FunApplyArray.
@@ -666,6 +670,9 @@ class MOZ_RAII InlinableNativeIRGenerator {
   AttachDecision tryAttachSetHas();
   AttachDecision tryAttachMapHas();
   AttachDecision tryAttachMapGet();
+#ifdef FUZZING_JS_FUZZILLI
+  AttachDecision tryAttachFuzzilliHash();
+#endif
 
   void trackAttached(const char* name /* must be a C string literal */) {
     return generator_.trackAttached(name);

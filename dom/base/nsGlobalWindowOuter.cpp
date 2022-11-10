@@ -1666,7 +1666,7 @@ bool nsGlobalWindowOuter::IsBlackForCC(bool aTracingNeeded) {
 
 bool nsGlobalWindowOuter::ShouldResistFingerprinting() const {
   if (mDoc) {
-    return nsContentUtils::ShouldResistFingerprinting(mDoc);
+    return mDoc->ShouldResistFingerprinting();
   }
   return nsIScriptGlobalObject::ShouldResistFingerprinting();
 }

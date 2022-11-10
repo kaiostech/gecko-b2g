@@ -22,9 +22,9 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   NetworkObserver:
-    "resource://devtools/server/actors/network-monitor/NetworkObserver.sys.mjs",
+    "resource://devtools/shared/network-observer/NetworkObserver.sys.mjs",
   NetworkUtils:
-    "resource://devtools/server/actors/network-monitor/utils/NetworkUtils.sys.mjs",
+    "resource://devtools/shared/network-observer/NetworkUtils.sys.mjs",
 });
 
 loader.lazyRequireGetter(
@@ -62,14 +62,10 @@ class NetworkEventWatcher {
     // Boolean to know if we keep previous document network events or not.
     this.persist = false;
     this.listener = new lazy.NetworkObserver(
-      { sessionContext: watcherActor.sessionContext },
-      {
-        onNetworkEvent: this.onNetworkEvent.bind(this),
-        shouldIgnoreChannel: this.shouldIgnoreChannel.bind(this),
-      }
+      this.shouldIgnoreChannel.bind(this),
+      this.onNetworkEvent.bind(this)
     );
 
-    this.listener.init();
     Services.obs.addObserver(this, "window-global-destroyed");
   }
 
@@ -106,7 +102,7 @@ class NetworkEventWatcher {
    *
    */
   getThrottleData() {
-    return this.listener.throttleData;
+    return this.listener.getThrottleData();
   }
 
   /**
@@ -116,7 +112,7 @@ class NetworkEventWatcher {
    *
    */
   setThrottleData(data) {
-    this.listener.throttleData = data;
+    this.listener.setThrottleData(data);
   }
 
   /**
@@ -124,7 +120,7 @@ class NetworkEventWatcher {
    * @param {Boolean} save
    */
   setSaveRequestAndResponseBodies(save) {
-    this.listener.saveRequestAndResponseBodies = save;
+    this.listener.setSaveRequestAndResponseBodies(save);
   }
 
   /**
@@ -223,6 +219,12 @@ class NetworkEventWatcher {
    * Called by NetworkObserver in order to know if the channel should be ignored
    */
   shouldIgnoreChannel(channel) {
+    // First of all, check if the channel matches the watcherActor's session.
+    const filters = { sessionContext: this.watcherActor.sessionContext };
+    if (!lazy.NetworkUtils.matchRequest(channel, filters)) {
+      return true;
+    }
+
     // When we are in the browser toolbox in parent process scope,
     // the session context is still "all", but we are no longer watching frame and process targets.
     // In this case, we should ignore all requests belonging to a BrowsingContext that isn't in the parent process

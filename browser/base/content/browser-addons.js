@@ -667,14 +667,14 @@ var gXPInstallObserver = {
             message.firstChild.remove();
           }
 
-          if (
-            // Use a install prompt message when the only addon being installed is a SitePerms addon
-            // (NOTE: AOM doesn't support anymore installing multiple addons at the same time anymore,
-            // and so a sitepermission addon type is expected to be always the only entry in installInfo.installs).
-            installInfo.installs.every(
-              ({ addon }) => addon?.type === lazy.SITEPERMS_ADDON_TYPE
-            )
-          ) {
+          // The informational content differs somewhat for site permission
+          // add-ons. AOM no longer supports installing multiple addons,
+          // so the array handling here is vestigial.
+          let isSitePermissionAddon = installInfo.installs.every(
+            ({ addon }) => addon?.type === lazy.SITEPERMS_ADDON_TYPE
+          );
+
+          if (isSitePermissionAddon) {
             message.textContent = gNavigatorBundle.getFormattedString(
               "sitePermissionsInstallPromptMessage.message",
               [options.name]
@@ -692,14 +692,17 @@ var gXPInstallObserver = {
               "xpinstallPromptMessage.message.unknown"
             );
           }
+
+          let article = isSitePermissionAddon
+            ? "site-permission-addons"
+            : "unlisted-extensions-risks";
           let learnMore = doc.getElementById("addon-install-blocked-info");
           learnMore.textContent = gNavigatorBundle.getString(
             "xpinstallPromptMessage.learnMore"
           );
           learnMore.setAttribute(
             "href",
-            Services.urlFormatter.formatURLPref("app.support.baseURL") +
-              "unlisted-extensions-risks"
+            Services.urlFormatter.formatURLPref("app.support.baseURL") + article
           );
         };
 
@@ -1358,7 +1361,7 @@ customElements.define(
       this.setAttribute("extension-id", this.addon.id);
 
       let policy = WebExtensionPolicy.getByID(this.addon.id);
-      this.setAttribute(
+      this.toggleAttribute(
         "attention",
         lazy.OriginControls.getAttention(policy, this.ownerGlobal)
       );
@@ -1451,12 +1454,12 @@ var gUnifiedExtensions = {
       // Only show for extensions which are not already visible in the toolbar.
       if (!widget || widget.areaType !== CustomizableUI.TYPE_TOOLBAR) {
         if (lazy.OriginControls.getAttention(policy, window)) {
-          this.button.setAttribute("attention", true);
+          this.button.toggleAttribute("attention", true);
           return;
         }
       }
     }
-    this.button.setAttribute("attention", false);
+    this.button.toggleAttribute("attention", false);
   },
 
   getPopupAnchorID(aBrowser, aWindow) {
@@ -1543,6 +1546,13 @@ var gUnifiedExtensions = {
       );
       template.replaceWith(template.content);
       this._panel = document.getElementById("unified-extensions-panel");
+      let customizationArea = this._panel.querySelector(
+        "#unified-extensions-area"
+      );
+      CustomizableUI.registerPanelNode(
+        customizationArea,
+        CustomizableUI.AREA_ADDONS
+      );
       CustomizableUI.addPanelCloseListeners(this._panel);
     }
     return this._panel;

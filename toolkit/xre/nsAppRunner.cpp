@@ -284,6 +284,13 @@ static const char kPrefBrowserStartupBlankWindow[] =
 static const char kPrefPreXulSkeletonUI[] = "browser.startup.preXulSkeletonUI";
 #endif  // defined(XP_WIN)
 
+#if defined(MOZ_WIDGET_GTK)
+constexpr nsLiteralCString kStartupTokenNames[] = {
+    "XDG_ACTIVATION_TOKEN"_ns,
+    "DESKTOP_STARTUP_ID"_ns,
+};
+#endif
+
 int gArgc;
 char** gArgv;
 
@@ -3762,19 +3769,7 @@ bool fire_glxtest_process();
 // Encapsulates startup and shutdown state for XRE_main
 class XREMain {
  public:
-  XREMain()
-      : mStartOffline(false),
-        mShuttingDown(false)
-#ifdef MOZ_HAS_REMOTE
-        ,
-        mDisableRemoteClient(false),
-        mDisableRemoteServer(false)
-#endif
-#if defined(MOZ_WIDGET_GTK)
-        ,
-        mGdkDisplay(nullptr)
-#endif
-            {};
+  XREMain() = default;
 
   ~XREMain() {
     mScopedXPCOM = nullptr;
@@ -3801,17 +3796,17 @@ class XREMain {
   UniquePtr<XREAppData> mAppData;
 
   nsXREDirProvider mDirProvider;
-  nsAutoCString mDesktopStartupID;
 
-  bool mStartOffline;
-  bool mShuttingDown;
-#if defined(MOZ_HAS_REMOTE)
-  bool mDisableRemoteClient;
-  bool mDisableRemoteServer;
+#ifdef MOZ_WIDGET_GTK
+  nsAutoCString mXDGActivationToken;
+  nsAutoCString mDesktopStartupID;
 #endif
 
-#if defined(MOZ_WIDGET_GTK)
-  GdkDisplay* mGdkDisplay;
+  bool mStartOffline = false;
+  bool mShuttingDown = false;
+#if defined(MOZ_HAS_REMOTE)
+  bool mDisableRemoteClient = false;
+  bool mDisableRemoteServer = false;
 #endif
 };
 
@@ -4710,13 +4705,14 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
   HeapSetInformation(NULL, HeapEnableTerminationOnCorruption, NULL, 0);
 #endif /* XP_WIN */
 
-#if defined(MOZ_WIDGET_GTK)
-  // Stash DESKTOP_STARTUP_ID in malloc'ed memory because gtk_init will clear
-  // it.
-#  define HAVE_DESKTOP_STARTUP_ID
-  const char* desktopStartupIDEnv = PR_GetEnv("DESKTOP_STARTUP_ID");
-  if (desktopStartupIDEnv) {
-    mDesktopStartupID.Assign(desktopStartupIDEnv);
+#ifdef MOZ_WIDGET_GTK
+  // Stash startup token in owned memory because gtk_init will clear
+  // DESKTOP_STARTUP_ID it.
+  if (const char* v = PR_GetEnv("DESKTOP_STARTUP_ID")) {
+    mDesktopStartupID.Assign(v);
+  }
+  if (const char* v = PR_GetEnv("XDG_ACTIVATION_TOKEN")) {
+    mXDGActivationToken.Assign(v);
   }
 #endif
 
@@ -4830,17 +4826,17 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
     }
 
     if (display_name) {
-      mGdkDisplay = gdk_display_open(display_name);
-      if (!mGdkDisplay) {
+      GdkDisplay* disp = gdk_display_open(display_name);
+      if (!disp) {
         PR_fprintf(PR_STDERR, "Error: cannot open display: %s\n", display_name);
         return 1;
       }
       if (saveDisplayArg) {
-        if (GdkIsX11Display(mGdkDisplay)) {
+        if (GdkIsX11Display(disp)) {
           SaveWordToEnv("DISPLAY", nsDependentCString(display_name));
         }
 #  ifdef MOZ_WAYLAND
-        else if (GdkIsWaylandDisplay(mGdkDisplay)) {
+        else if (GdkIsWaylandDisplay(disp)) {
           SaveWordToEnv("WAYLAND_DISPLAY", nsDependentCString(display_name));
         }
 #  endif
@@ -4848,8 +4844,7 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
     }
 #  ifdef MOZ_WIDGET_GTK
     else {
-      mGdkDisplay =
-          gdk_display_manager_open_display(gdk_display_manager_get(), nullptr);
+      gdk_display_manager_open_display(gdk_display_manager_get(), nullptr);
     }
 #  endif
   }
@@ -4882,15 +4877,17 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
     return 1;
   }
 
-#if defined(HAVE_DESKTOP_STARTUP_ID) && defined(MOZ_WIDGET_GTK)
-  // DESKTOP_STARTUP_ID is cleared now,
-  // we recover it in case we need a restart.
+#ifdef MOZ_WIDGET_GTK
+  // startup token might be cleared now, we recover it in case we need a
+  // restart.
   if (!mDesktopStartupID.IsEmpty()) {
-    nsAutoCString desktopStartupEnv;
-    desktopStartupEnv.AssignLiteral("DESKTOP_STARTUP_ID=");
-    desktopStartupEnv.Append(mDesktopStartupID);
     // Leak it with extreme prejudice!
-    PR_SetEnv(ToNewCString(desktopStartupEnv));
+    PR_SetEnv(ToNewCString("DESKTOP_STARTUP_ID="_ns + mDesktopStartupID));
+  }
+
+  if (!mXDGActivationToken.IsEmpty()) {
+    // Leak it with extreme prejudice!
+    PR_SetEnv(ToNewCString("XDG_ACTIVATION_TOKEN="_ns + mXDGActivationToken));
   }
 #endif
 
@@ -4944,10 +4941,14 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
     if (!mDisableRemoteClient) {
       // Try to remote the entire command line. If this fails, start up
       // normally.
-      const char* desktopStartupIDPtr =
-          mDesktopStartupID.IsEmpty() ? nullptr : mDesktopStartupID.get();
-
-      RemoteResult rr = mRemoteService->StartClient(desktopStartupIDPtr);
+#  ifdef MOZ_WIDGET_GTK
+      const auto& startupToken =
+          GdkIsWaylandDisplay() ? mXDGActivationToken : mDesktopStartupID;
+#  else
+      const nsCString startupToken;
+#  endif
+      RemoteResult rr = mRemoteService->StartClient(
+          startupToken.IsEmpty() ? nullptr : startupToken.get());
       if (rr == REMOTE_FOUND) {
         *aExitFlag = true;
         mRemoteService->UnlockStartup();
@@ -5597,10 +5598,12 @@ nsresult XREMain::XRE_mainRun() {
 #  endif  // defined(MOZ_DEFAULT_BROWSER_AGENT)
 #endif
 
-#if defined(HAVE_DESKTOP_STARTUP_ID) && defined(MOZ_WIDGET_GTK)
-      // Clear the environment variable so it won't be inherited by
-      // child processes and confuse things.
-      g_unsetenv("DESKTOP_STARTUP_ID");
+#if defined(MOZ_WIDGET_GTK)
+      // Clear the environment variables so they won't be inherited by child
+      // processes and confuse things.
+      for (const auto& name : kStartupTokenNames) {
+        g_unsetenv(name.get());
+      }
 #endif
 
 #ifdef XP_MACOSX

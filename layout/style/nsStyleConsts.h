@@ -91,8 +91,6 @@ enum class StyleDisplay : uint16_t {
       StyleDisplayFrom(StyleDisplayOutside::Block, StyleDisplayInside::MozBox),
   MozInlineBox =
       StyleDisplayFrom(StyleDisplayOutside::Inline, StyleDisplayInside::MozBox),
-  MozPopup =
-      StyleDisplayFrom(StyleDisplayOutside::XUL, StyleDisplayInside::MozPopup),
 };
 // The order of the StyleDisplay values isn't meaningful.
 bool operator<(const StyleDisplay&, const StyleDisplay&) = delete;
@@ -557,12 +555,6 @@ enum class StyleEmptyCells : uint8_t {
   Hide,
   Show,
 };
-
-// constants for cell "scope" attribute
-#define NS_STYLE_CELL_SCOPE_ROW 0
-#define NS_STYLE_CELL_SCOPE_COL 1
-#define NS_STYLE_CELL_SCOPE_ROWGROUP 2
-#define NS_STYLE_CELL_SCOPE_COLGROUP 3
 
 // See nsStyleUIReset
 enum class StyleImeMode : uint8_t {

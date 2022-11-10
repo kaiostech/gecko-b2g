@@ -193,11 +193,13 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
 
   virtual already_AddRefed<nsAtom> DisplayStyle() const override;
 
-  virtual Maybe<float> Opacity() const override;
+  virtual float Opacity() const override;
 
   virtual void LiveRegionAttributes(nsAString* aLive, nsAString* aRelevant,
                                     Maybe<bool>* aAtomic,
                                     nsAString* aBusy) const override;
+
+  virtual Maybe<bool> ARIASelected() const override;
 
   virtual uint8_t ActionCount() const override;
 
@@ -368,6 +370,9 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
       mCachedFields->Remove(nsGkAtoms::offset);
     }
   }
+
+  size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf);
+  virtual size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf);
 
  protected:
   RemoteAccessibleBase(uint64_t aID, Derived* aParent,

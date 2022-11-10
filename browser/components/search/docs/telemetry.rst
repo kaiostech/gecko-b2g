@@ -111,13 +111,6 @@ SearchSERPTelemetry.sys.mjs
 
 This telemetry is handled by `SearchSERPTelemetry.sys.mjs and the associated parent/child actors`_.
 
-SEARCH_COUNTS - SERP results
-  This histogram records search counts for visits to SERP in-content pages.
-  For in-content searches, the format is
-  ``<provider>.in-content:[sap|sap-follow-on|organic]:[<code>|other|none]``.
-
-  This is obsolete, browser.search.content.* should be preferred.
-
 browser.search.content.*
   These keyed scalar track counts of SERP page loads. The key format is
   ``<provider>:[tagged|tagged-follow-on|organic]:[<code>|other|none]``.
@@ -154,18 +147,6 @@ browser.search.withads.*
 browser.search.adclicks.*
   This is the same as ```browser.search.withads.*`` but tracks counts for them
   clicks of adverts on SERP pages.
-
-browser.search.with_ads
-  Obsolete. This is being replaced by ``browser.search.withads.*``.
-
-  This keyed scalar records counts of SERP pages with adverts displayed.
-  The key format is ``<provider>:<sap|organic>``.
-
-browser.search.ad_clicks
-  Obsolete. This is being replaced by ``browser.search.adclicks.*``.
-
-  Records clicks of adverts on SERP pages. The key format is
-  ``<provider>:<sap|organic>``.
 
 .. _additional telemetry of its own: /browser/urlbar/telemetry.html
 .. _SearchSERPTelemetry.sys.mjs and the associated parent/child actors: https://searchfox.org/mozilla-central/search?q=&path=SearchSERPTelemetry*.sys.mjs&case=false&regexp=false

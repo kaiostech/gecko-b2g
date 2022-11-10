@@ -129,6 +129,7 @@ function run_test() {
       let inlineOK = true;
       inlineOK = csp.getAllowsInline(
         Ci.nsIContentSecurityPolicy.SCRIPT_SRC_ELEM_DIRECTIVE,
+        false, // aHasUnsafeHash
         "", // aNonce
         false, // aParserCreated
         null, // aTriggeringElement
@@ -206,6 +207,7 @@ function run_test() {
       let inlineOK = true;
       inlineOK = csp.getAllowsInline(
         Ci.nsIContentSecurityPolicy.SCRIPT_SRC_ELEM_DIRECTIVE,
+        false, // aHasUnsafeHash
         "", // aNonce
         false, // aParserCreated
         null, // aTriggeringElement
@@ -221,7 +223,7 @@ function run_test() {
   );
 
   // test that eval violations cause a report in report-only policy
-  makeTest(4, { "blocked-uri": "inline" }, true, function(csp) {
+  makeTest(4, { "blocked-uri": "eval" }, true, function(csp) {
     let evalOK = true,
       oReportViolation = { value: false };
     evalOK = csp.getAllowsEval(oReportViolation);
@@ -234,7 +236,7 @@ function run_test() {
     if (oReportViolation.value) {
       // force the logging, since the getter doesn't.
       csp.logViolationDetails(
-        Ci.nsIContentSecurityPolicy.VIOLATION_TYPE_INLINE_SCRIPT,
+        Ci.nsIContentSecurityPolicy.VIOLATION_TYPE_EVAL,
         null, // aTriggeringElement
         null, // nsICSPEventListener
         selfuri.asciiSpec,

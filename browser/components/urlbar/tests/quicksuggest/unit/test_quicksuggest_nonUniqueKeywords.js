@@ -19,17 +19,17 @@ let SUGGESTIONS_DATA = [
   {
     keywords: ["aaa", "bbb"],
     isSponsored: false,
-    score: 2 * QuickSuggestRemoteSettingsClient.DEFAULT_SUGGESTION_SCORE,
+    score: 2 * RemoteSettingsClient.DEFAULT_SUGGESTION_SCORE,
   },
   {
     keywords: ["bbb"],
     isSponsored: true,
-    score: 4 * QuickSuggestRemoteSettingsClient.DEFAULT_SUGGESTION_SCORE,
+    score: 4 * RemoteSettingsClient.DEFAULT_SUGGESTION_SCORE,
   },
   {
     keywords: ["bbb"],
     isSponsored: false,
-    score: 3 * QuickSuggestRemoteSettingsClient.DEFAULT_SUGGESTION_SCORE,
+    score: 3 * RemoteSettingsClient.DEFAULT_SUGGESTION_SCORE,
   },
   {
     keywords: ["ccc"],
@@ -158,10 +158,11 @@ add_task(async function() {
       ...qsResult,
       block_id: qsResult.id,
       is_sponsored: isSponsored,
+      is_top_pick: false,
       score:
         typeof score == "number"
           ? score
-          : QuickSuggestRemoteSettingsClient.DEFAULT_SUGGESTION_SCORE,
+          : RemoteSettingsClient.DEFAULT_SUGGESTION_SCORE,
       source: "remote-settings",
       icon: null,
       position: undefined,
@@ -214,7 +215,9 @@ add_task(async function() {
     );
 
     // Make sure the expected result object(s) are stored correctly.
-    let mapValue = QuickSuggest.remoteSettings._resultsByKeyword.get(keyword);
+    let mapValue = QuickSuggest.remoteSettings._test_resultsByKeyword.get(
+      keyword
+    );
     if (expectedIndexes.length == 1) {
       Assert.ok(!Array.isArray(mapValue), "The map value is not an array");
       Assert.deepEqual(

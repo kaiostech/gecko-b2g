@@ -8,13 +8,9 @@ const {
   AppConstants,
 } = window.docShell.chromeEventHandler.ownerGlobal;
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "DownloadPaths",
-  "resource://gre/modules/DownloadPaths.jsm"
-);
 ChromeUtils.defineESModuleGetters(this, {
   DeferredTask: "resource://gre/modules/DeferredTask.sys.mjs",
+  DownloadPaths: "resource://gre/modules/DownloadPaths.sys.mjs",
 });
 
 const PDF_JS_URI = "resource://pdf.js/web/viewer.html";
@@ -196,14 +192,17 @@ var PrintEventHandler = {
     let topWindowContext = sourceBrowsingContext.top.currentWindowContext;
     this.topContentTitle = topWindowContext.documentTitle;
     this.topCurrentURI = topWindowContext.documentURI.spec;
+    this.isReader = this.topCurrentURI.startsWith("about:reader");
 
-    if (!this.hasSelection && !this.isArticle) {
+    let canSimplify = !this.isReader && this.isArticle;
+    if (!this.hasSelection && !canSimplify) {
       document.getElementById("source-version-section").hidden = true;
     } else {
       document.getElementById("source-version-selection").hidden = !this
         .hasSelection;
-      document.getElementById("source-version-simplified").hidden = !this
-        .isArticle;
+      document.getElementById(
+        "source-version-simplified"
+      ).hidden = !canSimplify;
     }
 
     // We don't need the sourceBrowsingContext anymore, get rid of it.

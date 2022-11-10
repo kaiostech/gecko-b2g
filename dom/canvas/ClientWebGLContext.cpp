@@ -356,8 +356,9 @@ void ClientWebGLContext::Run(Args&&... args) const {
 
   const auto id = IdByMethod<MethodType, method>();
 
-  const auto size = webgl::SerializedSize(id, args...);
-  const auto maybeDest = child->AllocPendingCmdBytes(size);
+  const auto info = webgl::SerializationInfo(id, args...);
+  const auto maybeDest = child->AllocPendingCmdBytes(info.requiredByteCount,
+                                                     info.alignmentOverhead);
   if (!maybeDest) {
     JsWarning("Failed to allocate internal command buffer.");
     OnContextLoss(webgl::ContextLossReason::None);
@@ -4237,6 +4238,8 @@ void ClientWebGLContext::TexImage(uint8_t funcDims, GLenum imageTarget,
   // -
 
   mozilla::ipc::Shmem* pShmem = nullptr;
+  // Image to release after Ping response.
+  RefPtr<layers::Image> imageWaitPingResponse;
 
   if (desc->sd) {
     const auto& sd = *(desc->sd);
@@ -4268,6 +4271,10 @@ void ClientWebGLContext::TexImage(uint8_t funcDims, GLenum imageTarget,
       if (sdType == layers::SurfaceDescriptor::TSurfaceDescriptorD3D10) {
         const auto& sdD3D = sd.get_SurfaceDescriptorD3D10();
         const auto& inProcess = mNotLost->inProcess;
+        if (!inProcess) {
+          MOZ_ASSERT(desc->image);
+          imageWaitPingResponse = desc->image;
+        }
         if (sdD3D.gpuProcessTextureId().isSome() && inProcess) {
           return Some(
               std::string{"gpuProcessTextureId works only in GPU process."});
@@ -4372,12 +4379,14 @@ void ClientWebGLContext::TexImage(uint8_t funcDims, GLenum imageTarget,
     (void)child->SendTexImage(static_cast<uint32_t>(level), respecFormat,
                               CastUvec3(offset), pi, std::move(*desc));
 
-    if (tempShmem) {
+    if (tempShmem || imageWaitPingResponse) {
       const auto eventTarget = GetCurrentSerialEventTarget();
       MOZ_ASSERT(eventTarget);
-      child->SendPing()->Then(eventTarget, __func__, [tempShmem]() {
-        // Cleans up when (our copy of) sendableShmem goes out of scope.
-      });
+      child->SendPing()->Then(eventTarget, __func__,
+                              [tempShmem, imageWaitPingResponse]() {
+                                // Cleans up when (our copy of)
+                                // sendableShmem/image goes out of scope.
+                              });
     }
   }
 }
@@ -4710,9 +4719,11 @@ void ClientWebGLContext::UniformData(const GLenum funcElemType,
 
   // -
 
-  const auto ptr = bytes.begin().get() + (elemOffset * sizeof(float));
-  const auto range = Range<const uint8_t>{ptr, availCount * sizeof(float)};
-  Run<RPROC(UniformData)>(locId, transpose, RawBuffer<>(range));
+  const auto begin =
+      reinterpret_cast<const webgl::UniformDataVal*>(bytes.begin().get()) +
+      elemOffset;
+  const auto range = Range{begin, availCount};
+  Run<RPROC(UniformData)>(locId, transpose, RawBuffer{range});
 }
 
 // -
@@ -5642,8 +5653,8 @@ void ClientWebGLContext::GetSupportedProfilesASTC(
 
 bool ClientWebGLContext::ShouldResistFingerprinting() const {
   if (mCanvasElement) {
-    // If we're constructed from a canvas element
-    return nsContentUtils::ShouldResistFingerprinting(GetOwnerDoc());
+    // If we're constructed from a canvas element.
+    return mCanvasElement->OwnerDoc()->ShouldResistFingerprinting();
   }
   if (mOffscreenCanvas) {
     // If we're constructed from an offscreen canvas

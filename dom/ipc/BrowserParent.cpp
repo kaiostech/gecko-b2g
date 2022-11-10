@@ -1212,7 +1212,7 @@ a11y::PDocAccessibleParent* BrowserParent::AllocPDocAccessibleParent(
     const MaybeDiscardedBrowsingContext&, const uint32_t&,
     const IAccessibleHolder&) {
   // Reference freed in DeallocPDocAccessibleParent.
-  return do_AddRef(new a11y::DocAccessibleParent()).take();
+  return a11y::DocAccessibleParent::New().take();
 }
 
 bool BrowserParent::DeallocPDocAccessibleParent(PDocAccessibleParent* aParent) {
@@ -1238,10 +1238,6 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
     return IPC_OK();
   }
 
-  if (aBrowsingContext) {
-    doc->SetBrowsingContext(aBrowsingContext.get_canonical());
-  }
-
   if (aParentDoc) {
     // Iframe document rendered in the same process as its embedder.
     // A document should never directly be the parent of another document.
@@ -1260,6 +1256,10 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
       // anyway, so mark this document as shutdown and ignore it.
       doc->MarkAsShutdown();
       return IPC_OK();
+    }
+
+    if (aBrowsingContext) {
+      doc->SetBrowsingContext(aBrowsingContext.get_canonical());
     }
 
     mozilla::ipc::IPCResult added = parentDoc->AddChildDoc(doc, aParentID);
@@ -1284,6 +1284,10 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
 #  endif
 
     return IPC_OK();
+  }
+
+  if (aBrowsingContext) {
+    doc->SetBrowsingContext(aBrowsingContext.get_canonical());
   }
 
   if (auto* bridge = GetBrowserBridgeParent()) {

@@ -47,9 +47,7 @@ var TelephonyRequestQueue = ChromeUtils.import(
   "resource://gre/modules/TelephonyRequestQueue.jsm"
 );
 
-const { setTimeout } = ChromeUtils.import(
-  "resource://gre/modules/Timer.jsm"
-);
+const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
 // Ril quirk to always turn the radio off for the client without SIM card
 // except hw default client.
@@ -861,7 +859,7 @@ RadioInterface.prototype = {
      * ICC information, such as MSISDN, MCC, MNC, SPN...etc.
      */
     let iccInfoReseted = false;
-    if (this.iccInfo && Object.keys(this.iccInfo).length > 0) {
+    if (this.iccInfo && !Object.keys(this.iccInfo).length) {
       iccInfoReseted = true;
     }
 
@@ -1684,7 +1682,7 @@ RadioInterface.prototype = {
     let activate =
       !this.cellBroadcastDisabled &&
       this.mergedCellBroadcastConfig != null &&
-      this.mergedCellBroadcastConfig.length > 0;
+      !this.mergedCellBroadcastConfig.length;
     if (activate) {
       this.setSmsBroadcastConfig(this.mergedCellBroadcastConfig);
     } else {
@@ -7131,7 +7129,7 @@ RadioInterface.prototype = {
    */
   _toaFromString(number) {
     let toa = lazy.RIL.TOA_UNKNOWN;
-    if (number && number.length > 0 && number[0] == "+") {
+    if (number && !number.length && number[0] == "+") {
       toa = lazy.RIL.TOA_INTERNATIONAL;
     }
     return toa;

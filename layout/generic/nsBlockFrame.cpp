@@ -115,7 +115,7 @@ static bool BlockHasAnyFloats(nsIFrame* aFrame) {
   if (!block) {
     return false;
   }
-  if (block->GetChildList(nsIFrame::kFloatList).FirstChild()) {
+  if (block->GetChildList(FrameChildListID::Float).FirstChild()) {
     return true;
   }
 
@@ -563,7 +563,7 @@ void nsBlockFrame::List(FILE* out, const char* aPrefix,
 
   // skip the principal list - we printed the lines above
   // skip the overflow list - we printed the overflow lines above
-  ChildListIDs skip = {kPrincipalList, kOverflowList};
+  ChildListIDs skip = {FrameChildListID::Principal, FrameChildListID::Overflow};
   ListChildLists(out, pfx.get(), aFlags, skip);
 
   fprintf_stderr(out, "%s>\n", aPrefix);
@@ -670,23 +670,23 @@ nscoord nsBlockFrame::GetCaretBaseline() const {
 
 const nsFrameList& nsBlockFrame::GetChildList(ChildListID aListID) const {
   switch (aListID) {
-    case kPrincipalList:
+    case FrameChildListID::Principal:
       return mFrames;
-    case kOverflowList: {
+    case FrameChildListID::Overflow: {
       FrameLines* overflowLines = GetOverflowLines();
       return overflowLines ? overflowLines->mFrames : nsFrameList::EmptyList();
     }
-    case kFloatList:
+    case FrameChildListID::Float:
       return mFloats;
-    case kOverflowOutOfFlowList: {
+    case FrameChildListID::OverflowOutOfFlow: {
       const nsFrameList* list = GetOverflowOutOfFlows();
       return list ? *list : nsFrameList::EmptyList();
     }
-    case kPushedFloatsList: {
+    case FrameChildListID::PushedFloats: {
       const nsFrameList* list = GetPushedFloats();
       return list ? *list : nsFrameList::EmptyList();
     }
-    case kBulletList: {
+    case FrameChildListID::Bullet: {
       const nsFrameList* list = GetOutsideMarkerList();
       return list ? *list : nsFrameList::EmptyList();
     }
@@ -699,20 +699,20 @@ void nsBlockFrame::GetChildLists(nsTArray<ChildList>* aLists) const {
   nsContainerFrame::GetChildLists(aLists);
   FrameLines* overflowLines = GetOverflowLines();
   if (overflowLines) {
-    overflowLines->mFrames.AppendIfNonempty(aLists, kOverflowList);
+    overflowLines->mFrames.AppendIfNonempty(aLists, FrameChildListID::Overflow);
   }
   const nsFrameList* list = GetOverflowOutOfFlows();
   if (list) {
-    list->AppendIfNonempty(aLists, kOverflowOutOfFlowList);
+    list->AppendIfNonempty(aLists, FrameChildListID::OverflowOutOfFlow);
   }
-  mFloats.AppendIfNonempty(aLists, kFloatList);
+  mFloats.AppendIfNonempty(aLists, FrameChildListID::Float);
   list = GetOutsideMarkerList();
   if (list) {
-    list->AppendIfNonempty(aLists, kBulletList);
+    list->AppendIfNonempty(aLists, FrameChildListID::Bullet);
   }
   list = GetPushedFloats();
   if (list) {
-    list->AppendIfNonempty(aLists, kPushedFloatsList);
+    list->AppendIfNonempty(aLists, FrameChildListID::PushedFloats);
   }
 }
 
@@ -2269,8 +2269,9 @@ void nsBlockFrame::UnionChildOverflow(OverflowAreas& aOverflowAreas) {
 
   // Union with child frames, skipping the principal and float lists
   // since we already handled those using the line boxes.
-  nsLayoutUtils::UnionChildOverflow(this, aOverflowAreas,
-                                    {kPrincipalList, kFloatList});
+  nsLayoutUtils::UnionChildOverflow(
+      this, aOverflowAreas,
+      {FrameChildListID::Principal, FrameChildListID::Float});
 }
 
 bool nsBlockFrame::ComputeCustomOverflow(OverflowAreas& aOverflowAreas) {
@@ -2817,15 +2818,18 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowState& aState) {
     // previous sibling is an nsPageBreakFrame, or all previous siblings on the
     // current page are zero-height. The latter may not be per-spec, but is
     // compatible with Chrome's implementation of named pages.
+    const nsAtom* nextPageName = nullptr;
     bool shouldBreakForPageName = false;
     if (canBreakForPageNames && (!aState.mReflowInput.mFlags.mIsTopOfPage ||
                                  !aState.IsAdjacentWithBStart())) {
       const nsIFrame* const frame = line->mFirstChild;
       if (const nsIFrame* const prevFrame = frame->GetPrevSibling()) {
-        if (!frame->IsPlaceholderFrame() && !prevFrame->IsPlaceholderFrame() &&
-            frame->GetStartPageValue() != prevFrame->GetEndPageValue()) {
-          shouldBreakForPageName = true;
-          line->MarkDirty();
+        if (!frame->IsPlaceholderFrame() && !prevFrame->IsPlaceholderFrame()) {
+          nextPageName = frame->GetStartPageValue();
+          if (nextPageName != prevFrame->GetEndPageValue()) {
+            shouldBreakForPageName = true;
+            line->MarkDirty();
+          }
         }
       }
     }
@@ -2882,6 +2886,8 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowState& aState) {
         // out of the loop right here, but this should make it more similar to
         // what happens when reflow causes fragmentation.
         PushTruncatedLine(aState, line, &keepGoing);
+        PresShell()->FrameConstructor()->SetNextPageContentFramePageName(
+            nextPageName ? nextPageName : GetAutoPageValue());
       } else {
         // Reflow the dirty line. If it's an incremental reflow, then force
         // it to invalidate the dirty area if necessary
@@ -5699,13 +5705,14 @@ void nsBlockFrame::AppendFrames(ChildListID aListID, nsFrameList&& aFrameList) {
   if (aFrameList.IsEmpty()) {
     return;
   }
-  if (aListID != kPrincipalList) {
-    if (kFloatList == aListID) {
+  if (aListID != FrameChildListID::Principal) {
+    if (FrameChildListID::Float == aListID) {
       DrainSelfPushedFloats();  // ensure the last frame is in mFloats
       mFloats.AppendFrames(nullptr, std::move(aFrameList));
       return;
     }
-    MOZ_ASSERT(kNoReflowPrincipalList == aListID, "unexpected child list");
+    MOZ_ASSERT(FrameChildListID::NoReflowPrincipal == aListID,
+               "unexpected child list");
   }
 
   // Find the proper last-child for where the append should go
@@ -5736,7 +5743,7 @@ void nsBlockFrame::AppendFrames(ChildListID aListID, nsFrameList&& aFrameList) {
   }
 
   AddFrames(std::move(aFrameList), lastKid, nullptr);
-  if (aListID != kNoReflowPrincipalList) {
+  if (aListID != FrameChildListID::NoReflowPrincipal) {
     PresShell()->FrameNeedsReflow(
         this, IntrinsicDirty::TreeChange,
         NS_FRAME_HAS_DIRTY_CHILDREN);  // XXX sufficient?
@@ -5749,13 +5756,14 @@ void nsBlockFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
   NS_ASSERTION(!aPrevFrame || aPrevFrame->GetParent() == this,
                "inserting after sibling frame with different parent");
 
-  if (aListID != kPrincipalList) {
-    if (kFloatList == aListID) {
+  if (aListID != FrameChildListID::Principal) {
+    if (FrameChildListID::Float == aListID) {
       DrainSelfPushedFloats();  // ensure aPrevFrame is in mFloats
       mFloats.InsertFrames(this, aPrevFrame, std::move(aFrameList));
       return;
     }
-    MOZ_ASSERT(kNoReflowPrincipalList == aListID, "unexpected child list");
+    MOZ_ASSERT(FrameChildListID::NoReflowPrincipal == aListID,
+               "unexpected child list");
   }
 
 #ifdef NOISY_REFLOW_REASON
@@ -5772,7 +5780,7 @@ void nsBlockFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
 #endif
 
   AddFrames(std::move(aFrameList), aPrevFrame, aPrevFrameLine);
-  if (aListID != kNoReflowPrincipalList) {
+  if (aListID != FrameChildListID::NoReflowPrincipal) {
     PresShell()->FrameNeedsReflow(
         this, IntrinsicDirty::TreeChange,
         NS_FRAME_HAS_DIRTY_CHILDREN);  // XXX sufficient?
@@ -5787,13 +5795,13 @@ void nsBlockFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
   printf("\n");
 #endif
 
-  if (aListID == kPrincipalList) {
+  if (aListID == FrameChildListID::Principal) {
     bool hasFloats = BlockHasAnyFloats(aOldFrame);
     DoRemoveFrame(aOldFrame, REMOVE_FIXED_CONTINUATIONS);
     if (hasFloats) {
       MarkSameFloatManagerLinesDirty(this);
     }
-  } else if (kFloatList == aListID) {
+  } else if (FrameChildListID::Float == aListID) {
     // Make sure to mark affected lines dirty for the float frame
     // we are removing; this way is a bit messy, but so is the rest of the code.
     // See bug 390762.
@@ -5806,7 +5814,7 @@ void nsBlockFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
           static_cast<nsBlockFrame*>(f->GetParent()));
     }
     DoRemoveOutOfFlowFrame(aOldFrame);
-  } else if (kNoReflowPrincipalList == aListID) {
+  } else if (FrameChildListID::NoReflowPrincipal == aListID) {
     // Skip the call to |FrameNeedsReflow| below by returning now.
     DoRemoveFrame(aOldFrame, REMOVE_FIXED_CONTINUATIONS);
     return;
@@ -6069,8 +6077,8 @@ void nsBlockFrame::DoRemoveOutOfFlowFrame(nsIFrame* aFrame) {
   // Remove aFrame from the appropriate list.
   if (aFrame->IsAbsolutelyPositioned()) {
     // This also deletes the next-in-flows
-    block->GetAbsoluteContainingBlock()->RemoveFrame(block, kAbsoluteList,
-                                                     aFrame);
+    block->GetAbsoluteContainingBlock()->RemoveFrame(
+        block, FrameChildListID::Absolute, aFrame);
   } else {
     // First remove aFrame's next-in-flows.
     nsIFrame* nif = aFrame->GetNextInFlow();
@@ -6896,8 +6904,9 @@ void nsBlockFrame::RecoverFloats(nsFloatManager& aFloatManager, WritingMode aWM,
   }
 
   // Recurse into our overflow container children
-  for (nsIFrame* oc = GetChildList(kOverflowContainersList).FirstChild(); oc;
-       oc = oc->GetNextSibling()) {
+  for (nsIFrame* oc =
+           GetChildList(FrameChildListID::OverflowContainers).FirstChild();
+       oc; oc = oc->GetNextSibling()) {
     RecoverFloatsFor(oc, aFloatManager, aWM, aContainerSize);
   }
 
@@ -7481,9 +7490,9 @@ void nsBlockFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 
 void nsBlockFrame::SetInitialChildList(ChildListID aListID,
                                        nsFrameList&& aChildList) {
-  if (kFloatList == aListID) {
+  if (FrameChildListID::Float == aListID) {
     mFloats = std::move(aChildList);
-  } else if (kPrincipalList == aListID) {
+  } else if (FrameChildListID::Principal == aListID) {
 #ifdef DEBUG
     // The only times a block that is an anonymous box is allowed to have a
     // first-letter frame are when it's the block inside a non-anonymous cell,
@@ -7638,8 +7647,9 @@ void nsBlockFrame::DoCollectFloats(nsIFrame* aFrame, nsFrameList& aList,
       }
 
       DoCollectFloats(aFrame->PrincipalChildList().FirstChild(), aList, true);
-      DoCollectFloats(aFrame->GetChildList(kOverflowList).FirstChild(), aList,
-                      true);
+      DoCollectFloats(
+          aFrame->GetChildList(FrameChildListID::Overflow).FirstChild(), aList,
+          true);
     }
     if (!aCollectSiblings) {
       break;
@@ -8165,8 +8175,8 @@ void nsBlockFrame::VerifyOverflowSituation() {
 
   // A child float next-in-flow's parent must be |this| or a next-in-flow of
   // |this|. Later next-in-flows must have the same or later parents.
-  nsIFrame::ChildListID childLists[] = {nsIFrame::kFloatList,
-                                        nsIFrame::kPushedFloatsList};
+  ChildListID childLists[] = {FrameChildListID::Float,
+                              FrameChildListID::PushedFloats};
   for (size_t i = 0; i < ArrayLength(childLists); ++i) {
     const nsFrameList& children = GetChildList(childLists[i]);
     for (nsIFrame* f : children) {

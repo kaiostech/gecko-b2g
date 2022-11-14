@@ -240,7 +240,12 @@ class FfiConverterU64 extends FfiConverter {
     static read(dataStream) {
         return dataStream.readUint64()
     }
-}class FfiConverterBool extends FfiConverter {
+}
+
+// Export the FFIConverter object to make external types work.
+EXPORTED_SYMBOLS.push("FfiConverterU64");
+
+class FfiConverterBool extends FfiConverter {
     static computeSize() {
         return 1;
     }
@@ -261,6 +266,9 @@ class FfiConverterU64 extends FfiConverter {
         return this.lift(dataStream.readUint8())
     }
 }
+
+// Export the FFIConverter object to make external types work.
+EXPORTED_SYMBOLS.push("FfiConverterBool");
 
 class FfiConverterString extends FfiConverter {
     static lift(buf) {
@@ -287,6 +295,10 @@ class FfiConverterString extends FfiConverter {
     }
 }
 
+// Export the FFIConverter object to make external types work.
+EXPORTED_SYMBOLS.push("FfiConverterString");
+
+
 
 class ArithmeticError extends Error {}
 EXPORTED_SYMBOLS.push("ArithmeticError");
@@ -311,6 +323,9 @@ class FfiConverterTypeArithmeticError extends FfiConverterArrayBuffer {
         }
     }
 }
+
+// Export the FFIConverter object to make external types work.
+EXPORTED_SYMBOLS.push("FfiConverterTypeArithmeticError");
 
 
 

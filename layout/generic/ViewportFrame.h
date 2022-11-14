@@ -106,8 +106,8 @@ class ViewportFrame : public nsContainerFrame {
   void SetViewInternal(nsView* aView) override { mView = aView; }
 
  private:
-  virtual mozilla::layout::FrameChildListID GetAbsoluteListID() const override {
-    return kFixedList;
+  mozilla::FrameChildListID GetAbsoluteListID() const override {
+    return FrameChildListID::Fixed;
   }
 
   nsView* mView;

@@ -175,7 +175,7 @@ add_task(async function test_tab_engine_skips_incoming_local_record() {
           title: "title2",
           urlHistory: ["http://bar.com/"],
           icon: "",
-          lastUsed: 3000000,
+          lastUsed: 3000,
         },
       ]);
       await syncFinish.call(engine);
@@ -184,8 +184,11 @@ add_task(async function test_tab_engine_skips_incoming_local_record() {
   });
 
   _("Start sync");
+  Service.scheduler.hasIncomingItems = false;
   await engine._sync();
   await promiseFinished;
+  // Bug 1800185 - we don't want the sync scheduler to see these records as incoming.
+  Assert.ok(!Service.scheduler.hasIncomingItems);
 });
 
 // A test to ensure we can properly send tabs via provider to rust without errors

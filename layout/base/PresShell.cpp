@@ -6071,7 +6071,7 @@ void PresShell::MarkFramesInSubtreeApproximatelyVisible(
   bool preserves3DChildren = aFrame->Extend3DContext();
 
   for (const auto& [list, listID] : aFrame->ChildLists()) {
-    if (listID == nsIFrame::kPopupList) {
+    if (listID == FrameChildListID::Popup) {
       // We assume all frames in popups are visible, so we skip them here.
       continue;
     }
@@ -11262,7 +11262,7 @@ void PresShell::MarkFixedFramesForReflow(IntrinsicDirty aIntrinsicDirty) {
   nsIFrame* rootFrame = mFrameConstructor->GetRootFrame();
   if (rootFrame) {
     const nsFrameList& childList =
-        rootFrame->GetChildList(nsIFrame::kFixedList);
+        rootFrame->GetChildList(FrameChildListID::Fixed);
     for (nsIFrame* childFrame : childList) {
       FrameNeedsReflow(childFrame, aIntrinsicDirty, NS_FRAME_IS_DIRTY);
     }

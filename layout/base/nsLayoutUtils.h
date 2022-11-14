@@ -247,8 +247,7 @@ class nsLayoutUtils {
    * Use heuristics to figure out the child list that
    * aChildFrame is currently in.
    */
-  static mozilla::layout::FrameChildListID GetChildListNameFor(
-      nsIFrame* aChildFrame);
+  static mozilla::FrameChildListID GetChildListNameFor(nsIFrame* aChildFrame);
 
   /**
    * Returns the ::before pseudo-element for aContent, if any.
@@ -2466,12 +2465,11 @@ class nsLayoutUtils {
   /**
    * Unions the overflow areas of the children of aFrame with aOverflowAreas.
    * aSkipChildLists specifies any child lists that should be skipped.
-   * kPopupList is always skipped.
+   * FrameChildListID::Popup is always skipped.
    */
   static void UnionChildOverflow(
       nsIFrame* aFrame, mozilla::OverflowAreas& aOverflowAreas,
-      mozilla::layout::FrameChildListIDs aSkipChildLists =
-          mozilla::layout::FrameChildListIDs());
+      mozilla::FrameChildListIDs aSkipChildLists = {});
 
   /**
    * Return the font size inflation *ratio* for a given frame.  This is

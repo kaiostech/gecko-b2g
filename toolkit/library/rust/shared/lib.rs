@@ -74,6 +74,7 @@ extern crate neqo_glue;
 extern crate wgpu_bindings;
 
 extern crate qcms;
+extern crate wpf_gpu_raster;
 
 extern crate unic_langid;
 extern crate unic_langid_ffi;
@@ -125,6 +126,7 @@ mod uniffi_fixtures {
 
     arithmetical::uniffi_reexport_scaffolding!();
     uniffi_custom_types::uniffi_reexport_scaffolding!();
+    uniffi_fixture_external_types::uniffi_reexport_scaffolding!();
     uniffi_geometry::uniffi_reexport_scaffolding!();
     uniffi_rondpoint::uniffi_reexport_scaffolding!();
     uniffi_sprites::uniffi_reexport_scaffolding!();

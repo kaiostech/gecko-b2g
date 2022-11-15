@@ -173,6 +173,7 @@ variables:
     MOZCONFIG: 'mozconfig-b2g-desktop'
     SCCACHE_REDIS_DB: 4 # use DB #4 as sccache
     SCCACHE_CACHE_SIZE: 6G
+    CARGO_NET_OFFLINE: 'true'
   before_script:
     - *global_setup
     - *koost_setup
@@ -198,6 +199,7 @@ variables:
     B2G_DEBUG: 1
     SCCACHE_REDIS_DB: 2 # use DB #2 as sccache
     SCCACHE_CACHE_SIZE: 2G
+    CARGO_NET_OFFLINE: 'true'
   before_script:
     - *global_setup
   script:
@@ -223,6 +225,7 @@ variables:
     PRODUCT_MANUFACTURER: QUALCOMM
     SCCACHE_REDIS_DB: 3 # use DB #3 as sccache
     SCCACHE_CACHE_SIZE: 2G
+    CARGO_NET_OFFLINE: 'true'
   before_script:
     - *global_setup
     - *koost_setup

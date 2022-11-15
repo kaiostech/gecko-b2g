@@ -283,7 +283,7 @@ nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal() {
                 };
 
             asAudio.apply([&](auto& aConduit) {
-              Maybe<webrtc::AudioReceiveStream::Stats> audioStats =
+              Maybe<webrtc::AudioReceiveStreamInterface::Stats> audioStats =
                   aConduit->GetReceiverStats();
               if (audioStats.isNothing()) {
                 return;
@@ -378,7 +378,7 @@ nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal() {
             });
 
             asVideo.apply([&](auto& aConduit) {
-              Maybe<webrtc::VideoReceiveStream::Stats> videoStats =
+              Maybe<webrtc::VideoReceiveStreamInterface::Stats> videoStats =
                   aConduit->GetReceiverStats();
               if (videoStats.isNothing()) {
                 return;
@@ -456,7 +456,7 @@ nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal() {
                 local.mQpSum.Construct(videoStats->qp_sum.value());
               }
               local.mTotalDecodeTime.Construct(
-                  double(videoStats->total_decode_time_ms) / 1000);
+                  double(videoStats->total_decode_time.ms()) / 1000);
               local.mTotalInterFrameDelay.Construct(
                   videoStats->total_inter_frame_delay);
               local.mTotalSquaredInterFrameDelay.Construct(

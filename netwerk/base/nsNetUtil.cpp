@@ -1043,15 +1043,12 @@ nsresult NS_NewStreamLoader(
 
 nsresult NS_NewSyncStreamListener(nsIStreamListener** result,
                                   nsIInputStream** stream) {
-  nsCOMPtr<nsISyncStreamListener> listener = nsSyncStreamListener::Create();
-  if (listener) {
-    nsresult rv = listener->GetInputStream(stream);
-    if (NS_SUCCEEDED(rv)) {
-      listener.forget(result);
-    }
-    return rv;
+  nsCOMPtr<nsISyncStreamListener> listener = new nsSyncStreamListener();
+  nsresult rv = listener->GetInputStream(stream);
+  if (NS_SUCCEEDED(rv)) {
+    listener.forget(result);
   }
-  return NS_ERROR_FAILURE;
+  return rv;
 }
 
 nsresult NS_ImplementChannelOpen(nsIChannel* channel, nsIInputStream** result) {

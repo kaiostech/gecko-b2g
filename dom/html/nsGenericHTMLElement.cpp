@@ -1701,8 +1701,8 @@ void nsGenericHTMLFormElement::ClearForm(bool aRemoveFromForm,
 
   if (aRemoveFromForm) {
     nsAutoString nameVal, idVal;
-    GetAttr(kNameSpaceID_None, nsGkAtoms::name, nameVal);
-    GetAttr(kNameSpaceID_None, nsGkAtoms::id, idVal);
+    GetAttr(nsGkAtoms::name, nameVal);
+    GetAttr(nsGkAtoms::id, idVal);
 
     form->RemoveElement(this, true);
 
@@ -1717,8 +1717,8 @@ void nsGenericHTMLFormElement::ClearForm(bool aRemoveFromForm,
 
   UnsetFlags(ADDED_TO_FORM);
   SetFormInternal(nullptr, false);
-
   AfterClearForm(aUnbindOrDelete);
+  UpdateState(true);
 }
 
 nsresult nsGenericHTMLFormElement::BindToTree(BindContext& aContext,
@@ -1968,6 +1968,12 @@ bool nsGenericHTMLFormElement::IsElementDisabledForEvents(WidgetEvent* aEvent,
     case eLegacyMouseLineOrPageScroll:
     case eLegacyMousePixelScroll:
       return false;
+    case ePointerDown:
+    case ePointerUp:
+    case ePointerCancel:
+    case ePointerGotCapture:
+    case ePointerLostCapture:
+      return !StaticPrefs::dom_forms_always_allow_pointer_events_enabled();
     default:
       break;
   }

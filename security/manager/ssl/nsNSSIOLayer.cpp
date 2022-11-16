@@ -62,15 +62,15 @@
 using namespace mozilla::psm;
 using namespace mozilla::ipc;
 
-//#define DEBUG_SSL_VERBOSE //Enable this define to get minimal
-// reports when doing SSL read/write
+// #define DEBUG_SSL_VERBOSE //Enable this define to get minimal
+//  reports when doing SSL read/write
 
-//#define DUMP_BUFFER  //Enable this define along with
-// DEBUG_SSL_VERBOSE to dump SSL
-// read/write buffer to a log.
-// Uses PR_LOG except on Mac where
-// we always write out to our own
-// file.
+// #define DUMP_BUFFER  //Enable this define along with
+//  DEBUG_SSL_VERBOSE to dump SSL
+//  read/write buffer to a log.
+//  Uses PR_LOG except on Mac where
+//  we always write out to our own
+//  file.
 
 namespace {
 

@@ -83,6 +83,14 @@ nsresult PrincipalToPrincipalInfo(nsIPrincipal* aPrincipal,
                                   bool aSkipBaseDomain = false);
 
 /**
+ * Compare storage keys for equivalence.
+ *
+ * Only use with storage keys retrieved from nsIGlobalObject::GetStorageKey!
+ * Bug 1776271 tracks enhancing this into a proper type.
+ */
+bool StorageKeysEqual(const PrincipalInfo& aLeft, const PrincipalInfo& aRight);
+
+/**
  * Convert a CSPInfo to an nsIContentSecurityPolicy.
  *
  * MUST be called on the main thread only.

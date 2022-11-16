@@ -166,6 +166,29 @@ Result<nsCOMPtr<nsIPrincipal>, nsresult> PrincipalInfoToPrincipal(
   }
 }
 
+bool StorageKeysEqual(const PrincipalInfo& aLeft, const PrincipalInfo& aRight) {
+  MOZ_RELEASE_ASSERT(aLeft.type() == PrincipalInfo::TContentPrincipalInfo ||
+                     aLeft.type() == PrincipalInfo::TSystemPrincipalInfo);
+  MOZ_RELEASE_ASSERT(aRight.type() == PrincipalInfo::TContentPrincipalInfo ||
+                     aRight.type() == PrincipalInfo::TSystemPrincipalInfo);
+
+  if (aLeft.type() != aRight.type()) {
+    return false;
+  }
+
+  if (aLeft.type() == PrincipalInfo::TContentPrincipalInfo) {
+    const ContentPrincipalInfo& leftContent = aLeft.get_ContentPrincipalInfo();
+    const ContentPrincipalInfo& rightContent =
+        aRight.get_ContentPrincipalInfo();
+
+    return leftContent.attrs() == rightContent.attrs() &&
+           leftContent.originNoSuffix() == rightContent.originNoSuffix();
+  }
+
+  // Storage keys for the System principal always equal.
+  return true;
+}
+
 already_AddRefed<nsIContentSecurityPolicy> CSPInfoToCSP(
     const CSPInfo& aCSPInfo, Document* aRequestingDoc,
     nsresult* aOptionalResult) {

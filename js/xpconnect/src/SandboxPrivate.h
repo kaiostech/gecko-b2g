@@ -88,6 +88,9 @@ class SandboxPrivate : public nsIGlobalObject,
 
   JS::loader::ModuleLoaderBase* GetModuleLoader(JSContext* aCx) override;
 
+  mozilla::Result<mozilla::ipc::PrincipalInfo, nsresult> GetStorageKey()
+      override;
+
   size_t ObjectMoved(JSObject* obj, JSObject* old) {
     UpdateWrapper(obj, old);
     return 0;

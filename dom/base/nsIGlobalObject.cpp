@@ -6,6 +6,7 @@
 
 #include "nsIGlobalObject.h"
 #include "mozilla/CycleCollectedJSContext.h"
+#include "mozilla/Result.h"
 #include "mozilla/StorageAccess.h"
 #include "mozilla/dom/BlobURLProtocolHandler.h"
 #include "mozilla/dom/FunctionBinding.h"
@@ -13,6 +14,7 @@
 #include "mozilla/dom/ReportingObserver.h"
 #include "mozilla/dom/ServiceWorker.h"
 #include "mozilla/dom/ServiceWorkerRegistration.h"
+#include "mozilla/ipc/PBackgroundSharedTypes.h"
 #include "nsContentUtils.h"
 #include "nsThreadUtils.h"
 #include "nsGlobalWindowInner.h"
@@ -376,4 +378,21 @@ void nsIGlobalObject::SetByteLengthQueuingStrategySizeFunction(
 
 bool nsIGlobalObject::ShouldResistFingerprinting() const {
   return nsContentUtils::ShouldResistFingerprinting();
+}
+
+mozilla::Result<mozilla::ipc::PrincipalInfo, nsresult>
+nsIGlobalObject::GetStorageKey() {
+  return mozilla::Err(NS_ERROR_NOT_AVAILABLE);
+}
+
+mozilla::Result<bool, nsresult> nsIGlobalObject::HasEqualStorageKey(
+    const mozilla::ipc::PrincipalInfo& aStorageKey) {
+  auto result = GetStorageKey();
+  if (result.isErr()) {
+    return result.propagateErr();
+  }
+
+  const auto& storageKey = result.inspect();
+
+  return mozilla::ipc::StorageKeysEqual(storageKey, aStorageKey);
 }

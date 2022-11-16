@@ -34,6 +34,8 @@ class nsPIDOMWindowInner;
 
 namespace mozilla {
 class DOMEventTargetHelper;
+template <typename V, typename E>
+class Result;
 enum class StorageAccess;
 namespace dom {
 class VoidFunction;
@@ -47,6 +49,9 @@ class ServiceWorker;
 class ServiceWorkerRegistration;
 class ServiceWorkerRegistrationDescriptor;
 }  // namespace dom
+namespace ipc {
+class PrincipalInfo;
+}  // namespace ipc
 }  // namespace mozilla
 
 namespace JS::loader {
@@ -254,6 +259,11 @@ class nsIGlobalObject : public nsISupports,
   }
 
   virtual mozilla::dom::FontFaceSet* Fonts() { return nullptr; }
+
+  virtual mozilla::Result<mozilla::ipc::PrincipalInfo, nsresult>
+  GetStorageKey();
+  mozilla::Result<bool, nsresult> HasEqualStorageKey(
+      const mozilla::ipc::PrincipalInfo& aStorageKey);
 
  protected:
   virtual ~nsIGlobalObject();

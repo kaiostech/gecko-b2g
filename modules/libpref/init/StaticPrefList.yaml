@@ -1678,7 +1678,7 @@
 # JavaScript.
 - name: browser.opaqueResponseBlocking
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # When this pref is enabled, <object> and <embed> elements will create
@@ -3496,7 +3496,7 @@
 # Reporting API.
 - name: dom.reporting.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: dom.reporting.testing.enabled
@@ -12232,7 +12232,7 @@
 # delete the cache folder at shutdown in order to avoid shutdown hangs.
 - name: network.cache.shutdown_purge_in_background_task
   type: RelaxedAtomicBool
-#if defined(NIGHTLY_BUILD) && defined(XP_WIN)
+#if defined(XP_WIN)
   value: true
 #else
   value: false
@@ -12480,12 +12480,6 @@
 
 # Whether the pages per sheet print setting is enabled.
 - name: print.pages_per_sheet.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Print via the parent process. This is only used when e10s is enabled.
-- name: print.print_via_parent
   type: RelaxedAtomicBool
   value: true
   mirror: always

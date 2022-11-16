@@ -64,6 +64,7 @@
 #include "mozilla/dom/ImageBitmapSource.h"
 #include "mozilla/dom/MessagePortBinding.h"
 #include "mozilla/ipc/PBackgroundChild.h"
+#include "mozilla/ipc/PBackgroundSharedTypes.h"
 #include "mozilla/dom/Performance.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PromiseWorkerProxy.h"
@@ -295,6 +296,24 @@ Maybe<ClientInfo> WorkerGlobalScopeBase::GetClientInfo() const {
 
 Maybe<ServiceWorkerDescriptor> WorkerGlobalScopeBase::GetController() const {
   return mClientSource->GetController();
+}
+
+mozilla::Result<mozilla::ipc::PrincipalInfo, nsresult>
+WorkerGlobalScopeBase::GetStorageKey() {
+  AssertIsOnWorkerThread();
+
+  const mozilla::ipc::PrincipalInfo& principalInfo =
+      mWorkerPrivate->GetEffectiveStoragePrincipalInfo();
+
+  // Block expanded and null principals, let content and system through.
+  if (principalInfo.type() !=
+          mozilla::ipc::PrincipalInfo::TContentPrincipalInfo &&
+      principalInfo.type() !=
+          mozilla::ipc::PrincipalInfo::TSystemPrincipalInfo) {
+    return Err(NS_ERROR_DOM_SECURITY_ERR);
+  }
+
+  return principalInfo;
 }
 
 void WorkerGlobalScopeBase::Control(

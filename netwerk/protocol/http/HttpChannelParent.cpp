@@ -72,8 +72,6 @@ HttpChannelParent::HttpChannelParent(dom::BrowserParent* iframeEmbedding,
       mPBOverride(aOverrideStatus),
       mStatus(NS_OK),
       mIgnoreProgress(false),
-      mSentRedirect1BeginFailed(false),
-      mReceivedRedirect2Verify(false),
       mHasSuspendedByBackPressure(false),
       mCacheNeedFlowControlInitialized(false),
       mNeedFlowControl(true),
@@ -610,7 +608,7 @@ bool HttpChannelParent::ConnectChannel(const uint32_t& registrarId) {
   nsCOMPtr<nsIChannel> channel;
   rv = NS_LinkRedirectChannels(registrarId, this, getter_AddRefs(channel));
   if (NS_FAILED(rv)) {
-    NS_ERROR("Could not find the http channel to connect its IPC parent");
+    NS_WARNING("Could not find the http channel to connect its IPC parent");
     // This makes the channel delete itself safely.  It's the only thing
     // we can do now, since this parent channel cannot be used and there is
     // no other way to tell the child side there were something wrong.
@@ -739,6 +737,14 @@ mozilla::ipc::IPCResult HttpChannelParent::RecvCancel(
   // since OnDataAvailable could be off-main-thread.
   mCacheNeedFlowControlInitialized = true;
   mNeedFlowControl = false;
+
+  // If the channel is cancelled before the redirect is completed
+  // RecvRedirect2Verify will not be called, so we must clear the callback.
+  if (mRedirectCallback) {
+    mRedirectCallback->OnRedirectVerifyCallback(NS_ERROR_UNEXPECTED);
+    mRedirectCallback = nullptr;
+  }
+
   return IPC_OK();
 }
 
@@ -842,7 +848,6 @@ mozilla::ipc::IPCResult HttpChannelParent::RecvRedirect2Verify(
   nsCOMPtr<nsIParentChannel> redirectParentChannel;
   rv = redirectReg->GetParentChannel(mRedirectChannelId,
                                      getter_AddRefs(redirectParentChannel));
-  MOZ_ASSERT(redirectParentChannel);
   if (!redirectParentChannel) {
     ContinueRedirect2Verify(rv);
     return IPC_OK();
@@ -895,34 +900,10 @@ HttpChannelParent::ContinueVerification(
 }
 
 void HttpChannelParent::ContinueRedirect2Verify(const nsresult& aResult) {
-  LOG(("HttpChannelParent::ContinueRedirect2Verify [this=%p result=%" PRIx32
-       "]\n",
+  LOG(
+      ("HttpChannelParent::ContinueRedirect2Verify "
+       "[this=%p result=%" PRIx32 "]\n",
        this, static_cast<uint32_t>(aResult)));
-
-  if (!mRedirectCallback) {
-    // This should according the logic never happen, log the situation.
-    if (mReceivedRedirect2Verify) {
-      LOG(("RecvRedirect2Verify[%p]: Duplicate fire", this));
-    }
-    if (mSentRedirect1BeginFailed) {
-      LOG(("RecvRedirect2Verify[%p]: Send to child failed", this));
-    }
-    if ((mRedirectChannelId > 0) && NS_FAILED(aResult)) {
-      LOG(("RecvRedirect2Verify[%p]: Redirect failed", this));
-    }
-    if ((mRedirectChannelId > 0) && NS_SUCCEEDED(aResult)) {
-      LOG(("RecvRedirect2Verify[%p]: Redirect succeeded", this));
-    }
-    if (!mRedirectChannel) {
-      LOG(("RecvRedirect2Verify[%p]: Missing redirect channel", this));
-    }
-
-    NS_ERROR(
-        "Unexpcted call to HttpChannelParent::RecvRedirect2Verify, "
-        "mRedirectCallback null");
-  }
-
-  mReceivedRedirect2Verify = true;
 
   if (mRedirectCallback) {
     LOG(
@@ -932,6 +913,11 @@ void HttpChannelParent::ContinueRedirect2Verify(const nsresult& aResult) {
          this, static_cast<uint32_t>(aResult), mRedirectCallback.get()));
     mRedirectCallback->OnRedirectVerifyCallback(aResult);
     mRedirectCallback = nullptr;
+  } else {
+    LOG(
+        ("RecvRedirect2Verify[%p]: NO CALLBACKS! | "
+         "mRedirectChannelId: %" PRIx64 ", mRedirectChannel: %p",
+         this, mRedirectChannelId, mRedirectChannel.get()));
   }
 }
 
@@ -1774,17 +1760,13 @@ HttpChannelParent::StartRedirect(nsIChannel* newChannel, uint32_t redirectFlags,
     responseHead = &cleanedUpResponseHead;
   }
 
-  bool result = false;
   if (!mIPCClosed) {
-    result = SendRedirect1Begin(
-        mRedirectChannelId, newOriginalURI, newLoadFlags, redirectFlags,
-        loadInfoForwarderArg, *responseHead, securityInfo, channelId,
-        mChannel->GetPeerAddr(), GetTimingAttributes(mChannel));
-  }
-  if (!result) {
-    // Bug 621446 investigation
-    mSentRedirect1BeginFailed = true;
-    return NS_BINDING_ABORTED;
+    if (!SendRedirect1Begin(mRedirectChannelId, newOriginalURI, newLoadFlags,
+                            redirectFlags, loadInfoForwarderArg, *responseHead,
+                            securityInfo, channelId, mChannel->GetPeerAddr(),
+                            GetTimingAttributes(mChannel))) {
+      return NS_BINDING_ABORTED;
+    }
   }
 
   // Result is handled in RecvRedirect2Verify above
@@ -1795,9 +1777,9 @@ HttpChannelParent::StartRedirect(nsIChannel* newChannel, uint32_t redirectFlags,
 }
 
 NS_IMETHODIMP
-HttpChannelParent::CompleteRedirect(bool succeeded) {
-  LOG(("HttpChannelParent::CompleteRedirect [this=%p succeeded=%d]\n", this,
-       succeeded));
+HttpChannelParent::CompleteRedirect(nsresult status) {
+  LOG(("HttpChannelParent::CompleteRedirect [this=%p status=0x%X]\n", this,
+       static_cast<uint32_t>(status)));
 
   // If this was an internal redirect for a service worker interception then
   // we will not have a redirecting channel here.  Hide this redirect from
@@ -1806,9 +1788,13 @@ HttpChannelParent::CompleteRedirect(bool succeeded) {
     return NS_OK;
   }
 
-  if (succeeded && !mIPCClosed) {
+  if (!mIPCClosed) {
     // TODO: check return value: assume child dead if failed
-    Unused << SendRedirect3Complete();
+    if (NS_SUCCEEDED(status)) {
+      Unused << SendRedirect3Complete();
+    } else {
+      Unused << SendRedirectFailed(status);
+    }
   }
 
   mRedirectChannel = nullptr;
@@ -1935,11 +1921,11 @@ HttpChannelParent::AsyncOnChannelRedirect(
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-HttpChannelParent::OnRedirectResult(bool succeeded) {
-  LOG(("HttpChannelParent::OnRedirectResult [this=%p, suc=%d]", this,
-       succeeded));
+HttpChannelParent::OnRedirectResult(nsresult status) {
+  LOG(("HttpChannelParent::OnRedirectResult [this=%p, status=0x%X]", this,
+       static_cast<uint32_t>(status)));
 
-  nsresult rv;
+  nsresult rv = NS_OK;
 
   nsCOMPtr<nsIParentChannel> redirectChannel;
   if (mRedirectChannelId) {
@@ -1972,12 +1958,16 @@ HttpChannelParent::OnRedirectResult(bool succeeded) {
   }
 
   if (!redirectChannel) {
-    succeeded = false;
+    if (NS_FAILED(rv)) {
+      status = rv;
+    } else {
+      status = NS_ERROR_NULL_POINTER;
+    }
   }
 
-  CompleteRedirect(succeeded);
+  CompleteRedirect(status);
 
-  if (succeeded) {
+  if (NS_SUCCEEDED(status)) {
     if (!SameCOMIdentity(redirectChannel,
                          static_cast<nsIParentRedirectingChannel*>(this))) {
       Delete();

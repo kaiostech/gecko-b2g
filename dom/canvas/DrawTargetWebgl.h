@@ -348,6 +348,7 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
 
   already_AddRefed<SourceSurface> GetDataSnapshot();
   already_AddRefed<SourceSurface> Snapshot() override;
+  already_AddRefed<SourceSurface> GetOptimizedSnapshot(DrawTarget* aTarget);
   already_AddRefed<SourceSurface> GetBackingSurface() override;
   void DetachAllSnapshots() override;
 
@@ -418,6 +419,7 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
   void PushDeviceSpaceClipRects(const IntRect* aRects,
                                 uint32_t aCount) override;
   void PopClip() override;
+  bool RemoveAllClips() override;
   void PushLayer(bool aOpaque, Float aOpacity, SourceSurface* aMask,
                  const Matrix& aMaskTransform,
                  const IntRect& aBounds = IntRect(),

@@ -6,7 +6,7 @@
 #include "nsLocalSecureBrowserUI.h"
 
 #include "nsDocShell.h"
-#include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/WindowContext.h"
 #include "mozilla/Logging.h"
 
@@ -61,7 +61,7 @@ void nsLocalSecureBrowserUI::RecomputeSecurityFlags() {
   nsCOMPtr<nsITransportSecurityInfo> securityInfo;
   if (isSecure) {
     if (nsIChannel* failedChannel = doc->GetFailedChannel()) {
-      Unused << failedChannel->GetSecurityInfo(getter_AddRefs(securityInfo));
+      mozilla::Unused << failedChannel->GetSecurityInfo(getter_AddRefs(securityInfo));
     } else {
       // When there's no failed channel we should have a regular
       // security info on the document. In some cases there's no
@@ -177,7 +177,7 @@ nsLocalSecureBrowserUI::GetSecInfo(nsITransportSecurityInfo** aSecInfo) {
   // First check if there's a failed channel, in case of a certificate
   // error.
   if (nsIChannel* failedChannel = doc->GetFailedChannel()) {
-    Unused << failedChannel->GetSecurityInfo(getter_AddRefs(secInfo));
+    mozilla::Unused << failedChannel->GetSecurityInfo(getter_AddRefs(secInfo));
   } else {
     // When there's no failed channel we should have a regular
     // security info on the document. In some cases there's no

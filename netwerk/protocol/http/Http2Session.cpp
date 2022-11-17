@@ -16,36 +16,35 @@
 #include <algorithm>
 
 #include "AltServiceChild.h"
+#include "CacheControlParser.h"
+#include "CachePushChecker.h"
+#include "Http2ConnectTransaction.h"
+#include "Http2Push.h"
 #include "Http2Session.h"
 #include "Http2Stream.h"
 #include "Http2StreamBase.h"
 #include "Http2StreamTunnel.h"
 #include "Http2StreamWebSocket.h"
-#include "Http2Push.h"
-
+#include "LoadContextInfo.h"
 #include "mozilla/EndianUtils.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/Telemetry.h"
 #include "nsHttp.h"
-#include "nsHttpHandler.h"
 #include "nsHttpConnection.h"
+#include "nsHttpHandler.h"
 #include "nsIRequestContext.h"
-#include "nsISSLSocketControl.h"
 #include "nsISupportsPriority.h"
+#include "nsITLSSocketControl.h"
+#include "nsNetUtil.h"
+#include "nsQueryObject.h"
+#include "nsSocketTransportService2.h"
 #include "nsStandardURL.h"
 #include "nsURLHelper.h"
 #include "prnetdb.h"
 #include "sslerr.h"
 #include "sslt.h"
-#include "mozilla/Sprintf.h"
-#include "nsSocketTransportService2.h"
-#include "nsNetUtil.h"
-#include "CacheControlParser.h"
-#include "CachePushChecker.h"
-#include "LoadContextInfo.h"
-#include "nsQueryObject.h"
-#include "Http2ConnectTransaction.h"
 
 namespace mozilla {
 namespace net {
@@ -2399,12 +2398,11 @@ nsresult Http2Session::RecvContinuation(Http2Session* self) {
 class UpdateAltSvcEvent : public Runnable {
  public:
   UpdateAltSvcEvent(const nsCString& header, const nsCString& aOrigin,
-                    nsHttpConnectionInfo* aCI, nsIInterfaceRequestor* callbacks)
+                    nsHttpConnectionInfo* aCI)
       : Runnable("net::UpdateAltSvcEvent"),
         mHeader(header),
         mOrigin(aOrigin),
-        mCI(aCI),
-        mCallbacks(callbacks) {}
+        mCI(aCI) {}
 
   NS_IMETHOD Run() override {
     MOZ_ASSERT(NS_IsMainThread());
@@ -2425,7 +2423,7 @@ class UpdateAltSvcEvent : public Runnable {
     if (XRE_IsSocketProcess()) {
       AltServiceChild::ProcessHeader(
           mHeader, originScheme, originHost, originPort, mCI->GetUsername(),
-          mCI->GetPrivate(), mCallbacks, mCI->ProxyInfo(), 0,
+          mCI->GetPrivate(), nullptr, mCI->ProxyInfo(), 0,
           mCI->GetOriginAttributes());
       return NS_OK;
     }
@@ -2558,7 +2556,7 @@ nsresult Http2Session::RecvAltSvc(Http2Session* self) {
 
   if (!impliedOrigin) {
     bool okToReroute = true;
-    nsCOMPtr<nsISSLSocketControl> ssl;
+    nsCOMPtr<nsITLSSocketControl> ssl;
     self->mConnection->GetTLSSocketControl(getter_AddRefs(ssl));
     if (!ssl) {
       okToReroute = false;
@@ -2594,15 +2592,8 @@ nsresult Http2Session::RecvAltSvc(Http2Session* self) {
     }
   }
 
-  nsCOMPtr<nsISSLSocketControl> tlsSocketControl;
-  self->mConnection->GetTLSSocketControl(getter_AddRefs(tlsSocketControl));
-  nsCOMPtr<nsIInterfaceRequestor> callbacks;
-  if (tlsSocketControl) {
-    tlsSocketControl->GetNotificationCallbacks(getter_AddRefs(callbacks));
-  }
-
   RefPtr<UpdateAltSvcEvent> event =
-      new UpdateAltSvcEvent(altSvcFieldValue, origin, ci, callbacks);
+      new UpdateAltSvcEvent(altSvcFieldValue, origin, ci);
   NS_DispatchToMainThread(event);
   self->ResetDownstreamState();
   return NS_OK;
@@ -4093,19 +4084,19 @@ nsresult Http2Session::BufferOutput(const char* buf, uint32_t count,
 }
 
 bool  // static
-Http2Session::ALPNCallback(nsISSLSocketControl* tlsSocketControl) {
+Http2Session::ALPNCallback(nsITLSSocketControl* tlsSocketControl) {
   LOG3(("Http2Session::ALPNCallback sslsocketcontrol=%p\n", tlsSocketControl));
   if (tlsSocketControl) {
     int16_t version = tlsSocketControl->GetSSLVersionOffered();
     LOG3(("Http2Session::ALPNCallback version=%x\n", version));
 
-    if (version == nsISSLSocketControl::TLS_VERSION_1_2 &&
+    if (version == nsITLSSocketControl::TLS_VERSION_1_2 &&
         !gHttpHandler->IsH2MandatorySuiteEnabled()) {
       LOG3(("Http2Session::ALPNCallback Mandatory Cipher Suite Unavailable\n"));
       return false;
     }
 
-    if (version >= nsISSLSocketControl::TLS_VERSION_1_2) {
+    if (version >= nsITLSSocketControl::TLS_VERSION_1_2) {
       return true;
     }
   }
@@ -4139,7 +4130,7 @@ nsresult Http2Session::ConfirmTLSProfile() {
 
   if (!mConnection) return NS_ERROR_FAILURE;
 
-  nsCOMPtr<nsISSLSocketControl> ssl;
+  nsCOMPtr<nsITLSSocketControl> ssl;
   mConnection->GetTLSSocketControl(getter_AddRefs(ssl));
   LOG3(("Http2Session::ConfirmTLSProfile %p sslsocketcontrol=%p\n", this,
         ssl.get()));
@@ -4147,7 +4138,7 @@ nsresult Http2Session::ConfirmTLSProfile() {
 
   int16_t version = ssl->GetSSLVersionUsed();
   LOG3(("Http2Session::ConfirmTLSProfile %p version=%x\n", this, version));
-  if (version < nsISSLSocketControl::TLS_VERSION_1_2) {
+  if (version < nsITLSSocketControl::TLS_VERSION_1_2) {
     LOG3(("Http2Session::ConfirmTLSProfile %p FAILED due to lack of TLS1.2\n",
           this));
     return SessionError(INADEQUATE_SECURITY);
@@ -4175,7 +4166,7 @@ nsresult Http2Session::ConfirmTLSProfile() {
   int16_t macAlgorithm = ssl->GetMACAlgorithmUsed();
   LOG3(("Http2Session::ConfirmTLSProfile %p MAC Algortihm (aead==6) %d\n", this,
         macAlgorithm));
-  if (macAlgorithm != nsISSLSocketControl::SSL_MAC_AEAD) {
+  if (macAlgorithm != nsITLSSocketControl::SSL_MAC_AEAD) {
     LOG3(("Http2Session::ConfirmTLSProfile %p FAILED due to lack of AEAD\n",
           this));
     return SessionError(INADEQUATE_SECURITY);
@@ -4469,7 +4460,7 @@ bool Http2Session::RealJoinConnection(const nsACString& hostname, int32_t port,
   nsresult rv;
   bool isJoined = false;
 
-  nsCOMPtr<nsISSLSocketControl> sslSocketControl;
+  nsCOMPtr<nsITLSSocketControl> sslSocketControl;
   mConnection->GetTLSSocketControl(getter_AddRefs(sslSocketControl));
   if (!sslSocketControl) {
     return false;

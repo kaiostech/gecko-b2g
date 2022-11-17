@@ -426,8 +426,13 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
                             const nsAString& aEncoderOptions,
                             nsIInputStream** aStream) override;
 
+  already_AddRefed<mozilla::gfx::SourceSurface> GetOptimizedSnapshot(
+      mozilla::gfx::DrawTarget* aTarget, gfxAlphaType* aOutAlphaType) override;
+
   already_AddRefed<mozilla::gfx::SourceSurface> GetSurfaceSnapshot(
-      gfxAlphaType* aOutAlphaType = nullptr) override;
+      gfxAlphaType* aOutAlphaType = nullptr) override {
+    return GetOptimizedSnapshot(nullptr, aOutAlphaType);
+  }
 
   virtual void SetOpaqueValueFromOpaqueAttr(bool aOpaqueAttrValue) override;
   bool GetIsOpaque() override { return mOpaque; }
@@ -617,6 +622,8 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
    */
   bool EnsureTarget(const gfx::Rect* aCoveredRect = nullptr,
                     bool aWillClear = false);
+  // Attempt to borrow a new target from an existing buffer provider.
+  bool BorrowTarget(const gfx::IntRect& aPersistedRect, bool aNeedsClear);
 
   void RestoreClipsAndTransformToTarget();
 

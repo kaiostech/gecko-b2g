@@ -1347,6 +1347,42 @@ void CanvasRenderingContext2D::RestoreClipsAndTransformToTarget() {
   mClipsNeedConverting = false;
 }
 
+bool CanvasRenderingContext2D::BorrowTarget(const IntRect& aPersistedRect,
+                                            bool aNeedsClear) {
+  if (!mBufferProvider || mBufferProvider->RequiresRefresh()) {
+    return false;
+  }
+  mTarget = mBufferProvider->BorrowDrawTarget(aPersistedRect);
+  if (!mTarget || !mTarget->IsValid()) {
+    if (mTarget) {
+      mBufferProvider->ReturnDrawTarget(mTarget.forget());
+    }
+    return false;
+  }
+  if (mBufferNeedsClear) {
+    if (mBufferProvider->PreservesDrawingState()) {
+      // If the buffer provider preserves the clip and transform state, then
+      // we must ensure it is cleared before reusing the target.
+      if (!mTarget->RemoveAllClips()) {
+        mBufferProvider->ReturnDrawTarget(mTarget.forget());
+        return false;
+      }
+      mTarget->SetTransform(Matrix());
+    }
+    // If the canvas was reset, then we need to clear the target in case its
+    // contents was somehow preserved. We only need to clear the target if
+    // the operation doesn't fill the entire canvas.
+    if (aNeedsClear) {
+      mTarget->ClearRect(gfx::Rect(mTarget->GetRect()));
+    }
+  }
+  if (!mBufferProvider->PreservesDrawingState() || mBufferNeedsClear) {
+    RestoreClipsAndTransformToTarget();
+  }
+  mBufferNeedsClear = false;
+  return true;
+}
+
 bool CanvasRenderingContext2D::EnsureTarget(const gfx::Rect* aCoveredRect,
                                             bool aWillClear) {
   if (AlreadyShutDown()) {
@@ -1395,21 +1431,9 @@ bool CanvasRenderingContext2D::EnsureTarget(const gfx::Rect* aCoveredRect,
                               ? IntRect()
                               : IntRect(0, 0, mWidth, mHeight);
 
-  if (mBufferProvider && !mBufferProvider->RequiresRefresh()) {
-    mTarget = mBufferProvider->BorrowDrawTarget(persistedRect);
-    if (mTarget && mTarget->IsValid()) {
-      // If the canvas was reset, then we need to clear the target in case its
-      // contents was somehow preserved. We only need to clear the target if
-      // the operation doesn't fill the entire canvas.
-      if (mBufferNeedsClear && !canDiscardContent) {
-        mTarget->ClearRect(canvasRect);
-      }
-      if (!mBufferProvider->PreservesDrawingState() || mBufferNeedsClear) {
-        RestoreClipsAndTransformToTarget();
-      }
-      mBufferNeedsClear = false;
-      return true;
-    }
+  // Attempt to reuse the existing buffer provider.
+  if (BorrowTarget(persistedRect, !canDiscardContent)) {
+    return true;
   }
 
   RefPtr<DrawTarget> newTarget;
@@ -1757,10 +1781,7 @@ CanvasRenderingContext2D::InitializeWithDrawTarget(
   mTarget = aTarget;
   mBufferProvider = new PersistentBufferProviderBasic(aTarget);
 
-  if (mTarget->GetBackendType() == gfx::BackendType::CAIRO) {
-    // Cf comment in EnsureTarget
-    mTarget->PushClipRect(gfx::Rect(Point(0, 0), Size(mWidth, mHeight)));
-  }
+  RestoreClipsAndTransformToTarget();
 
   return NS_OK;
 }
@@ -1849,7 +1870,8 @@ CanvasRenderingContext2D::GetInputStream(const char* aMimeType,
 }
 
 already_AddRefed<mozilla::gfx::SourceSurface>
-CanvasRenderingContext2D::GetSurfaceSnapshot(gfxAlphaType* aOutAlphaType) {
+CanvasRenderingContext2D::GetOptimizedSnapshot(DrawTarget* aTarget,
+                                               gfxAlphaType* aOutAlphaType) {
   if (aOutAlphaType) {
     *aOutAlphaType = (mOpaque ? gfxAlphaType::Opaque : gfxAlphaType::Premult);
   }
@@ -1867,7 +1889,7 @@ CanvasRenderingContext2D::GetSurfaceSnapshot(gfxAlphaType* aOutAlphaType) {
   // The concept of BorrowSnapshot seems a bit broken here, but the original
   // code in GetSurfaceSnapshot just returned a snapshot from mTarget, which
   // amounts to breaking the concept implicitly.
-  RefPtr<SourceSurface> snapshot = mBufferProvider->BorrowSnapshot();
+  RefPtr<SourceSurface> snapshot = mBufferProvider->BorrowSnapshot(aTarget);
   RefPtr<SourceSurface> retSurface = snapshot;
   mBufferProvider->ReturnSnapshot(snapshot.forget());
   return retSurface.forget();

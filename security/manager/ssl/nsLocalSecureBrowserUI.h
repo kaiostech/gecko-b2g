@@ -8,6 +8,7 @@
 
 #include "nsISecureBrowserUI.h"
 #include "nsWeakReference.h"
+#include "mozilla/dom/BrowsingContext.h"
 
 class nsLocalSecureBrowserUI : public nsISecureBrowserUI,
                                public nsSupportsWeakReference {

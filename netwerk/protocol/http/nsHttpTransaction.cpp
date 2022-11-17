@@ -49,7 +49,7 @@
 #include "nsIPipe.h"
 #include "nsIRequestContext.h"
 #include "nsISeekableStream.h"
-#include "nsISSLSocketControl.h"
+#include "nsITLSSocketControl.h"
 #include "nsIThrottledInputChannel.h"
 #include "nsITransport.h"
 #include "nsMultiplexInputStream.h"
@@ -744,10 +744,12 @@ nsresult nsHttpTransaction::ReadSegments(nsAHttpSegmentReader* reader,
 
   if (!mConnected && !m0RTTInProgress) {
     mConnected = true;
-    nsCOMPtr<nsISSLSocketControl> tlsSocketControl;
+    nsCOMPtr<nsITLSSocketControl> tlsSocketControl;
     mConnection->GetTLSSocketControl(getter_AddRefs(tlsSocketControl));
-    MutexAutoLock lock(mLock);
-    mTLSSocketControl = tlsSocketControl;
+    if (tlsSocketControl) {
+      MutexAutoLock lock(mLock);
+      tlsSocketControl->GetSecurityInfo(getter_AddRefs(mSecurityInfo));
+    }
   }
 
   mDeferredSendProgress = false;
@@ -989,9 +991,7 @@ bool nsHttpTransaction::DataSentToChildProcess() { return false; }
 
 already_AddRefed<nsITransportSecurityInfo> nsHttpTransaction::SecurityInfo() {
   MutexAutoLock lock(mLock);
-  nsCOMPtr<nsITransportSecurityInfo> securityInfo(
-      do_QueryInterface(mTLSSocketControl));
-  return securityInfo.forget();
+  return do_AddRef(mSecurityInfo);
 }
 
 bool nsHttpTransaction::HasStickyConnection() const {
@@ -1232,7 +1232,7 @@ void nsHttpTransaction::PrepareConnInfoForRetry(nsresult aReason) {
     LOG((" Got SSL_ERROR_ECH_RETRY_WITH_ECH, use retry echConfig"));
     MOZ_ASSERT(mConnection);
 
-    nsCOMPtr<nsISSLSocketControl> socketControl;
+    nsCOMPtr<nsITLSSocketControl> socketControl;
     if (mConnection) {
       mConnection->GetTLSSocketControl(getter_AddRefs(socketControl));
     }
@@ -1333,19 +1333,16 @@ bool nsHttpTransaction::ShouldRestartOn0RttError(nsresult reason) {
          mEarlyDataWasAvailable && SecurityErrorThatMayNeedRestart(reason);
 }
 
-static void MaybeRemoveSSLToken(nsISSLSocketControl* aSocketControl) {
+static void MaybeRemoveSSLToken(nsITransportSecurityInfo* aSecurityInfo) {
   if (!StaticPrefs::
           network_http_remove_resumption_token_when_early_data_failed()) {
     return;
   }
-
-  nsCOMPtr<nsITransportSecurityInfo> info(do_QueryInterface(aSocketControl));
-  if (!info) {
+  if (!aSecurityInfo) {
     return;
   }
-
   nsAutoCString key;
-  info->GetPeerId(key);
+  aSecurityInfo->GetPeerId(key);
   nsresult rv = SSLTokensCache::RemoveAll(key);
   LOG(("RemoveSSLToken [key=%s, rv=%" PRIx32 "]", key.get(),
        static_cast<uint32_t>(rv)));
@@ -1413,10 +1410,12 @@ void nsHttpTransaction::Close(nsresult reason) {
     isHttp2or3 = mConnection->Version() >= HttpVersion::v2_0;
     if (!mConnected) {
       // Try to get TLSSocketControl for this transaction.
-      nsCOMPtr<nsISSLSocketControl> tlsSocketControl;
+      nsCOMPtr<nsITLSSocketControl> tlsSocketControl;
       mConnection->GetTLSSocketControl(getter_AddRefs(tlsSocketControl));
-      MutexAutoLock lock(mLock);
-      mTLSSocketControl = tlsSocketControl;
+      if (tlsSocketControl) {
+        MutexAutoLock lock(mLock);
+        tlsSocketControl->GetSecurityInfo(getter_AddRefs(mSecurityInfo));
+      }
     }
   }
   mConnected = false;
@@ -1781,13 +1780,14 @@ nsresult nsHttpTransaction::Restart() {
   if (seekable) seekable->Seek(nsISeekableStream::NS_SEEK_SET, 0);
 
   if (mDoNotTryEarlyData) {
-    MaybeRemoveSSLToken(mTLSSocketControl);
+    MutexAutoLock lock(mLock);
+    MaybeRemoveSSLToken(mSecurityInfo);
   }
 
   // clear old connection state...
   {
     MutexAutoLock lock(mLock);
-    mTLSSocketControl = nullptr;
+    mSecurityInfo = nullptr;
   }
 
   if (mConnection) {
@@ -2989,10 +2989,12 @@ nsresult nsHttpTransaction::Finish0RTT(bool aRestart,
   } else if (!mConnected) {
     // this is code that was skipped in ::ReadSegments while in 0RTT
     mConnected = true;
-    nsCOMPtr<nsISSLSocketControl> tlsSocketControl;
+    nsCOMPtr<nsITLSSocketControl> tlsSocketControl;
     mConnection->GetTLSSocketControl(getter_AddRefs(tlsSocketControl));
-    MutexAutoLock lock(mLock);
-    mTLSSocketControl = tlsSocketControl;
+    if (tlsSocketControl) {
+      MutexAutoLock lock(mLock);
+      tlsSocketControl->GetSecurityInfo(getter_AddRefs(mSecurityInfo));
+    }
   }
   return NS_OK;
 }
@@ -3114,7 +3116,7 @@ void nsHttpTransaction::NotifyTransactionObserver(nsresult reason) {
                  ((mConnection->Version() == HttpVersion::v2_0) ||
                   (mConnection->Version() == HttpVersion::v3_0)));
 
-    nsCOMPtr<nsISSLSocketControl> socketControl;
+    nsCOMPtr<nsITLSSocketControl> socketControl;
     mConnection->GetTLSSocketControl(getter_AddRefs(socketControl));
     LOG(
         ("nsHttpTransaction::NotifyTransactionObserver"

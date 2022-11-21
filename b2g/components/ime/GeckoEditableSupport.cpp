@@ -821,8 +821,8 @@ void GeckoEditableSupport::HandleInputPositionChange() {
     return;
   }
   presShell->ScrollContentIntoView(
-      ele, ScrollAxis(kScrollMinimum, WhenToScroll::IfNotFullyVisible),
-      ScrollAxis(kScrollMinimum, WhenToScroll::IfNotFullyVisible),
+      ele, ScrollAxis(WhereToScroll::Nearest, WhenToScroll::IfNotFullyVisible),
+      ScrollAxis(WhereToScroll::Nearest, WhenToScroll::IfNotFullyVisible),
       ScrollFlags::ScrollOverflowHidden);
 }
 

@@ -2118,6 +2118,12 @@
   value: false
   mirror: always
 
+# Whether CanvasRenderingContext2D.mozTextStyle is enabled.
+- name: dom.mozTextStyle.enabled
+  type: bool
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
 # Allow cut/copy
 - name: dom.allow_cut_copy
   type: bool
@@ -6000,6 +6006,11 @@
   value: true
   mirror: always
 
+- name: gfx.direct2d.target-independent-rasterization.disabled
+  type: bool
+  value: false
+  mirror: once
+
 - name: gfx.direct3d11.reuse-decoder-device
   type: bool
   value: true
@@ -6123,6 +6134,16 @@
   value: false
 #endif
   mirror: once
+
+# [Android] OPPO, realme and OnePlus device seem to crash when using Font
+# Match API. We turn off this feature on these devices. Set true if you want to
+# turn on it at force.
+#if defined(MOZ_WIDGET_ANDROID)
+- name: gfx.font-list.use_font_match_api.force-enabled
+  type: bool
+  value: false
+  mirror: once
+#endif
 
 # Whether to load fonts (e.g. Twemoji Mozilla) bundled with the application:
 #  -1 - Auto behavior based on OS version (currently, disables loading on
@@ -8217,7 +8238,7 @@
 # Whether Container Queries are enabled
 - name: layout.css.container-queries.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -11087,6 +11108,14 @@
   value: 120
   mirror: always
 
+# For lax-by-default cookies ignore cross-site redirects when the final
+# redirect is same-site again.
+# https://github.com/httpwg/http-extensions/issues/2104
+- name: network.cookie.sameSite.laxByDefault.allowBoomerangRedirect
+  type: bool
+  value: true
+  mirror: always
+
 - name: network.cookie.sameSite.noneRequiresSecure
   type: bool
   value: @IS_EARLY_BETA_OR_EARLIER@
@@ -11645,7 +11674,7 @@
 # If true, only use the token once
 - name: network.ssl_tokens_cache_use_only_once
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # The maximum allowed length for a URL - 1MB default.
@@ -13281,7 +13310,7 @@
 # WebAuthn CTAP2 support
 - name: security.webauthn.ctap2
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Block Worker/SharedWorker scripts with wrong MIME type.
@@ -13606,7 +13635,7 @@
 
 - name: security.ssl3.ecdhe_ecdsa_aes_128_sha
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 - name: security.ssl3.ecdhe_rsa_aes_256_sha
@@ -13616,7 +13645,7 @@
 
 - name: security.ssl3.ecdhe_ecdsa_aes_256_sha
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 - name: security.ssl3.dhe_rsa_aes_128_sha

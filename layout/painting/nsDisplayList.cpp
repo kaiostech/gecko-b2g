@@ -3113,8 +3113,9 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
   if (!aBackgroundOriginRect.IsEmpty()) {
     bgOriginRect = aBackgroundOriginRect;
   }
-  nsPresContext* presContext = aFrame->PresContext();
-  bool isThemed = aFrame->IsThemed();
+  const auto appearance = aFrame->StyleDisplay()->EffectiveAppearance();
+  const bool isThemed =
+      appearance != StyleAppearance::None && aFrame->IsThemed();
   nsIFrame* dependentFrame = nullptr;
   if (!isThemed) {
     if (!bgSC) {
@@ -3136,7 +3137,8 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
   nscolor color = NS_RGBA(0, 0, 0, 0);
   if (bg && !(aFrame->IsCanvasFrame() || aFrame->IsViewportFrame())) {
     color = nsCSSRendering::DetermineBackgroundColor(
-        presContext, bgSC, aFrame, drawBackgroundImage, drawBackgroundColor);
+        aFrame->PresContext(), bgSC, aFrame, drawBackgroundImage,
+        drawBackgroundColor);
   }
 
   if (SpecialCutoutRegionCase(aBuilder, aFrame, aBackgroundRect, aList,
@@ -3207,21 +3209,30 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
     }
   }
 
-  if (isThemed) {
-    nsDisplayThemedBackground* bgItem = CreateThemedBackground(
-        aBuilder, aFrame, aSecondaryReferenceFrame, bgRect);
-
-    if (bgItem) {
-      bgItem->Init(aBuilder);
-      bgItemList.AppendToTop(bgItem);
+  // Check for frames that are marked as a part of the region used in
+  // calculating glass margins on Windows.
+  if (appearance != StyleAppearance::None) {
+    if (appearance == StyleAppearance::MozWinExcludeGlass) {
+      aBuilder->AddWindowExcludeGlassRegion(
+          aFrame,
+          nsRect(aBuilder->ToReferenceFrame(aFrame), aFrame->GetSize()));
     }
+    if (isThemed) {
+      nsDisplayThemedBackground* bgItem = CreateThemedBackground(
+          aBuilder, aFrame, aSecondaryReferenceFrame, bgRect);
 
-    if (!bgItemList.IsEmpty()) {
-      aList->AppendToTop(&bgItemList);
-      return AppendedBackgroundType::ThemedBackground;
+      if (bgItem) {
+        bgItem->Init(aBuilder);
+        bgItemList.AppendToTop(bgItem);
+      }
+
+      if (!bgItemList.IsEmpty()) {
+        aList->AppendToTop(&bgItemList);
+        return AppendedBackgroundType::ThemedBackground;
+      }
+
+      return AppendedBackgroundType::None;
     }
-
-    return AppendedBackgroundType::None;
   }
 
   if (!bg || !drawBackgroundImage) {

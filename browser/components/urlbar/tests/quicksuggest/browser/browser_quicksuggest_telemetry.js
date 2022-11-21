@@ -64,21 +64,9 @@ add_setup(async function() {
   Services.telemetry.clearEvents();
 
   // Add a mock engine so we don't hit the network.
-  await SearchTestUtils.installSearchExtension();
-  let oldDefaultEngine = await Services.search.getDefault();
-  Services.search.setDefault(
-    Services.search.getEngineByName("Example"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchTestUtils.installSearchExtension({}, { setAsDefault: true });
 
   await QuickSuggestTestUtils.ensureQuickSuggestInit(SUGGESTIONS);
-
-  registerCleanupFunction(() => {
-    Services.search.setDefault(
-      oldDefaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-    );
-  });
 });
 
 /**
@@ -1591,9 +1579,9 @@ async function withSuggestions(callback) {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.urlbar.suggest.searches", true]],
   });
-  let engine = await SearchTestUtils.promiseNewSearchEngine(
-    getRootDirectory(gTestPath) + "searchSuggestionEngine.xml"
-  );
+  let engine = await SearchTestUtils.promiseNewSearchEngine({
+    url: getRootDirectory(gTestPath) + "searchSuggestionEngine.xml",
+  });
   let oldDefaultEngine = await Services.search.getDefault();
   await Services.search.setDefault(
     engine,

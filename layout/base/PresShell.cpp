@@ -3076,6 +3076,12 @@ void PresShell::ShadowRootWillBeAttached(Element& aElement) {
     }
   }
 
+#ifdef ACCESSIBILITY
+  if (nsAccessibilityService* accService = GetAccService()) {
+    accService->ScheduleAccessibilitySubtreeUpdate(this, &aElement);
+  }
+#endif
+
   --mChangeNestCount;
 }
 
@@ -3253,7 +3259,8 @@ nsresult PresShell::GoToAnchor(const nsAString& aAnchorName, bool aScroll,
       // smooth scroll for `top` regardless below, so maybe they should!).
       ScrollingInteractionContext scrollToAnchorContext(true);
       MOZ_TRY(ScrollContentIntoView(
-          target, ScrollAxis(kScrollToTop, WhenToScroll::Always), ScrollAxis(),
+          target, ScrollAxis(WhereToScroll::Start, WhenToScroll::Always),
+          ScrollAxis(),
           ScrollFlags::AnchorScrollFlags | aAdditionalScrollFlags));
 
       if (nsIScrollableFrame* rootScroll = GetRootScrollFrameAsScrollable()) {
@@ -3332,7 +3339,7 @@ nsresult PresShell::GoToAnchor(const nsAString& aAnchorName, bool aScroll,
     }
 
 #ifdef ACCESSIBILITY
-    if (nsAccessibilityService* accService = GetAccessibilityService()) {
+    if (nsAccessibilityService* accService = GetAccService()) {
       accService->NotifyOfAnchorJumpTo(target);
     }
 #endif
@@ -3366,9 +3373,9 @@ nsresult PresShell::ScrollToAnchor() {
       mLastAnchorScrollPositionY != rootScroll->GetScrollPosition().y) {
     return NS_OK;
   }
-  return ScrollContentIntoView(lastAnchor,
-                               ScrollAxis(kScrollToTop, WhenToScroll::Always),
-                               ScrollAxis(), ScrollFlags::AnchorScrollFlags);
+  return ScrollContentIntoView(
+      lastAnchor, ScrollAxis(WhereToScroll::Start, WhenToScroll::Always),
+      ScrollAxis(), ScrollFlags::AnchorScrollFlags);
 }
 
 /*
@@ -3469,7 +3476,7 @@ static nscoord ComputeWhereToScroll(WhereToScroll aWhereToScroll,
                                     nscoord* aRangeMax) {
   nscoord resultCoord = aOriginalCoord;
   nscoord scrollPortLength = aViewMax - aViewMin;
-  if (kScrollMinimum == aWhereToScroll) {
+  if (!aWhereToScroll.mPercentage) {
     // Scroll the minimum amount necessary to show as much as possible of the
     // frame. If the frame is too large, don't hide any initially visible part
     // of it.
@@ -3477,10 +3484,10 @@ static nscoord ComputeWhereToScroll(WhereToScroll aWhereToScroll,
     nscoord max = std::max(aRectMin, aRectMax - scrollPortLength);
     resultCoord = std::min(std::max(aOriginalCoord, min), max);
   } else {
-    nscoord frameAlignCoord = NSToCoordRound(
-        aRectMin + (aRectMax - aRectMin) * (aWhereToScroll / 100.0f));
-    resultCoord = NSToCoordRound(frameAlignCoord -
-                                 scrollPortLength * (aWhereToScroll / 100.0f));
+    float percent = aWhereToScroll.mPercentage.value() / 100.0f;
+    nscoord frameAlignCoord =
+        NSToCoordRound(aRectMin + (aRectMax - aRectMin) * percent);
+    resultCoord = NSToCoordRound(frameAlignCoord - scrollPortLength * percent);
   }
   // Force the scroll range to extend to include resultCoord.
   *aRangeMin = std::min(resultCoord, aRectMax - scrollPortLength);
@@ -3506,11 +3513,11 @@ static WhereToScroll GetApplicableWhereToScroll(
     case StyleScrollSnapAlignKeyword::None:
       return aOriginal;
     case StyleScrollSnapAlignKeyword::Start:
-      return kScrollToTop;
+      return WhereToScroll::Start;
     case StyleScrollSnapAlignKeyword::Center:
-      return kScrollToCenter;
+      return WhereToScroll::Center;
     case StyleScrollSnapAlignKeyword::End:
-      return kScrollToBottom;
+      return WhereToScroll::End;
   }
   return aOriginal;
 }
@@ -5644,8 +5651,7 @@ void PresShell::SetRenderingState(const RenderingState& aState) {
   mRenderingStateFlags = aState.mRenderingStateFlags;
   mResolution = aState.mResolution;
 #ifdef ACCESSIBILITY
-  if (nsAccessibilityService* accService =
-          PresShell::GetAccessibilityService()) {
+  if (nsAccessibilityService* accService = GetAccService()) {
     accService->NotifyOfResolutionChange(this, GetResolution());
   }
 #endif
@@ -9080,12 +9086,12 @@ bool PresShell::EventHandler::PrepareToUseCaretPosition(
     // problem. The only difference in the result is that if your cursor is in
     // an edit box below the current view, you'll get the edit box aligned with
     // the top of the window. This is arguably better behavior anyway.
-    rv =
-        MOZ_KnownLive(mPresShell)
-            ->ScrollContentIntoView(
-                content, ScrollAxis(kScrollMinimum, WhenToScroll::IfNotVisible),
-                ScrollAxis(kScrollMinimum, WhenToScroll::IfNotVisible),
-                ScrollFlags::ScrollOverflowHidden);
+    rv = MOZ_KnownLive(mPresShell)
+             ->ScrollContentIntoView(
+                 content,
+                 ScrollAxis(WhereToScroll::Nearest, WhenToScroll::IfNotVisible),
+                 ScrollAxis(WhereToScroll::Nearest, WhenToScroll::IfNotVisible),
+                 ScrollFlags::ScrollOverflowHidden);
     NS_ENSURE_SUCCESS(rv, false);
     frame = content->GetPrimaryFrame();
     NS_WARNING_ASSERTION(frame, "No frame for focused content?");
@@ -10921,18 +10927,6 @@ nsIFrame* PresShell::GetAbsoluteContainingBlock(nsIFrame* aFrame) {
       aFrame, nsCSSFrameConstructor::ABS_POS);
 }
 
-#ifdef ACCESSIBILITY
-
-// static
-bool PresShell::IsAccessibilityActive() { return GetAccService() != nullptr; }
-
-// static
-nsAccessibilityService* PresShell::GetAccessibilityService() {
-  return GetAccService();
-}
-
-#endif  // #ifdef ACCESSIBILITY
-
 void PresShell::ActivenessMaybeChanged() {
   if (!mDocument) {
     return;
@@ -11075,7 +11069,7 @@ void PresShell::SetIsActive(bool aIsActive, bool aIsInActiveTab) {
 
   if (aIsActive) {
 #ifdef ACCESSIBILITY
-    if (nsAccessibilityService* accService = GetAccessibilityService()) {
+    if (nsAccessibilityService* accService = GetAccService()) {
       accService->PresShellActivated(this);
     }
 #endif

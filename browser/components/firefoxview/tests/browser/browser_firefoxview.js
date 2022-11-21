@@ -11,16 +11,8 @@ add_task(async function about_firefoxview_smoke_test() {
       "tab-pickup-container element exists"
     );
     ok(
-      document.getElementById("colorways-active-collection-template"),
-      "colorways-active-collection-template element exists"
-    );
-    ok(
       document.getElementById("recently-closed-tabs-container"),
       "recently-closed-tabs-container element exists"
-    );
-    ok(
-      document.getElementById("colorways-no-collection-template"),
-      "colorways-no-collection-template element exists"
     );
   });
 });

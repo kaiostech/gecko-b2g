@@ -6838,8 +6838,7 @@ void nsCSSFrameConstructor::ContentAppended(nsIContent* aFirstNewContent,
 #endif
 
 #ifdef ACCESSIBILITY
-  if (nsAccessibilityService* accService =
-          PresShell::GetAccessibilityService()) {
+  if (nsAccessibilityService* accService = GetAccService()) {
     accService->ContentRangeInserted(mPresShell, aFirstNewContent, nullptr);
   }
 #endif
@@ -6942,8 +6941,7 @@ void nsCSSFrameConstructor::ContentRangeInserted(nsIContent* aStartChild,
     }
 
 #ifdef ACCESSIBILITY
-    if (nsAccessibilityService* accService =
-            PresShell::GetAccessibilityService()) {
+    if (nsAccessibilityService* accService = GetAccService()) {
       accService->ContentRangeInserted(mPresShell, aStartChild, aEndChild);
     }
 #endif
@@ -7341,8 +7339,7 @@ void nsCSSFrameConstructor::ContentRangeInserted(nsIContent* aStartChild,
 #endif
 
 #ifdef ACCESSIBILITY
-  if (nsAccessibilityService* accService =
-          PresShell::GetAccessibilityService()) {
+  if (nsAccessibilityService* accService = GetAccService()) {
     accService->ContentRangeInserted(mPresShell, aStartChild, aEndChild);
   }
 #endif
@@ -7527,8 +7524,7 @@ bool nsCSSFrameConstructor::ContentRemoved(nsIContent* aChild,
 
 #ifdef ACCESSIBILITY
     if (aFlags != REMOVE_FOR_RECONSTRUCTION) {
-      if (nsAccessibilityService* accService =
-              PresShell::GetAccessibilityService()) {
+      if (nsAccessibilityService* accService = GetAccService()) {
         accService->ContentRemoved(mPresShell, aChild);
       }
     }
@@ -9821,8 +9817,7 @@ void nsCSSFrameConstructor::ProcessChildren(
           MOZ_ASSERT(listItem->HasAnyStateBits(
                          NS_BLOCK_FRAME_HAS_OUTSIDE_MARKER) == isOutsideMarker);
 #ifdef ACCESSIBILITY
-          if (nsAccessibilityService* accService =
-                  PresShell::GetAccessibilityService()) {
+          if (nsAccessibilityService* accService = GetAccService()) {
             auto* marker = markerFrame->GetContent();
             accService->ContentRangeInserted(mPresShell, marker, nullptr);
           }

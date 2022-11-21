@@ -401,7 +401,6 @@ uint64_t LocalAccessible::NativeState() const {
     }
 
     state |= NativeInteractiveState();
-    if (FocusMgr()->IsFocused(this)) state |= states::FOCUSED;
   }
 
   // Gather states::INVISIBLE and states::OFFSCREEN flags for this object.
@@ -1641,7 +1640,9 @@ void LocalAccessible::Value(nsString& aValue) const {
       }
     }
 
-    if (option) nsTextEquivUtils::GetTextEquivFromSubtree(option, aValue);
+    // If there's a selected item, get the value from it. Otherwise, determine
+    // the value from descendant elements.
+    nsTextEquivUtils::GetTextEquivFromSubtree(option ? option : this, aValue);
   }
 }
 

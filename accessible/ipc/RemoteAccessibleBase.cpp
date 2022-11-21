@@ -267,6 +267,9 @@ void RemoteAccessibleBase<Derived>::Value(nsString& aValue) const {
           const_cast<RemoteAccessibleBase<Derived>*>(this)->GetSelectedItem(0);
       if (option) {
         option->Name(aValue);
+      } else {
+        // If no selected item, determine the value from descendant elements.
+        nsTextEquivUtils::GetTextEquivFromSubtree(this, aValue);
       }
       return;
     }
@@ -1095,13 +1098,6 @@ uint64_t RemoteAccessibleBase<Derived>::State() {
       }
       if (state & states::EXPANDABLE && !(state & states::EXPANDED)) {
         state |= states::COLLAPSED;
-      }
-    }
-
-    auto* browser = static_cast<dom::BrowserParent*>(Document()->Manager());
-    if (browser == dom::BrowserParent::GetFocused()) {
-      if (this == Document()->GetFocusedAcc()) {
-        state |= states::FOCUSED;
       }
     }
 

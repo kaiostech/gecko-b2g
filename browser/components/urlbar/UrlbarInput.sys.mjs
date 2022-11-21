@@ -84,6 +84,9 @@ export class UrlbarInput {
                         role="listbox"/>
             </html:div>
           </html:div>
+          <menupopup class="urlbarView-result-menu">
+            <menuitem label="test" data-command="test"/>
+          </menupopup>
           <hbox class="search-one-offs"
                 includecurrentengine="true"
                 disabletab="true"/>
@@ -799,6 +802,7 @@ export class UrlbarInput {
    * @param {DOMElement} element the picked view element, if available.
    * @param {object} browser The browser to use for the load.
    */
+  // eslint-disable-next-line complexity
   pickResult(
     result,
     event,
@@ -818,6 +822,11 @@ export class UrlbarInput {
     ) {
       this.confirmSearchMode();
       this.search(this.value);
+      return;
+    }
+
+    if (element?.classList.contains("urlbarView-button-menu")) {
+      this.view.openResultMenu(result, element);
       return;
     }
 
@@ -2222,14 +2231,14 @@ export class UrlbarInput {
    * related to the input text directionality. Overflow fade masks use these
    * attributes to appear at the proper side of the urlbar.
    */
-  _updateTextOverflow() {
+  updateTextOverflow() {
     if (!this._overflowing) {
       this.removeAttribute("textoverflow");
       return;
     }
 
     let isRTL =
-      this.getAttribute("domaindir") != "ltr" &&
+      this.getAttribute("domaindir") === "rtl" &&
       this._checkForRtlText(this.value);
 
     this.window.promiseDocumentFlushed(() => {
@@ -3324,7 +3333,7 @@ export class UrlbarInput {
       return;
     }
     this._overflowing = true;
-    this._updateTextOverflow();
+    this.updateTextOverflow();
   }
 
   _on_underflow(event) {
@@ -3337,7 +3346,7 @@ export class UrlbarInput {
     }
     this._overflowing = false;
 
-    this._updateTextOverflow();
+    this.updateTextOverflow();
 
     this._updateUrlTooltip();
   }
@@ -3401,7 +3410,7 @@ export class UrlbarInput {
   }
 
   _on_scrollend(event) {
-    this._updateTextOverflow();
+    this.updateTextOverflow();
   }
 
   _on_TabSelect(event) {

@@ -139,10 +139,19 @@ label html|span.accesskey {
   text-decoration-skip-ink: none;
 }
 
-label[value],
-description[value] {
+description:where([value]) {
   /* Preserves legacy behavior, maybe could be removed */
   display: -moz-box;
+}
+
+label:where([value]) {
+  /* Preserves legacy behavior, maybe could be removed */
+  display: -moz-inline-box;
+}
+
+label[value],
+description[value] {
+  white-space: nowrap;
 }
 
 label[value][crop],
@@ -156,7 +165,10 @@ description[value]::before {
    * accesskey if needed */
   content: -moz-label-content;
   display: block;
-  white-space: nowrap;
+}
+
+label[value=""]::before {
+  content: "\200B"; /* zwsp */
 }
 
 label[value][crop]::before,
@@ -184,6 +196,10 @@ description[value]:is([crop="left"], [crop="start"]):-moz-locale-dir(rtl)::befor
 }
 
 /********** toolbarbutton **********/
+
+toolbarbutton[crop] {
+  min-width: 0;
+}
 
 toolbar[mode="icons"] .toolbarbutton-text,
 toolbar[mode="text"] .toolbarbutton-icon,

@@ -1446,16 +1446,12 @@ void nsIFrame::HandleLastRememberedSize() {
   if (!canRememberISize) {
     element->RemoveLastRememberedISize();
   }
-  if (canRememberBSize || canRememberISize) {
-    const auto containAxes = GetContainSizeAxes();
-    if ((canRememberBSize && !containAxes.mBContained) ||
-        (canRememberISize && !containAxes.mIContained)) {
-      bool isNonReplacedInline = IsFrameOfType(nsIFrame::eLineParticipant) &&
-                                 !IsFrameOfType(nsIFrame::eReplaced);
-      if (!isNonReplacedInline) {
-        PresContext()->Document()->ObserveForLastRememberedSize(*element);
-        return;
-      }
+  if ((canRememberBSize || canRememberISize) && !HidesContent()) {
+    bool isNonReplacedInline = IsFrameOfType(nsIFrame::eLineParticipant) &&
+                               !IsFrameOfType(nsIFrame::eReplaced);
+    if (!isNonReplacedInline) {
+      PresContext()->Document()->ObserveForLastRememberedSize(*element);
+      return;
     }
   }
   PresContext()->Document()->UnobserveForLastRememberedSize(*element);
@@ -6768,8 +6764,7 @@ void nsIFrame::DidReflow(nsPresContext* aPresContext,
   aPresContext->ReflowedFrame();
 
 #ifdef ACCESSIBILITY
-  if (nsAccessibilityService* accService =
-          PresShell::GetAccessibilityService()) {
+  if (nsAccessibilityService* accService = GetAccService()) {
     accService->NotifyOfPossibleBoundsChange(PresShell(), mContent);
   }
 #endif

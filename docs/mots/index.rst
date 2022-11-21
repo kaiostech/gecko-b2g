@@ -398,7 +398,7 @@ Core: Cookies
     * - Owner(s) Emeritus
       - Monica Chew
     * - Peer(s) Emeritus
-      - Josh Matthews, Mike Connor, Dan Witte, Christian Biesinger, Shawn Wilsher (ping on irc), Ehsan Akhgari
+      - Josh Matthews, Mike Connor, Dan Witte, Christian Biesinger, Shawn Wilsher, Ehsan Akhgari
     * - Includes
       -
         | `netwerk/cookie/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=netwerk/cookie/\*\*/\*>`__
@@ -1553,7 +1553,7 @@ Core: Permissions
     * - Owner(s) Emeritus
       - Monica Chew, Ehsan Akhgari
     * - Peer(s) Emeritus
-      - Josh Matthews, Mike Connor, Dan Witte, Christian Biesinger, Shawn Wilsher (ping on irc), Honza Bambas
+      - Josh Matthews, Mike Connor, Dan Witte, Christian Biesinger, Shawn Wilsher, Honza Bambas
     * - Includes
       -
         | `extensions/permissions/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=extensions/permissions/\*\*/\*>`__
@@ -3297,6 +3297,29 @@ Configuration-driven script harness.
         | `testing/mozharness/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=testing/mozharness/\*\*/\*>`__
     * - Bugzilla Components
       - Release Engineering :: Applications: MozharnessCore
+
+Python usage, tools, and style
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Aspects of Python use such as tooling, formatting and naming style
+
+
+.. list-table::
+    :stub-columns: 1
+    :widths: 30 70
+
+    * - Owner(s)
+      -
+        | `Andrew Halberstadt (ahal) <https://people.mozilla.org/s?query=ahal>`__
+    * - Peer(s)
+      -
+        | `Mike Hommey (glandium) <https://people.mozilla.org/s?query=glandium>`__
+        | `Marco Castelluccio (marco) <https://people.mozilla.org/s?query=marco>`__
+        | `Sylvestre Ledru (Sylvestre) <https://people.mozilla.org/s?query=Sylvestre>`__
+    * - Includes
+      -
+        | `tools/lint/python/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=tools/lint/python/\*\*/\*>`__
+    * - Bugzilla Components
+      - Developer Infrastructure :: Lint and Formatting
 
 firefox-ui
 ~~~~~~~~~~

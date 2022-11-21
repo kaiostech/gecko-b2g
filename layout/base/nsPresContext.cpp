@@ -1032,6 +1032,8 @@ bool nsPresContext::UpdateContainerQueryStyles() {
     return false;
   }
 
+  AUTO_PROFILER_MARKER_TEXT("UpdateContainerQueryStyles", LAYOUT, {}, ""_ns);
+
   PresShell()->DoFlushLayout(/* aInterruptible = */ false);
 
   bool anyChanged = false;
@@ -2608,12 +2610,6 @@ nsIFrame* nsPresContext::GetPrimaryFrameFor(nsIContent* aContent) {
 size_t nsPresContext::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const {
   // Measurement may be added later if DMD finds it is worthwhile.
   return 0;
-}
-
-bool nsPresContext::IsRootContentDocument() const {
-  // Default to the in process version for now, but we should try
-  // to remove callers of this.
-  return IsRootContentDocumentInProcess();
 }
 
 bool nsPresContext::IsRootContentDocumentInProcess() const {

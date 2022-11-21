@@ -28,11 +28,10 @@ ChromeUtils.defineModuleGetter(
 const { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
 );
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "Assert",
-  "resource://testing-common/Assert.jsm"
-);
+ChromeUtils.defineESModuleGetters(lazy, {
+  Assert: "resource://testing-common/Assert.sys.mjs",
+  FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
+});
 ChromeUtils.defineModuleGetter(
   lazy,
   "Extension",
@@ -53,9 +52,6 @@ ChromeUtils.defineModuleGetter(
   "ExtensionPermissions",
   "resource://gre/modules/ExtensionPermissions.jsm"
 );
-ChromeUtils.defineESModuleGetters(lazy, {
-  FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
-});
 ChromeUtils.defineModuleGetter(lazy, "OS", "resource://gre/modules/osfile.jsm");
 
 XPCOMUtils.defineLazyGetter(
@@ -528,7 +524,7 @@ ExtensionTestCommon = class ExtensionTestCommon {
   /**
    * Properly serialize a function into eval-able code string.
    *
-   * @param {function} script
+   * @param {Function} script
    * @returns {string}
    */
   static serializeFunction(script) {
@@ -546,7 +542,7 @@ ExtensionTestCommon = class ExtensionTestCommon {
   /**
    * Properly serialize a script into eval-able code string.
    *
-   * @param {string|function|Array} script
+   * @param {string | Function | Array} script
    * @returns {string}
    */
   static serializeScript(script) {

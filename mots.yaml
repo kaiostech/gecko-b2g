@@ -2,7 +2,7 @@
 ---
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2022-11-15T11:44:13.774494'
+updated_at: '2022-11-18T17:04:04.115932'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -1174,7 +1174,7 @@ modules:
         - Mike Connor
         - Dan Witte
         - Christian Biesinger
-        - Shawn Wilsher (ping on irc)
+        - Shawn Wilsher
         - Ehsan Akhgari
       group: dev-platform
       components:
@@ -2128,7 +2128,7 @@ modules:
         - Mike Connor
         - Dan Witte
         - Christian Biesinger
-        - Shawn Wilsher (ping on irc)
+        - Shawn Wilsher
         - Honza Bambas
       group: dev-platform
       components:
@@ -3391,6 +3391,21 @@ modules:
     meta:
       components:
         - 'Release Engineering :: Applications: MozharnessCore'
+  - machine_name: python_usage
+    name: Python usage, tools, and style
+    description: Aspects of Python use such as tooling, formatting and naming style
+    includes:
+      - tools/lint/python/**/*
+    excludes: []
+    owners:
+      - *ahal
+    peers:
+      - *glandium
+      - *marco
+      - *Sylvestre
+    meta:
+      components:
+        - 'Developer Infrastructure :: Lint and Formatting'
   - machine_name: testing_firefox_ui
     name: firefox-ui
     description: Firefox UI test framework.
@@ -3621,5 +3636,5 @@ modules:
         machine_name: webextensions
     machine_name: toolkit
 hashes:
-  config: f86aab2956ebb04f7f2f579f745069dab34aee15
-  export: 1ea593ebc0fa9aee25618639a12fb73758f50d00
+  config: 0670d0be07bf5f7edc407507949cfec72d31b886
+  export: 58ed67259b377f89de90f03aa354a773a8768e9e

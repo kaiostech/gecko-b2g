@@ -27,7 +27,7 @@ AUR_URL_TEMPLATE = "https://aur.archlinux.org/cgit/aur.git/snapshot/{}.tar.gz"
 class ArchlinuxBootstrapper(LinuxBootstrapper, BaseBootstrapper):
     """Archlinux experimental bootstrapper."""
 
-    SYSTEM_PACKAGES = ["base-devel", "unzip", "zip"]
+    SYSTEM_PACKAGES = ["base-devel", "unzip"]
 
     BROWSER_PACKAGES = [
         "alsa-lib",
@@ -43,10 +43,6 @@ class ArchlinuxBootstrapper(LinuxBootstrapper, BaseBootstrapper):
         "xorg-server-xvfb",
         "gst-libav",
         "gst-plugins-good",
-    ]
-
-    BROWSER_AUR_PACKAGES = [
-        "uuid",
     ]
 
     MOBILE_ANDROID_COMMON_PACKAGES = [
@@ -65,7 +61,6 @@ class ArchlinuxBootstrapper(LinuxBootstrapper, BaseBootstrapper):
 
     def install_browser_packages(self, mozconfig_builder, artifact_mode=False):
         # TODO: Figure out what not to install for artifact mode
-        self.aur_install(*self.BROWSER_AUR_PACKAGES)
         self.pacman_install(*self.BROWSER_PACKAGES)
 
     def install_browser_artifact_mode_packages(self, mozconfig_builder):

@@ -108,8 +108,7 @@ void ExternalEngineStateMachine::ChangeStateTo(State aNextState) {
 
 ExternalEngineStateMachine::ExternalEngineStateMachine(
     MediaDecoder* aDecoder, MediaFormatReader* aReader)
-    : MediaDecoderStateMachineBase(aDecoder, aReader),
-      mVideoFrameContainer(aDecoder->GetVideoFrameContainer()) {
+    : MediaDecoderStateMachineBase(aDecoder, aReader) {
   LOG("Created ExternalEngineStateMachine");
   MOZ_ASSERT(mState.IsInitEngine());
 #ifdef MOZ_WMF_MEDIA_ENGINE
@@ -416,11 +415,7 @@ RefPtr<ShutdownPromise> ExternalEngineStateMachine::Shutdown() {
   mVideoDataRequest.DisconnectIfExists();
   mAudioWaitRequest.DisconnectIfExists();
   mVideoWaitRequest.DisconnectIfExists();
-  mBuffered.DisconnectIfConnected();
-  mPlayState.DisconnectIfConnected();
-  mVolume.DisconnectIfConnected();
-  mPreservesPitch.DisconnectIfConnected();
-  mLooping.DisconnectIfConnected();
+
   mDuration.DisconnectAll();
   mCurrentPosition.DisconnectAll();
   // TODO : implement audible check
@@ -744,8 +739,14 @@ void ExternalEngineStateMachine::OnRequestVideo() {
               OnLoadedFirstFrame();
             }
             RunningEngineUpdate(MediaData::Type::VIDEO_DATA);
-            mVideoFrameContainer->SetCurrentFrame(
-                mInfo->mVideo.mDisplay, aVideo->mImage, TimeStamp::Now());
+            // Send image to PIP window.
+            if (mSecondaryVideoContainer.Ref()) {
+              mSecondaryVideoContainer.Ref()->SetCurrentFrame(
+                  mInfo->mVideo.mDisplay, aVideo->mImage, TimeStamp::Now());
+            } else {
+              mVideoFrameContainer->SetCurrentFrame(
+                  mInfo->mVideo.mDisplay, aVideo->mImage, TimeStamp::Now());
+            }
           },
           [this, self](const MediaResult& aError) {
             mVideoDataRequest.Complete();
@@ -965,6 +966,12 @@ media::TimeUnit ExternalEngineStateMachine::GetVideoThreshold() {
     return state->GetTargetTime();
   }
   return mCurrentPosition.Ref();
+}
+
+void ExternalEngineStateMachine::UpdateSecondaryVideoContainer() {
+  AssertOnTaskQueue();
+  LOG("UpdateSecondaryVideoContainer=%p", mSecondaryVideoContainer.Ref().get());
+  mOnSecondaryVideoContainerInstalled.Notify(mSecondaryVideoContainer.Ref());
 }
 
 #undef FMT

@@ -279,6 +279,12 @@ var whitelist = [
     file: "resource://gre/localization/en-US/toolkit/about/aboutThirdParty.ftl",
     platforms: ["linux", "macosx"],
   },
+  // Bug 1973834 - referenced by aboutWindowsMessages.html which is only for Windows
+  {
+    file:
+      "resource://gre/localization/en-US/toolkit/about/aboutWindowsMessages.ftl",
+    platforms: ["linux", "macosx"],
+  },
   // Bug 1721741:
   // (The references to these files are dynamically generated, so the test can't
   // find the references)
@@ -805,6 +811,8 @@ function findChromeUrlsFromArray(array, prefix) {
 }
 
 add_task(async function checkAllTheFiles() {
+  TestUtils.assertPackagedBuild();
+
   const libxul = await IOUtils.read(PathUtils.xulLibraryPath);
   findChromeUrlsFromArray(libxul, "chrome://");
   findChromeUrlsFromArray(libxul, "resource://");

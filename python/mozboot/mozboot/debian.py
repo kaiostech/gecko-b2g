@@ -19,8 +19,6 @@ class DebianBootstrapper(LinuxBootstrapper, BaseBootstrapper):
         "libpython3-dev",
         "m4",
         "unzip",
-        "uuid",
-        "zip",
     ]
 
     # These are common packages for building Firefox for Desktop

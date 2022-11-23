@@ -7,30 +7,31 @@
 const EXPORTED_SYMBOLS = ["Screenshot"];
 
 const Screenshot = {
-  get(window) {
+  async get(window) {
     let document = window.document;
+    let browsingContext = window.browsingContext;
+
+    let snapshot = await browsingContext.currentWindowGlobal.drawSnapshot(
+      null /* rect */,
+      1 /* scale */,
+      "rgb(255,255,255)" /* background color */
+    );
 
     let canvas = document.createElementNS(
       "http://www.w3.org/1999/xhtml",
-      "canvas"
+      "html:canvas"
     );
-    let docRect = document.body.getBoundingClientRect();
-    let width = docRect.width;
-    let height = docRect.height;
-
-    // Convert width and height from CSS pixels (potentially fractional)
-    // to device pixels (integer).
-    let scale = window.devicePixelRatio;
-    canvas.setAttribute("width", Math.round(width * scale));
-    canvas.setAttribute("height", Math.round(height * scale));
-
     let context = canvas.getContext("2d");
-    let flags =
-      context.DRAWWINDOW_DRAW_CARET |
-      context.DRAWWINDOW_DRAW_VIEW |
-      context.DRAWWINDOW_USE_WIDGET_LAYERS;
-    context.scale(scale, scale);
-    context.drawWindow(window, 0, 0, width, height, "rgb(255,255,255)", flags);
-    return canvas.mozGetAsFile("screenshot", "image/png");
+    canvas.width = snapshot.width;
+    canvas.height = snapshot.height;
+    context.drawImage(snapshot, 0, 0);
+
+    return new Promise(resolve => {
+      canvas.toBlob(blob => {
+        resolve(blob);
+      });
+
+      snapshot.close();
+    });
   },
 };

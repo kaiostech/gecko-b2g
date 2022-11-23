@@ -21,6 +21,11 @@ document.addEventListener(
     click_action("go-forward", wm.go_forward);
     click_action("close", wm.close_frame);
     click_action("home", wm.go_home);
+
+    document.getElementById("action-screenshot").onclick = async () => {
+      let blob = await window.embedder.takeScreenshot();
+      console.log(`takeScreenshot result: `, blob);
+    };
   },
   { once: true }
 );

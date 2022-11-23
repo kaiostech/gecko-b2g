@@ -298,9 +298,9 @@ XPCOMUtils.defineLazyServiceGetter(
       this.customAccessible = customAccessible;
       this.userIdle = userIdle;
 
-      Services.obs.addObserver(shell_window => {
-        this.shellWindow = shell_window;
-        this.eventDocument = shell_window.document;
+      Services.obs.addObserver(shellWindow => {
+        this.shellWindow = shellWindow;
+        this.eventDocument = shellWindow.document;
         this.dispatchEvent(new CustomEvent("runtime-ready"));
       }, "shell-ready");
 
@@ -599,12 +599,12 @@ XPCOMUtils.defineLazyServiceGetter(
       return AppConstants.platform === "gonk";
     }
 
-    takeScreenshot() {
+    async takeScreenshot() {
       _webembed_log(`takeScreenshot`);
       try {
-        let file = lazy.Screenshot.get(this.shellWindow);
-        _webembed_log(`takeScreenshot success and the file size: ${file.size}`);
-        return file;
+        let blob = await lazy.Screenshot.get(this.shellWindow);
+        _webembed_log(`takeScreenshot success with blob size: ${blob.size}`);
+        return blob;
       } catch (e) {
         _webembed_log(`takeScreenshot error: ${e}`);
         return null;

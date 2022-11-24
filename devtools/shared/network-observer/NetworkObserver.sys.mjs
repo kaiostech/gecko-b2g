@@ -24,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://devtools/shared/network-observer/NetworkThrottleManager.sys.mjs",
   NetworkUtils:
     "resource://devtools/shared/network-observer/NetworkUtils.sys.mjs",
+  wildcardToRegExp:
+    "resource://devtools/shared/network-observer/WildcardToRegexp.sys.mjs",
 });
 
 const gActivityDistributor = Cc[
@@ -93,11 +95,11 @@ const HTTP_DOWNLOAD_ACTIVITIES = [
  */
 export class NetworkObserver {
   /**
-   * Array of URL-like patterns used for request blocking.
+   * Map of URL patterns to RegExp
    *
-   * @type {Array<string>}
+   * @type {Map}
    */
-  #blockedURLs = [];
+  #blockedURLs = new Map();
   /**
    * Used by NetworkHelper.parseSecurityInfo to skip decoding known certificates.
    *
@@ -134,11 +136,6 @@ export class NetworkObserver {
    * @type {ChannelMap}
    */
   #openRequests = new lazy.ChannelMap();
-  /**
-   * Object that holds response data coming from this.#httpResponseExaminer.
-   * @type {ChannelMap}
-   */
-  #openResponses = new lazy.ChannelMap();
   /**
    * Network response bodies are piped through a buffer of the given size
    * (in bytes).
@@ -211,14 +208,6 @@ export class NetworkObserver {
       this.#serviceWorkerRequest,
       "service-worker-synthesized-response"
     );
-  }
-
-  getResponseByChannel(channel) {
-    return this.#openResponses.get(channel);
-  }
-
-  deleteResponseByChannel(channel) {
-    return this.#openResponses.delete(channel);
   }
 
   setSaveRequestAndResponseBodies(save) {
@@ -372,9 +361,7 @@ export class NetworkObserver {
   #httpResponseExaminer = DevToolsInfaillibleUtils.makeInfallible(
     (subject, topic, blockedReason) => {
       // The httpResponseExaminer is used to retrieve the uncached response
-      // headers. The data retrieved is stored in openResponses. The
-      // NetworkResponseListener is responsible with updating the httpActivity
-      // object with the data from the new object in openResponses.
+      // headers.
       if (
         this.#isDestroyed ||
         (topic != "http-on-examine-response" &&
@@ -403,59 +390,52 @@ export class NetworkObserver {
           : channel.responseStatus
       );
 
-      const response = {
-        id: gSequenceId(),
-        channel,
-        headers: [],
-        cookies: [],
-      };
-
-      const setCookieHeaders = [];
-
+      // Read response headers and cookies.
+      const responseHeaders = [];
+      const responseCookies = [];
       if (!blockedOrFailed) {
+        const setCookieHeaders = [];
         channel.visitOriginalResponseHeaders({
           visitHeader(name, value) {
             const lowerName = name.toLowerCase();
             if (lowerName == "set-cookie") {
               setCookieHeaders.push(value);
             }
-            response.headers.push({ name, value });
+            responseHeaders.push({ name, value });
           },
         });
 
-        if (!response.headers.length) {
+        if (!responseHeaders.length) {
           // No need to continue.
           return;
         }
 
-        if (setCookieHeaders.length) {
-          response.cookies = setCookieHeaders.reduce((result, header) => {
-            const cookies = lazy.NetworkHelper.parseSetCookieHeader(header);
-            return result.concat(cookies);
-          }, []);
-        }
+        setCookieHeaders.forEach(header => {
+          const cookies = lazy.NetworkHelper.parseSetCookieHeader(header);
+          responseCookies.push(...cookies);
+        });
       }
 
-      // Determine the HTTP version.
-      const httpVersionMaj = {};
-      const httpVersionMin = {};
-
       channel.QueryInterface(Ci.nsIHttpChannelInternal);
-      if (!blockedOrFailed) {
-        channel.getResponseVersion(httpVersionMaj, httpVersionMin);
 
-        response.status = channel.responseStatus;
-        response.statusText = channel.responseStatusText;
+      let httpVersion, status, statusText;
+      if (!blockedOrFailed) {
+        const httpVersionMaj = {};
+        const httpVersionMin = {};
+
+        channel.getResponseVersion(httpVersionMaj, httpVersionMin);
         if (httpVersionMaj.value > 1) {
-          response.httpVersion = "HTTP/" + httpVersionMaj.value;
+          httpVersion = "HTTP/" + httpVersionMaj.value;
         } else {
-          response.httpVersion =
+          httpVersion =
             "HTTP/" + httpVersionMaj.value + "." + httpVersionMin.value;
         }
 
-        this.#openResponses.set(channel, response);
+        status = channel.responseStatus;
+        statusText = channel.responseStatusText;
       }
 
+      let httpActivity = this.#createOrGetActivityObject(channel);
       if (topic === "http-on-examine-cached-response") {
         // Service worker requests emits cached-response notification on non-e10s,
         // and we fake one on e10s.
@@ -465,7 +445,6 @@ export class NetworkObserver {
         // If this is a cached response (which are also emitted by service worker requests),
         // there never was a request event so we need to construct one here
         // so the frontend gets all the expected events.
-        let httpActivity = this.#createOrGetActivityObject(channel);
         if (!httpActivity.owner) {
           httpActivity = this.#createNetworkEvent(channel, {
             fromCache: !fromServiceWorker,
@@ -480,11 +459,11 @@ export class NetworkObserver {
 
         httpActivity.owner.addResponseStart(
           {
-            httpVersion: response.httpVersion,
+            httpVersion,
             remoteAddress: "",
             remotePort: "",
-            status: response.status,
-            statusText: response.statusText,
+            status,
+            statusText,
             headersSize: 0,
             waitingTime: 0,
           },
@@ -505,6 +484,11 @@ export class NetworkObserver {
         );
       } else if (topic === "http-on-failed-opening-request") {
         this.#createNetworkEvent(channel, { blockedReason });
+      }
+
+      if (httpActivity.owner) {
+        httpActivity.owner.addResponseHeaders(responseHeaders);
+        httpActivity.owner.addResponseCookies(responseCookies);
       }
     }
   );
@@ -718,6 +702,13 @@ export class NetworkObserver {
       };
     }
 
+    // Check the request URL with ones manually blocked by the user in DevTools.
+    // If it's meant to be blocked, we cancel the request and annotate the event.
+    if (blockedReason === undefined && this.#shouldBlockChannel(channel)) {
+      channel.cancel(Cr.NS_BINDING_ABORTED);
+      blockedReason = "devtools";
+    }
+
     const event = lazy.NetworkUtils.createNetworkEvent(channel, {
       timestamp,
       fromCache,
@@ -725,7 +716,6 @@ export class NetworkObserver {
       extraStringData,
       blockedReason,
       blockingExtension,
-      blockedURLs: this.#blockedURLs,
       saveRequestAndResponseBodies: this.#saveRequestAndResponseBodies,
     });
 
@@ -741,13 +731,14 @@ export class NetworkObserver {
       this.#setupResponseListener(httpActivity, fromCache);
     }
 
-    lazy.NetworkUtils.fetchRequestHeadersAndCookies(
-      channel,
-      httpActivity.owner,
-      {
-        extraStringData,
-      }
-    );
+    const {
+      cookies,
+      headers,
+    } = lazy.NetworkUtils.fetchRequestHeadersAndCookies(channel);
+
+    httpActivity.owner.addRequestHeaders(headers, extraStringData);
+    httpActivity.owner.addRequestCookies(cookies);
+
     return httpActivity;
   }
 
@@ -768,7 +759,23 @@ export class NetworkObserver {
       return;
     }
 
-    this.#createNetworkEvent(channel, { timestamp, extraStringData });
+    this.#createNetworkEvent(channel, {
+      timestamp,
+      extraStringData,
+    });
+  }
+
+  /**
+   * Check if the provided channel should be blocked given the current
+   * blocked URLs configured for this network observer.
+   */
+  #shouldBlockChannel(channel) {
+    for (const regexp of this.#blockedURLs.values()) {
+      if (regexp.test(channel.URI.spec)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -832,7 +839,7 @@ export class NetworkObserver {
   /**
    * Block a request based on certain filtering options.
    *
-   * Currently, an exact URL match is the only supported filter type.
+   * Currently, exact URL match or URL patterns are supported.
    */
   blockRequest(filter) {
     if (!filter || !filter.url) {
@@ -841,13 +848,13 @@ export class NetworkObserver {
       return;
     }
 
-    this.#blockedURLs.push(filter.url);
+    this.#addBlockedUrl(filter.url);
   }
 
   /**
    * Unblock a request based on certain filtering options.
    *
-   * Currently, an exact URL match is the only supported filter type.
+   * Currently, exact URL match or URL patterns are supported.
    */
   unblockRequest(filter) {
     if (!filter || !filter.url) {
@@ -856,7 +863,7 @@ export class NetworkObserver {
       return;
     }
 
-    this.#blockedURLs = this.#blockedURLs.filter(url => url != filter.url);
+    this.#blockedURLs.delete(filter.url);
   }
 
   /**
@@ -865,7 +872,13 @@ export class NetworkObserver {
    * This match will be a (String).includes match, not an exact URL match
    */
   setBlockedUrls(urls) {
-    this.#blockedURLs = urls || [];
+    urls = urls || [];
+    this.#blockedURLs = new Map();
+    urls.forEach(url => this.#addBlockedUrl(url));
+  }
+
+  #addBlockedUrl(url) {
+    this.#blockedURLs.set(url, lazy.wildcardToRegExp(url));
   }
 
   /**
@@ -873,7 +886,7 @@ export class NetworkObserver {
    * Useful as blockedURLs is mutated by both console & netmonitor
    */
   getBlockedUrls() {
-    return this.#blockedURLs;
+    return this.#blockedURLs.keys();
   }
 
   /**
@@ -1441,11 +1454,10 @@ export class NetworkObserver {
   }
 
   /*
-   * Clears all open requests and responses
+   * Clears the open requests channel map.
    */
   clear() {
     this.#openRequests.clear();
-    this.#openResponses.clear();
   }
 
   /**

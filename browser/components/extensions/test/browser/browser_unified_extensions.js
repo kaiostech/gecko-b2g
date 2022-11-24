@@ -328,14 +328,39 @@ add_task(async function test_list_active_extensions_only() {
     // We have to use the mock provider below so we don't need to use the
     // `addonManager` here.
     useAddonManager: false,
+    // Allow all extensions in PB mode by default.
+    incognitoOverride: "spanning",
   });
+  // This extension is loaded with a different `incognitoOverride` value to
+  // make sure it won't show up in a private window.
+  extensions.push(
+    ExtensionTestUtils.loadExtension({
+      manifest: {
+        name: "regular addon with private browsing disabled",
+      },
+      useAddonManager: false,
+      incognitoOverride: "not_allowed",
+    })
+  );
 
   await Promise.all(extensions.map(extension => extension.startup()));
+
+  const extensionWithoutPolicyID = "ext-without-policy@";
 
   // We use MockProvider because the "hidden" property cannot be set when
   // "useAddonManager" is passed to loadExtension.
   const mockProvider = new MockProvider();
   mockProvider.createAddons([
+    // We register an add-on here BUT without loading the extension above. That
+    // allows us to simulate the presence of an active add-on but without a
+    // WebExtensionPolicy.
+    {
+      id: extensionWithoutPolicyID,
+      name: "regular addon without policy",
+      type: "extension",
+      version: "1",
+      hidden: false,
+    },
     {
       id: extensions[0].id,
       name: arrayOfManifestData[0].name,
@@ -380,41 +405,103 @@ add_task(async function test_list_active_extensions_only() {
       version: "1",
       hidden: arrayOfManifestData[5].hidden,
     },
+    {
+      id: extensions[6].id,
+      name: "regular addon with private browsing disabled",
+      type: "extension",
+      version: "1",
+      hidden: false,
+    },
   ]);
 
-  await openExtensionsPanel(win);
-
-  const hiddenAddonItem = getUnifiedExtensionsItem(win, extensions[0].id);
-  is(hiddenAddonItem, null, `didn't expect an item for ${extensions[0].id}`);
-
-  const regularAddonItem = getUnifiedExtensionsItem(win, extensions[1].id);
   is(
-    regularAddonItem.querySelector(".unified-extensions-item-name").textContent,
-    "regular addon",
-    "expected an item for a regular add-on"
-  );
-
-  const disabledAddonItem = getUnifiedExtensionsItem(win, extensions[2].id);
-  is(disabledAddonItem, null, `didn't expect an item for ${extensions[2].id}`);
-
-  const browserActionItem = getUnifiedExtensionsItem(win, extensions[3].id);
-  is(browserActionItem, null, `didn't expect an item for ${extensions[3].id}`);
-
-  const mv3BrowserActionItem = getUnifiedExtensionsItem(win, extensions[4].id);
-  is(
-    mv3BrowserActionItem,
+    WebExtensionPolicy.getByID(extensionWithoutPolicyID),
     null,
-    `didn't expect an item for ${extensions[4].id}`
+    "expected add-on without a policy"
   );
 
-  const pageActionItem = getUnifiedExtensionsItem(win, extensions[5].id);
-  is(
-    pageActionItem.querySelector(".unified-extensions-item-name").textContent,
-    "regular addon with page action",
-    "expected an item for a regular add-on with page action"
-  );
+  for (const isPrivate of [false, true]) {
+    info(
+      `verifying extensions listed in the panel with private browsing ${
+        isPrivate ? "enabled" : "disabled"
+      }`
+    );
+    const aWin = await promiseEnableUnifiedExtensions({ private: isPrivate });
 
-  await closeExtensionsPanel(win);
+    await openExtensionsPanel(aWin);
+
+    const addonWithoutPolicyItem = getUnifiedExtensionsItem(
+      aWin,
+      extensionWithoutPolicyID
+    );
+    is(
+      addonWithoutPolicyItem,
+      null,
+      "didn't expect an item for an add-on without policy"
+    );
+
+    const hiddenAddonItem = getUnifiedExtensionsItem(aWin, extensions[0].id);
+    is(hiddenAddonItem, null, "didn't expect an item for a hidden add-on");
+
+    const regularAddonItem = getUnifiedExtensionsItem(aWin, extensions[1].id);
+    is(
+      regularAddonItem.querySelector(".unified-extensions-item-name")
+        .textContent,
+      "regular addon",
+      "expected an item for a regular add-on"
+    );
+
+    const disabledAddonItem = getUnifiedExtensionsItem(aWin, extensions[2].id);
+    is(disabledAddonItem, null, "didn't expect an item for a disabled add-on");
+
+    const browserActionItem = getUnifiedExtensionsItem(aWin, extensions[3].id);
+    is(
+      browserActionItem,
+      null,
+      "didn't expect an item for an add-on with browser action placed in the navbar"
+    );
+
+    const mv3BrowserActionItem = getUnifiedExtensionsItem(
+      aWin,
+      extensions[4].id
+    );
+    is(
+      mv3BrowserActionItem,
+      null,
+      "didn't expect an item for a MV3 add-on with browser action placed in the navbar"
+    );
+
+    const pageActionItem = getUnifiedExtensionsItem(aWin, extensions[5].id);
+    is(
+      pageActionItem.querySelector(".unified-extensions-item-name").textContent,
+      "regular addon with page action",
+      "expected an item for a regular add-on with page action"
+    );
+
+    const privateBrowsingDisabledItem = getUnifiedExtensionsItem(
+      aWin,
+      extensions[6].id
+    );
+    if (isPrivate) {
+      is(
+        privateBrowsingDisabledItem,
+        null,
+        "didn't expect an item for a regular add-on with private browsing enabled"
+      );
+    } else {
+      is(
+        privateBrowsingDisabledItem.querySelector(
+          ".unified-extensions-item-name"
+        ).textContent,
+        "regular addon with private browsing disabled",
+        "expected an item for a regular add-on with private browsing disabled"
+      );
+    }
+
+    await closeExtensionsPanel(aWin);
+
+    await BrowserTestUtils.closeWindow(aWin);
+  }
 
   await Promise.all(extensions.map(extension => extension.unload()));
   mockProvider.unregister();
@@ -959,4 +1046,103 @@ add_task(async function test_messages_origin_controls() {
   );
 
   await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_hover_message_when_button_updates_itself() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["extensions.manifestV3.enabled", true]],
+  });
+
+  const extension = ExtensionTestUtils.loadExtension({
+    manifest: {
+      manifest_version: 3,
+      name: "an extension that refreshes its title",
+      action: {},
+    },
+    background() {
+      browser.test.onMessage.addListener(async msg => {
+        browser.test.assertEq(
+          "update-button",
+          msg,
+          "expected 'update-button' message"
+        );
+
+        browser.action.setTitle({ title: "a title" });
+
+        browser.test.sendMessage(`${msg}-done`);
+      });
+
+      browser.test.sendMessage("background-ready");
+    },
+    useAddonManager: "temporary",
+  });
+
+  await extension.startup();
+  await extension.awaitMessage("background-ready");
+
+  await openExtensionsPanel(win);
+
+  const item = getUnifiedExtensionsItem(win, extension.id);
+  ok(item, "expected item in the panel");
+
+  const actionButton = item.querySelector(".unified-extensions-item-action");
+  ok(actionButton, "expected an action button");
+
+  const menuButton = item.querySelector(".unified-extensions-item-open-menu");
+  ok(menuButton, "expected a open menu button");
+
+  const hovered = BrowserTestUtils.waitForEvent(actionButton, "mouseover");
+  EventUtils.synthesizeMouseAtCenter(actionButton, { type: "mouseover" }, win);
+  await hovered;
+
+  is(
+    item.dataset.showsHoverMessage,
+    "true",
+    "Got the expected dataset attribute set on hover"
+  );
+
+  const message = item.querySelector(
+    ".unified-extensions-item-message-default"
+  );
+  ok(message, "expected a default message element");
+
+  const expectedL10nAttributes = {
+    id: "origin-controls-state-runnable-hover-run",
+    args: null,
+  };
+  Assert.deepEqual(
+    win.document.l10n.getAttributes(message),
+    expectedL10nAttributes,
+    "expected l10n attributes for the default message"
+  );
+
+  extension.sendMessage("update-button");
+  await extension.awaitMessage("update-button-done");
+
+  await new Promise(resolve =>
+    message.ownerGlobal.requestAnimationFrame(resolve)
+  );
+
+  Assert.deepEqual(
+    win.document.l10n.getAttributes(message),
+    expectedL10nAttributes,
+    "expected l10n attributes for the default message to remain the same as before"
+  );
+
+  const hoveredGearButton = BrowserTestUtils.waitForEvent(
+    menuButton,
+    "mouseover"
+  );
+  EventUtils.synthesizeMouseAtCenter(menuButton, { type: "mouseover" }, win);
+  await hoveredGearButton;
+
+  is(
+    item.dataset.showsHoverMessage,
+    undefined,
+    "dataset attribute cleared when action button is not focused"
+  );
+
+  await closeExtensionsPanel(win);
+
+  await extension.unload();
 });

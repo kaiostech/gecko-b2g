@@ -361,10 +361,19 @@ class AliasSet {
     // The fuzzilliHash slot
     FuzzilliHash = 1 << 19,
 
-    Last = FuzzilliHash,
+    // The WasmStruct::inlineData_[..] storage area
+    WasmStructInlineDataArea = 1 << 20,
+
+    // The WasmStruct::outlineData_ pointer only
+    WasmStructOutlineDataPointer = 1 << 21,
+
+    // The malloc'd block that WasmStruct::outlineData_ points at
+    WasmStructOutlineDataArea = 1 << 22,
+
+    Last = WasmStructOutlineDataArea,
 
     Any = Last | (Last - 1),
-    NumCategories = 20,
+    NumCategories = 23,
 
     // Indicates load or store.
     Store_ = 1 << 31
@@ -10707,14 +10716,38 @@ class MIonToWasmCall final : public MVariadicInstruction,
 #endif
 };
 
+// For accesses to wasm object fields, we need to be able to describe 8- and
+// 16-bit accesses.  But MIRType can't represent those.  Hence these two
+// supplemental enums, used for reading and writing fields respectively.
+
+// Indicates how to widen an 8- or 16-bit value (when it is read from memory).
+enum class MWideningOp : uint8_t { None, FromU16, FromS16, FromU8, FromS8 };
+
+// Indicates how to narrow a 32-bit value (when it is written to memory).  The
+// operation is a simple truncate.
+enum class MNarrowingOp : uint8_t { None, To16, To8 };
+
 // Load an object field stored at a fixed offset from a base pointer.  This
 // field may be any value type, including references.  No barriers are
 // performed.
 class MWasmLoadField : public MUnaryInstruction, public NoTypePolicy::Data {
   uint32_t offset_;
+  MWideningOp wideningOp_;
+  AliasSet aliases_;
 
-  MWasmLoadField(MDefinition* obj, uint32_t offset, MIRType type)
-      : MUnaryInstruction(classOpcode, obj), offset_(offset) {
+  MWasmLoadField(MDefinition* obj, uint32_t offset, MIRType type,
+                 MWideningOp wideningOp, AliasSet aliases)
+      : MUnaryInstruction(classOpcode, obj),
+        offset_(offset),
+        wideningOp_(wideningOp),
+        aliases_(aliases) {
+    // "if you want to widen the value when it is loaded, the destination type
+    // must be Int32".
+    MOZ_ASSERT_IF(wideningOp != MWideningOp::None, type == MIRType::Int32);
+    MOZ_ASSERT(
+        aliases.flags() ==
+            AliasSet::Load(AliasSet::WasmStructOutlineDataPointer).flags() ||
+        aliases.flags() == AliasSet::Load(AliasSet::Any).flags());
     setResultType(type);
   }
 
@@ -10724,9 +10757,23 @@ class MWasmLoadField : public MUnaryInstruction, public NoTypePolicy::Data {
   NAMED_OPERANDS((0, obj))
 
   uint32_t offset() const { return offset_; }
-
-  AliasSet getAliasSet() const override {
-    return AliasSet::Load(AliasSet::Any);
+  MWideningOp wideningOp() const { return wideningOp_; }
+  AliasSet getAliasSet() const override { return aliases_; }
+  bool congruentTo(const MDefinition* ins) const override {
+    // In the limited case where this insn is used to read
+    // WasmStructObject::outlineData_ (the field itself, not what it points
+    // at), we allow commoning up to happen.  This is OK because
+    // WasmStructObject::outlineData_ is readonly for the life of the
+    // WasmStructObject.
+    if (!ins->isWasmLoadField()) {
+      return false;
+    }
+    const MWasmLoadField* other = ins->toWasmLoadField();
+    return ins->isWasmLoadField() && congruentIfOperandsEqual(ins) &&
+           offset() == other->offset() && wideningOp() == other->wideningOp() &&
+           getAliasSet().flags() == other->getAliasSet().flags() &&
+           getAliasSet().flags() ==
+               AliasSet::Load(AliasSet::WasmStructOutlineDataPointer).flags();
   }
 };
 
@@ -10742,10 +10789,22 @@ class MWasmLoadField : public MUnaryInstruction, public NoTypePolicy::Data {
 // not point to a GC-managed object.
 class MWasmLoadFieldKA : public MBinaryInstruction, public NoTypePolicy::Data {
   uint32_t offset_;
+  MWideningOp wideningOp_;
+  AliasSet aliases_;
 
   MWasmLoadFieldKA(MDefinition* ka, MDefinition* obj, uint32_t offset,
-                   MIRType type)
-      : MBinaryInstruction(classOpcode, ka, obj), offset_(offset) {
+                   MIRType type, MWideningOp wideningOp, AliasSet aliases)
+      : MBinaryInstruction(classOpcode, ka, obj),
+        offset_(offset),
+        wideningOp_(wideningOp),
+        aliases_(aliases) {
+    MOZ_ASSERT_IF(wideningOp != MWideningOp::None, type == MIRType::Int32);
+    MOZ_ASSERT(
+        aliases.flags() ==
+            AliasSet::Load(AliasSet::WasmStructInlineDataArea).flags() ||
+        aliases.flags() ==
+            AliasSet::Load(AliasSet::WasmStructOutlineDataArea).flags() ||
+        aliases.flags() == AliasSet::Load(AliasSet::Any).flags());
     setResultType(type);
   }
 
@@ -10755,10 +10814,9 @@ class MWasmLoadFieldKA : public MBinaryInstruction, public NoTypePolicy::Data {
   NAMED_OPERANDS((0, ka), (1, obj))
 
   uint32_t offset() const { return offset_; }
+  MWideningOp wideningOp() const { return wideningOp_; }
 
-  AliasSet getAliasSet() const override {
-    return AliasSet::Load(AliasSet::Any);
-  }
+  AliasSet getAliasSet() const override { return aliases_; }
 };
 
 // Store a value to an object field at a fixed offset from a base pointer.
@@ -10770,11 +10828,27 @@ class MWasmLoadFieldKA : public MBinaryInstruction, public NoTypePolicy::Data {
 class MWasmStoreFieldKA : public MTernaryInstruction,
                           public NoTypePolicy::Data {
   uint32_t offset_;
+  MNarrowingOp narrowingOp_;
+  AliasSet aliases_;
 
   MWasmStoreFieldKA(MDefinition* ka, MDefinition* obj, uint32_t offset,
-                    MDefinition* value)
-      : MTernaryInstruction(classOpcode, ka, obj, value), offset_(offset) {
+                    MDefinition* value, MNarrowingOp narrowingOp,
+                    AliasSet aliases)
+      : MTernaryInstruction(classOpcode, ka, obj, value),
+        offset_(offset),
+        narrowingOp_(narrowingOp),
+        aliases_(aliases) {
     MOZ_ASSERT(value->type() != MIRType::RefOrNull);
+    // "if you want to narrow the value when it is stored, the source type
+    // must be Int32".
+    MOZ_ASSERT_IF(narrowingOp != MNarrowingOp::None,
+                  value->type() == MIRType::Int32);
+    MOZ_ASSERT(
+        aliases.flags() ==
+            AliasSet::Store(AliasSet::WasmStructInlineDataArea).flags() ||
+        aliases.flags() ==
+            AliasSet::Store(AliasSet::WasmStructOutlineDataArea).flags() ||
+        aliases.flags() == AliasSet::Store(AliasSet::Any).flags());
   }
 
  public:
@@ -10783,10 +10857,9 @@ class MWasmStoreFieldKA : public MTernaryInstruction,
   NAMED_OPERANDS((0, ka), (1, obj), (2, value))
 
   uint32_t offset() const { return offset_; }
+  MNarrowingOp narrowingOp() const { return narrowingOp_; }
 
-  AliasSet getAliasSet() const override {
-    return AliasSet::Store(AliasSet::Any);
-  }
+  AliasSet getAliasSet() const override { return aliases_; }
 };
 
 // Store a reference value to a location which (it is assumed) is within a
@@ -10797,11 +10870,20 @@ class MWasmStoreFieldKA : public MTernaryInstruction,
 // described for MWasmLoadFieldKA above.
 class MWasmStoreFieldRefKA : public MAryInstruction<4>,
                              public NoTypePolicy::Data {
+  AliasSet aliases_;
+
   MWasmStoreFieldRefKA(MDefinition* instance, MDefinition* ka,
-                       MDefinition* valueAddr, MDefinition* value)
-      : MAryInstruction<4>(classOpcode) {
+                       MDefinition* valueAddr, MDefinition* value,
+                       AliasSet aliases)
+      : MAryInstruction<4>(classOpcode), aliases_(aliases) {
     MOZ_ASSERT(valueAddr->type() == MIRType::Pointer);
     MOZ_ASSERT(value->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(
+        aliases.flags() ==
+            AliasSet::Store(AliasSet::WasmStructInlineDataArea).flags() ||
+        aliases.flags() ==
+            AliasSet::Store(AliasSet::WasmStructOutlineDataArea).flags() ||
+        aliases.flags() == AliasSet::Store(AliasSet::Any).flags());
     initOperand(0, instance);
     initOperand(1, ka);
     initOperand(2, valueAddr);
@@ -10813,9 +10895,7 @@ class MWasmStoreFieldRefKA : public MAryInstruction<4>,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, instance), (1, ka), (2, valueAddr), (3, value))
 
-  AliasSet getAliasSet() const override {
-    return AliasSet::Store(AliasSet::Any);
-  }
+  AliasSet getAliasSet() const override { return aliases_; }
 };
 
 #ifdef FUZZING_JS_FUZZILLI

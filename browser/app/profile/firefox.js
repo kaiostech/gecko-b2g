@@ -73,6 +73,9 @@ pref("xpinstall.signatures.devInfoURL", "https://wiki.mozilla.org/Addons/Extensi
 // Enable extensionStorage storage actor by default
 pref("devtools.storage.extensionStorage.enabled", true);
 
+// Enable the unified extensions UI by default.
+pref("extensions.unifiedExtensions.enabled", true);
+
 // Dictionary download preference
 pref("browser.dictionaries.download.url", "https://addons.mozilla.org/%LOCALE%/firefox/language-tools/");
 
@@ -2136,8 +2139,6 @@ pref("browser.migrate.ie.enabled", true);
 pref("browser.migrate.safari.enabled", true);
 pref("browser.migrate.opera.enabled", false);
 pref("browser.migrate.vivaldi.enabled", false);
-
-pref("browser.migrate.showBookmarksToolbarAfterMigration", true);
 
 pref("extensions.pocket.api", "api.getpocket.com");
 pref("extensions.pocket.enabled", true);

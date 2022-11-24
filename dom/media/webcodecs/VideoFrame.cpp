@@ -80,8 +80,8 @@ GetSharedArrayBufferData(
 }
 
 /*
- * The following are utilities to convert between VideoFrame values to gfx's
- * values.
+ * The following are utilities to convert between VideoColorSpace values to
+ * gfx's values.
  */
 
 static gfx::YUVColorSpace ToColorSpace(VideoMatrixCoefficients aMatrix) {
@@ -93,6 +93,8 @@ static gfx::YUVColorSpace ToColorSpace(VideoMatrixCoefficients aMatrix) {
       return gfx::YUVColorSpace::BT709;
     case VideoMatrixCoefficients::Smpte170m:
       return gfx::YUVColorSpace::BT601;
+    case VideoMatrixCoefficients::Bt2020_ncl:
+      return gfx::YUVColorSpace::BT2020;
     case VideoMatrixCoefficients::EndGuard_:
       break;
   }
@@ -108,11 +110,35 @@ static gfx::TransferFunction ToTransferFunction(
       return gfx::TransferFunction::BT709;
     case VideoTransferCharacteristics::Iec61966_2_1:
       return gfx::TransferFunction::SRGB;
+    case VideoTransferCharacteristics::Pq:
+      return gfx::TransferFunction::PQ;
+    case VideoTransferCharacteristics::Hlg:
+      return gfx::TransferFunction::HLG;
+    case VideoTransferCharacteristics::Linear:
     case VideoTransferCharacteristics::EndGuard_:
       break;
   }
   MOZ_ASSERT_UNREACHABLE("unsupported VideoTransferCharacteristics");
   return gfx::TransferFunction::Default;
+}
+
+static gfx::ColorSpace2 ToPrimaries(VideoColorPrimaries aPrimaries) {
+  switch (aPrimaries) {
+    case VideoColorPrimaries::Bt709:
+      return gfx::ColorSpace2::BT709;
+    case VideoColorPrimaries::Bt470bg:
+      return gfx::ColorSpace2::BT601_625;
+    case VideoColorPrimaries::Smpte170m:
+      return gfx::ColorSpace2::BT601_525;
+    case VideoColorPrimaries::Bt2020:
+      return gfx::ColorSpace2::BT2020;
+    case VideoColorPrimaries::Smpte432:
+      return gfx::ColorSpace2::DISPLAY_P3;
+    case VideoColorPrimaries::EndGuard_:
+      break;
+  }
+  MOZ_ASSERT_UNREACHABLE("unsupported VideoTransferCharacteristics");
+  return gfx::ColorSpace2::UNKNOWN;
 }
 
 static Maybe<VideoPixelFormat> ToVideoPixelFormat(gfx::SurfaceFormat aFormat) {
@@ -864,7 +890,9 @@ static Result<RefPtr<layers::Image>, nsCString> CreateYUVImageFromBuffer(
       data.mTransferFunction =
           ToTransferFunction(aColorSpace.mTransfer.Value());
     }
-    // TODO: take care of aColorSpace.mPrimaries.
+    if (aColorSpace.mPrimaries.WasPassed()) {
+      data.mColorPrimaries = ToPrimaries(aColorSpace.mPrimaries.Value());
+    }
 
     RefPtr<layers::PlanarYCbCrImage> image =
         new layers::RecyclingPlanarYCbCrImage(new layers::BufferRecycleBin());
@@ -906,7 +934,9 @@ static Result<RefPtr<layers::Image>, nsCString> CreateYUVImageFromBuffer(
       data.mTransferFunction =
           ToTransferFunction(aColorSpace.mTransfer.Value());
     }
-    // TODO: take care of aColorSpace.mPrimaries.
+    if (aColorSpace.mPrimaries.WasPassed()) {
+      data.mColorPrimaries = ToPrimaries(aColorSpace.mPrimaries.Value());
+    }
 
     RefPtr<layers::NVImage> image = new layers::NVImage();
     if (!image->SetData(data)) {
@@ -947,6 +977,13 @@ template <class T>
 static Result<RefPtr<VideoFrame>, nsCString> CreateVideoFrameFromBuffer(
     nsIGlobalObject* aGlobal, const T& aBuffer,
     const VideoFrameBufferInit& aInit) {
+  if (aInit.mColorSpace.WasPassed() &&
+      aInit.mColorSpace.Value().mTransfer.WasPassed() &&
+      aInit.mColorSpace.Value().mTransfer.Value() ==
+          VideoTransferCharacteristics::Linear) {
+    return Err(nsCString("linear RGB is not supported"));
+  }
+
   Tuple<gfx::IntSize, Maybe<gfx::IntRect>, Maybe<gfx::IntSize>> init;
   MOZ_TRY_VAR(init, ValidateVideoFrameBufferInit(aInit));
   gfx::IntSize codedSize = Get<0>(init);

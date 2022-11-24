@@ -19,6 +19,7 @@
 #include "gfxContext.h"
 #include "gfxUtils.h"
 #include "mozilla/DisplayPortUtils.h"
+#include "mozilla/Likely.h"
 #include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
 #include "mozilla/dom/RemoteBrowser.h"
@@ -3098,6 +3099,34 @@ static nsDisplayBackgroundColor* CreateBackgroundColor(
                                                    aBgSC, aColor);
 }
 
+static void DealWithWindowsAppearanceHacks(nsIFrame* aFrame,
+                                           nsDisplayListBuilder* aBuilder) {
+  const auto& disp = *aFrame->StyleDisplay();
+
+  // We use default appearance rather than effective appearance because we want
+  // to handle when titlebar buttons that have appearance: none.
+  const auto defaultAppearance = disp.mDefaultAppearance;
+  if (MOZ_LIKELY(defaultAppearance == StyleAppearance::None)) {
+    return;
+  }
+
+  if (defaultAppearance == StyleAppearance::MozWinExcludeGlass) {
+    // Check for frames that are marked as a part of the region used in
+    // calculating glass margins on Windows.
+    aBuilder->AddWindowExcludeGlassRegion(
+        aFrame, nsRect(aBuilder->ToReferenceFrame(aFrame), aFrame->GetSize()));
+  }
+
+  if (auto type = disp.GetWindowButtonType()) {
+    if (auto* widget = aFrame->GetNearestWidget()) {
+      auto rect = LayoutDevicePixel::FromAppUnitsToNearest(
+          nsRect(aBuilder->ToReferenceFrame(aFrame), aFrame->GetSize()),
+          aFrame->PresContext()->AppUnitsPerDevPixel());
+      widget->SetWindowButtonRect(*type, rect);
+    }
+  }
+}
+
 /*static*/
 AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
     nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
@@ -3113,9 +3142,9 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
   if (!aBackgroundOriginRect.IsEmpty()) {
     bgOriginRect = aBackgroundOriginRect;
   }
-  const auto appearance = aFrame->StyleDisplay()->EffectiveAppearance();
-  const bool isThemed =
-      appearance != StyleAppearance::None && aFrame->IsThemed();
+  const bool isThemed = aFrame->IsThemed();
+  DealWithWindowsAppearanceHacks(aFrame, aBuilder);
+
   nsIFrame* dependentFrame = nullptr;
   if (!isThemed) {
     if (!bgSC) {
@@ -3209,30 +3238,21 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
     }
   }
 
-  // Check for frames that are marked as a part of the region used in
-  // calculating glass margins on Windows.
-  if (appearance != StyleAppearance::None) {
-    if (appearance == StyleAppearance::MozWinExcludeGlass) {
-      aBuilder->AddWindowExcludeGlassRegion(
-          aFrame,
-          nsRect(aBuilder->ToReferenceFrame(aFrame), aFrame->GetSize()));
+  if (isThemed) {
+    nsDisplayThemedBackground* bgItem = CreateThemedBackground(
+        aBuilder, aFrame, aSecondaryReferenceFrame, bgRect);
+
+    if (bgItem) {
+      bgItem->Init(aBuilder);
+      bgItemList.AppendToTop(bgItem);
     }
-    if (isThemed) {
-      nsDisplayThemedBackground* bgItem = CreateThemedBackground(
-          aBuilder, aFrame, aSecondaryReferenceFrame, bgRect);
 
-      if (bgItem) {
-        bgItem->Init(aBuilder);
-        bgItemList.AppendToTop(bgItem);
-      }
-
-      if (!bgItemList.IsEmpty()) {
-        aList->AppendToTop(&bgItemList);
-        return AppendedBackgroundType::ThemedBackground;
-      }
-
-      return AppendedBackgroundType::None;
+    if (!bgItemList.IsEmpty()) {
+      aList->AppendToTop(&bgItemList);
+      return AppendedBackgroundType::ThemedBackground;
     }
+
+    return AppendedBackgroundType::None;
   }
 
   if (!bg || !drawBackgroundImage) {
@@ -3687,8 +3707,7 @@ void nsDisplayThemedBackground::Init(nsDisplayListBuilder* aBuilder) {
     RegisterThemeGeometry(aBuilder, this, StyleFrame(), type);
   }
 
-  if (mAppearance == StyleAppearance::MozWinBorderlessGlass ||
-      mAppearance == StyleAppearance::MozWinGlass) {
+  if (mAppearance == StyleAppearance::MozWinBorderlessGlass) {
     aBuilder->SetGlassDisplayItem(this);
   }
 
@@ -3723,8 +3742,7 @@ nsRegion nsDisplayThemedBackground::GetOpaqueRegion(
 
 Maybe<nscolor> nsDisplayThemedBackground::IsUniform(
     nsDisplayListBuilder* aBuilder) const {
-  if (mAppearance == StyleAppearance::MozWinBorderlessGlass ||
-      mAppearance == StyleAppearance::MozWinGlass) {
+  if (mAppearance == StyleAppearance::MozWinBorderlessGlass) {
     return Some(NS_RGBA(0, 0, 0, 0));
   }
   return Nothing();

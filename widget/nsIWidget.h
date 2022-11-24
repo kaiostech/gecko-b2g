@@ -62,6 +62,7 @@ struct FontRange;
 
 enum class StyleWindowShadow : uint8_t;
 enum class ColorScheme : uint8_t;
+enum class WindowButtonType : uint8_t;
 
 #if defined(MOZ_WIDGET_ANDROID)
 namespace ipc {
@@ -163,13 +164,11 @@ typedef void* nsNativeWidget;
  */
 
 enum nsTransparencyMode {
-  eTransparencyOpaque = 0,   // Fully opaque
-  eTransparencyTransparent,  // Parts of the window may be transparent
-  eTransparencyGlass,  // Transparent parts of the window have Vista AeroGlass
-                       // effect applied
-  eTransparencyBorderlessGlass  // As above, but without a border around the
-                                // opaque areas when there would otherwise be
-                                // one with eTransparencyGlass
+  eTransparencyOpaque = 0,      // Fully opaque
+  eTransparencyTransparent,     // Parts of the window may be transparent
+  eTransparencyBorderlessGlass  // Transparent parts of the window has windows 7
+                                // glass effect, without a border around opaque
+                                // areas.
   // If you add to the end here, you must update the serialization code in
   // WidgetMessageUtils.h
 };
@@ -393,13 +392,6 @@ class nsIWidget : public nsISupports {
   typedef mozilla::DesktopSize DesktopSize;
   typedef mozilla::CSSPoint CSSPoint;
   typedef mozilla::CSSRect CSSRect;
-
-  enum class WindowButtonType {
-    Minimize,
-    Maximize,
-    Close,
-    Count,
-  };
 
   // Used in UpdateThemeGeometries.
   struct ThemeGeometry {
@@ -2121,6 +2113,8 @@ class nsIWidget : public nsISupports {
    * and ignoring Gecko preferences.
    */
   virtual double GetDefaultScaleInternal() { return 1.0; }
+
+  using WindowButtonType = mozilla::WindowButtonType;
 
   /**
    * Layout uses this to alert the widget to the client rect representing

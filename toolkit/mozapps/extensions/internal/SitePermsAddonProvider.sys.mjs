@@ -37,6 +37,33 @@ XPCOMUtils.defineLazyPreferenceGetter(
 const FIRST_CONTENT_PROCESS_TOPIC = "ipc:first-content-process-created";
 const SITEPERMS_ADDON_ID_SUFFIX = "@siteperms.mozilla.org";
 
+// Generate a per-session random salt, which is then used to generate
+// per-siteOrigin hashed strings used as the addon id in SitePermsAddonWrapper constructor
+// (expected to be matching new addon id generated for the same siteOrigin during
+// the same browsing session and different ones in new browsing sessions).
+//
+// NOTE: `generateSalt` is exported for testing purpose, should not be
+// used outside of tests.
+let SALT;
+export function generateSalt() {
+  //TODO: Use Services.env (See Bug 1541508).
+  let env = Cc["@mozilla.org/process/environment;1"].getService(
+    Ci.nsIEnvironment
+  );
+  // Throw if we're not in test and SALT is already defined
+  if (typeof SALT !== "undefined" && !env.exists("XPCSHELL_TEST_PROFILE_DIR")) {
+    throw new Error("This should only be called from XPCShell tests");
+  }
+  SALT = crypto.getRandomValues(new Uint8Array(12)).join("");
+}
+
+function getSalt() {
+  if (!SALT) {
+    generateSalt();
+  }
+  return SALT;
+}
+
 class SitePermsAddonWrapper {
   // An array of nsIPermission granted for the siteOrigin.
   // We can't use a Set as handlePermissionChange might be called with different
@@ -61,8 +88,10 @@ class SitePermsAddonWrapper {
     this.principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(
       this.siteOrigin
     );
+    // Use a template string for the concat in case `siteOrigin` isn't a string.
+    const saltedValue = `${this.siteOrigin}${getSalt()}`;
     this.id = `${computeSha256HashAsString(
-      this.siteOrigin
+      saltedValue
     )}${SITEPERMS_ADDON_ID_SUFFIX}`;
 
     for (const perm of permissions) {
@@ -257,12 +286,40 @@ class SitePermsAddonInstalling extends SitePermsAddonWrapper {
    *                                         calling this constructor.
    */
   constructor(siteOriginNoSuffix, install) {
-    super(siteOriginNoSuffix);
+    // SitePermsAddonWrapper expect an array of nsIPermission as its second parameter.
+    // Since we don't have a proper permission here, we pass an object with the properties
+    // being used in the class.
+    const permission = {
+      principal: install.principal,
+      type: install.newSitePerm,
+    };
+
+    super(siteOriginNoSuffix, [permission]);
     this.#install = install;
   }
 
-  get sitePermissions() {
-    return Array.from(new Set([this.#install.newSitePerm]));
+  get existingAddon() {
+    return SitePermsAddonProvider.wrappersMapByOrigin.get(this.siteOrigin);
+  }
+
+  uninstall() {
+    // While about:addons tab is already open, new addon cards for newly installed
+    // addons are created from the `onInstalled` AOM events, for the `SitePermsAddonWrapper`
+    // the `onInstalling` and `onInstalled` events are emitted by `SitePermsAddonInstall`
+    // and the addon instance is going to be a `SitePermsAddonInstalling` instance if
+    // there wasn't an AddonCard for the same addon id yet.
+    //
+    // To make sure that all permissions will be uninstalled if a user uninstall the
+    // addon from an AddonCard created from a `SitePermsAddonInstalling` instance,
+    // we forward calls to the uninstall method of the existing `SitePermsAddonWrapper`
+    // instance being tracked by the `SitePermsAddonProvider`.
+    // If there isn't any then removing only the single permission added along with the
+    // `SitePremsAddonInstalling` is going to be enough.
+    if (this.existingAddon) {
+      return this.existingAddon.uninstall();
+    }
+
+    return super.uninstall();
   }
 
   validInstallOrigins() {

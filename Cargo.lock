@@ -6192,6 +6192,7 @@ dependencies = [
  "num_cpus",
  "objc",
  "rayon",
+ "remove_dir_all",
  "swgl",
  "thin-vec",
  "tracy-rs",

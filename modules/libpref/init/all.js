@@ -1956,17 +1956,10 @@ pref("extensions.eventPages.enabled", true);
 // (only allowing same extension urls to be used as action popup urls).
 pref("extensions.manifestV2.actionsPopupURLRestricted", false);
 // Whether "manifest_version: 3" extensions should be allowed to install successfully.
-#ifdef EARLY_BETA_OR_EARLIER
-  pref("extensions.manifestV3.enabled", true);
-#else
-  pref("extensions.manifestV3.enabled", false);
-#endif
-// Whether to enable the unified extensions feature.
-#ifdef NIGHTLY_BUILD
-  pref("extensions.unifiedExtensions.enabled", true);
-#else
-  pref("extensions.unifiedExtensions.enabled", false);
-#endif
+pref("extensions.manifestV3.enabled", true);
+// Whether to enable the unified extensions feature. Note that this pref is
+// enabled for Firefox Desktop in `browser/app/profile/firefox.js`.
+pref("extensions.unifiedExtensions.enabled", false);
 // Whether to enable the updated openPopup API.
 #ifdef NIGHTLY_BUILD
   pref("extensions.openPopupWithoutUserGesture.enabled", true);

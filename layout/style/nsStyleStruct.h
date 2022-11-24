@@ -18,6 +18,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/ServoStyleConstsInlines.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/WindowButtonType.h"
 #include "nsColor.h"
 #include "nsCoord.h"
 #include "nsMargin.h"
@@ -919,9 +920,9 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleTextReset {
 
   mozilla::StyleTextDecorationLine mTextDecorationLine;
   uint8_t mTextDecorationStyle;  // NS_STYLE_TEXT_DECORATION_STYLE_*
-  uint8_t mUnicodeBidi;          // NS_STYLE_UNICODE_BIDI_*
-  nscoord mInitialLetterSink;    // 0 means normal
-  float mInitialLetterSize;      // 0.0f means normal
+  mozilla::StyleUnicodeBidi mUnicodeBidi;
+  nscoord mInitialLetterSink;  // 0 means normal
+  float mInitialLetterSize;    // 0.0f means normal
   mozilla::StyleColor mTextDecorationColor;
   mozilla::StyleTextDecorationLength mTextDecorationThickness;
 };
@@ -1359,6 +1360,23 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleDisplay {
   mozilla::NonNegativeLengthPercentage mShapeMargin;
 
   mozilla::StyleShapeOutside mShapeOutside;
+
+  mozilla::Maybe<mozilla::WindowButtonType> GetWindowButtonType() const {
+    if (MOZ_LIKELY(mDefaultAppearance == mozilla::StyleAppearance::None)) {
+      return mozilla::Nothing();
+    }
+    switch (mDefaultAppearance) {
+      case mozilla::StyleAppearance::MozWindowButtonMaximize:
+      case mozilla::StyleAppearance::MozWindowButtonRestore:
+        return Some(mozilla::WindowButtonType::Maximize);
+      case mozilla::StyleAppearance::MozWindowButtonMinimize:
+        return Some(mozilla::WindowButtonType::Minimize);
+      case mozilla::StyleAppearance::MozWindowButtonClose:
+        return Some(mozilla::WindowButtonType::Close);
+      default:
+        return mozilla::Nothing();
+    }
+  }
 
   bool HasAppearance() const {
     return EffectiveAppearance() != mozilla::StyleAppearance::None;

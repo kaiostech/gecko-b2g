@@ -254,7 +254,7 @@ endif
 export RUSTC_BOOTSTRAP
 endif
 
-target_rust_ltoable := force-cargo-library-build
+target_rust_ltoable := force-cargo-library-build force-cargo-library-udeps
 target_rust_nonltoable := force-cargo-test-run force-cargo-library-check $(foreach b,build check,force-cargo-program-$(b))
 
 ifdef MOZ_PGO_RUST
@@ -286,7 +286,7 @@ $(target_rust_nonltoable): RUSTFLAGS:=$(rustflags_override) $(rustflags_sancov) 
 TARGET_RECIPES := $(target_rust_ltoable) $(target_rust_nonltoable)
 
 HOST_RECIPES := \
-  $(foreach a,library program,$(foreach b,build check,force-cargo-host-$(a)-$(b)))
+  $(foreach a,library program,$(foreach b,build check udeps,force-cargo-host-$(a)-$(b)))
 
 $(HOST_RECIPES): RUSTFLAGS:=$(rustflags_override)
 
@@ -317,6 +317,23 @@ endef
 
 define CARGO_CHECK
 $(call RUN_CARGO,check)
+endef
+
+ifdef CARGO_UDEPS_EXPECT_ERR
+define CARGO_UDEPS
+-$(call RUN_CARGO,udeps)
+endef
+else
+define CARGO_UDEPS
+$(call RUN_CARGO,udeps)
+endef
+endif
+
+define CARGO_CLIPPY
+$(call RUN_CARGO,clippy)
+endef
+define CARGO_AUDIT
+$(call RUN_CARGO,audit)
 endef
 
 cargo_host_linker_env_var := CARGO_TARGET_$(call varize,$(RUST_HOST_TARGET))_LINKER
@@ -451,8 +468,23 @@ endif
 
 force-cargo-library-check:
 	$(call CARGO_CHECK) --lib $(cargo_target_flag) $(rust_features_flag)
+
+force-cargo-library-clippy:
+	$(call CARGO_CLIPPY) --lib $(cargo_target_flag) $(rust_features_flag)
+
+force-cargo-library-audit:
+	$(call CARGO_AUDIT)
+
+force-cargo-library-udeps:
+	$(call CARGO_UDEPS) --lib $(cargo_target_flag) $(rust_features_flag)
 else
 force-cargo-library-check:
+	@true
+force-cargo-library-udeps:
+	@true
+force-cargo-library-clippy:
+	@true
+force-cargo-library-audit:
 	@true
 endif # RUST_LIBRARY_FILE
 
@@ -486,8 +518,23 @@ $(HOST_RUST_LIBRARY_FILE): force-cargo-host-library-build ;
 
 force-cargo-host-library-check:
 	$(call CARGO_CHECK) --lib $(cargo_host_flag) $(host_rust_features_flag)
+
+force-cargo-host-library-clippy:
+	$(call CARGO_CLIPPY) --lib $(cargo_host_flag) $(host_rust_features_flag)
+
+force-cargo-host-library-audit:
+	$(call CARGO_AUDIT) --lib $(filter-out --release $(cargo_target_flag)) $(host_rust_features_flag)
+
+force-cargo-host-library-udeps:
+	$(call CARGO_UDEPS) --lib $(cargo_host_flag) $(host_rust_features_flag)
 else
 force-cargo-host-library-check:
+	@true
+force-cargo-host-library-clippy:
+	@true
+force-cargo-host-library-audit:
+	@true
+force-cargo-host-library-udeps:
 	@true
 endif # HOST_RUST_LIBRARY_FILE
 
@@ -501,8 +548,23 @@ $(RUST_PROGRAMS): force-cargo-program-build ;
 
 force-cargo-program-check:
 	$(call CARGO_CHECK) $(addprefix --bin ,$(RUST_CARGO_PROGRAMS)) $(cargo_target_flag)
+
+force-cargo-program-clippy:
+	$(call CARGO_CLIPPY) $(addprefix --bin ,$(RUST_CARGO_PROGRAMS)) $(cargo_target_flag)
+
+force-cargo-program-audit:
+	$(call CARGO_AUDIT) $(addprefix --bin ,$(RUST_CARGO_PROGRAMS)) $(filter-out --release $(cargo_target_flag))
+
+force-cargo-program-udeps:
+	$(call CARGO_UDEPS) $(addprefix --bin ,$(RUST_CARGO_PROGRAMS)) $(cargo_target_flag)
 else
 force-cargo-program-check:
+	@true
+force-cargo-program-clippy:
+	@true
+force-cargo-program-audit:
+	@true
+force-cargo-program-udeps:
 	@true
 endif # RUST_PROGRAMS
 ifdef HOST_RUST_PROGRAMS
@@ -516,7 +578,25 @@ $(HOST_RUST_PROGRAMS): force-cargo-host-program-build ;
 force-cargo-host-program-check:
 	$(REPORT_BUILD)
 	$(call CARGO_CHECK) $(addprefix --bin ,$(HOST_RUST_CARGO_PROGRAMS)) $(cargo_host_flag)
+
+force-cargo-host-program-clippy:
+	$(REPORT_BUILD)
+	$(call CARGO_CLIPPY) $(addprefix --bin ,$(HOST_RUST_CARGO_PROGRAMS)) $(cargo_host_flag)
+
+force-cargo-host-program-audit:
+	$(REPORT_BUILD)
+	$(call CARGO_CHECK) $(addprefix --bin ,$(HOST_RUST_CARGO_PROGRAMS)) $(filter-out --release $(cargo_target_flag))
+
+force-cargo-host-program-udeps:
+	$(REPORT_BUILD)
+	$(call CARGO_UDEPS) $(addprefix --bin ,$(HOST_RUST_CARGO_PROGRAMS)) $(cargo_host_flag)
 else
 force-cargo-host-program-check:
+	@true
+force-cargo-host-program-clippy:
+	@true
+force-cargo-host-program-audit:
+	@true
+force-cargo-host-program-udeps:
 	@true
 endif # HOST_RUST_PROGRAMS

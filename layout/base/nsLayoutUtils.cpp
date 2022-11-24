@@ -6927,10 +6927,6 @@ nsTransparencyMode nsLayoutUtils::GetFrameTransparency(
   StyleAppearance appearance =
       aCSSRootFrame->StyleDisplay()->EffectiveAppearance();
 
-  if (appearance == StyleAppearance::MozWinGlass) {
-    return eTransparencyGlass;
-  }
-
   if (appearance == StyleAppearance::MozWinBorderlessGlass) {
     return eTransparencyBorderlessGlass;
   }

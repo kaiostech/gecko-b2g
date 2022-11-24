@@ -5831,9 +5831,16 @@
   value: 0.66
   mirror: always
 
+# The maximum size of the GPU path cache in MB.
 - name: gfx.canvas.accelerated.gpu-path-size
   type: RelaxedAtomicUint32
   value: 4
+  mirror: always
+
+# The maximum allowed complexity of a GPU path.
+- name: gfx.canvas.accelerated.gpu-path-complexity
+  type: RelaxedAtomicUint32
+  value: 4000
   mirror: always
 
 # 0x7fff is the maximum supported xlib surface size and is more than enough for canvases.
@@ -12355,6 +12362,18 @@
 - name: network.allow_large_stack_size_for_socket_thread
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# WebTransport
+- name: network.webtransport.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# WebTransport Datagram support
+- name: network.webtransport.datagrams.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

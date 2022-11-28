@@ -373,7 +373,7 @@ DataCallManager.prototype = {
     }
 
     // Once got the apn, loading the white list config if any.
-    if (aApnList && aApnList.length > 0) {
+    if (aApnList && aApnList.length) {
       let allowed = null;
       if (lazy.customizationInfo) {
         allowed = lazy.customizationInfo.getCustomizedValue(
@@ -382,7 +382,7 @@ DataCallManager.prototype = {
           []
         );
       }
-      if (allowed.length > 0) {
+      if (allowed.length) {
         handler.mobileWhiteList = allowed;
         if (DEBUG) {
           this.debug(
@@ -977,7 +977,7 @@ DataCallHandler.prototype = {
       );
     }
     // Default config, if no meterInterfaceList config, set the default type as meter type.
-    if (meterInterfaceList.length == 0) {
+    if (!meterInterfaceList.length) {
       this.debug("Config default type as meter.");
       meterInterfaceList.push("default");
     }
@@ -2119,7 +2119,7 @@ DataCall.prototype = {
 
     this.reset();
 
-    if (this.requestedNetworkIfaces.length > 0) {
+    if (this.requestedNetworkIfaces.length) {
       if (DEBUG) {
         this.debug(
           "State is disconnected/unknown, but this DataCall is requested."
@@ -2221,7 +2221,7 @@ DataCall.prototype = {
         this.reset();
 
         // Handle network drop call case.
-        if (this.requestedNetworkIfaces.length > 0) {
+        if (this.requestedNetworkIfaces.length) {
           if (DEBUG) {
             this.debug(
               "State is disconnected/unknown, but this DataCall is" +
@@ -2309,7 +2309,7 @@ DataCall.prototype = {
   dataRegistrationChanged(aRadioTech) {
     // 1. Update the tcp buffer size for connected datacall.
     if (
-      this.requestedNetworkIfaces.length > 0 &&
+      this.requestedNetworkIfaces.length &&
       this.state == RIL.GECKO_NETWORK_STATE_CONNECTED
     ) {
       this.linkInfo.tcpbuffersizes = this.updateTcpBufferSizes(aRadioTech);
@@ -2629,7 +2629,7 @@ DataCall.prototype = {
     // DataCall and if state is CONNECTED, for other states, we simply remove
     // the network interface from requestedNetworkIfaces.
     if (
-      this.requestedNetworkIfaces.length > 0 ||
+      this.requestedNetworkIfaces.length ||
       this.state != NETWORK_STATE_CONNECTED
     ) {
       return;

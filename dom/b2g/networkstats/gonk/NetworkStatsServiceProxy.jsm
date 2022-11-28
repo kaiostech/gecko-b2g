@@ -12,8 +12,9 @@ const { NetworkStatsService } = ChromeUtils.import(
   "resource://gre/modules/NetworkStatsService.jsm"
 );
 
+const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "AppsServiceDelegate",
   "@mozilla.org/sidl-native/appsservice;1",
   "nsIAppsServiceDelegate"
@@ -103,8 +104,10 @@ NetworkStatsServiceProxy.prototype = {
     if (!aOrigin.endsWith(".localhost")) {
       if (aOrigin == "[System Principal]") {
         aManifestURL = "http://system.localhost/manifest.webmanifest";
-      } else if (aIsApp && AppsServiceDelegate) {
-        let pwaManifestURL = AppsServiceDelegate.getManifestUrlByScopeUrl(aURL);
+      } else if (aIsApp && lazy.AppsServiceDelegate) {
+        let pwaManifestURL = lazy.AppsServiceDelegate.getManifestUrlByScopeUrl(
+          aURL
+        );
         if (pwaManifestURL) {
           aManifestURL = pwaManifestURL;
         }
@@ -204,4 +207,4 @@ NetworkStatsServiceProxy.prototype = {
   ]),
 };
 
-this.EXPORTED_SYMBOLS = ["NetworkStatsServiceProxy"];
+const EXPORTED_SYMBOLS = ["NetworkStatsServiceProxy"];

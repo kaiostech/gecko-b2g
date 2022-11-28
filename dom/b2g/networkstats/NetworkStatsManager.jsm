@@ -44,7 +44,8 @@ if (isParentProcess) {
   }
 }
 
-XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
+const lazy = {};
+XPCOMUtils.defineLazyGetter(lazy, "cpmm", () => {
   return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
 });
 
@@ -181,7 +182,7 @@ NetworkStatsManager.prototype = {
     aEnd = aEnd.getTime();
 
     let request = this.createRequest();
-    cpmm.sendAsyncMessage("NetworkStats:Get", {
+    lazy.cpmm.sendAsyncMessage("NetworkStats:Get", {
       network: aNetwork.toJSON(),
       start: aStart,
       end: aEnd,
@@ -194,7 +195,7 @@ NetworkStatsManager.prototype = {
 
   clearStats: function clearStats(aNetwork) {
     let request = this.createRequest();
-    cpmm.sendAsyncMessage("NetworkStats:Clear", {
+    lazy.cpmm.sendAsyncMessage("NetworkStats:Clear", {
       network: aNetwork.toJSON(),
       id: this.getRequestId(request),
     });
@@ -203,7 +204,7 @@ NetworkStatsManager.prototype = {
 
   clearAllStats: function clearAllStats() {
     let request = this.createRequest();
-    cpmm.sendAsyncMessage("NetworkStats:ClearAll", {
+    lazy.cpmm.sendAsyncMessage("NetworkStats:ClearAll", {
       id: this.getRequestId(request),
     });
     return request;
@@ -211,7 +212,7 @@ NetworkStatsManager.prototype = {
 
   addAlarm: function addAlarm(aNetwork, aThreshold, aOptions) {
     let request = this.createRequest();
-    cpmm.sendAsyncMessage("NetworkStats:SetAlarm", {
+    lazy.cpmm.sendAsyncMessage("NetworkStats:SetAlarm", {
       id: this.getRequestId(request),
       data: {
         network: aNetwork.toJSON(),
@@ -232,7 +233,7 @@ NetworkStatsManager.prototype = {
     }
 
     let request = this.createRequest();
-    cpmm.sendAsyncMessage("NetworkStats:GetAlarms", {
+    lazy.cpmm.sendAsyncMessage("NetworkStats:GetAlarms", {
       id: this.getRequestId(request),
       data: { network, originURL: this.originURL },
     });
@@ -245,7 +246,7 @@ NetworkStatsManager.prototype = {
     }
 
     let request = this.createRequest();
-    cpmm.sendAsyncMessage("NetworkStats:RemoveAlarms", {
+    lazy.cpmm.sendAsyncMessage("NetworkStats:RemoveAlarms", {
       id: this.getRequestId(request),
       data: { alarmId: aAlarmId, originURL: this.originURL },
     });
@@ -255,7 +256,7 @@ NetworkStatsManager.prototype = {
 
   getAvailableNetworks: function getAvailableNetworks() {
     let request = this.createRequest();
-    cpmm.sendAsyncMessage("NetworkStats:GetAvailableNetworks", {
+    lazy.cpmm.sendAsyncMessage("NetworkStats:GetAvailableNetworks", {
       id: this.getRequestId(request),
     });
     return request;
@@ -263,18 +264,18 @@ NetworkStatsManager.prototype = {
 
   getAvailableServiceTypes: function getAvailableServiceTypes() {
     let request = this.createRequest();
-    cpmm.sendAsyncMessage("NetworkStats:GetAvailableServiceTypes", {
+    lazy.cpmm.sendAsyncMessage("NetworkStats:GetAvailableServiceTypes", {
       id: this.getRequestId(request),
     });
     return request;
   },
 
   get sampleRate() {
-    return cpmm.sendSyncMessage("NetworkStats:SampleRate")[0];
+    return lazy.cpmm.sendSyncMessage("NetworkStats:SampleRate")[0];
   },
 
   get maxStorageAge() {
-    return cpmm.sendSyncMessage("NetworkStats:MaxStorageAge")[0];
+    return lazy.cpmm.sendSyncMessage("NetworkStats:MaxStorageAge")[0];
   },
 
   receiveMessage(aMessage) {
@@ -431,7 +432,7 @@ NetworkStatsManager.prototype = {
   ]),
 };
 
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "NetworkStatsAlarm",
   "NetworkStatsData",
   "NetworkStatsInterface",

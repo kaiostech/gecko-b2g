@@ -808,9 +808,6 @@ class MOZ_RAII CacheIRCompiler {
            !allocator.isDeadAfterInstruction(objId);
   }
 
-  void emitRegisterEnumerator(Register enumeratorsList, Register iter,
-                              Register scratch);
-
  private:
   void emitPostBarrierShared(Register obj, const ConstantOrRegister& val,
                              Register scratch, Register maybeIndex);
@@ -863,6 +860,10 @@ class MOZ_RAII CacheIRCompiler {
   [[nodiscard]] bool emitAtomicsReadModifyWriteResult64(ObjOperandId objId,
                                                         IntPtrOperandId indexId,
                                                         uint32_t valueId);
+
+  void emitActivateIterator(Register objBeingIterated, Register iterObject,
+                            Register nativeIter, Register scratch,
+                            Register scratch2, uint32_t enumeratorsAddrOffset);
 
   CACHE_IR_COMPILER_SHARED_GENERATED
 

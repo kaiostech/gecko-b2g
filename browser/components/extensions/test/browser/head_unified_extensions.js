@@ -6,6 +6,7 @@
 /* exported clickUnifiedExtensionsItem,
             closeExtensionsPanel,
             createExtensions,
+            ensureMaximizedWindow,
             getUnifiedExtensionsItem,
             openExtensionsPanel,
             openUnifiedExtensionsContextMenu,
@@ -74,8 +75,8 @@ const getUnifiedExtensionsItem = (win, extensionId) => {
 const openUnifiedExtensionsContextMenu = async (win, extensionId) => {
   const item = getUnifiedExtensionsItem(win, extensionId);
   ok(item, `expected item for extensionId=${extensionId}`);
-  const button = item.querySelector(".unified-extensions-item-open-menu");
-  ok(button, "expected 'open menu' button");
+  const button = item.querySelector(".unified-extensions-item-menu-button");
+  ok(button, "expected menu button");
   // Make sure the button is visible before clicking on it (below) since the
   // list of extensions can have a scrollbar (when there are many extensions
   // and/or the window is small-ish).
@@ -106,7 +107,9 @@ const clickUnifiedExtensionsItem = async (
   // The action button should be disabled when users aren't supposed to click
   // on it but it might still be useful to re-enable it for testing purposes.
   if (forceEnableButton) {
-    let actionButton = item.querySelector(".unified-extensions-item-action");
+    let actionButton = item.querySelector(
+      ".unified-extensions-item-action-button"
+    );
     actionButton.disabled = false;
     ok(!actionButton.disabled, "action button was force-enabled");
   }
@@ -124,7 +127,6 @@ const clickUnifiedExtensionsItem = async (
   await popupHidden;
 };
 
-let extensionsCreated = 0;
 const createExtensions = (
   arrayOfManifestData,
   { useAddonManager = true, incognitoOverride } = {}
@@ -133,15 +135,31 @@ const createExtensions = (
     ExtensionTestUtils.loadExtension({
       manifest: {
         name: "default-extension-name",
-        browser_specific_settings: {
-          // We prefix the ID with a timestamp to have unique extension IDs
-          // between different test files.
-          gecko: { id: `${Date.now()}@ext-${extensionsCreated++}` },
-        },
         ...manifestData,
       },
       useAddonManager: useAddonManager ? "temporary" : undefined,
       incognitoOverride,
     })
   );
+};
+
+/**
+ * Given a window, this test helper resizes it so that the window takes most of
+ * the available screen size (unless the window is already maximized).
+ */
+const ensureMaximizedWindow = async win => {
+  let resizeDone = Promise.resolve();
+
+  win.moveTo(0, 0);
+
+  const widthDiff = win.screen.availWidth - win.outerWidth;
+  const heightDiff = win.screen.availHeight - win.outerHeight;
+
+  if (widthDiff || heightDiff) {
+    resizeDone = BrowserTestUtils.waitForEvent(win, "resize", false);
+    win.windowUtils.ensureDirtyRootFrame();
+    win.resizeBy(widthDiff, heightDiff);
+  }
+
+  return resizeDone;
 };

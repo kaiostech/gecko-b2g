@@ -6,17 +6,9 @@ import argparse
 import copy
 import os
 
-from mozbuild.base import (
-    BuildEnvironmentNotFoundException,
-    MachCommandConditions as conditions,
-)
-
-
-from mach.decorators import (
-    CommandArgument,
-    Command,
-)
-
+from mach.decorators import Command, CommandArgument
+from mozbuild.base import BuildEnvironmentNotFoundException
+from mozbuild.base import MachCommandConditions as conditions
 
 here = os.path.abspath(os.path.dirname(__file__))
 EXCLUSION_FILES = [
@@ -101,8 +93,8 @@ def lint(command_context, *runargs, **lintargs):
     lintargs["config_paths"].insert(0, here)
     lintargs["virtualenv_bin_path"] = command_context.virtualenv_manager.bin_path
     lintargs["virtualenv_manager"] = command_context.virtualenv_manager
-    if REPORT_WARNINGS and "warnings" not in lintargs:
-        lintargs["warnings"] = "soft"
+    if REPORT_WARNINGS and lintargs.get("show_warnings") is None:
+        lintargs["show_warnings"] = "soft"
     for path in EXCLUSION_FILES:
         parser.GLOBAL_SUPPORT_FILES.append(
             os.path.join(command_context.topsrcdir, path)

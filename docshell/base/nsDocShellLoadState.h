@@ -250,6 +250,8 @@ class nsDocShellLoadState final {
 
   nsIURI* GetUnstrippedURI() const;
 
+  void SetUnstrippedURI(nsIURI* aUnstrippedURI);
+
   // Give the type of DocShell we're loading into (chrome/content/etc) and
   // origin attributes for the URI we're loading, figure out if we should
   // inherit our principal from the document the load was requested from, or
@@ -330,8 +332,7 @@ class nsDocShellLoadState final {
   void SetLoadIsFromSessionHistory(int32_t aOffset, bool aLoadingCurrentEntry);
   void ClearLoadIsFromSessionHistory();
 
-  void MaybeStripTrackerQueryStrings(mozilla::dom::BrowsingContext* aContext,
-                                     nsIURI* aCurrentUnstrippedURI = nullptr);
+  void MaybeStripTrackerQueryStrings(mozilla::dom::BrowsingContext* aContext);
 
  protected:
   // Destructor can't be defaulted or inlined, as header doesn't have all type

@@ -437,6 +437,10 @@ void WorkerGlobalScope::NoteTerminating() {
   }
 
   StartDying();
+}
+
+void WorkerGlobalScope::NoteShuttingDown() {
+  MOZ_ASSERT(IsDying());
 
   if (mNavigator) {
     mNavigator->Invalidate();

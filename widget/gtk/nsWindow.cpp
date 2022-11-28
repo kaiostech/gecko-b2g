@@ -450,10 +450,6 @@ nsWindow::nsWindow()
 
 nsWindow::~nsWindow() {
   LOG("nsWindow::~nsWindow()");
-
-  delete[] mTransparencyBitmap;
-  mTransparencyBitmap = nullptr;
-
   Destroy();
 }
 
@@ -579,9 +575,17 @@ void nsWindow::DestroyChildWindows() {
 }
 
 void nsWindow::Destroy() {
+  // Allow to call ~nsWindow from different thread (Compositor for instance)
+  // in case that nsWindow is already destroyed.
+  if (mIsDestroyed) {
+    return;
+  }
+
   MOZ_DIAGNOSTIC_ASSERT(NS_IsMainThread());
 
-  if (mIsDestroyed || !mCreated) return;
+  if (!mCreated) {
+    return;
+  }
 
   LOG("nsWindow::Destroy\n");
 
@@ -589,6 +593,8 @@ void nsWindow::Destroy() {
   mCreated = false;
 
   MozClearHandleID(mCompositorPauseTimeoutID, g_source_remove);
+
+  ClearTransparencyBitmap();
 
 #ifdef MOZ_WAYLAND
   // Shut down our local vsync source
@@ -5154,20 +5160,16 @@ void nsWindow::OnWindowStateEvent(GtkWidget* aWidget,
   //
   // See https://gitlab.gnome.org/GNOME/gtk/issues/1044
   //
-  // This may be fixed in Gtk 3.24+ but some DE still have this issue
-  // (Bug 1624199) so let's remove it for Wayland only.
-#ifdef MOZ_X11
-  if (GdkIsX11Display()) {
-    if (!mIsShown) {
-      aEvent->changed_mask = static_cast<GdkWindowState>(
-          aEvent->changed_mask & ~GDK_WINDOW_STATE_MAXIMIZED);
-    } else if (aEvent->changed_mask & GDK_WINDOW_STATE_WITHDRAWN &&
-               aEvent->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
-      aEvent->changed_mask = static_cast<GdkWindowState>(
-          aEvent->changed_mask | GDK_WINDOW_STATE_MAXIMIZED);
-    }
+  // This may be fixed in Gtk 3.24+ but it's still live and kicking
+  // (Bug 1791779).
+  if (!mIsShown) {
+    aEvent->changed_mask = static_cast<GdkWindowState>(
+        aEvent->changed_mask & ~GDK_WINDOW_STATE_MAXIMIZED);
+  } else if (aEvent->changed_mask & GDK_WINDOW_STATE_WITHDRAWN &&
+             aEvent->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
+    aEvent->changed_mask = static_cast<GdkWindowState>(
+        aEvent->changed_mask | GDK_WINDOW_STATE_MAXIMIZED);
   }
-#endif
 
   // This is a workaround for https://gitlab.gnome.org/GNOME/gtk/issues/1395
   // Gtk+ controls window active appearance by window-state-event signal.
@@ -5687,7 +5689,8 @@ void nsWindow::ConfigureCompositor() {
 
     // too late
     if (mIsDestroyed || !mIsMapped) {
-      LOG("  quit, mIsDestroyed = %d mIsMapped = %d", mIsDestroyed, mIsMapped);
+      LOG("  quit, mIsDestroyed = %d mIsMapped = %d", !!mIsDestroyed,
+          mIsMapped);
       return;
     }
     // Compositor will be resumed later by ResumeCompositorFlickering().

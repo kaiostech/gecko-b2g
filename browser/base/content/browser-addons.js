@@ -1205,6 +1205,16 @@ var BrowserAddonUI = {
 var gUnifiedExtensions = {
   _initialized: false,
 
+  // We use a `<deck>` in the extension items to show/hide messages below each
+  // extension name. We have a default message for origin controls, and
+  // optionally a second message shown on hover, which describes the action
+  // (when clicking on the action button). We have another message shown when
+  // the menu button is hovered/focused. The constants below define the indexes
+  // of each message in the `<deck>`.
+  MESSAGE_DECK_INDEX_DEFAULT: 0,
+  MESSAGE_DECK_INDEX_HOVER: 1,
+  MESSAGE_DECK_INDEX_MENU_HOVER: 2,
+
   init() {
     if (this._initialized) {
       return;
@@ -1266,6 +1276,7 @@ var gUnifiedExtensions = {
 
   // Update the attention indicator for the whole unified extensions button.
   async updateAttention() {
+    let attention = false;
     for (let addon of await this.getActiveExtensions()) {
       let policy = WebExtensionPolicy.getByID(addon.id);
       let widget = this.browserActionFor(policy)?.widget;
@@ -1273,12 +1284,18 @@ var gUnifiedExtensions = {
       // Only show for extensions which are not already visible in the toolbar.
       if (!widget || widget.areaType !== CustomizableUI.TYPE_TOOLBAR) {
         if (lazy.OriginControls.getAttention(policy, window)) {
-          this.button.toggleAttribute("attention", true);
-          return;
+          attention = true;
+          break;
         }
       }
     }
-    this.button.toggleAttribute("attention", false);
+    this.button.toggleAttribute("attention", attention);
+    this.button.ownerDocument.l10n.setAttributes(
+      this.button,
+      attention
+        ? "unified-extensions-button-permissions-needed"
+        : "unified-extensions-button"
+    );
   },
 
   getPopupAnchorID(aBrowser, aWindow) {
@@ -1371,13 +1388,13 @@ var gUnifiedExtensions = {
 
   handleEvent(event) {
     switch (event.type) {
-      case "ViewShowing": {
+      case "ViewShowing":
         this.onPanelViewShowing(event.target);
         break;
-      }
-      case "ViewHiding": {
+
+      case "ViewHiding":
         this.onPanelViewHiding(event.target);
-      }
+        break;
     }
   },
 
@@ -1426,7 +1443,17 @@ var gUnifiedExtensions = {
   async togglePanel(aEvent) {
     if (!CustomizationHandler.isCustomizing()) {
       if (aEvent) {
-        if (aEvent.button !== 0) {
+        if (
+          // On MacOS, ctrl-click will send a context menu event from the
+          // widget, so we don't want to bring up the panel when ctrl key is
+          // pressed.
+          (aEvent.type == "mousedown" &&
+            (aEvent.button !== 0 ||
+              (AppConstants.platform === "macosx" && aEvent.ctrlKey))) ||
+          (aEvent.type === "keypress" &&
+            aEvent.charCode !== KeyEvent.DOM_VK_SPACE &&
+            aEvent.keyCode !== KeyEvent.DOM_VK_RETURN)
+        ) {
           return;
         }
 

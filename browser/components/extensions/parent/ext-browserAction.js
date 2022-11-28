@@ -231,7 +231,7 @@ this.browserAction = class extends ExtensionAPIPersistent {
         button.setAttribute("data-extensionid", extension.id);
         button.classList.add(
           "toolbarbutton-1",
-          "unified-extensions-item-action",
+          "unified-extensions-item-action-button",
           "subviewbutton"
         );
 
@@ -244,30 +244,44 @@ this.browserAction = class extends ExtensionAPIPersistent {
           name.classList.add("unified-extensions-item-name");
           contents.appendChild(name);
 
+          // This deck (and its labels) should be kept in sync with
+          // `browser/base/content/unified-extensions-viewcache.inc.xhtml`.
+          let deck = document.createXULElement("deck");
+          deck.classList.add("unified-extensions-item-message-deck");
+
           let messageDefault = document.createXULElement("label");
           messageDefault.classList.add(
             "unified-extensions-item-message",
             "unified-extensions-item-message-default"
           );
-          contents.appendChild(messageDefault);
+          deck.appendChild(messageDefault);
 
           let messageHover = document.createXULElement("label");
           messageHover.classList.add(
             "unified-extensions-item-message",
             "unified-extensions-item-message-hover"
           );
-          messageHover.setAttribute(
+          deck.appendChild(messageHover);
+
+          let messageHoverForMenuButton = document.createXULElement("label");
+          messageHoverForMenuButton.classList.add(
+            "unified-extensions-item-message",
+            "unified-extensions-item-message-hover-menu-button"
+          );
+          messageHoverForMenuButton.setAttribute(
             "data-l10n-id",
             "unified-extensions-item-message-manage"
           );
-          contents.appendChild(messageHover);
+          deck.appendChild(messageHoverForMenuButton);
+
+          contents.appendChild(deck);
 
           button.appendChild(contents);
         }
 
         let menuButton = document.createXULElement("toolbarbutton");
         menuButton.classList.add(
-          "unified-extensions-item-open-menu",
+          "unified-extensions-item-menu-button",
           "subviewbutton",
           "subviewbutton-iconic"
         );
@@ -333,7 +347,7 @@ this.browserAction = class extends ExtensionAPIPersistent {
 
       onCreated: node => {
         let actionButton = node.querySelector(
-          ".unified-extensions-item-action"
+          ".unified-extensions-item-action-button"
         );
         actionButton.classList.add("panel-no-padding");
         actionButton.classList.add("webextension-browser-action");
@@ -348,7 +362,7 @@ this.browserAction = class extends ExtensionAPIPersistent {
 
         if (gUnifiedExtensionsEnabled) {
           const menuButton = node.querySelector(
-            ".unified-extensions-item-open-menu"
+            ".unified-extensions-item-menu-button"
           );
           menuButton.setAttribute(
             "data-l10n-args",
@@ -377,10 +391,14 @@ this.browserAction = class extends ExtensionAPIPersistent {
         this.openPopupWithoutUserInteraction =
           event.detail?.openPopupWithoutUserInteraction === true;
 
-        if (event.target.classList.contains("unified-extensions-item-action")) {
+        if (
+          event.target.classList.contains(
+            "unified-extensions-item-action-button"
+          )
+        ) {
           return "view";
         } else if (
-          event.target.classList.contains("unified-extensions-item-open-menu")
+          event.target.classList.contains("unified-extensions-item-menu-button")
         ) {
           return "command";
         }
@@ -567,20 +585,25 @@ this.browserAction = class extends ExtensionAPIPersistent {
   handleMenuButtonEvent(event) {
     let window = event.target.ownerGlobal;
     let { node } = window.gBrowser && this.widget.forWindow(window);
+    let messageDeck = node?.querySelector(
+      ".unified-extensions-item-message-deck"
+    );
 
     switch (event.type) {
       case "focus":
       case "mouseover": {
-        if (node) {
-          node.setAttribute("secondary-button-hovered", true);
+        if (messageDeck) {
+          messageDeck.selectedIndex =
+            window.gUnifiedExtensions.MESSAGE_DECK_INDEX_MENU_HOVER;
         }
         break;
       }
 
       case "blur":
       case "mouseout": {
-        if (node) {
-          node.removeAttribute("secondary-button-hovered");
+        if (messageDeck) {
+          messageDeck.selectedIndex =
+            window.gUnifiedExtensions.MESSAGE_DECK_INDEX_DEFAULT;
         }
         break;
       }
@@ -641,21 +664,9 @@ this.browserAction = class extends ExtensionAPIPersistent {
 
         let { node } = window.gBrowser && this.widget.forWindow(window);
         if (gUnifiedExtensionsEnabled && node) {
-          const policy = WebExtensionPolicy.getByID(this.extension.id);
-          const messages = OriginControls.getStateMessageIDs({
-            policy,
-            uri: window.gBrowser.currentURI,
-            isAction: true,
-            hasPopup: !!popupURL,
-          });
-
-          if (messages?.onHover) {
-            node.ownerDocument.l10n.setAttributes(
-              node.querySelector(".unified-extensions-item-message-default"),
-              messages.onHover
-            );
-            node.dataset.showsHoverMessage = true;
-          }
+          node.querySelector(
+            ".unified-extensions-item-message-deck"
+          ).selectedIndex = window.gUnifiedExtensions.MESSAGE_DECK_INDEX_HOVER;
         }
 
         // We don't want to preload the popup on focus (for now).
@@ -679,24 +690,10 @@ this.browserAction = class extends ExtensionAPIPersistent {
       case "mouseout": {
         let { node } = window.gBrowser && this.widget.forWindow(window);
         if (gUnifiedExtensionsEnabled && node) {
-          let tab = window.gBrowser.selectedTab;
-          let popupURL = this.action.getPopupUrl(tab);
-
-          const policy = WebExtensionPolicy.getByID(this.extension.id);
-          const messages = OriginControls.getStateMessageIDs({
-            policy,
-            uri: window.gBrowser.currentURI,
-            isAction: true,
-            hasPopup: !!popupURL,
-          });
-
-          if (messages?.default) {
-            node.ownerDocument.l10n.setAttributes(
-              node.querySelector(".unified-extensions-item-message-default"),
-              messages.default
-            );
-            delete node.dataset.showsHoverMessage;
-          }
+          node.querySelector(
+            ".unified-extensions-item-message-deck"
+          ).selectedIndex =
+            window.gUnifiedExtensions.MESSAGE_DECK_INDEX_DEFAULT;
         }
 
         // We don't want to clear the popup on blur for now.
@@ -843,11 +840,11 @@ this.browserAction = class extends ExtensionAPIPersistent {
   // in |tabData|.
   updateButton(node, tabData, sync = false, attention = false) {
     // This is the primary/action button in the custom widget.
-    let button = node.querySelector(".unified-extensions-item-action");
+    let button = node.querySelector(".unified-extensions-item-action-button");
     let title = tabData.title || this.extension.name;
 
     let messages;
-    if (gUnifiedExtensionsEnabled && !node.dataset.showsHoverMessage) {
+    if (gUnifiedExtensionsEnabled) {
       let policy = WebExtensionPolicy.getByID(this.extension.id);
       messages = OriginControls.getStateMessageIDs({
         policy,
@@ -858,11 +855,18 @@ this.browserAction = class extends ExtensionAPIPersistent {
     }
 
     let callback = () => {
-      button.setAttribute("tooltiptext", title);
       button.setAttribute("label", title);
 
       // This is set on the node so that it looks good in the toolbar.
       node.toggleAttribute("attention", attention);
+
+      node.ownerDocument.l10n.setAttributes(
+        button,
+        attention
+          ? "origin-controls-toolbar-button-permission-needed"
+          : "origin-controls-toolbar-button",
+        { extensionTitle: title }
+      );
 
       if (gUnifiedExtensionsEnabled) {
         button.querySelector(
@@ -870,16 +874,21 @@ this.browserAction = class extends ExtensionAPIPersistent {
         ).textContent = this.extension?.name;
 
         if (messages) {
-          const messageElement = button.querySelector(
+          const messageDefaultElement = button.querySelector(
             ".unified-extensions-item-message-default"
           );
           node.ownerDocument.l10n.setAttributes(
-            messageElement,
+            messageDefaultElement,
             messages.default
           );
 
-          // TODO: Bug 1799694 - adjust min-height property on the
-          // `.unified-extensions-item-contents` element.
+          const messageHoverElement = button.querySelector(
+            ".unified-extensions-item-message-hover"
+          );
+          node.ownerDocument.l10n.setAttributes(
+            messageHoverElement,
+            messages.onHover || messages.default
+          );
         }
       }
 
@@ -890,9 +899,9 @@ this.browserAction = class extends ExtensionAPIPersistent {
       }
 
       if (tabData.enabled) {
-        node.removeAttribute("disabled");
+        button.removeAttribute("disabled");
       } else {
-        node.setAttribute("disabled", "true");
+        button.setAttribute("disabled", "true");
       }
 
       let serializeColor = ([r, g, b, a]) =>

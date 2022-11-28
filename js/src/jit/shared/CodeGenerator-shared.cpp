@@ -65,9 +65,6 @@ CodeGeneratorShared::CodeGeneratorShared(MIRGenerator* gen, LIRGraph* graph,
       nativeToBytecodeMap_(nullptr),
       nativeToBytecodeMapSize_(0),
       nativeToBytecodeTableOffset_(0),
-      nativeToBytecodeNumRegions_(0),
-      nativeToBytecodeScriptList_(nullptr),
-      nativeToBytecodeScriptListLength_(0),
 #ifdef CHECK_OSIPOINT_REGISTERS
       checkOsiPointRegisters(JitOptions.checkOsiPointRegisters),
 #endif
@@ -615,20 +612,27 @@ bool CodeGeneratorShared::encodeSafepoints() {
   return !safepoints_.oom();
 }
 
-bool CodeGeneratorShared::createNativeToBytecodeScriptList(JSContext* cx) {
-  js::Vector<JSScript*, 0, SystemAllocPolicy> scriptList;
+bool CodeGeneratorShared::createNativeToBytecodeScriptList(
+    JSContext* cx, IonEntry::ScriptList& scripts) {
+  MOZ_ASSERT(scripts.empty());
+
   InlineScriptTree* tree = gen->outerInfo().inlineScriptTree();
   for (;;) {
     // Add script from current tree.
     bool found = false;
-    for (uint32_t i = 0; i < scriptList.length(); i++) {
-      if (scriptList[i] == tree->script()) {
+    for (uint32_t i = 0; i < scripts.length(); i++) {
+      if (scripts[i].script == tree->script()) {
         found = true;
         break;
       }
     }
     if (!found) {
-      if (!scriptList.append(tree->script())) {
+      UniqueChars str =
+          GeckoProfilerRuntime::allocProfileString(cx, tree->script());
+      if (!str) {
+        return false;
+      }
+      if (!scripts.emplaceBack(tree->script(), std::move(str))) {
         return false;
       }
     }
@@ -658,48 +662,27 @@ bool CodeGeneratorShared::createNativeToBytecodeScriptList(JSContext* cx) {
     break;
   }
 
-  // Allocate array for list.
-  JSScript** data = cx->pod_malloc<JSScript*>(scriptList.length());
-  if (!data) {
-    return false;
-  }
-
-  for (uint32_t i = 0; i < scriptList.length(); i++) {
-    data[i] = scriptList[i];
-  }
-
-  // Success.
-  nativeToBytecodeScriptListLength_ = scriptList.length();
-  nativeToBytecodeScriptList_ = data;
   return true;
 }
 
-bool CodeGeneratorShared::generateCompactNativeToBytecodeMap(JSContext* cx,
-                                                             JitCode* code) {
-  MOZ_ASSERT(nativeToBytecodeScriptListLength_ == 0);
-  MOZ_ASSERT(nativeToBytecodeScriptList_ == nullptr);
+bool CodeGeneratorShared::generateCompactNativeToBytecodeMap(
+    JSContext* cx, JitCode* code, IonEntry::ScriptList& scripts) {
   MOZ_ASSERT(nativeToBytecodeMap_ == nullptr);
   MOZ_ASSERT(nativeToBytecodeMapSize_ == 0);
   MOZ_ASSERT(nativeToBytecodeTableOffset_ == 0);
-  MOZ_ASSERT(nativeToBytecodeNumRegions_ == 0);
 
-  if (!createNativeToBytecodeScriptList(cx)) {
+  if (!createNativeToBytecodeScriptList(cx, scripts)) {
     return false;
   }
-
-  MOZ_ASSERT(nativeToBytecodeScriptListLength_ > 0);
-  MOZ_ASSERT(nativeToBytecodeScriptList_ != nullptr);
 
   CompactBufferWriter writer;
   uint32_t tableOffset = 0;
   uint32_t numRegions = 0;
 
   if (!JitcodeIonTable::WriteIonTable(
-          writer, nativeToBytecodeScriptList_,
-          nativeToBytecodeScriptListLength_, &nativeToBytecodeList_[0],
+          writer, scripts, &nativeToBytecodeList_[0],
           &nativeToBytecodeList_[0] + nativeToBytecodeList_.length(),
           &tableOffset, &numRegions)) {
-    js_free(nativeToBytecodeScriptList_);
     return false;
   }
 
@@ -709,17 +692,15 @@ bool CodeGeneratorShared::generateCompactNativeToBytecodeMap(JSContext* cx,
   // Writer is done, copy it to sized buffer.
   uint8_t* data = cx->pod_malloc<uint8_t>(writer.length());
   if (!data) {
-    js_free(nativeToBytecodeScriptList_);
     return false;
   }
 
   memcpy(data, writer.buffer(), writer.length());
-  nativeToBytecodeMap_ = data;
+  nativeToBytecodeMap_.reset(data);
   nativeToBytecodeMapSize_ = writer.length();
   nativeToBytecodeTableOffset_ = tableOffset;
-  nativeToBytecodeNumRegions_ = numRegions;
 
-  verifyCompactNativeToBytecodeMap(code);
+  verifyCompactNativeToBytecodeMap(code, scripts, numRegions);
 
   JitSpew(JitSpew_Profiling, "Compact Native To Bytecode Map [%p-%p]", data,
           data + nativeToBytecodeMapSize_);
@@ -727,23 +708,23 @@ bool CodeGeneratorShared::generateCompactNativeToBytecodeMap(JSContext* cx,
   return true;
 }
 
-void CodeGeneratorShared::verifyCompactNativeToBytecodeMap(JitCode* code) {
+void CodeGeneratorShared::verifyCompactNativeToBytecodeMap(
+    JitCode* code, const IonEntry::ScriptList& scripts, uint32_t numRegions) {
 #ifdef DEBUG
-  MOZ_ASSERT(nativeToBytecodeScriptListLength_ > 0);
-  MOZ_ASSERT(nativeToBytecodeScriptList_ != nullptr);
   MOZ_ASSERT(nativeToBytecodeMap_ != nullptr);
   MOZ_ASSERT(nativeToBytecodeMapSize_ > 0);
   MOZ_ASSERT(nativeToBytecodeTableOffset_ > 0);
-  MOZ_ASSERT(nativeToBytecodeNumRegions_ > 0);
+  MOZ_ASSERT(numRegions > 0);
 
   // The pointer to the table must be 4-byte aligned
-  const uint8_t* tablePtr = nativeToBytecodeMap_ + nativeToBytecodeTableOffset_;
+  const uint8_t* tablePtr =
+      nativeToBytecodeMap_.get() + nativeToBytecodeTableOffset_;
   MOZ_ASSERT(uintptr_t(tablePtr) % sizeof(uint32_t) == 0);
 
   // Verify that numRegions was encoded correctly.
   const JitcodeIonTable* ionTable =
       reinterpret_cast<const JitcodeIonTable*>(tablePtr);
-  MOZ_ASSERT(ionTable->numRegions() == nativeToBytecodeNumRegions_);
+  MOZ_ASSERT(ionTable->numRegions() == numRegions);
 
   // Region offset for first region should be at the start of the payload
   // region. Since the offsets are backward from the start of the table, the
@@ -776,8 +757,7 @@ void CodeGeneratorShared::verifyCompactNativeToBytecodeMap(JitCode* code) {
       scriptPcIter.readNext(&scriptIdx, &pcOffset);
 
       // Ensure scriptIdx refers to a valid script in the list.
-      MOZ_ASSERT(scriptIdx < nativeToBytecodeScriptListLength_);
-      JSScript* script = nativeToBytecodeScriptList_[scriptIdx];
+      JSScript* script = scripts[scriptIdx].script;
 
       // Ensure pcOffset falls within the script.
       MOZ_ASSERT(pcOffset < script->length());
@@ -791,7 +771,7 @@ void CodeGeneratorShared::verifyCompactNativeToBytecodeMap(JitCode* code) {
       uint32_t scriptIdx = 0;
       scriptPcIter.reset();
       scriptPcIter.readNext(&scriptIdx, &curPcOffset);
-      script = nativeToBytecodeScriptList_[scriptIdx];
+      script = scripts[scriptIdx].script;
     }
 
     // Read out nativeDeltas and pcDeltas and verify.

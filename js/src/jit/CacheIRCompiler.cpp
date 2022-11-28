@@ -4406,6 +4406,109 @@ bool CacheIRCompiler::emitFinishBoundFunctionInitResult(
   return true;
 }
 
+void CacheIRCompiler::emitActivateIterator(Register objBeingIterated,
+                                           Register iterObject,
+                                           Register nativeIter,
+                                           Register scratch, Register scratch2,
+                                           uint32_t enumeratorsAddrOffset) {
+  // 'objectBeingIterated_' must be nullptr, so we don't need a pre-barrier.
+  Address iterObjAddr(nativeIter,
+                      NativeIterator::offsetOfObjectBeingIterated());
+#ifdef DEBUG
+  Label ok;
+  masm.branchPtr(Assembler::Equal, iterObjAddr, ImmPtr(nullptr), &ok);
+  masm.assumeUnreachable("iterator with non-null object");
+  masm.bind(&ok);
+#endif
+
+  // Mark iterator as active.
+  Address iterFlagsAddr(nativeIter, NativeIterator::offsetOfFlagsAndCount());
+  masm.storePtr(objBeingIterated, iterObjAddr);
+  masm.or32(Imm32(NativeIterator::Flags::Active), iterFlagsAddr);
+
+  // Post-write barrier for stores to 'objectBeingIterated_'.
+  emitPostBarrierSlot(
+      iterObject,
+      TypedOrValueRegister(MIRType::Object, AnyRegister(objBeingIterated)),
+      scratch);
+
+  // Chain onto the active iterator stack.
+  StubFieldOffset enumeratorsAddr(enumeratorsAddrOffset,
+                                  StubField::Type::RawPointer);
+  emitLoadStubField(enumeratorsAddr, scratch);
+  masm.registerIterator(scratch, nativeIter, scratch2);
+}
+
+bool CacheIRCompiler::emitGuardAndGetIterator(ObjOperandId objId,
+                                              uint32_t iterOffset,
+                                              uint32_t enumeratorsAddrOffset,
+                                              ObjOperandId resultId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+  Register obj = allocator.useRegister(masm, objId);
+
+  AutoScratchRegister scratch1(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+  AutoScratchRegister niScratch(allocator, masm);
+
+  StubFieldOffset iterField(iterOffset, StubField::Type::JSObject);
+
+  Register output = allocator.defineRegister(masm, resultId);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  // Load our PropertyIteratorObject* and its NativeIterator.
+  emitLoadStubField(iterField, output);
+
+  Address slotAddr(output, PropertyIteratorObject::offsetOfIteratorSlot());
+  masm.loadPrivate(slotAddr, niScratch);
+
+  // Ensure the iterator is reusable: see NativeIterator::isReusable.
+  masm.branchIfNativeIteratorNotReusable(niScratch, failure->label());
+
+  emitActivateIterator(obj, output, niScratch, scratch1, scratch2,
+                       enumeratorsAddrOffset);
+  return true;
+}
+
+bool CacheIRCompiler::emitObjectToIteratorResult(
+    ObjOperandId objId, uint32_t enumeratorsAddrOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+  Register obj = allocator.useRegister(masm, objId);
+
+  AutoScratchRegister iterObj(allocator, masm);
+  AutoScratchRegister scratch(allocator, masm);
+  AutoScratchRegisterMaybeOutput scratch2(allocator, masm, callvm.output());
+  AutoScratchRegisterMaybeOutputType scratch3(allocator, masm, callvm.output());
+
+  Label callVM, done;
+  masm.maybeLoadIteratorFromShape(obj, iterObj, scratch, scratch2, scratch3,
+                                  &callVM);
+
+  masm.loadPrivate(
+      Address(iterObj, PropertyIteratorObject::offsetOfIteratorSlot()),
+      scratch);
+
+  emitActivateIterator(obj, iterObj, scratch, scratch2, scratch3,
+                       enumeratorsAddrOffset);
+  masm.jump(&done);
+
+  masm.bind(&callVM);
+  callvm.prepare();
+  masm.Push(obj);
+  using Fn = JSObject* (*)(JSContext*, HandleObject);
+  callvm.call<Fn, GetIterator>();
+  masm.storeCallPointerResult(iterObj);
+
+  masm.bind(&done);
+  EmitStoreResult(masm, iterObj, JSVAL_TYPE_OBJECT, callvm.output());
+  return true;
+}
+
 bool CacheIRCompiler::emitValueToIteratorResult(ValOperandId valId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
@@ -6768,24 +6871,6 @@ bool CacheIRCompiler::emitBreakpoint() {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   masm.breakpoint();
   return true;
-}
-
-void CacheIRCompiler::emitRegisterEnumerator(Register enumeratorsList,
-                                             Register iter, Register scratch) {
-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  // iter->next = list
-  masm.storePtr(enumeratorsList, Address(iter, NativeIterator::offsetOfNext()));
-
-  // iter->prev = list->prev
-  masm.loadPtr(Address(enumeratorsList, NativeIterator::offsetOfPrev()),
-               scratch);
-  masm.storePtr(scratch, Address(iter, NativeIterator::offsetOfPrev()));
-
-  // list->prev->next = iter
-  masm.storePtr(iter, Address(scratch, NativeIterator::offsetOfNext()));
-
-  // list->prev = ni
-  masm.storePtr(iter, Address(enumeratorsList, NativeIterator::offsetOfPrev()));
 }
 
 void CacheIRCompiler::emitPostBarrierShared(Register obj,

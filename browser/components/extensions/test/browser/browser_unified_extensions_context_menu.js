@@ -84,70 +84,50 @@ add_task(async function test_context_menu() {
   await openExtensionsPanel(win);
 
   // Get the menu button of the extension and verify the mouseover/mouseout
-  // behavior. We expect a help message to be displayed when a
-  // `secondary-button-hovered` attribute is set to `true` on the item
-  // (combined with some CSS).
+  // behavior. We expect a help message (in the message deck) to be selected
+  // (and therefore displayed) when the menu button is hovered/focused.
   const item = getUnifiedExtensionsItem(win, extension.id);
   ok(item, "expected an item for the extension");
-  const menuButton = item.querySelector(".unified-extensions-item-open-menu");
-  ok(menuButton, "expected 'open menu' button");
 
-  let messageHover = item.querySelector(
-    ".unified-extensions-item-message-hover"
+  const messageDeck = item.querySelector(
+    ".unified-extensions-item-message-deck"
+  );
+  Assert.ok(messageDeck, "expected message deck");
+  is(
+    messageDeck.selectedIndex,
+    win.gUnifiedExtensions.MESSAGE_DECK_INDEX_DEFAULT,
+    "expected selected message in the deck to be the default message"
   );
 
-  ok(
-    BrowserTestUtils.is_visible(
-      item.querySelector(".unified-extensions-item-message-default")
-    ),
-    "expected message to be visible"
+  const hoverMenuButtonMessage = item.querySelector(
+    ".unified-extensions-item-message-hover-menu-button"
   );
-  ok(
-    BrowserTestUtils.is_hidden(messageHover),
-    "expected 'hover message' to be hidden"
+  Assert.deepEqual(
+    win.document.l10n.getAttributes(hoverMenuButtonMessage),
+    { id: "unified-extensions-item-message-manage", args: null },
+    "expected correct l10n attributes for the hover message"
   );
+
+  const menuButton = item.querySelector(".unified-extensions-item-menu-button");
+  ok(menuButton, "expected menu button");
 
   let hovered = BrowserTestUtils.waitForEvent(menuButton, "mouseover");
   EventUtils.synthesizeMouseAtCenter(menuButton, { type: "mouseover" }, win);
   await hovered;
   is(
-    item.getAttribute("secondary-button-hovered"),
-    "true",
-    "expected secondary-button-hovered attr on the item"
-  );
-  ok(
-    BrowserTestUtils.is_hidden(
-      item.querySelector(".unified-extensions-item-message-default")
-    ),
-    "expected message to be hidden"
-  );
-  ok(
-    BrowserTestUtils.is_visible(messageHover),
-    "expected 'hover message' to be visible"
-  );
-  Assert.deepEqual(
-    win.document.l10n.getAttributes(messageHover),
-    { id: "unified-extensions-item-message-manage", args: null },
-    "expected correct l10n attributes for the message displayed on secondary button hovered"
+    messageDeck.selectedIndex,
+    win.gUnifiedExtensions.MESSAGE_DECK_INDEX_MENU_HOVER,
+    "expected selected message in the deck to be the message when hovering the menu button"
   );
 
   let notHovered = BrowserTestUtils.waitForEvent(menuButton, "mouseout");
   // Move mouse somewhere else...
   EventUtils.synthesizeMouseAtCenter(item, { type: "mouseover" }, win);
   await notHovered;
-  ok(
-    !item.hasAttribute("secondary-button-hovered"),
-    "expected no secondary-button-hovered attr on the item"
-  );
-  ok(
-    BrowserTestUtils.is_visible(
-      item.querySelector(".unified-extensions-item-message-default")
-    ),
-    "expected message to be visible"
-  );
-  ok(
-    BrowserTestUtils.is_hidden(messageHover),
-    "expected 'hover message' to be hidden"
+  is(
+    messageDeck.selectedIndex,
+    win.gUnifiedExtensions.MESSAGE_DECK_INDEX_HOVER,
+    "expected selected message in the deck to be the hover message"
   );
 
   // Open the context menu for the extension.
@@ -485,9 +465,9 @@ add_task(async function test_open_context_menu_on_click() {
   await openExtensionsPanel(win);
 
   const button = getUnifiedExtensionsItem(win, extension.id).querySelector(
-    ".unified-extensions-item-open-menu"
+    ".unified-extensions-item-menu-button"
   );
-  ok(button, "expected 'open menu' button");
+  ok(button, "expected menu button");
 
   const contextMenu = win.document.getElementById(
     "unified-extensions-context-menu"
@@ -513,9 +493,9 @@ add_task(async function test_open_context_menu_with_keyboard() {
   await openExtensionsPanel(win);
 
   const button = getUnifiedExtensionsItem(win, extension.id).querySelector(
-    ".unified-extensions-item-open-menu"
+    ".unified-extensions-item-menu-button"
   );
-  ok(button, "expected 'open menu' button");
+  ok(button, "expected menu button");
   // Make this button focusable because those (toolbar) buttons are only made
   // focusable when a user is navigating with the keyboard, which isn't exactly
   // what we are doing in this test.

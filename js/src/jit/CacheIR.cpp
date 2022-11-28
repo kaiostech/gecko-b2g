@@ -5270,7 +5270,7 @@ AttachDecision GetIteratorIRGenerator::tryAttachNativeIterator(
                               /* alwaysGuardFirstProto = */ false);
 
   ObjOperandId iterId = writer.guardAndGetIterator(
-      objId, iterobj, &ObjectRealm::get(obj).enumerators);
+      objId, iterobj, cx_->compartment()->enumeratorsAddr());
   writer.loadObjectResult(iterId);
   writer.returnFromIC();
 
@@ -5282,10 +5282,16 @@ AttachDecision GetIteratorIRGenerator::tryAttachMegamorphic(
     ValOperandId valId) {
   MOZ_ASSERT(JSOp(*pc_) == JSOp::Iter);
 
-  writer.valueToIteratorResult(valId);
+  if (val_.isObject()) {
+    ObjOperandId objId = writer.guardToObject(valId);
+    writer.objectToIteratorResult(objId, cx_->compartment()->enumeratorsAddr());
+    trackAttached("MegamorphicObject");
+  } else {
+    writer.valueToIteratorResult(valId);
+    trackAttached("MegamorphicValue");
+  }
   writer.returnFromIC();
 
-  trackAttached("Megamorphic");
   return AttachDecision::Attach;
 }
 

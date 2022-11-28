@@ -702,7 +702,7 @@ static bool ParseZealModeName(CharRange text, uint32_t* modeOut) {
   };
 
   static const ModeInfo zealModes[] = {{"None", 0},
-#  define ZEAL_MODE(name, value) {#  name, strlen(#  name), value},
+#  define ZEAL_MODE(name, value) {#name, strlen(#name), value},
                                        JS_FOR_EACH_ZEAL_MODE(ZEAL_MODE)
 #  undef ZEAL_MODE
   };
@@ -781,7 +781,7 @@ bool GCRuntime::parseAndSetZeal(const char* str) {
 
 const char* js::gc::AllocKindName(AllocKind kind) {
   static const char* const names[] = {
-#  define EXPAND_THING_NAME(allocKind, _1, _2, _3, _4, _5, _6) #  allocKind,
+#  define EXPAND_THING_NAME(allocKind, _1, _2, _3, _4, _5, _6) #allocKind,
       FOR_EACH_ALLOCKIND(EXPAND_THING_NAME)
 #  undef EXPAND_THING_NAME
   };
@@ -2126,8 +2126,8 @@ void GCRuntime::purgeRuntime() {
 
   rt->caches().purge();
 
-  if (auto cache = rt->maybeThisRuntimeSharedImmutableStrings()) {
-    cache->purge();
+  if (rt->isMainRuntime()) {
+    SharedImmutableStringsCache::getSingleton().purge();
   }
 
   MOZ_ASSERT(unmarkGrayStack.empty());
@@ -2729,7 +2729,9 @@ void GCRuntime::beginMarkPhase(AutoGCSession& session) {
     checkNoRuntimeRoots(session);
   } else {
     AutoUpdateLiveCompartments updateLive(this);
-    traceRuntimeForMajorGC(&marker, session);
+    marker.setRootMarkingMode(true);
+    traceRuntimeForMajorGC(marker.tracer(), session);
+    marker.setRootMarkingMode(false);
   }
 
   updateSchedulingStateOnGCStart();
@@ -3422,7 +3424,7 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
       if (mightSweepInThisSlice(budget.isUnlimited())) {
         // Trace wrapper rooters before marking if we might start sweeping in
         // this slice.
-        rt->mainContextFromOwnThread()->traceWrapperGCRooters(&marker);
+        rt->mainContextFromOwnThread()->traceWrapperGCRooters(marker.tracer());
       }
 
       {
@@ -3475,7 +3477,7 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
       }
 
       if (initialState == State::Sweep) {
-        rt->mainContextFromOwnThread()->traceWrapperGCRooters(&marker);
+        rt->mainContextFromOwnThread()->traceWrapperGCRooters(marker.tracer());
       }
 
       if (performSweepActions(budget) == NotFinished) {
@@ -4547,9 +4549,10 @@ Realm* js::NewRealm(JSContext* cx, JSPrincipals* principals,
   }
 
   UniquePtr<Realm> realm(cx->new_<Realm>(comp, options));
-  if (!realm || !realm->init(cx, principals)) {
+  if (!realm) {
     return nullptr;
   }
+  realm->init(cx, principals);
 
   // Make sure we don't put system and non-system realms in the same
   // compartment.

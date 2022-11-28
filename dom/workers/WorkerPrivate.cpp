@@ -4628,7 +4628,11 @@ bool WorkerPrivate::NotifyInternal(WorkerStatus aStatus) {
     if (aStatus >= Canceling) {
       MutexAutoUnlock unlock(mMutex);
       if (data->mScope) {
-        data->mScope->NoteTerminating();
+        if (aStatus == Canceling) {
+          data->mScope->NoteTerminating();
+        } else {
+          data->mScope->NoteShuttingDown();
+        }
       }
     }
 

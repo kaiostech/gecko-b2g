@@ -566,7 +566,7 @@ DownloadsViewUI.DownloadElementShell.prototype = {
       d.removeAttribute("data-l10n-id");
       d.removeAttribute("value");
       d.removeAttribute("tooltiptext");
-      d.innerText = "";
+      d.textContent = "";
     }
     resetDescription(this._downloadDetailsNormal);
     if (status?.l10n) {
@@ -927,7 +927,7 @@ DownloadsViewUI.DownloadElementShell.prototype = {
       case lazy.Downloads.Error.BLOCK_VERDICT_INSECURE:
         return [
           s.blockedPotentiallyInsecure,
-          [s.unblockInsecure, s.unblockTip2],
+          [s.unblockInsecure2, s.unblockTip2],
         ];
       case lazy.Downloads.Error.BLOCK_VERDICT_POTENTIALLY_UNWANTED:
         return [

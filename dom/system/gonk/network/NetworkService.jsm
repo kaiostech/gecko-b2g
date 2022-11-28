@@ -95,7 +95,7 @@ NetworkWorkerRequestQueue.prototype = {
     }
 
     this.tasks.shift();
-    if (this.tasks.length > 0) {
+    if (this.tasks.length) {
       // Run queue on the next tick.
       Services.tm.currentThread.dispatch(() => {
         this.runQueue();

@@ -256,8 +256,8 @@ ExtraNetworkInfo.prototype = {
     // Combine the stackedLinkInfo IP.
     if (
       this.stackedLinkInfo &&
-      this.stackedLinkInfo.ips.length != 0 &&
-      this.stackedLinkInfo.prefixLengths.length != 0
+      !!this.stackedLinkInfo.ips.length &&
+      this.stackedLinkInfo.prefixLengths.length
     ) {
       aIps.value = this.ips.concat(this.stackedLinkInfo.ips);
       aPrefixLengths.value = this.prefixLengths.concat(
@@ -273,7 +273,7 @@ ExtraNetworkInfo.prototype = {
   getGateways(aCount) {
     // Combine the stackedLinkInfo gateways.
     let gateways_all = [];
-    if (this.stackedLinkInfo && this.stackedLinkInfo.gateways.length != 0) {
+    if (this.stackedLinkInfo && this.stackedLinkInfo.gateways.length) {
       if (!this.gateways.includes(this.stackedLinkInfo.gateways)) {
         gateways_all = this.gateways.concat(this.stackedLinkInfo.gateways);
       }
@@ -291,7 +291,7 @@ ExtraNetworkInfo.prototype = {
   getDnses(aCount) {
     // Combine the stackedLinkInfo dnses.
     let dnses_all = [];
-    if (this.stackedLinkInfo && this.stackedLinkInfo.dnses.length != 0) {
+    if (this.stackedLinkInfo && this.stackedLinkInfo.dnses.length) {
       if (!this.dnses.includes(this.stackedLinkInfo.dnses)) {
         dnses_all = this.dnses.concat(this.stackedLinkInfo.dnses);
       }
@@ -931,7 +931,7 @@ NetworkManager.prototype = {
         JSON.stringify(addedIpsLinks)
     );
 
-    if (removedIpsLinks.length > 0) {
+    if (removedIpsLinks.length) {
       removedIpsLinks.forEach(removedIpsLink => {
         let index = preIps.value.indexOf(removedIpsLink);
         if (index > -1) {
@@ -958,7 +958,7 @@ NetworkManager.prototype = {
         }
       });
     }
-    if (addedIpsLinks.length > 0) {
+    if (addedIpsLinks.length) {
       addedIpsLinks.forEach(addedIpsLink => {
         let index = extIps.value.indexOf(addedIpsLink);
         if (index > -1) {
@@ -2176,7 +2176,7 @@ NetworkManager.prototype = {
   _handleGateways(networkId, gateways) {
     let currentNetworkLinks = this.networkInterfaceLinks[networkId];
     if (
-      currentNetworkLinks.gateways.length == 0 ||
+      !currentNetworkLinks.gateways.length ||
       currentNetworkLinks.compareGateways(gateways)
     ) {
       return Promise.resolve();
@@ -2186,7 +2186,7 @@ NetworkManager.prototype = {
     let currentInterfaceName = currentNetworkLinks.interfaceName;
     return this._cleanupAllHostRoutes(networkId).then(() => {
       // If gateways have changed, re-add extra host routes with new gateways.
-      if (currentExtraRoutes.length > 0) {
+      if (currentExtraRoutes.length) {
         this._setHostRoutes(
           true,
           currentExtraRoutes,
@@ -2743,7 +2743,7 @@ NetworkManager.prototype = {
         JSON.stringify(addedLinks)
     );
 
-    if (removedLinks.length > 0) {
+    if (removedLinks.length) {
       removedLinks.forEach(aGateway => {
         let removeDeferred = PromiseUtils.defer();
         promises.push(removeDeferred.promise);
@@ -2768,7 +2768,7 @@ NetworkManager.prototype = {
       });
     }
 
-    if (addedLinks.length > 0) {
+    if (addedLinks.length) {
       addedLinks.forEach(aGateway => {
         let setDeferred = PromiseUtils.defer();
         promises.push(setDeferred.promise);

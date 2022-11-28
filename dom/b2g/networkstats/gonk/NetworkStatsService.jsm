@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["NetworkStatsService"];
+const EXPORTED_SYMBOLS = ["NetworkStatsService"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
@@ -17,8 +17,9 @@ const { NetworkStatsDB } = ChromeUtils.import(
 
 const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
+const lazy = {};
 ChromeUtils.defineModuleGetter(
-  this,
+  lazy,
   "AlarmService",
   "resource://gre/modules/AlarmService.jsm"
 );
@@ -81,43 +82,43 @@ function updateDebug() {
 }
 updateDebug();
 
-XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
+XPCOMUtils.defineLazyGetter(lazy, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
 
-XPCOMUtils.defineLazyGetter(this, "timeService", function() {
+XPCOMUtils.defineLazyGetter(lazy, "timeService", function() {
   return Cc["@mozilla.org/sidl-native/time;1"].getService(Ci.nsITime);
 });
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gRil",
   "@mozilla.org/ril;1",
   "nsIRadioInterfaceLayer"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gNetworkService",
   "@mozilla.org/network/service;1",
   "nsINetworkService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "messenger",
   "@mozilla.org/systemmessage-service;1",
   "nsISystemMessageService"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gIccService",
   "@mozilla.org/icc/iccservice;1",
   "nsIIccService"
 );
 
-this.NetworkStatsService = {
+const NetworkStatsService = {
   _currentAlarms: {},
   _alarmForUpdateStatsId: null,
 
@@ -173,7 +174,7 @@ this.NetworkStatsService = {
     ];
 
     this.messages.forEach(function(aMsgName) {
-      ppmm.addMessageListener(aMsgName, this);
+      lazy.ppmm.addMessageListener(aMsgName, this);
     }, this);
 
     this._db = new NetworkStatsDB(DEBUG);
@@ -195,8 +196,8 @@ this.NetworkStatsService = {
 
     let timeChangeCallback = this._onAlarmForUpdatStatsFired.bind(this);
 
-    timeService.addObserver(
-      timeService.TIME_CHANGED,
+    lazy.timeService.addObserver(
+      lazy.timeService.TIME_CHANGED,
       {
         notify: timeChangeCallback,
       },
@@ -205,8 +206,8 @@ this.NetworkStatsService = {
         reject: () => DEBUG && debug("reject: addObserver on TIME_CHANGED"),
       }
     );
-    timeService.addObserver(
-      timeService.TIMEZONE_CHANGED,
+    lazy.timeService.addObserver(
+      lazy.timeService.TIMEZONE_CHANGED,
       {
         notify: timeChangeCallback,
       },
@@ -323,7 +324,7 @@ this.NetworkStatsService = {
         debug("Service shutdown");
 
         this.messages.forEach(function(aMsgName) {
-          ppmm.removeMessageListener(aMsgName, this);
+          lazy.ppmm.removeMessageListener(aMsgName, this);
         }, this);
 
         Services.obs.removeObserver(this, "xpcom-shutdown");
@@ -362,7 +363,7 @@ this.NetworkStatsService = {
         " now is " +
         now.getTime()
     );
-    AlarmService.add(
+    lazy.AlarmService.add(
       {
         date: new Date(timestamp),
         ignoreTimezone: false,
@@ -385,7 +386,7 @@ this.NetworkStatsService = {
       debug(
         "Stopped existing alarm for update stats " + this._alarmForUpdateStatsId
       );
-      AlarmService.remove(this._alarmForUpdateStatsId);
+      lazy.AlarmService.remove(this._alarmForUpdateStatsId);
       this._alarmForUpdateStatsId = null;
     }
   },
@@ -400,9 +401,9 @@ this.NetworkStatsService = {
    */
   getRilNetworks() {
     let networks = {};
-    let numRadioInterfaces = gRil.numRadioInterfaces;
+    let numRadioInterfaces = lazy.gRil.numRadioInterfaces;
     for (let i = 0; i < numRadioInterfaces; i++) {
-      let icc = gIccService.getIccByServiceId(i);
+      let icc = lazy.gIccService.getIccByServiceId(i);
       if (icc && icc.iccInfo) {
         let netId = this.getNetworkId(icc.iccInfo.iccid, NET_TYPE_MOBILE);
         networks[netId] = { id: icc.iccInfo.iccid, type: NET_TYPE_MOBILE };
@@ -819,7 +820,7 @@ this.NetworkStatsService = {
       return;
     }
 
-    if (elements.length > 0) {
+    if (elements.length) {
       // If length of elements is greater than 0, callback is set to
       // the last element.
       elements[elements.length - 1].callbacks.push(callback);
@@ -972,7 +973,7 @@ this.NetworkStatsService = {
       aCallback(true, "OK");
     };
 
-    gNetworkService.getNetworkInterfaceStats(
+    lazy.gNetworkService.getNetworkInterfaceStats(
       aInterfaceName,
       this.networkStatsAvailable.bind(this, callback)
     );
@@ -1028,8 +1029,8 @@ this.NetworkStatsService = {
 
     // Request stats to NetworkService, which will get stats from netd, passing
     // 'networkStatsAvailable' as a callback.
-    if (interfaceName.length != 0) {
-      gNetworkService.getNetworkInterfaceStats(
+    if (interfaceName.length) {
+      lazy.gNetworkService.getNetworkInterfaceStats(
         interfaceName,
         this.networkStatsAvailable.bind(this, callback)
       );
@@ -1233,7 +1234,7 @@ this.NetworkStatsService = {
     debug("updateCache: " + this.cachedStatsDate);
 
     let stats = Object.keys(this.cachedStats);
-    if (stats.length == 0) {
+    if (!stats.length) {
       // |cachedStats| is empty, no need to update.
       if (aCallback) {
         aCallback(true, "no need to update");
@@ -1492,7 +1493,7 @@ this.NetworkStatsService = {
       debug("Set alarm " + JSON.stringify(aAlarm));
       let interfaceName = self._networks[aAlarm.networkId].interfaceName;
       if (interfaceName) {
-        gNetworkService.setNetworkInterfaceAlarm(
+        lazy.gNetworkService.setNetworkInterfaceAlarm(
           interfaceName,
           aQuota,
           callback
@@ -1570,7 +1571,7 @@ this.NetworkStatsService = {
 
       if (!result) {
         let interfaceName = self._networks[aNetworkId].interfaceName;
-        gNetworkService.setNetworkInterfaceAlarm(
+        lazy.gNetworkService.setNetworkInterfaceAlarm(
           interfaceName,
           -1,
           function onComplete() {}
@@ -1597,9 +1598,9 @@ this.NetworkStatsService = {
       data: aAlarm.data,
     };
     if (originURI && originURI != "[System Principal]") {
-      messenger.sendMessage("networkstats-alarm", alarm, originURI);
+      lazy.messenger.sendMessage("networkstats-alarm", alarm, originURI);
     } else {
-      messenger.broadcastMessage("networkstats-alarm", alarm);
+      lazy.messenger.broadcastMessage("networkstats-alarm", alarm);
     }
   },
 };

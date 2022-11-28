@@ -498,7 +498,7 @@ var WifiManager = (function() {
       }
       pnoSettings.pnoNetworks = WifiPnoSettings.pnoNetworks;
 
-      if (pnoSettings.pnoNetworks.length == 0) {
+      if (!pnoSettings.pnoNetworks.length) {
         debug("Empty PNO network list");
         if (callback) {
           callback(false);
@@ -529,7 +529,7 @@ var WifiManager = (function() {
 
     wifiCommand.getChannelsForBand(WifiScanSettings.bandMask, function(result) {
       let channels = result.getChannels();
-      if (channels.length > 0) {
+      if (channels.length) {
         WifiScanSettings.channels = channels;
       }
       callback(result.status == SUCCESS);
@@ -662,7 +662,7 @@ var WifiManager = (function() {
           : configChannels;
       scanSettings.hiddenNetworks = WifiConfigManager.getHiddenNetworks();
 
-      if (scanSettings.channels.length == 0) {
+      if (!scanSettings.channels.length) {
         callback(false);
       }
 
@@ -1152,7 +1152,7 @@ var WifiManager = (function() {
     wifiInfo.setSupplicantState(fields.state);
 
     if (manager.isConnectState(fields.state)) {
-      if (wifiInfo.ssid != fields.ssid && fields.ssid.length > 0) {
+      if (wifiInfo.ssid != fields.ssid && fields.ssid.length) {
         wifiInfo.setSSID(fields.ssid);
       }
 
@@ -1817,7 +1817,7 @@ var WifiManager = (function() {
             return;
           }
           // wlan module is loaded, update interface name here
-          if (result.staInterface.length > 0) {
+          if (result.staInterface.length) {
             manager.ifname = result.staInterface;
           }
 
@@ -2120,7 +2120,7 @@ var WifiManager = (function() {
       let config = Object.create(null);
       for (let field in result.wifiConfig) {
         let value = result.wifiConfig[field];
-        if (typeof value == "string" && value.length == 0) {
+        if (typeof value == "string" && !value.length) {
           continue;
         }
         config[field] = value;
@@ -3129,7 +3129,7 @@ function WifiWorker() {
         );
 
         // Discard network with invalid SSID
-        if (result.ssid == null || result.ssid.length == 0) {
+        if (result.ssid == null || !result.ssid.length) {
           continue;
         }
 
@@ -3252,7 +3252,7 @@ function WifiWorker() {
         }
       }
 
-      if (!WifiManager.wpsStarted && self.networksArray.length > 0) {
+      if (!WifiManager.wpsStarted && self.networksArray.length) {
         self.handleScanResults(self.networksArray);
       }
       if (self._wantScanResults.length !== 0) {
@@ -3658,7 +3658,7 @@ WifiWorker.prototype = {
 
         let connInfo = result.signalPoll();
         // See comments in WifiConfigUtils.calculateSignal for information about this.
-        if (connInfo.length == 0) {
+        if (!connInfo.length) {
           self._lastConnectionInfo = null;
           return;
         }
@@ -3929,7 +3929,7 @@ WifiWorker.prototype = {
         ) {
           this._sendMessage(
             message,
-            WifiManager.cachedScanResults.length > 0,
+            !!WifiManager.cachedScanResults.length,
             WifiManager.cachedScanResults,
             msg
           );
@@ -4331,7 +4331,7 @@ WifiWorker.prototype = {
 
     if (
       !WifiManager.isWifiTetheringEnabled(WifiManager.tetheringState) &&
-      Object.entries(msg.data.config).length != 0
+      Object.entries(msg.data.config).length
     ) {
       let newConfig = this.fillWifiTetheringConfiguration(msg.data.config);
       if (
@@ -4788,7 +4788,7 @@ WifiWorker.prototype = {
       return;
     }
 
-    if (this._certNicknames.length == 0) {
+    if (!this._certNicknames.length) {
       this._sendMessage(message, true, importedCerts, msg);
       return;
     }

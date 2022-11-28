@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["NetworkStatsDB"];
+const EXPORTED_SYMBOLS = ["NetworkStatsDB"];
 
 var DEBUG = false;
 function debug(s) {
@@ -33,7 +33,7 @@ const VALUES_MAX_LENGTH = 6 * 30;
 // Constant defining the rate of the samples. Daily.
 const SAMPLE_RATE = 1000 * 60 * 60 * 24;
 
-this.NetworkStatsDB = function NetworkStatsDB(aDebug) {
+const NetworkStatsDB = function NetworkStatsDB(aDebug) {
   DEBUG = aDebug;
   debug("Constructor");
   this.initDBHelper(DB_NAME, DB_VERSION, [STATS_STORE_NAME, ALARMS_STORE_NAME]);
@@ -753,7 +753,7 @@ NetworkStatsDB.prototype = {
             // accumulative usage amount, which means even if old samples were
             // expired and removed from the Database, we can still obtain the
             // correct network usage.
-            if (data.length == 0) {
+            if (!data.length) {
               data.push({
                 rxBytes: cursor.value.rxTotalBytes,
                 txBytes: cursor.value.txTotalBytes,
@@ -783,7 +783,7 @@ NetworkStatsDB.prototype = {
    * requested start / end dates.
    */
   fillResultSamples: function fillResultSamples(aStart, aEnd, aData) {
-    if (aData.length == 0) {
+    if (!aData.length) {
       aData.push({
         rxBytes: undefined,
         txBytes: undefined,

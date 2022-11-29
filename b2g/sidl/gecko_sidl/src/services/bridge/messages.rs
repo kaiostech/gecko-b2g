@@ -12,7 +12,7 @@ use crate::common::{Blob, JsonValue, ObjectRef, SystemTime, Url};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =
-    "cae7f5c6f9ca9610b8ddf39345746641a92ad0e08a051ec4b90ac4a9a9cf66";
+    "114b7863857548a5f1ee3a609f27fddc3cc75e832385662cd315856c6829c4";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -112,24 +112,26 @@ pub enum GeckoBridgeFromClient {
     NetworkManagerDelegateGetNetworkInfoError,    // 31
     PowerManagerDelegateRequestWakelockSuccess(ObjectRef), // 32
     PowerManagerDelegateRequestWakelockError,     // 33
-    PowerManagerDelegateSetScreenEnabledSuccess,  // 34
-    PowerManagerDelegateSetScreenEnabledError,    // 35
-    PreferenceDelegateGetBoolSuccess(bool),       // 36
-    PreferenceDelegateGetBoolError,               // 37
-    PreferenceDelegateGetCharSuccess(String),     // 38
-    PreferenceDelegateGetCharError,               // 39
-    PreferenceDelegateGetIntSuccess(i64),         // 40
-    PreferenceDelegateGetIntError,                // 41
-    PreferenceDelegateSetBoolSuccess,             // 42
-    PreferenceDelegateSetBoolError,               // 43
-    PreferenceDelegateSetCharSuccess,             // 44
-    PreferenceDelegateSetCharError,               // 45
-    PreferenceDelegateSetIntSuccess,              // 46
-    PreferenceDelegateSetIntError,                // 47
-    WakelockGetTopicSuccess(String),              // 48
-    WakelockGetTopicError,                        // 49
-    WakelockUnlockSuccess,                        // 50
-    WakelockUnlockError,                          // 51
+    PowerManagerDelegateSetDisplayBrightnessSuccess, // 34
+    PowerManagerDelegateSetDisplayBrightnessError, // 35
+    PowerManagerDelegateSetScreenEnabledSuccess,  // 36
+    PowerManagerDelegateSetScreenEnabledError,    // 37
+    PreferenceDelegateGetBoolSuccess(bool),       // 38
+    PreferenceDelegateGetBoolError,               // 39
+    PreferenceDelegateGetCharSuccess(String),     // 40
+    PreferenceDelegateGetCharError,               // 41
+    PreferenceDelegateGetIntSuccess(i64),         // 42
+    PreferenceDelegateGetIntError,                // 43
+    PreferenceDelegateSetBoolSuccess,             // 44
+    PreferenceDelegateSetBoolError,               // 45
+    PreferenceDelegateSetCharSuccess,             // 46
+    PreferenceDelegateSetCharError,               // 47
+    PreferenceDelegateSetIntSuccess,              // 48
+    PreferenceDelegateSetIntError,                // 49
+    WakelockGetTopicSuccess(String),              // 50
+    WakelockGetTopicError,                        // 51
+    WakelockUnlockSuccess,                        // 52
+    WakelockUnlockError,                          // 53
 }
 
 #[derive(Debug, Deserialize)]
@@ -166,13 +168,14 @@ pub enum GeckoBridgeToClient {
     MobileManagerDelegateGetMncMcc(i64, bool),             // 29
     NetworkManagerDelegateGetNetworkInfo,                  // 30
     PowerManagerDelegateRequestWakelock(String),           // 31
-    PowerManagerDelegateSetScreenEnabled(bool, bool),      // 32
-    PreferenceDelegateGetBool(String),                     // 33
-    PreferenceDelegateGetChar(String),                     // 34
-    PreferenceDelegateGetInt(String),                      // 35
-    PreferenceDelegateSetBool(String, bool),               // 36
-    PreferenceDelegateSetChar(String, String),             // 37
-    PreferenceDelegateSetInt(String, i64),                 // 38
-    WakelockGetTopic,                                      // 39
-    WakelockUnlock,                                        // 40
+    PowerManagerDelegateSetDisplayBrightness(i64, f64),    // 32
+    PowerManagerDelegateSetScreenEnabled(bool, bool),      // 33
+    PreferenceDelegateGetBool(String),                     // 34
+    PreferenceDelegateGetChar(String),                     // 35
+    PreferenceDelegateGetInt(String),                      // 36
+    PreferenceDelegateSetBool(String, bool),               // 37
+    PreferenceDelegateSetChar(String, String),             // 38
+    PreferenceDelegateSetInt(String, i64),                 // 39
+    WakelockGetTopic,                                      // 40
+    WakelockUnlock,                                        // 41
 }

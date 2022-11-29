@@ -18,6 +18,7 @@ interface nsIAppsServiceDelegate : nsISupports {
 [scriptable, uuid(b8b76495-4541-4018-9903-c8904f5d36d6)]
 interface nsIPowerManagerDelegate : nsISupports {
     void setScreenEnabled(in bool enabled, in bool isExternalScreen);
+    void setDisplayBrightness(in unsigned long displayId, in float brightness);
 };
 
 [scriptable, uuid(9ccd844e-12a5-11eb-925e-bb3bde26260a)]

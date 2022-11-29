@@ -401,6 +401,10 @@ void GonkDisplayP::SetEnabled(bool enabled) {
   }
 }
 
+void GonkDisplayP::setDisplayBrightness(uint32_t display, float brightness) {
+  mHwc->getComposer()->setDisplayBrightness(display, brightness);
+}
+
 int GonkDisplayP::TryLockScreen() {
   int ret = mPrimaryScreenLock.tryLock();
   return ret;

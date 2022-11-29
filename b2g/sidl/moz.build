@@ -22,6 +22,11 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "MobileManagerDelegate.cpp",
         ]
 
+    # So that we can call GetGonkDisplay().
+    LOCAL_INCLUDES += [
+        "/widget/gonk",
+    ]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

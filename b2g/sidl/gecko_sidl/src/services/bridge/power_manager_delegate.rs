@@ -230,6 +230,16 @@ impl SessionObject for PowerManagerDelegate {
                     request_id,
                 );
             }
+            Ok(GeckoBridgeToClient::PowerManagerDelegateSetDisplayBrightness(
+                display,
+                brightness,
+            )) => {
+                debug!("PowerManagerDelegate set_display_brightness {}", brightness);
+                self.post_task(
+                    PowerManagerCommand::SetDisplayBrightness(display, brightness),
+                    request_id,
+                );
+            }
             Ok(GeckoBridgeToClient::PowerManagerDelegateRequestWakelock(topic)) => {
                 debug!("PowerManagerDelegate Request Wakelock {}", topic);
                 self.post_task(PowerManagerCommand::RequestWakelock(topic), request_id);
@@ -267,6 +277,7 @@ impl Drop for PowerManagerDelegate {
 #[derive(Clone)]
 enum PowerManagerCommand {
     SetScreenEnabled(bool, bool),
+    SetDisplayBrightness(i64, f64),
     RequestWakelock(String),
 }
 
@@ -322,6 +333,14 @@ impl SidlTask for PowerManagerDelegateTask {
                     let payload = match status {
                         NS_OK => GeckoBridgeFromClient::PowerManagerDelegateSetScreenEnabledSuccess,
                         _ => GeckoBridgeFromClient::PowerManagerDelegateSetScreenEnabledError,
+                    };
+                    self.reply(payload, self.object_id);
+                }
+                PowerManagerCommand::SetDisplayBrightness(display, brightness) => {
+                    let status = unsafe { object.SetDisplayBrightness(*display as _, *brightness as _) };
+                    let payload = match status {
+                        NS_OK => GeckoBridgeFromClient::PowerManagerDelegateSetDisplayBrightnessSuccess,
+                        _ => GeckoBridgeFromClient::PowerManagerDelegateSetDisplayBrightnessError,
                     };
                     self.reply(payload, self.object_id);
                 }

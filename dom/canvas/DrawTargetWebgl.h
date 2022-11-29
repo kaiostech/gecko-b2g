@@ -102,9 +102,14 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
     Matrix mTransform;
     Rect mRect;
     RefPtr<const Path> mPath;
+
+    bool operator==(const ClipStack& aOther) const;
   };
 
   std::vector<ClipStack> mClipStack;
+
+  // The previous state of the clip stack when a mask was generated.
+  std::vector<ClipStack> mCachedClipStack;
 
   // UsageProfile stores per-frame counters for significant profiling events
   // that assist in determining whether acceleration should still be used for
@@ -171,6 +176,8 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
     uint32_t mPathVertexCapacity = 0;
     // The maximum supported type complexity of a GPU path.
     uint32_t mPathMaxComplexity = 0;
+    // Whether to accelerate stroked paths.
+    bool mPathAccelStroke = false;
     RefPtr<WebGLProgramJS> mSolidProgram;
     RefPtr<WebGLUniformLocationJS> mSolidProgramViewport;
     RefPtr<WebGLUniformLocationJS> mSolidProgramAA;
@@ -382,9 +389,6 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
                    const IntPoint& aDestination) override;
   void FillRect(const Rect& aRect, const Pattern& aPattern,
                 const DrawOptions& aOptions = DrawOptions()) override;
-  bool StrokeRectAccel(const Rect& aRect, const Pattern& aPattern,
-                       const StrokeOptions& aStrokeOptions,
-                       const DrawOptions& aOptions);
   void StrokeRect(const Rect& aRect, const Pattern& aPattern,
                   const StrokeOptions& aStrokeOptions = StrokeOptions(),
                   const DrawOptions& aOptions = DrawOptions()) override;
@@ -488,7 +492,8 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
                 bool aAccelOnly = false, bool aForceUpdate = false,
                 const StrokeOptions* aStrokeOptions = nullptr);
 
-  bool ShouldAccelPath(const DrawOptions& aOptions);
+  bool ShouldAccelPath(const DrawOptions& aOptions,
+                       const StrokeOptions* aStrokeOptions);
   void DrawPath(const Path* aPath, const Pattern& aPattern,
                 const DrawOptions& aOptions,
                 const StrokeOptions* aStrokeOptions = nullptr);

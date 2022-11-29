@@ -13,7 +13,6 @@
 #include "libyuv.h"
 #include "VideoUtils.h"
 #include "nsThreadUtils.h"
-#include "Layers.h"
 #include "mozilla/Logging.h"
 #include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaErrors.h>

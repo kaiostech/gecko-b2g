@@ -813,6 +813,8 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
     }
 #endif
 
+  virtual bool SupportsHDR() { return false; }
+
  protected:
   gfxPlatform();
   virtual ~gfxPlatform();

@@ -17,10 +17,11 @@
 #ifndef mozilla_HwcUtils
 #define mozilla_HwcUtils
 
-#include "Layers.h"
 #include <vector>
 #include "hardware/hwcomposer.h"
 #include "mozilla/gfx/Matrix.h"
+#include "nsRect.h"
+#include "nsRegion.h"
 
 namespace mozilla {
 

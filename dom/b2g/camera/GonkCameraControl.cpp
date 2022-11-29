@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <libgen.h>
 #include "base/basictypes.h"
-#include "Layers.h"
 #ifdef MOZ_WIDGET_GONK
 #  include <media/mediaplayer.h>
 #  include <media/MediaProfiles.h>

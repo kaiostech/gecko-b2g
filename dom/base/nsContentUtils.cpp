@@ -22,7 +22,6 @@
 #include "HTMLSplitOnSpacesTokenizer.h"
 #include "ImageOps.h"
 #include "InProcessBrowserChildMessageManager.h"
-#include "Layers.h"
 #include "MainThreadUtils.h"
 #include "PLDHashTable.h"
 #include "ReferrerInfo.h"
@@ -7918,8 +7917,8 @@ nsresult nsContentUtils::IPCTransferableToTransferable(
     nsITransferable* aTransferable, const bool aFilterUnknownFlavors) {
   aTransferable->SetIsPrivateData(aIsPrivateData);
 
-  nsresult rv = IPCTransferableToTransferable(aDataTransfer, aAddDataFlavor,
-                                              aTransferable, aFilterUnknownFlavors);
+  nsresult rv = IPCTransferableToTransferable(
+      aDataTransfer, aAddDataFlavor, aTransferable, aFilterUnknownFlavors);
   NS_ENSURE_SUCCESS(rv, rv);
 
   aTransferable->SetRequestingPrincipal(aRequestingPrincipal);

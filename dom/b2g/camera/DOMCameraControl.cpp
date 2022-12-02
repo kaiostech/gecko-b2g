@@ -48,6 +48,29 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::ipc;
 
+/**
+ * Basic implementation of MediaStreamTrackSource that doesn't forward Stop().
+ */
+class BasicTrackSource : public MediaStreamTrackSource {
+ public:
+  explicit BasicTrackSource(
+      nsIPrincipal* aPrincipal,
+      const MediaSourceEnum aMediaSource = MediaSourceEnum::Other)
+      : MediaStreamTrackSource(aPrincipal, nsString(), TrackingId()),
+        mMediaSource(aMediaSource) {}
+
+  MediaSourceEnum GetMediaSource() const override { return mMediaSource; }
+
+  void Stop() override {}
+  void Disable() override {}
+  void Enable() override {}
+
+protected:
+  ~BasicTrackSource() = default;
+
+  const MediaSourceEnum mMediaSource;
+};
+
 class mozilla::TrackCreatedListener : public MediaTrackListener {
  public:
   explicit TrackCreatedListener(nsDOMCameraControl* aCameraControl)

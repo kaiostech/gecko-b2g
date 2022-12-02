@@ -2147,9 +2147,6 @@ bool gfxFcPlatformFontList::FindAndAddFamiliesLocked(
 
   // Because the FcConfigSubstitute call is quite expensive, we cache the
   // actual font families found via this process.
-  nsAutoCString lang;
-  GetSampleLangForGroup(aLanguage, lang);
-  ToLowerCase(lang);
   nsAutoCString cacheKey;
 
   // For languages that use CJK or Arabic script, we include the language as
@@ -2159,13 +2156,21 @@ bool gfxFcPlatformFontList::FindAndAddFamiliesLocked(
   // and it gets really expensive to do separate lookups for 300+ distinct lang
   // tags e.g. on wikipedia.org, when they all end up mapping to the same font
   // list.)
-  Locale locale;
-  if (LocaleParser::TryParse(lang, locale).isOk() &&
-      locale.AddLikelySubtags().isOk()) {
-    if (UseCustomFontconfigLookupsForLocale(locale)) {
-      cacheKey = lang;
-      cacheKey.Append(':');
-    }
+  // We remember the most recently checked aLanguage atom so that when the same
+  // language is used in many successive calls, we can avoid repeating the
+  // locale code processing every time.
+  if (aLanguage != mPrevLanguage) {
+    GetSampleLangForGroup(aLanguage, mSampleLang);
+    ToLowerCase(mSampleLang);
+    Locale locale;
+    mUseCustomLookups = LocaleParser::TryParse(mSampleLang, locale).isOk() &&
+                        locale.AddLikelySubtags().isOk() &&
+                        UseCustomFontconfigLookupsForLocale(locale);
+    mPrevLanguage = aLanguage;
+  }
+  if (mUseCustomLookups) {
+    cacheKey = mSampleLang;
+    cacheKey.Append(':');
   }
 
   cacheKey.Append(familyName);
@@ -2182,8 +2187,8 @@ bool gfxFcPlatformFontList::FindAndAddFamiliesLocked(
   const FcChar8* terminator = nullptr;
   RefPtr<FcPattern> sentinelSubst = dont_AddRef(FcPatternCreate());
   FcPatternAddString(sentinelSubst, FC_FAMILY, kSentinelName);
-  if (!lang.IsEmpty()) {
-    FcPatternAddString(sentinelSubst, FC_LANG, ToFcChar8Ptr(lang.get()));
+  if (!mSampleLang.IsEmpty()) {
+    FcPatternAddString(sentinelSubst, FC_LANG, ToFcChar8Ptr(mSampleLang.get()));
   }
   FcConfigSubstitute(nullptr, sentinelSubst, FcMatchPattern);
 
@@ -2211,8 +2216,8 @@ bool gfxFcPlatformFontList::FindAndAddFamiliesLocked(
   FcPatternAddString(fontWithSentinel, FC_FAMILY,
                      ToFcChar8Ptr(familyName.get()));
   FcPatternAddString(fontWithSentinel, FC_FAMILY, kSentinelName);
-  if (!lang.IsEmpty()) {
-    FcPatternAddString(sentinelSubst, FC_LANG, ToFcChar8Ptr(lang.get()));
+  if (!mSampleLang.IsEmpty()) {
+    FcPatternAddString(sentinelSubst, FC_LANG, ToFcChar8Ptr(mSampleLang.get()));
   }
   FcConfigSubstitute(nullptr, fontWithSentinel, FcMatchPattern);
 

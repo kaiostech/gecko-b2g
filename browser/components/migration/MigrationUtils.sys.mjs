@@ -44,6 +44,7 @@ const gAvailableMigratorKeys = (function() {
       "edge",
       "ie",
       "opera",
+      "opera-gx",
       "vivaldi",
       "brave",
       "chrome",
@@ -60,6 +61,7 @@ const gAvailableMigratorKeys = (function() {
       "firefox",
       "safari",
       "opera",
+      "opera-gx",
       "vivaldi",
       "brave",
       "chrome",
@@ -79,6 +81,7 @@ const gAvailableMigratorKeys = (function() {
       "chrome-beta",
       "chrome-dev",
       "chromium",
+      "opera-gx",
     ];
   }
   return [];
@@ -746,6 +749,7 @@ export var MigrationUtils = Object.seal({
       Nightly: "firefox",
       Opera: "opera",
       Vivaldi: "vivaldi",
+      "Opera GX": "opera-gx",
       "Brave Web Browser": "brave", // Windows, Linux
       Brave: "brave", // OS X
       "Google Chrome": "chrome", // Windows, Linux
@@ -854,6 +858,7 @@ export var MigrationUtils = Object.seal({
    *        (the migration entry point for purposes of telemetry).
    */
   showMigrationWizard: function MU_showMigrationWizard(aOpener, aParams) {
+    const DIALOG_URL = "chrome://browser/content/migration/migration.xhtml";
     let features = "chrome,dialog,modal,centerscreen,titlebar,resizable=no";
     if (AppConstants.platform == "macosx" && !this.isStartupMigration) {
       let win = Services.wm.getMostRecentWindow("Browser:MigrationWizard");
@@ -915,13 +920,20 @@ export var MigrationUtils = Object.seal({
       params = aParams;
     }
 
-    Services.ww.openWindow(
-      aOpener,
-      "chrome://browser/content/migration/migration.xhtml",
-      "_blank",
-      features,
-      params
-    );
+    if (
+      Services.prefs.getBoolPref(
+        "browser.migrate.content-modal.enabled",
+        false
+      ) &&
+      aOpener &&
+      aOpener.gBrowser
+    ) {
+      const { gBrowser } = aOpener;
+      const { selectedBrowser } = gBrowser;
+      gBrowser.getTabDialogBox(selectedBrowser).open(DIALOG_URL, params);
+    } else {
+      Services.ww.openWindow(aOpener, DIALOG_URL, "_blank", features, params);
+    }
   },
 
   /**
@@ -1286,6 +1298,7 @@ export var MigrationUtils = Object.seal({
     "chromium-edge-beta": 10,
     brave: 11,
     opera: 12,
+    "opera-gx": 14,
     vivaldi: 13,
   },
   getSourceIdForTelemetry(sourceName) {

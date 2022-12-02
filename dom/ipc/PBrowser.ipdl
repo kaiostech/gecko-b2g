@@ -103,7 +103,6 @@ using struct CollectedInputDataValue from "mozilla/dom/SessionStoreMessageUtils.
 using mozilla::ContentBlockingNotifier::StorageAccessPermissionGrantedReason from "mozilla/ContentBlockingNotifier.h";
 using CallerType from "mozilla/dom/BindingDeclarations.h";
 using mozilla::dom::EmbedderElementEventType from "mozilla/dom/TabMessageTypes.h";
-[RefCounted] using class nsDocShellLoadState from "nsDocShellLoadState.h";
 using mozilla::IntrinsicSize from "nsIFrame.h";
 using mozilla::AspectRatio from "mozilla/AspectRatio.h";
 using class nsRegion from "nsRegion.h";

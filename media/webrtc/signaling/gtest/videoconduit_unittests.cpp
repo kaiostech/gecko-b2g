@@ -17,6 +17,7 @@
 #include "WebrtcGmpVideoCodec.h"
 
 #include "api/video/video_sink_interface.h"
+#include "media/base/media_constants.h"
 #include "media/base/video_adapter.h"
 
 #include "MockCall.h"
@@ -50,7 +51,7 @@ class VideoConduitTest : public Test {
       : mCallWrapper(MockCallWrapper::Create()),
         mVideoConduit(MakeRefPtr<WebrtcVideoConduit>(
             mCallWrapper, GetCurrentSerialEventTarget(), std::move(aOptions),
-            "")),
+            "", TrackingId(TrackingId::Source::Unimplemented, 0))),
         mControl(GetCurrentSerialEventTarget()) {
     NSS_NoDB_Init(nullptr);
 
@@ -1904,6 +1905,151 @@ TEST_F(VideoConduitTest, TestVideoEncodeSimulcastScaleResolutionBy) {
   }
 }
 
+TEST_F(VideoConduitTest, TestVideoEncodeLargeScaleResolutionByFrameDropping) {
+  for (const auto& scales :
+       {std::vector{200U}, std::vector{200U, 300U}, std::vector{300U, 200U}}) {
+    mControl.Update([&](auto& aControl) {
+      aControl.mTransmitting = true;
+      VideoCodecConfig codecConfig(120, "VP8", EncodingConstraints());
+      for (const auto& scale : scales) {
+        auto& encoding = codecConfig.mEncodings.emplace_back();
+        encoding.constraints.scaleDownBy = scale;
+      }
+      aControl.mVideoSendCodec = Some(codecConfig);
+      aControl.mVideoSendRtpRtcpConfig =
+          Some(RtpRtcpConfig(webrtc::RtcpMode::kCompound));
+      aControl.mLocalSsrcs = scales;
+    });
+    ASSERT_TRUE(Call()->mVideoSendEncoderConfig);
+
+    UniquePtr<MockVideoSink> sink(new MockVideoSink());
+    rtc::VideoSinkWants wants;
+    mVideoConduit->AddOrUpdateSink(sink.get(), wants);
+
+    {
+      // If all layers' scaleDownBy is larger than any input dimension, that
+      // dimension becomes zero and we drop it.
+      // NB: libwebrtc doesn't CreateEncoderStreams() unless there's a real
+      //     frame, so no reason to call it here.
+      SendVideoFrame(199, 199, 1);
+      EXPECT_EQ(sink->mOnFrameCount, 0U);
+    }
+
+    {
+      // If only width becomes zero, we drop.
+      SendVideoFrame(199, 200, 2);
+      EXPECT_EQ(sink->mOnFrameCount, 0U);
+    }
+
+    {
+      // If only height becomes zero, we drop.
+      SendVideoFrame(200, 199, 3);
+      EXPECT_EQ(sink->mOnFrameCount, 0U);
+    }
+
+    {
+      // If dimensions are non-zero, we pass through.
+      SendVideoFrame(200, 200, 4);
+      EXPECT_EQ(sink->mOnFrameCount, 1U);
+    }
+
+    mVideoConduit->RemoveSink(sink.get());
+  }
+}
+
+TEST_F(VideoConduitTest, TestVideoEncodeLargeScaleResolutionByStreamCreation) {
+  for (const auto& scales :
+       {std::vector{200U}, std::vector{200U, 300U}, std::vector{300U, 200U}}) {
+    mControl.Update([&](auto& aControl) {
+      aControl.mTransmitting = true;
+      VideoCodecConfig codecConfig(120, "VP8", EncodingConstraints());
+      for (const auto& scale : scales) {
+        auto& encoding = codecConfig.mEncodings.emplace_back();
+        encoding.constraints.scaleDownBy = scale;
+      }
+      aControl.mVideoSendCodec = Some(codecConfig);
+      aControl.mVideoSendRtpRtcpConfig =
+          Some(RtpRtcpConfig(webrtc::RtcpMode::kCompound));
+      aControl.mLocalSsrcs = scales;
+    });
+    ASSERT_TRUE(Call()->mVideoSendEncoderConfig);
+
+    {
+      // If dimensions scale to <1, we create a 1x1 stream.
+      const std::vector<webrtc::VideoStream> videoStreams =
+          Call()->CreateEncoderStreams(199, 199);
+      ASSERT_EQ(videoStreams.size(), scales.size());
+      for (const auto& stream : videoStreams) {
+        EXPECT_EQ(stream.width, 1U);
+        EXPECT_EQ(stream.height, 1U);
+      }
+    }
+
+    {
+      // If width scales to <1, we create a 1x1 stream.
+      const std::vector<webrtc::VideoStream> videoStreams =
+          Call()->CreateEncoderStreams(199, 200);
+      ASSERT_EQ(videoStreams.size(), scales.size());
+      for (const auto& stream : videoStreams) {
+        EXPECT_EQ(stream.width, 1U);
+        EXPECT_EQ(stream.height, 1U);
+      }
+    }
+
+    {
+      // If height scales to <1, we create a 1x1 stream.
+      const std::vector<webrtc::VideoStream> videoStreams =
+          Call()->CreateEncoderStreams(200, 199);
+      ASSERT_EQ(videoStreams.size(), scales.size());
+      for (const auto& stream : videoStreams) {
+        EXPECT_EQ(stream.width, 1U);
+        EXPECT_EQ(stream.height, 1U);
+      }
+    }
+
+    {
+      // If dimensions scale to 1, we create a 1x1 stream.
+      const std::vector<webrtc::VideoStream> videoStreams =
+          Call()->CreateEncoderStreams(200, 200);
+      ASSERT_EQ(videoStreams.size(), scales.size());
+      for (const auto& stream : videoStreams) {
+        EXPECT_EQ(stream.width, 1U);
+        EXPECT_EQ(stream.height, 1U);
+      }
+    }
+
+    {
+      // If one dimension scales to 0 and the other >1, we create a 1x1 stream.
+      const std::vector<webrtc::VideoStream> videoStreams =
+          Call()->CreateEncoderStreams(400, 199);
+      ASSERT_EQ(videoStreams.size(), scales.size());
+      for (const auto& stream : videoStreams) {
+        EXPECT_EQ(stream.width, 1U);
+        EXPECT_EQ(stream.height, 1U);
+      }
+    }
+
+    {
+      // Legit case scaling down to more than 1x1.
+      const std::vector<webrtc::VideoStream> videoStreams =
+          Call()->CreateEncoderStreams(600, 400);
+      ASSERT_EQ(videoStreams.size(), scales.size());
+      for (size_t i = 0; i < scales.size(); ++i) {
+        // Streams are backwards for some reason
+        const auto& stream = videoStreams[scales.size() - i - 1];
+        const auto& scale = scales[i];
+        if (scale == 200U) {
+          EXPECT_EQ(stream.width, 3U);
+          EXPECT_EQ(stream.height, 2U);
+        } else {
+          EXPECT_EQ(stream.width, 2U);
+          EXPECT_EQ(stream.height, 1U);
+        }
+      }
+    }
+  }
+}
+
 TEST_F(VideoConduitTest, TestSettingRtpRtcpRsize) {
   mControl.Update([&](auto& aControl) {
     VideoCodecConfig codecConfig(120, "VP8", EncodingConstraints());
@@ -2088,6 +2234,59 @@ TEST_F(VideoConduitTest, TestExternalRemoteSsrcCollision) {
   EXPECT_TRUE(Call()->mVideoReceiveConfig);
   EXPECT_THAT(Call()->mVideoReceiveConfig->rtp.remote_ssrc,
               Not(testing::AnyOf(0U, 1U)));
+}
+
+TEST_F(VideoConduitTest, TestVideoConfigurationH264) {
+  const int profileLevelId1 = 0x42E00D;
+  const int profileLevelId2 = 0x64000C;
+  const char* sprop1 = "foo bar";
+  const char* sprop2 = "baz";
+
+  // Test that VideoConduit propagates H264 configuration data properly.
+  // We do two tests:
+  // - Test valid data in packetization mode 0 (SingleNALU)
+  // - Test different valid data in packetization mode 1 (NonInterleaved)
+
+  {
+    mControl.Update([&](auto& aControl) {
+      aControl.mTransmitting = true;
+      VideoCodecConfigH264 h264{};
+      h264.packetization_mode = 0;
+      h264.profile_level_id = profileLevelId1;
+      strncpy(h264.sprop_parameter_sets, sprop1,
+              sizeof(h264.sprop_parameter_sets) - 1);
+      VideoCodecConfig codecConfig(97, "H264", EncodingConstraints(), &h264);
+      codecConfig.mEncodings.emplace_back();
+      aControl.mVideoSendCodec = Some(codecConfig);
+      aControl.mVideoSendRtpRtcpConfig =
+          Some(RtpRtcpConfig(webrtc::RtcpMode::kCompound));
+    });
+
+    ASSERT_TRUE(Call()->mVideoSendEncoderConfig);
+    auto& params = Call()->mVideoSendEncoderConfig->video_format.parameters;
+    EXPECT_EQ(params[cricket::kH264FmtpPacketizationMode], "0");
+    EXPECT_EQ(params[cricket::kH264FmtpProfileLevelId], "42e00d");
+    EXPECT_EQ(params[cricket::kH264FmtpSpropParameterSets], sprop1);
+  }
+
+  {
+    mControl.Update([&](auto& aControl) {
+      VideoCodecConfigH264 h264{};
+      h264.packetization_mode = 1;
+      h264.profile_level_id = profileLevelId2;
+      strncpy(h264.sprop_parameter_sets, sprop2,
+              sizeof(h264.sprop_parameter_sets) - 1);
+      VideoCodecConfig codecConfig(126, "H264", EncodingConstraints(), &h264);
+      codecConfig.mEncodings.emplace_back();
+      aControl.mVideoSendCodec = Some(codecConfig);
+    });
+
+    ASSERT_TRUE(Call()->mVideoSendEncoderConfig);
+    auto& params = Call()->mVideoSendEncoderConfig->video_format.parameters;
+    EXPECT_EQ(params[cricket::kH264FmtpPacketizationMode], "1");
+    EXPECT_EQ(params[cricket::kH264FmtpProfileLevelId], "64000c");
+    EXPECT_EQ(params[cricket::kH264FmtpSpropParameterSets], sprop2);
+  }
 }
 
 }  // End namespace test.

@@ -983,6 +983,31 @@ struct MOZ_STACK_CLASS EditorInlineStyle : public EditorElementStyle {
             mHTMLProperty == nsGkAtoms::s);
   }
 
+  /**
+   * Returns true if the style is conflict with vertical-align even though
+   * they are not mapped to vertical-align in the CSS mode.
+   */
+  [[nodiscard]] bool IsStyleConflictingWithVerticalAlign() const {
+    return mHTMLProperty == nsGkAtoms::sup || mHTMLProperty == nsGkAtoms::sub;
+  }
+
+  /**
+   * If the style has a similar element  which should be removed when applying
+   * the style, this retuns an element name.  Otherwise, returns nullptr.
+   */
+  [[nodiscard]] nsStaticAtom* GetSimilarElementNameAtom() const {
+    if (mHTMLProperty == nsGkAtoms::b) {
+      return nsGkAtoms::strong;
+    }
+    if (mHTMLProperty == nsGkAtoms::i) {
+      return nsGkAtoms::em;
+    }
+    if (mHTMLProperty == nsGkAtoms::strike) {
+      return nsGkAtoms::s;
+    }
+    return nullptr;
+  }
+
   explicit EditorInlineStyle(nsStaticAtom& aHTMLProperty,
                              nsAtom* aAttribute = nullptr)
       : mHTMLProperty(&aHTMLProperty), mAttribute(aAttribute) {}

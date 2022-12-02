@@ -427,7 +427,7 @@ dump-syms:
     fetch:
         type: git
         repo: https://github.com/mozilla/dump_syms/
-        revision: d9a62819fa9670bd2436c52fc26180318a67f237
+        revision: 9680eedbdbc830dbb34fef7823109b4ba11711cf
 
 rust-minidump:
     description: rust-minidump 0.14.0 source code (for minidump-stackwalk)
@@ -619,11 +619,11 @@ cargo-vet:
     fetch:
         type: git
         repo: https://github.com/mozilla/cargo-vet
-        revision: 12e3593437263bd17b5c3d2626ea8346799bf4b1
+        revision: 10edb3b9ab6db1097aacea83118d7fa66391631c
 
 symbol-scrapers:
     description: Linux distribution symbol scraper source
     fetch:
         type: git
         repo: http://github.com/mozilla/symbol-scrapers
-        revision: f61d82a07ccb4a5f3fa42fd640db786534cb4b59
+        revision: 604a1376f57976e393709e35ae3199f2e57994b9

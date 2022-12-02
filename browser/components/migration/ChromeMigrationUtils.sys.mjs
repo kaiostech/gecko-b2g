@@ -14,7 +14,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   LoginHelper: "resource://gre/modules/LoginHelper.jsm",
-  OS: "resource://gre/modules/osfile.jsm",
 });
 
 const S100NS_FROM1601TO1970 = 0x19db1ded53e8000;
@@ -52,21 +51,24 @@ export var ChromeMigrationUtils = {
       profileId = await this.getLastUsedProfileId();
     }
     let path = this.getExtensionPath(profileId);
-    let iterator = new lazy.OS.File.DirectoryIterator(path);
     let extensionList = [];
-    await iterator
-      .forEach(async entry => {
-        if (entry.isDir) {
+    try {
+      for (const child of await IOUtils.getChildren(path)) {
+        const info = await IOUtils.stat(child);
+        if (info.type === "directory") {
+          const name = PathUtils.filename(child);
           let extensionInformation = await this.getExtensionInformation(
-            entry.name,
+            name,
             profileId
           );
           if (extensionInformation) {
             extensionList.push(extensionInformation);
           }
         }
-      })
-      .catch(ex => Cu.reportError(ex));
+      }
+    } catch (ex) {
+      Cu.reportError(ex);
+    }
     return extensionList;
   },
 
@@ -83,7 +85,7 @@ export var ChromeMigrationUtils = {
     let extensionInformation = null;
     try {
       let manifestPath = this.getExtensionPath(profileId);
-      manifestPath = lazy.OS.Path.join(manifestPath, extensionId);
+      manifestPath = PathUtils.join(manifestPath, extensionId);
       // If there are multiple sub-directories in the extension directory,
       // read the files in the latest directory.
       let directories = await this._getSortedByVersionSubDirectoryNames(
@@ -93,15 +95,12 @@ export var ChromeMigrationUtils = {
         return null;
       }
 
-      manifestPath = lazy.OS.Path.join(
+      manifestPath = PathUtils.join(
         manifestPath,
         directories[0],
         "manifest.json"
       );
-      let manifest = await lazy.OS.File.read(manifestPath, {
-        encoding: "utf-8",
-      });
-      manifest = JSON.parse(manifest);
+      let manifest = await IOUtils.readJSON(manifestPath);
       // No app attribute means this is a Chrome extension not a Chrome app.
       if (!manifest.app) {
         const DEFAULT_LOCALE = manifest.default_locale;
@@ -163,23 +162,20 @@ export var ChromeMigrationUtils = {
           this._extensionLocaleStrings[profileId] = {};
         }
         let localeFilePath = this.getExtensionPath(profileId);
-        localeFilePath = lazy.OS.Path.join(localeFilePath, extensionId);
+        localeFilePath = PathUtils.join(localeFilePath, extensionId);
         let directories = await this._getSortedByVersionSubDirectoryNames(
           localeFilePath
         );
         // If there are multiple sub-directories in the extension directory,
         // read the files in the latest directory.
-        localeFilePath = lazy.OS.Path.join(
+        localeFilePath = PathUtils.join(
           localeFilePath,
           directories[0],
           "_locales",
           locale,
           "messages.json"
         );
-        localeFile = await lazy.OS.File.read(localeFilePath, {
-          encoding: "utf-8",
-        });
-        localeFile = JSON.parse(localeFile);
+        localeFile = await IOUtils.readJSON(localeFilePath);
         this._extensionLocaleStrings[profileId][extensionId] = localeFile;
       }
       const PREFIX_LENGTH = 6;
@@ -207,8 +203,8 @@ export var ChromeMigrationUtils = {
       profileId = await this.getLastUsedProfileId();
     }
     let extensionPath = this.getExtensionPath(profileId);
-    let isInstalled = await lazy.OS.File.exists(
-      lazy.OS.Path.join(extensionPath, extensionId)
+    let isInstalled = await IOUtils.exists(
+      PathUtils.join(extensionPath, extensionId)
     );
     return isInstalled;
   },
@@ -272,6 +268,7 @@ export var ChromeMigrationUtils = {
         "Edge Beta": ["Microsoft", "Edge Beta"],
         "360 SE": ["360se6"],
         Opera: ["Opera Software", "Opera Stable"],
+        "Opera GX": ["Opera Software", "Opera GX Stable"],
         Vivaldi: ["Vivaldi"],
       },
       macosx: {
@@ -281,6 +278,7 @@ export var ChromeMigrationUtils = {
         Canary: ["Google", "Chrome Canary"],
         Edge: ["Microsoft Edge"],
         "Edge Beta": ["Microsoft Edge Beta"],
+        "Opera GX": ["com.operasoftware.OperaGX"],
         Opera: ["com.operasoftware.Opera"],
         Vivaldi: ["Vivaldi"],
       },
@@ -290,6 +288,7 @@ export var ChromeMigrationUtils = {
         "Chrome Beta": ["google-chrome-beta"],
         "Chrome Dev": ["google-chrome-unstable"],
         Chromium: ["chromium"],
+        "Opera GX": ["Opera-GX"],
         // Canary is not available on Linux.
         // Edge is not available on Linux.
         Opera: ["Opera"],
@@ -303,12 +302,16 @@ export var ChromeMigrationUtils = {
 
     let rootDir;
     if (AppConstants.platform == "win") {
-      if (chromeProjectName === "360 SE" || chromeProjectName === "Opera") {
+      if (
+        chromeProjectName === "360 SE" ||
+        chromeProjectName === "Opera" ||
+        chromeProjectName === "Opera GX"
+      ) {
         rootDir = "AppData";
       } else {
         rootDir = "LocalAppData";
       }
-      if (chromeProjectName != "Opera") {
+      if (chromeProjectName != "Opera" && chromeProjectName != "Opera GX") {
         subfolders = subfolders.concat(["User Data"]);
       }
     } else if (AppConstants.platform == "macosx") {
@@ -342,18 +345,20 @@ export var ChromeMigrationUtils = {
       return this._extensionVersionDirectoryNames[path];
     }
 
-    let iterator = new lazy.OS.File.DirectoryIterator(path);
     let entries = [];
-    await iterator
-      .forEach(async entry => {
-        if (entry.isDir) {
-          entries.push(entry.name);
+    try {
+      for (const child of await IOUtils.getChildren(path)) {
+        const info = await IOUtils.stat(child);
+        if (info.type === "directory") {
+          const name = PathUtils.filename(child);
+          entries.push(name);
         }
-      })
-      .catch(ex => {
-        Cu.reportError(ex);
-        entries = [];
-      });
+      }
+    } catch (ex) {
+      Cu.reportError(ex);
+      entries = [];
+    }
+
     // The directory name is the version number string of the extension.
     // For example, it could be "1.0_0", "1.0_1", "1.0_2", 1.1_0, 1.1_1, or 1.1_2.
     // The "1.0_1" strings mean that the "1.0_0" directory is existed and you install the version 1.0 again.
@@ -423,9 +428,9 @@ export var ChromeMigrationUtils = {
         // Check each profile for logins.
         const dataPath = await migrator.wrappedJSObject._getChromeUserDataPathIfExists();
         for (const profile of await migrator.getSourceProfiles()) {
-          const path = lazy.OS.Path.join(dataPath, profile.id, "Login Data");
+          const path = PathUtils.join(dataPath, profile.id, "Login Data");
           // Skip if login data is missing.
-          if (!(await lazy.OS.File.exists(path))) {
+          if (!(await IOUtils.exists(path))) {
             Cu.reportError(`Missing file at ${path}`);
             continue;
           }

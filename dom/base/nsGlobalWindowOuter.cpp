@@ -1667,7 +1667,9 @@ bool nsGlobalWindowOuter::ShouldResistFingerprinting() const {
   if (mDoc) {
     return mDoc->ShouldResistFingerprinting();
   }
-  return nsIScriptGlobalObject::ShouldResistFingerprinting();
+  return nsContentUtils::ShouldResistFingerprinting(
+      "If we do not have a document then we do not have any context"
+      "to make an informed RFP choice, so we fall back to the global pref");
 }
 
 uint32_t nsGlobalWindowOuter::GetPrincipalHashValue() const {
@@ -2010,22 +2012,25 @@ static JS::RealmCreationOptions& SelectZone(
  * to manage the lifetime of it.
  */
 static nsresult CreateNativeGlobalForInner(
-    JSContext* aCx, nsGlobalWindowInner* aNewInner, nsIURI* aURI,
-    nsIPrincipal* aPrincipal, JS::MutableHandle<JSObject*> aGlobal,
-    bool aIsSecureContext, bool aDefineSharedArrayBufferConstructor) {
+    JSContext* aCx, nsGlobalWindowInner* aNewInner, Document* aDocument,
+    JS::MutableHandle<JSObject*> aGlobal, bool aIsSecureContext,
+    bool aDefineSharedArrayBufferConstructor) {
   MOZ_ASSERT(aCx);
   MOZ_ASSERT(aNewInner);
-  MOZ_ASSERT(aPrincipal);
+
+  nsCOMPtr<nsIURI> uri = aDocument->GetDocumentURI();
+  nsCOMPtr<nsIPrincipal> principal = aDocument->NodePrincipal();
+  MOZ_ASSERT(principal);
 
   // DOMWindow with nsEP is not supported, we have to make sure
   // no one creates one accidentally.
-  nsCOMPtr<nsIExpandedPrincipal> nsEP = do_QueryInterface(aPrincipal);
+  nsCOMPtr<nsIExpandedPrincipal> nsEP = do_QueryInterface(principal);
   MOZ_RELEASE_ASSERT(!nsEP, "DOMWindow with nsEP is not supported");
 
   JS::RealmOptions options;
   JS::RealmCreationOptions& creationOptions = options.creationOptions();
 
-  SelectZone(aCx, aPrincipal, aNewInner, creationOptions);
+  SelectZone(aCx, principal, aNewInner, creationOptions);
 
   creationOptions.setSecureContext(aIsSecureContext);
 
@@ -2038,15 +2043,16 @@ static nsresult CreateNativeGlobalForInner(
   creationOptions.setDefineSharedArrayBufferConstructor(
       aDefineSharedArrayBufferConstructor);
 
-  xpc::InitGlobalObjectOptions(options, aPrincipal);
+  xpc::InitGlobalObjectOptions(options, principal->IsSystemPrincipal(),
+                               aDocument->ShouldResistFingerprinting());
 
   // Determine if we need the Components object.
-  bool needComponents = aPrincipal->IsSystemPrincipal();
+  bool needComponents = principal->IsSystemPrincipal();
   uint32_t flags = needComponents ? 0 : xpc::OMIT_COMPONENTS_OBJECT;
   flags |= xpc::DONT_FIRE_ONNEWGLOBALHOOK;
 
   if (!Window_Binding::Wrap(aCx, aNewInner, aNewInner, options,
-                            nsJSPrincipals::get(aPrincipal), false, aGlobal) ||
+                            nsJSPrincipals::get(principal), false, aGlobal) ||
       !xpc::InitGlobalObject(aCx, aGlobal, flags)) {
     return NS_ERROR_FAILURE;
   }
@@ -2055,7 +2061,7 @@ static nsresult CreateNativeGlobalForInner(
 
   // Set the location information for the new global, so that tools like
   // about:memory may use that information
-  xpc::SetLocationForGlobal(aGlobal, aURI);
+  xpc::SetLocationForGlobal(aGlobal, uri);
 
   if (!InitializeLegacyNetscapeObject(aCx, aGlobal)) {
     return NS_ERROR_FAILURE;
@@ -2249,8 +2255,7 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
       // Every script context we are initialized with must create a
       // new global.
       rv = CreateNativeGlobalForInner(
-          cx, newInnerWindow, aDocument->GetDocumentURI(),
-          aDocument->NodePrincipal(), &newInnerGlobal,
+          cx, newInnerWindow, aDocument, &newInnerGlobal,
           ComputeIsSecureContext(aDocument),
           newInnerWindow->IsSharedMemoryAllowedInternal(
               aDocument->NodePrincipal()));

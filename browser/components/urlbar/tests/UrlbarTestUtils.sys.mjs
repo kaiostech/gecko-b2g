@@ -14,6 +14,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserTestUtils: "resource://testing-common/BrowserTestUtils.sys.mjs",
+  FormHistoryTestUtils:
+    "resource://testing-common/FormHistoryTestUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   TestUtils: "resource://testing-common/TestUtils.sys.mjs",
   UrlbarController: "resource:///modules/UrlbarController.sys.mjs",
@@ -26,7 +28,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   AddonTestUtils: "resource://testing-common/AddonTestUtils.jsm",
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
-  FormHistoryTestUtils: "resource://testing-common/FormHistoryTestUtils.jsm",
 });
 
 export var UrlbarTestUtils = {
@@ -990,6 +991,8 @@ class TestProvider extends UrlbarProvider {
    * @param {Function} [options.onSelection]
    *   If given, a function that will be called when
    *   {@link UrlbarView.#selectElement} method is called.
+   * @param {Function} [options.onEngagement]
+   *   If given, a function that will be called when engagement.
    */
   constructor({
     results,
@@ -999,6 +1002,7 @@ class TestProvider extends UrlbarProvider {
     addTimeout = 0,
     onCancel = null,
     onSelection = null,
+    onEngagement = null,
   } = {}) {
     super();
     this._results = results;
@@ -1008,6 +1012,7 @@ class TestProvider extends UrlbarProvider {
     this._addTimeout = addTimeout;
     this._onCancel = onCancel;
     this._onSelection = onSelection;
+    this._onEngagement = onEngagement;
   }
   get name() {
     return this._name;
@@ -1044,6 +1049,12 @@ class TestProvider extends UrlbarProvider {
   onSelection(result, element) {
     if (this._onSelection) {
       this._onSelection(result, element);
+    }
+  }
+
+  onEngagement(isPrivate, state, queryContext, details) {
+    if (this._onEngagement) {
+      this._onEngagement(isPrivate, state, queryContext, details);
     }
   }
 }

@@ -1,6 +1,11 @@
 ..
     This file was automatically generated using `mots export`.
 
+..
+    See https://mots.readthedocs.io/en/latest/#quick-start for quick start
+    documentation and how to modify this file.
+
+
 ==========
 Governance
 ==========
@@ -521,7 +526,7 @@ Core: docshell
     * - Includes
       -
         | `docshell/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=docshell/\*\*/\*>`__
-        | `uriloader/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=uriloader/\*\*/\*>`__
+        | `uriloader/base/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=uriloader/base/\*\*/\*>`__
     * - Group
       - dev-platform
     * - Bugzilla Components
@@ -710,23 +715,21 @@ Gecko's built-in profiler
         | `Markus Stange (mstange) <https://people.mozilla.org/s?query=mstange>`__
     * - Peer(s)
       -
-        | `Gerald Squelart (mozbugz) <https://people.mozilla.org/s?query=mozbugz>`__
-        | `Greg Tatum (gregtatum) <https://people.mozilla.org/s?query=gregtatum>`__
         | `Nazım Can Altınova (canova) <https://people.mozilla.org/s?query=canova>`__
+        | `Florian Quèze (bmo) <https://people.mozilla.org/s?query=bmo>`__
         | `Julian Seward (jseward) <https://people.mozilla.org/s?query=jseward>`__
-        | `Kannan Vijayan (djvj) <https://people.mozilla.org/s?query=djvj>`__
-        | `Barret Rennie (barret) <https://people.mozilla.org/s?query=barret>`__
     * - Owner(s) Emeritus
       - Benoit Girard
     * - Peer(s) Emeritus
-      - Shu-yu Guo (JS integration), Thinker Lee (TaskTracer), Cervantes Yu (TaskTracer), Nicholas Nethercote
+      - Shu-yu Guo (JS integration), Thinker Lee (TaskTracer), Cervantes Yu (TaskTracer), Nicholas Nethercote, Gerald Squelart, Kannan Vijayan, Barret Rennie, Greg Tatum
     * - Includes
       -
         | `tools/profiler/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=tools/profiler/\*\*/\*>`__
+        | `mozglue/baseprofiler/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=mozglue/baseprofiler/\*\*/\*>`__
     * - Group
       - dev-platform
     * - URL
-      - https://profiler.firefox.com/docs/
+      - https://firefox-source-docs.mozilla.org/tools/profiler/
     * - Bugzilla Components
       - Core::Gecko Profiler
 
@@ -1428,6 +1431,8 @@ The Mozilla Networking Library
         | `dom/xhr/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=dom/xhr/\*\*/\*>`__
         | `dom/network/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=dom/network/\*\*/\*>`__
         | `dom/websocket/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=dom/websocket/\*\*/\*>`__
+        | `uriloader/prefetch/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=uriloader/prefetch/\*\*/\*>`__
+        | `uriloader/preload/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=uriloader/preload/\*\*/\*>`__
     * - Group
       - dev-tech-network
     * - URL
@@ -2779,6 +2784,7 @@ The downloads UI and service.
       -
         | `browser/components/downloads/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=browser/components/downloads/\*\*/\*>`__
         | `toolkit/mozapps/downloads/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=toolkit/mozapps/downloads/\*\*/\*>`__
+        | `uriloader/exthandler/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=uriloader/exthandler/\*\*/\*>`__
 
 
 Enterprise Policies

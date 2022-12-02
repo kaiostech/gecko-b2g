@@ -5185,6 +5185,20 @@
   value: false
   mirror: always
 
+# Whether to allow acccess to AddonManager to developer sites for testing
+# NOTE: We'd like this to be a "hidden" pref once StaticPrefs supports it.
+- name: extensions.webapi.testing
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Automation-only pref to allow AddonManager over insecure protocols.
+# NOTE: We'd like this to be a "hidden" pref once StaticPrefs supports it.
+- name: extensions.webapi.testing.http
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "fission."
 #---------------------------------------------------------------------------
@@ -8287,6 +8301,13 @@
   mirror: always
   rust: true
 
+# Whether the mod() / rem() functions are enabled in calc().
+- name: layout.css.mod-rem.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 # Whether infinity / nan constants are enabled in calc().
 - name: layout.css.nan-inf.enabled
   type: RelaxedAtomicBool
@@ -8918,6 +8939,12 @@
 - name: layout.css.visited_links_enabled
   type: bool
   value: true
+  mirror: always
+
+# The margin used for detecting relevancy for `content-visibility: auto`.
+- name: layout.css.content-visibility-relevant-content-margin
+  type: float
+  value: 50 # 50%
   mirror: always
 
 # Whether to block large cursors intersecting UI.
@@ -10486,10 +10513,9 @@
 #endif
   mirror: always
 
-# Should enable this in bug1799205.
 - name: media.seamless-looping-video
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: media.autoplay.block-event.enabled
@@ -12807,6 +12833,14 @@
   value: true
   mirror: always
 
+# This pref can be used to disable mozAddonManager entirely for fingerprinting
+# reasons. Someone like Tor browser will use this pref.
+# NOTE: We'd like this to be a "hidden" pref once StaticPrefs supports it.
+- name: privacy.resistFingerprinting.block_mozAddonManager
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Whether canvas extraction should result in random data. If false, canvas
 # extraction results in all-white, opaque pixel data.
 - name: privacy.resistFingerprinting.randomDataOnCanvasExtract
@@ -13205,7 +13239,7 @@
 # security/sandbox/win/src/sandboxbroker/sandboxBroker.cpp
 - name: security.sandbox.gpu.level
   type: int32_t
-#if defined(XP_WIN) && defined(NIGHTLY_BUILD)
+#if defined(XP_WIN) && defined(EARLY_BETA_OR_EARLIER)
   value: 1
 #else
   value: 0
@@ -13272,6 +13306,22 @@
     type: RelaxedAtomicBool
     value: false
     mirror: always
+
+  # Whether Arbitrary Code Guard is enabled for the RDD process.
+-   name: security.sandbox.rdd.acg.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
+#  ifdef MOZ_WMF
+  # Whether Arbitrary Code Guard is enabled for the utility WMF audio decoder
+  # process.
+
+-   name: security.sandbox.utility-wmf.acg.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+#  endif  // MOZ_WMF
 
   # This controls the depth of stack trace that is logged when Windows sandbox
   # logging is turned on. This is only currently available for the content

@@ -32,8 +32,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     ]
     DIRS += ["fmp4_muxer"]
 
-DEFINES["TRACING"] = True
-
 FINAL_LIBRARY = "xul"
 
 LOCAL_INCLUDES += [

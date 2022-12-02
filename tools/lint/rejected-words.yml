@@ -31,6 +31,7 @@ avoid-blacklist-and-whitelist:
         - kt
     exclude:
         - b2g/app/b2g.js
+        - '**/.eslintrc.js'
         - browser/app/profile/firefox.js
         - browser/app/winlauncher/LauncherProcessWin.cpp
         - browser/base/content/browser.js

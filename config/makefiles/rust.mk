@@ -254,7 +254,7 @@ endif
 export RUSTC_BOOTSTRAP
 endif
 
-target_rust_ltoable := force-cargo-library-build force-cargo-library-udeps
+target_rust_ltoable := force-cargo-library-build force-cargo-library-udeps force-cargo-library-clippy
 target_rust_nonltoable := force-cargo-test-run force-cargo-library-check $(foreach b,build check,force-cargo-program-$(b))
 
 ifdef MOZ_PGO_RUST
@@ -286,7 +286,7 @@ $(target_rust_nonltoable): RUSTFLAGS:=$(rustflags_override) $(rustflags_sancov) 
 TARGET_RECIPES := $(target_rust_ltoable) $(target_rust_nonltoable)
 
 HOST_RECIPES := \
-  $(foreach a,library program,$(foreach b,build check udeps,force-cargo-host-$(a)-$(b)))
+  $(foreach a,library program,$(foreach b,build check udeps clippy,force-cargo-host-$(a)-$(b)))
 
 $(HOST_RECIPES): RUSTFLAGS:=$(rustflags_override)
 
@@ -466,6 +466,8 @@ endif
 endif
 endif
 
+SUGGEST_INSTALL_ON_FAILURE = (ret=$$?; if [ $$ret = 101 ]; then echo If $1 is not installed, install it using: cargo install $1; fi; exit $$ret)
+
 force-cargo-library-check:
 	$(call CARGO_CHECK) --lib $(cargo_target_flag) $(rust_features_flag)
 
@@ -473,10 +475,10 @@ force-cargo-library-clippy:
 	$(call CARGO_CLIPPY) --lib $(cargo_target_flag) $(rust_features_flag)
 
 force-cargo-library-audit:
-	$(call CARGO_AUDIT)
+	$(call CARGO_AUDIT) || $(call SUGGEST_INSTALL_ON_FAILURE,cargo-audit)
 
 force-cargo-library-udeps:
-	$(call CARGO_UDEPS) --lib $(cargo_target_flag) $(rust_features_flag)
+	$(call CARGO_UDEPS) --lib $(cargo_target_flag) $(rust_features_flag) || $(call SUGGEST_INSTALL_ON_FAILURE,cargo-udeps)
 else
 force-cargo-library-check:
 	@true

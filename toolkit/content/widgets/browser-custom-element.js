@@ -823,6 +823,7 @@
       let {
         referrerInfo,
         triggeringPrincipal,
+        triggeringRemoteType,
         postData,
         headers,
         csp,
@@ -834,6 +835,7 @@
         Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
       let loadURIOptions = {
         triggeringPrincipal,
+        triggeringRemoteType,
         csp,
         referrerInfo,
         loadFlags,

@@ -9889,6 +9889,9 @@ nsIPrincipal* nsDocShell::GetInheritedPrincipal(
     srcdoc = aLoadState->SrcdocData();
   }
 
+  aLoadInfo->SetTriggeringRemoteType(
+      aLoadState->GetEffectiveTriggeringRemoteType());
+
   if (aLoadState->PrincipalToInherit()) {
     aLoadInfo->SetPrincipalToInherit(aLoadState->PrincipalToInherit());
   }

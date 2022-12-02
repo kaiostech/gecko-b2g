@@ -2312,6 +2312,20 @@ bool CacheIRCompiler::emitGuardNoDenseElements(ObjOperandId objId) {
   return true;
 }
 
+bool CacheIRCompiler::emitGuardSpecificInt32(Int32OperandId numId,
+                                             int32_t expected) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+  Register num = allocator.useRegister(masm, numId);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.branch32(Assembler::NotEqual, num, Imm32(expected), failure->label());
+  return true;
+}
+
 bool CacheIRCompiler::emitGuardStringToInt32(StringOperandId strId,
                                              Int32OperandId resultId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
@@ -2395,6 +2409,84 @@ bool CacheIRCompiler::emitGuardStringToNumber(StringOperandId strId,
     masm.freeStack(sizeof(double));
   }
   masm.bind(&done);
+  return true;
+}
+
+bool CacheIRCompiler::emitNumberParseIntResult(StringOperandId strId,
+                                               Int32OperandId radixId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  Register str = allocator.useRegister(masm, strId);
+  Register radix = allocator.useRegister(masm, radixId);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, callvm.output());
+
+#ifdef DEBUG
+  Label ok;
+  masm.branch32(Assembler::Equal, radix, Imm32(0), &ok);
+  masm.branch32(Assembler::Equal, radix, Imm32(10), &ok);
+  masm.assumeUnreachable("radix must be 0 or 10 for indexed value fast path");
+  masm.bind(&ok);
+#endif
+
+  // Discard the stack to ensure it's balanced when we skip the vm-call.
+  allocator.discardStack(masm);
+
+  // Use indexed value as fast path if possible.
+  Label vmCall, done;
+  masm.loadStringIndexValue(str, scratch, &vmCall);
+  masm.tagValue(JSVAL_TYPE_INT32, scratch, callvm.outputValueReg());
+  masm.jump(&done);
+  {
+    masm.bind(&vmCall);
+
+    callvm.prepare();
+    masm.Push(radix);
+    masm.Push(str);
+
+    using Fn = bool (*)(JSContext*, HandleString, int32_t, MutableHandleValue);
+    callvm.call<Fn, js::NumberParseInt>();
+  }
+  masm.bind(&done);
+  return true;
+}
+
+bool CacheIRCompiler::emitDoubleParseIntResult(NumberOperandId numId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+  AutoAvailableFloatRegister floatScratch1(*this, FloatReg0);
+  AutoAvailableFloatRegister floatScratch2(*this, FloatReg1);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  allocator.ensureDoubleRegister(masm, numId, floatScratch1);
+
+  masm.branchDouble(Assembler::DoubleUnordered, floatScratch1, floatScratch1,
+                    failure->label());
+  masm.branchTruncateDoubleToInt32(floatScratch1, scratch, failure->label());
+
+  Label ok;
+  masm.branch32(Assembler::NotEqual, scratch, Imm32(0), &ok);
+  {
+    // Accept both +0 and -0 and return 0.
+    masm.loadConstantDouble(0.0, floatScratch2);
+    masm.branchDouble(Assembler::DoubleEqual, floatScratch1, floatScratch2,
+                      &ok);
+
+    // Fail if a non-zero input is in the exclusive range (-1, 1.0e-6).
+    masm.loadConstantDouble(DOUBLE_DECIMAL_IN_SHORTEST_LOW, floatScratch2);
+    masm.branchDouble(Assembler::DoubleLessThan, floatScratch1, floatScratch2,
+                      failure->label());
+  }
+  masm.bind(&ok);
+
+  masm.tagValue(JSVAL_TYPE_INT32, scratch, output.valueReg());
   return true;
 }
 
@@ -3104,16 +3196,11 @@ bool CacheIRCompiler::emitInt32NotResult(Int32OperandId inputId) {
 bool CacheIRCompiler::emitDoubleNegationResult(NumberOperandId inputId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
-  ValueOperand val = allocator.useValueRegister(masm, inputId);
 
-  FailurePath* failure;
-  if (!addFailurePath(&failure)) {
-    return false;
-  }
+  AutoScratchFloatRegister floatReg(this);
 
-  AutoScratchFloatRegister floatReg(this, failure);
+  allocator.ensureDoubleRegister(masm, inputId, floatReg);
 
-  masm.ensureDouble(val, floatReg, floatReg.failure());
   masm.negateDouble(floatReg);
   masm.boxDouble(floatReg, output.valueReg(), floatReg);
 
@@ -3123,16 +3210,11 @@ bool CacheIRCompiler::emitDoubleNegationResult(NumberOperandId inputId) {
 bool CacheIRCompiler::emitDoubleIncDecResult(bool isInc,
                                              NumberOperandId inputId) {
   AutoOutputRegister output(*this);
-  ValueOperand val = allocator.useValueRegister(masm, inputId);
 
-  FailurePath* failure;
-  if (!addFailurePath(&failure)) {
-    return false;
-  }
+  AutoScratchFloatRegister floatReg(this);
 
-  AutoScratchFloatRegister floatReg(this, failure);
+  allocator.ensureDoubleRegister(masm, inputId, floatReg);
 
-  masm.ensureDouble(val, floatReg, floatReg.failure());
   {
     ScratchDoubleScope fpscratch(masm);
     masm.loadConstantDouble(1.0, fpscratch);
@@ -3464,6 +3546,49 @@ bool CacheIRCompiler::emitLoadFunctionNameResult(ObjOperandId objId) {
   return true;
 }
 
+bool CacheIRCompiler::emitLinearizeForCharAccess(StringOperandId strId,
+                                                 Int32OperandId indexId,
+                                                 StringOperandId resultId) {
+  Register str = allocator.useRegister(masm, strId);
+  Register index = allocator.useRegister(masm, indexId);
+  Register result = allocator.defineRegister(masm, resultId);
+  AutoScratchRegister scratch(allocator, masm);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  Label done;
+  masm.movePtr(str, result);
+
+  // We can omit the bounds check, because we only compare the index against the
+  // string length. In the worst case we unnecessarily linearize the string
+  // when the index is out-of-bounds.
+
+  masm.branchIfCanLoadStringChar(str, index, scratch, &done);
+  {
+    LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(),
+                                 liveVolatileFloatRegs());
+    masm.PushRegsInMask(volatileRegs);
+
+    using Fn = JSLinearString* (*)(JSString*);
+    masm.setupUnalignedABICall(scratch);
+    masm.passABIArg(str);
+    masm.callWithABI<Fn, js::jit::LinearizeForCharAccessPure>();
+    masm.storeCallPointerResult(result);
+
+    LiveRegisterSet ignore;
+    ignore.add(result);
+    masm.PopRegsInMaskIgnore(volatileRegs, ignore);
+
+    masm.branchTestPtr(Assembler::Zero, result, result, failure->label());
+  }
+
+  masm.bind(&done);
+  return true;
+}
+
 bool CacheIRCompiler::emitLoadStringLengthResult(StringOperandId strId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
@@ -3476,7 +3601,8 @@ bool CacheIRCompiler::emitLoadStringLengthResult(StringOperandId strId) {
 }
 
 bool CacheIRCompiler::emitLoadStringCharCodeResult(StringOperandId strId,
-                                                   Int32OperandId indexId) {
+                                                   Int32OperandId indexId,
+                                                   bool handleOOB) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
   Register str = allocator.useRegister(masm, strId);
@@ -3485,18 +3611,41 @@ bool CacheIRCompiler::emitLoadStringCharCodeResult(StringOperandId strId,
   AutoScratchRegisterMaybeOutputType scratch2(allocator, masm, output);
   AutoScratchRegister scratch3(allocator, masm);
 
-  FailurePath* failure;
-  if (!addFailurePath(&failure)) {
-    return false;
+  // Bounds check, load string char.
+  Label done;
+  if (!handleOOB) {
+    FailurePath* failure;
+    if (!addFailurePath(&failure)) {
+      return false;
+    }
+
+    masm.spectreBoundsCheck32(index, Address(str, JSString::offsetOfLength()),
+                              scratch1, failure->label());
+    masm.loadStringChar(str, index, scratch1, scratch2, scratch3,
+                        failure->label());
+  } else {
+    // Return NaN for out-of-bounds access.
+    masm.moveValue(JS::NaNValue(), output.valueReg());
+
+    // The bounds check mustn't use a scratch register which aliases the output.
+    MOZ_ASSERT(!output.valueReg().aliases(scratch3));
+
+    // This CacheIR op is always preceded by |LinearizeForCharAccess|, so we're
+    // guaranteed to see no nested ropes.
+    Label loadFailed;
+    masm.spectreBoundsCheck32(index, Address(str, JSString::offsetOfLength()),
+                              scratch3, &done);
+    masm.loadStringChar(str, index, scratch1, scratch2, scratch3, &loadFailed);
+
+    Label loadedChar;
+    masm.jump(&loadedChar);
+    masm.bind(&loadFailed);
+    masm.assumeUnreachable("loadStringChar can't fail for linear strings");
+    masm.bind(&loadedChar);
   }
 
-  // Bounds check, load string char.
-  masm.spectreBoundsCheck32(index, Address(str, JSString::offsetOfLength()),
-                            scratch1, failure->label());
-  masm.loadStringChar(str, index, scratch1, scratch2, scratch3,
-                      failure->label());
-
   masm.tagValue(JSVAL_TYPE_INT32, scratch1, output.valueReg());
+  masm.bind(&done);
   return true;
 }
 
@@ -7625,6 +7774,37 @@ bool CacheIRCompiler::emitCallNumberToString(NumberOperandId inputId,
   masm.PopRegsInMask(volatileRegs);
 
   masm.branchPtr(Assembler::Equal, result, ImmPtr(0), failure->label());
+  return true;
+}
+
+bool CacheIRCompiler::emitInt32ToStringWithBaseResult(Int32OperandId inputId,
+                                                      Int32OperandId baseId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+  Register input = allocator.useRegister(masm, inputId);
+  Register base = allocator.useRegister(masm, baseId);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  // AutoCallVM's AutoSaveLiveRegisters aren't accounted for in FailurePath, so
+  // we can't use both at the same time. This isn't an issue here, because Ion
+  // doesn't support CallICs. If that ever changes, this code must be updated.
+  MOZ_ASSERT(isBaseline(), "Can't use FailurePath with AutoCallVM in Ion ICs");
+
+  masm.branch32(Assembler::LessThan, base, Imm32(2), failure->label());
+  masm.branch32(Assembler::GreaterThan, base, Imm32(36), failure->label());
+
+  callvm.prepare();
+
+  masm.Push(base);
+  masm.Push(input);
+
+  using Fn = JSString* (*)(JSContext*, int32_t, int32_t);
+  callvm.call<Fn, js::Int32ToStringWithBase>();
   return true;
 }
 

@@ -1445,10 +1445,7 @@ NativeObject* js::InitClass(JSContext* cx, HandleObject obj,
    */
   RootedObject protoProto(cx, protoProto_);
   if (!protoProto) {
-    protoProto = GlobalObject::getOrCreateObjectPrototype(cx, cx->global());
-    if (!protoProto) {
-      return nullptr;
-    }
+    protoProto = &cx->global()->getObjectPrototype();
   }
 
   return DefineConstructorAndPrototype(cx, obj, atom, protoProto, clasp,
@@ -1480,13 +1477,7 @@ bool js::GetObjectFromIncumbentGlobal(JSContext* cx, MutableHandleObject obj) {
     return true;
   }
 
-  {
-    AutoRealm ar(cx, globalObj);
-    obj.set(GlobalObject::getOrCreateObjectPrototype(cx, globalObj));
-    if (!obj) {
-      return false;
-    }
-  }
+  obj.set(&globalObj->getObjectPrototype());
 
   // The object might be from a different compartment, so wrap it.
   if (obj && !cx->compartment()->wrap(cx, obj)) {
@@ -2132,16 +2123,6 @@ bool js::SetImmutablePrototype(JSContext* cx, HandleObject obj,
   if (obj->hasDynamicPrototype()) {
     MOZ_ASSERT(!cx->isHelperThreadContext());
     return Proxy::setImmutablePrototype(cx, obj, succeeded);
-  }
-
-  // If this is a global object, resolve the Object class first to ensure the
-  // global's prototype is set to Object.prototype before we mark the global as
-  // having an immutable prototype.
-  if (obj->is<GlobalObject>()) {
-    Handle<GlobalObject*> global = obj.as<GlobalObject>();
-    if (!GlobalObject::ensureConstructor(cx, global, JSProto_Object)) {
-      return false;
-    }
   }
 
   if (!JSObject::setFlag(cx, obj, ObjectFlag::ImmutablePrototype)) {

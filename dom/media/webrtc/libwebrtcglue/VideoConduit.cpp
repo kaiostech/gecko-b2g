@@ -30,6 +30,7 @@
 
 // libwebrtc includes
 #include "api/transport/bitrate_settings.h"
+#include "api/video_codecs/h264_profile_level_id.h"
 #include "api/video_codecs/sdp_video_format.h"
 #include "api/video_codecs/video_codec.h"
 #include "media/base/media_constants.h"
@@ -130,7 +131,8 @@ webrtc::VideoCodecType SupportedCodecType(webrtc::VideoCodecType aType) {
 // Call thread only.
 rtc::scoped_refptr<webrtc::VideoEncoderConfig::EncoderSpecificSettings>
 ConfigureVideoEncoderSettings(const VideoCodecConfig& aConfig,
-                              const WebrtcVideoConduit* aConduit) {
+                              const WebrtcVideoConduit* aConduit,
+                              webrtc::SdpVideoFormat::Parameters& aParameters) {
   bool is_screencast =
       aConduit->CodecMode() == webrtc::VideoCodecMode::kScreensharing;
   // No automatic resizing when using simulcast or screencast.
@@ -145,6 +147,25 @@ ConfigureVideoEncoderSettings(const VideoCodecConfig& aConfig,
     codec_default_denoising = !denoising;
   }
 
+  if (aConfig.mName == kH264CodecName) {
+    aParameters[kH264FmtpPacketizationMode] =
+        std::to_string(aConfig.mPacketizationMode);
+    {
+      std::stringstream ss;
+      ss << std::hex << std::setfill('0');
+      ss << std::setw(2) << static_cast<uint32_t>(aConfig.mProfile);
+      ss << std::setw(2) << static_cast<uint32_t>(aConfig.mConstraints);
+      ss << std::setw(2) << static_cast<uint32_t>(aConfig.mLevel);
+      std::string profileLevelId = ss.str();
+      auto parsedProfileLevelId =
+          webrtc::ParseH264ProfileLevelId(profileLevelId.c_str());
+      MOZ_DIAGNOSTIC_ASSERT(parsedProfileLevelId);
+      if (parsedProfileLevelId) {
+        aParameters[kH264FmtpProfileLevelId] = profileLevelId;
+      }
+    }
+    aParameters[kH264FmtpSpropParameterSets] = aConfig.mSpropParameterSets;
+  }
   if (aConfig.mName == kVp8CodecName) {
     webrtc::VideoCodecVP8 vp8_settings =
         webrtc::VideoEncoder::GetDefaultVp8Settings();
@@ -275,7 +296,8 @@ bool operator==(const webrtc::RtpConfig& aThis,
  */
 RefPtr<VideoSessionConduit> VideoSessionConduit::Create(
     RefPtr<WebrtcCallWrapper> aCall, nsCOMPtr<nsISerialEventTarget> aStsThread,
-    Options aOptions, std::string aPCHandle) {
+    Options aOptions, std::string aPCHandle,
+    const TrackingId& aRecvTrackingId) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aCall, "missing required parameter: aCall");
   CSFLogVerbose(LOGTAG, "%s", __FUNCTION__);
@@ -284,9 +306,9 @@ RefPtr<VideoSessionConduit> VideoSessionConduit::Create(
     return nullptr;
   }
 
-  auto obj =
-      MakeRefPtr<WebrtcVideoConduit>(std::move(aCall), std::move(aStsThread),
-                                     std::move(aOptions), std::move(aPCHandle));
+  auto obj = MakeRefPtr<WebrtcVideoConduit>(
+      std::move(aCall), std::move(aStsThread), std::move(aOptions),
+      std::move(aPCHandle), aRecvTrackingId);
   if (obj->Init() != kMediaConduitNoError) {
     CSFLogError(LOGTAG, "%s VideoConduit Init Failed ", __FUNCTION__);
     return nullptr;
@@ -318,15 +340,15 @@ WebrtcVideoConduit::Control::Control(const RefPtr<AbstractThread>& aCallThread)
 
 WebrtcVideoConduit::WebrtcVideoConduit(
     RefPtr<WebrtcCallWrapper> aCall, nsCOMPtr<nsISerialEventTarget> aStsThread,
-    Options aOptions, std::string aPCHandle)
+    Options aOptions, std::string aPCHandle, const TrackingId& aRecvTrackingId)
     : mRendererMonitor("WebrtcVideoConduit::mRendererMonitor"),
       mCallThread(aCall->mCallThread),
       mStsThread(std::move(aStsThread)),
       mControl(aCall->mCallThread),
       mWatchManager(this, aCall->mCallThread),
       mMutex("WebrtcVideoConduit::mMutex"),
-      mDecoderFactory(
-          MakeUnique<WebrtcVideoDecoderFactory>(mCallThread.get(), aPCHandle)),
+      mDecoderFactory(MakeUnique<WebrtcVideoDecoderFactory>(
+          mCallThread.get(), aPCHandle, aRecvTrackingId)),
       mEncoderFactory(MakeUnique<WebrtcVideoEncoderFactory>(
           mCallThread.get(), std::move(aPCHandle))),
       mBufferPool(false, SCALER_BUFFER_POOL_SIZE),
@@ -631,20 +653,24 @@ void WebrtcVideoConduit::OnControlConfigChange() {
 
         // XXX parse the encoded SPS/PPS data and set
         // spsData/spsLen/ppsData/ppsLen
+        mEncoderConfig.video_format =
+            webrtc::SdpVideoFormat(codecConfig->mName);
         mEncoderConfig.encoder_specific_settings =
-            ConfigureVideoEncoderSettings(*codecConfig, this);
+            ConfigureVideoEncoderSettings(
+                *codecConfig, this, mEncoderConfig.video_format.parameters);
 
         mEncoderConfig.codec_type = SupportedCodecType(
             webrtc::PayloadStringToCodecType(codecConfig->mName));
         MOZ_RELEASE_ASSERT(mEncoderConfig.codec_type !=
                            webrtc::VideoCodecType::kVideoCodecGeneric);
-        mEncoderConfig.video_format =
-            webrtc::SdpVideoFormat(codecConfig->mName);
 
         mEncoderConfig.content_type =
             mControl.mCodecMode.Ref() == webrtc::VideoCodecMode::kRealtimeVideo
                 ? webrtc::VideoEncoderConfig::ContentType::kRealtimeVideo
                 : webrtc::VideoEncoderConfig::ContentType::kScreen;
+
+        mEncoderConfig.frame_drop_enabled =
+            mControl.mCodecMode.Ref() != webrtc::VideoCodecMode::kScreensharing;
 
         mEncoderConfig.min_transmit_bitrate_bps = mMinBitrate;
 
@@ -1311,7 +1337,7 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
     // Check if we need to drop this frame to meet a requested FPS
     auto videoStreamFactory = mVideoStreamFactory.Lock();
     auto& videoStreamFactoryRef = videoStreamFactory.ref();
-    if (videoStreamFactoryRef->ShouldDropFrame(aFrame.timestamp_us())) {
+    if (videoStreamFactoryRef->ShouldDropFrame(aFrame)) {
       return kMediaConduitNoError;
     }
   }
@@ -1328,6 +1354,7 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
   MOZ_ASSERT(!aFrame.color_space(), "Unexpected use of color space");
   MOZ_ASSERT(!aFrame.has_update_rect(), "Unexpected use of update rect");
 
+#ifdef MOZ_REAL_TIME_TRACING
   if (profiler_is_active()) {
     MutexAutoLock lock(mMutex);
     nsAutoCStringN<256> ssrcsCommaSeparated;
@@ -1349,6 +1376,7 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
     TRACE_COMMENT("VideoConduit::SendVideoFrame", "t-delta=%.1fms, ssrcs=%s",
                   timestampDelta / 1000.f, ssrcsCommaSeparated.get());
   }
+#endif
 
   mVideoBroadcaster.OnFrame(aFrame);
 
@@ -1665,6 +1693,7 @@ void WebrtcVideoConduit::OnFrame(const webrtc::VideoFrame& video_frame) {
       VideoLatencyUpdate(now - timestamp);
     }
   }
+#ifdef MOZ_REAL_TIME_TRACING
   if (profiler_is_active()) {
     MutexAutoLock lock(mMutex);
     // The first frame has a delta of zero.
@@ -1678,6 +1707,7 @@ void WebrtcVideoConduit::OnFrame(const webrtc::VideoFrame& video_frame) {
                   timestampDelta * 1000.f / webrtc::kVideoPayloadTypeFrequency,
                   localRecvSsrc);
   }
+#endif
 
   mRenderer->RenderVideoFrame(*video_frame.video_frame_buffer(),
                               video_frame.timestamp(),

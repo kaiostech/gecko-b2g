@@ -70,11 +70,51 @@ const gRuleManagers = [];
  */
 
 const lazy = {};
+
 ChromeUtils.defineModuleGetter(
   lazy,
   "WebRequest",
   "resource://gre/modules/WebRequest.jsm"
 );
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  ExtensionDNRStore: "resource://gre/modules/ExtensionDNRStore.sys.mjs",
+});
+
+/**
+ * The minimum number of static rules guaranteed to an extension across its
+ * enabled static rulesets. Any rules above this limit will count towards the
+ * global static rule limit.
+ */
+const GUARANTEED_MINIMUM_STATIC_RULES = 30000;
+
+/**
+ * The maximum number of static Rulesets an extension can specify as part of
+ * the "rule_resources" manifest key.
+ *
+ * NOTE: this limit may be increased in the future, see https://github.com/w3c/webextensions/issues/318
+ */
+const MAX_NUMBER_OF_STATIC_RULESETS = 50;
+
+/**
+ * The maximum number of static Rulesets an extension can enable at any one time.
+ *
+ * NOTE: this limit may be increased in the future, see https://github.com/w3c/webextensions/issues/318
+ */
+const MAX_NUMBER_OF_ENABLED_STATIC_RULESETS = 10;
+
+// TODO(Bug 1803370): allow extension to exceed the GUARANTEED_MINIMUM_STATIC_RULES limit.
+//
+// The maximum number of static rules exceeding the per-extension
+// GUARANTEED_MINIMUM_STATIC_RULES across every extensions.
+//
+// const MAX_GLOBAL_NUMBER_OF_STATIC_RULES = 300000;
+
+// As documented above:
+// Ruleset precedence: session > dynamic > static (order from manifest.json).
+const PRECEDENCE_SESSION_RULESET = 1;
+const PRECEDENCE_DYNAMIC_RULESET = 2;
+const PRECEDENCE_STATIC_RULESETS_BASE = 3;
 
 // The RuleCondition class represents a rule's "condition" type as described in
 // schemas/declarative_net_request.json. This class exists to allow the JS
@@ -147,6 +187,113 @@ class Ruleset {
     // For use by MatchedRule.
     this.ruleManager = ruleManager;
   }
+}
+
+/**
+ * @param {string} uriQuery - The query of a nsIURI to transform.
+ * @param {object} queryTransform - The value of the
+ *   Rule.action.redirect.transform.queryTransform property as defined in
+ *   declarative_net_request.json.
+ * @returns {string} The uriQuery with the queryTransform applied to it.
+ */
+function applyQueryTransform(uriQuery, queryTransform) {
+  // URLSearchParams cannot be applied to the full query string, because that
+  // API formats the full query string using form-urlencoding. But the input
+  // may be in a different format. So we try to only modify matched params.
+
+  function urlencode(s) {
+    // Encode in application/x-www-form-urlencoded format.
+    // The only JS API to do that is URLSearchParams. encodeURIComponent is not
+    // the same, it differs in how it handles " " ("%20") and "!'()~" (raw).
+    // But urlencoded space should be "+" and the latter be "%21%27%28%29%7E".
+    return new URLSearchParams({ s }).toString().slice(2);
+  }
+  if (!uriQuery.length && !queryTransform.addOrReplaceParams) {
+    // Nothing to do.
+    return "";
+  }
+  const removeParamsSet = new Set(queryTransform.removeParams?.map(urlencode));
+  const addParams = (queryTransform.addOrReplaceParams || []).map(orig => ({
+    normalizedKey: urlencode(orig.key),
+    orig,
+  }));
+  const finalParams = [];
+  if (uriQuery.length) {
+    for (let part of uriQuery.split("&")) {
+      let key = part.split("=", 1)[0];
+      if (removeParamsSet.has(key)) {
+        continue;
+      }
+      let i = addParams.findIndex(p => p.normalizedKey === key);
+      if (i !== -1) {
+        // Replace found param with the key-value from addOrReplaceParams.
+        finalParams.push(`${key}=${urlencode(addParams[i].orig.value)}`);
+        // Omit param so that a future search for the same key can find the next
+        // specified key-value pair, if any. And to prevent the already-used
+        // key-value pairs from being appended after the loop.
+        addParams.splice(i, 1);
+      } else {
+        finalParams.push(part);
+      }
+    }
+  }
+  // Append remaining, unused key-value pairs.
+  for (let { normalizedKey, orig } of addParams) {
+    if (!orig.replaceOnly) {
+      finalParams.push(`${normalizedKey}=${urlencode(orig.value)}`);
+    }
+  }
+  return finalParams.length ? `?${finalParams.join("&")}` : "";
+}
+
+/**
+ * @param {nsIURI} uri - Usually a http(s) URL.
+ * @param {object} transform - The value of the Rule.action.redirect.transform
+ *   property as defined in declarative_net_request.json.
+ * @returns {nsIURI} uri - The new URL.
+ * @throws if the transformation is invalid.
+ */
+function applyURLTransform(uri, transform) {
+  let mut = uri.mutate();
+  if (transform.scheme) {
+    // Note: declarative_net_request.json only allows http(s)/moz-extension:.
+    mut.setScheme(transform.scheme);
+    if (uri.port !== -1 || transform.port) {
+      // If the URI contains a port or transform.port was specified, the default
+      // port is significant. So we must set it in that case.
+      if (transform.scheme === "https") {
+        mut.QueryInterface(Ci.nsIStandardURLMutator).setDefaultPort(443);
+      } else if (transform.scheme === "http") {
+        mut.QueryInterface(Ci.nsIStandardURLMutator).setDefaultPort(80);
+      }
+    }
+  }
+  if (transform.username != null) {
+    mut.setUsername(transform.username);
+  }
+  if (transform.password != null) {
+    mut.setPassword(transform.password);
+  }
+  if (transform.host != null) {
+    mut.setHost(transform.host);
+  }
+  if (transform.port != null) {
+    // The caller ensures that transform.port is a string consisting of digits
+    // only. When it is an empty string, it should be cleared (-1).
+    mut.setPort(transform.port || -1);
+  }
+  if (transform.path != null) {
+    mut.setFilePath(transform.path);
+  }
+  if (transform.query != null) {
+    mut.setQuery(transform.query);
+  } else if (transform.queryTransform) {
+    mut.setQuery(applyQueryTransform(uri.query, transform.queryTransform));
+  }
+  if (transform.fragment != null) {
+    mut.setRef(transform.fragment);
+  }
+  return mut.finalize();
 }
 
 class RuleValidator {
@@ -285,8 +432,8 @@ class RuleValidator {
   }
 
   #checkActionRedirect(rule) {
-    const { extensionPath, url } = rule.action.redirect ?? {};
-    if (!url && extensionPath == null) {
+    const { extensionPath, url, transform } = rule.action.redirect ?? {};
+    if (!url && extensionPath == null && !transform) {
       this.#collectInvalidRule(
         rule,
         "A redirect rule must have a non-empty action.redirect object"
@@ -314,7 +461,60 @@ class RuleValidator {
     // http(s) URLs can (regardless of extension permissions).
     // data:-URLs are currently blocked due to bug 1622986.
 
-    // TODO bug 1801870: Implement rule.action.redirect.transform.
+    if (transform) {
+      if (transform.query != null && transform.queryTransform) {
+        this.#collectInvalidRule(
+          rule,
+          "redirect.transform.query and redirect.transform.queryTransform are mutually exclusive"
+        );
+        return false;
+      }
+      // Most of the validation is done by nsIURIMutator via applyURLTransform.
+      // nsIURIMutator is not very strict, so we perform some extra checks here
+      // to reject values that are not technically valid URLs.
+
+      if (transform.port && /\D/.test(transform.port)) {
+        // nsIURIMutator's setPort takes an int, so any string will implicitly
+        // be converted to a number. This part verifies that the input only
+        // consists of digits. setPort will ensure that it is at most 65535.
+        this.#collectInvalidRule(
+          rule,
+          "redirect.transform.port should be empty or an integer"
+        );
+        return false;
+      }
+
+      // Note: we don't verify whether transform.query starts with '/', because
+      // Chrome does not require it, and nsIURIMutator prepends it if missing.
+
+      if (transform.query && !transform.query.startsWith("?")) {
+        this.#collectInvalidRule(
+          rule,
+          "redirect.transform.query should be empty or start with a '?'"
+        );
+        return false;
+      }
+      if (transform.fragment && !transform.fragment.startsWith("#")) {
+        this.#collectInvalidRule(
+          rule,
+          "redirect.transform.fragment should be empty or start with a '#'"
+        );
+        return false;
+      }
+      try {
+        const dummyURI = Services.io.newURI("http://dummy");
+        // applyURLTransform uses nsIURIMutator to transform a URI, and throws
+        // if |transform| is invalid, e.g. invalid host, port, etc.
+        applyURLTransform(dummyURI, transform);
+      } catch (e) {
+        this.#collectInvalidRule(
+          rule,
+          "redirect.transform does not describe a valid URL transformation"
+        );
+        return false;
+      }
+    }
+
     // TODO bug 1745760: With regexFilter support, implement regexSubstitution.
     return true;
   }
@@ -900,8 +1100,7 @@ const NetworkIntegration = {
         .setPathQueryRef(redirect.extensionPath)
         .finalize();
     } else if (redirect.transform) {
-      // TODO bug 1801870: Implement transform.
-      throw new Error("transform not implemented");
+      redirectUri = applyURLTransform(channel.finalURI, redirect.transform);
     } else if (redirect.regexSubstitution) {
       // TODO bug 1745760: Implement along with regexFilter support.
       throw new Error("regexSubstitution not implemented");
@@ -926,14 +1125,34 @@ const NetworkIntegration = {
 class RuleManager {
   constructor(extension) {
     this.extension = extension;
-    this.sessionRules = this.makeRuleset("_session", 1);
+    this.sessionRules = this.makeRuleset(
+      "_session",
+      PRECEDENCE_SESSION_RULESET
+    );
     // TODO bug 1745764: support registration of (persistent) dynamic rules.
-    this.dynamicRules = this.makeRuleset("_dynamic", 2);
-    // TODO bug 1745763: support registration of static rules.
+    this.dynamicRules = this.makeRuleset(
+      "_dynamic",
+      PRECEDENCE_DYNAMIC_RULESET
+    );
     this.enabledStaticRules = [];
 
     this.hasBlockPermission = extension.hasPermission("declarativeNetRequest");
     this.hasRulesWithTabIds = false;
+  }
+
+  get availableStaticRuleCount() {
+    return Math.max(
+      GUARANTEED_MINIMUM_STATIC_RULES -
+        this.enabledStaticRules.reduce(
+          (acc, ruleset) => acc + ruleset.rules.length,
+          0
+        ),
+      0
+    );
+  }
+
+  get enabledStaticRulesetIds() {
+    return this.enabledStaticRules.map(ruleset => ruleset.id);
   }
 
   makeRuleset(rulesetId, rulesetPrecedence, rules = []) {
@@ -948,6 +1167,24 @@ class RuleManager {
     NetworkIntegration.maybeUpdateTabIdChecker();
   }
 
+  /**
+   * Set the enabled static rulesets.
+   *
+   * @param {Array<{ id, rules }>} enabledStaticRulesets
+   *        Array of objects including the ruleset id and rules.
+   *        The order of the rulesets in the Array is expected to
+   *        match the order of the rulesets in the extension manifest.
+   */
+  setEnabledStaticRulesets(enabledStaticRulesets) {
+    const rulesets = [];
+    for (const [idx, { id, rules }] of enabledStaticRulesets.entries()) {
+      rulesets.push(
+        this.makeRuleset(id, idx + PRECEDENCE_STATIC_RULESETS_BASE, rules)
+      );
+    }
+    this.enabledStaticRules = rulesets;
+  }
+
   getSessionRules() {
     return this.sessionRules.rules;
   }
@@ -956,6 +1193,11 @@ class RuleManager {
 function getRuleManager(extension, createIfMissing = true) {
   let ruleManager = gRuleManagers.find(rm => rm.extension === extension);
   if (!ruleManager && createIfMissing) {
+    if (extension.hasShutdown) {
+      throw new Error(
+        `Error on creating new DNR RuleManager after extension shutdown: ${extension.id}`
+      );
+    }
     ruleManager = new RuleManager(extension);
     // The most recently installed extension gets priority, i.e. appears at the
     // start of the gRuleManagers list. It is not yet possible to determine the
@@ -1043,11 +1285,123 @@ function handleRequest(channel, kind) {
   return false;
 }
 
+async function initExtension(extension) {
+  // These permissions are NOT an OptionalPermission, so their status can be
+  // assumed to be constant for the lifetime of the extension.
+  if (
+    extension.hasPermission("declarativeNetRequest") ||
+    extension.hasPermission("declarativeNetRequestWithHostAccess")
+  ) {
+    if (extension.hasShutdown) {
+      throw new Error(
+        `Aborted ExtensionDNR.initExtension call, extension "${extension.id}" is not active anymore`
+      );
+    }
+    await lazy.ExtensionDNRStore.initExtension(extension);
+  }
+}
+
+function ensureInitialized(extension) {
+  return (extension._dnrReady ??= initExtension(extension));
+}
+
+function validateManifestEntry(extension) {
+  const ruleResourcesArray =
+    extension.manifest.declarative_net_request.rule_resources;
+
+  const getWarningMessage = msg =>
+    `Warning processing declarative_net_request: ${msg}`;
+
+  if (ruleResourcesArray.length > MAX_NUMBER_OF_STATIC_RULESETS) {
+    extension.manifestWarning(
+      getWarningMessage(
+        `Static rulesets are exceeding the MAX_NUMBER_OF_STATIC_RULESETS limit (${MAX_NUMBER_OF_STATIC_RULESETS}).`
+      )
+    );
+  }
+
+  const seenRulesetIds = new Set();
+  const seenRulesetPaths = new Set();
+  const duplicatedRulesetIds = [];
+  const duplicatedRulesetPaths = [];
+  for (const [idx, { id, path }] of ruleResourcesArray.entries()) {
+    if (seenRulesetIds.has(id)) {
+      duplicatedRulesetIds.push({ idx, id });
+    }
+    if (seenRulesetPaths.has(path)) {
+      duplicatedRulesetPaths.push({ idx, path });
+    }
+    seenRulesetIds.add(id);
+    seenRulesetPaths.add(path);
+  }
+
+  if (duplicatedRulesetIds.length) {
+    const errorDetails = duplicatedRulesetIds
+      .map(({ idx, id }) => `"${id}" at index ${idx}`)
+      .join(", ");
+    extension.manifestWarning(
+      getWarningMessage(
+        `Static ruleset ids should be unique, duplicated ruleset ids: ${errorDetails}.`
+      )
+    );
+  }
+
+  if (duplicatedRulesetPaths.length) {
+    // NOTE: technically Chrome allows duplicated paths without any manifest
+    // validation warnings or errors, but if this happens it not unlikely to be
+    // actually a mistake in the manifest that may have been missed.
+    //
+    // In Firefox we decided to allow the same behavior to avoid introducing a chrome
+    // incompatibility, but we still warn about it to avoid extension developers
+    // to investigate more easily issue that may be due to duplicated rulesets
+    // paths.
+    const errorDetails = duplicatedRulesetPaths
+      .map(({ idx, path }) => `"${path}" at index ${idx}`)
+      .join(", ");
+    extension.manifestWarning(
+      getWarningMessage(
+        `Static rulesets paths are not unique, duplicated ruleset paths: ${errorDetails}.`
+      )
+    );
+  }
+
+  const enabledRulesets = ruleResourcesArray.filter(rs => rs.enabled);
+  if (enabledRulesets.length > MAX_NUMBER_OF_ENABLED_STATIC_RULESETS) {
+    const exceedingRulesetIds = enabledRulesets
+      .slice(MAX_NUMBER_OF_ENABLED_STATIC_RULESETS)
+      .map(ruleset => `"${ruleset.id}"`)
+      .join(", ");
+    extension.manifestWarning(
+      getWarningMessage(
+        `Enabled static rulesets are exceeding the MAX_NUMBER_OF_ENABLED_STATIC_RULESETS limit (${MAX_NUMBER_OF_ENABLED_STATIC_RULESETS}): ${exceedingRulesetIds}.`
+      )
+    );
+  }
+}
+
+async function updateEnabledStaticRulesets(extension, updateRulesetOptions) {
+  await ensureInitialized(extension);
+  await lazy.ExtensionDNRStore.updateEnabledStaticRulesets(
+    extension,
+    updateRulesetOptions
+  );
+}
+
+// exports used by the DNR API implementation.
 export const ExtensionDNR = {
   RuleValidator,
-  getRuleManager,
   clearRuleManager,
+  ensureInitialized,
   getMatchedRulesForRequest,
+  getRuleManager,
+  updateEnabledStaticRulesets,
+  validateManifestEntry,
+  // TODO(Bug 1803370): consider allowing changing DNR limits through about:config prefs).
+  limits: {
+    GUARANTEED_MINIMUM_STATIC_RULES,
+    MAX_NUMBER_OF_STATIC_RULESETS,
+    MAX_NUMBER_OF_ENABLED_STATIC_RULESETS,
+  },
 
   beforeWebRequestEvent,
   handleRequest,

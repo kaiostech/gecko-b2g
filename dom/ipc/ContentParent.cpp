@@ -1166,6 +1166,10 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
     // This ensures that the preallocator won't shut down the process once
     // it finishes starting
     preallocated->mRemoteType.Assign(aRemoteType);
+    {
+      MutexAutoLock lock(preallocated->mThreadsafeHandle->mMutex);
+      preallocated->mThreadsafeHandle->mRemoteType = preallocated->mRemoteType;
+    }
     preallocated->mRemoteTypeIsolationPrincipal =
         CreateRemoteTypeIsolationPrincipal(aRemoteType);
     preallocated->mActivateTS = TimeStamp::Now();
@@ -1967,15 +1971,18 @@ void ContentParent::MaybeAsyncSendShutDownMessage() {
   bool shouldKeepProcessAlive = ShouldKeepProcessAlive();
 #endif
 
-  auto lock = mRemoteWorkerActorData.Lock();
-  MOZ_ASSERT_IF(!lock->mCount, !shouldKeepProcessAlive);
+  {
+    MutexAutoLock lock(mThreadsafeHandle->mMutex);
+    MOZ_ASSERT_IF(!mThreadsafeHandle->mRemoteWorkerActorCount,
+                  !shouldKeepProcessAlive);
 
-  if (lock->mCount) {
-    return;
+    if (mThreadsafeHandle->mRemoteWorkerActorCount) {
+      return;
+    }
+
+    MOZ_ASSERT(!mThreadsafeHandle->mShutdownStarted);
+    mThreadsafeHandle->mShutdownStarted = true;
   }
-
-  MOZ_ASSERT(!lock->mShutdownStarted);
-  lock->mShutdownStarted = true;
 
   // In the case of normal shutdown, send a shutdown message to child to
   // allow it to perform shutdown tasks.
@@ -2422,6 +2429,8 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
     group->Unsubscribe(this);
   }
   MOZ_DIAGNOSTIC_ASSERT(mGroups.IsEmpty());
+
+  mPendingLoadStates.Clear();
 }
 
 void ContentParent::ActorDealloc() { mSelfRef = nullptr; }
@@ -2503,8 +2512,8 @@ bool ContentParent::HasActiveWorkerOrJSPlugin() {
 
   // If we have active workers, we need to stay alive.
   {
-    const auto lock = mRemoteWorkerActorData.Lock();
-    if (lock->mCount) {
+    MutexAutoLock lock(mThreadsafeHandle->mMutex);
+    if (mThreadsafeHandle->mRemoteWorkerActorCount) {
       return true;
     }
   }
@@ -3045,6 +3054,8 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mGeolocationWatchID(-1),
       mJSPluginID(aJSPluginID),
       mRemoteWorkerActorData("ContentParent::mRemoteWorkerActorData"),
+      mThreadsafeHandle(
+          new ThreadsafeContentParentHandle(this, mChildID, mRemoteType)),
       mNumDestroyingTabs(0),
       mNumKeepaliveCalls(0),
       mLifecycleState(LifecycleState::LAUNCHING),
@@ -3104,7 +3115,10 @@ ContentParent::~ContentParent() {
     mForceKillTimer->Cancel();
   }
 
-  NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
+  AssertIsOnMainThread();
+
+  // Clear the weak reference from the threadsafe handle back to this actor.
+  mThreadsafeHandle->mWeakActor = nullptr;
 
   if (mIsAPreallocBlocker) {
     MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
@@ -3923,6 +3937,26 @@ mozilla::ipc::IPCResult ContentParent::RecvSpeakerManagerForceSpeaker(
 #endif
 }
 
+already_AddRefed<nsDocShellLoadState> ContentParent::TakePendingLoadStateForId(
+    uint64_t aLoadIdentifier) {
+  return mPendingLoadStates.Extract(aLoadIdentifier).valueOr(nullptr).forget();
+}
+
+void ContentParent::StorePendingLoadState(nsDocShellLoadState* aLoadState) {
+  MOZ_DIAGNOSTIC_ASSERT(
+      !mPendingLoadStates.Contains(aLoadState->GetLoadIdentifier()),
+      "The same nsDocShellLoadState was sent to the same content process "
+      "twice? This will mess with cross-process tracking of loads");
+  mPendingLoadStates.InsertOrUpdate(aLoadState->GetLoadIdentifier(),
+                                    aLoadState);
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvCleanupPendingLoadState(
+    uint64_t aLoadIdentifier) {
+  mPendingLoadStates.Remove(aLoadIdentifier);
+  return IPC_OK();
+}
+
 // We want ContentParent to show up in CC logs for debugging purposes, but we
 // don't actually cycle collect it.
 NS_IMPL_CYCLE_COLLECTION_0(ContentParent)
@@ -4021,7 +4055,7 @@ ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
     // to the child and then just wait for ActorDestroy which will
     // cleanup everything and remove our blockers.
     if (!ShutDownProcess(SEND_SHUTDOWN_MESSAGE)) {
-      RemoveShutdownBlockers();
+      KillHard("Failed to send Shutdown message. Destroying the process...");
       return NS_OK;
     }
   } else if (IsLaunching()) {
@@ -7843,6 +7877,7 @@ void ContentParent::RegisterRemoteWorkerActor(nsIURI* aScriptURL) {
 void ContentParent::UnregisterRemoveWorkerActor(nsIURI* aScriptURL) {
   MOZ_ASSERT(NS_IsMainThread());
 
+  // TODO: b2g, check if we can move that to ThreadsafeContentParentHandle
   {
     auto lock = mRemoteWorkerActorData.Lock();
 
@@ -7857,6 +7892,13 @@ void ContentParent::UnregisterRemoveWorkerActor(nsIURI* aScriptURL) {
     lock->mScriptURLs.RemoveElementAt(index);
 
     if (--lock->mCount) {
+      return;
+    }
+  }
+
+  {
+    MutexAutoLock lock(mThreadsafeHandle->mMutex);
+    if (--mThreadsafeHandle->mRemoteWorkerActorCount) {
       return;
     }
   }
@@ -8823,6 +8865,21 @@ IPCResult ContentParent::RecvSignalFuzzingReady() {
   return IPC_OK();
 }
 #endif
+
+nsCString ThreadsafeContentParentHandle::GetRemoteType() {
+  MutexAutoLock lock(mMutex);
+  return mRemoteType;
+}
+
+bool ThreadsafeContentParentHandle::MaybeRegisterRemoteWorkerActor(
+    MoveOnlyFunction<bool(uint32_t, bool)> aCallback) {
+  MutexAutoLock lock(mMutex);
+  if (aCallback(mRemoteWorkerActorCount, mShutdownStarted)) {
+    ++mRemoteWorkerActorCount;
+    return true;
+  }
+  return false;
+}
 
 }  // namespace dom
 }  // namespace mozilla

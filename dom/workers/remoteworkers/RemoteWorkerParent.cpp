@@ -23,24 +23,26 @@ namespace {
 
 class UnregisterActorRunnable final : public Runnable {
  public:
-  explicit UnregisterActorRunnable(already_AddRefed<ContentParent> aParent,
-                                   nsIURI* aScriptURL)
-      : Runnable("UnregisterActorRunnable"), mContentParent(aParent), mScriptURL(aScriptURL) {
+  explicit UnregisterActorRunnable(
+      already_AddRefed<ThreadsafeContentParentHandle> aParent,
+      nsIURI* aScriptURL)
+      : Runnable("UnregisterActorRunnable"), mContentHandle(aParent), mScriptURL(aScriptURL) {
     AssertIsOnBackgroundThread();
   }
 
   NS_IMETHOD
   Run() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    mContentParent->UnregisterRemoveWorkerActor(mScriptURL);
-    mContentParent = nullptr;
+    AssertIsOnMainThread();
+    if (RefPtr<ContentParent> contentParent =
+            mContentHandle->GetContentParent()) {
+      contentParent->UnregisterRemoveWorkerActor(mScriptURL);
+    }
 
     return NS_OK;
   }
 
  private:
-  RefPtr<ContentParent> mContentParent;
+  RefPtr<ThreadsafeContentParentHandle> mContentHandle;
   RefPtr<nsIURI> mScriptURL;
 };
 
@@ -58,13 +60,15 @@ RemoteWorkerParent::~RemoteWorkerParent() {
 
 void RemoteWorkerParent::Initialize(nsIURI* aScriptURL,
                                     bool aAlreadyRegistered) {
-  RefPtr<ContentParent> parent = BackgroundParent::GetContentParent(Manager());
+  RefPtr<ThreadsafeContentParentHandle> parent =
+      BackgroundParent::GetContentParentHandle(Manager());
 
   // Parent is null if the child actor runs on the parent process.
   if (parent) {
     mScriptURL = aScriptURL;
     if (!aAlreadyRegistered) {
-      parent->RegisterRemoteWorkerActor(aScriptURL);
+      parent->RegisterRemoteWorkerActor();
+      // TODO: b2g, register the script URL properly.
     }
 
     NS_ReleaseOnMainThread("RemoteWorkerParent::Initialize ContentParent",
@@ -83,7 +87,8 @@ void RemoteWorkerParent::ActorDestroy(IProtocol::ActorDestroyReason) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(XRE_IsParentProcess());
 
-  RefPtr<ContentParent> parent = BackgroundParent::GetContentParent(Manager());
+  RefPtr<ThreadsafeContentParentHandle> parent =
+      BackgroundParent::GetContentParentHandle(Manager());
 
   // Parent is null if the child actor runs on the parent process.
   if (parent) {

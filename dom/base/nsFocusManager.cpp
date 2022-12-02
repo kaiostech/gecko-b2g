@@ -8,6 +8,7 @@
 
 #include "nsFocusManager.h"
 
+#include "LayoutConstants.h"
 #include "ChildIterator.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsGkAtoms.h"
@@ -2956,6 +2957,9 @@ void nsFocusManager::FireFocusOrBlurEvent(EventMessage aEventMessage,
 #endif
 
   if (!dontDispatchEvent) {
+    aPresShell->ScheduleContentRelevancyUpdate(
+        ContentRelevancyReason::FocusInSubtree);
+  
     nsContentUtils::AddScriptRunner(
         new FocusBlurEvent(aTarget, aEventMessage, aPresShell->GetPresContext(),
                            aWindowRaised, aIsRefocus, aRelatedTarget));

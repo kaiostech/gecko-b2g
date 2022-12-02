@@ -249,6 +249,19 @@ let JSWINDOWACTORS = {
     remoteTypes: ["privilegedabout"],
   },
 
+  AboutMessagePreview: {
+    parent: {
+      esModuleURI: "resource:///actors/AboutMessagePreviewParent.sys.mjs",
+    },
+    child: {
+      esModuleURI: "resource:///actors/AboutMessagePreviewChild.sys.mjs",
+      events: {
+        DOMDocElementInserted: { capture: true },
+      },
+    },
+    matches: ["about:messagepreview", "about:messagepreview?*"],
+  },
+
   AboutNewTab: {
     parent: {
       esModuleURI: "resource:///actors/AboutNewTabParent.sys.mjs",
@@ -2766,7 +2779,7 @@ BrowserGlue.prototype = {
 
       {
         condition: AppConstants.MOZ_UPDATE_AGENT,
-        task: () => {
+        task: async () => {
           // Never in automation!  This is close to
           // `UpdateService.disabledForTesting`, but without creating the
           // service, which can perform a good deal of I/O in order to log its
@@ -2778,14 +2791,14 @@ BrowserGlue.prototype = {
             Services.prefs.getBoolPref("app.update.disabledForTesting", false);
           if (!disabledForTesting) {
             try {
-              lazy.BackgroundUpdate.scheduleFirefoxMessagingSystemTargetingSnapshotting();
+              await lazy.BackgroundUpdate.scheduleFirefoxMessagingSystemTargetingSnapshotting();
             } catch (e) {
               Cu.reportError(
                 "There was an error scheduling Firefox Messaging System targeting snapshotting: " +
                   e
               );
             }
-            lazy.BackgroundUpdate.maybeScheduleBackgroundUpdateTask();
+            await lazy.BackgroundUpdate.maybeScheduleBackgroundUpdateTask();
           }
         },
       },

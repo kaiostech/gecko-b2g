@@ -132,7 +132,6 @@ CXXFLAGS += [
     "-Wno-error=attributes",
 ]
 
-DEFINES["TRACING"] = True
 FINAL_LIBRARY = "xul"
 
 # Add libFuzzer configuration directives

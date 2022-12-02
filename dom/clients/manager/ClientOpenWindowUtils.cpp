@@ -10,6 +10,7 @@
 #include "ClientManager.h"
 #include "ClientState.h"
 #include "mozilla/ResultExtensions.h"
+#include "mozilla/dom/ContentParent.h"
 #include "nsContentUtils.h"
 #include "nsDocShell.h"
 #include "nsDocShellLoadState.h"
@@ -205,6 +206,7 @@ struct ClientOpenWindowArgsParsed {
   nsCOMPtr<nsIPrincipal> principal;
   nsCOMPtr<nsIContentSecurityPolicy> csp;
   ClientDisposition disposition;
+  RefPtr<ThreadsafeContentParentHandle> originContent;
 };
 
 int16_t WhereTo(const ClientOpenWindowArgsParsed& aArgsValidated) {
@@ -301,6 +303,10 @@ void WaitForLoad(const ClientOpenWindowArgsParsed& aArgsValidated,
   loadState->SetFirstParty(true);
   loadState->SetLoadFlags(
       nsIWebNavigation::LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL);
+  loadState->SetTriggeringRemoteType(
+      aArgsValidated.originContent
+          ? aArgsValidated.originContent->GetRemoteType()
+          : NOT_REMOTE_TYPE);
 
   rv = aBrowsingContext->LoadURI(loadState, true);
   if (NS_FAILED(rv)) {
@@ -369,7 +375,9 @@ void GeckoViewOpenWindow(const ClientOpenWindowArgsParsed& aArgsValidated,
 
 }  // anonymous namespace
 
-RefPtr<ClientOpPromise> ClientOpenWindow(const ClientOpenWindowArgs& aArgs) {
+RefPtr<ClientOpPromise> ClientOpenWindow(
+    ThreadsafeContentParentHandle* aOriginContent,
+    const ClientOpenWindowArgs& aArgs) {
   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
 
   RefPtr<ClientOpPromise::Private> promise =
@@ -411,12 +419,14 @@ RefPtr<ClientOpPromise> ClientOpenWindow(const ClientOpenWindowArgs& aArgs) {
   if (aArgs.cspInfo().isSome()) {
     csp = CSPInfoToCSP(aArgs.cspInfo().ref(), nullptr);
   }
-  ClientOpenWindowArgsParsed argsValidated;
-  argsValidated.uri = uri;
-  argsValidated.baseURI = baseURI;
-  argsValidated.principal = principal;
-  argsValidated.csp = csp;
-  argsValidated.disposition = aArgs.disposition();
+  ClientOpenWindowArgsParsed argsValidated{
+      .uri = uri,
+      .baseURI = baseURI,
+      .principal = principal,
+      .csp = csp,
+      .disposition = aArgs.disposition(),
+      .originContent = aOriginContent,
+  };
 
 #ifdef MOZ_WIDGET_ANDROID
   // If we are on Android we are GeckoView.

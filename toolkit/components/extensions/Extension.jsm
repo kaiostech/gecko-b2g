@@ -50,6 +50,8 @@ const { AppConstants } = ChromeUtils.importESModule(
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  ExtensionDNR: "resource://gre/modules/ExtensionDNR.sys.mjs",
+  ExtensionDNRStore: "resource://gre/modules/ExtensionDNRStore.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   Log: "resource://gre/modules/Log.sys.mjs",
   SITEPERMS_ADDON_TYPE:
@@ -519,6 +521,12 @@ var ExtensionAddonObserver = {
     lazy.AsyncShutdown.profileChangeTeardown.addBlocker(
       `Clear scripting store for ${addon.id}`,
       lazy.ExtensionScriptingStore.clearOnUninstall(addon.id)
+    );
+
+    // Clear the DNR API's rules data persisted on disk (if any).
+    lazy.AsyncShutdown.profileChangeTeardown.addBlocker(
+      `Clear declarativeNetRequest store for ${addon.id}`,
+      lazy.ExtensionDNRStore.clearOnUninstall(uuid)
     );
 
     if (!Services.prefs.getBoolPref(LEAVE_STORAGE_PREF, false)) {
@@ -2448,7 +2456,7 @@ class Extension extends ExtensionData {
       updateReason ||
       ["ADDON_UPGRADE", "ADDON_DOWNGRADE"].includes(startupReason)
     ) {
-      StartupCache.clearAddonData(addonData.id);
+      this.startupClearCachePromise = StartupCache.clearAddonData(addonData.id);
     }
 
     this.remote = !WebExtensionPolicy.isExtensionProcess;
@@ -2685,7 +2693,8 @@ class Extension extends ExtensionData {
     lazy.AddonManagerPrivate.setAddonStartupData(this.id, this.startupData);
   }
 
-  parseManifest() {
+  async parseManifest() {
+    await this.startupClearCachePromise;
     return StartupCache.manifests.get(this.manifestCacheKey, () =>
       super.parseManifest()
     );
@@ -3194,6 +3203,16 @@ class Extension extends ExtensionData {
             lazy.ExtensionStorageIDB.getStoragePrincipal(this)
           );
         }
+      }
+
+      // Initialize DNR for the extension, only if the extension
+      // has the required DNR permissions and without blocking
+      // the extension startup on DNR being fully initialized.
+      if (
+        this.hasPermission("declarativeNetRequest") ||
+        this.hasPermission("declarativeNetRequestWithHostAccess")
+      ) {
+        lazy.ExtensionDNR.ensureInitialized(this);
       }
 
       resolveReadyPromise(this.policy);

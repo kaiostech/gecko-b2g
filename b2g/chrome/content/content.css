@@ -107,8 +107,15 @@ select,
 textarea,
 button,
 xul|button,
-* > input:not([type="image"]) {
+* > input:not([type="image"]):not([type="radio"]) {
   -moz-appearance: none !important; /* See bug 598421 for fixing the platform */
+}
+
+select,
+textarea,
+button,
+xul|button,
+* > input:not([type="image"]) {
   border-radius: 3px;
 }
 
@@ -252,48 +259,6 @@ button:focus {
 input[type="checkbox"]:focus,
 input[type="radio"]:focus {
   border-color: #99c6e0 !important;
-}
-
-/* removes original button */
-input[type="radio"] {
-  display: none;
-}
-
-input[type="radio"]:checked + label,
-input[type="radio"]:not(:checked) + label {
-  position: relative;
-  padding-left: 20px;
-  cursor: pointer;
-  line-height: 16px;
-  display: inline-block;
-  color: rgb(0, 0, 0);
-}
-
-/* radio outer circle */
-input[type="radio"] + label:before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 16px;
-  height: 16px;
-  border: 1px solid rgb(63, 63, 63);
-  border-radius: 100%;
-  background: #fff;
-}
-
-/* radio inner circle */
-input[type="radio"]:checked + label:after {
-  content: "";
-  width: 10px;
-  height: 10px;
-  background: black;
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  border-radius: 100%;
-  -webkit-transition: all 0.2s ease;
-  transition: all 0.2s ease;
 }
 
 input[type="checkbox"]:before {

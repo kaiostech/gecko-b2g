@@ -38,7 +38,8 @@ var ContextMenuUtils = {
     let menuData = { systemTargets: [], contextmenu: null };
     let ctxMenuId = null;
     let clipboardPlainTextOnly = Services.prefs.getBoolPref(
-      "clipboard.plainTextOnly"
+      "clipboard.plainTextOnly",
+      false
     );
     var copyableElements = {
       image: false,
@@ -107,8 +108,8 @@ var ContextMenuUtils = {
       .currentURI.spec;
     let content = global.content;
     if (
-      (elem.isInstance(content.HTMLAnchorElement) && elem.href) ||
-      (elem.isInstance(content.HTMLAreaElement) && elem.href)
+      (content.HTMLAnchorElement.isInstance(elem) && elem.href) ||
+      (content.HTMLAreaElement.isInstance(elem) && elem.href)
     ) {
       return {
         uri: elem.href,
@@ -119,10 +120,10 @@ var ContextMenuUtils = {
     if (elem instanceof Ci.nsIImageLoadingContent && elem.currentURI) {
       return { uri: elem.currentURI.spec, documentURI };
     }
-    if (elem.isInstance(content.HTMLImageElement)) {
+    if (content.HTMLImageElement.isInstance(elem)) {
       return { uri: elem.src, documentURI };
     }
-    if (elem.isInstance(content.HTMLMediaElement)) {
+    if (content.HTMLMediaElement.isInstance(elem)) {
       let hasVideo = !(
         elem.readyState >= elem.HAVE_METADATA &&
         (elem.videoWidth == 0 || elem.videoHeight == 0)
@@ -134,7 +135,7 @@ var ContextMenuUtils = {
       };
     }
     if (
-      elem.isInstance(content.HTMLInputElement) &&
+      content.HTMLInputElement.isInstance(elem) &&
       elem.hasAttribute("name")
     ) {
       // For input elements, we look for a parent <form> and if there is
@@ -142,7 +143,7 @@ var ContextMenuUtils = {
       let parent = elem.parentNode;
       while (parent) {
         if (
-          parent.isInstance(content.HTMLFormElement) &&
+          content.HTMLFormElement.isInstance(parent) &&
           parent.hasAttribute("action")
         ) {
           let actionHref = global.docShell

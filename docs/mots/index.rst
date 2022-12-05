@@ -3497,7 +3497,7 @@ Frontend for selecting jobs on the try server.
       -
         | `tools/tryselect/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=tools/tryselect/\*\*/\*>`__
     * - Bugzilla Components
-      - Firefox Build System :: Try
+      - Developer Infrastructure :: Try
 
 web-platform-tests infrastructure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3608,7 +3608,7 @@ The core infrastructure in the Firefox client to send back telemetry data. Inclu
       -
         | `aplacitelli <https://people.mozilla.org/s?query=aplacitelli>`__
         | `Jan-Erik Rediger (janerik) <https://people.mozilla.org/s?query=janerik>`__
-        | `Perry McManis (perrym) <https://people.mozilla.org/s?query=perrym>`__
+        | `Perry McManis (perry.mcmanis) <https://people.mozilla.org/s?query=perry.mcmanis>`__
         | `Travis Long (travis_) <https://people.mozilla.org/s?query=travis_>`__
     * - Owner(s) Emeritus
       - Georg Fritzsche

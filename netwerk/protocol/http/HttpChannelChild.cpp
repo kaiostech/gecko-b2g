@@ -443,6 +443,8 @@ void HttpChannelChild::OnStartRequest(
 
   mCacheKey = aArgs.cacheKey();
 
+  StoreIsProxyUsed(aArgs.isProxyUsed());
+
   // replace our request headers with what actually got sent in the parent
   mRequestHead.SetHeaders(aRequestHeaders);
 
@@ -2256,6 +2258,7 @@ nsresult HttpChannelChild::ContinueAsyncOpen() {
   openArgs.forceMainDocumentChannel() = LoadForceMainDocumentChannel();
 
   openArgs.navigationStartTimeStamp() = navigationStartTimeStamp;
+  openArgs.earlyHintPreloaderId() = mEarlyHintPreloaderId;
 
   // This must happen before the constructor message is sent. Otherwise messages
   // from the parent could arrive quickly and be delivered to the wrong event

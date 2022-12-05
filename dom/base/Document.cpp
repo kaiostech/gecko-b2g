@@ -6747,6 +6747,11 @@ void Document::SetHeaderData(nsAtom* aHeaderField, const nsAString& aData) {
   }
 }
 
+void Document::SetEarlyHints(
+    nsTArray<net::EarlyHintConnectArgs>&& aEarlyHints) {
+  mEarlyHints = std::move(aEarlyHints);
+}
+
 void Document::TryChannelCharset(nsIChannel* aChannel, int32_t& aCharsetSource,
                                  NotNull<const Encoding*>& aEncoding,
                                  nsHtml5TreeOpExecutor* aExecutor) {
@@ -12208,7 +12213,7 @@ already_AddRefed<nsIURI> Document::ResolvePreloadImage(
 
 void Document::PreLoadImage(nsIURI* aUri, const nsAString& aCrossOriginAttr,
                             ReferrerPolicyEnum aReferrerPolicy, bool aIsImgSet,
-                            bool aLinkPreload) {
+                            bool aLinkPreload, uint64_t aEarlyHintPreloaderId) {
   nsLoadFlags loadFlags = nsIRequest::LOAD_NORMAL |
                           nsIRequest::LOAD_RECORD_START_REQUEST_DELAY |
                           nsContentUtils::CORSModeToLoadImageFlags(
@@ -12222,11 +12227,15 @@ void Document::PreLoadImage(nsIURI* aUri, const nsAString& aCrossOriginAttr,
       ReferrerInfo::CreateFromDocumentAndPolicyOverride(this, aReferrerPolicy);
 
   RefPtr<imgRequestProxy> request;
+
+  nsLiteralString initiator = aEarlyHintPreloaderId
+                                  ? u"early-hints"_ns
+                                  : (aLinkPreload ? u"link"_ns : u"img"_ns);
+
   nsresult rv = nsContentUtils::LoadImage(
       aUri, static_cast<nsINode*>(this), this, NodePrincipal(), 0, referrerInfo,
-      nullptr /* no observer */, loadFlags,
-      aLinkPreload ? u"link"_ns : u"img"_ns, getter_AddRefs(request),
-      policyType, false /* urgent */, aLinkPreload);
+      nullptr /* no observer */, loadFlags, initiator, getter_AddRefs(request),
+      policyType, false /* urgent */, aLinkPreload, aEarlyHintPreloaderId);
 
   // Pin image-reference to avoid evicting it from the img-cache before
   // the "real" load occurs. Unpinned in DispatchContentLoadedEvents and
@@ -12249,7 +12258,7 @@ void Document::MaybePreLoadImage(nsIURI* aUri,
         dom::Element::StringToCORSMode(aCrossOriginAttr));
     if (!mPreloadService.PreloadExists(key)) {
       PreLoadImage(aUri, aCrossOriginAttr, aReferrerPolicy, aIsImgSet,
-                   aLinkPreload);
+                   aLinkPreload, 0);
     }
     return;
   }
@@ -12269,8 +12278,8 @@ void Document::MaybePreLoadImage(nsIURI* aUri,
 #endif
 
   // Image not in cache - trigger preload
-  PreLoadImage(aUri, aCrossOriginAttr, aReferrerPolicy, aIsImgSet,
-               aLinkPreload);
+  PreLoadImage(aUri, aCrossOriginAttr, aReferrerPolicy, aIsImgSet, aLinkPreload,
+               0);
 }
 
 void Document::MaybePreconnect(nsIURI* aOrigURI, mozilla::CORSMode aCORSMode) {
@@ -12394,7 +12403,7 @@ NS_IMPL_ISUPPORTS(StubCSSLoaderObserver, nsICSSLoaderObserver)
 SheetPreloadStatus Document::PreloadStyle(
     nsIURI* uri, const Encoding* aEncoding, const nsAString& aCrossOriginAttr,
     const enum ReferrerPolicy aReferrerPolicy, const nsAString& aIntegrity,
-    css::StylePreloadKind aKind) {
+    css::StylePreloadKind aKind, uint64_t aEarlyHintPreloaderId) {
   MOZ_ASSERT(aKind != css::StylePreloadKind::None);
 
   // The CSSLoader will retain this object after we return.
@@ -12405,7 +12414,7 @@ SheetPreloadStatus Document::PreloadStyle(
 
   // Charset names are always ASCII.
   auto result = CSSLoader()->LoadSheet(
-      uri, aKind, aEncoding, referrerInfo, obs,
+      uri, aKind, aEncoding, referrerInfo, obs, aEarlyHintPreloaderId,
       Element::StringToCORSMode(aCrossOriginAttr), aIntegrity);
   if (result.isErr()) {
     return SheetPreloadStatus::Errored;

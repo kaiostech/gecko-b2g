@@ -5173,7 +5173,8 @@ void nsDocShell::SetScrollbarPreference(mozilla::ScrollbarPreference aPref) {
   if (!scrollFrame) {
     return;
   }
-  ps->FrameNeedsReflow(scrollFrame, IntrinsicDirty::StyleChange,
+  ps->FrameNeedsReflow(scrollFrame,
+                       IntrinsicDirty::FrameAncestorsAndDescendants,
                        NS_FRAME_IS_DIRTY);
 }
 

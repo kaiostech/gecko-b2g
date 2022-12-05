@@ -1,6 +1,12 @@
 
 # cargo-vet audits file
 
+[[audits.aa-stroke]]
+who = "Lee Salzman <lsalzman@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.1.0"
+notes = "Written and maintained by Gfx team at Mozilla."
+
 [[audits.android_logger]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -1748,4 +1754,3 @@ who = "Henri Sivonen <hsivonen@hsivonen.fi>"
 criteria = "safe-to-deploy"
 version = "0.2.0"
 notes = "I, Henri Sivonen, wrote this crate myself for Gecko even though it's published on crates.io."
-

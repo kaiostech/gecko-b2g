@@ -6509,8 +6509,24 @@ bool HTMLInputElement::IsRangeUnderflow() const {
   return mInputType->IsRangeUnderflow();
 }
 
-bool HTMLInputElement::HasStepMismatch(bool aUseZeroIfValueNaN) const {
-  return mInputType->HasStepMismatch(aUseZeroIfValueNaN);
+bool HTMLInputElement::ValueIsStepMismatch(const Decimal& aValue) const {
+  if (aValue.isNaN()) {
+    // The element can't suffer from step mismatch if its value isn't a
+    // number.
+    return false;
+  }
+
+  Decimal step = GetStep();
+  if (step == kStepAny) {
+    return false;
+  }
+
+  // Value has to be an integral multiple of step.
+  return NS_floorModulo(aValue - GetStepBase(), step) != Decimal(0);
+}
+
+bool HTMLInputElement::HasStepMismatch() const {
+  return mInputType->HasStepMismatch();
 }
 
 bool HTMLInputElement::HasBadInput() const { return mInputType->HasBadInput(); }

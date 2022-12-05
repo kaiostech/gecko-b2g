@@ -651,6 +651,7 @@ class MDefinition : public MNode {
 
   virtual HashNumber valueHash() const;
   virtual bool congruentTo(const MDefinition* ins) const { return false; }
+  const MDefinition* skipObjectGuards() const;
   bool congruentIfOperandsEqual(const MDefinition* ins) const;
   virtual MDefinition* foldsTo(TempAllocator& alloc);
   virtual void analyzeEdgeCasesForward();
@@ -1822,16 +1823,14 @@ class MGoto : public MAryControlInstruction<0, 1>, public NoTypePolicy::Data {
 // Tests if the input instruction evaluates to true or false, and jumps to the
 // start of a corresponding basic block.
 class MTest : public MAryControlInstruction<1, 2>, public TestPolicy::Data {
+  // It is allowable to specify `trueBranch` or `falseBranch` as nullptr and
+  // patch it in later.
   MTest(MDefinition* ins, MBasicBlock* trueBranch, MBasicBlock* falseBranch)
       : MAryControlInstruction(classOpcode) {
     initOperand(0, ins);
     setSuccessor(TrueBranchIndex, trueBranch);
     setSuccessor(FalseBranchIndex, falseBranch);
   }
-
-  // Variant which may patch the ifTrue branch later.
-  MTest(MDefinition* ins, MBasicBlock* falseBranch)
-      : MTest(ins, nullptr, falseBranch) {}
 
   TypeDataList observedTypes_;
 
@@ -9174,6 +9173,34 @@ class MObjectStaticProto : public MUnaryInstruction,
     }
     return AliasType::MayAlias;
   }
+};
+
+class MConstantProto
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>>::Data {
+  explicit MConstantProto(MDefinition* protoObject, MDefinition* receiverObject)
+      : MBinaryInstruction(classOpcode, protoObject, receiverObject) {
+    MOZ_ASSERT(protoObject->isConstant());
+    setResultType(MIRType::Object);
+    setMovable();
+  }
+
+  ALLOW_CLONE(MConstantProto)
+
+ public:
+  INSTRUCTION_HEADER(ConstantProto)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, protoObject), (1, receiverObject))
+
+  HashNumber valueHash() const override;
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return ins->isConstantProto() && ins->getOperand(0) == getOperand(0) &&
+           getOperand(1)->skipObjectGuards() ==
+               ins->getOperand(1)->skipObjectGuards();
+  }
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
 // Flips the input's sign bit, independently of the rest of the number's

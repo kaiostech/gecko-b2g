@@ -9,6 +9,7 @@
 
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/gfx/AAStroke.h"
 #include "mozilla/gfx/Blur.h"
 #include "mozilla/gfx/DrawTargetSkia.h"
 #include "mozilla/gfx/Helpers.h"
@@ -2420,7 +2421,7 @@ bool QuantizedPath::operator==(const QuantizedPath& aOther) const {
 // transform will be applied to the path. The path is stored relative to its
 // bounds origin to support translation later.
 static Maybe<QuantizedPath> GenerateQuantizedPath(const SkPath& aPath,
-                                                  const IntRect& aBounds,
+                                                  const Rect& aBounds,
                                                   const Matrix& aTransform) {
   WGR::PathBuilder* pb = WGR::wgr_new_builder();
   if (!pb) {
@@ -2519,6 +2520,133 @@ static Maybe<WGR::VertexBuffer> GeneratePathVertexBuffer(
   return Some(vb);
 }
 
+static inline AAStroke::LineJoin ToAAStrokeLineJoin(JoinStyle aJoin) {
+  switch (aJoin) {
+    case JoinStyle::BEVEL:
+      return AAStroke::LineJoin::Bevel;
+    case JoinStyle::ROUND:
+      return AAStroke::LineJoin::Round;
+    case JoinStyle::MITER:
+    case JoinStyle::MITER_OR_BEVEL:
+      return AAStroke::LineJoin::Miter;
+  }
+  return AAStroke::LineJoin::Miter;
+}
+
+static inline AAStroke::LineCap ToAAStrokeLineCap(CapStyle aCap) {
+  switch (aCap) {
+    case CapStyle::BUTT:
+      return AAStroke::LineCap::Butt;
+    case CapStyle::ROUND:
+      return AAStroke::LineCap::Round;
+    case CapStyle::SQUARE:
+      return AAStroke::LineCap::Square;
+  }
+  return AAStroke::LineCap::Butt;
+}
+
+static inline Point WGRPointToPoint(const WGR::Point& aPoint) {
+  return Point(IntPoint(aPoint.x, aPoint.y)) * (1.0f / 16.0f);
+}
+
+// Generates a vertex buffer for a stroked path using aa-stroke.
+static Maybe<AAStroke::VertexBuffer> GenerateStrokeVertexBuffer(
+    const QuantizedPath& aPath, const StrokeOptions* aStrokeOptions,
+    float aScale) {
+  AAStroke::StrokeStyle style = {aStrokeOptions->mLineWidth * aScale,
+                                 ToAAStrokeLineCap(aStrokeOptions->mLineCap),
+                                 ToAAStrokeLineJoin(aStrokeOptions->mLineJoin),
+                                 aStrokeOptions->mMiterLimit};
+  if (style.width <= 0.0f || !IsFinite(style.width) ||
+      style.miter_limit <= 0.0f || !IsFinite(style.miter_limit)) {
+    return Nothing();
+  }
+  AAStroke::Stroker* s = AAStroke::aa_stroke_new(&style);
+  bool valid = true;
+  size_t curPoint = 0;
+  for (size_t curType = 0; valid && curType < aPath.mPath.num_types;) {
+    // Verify that we are at the start of a sub-path.
+    if ((aPath.mPath.types[curType] & WGR::PathPointTypePathTypeMask) !=
+        WGR::PathPointTypeStart) {
+      valid = false;
+      break;
+    }
+    // Find where the next sub-path starts so we can locate the end.
+    size_t endType = curType + 1;
+    for (; endType < aPath.mPath.num_types; endType++) {
+      if ((aPath.mPath.types[endType] & WGR::PathPointTypePathTypeMask) ==
+          WGR::PathPointTypeStart) {
+        break;
+      }
+    }
+    // Check if the path is closed. This is a flag modifying the last type.
+    bool closed =
+        (aPath.mPath.types[endType - 1] & WGR::PathPointTypeCloseSubpath) != 0;
+    for (; curType < endType; curType++) {
+      // If this is the last type and the sub-path is not closed, determine if
+      // this segment should be capped.
+      bool end = curType + 1 == endType && !closed;
+      switch (aPath.mPath.types[curType] & WGR::PathPointTypePathTypeMask) {
+        case WGR::PathPointTypeStart: {
+          if (curPoint + 1 > aPath.mPath.num_points) {
+            valid = false;
+            break;
+          }
+          Point p1 = WGRPointToPoint(aPath.mPath.points[curPoint]);
+          AAStroke::aa_stroke_move_to(s, p1.x, p1.y, closed);
+          if (end) {
+            AAStroke::aa_stroke_line_to(s, p1.x, p1.y, true);
+          }
+          curPoint++;
+          break;
+        }
+        case WGR::PathPointTypeLine: {
+          if (curPoint + 1 > aPath.mPath.num_points) {
+            valid = false;
+            break;
+          }
+          Point p1 = WGRPointToPoint(aPath.mPath.points[curPoint]);
+          AAStroke::aa_stroke_line_to(s, p1.x, p1.y, end);
+          curPoint++;
+          break;
+        }
+        case WGR::PathPointTypeBezier: {
+          if (curPoint + 3 > aPath.mPath.num_points) {
+            valid = false;
+            break;
+          }
+          Point p1 = WGRPointToPoint(aPath.mPath.points[curPoint]);
+          Point p2 = WGRPointToPoint(aPath.mPath.points[curPoint + 1]);
+          Point p3 = WGRPointToPoint(aPath.mPath.points[curPoint + 2]);
+          AAStroke::aa_stroke_curve_to(s, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y,
+                                       end);
+          curPoint += 3;
+          break;
+        }
+        default:
+          MOZ_ASSERT(false, "Unknown WGR path point type");
+          valid = false;
+          break;
+      }
+    }
+    // Close the sub-path if necessary.
+    if (valid && closed) {
+      AAStroke::aa_stroke_close(s);
+    }
+  }
+  Maybe<AAStroke::VertexBuffer> result;
+  if (valid) {
+    AAStroke::VertexBuffer vb = AAStroke::aa_stroke_finish(s);
+    if (!vb.len) {
+      AAStroke::aa_stroke_vertex_buffer_release(vb);
+    } else {
+      result = Some(vb);
+    }
+  }
+  AAStroke::aa_stroke_release(s);
+  return result;
+}
+
 // Search the path cache for any entries stored in the path vertex buffer and
 // remove them.
 void PathCache::ClearVertexRanges() {
@@ -2537,6 +2665,27 @@ void PathCache::ClearVertexRanges() {
 inline bool DrawTargetWebgl::ShouldAccelPath(
     const DrawOptions& aOptions, const StrokeOptions* aStrokeOptions) {
   return mWebglValid && SupportsDrawOptions(aOptions) && PrepareContext();
+}
+
+// For now, we only support stroking solid color patterns to limit artifacts
+// from blending of overlapping geometry generated by AAStroke.
+static inline bool SupportsAAStroke(const Pattern& aPattern,
+                                    const DrawOptions& aOptions,
+                                    const StrokeOptions& aStrokeOptions) {
+  if (aStrokeOptions.mDashPattern) {
+    return false;
+  }
+  switch (aOptions.mCompositionOp) {
+    case CompositionOp::OP_SOURCE:
+      return true;
+    case CompositionOp::OP_OVER:
+      return aPattern.GetType() == PatternType::COLOR &&
+             static_cast<const ColorPattern&>(aPattern).mColor.a *
+                     aOptions.mAlpha ==
+                 1.0f;
+    default:
+      return false;
+  }
 }
 
 bool DrawTargetWebgl::SharedContext::DrawPathAccel(
@@ -2560,11 +2709,21 @@ bool DrawTargetWebgl::SharedContext::DrawPathAccel(
     bounds.Inflate(blurRadius);
     viewport.Inflate(blurRadius);
   }
+  Point realOrigin = bounds.TopLeft();
+  if (aCacheable) {
+    // Quantize the path origin to increase the reuse of cache entries.
+    bounds.Scale(4.0f);
+    bounds.Round();
+    bounds.Scale(0.25f);
+  }
+  Point quantizedOrigin = bounds.TopLeft();
   // If the path doesn't intersect the viewport, then there is nothing to draw.
   IntRect intBounds = RoundedOut(bounds).Intersect(viewport);
   if (intBounds.IsEmpty()) {
     return true;
   }
+  // Nudge the bounds to account for the quantization rounding.
+  Rect quantBounds = Rect(intBounds) + (realOrigin - quantizedOrigin);
   // If a stroke path covers too much screen area, it is likely that most is
   // empty space in the interior. This usually imposes too high a cost versus
   // just rasterizing without acceleration.
@@ -2590,14 +2749,14 @@ bool DrawTargetWebgl::SharedContext::DrawPathAccel(
     }
     // Use a quantized, relative (to its bounds origin) version of the path as
     // a cache key to help limit cache bloat.
-    Maybe<QuantizedPath> qp =
-        GenerateQuantizedPath(pathSkia->GetPath(), intBounds, currentTransform);
+    Maybe<QuantizedPath> qp = GenerateQuantizedPath(
+        pathSkia->GetPath(), quantBounds, currentTransform);
     if (!qp) {
       return false;
     }
     entry = mPathCache->FindOrInsertEntry(
         std::move(*qp), color ? nullptr : &aPattern, aStrokeOptions,
-        currentTransform, intBounds, bounds.TopLeft(),
+        currentTransform, intBounds, quantizedOrigin,
         aShadow ? aShadow->mSigma : -1.0f);
     if (!entry) {
       return false;
@@ -2624,19 +2783,22 @@ bool DrawTargetWebgl::SharedContext::DrawPathAccel(
     // draw a rectangle at the expected new bounds, it will overlap the portion
     // of the old entry texture we actually need to sample from.
     Point offset =
-        (bounds.TopLeft() - entry->GetOrigin()) + entry->GetBounds().TopLeft();
+        (realOrigin - entry->GetOrigin()) + entry->GetBounds().TopLeft();
     SurfacePattern pathPattern(nullptr, ExtendMode::CLAMP,
                                Matrix::Translation(offset), filter);
-    return DrawRectAccel(Rect(intBounds), pathPattern, aOptions, shadowColor,
+    return DrawRectAccel(quantBounds, pathPattern, aOptions, shadowColor,
                          &handle, false, true, true);
   }
 
   if (mPathVertexCapacity > 0 && !handle && entry && !aShadow &&
-      SupportsPattern(aPattern) && (!aStrokeOptions || mPathAccelStroke) &&
+      aOptions.mAntialiasMode != AntialiasMode::NONE &&
+      SupportsPattern(aPattern) &&
       entry->GetPath().mPath.num_types <= mPathMaxComplexity) {
     if (entry->GetVertexRange().IsValid()) {
       // If there is a valid cached vertex data in the path vertex buffer, then
-      // just draw that.
+      // just draw that. We must draw at integer pixel boundaries (using
+      // intBounds instead of quantBounds) due to WGR's reliance on pixel center
+      // location.
       mCurrentTarget->mProfile.OnCacheHit();
       return DrawRectAccel(Rect(intBounds.TopLeft(), Size(1, 1)), aPattern,
                            aOptions, Nothing(), nullptr, false, true, true,
@@ -2646,43 +2808,59 @@ bool DrawTargetWebgl::SharedContext::DrawPathAccel(
     // printf_stderr("Generating... verbs %d, points %d\n",
     //     int(pathSkia->GetPath().countVerbs()),
     //     int(pathSkia->GetPath().countPoints()));
-    Maybe<WGR::VertexBuffer> vb;
-    if (aStrokeOptions) {
-      //  If stroking, then generate a path to fill the stroked region. This
-      //  path will need to be quantized again because it differs from the path
-      //  used for the cache entry, but this allows us to avoid generating a
-      //  fill path on a cache hit.
-      SkPaint paint;
-      if (StrokeOptionsToPaint(paint, *aStrokeOptions)) {
-        Maybe<SkRect> cullRect;
-        Matrix invTransform = currentTransform;
-        if (invTransform.Invert()) {
-          // Transform the stroking clip rect from device space to local space.
-          Rect invRect = invTransform.TransformBounds(Rect(mClipRect));
-          invRect.RoundOut();
-          cullRect = Some(RectToSkRect(invRect));
+    Maybe<WGR::VertexBuffer> wgrVB;
+    Maybe<AAStroke::VertexBuffer> strokeVB;
+    if (!aStrokeOptions) {
+      wgrVB = GeneratePathVertexBuffer(
+          entry->GetPath(), IntRect(-intBounds.TopLeft(), mViewportSize));
+    } else {
+      if (mPathAAStroke &&
+          SupportsAAStroke(aPattern, aOptions, *aStrokeOptions)) {
+        auto scaleFactors = currentTransform.ScaleFactors();
+        if (scaleFactors.AreScalesSame()) {
+          strokeVB = GenerateStrokeVertexBuffer(
+              entry->GetPath(), aStrokeOptions, scaleFactors.xScale);
         }
-        SkPath fillPath;
-        if (paint.getFillPath(pathSkia->GetPath(), &fillPath,
-                              cullRect.ptrOr(nullptr),
-                              ComputeResScaleForStroking(currentTransform))) {
-          // printf_stderr("    stroke fill... verbs %d, points %d\n",
-          //     int(fillPath.countVerbs()),
-          //     int(fillPath.countPoints()));
-          if (Maybe<QuantizedPath> qp = GenerateQuantizedPath(
-                  fillPath, intBounds, currentTransform)) {
-            vb = GeneratePathVertexBuffer(
-                *qp, IntRect(-intBounds.TopLeft(), mViewportSize));
+      }
+      if (!strokeVB && mPathWGRStroke) {
+        //  If stroking, then generate a path to fill the stroked region. This
+        //  path will need to be quantized again because it differs from the
+        //  path used for the cache entry, but this allows us to avoid
+        //  generating a fill path on a cache hit.
+        SkPaint paint;
+        if (StrokeOptionsToPaint(paint, *aStrokeOptions)) {
+          Maybe<SkRect> cullRect;
+          Matrix invTransform = currentTransform;
+          if (invTransform.Invert()) {
+            // Transform the stroking clip rect from device space to local
+            // space.
+            Rect invRect = invTransform.TransformBounds(Rect(mClipRect));
+            invRect.RoundOut();
+            cullRect = Some(RectToSkRect(invRect));
+          }
+          SkPath fillPath;
+          if (paint.getFillPath(pathSkia->GetPath(), &fillPath,
+                                cullRect.ptrOr(nullptr),
+                                ComputeResScaleForStroking(currentTransform))) {
+            // printf_stderr("    stroke fill... verbs %d, points %d\n",
+            //     int(fillPath.countVerbs()),
+            //     int(fillPath.countPoints()));
+            if (Maybe<QuantizedPath> qp = GenerateQuantizedPath(
+                    fillPath, quantBounds, currentTransform)) {
+              wgrVB = GeneratePathVertexBuffer(
+                  *qp, IntRect(-intBounds.TopLeft(), mViewportSize));
+            }
           }
         }
       }
-    } else {
-      vb = GeneratePathVertexBuffer(
-          entry->GetPath(), IntRect(-intBounds.TopLeft(), mViewportSize));
     }
-    if (vb) {
-      uint32_t vertexBytes = vb->len * sizeof(WGR::OutputVertex);
-      // printf_stderr("  ... %d verts, %d bytes\n", int(vb->len),
+    if (wgrVB || strokeVB) {
+      const uint8_t* vbData =
+          wgrVB ? (const uint8_t*)wgrVB->data : (const uint8_t*)strokeVB->data;
+      size_t vbLen = wgrVB ? wgrVB->len : strokeVB->len;
+      uint32_t vertexBytes = uint32_t(
+          std::min(vbLen * sizeof(WGR::OutputVertex), size_t(UINT32_MAX)));
+      // printf_stderr("  ... %d verts, %d bytes\n", int(vbLen),
       //     int(vertexBytes));
       if (vertexBytes > mPathVertexCapacity - mPathVertexOffset &&
           vertexBytes <= mPathVertexCapacity - sizeof(kRectVertexData)) {
@@ -2700,22 +2878,30 @@ bool DrawTargetWebgl::SharedContext::DrawPathAccel(
         // available offset in the buffer.
         PathVertexRange vertexRange(
             uint32_t(mPathVertexOffset / sizeof(WGR::OutputVertex)),
-            uint32_t(vb->len));
+            uint32_t(vbLen));
         if (entry) {
           entry->SetVertexRange(vertexRange);
         }
         // printf_stderr("      ... offset %d\n", mPathVertexOffset);
         mWebgl->RawBufferSubData(LOCAL_GL_ARRAY_BUFFER, mPathVertexOffset,
-                                 (const uint8_t*)vb->data, vertexBytes);
+                                 vbData, vertexBytes);
         mPathVertexOffset += vertexBytes;
-        wgr_vertex_buffer_release(vb.ref());
+        if (wgrVB) {
+          WGR::wgr_vertex_buffer_release(wgrVB.ref());
+        } else {
+          AAStroke::aa_stroke_vertex_buffer_release(strokeVB.ref());
+        }
         // Finally, draw the uploaded vertex data.
         mCurrentTarget->mProfile.OnCacheMiss();
         return DrawRectAccel(Rect(intBounds.TopLeft(), Size(1, 1)), aPattern,
                              aOptions, Nothing(), nullptr, false, true, true,
                              false, nullptr, &vertexRange);
       }
-      wgr_vertex_buffer_release(vb.ref());
+      if (wgrVB) {
+        WGR::wgr_vertex_buffer_release(wgrVB.ref());
+      } else {
+        AAStroke::aa_stroke_vertex_buffer_release(strokeVB.ref());
+      }
       // If we failed to draw the vertex data for some reason, then fall through
       // to the texture rasterization path.
     }
@@ -2731,7 +2917,7 @@ bool DrawTargetWebgl::SharedContext::DrawPathAccel(
   if (pathDT->Init(intBounds.Size(), color || aShadow
                                          ? SurfaceFormat::A8
                                          : SurfaceFormat::B8G8R8A8)) {
-    Point offset = -intBounds.TopLeft();
+    Point offset = -quantBounds.TopLeft();
     if (aShadow) {
       // Ensure the the shadow is drawn at the requested offset
       offset += aShadow->mOffset;
@@ -2769,13 +2955,13 @@ bool DrawTargetWebgl::SharedContext::DrawPathAccel(
         return false;
       }
       SurfacePattern pathPattern(pathSurface, ExtendMode::CLAMP,
-                                 Matrix::Translation(intBounds.TopLeft()),
+                                 Matrix::Translation(quantBounds.TopLeft()),
                                  filter);
       // Try and upload the rasterized path to a texture. If there is a
       // valid texture handle after this, then link it to the entry.
       // Otherwise, we might have to fall back to software drawing the
       // path, so unlink it from the entry.
-      if (DrawRectAccel(Rect(intBounds), pathPattern, aOptions, shadowColor,
+      if (DrawRectAccel(quantBounds, pathPattern, aOptions, shadowColor,
                         &handle, false, true) &&
           handle) {
         if (entry) {
@@ -3735,7 +3921,8 @@ void DrawTargetWebgl::SharedContext::CachePrefs() {
   mPathMaxComplexity =
       StaticPrefs::gfx_canvas_accelerated_gpu_path_complexity();
 
-  mPathAccelStroke = StaticPrefs::gfx_canvas_accelerated_gpu_path_stroke();
+  mPathAAStroke = StaticPrefs::gfx_canvas_accelerated_aa_stroke_enabled();
+  mPathWGRStroke = StaticPrefs::gfx_canvas_accelerated_stroke_to_fill_path();
 }
 
 // For use within CanvasRenderingContext2D, called on BorrowDrawTarget.

@@ -1560,6 +1560,24 @@
       }
     }
 
+    _acquireAutoScrollWakeLock() {
+      const pm = Cc["@mozilla.org/power/powermanagerservice;1"].getService(
+        Ci.nsIPowerManagerService
+      );
+      this._autoScrollWakelock = pm.newWakeLock("autoscroll", window);
+    }
+
+    _releaseAutoScrollWakeLock() {
+      if (this._autoScrollWakelock) {
+        try {
+          this._autoScrollWakelock.unlock();
+        } catch (e) {
+          // Ignore error since wake lock is already unlocked
+        }
+        this._autoScrollWakelock = null;
+      }
+    }
+
     stopScroll() {
       if (this._autoScrollBrowsingContext) {
         window.removeEventListener("mousemove", this, true);
@@ -1595,6 +1613,7 @@
         }
 
         this._autoScrollBrowsingContext = null;
+        this._releaseAutoScrollWakeLock();
       }
     }
 
@@ -1706,6 +1725,7 @@
       this._startX = screenX;
       this._startY = screenY;
       this._autoScrollBrowsingContext = browsingContext;
+      this._acquireAutoScrollWakeLock();
 
       window.addEventListener("mousemove", this, true);
       window.addEventListener("mousedown", this, true);

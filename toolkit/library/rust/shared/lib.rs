@@ -117,6 +117,8 @@ extern crate dap_ffi;
 
 extern crate data_encoding_ffi;
 
+extern crate oblivious_http;
+
 #[cfg(feature = "uniffi_fixtures")]
 mod uniffi_fixtures {
     extern crate arithmetical;

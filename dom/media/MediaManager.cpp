@@ -1023,6 +1023,13 @@ LocalMediaDevice::GetRawId(nsAString& aID) {
 }
 
 NS_IMETHODIMP
+LocalMediaDevice::GetId(nsAString& aID) {
+  MOZ_ASSERT(NS_IsMainThread());
+  aID.Assign(mID);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 LocalMediaDevice::GetScary(bool* aScary) {
   *aScary = mRawDevice->mScary;
   return NS_OK;

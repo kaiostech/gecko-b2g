@@ -603,12 +603,13 @@ RemoteWorkerServiceParent* RemoteWorkerManager::SelectTargetActorInternal(
                          (aActor->OtherPid() == aProcessId || !actor);
                 })) {
           actor = aActor;
-          RefPtr<nsIURI> scripturi;
-          NS_NewURI(getter_AddRefs(scripturi),
-                    NS_ConvertUTF16toUTF8(aData.originalScriptURL()).get());
-          RefPtr<ContentParent> contentParent = aContentHandle->GetContentParent();
-          auto lock = contentParent->mRemoteWorkerActorData.Lock();
-          lock->mScriptURLs.EmplaceBack(scripturi);
+          // TODO: b2g - can't get ContentParent from the background thread.
+          // RefPtr<nsIURI> scripturi;
+          // NS_NewURI(getter_AddRefs(scripturi),
+          //           NS_ConvertUTF16toUTF8(aData.originalScriptURL()).get());
+          // RefPtr<ContentParent> contentParent = aContentHandle->GetContentParent();
+          // auto lock = contentParent->mRemoteWorkerActorData.Lock();
+          // lock->mScriptURLs.EmplaceBack(scripturi);
           return false;
         }
         MOZ_ASSERT(!actor);

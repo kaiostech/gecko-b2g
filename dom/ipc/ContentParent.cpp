@@ -7888,12 +7888,12 @@ void ContentParent::UnregisterRemoveWorkerActor(nsIURI* aScriptURL) {
                                              a->Equals(b, &eq);
                                              return eq ? 0 : -1;
                                            });
-    MOZ_ASSERT(index != nsTArray<nsCString>::NoIndex);
-    lock->mScriptURLs.RemoveElementAt(index);
+    // MOZ_ASSERT(index != nsTArray<nsCString>::NoIndex);
+    // lock->mScriptURLs.RemoveElementAt(index);
 
-    if (--lock->mCount) {
-      return;
-    }
+    // if (--lock->mCount) {
+    //   return;
+    // }
   }
 
   {

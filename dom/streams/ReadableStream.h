@@ -84,18 +84,15 @@ class ReadableStream : public nsISupports, public nsWrapperCache {
     mStoredError = aStoredError;
   }
 
-  UnderlyingSourceAlgorithmsBase* GetAlgorithms() const { return mAlgorithms; }
-  void SetErrorAlgorithm(UnderlyingSourceAlgorithmsBase* aAlgorithms) {
-    mAlgorithms = aAlgorithms;
-  }
-
   void SetNativeUnderlyingSource(BodyStreamHolder* aUnderlyingSource);
   BodyStreamHolder* GetNativeUnderlyingSource() {
     return mNativeUnderlyingSource;
   }
   bool HasNativeUnderlyingSource() { return mNativeUnderlyingSource; }
 
-  void ReleaseObjects();
+  // XXX(krosylight): BodyStream should really be a subclass of ReadableStream
+  // instead of owning ReadableStream this way. See bug 1803386.
+  void ReleaseObjectsFromBodyStream();
 
   // [Transferable]
   // https://html.spec.whatwg.org/multipage/structured-data.html#transfer-steps
@@ -151,9 +148,6 @@ class ReadableStream : public nsISupports, public nsWrapperCache {
   ReaderState mState = ReaderState::Readable;
   JS::Heap<JS::Value> mStoredError;
 
-  // Optional Callback for erroring a stream.
-  RefPtr<UnderlyingSourceAlgorithmsBase> mAlgorithms;
-
   // Optional strong reference to an Underlying Source; This
   // exists because NativeUnderlyingSource callbacks don't hold
   // a strong reference to the underlying source: So we need
@@ -167,6 +161,8 @@ class ReadableStream : public nsISupports, public nsWrapperCache {
   // as the underlying source right now, I'm going to punt that problem to
   // the future where we need to provide other native underlying sources
   // (i.e. perhaps WebTransport.)
+  //
+  // See bug 1803386.
   RefPtr<BodyStreamHolder> mNativeUnderlyingSource;
 };
 

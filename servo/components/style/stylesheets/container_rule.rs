@@ -201,7 +201,7 @@ impl ContainerCondition {
             }
         }
 
-        let size = potential_container.primary_content_box_size();
+        let size = potential_container.query_container_size();
         let style = style.clone();
         TraversalResult::Done(ContainerLookupResult {
             element: potential_container,
@@ -258,25 +258,25 @@ impl ContainerCondition {
 /// Information needed to evaluate an individual container query.
 #[derive(Copy, Clone)]
 pub struct ContainerInfo {
-    size: Size2D<Au>,
+    size: Size2D<Option<Au>>,
     wm: WritingMode,
 }
 
 fn eval_width(context: &Context) -> Option<CSSPixelLength> {
     let info = context.container_info.as_ref()?;
-    Some(CSSPixelLength::new(info.size.width.to_f32_px()))
+    Some(CSSPixelLength::new(info.size.width?.to_f32_px()))
 }
 
 fn eval_height(context: &Context) -> Option<CSSPixelLength> {
     let info = context.container_info.as_ref()?;
-    Some(CSSPixelLength::new(info.size.height.to_f32_px()))
+    Some(CSSPixelLength::new(info.size.height?.to_f32_px()))
 }
 
 fn eval_inline_size(context: &Context) -> Option<CSSPixelLength> {
     let info = context.container_info.as_ref()?;
     Some(CSSPixelLength::new(
         LogicalSize::from_physical(info.wm, info.size)
-            .inline
+            .inline?
             .to_f32_px(),
     ))
 }
@@ -285,14 +285,14 @@ fn eval_block_size(context: &Context) -> Option<CSSPixelLength> {
     let info = context.container_info.as_ref()?;
     Some(CSSPixelLength::new(
         LogicalSize::from_physical(info.wm, info.size)
-            .block
+            .block?
             .to_f32_px(),
     ))
 }
 
 fn eval_aspect_ratio(context: &Context) -> Option<Ratio> {
     let info = context.container_info.as_ref()?;
-    Some(Ratio::new(info.size.width.0 as f32, info.size.height.0 as f32))
+    Some(Ratio::new(info.size.width?.0 as f32, info.size.height?.0 as f32))
 }
 
 fn eval_orientation(context: &Context, value: Option<Orientation>) -> bool {
@@ -464,13 +464,13 @@ impl<'a> ContainerSizeQuery<'a> {
         let box_style = style.get_box();
 
         let container_type = box_style.clone_container_type();
-        let size = e.primary_content_box_size();
+        let size = e.query_container_size();
         match container_type {
-            ContainerType::Size=> {
+            ContainerType::Size => {
                 TraversalResult::Done(
                     ContainerSizeQueryResult {
-                        width: Some(size.width),
-                        height: Some(size.height)
+                        width: size.width,
+                        height: size.height,
                     }
                 )
             },
@@ -478,7 +478,7 @@ impl<'a> ContainerSizeQuery<'a> {
                 if wm.is_horizontal() {
                     TraversalResult::Done(
                         ContainerSizeQueryResult {
-                            width: Some(size.width),
+                            width: size.width,
                             height: None,
                         }
                     )
@@ -486,7 +486,7 @@ impl<'a> ContainerSizeQuery<'a> {
                     TraversalResult::Done(
                         ContainerSizeQueryResult {
                             width: None,
-                            height: Some(size.height),
+                            height: size.height,
                         }
                     )
                 }

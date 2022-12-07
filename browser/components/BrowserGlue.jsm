@@ -44,6 +44,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
   ScreenshotsUtils: "resource:///modules/ScreenshotsUtils.sys.mjs",
   SearchSERPTelemetry: "resource:///modules/SearchSERPTelemetry.sys.mjs",
+  SessionStartup: "resource:///modules/sessionstore/SessionStartup.sys.mjs",
+  SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   SnapshotMonitor: "resource:///modules/SnapshotMonitor.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
@@ -94,8 +96,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   SafeBrowsing: "resource://gre/modules/SafeBrowsing.jsm",
   Sanitizer: "resource:///modules/Sanitizer.jsm",
   SaveToPocket: "chrome://pocket/content/SaveToPocket.jsm",
-  SessionStartup: "resource:///modules/sessionstore/SessionStartup.jsm",
-  SessionStore: "resource:///modules/sessionstore/SessionStore.jsm",
   ShellService: "resource:///modules/ShellService.jsm",
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.jsm",
@@ -607,6 +607,28 @@ let JSWINDOWACTORS = {
     },
 
     messageManagerGroups: ["browsers"],
+  },
+
+  MigrationWizard: {
+    parent: {
+      esModuleURI: "resource:///actors/MigrationWizardParent.sys.mjs",
+    },
+
+    child: {
+      esModuleURI: "resource:///actors/MigrationWizardChild.sys.mjs",
+      events: {
+        "MigrationWizard:Init": { wantUntrusted: true },
+      },
+    },
+
+    includeChrome: true,
+    allFrames: true,
+    matches: [
+      "about:welcome",
+      "about:welcome?*",
+      "about:preferences",
+      "chrome://browser/content/migration/migration-dialog.html",
+    ],
   },
 
   PageInfo: {

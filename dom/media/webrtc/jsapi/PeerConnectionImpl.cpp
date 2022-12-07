@@ -107,7 +107,6 @@
 #include "jsep/JsepTransport.h"
 
 #include "nsILoadInfo.h"
-#include "nsIProxyInfo.h"
 #include "nsIPrincipal.h"
 #include "mozilla/LoadInfo.h"
 #include "nsIProxiedChannel.h"
@@ -3363,22 +3362,9 @@ bool PeerConnectionImpl::ShouldForceProxy() const {
     return false;
   }
 
-  nsCOMPtr<nsIProxiedChannel> proxiedChannel =
-      do_QueryInterface(httpChannelInternal);
-  if (!proxiedChannel) {
-    return false;
-  }
-
-  nsCOMPtr<nsIProxyInfo> proxyInfo;
-  proxiedChannel->GetProxyInfo(getter_AddRefs(proxyInfo));
-  if (!proxyInfo) {
-    return false;
-  }
-
-  nsCString proxyType;
-  proxyInfo->GetType(proxyType);
-
-  return !proxyType.IsEmpty() && !proxyType.EqualsLiteral("direct");
+  bool proxyUsed = false;
+  Unused << httpChannelInternal->GetIsProxyUsed(&proxyUsed);
+  return proxyUsed;
 }
 
 void PeerConnectionImpl::EnsureTransports(const JsepSession& aSession) {

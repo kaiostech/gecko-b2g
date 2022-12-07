@@ -108,7 +108,7 @@ export class FeatureCallout {
   }
 
   async _handlePrefChange() {
-    if (this.doc.visibilityState === "hidden") {
+    if (this.doc.visibilityState === "hidden" || !this.featureTourProgress) {
       return;
     }
 
@@ -344,7 +344,7 @@ export class FeatureCallout {
           let containerTop =
             getOffset(parentEl).top + parentEl.clientHeight - overlap;
           container.style.top = `${Math.max(0, containerTop)}px`;
-          centerHorizontally(container, parentEl);
+          alignHorizontally("center");
         },
       },
       bottom: {
@@ -357,7 +357,7 @@ export class FeatureCallout {
           let containerTop =
             getOffset(parentEl).top - container.clientHeight + overlap;
           container.style.top = `${Math.max(0, containerTop)}px`;
-          centerHorizontally(container, parentEl);
+          alignHorizontally("center");
         },
       },
       right: {
@@ -373,9 +373,8 @@ export class FeatureCallout {
           if (container.offsetHeight <= parentEl.offsetHeight) {
             container.style.top = `${getOffset(parentEl).top}px`;
           } else {
-            centerVertically(container, parentEl);
+            centerVertically();
           }
-          container.classList.add("arrow-inline-end");
         },
       },
       left: {
@@ -391,9 +390,26 @@ export class FeatureCallout {
           if (container.offsetHeight <= parentEl.offsetHeight) {
             container.style.top = `${getOffset(parentEl).top}px`;
           } else {
-            centerVertically(container, parentEl);
+            centerVertically();
           }
-          container.classList.add("arrow-inline-start");
+        },
+      },
+      "top-start": {
+        availableSpace() {
+          doc.documentElement.clientHeight -
+            getOffset(parentEl).top -
+            parentEl.clientHeight;
+        },
+        neededSpace: container.clientHeight - overlap,
+        position() {
+          // Point to an element above and at the start of the callout
+          let containerTop =
+            getOffset(parentEl).top + parentEl.clientHeight - overlap;
+          container.style.top = `${Math.max(
+            container.clientHeight - overlap,
+            containerTop
+          )}px`;
+          alignHorizontally("start");
         },
       },
       "top-end": {
@@ -411,7 +427,7 @@ export class FeatureCallout {
             container.clientHeight - overlap,
             containerTop
           )}px`;
-          alignEnd(container, parentEl);
+          alignHorizontally("end");
         },
       },
     };
@@ -461,31 +477,42 @@ export class FeatureCallout {
       return sortedPositions[0] || position;
     };
 
-    const centerHorizontally = () => {
-      let sideOffset = (parentEl.clientWidth - container.clientWidth) / 2;
-      let containerSide = RTL
-        ? doc.documentElement.clientWidth -
-          getOffset(parentEl).right +
-          sideOffset
-        : getOffset(parentEl).left + sideOffset;
-      container.style[RTL ? "right" : "left"] = `${Math.max(
-        containerSide,
-        0
-      )}px`;
-    };
-
     const centerVertically = () => {
       let topOffset = (container.offsetHeight - parentEl.offsetHeight) / 2;
       container.style.top = `${getOffset(parentEl).top - topOffset}px`;
     };
 
-    const alignEnd = () => {
-      let containerSide = RTL
-        ? parentEl.getBoundingClientRect().left
-        : parentEl.getBoundingClientRect().left +
-          parentEl.clientWidth -
-          container.clientWidth;
-      container.style.left = `${Math.max(containerSide, 0)}px`;
+    /**
+     * Horizontally align a top/bottom-positioned callout according to the
+     * passed position.
+     * @param {string} [position = "start"] <"start"|"end"|"center">
+     */
+    const alignHorizontally = position => {
+      switch (position) {
+        case "center": {
+          let sideOffset = (parentEl.clientWidth - container.clientWidth) / 2;
+          let containerSide = RTL
+            ? doc.documentElement.clientWidth -
+              getOffset(parentEl).right +
+              sideOffset
+            : getOffset(parentEl).left + sideOffset;
+          container.style[RTL ? "right" : "left"] = `${Math.max(
+            containerSide,
+            0
+          )}px`;
+          break;
+        }
+        default: {
+          let containerSide =
+            RTL ^ (position === "end")
+              ? parentEl.getBoundingClientRect().left +
+                parentEl.clientWidth -
+                container.clientWidth
+              : parentEl.getBoundingClientRect().left;
+          container.style.left = `${Math.max(containerSide, 0)}px`;
+          break;
+        }
+      }
     };
 
     clearPosition(container);
@@ -546,7 +573,7 @@ export class FeatureCallout {
     windowFuncs.forEach(func => delete this.win[func]);
   }
 
-  _endTour() {
+  _endTour(skipFadeOut = false) {
     // We don't want focus events that happen during teardown to effect
     // this.savedActiveElement
     this.win.removeEventListener("focus", this.focusHandler, {
@@ -554,23 +581,31 @@ export class FeatureCallout {
     });
     this.win.pageEventManager?.clear();
 
+    // We're deleting featureTourProgress here to ensure that the
+    // reference is freed for garbage collection. This prevents errors
+    // caused by lingering instances when instantiating and removing
+    // multiple feature tour instances in succession.
+    delete this.featureTourProgress;
     this.ready = false;
     // wait for fade out transition
     let container = this.doc.getElementById(CONTAINER_ID);
     container?.classList.add("hidden");
     this._clearWindowFunctions();
-    this.win.setTimeout(() => {
-      container?.remove();
-      this.renderObserver?.disconnect();
-      // Put the focus back to the last place the user focused outside of the
-      // featureCallout windows.
-      if (this.savedActiveElement) {
-        this.savedActiveElement.focus({ focusVisible: true });
-      }
-    }, TRANSITION_MS);
+    this.win.setTimeout(
+      () => {
+        container?.remove();
+        this.renderObserver?.disconnect();
+        // Put the focus back to the last place the user focused outside of the
+        // featureCallout windows.
+        if (this.savedActiveElement) {
+          this.savedActiveElement.focus({ focusVisible: true });
+        }
+      },
+      skipFadeOut ? 0 : TRANSITION_MS
+    );
   }
 
-  async _addScriptsAndRender(container) {
+  async _addScriptsAndRender() {
     const reactSrc = "resource://activity-stream/vendor/react.js";
     const domSrc = "resource://activity-stream/vendor/react-dom.js";
     // Add React script
@@ -578,7 +613,7 @@ export class FeatureCallout {
       return new Promise(resolve => {
         let reactScript = this.doc.createElement("script");
         reactScript.src = reactSrc;
-        container.appendChild(reactScript);
+        this.doc.head.appendChild(reactScript);
         reactScript.addEventListener("load", resolve);
       });
     };
@@ -587,7 +622,7 @@ export class FeatureCallout {
       return new Promise(resolve => {
         let domScript = this.doc.createElement("script");
         domScript.src = domSrc;
-        container.appendChild(domScript);
+        this.doc.head.appendChild(domScript);
         domScript.addEventListener("load", resolve);
       });
     };
@@ -602,7 +637,7 @@ export class FeatureCallout {
     let bundleScript = this.doc.createElement("script");
     bundleScript.src =
       "resource://activity-stream/aboutwelcome/aboutwelcome.bundle.js";
-    container.appendChild(bundleScript);
+    this.doc.head.appendChild(bundleScript);
   }
 
   _observeRender(container) {
@@ -648,7 +683,7 @@ export class FeatureCallout {
     let container = this._createContainer();
     if (container) {
       // This results in rendering the Feature Callout
-      await this._addScriptsAndRender(container);
+      await this._addScriptsAndRender();
       this._observeRender(container);
       this._addPositionListeners();
     }

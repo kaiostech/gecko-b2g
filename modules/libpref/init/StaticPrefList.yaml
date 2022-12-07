@@ -8796,6 +8796,12 @@
   mirror: always
   rust: true
 
+# Enables support for different CSS page sizes on each page when printing.
+- name: layout.css.allow-mixed-page-sizes
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Dictates whether or not the prefers contrast media query will be
 # usable.
 #   true: prefers-contrast will toggle based on OS and browser settings.
@@ -13885,6 +13891,12 @@
   value: false
   mirror: always
 
+# Whether SVGGraphicsElement.nearestViewportElement and SVGGraphicsElement.farthestViewportElement are enabled.
+- name: svg.nearestAndFarthestViewportElement.enabled
+  type: bool
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
 # Tweak which elements are allowed in <svg:use> subtrees, and in which
 # circumstances. See RemoveForbiddenNodes in SVGUseElement.cpp for the spec
 # text.
@@ -14604,12 +14616,6 @@
   value: 100000 # 100KB
   mirror: always
 
-# WebGL and Canvas2D aren't allowed to be async by spec,
-# unless they have e.g.
-# https://html.spec.whatwg.org/multipage/canvas.html#2dcontext:dom-canvasrenderingcontext2dsettings-desynchronized
-# enabled, which defaults to false.
-# This pref=true with webgl.out-of-process.async-present.force-sync=false
-# enables async present in cases where it is allowed.
 - name: webgl.out-of-process.async-present
   type: RelaxedAtomicBool
 #if !defined(MOZ_WIDGET_ANDROID) && defined(EARLY_BETA_OR_EARLIER)

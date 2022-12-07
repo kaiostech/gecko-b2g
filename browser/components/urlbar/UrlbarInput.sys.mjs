@@ -10,8 +10,11 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserSearchTelemetry: "resource:///modules/BrowserSearchTelemetry.sys.mjs",
+  CONTEXTUAL_SERVICES_PING_TYPES:
+    "resource:///modules/PartnerLinkAttribution.sys.mjs",
   ExtensionSearchHandler:
     "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
+  PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   PromiseUtils: "resource://gre/modules/PromiseUtils.sys.mjs",
   SearchUIUtils: "resource:///modules/SearchUIUtils.sys.mjs",
@@ -30,11 +33,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.jsm",
-  CONTEXTUAL_SERVICES_PING_TYPES:
-    "resource:///modules/PartnerLinkAttribution.jsm",
   ObjectUtils: "resource://gre/modules/ObjectUtils.jsm",
   ReaderMode: "resource://gre/modules/ReaderMode.jsm",
-  PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.jsm",
 });
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -835,11 +835,7 @@ export class UrlbarInput {
       return;
     }
 
-    let urlOverride;
-    if (element?.classList.contains("urlbarView-button-help")) {
-      urlOverride = result.payload.helpUrl;
-    }
-
+    let urlOverride = element?.dataset.url;
     let originalUntrimmedValue = this.untrimmedValue;
     let isCanonized = this.setValueFromResult({ result, event, urlOverride });
     let where = this._whereToOpen(event);
@@ -1034,74 +1030,57 @@ export class UrlbarInput {
         break;
       }
       case lazy.UrlbarUtils.RESULT_TYPE.TIP: {
-        let scalarName;
-        if (element.classList.contains("urlbarView-button-help")) {
-          url = result.payload.helpUrl;
-          if (!url) {
-            Cu.reportError("helpUrl not specified");
-            return;
-          }
-          scalarName = `${result.payload.type}-help`;
-        } else {
-          scalarName = `${result.payload.type}-picked`;
-        }
+        let scalarName =
+          element.dataset.name == "help"
+            ? `${result.payload.type}-help`
+            : `${result.payload.type}-picked`;
         Services.telemetry.keyedScalarAdd("urlbar.tips", scalarName, 1);
-        if (!url) {
-          this.handleRevert();
-          this.controller.engagementEvent.record(event, {
-            searchString: this._lastSearchString,
-            selIndex,
-            selType: "tip",
-            provider: result.providerName,
-          });
-          let provider = lazy.UrlbarProvidersManager.getProvider(
-            result.providerName
-          );
-          if (!provider) {
-            Cu.reportError(`Provider not found: ${result.providerName}`);
-            return;
-          }
-          provider.tryMethod("pickResult", result, element);
-          return;
+        if (url) {
+          break;
         }
-        break;
+        this.handleRevert();
+        this.controller.engagementEvent.record(event, {
+          searchString: this._lastSearchString,
+          selIndex,
+          selType: "tip",
+          provider: result.providerName,
+        });
+        let provider = lazy.UrlbarProvidersManager.getProvider(
+          result.providerName
+        );
+        provider?.tryMethod("pickResult", result, element);
+        return;
       }
       case lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC: {
-        if (element.classList.contains("urlbarView-button-help")) {
-          url = result.payload.helpUrl;
-        } else {
-          url = result.payload.url;
-          // Do not revert the Urlbar if we're going to navigate. We want the URL
-          // populated so we can navigate to it.
-          if (!url || !result.payload.shouldNavigate) {
-            this.handleRevert();
-          }
-          let provider = lazy.UrlbarProvidersManager.getProvider(
-            result.providerName
-          );
-          if (!provider) {
-            Cu.reportError(`Provider not found: ${result.providerName}`);
-            return;
-          }
+        if (url) {
+          break;
+        }
+        url = result.payload.url;
+        // Do not revert the Urlbar if we're going to navigate. We want the URL
+        // populated so we can navigate to it.
+        if (!url || !result.payload.shouldNavigate) {
+          this.handleRevert();
+        }
+        let provider = lazy.UrlbarProvidersManager.getProvider(
+          result.providerName
+        );
 
-          // Keep startEventInfo since the startEventInfo state might be changed
-          // if the URL Bar loses focus on pickResult.
-          const startEventInfo = this.controller.engagementEvent
-            ._startEventInfo;
-          provider.tryMethod("pickResult", result, element);
+        // Keep startEventInfo since the startEventInfo state might be changed
+        // if the URL Bar loses focus on pickResult.
+        const startEventInfo = this.controller.engagementEvent._startEventInfo;
+        provider?.tryMethod("pickResult", result, element);
 
-          // If we won't be navigating, this is the end of the engagement.
-          if (!url || !result.payload.shouldNavigate) {
-            this.controller.engagementEvent.record(event, {
-              selIndex,
-              searchString: this._lastSearchString,
-              selType: this.controller.engagementEvent.typeFromElement(element),
-              provider: result.providerName,
-              element,
-              startEventInfo,
-            });
-            return;
-          }
+        // If we won't be navigating, this is the end of the engagement.
+        if (!url || !result.payload.shouldNavigate) {
+          this.controller.engagementEvent.record(event, {
+            selIndex,
+            searchString: this._lastSearchString,
+            selType: this.controller.engagementEvent.typeFromElement(element),
+            provider: result.providerName,
+            element,
+            startEventInfo,
+          });
+          return;
         }
         break;
       }

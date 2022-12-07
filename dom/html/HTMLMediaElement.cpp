@@ -2377,7 +2377,7 @@ void HTMLMediaElement::AbortExistingLoads() {
   mCurrentPlayRangeStart = -1.0;
   mPlayed = new TimeRanges(ToSupports(OwnerDoc()));
   mLoadedDataFired = false;
-  mAutoplaying = true;
+  mCanAutoplayFlag = true;
   mIsLoadingFromSourceChildren = false;
   mSuspendedAfterFirstFrame = false;
   mAllowSuspendAfterFirstFrame = true;
@@ -2439,7 +2439,7 @@ void HTMLMediaElement::AbortExistingLoads() {
 
   mMediaControlKeyListener->StopIfNeeded();
 
-  // We may have changed mPaused, mAutoplaying, and other
+  // We may have changed mPaused, mCanAutoplayFlag, and other
   // things which can affect AddRemoveSelfReference
   AddRemoveSelfReference();
 
@@ -3437,8 +3437,11 @@ void HTMLMediaElement::PauseInternal() {
   }
   bool oldPaused = mPaused;
   mPaused = true;
-  mAutoplaying = false;
-  // We changed mPaused and mAutoplaying which can affect AddRemoveSelfReference
+  // Step 1,
+  // https://html.spec.whatwg.org/multipage/media.html#internal-pause-steps
+  mCanAutoplayFlag = false;
+  // We changed mPaused and mCanAutoplayFlag which can affect
+  // AddRemoveSelfReference
   AddRemoveSelfReference();
   UpdateSrcMediaStreamPlaying();
   if (mAudioChannelWrapper) {
@@ -4604,10 +4607,12 @@ void HTMLMediaElement::PlayInternal(bool aHandlingUserInput) {
 
   const bool oldPaused = mPaused;
   mPaused = false;
-  mAutoplaying = false;
+  // Step 5,
+  // https://html.spec.whatwg.org/multipage/media.html#internal-play-steps
+  mCanAutoplayFlag = false;
 
-  // We changed mPaused and mAutoplaying which can affect AddRemoveSelfReference
-  // and our preload status.
+  // We changed mPaused and mCanAutoplayFlag which can affect
+  // AddRemoveSelfReference and our preload status.
   AddRemoveSelfReference();
   UpdatePreloadAction();
   UpdateSrcMediaStreamPlaying();
@@ -5744,7 +5749,7 @@ void HTMLMediaElement::PlaybackEnded() {
   if (mSrcStream) {
     // A MediaStream that goes from inactive to active shall be eligible for
     // autoplay again according to the mediacapture-main spec.
-    mAutoplaying = true;
+    mCanAutoplayFlag = true;
   }
 
   if (StaticPrefs::media_mediacontrol_stopcontrol_aftermediaends()) {
@@ -6242,7 +6247,7 @@ void HTMLMediaElement::ChangeNetworkState(nsMediaNetworkState aState) {
   AddRemoveSelfReference();
 }
 
-bool HTMLMediaElement::CanActivateAutoplay() {
+bool HTMLMediaElement::IsEligibleForAutoplay() {
   // We also activate autoplay when playing a media source since the data
   // download is controlled by the script and there is no way to evaluate
   // MediaDecoder::CanPlayThrough().
@@ -6251,7 +6256,7 @@ bool HTMLMediaElement::CanActivateAutoplay() {
     return false;
   }
 
-  if (!mAutoplaying) {
+  if (!mCanAutoplayFlag) {
     return false;
   }
 
@@ -6288,15 +6293,17 @@ bool HTMLMediaElement::CanActivateAutoplay() {
 }
 
 void HTMLMediaElement::CheckAutoplayDataReady() {
-  if (!CanActivateAutoplay()) {
+  if (!IsEligibleForAutoplay()) {
     return;
   }
-
   if (!AllowedToPlay()) {
     DispatchEventsWhenPlayWasNotAllowed();
     return;
   }
+  RunAutoplay();
+}
 
+void HTMLMediaElement::RunAutoplay() {
   mAllowedToPlayPromise.ResolveIfExists(true, __func__);
   mPaused = false;
   // We changed mPaused which can affect AddRemoveSelfReference
@@ -6756,7 +6763,7 @@ void HTMLMediaElement::AddRemoveSelfReference() {
   bool needSelfReference =
       !mShuttingDown && ownerDoc->IsActive() &&
       (mDelayingLoadEvent || (!mPaused && !Ended()) ||
-       (mDecoder && mDecoder->IsSeeking()) || CanActivateAutoplay() ||
+       (mDecoder && mDecoder->IsSeeking()) || IsEligibleForAutoplay() ||
        (mMediaSource ? mProgressTimer : mNetworkState == NETWORK_LOADING));
 
   if (needSelfReference != mHasSelfReference) {

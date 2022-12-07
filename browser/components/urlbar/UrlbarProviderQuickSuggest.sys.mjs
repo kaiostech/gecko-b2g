@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
 import {
   UrlbarProvider,
   UrlbarUtils,
@@ -12,17 +10,14 @@ import {
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  CONTEXTUAL_SERVICES_PING_TYPES:
+    "resource:///modules/PartnerLinkAttribution.sys.mjs",
   MerinoClient: "resource:///modules/MerinoClient.sys.mjs",
+  PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.sys.mjs",
   QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   UrlbarProviderTopSites: "resource:///modules/UrlbarProviderTopSites.sys.mjs",
   UrlbarResult: "resource:///modules/UrlbarResult.sys.mjs",
-});
-
-XPCOMUtils.defineLazyModuleGetters(lazy, {
-  CONTEXTUAL_SERVICES_PING_TYPES:
-    "resource:///modules/PartnerLinkAttribution.jsm",
-  PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.jsm",
 });
 
 const TELEMETRY_SCALARS = {
@@ -207,7 +202,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
       sponsoredIabCategory: suggestion.iab_category,
       isSponsored: suggestion.is_sponsored,
       helpUrl: lazy.QuickSuggest.HELP_URL,
-      helpL10nId: "firefox-suggest-urlbar-learn-more",
+      helpL10n: { id: "firefox-suggest-urlbar-learn-more" },
       source: suggestion.source,
       requestId: suggestion.request_id,
     };
@@ -234,10 +229,14 @@ class ProviderQuickSuggest extends UrlbarProvider {
       // Show the result as a best match. Best match titles don't include the
       // `full_keyword`, and the user's search string is highlighted.
       payload.title = [suggestion.title, UrlbarUtils.HIGHLIGHT.TYPED];
+      payload.isBlockable = lazy.UrlbarPrefs.get("bestMatchBlockingEnabled");
+      payload.blockL10n = { id: "firefox-suggest-urlbar-block" };
     } else {
       // Show the result as a usual quick suggest. Include the `full_keyword`
       // and highlight the parts that aren't in the search string.
       payload.title = suggestion.title;
+      payload.isBlockable = lazy.UrlbarPrefs.get("quickSuggestBlockingEnabled");
+      payload.blockL10n = { id: "firefox-suggest-urlbar-block" };
       payload.qsSuggestion = [
         suggestion.full_keyword,
         UrlbarUtils.HIGHLIGHT.SUGGESTED,
@@ -651,7 +650,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
         url: suggestion.url,
         icon: "chrome://global/skin/icons/highlights.svg",
         helpUrl: lazy.QuickSuggest.HELP_URL,
-        helpL10nId: "firefox-suggest-urlbar-learn-more",
+        helpL10n: { id: "firefox-suggest-urlbar-learn-more" },
         requestId: suggestion.request_id,
         source: suggestion.source,
       }

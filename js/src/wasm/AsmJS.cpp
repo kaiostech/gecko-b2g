@@ -1406,14 +1406,14 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
         parserAtoms_(parserAtoms),
         moduleFunctionNode_(moduleFunctionNode),
         moduleFunctionName_(FunctionName(moduleFunctionNode)),
-        standardLibraryMathNames_(cx),
+        standardLibraryMathNames_(ec),
         validationLifo_(VALIDATION_LIFO_DEFAULT_CHUNK_SIZE),
-        funcDefs_(cx),
-        tables_(cx),
-        globalMap_(cx),
-        sigSet_(cx),
-        funcImportMap_(cx),
-        arrayViews_(cx),
+        funcDefs_(ec),
+        tables_(ec),
+        globalMap_(ec),
+        sigSet_(ec),
+        funcImportMap_(ec),
+        arrayViews_(ec),
         compilerEnv_(CompileMode::Once, Tier::Optimized, DebugEnabled::False),
         moduleEnv_(FeatureArgs(), ModuleKind::AsmJS) {
     compilerEnv_.computeParameters();
@@ -1489,7 +1489,6 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
   }
 
  public:
-  JSContext* cx() const { return cx_; }
   ErrorContext* ec() const { return ec_; }
   JS::NativeStackLimit stackLimit() const { return stackLimit_; }
   TaggedParserAtomIndex moduleFunctionName() const {
@@ -2430,27 +2429,26 @@ class MOZ_STACK_CLASS FunctionValidatorShared {
 
  private:
   FunctionValidatorShared(ModuleValidatorShared& m, FunctionNode* fn,
-                          JSContext* cx)
+                          ErrorContext* ec)
       : m_(m),
         fn_(fn),
         encoder_(bytes_),
-        locals_(cx),
-        breakLabels_(cx),
-        continueLabels_(cx),
+        locals_(ec),
+        breakLabels_(ec),
+        continueLabels_(ec),
         blockDepth_(0),
         hasAlreadyReturned_(false) {}
 
  protected:
   template <typename Unit>
   FunctionValidatorShared(ModuleValidator<Unit>& m, FunctionNode* fn,
-                          JSContext* cx)
+                          ErrorContext* ec)
       : FunctionValidatorShared(static_cast<ModuleValidatorShared&>(m), fn,
-                                cx) {}
+                                ec) {}
 
  public:
   ModuleValidatorShared& m() const { return m_; }
 
-  JSContext* cx() const { return m_.cx(); }
   ErrorContext* ec() const { return m_.ec(); }
   JS::NativeStackLimit stackLimit() const { return m_.stackLimit(); }
   FunctionNode* fn() const { return fn_; }
@@ -2683,7 +2681,7 @@ template <typename Unit>
 class MOZ_STACK_CLASS FunctionValidator : public FunctionValidatorShared {
  public:
   FunctionValidator(ModuleValidator<Unit>& m, FunctionNode* fn)
-      : FunctionValidatorShared(m, fn, m.cx()) {}
+      : FunctionValidatorShared(m, fn, m.ec()) {}
 
  public:
   ModuleValidator<Unit>& m() const {
@@ -3377,7 +3375,7 @@ static bool CheckVariables(FunctionValidatorShared& f, ParseNode** stmtIter) {
   uint32_t firstVar = f.numLocals();
 
   ValTypeVector types;
-  Vector<NumLit> inits(f.cx());
+  Vector<NumLit> inits(f.ec());
 
   for (; stmt && stmt->isKind(ParseNodeKind::VarStmt);
        stmt = NextNonEmptyStatement(stmt)) {
@@ -7293,40 +7291,54 @@ JSString* js::AsmJSModuleToString(JSContext* cx, HandleFunction fun,
   JSStringBuilder out(cx);
 
   if (isToSource && fun->isLambda() && !out.append("(")) {
+    out.failure();
     return nullptr;
   }
 
   bool haveSource;
   if (!ScriptSource::loadSource(cx, source, &haveSource)) {
+    out.failure();
     return nullptr;
   }
 
   if (!haveSource) {
     if (!out.append("function ")) {
+      out.failure();
       return nullptr;
     }
     if (fun->explicitName() && !out.append(fun->explicitName())) {
+      out.failure();
       return nullptr;
     }
     if (!out.append("() {\n    [native code]\n}")) {
+      out.failure();
       return nullptr;
     }
   } else {
     Rooted<JSLinearString*> src(cx, source->substring(cx, begin, end));
     if (!src) {
+      out.failure();
       return nullptr;
     }
 
     if (!out.append(src)) {
+      out.failure();
       return nullptr;
     }
   }
 
   if (isToSource && fun->isLambda() && !out.append(")")) {
+    out.failure();
     return nullptr;
   }
 
-  return out.finishString();
+  auto* result = out.finishString();
+  if (!result) {
+    out.failure();
+    return nullptr;
+  }
+  out.ok();
+  return result;
 }
 
 JSString* js::AsmJSFunctionToString(JSContext* cx, HandleFunction fun) {
@@ -7344,11 +7356,13 @@ JSString* js::AsmJSFunctionToString(JSContext* cx, HandleFunction fun) {
   JSStringBuilder out(cx);
 
   if (!out.append("function ")) {
+    out.failure();
     return nullptr;
   }
 
   bool haveSource;
   if (!ScriptSource::loadSource(cx, source, &haveSource)) {
+    out.failure();
     return nullptr;
   }
 
@@ -7356,22 +7370,32 @@ JSString* js::AsmJSFunctionToString(JSContext* cx, HandleFunction fun) {
     // asm.js functions can't be anonymous
     MOZ_ASSERT(fun->explicitName());
     if (!out.append(fun->explicitName())) {
+      out.failure();
       return nullptr;
     }
     if (!out.append("() {\n    [native code]\n}")) {
+      out.failure();
       return nullptr;
     }
   } else {
     Rooted<JSLinearString*> src(cx, source->substring(cx, begin, end));
     if (!src) {
+      out.failure();
       return nullptr;
     }
     if (!out.append(src)) {
+      out.failure();
       return nullptr;
     }
   }
 
-  return out.finishString();
+  auto* result = out.finishString();
+  if (!result) {
+    out.failure();
+    return nullptr;
+  }
+  out.ok();
+  return result;
 }
 
 bool js::IsValidAsmJSHeapLength(size_t length) {

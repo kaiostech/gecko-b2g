@@ -4,9 +4,7 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = ["SessionStore"];
-
-var SessionStore = {
+export var SessionStore = {
   updateSessionStoreFromTablistener(
     aBrowser,
     aBrowsingContext,

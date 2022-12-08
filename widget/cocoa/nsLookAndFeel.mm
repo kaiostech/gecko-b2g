@@ -117,7 +117,8 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme aScheme, nscolor
   nscolor color = 0;
   switch (aID) {
     case ColorID::Infobackground:
-      color = NS_RGB(0xdd, 0xdd, 0xdd);
+      color = aScheme == ColorScheme::Light ? NS_RGB(0xdd, 0xdd, 0xdd)
+                                            : GetColorFromNSColor(NSColor.windowBackgroundColor);
       break;
     case ColorID::Highlight:
       color = ProcessSelectionBackground(GetColorFromNSColor(NSColor.selectedTextBackgroundColor),
@@ -161,9 +162,6 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme aScheme, nscolor
     case ColorID::IMESelectedRawTextUnderline:
     case ColorID::IMESelectedConvertedTextUnderline:
       color = NS_SAME_AS_FOREGROUND_COLOR;
-      break;
-    case ColorID::SpellCheckerUnderline:
-      color = NS_RGB(0xff, 0, 0);
       break;
 
       //
@@ -349,6 +347,7 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme aScheme, nscolor
       break;
     case ColorID::Marktext:
     case ColorID::Mark:
+    case ColorID::SpellCheckerUnderline:
       aColor = GetStandinForNativeColor(aID, aScheme);
       return NS_OK;
     default:

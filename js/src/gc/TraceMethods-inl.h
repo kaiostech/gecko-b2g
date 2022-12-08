@@ -39,10 +39,6 @@ inline void js::BaseScript::traceChildren(JSTracer* trc) {
   if (data_) {
     data_->trace(trc);
   }
-
-  if (trc->isMarkingTracer()) {
-    GCMarker::fromTracer(trc)->markImplicitEdges(this);
-  }
 }
 
 inline void js::Shape::traceChildren(JSTracer* trc) {
@@ -153,7 +149,7 @@ void js::GCMarker::eagerlyMarkChildren(JSRope* rope) {
         // When both children are ropes, set aside the right one to
         // scan it later.
         if (next && !stack.pushTempRope(next)) {
-          delayMarkingChildren(next);
+          delayMarkingChildrenOnOOM(next);
         }
         next = &left->asRope();
       }
@@ -202,8 +198,8 @@ inline void js::Scope::traceChildren(JSTracer* trc) {
 template <uint32_t opts>
 void js::GCMarker::eagerlyMarkChildren(Scope* scope) {
   do {
-    if (scope->environmentShape()) {
-      markAndTraverseEdge<opts>(scope, scope->environmentShape());
+    if (Shape* shape = scope->environmentShape()) {
+      markAndTraverseEdge<opts>(scope, shape);
     }
     mozilla::Span<AbstractBindingName<JSAtom>> names;
     switch (scope->kind()) {

@@ -40,7 +40,7 @@ class OngoingEarlyHints final {
   bool Contains(const PreloadHashKey& aKey);
   bool Add(const PreloadHashKey& aKey, RefPtr<EarlyHintPreloader> aPreloader);
 
-  void CancelAllOngoingPreloads();
+  void CancelAllOngoingPreloads(const nsACString& aReason);
 
   // registers all channels and returns the ids
   void RegisterLinksAndGetConnectArgs(
@@ -89,16 +89,16 @@ class EarlyHintPreloader final : public nsIStreamListener,
   // Should be called by the preloader service when the preload is not
   // needed after all, because the final response returns a non-2xx status
   // code.
-  nsresult CancelChannel(nsresult aStatus);
+  nsresult CancelChannel(nsresult aStatus, const nsACString& aReason);
 
   void OnParentReady(nsIParentChannel* aParent, uint64_t aChannelId);
 
  private:
   void SetParentChannel();
-  bool InvokeStreamListenerFunctions();
+  void InvokeStreamListenerFunctions();
 
   EarlyHintPreloader();
-  ~EarlyHintPreloader() = default;
+  ~EarlyHintPreloader();
 
   static Maybe<PreloadHashKey> GenerateHashKey(ASDestination aAs, nsIURI* aURI,
                                                nsIPrincipal* aPrincipal,
@@ -142,6 +142,18 @@ class EarlyHintPreloader final : public nsIStreamListener,
   bool mIsFinished = false;
 
   RefPtr<ParentChannelListener> mParentListener;
+
+ private:
+  // IMPORTANT: when adding new values, always add them to the end, otherwise
+  // it will mess up telemetry.
+  enum EHPreloaderState : uint32_t {
+    ePreloaderCreated = 0,
+    ePreloaderOpened,
+    ePreloaderUsed,
+    ePreloaderCancelled,
+  };
+  EHPreloaderState mState = ePreloaderCreated;
+  void SetState(EHPreloaderState aState) { mState = aState; }
 };
 
 inline nsISupports* ToSupports(EarlyHintPreloader* aObj) {

@@ -430,7 +430,7 @@ inline bool NativeObject::isInWholeCellBuffer() const {
 /* static */
 inline NativeObject* NativeObject::create(
     JSContext* cx, js::gc::AllocKind kind, js::gc::InitialHeap heap,
-    js::Handle<Shape*> shape, js::gc::AllocSite* site /* = nullptr */) {
+    js::Handle<SharedShape*> shape, js::gc::AllocSite* site /* = nullptr */) {
   debugCheckNewObject(shape, kind, heap);
 
   const JSClass* clasp = shape->getObjectClass();
@@ -494,18 +494,16 @@ MOZ_ALWAYS_INLINE void NativeObject::setEmptyDynamicSlots(
   MOZ_ASSERT(getSlotsHeader()->dictionarySlotSpan() == dictionarySlotSpan);
 }
 
-MOZ_ALWAYS_INLINE bool NativeObject::setShapeAndAddNewSlots(JSContext* cx,
-                                                            Shape* newShape,
-                                                            uint32_t oldSpan,
-                                                            uint32_t newSpan) {
+MOZ_ALWAYS_INLINE bool NativeObject::setShapeAndAddNewSlots(
+    JSContext* cx, SharedShape* newShape, uint32_t oldSpan, uint32_t newSpan) {
   MOZ_ASSERT(!inDictionaryMode());
-  MOZ_ASSERT(!newShape->isDictionary());
+  MOZ_ASSERT(newShape->isShared());
   MOZ_ASSERT(newShape->zone() == zone());
   MOZ_ASSERT(newShape->numFixedSlots() == numFixedSlots());
   MOZ_ASSERT(newShape->getObjectClass() == getClass());
 
   MOZ_ASSERT(oldSpan < newSpan);
-  MOZ_ASSERT(shape()->slotSpan() == oldSpan);
+  MOZ_ASSERT(sharedShape()->slotSpan() == oldSpan);
   MOZ_ASSERT(newShape->slotSpan() == newSpan);
 
   uint32_t numFixed = newShape->numFixedSlots();
@@ -536,16 +534,15 @@ MOZ_ALWAYS_INLINE bool NativeObject::setShapeAndAddNewSlots(JSContext* cx,
   return true;
 }
 
-MOZ_ALWAYS_INLINE bool NativeObject::setShapeAndAddNewSlot(JSContext* cx,
-                                                           Shape* newShape,
-                                                           uint32_t slot) {
+MOZ_ALWAYS_INLINE bool NativeObject::setShapeAndAddNewSlot(
+    JSContext* cx, SharedShape* newShape, uint32_t slot) {
   MOZ_ASSERT(!inDictionaryMode());
-  MOZ_ASSERT(!newShape->isDictionary());
+  MOZ_ASSERT(newShape->isShared());
   MOZ_ASSERT(newShape->zone() == zone());
   MOZ_ASSERT(newShape->numFixedSlots() == numFixedSlots());
 
   MOZ_ASSERT(newShape->base() == shape()->base());
-  MOZ_ASSERT(newShape->slotSpan() == shape()->slotSpan() + 1);
+  MOZ_ASSERT(newShape->slotSpan() == sharedShape()->slotSpan() + 1);
   MOZ_ASSERT(newShape->slotSpan() == slot + 1);
 
   uint32_t numFixed = newShape->numFixedSlots();

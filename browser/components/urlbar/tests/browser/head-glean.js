@@ -33,6 +33,10 @@ function assertEngagementTelemetry(expectedExtraList) {
   _assertGleanTelemetry("engagement", expectedExtraList);
 }
 
+function assertImpressionTelemetry(expectedExtraList) {
+  _assertGleanTelemetry("impression", expectedExtraList);
+}
+
 function _assertGleanTelemetry(telemetryName, expectedExtraList) {
   const telemetries = Glean.urlbar[telemetryName].testGetValue() ?? [];
   Assert.equal(telemetries.length, expectedExtraList.length);
@@ -79,6 +83,7 @@ async function ensureQuickSuggestInit() {
 }
 
 async function doTest(testFn) {
+  await Services.fog.testFlushAllChildren();
   Services.fog.testResetFOG();
   gURLBar.controller.engagementEvent.discard();
   await PlacesUtils.history.clear();
@@ -140,6 +145,7 @@ async function doPaste(data) {
   document.commandDispatcher
     .getControllerForCommand("cmd_paste")
     .doCommand("cmd_paste");
+  await UrlbarTestUtils.promiseSearchComplete(window);
 }
 
 async function doPasteAndGo(data) {
@@ -277,7 +283,12 @@ async function selectRowByProvider(provider) {
 
 async function setup() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.urlbar.searchEngagementTelemetry.enabled", true]],
+    set: [
+      ["browser.urlbar.searchEngagementTelemetry.enabled", true],
+      ["browser.urlbar.quickactions.enabled", true],
+      ["browser.urlbar.suggest.quickactions", true],
+      ["browser.urlbar.quickactions.showInZeroPrefix", true],
+    ],
   });
 
   const engine = await SearchTestUtils.promiseNewSearchEngine({
@@ -306,4 +317,14 @@ async function showResultByArrowDown() {
     EventUtils.synthesizeKey("KEY_ArrowDown");
   });
   await UrlbarTestUtils.promiseSearchComplete(window);
+}
+
+async function waitForPauseImpression() {
+  await new Promise(r =>
+    setTimeout(
+      r,
+      UrlbarPrefs.get("searchEngagementTelemetry.pauseImpressionIntervalMs")
+    )
+  );
+  await Services.fog.testFlushAllChildren();
 }

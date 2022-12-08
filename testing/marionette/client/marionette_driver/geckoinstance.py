@@ -4,6 +4,9 @@
 
 # ALL CHANGES TO THIS FILE MUST HAVE REVIEW FROM A MARIONETTE PEER!
 #
+# Please refer to INSTRUCTIONS TO ADD A NEW PREFERENCE in
+# remote/shared/RecommendedPreferences.sys.mjs
+#
 # The Marionette Python client is used out-of-tree with various builds of
 # Firefox. Removing a preference from this file will cause regressions,
 # so please be careful and get review from a Testing :: Marionette peer
@@ -149,6 +152,8 @@ class GeckoInstance(object):
         "toolkit.startup.max_resumed_crashes": -1,
         # Disable most telemetry pings
         "toolkit.telemetry.server": "https://%(server)s/telemetry-dummy/",
+        # Disable window occlusion on Windows, see Bug 1802473.
+        "widget.windows.window_occlusion_tracking.enabled": False,
     }
 
     def __init__(

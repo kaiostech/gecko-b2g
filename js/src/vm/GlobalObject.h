@@ -188,19 +188,18 @@ class GlobalObjectData {
   HeapPtr<PropertyIteratorObject*> emptyIterator;
 
   // Cached shape for new arrays with Array.prototype as prototype.
-  HeapPtr<Shape*> arrayShapeWithDefaultProto;
+  HeapPtr<SharedShape*> arrayShapeWithDefaultProto;
 
   // Shape for PlainObject with %Object.prototype% as proto, for each object
   // AllocKind.
-  using PlainObjectShapeArray =
-      mozilla::EnumeratedArray<PlainObjectSlotsKind,
-                               PlainObjectSlotsKind::Limit, HeapPtr<Shape*>>;
+  using PlainObjectShapeArray = mozilla::EnumeratedArray<
+      PlainObjectSlotsKind, PlainObjectSlotsKind::Limit, HeapPtr<SharedShape*>>;
   PlainObjectShapeArray plainObjectShapesWithDefaultProto;
 
   // Shape for JSFunction with %Function.prototype% as proto, for both
   // non-extended and extended functions.
-  HeapPtr<Shape*> functionShapeWithDefaultProto;
-  HeapPtr<Shape*> extendedFunctionShapeWithDefaultProto;
+  HeapPtr<SharedShape*> functionShapeWithDefaultProto;
+  HeapPtr<SharedShape*> extendedFunctionShapeWithDefaultProto;
 
   // Global state for regular expressions.
   UniquePtr<RegExpStatics> regExpStatics;
@@ -1011,43 +1010,44 @@ class GlobalObject : public NativeObject {
     data().sourceURLsHolder.unbarrieredSet(nullptr);
   }
 
-  Shape* maybeArrayShapeWithDefaultProto() const {
+  SharedShape* maybeArrayShapeWithDefaultProto() const {
     return data().arrayShapeWithDefaultProto;
   }
 
-  static Shape* getArrayShapeWithDefaultProto(JSContext* cx) {
-    if (Shape* shape = cx->global()->data().arrayShapeWithDefaultProto;
+  static SharedShape* getArrayShapeWithDefaultProto(JSContext* cx) {
+    if (SharedShape* shape = cx->global()->data().arrayShapeWithDefaultProto;
         MOZ_LIKELY(shape)) {
       return shape;
     }
     return createArrayShapeWithDefaultProto(cx);
   }
-  static Shape* createArrayShapeWithDefaultProto(JSContext* cx);
+  static SharedShape* createArrayShapeWithDefaultProto(JSContext* cx);
 
-  static Shape* getPlainObjectShapeWithDefaultProto(JSContext* cx,
-                                                    gc::AllocKind kind) {
+  static SharedShape* getPlainObjectShapeWithDefaultProto(JSContext* cx,
+                                                          gc::AllocKind kind) {
     PlainObjectSlotsKind slotsKind = PlainObjectSlotsKindFromAllocKind(kind);
-    Shape* shape =
+    SharedShape* shape =
         cx->global()->data().plainObjectShapesWithDefaultProto[slotsKind];
     if (MOZ_LIKELY(shape)) {
       return shape;
     }
     return createPlainObjectShapeWithDefaultProto(cx, kind);
   }
-  static Shape* createPlainObjectShapeWithDefaultProto(JSContext* cx,
-                                                       gc::AllocKind kind);
+  static SharedShape* createPlainObjectShapeWithDefaultProto(
+      JSContext* cx, gc::AllocKind kind);
 
-  static Shape* getFunctionShapeWithDefaultProto(JSContext* cx, bool extended) {
+  static SharedShape* getFunctionShapeWithDefaultProto(JSContext* cx,
+                                                       bool extended) {
     GlobalObjectData& data = cx->global()->data();
-    Shape* shape = extended ? data.extendedFunctionShapeWithDefaultProto
-                            : data.functionShapeWithDefaultProto;
+    SharedShape* shape = extended ? data.extendedFunctionShapeWithDefaultProto
+                                  : data.functionShapeWithDefaultProto;
     if (MOZ_LIKELY(shape)) {
       return shape;
     }
     return createFunctionShapeWithDefaultProto(cx, extended);
   }
-  static Shape* createFunctionShapeWithDefaultProto(JSContext* cx,
-                                                    bool extended);
+  static SharedShape* createFunctionShapeWithDefaultProto(JSContext* cx,
+                                                          bool extended);
 
   PropertyIteratorObject* maybeEmptyIterator() const {
     return data().emptyIterator;

@@ -1758,13 +1758,13 @@ void nsCSSFrameConstructor::CreateGeneratedContentFromListStyleType(
           styleList->mCounterStyle);
   bool needUseNode = false;
   switch (counterStyle->GetStyle()) {
-    case NS_STYLE_LIST_STYLE_NONE:
+    case ListStyle::None:
       return;
-    case NS_STYLE_LIST_STYLE_DISC:
-    case NS_STYLE_LIST_STYLE_CIRCLE:
-    case NS_STYLE_LIST_STYLE_SQUARE:
-    case NS_STYLE_LIST_STYLE_DISCLOSURE_CLOSED:
-    case NS_STYLE_LIST_STYLE_DISCLOSURE_OPEN:
+    case ListStyle::Disc:
+    case ListStyle::Circle:
+    case ListStyle::Square:
+    case ListStyle::DisclosureClosed:
+    case ListStyle::DisclosureOpen:
       break;
     default:
       const auto* anonStyle = counterStyle->AsAnonymous();
@@ -2273,6 +2273,7 @@ nsIFrame* nsCSSFrameConstructor::ConstructTableCell(
 
   nsFrameList childList;
   if (aItem.mFCData->mBits & FCDATA_USE_CHILD_ITEMS) {
+    AutoFrameConstructionPageName pageNameTracker(aState, cellInnerFrame);
     ConstructFramesFromItemList(
         aState, aItem.mChildItems, cellInnerFrame,
         aItem.mFCData->mBits & FCDATA_IS_WRAPPER_ANON_BOX, childList);

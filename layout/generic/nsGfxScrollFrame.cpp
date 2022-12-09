@@ -8,6 +8,7 @@
 
 #include "nsGfxScrollFrame.h"
 
+#include "mozilla/layers/LayersTypes.h"
 #include "nsIXULRuntime.h"
 #include "base/compiler_specific.h"
 #include "DisplayItemClip.h"
@@ -2706,7 +2707,9 @@ void ScrollFrameHelper::ScrollToWithOrigin(nsPoint aScrollPosition,
         mAsyncScroll = nullptr;
       }
 
-      if (nsLayoutUtils::AsyncPanZoomEnabled(mOuter) && WantAsyncScroll()) {
+      if (nsLayoutUtils::AsyncPanZoomEnabled(mOuter) && WantAsyncScroll() &&
+          CanApzScrollInTheseDirections(
+              DirectionsInDelta(mDestination - GetScrollPosition()))) {
         ApzSmoothScrollTo(mDestination, aParams.mOrigin,
                           aParams.mTriggeredByScript, std::move(snapTargetIds));
         return;
@@ -4840,7 +4843,14 @@ nsPoint ScrollFrameHelper::GetVisualViewportOffset() const {
   PresShell* presShell = mOuter->PresShell();
   if (mIsRoot) {
     if (auto pendingUpdate = presShell->GetPendingVisualScrollUpdate()) {
-      return pendingUpdate->mVisualScrollOffset;
+      // The pending visual scroll update on the PresShell contains a raw,
+      // unclamped offset (basically, whatever was passed to ScrollToVisual()).
+      // It will be clamped on the APZ side, but if we use it as the
+      // main-thread's visual viewport offset we need to clamp it ourselves.
+      // Use GetScrollRangeForUserInputEvents() to do the clamping because this
+      // the scroll range that APZ will use.
+      return GetScrollRangeForUserInputEvents().ClampPoint(
+          pendingUpdate->mVisualScrollOffset);
     }
     return presShell->GetVisualViewportOffset();
   }
@@ -4956,7 +4966,8 @@ void ScrollFrameHelper::ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit,
       gfxPlatform::UseDesktopZoomingScrollbars() &&
       nsLayoutUtils::AsyncPanZoomEnabled(mOuter) &&
       !nsLayoutUtils::ShouldDisableApzForElement(mOuter->GetContent()) &&
-      (WantAsyncScroll() || mZoomableByAPZ)) {
+      (WantAsyncScroll() || mZoomableByAPZ) &&
+      CanApzScrollInTheseDirections(DirectionsInDelta(aDelta))) {
     askApzToDoTheScroll = true;
   }
 
@@ -8337,6 +8348,18 @@ void ScrollFrameHelper::ApzSmoothScrollTo(
   // Schedule a paint to ensure that the frame metrics get updated on
   // the compositor thread.
   mOuter->SchedulePaint();
+}
+
+bool ScrollFrameHelper::CanApzScrollInTheseDirections(
+    ScrollDirections aDirections) {
+  ScrollStyles styles = GetScrollStylesFromFrame();
+  if (aDirections.contains(ScrollDirection::eHorizontal) &&
+      styles.mHorizontal == StyleOverflow::Hidden)
+    return false;
+  if (aDirections.contains(ScrollDirection::eVertical) &&
+      styles.mVertical == StyleOverflow::Hidden)
+    return false;
+  return true;
 }
 
 bool ScrollFrameHelper::SmoothScrollVisual(

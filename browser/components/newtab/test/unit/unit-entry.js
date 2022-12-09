@@ -258,8 +258,11 @@ const TEST_GLOBAL = {
   Cu: {
     importGlobalProperties() {},
     now: () => window.performance.now(),
-    reportError() {},
     cloneInto: o => JSON.parse(JSON.stringify(o)),
+  },
+  console: {
+    ...console,
+    error() {},
   },
   dump() {},
   EveryWindow: {
@@ -550,6 +553,8 @@ const TEST_GLOBAL = {
   FX_MONITOR_OAUTH_CLIENT_ID: "fake_client_id",
   ExperimentAPI: {
     getExperiment() {},
+    getExperimentMetaData() {},
+    getRolloutMetaData() {},
     on: () => {},
     off: () => {},
   },

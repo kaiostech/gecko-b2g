@@ -378,9 +378,9 @@ dependencies = [
 
 [[package]]
 name = "authenticator"
-version = "0.4.0-alpha.3"
+version = "0.4.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "671c5d49eab8c93b8aea310cef8a7fd0846eb9417e3c31e4f4d6ec7012aae842"
+checksum = "0e6049d26a8bcbee28599bc43e2369fa228dc5d63a0c5ad7739887d330c1228b"
 dependencies = [
  "base64",
  "bitflags",
@@ -4260,9 +4260,9 @@ version = "0.0.1"
 
 [[package]]
 name = "prio"
-version = "0.8.4"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d747fc8ff20e95b1ff2c5c6162143b89a1b08cee1bc8941fada53bfe1b04d3"
+checksum = "c574f8eb821cee725c8e662e5881e0e94f40838af25be4035e15b5c4d960df3e"
 dependencies = [
  "base64",
  "byteorder",

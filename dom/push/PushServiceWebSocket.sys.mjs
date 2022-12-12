@@ -4,10 +4,6 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-);
-
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
@@ -39,7 +35,7 @@ ChromeUtils.defineModuleGetter(
   "resource://gre/modules/ObjectUtils.jsm"
 );
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gPowerManagerService",
   "@mozilla.org/power/powermanagerservice;1",
   "nsIPowerManagerService"
@@ -1053,7 +1049,7 @@ export var PushServiceWebSocket = {
       console.debug(
         "acquireWakeLock: Acquiring " + reason + " Wakelock and Creating Timer"
       );
-      this._socketWakeLock[reason].wakeLock = gPowerManagerService.newWakeLock(
+      this._socketWakeLock[reason].wakeLock = lazy.gPowerManagerService.newWakeLock(
         "cpu"
       );
       this._socketWakeLock[reason].timer = Cc[
@@ -1064,7 +1060,7 @@ export var PushServiceWebSocket = {
         console.debug("acquireWakeLock: Acquiring " + reason + " Wakelock");
         this._socketWakeLock[
           reason
-        ].wakeLock = gPowerManagerService.newWakeLock("cpu");
+        ].wakeLock = lazy.gPowerManagerService.newWakeLock("cpu");
       }
       if (!this._socketWakeLock[reason].timer) {
         console.debug(

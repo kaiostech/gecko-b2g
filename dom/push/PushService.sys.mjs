@@ -20,7 +20,7 @@ XPCOMUtils.defineLazyServiceGetter(
 );
 
 XPCOMUtils.defineLazyServiceGetter(
-  this,
+  lazy,
   "gPowerManagerService",
   "@mozilla.org/power/powermanagerservice;1",
   "nsIPowerManagerService"
@@ -194,7 +194,7 @@ export var PushService = {
     // Disable the wake lock on non-B2G platforms to work around bug 1154492.
     if (!this._serviceWakeLock) {
       console.debug("acquireWakeLock: Acquiring PushService Wakelock");
-      this._serviceWakeLock = gPowerManagerService.newWakeLock("cpu");
+      this._serviceWakeLock = lazy.gPowerManagerService.newWakeLock("cpu");
     }
     if (!this._serviceWakeLockTimer) {
       console.debug("acquireWakeLock: Creating PushService WakeLock Timer");

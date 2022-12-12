@@ -1678,7 +1678,11 @@
 # JavaScript.
 - name: browser.opaqueResponseBlocking
   type: RelaxedAtomicBool
+#if defined(ANDROID)
+  value: false
+#else
   value: @IS_NIGHTLY_BUILD@
+#endif
   mirror: always
 
 # When this pref is enabled, <object> and <embed> elements will create
@@ -13416,7 +13420,7 @@
 # WebAuthn CTAP2 support
 - name: security.webauthn.ctap2
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # Block Worker/SharedWorker scripts with wrong MIME type.

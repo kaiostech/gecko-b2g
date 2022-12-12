@@ -391,3 +391,15 @@ gonk-b2g-em-x86_64/opt:
     build-platform: gonk-b2g-x86_64/opt
     test-sets:
         - gonk-b2g-x86_64-tests
+
+android-hw-p2-8-0-android-aarch64-qr/opt:
+    build-platform: android-aarch64/opt
+    test-sets:
+        - android-hw-aarch64
+        - android-hw-aarch64-opt-unittests
+
+android-hw-p2-8-0-android-aarch64-shippable-qr/opt:
+    build-platform: android-aarch64-shippable/opt
+    test-sets:
+        - android-hw-aarch64
+        - android-hw-aarch64-pgo-unittests

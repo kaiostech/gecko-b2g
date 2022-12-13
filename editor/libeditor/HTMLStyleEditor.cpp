@@ -394,7 +394,7 @@ HTMLEditor::AutoInlineStyleSetter::ElementIsGoodContainerForTheStyle(
   if (!aHTMLEditor.IsCSSEnabled() || !isCSSEditable) {
     // First check for <b>, <i>, etc.
     if (aElement.IsHTMLElement(&HTMLPropertyRef()) &&
-        !aElement.GetAttrCount() && !mAttribute) {
+        !HTMLEditUtils::ElementHasAttribute(aElement) && !mAttribute) {
       return true;
     }
 
@@ -463,6 +463,96 @@ HTMLEditor::AutoInlineStyleSetter::ElementIsGoodContainerForTheStyle(
   }
   return CSSEditUtils::DoStyledElementsHaveSameStyle(*styledNewSpanElement,
                                                      *styledElement);
+}
+
+bool HTMLEditor::AutoInlineStyleSetter::ElementIsGoodContainerToSetStyle(
+    nsStyledElement& aStyledElement) const {
+  if (!HTMLEditUtils::IsContainerNode(aStyledElement)) {
+    return false;
+  }
+
+  // If it has `style` attribute, let's use it.
+  if (aStyledElement.HasAttr(nsGkAtoms::style)) {
+    return true;
+  }
+
+  // If it has `class` or `id` attribute, the element may have specific rule.
+  // For applying the new style, we may need to set `style` attribute to it
+  // to override the specified rule.
+  if (aStyledElement.HasAttr(nsGkAtoms::id) ||
+      aStyledElement.HasAttr(nsGkAtoms::_class)) {
+    return true;
+  }
+
+  // If we're setting text-decoration and the element represents a value of
+  // text-decoration, <ins> or <del>, let's use it.
+  if (IsStyleOfTextDecoration(IgnoreSElement::No) &&
+      aStyledElement.IsAnyOfHTMLElements(nsGkAtoms::u, nsGkAtoms::s,
+                                         nsGkAtoms::strike, nsGkAtoms::ins,
+                                         nsGkAtoms::del)) {
+    return true;
+  }
+
+  // If we're setting font-size, color or background-color, we should use <font>
+  // for compatibility with the other browsers.
+  if (&HTMLPropertyRef() == nsGkAtoms::font &&
+      aStyledElement.IsHTMLElement(nsGkAtoms::font)) {
+    return true;
+  }
+
+  // If the element has one or more <br> (even if it's invisible), we don't
+  // want to use the <span> for compatibility with the other browsers.
+  if (aStyledElement.QuerySelector("br"_ns, IgnoreErrors())) {
+    return false;
+  }
+
+  // NOTE: The following code does not match with the other browsers not
+  //       completely.  Blink considers this with relation with the range.
+  //       However, we cannot do it now.  We should fix here after or at
+  //       fixing bug 1792386.
+
+  // If it's only visible element child of parent block, let's use it.
+  // E.g., we don't want to create new <span> when
+  // `<p>{  <span>abc</span>  }</p>`.
+  if (aStyledElement.GetParentElement() &&
+      HTMLEditUtils::IsBlockElement(*aStyledElement.GetParentElement())) {
+    for (nsIContent* previousSibling = aStyledElement.GetPreviousSibling();
+         previousSibling;
+         previousSibling = previousSibling->GetPreviousSibling()) {
+      if (previousSibling->IsElement()) {
+        return false;  // Assume any elements visible.
+      }
+      if (Text* text = Text::FromNode(previousSibling)) {
+        if (HTMLEditUtils::IsVisibleTextNode(*text)) {
+          return false;
+        }
+        continue;
+      }
+    }
+    for (nsIContent* nextSibling = aStyledElement.GetNextSibling(); nextSibling;
+         nextSibling = nextSibling->GetNextSibling()) {
+      if (nextSibling->IsElement()) {
+        if (!HTMLEditUtils::IsInvisibleBRElement(*nextSibling)) {
+          return false;
+        }
+        continue;  // The invisible <br> element may be followed by a child
+                   // block, let's continue to check it.
+      }
+      if (Text* text = Text::FromNode(nextSibling)) {
+        if (HTMLEditUtils::IsVisibleTextNode(*text)) {
+          return false;
+        }
+        continue;
+      }
+    }
+    return true;
+  }
+
+  // Otherwise, wrap it into new <span> for making
+  // `<span>[abc</span> <span>def]</span>` become
+  // `<span style="..."><span>abc</span> <span>def</span></span>` rather
+  // than `<span style="...">abc <span>def</span></span>`.
+  return false;
 }
 
 Result<SplitRangeOffFromNodeResult, nsresult>
@@ -808,14 +898,16 @@ Result<CaretPoint, nsresult> HTMLEditor::AutoInlineStyleSetter::ApplyStyle(
           "AutoInlineStyleSetter::ApplyCSSTextDecoration() failed");
       return result;
     }
-    RefPtr<Element> spanElement;
     EditorDOMPoint pointToPutCaret;
-    // We only add style="" to <span>s with no attributes (bug 746515).  If we
-    // don't have one, we need to make one.
-    if (aContent.IsHTMLElement(nsGkAtoms::span) &&
-        !aContent.AsElement()->GetAttrCount()) {
-      spanElement = aContent.AsElement();
-    } else {
+    RefPtr<nsStyledElement> styledElement = [&]() -> nsStyledElement* {
+      auto* const styledElement = nsStyledElement::FromNode(&aContent);
+      return styledElement && ElementIsGoodContainerToSetStyle(*styledElement)
+                 ? styledElement
+                 : nullptr;
+    }();
+
+    // If we don't have good element to set the style, let's create new <span>.
+    if (!styledElement) {
       Result<CreateElementResult, nsresult> wrapInSpanElementResult =
           aHTMLEditor.InsertContainerWithTransaction(aContent,
                                                      *nsGkAtoms::span);
@@ -830,17 +922,20 @@ Result<CaretPoint, nsresult> HTMLEditor::AutoInlineStyleSetter::ApplyStyle(
       MOZ_ASSERT(unwrappedWrapInSpanElementResult.GetNewNode());
       unwrappedWrapInSpanElementResult.MoveCaretPointTo(
           pointToPutCaret, {SuggestCaret::OnlyIfHasSuggestion});
-      spanElement = unwrappedWrapInSpanElementResult.UnwrapNewNode();
+      styledElement = nsStyledElement::FromNode(
+          unwrappedWrapInSpanElementResult.GetNewNode());
+      MOZ_ASSERT(styledElement);
+      if (MOZ_UNLIKELY(!styledElement)) {
+        // Don't return error to avoid creating new path to throwing error.
+        return CaretPoint(pointToPutCaret);
+      }
     }
 
     // Add the CSS styles corresponding to the HTML style request
-    nsStyledElement* spanStyledElement = nsStyledElement::FromNode(spanElement);
-    if (spanStyledElement && IsCSSEditable(*spanStyledElement)) {
-      // MOZ_KnownLive(*spanStyledElement): It's spanElement whose type is
-      // RefPtr.
+    if (IsCSSEditable(*styledElement)) {
       Result<size_t, nsresult> result = CSSEditUtils::SetCSSEquivalentToStyle(
-          WithTransaction::Yes, aHTMLEditor, MOZ_KnownLive(*spanStyledElement),
-          *this, &mAttributeValue);
+          WithTransaction::Yes, aHTMLEditor, *styledElement, *this,
+          &mAttributeValue);
       if (MOZ_UNLIKELY(result.isErr())) {
         if (NS_WARN_IF(result.inspectErr() == NS_ERROR_EDITOR_DESTROYED)) {
           return Err(NS_ERROR_EDITOR_DESTROYED);
@@ -891,17 +986,6 @@ HTMLEditor::AutoInlineStyleSetter::ApplyCSSTextDecoration(
 
   EditorDOMPoint pointToPutCaret;
   RefPtr<nsStyledElement> styledElement = nsStyledElement::FromNode(aContent);
-  nsAutoString textDecorationValue;
-  if (styledElement) {
-    nsresult rv = CSSEditUtils::GetSpecifiedProperty(
-        *styledElement, *nsGkAtoms::text_decoration, textDecorationValue);
-    if (NS_FAILED(rv)) {
-      NS_WARNING(
-          "CSSEditUtils::GetSpecifiedProperty(nsGkAtoms::text_decoration) "
-          "failed");
-      return Err(rv);
-    }
-  }
   nsAutoString newTextDecorationValue;
   if (&HTMLPropertyRef() == nsGkAtoms::u) {
     newTextDecorationValue.AssignLiteral(u"underline");
@@ -914,13 +998,16 @@ HTMLEditor::AutoInlineStyleSetter::ApplyCSSTextDecoration(
         "IsStyleOfTextDecoration(IgnoreSElement::No))?");
   }
   if (styledElement && IsCSSEditable(*styledElement) &&
-      (
-          // If the element has `text-decoration` by default, use it.
-          (styledElement->IsAnyOfHTMLElements(nsGkAtoms::u, nsGkAtoms::s,
-                                              nsGkAtoms::strike, nsGkAtoms::ins,
-                                              nsGkAtoms::del)) ||
-          // If the element has a text-decoration rule, use it.
-          !textDecorationValue.IsEmpty())) {
+      ElementIsGoodContainerToSetStyle(*styledElement)) {
+    nsAutoString textDecorationValue;
+    nsresult rv = CSSEditUtils::GetSpecifiedProperty(
+        *styledElement, *nsGkAtoms::text_decoration, textDecorationValue);
+    if (NS_FAILED(rv)) {
+      NS_WARNING(
+          "CSSEditUtils::GetSpecifiedProperty(nsGkAtoms::text_decoration) "
+          "failed");
+      return Err(rv);
+    }
     // However, if the element is an element to style the text-decoration,
     // replace it with new <span>.
     if (styledElement && styledElement->IsAnyOfHTMLElements(
@@ -1602,213 +1689,272 @@ Result<EditorDOMPoint, nsresult> HTMLEditor::RemoveStyleInside(
     }
   }
 
-  // Next, remove the element or its attribute.
-  auto ShouldRemoveHTMLStyle = [&]() {
-    if (!aStyleToRemove.IsStyleToClearAllInlineStyles()) {
-      return
-          // If the element is a presentation element of the style
-          aElement.NodeInfo()->NameAtom() == aStyleToRemove.mHTMLProperty ||
-          // or an `<a>` element with `href` attribute
-          (aStyleToRemove.mHTMLProperty == nsGkAtoms::href &&
-           HTMLEditUtils::IsLink(&aElement)) ||
-          // or an `<a>` element with `name` attribute
-          (aStyleToRemove.mHTMLProperty == nsGkAtoms::name &&
-           HTMLEditUtils::IsNamedAnchor(&aElement));
+  // TODO: It seems that if aElement is not editable, we should insert new
+  //       container to remove the style if possible.
+  if (!EditorUtils::IsEditableContent(aElement, EditorType::HTML)) {
+    return pointToPutCaret;
+  }
+
+  // Next, remove CSS style first.  Then, `style` attribute will be removed if
+  // the corresponding CSS property is last one.
+  const bool isCSSEditable = aStyleToRemove.IsCSSEditable(aElement);
+  auto isStyleSpecifiedOrError = [&]() -> Result<bool, nsresult> {
+    if (!isCSSEditable) {
+      return false;
     }
-    // XXX Why do we check if aElement is editable only when we're removing all
-    //     styles?
-    if (EditorUtils::IsEditableContent(aElement, EditorType::HTML)) {
-      // or removing all styles and the element is a presentation element.
-      return HTMLEditUtils::IsRemovableInlineStyleElement(aElement);
+    MOZ_ASSERT(!aStyleToRemove.IsStyleToClearAllInlineStyles());
+    Result<bool, nsresult> elementHasSpecifiedCSSEquivalentStylesOrError =
+        CSSEditUtils::HaveSpecifiedCSSEquivalentStyles(*this, aElement,
+                                                       aStyleToRemove);
+    NS_WARNING_ASSERTION(
+        elementHasSpecifiedCSSEquivalentStylesOrError.isOk(),
+        "CSSEditUtils::HaveSpecifiedCSSEquivalentStyles() failed");
+    return elementHasSpecifiedCSSEquivalentStylesOrError;
+  }();
+  if (MOZ_UNLIKELY(isStyleSpecifiedOrError.isErr())) {
+    return isStyleSpecifiedOrError.propagateErr();
+  }
+  bool styleSpecified = isStyleSpecifiedOrError.unwrap();
+  if (nsStyledElement* styledElement = nsStyledElement::FromNode(&aElement)) {
+    if (styleSpecified) {
+      // MOZ_KnownLive(*styledElement) because it's an alias of aElement.
+      nsresult rv = CSSEditUtils::RemoveCSSEquivalentToStyle(
+          WithTransaction::Yes, *this, MOZ_KnownLive(*styledElement),
+          aStyleToRemove, nullptr);
+      if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+        return Err(NS_ERROR_EDITOR_DESTROYED);
+      }
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rv),
+          "CSSEditUtils::RemoveCSSEquivalentToStyle() failed, but ignored");
+    }
+
+    // If the style is <sub> or <sup>, we won't use vertical-align CSS
+    // property because <sub>/<sup> changes font size but neither
+    // `vertical-align: sub` nor `vertical-align: super` changes it
+    // (bug 394304 comment 2).  Therefore, they are not equivalents.  However,
+    // they're obviously conflict with vertical-align style.  Thus, we need to
+    // remove the vertical-align style from elements.
+    if (aStyleToRemove.IsStyleConflictingWithVerticalAlign()) {
+      nsAutoString value;
+      nsresult rv = CSSEditUtils::GetSpecifiedProperty(
+          aElement, *nsGkAtoms::vertical_align, value);
+      if (NS_FAILED(rv)) {
+        NS_WARNING("CSSEditUtils::GetSpecifiedProperty() failed");
+        return Err(rv);
+      }
+      if (!value.IsEmpty()) {
+        // MOZ_KnownLive(*styledElement) because it's an alias of aElement.
+        nsresult rv = CSSEditUtils::RemoveCSSPropertyWithTransaction(
+            *this, MOZ_KnownLive(*styledElement), *nsGkAtoms::vertical_align,
+            value);
+        if (NS_FAILED(rv)) {
+          NS_WARNING("CSSEditUtils::RemoveCSSPropertyWithTransaction() failed");
+          return Err(rv);
+        }
+        styleSpecified = true;
+      }
+    }
+  }
+
+  // Then, if we could and should remove or replace aElement, let's do it. Or
+  // just remove attribute.
+  const bool isStyleRepresentedByElement =
+      !aStyleToRemove.IsStyleToClearAllInlineStyles() &&
+      aStyleToRemove.IsRepresentedBy(aElement);
+
+  auto ShouldUpdateDOMTree = [&]() {
+    // If we're removing any inline styles and aElement is an inline style
+    // element, we can remove or replace it.
+    if (aStyleToRemove.IsStyleToClearAllInlineStyles() &&
+        HTMLEditUtils::IsRemovableInlineStyleElement(aElement)) {
+      return true;
+    }
+    // If we're a specific style and aElement represents it, we can remove or
+    // replace the element or remove the corresponding attribute.
+    if (isStyleRepresentedByElement) {
+      return true;
+    }
+    // If we've removed a CSS style from the `style` attribute of aElement, we
+    // could remove the element.
+    return aElement.IsHTMLElement(nsGkAtoms::span) && styleSpecified;
+  };
+  if (!ShouldUpdateDOMTree()) {
+    return pointToPutCaret;
+  }
+
+  const bool elementHasNecessaryAttributes = [&]() {
+    // If we're not removing nor replacing aElement itself, we don't need to
+    // take care of its `style` and `class` attributes even if aSpecifiedStyle
+    // is `Discard` because aSpecifiedStyle is not intended to be used in this
+    // case.
+    if (!isStyleRepresentedByElement) {
+      return HTMLEditUtils::ElementHasAttributeExcept(aElement,
+                                                      *nsGkAtoms::_empty);
+    }
+    // If we're removing links, we don't need to keep <a> even if it has some
+    // specific attributes because it cannot be nested.  However, if and only if
+    // it has `style` attribute and aSpecifiedStyle is not `Discard`, we need to
+    // replace it with new <span> to keep the style.
+    if (aStyleToRemove.IsStyleOfAnchorElement()) {
+      return aSpecifiedStyle == SpecifiedStyle::Preserve &&
+             (aElement.HasNonEmptyAttr(nsGkAtoms::style) ||
+              aElement.HasNonEmptyAttr(nsGkAtoms::_class));
+    }
+    nsAtom& attrKeepStaying = aStyleToRemove.mAttribute
+                                  ? *aStyleToRemove.mAttribute
+                                  : *nsGkAtoms::_empty;
+    return aSpecifiedStyle == SpecifiedStyle::Preserve
+               // If we're try to remove the element but the caller wants to
+               // preserve the style, check whether aElement has attributes
+               // except the removing attribute since `style` and `class` should
+               // keep existing to preserve the style.
+               ? HTMLEditUtils::ElementHasAttributeExcept(aElement,
+                                                          attrKeepStaying)
+               // If we're try to remove the element and the caller wants to
+               // discard the style specified to the element, check whether
+               // aElement has attributes except the removing attribute, `style`
+               // and `class` since we don't want to keep these attributes.
+               : HTMLEditUtils::ElementHasAttributeExcept(
+                     aElement, attrKeepStaying, *nsGkAtoms::style,
+                     *nsGkAtoms::_class);
+  }();
+
+  // If the element is not a <span> and still has some attributes, we should
+  // replace it with new <span>.
+  auto ReplaceWithNewSpan = [&]() {
+    if (aStyleToRemove.IsStyleToClearAllInlineStyles()) {
+      return false;  // Remove it even if it has attributes.
+    }
+    if (aElement.IsHTMLElement(nsGkAtoms::span)) {
+      return false;  // Don't replace <span> with new <span>.
+    }
+    if (!isStyleRepresentedByElement) {
+      return false;  // Keep non-related element as-is.
+    }
+    if (!elementHasNecessaryAttributes) {
+      return false;  // Should remove it instead of replacing it.
+    }
+    if (aElement.IsHTMLElement(nsGkAtoms::font)) {
+      // Replace <font> if it won't have its specific attributes.
+      return (aStyleToRemove.mHTMLProperty == nsGkAtoms::color ||
+              !aElement.HasAttr(nsGkAtoms::color)) &&
+             (aStyleToRemove.mHTMLProperty == nsGkAtoms::face ||
+              !aElement.HasAttr(nsGkAtoms::face)) &&
+             (aStyleToRemove.mHTMLProperty == nsGkAtoms::size ||
+              !aElement.HasAttr(nsGkAtoms::size));
+    }
+    // The styled element has only global attributes, let's replace it with new
+    // <span> with cloning the attributes.
+    return true;
+  };
+
+  if (ReplaceWithNewSpan()) {
+    // Before cloning the attribute to new element, let's remove it.
+    if (aStyleToRemove.mAttribute) {
+      nsresult rv =
+          RemoveAttributeWithTransaction(aElement, *aStyleToRemove.mAttribute);
+      if (NS_FAILED(rv)) {
+        NS_WARNING("EditorBase::RemoveAttributeWithTransaction() failed");
+        return Err(rv);
+      }
+    }
+    if (aSpecifiedStyle == SpecifiedStyle::Discard) {
+      nsresult rv = RemoveAttributeWithTransaction(aElement, *nsGkAtoms::style);
+      if (NS_FAILED(rv)) {
+        NS_WARNING(
+            "EditorBase::RemoveAttributeWithTransaction(nsGkAtoms::style) "
+            "failed");
+        return Err(rv);
+      }
+      rv = RemoveAttributeWithTransaction(aElement, *nsGkAtoms::_class);
+      if (NS_FAILED(rv)) {
+        NS_WARNING(
+            "EditorBase::RemoveAttributeWithTransaction(nsGkAtoms::_class) "
+            "failed");
+        return Err(rv);
+      }
+    }
+    // Move `style` attribute and `class` element to span element before
+    // removing aElement from the tree.
+    auto replaceWithSpanResult =
+        [&]() MOZ_CAN_RUN_SCRIPT -> Result<CreateElementResult, nsresult> {
+      if (!aStyleToRemove.IsStyleOfAnchorElement()) {
+        return ReplaceContainerAndCloneAttributesWithTransaction(
+            aElement, *nsGkAtoms::span);
+      }
+      nsString styleValue;  // Use nsString to avoid copying the buffer at
+                            // setting the attribute.
+      aElement.GetAttr(nsGkAtoms::style, styleValue);
+      return ReplaceContainerWithTransaction(aElement, *nsGkAtoms::span,
+                                             *nsGkAtoms::style, styleValue);
+    }();
+    if (MOZ_UNLIKELY(replaceWithSpanResult.isErr())) {
+      NS_WARNING(
+          "HTMLEditor::ReplaceContainerWithTransaction(nsGkAtoms::span) "
+          "failed");
+      return replaceWithSpanResult.propagateErr();
+    }
+    CreateElementResult unwrappedReplaceWithSpanResult =
+        replaceWithSpanResult.unwrap();
+    if (AllowsTransactionsToChangeSelection()) {
+      unwrappedReplaceWithSpanResult.MoveCaretPointTo(
+          pointToPutCaret, {SuggestCaret::OnlyIfHasSuggestion});
+    } else {
+      unwrappedReplaceWithSpanResult.IgnoreCaretPointSuggestion();
+    }
+    return pointToPutCaret;
+  }
+
+  auto RemoveElement = [&]() {
+    if (aStyleToRemove.IsStyleToClearAllInlineStyles()) {
+      MOZ_ASSERT(HTMLEditUtils::IsRemovableInlineStyleElement(aElement));
+      return true;
+    }
+    // If the element still has some attributes, we should not remove it to keep
+    // current presentation and/or semantics.
+    if (elementHasNecessaryAttributes) {
+      return false;
+    }
+    // If the style is represented by the element, let's remove it.
+    if (isStyleRepresentedByElement) {
+      return true;
+    }
+    // If we've removed a CSS style and that made the <span> element have no
+    // attributes, we can delete it.
+    if (styleSpecified && aElement.IsHTMLElement(nsGkAtoms::span)) {
+      return true;
     }
     return false;
   };
 
-  if (ShouldRemoveHTMLStyle()) {
-    // If aStyleToRemove.mAttribute is nullptr, we want to remove any matching
-    // inline styles entirely.
-    if (!aStyleToRemove.mAttribute) {
-      // If some style rules are specified to aElement, we need to keep them
-      // as far as possible.
-      // XXX Why don't we clone `id` attribute?
-      if (!aStyleToRemove.IsStyleToClearAllInlineStyles() &&
-          aSpecifiedStyle != SpecifiedStyle::Discard &&
-          (aElement.HasAttr(kNameSpaceID_None, nsGkAtoms::style) ||
-           aElement.HasAttr(kNameSpaceID_None, nsGkAtoms::_class))) {
-        // Move `style` attribute and `class` element to span element before
-        // removing aElement from the tree.
-        Result<CreateElementResult, nsresult> wrapInSpanElementResult =
-            InsertContainerWithTransaction(aElement, *nsGkAtoms::span);
-        if (wrapInSpanElementResult.isErr()) {
-          NS_WARNING(
-              "HTMLEditor::InsertContainerWithTransaction(nsGkAtoms::span) "
-              "failed");
-          return wrapInSpanElementResult.propagateErr();
-        }
-        CreateElementResult unwrappedWrapInSpanElementResult =
-            wrapInSpanElementResult.unwrap();
-        MOZ_ASSERT(unwrappedWrapInSpanElementResult.GetNewNode());
-        unwrappedWrapInSpanElementResult.MoveCaretPointTo(
-            pointToPutCaret, {SuggestCaret::OnlyIfHasSuggestion});
-        const RefPtr<Element> spanElement =
-            unwrappedWrapInSpanElementResult.UnwrapNewNode();
-        nsresult rv = CloneAttributeWithTransaction(*nsGkAtoms::style,
-                                                    *spanElement, aElement);
-        if (NS_WARN_IF(Destroyed())) {
-          return Err(NS_ERROR_EDITOR_DESTROYED);
-        }
-        if (NS_FAILED(rv)) {
-          NS_WARNING(
-              "EditorBase::CloneAttributeWithTransaction(nsGkAtoms::style) "
-              "failed");
-          return Err(rv);
-        }
-        rv = CloneAttributeWithTransaction(*nsGkAtoms::_class, *spanElement,
-                                           aElement);
-        if (NS_WARN_IF(Destroyed())) {
-          return Err(NS_ERROR_EDITOR_DESTROYED);
-        }
-        if (NS_FAILED(rv)) {
-          NS_WARNING(
-              "EditorBase::CloneAttributeWithTransaction(nsGkAtoms::_class) "
-              "failed");
-          return Err(rv);
-        }
-      }
-      Result<EditorDOMPoint, nsresult> unwrapElementResult =
-          RemoveContainerWithTransaction(aElement);
-      if (MOZ_UNLIKELY(unwrapElementResult.isErr())) {
-        NS_WARNING("HTMLEditor::RemoveContainerWithTransaction() failed");
-        return unwrapElementResult.propagateErr();
-      }
-      if (AllowsTransactionsToChangeSelection() &&
-          unwrapElementResult.inspect().IsSet()) {
-        pointToPutCaret = unwrapElementResult.unwrap();
-      }
+  if (RemoveElement()) {
+    Result<EditorDOMPoint, nsresult> unwrapElementResult =
+        RemoveContainerWithTransaction(aElement);
+    if (MOZ_UNLIKELY(unwrapElementResult.isErr())) {
+      NS_WARNING("HTMLEditor::RemoveContainerWithTransaction() failed");
+      return unwrapElementResult.propagateErr();
     }
-    // If aStyleToRemove.mAttribute is specified, we want to remove only the
-    // attribute unless it's the last attribute of aElement.
-    else if (aElement.HasAttr(kNameSpaceID_None, aStyleToRemove.mAttribute)) {
-      if (!HTMLEditUtils::ElementHasAttributeExcept(
-              aElement, *aStyleToRemove.mAttribute)) {
-        Result<EditorDOMPoint, nsresult> unwrapElementResult =
-            RemoveContainerWithTransaction(aElement);
-        if (MOZ_UNLIKELY(unwrapElementResult.isErr())) {
-          NS_WARNING("HTMLEditor::RemoveContainerWithTransaction() failed");
-          return unwrapElementResult.propagateErr();
-        }
-        if (unwrapElementResult.inspect().IsSet()) {
-          pointToPutCaret = unwrapElementResult.unwrap();
-        }
-      } else {
-        nsresult rv = RemoveAttributeWithTransaction(
-            aElement, *aStyleToRemove.mAttribute);
-        if (NS_WARN_IF(Destroyed())) {
-          return Err(NS_ERROR_EDITOR_DESTROYED);
-        }
-        if (NS_FAILED(rv)) {
-          NS_WARNING("EditorBase::RemoveAttributeWithTransaction() failed");
-          return Err(rv);
-        }
-      }
+    if (AllowsTransactionsToChangeSelection() &&
+        unwrapElementResult.inspect().IsSet()) {
+      pointToPutCaret = unwrapElementResult.unwrap();
     }
-  }
-
-  // Then, remove CSS style if specified.
-  // XXX aElement may have already been removed from the DOM tree.  Why
-  //     do we keep handling aElement here??
-  if (aStyleToRemove.IsCSSEditable(aElement)) {
-    Result<bool, nsresult> elementHasSpecifiedCSSEquivalentStylesOrError =
-        CSSEditUtils::HaveSpecifiedCSSEquivalentStyles(*this, aElement,
-                                                       aStyleToRemove);
-    if (MOZ_UNLIKELY(elementHasSpecifiedCSSEquivalentStylesOrError.isErr())) {
-      NS_WARNING("CSSEditUtils::HaveSpecifiedCSSEquivalentStyles() failed");
-      return elementHasSpecifiedCSSEquivalentStylesOrError.propagateErr();
-    }
-    if (elementHasSpecifiedCSSEquivalentStylesOrError.unwrap()) {
-      if (nsStyledElement* styledElement =
-              nsStyledElement::FromNode(&aElement)) {
-        // If aElement has CSS declaration of the given style, remove it.
-        // MOZ_KnownLive(*styledElement): It's aElement and its lifetime must be
-        // guaranteed by the caller because of MOZ_CAN_RUN_SCRIPT method.
-        nsresult rv = CSSEditUtils::RemoveCSSEquivalentToStyle(
-            WithTransaction::Yes, *this, MOZ_KnownLive(*styledElement),
-            aStyleToRemove, nullptr);
-        if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
-          return Err(NS_ERROR_EDITOR_DESTROYED);
-        }
-        NS_WARNING_ASSERTION(
-            NS_SUCCEEDED(rv),
-            "CSSEditUtils::RemoveCSSEquivalentToStyle() failed, but ignored");
-      }
-      // Additionally, remove aElement itself if it's a `<span>` or `<font>`
-      // and it does not have non-empty `style`, `id` nor `class` attribute.
-      if (aElement.IsAnyOfHTMLElements(nsGkAtoms::span, nsGkAtoms::font) &&
-          !HTMLEditor::HasStyleOrIdOrClassAttribute(aElement)) {
-        Result<EditorDOMPoint, nsresult> unwrapSpanOrFontElementResult =
-            RemoveContainerWithTransaction(aElement);
-        if (MOZ_UNLIKELY(unwrapSpanOrFontElementResult.isErr() &&
-                         unwrapSpanOrFontElementResult.inspectErr() ==
-                             NS_ERROR_EDITOR_DESTROYED)) {
-          NS_WARNING("HTMLEditor::RemoveContainerWithTransaction() failed");
-          return Err(NS_ERROR_EDITOR_DESTROYED);
-        }
-        NS_WARNING_ASSERTION(
-            unwrapSpanOrFontElementResult.isOk(),
-            "HTMLEditor::RemoveContainerWithTransaction() failed, but ignored");
-        if (MOZ_LIKELY(unwrapSpanOrFontElementResult.isOk()) &&
-            unwrapSpanOrFontElementResult.inspect().IsSet()) {
-          pointToPutCaret = unwrapSpanOrFontElementResult.unwrap();
-        }
-      }
-    }
-  }
-
-  // If the style is <sub> or <sup>, we won't use vertical-align CSS property
-  // because <sub>/<sup> changes font size but neither `vertical-align: sub` nor
-  // `vertical-align: super` changes it (bug 394304 comment 2).  Therefore, they
-  // are not equivalents. However, they're obviously conflict with
-  // vertical-align style.  Thus, we need to remove the vertical-align style
-  // from elements.
-  if (aStyleToRemove.IsStyleConflictingWithVerticalAlign()) {
-    nsAutoString value;
-    nsresult rv = CSSEditUtils::GetSpecifiedProperty(
-        aElement, *nsGkAtoms::vertical_align, value);
-    if (NS_FAILED(rv)) {
-      NS_WARNING("CSSEditUtils::GetSpecifiedProperty() failed");
-      return Err(rv);
-    }
-    if (!value.IsEmpty()) {
-      if (nsStyledElement* styledElement =
-              nsStyledElement::FromNode(&aElement)) {
-        Result<EditorDOMPoint, nsresult> result =
-            CSSEditUtils::RemoveCSSInlineStyleWithTransaction(
-                *this, MOZ_KnownLive(*styledElement), nsGkAtoms::vertical_align,
-                value);
-        if (MOZ_UNLIKELY(result.isErr())) {
-          NS_WARNING("CSSEditUtils::RemoveCSSPropertyWithTransaction() failed");
-          return result.propagateErr();
-        }
-        if (result.inspect().IsSet()) {
-          pointToPutCaret = result.unwrap();
-        }
-      }
-    }
-  }
-
-  if (aStyleToRemove.mHTMLProperty != nsGkAtoms::font ||
-      aStyleToRemove.mAttribute != nsGkAtoms::size ||
-      !aElement.IsAnyOfHTMLElements(nsGkAtoms::big, nsGkAtoms::small)) {
     return pointToPutCaret;
   }
 
-  // Finally, remove aElement if it's a `<big>` or `<small>` element and
-  // we're removing `<font size>`.
-  Result<EditorDOMPoint, nsresult> unwrapBigOrSmallElementResult =
-      RemoveContainerWithTransaction(aElement);
-  NS_WARNING_ASSERTION(unwrapBigOrSmallElementResult.isOk(),
-                       "HTMLEditor::RemoveContainerWithTransaction() failed");
-  return unwrapBigOrSmallElementResult;
+  // If the element needs to keep having some attributes, just remove the
+  // attribute.  Note that we don't need to remove `style` attribute here when
+  // aSpecifiedStyle is `Discard` because we've already removed unnecessary
+  // CSS style above.
+  if (isStyleRepresentedByElement && aStyleToRemove.mAttribute) {
+    nsresult rv =
+        RemoveAttributeWithTransaction(aElement, *aStyleToRemove.mAttribute);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("EditorBase::RemoveAttributeWithTransaction() failed");
+      return Err(rv);
+    }
+  }
+  return pointToPutCaret;
 }
 
 nsresult HTMLEditor::PromoteRangeIfStartsOrEndsInNamedAnchor(nsRange& aRange) {

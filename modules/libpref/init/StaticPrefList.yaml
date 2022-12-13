@@ -8668,13 +8668,6 @@
   value: @IS_NOT_RELEASE_OR_BETA@
   mirror: always
 
-# Is support for CSS "grid-template-{columns,rows}: subgrid X" enabled?
-- name: layout.css.grid-template-subgrid-value.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Is support for caching an grid item's block axis measurement enabled?
 - name: layout.css.grid-item-baxis-measurement.enabled
   type: bool
@@ -8809,7 +8802,7 @@
 # Enables support for the named pages
 - name: layout.css.named-pages.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -10637,6 +10630,13 @@
   type: bool
   value: @IS_ANDROID@
   mirror: always
+
+# Use the libwebrtc AVFoundation camera backend on Mac by default. When
+# disabled, an older forked capture module is used.
+- name: media.getusermedia.camera.macavf.enabled
+  type: bool
+  value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: once
 
 # WebRTC prefs follow
 
@@ -13231,7 +13231,7 @@
 # Pref for mixed display content upgrading (images, audio, video).
 - name: security.mixed_content.upgrade_display_content
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether strict file origin policy is in effect. "False" is traditional.
@@ -14048,7 +14048,7 @@
 #ifdef MOZ_CODE_COVERAGE
   value: 0
 #else
-  value: 3
+  value: 2
 #endif
   mirror: always
 
@@ -14635,7 +14635,9 @@
 
 - name: webgl.out-of-process.async-present
   type: RelaxedAtomicBool
-#if !defined(MOZ_WIDGET_ANDROID) && defined(EARLY_BETA_OR_EARLIER)
+#if !defined(MOZ_WIDGET_ANDROID)
+  value: true
+#elif defined(MOZ_WIDGET_ANDROID) && defined(NIGHTLY_BUILD)
   value: true
 #else
   value: false

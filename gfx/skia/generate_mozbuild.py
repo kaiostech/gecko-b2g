@@ -71,10 +71,6 @@ DEFINES['SK_PDF_USE_HARFBUZZ_SUBSETTING'] = 1
 if CONFIG['MOZ_TREE_FREETYPE']:
     DEFINES['SK_CAN_USE_DLOPEN'] = 0
 
-# Reduce strength of synthetic-emboldening used in the freetype backend
-# (see bug 1600470).
-DEFINES['SK_OUTLINE_EMBOLDEN_DIVISOR'] = 48
-
 # Suppress warnings in third-party code.
 CXXFLAGS += [
     '-Wno-deprecated-declarations',
@@ -216,6 +212,10 @@ def generate_separated_sources(platform_sources):
       'skia/src/ports/SkMemory_mozalloc.cpp',
       'skia/src/ports/SkImageGenerator_none.cpp',
       'skia/third_party/skcms/skcms.cc',
+      'skia/src/core/SkBitmapScaler.cpp',
+      'skia/src/core/SkGlyphBuffer.cpp',
+      'skia/src/core/SkConvolver.cpp',
+      'skia/src/core/SkImageFilterTypes.cpp',
     },
     'android': {
       # 'skia/src/ports/SkDebug_android.cpp',
@@ -229,6 +229,7 @@ def generate_separated_sources(platform_sources):
       'skia/src/ports/SkFontHost_cairo.cpp',
       'skia/src/ports/SkFontHost_FreeType_common.cpp',
     },
+    'win': set (),
     'intel': set(),
     'arm': set(),
     'arm64': set(),

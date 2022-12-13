@@ -13,6 +13,7 @@
 #include "js/ContextOptions.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/AutoRestore.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/CondVar.h"
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/Maybe.h"
@@ -440,7 +441,7 @@ class WorkerPrivate final
     return data->mOnLine;
   }
 
-  void StopSyncLoop(nsIEventTarget* aSyncLoopTarget, bool aResult);
+  void StopSyncLoop(nsIEventTarget* aSyncLoopTarget, nsresult aResult);
 
   bool AllPendingRunnablesShouldBeCanceled() const {
     return mCancelAllPendingRunnables;
@@ -737,35 +738,28 @@ class WorkerPrivate final
     mLoadInfo.mChannelInfo = aChannelInfo;
   }
 
-  nsIPrincipal* GetPrincipal() const {
-    AssertIsOnMainThread();
-    return mLoadInfo.mPrincipal;
-  }
+  nsIPrincipal* GetPrincipal() const { return mLoadInfo.mPrincipal; }
 
   nsIPrincipal* GetLoadingPrincipal() const {
-    AssertIsOnMainThread();
     return mLoadInfo.mLoadingPrincipal;
   }
 
   nsIPrincipal* GetPartitionedPrincipal() const {
-    AssertIsOnMainThread();
     return mLoadInfo.mPartitionedPrincipal;
   }
 
-  const nsAString& OriginNoSuffix() const { return mLoadInfo.mOriginNoSuffix; }
-
-  const nsACString& Origin() const { return mLoadInfo.mOrigin; }
-
-  const nsACString& EffectiveStoragePrincipalOrigin() const;
+  nsIPrincipal* GetEffectiveStoragePrincipal() const;
 
   nsILoadGroup* GetLoadGroup() const {
     AssertIsOnMainThread();
     return mLoadInfo.mLoadGroup;
   }
 
-  bool UsesSystemPrincipal() const { return mLoadInfo.mPrincipalIsSystem; }
+  bool UsesSystemPrincipal() const {
+    return GetPrincipal()->IsSystemPrincipal();
+  }
   bool UsesAddonOrExpandedAddonPrincipal() const {
-    return mLoadInfo.mPrincipalIsAddonOrExpandedAddon;
+    return GetPrincipal()->GetIsAddonOrExpandedAddonPrincipal();
   }
 
   const mozilla::ipc::PrincipalInfo& GetPrincipalInfo() const {
@@ -777,7 +771,7 @@ class WorkerPrivate final
   }
 
   uint32_t GetPrincipalHashValue() const {
-    return mLoadInfo.mPrincipalHashValue;
+    return GetPrincipal()->GetHashValue();
   }
 
   const mozilla::ipc::PrincipalInfo& GetEffectiveStoragePrincipalInfo() const;
@@ -1118,9 +1112,9 @@ class WorkerPrivate final
   already_AddRefed<nsISerialEventTarget> CreateNewSyncLoop(
       WorkerStatus aFailStatus);
 
-  bool RunCurrentSyncLoop();
+  nsresult RunCurrentSyncLoop();
 
-  bool DestroySyncLoop(uint32_t aLoopIndex);
+  nsresult DestroySyncLoop(uint32_t aLoopIndex);
 
   void InitializeGCTimers();
 
@@ -1255,8 +1249,8 @@ class WorkerPrivate final
     explicit SyncLoopInfo(EventTarget* aEventTarget);
 
     RefPtr<EventTarget> mEventTarget;
+    nsresult mResult;
     bool mCompleted;
-    bool mResult;
 #ifdef DEBUG
     bool mHasRun;
 #endif
@@ -1490,12 +1484,12 @@ class AutoSyncLoopHolder {
   ~AutoSyncLoopHolder() {
     if (mWorkerPrivate && mTarget) {
       mWorkerPrivate->AssertIsOnWorkerThread();
-      mWorkerPrivate->StopSyncLoop(mTarget, false);
+      mWorkerPrivate->StopSyncLoop(mTarget, NS_ERROR_FAILURE);
       mWorkerPrivate->DestroySyncLoop(mIndex);
     }
   }
 
-  bool Run() {
+  nsresult Run() {
     CheckedUnsafePtr<WorkerPrivate> workerPrivate = mWorkerPrivate;
     mWorkerPrivate = nullptr;
 

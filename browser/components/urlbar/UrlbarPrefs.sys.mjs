@@ -130,7 +130,8 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // Applies URL highlighting and other styling to the text in the urlbar input.
   ["formatting.enabled", true],
 
-  // Whether search engagement telemetry should be recorded.
+  // Whether search engagement telemetry should be recorded. This pref is a
+  // fallback for the Nimbus variable `searchEngagementTelemetryEnabled`.
   ["searchEngagementTelemetry.enabled", false],
 
   // Interval time until taking pause impression telemetry.
@@ -1483,7 +1484,7 @@ class Preferences {
   /**
    * Initializes the showSearchSuggestionsFirst pref based on the matchGroups
    * pref.  This function can be removed when the corresponding UI migration in
-   * BrowserGlue.jsm is no longer needed.
+   * BrowserGlue.sys.mjs is no longer needed.
    */
   initializeShowSearchSuggestionsFirstPref() {
     let matchGroups = [];

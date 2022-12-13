@@ -17,7 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   assert: "chrome://remote/content/shared/webdriver/Assert.sys.mjs",
   atom: "chrome://remote/content/marionette/atom.sys.mjs",
   browser: "chrome://remote/content/marionette/browser.sys.mjs",
-  capture: "chrome://remote/content/marionette/capture.sys.mjs",
+  capture: "chrome://remote/content/shared/Capture.sys.mjs",
   clearElementIdCache:
     "chrome://remote/content/marionette/actors/MarionetteCommandsParent.sys.mjs",
   Context: "chrome://remote/content/marionette/browser.sys.mjs",
@@ -2445,7 +2445,7 @@ GeckoDriver.prototype.getScreenOrientation = function() {
 
   const win = this.getCurrentWindow();
 
-  return win.screen.mozOrientation;
+  return win.screen.orientation.type;
 };
 
 /**
@@ -2462,7 +2462,7 @@ GeckoDriver.prototype.getScreenOrientation = function() {
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
  */
-GeckoDriver.prototype.setScreenOrientation = function(cmd) {
+GeckoDriver.prototype.setScreenOrientation = async function(cmd) {
   lazy.assert.mobile();
   lazy.assert.open(this.getBrowsingContext({ top: true }));
 
@@ -2485,7 +2485,10 @@ GeckoDriver.prototype.setScreenOrientation = function(cmd) {
   }
 
   const win = this.getCurrentWindow();
-  if (!win.screen.mozLockOrientation(mozOr)) {
+
+  try {
+    await win.screen.orientation.lock(mozOr);
+  } catch (e) {
     throw new lazy.error.WebDriverError(
       `Unable to set screen orientation: ${or}`
     );

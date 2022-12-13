@@ -1328,8 +1328,8 @@ WorkerPrivate::MemoryReporter::FinishCollectRunnable::Run() {
 
 WorkerPrivate::SyncLoopInfo::SyncLoopInfo(EventTarget* aEventTarget)
     : mEventTarget(aEventTarget),
-      mCompleted(false),
-      mResult(false)
+      mResult(NS_ERROR_FAILURE),
+      mCompleted(false)
 #ifdef DEBUG
       ,
       mHasRun(false)
@@ -2259,7 +2259,7 @@ bool IsNewWorkerSecureContext(const WorkerPrivate* const aParent,
 
   // Our secure context state depends on the kind of worker we have.
 
-  if (aLoadInfo.mPrincipalIsSystem) {
+  if (aLoadInfo.mPrincipal && aLoadInfo.mPrincipal->IsSystemPrincipal()) {
     return true;
   }
 
@@ -2774,8 +2774,6 @@ nsresult WorkerPrivate::GetLoadInfo(JSContext* aCx, nsPIDOMWindowInner* aWindow,
     if (isChrome) {
       rv = ssm->GetSystemPrincipal(getter_AddRefs(loadInfo.mLoadingPrincipal));
       NS_ENSURE_SUCCESS(rv, rv);
-
-      loadInfo.mPrincipalIsSystem = true;
     }
 
     // See if we're being called from a window.
@@ -4145,7 +4143,7 @@ already_AddRefed<nsISerialEventTarget> WorkerPrivate::CreateNewSyncLoop(
   return workerEventTarget.forget();
 }
 
-bool WorkerPrivate::RunCurrentSyncLoop() {
+nsresult WorkerPrivate::RunCurrentSyncLoop() {
   AssertIsOnWorkerThread();
   RefPtr<WorkerThread> thread;
   JSContext* cx = GetJSContext();
@@ -4243,7 +4241,7 @@ bool WorkerPrivate::RunCurrentSyncLoop() {
   return DestroySyncLoop(currentLoopIndex);
 }
 
-bool WorkerPrivate::DestroySyncLoop(uint32_t aLoopIndex) {
+nsresult WorkerPrivate::DestroySyncLoop(uint32_t aLoopIndex) {
   MOZ_ASSERT(!mSyncLoopStack.IsEmpty());
   MOZ_ASSERT(mSyncLoopStack.Length() - 1 == aLoopIndex);
 
@@ -4255,7 +4253,7 @@ bool WorkerPrivate::DestroySyncLoop(uint32_t aLoopIndex) {
       loopInfo->mEventTarget->GetWeakNestedEventTarget();
   MOZ_ASSERT(nestedEventTarget);
 
-  bool result = loopInfo->mResult;
+  nsresult result = loopInfo->mResult;
 
   {
     MutexAutoLock lock(mMutex);
@@ -4377,7 +4375,7 @@ void WorkerPrivate::ReportUseCounters() {
 }
 
 void WorkerPrivate::StopSyncLoop(nsIEventTarget* aSyncLoopTarget,
-                                 bool aResult) {
+                                 nsresult aResult) {
   AssertIsOnWorkerThread();
   AssertValidSyncLoop(aSyncLoopTarget);
 
@@ -5714,6 +5712,16 @@ void WorkerPrivate::EnsureOwnerEmbedderPolicy() {
   }
 }
 
+nsIPrincipal* WorkerPrivate::GetEffectiveStoragePrincipal() const {
+  AssertIsOnWorkerThread();
+
+  if (mLoadInfo.mUseRegularPrincipal) {
+    return mLoadInfo.mPrincipal;
+  }
+
+  return mLoadInfo.mPartitionedPrincipal;
+}
+
 const mozilla::ipc::PrincipalInfo&
 WorkerPrivate::GetEffectiveStoragePrincipalInfo() const {
   AssertIsOnWorkerThread();
@@ -5723,16 +5731,6 @@ WorkerPrivate::GetEffectiveStoragePrincipalInfo() const {
   }
 
   return *mLoadInfo.mPartitionedPrincipalInfo;
-}
-
-const nsACString& WorkerPrivate::EffectiveStoragePrincipalOrigin() const {
-  AssertIsOnWorkerThread();
-
-  if (mLoadInfo.mUseRegularPrincipal) {
-    return mLoadInfo.mOrigin;
-  }
-
-  return mLoadInfo.mPartitionedOrigin;
 }
 
 NS_IMPL_ADDREF(WorkerPrivate::EventTarget)

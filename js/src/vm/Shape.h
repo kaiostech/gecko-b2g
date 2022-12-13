@@ -32,51 +32,85 @@
 //
 // A Shape represents the layout of an object. It stores and implies:
 //
-//  * The object's JSClass, Realm, prototype (see BaseShape).
-//  * For native objects, the object's properties (PropMap and map length).
-//  * The fixed slot capacity of the object (numFixedSlots).
+//  * The object's JSClass, Realm, prototype (see BaseShape section below).
 //  * The object's flags (ObjectFlags).
+//  * For native objects, the object's properties (PropMap and map length).
+//  * For native objects, the fixed slot capacity of the object (numFixedSlots).
 //
-// The shape implies the property structure (keys, attributes, property order
-// for enumeration) but not the property values. The values are stored in object
-// slots.
+// For native objects, the shape implies the property structure (keys,
+// attributes, property order for enumeration) but not the property values.
+// The values are stored in object slots.
 //
 // Every JSObject has a pointer, |shape_|, accessible via shape(), to the
 // current shape of the object. This pointer permits fast object layout tests.
 //
-// There are two kinds of shapes:
+// Shapes use the following C++ class hierarchy:
 //
-// * Shared shapes. Either initial shapes (no property map) or SharedPropMap
-//   shapes (for native objects with properties).
+// C++ Type                     Used by
+// ============================ ====================================
+// Shape (abstract)             JSObject
+//  |
+//  +-- NativeShape (abstract)  NativeObject
+//  |    |
+//  |    +-- SharedShape        NativeObject with a shared shape
+//  |    |
+//  |    +-- DictionaryShape    NativeObject with a dictionary shape
+//  |
+//  +-- ProxyShape              ProxyObject
+//  |
+//  +-- WasmGCShape             WasmGCObject
 //
-//   These are immutable tuples stored in a hash table, so that objects with the
-//   same structure end up with the same shape (this both saves memory and
-//   allows JIT optimizations based on this shape).
+// Classes marked with (abstract) above are not literally C++ Abstract Base
+// Classes (since there are no virtual functions, pure or not, in this
+// hierarchy), but have the same meaning: there are no shapes with this type as
+// its most-derived type.
 //
-//   To avoid hash table lookups on the hot addProperty path, shapes have a
-//   ShapeCachePtr that's used as cache for this. This cache is purged on GC.
-//   The shape cache is also used as cache for prototype shapes, to point to the
-//   initial shape for objects using that shape, and for cached iterators.
+// SharedShape
+// ===========
+// Used only for native objects. This is either an initial shape (no property
+// map) or SharedPropMap shape (for objects with at least one property).
 //
-// * Dictionary shapes. Used only for native objects. An object with a
-//   dictionary shape is "in dictionary mode". Certain property operations
-//   are not supported for shared maps so in these cases we need to convert the
-//   object to dictionary mode by creating a dictionary property map and a
-//   dictionary shape. An object is converted to dictionary mode in the
-//   following cases:
+// These are immutable tuples stored in a hash table, so that objects with the
+// same structure end up with the same shape (this both saves memory and allows
+// JIT optimizations based on this shape).
 //
-//   - Changing a property's flags/attributes and the property is not the last
-//     property.
-//   - Removing a property other than the object's last property.
-//   - The object has many properties. See maybeConvertToDictionaryForAdd for
-//     the heuristics.
+// To avoid hash table lookups on the hot addProperty path, shapes have a
+// ShapeCachePtr that's used as cache for this. This cache is purged on GC.
+// The shape cache is also used as cache for prototype shapes, to point to the
+// initial shape for objects using that shape, and for cached iterators.
 //
-//   Dictionary shapes are unshared, private to a single object, and always have
-//   a DictionaryPropMap that's similarly unshared. Dictionary shape mutations
-//   do require allocating a new dictionary shape for the object, to properly
-//   invalidate JIT inline caches and other shape guards.
-//   See NativeObject::generateNewDictionaryShape.
+// DictionaryShape
+// ===============
+// Used only for native objects. An object with a dictionary shape is "in
+// dictionary mode". Certain property operations are not supported for shared
+// maps so in these cases we need to convert the object to dictionary mode by
+// creating a dictionary property map and a dictionary shape. An object is
+// converted to dictionary mode in the following cases:
 //
+// - Changing a property's flags/attributes and the property is not the last
+//   property.
+// - Removing a property other than the object's last property.
+// - The object has many properties. See maybeConvertToDictionaryForAdd for the
+//   heuristics.
+//
+// Dictionary shapes are unshared, private to a single object, and always have a
+// a DictionaryPropMap that's similarly unshared. Dictionary shape mutations do
+// require allocating a new dictionary shape for the object, to properly
+// invalidate JIT inline caches and other shape guards.
+// See NativeObject::generateNewDictionaryShape.
+//
+// ProxyShape
+// ==========
+// Shape used for proxy objects (including wrappers). Proxies with the same
+// JSClass, Realm, prototype and ObjectFlags will have the same shape.
+//
+// WasmGCShape
+// ===========
+// Shape used for Wasm GC objects. Wasm GC objects with the same JSClass, Realm,
+// prototype and ObjectFlags will have the same shape.
+//
+// BaseShape
+// =========
 // Because many Shapes have similar data, there is actually a secondary type
 // called a BaseShape that holds some of a Shape's data (the JSClass, Realm,
 // prototype). Many shapes can share a single BaseShape.
@@ -90,6 +124,7 @@ MOZ_ALWAYS_INLINE size_t JSSLOT_FREE(const JSClass* clasp) {
 
 namespace js {
 
+class NativeShape;
 class Shape;
 class PropertyIteratorObject;
 
@@ -274,44 +309,48 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
   // Base shape, stored in the cell header.
   BaseShape* base() const { return headerPtr(); }
 
+  using Kind = JS::shadow::Shape::Kind;
+
  protected:
   // Flags that are not modified after the Shape is created. Off-thread Ion
   // compilation can access the immutableFlags word, so we don't want any
   // mutable state here to avoid (TSan) races.
   enum ImmutableFlags : uint32_t {
-    // The length associated with the property map. This is a value in the range
-    // [0, PropMap::Capacity]. A length of 0 indicates the object is empty (has
-    // no properties).
+    // For NativeShape: the length associated with the property map. This is a
+    // value in the range [0, PropMap::Capacity]. A length of 0 indicates the
+    // object is empty (has no properties).
     MAP_LENGTH_MASK = BitMask(4),
 
-    // If set, this is a dictionary shape.
-    IS_DICTIONARY = 1 << 4,
+    // The Shape Kind. The NativeObject kinds have the low bit set.
+    KIND_SHIFT = 4,
+    KIND_MASK = 0b11,
+    IS_NATIVE_BIT = 0x1 << KIND_SHIFT,
 
-    // Number of fixed slots in objects with this shape.
+    // For NativeShape: the number of fixed slots in objects with this shape.
     // FIXED_SLOTS_MAX is the biggest count of fixed slots a Shape can store.
     FIXED_SLOTS_MAX = 0x1f,
-    FIXED_SLOTS_SHIFT = 5,
+    FIXED_SLOTS_SHIFT = 6,
     FIXED_SLOTS_MASK = uint32_t(FIXED_SLOTS_MAX << FIXED_SLOTS_SHIFT),
 
-    // For non-dictionary shapes: the slot span of the object, if it fits in a
-    // single byte. If the value is SMALL_SLOTSPAN_MAX, the slot span has to be
+    // For SharedShape: the slot span of the object, if it fits in a single
+    // byte. If the value is SMALL_SLOTSPAN_MAX, the slot span has to be
     // computed based on the property map (which is slower).
     //
     // Note: NativeObject::addProperty will convert to dictionary mode before we
     // reach this limit, but there are other places where we add properties to
     // shapes, for example environment object shapes.
     SMALL_SLOTSPAN_MAX = 0x3ff,  // 10 bits.
-    SMALL_SLOTSPAN_SHIFT = 10,
+    SMALL_SLOTSPAN_SHIFT = 11,
     SMALL_SLOTSPAN_MASK = uint32_t(SMALL_SLOTSPAN_MAX << SMALL_SLOTSPAN_SHIFT),
   };
 
   uint32_t immutableFlags;   // Immutable flags, see above.
   ObjectFlags objectFlags_;  // Immutable object flags, see ObjectFlags.
 
-  // The shape's property map. This is either nullptr for shared initial (empty)
-  // shapes, a SharedPropMap for SharedPropMap shapes, or a DictionaryPropMap
-  // for dictionary shapes.
-  GCPtr<PropMap*> propMap_;
+  // For NativeShape: the shape's property map. This is either nullptr (for an
+  // initial SharedShape with no properties), a SharedPropMap (for SharedShape)
+  // or a DictionaryPropMap (for DictionaryShape).
+  GCPtr<PropMap*> nativePropMap_;
 
   // Cache used to speed up common operations on shapes.
   ShapeCachePtr cache_;
@@ -331,24 +370,12 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
     }
   }
 
-  PropMap* propMap() const { return propMap_; }
-
   ShapeCachePtr& cacheRef() { return cache_; }
   ShapeCachePtr cache() const { return cache_; }
 
   void maybeCacheIterator(JSContext* cx, PropertyIteratorObject* iter);
 
-  uint32_t propMapLength() const { return immutableFlags & MAP_LENGTH_MASK; }
-
-  PropertyInfoWithKey lastProperty() const {
-    MOZ_ASSERT(propMapLength() > 0);
-    size_t index = propMapLength() - 1;
-    return propMap()->getPropertyInfoWithKey(index);
-  }
-
-  MOZ_ALWAYS_INLINE PropMap* lookup(JSContext* cx, PropertyKey key,
-                                    uint32_t* index);
-  MOZ_ALWAYS_INLINE PropMap* lookupPure(PropertyKey key, uint32_t* index);
+  void assertHasNoPropMap() const { MOZ_ASSERT(!nativePropMap_); }
 
   const JSClass* getObjectClass() const { return base()->clasp(); }
   JS::Realm* realm() const { return base()->realm(); }
@@ -366,34 +393,38 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
   }
 
  protected:
-  Shape(BaseShape* base, ObjectFlags objectFlags, uint32_t nfixed, PropMap* map,
-        uint32_t mapLength, bool isDictionary)
+  Shape(Kind kind, BaseShape* base, ObjectFlags objectFlags)
       : CellWithTenuredGCPointer(base),
-        immutableFlags((isDictionary ? IS_DICTIONARY : 0) |
-                       (nfixed << FIXED_SLOTS_SHIFT) | mapLength),
-        objectFlags_(objectFlags),
-        propMap_(map) {
+        immutableFlags(uint32_t(kind) << KIND_SHIFT),
+        objectFlags_(objectFlags) {
     MOZ_ASSERT(base);
-    MOZ_ASSERT(mapLength <= PropMap::Capacity);
+    MOZ_ASSERT(this->kind() == kind, "kind must fit in KIND_MASK");
+    MOZ_ASSERT(isNative() == base->clasp()->isNativeObject());
   }
 
   Shape(const Shape& other) = delete;
 
  public:
-  bool isShared() const { return !isDictionary(); }
-  bool isDictionary() const { return immutableFlags & IS_DICTIONARY; }
+  Kind kind() const { return Kind((immutableFlags >> KIND_SHIFT) & KIND_MASK); }
 
+  bool isNative() const {
+    // Note: this is equivalent to `isShared() || isDictionary()`.
+    return immutableFlags & IS_NATIVE_BIT;
+  }
+
+  bool isShared() const { return kind() == Kind::Shared; }
+  bool isDictionary() const { return kind() == Kind::Dictionary; }
+  bool isProxy() const { return kind() == Kind::Proxy; }
+  bool isWasmGC() const { return kind() == Kind::WasmGC; }
+
+  inline NativeShape& asNative();
   inline SharedShape& asShared();
   inline DictionaryShape& asDictionary();
 
+  inline const NativeShape& asNative() const;
   inline const SharedShape& asShared() const;
   inline const DictionaryShape& asDictionary() const;
 
-  uint32_t numFixedSlots() const {
-    return (immutableFlags & FIXED_SLOTS_MASK) >> FIXED_SLOTS_SHIFT;
-  }
-
- public:
 #ifdef DEBUG
   void dump(js::GenericPrinter& out) const;
   void dump() const;
@@ -416,8 +447,10 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
   static inline size_t offsetOfImmutableFlags() {
     return offsetof(Shape, immutableFlags);
   }
-  static inline uint32_t fixedSlotsMask() { return FIXED_SLOTS_MASK; }
-  static inline uint32_t fixedSlotsShift() { return FIXED_SLOTS_SHIFT; }
+
+  static constexpr uint32_t kindShift() { return KIND_SHIFT; }
+  static constexpr uint32_t kindMask() { return KIND_MASK; }
+  static constexpr uint32_t isNativeBit() { return IS_NATIVE_BIT; }
 
   static constexpr size_t offsetOfCachePtr() { return offsetof(Shape, cache_); }
 
@@ -426,6 +459,8 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
     static_assert(offsetOfBaseShape() == offsetof(JS::shadow::Shape, base));
     static_assert(offsetof(Shape, immutableFlags) ==
                   offsetof(JS::shadow::Shape, immutableFlags));
+    static_assert(KIND_SHIFT == JS::shadow::Shape::KIND_SHIFT);
+    static_assert(KIND_MASK == JS::shadow::Shape::KIND_MASK);
     static_assert(FIXED_SLOTS_SHIFT == JS::shadow::Shape::FIXED_SLOTS_SHIFT);
     static_assert(FIXED_SLOTS_MASK == JS::shadow::Shape::FIXED_SLOTS_MASK);
     // Sanity check Shape size is what we expect.
@@ -437,15 +472,48 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
   }
 };
 
-class SharedShape : public js::Shape {
+// Shared or dictionary shape for a NativeObject.
+class NativeShape : public Shape {
+ protected:
+  NativeShape(Kind kind, BaseShape* base, ObjectFlags objectFlags,
+              uint32_t nfixed, PropMap* map, uint32_t mapLength)
+      : Shape(kind, base, objectFlags) {
+    MOZ_ASSERT(base->clasp()->isNativeObject());
+    MOZ_ASSERT(mapLength <= PropMap::Capacity);
+    immutableFlags |= (nfixed << FIXED_SLOTS_SHIFT) | mapLength;
+    nativePropMap_ = map;
+  }
+
+ public:
+  PropMap* propMap() const { return nativePropMap_; }
+  uint32_t propMapLength() const { return immutableFlags & MAP_LENGTH_MASK; }
+
+  PropertyInfoWithKey lastProperty() const {
+    MOZ_ASSERT(propMapLength() > 0);
+    size_t index = propMapLength() - 1;
+    return propMap()->getPropertyInfoWithKey(index);
+  }
+
+  MOZ_ALWAYS_INLINE PropMap* lookup(JSContext* cx, PropertyKey key,
+                                    uint32_t* index);
+  MOZ_ALWAYS_INLINE PropMap* lookupPure(PropertyKey key, uint32_t* index);
+
+  uint32_t numFixedSlots() const {
+    return (immutableFlags & FIXED_SLOTS_MASK) >> FIXED_SLOTS_SHIFT;
+  }
+
+  // For JIT usage.
+  static constexpr uint32_t fixedSlotsMask() { return FIXED_SLOTS_MASK; }
+  static constexpr uint32_t fixedSlotsShift() { return FIXED_SLOTS_SHIFT; }
+};
+
+// Shared shape for a NativeObject.
+class SharedShape : public NativeShape {
   friend class js::gc::CellAllocator;
   SharedShape(BaseShape* base, ObjectFlags objectFlags, uint32_t nfixed,
               PropMap* map, uint32_t mapLength)
-      : Shape(base, objectFlags, nfixed, map, mapLength,
-              /* isDictionary = */ false) {
-    if (base->clasp()->isNativeObject()) {
-      initSmallSlotSpan();
-    }
+      : NativeShape(Kind::Shared, base, objectFlags, nfixed, map, mapLength) {
+    initSmallSlotSpan();
   }
 
   static SharedShape* new_(JSContext* cx, Handle<BaseShape*> base,
@@ -465,7 +533,7 @@ class SharedShape : public js::Shape {
  public:
   SharedPropMap* propMap() const {
     MOZ_ASSERT(isShared());
-    return propMap_ ? propMap_->asShared() : nullptr;
+    return nativePropMap_ ? nativePropMap_->asShared() : nullptr;
   }
   inline SharedPropMap* propMapMaybeForwarded() const;
 
@@ -493,7 +561,6 @@ class SharedShape : public js::Shape {
   }
   uint32_t slotSpan() const {
     MOZ_ASSERT(isShared());
-    MOZ_ASSERT(getObjectClass()->isNativeObject());
     uint32_t span =
         (immutableFlags & SMALL_SLOTSPAN_MASK) >> SMALL_SLOTSPAN_SHIFT;
     if (MOZ_LIKELY(span < SMALL_SLOTSPAN_MAX)) {
@@ -548,15 +615,16 @@ class SharedShape : public js::Shape {
                                               Handle<ObjectSubclass*> obj);
 };
 
-class DictionaryShape : public js::Shape {
+// Dictionary shape for a NativeObject.
+class DictionaryShape : public NativeShape {
   friend class ::JSObject;
   friend class js::gc::CellAllocator;
   friend class NativeObject;
 
   DictionaryShape(BaseShape* base, ObjectFlags objectFlags, uint32_t nfixed,
                   PropMap* map, uint32_t mapLength)
-      : Shape(base, objectFlags, nfixed, map, mapLength,
-              /* isDictionary = */ true) {
+      : NativeShape(Kind::Dictionary, base, objectFlags, nfixed, map,
+                    mapLength) {
     MOZ_ASSERT(map);
   }
 
@@ -566,7 +634,7 @@ class DictionaryShape : public js::Shape {
                       uint32_t mapLength) {
     MOZ_ASSERT(isDictionary());
     objectFlags_ = flags;
-    propMap_ = map;
+    nativePropMap_ = map;
     immutableFlags = (immutableFlags & ~MAP_LENGTH_MASK) | mapLength;
     MOZ_ASSERT(propMapLength() == mapLength);
   }
@@ -594,10 +662,50 @@ class DictionaryShape : public js::Shape {
 
   DictionaryPropMap* propMap() const {
     MOZ_ASSERT(isDictionary());
-    MOZ_ASSERT(propMap_);
-    return propMap_->asDictionary();
+    MOZ_ASSERT(nativePropMap_);
+    return nativePropMap_->asDictionary();
   }
 };
+
+// Shape used for a ProxyObject.
+class ProxyShape : public Shape {
+  friend class js::gc::CellAllocator;
+  ProxyShape(BaseShape* base, ObjectFlags objectFlags)
+      : Shape(Kind::Proxy, base, objectFlags) {
+    MOZ_ASSERT(base->clasp()->isProxyObject());
+  }
+
+  static ProxyShape* new_(JSContext* cx, Handle<BaseShape*> base,
+                          ObjectFlags objectFlags);
+
+ public:
+  static ProxyShape* getShape(JSContext* cx, const JSClass* clasp,
+                              JS::Realm* realm, TaggedProto proto,
+                              ObjectFlags objectFlags);
+};
+
+// Shape used for a WasmGCObject.
+class WasmGCShape : public Shape {
+  friend class js::gc::CellAllocator;
+  WasmGCShape(BaseShape* base, ObjectFlags objectFlags)
+      : Shape(Kind::WasmGC, base, objectFlags) {
+    MOZ_ASSERT(!base->clasp()->isProxyObject());
+    MOZ_ASSERT(!base->clasp()->isNativeObject());
+  }
+
+  static WasmGCShape* new_(JSContext* cx, Handle<BaseShape*> base,
+                           ObjectFlags objectFlags);
+
+ public:
+  static WasmGCShape* getShape(JSContext* cx, const JSClass* clasp,
+                               JS::Realm* realm, TaggedProto proto,
+                               ObjectFlags objectFlags);
+};
+
+inline NativeShape& js::Shape::asNative() {
+  MOZ_ASSERT(isNative());
+  return *static_cast<NativeShape*>(this);
+}
 
 inline SharedShape& js::Shape::asShared() {
   MOZ_ASSERT(isShared());
@@ -607,6 +715,11 @@ inline SharedShape& js::Shape::asShared() {
 inline DictionaryShape& js::Shape::asDictionary() {
   MOZ_ASSERT(isDictionary());
   return *static_cast<DictionaryShape*>(this);
+}
+
+inline const NativeShape& js::Shape::asNative() const {
+  MOZ_ASSERT(isNative());
+  return *static_cast<const NativeShape*>(this);
 }
 
 inline const SharedShape& js::Shape::asShared() const {
@@ -635,28 +748,28 @@ class MOZ_RAII ShapePropertyIter {
   const bool isDictionary_;
 
  protected:
-  ShapePropertyIter(JSContext* cx, Shape* shape, bool isDictionary)
+  ShapePropertyIter(JSContext* cx, NativeShape* shape, bool isDictionary)
       : map_(cx, shape->propMap()),
         mapLength_(shape->propMapLength()),
         isDictionary_(isDictionary) {
     static_assert(allowGC == CanGC);
     MOZ_ASSERT(shape->isDictionary() == isDictionary);
-    MOZ_ASSERT(shape->getObjectClass()->isNativeObject());
+    MOZ_ASSERT(shape->isNative());
   }
-  ShapePropertyIter(Shape* shape, bool isDictionary)
+  ShapePropertyIter(NativeShape* shape, bool isDictionary)
       : map_(nullptr, shape->propMap()),
         mapLength_(shape->propMapLength()),
         isDictionary_(isDictionary) {
     static_assert(allowGC == NoGC);
     MOZ_ASSERT(shape->isDictionary() == isDictionary);
-    MOZ_ASSERT(shape->getObjectClass()->isNativeObject());
+    MOZ_ASSERT(shape->isNative());
   }
 
  public:
-  ShapePropertyIter(JSContext* cx, Shape* shape)
+  ShapePropertyIter(JSContext* cx, NativeShape* shape)
       : ShapePropertyIter(cx, shape, shape->isDictionary()) {}
 
-  explicit ShapePropertyIter(Shape* shape)
+  explicit ShapePropertyIter(NativeShape* shape)
       : ShapePropertyIter(shape, shape->isDictionary()) {}
 
   // Deleted constructors: use SharedShapePropertyIter instead.

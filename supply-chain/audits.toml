@@ -7,6 +7,11 @@ criteria = "safe-to-deploy"
 version = "0.1.0"
 notes = "Written and maintained by Gfx team at Mozilla."
 
+[[audits.alsa]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.4.3 -> 0.7.0"
+
 [[audits.android_logger]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -722,6 +727,11 @@ criteria = "safe-to-deploy"
 version = "0.12.3"
 notes = "This version is used in rust's libstd, so effectively we're already trusting it"
 
+[[audits.hashlink]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.7.0 -> 0.8.1"
+
 [[audits.hex]]
 who = "Simon Friedberger <simon@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -804,6 +814,11 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.4 -> 0.5.7"
 
+[[audits.memoffset]]
+who = "Gabriele Svelto <gsvelto@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.6.5 -> 0.7.1"
+
 [[audits.metal]]
 who = "Jim Blandy <jimb@red-bean.com>"
 criteria = "safe-to-deploy"
@@ -855,6 +870,12 @@ who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
 version = "1.0.4"
 notes = "This is a trivial crate."
+
+[[audits.nix]]
+who = "Gabriele Svelto <gsvelto@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.15.0 -> 0.25.0"
+notes = "Plenty of new bindings but also several important bug fixes (including buffer overflows). New unsafe sections are restricted to wrappers and are no more dangerous than calling the C functions."
 
 [[audits.nss-gk-api]]
 who = "John M. Schanck <jschanck@mozilla.com>"
@@ -1164,6 +1185,11 @@ Panics are handled in all Rust FFI methods, meaning that projects which do not
 disable unwinding will still consistently abort (using `libc::abort()`) if a
 panic occurs in the Rust code.
 """
+
+[[audits.rusqlite]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.27.0 -> 0.28.0"
 
 [[audits.rust_decimal]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"

@@ -47,12 +47,9 @@ RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineStreamWrapper::Decode(
         MediaResult(NS_ERROR_FAILURE, "MFMediaEngineStreamWrapper is shutdown"),
         __func__);
   }
-  Microsoft::WRL::ComPtr<MFMediaEngineStream> stream = mStream;
-  Unused << mTaskQueue->Dispatch(NS_NewRunnableFunction(
-      "MFMediaEngineStreamWrapper::Decode",
-      [sample = RefPtr{aSample}, stream]() { stream->NotifyNewData(sample); }));
+  RefPtr<MediaRawData> sample = aSample;
   return InvokeAsync(mTaskQueue, mStream.Get(), __func__,
-                     &MFMediaEngineStream::OutputData);
+                     &MFMediaEngineStream::OutputData, std::move(sample));
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineStreamWrapper::Drain() {
@@ -115,6 +112,7 @@ HRESULT MFMediaEngineStream::RuntimeClassInitialize(
     uint64_t aStreamId, const TrackInfo& aInfo, MFMediaSource* aParentSource) {
   mParentSource = aParentSource;
   mTaskQueue = aParentSource->GetTaskQueue();
+  MOZ_ASSERT(mTaskQueue);
   mStreamId = aStreamId;
   RETURN_IF_FAILED(wmf::MFCreateEventQueue(&mMediaEventQueue));
 
@@ -145,8 +143,12 @@ HRESULT MFMediaEngineStream::Start(const PROPVARIANT* aPosition) {
     SLOG("No need to start non-selected stream");
     return S_OK;
   }
+  if (IsShutdown()) {
+    return MF_E_SHUTDOWN;
+  }
   SLOG("Start");
   RETURN_IF_FAILED(QueueEvent(MEStreamStarted, GUID_NULL, S_OK, aPosition));
+  MOZ_ASSERT(mTaskQueue);
   Unused << mTaskQueue->Dispatch(NS_NewRunnableFunction(
       "MFMediaEngineStream::Start", [self = RefPtr{this}, aPosition, this]() {
         if (const bool isFromCurrentPosition = aPosition->vt == VT_EMPTY;
@@ -206,12 +208,14 @@ void MFMediaEngineStream::Shutdown() {
   // MF_E_SHUTDOWN.
   RETURN_VOID_IF_FAILED(mMediaEventQueue->Shutdown());
   ComPtr<MFMediaEngineStream> self = this;
+  MOZ_ASSERT(mTaskQueue);
   Unused << mTaskQueue->Dispatch(
       NS_NewRunnableFunction("MFMediaEngineStream::Shutdown", [self]() {
         self->mParentSource = nullptr;
         self->mRawDataQueueForFeedingEngine.Reset();
         self->mRawDataQueueForGeneratingOutput.Reset();
         self->ShutdownCleanUpOnTaskQueue();
+        self->mTaskQueue = nullptr;
       }));
 }
 
@@ -250,6 +254,7 @@ IFACEMETHODIMP MFMediaEngineStream::RequestSample(IUnknown* aToken) {
 
   ComPtr<IUnknown> token = aToken;
   ComPtr<MFMediaEngineStream> self = this;
+  MOZ_ASSERT(mTaskQueue);
   Unused << mTaskQueue->Dispatch(NS_NewRunnableFunction(
       "MFMediaEngineStream::RequestSample", [token, self, this]() {
         AssertOnTaskQueue();
@@ -442,13 +447,13 @@ bool MFMediaEngineStream::IsEnded() const {
 }
 
 RefPtr<MediaDataDecoder::FlushPromise> MFMediaEngineStream::Flush() {
-  AssertOnTaskQueue();
   if (IsShutdown()) {
     return MediaDataDecoder::FlushPromise::CreateAndReject(
         MediaResult(NS_ERROR_FAILURE,
                     RESULT_DETAIL("MFMediaEngineStream is shutdown")),
         __func__);
   }
+  AssertOnTaskQueue();
   SLOG("Flush");
   mRawDataQueueForFeedingEngine.Reset();
   mRawDataQueueForGeneratingOutput.Reset();
@@ -456,8 +461,16 @@ RefPtr<MediaDataDecoder::FlushPromise> MFMediaEngineStream::Flush() {
   return MediaDataDecoder::FlushPromise::CreateAndResolve(true, __func__);
 }
 
-RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineStream::OutputData() {
+RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineStream::OutputData(
+    RefPtr<MediaRawData> aSample) {
+  if (IsShutdown()) {
+    return MediaDataDecoder::DecodePromise::CreateAndReject(
+        MediaResult(NS_ERROR_FAILURE,
+                    RESULT_DETAIL("MFMediaEngineStream is shutdown")),
+        __func__);
+  }
   AssertOnTaskQueue();
+  NotifyNewData(aSample);
   MediaDataDecoder::DecodedData outputs;
   if (RefPtr<MediaData> outputData = OutputDataInternal()) {
     outputs.AppendElement(outputData);
@@ -470,6 +483,12 @@ RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineStream::OutputData() {
 };
 
 RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineStream::Drain() {
+  if (IsShutdown()) {
+    return MediaDataDecoder::DecodePromise::CreateAndReject(
+        MediaResult(NS_ERROR_FAILURE,
+                    RESULT_DETAIL("MFMediaEngineStream is shutdown")),
+        __func__);
+  }
   AssertOnTaskQueue();
   MediaDataDecoder::DecodedData outputs;
   while (RefPtr<MediaData> outputData = OutputDataInternal()) {
@@ -483,14 +502,16 @@ RefPtr<MediaDataDecoder::DecodePromise> MFMediaEngineStream::Drain() {
 }
 
 void MFMediaEngineStream::AssertOnTaskQueue() const {
-  MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn());
+  MOZ_ASSERT(mTaskQueue && mTaskQueue->IsCurrentThreadIn());
 }
 
 void MFMediaEngineStream::AssertOnMFThreadPool() const {
   // We can't really assert the thread id from thread pool, because it would
   // change any time. So we just assert this is not the task queue, and use the
   // explicit function name to indicate what thread we should run on.
-  MOZ_ASSERT(!mTaskQueue->IsCurrentThreadIn());
+  // TODO : this assertion is not precise, because the running thread could be
+  // the stream wrapper thread as well,
+  MOZ_ASSERT(!mTaskQueue || !mTaskQueue->IsCurrentThreadIn());
 }
 
 #undef WLOGV

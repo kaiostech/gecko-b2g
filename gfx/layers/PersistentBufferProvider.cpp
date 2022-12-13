@@ -257,7 +257,7 @@ bool PersistentBufferProviderShared::SetKnowsCompositor(
     // Get rid of everything else
     Destroy();
 
-    if (prevTexture) {
+    if (prevTexture && prevTexture->IsValid()) {
       RefPtr<TextureClient> newTexture =
           CreateTexture(aKnowsCompositor, mFormat, mSize, mWillReadFrequently);
 
@@ -643,8 +643,7 @@ void PersistentBufferProviderShared::Destroy() {
     mPermanentBackBuffer = nullptr;
   }
 
-  for (auto& mTexture : mTextures) {
-    TextureClient* texture = mTexture;
+  for (auto& texture : mTextures) {
     if (texture && texture->IsLocked()) {
       MOZ_ASSERT(false);
       texture->Unlock();

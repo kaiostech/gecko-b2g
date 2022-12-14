@@ -26,6 +26,7 @@
 #include "builtin/Symbol.h"
 #include "frontend/BytecodeCompilation.h"
 #include "frontend/BytecodeCompiler.h"
+#include "frontend/FrontendContext.h"  // AutoReportFrontendContext, ManualReportFrontendContext
 #include "jit/Ion.h"
 #include "js/CallNonGenericMethod.h"
 #include "js/CompilationAndEvaluation.h"
@@ -41,7 +42,6 @@
 #include "util/Text.h"
 #include "vm/BooleanObject.h"
 #include "vm/Compartment.h"
-#include "vm/ErrorContext.h"  // AutoReportFrontendContext, ManualReportFrontendContext
 #include "vm/FunctionFlags.h"          // js::FunctionFlags
 #include "vm/GeneratorAndAsyncKind.h"  // js::GeneratorKind, js::FunctionAsyncKind
 #include "vm/GlobalObject.h"
@@ -1438,9 +1438,9 @@ bool JSFunction::delazifyLazilyInterpretedFunction(JSContext* cx,
   }
 
   // Finally, compile the script if it really doesn't exist.
-  AutoReportFrontendContext ec(cx);
+  AutoReportFrontendContext fc(cx);
   if (!frontend::DelazifyCanonicalScriptedFunction(
-          cx, &ec, cx->stackLimitForCurrentPrincipal(), fun)) {
+          cx, &fc, cx->stackLimitForCurrentPrincipal(), fun)) {
     // The frontend shouldn't fail after linking the function and the
     // non-lazy script together.
     MOZ_ASSERT(fun->baseScript() == lazy);

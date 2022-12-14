@@ -13,6 +13,7 @@
 
 #include "builtin/RegExp.h"
 #include "builtin/SelfHostingDefines.h"  // REGEXP_*_FLAG
+#include "frontend/FrontendContext.h"    // AutoReportFrontendContext
 #include "frontend/TokenStream.h"
 #include "gc/HashUtil.h"
 #include "irregexp/RegExpAPI.h"
@@ -22,7 +23,6 @@
 #include "js/RegExp.h"
 #include "js/RegExpFlags.h"  // JS::RegExpFlags
 #include "util/StringBuffer.h"
-#include "vm/ErrorContext.h"  // AutoReportFrontendContext
 #include "vm/MatchPairs.h"
 #include "vm/PlainObject.h"
 #include "vm/RegExpStatics.h"
@@ -205,9 +205,9 @@ RegExpObject* RegExpObject::create(JSContext* cx, Handle<JSAtom*> source,
                                    RegExpFlags flags, NewObjectKind newKind) {
   Rooted<RegExpObject*> regexp(cx);
   {
-    AutoReportFrontendContext ec(cx);
+    AutoReportFrontendContext fc(cx);
     CompileOptions dummyOptions(cx);
-    frontend::DummyTokenStream dummyTokenStream(cx, &ec, dummyOptions);
+    frontend::DummyTokenStream dummyTokenStream(cx, &fc, dummyOptions);
 
     LifoAllocScope allocScope(&cx->tempLifoAlloc());
     if (!irregexp::CheckPatternSyntax(cx, cx->stackLimitForCurrentPrincipal(),
@@ -1211,9 +1211,9 @@ JS_PUBLIC_API bool JS::CheckRegExpSyntax(JSContext* cx, const char16_t* chars,
   AssertHeapIsIdle();
   CHECK_THREAD(cx);
 
-  AutoReportFrontendContext ec(cx);
+  AutoReportFrontendContext fc(cx);
   CompileOptions dummyOptions(cx);
-  frontend::DummyTokenStream dummyTokenStream(cx, &ec, dummyOptions);
+  frontend::DummyTokenStream dummyTokenStream(cx, &fc, dummyOptions);
 
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
 
@@ -1223,11 +1223,11 @@ JS_PUBLIC_API bool JS::CheckRegExpSyntax(JSContext* cx, const char16_t* chars,
   error.set(UndefinedValue());
   if (!success) {
     // We can fail because of OOM or over-recursion even if the syntax is valid.
-    if (ec.hadOutOfMemory() || ec.hadOverRecursed()) {
+    if (fc.hadOutOfMemory() || fc.hadOverRecursed()) {
       return false;
     }
 
-    ec.convertToRuntimeErrorAndClear();
+    fc.convertToRuntimeErrorAndClear();
     if (!cx->getPendingException(error)) {
       return false;
     }

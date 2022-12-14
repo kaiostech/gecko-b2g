@@ -16,10 +16,10 @@
 #include <limits>
 #include <type_traits>
 
+#include "frontend/FrontendContext.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "util/StringBuffer.h"
 #include "util/Unicode.h"  // unicode::REPLACEMENT_CHARACTER
-#include "vm/ErrorContext.h"
 #include "vm/JSContext.h"
 
 using mozilla::AsChars;
@@ -167,16 +167,16 @@ template UTF8CharsZ JS::CharsToNewUTF8CharsZ(
     JSContext* cx, const mozilla::Range<const char16_t> chars);
 
 template UTF8CharsZ JS::CharsToNewUTF8CharsZ(
-    ErrorAllocator* cx, const mozilla::Range<Latin1Char> chars);
+    FrontendAllocator* cx, const mozilla::Range<Latin1Char> chars);
 
 template UTF8CharsZ JS::CharsToNewUTF8CharsZ(
-    ErrorAllocator* cx, const mozilla::Range<char16_t> chars);
+    FrontendAllocator* cx, const mozilla::Range<char16_t> chars);
 
 template UTF8CharsZ JS::CharsToNewUTF8CharsZ(
-    ErrorAllocator* cx, const mozilla::Range<const Latin1Char> chars);
+    FrontendAllocator* cx, const mozilla::Range<const Latin1Char> chars);
 
 template UTF8CharsZ JS::CharsToNewUTF8CharsZ(
-    ErrorAllocator* cx, const mozilla::Range<const char16_t> chars);
+    FrontendAllocator* cx, const mozilla::Range<const char16_t> chars);
 
 static constexpr uint32_t INVALID_UTF8 = std::numeric_limits<char32_t>::max();
 

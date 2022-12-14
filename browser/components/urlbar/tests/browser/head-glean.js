@@ -18,6 +18,10 @@ XPCOMUtils.defineLazyGetter(lazy, "QuickSuggestTestUtils", () => {
   return new Utils(this);
 });
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.sys.mjs",
+});
+
 async function addTopSites(url) {
   for (let i = 0; i < 5; i++) {
     await PlacesTestUtils.addVisits(url);
@@ -87,7 +91,7 @@ async function ensureQuickSuggestInit() {
 async function doTest(testFn) {
   await Services.fog.testFlushAllChildren();
   Services.fog.testResetFOG();
-  gURLBar.controller.engagementEvent.discard();
+  gURLBar.controller.engagementEvent.reset();
   await PlacesUtils.history.clear();
   await PlacesUtils.bookmarks.eraseEverything();
   await PlacesTestUtils.clearHistoryVisits();
@@ -313,7 +317,7 @@ async function setup() {
 }
 
 async function setupNimbus(variables) {
-  return lazy.QuickSuggestTestUtils.initNimbusFeature(variables);
+  return lazy.UrlbarTestUtils.initNimbusFeature(variables);
 }
 
 async function showResultByArrowDown() {

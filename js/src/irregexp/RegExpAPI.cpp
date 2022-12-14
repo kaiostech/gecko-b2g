@@ -13,6 +13,7 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Casting.h"
 
+#include "frontend/FrontendContext.h"  // AutoReportFrontendContext
 #include "frontend/TokenStream.h"
 #include "gc/GC.h"
 #include "gc/Zone.h"
@@ -31,7 +32,6 @@
 #include "js/friend/ErrorMessages.h"  // JSMSG_*
 #include "js/friend/StackLimits.h"    // js::ReportOverRecursed
 #include "util/StringBuffer.h"
-#include "vm/ErrorContext.h"  // AutoReportFrontendContext
 #include "vm/MatchPairs.h"
 #include "vm/PlainObject.h"
 #include "vm/RegExpShared.h"
@@ -680,9 +680,9 @@ bool CompilePattern(JSContext* cx, MutableHandleRegExpShared re,
     V8HandleString wrappedPattern(v8::internal::String(pattern), cx->isolate);
     if (!RegExpParser::ParseRegExpFromHeapString(
             cx->isolate, &zone, wrappedPattern, flags, &data)) {
-      AutoReportFrontendContext ec(cx);
+      AutoReportFrontendContext fc(cx);
       JS::CompileOptions options(cx);
-      DummyTokenStream dummyTokenStream(cx, &ec, options);
+      DummyTokenStream dummyTokenStream(cx, &fc, options);
       ReportSyntaxError(dummyTokenStream, data, pattern);
       return false;
     }

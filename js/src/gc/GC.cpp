@@ -1298,12 +1298,12 @@ void GCRuntime::updateHelperThreadCount() {
 }
 
 size_t GCRuntime::markingWorkerCount() const {
-  if (!parallelMarkingEnabled) {
+  if (!CanUseExtraThreads() || !parallelMarkingEnabled) {
     return 1;
   }
 
   // Limit parallel marking to use at most two threads initially.
-  return std::min(parallelWorkerCount(), size_t(2));
+  return std::min(GetHelperThreadCount(), size_t(2));
 }
 
 #ifdef DEBUG
@@ -2370,6 +2370,7 @@ void GCRuntime::startCollection(JS::GCReason reason) {
   cleanUpEverything = ShouldCleanUpEverything(gcOptions());
   isCompacting = shouldCompact();
   rootsRemoved = false;
+  sweepGroupIndex = 0;
   lastGCStartTime_ = TimeStamp::Now();
 
 #ifdef DEBUG
@@ -2959,7 +2960,10 @@ bool GCRuntime::appendTestMarkQueue(const JS::Value& value) {
   return testMarkQueue.append(value);
 }
 
-void GCRuntime::clearTestMarkQueue() { testMarkQueue.clear(); }
+void GCRuntime::clearTestMarkQueue() {
+  testMarkQueue.clear();
+  queuePos = 0;
+}
 
 size_t GCRuntime::testMarkQueuePos() const { return queuePos; }
 

@@ -426,18 +426,5 @@ android-hw-browsertime:
 android-hw-browsertime-profiling:
     - browsertime-tp6m-profiling
 
-linux-tsan-tests:
-    - crashtest
-    - mochitest-a11y
-    - mochitest-browser-a11y
-    - mochitest-browser-chrome
-    - mochitest-media
-    - mochitest-plain
-    - mochitest-webgpu
-    - reftest
-    - web-platform-tests
-    - web-platform-tests-reftest
-    - xpcshell
-
 gonk-b2g-x86_64-tests:
     - xpcshell

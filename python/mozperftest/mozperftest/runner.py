@@ -208,7 +208,7 @@ def run_tools(mach_cmd, kwargs):
         artifacts = _create_artifacts_dir(kwargs, SRC_ROOT)
     tempdir = tempfile.mkdtemp()
 
-    if kwargs.get("output"):
+    if "output" in kwargs:
         kwargs.pop("output")
     s = SideBySide(str(tempdir))
     s.run(**kwargs)

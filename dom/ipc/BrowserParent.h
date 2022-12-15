@@ -434,8 +434,9 @@ class BrowserParent final : public PBrowserParent,
   mozilla::ipc::IPCResult RecvCursorOut();
   mozilla::ipc::IPCResult RecvCursorShowContextMenu();
 
-  PColorPickerParent* AllocPColorPickerParent(const nsString& aTitle,
-                                              const nsString& aInitialColor);
+  PColorPickerParent* AllocPColorPickerParent(
+      const nsString& aTitle, const nsString& aInitialColor,
+      const nsTArray<nsString>& aDefaultColors);
 
   bool DeallocPColorPickerParent(PColorPickerParent* aColorPicker);
 

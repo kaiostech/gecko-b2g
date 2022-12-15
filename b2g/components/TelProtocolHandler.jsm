@@ -21,12 +21,6 @@ function TelProtocolHandler() {}
 
 TelProtocolHandler.prototype = {
   scheme: "tel",
-  defaultPort: -1,
-  protocolFlags:
-    Ci.nsIProtocolHandler.URI_NORELATIVE |
-    Ci.nsIProtocolHandler.URI_NOAUTH |
-    Ci.nsIProtocolHandler.URI_LOADABLE_BY_ANYONE |
-    Ci.nsIProtocolHandler.URI_DOES_NOT_RETURN_DATA,
   allowPort: () => false,
 
   newURI(aSpec, aOriginCharset) {

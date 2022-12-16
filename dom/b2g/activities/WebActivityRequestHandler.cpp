@@ -120,9 +120,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(WebActivityRequestHandler)
   tmp->mMessage.setUndefined();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WebActivityRequestHandler, AddRef)
-NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WebActivityRequestHandler, Release)
-
 WebActivityRequestHandler::WebActivityRequestHandler(const JS::Value& aMessage,
                                                      const nsAString& aId,
                                                      bool aReturnValue)

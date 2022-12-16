@@ -482,6 +482,10 @@ bool ResultsToJSValue(JSContext* cx, ResultType type, void* registerResultLoc,
 // by wasm exception handlers.
 void ReportTrapError(JSContext* cx, unsigned errorNumber);
 
+// Instance is not a GC thing itself but contains GC thing pointers. Ensure they
+// are traced appropriately.
+void TraceInstanceEdge(JSTracer* trc, Instance* instance, const char* name);
+
 }  // namespace wasm
 }  // namespace js
 

@@ -1852,6 +1852,10 @@ bool Instance::memoryAccessInGuardRegion(const uint8_t* addr,
 }
 
 void Instance::tracePrivate(JSTracer* trc) {
+  // This method is only called from WasmInstanceObject so the only reason why
+  // TraceEdge is called is so that the pointer can be updated during a moving
+  // GC.
+  MOZ_ASSERT_IF(trc->isMarkingTracer(), gc::IsMarked(trc->runtime(), object_));
   TraceEdge(trc, &object_, "wasm instance object");
 
   // OK to just do one tier here; though the tiers have different funcImports
@@ -1899,6 +1903,22 @@ void Instance::tracePrivate(JSTracer* trc) {
   if (maybeDebug_) {
     maybeDebug_->trace(trc);
   }
+}
+
+void js::wasm::TraceInstanceEdge(JSTracer* trc, Instance* instance,
+                                 const char* name) {
+  if (IsTracerKind(trc, JS::TracerKind::Moving)) {
+    // Compacting GC: The Instance does not move so there is nothing to do here.
+    // Reading the object from the instance below would be a data race during
+    // multi-threaded updates. Compacting GC does not rely on graph traversal
+    // to find all edges that need to be updated.
+    return;
+  }
+
+  // Instance fields are traced by the owning WasmInstanceObject's trace
+  // hook. Tracing this ensures they are traced once.
+  JSObject* object = instance->objectUnbarriered();
+  TraceManuallyBarrieredEdge(trc, &object, name);
 }
 
 uintptr_t Instance::traceFrame(JSTracer* trc, const wasm::WasmFrameIter& wfi,

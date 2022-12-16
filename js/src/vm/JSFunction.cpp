@@ -649,14 +649,13 @@ inline void JSFunction::trace(JSTracer* trc) {
       }
     }
   }
-  // wasm/asm.js exported functions need to keep WasmInstanceObject alive,
+  // wasm/asm.js exported functions need to keep WasmInstantObject alive,
   // access it via WASM_INSTANCE_SLOT extended slot.
   if (isAsmJSNative() || isWasm()) {
     const Value& v = getExtendedSlot(FunctionExtended::WASM_INSTANCE_SLOT);
     if (!v.isUndefined()) {
-      auto* instance = static_cast<js::wasm::Instance*>(v.toPrivate());
-      WasmInstanceObject* obj = instance->objectUnbarriered();
-      TraceManuallyBarrieredEdge(trc, &obj, "JSFunction wasm instance");
+      auto* instance = static_cast<wasm::Instance*>(v.toPrivate());
+      wasm::TraceInstanceEdge(trc, instance, "JSFunction instance");
     }
   }
 }

@@ -24,6 +24,7 @@ gecko_metrics = [
     "netwerk/protocol/http/metrics.yaml",
     "toolkit/components/cookiebanners/metrics.yaml",
     "toolkit/components/glean/metrics.yaml",
+    "toolkit/components/pdfjs/metrics.yaml",
     "toolkit/components/processtools/metrics.yaml",
 ]
 
@@ -37,7 +38,6 @@ firefox_desktop_metrics = [
     "browser/modules/metrics.yaml",
     "toolkit/components/extensions/metrics.yaml",
     "toolkit/components/nimbus/metrics.yaml",
-    "toolkit/components/pdfjs/metrics.yaml",
     "toolkit/components/search/metrics.yaml",
     "toolkit/components/telemetry/dap/metrics.yaml",
     "toolkit/components/telemetry/metrics.yaml",
@@ -66,6 +66,7 @@ metrics_yamls = (
 # (Firefox Desktop, Firefox for Android, Focus for Android, etc.).
 # Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
 gecko_pings = [
+    "dom/pings.yaml",
     "toolkit/components/glean/pings.yaml",
 ]
 

@@ -348,6 +348,15 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
    */
   void PostProcessRelations(const nsTArray<bool>& aToUpdate);
 
+  /**
+   * This method is called during shutdown, before we clear our
+   * reverse rel map from the document's mReverseRelations cache.
+   * Here, we traverse our reverse relations, removing our ID from
+   * the corresponding forward relation's target list. This ensures
+   * the stored forward relations do not reference defunct accessibles.
+   */
+  void PruneRelationsOnShutdown();
+
   uint32_t GetCachedTextLength();
   Maybe<const nsTArray<int32_t>&> GetCachedTextLines();
   Maybe<nsTArray<nsRect>> GetCachedCharData();
@@ -416,7 +425,7 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
   Maybe<nsRect> RetrieveCachedBounds() const;
   bool ApplyTransform(nsRect& aBounds) const;
   void ApplyScrollOffset(nsRect& aBounds) const;
-  void ApplyCrossProcOffset(nsRect& aBounds) const;
+  void ApplyCrossDocOffset(nsRect& aBounds) const;
   LayoutDeviceIntRect BoundsWithOffset(Maybe<nsRect> aOffset) const;
 
   virtual void ARIAGroupPosition(int32_t* aLevel, int32_t* aSetSize,

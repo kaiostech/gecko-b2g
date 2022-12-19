@@ -21,13 +21,14 @@ for example - use `all_tests.py` instead.
 import logging
 from importlib import import_module
 
-from gecko_taskgraph.optimize.schema import OptimizationSchema
-from gecko_taskgraph.transforms.test.other import get_mobile_project
-from gecko_taskgraph.util.chunking import manifest_loaders
 from mozbuild.schedules import INCLUSIVE_COMPONENTS
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import Schema, optionally_keyed_by, resolve_keyed_by
 from voluptuous import Any, Exclusive, Optional, Required
+
+from gecko_taskgraph.optimize.schema import OptimizationSchema
+from gecko_taskgraph.transforms.test.other import get_mobile_project
+from gecko_taskgraph.util.chunking import manifest_loaders
 
 logger = logging.getLogger(__name__)
 transforms = TransformSequence()
@@ -145,8 +146,10 @@ test_description_schema = Schema(
             ),
         ),
         # seconds of runtime after which the task will be killed.  Like 'chunks',
-        # this can be keyed by test pltaform.
-        Required("max-run-time"): optionally_keyed_by("test-platform", "subtest", int),
+        # this can be keyed by test platform, but also variant.
+        Required("max-run-time"): optionally_keyed_by(
+            "test-platform", "subtest", "variant", int
+        ),
         # the exit status code that indicates the task should be retried
         Optional("retry-exit-status"): [int],
         # Whether to perform a gecko checkout.

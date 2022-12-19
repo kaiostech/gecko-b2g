@@ -965,7 +965,8 @@ impl Stylist {
         element: E,
         pseudo: &PseudoElement,
         rule_inclusion: RuleInclusion,
-        parent_style: &ComputedValues,
+        originating_element_style: &Arc<ComputedValues>,
+        parent_style: &Arc<ComputedValues>,
         is_probe: bool,
         matching_fn: Option<&dyn Fn(&PseudoElement) -> bool>,
     ) -> Option<Arc<ComputedValues>>
@@ -975,6 +976,7 @@ impl Stylist {
         let cascade_inputs = self.lazy_pseudo_rules(
             guards,
             element,
+            originating_element_style,
             parent_style,
             pseudo,
             is_probe,
@@ -1104,7 +1106,8 @@ impl Stylist {
         &self,
         guards: &StylesheetGuards,
         element: E,
-        parent_style: &ComputedValues,
+        originating_element_style: &Arc<ComputedValues>,
+        parent_style: &Arc<ComputedValues>,
         pseudo: &PseudoElement,
         is_probe: bool,
         rule_inclusion: RuleInclusion,
@@ -1124,7 +1127,7 @@ impl Stylist {
         };
 
         let mut declarations = ApplicableDeclarationList::new();
-        let mut matching_context = MatchingContext::new(
+        let mut matching_context = MatchingContext::<'_, E::Impl>::new(
             MatchingMode::ForStatelessPseudoElement,
             None,
             None,
@@ -1133,6 +1136,8 @@ impl Stylist {
         );
 
         matching_context.pseudo_element_matching_fn = matching_fn;
+        matching_context.extra_data.originating_element_style =
+            Some(originating_element_style.clone());
 
         self.push_applicable_declarations(
             element,
@@ -1154,7 +1159,7 @@ impl Stylist {
         let mut visited_rules = None;
         if parent_style.visited_style().is_some() {
             let mut declarations = ApplicableDeclarationList::new();
-            let mut matching_context = MatchingContext::new_for_visited(
+            let mut matching_context = MatchingContext::<'_, E::Impl>::new_for_visited(
                 MatchingMode::ForStatelessPseudoElement,
                 None,
                 None,
@@ -1163,6 +1168,8 @@ impl Stylist {
                 needs_selector_flags,
             );
             matching_context.pseudo_element_matching_fn = matching_fn;
+            matching_context.extra_data.originating_element_style =
+                Some(originating_element_style.clone());
 
             self.push_applicable_declarations(
                 element,
@@ -2375,7 +2382,14 @@ impl CascadeData {
                 None => return true,
                 Some(ref c) => c,
             };
-            let matches = condition.matches(stylist.device(), element, &mut context.extra_data.cascade_input_flags).to_bool(/* unknown = */ false);
+            let matches = condition
+                .matches(
+                    stylist.device(),
+                    element,
+                    context.extra_data.originating_element_style.as_ref(),
+                    &mut context.extra_data.cascade_input_flags,
+                )
+                .to_bool(/* unknown = */ false);
             if !matches {
                 return false;
             }

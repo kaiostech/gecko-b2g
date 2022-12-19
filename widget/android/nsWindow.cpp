@@ -851,21 +851,9 @@ class NPZCSupport final
       window->DispatchHitTest(touchEvent);
     });
 
-    if (result.GetStatus() == nsEventStatus_eIgnore) {
-      if (aReturnResult) {
-        aReturnResult->Complete(java::PanZoomController::InputResultDetail::New(
-            INPUT_RESULT_UNHANDLED,
-            java::PanZoomController::SCROLLABLE_FLAG_NONE,
-            java::PanZoomController::OVERSCROLL_FLAG_NONE));
-      }
-      return;
-    }
-
-    MOZ_ASSERT(result.GetStatus() == nsEventStatus_eConsumeDoDefault);
-
     if (aReturnResult && result.GetHandledResult() != Nothing()) {
-      // We know conclusively that the root APZ handled this or not and
-      // don't need to do any more work.
+      MOZ_ASSERT(result.GetStatus() == nsEventStatus_eConsumeDoDefault ||
+                 result.GetStatus() == nsEventStatus_eIgnore);
       aReturnResult->Complete(
           ConvertAPZHandledResult(result.GetHandledResult().value()));
     }

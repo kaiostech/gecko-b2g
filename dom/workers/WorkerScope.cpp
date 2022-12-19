@@ -261,15 +261,6 @@ JSObject* WorkerGlobalScopeBase::GetGlobalJSObject() {
   return GetWrapper();
 }
 
-void WorkerGlobalScopeBase::NoteTerminating() {
-  if (mModuleLoader) {
-    mModuleLoader->Shutdown();
-    mModuleLoader = nullptr;
-  }
-
-  StartDying();
-}
-
 JSObject* WorkerGlobalScopeBase::GetGlobalJSObjectPreserveColor() const {
   AssertIsOnWorkerThread();
   return GetWrapperPreserveColor();
@@ -450,7 +441,7 @@ void WorkerGlobalScope::NoteTerminating() {
     return;
   }
 
-  WorkerGlobalScopeBase::NoteTerminating();
+  StartDying();
 }
 
 void WorkerGlobalScope::NoteShuttingDown() {

@@ -5,36 +5,34 @@
 /* eslint-env mozilla/browser-window */
 
 /**
- * The base view implements everything that's common to the toolbar and
- * menu views.
+ * The base view implements everything that's common to all the views.
+ * It should not be instanced directly, use a derived class instead.
  */
 class PlacesViewBase {
   /**
-   * @param {string} aPlace
+   * @param {string} placesUrl
    *   The query string associated with the view.
-   * @param {object} aOptions
-   *   Associated options for the view.
+   * @param {DOMElement} rootElt
+   *   The root element for the view.
+   * @param {DOMElement} viewElt
+   *   The view element.
    */
-  constructor(aPlace, aOptions = {}) {
-    if ("rootElt" in aOptions) {
-      this._rootElt = aOptions.rootElt;
+  constructor(placesUrl, rootElt, viewElt) {
+    this._rootElt = rootElt;
+    this._viewElt = viewElt;
+    let appendClass = this._rootElt.getAttribute("appendclasstochildren");
+    if (appendClass) {
+      this._appendClassToChildren = appendClass;
     }
-    if ("viewElt" in aOptions) {
-      this._viewElt = aOptions.viewElt;
-    }
-    this.options = aOptions;
     // Do initialization in subclass now that `this` exists.
     this._init?.();
     this._controller = new PlacesController(this);
-    this.place = aPlace;
+    this.place = placesUrl;
     this._viewElt.controllers.appendController(this._controller);
   }
 
   // The xul element that holds the entire view.
   _viewElt = null;
-  get viewElt() {
-    return this._viewElt;
-  }
 
   get associatedElement() {
     return this._viewElt;
@@ -104,21 +102,6 @@ class PlacesViewBase {
       this._resultNode = null;
       delete this._domNodes;
     }
-  }
-
-  _options = null;
-  get options() {
-    return this._options;
-  }
-  set options(val) {
-    if (!val) {
-      val = {};
-    }
-
-    if (!("extraClasses" in val)) {
-      val.extraClasses = {};
-    }
-    this._options = val;
   }
 
   /**
@@ -373,8 +356,8 @@ class PlacesViewBase {
       aPopup._emptyMenuitem.setAttribute("label", label);
       aPopup._emptyMenuitem.setAttribute("disabled", true);
       aPopup._emptyMenuitem.className = "bookmark-item";
-      if (typeof this.options.extraClasses.entry == "string") {
-        aPopup._emptyMenuitem.classList.add(this.options.extraClasses.entry);
+      if (this._appendClassToChildren) {
+        aPopup._emptyMenuitem.classList.add(this._appendClassToChildren);
       }
     }
 
@@ -437,8 +420,8 @@ class PlacesViewBase {
 
         element.appendChild(popup);
         element.className = "menu-iconic bookmark-item";
-        if (typeof this.options.extraClasses.entry == "string") {
-          element.classList.add(this.options.extraClasses.entry);
+        if (this._appendClassToChildren) {
+          element.classList.add(this._appendClassToChildren);
         }
 
         this._domNodes.set(aPlacesNode, popup);
@@ -466,8 +449,8 @@ class PlacesViewBase {
     let element = this._createDOMNodeForPlacesNode(aNewChild);
 
     if (element.localName == "menuitem" || element.localName == "menu") {
-      if (typeof this.options.extraClasses.entry == "string") {
-        element.classList.add(this.options.extraClasses.entry);
+      if (this._appendClassToChildren) {
+        element.classList.add(this._appendClassToChildren);
       }
     }
 
@@ -696,7 +679,7 @@ class PlacesViewBase {
     }
 
     return (this._isRTL =
-      document.defaultView.getComputedStyle(this.viewElt).direction == "rtl");
+      document.defaultView.getComputedStyle(this._viewElt).direction == "rtl");
   }
 
   get ownerWindow() {
@@ -735,12 +718,6 @@ class PlacesViewBase {
     }
 
     if (!hasMultipleURIs) {
-      aPopup.setAttribute("nofooterpopup", "true");
-    } else {
-      aPopup.removeAttribute("nofooterpopup");
-    }
-
-    if (!hasMultipleURIs) {
       // We don't have to show any option.
       if (aPopup._endOptOpenAllInTabs) {
         aPopup.removeChild(aPopup._endOptOpenAllInTabs);
@@ -759,15 +736,8 @@ class PlacesViewBase {
       aPopup._endOptOpenAllInTabs = document.createXULElement("menuitem");
       aPopup._endOptOpenAllInTabs.className = "openintabs-menuitem";
 
-      if (typeof this.options.extraClasses.entry == "string") {
-        aPopup._endOptOpenAllInTabs.classList.add(
-          this.options.extraClasses.entry
-        );
-      }
-      if (typeof this.options.extraClasses.footer == "string") {
-        aPopup._endOptOpenAllInTabs.classList.add(
-          this.options.extraClasses.footer
-        );
+      if (this._appendClassToChildren) {
+        aPopup._endOptOpenAllInTabs.classList.add(this._appendClassToChildren);
       }
 
       aPopup._endOptOpenAllInTabs.setAttribute(
@@ -788,42 +758,35 @@ class PlacesViewBase {
       return;
     }
 
-    // _startMarker is an hidden menuseparator that lives before places nodes.
+    // Places nodes are appended between _startMarker and _endMarker, that
+    // are hidden menuseparators. By default they take the whole panel...
     aPopup._startMarker = document.createXULElement("menuseparator");
     aPopup._startMarker.hidden = true;
     aPopup.insertBefore(aPopup._startMarker, aPopup.firstElementChild);
-
-    // _endMarker is a DOM node that lives after places nodes, specified with
-    // the 'insertionPoint' option or will be a hidden menuseparator.
-    let node = this.options.insertionPoint
-      ? aPopup.querySelector(this.options.insertionPoint)
-      : null;
-    if (node) {
-      aPopup._endMarker = node;
-    } else {
-      aPopup._endMarker = document.createXULElement("menuseparator");
-      aPopup._endMarker.hidden = true;
-    }
+    aPopup._endMarker = document.createXULElement("menuseparator");
+    aPopup._endMarker.hidden = true;
     aPopup.appendChild(aPopup._endMarker);
 
-    // Move the markers to the right position.
+    // ...but there can be static content before or after the places nodes, thus
+    // we move the markers to the right position, by checking for static content
+    // at the beginning of the view, and for an element with "afterplacescontent"
+    // attribute.
+    // TODO: In the future we should just use a container element.
     let firstNonStaticNodeFound = false;
-    for (let i = 0; i < aPopup.children.length; i++) {
-      let child = aPopup.children[i];
-      // Menus that have static content at the end, but are initially empty,
-      // use a special "builder" attribute to figure out where to start
-      // inserting places nodes.
-      if (child.getAttribute("builder") == "end") {
+    for (let child of aPopup.children) {
+      if (child.hasAttribute("afterplacescontent")) {
         aPopup.insertBefore(aPopup._endMarker, child);
         break;
       }
 
-      if (child._placesNode && !firstNonStaticNodeFound) {
+      // Check for the first Places node that is not a view.
+      if (child._placesNode && !child._placesView && !firstNonStaticNodeFound) {
         firstNonStaticNodeFound = true;
         aPopup.insertBefore(aPopup._startMarker, child);
       }
     }
     if (!firstNonStaticNodeFound) {
+      // Just put the start marker before the end marker.
       aPopup.insertBefore(aPopup._startMarker, aPopup._endMarker);
     }
   }
@@ -867,15 +830,12 @@ class PlacesViewBase {
 }
 
 /**
- *
+ * Toolbar View implementation.
  */
 class PlacesToolbar extends PlacesViewBase {
-  constructor(aPlace) {
+  constructor(placesUrl, rootElt, viewElt) {
     let startTime = Date.now();
-    super(aPlace, {
-      rootElt: document.getElementById("PlacesToolbarItems"),
-      viewElt: document.getElementById("PlacesToolbar"),
-    });
+    super(placesUrl, rootElt, viewElt);
     this._addEventListeners(this._dragRoot, this._cbEvents, false);
     this._addEventListeners(
       this._rootElt,
@@ -1975,19 +1935,18 @@ class PlacesToolbar extends PlacesViewBase {
 class PlacesMenu extends PlacesViewBase {
   /**
    *
-   * @param {object} aPopupShowingEvent
+   * @param {Event} popupShowingEvent
    *   The event associated with opening the menu.
-   * @param {string} aPlace
+   * @param {string} placesUrl
    *   The query associated with the view on the menu.
-   * @param {object} aOptions
-   *   Options associated with the view.
    */
-  constructor(aPopupShowingEvent, aPlace, aOptions = {}) {
-    aOptions.rootElt ??= aPopupShowingEvent.target; // <menupopup>
-    aOptions.viewElt ??= aOptions.rootElt.parentNode; // <menu>
-    super(aPlace, aOptions);
+  constructor(popupShowingEvent, placesUrl) {
+    super(
+      placesUrl,
+      popupShowingEvent.target, // <menupopup>
+      popupShowingEvent.target.parentNode // <menu>
+    );
 
-    this._viewElt._placesView = this;
     this._addEventListeners(
       this._rootElt,
       ["popupshowing", "popuphidden"],
@@ -2005,7 +1964,11 @@ class PlacesMenu extends PlacesViewBase {
       }
     }
 
-    this._onPopupShowing(aPopupShowingEvent);
+    this._onPopupShowing(popupShowingEvent);
+  }
+
+  _init() {
+    this._viewElt._placesView = this;
   }
 
   _removeChild(aChild) {
@@ -2072,142 +2035,11 @@ class PlacesMenu extends PlacesViewBase {
   }
 }
 
-/**
- *
- */
-class PlacesPanelMenuView extends PlacesViewBase {
-  constructor(aPlace, aViewId, aRootId, aOptions = {}) {
-    aOptions.rootElt = document.getElementById(aRootId);
-    aOptions.viewElt = document.getElementById(aViewId);
-    super(aPlace, aOptions);
-
-    this._viewElt._placesView = this;
-    this.options = aOptions;
-  }
-
-  _insertNewItem(aChild, aInsertionNode, aBefore = null) {
-    this._domNodes.delete(aChild);
-
-    let type = aChild.type;
-    let button;
-    if (type == Ci.nsINavHistoryResultNode.RESULT_TYPE_SEPARATOR) {
-      button = document.createXULElement("toolbarseparator");
-    } else {
-      button = document.createXULElement("toolbarbutton");
-      button.className = "bookmark-item";
-      if (typeof this.options.extraClasses.entry == "string") {
-        button.classList.add(this.options.extraClasses.entry);
-      }
-      button.setAttribute("label", aChild.title || "");
-      let icon = aChild.icon;
-      if (icon) {
-        button.setAttribute("image", icon);
-      }
-
-      if (PlacesUtils.containerTypes.includes(type)) {
-        button.setAttribute("container", "true");
-
-        if (PlacesUtils.nodeIsQuery(aChild)) {
-          button.setAttribute("query", "true");
-          if (PlacesUtils.nodeIsTagQuery(aChild)) {
-            button.setAttribute("tagContainer", "true");
-          }
-        }
-      } else if (PlacesUtils.nodeIsURI(aChild)) {
-        button.setAttribute(
-          "scheme",
-          PlacesUIUtils.guessUrlSchemeForUI(aChild.uri)
-        );
-      }
-    }
-
-    button._placesNode = aChild;
-    if (!this._domNodes.has(aChild)) {
-      this._domNodes.set(aChild, button);
-    }
-
-    aInsertionNode.insertBefore(button, aBefore);
-    return button;
-  }
-
-  nodeInserted(aParentPlacesNode, aPlacesNode, aIndex) {
-    let parentElt = this._getDOMNodeForPlacesNode(aParentPlacesNode);
-    if (parentElt != this._rootElt) {
-      return;
-    }
-
-    let children = this._rootElt.children;
-    this._insertNewItem(
-      aPlacesNode,
-      this._rootElt,
-      aIndex < children.length ? children[aIndex] : null
-    );
-  }
-
-  nodeRemoved(aParentPlacesNode, aPlacesNode, aIndex) {
-    let parentElt = this._getDOMNodeForPlacesNode(aParentPlacesNode);
-    if (parentElt != this._rootElt) {
-      return;
-    }
-
-    let elt = this._getDOMNodeForPlacesNode(aPlacesNode);
-    this._removeChild(elt);
-  }
-
-  nodeMoved(
-    aPlacesNode,
-    aOldParentPlacesNode,
-    aOldIndex,
-    aNewParentPlacesNode,
-    aNewIndex
-  ) {
-    let parentElt = this._getDOMNodeForPlacesNode(aNewParentPlacesNode);
-    if (parentElt != this._rootElt) {
-      return;
-    }
-
-    let elt = this._getDOMNodeForPlacesNode(aPlacesNode);
-    this._removeChild(elt);
-    this._rootElt.insertBefore(elt, this._rootElt.children[aNewIndex]);
-  }
-
-  nodeTitleChanged(aPlacesNode, aNewTitle) {
-    let elt = this._getDOMNodeForPlacesNode(aPlacesNode);
-
-    // There's no UI representation for the root node.
-    if (elt == this._rootElt) {
-      return;
-    }
-
-    super.nodeTitleChanged(aPlacesNode, aNewTitle);
-  }
-
-  invalidateContainer(aPlacesNode) {
-    let elt = this._getDOMNodeForPlacesNode(aPlacesNode);
-    if (elt != this._rootElt) {
-      return;
-    }
-
-    // Container is the toolbar itself.
-    while (this._rootElt.hasChildNodes()) {
-      this._rootElt.firstChild.remove();
-    }
-
-    let fragment = document.createDocumentFragment();
-    for (let i = 0; i < this._resultNode.childCount; ++i) {
-      this._insertNewItem(this._resultNode.getChild(i), fragment);
-    }
-    this._rootElt.appendChild(fragment);
-  }
-}
-
 // This is used from CustomizableWidgets.jsm using a `window` reference,
 // so we have to expose this on the global.
 this.PlacesPanelview = class PlacesPanelview extends PlacesViewBase {
-  constructor(container, panelview, place, options = {}) {
-    options.rootElt = container;
-    options.viewElt = panelview;
-    super(place, options);
+  constructor(placeUrl, rootElt, viewElt) {
+    super(placeUrl, rootElt, viewElt);
     this._viewElt._placesView = this;
     // We're simulating a popup show, because a panelview may only be shown when
     // its containing popup is already shown.
@@ -2358,8 +2190,8 @@ this.PlacesPanelview = class PlacesPanelview extends PlacesViewBase {
       panelview._emptyMenuitem.setAttribute("label", label);
       panelview._emptyMenuitem.setAttribute("disabled", true);
       panelview._emptyMenuitem.className = "subviewbutton";
-      if (typeof this.options.extraClasses.entry == "string") {
-        panelview._emptyMenuitem.classList.add(this.options.extraClasses.entry);
+      if (this._appendClassToChildren) {
+        panelview._emptyMenuitem.classList.add(this._appendClassToChildren);
       }
     }
 

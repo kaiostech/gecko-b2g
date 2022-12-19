@@ -1657,6 +1657,8 @@ pref("browser.aboutwelcome.screens", "");
 pref("browser.aboutwelcome.skipFocus", true);
 // Used to enable template for MR 2022 Onboarding
 pref("browser.aboutwelcome.templateMR", true);
+// Used to enable window modal onboarding
+pref("browser.aboutwelcome.showModal", false);
 
 // The pref that controls if the What's New panel is enabled.
 pref("browser.messaging-system.whatsNewPanel.enabled", true);
@@ -2178,8 +2180,17 @@ pref("signon.management.page.fileImport.enabled", false);
 
 #ifdef NIGHTLY_BUILD
 pref("signon.management.page.os-auth.enabled", true);
+
+// "not available"  - feature is not available (will be removed after QA).
+// "available"      - user can see feature offer.
+// "offered"        - we have offered feature to user and they have not yet made a decision.
+// "enabled"        - user opted in to the feature.
+// "disabled"       - user opted out of the feature.
+// will be enabled after QA round
+pref("signon.firefoxRelay.feature", "not available");
 #else
 pref("signon.management.page.os-auth.enabled", false);
+pref("signon.firefoxRelay.feature", "not available");
 #endif
 pref("signon.management.page.breach-alerts.enabled", true);
 pref("signon.management.page.vulnerable-passwords.enabled", true);

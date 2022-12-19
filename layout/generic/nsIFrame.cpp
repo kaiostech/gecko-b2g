@@ -19,6 +19,7 @@
 #include "mozilla/DisplayPortUtils.h"
 #include "mozilla/dom/CSSAnimation.h"
 #include "mozilla/dom/CSSTransition.h"
+#include "mozilla/dom/ContentVisibilityAutoStateChangeEvent.h"
 #include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/AncestorIterator.h"
 #include "mozilla/dom/ElementInlines.h"
@@ -2833,18 +2834,37 @@ class AutoSaveRestoreContainsBlendMode {
   }
 };
 
+static bool IsFrameOrAncestorApzAware(nsIFrame* aFrame) {
+  nsIContent* node = aFrame->GetContent();
+  if (!node) {
+    return false;
+  }
+
+  do {
+    if (node->IsNodeApzAware()) {
+      return true;
+    }
+    nsIContent* shadowRoot = node->GetShadowRoot();
+    if (shadowRoot && shadowRoot->IsNodeApzAware()) {
+      return true;
+    }
+
+    // Even if the node owning aFrame doesn't have apz-aware event listeners
+    // itself, its shadow root or display: contents ancestors (which have no
+    // frames) might, so we need to account for them too.
+  } while ((node = node->GetFlattenedTreeParent()) && node->IsElement() &&
+           node->AsElement()->IsDisplayContents());
+
+  return false;
+}
+
 static void CheckForApzAwareEventHandlers(nsDisplayListBuilder* aBuilder,
                                           nsIFrame* aFrame) {
   if (aBuilder->GetAncestorHasApzAwareEventHandler()) {
     return;
   }
 
-  nsIContent* content = aFrame->GetContent();
-  if (!content) {
-    return;
-  }
-
-  if (content->IsNodeApzAware()) {
+  if (IsFrameOrAncestorApzAware(aFrame)) {
     aBuilder->SetAncestorHasApzAwareEventHandler(true);
   }
 }
@@ -7034,12 +7054,29 @@ void nsIFrame::UpdateIsRelevantContent(
     element->SetContentRelevancy(newRelevancy);
   }
 
-  if (overallRelevancyChanged) {
-    HandleLastRememberedSize();
-    PresShell()->FrameNeedsReflow(
-        this, IntrinsicDirty::FrameAncestorsAndDescendants, NS_FRAME_IS_DIRTY);
-    InvalidateFrame();
+  if (!overallRelevancyChanged) {
+    return;
   }
+
+  HandleLastRememberedSize();
+  PresShell()->FrameNeedsReflow(
+      this, IntrinsicDirty::FrameAncestorsAndDescendants, NS_FRAME_IS_DIRTY);
+  InvalidateFrame();
+
+  ContentVisibilityAutoStateChangeEventInit init;
+  init.mSkipped = newRelevancy.isEmpty();
+  RefPtr<ContentVisibilityAutoStateChangeEvent> event =
+      ContentVisibilityAutoStateChangeEvent::Constructor(
+          element, u"contentvisibilityautostatechange"_ns, init);
+
+  // Per
+  // https://drafts.csswg.org/css-contain/#content-visibility-auto-state-changed
+  // "This event is dispatched by posting a task at the time when the state
+  // change occurs."
+  RefPtr<AsyncEventDispatcher> asyncDispatcher =
+      new AsyncEventDispatcher(element, event.get());
+  DebugOnly<nsresult> rv = asyncDispatcher->PostDOMEvent();
+  NS_ASSERTION(NS_SUCCEEDED(rv), "AsyncEventDispatcher failed to dispatch");
 }
 
 nsresult nsIFrame::CharacterDataChanged(const CharacterDataChangeInfo&) {

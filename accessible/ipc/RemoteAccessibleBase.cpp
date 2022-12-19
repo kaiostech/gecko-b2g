@@ -59,16 +59,10 @@ void RemoteAccessibleBase<Derived>::Shutdown() {
 
   if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
     // Remove this acc's relation map from the doc's map of
-    // reverse relations. We don't need to do additional processing
-    // of the corresponding forward relations, because this shutdown
-    // should trigger a cache update from the content process.
-    // Similarly, we don't need to remove the reverse rels created
-    // by this acc's forward rels because they'll be cleared during
-    // the next update's call to PreProcessRelations().
-    // In short, accs are responsible for managing their own
-    // reverse relation map, both in PreProcessRelations() and in
-    // Shutdown().
-    Unused << mDoc->mReverseRelations.Remove(ID());
+    // reverse relations. Prune forward relations associated with this
+    // acc's reverse relations. This also removes the acc's map of reverse
+    // rels from the mDoc's mReverseRelations.
+    PruneRelationsOnShutdown();
   }
 
   // XXX Ideally  this wouldn't be necessary, but it seems OuterDoc
@@ -455,16 +449,15 @@ Maybe<nsRect> RemoteAccessibleBase<Derived>::RetrieveCachedBounds() const {
 }
 
 template <class Derived>
-void RemoteAccessibleBase<Derived>::ApplyCrossProcOffset(
-    nsRect& aBounds) const {
+void RemoteAccessibleBase<Derived>::ApplyCrossDocOffset(nsRect& aBounds) const {
   Accessible* parentAcc = Parent();
   if (!parentAcc || !parentAcc->IsRemote() || !parentAcc->IsOuterDoc()) {
     return;
   }
 
-  if (!IsDoc() || !AsDoc()->IsOOPIframeDoc()) {
-    // We should only apply cross-proc offsets to OOP iframe documents. If we're
-    // anything else, return early here.
+  if (!IsDoc()) {
+    // We should only apply cross-doc offsets to documents. If we're anything
+    // else, return early here.
     return;
   }
 
@@ -586,7 +579,7 @@ LayoutDeviceIntRect RemoteAccessibleBase<Derived>::BoundsWithOffset(
       bounds.SetRectY(bounds.y + internalRect.y, internalRect.height);
     }
 
-    ApplyCrossProcOffset(bounds);
+    ApplyCrossDocOffset(bounds);
 
     Unused << ApplyTransform(bounds);
 
@@ -616,12 +609,12 @@ LayoutDeviceIntRect RemoteAccessibleBase<Derived>::BoundsWithOffset(
           topDoc = remoteAcc->AsDoc();
         }
 
-        // We're unable to account for the document offset of remote,
-        // cross process iframes when computing parent-relative bounds.
-        // Instead we store this value separately and apply it here. This
-        // offset is cached on both in - and OOP iframes, but is only applied
-        // to OOP iframes.
-        remoteAcc->ApplyCrossProcOffset(remoteBounds);
+        // We don't account for the document offset of iframes when computing
+        // parent-relative bounds. Instead, we store this value separately on
+        // all iframes and apply it here. See the comments in
+        // LocalAccessible::BundleFieldsForCache where we set the
+        // nsGkAtoms::crossorigin attribute.
+        remoteAcc->ApplyCrossDocOffset(remoteBounds);
 
         // Apply scroll offset, if applicable. Only the contents of an
         // element are affected by its scroll offset, which is why this call
@@ -845,8 +838,7 @@ Relation RemoteAccessibleBase<Derived>::RelationByType(
   }
 
   if (auto accRelMapEntry = mDoc->mReverseRelations.Lookup(ID())) {
-    if (auto reverseIdsEntry =
-            accRelMapEntry.Data().Lookup(static_cast<uint64_t>(aType))) {
+    if (auto reverseIdsEntry = accRelMapEntry.Data().Lookup(aType)) {
       rel.AppendIter(new RemoteAccIterator(reverseIdsEntry.Data(), Document()));
     }
   }
@@ -940,8 +932,8 @@ nsTArray<bool> RemoteAccessibleBase<Derived>::PreProcessRelations(
             // we know the acc and `this` are still alive in the doc. If we hit
             // the following assert, we don't have parity on implicit/explicit
             // rels and something is wrong.
-            nsTArray<uint64_t>& reverseRelIDs = reverseRels->LookupOrInsert(
-                static_cast<uint64_t>(data.mReverseType));
+            nsTArray<uint64_t>& reverseRelIDs =
+                reverseRels->LookupOrInsert(data.mReverseType);
             //  There might be other reverse relations stored for this acc, so
             //  remove our ID instead of deleting the array entirely.
             DebugOnly<bool> removed = reverseRelIDs.RemoveElement(ID());
@@ -973,14 +965,50 @@ void RemoteAccessibleBase<Derived>::PostProcessRelations(
       const nsTArray<uint64_t>& newIDs =
           *mCachedFields->GetAttribute<nsTArray<uint64_t>>(data.mAtom);
       for (uint64_t id : newIDs) {
-        nsTHashMap<nsUint64HashKey, nsTArray<uint64_t>>& relations =
+        nsTHashMap<RelationType, nsTArray<uint64_t>>& relations =
             Document()->mReverseRelations.LookupOrInsert(id);
-        nsTArray<uint64_t>& ids =
-            relations.LookupOrInsert(static_cast<uint64_t>(data.mReverseType));
+        nsTArray<uint64_t>& ids = relations.LookupOrInsert(data.mReverseType);
         ids.AppendElement(ID());
       }
     }
   }
+}
+
+template <class Derived>
+void RemoteAccessibleBase<Derived>::PruneRelationsOnShutdown() {
+  auto reverseRels = mDoc->mReverseRelations.Lookup(ID());
+  if (!reverseRels) {
+    return;
+  }
+  for (auto const& data : kRelationTypeAtoms) {
+    // Fetch the list of targets for this reverse relation
+    auto reverseTargetList = reverseRels->Lookup(data.mReverseType);
+    if (!reverseTargetList) {
+      continue;
+    }
+    for (uint64_t id : *reverseTargetList) {
+      // For each target, retrieve its corresponding forward relation target
+      // list
+      RemoteAccessible* affectedAcc = mDoc->GetAccessible(id);
+      if (!affectedAcc) {
+        // It's possible the affect acc also shut down, in which case
+        // we don't have anything to update.
+        continue;
+      }
+      if (auto forwardTargetList =
+              affectedAcc->mCachedFields
+                  ->GetMutableAttribute<nsTArray<uint64_t>>(data.mAtom)) {
+        forwardTargetList->RemoveElement(ID());
+        if (!forwardTargetList->Length()) {
+          // The ID we removed was the only thing in the list, so remove the
+          // entry from the cache entirely -- don't leave an empty array.
+          affectedAcc->mCachedFields->Remove(data.mAtom);
+        }
+      }
+    }
+  }
+  // Remove this ID from the document's map of reverse relations.
+  reverseRels.Remove();
 }
 
 template <class Derived>

@@ -620,6 +620,7 @@ class HistoryMenu extends PlacesMenu {
   // element references before the several superclass constructors call our
   // methods which depend on these.
   _init() {
+    super._init();
     let elements = {
       undoTabMenu: "historyUndoMenu",
       hiddenTabsMenu: "hiddenTabsMenu",
@@ -742,7 +743,7 @@ class HistoryMenu extends PlacesMenu {
   }
 
   _onPopupShowing(aEvent) {
-    PlacesMenu.prototype._onPopupShowing.apply(this, arguments);
+    super._onPopupShowing(aEvent);
 
     // Don't handle events for submenus.
     if (aEvent.target != aEvent.currentTarget) {
@@ -1150,7 +1151,11 @@ var PlacesToolbarHelper = {
       BookmarkingUI.updateEmptyToolbarMessage();
     }
 
-    new PlacesToolbar(`place:parent=${PlacesUtils.bookmarks.toolbarGuid}`);
+    new PlacesToolbar(
+      `place:parent=${PlacesUtils.bookmarks.toolbarGuid}`,
+      document.getElementById("PlacesToolbarItems"),
+      viewElt
+    );
   },
 
   handleEvent(event) {
@@ -1585,22 +1590,6 @@ var BookmarkingUI = {
     ) {
       PlacesCommandHook.showPlacesOrganizer("BookmarksToolbar");
     }
-  },
-
-  attachPlacesView(event, node) {
-    // If the view is already there, bail out early.
-    if (node.parentNode._placesView) {
-      return;
-    }
-
-    let extraClasses = {
-      entry: "subviewbutton",
-    };
-
-    new PlacesMenu(event, `place:parent=${PlacesUtils.bookmarks.menuGuid}`, {
-      extraClasses,
-      insertionPoint: "#BMB_bookmarksShowAll",
-    });
   },
 
   // Set by sync after syncing bookmarks successfully once.
@@ -2041,9 +2030,9 @@ var BookmarkingUI = {
       "&maxResults=42&excludeQueries=1";
 
     this._panelMenuView = new PlacesPanelview(
+      query,
       document.getElementById("panelMenu_bookmarksMenu"),
-      panelview,
-      query
+      panelview
     );
     panelview.removeEventListener("ViewShowing", this);
   },

@@ -5809,12 +5809,18 @@
 #endif
 
 - name: gfx.canvas.accelerated
-  type: RelaxedAtomicBool
+  type: bool
 #if defined(XP_MACOSX) || defined(XP_LINUX) && !defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
+  mirror: always
+
+# Whether to attempt to enable Accelerated Canvas2D regardless of blocklisting.
+- name: gfx.canvas.accelerated.force-enabled
+  type: bool
+  value: false
   mirror: always
 
 - name: gfx.canvas.accelerated.async-present
@@ -11573,6 +11579,12 @@
   value: false
   mirror: always
 
+# Enable `Link: rel=preconnect` in 103 Early Hint response.
+- name: network.early-hints.preconnect.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Whether to use the network process or not
 # Start a separate socket process. Performing networking on the socket process
 # is control by a sepparate pref
@@ -13402,7 +13414,7 @@
 # unsafe-hashes source keyword
 - name: security.csp.unsafe-hashes.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # The script-src-attr and script-src-elem directive

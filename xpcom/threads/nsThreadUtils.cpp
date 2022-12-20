@@ -755,7 +755,7 @@ nsresult NS_AdoptCurrentThread(nsIThread** aResult) {
       new ThreadEventQueue(MakeUnique<EventQueue>());
   RefPtr<nsThread> thr =
       new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD,
-                   nsIThreadManager::DEFAULT_STACK_SIZE);
+                   {.stackSize = nsIThreadManager::DEFAULT_STACK_SIZE});
   nsresult rv = thr->InitCurrentThread();  // Note: blocks until the new thread
                                            // has been set up
   if (NS_FAILED(rv)) {

@@ -22,6 +22,8 @@
 #include "cutils/properties.h"
 #include "nsITheme.h"
 
+using namespace mozilla;
+
 static const char16_t UNICODE_BULLET = 0x2022;
 
 nsLookAndFeel::nsLookAndFeel() = default;
@@ -303,16 +305,16 @@ nsresult nsLookAndFeel::NativeGetInt(IntID aID, int32_t& aResult) {
 
     case IntID::IMERawInputUnderlineStyle:
     case IntID::IMEConvertedTextUnderlineStyle:
-      aResult = NS_STYLE_TEXT_DECORATION_STYLE_SOLID;
+      aResult = int32_t(StyleTextDecorationStyle::Solid);
       break;
 
     case IntID::IMESelectedRawTextUnderlineStyle:
     case IntID::IMESelectedConvertedTextUnderline:
-      aResult = NS_STYLE_TEXT_DECORATION_STYLE_NONE;
+      aResult = int32_t(StyleTextDecorationStyle::None);
       break;
 
     case IntID::SpellCheckerUnderlineStyle:
-      aResult = NS_STYLE_TEXT_DECORATION_STYLE_WAVY;
+      aResult = int32_t(StyleTextDecorationStyle::Wavy);
       break;
 
     case IntID::ScrollbarButtonAutoRepeatBehavior:

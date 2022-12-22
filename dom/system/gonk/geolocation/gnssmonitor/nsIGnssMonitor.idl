@@ -1,0 +1,148 @@
+/* (c) 2021 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+ * KONG) LIMITED or its affiliate company and may be registered in some
+ * jurisdictions. All other trademarks are the property of their respective
+ * owners.
+ */
+
+#include "nsISupports.idl"
+
+interface nsIGnssListener;
+interface nsIGnssNmea;
+interface nsIGnssSvInfo;
+
+/**
+ * XPCOM component that monitors the callbacks of GNSS information
+ * This interface must be used only from the main thread.
+ */
+[scriptable, uuid(e3f5110c-2de3-4a01-8b91-552a2fcb654a)]
+interface nsIGnssMonitor : nsISupports
+{
+  /**
+   * The status of the GNSS engine reported by HAL
+   */
+  cenum GnssStatusValue : 8 {
+    STATUS_NONE           = 0,
+    STATUS_SESSION_BEGIN  = 1,
+    STATUS_SESSION_END    = 2,
+    STATUS_ENGINE_ON      = 3,
+    STATUS_ENGINE_OFF     = 4,
+  };
+
+  /**
+   * Register a nsIGnssListener for receiving GNSS updates
+   */
+  void registerListener(in nsIGnssListener listener);
+
+  /**
+   * Unregister a nsIGnssListener
+   */
+  void unregisterListener(in nsIGnssListener listener);
+
+  /**
+   * Update the status of the GNSS engine and notify listeners
+   */
+  void updateGnssStatus(in nsIGnssMonitor_GnssStatusValue status);
+
+  /**
+   * Update the SV status information and notify listeners
+   */
+  void updateSvInfo(in Array<nsIGnssSvInfo> svList);
+
+  /**
+   * Update the received NMEA data and notify listeners
+   */
+  void updateNmea(in nsIGnssNmea data);
+
+  /** Status of the GNSS engine */
+  readonly attribute nsIGnssMonitor_GnssStatusValue status;
+
+  /** Array of SVs information for all GNSS constellations */
+  readonly attribute Array<nsIGnssSvInfo> svList;
+
+  /** NMEA data including timestamp and NMEA sentence */
+  readonly attribute nsIGnssNmea nmeaData;
+};
+
+[scriptable, uuid(55cf62a9-ee0f-4662-99d8-5f455e813d55)]
+interface nsIGnssListener : nsISupports
+{
+  /**
+   * The handler of GNSS status update
+   */
+  void onGnssStatusUpdate(in nsIGnssMonitor_GnssStatusValue status);
+
+  /**
+   * The handler of SV information update
+   */
+  void onSvInfoUpdate(in Array<nsIGnssSvInfo> svList);
+
+  /**
+   * The handler of NMEA data update
+   */
+  void onNmeaUpdate(in nsIGnssNmea nmeaData);
+};
+
+[scriptable, uuid(931e808b-5636-4408-a6ca-885fbde8fb7e)]
+interface nsIGnssSvInfo : nsISupports
+{
+  /**
+   * The constellation type of the given SV
+   */
+  cenum GnssConstellationType : 8 {
+    TYPE_UNKNOWN = 0,
+    TYPE_GPS     = 1,
+    TYPE_SBAS    = 2,
+    TYPE_GLONASS = 3,
+    TYPE_QZSS    = 4,
+    TYPE_BEIDOU  = 5,
+    TYPE_GALILEO = 6,
+    TYPE_IRNSS   = 7,
+  };
+
+  /**
+   * Bit fields of nsIGnssSvInfo.svFlag which indicates information about the
+   * satellite
+   */
+  cenum GnssSvFlags : 8 {
+    FLAG_NONE                  = 0,
+    FLAG_HAS_EPHEMERIS_DATA    = 1 << 0,
+    FLAG_HAS_ALMANAC_DATA      = 1 << 1,
+    FLAG_USED_IN_FIX           = 1 << 2,
+    FLAG_HAS_CARRIER_FREQUENCY = 1 << 3,
+  };
+
+  /** Pseudo-random or satellite ID number for the satellite */
+  readonly attribute short svid;
+
+  /** Constellation of the given SV */
+  readonly attribute nsIGnssSvInfo_GnssConstellationType constellation;
+
+  /** Carrier-to-noise density in dB-Hz, typically in the range [0, 63]. */
+  readonly attribute float cN0Dbhz;
+
+  /** Elevation of SV in degrees */
+  readonly attribute float elevationDegrees;
+
+  /** Azimuth of SV in degrees */
+  readonly attribute float azimuthDegrees;
+
+  /** Carrier frequency of the signal tracked */
+  readonly attribute float carrierFrequencyHz;
+
+  /** Additional data about the given SV represented by bit fields */
+  readonly attribute octet svFlag;
+};
+
+
+[scriptable, uuid(ff4b9e85-6ba4-4d46-939e-bcc998e71f38)]
+interface nsIGnssNmea : nsISupports
+{
+  /** Timestamp marks the instance of reporting */
+  readonly attribute long long gnssUtcTime;
+
+  /** ASCII text follows standard NMEA 0183 */
+  readonly attribute ACString message;
+};

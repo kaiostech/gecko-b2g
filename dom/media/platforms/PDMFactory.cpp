@@ -124,7 +124,7 @@ class PDMInitializer final {
       WMFDecoderModule::Init();
     }
 #  ifdef MOZ_WMF_MEDIA_ENGINE
-    if (IsWin8OrLater() && StaticPrefs::media_wmf_media_engine_enabled() &&
+    if (IsWin10OrLater() && StaticPrefs::media_wmf_media_engine_enabled() &&
         kind == ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM) {
       MFMediaEngineDecoderModule::Init();
     }
@@ -609,7 +609,7 @@ void PDMFactory::CreateUtilityPDMs() {
   }
 #ifdef MOZ_WMF_MEDIA_ENGINE
   if (aKind == ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM) {
-    if (IsWin8OrLater() && StaticPrefs::media_wmf_media_engine_enabled()) {
+    if (IsWin10OrLater() && StaticPrefs::media_wmf_media_engine_enabled()) {
       CreateAndStartupPDM<MFMediaEngineDecoderModule>();
     }
   }

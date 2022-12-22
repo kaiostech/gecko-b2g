@@ -6,8 +6,6 @@
 
 const { throttle } = require("resource://devtools/shared/throttle.js");
 
-const BROWSERTOOLBOX_FISSION_ENABLED = "devtools.browsertoolbox.fission";
-
 let gLastResourceId = 0;
 
 function cacheKey(resourceType, resourceId) {
@@ -937,16 +935,6 @@ class ResourceCommand {
    * @return {Boolean} True, if the server supports this type.
    */
   hasResourceCommandSupport(resourceType) {
-    // If we're in the browser console or browser toolbox and the browser
-    // toolbox fission pref is disabled, we don't want to use watchers
-    // (even if traits on the server are enabled).
-    if (
-      this.targetCommand.descriptorFront.isBrowserProcessDescriptor &&
-      !Services.prefs.getBoolPref(BROWSERTOOLBOX_FISSION_ENABLED, false)
-    ) {
-      return false;
-    }
-
     return this.watcherFront?.traits?.resources?.[resourceType];
   }
 
@@ -1200,8 +1188,6 @@ ResourceCommand.TYPES = ResourceCommand.prototype.TYPES = {
   CSS_MESSAGE: "css-message",
   ERROR_MESSAGE: "error-message",
   PLATFORM_MESSAGE: "platform-message",
-  // Legacy listener only. Can be removed in Bug 1625937.
-  CLONED_CONTENT_PROCESS_MESSAGE: "cloned-content-process-message",
   DOCUMENT_EVENT: "document-event",
   ROOT_NODE: "root-node",
   STYLESHEET: "stylesheet",
@@ -1270,11 +1256,6 @@ loader.lazyRequireGetter(
   LegacyListeners,
   ResourceCommand.TYPES.PLATFORM_MESSAGE,
   "resource://devtools/shared/commands/resource/legacy-listeners/platform-messages.js"
-);
-loader.lazyRequireGetter(
-  LegacyListeners,
-  ResourceCommand.TYPES.CLONED_CONTENT_PROCESS_MESSAGE,
-  "resource://devtools/shared/commands/resource/legacy-listeners/cloned-content-process-messages.js"
 );
 loader.lazyRequireGetter(
   LegacyListeners,

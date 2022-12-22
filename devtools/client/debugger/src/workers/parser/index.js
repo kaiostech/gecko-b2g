@@ -7,29 +7,15 @@ import { WorkerDispatcher } from "devtools/client/shared/worker-utils";
 const WORKER_URL = "resource://devtools/client/debugger/dist/parser-worker.js";
 
 export class ParserDispatcher extends WorkerDispatcher {
-  start(jestUrl) {
-    return super.start(jestUrl || WORKER_URL);
+  constructor(jestUrl) {
+    super(jestUrl || WORKER_URL);
   }
 
-  async findOutOfScopeLocations(sourceId, position) {
-    return this.invoke("findOutOfScopeLocations", sourceId, position);
-  }
+  findOutOfScopeLocations = this.task("findOutOfScopeLocations");
 
-  async getNextStep(sourceId, pausedPosition) {
-    return this.invoke("getNextStep", sourceId, pausedPosition);
-  }
+  getScopes = this.task("getScopes");
 
-  async clearState() {
-    return this.invoke("clearState");
-  }
-
-  async getScopes(location) {
-    return this.invoke("getScopes", location);
-  }
-
-  async getSymbols(sourceId) {
-    return this.invoke("getSymbols", sourceId);
-  }
+  getSymbols = this.task("getSymbols");
 
   async setSource(sourceId, content) {
     const astSource = {
@@ -42,28 +28,9 @@ export class ParserDispatcher extends WorkerDispatcher {
     return this.invoke("setSource", astSource);
   }
 
-  async hasSyntaxError(input) {
-    return this.invoke("hasSyntaxError", input);
-  }
+  hasSyntaxError = this.task("hasSyntaxError");
 
-  async mapExpression(
-    expression,
-    mappings,
-    bindings,
-    shouldMapBindings,
-    shouldMapAwait
-  ) {
-    return this.invoke(
-      "mapExpression",
-      expression,
-      mappings,
-      bindings,
-      shouldMapBindings,
-      shouldMapAwait
-    );
-  }
+  mapExpression = this.task("mapExpression");
 
-  async clear() {
-    await this.clearState();
-  }
+  clear = this.task("clearState");
 }

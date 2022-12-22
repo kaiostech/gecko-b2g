@@ -25,21 +25,11 @@ const TEST_IMAGE =
 add_task(async function() {
   // Needed for the execute() call in `testMessages`.
   await pushPref("security.allow_parent_unrestricted_js_loads", true);
-  await pushPref("devtools.browserconsole.contentMessages", true);
   await pushPref("devtools.browserconsole.enableNetworkMonitoring", true);
+  await pushPref("devtools.browsertoolbox.scope", "everything");
+
   const tab = await addTab(TEST_URI);
 
-  info(
-    "Check browser console messages with devtools.browsertoolbox.fission set to false"
-  );
-  await pushPref("devtools.browsertoolbox.fission", false);
-  await testMessages();
-
-  info(
-    "Check browser console messages with devtools.browsertoolbox.fission set to true"
-  );
-  await pushPref("devtools.browsertoolbox.scope", "everything");
-  await pushPref("devtools.browsertoolbox.fission", true);
   await testMessages();
 
   info("Close tab");
@@ -261,14 +251,11 @@ async function testMessages() {
     "Expected color but found ‘rainbow’",
     ".warn"
   );
-  // CSS messages are only available in Browser Console when the pref is enabled
-  if (SpecialPowers.getBoolPref("devtools.browsertoolbox.fission", false)) {
-    await checkUniqueMessageExists(
-      hud,
-      "Expected color but found ‘bled’",
-      ".warn"
-    );
-  }
+  await checkUniqueMessageExists(
+    hud,
+    "Expected color but found ‘bled’",
+    ".warn"
+  );
 
   await resetFilters(hud);
 

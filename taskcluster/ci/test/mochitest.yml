@@ -13,6 +13,10 @@ job-defaults:
                 by-variant:
                     msix: target.installer.msix
                     default: null
+            windows10-64-2004-qr/opt:
+                by-variant:
+                    msix: target.installer.msix
+                    default: null
             default: null
     tier:
         by-variant:
@@ -214,6 +218,7 @@ mochitest-browser-chrome:
             msix:
                 by-test-platform:
                     windows10-64-2004-shippable-qr/opt: built-projects
+                    windows10-64-2004-qr/opt: built-projects
                     default: []
             default:
                 by-test-platform:
@@ -279,7 +284,10 @@ mochitest-browser-a11y:
                     android.*: []
                     default: built-projects
     tier: default
-    max-run-time: 1800
+    max-run-time:
+        by-test-platform:
+            .*tsan.*: 2700
+            default: 1800
     mozharness:
         mochitest-flavor: browser
     instance-size: default
@@ -329,18 +337,11 @@ mochitest-chrome:
                     android-em-7.0-x86_64-qr/debug: built-projects
                     linux.*64-qr/debug: built-projects
                     default: []
-            1proc:
-                by-test-platform:
-                    .*-tsan-qr/opt: []
-                    default: built-projects
+            1proc: built-projects
     chunks:
         by-test-platform:
-            .*(-ccov|-qr).*/.*: 3
-            windows10-64-2004-ccov-qr/opt: 3
-            .*-asan(-qr)?/opt: 3
-            .*-tsan-qr/opt: 6
-            (linux.*64|windows.*|macosx1015-64)/debug: 3
-            default: 2
+            .*tsan.*/opt: 6
+            default: 3
     max-run-time: 3600
     mozharness:
         mochitest-flavor: chrome
@@ -599,6 +600,7 @@ mochitest-media:
             msix:
                 by-test-platform:
                     windows10-64-2004-shippable-qr/opt: built-projects
+                    windows10-64-2004-qr/opt: ['autoland']
                     default: []
             default:
                 by-test-platform:

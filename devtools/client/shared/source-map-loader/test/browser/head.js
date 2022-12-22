@@ -9,20 +9,14 @@ Services.scriptloader.loadSubScript(
   this
 );
 
-const SourceMapLoader = require("resource://devtools/client/shared/source-map-loader/index.js");
-
 const {
-  startSourceMapWorker,
-  getOriginalURLs,
-  getOriginalLocation,
-  getGeneratedLocation,
-  getGeneratedRangesForOriginal,
-  clearSourceMaps,
-} = SourceMapLoader;
-startSourceMapWorker();
+  SourceMapLoader,
+} = require("resource://devtools/client/shared/source-map-loader/index.js");
+
+const gSourceMapLoader = new SourceMapLoader();
 
 function fetchFixtureSourceMap(name) {
-  clearSourceMaps();
+  gSourceMapLoader.clearSourceMaps();
 
   const source = {
     id: `${name}.js`,
@@ -30,5 +24,5 @@ function fetchFixtureSourceMap(name) {
     sourceMapBaseURL: `${URL_ROOT_SSL}fixtures/${name}.js`,
   };
 
-  return getOriginalURLs(source);
+  return gSourceMapLoader.getOriginalURLs(source);
 }

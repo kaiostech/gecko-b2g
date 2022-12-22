@@ -1649,13 +1649,6 @@ FontFaceSet* nsGlobalWindowInner::Fonts() {
   return nullptr;
 }
 
-uint32_t nsGlobalWindowInner::GetPrincipalHashValue() const {
-  if (mDoc) {
-    return mDoc->NodePrincipal()->GetHashValue();
-  }
-  return 0;
-}
-
 mozilla::Result<mozilla::ipc::PrincipalInfo, nsresult>
 nsGlobalWindowInner::GetStorageKey() {
   MOZ_ASSERT(NS_IsMainThread());
@@ -1713,7 +1706,8 @@ void nsGlobalWindowInner::UpdateAutoplayPermission() {
   if (!GetWindowContext()) {
     return;
   }
-  uint32_t perm = AutoplayPolicy::GetSiteAutoplayPermission(GetPrincipal());
+  uint32_t perm =
+      media::AutoplayPolicy::GetSiteAutoplayPermission(GetPrincipal());
   if (GetWindowContext()->GetAutoplayPermission() == perm) {
     return;
   }
@@ -1776,7 +1770,7 @@ void nsGlobalWindowInner::UpdatePermissions() {
 
   WindowContext::Transaction txn;
   txn.SetAutoplayPermission(
-      AutoplayPolicy::GetSiteAutoplayPermission(principal));
+      media::AutoplayPolicy::GetSiteAutoplayPermission(principal));
   txn.SetPopupPermission(PopupBlocker::GetPopupPermission(principal));
 
   if (windowContext->IsTop()) {

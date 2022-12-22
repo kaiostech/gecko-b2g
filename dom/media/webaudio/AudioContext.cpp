@@ -183,7 +183,7 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
   // Note: AudioDestinationNode needs an AudioContext that must already be
   // bound to the window.
 #ifndef MOZ_B2G
-  const bool allowedToStart = AutoplayPolicy::IsAllowedToPlay(*this);
+  const bool allowedToStart = media::AutoplayPolicy::IsAllowedToPlay(*this);
 #endif
   mDestination =
       new AudioDestinationNode(this, aIsOffline, aNumberOfChannels, aLength);
@@ -227,7 +227,7 @@ void AudioContext::StartBlockedAudioContextIfAllowed() {
 #ifdef MOZ_B2G
   const bool isAllowedToPlay = !mDestination->AudioChannelDisabled();
 #else
-  const bool isAllowedToPlay = AutoplayPolicy::IsAllowedToPlay(*this);
+  const bool isAllowedToPlay = media::AutoplayPolicy::IsAllowedToPlay(*this);
 #endif
   AUTOPLAY_LOG("Trying to start AudioContext %p, IsAllowedToPlay=%d", this,
                isAllowedToPlay);
@@ -1136,7 +1136,7 @@ already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
 #ifdef MOZ_B2G
   const bool isAllowedToPlay = !mDestination->AudioChannelDisabled();
 #else
-  const bool isAllowedToPlay = AutoplayPolicy::IsAllowedToPlay(*this);
+  const bool isAllowedToPlay = media::AutoplayPolicy::IsAllowedToPlay(*this);
 #endif
   AUTOPLAY_LOG("Trying to resume AudioContext %p, IsAllowedToPlay=%d", this,
                isAllowedToPlay);
@@ -1186,8 +1186,8 @@ void AudioContext::ResumeInternal() {
 }
 
 void AudioContext::UpdateAutoplayAssumptionStatus() {
-  if (AutoplayPolicyTelemetryUtils::WouldBeAllowedToPlayIfAutoplayDisabled(
-          *this)) {
+  if (media::AutoplayPolicyTelemetryUtils::
+          WouldBeAllowedToPlayIfAutoplayDisabled(*this)) {
     mWasEverAllowedToStart |= true;
     mWouldBeAllowedToStart = true;
   } else {
@@ -1202,8 +1202,8 @@ void AudioContext::MaybeUpdateAutoplayTelemetry() {
     return;
   }
 
-  if (AutoplayPolicyTelemetryUtils::WouldBeAllowedToPlayIfAutoplayDisabled(
-          *this) &&
+  if (media::AutoplayPolicyTelemetryUtils::
+          WouldBeAllowedToPlayIfAutoplayDisabled(*this) &&
       !mWouldBeAllowedToStart) {
     AccumulateCategorical(
         mozilla::Telemetry::LABELS_WEB_AUDIO_AUTOPLAY::AllowedAfterBlocked);

@@ -54,10 +54,10 @@ using dom::Element;
 
 NS_DECLARE_FRAME_PROPERTY_FRAMELIST(PopupListProperty)
 
-// This global flag indicates that a menu just opened or closed and is used
-// to ignore the mousemove and mouseup events that would fire on the menu after
-// the mousedown occurred.
-static int32_t gMenuJustOpenedOrClosed = false;
+// This global flag is used to record the timestamp when a menu was opened or
+// closed and is used to ignore the mousemove and mouseup events that would fire
+// on the menu after the mousedown occurred.
+static TimeStamp gMenuJustOpenedOrClosedTime = TimeStamp();
 
 const int32_t kBlinkDelay = 67;  // milliseconds
 
@@ -344,9 +344,9 @@ nsresult nsMenuFrame::HandleEvent(nsPresContext* aPresContext,
   // If a menu just opened, ignore the mouseup event that might occur after a
   // the mousedown event that opened it. However, if a different mousedown
   // event occurs, just clear this flag.
-  if (gMenuJustOpenedOrClosed) {
+  if (!gMenuJustOpenedOrClosedTime.IsNull()) {
     if (aEvent->mMessage == eMouseDown) {
-      gMenuJustOpenedOrClosed = false;
+      gMenuJustOpenedOrClosedTime = TimeStamp();
     } else if (aEvent->mMessage == eMouseUp) {
       return NS_OK;
     }
@@ -444,8 +444,12 @@ nsresult nsMenuFrame::HandleEvent(nsPresContext* aPresContext,
     }
   } else if (aEvent->mMessage == eMouseMove &&
              (onmenu || (menuParent && menuParent->IsMenuBar()))) {
-    if (gMenuJustOpenedOrClosed) {
-      gMenuJustOpenedOrClosed = false;
+    // Use a tolerance to address situations where a user might perform a
+    // "wiggly" click that is accompanied by near-simultaneous mousemove events.
+    TimeDuration tolerance = TimeDuration::FromMilliseconds(200);
+    if (!gMenuJustOpenedOrClosedTime.IsNull() &&
+        gMenuJustOpenedOrClosedTime + tolerance < TimeStamp::Now()) {
+      gMenuJustOpenedOrClosedTime = TimeStamp();
       return NS_OK;
     }
 
@@ -495,7 +499,7 @@ void nsMenuFrame::ToggleMenuState() {
 }
 
 void nsMenuFrame::PopupOpened() {
-  gMenuJustOpenedOrClosed = true;
+  gMenuJustOpenedOrClosedTime = TimeStamp::Now();
 
   AutoWeakFrame weakFrame(this);
   mContent->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::open, u"true"_ns,
@@ -638,7 +642,7 @@ void nsMenuFrame::OpenMenu(bool aSelectFirstItem) {
 }
 
 void nsMenuFrame::CloseMenu(bool aDeselectMenu) {
-  gMenuJustOpenedOrClosed = true;
+  gMenuJustOpenedOrClosedTime = TimeStamp::Now();
 
   // Close the menu asynchronously
   nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
@@ -646,36 +650,13 @@ void nsMenuFrame::CloseMenu(bool aDeselectMenu) {
     pm->HidePopup(GetPopup()->GetContent(), false, aDeselectMenu, true, false);
 }
 
-bool nsMenuFrame::IsSizedToPopup(nsIContent* aContent, bool aRequireAlways) {
-  MOZ_ASSERT(aContent->IsElement());
-  nsAutoString sizedToPopup;
-  aContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::sizetopopup,
-                                 sizedToPopup);
-  bool sizedToPopupSetToPref =
-      sizedToPopup.EqualsLiteral("pref") ||
-      (sizedToPopup.IsEmpty() && aContent->IsXULElement(nsGkAtoms::menulist));
-  return sizedToPopup.EqualsLiteral("always") ||
-         (!aRequireAlways && sizedToPopupSetToPref);
-}
-
-nsSize nsMenuFrame::GetXULMinSize(nsBoxLayoutState& aBoxLayoutState) {
-  nsSize size = nsBoxFrame::GetXULMinSize(aBoxLayoutState);
-  DISPLAY_MIN_SIZE(this, size);
-
-  if (IsSizedToPopup(mContent, true)) SizeToPopup(aBoxLayoutState, size);
-
-  return size;
-}
-
 NS_IMETHODIMP
 nsMenuFrame::DoXULLayout(nsBoxLayoutState& aState) {
   // lay us out
   nsresult rv = nsBoxFrame::DoXULLayout(aState);
 
-  nsMenuPopupFrame* popupFrame = GetPopup();
-  if (popupFrame) {
-    bool sizeToPopup = IsSizedToPopup(mContent, false);
-    popupFrame->LayoutPopup(aState, this, sizeToPopup);
+  if (nsMenuPopupFrame* popupFrame = GetPopup()) {
+    popupFrame->LayoutPopup(aState);
   }
 
   return rv;
@@ -1038,61 +1019,6 @@ void nsMenuFrame::AppendFrames(ChildListID aListID, nsFrameList&& aFrameList) {
   if (aFrameList.IsEmpty()) return;
 
   nsBoxFrame::AppendFrames(aListID, std::move(aFrameList));
-}
-
-bool nsMenuFrame::SizeToPopup(nsBoxLayoutState& aState, nsSize& aSize) {
-  if (!IsXULCollapsed()) {
-    bool widthSet, heightSet;
-    nsSize tmpSize(-1, 0);
-    nsIFrame::AddXULPrefSize(this, tmpSize, widthSet, heightSet);
-    if (!widthSet && GetXULFlex() == 0) {
-      nsMenuPopupFrame* popupFrame = GetPopup();
-      if (!popupFrame) return false;
-      tmpSize = popupFrame->GetXULPrefSize(aState);
-
-      // Produce a size such that:
-      //  (1) the menu and its popup can be the same width
-      //  (2) there's enough room in the menu for the content and its
-      //      border-padding
-      //  (3) there's enough room in the popup for the content and its
-      //      scrollbar
-      nsMargin borderPadding;
-      GetXULBorderAndPadding(borderPadding);
-
-      // if there is a scroll frame, add the desired width of the scrollbar as
-      // well
-      nsIScrollableFrame* scrollFrame = popupFrame->GetScrollFrame(popupFrame);
-      nscoord scrollbarWidth = 0;
-      if (scrollFrame) {
-        scrollbarWidth =
-            scrollFrame->GetDesiredScrollbarSizes(&aState).LeftRight();
-      }
-
-      aSize.width =
-          tmpSize.width + std::max(borderPadding.LeftRight(), scrollbarWidth);
-
-      return true;
-    }
-  }
-
-  return false;
-}
-
-nsSize nsMenuFrame::GetXULPrefSize(nsBoxLayoutState& aState) {
-  nsSize size = nsBoxFrame::GetXULPrefSize(aState);
-  DISPLAY_PREF_SIZE(this, size);
-
-  // If we are using sizetopopup="always" then
-  // nsBoxFrame will already have enforced the minimum size
-  if (!IsSizedToPopup(mContent, true) && IsSizedToPopup(mContent, false) &&
-      SizeToPopup(aState, size)) {
-    // We now need to ensure that size is within the min - max range.
-    nsSize minSize = nsBoxFrame::GetXULMinSize(aState);
-    nsSize maxSize = GetXULMaxSize(aState);
-    size = XULBoundsCheck(minSize, size, maxSize);
-  }
-
-  return size;
 }
 
 NS_IMETHODIMP

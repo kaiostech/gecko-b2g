@@ -184,7 +184,13 @@ class HTMLEditUtils final {
    * IsDisplayOutsideInline() returns true if display-outside value is
    * "inside".  This does NOT flush the layout.
    */
-  static bool IsDisplayOutsideInline(const Element& aElement);
+  [[nodiscard]] static bool IsDisplayOutsideInline(const Element& aElement);
+
+  /**
+   * IsDisplayInsideFlowRoot() returns true if display-inline value of aElement
+   * is "flow-root".  This does NOT flush the layout.
+   */
+  [[nodiscard]] static bool IsDisplayInsideFlowRoot(const Element& aElement);
 
   /**
    * IsRemovableInlineStyleElement() returns true if aElement is an inline
@@ -2106,6 +2112,54 @@ class HTMLEditUtils final {
   [[nodiscard]] static bool ElementHasAttributeExcept(
       const Element& aElement, const nsAtom& aAttribute1,
       const nsAtom& aAttribute2, const nsAtom& aAttribute3);
+
+  /**
+   * Returns EditorDOMPoint which points deepest editable start/end point of
+   * aNode.  If a node is a container node and first/last child is editable,
+   * returns the child's start or last point recursively.
+   */
+  template <typename EditorDOMPointType>
+  [[nodiscard]] static EditorDOMPointType GetDeepestEditableStartPointOf(
+      const nsIContent& aContent) {
+    if (NS_WARN_IF(!EditorUtils::IsEditableContent(
+            aContent, EditorBase::EditorType::HTML))) {
+      return EditorDOMPointType();
+    }
+    EditorDOMPointType result(&aContent, 0u);
+    while (true) {
+      nsIContent* firstChild = result.GetContainer()->GetFirstChild();
+      if (!firstChild ||
+          (!firstChild->IsText() &&
+           !HTMLEditUtils::IsContainerNode(*firstChild)) ||
+          !EditorUtils::IsEditableContent(*firstChild,
+                                          EditorBase::EditorType::HTML)) {
+        break;
+      }
+      result.Set(firstChild, 0u);
+    }
+    return result;
+  }
+  template <typename EditorDOMPointType>
+  [[nodiscard]] static EditorDOMPointType GetDeepestEditableEndPointOf(
+      const nsIContent& aContent) {
+    if (NS_WARN_IF(!EditorUtils::IsEditableContent(
+            aContent, EditorBase::EditorType::HTML))) {
+      return EditorDOMPointType();
+    }
+    auto result = EditorDOMPointType::AtEndOf(aContent);
+    while (true) {
+      nsIContent* lastChild = result.GetContainer()->GetLastChild();
+      if (!lastChild ||
+          (!lastChild->IsText() &&
+           !HTMLEditUtils::IsContainerNode(*lastChild)) ||
+          !EditorUtils::IsEditableContent(*lastChild,
+                                          EditorBase::EditorType::HTML)) {
+        break;
+      }
+      result = EditorDOMPointType::AtEndOf(*lastChild);
+    }
+    return result;
+  }
 
  private:
   static bool CanNodeContain(nsHTMLTag aParentTagId, nsHTMLTag aChildTagId);

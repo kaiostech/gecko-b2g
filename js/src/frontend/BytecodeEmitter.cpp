@@ -143,7 +143,7 @@ BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, FrontendContext* fc,
       stackLimit(stackLimit),
       parent(parent),
       bytecodeSection_(fc, sc->extent().lineno, sc->extent().column),
-      perScriptData_(fc, cx->frontendCollectionPool(), compilationState),
+      perScriptData_(fc, compilationState),
       errorReporter_(errorReporter),
       compilationState(compilationState),
       suppressBreakpointsAndSourceNotes(
@@ -11746,9 +11746,7 @@ bool BytecodeEmitter::intoScriptStencil(ScriptIndex scriptIndex) {
     return false;
   }
 
-  // De-duplicate the bytecode within the runtime.
-  if (!compilationState.sharedData.addAndShare(cx, fc, scriptIndex,
-                                               sharedData)) {
+  if (!compilationState.sharedData.add(scriptIndex, sharedData)) {
     return false;
   }
 

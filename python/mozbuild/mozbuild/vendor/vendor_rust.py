@@ -20,6 +20,7 @@ import mozpack.path as mozpath
 import pytoml
 from looseversion import LooseVersion
 from mozboot.util import MINIMUM_RUST_VERSION
+
 from mozbuild.base import BuildEnvironmentNotFoundException, MozbuildObject
 
 CARGO_CONFIG_TEMPLATE = """\

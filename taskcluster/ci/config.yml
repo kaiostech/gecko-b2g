@@ -480,7 +480,7 @@ workers:
             provisioner: '{trust-domain}-{level}'
             implementation: generic-worker
             os: windows
-            worker-type: '{alias}-azure'
+            worker-type: '{alias}'
         image:
             provisioner: '{trust-domain}-{level}'
             implementation: docker-worker
@@ -669,7 +669,7 @@ workers:
             provisioner: '{trust-domain}-t'
             implementation: docker-worker
             os: linux
-            worker-type: misc
+            worker-type: misc-gcp
 
 
 mac-notarization:

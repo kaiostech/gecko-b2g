@@ -20,6 +20,9 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     DIRS += ["gonk"]
 
+if CONFIG["OS_ARCH"] == "Linux":
+    DIRS += ["interposers"]
+
 DIRS += [
     "baseprofiler",
     "build",

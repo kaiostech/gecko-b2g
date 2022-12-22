@@ -6,27 +6,26 @@
 
 from __future__ import absolute_import, print_function
 
-from argparse import Namespace
 import datetime
 import os
 import posixpath
-import mozdevice
 import shutil
-import six
 import sys
-import runxpcshelltests as xpcshell
 import tempfile
 import time
 import uuid
+from argparse import Namespace
 from zipfile import ZipFile
 import tarfile
 
 import mozcrash
-from mozdevice import ADBDevice, ADBDeviceFactory, ADBTimeoutError
+import mozdevice
 import mozfile
 import mozinfo
+import runxpcshelltests as xpcshell
+import six
+from mozdevice import ADBDevice, ADBDeviceFactory, ADBTimeoutError
 from mozlog import commandline
-
 from xpcshellcommandline import parser_remote
 
 here = os.path.dirname(os.path.abspath(__file__))

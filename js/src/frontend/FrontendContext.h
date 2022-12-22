@@ -25,6 +25,10 @@ namespace js {
 
 class FrontendContext;
 
+namespace frontend {
+class NameCollectionPool;
+}  // namespace frontend
+
 struct FrontendErrors {
   FrontendErrors() = default;
   // Any errors or warnings produced during compilation. These are reported
@@ -57,6 +61,12 @@ class FrontendContext {
   FrontendAllocator alloc_;
   js::FrontendErrors errors_;
 
+  // NameCollectionPool can be either:
+  //   * owned by this FrontendContext, or
+  //   * borrowed from JSContext
+  frontend::NameCollectionPool* nameCollectionPool_;
+  bool ownNameCollectionPool_;
+
  protected:
   // (optional) Current JSContext to support main-thread-specific
   // handling for error reporting, GC, and memory allocation.
@@ -65,12 +75,31 @@ class FrontendContext {
   JSContext* maybeCx_ = nullptr;
 
  public:
-  FrontendContext() : alloc_(this) {}
-  ~FrontendContext() = default;
+  FrontendContext()
+      : alloc_(this),
+        nameCollectionPool_(nullptr),
+        ownNameCollectionPool_(false) {}
+  ~FrontendContext();
+
+  bool allocateOwnedPool();
+
+  frontend::NameCollectionPool& nameCollectionPool() {
+    MOZ_ASSERT(
+        nameCollectionPool_,
+        "Either allocateOwnedPool or setCurrentJSContext must be called");
+    return *nameCollectionPool_;
+  }
 
   FrontendAllocator* getAllocator() { return &alloc_; }
 
   void setCurrentJSContext(JSContext* cx);
+
+  // Returns JSContext if any.
+  //
+  // This can be used only for:
+  //   * Main-thread-specific operation, such as operating on JSAtom
+  //   * Optional operation, such as providing better error message
+  JSContext* maybeCurrentJSContext() { return maybeCx_; }
 
   enum class Warning { Suppress, Report };
 

@@ -448,6 +448,7 @@ package org.mozilla.geckoview {
 
   public static class ContentBlocking.CookieBannerMode {
     ctor protected CookieBannerMode();
+    field public static final int COOKIE_BANNER_MODE_DETECT_ONLY = 3;
     field public static final int COOKIE_BANNER_MODE_DISABLED = 0;
     field public static final int COOKIE_BANNER_MODE_REJECT = 1;
     field public static final int COOKIE_BANNER_MODE_REJECT_OR_ACCEPT = 2;
@@ -963,6 +964,8 @@ package org.mozilla.geckoview {
   public static interface GeckoSession.ContentDelegate {
     method @UiThread default public void onCloseRequest(@NonNull GeckoSession);
     method @UiThread default public void onContextMenu(@NonNull GeckoSession, int, int, @NonNull GeckoSession.ContentDelegate.ContextElement);
+    method @AnyThread default public void onCookieBannerDetected(@NonNull GeckoSession);
+    method @AnyThread default public void onCookieBannerHandled(@NonNull GeckoSession);
     method @UiThread default public void onCrash(@NonNull GeckoSession);
     method @UiThread default public void onExternalResponse(@NonNull GeckoSession, @NonNull WebResponse);
     method @UiThread default public void onFirstComposite(@NonNull GeckoSession);

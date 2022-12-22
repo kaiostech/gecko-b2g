@@ -266,7 +266,25 @@ function DatePicker(context) {
         case "keydown": {
           switch (event.key) {
             case "Enter":
-            case " ": {
+            case " ":
+            case "Escape": {
+              if (
+                this.state.isMonthPickerVisible &&
+                this.context.monthYearView.contains(event.target)
+              ) {
+                // While the spinner on the month-year picker panel is focused,
+                // keep the spinner's selection and close the month picker dialog
+                event.stopPropagation();
+                event.preventDefault();
+                this.state.toggleMonthPicker();
+                this.components.calendar.focus();
+                break;
+              }
+              if (event.key == "Escape") {
+                // Close the date picker on Escape from within the picker
+                this._closePopup();
+                break;
+              }
               if (event.target == this.context.buttonPrev) {
                 event.target.classList.add("active");
                 this.state.dateKeeper.setMonthByOffset(-1);

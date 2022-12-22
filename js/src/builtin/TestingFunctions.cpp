@@ -2011,9 +2011,9 @@ static bool WasmIntrinsicI8VecMul(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-static bool LargeArrayBufferEnabled(JSContext* cx, unsigned argc, Value* vp) {
+static bool LargeArrayBufferSupported(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
-  args.rval().setBoolean(ArrayBufferObject::maxBufferByteLength() >
+  args.rval().setBoolean(ArrayBufferObject::MaxByteLength >
                          ArrayBufferObject::MaxByteLengthForSmallBuffer);
   return true;
 }
@@ -8652,8 +8652,8 @@ JS_FOR_WASM_FEATURES(WASM_FEATURE, WASM_FEATURE, WASM_FEATURE)
 "wasmIntrinsicI8VecMul()",
 "  Returns a module that implements an i8 vector pairwise multiplication intrinsic."),
 
-    JS_FN_HELP("largeArrayBufferEnabled", LargeArrayBufferEnabled, 0, 0,
-"largeArrayBufferEnabled()",
+    JS_FN_HELP("largeArrayBufferSupported", LargeArrayBufferSupported, 0, 0,
+"largeArrayBufferSupported()",
 "  Returns true if array buffers larger than 2GB can be allocated."),
 
     JS_FN_HELP("isLazyFunction", IsLazyFunction, 1, 0,

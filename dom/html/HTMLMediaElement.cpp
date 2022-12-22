@@ -3002,7 +3002,7 @@ void HTMLMediaElement::ResumeLoad(PreloadAction aAction) {
 }
 
 bool HTMLMediaElement::AllowedToPlay() const {
-  return AutoplayPolicy::IsAllowedToPlay(*this);
+  return media::AutoplayPolicy::IsAllowedToPlay(*this);
 }
 
 uint32_t HTMLMediaElement::GetPreloadDefault() const {

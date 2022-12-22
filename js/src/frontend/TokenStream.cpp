@@ -491,11 +491,10 @@ SourceCoords::LineToken SourceCoords::lineToken(uint32_t offset) const {
   return LineToken(indexFromOffset(offset), offset);
 }
 
-TokenStreamAnyChars::TokenStreamAnyChars(JSContext* cx, FrontendContext* fc,
+TokenStreamAnyChars::TokenStreamAnyChars(FrontendContext* fc,
                                          const ReadOnlyCompileOptions& options,
                                          StrictModeGetter* smg)
-    : cx(cx),
-      fc(fc),
+    : fc(fc),
       options_(options),
       strictModeGetter_(smg),
       filename_(options.filename()),
@@ -513,10 +512,12 @@ TokenStreamAnyChars::TokenStreamAnyChars(JSContext* cx, FrontendContext* fc,
 }
 
 template <typename Unit>
-TokenStreamCharsBase<Unit>::TokenStreamCharsBase(
-    JSContext* cx, FrontendContext* fc, ParserAtomsTable* parserAtoms,
-    const Unit* units, size_t length, size_t startOffset)
-    : TokenStreamCharsShared(cx, fc, parserAtoms),
+TokenStreamCharsBase<Unit>::TokenStreamCharsBase(FrontendContext* fc,
+                                                 ParserAtomsTable* parserAtoms,
+                                                 const Unit* units,
+                                                 size_t length,
+                                                 size_t startOffset)
+    : TokenStreamCharsShared(fc, parserAtoms),
       sourceUnits(units, length, startOffset) {}
 
 bool FillCharBufferFromSourceNormalizingAsciiLineBreaks(CharBuffer& charBuffer,
@@ -580,9 +581,9 @@ bool FillCharBufferFromSourceNormalizingAsciiLineBreaks(CharBuffer& charBuffer,
 
 template <typename Unit, class AnyCharsAccess>
 TokenStreamSpecific<Unit, AnyCharsAccess>::TokenStreamSpecific(
-    JSContext* cx, FrontendContext* fc, ParserAtomsTable* parserAtoms,
+    FrontendContext* fc, ParserAtomsTable* parserAtoms,
     const ReadOnlyCompileOptions& options, const Unit* units, size_t length)
-    : TokenStreamChars<Unit, AnyCharsAccess>(cx, fc, parserAtoms, units, length,
+    : TokenStreamChars<Unit, AnyCharsAccess>(fc, parserAtoms, units, length,
                                              options.scriptSourceOffset) {}
 
 bool TokenStreamAnyChars::checkOptions() {
@@ -1587,13 +1588,17 @@ bool TokenStreamAnyChars::fillExceptingContext(ErrorMetadata* err,
 
   // If this TokenStreamAnyChars doesn't have location information, try to
   // get it from the caller.
-  if (!filename_ && !cx->isHelperThreadContext()) {
-    NonBuiltinFrameIter iter(cx, FrameIter::FOLLOW_DEBUGGER_EVAL_PREV_LINK,
-                             cx->realm()->principals());
-    if (!iter.done() && iter.filename()) {
-      err->filename = iter.filename();
-      err->lineNumber = iter.computeLine(&err->columnNumber);
-      return false;
+  if (!filename_) {
+    JSContext* maybeCx = context()->maybeCurrentJSContext();
+    if (maybeCx && !maybeCx->isHelperThreadContext()) {
+      NonBuiltinFrameIter iter(maybeCx,
+                               FrameIter::FOLLOW_DEBUGGER_EVAL_PREV_LINK,
+                               maybeCx->realm()->principals());
+      if (!iter.done() && iter.filename()) {
+        err->filename = iter.filename();
+        err->lineNumber = iter.computeLine(&err->columnNumber);
+        return false;
+      }
     }
   }
 
@@ -1953,7 +1958,7 @@ bool TokenStreamSpecific<Unit, AnyCharsAccess>::getDirectives(
 }
 
 [[nodiscard]] bool TokenStreamCharsShared::copyCharBufferTo(
-    JSContext* cx, UniquePtr<char16_t[], JS::FreePolicy>* destination) {
+    UniquePtr<char16_t[], JS::FreePolicy>* destination) {
   size_t length = charBuffer.length();
 
   *destination = fc->getAllocator()->make_pod_array<char16_t>(length + 1);
@@ -2037,7 +2042,7 @@ template <typename Unit, class AnyCharsAccess>
     return true;
   }
 
-  return copyCharBufferTo(anyCharsAccess().cx, destination);
+  return copyCharBufferTo(destination);
 }
 
 template <typename Unit, class AnyCharsAccess>
@@ -2467,8 +2472,9 @@ template <typename Unit, class AnyCharsAccess>
 
     // Most numbers are pure decimal integers without fractional component
     // or exponential notation.  Handle that with optimized code.
-    if (!GetDecimalInteger(anyCharsAccess().cx, numStart,
-                           this->sourceUnits.addressOfNextCodeUnit(), &dval)) {
+    if (!GetDecimalInteger(numStart, this->sourceUnits.addressOfNextCodeUnit(),
+                           &dval)) {
+      ReportOutOfMemory(this->fc);
       return false;
     }
   } else if (unit == 'n') {
@@ -2505,8 +2511,9 @@ template <typename Unit, class AnyCharsAccess>
 
     ungetCodeUnit(unit);
 
-    if (!GetDecimal(anyCharsAccess().cx, numStart,
-                    this->sourceUnits.addressOfNextCodeUnit(), &dval)) {
+    if (!GetDecimal(numStart, this->sourceUnits.addressOfNextCodeUnit(),
+                    &dval)) {
+      ReportOutOfMemory(this->fc);
       return false;
     }
   }
@@ -3015,9 +3022,10 @@ template <typename Unit, class AnyCharsAccess>
       }
 
       double dval;
-      if (!GetFullInteger(anyCharsAccess().cx, numStart,
-                          this->sourceUnits.addressOfNextCodeUnit(), radix,
-                          IntegerSeparatorHandling::SkipUnderscore, &dval)) {
+      if (!GetFullInteger(numStart, this->sourceUnits.addressOfNextCodeUnit(),
+                          radix, IntegerSeparatorHandling::SkipUnderscore,
+                          &dval)) {
+        ReportOutOfMemory(this->fc);
         return badToken();
       }
       newNumberToken(dval, NoDecimal, start, modifier, ttp);

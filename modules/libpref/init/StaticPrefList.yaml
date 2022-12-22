@@ -3119,6 +3119,12 @@
   value: false
   mirror: always
 
+# Autoplay Policy Detection https://w3c.github.io/autoplay/
+- name: dom.media.autoplay-policy-detection.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Media Session API
 - name: dom.media.mediasession.enabled
   type: bool
@@ -3867,6 +3873,13 @@
 # pref controls `Sanitizer` API being exposed
 # https://wicg.github.io/sanitizer-api/
 - name: dom.security.sanitizer.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# Pref that controls the Element.setHTML API idenpendetly of the sanitizer
+# API.
+- name: dom.security.setHTML.enabled
   type: bool
   value: false
   mirror: always
@@ -5006,6 +5019,13 @@
   value: true
   mirror: always
 
+# Use compatible range computation when applying inline style.  This is used
+# for making it possible to backout with Normandy Pref Rollout.
+- name: editor.inline_style.range.compatible_with_the_other_browsers
+  type: bool
+  value: true
+  mirror: always
+
 # Whether use Blink/WebKit compatbile joining nodes and split a node direction.
 # false: Left node will be created (at splitting) and deleted (at joining)
 # true:  Right node will be created (at splitting) and deleted (at joinining)
@@ -5899,10 +5919,16 @@
   value: false
   mirror: always
 
-# Whether to use aa-stroke to accelerate accelerate stroked paths.
+# Whether to use aa-stroke to accelerate stroked paths.
 - name: gfx.canvas.accelerated.aa-stroke.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Draws an indicator if acceleration is used.
+- name: gfx.canvas.accelerated.debug
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # 0x7fff is the maximum supported xlib surface size and is more than enough for canvases.
@@ -6703,6 +6729,15 @@
 -   name: gfx.webrender.dcomp-use-virtual-surfaces
     type: bool
     value: true
+    mirror: once
+  # Whether to use a video overlay layers for sw decoded video with DirectComposition
+-   name: gfx.webrender.dcomp-video-sw-overlay-win
+    type: bool
+    value: @IS_NIGHTLY_BUILD@
+    mirror: once
+-   name: gfx.video.convert-i420-to-nv12.force-enabled
+    type: bool
+    value: false
     mirror: once
 #endif
 
@@ -7818,13 +7853,6 @@
     mirror: always
 #endif  // defined(ENABLE_WASM_MEMORY64)
 
-# Support for ArrayBuffers larger than 2 GB on 64-bit systems
-- name: javascript.options.large_arraybuffers
-  type: bool
-  value: true
-  mirror: always  # LoadStartupJSPrefs
-  do_not_use_directly: true
-
 # Support for pretenuring allocations based on their allocation site.
 - name: javascript.options.site_based_pretenuring
   type: bool
@@ -8575,6 +8603,22 @@
   value: false
   mirror: always
   rust: true
+
+# Whether to use tight bounds for floating ::first-letter (legacy Gecko behavior)
+# or loose bounds based on overall font metrics (WebKit/Blink-like behavior)?
+# Values mean:
+#     1   legacy Gecko behavior (tight bounds)
+#     0   loose typographic bounds (similar to webkit/blink)
+#    -1   auto behavior: use loose bounds if reduced line-height (<1em) or negative
+#         block-start margin is present; otherwise use tight bounds.
+- name: layout.css.floating-first-letter.tight-glyph-bounds
+  type: int32_t
+#ifdef NIGHTLY_BUILD
+  value: -1
+#else
+  value: 1
+#endif
+  mirror: always
 
 # Is support for the font-display @font-face descriptor enabled?
 - name: layout.css.font-display.enabled
@@ -10647,7 +10691,7 @@
 # disabled, an older forked capture module is used.
 - name: media.getusermedia.camera.macavf.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: once
 
 # WebRTC prefs follow
@@ -11412,6 +11456,15 @@
 - name: network.http.useragent.forceVersion
   type: uint32_t
   value: 0
+  mirror: always
+
+# Set this pref to an integer like 99 to override the User-Agent string's
+# 'rv' bit. The value 0 means use the default Firefox version. We introduced
+# this for Firefox 110 because it turned out websites used user agent parsing
+# for "rv:11" to detect IE11.
+- name: network.http.useragent.forceRVOnly
+  type: uint32_t
+  value: 109
   mirror: always
 
 # Whether or not we use Windows for SSO to Microsoft sites.

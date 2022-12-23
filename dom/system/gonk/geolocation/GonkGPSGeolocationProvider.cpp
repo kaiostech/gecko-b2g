@@ -48,7 +48,8 @@
 #  include "nsPrintfCString.h"
 #endif
 
-#ifdef HAS_KOOST_MODULES
+#define GNSS_MONITOR_SUPPORT
+#ifdef GNSS_MONITOR_SUPPORT
 #  include "nsIGnssMonitor.h"
 #  include "b2g/GnssNmea.h"
 #  include "b2g/GnssSvInfo.h"
@@ -142,7 +143,7 @@ struct GnssCallback : public IGnssCallback {
   Return<void> gnssSvStatusCb_2_0(
       const hidl_vec<IGnssCallback::GnssSvInfo>& svInfoList) override;
 
-#ifdef HAS_KOOST_MODULES
+#ifdef GNSS_MONITOR_SUPPORT
  private:
   nsCOMPtr<nsIGnssMonitor> mGnssMonitor;
 #endif
@@ -197,7 +198,7 @@ static const char* kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
 static const auto kSettingRilDefaultServiceId = u"ril.data.defaultServiceId"_ns;
 #endif
 
-#ifdef HAS_KOOST_MODULES
+#ifdef GNSS_MONITOR_SUPPORT
 static const char* kPrefGnssMonitorEnabled = "geo.gnssMonitor.enabled";
 static bool gGnssMonitorEnabled = false;
 #endif
@@ -572,7 +573,7 @@ GonkGPSGeolocationProvider::Startup() {
     ERR("Startup without initialization.");
   }
 
-#ifdef HAS_KOOST_MODULES
+#ifdef GNSS_MONITOR_SUPPORT
   gGnssMonitorEnabled = Preferences::GetBool(kPrefGnssMonitorEnabled);
 #endif
 
@@ -1028,7 +1029,7 @@ Return<void> GnssCallback::gnssStatusCb(
   }
   DBG("%s", msgStream);
 
-#ifdef HAS_KOOST_MODULES
+#ifdef GNSS_MONITOR_SUPPORT
   NS_DispatchToMainThread(
       NS_NewRunnableFunction("UpdateGnssStatusTask", [this, status]() {
         if (gGnssMonitorEnabled && !mGnssMonitor) {
@@ -1061,7 +1062,7 @@ Return<void> GnssCallback::gnssNmeaCb(
     int64_t timestamp, const ::android::hardware::hidl_string& nmea) {
   DBG("%s: timestamp: %lu", __FUNCTION__, timestamp);
 
-#ifdef HAS_KOOST_MODULES
+#ifdef GNSS_MONITOR_SUPPORT
   NS_DispatchToMainThread(
       NS_NewRunnableFunction("UpdateNmeaTask", [this, nmea, timestamp]() {
         if (gGnssMonitorEnabled && !mGnssMonitor) {
@@ -1137,7 +1138,7 @@ Return<void> GnssCallback::gnssSvStatusCb_2_0(
     const hidl_vec<IGnssCallback::GnssSvInfo>& svInfoList) {
   DBG("%s: numSvs: %zu", __FUNCTION__, svInfoList.size());
 
-#ifdef HAS_KOOST_MODULES
+#ifdef GNSS_MONITOR_SUPPORT
   NS_DispatchToMainThread(
       NS_NewRunnableFunction("UpdateSvInfoTask", [this, svInfoList]() {
         if (gGnssMonitorEnabled && !mGnssMonitor) {

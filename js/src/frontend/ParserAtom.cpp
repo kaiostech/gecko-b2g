@@ -942,20 +942,22 @@ double ParserAtomsTable::toNumber(TaggedParserAtomIndex index) const {
 }
 
 UniqueChars ParserAtomsTable::toNewUTF8CharsZ(
-    JSContext* cx, TaggedParserAtomIndex index) const {
+    FrontendContext* fc, TaggedParserAtomIndex index) const {
+  auto* alloc = fc->getAllocator();
+
   if (index.isParserAtomIndex()) {
     const auto* atom = getParserAtom(index.toParserAtomIndex());
     return UniqueChars(
         atom->hasLatin1Chars()
-            ? JS::CharsToNewUTF8CharsZ(cx, atom->latin1Range()).c_str()
-            : JS::CharsToNewUTF8CharsZ(cx, atom->twoByteRange()).c_str());
+            ? JS::CharsToNewUTF8CharsZ(alloc, atom->latin1Range()).c_str()
+            : JS::CharsToNewUTF8CharsZ(alloc, atom->twoByteRange()).c_str());
   }
 
   if (index.isWellKnownAtomId()) {
     const auto& info = GetWellKnownAtomInfo(index.toWellKnownAtomId());
     return UniqueChars(
         JS::CharsToNewUTF8CharsZ(
-            cx,
+            alloc,
             mozilla::Range(reinterpret_cast<const Latin1Char*>(info.content),
                            info.length))
             .c_str());
@@ -965,7 +967,7 @@ UniqueChars ParserAtomsTable::toNewUTF8CharsZ(
     Latin1Char content[1];
     getLength1Content(index.toLength1StaticParserString(), content);
     return UniqueChars(
-        JS::CharsToNewUTF8CharsZ(cx, mozilla::Range(content, 1)).c_str());
+        JS::CharsToNewUTF8CharsZ(alloc, mozilla::Range(content, 1)).c_str());
   }
 
   if (index.isLength2StaticParserString()) {
@@ -973,7 +975,8 @@ UniqueChars ParserAtomsTable::toNewUTF8CharsZ(
     getLength2Content(index.toLength2StaticParserString(), content);
     return UniqueChars(
         JS::CharsToNewUTF8CharsZ(
-            cx, mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 2))
+            alloc,
+            mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 2))
             .c_str());
   }
 
@@ -982,14 +985,17 @@ UniqueChars ParserAtomsTable::toNewUTF8CharsZ(
   getLength3Content(index.toLength3StaticParserString(), content);
   return UniqueChars(
       JS::CharsToNewUTF8CharsZ(
-          cx, mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 3))
+          alloc,
+          mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 3))
           .c_str());
 }
 
 template <typename CharT>
-UniqueChars ToPrintableStringImpl(JSContext* cx, mozilla::Range<CharT> str,
+UniqueChars ToPrintableStringImpl(mozilla::Range<CharT> str,
                                   char quote = '\0') {
-  Sprinter sprinter(cx);
+  // Pass nullptr as JSContext, given we don't use JSString.
+  // OOM should be handled by caller.
+  Sprinter sprinter(nullptr);
   if (!sprinter.init()) {
     return nullptr;
   }
@@ -1000,55 +1006,51 @@ UniqueChars ToPrintableStringImpl(JSContext* cx, mozilla::Range<CharT> str,
 }
 
 UniqueChars ParserAtomsTable::toPrintableString(
-    JSContext* cx, TaggedParserAtomIndex index) const {
+    TaggedParserAtomIndex index) const {
   if (index.isParserAtomIndex()) {
     const auto* atom = getParserAtom(index.toParserAtomIndex());
-    return atom->hasLatin1Chars()
-               ? ToPrintableStringImpl(cx, atom->latin1Range())
-               : ToPrintableStringImpl(cx, atom->twoByteRange());
+    return atom->hasLatin1Chars() ? ToPrintableStringImpl(atom->latin1Range())
+                                  : ToPrintableStringImpl(atom->twoByteRange());
   }
 
   if (index.isWellKnownAtomId()) {
     const auto& info = GetWellKnownAtomInfo(index.toWellKnownAtomId());
-    return ToPrintableStringImpl(
-        cx, mozilla::Range(reinterpret_cast<const Latin1Char*>(info.content),
-                           info.length));
+    return ToPrintableStringImpl(mozilla::Range(
+        reinterpret_cast<const Latin1Char*>(info.content), info.length));
   }
 
   if (index.isLength1StaticParserString()) {
     Latin1Char content[1];
     getLength1Content(index.toLength1StaticParserString(), content);
-    return ToPrintableStringImpl(cx,
-                                 mozilla::Range<const Latin1Char>(content, 1));
+    return ToPrintableStringImpl(mozilla::Range<const Latin1Char>(content, 1));
   }
 
   if (index.isLength2StaticParserString()) {
     char content[2];
     getLength2Content(index.toLength2StaticParserString(), content);
     return ToPrintableStringImpl(
-        cx, mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 2));
+        mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 2));
   }
 
   MOZ_ASSERT(index.isLength3StaticParserString());
   char content[3];
   getLength3Content(index.toLength3StaticParserString(), content);
   return ToPrintableStringImpl(
-      cx, mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 3));
+      mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 3));
 }
 
 UniqueChars ParserAtomsTable::toQuotedString(
-    JSContext* cx, TaggedParserAtomIndex index) const {
+    TaggedParserAtomIndex index) const {
   if (index.isParserAtomIndex()) {
     const auto* atom = getParserAtom(index.toParserAtomIndex());
     return atom->hasLatin1Chars()
-               ? ToPrintableStringImpl(cx, atom->latin1Range(), '\"')
-               : ToPrintableStringImpl(cx, atom->twoByteRange(), '\"');
+               ? ToPrintableStringImpl(atom->latin1Range(), '\"')
+               : ToPrintableStringImpl(atom->twoByteRange(), '\"');
   }
 
   if (index.isWellKnownAtomId()) {
     const auto& info = GetWellKnownAtomInfo(index.toWellKnownAtomId());
     return ToPrintableStringImpl(
-        cx,
         mozilla::Range(reinterpret_cast<const Latin1Char*>(info.content),
                        info.length),
         '\"');
@@ -1057,24 +1059,22 @@ UniqueChars ParserAtomsTable::toQuotedString(
   if (index.isLength1StaticParserString()) {
     Latin1Char content[1];
     getLength1Content(index.toLength1StaticParserString(), content);
-    return ToPrintableStringImpl(
-        cx, mozilla::Range<const Latin1Char>(content, 1), '\"');
+    return ToPrintableStringImpl(mozilla::Range<const Latin1Char>(content, 1),
+                                 '\"');
   }
 
   if (index.isLength2StaticParserString()) {
     char content[2];
     getLength2Content(index.toLength2StaticParserString(), content);
     return ToPrintableStringImpl(
-        cx, mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 2),
-        '\"');
+        mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 2), '\"');
   }
 
   MOZ_ASSERT(index.isLength3StaticParserString());
   char content[3];
   getLength3Content(index.toLength3StaticParserString(), content);
   return ToPrintableStringImpl(
-      cx, mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 3),
-      '\"');
+      mozilla::Range(reinterpret_cast<const Latin1Char*>(content), 3), '\"');
 }
 
 JSAtom* ParserAtomsTable::toJSAtom(JSContext* cx, FrontendContext* fc,

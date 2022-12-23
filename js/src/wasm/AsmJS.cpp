@@ -1512,7 +1512,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
   [[nodiscard]] bool initGlobalArgumentName(TaggedParserAtomIndex n) {
     globalArgumentName_ = n;
     if (n) {
-      asmJSMetadata_->globalArgumentName = parserAtoms_.toNewUTF8CharsZ(cx_, n);
+      asmJSMetadata_->globalArgumentName = parserAtoms_.toNewUTF8CharsZ(fc_, n);
       if (!asmJSMetadata_->globalArgumentName) {
         return false;
       }
@@ -1522,7 +1522,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
   [[nodiscard]] bool initImportArgumentName(TaggedParserAtomIndex n) {
     importArgumentName_ = n;
     if (n) {
-      asmJSMetadata_->importArgumentName = parserAtoms_.toNewUTF8CharsZ(cx_, n);
+      asmJSMetadata_->importArgumentName = parserAtoms_.toNewUTF8CharsZ(fc_, n);
       if (!asmJSMetadata_->importArgumentName) {
         return false;
       }
@@ -1532,7 +1532,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
   [[nodiscard]] bool initBufferArgumentName(TaggedParserAtomIndex n) {
     bufferArgumentName_ = n;
     if (n) {
-      asmJSMetadata_->bufferArgumentName = parserAtoms_.toNewUTF8CharsZ(cx_, n);
+      asmJSMetadata_->bufferArgumentName = parserAtoms_.toNewUTF8CharsZ(fc_, n);
       if (!asmJSMetadata_->bufferArgumentName) {
         return false;
       }
@@ -1574,7 +1574,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
                           bool isConst) {
     MOZ_ASSERT(type.isGlobalVarType());
 
-    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(cx_, field);
+    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(fc_, field);
     if (!fieldChars) {
       return false;
     }
@@ -1605,7 +1605,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
                     TaggedParserAtomIndex maybeField) {
     UniqueChars fieldChars;
     if (maybeField) {
-      fieldChars = parserAtoms_.toNewUTF8CharsZ(cx_, maybeField);
+      fieldChars = parserAtoms_.toNewUTF8CharsZ(fc_, maybeField);
       if (!fieldChars) {
         return false;
       }
@@ -1631,7 +1631,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
   bool addMathBuiltinFunction(TaggedParserAtomIndex var,
                               AsmJSMathBuiltinFunction func,
                               TaggedParserAtomIndex field) {
-    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(cx_, field);
+    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(fc_, field);
     if (!fieldChars) {
       return false;
     }
@@ -1663,7 +1663,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
  public:
   bool addMathBuiltinConstant(TaggedParserAtomIndex var, double constant,
                               TaggedParserAtomIndex field) {
-    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(cx_, field);
+    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(fc_, field);
     if (!fieldChars) {
       return false;
     }
@@ -1679,7 +1679,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
   }
   bool addGlobalConstant(TaggedParserAtomIndex var, double constant,
                          TaggedParserAtomIndex field) {
-    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(cx_, field);
+    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(fc_, field);
     if (!fieldChars) {
       return false;
     }
@@ -1695,7 +1695,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
   }
   bool addArrayViewCtor(TaggedParserAtomIndex var, Scalar::Type vt,
                         TaggedParserAtomIndex field) {
-    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(cx_, field);
+    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(fc_, field);
     if (!fieldChars) {
       return false;
     }
@@ -1714,7 +1714,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
     return asmJSMetadata_->asmJSGlobals.append(std::move(g));
   }
   bool addFFI(TaggedParserAtomIndex var, TaggedParserAtomIndex field) {
-    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(cx_, field);
+    UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(fc_, field);
     if (!fieldChars) {
       return false;
     }
@@ -1741,7 +1741,7 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
     // Record the field name of this export.
     CacheableName fieldName;
     if (maybeField) {
-      UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(cx_, maybeField);
+      UniqueChars fieldChars = parserAtoms_.toNewUTF8CharsZ(fc_, maybeField);
       if (!fieldChars) {
         return false;
       }
@@ -1845,9 +1845,10 @@ class MOZ_STACK_CLASS ModuleValidatorShared {
   bool failNameOffset(uint32_t offset, const char* fmt,
                       TaggedParserAtomIndex name) {
     // This function is invoked without the caller properly rooting its locals.
-    gc::AutoSuppressGC suppress(cx_);
-    if (UniqueChars bytes = parserAtoms_.toPrintableString(cx_, name)) {
+    if (UniqueChars bytes = parserAtoms_.toPrintableString(name)) {
       failfOffset(offset, fmt, bytes.get());
+    } else {
+      ReportOutOfMemory(fc_);
     }
     return false;
   }
@@ -1929,7 +1930,7 @@ class MOZ_STACK_CLASS ModuleValidator : public ModuleValidatorShared {
       typeFailure(errorOffset_, errorString_.get());
     }
     if (errorOverRecursed_) {
-      ReportOverRecursed(cx_);
+      ReportOverRecursed(fc_);
     }
   }
 
@@ -1986,8 +1987,9 @@ class MOZ_STACK_CLASS ModuleValidator : public ModuleValidatorShared {
 
  public:
   bool init() {
-    asmJSMetadata_ = cx_->new_<AsmJSMetadata>();
+    asmJSMetadata_ = js_new<AsmJSMetadata>();
     if (!asmJSMetadata_) {
+      ReportOutOfMemory(fc_);
       return false;
     }
 
@@ -2155,7 +2157,7 @@ class MOZ_STACK_CLASS ModuleValidator : public ModuleValidatorShared {
       return nullptr;
     }
     for (const Func& func : funcDefs_) {
-      CacheableChars funcName = parserAtoms_.toNewUTF8CharsZ(cx_, func.name());
+      CacheableChars funcName = parserAtoms_.toNewUTF8CharsZ(fc_, func.name());
       if (!funcName ||
           !asmJSMetadata_->asmJSFuncNames.emplaceBack(std::move(funcName))) {
         return nullptr;
@@ -2183,14 +2185,10 @@ class MOZ_STACK_CLASS ModuleValidator : public ModuleValidatorShared {
     }
 
     // The default options are fine for asm.js
-    FeatureOptions options;
-    CompileArgsError error;
     SharedCompileArgs args =
-        CompileArgs::build(cx_, std::move(scriptedCaller), options, &error);
+        CompileArgs::buildForAsmJS(std::move(scriptedCaller));
     if (!args) {
-      // EstablishPreconditions will ensure that a compiler is available by
-      // this point
-      MOZ_RELEASE_ASSERT(error == CompileArgsError::OutOfMemory);
+      ReportOutOfMemory(fc_);
       return nullptr;
     }
 
@@ -2205,8 +2203,9 @@ class MOZ_STACK_CLASS ModuleValidator : public ModuleValidatorShared {
 
     // asm.js does not have any wasm bytecode to save; view-source is
     // provided through the ScriptSource.
-    SharedBytes bytes = cx_->new_<ShareableBytes>();
+    SharedBytes bytes = js_new<ShareableBytes>();
     if (!bytes) {
+      ReportOutOfMemory(fc_);
       return nullptr;
     }
 
@@ -7099,8 +7098,7 @@ static bool IsAsmJSCompilerAvailable(JSContext* cx) {
   return HasPlatformSupport(cx) && WasmCompilerForAsmJSAvailable(cx);
 }
 
-static bool EstablishPreconditions(JSContext* cx,
-                                   frontend::ParserBase& parser) {
+static bool EstablishPreconditions(frontend::ParserBase& parser) {
   switch (parser.options().asmJSOption) {
     case AsmJSOption::DisabledByAsmJSPref:
       return TypeFailureWarning(
@@ -7154,7 +7152,7 @@ static bool DoCompileAsmJS(JSContext* cx, FrontendContext* fc,
   *validated = false;
 
   // Various conditions disable asm.js optimizations.
-  if (!EstablishPreconditions(cx, parser)) {
+  if (!EstablishPreconditions(parser)) {
     return NoExceptionPending(fc);
   }
 

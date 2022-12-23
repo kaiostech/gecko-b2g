@@ -15,16 +15,20 @@
 
 namespace mozilla::dom {
 
+enum class WebTransportReliabilityMode : uint8_t;
+
 class WebTransportParent : public PWebTransportParent {
  public:
   WebTransportParent() = default;
 
-  // XXX Threadsafe??
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebTransportParent, override)
 
-  bool Init(const nsAString& aURL,  // WebTransportOptions aOptions,
-            Endpoint<PWebTransportParent>&& aParentEndpoint,
-            std::function<void(const nsresult&)>&& aResolver);
+  static void Create(
+      const nsAString& aURL, const bool& aDedicated,
+      const bool& aRequireUnreliable, const uint32_t& aCongestionControl,
+      // Sequence<WebTransportHash>* aServerCertHashes,
+      Endpoint<PWebTransportParent>&& aParentEndpoint,
+      std::function<void(Tuple<const nsresult&, const uint8_t&>)>&& aResolver);
 
   mozilla::ipc::IPCResult RecvClose(const uint32_t& aCode,
                                     const nsACString& aReason);

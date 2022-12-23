@@ -504,19 +504,17 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateFileSystemManagerParent(
 }
 
 mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
-    const nsAString& aURL,
-    // WebTransportOptions aOptions,
+    const nsAString& aURL, const bool& aDedicated,
+    const bool& aRequireUnreliable, const uint32_t& aCongestionControl,
+    // Sequence<WebTransportHash>* aServerCertHashes,
     Endpoint<PWebTransportParent>&& aParentEndpoint,
     CreateWebTransportParentResolver&& aResolver) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
-  RefPtr<mozilla::dom::WebTransportParent> webt =
-      new mozilla::dom::WebTransportParent();
-  if (!webt->Init(aURL, /*aOptions, */ std::move(aParentEndpoint),
-                  std::move(aResolver))) {
-    webt->Close();
-  }
+  mozilla::dom::WebTransportParent::Create(
+      aURL, aDedicated, aRequireUnreliable, aCongestionControl,
+      /*aServerCertHashes, */ std::move(aParentEndpoint), std::move(aResolver));
   return IPC_OK();
 }
 

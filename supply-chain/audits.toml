@@ -7,6 +7,11 @@ criteria = "safe-to-deploy"
 version = "0.1.0"
 notes = "Written and maintained by Gfx team at Mozilla."
 
+[[audits.aho-corasick]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.7.18 -> 0.7.20"
+
 [[audits.alsa]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
@@ -35,6 +40,11 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.1.2 -> 0.1.4"
 
+[[audits.android_system_properties]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.1.4 -> 0.1.5"
+
 [[audits.anyhow]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
@@ -50,6 +60,11 @@ notes = "No functional differences, just CI config and docs."
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "1.0.61 -> 1.0.62"
+
+[[audits.anyhow]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "1.0.62 -> 1.0.68"
 
 [[audits.app_units]]
 who = "Emilio Cobos Álvarez <emilio@crisal.io>"
@@ -69,6 +84,11 @@ delta = "1.1.0 -> 1.1.1"
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"
 delta = "1.1.1 -> 1.1.3"
+
+[[audits.arbitrary]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-run"
+delta = "1.1.3 -> 1.2.0"
 
 [[audits.ash]]
 who = "Jim Blandy <jimb@red-bean.com>"
@@ -104,6 +124,11 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.1.56 -> 0.1.57"
 
+[[audits.async-trait]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.1.57 -> 0.1.60"
+
 [[audits.atomic_refcell]]
 who = "Bobby Holley <bholley@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -121,6 +146,11 @@ who = "Josh Stone <jistone@redhat.com>"
 criteria = "safe-to-deploy"
 version = "1.1.0"
 notes = "All code written or reviewed by Josh Stone."
+
+[[audits.base64]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.13.0 -> 0.13.1"
 
 [[audits.bhttp]]
 who = "Dana Keeler <dkeeler@mozilla.com>"
@@ -156,6 +186,11 @@ criteria = "safe-to-deploy"
 version = "0.6.3"
 notes = "Another crate I own via contain-rs that is ancient and in maintenance mode but otherwise perfectly fine."
 
+[[audits.block-buffer]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.10.2 -> 0.10.3"
+
 [[audits.build-parallel]]
 who = "Jeff Muizelaar <jmuizelaar@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -176,6 +211,11 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "1.1.0 -> 1.2.1"
 
+[[audits.bytes]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "1.2.1 -> 1.3.0"
+
 [[audits.camino]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
@@ -192,6 +232,11 @@ who = "Henri Sivonen <hsivonen@hsivonen.fi>"
 criteria = "safe-to-deploy"
 version = "0.1.2"
 notes = "I, Henri Sivonen, wrote this crate for Gecko even though it is published via crates.io. The buffer input assumes Rust slice constraints for the start pointer. In Gecko, this is taken care of by mozilla::Span, but the C API doesn't conform to idiomatic C constraints on this point."
+
+[[audits.clang-sys]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "1.3.3 -> 1.4.0"
 
 [[audits.clap_lex]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
@@ -214,10 +259,20 @@ memory and layout, but there is no particular processing of untrusted input
 here.
 """
 
+[[audits.cookie]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-run"
+delta = "0.16.0 -> 0.16.2"
+
 [[audits.cpufeatures]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.2.2 -> 0.2.4"
+
+[[audits.cpufeatures]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.2.4 -> 0.2.5"
 
 [[audits.crossbeam-channel]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
@@ -234,10 +289,20 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.9.8 -> 0.9.10"
 
+[[audits.crossbeam-epoch]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.9.10 -> 0.9.13"
+
 [[audits.crossbeam-utils]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.8.8 -> 0.8.11"
+
+[[audits.crossbeam-utils]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.8.11 -> 0.8.14"
 
 [[audits.crypto-common]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
@@ -285,6 +350,11 @@ Mozilla-developed package.
 who = "Matthew Gregan <kinetik@flim.org>"
 criteria = "safe-to-deploy"
 delta = "0.10.1 -> 0.10.2"
+
+[[audits.cubeb]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.10.2 -> 0.10.3"
 
 [[audits.cubeb-backend]]
 who = "Matthew Gregan <kinetik@flim.org>"
@@ -355,6 +425,11 @@ criteria = "safe-to-deploy"
 delta = "0.4.1 -> 0.5.0"
 notes = "The commits between 0.4.1 and 0.5.0 were all audited by Dzmitry Malyshau or myself."
 
+[[audits.data-encoding]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "2.3.2 -> 2.3.3"
+
 [[audits.derive_arbitrary]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"
@@ -365,10 +440,25 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"
 delta = "1.1.1 -> 1.1.3"
 
+[[audits.derive_arbitrary]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-run"
+delta = "1.1.3 -> 1.2.1"
+
 [[audits.devd-rs]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.3.4 -> 0.3.5"
+
+[[audits.devd-rs]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.3.5 -> 0.3.6"
+
+[[audits.digest]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-deploy"
+delta = "0.10.3 -> 0.10.6"
 
 [[audits.displaydoc]]
 who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
@@ -1673,6 +1763,11 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.21.0 -> 0.21.1"
 notes = "I authored the changes in this version."
+
+[[audits.uuid]]
+who = "Gabriele Svelto <gsvelto@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.8.2 -> 1.2.2"
 
 [[audits.void]]
 who = "Bobby Holley <bobbyholley@gmail.com>"

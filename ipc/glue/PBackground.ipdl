@@ -203,9 +203,12 @@ parent:
    */
   async CreateWebTransportParent(
       nsString aURL,
-      /* WebTransportOptions aOptions, */
+      bool aDedicated,
+      bool aRequireUnreliable,
+      uint32_t aCongestionControl,
+      /* Sequence<WebTransportHash>* aServerCertHashes, */
       Endpoint<PWebTransportParent> aParentEndpoint)
-      returns(nsresult rv);
+      returns(nsresult rv, uint8_t aReliability); // Actually WebTransportReliabityMode enum
 
   async PVsync();
 

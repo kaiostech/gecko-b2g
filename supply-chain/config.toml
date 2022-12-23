@@ -58,6 +58,14 @@ dependency-criteria = { tokio-reactor = [], tokio-threadpool = [] }
 [policy.gkrust_shared]
 notes = "The dependencies on tokio-reactor and tokio-threadpools are just a hack to pin the version used by audioipc-{client,server}. Suppress vetting on those for the same reasons behind the policy entries."
 
+[policy.glean]
+audit-as-crates-io = true
+notes = "Temporarily patched in-tree"
+
+[policy.glean-core]
+audit-as-crates-io = true
+notes = "Temporarily patched in-tree"
+
 [policy.gluesmith]
 criteria = "safe-to-run"
 notes = "Used for fuzzing."
@@ -133,6 +141,10 @@ notes = "This is a first-party crate which is entirely unrelated to the crates.i
 [policy.qcms]
 audit-as-crates-io = true
 notes = "This is a first-party crate which is also published to crates.io, but we should publish audits for it for the benefit of the ecosystem."
+
+[policy.rkv]
+audit-as-crates-io = true
+notes = "Temporarily patched in-tree"
 
 [policy.rure]
 audit-as-crates-io = true
@@ -265,10 +277,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.bitreader]]
 version = "0.3.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.bitvec]]
-version = "0.19.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.block]]
@@ -550,10 +558,6 @@ criteria = "safe-to-run"
 [[exemptions.fuchsia-zircon-sys]]
 version = "0.3.3"
 criteria = "safe-to-run"
-
-[[exemptions.funty]]
-version = "1.1.0"
-criteria = "safe-to-deploy"
 
 [[exemptions.futures]]
 version = "0.3.21"
@@ -871,10 +875,6 @@ criteria = "safe-to-run"
 
 [[exemptions.nix]]
 version = "0.15.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.nom]]
-version = "6.1.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.nom]]
@@ -1229,10 +1229,6 @@ criteria = "safe-to-deploy"
 version = "1.0.96"
 criteria = "safe-to-deploy"
 
-[[exemptions.tap]]
-version = "1.0.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.tempfile]]
 version = "3.3.0"
 criteria = "safe-to-deploy"
@@ -1403,10 +1399,6 @@ criteria = "safe-to-run"
 
 [[exemptions.wio]]
 version = "0.2.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.wyz]]
-version = "0.2.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.xml-rs]]

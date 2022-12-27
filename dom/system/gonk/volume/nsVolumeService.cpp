@@ -379,16 +379,19 @@ void nsVolumeService::UpdateVolume(nsVolume* aVolume, bool aNotifyObservers) {
     aVolume->UpdateMountLock(vol);
   }
 
-  nsCString volumeName;
-  if (Preferences::GetCString(FOTA_OBSERVE_VOLUME_NAME, volumeName) != NS_OK) {
-     volumeName.Assign("sdcard1");
-  }
+  if (XRE_IsParentProcess()) {
+    // Preferences::SetCString should only run in the parent process.
+    nsCString volumeName;
+    if (Preferences::GetCString(FOTA_OBSERVE_VOLUME_NAME, volumeName) != NS_OK) {
+      volumeName.Assign("sdcard1");
+    }
 
-  if (volumeName.Equals(aVolume->NameStr())) {
-    char volumeNameAndState[128] = {0};
-    snprintf(volumeNameAndState, 128, "%s:%s", volumeName.get(), aVolume->StateStr());
-    Preferences::SetCString(VOLUME_STATE_PREF_NAME, volumeNameAndState);
-    DBG("Volume name and state: %s", volumeNameAndState);
+    if (volumeName.Equals(aVolume->NameStr())) {
+      char volumeNameAndState[128] = {0};
+      snprintf(volumeNameAndState, 128, "%s:%s", volumeName.get(), aVolume->StateStr());
+      Preferences::SetCString(VOLUME_STATE_PREF_NAME, volumeNameAndState);
+      DBG("Volume name and state: %s", volumeNameAndState);
+    }
   }
 
   if (!aNotifyObservers) {

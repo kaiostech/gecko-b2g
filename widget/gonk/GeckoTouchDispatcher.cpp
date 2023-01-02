@@ -314,19 +314,14 @@ void GeckoTouchDispatcher::ResampleTouchMoves(MultiTouchInput& aOutTouch,
 
   ResampleTouch(aOutTouch, baseTouch, currentTouch,
                 sampleTime - baseTouch.mTimeStamp, touchDiff);
-
-  // Both mTimeStamp and mTime are being updated to sampleTime here.
-  // mTime needs to be updated using a delta since TimeStamp doesn't
-  // provide a way to obtain a raw value.
-  aOutTouch.mTime += (sampleTime - aOutTouch.mTimeStamp).ToMilliseconds();
   aOutTouch.mTimeStamp = sampleTime;
 }
 
 static bool IsExpired(const MultiTouchInput& aTouch) {
   // No pending events, the filter state can be updated.
-  uint64_t timeNowMs = systemTime(SYSTEM_TIME_MONOTONIC) / 1000000;
-  return (timeNowMs - aTouch.mTime) > kInputExpirationThresholdMs;
+  return (TimeStamp::Now() - aTouch.mTimeStamp) > TimeDuration::FromMilliseconds(kInputExpirationThresholdMs);
 }
+
 void GeckoTouchDispatcher::DispatchTouchEvent(MultiTouchInput aMultiTouch) {
   if ((aMultiTouch.mType == MultiTouchInput::MULTITOUCH_END ||
        aMultiTouch.mType == MultiTouchInput::MULTITOUCH_CANCEL) &&

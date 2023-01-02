@@ -93,7 +93,7 @@ KeyboardAppProxy::MaybeForwardKey(WidgetKeyboardEvent* aEvent,
   }
   forwarder->OnKeyboardEventReceived(
       keyType, aEvent->mKeyCode, aEvent->mCharCode, NS_ConvertUTF16toUTF8(key),
-      aEvent->mTime, mGeneration);
+      aEvent->mTimeStamp.mValue, mGeneration);
   mEventQueue.Push(new WidgetKeyboardEvent(*aEvent));
   *aIsForwarded = true;
   return NS_OK;

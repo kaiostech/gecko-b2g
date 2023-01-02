@@ -16,6 +16,13 @@
 #include <stdint.h>
 #include <type_traits>
 
+#if defined(MOZ_B2G)
+namespace mozilla::dom {
+  class KeyboardAppProxy;
+  class KeyboardEventForwarderChild;
+}
+#endif
+
 namespace IPC {
 template <typename T>
 struct ParamTraits;
@@ -538,6 +545,11 @@ class TimeStamp {
  private:
   friend struct IPC::ParamTraits<mozilla::TimeStamp>;
   friend struct TimeStampInitialization;
+
+#if defined(MOZ_B2G)
+  friend class mozilla::dom::KeyboardAppProxy;
+  friend class mozilla::dom::KeyboardEventForwarderChild;
+#endif
 
   MOZ_IMPLICIT
   TimeStamp(TimeStampValue aValue) : mValue(aValue) {}

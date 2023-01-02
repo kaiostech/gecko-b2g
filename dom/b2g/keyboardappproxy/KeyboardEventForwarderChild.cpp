@@ -63,6 +63,7 @@ IPCResult KeyboardEventForwarderChild::RecvKey(const KeyRequest& aKey) {
         new WidgetKeyboardEvent(true, message, nullptr));
     keyEvent->mCharCode = aKey.charCode();
     keyEvent->mKeyCode = aKey.keyCode();
+    keyEvent->mTimeStamp = aKey.timeStamp();
     keyEvent->mKeyNameIndex =
         WidgetKeyboardEvent::GetKeyNameIndex(NS_ConvertUTF8toUTF16(aKey.key()));
     if (keyEvent->mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {

@@ -100,6 +100,7 @@ class nsScreenGonk : public nsIScreen {
     *aIsPseudoDisplay = false;
     return NS_OK;
   }
+  NS_IMETHOD GetColorGamut(mozilla::dom::ScreenColorGamut * aColorGamut);
 
   uint32_t GetId();
   NotifyDisplayChangedEvent GetEventVisibility();

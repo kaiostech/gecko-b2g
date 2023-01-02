@@ -18,6 +18,7 @@
 #include "gfxPlatform.h"
 #include "gfxUtils.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/dom/ScreenBinding.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "mozilla/Hal.h"
 #include "mozilla/MouseEvents.h"
@@ -139,6 +140,12 @@ nsScreenGonk::GetDefaultCSSScaleFactor(double* aScaleFactor) {
 NS_IMETHODIMP
 nsScreenGonk::GetDpi(float* aDPI) {
   *aDPI = 96;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsScreenGonk::GetColorGamut(mozilla::dom::ScreenColorGamut * aColorGamut) {
+  *aColorGamut = dom::ScreenColorGamut::Srgb;
   return NS_OK;
 }
 

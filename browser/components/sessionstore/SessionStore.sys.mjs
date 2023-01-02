@@ -215,9 +215,7 @@ const kLastIndex = Number.MAX_SAFE_INTEGER - 1;
 
 import { PrivateBrowsingUtils } from "resource://gre/modules/PrivateBrowsingUtils.sys.mjs";
 
-const { TelemetryTimestamps } = ChromeUtils.import(
-  "resource://gre/modules/TelemetryTimestamps.jsm"
-);
+import { TelemetryTimestamps } from "resource://gre/modules/TelemetryTimestamps.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { GlobalState } from "resource:///modules/sessionstore/GlobalState.sys.mjs";
@@ -229,6 +227,7 @@ XPCOMUtils.defineLazyServiceGetters(lazy, {
 });
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   PrivacyFilter: "resource://gre/modules/sessionstore/PrivacyFilter.sys.mjs",
@@ -247,7 +246,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
-  AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
   TabCrashHandler: "resource:///modules/ContentCrashHandlers.jsm",

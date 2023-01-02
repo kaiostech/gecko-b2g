@@ -8,6 +8,7 @@ package org.mozilla.gecko;
 import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
 
+import android.content.Context;
 import android.graphics.Rect;
 import android.util.Log;
 import android.view.Display;
@@ -103,6 +104,11 @@ public class GeckoScreenOrientation {
    * @return Whether the screen orientation has changed.
    */
   public boolean update() {
+    // Check whether we have the application context for fenix/a-c unit test.
+    final Context appContext = GeckoAppShell.getApplicationContext();
+    if (appContext == null) {
+      return false;
+    }
     final Rect rect = GeckoAppShell.getScreenSizeIgnoreOverride();
     final int orientation =
         rect.width() >= rect.height() ? ORIENTATION_LANDSCAPE : ORIENTATION_PORTRAIT;

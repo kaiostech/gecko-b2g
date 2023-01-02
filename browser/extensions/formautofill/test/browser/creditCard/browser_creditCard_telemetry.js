@@ -1,7 +1,7 @@
 "use strict";
 
-const { TelemetryTestUtils } = ChromeUtils.import(
-  "resource://testing-common/TelemetryTestUtils.jsm"
+const { TelemetryTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/TelemetryTestUtils.sys.mjs"
 );
 const { CreditCardTelemetry } = ChromeUtils.import(
   "resource://autofill/FormAutofillTelemetryUtils.jsm"
@@ -770,96 +770,6 @@ add_task(async function test_histogram() {
   SpecialPowers.popPrefEnv();
 
   assertHistogram(CC_NUM_USES_HISTOGRAM, {});
-});
-add_task(async function test_submit_creditCard_new_with_hidden_ui() {
-  const AUTOFILL_CREDITCARDS_HIDE_UI_PREF =
-    "extensions.formautofill.creditCards.hideui";
-
-  Services.telemetry.clearEvents();
-  Services.telemetry.clearScalars();
-  Services.telemetry.getHistogramById(CC_NUM_USES_HISTOGRAM).clear();
-
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [CREDITCARDS_USED_STATUS_PREF, 0],
-      [ENABLED_AUTOFILL_CREDITCARDS_PREF, true],
-      [AUTOFILL_CREDITCARDS_HIDE_UI_PREF, true],
-    ],
-  });
-
-  await setStorage(TEST_CREDIT_CARD_1);
-
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: CREDITCARD_FORM_URL },
-    async function(browser) {
-      let rejectPopup = () => {
-        ok(false, "Popup should not be displayed");
-      };
-      browser.addEventListener("popupshowing", rejectPopup, true);
-
-      await SimpleTest.promiseFocus(browser);
-      await focusAndWaitForFieldsIdentified(browser, "form #cc-number");
-      await BrowserTestUtils.synthesizeKey("VK_DOWN", {}, browser);
-
-      is(PopupNotifications.panel.state, "closed", "Doorhanger is hidden");
-
-      await focusUpdateSubmitForm(browser, {
-        focusSelector: "#cc-name",
-        newValues: {
-          "#cc-name": "User 1",
-          "#cc-number": "5038146897157463",
-          "#cc-exp-month": "12",
-          "#cc-exp-year": "2017",
-          "#cc-type": "mastercard",
-        },
-      });
-
-      await sleep(1000);
-      is(
-        PopupNotifications.panel.state,
-        "closed",
-        "Doorhanger is still hidden"
-      );
-      browser.removeEventListener("popupshowing", rejectPopup, true);
-    }
-  );
-
-  SpecialPowers.clearUserPref(CREDITCARDS_USED_STATUS_PREF);
-  SpecialPowers.clearUserPref(ENABLED_AUTOFILL_CREDITCARDS_PREF);
-  SpecialPowers.clearUserPref(AUTOFILL_CREDITCARDS_HIDE_UI_PREF);
-
-  assertHistogram(CC_NUM_USES_HISTOGRAM, { 0: 1 });
-
-  let expected_content = [
-    ccFormArgsv1("detected"),
-    ccFormArgsv2("detected", buildccFormv2Extra({ cc_exp: "false" }, "true")),
-    ccFormArgsv1("submitted", {
-      fields_not_auto: "6",
-      fields_auto: "0",
-      fields_modified: "0",
-    }),
-    ccFormArgsv2(
-      "submitted",
-      buildccFormv2Extra({ cc_exp: "unavailable" }, "user_filled")
-    ),
-  ];
-  await assertTelemetry(expected_content, []);
-
-  TelemetryTestUtils.assertScalar(
-    TelemetryTestUtils.getProcessScalars("content"),
-    "formautofill.creditCards.detected_sections_count",
-    1,
-    "There should be 1 sections detected."
-  );
-  TelemetryTestUtils.assertScalar(
-    TelemetryTestUtils.getProcessScalars("content"),
-    "formautofill.creditCards.submitted_sections_count",
-    1,
-    "There should be 1 section submitted."
-  );
-
-  await removeAllRecords();
-  SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_clear_creditCard_autofill() {

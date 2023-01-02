@@ -329,7 +329,7 @@ function openLinkIn(url, where, params) {
       );
     } else {
       if (!aInitiatingDoc) {
-        Cu.reportError(
+        console.error(
           "openUILink/openLinkIn was called with " +
             "where == 'save' but without initiatingDoc.  See bug 814264."
         );
@@ -422,6 +422,9 @@ function openLinkIn(url, where, params) {
         "hasValidUserGestureActivation",
         params.hasValidUserGestureActivation
       );
+    }
+    if (aForceAllowDataURI) {
+      extraOptions.setPropertyAsBool("forceAllowDataURI", true);
     }
     if (params.fromExternal !== undefined) {
       extraOptions.setPropertyAsBool("fromExternal", params.fromExternal);
@@ -663,6 +666,7 @@ function openLinkIn(url, where, params) {
         allowInheritPrincipal: aAllowInheritPrincipal,
         triggeringRemoteType: aTriggeringRemoteType,
         csp: aCsp,
+        forceAllowDataURI: aForceAllowDataURI,
         focusUrlBar,
         openerBrowser: params.openerBrowser,
         fromExternal: params.fromExternal,

@@ -728,10 +728,6 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
     AddStateBits(NS_FRAME_MAY_BE_TRANSFORMED);
   }
 
-  if (disp->mContainerType != StyleContainerType::Normal) {
-    PresContext()->RegisterContainerQueryFrame(this);
-  }
-
   if (disp->IsContainLayout() && GetContainSizeAxes().IsBoth()) {
     // In general, frames that have contain:layout+size can be reflow roots.
     // (One exception: table-wrapper frames don't work well as reflow roots,
@@ -787,6 +783,15 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
   if (!IsPlaceholderFrame() && !aPrevInFlow) {
     UpdateVisibleDescendantsState();
   }
+}
+
+void nsIFrame::InitPrimaryFrame() {
+  MOZ_ASSERT(IsPrimaryFrame());
+  const nsStyleDisplay* disp = StyleDisplay();
+
+  if (disp->mContainerType != StyleContainerType::Normal) {
+    PresContext()->RegisterContainerQueryFrame(this);
+  }
 
   if (disp->IsContentVisibilityAuto() &&
       IsContentVisibilityPropertyApplicable()) {
@@ -803,6 +808,8 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
   // this should also be called when scrolling or focus causes content to be
   // skipped or unskipped.
   UpdateAnimationVisibility();
+
+  HandleLastRememberedSize();
 }
 
 void nsIFrame::DestroyFrom(nsIFrame* aDestructRoot,
@@ -4238,6 +4245,7 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
         savedOutOfFlowData->mContainingBlockClipChain);
     asrSetter.SetCurrentActiveScrolledRoot(
         savedOutOfFlowData->mContainingBlockActiveScrolledRoot);
+    asrSetter.SetCurrentScrollParentId(savedOutOfFlowData->mScrollParentId);
     MOZ_ASSERT(awayFromCommonPath,
                "It is impossible when savedOutOfFlowData is true");
   } else if (HasAnyStateBits(NS_FRAME_FORCE_DISPLAY_LIST_DESCEND_INTO) &&
@@ -8194,14 +8202,30 @@ void nsIFrame::ListGeneric(nsACString& aTo, const char* aPrefix,
   }
   nsIFrame* f = const_cast<nsIFrame*>(this);
   if (f->HasOverflowAreas()) {
-    nsRect vo = f->InkOverflowRect();
-    if (!vo.IsEqualEdges(mRect)) {
+    nsRect io = f->InkOverflowRect();
+    if (!io.IsEqualEdges(mRect)) {
       aTo += nsPrintfCString(" ink-overflow=%s",
-                             ConvertToString(vo, aFlags).c_str());
+                             ConvertToString(io, aFlags).c_str());
     }
     nsRect so = f->ScrollableOverflowRect();
     if (!so.IsEqualEdges(mRect)) {
       aTo += nsPrintfCString(" scr-overflow=%s",
+                             ConvertToString(so, aFlags).c_str());
+    }
+  }
+  if (OverflowAreas* preTransformOverflows =
+          f->GetProperty(PreTransformOverflowAreasProperty())) {
+    nsRect io = preTransformOverflows->InkOverflow();
+    if (!io.IsEqualEdges(mRect) &&
+        (!f->HasOverflowAreas() || !io.IsEqualEdges(f->InkOverflowRect()))) {
+      aTo += nsPrintfCString(" pre-transform-ink-overflow=%s",
+                             ConvertToString(io, aFlags).c_str());
+    }
+    nsRect so = preTransformOverflows->ScrollableOverflow();
+    if (!so.IsEqualEdges(mRect) &&
+        (!f->HasOverflowAreas() ||
+         !so.IsEqualEdges(f->ScrollableOverflowRect()))) {
+      aTo += nsPrintfCString(" pre-transform-scr-overflow=%s",
                              ConvertToString(so, aFlags).c_str());
     }
   }

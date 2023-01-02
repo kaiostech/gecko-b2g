@@ -23,9 +23,6 @@ members = [
 # Excluded crates may be built as dependencies, but won't be considered members
 # of the workspace and their dev-dependencies won't be included.
 exclude = [
-  # Excluded because it's for a toolchain task
-  "build/liblowercase",
-
   # Exclude third-party code vendored into mozilla-central.
   "servo",
   "third_party/rust",
@@ -94,6 +91,9 @@ mozbuild = { path = "build/rust/mozbuild" }
 
 # Patch cfg-if 0.1 to 1.0
 cfg-if = { path = "build/rust/cfg-if" }
+
+# Patch darling 0.13 to 0.14
+darling = { path = "build/rust/darling" }
 
 # Patch redox_users to an empty crate
 redox_users = { path = "build/rust/redox_users" }

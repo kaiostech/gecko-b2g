@@ -186,7 +186,7 @@
       "audioMuted",
     ],
 
-    _removingTabs: [],
+    _removingTabs: new Set(),
 
     _multiSelectedTabsSet: new WeakSet(),
 
@@ -345,7 +345,7 @@
     _instantiateFeatureCalloutTour(location, panelId) {
       this._featureCalloutPanelId = panelId;
       const { FeatureCallout } = ChromeUtils.importESModule(
-        "chrome://browser/content/featureCallout.mjs"
+        "resource:///modules/FeatureCallout.sys.mjs"
       );
       // Note - once we have additional browser chrome messages,
       // only use PDF.js pref value when navigating to PDF viewer
@@ -927,7 +927,7 @@
               }
             } catch (e) {
               // don't inhibit other listeners
-              Cu.reportError(e);
+              console.error(e);
             }
           }
         }
@@ -1018,7 +1018,7 @@
           description: aDescription,
           previewImageURL: aPreviewImage,
         };
-        PlacesUtils.history.update(pageInfo).catch(Cu.reportError);
+        PlacesUtils.history.update(pageInfo).catch(console.error);
       }
     },
 
@@ -1718,112 +1718,25 @@
       return true;
     },
 
-    loadOneTab(
-      aURI,
-      aReferrerInfoOrParams,
-      aCharset,
-      aPostData,
-      aLoadInBackground,
-      aAllowThirdPartyFixup
-    ) {
-      var aTriggeringPrincipal;
-      var aReferrerInfo;
-      var aFromExternal;
-      var aRelatedToCurrent;
-      var aAllowInheritPrincipal;
-      var aSkipAnimation;
-      var aForceNotRemote;
-      var aPreferredRemoteType;
-      var aUserContextId;
-      var aInitialBrowsingContextGroupId;
-      var aOriginPrincipal;
-      var aOriginStoragePrincipal;
-      var aOpenWindowInfo;
-      var aOpenerBrowser;
-      var aCreateLazyBrowser;
-      var aFocusUrlBar;
-      var aName;
-      var aCsp;
-      var aSkipLoad;
-      var aGlobalHistoryOptions;
-      var aTriggeringRemoteType;
-      if (
-        arguments.length == 2 &&
-        typeof arguments[1] == "object" &&
-        !(arguments[1] instanceof Ci.nsIURI)
-      ) {
-        let params = arguments[1];
-        aTriggeringPrincipal = params.triggeringPrincipal;
-        aReferrerInfo = params.referrerInfo;
-        aCharset = params.charset;
-        aPostData = params.postData;
-        aLoadInBackground = params.inBackground;
-        aAllowThirdPartyFixup = params.allowThirdPartyFixup;
-        aFromExternal = params.fromExternal;
-        aRelatedToCurrent = params.relatedToCurrent;
-        aAllowInheritPrincipal = !!params.allowInheritPrincipal;
-        aSkipAnimation = params.skipAnimation;
-        aForceNotRemote = params.forceNotRemote;
-        aPreferredRemoteType = params.preferredRemoteType;
-        aUserContextId = params.userContextId;
-        aInitialBrowsingContextGroupId = params.initialBrowsingContextGroupId;
-        aOriginPrincipal = params.originPrincipal;
-        aOriginStoragePrincipal = params.originStoragePrincipal;
-        aOpenWindowInfo = params.openWindowInfo;
-        aOpenerBrowser = params.openerBrowser;
-        aCreateLazyBrowser = params.createLazyBrowser;
-        aFocusUrlBar = params.focusUrlBar;
-        aName = params.name;
-        aCsp = params.csp;
-        aSkipLoad = params.skipLoad;
-        aGlobalHistoryOptions = params.globalHistoryOptions;
-        aTriggeringRemoteType = params.triggeringRemoteType;
-      }
-
+    loadOneTab(uri, params) {
       // all callers of loadOneTab need to pass a valid triggeringPrincipal.
-      if (!aTriggeringPrincipal) {
+      if (!params.triggeringPrincipal) {
         throw new Error(
           "Required argument triggeringPrincipal missing within loadOneTab"
         );
       }
 
-      var bgLoad =
-        aLoadInBackground != null
-          ? aLoadInBackground
-          : Services.prefs.getBoolPref("browser.tabs.loadInBackground");
-      var owner = bgLoad ? null : this.selectedTab;
+      params.inBackground ??= Services.prefs.getBoolPref(
+        "browser.tabs.loadInBackground"
+      );
+      params.ownerTab = params.inBackground ? null : this.selectedTab;
+      // Force boolean:
+      params.allowInheritPrincipal = !!params.allowInheritPrincipal;
 
-      var tab = this.addTab(aURI, {
-        triggeringPrincipal: aTriggeringPrincipal,
-        referrerInfo: aReferrerInfo,
-        charset: aCharset,
-        postData: aPostData,
-        ownerTab: owner,
-        allowInheritPrincipal: aAllowInheritPrincipal,
-        allowThirdPartyFixup: aAllowThirdPartyFixup,
-        fromExternal: aFromExternal,
-        relatedToCurrent: aRelatedToCurrent,
-        skipAnimation: aSkipAnimation,
-        forceNotRemote: aForceNotRemote,
-        createLazyBrowser: aCreateLazyBrowser,
-        preferredRemoteType: aPreferredRemoteType,
-        userContextId: aUserContextId,
-        originPrincipal: aOriginPrincipal,
-        originStoragePrincipal: aOriginStoragePrincipal,
-        initialBrowsingContextGroupId: aInitialBrowsingContextGroupId,
-        openWindowInfo: aOpenWindowInfo,
-        openerBrowser: aOpenerBrowser,
-        focusUrlBar: aFocusUrlBar,
-        name: aName,
-        csp: aCsp,
-        skipLoad: aSkipLoad,
-        globalHistoryOptions: aGlobalHistoryOptions,
-        triggeringRemoteType: aTriggeringRemoteType,
-      });
-      if (!bgLoad) {
+      let tab = this.addTab(uri, params);
+      if (!params.inBackground) {
         this.selectedTab = tab;
       }
-
       return tab;
     },
 
@@ -2645,6 +2558,7 @@
         eventDetail,
         focusUrlBar,
         forceNotRemote,
+        forceAllowDataURI,
         fromExternal,
         index,
         lazyTabTitle,
@@ -2923,8 +2837,8 @@
           }
         }
       } catch (e) {
-        Cu.reportError("Failed to create tab");
-        Cu.reportError(e);
+        console.error("Failed to create tab");
+        console.error(e);
         t.remove();
         if (t.linkedBrowser) {
           this._tabFilters.delete(t);
@@ -2993,6 +2907,9 @@
           if (disableTRR) {
             flags |= Ci.nsIWebNavigation.LOAD_FLAGS_DISABLE_TRR;
           }
+          if (forceAllowDataURI) {
+            flags |= Ci.nsIWebNavigation.LOAD_FLAGS_FORCE_ALLOW_DATA_URI;
+          }
           try {
             b.loadURI(aURI, {
               flags,
@@ -3005,7 +2922,7 @@
               triggeringRemoteType,
             });
           } catch (ex) {
-            Cu.reportError(ex);
+            console.error(ex);
           }
         }
       }
@@ -3710,7 +3627,7 @@
           }
         }
       } catch (e) {
-        Cu.reportError(e);
+        console.error(e);
       }
       return false;
     },
@@ -3804,7 +3721,7 @@
           this.removeTab(lastToClose, aParams);
         }
       } catch (e) {
-        Cu.reportError(e);
+        console.error(e);
       }
 
       this._clearMultiSelectionLocked = false;
@@ -3889,7 +3806,7 @@
         isLastTab ||
         aTab.pinned ||
         aTab.hidden ||
-        this._removingTabs.length >
+        this._removingTabs.size >
           3 /* don't want lots of concurrent animations */ ||
         aTab.getAttribute("fadein") !=
           "true" /* fade-in transition hasn't been triggered yet */ ||
@@ -4018,7 +3935,7 @@
         // Closing the tab and replacing it with a blank one is notably slower
         // than closing the window right away. If the caller opts in, take
         // the fast path.
-        if (closeWindow && closeWindowFastpath && !this._removingTabs.length) {
+        if (closeWindow && closeWindowFastpath && !this._removingTabs.size) {
           // This call actually closes the window, unless the user
           // cancels the operation.  We are finished here in both cases.
           this._windowIsClosing = window.closeWindow(
@@ -4064,7 +3981,7 @@
       }
 
       aTab.closing = true;
-      this._removingTabs.push(aTab);
+      this._removingTabs.add(aTab);
       this._invalidateCachedTabs();
 
       // Invalidate hovered tab state tracking for this closing tab.
@@ -4174,12 +4091,12 @@
       aTab.collapsed = true;
       this._blurTab(aTab);
 
-      this._removingTabs.splice(this._removingTabs.indexOf(aTab), 1);
+      this._removingTabs.delete(aTab);
 
       if (aCloseWindow) {
         this._windowIsClosing = true;
-        while (this._removingTabs.length) {
-          this._endRemoveTab(this._removingTabs[0]);
+        for (let tab of this._removingTabs) {
+          this._endRemoveTab(tab);
         }
       } else if (!this._windowIsClosing) {
         if (aNewTab) {
@@ -4702,12 +4619,12 @@
 
     addProgressListener(aListener) {
       if (arguments.length != 1) {
-        Cu.reportError(
+        console.error(
           "gBrowser.addProgressListener was " +
             "called with a second argument, " +
             "which is not supported. See bug " +
-            "608628. Call stack: " +
-            new Error().stack
+            "608628. Call stack: ",
+          new Error().stack
         );
       }
 
@@ -5266,7 +5183,7 @@
           this.selectedTab = selectedTabs.at(-1);
         }
       } catch (e) {
-        Cu.reportError(e);
+        console.error(e);
       }
 
       this._clearMultiSelectionLocked = false;

@@ -9,6 +9,12 @@
 %{C++
 #include "Units.h"
 
+namespace mozilla::dom {
+// TODO(zrhoffman, bug 1444515): ScreenColorGamut should be forward-declared
+// using `webidl` once the webidl identifier supports enums.
+enum class ScreenColorGamut : uint8_t;
+}  // namespace mozilla::dom
+
 /**
  * The display type of nsIScreen belongs to.
  */
@@ -20,6 +26,8 @@ enum class DisplayType: int32_t {
 
 const size_t NUM_DISPLAY_TYPES = 3;
 %}
+
+native ScreenColorGamut(mozilla::dom::ScreenColorGamut);
 
 [scriptable, builtinclass, uuid(826e80c8-d70f-42e2-8aa9-82c05f2a370a)]
 interface nsIScreen : nsISupports
@@ -77,6 +85,10 @@ interface nsIScreen : nsISupports
 
   [infallible] readonly attribute long pixelDepth;
   [infallible] readonly attribute long colorDepth;
+  /**
+   * ScreenColorGamut is native type, which cannot be declared [infallible].
+   */
+  readonly attribute ScreenColorGamut colorGamut;
 
   /**
    * Get/set the screen rotation, on platforms that support changing

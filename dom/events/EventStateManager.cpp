@@ -2691,7 +2691,6 @@ void EventStateManager::SendLineScrollEvent(nsIFrame* aTargetFrame,
   event.mFlags.mDefaultPrevented = aState.mDefaultPrevented;
   event.mFlags.mDefaultPreventedByContent = aState.mDefaultPreventedByContent;
   event.mRefPoint = aEvent->mRefPoint;
-  event.mTime = aEvent->mTime;
   event.mTimeStamp = aEvent->mTimeStamp;
   event.mModifiers = aEvent->mModifiers;
   event.mButtons = aEvent->mButtons;
@@ -2730,7 +2729,6 @@ void EventStateManager::SendPixelScrollEvent(nsIFrame* aTargetFrame,
   event.mFlags.mDefaultPrevented = aState.mDefaultPrevented;
   event.mFlags.mDefaultPreventedByContent = aState.mDefaultPreventedByContent;
   event.mRefPoint = aEvent->mRefPoint;
-  event.mTime = aEvent->mTime;
   event.mTimeStamp = aEvent->mTimeStamp;
   event.mModifiers = aEvent->mModifiers;
   event.mButtons = aEvent->mButtons;
@@ -5330,7 +5328,6 @@ nsresult EventStateManager::InitAndDispatchClickEvent(
   event.mClickCount = aMouseUpEvent->mClickCount;
   event.mModifiers = aMouseUpEvent->mModifiers;
   event.mButtons = aMouseUpEvent->mButtons;
-  event.mTime = aMouseUpEvent->mTime;
   event.mTimeStamp = aMouseUpEvent->mTimeStamp;
   event.mFlags.mOnlyChromeDispatch =
       aNoContentDispatch && !aMouseUpEvent->mUseLegacyNonPrimaryDispatch;

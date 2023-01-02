@@ -4066,11 +4066,12 @@
   value: false
   mirror: always
 
-# Whether the WritableFileStream is enabled on the main thread.
-# WritableFileStream currently does all IO on the current thread which is okish
-# for workers but not for the main thread. The situation will change after bug
-# 1798513.
-- name: dom.fs.main_thread_writable_file_stream
+# Whether the WritableFileStream is enabled or disabled.
+# WritableFileStream implementation is currently only experimental:
+# it does not update quota information and does synchronous IO on the current
+# thread which is okish for workers but not for the main thread.
+# The situation will change after bug 1798513 is fixed.
+- name: dom.fs.writable_file_stream.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -6733,7 +6734,7 @@
   # Whether to use a video overlay layers for sw decoded video with DirectComposition
 -   name: gfx.webrender.dcomp-video-sw-overlay-win
     type: bool
-    value: @IS_NIGHTLY_BUILD@
+    value: @IS_EARLY_BETA_OR_EARLIER@
     mirror: once
 -   name: gfx.video.convert-i420-to-nv12.force-enabled
     type: bool
@@ -8834,6 +8835,13 @@
 - name: layout.css.overflow-moz-hidden-unscrollable.enabled
   type: RelaxedAtomicBool
   value: @IS_NOT_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for CSS overflow: overlay enabled
+- name: layout.css.overflow-overlay.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 

@@ -196,4 +196,3 @@ interface nsIBrowserDOMWindow : nsISupports
    */
   readonly attribute unsigned long tabCount;
 };
-

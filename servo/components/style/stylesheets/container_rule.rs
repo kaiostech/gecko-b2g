@@ -135,14 +135,14 @@ enum TraversalResult<T> {
     Done(T),
 }
 
-fn traverse_container<E, S, F, R>(
+fn traverse_container<E, F, R>(
     mut e: E,
-    originating_element_style: Option<&S>,
+    originating_element_style: Option<&ComputedValues>,
     evaluator: F,
 ) -> Option<(E, R)>
 where
     E: TElement,
-    F: Fn(E, Option<&S>) -> TraversalResult<R>,
+    F: Fn(E, Option<&ComputedValues>) -> TraversalResult<R>,
 {
     if originating_element_style.is_some() {
         match evaluator(e, originating_element_style) {
@@ -185,7 +185,7 @@ impl ContainerCondition {
     fn valid_container_info<E>(
         &self,
         potential_container: E,
-        originating_element_style: Option<&Arc<ComputedValues>>,
+        originating_element_style: Option<&ComputedValues>,
     ) -> TraversalResult<ContainerLookupResult<E>>
     where
         E: TElement,
@@ -198,7 +198,7 @@ impl ContainerCondition {
                     Some(d) => d,
                     None => return TraversalResult::InProgress,
                 };
-                data.styles.primary()
+                &**data.styles.primary()
             },
         };
         let wm = style.writing_mode;
@@ -220,7 +220,7 @@ impl ContainerCondition {
         }
 
         let size = potential_container.query_container_size(&box_style.clone_display());
-        let style = style.clone();
+        let style = style.to_arc();
         TraversalResult::Done(ContainerLookupResult {
             element: potential_container,
             info: ContainerInfo { size, wm },
@@ -232,7 +232,7 @@ impl ContainerCondition {
     pub fn find_container<E>(
         &self,
         e: E,
-        originating_element_style: Option<&Arc<ComputedValues>>,
+        originating_element_style: Option<&ComputedValues>,
     ) -> Option<ContainerLookupResult<E>>
     where
         E: TElement,
@@ -254,7 +254,7 @@ impl ContainerCondition {
         &self,
         device: &Device,
         element: E,
-        originating_element_style: Option<&Arc<ComputedValues>>,
+        originating_element_style: Option<&ComputedValues>,
         invalidation_flags: &mut ComputedValueFlags,
     ) -> KleeneValue
     where
@@ -296,6 +296,12 @@ pub struct ContainerInfo {
     wm: WritingMode,
 }
 
+impl ContainerInfo {
+    fn size(&self) -> Option<Size2D<Au>> {
+        Some(Size2D::new(self.size.width?, self.size.height?))
+    }
+}
+
 fn eval_width(context: &Context) -> Option<CSSPixelLength> {
     let info = context.container_info.as_ref()?;
     Some(CSSPixelLength::new(info.size.width?.to_f32_px()))
@@ -332,12 +338,12 @@ fn eval_aspect_ratio(context: &Context) -> Option<Ratio> {
     ))
 }
 
-fn eval_orientation(context: &Context, value: Option<Orientation>) -> bool {
-    let info = match context.container_info.as_ref() {
-        Some(info) => info,
-        None => return false,
+fn eval_orientation(context: &Context, value: Option<Orientation>) -> KleeneValue {
+    let size = match context.container_info.as_ref().and_then(|info| info.size()) {
+        Some(size) => size,
+        None => return KleeneValue::Unknown,
     };
-    Orientation::eval(info.size, value)
+    KleeneValue::from(Orientation::eval(size, value))
 }
 
 /// https://drafts.csswg.org/css-contain-3/#container-features

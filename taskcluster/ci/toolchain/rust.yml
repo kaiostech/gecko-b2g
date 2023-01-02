@@ -11,32 +11,20 @@ job-defaults:
         script: repack_rust.py
         toolchain-artifact: public/build/rustc.tar.zst
 
-linux64-rust-1.61:
+linux64-rust-1.65:
     treeherder:
-        symbol: TL(rust-1.61)
+        symbol: TL(rust-1.65)
     run:
         arguments: [
-            '--channel', '1.61.0',
-            '--host', 'x86_64-unknown-linux-gnu',
-            '--target', 'x86_64-unknown-linux-gnu',
-            '--target', 'i686-unknown-linux-gnu',
-            '--target', 'aarch64-unknown-linux-gnu',
-            '--target', 'wasm32-wasi',
-        ]
-        toolchain-alias: linux64-rust-toolchain
-
-linux64-rust-1.63:
-    treeherder:
-        symbol: TL(rust-1.63)
-    run:
-        arguments: [
-            '--channel', '1.63.0',
+            '--channel', '1.65.0',
             '--host', 'x86_64-unknown-linux-gnu',
             '--target', 'x86_64-unknown-linux-gnu',
             '--target', 'i686-unknown-linux-gnu',
             '--target', 'wasm32-wasi',
         ]
-        toolchain-alias: linux64-rust-base
+        toolchain-alias:
+            - linux64-rust-base
+            - linux64-rust-toolchain
 
 linux64-rust-1.66:
     treeherder:
@@ -234,19 +222,6 @@ linux64-rust-windows-1.66:
             '--target', 'aarch64-pc-windows-msvc',
         ]
         toolchain-alias: linux64-rust-windows
-
-win64-rust-1.61:
-    treeherder:
-        symbol: TW64(rust-1.61)
-    run:
-        arguments: [
-            '--channel', '1.61.0',
-            '--host', 'x86_64-pc-windows-msvc',
-            '--target', 'x86_64-pc-windows-msvc',
-            '--target', 'i686-pc-windows-msvc',
-            '--target', 'aarch64-pc-windows-msvc',
-        ]
-        toolchain-alias: win64-rust-toolchain
 
 win64-rust-1.66:
     treeherder:

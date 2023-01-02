@@ -68,7 +68,7 @@ using mozilla::dom::KeyboardEvent;
 
 int8_t nsMenuPopupFrame::sDefaultLevelIsTop = -1;
 
-DOMTimeStamp nsMenuPopupFrame::sLastKeyTime = 0;
+TimeStamp nsMenuPopupFrame::sLastKeyTime;
 
 #ifdef MOZ_WAYLAND
 #  include "mozilla/WidgetUtilsGtk.h"
@@ -594,12 +594,26 @@ void nsMenuPopupFrame::LayoutPopup(nsBoxLayoutState& aState) {
     }
   }
 
-  // get the preferred, minimum and maximum size. If the menu is sized to the
+  // Get the preferred, minimum and maximum size. If the menu is sized to the
   // popup, then the popup's width is the menu's width.
   nsSize prefSize = GetXULPrefSize(aState);
   nsSize minSize = GetXULMinSize(aState);
   nsSize maxSize = GetXULMaxSize(aState);
   if (ShouldExpandToInflowParentOrAnchor()) {
+    // Make sure to accommodate for our scrollbar if needed. Do it only for
+    // menulists to match previous behavior.
+    //
+    // NOTE(emilio): This is somewhat hacky. The "right" fix (which would be
+    // using scrollbar-gutter: stable on the scroller) isn't great, because even
+    // though we want a stable gutter, we want to draw on top of the gutter when
+    // there's no scrollbar, otherwise it looks rather weird.
+    //
+    // Automatically accommodating for the scrollbar otherwise would be bug
+    // 764076, but that has its own set of problems.
+    if (nsIScrollableFrame* sf = GetScrollFrame(this)) {
+      prefSize.width += sf->GetDesiredScrollbarSizes(&aState).LeftRight();
+    }
+
     nscoord menuListOrAnchorWidth = 0;
     if (nsIFrame* menuList = GetInFlowParent()) {
       menuListOrAnchorWidth = menuList->GetRect().width;
@@ -624,7 +638,7 @@ void nsMenuPopupFrame::LayoutPopup(nsBoxLayoutState& aState) {
   // sure we re-position the popup too (as that can shrink or resize us again).
   if (sizeChanged) {
     shouldPosition = true;
-    SetXULBounds(aState, nsRect(0, 0, prefSize.width, prefSize.height), false);
+    SetXULBounds(aState, nsRect(nsPoint(), prefSize), false);
     mPrefSize = prefSize;
   }
 
@@ -634,19 +648,23 @@ void nsMenuPopupFrame::LayoutPopup(nsBoxLayoutState& aState) {
     needCallback = true;
   }
 
-  nsRect bounds(GetRect());
+  // First do XUL layout on our contents.
+  const nsSize preLayoutSize = GetSize();
   XULLayout(aState);
 
-  // if the width or height changed, readjust the popup position. This is a
+  // If the width or height changed, readjust the popup position. This is a
   // special case for tooltips where the preferred height doesn't include the
   // real height for its inline element, but does once it is laid out.
   // This is bug 228673 which doesn't have a simple fix.
+  // FIXME(emilio): Unclear if this is still an issue with modern flex
+  // emulation. Perhaps we should try to remove this.
   bool rePosition = shouldPosition && (mPosition == POPUPPOSITION_SELECTION);
-  nsSize newsize = GetSize();
-  if (newsize.width > bounds.width || newsize.height > bounds.height) {
-    // the size after layout was larger than the preferred size,
-    // so set the preferred size accordingly
-    mPrefSize = newsize;
+  const nsSize postLayoutSize = GetSize();
+  if (postLayoutSize.width > preLayoutSize.width ||
+      postLayoutSize.height > preLayoutSize.height) {
+    // the size after layout was larger than the preferred size, so set the
+    // preferred size accordingly.
+    mPrefSize = postLayoutSize;
     if (isOpen) {
       rePosition = true;
       needCallback = true;
@@ -2110,7 +2128,7 @@ nsMenuFrame* nsMenuPopupFrame::FindMenuWithShortcut(KeyboardEvent* aKeyEvent,
   bool isMenu = parentContent && !parentContent->NodeInfo()->Equals(
                                      nsGkAtoms::menulist, kNameSpaceID_XUL);
 
-  DOMTimeStamp keyTime = aKeyEvent->TimeStamp();
+  TimeStamp keyTime = aKeyEvent->WidgetEventPtr()->mTimeStamp;
 
   if (charCode == 0) {
     if (keyCode == dom::KeyboardEvent_Binding::DOM_VK_BACK_SPACE) {

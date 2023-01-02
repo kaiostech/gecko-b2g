@@ -285,54 +285,6 @@ const MESSAGES = () => {
       trigger: { id: "featureCalloutCheck" },
     },
     {
-      id: "FIREFOX_VIEW_COLORWAYS_REMINDER",
-      template: "feature_callout",
-      content: {
-        id: "FIREFOX_VIEW_COLORWAYS_REMINDER",
-        template: "multistage",
-        backdrop: "transparent",
-        transitions: false,
-        disableHistoryUpdates: true,
-        screens: [
-          {
-            id: "FIREFOX_VIEW_COLORWAYS_REMINDER",
-            parent_selector: "#colorways-button",
-            content: {
-              position: "callout",
-              arrow_position: "end",
-              noCalloutOverlap: true,
-              title: {
-                string_id: "callout-firefox-view-colorways-reminder-title",
-              },
-              subtitle: {
-                string_id: "callout-firefox-view-colorways-reminder-subtitle",
-              },
-              dismiss_button: {
-                action: {
-                  navigate: true,
-                },
-              },
-              page_event_listeners: [
-                {
-                  params: {
-                    type: "click",
-                    selectors: "#colorways-button",
-                  },
-                  action: {
-                    dismiss: true,
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      },
-      priority: 1,
-      targeting: `!inMr2022Holdback && source == "firefoxview" && "browser.firefox-view.view-count" | preferenceValue > 3 && colorwaysActive && !userEnabledActiveColorway`,
-      frequency: { lifetime: 1 },
-      trigger: { id: "featureCalloutCheck" },
-    },
-    {
       id: "FIREFOX_VIEW_TAB_PICKUP_REMINDER",
       template: "feature_callout",
       content: {
@@ -386,7 +338,7 @@ const MESSAGES = () => {
       },
       priority: 2,
       targeting: `!inMr2022Holdback && source == "firefoxview" && "browser.firefox-view.view-count" | preferenceValue > 2
-    && (("identity.fxaccounts.enabled" | preferenceValue == false) || !(("services.sync.engine.tabs" | preferenceValue == true) && ("services.sync.username" | preferenceValue)))`,
+    && (("identity.fxaccounts.enabled" | preferenceValue == false) || !(("services.sync.engine.tabs" | preferenceValue == true) && ("services.sync.username" | preferenceValue))) && (!messageImpressions.FIREFOX_VIEW_SPOTLIGHT[messageImpressions.FIREFOX_VIEW_SPOTLIGHT | length - 1] || messageImpressions.FIREFOX_VIEW_SPOTLIGHT[messageImpressions.FIREFOX_VIEW_SPOTLIGHT | length - 1] < currentDate|date - ${ONE_DAY_IN_MS})`,
       frequency: {
         lifetime: 1,
       },
@@ -404,11 +356,11 @@ const MESSAGES = () => {
         screens: [
           {
             id: "FEATURE_CALLOUT_1_A",
-            parent_selector: "#editorFreeText",
+            parent_selector: "hbox#browser",
             content: {
               position: "callout",
               callout_position_override: {
-                top: "130px",
+                top: "45px",
                 right: "55px",
               },
               arrow_position: "top-end",
@@ -475,11 +427,11 @@ const MESSAGES = () => {
           EMPTY_SCREEN,
           {
             id: "FEATURE_CALLOUT_2_A",
-            parent_selector: "#editorInk",
+            parent_selector: "hbox#browser",
             content: {
               position: "callout",
               callout_position_override: {
-                top: "130px",
+                top: "45px",
                 right: "25px",
               },
               arrow_position: "top-end",
@@ -543,11 +495,11 @@ const MESSAGES = () => {
         screens: [
           {
             id: "FEATURE_CALLOUT_1_B",
-            parent_selector: "#editorFreeText",
+            parent_selector: "hbox#browser",
             content: {
               position: "callout",
               callout_position_override: {
-                top: "130px",
+                top: "45px",
                 right: "55px",
               },
               arrow_position: "top-end",
@@ -614,11 +566,11 @@ const MESSAGES = () => {
           EMPTY_SCREEN,
           {
             id: "FEATURE_CALLOUT_2_B",
-            parent_selector: "#editorInk",
+            parent_selector: "hbox#browser",
             content: {
               position: "callout",
               callout_position_override: {
-                top: "130px",
+                top: "45px",
                 right: "25px",
               },
               arrow_position: "top-end",

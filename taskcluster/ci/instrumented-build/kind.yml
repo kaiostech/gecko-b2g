@@ -59,7 +59,6 @@ jobs:
         run-on-projects: ['release']
         fetches:
             toolchain:
-                - linux64-binutils
                 - linux64-clang
                 - linux64-rust
                 - linux64-rust-size
@@ -89,7 +88,6 @@ jobs:
             tooltool-downloads: public
         fetches:
             toolchain:
-                - linux64-binutils
                 - linux64-clang
                 - linux64-rust
                 - linux64-rust-size
@@ -123,7 +121,6 @@ jobs:
             mozconfig-variant: profile-generate
         fetches:
             toolchain:
-                - linux64-binutils
                 - linux64-cctools-port
                 - linux64-clang
                 - linux64-hfsplus
@@ -266,12 +263,8 @@ jobs:
             extra-config:
                 stage_platform: win32
                 mozconfig_platform: win32
-                env:
-                    LD_PRELOAD: "/builds/worker/fetches/liblowercase/liblowercase.so"
-                    LOWERCASE_DIRS: "/builds/worker/fetches/vs"
         fetches:
             toolchain:
-                - linux64-binutils
                 - linux64-clang
                 - linux64-rust-cross
                 - linux64-rust-size
@@ -280,7 +273,6 @@ jobs:
                 - linux64-cbindgen
                 - linux64-dump_syms
                 - linux64-wine
-                - linux64-liblowercase
                 - linux64-winchecksec
                 - nsis
                 - sysroot-x86_64-linux-gnu
@@ -307,12 +299,8 @@ jobs:
             extra-config:
                 stage_platform: win64
                 mozconfig_platform: win64
-                env:
-                    LD_PRELOAD: "/builds/worker/fetches/liblowercase/liblowercase.so"
-                    LOWERCASE_DIRS: "/builds/worker/fetches/vs"
         fetches:
             toolchain:
-                - linux64-binutils
                 - linux64-clang
                 - linux64-rust-cross
                 - linux64-rust-size
@@ -321,7 +309,6 @@ jobs:
                 - linux64-cbindgen
                 - linux64-dump_syms
                 - linux64-wine
-                - linux64-liblowercase
                 - linux64-winchecksec
                 - nsis
                 - sysroot-x86_64-linux-gnu

@@ -539,10 +539,6 @@ criteria = "safe-to-deploy"
 version = "0.1.1"
 criteria = "safe-to-deploy"
 
-[[exemptions.form_urlencoded]]
-version = "1.0.1"
-criteria = "safe-to-run"
-
 [[exemptions.freetype]]
 version = "0.7.0"
 criteria = "safe-to-deploy"
@@ -889,10 +885,6 @@ criteria = "safe-to-deploy"
 version = "1.13.1"
 criteria = "safe-to-deploy"
 
-[[exemptions.num_threads]]
-version = "0.1.6"
-criteria = "safe-to-run"
-
 [[exemptions.objc]]
 version = "0.2.7"
 criteria = "safe-to-deploy"
@@ -943,10 +935,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.peeking_take_while]]
 version = "0.1.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.percent-encoding]]
-version = "2.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.phf]]
@@ -1177,7 +1165,7 @@ criteria = "safe-to-run"
 version = "0.9.2"
 criteria = "safe-to-deploy"
 
-[[exemptions.sha-1]]
+[[exemptions.sha1]]
 version = "0.10.0"
 criteria = "safe-to-run"
 

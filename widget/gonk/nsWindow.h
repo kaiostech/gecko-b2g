@@ -100,8 +100,7 @@ class nsWindow final : public nsBaseWidget {
                                               uint32_t aPointerOrientation,
                                               nsIObserver* aObserver) override;
 
-  void CaptureRollupEvents(nsIRollupListener* aListener,
-                           bool aDoCapture) override {}
+  void CaptureRollupEvents(bool aDoCapture) override {}
   void ReparentNativeWidget(nsIWidget* aNewParent) override;
 
   NS_IMETHOD MakeFullScreen(bool aFullScreen) override;

@@ -68,7 +68,6 @@ class WebConsoleUI {
     this._onTargetDestroyed = this._onTargetDestroyed.bind(this);
     this._onResourceAvailable = this._onResourceAvailable.bind(this);
     this._onNetworkResourceUpdated = this._onNetworkResourceUpdated.bind(this);
-    this.clearPrivateMessages = this.clearPrivateMessages.bind(this);
     this._onScopePrefChanged = this._onScopePrefChanged.bind(this);
 
     if (this.isBrowserConsole) {
@@ -79,14 +78,6 @@ class WebConsoleUI {
     }
 
     EventEmitter.decorate(this);
-  }
-
-  /**
-   * Getter for the WebConsoleFront.
-   * @type object
-   */
-  get webConsoleFront() {
-    return this._webConsoleFront;
   }
 
   /**
@@ -180,6 +171,7 @@ class WebConsoleUI {
         resourceCommand.TYPES.ERROR_MESSAGE,
         resourceCommand.TYPES.PLATFORM_MESSAGE,
         resourceCommand.TYPES.DOCUMENT_EVENT,
+        resourceCommand.TYPES.LAST_PRIVATE_CONTEXT_EXIT,
       ],
       { onAvailable: this._onResourceAvailable }
     );
@@ -189,7 +181,6 @@ class WebConsoleUI {
 
     this.stopWatchingNetworkResources();
 
-    this._webConsoleFront = null;
     this.networkDataProvider.destroy();
     this.networkDataProvider = null;
 
@@ -259,7 +250,7 @@ class WebConsoleUI {
   }
 
   inspectObjectActor(objectActor) {
-    const { webConsoleFront } = this;
+    const { targetFront } = this.hud.commands.targetCommand;
     this.wrapper.dispatchMessageAdd(
       {
         helperResult: {
@@ -267,7 +258,7 @@ class WebConsoleUI {
           object:
             objectActor && objectActor.getGrip
               ? objectActor
-              : getAdHocFrontOrPrimitiveGrip(objectActor, webConsoleFront),
+              : getAdHocFrontOrPrimitiveGrip(objectActor, targetFront),
         },
       },
       true
@@ -329,6 +320,7 @@ class WebConsoleUI {
         resourceCommand.TYPES.ERROR_MESSAGE,
         resourceCommand.TYPES.PLATFORM_MESSAGE,
         resourceCommand.TYPES.DOCUMENT_EVENT,
+        resourceCommand.TYPES.LAST_PRIVATE_CONTEXT_EXIT,
       ],
       { onAvailable: this._onResourceAvailable }
     );
@@ -462,6 +454,14 @@ class WebConsoleUI {
         this.handleDocumentEvent(resource);
         continue;
       }
+      if (resource.resourceType == TYPES.LAST_PRIVATE_CONTEXT_EXIT) {
+        // Private messages only need to be removed from the output in Browser Console/Browser Toolbox
+        // (but in theory this resource should only be send from parent process watchers)
+        if (this.isBrowserConsole || this.isBrowserToolboxConsole) {
+          this.clearPrivateMessages();
+        }
+        continue;
+      }
       // Ignore messages forwarded from content processes if we're in fission browser toolbox.
       if (
         !this.wrapper ||
@@ -550,17 +550,6 @@ class WebConsoleUI {
       await front.setPreferences({
         "NetworkMonitor.saveRequestAndResponseBodies": saveBodies,
       });
-    }
-
-    if (targetFront.isTopLevel) {
-      this._webConsoleFront = await targetFront.getFront("console");
-      if (this.isBrowserConsole || this.isBrowserToolboxConsole) {
-        // Private messages only need to be removed from the output in Browser Console/Browser Toolbox
-        this.webConsoleFront.on(
-          "lastPrivateContextExited",
-          this.clearPrivateMessages
-        );
-      }
     }
   }
 

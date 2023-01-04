@@ -740,19 +740,10 @@ where
             Component::Class(..) |
             Component::AttributeInNoNamespaceExists { .. } |
             Component::AttributeInNoNamespace { .. } |
-            Component::FirstChild |
-            Component::LastChild |
-            Component::OnlyChild |
             Component::Root |
             Component::Empty |
             Component::Scope |
-            Component::NthChild(..) |
-            Component::NthLastChild(..) |
-            Component::NthOfType(..) |
-            Component::NthLastOfType(..) |
-            Component::FirstOfType |
-            Component::LastOfType |
-            Component::OnlyOfType |
+            Component::Nth(..) |
             Component::Host(None) => 0,
         }
     }

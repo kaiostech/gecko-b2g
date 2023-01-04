@@ -71,6 +71,18 @@ let whitelist = [
     errorMessage: /Unknown property ‘forced-color-adjust’\. {2}Declaration dropped\./i,
     isFromDevTools: false,
   },
+  // PDF.js uses a property that is currently only supported in chrome.
+  {
+    sourceName: /web\/viewer-geckoview\.css$/i,
+    errorMessage: /Unknown property ‘text-size-adjust’\. {2}Declaration dropped\./i,
+    isFromDevTools: false,
+  },
+  // PDF.js uses a property that is currently only supported in chrome.
+  {
+    sourceName: /web\/viewer-geckoview\.css$/i,
+    errorMessage: /Unknown property ‘forced-color-adjust’\. {2}Declaration dropped\./i,
+    isFromDevTools: false,
+  },
   {
     sourceName: /overlay\.css$/i,
     errorMessage: /Unknown pseudo-class.*moz-native-anonymous/i,
@@ -145,6 +157,13 @@ let propNameWhitelist = [
 
   // This variable is used from CSS embedded in JS in adjustableTitle.js
   { propName: "--icon-url", isFromDevTools: false },
+
+  // These are referenced from devtools files.
+  {
+    propName: "--browser-stack-z-index-devtools-splitter",
+    isFromDevTools: false,
+  },
+  { propName: "--browser-stack-z-index-rdm-toolbar", isFromDevTools: false },
 ];
 
 // Add suffix to stylesheets' URI so that we always load them here and

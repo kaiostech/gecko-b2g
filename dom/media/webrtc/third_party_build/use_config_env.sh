@@ -2,17 +2,22 @@
 
 SCRIPT_DIR="dom/media/webrtc/third_party_build"
 
-CONFIG_PATH=~/config_env
-if [ ! -f $CONFIG_PATH ]; then
-  echo "Missing $CONFIG_PATH"
+# Allow user to override default path to config_env
+if [ "x$MOZ_CONFIG_PATH" = "x" ]; then
+  MOZ_CONFIG_PATH=~/config_env
+  echo "Using default MOZ_CONFIG_PATH=$MOZ_CONFIG_PATH"
+fi
+
+if [ ! -f $MOZ_CONFIG_PATH ]; then
+  echo "Missing $MOZ_CONFIG_PATH"
   echo "Please copy $SCRIPT_DIR/example_config_env"
   echo "and edit (at least) MOZ_LIBWEBRTC_SRC to match your environment."
   echo ""
-  echo "cp $SCRIPT_DIR/example_config_env $CONFIG_PATH"
+  echo "cp $SCRIPT_DIR/example_config_env $MOZ_CONFIG_PATH"
   echo ""
   exit 1
 fi
-source $CONFIG_PATH
+source $MOZ_CONFIG_PATH
 
 function find_base_commit()
 {

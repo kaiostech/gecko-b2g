@@ -1913,16 +1913,7 @@ fn component_needs_revalidation(
         Component::AttributeInNoNamespace { .. } |
         Component::AttributeOther(_) |
         Component::Empty |
-        Component::FirstChild |
-        Component::LastChild |
-        Component::OnlyChild |
-        Component::NthChild(..) |
-        Component::NthLastChild(..) |
-        Component::NthOfType(..) |
-        Component::NthLastOfType(..) |
-        Component::FirstOfType |
-        Component::LastOfType |
-        Component::OnlyOfType => true,
+        Component::Nth(..) => true,
         Component::NonTSPseudoClass(ref p) => p.needs_cache_revalidation(),
         _ => false,
     }

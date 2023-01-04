@@ -23,7 +23,6 @@ class XULButtonElement final : public nsXULElement {
   nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,
                                       int32_t aModType) const override;
 
-
  private:
   void Blurred();
   bool mIsHandlingKeyEvent = false;

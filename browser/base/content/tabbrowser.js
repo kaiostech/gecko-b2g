@@ -1718,28 +1718,6 @@
       return true;
     },
 
-    loadOneTab(uri, params) {
-      // all callers of loadOneTab need to pass a valid triggeringPrincipal.
-      if (!params.triggeringPrincipal) {
-        throw new Error(
-          "Required argument triggeringPrincipal missing within loadOneTab"
-        );
-      }
-
-      params.inBackground ??= Services.prefs.getBoolPref(
-        "browser.tabs.loadInBackground"
-      );
-      params.ownerTab = params.inBackground ? null : this.selectedTab;
-      // Force boolean:
-      params.allowInheritPrincipal = !!params.allowInheritPrincipal;
-
-      let tab = this.addTab(uri, params);
-      if (!params.inBackground) {
-        this.selectedTab = tab;
-      }
-      return tab;
-    },
-
     loadTabs(
       aURIs,
       {
@@ -2560,6 +2538,7 @@
         forceNotRemote,
         forceAllowDataURI,
         fromExternal,
+        inBackground = true,
         index,
         lazyTabTitle,
         name,
@@ -2597,6 +2576,9 @@
       if (!UserInteraction.running("browser.tabs.opening", window)) {
         UserInteraction.start("browser.tabs.opening", "initting", window);
       }
+
+      // If we're opening a foreground tab, set the owner by default.
+      ownerTab ??= inBackground ? null : this.selectedTab;
 
       // Don't use document.l10n.setAttributes because the FTL file is loaded
       // lazily and we won't be able to resolve the string.
@@ -2945,6 +2927,9 @@
 
       gSharedTabWarning.tabAdded(t);
 
+      if (!inBackground) {
+        this.selectedTab = t;
+      }
       return t;
     },
 

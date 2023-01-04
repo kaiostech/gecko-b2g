@@ -44,7 +44,6 @@ const { FormAutofillUtils } = ChromeUtils.import(
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  CreditCard: "resource://gre/modules/CreditCard.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
 });
 
@@ -478,6 +477,9 @@ class FormAutofillParent extends JSWindowActorParent {
 
   async _onAddressSubmit(address, browser, timeStartedFillingMS) {
     let showDoorhanger = null;
+
+    // Bug 1808176 - We should always ecord used count in this function regardless
+    // whether capture is enabled or not.
     if (!FormAutofill.isAutofillAddressesCaptureEnabled) {
       return showDoorhanger;
     }
@@ -509,9 +511,11 @@ class FormAutofillParent extends JSWindowActorParent {
           const description = FormAutofillUtils.getAddressLabel(address.record);
           const state = await lazy.FormAutofillPrompter.promptToSaveAddress(
             browser,
-            "updateAddress",
+            address,
             description
           );
+
+          // Bug 1808176 : We should sync how we run the following code with Credit Card
           let changedGUIDs = await lazy.gFormAutofillStorage.addresses.mergeToStorage(
             address.record,
             true
@@ -583,7 +587,7 @@ class FormAutofillParent extends JSWindowActorParent {
           const description = FormAutofillUtils.getAddressLabel(address.record);
           const state = await lazy.FormAutofillPrompter.promptToSaveAddress(
             browser,
-            "firstTimeUse",
+            address,
             description
           );
           if (state !== "open-pref") {
@@ -615,15 +619,11 @@ class FormAutofillParent extends JSWindowActorParent {
       }
     };
 
-    // Remove invalid cc-type values
-    if (
-      creditCard.record["cc-type"] &&
-      !lazy.CreditCard.isValidNetwork(creditCard.record["cc-type"])
-    ) {
-      // Let's reset the credit card to empty, and then network auto-detect will
-      // pick it up.
-      creditCard.record["cc-type"] = "";
-    }
+    // Remove cc-type values
+    // Let's reset the credit card to empty, and then network auto-detect will
+    // pick it up.
+    //creditCard.record["cc-type"] = "";
+    delete creditCard.record["cc-type"];
 
     // If `guid` is present, the form has been autofilled.
     if (creditCard.guid) {

@@ -2527,22 +2527,6 @@ def wasm_sandboxing_config_defines():
 wasm_sandboxing_config_defines()
 
 
-# new XULStore implementation
-# ==============================================================
-
-
-@depends(milestone)
-def new_xulstore(milestone):
-    # On b2g even if we are on trunk we don't configure as nightly.
-    return True
-    # if milestone.is_nightly:
-    #    return True
-
-
-set_config("MOZ_NEW_XULSTORE", True, when=new_xulstore)
-set_define("MOZ_NEW_XULSTORE", True, when=new_xulstore)
-
-
 # new Notification Store implementation
 # ==============================================================
 

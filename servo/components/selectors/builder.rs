@@ -310,19 +310,10 @@ where
             Component::AttributeInNoNamespace { .. } |
             Component::AttributeInNoNamespaceExists { .. } |
             Component::AttributeOther(..) |
-            Component::FirstChild |
-            Component::LastChild |
-            Component::OnlyChild |
             Component::Root |
             Component::Empty |
             Component::Scope |
-            Component::NthChild(..) |
-            Component::NthLastChild(..) |
-            Component::NthOfType(..) |
-            Component::NthLastOfType(..) |
-            Component::FirstOfType |
-            Component::LastOfType |
-            Component::OnlyOfType |
+            Component::Nth(..) |
             Component::NonTSPseudoClass(..) => {
                 specificity.class_like_selectors += 1;
             },

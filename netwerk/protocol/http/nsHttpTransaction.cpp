@@ -398,6 +398,15 @@ nsresult nsHttpTransaction::Init(
       }
     }
   }
+
+  RefPtr<nsHttpChannel> httpChannel = do_QueryObject(eventsink);
+  RefPtr<WebTransportSessionEventListener> listener =
+      httpChannel ? httpChannel->GetWebTransportSessionEventListener()
+                  : nullptr;
+  if (listener) {
+    mWebTransportSessionEventListener = std::move(listener);
+  }
+
   return NS_OK;
 }
 
@@ -446,13 +455,6 @@ nsresult nsHttpTransaction::AsyncRead(nsIStreamListener* listener,
   NS_ENSURE_SUCCESS(rv, rv);
 
   transactionPump.forget(pump);
-  RefPtr<nsHttpChannel> httpChannel = do_QueryObject(listener);
-  if (httpChannel) {
-    MutexAutoLock lock(mLock);
-    mWebTransportSessionEventListener =
-        httpChannel->GetWebTransportSessionEventListener();
-  }
-
   return NS_OK;
 }
 

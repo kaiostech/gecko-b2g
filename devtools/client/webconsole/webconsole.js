@@ -75,7 +75,9 @@ class WebConsole {
     this.hudId = "hud_" + ++gHudId;
     this.browserWindow = DevToolsUtils.getTopWindow(this.chromeWindow);
     this.isBrowserConsole = isBrowserConsole;
-    this.telemetry = new Telemetry();
+
+    // On the browser console, where we don't have a toolbox, we instantiate a dedicated Telemetry instance.
+    this.telemetry = toolbox?.telemetry || new Telemetry();
 
     const element = this.browserWindow.document.documentElement;
     if (element.getAttribute("windowtype") != gDevTools.chromeWindowType) {
@@ -90,10 +92,7 @@ class WebConsole {
   }
 
   recordEvent(event, extra = {}) {
-    this.telemetry.recordEvent(event, "webconsole", null, {
-      session_id: (this.toolbox && this.toolbox.sessionId) || -1,
-      ...extra,
-    });
+    this.telemetry.recordEvent(event, "webconsole", null, extra);
   }
 
   get currentTarget() {

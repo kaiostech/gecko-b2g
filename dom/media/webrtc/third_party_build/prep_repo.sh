@@ -6,9 +6,9 @@ trap 'echo "*** ERROR *** $? $LINENO $0 did not complete successfully!"' ERR
 source dom/media/webrtc/third_party_build/use_config_env.sh
 
 echo "MOZ_LIBWEBRTC_SRC: $MOZ_LIBWEBRTC_SRC"
-echo "MOZ_LIBWEBRTC_COMMIT: $MOZ_LIBWEBRTC_COMMIT"
+echo "MOZ_LIBWEBRTC_BRANCH: $MOZ_LIBWEBRTC_BRANCH"
 echo "MOZ_FASTFORWARD_BUG: $MOZ_FASTFORWARD_BUG"
-echo "MOZ_PRIOR_GIT_BRANCH: $MOZ_PRIOR_GIT_BRANCH"
+echo "MOZ_PRIOR_LIBWEBRTC_BRANCH: $MOZ_PRIOR_LIBWEBRTC_BRANCH"
 
 # After this point:
 # * eE: All commands should succeed.
@@ -44,19 +44,19 @@ else
 fi
 
 # checkout our previous branch to make sure commits are visible in the repo
-git checkout $MOZ_PRIOR_GIT_BRANCH
+git checkout $MOZ_PRIOR_LIBWEBRTC_BRANCH
 
 # clear any possible previous patches
 rm -f *.patch
 
 # create a new work branch and "export" a new patch stack to rebase
 # find the common commit between our previous work branch and trunk
-CHERRY_PICK_BASE=`git merge-base $MOZ_PRIOR_GIT_BRANCH master`
+CHERRY_PICK_BASE=`git merge-base $MOZ_PRIOR_LIBWEBRTC_BRANCH master`
 echo "common commit: $CHERRY_PICK_BASE"
 
 # create a new branch at the common commit and checkout the new branch
-git branch $MOZ_LIBWEBRTC_COMMIT $CHERRY_PICK_BASE
-git checkout $MOZ_LIBWEBRTC_COMMIT
+git branch $MOZ_LIBWEBRTC_BRANCH $CHERRY_PICK_BASE
+git checkout $MOZ_LIBWEBRTC_BRANCH
 
 # grab the patches for all the commits in chrome's release branch for libwebrtc
 git format-patch -k $CHERRY_PICK_BASE..branch-heads/$MOZ_PRIOR_UPSTREAM_BRANCH_HEAD_NUM
@@ -80,8 +80,8 @@ for commit in $COMMITS; do
 done
 
 # grab all the moz patches and apply
-# git format-patch -k $MOZ_LIBWEBRTC_BASE..$MOZ_PRIOR_GIT_BRANCH
-git format-patch -k branch-heads/$MOZ_PRIOR_UPSTREAM_BRANCH_HEAD_NUM..$MOZ_PRIOR_GIT_BRANCH
+# git format-patch -k $MOZ_LIBWEBRTC_BASE..$MOZ_PRIOR_LIBWEBRTC_BRANCH
+git format-patch -k branch-heads/$MOZ_PRIOR_UPSTREAM_BRANCH_HEAD_NUM..$MOZ_PRIOR_LIBWEBRTC_BRANCH
 git am *.patch # applies to branch mozpatches
 rm *.patch
 

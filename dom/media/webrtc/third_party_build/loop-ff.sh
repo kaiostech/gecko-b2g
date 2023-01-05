@@ -29,14 +29,14 @@ if [ ! -d $MOZ_LIBWEBRTC_SRC ]; then
   exit
 fi
 
-if [ "x$MOZ_LIBWEBRTC_COMMIT" = "x" ]; then
-  echo "MOZ_LIBWEBRTC_COMMIT is not defined, see README.md"
+if [ "x$MOZ_LIBWEBRTC_BRANCH" = "x" ]; then
+  echo "MOZ_LIBWEBRTC_BRANCH is not defined, see README.md"
   exit
 fi
 
 if [ "x$MOZ_STOP_AFTER_COMMIT" = "x" ]; then
-  MOZ_STOP_AFTER_COMMIT=`cd $MOZ_LIBWEBRTC_SRC ; git show $MOZ_GIT_RELEASE_BRANCH --format='%h' --name-only | head -1`
-  echo "No MOZ_STOP_AFTER_COMMIT variable defined - stopping at $MOZ_GIT_RELEASE_BRANCH"
+  MOZ_STOP_AFTER_COMMIT=`cd $MOZ_LIBWEBRTC_SRC ; git show $MOZ_TARGET_UPSTREAM_BRANCH_HEAD --format='%h' --name-only | head -1`
+  echo "No MOZ_STOP_AFTER_COMMIT variable defined - stopping at $MOZ_TARGET_UPSTREAM_BRANCH_HEAD"
 fi
 
 if [ "x$SKIP_NEXT_REVERT_CHK" = "x" ]; then

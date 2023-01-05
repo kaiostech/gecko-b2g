@@ -223,22 +223,14 @@ const DEVTOOLS_F12_DISABLED_PREF = "devtools.experiment.f12.shortcut_disabled";
  * @param {string} frameId
  *        A unique identifier to differentiate toolbox documents from the
  *        chrome codebase when passing DOM messages
- * @param {Number} msSinceProcessStart
- *        the number of milliseconds since process start using monotonic
- *        timestamps (unaffected by system clock changes).
  */
-function Toolbox(
-  commands,
-  selectedTool,
-  hostType,
-  contentWindow,
-  frameId,
-  msSinceProcessStart
-) {
+function Toolbox(commands, selectedTool, hostType, contentWindow, frameId) {
   this._win = contentWindow;
   this.frameId = frameId;
   this.selection = new Selection();
-  this.telemetry = new Telemetry();
+  this.telemetry = new Telemetry({ useSessionId: true });
+  // This attribute helps identify one particular toolbox instance.
+  this.sessionId = this.telemetry.sessionId;
 
   // This attribute is meant to be a public attribute on the Toolbox object
   // It exposes commands modules listed in devtools/shared/commands/index.js
@@ -246,11 +238,6 @@ function Toolbox(
   // See devtools/shared/commands/README.md
   this.commands = commands;
   this._descriptorFront = commands.descriptorFront;
-
-  // The session ID is used to determine which telemetry events belong to which
-  // toolbox session. Because we use Amplitude to analyse the telemetry data we
-  // must use the time since the system wide epoch as the session ID.
-  this.sessionId = msSinceProcessStart;
 
   // If the user opened the toolbox, we can now enable the F12 shortcut.
   if (Services.prefs.getBoolPref(DEVTOOLS_F12_DISABLED_PREF, false)) {
@@ -1468,7 +1455,7 @@ Toolbox.prototype = {
 
   _pingTelemetry() {
     Services.prefs.setBoolPref("devtools.everOpened", true);
-    this.telemetry.toolOpened("toolbox", this.sessionId, this);
+    this.telemetry.toolOpened("toolbox", this);
 
     this.telemetry
       .getHistogramById(HOST_HISTOGRAM)
@@ -1487,7 +1474,6 @@ Toolbox.prototype = {
       "shortcut",
       "splitconsole",
       "width",
-      "session_id",
     ]);
     this.telemetry.addEventProperty(
       browserWin,
@@ -2791,7 +2777,7 @@ Toolbox.prototype = {
       this.additionalToolDefinitions.get(id)
     ) {
       if (this.currentToolId) {
-        this.telemetry.toolClosed(this.currentToolId, this.sessionId, this);
+        this.telemetry.toolClosed(this.currentToolId, this);
       }
 
       this._pingTelemetrySelectTool(id, reason);
@@ -2825,14 +2811,7 @@ Toolbox.prototype = {
     const panelName = this.getTelemetryPanelNameOrOther(id);
     const prevPanelName = this.getTelemetryPanelNameOrOther(this.currentToolId);
     const cold = !this.getPanel(id);
-    const pending = [
-      "host",
-      "width",
-      "start_state",
-      "panel_name",
-      "cold",
-      "session_id",
-    ];
+    const pending = ["host", "width", "start_state", "panel_name", "cold"];
 
     // On first load this.currentToolId === undefined so we need to skip sending
     // a devtools.main.exit telemetry event.
@@ -2843,13 +2822,11 @@ Toolbox.prototype = {
         panel_name: prevPanelName,
         next_panel: panelName,
         reason,
-        session_id: this.sessionId,
       });
     }
 
     this.telemetry.addEventProperties(this.topWindow, "open", "tools", null, {
       width,
-      session_id: this.sessionId,
     });
 
     if (id === "webconsole") {
@@ -2863,7 +2840,6 @@ Toolbox.prototype = {
       start_state: reason,
       panel_name: panelName,
       cold,
-      session_id: this.sessionId,
     });
 
     if (reason !== "initial_panel") {
@@ -2891,7 +2867,7 @@ Toolbox.prototype = {
       );
     }
 
-    this.telemetry.toolOpened(id, this.sessionId, this);
+    this.telemetry.toolOpened(id, this);
   },
 
   /**
@@ -2993,7 +2969,6 @@ Toolbox.prototype = {
       this.telemetry.recordEvent("activate", "split_console", null, {
         host: this._getTelemetryHostString(),
         width: Math.ceil(this.win.outerWidth / 50) * 50,
-        session_id: this.sessionId,
       });
       this.emit("split-console");
       this.focusConsoleInput();
@@ -3015,7 +2990,6 @@ Toolbox.prototype = {
     this.telemetry.recordEvent("deactivate", "split_console", null, {
       host: this._getTelemetryHostString(),
       width: Math.ceil(this.win.outerWidth / 50) * 50,
-      session_id: this.sessionId,
     });
 
     this.emit("split-console");
@@ -4023,7 +3997,7 @@ Toolbox.prototype = {
 
     // We normally handle toolClosed from selectTool() but in the event of the
     // toolbox closing we need to handle it here instead.
-    this.telemetry.toolClosed(this.currentToolId, this.sessionId, this);
+    this.telemetry.toolClosed(this.currentToolId, this);
 
     this._lastFocusedElement = null;
     this._pausedTargets = null;
@@ -4121,19 +4095,17 @@ Toolbox.prototype = {
     const width = Math.ceil(win.outerWidth / 50) * 50;
     const prevPanelName = this.getTelemetryPanelNameOrOther(this.currentToolId);
 
-    this.telemetry.toolClosed("toolbox", this.sessionId, this);
+    this.telemetry.toolClosed("toolbox", this);
     this.telemetry.recordEvent("exit", prevPanelName, null, {
       host,
       width,
       panel_name: this.getTelemetryPanelNameOrOther(this.currentToolId),
       next_panel: "none",
       reason: "toolbox_close",
-      session_id: this.sessionId,
     });
     this.telemetry.recordEvent("close", "tools", null, {
       host,
       width,
-      session_id: this.sessionId,
     });
 
     // Wait for the preferences to be reset before destroying the target descriptor (which will destroy the preference front)

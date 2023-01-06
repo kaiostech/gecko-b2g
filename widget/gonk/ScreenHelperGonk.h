@@ -95,12 +95,12 @@ class nsScreenGonk : public nsIScreen {
   NS_IMETHOD GetColorDepth(int32_t* aColorDepth) override;
   NS_IMETHOD GetRotation(uint32_t* aRotation) override;
   NS_IMETHOD SetRotation(uint32_t aRotation) override;
-  NS_IMETHOD GetRefreshRate(int32_t* aRefreshRate);
-  NS_IMETHOD GetIsPseudoDisplay(bool* aIsPseudoDisplay) {
+  NS_IMETHOD GetRefreshRate(int32_t* aRefreshRate) override;
+  NS_IMETHOD GetIsPseudoDisplay(bool* aIsPseudoDisplay) override {
     *aIsPseudoDisplay = false;
     return NS_OK;
   }
-  NS_IMETHOD GetColorGamut(mozilla::dom::ScreenColorGamut * aColorGamut);
+  NS_IMETHOD GetColorGamut(mozilla::dom::ScreenColorGamut * aColorGamut) override;
 
   uint32_t GetId();
   NotifyDisplayChangedEvent GetEventVisibility();

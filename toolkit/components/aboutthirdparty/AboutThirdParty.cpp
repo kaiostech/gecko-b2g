@@ -27,6 +27,18 @@
 
 using namespace mozilla;
 
+template <>
+bool DllBlockInfo::IsValidDynamicBlocklistEntry() const {
+  if (!mName.Buffer || !mName.Length || mName.Length > mName.MaximumLength) {
+    return false;
+  }
+  MOZ_ASSERT(mMaxVersion == DllBlockInfo::ALL_VERSIONS,
+             "dynamic blocklist does not allow custom version");
+  MOZ_ASSERT(mFlags == DllBlockInfo::Flags::FLAGS_DEFAULT,
+             "dynamic blocklist does not allow custom flags");
+  return true;
+}
+
 namespace {
 
 // A callback function passed to EnumSubkeys uses this type
@@ -696,47 +708,15 @@ void AboutThirdParty::BackgroundThread() {
 #if defined(MOZ_LAUNCHER_PROCESS)
   Span<const DllBlockInfo> blocklist =
       GetDynamicBlocklistSpan(std::move(dllSvc));
-  if (blocklist.IsEmpty()) {
-    return;
-  }
-
-  for (auto info = blocklist.begin(); info != blocklist.end(); ++info) {
-    if (!info->mName.Buffer || !info->mName.Length ||
-        info->mName.Length > info->mName.MaximumLength ||
-        info->mMaxVersion != DllBlockInfo::ALL_VERSIONS ||
-        info->mFlags != DllBlockInfo::Flags::FLAGS_DEFAULT) {
+  for (const auto& info : blocklist) {
+    if (!info.IsValidDynamicBlocklistEntry()) {
       break;
     }
 
-    nsString name(info->mName.Buffer, info->mName.Length / sizeof(wchar_t));
+    nsString name(info.mName.Buffer, info.mName.Length / sizeof(wchar_t));
     mDynamicBlocklist.Insert(std::move(name));
   }
 #endif  // defined(MOZ_LAUNCHER_PROCESS)
-}
-
-NS_IMETHODIMP AboutThirdParty::GetBlockedModuleNames(
-    const nsTArray<nsString>& aLoadedModuleNames,
-    nsTArray<nsString>& aBlockedModuleNames) {
-  MOZ_ASSERT(NS_IsMainThread());
-  aBlockedModuleNames.SetLength(0);
-#if defined(MOZ_LAUNCHER_PROCESS)
-  if (mWorkerState != WorkerState::Done) {
-    return NS_OK;
-  }
-  // Blocklist entries are case-insensitive
-  nsTHashSet<nsStringCaseInsensitiveHashKey> loadedModuleNameSet;
-  for (const nsString& loadedModuleName : aLoadedModuleNames) {
-    loadedModuleNameSet.Insert(loadedModuleName);
-  }
-  for (const auto& blocklistEntry : mDynamicBlocklist) {
-    // Only return entries that we haven't already tried to load,
-    // because those will already show up in the page
-    if (!loadedModuleNameSet.Contains(blocklistEntry)) {
-      aBlockedModuleNames.AppendElement(blocklistEntry);
-    }
-  }
-#endif  // defined(MOZ_LAUNCHER_PROCESS)
-  return NS_OK;
 }
 
 NS_IMETHODIMP AboutThirdParty::LookupModuleType(const nsAString& aLeafName,

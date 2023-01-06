@@ -1439,16 +1439,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateGMPService() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentParent::RecvUngrabPointer(
-    const uint32_t& aTime) {
-#if !defined(MOZ_WIDGET_GTK)
-  MOZ_CRASH("This message only makes sense on GTK platforms");
-#else
-  gdk_pointer_ungrab(aTime);
-  return IPC_OK();
-#endif
-}
-
 Atomic<bool, mozilla::Relaxed> sContentParentTelemetryEventEnabled(false);
 
 /*static*/
@@ -4005,10 +3995,12 @@ class RequestContentJSInterruptRunnable final : public Runnable {
 };
 
 void ContentParent::SignalImpendingShutdownToContentJS() {
-  if (!AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
+  if (!mIsSignaledImpendingShutdown &&
+      !AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
     MaybeLogBlockShutdownDiagnostics(
         this, "BlockShutdown: NotifyImpendingShutdown.", __FILE__, __LINE__);
     NotifyImpendingShutdown();
+    mIsSignaledImpendingShutdown = true;
     if (mHangMonitorActor &&
         StaticPrefs::dom_abort_script_on_child_shutdown()) {
       MaybeLogBlockShutdownDiagnostics(

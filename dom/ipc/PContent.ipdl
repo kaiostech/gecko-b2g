@@ -1894,14 +1894,6 @@ parent:
     sync GetDeviceStorageLocations()
 	returns (DeviceStorageLocationInfo info);
 
-    /**
-     * Tells the parent to ungrab the pointer on the default display.
-     *
-     * This is for GTK platforms where we have to ensure the pointer ungrab happens in the
-     * chrome process as that's the process that receives the pointer event.
-     */
-    sync UngrabPointer(uint32_t time);
-
     sync RemovePermission(nsIPrincipal principal, nsCString permissionType) returns (nsresult rv);
 
     /**

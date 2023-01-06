@@ -4189,8 +4189,6 @@ nsresult WorkerPrivate::RunCurrentSyncLoop() {
 #endif
 
   {
-    SerialEventTargetGuard serialEventTargetGuard(loopInfo->mEventTarget);
-
     while (!loopInfo->mCompleted) {
       bool normalRunnablesPending = false;
 
@@ -5374,13 +5372,6 @@ void WorkerPrivate::ResetWorkerPrivateInWorkerThread() {
 
   mThread->SetWorker(WorkerThreadFriendKey{}, nullptr);
   mThread.swap(doomedThread);
-}
-
-SerialEventTargetGuard WorkerPrivate::GetSerialEventTargetGuard() {
-  MutexAutoLock lock(mMutex);
-
-  MOZ_ASSERT(mThread);
-  return SerialEventTargetGuard(mThread);
 }
 
 void WorkerPrivate::BeginCTypesCall() {

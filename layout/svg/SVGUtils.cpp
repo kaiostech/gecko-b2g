@@ -459,6 +459,9 @@ class MixModeBlender {
     // Create a temporary context to draw to so we can blend it back with
     // another operator.
     IntRect drawRect = ComputeClipExtsInDeviceSpace(aTransform);
+    if (drawRect.IsEmpty()) {
+      return nullptr;
+    }
 
     RefPtr<DrawTarget> targetDT =
         mSourceCtx->GetDrawTarget()->CreateSimilarDrawTarget(
@@ -503,9 +506,10 @@ class MixModeBlender {
     // mode. Clip the source context first, so that we can generate a smaller
     // temporary surface. (Since we will clip this context in
     // SetupContextMatrix, a pair of save/restore is needed.)
-    gfxContextAutoSaveRestore saver(mSourceCtx);
+    gfxContextAutoSaveRestore saver;
 
     if (!mFrame->HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
+      saver.SetContext(mSourceCtx);
       // aFrame has a valid ink overflow rect, so clip to it before calling
       // PushGroup() to minimize the size of the surfaces we'll composite:
       gfxContextMatrixAutoSaveRestore matrixAutoSaveRestore(mSourceCtx);

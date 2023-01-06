@@ -340,8 +340,6 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvCreateGMPService();
 
-  mozilla::ipc::IPCResult RecvUngrabPointer(const uint32_t& aTime);
-
   mozilla::ipc::IPCResult RecvRemovePermission(
       nsIPrincipal* aPrincipal, const nsACString& aPermissionType,
       nsresult* aRv);
@@ -1811,6 +1809,7 @@ class ContentParent final : public PContentParent,
   static uint32_t sPageLoadEventCounter;
   static Maybe<TimeStamp> sLastContentProcessLaunch;
 
+  bool mIsSignaledImpendingShutdown = false;
   bool mIsNotifiedShutdownSuccess = false;
 };
 

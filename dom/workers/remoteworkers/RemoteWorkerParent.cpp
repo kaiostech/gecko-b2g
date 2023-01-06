@@ -67,8 +67,7 @@ void RemoteWorkerParent::Initialize(nsIURI* aScriptURL,
   if (parent) {
     mScriptURL = aScriptURL;
     if (!aAlreadyRegistered) {
-      parent->RegisterRemoteWorkerActor();
-      // TODO: b2g, register the script URL properly.
+      parent->RegisterRemoteWorkerActor(aScriptURL);
     }
 
     NS_ReleaseOnMainThread("RemoteWorkerParent::Initialize ContentParent",

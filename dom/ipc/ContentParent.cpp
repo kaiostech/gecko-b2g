@@ -3048,7 +3048,6 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mChildID(gContentChildID++),
       mGeolocationWatchID(-1),
       mJSPluginID(aJSPluginID),
-      mRemoteWorkerActorData("ContentParent::mRemoteWorkerActorData"),
       mThreadsafeHandle(
           new ThreadsafeContentParentHandle(this, mChildID, mRemoteType)),
       mNumDestroyingTabs(0),
@@ -7883,37 +7882,21 @@ mozilla::ipc::IPCResult ContentParent::RecvDiscardBrowsingContext(
   return IPC_OK();
 }
 
-void ContentParent::RegisterRemoteWorkerActor(nsIURI* aScriptURL) {
-  auto lock = mRemoteWorkerActorData.Lock();
-  ++lock->mCount;
-
-  lock->mScriptURLs.EmplaceBack(aScriptURL);
-}
-
 void ContentParent::UnregisterRemoveWorkerActor(nsIURI* aScriptURL) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  // TODO: b2g, check if we can move that to ThreadsafeContentParentHandle
-  {
-    auto lock = mRemoteWorkerActorData.Lock();
-
-    auto index = lock->mScriptURLs.IndexOf(aScriptURL,
-                                           0,
-                                           [](nsIURI* a, nsIURI* b) {
-                                             bool eq = false;
-                                             a->Equals(b, &eq);
-                                             return eq ? 0 : -1;
-                                           });
-    // MOZ_ASSERT(index != nsTArray<nsCString>::NoIndex);
-    // lock->mScriptURLs.RemoveElementAt(index);
-
-    // if (--lock->mCount) {
-    //   return;
-    // }
-  }
-
   {
     MutexAutoLock lock(mThreadsafeHandle->mMutex);
+
+    auto index = mThreadsafeHandle->mScriptURLs.IndexOf(
+        aScriptURL, 0, [](nsIURI* a, nsIURI* b) {
+          bool eq = false;
+          a->Equals(b, &eq);
+          return eq ? 0 : -1;
+        });
+    MOZ_ASSERT(index != nsTArray<nsCString>::NoIndex);
+    mThreadsafeHandle->mScriptURLs.RemoveElementAt(index);
+
     if (--mThreadsafeHandle->mRemoteWorkerActorCount) {
       return;
     }
@@ -8887,11 +8870,17 @@ nsCString ThreadsafeContentParentHandle::GetRemoteType() {
   return mRemoteType;
 }
 
+nsTArray<RefPtr<nsIURI>>& ThreadsafeContentParentHandle::GetScriptURLs() {
+  MutexAutoLock lock(mMutex);
+  return mScriptURLs;
+}
+
 bool ThreadsafeContentParentHandle::MaybeRegisterRemoteWorkerActor(
-    MoveOnlyFunction<bool(uint32_t, bool)> aCallback) {
+    MoveOnlyFunction<bool(uint32_t, bool)> aCallback, nsIURI* aScriptURL) {
   MutexAutoLock lock(mMutex);
   if (aCallback(mRemoteWorkerActorCount, mShutdownStarted)) {
     ++mRemoteWorkerActorCount;
+    mScriptURLs.EmplaceBack(aScriptURL);
     return true;
   }
   return false;

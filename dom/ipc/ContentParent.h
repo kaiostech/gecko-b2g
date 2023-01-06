@@ -1659,26 +1659,6 @@ class ContentParent final : public PContentParent,
   // timer.
   nsCOMPtr<nsITimer> mForceKillTimer;
 
-  // `mCount` is increased when a RemoteWorkerParent actor is created for this
-  // ContentProcess and it is decreased when the actor is destroyed.
-  //
-  // `mShutdownStarted` is flipped to `true` when a runnable that calls
-  // `ShutDownProcess` is dispatched; it's needed because the corresponding
-  // Content Process may be shutdown if there's no remote worker actors, and
-  // decrementing `mCount` and the call to `ShutDownProcess` are async. So,
-  // when a worker is going to be spawned and we see that `mCount` is 0,
-  // we can decide whether or not to use that process based on the value of
-  // `mShutdownStarted.`
-  //
-  // It's touched on PBackground thread and on main-thread.
-  struct RemoteWorkerActorData {
-    uint32_t mCount = 0;
-    nsTArray<RefPtr<nsIURI>> mScriptURLs;
-    bool mShutdownStarted = false;
-  };
-
-  DataMutex<RemoteWorkerActorData> mRemoteWorkerActorData;
-
   // Threadsafe handle object which can be used by actors like PBackground to
   // track the identity and other relevant information about the content process
   // they're attached to.
@@ -1832,6 +1812,10 @@ class ThreadsafeContentParentHandle final {
   // again in the future.
   nsCString GetRemoteType() MOZ_EXCLUDES(mMutex);
 
+  // Get the URIs of service workers running on this ContentParent. Safe to
+  // call from any thread.
+  nsTArray<RefPtr<nsIURI>>& GetScriptURLs() MOZ_EXCLUDES(mMutex);
+
   // Try to get a reference to the real `ContentParent` object from this weak
   // reference. This may only be called on the main thread.
   already_AddRefed<ContentParent> GetContentParent()
@@ -1845,11 +1829,13 @@ class ThreadsafeContentParentHandle final {
   //
   // NOTE: The internal mutex is held while evaluating `aCallback`.
   bool MaybeRegisterRemoteWorkerActor(
-      MoveOnlyFunction<bool(uint32_t, bool)> aCallback) MOZ_EXCLUDES(mMutex);
+      MoveOnlyFunction<bool(uint32_t, bool)> aCallback, nsIURI* aScriptURL)
+      MOZ_EXCLUDES(mMutex);
 
   // Like `MaybeRegisterRemoteWorkerActor`, but unconditional.
-  void RegisterRemoteWorkerActor() MOZ_EXCLUDES(mMutex) {
-    MaybeRegisterRemoteWorkerActor([](uint32_t, bool) { return true; });
+  void RegisterRemoteWorkerActor(nsIURI* aScriptURL) MOZ_EXCLUDES(mMutex) {
+    MaybeRegisterRemoteWorkerActor([](uint32_t, bool) { return true; },
+                                   aScriptURL);
   }
 
  private:
@@ -1865,6 +1851,7 @@ class ThreadsafeContentParentHandle final {
   nsCString mRemoteType MOZ_GUARDED_BY(mMutex);
   uint32_t mRemoteWorkerActorCount MOZ_GUARDED_BY(mMutex) = 0;
   bool mShutdownStarted MOZ_GUARDED_BY(mMutex) = false;
+  nsTArray<RefPtr<nsIURI>> mScriptURLs MOZ_GUARDED_BY(mMutex);
 
   // Weak reference to the actual ContentParent actor. Only touched on the main
   // thread to read or clear.

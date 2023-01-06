@@ -597,19 +597,16 @@ RemoteWorkerServiceParent* RemoteWorkerManager::SelectTargetActorInternal(
         // process with a pid equal to aProcessId if any, otherwise it would
         // start from a random actor in the mChildActors array, this guarantees
         // that we will choose that actor if it does also match the remote type.
+        RefPtr<nsIURI> scripturi;
+        NS_NewURI(getter_AddRefs(scripturi),
+                  NS_ConvertUTF16toUTF8(aData.originalScriptURL()).get());
         if (aContentHandle->MaybeRegisterRemoteWorkerActor(
                 [&](uint32_t count, bool shutdownStarted) -> bool {
                   return (count || !shutdownStarted) &&
                          (aActor->OtherPid() == aProcessId || !actor);
-                })) {
+                },
+                scripturi)) {
           actor = aActor;
-          // TODO: b2g - can't get ContentParent from the background thread.
-          // RefPtr<nsIURI> scripturi;
-          // NS_NewURI(getter_AddRefs(scripturi),
-          //           NS_ConvertUTF16toUTF8(aData.originalScriptURL()).get());
-          // RefPtr<ContentParent> contentParent = aContentHandle->GetContentParent();
-          // auto lock = contentParent->mRemoteWorkerActorData.Lock();
-          // lock->mScriptURLs.EmplaceBack(scripturi);
           return false;
         }
         MOZ_ASSERT(!actor);
@@ -752,23 +749,22 @@ RemoteWorkerManager::GetScriptURIsInternal(base::ProcessId aProcessId,
   AssertIsInMainProcess();
   AssertIsOnMainThread();
 
-  ContentParent* contentparent = nullptr;
+  RefPtr<ThreadsafeContentParentHandle> actor;
   for (auto cpp = ContentParent::AllProcesses(ContentParent::eLive);
        cpp != cpp.end();
        ++cpp) {
     if ((*cpp)->OtherPid() == aProcessId && (*cpp)->GetRemoteType() == aRemoteType) {
-      contentparent = *cpp;
+      actor = (*cpp)->ThreadsafeHandle();
       break;
     }
   }
 
   AutoTArray<RefPtr<nsIURI>, 16> scripts;
-  if (!contentparent) {
+  if (!actor) {
     return std::move(scripts);
   }
 
-  auto lock = contentparent->mRemoteWorkerActorData.Lock();
-  for (auto uri : lock->mScriptURLs) {
+  for (auto uri : actor->GetScriptURLs()) {
     scripts.AppendElement(uri);
   }
 

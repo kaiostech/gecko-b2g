@@ -2036,6 +2036,10 @@ nsresult nsHttpTransaction::ParseLineSegment(char* segment, uint32_t len) {
                                          referrerPolicy);
 
       if (NS_SUCCEEDED(rv) && !linkHeader.IsEmpty()) {
+        nsCString cspHeader;
+        Unused << mResponseHead->GetHeader(nsHttp::Content_Security_Policy,
+                                           cspHeader);
+
         nsCOMPtr<nsIEarlyHintObserver> earlyHint;
         {
           MutexAutoLock lock(mLock);
@@ -2046,8 +2050,9 @@ nsresult nsHttpTransaction::ParseLineSegment(char* segment, uint32_t len) {
               NS_NewRunnableFunction(
                   "nsIEarlyHintObserver->EarlyHint",
                   [obs{std::move(earlyHint)}, header{std::move(linkHeader)},
-                   referrerPolicy{std::move(referrerPolicy)}]() {
-                    obs->EarlyHint(header, referrerPolicy);
+                   referrerPolicy{std::move(referrerPolicy)},
+                   cspHeader{std::move(cspHeader)}]() {
+                    obs->EarlyHint(header, referrerPolicy, cspHeader);
                   }),
               NS_DISPATCH_NORMAL);
           MOZ_ASSERT(NS_SUCCEEDED(rv));

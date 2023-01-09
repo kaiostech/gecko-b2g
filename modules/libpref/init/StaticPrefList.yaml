@@ -4738,11 +4738,7 @@
 
 - name: dom.webnotifications.silent.enabled
   type: RelaxedAtomicBool
-#if defined(MOZ_WIDGET_ANDROID)
   value: @IS_NIGHTLY_BUILD@
-#else
-  value: false
-#endif
   mirror: always
 
 - name: dom.webnotifications.vibrate.enabled
@@ -8733,6 +8729,13 @@
 - name: layout.css.grid-template-masonry-value.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+  # Is support for :nth-child(An+B of S) and :nth-last-child(An+B of S) enabled?
+- name: layout.css.nth-child-of.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 

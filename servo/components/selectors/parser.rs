@@ -248,6 +248,11 @@ pub trait Parser<'i> {
         false
     }
 
+    /// Whether to parse the selector list of nth-child() or nth-last-child().
+    fn parse_nth_child_of(&self) -> bool {
+        false
+    }
+
     /// Whether to parse the `:where` pseudo-class.
     fn parse_is_and_where(&self) -> bool {
         false
@@ -1104,6 +1109,73 @@ impl NthSelectorData {
             b: 1,
         }
     }
+
+    /// Writes the beginning of the selector.
+    #[inline]
+    fn write_start<W: fmt::Write>(&self, dest: &mut W) -> fmt::Result {
+        dest.write_str(match self.ty {
+            NthType::Child if self.is_function => ":nth-child(",
+            NthType::Child => ":first-child",
+            NthType::LastChild if self.is_function => ":nth-last-child(",
+            NthType::LastChild => ":last-child",
+            NthType::OfType if self.is_function => ":nth-of-type(",
+            NthType::OfType => ":first-of-type",
+            NthType::LastOfType if self.is_function => ":nth-last-of-type(",
+            NthType::LastOfType => ":last-of-type",
+            NthType::OnlyChild => ":only-child",
+            NthType::OnlyOfType => ":only-of-type",
+        })
+    }
+
+    /// Serialize <an+b> (part of the CSS Syntax spec, but currently only used here).
+    /// <https://drafts.csswg.org/css-syntax-3/#serialize-an-anb-value>
+    #[inline]
+    fn write_affine<W: fmt::Write>(&self, dest: &mut W) -> fmt::Result {
+        match (self.a, self.b) {
+            (0, 0) => dest.write_char('0'),
+
+            (1, 0) => dest.write_char('n'),
+            (-1, 0) => dest.write_str("-n"),
+            (_, 0) => write!(dest, "{}n", self.a),
+
+            (0, _) => write!(dest, "{}", self.b),
+            (1, _) => write!(dest, "n{:+}", self.b),
+            (-1, _) => write!(dest, "-n{:+}", self.b),
+            (_, _) => write!(dest, "{}n{:+}", self.a, self.b),
+        }
+    }
+}
+
+/// The properties that comprise an :nth- pseudoclass as of Selectors 4 (e.g.,
+/// nth-child(An+B [of S]?)).
+/// https://www.w3.org/TR/selectors-4/#nth-child-pseudo
+#[derive(Clone, Eq, PartialEq, ToShmem)]
+#[shmem(no_bounds)]
+pub struct NthOfSelectorData<Impl: SelectorImpl>(
+    #[shmem(field_bound)] ThinArc<NthSelectorData, Selector<Impl>>,
+);
+
+impl<Impl: SelectorImpl> NthOfSelectorData<Impl> {
+    /// Returns selector data for :nth-{,last-}{child,of-type}(An+B [of S])
+    #[inline]
+    pub fn new(nth_data: &NthSelectorData, mut selectors: SelectorList<Impl>) -> Self {
+        Self(ThinArc::from_header_and_iter(
+            *nth_data,
+            selectors.0.drain(..),
+        ))
+    }
+
+    /// Returns the An+B part of the selector
+    #[inline]
+    pub fn nth_data(&self) -> &NthSelectorData {
+        &self.0.header.header
+    }
+
+    /// Returns the selector list part of the selector
+    #[inline]
+    pub fn selectors(&self) -> &[Selector<Impl>] {
+        &self.0.slice
+    }
 }
 
 /// A CSS simple selector or combinator. We store both in the same enum for
@@ -1151,6 +1223,7 @@ pub enum Component<Impl: SelectorImpl> {
     Empty,
     Scope,
     Nth(NthSelectorData),
+    NthOf(NthOfSelectorData<Impl>),
     NonTSPseudoClass(#[shmem(field_bound)] Impl::NonTSPseudoClass),
     /// The ::slotted() pseudo-element:
     ///
@@ -1339,6 +1412,11 @@ impl<Impl: SelectorImpl> Component<Impl> {
 
             Negation(ref list) | Is(ref list) | Where(ref list) => {
                 if !visitor.visit_selector_list(&list) {
+                    return false;
+                }
+            },
+            NthOf(ref nth_of_data) => {
+                if !visitor.visit_selector_list(nth_of_data.selectors()) {
                     return false;
                 }
             },
@@ -1553,26 +1631,6 @@ impl<Impl: SelectorImpl> ToCss for Component<Impl> {
     {
         use self::Component::*;
 
-        /// Serialize <an+b> values (part of the CSS Syntax spec, but currently only used here).
-        /// <https://drafts.csswg.org/css-syntax-3/#serialize-an-anb-value>
-        fn write_affine<W>(dest: &mut W, a: i32, b: i32) -> fmt::Result
-        where
-            W: fmt::Write,
-        {
-            match (a, b) {
-                (0, 0) => dest.write_char('0'),
-
-                (1, 0) => dest.write_char('n'),
-                (-1, 0) => dest.write_str("-n"),
-                (_, 0) => write!(dest, "{}n", a),
-
-                (0, _) => write!(dest, "{}", b),
-                (1, _) => write!(dest, "n{:+}", b),
-                (-1, _) => write!(dest, "-n{:+}", b),
-                (_, _) => write!(dest, "{}n{:+}", a, b),
-            }
-        }
-
         match *self {
             Combinator(ref c) => c.to_css(dest),
             Slotted(ref selector) => {
@@ -1652,23 +1710,32 @@ impl<Impl: SelectorImpl> ToCss for Component<Impl> {
                 Ok(())
             },
             Nth(ref nth_data) => {
-                dest.write_str(match nth_data.ty {
-                    NthType::Child if nth_data.is_function => ":nth-child(",
-                    NthType::Child => ":first-child",
-                    NthType::LastChild if nth_data.is_function => ":nth-last-child(",
-                    NthType::LastChild => ":last-child",
-                    NthType::OfType if nth_data.is_function => ":nth-of-type(",
-                    NthType::OfType => ":first-of-type",
-                    NthType::LastOfType if nth_data.is_function => ":nth-last-of-type(",
-                    NthType::LastOfType => ":last-of-type",
-                    NthType::OnlyChild => ":only-child",
-                    NthType::OnlyOfType => ":only-of-type",
-                })?;
+                nth_data.write_start(dest)?;
                 if nth_data.is_function {
-                    write_affine(dest, nth_data.a, nth_data.b)?;
+                    nth_data.write_affine(dest)?;
                     dest.write_char(')')?;
                 }
                 Ok(())
+            },
+            NthOf(ref nth_of_data) => {
+                let nth_data = nth_of_data.nth_data();
+                nth_data.write_start(dest)?;
+                debug_assert!(
+                    nth_data.is_function,
+                    "A selector must be a function to hold An+B notation"
+                );
+                nth_data.write_affine(dest)?;
+                debug_assert!(
+                    matches!(nth_data.ty, NthType::Child | NthType::LastChild),
+                    "Only :nth-child or :nth-last-child can be of a selector list"
+                );
+                debug_assert!(
+                    !nth_of_data.selectors().is_empty(),
+                    "The selector list should not be empty"
+                );
+                dest.write_str(" of ")?;
+                serialize_selector_list(nth_of_data.selectors().iter(), dest)?;
+                dest.write_char(')')
             },
             Is(ref list) | Where(ref list) | Negation(ref list) | Has(ref list) => {
                 match *self {
@@ -2404,7 +2471,7 @@ where
 }
 
 fn parse_nth_pseudo_class<'i, 't, P, Impl>(
-    _: &P,
+    parser: &P,
     input: &mut CssParser<'i, 't>,
     state: SelectorParsingState,
     ty: NthType,
@@ -2417,12 +2484,33 @@ where
         return Err(input.new_custom_error(SelectorParseErrorKind::InvalidState));
     }
     let (a, b) = parse_nth(input)?;
-    Ok(Component::Nth(NthSelectorData {
+    let nth_data = NthSelectorData {
         ty,
         is_function: true,
         a,
         b,
-    }))
+    };
+    if !parser.parse_nth_child_of() || ty.is_of_type() {
+        return Ok(Component::Nth(nth_data));
+    }
+
+    // Try to parse "of <selector-list>".
+    if input.try_parse(|i| i.expect_ident_matching("of")).is_err() {
+        return Ok(Component::Nth(nth_data));
+    }
+    // Whitespace between "of" and the selector list is optional
+    // https://github.com/w3c/csswg-drafts/issues/8285
+    let selectors = SelectorList::parse_with_state(
+        parser,
+        input,
+        state |
+            SelectorParsingState::SKIP_DEFAULT_NAMESPACE |
+            SelectorParsingState::DISALLOW_PSEUDOS,
+        ParseErrorRecovery::DiscardList,
+    )?;
+    Ok(Component::NthOf(NthOfSelectorData::new(
+        &nth_data, selectors,
+    )))
 }
 
 /// Returns whether the name corresponds to a CSS2 pseudo-element that
@@ -2764,6 +2852,10 @@ pub mod tests {
         type Error = SelectorParseErrorKind<'i>;
 
         fn parse_slotted(&self) -> bool {
+            true
+        }
+
+        fn parse_nth_child_of(&self) -> bool {
             true
         }
 

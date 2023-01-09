@@ -2063,7 +2063,7 @@ void Notification::Close() {
   }
 }
 
-void Notification::CloseInternal() {
+void Notification::CloseInternal(bool aContextClosed) {
   AssertIsOnMainThread();
   // Transfer ownership (if any) to local scope so we can release it at the end
   // of this function. This is relevant when the call is from
@@ -2078,7 +2078,7 @@ void Notification::CloseInternal() {
     if (alertService) {
       nsAutoString alertName;
       GetAlertName(alertName);
-      alertService->CloseAlert(alertName);
+      alertService->CloseAlert(alertName, aContextClosed);
     }
   }
 }
@@ -2516,7 +2516,7 @@ Notification::Observe(nsISupports* aSubject, const char* aTopic,
         obs->RemoveObserver(this, DOM_WINDOW_FROZEN_TOPIC);
       }
 
-      CloseInternal();
+      CloseInternal(true);
     }
   }
 

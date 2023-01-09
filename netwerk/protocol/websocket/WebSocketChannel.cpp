@@ -1361,7 +1361,7 @@ void WebSocketChannel::BeginOpenInternal() {
     return;
   }
 
-    if (localChannel) {
+  if (localChannel) {
     NS_GetTopOriginInfo(localChannel, mTopOrigin, mURL, &mIsApp,
                         &mIsLoopback, mManifestURL);
   }
@@ -1372,7 +1372,7 @@ void WebSocketChannel::BeginOpenInternal() {
   }
 #endif
 
-  rv = NS_MaybeOpenChannelUsingAsyncOpen(localChannel, this);
+  rv = localChannel->AsyncOpen(this);
 
   if (NS_FAILED(rv)) {
     LOG(("WebSocketChannel::BeginOpenInternal: cannot async open\n"));

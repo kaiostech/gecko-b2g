@@ -4435,6 +4435,7 @@ void MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
     case wasm::CallIndirectIdKind::Immediate:
       move32(Imm32(callIndirectId.immediate()), WasmTableCallSigReg);
       break;
+    case wasm::CallIndirectIdKind::AsmJS:
     case wasm::CallIndirectIdKind::None:
       break;
   }
@@ -4584,6 +4585,69 @@ void MacroAssembler::wasmCallRef(const wasm::CallSiteDesc& desc,
   bind(&done);
 }
 
+void MacroAssembler::branchWasmTypeDefIsSubtype(Register subTypeDef,
+                                                Register superTypeDef,
+                                                Register scratch,
+                                                uint32_t subTypingDepth,
+                                                Label* label, bool onSuccess) {
+  MOZ_ASSERT_IF(subTypingDepth >= wasm::MinSuperTypeVectorLength,
+                scratch != Register::Invalid());
+
+  // We generate just different enough code for 'is' subtype vs 'is not'
+  // subtype that we handle them separately.
+  if (onSuccess) {
+    Label failed;
+
+    // Fast path for the type defs being equal.
+    branchPtr(Assembler::Equal, subTypeDef, superTypeDef, label);
+
+    // Slower path for checking the supertype vector of `subTypeDef`. We don't
+    // need `subTypeDef` at this point, so we use it as a scratch for storing
+    // the super type vector and entry from it.
+    loadPtr(Address(subTypeDef, wasm::TypeDef::offsetOfSuperTypeVector()),
+            subTypeDef);
+
+    // Emit a bounds check if the super type depth may be out-of-bounds.
+    if (subTypingDepth >= wasm::MinSuperTypeVectorLength) {
+      // Slowest path for having a bounds check of the super type vector
+      load32(Address(subTypeDef, wasm::SuperTypeVector::offsetOfLength()),
+             scratch);
+      branch32(Assembler::LessThanOrEqual, scratch, Imm32(subTypingDepth),
+               &failed);
+    }
+
+    // Load the `subTypingDepth` entry from subTypeDef's super type vector. This
+    // will be `superTypeDef` if `subTypeDef` is indeed a subtype.
+    loadPtr(Address(subTypeDef, wasm::SuperTypeVector::offsetOfTypeDefInVector(
+                                    subTypingDepth)),
+            subTypeDef);
+    branchPtr(Assembler::Equal, subTypeDef, superTypeDef, label);
+
+    // Fallthrough to the failed case
+    bind(&failed);
+    return;
+  }
+
+  // Load the super type vector from subTypeDef
+  loadPtr(Address(subTypeDef, wasm::TypeDef::offsetOfSuperTypeVector()),
+          subTypeDef);
+
+  // Emit a bounds check if the super type depth may be out-of-bounds.
+  if (subTypingDepth >= wasm::MinSuperTypeVectorLength) {
+    load32(Address(subTypeDef, wasm::SuperTypeVector::offsetOfLength()),
+           scratch);
+    branch32(Assembler::LessThanOrEqual, scratch, Imm32(subTypingDepth), label);
+  }
+
+  // Load the `subTypingDepth` entry from subTypeDef's super type vector. This
+  // will be `superTypeDef` if `subTypeDef` is indeed a subtype.
+  loadPtr(Address(subTypeDef, wasm::SuperTypeVector::offsetOfTypeDefInVector(
+                                  subTypingDepth)),
+          subTypeDef);
+  branchPtr(Assembler::NotEqual, subTypeDef, superTypeDef, label);
+  // Fallthrough to the success case
+}
+
 void MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc) {
   CodeOffset offset = nopPatchableToCall();
   append(desc, offset);
@@ -4614,8 +4678,8 @@ void MacroAssembler::emitPreBarrierFastPath(JSRuntime* rt, MIRType type,
 #endif
 
   // Load the chunk address in temp2.
-  movePtr(ImmWord(~gc::ChunkMask), temp2);
-  andPtr(temp1, temp2);
+  movePtr(temp1, temp2);
+  andPtr(Imm32(int32_t(~gc::ChunkMask)), temp2);
 
   // If the GC thing is in the nursery, we don't need to barrier it.
   if (type == MIRType::Value || type == MIRType::Object ||

@@ -8,7 +8,6 @@
 
 #include "FileSystemDataManager.h"
 #include "FileSystemHashSource.h"
-#include "GetDirectoryForOrigin.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/NotNull.h"
 #include "mozilla/Result.h"
@@ -117,14 +116,9 @@ Result<nsCOMPtr<nsIFile>, QMResult> GetFileSystemDirectory(
   quota::QuotaManager* quotaManager = quota::QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-#if FS_QUOTA_MANAGEMENT_ENABLED
   QM_TRY_UNWRAP(nsCOMPtr<nsIFile> fileSystemDirectory,
                 QM_TO_RESULT_TRANSFORM(quotaManager->GetDirectoryForOrigin(
                     quota::PERSISTENCE_TYPE_DEFAULT, aOrigin)));
-#else
-  QM_TRY_UNWRAP(nsCOMPtr<nsIFile> fileSystemDirectory,
-                GetDirectoryForOrigin(*quotaManager, aOrigin));
-#endif
 
   QM_TRY(QM_TO_RESULT(fileSystemDirectory->AppendRelativePath(
       NS_LITERAL_STRING_FROM_CSTRING(FILESYSTEM_DIRECTORY_NAME))));
@@ -141,16 +135,11 @@ nsresult EnsureFileSystemDirectory(
 
   QM_TRY(MOZ_TO_RESULT(quotaManager->EnsureTemporaryStorageIsInitialized()));
 
-#if FS_QUOTA_MANAGEMENT_ENABLED
   QM_TRY_INSPECT(const auto& fileSystemDirectory,
                  quotaManager
                      ->EnsureTemporaryOriginIsInitialized(
                          quota::PERSISTENCE_TYPE_DEFAULT, aOriginMetadata)
                      .map([](const auto& aPair) { return aPair.first; }));
-#else
-  QM_TRY_INSPECT(const auto& fileSystemDirectory,
-                 GetDirectoryForOrigin(*quotaManager, aOriginMetadata.mOrigin));
-#endif
 
   QM_TRY(QM_TO_RESULT(fileSystemDirectory->AppendRelativePath(
       NS_LITERAL_STRING_FROM_CSTRING(FILESYSTEM_DIRECTORY_NAME))));
@@ -208,12 +197,8 @@ Result<nsCOMPtr<nsIFileURL>, QMResult> GetDatabaseFileURL(
                      nsCOMPtr<nsIURIMutator>, fileHandler, NewFileURIMutator,
                      databaseFile)));
 
-#if FS_QUOTA_MANAGEMENT_ENABLED
   nsCString directoryLockIdClause = "&directoryLockId="_ns;
   directoryLockIdClause.AppendInt(aDirectoryLockId);
-#else
-  nsCString directoryLockIdClause;
-#endif
 
   nsCOMPtr<nsIFileURL> result;
   QM_TRY(QM_TO_RESULT(
@@ -251,28 +236,32 @@ Result<nsCOMPtr<nsIFile>, QMResult> FileSystemFileManager::GetOrCreateFile(
   return data::GetOrCreateFile(mTopDirectory, aEntryId);
 }
 
-nsresult FileSystemFileManager::RemoveFile(const EntryId& aEntryId) {
+Result<int64_t, QMResult> FileSystemFileManager::RemoveFile(
+    const EntryId& aEntryId) {
   MOZ_ASSERT(!aEntryId.IsEmpty());
   QM_TRY_UNWRAP(nsCOMPtr<nsIFile> pathObject,
                 GetFileDestination(mTopDirectory, aEntryId));
 
   bool exists = false;
-  QM_TRY(MOZ_TO_RESULT(pathObject->Exists(&exists)));
+  QM_TRY(QM_TO_RESULT(pathObject->Exists(&exists)));
 
   if (!exists) {
-    return NS_OK;
+    return 0;
   }
 
   bool isFile = false;
-  QM_TRY(MOZ_TO_RESULT(pathObject->IsFile(&isFile)));
+  QM_TRY(QM_TO_RESULT(pathObject->IsFile(&isFile)));
 
   if (!isFile) {
-    return NS_ERROR_FILE_IS_DIRECTORY;
+    return Err(QMResult(NS_ERROR_FILE_IS_DIRECTORY));
   }
 
-  QM_TRY(MOZ_TO_RESULT(pathObject->Remove(/* recursive */ false)));
+  QM_TRY_UNWRAP(int64_t fileSize,
+                QM_TO_RESULT_INVOKE_MEMBER(pathObject, GetFileSize));
 
-  return NS_OK;
+  QM_TRY(QM_TO_RESULT(pathObject->Remove(/* recursive */ false)));
+
+  return fileSize;
 }
 
 }  // namespace mozilla::dom::fs::data

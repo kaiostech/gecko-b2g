@@ -345,14 +345,12 @@ class BackgroundParentImpl : public PBackgroundParent {
   mozilla::ipc::IPCResult RecvPClientManagerConstructor(
       PClientManagerParent* aActor) override;
 
-  PMIDIPortParent* AllocPMIDIPortParent(const MIDIPortInfo& aPortInfo,
-                                        const bool& aSysexEnabled) override;
+  mozilla::ipc::IPCResult RecvCreateMIDIPort(
+      Endpoint<PMIDIPortParent>&& aEndpoint, const MIDIPortInfo& aPortInfo,
+      const bool& aSysexEnabled) override;
 
-  bool DeallocPMIDIPortParent(PMIDIPortParent* aActor) override;
-
-  PMIDIManagerParent* AllocPMIDIManagerParent() override;
-
-  bool DeallocPMIDIManagerParent(PMIDIManagerParent* aActor) override;
+  mozilla::ipc::IPCResult RecvCreateMIDIManager(
+      Endpoint<PMIDIManagerParent>&& aEndpoint) override;
 
   mozilla::ipc::IPCResult RecvHasMIDIDevice(
       HasMIDIDeviceResolver&& aResolver) override;

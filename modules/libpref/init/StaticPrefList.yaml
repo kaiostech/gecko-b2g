@@ -1238,9 +1238,6 @@
   rust: true
 
 # Whether focus rings are always shown by default.
-#
-# This is the initial value of nsWindowRoot::mShowFocusRings, but it can be
-# overridden by system preferences.
 - name: browser.display.show_focus_rings
   type: bool
   value: false
@@ -1683,6 +1680,13 @@
 #else
   value: @IS_NIGHTLY_BUILD@
 #endif
+  mirror: always
+
+# When this pref is enabled, the JS validator will be enabled for
+# ORB.
+- name: browser.opaqueResponseBlocking.javascriptValidator
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # When this pref is enabled, <object> and <embed> elements will create
@@ -4055,7 +4059,7 @@
 # Whether the File System API is enabled
 - name: dom.fs.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether the WritableFileStream is enabled or disabled.
@@ -4148,46 +4152,6 @@
 - name: dom.systemMessage.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# DOM Streams Prefs
-
-## Exposure Prefs: To ensure the DOM Streams don't expose more
-# than existing JS Streams implementation, we want to hide some
-# interfaces from the global until later.
-- name: dom.streams.readable_stream_default_controller.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: dom.streams.readable_stream_default_reader.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: dom.streams.byte_streams.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: dom.streams.writable_streams.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: dom.streams.transform_streams.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: dom.streams.pipeTo.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: dom.streams.transferable.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # For area and anchor elements with target=_blank and no rel set to
@@ -8311,13 +8275,6 @@
   type: int32_t
   value: -1
   mirror: always
-
-# Whether non-standard caption-side values are enabled
-- name: layout.css.caption-side-non-standard.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
 
 # Whether @layer is enabled
 - name: layout.css.cascade-layers.enabled

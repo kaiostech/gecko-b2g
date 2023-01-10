@@ -37,9 +37,7 @@ class Connector {
     this.disconnect = this.disconnect.bind(this);
     this.willNavigate = this.willNavigate.bind(this);
     this.navigate = this.navigate.bind(this);
-    this.sendHTTPRequest = this.sendHTTPRequest.bind(this);
     this.triggerActivity = this.triggerActivity.bind(this);
-    this.getTabTarget = this.getTabTarget.bind(this);
     this.viewSourceInDebugger = this.viewSourceInDebugger.bind(this);
     this.requestData = this.requestData.bind(this);
     this.getTimingMarker = this.getTimingMarker.bind(this);
@@ -77,6 +75,7 @@ class Connector {
     this.getState = getState;
     this.toolbox = connection.toolbox;
     this.commands = this.toolbox.commands;
+    this.networkCommand = this.commands.networkCommand;
 
     // The owner object (NetMonitorAPI) received all events.
     this.owner = connection.owner;
@@ -89,7 +88,7 @@ class Connector {
       owner: this.owner,
     });
 
-    await this.toolbox.resourceCommand.watchResources([TYPES.DOCUMENT_EVENT], {
+    await this.commands.resourceCommand.watchResources([TYPES.DOCUMENT_EVENT], {
       onAvailable: this.onResourceAvailable,
     });
 
@@ -114,7 +113,7 @@ class Connector {
 
     this._destroyed = true;
 
-    this.toolbox.resourceCommand.unwatchResources([TYPES.DOCUMENT_EVENT], {
+    this.commands.resourceCommand.unwatchResources([TYPES.DOCUMENT_EVENT], {
       onAvailable: this.onResourceAvailable,
     });
 
@@ -137,7 +136,7 @@ class Connector {
     // Clear all the caches in the data provider
     this.dataProvider.clear();
 
-    this.toolbox.resourceCommand.clearResources(Connector.NETWORK_RESOURCES);
+    this.commands.resourceCommand.clearResources(Connector.NETWORK_RESOURCES);
     this.emitForTests("clear-network-resources");
 
     // Disable the realted network logs in the webconsole
@@ -145,7 +144,7 @@ class Connector {
   }
 
   pause() {
-    return this.toolbox.resourceCommand.unwatchResources(
+    return this.commands.resourceCommand.unwatchResources(
       Connector.NETWORK_RESOURCES,
       {
         onAvailable: this.onResourceAvailable,
@@ -155,7 +154,7 @@ class Connector {
   }
 
   resume(ignoreExistingResources = true) {
-    return this.toolbox.resourceCommand.watchResources(
+    return this.commands.resourceCommand.watchResources(
       Connector.NETWORK_RESOURCES,
       {
         onAvailable: this.onResourceAvailable,
@@ -345,26 +344,6 @@ class Connector {
     this.emitForTests(TEST_EVENTS.TIMELINE_EVENT, resource);
   }
 
-  /**
-   * Send a HTTP request data payload
-   *
-   * @param {object} data data payload would like to sent to backend
-   */
-  async sendHTTPRequest(data) {
-    const networkContentFront = await this.currentTarget.getFront(
-      "networkContent"
-    );
-    const { channelId } = await networkContentFront.sendHTTPRequest(data);
-    return { channelId };
-  }
-
-  /*
-   * Get the list of blocked URLs
-   */
-  async getBlockedUrls() {
-    return this.networkFront.getBlockedUrls();
-  }
-
   async updatePersist() {
     const enabled = Services.prefs.getBoolPref(
       DEVTOOLS_ENABLE_PERSISTENT_LOG_PREF
@@ -373,15 +352,6 @@ class Connector {
     await this.networkFront.setPersist(enabled);
 
     this.emitForTests(TEST_EVENTS.PERSIST_CHANGED, enabled);
-  }
-
-  /**
-   * Updates the list of blocked URLs
-   *
-   * @param {object} urls An array of URL strings
-   */
-  async setBlockedUrls(urls) {
-    return this.networkFront.setBlockedUrls(urls);
   }
 
   /**
@@ -478,14 +448,6 @@ class Connector {
    */
   getLongString(stringGrip) {
     return this.dataProvider.getLongString(stringGrip);
-  }
-
-  /**
-   * Getter that access tab target instance.
-   * @return {object} browser tab target instance
-   */
-  getTabTarget() {
-    return this.currentTarget;
   }
 
   /**

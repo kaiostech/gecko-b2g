@@ -1683,10 +1683,6 @@ void nsWindow::Show(bool bState) {
     // that we've taken over the window from the skeleton UI, and we should
     // no longer treat resizes / moves specially.
     mIsShowingPreXULSkeletonUI = false;
-    // Initialize the UI state - this would normally happen below, but since
-    // we're actually already showing, we won't hit it in the normal way.
-    ::SendMessageW(mWnd, WM_CHANGEUISTATE,
-                   MAKEWPARAM(UIS_SET, UISF_HIDEFOCUS | UISF_HIDEACCEL), 0);
 #if defined(ACCESSIBILITY)
     // If our HWND has focus and the a11y engine hasn't started yet, fire a
     // focus win event. Windows already did this when the skeleton UI appeared,
@@ -1814,13 +1810,6 @@ void nsWindow::Show(bool bState) {
 
           ::SetWindowPos(mWnd, HWND_TOP, 0, 0, 0, 0, flags);
         }
-      }
-
-      if (!wasVisible && (mWindowType == eWindowType_toplevel ||
-                          mWindowType == eWindowType_dialog)) {
-        // When a toplevel window or dialog is shown, initialize the UI state
-        ::SendMessageW(mWnd, WM_CHANGEUISTATE,
-                       MAKEWPARAM(UIS_SET, UISF_HIDEFOCUS | UISF_HIDEACCEL), 0);
       }
     } else {
       // Clear contents to avoid ghosting of old content if we display
@@ -3514,7 +3503,7 @@ static LRESULT CALLBACK FullscreenTransitionWindowProc(HWND hWnd, UINT uMsg,
 }
 
 struct FullscreenTransitionInitData {
-  nsIntRect mBounds;
+  LayoutDeviceIntRect mBounds;
   HANDLE mSemaphore;
   HANDLE mThread;
   HWND mWnd;
@@ -3613,14 +3602,11 @@ bool nsWindow::PrepareForFullscreenTransition(nsISupports** aData) {
 
   FullscreenTransitionInitData initData;
   nsCOMPtr<nsIScreen> screen = GetWidgetScreen();
-  int32_t x, y, width, height;
-  screen->GetRectDisplayPix(&x, &y, &width, &height);
+  const DesktopIntRect rect = screen->GetRectDisplayPix();
   MOZ_ASSERT(BoundsUseDesktopPixels(),
              "Should only be called on top-level window");
-  double scale = GetDesktopToDeviceScale().scale;  // XXX or GetDefaultScale() ?
-  initData.mBounds.SetRect(NSToIntRound(x * scale), NSToIntRound(y * scale),
-                           NSToIntRound(width * scale),
-                           NSToIntRound(height * scale));
+  initData.mBounds =
+      LayoutDeviceIntRect::Round(rect * GetDesktopToDeviceScale());
 
   // Create a semaphore for synchronizing the window handle which will
   // be created by the transition thread and used by the main thread for
@@ -5283,10 +5269,10 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
 
     case WM_SETTINGCHANGE: {
       if (wParam == SPI_SETCLIENTAREAANIMATION ||
-          // CaretBlinkTime is cached in nsLookAndFeel
-          wParam == SPI_SETKEYBOARDDELAY) {
-        // This only affects reduced motion settings and and carent blink time,
-        // so no need to invalidate style / layout.
+          wParam == SPI_SETKEYBOARDCUES || wParam == SPI_SETKEYBOARDDELAY) {
+        // These need to update LookAndFeel cached values.
+        // They affect reduced motion settings / caret blink count / and
+        // keyboard cues, so no need to invalidate style / layout.
         NotifyThemeChanged(widget::ThemeChangeKind::MediaQueriesOnly);
         break;
       }
@@ -6282,29 +6268,6 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
       break;
     }
 
-    case WM_UPDATEUISTATE: {
-      // If the UI state has changed, fire an event so the UI updates the
-      // keyboard cues based on the system setting and how the window was
-      // opened. For example, a dialog opened via a keyboard press on a button
-      // should enable cues, whereas the same dialog opened via a mouse click of
-      // the button should not.
-      if (mWindowType == eWindowType_toplevel ||
-          mWindowType == eWindowType_dialog) {
-        int32_t action = LOWORD(wParam);
-        if (action == UIS_SET || action == UIS_CLEAR) {
-          int32_t flags = HIWORD(wParam);
-          UIStateChangeType showFocusRings = UIStateChangeType_NoChange;
-          if (flags & UISF_HIDEFOCUS) {
-            showFocusRings = (action == UIS_SET) ? UIStateChangeType_Clear
-                                                 : UIStateChangeType_Set;
-          }
-          NotifyUIStateChanged(showFocusRings);
-        }
-      }
-
-      break;
-    }
-
     /* Gesture support events */
     case WM_TABLET_QUERYSYSTEMGESTURESTATUS:
       // According to MS samples, this must be handled to enable
@@ -6896,7 +6859,9 @@ static void MaybeLogPosChanged(HWND aWnd, WINDOWPOS* wp) {
  **************************************************************/
 
 void nsWindow::OnWindowPosChanged(WINDOWPOS* wp) {
-  if (wp == nullptr) return;
+  if (!wp) {
+    return;
+  }
 
   MaybeLogPosChanged(mWnd, wp);
 
@@ -7028,7 +6993,7 @@ void nsWindow::OnWindowPosChanged(WINDOWPOS* wp) {
   }
 }
 
-void nsWindow::OnWindowPosChanging(LPWINDOWPOS& info) {
+void nsWindow::OnWindowPosChanging(WINDOWPOS* info) {
   // Update non-client margins if the frame size is changing, and let the
   // browser know we are changing size modes, so alternative css can kick in.
   // If we're going into fullscreen mode, ignore this, since it'll reset
@@ -7054,13 +7019,11 @@ void nsWindow::OnWindowPosChanging(LPWINDOWPOS& info) {
                                getter_AddRefs(screen));
 
       if (screen) {
-        int32_t x, y, width, height;
-        screen->GetRect(&x, &y, &width, &height);
-
-        info->x = x;
-        info->y = y;
-        info->cx = width;
-        info->cy = height;
+        auto rect = screen->GetRect();
+        info->x = rect.x;
+        info->y = rect.y;
+        info->cx = rect.width;
+        info->cy = rect.height;
       }
     }
   }

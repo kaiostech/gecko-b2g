@@ -94,7 +94,10 @@ async function fetchData() {
     // by the time we gathered data about the module above.
     if (gBackgroundTasksDone) {
       module.isBlockedByBuiltin =
-        !(module.typeFlags & Ci.nsIAboutThirdParty.ModuleType_BlockedByUser) &&
+        !(
+          module.typeFlags &
+          Ci.nsIAboutThirdParty.ModuleType_BlockedByUserAtLaunch
+        ) &&
         !!module.events.length &&
         module.events.every(e => e.loadStatus !== 0);
     } else {
@@ -329,6 +332,9 @@ function setUpBlockButton(aCard, isBlocklistDisabled, aModule) {
     // about it (just its name). So this should always show up as blocked.
     blockButton.hidden = false;
     blockButton.classList.add("module-blocked");
+    // Bug 1808904 - don't allow unblocking this module before we've loaded
+    // the list of blocked modules in the background task.
+    blockButton.disabled = !gBackgroundTasksDone;
   }
   if (isBlocklistDisabled) {
     blockButton.classList.add("blocklist-disabled");

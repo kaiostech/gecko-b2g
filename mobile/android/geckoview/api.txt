@@ -342,12 +342,13 @@ package org.mozilla.geckoview {
     method @AnyThread @Nullable public String getAttribute(@NonNull String);
     method @AnyThread @NonNull public Map<String,String> getAttributes();
     method @AnyThread @NonNull public Collection<Autofill.Node> getChildren();
-    method @AnyThread @NonNull public Rect getDimensions();
+    method @AnyThread @Deprecated @DeprecationSchedule(id="autofill-fission",version=112) @NonNull public Rect getDimensions();
     method @AnyThread @NonNull public String getDomain();
     method @AnyThread public boolean getEnabled();
     method @AnyThread public boolean getFocusable();
     method @AnyThread public int getHint();
     method @AnyThread public int getInputType();
+    method @AnyThread @NonNull public Rect getScreenRect();
     method @AnyThread @NonNull public String getTag();
   }
 
@@ -1362,9 +1363,10 @@ package org.mozilla.geckoview {
   }
 
   public static class GeckoSession.PromptDelegate.ColorPrompt extends GeckoSession.PromptDelegate.BasePrompt {
-    ctor protected ColorPrompt(@NonNull String, @Nullable String, @Nullable String, @NonNull GeckoSession.PromptDelegate.BasePrompt.Observer);
+    ctor protected ColorPrompt(@NonNull String, @Nullable String, @Nullable String, @Nullable String[], @NonNull GeckoSession.PromptDelegate.BasePrompt.Observer);
     method @NonNull @UiThread public GeckoSession.PromptDelegate.PromptResponse confirm(@NonNull String);
     field @Nullable public final String defaultValue;
+    field @Nullable public final String[] predefinedValues;
   }
 
   public static class GeckoSession.PromptDelegate.DateTimePrompt extends GeckoSession.PromptDelegate.BasePrompt {

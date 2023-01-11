@@ -1422,6 +1422,28 @@
       });
     }
 
+    webViewExecuteScript(source) {
+      console.log(`webViewExecuteScript`);
+      if (!this.messageManager) {
+        return Promise.reject();
+      }
+      let id = `WebView::ExecuteScript::${this.webViewRequestId}`;
+      this.webViewRequestId += 1;
+      return new Promise((resolve, reject) => {
+        let mm = this.messageManager;
+        mm.addMessageListener(id, function gotExecuteScript(message) {
+          mm.removeMessageListener(id, gotExecuteScript);
+          let data = message.data;
+          if (data.success) {
+            resolve(data.result);
+          } else {
+            reject(data.error);
+          }
+        });
+        mm.sendAsyncMessage("WebView::ExecuteScript", { source, id });
+      });
+    }
+
     updateForStateChange(aCharset, aDocumentURI, aContentType) {
       if (this.isRemoteBrowser && this.messageManager) {
         if (aCharset != null) {

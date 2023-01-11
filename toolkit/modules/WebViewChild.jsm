@@ -231,6 +231,12 @@ WebViewChild.prototype = {
       "WebView::SetCursorEnable",
       this.setCursorEnable.bind(this)
     );
+
+    // Installs a message listener for executeScript requests.
+    global.addMessageListener(
+      "WebView::ExecuteScript",
+      this.executeScript.bind(this)
+    );
   },
 
   getBackgroundColor(message) {
@@ -332,6 +338,51 @@ WebViewChild.prototype = {
       content.navigator.b2g.virtualCursor.enable();
     } else {
       content.navigator.b2g.virtualCursor.disable();
+    }
+  },
+
+  executeScript(message) {
+    let data = message.data;
+    let content = this.global.content;
+
+    let sandbox = new Cu.Sandbox([content], {
+      sandboxPrototype: content,
+      sandboxName: "webview-execute-script",
+      allowWaivers: false,
+      sameZoneAs: content,
+    });
+
+    // Check if a value can be sent over IPC.
+    const maybeSendResult = result => {
+      try {
+        JSON.stringify(result);
+        this.global.sendAsyncMessage(data.id, { success: true, result });
+      } catch (e) {
+        this.global.sendAsyncMessage(data.id, {
+          success: false,
+          error: "invalid_json",
+        });
+      }
+    };
+
+    try {
+      let result = Cu.evalInSandbox(data.source, sandbox, "latest");
+      // If the result is a Promise, wait for it to resolve/reject to
+      // properly send back the result over IPC.
+      if (result instanceof sandbox.Promise) {
+        result.then(
+          success => {
+            maybeSendResult(success);
+          },
+          error => {
+            this.global.sendAsyncMessage(data.id, { success: false, error });
+          }
+        );
+      } else {
+        maybeSendResult(result);
+      }
+    } catch (e) {
+      this.global.sendAsyncMessage(data.id, { success: false });
     }
   },
 

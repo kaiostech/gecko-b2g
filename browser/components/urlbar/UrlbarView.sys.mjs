@@ -1295,7 +1295,7 @@ export class UrlbarView {
       item._buttons.get("tip").textContent = result.payload.buttonText;
     }
 
-    if (result.payload.isBlockable) {
+    if (result.payload.isBlockable && !lazy.UrlbarPrefs.get("resultMenu")) {
       this.#addRowButton(item, {
         name: "block",
         l10n: result.payload.blockL10n,
@@ -1312,6 +1312,8 @@ export class UrlbarView {
       let menuCommands = [];
       if (result.source == lazy.UrlbarUtils.RESULT_SOURCE.HISTORY) {
         menuCommands.push("remove-from-history");
+      } else if (result.payload.isBlockable) {
+        menuCommands.push("dismiss-firefox-suggest");
       }
       if (menuCommands.length) {
         this.#resultMenuCommands.set(result, menuCommands);
@@ -1863,39 +1865,47 @@ export class UrlbarView {
    *   returns an l10n object for the label's l10n string: `{ id, args }`
    */
   #rowLabel(row, currentLabel) {
-    // Labels aren't shown for top sites, i.e., when the search string is empty.
-    if (
-      lazy.UrlbarPrefs.get("groupLabels.enabled") &&
-      this.#queryContext?.searchString &&
-      !row.result.heuristic
-    ) {
-      if (row.result.isBestMatch) {
+    if (!lazy.UrlbarPrefs.get("groupLabels.enabled") || row.result.heuristic) {
+      return null;
+    }
+
+    if (!this.#queryContext?.searchString) {
+      if (row.result.payload.isWeather) {
+        // Add top pick label for weather suggestion
         return { id: "urlbar-group-best-match" };
       }
-      switch (row.result.type) {
-        case lazy.UrlbarUtils.RESULT_TYPE.KEYWORD:
-        case lazy.UrlbarUtils.RESULT_TYPE.REMOTE_TAB:
-        case lazy.UrlbarUtils.RESULT_TYPE.TAB_SWITCH:
-        case lazy.UrlbarUtils.RESULT_TYPE.URL:
-          return { id: "urlbar-group-firefox-suggest" };
-        case lazy.UrlbarUtils.RESULT_TYPE.SEARCH:
-          // Show "{ $engine } suggestions" if it's not the first label.
-          if (currentLabel && row.result.payload.suggestion) {
-            let engineName =
-              row.result.payload.engine || Services.search.defaultEngine.name;
-            return {
-              id: "urlbar-group-search-suggestions",
-              args: { engine: engineName },
-            };
-          }
-          break;
-        case lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC:
-          if (row.result.providerName == "quickactions") {
-            return { id: "urlbar-group-quickactions" };
-          }
-          break;
-      }
+
+      return null;
     }
+
+    if (row.result.isBestMatch) {
+      return { id: "urlbar-group-best-match" };
+    }
+
+    switch (row.result.type) {
+      case lazy.UrlbarUtils.RESULT_TYPE.KEYWORD:
+      case lazy.UrlbarUtils.RESULT_TYPE.REMOTE_TAB:
+      case lazy.UrlbarUtils.RESULT_TYPE.TAB_SWITCH:
+      case lazy.UrlbarUtils.RESULT_TYPE.URL:
+        return { id: "urlbar-group-firefox-suggest" };
+      case lazy.UrlbarUtils.RESULT_TYPE.SEARCH:
+        // Show "{ $engine } suggestions" if it's not the first label.
+        if (currentLabel && row.result.payload.suggestion) {
+          let engineName =
+            row.result.payload.engine || Services.search.defaultEngine.name;
+          return {
+            id: "urlbar-group-search-suggestions",
+            args: { engine: engineName },
+          };
+        }
+        break;
+      case lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC:
+        if (row.result.providerName == "quickactions") {
+          return { id: "urlbar-group-quickactions" };
+        }
+        break;
+    }
+
     return null;
   }
 
@@ -2772,6 +2782,7 @@ export class UrlbarView {
       let menuitem = event.target;
       switch (menuitem.dataset.command) {
         case "remove-from-history":
+        case "dismiss-firefox-suggest":
           this.controller.handleDeleteEntry(null, result);
           break;
       }
@@ -2783,7 +2794,7 @@ export class UrlbarView {
       let availableCommands = this.#resultMenuCommands.get(
         this.#resultMenuResult
       );
-      for (let menuitem of this.resultMenu.querySelector("[data-command]")) {
+      for (let menuitem of this.resultMenu.querySelectorAll("[data-command]")) {
         menuitem.hidden = !availableCommands.includes(menuitem.dataset.command);
       }
     }

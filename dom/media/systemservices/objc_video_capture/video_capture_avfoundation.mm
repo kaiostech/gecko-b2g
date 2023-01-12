@@ -19,6 +19,8 @@
 #include "device_info_avfoundation.h"
 #include "modules/video_capture/video_capture_defines.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/Monitor.h"
+#include "mozilla/UniquePtr.h"
 #include "rtc_base/time_utils.h"
 
 using namespace mozilla;
@@ -110,7 +112,10 @@ VideoCaptureAvFoundation::VideoCaptureAvFoundation(AVCaptureDevice* _Nonnull aDe
   mCapturer = [[RTC_OBJC_TYPE(RTCCameraVideoCapturer) alloc] initWithDelegate:mAdapter];
 }
 
-VideoCaptureAvFoundation::~VideoCaptureAvFoundation() = default;
+VideoCaptureAvFoundation::~VideoCaptureAvFoundation() {
+  // Must block until capture has fully stopped, including async operations.
+  StopCapture();
+}
 
 /* static */
 rtc::scoped_refptr<VideoCaptureModule> VideoCaptureAvFoundation::Create(
@@ -128,27 +133,80 @@ rtc::scoped_refptr<VideoCaptureModule> VideoCaptureAvFoundation::Create(
 
 int32_t VideoCaptureAvFoundation::StartCapture(const VideoCaptureCapability& aCapability) {
   RTC_DCHECK_RUN_ON(&mChecker);
-  if (AVCaptureDeviceFormat* format = FindFormat(mDevice, aCapability)) {
-    {
-      MutexLock lock(&api_lock_);
-      mCapability = Some(aCapability);
-    }
-    [mCapturer startCaptureWithDevice:mDevice
-                               format:format
-                                  fps:aCapability.maxFPS
-                    completionHandler:nullptr];
-    return 0;
+  AVCaptureDeviceFormat* format = FindFormat(mDevice, aCapability);
+  if (!format) {
+    return -1;
   }
-  return -1;
+
+  {
+    MutexLock lock(&api_lock_);
+    if (mCapability) {
+      if (mCapability->width == aCapability.width && mCapability->height == aCapability.height &&
+          mCapability->maxFPS == aCapability.maxFPS &&
+          mCapability->videoType == aCapability.videoType) {
+        return 0;
+      }
+
+      api_lock_.Unlock();
+      int32_t rv = StopCapture();
+      api_lock_.Lock();
+
+      if (rv != 0) {
+        return rv;
+      }
+    }
+  }
+
+  Monitor monitor("VideoCaptureAVFoundation::StartCapture");
+  Monitor* copyableMonitor = &monitor;
+  MonitorAutoLock lock(monitor);
+  __block Maybe<int32_t> rv;
+
+  [mCapturer startCaptureWithDevice:mDevice
+                             format:format
+                                fps:aCapability.maxFPS
+                  completionHandler:^(NSError* error) {
+                    MOZ_RELEASE_ASSERT(!rv);
+                    rv = Some(error ? -1 : 0);
+                    copyableMonitor->Notify();
+                  }];
+
+  while (!rv) {
+    monitor.Wait();
+  }
+
+  if (*rv == 0) {
+    MutexLock lock(&api_lock_);
+    mCapability = Some(aCapability);
+  }
+
+  return *rv;
 }
 
 int32_t VideoCaptureAvFoundation::StopCapture() {
   RTC_DCHECK_RUN_ON(&mChecker);
   {
     MutexLock lock(&api_lock_);
+    if (!mCapability) {
+      return 0;
+    }
     mCapability = Nothing();
   }
-  [mCapturer stopCapture];
+
+  Monitor monitor("VideoCaptureAVFoundation::StopCapture");
+  Monitor* copyableMonitor = &monitor;
+  MonitorAutoLock lock(monitor);
+  __block bool done = false;
+
+  [mCapturer stopCaptureWithCompletionHandler:^(void) {
+    MOZ_RELEASE_ASSERT(!done);
+    done = true;
+    copyableMonitor->Notify();
+  }];
+
+  while (!done) {
+    monitor.Wait();
+  }
   return 0;
 }
 
@@ -165,21 +223,22 @@ int32_t VideoCaptureAvFoundation::CaptureSettings(VideoCaptureCapability& aSetti
 
 int32_t VideoCaptureAvFoundation::OnFrame(webrtc::VideoFrame& aFrame) {
   MutexLock lock(&api_lock_);
+  mConversionRecorder.Record(0);
   int32_t rv = DeliverCapturedFrame(aFrame);
-  mPerformanceRecorder.Record(0);
+  mCaptureRecorder.Record(0);
   return rv;
 }
 
-void VideoCaptureAvFoundation::SetTrackingId(const char* _Nonnull aTrackingId) {
+void VideoCaptureAvFoundation::SetTrackingId(uint32_t aTrackingIdProcId) {
   RTC_DCHECK_RUN_ON(&mChecker);
   MutexLock lock(&api_lock_);
-  mTrackingId = Some(nsCString(aTrackingId));
+  mTrackingId.emplace(TrackingId::Source::Camera, aTrackingIdProcId);
 }
 
 void VideoCaptureAvFoundation::StartFrameRecording(int32_t aWidth, int32_t aHeight) {
   MaybeRegisterCallbackThread();
   MutexLock lock(&api_lock_);
-  if (MOZ_UNLIKELY(mTrackingId)) {
+  if (MOZ_UNLIKELY(!mTrackingId)) {
     return;
   }
   auto fromWebrtcVideoType = [](webrtc::VideoType aType) -> CaptureStage::ImageType {
@@ -202,10 +261,13 @@ void VideoCaptureAvFoundation::StartFrameRecording(int32_t aWidth, int32_t aHeig
         return CaptureStage::ImageType::Unknown;
     }
   };
-  mPerformanceRecorder.Start(
+  mCaptureRecorder.Start(
       0, "VideoCaptureAVFoundation"_ns, *mTrackingId, aWidth, aHeight,
       mCapability.map([&](const auto& aCap) { return fromWebrtcVideoType(aCap.videoType); })
           .valueOr(CaptureStage::ImageType::Unknown));
+  if (mCapability && mCapability->videoType != webrtc::VideoType::kI420) {
+    mConversionRecorder.Start(0, "VideoCaptureAVFoundation"_ns, *mTrackingId, aWidth, aHeight);
+  }
 }
 
 void VideoCaptureAvFoundation::MaybeRegisterCallbackThread() {

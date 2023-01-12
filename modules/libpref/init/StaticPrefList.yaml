@@ -1903,7 +1903,7 @@
 # How long to stay off the event loop in perf mode.
 - name: content.sink.perf_parse_time
   type: int32_t
-  value: 360000
+  value: 30000
   mirror: always
 
 #  How long to be in interactive mode after an event.
@@ -8289,7 +8289,7 @@
 # Whether Container Queries are enabled
 - name: layout.css.container-queries.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -8827,7 +8827,7 @@
 # Enables support for the named pages
 - name: layout.css.named-pages.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -10672,7 +10672,7 @@
 # disabled, an older forked capture module is used.
 - name: media.getusermedia.camera.macavf.enabled
   type: bool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: once
 
 # WebRTC prefs follow
@@ -10830,10 +10830,31 @@
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
+#if defined(XP_MACOSX)
 - name: media.webrtc.capture.allow-iosurface
   type: RelaxedAtomicBool
   value: true
   mirror: always
+#endif
+
+#if defined(XP_WIN)
+- name: media.webrtc.capture.allow-directx
+  type: RelaxedAtomicBool
+  value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
+- name: media.webrtc.capture.allow-wgc
+  type: RelaxedAtomicBool
+  value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+#endif
+
+#if defined(MOZ_WIDGET_GTK)
+- name: media.webrtc.capture.allow-pipewire
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+#endif
 
 - name: media.block-autoplay-until-in-foreground
   type: bool
@@ -12419,6 +12440,15 @@
 # This is used for a temporary workaround for a web-compat issue. If pref is
 # true CORS preflight requests are allowed to send client certificates.
 - name: network.cors_preflight.allow_client_cert
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# If true nsCORSListenerProxy will reject any URL that contains user & password
+# regardless if it's a redirect or not. When false nsCORSListenerProxy will
+# only reject URLs with a username and password when they happen on a redirected
+# channel.
+- name: network.cors_preflight.block_userpass_uri
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -14626,11 +14656,6 @@
   mirror: always
 
 - name: webgl.force-enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: webgl.force-layers-readback
   type: RelaxedAtomicBool
   value: false
   mirror: always

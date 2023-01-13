@@ -71,8 +71,7 @@ namespace mozilla::dom {
 
 // Only needed for refcounted objects.
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_WITH_JS_MEMBERS(
-    ReadableStream, (mGlobal, mController, mReader, mNativeUnderlyingSource),
-    (mStoredError))
+    ReadableStream, (mGlobal, mController, mReader), (mStoredError))
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(ReadableStream)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(ReadableStream)
@@ -134,20 +133,6 @@ bool ReadableStreamHasDefaultReader(ReadableStream* aStream) {
   // Step 3. If reader implements ReadableStreamDefaultReader, return true.
   // Step 4. Return false.
   return reader->IsDefault();
-}
-
-void ReadableStream::SetNativeUnderlyingSource(
-    BodyStreamHolder* aUnderlyingSource) {
-  mNativeUnderlyingSource = aUnderlyingSource;
-}
-
-void ReadableStream::ReleaseObjectsFromBodyStream() {
-  SetNativeUnderlyingSource(nullptr);
-
-  // XXX(krosylight): Hacky way to workaround the ownership issue between
-  // BodyStream and ReadableStream trying to cleanup each other. See bug
-  // 1803386.
-  mController->ClearAlgorithmsWithoutRelease();
 }
 
 // Streams Spec: 4.2.4: https://streams.spec.whatwg.org/#rs-prototype
@@ -1019,12 +1004,139 @@ already_AddRefed<ReadableStream> CreateReadableByteStream(
   return stream.forget();
 }
 
+// https://streams.spec.whatwg.org/#readablestream-close
+void ReadableStream::CloseNative(JSContext* aCx, ErrorResult& aRv) {
+  MOZ_ASSERT(mController->GetAlgorithms()->IsNative());
+
+  // Step 1: If stream.[[controller]] implements ReadableByteStreamController,
+  if (mController->IsByte()) {
+    RefPtr<ReadableByteStreamController> controller = mController->AsByte();
+
+    // Step 1.1: Perform !
+    // ReadableByteStreamControllerClose(stream.[[controller]]).
+    ReadableByteStreamControllerClose(aCx, controller, aRv);
+    if (aRv.Failed()) {
+      return;
+    }
+
+    // Step 1.2: If stream.[[controller]].[[pendingPullIntos]] is not empty,
+    // perform ! ReadableByteStreamControllerRespond(stream.[[controller]], 0).
+    if (!controller->PendingPullIntos().isEmpty()) {
+      ReadableByteStreamControllerRespond(aCx, controller, 0, aRv);
+    }
+    return;
+  }
+
+  // Step 2: Otherwise, perform !
+  // ReadableStreamDefaultControllerClose(stream.[[controller]]).
+  RefPtr<ReadableStreamDefaultController> controller = mController->AsDefault();
+  ReadableStreamDefaultControllerClose(aCx, controller, aRv);
+}
+
+// https://streams.spec.whatwg.org/#readablestream-current-byob-request-view
+static void CurrentBYOBRequestView(JSContext* aCx,
+                                   ReadableByteStreamController& aController,
+                                   JS::MutableHandle<JSObject*> aRetVal,
+                                   ErrorResult& aRv) {
+  // Step 1. Assert: stream.[[controller]] implements
+  // ReadableByteStreamController. (implicit)
+
+  // Step 2: Let byobRequest be !
+  // ReadableByteStreamControllerGetBYOBRequest(stream.[[controller]]).
+  RefPtr<ReadableStreamBYOBRequest> byobRequest =
+      ReadableByteStreamControllerGetBYOBRequest(aCx, &aController, aRv);
+  // Step 3: If byobRequest is null, then return null.
+  if (!byobRequest) {
+    aRetVal.set(nullptr);
+    return;
+  }
+  // Step 4: Return byobRequest.[[view]].
+  byobRequest->GetView(aCx, aRetVal);
+}
+
+static bool HasSameBufferView(JSContext* aCx, JS::Handle<JSObject*> aX,
+                              JS::Handle<JSObject*> aY, ErrorResult& aRv) {
+  bool isShared;
+  JS::Rooted<JSObject*> viewedBufferX(
+      aCx, JS_GetArrayBufferViewBuffer(aCx, aX, &isShared));
+  if (!viewedBufferX) {
+    aRv.StealExceptionFromJSContext(aCx);
+    return false;
+  }
+
+  JS::Rooted<JSObject*> viewedBufferY(
+      aCx, JS_GetArrayBufferViewBuffer(aCx, aY, &isShared));
+  if (!viewedBufferY) {
+    aRv.StealExceptionFromJSContext(aCx);
+    return false;
+  }
+
+  return viewedBufferX == viewedBufferY;
+}
+
+// https://streams.spec.whatwg.org/#readablestream-enqueue
+void ReadableStream::EnqueueNative(JSContext* aCx, JS::Handle<JS::Value> aChunk,
+                                   ErrorResult& aRv) {
+  MOZ_ASSERT(mController->GetAlgorithms()->IsNative());
+
+  // Step 1: If stream.[[controller]] implements
+  // ReadableStreamDefaultController,
+  if (mController->IsDefault()) {
+    // Step 1.1: Perform !
+    // ReadableStreamDefaultControllerEnqueue(stream.[[controller]], chunk).
+    RefPtr<ReadableStreamDefaultController> controller =
+        mController->AsDefault();
+    ReadableStreamDefaultControllerEnqueue(aCx, controller, aChunk, aRv);
+    return;
+  }
+
+  // Step 2.1: Assert: stream.[[controller]] implements
+  // ReadableByteStreamController.
+  MOZ_ASSERT(mController->IsByte());
+  RefPtr<ReadableByteStreamController> controller = mController->AsByte();
+
+  // Step 2.2: Assert: chunk is an ArrayBufferView.
+  MOZ_ASSERT(aChunk.isObject() &&
+             JS_IsArrayBufferViewObject(&aChunk.toObject()));
+  JS::Rooted<JSObject*> chunk(aCx, &aChunk.toObject());
+
+  // Step 3: Let byobView be the current BYOB request view for stream.
+  JS::Rooted<JSObject*> byobView(aCx);
+  CurrentBYOBRequestView(aCx, *controller, &byobView, aRv);
+  if (aRv.Failed()) {
+    return;
+  }
+
+  // Step 4: If byobView is non-null, and chunk.[[ViewedArrayBuffer]] is
+  // byobView.[[ViewedArrayBuffer]], then:
+  if (byobView && HasSameBufferView(aCx, chunk, byobView, aRv)) {
+    // Step 4.1: Assert: chunk.[[ByteOffset]] is byobView.[[ByteOffset]].
+    MOZ_ASSERT(JS_GetArrayBufferViewByteOffset(chunk) ==
+               JS_GetArrayBufferViewByteOffset(byobView));
+    // Step 4.2: Assert: chunk.[[ByteLength]] ≤ byobView.[[ByteLength]].
+    MOZ_ASSERT(JS_GetArrayBufferViewByteLength(chunk) ==
+               JS_GetArrayBufferViewByteLength(byobView));
+    // Step 4.3: Perform ?
+    // ReadableByteStreamControllerRespond(stream.[[controller]],
+    // chunk.[[ByteLength]]).
+    ReadableByteStreamControllerRespond(
+        aCx, controller, JS_GetArrayBufferViewByteLength(chunk), aRv);
+    return;
+  }
+
+  if (aRv.Failed()) {
+    return;
+  }
+
+  // Step 5: Otherwise, perform ?
+  // ReadableByteStreamControllerEnqueue(stream.[[controller]], chunk).
+  ReadableByteStreamControllerEnqueue(aCx, controller, chunk, aRv);
+}
+
 already_AddRefed<ReadableStream> ReadableStream::Create(
     JSContext* aCx, nsIGlobalObject* aGlobal,
     BodyStreamHolder* aUnderlyingSource, ErrorResult& aRv) {
   RefPtr<ReadableStream> stream = new ReadableStream(aGlobal);
-
-  stream->SetNativeUnderlyingSource(aUnderlyingSource);
 
   SetUpReadableByteStreamControllerFromBodyStreamUnderlyingSource(
       aCx, stream, aUnderlyingSource, aRv);

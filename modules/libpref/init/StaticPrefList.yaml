@@ -5997,6 +5997,13 @@
     mirror: always
 #endif
 
+#ifdef XP_MACOSX
+-   name: gfx.core-animation.low-power-telemetry-frames
+    type: int32_t
+    value: 600
+    mirror: once
+#endif
+
 #if defined(MOZ_WIDGET_ANDROID)
   # Overrides the glClear color used when the surface origin is not (0, 0)
   # Used for drawing a border around the content.
@@ -10672,7 +10679,7 @@
 # disabled, an older forked capture module is used.
 - name: media.getusermedia.camera.macavf.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: once
 
 # WebRTC prefs follow
@@ -11642,6 +11649,13 @@
 - name: network.early-hints.preconnect.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# How long we should wait for EarlyHintPreloader to be used.
+# Under normal circumstances it should be used immidiately.
+- name: network.early-hints.parent-connect-timeout
+  type: uint32_t
+  value: 10000
   mirror: always
 
 # Whether to use the network process or not

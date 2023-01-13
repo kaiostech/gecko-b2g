@@ -64,6 +64,7 @@ EXCLUSIVE_COMPONENTS = [
     "crashtest",
     "mochitest-a11y",
     "mochitest-browser-a11y",
+    "mochitest-browser-media",
     "mochitest-browser-chrome",
     "mochitest-chrome",
     "mochitest-plain",

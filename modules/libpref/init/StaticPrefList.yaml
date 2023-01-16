@@ -235,8 +235,10 @@
 # the parent process.
 - name: accessibility.cache.enabled
   type: bool
-#ifdef ANDROID
+#if defined(ANDROID)
   value: true
+#elif defined(XP_WIN) || defined(XP_LINUX)
+  value: @IS_EARLY_BETA_OR_EARLIER@
 #else
   value: @IS_NOT_RELEASE_OR_BETA@
 #endif
@@ -2409,11 +2411,12 @@
   value: false
   mirror: always
 
-# Controls whether the "focus fixup rule" is enabled. Nightly-only pending
-# resolution + edits in https://github.com/whatwg/html/issues/8225
+# Controls whether the "focus fixup rule" is enabled. Subject to minor changes
+# based on https://github.com/whatwg/html/pull/8392 and
+# https://github.com/whatwg/html/issues/8225
 - name: dom.focus.fixup
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: dom.mouse_capture.enabled
@@ -10679,7 +10682,7 @@
 # disabled, an older forked capture module is used.
 - name: media.getusermedia.camera.macavf.enabled
   type: bool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: once
 
 # WebRTC prefs follow

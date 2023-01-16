@@ -223,21 +223,27 @@ int32_t VideoCaptureAvFoundation::CaptureSettings(VideoCaptureCapability& aSetti
 
 int32_t VideoCaptureAvFoundation::OnFrame(webrtc::VideoFrame& aFrame) {
   MutexLock lock(&api_lock_);
+  mConversionRecorder.Record(0);
   int32_t rv = DeliverCapturedFrame(aFrame);
-  mPerformanceRecorder.Record(0);
+  mCaptureRecorder.Record(0);
   return rv;
 }
 
-void VideoCaptureAvFoundation::SetTrackingId(const char* _Nonnull aTrackingId) {
+void VideoCaptureAvFoundation::SetTrackingId(uint32_t aTrackingIdProcId) {
   RTC_DCHECK_RUN_ON(&mChecker);
   MutexLock lock(&api_lock_);
-  mTrackingId = Some(nsCString(aTrackingId));
+  if (NS_WARN_IF(mTrackingId.isSome())) {
+    // This capture instance must be shared across multiple camera requests. For now ignore other
+    // requests than the first.
+    return;
+  }
+  mTrackingId.emplace(TrackingId::Source::Camera, aTrackingIdProcId);
 }
 
 void VideoCaptureAvFoundation::StartFrameRecording(int32_t aWidth, int32_t aHeight) {
   MaybeRegisterCallbackThread();
   MutexLock lock(&api_lock_);
-  if (MOZ_UNLIKELY(mTrackingId)) {
+  if (MOZ_UNLIKELY(!mTrackingId)) {
     return;
   }
   auto fromWebrtcVideoType = [](webrtc::VideoType aType) -> CaptureStage::ImageType {
@@ -260,10 +266,13 @@ void VideoCaptureAvFoundation::StartFrameRecording(int32_t aWidth, int32_t aHeig
         return CaptureStage::ImageType::Unknown;
     }
   };
-  mPerformanceRecorder.Start(
+  mCaptureRecorder.Start(
       0, "VideoCaptureAVFoundation"_ns, *mTrackingId, aWidth, aHeight,
       mCapability.map([&](const auto& aCap) { return fromWebrtcVideoType(aCap.videoType); })
           .valueOr(CaptureStage::ImageType::Unknown));
+  if (mCapability && mCapability->videoType != webrtc::VideoType::kI420) {
+    mConversionRecorder.Start(0, "VideoCaptureAVFoundation"_ns, *mTrackingId, aWidth, aHeight);
+  }
 }
 
 void VideoCaptureAvFoundation::MaybeRegisterCallbackThread() {

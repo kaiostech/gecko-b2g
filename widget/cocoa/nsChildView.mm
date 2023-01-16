@@ -3338,11 +3338,11 @@ static gfx::IntPoint GetIntegerDeltaForEvent(NSEvent* aEvent) {
     MOZ_ASSERT(aOutGeckoEvent->mPressure >= 0.0 && aOutGeckoEvent->mPressure <= 1.0);
   }
   aOutGeckoEvent->mInputSource = dom::MouseEvent_Binding::MOZ_SOURCE_PEN;
-  aOutGeckoEvent->tiltX = lround([aPointerEvent tilt].x * 90);
-  aOutGeckoEvent->tiltY = lround([aPointerEvent tilt].y * 90);
+  aOutGeckoEvent->tiltX = (int32_t)lround([aPointerEvent tilt].x * 90);
+  aOutGeckoEvent->tiltY = (int32_t)lround([aPointerEvent tilt].y * 90);
   aOutGeckoEvent->tangentialPressure = [aPointerEvent tangentialPressure];
   // Make sure the twist value is in the range of 0-359.
-  int32_t twist = fmod([aPointerEvent rotation], 360);
+  int32_t twist = (int32_t)fmod([aPointerEvent rotation], 360);
   aOutGeckoEvent->twist = twist >= 0 ? twist : twist + 360;
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }

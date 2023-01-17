@@ -356,13 +356,7 @@ nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
 }
 
 NS_IMETHODIMP
-nsClipboard::SupportsSelectionClipboard(bool* aIsSupported) {
-  *aIsSupported = false;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsClipboard::SupportsFindClipboard(bool* _retval) {
+nsClipboard::IsClipboardTypeSupported(int32_t aWhichClipboard, bool* _retval) {
   NS_ENSURE_ARG_POINTER(_retval);
 
   *_retval = false;

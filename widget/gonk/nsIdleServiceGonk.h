@@ -39,7 +39,6 @@ class nsIdleServiceGonk : public nsUserIdleService {
  protected:
   nsIdleServiceGonk() {}
   virtual ~nsIdleServiceGonk() {}
-  bool UsePollMode() override;
 };
 
 #endif  // nsIdleServiceGonk_h__

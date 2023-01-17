@@ -454,9 +454,10 @@ nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList, int3
 }
 
 NS_IMETHODIMP
-nsClipboard::SupportsFindClipboard(bool* _retval) {
+nsClipboard::IsClipboardTypeSupported(int32_t aWhichClipboard, bool* _retval) {
   NS_ENSURE_ARG_POINTER(_retval);
-  *_retval = true;
+  *_retval = kGlobalClipboard == aWhichClipboard || kFindClipboard == aWhichClipboard ||
+             kSelectionCache == aWhichClipboard;
   return NS_OK;
 }
 
@@ -620,7 +621,9 @@ NSDictionary* nsClipboard::PasteboardDictFromTransferable(nsITransferable* aTran
       if (!url || ![url absoluteString]) {
         continue;
       }
-      [pasteboardOutputDict setObject:[url absoluteString] forKey:fileUTType];
+      [pasteboardOutputDict setObject:[[NSString stringWithString:[url absoluteString]]
+                                          dataUsingEncoding:NSUTF8StringEncoding]
+                               forKey:fileUTType];
     } else if (flavorStr.EqualsLiteral(kFilePromiseMime)) {
       NSString* urlPromise =
           [UTIHelper stringFromPboardType:(NSString*)kPasteboardTypeFileURLPromise];

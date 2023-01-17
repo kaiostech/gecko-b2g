@@ -25,7 +25,12 @@ class WeakMapBase;
 
 static const size_t MARK_STACK_BASE_CAPACITY = 4096;
 
-enum class SlotsOrElementsKind { Elements, FixedSlots, DynamicSlots };
+enum class SlotsOrElementsKind {
+  Unused = 0,  // Must match SlotsOrElementsRangeTag
+  Elements,
+  FixedSlots,
+  DynamicSlots
+};
 
 namespace gc {
 
@@ -89,7 +94,7 @@ class MarkStack {
    * the context of push or pop operation.
    */
   enum Tag {
-    SlotsOrElementsRangeTag,
+    SlotsOrElementsRangeTag = 0,  // Must match SlotsOrElementsKind::Unused.
     ObjectTag,
     JitCodeTag,
     ScriptTag,
@@ -113,6 +118,7 @@ class MarkStack {
     TaggedPtr() = default;
     TaggedPtr(Tag tag, Cell* ptr);
     Tag tag() const;
+    uintptr_t tagUnchecked() const;
     template <typename T>
     T* as() const;
 
@@ -208,6 +214,7 @@ class MarkStack {
 
   size_t basePositionForCurrentColor() const;
   size_t wordCountForCurrentColor() const;
+  bool indexIsEntryBase(size_t index) const;
 
   void assertGrayPositionValid() const;
 
@@ -232,6 +239,12 @@ class MarkStack {
   mutable size_t iteratorCount_ = 0;
 #endif
 };
+
+static_assert(unsigned(SlotsOrElementsKind::Unused) ==
+                  unsigned(MarkStack::SlotsOrElementsRangeTag),
+              "To split the mark stack we depend on being able to tell the "
+              "difference between SlotsOrElementsRange::startAndKind_ and a "
+              "tagged SlotsOrElementsRange");
 
 // Bitmask of options to parameterize MarkingTracerT.
 namespace MarkingOptions {
@@ -323,6 +336,7 @@ class GCMarker {
   bool isDrained() const { return stack.isEmpty(); }
 
   bool hasEntries(gc::MarkColor color) const { return stack.hasEntries(color); }
+  bool hasStealableWork() const { return stack.hasStealableWork(); }
 
   void start();
   void stop();

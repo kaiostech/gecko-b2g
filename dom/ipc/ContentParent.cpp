@@ -785,6 +785,7 @@ static const char* sObserverTopics[] = {
     "cookie-changed",
     "private-cookie-changed",
     NS_NETWORK_LINK_TYPE_TOPIC,
+    NS_NETWORK_TRR_MODE_CHANGED_TOPIC,
     "network:socket-process-crashed",
     DEFAULT_TIMEZONE_CHANGED_OBSERVER_TOPIC,
 };
@@ -3208,14 +3209,18 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   nsCOMPtr<nsIClipboard> clipboard(
       do_GetService("@mozilla.org/widget/clipboard;1"));
   MOZ_ASSERT(clipboard, "No clipboard?");
+  MOZ_ASSERT(
+      clipboard->IsClipboardTypeSupported(nsIClipboard::kGlobalClipboard),
+      "We should always support the global clipboard.");
 
-  rv = clipboard->SupportsSelectionClipboard(
-      &xpcomInit.clipboardCaps().supportsSelectionClipboard());
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+  xpcomInit.clipboardCaps().supportsSelectionClipboard() =
+      clipboard->IsClipboardTypeSupported(nsIClipboard::kSelectionClipboard);
 
-  rv = clipboard->SupportsFindClipboard(
-      &xpcomInit.clipboardCaps().supportsFindClipboard());
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+  xpcomInit.clipboardCaps().supportsFindClipboard() =
+      clipboard->IsClipboardTypeSupported(nsIClipboard::kFindClipboard);
+
+  xpcomInit.clipboardCaps().supportsSelectionCache() =
+      clipboard->IsClipboardTypeSupported(nsIClipboard::kSelectionCache);
 
   // Let's copy the domain policy from the parent to the child (if it's active).
   StructuredCloneData initialData;
@@ -3319,6 +3324,10 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
 
   nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
   dns->GetTrrDomain(xpcomInit.trrDomain());
+
+  nsIDNSService::ResolverMode mode;
+  dns->GetCurrentTrrMode(&mode);
+  xpcomInit.trrMode() = mode;
 
   Unused << SendSetXPCOMProcessAttributes(
       xpcomInit, initialData, lnf, fontList, std::move(sharedUASheetHandle),
@@ -4390,6 +4399,11 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
     Unused << SendSocketProcessCrashed();
   } else if (!strcmp(aTopic, DEFAULT_TIMEZONE_CHANGED_OBSERVER_TOPIC)) {
     Unused << SendSystemTimezoneChanged();
+  } else if (!strcmp(aTopic, NS_NETWORK_TRR_MODE_CHANGED_TOPIC)) {
+    nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
+    nsIDNSService::ResolverMode mode;
+    dns->GetCurrentTrrMode(&mode);
+    Unused << SendSetTRRMode(mode);
   }
 
   return NS_OK;

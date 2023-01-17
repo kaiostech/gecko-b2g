@@ -2993,7 +2993,7 @@
 # Is support for HTMLElement.autocapitalize enabled?
 - name: dom.forms.autocapitalize
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Support for input type=month, type=week. By default, disabled.
@@ -5213,18 +5213,6 @@
   value: @IS_NOT_ANDROID@
   mirror: never
 
-# Prefs used by normandy to orchestrate the fission experiment. For more
-# details, see the comments in nsAppRunner.cpp.
-- name: fission.experiment.enrollmentStatus
-  type: uint32_t
-  value: 0
-  mirror: never
-
-- name: fission.experiment.startupEnrollmentStatus
-  type: uint32_t
-  value: 0
-  mirror: never
-
 # This pref has no effect within fission windows, it only controls the
 # behaviour within non-fission windows. If true, preserve browsing contexts
 # between process swaps.
@@ -5796,6 +5784,8 @@
 - name: gfx.canvas.accelerated
   type: bool
 #if defined(XP_MACOSX) || defined(XP_LINUX) && !defined(ANDROID)
+  value: true
+#elif defined(MOZ_WIDGET_ANDROID) && defined(NIGHTLY_BUILD)
   value: true
 #else
   value: false
@@ -8827,6 +8817,13 @@
   value: true
   mirror: always
 
+# Enables support for the page-orientation  property inside of CSS @page rules.
+- name: layout.css.page-orientation.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 # Enables support for the size property inside of CSS @page rules.
 - name: layout.css.page-size.enabled
   type: RelaxedAtomicBool
@@ -9247,8 +9244,8 @@
   mirror: always
 
 # Pref to control how many consecutive scroll-anchoring adjustments (since the
-# most recent user scroll) we'll average, before we consider whether to
-# automatically turn off scroll anchoring. When we hit this threshold, the
+# most recent user scroll or timeout) we'll average, before we consider whether
+# to automatically turn off scroll anchoring. When we hit this threshold, the
 # actual decision to disable also depends on the
 # min-average-adjustment-threshold pref, see below for more details.
 #
@@ -9256,6 +9253,16 @@
 - name: layout.css.scroll-anchoring.max-consecutive-adjustments
   type: uint32_t
   value: 10
+  mirror: always
+
+# The time after which we reset the max-consecutive-adjustments period, in
+# milliseconds.
+#
+# This prevents sporadic back-and-forth scroll anchoring to trigger the
+# max-consecutive-adjustments heuristic.
+- name: layout.css.scroll-anchoring.max-consecutive-adjustments-timeout-ms
+  type: uint32_t
+  value: 500
   mirror: always
 
 # Pref to control whether we should disable scroll anchoring on a scroller
@@ -9268,7 +9275,7 @@
 # average offset difference between them amount to less than 3 CSS pixels.
 - name: layout.css.scroll-anchoring.min-average-adjustment-threshold
   type: uint32_t
-  value: 3
+  value: 2
   mirror: always
 
 # Pref to control disabling scroll anchoring suppression triggers, see
@@ -12101,6 +12108,18 @@
 - name: network.trr_ui.skip_reason_learn_more_url
   type: String
   value: "https://firefox-source-docs.mozilla.org/networking/dns/trr-skip-reasons.html#"
+  mirror: never
+
+# If true, display a warning before fallback to native
+- name: network.trr.display_fallback_warning
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Heuristics in this list will trigger the fallback to native warning
+- name: network.trr.fallback_warning_heuristic_list
+  type: String
+  value: "canary"
   mirror: never
 
 # Allow the network changed event to get sent when a network topology or setup

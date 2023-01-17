@@ -326,7 +326,7 @@ dependencies = [
 [[package]]
 name = "audioipc2"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=42eb59ab3b86cd43d3dbe37d159ce102a8eaf2a5#42eb59ab3b86cd43d3dbe37d159ce102a8eaf2a5"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
 dependencies = [
  "arrayvec",
  "ashmem",
@@ -354,7 +354,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-client"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=42eb59ab3b86cd43d3dbe37d159ce102a8eaf2a5#42eb59ab3b86cd43d3dbe37d159ce102a8eaf2a5"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -365,7 +365,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-server"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=42eb59ab3b86cd43d3dbe37d159ce102a8eaf2a5#42eb59ab3b86cd43d3dbe37d159ce102a8eaf2a5"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -2292,7 +2292,6 @@ dependencies = [
  "wgpu_bindings",
  "wpf-gpu-raster",
  "xpcom",
- "xulstore",
 ]
 
 [[package]]
@@ -2325,7 +2324,7 @@ dependencies = [
 
 [[package]]
 name = "glean"
-version = "51.8.2"
+version = "52.0.0"
 dependencies = [
  "chrono",
  "crossbeam-channel",
@@ -2343,7 +2342,7 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "51.8.2"
+version = "52.0.0"
 dependencies = [
  "android_logger",
  "bincode",
@@ -4585,7 +4584,7 @@ dependencies = [
 
 [[package]]
 name = "rkv"
-version = "0.18.2"
+version = "0.18.4"
 dependencies = [
  "arrayref",
  "bincode",
@@ -6604,25 +6603,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "xulstore"
-version = "0.1.0"
-dependencies = [
- "crossbeam-utils 0.8.14",
- "cstr",
- "libc",
- "log",
- "moz_task",
- "nserror",
- "nsstring",
- "once_cell",
- "rkv",
- "serde_json",
- "tempfile",
- "thiserror",
- "xpcom",
 ]
 
 [[package]]

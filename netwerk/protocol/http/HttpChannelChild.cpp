@@ -2125,7 +2125,7 @@ already_AddRefed<nsIEventTarget> HttpChannelChild::GetODATarget() {
   }
 
   if (!target) {
-    target = GetMainThreadEventTarget();
+    target = GetMainThreadSerialEventTarget();
   }
   return target.forget();
 }
@@ -2845,7 +2845,7 @@ HttpChannelChild::GetDeliveryTarget(nsIEventTarget** aEventTarget) {
 
   nsCOMPtr<nsIEventTarget> target = mODATarget;
   if (!mODATarget) {
-    target = GetCurrentEventTarget();
+    target = GetCurrentSerialEventTarget();
   }
   target.forget(aEventTarget);
   return NS_OK;

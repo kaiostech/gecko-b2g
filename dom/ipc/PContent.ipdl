@@ -107,6 +107,7 @@ include "mozilla/glean/GleanMetrics.h";
 include "mozilla/ipc/ByteBufUtils.h";
 include "mozilla/ipc/TransportSecurityInfoUtils.h";
 include "mozilla/ipc/URIUtils.h";
+include "mozilla/net/NeckoMessageUtils.h";
 include "mozilla/PermissionDelegateIPCUtils.h";
 
 [RefCounted] using class nsIDOMGeoPosition from "nsGeoPositionIPCSerialiser.h";
@@ -185,6 +186,7 @@ using mozilla::dom::PerformanceTimingData from "mozilla/dom/PerformanceTiming.h"
 using Wireframe from "mozilla/dom/DocumentBinding.h";
 using mozilla::PerfStats::MetricMask from "mozilla/PerfStats.h";
 [RefCounted] using class nsIX509Cert from "nsIX509Cert.h";
+using nsIDNSService::ResolverMode from "nsIDNSService.h";
 
 union ChromeRegistryItem
 {
@@ -429,6 +431,7 @@ union SystemParameterValue {
 struct ClipboardCapabilities {
   bool supportsSelectionClipboard;
   bool supportsFindClipboard;
+  bool supportsSelectionCache;
 };
 
 union FileDescOrError {
@@ -569,6 +572,7 @@ struct XPCOMInitData
     DynamicScalarDefinition[] dynamicScalarDefs;
     MetricMask perfStatsMask;
     nsCString trrDomain;
+    ResolverMode trrMode;
 };
 
 struct VisitedQueryResult
@@ -892,6 +896,7 @@ child:
     async SetOffline(bool offline);
     async SetConnectivity(bool connectivity);
     async SetCaptivePortalState(int32_t aState);
+    async SetTRRMode(ResolverMode aMode);
 
     async NotifyVisited(VisitedQueryResult[] uri);
 

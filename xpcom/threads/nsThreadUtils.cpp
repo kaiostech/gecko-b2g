@@ -19,6 +19,7 @@
 #include "prsystem.h"
 
 #include "nsThreadManager.h"
+#include "nsThreadPool.h"
 #include "TaskController.h"
 
 #ifdef XP_WIN
@@ -198,7 +199,8 @@ nsresult NS_GetMainThread(nsIThread** aResult) {
 nsresult NS_DispatchToCurrentThread(already_AddRefed<nsIRunnable>&& aEvent) {
   nsresult rv;
   nsCOMPtr<nsIRunnable> event(aEvent);
-  nsIEventTarget* thread = GetCurrentEventTarget();
+  // XXX: Consider using GetCurrentSerialEventTarget() to support TaskQueues.
+  nsISerialEventTarget* thread = NS_GetCurrentThread();
   if (!thread) {
     return NS_ERROR_UNEXPECTED;
   }
@@ -251,7 +253,9 @@ nsresult NS_DispatchToMainThread(nsIRunnable* aEvent, uint32_t aDispatchFlags) {
 nsresult NS_DelayedDispatchToCurrentThread(
     already_AddRefed<nsIRunnable>&& aEvent, uint32_t aDelayMs) {
   nsCOMPtr<nsIRunnable> event(aEvent);
-  nsIEventTarget* thread = GetCurrentEventTarget();
+
+  // XXX: Consider using GetCurrentSerialEventTarget() to support TaskQueues.
+  nsISerialEventTarget* thread = NS_GetCurrentThread();
   if (!thread) {
     return NS_ERROR_UNEXPECTED;
   }
@@ -543,33 +547,23 @@ nsAutoLowPriorityIO::~nsAutoLowPriorityIO() {
 
 namespace mozilla {
 
-nsIEventTarget* GetCurrentEventTarget() {
-  nsCOMPtr<nsIThread> thread;
-  nsresult rv = NS_GetCurrentThread(getter_AddRefs(thread));
-  if (NS_FAILED(rv)) {
-    return nullptr;
-  }
-
-  return thread->EventTarget();
-}
-
-nsIEventTarget* GetMainThreadEventTarget() {
-  return GetMainThreadSerialEventTarget();
-}
-
 nsISerialEventTarget* GetCurrentSerialEventTarget() {
   if (nsISerialEventTarget* current =
           SerialEventTargetGuard::GetCurrentSerialEventTarget()) {
     return current;
   }
 
+  MOZ_DIAGNOSTIC_ASSERT(!nsThreadPool::GetCurrentThreadPool(),
+                        "Call to GetCurrentSerialEventTarget() from thread "
+                        "pool without an active TaskQueue");
+
   nsCOMPtr<nsIThread> thread;
   nsresult rv = NS_GetCurrentThread(getter_AddRefs(thread));
   if (NS_FAILED(rv)) {
     return nullptr;
   }
 
-  return thread->SerialEventTarget();
+  return thread;
 }
 
 nsISerialEventTarget* GetMainThreadSerialEventTarget() {

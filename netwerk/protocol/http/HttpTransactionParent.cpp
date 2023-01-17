@@ -101,7 +101,7 @@ nsresult HttpTransactionParent::Init(
   }
 
   mEventsink = eventsink;
-  mTargetThread = GetCurrentEventTarget();
+  mTargetThread = GetCurrentSerialEventTarget();
   mChannelId = channelId;
   mTransactionObserver = std::move(transactionObserver);
   mOnPushCallback = std::move(aOnPushCallback);
@@ -220,7 +220,7 @@ already_AddRefed<nsIEventTarget> HttpTransactionParent::GetODATarget() {
   }
 
   if (!target) {
-    target = GetMainThreadEventTarget();
+    target = GetMainThreadSerialEventTarget();
   }
   return target.forget();
 }
@@ -400,7 +400,7 @@ already_AddRefed<nsHttpConnectionInfo> HttpTransactionParent::GetConnInfo()
 }
 
 already_AddRefed<nsIEventTarget> HttpTransactionParent::GetNeckoTarget() {
-  nsCOMPtr<nsIEventTarget> target = GetMainThreadEventTarget();
+  nsCOMPtr<nsIEventTarget> target = GetMainThreadSerialEventTarget();
   return target.forget();
 }
 

@@ -203,7 +203,7 @@ void FileBlobImpl::GetTypeInternal(nsAString& aType,
           "FileBlobImpl::GetTypeInternal", [&]() -> void {
             FileBlobImpl::GetTypeInternal(aType, aProofOfLock);
           });
-      SyncRunnable::DispatchToThread(GetMainThreadEventTarget(), runnable);
+      SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(), runnable);
       return;
     }
 

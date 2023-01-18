@@ -3099,6 +3099,13 @@ HttpBaseChannel::PerformOpaqueResponseSafelistCheckBeforeSniff() {
     return OpaqueResponse::Allow;
   }
 
+  Telemetry::ScalarAdd(
+      Telemetry::ScalarID::
+          OPAQUE_RESPONSE_BLOCKING_CROSS_ORIGIN_OPAQUE_RESPONSE_COUNT,
+      1);
+
+  PROFILER_MARKER_TEXT("ORB safelist check", NETWORK, {}, "Before sniff"_ns);
+
   // https://whatpr.org/fetch/1442.html#orb-algorithm
   // Step 1
   nsAutoCString contentType;
@@ -3199,6 +3206,8 @@ HttpBaseChannel::PerformOpaqueResponseSafelistCheckBeforeSniff() {
 // * `OpaqueResponseBlocker::ValidateJavaScript`
 OpaqueResponse HttpBaseChannel::PerformOpaqueResponseSafelistCheckAfterSniff(
     const nsACString& aContentType, bool aNoSniff) {
+  PROFILER_MARKER_TEXT("ORB safelist check", NETWORK, {}, "After sniff"_ns);
+
   // https://whatpr.org/fetch/1442.html#orb-algorithm
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(mCachedOpaqueResponseBlockingPref);
@@ -4889,6 +4898,16 @@ nsresult HttpBaseChannel::SetupReplacementChannel(nsIURI* newURI,
     nsCOMPtr<nsIHttpHeaderVisitor> visitor =
         new AddHeadersToChannelVisitor(httpChannel);
     rv = mRequestHead.VisitHeaders(visitor);
+    MOZ_ASSERT(NS_SUCCEEDED(rv));
+  }
+
+  // we need to strip Authentication headers for cross-origin requests
+  // Ref: https://fetch.spec.whatwg.org/#http-redirect-fetch
+  nsAutoCString authHeader;
+  if (StaticPrefs::network_http_redirect_stripAuthHeader() &&
+      NS_SUCCEEDED(
+          httpChannel->GetRequestHeader("Authorization"_ns, authHeader))) {
+    rv = httpChannel->SetRequestHeader("Authorization"_ns, ""_ns, false);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
   }
 

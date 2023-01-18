@@ -249,8 +249,8 @@ already_AddRefed<ReadableStream> CreateReadableStream(
     UnderlyingSourceAlgorithmsBase* aAlgorithms,
     mozilla::Maybe<double> aHighWaterMark, QueuingStrategySize* aSizeAlgorithm,
     ErrorResult& aRv) {
-  // Step 1.
-  double highWaterMark = aHighWaterMark.isSome() ? *aHighWaterMark : 1.0;
+  // Step 1. If highWaterMark was not passed, set it to 1.
+  double highWaterMark = aHighWaterMark.valueOr(1.0);
 
   // Step 2. consumers of sizeAlgorithm
   //         handle null algorithms correctly.
@@ -1005,6 +1005,38 @@ already_AddRefed<ReadableStream> CreateReadableByteStream(
   return stream.forget();
 }
 
+// https://streams.spec.whatwg.org/#readablestream-set-up-with-byte-reading-support
+// (except this instead creates a new ReadableStream rather than accepting an
+// existing instance)
+already_AddRefed<ReadableStream> ReadableStream::CreateByteNative(
+    JSContext* aCx, nsIGlobalObject* aGlobal,
+    UnderlyingSourceAlgorithmsWrapper& aAlgorithms,
+    mozilla::Maybe<double> aHighWaterMark, ErrorResult& aRv) {
+  // an optional number highWaterMark (default 0)
+  double highWaterMark = aHighWaterMark.valueOr(0);
+
+  // Step 1: Let startAlgorithm be an algorithm that returns undefined.
+  // Step 2: Let pullAlgorithmWrapper be an algorithm that runs these steps:
+  // Step 3: Let cancelAlgorithmWrapper be an algorithm that runs these steps:
+  // (Done by UnderlyingSourceAlgorithmsWrapper)
+
+  // Step 4: Perform ! InitializeReadableStream(stream).
+  auto stream = MakeRefPtr<ReadableStream>(aGlobal);
+
+  // Step 5: Let controller be a new ReadableByteStreamController.
+  auto controller = MakeRefPtr<ReadableByteStreamController>(aGlobal);
+
+  // Step 6: Perform ! SetUpReadableByteStreamController(stream, controller,
+  // startAlgorithm, pullAlgorithmWrapper, cancelAlgorithmWrapper,
+  // highWaterMark, undefined).
+  SetUpReadableByteStreamController(aCx, stream, controller, &aAlgorithms,
+                                    highWaterMark, Nothing(), aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+  return stream.forget();
+}
+
 // https://streams.spec.whatwg.org/#readablestream-close
 void ReadableStream::CloseNative(JSContext* aCx, ErrorResult& aRv) {
   MOZ_ASSERT(mController->GetAlgorithms()->IsNative());
@@ -1032,6 +1064,21 @@ void ReadableStream::CloseNative(JSContext* aCx, ErrorResult& aRv) {
   // ReadableStreamDefaultControllerClose(stream.[[controller]]).
   RefPtr<ReadableStreamDefaultController> controller = mController->AsDefault();
   ReadableStreamDefaultControllerClose(aCx, controller, aRv);
+}
+
+// https://streams.spec.whatwg.org/#readablestream-error
+void ReadableStream::ErrorNative(JSContext* aCx, JS::Handle<JS::Value> aError,
+                                 ErrorResult& aRv) {
+  // Step 1: If stream.[[controller]] implements ReadableByteStreamController,
+  // then perform ! ReadableByteStreamControllerError(stream.[[controller]], e).
+  if (mController->IsByte()) {
+    ReadableByteStreamControllerError(mController->AsByte(), aError, aRv);
+    return;
+  }
+  // Step 2: Otherwise, perform !
+  // ReadableStreamDefaultControllerError(stream.[[controller]], e).
+  ReadableStreamDefaultControllerError(aCx, mController->AsDefault(), aError,
+                                       aRv);
 }
 
 // https://streams.spec.whatwg.org/#readablestream-current-byob-request-view
@@ -1132,22 +1179,6 @@ void ReadableStream::EnqueueNative(JSContext* aCx, JS::Handle<JS::Value> aChunk,
   // Step 5: Otherwise, perform ?
   // ReadableByteStreamControllerEnqueue(stream.[[controller]], chunk).
   ReadableByteStreamControllerEnqueue(aCx, controller, chunk, aRv);
-}
-
-already_AddRefed<ReadableStream> ReadableStream::Create(
-    JSContext* aCx, nsIGlobalObject* aGlobal,
-    BodyStreamHolder* aUnderlyingSource, ErrorResult& aRv) {
-  RefPtr<ReadableStream> stream = new ReadableStream(aGlobal);
-
-  SetUpReadableByteStreamControllerFromBodyStreamUnderlyingSource(
-      aCx, stream, aUnderlyingSource, aRv);
-
-  if (aRv.Failed()) {
-    return nullptr;
-  }
-
-  // Step 5. Return stream.
-  return stream.forget();
 }
 
 }  // namespace mozilla::dom

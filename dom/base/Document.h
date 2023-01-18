@@ -210,6 +210,7 @@ class ServoStyleSet;
 enum class StyleOrigin : uint8_t;
 class SMILAnimationController;
 enum class StyleCursorKind : uint8_t;
+class SVGContextPaint;
 enum class ColorScheme : uint8_t;
 enum class StyleRuleChangeKind : uint32_t;
 template <typename>
@@ -1232,6 +1233,14 @@ class Document : public nsINode,
     }
   }
 
+  void SetCurrentContextPaint(const SVGContextPaint* aContextPaint) {
+    mCurrentContextPaint = aContextPaint;
+  }
+
+  const SVGContextPaint* GetCurrentContextPaint() const {
+    return mCurrentContextPaint;
+  }
+
   /**
    * Are plugins allowed in this document ?
    */
@@ -2018,6 +2027,11 @@ class Document : public nsINode,
    * Returns whether there is any fullscreen request handled.
    */
   static bool HandlePendingFullscreenRequests(Document* aDocument);
+
+  /**
+   * Clear pending fullscreen in aDocument.
+   */
+  static void ClearPendingFullscreenRequests(Document* aDocument);
 
   // ScreenOrientation related APIs
 
@@ -4459,6 +4473,9 @@ class Document : public nsINode,
 
   // A reference to the element last returned from GetRootElement().
   Element* mCachedRootElement;
+
+  // This is maintained by AutoSetRestoreSVGContextPaint.
+  const SVGContextPaint* mCurrentContextPaint = nullptr;
 
   // This is a weak reference, but we hold a strong reference to mNodeInfo,
   // which in turn holds a strong reference to this mNodeInfoManager.

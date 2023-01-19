@@ -73,9 +73,6 @@ pref("xpinstall.signatures.devInfoURL", "https://wiki.mozilla.org/Addons/Extensi
 // Enable extensionStorage storage actor by default
 pref("devtools.storage.extensionStorage.enabled", true);
 
-// Enable the unified extensions UI by default.
-pref("extensions.unifiedExtensions.enabled", true);
-
 // Dictionary download preference
 pref("browser.dictionaries.download.url", "https://addons.mozilla.org/%LOCALE%/firefox/language-tools/");
 
@@ -975,8 +972,6 @@ pref("browser.gesture.twist.end", "cmd_gestureRotateEnd");
   pref("browser.gesture.tap", "");
 #endif
 
-pref("browser.history_swipe_animation.disabled", false);
-
 // 0: Nothing happens
 // 1: Scrolling contents
 // 2: Go back or go forward, in your history
@@ -1154,6 +1149,9 @@ pref("accessibility.blockautorefresh", false);
 
 // Whether history is enabled or not.
 pref("places.history.enabled", true);
+
+// The default Places log level.
+pref("places.loglevel", "Error");
 
 // Whether or not diacritics must match in history text searches.
 pref("places.search.matchDiacritics", false);

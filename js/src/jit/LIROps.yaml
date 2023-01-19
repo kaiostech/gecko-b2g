@@ -1583,6 +1583,12 @@
   operands:
     object: WordSized
 
+- name: DebugEnterGCUnsafeRegion
+  num_temps: 1
+
+- name: DebugLeaveGCUnsafeRegion
+  num_temps: 1
+
 # Load the "slots" member out of a JSObject.
 #   Input: JSObject pointer
 #   Output: slots pointer
@@ -2218,6 +2224,17 @@
     value: BoxedValue
   call_instruction: true
   mir_op: ValueToIterator
+
+- name: IteratorHasIndicesAndBranch
+  gen_boilerplate: false
+
+- name: LoadSlotByIteratorIndex
+  result_type: BoxedValue
+  operands:
+    object: WordSized
+    iterator: WordSized
+
+  num_temps: 2
 
 # Patchable jump to stubs generated for a SetProperty cache.
 - name: SetPropertyCache
@@ -2919,8 +2936,10 @@
 - name: WasmStoreRef
   operands:
     instance: WordSized
-    valueAddr: WordSized
+    valueBase: WordSized
     value: WordSized
+  arguments:
+    offset: uint32_t
   num_temps: 1
   mir_op: true
 

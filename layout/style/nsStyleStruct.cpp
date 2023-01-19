@@ -2167,8 +2167,8 @@ StyleTransition::StyleTransition(const StyleTransition& aCopy) = default;
 void StyleTransition::SetInitialValues() {
   mTimingFunction =
       StyleComputedTimingFunction::Keyword(StyleTimingKeyword::Ease);
-  mDuration = 0.0;
-  mDelay = 0.0;
+  mDuration = {0.0};
+  mDelay = {0.0};
   mProperty = eCSSPropertyExtra_all_properties;
 }
 
@@ -2185,13 +2185,13 @@ StyleAnimation::StyleAnimation(const StyleAnimation& aCopy) = default;
 void StyleAnimation::SetInitialValues() {
   mTimingFunction =
       StyleComputedTimingFunction::Keyword(StyleTimingKeyword::Ease);
-  mDuration = 0.0;
-  mDelay = 0.0;
+  mDuration = {0.0};
+  mDelay = {0.0};
   mName = nsGkAtoms::_empty;
   mDirection = dom::PlaybackDirection::Normal;
   mFillMode = dom::FillMode::None;
   mPlayState = StyleAnimationPlayState::Running;
-  mIterationCount = 1.0f;
+  mIterationCount = {1.0f};
   mComposition = dom::CompositeOperation::Replace;
   mTimeline = StyleAnimationTimeline::Auto();
 }

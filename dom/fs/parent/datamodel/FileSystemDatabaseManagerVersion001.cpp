@@ -398,6 +398,40 @@ nsresult PerformRenameFile(const FileSystemConnection& aConnection,
   return PerformRename(aConnection, aHandle, aNewName, updateFileNameQuery);
 }
 
+Result<nsTArray<EntryId>, QMResult> FindDescendants(
+    const FileSystemConnection& aConnection, const EntryId& aEntryId) {
+  const nsLiteralCString descendantsQuery =
+      "WITH RECURSIVE traceChildren(handle, parent) AS ( "
+      "SELECT handle, parent "
+      "FROM Entries "
+      "WHERE handle=:handle "
+      "UNION "
+      "SELECT Entries.handle, Entries.parent FROM traceChildren, Entries "
+      "WHERE traceChildren.handle=Entries.parent ) "
+      "SELECT handle "
+      "FROM traceChildren INNER JOIN Files "
+      "USING(handle) "
+      ";"_ns;
+
+  nsTArray<EntryId> descendants;
+  {
+    QM_TRY_UNWRAP(ResultStatement stmt,
+                  ResultStatement::Create(aConnection, descendantsQuery));
+    QM_TRY(QM_TO_RESULT(stmt.BindEntryIdByName("handle"_ns, aEntryId)));
+    QM_TRY_UNWRAP(bool moreResults, stmt.ExecuteStep());
+
+    while (moreResults) {
+      QM_TRY_UNWRAP(EntryId entryId, stmt.GetEntryIdByColumn(/* Column */ 0u));
+
+      descendants.AppendElement(entryId);
+
+      QM_TRY_UNWRAP(moreResults, stmt.ExecuteStep());
+    }
+  }
+
+  return descendants;
+}
+
 }  // namespace
 
 /* static */
@@ -682,6 +716,13 @@ Result<bool, QMResult> FileSystemDatabaseManagerVersion001::RemoveDirectory(
     const FileSystemChildMetadata& aHandle, bool aRecursive) {
   MOZ_ASSERT(!aHandle.parentId().IsEmpty());
 
+  auto isAnyDescendantLocked = [this](const nsTArray<EntryId>& aDescendants) {
+    return std::any_of(aDescendants.cbegin(), aDescendants.cend(),
+                       [this](const auto& descendant) {
+                         return mDataManager->IsLocked(descendant);
+                       });
+  };
+
   if (aHandle.childName().IsEmpty()) {
     return false;
   }
@@ -701,23 +742,18 @@ Result<bool, QMResult> FileSystemDatabaseManagerVersion001::RemoveDirectory(
   QM_TRY_UNWRAP(bool isEmpty, IsDirectoryEmpty(mConnection, entryId));
 
   if (!aRecursive && !isEmpty) {
+    QM_TRY_INSPECT(const nsTArray<EntryId>& descendants,
+                   FindDescendants(mConnection, entryId));
+
+    // TODO: This is only done to return the right error for web-compat reasons.
+    // The spec does not say when the locks need to be checked but wpt tests do.
+    QM_TRY(OkIf(!isAnyDescendantLocked(descendants)),
+           Err(QMResult(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR)));
+
     return Err(QMResult(NS_ERROR_DOM_INVALID_MODIFICATION_ERR));
   }
   // If it's empty or we can delete recursively, deleting the handle will
   // cascade
-
-  const nsLiteralCString descendantsQuery =
-      "WITH RECURSIVE traceChildren(handle, parent) AS ( "
-      "SELECT handle, parent "
-      "FROM Entries "
-      "WHERE handle=:handle "
-      "UNION "
-      "SELECT Entries.handle, Entries.parent FROM traceChildren, Entries "
-      "WHERE traceChildren.handle=Entries.parent ) "
-      "SELECT handle "
-      "FROM traceChildren INNER JOIN Files "
-      "USING(handle) "
-      ";"_ns;
 
   const nsLiteralCString deleteEntryQuery =
       "DELETE FROM Entries "
@@ -727,21 +763,11 @@ Result<bool, QMResult> FileSystemDatabaseManagerVersion001::RemoveDirectory(
   mozStorageTransaction transaction(
       mConnection.get(), false, mozIStorageConnection::TRANSACTION_IMMEDIATE);
 
-  nsTArray<EntryId> descendants;
-  {
-    QM_TRY_UNWRAP(ResultStatement stmt,
-                  ResultStatement::Create(mConnection, descendantsQuery));
-    QM_TRY(QM_TO_RESULT(stmt.BindEntryIdByName("handle"_ns, entryId)));
-    QM_TRY_UNWRAP(bool moreResults, stmt.ExecuteStep());
+  QM_TRY_INSPECT(const nsTArray<EntryId>& descendants,
+                 FindDescendants(mConnection, entryId));
 
-    while (moreResults) {
-      QM_TRY_UNWRAP(EntryId entryId, stmt.GetEntryIdByColumn(/* Column */ 0u));
-
-      descendants.AppendElement(entryId);
-
-      QM_TRY_UNWRAP(moreResults, stmt.ExecuteStep());
-    }
-  }
+  QM_TRY(OkIf(!isAnyDescendantLocked(descendants)),
+         Err(QMResult(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR)));
 
   {
     QM_TRY_UNWRAP(ResultStatement stmt,
@@ -796,7 +822,7 @@ Result<bool, QMResult> FileSystemDatabaseManagerVersion001::RemoveFile(
   // that reference it
   if (mDataManager->IsLocked(entryId)) {
     LOG(("Trying to remove in-use file"));
-    return Err(QMResult(NS_ERROR_DOM_INVALID_MODIFICATION_ERR));
+    return Err(QMResult(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR));
   }
 
   const nsLiteralCString deleteEntryQuery =
@@ -873,7 +899,11 @@ Result<bool, QMResult> FileSystemDatabaseManagerVersion001::RenameEntry(
   } else {
     QM_TRY_UNWRAP(exists, DoesDirectoryExist(mConnection, destination));
     if (exists) {
-      return Err(QMResult(NS_ERROR_DOM_INVALID_MODIFICATION_ERR));
+      // Fails if directory contains locked files, otherwise total wipeout
+      QM_TRY_UNWRAP(DebugOnly<bool> isRemoved,
+                    MOZ_TO_RESULT(RemoveDirectory(destination,
+                                                  /* recursive */ true)));
+      MOZ_ASSERT(isRemoved);
     }
   }
 
@@ -935,7 +965,11 @@ Result<bool, QMResult> FileSystemDatabaseManagerVersion001::MoveEntry(
   } else {
     QM_TRY_UNWRAP(exists, DoesDirectoryExist(mConnection, aNewDesignation));
     if (exists) {
-      return Err(QMResult(NS_ERROR_DOM_INVALID_MODIFICATION_ERR));
+      // Fails if directory contains locked files, otherwise total wipeout
+      QM_TRY_UNWRAP(DebugOnly<bool> isRemoved,
+                    MOZ_TO_RESULT(RemoveDirectory(aNewDesignation,
+                                                  /* recursive */ true)));
+      MOZ_ASSERT(isRemoved);
     }
   }
 

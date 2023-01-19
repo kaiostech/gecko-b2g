@@ -69,7 +69,7 @@
 #include "prtime.h"
 
 #include "nsIAppStartup.h"
-#include "nsAppStartupNotifier.h"
+#include "nsCategoryManagerUtils.h"
 #include "nsIMutableArray.h"
 #include "nsCommandLine.h"
 #include "nsIComponentRegistrar.h"
@@ -5338,19 +5338,6 @@ nsresult XREMain::XRE_mainRun() {
       }
     }
 
-#ifndef XP_WIN
-    nsCOMPtr<nsIFile> profileDir;
-    nsAutoCString path;
-    rv = mDirProvider.GetProfileStartupDir(getter_AddRefs(profileDir));
-    if (NS_SUCCEEDED(rv) && NS_SUCCEEDED(profileDir->GetNativePath(path)) &&
-        !IsUtf8(path)) {
-      PR_fprintf(
-          PR_STDERR,
-          "Error: The profile path is not valid UTF-8. Unable to continue.\n");
-      return NS_ERROR_FAILURE;
-    }
-#endif
-
     // Initialize user preferences before notifying startup observers so they're
     // ready in time for early consumers, such as the component loader.
     mDirProvider.InitializeUserPrefs();
@@ -5384,7 +5371,9 @@ nsresult XREMain::XRE_mainRun() {
                        nsICommandLine::STATE_INITIAL_LAUNCH);
     NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
 
-    nsAppStartupNotifier::NotifyObservers(APPSTARTUP_CATEGORY, cmdLine);
+    // "app-startup" is the name of both the category and the event
+    NS_CreateServicesFromCategory("app-startup", cmdLine, "app-startup",
+                                  nullptr);
 
     appStartup = components::AppStartup::Service();
     NS_ENSURE_TRUE(appStartup, NS_ERROR_FAILURE);

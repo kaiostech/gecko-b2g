@@ -2284,12 +2284,29 @@ already_AddRefed<gfxFont> gfxFontGroup::GetDefaultFont() {
 }
 
 already_AddRefed<gfxFont> gfxFontGroup::GetFirstValidFont(
-    uint32_t aCh, StyleGenericFontFamily* aGeneric) {
+    uint32_t aCh, StyleGenericFontFamily* aGeneric, bool* aIsFirst) {
   // Ensure cached font instances are valid.
   CheckForUpdatedPlatformList();
 
   uint32_t count = mFonts.Length();
   bool loading = false;
+
+  // Check whether the font supports the given character, unless the char is
+  // SPACE, in which case it is not required to be present in the font, but
+  // we must still check if it was excluded by a unicode-range descriptor.
+  auto isValidForChar = [](gfxFont* aFont, uint32_t aCh) -> bool {
+    if (!aFont) {
+      return false;
+    }
+    if (aCh == 0x20) {
+      if (const auto* unicodeRange = aFont->GetUnicodeRangeMap()) {
+        return unicodeRange->test(aCh);
+      }
+      return true;
+    }
+    return aFont->HasCharacter(aCh);
+  };
+
   for (uint32_t i = 0; i < count; ++i) {
     FamilyFace& ff = mFonts[i];
     if (ff.IsInvalid()) {
@@ -2298,9 +2315,12 @@ already_AddRefed<gfxFont> gfxFontGroup::GetFirstValidFont(
 
     // already have a font?
     RefPtr<gfxFont> font = ff.Font();
-    if (font) {
+    if (isValidForChar(font, aCh)) {
       if (aGeneric) {
         *aGeneric = ff.Generic();
+      }
+      if (aIsFirst) {
+        *aIsFirst = (i == 0);
       }
       return font.forget();
     }
@@ -2328,15 +2348,21 @@ already_AddRefed<gfxFont> gfxFontGroup::GetFirstValidFont(
     }
 
     font = GetFontAt(i, aCh, &loading);
-    if (font) {
+    if (isValidForChar(font, aCh)) {
       if (aGeneric) {
         *aGeneric = ff.Generic();
+      }
+      if (aIsFirst) {
+        *aIsFirst = (i == 0);
       }
       return font.forget();
     }
   }
   if (aGeneric) {
     *aGeneric = StyleGenericFontFamily::None;
+  }
+  if (aIsFirst) {
+    *aIsFirst = false;
   }
   return GetDefaultFont();
 }
@@ -2934,7 +2960,7 @@ gfxTextRun* gfxFontGroup::GetEllipsisTextRun(
 
   // Use a Unicode ellipsis if the font supports it,
   // otherwise use three ASCII periods as fallback.
-  RefPtr<gfxFont> firstFont = GetFirstValidFont(uint32_t(kEllipsisChar[0]));
+  RefPtr<gfxFont> firstFont = GetFirstValidFont();
   nsString ellipsis =
       firstFont->HasCharacter(kEllipsisChar[0])
           ? nsDependentString(kEllipsisChar, ArrayLength(kEllipsisChar) - 1)
@@ -3812,6 +3838,35 @@ already_AddRefed<gfxFont> gfxFontGroup::WhichSystemFontSupportsChar(
   return gfxPlatformFontList::PlatformFontList()->SystemFindFontForChar(
       mPresContext, aCh, aNextCh, aRunScript, aPresentation, &mStyle,
       &visibility);
+}
+
+gfxFont::Metrics gfxFontGroup::GetMetricsForCSSUnits(
+    gfxFont::Orientation aOrientation) {
+  bool isFirst;
+  RefPtr<gfxFont> font = GetFirstValidFont(0x20, nullptr, &isFirst);
+  auto metrics = font->GetMetrics(aOrientation);
+
+  // If the font we used to get metrics was not the first in the list,
+  // or if it doesn't support the ZERO character, check for the font that
+  // does support ZERO and use its metrics for the 'ch' unit.
+  if (!isFirst || !font->HasCharacter('0')) {
+    RefPtr<gfxFont> zeroFont = GetFirstValidFont('0');
+    if (zeroFont != font) {
+      const auto& zeroMetrics = zeroFont->GetMetrics(aOrientation);
+      metrics.zeroWidth = zeroMetrics.zeroWidth;
+    }
+  }
+
+  // Likewise for the WATER ideograph character used as the basis for 'ic'.
+  if (!isFirst || !font->HasCharacter(0x6C34)) {
+    RefPtr<gfxFont> icFont = GetFirstValidFont(0x6C34);
+    if (icFont != font) {
+      const auto& icMetrics = icFont->GetMetrics(aOrientation);
+      metrics.ideographicWidth = icMetrics.ideographicWidth;
+    }
+  }
+
+  return metrics;
 }
 
 void gfxMissingFontRecorder::Flush() {

@@ -1029,10 +1029,14 @@ already_AddRefed<ContentParent> ContentParent::MinTabSelect(
     ContentParent* p = aContentParents[i];
     MOZ_DIAGNOSTIC_ASSERT(!p->IsDead());
 
-    uint32_t tabCount = cpm->GetBrowserParentCountByProcessId(p->ChildID());
-    if (tabCount < min) {
-      candidate = p;
-      min = tabCount;
+    // Ignore processes that were slated for removal but not yet removed from
+    // the pool (see also GetUsedBrowserProcess and BlockShutdown).
+    if (!p->IsSignaledImpendingShutdown()) {
+      uint32_t tabCount = cpm->GetBrowserParentCountByProcessId(p->ChildID());
+      if (tabCount < min) {
+        candidate = p;
+        min = tabCount;
+      }
     }
   }
 
@@ -1097,18 +1101,22 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
     // If the provider returned an existing ContentParent, use that one.
     if (0 <= index && static_cast<uint32_t>(index) <= aMaxContentParents) {
       RefPtr<ContentParent> retval = aContentParents[index];
-      if (profiler_thread_is_being_profiled_for_markers()) {
-        nsPrintfCString marker("Reused process %u",
-                               (unsigned int)retval->ChildID());
-        PROFILER_MARKER_TEXT("Process", DOM, {}, marker);
+      // Ignore processes that were slated for removal but not yet removed from
+      // the pool.
+      if (!retval->IsSignaledImpendingShutdown()) {
+        if (profiler_thread_is_being_profiled_for_markers()) {
+          nsPrintfCString marker("Reused process %u",
+                                 (unsigned int)retval->ChildID());
+          PROFILER_MARKER_TEXT("Process", DOM, {}, marker);
+        }
+        MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
+                ("GetUsedProcess: Reused process %p (%u) for %s", retval.get(),
+                 (unsigned int)retval->ChildID(),
+                 PromiseFlatCString(aRemoteType).get()));
+        retval->AssertAlive();
+        retval->StopRecycling();
+        return retval.forget();
       }
-      MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
-              ("GetUsedProcess: Reused process %p (%u) for %s", retval.get(),
-               (unsigned int)retval->ChildID(),
-               PromiseFlatCString(aRemoteType).get()));
-      retval->AssertAlive();
-      retval->StopRecycling();
-      return retval.forget();
     }
   } else {
     // If there was a problem with the JS chooser, fall back to a random
@@ -2161,7 +2169,10 @@ void ContentParent::AssertNotInPool() {
   }
 }
 
-void ContentParent::AssertAlive() { MOZ_DIAGNOSTIC_ASSERT(!IsDead()); }
+void ContentParent::AssertAlive() {
+  MOZ_DIAGNOSTIC_ASSERT(!mIsSignaledImpendingShutdown);
+  MOZ_DIAGNOSTIC_ASSERT(!IsDead());
+}
 
 void ContentParent::RemoveFromList() {
   if (IsForJSPlugin()) {
@@ -2211,7 +2222,9 @@ void ContentParent::MarkAsDead() {
   MOZ_DIAGNOSTIC_ASSERT(!sInProcessSelector);
   RemoveFromList();
 
+  // Prevent this process from being re-used.
   PreallocatedProcessManager::Erase(this);
+  StopRecycling(false);
 
 #ifdef MOZ_WIDGET_ANDROID
   if (IsAlive()) {
@@ -4028,9 +4041,15 @@ ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
     mBlockShutdownCalled = true;
 #endif
-    // Our real shutdown has not yet started. Just notify the
-    // impending shutdown and eventually cancel content JS.
+    // Our real shutdown has not yet started. Just notify the impending
+    // shutdown and eventually cancel content JS.
     SignalImpendingShutdownToContentJS();
+    // This will make our process unusable for normal content, so we need to
+    // ensure we won't get re-used by GetUsedBrowserProcess as we have not yet
+    // done MarkAsDead.
+    PreallocatedProcessManager::Erase(this);
+    StopRecycling(false);
+
     if (sQuitApplicationGrantedClient) {
       Unused << sQuitApplicationGrantedClient->RemoveBlocker(this);
     }

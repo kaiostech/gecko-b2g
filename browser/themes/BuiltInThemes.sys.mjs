@@ -196,15 +196,38 @@ class _BuiltInThemes {
     );
     for (let [id] of expiredThemes) {
       if (id == activeThemeID) {
-        this._retainLimitedTimeTheme(id);
-      } else {
+        let shouldRetain = true;
+
         try {
           let addon = await lazy.AddonManager.getAddonByID(id);
           if (addon) {
+            // Only add the id to the retain themes pref if it is
+            // also a built-in themes (and don't if it was migrated
+            // xpi files installed in the user profile).
+            shouldRetain = addon.isBuiltinColorwayTheme;
+          }
+        } catch (e) {
+          console.error(
+            `Failed to retrieve active theme AddonWrapper ${id}`,
+            e
+          );
+        }
+
+        if (shouldRetain) {
+          this._retainLimitedTimeTheme(id);
+        }
+      } else {
+        try {
+          let addon = await lazy.AddonManager.getAddonByID(id);
+          // Only uninstall the expired colorways theme if they are not
+          // migrated builtins (because on migrated to xpi files
+          // installed in the user profile they are also removed
+          // from the retainedExpiredThemes pref).
+          if (addon?.isBuiltinColorwayTheme) {
             await addon.uninstall();
           }
         } catch (e) {
-          console.error(`Failed to uninstall expired theme ${id}`);
+          console.error(`Failed to uninstall expired theme ${id}`, e);
         }
       }
     }

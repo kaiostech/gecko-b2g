@@ -101,7 +101,11 @@
                   class="tail-with-learn-more"
                   data-l10n-id="browser-containers-enabled"
                   preference="privacy.userContext.enabled"/>
-        <label id="browserContainersLearnMore" is="text-link" class="learnMore" data-l10n-id="browser-containers-learn-more"/>
+        <html:a
+          is="moz-support-link"
+          support-page="containers"
+          data-l10n-id="browser-containers-learn-more"
+        />
         <spacer flex="1"/>
         <button id="browserContainersSettings"
                 is="highlightable-button"
@@ -439,7 +443,10 @@
   <hbox align="center">
     <checkbox id="playDRMContent" preference="media.eme.enabled"
               class="tail-with-learn-more" data-l10n-id="play-drm-content" />
-    <label id="playDRMContentLink" class="learnMore" data-l10n-id="play-drm-content-learn-more" is="text-link"/>
+    <html:a is="moz-support-link"
+      data-l10n-id="play-drm-content-learn-more"
+      support-page="drm-content"
+    />
   </hbox>
 </groupbox>
 
@@ -648,7 +655,10 @@
               class="tail-with-learn-more"
               data-l10n-id="performance-use-recommended-settings-checkbox"
               preference="browser.preferences.defaultPerformanceSettings.enabled"/>
-    <label id="performanceSettingsLearnMore" class="learnMore" data-l10n-id="performance-settings-learn-more" is="text-link"/>
+    <html:a is="moz-support-link"
+      data-l10n-id="performance-settings-learn-more"
+      support-page="performance"
+      />
   </hbox>
   <description class="indent tip-caption" data-l10n-id="performance-use-recommended-settings-desc"/>
 
@@ -717,28 +727,40 @@
             class="tail-with-learn-more"
             data-l10n-id="browsing-picture-in-picture-toggle-enabled"
             preference="media.videocontrols.picture-in-picture.video-toggle.enabled"/>
-    <label id="pictureInPictureLearnMore" class="learnMore" data-l10n-id="browsing-picture-in-picture-learn-more" is="text-link"/>
+    <html:a is="moz-support-link"
+          data-l10n-id="browsing-picture-in-picture-learn-more"
+          support-page="picture-in-picture"
+    />
   </hbox>
   <hbox id="mediaControlBox" align="center" hidden="true">
     <checkbox id="mediaControlToggleEnabled"
             class="tail-with-learn-more"
             data-l10n-id="browsing-media-control"
             preference="media.hardwaremediakeys.enabled"/>
-    <label id="mediaControlLearnMore" class="learnMore" data-l10n-id="browsing-media-control-learn-more" is="text-link"/>
+    <html:a is="moz-support-link"
+          data-l10n-id="browsing-media-control-learn-more"
+          support-page="media-keyboard-control"
+    />
   </hbox>
   <hbox align="center" data-subcategory="cfraddons">
     <checkbox id="cfrRecommendations"
             class="tail-with-learn-more"
             data-l10n-id="browsing-cfr-recommendations"
             preference="browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons"/>
-    <label id="cfrLearnMore" class="learnMore" data-l10n-id="browsing-cfr-recommendations-learn-more" is="text-link"/>
+    <html:a is="moz-support-link"
+          data-l10n-id="browsing-cfr-recommendations-learn-more"
+          support-page="extensionrecommendations"
+    />
   </hbox>
   <hbox align="center" data-subcategory="cfrfeatures">
     <checkbox id="cfrRecommendations-features"
             class="tail-with-learn-more"
             data-l10n-id="browsing-cfr-features"
             preference="browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features"/>
-    <label id="cfrFeaturesLearnMore" class="learnMore" data-l10n-id="browsing-cfr-recommendations-learn-more" is="text-link"/>
+    <html:a is="moz-support-link"
+          data-l10n-id="browsing-cfr-recommendations-learn-more"
+          support-page="extensionrecommendations"
+    />
   </hbox>
 </groupbox>
 
@@ -757,7 +779,10 @@
       data-subcategory="netsettings">
     <description flex="1" control="connectionSettings">
       <html:span id="connectionSettingsDescription"/>
-      <label id="connectionSettingsLearnMore" class="learnMore" is="text-link" data-l10n-id="network-proxy-connection-learn-more"/>
+      <html:a is="moz-support-link"
+            data-l10n-id="network-proxy-connection-learn-more"
+            support-page="prefs-connection-settings"
+      />
     </description>
     <separator orient="vertical"/>
     <button id="connectionSettings"

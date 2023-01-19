@@ -1109,6 +1109,25 @@
   value: 0
   mirror: always
 
+# Whether tooltips are enabled.
+- name: browser.chrome.toolbar_tips
+  type: bool
+  value: true
+  mirror: always
+
+# Whether tooltips are hidden on keydown.
+#  0: never
+#  1: always
+#  2: only on non-modifier keys
+- name: browser.chrome.toolbar_tips.hide_on_keydown
+  type: uint32_t
+#if defined(XP_WIN)
+  value: 0
+#else
+  value: 2
+#endif
+  mirror: always
+
 - name: browser.contentblocking.database.enabled
   type: bool
   value: false
@@ -10760,7 +10779,11 @@
 # implementation will remain hidden behind this pref (Bug 1152401, Bug 934425).
 - name: media.setsinkid.enabled
   type: bool
-  value: false
+#if defined(MOZ_WIDGET_ANDROID)
+  value: false # bug 1473346
+#else
+  value: @IS_NIGHTLY_BUILD@
+#endif
   mirror: always
 
 # Turn on this pref can enable test-only events for media element.
@@ -14759,26 +14782,14 @@
   type: RelaxedAtomicBool
 # (When reading the next line, know that preprocessor.py doesn't
 # understand parentheses, but && is higher precedence than ||.)
-#if defined(XP_MACOSX) || defined(XP_WIN) || defined(XP_LINUX) && !defined(ANDROID)
   value: true
-#elif defined(ANDROID) && defined(NIGHTLY_BUILD)
-  value: true
-#else
-  value: false
-#endif
   mirror: always
 
 - name: webgl.out-of-process.worker
   type: RelaxedAtomicBool
 # (When reading the next line, know that preprocessor.py doesn't
 # understand parentheses, but && is higher precedence than ||.)
-#if defined(XP_MACOSX) || defined(XP_WIN) || defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
   value: true
-#elif defined(MOZ_WIDGET_ANDROID) && defined(NIGHTLY_BUILD)
-  value: true
-#else
-  value: false
-#endif
   mirror: always
 
 - name: webgl.out-of-process.force

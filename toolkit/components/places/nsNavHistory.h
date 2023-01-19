@@ -335,17 +335,19 @@ class nsNavHistory final : public nsSupportsWeakReference,
   void UpdateDaysOfHistory(PRTime visitTime);
 
   /**
-   * Returns true if frecency is currently being decayed.
-   *
-   * @return True if frecency is being decayed, false if not.
-   */
-  bool IsFrecencyDecaying() const;
-
-  /**
    * Store last insterted id for a table.
    */
   static mozilla::Atomic<int64_t> sLastInsertedPlaceId;
   static mozilla::Atomic<int64_t> sLastInsertedVisitId;
+
+  /**
+   * Tracks whether frecency is currently being decayed.
+   */
+  static mozilla::Atomic<bool> sIsFrecencyDecaying;
+  /**
+   * Tracks whether there's frecency to be recalculated.
+   */
+  static mozilla::Atomic<bool> sShouldStartFrecencyRecalculation;
 
   static void StoreLastInsertedId(const nsACString& aTable,
                                   const int64_t aLastInsertedId);
@@ -356,8 +358,6 @@ class nsNavHistory final : public nsSupportsWeakReference,
       nsCOMArray<nsNavHistoryResultNode>* aFiltered,
       const RefPtr<nsNavHistoryQuery>& aQuery,
       nsNavHistoryQueryOptions* aOptions);
-
-  void DecayFrecencyCompleted();
 
   static void InvalidateDaysOfHistory();
 
@@ -460,8 +460,6 @@ class nsNavHistory final : public nsSupportsWeakReference,
   int32_t mUnvisitedBookmarkBonus;
   int32_t mUnvisitedTypedBonus;
   int32_t mReloadVisitBonus;
-
-  uint32_t mDecayFrecencyPendingCount;
 
   nsresult RecalculateOriginFrecencyStatsInternal();
 

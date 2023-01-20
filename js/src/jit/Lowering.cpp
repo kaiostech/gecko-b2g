@@ -1007,8 +1007,8 @@ void LIRGenerator::visitTest(MTest* test) {
                               ? temp()
                               : LDefinition();
     add(new (alloc()) LWasmGcObjectIsSubtypeOfAndBranch(
-            ifTrue, ifFalse, object, superTypeDef, subTypingDepth, subTypeDepth,
-            scratch),
+            ifTrue, ifFalse, object, superTypeDef, subTypingDepth,
+            isSubTypeOf->succeedOnNull(), subTypeDepth, scratch),
         test);
     return;
   }
@@ -4965,9 +4965,17 @@ void LIRGenerator::visitMegamorphicSetElement(MMegamorphicSetElement* ins) {
   MOZ_ASSERT(ins->index()->type() == MIRType::Value);
   MOZ_ASSERT(ins->value()->type() == MIRType::Value);
 
+  // See comment in LIROps.yaml (x86 is short on registers)
+#ifdef JS_CODEGEN_X86
   auto* lir = new (alloc()) LMegamorphicSetElement(
       useRegisterAtStart(ins->object()), useBoxAtStart(ins->index()),
-      useBoxAtStart(ins->value()));
+      useBoxAtStart(ins->value()), tempFixed(CallTempReg0));
+#else
+  auto* lir = new (alloc()) LMegamorphicSetElement(
+      useRegisterAtStart(ins->object()), useBoxAtStart(ins->index()),
+      useBoxAtStart(ins->value()), tempFixed(CallTempReg0),
+      tempFixed(CallTempReg1), tempFixed(CallTempReg2));
+#endif
   add(lir, ins);
   assignSafepoint(lir, ins);
 }

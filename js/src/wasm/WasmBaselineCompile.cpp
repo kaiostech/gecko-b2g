@@ -3149,8 +3149,10 @@ bool BaseCompiler::jumpConditionalWithResults(BranchState* b, RegRef object,
     }
     if (b->stackHeight != resultsBase) {
       Label notTaken;
-      branchGcObjectType(object, typeIndex, &notTaken,
-                         b->invertBranch ? onSuccess : !onSuccess);
+      branchGcObjectType(
+          object, typeIndex, &notTaken,
+          /*succeedOnNull=*/false,
+          /*onSuccess=*/b->invertBranch ? onSuccess : !onSuccess);
 
       // Shuffle stack args.
       shuffleStackResultsBeforeBranch(resultsBase, b->stackHeight,
@@ -3161,8 +3163,8 @@ bool BaseCompiler::jumpConditionalWithResults(BranchState* b, RegRef object,
     }
   }
 
-  branchGcObjectType(object, typeIndex, b->label,
-                     b->invertBranch ? !onSuccess : onSuccess);
+  branchGcObjectType(object, typeIndex, b->label, /*succeedOnNull=*/false,
+                     /*onSuccess=*/b->invertBranch ? !onSuccess : onSuccess);
   return true;
 }
 #endif
@@ -6361,7 +6363,8 @@ void BaseCompiler::SignalNullCheck::emitTrapSite(BaseCompiler* bc) {
 }
 
 void BaseCompiler::branchGcObjectType(RegRef object, uint32_t typeIndex,
-                                      Label* label, bool onSuccess) {
+                                      Label* label, bool succeedOnNull,
+                                      bool onSuccess) {
   const TypeDef& castTypeDef = (*moduleEnv_.types)[typeIndex];
   RegPtr superTypeDef = loadTypeDef(typeIndex);
   RegPtr subTypeDef = needPtr();
@@ -6370,19 +6373,19 @@ void BaseCompiler::branchGcObjectType(RegRef object, uint32_t typeIndex,
     length = needI32();
   }
 
-  if (onSuccess) {
-    Label failed;
-    masm.branchTestPtr(Assembler::Zero, object, object, &failed);
-    masm.loadPtr(Address(object, WasmGcObject::offsetOfTypeDef()), subTypeDef);
-    masm.branchWasmTypeDefIsSubtype(subTypeDef, superTypeDef, length,
-                                    castTypeDef.subTypingDepth(), label, true);
-    masm.bind(&failed);
+  Label fallthrough;
+  Label* successLabel = onSuccess ? label : &fallthrough;
+  Label* failLabel = onSuccess ? &fallthrough : label;
+  if (succeedOnNull) {
+    masm.branchTestPtr(Assembler::Zero, object, object, successLabel);
   } else {
-    masm.branchTestPtr(Assembler::Zero, object, object, label);
-    masm.loadPtr(Address(object, WasmGcObject::offsetOfTypeDef()), subTypeDef);
-    masm.branchWasmTypeDefIsSubtype(subTypeDef, superTypeDef, length,
-                                    castTypeDef.subTypingDepth(), label, false);
+    masm.branchTestPtr(Assembler::Zero, object, object, failLabel);
   }
+  masm.loadPtr(Address(object, WasmGcObject::offsetOfTypeDef()), subTypeDef);
+  masm.branchWasmTypeDefIsSubtype(subTypeDef, superTypeDef, length,
+                                  castTypeDef.subTypingDepth(), label,
+                                  onSuccess);
+  masm.bind(&fallthrough);
 
   if (castTypeDef.subTypingDepth() >= MinSuperTypeVectorLength) {
     freeI32(length);
@@ -7224,7 +7227,8 @@ bool BaseCompiler::emitRefTest() {
   RegRef object = popRef();
   RegI32 result = needI32();
 
-  branchGcObjectType(object, typeIndex, &success, true);
+  branchGcObjectType(object, typeIndex, &success, /*succeedOnNull=*/false,
+                     /*onSuccess=*/true);
   masm.xor32(result, result);
   masm.jump(&join);
   masm.bind(&success);
@@ -7251,7 +7255,8 @@ bool BaseCompiler::emitRefCast() {
   RegRef object = popRef();
 
   Label success;
-  branchGcObjectType(object, typeIndex, &success, true);
+  branchGcObjectType(object, typeIndex, &success, /*succeedOnNull=*/true,
+                     /*onSuccess=*/true);
   masm.wasmTrap(Trap::BadCast, bytecodeOffset());
   masm.bind(&success);
   pushRef(object);
@@ -7290,6 +7295,48 @@ bool BaseCompiler::emitBrOnCastCommon(bool onSuccess) {
     return false;
   }
 
+  return true;
+}
+
+bool BaseCompiler::emitRefAsStruct() {
+  Nothing nothing;
+  return iter_.readConversion(ValType(RefType::any()),
+                              ValType(RefType::struct_().asNonNullable()),
+                              &nothing);
+}
+
+bool BaseCompiler::emitBrOnNonStruct() {
+  MOZ_ASSERT(!hasLatentOp());
+
+  uint32_t labelRelativeDepth;
+  ResultType labelType;
+  BaseNothingVector unused_values{};
+  if (!iter_.readBrOnNonStruct(&labelRelativeDepth, &labelType,
+                               &unused_values)) {
+    return false;
+  }
+
+  if (deadCode_) {
+    return true;
+  }
+
+  Control& target = controlItem(labelRelativeDepth);
+  target.bceSafeOnExit &= bceSafe_;
+
+  BranchState b(&target.label, target.stackHeight, InvertBranch(false),
+                labelType);
+  if (b.hasBlockResults()) {
+    needResultRegisters(b.resultType);
+  }
+  RegI32 condition = needI32();
+  masm.move32(Imm32(1), condition);
+  if (b.hasBlockResults()) {
+    freeResultRegisters(b.resultType);
+  }
+  if (!jumpConditionalWithResults(&b, Assembler::Equal, condition, Imm32(0))) {
+    return false;
+  }
+  freeI32(condition);
   return true;
 }
 
@@ -9456,6 +9503,10 @@ bool BaseCompiler::emitBody() {
             CHECK_NEXT(emitBrOnCastCommon(/*onSuccess=*/true));
           case uint32_t(GcOp::BrOnCastFail):
             CHECK_NEXT(emitBrOnCastCommon(/*onSuccess=*/false));
+          case uint32_t(GcOp::RefAsStruct):
+            CHECK_NEXT(emitRefAsStruct());
+          case uint32_t(GcOp::BrOnNonStruct):
+            CHECK_NEXT(emitBrOnNonStruct());
           case uint16_t(GcOp::ExternInternalize):
             CHECK_NEXT(emitExternInternalize());
           case uint16_t(GcOp::ExternExternalize):

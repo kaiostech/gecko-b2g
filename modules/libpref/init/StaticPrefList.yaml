@@ -1586,16 +1586,6 @@
   value: false
   mirror: always
 
-#
-- name: browser.swipe.navigation-icon-move-distance
-  type: uint32_t
-#if defined(XP_LINUX) || defined(XP_WIN)
-  value: 100
-#else
-  value: 0
-#endif
-  mirror: always
-
 # Whether we should draw the tabs on top of the titlebar.
 #
 # no (0), yes (1), or default (2), which is true everywhere except Linux.
@@ -11689,13 +11679,13 @@
 # Enable 103 Early Hint status code (RFC 8297)
 - name: network.early-hints.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Enable `Link: rel=preconnect` in 103 Early Hint response.
 - name: network.early-hints.preconnect.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # How long we should wait for EarlyHintPreloader to be used.

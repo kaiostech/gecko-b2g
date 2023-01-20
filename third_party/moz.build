@@ -61,7 +61,16 @@ with Files('rlbox/**'):
 with Files("libwebrtc/**"):
     BUG_COMPONENT = ("Core", "WebRTC")
 
+with Files("gbm/**"):
+    BUG_COMPONENT = ("Core", "WebRTC")
+
 with Files("pipewire/**"):
+    BUG_COMPONENT = ("Core", "WebRTC")
+
+with Files("drm/**"):
+    BUG_COMPONENT = ("Core", "WebRTC")
+
+with Files("libepoxy/**"):
     BUG_COMPONENT = ("Core", "WebRTC")
 
 with Files('rlbox_wasm2c_sandbox/**'):

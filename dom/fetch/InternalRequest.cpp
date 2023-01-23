@@ -211,7 +211,8 @@ void InternalRequest::ToIPCInternalRequest(
   for (const auto& url : mURLList) {
     aIPCRequest->urlList().AppendElement(url);
   }
-  mHeaders->ToIPC(aIPCRequest->headers(), aIPCRequest->headersGuard());
+  mHeaders->ToIPC(aIPCRequest->headers(), aIPCRequest->headersGuard(),
+                  aIPCRequest->hasSystemXHRPerm());
   aIPCRequest->bodySize() = mBodyLength;
   aIPCRequest->preferredAlternativeDataType() = mPreferredAlternativeDataType;
   aIPCRequest->contentPolicyType() = mContentPolicyType;

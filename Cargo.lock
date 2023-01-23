@@ -140,9 +140,9 @@ dependencies = [
 
 [[package]]
 name = "ash"
-version = "0.37.1+1.3.235"
+version = "0.37.2+1.3.238"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "911015c962d56e2e4052f40182ca5462ba60a3d2ff04e827c365a0ab3d65726d"
+checksum = "28bf19c1f0a470be5fbf7522a308a05df06610252c5bcf5143e1b23f629a9a03"
 dependencies = [
  "libloading",
 ]
@@ -1101,9 +1101,8 @@ dependencies = [
 
 [[package]]
 name = "cssparser"
-version = "0.29.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f93d03419cb5950ccfd3daf3ff1c7a36ace64609a1a8746d493df1ca0afde0fa"
+version = "0.30.0"
+source = "git+https://github.com/servo/rust-cssparser?rev=722b30d2f1634714befab967ecae627813fa4cf0#722b30d2f1634714befab967ecae627813fa4cf0"
 dependencies = [
  "cssparser-macros",
  "dtoa-short",
@@ -1119,8 +1118,7 @@ dependencies = [
 [[package]]
 name = "cssparser-macros"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfae75de57f2b2e85e8768c3ea840fd159c8f33e2b6522c7835b7abac81be16e"
+source = "git+https://github.com/servo/rust-cssparser?rev=722b30d2f1634714befab967ecae627813fa4cf0#722b30d2f1634714befab967ecae627813fa4cf0"
 dependencies = [
  "quote",
  "syn",
@@ -1694,6 +1692,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "firefox-on-glean"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "glean",
+ "inherent",
+ "log",
+ "mozbuild",
+ "nsstring",
+ "once_cell",
+ "serde",
+ "tempfile",
+ "thin-vec",
+ "uuid",
+ "xpcom",
+]
+
+[[package]]
 name = "flagset"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1830,29 +1847,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
-name = "fog"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "chrono",
- "glean",
- "inherent",
- "log",
- "mozbuild",
- "nsstring",
- "once_cell",
- "serde",
- "tempfile",
- "thin-vec",
- "uuid",
- "xpcom",
-]
-
-[[package]]
 name = "fog-gtest"
 version = "0.1.0"
 dependencies = [
- "fog",
+ "firefox-on-glean",
  "jog",
  "nsstring",
 ]
@@ -1862,7 +1860,7 @@ name = "fog_control"
 version = "0.1.0"
 dependencies = [
  "cstr",
- "fog",
+ "firefox-on-glean",
  "glean",
  "log",
  "nserror",
@@ -2324,7 +2322,9 @@ dependencies = [
 
 [[package]]
 name = "glean"
-version = "52.0.0"
+version = "52.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b82332dcb52cd5abbcda9728131f105865c94cd68f5c2814c970b685f70547b4"
 dependencies = [
  "chrono",
  "crossbeam-channel",
@@ -2342,7 +2342,9 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "52.0.0"
+version = "52.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "122d2fe5b0d4cfa163cca9bdc349da07341765ec42a0fca1a5d245d54f80de55"
 dependencies = [
  "android_logger",
  "bincode",
@@ -2810,7 +2812,7 @@ dependencies = [
 name = "jog"
 version = "0.1.0"
 dependencies = [
- "fog",
+ "firefox-on-glean",
  "log",
  "mozbuild",
  "nsstring",
@@ -3657,7 +3659,7 @@ checksum = "a2983372caf4480544083767bf2d27defafe32af49ab4df3a0b7fc90793a3664"
 [[package]]
 name = "naga"
 version = "0.10.0"
-source = "git+https://github.com/gfx-rs/naga?rev=e7fc8e6#e7fc8e64f2f23397b149217ecce6e123c5aa5092"
+source = "git+https://github.com/gfx-rs/naga?rev=e98bd92#e98bd9264c3a6b04dff15a6b1213c0c80201740a"
 dependencies = [
  "bit-set",
  "bitflags",
@@ -4585,6 +4587,8 @@ dependencies = [
 [[package]]
 name = "rkv"
 version = "0.18.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f0ea3af1393b22f8fe25615b6fa5d13072b7b622e66acffc8b12b2baa0342b1"
 dependencies = [
  "arrayref",
  "bincode",
@@ -6260,7 +6264,7 @@ dependencies = [
  "derive_more",
  "etagere",
  "euclid",
- "fog",
+ "firefox-on-glean",
  "fxhash",
  "gleam",
  "glean",
@@ -6364,7 +6368,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "0.14.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=186a29c34d54d8628bbebb998a537210ac565b71#186a29c34d54d8628bbebb998a537210ac565b71"
+source = "git+https://github.com/gfx-rs/wgpu?rev=fac4731288117d951d0944d96cf0b00fa006dd6c#fac4731288117d951d0944d96cf0b00fa006dd6c"
 dependencies = [
  "arrayvec",
  "bit-vec",
@@ -6387,7 +6391,7 @@ dependencies = [
 [[package]]
 name = "wgpu-hal"
 version = "0.14.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=186a29c34d54d8628bbebb998a537210ac565b71#186a29c34d54d8628bbebb998a537210ac565b71"
+source = "git+https://github.com/gfx-rs/wgpu?rev=fac4731288117d951d0944d96cf0b00fa006dd6c#fac4731288117d951d0944d96cf0b00fa006dd6c"
 dependencies = [
  "android_system_properties",
  "arrayvec",
@@ -6425,7 +6429,7 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "0.14.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=186a29c34d54d8628bbebb998a537210ac565b71#186a29c34d54d8628bbebb998a537210ac565b71"
+source = "git+https://github.com/gfx-rs/wgpu?rev=fac4731288117d951d0944d96cf0b00fa006dd6c#fac4731288117d951d0944d96cf0b00fa006dd6c"
 dependencies = [
  "bitflags",
  "serde",
@@ -6531,7 +6535,7 @@ dependencies = [
  "core-text",
  "dwrote",
  "euclid",
- "fog",
+ "firefox-on-glean",
  "freetype",
  "fxhash",
  "glean",

@@ -2820,72 +2820,6 @@ void nsWindow::SetSizeMode(nsSizeMode aMode) {
   mLastSizeModeRequest = aMode;
 }
 
-static bool GetWindowManagerName(GdkScreen* screen, nsACString& wmName) {
-  if (!GdkIsX11Display()) {
-    return false;
-  }
-
-#ifdef MOZ_X11
-  Display* xdisplay = gdk_x11_get_default_xdisplay();
-  Window root_win = GDK_WINDOW_XID(gdk_screen_get_root_window(screen));
-
-  int actual_format_return;
-  Atom actual_type_return;
-  unsigned long nitems_return;
-  unsigned long bytes_after_return;
-  unsigned char* prop_return = nullptr;
-  auto releaseXProperty = MakeScopeExit([&] {
-    if (prop_return) {
-      XFree(prop_return);
-    }
-  });
-
-  Atom property = XInternAtom(xdisplay, "_NET_SUPPORTING_WM_CHECK", true);
-  Atom req_type = XInternAtom(xdisplay, "WINDOW", true);
-  if (!property || !req_type) {
-    return false;
-  }
-  int result =
-      XGetWindowProperty(xdisplay, root_win, property,
-                         0L,                  // offset
-                         sizeof(Window) / 4,  // length
-                         false,               // delete
-                         req_type, &actual_type_return, &actual_format_return,
-                         &nitems_return, &bytes_after_return, &prop_return);
-
-  if (result != Success || bytes_after_return != 0 || nitems_return != 1) {
-    return false;
-  }
-
-  Window wmWindow = reinterpret_cast<Window*>(prop_return)[0];
-  if (!wmWindow) {
-    return false;
-  }
-
-  XFree(prop_return);
-  prop_return = nullptr;
-
-  property = XInternAtom(xdisplay, "_NET_WM_NAME", true);
-  req_type = XInternAtom(xdisplay, "UTF8_STRING", true);
-  if (!property || !req_type) {
-    return false;
-  }
-  result =
-      XGetWindowProperty(xdisplay, wmWindow, property,
-                         0L,         // offset
-                         INT32_MAX,  // length
-                         false,      // delete
-                         req_type, &actual_type_return, &actual_format_return,
-                         &nitems_return, &bytes_after_return, &prop_return);
-  if (result != Success || bytes_after_return != 0) {
-    return false;
-  }
-
-  wmName = reinterpret_cast<const char*>(prop_return);
-  return true;
-#endif
-}
-
 #define kDesktopMutterSchema "org.gnome.mutter"_ns
 #define kDesktopDynamicWorkspacesKey "dynamic-workspaces"_ns
 
@@ -2897,8 +2831,7 @@ static bool WorkspaceManagementDisabled(GdkScreen* screen) {
     return Preferences::GetBool("widget.workspace-management");
   }
 
-  static const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
-  if (currentDesktop && strstr(currentDesktop, "GNOME")) {
+  if (IsGnomeDesktopEnvironment()) {
     // Gnome uses dynamic workspaces by default so disable workspace management
     // in that case.
     bool usesDynamicWorkspaces = true;
@@ -2916,20 +2849,8 @@ static bool WorkspaceManagementDisabled(GdkScreen* screen) {
     return usesDynamicWorkspaces;
   }
 
-  // When XDG_CURRENT_DESKTOP is missing, try to get window manager name.
-  if (!currentDesktop) {
-    nsAutoCString wmName;
-    if (GetWindowManagerName(screen, wmName)) {
-      if (wmName.EqualsLiteral("bspwm")) {
-        return true;
-      }
-      if (wmName.EqualsLiteral("i3")) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  const auto& desktop = GetDesktopEnvironmentIdentifier();
+  return desktop.EqualsLiteral("bspwm") || desktop.EqualsLiteral("i3");
 }
 
 void nsWindow::GetWorkspaceID(nsAString& workspaceID) {
@@ -3653,17 +3574,8 @@ void nsWindow::CaptureRollupEvents(bool aDoCapture) {
     //
     // We don't do it for most common desktops, if only because it causes X11
     // crashes like bug 1607713.
-    if (const char* desktopSession = getenv("XDG_SESSION_DESKTOP")) {
-      if (!strcmp(desktopSession, "twm")) {
-        return true;
-      }
-    }
-
-    nsAutoCString wmName;
-    if (NS_WARN_IF(!GetWindowManagerName(gdk_screen_get_default(), wmName))) {
-      return false;
-    }
-    return wmName.EqualsLiteral("Sawfish");
+    const auto& desktop = GetDesktopEnvironmentIdentifier();
+    return desktop.EqualsLiteral("twm") || desktop.EqualsLiteral("sawfish");
   }();
 
   const bool grabPointer = [] {
@@ -4296,6 +4208,51 @@ void nsWindow::OnEnterNotifyEvent(GdkEventCrossing* aEvent) {
   DispatchInputEvent(&event);
 }
 
+// Some window managers send a bogus top-level leave-notify event on every
+// click. That confuses our event handling code in ways that can break websites,
+// see bug 1805939 for details.
+//
+// Make sure to only check this on bogus environments, since for environments
+// with CSD, gdk_device_get_window_at_position could return the window even when
+// the pointer is in the decoration area.
+static bool IsBogusLeaveNotifyEvent(GdkWindow* aWindow,
+                                    GdkEventCrossing* aEvent) {
+  static bool sBogusWm = [] {
+    if (GdkIsWaylandDisplay()) {
+      return false;
+    }
+    const auto& desktopEnv = GetDesktopEnvironmentIdentifier();
+    return desktopEnv.EqualsLiteral("fluxbox") ||   // Bug 1805939 comment 0.
+           desktopEnv.EqualsLiteral("blackbox") ||  // Bug 1805939 comment 32.
+           StringBeginsWith(desktopEnv, "fvwm"_ns);
+  }();
+
+  const bool shouldCheck = [] {
+    switch (StaticPrefs::widget_gtk_ignore_bogus_leave_notify()) {
+      case 0:
+        return false;
+      case 1:
+        return true;
+      default:
+        return sBogusWm;
+    }
+  }();
+
+  if (!shouldCheck) {
+    return false;
+  }
+  GdkDevice* pointer = GdkGetPointer();
+  GdkWindow* winAtPt =
+      gdk_device_get_window_at_position(pointer, nullptr, nullptr);
+  if (!winAtPt) {
+    return false;
+  }
+  // We're still in the same top level window, ignore this leave notify event.
+  GdkWindow* topLevelAtPt = gdk_window_get_toplevel(winAtPt);
+  GdkWindow* topLevelWidget = gdk_window_get_toplevel(aWindow);
+  return topLevelAtPt == topLevelWidget;
+}
+
 void nsWindow::OnLeaveNotifyEvent(GdkEventCrossing* aEvent) {
   LOG("leave notify (win=%p, sub=%p): %f, %f mode %d, detail %d\n",
       aEvent->window, aEvent->subwindow, aEvent->x, aEvent->y, aEvent->mode,
@@ -4313,16 +4270,20 @@ void nsWindow::OnLeaveNotifyEvent(GdkEventCrossing* aEvent) {
     return;
   }
 
+  // The filter out for subwindows should make sure that this is targeted to
+  // this nsWindow.
+  const bool leavingTopLevel =
+      mWindowType == eWindowType_toplevel || mWindowType == eWindowType_dialog;
+
+  if (leavingTopLevel && IsBogusLeaveNotifyEvent(mGdkWindow, aEvent)) {
+    return;
+  }
+
   WidgetMouseEvent event(true, eMouseExitFromWidget, this,
                          WidgetMouseEvent::eReal);
 
   event.mRefPoint = GdkEventCoordsToDevicePixels(aEvent->x, aEvent->y);
   event.AssignEventTime(GetWidgetEventTime(aEvent->time));
-
-  // The filter out for subwindows should make sure that this is targeted to
-  // this nsWindow.
-  const bool leavingTopLevel =
-      mWindowType == eWindowType_toplevel || mWindowType == eWindowType_dialog;
   event.mExitFrom = Some(leavingTopLevel ? WidgetMouseEvent::ePlatformTopLevel
                                          : WidgetMouseEvent::ePlatformChild);
 
@@ -8466,8 +8427,7 @@ static nsresult initialize_prefs(void) {
   if (Preferences::HasUserValue("widget.use-aspect-ratio")) {
     gUseAspectRatio = Preferences::GetBool("widget.use-aspect-ratio", true);
   } else {
-    const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
-    gUseAspectRatio = currentDesktop && strstr(currentDesktop, "GNOME");
+    gUseAspectRatio = IsGnomeDesktopEnvironment();
   }
 
   return NS_OK;
@@ -9281,6 +9241,7 @@ nsWindow::GtkWindowDecoration nsWindow::GetSystemGtkWindowDecoration() {
       return GTK_DECORATION_CLIENT;
     }
 
+    // TODO: Consider switching this to GetDesktopEnvironmentIdentifier().
     const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
     if (!currentDesktop) {
       return GTK_DECORATION_NONE;
@@ -9305,14 +9266,8 @@ bool nsWindow::TitlebarUseShapeMask() {
 
     // We can't use shape masks on Mutter/X.org as we can't resize Firefox
     // window there (Bug 1530252).
-    const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
-    if (currentDesktop) {
-      if (strstr(currentDesktop, "GNOME")) {
-        const char* sessionType = getenv("XDG_SESSION_TYPE");
-        if (sessionType && strstr(sessionType, "x11")) {
-          return false;
-        }
-      }
+    if (IsGnomeDesktopEnvironment()) {
+      return false;
     }
 
     return Preferences::GetBool("widget.titlebar-x11-use-shape-mask", false);

@@ -9,10 +9,14 @@
 #include "nsUTF8Utils.h"
 #include "nsIURL.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/dom/DOMExceptionBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PWebTransport.h"
 #include "mozilla/dom/ReadableStream.h"
+#include "mozilla/dom/ReadableStreamDefaultController.h"
 #include "mozilla/dom/WebTransportDatagramDuplexStream.h"
+#include "mozilla/dom/WebTransportError.h"
+#include "mozilla/dom/WebTransportStreams.h"
 #include "mozilla/dom/WebTransportLog.h"
 #include "mozilla/dom/WritableStream.h"
 #include "mozilla/ipc/BackgroundChild.h"
@@ -41,6 +45,36 @@ WebTransport::WebTransport(nsIGlobalObject* aGlobal)
   LOG(("Creating WebTransport %p", this));
 }
 
+WebTransport::~WebTransport() {
+  // Should be empty by this point, because we should always have run cleanup:
+  // https://w3c.github.io/webtransport/#webtransport-procedures
+  MOZ_ASSERT(mSendStreams.IsEmpty());
+  MOZ_ASSERT(mReceiveStreams.IsEmpty());
+  // If this WebTransport was destroyed without being closed properly, make
+  // sure to clean up the channel.
+  // Since child has a raw ptr to us, we MUST call Shutdown() before we're
+  // destroyed
+  if (mChild) {
+    mChild->Shutdown();
+  }
+}
+
+// From parent
+void WebTransport::NewBidirectionalStream(
+    const RefPtr<mozilla::ipc::DataPipeReceiver>& aIncoming,
+    const RefPtr<mozilla::ipc::DataPipeSender>& aOutgoing) {
+  // XXX
+}
+
+void WebTransport::NewUnidirectionalStream(
+    const RefPtr<mozilla::ipc::DataPipeReceiver>& aStream) {
+  // Create a Unidirectional stream and push it into the
+  // IncomingUnidirectionalStreams stream. Must be added to the ReceiveStreams
+  // array
+  //    RefPtr<ReadableStream> stream = CreateReadableByteStream(cx, global,
+  //    algorithm, aRV);
+}
+
 // WebIDL Boilerplate
 
 nsIGlobalObject* WebTransport::GetParentObject() const { return mGlobal; }
@@ -60,48 +94,87 @@ already_AddRefed<WebTransport> WebTransport::Constructor(
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<WebTransport> result = new WebTransport(global);
-  if (!result->Init(aGlobal, aURL, aOptions, aError)) {
+  result->Init(aGlobal, aURL, aOptions, aError);
+  if (aError.Failed()) {
     return nullptr;
   }
 
   return result.forget();
 }
 
-bool WebTransport::Init(const GlobalObject& aGlobal, const nsAString& aURL,
+void WebTransport::Init(const GlobalObject& aGlobal, const nsAString& aURL,
                         const WebTransportOptions& aOptions,
                         ErrorResult& aError) {
+  // https://w3c.github.io/webtransport/#webtransport-constructor
   // Initiate connection with parent
   using mozilla::ipc::BackgroundChild;
   using mozilla::ipc::Endpoint;
   using mozilla::ipc::PBackgroundChild;
 
+  // https://w3c.github.io/webtransport/#webtransport-constructor
+  // Steps 1-4: Parse string for validity and Throw a SyntaxError if it isn't
+  // Let parsedURL be the URL record resulting from parsing url.
+  // If parsedURL is a failure, throw a SyntaxError exception.
+  // If parsedURL scheme is not https, throw a SyntaxError exception.
+  // If parsedURL fragment is not null, throw a SyntaxError exception.
+  if (!ParseURL(aURL)) {
+    aError.ThrowSyntaxError("Invalid WebTransport URL");
+    return;
+  }
+  // Step 5: Let allowPooling be options's allowPooling if it exists, and false
+  // otherwise.
+  // Step 6: Let dedicated be the negation of allowPooling.
+  bool dedicated = !aOptions.mAllowPooling;
+  // Step 7: Let serverCertificateHashes be options's serverCertificateHashes if
+  // it exists, and null otherwise.
+  // Step 8: If dedicated is false and serverCertificateHashes is non-null,
+  // then throw a TypeError.
+  if (aOptions.mServerCertificateHashes.WasPassed()) {
+    // XXX bug 1806693
+    aError.ThrowNotSupportedError("No support for serverCertificateHashes yet");
+    // XXX if dedicated is false and serverCertificateHashes is non-null, then
+    // throw a TypeError. Also should enforce in parent
+    return;
+  }
+  // Step 9: Let requireUnreliable be options's requireUnreliable.
+  bool requireUnreliable = aOptions.mRequireUnreliable;
+  // Step 10: Let congestionControl be options's congestionControl.
+  // Step 11: If congestionControl is not "default", and the user agent
+  // does not support any congestion control algorithms that optimize for
+  // congestionControl, as allowed by [RFC9002] section 7, then set
+  // congestionControl to "default".
+  WebTransportCongestionControl congestionControl =
+      WebTransportCongestionControl::Default;  // aOptions.mCongestionControl;
+  // Set this to 'default' until we add congestion control setting
+
+  // Setup up WebTransportDatagramDuplexStream
+  // Step 12: Let incomingDatagrams be a new ReadableStream.
+  // Step 13: Let outgoingDatagrams be a new WritableStream.
+  // Step 14: Let datagrams be the result of creating a
+  // WebTransportDatagramDuplexStream, its readable set to
+  // incomingDatagrams and its writable set to outgoingDatagrams.
+
+  // XXX TODO
+
+  // Step 15 Let transport be a newly constructed WebTransport object, with:
+  // SendStreams: empty ordered set
+  // ReceiveStreams: empty ordered set
+  // Ready: new promise
   mReady = Promise::Create(mGlobal, aError);
   if (NS_WARN_IF(aError.Failed())) {
-    return false;
+    return;
   }
 
+  // Closed: new promise
   mClosed = Promise::Create(mGlobal, aError);
   if (NS_WARN_IF(aError.Failed())) {
-    return false;
-  }
-
-  QueuingStrategy strategy;
-  Optional<JS::Handle<JSObject*>> underlying;
-  mIncomingUnidirectionalStreams =
-      ReadableStream::Constructor(aGlobal, underlying, strategy, aError);
-  if (aError.Failed()) {
-    return false;
-  }
-  mIncomingBidirectionalStreams =
-      ReadableStream::Constructor(aGlobal, underlying, strategy, aError);
-  if (aError.Failed()) {
-    return false;
+    return;
   }
 
   PBackgroundChild* backgroundChild =
       BackgroundChild::GetOrCreateForCurrentThread();
   if (NS_WARN_IF(!backgroundChild)) {
-    return false;
+    return;
   }
 
   nsCOMPtr<nsIPrincipal> principal = nsContentUtils::GetSystemPrincipal();
@@ -111,31 +184,76 @@ bool WebTransport::Init(const GlobalObject& aGlobal, const nsAString& aURL,
   MOZ_ALWAYS_SUCCEEDS(
       PWebTransport::CreateEndpoints(&parentEndpoint, &childEndpoint));
 
-  RefPtr<WebTransportChild> child = new WebTransportChild();
+  RefPtr<WebTransportChild> child = new WebTransportChild(this);
   if (!childEndpoint.Bind(child)) {
-    return false;
+    return;
   }
 
   mState = WebTransportState::CONNECTING;
+
+  JSContext* cx = aGlobal.Context();
+  // Set up Datagram streams
+  // Step 16: Let pullDatagramsAlgorithm be an action that runs pullDatagrams
+  // with transport.
+  // Step 17: Let writeDatagramsAlgorithm be an action that runs writeDatagrams
+  // with transport.
+  // Step 18: Set up incomingDatagrams with pullAlgorithm set to
+  // pullDatagramsAlgorithm, and highWaterMark set to 0.
+  // Step 19: Set up outgoingDatagrams with writeAlgorithm set to
+  // writeDatagramsAlgorithm.
+
+  // XXX TODO
+
+  // Step 20: Let pullBidirectionalStreamAlgorithm be an action that runs
+  // pullBidirectionalStream with transport.
+  // Step 21: Set up transport.[[IncomingBidirectionalStreams]] with
+  // pullAlgorithm set to pullBidirectionalStreamAlgorithm, and highWaterMark
+  // set to 0.
+  Optional<JS::Handle<JSObject*>> underlying;
+  // Suppress warnings about risk of mGlobal getting nulled during script.
+  // We set the global from the aGlobalObject parameter of the constructor, so
+  // it must still be set here.
+  const nsCOMPtr<nsIGlobalObject> global(mGlobal);
+  // Used to implement the "wait until" aspects of the pull algorithm
+  mIncomingBidirectionalPromise = Promise::Create(mGlobal, aError);
+  if (NS_WARN_IF(aError.Failed())) {
+    return;
+  }
+
+  RefPtr<WebTransportIncomingStreamsAlgorithms> algorithm =
+      new WebTransportIncomingStreamsAlgorithms(mIncomingBidirectionalPromise,
+                                                false, this);
+
+  mIncomingBidirectionalStreams = CreateReadableStream(
+      cx, global, algorithm, Some(0.0), nullptr, aError);  // XXX
+  if (aError.Failed()) {
+    return;
+  }
+  // Step 22: Let pullUnidirectionalStreamAlgorithm be an action that runs
+  // pullUnidirectionalStream with transport.
+  // Step 23: Set up transport.[[IncomingUnidirectionalStreams]] with
+  // pullAlgorithm set to pullUnidirectionalStreamAlgorithm, and highWaterMark
+  // set to 0.
+
+  // Used to implement the "wait until" aspects of the pull algorithm
+  mIncomingUnidirectionalPromise = Promise::Create(mGlobal, aError);
+  if (NS_WARN_IF(aError.Failed())) {
+    return;
+  }
+
+  algorithm = new WebTransportIncomingStreamsAlgorithms(
+      mIncomingUnidirectionalPromise, true, this);
+
+  mIncomingUnidirectionalStreams =
+      CreateReadableStream(cx, global, algorithm, Some(0.0), nullptr, aError);
+  if (aError.Failed()) {
+    return;
+  }
+
+  // Step 24: Initialize WebTransport over HTTP with transport, parsedURL,
+  // dedicated, requireUnreliable, and congestionControl.
   LOG(("Connecting WebTransport to parent for %s",
        NS_ConvertUTF16toUTF8(aURL).get()));
-
-  // Parse string for validity and Throw a SyntaxError if it isn't
-  if (!ParseURL(aURL)) {
-    aError.ThrowSyntaxError("Invalid WebTransport URL");
-    return false;
-  }
-  bool dedicated =
-      !aOptions.mAllowPooling;  // spec language, optimizer will eliminate this
-  bool requireUnreliable = aOptions.mRequireUnreliable;
-  WebTransportCongestionControl congestionControl = aOptions.mCongestionControl;
-  if (aOptions.mServerCertificateHashes.WasPassed()) {
-    // XXX bug 1806693
-    aError.ThrowNotSupportedError("No support for serverCertificateHashes yet");
-    // XXX if dedicated is false and serverCertificateHashes is non-null, then
-    // throw a TypeError. Also should enforce in parent
-    return false;
-  }
 
   // https://w3c.github.io/webtransport/#webtransport-constructor Spec 5.2
   backgroundChild
@@ -160,14 +278,14 @@ bool WebTransport::Init(const GlobalObject& aGlobal, const nsAString& aURL,
                } else {
                  // This will process anything waiting for the connection to
                  // complete;
+
+                 // Step 25 Return transport
                  self->ResolveWaitingConnection(
                      static_cast<WebTransportReliabilityMode>(
                          Get<1>(aResult.ResolveValue())),
                      child);
                }
              });
-
-  return true;
 }
 
 void WebTransport::ResolveWaitingConnection(
@@ -193,6 +311,12 @@ void WebTransport::RejectWaitingConnection(nsresult aRv) {
   // "Reliability returns "pending" until a connection is established" so
   // we leave it pending
   mReady->MaybeReject(aRv);
+  // This will abort any pulls for IncomingBidirectional/UnidirectionalStreams
+  mIncomingBidirectionalPromise->MaybeResolveWithUndefined();
+  mIncomingUnidirectionalPromise->MaybeResolveWithUndefined();
+
+  // We never set mChild, so we aren't holding a reference that blocks GC
+  // (spec 5.8)
 }
 
 bool WebTransport::ParseURL(const nsAString& aURL) const {
@@ -222,8 +346,6 @@ already_AddRefed<Promise> WebTransport::GetStats(ErrorResult& aError) {
   return nullptr;
 }
 
-already_AddRefed<Promise> WebTransport::Ready() { return do_AddRef(mReady); }
-
 WebTransportReliabilityMode WebTransport::Reliability() { return mReliability; }
 
 WebTransportCongestionControl WebTransport::CongestionControl() {
@@ -241,38 +363,66 @@ already_AddRefed<Promise> WebTransport::Closed() {
   return promise.forget();
 }
 
-void WebTransport::Close(const WebTransportCloseInfo& aOptions) {
+void WebTransport::Close(const WebTransportCloseInfo& aOptions,
+                         ErrorResult& aRv) {
   LOG(("Close() called"));
-  if (mState == WebTransportState::CONNECTED ||
-      mState == WebTransportState::CONNECTING) {
-    MOZ_ASSERT(mChild);
-    LOG(("Sending Close"));
-    // "Let reasonString be the maximal code unit prefix of
-    // closeInfo.reason where the length of the UTF-8 encoded prefix
-    // doesn’t exceed 1024."
-    // Take the maximal "code unit prefix" of mReason and limit to 1024 bytes
-    // https://w3c.github.io/webtransport/#webtransport-methods 5.4
-
-    if (aOptions.mReason.Length() > 1024u) {
-      // We want to start looking for the previous code point at one past the
-      // limit, since if a code point ends exactly at the specified length, the
-      // next byte will be the start of a new code point. Note
-      // RewindToPriorUTF8Codepoint doesn't reduce the index if it points to the
-      // start of a code point. We know reason[1024] is accessible since
-      // Length() > 1024
-      mChild->SendClose(
-          aOptions.mCloseCode,
-          Substring(aOptions.mReason, 0,
-                    RewindToPriorUTF8Codepoint(aOptions.mReason.get(), 1024u)));
-    } else {
-      mChild->SendClose(aOptions.mCloseCode, aOptions.mReason);
-    }
-    mState = WebTransportState::CLOSED;
-
-    // The other side will call `Close()` for us now, make sure we don't call it
-    // in our destructor.
-    mChild = nullptr;
+  // https://w3c.github.io/webtransport/#dom-webtransport-close
+  // Step 1 and Step 2: If transport.[[State]] is "closed" or "failed", then
+  // abort these steps.
+  if (mState == WebTransportState::CLOSED ||
+      mState == WebTransportState::FAILED) {
+    return;
   }
+  MOZ_ASSERT(mChild);
+  // Step 3: If transport.[[State]] is "connecting":
+  if (mState == WebTransportState::CONNECTING) {
+    // Step 3.1: Let error be the result of creating a WebTransportError with
+    // "session".
+    RefPtr<WebTransportError> error = new WebTransportError(
+        "close() called on WebTransport while connecting"_ns,
+        WebTransportErrorSource::Session);
+    // Step 3.2: Cleanup transport with error.
+    Cleanup(error, nullptr, aRv);
+    // Step 3.3: Abort these steps.
+    return;
+  }
+  LOG(("Sending Close"));
+  // Step 4: Let session be transport.[[Session]].
+  // Step 5: Let code be closeInfo.closeCode.
+  // Step 6: "Let reasonString be the maximal code unit prefix of
+  // closeInfo.reason where the length of the UTF-8 encoded prefix
+  // doesn’t exceed 1024."
+  // Take the maximal "code unit prefix" of mReason and limit to 1024 bytes
+  // Step 7: Let reason be reasonString, UTF-8 encoded.
+  // Step 8: In parallel, terminate session with code and reason.
+  if (aOptions.mReason.Length() > 1024u) {
+    // We want to start looking for the previous code point at one past the
+    // limit, since if a code point ends exactly at the specified length, the
+    // next byte will be the start of a new code point. Note
+    // RewindToPriorUTF8Codepoint doesn't reduce the index if it points to the
+    // start of a code point. We know reason[1024] is accessible since
+    // Length() > 1024
+    mChild->SendClose(
+        aOptions.mCloseCode,
+        Substring(aOptions.mReason, 0,
+                  RewindToPriorUTF8Codepoint(aOptions.mReason.get(), 1024u)));
+  } else {
+    mChild->SendClose(aOptions.mCloseCode, aOptions.mReason);
+  }
+
+  // Step 9: Cleanup transport with AbortError and closeInfo. (sets mState to
+  // Closed)
+  RefPtr<WebTransportError> error =
+      new WebTransportError("close()"_ns, WebTransportErrorSource::Session,
+                            DOMException_Binding::ABORT_ERR);
+  Cleanup(error, &aOptions, aRv);
+
+  // The other side will call `Close()` for us now, make sure we don't call it
+  // in our destructor.
+  // This also causes IPC to drop the reference to us, allowing us to be
+  // GC'd (spec 5.8)
+  mChild->Shutdown();
+  mChild = nullptr;
 }
 
 already_AddRefed<WebTransportDatagramDuplexStream> WebTransport::Datagrams() {
@@ -301,6 +451,94 @@ already_AddRefed<Promise> WebTransport::CreateUnidirectionalStream(
 
 already_AddRefed<ReadableStream> WebTransport::IncomingUnidirectionalStreams() {
   return do_AddRef(mIncomingUnidirectionalStreams);
+}
+
+// Can be invoked with "error", "error, error, and true/false", or "error and
+// closeInfo", but reason and abruptly are never used, and it does use closeinfo
+void WebTransport::Cleanup(WebTransportError* aError,
+                           const WebTransportCloseInfo* aCloseInfo,
+                           ErrorResult& aRv) {
+  // https://w3c.github.io/webtransport/#webtransport-cleanup
+  // Step 1: Let sendStreams be a copy of transport.[[SendStreams]]
+  // Step 2: Let receiveStreams be a copy of transport.[[ReceiveStreams]]
+  // Step 3: Let ready be transport.[[Ready]]  -> (mReady)
+  // Step 4: Let closed be transport.[[Closed]] -> (mClosed)
+  // Step 5: Let incomingBidirectionalStreams be
+  // transport.[[IncomingBidirectionalStreams]].
+  // Step 6: Let incomingUnidirectionalStreams be
+  // transport.[[IncomingUnidirectionalStreams]].
+  // Step 7: Set transport.[[SendStreams]] to an empty set.
+  // Step 8: Set transport.[[ReceiveStreams]] to an empty set.
+  nsTArray<RefPtr<WritableStream>> sendStreams;
+  sendStreams.SwapElements(mSendStreams);
+  nsTArray<RefPtr<ReadableStream>> receiveStreams;
+  receiveStreams.SwapElements(mReceiveStreams);
+
+  // Step 9: If closeInfo is given, then set transport.[[State]] to "closed".
+  // Otherwise, set transport.[[State]] to "failed".
+  mState = aCloseInfo ? WebTransportState::CLOSED : WebTransportState::FAILED;
+
+  // Step 10: For each sendStream in sendStreams, error sendStream with error.
+  AutoJSAPI jsapi;
+  if (!jsapi.Init(mGlobal)) {
+    aRv.ThrowUnknownError("Internal error");
+    return;
+  }
+  JSContext* cx = jsapi.cx();
+  JS::Rooted<JS::Value> errorValue(cx);
+  bool ok = ToJSValue(cx, aError, &errorValue);
+  if (!ok) {
+    aRv.ThrowUnknownError("Internal error");
+    return;
+  }
+
+  for (const auto& stream : sendStreams) {
+    RefPtr<WritableStreamDefaultController> controller = stream->Controller();
+    WritableStreamDefaultControllerErrorIfNeeded(cx, controller, errorValue,
+                                                 IgnoreErrors());
+  }
+  // Step 11: For each receiveStream in receiveStreams, error receiveStream with
+  // error.
+  for (const auto& stream : receiveStreams) {
+    RefPtr<ReadableStreamDefaultController> controller =
+        stream->Controller()->AsDefault();
+    // XXX replace with ErrorNative() when bug 1809895 lands
+    ReadableStreamDefaultControllerError(cx, controller, errorValue,
+                                         IgnoreErrors());
+  }
+  // Step 12:
+  if (aCloseInfo) {
+    // 12.1: Resolve closed with closeInfo.
+    mClosed->MaybeResolve(aCloseInfo);
+    // 12.2: Assert: ready is settled.
+    MOZ_ASSERT(mReady->State() != Promise::PromiseState::Pending);
+    // 12.3: Close incomingBidirectionalStreams
+    // This keeps the clang-plugin happy
+    RefPtr<ReadableStream> stream = mIncomingBidirectionalStreams;
+    stream->CloseNative(cx, IgnoreErrors());
+    // 12.4: Close incomingUnidirectionalStreams
+    stream = mIncomingUnidirectionalStreams;
+    stream->CloseNative(cx, IgnoreErrors());
+  } else {
+    // Step 13
+    // 13.1: Reject closed with error
+    mClosed->MaybeReject(errorValue);
+    // 13.2: Reject ready with error
+    mReady->MaybeReject(errorValue);
+    // 13.3: Error incomingBidirectionalStreams with error
+    RefPtr<ReadableStreamDefaultController> controller =
+        mIncomingBidirectionalStreams->Controller()->AsDefault();
+    // XXX replace with ErrorNative() when bug 1809895 lands
+    ReadableStreamDefaultControllerError(cx, controller, errorValue,
+                                         IgnoreErrors());
+    // 13.4: Error incomingUnidirectionalStreams with error
+    controller = mIncomingUnidirectionalStreams->Controller()->AsDefault();
+    ReadableStreamDefaultControllerError(cx, controller, errorValue,
+                                         IgnoreErrors());
+  }
+  // abort any pending pulls from Incoming*Streams (not in spec)
+  mIncomingUnidirectionalPromise->MaybeResolveWithUndefined();
+  mIncomingBidirectionalPromise->MaybeResolveWithUndefined();
 }
 
 }  // namespace mozilla::dom

@@ -11201,9 +11201,9 @@ AttachDecision CompareIRGenerator::tryAttachNullUndefined(ValOperandId lhsId,
 
 AttachDecision CompareIRGenerator::tryAttachStringNumber(ValOperandId lhsId,
                                                          ValOperandId rhsId) {
-  // Ensure String x Number
-  if (!(lhsVal_.isString() && rhsVal_.isNumber()) &&
-      !(rhsVal_.isString() && lhsVal_.isNumber())) {
+  // Ensure String x {Number, Boolean, Null, Undefined}
+  if (!(lhsVal_.isString() && CanConvertToDoubleForToNumber(rhsVal_)) &&
+      !(rhsVal_.isString() && CanConvertToDoubleForToNumber(lhsVal_))) {
     return AttachDecision::NoAction;
   }
 
@@ -11215,9 +11215,7 @@ AttachDecision CompareIRGenerator::tryAttachStringNumber(ValOperandId lhsId,
       StringOperandId strId = writer.guardToString(vId);
       return writer.guardStringToNumber(strId);
     }
-    MOZ_ASSERT(v.isNumber());
-    NumberOperandId numId = writer.guardIsNumber(vId);
-    return numId;
+    return EmitGuardToDoubleForToNumber(writer, vId, v);
   };
 
   NumberOperandId lhsGuardedId = createGuards(lhsVal_, lhsId);
@@ -11284,68 +11282,24 @@ AttachDecision CompareIRGenerator::tryAttachPrimitiveSymbol(
   return AttachDecision::Attach;
 }
 
-AttachDecision CompareIRGenerator::tryAttachBoolStringOrNumber(
-    ValOperandId lhsId, ValOperandId rhsId) {
-  // Ensure Boolean x {String, Number}.
-  if (!(lhsVal_.isBoolean() && (rhsVal_.isString() || rhsVal_.isNumber())) &&
-      !(rhsVal_.isBoolean() && (lhsVal_.isString() || lhsVal_.isNumber()))) {
-    return AttachDecision::NoAction;
-  }
-
-  // Case should have been handled by tryAttachStrictDifferentTypes
-  MOZ_ASSERT(op_ != JSOp::StrictEq && op_ != JSOp::StrictNe);
-
-  // Case should have been handled by tryAttachInt32
-  MOZ_ASSERT(!lhsVal_.isInt32() && !rhsVal_.isInt32());
-
-  auto createGuards = [&](const Value& v, ValOperandId vId) {
-    if (v.isBoolean()) {
-      BooleanOperandId boolId = writer.guardToBoolean(vId);
-      return writer.booleanToNumber(boolId);
-    }
-    if (v.isString()) {
-      StringOperandId strId = writer.guardToString(vId);
-      return writer.guardStringToNumber(strId);
-    }
-    MOZ_ASSERT(v.isNumber());
-    return writer.guardIsNumber(vId);
-  };
-
-  NumberOperandId lhsGuardedId = createGuards(lhsVal_, lhsId);
-  NumberOperandId rhsGuardedId = createGuards(rhsVal_, rhsId);
-  writer.compareDoubleResult(op_, lhsGuardedId, rhsGuardedId);
-  writer.returnFromIC();
-
-  trackAttached("BoolStringOrNumber");
-  return AttachDecision::Attach;
-}
-
 AttachDecision CompareIRGenerator::tryAttachBigIntInt32(ValOperandId lhsId,
                                                         ValOperandId rhsId) {
-  // Ensure BigInt x {Int32, Boolean}.
-  if (!(lhsVal_.isBigInt() && (rhsVal_.isInt32() || rhsVal_.isBoolean())) &&
-      !(rhsVal_.isBigInt() && (lhsVal_.isInt32() || lhsVal_.isBoolean()))) {
+  // Ensure BigInt x {Int32, Boolean, Null}.
+  if (!(lhsVal_.isBigInt() && CanConvertToInt32ForToNumber(rhsVal_)) &&
+      !(rhsVal_.isBigInt() && CanConvertToInt32ForToNumber(lhsVal_))) {
     return AttachDecision::NoAction;
   }
 
   // Case should have been handled by tryAttachStrictDifferentTypes
   MOZ_ASSERT(op_ != JSOp::StrictEq && op_ != JSOp::StrictNe);
-
-  auto createGuards = [&](const Value& v, ValOperandId vId) {
-    if (v.isBoolean()) {
-      return writer.guardBooleanToInt32(vId);
-    }
-    MOZ_ASSERT(v.isInt32());
-    return writer.guardToInt32(vId);
-  };
 
   if (lhsVal_.isBigInt()) {
     BigIntOperandId bigIntId = writer.guardToBigInt(lhsId);
-    Int32OperandId intId = createGuards(rhsVal_, rhsId);
+    Int32OperandId intId = EmitGuardToInt32ForToNumber(writer, rhsId, rhsVal_);
 
     writer.compareBigIntInt32Result(op_, bigIntId, intId);
   } else {
-    Int32OperandId intId = createGuards(lhsVal_, lhsId);
+    Int32OperandId intId = EmitGuardToInt32ForToNumber(writer, lhsId, lhsVal_);
     BigIntOperandId bigIntId = writer.guardToBigInt(rhsId);
 
     writer.compareBigIntInt32Result(ReverseCompareOp(op_), bigIntId, intId);
@@ -11358,22 +11312,28 @@ AttachDecision CompareIRGenerator::tryAttachBigIntInt32(ValOperandId lhsId,
 
 AttachDecision CompareIRGenerator::tryAttachBigIntNumber(ValOperandId lhsId,
                                                          ValOperandId rhsId) {
-  // Ensure BigInt x Number.
-  if (!(lhsVal_.isBigInt() && rhsVal_.isNumber()) &&
-      !(rhsVal_.isBigInt() && lhsVal_.isNumber())) {
+  // Ensure BigInt x {Number, Undefined}.
+  if (!(lhsVal_.isBigInt() && CanConvertToDoubleForToNumber(rhsVal_)) &&
+      !(rhsVal_.isBigInt() && CanConvertToDoubleForToNumber(lhsVal_))) {
     return AttachDecision::NoAction;
   }
 
   // Case should have been handled by tryAttachStrictDifferentTypes
   MOZ_ASSERT(op_ != JSOp::StrictEq && op_ != JSOp::StrictNe);
 
+  // Case should have been handled by tryAttachBigIntInt32.
+  MOZ_ASSERT(!CanConvertToInt32ForToNumber(lhsVal_));
+  MOZ_ASSERT(!CanConvertToInt32ForToNumber(rhsVal_));
+
   if (lhsVal_.isBigInt()) {
     BigIntOperandId bigIntId = writer.guardToBigInt(lhsId);
-    NumberOperandId numId = writer.guardIsNumber(rhsId);
+    NumberOperandId numId =
+        EmitGuardToDoubleForToNumber(writer, rhsId, rhsVal_);
 
     writer.compareBigIntNumberResult(op_, bigIntId, numId);
   } else {
-    NumberOperandId numId = writer.guardIsNumber(lhsId);
+    NumberOperandId numId =
+        EmitGuardToDoubleForToNumber(writer, lhsId, lhsVal_);
     BigIntOperandId bigIntId = writer.guardToBigInt(rhsId);
 
     writer.compareBigIntNumberResult(ReverseCompareOp(op_), bigIntId, numId);
@@ -11427,6 +11387,10 @@ AttachDecision CompareIRGenerator::tryAttachStub() {
   // For sloppy equality ops, there are cases this IC does not handle:
   // - {Object} x {String, Symbol, Bool, Number, BigInt}.
   //
+  // For relational comparison ops, these cases aren't handled:
+  // - Object x {String, Bool, Number, BigInt, Object, Null, Undefined}.
+  // Note: |Symbol x any| always throws, so it doesn't need to be handled.
+  //
   // (The above lists omits the equivalent case {B} x {A} when {A} x {B} is
   // already present.)
 
@@ -11455,11 +11419,16 @@ AttachDecision CompareIRGenerator::tryAttachStub() {
   TRY_ATTACH(tryAttachString(lhsId, rhsId));
 
   TRY_ATTACH(tryAttachStringNumber(lhsId, rhsId));
-  TRY_ATTACH(tryAttachBoolStringOrNumber(lhsId, rhsId));
 
   TRY_ATTACH(tryAttachBigIntInt32(lhsId, rhsId));
   TRY_ATTACH(tryAttachBigIntNumber(lhsId, rhsId));
   TRY_ATTACH(tryAttachBigIntString(lhsId, rhsId));
+
+  // Strict equality is always supported.
+  MOZ_ASSERT(!IsStrictEqualityOp(op_));
+
+  // Other operations are unsupported iff at least one operand is an object.
+  MOZ_ASSERT(lhsVal_.isObject() || rhsVal_.isObject());
 
   trackAttached(IRGenerator::NotAttached);
   return AttachDecision::NoAction;

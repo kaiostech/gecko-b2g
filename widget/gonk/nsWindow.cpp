@@ -64,7 +64,7 @@
 #define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, "Gonk", ##args)
 
 #define IS_TOPLEVEL() \
-  (mWindowType == eWindowType_toplevel || mWindowType == eWindowType_dialog)
+  (mWindowType == WindowType::TopLevel || mWindowType == WindowType::Dialog)
 #define OFFSCREEN_CURSOR_POSITION LayoutDeviceIntPoint(-1, -1)
 
 using namespace mozilla;
@@ -411,7 +411,7 @@ static void ThemePrefChanged(const char* aPref, void* aModule) {
 NS_IMETHODIMP
 nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
                  const LayoutDeviceIntRect& aRect,
-                 nsWidgetInitData* aInitData) {
+                 InitData* aInitData) {
   BaseCreate(aParent, aInitData);
 
   uint32_t screenId =
@@ -459,7 +459,7 @@ void nsWindow::Destroy(void) {
 }
 
 void nsWindow::Show(bool aState) {
-  if (mWindowType == eWindowType_invisible) {
+  if (mWindowType == WindowType::Invisible) {
     return;
   }
 
@@ -650,7 +650,7 @@ void nsWindow::ReparentNativeWidget(nsIWidget* aNewParent) {}
 
 NS_IMETHODIMP
 nsWindow::MakeFullScreen(bool aFullScreen) {
-  if (mWindowType != eWindowType_toplevel) {
+  if (mWindowType != WindowType::TopLevel) {
     // Ignore fullscreen request for non-toplevel windows.
     NS_WARNING("MakeFullScreen() on a dialog or child widget?");
     return nsBaseWidget::MakeFullScreen(aFullScreen);

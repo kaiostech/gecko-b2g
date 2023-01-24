@@ -108,6 +108,10 @@ struct InitData {
   // True if the window is user-resizable.
   bool mResizable = false;
   bool mIsPrivate = false;
+  // B2G multi-screen support. Screen ID is for differentiating screens of
+  // windows, and due to the hardware limitation, it is platform-specific for
+  // now, which align with the value of display type defined in HWC.
+  uint32_t mScreenId = 0;
 };
 
 }  // namespace mozilla::widget

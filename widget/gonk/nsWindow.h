@@ -68,7 +68,7 @@ class nsWindow final : public nsBaseWidget {
   using nsBaseWidget::Create;  // for Create signature not overridden here
   NS_IMETHOD Create(nsIWidget* aParent, void* aNativeParent,
                     const LayoutDeviceIntRect& aRect,
-                    nsWidgetInitData* aInitData) override;
+                    InitData* aInitData) override;
   void Destroy(void) override;
 
   void Show(bool aState) override;

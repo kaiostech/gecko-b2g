@@ -591,7 +591,7 @@ bool nsScreenGonk::EnableMirroring() {
   NS_ENSURE_TRUE(ret, false);
 
   // Create a widget for mirroring
-  nsWidgetInitData initData;
+  InitData initData;
   initData.mScreenId = mId;
   RefPtr<nsWindow> window = new nsWindow();
   window->Create(nullptr, nullptr, mNaturalBounds, &initData);

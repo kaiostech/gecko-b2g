@@ -614,18 +614,25 @@ void ScreenOrientation::CleanupFullscreenListener() {
 }
 
 OrientationType ScreenOrientation::DeviceType(CallerType aCallerType) const {
-  return nsContentUtils::ResistFingerprinting(aCallerType)
-             ? OrientationType::Landscape_primary
-             : mType;
+  if (nsContentUtils::ShouldResistFingerprinting(aCallerType,
+                                                 GetOwnerGlobal())) {
+    return OrientationType::Landscape_primary;
+  }
+  return mType;
 }
 
 uint16_t ScreenOrientation::DeviceAngle(CallerType aCallerType) const {
-  return nsContentUtils::ResistFingerprinting(aCallerType) ? 0 : mAngle;
+  if (nsContentUtils::ShouldResistFingerprinting(aCallerType,
+                                                 GetOwnerGlobal())) {
+    return 0;
+  }
+  return mAngle;
 }
 
 OrientationType ScreenOrientation::GetType(CallerType aCallerType,
                                            ErrorResult& aRv) const {
-  if (nsContentUtils::ResistFingerprinting(aCallerType)) {
+  if (nsContentUtils::ShouldResistFingerprinting(aCallerType,
+                                                 GetOwnerGlobal())) {
     return OrientationType::Landscape_primary;
   }
 
@@ -641,7 +648,8 @@ OrientationType ScreenOrientation::GetType(CallerType aCallerType,
 
 uint16_t ScreenOrientation::GetAngle(CallerType aCallerType,
                                      ErrorResult& aRv) const {
-  if (nsContentUtils::ResistFingerprinting(aCallerType)) {
+  if (nsContentUtils::ShouldResistFingerprinting(aCallerType,
+                                                 GetOwnerGlobal())) {
     return 0;
   }
 

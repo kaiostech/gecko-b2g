@@ -315,16 +315,8 @@ async function withWindowOverflowed(
   }
 }
 
-async function verifyExtensionWidget(win, widget, unifiedExtensionsEnabled) {
+async function verifyExtensionWidget(win, widget) {
   Assert.ok(widget, "expected widget");
-
-  Assert.equal(
-    widget.getAttribute("unified-extensions"),
-    unifiedExtensionsEnabled ? "true" : "false",
-    `expected unified-extensions attribute to be ${String(
-      unifiedExtensionsEnabled
-    )}`
-  );
 
   let actionButton = widget.firstElementChild;
   Assert.ok(
@@ -342,83 +334,68 @@ async function verifyExtensionWidget(win, widget, unifiedExtensionsEnabled) {
     ".unified-extensions-item-contents"
   );
 
-  if (unifiedExtensionsEnabled) {
-    Assert.ok(
-      contents,
-      `expected contents element when unifiedExtensionsEnabled=${unifiedExtensionsEnabled}`
-    );
-    // This is needed to correctly position the contents (vbox) element in the
-    // toolbarbutton.
-    Assert.equal(
-      contents.getAttribute("move-after-stack"),
-      "true",
-      "expected move-after-stack attribute to be set"
-    );
-    // Make sure the contents element is inserted after the stack one (which is
-    // automagically created by the toolbarbutton element).
-    Assert.deepEqual(
-      Array.from(actionButton.childNodes.values()).map(
-        child => child.classList[0]
-      ),
-      [
-        // The stack (which contains the extension icon) should be the first
-        // child.
-        "toolbarbutton-badge-stack",
-        // This is the widget label, which is hidden with CSS.
-        "toolbarbutton-text",
-        // This is the contents element, which displays the extension name and
-        // messages.
-        "unified-extensions-item-contents",
-      ],
-      "expected the correct order for the children of the action button"
-    );
+  Assert.ok(contents, "expected contents element");
+  // This is needed to correctly position the contents (vbox) element in the
+  // toolbarbutton.
+  Assert.equal(
+    contents.getAttribute("move-after-stack"),
+    "true",
+    "expected move-after-stack attribute to be set"
+  );
+  // Make sure the contents element is inserted after the stack one (which is
+  // automagically created by the toolbarbutton element).
+  Assert.deepEqual(
+    Array.from(actionButton.childNodes.values()).map(
+      child => child.classList[0]
+    ),
+    [
+      // The stack (which contains the extension icon) should be the first
+      // child.
+      "toolbarbutton-badge-stack",
+      // This is the widget label, which is hidden with CSS.
+      "toolbarbutton-text",
+      // This is the contents element, which displays the extension name and
+      // messages.
+      "unified-extensions-item-contents",
+    ],
+    "expected the correct order for the children of the action button"
+  );
 
-    let name = contents.querySelector(".unified-extensions-item-name");
-    Assert.ok(name, "expected name element");
-    Assert.ok(
-      name.textContent.startsWith("Extension "),
-      "expected name to not be empty"
-    );
-    Assert.ok(
-      contents.querySelector(".unified-extensions-item-message-default"),
-      "expected message default element"
-    );
-    Assert.ok(
-      contents.querySelector(".unified-extensions-item-message-hover"),
-      "expected message hover element"
-    );
+  let name = contents.querySelector(".unified-extensions-item-name");
+  Assert.ok(name, "expected name element");
+  Assert.ok(
+    name.textContent.startsWith("Extension "),
+    "expected name to not be empty"
+  );
+  Assert.ok(
+    contents.querySelector(".unified-extensions-item-message-default"),
+    "expected message default element"
+  );
+  Assert.ok(
+    contents.querySelector(".unified-extensions-item-message-hover"),
+    "expected message hover element"
+  );
 
-    Assert.equal(
-      win.document.l10n.getAttributes(menuButton).id,
-      "unified-extensions-item-open-menu",
-      "expected l10n id attribute for the extension"
-    );
-    Assert.deepEqual(
-      Object.keys(win.document.l10n.getAttributes(menuButton).args),
-      ["extensionName"],
-      "expected l10n args attribute for the extension"
-    );
-    Assert.ok(
-      win.document.l10n
-        .getAttributes(menuButton)
-        .args.extensionName.startsWith("Extension "),
-      "expected l10n args attribute to start with the correct name"
-    );
-    Assert.ok(
-      menuButton.getAttribute("aria-label") !== "",
-      "expected menu button to have non-empty localized content"
-    );
-  } else {
-    Assert.ok(
-      !contents,
-      `expected no contents element when unifiedExtensionsEnabled=${unifiedExtensionsEnabled}`
-    );
-
-    Assert.ok(
-      actionButton.getAttribute("label")?.startsWith("Extension "),
-      "expected button's label to not be empty"
-    );
-  }
+  Assert.equal(
+    win.document.l10n.getAttributes(menuButton).id,
+    "unified-extensions-item-open-menu",
+    "expected l10n id attribute for the extension"
+  );
+  Assert.deepEqual(
+    Object.keys(win.document.l10n.getAttributes(menuButton).args),
+    ["extensionName"],
+    "expected l10n args attribute for the extension"
+  );
+  Assert.ok(
+    win.document.l10n
+      .getAttributes(menuButton)
+      .args.extensionName.startsWith("Extension "),
+    "expected l10n args attribute to start with the correct name"
+  );
+  Assert.ok(
+    menuButton.getAttribute("aria-label") !== "",
+    "expected menu button to have non-empty localized content"
+  );
 }
 
 /**
@@ -427,7 +404,7 @@ async function verifyExtensionWidget(win, widget, unifiedExtensionsEnabled) {
  * panel.
  */
 add_task(async function test_overflowable_toolbar() {
-  let win = await promiseEnableUnifiedExtensions();
+  let win = await BrowserTestUtils.openNewBrowserWindow();
   let movedNode;
 
   await withWindowOverflowed(win, {
@@ -491,7 +468,7 @@ add_task(async function test_overflowable_toolbar() {
 });
 
 add_task(async function test_context_menu() {
-  let win = await promiseEnableUnifiedExtensions();
+  let win = await BrowserTestUtils.openNewBrowserWindow();
 
   await withWindowOverflowed(win, {
     whenOverflowed: async (defaultList, unifiedExtensionList, extensionIDs) => {
@@ -513,8 +490,8 @@ add_task(async function test_context_menu() {
       const firstExtensionWidget = unifiedExtensionList.children[0];
       Assert.ok(firstExtensionWidget, "expected extension widget");
       let contextMenu = await openUnifiedExtensionsContextMenu(
-        win,
-        firstExtensionWidget.dataset.extensionid
+        firstExtensionWidget.dataset.extensionid,
+        win
       );
       Assert.ok(contextMenu, "expected a context menu");
       let visibleItems = getVisibleMenuItems(contextMenu);
@@ -547,8 +524,8 @@ add_task(async function test_context_menu() {
       const secondExtensionWidget = unifiedExtensionList.children[1];
       Assert.ok(secondExtensionWidget, "expected extension widget");
       contextMenu = await openUnifiedExtensionsContextMenu(
-        win,
-        secondExtensionWidget.dataset.extensionid
+        secondExtensionWidget.dataset.extensionid,
+        win
       );
       visibleItems = getVisibleMenuItems(contextMenu);
       is(visibleItems.length, 7, "expected 7 menu items");
@@ -571,8 +548,8 @@ add_task(async function test_context_menu() {
       const thirdExtensionWidget = unifiedExtensionList.children[2];
       Assert.ok(thirdExtensionWidget, "expected extension widget");
       contextMenu = await openUnifiedExtensionsContextMenu(
-        win,
-        thirdExtensionWidget.dataset.extensionid
+        thirdExtensionWidget.dataset.extensionid,
+        win
       );
       Assert.ok(contextMenu, "expected a context menu");
       visibleItems = getVisibleMenuItems(contextMenu);
@@ -589,7 +566,7 @@ add_task(async function test_context_menu() {
 });
 
 add_task(async function test_message_deck() {
-  let win = await promiseEnableUnifiedExtensions();
+  let win = await BrowserTestUtils.openNewBrowserWindow();
 
   await withWindowOverflowed(win, {
     whenOverflowed: async (defaultList, unifiedExtensionList, extensionIDs) => {
@@ -614,8 +591,8 @@ add_task(async function test_message_deck() {
 
           info("verify message when focusing the action button");
           const item = getUnifiedExtensionsItem(
-            win,
-            firstExtensionWidget.dataset.extensionid
+            firstExtensionWidget.dataset.extensionid,
+            win
           );
           Assert.ok(item, "expected an item for the extension");
 
@@ -766,7 +743,7 @@ add_task(async function test_message_deck() {
  * button is put into the addons panel overflow list.
  */
 add_task(async function test_pinning_to_toolbar_when_overflowed() {
-  let win = await promiseEnableUnifiedExtensions();
+  let win = await BrowserTestUtils.openNewBrowserWindow();
   let movedNode;
   let extensionWidgetID;
 
@@ -816,7 +793,7 @@ add_task(async function test_pinning_to_toolbar_when_overflowed() {
  * then does not underflow.
  */
 add_task(async function test_() {
-  let win = await promiseEnableUnifiedExtensions();
+  let win = await BrowserTestUtils.openNewBrowserWindow();
   let extensionID;
 
   await withWindowOverflowed(win, {
@@ -843,8 +820,8 @@ add_task(async function test_() {
       // uncheck it (i.e. unpin the extension).
       await openExtensionsPanel(win);
       const contextMenu = await openUnifiedExtensionsContextMenu(
-        win,
-        extensionID
+        extensionID,
+        win
       );
       Assert.ok(contextMenu, "expected a context menu");
 
@@ -891,7 +868,7 @@ add_task(async function test_() {
     afterUnderflowed: async () => {
       await openExtensionsPanel(win);
 
-      const item = getUnifiedExtensionsItem(win, extensionID);
+      const item = getUnifiedExtensionsItem(extensionID, win);
       Assert.ok(
         item,
         "expected extension widget to be listed in the unified extensions panel"

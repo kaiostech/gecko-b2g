@@ -162,7 +162,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
  public:
   nsBaseWidget();
 
-  explicit nsBaseWidget(nsBorderStyle aBorderStyle);
+  explicit nsBaseWidget(BorderStyle aBorderStyle);
 
   NS_DECL_THREADSAFE_ISUPPORTS
 
@@ -194,8 +194,8 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
     mCursor = {};
     mUpdateCursor = true;
   }
-  void SetTransparencyMode(nsTransparencyMode aMode) override;
-  nsTransparencyMode GetTransparencyMode() override;
+  void SetTransparencyMode(TransparencyMode aMode) override;
+  TransparencyMode GetTransparencyMode() override;
   void SetWindowShadowStyle(mozilla::StyleWindowShadow aStyle) override {}
   void SetShowsToolbarButton(bool aShow) override {}
   void SetSupportsNativeFullscreen(bool aSupportsNativeFullscreen) override {}
@@ -244,7 +244,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   // -setting- them (i.e. moving or resizing the widget) will always return
   // values in the widget's device pixels.
   bool BoundsUseDesktopPixels() const {
-    return mWindowType <= eWindowType_popup;
+    return mWindowType <= WindowType::Popup;
   }
   // Default implementation, to be overridden by platforms where desktop coords
   // are virtualized and may not correspond to device pixels on the screen.
@@ -293,7 +293,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
   already_AddRefed<nsIWidget> CreateChild(
-      const LayoutDeviceIntRect& aRect, nsWidgetInitData* aInitData = nullptr,
+      const LayoutDeviceIntRect& aRect, InitData* aInitData = nullptr,
       bool aForceUseIWidgetParent = false) override;
   void AttachViewToTopLevel(bool aUseAttachedEvents) override;
   nsIWidgetListener* GetAttachedWidgetListener() const override;
@@ -366,7 +366,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   // accelerating)
   bool IsSmallPopup() const;
 
-  nsPopupLevel PopupLevel() { return mPopupLevel; }
+  PopupLevel GetPopupLevel() { return mPopupLevel; }
 
   LayoutDeviceIntSize ClientToWindowSize(
       const LayoutDeviceIntSize& aClientSize) override {
@@ -375,9 +375,9 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
 
   // return true if this is a popup widget with a native titlebar
   bool IsPopupWithTitleBar() const {
-    return (mWindowType == eWindowType_popup &&
-            mBorderStyle != eBorderStyle_default &&
-            mBorderStyle & eBorderStyle_title);
+    return (mWindowType == WindowType::Popup &&
+            mBorderStyle != BorderStyle::Default &&
+            mBorderStyle & BorderStyle::Title);
   }
 
   void ReparentNativeWidget(nsIWidget* aNewParent) override {}
@@ -484,7 +484,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   void ResolveIconName(const nsAString& aIconName, const nsAString& aIconSuffix,
                        nsIFile** aResult);
   virtual void OnDestroy();
-  void BaseCreate(nsIWidget* aParent, nsWidgetInitData* aInitData);
+  void BaseCreate(nsIWidget* aParent, InitData* aInitData);
 
   virtual void ConfigureAPZCTreeManager();
   virtual void ConfigureAPZControllerThread();
@@ -591,7 +591,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
 
   WindowRenderer* CreateFallbackRenderer();
 
-  nsPopupType PopupType() const { return mPopupType; }
+  PopupType GetPopupType() const { return mPopupType; }
 
   bool HasRemoteContent() const { return mHasRemoteContent; }
 
@@ -710,11 +710,11 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   RefPtr<mozilla::SwipeTracker> mSwipeTracker;
   mozilla::UniquePtr<mozilla::SwipeEventQueue> mSwipeEventQueue;
   Cursor mCursor;
-  nsBorderStyle mBorderStyle;
+  BorderStyle mBorderStyle;
   LayoutDeviceIntRect mBounds;
   bool mIsTiled;
-  nsPopupLevel mPopupLevel;
-  nsPopupType mPopupType;
+  PopupLevel mPopupLevel;
+  PopupType mPopupType;
   SizeConstraints mSizeConstraints;
   bool mHasRemoteContent;
 

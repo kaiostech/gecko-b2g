@@ -286,7 +286,6 @@ this.browserAction = class extends ExtensionAPIPersistent {
         menuButton.setAttribute("closemenu", "none");
 
         let node = document.createXULElement("toolbaritem");
-        node.setAttribute("unified-extensions", String(true));
         node.classList.add(
           "toolbaritem-combined-buttons",
           "unified-extensions-item"
@@ -819,7 +818,7 @@ this.browserAction = class extends ExtensionAPIPersistent {
     let policy = WebExtensionPolicy.getByID(this.extension.id);
     let messages = OriginControls.getStateMessageIDs({
       policy,
-      uri: node.ownerGlobal.gBrowser.currentURI,
+      tab: node.ownerGlobal.gBrowser.selectedTab,
       isAction: true,
       hasPopup: !!tabData.popup,
     });

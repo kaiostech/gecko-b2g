@@ -1222,6 +1222,13 @@ ContentParent::GetNewOrUsedLaunchingBrowserProcess(
           ("GetNewOrUsedProcess for type %s",
            PromiseFlatCString(aRemoteType).get()));
 
+  // Fallback check (we really want our callers to avoid this).
+  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed)) {
+    MOZ_DIAGNOSTIC_ASSERT(
+        false, "Late attempt to GetNewOrUsedLaunchingBrowserProcess!");
+    return nullptr;
+  }
+
   // If we have an existing host process attached to this BrowsingContextGroup,
   // always return it, as we can never have multiple host processes within a
   // single BrowsingContextGroup.
@@ -1396,11 +1403,6 @@ already_AddRefed<ContentParent> ContentParent::GetNewOrUsedJSPluginProcess(
 
   return p.forget();
 }
-
-#if defined(XP_WIN)
-/*static*/
-void ContentParent::SendAsyncUpdate(nsIWidget* aWidget) {}
-#endif  // defined(XP_WIN)
 
 static nsIDocShell* GetOpenerDocShellHelper(Element* aFrameElement) {
   // Propagate the private-browsing status of the element's parent
@@ -1637,12 +1639,6 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
       !aBrowsingContext->Canonical()->GetBrowserParent(),
       "BrowsingContext must not have BrowserParent, or have previous "
       "BrowserParent cleared");
-
-  // Take a shortcut (BeginSubprpocessLaunch would fail later, too).
-  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
-    MOZ_ASSERT(false, "Late attempt to CreateBrowser!");
-    return nullptr;
-  }
 
   nsAutoCString remoteType(aRemoteType);
   if (remoteType.IsEmpty()) {
@@ -2803,10 +2799,6 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   // otherwise ActorDestroy will take care.
   AddShutdownBlockers();
 
-  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
-    MOZ_ASSERT(false, "Late attempt to launch a process!");
-    return false;
-  }
   if (!ContentProcessManager::GetSingleton()) {
     MOZ_ASSERT(false, "Unable to acquire ContentProcessManager singleton!");
     return false;
@@ -4554,6 +4546,15 @@ mozilla::ipc::IPCResult ContentParent::RecvCloneDocumentTreeInto(
     const MaybeDiscarded<BrowsingContext>& aSource,
     const MaybeDiscarded<BrowsingContext>& aTarget, PrintData&& aPrintData) {
   if (aSource.IsNullOrDiscarded() || aTarget.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+
+  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed)) {
+    // All existing processes have potentially been slated for removal already,
+    // such that any subsequent call to GetNewOrUsedLaunchingBrowserProcess
+    // (normally supposed to find an existing process here) will try to create
+    // a new process (but fail) that nobody would ever really use. Let's avoid
+    // this together with the expensive CloneDocumentTreeInto operation.
     return IPC_OK();
   }
 

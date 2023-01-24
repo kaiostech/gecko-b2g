@@ -33,20 +33,23 @@ ChromeUtils.defineESModuleGetters(this, {
 window.addEventListener("load", function onload(event) {
   try {
     window.removeEventListener("load", onload);
-    Troubleshoot.snapshot(async function(snapshot) {
+    Troubleshoot.snapshot().then(async snapshot => {
       for (let prop in snapshotFormatters) {
         try {
           await snapshotFormatters[prop](snapshot[prop]);
         } catch (e) {
-          Cu.reportError(
-            "stack of snapshot error for about:support: " + e + ": " + e.stack
+          console.error(
+            "stack of snapshot error for about:support: ",
+            e,
+            ": ",
+            e.stack
           );
         }
       }
       if (location.hash) {
         scrollToSection();
       }
-    });
+    }, console.error);
     populateActionBox();
     setupEventListeners();
 
@@ -55,9 +58,7 @@ window.addEventListener("load", function onload(event) {
       $("update-history-row").hidden = true;
     }
   } catch (e) {
-    Cu.reportError(
-      "stack of load error for about:support: " + e + ": " + e.stack
-    );
+    console.error("stack of load error for about:support: ", e, ": ", e.stack);
   }
 });
 
@@ -1363,8 +1364,8 @@ function copyRawDataToClipboard(button) {
   if (button) {
     button.disabled = true;
   }
-  try {
-    Troubleshoot.snapshot(async function(snapshot) {
+  Troubleshoot.snapshot().then(
+    async snapshot => {
       if (button) {
         button.disabled = false;
       }
@@ -1383,13 +1384,14 @@ function copyRawDataToClipboard(button) {
         null,
         Ci.nsIClipboard.kGlobalClipboard
       );
-    });
-  } catch (err) {
-    if (button) {
-      button.disabled = false;
+    },
+    err => {
+      if (button) {
+        button.disabled = false;
+      }
+      console.error(err);
     }
-    throw err;
-  }
+  );
 }
 
 function getLoadContext() {

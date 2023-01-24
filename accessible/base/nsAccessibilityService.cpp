@@ -965,8 +965,8 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
     return nullptr;
   }
 
-  // Check frame and its visibility. Note, hidden frame allows visible
-  // elements in subtree.
+  // Check frame and its visibility. Note, visibility: hidden frame allows
+  // visible elements in subtree.
   nsIFrame* frame = content->GetPrimaryFrame();
   if (!frame || !frame->StyleVisibility()->IsVisible()) {
     // display:contents element doesn't have a frame, but retains the semantics.
@@ -987,6 +987,12 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
 
     if (aIsSubtreeHidden && !frame) *aIsSubtreeHidden = true;
 
+    return nullptr;
+  }
+
+  if (frame->IsHiddenByContentVisibilityOnAnyAncestor(
+          nsIFrame::IncludeContentVisibility::Hidden)) {
+    if (aIsSubtreeHidden) *aIsSubtreeHidden = true;
     return nullptr;
   }
 

@@ -1,7 +1,9 @@
 #!/bin/bash
 
+source dom/media/webrtc/third_party_build/use_config_env.sh
+
 # file for logging loop script output
-LOOP_OUTPUT_LOG=~/log-loop-ff.txt
+LOOP_OUTPUT_LOG=$LOG_DIR/log-loop-ff.txt
 
 function show_error_msg()
 {
@@ -11,8 +13,6 @@ function show_error_msg()
 
 # Print an Error message if `set -eE` causes the script to exit due to a failed command
 trap 'show_error_msg $LINENO' ERR
-
-source dom/media/webrtc/third_party_build/use_config_env.sh
 
 # If DEBUG_LOOP_FF is set all commands should be printed as they are executed
 if [ ! "x$DEBUG_LOOP_FF" = "x" ]; then
@@ -63,8 +63,8 @@ hg revert -C third_party/libwebrtc/README.moz-ff-commit &> /dev/null
 
 # check for a resume situation from fast-forward-libwebrtc.sh
 RESUME=""
-if [ -f log_resume.txt ]; then
-  RESUME=`tail -1 log_resume.txt`
+if [ -f $STATE_DIR/resume_state ]; then
+  RESUME=`tail -1 $STATE_DIR/resume_state`
 fi
 
 ERROR_HELP=$"
@@ -111,8 +111,8 @@ fi
 SKIP_NEXT_REVERT_CHK="0"
 ERROR_HELP=""
 
-echo "===loop-ff=== looking for ~/$MOZ_LIBWEBRTC_NEXT_BASE.no-op-cherry-pick-msg"
-if [ -f ~/$MOZ_LIBWEBRTC_NEXT_BASE.no-op-cherry-pick-msg ]; then
+echo "===loop-ff=== looking for $STATE_DIR/$MOZ_LIBWEBRTC_NEXT_BASE.no-op-cherry-pick-msg"
+if [ -f $STATE_DIR/$MOZ_LIBWEBRTC_NEXT_BASE.no-op-cherry-pick-msg ]; then
   echo "===loop-ff=== detected special commit msg, setting HANDLE_NOOP_COMMIT=1"
   HANDLE_NOOP_COMMIT="1"
 fi
@@ -125,7 +125,7 @@ MOZ_CHANGED=`hg diff -c tip --stat \
    | wc -l | tr -d " " || true`
 GIT_CHANGED=`cd $MOZ_LIBWEBRTC_SRC ; \
    git show --oneline --name-only $MOZ_LIBWEBRTC_NEXT_BASE \
-   | csplit -f gitshow -sk - 2 ; cat gitshow01 \
+   | csplit -f $TMP_DIR/gitshow -sk - 2 ; cat $TMP_DIR/gitshow01 \
    | egrep -ve "^CODE_OF_CONDUCT.md|^ENG_REVIEW_OWNERS|^PRESUBMIT.py|^README.chromium|^WATCHLISTS|^abseil-in-webrtc.md|^codereview.settings|^license_template.txt|^native-api.md|^presubmit_test.py|^presubmit_test_mocks.py|^pylintrc|^style-guide.md" \
    | wc -l | tr -d " " || true`
 FILE_CNT_MISMATCH_MSG=$"

@@ -1351,6 +1351,14 @@ bool DocAccessible::PruneOrInsertSubtree(nsIContent* aRoot) {
       return false;
     }
 
+    // If the frame is hidden because its ancestor is specified with
+    // `content-visibility: hidden`, remove its Accessible.
+    if (frame && frame->IsHiddenByContentVisibilityOnAnyAncestor(
+                     nsIFrame::IncludeContentVisibility::Hidden)) {
+      ContentRemoved(aRoot);
+      return false;
+    }
+
     // If it's a XULLabel it was probably reframed because a `value` attribute
     // was added. The accessible creates its text leaf upon construction, so we
     // need to recreate. Remove it, and schedule for reconstruction.

@@ -2223,14 +2223,21 @@ const unsigned int sSpecificDomainsExemptMask = 0x04;
 const char* kExemptedDomainsPrefName =
     "privacy.resistFingerprinting.exemptedDomains";
 
-// --------------------------------------------------------------------------
 /* static */
 bool nsContentUtils::ShouldResistFingerprinting(const char* aJustification) {
   // See comment in header file for information about usage
   return ShouldResistFingerprinting();
 }
 
-// ----------------------------------------------------------------------
+/* static */
+bool nsContentUtils::ShouldResistFingerprinting(
+    CallerType aCallerType, nsIGlobalObject* aGlobalObject) {
+  if (aCallerType == CallerType::System) {
+    return false;
+  }
+  return ShouldResistFingerprinting(aGlobalObject);
+}
+
 bool nsContentUtils::ShouldResistFingerprinting(nsIDocShell* aDocShell) {
   if (!aDocShell) {
     MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Info,
@@ -2248,7 +2255,6 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIDocShell* aDocShell) {
   return doc->ShouldResistFingerprinting();
 }
 
-// ----------------------------------------------------------------------
 /* static */
 bool nsContentUtils::ShouldResistFingerprinting(nsIChannel* aChannel) {
   if (!ShouldResistFingerprinting("Legacy quick-check")) {
@@ -2327,7 +2333,6 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIChannel* aChannel) {
   return ShouldResistFingerprinting(loadInfo);
 }
 
-// ----------------------------------------------------------------------
 /* static */
 bool nsContentUtils::ShouldResistFingerprinting_dangerous(
     nsIURI* aURI, const mozilla::OriginAttributes& aOriginAttributes,
@@ -2376,7 +2381,6 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
   return !isExemptDomain;
 }
 
-// ----------------------------------------------------------------------
 /* static */
 bool nsContentUtils::ShouldResistFingerprinting(nsILoadInfo* aLoadInfo) {
   MOZ_ASSERT(aLoadInfo->GetExternalContentPolicyType() !=
@@ -2405,7 +2409,6 @@ bool nsContentUtils::ShouldResistFingerprinting(nsILoadInfo* aLoadInfo) {
   return ShouldResistFingerprinting_dangerous(principal, "Internal Call");
 }
 
-// ----------------------------------------------------------------------
 /* static */
 bool nsContentUtils::ShouldResistFingerprinting_dangerous(
     nsIPrincipal* aPrincipal, const char* aJustification) {
@@ -2490,7 +2493,6 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
   return !isExemptDomain;
 }
 
-// ------------------------------------------------------------------
 /* static */
 void nsContentUtils::CalcRoundedWindowSizeForResistingFingerprinting(
     int32_t aChromeWidth, int32_t aChromeHeight, int32_t aScreenWidth,

@@ -15,6 +15,40 @@ let AboutThirdParty = null;
 let CrashModuleSet = null;
 let gBackgroundTasksDone = false;
 
+function moduleCompareForDisplay(a, b) {
+  // First, show blocked modules that were blocked at launch - this will keep the ordering
+  // consistent when the user blocks/unblocks things.
+  const bBlocked =
+    b.typeFlags & Ci.nsIAboutThirdParty.ModuleType_BlockedByUserAtLaunch
+      ? 1
+      : 0;
+  const aBlocked =
+    a.typeFlags & Ci.nsIAboutThirdParty.ModuleType_BlockedByUserAtLaunch
+      ? 1
+      : 0;
+
+  let diff = bBlocked - aBlocked;
+  if (diff) {
+    return diff;
+  }
+
+  // Next, show crasher modules
+  diff = b.isCrasher - a.isCrasher;
+  if (diff) {
+    return diff;
+  }
+
+  // Then unknown-type modules
+  diff = a.typeFlags - b.typeFlags;
+  if (diff) {
+    return diff;
+  }
+
+  // Lastly sort the remaining modules in descending order
+  // of duration to move up slower modules.
+  return b.loadingOnMain - a.loadingOnMain;
+}
+
 async function fetchData() {
   let data = null;
   try {
@@ -31,7 +65,7 @@ async function fetchData() {
       !(e instanceof Components.Exception) ||
       e.result != Cr.NS_ERROR_NOT_AVAILABLE
     ) {
-      Cu.reportError(e);
+      console.error(e);
     }
   }
 
@@ -115,23 +149,7 @@ async function fetchData() {
     }
   }
 
-  data.modules.sort((a, b) => {
-    // Firstly, show crasher modules
-    let diff = b.isCrasher - a.isCrasher;
-    if (diff) {
-      return diff;
-    }
-
-    // Then unknown-type modules
-    diff = a.typeFlags - b.typeFlags;
-    if (diff) {
-      return diff;
-    }
-
-    // Lastly sort the remaining modules in descending order
-    // of duration to move up slower modules.
-    return b.loadingOnMain - a.loadingOnMain;
-  });
+  data.modules.sort(moduleCompareForDisplay);
 
   return { modules: data.modules, blocked: blockedModules };
 }
@@ -213,7 +231,7 @@ async function onBlock(event) {
     event.target.setAttribute("data-l10n-id", blockButtonL10nId);
     updatedBlocklist = true;
   } catch (ex) {
-    Cu.reportError("Failed to update the blocklist file - " + ex.result);
+    console.error("Failed to update the blocklist file - ", ex.result);
   } finally {
     processingBlockRequest = false;
   }
@@ -564,7 +582,7 @@ async function collectCrashInfo() {
     try {
       return BigInt(maybeBigInt);
     } catch (e) {
-      Cu.reportError(e);
+      console.error(e);
     }
     return NaN;
   };
@@ -608,7 +626,7 @@ async function onLoad() {
       e.target.disabled = true;
 
       const data = await fetchData();
-      await copyDataToClipboard(data || []).catch(Cu.reportError);
+      await copyDataToClipboard(data || []).catch(console.error);
 
       e.target.disabled = false;
     });
@@ -647,7 +665,7 @@ async function onLoad() {
       // we show the reload button to call visualizeData again.
       button.hidden = false;
     })
-    .catch(Cu.reportError);
+    .catch(console.error);
 
   const data = await fetchData();
   // Used for testing purposes
@@ -670,5 +688,5 @@ try {
 } catch (ex) {
   // Do nothing if we fail to create a singleton instance,
   // showing the default no-module message.
-  Cu.reportError(ex);
+  console.error(ex);
 }

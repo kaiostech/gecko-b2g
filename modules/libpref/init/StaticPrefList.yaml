@@ -3930,6 +3930,13 @@
   value: false
   mirror: always
 
+# pref controls `identity` credential platform behavior for testing. When true,
+# the .well-known file check is not performed.
+- name: dom.security.credentialmanagement.identity.test_ignore_well_known
+  type: bool
+  value: false
+  mirror: always
+
 # pref controls whether we should delay identity credential rejections at all
 - name: dom.security.credentialmanagement.identity.reject_delay.enabled
   type: bool
@@ -11795,6 +11802,16 @@
   value: true
   mirror: always
 
+- name: network.dns.max_high_priority_threads
+  type: RelaxedAtomicUint32
+  value: 5
+  mirror: always
+
+- name: network.dns.max_any_priority_threads
+  type: RelaxedAtomicUint32
+  value: 3
+  mirror: always
+
 # The proxy type. See nsIProtocolProxyService.idl
 #     PROXYCONFIG_DIRECT   = 0
 #     PROXYCONFIG_MANUAL   = 1
@@ -12783,12 +12800,6 @@
 - name: print.always_print_silent
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Whether the pages per sheet print setting is enabled.
-- name: print.pages_per_sheet.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # Whether we attempt to generate links in Save As PDF output.

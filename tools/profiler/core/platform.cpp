@@ -2772,7 +2772,10 @@ static PreRecordedMetaInformation PreRecordMetaInformation() {
       Unused << http->GetOscpu(info.mHttpOscpu);
     }
 
-    Unused << http->GetMisc(info.mHttpMisc);
+    // Firefox version is capped to 109.0 in the http "misc" field due to some
+    // webcompat issues (Bug 1805967). We need to put the real version instead.
+    info.mHttpMisc.AssignLiteral("rv:");
+    info.mHttpMisc.AppendLiteral(MOZILLA_UAVERSION);
   }
 
   if (nsCOMPtr<nsIXULRuntime> runtime =
@@ -2810,7 +2813,7 @@ static void StreamMetaJSCustomObject(
     const PreRecordedMetaInformation& aPreRecordedMetaInformation) {
   MOZ_RELEASE_ASSERT(CorePS::Exists() && ActivePS::Exists(aLock));
 
-  aWriter.IntProperty("version", 26);
+  aWriter.IntProperty("version", 27);
 
   // The "startTime" field holds the number of milliseconds since midnight
   // January 1, 1970 GMT. This grotty code computes (Now - (Now -

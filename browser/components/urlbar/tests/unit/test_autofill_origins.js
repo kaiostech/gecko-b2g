@@ -37,7 +37,6 @@ add_task(async function trailingSlash() {
     context,
     autofilled: `${origin}/`,
     completed: `http://${origin}/`,
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: `http://${origin}/`,
@@ -62,7 +61,6 @@ add_task(async function trailingSlashWWW() {
     context,
     autofilled: "example.com/",
     completed: "http://www.example.com/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: `http://www.${origin}/`,
@@ -86,7 +84,6 @@ add_task(async function port() {
     context,
     autofilled: "example.com:8888/",
     completed: "http://example.com:8888/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: `http://${origin}:8888/`,
@@ -111,7 +108,6 @@ add_task(async function portPartial() {
     context,
     autofilled: "example.com:8888/",
     completed: "http://example.com:8888/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: `http://${origin}:8888/`,
@@ -136,7 +132,6 @@ add_task(async function preserveCase() {
     context,
     autofilled: "EXaMple.com/",
     completed: "http://example.com/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: `http://${origin}/`,
@@ -162,7 +157,6 @@ add_task(async function preserveCasePort() {
     context,
     autofilled: "EXaMple.com:8888/",
     completed: "http://example.com:8888/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: `http://${origin}:8888/`,
@@ -188,7 +182,7 @@ add_task(async function portNoMatch1() {
       makeVisitResult(context, {
         source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
         uri: `http://${origin}:89/`,
-        title: `http://${origin}:89/`,
+        fallbackTitle: `http://${origin}:89/`,
         iconUri: "",
         heuristic: true,
         providerName: HEURISTIC_FALLBACK_PROVIDERNAME,
@@ -212,7 +206,7 @@ add_task(async function portNoMatch2() {
       makeVisitResult(context, {
         source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
         uri: `http://${origin}:9/`,
-        title: `http://${origin}:9/`,
+        fallbackTitle: `http://${origin}:9/`,
         iconUri: "",
         heuristic: true,
         providerName: HEURISTIC_FALLBACK_PROVIDERNAME,
@@ -236,7 +230,7 @@ add_task(async function trailingSlash_2() {
       makeVisitResult(context, {
         source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
         uri: "http://example/",
-        title: "http://example/",
+        fallbackTitle: "http://example/",
         iconUri: "page-icon:http://example/",
         heuristic: true,
         providerName: HEURISTIC_FALLBACK_PROVIDERNAME,
@@ -258,7 +252,6 @@ add_task(async function multidotted() {
     context,
     autofilled: "www.example.co.jp:8888/",
     completed: "http://www.example.co.jp:8888/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: "http://www.example.co.jp:8888/",
@@ -290,7 +283,6 @@ add_task(async function test_ip() {
         context,
         autofilled: str,
         completed: "http://" + str,
-        hasAutofillTitle: true,
         matches: [
           makeVisitResult(context, {
             uri: "http://" + str,
@@ -317,7 +309,6 @@ add_task(async function large_number_host() {
     context,
     autofilled: "12345example.it:8888/",
     completed: "http://12345example.it:8888/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: "http://12345example.it:8888/",
@@ -375,7 +366,6 @@ add_task(async function groupByHost() {
     context,
     autofilled: "example.com/",
     completed: "https://example.com/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: "https://example.com/",
@@ -441,7 +431,6 @@ add_task(async function groupByHostNonDefaultStddevMultiplier() {
     context,
     autofilled: "example.com/",
     completed: "https://example.com/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: "https://example.com/",
@@ -533,11 +522,10 @@ add_task(async function suggestHistoryFalse_bookmark_multiple() {
     context,
     autofilled: "example.com/",
     completed: baseURL,
-    hasAutofillTitle: false,
     matches: [
       makeVisitResult(context, {
         uri: baseURL,
-        title: "example.com",
+        fallbackTitle: "example.com",
         heuristic: true,
       }),
       makeBookmarkResult(context, {
@@ -580,7 +568,7 @@ add_task(async function suggestHistoryFalse_bookmark_prefix_multiple() {
       makeVisitResult(context, {
         source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
         uri: `${search}/`,
-        title: `${search}/`,
+        fallbackTitle: `${search}/`,
         iconUri: "",
         heuristic: true,
         providerName: HEURISTIC_FALLBACK_PROVIDERNAME,
@@ -600,7 +588,7 @@ add_task(async function suggestHistoryFalse_bookmark_prefix_multiple() {
       makeVisitResult(context, {
         source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
         uri: `${search}/`,
-        title: `${search}/`,
+        fallbackTitle: `${search}/`,
         iconUri: "",
         heuristic: true,
         providerName: HEURISTIC_FALLBACK_PROVIDERNAME,
@@ -620,7 +608,7 @@ add_task(async function suggestHistoryFalse_bookmark_prefix_multiple() {
       makeVisitResult(context, {
         source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
         uri: `${search}/`,
-        title: `${search}/`,
+        fallbackTitle: `${search}/`,
         iconUri: "",
         heuristic: true,
         providerName: HEURISTIC_FALLBACK_PROVIDERNAME,
@@ -637,11 +625,10 @@ add_task(async function suggestHistoryFalse_bookmark_prefix_multiple() {
     context,
     autofilled: "http://example.com/",
     completed: baseURL,
-    hasAutofillTitle: false,
     matches: [
       makeVisitResult(context, {
         uri: baseURL,
-        title: "example.com",
+        fallbackTitle: "example.com",
         heuristic: true,
       }),
       makeBookmarkResult(context, {
@@ -697,7 +684,6 @@ add_task(async function searchParams() {
     context,
     autofilled: "example.com/",
     completed: "http://example.com/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: "http://example.com/",
@@ -759,7 +745,6 @@ add_task(async function searchParams_https() {
     context,
     autofilled: "example.com/",
     completed: "https://example.com/",
-    hasAutofillTitle: true,
     matches: [
       makeVisitResult(context, {
         uri: "https://example.com/",
@@ -794,7 +779,6 @@ add_task(async function originLooksLikePrefix() {
       context,
       autofilled: hostAndPort + "/",
       completed: address,
-      hasAutofillTitle: true,
       matches: [
         makeVisitResult(context, {
           uri: address,
@@ -833,7 +817,7 @@ add_task(async function about() {
         context =>
           makeVisitResult(context, {
             uri: "about:blan",
-            title: "about:blan",
+            fallbackTitle: "about:blan",
             source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
             heuristic: true,
           }),

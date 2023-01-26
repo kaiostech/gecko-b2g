@@ -274,27 +274,9 @@ function setUpContentBlockingWarnings() {
   document.getElementById(
     "fpiIncompatibilityWarning"
   ).hidden = !gIsFirstPartyIsolated;
-
-  let links = document.querySelectorAll(".contentBlockWarningLink");
-  let contentBlockingWarningUrl =
-    Services.urlFormatter.formatURLPref("app.support.baseURL") +
-    "turn-off-etp-desktop";
-  for (let link of links) {
-    link.setAttribute("href", contentBlockingWarningUrl);
-  }
 }
 
 function initTCPStandardSection() {
-  document
-    .getElementById("tcp-learn-more-link")
-    .setAttribute(
-      "href",
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-        Services.prefs.getStringPref(
-          "privacy.restrict3rdpartystorage.preferences.learnMoreURLSuffix"
-        )
-    );
-
   let cookieBehaviorPref = Preferences.get("network.cookie.cookieBehavior");
   let updateTCPSectionVisibilityState = () => {
     document.getElementById("etpStandardTCPBox").hidden =
@@ -429,10 +411,6 @@ var gPrivacyPane = {
     };
     showPref.on("change", showQuickActionsGroup);
     showQuickActionsGroup();
-
-    document
-      .getElementById("quickActionsLink")
-      .setAttribute("href", UrlbarProviderQuickActions.helpUrl);
   },
 
   syncFromHttpsOnlyPref() {
@@ -482,12 +460,6 @@ var gPrivacyPane = {
    * Init HTTPS-Only mode and corresponding prefs
    */
   initHttpsOnly() {
-    let link = document.getElementById("httpsOnlyLearnMore");
-    let httpsOnlyURL =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-      "https-only-prefs";
-    link.setAttribute("href", httpsOnlyURL);
-
     // Set radio-value based on the pref value
     this.syncFromHttpsOnlyPref();
 
@@ -644,14 +616,6 @@ var gPrivacyPane = {
     this._initMasterPasswordUI();
 
     this.initListenersForExtensionControllingPasswordManager();
-    // set up the breach alerts Learn More link with the correct URL
-    const breachAlertsLearnMoreLink = document.getElementById(
-      "breachAlertsLearnMoreLink"
-    );
-    const breachAlertsLearnMoreUrl =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-      "lockwise-alerts";
-    breachAlertsLearnMoreLink.setAttribute("href", breachAlertsLearnMoreUrl);
 
     this._initSafeBrowsing();
 
@@ -754,27 +718,8 @@ var gPrivacyPane = {
       "command",
       gPrivacyPane.showSiteDataSettings
     );
-    let url =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-      "storage-permissions";
-    document.getElementById("siteDataLearnMoreLink").setAttribute("href", url);
 
     this.initCookieBannerHandling();
-
-    let notificationInfoURL =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") + "push";
-    document
-      .getElementById("notificationPermissionsLearnMore")
-      .setAttribute("href", notificationInfoURL);
-
-    if (AppConstants.platform == "win") {
-      let windowsSSOURL =
-        Services.urlFormatter.formatURLPref("app.support.baseURL") +
-        "windows-sso";
-      document
-        .getElementById("windowsSSOLearnMoreLink")
-        .setAttribute("href", windowsSSOURL);
-    }
 
     this.initDataCollection();
 
@@ -927,12 +872,6 @@ var gPrivacyPane = {
     this.populateCategoryContents();
     this.highlightCBCategory();
     this.readBlockCookies();
-
-    let link = document.getElementById("contentBlockingLearnMore");
-    let contentBlockingUrl =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-      "enhanced-tracking-protection";
-    link.setAttribute("href", contentBlockingUrl);
 
     // Toggles the text "Cross-site and social media trackers" based on the
     // social tracking pref. If the pref is false, the text reads
@@ -2102,18 +2041,6 @@ var gPrivacyPane = {
       );
     }
 
-    // Set the URL of the learn-more link for Firefox Suggest best match.
-    const bestMatchLearnMoreLink = document.getElementById(
-      "firefoxSuggestBestMatchLearnMore"
-    );
-    bestMatchLearnMoreLink.setAttribute("href", QuickSuggest.HELP_URL);
-
-    // Set the URL of the Firefox Suggest learn-more links.
-    let links = document.querySelectorAll(".firefoxSuggestLearnMore");
-    for (let link of links) {
-      link.setAttribute("href", QuickSuggest.HELP_URL);
-    }
-
     this._updateFirefoxSuggestSection(true);
     this._initQuickActionsSection();
   },
@@ -2400,12 +2327,6 @@ var gPrivacyPane = {
     checkbox.disabled =
       (noMP && !Services.policies.isAllowed("createMasterPassword")) ||
       (!noMP && !Services.policies.isAllowed("removeMasterPassword"));
-
-    let learnMoreLink = document.getElementById("primaryPasswordLearnMoreLink");
-    let learnMoreURL =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-      "primary-password-stored-logins";
-    learnMoreLink.setAttribute("href", learnMoreURL);
   },
 
   /**
@@ -2635,12 +2556,6 @@ var gPrivacyPane = {
     let blockUncommonPref = Preferences.get(
       "browser.safebrowsing.downloads.remote.block_uncommon"
     );
-
-    let learnMoreLink = document.getElementById("enableSafeBrowsingLearnMore");
-    let phishingUrl =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-      "phishing-malware";
-    learnMoreLink.setAttribute("href", phishingUrl);
 
     enableSafeBrowsing.addEventListener("command", function() {
       safeBrowsingPhishingPref.value = enableSafeBrowsing.checked;
@@ -2961,14 +2876,6 @@ var gPrivacyPane = {
   },
 
   initAddonRecommendationsCheckbox() {
-    // Setup the learn more link.
-    const url =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-      "personalized-addons";
-    document
-      .getElementById("addonRecommendationLearnMore")
-      .setAttribute("href", url);
-
     // Setup the checkbox.
     dataCollectionCheckboxHandler({
       checkbox: document.getElementById("addonRecommendationEnabled"),

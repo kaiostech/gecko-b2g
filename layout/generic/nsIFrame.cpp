@@ -11689,7 +11689,7 @@ CompositorHitTestInfo nsIFrame::GetCompositorHitTestInfo(
     if (touchAction == StyleTouchAction::AUTO) {
       // nothing to do
     } else if (touchAction & StyleTouchAction::MANIPULATION) {
-      result += CompositorHitTestFlags::eTouchActionDoubleTapZoomDisabled;
+      result += CompositorHitTestFlags::eTouchActionAnimatingZoomDisabled;
     } else {
       // This path handles the cases none | [pan-x || pan-y || pinch-zoom] so
       // double-tap is disabled in here.
@@ -11697,7 +11697,7 @@ CompositorHitTestInfo nsIFrame::GetCompositorHitTestInfo(
         result += CompositorHitTestFlags::eTouchActionPinchZoomDisabled;
       }
 
-      result += CompositorHitTestFlags::eTouchActionDoubleTapZoomDisabled;
+      result += CompositorHitTestFlags::eTouchActionAnimatingZoomDisabled;
 
       if (!(touchAction & StyleTouchAction::PAN_X)) {
         result += CompositorHitTestFlags::eTouchActionPanXDisabled;

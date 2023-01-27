@@ -27,6 +27,7 @@
 #include "mozilla/java/SampleWrappers.h"
 #include "mozilla/java/SurfaceAllocatorWrappers.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/Casting.h"
 #include "nsPromiseFlatString.h"
 #include "nsThreadUtils.h"
 #include "prlog.h"
@@ -83,7 +84,7 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
 
   class InputInfo {
    public:
-    InputInfo() {}
+    InputInfo() = default;
 
     InputInfo(const int64_t aDurationUs, const gfx::IntSize& aImageSize,
               const gfx::IntSize& aDisplaySize)
@@ -91,9 +92,9 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
           mImageSize(aImageSize),
           mDisplaySize(aDisplaySize) {}
 
-    int64_t mDurationUs;
-    gfx::IntSize mImageSize;
-    gfx::IntSize mDisplaySize;
+    int64_t mDurationUs = {};
+    gfx::IntSize mImageSize = {};
+    gfx::IntSize mDisplaySize = {};
   };
 
   class CallbacksSupport final : public JavaCallbacksSupport {
@@ -109,7 +110,7 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
                       java::SampleBuffer::Param aBuffer) override {
       MOZ_ASSERT(!aBuffer, "Video sample should be bufferless");
       // aSample will be implicitly converted into a GlobalRef.
-      mDecoder->ProcessOutput(std::move(aSample));
+      mDecoder->ProcessOutput(aSample);
     }
 
     void HandleOutputFormatChanged(
@@ -522,7 +523,7 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
 
   const VideoInfo mConfig;
   java::GeckoSurface::GlobalRef mSurface;
-  AndroidSurfaceTextureHandle mSurfaceHandle;
+  AndroidSurfaceTextureHandle mSurfaceHandle{};
   // Used to override the SurfaceTexture transform on some devices where the
   // decoder provides a buggy value.
   Maybe<gfx::Matrix4x4> mTransformOverride;
@@ -544,7 +545,7 @@ class RemoteVideoDecoder : public RemoteDataDecoder {
   const Maybe<TrackingId> mTrackingId;
   // Can be accessed on any thread, but only written during init.
   // Pre-filled decode info used by the performance recorder.
-  MediaInfoFlag mMediaInfoFlag;
+  MediaInfoFlag mMediaInfoFlag = {};
   // Only accessed on mThread.
   // Records decode performance to the profiler.
   PerformanceRecorderMulti<DecodeStage> mPerformanceRecorder;
@@ -562,15 +563,35 @@ class RemoteAudioDecoder : public RemoteDataDecoder {
     bool formatHasCSD = false;
     NS_ENSURE_SUCCESS_VOID(aFormat->ContainsKey(u"csd-0"_ns, &formatHasCSD));
 
-    // It would be nice to instead use more specific information here, but
-    // we force a byte buffer for now since this handles arbitrary codecs.
-    // TODO(bug 1768564): implement further type checking for codec data.
-    RefPtr<MediaByteBuffer> audioCodecSpecificBinaryBlob =
-        ForceGetAudioCodecSpecificBlob(aConfig.mCodecSpecificConfig);
-    if (!formatHasCSD && audioCodecSpecificBinaryBlob->Length() >= 2) {
+    uint8_t* audioSpecConfig;
+    uint32_t configLength;
+    if (aConfig.mCodecSpecificConfig.is<AacCodecSpecificData>()) {
+      const AacCodecSpecificData& aacCodecSpecificData =
+          aConfig.mCodecSpecificConfig.as<AacCodecSpecificData>();
+
+      mRemainingEncoderDelay = mEncoderDelay =
+          aacCodecSpecificData.mEncoderDelayFrames;
+      mTotalMediaFrames = aacCodecSpecificData.mMediaFrameCount;
+      audioSpecConfig =
+          aacCodecSpecificData.mDecoderConfigDescriptorBinaryBlob->Elements();
+      configLength =
+          aacCodecSpecificData.mDecoderConfigDescriptorBinaryBlob->Length();
+      LOG("Android RemoteDataDecoder: Found AAC decoder delay (%" PRIu32
+          " frames) and total media frames (%" PRIu64 " frames)",
+          mEncoderDelay, mTotalMediaFrames);
+    } else {
+      // Generally not used, this class is used only for decoding AAC, but can
+      // decode other codecs.
+      RefPtr<MediaByteBuffer> audioCodecSpecificBinaryBlob =
+          ForceGetAudioCodecSpecificBlob(aConfig.mCodecSpecificConfig);
+      audioSpecConfig = audioCodecSpecificBinaryBlob->Elements();
+      configLength = audioCodecSpecificBinaryBlob->Length();
+      LOG("Android RemoteDataDecoder: extracting generic codec-specific data.");
+    }
+
+    if (!formatHasCSD && configLength >= 2) {
       jni::ByteBuffer::LocalRef buffer(env);
-      buffer = jni::ByteBuffer::New(audioCodecSpecificBinaryBlob->Elements(),
-                                    audioCodecSpecificBinaryBlob->Length());
+      buffer = jni::ByteBuffer::New(audioSpecConfig, configLength);
       NS_ENSURE_SUCCESS_VOID(aFormat->SetByteBuffer(u"csd-0"_ns, buffer));
     }
   }
@@ -634,7 +655,7 @@ class RemoteAudioDecoder : public RemoteDataDecoder {
                       java::SampleBuffer::Param aBuffer) override {
       MOZ_ASSERT(aBuffer, "Audio sample should have buffer");
       // aSample will be implicitly converted into a GlobalRef.
-      mDecoder->ProcessOutput(std::move(aSample), std::move(aBuffer));
+      mDecoder->ProcessOutput(aSample, aBuffer);
     }
 
     void HandleOutputFormatChanged(
@@ -732,25 +753,63 @@ class RemoteAudioDecoder : public RemoteDataDecoder {
 
     if (size > 0) {
 #ifdef MOZ_SAMPLE_TYPE_S16
-      const int32_t numSamples = size / 2;
+      uint32_t numSamples = size / sizeof(int16_t);
+      uint32_t numFrames = numSamples / mOutputChannels;
 #else
 #  error We only support 16-bit integer PCM
 #endif
+      uint32_t bufferOffset = AssertedCast<uint32_t>(offset);
+      if (mRemainingEncoderDelay) {
+        uint32_t toPop = std::min(numFrames, mRemainingEncoderDelay);
+        bufferOffset += toPop * mOutputChannels * sizeof(int16_t);
+        numFrames -= toPop;
+        numSamples -= toPop * mOutputChannels;
+        mRemainingEncoderDelay -= toPop;
+        LOG("Dropping %" PRId32
+            " audio frames, corresponding the the encoder"
+            " delay. Remaining "
+            "%" PRIu32 ".",
+            toPop, mRemainingEncoderDelay);
+      }
+
+      mDecodedFrames += numFrames;
+
+      if (mTotalMediaFrames && mDecodedFrames > mTotalMediaFrames) {
+        uint32_t paddingFrames = std::min(mDecodedFrames - mTotalMediaFrames,
+                                          AssertedCast<uint64_t>(numFrames));
+        // This needs to trim the buffer, removing elements at the end: simply
+        // updating the frame count is enough.
+        numFrames -= AssertedCast<int32_t>(paddingFrames);
+        numSamples -= paddingFrames * mOutputChannels;
+        // Reset the decoded frame count, so that the encoder delay and padding
+        // are trimmed correctly when looping.
+        mDecodedFrames = 0;
+        mRemainingEncoderDelay = mEncoderDelay;
+
+        LOG("Dropped: %u frames, corresponding to the padding", paddingFrames);
+      }
+
+      if (numSamples == 0) {
+        LOG("Trimmed a whole packet, returning.");
+        return;
+      }
 
       AlignedAudioBuffer audio(numSamples);
       if (!audio) {
         Error(MediaResult(NS_ERROR_OUT_OF_MEMORY, __func__));
         return;
       }
+      jni::ByteBuffer::LocalRef dest =
+          jni::ByteBuffer::New(audio.get(), numSamples * sizeof(int16_t));
+      aBuffer->WriteToByteBuffer(
+          dest, AssertedCast<int32_t>(bufferOffset),
+          AssertedCast<int32_t>(numSamples * sizeof(int16_t)));
 
-      jni::ByteBuffer::LocalRef dest = jni::ByteBuffer::New(audio.get(), size);
-      aBuffer->WriteToByteBuffer(dest, offset, size);
-
-      RefPtr<AudioData> data =
+      RefPtr<AudioData> processed_data =
           new AudioData(0, TimeUnit::FromMicroseconds(presentationTimeUs),
                         std::move(audio), mOutputChannels, mOutputSampleRate);
 
-      UpdateOutputStatus(std::move(data));
+      UpdateOutputStatus(processed_data);
     }
 
     if (isEOS) {
@@ -775,9 +834,13 @@ class RemoteAudioDecoder : public RemoteDataDecoder {
     mOutputSampleRate = aSampleRate;
   }
 
-  int32_t mOutputChannels;
-  int32_t mOutputSampleRate;
+  int32_t mOutputChannels{};
+  int32_t mOutputSampleRate{};
   Maybe<TimeUnit> mFirstDemuxedSampleTime;
+  uint64_t mDecodedFrames = 0;
+  uint64_t mTotalMediaFrames = 0;
+  uint32_t mEncoderDelay = 0;
+  uint32_t mRemainingEncoderDelay = 0;
 };
 
 already_AddRefed<MediaDataDecoder> RemoteDataDecoder::CreateAudioDecoder(
@@ -890,7 +953,7 @@ using CryptoInfoResult =
     Result<java::sdk::MediaCodec::CryptoInfo::LocalRef, nsresult>;
 
 static CryptoInfoResult GetCryptoInfoFromSample(const MediaRawData* aSample) {
-  auto& cryptoObj = aSample->mCrypto;
+  const auto& cryptoObj = aSample->mCrypto;
   java::sdk::MediaCodec::CryptoInfo::LocalRef cryptoInfo;
 
   if (!cryptoObj.IsEncrypted()) {
@@ -909,10 +972,10 @@ static CryptoInfoResult GetCryptoInfoFromSample(const MediaRawData* aSample) {
       cryptoObj.mPlainSizes.Length(), cryptoObj.mEncryptedSizes.Length());
 
   uint32_t totalSubSamplesSize = 0;
-  for (auto& size : cryptoObj.mPlainSizes) {
+  for (const auto& size : cryptoObj.mPlainSizes) {
     totalSubSamplesSize += size;
   }
-  for (auto& size : cryptoObj.mEncryptedSizes) {
+  for (const auto& size : cryptoObj.mEncryptedSizes) {
     totalSubSamplesSize += size;
   }
 
@@ -956,7 +1019,9 @@ static CryptoInfoResult GetCryptoInfoFromSample(const MediaRawData* aSample) {
     tempIV.AppendElement(0);
   }
 
-  cryptoInfo->Set(numSubSamples, mozilla::jni::IntArray::From(plainSizes),
+  MOZ_ASSERT(numSubSamples <= INT32_MAX);
+  cryptoInfo->Set(static_cast<int32_t>(numSubSamples),
+                  mozilla::jni::IntArray::From(plainSizes),
                   mozilla::jni::IntArray::From(cryptoObj.mEncryptedSizes),
                   mozilla::jni::ByteArray::From(cryptoObj.mKeyId),
                   mozilla::jni::ByteArray::From(tempIV), mode);
@@ -977,7 +1042,9 @@ RefPtr<MediaDataDecoder::DecodePromise> RemoteDataDecoder::Decode(
       const_cast<uint8_t*>(aSample->Data()), aSample->Size());
 
   SetState(State::DRAINABLE);
-  mInputBufferInfo->Set(0, aSample->Size(), aSample->mTime.ToMicroseconds(), 0);
+  MOZ_ASSERT(aSample->Size() <= INT32_MAX);
+  mInputBufferInfo->Set(0, static_cast<int32_t>(aSample->Size()),
+                        aSample->mTime.ToMicroseconds(), 0);
   CryptoInfoResult crypto = GetCryptoInfoFromSample(aSample);
   if (crypto.isErr()) {
     return DecodePromise::CreateAndReject(

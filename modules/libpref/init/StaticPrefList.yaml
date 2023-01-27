@@ -11316,7 +11316,7 @@
 
 - name: network.cookie.sameSite.schemeful
   type: bool
-  value: true
+  value: false
   mirror: always
 
 - name: network.cookie.thirdparty.sessionOnly
@@ -14854,7 +14854,7 @@
 
 - name: webgl.use-canvas-render-thread
   type: bool
-  value: @IS_NOT_ANDROID@
+  value: true
   mirror: once
 
 - name: webgl.override-unmasked-renderer

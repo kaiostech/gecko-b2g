@@ -2226,31 +2226,23 @@ LayoutDeviceIntPoint nsCocoaWindow::GetClientOffset() {
   NS_OBJC_END_TRY_BLOCK_RETURN(LayoutDeviceIntPoint(0, 0));
 }
 
-LayoutDeviceIntSize nsCocoaWindow::ClientToWindowSize(const LayoutDeviceIntSize& aClientSize) {
+LayoutDeviceIntMargin nsCocoaWindow::ClientToWindowMargin() {
   NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
 
-  if (!mWindow) return LayoutDeviceIntSize(0, 0);
+  if (!mWindow || mWindow.drawsContentsIntoWindowFrame || mWindowType == WindowType::Popup) {
+    return {};
+  }
+
+  NSRect clientNSRect = mWindow.contentLayoutRect;
+  NSRect frameNSRect = [mWindow frameRectForChildViewRect:clientNSRect];
 
   CGFloat backingScale = BackingScaleFactor();
-  LayoutDeviceIntRect r(0, 0, aClientSize.width, aClientSize.height);
-  NSRect rect = nsCocoaUtils::DevPixelsToCocoaPoints(r, backingScale);
+  const auto clientRect = nsCocoaUtils::CocoaRectToGeckoRectDevPix(clientNSRect, backingScale);
+  const auto frameRect = nsCocoaUtils::CocoaRectToGeckoRectDevPix(frameNSRect, backingScale);
 
-  // Our caller expects the inflated rect for windows *with separate titlebars*,
-  // i.e. for windows where [mWindow drawsContentsIntoWindowFrame] is NO.
-  //
-  // So we call frameRectForContentRect on NSWindow here, instead of mWindow, so
-  // that we don't run into our override if this window is a window that draws
-  // its content into the titlebar.
-  //
-  // This is the same thing the windows widget does, but we probably should fix
-  // that, see bug 1445738.
-  NSUInteger styleMask = [mWindow styleMask];
-  styleMask &= ~NSWindowStyleMaskFullSizeContentView;
-  NSRect inflatedRect = [NSWindow frameRectForContentRect:rect styleMask:styleMask];
-  r = nsCocoaUtils::CocoaRectToGeckoRectDevPix(inflatedRect, backingScale);
-  return r.Size();
+  return frameRect - clientRect;
 
-  NS_OBJC_END_TRY_BLOCK_RETURN(LayoutDeviceIntSize(0, 0));
+  NS_OBJC_END_TRY_BLOCK_RETURN({});
 }
 
 nsMenuBarX* nsCocoaWindow::GetMenuBar() { return mMenuBar; }
@@ -2490,7 +2482,9 @@ nsresult nsCocoaWindow::SetNonClientMargins(LayoutDeviceIntMargin& margins) {
 void nsCocoaWindow::SetDrawsInTitlebar(bool aState) {
   NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 
-  if (mWindow) [mWindow setDrawsContentsIntoWindowFrame:aState];
+  if (mWindow) {
+    [mWindow setDrawsContentsIntoWindowFrame:aState];
+  }
 
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }

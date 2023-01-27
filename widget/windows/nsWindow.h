@@ -223,8 +223,7 @@ class nsWindow final : public nsBaseWidget {
   nsresult SetTitle(const nsAString& aTitle) override;
   void SetIcon(const nsAString& aIconSpec) override;
   LayoutDeviceIntPoint WidgetToScreenOffset() override;
-  LayoutDeviceIntSize ClientToWindowSize(
-      const LayoutDeviceIntSize& aClientSize) override;
+  LayoutDeviceIntMargin ClientToWindowMargin() override;
   nsresult DispatchEvent(mozilla::WidgetGUIEvent* aEvent,
                          nsEventStatus& aStatus) override;
   void EnableDragDrop(bool aEnable) override;
@@ -783,6 +782,13 @@ class nsWindow final : public nsBaseWidget {
   HICON mIconBig = nullptr;
   HWND mLastKillFocusWindow = nullptr;
   PlatformCompositorWidgetDelegate* mCompositorWidgetDelegate = nullptr;
+
+  LayoutDeviceIntMargin NonClientSizeMargin() const {
+    return NonClientSizeMargin(mNonClientOffset);
+  }
+  LayoutDeviceIntMargin NonClientSizeMargin(
+      const LayoutDeviceIntMargin& aNonClientOffset) const;
+  LayoutDeviceIntMargin NormalWindowNonClientOffset() const;
 
   // Non-client margin settings
   // Pre-calculated outward offset applied to default frames

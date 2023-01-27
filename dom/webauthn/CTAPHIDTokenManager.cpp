@@ -5,6 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "WebAuthnCoseIdentifiers.h"
+#include "WebAuthnEnumStrings.h"
 #include "mozilla/dom/CTAPHIDTokenManager.h"
 #include "mozilla/dom/U2FHIDTokenManager.h"
 #include "mozilla/dom/WebAuthnUtil.h"
@@ -141,17 +142,16 @@ RefPtr<U2FRegisterPromise> CTAPHIDTokenManager::Register(
     const auto& extra = aInfo.Extra().ref();
     const WebAuthnAuthenticatorSelection& sel = extra.AuthenticatorSelection();
 
-    UserVerificationRequirement userVerificationRequirement =
-        sel.userVerificationRequirement();
-
     bool requireUserVerification =
-        userVerificationRequirement == UserVerificationRequirement::Required;
+        sel.userVerificationRequirement().EqualsLiteral(
+            MOZ_WEBAUTHN_USER_VERIFICATION_REQUIREMENT_REQUIRED);
 
     bool requirePlatformAttachment = false;
     if (sel.authenticatorAttachment().isSome()) {
-      const AuthenticatorAttachment authenticatorAttachment =
+      const nsString& authenticatorAttachment =
           sel.authenticatorAttachment().value();
-      if (authenticatorAttachment == AuthenticatorAttachment::Platform) {
+      if (authenticatorAttachment.EqualsLiteral(
+              MOZ_WEBAUTHN_AUTHENTICATOR_ATTACHMENT_PLATFORM)) {
         requirePlatformAttachment = true;
       }
     }
@@ -272,11 +272,9 @@ RefPtr<U2FSignPromise> CTAPHIDTokenManager::Sign(
   if (aInfo.Extra().isSome()) {
     const auto& extra = aInfo.Extra().ref();
 
-    UserVerificationRequirement userVerificationReq =
-        extra.userVerificationRequirement();
-
     // Set flags for credential requests.
-    if (userVerificationReq == UserVerificationRequirement::Required) {
+    if (extra.userVerificationRequirement().EqualsLiteral(
+            MOZ_WEBAUTHN_USER_VERIFICATION_REQUIREMENT_REQUIRED)) {
       signFlags |= U2F_FLAG_REQUIRE_USER_VERIFICATION;
     }
 

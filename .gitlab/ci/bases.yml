@@ -183,6 +183,32 @@ variables:
     - sccache -z
     - ./mach build
     - sccache -s
+    - mkdir artifacts-desktop-gecko
+    - cp -r -L ${MOZ_OBJDIR}/dist artifacts-desktop-gecko/
+    - cp -r -L ${MOZ_OBJDIR}/_virtualenvs artifacts-desktop-gecko/
+    - cp ${MOZ_OBJDIR}/config.status artifacts-desktop-gecko/
+    - cp ${MOZ_OBJDIR}/mozinfo.json artifacts-desktop-gecko/
+    - find artifacts-desktop-gecko/dist/ -type f | xargs strip > /dev/null 2>&1 || echo ignore-strip-fails
+    - tar zcf artifacts-desktop-gecko.tgz artifacts-desktop-gecko
+  artifacts:
+    expire_in: 1 days
+    paths:
+      - artifacts-desktop-gecko.tgz
+
+
+.test_wpt:
+  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.66.0_9_0
+  tags:
+    - gecko-dev
+  variables:
+    MOZ_OBJDIR: 'artifacts-desktop-gecko'
+    MOZCONFIG: 'mozconfig-b2g-desktop'
+  before_script:
+    - *global_setup
+  only:
+    - merge_requests
+  script:
+    - tar zxf artifacts-desktop-gecko.tgz
     - ./mach wpt testing/web-platform/tests/webdriver/tests/get_element_text/get.py --headless
 
 .build_emulator:

@@ -34,6 +34,7 @@ variables:
 stages:
   - lint
   - build
+  - test
   - deploy
 
 Check if MR is rebased:
@@ -83,6 +84,13 @@ build:emulator:
     - .build_emulator
     - .build:rules:delayed
   stage: build
+
+test:wpt:
+  stage: test
+  extends:
+    - .test_wpt
+  needs:
+    - job: 'build:desktop'
 
 production:desktop:
   extends: .build_desktop

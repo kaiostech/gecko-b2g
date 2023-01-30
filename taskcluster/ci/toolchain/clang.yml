@@ -324,18 +324,18 @@ macosx64-aarch64-clang-15-raw:
         symbol: TM(clang-15-aarch64-raw)
     worker-type: b-linux-large-gcp
     worker:
-        env:
-            OSX_ARCH: arm64
         max-run-time: 3600
     run:
         script: build-clang.sh
         arguments:
             - 'build/build-clang/macosx64.json'
+            - 'build/build-clang/macosx64-aarch64.json'
             - 'build/build-clang/clang-15.json'
             - 'build/build-clang/skip-3-stages.json'
             - 'build/build-clang/4stages-pgo.json'
         resources:
             - 'build/build-clang/macosx64.json'
+            - 'build/build-clang/macosx64-aarch64.json'
             - 'build/build-clang/clang-15.json'
             - 'build/build-clang/skip-3-stages.json'
             - 'build/build-clang/4stages-pgo.json'
@@ -387,7 +387,6 @@ win64-clang-15-stage1:
     description: "Clang-cl 15 toolchain build stage 1"
     treeherder:
         symbol: TW64(clang-15-stage1)
-    worker-type: b-win2012
     run:
         script: build-clang.sh
         arguments:
@@ -406,9 +405,8 @@ win64-clang-15-stage1:
     fetches:
         fetch:
             - clang-15
-            - cmake
-            - ninja
         toolchain:
+            - linux64-clang-15-stage1
             - win64-vs2019
 
 win64-clang-15-raw:
@@ -716,18 +714,18 @@ macosx64-aarch64-clang-trunk-raw:
         symbol: TM(clang-trunk-aarch64-raw)
     worker-type: b-linux-large-gcp
     worker:
-        env:
-            OSX_ARCH: arm64
         max-run-time: 3600
     run:
         script: build-clang.sh
         arguments:
             - 'build/build-clang/macosx64.json'
+            - 'build/build-clang/macosx64-aarch64.json'
             - 'build/build-clang/clang-trunk.json'
             - 'build/build-clang/skip-3-stages.json'
             - 'build/build-clang/4stages-pgo.json'
         resources:
             - 'build/build-clang/macosx64.json'
+            - 'build/build-clang/macosx64-aarch64.json'
             - 'build/build-clang/clang-trunk.json'
             - 'build/build-clang/skip-3-stages.json'
             - 'build/build-clang/4stages-pgo.json'
@@ -781,7 +779,6 @@ win64-clang-trunk-stage1:
         cached_task: false
     treeherder:
         symbol: TW64(clang-trunk-stage1)
-    worker-type: b-win2012
     run:
         script: build-clang.sh
         arguments:
@@ -800,9 +797,8 @@ win64-clang-trunk-stage1:
     fetches:
         fetch:
             - clang-trunk
-            - cmake
-            - ninja
         toolchain:
+            - linux64-clang-trunk-stage1
             - win64-vs2019
 
 win64-clang-trunk-raw:

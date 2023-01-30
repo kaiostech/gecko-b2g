@@ -299,7 +299,20 @@ class MochaOutputHandler(object):
                     None,
                 )
                 if expected_item_for_file is None:
-                    expected = ["PASS"]
+                    # if there is no expectation data for the file,
+                    # try to find data for all tests.
+                    expected_item_for_all_tests = next(
+                        (
+                            expectation
+                            for expectation in list(self.expected)
+                            if expectation["testIdPattern"] == ""
+                        ),
+                        None,
+                    )
+                    if expected_item_for_all_tests is None:
+                        expected = ["PASS"]
+                    else:
+                        expected = expected_item_for_all_tests["expectations"]
                 else:
                     expected = expected_item_for_file["expectations"]
             else:
@@ -382,6 +395,8 @@ class PuppeteerRunner(MozbuildObject):
 
         Possible optional test parameters:
 
+        `bidi`:
+          Boolean to indicate whether to test Firefox with BiDi protocol.
         `binary`:
           Path for the browser binary to use.  Defaults to the local
           build.
@@ -392,12 +407,10 @@ class PuppeteerRunner(MozbuildObject):
           before invoking npm.  Overrides default preferences.
         `enable_webrender`:
           Boolean to indicate whether to enable WebRender compositor in Gecko.
-        `subset`
-          Indicates only a subset of tests are being run, so we should
-          skip the check for missing results
         """
         setup()
 
+        with_bidi = params.get("bidi", False)
         binary = params.get("binary") or self.get_binary_path()
         product = params.get("product", "firefox")
 
@@ -426,18 +439,28 @@ class PuppeteerRunner(MozbuildObject):
             "--no-coverage",
         ]
         env["HEADLESS"] = str(params.get("headless", False))
+        test_command = "test:" + product
 
         if product == "firefox":
             env["BINARY"] = binary
             env["PUPPETEER_PRODUCT"] = "firefox"
-
             env["MOZ_WEBRENDER"] = "%d" % params.get("enable_webrender", False)
-
-            test_command = "test:firefox"
-        elif env["HEADLESS"] == "False":
-            test_command = "test:chrome:headful"
         else:
-            test_command = "test:chrome:headless"
+            env["PUPPETEER_CACHE_DIR"] = os.path.join(
+                self.topobjdir,
+                "_tests",
+                "remote",
+                "test",
+                "puppeteer",
+                ".cache",
+            )
+
+        if with_bidi is True:
+            test_command = test_command + ":bidi"
+        elif env["HEADLESS"] == "True":
+            test_command = test_command + ":headless"
+        else:
+            test_command = test_command + ":headful"
 
         command = ["run", test_command, "--"] + mocha_options
 
@@ -464,23 +487,23 @@ class PuppeteerRunner(MozbuildObject):
                 expected_data = json.load(f)
         else:
             expected_data = []
-        # Filter expectation data for the selected browser,
-        # headless or headful mode, and the operating system.
+
         expected_platform = platform.uname().system.lower()
         if expected_platform == "windows":
             expected_platform = "win32"
 
-        expectations = filter(
-            lambda el: product in el["parameters"]
-            and (
-                (env["HEADLESS"] == "False" and "headless" not in el["parameters"])
-                or "headful" not in el["parameters"]
+        # Filter expectation data for the selected browser,
+        # headless or headful mode, the operating system,
+        # run in BiDi mode or not.
+        expectations = [
+            expectation
+            for expectation in expected_data
+            if is_relevant_expectation(
+                expectation, product, with_bidi, env["HEADLESS"], expected_platform
             )
-            and expected_platform in el["platforms"],
-            expected_data,
-        )
+        ]
 
-        output_handler = MochaOutputHandler(logger, list(expectations))
+        output_handler = MochaOutputHandler(logger, expectations)
         proc = npm(
             *command,
             cwd=self.puppeteer_dir,
@@ -510,6 +533,11 @@ def create_parser_puppeteer():
     p = argparse.ArgumentParser()
     p.add_argument(
         "--product", type=str, default="firefox", choices=["chrome", "firefox"]
+    )
+    p.add_argument(
+        "--bidi",
+        action="store_true",
+        help="Flag that indicates whether to test Firefox with BiDi protocol.",
     )
     p.add_argument(
         "--binary",
@@ -559,16 +587,39 @@ def create_parser_puppeteer():
         "debug level messages with -v, trace messages with -vv,"
         "and to not truncate long trace messages with -vvv",
     )
-    p.add_argument(
-        "--subset",
-        action="store_true",
-        default=False,
-        help="Indicate that only a subset of the tests are running, "
-        "so checks for missing tests should be skipped",
-    )
     p.add_argument("tests", nargs="*")
     mozlog.commandline.add_logging_group(p)
     return p
+
+
+def is_relevant_expectation(
+    expectation, expected_product, with_bidi, is_headless, expected_platform
+):
+    parameters = expectation["parameters"]
+
+    if expected_product == "firefox":
+        is_expected_product = "chrome" not in parameters
+    else:
+        is_expected_product = "firefox" not in parameters
+
+    if with_bidi is True:
+        is_expected_protocol = "webDriverBiDi" in parameters
+    else:
+        is_expected_protocol = "webDriverBiDi" not in parameters
+
+    if is_headless == "True":
+        is_expected_mode = "headful" not in parameters
+    else:
+        is_expected_mode = "headless" not in parameters
+
+    is_expected_platform = expected_platform in expectation["platforms"]
+
+    return (
+        is_expected_product
+        and is_expected_protocol
+        and is_expected_mode
+        and is_expected_platform
+    )
 
 
 @Command(
@@ -586,6 +637,7 @@ def create_parser_puppeteer():
 )
 def puppeteer_test(
     command_context,
+    bidi=None,
     binary=None,
     ci=False,
     disable_fission=False,
@@ -597,7 +649,6 @@ def puppeteer_test(
     verbosity=0,
     tests=None,
     product="firefox",
-    subset=False,
     **kwargs,
 ):
 
@@ -650,13 +701,13 @@ def puppeteer_test(
         install_puppeteer(command_context, product, ci)
 
     params = {
+        "bidi": bidi,
         "binary": binary,
         "headless": headless,
         "enable_webrender": enable_webrender,
         "extra_prefs": prefs,
         "product": product,
         "extra_launcher_options": options,
-        "subset": subset,
     }
     puppeteer = command_context._spawn(PuppeteerRunner)
     try:
@@ -674,25 +725,31 @@ def install_puppeteer(command_context, product, ci):
     env = {"HUSKY": "0"}
 
     puppeteer_dir = os.path.join("remote", "test", "puppeteer")
+    puppeteer_dir_full_path = os.path.join(command_context.topsrcdir, puppeteer_dir)
+    puppeteer_test_dir = os.path.join(puppeteer_dir, "test")
 
-    if product != "chrome":
+    if product == "chrome":
+        env["PUPPETEER_CACHE_DIR"] = os.path.join(
+            command_context.topobjdir, "_tests", puppeteer_dir, ".cache"
+        )
+    else:
         env["PUPPETEER_SKIP_DOWNLOAD"] = "1"
 
     if not ci:
         npm(
             "run",
             "clean",
-            cwd=os.path.join(command_context.topsrcdir, puppeteer_dir),
+            cwd=puppeteer_dir_full_path,
             env=env,
             exit_on_fail=False,
         )
 
     command = "ci" if ci else "install"
-    npm(command, cwd=os.path.join(command_context.topsrcdir, puppeteer_dir), env=env)
+    npm(command, cwd=puppeteer_dir_full_path, env=env)
     npm(
         "run",
-        "build:dev",
-        cwd=os.path.join(command_context.topsrcdir, puppeteer_dir),
+        "build",
+        cwd=os.path.join(command_context.topsrcdir, puppeteer_test_dir),
         env=env,
     )
 

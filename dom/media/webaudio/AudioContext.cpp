@@ -160,6 +160,8 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
       mAudioContextState(AudioContextState::Suspended),
       mNumberOfChannels(aNumberOfChannels),
       mRTPCallerType(aWindow->AsGlobal()->GetRTPCallerType()),
+      mShouldResistFingerprinting(
+          aWindow->AsGlobal()->ShouldResistFingerprinting()),
       mIsOffline(aIsOffline),
       mIsStarted(!aIsOffline),
       mIsShutDown(false),
@@ -589,7 +591,7 @@ double AudioContext::OutputLatency() {
   // When reduceFingerprinting is enabled, return a latency figure that is
   // fixed, but plausible for the platform.
   double latency_s = 0.0;
-  if (StaticPrefs::privacy_resistFingerprinting()) {
+  if (mShouldResistFingerprinting) {
 #ifdef XP_MACOSX
     latency_s = 512. / mSampleRate;
 #elif MOZ_WIDGET_ANDROID
@@ -741,7 +743,7 @@ void AudioContext::UnregisterActiveNode(AudioNode* aNode) {
 }
 
 uint32_t AudioContext::MaxChannelCount() const {
-  if (StaticPrefs::privacy_resistFingerprinting()) {
+  if (mShouldResistFingerprinting) {
     return 2;
   }
   return std::min<uint32_t>(

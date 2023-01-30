@@ -26,6 +26,7 @@
 #include "Pivot.h"
 #include "Relation.h"
 #include "RelationType.h"
+#include "TextLeafRange.h"
 #include "xpcAccessibleDocument.h"
 
 #ifdef A11Y_LOG
@@ -1448,6 +1449,18 @@ template <class Derived>
 void RemoteAccessibleBase<Derived>::SelectionRanges(
     nsTArray<TextRange>* aRanges) const {
   Document()->SelectionRanges(aRanges);
+}
+
+template <class Derived>
+bool RemoteAccessibleBase<Derived>::RemoveFromSelection(int32_t aSelectionNum) {
+  MOZ_ASSERT(IsHyperText());
+  if (SelectionCount() <= aSelectionNum) {
+    return false;
+  }
+
+  Unused << mDoc->SendRemoveTextSelection(mID, aSelectionNum);
+
+  return true;
 }
 
 template <class Derived>

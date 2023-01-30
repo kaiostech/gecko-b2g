@@ -754,7 +754,7 @@ bool nsPresContext::UpdateFontVisibility() {
   // Read the relevant pref depending on RFP/trackingProtection state
   // to determine the visibility level to use.
   int32_t level;
-  if (StaticPrefs::privacy_resistFingerprinting()) {
+  if (mDocument->ShouldResistFingerprinting()) {
     level = StaticPrefs::layout_css_font_visibility_resistFingerprinting();
   } else if (StaticPrefs::privacy_trackingprotection_enabled() ||
              (isPrivate &&
@@ -1167,13 +1167,12 @@ nsIWidget* nsPresContext::GetNearestWidget(nsPoint* aOffset) {
   return rootView->GetNearestWidget(aOffset);
 }
 
-already_AddRefed<nsIWidget> nsPresContext::GetRootWidget() const {
+nsIWidget* nsPresContext::GetRootWidget() const {
   NS_ENSURE_TRUE(mPresShell, nullptr);
   nsViewManager* vm = mPresShell->GetViewManager();
   if (!vm) {
     return nullptr;
   }
-
   return vm->GetRootWidget();
 }
 

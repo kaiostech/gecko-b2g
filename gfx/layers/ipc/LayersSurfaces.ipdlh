@@ -106,7 +106,6 @@ struct OverlaySource {
 };
 
 [Comparable] struct SurfaceDescriptorAndroidHardwareBuffer {
-  FileDescriptor handle;
   uint64_t bufferId;
   IntSize size;
   SurfaceFormat format;

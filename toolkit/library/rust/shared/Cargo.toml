@@ -12,7 +12,7 @@ mozglue-static = { path = "../../../../mozglue/static/rust" }
 geckoservo = { path = "../../../../servo/ports/geckolib" }
 kvstore = { path = "../../../components/kvstore" }
 lmdb-rkv-sys = { version = "0.11", features = ["mdb_idl_logn_9"] }
-mp4parse_capi = { git = "https://github.com/mozilla/mp4parse-rust", rev = "3bfc47d9a571d0842676043ba60716318e946c06", features = ["mp4v", "3gpp", "missing-pixi-permitted"] }
+mp4parse_capi = { git = "https://github.com/mozilla/mp4parse-rust", rev = "eb0b625bd7e888d05ebcfc7685e2501b34c3b374", features = ["mp4v", "3gpp", "missing-pixi-permitted"] }
 nserror = { path = "../../../../xpcom/rust/nserror" }
 nsstring = { path = "../../../../xpcom/rust/nsstring" }
 netwerk_helper = { path = "../../../../netwerk/base/rust-helper" }
@@ -39,7 +39,7 @@ tokio-reactor = { version = "=0.1.3", optional = true }
 # audioipc2-client and audioipc2-server.
 tokio-threadpool = { version = "=0.1.17", optional = true }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
-authenticator = { version = "0.4.0-alpha.6", features = ["gecko"] }
+authenticator = { version = "0.4.0-alpha.7", features = ["gecko"] }
 gkrust_utils = { path = "../../../../xpcom/rust/gkrust_utils" }
 gecko_logger = { path = "../../../../xpcom/rust/gecko_logger" }
 rsdparsa_capi = { path = "../../../../dom/media/webrtc/sdp/rsdparsa_capi" }

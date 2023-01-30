@@ -321,20 +321,23 @@ bool RemoteAccessible::SelectionBoundsAt(int32_t aSelectionNum, nsString& aData,
 bool RemoteAccessible::SetSelectionBoundsAt(int32_t aSelectionNum,
                                             int32_t aStartOffset,
                                             int32_t aEndOffset) {
+  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    return RemoteAccessibleBase<RemoteAccessible>::SetSelectionBoundsAt(
+        aSelectionNum, aStartOffset, aEndOffset);
+  }
+
   bool retVal = false;
   Unused << mDoc->SendSetSelectionBoundsAt(mID, aSelectionNum, aStartOffset,
                                            aEndOffset, &retVal);
   return retVal;
 }
 
-bool RemoteAccessible::AddToSelection(int32_t aStartOffset,
-                                      int32_t aEndOffset) {
-  bool retVal = false;
-  Unused << mDoc->SendAddToSelection(mID, aStartOffset, aEndOffset, &retVal);
-  return retVal;
-}
-
 bool RemoteAccessible::RemoveFromSelection(int32_t aSelectionNum) {
+  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    return RemoteAccessibleBase<RemoteAccessible>::RemoveFromSelection(
+        aSelectionNum);
+  }
+
   bool retVal = false;
   Unused << mDoc->SendRemoveFromSelection(mID, aSelectionNum, &retVal);
   return retVal;

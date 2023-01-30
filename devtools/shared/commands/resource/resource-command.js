@@ -1286,6 +1286,9 @@ loader.lazyRequireGetter(
   ResourceCommand.TYPES.WEBSOCKET,
   "resource://devtools/shared/commands/resource/legacy-listeners/websocket.js"
 );
+
+// @backward-compat { version 111 } All storage legacy listeners can be removed once 111 is released.
+// This codepath was only used when connecting to older servers.
 loader.lazyRequireGetter(
   LegacyListeners,
   ResourceCommand.TYPES.COOKIE,
@@ -1316,6 +1319,8 @@ loader.lazyRequireGetter(
   ResourceCommand.TYPES.INDEXED_DB,
   "resource://devtools/shared/commands/resource/legacy-listeners/indexed-db.js"
 );
+// --- end of storage legacy listeners
+
 loader.lazyRequireGetter(
   LegacyListeners,
   ResourceCommand.TYPES.SOURCE,
@@ -1371,6 +1376,11 @@ loader.lazyRequireGetter(
   ResourceTransformers,
   ResourceCommand.TYPES.COOKIE,
   "resource://devtools/shared/commands/resource/transformers/storage-cookie.js"
+);
+loader.lazyRequireGetter(
+  ResourceTransformers,
+  ResourceCommand.TYPES.EXTENSION_STORAGE,
+  "resource://devtools/shared/commands/resource/transformers/storage-extension.js"
 );
 loader.lazyRequireGetter(
   ResourceTransformers,

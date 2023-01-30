@@ -19,7 +19,7 @@ export MOZ_LIBWEBRTC_SRC="{path-to}/moz-libwebrtc"
 # the commit summary as each upstream commit is vendored into the
 # mercurial repository.  The bug used for the v106 fast-forward was
 # 1800920.
-export MOZ_FASTFORWARD_BUG="1800920"
+export MOZ_FASTFORWARD_BUG="$bugnum"
 
 # MOZ_NEXT_LIBWEBRTC_MILESTONE and MOZ_NEXT_FIREFOX_REL_TARGET are
 # not used during fast-forward processing, but facilitate generating this
@@ -53,10 +53,16 @@ export MOZ_TARGET_UPSTREAM_BRANCH_HEAD="branch-heads/$bh2"
 # pushing the patch stack to github, it should be named something like
 # 'moz-mods-chr$m2-for-rel$t2'.
 export MOZ_LIBWEBRTC_BRANCH="mozpatches"
+
+# After elm has been merged to mozilla-central, the patch stack in
+# moz-libwebrtc should be pushed to github.  The script
+# push_official_branch.sh uses this branch name when pushing to the
+# public repo.
+export MOZ_LIBWEBRTC_OFFICIAL_BRANCH="moz-mods-chr$m2-for-rel$t2"
 """
 
 
-def build_example_config_env(milestone, target):
+def build_example_config_env(bug_number, milestone, target):
     prior_branch_head = lookup_branch_head.get_branch_head(milestone)
     if prior_branch_head is None:
         sys.exit("error: chromium milestone '{}' is not found.".format(milestone))
@@ -68,6 +74,7 @@ def build_example_config_env(milestone, target):
 
     s = Template(text)
     return s.substitute(
+        bugnum=bug_number,
         m1=milestone,
         t1=target,
         m2=milestone + 1,
@@ -80,6 +87,12 @@ def build_example_config_env(milestone, target):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Updates the example_config_env file for new release/milestone"
+    )
+    parser.add_argument(
+        "--bug-number",
+        required=True,
+        type=int,
+        help="integer Bugzilla number (example: 1800920)",
     )
     parser.add_argument(
         "--milestone",
@@ -95,4 +108,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    print(build_example_config_env(args.milestone, args.release_target), end="")
+    print(
+        build_example_config_env(args.bug_number, args.milestone, args.release_target),
+        end="",
+    )

@@ -636,9 +636,7 @@ already_AddRefed<AndroidHardwareBufferTextureHost>
 AndroidHardwareBufferTextureHost::Create(
     TextureFlags aFlags, const SurfaceDescriptorAndroidHardwareBuffer& aDesc) {
   RefPtr<AndroidHardwareBuffer> buffer =
-      AndroidHardwareBuffer::FromFileDescriptor(
-          const_cast<ipc::FileDescriptor&>(aDesc.handle()), aDesc.bufferId(),
-          aDesc.size(), aDesc.format());
+      AndroidHardwareBufferManager::Get()->GetBuffer(aDesc.bufferId());
   if (!buffer) {
     return nullptr;
   }
@@ -650,26 +648,13 @@ AndroidHardwareBufferTextureHost::Create(
 AndroidHardwareBufferTextureHost::AndroidHardwareBufferTextureHost(
     TextureFlags aFlags, AndroidHardwareBuffer* aAndroidHardwareBuffer)
     : TextureHost(TextureHostType::AndroidHardwareBuffer, aFlags),
-      mAndroidHardwareBuffer(aAndroidHardwareBuffer),
-      mEGLImage(EGL_NO_IMAGE) {}
+      mAndroidHardwareBuffer(aAndroidHardwareBuffer) {}
 
-AndroidHardwareBufferTextureHost::~AndroidHardwareBufferTextureHost() {
-  DestroyEGLImage();
-}
-
-void AndroidHardwareBufferTextureHost::DestroyEGLImage() {
-  if (mEGLImage && gl()) {
-    const auto& gle = gl::GLContextEGL::Cast(gl());
-    const auto& egl = gle->mEgl;
-    egl->fDestroyImage(mEGLImage);
-    mEGLImage = EGL_NO_IMAGE;
-  }
-}
+AndroidHardwareBufferTextureHost::~AndroidHardwareBufferTextureHost() {}
 
 gl::GLContext* AndroidHardwareBufferTextureHost::gl() const { return nullptr; }
 
 void AndroidHardwareBufferTextureHost::NotifyNotUsed() {
-  // XXX Add android fence handling
   TextureHost::NotifyNotUsed();
 }
 
@@ -688,10 +673,7 @@ gfx::IntSize AndroidHardwareBufferTextureHost::GetSize() const {
 }
 
 void AndroidHardwareBufferTextureHost::DeallocateDeviceData() {
-  if (mTextureSource) {
-    mTextureSource = nullptr;
-  }
-  DestroyEGLImage();
+  mAndroidHardwareBuffer = nullptr;
 }
 
 void AndroidHardwareBufferTextureHost::SetAcquireFence(

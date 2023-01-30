@@ -149,7 +149,7 @@ notes = "I maintain this crate and have reviewed every line."
 [[audits.authenticator]]
 who = "John M. Schanck <jschanck@mozilla.com>"
 criteria = "safe-to-deploy"
-version = "0.4.0-alpha.6"
+version = "0.4.0-alpha.7"
 notes = "Maintained by the CryptoEng team at Mozilla."
 
 [[audits.autocfg]]
@@ -365,6 +365,11 @@ who = "Tiaan Louw <tlouw@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.6.0 -> 0.6.0@git:722b30d2f1634714befab967ecae627813fa4cf0"
 notes = "We are pulling this package from a non crates.io source until the changes are published. No changes were made to the code."
+
+[[audits.cssparser-macros]]
+who = "Tiaan Louw <tlouw@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.6.0 -> 0.6.0@git:d3670a89bae26ba3a8db4758eb7976616113987d"
 
 [[audits.cstr]]
 who = "Emilio Cobos Álvarez <emilio@crisal.io>"

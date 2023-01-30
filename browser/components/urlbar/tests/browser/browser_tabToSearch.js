@@ -142,9 +142,7 @@ add_task(async function activedescendant_tab() {
     "The second result is a tab-to-search result."
   );
 
-  EventUtils.synthesizeKey("KEY_Tab", {
-    repeat: UrlbarPrefs.get("resultMenu") ? 2 : 1,
-  });
+  EventUtils.synthesizeKey("KEY_Tab");
 
   await UrlbarTestUtils.assertSearchMode(window, {
     engineName: TEST_ENGINE_NAME,
@@ -161,18 +159,14 @@ add_task(async function activedescendant_tab() {
   let firstRow = await UrlbarTestUtils.waitForAutocompleteResultAt(window, 0);
   Assert.equal(
     aadID,
-    UrlbarTestUtils.getButtonForResultIndex(window, "menu", 0)
-      ? firstRow._content.id
-      : firstRow.id,
+    firstRow._content.id,
     "aria-activedescendant was set to the row after the tab-to-search result."
   );
-  EventUtils.synthesizeKey("KEY_Tab", {
-    repeat: UrlbarPrefs.get("resultMenu") ? 2 : 1,
-  });
+  EventUtils.synthesizeKey("KEY_Tab");
   aadID = gURLBar.inputField.getAttribute("aria-activedescendant");
   Assert.equal(
     aadID,
-    tabToSearchRow.id,
+    tabToSearchRow._content.id,
     "aria-activedescendant was set to the tab-to-search result."
   );
 
@@ -192,9 +186,7 @@ add_task(async function activedescendant_tab() {
     "The second result is a tab-to-search result."
   );
 
-  EventUtils.synthesizeKey("KEY_Tab", {
-    repeat: UrlbarPrefs.get("resultMenu") ? 2 : 1,
-  });
+  EventUtils.synthesizeKey("KEY_Tab");
 
   await UrlbarTestUtils.assertSearchMode(window, {
     engineName: TEST_ENGINE_NAME,
@@ -237,7 +229,7 @@ add_task(async function activedescendant_arrow() {
   let aadID = gURLBar.inputField.getAttribute("aria-activedescendant");
   Assert.equal(
     aadID,
-    tabToSearchRow.id,
+    tabToSearchRow._content.id,
     "aria-activedescendant was set to the tab-to-search result."
   );
 
@@ -248,14 +240,13 @@ add_task(async function activedescendant_arrow() {
   Assert.equal(
     aadID,
     UrlbarTestUtils.getOneOffSearchButtons(window).selectedButton.id,
-    tabToSearchRow.id,
     "aria-activedescendant was moved to the first one-off."
   );
   EventUtils.synthesizeKey("KEY_ArrowUp");
   aadID = gURLBar.inputField.getAttribute("aria-activedescendant");
   Assert.equal(
     aadID,
-    tabToSearchRow.id,
+    tabToSearchRow._content.id,
     "aria-activedescendant was set to the tab-to-search result."
   );
 

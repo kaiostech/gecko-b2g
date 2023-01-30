@@ -104,6 +104,7 @@ include = [
   "FontFaceSourceListComponent",
   "FontFaceSourceTechFlags",
   "FontLanguageOverride",
+  "FontSynthesis",
   "GenericFontFamily",
   "FontFamily",
   "FontFamilyNameSyntax",

@@ -100,6 +100,15 @@
   background-clip: padding-box;
 }
 
+.urlbarView-row[row-selectable]:not([selected]):hover {
+  background-color: var(--autocomplete-popup-hover-background);
+}
+
+.urlbarView-row[selected] {
+  background-color: var(--autocomplete-popup-highlight-background);
+  color: var(--autocomplete-popup-highlight-color);
+}
+
 :root:not([uidensity=compact]) .urlbarView-row:not([type=tip], [type=dynamic]) {
   min-height: 32px;
 }
@@ -219,15 +228,6 @@
      due to the `direction: ltr` rule.  .urlbarView-title does not have this
      problem since it does not have flex. */
   text-align: right;
-}
-
-.urlbarView-row:not([type=tip], [type=dynamic]):hover {
-  background-color: var(--autocomplete-popup-hover-background);
-}
-
-.urlbarView-row:not([type=tip], [type=dynamic])[selected] {
-  background-color: var(--autocomplete-popup-highlight-background);
-  color: var(--autocomplete-popup-highlight-color);
 }
 
 /* Favicon */
@@ -442,12 +442,13 @@
   font-size: 0.8em;
   /* The color and opacity of labels is the same as the "This time, search with"
      text in the search shortcuts. See `.search-panel-header > label` in
-     searchbar.inc.css. */
+     searchbar.css. */
+  color: var(--toolbar-field-focus-color);
   opacity: 0.6;
   pointer-events: none;
 }
 :root[lwt-toolbar-field-focus-brighttext] .urlbarView-row[label]::before {
-  /* Same as `.search-panel-header > label` in searchbar.inc.css */
+  /* Same as `.search-panel-header > label` in searchbar.css */
   opacity: 1;
 }
 

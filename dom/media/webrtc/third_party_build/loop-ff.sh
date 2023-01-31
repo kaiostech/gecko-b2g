@@ -15,6 +15,7 @@ function show_error_msg()
   echo_log "*** ERROR *** $? line $1 $0 did not complete successfully!"
   echo_log "$ERROR_HELP"
 }
+ERROR_HELP=""
 
 # Print an Error message if `set -eE` causes the script to exit due to a failed command
 trap 'show_error_msg $LINENO' ERR
@@ -50,7 +51,6 @@ fi
 
 MOZ_CHANGED=0
 GIT_CHANGED=0
-ERROR_HELP=""
 HANDLE_NOOP_COMMIT=""
 
 # After this point:
@@ -88,7 +88,9 @@ It appears that initial vendoring verification has failed.
 if [ "x$RESUME" = "x" ]; then
   # start off by verifying the vendoring process to make sure no changes have
   # been added to elm to fix bugs.
+  echo_log "Verifying vendoring..."
   bash $SCRIPT_DIR/verify_vendoring.sh
+  echo_log "Done verifying vendoring."
 fi
 ERROR_HELP=""
 
@@ -103,6 +105,11 @@ if [ $MOZ_LIBWEBRTC_BASE == $MOZ_LIBWEBRTC_NEXT_BASE ]; then
 fi
 
 echo_log "==================="
+
+COMMITS_REMAINING=`cd $MOZ_LIBWEBRTC_SRC ; \
+   git log --oneline $MOZ_LIBWEBRTC_BASE..$MOZ_TARGET_UPSTREAM_BRANCH_HEAD \
+   | wc -l | tr -d " "`
+echo_log "Commits remaining: $COMMITS_REMAINING"
 
 ERROR_HELP=$"Some portion of the detection and/or fixing of upstream revert commits
 has failed.  Please fix the state of the git hub repo at: $MOZ_LIBWEBRTC_SRC.

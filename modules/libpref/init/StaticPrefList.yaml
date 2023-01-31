@@ -11329,7 +11329,7 @@
 
 - name: network.cookie.sameSite.laxByDefault
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: always
 
 # lax-by-default 2 minutes tollerance for unsafe methods. The value is in seconds.
@@ -13087,6 +13087,7 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+  do_not_use_directly: true
 
 # We automatically decline canvas permission requests if they are not initiated
 # from user input. Just in case that breaks something, we allow the user to

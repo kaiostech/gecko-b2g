@@ -730,7 +730,7 @@ protected:
                 PR_SET_DUMPABLE,  // Crash reporting
 #ifdef MOZ_WIDGET_GONK
                 PR_SET_TIMERSLACK, // task_profiles
-                PR_GET_DUMPABLE,  // Linker logger
+                PR_GET_DUMPABLE,   // Linker logger
 #endif
                 PR_SET_PTRACER),  // Debug-mode crash handling
                Allow())
@@ -2206,6 +2206,10 @@ class UtilitySandboxPolicy : public SandboxPolicyCommon {
     return Switch(op)
         .CASES((PR_SET_NAME,        // Thread creation
                 PR_SET_DUMPABLE,    // Crash reporting
+#if defined(MOZ_WIDGET_GONK)
+                PR_GET_DUMPABLE,
+                PR_SET_VMA,
+#endif
                 PR_SET_PTRACER,     // Debug-mode crash handling
                 PR_GET_PDEATHSIG),  // PGO profiling, cf
                                     // https://reviews.llvm.org/D29954

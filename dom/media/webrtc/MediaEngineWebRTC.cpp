@@ -18,6 +18,12 @@
 #  define SUPPORT_GONK_VIDEO_SOURCE
 #endif
 
+// Pipewire detection support
+#if defined(WEBRTC_USE_PIPEWIRE)
+#  include "mozilla/StaticPrefs_media.h"
+#  include "modules/desktop_capture/desktop_capturer.h"
+#endif
+
 #define FAKE_ONDEVICECHANGE_EVENT_PERIOD_IN_MS 500
 
 static mozilla::LazyLogModule sGetUserMediaLog("GetUserMedia");
@@ -73,13 +79,25 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
     // Camera UUID and group ID are not available on Gonk, use camera name
     // instead.
     aDevices->EmplaceBack(new MediaDevice(this, aMediaSource, name, name, name,
-                                          MediaDevice::IsScary::No));
+                                          MediaDevice::IsScary::No,
+                                          MediaDevice::OsPromptable::No));
   }
   return;
 #else
   // flag sources with cross-origin exploit potential
   bool scaryKind = (aMediaSource == MediaSourceEnum::Screen ||
                     aMediaSource == MediaSourceEnum::Browser);
+#if defined(WEBRTC_USE_PIPEWIRE)
+  bool canRequestOsLevelPrompt =
+      mozilla::StaticPrefs::media_webrtc_capture_allow_pipewire() &&
+      webrtc::DesktopCapturer::IsRunningUnderWayland() &&
+      (aMediaSource == MediaSourceEnum::Application ||
+       aMediaSource == MediaSourceEnum::Screen ||
+       aMediaSource == MediaSourceEnum::Window ||
+       aMediaSource == MediaSourceEnum::Browser);
+#else
+  bool canRequestOsLevelPrompt = false;
+#endif
   /*
    * We still enumerate every time, in case a new device was plugged in since
    * the last call. TODO: Verify that WebRTC actually does deal with hotplugging
@@ -150,9 +168,11 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
     // The remote video backend doesn't implement group id. We return the
     // device name and higher layers will correlate this with the name of
     // audio devices.
-    aDevices->EmplaceBack(
-        new MediaDevice(this, aMediaSource, name, uuid, uuid,
-                        MediaDevice::IsScary(scaryKind || scarySource)));
+    aDevices->EmplaceBack(new MediaDevice(
+        this, aMediaSource, name, uuid, uuid,
+        MediaDevice::IsScary(scaryKind || scarySource),
+        canRequestOsLevelPrompt ? MediaDevice::OsPromptable::Yes
+                                : MediaDevice::OsPromptable::No));
   }
 #endif
 }
@@ -266,11 +286,11 @@ void MediaEngineWebRTC::EnumerateDevices(
         break;
     }
   } else if (aMediaSource == MediaSourceEnum::AudioCapture) {
-    aDevices->EmplaceBack(
-        new MediaDevice(this, aMediaSource, u"AudioCapture"_ns,
-                        MediaEngineWebRTCAudioCaptureSource::GetUUID(),
-                        MediaEngineWebRTCAudioCaptureSource::GetGroupId(),
-                        MediaDevice::IsScary::No));
+    aDevices->EmplaceBack(new MediaDevice(
+        this, aMediaSource, u"AudioCapture"_ns,
+        MediaEngineWebRTCAudioCaptureSource::GetUUID(),
+        MediaEngineWebRTCAudioCaptureSource::GetGroupId(),
+        MediaDevice::IsScary::No, MediaDevice::OsPromptable::No));
   } else if (aMediaSource == MediaSourceEnum::Microphone) {
     EnumerateMicrophoneDevices(aDevices);
   }

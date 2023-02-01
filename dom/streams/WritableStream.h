@@ -142,7 +142,7 @@ class WritableStream : public nsISupports, public nsWrapperCache {
                                         ErrorResult& aRv);
 
   // WritableStreamUpdateBackpressure
-  void UpdateBackpressure(bool aBackpressure, ErrorResult& aRv);
+  void UpdateBackpressure(bool aBackpressure);
 
   // [Transferable]
   // https://html.spec.whatwg.org/multipage/structured-data.html#transfer-steps
@@ -153,12 +153,34 @@ class WritableStream : public nsISupports, public nsWrapperCache {
       JSContext* aCx, nsIGlobalObject* aGlobal, MessagePort& aPort,
       JS::MutableHandle<JSObject*> aReturnObject);
 
+  // Public functions to implement other specs
+  // https://streams.spec.whatwg.org/#other-specs-ws
+
+  // https://streams.spec.whatwg.org/#writablestream-set-up
+ protected:
+  MOZ_CAN_RUN_SCRIPT void SetUpNative(
+      JSContext* aCx, UnderlyingSinkAlgorithmsWrapper& aAlgorithms,
+      Maybe<double> aHighWaterMark, QueuingStrategySize* aSizeAlgorithm,
+      ErrorResult& aRv);
+
+  // The following definitions must only be used on WritableStream instances
+  // initialized via the above set up algorithm:
+
+ public:
+  // https://streams.spec.whatwg.org/#writablestream-error
+  MOZ_CAN_RUN_SCRIPT void ErrorNative(JSContext* aCx,
+                                      JS::Handle<JS::Value> aError,
+                                      ErrorResult& aRv);
+
+  // IDL layer functions
+
   nsIGlobalObject* GetParentObject() const { return mGlobal; }
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
-  // IDL Methods
+  // IDL methods
+
   // TODO: Use MOZ_CAN_RUN_SCRIPT when IDL constructors can use it (bug 1749042)
   MOZ_CAN_RUN_SCRIPT_BOUNDARY static already_AddRefed<WritableStream>
   Constructor(const GlobalObject& aGlobal,
@@ -215,8 +237,8 @@ MOZ_CAN_RUN_SCRIPT already_AddRefed<Promise> WritableStreamAbort(
 MOZ_CAN_RUN_SCRIPT already_AddRefed<Promise> WritableStreamClose(
     JSContext* aCx, WritableStream* aStream, ErrorResult& aRv);
 
-already_AddRefed<Promise> WritableStreamAddWriteRequest(WritableStream* aStream,
-                                                        ErrorResult& aRv);
+already_AddRefed<Promise> WritableStreamAddWriteRequest(
+    WritableStream* aStream);
 
 already_AddRefed<WritableStreamDefaultWriter>
 AcquireWritableStreamDefaultWriter(WritableStream* aStream, ErrorResult& aRv);

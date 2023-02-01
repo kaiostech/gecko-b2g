@@ -93,7 +93,6 @@ NSString* const kMozFileUrlsPboardType = @"org.mozilla.file-urls";
       [aType isEqualToString:(NSString*)kPasteboardTypeFileURLPromise] ||
       [aType isEqualToString:(NSString*)kPasteboardTypeFilePromiseContent] ||
       [aType isEqualToString:(NSString*)kUTTypeFileURL] ||
-      [aType isEqualToString:NSStringPboardType] ||
       [aType isEqualToString:NSPasteboardTypeString] ||
       [aType isEqualToString:NSPasteboardTypeHTML] || [aType isEqualToString:NSPasteboardTypeRTF] ||
       [aType isEqualToString:NSPasteboardTypeTIFF] || [aType isEqualToString:NSPasteboardTypePNG]) {
@@ -411,7 +410,7 @@ nsresult nsCocoaUtils::CreateNSImageFromCGImage(CGImageRef aInputImage, NSImage*
   [NSGraphicsContext setCurrentContext:context];
 
   // Get the Quartz context and draw.
-  CGContextRef imageContext = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+  CGContextRef imageContext = [[NSGraphicsContext currentContext] CGContext];
   ::CGContextDrawImage(imageContext, *(CGRect*)&imageRect, aInputImage);
 
   [NSGraphicsContext restoreGraphicsState];

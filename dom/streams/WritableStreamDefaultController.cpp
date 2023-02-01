@@ -168,10 +168,7 @@ void SetUpWritableStreamDefaultController(
   bool backpressure = aController->GetBackpressure();
 
   // Step 14. Perform ! WritableStreamUpdateBackpressure(stream, backpressure).
-  aStream->UpdateBackpressure(backpressure, aRv);
-  if (aRv.Failed()) {
-    return;
-  }
+  aStream->UpdateBackpressure(backpressure);
 
   // Step 15. Let startResult be the result of performing startAlgorithm. (This
   // may throw an exception.)
@@ -184,10 +181,7 @@ void SetUpWritableStreamDefaultController(
 
   // Step 16. Let startPromise be a promise resolved with startResult.
   RefPtr<Promise> startPromise =
-      Promise::Create(aStream->GetParentObject(), aRv);
-  if (aRv.Failed()) {
-    return;
-  }
+      Promise::CreateInfallible(aStream->GetParentObject());
   startPromise->MaybeResolve(startResult);
 
   // Step 17/18.
@@ -345,10 +339,7 @@ MOZ_CAN_RUN_SCRIPT static void WritableStreamDefaultControllerProcessWrite(
               bool backpressure = aController->GetBackpressure();
               // Step 4.5.2. Perform ! WritableStreamUpdateBackpressure(stream,
               // backpressure).
-              stream->UpdateBackpressure(backpressure, aRv);
-              if (aRv.Failed()) {
-                return;
-              }
+              stream->UpdateBackpressure(backpressure);
             }
 
             // Step 4.6. Perform !
@@ -486,10 +477,7 @@ void WritableStreamDefaultControllerWrite(
 
     // Step 4.2. Perform ! WritableStreamUpdateBackpressure(stream,
     // backpressure).
-    stream->UpdateBackpressure(backpressure, aRv);
-    if (aRv.Failed()) {
-      return;
-    }
+    stream->UpdateBackpressure(backpressure);
   }
 
   // Step 5. Perform

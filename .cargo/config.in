@@ -15,6 +15,11 @@ git = "https://github.com/FirefoxGraphics/wpf-gpu-raster"
 rev = "a6514854d4518b02f2805719ff6cd74dae7dfde6"
 replace-with = "vendored-sources"
 
+[source."https://github.com/bendk/application-services"]
+git = "https://github.com/bendk/application-services"
+rev = "ecb35df5fc40357c49922f90e86bf4147fa52953"
+replace-with = "vendored-sources"
+
 [source."https://github.com/chris-zen/coremidi.git"]
 git = "https://github.com/chris-zen/coremidi.git"
 rev = "fc68464b5445caf111e41f643a2e69ccce0b4f83"
@@ -22,17 +27,17 @@ replace-with = "vendored-sources"
 
 [source."https://github.com/gfx-rs/d3d12-rs"]
 git = "https://github.com/gfx-rs/d3d12-rs"
-rev = "a990c93"
+rev = "b940b1d71"
 replace-with = "vendored-sources"
 
 [source."https://github.com/gfx-rs/naga"]
 git = "https://github.com/gfx-rs/naga"
-rev = "1be8024"
+rev = "f0edae8"
 replace-with = "vendored-sources"
 
 [source."https://github.com/gfx-rs/wgpu"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "24a904256e225b20b11fb30f914ef53212a2909e"
+rev = "48d8666de002c7bfddbe85a2596f7748b4cc18b4"
 replace-with = "vendored-sources"
 
 [source."https://github.com/glandium/warp"]
@@ -75,11 +80,6 @@ git = "https://github.com/mozilla-spidermonkey/jsparagus"
 rev = "688a6574cf830b4a3adaf9c5d41efc1f7dd4017f"
 replace-with = "vendored-sources"
 
-[source."https://github.com/mozilla/application-services"]
-git = "https://github.com/mozilla/application-services"
-rev = "c6370008f53328529e8bcf06aaa5014dffcd298b"
-replace-with = "vendored-sources"
-
 [source."https://github.com/mozilla/audioipc"]
 git = "https://github.com/mozilla/audioipc"
 rev = "fb7a2b12ced3b43e6a268621989c6191d1ed7e39"
@@ -112,7 +112,7 @@ replace-with = "vendored-sources"
 
 [source."https://github.com/mozilla/uniffi-rs.git"]
 git = "https://github.com/mozilla/uniffi-rs.git"
-rev = "846612a1d4fb5d11e246bf0682da4a499409424c"
+rev = "bc7ff8977bf38d0fdd1a458810b14f434d4dc4de"
 replace-with = "vendored-sources"
 
 [source."https://github.com/rust-minidump/minidump-writer.git"]
@@ -123,11 +123,6 @@ replace-with = "vendored-sources"
 [source."https://github.com/servo/rust-cssparser"]
 git = "https://github.com/servo/rust-cssparser"
 rev = "d3670a89bae26ba3a8db4758eb7976616113987d"
-replace-with = "vendored-sources"
-
-[source."https://github.com/smol-rs/async-task"]
-git = "https://github.com/smol-rs/async-task"
-rev = "f6488e35beccb26eb6e85847b02aa78a42cd3d0e"
 replace-with = "vendored-sources"
 
 

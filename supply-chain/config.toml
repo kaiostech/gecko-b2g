@@ -7,10 +7,6 @@ url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-c
 [imports.embark]
 url = "https://raw.githubusercontent.com/EmbarkStudios/rust-ecosystem/main/audits.toml"
 
-[policy.async-task]
-audit-as-crates-io = true
-notes = "This is the upstream code plus an extra fix that hasn't been released yet, see bug 1746533."
-
 [policy.audioipc-client]
 criteria = []
 notes = "Going away very soon in bug 1697845"
@@ -162,10 +158,6 @@ notes = "This is a first-party crate which is entirely unrelated to the crates.i
 audit-as-crates-io = false
 notes = "This is a first-party crate, maintained by the appservices team, which is entirely unrelated to the crates.io package of the same name."
 
-[policy.uniffi_bindgen]
-audit-as-crates-io = false
-notes = "This is a first-party crate, normally vendored, but currently patched in-tree until next update."
-
 [policy.viaduct]
 audit-as-crates-io = false
 notes = "This is a first-party crate, maintained by the appservices team, which is entirely unrelated to the crates.io package of the same name."
@@ -213,10 +205,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.android_log-sys]]
 version = "0.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.arrayref]]
-version = "0.3.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.ash]]
@@ -297,10 +285,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.cargo-platform]]
 version = "0.1.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.cargo_metadata]]
-version = "0.14.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.cexpr]]

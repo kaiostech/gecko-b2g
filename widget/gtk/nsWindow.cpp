@@ -4292,45 +4292,52 @@ void nsWindow::OnLeaveNotifyEvent(GdkEventCrossing* aEvent) {
   DispatchInputEvent(&event);
 }
 
-bool nsWindow::CheckResizerEdge(LayoutDeviceIntPoint aPoint,
-                                GdkWindowEdge& aOutEdge) {
+Maybe<GdkWindowEdge> nsWindow::CheckResizerEdge(
+    const LayoutDeviceIntPoint& aPoint) {
   // We only need to handle resizers for PIP window.
   if (!mIsPIPWindow) {
-    return false;
+    return {};
   }
 
-  // Don't allow resizing maximized windows.
+  // Don't allow resizing maximized/fullscreen windows.
   if (mSizeMode != nsSizeMode_Normal) {
-    return false;
+    return {};
   }
 
 #define RESIZER_SIZE 15
-  int resizerSize = RESIZER_SIZE * GdkCeiledScaleFactor();
-  int topDist = aPoint.y;
-  int leftDist = aPoint.x;
-  int rightDist = mBounds.width - aPoint.x;
-  int bottomDist = mBounds.height - aPoint.y;
+  const int resizerSize = RESIZER_SIZE * GdkCeiledScaleFactor();
+  const int topDist = aPoint.y;
+  const int leftDist = aPoint.x;
+  const int rightDist = mBounds.width - aPoint.x;
+  const int bottomDist = mBounds.height - aPoint.y;
 
-  if (leftDist <= resizerSize && topDist <= resizerSize) {
-    aOutEdge = GDK_WINDOW_EDGE_NORTH_WEST;
-  } else if (rightDist <= resizerSize && topDist <= resizerSize) {
-    aOutEdge = GDK_WINDOW_EDGE_NORTH_EAST;
-  } else if (leftDist <= resizerSize && bottomDist <= resizerSize) {
-    aOutEdge = GDK_WINDOW_EDGE_SOUTH_WEST;
-  } else if (rightDist <= resizerSize && bottomDist <= resizerSize) {
-    aOutEdge = GDK_WINDOW_EDGE_SOUTH_EAST;
-  } else if (topDist <= resizerSize) {
-    aOutEdge = GDK_WINDOW_EDGE_NORTH;
-  } else if (leftDist <= resizerSize) {
-    aOutEdge = GDK_WINDOW_EDGE_WEST;
-  } else if (rightDist <= resizerSize) {
-    aOutEdge = GDK_WINDOW_EDGE_EAST;
-  } else if (bottomDist <= resizerSize) {
-    aOutEdge = GDK_WINDOW_EDGE_SOUTH;
-  } else {
-    return false;
+  if (topDist <= resizerSize) {
+    if (rightDist <= resizerSize) {
+      return Some(GDK_WINDOW_EDGE_NORTH_EAST);
+    }
+    if (leftDist <= resizerSize) {
+      return Some(GDK_WINDOW_EDGE_NORTH_WEST);
+    }
+    return Some(GDK_WINDOW_EDGE_NORTH);
   }
-  return true;
+
+  if (bottomDist <= resizerSize) {
+    if (leftDist <= resizerSize) {
+      return Some(GDK_WINDOW_EDGE_SOUTH_WEST);
+    }
+    if (rightDist <= resizerSize) {
+      return Some(GDK_WINDOW_EDGE_SOUTH_EAST);
+    }
+    return Some(GDK_WINDOW_EDGE_SOUTH);
+  }
+
+  if (leftDist <= resizerSize) {
+    return Some(GDK_WINDOW_EDGE_WEST);
+  }
+  if (rightDist <= resizerSize) {
+    return Some(GDK_WINDOW_EDGE_EAST);
+  }
+  return {};
 }
 
 template <typename Event>
@@ -4379,34 +4386,25 @@ void nsWindow::OnMotionNotifyEvent(GdkEventMotion* aEvent) {
     }
   }
 
-  GdkWindowEdge edge;
   const auto refPoint = GetRefPoint(this, aEvent);
-  if (CheckResizerEdge(refPoint, edge)) {
+  if (auto edge = CheckResizerEdge(refPoint)) {
     nsCursor cursor = eCursor_none;
-    switch (edge) {
+    switch (*edge) {
+      case GDK_WINDOW_EDGE_SOUTH:
       case GDK_WINDOW_EDGE_NORTH:
-        cursor = eCursor_n_resize;
-        break;
-      case GDK_WINDOW_EDGE_NORTH_WEST:
-        cursor = eCursor_nw_resize;
-        break;
-      case GDK_WINDOW_EDGE_NORTH_EAST:
-        cursor = eCursor_ne_resize;
+        cursor = eCursor_ns_resize;
         break;
       case GDK_WINDOW_EDGE_WEST:
-        cursor = eCursor_w_resize;
-        break;
       case GDK_WINDOW_EDGE_EAST:
-        cursor = eCursor_e_resize;
+        cursor = eCursor_ew_resize;
         break;
-      case GDK_WINDOW_EDGE_SOUTH:
-        cursor = eCursor_s_resize;
-        break;
-      case GDK_WINDOW_EDGE_SOUTH_WEST:
-        cursor = eCursor_sw_resize;
-        break;
+      case GDK_WINDOW_EDGE_NORTH_WEST:
       case GDK_WINDOW_EDGE_SOUTH_EAST:
-        cursor = eCursor_se_resize;
+        cursor = eCursor_nwse_resize;
+        break;
+      case GDK_WINDOW_EDGE_NORTH_EAST:
+      case GDK_WINDOW_EDGE_SOUTH_WEST:
+        cursor = eCursor_nesw_resize;
         break;
     }
     SetCursor(Cursor{cursor});
@@ -4587,9 +4585,8 @@ void nsWindow::OnButtonPressEvent(GdkEventButton* aEvent) {
   }
 
   // Check to see if the event is within our window's resize region
-  GdkWindowEdge edge;
-  if (CheckResizerEdge(refPoint, edge)) {
-    gdk_window_begin_resize_drag(gtk_widget_get_window(mShell), edge,
+  if (auto edge = CheckResizerEdge(refPoint)) {
+    gdk_window_begin_resize_drag(gtk_widget_get_window(mShell), *edge,
                                  aEvent->button, aEvent->x_root, aEvent->y_root,
                                  aEvent->time);
     return;

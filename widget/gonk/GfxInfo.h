@@ -30,7 +30,6 @@ class GfxInfo : public GfxInfoBase {
   NS_IMETHOD GetDWriteVersion(nsAString& aDwriteVersion) override;
   NS_IMETHOD GetCleartypeParameters(nsAString& aCleartypeParams) override;
   NS_IMETHOD GetHasBattery(bool* aHasBattery) override;
-  NS_IMETHOD GetDesktopEnvironment(nsAString& aDesktopEnvironment) override;
   NS_IMETHOD GetAdapterDescription(nsAString& aAdapterDescription) override;
   NS_IMETHOD GetAdapterDriver(nsAString& aAdapterDriver) override;
   NS_IMETHOD GetAdapterVendorID(nsAString& aAdapterVendorID) override;

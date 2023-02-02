@@ -318,11 +318,6 @@ GfxInfo::GetEmbeddedInFirefoxReality(bool* aEmbeddedInFirefoxReality) {
 }
 
 NS_IMETHODIMP
-GfxInfo::GetDesktopEnvironment(nsAString& aDesktopEnvironment) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
 GfxInfo::GetHasBattery(bool* aHasBattery) {
   // All Gonk devices should have a battery!
   *aHasBattery = true;

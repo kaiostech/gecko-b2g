@@ -51,7 +51,7 @@ nsClipboard::SetData(nsITransferable* aTransferable, nsIClipboardOwner* anOwner,
   if (Preferences::GetBool("clipboard.plainTextOnly")) {
     nsCOMPtr<nsISupports> clip;
     nsresult rv =
-        aTransferable->GetTransferData(kUnicodeMime, getter_AddRefs(clip));
+        aTransferable->GetTransferData(kTextMime, getter_AddRefs(clip));
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -81,7 +81,7 @@ nsClipboard::SetData(nsITransferable* aTransferable, nsIClipboardOwner* anOwner,
     // Clip is the data which will be sent to the clipboard.
     nsCOMPtr<nsISupports> clip;
 
-    if (flavorStr == kUnicodeMime) {
+    if (flavorStr == kTextMime) {
       // text/plain
       const char* c_flavorStr;
 
@@ -181,7 +181,7 @@ nsClipboard::GetData(nsITransferable* aTransferable, int32_t aWhichClipboard) {
       return rv;
     }
     nsCOMPtr<nsISupports> genericDataWrapper = do_QueryInterface(dataWrapper);
-    rv = aTransferable->SetTransferData(kUnicodeMime, genericDataWrapper);
+    rv = aTransferable->SetTransferData(kTextMime, genericDataWrapper);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -206,7 +206,7 @@ nsClipboard::GetData(nsITransferable* aTransferable, int32_t aWhichClipboard) {
     auto flavorStr = flavorList[i];
 
     // text/plain, text/Unicode
-    if (flavorStr == kUnicodeMime && mClipboard->HasText()) {
+    if (flavorStr == kTextMime && mClipboard->HasText()) {
       nsresult rv;
       nsCOMPtr<nsISupportsString> dataWrapper =
           do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
@@ -333,7 +333,7 @@ nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
       if (!flavor) {
         continue;
       }
-      if (!strcmp(flavor, kUnicodeMime) && mClipboard->HasText()) {
+      if (!strcmp(flavor, kTextMime) && mClipboard->HasText()) {
         *aHasType = true;
       } else if (!strcmp(flavor, kHTMLMime) && mClipboard->HasHTML()) {
         *aHasType = true;

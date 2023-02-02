@@ -6463,7 +6463,7 @@ blocklist:
       Keep track of the timestamp of the oldest stash of the addons blocklist.
       Only meaningful when mlbf_enabled is true.
       The value is a datetime string in UTC format, or "Missing Date" when unavailable.
-    expires: "112"
+    expires: "122"
     kind: string
     release_channel_collection: opt-out
     notification_emails:
@@ -7630,6 +7630,23 @@ urlbar.zeroprefix:
       - main
 
 quickaction:
+  impression:
+    bug_numbers:
+      - 1806024
+    description: >
+      Counts how many times quickaction results were shown. The key
+      is the in the form "actionkey-N" where N is the number of characters
+      the user typed to be shown the action.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search-telemetry@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
   picked:
     bug_numbers:
       - 1783155

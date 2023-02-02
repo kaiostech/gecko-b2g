@@ -3295,6 +3295,61 @@ The installer for Windows.
       - Firefox::Installer
 
 
+DevTools
+~~~~~~~~
+Mozilla Developer Tools
+
+
+.. list-table::
+    :stub-columns: 1
+    :widths: 30 70
+
+    * - Owner(s)
+      -
+        | `Jan Honza Odvarko (Honza) <https://people.mozilla.org/s?query=Honza>`__
+    * - Peer(s)
+      -
+        | `Alexandre Poirot (ochameau) <https://people.mozilla.org/s?query=ochameau>`__
+        | `Julian Descottes (jdescottes) <https://people.mozilla.org/s?query=jdescottes>`__
+        | `Nicolas Chevobbe (nchevobbe) <https://people.mozilla.org/s?query=nchevobbe>`__
+        | `Hubert Boma Manilla (bomsy) <https://people.mozilla.org/s?query=bomsy>`__
+        | `Henrik Skupin (whimboo) <https://people.mozilla.org/s?query=whimboo>`__
+    * - Owner(s) Emeritus
+      - Patrick Brosset, Joe Walker, Dave Camp, Rob Campbell
+    * - Peer(s) Emeritus
+      - Mihai Șucan, Heather Arthur, Anton Kovalyov, Brandon Benvie, Eddy Bruel, James Long, Matteo Ferretti, Steve Fink (heapsnapshot code), Jaroslav Šnajdr, Tom Tromey, Paul Rouget, Victor Porof, Lin Clark, Jan Keromnes, Jordan Santell, Soledad Penadés, Mike Ratcliffe, Panagiotis Astithas, Tim Nguyen, Brian Grinstead, J. Ryan Stinnett, Jason Laster, David Walsh, Greg Tatum, Gabriel Luong, Brad Werth, Daisuke Akatsuka, Yulia Startsev, Logan Smyth, Julien Wajsberg, Razvan Caliman, Micah Tigley, Nick Fitzgerald, Jim Blandy, Belén Albeza
+    * - Includes
+      -
+        | `devtools/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=devtools/\*\*/\*>`__
+    * - URL
+      - http://firefox-dev.tools/
+    * - Bugzilla Components
+      - DevTools
+
+JavaScript usage, tools, and style
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Aspects of JavaScript use such as language feature usage, tooling such as lint configurations, formatting and naming style.
+
+
+.. list-table::
+    :stub-columns: 1
+    :widths: 30 70
+
+    * - Owner(s)
+      -
+        | `Dave Townsend (mossop) <https://people.mozilla.org/s?query=mossop>`__
+    * - Peer(s)
+      -
+        | `Gijs <https://people.mozilla.org/s?query=Gijs>`__
+        | `Mark Banner (standard8) <https://people.mozilla.org/s?query=standard8>`__
+        | `Jan de Mooij (jandem) <https://people.mozilla.org/s?query=jandem>`__
+    * - Includes
+      -
+        | `.eslintrc-test-paths.js <https://searchfox.org/mozilla-central/search?q=&path=.eslintrc-test-paths.js>`__
+        | `\*\*/.eslintignore <https://searchfox.org/mozilla-central/search?q=&path=\*\*/.eslintignore>`__
+        | `\*\*/.eslintrc.js <https://searchfox.org/mozilla-central/search?q=&path=\*\*/.eslintrc.js>`__
+        | `tools/lint/eslint/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=tools/lint/eslint/\*\*/\*>`__
+
 Marionette
 ~~~~~~~~~~
 Marionette is a remote protocol that lets out-of-process programs communicate with, instrument, and control Gecko-based browsers. Combined with geckodriver, this forms our WebDriver implementation.
@@ -3379,6 +3434,62 @@ Aspects of Python use such as tooling, formatting and naming style
         | `tools/lint/python/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=tools/lint/python/\*\*/\*>`__
     * - Bugzilla Components
       - Developer Infrastructure :: Lint and Formatting
+
+Remote Protocol
+~~~~~~~~~~~~~~~
+Low-level remote protocol exposing interfaces for inspecting state and controlling execution of web documents, instrumenting various subsystems in the browser, simulating user interaction for automation purposes, and for subscribing to updates from the aforementioned.
+
+
+.. list-table::
+    :stub-columns: 1
+    :widths: 30 70
+
+    * - Owner(s)
+      -
+        | `Henrik Skupin (whimboo) <https://people.mozilla.org/s?query=whimboo>`__
+    * - Peer(s)
+      -
+        | `Julian Descottes (jdescottes) <https://people.mozilla.org/s?query=jdescottes>`__
+    * - Owner(s) Emeritus
+      - Andreas Tolfsen
+    * - Peer(s) Emeritus
+      - Maja Frydrychowicz, Alexandre Poirot, Yulia Startsev
+    * - Includes
+      -
+        | `remote/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=remote/\*\*/\*>`__
+    * - URL
+      - https://firefox-source-docs.mozilla.org/remote/
+    * - Bugzilla Components
+      - Remote Protocol
+
+Sync
+~~~~
+Firefox Sync client
+
+
+.. list-table::
+    :stub-columns: 1
+    :widths: 30 70
+
+    * - Owner(s)
+      -
+        | `Mark Hammond (markh) <https://people.mozilla.org/s?query=markh>`__
+    * - Peer(s)
+      -
+        | `Lougenia Bailey (lougenia) <https://people.mozilla.org/s?query=lougenia>`__
+        | `Tarik Eshaq (teshaq) <https://people.mozilla.org/s?query=teshaq>`__
+        | `Ben Dean-Kawamura (bdk) <https://people.mozilla.org/s?query=bdk>`__
+        | `Sammy Khamis (skhamis) <https://people.mozilla.org/s?query=skhamis>`__
+        | `Lina Butler (lina) <https://people.mozilla.org/s?query=lina>`__
+    * - Owner(s) Emeritus
+      - Ryan Kelly
+    * - Includes
+      -
+        | `services/sync/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=services/sync/\*\*/\*>`__
+    * - URL
+      - https://wiki.mozilla.org/Services/Process/Code_Review
+    * - Bugzilla Components
+      - Sync
 
 firefox-ui
 ~~~~~~~~~~
@@ -3738,3 +3849,34 @@ Webextension APIs and integration.
       -
         | `browser/components/extensions/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=browser/components/extensions/\*\*/\*>`__
         | `toolkit/components/extensions/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=toolkit/components/extensions/\*\*/\*>`__
+
+
+URL Classifier
+~~~~~~~~~~~~~~
+Database and list-based classification of URL resources, such as Tracking Protection and SafeBrowsing.
+
+
+.. list-table::
+    :stub-columns: 1
+    :widths: 30 70
+
+    * - Owner(s)
+      -
+        | `Dimi Lee (dlee) <https://people.mozilla.org/s?query=dlee>`__
+        | `Luke Crouch (groovecoder) <https://people.mozilla.org/s?query=groovecoder>`__
+    * - Peer(s)
+      -
+        | `Tim Huang (timhuang) <https://people.mozilla.org/s?query=timhuang>`__
+        | `Gian-Carlo Pascutto (gcp) <https://people.mozilla.org/s?query=gcp>`__
+    * - Owner(s) Emeritus
+      - François Marier
+    * - Peer(s) Emeritus
+      - Henry Chang, Ryan Tilder
+    * - Includes
+      -
+        | `toolkit/components/url-classifier/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=toolkit/components/url-classifier/\*\*/\*>`__
+        | `netwerk/url-classifier/\*\*/\* <https://searchfox.org/mozilla-central/search?q=&path=netwerk/url-classifier/\*\*/\*>`__
+    * - Group
+      - dev-platform
+    * - URL
+      - https://github.com/mozilla-services/shavar https://wiki.mozilla.org/Phishing_Protection https://wiki.mozilla.org/Security/Tracking_protection https://wiki.mozilla.org/Security/Application_Reputation

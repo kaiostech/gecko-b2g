@@ -2627,6 +2627,11 @@
   value: false
   mirror: always
 
+- name: dom.events.dataTransfer.imageAsFile.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # User interaction timer interval, in ms
 - name: dom.events.user_interaction_interval
   type: uint32_t
@@ -3659,7 +3664,7 @@
 # Enable Screen Orientation lock
 - name: dom.screenorientation.allow-lock
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether to enable the JavaScript start-up cache. This causes one of the first
@@ -4059,6 +4064,12 @@
   mirror: always
 
 - name: dom.workers.pFetch.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Is support for modules (new Worker(..., {type: "module">)) enabled for workers?
+- name: dom.workers.modules.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
@@ -10238,15 +10249,15 @@
     type: bool
     value: false
     mirror: always
+#endif  # MOZ_FFMPEG
 
 #ifdef MOZ_WIDGET_GTK
 # Use VA-API for ffmpeg video playback on Linux
 - name: media.ffmpeg.vaapi.enabled
-  type: RelaxedAtomicBool
+  type: bool
   value: false
-  mirror: always
+  mirror: once
 #endif # MOZ_WIDGET_GTK
-#endif  # MOZ_FFMPEG
 
 -   name: media.ffvpx.enabled
     type: RelaxedAtomicBool
@@ -13685,7 +13696,7 @@
 # WebAuthn CTAP2 support
 - name: security.webauthn.ctap2
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Block Worker/SharedWorker scripts with wrong MIME type.

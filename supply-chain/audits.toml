@@ -1222,6 +1222,12 @@ examine at the time, so I examined it now. I didn't perform a full logic review
 but convinced myself that any generated code will be entirely safe to deploy.
 """
 
+[[audits.marionette]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-run"
+version = "0.2.1"
+notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
+
 [[audits.matches]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
@@ -1276,11 +1282,22 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.3 -> 0.6.2"
 
+[[audits.mozdevice]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-run"
+version = "0.5.1"
+notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
+
 [[audits.mozprofile]]
 who = "Henrik Skupin <mail@hskupin.info>"
 criteria = "safe-to-deploy"
 version = "0.9.0"
 notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
+
+[[audits.mozprofile]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-deploy"
+delta = "0.9.0 -> 0.9.1"
 
 [[audits.mozrunner]]
 who = "Henrik Skupin <mail@hskupin.info>"
@@ -1288,11 +1305,21 @@ criteria = "safe-to-deploy"
 version = "0.15.0"
 notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
 
+[[audits.mozrunner]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-deploy"
+delta = "0.15.0 -> 0.15.1"
+
 [[audits.mozversion]]
 who = "Henrik Skupin <mail@hskupin.info>"
 criteria = "safe-to-run"
 version = "0.5.0"
 notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
+
+[[audits.mozversion]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-run"
+delta = "0.5.0 -> 0.5.1"
 
 [[audits.naga]]
 who = "Dzmitry Malyshau <kvark@fastmail.com>"
@@ -2598,6 +2625,16 @@ who = "Henrik Skupin <mail@hskupin.info>"
 criteria = "safe-to-deploy"
 version = "0.46.0"
 notes = "Maintained by the DevTools team at Mozilla and has no unsafe code."
+
+[[audits.webdriver]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-deploy"
+delta = "0.46.0 -> 0.47.0"
+
+[[audits.webdriver]]
+who = "Henrik Skupin <mail@hskupin.info>"
+criteria = "safe-to-deploy"
+delta = "0.47.0 -> 0.47.1"
 
 [[audits.webrtc-sdp]]
 who = "Byron Campen <docfaraday@gmail.com>"

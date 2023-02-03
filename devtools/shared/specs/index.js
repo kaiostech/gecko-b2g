@@ -98,6 +98,8 @@ const Types = (exports.__TypesForTests = [
     spec: "devtools/shared/specs/environment",
     front: null,
   },
+  // @backward-compat { version 111 } The eventSource entry be deleted when 111
+  // is on the release channel.
   {
     types: ["eventSource"],
     spec: "devtools/shared/specs/eventsource",
@@ -326,6 +328,8 @@ const Types = (exports.__TypesForTests = [
     spec: "devtools/shared/specs/webconsole",
     front: "devtools/client/fronts/webconsole",
   },
+  // @backward-compat { version 111 } The webSocket entry be deleted when 111 is
+  // on the release channel.
   {
     types: ["webSocket"],
     spec: "devtools/shared/specs/websocket",

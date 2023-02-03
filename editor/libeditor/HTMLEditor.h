@@ -1143,18 +1143,23 @@ class HTMLEditor final : public EditorBase,
                        const Element& aEditingHost);
 
   /**
-   * SplitParentInlineElementsAtRangeEdges() splits parent inline nodes at both
-   * start and end of aRangeItem.  If this splits at every point, this modifies
-   * aRangeItem to point each split point (typically, right node).
+   * Splits parent inline nodes at both start and end of aRangeItem.  If this
+   * splits at every point, this modifies aRangeItem to point each split point
+   * (typically, at right node).
    *
    * @param aRangeItem          [in/out] One or two DOM points where should be
    *                            split.  Will be modified to split point if
    *                            they're split.
+   * @param aEditingHost        [in] The editing host.
+   * @param aAncestorLimiter    [in/optional] If specified, this stops splitting
+   *                            ancestors when meets this node.
    * @return                    A suggest point to put caret if succeeded, but
    *                            it may be unset.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
-  SplitParentInlineElementsAtRangeEdges(RangeItem& aRangeItem);
+  SplitParentInlineElementsAtRangeBoundaries(
+      RangeItem& aRangeItem, const Element& aEditingHost,
+      const nsIContent* aAncestorLimiter = nullptr);
 
   /**
    * SplitElementsAtEveryBRElement() splits before all <br> elements in
@@ -1939,45 +1944,6 @@ class HTMLEditor final : public EditorBase,
                                  ErrorResult& aError);
 
   /**
-   * MoveOneHardLineContentsWithTransaction() moves the content in a hard line
-   * which contains aPointInHardLine to aPointToInsert or end of
-   * aPointToInsert's container.
-   *
-   * @param aPointInHardLine            A point in a hard line.  All nodes in
-   *                                    same hard line will be moved.
-   * @param aPointToInsert              Point to insert contents of the hard
-   *                                    line.
-   * @param aEditingHost                The editing host.
-   * @param aMoveToEndOfContainer       If `Yes`, aPointToInsert.Offset() will
-   *                                    be ignored and instead, all contents
-   *                                    will be appended to the container of
-   *                                    aPointToInsert.  The result may be
-   *                                    different from setting this to `No`
-   *                                    and aPointToInsert points end of the
-   *                                    container because mutation event
-   *                                    listeners may modify children of the
-   *                                    container while we're moving nodes.
-   */
-  enum class MoveToEndOfContainer { Yes, No };
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<MoveNodeResult, nsresult>
-  MoveOneHardLineContentsWithTransaction(
-      const EditorDOMPoint& aPointInHardLine,
-      const EditorDOMPoint& aPointToInsert, const Element& aEditingHost,
-      MoveToEndOfContainer aMoveToEndOfContainer = MoveToEndOfContainer::No);
-
-  /**
-   * CanMoveOrDeleteSomethingInHardLine() returns true if there are some content
-   * nodes which can be moved to another place or deleted.  Note that if there
-   * is only a padding `<br>` element in empty block element, this returns
-   * false even though it may be deleted.
-   *
-   * @param aPointInHardLine    A point in a hard line.
-   */
-  Result<bool, nsresult> CanMoveOrDeleteSomethingInHardLine(
-      const EditorDOMPoint& aPointInHardLine,
-      const Element& aEditingHost) const;
-
-  /**
    * SplitNodeWithTransaction() creates a transaction to create a new node
    * (left node) identical to an existing node (right node), and split the
    * contents between the same point in both nodes, then, execute the
@@ -2195,6 +2161,7 @@ class HTMLEditor final : public EditorBase,
                         nsIEditor::EStripWrappers aStripWrappers) final;
 
   class AutoDeleteRangesHandler;
+  class AutoMoveOneLineHandler;
 
   /**
    * DeleteMostAncestorMailCiteElementIfEmpty() deletes most ancestor
@@ -4491,7 +4458,7 @@ class HTMLEditor final : public EditorBase,
   friend class AlignStateAtSelection;  // CollectEditableTargetNodes,
                                        // CollectNonEditableNodes
   friend class AutoRangeArray;  // RangeUpdaterRef, SplitNodeWithTransaction,
-                                // SplitParentInlineElementsAtRangeEdges
+                                // SplitParentInlineElementsAtRangeBoundaries
   friend class AutoSelectionSetterAfterTableEdit;  // SetSelectionAfterEdit
   friend class
       AutoSetTemporaryAncestorLimiter;  // InitializeSelectionAncestorLimit
@@ -4527,15 +4494,13 @@ class HTMLEditor final : public EditorBase,
   friend class TransactionManager;  // DidDoTransaction, DidRedoTransaction,
                                     // DidUndoTransaction
   friend class
-      WhiteSpaceVisibilityKeeper;  // CanMoveChildren,
-                                   // CanMoveOrDeleteSomethingInHardLine,
+      WhiteSpaceVisibilityKeeper;  // AutoMoveOneLineHandler
+                                   // CanMoveChildren,
                                    // ChangeListElementType,
                                    // DeleteNodeWithTransaction,
                                    // DeleteTextAndTextNodesWithTransaction,
                                    // JoinNearestEditableNodesWithTransaction,
                                    // MoveChildrenWithTransaction,
-                                   // MoveOneHardLineContentsWithTransaction,
-                                   // MoveToEndOfContainer,
                                    // SplitAncestorStyledInlineElementsAt,
                                    // TreatEmptyTextNodes
 };

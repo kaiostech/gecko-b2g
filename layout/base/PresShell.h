@@ -1244,7 +1244,12 @@ class PresShell final : public nsStubDocumentObserver,
     return mObservingLayoutFlushes || mReflowContinueTimer;
   }
 
-  void SyncWindowProperties(nsView* aView);
+  void SyncWindowProperties(bool aSync);
+  struct WindowSizeConstraints {
+    nsSize mMinSize;
+    nsSize mMaxSize;
+  };
+  WindowSizeConstraints GetWindowSizeConstraints();
 
   Document* GetPrimaryContentDocument();
 

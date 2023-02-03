@@ -198,6 +198,148 @@ class MOZ_STACK_CLASS HTMLEditor::AutoInlineStyleSetter final
   EditorDOMPoint mLastHandledPoint;
 };
 
+/**
+ * AutoMoveOneLineHandler moves the content in a line (between line breaks/block
+ * boundaries) to specific point or end of a container element.
+ */
+class MOZ_STACK_CLASS HTMLEditor::AutoMoveOneLineHandler final {
+ public:
+  /**
+   * Use this constructor when you want a line to move specific point.
+   */
+  explicit AutoMoveOneLineHandler(const EditorDOMPoint& aPointToInsert)
+      : mPointToInsert(aPointToInsert),
+        mMoveToEndOfContainer(MoveToEndOfContainer::No) {
+    MOZ_ASSERT(mPointToInsert.IsSetAndValid());
+    MOZ_ASSERT(mPointToInsert.IsInContentNode());
+  }
+  /**
+   * Use this constructor when you want a line to move end of
+   * aNewContainerElement.
+   */
+  explicit AutoMoveOneLineHandler(Element& aNewContainerElement)
+      : mPointToInsert(&aNewContainerElement, 0),
+        mMoveToEndOfContainer(MoveToEndOfContainer::Yes) {
+    MOZ_ASSERT(mPointToInsert.IsSetAndValid());
+  }
+
+  /**
+   * Must be called before calling Run().
+   *
+   * @param aHTMLEditor         The HTML editor.
+   * @param aPointInHardLine    A point in a line which you want to move.
+   * @param aEditingHost        The editing host.
+   */
+  [[nodiscard]] nsresult Prepare(HTMLEditor& aHTMLEditor,
+                                 const EditorDOMPoint& aPointInHardLine,
+                                 const Element& aEditingHost);
+  /**
+   * Must be called if Prepare() returned NS_OK.
+   *
+   * @param aHTMLEditor         The HTML editor.
+   * @param aEditingHost        The editing host.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<MoveNodeResult, nsresult> Run(
+      HTMLEditor& aHTMLEditor, const Element& aEditingHost);
+
+  /**
+   * Returns true if there are some content nodes which can be moved to another
+   * place or deleted in the line containing aPointInHardLine.  Note that if
+   * there is only a padding <br> element in an empty block element, this
+   * returns false even though it may be deleted.
+   */
+  static Result<bool, nsresult> CanMoveOrDeleteSomethingInLine(
+      const EditorDOMPoint& aPointInHardLine, const Element& aEditingHost);
+
+  AutoMoveOneLineHandler(const AutoMoveOneLineHandler& aOther) = delete;
+  AutoMoveOneLineHandler(AutoMoveOneLineHandler&& aOther) = delete;
+
+ private:
+  [[nodiscard]] bool ForceMoveToEndOfContainer() const {
+    return mMoveToEndOfContainer == MoveToEndOfContainer::Yes;
+  }
+  [[nodiscard]] EditorDOMPoint& NextInsertionPointRef() {
+    if (ForceMoveToEndOfContainer()) {
+      mPointToInsert.SetToEndOf(mPointToInsert.GetContainer());
+    }
+    return mPointToInsert;
+  }
+
+  /**
+   * Consider whether Run() should preserve or does not preserve white-space
+   * style of moving content.
+   *
+   * @param aContentInLine      Specify a content node in the moving line.
+   *                            Typically, container of aPointInHardLine of
+   *                            Prepare().
+   * @param aInclusiveAncestorBlockOfInsertionPoint
+   *                            Inclusive ancestor block element of insertion
+   *                            point.  Typically, computed
+   *                            mDestInclusiveAncestorBlock.
+   */
+  [[nodiscard]] static PreserveWhiteSpaceStyle
+  ConsiderWhetherPreserveWhiteSpaceStyle(
+      const nsIContent* aContentInLine,
+      const Element* aInclusiveAncestorBlockOfInsertionPoint);
+
+  /**
+   * Look for inclusive ancestor block element of aBlockElement and a descendant
+   * of aAncestorElement.  If aBlockElement and aAncestorElement are same one,
+   * this returns nullptr.
+   *
+   * @param aBlockElement       A block element which is a descendant of
+   *                            aAncestorElement.
+   * @param aAncestorElement    An inclusive ancestor block element of
+   *                            aBlockElement.
+   */
+  [[nodiscard]] static Element*
+  GetMostDistantInclusiveAncestorBlockInSpecificAncestorElement(
+      Element& aBlockElement, const Element& aAncestorElement);
+
+  /**
+   * Split ancestors at the line range boundaries and collect array of contents
+   * in the line to aOutArrayOfContents.  Specify aNewContainer to the container
+   * of insertion point to avoid splitting the destination.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<CaretPoint, nsresult>
+  SplitToMakeTheLineIsolated(
+      HTMLEditor& aHTMLEditor, const nsIContent& aNewContainer,
+      const Element& aEditingHost,
+      nsTArray<OwningNonNull<nsIContent>>& aOutArrayOfContents) const;
+
+  /**
+   * Delete unnecessary trailing line break in aMovedContentRange if there is.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DeleteUnnecessaryTrailingLineBreakInMovedLineEnd(
+      HTMLEditor& aHTMLEditor, const EditorDOMRange& aMovedContentRange,
+      const Element& aEditingHost) const;
+
+  // Range of selected line.
+  EditorDOMRange mLineRange;
+  // Next insertion point.  If mMoveToEndOfContainer is `Yes`, this is
+  // recomputed with its container in NextInsertionPointRef.  Therefore, this
+  // should not be referred directly.
+  EditorDOMPoint mPointToInsert;
+  // An inclusive ancestor block element of the moving line.
+  RefPtr<Element> mSrcInclusiveAncestorBlock;
+  // An inclusive ancestor block element of the insertion point.
+  RefPtr<Element> mDestInclusiveAncestorBlock;
+  // nullptr if mMovingToParentBlock is false.
+  // Must be non-nullptr if mMovingToParentBlock is true.  The topmost ancestor
+  // block element which contains mSrcInclusiveAncestorBlock and a descendant of
+  // mDestInclusiveAncestorBlock.  I.e., this may be same as
+  // mSrcInclusiveAncestorBlock, but never same as mDestInclusiveAncestorBlock.
+  RefPtr<Element> mTopmostSrcAncestorBlockInDestBlock;
+  enum class MoveToEndOfContainer { No, Yes };
+  MoveToEndOfContainer mMoveToEndOfContainer;
+  PreserveWhiteSpaceStyle mPreserveWhiteSpaceStyle =
+      PreserveWhiteSpaceStyle::No;
+  // true if mDestInclusiveAncestorBlock is an ancestor of
+  // mSrcInclusiveAncestorBlock.
+  bool mMovingToParentBlock = false;
+};
+
 }  // namespace mozilla
 
 #endif  // #ifndef HTMLEditorNestedClasses_h

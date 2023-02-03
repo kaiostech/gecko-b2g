@@ -269,6 +269,7 @@ nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal(
 
             auto constructCommonInboundRtpStats =
                 [&](RTCInboundRtpStreamStats& aLocal) {
+                  aLocal.mTrackIdentifier = recvTrackId;
                   aLocal.mTimestamp.Construct(
                       pipeline->GetTimestampMaker().GetNow());
                   aLocal.mId.Construct(localId);
@@ -483,13 +484,10 @@ nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal(
                         webrtc::Timestamp::Millis(
                             *videoStats->estimated_playout_ntp_timestamp_ms)));
               }
-              local.mFramesReceived.Construct(
-                  videoStats->frame_counts.key_frames +
-                  videoStats->frame_counts.delta_frames);
+               */
               // Not including frames dropped in the rendering pipe, which
               // is not of webrtc's concern anyway?!
               local.mFramesDropped.Construct(videoStats->frames_dropped);
-               */
               if (!report->mInboundRtpStreamStats.AppendElement(
                       std::move(local), fallible)) {
                 mozalloc_handle_oom(0);

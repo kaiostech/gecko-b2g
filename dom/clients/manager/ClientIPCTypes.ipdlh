@@ -13,7 +13,7 @@ include "mozilla/dom/ClientIPCUtils.h";
 include "ipc/ErrorIPCUtils.h";
 
 using mozilla::TimeStamp from "mozilla/TimeStamp.h";
-using ClientDisposition from "mozilla/dom/ClientIPCUtils.h";
+using mozilla::dom::ClientDisposition from "mozilla/dom/ClientIPCUtils.h";
 using mozilla::dom::ClientType from "mozilla/dom/ClientsBinding.h";
 using mozilla::dom::FrameType from "mozilla/dom/ClientBinding.h";
 using mozilla::StorageAccess from "mozilla/StorageAccess.h";

@@ -236,10 +236,8 @@ def _generate_test(test: Mapping[str, str], templates: Mapping[str, str],
 
     timeout = ('\n<meta name="timeout" content="%s">' %
                test['timeout'] if 'timeout' in test else '')
-
-    scripts = ''
-    for s in test.get('scripts', []):
-        scripts += '<script src="%s"></script>\n' % (s)
+    timeout_js = ('// META: timeout=%s\n' % test['timeout']
+                  if 'timeout' in test else '')
 
     images = ''
     for src in test.get('images', []):
@@ -289,12 +287,12 @@ def _generate_test(test: Mapping[str, str], templates: Mapping[str, str],
         'fonts': fonts,
         'fonthack': fonthack,
         'timeout': timeout,
+        'timeout_js': timeout_js,
         'canvas': canvas,
         'width': width,
         'height': height,
         'expected': expectation_html,
         'code': code,
-        'scripts': scripts,
         'fallback': fallback,
         'attributes': attributes,
         'context_args': context_args
@@ -307,9 +305,6 @@ def _generate_test(test: Mapping[str, str], templates: Mapping[str, str],
     if is_offscreen_canvas:
         pathlib.Path(f'{test_path}.html').write_text(
             templates['w3coffscreencanvas'] % template_params, 'utf-8')
-        timeout = ('// META: timeout=%s\n' %
-                   test['timeout'] if 'timeout' in test else '')
-        template_params['timeout'] = timeout
         pathlib.Path(f'{test_path}.worker.js').write_text(
             templates['w3cworker'] % template_params, 'utf-8')
     else:

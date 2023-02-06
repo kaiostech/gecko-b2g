@@ -3591,6 +3591,14 @@
   value: 200
   mirror: always
 
+#ifdef MOZ_BACKGROUNDTASKS
+# Use a Background Task to delete files at shutdown.
+- name: dom.quotaManager.backgroundTask.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: never
+#endif
+
 # Determines within what distance of a tick mark, in pixels, dragging an input
 # range range will snap the range's value to that tick mark. By default, this is
 # half the default width of the range thumb.
@@ -3612,7 +3620,7 @@
 
 - name: dom.reporting.featurePolicy.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: dom.reporting.crash.enabled
@@ -11426,6 +11434,12 @@
   value: false
   mirror: always
 
+# If true then any cookies containing unicode will be rejected
+- name: network.cookie.blockUnicode
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # If we should attempt to race the cache and network.
 - name: network.http.rcwn.enabled
   type: bool
@@ -13086,7 +13100,7 @@
 # true - Send the header with a value of 1 to indicate opting-out
 # false - Do not send header to indicate opting-in
 - name: privacy.globalprivacycontrol.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -13094,7 +13108,7 @@
 # of 'undecided' by leaving the navigator property undefined and not attaching
 # the Sec-GPC HTTP header.
 - name: privacy.globalprivacycontrol.functionality.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -14183,18 +14197,6 @@
   value: ""
   mirror: never
 
-# Enable the use of display-lists for SVG hit-testing.
-- name: svg.display-lists.hit-testing.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# Enable the use of display-lists for SVG painting.
-- name: svg.display-lists.painting.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Is support for the new getBBox method from SVG 2 enabled?
 # See https://svgwg.org/svg2-draft/single-page.html#types-SVGBoundingBoxOptions
 - name: svg.new-getBBox.enabled
@@ -14289,6 +14291,12 @@
 - name: threads.control_event_queue.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# If the service is available, set threads to low-power mode when in the background.
+- name: threads.use_low_power.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #---------------------------------------------------------------------------

@@ -7,7 +7,6 @@
 #include "FileSystemManagerParent.h"
 
 #include "FileSystemDatabaseManager.h"
-#include "FileSystemStreamCallbacks.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/dom/FileBlobImpl.h"
 #include "mozilla/dom/FileSystemAccessHandle.h"
@@ -120,55 +119,42 @@ mozilla::ipc::IPCResult FileSystemManagerParent::RecvGetAccessHandle(
   AssertIsOnIOTarget();
   MOZ_ASSERT(mDataManager);
 
-  auto resolveAndReturn = [aResolver](nsresult rv) {
-    aResolver(rv);
-    return IPC_OK();
-  };
+  EntryId entryId = aRequest.entryId();
 
-  QM_TRY_UNWRAP(
-      RefPtr<FileSystemAccessHandle> accessHandle,
-      FileSystemAccessHandle::Create(mDataManager, aRequest.entryId()),
-      resolveAndReturn);
+  FileSystemAccessHandle::Create(mDataManager, entryId)
+      ->Then(GetCurrentSerialEventTarget(), __func__,
+             [self = RefPtr(this), request = std::move(aRequest),
+              resolver = std::move(aResolver)](
+                 FileSystemAccessHandle::CreatePromise::ResolveOrRejectValue&&
+                     aValue) {
+               if (aValue.IsReject()) {
+                 resolver(aValue.RejectValue());
+                 return;
+               }
 
-  nsString type;
-  fs::TimeStamp lastModifiedMilliSeconds;
-  fs::Path path;
-  nsCOMPtr<nsIFile> file;
-  QM_TRY(MOZ_TO_RESULT(mDataManager->MutableDatabaseManagerPtr()->GetFile(
-             aRequest.entryId(), type, lastModifiedMilliSeconds, path, file)),
-         resolveAndReturn);
+               FileSystemAccessHandle::CreateResult result =
+                   std::move(aValue.ResolveValue());
 
-  if (LOG_ENABLED()) {
-    nsAutoString path;
-    if (NS_SUCCEEDED(file->GetPath(path))) {
-      LOG(("Opening SyncAccessHandle %s", NS_ConvertUTF16toUTF8(path).get()));
-    }
-  }
+               fs::Registered<FileSystemAccessHandle> accessHandle =
+                   std::move(result.first);
 
-  QM_TRY_UNWRAP(
-      nsCOMPtr<nsIRandomAccessStream> stream,
-      CreateFileRandomAccessStream(quota::PERSISTENCE_TYPE_DEFAULT,
-                                   mDataManager->OriginMetadataRef(),
-                                   quota::Client::FILESYSTEM, file, -1, -1,
-                                   nsIFileRandomAccessStream::DEFER_OPEN),
-      resolveAndReturn);
+               RandomAccessStreamParams streamParams = std::move(result.second);
 
-  EnsureStreamCallbacks();
+               auto accessHandleParent =
+                   MakeRefPtr<FileSystemAccessHandleParent>(
+                       accessHandle.inspect());
 
-  RandomAccessStreamParams streamParams =
-      mozilla::ipc::SerializeRandomAccessStream(
-          WrapMovingNotNullUnchecked(std::move(stream)), mStreamCallbacks);
+               if (!self->SendPFileSystemAccessHandleConstructor(
+                       accessHandleParent)) {
+                 resolver(NS_ERROR_FAILURE);
+                 return;
+               }
 
-  auto accessHandleParent =
-      MakeRefPtr<FileSystemAccessHandleParent>(accessHandle);
+               accessHandle->RegisterActor(WrapNotNull(accessHandleParent));
 
-  if (!SendPFileSystemAccessHandleConstructor(accessHandleParent)) {
-    aResolver(NS_ERROR_FAILURE);
-    return IPC_OK();
-  }
-
-  aResolver(FileSystemAccessHandleProperties(std::move(streamParams),
-                                             accessHandleParent, nullptr));
+               resolver(FileSystemAccessHandleProperties(
+                   std::move(streamParams), accessHandleParent, nullptr));
+             });
 
   return IPC_OK();
 }
@@ -476,11 +462,6 @@ void FileSystemManagerParent::ActorDestroy(ActorDestroyReason aWhy) {
 
   DEBUGONLY(mActorDestroyed = true);
 
-  if (mStreamCallbacks) {
-    mStreamCallbacks->CloseAllRemoteQuotaObjectParents();
-    mStreamCallbacks = nullptr;
-  }
-
   InvokeAsync(mDataManager->MutableBackgroundTargetPtr(), __func__,
               [self = RefPtr<FileSystemManagerParent>(this)]() {
                 self->mDataManager->UnregisterActor(WrapNotNull(self));
@@ -489,14 +470,6 @@ void FileSystemManagerParent::ActorDestroy(ActorDestroyReason aWhy) {
 
                 return BoolPromise::CreateAndResolve(true, __func__);
               });
-}
-
-void FileSystemManagerParent::EnsureStreamCallbacks() {
-  if (mStreamCallbacks) {
-    return;
-  }
-
-  mStreamCallbacks = MakeRefPtr<FileSystemStreamCallbacks>();
 }
 
 }  // namespace mozilla::dom

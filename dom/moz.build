@@ -108,7 +108,6 @@ DIRS += [
     "simpledb",
     "reporting",
     "localstorage",
-    "prio",
     "l10n",
     "pco",
     "origin-trials",

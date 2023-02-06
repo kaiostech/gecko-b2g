@@ -2980,9 +2980,6 @@ void SVGTextFrame::FindCloserFrameForSelection(
 
     if (!userRect.IsEmpty()) {
       gfxMatrix m;
-      if (!NS_SVGDisplayListHitTestingEnabled()) {
-        m = GetCanvasTM();
-      }
       nsRect rect =
           SVGUtils::ToCanvasBounds(userRect.ToThebesRect(), m, presContext);
 
@@ -3143,8 +3140,7 @@ void SVGTextFrame::PaintSVG(gfxContext& aContext, const gfxMatrix& aTransform,
 
   // Check if we need to draw anything.
   if (aDirtyRect) {
-    NS_ASSERTION(!NS_SVGDisplayListPaintingEnabled() ||
-                     (mState & NS_FRAME_IS_NONDISPLAY),
+    NS_ASSERTION(HasAnyStateBits(NS_FRAME_IS_NONDISPLAY),
                  "Display lists handle dirty rect intersection test");
     nsRect dirtyRect(aDirtyRect->x, aDirtyRect->y, aDirtyRect->width,
                      aDirtyRect->height);
@@ -4605,12 +4601,18 @@ gfxFloat SVGTextFrame::GetStartOffset(nsIFrame* aTextPathFrame) {
       &tp->mLengthAttributes[SVGTextPathElement::STARTOFFSET];
 
   if (length->IsPercentage()) {
+    if (!IsFinite(GetOffsetScale(aTextPathFrame))) {
+      // Either pathLength="0" for this path or the path has 0 length.
+      return 0.0;
+    }
     RefPtr<Path> data = GetTextPath(aTextPathFrame);
     return data ? length->GetAnimValInSpecifiedUnits() * data->ComputeLength() /
                       100.0
                 : 0.0;
   }
-  return length->GetAnimValue(tp) * GetOffsetScale(aTextPathFrame);
+  float lengthValue = length->GetAnimValue(tp);
+  // If offsetScale is infinity we want to return 0 not NaN
+  return lengthValue == 0 ? 0.0 : lengthValue * GetOffsetScale(aTextPathFrame);
 }
 
 void SVGTextFrame::DoTextPathLayout() {

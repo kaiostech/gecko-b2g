@@ -3555,10 +3555,12 @@ void BrowserParent::SetRenderLayersInternal(bool aEnabled) {
 
   Unused << SendRenderLayers(aEnabled, mLayerTreeEpoch);
 
-  // Ask the child to repaint using the PHangMonitor channel/thread (which may
-  // be less congested).
+  // Ask the child to repaint/unload layers using the PHangMonitor
+  // channel/thread (which may be less congested).
   if (aEnabled) {
     Manager()->PaintTabWhileInterruptingJS(this, mLayerTreeEpoch);
+  } else {
+    Manager()->UnloadLayersWhileInterruptingJS(this, mLayerTreeEpoch);
   }
 }
 

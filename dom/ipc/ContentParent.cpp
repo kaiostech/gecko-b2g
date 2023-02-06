@@ -7008,6 +7008,15 @@ void ContentParent::PaintTabWhileInterruptingJS(
                                                aBrowserParent, aEpoch);
 }
 
+void ContentParent::UnloadLayersWhileInterruptingJS(
+    BrowserParent* aBrowserParent, const layers::LayersObserverEpoch& aEpoch) {
+  if (!mHangMonitorActor) {
+    return;
+  }
+  ProcessHangMonitor::UnloadLayersWhileInterruptingJS(mHangMonitorActor,
+                                                      aBrowserParent, aEpoch);
+}
+
 void ContentParent::CancelContentJSExecutionIfRunning(
     BrowserParent* aBrowserParent, nsIRemoteTab::NavigationType aNavigationType,
     const CancelContentJSOptions& aCancelContentJSOptions) {

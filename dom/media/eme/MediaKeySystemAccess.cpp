@@ -33,10 +33,6 @@
 #  include "WMFDecoderModule.h"
 #endif
 
-#ifdef B2G_MEDIADRM
-#  include "mozilla/GonkDrmCDMProxy.h"
-#endif
-
 namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MediaKeySystemAccess, mParent)
@@ -101,9 +97,7 @@ MediaKeySystemStatus MediaKeySystemAccess::GetKeySystemStatus(
              IsClearkeyKeySystem(aKeySystem));
 
 #ifdef B2G_MEDIADRM
-  return GonkDrmCDMProxy::IsSchemeSupported(aKeySystem)
-             ? MediaKeySystemStatus::Available
-             : MediaKeySystemStatus::Cdm_not_supported;
+  return EnsureCDMInstalled(aKeySystem, aOutMessage);
 #endif
 
   if (IsClearkeyKeySystem(aKeySystem)) {

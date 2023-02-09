@@ -175,8 +175,6 @@ void GonkDrmCDMProxy::Terminated() {
   // Should find a way to handle the case when remote side MediaDrm crashed.
 }
 
-const nsCString& GonkDrmCDMProxy::GetNodeId() const { return mNodeId; }
-
 void GonkDrmCDMProxy::OnSetSessionId(uint32_t aCreateSessionToken,
                                      const nsAString& aSessionId) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -312,10 +310,6 @@ void GonkDrmCDMProxy::ResolvePromise(PromiseId aPromiseId) {
         }));
   }
 }
-
-const nsString& GonkDrmCDMProxy::KeySystem() const { return mKeySystem; }
-
-DataMutex<CDMCaps>& GonkDrmCDMProxy::Capabilites() { return mCapabilites; }
 
 void GonkDrmCDMProxy::OnKeyStatusesChange(const nsAString& aSessionId) {
   MOZ_ASSERT(NS_IsMainThread());

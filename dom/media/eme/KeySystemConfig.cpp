@@ -24,12 +24,20 @@
 #  include "mediafoundation/WMFCDMImpl.h"
 #endif
 
+#ifdef B2G_MEDIADRM
+#  include "mozilla/GonkDrmCDMProxy.h"
+#endif
+
 namespace mozilla {
 
 /* static */
 bool KeySystemConfig::Supports(const nsAString& aKeySystem) {
   nsCString api = nsLiteralCString(CHROMIUM_CDM_API);
   nsCString name = NS_ConvertUTF16toUTF8(aKeySystem);
+
+#ifdef B2G_MEDIADRM
+  return GonkDrmCDMProxy::IsSchemeSupported(aKeySystem);
+#endif
 
   if (HaveGMPFor(api, {name})) {
     return true;
@@ -54,6 +62,33 @@ bool KeySystemConfig::GetConfig(const nsAString& aKeySystem,
   if (!Supports(aKeySystem)) {
     return false;
   }
+
+#ifdef B2G_MEDIADRM
+  aConfig.mKeySystem = aKeySystem;
+  aConfig.mInitDataTypes.AppendElement(u"cenc"_ns);
+  aConfig.mInitDataTypes.AppendElement(u"keyids"_ns);
+  aConfig.mInitDataTypes.AppendElement(u"webm"_ns);
+  aConfig.mPersistentState = Requirement::Optional;
+  aConfig.mDistinctiveIdentifier = Requirement::NotAllowed;
+  aConfig.mSessionTypes.AppendElement(SessionType::Temporary);
+  aConfig.mEncryptionSchemes.AppendElement(u"cenc"_ns);
+  aConfig.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+  aConfig.mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
+  aConfig.mMP4.SetCanDecryptAndDecode(EME_CODEC_FLAC);
+  aConfig.mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
+  aConfig.mWebM.SetCanDecryptAndDecode(EME_CODEC_VORBIS);
+  aConfig.mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
+  aConfig.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
+  if (IsWidevineKeySystem(aKeySystem)) {
+    aConfig.mAudioRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
+    aConfig.mVideoRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
+    aConfig.mVideoRobustness.AppendElement(u"SW_SECURE_DECODE"_ns);
+    aConfig.mEncryptionSchemes.AppendElement(u"cbcs"_ns);
+    aConfig.mEncryptionSchemes.AppendElement(u"cbcs-1-9"_ns);
+    aConfig.mSessionTypes.AppendElement(SessionType::PersistentLicense);
+  }
+  return true;
+#endif
 
   if (IsClearkeyKeySystem(aKeySystem)) {
     aConfig.mKeySystem = aKeySystem;

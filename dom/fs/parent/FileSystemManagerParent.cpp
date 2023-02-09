@@ -10,6 +10,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/dom/FileBlobImpl.h"
 #include "mozilla/dom/FileSystemAccessHandle.h"
+#include "mozilla/dom/FileSystemAccessHandleControlParent.h"
 #include "mozilla/dom/FileSystemAccessHandleParent.h"
 #include "mozilla/dom/FileSystemDataManager.h"
 #include "mozilla/dom/FileSystemLog.h"
@@ -122,39 +123,60 @@ mozilla::ipc::IPCResult FileSystemManagerParent::RecvGetAccessHandle(
   EntryId entryId = aRequest.entryId();
 
   FileSystemAccessHandle::Create(mDataManager, entryId)
-      ->Then(GetCurrentSerialEventTarget(), __func__,
-             [self = RefPtr(this), request = std::move(aRequest),
-              resolver = std::move(aResolver)](
-                 FileSystemAccessHandle::CreatePromise::ResolveOrRejectValue&&
-                     aValue) {
-               if (aValue.IsReject()) {
-                 resolver(aValue.RejectValue());
-                 return;
-               }
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self = RefPtr(this), request = std::move(aRequest),
+           resolver = std::move(aResolver)](
+              FileSystemAccessHandle::CreatePromise::ResolveOrRejectValue&&
+                  aValue) {
+            if (aValue.IsReject()) {
+              resolver(aValue.RejectValue());
+              return;
+            }
 
-               FileSystemAccessHandle::CreateResult result =
-                   std::move(aValue.ResolveValue());
+            FileSystemAccessHandle::CreateResult result =
+                std::move(aValue.ResolveValue());
 
-               fs::Registered<FileSystemAccessHandle> accessHandle =
-                   std::move(result.first);
+            fs::Registered<FileSystemAccessHandle> accessHandle =
+                std::move(result.first);
 
-               RandomAccessStreamParams streamParams = std::move(result.second);
+            RandomAccessStreamParams streamParams = std::move(result.second);
 
-               auto accessHandleParent =
-                   MakeRefPtr<FileSystemAccessHandleParent>(
-                       accessHandle.inspect());
+            auto accessHandleParent = MakeRefPtr<FileSystemAccessHandleParent>(
+                accessHandle.inspect());
 
-               if (!self->SendPFileSystemAccessHandleConstructor(
-                       accessHandleParent)) {
-                 resolver(NS_ERROR_FAILURE);
-                 return;
-               }
+            auto resolveAndReturn = [&resolver](nsresult rv) { resolver(rv); };
 
-               accessHandle->RegisterActor(WrapNotNull(accessHandleParent));
+            ManagedEndpoint<PFileSystemAccessHandleChild>
+                accessHandleChildEndpoint =
+                    self->OpenPFileSystemAccessHandleEndpoint(
+                        accessHandleParent);
+            QM_TRY(MOZ_TO_RESULT(accessHandleChildEndpoint.IsValid()),
+                   resolveAndReturn);
 
-               resolver(FileSystemAccessHandleProperties(
-                   std::move(streamParams), accessHandleParent, nullptr));
-             });
+            accessHandle->RegisterActor(WrapNotNull(accessHandleParent));
+
+            auto accessHandleControlParent =
+                MakeRefPtr<FileSystemAccessHandleControlParent>(
+                    accessHandle.inspect());
+
+            Endpoint<PFileSystemAccessHandleControlParent>
+                accessHandleControlParentEndpoint;
+            Endpoint<PFileSystemAccessHandleControlChild>
+                accessHandleControlChildEndpoint;
+            MOZ_ALWAYS_SUCCEEDS(PFileSystemAccessHandleControl::CreateEndpoints(
+                &accessHandleControlParentEndpoint,
+                &accessHandleControlChildEndpoint));
+
+            accessHandleControlParentEndpoint.Bind(accessHandleControlParent);
+
+            accessHandle->RegisterControlActor(
+                WrapNotNull(accessHandleControlParent));
+
+            resolver(FileSystemAccessHandleProperties(
+                std::move(streamParams), std::move(accessHandleChildEndpoint),
+                std::move(accessHandleControlChildEndpoint)));
+          });
 
   return IPC_OK();
 }
@@ -164,10 +186,8 @@ mozilla::ipc::IPCResult FileSystemManagerParent::RecvGetWritable(
   AssertIsOnIOTarget();
   MOZ_ASSERT(mDataManager);
 
-  if (!mDataManager->LockShared(aRequest.entryId())) {
-    aResolver(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
-    return IPC_OK();
-  }
+  QM_TRY(MOZ_TO_RESULT(mDataManager->LockShared(aRequest.entryId())), IPC_OK(),
+         ([aResolver](const nsresult& aRv) { aResolver(aRv); }));
 
   auto autoUnlock =
       MakeScopeExit([self = RefPtr<FileSystemManagerParent>(this), aRequest] {
@@ -443,11 +463,11 @@ void FileSystemManagerParent::RequestAllowToClose() {
 
   mRequestedAllowToClose.Flip();
 
-  InvokeAsync(mDataManager->MutableIOTargetPtr(), __func__,
+  InvokeAsync(mDataManager->MutableIOTaskQueuePtr(), __func__,
               [self = RefPtr<FileSystemManagerParent>(this)]() {
                 return self->SendCloseAll();
               })
-      ->Then(mDataManager->MutableIOTargetPtr(), __func__,
+      ->Then(mDataManager->MutableIOTaskQueuePtr(), __func__,
              [self = RefPtr<FileSystemManagerParent>(this)](
                  const CloseAllPromise::ResolveOrRejectValue& aValue) {
                self->Close();

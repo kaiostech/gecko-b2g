@@ -9,10 +9,9 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   L10nCache: "resource:///modules/UrlbarUtils.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
-  UrlbarProviderQuickSuggest:
-    "resource:///modules/UrlbarProviderQuickSuggest.sys.mjs",
   UrlbarProviderTopSites: "resource:///modules/UrlbarProviderTopSites.sys.mjs",
   UrlbarProvidersManager: "resource:///modules/UrlbarProvidersManager.sys.mjs",
+  UrlbarProviderWeather: "resource:///modules/UrlbarProviderWeather.sys.mjs",
   UrlbarSearchOneOffs: "resource:///modules/UrlbarSearchOneOffs.sys.mjs",
   UrlbarTokenizer: "resource:///modules/UrlbarTokenizer.sys.mjs",
   UrlbarUtils: "resource:///modules/UrlbarUtils.sys.mjs",
@@ -1897,21 +1896,19 @@ export class UrlbarView {
    *   returns an l10n object for the label's l10n string: `{ id, args }`
    */
   #rowLabel(row, currentLabel) {
-    if (!lazy.UrlbarPrefs.get("groupLabels.enabled") || row.result.heuristic) {
+    if (!lazy.UrlbarPrefs.get("groupLabels.enabled")) {
       return null;
     }
 
-    if (!this.#queryContext?.searchString) {
-      if (row.result.payload.isWeather) {
-        // Add top pick label for weather suggestion
-        return { id: "urlbar-group-best-match" };
-      }
-
-      return null;
-    }
-
-    if (row.result.isBestMatch) {
+    if (
+      row.result.isBestMatch ||
+      row.result.providerName == lazy.UrlbarProviderWeather.name
+    ) {
       return { id: "urlbar-group-best-match" };
+    }
+
+    if (!this.#queryContext?.searchString || row.result.heuristic) {
+      return null;
     }
 
     switch (row.result.type) {
@@ -2063,7 +2060,18 @@ export class UrlbarView {
    */
   #getClosestSelectableElement(element) {
     let closest = element.closest(SELECTABLE_ELEMENT_SELECTOR);
-    return closest && this.#isElementVisible(closest) ? closest : null;
+    if (closest && this.#isElementVisible(closest)) {
+      return closest;
+    }
+    // When clicking on a gap within a row or on its border or padding, treat
+    // this as if the main part was clicked.
+    if (
+      element.classList.contains("urlbarView-row") &&
+      element.hasAttribute("row-selectable")
+    ) {
+      return element._content;
+    }
+    return null;
   }
 
   /**
@@ -2583,18 +2591,18 @@ export class UrlbarView {
 
     Services.telemetry.scalarAdd(ZERO_PREFIX_SCALAR_EXPOSURE, 1);
 
-    // Some quick suggest telemetry needs to be recorded when the zero-prefix
+    // Weather suggestion telemetry needs to be recorded when the zero-prefix
     // view is shown. Ideally this logic would be general to all providers.
     // Relying on `visibleResults` here means we assume `onQueryFinished()` has
     // been called by this point and `visibleResults` accurately reflects the
     // visible rows at the end of the zero-prefix query.
-    let quickSuggestResults = this.visibleResults.filter(
-      r => r.providerName == lazy.UrlbarProviderQuickSuggest.name
+    let weatherResults = this.visibleResults.filter(
+      r => r.providerName == lazy.UrlbarProviderWeather.name
     );
-    if (quickSuggestResults.length) {
-      lazy.UrlbarProviderQuickSuggest.onResultsShown(
+    if (weatherResults.length) {
+      lazy.UrlbarProviderWeather.onResultsShown(
         this.#queryContext,
-        quickSuggestResults
+        weatherResults
       );
     }
   }
@@ -2619,6 +2627,9 @@ export class UrlbarView {
     ) {
       commands.set(RESULT_MENU_COMMANDS.BLOCK, {
         l10n: { id: "urlbar-result-menu-remove-from-history" },
+      });
+      commands.set(RESULT_MENU_COMMANDS.LEARN_MORE, {
+        l10n: { id: "urlbar-result-menu-learn-more" },
       });
     }
     if (result.payload.isBlockable) {
@@ -2925,7 +2936,12 @@ export class UrlbarView {
           this.controller.handleDeleteEntry(null, result);
           break;
         case RESULT_MENU_COMMANDS.LEARN_MORE:
-          this.window.openTrustedLinkIn(result.payload.helpUrl, "tab");
+          this.window.openTrustedLinkIn(
+            result.payload.helpUrl ||
+              Services.urlFormatter.formatURLPref("app.support.baseURL") +
+                "awesome-bar-result-menu",
+            "tab"
+          );
           break;
       }
     }

@@ -25,7 +25,9 @@
 #include "mozilla/dom/FileSystemWritableFileStreamChild.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/Promise.h"
+#include "mozilla/dom/fs/IPCRejectReporter.h"
 #include "mozilla/dom/quota/QuotaCommon.h"
+#include "mozilla/dom/quota/ResultExtensions.h"
 
 namespace mozilla::dom::fs {
 
@@ -38,6 +40,8 @@ void HandleFailedStatus(nsresult aError, const RefPtr<Promise>& aPromise) {
     case NS_ERROR_FILE_ACCESS_DENIED:
       aPromise->MaybeRejectWithNotAllowedError("Permission denied");
       break;
+    case NS_ERROR_FILE_NOT_FOUND:
+      [[fallthrough]];
     case NS_ERROR_DOM_NOT_FOUND_ERR:
       aPromise->MaybeRejectWithNotFoundError("Entry not found");
       break;
@@ -123,14 +127,13 @@ RefPtr<FileSystemSyncAccessHandle> MakeResolution(
     RefPtr<FileSystemManager>& aManager) {
   auto& properties = aResponse.get_FileSystemAccessHandleProperties();
 
-  auto* const actor =
-      static_cast<FileSystemAccessHandleChild*>(properties.accessHandleChild());
-
-  QM_TRY_UNWRAP(RefPtr<FileSystemSyncAccessHandle> result,
-                FileSystemSyncAccessHandle::Create(
-                    aGlobal, aManager, actor,
-                    std::move(properties.streamParams()), aMetadata),
-                nullptr);
+  QM_TRY_UNWRAP(
+      RefPtr<FileSystemSyncAccessHandle> result,
+      FileSystemSyncAccessHandle::Create(
+          aGlobal, aManager, std::move(properties.streamParams()),
+          std::move(properties.accessHandleChildEndpoint()),
+          std::move(properties.accessHandleControlChildEndpoint()), aMetadata),
+      nullptr);
 
   return result;
 }
@@ -268,30 +271,6 @@ mozilla::ipc::ResolveCallback<TResponse> SelectResolveCallback(
       // NOLINTNEXTLINE(modernize-avoid-bind)
       std::bind(static_cast<TOverload>(ResolveCallback), std::placeholders::_1,
                 aPromise, TReturns(), std::forward<Args>(args)...));
-}
-
-// TODO: Find a better way to deal with these errors
-void IPCRejectReporter(mozilla::ipc::ResponseRejectReason aReason) {
-  switch (aReason) {
-    case mozilla::ipc::ResponseRejectReason::ActorDestroyed:
-      // This is ok
-      break;
-    case mozilla::ipc::ResponseRejectReason::HandlerRejected:
-      QM_TRY(OkIf(false), QM_VOID);
-      break;
-    case mozilla::ipc::ResponseRejectReason::ChannelClosed:
-      QM_TRY(OkIf(false), QM_VOID);
-      break;
-    case mozilla::ipc::ResponseRejectReason::ResolverDestroyed:
-      QM_TRY(OkIf(false), QM_VOID);
-      break;
-    case mozilla::ipc::ResponseRejectReason::SendError:
-      QM_TRY(OkIf(false), QM_VOID);
-      break;
-    default:
-      QM_TRY(OkIf(false), QM_VOID);
-      break;
-  }
 }
 
 void RejectCallback(

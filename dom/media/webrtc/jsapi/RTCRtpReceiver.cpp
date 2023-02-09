@@ -261,6 +261,8 @@ nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal(
                   aRemote.mType.Construct(RTCStatsType::Remote_outbound_rtp);
                   ssrc.apply([&](uint32_t aSsrc) { aRemote.mSsrc = aSsrc; });
                   aRemote.mKind = kind;
+                  aRemote.mMediaType.Construct(
+                      kind);  // mediaType is the old name for kind.
                   aRemote.mLocalId.Construct(localId);
                 };
 
@@ -273,6 +275,8 @@ nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal(
                   aLocal.mType.Construct(RTCStatsType::Inbound_rtp);
                   ssrc.apply([&](uint32_t aSsrc) { aLocal.mSsrc = aSsrc; });
                   aLocal.mKind = kind;
+                  aLocal.mMediaType.Construct(
+                      kind);  // mediaType is the old name for kind.
                   if (remoteId.Length()) {
                     aLocal.mRemoteId.Construct(remoteId);
                   }

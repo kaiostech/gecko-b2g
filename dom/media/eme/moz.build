@@ -23,12 +23,14 @@ EXPORTS.mozilla += [
     "DecryptorProxyCallback.h",
     "DetailedPromise.h",
     "EMEUtils.h",
+    "KeySystemConfig.h",
 ]
 
 UNIFIED_SOURCES += [
     "CDMCaps.cpp",
     "DetailedPromise.cpp",
     "EMEUtils.cpp",
+    "KeySystemConfig.cpp",
     "MediaEncryptedEvent.cpp",
     "MediaKeyError.cpp",
     "MediaKeyMessageEvent.cpp",
@@ -46,6 +48,9 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
 
 if CONFIG["B2G_MEDIADRM"]:
     DIRS += ["gonk"]
+
+if CONFIG["MOZ_MF_CDM"]:
+    DIRS += ["mediafoundation"]
 
 include("/ipc/chromium/chromium-config.mozbuild")
 

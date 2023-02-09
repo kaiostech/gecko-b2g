@@ -1031,7 +1031,7 @@ already_AddRefed<ContentParent> ContentParent::MinTabSelect(
 
     // Ignore processes that were slated for removal but not yet removed from
     // the pool (see also GetUsedBrowserProcess and BlockShutdown).
-    if (!p->IsSignaledImpendingShutdown()) {
+    if (!p->IsShuttingDown()) {
       uint32_t tabCount = cpm->GetBrowserParentCountByProcessId(p->ChildID());
       if (tabCount < min) {
         candidate = p;
@@ -1103,7 +1103,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
       RefPtr<ContentParent> retval = aContentParents[index];
       // Ignore processes that were slated for removal but not yet removed from
       // the pool.
-      if (!retval->IsSignaledImpendingShutdown()) {
+      if (!retval->IsShuttingDown()) {
         if (profiler_thread_is_being_profiled_for_markers()) {
           nsPrintfCString marker("Reused process %u",
                                  (unsigned int)retval->ChildID());
@@ -1234,7 +1234,8 @@ ContentParent::GetNewOrUsedLaunchingBrowserProcess(
   RefPtr<ContentParent> contentParent;
   if (aGroup) {
     contentParent = aGroup->GetHostProcess(aRemoteType);
-    if (contentParent) {
+    Unused << NS_WARN_IF(contentParent && contentParent->IsShuttingDown());
+    if (contentParent && !contentParent->IsShuttingDown()) {
       MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
               ("GetNewOrUsedProcess: Existing host process %p (launching %d)",
                contentParent.get(), contentParent->IsLaunching()));

@@ -83,7 +83,9 @@ class FileSystemDataManager
     return mBackgroundTarget.get();
   }
 
-  nsISerialEventTarget* MutableIOTargetPtr() const {
+  nsIEventTarget* MutableIOTargetPtr() const { return mIOTarget.get(); }
+
+  nsISerialEventTarget* MutableIOTaskQueuePtr() const {
     return mIOTaskQueue.get();
   }
 
@@ -117,11 +119,11 @@ class FileSystemDataManager
 
   bool IsLocked(const EntryId& aEntryId) const;
 
-  bool LockExclusive(const EntryId& aEntryId);
+  nsresult LockExclusive(const EntryId& aEntryId);
 
   void UnlockExclusive(const EntryId& aEntryId);
 
-  bool LockShared(const EntryId& aEntryId);
+  nsresult LockShared(const EntryId& aEntryId);
 
   void UnlockShared(const EntryId& aEntryId);
 

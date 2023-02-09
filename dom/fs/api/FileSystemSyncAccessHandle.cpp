@@ -13,15 +13,18 @@
 #include "mozilla/MozPromise.h"
 #include "mozilla/TaskQueue.h"
 #include "mozilla/dom/FileSystemAccessHandleChild.h"
+#include "mozilla/dom/FileSystemAccessHandleControlChild.h"
 #include "mozilla/dom/FileSystemHandleBinding.h"
 #include "mozilla/dom/FileSystemLog.h"
 #include "mozilla/dom/FileSystemManager.h"
+#include "mozilla/dom/FileSystemManagerChild.h"
 #include "mozilla/dom/FileSystemSyncAccessHandleBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/UnionTypes.h"
 #include "mozilla/dom/WorkerCommon.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRef.h"
+#include "mozilla/dom/fs/IPCRejectReporter.h"
 #include "mozilla/dom/fs/TargetPtrHolder.h"
 #include "mozilla/dom/quota/QuotaCommon.h"
 #include "mozilla/dom/quota/ResultExtensions.h"
@@ -92,12 +95,15 @@ nsresult AsyncCopy(nsIInputStream* aSource, nsIOutputStream* aSink,
 
 FileSystemSyncAccessHandle::FileSystemSyncAccessHandle(
     nsIGlobalObject* aGlobal, RefPtr<FileSystemManager>& aManager,
-    RefPtr<FileSystemAccessHandleChild> aActor, RefPtr<TaskQueue> aIOTaskQueue,
     mozilla::ipc::RandomAccessStreamParams&& aStreamParams,
+    RefPtr<FileSystemAccessHandleChild> aActor,
+    RefPtr<FileSystemAccessHandleControlChild> aControlActor,
+    RefPtr<TaskQueue> aIOTaskQueue,
     const fs::FileSystemEntryMetadata& aMetadata)
     : mGlobal(aGlobal),
       mManager(aManager),
       mActor(std::move(aActor)),
+      mControlActor(std::move(aControlActor)),
       mIOTaskQueue(std::move(aIOTaskQueue)),
       mStreamParams(std::move(aStreamParams)),
       mMetadata(aMetadata),
@@ -110,6 +116,8 @@ FileSystemSyncAccessHandle::FileSystemSyncAccessHandle(
   // FileSystemSyncAccessHandle::Create fails, in which case the not yet
   // fully constructed FileSystemSyncAccessHandle is being destroyed.
   mActor->SetAccessHandle(this);
+
+  mControlActor->SetAccessHandle(this);
 }
 
 FileSystemSyncAccessHandle::~FileSystemSyncAccessHandle() {
@@ -121,9 +129,27 @@ FileSystemSyncAccessHandle::~FileSystemSyncAccessHandle() {
 Result<RefPtr<FileSystemSyncAccessHandle>, nsresult>
 FileSystemSyncAccessHandle::Create(
     nsIGlobalObject* aGlobal, RefPtr<FileSystemManager>& aManager,
-    RefPtr<FileSystemAccessHandleChild> aActor,
     mozilla::ipc::RandomAccessStreamParams&& aStreamParams,
+    mozilla::ipc::ManagedEndpoint<PFileSystemAccessHandleChild>&&
+        aAccessHandleChildEndpoint,
+    mozilla::ipc::Endpoint<PFileSystemAccessHandleControlChild>&&
+        aAccessHandleControlChildEndpoint,
     const fs::FileSystemEntryMetadata& aMetadata) {
+  WorkerPrivate* const workerPrivate = GetCurrentThreadWorkerPrivate();
+  MOZ_ASSERT(workerPrivate);
+
+  auto accessHandleChild = MakeRefPtr<FileSystemAccessHandleChild>();
+
+  QM_TRY(MOZ_TO_RESULT(
+      aManager->ActorStrongRef()->BindPFileSystemAccessHandleEndpoint(
+          std::move(aAccessHandleChildEndpoint), accessHandleChild)));
+
+  auto accessHandleControlChild =
+      MakeRefPtr<FileSystemAccessHandleControlChild>();
+
+  aAccessHandleControlChildEndpoint.Bind(accessHandleControlChild,
+                                         workerPrivate->ControlEventTarget());
+
   QM_TRY_UNWRAP(auto streamTransportService,
                 MOZ_TO_RESULT_GET_TYPED(nsCOMPtr<nsIEventTarget>,
                                         MOZ_SELECT_OVERLOAD(do_GetService),
@@ -134,17 +160,14 @@ FileSystemSyncAccessHandle::Create(
   QM_TRY(MOZ_TO_RESULT(ioTaskQueue));
 
   RefPtr<FileSystemSyncAccessHandle> result = new FileSystemSyncAccessHandle(
-      aGlobal, aManager, std::move(aActor), std::move(ioTaskQueue),
-      std::move(aStreamParams), aMetadata);
+      aGlobal, aManager, std::move(aStreamParams), std::move(accessHandleChild),
+      std::move(accessHandleControlChild), std::move(ioTaskQueue), aMetadata);
 
   auto autoClose = MakeScopeExit([result] {
     MOZ_ASSERT(result->mState == State::Initial);
     result->mState = State::Closed;
     result->mActor->SendClose();
   });
-
-  WorkerPrivate* const workerPrivate = GetCurrentThreadWorkerPrivate();
-  MOZ_ASSERT(workerPrivate);
 
   workerPrivate->AssertIsOnWorkerThread();
 
@@ -202,7 +225,22 @@ void FileSystemSyncAccessHandle::LastRelease() {
 
   if (mActor) {
     PFileSystemAccessHandleChild::Send__delete__(mActor);
+
+    // `PFileSystemAccessHandleChild::Send__delete__` is supposed to call
+    // `FileSystemAccessHandleChild::ActorDestroy` which in turn calls
+    // `FileSystemSyncAccessHandle::ClearActor`, so `mActor` should be be null
+    // at this point.
     MOZ_ASSERT(!mActor);
+  }
+
+  if (mControlActor) {
+    mControlActor->Close();
+
+    // `FileSystemAccessHandleControlChild::Close` is supposed to call
+    // `FileSystemAccessHandleControlChild::ActorDestroy` which in turn calls
+    // `FileSystemSyncAccessHandle::ClearControlActor`, so `mControlActor`
+    // should be be null at this point.
+    MOZ_ASSERT(!mControlActor);
   }
 }
 
@@ -210,6 +248,14 @@ void FileSystemSyncAccessHandle::ClearActor() {
   MOZ_ASSERT(mActor);
 
   mActor = nullptr;
+}
+
+void FileSystemSyncAccessHandle::ClearControlActor() {
+  // `mControlActor` is initialized in the constructor and this method is
+  // supposed to be called only once.
+  MOZ_ASSERT(mControlActor);
+
+  mControlActor = nullptr;
 }
 
 bool FileSystemSyncAccessHandle::IsOpen() const {
@@ -254,16 +300,31 @@ RefPtr<BoolPromise> FileSystemSyncAccessHandle::BeginClose() {
       ->Then(
           mWorkerRef->Private()->ControlEventTarget(), __func__,
           [self = RefPtr(this)](const ShutdownPromise::ResolveOrRejectValue&) {
-            if (self->mActor) {
-              self->mActor->SendClose();
+            if (self->mControlActor) {
+              RefPtr<BoolPromise::Private> promise =
+                  new BoolPromise::Private(__func__);
+
+              self->mControlActor->SendClose(
+                  [promise](void_t&&) { promise->Resolve(true, __func__); },
+                  [promise](const mozilla::ipc::ResponseRejectReason& aReason) {
+                    fs::IPCRejectReporter(aReason);
+
+                    promise->Reject(NS_ERROR_FAILURE, __func__);
+                  });
+
+              return RefPtr<BoolPromise>(promise);
             }
 
-            self->mWorkerRef = nullptr;
+            return BoolPromise::CreateAndResolve(true, __func__);
+          })
+      ->Then(mWorkerRef->Private()->ControlEventTarget(), __func__,
+             [self = RefPtr(this)](const BoolPromise::ResolveOrRejectValue&) {
+               self->mWorkerRef = nullptr;
 
-            self->mState = State::Closed;
+               self->mState = State::Closed;
 
-            self->mClosePromiseHolder.ResolveIfExists(true, __func__);
-          });
+               self->mClosePromiseHolder.ResolveIfExists(true, __func__);
+             });
 
   return OnClose();
 }

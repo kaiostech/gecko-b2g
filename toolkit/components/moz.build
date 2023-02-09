@@ -75,6 +75,7 @@ DIRS += [
     "statusfilter",
     "telemetry",
     "translation",
+    "translations",
     "thumbnails",
     "timermanager",
     "tooltiptext",

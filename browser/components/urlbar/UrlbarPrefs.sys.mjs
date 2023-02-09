@@ -390,6 +390,11 @@ const PREF_URLBAR_DEFAULTS = new Map([
 
   // Feature gate pref for weather suggestions in the urlbar.
   ["weather.featureGate", false],
+
+  // If true, weather suggestions will be shown on "zero prefix", which means
+  // when the user focuses the urlbar without typing anything. If false, the
+  // user must type weather-related keywords to show weather suggestions.
+  ["weather.zeroPrefix", true],
 ]);
 const PREF_OTHER_DEFAULTS = new Map([
   ["browser.fixup.dns_first_for_single_words", false],
@@ -486,7 +491,6 @@ function makeResultGroups({ showSearchSuggestionsFirst }) {
       // extensions using the omnibox API
       {
         group: lazy.UrlbarUtils.RESULT_GROUP.OMNIBOX,
-        availableSpan: lazy.UrlbarUtils.MAX_OMNIBOX_RESULT_COUNT - 1,
       },
     ],
   };

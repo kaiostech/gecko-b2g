@@ -115,3 +115,4 @@ Wifi Control
 GPS Init
 NetworkUtils
 MemoryPressure
+WMFCDMThread

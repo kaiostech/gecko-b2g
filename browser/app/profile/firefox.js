@@ -349,7 +349,7 @@ pref("browser.theme.colorway-closet", true);
 // theme with the same id (as part of preparing to remove from mozilla-central
 // all the expired built-in colorways themes, after existing users have been
 // migrated to colorways themes hosted on AMO).
-pref("browser.theme.colorway-migration", false);
+pref("browser.theme.colorway-migration", true);
 
 // Whether using `ctrl` when hitting return/enter in the URL bar
 // (or clicking 'go') should prefix 'www.' and suffix
@@ -409,6 +409,11 @@ pref("browser.urlbar.suggest.calculator",           false);
 
 // Feature gate pref for weather suggestions in the urlbar.
 pref("browser.urlbar.weather.featureGate", false);
+
+// If true, weather suggestions will be shown on "zero prefix", which means when
+// the user focuses the urlbar without typing anything. If false, the user must
+// type weather-related keywords to show weather suggestions.
+pref("browser.urlbar.weather.zeroPrefix", true);
 
 // If `browser.urlbar.weather.featureGate` is true, this controls whether
 // weather suggestions are turned on.
@@ -502,7 +507,7 @@ pref("browser.urlbar.switchTabs.adoptIntoActiveWindow", false);
 pref("browser.urlbar.openintab", false);
 
 // Enable three-dot options button and menu for eligible results.
-#ifdef NIGHTLY_BUILD
+#ifdef EARLY_BETA_OR_EARLIER
 pref("browser.urlbar.resultMenu", true);
 #else
 pref("browser.urlbar.resultMenu", false);
@@ -1820,9 +1825,16 @@ pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 pref("media.videocontrols.picture-in-picture.video-toggle.visibility-threshold", "1.0");
 pref("media.videocontrols.picture-in-picture.keyboard-controls.enabled", true);
 
+// Preferences for the older translation service backed by external services. This is
+// planned to be replaced with an integration of the Firefox Translations service.
+// The prefs for the new service are located under "browser.translations" in
+// modules/libpref/init/all.js
+//
+// See Bug 971044.
 pref("browser.translation.detectLanguage", false);
 pref("browser.translation.neverForLanguages", "");
-// Show the translation UI bits, like the info bar, notification icon and preferences.
+// Show the older translation UI that uses external services. This includes UI such as
+// the info bar, notification icon and preferences.
 pref("browser.translation.ui.show", false);
 // Allows to define the translation engine. Google is default, Bing or Yandex are other options.
 pref("browser.translation.engine", "Google");
@@ -2154,6 +2166,7 @@ pref("browser.migrate.safari.enabled", true);
 pref("browser.migrate.vivaldi.enabled", true);
 
 pref("browser.migrate.content-modal.enabled", false);
+pref("browser.migrate.content-modal.import-all.enabled", false);
 
 pref("extensions.pocket.api", "api.getpocket.com");
 pref("extensions.pocket.enabled", true);
@@ -2179,13 +2192,12 @@ pref("signon.management.page.fileImport.enabled", false);
 #ifdef NIGHTLY_BUILD
 pref("signon.management.page.os-auth.enabled", true);
 
-// "not available"  - feature is not available (will be removed after QA).
+// "not available"  - feature is not available (will be removed after enabling on Release).
 // "available"      - user can see feature offer.
 // "offered"        - we have offered feature to user and they have not yet made a decision.
 // "enabled"        - user opted in to the feature.
 // "disabled"       - user opted out of the feature.
-// will be enabled after QA round
-pref("signon.firefoxRelay.feature", "not available");
+pref("signon.firefoxRelay.feature", "available");
 #else
 pref("signon.management.page.os-auth.enabled", false);
 pref("signon.firefoxRelay.feature", "not available");
@@ -2766,6 +2778,9 @@ pref("browser.pdfjs.feature-tour", "{\"screen\":\"\",\"complete\":false}");
 
 // Enables the cookie banner desktop UI.
 pref("cookiebanners.ui.desktop.enabled", false);
+
+// Controls which variant of the cookie banner CFR the user is presented with.
+pref("cookiebanners.ui.desktop.cfrVariant", 0);
 
 // Parameters for the swipe-to-navigation icon.
 //

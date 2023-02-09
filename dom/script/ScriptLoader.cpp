@@ -1160,6 +1160,12 @@ bool ScriptLoader::ProcessInlineScript(nsIScriptElement* aElement,
     //   to fire an event named error at el, and return.
     if (!mModuleLoader->IsImportMapAllowed()) {
       NS_WARNING("ScriptLoader: import maps allowed is false.");
+      const char* msg = mModuleLoader->HasImportMapRegistered()
+                            ? "ImportMapNotAllowedMultiple"
+                            : "ImportMapNotAllowedAfterModuleLoad";
+      nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
+                                      "Script Loader"_ns, mDocument,
+                                      nsContentUtils::eDOM_PROPERTIES, msg);
       NS_DispatchToCurrentThread(
           NewRunnableMethod("nsIScriptElement::FireErrorEvent", aElement,
                             &nsIScriptElement::FireErrorEvent));
@@ -1384,43 +1390,33 @@ ReferrerPolicy ScriptLoader::GetReferrerPolicy(nsIScriptElement* aElement) {
   return mDocument->GetReferrerPolicy();
 }
 
-void ScriptLoader::CancelScriptLoadRequests() {
-  // Cancel all requests that have not been executed.
+void ScriptLoader::CancelAndClearScriptLoadRequests() {
+  // Cancel all requests that have not been executed and remove them.
+
   if (mParserBlockingRequest) {
     mParserBlockingRequest->Cancel();
+    mParserBlockingRequest = nullptr;
   }
 
-  for (ScriptLoadRequest* req = mXSLTRequests.getFirst(); req;
-       req = req->getNext()) {
-    req->Cancel();
+  mDeferRequests.CancelRequestsAndClear();
+  mLoadingAsyncRequests.CancelRequestsAndClear();
+  mLoadedAsyncRequests.CancelRequestsAndClear();
+  mNonAsyncExternalScriptInsertedRequests.CancelRequestsAndClear();
+  mXSLTRequests.CancelRequestsAndClear();
+  mOffThreadCompilingRequests.CancelRequestsAndClear();
+
+  for (ModuleLoader* loader : mWebExtModuleLoaders) {
+    loader->CancelAndClearDynamicImports();
   }
 
-  for (ScriptLoadRequest* req = mDeferRequests.getFirst(); req;
-       req = req->getNext()) {
-    req->Cancel();
-  }
-
-  for (ScriptLoadRequest* req = mLoadingAsyncRequests.getFirst(); req;
-       req = req->getNext()) {
-    req->Cancel();
-  }
-
-  for (ScriptLoadRequest* req = mLoadedAsyncRequests.getFirst(); req;
-       req = req->getNext()) {
-    req->Cancel();
-  }
-
-  for (ScriptLoadRequest* req =
-           mNonAsyncExternalScriptInsertedRequests.getFirst();
-       req; req = req->getNext()) {
-    req->Cancel();
+  for (ModuleLoader* loader : mShadowRealmModuleLoaders) {
+    loader->CancelAndClearDynamicImports();
   }
 
   for (size_t i = 0; i < mPreloads.Length(); i++) {
     mPreloads[i].mRequest->Cancel();
   }
-
-  mOffThreadCompilingRequests.CancelRequestsAndClear();
+  mPreloads.Clear();
 }
 
 nsresult ScriptLoader::CompileOffThreadOrProcessRequest(
@@ -2455,7 +2451,7 @@ void ScriptLoader::Destroy() {
     mShutdownObserver = nullptr;
   }
 
-  CancelScriptLoadRequests();
+  CancelAndClearScriptLoadRequests();
   GiveUpBytecodeEncoding();
 }
 
@@ -3162,8 +3158,9 @@ void ScriptLoader::HandleLoadError(ScriptLoadRequest* aRequest,
       aRequest->Cancel();
     }
     if (aRequest->IsTopLevel()) {
-      MOZ_ALWAYS_TRUE(
-          mPreloads.RemoveElement(aRequest, PreloadRequestComparator()));
+      // Request may already have been removed by
+      // CancelAndClearScriptLoadRequests.
+      mPreloads.RemoveElement(aRequest, PreloadRequestComparator());
     }
     MOZ_ASSERT(!aRequest->isInList());
     AccumulateCategorical(LABELS_DOM_SCRIPT_PRELOAD_RESULT::LoadError);
@@ -3494,40 +3491,12 @@ void ScriptLoader::DeferCheckpointReached() {
 }
 
 void ScriptLoader::ParsingComplete(bool aTerminated) {
-  if (!aTerminated) {
-    return;
-  }
-  mDeferRequests.CancelRequestsAndClear();
-  mLoadingAsyncRequests.CancelRequestsAndClear();
-  mLoadedAsyncRequests.CancelRequestsAndClear();
-  mNonAsyncExternalScriptInsertedRequests.CancelRequestsAndClear();
-  mXSLTRequests.CancelRequestsAndClear();
+  if (aTerminated) {
+    CancelAndClearScriptLoadRequests();
 
-  if (mModuleLoader) {
-    mModuleLoader->CancelAndClearDynamicImports();
+    // Have to call this even if aTerminated so we'll correctly unblock onload.
+    DeferCheckpointReached();
   }
-
-  for (ModuleLoader* loader : mWebExtModuleLoaders) {
-    loader->CancelAndClearDynamicImports();
-  }
-
-  for (ModuleLoader* loader : mShadowRealmModuleLoaders) {
-    loader->CancelAndClearDynamicImports();
-  }
-
-  if (mParserBlockingRequest) {
-    mParserBlockingRequest->Cancel();
-    mParserBlockingRequest = nullptr;
-  }
-
-  // Cancel any unused scripts that were compiled speculatively
-  for (size_t i = 0; i < mPreloads.Length(); i++) {
-    mPreloads[i].mRequest->GetScriptLoadContext()->MaybeCancelOffThreadScript();
-  }
-
-  // Have to call this even if aTerminated so we'll correctly unblock
-  // onload and all.
-  DeferCheckpointReached();
 }
 
 void ScriptLoader::PreloadURI(nsIURI* aURI, const nsAString& aCharset,

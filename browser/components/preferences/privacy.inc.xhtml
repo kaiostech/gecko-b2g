@@ -45,7 +45,7 @@
     </hbox>
     <hbox id="fpiIncompatibilityWarning" class="info-box-container" hidden="true">
       <vbox class="info-icon-container">
-        <image class="info-icon"></image>
+        <html:img class="info-icon"></html:img>
       </vbox>
       <vbox flex="1">
         <description>
@@ -128,7 +128,7 @@
               <html:div class="content-blocking-warning info-box-container reload-tabs" hidden="true">
                 <html:div class="content-blocking-reload-desc-container">
                   <html:div class="info-icon-container">
-                    <image class="info-icon"/>
+                    <html:img class="info-icon"/>
                   </html:div>
                   <html:span data-l10n-id="content-blocking-reload-description"
                              class="content-blocking-reload-description" />
@@ -197,7 +197,7 @@
               <html:div class="content-blocking-warning info-box-container reload-tabs" hidden="true">
                 <html:div class="content-blocking-reload-desc-container">
                   <html:div class="info-icon-container">
-                    <image class="info-icon"/>
+                    <html:img class="info-icon"/>
                   </html:div>
                   <html:span data-l10n-id="content-blocking-reload-description"
                              class="content-blocking-reload-description" />
@@ -302,7 +302,7 @@
               <html:div class="content-blocking-warning info-box-container reload-tabs" hidden="true">
                 <html:div class="content-blocking-reload-desc-container">
                   <html:div class="info-icon-container">
-                    <image class="info-icon"/>
+                    <html:img class="info-icon"/>
                   </html:div>
                   <html:span data-l10n-id="content-blocking-reload-description"
                              class="content-blocking-reload-description" />
@@ -363,7 +363,7 @@
       </description>
       <hbox flex="1" id="deleteOnCloseNote" class="info-box-container smaller-font-size">
         <hbox class="info-icon-container">
-          <image class="info-icon"></image>
+          <html:img class="info-icon"></html:img>
         </hbox>
         <description flex="1" data-l10n-id="sitedata-delete-on-close-private-browsing" />
       </hbox>
@@ -694,72 +694,35 @@
     />
   </hbox>
   <vbox id="firefoxSuggestContainer" hidden="true">
-    <!-- This form[autocomplete="off"] is necessary to prevent the inputs from
-         participating in session restore. autocomplete="off" is ignored on the
-         inputs themselves. -->
-    <html:form id="firefoxSuggestForm" autocomplete="off" hidden="true"/>
     <vbox class="firefoxSuggestOptionBox">
-      <hbox align="center">
-        <label id="firefoxSuggestNonsponsoredLabel"
-               flex="1"
-               data-l10n-id="addressbar-firefox-suggest-nonsponsored"/>
-        <html:input id="firefoxSuggestNonsponsoredToggle"
-                    type="checkbox"
-                    class="toggle-button firefoxSuggestToggle"
-                    preference="browser.urlbar.suggest.quicksuggest.nonsponsored"
-                    form="firefoxSuggestForm"
-                    aria-labelledby="firefoxSuggestNonsponsoredLabel"
-                    aria-describedby="firefoxSuggestNonsponsoredDescription"/>
-      </hbox>
-      <description id="firefoxSuggestNonsponsoredDescription"
-                   class="tip-caption firefoxSuggestOptionDescription"
-                   data-l10n-id="addressbar-firefox-suggest-nonsponsored-description"/>
+      <html:moz-toggle id="firefoxSuggestNonsponsoredToggle"
+                       preference="browser.urlbar.suggest.quicksuggest.nonsponsored"
+                       data-l10n-id="addressbar-firefox-suggest-nonsponsored"
+                       data-l10n-attrs="label, description" />
     </vbox>
     <vbox class="firefoxSuggestOptionBox">
-      <hbox align="center">
-        <label id="firefoxSuggestSponsoredLabel"
-               flex="1"
-               data-l10n-id="addressbar-firefox-suggest-sponsored"/>
-        <html:input id="firefoxSuggestSponsoredToggle"
-                    type="checkbox"
-                    class="toggle-button firefoxSuggestToggle"
-                    preference="browser.urlbar.suggest.quicksuggest.sponsored"
-                    form="firefoxSuggestForm"
-                    aria-labelledby="firefoxSuggestSponsoredLabel"
-                    aria-describedby="firefoxSuggestSponsoredDescription"/>
-      </hbox>
-      <description id="firefoxSuggestSponsoredDescription"
-                   class="tip-caption firefoxSuggestOptionDescription"
-                   data-l10n-id="addressbar-firefox-suggest-sponsored-description"/>
+      <html:moz-toggle id="firefoxSuggestSponsoredToggle"
+                       preference="browser.urlbar.suggest.quicksuggest.sponsored"
+                       data-l10n-id="addressbar-firefox-suggest-sponsored"
+                       data-l10n-attrs="label, description" />
     </vbox>
     <vbox class="firefoxSuggestOptionBox">
-      <hbox align="center">
-        <label id="firefoxSuggestDataCollectionLabel"
-               flex="1"
-               data-l10n-id="addressbar-firefox-suggest-data-collection"/>
-        <html:input id="firefoxSuggestDataCollectionToggle"
-                    type="checkbox"
-                    class="toggle-button firefoxSuggestToggle"
-                    preference="browser.urlbar.quicksuggest.dataCollection.enabled"
-                    form="firefoxSuggestForm"
-                    aria-labelledby="firefoxSuggestDataCollectionLabel"
-                    aria-describedby="firefoxSuggestDataCollectionDescription"/>
-      </hbox>
-      <description class="tip-caption firefoxSuggestOptionDescription">
-        <html:span id="firefoxSuggestDataCollectionDescription"
-                   class="tail-with-learn-more"
-                   data-l10n-id="addressbar-firefox-suggest-data-collection-description"/>
-        <html:a is="moz-support-link"
+      <html:moz-toggle id="firefoxSuggestDataCollectionToggle"
+                       preference="browser.urlbar.quicksuggest.dataCollection.enabled"
+                       data-l10n-id="addressbar-firefox-suggest-data-collection"
+                       data-l10n-attrs="label, description">
+        <html:a slot="support-link"
+                is="moz-support-link"
                 id="firefoxSuggestDataCollectionLearnMore"
                 class="learnMore firefoxSuggestLearnMore"
                 data-l10n-id="addressbar-locbar-firefox-suggest-learn-more"
                 support-page="firefox-suggest"
         />
-      </description>
+      </html:moz-toggle>
     </vbox>
     <hbox id="firefoxSuggestInfoBox" class="info-box-container" align="start"
           hidden="true">
-      <image class="info-icon"/>
+      <html:img class="info-icon"/>
       <description class="tip-caption" flex="1">
         <html:span id="firefoxSuggestInfoText" class="tail-with-learn-more"/>
         <html:a is="moz-support-link"
@@ -986,7 +949,7 @@
   <description>
     <hbox id="telemetry-container" class="info-box-container smaller-font-size" hidden="true">
       <hbox class="info-icon-container">
-        <image class="info-icon"></image>
+        <html:img class="info-icon"></html:img>
       </hbox>
       <hbox align="center" flex="1">
         <html:span id="telemetryDisabledDescription" class="tail-with-learn-more"

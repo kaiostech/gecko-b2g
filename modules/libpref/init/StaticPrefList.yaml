@@ -273,15 +273,17 @@
 # notifications are used.
 - name: alerts.useSystemBackend
   type: bool
-#ifdef XP_WIN
-  # Linux and macOS turn on system level notification as default, but Windows is
-  # disabled due to instability (dependencies of bug 1497425).
-  value: false
-#else
   value: true
-#endif
   mirror: always
 
+#if defined(XP_WIN)
+ # On Windows, a COM Surrogate notification server receives notification events
+ # and can relaunch the application after it has been closed.
+- name: alerts.useSystemBackend.windows.notificationserver.enabled
+  type: bool
+  value: true
+  mirror: never
+#endif
 
 #ifdef ANDROID
   #---------------------------------------------------------------------------
@@ -2349,6 +2351,13 @@
   value: false
   mirror: always
 
+# HTML specification says the level should be 5
+# https://html.spec.whatwg.org/#timer-initialisation-steps
+- name: dom.clamp.timeout.nesting.level
+  type: uint32_t
+  value: 5
+  mirror: once
+
 # Disable custom highlight API; implementation pending.
 - name: dom.customHighlightAPI.enabled
   type: RelaxedAtomicBool
@@ -3179,14 +3188,6 @@
 - name: dom.mapped_arraybuffer.enabled
   type: bool
   value: true
-  mirror: always
-
-# This pref is used to enable/disable the `document.autoplayPolicy` API which
-# returns a enum string which presents current autoplay policy and can change
-# overtime based on user session activity.
-- name: dom.media.autoplay.autoplay-policy-api
-  type: bool
-  value: false
   mirror: always
 
 # Autoplay Policy Detection https://w3c.github.io/autoplay/
@@ -5409,13 +5410,13 @@
 # If true, do not send blocklisted preference values to the subprocess
 - name: fission.omitBlocklistedPrefsInSubprocesses
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # If true, crash when a blocklisted preference is accessed in a subprocess
 - name: fission.enforceBlocklistedPrefsInSubprocesses
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -10422,6 +10423,16 @@
     value: 2000000
     mirror: always
 
+# Enable PlayReady DRM for EME
+-   name: media.eme.playready.enabled
+    type: RelaxedAtomicBool
+#if defined(MOZ_MF_CDM) && defined(NIGHTLY_BUILD)
+    value: false # TODO: enable this when ready to play.
+#else
+    value: false
+#endif
+    mirror: always
+
 #endif  # MOZ_WMF
 
 - name: media.decoder-doctor.testing
@@ -13722,7 +13733,7 @@
 # No way to enable on Android, Bug 1552602
 - name: security.webauth.u2f
   type: bool
-  value: false
+  value: @IS_NOT_ANDROID@
   mirror: always
 
 # WebAuthn CTAP2 support
@@ -14410,6 +14421,26 @@
   value: -1
   mirror: always
 
+# Use 17 for Ctrl, 18 for Alt, 224 for Meta, 91 for Win, 0 for none.
+- name: ui.key.accelKey
+  type: uint32_t
+#ifdef XP_MACOSX
+  value: 224
+#else
+  value: 17
+#endif
+  mirror: always
+
+# See above for the key codes to use.
+- name: ui.key.menuAccessKey
+  type: uint32_t
+#ifdef XP_MACOSX
+  value: 0
+#else
+  value: 18
+#endif
+  mirror: always
+
 # Only used if generalAccessKey is -1.
 - name: ui.key.chromeAccess
   type: int32_t
@@ -14798,7 +14829,7 @@
 
 - name: webgl.disable-DOM-blit-uploads
   type: RelaxedAtomicBool
-#if defined(_ARM64_) && defined(XP_MACOSX)
+#if defined(MOZ_AARCH64) && defined(XP_MACOSX)
   value: true
 #else
   value: false

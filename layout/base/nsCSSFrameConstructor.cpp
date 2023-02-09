@@ -39,7 +39,6 @@
 #include "mozilla/Unused.h"
 #include "RetainedDisplayListBuilder.h"
 #include "nsAbsoluteContainingBlock.h"
-#include "nsMenuBarListener.h"
 #include "nsCSSPseudoElements.h"
 #include "nsCheckboxRadioFrame.h"
 #include "nsCRT.h"
@@ -220,8 +219,6 @@ nsIFrame* NS_NewMenuPopupFrame(PresShell* aPresShell, ComputedStyle* aStyle);
 
 nsIFrame* NS_NewMenuFrame(PresShell* aPresShell, ComputedStyle* aStyle,
                           uint32_t aFlags);
-
-nsIFrame* NS_NewMenuBarFrame(PresShell* aPresShell, ComputedStyle* aStyle);
 
 nsIFrame* NS_NewTreeBodyFrame(PresShell* aPresShell, ComputedStyle* aStyle);
 
@@ -1609,7 +1606,7 @@ void nsCSSFrameConstructor::CreateGeneratedContent(
     case Type::MozLabelContent: {
       nsAutoString accesskey;
       if (!aOriginatingElement.GetAttr(nsGkAtoms::accesskey, accesskey) ||
-          accesskey.IsEmpty() || !nsMenuBarListener::GetMenuAccessKey()) {
+          accesskey.IsEmpty() || !LookAndFeel::GetMenuAccessKey()) {
         // Easy path: just return a regular value attribute content.
         nsCOMPtr<nsIContent> content;
         NS_NewAttributeContent(mDocument->NodeInfoManager(), kNameSpaceID_None,
@@ -4156,8 +4153,6 @@ nsCSSFrameConstructor::FindXULTagData(const Element& aElement,
                        nsCSSFrameConstructor::FindXULLabelOrDescriptionData),
 #ifdef XP_MACOSX
       SIMPLE_TAG_CHAIN(menubar, nsCSSFrameConstructor::FindXULMenubarData),
-#else
-      SIMPLE_XUL_CREATE(menubar, NS_NewMenuBarFrame),
 #endif /* XP_MACOSX */
       SIMPLE_XUL_CREATE(iframe, NS_NewSubDocumentFrame),
       SIMPLE_XUL_CREATE(editor, NS_NewSubDocumentFrame),
@@ -4210,9 +4205,7 @@ nsCSSFrameConstructor::FindXULMenubarData(const Element& aElement,
     }
   }
 
-  static constexpr FrameConstructionData sMenubarData =
-      SIMPLE_XUL_FCDATA(NS_NewMenuBarFrame);
-  return &sMenubarData;
+  return nullptr;
 }
 #endif /* XP_MACOSX */
 

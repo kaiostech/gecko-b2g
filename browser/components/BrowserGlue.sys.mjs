@@ -15,16 +15,21 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BookmarkJSONUtils: "resource://gre/modules/BookmarkJSONUtils.sys.mjs",
   BrowserSearchTelemetry: "resource:///modules/BrowserSearchTelemetry.sys.mjs",
   BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
+
   ContextualIdentityService:
     "resource://gre/modules/ContextualIdentityService.sys.mjs",
+
   DAPTelemetrySender: "resource://gre/modules/DAPTelemetrySender.sys.mjs",
   DeferredTask: "resource://gre/modules/DeferredTask.sys.mjs",
+
   DownloadsViewableInternally:
     "resource:///modules/DownloadsViewableInternally.sys.mjs",
+
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   Integration: "resource://gre/modules/Integration.sys.mjs",
   Interactions: "resource:///modules/Interactions.sys.mjs",
   Log: "resource://gre/modules/Log.sys.mjs",
+  LoginBreaches: "resource:///modules/LoginBreaches.sys.mjs",
   NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
   OsEnvironment: "resource://gre/modules/OsEnvironment.sys.mjs",
   PageDataService: "resource:///modules/pagedata/PageDataService.sys.mjs",
@@ -51,8 +56,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AboutNewTab: "resource:///modules/AboutNewTab.jsm",
   AddonManager: "resource://gre/modules/AddonManager.jsm",
+
   ASRouterDefaultConfig:
     "resource://activity-stream/lib/ASRouterDefaultConfig.jsm",
+
   ASRouterNewTabHook: "resource://activity-stream/lib/ASRouterNewTabHook.jsm",
   ASRouter: "resource://activity-stream/lib/ASRouter.jsm",
   Blocklist: "resource://gre/modules/Blocklist.jsm",
@@ -67,12 +74,13 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   FeatureGate: "resource://featuregates/FeatureGate.jsm",
   FxAccounts: "resource://gre/modules/FxAccounts.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
-  LoginBreaches: "resource:///modules/LoginBreaches.jsm",
   NetUtil: "resource://gre/modules/NetUtil.jsm",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
   Normandy: "resource://normandy/Normandy.jsm",
+
   OnboardingMessageProvider:
     "resource://activity-stream/lib/OnboardingMessageProvider.jsm",
+
   PageActions: "resource:///modules/PageActions.jsm",
   PageThumbs: "resource://gre/modules/PageThumbs.jsm",
   PdfJs: "resource://pdf.js/PdfJs.jsm",
@@ -80,15 +88,19 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   ProcessHangMonitor: "resource:///modules/ProcessHangMonitor.jsm",
   PublicSuffixList: "resource://gre/modules/netwerk-dns/PublicSuffixList.jsm",
   RemoteSettings: "resource://services-settings/remote-settings.js",
+
   RemoteSecuritySettings:
     "resource://gre/modules/psm/RemoteSecuritySettings.jsm",
+
   RFPHelper: "resource://gre/modules/RFPHelper.jsm",
   SafeBrowsing: "resource://gre/modules/SafeBrowsing.jsm",
   Sanitizer: "resource:///modules/Sanitizer.jsm",
   SaveToPocket: "chrome://pocket/content/SaveToPocket.jsm",
   ShellService: "resource:///modules/ShellService.jsm",
+
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.jsm",
+
   TabCrashHandler: "resource:///modules/ContentCrashHandlers.jsm",
   TabUnloader: "resource:///modules/TabUnloader.jsm",
   TRRRacer: "resource:///modules/TRRPerformance.jsm",
@@ -205,10 +217,10 @@ let JSPROCESSACTORS = {
 let JSWINDOWACTORS = {
   AboutLogins: {
     parent: {
-      moduleURI: "resource:///actors/AboutLoginsParent.jsm",
+      esModuleURI: "resource:///actors/AboutLoginsParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/AboutLoginsChild.jsm",
+      esModuleURI: "resource:///actors/AboutLoginsChild.sys.mjs",
       events: {
         AboutLoginsCopyLoginDetail: { wantUntrusted: true },
         AboutLoginsCreateLogin: { wantUntrusted: true },
@@ -309,10 +321,10 @@ let JSWINDOWACTORS = {
 
   AboutPrivateBrowsing: {
     parent: {
-      moduleURI: "resource:///actors/AboutPrivateBrowsingParent.jsm",
+      esModuleURI: "resource:///actors/AboutPrivateBrowsingParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/AboutPrivateBrowsingChild.jsm",
+      esModuleURI: "resource:///actors/AboutPrivateBrowsingChild.sys.mjs",
 
       events: {
         DOMDocElementInserted: { capture: true },
@@ -615,7 +627,7 @@ let JSWINDOWACTORS = {
       "about:welcome",
       "about:welcome?*",
       "about:preferences",
-      "chrome://browser/content/migration/migration-dialog.html",
+      "chrome://browser/content/migration/migration-dialog-window.html",
     ],
   },
 
@@ -750,10 +762,10 @@ let JSWINDOWACTORS = {
 
   ASRouter: {
     parent: {
-      moduleURI: "resource:///actors/ASRouterParent.jsm",
+      esModuleURI: "resource:///actors/ASRouterParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/ASRouterChild.jsm",
+      esModuleURI: "resource:///actors/ASRouterChild.sys.mjs",
       events: {
         // This is added so the actor instantiates immediately and makes
         // methods available to the page js on load.
@@ -777,6 +789,8 @@ let JSWINDOWACTORS = {
     allFrames: true,
   },
 
+  // The older translations feature backed by external services.
+  // This is being replaced by a newer ML-backed translation service. See Bug 971044.
   Translation: {
     parent: {
       moduleURI: "resource:///modules/translation/TranslationParent.jsm",
@@ -2855,6 +2869,14 @@ BrowserGlue.prototype = {
       },
 
       {
+        // Starts the JSOracle process for ORB JavaScript validation, if it hasn't started already.
+        name: "start-orb-javascript-oracle",
+        task: () => {
+          ChromeUtils.ensureJSOracleStarted();
+        },
+      },
+
+      {
         name: "browser-startup-idle-tasks-finished",
         task: () => {
           // Use idleDispatch a second time to run this after the per-window
@@ -3515,7 +3537,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 135;
+    const UI_VERSION = 136;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     const PROFILE_DIR = Services.dirsvc.get("ProfD", Ci.nsIFile).path;
@@ -4278,16 +4300,11 @@ BrowserGlue.prototype = {
       }
     }
 
-    function migrateXULAttributeToStyle(id, attr) {
+    function migrateXULAttributeToStyle(url, id, attr) {
       try {
-        let value = Services.xulStore.getValue(BROWSER_DOCURL, id, attr);
+        let value = Services.xulStore.getValue(url, id, attr);
         if (value) {
-          Services.xulStore.setValue(
-            BROWSER_DOCURL,
-            id,
-            "style",
-            `width: ${value}px;`
-          );
+          Services.xulStore.setValue(url, id, "style", `${attr}: ${value}px;`);
         }
       } catch (ex) {
         console.error(`Error migrating ${id}'s ${attr} value: `, ex);
@@ -4300,7 +4317,7 @@ BrowserGlue.prototype = {
 
     // Bug 1793366: migrate sidebar persisted attribute from width to style.
     if (currentUIVersion < 130) {
-      migrateXULAttributeToStyle("sidebar-box", "width");
+      migrateXULAttributeToStyle(BROWSER_DOCURL, "sidebar-box", "width");
     }
 
     // Migration 131 was moved to 133 to allow for an uplift.
@@ -4338,6 +4355,14 @@ BrowserGlue.prototype = {
       }
     }
 
+    if (currentUIVersion < 136) {
+      migrateXULAttributeToStyle(
+        "chrome://browser/content/places/places.xhtml",
+        "placesList",
+        "width"
+      );
+    }
+
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", UI_VERSION);
   },
@@ -4350,25 +4375,20 @@ BrowserGlue.prototype = {
     let tab;
 
     const upgradeTabsProgressListener = {
-      onLocationChange(
-        aBrowser,
-        aWebProgress,
-        aRequest,
-        aLocationURI,
-        aFlags,
-        aIsSimulated
-      ) {
+      onLocationChange(aBrowser) {
         if (aBrowser === tab.linkedBrowser) {
-          // We're now far enough along in the load that we no longer have to
-          // worry about a call to onLocationChange triggering SubDialog.abort,
-          // so display the dialog
-          const config = {
-            type: "SHOW_SPOTLIGHT",
-            data,
-          };
-          lazy.SpecialMessageActions.handleAction(config, tab.linkedBrowser);
+          lazy.setTimeout(() => {
+            // We're now far enough along in the load that we no longer have to
+            // worry about a call to onLocationChange triggering SubDialog.abort,
+            // so display the dialog
+            const config = {
+              type: "SHOW_SPOTLIGHT",
+              data,
+            };
+            lazy.SpecialMessageActions.handleAction(config, tab.linkedBrowser);
 
-          gBrowser.removeTabsProgressListener(upgradeTabsProgressListener);
+            gBrowser.removeTabsProgressListener(upgradeTabsProgressListener);
+          }, 0);
         }
       },
     };

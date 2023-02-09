@@ -33,6 +33,7 @@ add_task(async function test_nsNavHistory_UpdateFrecency() {
     url,
     title: "test",
   });
+  await PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies();
   await promise;
 });
 
@@ -49,29 +50,47 @@ add_task(async function test_invalidateFrecencies() {
   });
   let promise = onRankingChanged();
   await PlacesUtils.history.removeByFilter({ host: url.host });
+  await PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies();
   await promise;
 });
 
-// History.jsm clear()
+// History.jsm clear() should not cause a frecency recalculation since pages
+// are removed.
 add_task(async function test_clear() {
-  await Promise.all([onRankingChanged(), PlacesUtils.history.clear()]);
+  let received = [];
+  let listener = events =>
+    (received = received.concat(events.map(e => e.type)));
+  PlacesObservers.addListener(
+    ["history-cleared", "pages-rank-changed"],
+    listener
+  );
+  await PlacesUtils.history.clear();
+  PlacesObservers.removeListener(
+    ["history-cleared", "pages-rank-changed"],
+    listener
+  );
+  Assert.deepEqual(received, ["history-cleared"]);
 });
 
-add_task(async function test_nsNavHistory_decayFrecency() {
-  let svc = Cc["@mozilla.org/places/frecency-recalculator;1"].getService(
-    Ci.nsIObserver
-  );
-  svc.observe(null, "idle-daily", "");
+add_task(async function test_nsNavHistory_idleDaily() {
+  await PlacesUtils.bookmarks.insert({
+    parentGuid: PlacesUtils.bookmarks.unfiledGuid,
+    url: "https://test-site1.org",
+    title: "test",
+  });
+  PlacesFrecencyRecalculator.observe(null, "idle-daily", "");
   await Promise.all([onRankingChanged()]);
 });
 
-add_task(async function test_nsNavHistory_decayFrecency() {
-  let svc = Cc["@mozilla.org/places/frecency-recalculator;1"].getService(
-    Ci.nsIObserver
-  );
+add_task(async function test_nsNavHistory_recalculate() {
+  await PlacesUtils.bookmarks.insert({
+    parentGuid: PlacesUtils.bookmarks.unfiledGuid,
+    url: "https://test-site1.org",
+    title: "test",
+  });
   await Promise.all([
     onRankingChanged(),
-    svc.wrappedJSObject.recalculateAnyOutdatedFrecencies(),
+    PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies(),
   ]);
 });
 

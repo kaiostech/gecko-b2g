@@ -6,6 +6,7 @@
 
 #include "ChromeUtils.h"
 
+#include "JSOracleParent.h"
 #include "js/CharacterEncoding.h"
 #include "js/Object.h"              // JS::GetClass
 #include "js/PropertyAndElement.h"  // JS_DefineProperty, JS_DefinePropertyById, JS_Enumerate, JS_GetProperty, JS_GetPropertyById, JS_SetProperty, JS_SetPropertyById, JS::IdVector
@@ -1732,4 +1733,15 @@ bool ChromeUtils::IsDarkBackground(GlobalObject&, Element& aElement) {
 
 double ChromeUtils::DateNow(GlobalObject&) { return JS_Now() / 1000.0; }
 
+/* static */
+void ChromeUtils::EnsureJSOracleStarted(GlobalObject&) {
+  JSOracleParent::WithJSOracle([](JSOracleParent* aParent) {});
+}
+
+/* static */
+unsigned ChromeUtils::AliveUtilityProcesses(const GlobalObject&) {
+  const auto& utilityProcessManager =
+      mozilla::ipc::UtilityProcessManager::GetIfExists();
+  return utilityProcessManager ? utilityProcessManager->AliveProcesses() : 0;
+}
 }  // namespace mozilla::dom

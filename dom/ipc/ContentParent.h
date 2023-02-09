@@ -394,7 +394,7 @@ class ContentParent final : public PContentParent,
     return mIsSignaledImpendingShutdown;
   }
   bool IsShuttingDown() const {
-    return !IsAlive() || IsSignaledImpendingShutdown();
+    return IsDead() || IsSignaledImpendingShutdown();
   }
   bool IsDead() const { return mLifecycleState == LifecycleState::DEAD; }
 

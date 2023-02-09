@@ -990,8 +990,7 @@ struct SharedDataContainer {
   js::SharedImmutableScriptData* get(ScriptIndex index) const;
 
   // Add data for index-th script and share it with VM.
-  [[nodiscard]] bool addAndShare(JSContext* cx, FrontendContext* fc,
-                                 ScriptIndex index,
+  [[nodiscard]] bool addAndShare(FrontendContext* fc, ScriptIndex index,
                                  js::SharedImmutableScriptData* data);
 
   // Add data for index-th script without sharing it with VM.
@@ -1460,7 +1459,7 @@ struct MOZ_RAII CompilationState : public ExtensibleCompilationStencil {
 
   // Allocate space for `length` gcthings, and return the address of the
   // first element to `cursor` to initialize on the caller.
-  bool allocateGCThingsUninitialized(JSContext* cx, FrontendContext* fc,
+  bool allocateGCThingsUninitialized(FrontendContext* fc,
                                      ScriptIndex scriptIndex, size_t length,
                                      TaggedScriptThingIndex** cursor);
 

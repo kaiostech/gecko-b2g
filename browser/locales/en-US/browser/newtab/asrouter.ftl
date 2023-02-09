@@ -121,13 +121,6 @@ cfr-doorhanger-video-support-header = Update { -brand-short-name } to play video
 cfr-doorhanger-video-support-primary-button = Update Now
   .accesskey = U
 
-## Spotlight modal shared strings
-
-spotlight-learn-more-collapsed = Learn more
-  .title = Expand to learn more about the feature
-spotlight-learn-more-expanded = Learn more
-  .title = Close
-
 ## VPN promotion dialog for public Wi-Fi users
 ##
 ## If a user is detected to be on a public Wi-Fi network, they are given a
@@ -217,7 +210,7 @@ colorways-cfr-header-today = Independent Voices colorways expire today
 # Alternate headline for localization: "See fewer cookie requests"
 cfr-cookiebanner-header = Cookie banners begone!
 cfr-cookiebanner-body = Allow { -brand-short-name } to automatically reject all cookie banner requests when possible.
-cfr-cookiebanner-accept-button = Dismiss Banners
+cfr-cookiebanner-accept-button-v2 = Reject Requests
   .accesskey = D
 cfr-cookiebanner-reject-button = Not Now
   .accesskey = N

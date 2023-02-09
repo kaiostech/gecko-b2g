@@ -223,24 +223,30 @@ nsAVIFDecoder::DecodeResult AVIFParser::GetImage(AVIFImage& aImage) {
     aImage.mColorImage = mColorSampleIter->GetNext();
 
     if (!aImage.mColorImage) {
-      if (mFrameNum == 0) {
-        return AsVariant(nsAVIFDecoder::NonDecoderResult::NoSamples);
-      }
-      return AsVariant(nsAVIFDecoder::NonDecoderResult::Complete);
+      return AsVariant(nsAVIFDecoder::NonDecoderResult::NoSamples);
     }
 
     aImage.mFrameNum = mFrameNum++;
     int64_t durationMs =
         aImage.mColorImage->mDuration.ToMicroseconds() / USECS_PER_MS;
     aImage.mDuration = FrameTimeout::FromRawMilliseconds(
-        static_cast<int32_t>(std::min(durationMs, INT64_MAX)));
+        static_cast<int32_t>(std::min<int64_t>(durationMs, INT32_MAX)));
 
     if (mAlphaSampleIter) {
       aImage.mAlphaImage = mAlphaSampleIter->GetNext();
+      if (!aImage.mAlphaImage) {
+        return AsVariant(nsAVIFDecoder::NonDecoderResult::NoSamples);
+      }
     }
 
     bool hasNext = mColorSampleIter->HasNext();
-    MOZ_ASSERT_IF(mAlphaSampleIter, hasNext == mAlphaSampleIter->HasNext());
+    if (mAlphaSampleIter && (hasNext != mAlphaSampleIter->HasNext())) {
+      MOZ_LOG(
+          sAVIFLog, LogLevel::Warning,
+          ("[this=%p] The %s sequence ends before frame %d, aborting decode.",
+           this, hasNext ? "alpha" : "color", mFrameNum));
+      return AsVariant(nsAVIFDecoder::NonDecoderResult::NoSamples);
+    }
     if (!hasNext) {
       return AsVariant(nsAVIFDecoder::NonDecoderResult::Complete);
     }
@@ -511,7 +517,8 @@ class Dav1dDecoder final : AVIFDecoderInterface {
     return AsVariant(r);
   }
 
-  DecodeResult Decode(bool aIsMetadataDecode, const Mp4parseAvifInfo& aAVIFInfo,
+  DecodeResult Decode(bool aShouldSendTelemetry,
+                      const Mp4parseAvifInfo& aAVIFInfo,
                       const AVIFImage& aSamples) override {
     MOZ_ASSERT(mColorContext);
     MOZ_ASSERT(!mDecodedData);
@@ -522,7 +529,7 @@ class Dav1dDecoder final : AVIFDecoderInterface {
     OwnedDav1dPicture colorPic = OwnedDav1dPicture(new Dav1dPicture());
     OwnedDav1dPicture alphaPic = nullptr;
     Dav1dResult r = GetPicture(*mColorContext, *aSamples.mColorImage,
-                               colorPic.get(), aIsMetadataDecode);
+                               colorPic.get(), aShouldSendTelemetry);
     if (r != 0) {
       return AsVariant(r);
     }
@@ -533,7 +540,7 @@ class Dav1dDecoder final : AVIFDecoderInterface {
 
       alphaPic = OwnedDav1dPicture(new Dav1dPicture());
       Dav1dResult r = GetPicture(*mAlphaContext, *aSamples.mAlphaImage,
-                                 alphaPic.get(), aIsMetadataDecode);
+                                 alphaPic.get(), aShouldSendTelemetry);
       if (r != 0) {
         return AsVariant(r);
       }
@@ -594,7 +601,7 @@ class Dav1dDecoder final : AVIFDecoderInterface {
   static Dav1dResult GetPicture(Dav1dContext& aContext,
                                 const MediaRawData& aBytes,
                                 Dav1dPicture* aPicture,
-                                bool aIsMetadataDecode) {
+                                bool aShouldSendTelemetry) {
     MOZ_ASSERT(aPicture);
 
     Dav1dData dav1dData;
@@ -623,15 +630,12 @@ class Dav1dDecoder final : AVIFDecoderInterface {
     MOZ_LOG(sAVIFLog, r == 0 ? LogLevel::Debug : LogLevel::Error,
             ("dav1d_get_picture -> %d", r));
 
-    // When bug 1682662 is fixed, revise this assert and subsequent condition
-    MOZ_ASSERT(aIsMetadataDecode || r == 0);
-
     // We already have the AVIF_DECODE_RESULT histogram to record all the
     // successful calls, so only bother recording what type of errors we see
     // via events. Unlike AOM, dav1d returns an int, not an enum, so this is
     // the easiest way to see if we're getting unexpected behavior to
     // investigate.
-    if (aIsMetadataDecode && r != 0) {
+    if (aShouldSendTelemetry && r != 0) {
       // Uncomment once bug 1691156 is fixed
       // mozilla::Telemetry::SetEventRecordingEnabled("avif"_ns, true);
 
@@ -758,7 +762,8 @@ class AOMDecoder final : AVIFDecoderInterface {
     return AsVariant(AOMResult(e));
   }
 
-  DecodeResult Decode(bool aIsMetadataDecode, const Mp4parseAvifInfo& aAVIFInfo,
+  DecodeResult Decode(bool aShouldSendTelemetry,
+                      const Mp4parseAvifInfo& aAVIFInfo,
                       const AVIFImage& aSamples) override {
     MOZ_ASSERT(mColorContext.isSome());
     MOZ_ASSERT(!mDecodedData);
@@ -766,7 +771,7 @@ class AOMDecoder final : AVIFDecoderInterface {
 
     aom_image_t* aomImg = nullptr;
     DecodeResult r = GetImage(*mColorContext, *aSamples.mColorImage, &aomImg,
-                              aIsMetadataDecode);
+                              aShouldSendTelemetry);
     if (!IsDecodeSuccess(r)) {
       return r;
     }
@@ -787,7 +792,7 @@ class AOMDecoder final : AVIFDecoderInterface {
 
       aom_image_t* alphaImg = nullptr;
       DecodeResult r = GetImage(*mAlphaContext, *aSamples.mAlphaImage,
-                                &alphaImg, aIsMetadataDecode);
+                                &alphaImg, aShouldSendTelemetry);
       if (!IsDecodeSuccess(r)) {
         return r;
       }
@@ -868,14 +873,14 @@ class AOMDecoder final : AVIFDecoderInterface {
 
   static DecodeResult GetImage(aom_codec_ctx_t& aContext,
                                const MediaRawData& aData, aom_image_t** aImage,
-                               bool aIsMetadataDecode) {
+                               bool aShouldSendTelemetry) {
     aom_codec_err_t r =
         aom_codec_decode(&aContext, aData.Data(), aData.Size(), nullptr);
 
     MOZ_LOG(sAVIFLog, r == AOM_CODEC_OK ? LogLevel::Verbose : LogLevel::Error,
             ("aom_codec_decode -> %d", r));
 
-    if (aIsMetadataDecode) {
+    if (aShouldSendTelemetry) {
       switch (r) {
         case AOM_CODEC_OK:
           // No need to record any telemetry for the common case
@@ -961,8 +966,8 @@ UniquePtr<AVIFDecodedData> Dav1dDecoder::Dav1dPictureToDecodedData(
 
   UniquePtr<AVIFDecodedData> data = MakeUnique<AVIFDecodedData>();
 
-  data->mRenderRect = {0, 0, aPicture->frame_hdr->render_width,
-                       aPicture->frame_hdr->render_height};
+  data->mRenderSize.emplace(aPicture->frame_hdr->render_width,
+                            aPicture->frame_hdr->render_height);
 
   data->mYChannel = static_cast<uint8_t*>(aPicture->data[0]);
   data->mYStride = aPicture->stride[0];
@@ -1071,7 +1076,7 @@ UniquePtr<AVIFDecodedData> AOMDecoder::AOMImageToToDecodedData(
 
   UniquePtr<AVIFDecodedData> data = MakeUnique<AVIFDecodedData>();
 
-  data->mRenderRect = {0, 0, colorImage->r_w, colorImage->r_h};
+  data->mRenderSize.emplace(colorImage->r_w, colorImage->r_h);
 
   data->mYChannel = colorImage->planes[AOM_PLANE_Y];
   data->mYStride = colorImage->stride[AOM_PLANE_Y];
@@ -1475,6 +1480,7 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
 
   MaybeIntSize parsedImageSize = GetImageSize(parsedInfo);
 
+  bool sendDecodeTelemetry = IsMetadataDecode();
   if (parsedImageSize.isSome()) {
     MOZ_LOG(sAVIFLog, LogLevel::Debug,
             ("[this=%p] Parser returned image size %d x %d (%d/%d bit)", this,
@@ -1490,6 +1496,9 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
           ("[this=%p] Finishing metadata decode without image decode", this));
       return AsVariant(NonDecoderResult::Complete);
     }
+    // If we're continuing to decode here, this means we skipped decode
+    // telemetry for the metadata decode pass. Send it this time.
+    sendDecodeTelemetry = true;
   } else {
     MOZ_LOG(sAVIFLog, LogLevel::Error,
             ("[this=%p] Parser returned no image size, decoding...", this));
@@ -1497,7 +1506,7 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
 
   CreateDecoder();
   MOZ_ASSERT(mDecoder);
-  r = mDecoder->Decode(IsMetadataDecode(), parsedInfo, parsedImage);
+  r = mDecoder->Decode(sendDecodeTelemetry, parsedInfo, parsedImage);
   MOZ_LOG(sAVIFLog, LogLevel::Debug,
           ("[this=%p] Decoder%s->Decode() %s", this,
            StaticPrefs::image_avif_use_dav1d() ? "Dav1d" : "AOM",
@@ -1561,6 +1570,14 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
 
   if (parsedImage.mFrameNum == 0) {
     RecordFrameTelem(mIsAnimated, parsedInfo, *decodedData);
+  }
+
+  if (decodedData->mRenderSize &&
+      decodedData->mRenderSize->ToUnknownSize() != rgbSize) {
+    // This may be supported by allowing all metadata decodes to decode a frame
+    // and get the render size from the bitstream. However it's unlikely to be
+    // used often.
+    return AsVariant(NonDecoderResult::RenderSizeMismatch);
   }
 
   // Read color profile
@@ -1713,13 +1730,13 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
         decodedData->mAlpha ? SurfaceFormat::OS_RGBA : SurfaceFormat::OS_RGBX;
     Maybe<AnimationParams> animParams;
     if (!IsFirstFrameDecode()) {
-      animParams.emplace(decodedData->mRenderRect.ToUnknownRect(),
-                         parsedImage.mDuration, parsedImage.mFrameNum,
-                         BlendMethod::SOURCE, DisposalMethod::CLEAR_ALL);
+      animParams.emplace(FullFrame().ToUnknownRect(), parsedImage.mDuration,
+                         parsedImage.mFrameNum, BlendMethod::SOURCE,
+                         DisposalMethod::CLEAR_ALL);
     }
     pipe = SurfacePipeFactory::CreateSurfacePipe(
-        this, Size(), OutputSize(), decodedData->mRenderRect, format, outFormat,
-        animParams, mTransform, SurfacePipeFlags());
+        this, Size(), OutputSize(), FullFrame(), format, outFormat, animParams,
+        mTransform, SurfacePipeFlags());
   } else {
     pipe = SurfacePipeFactory::CreateReorientSurfacePipe(
         this, Size(), OutputSize(), format, mTransform, GetOrientation());
@@ -1897,6 +1914,9 @@ void nsAVIFDecoder::RecordDecodeResultTelemetry(
         return;
       case NonDecoderResult::MetadataImageSizeMismatch:
         AccumulateCategorical(LABELS_AVIF_DECODE_RESULT::ispe_mismatch);
+        return;
+      case NonDecoderResult::RenderSizeMismatch:
+        AccumulateCategorical(LABELS_AVIF_DECODE_RESULT::render_size_mismatch);
         return;
       case NonDecoderResult::InvalidCICP:
         AccumulateCategorical(LABELS_AVIF_DECODE_RESULT::invalid_cicp);

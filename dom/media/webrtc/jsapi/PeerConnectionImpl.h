@@ -69,6 +69,7 @@ class DtlsIdentity;
 class MediaPipeline;
 class MediaPipelineReceive;
 class MediaPipelineTransmit;
+enum class PrincipalPrivacy : uint8_t;
 class SharedWebrtcState;
 
 namespace dom {
@@ -323,11 +324,8 @@ class PeerConnectionImpl final
 
   // this method checks to see if we've made a promise to protect media.
   bool PrivacyRequested() const {
-    return mPrivacyRequested.isSome() && *mPrivacyRequested;
-  }
-
-  bool PrivacyNeeded() const {
-    return mPrivacyRequested.isSome() && *mPrivacyRequested;
+    return mRequestedPrivacy.valueOr(PrincipalPrivacy::NonPrivate) ==
+           PrincipalPrivacy::Private;
   }
 
   NS_IMETHODIMP GetFingerprint(char** fingerprint);
@@ -633,7 +631,7 @@ class PeerConnectionImpl final
   //
   // This can be false if mPeerIdentity is set, in the case where identity is
   // provided, but the media is not protected from the app on either side
-  Maybe<bool> mPrivacyRequested;
+  Maybe<PrincipalPrivacy> mRequestedPrivacy;
 
   // A handle to refer to this PC with
   std::string mHandle;

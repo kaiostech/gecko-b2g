@@ -211,22 +211,21 @@ mozilla::ipc::IPCResult FileSystemManagerParent::RecvGetWritable(
     }
   }
 
-  FILE* fileHandle;
-  QM_TRY(MOZ_TO_RESULT(file->OpenANSIFileDesc(aRequest.keepData() ? "r+" : "w",
-                                              &fileHandle)),
-         IPC_OK(), reportError);
-
-  auto autoClose = MakeScopeExit([fileHandle]() {
-    QM_WARNONLY_TRY(MOZ_TO_RESULT(0 == fclose(fileHandle)));
-  });
-
-  FileDescriptor fileDescriptor =
-      mozilla::ipc::FILEToFileDescriptor(fileHandle);
-
-  LOG(("Opened"));
-
   auto writableFileStreamParent =
       MakeRefPtr<FileSystemWritableFileStreamParent>(this, aRequest.entryId());
+
+  QM_TRY_UNWRAP(
+      nsCOMPtr<nsIRandomAccessStream> stream,
+      CreateFileRandomAccessStream(quota::PERSISTENCE_TYPE_DEFAULT,
+                                   mDataManager->OriginMetadataRef(),
+                                   quota::Client::FILESYSTEM, file, -1, -1,
+                                   nsIFileRandomAccessStream::DEFER_OPEN),
+      IPC_OK(), reportError);
+
+  RandomAccessStreamParams streamParams =
+      mozilla::ipc::SerializeRandomAccessStream(
+          WrapMovingNotNullUnchecked(std::move(stream)),
+          writableFileStreamParent->GetOrCreateStreamCallbacks());
 
   // Release the auto unlock helper just before calling
   // SendPFileSystemWritableFileStreamConstructor which is responsible for
@@ -240,7 +239,8 @@ mozilla::ipc::IPCResult FileSystemManagerParent::RecvGetWritable(
   }
 
   aResolver(FileSystemWritableFileStreamProperties(
-      fileDescriptor, writableFileStreamParent, nullptr));
+      std::move(streamParams), writableFileStreamParent, nullptr));
+
   return IPC_OK();
 }
 

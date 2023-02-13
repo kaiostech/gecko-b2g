@@ -209,6 +209,8 @@ class Http3Session final : public nsAHttpTransaction, public nsAHttpConnection {
 
   uint64_t MaxDatagramSize(uint64_t aSessionId);
 
+  void CloseWebTransportConn();
+
  private:
   ~Http3Session();
 
@@ -342,6 +344,8 @@ class Http3Session final : public nsAHttpTransaction, public nsAHttpConnection {
 
   nsTArray<RefPtr<Http3StreamBase>> mWebTransportSessions;
   nsTArray<RefPtr<Http3StreamBase>> mWebTransportStreams;
+
+  bool mHasWebTransportSession = false;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(Http3Session, NS_HTTP3SESSION_IID);

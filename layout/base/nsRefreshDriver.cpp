@@ -1545,14 +1545,12 @@ void nsRefreshDriver::AddImageRequest(imgIRequest* aRequest) {
 
   if (profiler_thread_is_being_profiled_for_markers()) {
     nsCOMPtr<nsIURI> uri = aRequest->GetURI();
-    nsAutoCString uristr;
-    uri->GetAsciiSpec(uristr);
 
     PROFILER_MARKER_TEXT("Image Animation", GRAPHICS,
                          MarkerOptions(MarkerTiming::IntervalStart(),
                                        MarkerInnerWindowIdFromDocShell(
                                            GetDocShell(mPresContext))),
-                         uristr);
+                         nsContentUtils::TruncatedURLForDisplay(uri));
   }
 }
 
@@ -1569,14 +1567,12 @@ void nsRefreshDriver::RemoveImageRequest(imgIRequest* aRequest) {
 
   if (removed && profiler_thread_is_being_profiled_for_markers()) {
     nsCOMPtr<nsIURI> uri = aRequest->GetURI();
-    nsAutoCString uristr;
-    uri->GetAsciiSpec(uristr);
 
     PROFILER_MARKER_TEXT("Image Animation", GRAPHICS,
                          MarkerOptions(MarkerTiming::IntervalEnd(),
                                        MarkerInnerWindowIdFromDocShell(
                                            GetDocShell(mPresContext))),
-                         uristr);
+                         nsContentUtils::TruncatedURLForDisplay(uri));
   }
 }
 
@@ -1759,8 +1755,8 @@ void nsRefreshDriver::EnsureTimerStarted(EnsureTimerStartedFlags aFlags) {
       if (profiler_thread_is_being_profiled_for_markers()) {
         nsCString text = "initial timer start "_ns;
         if (mPresContext->Document()->GetDocumentURI()) {
-          text.Append(
-              mPresContext->Document()->GetDocumentURI()->GetSpecOrDefault());
+          text.Append(nsContentUtils::TruncatedURLForDisplay(
+              mPresContext->Document()->GetDocumentURI()));
         }
 
         PROFILER_MARKER_TEXT("nsRefreshDriver", LAYOUT,

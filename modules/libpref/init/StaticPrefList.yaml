@@ -4145,17 +4145,13 @@
 # Whether the File System API is enabled
 - name: dom.fs.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether the WritableFileStream is enabled or disabled.
-# WritableFileStream implementation is currently only experimental:
-# it does not update quota information and does synchronous IO on the current
-# thread which is okish for workers but not for the main thread.
-# The situation will change after bug 1798513 is fixed.
 - name: dom.fs.writable_file_stream.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # LocalStorage data limit as determined by summing up the lengths of all string
@@ -6801,6 +6797,13 @@
     value: false
     mirror: once
 #endif
+  # Whether to apply a mitigation disabling DirectComposition for NVIDIA users
+  # with mixed monitor refresh rates. (This mitigation induces bug 1763981 on
+  # some devices.)
+-   name: gfx.webrender.dcomp-apply-1704954
+    type: bool
+    value: true
+    mirror: once
 
 # Whether or not fallback to Software WebRender requires the GPU process.
 - name: gfx.webrender.fallback.software.requires-gpu-process
@@ -9351,7 +9354,7 @@
 # Pref to control whether we emulate all -moz-box with modern flexbox.
 - name: layout.css.moz-box-flexbox-emulation.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -10284,6 +10287,13 @@
   type: bool
   value: false
   mirror: once
+
+# Force to copy dmabuf video frames
+# Used for debugging/troubleshooting only
+- name: media.ffmpeg.vaapi.force-surface-copy
+  type: bool
+  value: false
+  mirror: once
 #endif # MOZ_WIDGET_GTK
 
 -   name: media.ffvpx.enabled
@@ -10426,7 +10436,7 @@
 # Enable PlayReady DRM for EME
 -   name: media.eme.playready.enabled
     type: RelaxedAtomicBool
-#if defined(MOZ_MF_CDM) && defined(NIGHTLY_BUILD)
+#if defined(MOZ_WMF_CDM) && defined(NIGHTLY_BUILD)
     value: false # TODO: enable this when ready to play.
 #else
     value: false

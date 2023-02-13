@@ -95,12 +95,12 @@ InputName InputScript::displayAtom() const {
       });
 }
 
-TaggedParserAtomIndex InputName::internInto(JSContext* cx, FrontendContext* fc,
+TaggedParserAtomIndex InputName::internInto(FrontendContext* fc,
                                             ParserAtomsTable& parserAtoms,
                                             CompilationAtomCache& atomCache) {
   return variant_.match(
       [&](JSAtom* ptr) -> TaggedParserAtomIndex {
-        return parserAtoms.internJSAtom(cx, fc, atomCache, ptr);
+        return parserAtoms.internJSAtom(fc, atomCache, ptr);
       },
       [&](NameStencilRef& ref) -> TaggedParserAtomIndex {
         return parserAtoms.internExternalParserAtomIndex(fc, ref.context_,
@@ -339,8 +339,8 @@ BindingMap<TaggedParserAtomIndex>* StencilScopeBindingCache::lookupScope(
   return &ptr->value();
 }
 
-bool ScopeContext::init(JSContext* cx, FrontendContext* fc,
-                        CompilationInput& input, ParserAtomsTable& parserAtoms,
+bool ScopeContext::init(FrontendContext* fc, CompilationInput& input,
+                        ParserAtomsTable& parserAtoms,
                         ScopeBindingCache* scopeCache, InheritThis inheritThis,
                         JSObject* enclosingEnv) {
   // Record the scopeCache to be used while looking up NameLocation bindings.
@@ -359,8 +359,8 @@ bool ScopeContext::init(JSContext* cx, FrontendContext* fc,
   // NOTE: This is used to compute the ThisBinding kind and to allow access to
   //       private fields and methods, while other contextual information only
   //       uses the actual scope passed to the compile.
-  JS::Rooted<InputScope> effectiveScope(
-      cx, determineEffectiveScope(maybeNonDefaultEnclosingScope, enclosingEnv));
+  auto effectiveScope =
+      determineEffectiveScope(maybeNonDefaultEnclosingScope, enclosingEnv);
 
   if (inheritThis == InheritThis::Yes) {
     computeThisBinding(effectiveScope);
@@ -371,10 +371,10 @@ bool ScopeContext::init(JSContext* cx, FrontendContext* fc,
   cacheEnclosingScope(input.enclosingScope);
 
   if (input.target == CompilationInput::CompilationTarget::Eval) {
-    if (!cacheEnclosingScopeBindingForEval(cx, fc, input, parserAtoms)) {
+    if (!cacheEnclosingScopeBindingForEval(fc, input, parserAtoms)) {
       return false;
     }
-    if (!cachePrivateFieldsForEval(cx, fc, input, enclosingEnv, effectiveScope,
+    if (!cachePrivateFieldsForEval(fc, input, enclosingEnv, effectiveScope,
                                    parserAtoms)) {
       return false;
     }
@@ -754,7 +754,7 @@ static uint32_t DepthOfNearestVarScopeForDirectEval(const InputScope& scope) {
 }
 
 bool ScopeContext::cacheEnclosingScopeBindingForEval(
-    JSContext* cx, FrontendContext* fc, CompilationInput& input,
+    FrontendContext* fc, CompilationInput& input,
     ParserAtomsTable& parserAtoms) {
   enclosingLexicalBindingCache_.emplace();
 
@@ -775,7 +775,7 @@ bool ScopeContext::cacheEnclosingScopeBindingForEval(
                               : EnclosingLexicalBindingKind::Let;
               InputName binding(scope_ref, bi.name());
               if (!addToEnclosingLexicalBindingCache(
-                      cx, fc, parserAtoms, input.atomCache, binding, kind)) {
+                      fc, parserAtoms, input.atomCache, binding, kind)) {
                 return false;
               }
             }
@@ -785,7 +785,7 @@ bool ScopeContext::cacheEnclosingScopeBindingForEval(
           case BindingKind::Const: {
             InputName binding(scope_ref, bi.name());
             if (!addToEnclosingLexicalBindingCache(
-                    cx, fc, parserAtoms, input.atomCache, binding,
+                    fc, parserAtoms, input.atomCache, binding,
                     EnclosingLexicalBindingKind::Const)) {
               return false;
             }
@@ -795,7 +795,7 @@ bool ScopeContext::cacheEnclosingScopeBindingForEval(
           case BindingKind::Synthetic: {
             InputName binding(scope_ref, bi.name());
             if (!addToEnclosingLexicalBindingCache(
-                    cx, fc, parserAtoms, input.atomCache, binding,
+                    fc, parserAtoms, input.atomCache, binding,
                     EnclosingLexicalBindingKind::Synthetic)) {
               return false;
             }
@@ -805,7 +805,7 @@ bool ScopeContext::cacheEnclosingScopeBindingForEval(
           case BindingKind::PrivateMethod: {
             InputName binding(scope_ref, bi.name());
             if (!addToEnclosingLexicalBindingCache(
-                    cx, fc, parserAtoms, input.atomCache, binding,
+                    fc, parserAtoms, input.atomCache, binding,
                     EnclosingLexicalBindingKind::PrivateMethod)) {
               return false;
             }
@@ -834,11 +834,11 @@ bool ScopeContext::cacheEnclosingScopeBindingForEval(
 }
 
 bool ScopeContext::addToEnclosingLexicalBindingCache(
-    JSContext* cx, FrontendContext* fc, ParserAtomsTable& parserAtoms,
+    FrontendContext* fc, ParserAtomsTable& parserAtoms,
     CompilationAtomCache& atomCache, InputName& name,
     EnclosingLexicalBindingKind kind) {
   TaggedParserAtomIndex parserName =
-      name.internInto(cx, fc, parserAtoms, atomCache);
+      name.internInto(fc, parserAtoms, atomCache);
   if (!parserName) {
     return false;
   }
@@ -898,7 +898,7 @@ static bool IsPrivateField(ScopeStencilRef& scope, TaggedParserAtomIndex atom) {
   return false;
 }
 
-bool ScopeContext::cachePrivateFieldsForEval(JSContext* cx, FrontendContext* fc,
+bool ScopeContext::cachePrivateFieldsForEval(FrontendContext* fc,
                                              CompilationInput& input,
                                              JSObject* enclosingEnvironment,
                                              const InputScope& effectiveScope,
@@ -920,7 +920,7 @@ bool ScopeContext::cachePrivateFieldsForEval(JSContext* cx, FrontendContext* fc,
                IsPrivateField(scope_ref, bi.name()))) {
             InputName binding(scope_ref, bi.name());
             auto parserName =
-                binding.internInto(cx, fc, parserAtoms, input.atomCache);
+                binding.internInto(fc, parserAtoms, input.atomCache);
             if (!parserName) {
               return false;
             }
@@ -1280,21 +1280,21 @@ mozilla::Maybe<NameLocation> ScopeContext::getPrivateFieldLocation(
   return mozilla::Some(p->value());
 }
 
-bool CompilationInput::initScriptSource(JSContext* cx, FrontendContext* fc) {
+bool CompilationInput::initScriptSource(FrontendContext* fc) {
   source = do_AddRef(fc->getAllocator()->new_<ScriptSource>());
   if (!source) {
     return false;
   }
 
-  return source->initFromOptions(cx, fc, options);
+  return source->initFromOptions(fc, options);
 }
 
 bool CompilationInput::initForStandaloneFunctionInNonSyntacticScope(
-    JSContext* cx, FrontendContext* fc, Handle<Scope*> functionEnclosingScope) {
+    FrontendContext* fc, Handle<Scope*> functionEnclosingScope) {
   MOZ_ASSERT(!functionEnclosingScope->as<GlobalScope>().isSyntactic());
 
   target = CompilationTarget::StandaloneFunctionInNonSyntacticScope;
-  if (!initScriptSource(cx, fc)) {
+  if (!initScriptSource(fc)) {
     return false;
   }
   enclosingScope = InputScope(functionEnclosingScope);
@@ -1350,19 +1350,18 @@ void CompilationInput::trace(JSTracer* trc) {
   enclosingScope.trace(trc);
 }
 
-bool CompilationSyntaxParseCache::init(JSContext* cx, FrontendContext* fc,
-                                       LifoAlloc& alloc,
+bool CompilationSyntaxParseCache::init(FrontendContext* fc, LifoAlloc& alloc,
                                        ParserAtomsTable& parseAtoms,
                                        CompilationAtomCache& atomCache,
                                        const InputScript& lazy) {
-  if (!copyFunctionInfo(cx, fc, parseAtoms, atomCache, lazy)) {
+  if (!copyFunctionInfo(fc, parseAtoms, atomCache, lazy)) {
     return false;
   }
   bool success = lazy.raw().match([&](auto& ref) {
-    if (!copyScriptInfo(cx, fc, alloc, parseAtoms, atomCache, ref)) {
+    if (!copyScriptInfo(fc, alloc, parseAtoms, atomCache, ref)) {
       return false;
     }
-    if (!copyClosedOverBindings(cx, fc, alloc, parseAtoms, atomCache, ref)) {
+    if (!copyClosedOverBindings(fc, alloc, parseAtoms, atomCache, ref)) {
       return false;
     }
     return true;
@@ -1377,11 +1376,11 @@ bool CompilationSyntaxParseCache::init(JSContext* cx, FrontendContext* fc,
 }
 
 bool CompilationSyntaxParseCache::copyFunctionInfo(
-    JSContext* cx, FrontendContext* fc, ParserAtomsTable& parseAtoms,
+    FrontendContext* fc, ParserAtomsTable& parseAtoms,
     CompilationAtomCache& atomCache, const InputScript& lazy) {
   InputName name = lazy.displayAtom();
   if (!name.isNull()) {
-    displayAtom_ = name.internInto(cx, fc, parseAtoms, atomCache);
+    displayAtom_ = name.internInto(fc, parseAtoms, atomCache);
     if (!displayAtom_) {
       return false;
     }
@@ -1397,9 +1396,8 @@ bool CompilationSyntaxParseCache::copyFunctionInfo(
 }
 
 bool CompilationSyntaxParseCache::copyScriptInfo(
-    JSContext* cx, FrontendContext* fc, LifoAlloc& alloc,
-    ParserAtomsTable& parseAtoms, CompilationAtomCache& atomCache,
-    BaseScript* lazy) {
+    FrontendContext* fc, LifoAlloc& alloc, ParserAtomsTable& parseAtoms,
+    CompilationAtomCache& atomCache, BaseScript* lazy) {
   using GCThingsSpan = mozilla::Span<TaggedScriptThingIndex>;
   using ScriptDataSpan = mozilla::Span<ScriptStencil>;
   using ScriptExtraSpan = mozilla::Span<ScriptStencilExtra>;
@@ -1436,7 +1434,7 @@ bool CompilationSyntaxParseCache::copyScriptInfo(
 
   for (size_t i = 0; i < length; i++) {
     gc::Cell* cell = gcthings[i].asCell();
-    RootedFunction fun(cx, &cell->as<JSObject>()->as<JSFunction>());
+    JSFunction* fun = &cell->as<JSObject>()->as<JSFunction>();
     gcThingsData[i] = TaggedScriptThingIndex(ScriptIndex(i));
     new (mozilla::KnownNotNull, &scriptData[i]) ScriptStencil();
     ScriptStencil& data = scriptData[i];
@@ -1445,7 +1443,7 @@ bool CompilationSyntaxParseCache::copyScriptInfo(
 
     if (fun->displayAtom()) {
       TaggedParserAtomIndex displayAtom =
-          parseAtoms.internJSAtom(cx, fc, atomCache, fun->displayAtom());
+          parseAtoms.internJSAtom(fc, atomCache, fun->displayAtom());
       if (!displayAtom) {
         return false;
       }
@@ -1470,9 +1468,8 @@ bool CompilationSyntaxParseCache::copyScriptInfo(
 }
 
 bool CompilationSyntaxParseCache::copyScriptInfo(
-    JSContext* cx, FrontendContext* fc, LifoAlloc& alloc,
-    ParserAtomsTable& parseAtoms, CompilationAtomCache& atomCache,
-    const ScriptStencilRef& lazy) {
+    FrontendContext* fc, LifoAlloc& alloc, ParserAtomsTable& parseAtoms,
+    CompilationAtomCache& atomCache, const ScriptStencilRef& lazy) {
   using GCThingsSpan = mozilla::Span<TaggedScriptThingIndex>;
   using ScriptDataSpan = mozilla::Span<ScriptStencil>;
   using ScriptExtraSpan = mozilla::Span<ScriptStencilExtra>;
@@ -1515,7 +1512,7 @@ bool CompilationSyntaxParseCache::copyScriptInfo(
 
     InputName name{inner, inner.scriptData().functionAtom};
     if (!name.isNull()) {
-      auto displayAtom = name.internInto(cx, fc, parseAtoms, atomCache);
+      auto displayAtom = name.internInto(fc, parseAtoms, atomCache);
       if (!displayAtom) {
         return false;
       }
@@ -1533,9 +1530,8 @@ bool CompilationSyntaxParseCache::copyScriptInfo(
 }
 
 bool CompilationSyntaxParseCache::copyClosedOverBindings(
-    JSContext* cx, FrontendContext* fc, LifoAlloc& alloc,
-    ParserAtomsTable& parseAtoms, CompilationAtomCache& atomCache,
-    BaseScript* lazy) {
+    FrontendContext* fc, LifoAlloc& alloc, ParserAtomsTable& parseAtoms,
+    CompilationAtomCache& atomCache, BaseScript* lazy) {
   using ClosedOverBindingsSpan = mozilla::Span<TaggedParserAtomIndex>;
   closedOverBindings_ = ClosedOverBindingsSpan(nullptr);
 
@@ -1567,7 +1563,7 @@ bool CompilationSyntaxParseCache::copyClosedOverBindings(
     MOZ_ASSERT(cell->as<JSString>()->isAtom());
 
     auto name = static_cast<JSAtom*>(cell);
-    auto parserAtom = parseAtoms.internJSAtom(cx, fc, atomCache, name);
+    auto parserAtom = parseAtoms.internJSAtom(fc, atomCache, name);
     if (!parserAtom) {
       return false;
     }
@@ -1581,9 +1577,8 @@ bool CompilationSyntaxParseCache::copyClosedOverBindings(
 }
 
 bool CompilationSyntaxParseCache::copyClosedOverBindings(
-    JSContext* cx, FrontendContext* fc, LifoAlloc& alloc,
-    ParserAtomsTable& parseAtoms, CompilationAtomCache& atomCache,
-    const ScriptStencilRef& lazy) {
+    FrontendContext* fc, LifoAlloc& alloc, ParserAtomsTable& parseAtoms,
+    CompilationAtomCache& atomCache, const ScriptStencilRef& lazy) {
   using ClosedOverBindingsSpan = mozilla::Span<TaggedParserAtomIndex>;
   closedOverBindings_ = ClosedOverBindingsSpan(nullptr);
 
@@ -1619,7 +1614,7 @@ bool CompilationSyntaxParseCache::copyClosedOverBindings(
 
     MOZ_ASSERT(gcThing.isAtom());
     InputName name(lazy, gcThing.toAtom());
-    auto parserAtom = name.internInto(cx, fc, parseAtoms, atomCache);
+    auto parserAtom = name.internInto(fc, parseAtoms, atomCache);
     if (!parserAtom) {
       return false;
     }
@@ -2789,7 +2784,7 @@ ExtensibleCompilationStencil::ExtensibleCompilationStencil(
       source(std::move(source)),
       parserAtoms(alloc) {}
 
-CompilationState::CompilationState(JSContext* cx, FrontendContext* fc,
+CompilationState::CompilationState(FrontendContext* fc,
                                    LifoAllocScope& parserAllocScope,
                                    CompilationInput& input)
     : ExtensibleCompilationStencil(input),

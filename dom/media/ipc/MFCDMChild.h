@@ -35,6 +35,18 @@ class MFCDMChild final : public PMFCDMChild {
                            const KeySystemConfig::Requirement aDistinctiveID,
                            const bool aHWSecure);
 
+  using SessionPromise = MozPromise<nsString, nsresult, true>;
+  RefPtr<SessionPromise> CreateSessionAndGenerateRequest(
+      const KeySystemConfig::SessionType aSessionType,
+      const nsAString& aInitDataType, const nsTArray<uint8_t>& aInitData);
+
+  mozilla::ipc::IPCResult RecvOnSessionKeyMessage(
+      const MFCDMKeyMessage& aMessage);
+  mozilla::ipc::IPCResult RecvOnSessionKeyStatusesChanged(
+      const MFCDMKeyStatusChange& aKeyStatuses);
+  mozilla::ipc::IPCResult RecvOnSessionKeyExpiration(
+      const MFCDMKeyExpiration& aExpiration);
+
   uint64_t Id() const { return mId; }
 
   void IPDLActorDestroyed() {
@@ -84,6 +96,10 @@ class MFCDMChild final : public PMFCDMChild {
   using InitIPDLPromise = MozPromise<mozilla::MFCDMInitResult,
                                      mozilla::ipc::ResponseRejectReason, true>;
   MozPromiseRequestHolder<InitIPDLPromise> mInitRequest;
+
+  MozPromiseHolder<SessionPromise> mCreateSessionPromiseHolder;
+  MozPromiseRequestHolder<CreateSessionAndGenerateRequestPromise>
+      mCreateSessionRequest;
 };
 
 }  // namespace mozilla

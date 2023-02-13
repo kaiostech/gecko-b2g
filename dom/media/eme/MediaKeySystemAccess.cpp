@@ -127,13 +127,11 @@ MediaKeySystemStatus MediaKeySystemAccess::GetKeySystemStatus(
     }
   }
 
-#ifdef MOZ_MF_CDM
-  if (IsPlayReadyKeySystem(aKeySystem)) {
-    if (!StaticPrefs::media_eme_playready_enabled()) {
-      aOutMessage = "PlayReady EME disabled"_ns;
-      return MediaKeySystemStatus::Cdm_disabled;
-    }
-    return EnsureCDMInstalled(aKeySystem, aOutMessage);
+#ifdef MOZ_WMF_CDM
+  if (IsPlayReadyKeySystem(aKeySystem) &&
+      StaticPrefs::media_eme_playready_enabled() &&
+      KeySystemConfig::Supports(aKeySystem)) {
+    return MediaKeySystemStatus::Available;
   }
 #endif
 
@@ -172,8 +170,9 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
   const nsTArray<nsString> keySystemNames{
       NS_ConvertUTF8toUTF16(kClearKeyKeySystemName),
       NS_ConvertUTF8toUTF16(kWidevineKeySystemName),
-#ifdef MOZ_MF_CDM
+#ifdef MOZ_WMF_CDM
       NS_ConvertUTF8toUTF16(kPlayReadyKeySystemName),
+      NS_ConvertUTF8toUTF16(kPlayReadyKeySystemNameDeprecated),
 #endif
   };
   for (const auto& name : keySystemNames) {

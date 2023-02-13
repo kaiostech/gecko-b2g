@@ -1651,7 +1651,7 @@ PeerConnectionImpl::SetLocalDescription(int32_t aAction, const char* aSDP) {
   STAMP_TIMECARD(mTimeCard, "Set Local Description");
 
   if (AnyLocalTrackHasPeerIdentity()) {
-    mPrivacyRequested = Some(true);
+    mRequestedPrivacy = Some(PrincipalPrivacy::Private);
   }
 
   mozilla::dom::RTCSdpHistoryEntryInternal sdpEntry;
@@ -1969,12 +1969,17 @@ PeerConnectionImpl::SetPeerIdentity(const nsAString& aPeerIdentity) {
 
 nsresult PeerConnectionImpl::OnAlpnNegotiated(bool aPrivacyRequested) {
   PC_AUTO_ENTER_API_CALL(false);
-  if (mPrivacyRequested.isSome()) {
-    MOZ_DIAGNOSTIC_ASSERT(*mPrivacyRequested == aPrivacyRequested);
-    return NS_OK;
-  }
+  MOZ_DIAGNOSTIC_ASSERT(!mRequestedPrivacy ||
+                        (*mRequestedPrivacy == PrincipalPrivacy::Private) ==
+                            aPrivacyRequested);
 
-  mPrivacyRequested = Some(aPrivacyRequested);
+  mRequestedPrivacy = Some(aPrivacyRequested ? PrincipalPrivacy::Private
+                                             : PrincipalPrivacy::NonPrivate);
+  // This updates the MediaPipelines with a private PrincipalHandle. Note that
+  // MediaPipelineReceive has its own AlpnNegotiated handler so it can get
+  // signaled off-main to drop data until it receives the new PrincipalHandle
+  // from us.
+  UpdateMediaPipelines();
   return NS_OK;
 }
 
@@ -2422,7 +2427,7 @@ nsresult PeerConnectionImpl::SetConfiguration(
 
   if (!aConfiguration.mPeerIdentity.IsEmpty()) {
     mPeerIdentity = new PeerIdentity(aConfiguration.mPeerIdentity);
-    mPrivacyRequested = Some(true);
+    mRequestedPrivacy = Some(PrincipalPrivacy::Private);
   }
 
   auto proxyConfig = GetProxyConfig();
@@ -2769,9 +2774,9 @@ void PeerConnectionImpl::DoSetDescriptionSuccessPostProcessing(
             transceiver->Receiver()->UpdateStreams(&changes);
           }
 
-          for (const auto& track : changes.mTracksToMute) {
-            // This sets the muted state for track and all its clones.
-            static_cast<RemoteTrackSource&>(track->GetSource()).SetMuted(true);
+          for (const auto& receiver : changes.mReceiversToMute) {
+            // This sets the muted state for the recv track and all its clones.
+            receiver->SetTrackMuteFromRemoteSdp();
           }
 
           for (const auto& association : changes.mStreamAssociationsRemoved) {
@@ -3717,6 +3722,10 @@ nsresult PeerConnectionImpl::UpdateMediaPipelines() {
       }
     }
 
+    transceiver->UpdatePrincipalPrivacy(PrivacyRequested()
+                                            ? PrincipalPrivacy::Private
+                                            : PrincipalPrivacy::NonPrivate);
+
     nsresult rv = transceiver->UpdateConduit();
     if (NS_FAILED(rv)) {
       return rv;
@@ -4003,7 +4012,7 @@ already_AddRefed<dom::RTCRtpTransceiver> PeerConnectionImpl::CreateTransceiver(
   }
 
   RefPtr<RTCRtpTransceiver> transceiver = new RTCRtpTransceiver(
-      mWindow, PrivacyNeeded(), this, mTransportHandler, mJsepSession.get(),
+      mWindow, PrivacyRequested(), this, mTransportHandler, mJsepSession.get(),
       aId, aIsVideo, mSTSThread.get(), aSendTrack, mCall.get(), mIdGenerator);
 
   transceiver->Init(aInit, aRv);

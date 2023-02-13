@@ -675,6 +675,9 @@ pref("browser.search.separatePrivateDefault.ui.enabled", false);
 // The maximum amount of times the private default banner is shown.
 pref("browser.search.separatePrivateDefault.ui.banner.max", 0);
 
+// Enables search SERP telemetry (impressions, engagements and abandonment)
+pref("browser.search.serpEventTelemetry.enabled", false);
+
 // Enables the display of the Mozilla VPN banner in private browsing windows
 pref("browser.privatebrowsing.vpnpromourl", "https://vpn.mozilla.org/?utm_source=firefox-browser&utm_medium=firefox-%CHANNEL%-browser&utm_campaign=private-browsing-vpn-link");
 
@@ -1665,8 +1668,6 @@ pref("browser.aboutwelcome.enabled", true);
 // Used to set multistage welcome UX
 pref("browser.aboutwelcome.screens", "");
 pref("browser.aboutwelcome.skipFocus", true);
-// Used to enable template for MR 2022 Onboarding
-pref("browser.aboutwelcome.templateMR", true);
 // Used to enable window modal onboarding
 pref("browser.aboutwelcome.showModal", false);
 
@@ -1955,8 +1956,9 @@ pref("browser.contentblocking.reportBreakage.url", "https://tracking-protection-
 // Enable Protections report's Lockwise card by default.
 pref("browser.contentblocking.report.lockwise.enabled", true);
 
-// Enable Protections report's Monitor card by default.
-pref("browser.contentblocking.report.monitor.enabled", true);
+// Disable rotections report's Monitor card by default. The new Monitor API does
+// not support this feature as of now. See Bug 1815751.
+pref("browser.contentblocking.report.monitor.enabled", false);
 
 // Disable Protections report's Proxy card by default.
 pref("browser.contentblocking.report.proxy.enabled", false);

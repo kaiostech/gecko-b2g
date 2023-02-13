@@ -6402,6 +6402,42 @@ networking:
       - 'main'
       - 'socket'
 
+  data_transferred_per_content_type:
+    bug_numbers:
+      - 1808695
+    description: >
+      Number of bytes we transferred keyed by "contentType"
+    expires: "130"
+    keyed: true
+    kind: uint
+    release_channel_collection: opt-out
+    notification_emails:
+      - necko@mozilla.com
+      - rtestard@mozilla.com
+    products:
+      - 'firefox'
+      - 'fennec'
+    record_in_processes:
+      - 'main'
+
+  data_transferred_pb_per_content_type:
+    bug_numbers:
+      - 1808695
+    description: >
+      Number of bytes we transferred in private browsing keyed by "contentType"
+    expires: "130"
+    keyed: true
+    kind: uint
+    release_channel_collection: opt-out
+    notification_emails:
+      - necko@mozilla.com
+      - rtestard@mozilla.com
+    products:
+      - 'firefox'
+      - 'fennec'
+    record_in_processes:
+      - 'main'
+
 blocklist:
   lastModified_rs_addons:
     bug_numbers:
@@ -6679,6 +6715,22 @@ urlbar:
     notification_emails:
       - fx-search-telemetry@mozilla.com
       - adw@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  autofill_deletion:
+    bug_numbers:
+      - 1815342
+    description: >
+      A uint recording the deletion count for autofilled string in the urlbar.
+      This occurs when the user deletes whole autofilled string by BACKSPACE or
+      DELETE key while the autofilled string is selected.
+    expires: never
+    kind: uint
+    notification_emails:
+      - fx-search-telemetry@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -9131,6 +9183,21 @@ places:
       history. We expect this to be a small number just due to the navigation
       layer manipulating URLs. A large or growing value may be a concern.
 
+    expires: never
+    kind: uint
+    notification_emails:
+      - fx-search-telemetry@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  pages_need_frecency_recalculation:
+    bug_numbers:
+      - 1811209
+    description: >
+      Number of pages that need a frecency recalculation.
     expires: never
     kind: uint
     notification_emails:

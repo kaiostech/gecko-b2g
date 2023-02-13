@@ -124,12 +124,12 @@ aboutprivatebrowsing:
     record_in_processes: ["content"]
     description: >
       This is recorded when a user clicks a link on the private browsing newtab.
-    bug_numbers: [1709344, 1754635]
+    bug_numbers: [1709344, 1754635, 1781973, 1811146]
     notification_emails:
       - "dmosedale@mozilla.com"
       - "barret@mozilla.com"
       - "omc@mozilla.com"
-    expiry_version: "112"
+    expiry_version: "118"
     products:
       - "firefox"
 
@@ -2533,54 +2533,6 @@ network.dns:
         One of [unknown, not_captive, unlocked, locked]
       time: >
         Time from first confirmation attempt to event being recorded
-
-networking.captive_portal:
-  login_infobar_shown:
-    objects: ["infobar"]
-    bug_numbers:
-      - 1722834
-      - 1777396
-    description: >
-      An event fired when the captive portal login infobar is displayed.
-    notification_emails:
-      - omc@mozilla.com
-      - dmose@mozilla.com
-    release_channel_collection: opt-out
-    products: ["firefox"]
-    record_in_processes: ["main"]
-    expiry_version: "112"
-
-  login_button_pressed:
-    objects: ["login_button"]
-    bug_numbers:
-      - 1722834
-      - 1777396
-    description: >
-      An event fired when the login button on the captive portal login infobar
-      is clicked.
-    notification_emails:
-      - omc@mozilla.com
-      - dmose@mozilla.com
-    release_channel_collection: opt-out
-    products: ["firefox"]
-    record_in_processes: ["main"]
-    expiry_version: "112"
-
-  login_successful:
-    objects: ["detector"]
-    bug_numbers:
-      - 1722834
-      - 1777396
-    description: >
-      An event fired when the captive portal detector detects that the user has
-      successfully logged in to a captive portal.
-    notification_emails:
-      - omc@mozilla.com
-      - dmose@mozilla.com
-    release_channel_collection: opt-out
-    products: ["firefox"]
-    record_in_processes: ["main"]
-    expiry_version: "112"
 
 security:
   prefUsage:

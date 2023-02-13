@@ -53,11 +53,17 @@ add_task(async () => {
     var testMap = new Map([[1, 1], [2, 2], [3, 3], [4, 4]]);
     var testSet = new Set([1, 2, 3, 4, 5]);
     var testProxy = new Proxy({}, { getPrototypeOf: prompt });
+    var testArray = [1,2,3];
     var testInt8Array = new Int8Array([1, 2, 3]);
     var testArrayBuffer = testInt8Array.buffer;
     var testDataView = new DataView(testArrayBuffer, 2);
 
     var testCanvasContext = document.createElement("canvas").getContext("2d");
+
+    async function testAsync() { return 10; }
+    async function testAsyncAwait() { await 1; return 10; }
+    async function * testAsyncGen() { return 10; }
+    async function * testAsyncGenAwait() { await 1; return 10; }
   </script>
   <body id="body1" class="class2"><h1>Body text</h1></body>
   </html>`);
@@ -79,6 +85,7 @@ add_task(async () => {
   await doEagerEvalWithSideEffectMonkeyPatched(commands);
   await doEagerEvalESGetters(commands);
   await doEagerEvalDOMGetters(commands);
+  await doEagerEvalAsyncFunctions(commands);
 
   await commands.destroy();
 });
@@ -284,9 +291,192 @@ async function doSimpleEagerEval(commands) {
       code: "aliasedTest()",
       result: "ALIASED",
     },
+    {
+      code: "testArray.concat([4,5]).join()",
+      result: "1,2,3,4,5",
+    },
+    {
+      code: "testArray.entries().toString()",
+      result: "[object Array Iterator]",
+    },
+    {
+      code: "testArray.keys().toString()",
+      result: "[object Array Iterator]",
+    },
+    {
+      code: "testArray.values().toString()",
+      result: "[object Array Iterator]",
+    },
+    {
+      code: "testArray.every(x => x < 100)",
+      result: true,
+    },
+    {
+      code: "testArray.some(x => x > 1)",
+      result: true,
+    },
+    {
+      code: "testArray.filter(x => x % 2 == 0).join()",
+      result: "2",
+    },
+    {
+      code: "testArray.find(x => x % 2 == 0)",
+      result: 2,
+    },
+    {
+      code: "testArray.findIndex(x => x % 2 == 0)",
+      result: 1,
+    },
+    {
+      code: "[testArray].flat().join()",
+      result: "1,2,3",
+    },
+    {
+      code: "[testArray].flatMap(x => x).join()",
+      result: "1,2,3",
+    },
+    {
+      code: "testArray.forEach(x => x); testArray.join()",
+      result: "1,2,3",
+    },
+    {
+      code: "testArray.includes(1)",
+      result: true,
+    },
+    {
+      code: "testArray.lastIndexOf(1)",
+      result: 0,
+    },
+    {
+      code: "testArray.map(x => x + 1).join()",
+      result: "2,3,4",
+    },
+    {
+      code: "testArray.reduce((acc,x) => acc + x, 0)",
+      result: 6,
+    },
+    {
+      code: "testArray.reduceRight((acc,x) => acc + x, 0)",
+      result: 6,
+    },
+    {
+      code: "testArray.slice(0,1).join()",
+      result: "1",
+    },
+    {
+      code: "testArray.toReversed().join()",
+      // Change array by copy is only available on Nightly
+      skip: typeof Array.prototype.toReversed !== "function",
+      result: "3,2,1",
+    },
+    {
+      code: "testArray.toSorted().join()",
+      // Change array by copy is only available on Nightly
+      skip: typeof Array.prototype.toSorted !== "function",
+      result: "1,2,3",
+    },
+    {
+      code: "testArray.toSpliced(0,1).join()",
+      // Change array by copy is only available on Nightly
+      skip: typeof Array.prototype.toSpliced !== "function",
+      result: "2,3",
+    },
+    {
+      code: "testArray.with(1, 'b').join()",
+      // Change array by copy is only available on Nightly
+      skip: typeof Array.prototype.with !== "function",
+      result: "1,b,3",
+    },
+
+    {
+      code: "testInt8Array.entries().toString()",
+      result: "[object Array Iterator]",
+    },
+    {
+      code: "testInt8Array.keys().toString()",
+      result: "[object Array Iterator]",
+    },
+    {
+      code: "testInt8Array.values().toString()",
+      result: "[object Array Iterator]",
+    },
+    {
+      code: "testInt8Array.every(x => x < 100)",
+      result: true,
+    },
+    {
+      code: "testInt8Array.some(x => x > 1)",
+      result: true,
+    },
+    {
+      code: "testInt8Array.filter(x => x % 2 == 0).join()",
+      result: "2",
+    },
+    {
+      code: "testInt8Array.find(x => x % 2 == 0)",
+      result: 2,
+    },
+    {
+      code: "testInt8Array.findIndex(x => x % 2 == 0)",
+      result: 1,
+    },
+    {
+      code: "testInt8Array.forEach(x => x); testInt8Array.join()",
+      result: "1,2,3",
+    },
+    {
+      code: "testInt8Array.includes(1)",
+      result: true,
+    },
+    {
+      code: "testInt8Array.lastIndexOf(1)",
+      result: 0,
+    },
+    {
+      code: "testInt8Array.map(x => x + 1).join()",
+      result: "2,3,4",
+    },
+    {
+      code: "testInt8Array.reduce((acc,x) => acc + x, 0)",
+      result: 6,
+    },
+    {
+      code: "testInt8Array.reduceRight((acc,x) => acc + x, 0)",
+      result: 6,
+    },
+    {
+      code: "testInt8Array.slice(0,1).join()",
+      result: "1",
+    },
+    {
+      code: "testInt8Array.toReversed().join()",
+      skip:
+        typeof Reflect.getPrototypeOf(Int8Array).prototype.toReversed !==
+        "function",
+      result: "3,2,1",
+    },
+    {
+      code: "testInt8Array.toSorted().join()",
+      skip:
+        typeof Reflect.getPrototypeOf(Int8Array).prototype.toSorted !==
+        "function",
+      result: "1,2,3",
+    },
+    {
+      code: "testInt8Array.with(1, 0).join()",
+      skip:
+        typeof Reflect.getPrototypeOf(Int8Array).prototype.with !== "function",
+      result: "1,0,3",
+    },
   ];
 
-  for (const { code, result } of testData) {
+  for (const { code, result, skip } of testData) {
+    if (skip) {
+      info(`Skipping evaluation of ${code}`);
+      continue;
+    }
+
+    info(`Evaluating: ${code}`);
     const response = await commands.scriptCommand.execute(code, {
       eager: true,
     });
@@ -609,9 +799,12 @@ async function doEagerEvalDOMGetters(commands) {
     ["typeof window.windowGlobalChild", "undefined"],
     ["window.visualViewport.constructor.name", "VisualViewport"],
     ["typeof window.caches", "undefined"],
-    ["window.scheduler.constructor.name", "Scheduler"],
     ["window.location.href.startsWith('data:')", true],
   ];
+  if (typeof Scheduler === "function") {
+    // Scheduler is behind a pref.
+    testData.push(["window.scheduler.constructor.name", "Scheduler"]);
+  }
 
   for (const [code, expectedResult] of testData) {
     const response = await commands.scriptCommand.execute(code, {
@@ -663,6 +856,54 @@ async function doEagerEvalDOMGetters(commands) {
 
     // CanvasRenderingContext2D / CanvasCompositing
     `testCanvasContext.globalAlpha`,
+  ];
+
+  for (const code of testDataWithSideEffect) {
+    const response = await commands.scriptCommand.execute(code, {
+      eager: true,
+    });
+    checkObject(
+      response,
+      {
+        input: code,
+        result: { type: "undefined" },
+      },
+      code
+    );
+
+    ok(!response.exception, "no eval exception");
+    ok(!response.helperResult, "no helper result");
+  }
+}
+
+async function doEagerEvalAsyncFunctions(commands) {
+  // [code, expectedResult]
+  const testData = [["typeof testAsync()", "object"]];
+
+  for (const [code, expectedResult] of testData) {
+    const response = await commands.scriptCommand.execute(code, {
+      eager: true,
+    });
+    checkObject(
+      response,
+      {
+        input: code,
+        result: expectedResult,
+      },
+      code
+    );
+
+    ok(!response.exception, "no eval exception");
+    ok(!response.helperResult, "no helper result");
+  }
+
+  const testDataWithSideEffect = [
+    // await is effectful
+    "testAsyncAwait()",
+
+    // initial yield is effectful
+    "testAsyncGen()",
+    "testAsyncGenAwait()",
   ];
 
   for (const code of testDataWithSideEffect) {

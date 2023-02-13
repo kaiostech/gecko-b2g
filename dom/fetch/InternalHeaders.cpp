@@ -230,6 +230,14 @@ void InternalHeaders::GetInternal(const nsCString& aLowerName,
   }
 }
 
+void InternalHeaders::GetSetCookie(nsTArray<nsCString>& aValues) const {
+  for (uint32_t i = 0; i < mList.Length(); ++i) {
+    if (mList[i].mName.EqualsIgnoreCase("Set-Cookie")) {
+      aValues.AppendElement(mList[i].mValue);
+    }
+  }
+}
+
 void InternalHeaders::GetFirst(const nsACString& aName, nsACString& aValue,
                                ErrorResult& aRv) const {
   nsAutoCString lowerName;
@@ -623,12 +631,16 @@ void InternalHeaders::MaybeSortList() {
   mSortedList.Clear();
   for (const Entry& entry : mList) {
     bool found = false;
-    for (Entry& sortedEntry : mSortedList) {
-      if (sortedEntry.mName.EqualsIgnoreCase(entry.mName.get())) {
-        sortedEntry.mValue += ", ";
-        sortedEntry.mValue += entry.mValue;
-        found = true;
-        break;
+
+    // We combine every header but Set-Cookie.
+    if (!entry.mName.EqualsIgnoreCase("Set-Cookie")) {
+      for (Entry& sortedEntry : mSortedList) {
+        if (sortedEntry.mName.EqualsIgnoreCase(entry.mName.get())) {
+          sortedEntry.mValue += ", ";
+          sortedEntry.mValue += entry.mValue;
+          found = true;
+          break;
+        }
       }
     }
 

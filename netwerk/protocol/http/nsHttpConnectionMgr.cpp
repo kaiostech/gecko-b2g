@@ -1200,6 +1200,10 @@ bool nsHttpConnectionMgr::AtActiveConnectionLimit(ConnectionEntry* ent,
   uint32_t totalCount = ent->TotalActiveConnections();
 
   if (ci->IsHttp3()) {
+    if (ci->GetWebTransport()) {
+      // TODO: implement this properly in bug 1815735.
+      return false;
+    }
     return totalCount > 0;
   }
 

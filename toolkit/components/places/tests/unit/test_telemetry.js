@@ -3,11 +3,18 @@
 
 // Tests common Places telemetry probes by faking the telemetry service.
 
+// Enable the collection (during test) for all products so even products
+// that don't collect the data will be able to run the test without failure.
+Services.prefs.setBoolPref(
+  "toolkit.telemetry.testing.overrideProductsCheck",
+  true
+);
+
 const { PlacesDBUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/PlacesDBUtils.sys.mjs"
 );
 
-var histograms = {
+const histograms = {
   PLACES_PAGES_COUNT: val => Assert.equal(val, 1),
   PLACES_BOOKMARKS_COUNT: val => Assert.equal(val, 1),
   PLACES_TAGS_COUNT: val => Assert.equal(val, 1),
@@ -23,6 +30,10 @@ var histograms = {
   PLACES_ANNOS_BOOKMARKS_COUNT: val => Assert.equal(val, 0),
   PLACES_ANNOS_PAGES_COUNT: val => Assert.equal(val, 1),
   PLACES_MAINTENANCE_DAYSFROMLAST: val => Assert.ok(val >= 0),
+};
+
+const scalars = {
+  pages_need_frecency_recalculation: 1, // 1 bookmark is added causing recalc.
 };
 
 /**
@@ -129,5 +140,15 @@ add_task(async function test_execute() {
     let snapshot = Services.telemetry.getHistogramById(histogramId).snapshot();
     validate(snapshot.sum);
     Assert.ok(Object.values(snapshot.values).reduce((a, b) => a + b, 0) > 0);
+  }
+  for (let scalarName in scalars) {
+    let scalar = "places." + scalarName;
+    info("checking scalar " + scalar);
+    TelemetryTestUtils.assertScalar(
+      TelemetryTestUtils.getProcessScalars("parent"),
+      scalar,
+      scalars[scalarName],
+      "Verify scalar value matches"
+    );
   }
 });

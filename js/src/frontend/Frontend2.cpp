@@ -595,14 +595,14 @@ bool Smoosh::tryCompileGlobalScriptToExtensibleStencil(
     return true;
   }
 
-  if (!input.initForGlobal(cx, fc)) {
+  if (!input.initForGlobal(fc)) {
     return false;
   }
 
   LifoAllocScope parserAllocScope(&cx->tempLifoAlloc());
 
   Vector<TaggedParserAtomIndex> allAtoms(fc);
-  CompilationState compilationState(cx, fc, parserAllocScope, input);
+  CompilationState compilationState(fc, parserAllocScope, input);
   if (!ConvertAtoms(cx, fc, result, compilationState, allAtoms)) {
     return false;
   }

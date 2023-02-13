@@ -10,6 +10,7 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/PMFCDMParent.h"
 #include "MFCDMExtra.h"
+#include "MFCDMSession.h"
 #include "RemoteDecoderManagerParent.h"
 
 namespace mozilla {
@@ -42,15 +43,16 @@ class MFCDMParent final : public PMFCDMParent {
   mozilla::ipc::IPCResult RecvInit(const MFCDMInitParamsIPDL& aParams,
                                    InitResolver&& aResolver);
 
+  mozilla::ipc::IPCResult RecvCreateSessionAndGenerateRequest(
+      const MFCDMCreateSessionParamsIPDL& aParams,
+      CreateSessionAndGenerateRequestResolver&& aResolver);
+
   nsISerialEventTarget* ManagerThread() { return mManagerThread; }
   void AssertOnManagerThread() const {
     MOZ_ASSERT(mManagerThread->IsOnCurrentThread());
   }
 
-  void Destroy() {
-    AssertOnManagerThread();
-    mIPDLSelfRef = nullptr;
-  }
+  void Destroy();
 
  private:
   ~MFCDMParent() { Unregister(); }
@@ -66,6 +68,8 @@ class MFCDMParent final : public PMFCDMParent {
     sRegisteredCDMs.Remove(this->mId);
   }
 
+  void ConnectSessionEvents(MFCDMSession* aSession);
+
   nsString mKeySystem;
 
   const RefPtr<RemoteDecoderManagerParent> mManager;
@@ -79,6 +83,16 @@ class MFCDMParent final : public PMFCDMParent {
   RefPtr<MFCDMParent> mIPDLSelfRef;
   Microsoft::WRL::ComPtr<IMFContentDecryptionModuleFactory> mFactory;
   Microsoft::WRL::ComPtr<IMFContentDecryptionModule> mCDM;
+
+  std::map<nsString, UniquePtr<MFCDMSession>> mSessions;
+
+  MediaEventForwarder<MFCDMKeyMessage> mKeyMessageEvents;
+  MediaEventForwarder<MFCDMKeyStatusChange> mKeyChangeEvents;
+  MediaEventForwarder<MFCDMKeyExpiration> mExpirationEvents;
+
+  MediaEventListener mKeyMessageListener;
+  MediaEventListener mKeyChangeListener;
+  MediaEventListener mExpirationListener;
 };
 
 }  // namespace mozilla

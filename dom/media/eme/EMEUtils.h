@@ -76,13 +76,13 @@ struct ArrayData {
 ArrayData GetArrayBufferViewOrArrayBufferData(
     const dom::ArrayBufferViewOrArrayBuffer& aBufferOrView);
 
-nsString KeySystemToGMPName(const nsAString& aKeySystem);
+nsString KeySystemToProxyName(const nsAString& aKeySystem);
 
 bool IsClearkeyKeySystem(const nsAString& aKeySystem);
 
 bool IsWidevineKeySystem(const nsAString& aKeySystem);
 
-#ifdef MOZ_MF_CDM
+#ifdef MOZ_WMF_CDM
 bool IsPlayReadyKeySystem(const nsAString& aKeySystem);
 #endif
 

@@ -216,7 +216,7 @@
   }
 
   .message-flex-body .message-location {
-    max-width: unset;
+    max-width: 100%;
     grid-column: 1 / -1;
     grid-row: 2;
     justify-self: end;
@@ -838,7 +838,7 @@ a.learn-more-link.webconsole-learn-more-link {
 }
 
 
-.consoletable tr.even td {
+.consoletable tr:nth-child(even) td {
   background-color: var(--table-zebra-background);
 }
 

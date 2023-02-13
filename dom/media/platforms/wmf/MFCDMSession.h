@@ -11,40 +11,11 @@
 
 #include "MFCDMExtra.h"
 #include "MediaEventSource.h"
+#include "mozilla/PMFCDM.h"
+#include "mozilla/KeySystemConfig.h"
 #include "nsAString.h"
 
 namespace mozilla {
-
-// TODO : remove this and use the ones in KeySystemConfig.h after landing
-// 1810817.
-enum class SessionType {
-  Temporary = 1,
-  PersistentLicense = 2,
-};
-
-// TODO: declare them in the ipdl so that we can send them over IPC directly.
-// Also, refine them if needed because now I am not sure what exact information
-// caller expects to see from these events.
-struct KeyMessageInfo {
-  KeyMessageInfo(MF_MEDIAKEYSESSION_MESSAGETYPE aType, const BYTE* aMessage,
-                 DWORD aMessageSize)
-      : mMessageType(aType), mMessage(aMessage, aMessage + aMessageSize) {}
-  const MF_MEDIAKEYSESSION_MESSAGETYPE mMessageType;
-  const std::vector<uint8_t> mMessage;
-};
-
-struct ExpirationInfo {
-  ExpirationInfo(const nsString& aSessionId, double aExpiredTime)
-      : mSessionId(aSessionId),
-        mExpiredTimeMilliSecondsSinceEpoch(aExpiredTime) {}
-  const nsString mSessionId;
-  const double mExpiredTimeMilliSecondsSinceEpoch;
-};
-
-struct KeyInfo {
-  CopyableTArray<uint8_t> mKeyId;
-  uint32_t mKeyStatus;
-};
 
 // MFCDMSession represents a key session defined by the EME spec, it operates
 // the IMFContentDecryptionModuleSession directly and forward events from
@@ -54,7 +25,7 @@ class MFCDMSession final {
  public:
   ~MFCDMSession();
 
-  static MFCDMSession* Create(SessionType aSessionType,
+  static MFCDMSession* Create(KeySystemConfig::SessionType aSessionType,
                               IMFContentDecryptionModule* aCdm,
                               nsISerialEventTarget* aManagerThread);
 
@@ -67,13 +38,13 @@ class MFCDMSession final {
   HRESULT Remove();
 
   // Session status related events
-  MediaEventSource<KeyMessageInfo>& KeyMessageEvent() {
+  MediaEventSource<MFCDMKeyMessage>& KeyMessageEvent() {
     return mKeyMessageEvent;
   }
-  MediaEventSource<CopyableTArray<KeyInfo>>& KeyChangeEvent() {
+  MediaEventSource<MFCDMKeyStatusChange>& KeyChangeEvent() {
     return mKeyChangeEvent;
   }
-  MediaEventSource<ExpirationInfo>& ExpirationEvent() {
+  MediaEventSource<MFCDMKeyExpiration>& ExpirationEvent() {
     return mExpirationEvent;
   }
 
@@ -90,6 +61,8 @@ class MFCDMSession final {
 
   bool RetrieveSessionId();
   void OnSessionKeysChange();
+  void OnSessionKeyMessage(const MF_MEDIAKEYSESSION_MESSAGETYPE& aType,
+                           const nsTArray<uint8_t>& aMessage);
 
   HRESULT UpdateExpirationIfNeeded();
 
@@ -100,9 +73,10 @@ class MFCDMSession final {
   const Microsoft::WRL::ComPtr<IMFContentDecryptionModuleSession> mSession;
   const nsCOMPtr<nsISerialEventTarget> mManagerThread;
 
-  MediaEventForwarder<KeyMessageInfo> mKeyMessageEvent;
-  MediaEventProducer<CopyableTArray<KeyInfo>> mKeyChangeEvent;
-  MediaEventProducer<ExpirationInfo> mExpirationEvent;
+  MediaEventProducer<MFCDMKeyMessage> mKeyMessageEvent;
+  MediaEventProducer<MFCDMKeyStatusChange> mKeyChangeEvent;
+  MediaEventProducer<MFCDMKeyExpiration> mExpirationEvent;
+  MediaEventListener mKeyMessageListener;
   MediaEventListener mKeyChangeListener;
 
   // IMFContentDecryptionModuleSession's id might not be ready immediately after

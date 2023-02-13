@@ -49,7 +49,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
 if CONFIG["B2G_MEDIADRM"]:
     DIRS += ["gonk"]
 
-if CONFIG["MOZ_MF_CDM"]:
+if CONFIG["MOZ_WMF_CDM"]:
     DIRS += ["mediafoundation"]
 
 include("/ipc/chromium/chromium-config.mozbuild")

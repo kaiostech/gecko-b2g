@@ -64,9 +64,12 @@ MFCDMParent::MFCDMParent(const nsAString& aKeySystem,
     : mKeySystem(aKeySystem),
       mManager(aManager),
       mManagerThread(aManagerThread),
-      mId(sNextId++) {
+      mId(sNextId++),
+      mKeyMessageEvents(aManagerThread),
+      mKeyChangeEvents(aManagerThread),
+      mExpirationEvents(aManagerThread) {
   // TODO: check Widevine too when it's ready.
-  MOZ_ASSERT(aKeySystem.EqualsLiteral(kPlayReadyKeySystemName));
+  MOZ_ASSERT(IsPlayReadyKeySystem(aKeySystem));
   MOZ_ASSERT(aManager);
   MOZ_ASSERT(aManagerThread);
   MOZ_ASSERT(XRE_IsUtilityProcess());
@@ -76,6 +79,24 @@ MFCDMParent::MFCDMParent(const nsAString& aKeySystem,
   mIPDLSelfRef = this;
   LoadFactory();
   Register();
+
+  mKeyMessageListener = mKeyMessageEvents.Connect(
+      mManagerThread, this, &MFCDMParent::SendOnSessionKeyMessage);
+  mKeyChangeListener = mKeyChangeEvents.Connect(
+      mManagerThread, this, &MFCDMParent::SendOnSessionKeyStatusesChanged);
+  mExpirationListener = mExpirationEvents.Connect(
+      mManagerThread, this, &MFCDMParent::SendOnSessionKeyExpiration);
+}
+
+void MFCDMParent::Destroy() {
+  AssertOnManagerThread();
+  mKeyMessageEvents.DisconnectAll();
+  mKeyChangeEvents.DisconnectAll();
+  mExpirationEvents.DisconnectAll();
+  mKeyMessageListener.DisconnectIfExists();
+  mKeyChangeListener.DisconnectIfExists();
+  mExpirationListener.DisconnectIfExists();
+  mIPDLSelfRef = nullptr;
 }
 
 HRESULT MFCDMParent::LoadFactory() {
@@ -365,6 +386,26 @@ static HRESULT BuildCDMProperties(
 
 mozilla::ipc::IPCResult MFCDMParent::RecvInit(
     const MFCDMInitParamsIPDL& aParams, InitResolver&& aResolver) {
+  static auto RequirementToStr = [](KeySystemConfig::Requirement aRequirement) {
+    switch (aRequirement) {
+      case KeySystemConfig::Requirement::Required:
+        return "Required";
+      case KeySystemConfig::Requirement::Optional:
+        return "Optional";
+      default:
+        return "NotAllowed";
+    }
+  };
+
+  MFCDM_PARENT_LOG(
+      "Creating a CDM (key-system=%s, origin=%s, distinctiveID=%s, "
+      "persistentState=%s, "
+      "hwSecure=%d)",
+      NS_ConvertUTF16toUTF8(mKeySystem).get(),
+      NS_ConvertUTF16toUTF8(aParams.origin()).get(),
+      RequirementToStr(aParams.distinctiveID()),
+      RequirementToStr(aParams.persistentState()), aParams.hwSecure());
+
   // Get access object to CDM.
   Microsoft::WRL::ComPtr<IPropertyStore> accessConfig;
   MFCDM_REJECT_IF_FAILED(BuildCDMAccessConfig(aParams, accessConfig),
@@ -387,7 +428,59 @@ mozilla::ipc::IPCResult MFCDMParent::RecvInit(
 
   mCDM.Swap(cdm);
   aResolver(MFCDMInitIPDL{mId});
+  MFCDM_PARENT_LOG("Created a CDM!");
   return IPC_OK();
+}
+
+mozilla::ipc::IPCResult MFCDMParent::RecvCreateSessionAndGenerateRequest(
+    const MFCDMCreateSessionParamsIPDL& aParams,
+    CreateSessionAndGenerateRequestResolver&& aResolver) {
+  MOZ_ASSERT(mCDM, "RecvInit() must be called and waited on before this call");
+
+  static auto SessionTypeToStr = [](KeySystemConfig::SessionType aSessionType) {
+    switch (aSessionType) {
+      case KeySystemConfig::SessionType::Temporary:
+        return "temporary";
+      case KeySystemConfig::SessionType::PersistentLicense:
+        return "persistent-license";
+      default: {
+        MOZ_ASSERT_UNREACHABLE("Unsupported license type!");
+        return "invalid";
+      }
+    }
+  };
+  MFCDM_PARENT_LOG("Creating session for type '%s'",
+                   SessionTypeToStr(aParams.sessionType()));
+  UniquePtr<MFCDMSession> session{
+      MFCDMSession::Create(aParams.sessionType(), mCDM.Get(), mManagerThread)};
+  if (!session) {
+    MFCDM_PARENT_LOG("Failed to create CDM session");
+    aResolver(NS_ERROR_FAILURE);
+    return IPC_OK();
+  }
+
+  MFCDM_REJECT_IF_FAILED(session->GenerateRequest(aParams.initDataType(),
+                                                  aParams.initData().Elements(),
+                                                  aParams.initData().Length()),
+                         NS_ERROR_FAILURE);
+  ConnectSessionEvents(session.get());
+
+  // TODO : now we assume all session ID is available after session is created,
+  // but this is not always true. Need to remove this assertion and handle cases
+  // where session Id is not available yet.
+  const auto& sessionId = session->SessionID();
+  MOZ_ASSERT(sessionId);
+  mSessions.emplace(*sessionId, std::move(session));
+  MFCDM_PARENT_LOG("Created a CDM session!");
+  aResolver(*sessionId);
+  return IPC_OK();
+}
+
+void MFCDMParent::ConnectSessionEvents(MFCDMSession* aSession) {
+  // TODO : clear session's event source when the session gets removed.
+  mKeyMessageEvents.Forward(aSession->KeyMessageEvent());
+  mKeyChangeEvents.Forward(aSession->KeyChangeEvent());
+  mExpirationEvents.Forward(aSession->ExpirationEvent());
 }
 
 #undef MFCDM_REJECT_IF_FAILED

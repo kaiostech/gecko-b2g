@@ -643,7 +643,7 @@ class ScriptSource {
       js_delete(this);
     }
   }
-  [[nodiscard]] bool initFromOptions(JSContext* cx, FrontendContext* fc,
+  [[nodiscard]] bool initFromOptions(FrontendContext* fc,
                                      const JS::ReadOnlyCompileOptions& options);
 
   /**
@@ -2170,8 +2170,7 @@ struct ScriptAndCounts {
   }
 };
 
-extern JS::UniqueChars FormatIntroducedFilename(JSContext* cx,
-                                                const char* filename,
+extern JS::UniqueChars FormatIntroducedFilename(const char* filename,
                                                 unsigned lineno,
                                                 const char* introducer);
 

@@ -2436,8 +2436,11 @@ bool JSRuntime::initSelfHostingStencil(JSContext* cx,
     if (!input) {
       return false;
     }
-    if (!input->initForSelfHostingGlobal(cx)) {
-      return false;
+    {
+      AutoReportFrontendContext fc(cx);
+      if (!input->initForSelfHostingGlobal(&fc)) {
+        return false;
+      }
     }
 
     RefPtr<frontend::CompilationStencil> stencil(
@@ -2602,7 +2605,7 @@ ScriptSourceObject* GlobalObject::getOrCreateSelfHostingScriptSourceObject(
   Rooted<ScriptSourceObject*> sourceObject(cx);
   {
     AutoReportFrontendContext fc(cx);
-    if (!source->initFromOptions(cx, &fc, options)) {
+    if (!source->initFromOptions(&fc, options)) {
       return nullptr;
     }
 

@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "HTMLEditor.h"
+#include "HTMLEditHelpers.h"
 #include "HTMLEditorInlines.h"
 
 #include "AutoRangeArray.h"
@@ -52,12 +53,14 @@
 #include "mozilla/dom/HTMLAnchorElement.h"
 #include "mozilla/dom/HTMLBodyElement.h"
 #include "mozilla/dom/HTMLBRElement.h"
+#include "mozilla/dom/NameSpaceConstants.h"
 #include "mozilla/dom/Selection.h"
 
 #include "nsContentList.h"
 #include "nsContentUtils.h"
 #include "nsCRT.h"
 #include "nsDebug.h"
+#include "nsDOMAttributeMap.h"
 #include "nsElementTable.h"
 #include "nsFocusManager.h"
 #include "nsGenericHTMLElement.h"
@@ -159,6 +162,85 @@ HTMLEditor::InsertNodeIntoProperAncestorWithTransaction(
 
 HTMLEditor::InitializeInsertingElement HTMLEditor::DoNothingForNewElement =
     [](HTMLEditor&, Element&, const EditorDOMPoint&) { return NS_OK; };
+
+HTMLEditor::InitializeInsertingElement HTMLEditor::InsertNewBRElement =
+    [](HTMLEditor& aHTMLEditor, Element& aNewElement, const EditorDOMPoint&)
+        MOZ_CAN_RUN_SCRIPT_BOUNDARY {
+          const auto withTransaction = aNewElement.IsInComposedDoc()
+                                           ? WithTransaction::Yes
+                                           : WithTransaction::No;
+          Result<CreateElementResult, nsresult> createBRElementResult =
+              aHTMLEditor.InsertBRElement(withTransaction,
+                                          EditorDOMPoint(&aNewElement, 0u));
+          if (MOZ_UNLIKELY(createBRElementResult.isErr())) {
+            NS_WARNING_ASSERTION(
+                createBRElementResult.isOk(),
+                nsPrintfCString("HTMLEditor::InsertBRElement(%s) failed",
+                                ToString(withTransaction).c_str())
+                    .get());
+            return createBRElementResult.unwrapErr();
+          }
+          createBRElementResult.unwrap().IgnoreCaretPointSuggestion();
+          return NS_OK;
+        };
+
+// static
+Result<CreateElementResult, nsresult>
+HTMLEditor::AppendNewElementToInsertingElement(
+    HTMLEditor& aHTMLEditor, const nsStaticAtom& aTagName, Element& aNewElement,
+    const InitializeInsertingElement& aInitializer) {
+  const auto withTransaction = aNewElement.IsInComposedDoc()
+                                   ? WithTransaction::Yes
+                                   : WithTransaction::No;
+  Result<CreateElementResult, nsresult> createNewElementResult =
+      aHTMLEditor.CreateAndInsertElement(
+          withTransaction, const_cast<nsStaticAtom&>(aTagName),
+          EditorDOMPoint(&aNewElement, 0u), aInitializer);
+  NS_WARNING_ASSERTION(
+      createNewElementResult.isOk(),
+      nsPrintfCString("HTMLEditor::CreateAndInsertElement(%s) failed",
+                      ToString(withTransaction).c_str())
+          .get());
+  return createNewElementResult;
+}
+
+// static
+Result<CreateElementResult, nsresult>
+HTMLEditor::AppendNewElementWithBRToInsertingElement(
+    HTMLEditor& aHTMLEditor, const nsStaticAtom& aTagName,
+    Element& aNewElement) {
+  Result<CreateElementResult, nsresult> createNewElementWithBRResult =
+      HTMLEditor::AppendNewElementToInsertingElement(
+          aHTMLEditor, aTagName, aNewElement, HTMLEditor::InsertNewBRElement);
+  NS_WARNING_ASSERTION(
+      createNewElementWithBRResult.isOk(),
+      "HTMLEditor::AppendNewElementToInsertingElement() failed");
+  return createNewElementWithBRResult;
+}
+
+HTMLEditor::AttributeFilter HTMLEditor::CopyAllAttributes =
+    [](HTMLEditor&, const Element&, const Element&, const Attr&, nsString&) {
+      return true;
+    };
+HTMLEditor::AttributeFilter HTMLEditor::CopyAllAttributesExceptId =
+    [](HTMLEditor&, const Element&, const Element&, const Attr& aAttr,
+       nsString&) {
+      return aAttr.NodeInfo()->NamespaceID() != kNameSpaceID_None ||
+             aAttr.NodeInfo()->NameAtom() != nsGkAtoms::id;
+    };
+HTMLEditor::AttributeFilter HTMLEditor::CopyAllAttributesExceptDir =
+    [](HTMLEditor&, const Element&, const Element&, const Attr& aAttr,
+       nsString&) {
+      return aAttr.NodeInfo()->NamespaceID() != kNameSpaceID_None ||
+             aAttr.NodeInfo()->NameAtom() != nsGkAtoms::dir;
+    };
+HTMLEditor::AttributeFilter HTMLEditor::CopyAllAttributesExceptIdAndDir =
+    [](HTMLEditor&, const Element&, const Element&, const Attr& aAttr,
+       nsString&) {
+      return !(aAttr.NodeInfo()->NamespaceID() == kNameSpaceID_None &&
+               (aAttr.NodeInfo()->NameAtom() == nsGkAtoms::id ||
+                aAttr.NodeInfo()->NameAtom() == nsGkAtoms::dir));
+    };
 
 static bool ShouldUseTraditionalJoinSplitDirection(const Document& aDocument) {
   if (nsIPrincipal* principal = aDocument.GetPrincipalForPrefBasedHacks()) {
@@ -2256,9 +2338,12 @@ nsresult HTMLEditor::SetParagraphFormatAsAction(
   RefPtr<nsAtom> tagName = NS_Atomize(lowerCaseTagName);
   MOZ_ASSERT(tagName);
   if (tagName == nsGkAtoms::dd || tagName == nsGkAtoms::dt) {
+    // MOZ_KnownLive(tagName->AsStatic()) because nsStaticAtom instances live
+    // while the process is running.
     Result<EditActionResult, nsresult> result =
-        MakeOrChangeListAndListItemAsSubAction(*tagName, u""_ns,
-                                               SelectAllOfCurrentList::No);
+        MakeOrChangeListAndListItemAsSubAction(
+            MOZ_KnownLive(*tagName->AsStatic()), u""_ns,
+            SelectAllOfCurrentList::No);
     if (MOZ_UNLIKELY(result.isErr())) {
       NS_WARNING(
           "HTMLEditor::MakeOrChangeListAndListItemAsSubAction("
@@ -2607,11 +2692,13 @@ NS_IMETHODIMP HTMLEditor::MakeOrChangeList(const nsAString& aListType,
                                            bool aEntireList,
                                            const nsAString& aBulletType) {
   RefPtr<nsAtom> listTagName = NS_Atomize(aListType);
-  if (NS_WARN_IF(!listTagName)) {
+  if (NS_WARN_IF(!listTagName) || NS_WARN_IF(!listTagName->IsStatic())) {
     return NS_ERROR_INVALID_ARG;
   }
+  // MOZ_KnownLive(listTagName->AsStatic()) because nsStaticAtom instances live
+  // while the process is running.
   nsresult rv = MakeOrChangeListAsAction(
-      *listTagName, aBulletType,
+      MOZ_KnownLive(*listTagName->AsStatic()), aBulletType,
       aEntireList ? SelectAllOfCurrentList::Yes : SelectAllOfCurrentList::No);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "HTMLEditor::MakeOrChangeListAsAction() failed");
@@ -2619,14 +2706,15 @@ NS_IMETHODIMP HTMLEditor::MakeOrChangeList(const nsAString& aListType,
 }
 
 nsresult HTMLEditor::MakeOrChangeListAsAction(
-    nsAtom& aListTagName, const nsAString& aBulletType,
+    const nsStaticAtom& aListElementTagName, const nsAString& aBulletType,
     SelectAllOfCurrentList aSelectAllOfCurrentList, nsIPrincipal* aPrincipal) {
   if (NS_WARN_IF(!mInitSucceeded)) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
   AutoEditActionDataSetter editActionData(
-      *this, HTMLEditUtils::GetEditActionForInsert(aListTagName), aPrincipal);
+      *this, HTMLEditUtils::GetEditActionForInsert(aListElementTagName),
+      aPrincipal);
   nsresult rv = editActionData.CanHandleAndMaybeDispatchBeforeInputEvent();
   if (NS_FAILED(rv)) {
     NS_WARNING_ASSERTION(rv == NS_ERROR_EDITOR_ACTION_CANCELED,
@@ -2635,7 +2723,7 @@ nsresult HTMLEditor::MakeOrChangeListAsAction(
   }
 
   Result<EditActionResult, nsresult> result =
-      MakeOrChangeListAndListItemAsSubAction(aListTagName, aBulletType,
+      MakeOrChangeListAndListItemAsSubAction(aListElementTagName, aBulletType,
                                              aSelectAllOfCurrentList);
   if (MOZ_UNLIKELY(result.isErr())) {
     NS_WARNING("HTMLEditor::MakeOrChangeListAndListItemAsSubAction() failed");
@@ -3337,6 +3425,44 @@ Result<CreateElementResult, nsresult> HTMLEditor::CreateAndInsertElement(
   return createNewElementResult;
 }
 
+nsresult HTMLEditor::CopyAttributes(WithTransaction aWithTransaction,
+                                    Element& aDestElement, Element& aSrcElement,
+                                    const AttributeFilter& aFilterFunc) {
+  RefPtr<nsDOMAttributeMap> srcAttributes = aSrcElement.Attributes();
+  if (!srcAttributes->Length()) {
+    return NS_OK;
+  }
+  AutoTArray<OwningNonNull<Attr>, 16> srcAttrs;
+  srcAttrs.SetCapacity(srcAttributes->Length());
+  for (uint32_t i = 0; i < srcAttributes->Length(); i++) {
+    RefPtr<Attr> attr = srcAttributes->Item(i);
+    if (!attr) {
+      break;
+    }
+    srcAttrs.AppendElement(std::move(attr));
+  }
+  if (aWithTransaction == WithTransaction::No) {
+    for (const OwningNonNull<Attr>& attr : srcAttrs) {
+      nsString value;
+      attr->GetValue(value);
+      if (!aFilterFunc(*this, aSrcElement, aDestElement, attr, value)) {
+        continue;
+      }
+      DebugOnly<nsresult> rvIgnored =
+          aDestElement.SetAttr(attr->NodeInfo()->NamespaceID(),
+                               attr->NodeInfo()->NameAtom(), value, false);
+      NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
+                           "Element::SetAttr() failed, but ignored");
+    }
+    if (NS_WARN_IF(Destroyed())) {
+      return NS_ERROR_EDITOR_DESTROYED;
+    }
+    return NS_OK;
+  }
+  MOZ_ASSERT_UNREACHABLE("Not implemented yet, but you try to use this");
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
 already_AddRefed<Element> HTMLEditor::CreateElementWithDefaults(
     const nsAtom& aTagName) {
   // NOTE: Despite of public method, this can be called for internal use.
@@ -3956,9 +4082,9 @@ Result<CreateElementResult, nsresult> HTMLEditor::InsertBRElement(
 }
 
 Result<CreateElementResult, nsresult>
-HTMLEditor::InsertContainerWithTransactionInternal(
+HTMLEditor::InsertContainerWithTransaction(
     nsIContent& aContentToBeWrapped, const nsAtom& aWrapperTagName,
-    const nsAtom& aAttribute, const nsAString& aAttributeValue) {
+    const InitializeInsertingElement& aInitializer) {
   EditorDOMPoint pointToInsertNewContainer(&aContentToBeWrapped);
   if (NS_WARN_IF(!pointToInsertNewContainer.IsSet())) {
     return Err(NS_ERROR_FAILURE);
@@ -3977,16 +4103,14 @@ HTMLEditor::InsertContainerWithTransactionInternal(
     return Err(NS_ERROR_FAILURE);
   }
 
-  // Set attribute if needed.
-  if (&aAttribute != nsGkAtoms::_empty) {
-    nsresult rv = newContainer->SetAttr(kNameSpaceID_None,
-                                        const_cast<nsAtom*>(&aAttribute),
-                                        aAttributeValue, true);
+  if (&aInitializer != &HTMLEditor::DoNothingForNewElement) {
+    nsresult rv = aInitializer(*this, *newContainer,
+                               EditorDOMPoint(&aContentToBeWrapped));
     if (NS_WARN_IF(Destroyed())) {
       return Err(NS_ERROR_EDITOR_DESTROYED);
     }
     if (NS_FAILED(rv)) {
-      NS_WARNING("Element::SetAttr() failed");
+      NS_WARNING("aInitializer() failed");
       return Err(rv);
     }
   }

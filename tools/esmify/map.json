@@ -731,16 +731,16 @@
     "devtools/client/jsonview/Converter.jsm",
   "resource://devtools/client/jsonview/Sniffer.jsm":
     "devtools/client/jsonview/Sniffer.jsm",
-  "resource://devtools/client/performance-new/popup/background.jsm.js":
-    "devtools/client/performance-new/popup/background.jsm.js",
+  "resource://devtools/client/performance-new/shared/background.jsm.js":
+    "devtools/client/performance-new/shared/background.jsm.js",
   "resource://devtools/client/performance-new/popup/menu-button.jsm.js":
     "devtools/client/performance-new/popup/menu-button.jsm.js",
-  "resource://devtools/client/performance-new/popup/panel.jsm.js":
-    "devtools/client/performance-new/popup/panel.jsm.js",
-  "resource://devtools/client/performance-new/symbolication.jsm.js":
-    "devtools/client/performance-new/symbolication.jsm.js",
-  "resource://devtools/client/performance-new/typescript-lazy-load.jsm.js":
-    "devtools/client/performance-new/typescript-lazy-load.jsm.js",
+  "resource://devtools/client/performance-new/popup/logic.jsm.js":
+    "devtools/client/performance-new/popup/logic.jsm.js",
+  "resource://devtools/client/performance-new/shared/symbolication.jsm.js":
+    "devtools/client/performance-new/shared/symbolication.jsm.js",
+  "resource://devtools/client/performance-new/shared/typescript-lazy-load.jsm.js":
+    "devtools/client/performance-new/shared/typescript-lazy-load.jsm.js",
   "resource://devtools/client/storage/VariablesView.jsm":
     "devtools/client/storage/VariablesView.jsm",
   "resource://devtools/client/styleeditor/StyleEditorUI.jsm":

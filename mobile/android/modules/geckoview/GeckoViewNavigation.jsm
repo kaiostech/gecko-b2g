@@ -264,7 +264,7 @@ class GeckoViewNavigation extends GeckoViewModule {
         // referring session, the referrerInfo is null.
         //
         // csp is only present if we have a referring document, null otherwise.
-        this.browser.loadURI(uri, {
+        this.browser.fixupAndLoadURIString(uri, {
           flags: navFlags,
           referrerInfo,
           triggeringPrincipal,
@@ -505,7 +505,7 @@ class GeckoViewNavigation extends GeckoViewModule {
     }
 
     // 3) We have a new session and a browser element, load the requested URI.
-    browser.loadURI(uri.spec, {
+    browser.loadURI(uri, {
       triggeringPrincipal,
       csp,
       referrerInfo,

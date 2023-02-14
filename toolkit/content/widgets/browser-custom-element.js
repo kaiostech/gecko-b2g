@@ -30,6 +30,10 @@
     NetUtil: "resource://gre/modules/NetUtil.jsm",
   });
 
+  XPCOMUtils.defineLazyGetter(lazy, "blankURI", () =>
+    Services.io.newURI("about:blank")
+  );
+
   let lazyPrefs = {};
   XPCOMUtils.defineLazyPreferenceGetter(
     lazyPrefs,
@@ -833,38 +837,35 @@
       this.webNavigation.stop(flags);
     }
 
+    _fixLoadParamsToLoadURIOptions(params) {
+      let loadFlags =
+        params.loadFlags || params.flags || Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
+      delete params.flags;
+      params.loadFlags = loadFlags;
+    }
+
     /**
      * throws exception for unknown schemes
      */
-    loadURI(aURI, aParams = {}) {
-      if (!aURI) {
-        aURI = "about:blank";
+    loadURI(uri, params = {}) {
+      if (!uri) {
+        uri = lazy.blankURI;
       }
-      let {
-        referrerInfo,
-        triggeringPrincipal,
-        triggeringRemoteType,
-        postData,
-        headers,
-        csp,
-        remoteTypeOverride,
-      } = aParams;
-      let loadFlags =
-        aParams.loadFlags ||
-        aParams.flags ||
-        Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
-      let loadURIOptions = {
-        triggeringPrincipal,
-        triggeringRemoteType,
-        csp,
-        referrerInfo,
-        loadFlags,
-        postData,
-        headers,
-        remoteTypeOverride,
-      };
+      this._fixLoadParamsToLoadURIOptions(params);
+      this._wrapURIChangeCall(() => this.webNavigation.loadURI(uri, params));
+    }
+
+    /**
+     * throws exception for unknown schemes
+     */
+    fixupAndLoadURIString(uriString, params = {}) {
+      if (!uriString) {
+        this.loadURI(null, params);
+        return;
+      }
+      this._fixLoadParamsToLoadURIOptions(params);
       this._wrapURIChangeCall(() =>
-        this.webNavigation.loadURI(aURI, loadURIOptions)
+        this.webNavigation.fixupAndLoadURIString(uriString, params)
       );
     }
 

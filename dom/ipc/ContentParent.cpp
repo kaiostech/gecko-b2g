@@ -6107,8 +6107,10 @@ void ContentParent::MaybeInvokeDragSession(BrowserParent* aParent) {
 
       RefPtr<WindowContext> sourceWC;
       session->GetSourceWindowContext(getter_AddRefs(sourceWC));
+      RefPtr<WindowContext> sourceTopWC;
+      session->GetSourceTopWindowContext(getter_AddRefs(sourceTopWC));
       mozilla::Unused << SendInvokeDragSession(
-          sourceWC, std::move(dataTransfers), action);
+          sourceWC, sourceTopWC, std::move(dataTransfers), action);
     }
   }
 }

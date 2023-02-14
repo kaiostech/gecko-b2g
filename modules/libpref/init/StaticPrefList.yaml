@@ -6571,7 +6571,7 @@
   mirror: always
 
 # Should we override the blocklist to enable WebGPU?
-- name: gfx.webgpu.force-enabled
+- name: gfx.webgpu.ignore-blocklist
   type: bool
   value: false
   mirror: once
@@ -9354,7 +9354,7 @@
 # Pref to control whether we emulate all -moz-box with modern flexbox.
 - name: layout.css.moz-box-flexbox-emulation.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -14962,13 +14962,7 @@
 
 - name: webgl.out-of-process.async-present
   type: RelaxedAtomicBool
-#if !defined(MOZ_WIDGET_ANDROID)
   value: true
-#elif defined(MOZ_WIDGET_ANDROID) && defined(NIGHTLY_BUILD)
-  value: true
-#else
-  value: false
-#endif
   mirror: always
 
 # Forces async present to wait for a sync, even while using remote textures.

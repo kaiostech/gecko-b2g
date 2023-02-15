@@ -2306,6 +2306,13 @@
   value: 20
   mirror: always
 
+# Whether Window.{inner,outer}{Width,Height} and screen{X,Y}
+# behave as replaceable properties unconditionally.
+- name: dom.window_position_size_properties_replaceable.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Whether window.location.reload() and window.history.go(0) should be blocked
 # if called directly from a window resize event handler.
 #
@@ -2633,7 +2640,7 @@
 # the content process.
 - name: dom.events.dataTransfer.mozFile.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.events.dataTransfer.imageAsFile.enabled
@@ -7911,6 +7918,13 @@
     value: false
     mirror: always
 #endif // defined(ENABLE_WASM_GC)
+
+#if defined(ENABLE_WASM_MEMORY_CONTROL)
+-   name: javascript.options.wasm_memory_control
+    type: bool
+    value: false
+    mirror: always
+#endif // defined(ENABLE_WASM_MEMORY_CONTROL)
 
 #if defined(ENABLE_WASM_SIMD)
 #if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)

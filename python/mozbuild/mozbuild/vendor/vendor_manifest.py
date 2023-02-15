@@ -8,9 +8,11 @@ import logging
 import os
 import re
 import shutil
+import stat
 import sys
 import tarfile
 import tempfile
+from collections import defaultdict
 
 import mozfile
 import mozpack.path as mozpath
@@ -49,6 +51,38 @@ def _replace_in_file(file, pattern, replacement, regex=False):
 
     with open(file, "w") as f:
         f.write(newcontents)
+
+
+def list_of_paths_to_readable_string(paths):
+    # From https://stackoverflow.com/a/41578071
+    dic = defaultdict(list)
+    for item in paths:
+        if os.path.isdir(item):  # To check path is a directory
+            _ = dic[item]  # will set default value as empty list
+        else:
+            path, file = os.path.split(item)
+            dic[path].append(file)
+
+    final_string = "["
+    for key, val in dic.items():
+        if len(val) == 0:
+            final_string += key + ", "
+        elif len(val) < 3:
+            final_string += ", ".join([os.path.join(key, v) for v in val]) + ", "
+        elif len(val) < 10:
+            final_string += "%s items in %s: %s and %s, " % (
+                len(val),
+                key,
+                ", ".join(val[0:-1]),
+                val[-1],
+            )
+        else:
+            final_string += "%s (omitted) items in %s, " % (len(val), key)
+
+    if final_string[-2:] == ", ":
+        final_string = final_string[:-2]
+
+    return final_string + "]"
 
 
 class VendorManifest(MozbuildObject):
@@ -331,6 +365,13 @@ class VendorManifest(MozbuildObject):
 
     def fetch_and_unpack(self, revision):
         """Fetch and unpack upstream source"""
+
+        def _is_within_directory(directory, target):
+            abs_directory = os.path.abspath(directory)
+            abs_target = os.path.abspath(target)
+            prefix = os.path.commonprefix([abs_directory, abs_target])
+            return prefix == abs_directory
+
         url = self.source_host.upstream_snapshot(revision)
         self.logInfo({"url": url}, "Fetching code archive from {url}")
 
@@ -344,10 +385,16 @@ class VendorManifest(MozbuildObject):
 
                 tar = tarfile.open(tmptarfile.name)
 
-                for name in tar.getnames():
-                    if name.startswith("/") or ".." in name:
+                for member in tar:
+                    member_path = os.path.join(tmpextractdir.name, member.name)
+                    if not _is_within_directory(tmpextractdir.name, member_path):
                         raise Exception(
-                            "Tar archive contains non-local paths, e.g. '%s'" % name
+                            "Tar archive contains non-local paths, e.g. '%s'"
+                            % member.name
+                        )
+                    if member.mode & (stat.S_ISUID | stat.S_ISGID):
+                        raise Exception(
+                            "Tar archive has setuid or setgid member '%s'" % member.name
                         )
 
                 vendor_dir = mozpath.normsep(
@@ -415,7 +462,10 @@ class VendorManifest(MozbuildObject):
 
                 to_exclude = list(set(to_exclude) - set(to_include))
                 if to_exclude:
-                    self.logInfo({"files": str(to_exclude)}, "Removing: {files}")
+                    self.logInfo(
+                        {"files": list_of_paths_to_readable_string(to_exclude)},
+                        "Removing: {files}",
+                    )
                     for exclusion in to_exclude:
                         mozfile.remove(exclusion)
 

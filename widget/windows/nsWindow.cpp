@@ -594,7 +594,6 @@ class InitializeVirtualDesktopManagerTask : public Task {
 #endif
 
   virtual bool Run() override {
-#ifndef __MINGW32__
     if (!IsWin10OrLater()) {
       return true;
     }
@@ -608,7 +607,6 @@ class InitializeVirtualDesktopManagerTask : public Task {
     }
 
     gVirtualDesktopManager = desktopManager;
-#endif
     return true;
   }
 };
@@ -5102,9 +5100,9 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM& wParam, LPARAM& lParam,
                               LRESULT* aRetValue) {
   // For some events we might change the parameter values, so log
   // before and after we process them.
-  PrintEvent printEvent(mWnd, msg, wParam, lParam, *aRetValue);
+  PrintEvent printEvent(mWnd, msg, wParam, lParam);
   bool result = ProcessMessageInternal(msg, wParam, lParam, aRetValue);
-  printEvent.SetResult(result);
+  printEvent.SetResult(*aRetValue, result);
 
   return result;
 }

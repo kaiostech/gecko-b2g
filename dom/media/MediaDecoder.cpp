@@ -276,6 +276,7 @@ MediaDecoder::MediaDecoder(MediaDecoderInit& aInit)
       mIsOwnerConnected(false),
       mForcedHidden(false),
       mHasSuspendTaint(aInit.mHasSuspendTaint),
+      mShouldResistFingerprinting(aInit.mOwner->ShouldResistFingerprinting()),
       mPlaybackRate(aInit.mPlaybackRate),
       mLogicallySeeking(false, "MediaDecoder::mLogicallySeeking"),
       INIT_MIRROR(mBuffered, TimeIntervals()),

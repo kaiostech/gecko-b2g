@@ -3817,18 +3817,17 @@ NS_IMETHODIMP HTMLEditor::DeleteNode(nsINode* aNode) {
   return rv;
 }
 
-nsresult HTMLEditor::DeleteTextWithTransaction(Text& aTextNode,
-                                               uint32_t aOffset,
-                                               uint32_t aLength) {
+Result<CaretPoint, nsresult> HTMLEditor::DeleteTextWithTransaction(
+    Text& aTextNode, uint32_t aOffset, uint32_t aLength) {
   if (NS_WARN_IF(!HTMLEditUtils::IsSimplyEditableNode(aTextNode))) {
-    return NS_ERROR_FAILURE;
+    return Err(NS_ERROR_FAILURE);
   }
 
-  nsresult rv =
+  Result<CaretPoint, nsresult> caretPointOrError =
       EditorBase::DeleteTextWithTransaction(aTextNode, aOffset, aLength);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+  NS_WARNING_ASSERTION(caretPointOrError.isOk(),
                        "EditorBase::DeleteTextWithTransaction() failed");
-  return rv;
+  return caretPointOrError;
 }
 
 nsresult HTMLEditor::ReplaceTextWithTransaction(
@@ -3838,13 +3837,24 @@ nsresult HTMLEditor::ReplaceTextWithTransaction(
   MOZ_ASSERT(aLength > 0 || !aStringToInsert.IsEmpty());
 
   if (aStringToInsert.IsEmpty()) {
-    nsresult rv = DeleteTextWithTransaction(aTextNode, aOffset, aLength);
-    if (NS_WARN_IF(Destroyed())) {
-      return NS_ERROR_EDITOR_DESTROYED;
+    Result<CaretPoint, nsresult> caretPointOrError =
+        DeleteTextWithTransaction(aTextNode, aOffset, aLength);
+    if (MOZ_UNLIKELY(caretPointOrError.isErr())) {
+      NS_WARNING("HTMLEditor::DeleteTextWithTransaction() failed");
+      return caretPointOrError.propagateErr();
     }
-    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "HTMLEditor::DeleteTextWithTransaction() failed");
-    return rv;
+    nsresult rv = caretPointOrError.inspect().SuggestCaretPointTo(
+        *this, {SuggestCaret::OnlyIfHasSuggestion,
+                SuggestCaret::OnlyIfTransactionsAllowedToDoIt,
+                SuggestCaret::AndIgnoreTrivialError});
+    if (NS_FAILED(rv)) {
+      NS_WARNING("CaretPoint::SuggestCaretPointTo() failed");
+      return Err(rv);
+    }
+    NS_WARNING_ASSERTION(
+        rv != NS_SUCCESS_EDITOR_BUT_IGNORED_TRIVIAL_ERROR,
+        "CaretPoint::SuggestCaretPointTo() failed, but ignored");
+    return NS_OK;
   }
 
   if (!aLength) {
@@ -4413,12 +4423,26 @@ void HTMLEditor::DoContentInserted(nsIContent* aChild,
 
     // Update spellcheck for only the newly-inserted node (bug 743819)
     if (mInlineSpellChecker) {
-      RefPtr<nsRange> range = nsRange::Create(aChild);
       nsIContent* endContent = aChild;
       if (aInsertedOrAppended == eAppended) {
+        nsIContent* child = nullptr;
+        for (child = aChild; child; child = child->GetNextSibling()) {
+          if (child->InclusiveDescendantMayNeedSpellchecking(this)) {
+            break;
+          }
+        }
+        if (!child) {
+          // No child needed spellchecking, return.
+          return;
+        }
+
         // Maybe more than 1 child was appended.
         endContent = container->GetLastChild();
+      } else if (!aChild->InclusiveDescendantMayNeedSpellchecking(this)) {
+        return;
       }
+
+      RefPtr<nsRange> range = nsRange::Create(aChild);
       range->SelectNodesInContainer(container, aChild, endContent);
       DebugOnly<nsresult> rvIgnored =
           mInlineSpellChecker->SpellCheckRange(range);

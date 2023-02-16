@@ -36,14 +36,15 @@ using media::TimeUnit;
 
 AudioSink::AudioSink(AbstractThread* aThread,
                      MediaQueue<AudioData>& aAudioQueue, const AudioInfo& aInfo,
-                     dom::AudioChannel aChannel)
+                     dom::AudioChannel aChannel, bool aShouldResistFingerprinting)
     : mChannel(aChannel),
       mPlaying(true),
       mWritten(0),
       mErrored(false),
       mOwnerThread(aThread),
       mFramesParsed(0),
-      mOutputRate(DecideAudioPlaybackSampleRate(aInfo)),
+      mOutputRate(
+          DecideAudioPlaybackSampleRate(aInfo, aShouldResistFingerprinting)),
       mOutputChannels(DecideAudioPlaybackChannels(aInfo)),
       mAudibilityMonitor(
           mOutputRate,

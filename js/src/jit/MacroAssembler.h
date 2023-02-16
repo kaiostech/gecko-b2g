@@ -1587,8 +1587,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
                                            Label* fail)
       DEFINED_ON(arm, arm64, mips_shared, x86, x64, loong64, riscv64, wasm32);
   inline void branchTruncateDoubleToInt32(FloatRegister src, Register dest,
-                                          Label* fail)
-      DEFINED_ON(arm, arm64, mips_shared, x86, x64, loong64, riscv64, wasm32);
+                                          Label* fail) PER_ARCH;
 
   inline void branchDouble(DoubleCondition cond, FloatRegister lhs,
                            FloatRegister rhs, Label* label) PER_SHARED_ARCH;
@@ -5166,6 +5165,13 @@ class MacroAssembler : public MacroAssemblerSpecific {
                                         Register scratch1, Register scratch2,
                                         Register scratch3, Register output,
                                         Label* cacheHit, bool hasOwn);
+
+  // Given a PropertyIteratorObject with valid indices, extract the current
+  // PropertyIndex, storing the index in |outIndex| and the kind in |outKind|
+  void extractCurrentIndexAndKindFromIterator(Register iterator,
+                                              Register outIndex,
+                                              Register outKind);
+
 #ifdef JS_CODEGEN_X86
   // See MegamorphicSetElement in LIROps.yaml
   void emitMegamorphicCachedSetSlot(
@@ -5421,16 +5427,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
                             Register output, Label* fail) {
     truncateValueToInt32(value, nullptr, nullptr, nullptr, InvalidReg, temp,
                          output, fail);
-  }
-
-  // Truncates, i.e. removes any fractional parts, but doesn't wrap around to
-  // the int32 range.
-  void truncateNoWrapValueToInt32(ValueOperand value, FloatRegister temp,
-                                  Register output, Label* truncateDoubleSlow,
-                                  Label* fail) {
-    convertValueToInt(value, nullptr, nullptr, truncateDoubleSlow, InvalidReg,
-                      temp, output, fail,
-                      IntConversionBehavior::TruncateNoWrap);
   }
 
   // Convenience functions for clamping values to uint8.

@@ -1853,7 +1853,9 @@ nsresult PresShell::Initialize() {
     NS_ENSURE_STATE(!mHaveShutDown);
   }
 
-  mDocument->TriggerAutoFocus();
+  if (mDocument->HasAutoFocusCandidates()) {
+    mDocument->ScheduleFlushAutoFocusCandidates();
+  }
 
   NS_ASSERTION(rootFrame, "How did that happen?");
 
@@ -1948,6 +1950,13 @@ void PresShell::RefreshZoomConstraintsForScreenSizeChange() {
   if (mZoomConstraintsClient) {
     mZoomConstraintsClient->ScreenSizeChanged();
   }
+}
+
+void PresShell::ForceResizeReflowWithCurrentDimensions() {
+  nscoord currentWidth = 0;
+  nscoord currentHeight = 0;
+  mViewManager->GetWindowDimensions(&currentWidth, &currentHeight);
+  ResizeReflow(currentWidth, currentHeight);
 }
 
 void PresShell::ResizeReflow(nscoord aWidth, nscoord aHeight,
@@ -3137,52 +3146,8 @@ nsresult PresShell::GoToAnchor(const nsAString& aAnchorName, bool aScroll,
   //
   // https://html.spec.whatwg.org/#target-element
   // https://html.spec.whatwg.org/#find-a-potential-indicated-element
-  RefPtr<Element> target = [&]() -> Element* {
-    // 1. If there is an element in the document tree that has an ID equal to
-    //    fragment, then return the first such element in tree order.
-    if (Element* el = mDocument->GetElementById(aAnchorName)) {
-      return el;
-    }
-
-    // 2. If there is an a element in the document tree that has a name
-    // attribute whose value is equal to fragment, then return the first such
-    // element in tree order.
-    //
-    // FIXME(emilio): Why the different code-paths for HTML and non-HTML docs?
-    if (mDocument->IsHTMLDocument()) {
-      nsCOMPtr<nsINodeList> list = mDocument->GetElementsByName(aAnchorName);
-      // Loop through the named nodes looking for the first anchor
-      uint32_t length = list->Length();
-      for (uint32_t i = 0; i < length; i++) {
-        nsIContent* node = list->Item(i);
-        if (node->IsHTMLElement(nsGkAtoms::a)) {
-          return node->AsElement();
-        }
-      }
-    } else {
-      constexpr auto nameSpace = u"http://www.w3.org/1999/xhtml"_ns;
-      // Get the list of anchor elements
-      nsCOMPtr<nsINodeList> list =
-          mDocument->GetElementsByTagNameNS(nameSpace, u"a"_ns);
-      // Loop through the anchors looking for the first one with the given name.
-      for (uint32_t i = 0; true; i++) {
-        nsIContent* node = list->Item(i);
-        if (!node) {  // End of list
-          break;
-        }
-
-        // Compare the name attribute
-        if (node->IsElement() &&
-            node->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::name,
-                                           aAnchorName, eCaseMatters)) {
-          return node->AsElement();
-        }
-      }
-    }
-
-    // 3. Return null.
-    return nullptr;
-  }();
+  RefPtr<Element> target =
+      nsContentUtils::GetTargetElement(mDocument, aAnchorName);
 
   // 1. If there is no indicated part of the document, set the Document's
   //    target element to null.
@@ -11132,15 +11097,8 @@ void PresShell::MaybeRecreateMobileViewportManager(bool aAfterInitialization) {
                             ResolutionChangeOrigin::MainThreadRestore);
 
     if (aAfterInitialization) {
-      // Force a reflow to our correct size by going back to the docShell
-      // and asking it to reassert its size. This is necessary because
-      // everything underneath the docShell, like the ViewManager, has been
-      // altered by the MobileViewportManager in an irreversible way.
-      nsDocShell* docShell =
-          static_cast<nsDocShell*>(GetPresContext()->GetDocShell());
-      int32_t width, height;
-      docShell->GetSize(&width, &height);
-      docShell->SetSize(width, height, false);
+      // Force a reflow to our correct view manager size.
+      ForceResizeReflowWithCurrentDimensions();
     }
   }
 

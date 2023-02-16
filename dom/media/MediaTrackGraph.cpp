@@ -3382,13 +3382,13 @@ void MediaTrackGraphImpl::Destroy() {
 // GTests can create a graph without a window.
 /* static */
 MediaTrackGraphImpl* MediaTrackGraphImpl::GetInstanceIfExists(
-    uint64_t aWindowID, TrackRate aSampleRate,
+    uint64_t aWindowID, bool aShouldResistFingerprinting, TrackRate aSampleRate,
     CubebUtils::AudioDeviceID aOutputDeviceID,
     dom::AudioChannel aAudioChannel) {
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
   TrackRate sampleRate =
-      aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
+      aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate(aShouldResistFingerprinting);
   GraphKey key(aWindowID, sampleRate, aOutputDeviceID, aAudioChannel);
 
   return gGraphs.Get(key);
@@ -3404,20 +3404,23 @@ MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
   // On B2G, webspeech gets the graph with null window, so give it window ID 0.
   uint64_t windowID = aWindow ? aWindow->WindowID() : 0;
   return MediaTrackGraphImpl::GetInstanceIfExists(
-      windowID, aSampleRate, aOutputDeviceID, aAudioChannel);
+      windowID, aWindow->AsGlobal()->ShouldResistFingerprinting(),
+      aSampleRate, aOutputDeviceID, aAudioChannel);
 }
 
 /* static */
 MediaTrackGraphImpl* MediaTrackGraphImpl::GetInstance(
     GraphDriverType aGraphDriverRequested, uint64_t aWindowID,
-    TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID,
+    bool aShouldResistFingerprinting, TrackRate aSampleRate,
+    CubebUtils::AudioDeviceID aOutputDeviceID,
     dom::AudioChannel aAudioChannel, nsISerialEventTarget* aMainThread) {
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
   TrackRate sampleRate =
-      aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
+      aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate(aShouldResistFingerprinting);
   MediaTrackGraphImpl* graph = GetInstanceIfExists(
-      aWindowID, sampleRate, aOutputDeviceID, aAudioChannel);
+      aWindowID, aShouldResistFingerprinting, sampleRate, aOutputDeviceID,
+      aAudioChannel);
 
   if (!graph) {
     GraphRunType runType = DIRECT_DRIVER;
@@ -3458,6 +3461,7 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
       aWindow ? aWindow->EventTargetFor(TaskCategory::Other)
               : GetMainThreadSerialEventTarget();
   return MediaTrackGraphImpl::GetInstance(aGraphDriverRequested, windowID,
+                                          aWindow->AsGlobal()->ShouldResistFingerprinting(),
                                           aSampleRate, aOutputDeviceID,
                                           aAudioChannel, mainThread);
 }

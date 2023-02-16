@@ -240,7 +240,7 @@ static bool SizeDependsOnIntrinsicSize(const ReflowInput& aReflowInput) {
 
 nsIFrame* NS_NewImageFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
   return new (aPresShell) nsImageFrame(aStyle, aPresShell->GetPresContext(),
-                                       nsImageFrame::Kind::ImageElement);
+                                       nsImageFrame::Kind::ImageLoadingContent);
 }
 
 nsIFrame* NS_NewImageFrameForContentProperty(PresShell* aPresShell,
@@ -266,7 +266,7 @@ bool nsImageFrame::ShouldShowBrokenImageIcon() const {
   // NOTE(emilio, https://github.com/w3c/csswg-drafts/issues/2832): WebKit and
   // Blink behave differently here for content: url(..), for now adapt to
   // Blink's behavior.
-  if (mKind != Kind::ImageElement) {
+  if (mKind != Kind::ImageLoadingContent) {
     return false;
   }
 
@@ -309,7 +309,7 @@ nsImageFrame::nsImageFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
       mComputedSize(0, 0),
       mIntrinsicSize(0, 0),
       mKind(aKind),
-      mContentURLRequestRegistered(false),
+      mOwnedRequestRegistered(false),
       mDisplayingIcon(false),
       mFirstFrameComplete(false),
       mReflowCallbackPosted(false),
@@ -370,9 +370,9 @@ void nsImageFrame::DestroyFrom(nsIFrame* aDestructRoot,
 
   MOZ_ASSERT(mListener);
 
-  if (mKind == Kind::ImageElement) {
-    MOZ_ASSERT(!mContentURLRequest);
-    MOZ_ASSERT(!mContentURLRequestRegistered);
+  if (mKind == Kind::ImageLoadingContent) {
+    MOZ_ASSERT(!mOwnedRequest);
+    MOZ_ASSERT(!mOwnedRequestRegistered);
     nsCOMPtr<nsIImageLoadingContent> imageLoader = do_QueryInterface(mContent);
     MOZ_ASSERT(imageLoader);
 
@@ -380,11 +380,11 @@ void nsImageFrame::DestroyFrom(nsIFrame* aDestructRoot,
     // deregister with our refresh driver.
     imageLoader->FrameDestroyed(this);
     imageLoader->RemoveNativeObserver(mListener);
-  } else if (mContentURLRequest) {
-    PresContext()->Document()->ImageTracker()->Remove(mContentURLRequest);
-    nsLayoutUtils::DeregisterImageRequest(PresContext(), mContentURLRequest,
-                                          &mContentURLRequestRegistered);
-    mContentURLRequest->Cancel(NS_BINDING_ABORTED);
+  } else if (mOwnedRequest) {
+    PresContext()->Document()->ImageTracker()->Remove(mOwnedRequest);
+    nsLayoutUtils::DeregisterImageRequest(PresContext(), mOwnedRequest,
+                                          &mOwnedRequestRegistered);
+    mOwnedRequest->Cancel(NS_BINDING_ABORTED);
   }
 
   // set the frame to null so we don't send messages to a dead object.
@@ -398,7 +398,7 @@ void nsImageFrame::DestroyFrom(nsIFrame* aDestructRoot,
 }
 
 void nsImageFrame::MaybeRecordContentUrlOnImageTelemetry() {
-  if (mKind != Kind::ImageElement) {
+  if (mKind != Kind::ImageLoadingContent) {
     return;
   }
   const auto& content = *StyleContent();
@@ -465,42 +465,47 @@ static bool SizeIsAvailable(imgIRequest* aRequest) {
 }
 
 const StyleImage* nsImageFrame::GetImageFromStyle() const {
-  if (mKind == Kind::ImageElement) {
-    MOZ_ASSERT_UNREACHABLE("Don't call me");
-    return nullptr;
-  }
-  if (mKind == Kind::ListStyleImage) {
-    MOZ_ASSERT(
-        GetParent()->GetContent()->IsGeneratedContentContainerForMarker());
-    MOZ_ASSERT(mContent->IsHTMLElement(nsGkAtoms::mozgeneratedcontentimage));
-    return &StyleList()->mListStyleImage;
-  }
-  uint32_t contentIndex = 0;
-  const nsStyleContent* styleContent = StyleContent();
-  if (mKind == Kind::ContentPropertyAtIndex) {
-    MOZ_RELEASE_ASSERT(
-        mContent->IsHTMLElement(nsGkAtoms::mozgeneratedcontentimage));
-    contentIndex = static_cast<GeneratedImageContent*>(mContent.get())->Index();
+  switch (mKind) {
+    case Kind::ImageLoadingContent:
+      break;
+    case Kind::ListStyleImage:
+      MOZ_ASSERT(
+          GetParent()->GetContent()->IsGeneratedContentContainerForMarker());
+      MOZ_ASSERT(mContent->IsHTMLElement(nsGkAtoms::mozgeneratedcontentimage));
+      return &StyleList()->mListStyleImage;
+    case Kind::ContentProperty:
+    case Kind::ContentPropertyAtIndex: {
+      uint32_t contentIndex = 0;
+      const nsStyleContent* styleContent = StyleContent();
+      if (mKind == Kind::ContentPropertyAtIndex) {
+        MOZ_RELEASE_ASSERT(
+            mContent->IsHTMLElement(nsGkAtoms::mozgeneratedcontentimage));
+        contentIndex =
+            static_cast<GeneratedImageContent*>(mContent.get())->Index();
 
-    // TODO(emilio): Consider inheriting the `content` property instead of doing
-    // this parent traversal?
-    nsIFrame* parent = GetParent();
-    MOZ_DIAGNOSTIC_ASSERT(
-        parent->GetContent()->IsGeneratedContentContainerForMarker() ||
-        parent->GetContent()->IsGeneratedContentContainerForAfter() ||
-        parent->GetContent()->IsGeneratedContentContainerForBefore());
-    nsIFrame* nonAnonymousParent = parent;
-    while (nonAnonymousParent->Style()->IsAnonBox()) {
-      nonAnonymousParent = nonAnonymousParent->GetParent();
+        // TODO(emilio): Consider inheriting the `content` property instead of
+        // doing this parent traversal?
+        nsIFrame* parent = GetParent();
+        MOZ_DIAGNOSTIC_ASSERT(
+            parent->GetContent()->IsGeneratedContentContainerForMarker() ||
+            parent->GetContent()->IsGeneratedContentContainerForAfter() ||
+            parent->GetContent()->IsGeneratedContentContainerForBefore());
+        nsIFrame* nonAnonymousParent = parent;
+        while (nonAnonymousParent->Style()->IsAnonBox()) {
+          nonAnonymousParent = nonAnonymousParent->GetParent();
+        }
+        MOZ_DIAGNOSTIC_ASSERT(parent->GetContent() ==
+                              nonAnonymousParent->GetContent());
+        styleContent = nonAnonymousParent->StyleContent();
+      }
+      MOZ_RELEASE_ASSERT(contentIndex < styleContent->ContentCount());
+      auto& contentItem = styleContent->ContentAt(contentIndex);
+      MOZ_RELEASE_ASSERT(contentItem.IsImage());
+      return &contentItem.AsImage();
     }
-    MOZ_DIAGNOSTIC_ASSERT(parent->GetContent() ==
-                          nonAnonymousParent->GetContent());
-    styleContent = nonAnonymousParent->StyleContent();
   }
-  MOZ_RELEASE_ASSERT(contentIndex < styleContent->ContentCount());
-  auto& contentItem = styleContent->ContentAt(contentIndex);
-  MOZ_RELEASE_ASSERT(contentItem.IsImage());
-  return &contentItem.AsImage();
+  MOZ_ASSERT_UNREACHABLE("Don't call me");
+  return nullptr;
 }
 
 void nsImageFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
@@ -516,11 +521,12 @@ void nsImageFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
   GetImageMap();  // Ensure to init the image map asap. This is important to
                   // make <area> elements focusable.
 
+  nsPresContext* pc = PresContext();
   if (!gIconLoad) {
-    LoadIcons(PresContext());
+    LoadIcons(pc);
   }
 
-  if (mKind == Kind::ImageElement) {
+  if (mKind == Kind::ImageLoadingContent) {
     nsCOMPtr<nsIImageLoadingContent> imageLoader = do_QueryInterface(aContent);
     MOZ_ASSERT(imageLoader);
     imageLoader->AddNativeObserver(mListener);
@@ -528,10 +534,10 @@ void nsImageFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
     // that it can register images.
     imageLoader->FrameCreated(this);
     AssertSyncDecodingHintIsInSync();
-    if (nsIDocShell* docShell = PresContext()->GetDocShell()) {
+    if (nsIDocShell* docShell = pc->GetDocShell()) {
       RefPtr<BrowsingContext> bc = docShell->GetBrowsingContext();
       mIsInObjectOrEmbed = bc->IsEmbedderTypeObjectOrEmbed() &&
-                           PresContext()->Document()->IsImageDocument();
+                           pc->Document()->IsImageDocument();
     }
   } else {
     const StyleImage* image = GetImageFromStyle();
@@ -539,9 +545,8 @@ void nsImageFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
                "Content image should only parse url() type");
     if (image->IsImageRequestType()) {
       if (imgRequestProxy* proxy = image->GetImageRequest()) {
-        proxy->Clone(mListener, PresContext()->Document(),
-                     getter_AddRefs(mContentURLRequest));
-        SetupForContentURLRequest();
+        proxy->Clone(mListener, pc->Document(), getter_AddRefs(mOwnedRequest));
+        SetupOwnedRequest();
       }
     }
   }
@@ -562,26 +567,26 @@ void nsImageFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
   MaybeSendIntrinsicSizeAndRatioToEmbedder();
 }
 
-void nsImageFrame::SetupForContentURLRequest() {
-  MOZ_ASSERT(mKind != Kind::ImageElement);
-  if (!mContentURLRequest) {
+void nsImageFrame::SetupOwnedRequest() {
+  MOZ_ASSERT(mKind != Kind::ImageLoadingContent);
+  if (!mOwnedRequest) {
     return;
   }
 
   // We're not using AssociateRequestToFrame for the content property, so we
   // need to add it to the image tracker manually.
-  PresContext()->Document()->ImageTracker()->Add(mContentURLRequest);
+  PresContext()->Document()->ImageTracker()->Add(mOwnedRequest);
 
   uint32_t status = 0;
-  nsresult rv = mContentURLRequest->GetImageStatus(&status);
+  nsresult rv = mOwnedRequest->GetImageStatus(&status);
   if (NS_FAILED(rv)) {
     return;
   }
 
   if (status & imgIRequest::STATUS_SIZE_AVAILABLE) {
     nsCOMPtr<imgIContainer> image;
-    mContentURLRequest->GetImage(getter_AddRefs(image));
-    OnSizeAvailable(mContentURLRequest, image);
+    mOwnedRequest->GetImage(getter_AddRefs(image));
+    OnSizeAvailable(mOwnedRequest, image);
   }
 
   if (status & imgIRequest::STATUS_FRAME_COMPLETE) {
@@ -589,8 +594,8 @@ void nsImageFrame::SetupForContentURLRequest() {
   }
 
   if (status & imgIRequest::STATUS_IS_ANIMATED) {
-    nsLayoutUtils::RegisterImageRequest(PresContext(), mContentURLRequest,
-                                        &mContentURLRequestRegistered);
+    nsLayoutUtils::RegisterImageRequest(PresContext(), mOwnedRequest,
+                                        &mOwnedRequestRegistered);
   }
 }
 
@@ -655,7 +660,7 @@ static IntrinsicSize ComputeIntrinsicSize(imgIContainer* aImage,
         }
       }
     }
-    if (aKind == nsImageFrame::Kind::ImageElement) {
+    if (aKind == nsImageFrame::Kind::ImageLoadingContent) {
       ScaleIntrinsicSizeForDensity(aImage, *aFrame.GetContent(), intrinsicSize);
     } else {
       ScaleIntrinsicSizeForDensity(intrinsicSize,
@@ -691,7 +696,7 @@ static IntrinsicSize ComputeIntrinsicSize(imgIContainer* aImage,
 // But we shouldn't get fooled by <img loading=lazy>. We do want to apply the
 // ratio then...
 bool nsImageFrame::ShouldUseMappedAspectRatio() const {
-  if (mKind != Kind::ImageElement) {
+  if (mKind != Kind::ImageLoadingContent) {
     return true;
   }
   nsCOMPtr<imgIRequest> currentRequest = GetCurrentRequest();
@@ -780,8 +785,8 @@ bool nsImageFrame::GetSourceToDestTransform(nsTransform2D& aTransform) {
 // mContent.
 bool nsImageFrame::IsPendingLoad(imgIRequest* aRequest) const {
   // Default to pending load in case of errors
-  if (mKind != Kind::ImageElement) {
-    MOZ_ASSERT(aRequest == mContentURLRequest);
+  if (mKind != Kind::ImageLoadingContent) {
+    MOZ_ASSERT(aRequest == mOwnedRequest);
     return false;
   }
 
@@ -913,9 +918,9 @@ void nsImageFrame::Notify(imgIRequest* aRequest, int32_t aType,
   }
 
   if (aType == imgINotificationObserver::IS_ANIMATED &&
-      mKind != Kind::ImageElement) {
-    nsLayoutUtils::RegisterImageRequest(PresContext(), mContentURLRequest,
-                                        &mContentURLRequestRegistered);
+      mKind != Kind::ImageLoadingContent) {
+    nsLayoutUtils::RegisterImageRequest(PresContext(), mOwnedRequest,
+                                        &mOwnedRequestRegistered);
   }
 
   if (aType == imgINotificationObserver::LOAD_COMPLETE) {
@@ -1078,7 +1083,7 @@ void nsImageFrame::ElementStateChanged(ElementState aStates) {
   if (!(aStates & ElementState::BROKEN)) {
     return;
   }
-  if (mKind != Kind::ImageElement) {
+  if (mKind != Kind::ImageLoadingContent) {
     return;
   }
   if (!ImageOk(mContent->AsElement()->State())) {
@@ -1205,7 +1210,7 @@ nsRect nsImageFrame::PredictedDestRect(const nsRect& aFrameContentBox) {
 }
 
 bool nsImageFrame::IsForMarkerPseudo() const {
-  if (mKind == Kind::ImageElement) {
+  if (mKind == Kind::ImageLoadingContent) {
     return false;
   }
   auto* subtreeRoot = GetContent()->GetClosestNativeAnonymousSubtreeRoot();
@@ -1332,7 +1337,7 @@ void nsImageFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
       ("enter nsImageFrame::Reflow: availSize=%d,%d",
        aReflowInput.AvailableWidth(), aReflowInput.AvailableHeight()));
 
-  MOZ_ASSERT(mState & NS_FRAME_IN_REFLOW, "frame is not in reflow");
+  MOZ_ASSERT(HasAnyStateBits(NS_FRAME_IN_REFLOW), "frame is not in reflow");
 
   // see if we have a frozen size (i.e. a fixed width and height)
   if (!SizeDependsOnIntrinsicSize(aReflowInput)) {
@@ -1368,7 +1373,7 @@ void nsImageFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
 
   if (aPresContext->IsPaginated() &&
       ((loadStatus & imgIRequest::STATUS_SIZE_AVAILABLE) ||
-       (mState & IMAGE_SIZECONSTRAINED)) &&
+       HasAnyStateBits(IMAGE_SIZECONSTRAINED)) &&
       NS_UNCONSTRAINEDSIZE != aReflowInput.AvailableHeight() &&
       aMetrics.Height() > aReflowInput.AvailableHeight()) {
     // our desired height was greater than 0, so to avoid infinite
@@ -1379,8 +1384,8 @@ void nsImageFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
   }
 
   aMetrics.SetOverflowAreasToDesiredBounds();
-  bool imageOK =
-      mKind != Kind::ImageElement || ImageOk(mContent->AsElement()->State());
+  bool imageOK = mKind != Kind::ImageLoadingContent ||
+                 ImageOk(mContent->AsElement()->State());
 
   // Determine if the size is available
   bool haveSize = false;
@@ -1667,8 +1672,8 @@ ImgDrawResult nsImageFrame::DisplayAltFeedback(gfxContext& aRenderingContext,
   MOZ_ASSERT(gIconLoad, "How did we succeed in Init then?");
 
   // Whether we draw the broken or loading icon.
-  bool isLoading =
-      mKind != Kind::ImageElement || ImageOk(mContent->AsElement()->State());
+  bool isLoading = mKind != Kind::ImageLoadingContent ||
+                   ImageOk(mContent->AsElement()->State());
 
   // Calculate the content area.
   nsRect inner = GetContentRectRelativeToSelf() + aPt;
@@ -1822,8 +1827,8 @@ ImgDrawResult nsImageFrame::DisplayAltFeedbackWithoutLayer(
   MOZ_ASSERT(gIconLoad, "How did we succeed in Init then?");
 
   // Whether we draw the broken or loading icon.
-  bool isLoading =
-      mKind != Kind::ImageElement || ImageOk(mContent->AsElement()->State());
+  bool isLoading = mKind != Kind::ImageLoadingContent ||
+                   ImageOk(mContent->AsElement()->State());
 
   // Calculate the content area.
   nsRect inner = GetContentRectRelativeToSelf() + aPt;
@@ -2072,7 +2077,7 @@ static bool OldImageHasDifferentRatio(const nsImageFrame& aFrame,
 
 #ifdef DEBUG
 void nsImageFrame::AssertSyncDecodingHintIsInSync() const {
-  if (!IsForElement()) {
+  if (!IsForImageLoadingContent()) {
     return;
   }
   nsCOMPtr<nsIImageLoadingContent> imageLoader = do_QueryInterface(mContent);
@@ -2304,11 +2309,11 @@ ImgDrawResult nsImageFrame::PaintImage(gfxContext& aRenderingContext,
 }
 
 already_AddRefed<imgIRequest> nsImageFrame::GetCurrentRequest() const {
-  if (mKind != Kind::ImageElement) {
-    return do_AddRef(mContentURLRequest);
+  if (mKind != Kind::ImageLoadingContent) {
+    return do_AddRef(mOwnedRequest);
   }
 
-  MOZ_ASSERT(!mContentURLRequest);
+  MOZ_ASSERT(!mOwnedRequest);
 
   nsCOMPtr<imgIRequest> request;
   nsCOMPtr<nsIImageLoadingContent> imageLoader = do_QueryInterface(mContent);
@@ -2341,15 +2346,15 @@ void nsImageFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       aBuilder, this, clipFlags);
 
   if (mComputedSize.width != 0 && mComputedSize.height != 0) {
-    bool imageOK =
-        mKind != Kind::ImageElement || ImageOk(mContent->AsElement()->State());
+    bool imageOK = mKind != Kind::ImageLoadingContent ||
+                   ImageOk(mContent->AsElement()->State());
 
     nsCOMPtr<imgIRequest> currentRequest = GetCurrentRequest();
 
     // XXX(seth): The SizeIsAvailable check here should not be necessary - the
     // intention is that a non-null mImage means we have a size, but there is
     // currently some code that violates this invariant.
-    if ((mKind == Kind::ImageElement ||
+    if ((mKind == Kind::ImageLoadingContent ||
          GetImageFromStyle()->IsImageRequestType()) &&
         (!imageOK || !mImage || !SizeIsAvailable(currentRequest))) {
       // No image yet, or image load failed. Draw the alt-text and an icon
@@ -2374,7 +2379,7 @@ void nsImageFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       if (mImage) {
         aLists.Content()->AppendNewToTop<nsDisplayImage>(aBuilder, this, mImage,
                                                          mPrevImage);
-      } else if (mKind != Kind::ImageElement) {
+      } else if (mKind != Kind::ImageLoadingContent) {
         aLists.Content()->AppendNewToTop<nsDisplayGradient>(aBuilder, this);
       }
 
@@ -2464,7 +2469,7 @@ bool nsImageFrame::GetAnchorHREFTargetAndNode(nsIURI** aHref, nsString& aTarget,
 }
 
 bool nsImageFrame::IsLeafDynamic() const {
-  if (mKind != Kind::ImageElement) {
+  if (mKind != Kind::ImageLoadingContent) {
     // Image frames created for "content: url()" could have an author-controlled
     // shadow root, we want to be a regular leaf for those.
     return true;
@@ -2616,7 +2621,7 @@ nsresult nsImageFrame::AttributeChanged(int32_t aNameSpaceID,
 
 void nsImageFrame::OnVisibilityChange(
     Visibility aNewVisibility, const Maybe<OnNonvisible>& aNonvisibleAction) {
-  if (mKind == Kind::ImageElement) {
+  if (mKind == Kind::ImageLoadingContent) {
     nsCOMPtr<nsIImageLoadingContent> imageLoader = do_QueryInterface(mContent);
     imageLoader->OnVisibilityChange(aNewVisibility, aNonvisibleAction);
   }

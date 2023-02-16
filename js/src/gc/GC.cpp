@@ -2075,12 +2075,6 @@ void GCRuntime::queueUnusedLifoBlocksForFree(LifoAlloc* lifo) {
   lifoBlocksToFree.ref().transferUnusedFrom(lifo);
 }
 
-void GCRuntime::queueAllLifoBlocksForFree(LifoAlloc* lifo) {
-  MOZ_ASSERT(JS::RuntimeHeapIsBusy());
-  AutoLockHelperThreadState lock;
-  lifoBlocksToFree.ref().transferFrom(lifo);
-}
-
 void GCRuntime::queueAllLifoBlocksForFreeAfterMinorGC(LifoAlloc* lifo) {
   lifoBlocksToFreeAfterMinorGC.ref().transferFrom(lifo);
 }
@@ -2772,7 +2766,6 @@ void GCRuntime::endPreparePhase(JS::GCReason reason) {
     // Discard JIT code. For incremental collections, the sweep phase will
     // also discard JIT code.
     discardJITCodeForGC();
-    startBackgroundFreeAfterMinorGC();
 
     /*
      * Relazify functions after discarding JIT code (we can't relazify
@@ -2798,6 +2791,8 @@ void GCRuntime::endPreparePhase(JS::GCReason reason) {
      * it. This object might never be marked, so a GC hazard would exist.
      */
     purgeRuntime();
+
+    startBackgroundFreeAfterMinorGC();
 
     if (isShutdownGC()) {
       /* Clear any engine roots that may hold external data live. */
@@ -3170,7 +3165,12 @@ GCRuntime::MarkQueueProgress GCRuntime::processTestMarkQueue() {
   return QueueComplete;
 }
 
-void GCRuntime::finishCollection() {
+static bool IsEmergencyGC(JS::GCReason reason) {
+  return reason == JS::GCReason::LAST_DITCH ||
+         reason == JS::GCReason::MEM_PRESSURE;
+}
+
+void GCRuntime::finishCollection(JS::GCReason reason) {
   assertBackgroundSweepingFinished();
 
   MOZ_ASSERT(!hasDelayedMarking());
@@ -3179,6 +3179,10 @@ void GCRuntime::finishCollection() {
   }
 
   maybeStopPretenuring();
+
+  if (IsEmergencyGC(reason)) {
+    waitBackgroundFreeEnd();
+  }
 
   TimeStamp currentTime = TimeStamp::Now();
 
@@ -3750,7 +3754,7 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
       [[fallthrough]];
 
     case State::Finish:
-      finishCollection();
+      finishCollection(reason);
       incrementalState = State::NotActive;
       break;
   }

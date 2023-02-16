@@ -6629,6 +6629,11 @@
   value: true
   mirror: always
 
+- name: gfx.webrender.svg-shapes
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 - name: gfx.webrender.debug.blob.paint-flashing
   type: RelaxedAtomicBool
   value: false
@@ -6919,6 +6924,15 @@
   type: RelaxedAtomicInt32
   value: 512
   mirror: always
+
+# WebRender upper bound for shared surface size
+# According to apitrace, textures larger than 2048 break fast clear
+# optimizations on some intel drivers. We sometimes need to go larger, but
+# we try to avoid it.
+- name: gfx.webrender.max-shared-surface-size
+  type: int32_t
+  value: 2048
+  mirror: once
 
 # Whether to use EGL robustness or not.
 - name: gfx.webrender.prefer-robustness
@@ -11379,6 +11393,13 @@
   value: true
   mirror: always
 
+# Whether to display auth prompts if X-Frame-Options header will block loading
+# page
+- name: network.auth.supress_auth_prompt_for_XFO_failures
+  type: bool
+  value: true
+  mirror: always
+
 # Whether to use new implementation of ParseReasm
 - name: network.auth.use_new_parse_realm
   type: RelaxedAtomicBool
@@ -13763,7 +13784,7 @@
 # WebAuthn CTAP2 support
 - name: security.webauthn.ctap2
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Block Worker/SharedWorker scripts with wrong MIME type.

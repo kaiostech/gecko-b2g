@@ -75,6 +75,19 @@ class HTMLEditUtils final {
   }
 
   /**
+   * Return true if inclusive flat tree ancestor has `inert` state.
+   */
+  static bool ContentIsInert(const nsIContent& aContent) {
+    for (const Element* element :
+         aContent.InclusiveFlatTreeAncestorsOfType<Element>()) {
+      if (element->State().HasState(dom::ElementState::INERT)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * IsNeverContentEditableElementByUser() returns true if the element's content
    * is never editable by user.  E.g., the content is always replaced by
    * native anonymous node or something.
@@ -1444,17 +1457,8 @@ class HTMLEditUtils final {
       return EditorDOMRangeType();
     }
     return EditorDOMRangeType(
-        typename EditorDOMRangeType::PointType(
-            firstListItem->GetFirstChild() &&
-                    firstListItem->GetFirstChild()->IsText()
-                ? firstListItem->GetFirstChild()
-                : static_cast<nsIContent*>(firstListItem),
-            0u),
-        EditorDOMRangeType::PointType::AtEndOf(
-            lastListItem->GetLastChild() &&
-                    lastListItem->GetLastChild()->IsText()
-                ? *lastListItem->GetFirstChild()
-                : static_cast<nsIContent&>(*lastListItem)));
+        typename EditorDOMRangeType::PointType(firstListItem, 0u),
+        EditorDOMRangeType::PointType::AtEndOf(*lastListItem));
   }
 
   /**

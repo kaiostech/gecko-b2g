@@ -6530,6 +6530,10 @@ bool HTMLMediaElement::HadCrossOriginRedirects() {
   return false;
 }
 
+bool HTMLMediaElement::ShouldResistFingerprinting() const {
+  return OwnerDoc()->ShouldResistFingerprinting();
+}
+
 already_AddRefed<nsIPrincipal> HTMLMediaElement::GetCurrentVideoPrincipal() {
   if (mDecoder) {
     return mDecoder->GetCurrentPrincipal();

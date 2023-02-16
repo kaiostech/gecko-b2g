@@ -277,6 +277,7 @@ class GCRuntime {
     MOZ_ASSERT(JS::shadow::Zone::from(zone)->isAtomsZone());
     return zone;
   }
+  Zone* maybeSharedAtomsZone() { return sharedAtomsZone_; }
 
   [[nodiscard]] bool freezeSharedAtomsZone();
   void restoreSharedAtomsZone();
@@ -600,7 +601,6 @@ class GCRuntime {
 
   // Queue memory memory to be freed on a background thread if possible.
   void queueUnusedLifoBlocksForFree(LifoAlloc* lifo);
-  void queueAllLifoBlocksForFree(LifoAlloc* lifo);
   void queueAllLifoBlocksForFreeAfterMinorGC(LifoAlloc* lifo);
   void queueBuffersForFreeAfterMinorGC(Nursery::BufferSet& buffers);
 
@@ -950,7 +950,7 @@ class GCRuntime {
 
   void maybeRequestGCAfterBackgroundTask(const AutoLockHelperThreadState& lock);
   void cancelRequestedGCAfterBackgroundTask();
-  void finishCollection();
+  void finishCollection(JS::GCReason reason);
   void maybeStopPretenuring();
   void checkGCStateNotInUse();
   IncrementalProgress joinBackgroundMarkTask();

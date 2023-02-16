@@ -142,11 +142,13 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AudioContext)
   NS_INTERFACE_MAP_ENTRY(nsIMemoryReporter)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-static float GetSampleRateForAudioContext(bool aIsOffline, float aSampleRate) {
+static float GetSampleRateForAudioContext(bool aIsOffline, float aSampleRate,
+                                          bool aShouldResistFingerprinting) {
   if (aIsOffline || aSampleRate != 0.0) {
     return aSampleRate;
   } else {
-    return static_cast<float>(CubebUtils::PreferredSampleRate());
+    return static_cast<float>(
+        CubebUtils::PreferredSampleRate(aShouldResistFingerprinting));
   }
 }
 
@@ -155,7 +157,9 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
                            uint32_t aLength, float aSampleRate)
     : DOMEventTargetHelper(aWindow),
       mId(gAudioContextId++),
-      mSampleRate(GetSampleRateForAudioContext(aIsOffline, aSampleRate)),
+      mSampleRate(GetSampleRateForAudioContext(
+           aIsOffline, aSampleRate,
+           aWindow->AsGlobal()->ShouldResistFingerprinting())),
       mAudioChannel(AudioChannelService::GetDefaultAudioChannel()),
       mAudioContextState(AudioContextState::Suspended),
       mNumberOfChannels(aNumberOfChannels),

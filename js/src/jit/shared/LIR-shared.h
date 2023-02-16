@@ -1916,7 +1916,7 @@ class LBigIntBitNot : public LUnaryMath<2> {
 // This instruction requires a temporary float register.
 class LValueToInt32 : public LInstructionHelper<1, BOX_PIECES, 2> {
  public:
-  enum Mode { NORMAL, TRUNCATE, TRUNCATE_NOWRAP };
+  enum Mode { NORMAL, TRUNCATE };
 
  private:
   Mode mode_;
@@ -1933,9 +1933,13 @@ class LValueToInt32 : public LInstructionHelper<1, BOX_PIECES, 2> {
   }
 
   const char* extraName() const {
-    return mode() == NORMAL     ? "Normal"
-           : mode() == TRUNCATE ? "Truncate"
-                                : "TruncateNoWrap";
+    switch (mode()) {
+      case NORMAL:
+        return "Normal";
+      case TRUNCATE:
+        return "Truncate";
+    }
+    MOZ_CRASH("Invalid mode");
   }
 
   static const size_t Input = 0;
@@ -1950,10 +1954,6 @@ class LValueToInt32 : public LInstructionHelper<1, BOX_PIECES, 2> {
   MTruncateToInt32* mirTruncate() const {
     MOZ_ASSERT(mode_ == TRUNCATE);
     return mir_->toTruncateToInt32();
-  }
-  MToIntegerInt32* mirTruncateNoWrap() const {
-    MOZ_ASSERT(mode_ == TRUNCATE_NOWRAP);
-    return mir_->toToIntegerInt32();
   }
   MInstruction* mir() const { return mir_->toInstruction(); }
 };

@@ -2645,8 +2645,7 @@ void LIRGenerator::visitToNumberInt32(MToNumberInt32* convert) {
                                               LValueToInt32::NORMAL);
       assignSnapshot(lir, convert->bailoutKind());
       define(lir, convert);
-      if (lir->mode() == LValueToInt32::TRUNCATE ||
-          lir->mode() == LValueToInt32::TRUNCATE_NOWRAP) {
+      if (lir->mode() == LValueToInt32::TRUNCATE) {
         assignSafepoint(lir, convert);
       }
       break;
@@ -2696,54 +2695,10 @@ void LIRGenerator::visitToNumberInt32(MToNumberInt32* convert) {
   }
 }
 
-void LIRGenerator::visitToIntegerInt32(MToIntegerInt32* convert) {
+void LIRGenerator::visitBooleanToInt32(MBooleanToInt32* convert) {
   MDefinition* opd = convert->input();
-
-  switch (opd->type()) {
-    case MIRType::Value: {
-      auto* lir = new (alloc()) LValueToInt32(useBox(opd), tempDouble(), temp(),
-                                              LValueToInt32::TRUNCATE_NOWRAP);
-      assignSnapshot(lir, convert->bailoutKind());
-      define(lir, convert);
-      assignSafepoint(lir, convert);
-      break;
-    }
-
-    case MIRType::Undefined:
-    case MIRType::Null:
-      define(new (alloc()) LInteger(0), convert);
-      break;
-
-    case MIRType::Boolean:
-    case MIRType::Int32:
-      redefine(convert, opd);
-      break;
-
-    case MIRType::Float32: {
-      auto* lir = new (alloc()) LFloat32ToIntegerInt32(useRegister(opd));
-      assignSnapshot(lir, convert->bailoutKind());
-      define(lir, convert);
-      break;
-    }
-
-    case MIRType::Double: {
-      auto* lir = new (alloc()) LDoubleToIntegerInt32(useRegister(opd));
-      assignSnapshot(lir, convert->bailoutKind());
-      define(lir, convert);
-      break;
-    }
-
-    case MIRType::String:
-    case MIRType::Symbol:
-    case MIRType::BigInt:
-    case MIRType::Object:
-      // Objects might be effectful. Symbols and BigInts throw.
-      // Strings are complicated - we don't handle them yet.
-      MOZ_CRASH("ToIntegerInt32 invalid input type");
-
-    default:
-      MOZ_CRASH("unexpected type");
-  }
+  MOZ_ASSERT(opd->type() == MIRType::Boolean);
+  redefine(convert, opd);
 }
 
 void LIRGenerator::visitTruncateToInt32(MTruncateToInt32* truncate) {
@@ -4926,6 +4881,14 @@ void LIRGenerator::visitLoadSlotByIteratorIndex(MLoadSlotByIteratorIndex* ins) {
       useRegisterAtStart(ins->object()), useRegisterAtStart(ins->iterator()),
       temp(), temp());
   defineBox(lir, ins);
+}
+
+void LIRGenerator::visitStoreSlotByIteratorIndex(
+    MStoreSlotByIteratorIndex* ins) {
+  auto* lir = new (alloc()) LStoreSlotByIteratorIndex(
+      useRegister(ins->object()), useRegister(ins->iterator()),
+      useBox(ins->value()), temp(), temp());
+  add(lir, ins);
 }
 
 void LIRGenerator::visitIteratorHasIndices(MIteratorHasIndices* ins) {

@@ -406,10 +406,10 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
       NS_FAILED(obs->AddObserver(this, kNetworkConnStateChangedTopic, false))) {
     ERR("Failed to add network connection state changed observer!");
   }
-#endif  // MOZ_B2G_RIL
 
   // Listen TelephonyService for updating gIsInEmergencySession
   ListenTelephonyService(true);
+#endif  // MOZ_B2G_RIL
 }
 
 GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
@@ -450,10 +450,10 @@ GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
       NS_FAILED(obs->RemoveObserver(this, kNetworkConnStateChangedTopic))) {
     ERR("Failed to remove network connection state changed observer!");
   }
-#endif  // MOZ_B2G_RIL
 
   // Stop listen TelephonyService
   ListenTelephonyService(false);
+#endif  // MOZ_B2G_RIL
 }
 
 already_AddRefed<GonkGPSGeolocationProvider>

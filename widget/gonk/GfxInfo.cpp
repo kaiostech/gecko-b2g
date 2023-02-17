@@ -303,6 +303,8 @@ nsresult GfxInfo::GetFeatureStatusImpl(
     } else {
       *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
     }
+  } else if (aFeature == FEATURE_WEBGL_OPENGL) {
+    *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
   } else {
     return GfxInfoBase::GetFeatureStatusImpl(aFeature, aStatus,
                                              aSuggestedDriverVersion,

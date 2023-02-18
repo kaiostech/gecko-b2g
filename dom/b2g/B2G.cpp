@@ -193,6 +193,11 @@ bool B2G::CheckPermission(const nsACString& aType,
     return false;
   }
 
+  // Always grant all permissions to chrome callers.
+  if (principal->IsSystemPrincipal()) {
+    return true;
+  }
+
   nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
   if (NS_WARN_IF(!permMgr)) {
     return false;

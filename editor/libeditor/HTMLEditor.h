@@ -744,17 +744,22 @@ class HTMLEditor final : public EditorBase,
                             uint32_t aLength);
 
   /**
-   * ReplaceTextWithTransaction() replaces text in the range with
-   * aStringToInsert.
+   * Replace text in the range with aStringToInsert.  If there is a DOM range
+   * exactly same as the replacing range, it'll be collapsed to
+   * {aTextNode, aOffset} because of the order of deletion and insertion.
+   * Therefore, the callers may need to handle `Selection` even when callers
+   * do not want to update `Selection`.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult ReplaceTextWithTransaction(
-      dom::Text& aTextNode, uint32_t aOffset, uint32_t aLength,
-      const nsAString& aStringToInsert);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<InsertTextResult, nsresult>
+  ReplaceTextWithTransaction(dom::Text& aTextNode, uint32_t aOffset,
+                             uint32_t aLength,
+                             const nsAString& aStringToInsert);
 
   /**
-   * InsertTextWithTransaction() inserts aStringToInsert at aPointToInsert.
+   * Insert aStringToInsert to aPointToInsert.  If the point is not editable,
+   * this returns error.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<InsertTextResult, nsresult>
   InsertTextWithTransaction(Document& aDocument,
                             const nsAString& aStringToInsert,
                             const EditorDOMPoint& aPointToInsert) final;
@@ -2001,7 +2006,7 @@ class HTMLEditor final : public EditorBase,
     Forward,
     Backward,
   };
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<CaretPoint, nsresult>
   DeleteTextAndNormalizeSurroundingWhiteSpaces(
       const EditorDOMPointInText& aStartToDelete,
       const EditorDOMPointInText& aEndToDelete,

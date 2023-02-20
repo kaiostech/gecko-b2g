@@ -4465,6 +4465,7 @@ bool BaseCompiler::emitThrow() {
         pushPtr(data);
         // emitBarrieredStore preserves exn, rv
         if (!emitBarrieredStore(Some(exn), valueAddr, rv,
+                                PreBarrierKind::Normal,
                                 PostBarrierKind::Imprecise)) {
           return false;
         }
@@ -5380,7 +5381,7 @@ bool BaseCompiler::emitSetGlobal() {
       }
       RegRef rv = popRef();
       // emitBarrieredStore preserves rv
-      if (!emitBarrieredStore(Nothing(), valueAddr, rv,
+      if (!emitBarrieredStore(Nothing(), valueAddr, rv, PreBarrierKind::Normal,
                               PostBarrierKind::Imprecise)) {
         return false;
       }
@@ -6194,7 +6195,7 @@ bool BaseCompiler::emitTableSetAnyRef(uint32_t tableIndex) {
   value = popRef();
 #endif
 
-  if (!emitBarrieredStore(Nothing(), valueAddr, value,
+  if (!emitBarrieredStore(Nothing(), valueAddr, value, PreBarrierKind::Normal,
                           PostBarrierKind::Precise)) {
     return false;
   }
@@ -6229,7 +6230,7 @@ void BaseCompiler::emitPreBarrier(RegPtr valueAddr) {
 #endif
 
   EmitWasmPreBarrierGuard(masm, instance, scratch, valueAddr,
-                          /*valueOffset=*/0, &skipBarrier);
+                          /*valueOffset=*/0, &skipBarrier, nullptr);
 
 #ifndef RABALDR_PIN_INSTANCE
   fr.loadInstancePtr(instance);
@@ -6310,18 +6311,21 @@ bool BaseCompiler::emitPostBarrierPrecise(const Maybe<RegRef>& object,
 
 bool BaseCompiler::emitBarrieredStore(const Maybe<RegRef>& object,
                                       RegPtr valueAddr, RegRef value,
-                                      PostBarrierKind kind) {
+                                      PreBarrierKind preBarrierKind,
+                                      PostBarrierKind postBarrierKind) {
   // TODO/AnyRef-boxing: With boxed immediates and strings, the write
   // barrier is going to have to be more complicated.
   ASSERT_ANYREF_IS_JSOBJECT;
 
   // The pre-barrier preserves all allocated registers.
-  emitPreBarrier(valueAddr);
+  if (preBarrierKind == PreBarrierKind::Normal) {
+    emitPreBarrier(valueAddr);
+  }
 
   // The precise post-barrier requires the previous value stored in the field,
   // in order to know if the previous store buffer entry needs to be removed.
   RegRef prevValue;
-  if (kind == PostBarrierKind::Precise) {
+  if (postBarrierKind == PostBarrierKind::Precise) {
     prevValue = needRef();
     masm.loadPtr(Address(valueAddr, 0), prevValue);
   }
@@ -6330,7 +6334,7 @@ bool BaseCompiler::emitBarrieredStore(const Maybe<RegRef>& object,
   masm.storePtr(value, Address(valueAddr, 0));
 
   // The post-barrier preserves object and value.
-  if (kind == PostBarrierKind::Precise) {
+  if (postBarrierKind == PostBarrierKind::Precise) {
     return emitPostBarrierPrecise(object, valueAddr, prevValue, value);
   }
   return emitPostBarrierImprecise(object, valueAddr, value);
@@ -6580,7 +6584,8 @@ void BaseCompiler::emitGcSetScalar(const T& dst, FieldType type, AnyReg value) {
 template <typename NullCheckPolicy>
 bool BaseCompiler::emitGcStructSet(RegRef object, RegPtr areaBase,
                                    uint32_t areaOffset, FieldType fieldType,
-                                   AnyReg value) {
+                                   AnyReg value,
+                                   PreBarrierKind preBarrierKind) {
   // Easy path if the field is a scalar
   if (!fieldType.isRefRepr()) {
     emitGcSetScalar<Address, NullCheckPolicy>(Address(areaBase, areaOffset),
@@ -6598,7 +6603,7 @@ bool BaseCompiler::emitGcStructSet(RegRef object, RegPtr areaBase,
   NullCheckPolicy::emitNullCheck(this, object);
 
   // emitBarrieredStore preserves object and value
-  if (!emitBarrieredStore(Some(object), valueAddr, value.ref(),
+  if (!emitBarrieredStore(Some(object), valueAddr, value.ref(), preBarrierKind,
                           PostBarrierKind::Imprecise)) {
     return false;
   }
@@ -6608,7 +6613,8 @@ bool BaseCompiler::emitGcStructSet(RegRef object, RegPtr areaBase,
 }
 
 bool BaseCompiler::emitGcArraySet(RegRef object, RegPtr data, RegI32 index,
-                                  const ArrayType& arrayType, AnyReg value) {
+                                  const ArrayType& arrayType, AnyReg value,
+                                  PreBarrierKind preBarrierKind) {
   // Try to use a base index store instruction if the field type fits in a
   // shift immediate. If not we shift the index manually and then unshift
   // it after the store. We don't use an extra register for this because we
@@ -6647,7 +6653,7 @@ bool BaseCompiler::emitGcArraySet(RegRef object, RegPtr data, RegI32 index,
   pushI32(index);
 
   // emitBarrieredStore preserves object and value
-  if (!emitBarrieredStore(Some(object), valueAddr, value.ref(),
+  if (!emitBarrieredStore(Some(object), valueAddr, value.ref(), preBarrierKind,
                           PostBarrierKind::Imprecise)) {
     return false;
   }
@@ -6672,10 +6678,10 @@ bool BaseCompiler::emitStructNew() {
 
   const StructType& structType = (*moduleEnv_.types)[typeIndex].structType();
 
-  // Allocate a default initialized struct. This requires the type definition
+  // Allocate an uninitialized struct. This requires the type definition
   // for the struct to be pushed on the stack. This will trap on OOM.
   pushPtr(loadTypeDefInstanceData(typeIndex));
-  if (!emitInstanceCall(SASigStructNew)) {
+  if (!emitInstanceCall(SASigStructNewUninit)) {
     return false;
   }
 
@@ -6685,12 +6691,14 @@ bool BaseCompiler::emitStructNew() {
   // but to do better we need a bit more machinery to load elements off the
   // stack into registers.
 
+  bool isOutlineStruct = structType.size_ > WasmStructObject_MaxInlineBytes;
+
   // Reserve this register early if we will need it so that it is not taken by
   // any register used in this function.
   needPtr(RegPtr(PreBarrierReg));
 
-  RegRef rp = popRef();
-  RegPtr rbase = needPtr();
+  RegRef object = popRef();
+  RegPtr outlineBase = isOutlineStruct ? needPtr() : RegPtr();
 
   // Free the barrier reg after we've allocated all registers
   freePtr(RegPtr(PreBarrierReg));
@@ -6699,7 +6707,7 @@ bool BaseCompiler::emitStructNew() {
   // zero/null we need store nothing.  This case may be somewhat common
   // because struct.new forces a value to be specified for every field.
 
-  // Optimization opportunity: this loop reestablishes the area base pointer
+  // Optimization opportunity: this loop reestablishes the outline base pointer
   // every iteration, which really isn't very clever.  It would be better to
   // establish it once before we start, then re-set it if/when we transition
   // from the out-of-line area back to the in-line area.  That would however
@@ -6717,35 +6725,42 @@ bool BaseCompiler::emitStructNew() {
     WasmStructObject::fieldOffsetToAreaAndOffset(fieldType, fieldOffset,
                                                  &areaIsOutline, &areaOffset);
 
-    // Make rbase point at the first byte of the relevant area
-    if (areaIsOutline) {
-      masm.loadPtr(Address(rp, WasmStructObject::offsetOfOutlineData()), rbase);
-    } else {
-      masm.computeEffectiveAddress(
-          Address(rp, WasmStructObject::offsetOfInlineData()), rbase);
-    }
-
     // Reserve the barrier reg if we might need it for this store
     if (fieldType.isRefRepr()) {
       needPtr(RegPtr(PreBarrierReg));
     }
-
     AnyReg value = popAny();
-
     // Free the barrier reg now that we've loaded the value
     if (fieldType.isRefRepr()) {
       freePtr(RegPtr(PreBarrierReg));
     }
 
-    // Consumes value. rp is unchanged by this call.
-    if (!emitGcStructSet<NoNullCheck>(rp, rbase, areaOffset, fieldType,
-                                      value)) {
-      return false;
+    if (areaIsOutline) {
+      // Load the outline data pointer
+      masm.loadPtr(Address(object, WasmStructObject::offsetOfOutlineData()),
+                   outlineBase);
+
+      // Consumes value and outline data, object is preserved by this call.
+      if (!emitGcStructSet<NoNullCheck>(object, outlineBase, areaOffset,
+                                        fieldType, value,
+                                        PreBarrierKind::None)) {
+        return false;
+      }
+    } else {
+      // Consumes value. object is unchanged by this call.
+      if (!emitGcStructSet<NoNullCheck>(
+              object, RegPtr(object),
+              WasmStructObject::offsetOfInlineData() + areaOffset, fieldType,
+              value, PreBarrierKind::None)) {
+        return false;
+      }
     }
   }
 
-  freePtr(rbase);
-  pushRef(rp);
+  if (isOutlineStruct) {
+    freePtr(outlineBase);
+  }
+  pushRef(object);
 
   return true;
 }
@@ -6779,8 +6794,6 @@ bool BaseCompiler::emitStructGet(FieldWideningOp wideningOp) {
 
   const StructType& structType = (*moduleEnv_.types)[typeIndex].structType();
 
-  RegRef rp = popRef();
-
   // Decide whether we're accessing inline or outline, and at what offset
   FieldType fieldType = structType.fields_[fieldIndex].type;
   uint32_t fieldOffset = structType.fields_[fieldIndex].offset;
@@ -6790,24 +6803,23 @@ bool BaseCompiler::emitStructGet(FieldWideningOp wideningOp) {
   WasmStructObject::fieldOffsetToAreaAndOffset(fieldType, fieldOffset,
                                                &areaIsOutline, &areaOffset);
 
-  // Make rbase point at the first byte of the relevant area
-  RegPtr rbase = needPtr();
+  RegRef object = popRef();
   if (areaIsOutline) {
+    RegPtr outlineBase = needPtr();
     SignalNullCheck::emitTrapSite(this);
-    masm.loadPtr(Address(rp, WasmStructObject::offsetOfOutlineData()), rbase);
+    masm.loadPtr(Address(object, WasmStructObject::offsetOfOutlineData()),
+                 outlineBase);
     // Load the value
     emitGcGet<Address, NoNullCheck>(fieldType, wideningOp,
-                                    Address(rbase, areaOffset));
+                                    Address(outlineBase, areaOffset));
+    freePtr(outlineBase);
   } else {
-    masm.computeEffectiveAddress(
-        Address(rp, WasmStructObject::offsetOfInlineData()), rbase);
     // Load the value
-    emitGcGet<Address, SignalNullCheck>(fieldType, wideningOp,
-                                        Address(rbase, areaOffset));
+    emitGcGet<Address, SignalNullCheck>(
+        fieldType, wideningOp,
+        Address(object, WasmStructObject::offsetOfInlineData() + areaOffset));
   }
-
-  freePtr(rbase);
-  freeRef(rp);
+  freeRef(object);
 
   return true;
 }
@@ -6827,21 +6839,6 @@ bool BaseCompiler::emitStructSet() {
   const StructType& structType = (*moduleEnv_.types)[typeIndex].structType();
   const StructField& structField = structType.fields_[fieldIndex];
 
-  // Reserve this register early if we will need it so that it is not taken by
-  // any register used in this function.
-  if (structField.type.isRefRepr()) {
-    needPtr(RegPtr(PreBarrierReg));
-  }
-
-  RegPtr rbase = needPtr();
-  AnyReg value = popAny();
-  RegRef rp = popRef();
-
-  // Free the barrier reg after we've allocated all registers
-  if (structField.type.isRefRepr()) {
-    freePtr(RegPtr(PreBarrierReg));
-  }
-
   // Decide whether we're accessing inline or outline, and at what offset
   FieldType fieldType = structType.fields_[fieldIndex].type;
   uint32_t fieldOffset = structType.fields_[fieldIndex].offset;
@@ -6851,26 +6848,45 @@ bool BaseCompiler::emitStructSet() {
   WasmStructObject::fieldOffsetToAreaAndOffset(fieldType, fieldOffset,
                                                &areaIsOutline, &areaOffset);
 
-  // Make rbase point at the first byte of the relevant area
+  // Reserve this register early if we will need it so that it is not taken by
+  // any register used in this function.
+  if (structField.type.isRefRepr()) {
+    needPtr(RegPtr(PreBarrierReg));
+  }
+
+  RegPtr outlineBase = areaIsOutline ? needPtr() : RegPtr();
+  AnyReg value = popAny();
+  RegRef object = popRef();
+
+  // Free the barrier reg after we've allocated all registers
+  if (structField.type.isRefRepr()) {
+    freePtr(RegPtr(PreBarrierReg));
+  }
+
+  // Make outlineBase point at the first byte of the relevant area
   if (areaIsOutline) {
     SignalNullCheck::emitTrapSite(this);
-    masm.loadPtr(Address(rp, WasmStructObject::offsetOfOutlineData()), rbase);
-    if (!emitGcStructSet<NoNullCheck>(rp, rbase, areaOffset, fieldType,
-                                      value)) {
+    masm.loadPtr(Address(object, WasmStructObject::offsetOfOutlineData()),
+                 outlineBase);
+    if (!emitGcStructSet<NoNullCheck>(object, outlineBase, areaOffset,
+                                      fieldType, value,
+                                      PreBarrierKind::Normal)) {
       return false;
     }
   } else {
-    masm.computeEffectiveAddress(
-        Address(rp, WasmStructObject::offsetOfInlineData()), rbase);
-    // Consumes value. rp is unchanged by this call.
-    if (!emitGcStructSet<SignalNullCheck>(rp, rbase, areaOffset, fieldType,
-                                          value)) {
+    // Consumes value. object is unchanged by this call.
+    if (!emitGcStructSet<SignalNullCheck>(
+            object, RegPtr(object),
+            WasmStructObject::offsetOfInlineData() + areaOffset, fieldType,
+            value, PreBarrierKind::Normal)) {
       return false;
     }
   }
 
-  freePtr(rbase);
-  freeRef(rp);
+  if (areaIsOutline) {
+    freePtr(outlineBase);
+  }
+  freeRef(object);
 
   return true;
 }
@@ -6888,10 +6904,10 @@ bool BaseCompiler::emitArrayNew() {
 
   const ArrayType& arrayType = (*moduleEnv_.types)[typeIndex].arrayType();
 
-  // Allocate a default initialized array. This requires the type definition
+  // Allocate an uninitialized array. This requires the type definition
   // for the array to be pushed on the stack. This will trap on OOM.
   pushPtr(loadTypeDefInstanceData(typeIndex));
-  if (!emitInstanceCall(SASigArrayNew)) {
+  if (!emitInstanceCall(SASigArrayNewUninit)) {
     return false;
   }
 
@@ -6927,7 +6943,8 @@ bool BaseCompiler::emitArrayNew() {
   masm.sub32(Imm32(1), numElements);
 
   // Assign value to array[numElements]. All registers are preserved
-  if (!emitGcArraySet(rp, rdata, numElements, arrayType, value)) {
+  if (!emitGcArraySet(rp, rdata, numElements, arrayType, value,
+                      PreBarrierKind::None)) {
     return false;
   }
 
@@ -7005,7 +7022,8 @@ bool BaseCompiler::emitArrayNewFixed() {
     if (avoidPreBarrierReg) {
       freePtr(RegPtr(PreBarrierReg));
     }
-    if (!emitGcArraySet(rp, rdata, index, arrayType, value)) {
+    if (!emitGcArraySet(rp, rdata, index, arrayType, value,
+                        PreBarrierKind::None)) {
       return false;
     }
     freeI32(index);
@@ -7161,7 +7179,8 @@ bool BaseCompiler::emitArraySet() {
   // All registers are preserved. This isn't strictly necessary, as we'll just
   // be freeing them all after this is done. But this is needed for repeated
   // assignments used in array.new/new_default.
-  if (!emitGcArraySet(rp, rdata, index, arrayType, value)) {
+  if (!emitGcArraySet(rp, rdata, index, arrayType, value,
+                      PreBarrierKind::Normal)) {
     return false;
   }
 

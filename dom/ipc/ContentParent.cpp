@@ -3771,7 +3771,7 @@ mozilla::ipc::IPCResult ContentParent::RecvGetClipboard(
   clipboard->GetData(trans, aWhichClipboard);
 
   nsContentUtils::TransferableToIPCTransferable(
-      trans, aDataTransfer, true /* aInSyncMessage */, nullptr, this);
+      trans, aDataTransfer, true /* aInSyncMessage */, this);
   return IPC_OK();
 }
 
@@ -3853,8 +3853,7 @@ mozilla::ipc::IPCResult ContentParent::RecvGetClipboardAsync(
                  GenericPromise::ResolveOrRejectValue&& aValue) {
                IPCDataTransfer ipcDataTransfer;
                nsContentUtils::TransferableToIPCTransferable(
-                   trans, &ipcDataTransfer, false /* aInSyncMessage */, nullptr,
-                   self);
+                   trans, &ipcDataTransfer, false /* aInSyncMessage */, self);
                aResolver(std::move(ipcDataTransfer));
              });
   return IPC_OK();
@@ -4436,7 +4435,9 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
 
     // only broadcast the cookie change to content processes that need it
     const Cookie& cookie = xpcCookie->AsCookie();
-    if (!cs->CookieMatchesContentList(cookie)) {
+
+    // do not send cookie if content process does not have similar cookie
+    if (!cs->ContentProcessHasCookie(cookie)) {
       return NS_OK;
     }
 
@@ -6101,7 +6102,7 @@ void ContentParent::MaybeInvokeDragSession(BrowserParent* aParent) {
           aParent ? aParent->GetLoadContext() : nullptr;
       nsCOMPtr<nsIArray> transferables = transfer->GetTransferables(lc);
       nsContentUtils::TransferablesToIPCTransferables(
-          transferables, dataTransfers, false, nullptr, this);
+          transferables, dataTransfers, false, this);
       uint32_t action;
       session->GetDragAction(&action);
 

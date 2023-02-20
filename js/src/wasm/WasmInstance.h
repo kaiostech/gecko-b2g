@@ -41,6 +41,10 @@ class WasmBreakpointSite;
 class WasmStructObject;
 class WasmArrayObject;
 
+namespace gc {
+class StoreBuffer;
+}  // namespace gc
+
 namespace wasm {
 
 using mozilla::Atomic;
@@ -146,6 +150,9 @@ class alignas(16) Instance {
 
   // Address of the JitRuntime's object prebarrier trampoline
   void* preBarrierCode_;
+
+  // Address of the store buffer for this instance
+  gc::StoreBuffer* storeBuffer_;
 
   // Weak pointer to WasmInstanceObject that owns this instance
   WeakHeapPtr<WasmInstanceObject*> object_;
@@ -454,18 +461,20 @@ class alignas(16) Instance {
   static int32_t wake_m64(Instance* instance, uint64_t byteOffset,
                           int32_t count);
   static void* refFunc(Instance* instance, uint32_t funcIndex);
-  static void preBarrierFiltering(Instance* instance, gc::Cell** location);
   static void postBarrier(Instance* instance, gc::Cell** location);
   static void postBarrierPrecise(Instance* instance, JSObject** location,
                                  JSObject* prev);
   static void postBarrierPreciseWithOffset(Instance* instance, JSObject** base,
                                            uint32_t offset, JSObject* prev);
-  static void postBarrierFiltering(Instance* instance, gc::Cell** location);
-  static void* structNew(Instance* instance, TypeDefInstanceData* typeDefData);
   static void* exceptionNew(Instance* instance, JSObject* tag);
   static int32_t throwException(Instance* instance, JSObject* exn);
+  static void* structNew(Instance* instance, TypeDefInstanceData* typeDefData);
+  static void* structNewUninit(Instance* instance,
+                               TypeDefInstanceData* typeDefData);
   static void* arrayNew(Instance* instance, uint32_t numElements,
                         TypeDefInstanceData* typeDefData);
+  static void* arrayNewUninit(Instance* instance, uint32_t numElements,
+                              TypeDefInstanceData* typeDefData);
   static void* arrayNewData(Instance* instance, uint32_t segByteOffset,
                             uint32_t numElements,
                             TypeDefInstanceData* typeDefData,

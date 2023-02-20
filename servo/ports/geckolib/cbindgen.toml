@@ -258,6 +258,7 @@ include = [
   "DProperty",
   "ImageRendering",
   "PrintColorAdjust",
+  "ForcedColorAdjust",
   "ScrollbarGutter",
   "ScrollDirection",
   "HyphenateCharacter",

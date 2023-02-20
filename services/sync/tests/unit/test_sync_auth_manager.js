@@ -15,11 +15,11 @@ const {
 const { HawkClient } = ChromeUtils.import(
   "resource://services-common/hawkclient.js"
 );
-const { FxAccounts } = ChromeUtils.import(
-  "resource://gre/modules/FxAccounts.jsm"
+const { FxAccounts } = ChromeUtils.importESModule(
+  "resource://gre/modules/FxAccounts.sys.mjs"
 );
-const { FxAccountsClient } = ChromeUtils.import(
-  "resource://gre/modules/FxAccountsClient.jsm"
+const { FxAccountsClient } = ChromeUtils.importESModule(
+  "resource://gre/modules/FxAccountsClient.sys.mjs"
 );
 const {
   ERRNO_INVALID_AUTH_TOKEN,
@@ -34,6 +34,9 @@ const { Status } = ChromeUtils.importESModule(
 );
 const { TokenServerClient, TokenServerClientServerError } = ChromeUtils.import(
   "resource://services-common/tokenserverclient.js"
+);
+const { AccountState } = ChromeUtils.importESModule(
+  "resource://gre/modules/FxAccounts.sys.mjs"
 );
 
 const SECOND_MS = 1000;

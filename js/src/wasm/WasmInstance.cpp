@@ -1138,20 +1138,11 @@ static int32_t MemDiscardNotShared(Instance* instance, I byteOffset, I byteLen,
 //
 // Object support.
 
-/* static */ void Instance::preBarrierFiltering(Instance* instance,
-                                                gc::Cell** location) {
-  MOZ_ASSERT(SASigPreBarrierFiltering.failureMode == FailureMode::Infallible);
-  MOZ_ASSERT(location);
-  gc::PreWriteBarrier(*reinterpret_cast<JSObject**>(location));
-}
-
 /* static */ void Instance::postBarrier(Instance* instance,
                                         gc::Cell** location) {
   MOZ_ASSERT(SASigPostBarrier.failureMode == FailureMode::Infallible);
   MOZ_ASSERT(location);
-  JSContext* cx = instance->cx();
-  cx->runtime()->gc.storeBuffer().putCell(
-      reinterpret_cast<JSObject**>(location));
+  instance->storeBuffer_->putCell(reinterpret_cast<JSObject**>(location));
 }
 
 /* static */ void Instance::postBarrierPrecise(Instance* instance,
@@ -1173,18 +1164,6 @@ static int32_t MemDiscardNotShared(Instance* instance, I byteOffset, I byteLen,
   JSObject::postWriteBarrier(location, prev, next);
 }
 
-/* static */ void Instance::postBarrierFiltering(Instance* instance,
-                                                 gc::Cell** location) {
-  MOZ_ASSERT(SASigPostBarrierFiltering.failureMode == FailureMode::Infallible);
-  MOZ_ASSERT(location);
-  if (*location == nullptr || !gc::IsInsideNursery(*location)) {
-    return;
-  }
-  JSContext* cx = instance->cx();
-  cx->runtime()->gc.storeBuffer().putCell(
-      reinterpret_cast<JSObject**>(location));
-}
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // GC and exception handling support.
@@ -1196,7 +1175,25 @@ static int32_t MemDiscardNotShared(Instance* instance, I byteOffset, I byteLen,
 
   const TypeDef* typeDef = typeDefData->typeDef;
   WasmGcObject::AllocArgs args(cx, typeDefData);
+  // Update the initial heap to take into account pre-tenuring.
+  if (typeDefData->clasp == &WasmStructObject::classInline_) {
+    args.initialHeap = typeDefData->allocSite.initialHeap();
+  }
   return WasmStructObject::createStruct(cx, typeDef, args);
+}
+
+/* static */ void* Instance::structNewUninit(Instance* instance,
+                                             TypeDefInstanceData* typeDefData) {
+  MOZ_ASSERT(SASigStructNew.failureMode == FailureMode::FailOnNullPtr);
+  JSContext* cx = instance->cx();
+
+  const TypeDef* typeDef = typeDefData->typeDef;
+  WasmGcObject::AllocArgs args(cx, typeDefData);
+  // Update the initial heap to take into account pre-tenuring.
+  if (typeDefData->clasp == &WasmStructObject::classInline_) {
+    args.initialHeap = typeDefData->allocSite.initialHeap();
+  }
+  return WasmStructObject::createStruct<false>(cx, typeDef, args);
 }
 
 /* static */ void* Instance::arrayNew(Instance* instance, uint32_t numElements,
@@ -1206,7 +1203,22 @@ static int32_t MemDiscardNotShared(Instance* instance, I byteOffset, I byteLen,
 
   const TypeDef* typeDef = typeDefData->typeDef;
   WasmGcObject::AllocArgs args(cx, typeDefData);
+  // Arrays can only be allocated in the tenured heap, so don't use the
+  // allocation site for pretenuring yet.
   return WasmArrayObject::createArray(cx, typeDef, numElements, args);
+}
+
+/* static */ void* Instance::arrayNewUninit(Instance* instance,
+                                            uint32_t numElements,
+                                            TypeDefInstanceData* typeDefData) {
+  MOZ_ASSERT(SASigArrayNew.failureMode == FailureMode::FailOnNullPtr);
+  JSContext* cx = instance->cx();
+
+  const TypeDef* typeDef = typeDefData->typeDef;
+  WasmGcObject::AllocArgs args(cx, typeDefData);
+  // Arrays can only be allocated in the tenured heap, so don't use the
+  // allocation site for pretenuring yet.
+  return WasmArrayObject::createArray<false>(cx, typeDef, numElements, args);
 }
 
 // Creates an array (WasmArrayObject) containing `numElements` of type
@@ -1575,6 +1587,7 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
           cx->runtime()->jitRuntime()->getExceptionTail().value),
       preBarrierCode_(
           cx->runtime()->jitRuntime()->preBarrier(MIRType::Object).value),
+      storeBuffer_(&cx->runtime()->gc.storeBuffer()),
       object_(object),
       code_(std::move(code)),
       memory_(memory),
@@ -1721,6 +1734,7 @@ bool Instance::init(JSContext* cx, const JSObjectVector& funcImports,
   // Initialize type definitions in the instance data.
   const SharedTypeContext& types = metadata().types;
   WasmGcObject::AllocArgs allocArgs(cx);
+  Zone* zone = realm()->zone();
   for (uint32_t typeIndex = 0; typeIndex < types->length(); typeIndex++) {
     const TypeDef& typeDef = types->type(typeIndex);
     TypeDefInstanceData* typeDefData = typeDefInstanceData(typeIndex);
@@ -1742,6 +1756,9 @@ bool Instance::init(JSContext* cx, const JSObjectVector& funcImports,
       typeDefData->clasp = allocArgs.clasp;
       typeDefData->allocKind = allocArgs.allocKind;
       typeDefData->initialHeap = allocArgs.initialHeap;
+
+      // Initialize the allocation site for pre-tenuring.
+      typeDefData->allocSite.initWasm(zone);
     }
   }
 
@@ -2361,8 +2378,6 @@ bool Instance::callExport(JSContext* cx, uint32_t funcIndex, CallArgs args,
       return false;
     }
     if (type.isRefRepr()) {
-      // Ensure we don't have a temporarily unsupported Ref type in callExport
-      MOZ_RELEASE_ASSERT(!type.isTypeRef());
       void* ptr = *reinterpret_cast<void**>(rawArgLoc);
       // Store in rooted array until no more GC is possible.
       RootedAnyRef ref(cx, AnyRef::fromCompiledCode(ptr));
@@ -2480,6 +2495,7 @@ WasmStructObject* Instance::constantStructNewDefault(JSContext* cx,
   TypeDefInstanceData* typeDefData = typeDefInstanceData(typeIndex);
   const TypeDef* typeDef = typeDefData->typeDef;
   WasmGcObject::AllocArgs args(cx, typeDefData);
+  args.initialHeap = gc::TenuredHeap;
   return WasmStructObject::createStruct(cx, typeDef, args);
 }
 
@@ -2489,6 +2505,7 @@ WasmArrayObject* Instance::constantArrayNewDefault(JSContext* cx,
   TypeDefInstanceData* typeDefData = typeDefInstanceData(typeIndex);
   const TypeDef* typeDef = typeDefData->typeDef;
   WasmGcObject::AllocArgs args(cx, typeDefData);
+  args.initialHeap = gc::TenuredHeap;
   return WasmArrayObject::createArray(cx, typeDef, numElements, args);
 }
 

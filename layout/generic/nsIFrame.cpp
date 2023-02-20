@@ -2395,18 +2395,27 @@ already_AddRefed<ComputedStyle> nsIFrame::ComputeSelectionStyle(
       aSelectionStatus != nsISelectionController::SELECTION_DISABLED) {
     return nullptr;
   }
-  // When in high-contrast mode, the style system ends up ignoring the color
-  // declarations, which means that the ::selection style becomes the inherited
-  // color, and default background. That's no good.
-  if (PresContext()->ForcingColors()) {
-    return nullptr;
-  }
   Element* element = FindElementAncestorForMozSelection(GetContent());
   if (!element) {
     return nullptr;
   }
-  return PresContext()->StyleSet()->ProbePseudoElementStyle(
-      *element, PseudoStyleType::selection, Style());
+  RefPtr<ComputedStyle> pseudoStyle =
+      PresContext()->StyleSet()->ProbePseudoElementStyle(
+          *element, PseudoStyleType::selection, Style());
+  if (!pseudoStyle) {
+    return nullptr;
+  }
+  // When in high-contrast mode, the style system ends up ignoring the color
+  // declarations, which means that the ::selection style becomes the inherited
+  // color, and default background. That's no good.
+  // When force-color-adjust is set to none allow using the color styles,
+  // as they will not be replaced.
+  if (PresContext()->ForcingColors() &&
+      pseudoStyle->StyleText()->mForcedColorAdjust !=
+          StyleForcedColorAdjust::None) {
+    return nullptr;
+  }
+  return do_AddRef(pseudoStyle);
 }
 
 already_AddRefed<ComputedStyle> nsIFrame::ComputeHighlightSelectionStyle(
@@ -8356,9 +8365,11 @@ void nsIFrame::DumpFrameTreeLimitedInCSSPixels() const {
 
 #endif
 
-bool nsIFrame::IsVisibleForPainting() { return StyleVisibility()->IsVisible(); }
+bool nsIFrame::IsVisibleForPainting() const {
+  return StyleVisibility()->IsVisible();
+}
 
-bool nsIFrame::IsVisibleOrCollapsedForPainting() {
+bool nsIFrame::IsVisibleOrCollapsedForPainting() const {
   return StyleVisibility()->IsVisibleOrCollapsed();
 }
 

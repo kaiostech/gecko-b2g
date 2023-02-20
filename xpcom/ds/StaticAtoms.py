@@ -1153,6 +1153,7 @@ STATIC_ATOMS = [
     Atom("scrollbarbutton", "scrollbarbutton"),
     Atom("scrollbarDownBottom", "scrollbar-down-bottom"),
     Atom("scrollbarDownTop", "scrollbar-down-top"),
+    Atom("scrollbarInlineSize", "scrollbar-inline-size"),
     Atom("scrollbarUpBottom", "scrollbar-up-bottom"),
     Atom("scrollbarUpTop", "scrollbar-up-top"),
     Atom("scrollbox", "scrollbox"),

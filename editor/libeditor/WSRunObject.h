@@ -1478,18 +1478,14 @@ class WhiteSpaceVisibilityKeeper final {
                   const Element& aEditingHost);
 
   /**
-   * InsertText() inserts aStringToInsert to aPointToInsert and makes any needed
-   * adjustments to white-spaces around the insertion point.
+   * Insert aStringToInsert to aPointToInsert and makes any needed adjustments
+   * to white-spaces around the insertion point.
    *
    * @param aStringToInsert     The string to insert.
-   * @param aRangeToBeReplaced  The range to be deleted.
-   * @return                    If succeeded, returns the point after inserted
-   *                            aStringToInsert. So, when this method actually
-   *                            inserts string, returns a point in the text
-   *                            node. Otherwise, may return mScanStartPoint.
+   * @param aRangeToBeReplaced  The range to be replaced.
    */
   template <typename EditorDOMPointType>
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT static Result<EditorDOMPoint, nsresult>
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT static Result<InsertTextResult, nsresult>
   InsertText(HTMLEditor& aHTMLEditor, const nsAString& aStringToInsert,
              const EditorDOMPointType& aPointToInsert) {
     return WhiteSpaceVisibilityKeeper::ReplaceText(
@@ -1497,18 +1493,14 @@ class WhiteSpaceVisibilityKeeper final {
   }
 
   /**
-   * ReplaceText() repaces aRangeToReplace with aStringToInsert and makes any
-   * needed adjustments to white-spaces around both start of the range and
-   * end of the range.
+   * Replace aRangeToReplace with aStringToInsert and makes any needed
+   * adjustments to white-spaces around both start of the range and end of the
+   * range.
    *
    * @param aStringToInsert     The string to insert.
-   * @param aRangeToBeReplaced  The range to be deleted.
-   * @return                    If succeeded, returns the point after inserted
-   *                            aStringToInsert. So, when this method actually
-   *                            inserts string, returns a point in the text
-   *                            node. Otherwise, may return mScanStartPoint.
+   * @param aRangeToBeReplaced  The range to be replaced.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT static Result<EditorDOMPoint, nsresult>
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT static Result<InsertTextResult, nsresult>
   ReplaceText(HTMLEditor& aHTMLEditor, const nsAString& aStringToInsert,
               const EditorDOMRange& aRangeToBeReplaced);
 
@@ -1541,8 +1533,10 @@ class WhiteSpaceVisibilityKeeper final {
                                             const EditorDOMPoint& aCaretPoint);
 
   /**
-   * NormalizeVisibleWhiteSpacesAt() tries to normalize visible white-space
-   * sequence around aPoint.
+   * Try to normalize visible white-space sequence around aPoint.
+   * This may collapse `Selection` after replaced text.  Therefore, the callers
+   * of this need to restore `Selection` by themselves (this does not do it for
+   * performance reason of multiple calls).
    */
   template <typename EditorDOMPointType>
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT static nsresult

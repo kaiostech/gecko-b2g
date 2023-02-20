@@ -13,23 +13,6 @@ def is_non_x86_64():
     return platform.machine() != "x86_64"
 
 
-class ClangStaticAnalysisInstall(object):
-    def __init__(self, **kwargs):
-        pass
-
-    def ensure_clang_static_analysis_package(self):
-        if is_non_x86_64():
-            print(
-                "Cannot install static analysis tools from taskcluster.\n"
-                "Please install these tools manually."
-            )
-            return
-
-        from mozboot import static_analysis
-
-        self.install_toolchain_static_analysis(static_analysis.LINUX_CLANG_TIDY)
-
-
 class MobileAndroidBootstrapper(object):
     def __init__(self, **kwargs):
         pass
@@ -103,12 +86,7 @@ class Boot2GeckoSysrootInstall(object):
 
         return b2g.generate_mozconfig()
 
-
-class LinuxBootstrapper(
-    Boot2GeckoSysrootInstall,
-    ClangStaticAnalysisInstall,
-    MobileAndroidBootstrapper,
-):
+class LinuxBootstrapper(Boot2GeckoSysrootInstall, MobileAndroidBootstrapper):
     def __init__(self, **kwargs):
         pass
 

@@ -519,6 +519,13 @@ nsresult HTMLEditor::OnEndHandlingTopLevelEditSubActionInternal() {
       case EditSubAction::eInsertParagraphSeparator:
       case EditSubAction::ePasteHTMLContent:
       case EditSubAction::eInsertHTMLSource: {
+        // Due to the replacement of white-spaces in
+        // WhiteSpaceVisibilityKeeper::NormalizeVisibleWhiteSpacesAt(),
+        // selection ranges may be changed since DOM ranges track the DOM
+        // mutation by themselves.  However, we want to keep selection as-is.
+        // Therefore, we should restore `Selection` after replacing
+        // white-spaces.
+        AutoSelectionRestorer restoreSelection(*this);
         // TODO: Temporarily, WhiteSpaceVisibilityKeeper replaces ASCII
         //       white-spaces with NPSPs and then, we'll replace them with ASCII
         //       white-spaces here.  We should avoid this overwriting things as
@@ -1148,13 +1155,24 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
       // Right now the WhiteSpaceVisibilityKeeper code bails on empty strings,
       // but IME needs the InsertTextWithTransaction() call to still happen
       // since empty strings are meaningful there.
-      Result<EditorDOMPoint, nsresult> insertTextResult =
+      Result<InsertTextResult, nsresult> insertTextResult =
           InsertTextWithTransaction(*document, aInsertionString,
                                     compositionStartPoint);
       if (MOZ_UNLIKELY(insertTextResult.isErr())) {
         NS_WARNING("HTMLEditor::InsertTextWithTransaction() failed");
         return insertTextResult.propagateErr();
       }
+      nsresult rv = insertTextResult.unwrap().SuggestCaretPointTo(
+          *this, {SuggestCaret::OnlyIfHasSuggestion,
+                  SuggestCaret::OnlyIfTransactionsAllowedToDoIt,
+                  SuggestCaret::AndIgnoreTrivialError});
+      if (NS_FAILED(rv)) {
+        NS_WARNING("CaretPoint::SuggestCaretPointTo() failed");
+        return Err(rv);
+      }
+      NS_WARNING_ASSERTION(
+          rv != NS_SUCCESS_EDITOR_BUT_IGNORED_TRIVIAL_ERROR,
+          "CaretPoint::SuggestCaretPointTo() failed, but ignored");
       return EditActionResult::HandledResult();
     }
 
@@ -1162,7 +1180,7 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
     if (!compositionEndPoint.IsSet()) {
       compositionEndPoint = compositionStartPoint;
     }
-    Result<EditorDOMPoint, nsresult> replaceTextResult =
+    Result<InsertTextResult, nsresult> replaceTextResult =
         WhiteSpaceVisibilityKeeper::ReplaceText(
             *this, aInsertionString,
             EditorDOMRange(compositionStartPoint, compositionEndPoint));
@@ -1170,6 +1188,9 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
       NS_WARNING("WhiteSpaceVisibilityKeeper::ReplaceText() failed");
       return replaceTextResult.propagateErr();
     }
+    MOZ_ASSERT(
+        !replaceTextResult.inspect().HasCaretPointSuggestion(),
+        "Assuming CompositionTransaction set caret by itself, but it didn't?");
 
     compositionStartPoint = GetFirstIMESelectionStartPoint<EditorDOMPoint>();
     compositionEndPoint = GetLastIMESelectionEndPoint<EditorDOMPoint>();
@@ -1273,14 +1294,22 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
                                "to different point "
                                "by mutation observer");
         } else {
-          Result<EditorDOMPoint, nsresult> insertTextResult =
+          Result<InsertTextResult, nsresult> insertTextResult =
               InsertTextWithTransaction(*document, subStr, currentPoint);
           if (MOZ_UNLIKELY(insertTextResult.isErr())) {
             NS_WARNING("HTMLEditor::InsertTextWithTransaction() failed");
             return insertTextResult.propagateErr();
           }
-          currentPoint = insertTextResult.inspect();
-          pointToInsert = insertTextResult.unwrap();
+          // Ignore the caret suggestion because of `dontChangeMySelection`
+          // above.
+          insertTextResult.inspect().IgnoreCaretPointSuggestion();
+          if (insertTextResult.inspect().Handled()) {
+            pointToInsert = currentPoint = insertTextResult.unwrap()
+                                               .EndOfInsertedTextRef()
+                                               .To<EditorDOMPoint>();
+          } else {
+            pointToInsert = currentPoint;
+          }
         }
       }
     } else {
@@ -1308,17 +1337,26 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
 
         // is it a tab?
         if (subStr.Equals(tabStr)) {
-          Result<EditorDOMPoint, nsresult> insertTextResult =
+          Result<InsertTextResult, nsresult> insertTextResult =
               WhiteSpaceVisibilityKeeper::InsertText(*this, spacesStr,
                                                      currentPoint);
           if (MOZ_UNLIKELY(insertTextResult.isErr())) {
             NS_WARNING("WhiteSpaceVisibilityKeeper::InsertText() failed");
             return insertTextResult.propagateErr();
           }
+          // Ignore the caret suggestion because of `dontChangeMySelection`
+          // above.
+          insertTextResult.inspect().IgnoreCaretPointSuggestion();
           pos++;
-          MOZ_ASSERT(insertTextResult.inspect().IsSet());
-          currentPoint = insertTextResult.inspect();
-          pointToInsert = insertTextResult.unwrap();
+          if (insertTextResult.inspect().Handled()) {
+            pointToInsert = currentPoint = insertTextResult.unwrap()
+                                               .EndOfInsertedTextRef()
+                                               .To<EditorDOMPoint>();
+            MOZ_ASSERT(pointToInsert.IsSet());
+          } else {
+            pointToInsert = currentPoint;
+            MOZ_ASSERT(pointToInsert.IsSet());
+          }
         }
         // is it a return?
         else if (subStr.Equals(newlineStr)) {
@@ -1365,16 +1403,25 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
               currentPoint == pointToInsert,
               "Perhaps, newBRElement has been moved or removed unexpectedly");
         } else {
-          Result<EditorDOMPoint, nsresult> insertTextResult =
+          Result<InsertTextResult, nsresult> insertTextResult =
               WhiteSpaceVisibilityKeeper::InsertText(*this, subStr,
                                                      currentPoint);
           if (MOZ_UNLIKELY(insertTextResult.isErr())) {
             NS_WARNING("WhiteSpaceVisibilityKeeper::InsertText() failed");
             return insertTextResult.propagateErr();
           }
-          MOZ_ASSERT(insertTextResult.inspect().IsSet());
-          currentPoint = insertTextResult.inspect();
-          pointToInsert = insertTextResult.unwrap();
+          // Ignore the caret suggestion because of `dontChangeMySelection`
+          // above.
+          insertTextResult.inspect().IgnoreCaretPointSuggestion();
+          if (insertTextResult.inspect().Handled()) {
+            pointToInsert = currentPoint = insertTextResult.unwrap()
+                                               .EndOfInsertedTextRef()
+                                               .To<EditorDOMPoint>();
+            MOZ_ASSERT(pointToInsert.IsSet());
+          } else {
+            pointToInsert = currentPoint;
+            MOZ_ASSERT(pointToInsert.IsSet());
+          }
         }
       }
     }
@@ -2311,13 +2358,19 @@ Result<EditorDOMPoint, nsresult> HTMLEditor::HandleInsertLinefeed(
   {
     AutoTrackDOMPoint trackingInsertingPosition(RangeUpdaterRef(),
                                                 &pointToInsert);
-    Result<EditorDOMPoint, nsresult> insertTextResult =
+    Result<InsertTextResult, nsresult> insertTextResult =
         InsertTextWithTransaction(*document, u"\n"_ns, pointToInsert);
     if (MOZ_UNLIKELY(insertTextResult.isErr())) {
       NS_WARNING("HTMLEditor::InsertTextWithTransaction() failed");
-      return insertTextResult;
+      return insertTextResult.propagateErr();
     }
-    pointToPutCaret = insertTextResult.unwrap();
+    // Ignore the caret suggestion because of `dontChangeMySelection` above.
+    insertTextResult.inspect().IgnoreCaretPointSuggestion();
+    pointToPutCaret = insertTextResult.inspect().Handled()
+                          ? insertTextResult.unwrap()
+                                .EndOfInsertedTextRef()
+                                .To<EditorDOMPoint>()
+                          : pointToInsert;
   }
 
   // Insert a padding <br> element at the end of the block element if there is
@@ -2860,7 +2913,7 @@ void HTMLEditor::ExtendRangeToDeleteWithNormalizingWhiteSpaces(
   }
 }
 
-Result<EditorDOMPoint, nsresult>
+Result<CaretPoint, nsresult>
 HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
     const EditorDOMPointInText& aStartToDelete,
     const EditorDOMPointInText& aEndToDelete,
@@ -2886,7 +2939,7 @@ HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
   // normalize white-space sequence, but there is no white-spaces which need to
   // be replaced, we need to do nothing here.
   if (startToDelete == endToDelete) {
-    return aStartToDelete.To<EditorDOMPoint>();
+    return CaretPoint(aStartToDelete.To<EditorDOMPoint>());
   }
 
   // Note that the container text node of startToDelete may be removed from
@@ -2918,14 +2971,17 @@ HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
                 ? trackingEndToDelete.Offset() - startToDelete.Offset()
                 : startToDelete.ContainerAs<Text>()->TextLength() -
                       startToDelete.Offset();
-        nsresult rv = ReplaceTextWithTransaction(
-            MOZ_KnownLive(*startToDelete.ContainerAs<Text>()),
-            startToDelete.Offset(), lengthToReplaceInFirstTextNode,
-            normalizedWhiteSpacesInFirstNode);
-        if (NS_FAILED(rv)) {
+        Result<InsertTextResult, nsresult> replaceTextResult =
+            ReplaceTextWithTransaction(
+                MOZ_KnownLive(*startToDelete.ContainerAs<Text>()),
+                startToDelete.Offset(), lengthToReplaceInFirstTextNode,
+                normalizedWhiteSpacesInFirstNode);
+        if (MOZ_UNLIKELY(replaceTextResult.isErr())) {
           NS_WARNING("HTMLEditor::ReplaceTextWithTransaction() failed");
-          return Err(rv);
+          return replaceTextResult.propagateErr();
         }
+        // We'll return computed caret point, newCaretPosition, below.
+        replaceTextResult.unwrap().IgnoreCaretPointSuggestion();
         if (startToDelete.ContainerAs<Text>() ==
             trackingEndToDelete.ContainerAs<Text>()) {
           MOZ_ASSERT(normalizedWhiteSpacesInLastNode.IsEmpty());
@@ -2992,22 +3048,23 @@ HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
     MOZ_ASSERT(!normalizedWhiteSpacesInLastNode.IsEmpty());
     MOZ_ASSERT(startToDelete.ContainerAs<Text>() ==
                endToDelete.ContainerAs<Text>());
-    nsresult rv = ReplaceTextWithTransaction(
-        MOZ_KnownLive(*startToDelete.ContainerAs<Text>()),
-        startToDelete.Offset(), endToDelete.Offset() - startToDelete.Offset(),
-        normalizedWhiteSpacesInLastNode);
-    if (NS_FAILED(rv)) {
+    Result<InsertTextResult, nsresult> replaceTextResult =
+        ReplaceTextWithTransaction(
+            MOZ_KnownLive(*startToDelete.ContainerAs<Text>()),
+            startToDelete.Offset(),
+            endToDelete.Offset() - startToDelete.Offset(),
+            normalizedWhiteSpacesInLastNode);
+    if (MOZ_UNLIKELY(replaceTextResult.isErr())) {
       NS_WARNING("HTMLEditor::ReplaceTextWithTransaction() failed");
-      return Err(rv);
+      return replaceTextResult.propagateErr();
     }
+    // We'll return computed caret point, newCaretPosition, below.
+    replaceTextResult.unwrap().IgnoreCaretPointSuggestion();
     break;
   }
 
-  if (!newCaretPosition.IsSetAndValid() ||
-      !newCaretPosition.GetContainer()->IsInComposedDoc()) {
-    NS_WARNING(
-        "HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces() got lost "
-        "the modifying line");
+  if (NS_WARN_IF(!newCaretPosition.IsSetAndValid()) ||
+      NS_WARN_IF(!newCaretPosition.GetContainer()->IsInComposedDoc())) {
     return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
   }
 
@@ -3075,7 +3132,7 @@ HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
     NS_WARNING("Inserting <br> element caused unexpected DOM tree");
     return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
   }
-  return newCaretPosition;
+  return CaretPoint(std::move(newCaretPosition));
 }
 
 nsresult HTMLEditor::InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(

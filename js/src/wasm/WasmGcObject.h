@@ -11,6 +11,7 @@
 #include "mozilla/Maybe.h"
 
 #include "gc/Allocator.h"
+#include "gc/Pretenuring.h"
 #include "vm/ArrayBufferObject.h"
 #include "vm/JSObject.h"
 #include "wasm/WasmInstanceData.h"
@@ -115,11 +116,13 @@ class WasmGcObject : public JSObject {
     explicit AllocArgs(JSContext* cx)
         : shape(cx),
           clasp(nullptr),
+          allocSite(nullptr),
           allocKind(gc::AllocKind::LIMIT),
           initialHeap(gc::DefaultHeap) {}
     AllocArgs(JSContext* cx, wasm::TypeDefInstanceData* typeDefData)
         : shape(cx, typeDefData->shape),
           clasp(typeDefData->clasp),
+          allocSite(&typeDefData->allocSite),
           allocKind(typeDefData->allocKind),
           initialHeap(typeDefData->initialHeap) {}
 
@@ -128,6 +131,7 @@ class WasmGcObject : public JSObject {
 
     Rooted<Shape*> shape;
     const JSClass* clasp;
+    gc::AllocSite* allocSite;
     gc::AllocKind allocKind;
     gc::InitialHeap initialHeap;
   };
@@ -164,6 +168,7 @@ class WasmArrayObject : public WasmGcObject {
   static WasmArrayObject* createArray(JSContext* cx,
                                       const wasm::TypeDef* typeDef,
                                       uint32_t numElements);
+  template <bool ZeroFields = true>
   static WasmArrayObject* createArray(JSContext* cx,
                                       const wasm::TypeDef* typeDef,
                                       uint32_t numElements,
@@ -236,6 +241,7 @@ class WasmStructObject : public WasmGcObject {
   // is an out of memory error.  `typeDef` is the type of the struct.
   static WasmStructObject* createStruct(JSContext* cx,
                                         const wasm::TypeDef* typeDef);
+  template <bool ZeroFields = true>
   static WasmStructObject* createStruct(JSContext* cx,
                                         const wasm::TypeDef* typeDef,
                                         const WasmGcObject::AllocArgs& args);

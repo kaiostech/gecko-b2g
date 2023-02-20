@@ -916,6 +916,90 @@ const BASE_MESSAGES = () => [
     },
     targeting: "!inMr2022Holdback && doesAppNeedPrivatePin",
   },
+  {
+    id: "PB_NEWTAB_COOKIE_BANNERS_PROMO",
+    template: "pb_newtab",
+    type: "default",
+    groups: ["pbNewtab"],
+    content: {
+      infoBody: "fluent:about-private-browsing-info-description-simplified",
+      infoEnabled: true,
+      infoIcon: "chrome://global/skin/icons/indicator-private-browsing.svg",
+      infoLinkText: "fluent:about-private-browsing-learn-more-link",
+      infoTitle: "",
+      infoTitleEnabled: false,
+      promoEnabled: true,
+      promoType: "COOKIE_BANNERS",
+      promoHeader: "fluent:about-private-browsing-cookie-banners-promo-header",
+      promoImageLarge:
+        "chrome://browser/content/assets/cookie-banners-begone.svg",
+      promoLinkText:
+        "fluent:about-private-browsing-cookie-banners-promo-button",
+      promoLinkType: "button",
+      promoSectionStyle: "below-search",
+      promoTitle: "fluent:about-private-browsing-cookie-banners-promo-message",
+      promoTitleEnabled: true,
+      promoButton: {
+        action: {
+          type: "MULTI_ACTION",
+          data: {
+            actions: [
+              {
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "cookiebanners.service.mode",
+                    value: Ci.nsICookieBannerService.MODE_REJECT,
+                  },
+                },
+              },
+              {
+                // This pref may be removed (with the normal pref controlling
+                // both modes), at which time we should remove this action.
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "cookiebanners.service.mode.privateBrowsing",
+                    value: Ci.nsICookieBannerService.MODE_REJECT,
+                  },
+                },
+              },
+              {
+                // Reset this pref to default
+                type: "SET_PREF",
+                data: {
+                  pref: {
+                    name: "cookiebanners.service.detectOnly",
+                  },
+                },
+              },
+              {
+                type: "BLOCK_MESSAGE",
+                data: {
+                  id: "PB_NEWTAB_COOKIE_BANNERS_PROMO",
+                },
+              },
+              {
+                type: "OPEN_ABOUT_PAGE",
+                data: { args: "privatebrowsing", where: "current" },
+              },
+            ],
+          },
+        },
+      },
+    },
+    priority: 4,
+    frequency: {
+      custom: [
+        {
+          cap: 3,
+          period: 604800000, // Max 3 per week
+        },
+      ],
+      lifetime: 12,
+    },
+    targeting: `!'cookiebanners.service.mode'|preferenceIsUserSet`,
+  },
   /**
    * The three messages below are part of an experiment for cookie banner handling.
    * Due to the need to set a few prefs in order to enable the feature,
@@ -945,41 +1029,7 @@ const BASE_MESSAGES = () => [
             string_id: "cfr-cookiebanner-accept-button-v2",
           },
           action: {
-            type: "MULTI_ACTION",
-            data: {
-              actions: [
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.mode",
-                      value: 1,
-                    },
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.mode.privateBrowsing",
-                      value: 1,
-                    },
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.detectOnly",
-                      value: false,
-                    },
-                  },
-                },
-                {
-                  type: "RELOAD_BROWSER",
-                },
-              ],
-            },
+            type: "ENABLE_CBH",
           },
         },
         secondary: [
@@ -1002,7 +1052,7 @@ const BASE_MESSAGES = () => [
     trigger: {
       id: "cookieBannerDetected",
     },
-    targeting: `'cookiebanners.ui.desktop.enabled'|preferenceValue == true && 'cookiebanners.service.detectOnly'|preferenceValue == true && 'cookiebanners.ui.desktop.cfrVariant'|preferenceValue == 0`,
+    targeting: `'cookiebanners.ui.desktop.enabled'|preferenceValue == true && 'cookiebanners.service.detectOnly'|preferenceValue == true && 'cookiebanners.ui.desktop.cfrVariant'|preferenceValue == 1`,
   },
   {
     id: "CFR_COOKIEBANNER_VARIANT_A",
@@ -1027,41 +1077,7 @@ const BASE_MESSAGES = () => [
             string_id: "cfr-cookiebanner-accept-button-variant-1",
           },
           action: {
-            type: "MULTI_ACTION",
-            data: {
-              actions: [
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.mode",
-                      value: 1,
-                    },
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.mode.privateBrowsing",
-                      value: 1,
-                    },
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.detectOnly",
-                      value: false,
-                    },
-                  },
-                },
-                {
-                  type: "RELOAD_BROWSER",
-                },
-              ],
-            },
+            type: "ENABLE_CBH",
           },
         },
         secondary: [
@@ -1084,7 +1100,7 @@ const BASE_MESSAGES = () => [
     trigger: {
       id: "cookieBannerDetected",
     },
-    targeting: `'cookiebanners.ui.desktop.enabled'|preferenceValue == true && 'cookiebanners.service.detectOnly'|preferenceValue == true && 'cookiebanners.ui.desktop.cfrVariant'|preferenceValue == 1`,
+    targeting: `'cookiebanners.ui.desktop.enabled'|preferenceValue == true && 'cookiebanners.service.detectOnly'|preferenceValue == true && 'cookiebanners.ui.desktop.cfrVariant'|preferenceValue == 2`,
   },
   {
     id: "CFR_COOKIEBANNER_VARIANT_B",
@@ -1109,41 +1125,7 @@ const BASE_MESSAGES = () => [
             string_id: "cfr-cookiebanner-accept-button-variant-2",
           },
           action: {
-            type: "MULTI_ACTION",
-            data: {
-              actions: [
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.mode",
-                      value: 1,
-                    },
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.mode.privateBrowsing",
-                      value: 1,
-                    },
-                  },
-                },
-                {
-                  type: "SET_PREF",
-                  data: {
-                    pref: {
-                      name: "cookiebanners.service.detectOnly",
-                      value: false,
-                    },
-                  },
-                },
-                {
-                  type: "RELOAD_BROWSER",
-                },
-              ],
-            },
+            type: "ENABLE_CBH",
           },
         },
         secondary: [
@@ -1166,7 +1148,7 @@ const BASE_MESSAGES = () => [
     trigger: {
       id: "cookieBannerDetected",
     },
-    targeting: `'cookiebanners.ui.desktop.enabled'|preferenceValue == true && 'cookiebanners.service.detectOnly'|preferenceValue == true && 'cookiebanners.ui.desktop.cfrVariant'|preferenceValue == 2`,
+    targeting: `'cookiebanners.ui.desktop.enabled'|preferenceValue == true && 'cookiebanners.service.detectOnly'|preferenceValue == true && 'cookiebanners.ui.desktop.cfrVariant'|preferenceValue == 3`,
   },
 ];
 

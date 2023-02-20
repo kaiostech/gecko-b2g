@@ -4747,7 +4747,7 @@ void nsWindow::OnButtonReleaseEvent(GdkEventButton* aEvent) {
 
   // Open window manager menu on PIP window to allow user
   // to place it on top / all workspaces.
-  if (mIsPIPWindow && aEvent->button == 3) {
+  if (mAlwaysOnTop && aEvent->button == 3) {
     TryToShowNativeWindowMenu(aEvent);
   }
 }
@@ -8716,6 +8716,14 @@ void nsWindow::SetDrawsInTitlebar(bool aState) {
   if (mIsPIPWindow) {
     gtk_window_set_decorated(GTK_WINDOW(mShell), !aState);
     LOG("  set decoration for PIP %d", aState);
+    return;
+  }
+
+  if (mWindowType == WindowType::Dialog &&
+      !bool(mBorderStyle & BorderStyle::Title) &&
+      !bool(mBorderStyle & BorderStyle::ResizeH)) {
+    gtk_window_set_decorated(GTK_WINDOW(mShell), !aState);
+    LOG("  set decoration for dialog with titlebar=no %d", aState);
     return;
   }
 

@@ -1277,6 +1277,18 @@
   value: false
   mirror: always
 
+# Whether to force alt text for missing images to be laid out inline.
+- name: browser.display.force_inline_alttext
+  type: bool
+  value: false
+  mirror: always
+
+# Enable showing image placeholders while image is loading or when image is broken.
+- name: browser.display.show_image_placeholders
+  type: bool
+  value: true
+  mirror: always
+
 # Whether we should always enable focus rings after focus was moved by keyboard.
 #
 # This behavior matches both historical and GTK / Windows focus behavior.
@@ -8945,7 +8957,7 @@
 # Is support for CSS overflow: overlay enabled
 - name: layout.css.overflow-overlay.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -9011,6 +9023,13 @@
 - name: layout.css.forced-colors.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is support for forced-color-adjust properties enabled?
+- name: layout.css.forced-color-adjust.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -9250,7 +9269,7 @@
 # Enables the Reveal Password context-menu entry.
 - name: layout.forms.reveal-password-context-menu.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Pref to control browser frame rate, in Hz. A value <= 0 means choose
@@ -13778,7 +13797,7 @@
 # No way to enable on Android, Bug 1552602
 - name: security.webauth.u2f
   type: bool
-  value: @IS_NOT_ANDROID@
+  value: false
   mirror: always
 
 # WebAuthn CTAP2 support
@@ -14018,6 +14037,12 @@
 #else
   value: 0
 #endif
+  mirror: always
+
+# Whether to apply ECH GREASE settings to HTTP3/QUIC connections
+- name: security.tls.ech.grease_http3
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Whether to retry connections without ECH Grease

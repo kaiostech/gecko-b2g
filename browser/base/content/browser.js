@@ -104,8 +104,8 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 });
 
 XPCOMUtils.defineLazyGetter(this, "fxAccounts", () => {
-  return ChromeUtils.import(
-    "resource://gre/modules/FxAccounts.jsm"
+  return ChromeUtils.importESModule(
+    "resource://gre/modules/FxAccounts.sys.mjs"
   ).getFxAccountsSingleton();
 });
 
@@ -570,13 +570,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
     );
   }
 );
-
-customElements.setElementCreationCallback("translation-notification", () => {
-  Services.scriptloader.loadSubScript(
-    "chrome://browser/content/translation-notification.js",
-    window
-  );
-});
 
 customElements.setElementCreationCallback("screenshots-buttons", () => {
   Services.scriptloader.loadSubScript(
@@ -1588,6 +1581,9 @@ var gBrowserInit = {
     BrowserWindowTracker.track(window);
 
     FirefoxViewHandler.init();
+
+    gCookieBannerHandlingExperiment.init();
+
     gNavToolbox.palette = document.getElementById(
       "BrowserToolbarPalette"
     ).content;
@@ -2443,6 +2439,8 @@ var gBrowserInit = {
     NewTabPagePreloading.removePreloadedBrowser(window);
 
     FirefoxViewHandler.uninit();
+
+    gCookieBannerHandlingExperiment.uninit();
 
     // Now either cancel delayedStartup, or clean up the services initialized from
     // it.
@@ -8806,9 +8804,8 @@ var MousePosTracker = {
   },
 
   handleEvent(event) {
-    let fullZoom = window.windowUtils.fullZoom;
-    this._x = event.screenX / fullZoom - window.mozInnerScreenX;
-    this._y = event.screenY / fullZoom - window.mozInnerScreenY;
+    this._x = event.screenX - window.mozInnerScreenX;
+    this._y = event.screenY - window.mozInnerScreenY;
 
     this._listeners.forEach(listener => {
       try {
@@ -10073,5 +10070,80 @@ var FirefoxViewHandler = {
   },
   _toggleNotificationDot(shouldShow) {
     this.button?.toggleAttribute("attention", shouldShow);
+  },
+};
+
+/*
+ * Global singleton that manages Nimbus variable to preferences mapping
+ * for the cookie banner handling experiment in 111.
+ *
+ * This code will be streamlined to ship the winning variation in 113 (see
+ * bug 1816980).
+ */
+var gCookieBannerHandlingExperiment = {
+  init() {
+    // If the user has been enrolled in a variant, we don't need to do
+    // anything. This can happen, e.g., when the browser restarts after
+    // enrolling the user in the previous session.
+    // The pref value is set to 0 by default; the variant values are
+    // integers 1, 2, or 3.
+    this._isEnrolled =
+      Services.prefs.getIntPref("cookiebanners.ui.desktop.cfrVariant") != 0;
+    if (this._isEnrolled) {
+      return;
+    }
+
+    this._updateEnabledState = this._updateEnabledState.bind(this);
+    NimbusFeatures.cookieBannerHandling.onUpdate(this._updateEnabledState);
+  },
+  uninit() {
+    NimbusFeatures.cookieBannerHandling.off(this._updateEnabledState);
+  },
+  _updateEnabledState() {
+    // The variant should be 1, 2, or 3 if the user is in the experiment.
+    let variant = NimbusFeatures.cookieBannerHandling.getVariable(
+      "desktopCfrVariant"
+    );
+    if (typeof variant != "undefined") {
+      this._enrollUser(variant);
+    }
+  },
+  /*
+   * When a user is enrolled in the cookie banner handling experiment,
+   * configures relevant prefs so that they will see the CBH onboarding
+   * doorhanger when they visit a website with a cookie banner we can handle.
+   *
+   * @param  variant (int, required)
+   *         The integer indicating which variation the user should see.
+   */
+  _enrollUser(variant) {
+    // Set pref to persist which variation the user sees across reloads.
+    Services.prefs.setIntPref("cookiebanners.ui.desktop.cfrVariant", variant);
+
+    // Set prefs to enable the service to detect banners, needed to trigger
+    // the onboarding doorhanger.
+    Services.prefs.setIntPref("cookiebanners.service.mode", 3);
+    Services.prefs.setIntPref("cookiebanners.service.mode.privateBrowsing", 3);
+
+    // Set prefs to show the about:preferences UI, but hide the protections
+    // panel UI.
+    Services.prefs.setBoolPref("cookiebanners.ui.desktop.enabled", true);
+    Services.prefs.setBoolPref("cookiebanners.service.detectOnly", true);
+  },
+  /*
+   * When the user chooses to enable the feature via the onboarding doorhanger,
+   * configures prefs to enable the service and enable the desktop UI, then
+   * reloads the browser, giving the user the visual feedback of cookie banners
+   * disappearing from the current page.
+   */
+  onActivate() {
+    // Set prefs to enable the service to reject banners.
+    Services.prefs.setIntPref("cookiebanners.service.mode", 1);
+    Services.prefs.setIntPref("cookiebanners.service.mode.privateBrowsing", 1);
+
+    // Set prefs to show the protections panel UI.
+    Services.prefs.setBoolPref("cookiebanners.service.detectOnly", false);
+
+    BrowserReload();
   },
 };

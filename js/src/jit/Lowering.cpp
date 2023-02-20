@@ -5494,8 +5494,20 @@ void LIRGenerator::visitWasmStoreRef(MWasmStoreRef* ins) {
   LAllocation value = useRegister(ins->value());
   uint32_t valueOffset = ins->offset();
   add(new (alloc())
-          LWasmStoreRef(instance, valueBase, value, temp(), valueOffset),
+          LWasmStoreRef(instance, valueBase, value, temp(), valueOffset,
+                        mozilla::Nothing(), ins->preBarrierKind()),
       ins);
+}
+
+void LIRGenerator::visitWasmPostWriteBarrier(MWasmPostWriteBarrier* ins) {
+  LDefinition tmp =
+      needTempForPostBarrier() ? temp() : LDefinition::BogusTemp();
+  LWasmPostWriteBarrier* lir = new (alloc()) LWasmPostWriteBarrier(
+      useFixed(ins->instance(), InstanceReg), useRegister(ins->object()),
+      useRegister(ins->valueBase()), useRegister(ins->value()), tmp,
+      ins->valueOffset());
+  add(lir, ins);
+  assignWasmSafepoint(lir);
 }
 
 void LIRGenerator::visitWasmParameter(MWasmParameter* ins) {
@@ -6948,7 +6960,9 @@ void LIRGenerator::visitWasmStoreFieldRefKA(MWasmStoreFieldRefKA* ins) {
   LAllocation obj = useFixed(ins->obj(), PreBarrierReg);
   LAllocation value = useRegister(ins->value());
   uint32_t offset = ins->offset();
-  add(new (alloc()) LWasmStoreRef(instance, obj, value, temp(), offset), ins);
+  add(new (alloc()) LWasmStoreRef(instance, obj, value, temp(), offset,
+                                  ins->maybeTrap(), ins->preBarrierKind()),
+      ins);
   add(new (alloc()) LKeepAliveObject(useKeepalive(ins->ka())), ins);
 }
 

@@ -518,7 +518,7 @@ CoderResult CodeStructField(Coder<mode>& coder,
 template <CoderMode mode>
 CoderResult CodeStructType(Coder<mode>& coder,
                            CoderArg<mode, StructType> item) {
-  WASM_VERIFY_SERIALIZATION_FOR_SIZE(wasm::StructType, 48);
+  WASM_VERIFY_SERIALIZATION_FOR_SIZE(wasm::StructType, 136);
   MOZ_TRY((CodeVector<mode, StructField, &CodeStructField<mode>>(
       coder, &item->fields_)));
   MOZ_TRY(CodePod(coder, &item->size_));
@@ -847,7 +847,6 @@ template <CoderMode mode>
 CoderResult CodeSymbolicLinkArray(
     Coder<mode>& coder,
     CoderArg<mode, wasm::LinkData::SymbolicLinkArray> item) {
-  WASM_VERIFY_SERIALIZATION_FOR_SIZE(wasm::LinkData::SymbolicLinkArray, 7416);
   for (SymbolicAddress address :
        mozilla::MakeEnumeratedRange(SymbolicAddress::Limit)) {
     MOZ_TRY(CodePodVector(coder, &(*item)[address]));

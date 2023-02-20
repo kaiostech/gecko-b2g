@@ -5,13 +5,12 @@
 //! Specified color values.
 
 use super::AllowQuirks;
+use crate::color::mix::ColorInterpolationMethod;
 use crate::color::{AbsoluteColor, ColorComponents, ColorSpace};
 use crate::media_queries::Device;
 use crate::parser::{Parse, ParserContext};
 use crate::values::computed::{Color as ComputedColor, Context, ToComputedValue};
-use crate::values::generics::color::{
-    ColorInterpolationMethod, GenericCaretColor, GenericColorMix, GenericColorOrAuto,
-};
+use crate::values::generics::color::{GenericCaretColor, GenericColorMix, GenericColorOrAuto};
 use crate::values::specified::calc::CalcNode;
 use crate::values::specified::Percentage;
 use crate::values::CustomIdent;
@@ -1054,4 +1053,26 @@ pub enum PrintColorAdjust {
     Economy,
     /// Respect specified colors.
     Exact,
+}
+
+/// https://drafts.csswg.org/css-color-adjust-1/#forced-color-adjust-prop
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    MallocSizeOf,
+    Parse,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToCss,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(u8)]
+pub enum ForcedColorAdjust {
+    /// Adjust colors if needed.
+    Auto,
+    /// Respect specified colors.
+    None,
 }

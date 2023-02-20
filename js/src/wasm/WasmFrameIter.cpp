@@ -1655,20 +1655,19 @@ static const char* ThunkedNativeToDescription(SymbolicAddress func) {
       return "call to native table.size function";
     case SymbolicAddress::RefFunc:
       return "call to native ref.func function";
-    case SymbolicAddress::PreBarrierFiltering:
-      return "call to native filtering GC prebarrier (in wasm)";
     case SymbolicAddress::PostBarrier:
     case SymbolicAddress::PostBarrierPrecise:
     case SymbolicAddress::PostBarrierPreciseWithOffset:
-    case SymbolicAddress::PostBarrierFiltering:
       return "call to native GC postbarrier (in wasm)";
-    case SymbolicAddress::StructNew:
-      return "call to native struct.new (in wasm)";
     case SymbolicAddress::ExceptionNew:
       return "call to native exception new (in wasm)";
     case SymbolicAddress::ThrowException:
       return "call to native throw exception (in wasm)";
+    case SymbolicAddress::StructNew:
+    case SymbolicAddress::StructNewUninit:
+      return "call to native struct.new (in wasm)";
     case SymbolicAddress::ArrayNew:
+    case SymbolicAddress::ArrayNewUninit:
       return "call to native array.new (in wasm)";
     case SymbolicAddress::ArrayNewData:
       return "call to native array.new_data function";

@@ -254,6 +254,42 @@ class MOZ_STACK_CLASS CreateNodeResultBase final : public CaretPoint {
   RefPtr<NodeType> mNode;
 };
 
+/**
+ * This is a result of inserting text.  If the text inserted as a part of
+ * composition, this does not return CaretPoint.  Otherwise, must return
+ * CaretPoint which is typically same as end of inserted text.
+ */
+class MOZ_STACK_CLASS InsertTextResult final : public CaretPoint {
+ public:
+  InsertTextResult() : CaretPoint(EditorDOMPoint()) {}
+  template <typename EditorDOMPointType>
+  explicit InsertTextResult(const EditorDOMPointType& aEndOfInsertedText)
+      : CaretPoint(EditorDOMPoint()),
+        mEndOfInsertedText(aEndOfInsertedText.template To<EditorDOMPoint>()) {}
+  explicit InsertTextResult(EditorDOMPointInText&& aEndOfInsertedText)
+      : CaretPoint(EditorDOMPoint()),
+        mEndOfInsertedText(std::move(aEndOfInsertedText)) {}
+  template <typename PT, typename CT>
+  InsertTextResult(EditorDOMPointInText&& aEndOfInsertedText,
+                   const EditorDOMPointBase<PT, CT>& aCaretPoint)
+      : CaretPoint(aCaretPoint.template To<EditorDOMPoint>()),
+        mEndOfInsertedText(std::move(aEndOfInsertedText)) {}
+  InsertTextResult(EditorDOMPointInText&& aEndOfInsertedText,
+                   CaretPoint&& aCaretPoint)
+      : CaretPoint(std::move(aCaretPoint)),
+        mEndOfInsertedText(std::move(aEndOfInsertedText)) {
+    UnmarkAsHandledCaretPoint();
+  }
+
+  [[nodiscard]] bool Handled() const { return mEndOfInsertedText.IsSet(); }
+  const EditorDOMPointInText& EndOfInsertedTextRef() const {
+    return mEndOfInsertedText;
+  }
+
+ private:
+  EditorDOMPointInText mEndOfInsertedText;
+};
+
 /***************************************************************************
  * stack based helper class for calling EditorBase::EndTransaction() after
  * EditorBase::BeginTransaction().  This shouldn't be used in editor classes

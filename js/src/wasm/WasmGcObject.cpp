@@ -248,17 +248,15 @@ WasmGcObject* WasmGcObject::create(JSContext* cx, const wasm::TypeDef* typeDef,
 
   debugCheckNewObject(args.shape, args.allocKind, args.initialHeap);
 
-  WasmGcObject* obj = cx->newCell<WasmGcObject>(
-      args.allocKind, /* nDynamicSlots = */ 0, args.initialHeap, args.clasp);
+  WasmGcObject* obj =
+      cx->newCell<WasmGcObject>(args.allocKind, /* nDynamicSlots = */ 0,
+                                args.initialHeap, args.clasp, args.allocSite);
   if (!obj) {
     return nullptr;
   }
 
   obj->initShape(args.shape);
   obj->typeDef_ = typeDef;
-
-  MOZ_ASSERT(args.clasp->shouldDelayMetadataBuilder());
-  cx->realm()->setObjectPendingMetadata(cx, obj);
 
   js::gc::gcprobes::CreateObject(obj);
   probes::CreateObject(cx, obj);
@@ -381,28 +379,6 @@ static void WriteValTo(const Val& val, FieldType ty, void* dest) {
 }
 
 //=========================================================================
-// MemoryTracingVisitor (private to this file)
-
-namespace {
-
-class MemoryTracingVisitor {
-  JSTracer* trace_;
-
- public:
-  explicit MemoryTracingVisitor(JSTracer* trace) : trace_(trace) {}
-
-  void visitReference(uint8_t* base, size_t offset);
-};
-
-}  // namespace
-
-void MemoryTracingVisitor::visitReference(uint8_t* base, size_t offset) {
-  GCPtr<JSObject*>* objectPtr =
-      reinterpret_cast<GCPtr<JSObject*>*>(base + offset);
-  TraceNullableEdge(trace_, objectPtr, "reference-obj");
-}
-
-//=========================================================================
 // WasmArrayObject
 
 /* static */
@@ -421,7 +397,8 @@ WasmArrayObject* WasmArrayObject::createArray(JSContext* cx,
   return createArray(cx, typeDef, numElements, args);
 }
 
-/*static*/
+/* static */
+template <bool ZeroFields>
 WasmArrayObject* WasmArrayObject::createArray(
     JSContext* cx, const wasm::TypeDef* typeDef, uint32_t numElements,
     const WasmGcObject::AllocArgs& args) {
@@ -453,7 +430,6 @@ WasmArrayObject* WasmArrayObject::createArray(
   }
 
   Rooted<WasmArrayObject*> arrayObj(cx);
-  AutoSetNewObjectMetadata metadata(cx);
   arrayObj = (WasmArrayObject*)WasmGcObject::create(cx, typeDef, args);
   if (!arrayObj) {
     ReportOutOfMemory(cx);
@@ -465,12 +441,21 @@ WasmArrayObject* WasmArrayObject::createArray(
 
   arrayObj->numElements_ = numElements;
   arrayObj->data_ = outlineData;
-  if (arrayObj->data_) {
-    memset(arrayObj->data_, 0, outlineBytes.value());
+  if constexpr (ZeroFields) {
+    if (arrayObj->data_) {
+      memset(arrayObj->data_, 0, outlineBytes.value());
+    }
   }
 
   return arrayObj;
 }
+
+template WasmArrayObject* WasmArrayObject::createArray<true>(
+    JSContext* cx, const wasm::TypeDef* typeDef, uint32_t numElements,
+    const WasmGcObject::AllocArgs& args);
+template WasmArrayObject* WasmArrayObject::createArray<false>(
+    JSContext* cx, const wasm::TypeDef* typeDef, uint32_t numElements,
+    const WasmGcObject::AllocArgs& args);
 
 /* static */
 void WasmArrayObject::obj_trace(JSTracer* trc, JSObject* object) {
@@ -481,7 +466,6 @@ void WasmArrayObject::obj_trace(JSTracer* trc, JSObject* object) {
     return;
   }
 
-  MemoryTracingVisitor visitor(trc);
   const auto& typeDef = arrayObj.typeDef();
   const auto& arrayType = typeDef.arrayType();
   if (!arrayType.elementType_.isRefRepr()) {
@@ -492,7 +476,9 @@ void WasmArrayObject::obj_trace(JSTracer* trc, JSObject* object) {
   MOZ_ASSERT(numElements > 0);
   uint32_t elemSize = arrayType.elementType_.size();
   for (uint32_t i = 0; i < numElements; i++) {
-    visitor.visitReference(data, i * elemSize);
+    GCPtr<JSObject*>* objectPtr =
+        reinterpret_cast<GCPtr<JSObject*>*>(data + i * elemSize);
+    TraceNullableEdge(trc, objectPtr, "reference-obj");
   }
 }
 
@@ -594,6 +580,7 @@ WasmStructObject* WasmStructObject::createStruct(JSContext* cx,
 }
 
 /* static */
+template <bool ZeroFields>
 WasmStructObject* WasmStructObject::createStruct(
     JSContext* cx, const wasm::TypeDef* typeDef,
     const WasmGcObject::AllocArgs& args) {
@@ -615,7 +602,6 @@ WasmStructObject* WasmStructObject::createStruct(
   }
 
   Rooted<WasmStructObject*> structObj(cx);
-  AutoSetNewObjectMetadata metadata(cx);
   structObj = (WasmStructObject*)WasmGcObject::create(cx, typeDef, args);
   if (!structObj) {
     ReportOutOfMemory(cx);
@@ -628,30 +614,37 @@ WasmStructObject* WasmStructObject::createStruct(
   // Initialize the outline data field
   structObj->outlineData_ = outlineData;
 
-  // Default initialize the fields to zero
-  memset(&(structObj->inlineData_[0]), 0, inlineBytes);
-  if (outlineBytes > 0) {
-    memset(structObj->outlineData_, 0, outlineBytes);
+  if constexpr (ZeroFields) {
+    memset(&(structObj->inlineData_[0]), 0, inlineBytes);
+    if (outlineBytes > 0) {
+      memset(structObj->outlineData_, 0, outlineBytes);
+    }
   }
 
   return structObj;
 }
 
+template WasmStructObject* WasmStructObject::createStruct<true>(
+    JSContext* cx, const wasm::TypeDef* typeDef,
+    const WasmGcObject::AllocArgs& args);
+template WasmStructObject* WasmStructObject::createStruct<false>(
+    JSContext* cx, const wasm::TypeDef* typeDef,
+    const WasmGcObject::AllocArgs& args);
+
 /* static */
 void WasmStructObject::obj_trace(JSTracer* trc, JSObject* object) {
   WasmStructObject& structObj = object->as<WasmStructObject>();
 
-  MemoryTracingVisitor visitor(trc);
   const auto& structType = structObj.typeDef().structType();
-  for (const StructField& field : structType.fields_) {
-    if (!field.type.isRefRepr()) {
-      continue;
-    }
-    // Ensure no out-of-range access possible
-    MOZ_RELEASE_ASSERT(field.offset + field.type.size() <= structType.size_);
-    uint8_t* fieldAddr =
-        structObj.fieldOffsetToAddress(field.type, field.offset);
-    visitor.visitReference(fieldAddr, 0);
+  for (uint32_t offset : structType.inlineTraceOffsets_) {
+    GCPtr<JSObject*>* objectPtr =
+        reinterpret_cast<GCPtr<JSObject*>*>(&structObj.inlineData_[0] + offset);
+    TraceNullableEdge(trc, objectPtr, "reference-obj");
+  }
+  for (uint32_t offset : structType.outlineTraceOffsets_) {
+    GCPtr<JSObject*>* objectPtr =
+        reinterpret_cast<GCPtr<JSObject*>*>(structObj.outlineData_ + offset);
+    TraceNullableEdge(trc, objectPtr, "reference-obj");
   }
 }
 

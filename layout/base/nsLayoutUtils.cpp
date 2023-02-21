@@ -7188,9 +7188,6 @@ static RefPtr<SourceSurface> ScaleSourceSurface(SourceSurface& aSurface,
     return nullptr;
   }
 
-  RefPtr<gfxContext> context = gfxContext::CreateOrNull(dt);
-  MOZ_ASSERT(context);
-
   dt->DrawSurface(&aSurface, Rect(Point(), Size(aTargetSize)),
                   Rect(Point(), Size(surfaceSize)));
   return dt->GetBackingSurface();

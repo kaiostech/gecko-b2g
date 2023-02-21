@@ -3055,7 +3055,7 @@ void PresShell::RestyleForAnimation(Element* aElement, RestyleHint aHint) {
   // Now that we no longer have separate non-animation and animation
   // restyles, this method having a distinct identity is less important,
   // but it still seems useful to offer as a "more public" API and as a
-  // chokepoint for these restyles to go through.
+  // checkpoint for these restyles to go through.
   mPresContext->RestyleManager()->PostRestyleEvent(aElement, aHint,
                                                    nsChangeHint(0));
 }
@@ -3088,20 +3088,17 @@ void PresShell::ClearFrameRefs(nsIFrame* aFrame) {
   }
 }
 
-already_AddRefed<gfxContext> PresShell::CreateReferenceRenderingContext() {
-  nsDeviceContext* devCtx = mPresContext->DeviceContext();
-  RefPtr<gfxContext> rc;
+UniquePtr<gfxContext> PresShell::CreateReferenceRenderingContext() {
   if (mPresContext->IsScreen()) {
-    rc = gfxContext::CreateOrNull(
+    return gfxContext::CreateOrNull(
         gfxPlatform::GetPlatform()->ScreenReferenceDrawTarget().get());
-  } else {
-    // We assume the devCtx has positive width and height for this call.
-    // However, width and height, may be outside of the reasonable range
-    // so rc may still be null.
-    rc = devCtx->CreateReferenceRenderingContext();
   }
 
-  return rc ? rc.forget() : nullptr;
+  // We assume the devCtx has positive width and height for this call.
+  // However, width and height, may be outside of the reasonable range
+  // so rc may still be null.
+  nsDeviceContext* devCtx = mPresContext->DeviceContext();
+  return devCtx->CreateReferenceRenderingContext();
 }
 
 // https://html.spec.whatwg.org/#scroll-to-the-fragment-identifier
@@ -5129,8 +5126,7 @@ already_AddRefed<SourceSurface> PresShell::PaintRangePaintInfo(
     return nullptr;
   }
 
-  RefPtr<gfxContext> ctx = gfxContext::CreateOrNull(dt);
-  MOZ_ASSERT(ctx);  // already checked the draw target above
+  gfxContext ctx(dt);
 
   if (aRegion) {
     RefPtr<PathBuilder> builder = dt->CreatePathBuilder(FillRule::FILL_WINDING);
@@ -5149,10 +5145,10 @@ already_AddRefed<SourceSurface> PresShell::PaintRangePaintInfo(
     }
 
     RefPtr<Path> path = builder->Finish();
-    ctx->Clip(path);
+    ctx.Clip(path);
   }
 
-  gfxMatrix initialTM = ctx->CurrentMatrixDouble();
+  gfxMatrix initialTM = ctx.CurrentMatrixDouble();
 
   if (resize) {
     initialTM.PreScale(scale, scale);
@@ -5181,10 +5177,10 @@ already_AddRefed<SourceSurface> PresShell::PaintRangePaintInfo(
     // frame, so account for that translation too:
     gfxPoint rootOffset = nsLayoutUtils::PointToGfxPoint(
         rangeInfo->mRootOffset, pc->AppUnitsPerDevPixel());
-    ctx->SetMatrixDouble(initialTM.PreTranslate(rootOffset));
+    ctx.SetMatrixDouble(initialTM.PreTranslate(rootOffset));
     aArea.MoveBy(-rangeInfo->mRootOffset.x, -rangeInfo->mRootOffset.y);
     nsRegion visible(aArea);
-    rangeInfo->mList.PaintRoot(&rangeInfo->mBuilder, ctx,
+    rangeInfo->mList.PaintRoot(&rangeInfo->mBuilder, &ctx,
                                nsDisplayList::PAINT_DEFAULT, Nothing());
     aArea.MoveBy(rangeInfo->mRootOffset.x, rangeInfo->mRootOffset.y);
   }
@@ -9597,7 +9593,7 @@ bool PresShell::DoReflow(nsIFrame* target, bool aInterruptible,
              "non-root frames");
 
   // CreateReferenceRenderingContext can return nullptr
-  RefPtr<gfxContext> rcx(CreateReferenceRenderingContext());
+  UniquePtr<gfxContext> rcx(CreateReferenceRenderingContext());
 
 #ifdef DEBUG
   mCurrentReflowRoot = target;
@@ -9625,7 +9621,7 @@ bool PresShell::DoReflow(nsIFrame* target, bool aInterruptible,
   // Don't pass size directly to the reflow input, since a
   // constrained height implies page/column breaking.
   LogicalSize reflowSize(wm, size.ISize(wm), NS_UNCONSTRAINEDSIZE);
-  ReflowInput reflowInput(mPresContext, target, rcx, reflowSize,
+  ReflowInput reflowInput(mPresContext, target, rcx.get(), reflowSize,
                           ReflowInput::InitFlag::CallerWillInit);
   reflowInput.mOrthogonalLimit = size.BSize(wm);
 
@@ -11568,11 +11564,11 @@ PresShell::WindowSizeConstraints PresShell::GetWindowSizeConstraints() {
     return {minSize, maxSize};
   }
   if (rootFrame->IsXULBoxFrame()) {
-    RefPtr<gfxContext> rcx(CreateReferenceRenderingContext());
+    UniquePtr<gfxContext> rcx(CreateReferenceRenderingContext());
     if (!rcx) {
       return {minSize, maxSize};
     }
-    nsBoxLayoutState state(mPresContext, rcx);
+    nsBoxLayoutState state(mPresContext, rcx.get());
     minSize = rootFrame->GetXULMinSize(state);
     maxSize = rootFrame->GetXULMaxSize(state);
   } else {

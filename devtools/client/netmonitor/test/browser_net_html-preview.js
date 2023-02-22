@@ -39,7 +39,7 @@ const FETCH_CONTENT_4 = addBaseHtmlElements(`
 `);
 
 // Use fetch in order to prevent actually running this code in the test page
-const TEST_HTML = addBaseHtmlElements(`HTML<script>
+const TEST_HTML = addBaseHtmlElements(`<div id="to-copy">HTML</div><script>
   fetch("${BASE_URL}fetch-1.html");
   fetch("${BASE_URL}fetch-2.html");
   fetch("${BASE_URL}fetch-3.html");
@@ -152,6 +152,20 @@ add_task(async function() {
         );
       }
     );
+
+    // Only assert copy to clipboard on the first test page
+    if (expectedHtmlPreview == TEST_HTML) {
+      await waitForClipboardPromise(async function() {
+        await SpecialPowers.spawn(iframe.browsingContext, [], async function() {
+          const elt = content.document.getElementById("to-copy");
+          EventUtils.synthesizeMouseAtCenter(elt, { clickCount: 2 }, content);
+          await new Promise(r =>
+            elt.addEventListener("dblclick", r, { once: true })
+          );
+          EventUtils.synthesizeKey("c", { accelKey: true }, content);
+        });
+      }, "HTML");
+    }
 
     return iframe;
   }

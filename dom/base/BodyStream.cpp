@@ -191,35 +191,12 @@ already_AddRefed<Promise> BodyStream::PullCallback(
 
   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
 
-  MOZ_DIAGNOSTIC_ASSERT(mState == eInitializing || mState == eWaiting ||
-                        mState == eChecking || mState == eReading);
+  MOZ_DIAGNOSTIC_ASSERT(!IsClosed());
+  MOZ_ASSERT(!mPullPromise);
+  mPullPromise = Promise::CreateInfallible(aController.GetParentObject());
 
-  RefPtr<Promise> resolvedWithUndefinedPromise =
-      Promise::CreateResolvedWithUndefined(aController.GetParentObject(), aRv);
-  if (aRv.Failed()) {
-    return nullptr;
-  }
-
-  if (mState == eReading) {
-    // We are already reading data.
-    return resolvedWithUndefinedPromise.forget();
-  }
-
-  if (mState == eChecking) {
-    // If we are looking for more data, there is nothing else we should do:
-    // let's move this checking operation in a reading.
-    MOZ_ASSERT(mInputStream);
-    mState = eReading;
-
-    return resolvedWithUndefinedPromise.forget();
-  }
-
-  if (mState == eInitializing) {
-    // The stream has been used for the first time.
-    mStreamHolder->MarkAsRead();
-  }
-
-  mState = eReading;
+  // Reading the stream, let's mark it as such
+  mStreamHolder->MarkAsRead();
 
   if (!mInputStream) {
     // This is the first use of the stream. Let's convert the
@@ -241,6 +218,10 @@ already_AddRefed<Promise> BodyStream::PullCallback(
   MOZ_DIAGNOSTIC_ASSERT(mInputStream);
   MOZ_DIAGNOSTIC_ASSERT(!mOriginalInputStream);
 
+  // Cancel previous wait if we were observing closure, because waiting twice
+  // may cause an error for some streams
+  mInputStream->AsyncWait(nullptr, 0, 0, nullptr);
+  // And then wait for data
   nsresult rv = mInputStream->AsyncWait(this, 0, 0, mOwningEventTarget);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     ErrorPropagation(aCx, stream, rv);
@@ -249,7 +230,7 @@ already_AddRefed<Promise> BodyStream::PullCallback(
   mAsyncWaitWorkerRef = mWorkerRef;
 
   // All good.
-  return resolvedWithUndefinedPromise.forget();
+  return do_AddRef(mPullPromise);
 }
 
 void BodyStream::WriteIntoReadRequestBuffer(JSContext* aCx,
@@ -263,8 +244,9 @@ void BodyStream::WriteIntoReadRequestBuffer(JSContext* aCx,
   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
 
   MOZ_DIAGNOSTIC_ASSERT(mInputStream);
-  MOZ_DIAGNOSTIC_ASSERT(mState == eWriting);
-  mState = eChecking;
+  MOZ_DIAGNOSTIC_ASSERT(!IsClosed());
+  MOZ_DIAGNOSTIC_ASSERT(mPullPromise->State() ==
+                        Promise::PromiseState::Pending);
 
   uint32_t written;
   nsresult rv;
@@ -297,7 +279,8 @@ void BodyStream::WriteIntoReadRequestBuffer(JSContext* aCx,
     return;
   }
 
-  rv = mInputStream->AsyncWait(this, 0, 0, mOwningEventTarget);
+  rv = mInputStream->AsyncWait(this, nsIAsyncOutputStream::WAIT_CLOSURE_ONLY, 0,
+                               mOwningEventTarget);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     ErrorPropagation(aCx, aStream, rv);
     return;
@@ -310,8 +293,8 @@ void BodyStream::WriteIntoReadRequestBuffer(JSContext* aCx,
 void BodyStream::CloseInputAndReleaseObjects() {
   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
 
-  if (mState == eInitializing) {
-    // The stream has been used for the first time.
+  if (mStreamHolder) {
+    // Being closed means someone touched the stream, let's mark it as read.
     mStreamHolder->MarkAsRead();
   }
 
@@ -332,8 +315,7 @@ void BodyStream::CloseInputAndReleaseObjects() {
 BodyStream::BodyStream(nsIGlobalObject* aGlobal,
                        BodyStreamHolder* aStreamHolder,
                        nsIInputStream* aInputStream)
-    : mState(eInitializing),
-      mGlobal(aGlobal),
+    : mGlobal(aGlobal),
       mStreamHolder(aStreamHolder),
       mOwningEventTarget(aGlobal->EventTargetFor(TaskCategory::Other)),
       mOriginalInputStream(aInputStream) {
@@ -350,7 +332,7 @@ void BodyStream::ErrorPropagation(JSContext* aCx, ReadableStream* aStream,
   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
 
   // Nothing to do.
-  if (mState == eClosed) {
+  if (IsClosed()) {
     return;
   }
 
@@ -377,8 +359,8 @@ void BodyStream::ErrorPropagation(JSContext* aCx, ReadableStream* aStream,
     NS_WARNING_ASSERTION(!rv.Failed(), "Failed to error BodyStream");
   }
 
-  if (mState == eInitializing) {
-    // The stream has been used for the first time.
+  if (mStreamHolder) {
+    // Being errored means someone touched the stream, let's mark it as read.
     mStreamHolder->MarkAsRead();
   }
 
@@ -441,7 +423,7 @@ BodyStream::OnInputStreamReady(nsIAsyncInputStream* aStream) {
   mAsyncWaitWorkerRef = nullptr;
 
   // Already closed. We have nothing else to do here.
-  if (mState == eClosed) {
+  if (IsClosed()) {
     return NS_OK;
   }
 
@@ -454,7 +436,6 @@ BodyStream::OnInputStreamReady(nsIAsyncInputStream* aStream) {
   AutoEntryScript aes(mGlobal, "fetch body data available");
 
   MOZ_DIAGNOSTIC_ASSERT(mInputStream);
-  MOZ_DIAGNOSTIC_ASSERT(mState == eReading || mState == eChecking);
 
   JSContext* cx = aes.cx();
   ReadableStream* stream = mStreamHolder->GetReadableStreamBody();
@@ -464,11 +445,7 @@ BodyStream::OnInputStreamReady(nsIAsyncInputStream* aStream) {
 
   uint64_t size = 0;
   nsresult rv = mInputStream->Available(&size);
-  if (NS_SUCCEEDED(rv) && size == 0) {
-    // In theory this should not happen. If size is 0, the stream should be
-    // considered closed.
-    rv = NS_BASE_STREAM_CLOSED;
-  }
+  MOZ_ASSERT_IF(NS_SUCCEEDED(rv), size > 0);
 
   // No warning for stream closed.
   if (rv == NS_BASE_STREAM_CLOSED || NS_WARN_IF(NS_FAILED(rv))) {
@@ -476,13 +453,15 @@ BodyStream::OnInputStreamReady(nsIAsyncInputStream* aStream) {
     return NS_OK;
   }
 
-  // This extra checking is completed. Let's wait for the next read request.
-  if (mState == eChecking) {
-    mState = eWaiting;
+  // Not having a promise means we are pinged by stream closure, but here we
+  // still have more data to read. Let's wait for the next read request in that
+  // case.
+  if (!mPullPromise) {
     return NS_OK;
   }
 
-  mState = eWriting;
+  MOZ_DIAGNOSTIC_ASSERT(mPullPromise->State() ==
+                        Promise::PromiseState::Pending);
 
   ErrorResult errorResult;
   EnqueueChunkWithSizeIntoStream(cx, stream, size, errorResult);
@@ -491,6 +470,9 @@ BodyStream::OnInputStreamReady(nsIAsyncInputStream* aStream) {
     ErrorPropagation(cx, stream, errorResult.StealNSResult());
     return NS_OK;
   }
+
+  mPullPromise->MaybeResolveWithUndefined();
+  mPullPromise = nullptr;
 
   // The previous call can execute JS (even up to running a nested event
   // loop), so |mState| can't be asserted to have any particular value, even
@@ -525,7 +507,7 @@ nsresult BodyStream::RetrieveInputStream(BodyStreamHolder* aStream,
 void BodyStream::Close() {
   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
 
-  if (mState == eClosed) {
+  if (IsClosed()) {
     return;
   }
 
@@ -546,7 +528,7 @@ void BodyStream::Close() {
 void BodyStream::CloseAndReleaseObjects(JSContext* aCx,
                                         ReadableStream* aStream) {
   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
-  MOZ_DIAGNOSTIC_ASSERT(mState != eClosed);
+  MOZ_DIAGNOSTIC_ASSERT(!IsClosed());
 
   ReleaseObjects();
 
@@ -560,12 +542,10 @@ void BodyStream::CloseAndReleaseObjects(JSContext* aCx,
 void BodyStream::ReleaseObjects() {
   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
 
-  if (mState == eClosed) {
+  if (IsClosed()) {
     // Already gone. Nothing to do.
     return;
   }
-
-  mState = eClosed;
 
   if (NS_IsMainThread()) {
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
@@ -576,6 +556,10 @@ void BodyStream::ReleaseObjects() {
 
   mWorkerRef = nullptr;
   mGlobal = nullptr;
+  // It's okay to leave a potentially unsettled promise as-is as this is only
+  // used to prevent reentrant to PullCallback. CloseNative() or ErrorNative()
+  // will settle the read requests for us.
+  mPullPromise = nullptr;
 
   RefPtr<BodyStream> self = mStreamHolder->TakeBodyStream();
   mStreamHolder->NullifyStream();

@@ -66,7 +66,7 @@ class MOZ_STACK_CLASS CaretPoint {
    * Suggest caret position to aEditorBase.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult SuggestCaretPointTo(
-      const EditorBase& aEditorBase, const SuggestCaretOptions& aOptions) const;
+      EditorBase& aEditorBase, const SuggestCaretOptions& aOptions) const;
 
   /**
    * IgnoreCaretPointSuggestion() should be called if the method does not want
@@ -280,6 +280,9 @@ class MOZ_STACK_CLASS InsertTextResult final : public CaretPoint {
         mEndOfInsertedText(std::move(aEndOfInsertedText)) {
     UnmarkAsHandledCaretPoint();
   }
+  InsertTextResult(InsertTextResult&& aOther, EditorDOMPoint&& aCaretPoint)
+      : CaretPoint(std::move(aCaretPoint)),
+        mEndOfInsertedText(std::move(aOther.mEndOfInsertedText)) {}
 
   [[nodiscard]] bool Handled() const { return mEndOfInsertedText.IsSet(); }
   const EditorDOMPointInText& EndOfInsertedTextRef() const {

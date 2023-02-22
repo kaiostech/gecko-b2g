@@ -1232,10 +1232,8 @@ class HTMLEditor final : public EditorBase,
 
   /**
    * InitializeInsertingElement is a callback type of methods which inserts
-   * an element into the DOM tree.  This is called immediately before or
-   * after inserting aNewElement into the DOM tree (depending on
-   * "editor.initialize_element_before_connect" pref whether this is called
-   * before or after inserting the element).
+   * an element into the DOM tree.  This is called immediately before inserting
+   * aNewElement into the DOM tree.
    *
    * @param aHTMLEditor     The HTML editor which modifies the DOM tree.
    * @param aNewElement     The new element which will be or was inserted into
@@ -1280,10 +1278,10 @@ class HTMLEditor final : public EditorBase,
    *                            Note that this point will be invalid once this
    *                            method inserts the new element.
    * @param aInitializer        A function to initialize the new element before
-   *                            or after (depends on the pref) connecting the
-   *                            element into the DOM tree. Note that this should
-   *                            not touch outside given element because doing it
-   *                            would break range updater's result.
+   *                            connecting the element into the DOM tree. Note
+   *                            that this should not touch outside given element
+   *                            because doing it would break range updater's
+   *                            result.
    * @return                    The created new element node and candidate caret
    *                            position.
    */
@@ -1365,10 +1363,10 @@ class HTMLEditor final : public EditorBase,
    *                            split point.
    * @param aEditingHost        The editing host with which we're handling it.
    * @param aInitializer        A function to initialize the new element before
-   *                            or after (depends on the pref) connecting the
-   *                            element into the DOM tree. Note that this should
-   *                            not touch outside given element because doing it
-   *                            would break range updater's result.
+   *                            connecting the element into the DOM tree. Note
+   *                            that this should not touch outside given element
+   *                            because doing it would break range updater's
+   *                            result.
    * @return                    If succeeded, returns the new element node and
    *                            suggesting point to put caret.
    */
@@ -1505,12 +1503,11 @@ class HTMLEditor final : public EditorBase,
                                       const Element& aEditingHost);
 
   /**
-   * InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary() determines if
-   * aPointToInsert is start of a hard line and end of the line (i.e, the
-   * line is empty) and the line ends with block boundary, inserts a `<br>`
-   * element.
+   * Determine if aPointToInsert is start of a hard line and end of the line
+   * (i.e, in an empty line) and the line ends with block boundary, inserts a
+   * `<br>` element.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<CaretPoint, nsresult>
   InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
       const EditorDOMPoint& aPointToInsert);
 
@@ -4104,7 +4101,6 @@ class HTMLEditor final : public EditorBase,
 
   MOZ_CAN_RUN_SCRIPT nsresult StartMoving();
   MOZ_CAN_RUN_SCRIPT nsresult SetFinalPosition(int32_t aX, int32_t aY);
-  void AddPositioningOffset(int32_t& aX, int32_t& aY);
   void SnapToGrid(int32_t& newX, int32_t& newY) const;
   nsresult GrabberClicked();
   MOZ_CAN_RUN_SCRIPT nsresult EndMoving();

@@ -7,6 +7,7 @@
 #include "base/basictypes.h"
 
 #include "BrowserParent.h"
+#include "mozilla/AlreadyAddRefed.h"
 
 #include "AudioChannelService.h"
 #ifdef ACCESSIBILITY
@@ -1301,14 +1302,9 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
 }
 #endif
 
-PFilePickerParent* BrowserParent::AllocPFilePickerParent(const nsString& aTitle,
-                                                         const int16_t& aMode) {
-  return new FilePickerParent(aTitle, aMode);
-}
-
-bool BrowserParent::DeallocPFilePickerParent(PFilePickerParent* actor) {
-  delete actor;
-  return true;
+already_AddRefed<PFilePickerParent> BrowserParent::AllocPFilePickerParent(
+    const nsString& aTitle, const nsIFilePicker::Mode& aMode) {
+  return MakeAndAddRef<FilePickerParent>(aTitle, aMode);
 }
 
 already_AddRefed<PSessionStoreParent>
@@ -3356,15 +3352,11 @@ BrowserParent::GetAuthPrompt(uint32_t aPromptReason, const nsIID& iid,
   return NS_OK;
 }
 
-PColorPickerParent* BrowserParent::AllocPColorPickerParent(
+already_AddRefed<PColorPickerParent> BrowserParent::AllocPColorPickerParent(
     const nsString& aTitle, const nsString& aInitialColor,
     const nsTArray<nsString>& aDefaultColors) {
-  return new ColorPickerParent(aTitle, aInitialColor, aDefaultColors);
-}
-
-bool BrowserParent::DeallocPColorPickerParent(PColorPickerParent* actor) {
-  delete actor;
-  return true;
+  return MakeAndAddRef<ColorPickerParent>(aTitle, aInitialColor,
+                                          aDefaultColors);
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvAudioChannelActivityNotification(

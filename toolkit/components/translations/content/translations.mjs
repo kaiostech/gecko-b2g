@@ -7,8 +7,9 @@
 // allow for the page to get access to additional privileged features.
 
 /* global AT_getSupportedLanguages, AT_log, AT_getScriptDirection,
-   AT_getAppLocale, AT_logError, AT_destroyEngine,
-   AT_createTranslationsEngine, AT_translate */
+   AT_getAppLocale, AT_logError, AT_destroyTranslationsEngine,
+   AT_createTranslationsEngine, AT_createLanguageIdEngine, 
+   AT_translate, AT_identifyLanguage */
 
 /**
  * The model and controller for initializing about:translations.
@@ -51,7 +52,7 @@ class TranslationsState {
    *
    * @type {null | Promise<TranslationsEngine>}
    */
-  engine = null;
+  translationsEngine = null;
 
   constructor() {
     this.supportedLanguages = AT_getSupportedLanguages();
@@ -60,25 +61,50 @@ class TranslationsState {
   }
 
   /**
+   * Identifies the human language in which the message is written and logs the result.
+   *
+   * @param {string} message
+   */
+  async identifyLanguage(message) {
+    const start = performance.now();
+    const { languageLabel, confidence } = await AT_identifyLanguage(message);
+    const duration = performance.now() - start;
+    AT_log(
+      `[ ${languageLabel.slice(-2)}(${(confidence * 100).toFixed(2)}%) ]`,
+      `Source language identified in ${duration / 1000} seconds`
+    );
+  }
+
+  /**
    * Only request translation when it's needed.
    */
   async maybeRequestTranslation() {
     // The contents of "this" can change between async steps, store a local variable
     // binding of these values.
-    const { fromLanguage, toLanguage, messageToTranslate, engine } = this;
+    const {
+      fromLanguage,
+      toLanguage,
+      messageToTranslate,
+      translationsEngine,
+    } = this;
 
-    if (!fromLanguage || !toLanguage || !messageToTranslate || !engine) {
+    if (
+      !fromLanguage ||
+      !toLanguage ||
+      !messageToTranslate ||
+      !translationsEngine
+    ) {
       // Not everything is set for translation.
       this.ui.updateTranslation("");
       return;
     }
 
     // Ensure the engine is ready to go.
-    await engine;
+    await translationsEngine;
 
     // Check if the configuration has changed between each async step.
     const isStale = () =>
-      this.engine !== engine ||
+      this.translationsEngine !== translationsEngine ||
       this.fromLanguage !== fromLanguage ||
       this.toLanguage !== toLanguage ||
       this.messageToTranslate !== messageToTranslate;
@@ -109,10 +135,10 @@ class TranslationsState {
     if (!this.fromLanguage || !this.toLanguage) {
       // A from or to language could have been removed. Don't do any more translations
       // with it.
-      if (this.engine) {
+      if (this.translationsEngine) {
         // The engine is no longer needed.
-        AT_destroyEngine();
-        this.engine = null;
+        AT_destroyTranslationsEngine();
+        this.translationsEngine = null;
       }
       return;
     }
@@ -122,14 +148,14 @@ class TranslationsState {
       `Rebuilding the translations worker for "${this.fromLanguage}" to "${this.toLanguage}"`
     );
 
-    this.engine = AT_createTranslationsEngine(
+    this.translationsEngine = AT_createTranslationsEngine(
       this.fromLanguage,
       this.toLanguage
     );
     this.maybeRequestTranslation();
 
     try {
-      await this.engine;
+      await this.translationsEngine;
       const duration = performance.now() - start;
       AT_log(`Rebuilt the TranslationsEngine in ${duration / 1000} seconds`);
       // TODO (Bug 1813781) - Report this error in the UI.
@@ -163,6 +189,7 @@ class TranslationsState {
    */
   setMessageToTranslate(message) {
     if (message !== this.messageToTranslate) {
+      this.identifyLanguage(message);
       this.messageToTranslate = message;
       this.maybeRequestTranslation();
     }
@@ -200,6 +227,10 @@ class TranslationsUI {
   setup() {
     this.setupDropdowns();
     this.setupTextarea();
+    const start = performance.now();
+    AT_createLanguageIdEngine();
+    const duration = performance.now() - start;
+    AT_log(`Created LanguageIdEngine in ${duration / 1000} seconds`);
   }
 
   /**

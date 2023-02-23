@@ -123,7 +123,6 @@ struct ResponseTiming {
 
 struct ResponseEndArgs {
   EndReason endReason;
-  ResponseTiming? timing;
 };
 
 } // namespace ipc

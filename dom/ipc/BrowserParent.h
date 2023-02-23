@@ -12,6 +12,7 @@
 #include "LiveResizeListener.h"
 #include "Units.h"
 #include "js/TypeDecls.h"
+#include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/ContentCache.h"
 #include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/dom/ipc/IdType.h"
@@ -27,6 +28,7 @@
 #include "nsIAuthPromptProvider.h"
 #include "nsIBrowserDOMWindow.h"
 #include "nsIDOMEventListener.h"
+#include "nsIFilePicker.h"
 #include "nsIRemoteTab.h"
 #include "nsIWidget.h"
 #include "nsTArray.h"
@@ -428,11 +430,9 @@ class BrowserParent final : public PBrowserParent,
   mozilla::ipc::IPCResult RecvCursorOut();
   mozilla::ipc::IPCResult RecvCursorShowContextMenu();
 
-  PColorPickerParent* AllocPColorPickerParent(
+  already_AddRefed<PColorPickerParent> AllocPColorPickerParent(
       const nsString& aTitle, const nsString& aInitialColor,
       const nsTArray<nsString>& aDefaultColors);
-
-  bool DeallocPColorPickerParent(PColorPickerParent* aColorPicker);
 
   PVsyncParent* AllocPVsyncParent();
 
@@ -607,10 +607,8 @@ class BrowserParent final : public PBrowserParent,
       TapType aType, const LayoutDevicePoint& aPoint, Modifiers aModifiers,
       const ScrollableLayerGuid& aGuid, uint64_t aInputBlockId);
 
-  PFilePickerParent* AllocPFilePickerParent(const nsString& aTitle,
-                                            const int16_t& aMode);
-
-  bool DeallocPFilePickerParent(PFilePickerParent* actor);
+  already_AddRefed<PFilePickerParent> AllocPFilePickerParent(
+      const nsString& aTitle, const nsIFilePicker::Mode& aMode);
 
   bool GetGlobalJSObject(JSContext* cx, JSObject** globalp);
 

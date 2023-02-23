@@ -4623,13 +4623,7 @@ bool nsGlobalWindowInner::ShouldShowFocusRing() {
       StaticPrefs::browser_display_always_show_rings_after_key_focus()) {
     return true;
   }
-  if (StaticPrefs::browser_display_show_focus_rings()) {
-    return true;
-  }
-  if (LookAndFeel::GetInt(LookAndFeel::IntID::ShowKeyboardCues)) {
-    return true;
-  }
-  return false;
+  return StaticPrefs::browser_display_show_focus_rings();
 }
 
 bool nsGlobalWindowInner::TakeFocus(bool aFocus, uint32_t aFocusMethod) {

@@ -512,6 +512,8 @@ pref("browser.urlbar.resultMenu", true);
 #else
 pref("browser.urlbar.resultMenu", false);
 #endif
+// Allow the result menu button to be reached with the Tab key.
+pref("browser.urlbar.resultMenu.keyboardAccessible", true);
 
 // If true, we show tail suggestions when available.
 pref("browser.urlbar.richSuggestions.tail", true);
@@ -2197,17 +2199,14 @@ pref("signon.management.page.fileImport.enabled", false);
 
 #ifdef NIGHTLY_BUILD
 pref("signon.management.page.os-auth.enabled", true);
-
-// "not available"  - feature is not available (will be removed after enabling on Release).
+#else
+pref("signon.management.page.os-auth.enabled", false);
+#endif
 // "available"      - user can see feature offer.
 // "offered"        - we have offered feature to user and they have not yet made a decision.
 // "enabled"        - user opted in to the feature.
 // "disabled"       - user opted out of the feature.
 pref("signon.firefoxRelay.feature", "available");
-#else
-pref("signon.management.page.os-auth.enabled", false);
-pref("signon.firefoxRelay.feature", "not available");
-#endif
 pref("signon.management.page.breach-alerts.enabled", true);
 pref("signon.management.page.vulnerable-passwords.enabled", true);
 pref("signon.management.page.sort", "name");

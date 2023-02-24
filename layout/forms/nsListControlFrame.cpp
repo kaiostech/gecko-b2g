@@ -70,6 +70,11 @@ nsListControlFrame::nsListControlFrame(ComputedStyle* aStyle,
 
 nsListControlFrame::~nsListControlFrame() = default;
 
+Maybe<nscoord> nsListControlFrame::GetNaturalBaselineBOffset(
+    WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
+  // Unlike scroll frames which we inherit from, we don't export a baseline.
+  return Nothing{};
+}
 // for Bug 47302 (remove this comment later)
 void nsListControlFrame::DestroyFrom(nsIFrame* aDestructRoot,
                                      PostDestroyData& aPostDestroyData) {

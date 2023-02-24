@@ -8,10 +8,26 @@
 
 #include "gc/GCLock.h"
 #include "gc/ParallelWork.h"
+#include "vm/GeckoProfiler.h"
 #include "vm/HelperThreadState.h"
+#include "vm/Runtime.h"
 
 using namespace js;
 using namespace js::gc;
+
+using mozilla::Maybe;
+using mozilla::TimeDuration;
+using mozilla::TimeStamp;
+
+class AutoAddTimeDuration {
+  TimeStamp start;
+  TimeDuration& result;
+
+ public:
+  explicit AutoAddTimeDuration(TimeDuration& result)
+      : start(TimeStamp::Now()), result(result) {}
+  ~AutoAddTimeDuration() { result += TimeSince(start); }
+};
 
 ParallelMarker::ParallelMarker(GCRuntime* gc) : gc(gc) {}
 
@@ -53,6 +69,8 @@ bool ParallelMarker::markOneColor(MarkColor color, SliceBudget& sliceBudget) {
   if (!hasWork(color)) {
     return true;
   }
+
+  gcstats::AutoPhase ap(gc->stats(), gcstats::PhaseKind::PARALLEL_MARK);
 
   MOZ_ASSERT(workerCount() <= MaxParallelWorkers);
   mozilla::Maybe<ParallelMarkTask> tasks[MaxParallelWorkers];
@@ -118,7 +136,7 @@ bool ParallelMarker::hasWork(MarkColor color) const {
 
 ParallelMarkTask::ParallelMarkTask(ParallelMarker* pm, GCMarker* marker,
                                    MarkColor color, const SliceBudget& budget)
-    : GCParallelTask(pm->gc, gcstats::PhaseKind::MARK, GCUse::Marking),
+    : GCParallelTask(pm->gc, gcstats::PhaseKind::PARALLEL_MARK, GCUse::Marking),
       pm(pm),
       marker(marker),
       color(*marker, color),
@@ -133,6 +151,15 @@ ParallelMarkTask::~ParallelMarkTask() {
 
 bool ParallelMarkTask::hasWork() const {
   return marker->hasEntries(marker->markColor());
+}
+
+void ParallelMarkTask::recordDuration() {
+  gc->stats().recordParallelPhase(gcstats::PhaseKind::PARALLEL_MARK,
+                                  duration());
+  gc->stats().recordParallelPhase(gcstats::PhaseKind::PARALLEL_MARK_MARK,
+                                  markTime.ref());
+  gc->stats().recordParallelPhase(gcstats::PhaseKind::PARALLEL_MARK_WAIT,
+                                  waitTime.ref());
 }
 
 void ParallelMarkTask::run(AutoLockHelperThreadState& lock) {
@@ -171,6 +198,8 @@ bool ParallelMarkTask::tryMarking(AutoLockGC& lock) {
   // Mark until budget exceeded or we run out of work.
   {
     AutoUnlockGC unlock(lock);
+
+    AutoAddTimeDuration time(markTime.ref());
     marker->markCurrentColorInParallel(budget);
   }
 
@@ -205,17 +234,29 @@ bool ParallelMarkTask::requestWork(AutoLockGC& lock) {
 }
 
 void ParallelMarkTask::waitUntilResumed(AutoLockGC& lock) {
+  GeckoProfilerRuntime& profiler = gc->rt->geckoProfiler();
+  if (profiler.enabled()) {
+    profiler.markEvent("Parallel marking wait start", "");
+  }
+
   pm->addTaskToWaitingList(this, lock);
 
   // Set isWaiting flag and wait for another thread to clear it and resume us.
   MOZ_ASSERT(!isWaiting);
   isWaiting = true;
+
+  AutoAddTimeDuration time(waitTime.ref());
+
   do {
     MOZ_ASSERT(pm->hasActiveTasks(lock));
     resumed.wait(lock.guard());
   } while (isWaiting);
 
   MOZ_ASSERT(!pm->isTaskInWaitingList(this, lock));
+
+  if (profiler.enabled()) {
+    profiler.markEvent("Parallel marking wait end", "");
+  }
 }
 
 void ParallelMarkTask::resume(const AutoLockGC& lock) {
@@ -295,4 +336,11 @@ void ParallelMarker::donateWorkFrom(GCMarker* src) {
 
   // Resume waiting task.
   waitingTask->resume(lock);
+
+  gc->stats().count(gcstats::COUNT_PARALLEL_MARK_INTERRUPTIONS);
+
+  GeckoProfilerRuntime& profiler = gc->rt->geckoProfiler();
+  if (profiler.enabled()) {
+    profiler.markEvent("Parallel marking donated work", "");
+  }
 }

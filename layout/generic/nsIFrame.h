@@ -81,6 +81,7 @@
 #include "nsDisplayItemTypes.h"
 #include "nsPresContext.h"
 #include "nsTHashSet.h"
+#include "Baseline.h"
 
 #ifdef ACCESSIBILITY
 #  include "mozilla/a11y/AccTypes.h"
@@ -346,13 +347,6 @@ class nsReflowStatus final {
 std::ostream& operator<<(std::ostream& aStream, const nsReflowStatus& aStatus);
 
 namespace mozilla {
-
-// https://drafts.csswg.org/css-align-3/#baseline-sharing-group
-enum class BaselineSharingGroup {
-  // NOTE Used as an array index so must be 0 and 1.
-  First = 0,
-  Last = 1,
-};
 
 // Loosely: https://drafts.csswg.org/css-align-3/#shared-alignment-context
 enum class AlignmentContext {
@@ -1521,107 +1515,31 @@ class nsIFrame : public nsQueryFrame {
   bool GetShapeBoxBorderRadii(nscoord aRadii[8]) const;
 
   /**
-   * XXX: this method will likely be replaced by GetVerticalAlignBaseline
-   * Get the position of the frame's baseline, relative to the top of
-   * the frame (its top border edge).  Only valid when Reflow is not
-   * needed.
-   * @note You should only call this on frames with a WM that's parallel to
-   * aWritingMode.
-   * @param aWritingMode the writing-mode of the alignment context, with the
-   * ltr/rtl direction tweak done by nsIFrame::GetWritingMode(nsIFrame*) in
-   * inline contexts (see that method).
+   * `GetNaturalBaselineBOffset`, but determines the baseline sharing group
+   * through `GetDefaultBaselineSharingGroup` (If not specified), and never
+   * fails, returning a synthesized baseline through
+   * `SynthesizeFallbackBaseline`. Unlike `GetNaturalBaselineBOffset`, Result is
+   * always relative to the block start of the frame.
    */
-  virtual nscoord GetLogicalBaseline(mozilla::WritingMode aWritingMode) const;
+  nscoord GetLogicalBaseline(mozilla::WritingMode aWM) const;
+  nscoord GetLogicalBaseline(mozilla::WritingMode aWM,
+                             BaselineSharingGroup aBaselineGroup) const;
 
   /**
-   * Synthesize a first(last) inline-axis baseline based on our margin-box.
-   * An alphabetical baseline is at the start(end) edge and a central baseline
-   * is at the center of our block-axis margin-box (aWM tells which to use).
-   * https://drafts.csswg.org/css-align-3/#synthesize-baselines
-   * @note You should only call this on frames with a WM that's parallel to aWM.
-   * @param aWM the writing-mode of the alignment context
-   * @return an offset from our border-box block-axis start(end) edge for
-   * a first(last) baseline respectively
-   * (implemented in nsIFrameInlines.h)
-   */
-  inline nscoord SynthesizeBaselineBOffsetFromMarginBox(
-      mozilla::WritingMode aWM, BaselineSharingGroup aGroup) const;
-
-  /**
-   * Synthesize a first(last) inline-axis baseline based on our border-box.
-   * An alphabetical baseline is at the start(end) edge and a central baseline
-   * is at the center of our block-axis border-box (aWM tells which to use).
-   * https://drafts.csswg.org/css-align-3/#synthesize-baselines
+   * Return true if the frame has a first(last) inline-axis baseline per
+   * CSS Box Alignment.  If so, the returned baseline is the distance from
+   * the relevant block-axis border-box edge (Start for
+   * BaselineSharingGroup::First, end for BaselineSharingGroup::Last), where
+   * a positive value points towards the content-box.
+   * https://drafts.csswg.org/css-align-3/#baseline-export
    * @note The returned value is only valid when reflow is not needed.
    * @note You should only call this on frames with a WM that's parallel to aWM.
-   * @param aWM the writing-mode of the alignment context
-   * @return an offset from our border-box block-axis start(end) edge for
-   * a first(last) baseline respectively
-   * (implemented in nsIFrameInlines.h)
+   * @param aWM the writing-mode of the alignment context.
+   * @return the baseline offset, if one exists
    */
-  inline nscoord SynthesizeBaselineBOffsetFromBorderBox(
-      mozilla::WritingMode aWM, BaselineSharingGroup aGroup) const;
-
-  /**
-   * Synthesize a first(last) inline-axis baseline based on our content-box.
-   * An alphabetical baseline is at the start(end) edge and a central baseline
-   * is at the center of our block-axis content-box (aWM tells which to use).
-   * https://drafts.csswg.org/css-align-3/#synthesize-baselines
-   * @note The returned value is only valid when reflow is not needed.
-   * @note You should only call this on frames with a WM that's parallel to aWM.
-   * @param aWM the writing-mode of the alignment context
-   * @return an offset from our border-box block-axis start(end) edge for
-   * a first(last) baseline respectively
-   * (implemented in nsIFrameInlines.h)
-   */
-  inline nscoord SynthesizeBaselineBOffsetFromContentBox(
-      mozilla::WritingMode aWM, BaselineSharingGroup aGroup) const;
-
-  /**
-   * Return the position of the frame's inline-axis baseline, or synthesize one
-   * for the given alignment context. The returned baseline is the distance from
-   * the block-axis border-box start(end) edge for aBaselineGroup ::First(Last).
-   * @note The returned value is only valid when reflow is not needed.
-   * @note You should only call this on frames with a WM that's parallel to aWM.
-   * @param aWM the writing-mode of the alignment context
-   * @param aBaselineOffset out-param, only valid if the method returns true
-   * (implemented in nsIFrameInlines.h)
-   */
-  inline nscoord BaselineBOffset(mozilla::WritingMode aWM,
-                                 BaselineSharingGroup aBaselineGroup,
-                                 AlignmentContext aAlignmentContext) const;
-
-  /**
-   * XXX: this method is taking over the role that GetLogicalBaseline has.
-   * Return true if the frame has a CSS2 'vertical-align' baseline.
-   * If it has, then the returned baseline is the distance from the block-
-   * axis border-box start edge.
-   * @note This method should only be used in AlignmentContext::Inline
-   * contexts.
-   * @note The returned value is only valid when reflow is not needed.
-   * @note You should only call this on frames with a WM that's parallel to aWM.
-   * @param aWM the writing-mode of the alignment context
-   * @param aBaseline the baseline offset, only valid if the method returns true
-   */
-  virtual bool GetVerticalAlignBaseline(mozilla::WritingMode aWM,
-                                        nscoord* aBaseline) const {
-    return false;
-  }
-
-  /**
-   * Return true if the frame has a first(last) inline-axis natural baseline per
-   * CSS Box Alignment.  If so, then the returned baseline is the distance from
-   * the block-axis border-box start(end) edge for aBaselineGroup ::First(Last).
-   * https://drafts.csswg.org/css-align-3/#natural-baseline
-   * @note The returned value is only valid when reflow is not needed.
-   * @note You should only call this on frames with a WM that's parallel to aWM.
-   * @param aWM the writing-mode of the alignment context
-   * @param aBaseline the baseline offset, only valid if the method returns true
-   */
-  virtual bool GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
-                                         BaselineSharingGroup aBaselineGroup,
-                                         nscoord* aBaseline) const {
-    return false;
+  virtual Maybe<nscoord> GetNaturalBaselineBOffset(
+      mozilla::WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
+    return Nothing{};
   }
 
   /**
@@ -1703,7 +1621,25 @@ class nsIFrame : public nsQueryFrame {
       Visibility aNewVisibility,
       const Maybe<OnNonvisible>& aNonvisibleAction = Nothing());
 
+  /**
+   * Synthesize a baseline for this element. The returned baseline is the
+   * distance from the relevant block-axis border-box edge (Start for
+   * BaselineSharingGroup::First, end for BaselineSharingGroup::Last), where a
+   * positive value points towards the content-box.
+   * @note This always returns a synthesized baseline, even if the element may
+   * have an actual baseline.
+   */
+  virtual nscoord SynthesizeFallbackBaseline(
+      mozilla::WritingMode aWM, BaselineSharingGroup aBaselineGroup) const;
+
  public:
+  /**
+   * Get the suitable baseline sharing group for this element.
+   */
+  virtual BaselineSharingGroup GetDefaultBaselineSharingGroup() const {
+    return BaselineSharingGroup::First;
+  }
+
   ///////////////////////////////////////////////////////////////////////////////
   // Internal implementation for the approximate frame visibility API.
   ///////////////////////////////////////////////////////////////////////////////

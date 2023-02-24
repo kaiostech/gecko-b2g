@@ -47,7 +47,6 @@ DIRS += [
     "events",
     "fetch",
     "file",
-    "filehandle",
     "filesystem",
     "flashlightmanager",
     "flex",

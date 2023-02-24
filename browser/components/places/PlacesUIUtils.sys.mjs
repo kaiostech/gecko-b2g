@@ -282,6 +282,8 @@ class BookmarkState {
    *   If changes to bookmark fields should be saved immediately after calling
    *   its respective "changed" method, rather than waiting for save() to be
    *   called.
+   * @param {number} [options.index]
+   *   The insertion point index of the bookmark.
    */
   constructor({
     info,
@@ -290,6 +292,7 @@ class BookmarkState {
     isFolder = false,
     children = [],
     autosave = false,
+    index,
   }) {
     this._guid = info.itemGuid;
     this._postData = info.postData;
@@ -309,6 +312,7 @@ class BookmarkState {
         .filter(tag => !!tag.length),
       keyword,
       parentGuid: info.parentGuid,
+      index,
     };
 
     // Edited bookmark
@@ -391,6 +395,7 @@ class BookmarkState {
         tags: this._newState.tags,
         title: this._newState.title ?? this._originalState.title,
         url: this._newState.uri ?? this._originalState.uri,
+        index: this._originalState.index,
       }).transact();
       if (this._newState.keyword) {
         await lazy.PlacesTransactions.EditKeyword({
@@ -416,6 +421,7 @@ class BookmarkState {
         url: item.uri,
         title: item.title,
       })),
+      index: this._originalState.index,
     }).transact();
     return this._guid;
   }
@@ -1172,7 +1178,7 @@ export var PlacesUIUtils = {
 
   /**
    * Loads the node's URL in the appropriate tab or window.
-   * see also openUILinkIn
+   * see also URILoadingHelper's openWebLinkIn
    *
    * @param {object} aNode
    *        An uri result node.
@@ -1840,21 +1846,17 @@ export var PlacesUIUtils = {
           );
           break;
         case "placesCmd_open:privatewindow":
-          window.openUILinkIn(this.triggerNode.link, "window", {
-            triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+          window.openTrustedLinkIn(this.triggerNode.link, "window", {
             private: true,
           });
           break;
         case "placesCmd_open:window":
-          window.openUILinkIn(this.triggerNode.link, "window", {
-            triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+          window.openTrustedLinkIn(this.triggerNode.link, "window", {
             private: false,
           });
           break;
         case "placesCmd_open:tab": {
-          window.openUILinkIn(this.triggerNode.link, "tab", {
-            triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-          });
+          window.openTrustedLinkIn(this.triggerNode.link, "tab");
         }
       }
     },

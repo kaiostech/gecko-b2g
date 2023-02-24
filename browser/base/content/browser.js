@@ -2808,7 +2808,7 @@ function openLocation(event) {
   }
 
   // If there's an open browser window, redirect the command there.
-  let win = getTopWin();
+  let win = URILoadingHelper.getTargetWindow(window);
   if (win) {
     win.focus();
     win.openLocation();
@@ -3947,7 +3947,7 @@ const BrowserSearch = {
       window.location.href != AppConstants.BROWSER_CHROME_URL ||
       gURLBar.readOnly
     ) {
-      let win = getTopWin({ skipPopups: true });
+      let win = URILoadingHelper.getTopWin(window, { skipPopups: true });
       if (win) {
         // If there's an open browser window, it should handle this command
         win.focus();
@@ -7826,7 +7826,7 @@ var WebAuthnPromptHelper = {
       });
     }
     let mainAction = this.buildCancelAction(mgr, tid);
-    let options = {};
+    let options = { escAction: "buttoncommand" };
     this.show(
       tid,
       "select-sign-result",
@@ -7855,6 +7855,8 @@ var WebAuthnPromptHelper = {
 
   register(mgr, { origin, tid, is_ctap2, device_selected }) {
     let mainAction = this.buildCancelAction(mgr, tid);
+    let options = { escAction: "buttoncommand" };
+    let secondaryActions = [];
     let message;
     if (is_ctap2) {
       if (device_selected) {
@@ -7865,7 +7867,15 @@ var WebAuthnPromptHelper = {
     } else {
       message = "webauthn.registerPrompt2";
     }
-    this.show(tid, "register", message, origin, mainAction);
+    this.show(
+      tid,
+      "register",
+      message,
+      origin,
+      mainAction,
+      secondaryActions,
+      options
+    );
   },
 
   registerDirect(mgr, { origin, tid }) {
@@ -7896,6 +7906,8 @@ var WebAuthnPromptHelper = {
 
   sign(mgr, { origin, tid, is_ctap2, device_selected }) {
     let mainAction = this.buildCancelAction(mgr, tid);
+    let options = { escAction: "buttoncommand" };
+    let secondaryActions = [];
     let message;
     if (is_ctap2) {
       if (device_selected) {
@@ -7906,7 +7918,15 @@ var WebAuthnPromptHelper = {
     } else {
       message = "webauthn.signPrompt2";
     }
-    this.show(tid, "sign", message, origin, mainAction);
+    this.show(
+      tid,
+      "sign",
+      message,
+      origin,
+      mainAction,
+      secondaryActions,
+      options
+    );
   },
 
   show_info(mgr, origin, tid, id, stringId) {

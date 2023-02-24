@@ -2537,8 +2537,6 @@ STATIC_ATOMS = [
     Atom("DirectoryService_Favorites", "Favs"),
     Atom("DirectoryService_Appdata", "AppData"),
     Atom("DirectoryService_LocalAppdata", "LocalAppData"),
-    Atom("DirectoryService_LocalAppdataLow", "LocalAppDataLow"),
-    Atom("DirectoryService_LowIntegrityTempBase", "LowTmpDBase"),
     Atom("DirectoryService_WinCookiesDirectory", "CookD"),
     # B2G_RIL_START
     Atom("oncallschanged", "oncallschanged"),

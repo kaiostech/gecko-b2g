@@ -12,6 +12,9 @@ add_setup(async function() {
   Services.prefs.clearUserPref(LOCATION_PREF);
   await PlacesUtils.bookmarks.eraseEverything();
 
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.bookmarks.editDialog.delayedApply.enabled", false]],
+  });
   win = await BrowserTestUtils.openNewBrowserWindow();
   await BrowserTestUtils.openNewForegroundTab({
     gBrowser: win.gBrowser,

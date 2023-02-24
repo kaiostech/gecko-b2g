@@ -130,30 +130,14 @@ class nsGridContainerFrame final : public nsContainerFrame,
   void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                         const nsDisplayListSet& aLists) override;
 
-  nscoord GetLogicalBaseline(mozilla::WritingMode aWM) const override {
-    if (HasAnyStateBits(NS_STATE_GRID_SYNTHESIZE_BASELINE)) {
-      // Return a baseline synthesized from our margin-box.
-      return nsContainerFrame::GetLogicalBaseline(aWM);
-    }
-    nscoord b;
-    GetBBaseline(BaselineSharingGroup::First, &b);
-    return b;
-  }
-
-  bool GetVerticalAlignBaseline(mozilla::WritingMode aWM,
-                                nscoord* aBaseline) const override {
-    return GetNaturalBaselineBOffset(aWM, BaselineSharingGroup::First,
-                                     aBaseline);
-  }
-
-  bool GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
-                                 BaselineSharingGroup aBaselineGroup,
-                                 nscoord* aBaseline) const override {
+  Maybe<nscoord> GetNaturalBaselineBOffset(
+      mozilla::WritingMode aWM,
+      BaselineSharingGroup aBaselineGroup) const override {
     if (StyleDisplay()->IsContainLayout() ||
         HasAnyStateBits(NS_STATE_GRID_SYNTHESIZE_BASELINE)) {
-      return false;
+      return Nothing{};
     }
-    return GetBBaseline(aBaselineGroup, aBaseline);
+    return mozilla::Some(GetBBaseline(aBaselineGroup));
   }
 
 #ifdef DEBUG_FRAME_DUMP
@@ -383,15 +367,11 @@ class nsGridContainerFrame final : public nsContainerFrame,
   nscoord IntrinsicISize(gfxContext* aRenderingContext,
                          mozilla::IntrinsicISizeType aConstraint);
 
-  bool GetBBaseline(BaselineSharingGroup aBaselineGroup,
-                    nscoord* aResult) const {
-    *aResult = mBaseline[mozilla::eLogicalAxisBlock][aBaselineGroup];
-    return true;
+  nscoord GetBBaseline(BaselineSharingGroup aBaselineGroup) const {
+    return mBaseline[mozilla::eLogicalAxisBlock][aBaselineGroup];
   }
-  bool GetIBaseline(BaselineSharingGroup aBaselineGroup,
-                    nscoord* aResult) const {
-    *aResult = mBaseline[mozilla::eLogicalAxisInline][aBaselineGroup];
-    return true;
+  nscoord GetIBaseline(BaselineSharingGroup aBaselineGroup) const {
+    return mBaseline[mozilla::eLogicalAxisInline][aBaselineGroup];
   }
 
   /**

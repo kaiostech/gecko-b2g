@@ -27,6 +27,7 @@
 #include "nsLayoutUtils.h"
 #include "nsPlaceholderFrame.h"
 #include "nsPresContext.h"
+#include "Baseline.h"
 
 using namespace mozilla;
 using namespace mozilla::layout;
@@ -420,18 +421,18 @@ class nsFlexContainerFrame::FlexItem final {
     // If the nsLayoutUtils getter fails, then ask the frame directly:
     auto baselineGroup = aUseFirstBaseline ? BaselineSharingGroup::First
                                            : BaselineSharingGroup::Last;
-    if (mFrame->GetNaturalBaselineBOffset(mWM, baselineGroup, &mAscent)) {
-      if (baselineGroup == BaselineSharingGroup::Last) {
-        // Offset for last baseline from `GetNaturalBaselineBOffset` originates
-        // from the frame's block end, so convert it back.
-        mAscent = mFrame->BSize(mWM) - mAscent;
-      }
+    if (auto baseline = mFrame->GetNaturalBaselineBOffset(mWM, baselineGroup)) {
+      // Offset for last baseline from `GetNaturalBaselineBOffset` originates
+      // from the frame's block end, so convert it back.
+      mAscent = baselineGroup == BaselineSharingGroup::First
+                    ? *baseline
+                    : mFrame->BSize(mWM) - *baseline;
       return mAscent;
     }
 
     // We couldn't determine a baseline, so we synthesize one from border box:
-    mAscent = mFrame->SynthesizeBaselineBOffsetFromBorderBox(
-        mWM, BaselineSharingGroup::First);
+    mAscent = Baseline::SynthesizeBOffsetFromBorderBox(
+        mFrame, mWM, BaselineSharingGroup::First);
     return mAscent;
   }
 
@@ -2764,18 +2765,6 @@ nsresult nsFlexContainerFrame::GetFrameName(nsAString& aResult) const {
 }
 #endif
 
-nscoord nsFlexContainerFrame::GetLogicalBaseline(
-    mozilla::WritingMode aWM) const {
-  NS_ASSERTION(mBaselineFromLastReflow != NS_INTRINSIC_ISIZE_UNKNOWN,
-               "baseline has not been set");
-
-  if (HasAnyStateBits(NS_STATE_FLEX_SYNTHESIZE_BASELINE)) {
-    // Return a baseline synthesized from our margin-box.
-    return nsContainerFrame::GetLogicalBaseline(aWM);
-  }
-  return mBaselineFromLastReflow;
-}
-
 void nsFlexContainerFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                             const nsDisplayListSet& aLists) {
   nsDisplayListCollection tempLists(aBuilder);
@@ -4641,6 +4630,17 @@ void nsFlexContainerFrame::Reflow(nsPresContext* aPresContext,
     // existing data only if we don't have a next-in-flow.
     RemoveProperty(PerFragmentFlexData::Prop());
   }
+}
+
+Maybe<nscoord> nsFlexContainerFrame::GetNaturalBaselineBOffset(
+    WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
+  if (StyleDisplay()->IsContainLayout() ||
+      HasAnyStateBits(NS_STATE_FLEX_SYNTHESIZE_BASELINE)) {
+    return Nothing{};
+  }
+  return Some(aBaselineGroup == BaselineSharingGroup::First
+                  ? mBaselineFromLastReflow
+                  : mLastBaselineFromLastReflow);
 }
 
 void nsFlexContainerFrame::UnionInFlowChildOverflow(

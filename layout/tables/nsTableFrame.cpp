@@ -3512,21 +3512,19 @@ nscoord nsTableFrame::GetRowSpacing(int32_t aStartRowIndex,
   return GetRowSpacing() * (aEndRowIndex - aStartRowIndex);
 }
 
-/* virtual */
-nscoord nsTableFrame::GetLogicalBaseline(WritingMode aWM) const {
-  nscoord baseline;
-  if (!GetNaturalBaselineBOffset(aWM, BaselineSharingGroup::First, &baseline)) {
-    baseline = BSize(aWM);
+nscoord nsTableFrame::SynthesizeFallbackBaseline(
+    mozilla::WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
+  if (aBaselineGroup == BaselineSharingGroup::Last) {
+    return 0;
   }
-  return baseline;
+  return BSize(aWM);
 }
 
 /* virtual */
-bool nsTableFrame::GetNaturalBaselineBOffset(
-    WritingMode aWM, BaselineSharingGroup aBaselineGroup,
-    nscoord* aBaseline) const {
+Maybe<nscoord> nsTableFrame::GetNaturalBaselineBOffset(
+    WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
   if (StyleDisplay()->IsContainLayout()) {
-    return false;
+    return Nothing{};
   }
 
   RowGroupArray orderedRowGroups;
@@ -3546,8 +3544,7 @@ bool nsTableFrame::GetNaturalBaselineBOffset(
       nsTableRowGroupFrame* rgFrame = orderedRowGroups[rgIndex];
       nsTableRowFrame* row = rgFrame->GetFirstRow();
       if (row) {
-        *aBaseline = TableBaseline(rgFrame, row);
-        return true;
+        return Some(TableBaseline(rgFrame, row));
       }
     }
   } else {
@@ -3555,12 +3552,11 @@ bool nsTableFrame::GetNaturalBaselineBOffset(
       nsTableRowGroupFrame* rgFrame = orderedRowGroups[rgIndex];
       nsTableRowFrame* row = rgFrame->GetLastRow();
       if (row) {
-        *aBaseline = BSize(aWM) - TableBaseline(rgFrame, row);
-        return true;
+        return Some(BSize(aWM) - TableBaseline(rgFrame, row));
       }
     }
   }
-  return false;
+  return Nothing{};
 }
 
 /* ----- global methods ----- */

@@ -808,7 +808,12 @@ template bool ObjectPolicy<3>::staticAdjustInputs(TempAllocator& alloc,
                                                   MInstruction* ins);
 
 bool CallPolicy::adjustInputs(TempAllocator& alloc, MInstruction* ins) const {
-  MCall* call = ins->toCall();
+  MCallBase* call;
+  if (ins->isCall()) {
+    call = ins->toCall();
+  } else {
+    call = ins->toCallClassHook();
+  }
 
   MDefinition* func = call->getCallee();
   if (func->type() != MIRType::Object) {
@@ -827,7 +832,7 @@ bool CallPolicy::adjustInputs(TempAllocator& alloc, MInstruction* ins) const {
     if (!alloc.ensureBallast()) {
       return false;
     }
-    EnsureOperandNotFloat32(alloc, call, MCall::IndexOfStackArg(i));
+    EnsureOperandNotFloat32(alloc, call, MCallBase::IndexOfStackArg(i));
   }
 
   return true;
@@ -1068,6 +1073,7 @@ bool ClampPolicy::adjustInputs(TempAllocator& alloc, MInstruction* ins) const {
   _(MixPolicy<ObjectPolicy<0>, NoFloatPolicy<1>>)                             \
   _(MixPolicy<ObjectPolicy<0>, NoFloatPolicy<2>>)                             \
   _(MixPolicy<ObjectPolicy<0>, NoFloatPolicy<3>>)                             \
+  _(MixPolicy<ObjectPolicy<0>, NoFloatPolicyAfter<1>>)                        \
   _(MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>>)                              \
   _(MixPolicy<ObjectPolicy<0>, StringPolicy<1>>)                              \
   _(MixPolicy<ObjectPolicy<0>, ConvertToStringPolicy<2>>)                     \

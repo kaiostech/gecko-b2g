@@ -388,6 +388,11 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.9.10 -> 0.9.13"
 
+[[audits.crossbeam-queue]]
+who = "Matthew Gregan <kinetik@flim.org>"
+criteria = "safe-to-deploy"
+version = "0.3.8"
+
 [[audits.crossbeam-utils]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
@@ -427,6 +432,11 @@ who = "Tiaan Louw <tlouw@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.6.0 -> 0.6.0@git:722b30d2f1634714befab967ecae627813fa4cf0"
 notes = "We are pulling this package from a non crates.io source until the changes are published. No changes were made to the code."
+
+[[audits.cssparser-macros]]
+who = "Tiaan Louw <tlouw@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.6.0 -> 0.6.0@git:b196a164dcbb317016d4aa6c58c13147e6045ebb"
 
 [[audits.cssparser-macros]]
 who = "Tiaan Louw <tlouw@mozilla.com>"

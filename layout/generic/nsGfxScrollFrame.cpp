@@ -2345,6 +2345,7 @@ void ScrollFrameHelper::AsyncScroll::InitSmoothScroll(
   mAnimationPhysics->Update(aTime, aDestination, aCurrentVelocity);
 }
 
+/* static */
 bool ScrollFrameHelper::IsSmoothScrollingEnabled() {
   return StaticPrefs::general_smoothScroll();
 }
@@ -5669,7 +5670,6 @@ already_AddRefed<Element> ScrollFrameHelper::MakeScrollbar(
 
   e->SetAttr(kNameSpaceID_None, nsGkAtoms::orient, kOrientValues[aVertical],
              false);
-  e->SetAttr(kNameSpaceID_None, nsGkAtoms::clickthrough, u"always"_ns, false);
 
   if (mIsRoot) {
     e->SetProperty(nsGkAtoms::docLevelNativeAnonymousContent,
@@ -5846,8 +5846,6 @@ nsresult ScrollFrameHelper::CreateAnonymousContent(
         NS_WARNING("only resizable types should have resizers");
     }
     mResizerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::dir, dir, false);
-    mResizerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::clickthrough,
-                             u"always"_ns, false);
     aElements.AppendElement(mResizerContent);
   }
 
@@ -8433,6 +8431,14 @@ bool ScrollFrameHelper::SmoothScrollVisual(
 }
 
 bool ScrollFrameHelper::IsSmoothScroll(dom::ScrollBehavior aBehavior) const {
+  // The user smooth scrolling preference should be honored for any requested
+  // smooth scrolls. A requested smooth scroll when smooth scrolling is
+  // disabled should be equivalent to an instant scroll.
+  if (aBehavior == dom::ScrollBehavior::Instant ||
+      !ScrollFrameHelper::IsSmoothScrollingEnabled()) {
+    return false;
+  }
+
   if (aBehavior == dom::ScrollBehavior::Smooth) {
     return true;
   }

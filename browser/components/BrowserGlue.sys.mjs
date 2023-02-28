@@ -646,13 +646,10 @@ let JSWINDOWACTORS = {
     child: {
       moduleURI: "resource:///actors/PageStyleChild.jsm",
       events: {
-        pageshow: {},
+        pageshow: { createActor: false },
       },
     },
 
-    // Only matching web pages, as opposed to internal about:, chrome: or
-    // resource: pages. See https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Match_patterns
-    matches: ["*://*/*", "file:///*"],
     messageManagerGroups: ["browsers"],
     allFrames: true,
   },
@@ -2683,17 +2680,6 @@ BrowserGlue.prototype = {
         },
       },
 
-      {
-        name: "urlQueryStrippingListService.init",
-        task: () => {
-          // Init the url query stripping list.
-          let urlQueryStrippingListService = Cc[
-            "@mozilla.org/query-stripping-list-service;1"
-          ].getService(Ci.nsIURLQueryStrippingListService);
-          urlQueryStrippingListService.init();
-        },
-      },
-
       // Run TRR performance measurements for DoH.
       {
         name: "doh-rollout.trrRacer.run",
@@ -2729,6 +2715,15 @@ BrowserGlue.prototype = {
         name: "initializeFOG",
         task: () => {
           Services.fog.initializeFOG();
+
+          // Grabbing the configuration here in case the registration of the
+          // callback below doesn't trigger invoking the callback if we are
+          // already enrolled. See Bug 1818738 for more info.
+          Services.fog.setMetricsFeatureConfig(
+            JSON.stringify(
+              lazy.NimbusFeatures.glean.getVariable("metricsDisabled")
+            )
+          );
 
           // Register Glean to listen for experiment updates releated to the
           // "glean" feature defined in the t/c/nimbus/FeatureManifest.yaml

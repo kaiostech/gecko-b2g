@@ -1559,6 +1559,12 @@ static WindowRenderer* WindowRendererFromCanvasElement(
 bool CanvasRenderingContext2D::TryAcceleratedTarget(
     RefPtr<gfx::DrawTarget>& aOutDT,
     RefPtr<layers::PersistentBufferProvider>& aOutProvider) {
+  if (!XRE_IsContentProcess()) {
+    // Only allow accelerated contexts to be created in a content process to
+    // ensure it is remoted appropriately and run on the correct parent or
+    // GPU process threads.
+    return false;
+  }
   if (mBufferProvider && mBufferProvider->IsAccelerated() &&
       mBufferProvider->RequiresRefresh()) {
     // If there is already a provider and we got here, then the provider needs
@@ -2145,7 +2151,9 @@ already_AddRefed<CanvasGradient> CanvasRenderingContext2D::CreateRadialGradient(
 
 already_AddRefed<CanvasGradient> CanvasRenderingContext2D::CreateConicGradient(
     double aAngle, double aCx, double aCy) {
-  return MakeAndAddRef<CanvasConicGradient>(this, aAngle, Point(aCx, aCy));
+  double adjustedStartAngle = aAngle + M_PI / 2.0;
+  return MakeAndAddRef<CanvasConicGradient>(this, adjustedStartAngle,
+                                            Point(aCx, aCy));
 }
 
 already_AddRefed<CanvasPattern> CanvasRenderingContext2D::CreatePattern(

@@ -4087,7 +4087,7 @@
 
 - name: dom.workers.pFetch.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Is support for modules (new Worker(..., {type: "module">)) enabled for workers?
@@ -4149,10 +4149,10 @@
   value: 5
   mirror: always
 
-# Enable Storage API for all platforms except Android.
+# Whether the Storage API is enabled.
 - name: dom.storageManager.enabled
   type: RelaxedAtomicBool
-  value: @IS_NOT_ANDROID@
+  value: true
   mirror: always
 
 # Whether the File System API is enabled
@@ -6772,6 +6772,10 @@
     type: bool
     value: @IS_EARLY_BETA_OR_EARLIER@
     mirror: once
+-   name: gfx.webrender.dcomp-video-check-slow-present
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
 -   name: gfx.video.convert-i420-to-nv12.force-enabled
     type: bool
     value: false
@@ -9354,13 +9358,6 @@
   value: true
   mirror: always
 
-# Pref to control whether we emulate all -moz-box with modern flexbox.
-- name: layout.css.moz-box-flexbox-emulation.enabled
-  type: bool
-  value: true
-  mirror: always
-  rust: true
-
 # Pref to control whether to suspend also RefreshDriver::Tick when the page
 # itself is suspended because of some synchronous operation, like sync XHR.
 - name: layout.skip_ticks_while_page_suspended
@@ -9664,7 +9661,7 @@
 # Wether to block autoplay for webaudio
 - name: media.autoplay.block-webaudio
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # File-backed MediaCache size.
@@ -9696,7 +9693,7 @@
 #elif defined(XP_WIN) && !defined(_ARM64_)
   value: true
 #elif defined(XP_MACOSX)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
@@ -9706,11 +9703,11 @@
   type: bool
   mirror: always
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #elif defined(XP_WIN) && !defined(_ARM64_)
   value: true
 #elif defined(XP_MACOSX)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
@@ -11017,7 +11014,7 @@
 #if defined(XP_WIN)
 - name: media.webrtc.capture.allow-directx
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: media.webrtc.capture.allow-wgc
@@ -12963,6 +12960,12 @@
 # This currently sometimes results in an internal cairo error, see bug 1725743;
 # disabled by default until that is resolved.
 - name: print.save_as_pdf.internal_destinations.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Whether we use the CSS @page size as the paper size in PDF output.
+- name: print.save_as_pdf.use_page_rule_size_as_paper_size.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always

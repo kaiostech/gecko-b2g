@@ -700,6 +700,13 @@ export class UrlbarController {
   }
 
   /**
+   * Clear the previous query context cache.
+   */
+  clearLastQueryContextCache() {
+    this._lastQueryContextWrapper = null;
+  }
+
+  /**
    * Notifies listeners of results.
    *
    * @param {string} name Name of the notification.
@@ -1018,7 +1025,7 @@ class TelemetryEvent {
       1
     );
 
-    if (method === "engagement" && queryContext.results?.[0].autofill) {
+    if (method === "engagement" && queryContext?.results?.[0].autofill) {
       // Record autofill impressions upon engagement.
       const type = lazy.UrlbarUtils.telemetryTypeFromResult(
         queryContext.results[0]
@@ -1086,7 +1093,22 @@ class TelemetryEvent {
 
     let eventInfo;
     if (method === "engagement") {
-      const selectedResult = currentResults[selIndex];
+      let selected_result;
+      let selected_result_subtype;
+      if (numResults) {
+        const selectedResult = currentResults[selIndex];
+        selected_result = lazy.UrlbarUtils.searchEngagementTelemetryType(
+          selectedResult
+        );
+        selected_result_subtype = lazy.UrlbarUtils.searchEngagementTelemetrySubtype(
+          selectedResult,
+          selectedElement
+        );
+      } else {
+        selected_result = "input_field";
+        selected_result_subtype = "";
+      }
+
       eventInfo = {
         sap,
         interaction,
@@ -1094,13 +1116,8 @@ class TelemetryEvent {
         n_chars: numChars,
         n_words: numWords,
         n_results: numResults,
-        selected_result: lazy.UrlbarUtils.searchEngagementTelemetryType(
-          selectedResult
-        ),
-        selected_result_subtype: lazy.UrlbarUtils.searchEngagementTelemetrySubtype(
-          selectedResult,
-          selectedElement
-        ),
+        selected_result,
+        selected_result_subtype,
         provider,
         engagement_type:
           selType === "help" || selType === "dismiss" ? selType : action,

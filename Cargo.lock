@@ -327,7 +327,7 @@ dependencies = [
 [[package]]
 name = "audioipc2"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=89de5602c7a2d6624832417813e97030573456b2#89de5602c7a2d6624832417813e97030573456b2"
 dependencies = [
  "arrayvec",
  "ashmem",
@@ -336,7 +336,7 @@ dependencies = [
  "byteorder",
  "bytes 1.4.0",
  "cc",
- "crossbeam-channel",
+ "crossbeam-queue 0.3.8",
  "cubeb",
  "error-chain",
  "iovec",
@@ -355,7 +355,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-client"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=89de5602c7a2d6624832417813e97030573456b2#89de5602c7a2d6624832417813e97030573456b2"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -366,7 +366,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-server"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=89de5602c7a2d6624832417813e97030573456b2#89de5602c7a2d6624832417813e97030573456b2"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -1062,6 +1062,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-queue"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1cfb3ea8a53f37c40dea2c7bedcbd88bdfae54f5e2175d6ecaff1c988353add"
+dependencies = [
+ "cfg-if 1.0.0",
+ "crossbeam-utils 0.8.14",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1104,7 +1114,7 @@ dependencies = [
 [[package]]
 name = "cssparser"
 version = "0.30.0"
-source = "git+https://github.com/servo/rust-cssparser?rev=d3670a89bae26ba3a8db4758eb7976616113987d#d3670a89bae26ba3a8db4758eb7976616113987d"
+source = "git+https://github.com/servo/rust-cssparser?rev=b196a164dcbb317016d4aa6c58c13147e6045ebb#b196a164dcbb317016d4aa6c58c13147e6045ebb"
 dependencies = [
  "cssparser-macros",
  "dtoa-short",
@@ -1119,7 +1129,7 @@ dependencies = [
 [[package]]
 name = "cssparser-macros"
 version = "0.6.0"
-source = "git+https://github.com/servo/rust-cssparser?rev=d3670a89bae26ba3a8db4758eb7976616113987d#d3670a89bae26ba3a8db4758eb7976616113987d"
+source = "git+https://github.com/servo/rust-cssparser?rev=b196a164dcbb317016d4aa6c58c13147e6045ebb#b196a164dcbb317016d4aa6c58c13147e6045ebb"
 dependencies = [
  "quote",
  "syn",
@@ -5567,7 +5577,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c32ffea4827978e9aa392d2f743d973c1dfa3730a2ed3f22ce1e6984da848c"
 dependencies = [
  "crossbeam-deque 0.7.4",
- "crossbeam-queue",
+ "crossbeam-queue 0.1.2",
  "crossbeam-utils 0.6.6",
  "futures 0.1.31",
  "lazy_static",

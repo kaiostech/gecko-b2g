@@ -154,6 +154,9 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   const JSJitInfo* jitInfoStubField(uint32_t offset) {
     return reinterpret_cast<const JSJitInfo*>(readStubWord(offset));
   }
+  JSNative jsnativeStubField(uint32_t offset) {
+    return reinterpret_cast<JSNative>(readStubWord(offset));
+  }
   JS::ExpandoAndGeneration* expandoAndGenerationField(uint32_t offset) {
     return reinterpret_cast<JS::ExpandoAndGeneration*>(readStubWord(offset));
   }
@@ -394,6 +397,8 @@ const JSClass* WarpCacheIRTranspiler::classForGuardClassKind(
       return &SetObject::class_;
     case GuardClassKind::Map:
       return &MapObject::class_;
+    case GuardClassKind::BoundFunction:
+      return &BoundFunctionObject::class_;
     case GuardClassKind::JSFunction:
       break;
   }
@@ -1702,6 +1707,28 @@ bool WarpCacheIRTranspiler::emitLoadArgumentsObjectLength(
   add(length);
 
   return defineOperand(resultId, length);
+}
+
+bool WarpCacheIRTranspiler::emitLoadBoundFunctionNumArgs(
+    ObjOperandId objId, Int32OperandId resultId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* numArgs = MBoundFunctionNumArgs::New(alloc(), obj);
+  add(numArgs);
+
+  return defineOperand(resultId, numArgs);
+}
+
+bool WarpCacheIRTranspiler::emitLoadBoundFunctionTarget(ObjOperandId objId,
+                                                        ObjOperandId resultId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* target = MLoadFixedSlotAndUnbox::New(
+      alloc(), obj, BoundFunctionObject::targetSlot(), MUnbox::Mode::Infallible,
+      MIRType::Object);
+  add(target);
+
+  return defineOperand(resultId, target);
 }
 
 bool WarpCacheIRTranspiler::emitArrayFromArgumentsObjectResult(
@@ -3802,19 +3829,6 @@ bool WarpCacheIRTranspiler::emitFrameIsConstructingResult() {
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitFinishBoundFunctionInitResult(
-    ObjOperandId boundId, ObjOperandId targetId, Int32OperandId argCountId) {
-  MDefinition* bound = getOperand(boundId);
-  MDefinition* target = getOperand(targetId);
-  MDefinition* argCount = getOperand(argCountId);
-
-  auto* ins = MFinishBoundFunctionInit::New(alloc(), bound, target, argCount);
-  addEffectful(ins);
-
-  pushResult(constant(UndefinedValue()));
-  return resumeAfter(ins);
-}
-
 bool WarpCacheIRTranspiler::emitNewIteratorResult(
     MNewIterator::Type type, uint32_t templateObjectOffset) {
   JSObject* templateObj = tenuredObjectStubField(templateObjectOffset);
@@ -5028,6 +5042,141 @@ bool WarpCacheIRTranspiler::emitCallInlinedFunction(ObjOperandId calleeId,
   }
   return emitCallFunction(calleeId, argcId, mozilla::Nothing(), flags,
                           CallKind::Scripted);
+}
+
+bool WarpCacheIRTranspiler::emitCallClassHook(ObjOperandId calleeId,
+                                              Int32OperandId argcId,
+                                              CallFlags flags,
+                                              uint32_t argcFixed,
+                                              uint32_t targetOffset) {
+  MDefinition* callee = getOperand(calleeId);
+  JSNative target = jsnativeStubField(targetOffset);
+
+#ifdef DEBUG
+  MDefinition* argc = getOperand(argcId);
+  MOZ_ASSERT(argc->toConstant()->toInt32() ==
+             static_cast<int32_t>(callInfo_->argc()));
+#endif
+
+  if (!updateCallInfo(callee, flags)) {
+    return false;
+  }
+
+  MOZ_ASSERT(callInfo_->argFormat() == CallInfo::ArgFormat::Standard);
+  MOZ_ASSERT(flags.getArgFormat() == CallFlags::ArgFormat::Standard);
+
+  // Callees can be from any realm. If this changes, we should update
+  // MCallClassHook::maybeCrossRealm.
+  MOZ_ASSERT(!flags.isSameRealm());
+
+  auto* call = MCallClassHook::New(alloc(), target, callInfo_->argc(),
+                                   callInfo_->constructing());
+  if (!call) {
+    return false;
+  }
+
+  if (callInfo_->ignoresReturnValue()) {
+    call->setIgnoresReturnValue();
+  }
+
+  call->initCallee(callInfo_->callee());
+  call->addArg(0, callInfo_->thisArg());
+
+  for (uint32_t i = 0; i < callInfo_->argc(); i++) {
+    call->addArg(i + 1, callInfo_->getArg(i));
+  }
+
+  if (callInfo_->constructing()) {
+    call->addArg(1 + callInfo_->argc(), callInfo_->getNewTarget());
+  }
+
+  addEffectful(call);
+  pushResult(call);
+
+  return resumeAfter(call);
+}
+
+bool WarpCacheIRTranspiler::emitCallBoundScriptedFunction(
+    ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
+    CallFlags flags, uint32_t numBoundArgs) {
+  MDefinition* callee = getOperand(calleeId);
+  MDefinition* target = getOperand(targetId);
+
+  MOZ_ASSERT(callInfo_->argFormat() == CallInfo::ArgFormat::Standard);
+  MOZ_ASSERT(!callInfo_->constructing());
+
+  callInfo_->setCallee(target);
+  updateArgumentsFromOperands();
+
+  auto* thisv = MLoadFixedSlot::New(alloc(), callee,
+                                    BoundFunctionObject::boundThisSlot());
+  add(thisv);
+  callInfo_->thisArg()->setImplicitlyUsedUnchecked();
+  callInfo_->setThis(thisv);
+
+  bool usingInlineBoundArgs =
+      numBoundArgs <= BoundFunctionObject::MaxInlineBoundArgs;
+
+  MElements* elements = nullptr;
+  if (!usingInlineBoundArgs) {
+    auto* boundArgs = MLoadFixedSlot::New(
+        alloc(), callee, BoundFunctionObject::firstInlineBoundArgSlot());
+    add(boundArgs);
+    elements = MElements::New(alloc(), boundArgs);
+    add(elements);
+  }
+
+  auto loadBoundArg = [&](size_t index) {
+    MInstruction* arg;
+    if (usingInlineBoundArgs) {
+      size_t slot = BoundFunctionObject::firstInlineBoundArgSlot() + index;
+      arg = MLoadFixedSlot::New(alloc(), callee, slot);
+    } else {
+      arg = MLoadElement::New(alloc(), elements, constant(Int32Value(index)));
+    }
+    add(arg);
+    return arg;
+  };
+  if (!callInfo_->prependArgs(numBoundArgs, loadBoundArg)) {
+    return false;
+  }
+
+  WrappedFunction* wrappedTarget = maybeCallTarget(target, CallKind::Scripted);
+
+  MCall* call =
+      makeCall(*callInfo_, /* needsThisCheck = */ false, wrappedTarget);
+  if (!call) {
+    return false;
+  }
+
+  if (flags.isSameRealm()) {
+    call->setNotCrossRealm();
+  }
+
+  addEffectful(call);
+  pushResult(call);
+  return resumeAfter(call);
+}
+
+bool WarpCacheIRTranspiler::emitBindFunctionResult(
+    ObjOperandId targetId, uint32_t argc, uint32_t templateObjectOffset) {
+  MDefinition* target = getOperand(targetId);
+  JSObject* templateObj = tenuredObjectStubField(templateObjectOffset);
+
+  MOZ_ASSERT(callInfo_->argc() == argc);
+
+  auto* bound = MNewBoundFunction::New(alloc(), target, argc, templateObj);
+  if (!bound) {
+    return false;
+  }
+  addEffectful(bound);
+
+  for (uint32_t i = 0; i < argc; i++) {
+    bound->initArg(i, callInfo_->getArg(i));
+  }
+
+  pushResult(bound);
+  return resumeAfter(bound);
 }
 
 bool WarpCacheIRTranspiler::emitCallWasmFunction(

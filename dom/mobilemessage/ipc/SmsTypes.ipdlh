@@ -6,13 +6,12 @@
 
 include IPCBlob;
 
-using DeliveryState from "mozilla/dom/mobilemessage/Types.h";
-using DeliveryStatus from "mozilla/dom/mobilemessage/Types.h";
-using MessageClass from "mozilla/dom/mobilemessage/Types.h";
-using ReadStatus from "mozilla/dom/mobilemessage/Types.h";
-using ReadState from "mozilla/dom/mobilemessage/Types.h";
-using MessageType from "mozilla/dom/mobilemessage/Types.h";
-using AttachmentStatus from "mozilla/dom/mobilemessage/Types.h";
+using mozilla::dom::mobilemessage::DeliveryState from "mozilla/dom/mobilemessage/Types.h";
+using mozilla::dom::mobilemessage::DeliveryStatus from "mozilla/dom/mobilemessage/Types.h";
+using mozilla::dom::mobilemessage::MessageClass from "mozilla/dom/mobilemessage/Types.h";
+using mozilla::dom::mobilemessage::ReadStatus from "mozilla/dom/mobilemessage/Types.h";
+using mozilla::dom::mobilemessage::MessageType from "mozilla/dom/mobilemessage/Types.h";
+using mozilla::dom::mobilemessage::AttachmentStatus from "mozilla/dom/mobilemessage/Types.h";
 
 namespace mozilla {
 namespace dom {

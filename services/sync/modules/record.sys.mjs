@@ -16,13 +16,9 @@ import { Weave } from "resource://services-sync/main.sys.mjs";
 import { Resource } from "resource://services-sync/resource.sys.mjs";
 import { Utils } from "resource://services-sync/util.sys.mjs";
 
-const { Async } = ChromeUtils.import("resource://services-common/async.js");
-const { CommonUtils } = ChromeUtils.import(
-  "resource://services-common/utils.js"
-);
-const { CryptoUtils } = ChromeUtils.import(
-  "resource://services-crypto/utils.js"
-);
+import { Async } from "resource://services-common/async.sys.mjs";
+import { CommonUtils } from "resource://services-common/utils.sys.mjs";
+import { CryptoUtils } from "resource://services-crypto/utils.sys.mjs";
 
 /**
  * The base class for all Sync basic storage objects (BSOs). This is the format

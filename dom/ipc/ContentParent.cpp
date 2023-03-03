@@ -72,6 +72,7 @@
 #include "mozilla/AutoRestore.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/BenchmarkStorageParent.h"
+#include "mozilla/Casting.h"
 #include "mozilla/ContentBlockingUserInteraction.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/FOGIPC.h"
@@ -2031,7 +2032,8 @@ void MaybeLogBlockShutdownDiagnostics(ContentParent* aSelf, const char* aMsg,
 #if defined(MOZ_DIAGNOSTIC_ASSERT_ENABLED)
   if (aSelf->IsBlockingShutdown()) {
     MOZ_LOG(ContentParent::GetLog(), LogLevel::Info,
-            ("ContentParent: id=%p - %s at %s(%d)", aSelf, aMsg, aFile, aLine));
+            ("ContentParent: id=%p pid=%d - %s at %s(%d)", aSelf, aSelf->Pid(),
+             aMsg, aFile, aLine));
   }
 #else
   Unused << aSelf;
@@ -3601,10 +3603,14 @@ bool ContentParent::IsInitialized() const {
 }
 
 int32_t ContentParent::Pid() const {
-  if (!mSubprocess || !mSubprocess->GetChildProcessHandle()) {
+  if (!mSubprocess) {
     return -1;
   }
-  return base::GetProcId(mSubprocess->GetChildProcessHandle());
+  auto pid = mSubprocess->GetChildProcessId();
+  if (pid == 0) {
+    return -1;
+  }
+  return ReleaseAssertedCast<int32_t>(pid);
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvGetGfxVars(

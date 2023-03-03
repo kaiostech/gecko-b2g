@@ -156,6 +156,13 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvShowEvent(
   RemoteAccessible* target = parent->RemoteChildAt(newChildIdx);
   ProxyShowHideEvent(target, parent, true, aFromUser);
 
+  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    if (nsCOMPtr<nsIObserverService> obsService =
+            services::GetObserverService()) {
+      obsService->NotifyObservers(nullptr, NS_ACCESSIBLE_CACHE_TOPIC, nullptr);
+    }
+  }
+
   if (!nsCoreUtils::AccEventObserversExist()) {
     return IPC_OK();
   }
@@ -195,6 +202,11 @@ uint32_t DocAccessibleParent::AddSubtree(
     aParent->AddChildAt(aIdxInParent, newProxy);
     mAccessibles.PutEntry(newChild.ID())->mProxy = newProxy;
     ProxyCreated(newProxy);
+
+    if (RefPtr<AccAttributes> fields = newChild.CacheFields()) {
+      MOZ_ASSERT(StaticPrefs::accessibility_cache_enabled_AtStartup());
+      newProxy->ApplyCache(CacheUpdateType::Initial, fields);
+    }
 
 #if defined(XP_WIN)
     if (!StaticPrefs::accessibility_cache_enabled_AtStartup()) {
@@ -627,7 +639,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvScrollingEvent(
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvCache(
     const mozilla::a11y::CacheUpdateType& aUpdateType,
-    nsTArray<CacheData>&& aData, const bool& aDispatchShowEvent) {
+    nsTArray<CacheData>&& aData) {
   ACQUIRE_ANDROID_LOCK
   if (mShutdown) {
     return IPC_OK();
@@ -641,30 +653,6 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvCache(
     }
 
     remote->ApplyCache(aUpdateType, entry.Fields());
-  }
-
-  if (aDispatchShowEvent && !aData.IsEmpty()) {
-    // We might need to dispatch a show event for an initial cache push. We
-    // should never dispatch a show event for a (non-initial) cache update.
-    MOZ_ASSERT(aUpdateType == CacheUpdateType::Initial);
-    RemoteAccessible* target = GetAccessible(aData.ElementAt(0).ID());
-    if (!target) {
-      MOZ_ASSERT_UNREACHABLE("No remote found for initial cache push!");
-      return IPC_OK();
-    }
-    // We never dispatch a show event for the doc itself.
-    MOZ_ASSERT(!target->IsDoc() && target->RemoteParent());
-
-    ProxyShowHideEvent(target, target->RemoteParent(), true, false);
-
-    if (nsCoreUtils::AccEventObserversExist()) {
-      xpcAccessibleGeneric* xpcAcc = GetXPCAccessible(target);
-      xpcAccessibleDocument* doc = GetAccService()->GetXPCDocument(this);
-      nsINode* node = nullptr;
-      RefPtr<xpcAccEvent> event = new xpcAccEvent(
-          nsIAccessibleEvent::EVENT_SHOW, xpcAcc, doc, node, false);
-      nsCoreUtils::DispatchAccEvent(std::move(event));
-    }
   }
 
   if (nsCOMPtr<nsIObserverService> obsService =

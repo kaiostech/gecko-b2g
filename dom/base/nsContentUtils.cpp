@@ -10658,13 +10658,6 @@ void nsContentUtils::InnerOrOuterWindowDestroyed() {
   --sInnerOrOuterWindowCount;
 }
 
-static bool JSONCreator(const char16_t* aBuf, uint32_t aLen, void* aData) {
-  nsAString* result = static_cast<nsAString*>(aData);
-  result->Append(static_cast<const char16_t*>(aBuf),
-                 static_cast<uint32_t>(aLen));
-  return true;
-}
-
 /* static */
 nsresult nsContentUtils::AnonymizeURI(nsIURI* aURI, nsCString& aAnonymizedURI) {
   MOZ_ASSERT(aURI);
@@ -10680,19 +10673,36 @@ nsresult nsContentUtils::AnonymizeURI(nsIURI* aURI, nsCString& aAnonymizedURI) {
   return exposableURI->GetSpec(aAnonymizedURI);
 }
 
-/* static */
-bool nsContentUtils::StringifyJSON(JSContext* aCx,
-                                   JS::MutableHandle<JS::Value> aValue,
-                                   nsAString& aOutStr) {
-  MOZ_ASSERT(aCx);
-  aOutStr.Truncate();
-  JS::Rooted<JS::Value> value(aCx, aValue.get());
-  nsAutoString serializedValue;
-  NS_ENSURE_TRUE(JS_Stringify(aCx, &value, nullptr, JS::NullHandleValue,
-                              JSONCreator, &serializedValue),
-                 false);
-  aOutStr = serializedValue;
+static bool JSONCreator(const char16_t* aBuf, uint32_t aLen, void* aData) {
+  nsAString* result = static_cast<nsAString*>(aData);
+  result->Append(aBuf, aLen);
   return true;
+}
+
+/* static */
+bool nsContentUtils::StringifyJSON(JSContext* aCx, JS::Handle<JS::Value> aValue,
+                                   nsAString& aOutStr, JSONBehavior aBehavior) {
+  MOZ_ASSERT(aCx);
+  switch (aBehavior) {
+    case UndefinedIsNullStringLiteral: {
+      aOutStr.Truncate();
+      JS::Rooted<JS::Value> value(aCx, aValue);
+      nsAutoString serializedValue;
+      NS_ENSURE_TRUE(JS_Stringify(aCx, &value, nullptr, JS::NullHandleValue,
+                                  JSONCreator, &serializedValue),
+                     false);
+      aOutStr = serializedValue;
+      return true;
+    }
+    case UndefinedIsVoidString: {
+      aOutStr.SetIsVoid(true);
+      return JS::ToJSON(aCx, aValue, nullptr, JS::NullHandleValue, JSONCreator,
+                        &aOutStr);
+    }
+    default:
+      MOZ_ASSERT_UNREACHABLE("Invalid value for aBehavior");
+      return false;
+  }
 }
 
 /* static */

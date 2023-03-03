@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/CanonicalBrowsingContext.h"
 
+#include "ErrorList.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/EventForwards.h"
@@ -25,6 +26,7 @@
 #include "mozilla/dom/ContentPlaybackController.h"
 #include "mozilla/dom/SessionStorageManager.h"
 #include "mozilla/ipc/ProtocolUtils.h"
+#include "mozilla/layers/CompositorBridgeChild.h"
 #ifdef NS_PRINTING
 #  include "mozilla/layout/RemotePrintJobParent.h"
 #endif
@@ -1330,26 +1332,27 @@ void CanonicalBrowsingContext::RecomputeAppWindowVisibility() {
   MOZ_RELEASE_ASSERT(IsChrome());
   MOZ_RELEASE_ASSERT(IsTop());
 
-  const bool isActive = [&] {
-    if (ForceAppWindowActive()) {
-      return true;
-    }
-    auto* docShell = GetDocShell();
-    if (NS_WARN_IF(!docShell)) {
-      return false;
-    }
-    nsCOMPtr<nsIWidget> widget;
+  const bool wasAlreadyActive = IsActive();
+
+  nsCOMPtr<nsIWidget> widget;
+  if (auto* docShell = GetDocShell()) {
     nsDocShell::Cast(docShell)->GetMainWidget(getter_AddRefs(widget));
-    if (NS_WARN_IF(!widget)) {
-      return false;
-    }
-    if (widget->IsFullyOccluded() ||
-        widget->SizeMode() == nsSizeMode_Minimized) {
-      return false;
-    }
-    return true;
-  }();
-  SetIsActive(isActive, IgnoreErrors());
+  }
+
+  Unused << NS_WARN_IF(!widget);
+  const bool isNowActive =
+      ForceAppWindowActive() || (widget && !widget->IsFullyOccluded() &&
+                                 widget->SizeMode() != nsSizeMode_Minimized);
+
+  if (isNowActive == wasAlreadyActive) {
+    return;
+  }
+
+  SetIsActive(isNowActive, IgnoreErrors());
+  if (widget) {
+    // Pause if we are not active, resume if we are active.
+    widget->PauseOrResumeCompositor(!isNowActive);
+  }
 }
 
 void CanonicalBrowsingContext::AdjustPrivateBrowsingCount(
@@ -1975,7 +1978,7 @@ CanonicalBrowsingContext::ChangeRemoteness(
     return RemotenessPromise::CreateAndReject(NS_ERROR_FAILURE, __func__);
   }
 
-  // Ensure our embedder hasn't been destroyed already.
+  // Ensure our embedder hasn't been destroyed or asked to shutdown already.
   RefPtr<WindowGlobalParent> embedderWindowGlobal = GetEmbedderWindowGlobal();
   if (!embedderWindowGlobal) {
     NS_WARNING("Non-embedded BrowsingContext");
@@ -1984,6 +1987,13 @@ CanonicalBrowsingContext::ChangeRemoteness(
 
   if (!embedderWindowGlobal->CanSend()) {
     NS_WARNING("Embedder already been destroyed.");
+    return RemotenessPromise::CreateAndReject(NS_ERROR_NOT_AVAILABLE, __func__);
+  }
+
+  RefPtr<BrowserParent> embedderBrowser =
+      embedderWindowGlobal->GetBrowserParent();
+  if (embedderBrowser && embedderBrowser->Manager()->IsShuttingDown()) {
+    NS_WARNING("Embedder already asked to shutdown.");
     return RemotenessPromise::CreateAndReject(NS_ERROR_NOT_AVAILABLE, __func__);
   }
 
@@ -2043,8 +2053,6 @@ CanonicalBrowsingContext::ChangeRemoteness(
   }
 
   // Switching a subframe to be local within it's embedding process.
-  RefPtr<BrowserParent> embedderBrowser =
-      embedderWindowGlobal->GetBrowserParent();
   if (embedderBrowser &&
       aOptions.mRemoteType == embedderBrowser->Manager()->GetRemoteType()) {
     MOZ_DIAGNOSTIC_ASSERT(

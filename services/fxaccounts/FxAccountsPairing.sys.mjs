@@ -19,18 +19,15 @@ import {
 const fxAccounts = getFxAccountsSingleton();
 import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
-ChromeUtils.import("resource://services-common/utils.js");
+ChromeUtils.importESModule("resource://services-common/utils.sys.mjs");
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   FxAccountsPairingChannel:
     "resource://gre/modules/FxAccountsPairingChannel.sys.mjs",
+
   Weave: "resource://services-sync/main.sys.mjs",
+  jwcrypto: "resource://services-crypto/jwcrypto.sys.mjs",
 });
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "jwcrypto",
-  "resource://services-crypto/jwcrypto.jsm"
-);
 
 const PAIRING_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob:pair-auth-webchannel";
 // A pairing flow is not tied to a specific browser window, can also finish in

@@ -1594,7 +1594,7 @@ pref("browser.newtabpage.activity-stream.discoverystream.hybridLayout.enabled", 
 pref("browser.newtabpage.activity-stream.discoverystream.hideCardBackground.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.fourCardLayout.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.newFooterSection.enabled", false);
-pref("browser.newtabpage.activity-stream.discoverystream.saveToPocketCard.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.saveToPocketCard.enabled", true);
 pref("browser.newtabpage.activity-stream.discoverystream.saveToPocketCardRegions", "");
 pref("browser.newtabpage.activity-stream.discoverystream.hideDescriptions.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.hideDescriptionsRegions", "");
@@ -1622,7 +1622,7 @@ pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesAdTypes", "
 pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesZoneIds", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocSiteId", "");
 
-pref("browser.newtabpage.activity-stream.discoverystream.sendToPocket.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.sendToPocket.enabled", true);
 
 // List of regions that do not get stories, regardless of locale-list-config.
 pref("browser.newtabpage.activity-stream.discoverystream.region-stories-block", "FR");
@@ -1909,6 +1909,12 @@ pref("browser.contentblocking.reject-and-isolate-cookies.preferences.ui.enabled"
 //   Social Tracking Protection:
 //     "stp": social tracking protection enabled
 //     "-stp": social tracking protection disabled
+//   Email Tracking Protection:
+//     "emailTP": email tracking protection enabled
+//     "-emailTP": email tracking protection disabled
+//   Email Tracking Protection in private windows:
+//     "emailTPPrivate": email tracking protection in private windows enabled
+//     "-emailTPPrivate": email tracking protection in private windows disabled
 //   Level 2 Tracking list in normal windows:
 //     "lvl2": Level 2 tracking list enabled
 //     "-lvl2": Level 2 tracking list disabled
@@ -1945,7 +1951,7 @@ pref("browser.contentblocking.reject-and-isolate-cookies.preferences.ui.enabled"
 //     "cookieBehaviorPBM4": cookie behaviour BEHAVIOR_REJECT_TRACKER
 //     "cookieBehaviorPBM5": cookie behaviour BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
 // One value from each section must be included in the browser.contentblocking.features.strict pref.
-pref("browser.contentblocking.features.strict", "tp,tpPrivate,cookieBehavior5,cookieBehaviorPBM5,cm,fp,stp,lvl2,lvl2PBM,rp,rpTop,ocsp,qps,qpsPBM");
+pref("browser.contentblocking.features.strict", "tp,tpPrivate,cookieBehavior5,cookieBehaviorPBM5,cm,fp,stp,emailTP,emailTPPrivate,lvl2,lvl2PBM,rp,rpTop,ocsp,qps,qpsPBM");
 
 // Hide the "Change Block List" link for trackers/tracking content in the custom
 // Content Blocking/ETP panel. By default, it will not be visible. There is also

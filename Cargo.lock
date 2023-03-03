@@ -66,9 +66,9 @@ checksum = "85965b6739a430150bdd138e2374a98af0c3ee0d030b3bb7fc3bddff58d0102e"
 
 [[package]]
 name = "android_logger"
-version = "0.11.3"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8619b80c242aa7bd638b5c7ddd952addeecb71f69c75e33f1d47b2804f8f883a"
+checksum = "037f3e1da32ddba7770530e69258b742c15ad67bdf90e5f6b35f4b6db9a60eb7"
 dependencies = [
  "android_log-sys",
  "env_logger 0.10.0",
@@ -327,7 +327,7 @@ dependencies = [
 [[package]]
 name = "audioipc2"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=89de5602c7a2d6624832417813e97030573456b2#89de5602c7a2d6624832417813e97030573456b2"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
 dependencies = [
  "arrayvec",
  "ashmem",
@@ -336,7 +336,7 @@ dependencies = [
  "byteorder",
  "bytes 1.4.0",
  "cc",
- "crossbeam-queue 0.3.8",
+ "crossbeam-channel",
  "cubeb",
  "error-chain",
  "iovec",
@@ -355,7 +355,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-client"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=89de5602c7a2d6624832417813e97030573456b2#89de5602c7a2d6624832417813e97030573456b2"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -366,7 +366,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-server"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=89de5602c7a2d6624832417813e97030573456b2#89de5602c7a2d6624832417813e97030573456b2"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -1059,16 +1059,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c979cd6cfe72335896575c6b5688da489e420d36a27a0b9eb0c73db574b4a4b"
 dependencies = [
  "crossbeam-utils 0.6.6",
-]
-
-[[package]]
-name = "crossbeam-queue"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1cfb3ea8a53f37c40dea2c7bedcbd88bdfae54f5e2175d6ecaff1c988353add"
-dependencies = [
- "cfg-if 1.0.0",
- "crossbeam-utils 0.8.14",
 ]
 
 [[package]]
@@ -2338,9 +2328,9 @@ dependencies = [
 
 [[package]]
 name = "glean"
-version = "52.2.0"
+version = "52.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dea54c0198181ff3bd8c7d39bdc69f22a4c0504da5dd9138666edef084e26be"
+checksum = "aa4d34f9ae46bd3e68c5bb672762e7391843daedd609506a70b6b35ac6fea051"
 dependencies = [
  "chrono",
  "crossbeam-channel",
@@ -2358,9 +2348,9 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "52.2.0"
+version = "52.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01c3b0c688d31dbe58dd799d771d4ab60d9a20932fa0eac80dbb08f20149f36b"
+checksum = "699ab3d674e2618298111987c0053735ef7a531d09264a3aa7d496f5ac2247d6"
 dependencies = [
  "android_logger",
  "bincode",
@@ -5577,7 +5567,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c32ffea4827978e9aa392d2f743d973c1dfa3730a2ed3f22ce1e6984da848c"
 dependencies = [
  "crossbeam-deque 0.7.4",
- "crossbeam-queue 0.1.2",
+ "crossbeam-queue",
  "crossbeam-utils 0.6.6",
  "futures 0.1.31",
  "lazy_static",
@@ -6290,6 +6280,7 @@ dependencies = [
  "log",
  "malloc_size_of_derive",
  "num-traits",
+ "peek-poke",
  "plane-split",
  "rayon",
  "ron",

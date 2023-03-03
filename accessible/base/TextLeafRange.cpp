@@ -1655,19 +1655,22 @@ LayoutDeviceIntRect TextLeafPoint::CharBounds() {
     return mAcc->Bounds();
   }
 
-  if (!mAcc || !mAcc->IsRemote() || !mAcc->AsRemote() ||
-      !mAcc->AsRemote()->mCachedFields) {
+  if (!mAcc || (mAcc->IsRemote() && !mAcc->AsRemote()->mCachedFields)) {
     return LayoutDeviceIntRect();
   }
 
-  RemoteAccessible* acc = mAcc->AsRemote();
-  if (Maybe<nsTArray<nsRect>> charBounds = acc->GetCachedCharData()) {
-    if (mOffset < static_cast<int32_t>(charBounds->Length())) {
-      return acc->BoundsWithOffset(Some(charBounds->ElementAt(mOffset)));
-    }
-    // It is valid for a client to call this with an offset 1 after the last
-    // character because of the insertion point at the end of text boxes.
-    MOZ_ASSERT(mOffset == static_cast<int32_t>(charBounds->Length()));
+  if (LocalAccessible* local = mAcc->AsLocal()) {
+    HyperTextAccessible* ht = HyperTextFor(local);
+    MOZ_ASSERT(ht, "Could not find hypertext for text acc?");
+    return ht->CharBounds(
+        static_cast<int32_t>(ht->TransformOffset(local, mOffset, true)),
+        nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE);
+  }
+
+  RemoteAccessible* remote = mAcc->AsRemote();
+  nsRect charBounds = remote->GetCachedCharRect(mOffset);
+  if (!charBounds.IsEmpty()) {
+    return remote->BoundsWithOffset(Some(charBounds));
   }
 
   return LayoutDeviceIntRect();

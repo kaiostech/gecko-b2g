@@ -664,7 +664,7 @@ GeckoDriver.prototype.getContext = function() {
  *     If an element that was passed as part of <var>args</var> or that is
  *     returned as result has gone stale.
  */
-GeckoDriver.prototype.executeScript = async function(cmd) {
+GeckoDriver.prototype.executeScript = function(cmd) {
   let { script, args } = cmd.parameters;
   let opts = {
     script: cmd.parameters.script,
@@ -675,7 +675,7 @@ GeckoDriver.prototype.executeScript = async function(cmd) {
     line: cmd.parameters.line,
   };
 
-  return { value: await this.execute_(script, args, opts) };
+  return this.execute_(script, args, opts);
 };
 
 /**
@@ -736,7 +736,7 @@ GeckoDriver.prototype.executeScript = async function(cmd) {
  *     If an element that was passed as part of <var>args</var> or that is
  *     returned as result has gone stale.
  */
-GeckoDriver.prototype.executeAsyncScript = async function(cmd) {
+GeckoDriver.prototype.executeAsyncScript = function(cmd) {
   let { script, args } = cmd.parameters;
   let opts = {
     script: cmd.parameters.script,
@@ -748,7 +748,7 @@ GeckoDriver.prototype.executeAsyncScript = async function(cmd) {
     async: true,
   };
 
-  return { value: await this.execute_(script, args, opts) };
+  return this.execute_(script, args, opts);
 };
 
 GeckoDriver.prototype.execute_ = async function(
@@ -3044,7 +3044,7 @@ GeckoDriver.prototype.setupReftest = async function(cmd) {
 };
 
 /** Run a reftest. */
-GeckoDriver.prototype.runReftest = async function(cmd) {
+GeckoDriver.prototype.runReftest = function(cmd) {
   let {
     test,
     references,
@@ -3065,17 +3065,15 @@ GeckoDriver.prototype.runReftest = async function(cmd) {
   lazy.assert.string(expected);
   lazy.assert.array(references);
 
-  return {
-    value: await this._reftest.run(
-      test,
-      references,
-      expected,
-      timeout,
-      pageRanges,
-      width,
-      height
-    ),
-  };
+  return this._reftest.run(
+    test,
+    references,
+    expected,
+    timeout,
+    pageRanges,
+    width,
+    height
+  );
 };
 
 /**
@@ -3112,9 +3110,9 @@ GeckoDriver.prototype.teardownReftest = function() {
  *     Paper ranges to print, e.g., ['1-5', 8, '11-13'].
  *     Defaults to the empty array, which means print all pages.
  * @param {number=} page.height
- *     Paper height in cm. Defaults to US letter height (11 inches / 27.94cm)
+ *     Paper height in cm. Defaults to US letter height (27.94cm / 11 inches)
  * @param {number=} page.width
- *     Paper width in cm. Defaults to US letter width (8.5 inches / 21.59cm)
+ *     Paper width in cm. Defaults to US letter width (21.59cm / 8.5 inches)
  * @param {boolean=} shrinkToFit
  *     Whether or not to override page size as defined by CSS.
  *     Defaults to true, in which case the content will be scaled
@@ -3140,13 +3138,13 @@ GeckoDriver.prototype.print = async function(cmd) {
   await this._handleUserPrompts();
 
   const settings = lazy.print.addDefaultSettings(cmd.parameters);
-  for (let prop of ["top", "bottom", "left", "right"]) {
+  for (const prop of ["top", "bottom", "left", "right"]) {
     lazy.assert.positiveNumber(
       settings.margin[prop],
       lazy.pprint`margin.${prop} is not a positive number`
     );
   }
-  for (let prop of ["width", "height"]) {
+  for (const prop of ["width", "height"]) {
     lazy.assert.positiveNumber(
       settings.page[prop],
       lazy.pprint`page.${prop} is not a positive number`
@@ -3167,16 +3165,14 @@ GeckoDriver.prototype.print = async function(cmd) {
   lazy.assert.boolean(settings.printBackground);
   lazy.assert.array(settings.pageRanges);
 
-  const linkedBrowser = this.curBrowser.tab.linkedBrowser;
+  const browsingContext = this.curBrowser.tab.linkedBrowser.browsingContext;
   const printSettings = await lazy.print.getPrintSettings(settings);
   const binaryString = await lazy.print.printToBinaryString(
-    linkedBrowser,
+    browsingContext,
     printSettings
   );
 
-  return {
-    value: btoa(binaryString),
-  };
+  return btoa(binaryString);
 };
 
 /**

@@ -2,15 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { Observers } = ChromeUtils.import(
-  "resource://services-common/observers.js"
-);
-const { CommonUtils } = ChromeUtils.import(
-  "resource://services-common/utils.js"
-);
-const { CryptoUtils } = ChromeUtils.import(
-  "resource://services-crypto/utils.js"
-);
+import { Observers } from "resource://services-common/observers.sys.mjs";
+
+import { CommonUtils } from "resource://services-common/utils.sys.mjs";
+import { CryptoUtils } from "resource://services-crypto/utils.sys.mjs";
+
 const {
   DEVICE_TYPE_DESKTOP,
   MAXIMUM_BACKOFF_INTERVAL,

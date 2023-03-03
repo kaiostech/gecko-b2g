@@ -1138,6 +1138,9 @@ struct arena_t {
   // Maximum value allowed for mNumDirty.
   size_t mMaxDirty;
 
+  int32_t mMaxDirtyIncreaseOverride;
+  int32_t mMaxDirtyDecreaseOverride;
+
  private:
   // Size/address-ordered tree of this arena's available runs.  This tree
   // is used for first-best-fit run allocation.
@@ -1237,7 +1240,10 @@ struct arena_t {
 
   void* Ralloc(void* aPtr, size_t aSize, size_t aOldSize);
 
-  void Purge(bool aAll);
+  size_t EffectiveMaxDirty();
+
+  // Passing one means purging all.
+  void Purge(size_t aMaxDirty);
 
   void HardPurge();
 
@@ -1290,6 +1296,11 @@ class ArenaCollection {
     delete aArena;
   }
 
+  void SetDefaultMaxDirtyPageModifier(int32_t aModifier) {
+    mDefaultMaxDirtyPageModifier = aModifier;
+  }
+  int32_t DefaultMaxDirtyPageModifier() { return mDefaultMaxDirtyPageModifier; }
+
   using Tree = RedBlackTree<arena_t, ArenaTreeTrait>;
 
   struct Iterator : Tree::Iterator {
@@ -1328,6 +1339,7 @@ class ArenaCollection {
   arena_id_t mLastPublicArenaId;
   Tree mArenas;
   Tree mPrivateArenas;
+  Atomic<int32_t> mDefaultMaxDirtyPageModifier;
 };
 
 static ArenaCollection gArenas;
@@ -2757,11 +2769,23 @@ arena_run_t* arena_t::AllocRun(size_t aSize, bool aLarge, bool aZero) {
   return SplitRun(run, aSize, aLarge, aZero) ? run : nullptr;
 }
 
-void arena_t::Purge(bool aAll) {
+size_t arena_t::EffectiveMaxDirty() {
+  int32_t modifier = gArenas.DefaultMaxDirtyPageModifier();
+  if (modifier) {
+    int32_t arenaOverride =
+        modifier > 0 ? mMaxDirtyIncreaseOverride : mMaxDirtyDecreaseOverride;
+    if (arenaOverride) {
+      modifier = arenaOverride;
+    }
+  }
+
+  return modifier >= 0 ? mMaxDirty << modifier : mMaxDirty >> -modifier;
+}
+
+void arena_t::Purge(size_t aMaxDirty) {
   arena_chunk_t* chunk;
   size_t i, npages;
-  // If all is set purge all dirty pages.
-  size_t dirty_max = aAll ? 1 : mMaxDirty;
+
 #ifdef MOZ_DEBUG
   size_t ndirty = 0;
   for (auto chunk : mChunksDirty.iter()) {
@@ -2769,13 +2793,13 @@ void arena_t::Purge(bool aAll) {
   }
   MOZ_ASSERT(ndirty == mNumDirty);
 #endif
-  MOZ_DIAGNOSTIC_ASSERT(aAll || (mNumDirty > mMaxDirty));
+  MOZ_DIAGNOSTIC_ASSERT(aMaxDirty == 1 || (mNumDirty > aMaxDirty));
 
   // Iterate downward through chunks until enough dirty memory has been
   // purged.  Terminate as soon as possible in order to minimize the
   // number of system calls, even if a chunk has only been partially
   // purged.
-  while (mNumDirty > (dirty_max >> 1)) {
+  while (mNumDirty > (aMaxDirty >> 1)) {
 #ifdef MALLOC_DOUBLE_PURGE
     bool madvised = false;
 #endif
@@ -2826,7 +2850,7 @@ void arena_t::Purge(bool aAll) {
         madvised = true;
 #  endif
 #endif
-        if (mNumDirty <= (dirty_max >> 1)) {
+        if (mNumDirty <= (aMaxDirty >> 1)) {
           break;
         }
       }
@@ -2942,9 +2966,9 @@ arena_chunk_t* arena_t::DallocRun(arena_run_t* aRun, bool aDirty) {
     chunk_dealloc = DeallocChunk(chunk);
   }
 
-  // Enforce mMaxDirty.
-  if (mNumDirty > mMaxDirty) {
-    Purge(false);
+  size_t maxDirty = EffectiveMaxDirty();
+  if (mNumDirty > maxDirty) {
+    Purge(maxDirty);
   }
 
   return chunk_dealloc;
@@ -3884,7 +3908,14 @@ arena_t::arena_t(arena_params_t* aParams, bool aIsPrivate) {
       default:
         break;
     }
+
+    mMaxDirtyIncreaseOverride = aParams->mMaxDirtyIncreaseOverride;
+    mMaxDirtyDecreaseOverride = aParams->mMaxDirtyDecreaseOverride;
+  } else {
+    mMaxDirtyIncreaseOverride = 0;
+    mMaxDirtyDecreaseOverride = 0;
   }
+
   mPRNG = nullptr;
 
   mIsPrivate = aIsPrivate;
@@ -4800,7 +4831,7 @@ inline void MozJemalloc::jemalloc_free_dirty_pages(void) {
     MutexAutoLock lock(gArenas.mLock);
     for (auto arena : gArenas.iter()) {
       MutexAutoLock arena_lock(arena->mLock);
-      arena->Purge(true);
+      arena->Purge(1);
     }
   }
 }
@@ -4840,6 +4871,11 @@ inline void MozJemalloc::moz_dispose_arena(arena_id_t aArenaId) {
   arena_t* arena = gArenas.GetById(aArenaId, /* IsPrivate = */ true);
   MOZ_RELEASE_ASSERT(arena);
   gArenas.DisposeArena(arena);
+}
+
+template <>
+inline void MozJemalloc::moz_set_max_dirty_page_modifier(int32_t aModifier) {
+  gArenas.SetDefaultMaxDirtyPageModifier(aModifier);
 }
 
 #define MALLOC_DECL(name, return_type, ...)                          \

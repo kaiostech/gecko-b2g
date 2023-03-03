@@ -3228,6 +3228,13 @@
   value: 2.0f
   mirror: always
 
+# Inform mozjemalloc that the foreground content processes can keep more dirty
+# pages in memory.
+- name: dom.memory.foreground_content_processes_have_larger_page_cache
+  type: bool
+  value: true
+  mirror: always
+
 # Enable meta-viewport support in remote APZ-enabled frames.
 - name: dom.meta-viewport.enabled
   type: RelaxedAtomicBool
@@ -3612,6 +3619,12 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: never
 #endif
+
+# Use to control to dump CheckedUnsafePtr creation stack and assignment stacks. 
+- name: dom.checkedUnsafePtr.dumpStacks.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 # Determines within what distance of a tick mark, in pixels, dragging an input
 # range range will snap the range's value to that tick mark. By default, this is
@@ -6587,11 +6600,6 @@
   value: true
   mirror: always
 
-- name: gfx.webrender.svg-shapes
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: gfx.webrender.debug.blob.paint-flashing
   type: RelaxedAtomicBool
   value: false
@@ -8643,7 +8651,7 @@
 
 - name: layout.css.linear-easing-function.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -8807,10 +8815,11 @@
   mirror: always
   rust: true
 
-  # Is support for :nth-child(An+B of S) and :nth-last-child(An+B of S) enabled?
+# Is support for :nth-child(An+B of S) and :nth-last-child(An+B of S) enabled?
+# Before enabling everywhere, make sure blockers of bug 1808229 are fixed.
 - name: layout.css.nth-child-of.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -9693,7 +9702,7 @@
 #elif defined(XP_WIN) && !defined(_ARM64_)
   value: true
 #elif defined(XP_MACOSX)
-  value: true
+  value: @IS_NIGHTLY_BUILD@
 #else
   value: false
 #endif
@@ -9703,11 +9712,11 @@
   type: bool
   mirror: always
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-  value: true
+  value: @IS_NIGHTLY_BUILD@
 #elif defined(XP_WIN) && !defined(_ARM64_)
   value: true
 #elif defined(XP_MACOSX)
-  value: true
+  value: @IS_NIGHTLY_BUILD@
 #else
   value: false
 #endif
@@ -9975,7 +9984,11 @@
   # May a Clearkey GMP x64 process be executed on ARM builds.
 - name: media.gmp-gmpclearkey.allow-x64-plugin-on-arm64
   type: RelaxedAtomicBool
-  value: @IS_XP_WIN@
+#if defined(NIGHTLY_BUILD) || !defined(XP_WIN)
+  value: false
+#else
+  value: true
+#endif
   mirror: always
 #endif
 
@@ -13104,10 +13117,16 @@
   value: true
   mirror: always
 
-# Block 3rd party emailtracking resources.
+# Block 3rd party emailtracking resources in all mode.
 - name: privacy.trackingprotection.emailtracking.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
+  mirror: always
+
+# Block 3rd party emailtracking resources in Private Browsing mode.
+- name: privacy.trackingprotection.emailtracking.pbmode.enabled
+  type: bool
+  value: true
   mirror: always
 
 # Collecting 3rd party emailtracking telemetry.
@@ -13265,6 +13284,25 @@
   type: RelaxedAtomicUint32
   value: 0
   mirror: always
+
+# Enable the fingerprinting randomization.
+- name: privacy.resistFingerprinting.randomization.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Enable resetting the fingerprinting randomization key daily for normal windwos.
+- name: privacy.resistFingerprinting.randomization.daily_reset.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Enable resetting the fingerprinting randomization key daily for private windwos.
+- name: privacy.resistFingerprinting.randomization.daily_reset.private.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 
 # Anti-tracking permission expiration.
 - name: privacy.restrict3rdpartystorage.expiration
@@ -13780,7 +13818,7 @@
 # WebAuthn CTAP2 support
 - name: security.webauthn.ctap2
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # Block Worker/SharedWorker scripts with wrong MIME type.
@@ -15315,12 +15353,6 @@
 # Whether to use gtk high contrast themes to disable content styling like on
 # windows high contrast mode.
 - name: widget.content.gtk-high-contrast.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# Whether to pause the compositor when a native window is minimized.
-- name: widget.pause-compositor-when-minimized
   type: bool
   value: true
   mirror: always

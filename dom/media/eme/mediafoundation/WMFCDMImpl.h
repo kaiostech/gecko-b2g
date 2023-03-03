@@ -18,6 +18,8 @@
 
 namespace mozilla {
 
+class WMFCDMProxyCallback;
+
 /**
  * WMFCDMImpl is a helper class for MFCDM protocol clients. It creates, manages,
  * and calls MFCDMChild object in the content process on behalf of the client,
@@ -41,6 +43,7 @@ class WMFCDMImpl final {
     bool mPersistentStateRequired;
     bool mDistinctiveIdentifierRequired;
     bool mHWSecure;
+    WMFCDMProxyCallback* mProxyCallback;
   };
 
   RefPtr<InitPromise> Init(const InitParams& aParams);
@@ -50,6 +53,25 @@ class WMFCDMImpl final {
       const nsAString& aInitDataType, const nsTArray<uint8_t>& aInitData) {
     return mCDM->CreateSessionAndGenerateRequest(aSessionType, aInitDataType,
                                                  aInitData);
+  }
+
+  RefPtr<GenericPromise> LoadSession(
+      const KeySystemConfig::SessionType aSessionType,
+      const nsAString& aSessionId) {
+    return mCDM->LoadSession(aSessionType, aSessionId);
+  }
+
+  RefPtr<GenericPromise> UpdateSession(const nsAString& aSessionId,
+                                       nsTArray<uint8_t>& aResponse) {
+    return mCDM->UpdateSession(aSessionId, aResponse);
+  }
+
+  RefPtr<GenericPromise> CloseSession(const nsAString& aSessionId) {
+    return mCDM->CloseSession(aSessionId);
+  }
+
+  RefPtr<GenericPromise> RemoveSession(const nsAString& aSessionId) {
+    return mCDM->RemoveSession(aSessionId);
   }
 
   uint64_t Id() {

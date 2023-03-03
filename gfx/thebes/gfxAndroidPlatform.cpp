@@ -13,6 +13,7 @@
 #include "mozilla/intl/LocaleService.h"
 #include "mozilla/intl/OSPreferences.h"
 #if defined(MOZ_WIDGET_ANDROID)
+#  include "mozilla/java/GeckoAppShellWrappers.h"
 #  include "mozilla/jni/Utils.h"
 #  include "mozilla/layers/AndroidHardwareBuffer.h"
 #endif
@@ -334,6 +335,10 @@ class AndroidVsyncSource final : public VsyncSource,
     if (mObservingVsync) {
       return;
     }
+
+    float fps = java::GeckoAppShell::GetScreenRefreshRate();
+    MOZ_ASSERT(fps > 0.0f);
+    mVsyncRate = TimeDuration::FromMilliseconds(1000.0 / fps);
     mAndroidVsync->RegisterObserver(this, widget::AndroidVsync::RENDER);
     mObservingVsync = true;
   }
@@ -348,7 +353,7 @@ class AndroidVsyncSource final : public VsyncSource,
     mObservingVsync = false;
   }
 
-  TimeDuration GetVsyncRate() override { return mAndroidVsync->GetVsyncRate(); }
+  TimeDuration GetVsyncRate() override { return mVsyncRate; }
 
   void Shutdown() override { DisableVsync(); }
 
@@ -363,12 +368,23 @@ class AndroidVsyncSource final : public VsyncSource,
     NotifyVsync(vsyncTime, outputTime);
   }
 
+  void OnMaybeUpdateRefreshRate() override {
+    NS_DispatchToMainThread(
+        NS_NewRunnableFunction(__func__, [self = RefPtr{this}]() {
+          if (!self->mObservingVsync) {
+            return;
+          }
+          self->DisableVsync();
+          self->EnableVsync();
+        }));
+  }
+
  private:
   virtual ~AndroidVsyncSource() { DisableVsync(); }
 
   RefPtr<widget::AndroidVsync> mAndroidVsync;
+  TimeDuration mVsyncRate;
   bool mObservingVsync = false;
-  TimeDuration mVsyncDuration;
 };
 #endif
 

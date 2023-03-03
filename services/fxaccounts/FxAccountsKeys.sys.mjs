@@ -4,13 +4,9 @@
 
 import { PromiseUtils } from "resource://gre/modules/PromiseUtils.sys.mjs";
 
-const { CommonUtils } = ChromeUtils.import(
-  "resource://services-common/utils.js"
-);
+import { CommonUtils } from "resource://services-common/utils.sys.mjs";
 
-const { CryptoUtils } = ChromeUtils.import(
-  "resource://services-crypto/utils.js"
-);
+import { CryptoUtils } from "resource://services-crypto/utils.sys.mjs";
 
 const {
   LEGACY_DERIVED_KEYS_NAMES,

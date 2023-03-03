@@ -93,8 +93,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
       webrtc::DesktopCapturer::IsRunningUnderWayland() &&
       (aMediaSource == MediaSourceEnum::Application ||
        aMediaSource == MediaSourceEnum::Screen ||
-       aMediaSource == MediaSourceEnum::Window ||
-       aMediaSource == MediaSourceEnum::Browser);
+       aMediaSource == MediaSourceEnum::Window);
 #else
   bool canRequestOsLevelPrompt = false;
 #endif

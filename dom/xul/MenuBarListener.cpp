@@ -67,7 +67,9 @@ MenuBarListener::MenuBarListener(XULMenuBarElement& aElement)
 
   // Needs to listen to the deactivate event of the window.
   RefPtr<EventTarget> top = nsContentUtils::GetWindowRoot(mEventTarget);
-  top->AddSystemEventListener(u"deactivate"_ns, this, true);
+  if (!NS_WARN_IF(!top)) {
+    top->AddSystemEventListener(u"deactivate"_ns, this, true);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -247,7 +249,7 @@ nsresult MenuBarListener::KeyPress(Event* aKeyEvent) {
     // the menu bar.
     // TODO(emilio): This is rather odd, and I cannot get the beep to work,
     // but this matches what old code was doing...
-    if (mMenuBar && mMenuBar->IsActive()) {
+    if (mMenuBar && mMenuBar->IsActive() && mMenuBar->IsActiveByKeyboard()) {
       if (nsCOMPtr<nsISound> sound = do_GetService("@mozilla.org/sound;1")) {
         sound->Beep();
       }

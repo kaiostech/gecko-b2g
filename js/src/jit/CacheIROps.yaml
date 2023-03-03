@@ -447,6 +447,14 @@
     obj: ObjId
     expected: ObjectField
 
+- name: GuardObjectIdentity
+  shared: true
+  transpile: true
+  cost_estimate: 1
+  args:
+    obj1: ObjId
+    obj2: ObjId
+
 - name: GuardSpecificFunction
   shared: false
   transpile: true
@@ -1990,6 +1998,13 @@
   args:
     obj: ObjId
     result: ObjId
+
+- name: GuardBoundFunctionIsConstructor
+  shared: true
+  transpile: true
+  cost_estimate: 1
+  args:
+    obj: ObjId
 
 - name: LoadArrayBufferByteLengthInt32Result
   shared: true

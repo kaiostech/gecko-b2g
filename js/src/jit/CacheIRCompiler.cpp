@@ -3529,6 +3529,39 @@ bool CacheIRCompiler::emitLoadBoundFunctionTarget(ObjOperandId objId,
   return true;
 }
 
+bool CacheIRCompiler::emitGuardBoundFunctionIsConstructor(ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  Register obj = allocator.useRegister(masm, objId);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  Address flagsSlot(obj, BoundFunctionObject::offsetOfFlagsSlot());
+  masm.branchTest32(Assembler::Zero, flagsSlot,
+                    Imm32(BoundFunctionObject::IsConstructorFlag),
+                    failure->label());
+  return true;
+}
+
+bool CacheIRCompiler::emitGuardObjectIdentity(ObjOperandId obj1Id,
+                                              ObjOperandId obj2Id) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  Register obj1 = allocator.useRegister(masm, obj1Id);
+  Register obj2 = allocator.useRegister(masm, obj2Id);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.branchPtr(Assembler::NotEqual, obj1, obj2, failure->label());
+  return true;
+}
+
 bool CacheIRCompiler::emitLoadFunctionLengthResult(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
@@ -7120,12 +7153,33 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult(ObjOperandId objId,
   Register obj = allocator.useRegister(masm, objId);
   ValueOperand idVal = allocator.useValueRegister(masm, idId);
 
-  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+#ifdef JS_CODEGEN_X86
+  AutoScratchRegisterMaybeOutput scratch1(allocator, masm, output);
+  AutoScratchRegisterMaybeOutputType scratch2(allocator, masm, output);
+#else
+  AutoScratchRegister scratch1(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+  AutoScratchRegister scratch3(allocator, masm);
+#endif
 
   FailurePath* failure;
   if (!addFailurePath(&failure)) {
     return false;
   }
+
+#ifdef JS_CODEGEN_X86
+  masm.xorPtr(scratch2, scratch2);
+#else
+  Label cacheHit;
+  if (JitOptions.enableWatchtowerMegamorphic) {
+    masm.emitMegamorphicCacheLookupByValue(
+        idVal, obj, scratch1, scratch3, scratch2, output.valueReg(), &cacheHit);
+  } else {
+    masm.xorPtr(scratch2, scratch2);
+  }
+#endif
+
+  masm.branchIfNonNativeObj(obj, scratch1, failure->label());
 
   // idVal will be in vp[0], result will be stored in vp[1].
   masm.reserveStack(sizeof(Value));
@@ -7134,26 +7188,28 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult(ObjOperandId objId,
 
   LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(),
                                liveVolatileFloatRegs());
-  volatileRegs.takeUnchecked(scratch);
+  volatileRegs.takeUnchecked(scratch1);
   volatileRegs.takeUnchecked(idVal);
   masm.PushRegsInMask(volatileRegs);
 
-  using Fn = bool (*)(JSContext * cx, JSObject * obj, Value * vp);
-  masm.setupUnalignedABICall(scratch);
-  masm.loadJSContext(scratch);
-  masm.passABIArg(scratch);
+  using Fn = bool (*)(JSContext * cx, JSObject * obj,
+                      MegamorphicCache::Entry * cacheEntry, Value * vp);
+  masm.setupUnalignedABICall(scratch1);
+  masm.loadJSContext(scratch1);
+  masm.passABIArg(scratch1);
   masm.passABIArg(obj);
+  masm.passABIArg(scratch2);
   masm.passABIArg(idVal.scratchReg());
   masm.callWithABI<Fn, GetNativeDataPropertyByValuePure>();
 
-  masm.storeCallPointerResult(scratch);
+  masm.storeCallPointerResult(scratch1);
   masm.PopRegsInMask(volatileRegs);
 
   masm.Pop(idVal);
 
   Label ok;
   uint32_t framePushed = masm.framePushed();
-  masm.branchIfTrueBool(scratch, &ok);
+  masm.branchIfTrueBool(scratch1, &ok);
   masm.adjustStack(sizeof(Value));
   masm.jump(failure->label());
 
@@ -7161,6 +7217,10 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult(ObjOperandId objId,
   masm.setFramePushed(framePushed);
   masm.loadTypedOrValue(Address(masm.getStackPointer(), 0), output);
   masm.adjustStack(sizeof(Value));
+
+#ifndef JS_CODEGEN_X86
+  masm.bind(&cacheHit);
+#endif
   return true;
 }
 
@@ -7173,12 +7233,34 @@ bool CacheIRCompiler::emitMegamorphicHasPropResult(ObjOperandId objId,
   Register obj = allocator.useRegister(masm, objId);
   ValueOperand idVal = allocator.useValueRegister(masm, idId);
 
-  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+#ifdef JS_CODEGEN_X86
+  AutoScratchRegisterMaybeOutput scratch1(allocator, masm, output);
+  AutoScratchRegisterMaybeOutputType scratch2(allocator, masm, output);
+#else
+  AutoScratchRegister scratch1(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+  AutoScratchRegister scratch3(allocator, masm);
+#endif
 
   FailurePath* failure;
   if (!addFailurePath(&failure)) {
     return false;
   }
+
+#ifndef JS_CODEGEN_X86
+  Label cacheHit, done;
+  if (JitOptions.enableWatchtowerMegamorphic) {
+    masm.emitMegamorphicCacheLookupExists(idVal, obj, scratch1, scratch3,
+                                          scratch2, output.maybeReg(),
+                                          &cacheHit, hasOwn);
+  } else {
+    masm.xorPtr(scratch2, scratch2);
+  }
+#else
+  masm.xorPtr(scratch2, scratch2);
+#endif
+
+  masm.branchIfNonNativeObj(obj, scratch1, failure->label());
 
   // idVal will be in vp[0], result will be stored in vp[1].
   masm.reserveStack(sizeof(Value));
@@ -7187,29 +7269,31 @@ bool CacheIRCompiler::emitMegamorphicHasPropResult(ObjOperandId objId,
 
   LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(),
                                liveVolatileFloatRegs());
-  volatileRegs.takeUnchecked(scratch);
+  volatileRegs.takeUnchecked(scratch1);
   volatileRegs.takeUnchecked(idVal);
   masm.PushRegsInMask(volatileRegs);
 
-  using Fn = bool (*)(JSContext * cx, JSObject * obj, Value * vp);
-  masm.setupUnalignedABICall(scratch);
-  masm.loadJSContext(scratch);
-  masm.passABIArg(scratch);
+  using Fn = bool (*)(JSContext * cx, JSObject * obj,
+                      MegamorphicCache::Entry * cacheEntry, Value * vp);
+  masm.setupUnalignedABICall(scratch1);
+  masm.loadJSContext(scratch1);
+  masm.passABIArg(scratch1);
   masm.passABIArg(obj);
+  masm.passABIArg(scratch2);
   masm.passABIArg(idVal.scratchReg());
   if (hasOwn) {
     masm.callWithABI<Fn, HasNativeDataPropertyPure<true>>();
   } else {
     masm.callWithABI<Fn, HasNativeDataPropertyPure<false>>();
   }
-  masm.storeCallPointerResult(scratch);
+  masm.storeCallPointerResult(scratch1);
   masm.PopRegsInMask(volatileRegs);
 
   masm.Pop(idVal);
 
   Label ok;
   uint32_t framePushed = masm.framePushed();
-  masm.branchIfTrueBool(scratch, &ok);
+  masm.branchIfTrueBool(scratch1, &ok);
   masm.adjustStack(sizeof(Value));
   masm.jump(failure->label());
 
@@ -7217,6 +7301,16 @@ bool CacheIRCompiler::emitMegamorphicHasPropResult(ObjOperandId objId,
   masm.setFramePushed(framePushed);
   masm.loadTypedOrValue(Address(masm.getStackPointer(), 0), output);
   masm.adjustStack(sizeof(Value));
+
+#ifndef JS_CODEGEN_X86
+  masm.jump(&done);
+  masm.bind(&cacheHit);
+  if (output.hasValue()) {
+    masm.tagValue(JSVAL_TYPE_BOOLEAN, output.valueReg().scratchReg(),
+                  output.valueReg());
+  }
+  masm.bind(&done);
+#endif
   return true;
 }
 
@@ -7421,27 +7515,45 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
   Register obj = allocator.useRegister(masm, objId);
   StubFieldOffset name(nameOffset, StubField::Type::String);
 
-  AutoScratchRegisterMaybeOutput scratch1(allocator, masm, output);
+  AutoScratchRegisterMaybeOutput id(allocator, masm, output);
+  AutoScratchRegister scratch1(allocator, masm);
   AutoScratchRegister scratch2(allocator, masm);
-  AutoScratchRegister scratch3(allocator, masm);
+  AutoScratchRegisterMaybeOutputType scratch3(allocator, masm, output);
 
   FailurePath* failure;
   if (!addFailurePath(&failure)) {
     return false;
   }
 
+#ifdef JS_CODEGEN_X86
+  masm.xorPtr(scratch3, scratch3);
+#else
+  Label cacheHit;
+  if (JitOptions.enableWatchtowerMegamorphic) {
+    emitLoadStubField(name, id);
+    masm.emitMegamorphicCacheLookupByValue(id.get(), obj, scratch1, scratch2,
+                                           scratch3, output.valueReg(),
+                                           &cacheHit);
+  } else {
+    masm.xorPtr(scratch3, scratch3);
+  }
+#endif
+
+  masm.branchIfNonNativeObj(obj, scratch1, failure->label());
+
   masm.Push(UndefinedValue());
-  masm.moveStackPtrTo(scratch3.get());
+  masm.moveStackPtrTo(id.get());
 
   LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(),
                                liveVolatileFloatRegs());
   volatileRegs.takeUnchecked(scratch1);
   volatileRegs.takeUnchecked(scratch2);
   volatileRegs.takeUnchecked(scratch3);
+  volatileRegs.takeUnchecked(id);
   masm.PushRegsInMask(volatileRegs);
 
-  using Fn =
-      bool (*)(JSContext * cx, JSObject * obj, PropertyName * name, Value * vp);
+  using Fn = bool (*)(JSContext * cx, JSObject * obj, PropertyName * name,
+                      MegamorphicCache::Entry * cacheEntry, Value * vp);
   masm.setupUnalignedABICall(scratch1);
   masm.loadJSContext(scratch1);
   masm.passABIArg(scratch1);
@@ -7449,7 +7561,8 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
   emitLoadStubField(name, scratch2);
   masm.passABIArg(scratch2);
   masm.passABIArg(scratch3);
-  masm.callWithABI<Fn, GetNativeDataPropertyPure>();
+  masm.passABIArg(id);
+  masm.callWithABI<Fn, GetNativeDataPropertyByNamePure>();
 
   masm.storeCallPointerResult(scratch2);
   masm.PopRegsInMask(volatileRegs);
@@ -7458,6 +7571,9 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
   masm.adjustStack(sizeof(Value));
 
   masm.branchIfFalseBool(scratch2, failure->label());
+#ifndef JS_CODEGEN_X86
+  masm.bind(&cacheHit);
+#endif
 
   return true;
 }

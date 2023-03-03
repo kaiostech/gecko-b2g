@@ -6,7 +6,6 @@
 
 #include "AndroidVsync.h"
 
-#include "mozilla/java/GeckoAppShellWrappers.h"
 #include "nsTArray.h"
 
 /**
@@ -73,8 +72,6 @@ AndroidVsync::AndroidVsync() : mImpl("AndroidVsync.mImpl") {
   impl->mSupport = new AndroidVsyncSupport(this);
   impl->mSupportJava = java::AndroidVsync::New();
   AndroidVsyncSupport::AttachNative(impl->mSupportJava, impl->mSupport);
-  float fps = java::GeckoAppShell::GetScreenRefreshRate();
-  impl->mVsyncDuration = TimeDuration::FromMilliseconds(1000.0 / fps);
 }
 
 AndroidVsync::~AndroidVsync() {
@@ -83,11 +80,6 @@ AndroidVsync::~AndroidVsync() {
   impl->mRenderObservers.Clear();
   impl->UpdateObservingVsync();
   impl->mSupport->Unlink();
-}
-
-TimeDuration AndroidVsync::GetVsyncRate() {
-  auto impl = mImpl.Lock();
-  return impl->mVsyncDuration;
 }
 
 void AndroidVsync::RegisterObserver(Observer* aObserver, ObserverType aType) {
@@ -135,6 +127,19 @@ void AndroidVsync::NotifyVsync(int64_t aFrameTimeNanos) {
   }
   for (Observer* observer : observers) {
     observer->OnVsync(timeStamp);
+  }
+}
+
+void AndroidVsync::OnMaybeUpdateRefreshRate() {
+  // Do not keep the lock held while calling OnVsync.
+  nsTArray<Observer*> observers;
+  {
+    auto impl = mImpl.Lock();
+    observers.AppendElements(impl->mInputObservers);
+    observers.AppendElements(impl->mRenderObservers);
+  }
+  for (Observer* observer : observers) {
+    observer->OnMaybeUpdateRefreshRate();
   }
 }
 

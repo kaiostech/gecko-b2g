@@ -5,6 +5,7 @@
 
 #include "nsTableRowFrame.h"
 
+#include "mozilla/Baseline.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/PresShell.h"
 #include "nsTableRowGroupFrame.h"
@@ -25,7 +26,6 @@
 #include "nsCOMPtr.h"
 #include "nsDisplayList.h"
 #include "nsIFrameInlines.h"
-#include "Baseline.h"
 #include <algorithm>
 
 #ifdef ACCESSIBILITY
@@ -156,16 +156,14 @@ void nsTableRowFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 
 void nsTableRowFrame::DestroyFrom(nsIFrame* aDestructRoot,
                                   PostDestroyData& aPostDestroyData) {
-  if (HasAnyStateBits(NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN)) {
-    nsTableFrame::UnregisterPositionedTablePart(this, aDestructRoot);
-  }
-
+  nsTableFrame::MaybeUnregisterPositionedTablePart(this, aDestructRoot);
   nsContainerFrame::DestroyFrom(aDestructRoot, aPostDestroyData);
 }
 
 /* virtual */
 void nsTableRowFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
   nsContainerFrame::DidSetComputedStyle(aOldComputedStyle);
+  nsTableFrame::PositionedTablePartMaybeChanged(this, aOldComputedStyle);
 
   if (!aOldComputedStyle) {
     return;  // avoid the following on init
@@ -774,13 +772,6 @@ void nsTableRowFrame::ReflowChildren(nsPresContext* aPresContext,
     nsRect kidRect = kidFrame->GetRect();
     LogicalPoint origKidNormalPosition =
         kidFrame->GetLogicalNormalPosition(wm, containerSize);
-    // All cells' no-relative-positioning position should be snapped to the
-    // row's bstart edge.
-    // This doesn't hold in vertical-rl mode, where we don't yet know the
-    // correct containerSize for the row frame. In that case, we'll have to
-    // fix up child positions later, after determining our desiredSize.
-    NS_ASSERTION(origKidNormalPosition.B(wm) == 0 || wm.IsVerticalRL(),
-                 "unexpected kid position");
 
     nsRect kidInkOverflow = kidFrame->InkOverflowRect();
     LogicalPoint kidPosition(wm, iCoord, 0);

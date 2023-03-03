@@ -5,13 +5,9 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { Log } from "resource://gre/modules/Log.sys.mjs";
 
-const { Async } = ChromeUtils.import("resource://services-common/async.js");
-const { TokenServerClient } = ChromeUtils.import(
-  "resource://services-common/tokenserverclient.js"
-);
-const { CryptoUtils } = ChromeUtils.import(
-  "resource://services-crypto/utils.js"
-);
+import { Async } from "resource://services-common/async.sys.mjs";
+import { TokenServerClient } from "resource://services-common/tokenserverclient.sys.mjs";
+import { CryptoUtils } from "resource://services-crypto/utils.sys.mjs";
 import { Svc, Utils } from "resource://services-sync/util.sys.mjs";
 
 const {

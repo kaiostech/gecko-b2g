@@ -165,16 +165,11 @@ void ParallelMarkTask::recordDuration() {
 void ParallelMarkTask::run(AutoLockHelperThreadState& lock) {
   AutoUnlockHelperThreadState unlock(lock);
 
-  {
-    AutoLockGC gcLock(pm->gc);
+  AutoLockGC gcLock(pm->gc);
 
-    markOrRequestWork(gcLock);
+  markOrRequestWork(gcLock);
 
-    MOZ_ASSERT(!isWaiting);
-    if (hasWork()) {
-      pm->decActiveTasks(this, gcLock);
-    }
-  }
+  MOZ_ASSERT(!isWaiting);
 }
 
 void ParallelMarkTask::markOrRequestWork(AutoLockGC& lock) {
@@ -196,18 +191,18 @@ bool ParallelMarkTask::tryMarking(AutoLockGC& lock) {
   MOZ_ASSERT(marker->isParallelMarking());
 
   // Mark until budget exceeded or we run out of work.
+  bool finished;
   {
     AutoUnlockGC unlock(lock);
 
     AutoAddTimeDuration time(markTime.ref());
-    marker->markCurrentColorInParallel(budget);
+    finished = marker->markCurrentColorInParallel(budget);
   }
 
-  if (!hasWork()) {
-    pm->decActiveTasks(this, lock);
-  }
+  MOZ_ASSERT_IF(finished, !hasWork());
+  pm->decActiveTasks(this, lock);
 
-  return !budget.isOverBudget();
+  return finished;
 }
 
 bool ParallelMarkTask::requestWork(AutoLockGC& lock) {
@@ -257,6 +252,16 @@ void ParallelMarkTask::waitUntilResumed(AutoLockGC& lock) {
   if (profiler.enabled()) {
     profiler.markEvent("Parallel marking wait end", "");
   }
+}
+
+void ParallelMarkTask::resume() {
+  {
+    AutoLockGC lock(gc);
+    MOZ_ASSERT(isWaiting);
+    isWaiting = false;
+  }
+
+  resumed.notify_all();
 }
 
 void ParallelMarkTask::resume(const AutoLockGC& lock) {
@@ -314,10 +319,13 @@ void ParallelMarker::decActiveTasks(ParallelMarkTask* task,
 }
 
 void ParallelMarker::donateWorkFrom(GCMarker* src) {
-  AutoLockGC lock(gc);
+  if (!gc->tryLockGC()) {
+    return;
+  }
 
   // Check there are tasks waiting for work while holding the lock.
   if (waitingTaskCount == 0) {
+    gc->unlockGC();
     return;
   }
 
@@ -328,14 +336,10 @@ void ParallelMarker::donateWorkFrom(GCMarker* src) {
   // |task| is not running so it's safe to move work to it.
   MOZ_ASSERT(waitingTask->isWaiting);
 
-  // TODO: When using more than two marking threads it may be better to
-  // release the lock here.
+  gc->unlockGC();
 
   // Move some work from this thread's mark stack to the waiting task.
   GCMarker::moveWork(waitingTask->marker, src);
-
-  // Resume waiting task.
-  waitingTask->resume(lock);
 
   gc->stats().count(gcstats::COUNT_PARALLEL_MARK_INTERRUPTIONS);
 
@@ -343,4 +347,7 @@ void ParallelMarker::donateWorkFrom(GCMarker* src) {
   if (profiler.enabled()) {
     profiler.markEvent("Parallel marking donated work", "");
   }
+
+  // Resume waiting task.
+  waitingTask->resume();
 }

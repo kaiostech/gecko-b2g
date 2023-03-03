@@ -788,6 +788,11 @@ NativeLayerCA::NativeLayerCA(gfx::DeviceColor aColor)
 }
 
 NativeLayerCA::~NativeLayerCA() {
+#ifdef NIGHTLY_BUILD
+  if (mHasEverAttachExternalImage && StaticPrefs::gfx_core_animation_specialize_video_log()) {
+    NSLog(@"VIDEO_LOG: ~NativeLayerCA: %p is being destroyed after hosting video.", this);
+  }
+#endif
   if (mInProgressLockedIOSurface) {
     mInProgressLockedIOSurface->Unlock(false);
     mInProgressLockedIOSurface = nullptr;
@@ -829,6 +834,11 @@ void NativeLayerCA::AttachExternalImage(wr::RenderTextureHost* aExternalImage) {
   bool oldSpecializeVideo = mSpecializeVideo;
   mSpecializeVideo = ShouldSpecializeVideo(lock);
   bool changedSpecializeVideo = (mSpecializeVideo != oldSpecializeVideo);
+#ifdef NIGHTLY_BUILD
+  if (changedSpecializeVideo && StaticPrefs::gfx_core_animation_specialize_video_log()) {
+    NSLog(@"VIDEO_LOG: AttachExternalImage: %p is forcing a video layer rebuild.", this);
+  }
+#endif
 
   bool oldIsDRM = mIsDRM;
   mIsDRM = aExternalImage->IsFromDRMSource();
@@ -910,14 +920,25 @@ bool NativeLayerCA::ShouldSpecializeVideo(const MutexAutoLock& aProofOfLock) {
 }
 
 void NativeLayerCA::SetRootWindowIsFullscreen(bool aFullscreen) {
+  if (mRootWindowIsFullscreen == aFullscreen) {
+    return;
+  }
+
   MutexAutoLock lock(mMutex);
 
   mRootWindowIsFullscreen = aFullscreen;
 
   bool oldSpecializeVideo = mSpecializeVideo;
   mSpecializeVideo = ShouldSpecializeVideo(lock);
+  bool changedSpecializeVideo = (mSpecializeVideo != oldSpecializeVideo);
 
-  if (mSpecializeVideo != oldSpecializeVideo) {
+  if (changedSpecializeVideo) {
+#ifdef NIGHTLY_BUILD
+    if (StaticPrefs::gfx_core_animation_specialize_video_log()) {
+      NSLog(@"VIDEO_LOG: SetRootWindowIsFullscreen: %p is forcing a video layer rebuild.", this);
+    }
+#endif
+
     ForAllRepresentations([&](Representation& r) { r.mMutatedSpecializeVideo = true; });
   }
 }
@@ -1209,6 +1230,9 @@ void NativeLayerCA::HandlePartialUpdate(const MutexAutoLock& aProofOfLock,
   // some combination of the update region and the front surface's valid region. Because
   // this check is complex, we only do it in Nightly.
   //
+  // As a special case, we'll tolerate a remaining area that is only one pixel tall or wide,
+  // which is also tolerated in NotifySurfaceReady (until Bug 1818540 is fixed).
+  //
   // Also, since this condition will hit a later release assert in NotifySurfaceReady, we
   // choose to crash now.
 
@@ -1222,7 +1246,10 @@ void NativeLayerCA::HandlePartialUpdate(const MutexAutoLock& aProofOfLock,
       exposedRegion.AndWith(mFrontSurface->mInvalidRegion);
     }
 
-    if (!aUpdateRegion.Contains(exposedRegion)) {
+    gfx::IntRegion invalidRegion(exposedRegion);
+    invalidRegion.SubOut(aUpdateRegion);
+    IntRect invalidBounds = invalidRegion.GetBounds();
+    if (invalidBounds.width > 1 && invalidBounds.height > 1) {
       // Let's crash now instead of later.
       std::ostringstream reason;
       reason << "The update region " << aUpdateRegion << " must cover the invalid region "
@@ -1365,6 +1392,19 @@ void NativeLayerCA::NotifySurfaceReady() {
     ForAllRepresentations([&](Representation& r) { r.mMutatedDisplayRect = true; });
   }
   mInProgressDisplayRect = Nothing();
+
+  if (!mFrontSurface->mInvalidRegion.Intersect(mDisplayRect).IsEmpty()) {
+    // We have invalid pixels within the display rect. Let's report the regions as
+    // a gfxCriticalError so we have something to review in the crash we're about
+    // to generate from the release assert below.
+    std::ostringstream reason;
+    reason << "The front surface invalid region " << mFrontSurface->mInvalidRegion
+           << " must not intersect the display rect " << mDisplayRect << ".";
+    if (mClipRect) {
+      reason << " And clip rect is " << *mClipRect << ".";
+    }
+    gfxCriticalError() << reason.str();
+  }
   MOZ_RELEASE_ASSERT(mFrontSurface->mInvalidRegion.Intersect(mDisplayRect).IsEmpty(),
                      "Parts of the display rect are invalid! This shouldn't happen.");
 }
@@ -1635,6 +1675,11 @@ bool NativeLayerCA::Representation::ApplyChanges(
   if (mWrappingCALayer && mMutatedSpecializeVideo) {
     // Since specialize video changes the way we construct our wrapping and content layers,
     // we have to scrap them if this value has changed.
+#ifdef NIGHTLY_BUILD
+    if (aIsVideo && StaticPrefs::gfx_core_animation_specialize_video_log()) {
+      NSLog(@"VIDEO_LOG: Scrapping existing video layer.");
+    }
+#endif
     [mContentCALayer release];
     mContentCALayer = nil;
     [mOpaquenessTintLayer release];

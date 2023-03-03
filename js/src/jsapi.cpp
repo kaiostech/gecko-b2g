@@ -3471,6 +3471,26 @@ JS_PUBLIC_API bool JS_Stringify(JSContext* cx, MutableHandleValue vp,
   return callback(sb.rawTwoByteBegin(), sb.length(), data);
 }
 
+JS_PUBLIC_API bool JS::ToJSON(JSContext* cx, HandleValue value,
+                              HandleObject replacer, HandleValue space,
+                              JSONWriteCallback callback, void* data) {
+  AssertHeapIsIdle();
+  CHECK_THREAD(cx);
+  cx->check(replacer, space);
+  StringBuffer sb(cx);
+  if (!sb.ensureTwoByteChars()) {
+    return false;
+  }
+  RootedValue v(cx, value);
+  if (!Stringify(cx, &v, replacer, space, sb, StringifyBehavior::Normal)) {
+    return false;
+  }
+  if (sb.empty()) {
+    return true;
+  }
+  return callback(sb.rawTwoByteBegin(), sb.length(), data);
+}
+
 JS_PUBLIC_API bool JS::ToJSONMaybeSafely(JSContext* cx, JS::HandleObject input,
                                          JSONWriteCallback callback,
                                          void* data) {
@@ -3506,6 +3526,14 @@ JS_PUBLIC_API bool JS_ParseJSON(JSContext* cx, const char16_t* chars,
 JS_PUBLIC_API bool JS_ParseJSON(JSContext* cx, HandleString str,
                                 MutableHandleValue vp) {
   return JS_ParseJSONWithReviver(cx, str, NullHandleValue, vp);
+}
+
+JS_PUBLIC_API bool JS_ParseJSON(JSContext* cx, const Latin1Char* chars,
+                                uint32_t len, MutableHandleValue vp) {
+  AssertHeapIsIdle();
+  CHECK_THREAD(cx);
+  return ParseJSONWithReviver(cx, mozilla::Range<const Latin1Char>(chars, len),
+                              NullHandleValue, vp);
 }
 
 JS_PUBLIC_API bool JS_ParseJSONWithReviver(JSContext* cx, const char16_t* chars,

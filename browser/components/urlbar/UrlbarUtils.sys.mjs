@@ -1224,8 +1224,7 @@ export var UrlbarUtils = {
         } else if (result.providerName == "quickactions") {
           return "quickaction";
         } else if (result.providerName == "Weather") {
-          // TODO (SNT-441): Return "weather". This value is used in telemetry.
-          return "quicksuggest";
+          return "weather";
         }
         return "dynamic";
     }
@@ -1311,6 +1310,13 @@ export var UrlbarUtils = {
       return "unknown";
     }
 
+    if (
+      result.providerType === UrlbarUtils.PROVIDER_TYPE.EXTENSION &&
+      result.providerName != "Omnibox"
+    ) {
+      return "experimental_addon";
+    }
+
     switch (result.type) {
       case UrlbarUtils.RESULT_TYPE.DYNAMIC:
         switch (result.providerName) {
@@ -1322,6 +1328,10 @@ export var UrlbarUtils = {
             return "tab_to_search";
           case "UnitConversion":
             return "unit";
+          case "UrlbarProviderContextualSearch":
+            return "site_specific_contextual_search";
+          case "Weather":
+            return "weather";
         }
         break;
       case UrlbarUtils.RESULT_TYPE.KEYWORD:
@@ -1387,8 +1397,7 @@ export var UrlbarUtils = {
             : "suggest_non_sponsor";
         }
         if (result.providerName === "Weather") {
-          // TODO (SNT-441): Return "weather". This value is used in telemetry.
-          return "suggest_non_sponsor";
+          return "weather";
         }
         if (result.providerName === "UrlbarProviderTopSites") {
           return "top_site";

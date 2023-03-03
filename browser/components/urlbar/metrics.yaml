@@ -87,10 +87,10 @@ urlbar:
           `remote_tab`, `addon`, `tip_onboard`, `tip_persist`, `tip_redirect`,
           `tip_unknown`, `intervention_clear`, `intervention_refresh`,
           `intervention_update`, `intervention_unknown`, `tab_to_search`,
-          `top_site`, `calc`, `unit`, `suggest_sponsor` and
-          `suggest_non_sponsor`. If the result type did not fall into any of
-          these, this will be `unknown` and a bug should be filed to investigate
-          it.
+          `top_site`, `calc`, `unit`, `suggest_sponsor`,
+          `suggest_non_sponsor`, `quicksuggest` and `weather`.
+          If the result type did not fall into any of these, this will be
+          `unknown` and a bug should be filed to investigate it.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1800414
@@ -168,8 +168,10 @@ urlbar:
           `tip_onboard`, `tip_persist`, `tip_redirect`, `tip_unknown`,
           `intervention_clear`, `intervention_refresh`, `intervention_update`,
           `intervention_unknown`, `tab_to_search`, `top_site`, `calc`, `unit`,
-          `suggest_sponsor` and `suggest_non_sponsor`. If the result type did
-          not fall into any of these, this will be `unknown`.
+          `site_specific_contextual_search`, `quicksuggest`,  `weather`,
+          `experimental_addon`, `suggest_sponsor` and `suggest_non_sponsor`.
+          If the result type did not fall into any of these, this will be
+          `unknown`.
         type: string
       selected_result_subtype:
         description: >
@@ -192,12 +194,16 @@ urlbar:
           `UrlbarProviderSearchTips`, `TabToSearch`, `TokenAliasEngines`,
           `UrlbarProviderTopSites`, `UnitConversion` and `UnifiedComplete`.
           If engagement_type is `drop_go` or `paste_go`, this will be null
-          because no results are shown.
+          because no results are shown. And also, if selected_result is
+          `experimental_addon`, it means that the user selected a result
+           from an add-on using the urlbar experimental API. In this case,
+           this will be the provider name specified by the add-on.
         type: string
       engagement_type:
         description: >
           Records how the user selected the result. The possible values are:
-          `click`, `enter`, `drop_go`, `paste_go`, `dismiss`, `help`.
+          `click`, `enter`, `go_button`, `drop_go`, `paste_go`, `dismiss`,
+          `help`.
         type: string
       groups:
         description: >
@@ -221,8 +227,9 @@ urlbar:
           `remote_tab`, `addon`, `tip_onboard`, `tip_persist`, `tip_redirect`,
           `tip_unknown`, `intervention_clear`, `intervention_refresh`,
           `intervention_update`, `intervention_unknown`, `tab_to_search`,
-          `top_site`, `calc`, `unit`, `suggest_sponsor` and
-          `suggest_non_sponsor`. If the result type did not fall into any of
+          `top_site`, `calc`, `unit`, `site_specific_contextual_search`,
+          `quicksuggest`, `weather`, `experimental_addon`, `suggest_sponsor`
+          and `suggest_non_sponsor`. If the result type did not fall into any of
           these, this will be `unknown` and a bug should be filed to investigate
           it. If engagement_type is `drop_go` or `paste_go`, this will be empty
           string because no results are shown.
@@ -317,10 +324,10 @@ urlbar:
           `remote_tab`, `addon`, `tip_onboard`, `tip_persist`, `tip_redirect`,
           `tip_unknown`, `intervention_clear`, `intervention_refresh`,
           `intervention_update`, `intervention_unknown`, `tab_to_search`,
-          `top_site`, `calc`, `unit`, `suggest_sponsor` and
-          `suggest_non_sponsor`. If the result type did not fall into any of
-          these, this will be `unknown` and a bug should be filed to investigate
-          it.
+          `top_site`, `calc`, `unit`, `suggest_sponsor`,
+          `suggest_non_sponsor`, `quicksuggest` and `weather`. If the result
+          type did not fall into any of these, this will be `unknown` and a bug
+          should be filed to investigate it.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1800579
@@ -333,3 +340,40 @@ urlbar:
     notification_emails:
       - fx-search-telemetry@mozilla.com
     expires: never
+
+  pref_max_results:
+    lifetime: application
+    type: quantity
+    unit: integer
+    description: >
+      Maximum results to show in the Address Bar.
+      Corresponds to the value of the `browser.urlbar.maxRichResults` pref.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1817196
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1817196
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - fx-search-telemetry@mozilla.com
+    expires: never
+    send_in_pings:
+      - events
+
+  pref_suggest_topsites:
+    lifetime: application
+    type: boolean
+    description: >
+      Whether topsite results are enabled in the urlbar.
+      Corresponds to the value of the `browser.urlbar.suggest.topsites` pref.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1817196
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1817196
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - fx-search-telemetry@mozilla.com
+    expires: never
+    send_in_pings:
+      - events

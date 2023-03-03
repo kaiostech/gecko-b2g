@@ -11,11 +11,12 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 
-XPCOMUtils.defineLazyModuleGetters(lazy, {
+ChromeUtils.defineESModuleGetters(lazy, {
+  CryptoUtils: "resource://services-crypto/utils.sys.mjs",
+
   // We use this observers module because we leverage its support for richer
   // "subject" data.
-  Observers: "resource://services-common/observers.js",
-  CryptoUtils: "resource://services-crypto/utils.js",
+  Observers: "resource://services-common/observers.sys.mjs",
 });
 
 const { PREF_ACCOUNT_ROOT, log } = ChromeUtils.import(

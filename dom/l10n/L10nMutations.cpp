@@ -66,19 +66,15 @@ void L10nMutations::ContentAppended(nsIContent* aChild) {
     return;
   }
 
-  nsINode* node = aChild;
-  if (!IsInRoots(node)) {
+  if (!IsInRoots(aChild)) {
     return;
   }
 
-  ErrorResult rv;
   Sequence<OwningNonNull<Element>> elements;
-  while (node) {
+  for (nsIContent* node = aChild; node; node = node->GetNextSibling()) {
     if (node->IsElement()) {
-      DOMLocalization::GetTranslatables(*node, elements, rv);
+      DOMLocalization::GetTranslatables(*node, elements, IgnoreErrors());
     }
-
-    node = node->GetNextSibling();
   }
 
   for (auto& elem : elements) {
@@ -100,9 +96,8 @@ void L10nMutations::ContentInserted(nsIContent* aChild) {
     return;
   }
 
-  ErrorResult rv;
   Sequence<OwningNonNull<Element>> elements;
-  DOMLocalization::GetTranslatables(*aChild, elements, rv);
+  DOMLocalization::GetTranslatables(*aChild, elements, IgnoreErrors());
 
   for (auto& elem : elements) {
     L10nElementChanged(elem);
@@ -111,33 +106,28 @@ void L10nMutations::ContentInserted(nsIContent* aChild) {
 
 void L10nMutations::ContentRemoved(nsIContent* aChild,
                                    nsIContent* aPreviousSibling) {
-  if (!mObserving) {
+  if (!mObserving || mPendingElements.IsEmpty()) {
     return;
   }
 
-  if (!aChild->IsElement()) {
-    return;
-  }
-  Element* elem = aChild->AsElement();
-
-  if (!IsInRoots(elem)) {
+  Element* elem = Element::FromNode(*aChild);
+  if (!elem || !IsInRoots(elem)) {
     return;
   }
 
-  ErrorResult rv;
   Sequence<OwningNonNull<Element>> elements;
-  DOMLocalization::GetTranslatables(*aChild, elements, rv);
+  DOMLocalization::GetTranslatables(*aChild, elements, IgnoreErrors());
 
   for (auto& elem : elements) {
-    mPendingElements.RemoveElement(elem);
-    mPendingElementsHash.EnsureRemoved(elem);
+    if (mPendingElementsHash.EnsureRemoved(elem)) {
+      mPendingElements.RemoveElement(elem);
+    }
   }
 }
 
 void L10nMutations::L10nElementChanged(Element* aElement) {
-  if (!mPendingElementsHash.Contains(aElement)) {
+  if (mPendingElementsHash.EnsureInserted(aElement)) {
     mPendingElements.AppendElement(aElement);
-    mPendingElementsHash.Insert(aElement);
   }
 
   if (!mRefreshDriver) {
@@ -211,8 +201,8 @@ void L10nMutations::FlushPendingTranslations() {
   RefPtr<Promise> promise =
       mDOMLocalization->TranslateElements(elements, IgnoreErrors());
   if (promise) {
-    RefPtr<PromiseNativeHandler> l10nMutationFinalizationHandler =
-        new L10nMutationFinalizationHandler(
+    auto l10nMutationFinalizationHandler =
+        MakeRefPtr<L10nMutationFinalizationHandler>(
             mDOMLocalization->GetParentObject());
     promise->AppendNativeHandler(l10nMutationFinalizationHandler);
   }

@@ -11,12 +11,9 @@
 
 import { Log } from "resource://gre/modules/Log.sys.mjs";
 
-const { CryptoUtils } = ChromeUtils.import(
-  "resource://services-crypto/utils.js"
-);
-const { CommonUtils } = ChromeUtils.import(
-  "resource://services-common/utils.js"
-);
+import { CryptoUtils } from "resource://services-crypto/utils.sys.mjs";
+
+import { CommonUtils } from "resource://services-common/utils.sys.mjs";
 
 const PROTOCOL_VERSION = "identity.mozilla.com/picl/v1/";
 const PBKDF2_ROUNDS = 1000;

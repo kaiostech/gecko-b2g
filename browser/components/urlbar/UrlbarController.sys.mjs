@@ -741,6 +741,7 @@ class TelemetryEvent {
     this._controller = controller;
     this._category = category;
     this._isPrivate = controller.input.isPrivate;
+    this.#beginObservingPingPrefs();
   }
 
   /**
@@ -943,8 +944,10 @@ class TelemetryEvent {
         startEventInfo.interactionType == "dropped" ? "drop_go" : "paste_go";
     } else if (event.type == "blur") {
       action = "blur";
+    } else if (MouseEvent.isInstance(event)) {
+      action = event.target.id == "urlbar-go-button" ? "go_button" : "click";
     } else {
-      action = MouseEvent.isInstance(event) ? "click" : "enter";
+      action = "enter";
     }
 
     let method = action == "blur" ? "abandonment" : "engagement";
@@ -979,6 +982,11 @@ class TelemetryEvent {
     if (details.selType === "dismiss") {
       // The conventional telemetry dones't support "dismiss" event.
       return;
+    }
+
+    if (action == "go_button") {
+      // Fall back since the conventional telemetry dones't support "go_button" action.
+      action = "click";
     }
 
     let endTime = (event && event.timeStamp) || Cu.now();
@@ -1325,6 +1333,40 @@ class TelemetryEvent {
    */
   reset() {
     this.#previousSearchWordsSet = null;
+  }
+
+  #PING_PREFS = {
+    maxRichResults: Glean.urlbar.prefMaxResults,
+    "suggest.topsites": Glean.urlbar.prefSuggestTopsites,
+  };
+
+  #beginObservingPingPrefs() {
+    this.onPrefChanged("searchEngagementTelemetry.enabled");
+    lazy.UrlbarPrefs.addObserver(this);
+  }
+
+  onPrefChanged(pref) {
+    if (pref === "searchEngagementTelemetry.enabled") {
+      for (const p of Object.keys(this.#PING_PREFS)) {
+        this.onPrefChanged(p);
+      }
+      return;
+    }
+
+    if (!lazy.UrlbarPrefs.get("searchEngagementTelemetryEnabled")) {
+      return;
+    }
+
+    const metric = this.#PING_PREFS[pref];
+    if (metric) {
+      metric.set(lazy.UrlbarPrefs.get(pref));
+    }
+  }
+
+  onNimbusChanged(variable) {
+    if (variable === "searchEngagementTelemetryEnabled") {
+      this.onPrefChanged("searchEngagementTelemetry.enabled");
+    }
   }
 
   #previousSearchWordsSet = null;

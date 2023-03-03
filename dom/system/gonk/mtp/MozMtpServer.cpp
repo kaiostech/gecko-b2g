@@ -87,7 +87,7 @@ class MtpWatcherUpdate final : public nsIObserver {
     MOZ_ASSERT(NS_IsMainThread());
 
     mIOThread =
-        new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS, "MtpWatcherUpdate"_ns);
+        new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS, "MtpWatcherUpdate");
 
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
     obs->AddObserver(this, kMtpWatcherUpdate, false);
@@ -139,7 +139,7 @@ class MtpWatcherUpdate final : public nsIObserver {
 
  private:
   RefPtr<MozMtpServer> mMozMtpServer;
-  nsCOMPtr<nsIThread> mIOThread;
+  RefPtr<LazyIdleThread> mIOThread;
 };
 NS_IMPL_ISUPPORTS(MtpWatcherUpdate, nsIObserver)
 static StaticRefPtr<MtpWatcherUpdate> sMtpWatcherUpdate;

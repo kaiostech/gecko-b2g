@@ -9,6 +9,7 @@
 
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/LazyIdleThread.h"
 #include "mozilla/Logging.h"
 #include "mozilla/dom/devicestorage/DeviceStorageRequestChild.h"
 
@@ -167,7 +168,7 @@ class DeviceStorageUsedSpaceCache final {
 
   nsTArray<RefPtr<CacheEntry>> mCacheEntries;
 
-  nsCOMPtr<nsIThread> mIOThread;
+  RefPtr<mozilla::LazyIdleThread> mIOThread;
 
   static mozilla::StaticAutoPtr<DeviceStorageUsedSpaceCache>
       sDeviceStorageUsedSpaceCache;

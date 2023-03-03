@@ -10,7 +10,6 @@
 #include "mozilla/dom/FMRadioChild.h"
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/Hal.h"
-#include "mozilla/LazyIdleThread.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "mozilla/dom/WakeLock.h"
@@ -182,7 +181,7 @@ void FMRadioService::EnableFMRadio() {
   if (!mTuneThread) {
     // hal::FMRadioSeek and hal::SetFMRadioFrequency run on this thread. These
     // call ioctls that can stall the main thread, so we run them here.
-    mTuneThread = new LazyIdleThread(TUNE_THREAD_TIMEOUT_MS, "FM Tuning"_ns);
+    mTuneThread = new LazyIdleThread(TUNE_THREAD_TIMEOUT_MS, "FM Tuning");
   }
 }
 

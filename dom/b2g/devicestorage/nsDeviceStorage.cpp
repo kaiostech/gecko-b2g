@@ -26,7 +26,6 @@
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventListenerManager.h"
-#include "mozilla/LazyIdleThread.h"
 #include "mozilla/Scoped.h"
 #include "mozilla/ipc/BackgroundUtils.h"  // for PrincipalInfoToPrincipal
 
@@ -111,7 +110,7 @@ DeviceStorageUsedSpaceCache::DeviceStorageUsedSpaceCache() {
   MOZ_ASSERT(NS_IsMainThread());
 
   mIOThread = new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS,
-                                 "DeviceStorageUsedSpaceCache I/O"_ns);
+                                 "DeviceStorageUsedSpaceCache I/O");
 }
 
 DeviceStorageUsedSpaceCache::~DeviceStorageUsedSpaceCache() {}

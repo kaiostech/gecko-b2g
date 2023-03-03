@@ -8,6 +8,7 @@
 #define mozilla_dom_fmradioservice_h__
 
 #include "FMRadioCommon.h"
+#include "mozilla/LazyIdleThread.h"
 #include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/PFMRadioRequest.h"
 #include "mozilla/HalTypes.h"
@@ -235,7 +236,7 @@ class FMRadioService final : public IFMRadioService,
   uint32_t mChannelWidthInKHz;
   uint32_t mPreemphasis;
 
-  nsCOMPtr<nsIThread> mTuneThread;
+  RefPtr<mozilla::LazyIdleThread> mTuneThread;
   RefPtr<FMRadioReplyRunnable> mPendingRequest;
 
   FMRadioEventObserverList mObserverList;

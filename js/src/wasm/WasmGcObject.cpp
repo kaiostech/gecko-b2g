@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "wasm/WasmGcObject-inl.h"
+#include "wasm/WasmGcObject.h"
 
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Casting.h"
@@ -241,22 +241,23 @@ bool WasmGcObject::obj_deleteProperty(JSContext* cx, HandleObject obj,
 }
 
 /* static */
-WasmGcObject* WasmGcObject::create(JSContext* cx, const wasm::TypeDef* typeDef,
-                                   const AllocArgs& args) {
-  MOZ_ASSERT(IsWasmGcObjectClass(args.clasp));
-  MOZ_ASSERT(!args.clasp->isNativeObject());
+inline WasmGcObject* WasmGcObject::create(
+    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
+    js::gc::InitialHeap initialHeap) {
+  MOZ_ASSERT(IsWasmGcObjectClass(typeDefData->clasp));
+  MOZ_ASSERT(!typeDefData->clasp->isNativeObject());
 
-  debugCheckNewObject(args.shape, args.allocKind, args.initialHeap);
+  debugCheckNewObject(typeDefData->shape, typeDefData->allocKind, initialHeap);
 
-  WasmGcObject* obj =
-      cx->newCell<WasmGcObject>(args.allocKind, /* nDynamicSlots = */ 0,
-                                args.initialHeap, args.clasp, args.allocSite);
+  WasmGcObject* obj = cx->newCell<WasmGcObject>(
+      typeDefData->allocKind, /* nDynamicSlots = */ 0, initialHeap,
+      typeDefData->clasp, &typeDefData->allocSite);
   if (!obj) {
     return nullptr;
   }
 
-  obj->initShape(args.shape);
-  obj->typeDef_ = typeDef;
+  obj->initShape(typeDefData->shape);
+  obj->typeDef_ = typeDefData->typeDef;
 
   js::gc::gcprobes::CreateObject(obj);
   probes::CreateObject(cx, obj);
@@ -387,21 +388,11 @@ gc::AllocKind WasmArrayObject::allocKind() {
 }
 
 /* static */
-WasmArrayObject* WasmArrayObject::createArray(JSContext* cx,
-                                              const wasm::TypeDef* typeDef,
-                                              uint32_t numElements) {
-  WasmGcObject::AllocArgs args(cx);
-  if (!WasmGcObject::AllocArgs::compute(cx, typeDef, &args)) {
-    return nullptr;
-  }
-  return createArray(cx, typeDef, numElements, args);
-}
-
-/* static */
 template <bool ZeroFields>
 WasmArrayObject* WasmArrayObject::createArray(
-    JSContext* cx, const wasm::TypeDef* typeDef, uint32_t numElements,
-    const WasmGcObject::AllocArgs& args) {
+    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
+    js::gc::InitialHeap initialHeap, uint32_t numElements) {
+  const TypeDef* typeDef = typeDefData->typeDef;
   STATIC_ASSERT_WASMARRAYELEMENTS_NUMELEMENTS_IS_U32;
   MOZ_ASSERT(typeDef->kind() == wasm::TypeDefKind::Array);
 
@@ -429,8 +420,12 @@ WasmArrayObject* WasmArrayObject::createArray(
     }
   }
 
+  // It's unfortunate that `arrayObj` has to be rooted, since this is a hot
+  // path and rooting costs around 15 instructions.  It is the call to
+  // registerMallocedBuffer that makes it necessary.
   Rooted<WasmArrayObject*> arrayObj(cx);
-  arrayObj = (WasmArrayObject*)WasmGcObject::create(cx, typeDef, args);
+  arrayObj =
+      (WasmArrayObject*)WasmGcObject::create(cx, typeDefData, initialHeap);
   if (!arrayObj) {
     ReportOutOfMemory(cx);
     if (outlineData) {
@@ -441,9 +436,19 @@ WasmArrayObject* WasmArrayObject::createArray(
 
   arrayObj->numElements_ = numElements;
   arrayObj->data_ = outlineData;
-  if constexpr (ZeroFields) {
-    if (arrayObj->data_) {
+  if (arrayObj->data_) {
+    if constexpr (ZeroFields) {
       memset(arrayObj->data_, 0, outlineBytes.value());
+    }
+    if (js::gc::IsInsideNursery(arrayObj)) {
+      // We need to register the OOL area with the nursery, so it will be
+      // freed after GCing of the nursery if `arrayObj_` doesn't make it into
+      // the tenured heap.
+      if (!cx->nursery().registerMallocedBuffer(arrayObj->data_,
+                                                outlineBytes.value())) {
+        js_free(arrayObj->data_);
+        return nullptr;
+      }
     }
   }
 
@@ -451,11 +456,11 @@ WasmArrayObject* WasmArrayObject::createArray(
 }
 
 template WasmArrayObject* WasmArrayObject::createArray<true>(
-    JSContext* cx, const wasm::TypeDef* typeDef, uint32_t numElements,
-    const WasmGcObject::AllocArgs& args);
+    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
+    js::gc::InitialHeap initialHeap, uint32_t numElements);
 template WasmArrayObject* WasmArrayObject::createArray<false>(
-    JSContext* cx, const wasm::TypeDef* typeDef, uint32_t numElements,
-    const WasmGcObject::AllocArgs& args);
+    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
+    js::gc::InitialHeap initialHeap, uint32_t numElements);
 
 /* static */
 void WasmArrayObject::obj_trace(JSTracer* trc, JSObject* object) {
@@ -492,6 +497,21 @@ void WasmArrayObject::obj_finalize(JS::GCContext* gcx, JSObject* object) {
   }
 }
 
+/* static */
+size_t WasmArrayObject::obj_moved(JSObject* obj, JSObject* old) {
+  MOZ_ASSERT(!IsInsideNursery(obj));
+  if (IsInsideNursery(old)) {
+    // It's been tenured.
+    MOZ_ASSERT(obj->isTenured());
+    WasmArrayObject& arrayObj = obj->as<WasmArrayObject>();
+    if (arrayObj.data_) {
+      Nursery& nursery = obj->runtimeFromMainThread()->gc.nursery();
+      nursery.removeMallocedBufferDuringMinorGC(arrayObj.data_);
+    }
+  }
+  return 0;
+}
+
 void WasmArrayObject::storeVal(const Val& val, uint32_t itemIndex) {
   const ArrayType& arrayType = typeDef().arrayType();
   size_t elementSize = arrayType.elementType_.size();
@@ -525,16 +545,16 @@ static const JSClassOps WasmArrayObjectClassOps = {
     WasmArrayObject::obj_trace,
 };
 static const ClassExtension WasmArrayObjectClassExt = {
-    nullptr /* objectMovedOp */
+    WasmArrayObject::obj_moved /* objectMovedOp */
 };
-const JSClass WasmArrayObject::class_ = {"WasmArrayObject",
-                                         JSClass::NON_NATIVE |
-                                             JSCLASS_DELAY_METADATA_BUILDER |
-                                             JSCLASS_BACKGROUND_FINALIZE,
-                                         &WasmArrayObjectClassOps,
-                                         JS_NULL_CLASS_SPEC,
-                                         &WasmArrayObjectClassExt,
-                                         &WasmGcObject::objectOps_};
+const JSClass WasmArrayObject::class_ = {
+    "WasmArrayObject",
+    JSClass::NON_NATIVE | JSCLASS_DELAY_METADATA_BUILDER |
+        JSCLASS_BACKGROUND_FINALIZE | JSCLASS_SKIP_NURSERY_FINALIZE,
+    &WasmArrayObjectClassOps,
+    JS_NULL_CLASS_SPEC,
+    &WasmArrayObjectClassExt,
+    &WasmGcObject::objectOps_};
 
 //=========================================================================
 // WasmStructObject
@@ -570,20 +590,11 @@ js::gc::AllocKind js::WasmStructObject::allocKindForTypeDef(
 }
 
 /* static */
-WasmStructObject* WasmStructObject::createStruct(JSContext* cx,
-                                                 const wasm::TypeDef* typeDef) {
-  WasmGcObject::AllocArgs args(cx);
-  if (!WasmGcObject::AllocArgs::compute(cx, typeDef, &args)) {
-    return nullptr;
-  }
-  return createStruct(cx, typeDef, args);
-}
-
-/* static */
 template <bool ZeroFields>
 WasmStructObject* WasmStructObject::createStruct(
-    JSContext* cx, const wasm::TypeDef* typeDef,
-    const WasmGcObject::AllocArgs& args) {
+    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
+    js::gc::InitialHeap initialHeap) {
+  const TypeDef* typeDef = typeDefData->typeDef;
   MOZ_ASSERT(typeDef->kind() == wasm::TypeDefKind::Struct);
 
   uint32_t totalBytes = typeDef->structType().size_;
@@ -601,8 +612,10 @@ WasmStructObject* WasmStructObject::createStruct(
     }
   }
 
+  // See corresponding comment in WasmArrayObject::createArray.
   Rooted<WasmStructObject*> structObj(cx);
-  structObj = (WasmStructObject*)WasmGcObject::create(cx, typeDef, args);
+  structObj =
+      (WasmStructObject*)WasmGcObject::create(cx, typeDefData, initialHeap);
   if (!structObj) {
     ReportOutOfMemory(cx);
     if (outlineData) {
@@ -616,8 +629,18 @@ WasmStructObject* WasmStructObject::createStruct(
 
   if constexpr (ZeroFields) {
     memset(&(structObj->inlineData_[0]), 0, inlineBytes);
-    if (outlineBytes > 0) {
+  }
+  if (outlineBytes > 0) {
+    if constexpr (ZeroFields) {
       memset(structObj->outlineData_, 0, outlineBytes);
+    }
+    // See corresponding comment in WasmArrayObject::createArray.
+    if (js::gc::IsInsideNursery(structObj)) {
+      if (!cx->nursery().registerMallocedBuffer(structObj->outlineData_,
+                                                outlineBytes)) {
+        js_free(structObj->outlineData_);
+        return nullptr;
+      }
     }
   }
 
@@ -625,11 +648,11 @@ WasmStructObject* WasmStructObject::createStruct(
 }
 
 template WasmStructObject* WasmStructObject::createStruct<true>(
-    JSContext* cx, const wasm::TypeDef* typeDef,
-    const WasmGcObject::AllocArgs& args);
+    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
+    js::gc::InitialHeap initialHeap);
 template WasmStructObject* WasmStructObject::createStruct<false>(
-    JSContext* cx, const wasm::TypeDef* typeDef,
-    const WasmGcObject::AllocArgs& args);
+    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
+    js::gc::InitialHeap initialHeap);
 
 /* static */
 void WasmStructObject::obj_trace(JSTracer* trc, JSObject* object) {
@@ -656,6 +679,22 @@ void WasmStructObject::obj_finalize(JS::GCContext* gcx, JSObject* object) {
     js_free(structObj.outlineData_);
     structObj.outlineData_ = nullptr;
   }
+}
+
+/* static */
+size_t WasmStructObject::obj_moved(JSObject* obj, JSObject* old) {
+  MOZ_ASSERT(!IsInsideNursery(obj));
+  if (IsInsideNursery(old)) {
+    // It's been tenured.
+    MOZ_ASSERT(obj->isTenured());
+    WasmStructObject& structObj = obj->as<WasmStructObject>();
+    // WasmStructObject::classForTypeDef ensures we only get called for
+    // structs with OOL data.  Hence:
+    MOZ_ASSERT(structObj.outlineData_);
+    Nursery& nursery = obj->runtimeFromMainThread()->gc.nursery();
+    nursery.removeMallocedBufferDuringMinorGC(structObj.outlineData_);
+  }
+  return 0;
 }
 
 void WasmStructObject::storeVal(const Val& val, uint32_t fieldIndex) {
@@ -692,19 +731,19 @@ static const JSClassOps WasmStructObjectOutlineClassOps = {
     WasmStructObject::obj_trace,
 };
 static const ClassExtension WasmStructObjectOutlineClassExt = {
-    nullptr /* objectMovedOp */
+    WasmStructObject::obj_moved /* objectMovedOp */
 };
 const JSClass WasmStructObject::classOutline_ = {
     "WasmStructObject",
     JSClass::NON_NATIVE | JSCLASS_DELAY_METADATA_BUILDER |
-        JSCLASS_BACKGROUND_FINALIZE,
+        JSCLASS_BACKGROUND_FINALIZE | JSCLASS_SKIP_NURSERY_FINALIZE,
     &WasmStructObjectOutlineClassOps,
     JS_NULL_CLASS_SPEC,
     &WasmStructObjectOutlineClassExt,
     &WasmGcObject::objectOps_};
 
 // Structs that only have inline data get a different class without a
-// finalizer. This class should otherwise be indentical to the class for
+// finalizer. This class should otherwise be identical to the class for
 // structs with outline data.
 static const JSClassOps WasmStructObjectInlineClassOps = {
     nullptr, /* addProperty */

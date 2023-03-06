@@ -7,6 +7,8 @@
 #include "ScrollThumbUtils.h"
 #include "AsyncPanZoomController.h"
 #include "FrameMetrics.h"
+#include "UnitTransforms.h"
+#include "Units.h"
 #include "gfxPlatform.h"
 #include "mozilla/gfx/Matrix.h"
 #include "mozilla/StaticPrefs_toolkit.h"
@@ -42,7 +44,22 @@ struct AsyncScrollThumbTransformer {
   // Scale the thumb by |aScale| along |aAxis|, while keeping constant the
   // position of the top denoted by |aExtent|.
   void ScaleThumbBy(const Axis& aAxis, float aScale, ScrollThumbExtent aExtent);
+
+  // Translate the thumb along |aAxis| by |aTranslation| in "scrollbar space"
+  // (CSS pixels along the scrollbar track, similar to e.g.
+  // |mScrollbarData.mThumbStart|).
+  void TranslateThumb(const Axis& aAxis, OuterCSSCoord aTranslation);
 };
+
+void AsyncScrollThumbTransformer::TranslateThumb(const Axis& aAxis,
+                                                 OuterCSSCoord aTranslation) {
+  aAxis.PostTranslate(
+      mScrollbarTransform,
+      ViewAs<CSSPixel>(aTranslation,
+                       PixelCastJustification::CSSPixelsOfSurroundingContent) *
+          mMetrics.GetDevPixelsPerCSSPixel() *
+          LayoutDeviceToParentLayerScale(1.0));
+}
 
 void AsyncScrollThumbTransformer::ScaleThumbBy(const Axis& aAxis, float aScale,
                                                ScrollThumbExtent aExtent) {
@@ -58,23 +75,19 @@ void AsyncScrollThumbTransformer::ScaleThumbBy(const Axis& aAxis, float aScale,
   // translation here as a change of basis. We have a method to help with that,
   // Matrix4x4::ChangeBasis(), but it wouldn't necessarily make the code cleaner
   // in this case).
-  const CSSCoord scrollTrackOrigin =
+  const OuterCSSCoord scrollTrackOrigin =
       aAxis.GetPointOffset(
-          mMetrics.CalculateCompositionBoundsInCssPixelsOfSurroundingContent()
-              .TopLeft()) +
+          mMetrics.CalculateCompositionBoundsInOuterCssPixels().TopLeft()) +
       mScrollbarData.mScrollTrackStart;
-  CSSCoord thumbExtent = scrollTrackOrigin + mScrollbarData.mThumbStart;
+  OuterCSSCoord thumbExtent = scrollTrackOrigin + mScrollbarData.mThumbStart;
   if (aExtent == ScrollThumbExtent::End) {
     thumbExtent += mScrollbarData.mThumbLength;
   }
-  const CSSCoord thumbExtentScaled = thumbExtent * aScale;
-  const CSSCoord thumbExtentDelta = thumbExtentScaled - thumbExtent;
-  const ParentLayerCoord thumbExtentDeltaPL =
-      thumbExtentDelta * mMetrics.GetDevPixelsPerCSSPixel() *
-      LayoutDeviceToParentLayerScale(1.0);
+  const OuterCSSCoord thumbExtentScaled = thumbExtent * aScale;
+  const OuterCSSCoord thumbExtentDelta = thumbExtentScaled - thumbExtent;
 
   aAxis.PostScale(mScrollbarTransform, aScale);
-  aAxis.PostTranslate(mScrollbarTransform, -thumbExtentDeltaPL);
+  TranslateThumb(aAxis, -thumbExtentDelta);
 }
 
 void AsyncScrollThumbTransformer::ApplyTransformForAxis(const Axis& aAxis) {
@@ -84,7 +97,8 @@ void AsyncScrollThumbTransformer::ApplyTransformForAxis(const Axis& aAxis) {
   const ParentLayerCoord overscroll =
       aAxis.GetPointOffset(mApzc->GetOverscrollAmount());
 
-  if (FuzzyEqualsAdditive(asyncZoom, 1.f) && mApzc->IsZero(asyncScroll) &&
+  bool haveAsyncZoom = !FuzzyEqualsAdditive(asyncZoom, 1.f);
+  if (!haveAsyncZoom && mApzc->IsZero(asyncScroll) &&
       mApzc->IsZero(overscroll)) {
     return;
   }
@@ -92,64 +106,74 @@ void AsyncScrollThumbTransformer::ApplyTransformForAxis(const Axis& aAxis) {
   const CSSRect visualViewportRect = mApzc->GetCurrentAsyncVisualViewport(
       AsyncPanZoomController::eForCompositing);
   const CSSCoord visualViewportLength = aAxis.GetRectLength(visualViewportRect);
-  // The calculations here closely follow the main thread calculations at
-  // https://searchfox.org/mozilla-central/rev/0bf957f909ae1f3d19b43fd4edfc277342554836/layout/generic/nsGfxScrollFrame.cpp#6902-6927
-  // and
-  // https://searchfox.org/mozilla-central/rev/0bf957f909ae1f3d19b43fd4edfc277342554836/layout/xul/nsSliderFrame.cpp#587-614
-  // Any modifications there should be reflected here as well.
-  const CSSCoord pageIncrementMin =
-      static_cast<int>(visualViewportLength * 0.8);
-  CSSCoord pageIncrement;
-
-  CSSToLayoutDeviceScale deviceScale = mMetrics.GetDevPixelsPerCSSPixel();
-  if (*mScrollbarData.mDirection == ScrollDirection::eVertical) {
-    const CSSCoord lineScrollAmount =
-        (mApzc->GetScrollMetadata().GetLineScrollAmount() / deviceScale).height;
-    const double kScrollMultiplier =
-        StaticPrefs::toolkit_scrollbox_verticalScrollDistance();
-    CSSCoord increment = lineScrollAmount * kScrollMultiplier;
-
-    pageIncrement =
-        std::max(visualViewportLength - increment, pageIncrementMin);
-  } else {
-    pageIncrement = pageIncrementMin;
-  }
 
   const CSSCoord maxMinPosDifference =
       CSSCoord(aAxis.GetRectLength(mMetrics.GetScrollableRect()).Truncated()) -
       visualViewportLength;
 
-  float ratio = pageIncrement / (maxMinPosDifference + pageIncrement);
+  OuterCSSCoord effectiveThumbLength = mScrollbarData.mThumbLength;
 
-  CSSCoord desiredThumbLength{
-      std::max(mScrollbarData.mThumbMinLength,
-               mScrollbarData.mScrollTrackLength * ratio)};
+  if (haveAsyncZoom) {
+    // The calculations here closely follow the main thread calculations at
+    // https://searchfox.org/mozilla-central/rev/0bf957f909ae1f3d19b43fd4edfc277342554836/layout/generic/nsGfxScrollFrame.cpp#6902-6927
+    // and
+    // https://searchfox.org/mozilla-central/rev/0bf957f909ae1f3d19b43fd4edfc277342554836/layout/xul/nsSliderFrame.cpp#587-614
+    // Any modifications there should be reflected here as well.
+    const CSSCoord pageIncrementMin =
+        static_cast<int>(visualViewportLength * 0.8);
+    CSSCoord pageIncrement;
 
-  // Round the thumb length to an integer number of LayoutDevice pixels, to
-  // match the main-thread behaviour.
-  desiredThumbLength =
-      LayoutDeviceCoord((desiredThumbLength * deviceScale).Rounded()) /
-      deviceScale;
+    CSSToLayoutDeviceScale deviceScale = mMetrics.GetDevPixelsPerCSSPixel();
+    if (*mScrollbarData.mDirection == ScrollDirection::eVertical) {
+      const CSSCoord lineScrollAmount =
+          (mApzc->GetScrollMetadata().GetLineScrollAmount() / deviceScale)
+              .height;
+      const double kScrollMultiplier =
+          StaticPrefs::toolkit_scrollbox_verticalScrollDistance();
+      CSSCoord increment = lineScrollAmount * kScrollMultiplier;
 
-  const float scale = desiredThumbLength / mScrollbarData.mThumbLength;
+      pageIncrement =
+          std::max(visualViewportLength - increment, pageIncrementMin);
+    } else {
+      pageIncrement = pageIncrementMin;
+    }
+
+    float ratio = pageIncrement / (maxMinPosDifference + pageIncrement);
+
+    OuterCSSCoord desiredThumbLength{
+        std::max(mScrollbarData.mThumbMinLength,
+                 mScrollbarData.mScrollTrackLength * ratio)};
+
+    // Round the thumb length to an integer number of LayoutDevice pixels, to
+    // match the main-thread behaviour.
+    auto outerDeviceScale = ViewAs<OuterCSSToLayoutDeviceScale>(
+        deviceScale, PixelCastJustification::CSSPixelsOfSurroundingContent);
+    desiredThumbLength =
+        LayoutDeviceCoord((desiredThumbLength * outerDeviceScale).Rounded()) /
+        outerDeviceScale;
+
+    effectiveThumbLength = desiredThumbLength;
+
+    const float scale = desiredThumbLength / mScrollbarData.mThumbLength;
+
+    // When scaling the thumb to account for the async zoom, keep the position
+    // of the start of the thumb (which corresponds to the scroll offset)
+    // constant.
+    ScaleThumbBy(aAxis, scale, ScrollThumbExtent::Start);
+  }
 
   // Subtracting the offset of the scrollable rect is needed for right-to-left
   // pages.
   const CSSCoord curPos = aAxis.GetRectOffset(visualViewportRect) -
                           aAxis.GetRectOffset(mMetrics.GetScrollableRect());
 
-  const float thumbPosRatio =
+  const CSSToOuterCSSScale thumbPosRatio(
       (maxMinPosDifference != 0)
-          ? float((mScrollbarData.mScrollTrackLength - desiredThumbLength) /
+          ? float((mScrollbarData.mScrollTrackLength - effectiveThumbLength) /
                   maxMinPosDifference)
-          : 1.f;
+          : 1.f);
 
-  const CSSCoord desiredThumbPos = curPos * thumbPosRatio;
-
-  // When scaling the thumb to account for the async zoom, keep the position
-  // of the start of the thumb (which corresponds to the scroll offset)
-  // constant.
-  ScaleThumbBy(aAxis, scale, ScrollThumbExtent::Start);
+  const OuterCSSCoord desiredThumbPos = curPos * thumbPosRatio;
 
   // If the page is overscrolled, additionally squish the thumb in accordance
   // with the overscroll amount.
@@ -166,10 +190,7 @@ void AsyncScrollThumbTransformer::ApplyTransformForAxis(const Axis& aAxis) {
         overscroll < 0 ? ScrollThumbExtent::Start : ScrollThumbExtent::End);
   }
 
-  aAxis.PostTranslate(mScrollbarTransform,
-                      (desiredThumbPos - mScrollbarData.mThumbStart) *
-                          mMetrics.GetDevPixelsPerCSSPixel() *
-                          LayoutDeviceToParentLayerScale(1.0));
+  TranslateThumb(aAxis, desiredThumbPos - mScrollbarData.mThumbStart);
 }
 
 LayerToParentLayerMatrix4x4 AsyncScrollThumbTransformer::ComputeTransform() {

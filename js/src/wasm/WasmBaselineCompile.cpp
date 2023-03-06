@@ -3153,10 +3153,14 @@ bool BaseCompiler::jumpConditionalWithResults(BranchState* b, RegRef object,
     }
     if (b->stackHeight != resultsBase) {
       Label notTaken;
+      // Temporarily take the result registers so that branchGcObjectType
+      // doesn't use them.
+      needIntegerResultRegisters(b->resultType);
       branchGcObjectType(
           object, typeIndex, &notTaken,
           /*succeedOnNull=*/false,
           /*onSuccess=*/b->invertBranch ? onSuccess : !onSuccess);
+      freeIntegerResultRegisters(b->resultType);
 
       // Shuffle stack args.
       shuffleStackResultsBeforeBranch(resultsBase, b->stackHeight,
@@ -6404,30 +6408,28 @@ void BaseCompiler::branchGcObjectType(RegRef object, uint32_t typeIndex,
                                       bool onSuccess) {
   const TypeDef& castTypeDef = (*moduleEnv_.types)[typeIndex];
   RegPtr superTypeDef = loadTypeDef(typeIndex);
-  RegPtr subTypeDef = needPtr();
-  RegI32 length;
+  RegPtr scratch1 = needPtr();
+  RegI32 scratch2;
   if (castTypeDef.subTypingDepth() >= MinSuperTypeVectorLength) {
-    length = needI32();
+    scratch2 = needI32();
   }
 
   Label fallthrough;
   Label* successLabel = onSuccess ? label : &fallthrough;
   Label* failLabel = onSuccess ? &fallthrough : label;
-  if (succeedOnNull) {
-    masm.branchTestPtr(Assembler::Zero, object, object, successLabel);
-  } else {
-    masm.branchTestPtr(Assembler::Zero, object, object, failLabel);
-  }
-  masm.loadPtr(Address(object, WasmGcObject::offsetOfTypeDef()), subTypeDef);
-  masm.branchWasmTypeDefIsSubtype(subTypeDef, superTypeDef, length,
+  Label* nullLabel = succeedOnNull ? successLabel : failLabel;
+  masm.branchTestPtr(Assembler::Zero, object, object, nullLabel);
+  masm.branchTestObjectIsWasmGcObject(false, object, scratch1, failLabel);
+  masm.loadPtr(Address(object, WasmGcObject::offsetOfTypeDef()), scratch1);
+  masm.branchWasmTypeDefIsSubtype(scratch1, superTypeDef, scratch2,
                                   castTypeDef.subTypingDepth(), label,
                                   onSuccess);
   masm.bind(&fallthrough);
 
   if (castTypeDef.subTypingDepth() >= MinSuperTypeVectorLength) {
-    freeI32(length);
+    freeI32(scratch2);
   }
-  freePtr(subTypeDef);
+  freePtr(scratch1);
   freePtr(superTypeDef);
 }
 
@@ -7337,15 +7339,31 @@ bool BaseCompiler::emitBrOnCastCommon(bool onSuccess) {
   Control& target = controlItem(labelRelativeDepth);
   target.bceSafeOnExit &= bceSafe_;
 
-  RegRef object = popRef();
-  pushRef(object);
-
   // 3. br_if $l : [T*, ref] -> [T*, ref]
   BranchState b(&target.label, target.stackHeight, InvertBranch(false),
                 labelType);
-  if (!jumpConditionalWithResults(&b, object, castTypeIndex, onSuccess)) {
+
+  // Don't allocate the result register used in the branch
+  if (b.hasBlockResults()) {
+    needIntegerResultRegisters(b.resultType);
+  }
+
+  // Create a copy of the ref for passing to the br_on_cast label,
+  // the original ref is used for casting in the condition.
+  RegRef object = popRef();
+  RegRef objectCondition = needRef();
+  moveRef(object, objectCondition);
+  pushRef(object);
+
+  if (b.hasBlockResults()) {
+    freeIntegerResultRegisters(b.resultType);
+  }
+
+  if (!jumpConditionalWithResults(&b, objectCondition, castTypeIndex,
+                                  onSuccess)) {
     return false;
   }
+  freeRef(objectCondition);
 
   return true;
 }

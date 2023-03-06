@@ -12,6 +12,7 @@
 #include "mozilla/layers/ISurfaceAllocator.h"  // for GfxMemoryImageReporter
 #include "mozilla/layers/CompositorBridgeChild.h"
 #include "mozilla/layers/RemoteTextureMap.h"
+#include "mozilla/layers/VideoBridgeParent.h"
 #include "mozilla/webrender/RenderThread.h"
 #include "mozilla/webrender/WebRenderAPI.h"
 #include "mozilla/webrender/webrender_ffi.h"
@@ -1360,6 +1361,8 @@ void gfxPlatform::ShutdownLayersIPC() {
     }
 
   } else if (XRE_IsParentProcess()) {
+    VideoBridgeParent::Shutdown();
+    RDDProcessManager::RDDProcessShutdown();
     gfx::VRManagerChild::ShutDown();
     gfx::CanvasManagerChild::Shutdown();
     layers::CompositorManagerChild::Shutdown();
@@ -3161,6 +3164,11 @@ static void AcceleratedCanvas2DPrefChangeCallback(const char*, void*) {
   if (kIsAndroid && !gfxConfig::IsEnabled(Feature::GPU_PROCESS)) {
     feature.Disable(FeatureStatus::Blocked, "Disabled by GPU Process disabled",
                     "FEATURE_FAILURE_DISABLED_BY_GPU_PROCESS_DISABLED"_ns);
+  } else if (!gfxConfig::IsEnabled(Feature::WEBRENDER)) {
+    // There isn't much benefit to accelerating Canvas2D if we can't accelerate
+    // WebRender itself.
+    feature.Disable(FeatureStatus::Blocked, "Disabled by Software WebRender",
+                    "FEATURE_FAILURE_DISABLED_BY_SOFTWARE_WEBRENDER"_ns);
   }
 
   // Check if blocklisted despite the default pref.

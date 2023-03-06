@@ -1120,6 +1120,10 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleVisibility {
     return mMozBoxLayout == mozilla::StyleMozBoxLayout::Flex;
   }
 
+  bool UseLegacyCollapseBehavior() const {
+    return mMozBoxCollapse == mozilla::StyleMozBoxCollapse::Legacy;
+  }
+
   /**
    * Given an image request, returns the orientation that should be used
    * on the image. The returned orientation may differ from the style
@@ -1152,6 +1156,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleVisibility {
   mozilla::StyleWritingModeProperty mWritingMode;
   mozilla::StyleTextOrientation mTextOrientation;
   mozilla::StyleMozBoxLayout mMozBoxLayout;
+  mozilla::StyleMozBoxCollapse mMozBoxCollapse;
   mozilla::StylePrintColorAdjust mPrintColorAdjust;
 
  private:
@@ -1390,6 +1395,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleDisplay {
   mozilla::LengthPercentage mOffsetDistance;
   mozilla::StyleOffsetRotate mOffsetRotate;
   mozilla::StylePositionOrAuto mOffsetAnchor;
+  mozilla::StylePositionOrAuto mOffsetPosition;
 
   mozilla::StyleTransformOrigin mTransformOrigin;
   mozilla::StylePerspective mChildPerspective;
@@ -1656,7 +1662,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleDisplay {
     return HasTransformProperty() || HasIndividualTransform() ||
            mTransformStyle == mozilla::StyleTransformStyle::Preserve3d ||
            (mWillChange.bits & mozilla::StyleWillChangeBits::TRANSFORM) ||
-           !mOffsetPath.IsNone();
+           !mOffsetPath.IsNone() || !mOffsetPosition.IsAuto();
   }
 
   bool HasTransformProperty() const { return !mTransform._0.IsEmpty(); }
@@ -1666,6 +1672,12 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleDisplay {
   }
 
   bool HasPerspectiveStyle() const { return !mChildPerspective.IsNone(); }
+
+  bool IsStackingContext() const {
+    // offset-path and/or offset-position creates a stacking context and a
+    // motion transform.
+    return !mOffsetPath.IsNone() || !mOffsetPosition.IsAuto();
+  }
 
   bool BackfaceIsHidden() const {
     return mBackfaceVisibility == mozilla::StyleBackfaceVisibility::Hidden;

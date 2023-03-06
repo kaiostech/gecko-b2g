@@ -5390,7 +5390,7 @@
 # If true, crash when a blocklisted preference is accessed in a subprocess
 - name: fission.enforceBlocklistedPrefsInSubprocesses
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -6418,7 +6418,7 @@
 # Use gfxPlatform::MaxAllocSize instead of the pref directly.
 - name: gfx.max-alloc-size
   type: int32_t
-  value: (int32_t)500000000
+  value: (int32_t)0x7FFFFFFF
   mirror: once
   do_not_use_directly: true
 
@@ -6778,7 +6778,7 @@
   # Whether to use a video overlay layers for sw decoded video with DirectComposition
 -   name: gfx.webrender.dcomp-video-sw-overlay-win
     type: bool
-    value: @IS_EARLY_BETA_OR_EARLIER@
+    value: true
     mirror: once
 -   name: gfx.webrender.dcomp-video-check-slow-present
     type: RelaxedAtomicBool
@@ -8443,6 +8443,13 @@
   mirror: always
   rust: true
 
+# Whether exponential functions are enabled in calc().
+- name: layout.css.exp.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 # Whether infinity / nan constants are enabled in calc().
 - name: layout.css.nan-inf.enabled
   type: RelaxedAtomicBool
@@ -8863,6 +8870,13 @@
 
 # Is support for motion-path ray() enabled?
 - name: layout.css.motion-path-ray.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for motion-path offset-position enabled?
+- name: layout.css.motion-path-offset-position.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always

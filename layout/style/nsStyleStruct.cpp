@@ -2236,6 +2236,7 @@ nsStyleDisplay::nsStyleDisplay(const Document& aDocument)
       mOffsetDistance(LengthPercentage::Zero()),
       mOffsetRotate{true, StyleAngle{0.0}},
       mOffsetAnchor(StylePositionOrAuto::Auto()),
+      mOffsetPosition(StylePositionOrAuto::Auto()),
       mTransformOrigin{LengthPercentage::FromPercentage(0.5),
                        LengthPercentage::FromPercentage(0.5),
                        {0.}},
@@ -2293,6 +2294,7 @@ nsStyleDisplay::nsStyleDisplay(const nsStyleDisplay& aSource)
       mOffsetDistance(aSource.mOffsetDistance),
       mOffsetRotate(aSource.mOffsetRotate),
       mOffsetAnchor(aSource.mOffsetAnchor),
+      mOffsetPosition(aSource.mOffsetPosition),
       mTransformOrigin(aSource.mTransformOrigin),
       mChildPerspective(aSource.mChildPerspective),
       mPerspectiveOrigin(aSource.mPerspectiveOrigin),
@@ -2342,14 +2344,23 @@ static inline nsChangeHint CompareTransformValues(
 
 static inline nsChangeHint CompareMotionValues(
     const nsStyleDisplay& aDisplay, const nsStyleDisplay& aNewDisplay) {
-  if (aDisplay.mOffsetPath == aNewDisplay.mOffsetPath) {
+  if (aDisplay.mOffsetPath == aNewDisplay.mOffsetPath &&
+      aDisplay.mOffsetPosition == aNewDisplay.mOffsetPosition) {
     if (aDisplay.mOffsetDistance == aNewDisplay.mOffsetDistance &&
         aDisplay.mOffsetRotate == aNewDisplay.mOffsetRotate &&
         aDisplay.mOffsetAnchor == aNewDisplay.mOffsetAnchor) {
       return nsChangeHint(0);
     }
 
-    if (aDisplay.mOffsetPath.IsNone()) {
+    // No motion path transform is applied.
+    if (!aDisplay.IsStackingContext()) {
+      return nsChangeHint_NeutralChange;
+    }
+
+    // offset-distance and offset-rotate affect offset-path only.
+    if (aDisplay.mOffsetPath.IsNone() &&
+        aDisplay.mOffsetAnchor == aNewDisplay.mOffsetAnchor) {
+      // Only offset-distance and/or offset-rotate is changed.
       return nsChangeHint_NeutralChange;
     }
   }
@@ -2359,7 +2370,7 @@ static inline nsChangeHint CompareMotionValues(
   // Set the same hints as what we use for transform because motion path is
   // a kind of transform and will be combined with other transforms.
   nsChangeHint result = nsChangeHint_UpdateTransformLayer;
-  if (!aDisplay.mOffsetPath.IsNone() && !aNewDisplay.mOffsetPath.IsNone()) {
+  if (aDisplay.IsStackingContext() && aNewDisplay.IsStackingContext()) {
     result |= nsChangeHint_UpdatePostTransformOverflow;
   } else {
     result |= nsChangeHint_UpdateOverflow;
@@ -2705,6 +2716,7 @@ nsStyleVisibility::nsStyleVisibility(const Document& aDocument)
       mWritingMode(StyleWritingModeProperty::HorizontalTb),
       mTextOrientation(StyleTextOrientation::Mixed),
       mMozBoxLayout(StyleMozBoxLayout::Flex),
+      mMozBoxCollapse(StyleMozBoxCollapse::Flex),
       mPrintColorAdjust(StylePrintColorAdjust::Economy),
       mImageOrientation(StyleImageOrientation::FromImage) {
   MOZ_COUNT_CTOR(nsStyleVisibility);
@@ -2717,6 +2729,7 @@ nsStyleVisibility::nsStyleVisibility(const nsStyleVisibility& aSource)
       mWritingMode(aSource.mWritingMode),
       mTextOrientation(aSource.mTextOrientation),
       mMozBoxLayout(aSource.mMozBoxLayout),
+      mMozBoxCollapse(aSource.mMozBoxCollapse),
       mPrintColorAdjust(aSource.mPrintColorAdjust),
       mImageOrientation(aSource.mImageOrientation) {
   MOZ_COUNT_CTOR(nsStyleVisibility);
@@ -2744,14 +2757,15 @@ nsChangeHint nsStyleVisibility::CalcDifference(
         aNewData.mVisible == StyleVisibility::Visible) {
       hint |= nsChangeHint_VisibilityChange;
     }
-    if (StyleVisibility::Collapse == mVisible ||
-        StyleVisibility::Collapse == aNewData.mVisible) {
+    if (mVisible == StyleVisibility::Collapse ||
+        aNewData.mVisible == StyleVisibility::Collapse) {
       hint |= NS_STYLE_HINT_REFLOW;
     } else {
       hint |= NS_STYLE_HINT_VISUAL;
     }
   }
-  if (mTextOrientation != aNewData.mTextOrientation) {
+  if (mTextOrientation != aNewData.mTextOrientation ||
+      mMozBoxCollapse != aNewData.mMozBoxCollapse) {
     hint |= NS_STYLE_HINT_REFLOW;
   }
   if (mImageRendering != aNewData.mImageRendering) {
@@ -3573,6 +3587,12 @@ void StyleCalcNode::ScaleLengthsBy(float aScale) {
       }
       break;
     }
+    case Tag::Hypot: {
+      for (const auto& child : AsHypot().AsSpan()) {
+        ScaleNode(child);
+      }
+      break;
+    }
   }
 }
 
@@ -3700,6 +3720,27 @@ ResultT StyleCalcNode::ResolveInternal(ResultT aPercentageBasis,
         result += child.ResolveInternal(aPercentageBasis, aConverter);
       }
       return result;
+    }
+    case Tag::Hypot: {
+      //  Doing math in CSS pixels to avoid exceeding integer range of app units
+      CSSCoord result = 0;
+      for (const auto& child : AsHypot().AsSpan()) {
+        CSSCoord value;
+        if constexpr (std::is_same_v<ResultT, CSSCoord>) {
+          value = child.ResolveInternal(aPercentageBasis, aConverter);
+        } else {
+          value = CSSPixel::FromAppUnits(
+              child.ResolveInternal(aPercentageBasis, aConverter));
+        }
+        result += std::pow(value, 2);
+      }
+      result = std::sqrt(result);
+
+      if constexpr (std::is_same_v<ResultT, CSSCoord>) {
+        return result;
+      } else {
+        return CSSPixel::ToAppUnits(result);
+      }
     }
   }
 

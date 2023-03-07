@@ -190,10 +190,19 @@ nsresult WebActivityMain::Initialize(const GlobalObject& aOwner,
   ok = JS_WrapValue(aOwner.Context(), &optionsValue);
   NS_ENSURE_TRUE(ok, NS_ERROR_FAILURE);
 
-  nsCOMPtr<nsIPrincipal> principal = mOuter->mGlobal->PrincipalOrNull();
+  nsCOMPtr<nsIPrincipal> principal = aOwner.GetSubjectPrincipal();
   NS_ENSURE_TRUE(principal, NS_ERROR_FAILURE);
   nsAutoCString origin;
-  principal->GetAsciiOrigin(origin);
+  if (principal->IsSystemPrincipal()) {
+    nsCOMPtr<nsPIDOMWindowInner> window =
+        do_QueryInterface(aOwner.GetAsSupports());
+    nsCOMPtr<nsIURI> uri;
+    uri = window->GetDocumentURI();
+    // Use domain(host) as identifier for system principal callers.
+    uri->GetHost(origin);
+  } else {
+    principal->GetOrigin(origin);
+  }
 
   nsCOMPtr<nsIActivityProxy> proxy = WebActivity::GetOrCreateActivityProxy();
   proxy->Create(aOwner.GetAsSupports(), optionsValue, origin, mOuter->mId);

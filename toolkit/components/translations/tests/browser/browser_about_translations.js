@@ -202,6 +202,11 @@ add_task(async function test_about_translations_translations() {
 
       // The mocked translations make the text uppercase and reports the models used.
       await assertTranslationResult("TEXT TO TRANSLATE. [en to fr]");
+      is(
+        translationResult.getAttribute("lang"),
+        "fr",
+        "The result is listed as in French."
+      );
 
       // Blank out the "to" select so it doesn't try to translate between is to fr.
       toSelect.value = "";
@@ -216,6 +221,11 @@ add_task(async function test_about_translations_translations() {
 
       await assertTranslationResult(
         "THIS IS THE SECOND TRANSLATION. [is to en]"
+      );
+      is(
+        translationResult.getAttribute("lang"),
+        "en",
+        "The result is listed as in English."
       );
     },
   });
@@ -358,6 +368,64 @@ add_task(async function test_about_translations_debounce() {
 
       await assertTranslationResult("TEXT [en to fr]");
       is(Cu.waiveXrays(window).DEBOUNCE_RUN_COUNT, 1, "Debounce ran once.");
+    },
+  });
+});
+
+/**
+ * Test the useHTML pref.
+ */
+add_task(async function test_about_translations_html() {
+  await openAboutTranslations({
+    languagePairs: [
+      { fromLang: "en", toLang: "fr" },
+      { fromLang: "fr", toLang: "en" },
+    ],
+    prefs: [["browser.translations.useHTML", true]],
+    runInPage: async ({ selectors }) => {
+      const { document, window } = content;
+      Cu.waiveXrays(window).DEBOUNCE_DELAY = 1; // Make the timer run faster for tests.
+
+      /** @type {HTMLSelectElement} */
+      const fromSelect = document.querySelector(selectors.fromLanguageSelect);
+      /** @type {HTMLSelectElement} */
+      const toSelect = document.querySelector(selectors.toLanguageSelect);
+      /** @type {HTMLTextAreaElement} */
+      const translationTextarea = document.querySelector(
+        selectors.translationTextarea
+      );
+      /** @type {HTMLDivElement} */
+      const translationResult = document.querySelector(
+        selectors.translationResult
+      );
+
+      async function assertTranslationResult(translation) {
+        try {
+          await ContentTaskUtils.waitForCondition(
+            () => translation === translationResult.innerText,
+            `Waiting for: "${translation}"`
+          );
+        } catch (error) {
+          // The result wasn't found, but the assertion below will report the error.
+          console.error(error);
+        }
+
+        is(
+          translation,
+          translationResult.innerText,
+          "The text runs through the mocked translations engine."
+        );
+      }
+
+      fromSelect.value = "en";
+      fromSelect.dispatchEvent(new Event("input"));
+      toSelect.value = "fr";
+      toSelect.dispatchEvent(new Event("input"));
+      translationTextarea.value = "Text to translate.";
+      translationTextarea.dispatchEvent(new Event("input"));
+
+      // The mocked translations make the text uppercase and reports the models used.
+      await assertTranslationResult("TEXT TO TRANSLATE. [en to fr, html]");
     },
   });
 });

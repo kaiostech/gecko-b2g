@@ -29,6 +29,18 @@ export class AboutTranslationsChild extends JSWindowActorChild {
   /** @type {TranslationsEngine | null} */
   translationsEngine = null;
 
+  /**
+   * The translations engine uses text translations by default in about:translations,
+   * but it can be changed to translate HTML by setting this pref to true. This is
+   * useful for manually testing HTML translation behavior, but is not useful to surface
+   * as a user-facing feature.
+   *
+   * @type {bool}
+   */
+  #isHtmlTranslation = Services.prefs.getBoolPref(
+    "browser.translations.useHTML"
+  );
+
   handleEvent(event) {
     if (event.type === "DOMDocElementInserted") {
       this.#exportFunctions();
@@ -76,14 +88,15 @@ export class AboutTranslationsChild extends JSWindowActorChild {
       promise.then(resolve, error => {
         // Create an error in the content window, if the content window is still around.
         if (this.contentWindow) {
-          // If the error contains a message or a stack, use those in the content error.
-          const contentError = new this.contentWindow.Error(
-            error?.message ?? "An error occured in the AboutTranslations actor."
-          );
-          if (typeof error?.stack === "string") {
-            contentError.stack = error.stack;
+          let message = "An error occured in the AboutTranslations actor.";
+          if (typeof error?.message === "string") {
+            message = error.message;
           }
-          reject(contentError);
+          if (typeof error?.stack === "string") {
+            message += `\n\nOriginal stack:\n\n${error.stack}\n`;
+          }
+
+          reject(new this.contentWindow.Error(message));
         } else {
           reject();
         }
@@ -232,18 +245,23 @@ export class AboutTranslationsChild extends JSWindowActorChild {
 
   /**
    * @param {string[]} messageBatch
+   * @param {number} innerWindowId
    * @returns {Promise<string[]>}
    */
-  AT_translate(messageBatch) {
+  AT_translate(messageBatch, innerWindowId) {
     if (!this.translationsEngine) {
       throw new this.contentWindow.Error(
         "The translations engine was not created."
       );
     }
+    const promise = this.#isHtmlTranslation
+      ? this.translationsEngine.translateHTML(messageBatch, innerWindowId)
+      : this.translationsEngine.translateText(messageBatch, innerWindowId);
+
     return this.#convertToContentPromise(
-      this.translationsEngine
-        .translate(messageBatch)
-        .then(translations => Cu.cloneInto(translations, this.contentWindow))
+      promise.then(translations =>
+        Cu.cloneInto(translations, this.contentWindow)
+      )
     );
   }
 

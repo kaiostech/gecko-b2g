@@ -8,7 +8,7 @@
 
 /* global AT_getSupportedLanguages, AT_log, AT_getScriptDirection,
    AT_getAppLocale, AT_logError, AT_destroyTranslationsEngine,
-   AT_createTranslationsEngine, AT_createLanguageIdEngine, 
+   AT_createTranslationsEngine, AT_createLanguageIdEngine,
    AT_translate, AT_identifyLanguage */
 
 // Allow tests to override this value so that they can run faster.
@@ -230,7 +230,7 @@ class TranslationsState {
    */
   setMessageToTranslate(message) {
     if (message !== this.messageToTranslate) {
-      this.identifyLanguage(message);
+      this.identifyLanguage(message).catch(error => AT_logError(error));
       this.messageToTranslate = message;
       this.maybeRequestTranslation();
     }
@@ -325,6 +325,7 @@ class TranslationsUI {
     this.languageTo.addEventListener("input", () => {
       this.state.setToLanguage(this.languageTo.value);
       this.updateOnLanguageChange();
+      this.translationTo.setAttribute("lang", this.languageTo.value);
     });
   }
 

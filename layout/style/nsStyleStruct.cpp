@@ -1452,29 +1452,6 @@ bool StyleGradient::IsOpaque() const {
   return GradientItemsAreOpaque(AsConic().items.AsSpan());
 }
 
-// --------------------
-// CachedBorderImageData
-
-void CachedBorderImageData::PurgeCachedImages() {
-  MOZ_ASSERT(!ServoStyleSet::IsInServoTraversal());
-  MOZ_ASSERT(NS_IsMainThread());
-  mSubImages.Clear();
-}
-
-void CachedBorderImageData::PurgeCacheForViewportChange(
-    const Maybe<nsSize>& aSize, const bool aHasIntrinsicRatio) {
-  // If we're redrawing with a different viewport-size than we used for our
-  // cached subimages, then we can't trust that our subimages are valid;
-  // any percent sizes/positions in our SVG doc may be different now. Purge!
-  // (We don't have to purge if the SVG document has an intrinsic ratio,
-  // though, because the actual size of elements in SVG documant's coordinate
-  // axis are fixed in this case.)
-  if (aSize != mCachedSVGViewportSize && !aHasIntrinsicRatio) {
-    PurgeCachedImages();
-    SetCachedSVGViewportSize(aSize);
-  }
-}
-
 static int32_t ConvertToPixelCoord(const StyleNumberOrPercentage& aCoord,
                                    int32_t aPercentScale) {
   double pixelValue;
@@ -2933,10 +2910,11 @@ nsChangeHint nsStyleTextReset::CalcDifference(
 // nsStyleText
 //
 
-static StyleRGBA DefaultColor(const Document& aDocument) {
-  return StyleRGBA::FromColor(PreferenceSheet::PrefsFor(aDocument)
-                                  .ColorsFor(aDocument.DefaultColorScheme())
-                                  .mDefault);
+static StyleAbsoluteColor DefaultColor(const Document& aDocument) {
+  return StyleAbsoluteColor::FromColor(
+      PreferenceSheet::PrefsFor(aDocument)
+          .ColorsFor(aDocument.DefaultColorScheme())
+          .mDefault);
 }
 
 nsStyleText::nsStyleText(const Document& aDocument)

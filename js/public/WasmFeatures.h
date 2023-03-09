@@ -98,13 +98,13 @@
 
 // clang-format off
 #define JS_FOR_WASM_FEATURES(DEFAULT, TENTATIVE, EXPERIMENTAL)                \
-  EXPERIMENTAL(/* capitalized name   */ ExtendedConst,                        \
-               /* lower case name    */ extendedConst,                        \
-               /* compile predicate  */ WASM_EXTENDED_CONST_ENABLED,          \
-               /* compiler predicate */ true,                                 \
-               /* flag predicate     */ true,                                 \
-               /* shell flag         */ "extended-const",                     \
-               /* preference name    */ "extended_const")                     \
+  TENTATIVE(/* capitalized name   */ ExtendedConst,                           \
+            /* lower case name    */ extendedConst,                           \
+            /* compile predicate  */ WASM_EXTENDED_CONST_ENABLED,             \
+            /* compiler predicate */ true,                                    \
+            /* flag predicate     */ true,                                    \
+            /* shell flag         */ "extended-const",                        \
+            /* preference name    */ "extended_const")                        \
   TENTATIVE(                                                                  \
       /* capitalized name   */ Exceptions,                                    \
       /* lower case name    */ exceptions,                                    \
@@ -118,7 +118,7 @@
                /* compile predicate  */ WASM_FUNCTION_REFERENCES_ENABLED,     \
                /* compiler predicate */ BaselineAvailable(cx) ||              \
                                         IonAvailable(cx),                     \
-               /* flag predicate     */ !IsFuzzingIon(cx),                    \
+               /* flag predicate     */ true,                                 \
                /* shell flag         */ "function-references",                \
                /* preference name    */ "function_references")                \
   EXPERIMENTAL(/* capitalized name   */ Gc,                                   \

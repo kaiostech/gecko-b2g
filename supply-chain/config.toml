@@ -1,14 +1,17 @@
 
 # cargo-vet config file
 
-[imports.bytecodealliance]
+[imports.bytecode-alliance]
 url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml"
 
 [imports.chromeos]
 url = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/main/cargo-vet/audits.toml?format=TEXT"
 
-[imports.embark]
+[imports.embark-studios]
 url = "https://raw.githubusercontent.com/EmbarkStudios/rust-ecosystem/main/audits.toml"
+
+[imports.isrg]
+url = "https://raw.githubusercontent.com/divviup/libprio-rs/main/supply-chain/audits.toml"
 
 [imports.mozilla]
 url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
@@ -267,10 +270,6 @@ criteria = "safe-to-deploy"
 version = "0.1.6"
 criteria = "safe-to-deploy"
 
-[[exemptions.block-buffer]]
-version = "0.10.2"
-criteria = "safe-to-deploy"
-
 [[exemptions.byteorder]]
 version = "1.4.3"
 criteria = "safe-to-deploy"
@@ -489,10 +488,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.fallible_collections]]
 version = "0.4.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.fastrand]]
-version = "1.7.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.ffi-support]]

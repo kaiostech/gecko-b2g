@@ -3,9 +3,22 @@
 
 "use strict";
 
+const { NodeCache } = ChromeUtils.importESModule(
+  "chrome://remote/content/shared/webdriver/NodeCache.sys.mjs"
+);
+const { Realm, WindowRealm } = ChromeUtils.importESModule(
+  "chrome://remote/content/webdriver-bidi/Realm.sys.mjs"
+);
+const { deserialize, serialize, stringify } = ChromeUtils.importESModule(
+  "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs"
+);
+
 const browser = Services.appShell.createWindowlessBrowser(false);
+const bodyEl = browser.document.body;
 const domEl = browser.document.createElement("div");
-browser.document.body.appendChild(domEl);
+bodyEl.appendChild(domEl);
+const iframeEl = browser.document.createElement("iframe");
+bodyEl.appendChild(iframeEl);
 
 const PRIMITIVE_TYPES = [
   { value: undefined, serialized: { type: "undefined" } },
@@ -342,14 +355,6 @@ const REMOTE_COMPLEX_VALUES = [
   },
 ];
 
-const { Realm } = ChromeUtils.importESModule(
-  "chrome://remote/content/webdriver-bidi/Realm.sys.mjs"
-);
-
-const { deserialize, serialize, stringify } = ChromeUtils.importESModule(
-  "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs"
-);
-
 add_task(function test_deserializePrimitiveTypes() {
   const realm = new Realm();
 
@@ -474,6 +479,120 @@ add_task(function test_deserializeLocalValuesByHandle() {
       `Got expected error when after deleting the object handle`
     );
   }
+});
+
+add_task(function test_deserializeHandleInvalidTypes() {
+  const realm = new Realm();
+
+  for (const invalidType of [false, 42, {}, []]) {
+    info(`Checking type: '${invalidType}'`);
+
+    Assert.throws(
+      () => deserialize(realm, { type: "object", handle: invalidType }),
+      /InvalidArgumentError:/,
+      `Got expected error for type ${invalidType}`
+    );
+  }
+});
+
+add_task(function test_deserializeSharedIdInvalidTypes() {
+  const nodeCache = new NodeCache();
+
+  const realm = new WindowRealm(browser.document.defaultView);
+
+  for (const invalidType of [false, 42, {}, []]) {
+    info(`Checking type: '${invalidType}'`);
+
+    const serializedValue = {
+      sharedId: invalidType,
+    };
+
+    Assert.throws(
+      () => deserialize(realm, serializedValue, { nodeCache }),
+      /InvalidArgumentError:/,
+      `Got expected error for type ${invalidType}`
+    );
+  }
+});
+
+add_task(function test_deserializeSharedIdInvalidValue() {
+  const nodeCache = new NodeCache();
+
+  const serializedValue = {
+    sharedId: "foo",
+  };
+
+  const realm = new WindowRealm(browser.document.defaultView);
+
+  Assert.throws(
+    () => deserialize(realm, serializedValue, { nodeCache }),
+    /NoSuchNodeError:/,
+    "Got expected error for unknown 'sharedId'"
+  );
+});
+
+add_task(function test_deserializeSharedId() {
+  const nodeCache = new NodeCache();
+  const domElRef = nodeCache.getOrCreateNodeReference(domEl);
+
+  const serializedValue = {
+    sharedId: domElRef,
+  };
+
+  const realm = new WindowRealm(browser.document.defaultView);
+
+  const node = deserialize(realm, serializedValue, { nodeCache });
+
+  Assert.equal(node, domEl);
+});
+
+add_task(function test_deserializeSharedIdPrecedenceOverHandle() {
+  const nodeCache = new NodeCache();
+  const domElRef = nodeCache.getOrCreateNodeReference(domEl);
+
+  const serializedValue = {
+    handle: "foo",
+    sharedId: domElRef,
+  };
+
+  const realm = new WindowRealm(browser.document.defaultView);
+
+  const node = deserialize(realm, serializedValue, { nodeCache });
+
+  Assert.equal(node, domEl);
+});
+
+add_task(function test_deserializeSharedIdNoWindowRealm() {
+  const nodeCache = new NodeCache();
+  const domElRef = nodeCache.getOrCreateNodeReference(domEl);
+
+  const serializedValue = {
+    sharedId: domElRef,
+  };
+
+  const realm = new Realm();
+
+  Assert.throws(
+    () => deserialize(realm, serializedValue, { nodeCache }),
+    /NoSuchNodeError/,
+    `Got expected error for a non-window realm`
+  );
+});
+
+// Bug 1819902: Instead of a browsing context check compare the origin
+add_task(function test_deserializeSharedIdOtherBrowsingContext() {
+  const nodeCache = new NodeCache();
+  const domElRef = nodeCache.getOrCreateNodeReference(domEl);
+
+  const serializedValue = {
+    sharedId: domElRef,
+  };
+
+  const realm = new WindowRealm(iframeEl.contentWindow);
+
+  const node = deserialize(realm, serializedValue, { nodeCache });
+
+  Assert.equal(node, null);
 });
 
 add_task(function test_deserializePrimitiveTypesInvalidValues() {
@@ -810,6 +929,121 @@ add_task(function test_serializeRemoteComplexValues() {
   }
 });
 
+add_task(function test_serializeNodeChildren() {
+  const nodeCache = new NodeCache();
+  // Add the used elements to the cache so that we know the unique reference.
+  const bodyElRef = nodeCache.getOrCreateNodeReference(bodyEl);
+  const domElRef = nodeCache.getOrCreateNodeReference(domEl);
+  const iframeElRef = nodeCache.getOrCreateNodeReference(iframeEl);
+
+  const realm = new WindowRealm(browser.document.defaultView);
+
+  const dataSet = [
+    {
+      node: bodyEl,
+      maxDepth: 0,
+      serialized: {
+        type: "node",
+        sharedId: bodyElRef,
+        value: {
+          attributes: {},
+          childNodeCount: 2,
+          localName: "body",
+          namespaceURI: "http://www.w3.org/1999/xhtml",
+          nodeType: 1,
+        },
+      },
+    },
+    {
+      node: bodyEl,
+      maxDepth: 1,
+      serialized: {
+        type: "node",
+        sharedId: bodyElRef,
+        value: {
+          attributes: {},
+          childNodeCount: 2,
+          children: [
+            {
+              type: "node",
+              sharedId: domElRef,
+              value: {
+                attributes: {},
+                childNodeCount: 0,
+                localName: "div",
+                namespaceURI: "http://www.w3.org/1999/xhtml",
+                nodeType: 1,
+              },
+            },
+            {
+              type: "node",
+              sharedId: iframeElRef,
+              value: {
+                attributes: {},
+                childNodeCount: 0,
+                localName: "iframe",
+                namespaceURI: "http://www.w3.org/1999/xhtml",
+                nodeType: 1,
+              },
+            },
+          ],
+          localName: "body",
+          namespaceURI: "http://www.w3.org/1999/xhtml",
+          nodeType: 1,
+        },
+      },
+    },
+    {
+      node: domEl,
+      maxDepth: 0,
+      serialized: {
+        type: "node",
+        sharedId: domElRef,
+        value: {
+          attributes: {},
+          childNodeCount: 0,
+          localName: "div",
+          namespaceURI: "http://www.w3.org/1999/xhtml",
+          nodeType: 1,
+        },
+      },
+    },
+    {
+      node: domEl,
+      maxDepth: 1,
+      serialized: {
+        type: "node",
+        sharedId: domElRef,
+        value: {
+          attributes: {},
+          childNodeCount: 0,
+          children: [],
+          localName: "div",
+          namespaceURI: "http://www.w3.org/1999/xhtml",
+          nodeType: 1,
+        },
+      },
+    },
+  ];
+
+  for (const { node, maxDepth, serialized } of dataSet) {
+    info(`Checking '${node.localName}' with maxDepth ${maxDepth}`);
+
+    const serializationInternalMap = new Map();
+
+    const serializedValue = serialize(
+      node,
+      maxDepth,
+      "none",
+      serializationInternalMap,
+      realm,
+      { nodeCache }
+    );
+
+    Assert.deepEqual(serializedValue, serialized, "Got expected structure");
+  }
+});
+
 add_task(function test_serializeWithSerializationInternalMap() {
   const dataSet = [
     {
@@ -919,6 +1153,48 @@ add_task(function test_serializeMultipleValuesWithSerializationInternalMap() {
     internalId2,
     "Internal ids for different object are also different"
   );
+});
+
+add_task(function test_serializeNodeSharedId() {
+  const nodeCache = new NodeCache();
+  // Already add the domEl to the cache so that we know the unique reference.
+  const domElRef = nodeCache.getOrCreateNodeReference(domEl);
+
+  const realm = new WindowRealm(browser.document.defaultView);
+  const serializationInternalMap = new Map();
+
+  const serializedValue = serialize(
+    domEl,
+    0,
+    "root",
+    serializationInternalMap,
+    realm,
+    { nodeCache }
+  );
+
+  Assert.equal(nodeCache.size, 1, "No additional reference added");
+  Assert.equal(serializedValue.sharedId, domElRef);
+  Assert.notEqual(serializedValue.handle, domElRef);
+});
+
+add_task(function test_serializeNodeSharedId_noWindowRealm() {
+  const nodeCache = new NodeCache();
+  nodeCache.getOrCreateNodeReference(domEl);
+
+  const realm = new Realm();
+  const serializationInternalMap = new Map();
+
+  const serializedValue = serialize(
+    domEl,
+    0,
+    "none",
+    serializationInternalMap,
+    realm,
+    { nodeCache }
+  );
+
+  Assert.equal(nodeCache.size, 1, "No additional reference added");
+  Assert.equal(serializedValue.sharedId, undefined);
 });
 
 add_task(function test_stringify() {

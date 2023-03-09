@@ -84,10 +84,7 @@ gyp_vars.update({
 })
 
 if os == 'Android':
-    gyp_vars.update(
-        gtest_target_type='executable',
-        android_toolchain=CONFIG.get('ANDROID_TOOLCHAIN', ''),
-    )
+    gyp_vars.update(gtest_target_type='executable')
     if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         gyp_vars['build_with_gonk'] = 1
 

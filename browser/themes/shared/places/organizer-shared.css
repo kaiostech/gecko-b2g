@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #contentView {
-  -moz-box-flex: 4;
+  flex: 4 4;
 }
 
 #contentView,
@@ -11,4 +11,9 @@
 #placesViewsBox {
   min-width: 0;
   min-height: 0;
+}
+
+#placesViewsBox {
+  min-height: 5em;
+  overflow: clip;
 }

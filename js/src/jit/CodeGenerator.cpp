@@ -7023,7 +7023,7 @@ void CodeGenerator::visitNewTypedArrayFromArrayBuffer(
   callVM<Fn, js::NewTypedArrayWithTemplateAndBuffer>(lir);
 }
 
-void CodeGenerator::visitNewBoundFunction(LNewBoundFunction* lir) {
+void CodeGenerator::visitBindFunction(LBindFunction* lir) {
   Register target = ToRegister(lir->target());
   Register temp1 = ToRegister(lir->temp0());
   Register temp2 = ToRegister(lir->temp1());
@@ -7060,6 +7060,23 @@ void CodeGenerator::visitNewBoundFunction(LNewBoundFunction* lir) {
   using Fn = BoundFunctionObject* (*)(JSContext*, Handle<JSObject*>, Value*,
                                       uint32_t, Handle<BoundFunctionObject*>);
   callVM<Fn, js::BoundFunctionObject::functionBindImpl>(lir);
+}
+
+void CodeGenerator::visitNewBoundFunction(LNewBoundFunction* lir) {
+  Register output = ToRegister(lir->output());
+  Register temp = ToRegister(lir->temp0());
+
+  JSObject* templateObj = lir->mir()->templateObj();
+
+  using Fn = BoundFunctionObject* (*)(JSContext*, Handle<BoundFunctionObject*>);
+  OutOfLineCode* ool = oolCallVM<Fn, BoundFunctionObject::createWithTemplate>(
+      lir, ArgList(ImmGCPtr(templateObj)), StoreRegisterTo(output));
+
+  TemplateObject templateObject(templateObj);
+  masm.createGCObject(output, temp, templateObject, gc::DefaultHeap,
+                      ool->entry());
+
+  masm.bind(ool->rejoin());
 }
 
 // Out-of-line object allocation for JSOp::NewObject.

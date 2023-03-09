@@ -24,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarProviderInterventions:
     "resource:///modules/UrlbarProviderInterventions.sys.mjs",
   UrlbarProvidersManager: "resource:///modules/UrlbarProvidersManager.sys.mjs",
+  UrlbarProviderQuickSuggest:
+    "resource:///modules/UrlbarProviderQuickSuggest.sys.mjs",
   UrlbarProviderSearchTips:
     "resource:///modules/UrlbarProviderSearchTips.sys.mjs",
   UrlbarSearchUtils: "resource:///modules/UrlbarSearchUtils.sys.mjs",
@@ -126,6 +128,7 @@ export var UrlbarUtils = {
     EXTENSION: "chrome://mozapps/skin/extensions/extension.svg",
     HISTORY: "chrome://browser/skin/history.svg",
     SEARCH_GLASS: "chrome://global/skin/icons/search-glass.svg",
+    TRENDING: "chrome://global/skin/icons/trending.svg",
     TIP: "chrome://global/skin/icons/lightbulb.svg",
   },
 
@@ -1204,7 +1207,14 @@ export var UrlbarUtils = {
           return "visiturl";
         }
         if (result.providerName == "UrlbarProviderQuickSuggest") {
-          return "quicksuggest";
+          // In legacy telemetry "quicksuggest" is used as the type for both
+          // sponsored and non-sponsored suggestions.
+          return result.payload.subtype ==
+            lazy.UrlbarProviderQuickSuggest.RESULT_SUBTYPE.SPONSORED ||
+            result.payload.subtype ==
+              lazy.UrlbarProviderQuickSuggest.RESULT_SUBTYPE.NONSPONSORED
+            ? "quicksuggest"
+            : result.payload.subtype;
         }
         return result.source == UrlbarUtils.RESULT_SOURCE.BOOKMARKS
           ? "bookmark"
@@ -1269,6 +1279,7 @@ export var UrlbarUtils = {
       case UrlbarUtils.RESULT_GROUP.FORM_HISTORY: {
         return "search_history";
       }
+      case UrlbarUtils.RESULT_GROUP.TAIL_SUGGESTION:
       case UrlbarUtils.RESULT_GROUP.REMOTE_SUGGESTION: {
         return "search_suggest";
       }
@@ -1284,8 +1295,7 @@ export var UrlbarUtils = {
         return "general";
       }
       // Group of UrlbarProviderQuickSuggest is GENERAL_PARENT.
-      case UrlbarUtils.RESULT_GROUP.GENERAL_PARENT:
-      case UrlbarUtils.RESULT_GROUP.TAIL_SUGGESTION: {
+      case UrlbarUtils.RESULT_GROUP.GENERAL_PARENT: {
         return "suggest";
       }
       case UrlbarUtils.RESULT_GROUP.ABOUT_PAGES: {
@@ -1392,9 +1402,7 @@ export var UrlbarUtils = {
           return `autofill_${result.autofill.type ?? "unknown"}`;
         }
         if (result.providerName === "UrlbarProviderQuickSuggest") {
-          return result.payload.isSponsored
-            ? "suggest_sponsor"
-            : "suggest_non_sponsor";
+          return result.payload.subtype;
         }
         if (result.providerName === "Weather") {
           return "weather";
@@ -1523,6 +1531,9 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       title: {
         type: "string",
       },
+      trending: {
+        type: "boolean",
+      },
       url: {
         type: "string",
       },
@@ -1547,6 +1558,9 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       },
       displayUrl: {
         type: "string",
+      },
+      dupedHeuristic: {
+        type: "boolean",
       },
       fallbackTitle: {
         type: "string",
@@ -1614,6 +1628,9 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       },
       sponsoredTileId: {
         type: "number",
+      },
+      subtype: {
+        type: "string",
       },
       tags: {
         type: "array",

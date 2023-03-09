@@ -91,7 +91,13 @@ const PINNED_FAVICON_PROPS_TO_MIGRATE = [
 const SECTION_ID = "topsites";
 const ROWS_PREF = "topSitesRows";
 const SHOW_SPONSORED_PREF = "showSponsoredTopSites";
+// The default total number of sponsored top sites to fetch from Contile
+// and Pocket.
 const MAX_NUM_SPONSORED = 2;
+// Nimbus variable for the total number of sponsored top sites including
+// both Contile and Pocket sources.
+// The default will be `MAX_NUM_SPONSORED` if this variable is unspecified.
+const NIMBUS_VARIABLE_MAX_SPONSORED = "topSitesMaxSponsored";
 
 // Search experiment stuff
 const FILTER_DEFAULT_SEARCH_PREF = "improvesearch.noDefaultSearchTile";
@@ -115,6 +121,8 @@ const DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH = "browser.topsites.experiment.";
 const NIMBUS_VARIABLE_CONTILE_ENABLED = "topSitesContileEnabled";
 const CONTILE_ENDPOINT_PREF = "browser.topsites.contile.endpoint";
 const CONTILE_UPDATE_INTERVAL = 15 * 60 * 1000; // 15 minutes
+// The maximum number of sponsored top sites to fetch from Contile.
+const CONTILE_MAX_NUM_SPONSORED = 2;
 const TOP_SITES_BLOCKED_SPONSORS_PREF = "browser.topsites.blockedSponsors";
 
 function getShortURLForCurrentSearch() {
@@ -194,11 +202,11 @@ class ContileIntegration {
       if (body?.tiles && Array.isArray(body.tiles)) {
         let { tiles } = body;
         tiles = this._filterBlockedSponsors(tiles);
-        if (tiles.length > MAX_NUM_SPONSORED) {
+        if (tiles.length > CONTILE_MAX_NUM_SPONSORED) {
           lazy.log.warn(
-            `Contile provided more links than permitted. (${tiles.length} received, limit is ${MAX_NUM_SPONSORED})`
+            `Contile provided more links than permitted. (${tiles.length} received, limit is ${CONTILE_MAX_NUM_SPONSORED})`
           );
-          tiles.length = MAX_NUM_SPONSORED;
+          tiles.length = CONTILE_MAX_NUM_SPONSORED;
         }
         this._sites = tiles;
         return true;
@@ -681,9 +689,10 @@ class TopSitesFeed {
           // Change the image URL to request a size tailored for the parent container width
           // Also: force JPEG, quality 60, no upscaling, no EXIF data
           // Uses Thumbor: https://thumbor.readthedocs.io/en/latest/usage.html
-          return `https://img-getpocket.cdn.mozilla.net/${width}x${height}/filters:format(jpeg):quality(60):no_upscale():strip_exif()/${encodeURIComponent(
+          // For now we wrap this in single quotes because this is being used in a url() css rule, and otherwise would cause a parsing error.
+          return `'https://img-getpocket.cdn.mozilla.net/${width}x${height}/filters:format(jpeg):quality(60):no_upscale():strip_exif()/${encodeURIComponent(
             url
-          )}`;
+          )}'`;
         }
 
         // We need to loop through potential spocs and set their positions.
@@ -698,7 +707,7 @@ class TopSitesFeed {
           const positionIndex = discoveryStreamSpocPositions[i].index;
           const spoc = discoveryStreamSpocs[i];
           const link = {
-            customScreenshotURL: reformatImageURL(spoc.raw_image_src, 40, 40),
+            favicon: reformatImageURL(spoc.raw_image_src, 40, 40),
             type: "SPOC",
             label: spoc.title || spoc.sponsor,
             title: spoc.title || spoc.sponsor,
@@ -820,6 +829,8 @@ class TopSitesFeed {
     }
 
     this.insertDiscoveryStreamSpocs(sponsored);
+
+    this._maybeCapSponsoredLinks(sponsored);
 
     // Get pinned links augmented with desired properties
     let plainPinned = await this.pinnedCache.request();
@@ -949,6 +960,22 @@ class TopSitesFeed {
     this._linksWithDefaults = withPinned;
 
     return withPinned;
+  }
+
+  /**
+   * Cap sponsored links if they're more than the specified maximum.
+   *
+   * @param {Array} links An array of sponsored links. Capping will be performed in-place.
+   */
+  _maybeCapSponsoredLinks(links) {
+    // Set maximum sponsored top sites
+    const maxSponsored =
+      lazy.NimbusFeatures.pocketNewtab.getVariable(
+        NIMBUS_VARIABLE_MAX_SPONSORED
+      ) ?? MAX_NUM_SPONSORED;
+    if (links.length > maxSponsored) {
+      links.length = maxSponsored;
+    }
   }
 
   /**

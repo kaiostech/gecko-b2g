@@ -7729,42 +7729,51 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
        chanDisposition));
   Telemetry::Accumulate(Telemetry::HTTP_CHANNEL_DISPOSITION, chanDisposition);
 
-  // If we upgraded because of 'security.mixed_content.upgrade_display_content',
-  // we collect telemetry if the upgrade was a success.
-  if (mLoadInfo->GetBrowserDidUpgradeInsecureRequests()) {
-    bool success = NS_SUCCEEDED(aStatus);
-    nsContentPolicyType type;
-    mLoadInfo->GetInternalContentPolicyType(&type);
-
-    switch (type) {
-      case nsIContentPolicy::TYPE_INTERNAL_IMAGE:
-      case nsIContentPolicy::TYPE_INTERNAL_IMAGE_PRELOAD:
-      case nsIContentPolicy::TYPE_INTERNAL_IMAGE_FAVICON:
-        Telemetry::AccumulateCategorical(
-            success
-                ? Telemetry::LABELS_MIXED_CONTENT_UPGRADE_SUCCESS::ImageSuccess
-                : Telemetry::LABELS_MIXED_CONTENT_UPGRADE_SUCCESS::ImageFailed);
-        break;
-
-      case nsIContentPolicy::TYPE_INTERNAL_VIDEO:
-        Telemetry::AccumulateCategorical(
-            success
-                ? Telemetry::LABELS_MIXED_CONTENT_UPGRADE_SUCCESS::VideoSuccess
-                : Telemetry::LABELS_MIXED_CONTENT_UPGRADE_SUCCESS::VideoFailed);
-        break;
-
-      case nsIContentPolicy::TYPE_INTERNAL_AUDIO:
-      case nsIContentPolicy::TYPE_INTERNAL_TRACK:
-        Telemetry::AccumulateCategorical(
-            success
-                ? Telemetry::LABELS_MIXED_CONTENT_UPGRADE_SUCCESS::AudioSuccess
-                : Telemetry::LABELS_MIXED_CONTENT_UPGRADE_SUCCESS::AudioFailed);
-        break;
-
-      default:
-        // upgrade_display_content only upgrades
-        // audio, video and images.
-        MOZ_ASSERT(false, "Unexpected content type.");
+  // Collect specific telemetry for measuring image, video, audio
+  // success/failure rates in regular browsing mode and when auto upgrading of
+  // subresources is enabled. Note that we only evaluate actual image types, not
+  // favicons.
+  nsContentPolicyType internalLoadType;
+  mLoadInfo->GetInternalContentPolicyType(&internalLoadType);
+  bool statusIsSuccess = NS_SUCCEEDED(aStatus);
+  if (internalLoadType == nsIContentPolicy::TYPE_INTERNAL_IMAGE ||
+      internalLoadType == nsIContentPolicy::TYPE_INTERNAL_IMAGE_PRELOAD) {
+    if (mLoadInfo->GetBrowserDidUpgradeInsecureRequests()) {
+      Telemetry::AccumulateCategorical(
+          statusIsSuccess
+              ? Telemetry::LABELS_MIXED_CONTENT_IMAGES::ImgUpSuccess
+              : Telemetry::LABELS_MIXED_CONTENT_IMAGES::ImgUpFailure);
+    } else {
+      Telemetry::AccumulateCategorical(
+          statusIsSuccess
+              ? Telemetry::LABELS_MIXED_CONTENT_IMAGES::ImgNoUpSuccess
+              : Telemetry::LABELS_MIXED_CONTENT_IMAGES::ImgNoUpFailure);
+    }
+  }
+  if (internalLoadType == nsIContentPolicy::TYPE_INTERNAL_VIDEO) {
+    if (mLoadInfo->GetBrowserDidUpgradeInsecureRequests()) {
+      Telemetry::AccumulateCategorical(
+          statusIsSuccess
+              ? Telemetry::LABELS_MIXED_CONTENT_VIDEO::VideoUpSuccess
+              : Telemetry::LABELS_MIXED_CONTENT_VIDEO::VideoUpFailure);
+    } else {
+      Telemetry::AccumulateCategorical(
+          statusIsSuccess
+              ? Telemetry::LABELS_MIXED_CONTENT_VIDEO::VideoNoUpSuccess
+              : Telemetry::LABELS_MIXED_CONTENT_VIDEO::VideoNoUpFailure);
+    }
+  }
+  if (internalLoadType == nsIContentPolicy::TYPE_INTERNAL_AUDIO) {
+    if (mLoadInfo->GetBrowserDidUpgradeInsecureRequests()) {
+      Telemetry::AccumulateCategorical(
+          statusIsSuccess
+              ? Telemetry::LABELS_MIXED_CONTENT_AUDIO::AudioUpSuccess
+              : Telemetry::LABELS_MIXED_CONTENT_AUDIO::AudioUpFailure);
+    } else {
+      Telemetry::AccumulateCategorical(
+          statusIsSuccess
+              ? Telemetry::LABELS_MIXED_CONTENT_AUDIO::AudioNoUpSuccess
+              : Telemetry::LABELS_MIXED_CONTENT_AUDIO::AudioNoUpFailure);
     }
   }
 

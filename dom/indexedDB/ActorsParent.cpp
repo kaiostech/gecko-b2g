@@ -613,8 +613,8 @@ Result<nsCOMPtr<nsIFileURL>, nsresult> GetDatabaseFileURL(
   // - from DatabaseFileManager::InitDirectory when the temporary storage
   //    hasn't been initialized yet. At that time, the in-memory objects (e.g.
   //    OriginInfo) are only being created so it doesn't make sense to tunnel
-  //    quota information to TelemetryVFS to get corresponding QuotaObject
-  //    instances for SQLite files.
+  //    quota information to QuotaVFS to get corresponding QuotaObject instances
+  //    for SQLite files.
   // - from DeleteDatabaseOp::LoadPreviousVersion, since this might require
   //   temporarily exceeding the quota limit before the database can be
   //   deleted.
@@ -3594,6 +3594,12 @@ class NormalTransactionOp : public TransactionDatabaseOperationBase,
       const PreprocessResponse& aResponse) final;
 };
 
+// XXX Maybe we can avoid a mutex here by moving all accesses to the background
+// thread.
+StaticAutoPtr<IndexedDBCipherKeyManager> gIndexedDBCipherKeyManager;
+
+}  // namespace
+
 Maybe<CipherKey> IndexedDBCipherKeyManager::Get(const nsCString& aDatabaseID,
                                                 const nsCString& keyStoreID) {
   auto lockedPrivateBrowsingInfoHashTable =
@@ -3632,9 +3638,11 @@ bool IndexedDBCipherKeyManager::Remove(const nsCString& aDatabaseID) {
   return lockedPrivateBrowsingInfoHashTable->Remove(aDatabaseID);
 }
 
-// XXX Maybe we can avoid a mutex here by moving all accesses to the background
-// thread.
-StaticAutoPtr<IndexedDBCipherKeyManager> gIndexedDBCipherKeyManager;
+IndexedDBCipherKeyManager* GetIndexedDBCipherKeyManager() {
+  return gIndexedDBCipherKeyManager;
+}
+
+namespace {
 
 class ObjectStoreAddOrPutRequestOp final : public NormalTransactionOp {
   friend class TransactionBase;
@@ -6316,8 +6324,7 @@ struct ValuePopulateResponseHelper {
 
     QM_TRY_UNWRAP(auto cloneInfo,
                   GetStructuredCloneReadInfoFromStatement(
-                      aStmt, 2 + offset, 1 + offset, *aCursor.mFileManager,
-                      aCursor.mDatabase->MaybeKeyRef()));
+                      aStmt, 2 + offset, 1 + offset, *aCursor.mFileManager));
 
     mCloneInfo.init(std::move(cloneInfo));
 
@@ -17758,8 +17765,7 @@ CreateIndexOp::UpdateIndexDataValuesFunction::OnFunctionCall(
   QM_TRY_UNWRAP(auto cloneInfo, GetStructuredCloneReadInfoFromValueArray(
                                     aValues,
                                     /* aDataIndex */ 3,
-                                    /* aFileIdsIndex */ 2, *mOp->mFileManager,
-                                    mDatabase->MaybeKeyRef()));
+                                    /* aFileIdsIndex */ 2, *mOp->mFileManager));
 
   const IndexMetadata& metadata = mOp->mMetadata;
   const IndexOrObjectStoreId& objectStoreId = mOp->mObjectStoreId;
@@ -19008,8 +19014,7 @@ nsresult ObjectStoreGetRequestOp::DoDatabaseWork(
       *stmt, [this](auto& stmt) mutable -> mozilla::Result<Ok, nsresult> {
         QM_TRY_UNWRAP(auto cloneInfo,
                       GetStructuredCloneReadInfoFromStatement(
-                          &stmt, 1, 0, mDatabase->GetFileManager(),
-                          mDatabase->MaybeKeyRef()));
+                          &stmt, 1, 0, mDatabase->GetFileManager()));
 
         if (cloneInfo.HasPreprocessInfo()) {
           mPreprocessInfoCount++;
@@ -19487,8 +19492,7 @@ nsresult IndexGetRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
       *stmt, [this](auto& stmt) mutable -> mozilla::Result<Ok, nsresult> {
         QM_TRY_UNWRAP(auto cloneInfo,
                       GetStructuredCloneReadInfoFromStatement(
-                          &stmt, 1, 0, mDatabase->GetFileManager(),
-                          mDatabase->MaybeKeyRef()));
+                          &stmt, 1, 0, mDatabase->GetFileManager()));
 
         if (cloneInfo.HasPreprocessInfo()) {
           IDB_WARNING("Preprocessing for indexes not yet implemented!");

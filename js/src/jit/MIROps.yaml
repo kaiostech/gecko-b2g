@@ -286,8 +286,14 @@
 - name: ArrayState
   gen_boilerplate: false
 
-- name: NewBoundFunction
+- name: BindFunction
   gen_boilerplate: false
+
+- name: NewBoundFunction
+  arguments:
+    templateObj: JSObject*
+  result_type: Object
+  alias_set: none
 
 - name: BoundFunctionNumArgs
   operands:

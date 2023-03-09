@@ -1349,7 +1349,7 @@ Document::Document(const char* aContentType)
       mInUnlinkOrDeletion(false),
       mHasHadScriptHandlingObject(false),
       mIsBeingUsedAsImage(false),
-      mDocURISchemeIsChrome(false),
+      mChromeRulesEnabled(false),
       mInChromeDocShell(false),
       mIsDevToolsDocument(false),
       mIsSyntheticDocument(false),
@@ -4023,7 +4023,7 @@ void Document::SetDocumentURI(nsIURI* aURI) {
   mDocumentURI = aURI;
   nsIURI* newBase = GetDocBaseURI();
 
-  mDocURISchemeIsChrome = aURI && IsChromeURI(aURI);
+  mChromeRulesEnabled = URLExtraData::ChromeRulesEnabled(aURI);
 
   bool equalBases = false;
   // Changing just the ref of a URI does not change how relative URIs would
@@ -4217,11 +4217,15 @@ void Document::SetPrincipals(nsIPrincipal* aNewPrincipal,
 void Document::AssertDocGroupMatchesKey() const {
   // Sanity check that we have an up-to-date and accurate docgroup
   // We only check if the principal when we can get the browsing context.
-  if (!GetBrowsingContext()) {
+
+  // Note that we can be invoked during cycle collection, so we need to handle
+  // the browsingcontext being partially unlinked - normally you shouldn't
+  // null-check `Group()` as it shouldn't return nullptr.
+  if (!GetBrowsingContext() || !GetBrowsingContext()->Group()) {
     return;
   }
 
-  if (mDocGroup) {
+  if (mDocGroup && mDocGroup->GetBrowsingContextGroup()) {
     MOZ_ASSERT(mDocGroup->GetBrowsingContextGroup() ==
                GetBrowsingContext()->Group());
 

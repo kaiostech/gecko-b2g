@@ -442,26 +442,8 @@ void nsImageFrame::DeinitOwnedRequest() {
   mOwnedRequest = nullptr;
 }
 
-void nsImageFrame::MaybeRecordContentUrlOnImageTelemetry() {
-  if (mKind != Kind::ImageLoadingContent) {
-    return;
-  }
-  const auto& content = *StyleContent();
-  if (content.ContentCount() != 1) {
-    return;
-  }
-  const auto& item = content.ContentAt(0);
-  if (!item.IsImage()) {
-    return;
-  }
-  PresContext()->Document()->SetUseCounter(
-      eUseCounter_custom_ContentUrlOnImageContent);
-}
-
 void nsImageFrame::DidSetComputedStyle(ComputedStyle* aOldStyle) {
   nsAtomicContainerFrame::DidSetComputedStyle(aOldStyle);
-
-  MaybeRecordContentUrlOnImageTelemetry();
 
   // A ::marker's default size is calculated from the font's em-size.
   if (IsForMarkerPseudo()) {
@@ -1773,7 +1755,10 @@ class nsDisplayAltFeedback final : public nsPaintedDisplayItem {
       const StackingContextHelper& aSc,
       mozilla::layers::RenderRootStateManager* aManager,
       nsDisplayListBuilder* aDisplayListBuilder) final {
-    uint32_t flags = imgIContainer::FLAG_ASYNC_NOTIFY;
+    // Always sync decode, because these icons are UI, and since they're not
+    // discardable we'll pay the price of sync decoding at most once.
+    uint32_t flags =
+        imgIContainer::FLAG_SYNC_DECODE | imgIContainer::FLAG_ASYNC_NOTIFY;
     nsImageFrame* f = static_cast<nsImageFrame*>(mFrame);
     ImgDrawResult result = f->DisplayAltFeedbackWithoutLayer(
         this, aBuilder, aResources, aSc, aManager, aDisplayListBuilder,
@@ -2216,13 +2201,10 @@ void nsDisplayImage::Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) {
   const bool oldImageIsDifferent =
       OldImageHasDifferentRatio(*frame, *mImage, mPrevImage);
 
-  uint32_t flags = imgIContainer::FLAG_NONE;
+  uint32_t flags = aBuilder->GetImageDecodeFlags();
   if (aBuilder->ShouldSyncDecodeImages() || oldImageIsDifferent ||
       frame->mForceSyncDecoding) {
     flags |= imgIContainer::FLAG_SYNC_DECODE;
-  }
-  if (aBuilder->UseHighQualityScaling()) {
-    flags |= imgIContainer::FLAG_HIGH_QUALITY_SCALING;
   }
 
   ImgDrawResult result = frame->PaintImage(
@@ -2279,13 +2261,10 @@ bool nsDisplayImage::CreateWebRenderCommands(
   const bool oldImageIsDifferent =
       OldImageHasDifferentRatio(*frame, *mImage, mPrevImage);
 
-  uint32_t flags = imgIContainer::FLAG_ASYNC_NOTIFY;
+  uint32_t flags = aDisplayListBuilder->GetImageDecodeFlags();
   if (aDisplayListBuilder->ShouldSyncDecodeImages() || oldImageIsDifferent ||
       frame->mForceSyncDecoding) {
     flags |= imgIContainer::FLAG_SYNC_DECODE;
-  }
-  if (aDisplayListBuilder->UseHighQualityScaling()) {
-    flags |= imgIContainer::FLAG_HIGH_QUALITY_SCALING;
   }
   if (StaticPrefs::image_svg_blob_image() &&
       mImage->GetType() == imgIContainer::TYPE_VECTOR) {

@@ -216,6 +216,14 @@ bool Gecko_StyleAnimationsEquals(
     const nsStyleAutoArray<mozilla::StyleAnimation>*,
     const nsStyleAutoArray<mozilla::StyleAnimation>*);
 
+bool Gecko_StyleScrollTimelinesEquals(
+    const nsStyleAutoArray<mozilla::StyleScrollTimeline>*,
+    const nsStyleAutoArray<mozilla::StyleScrollTimeline>*);
+
+bool Gecko_StyleViewTimelinesEquals(
+    const nsStyleAutoArray<mozilla::StyleViewTimeline>*,
+    const nsStyleAutoArray<mozilla::StyleViewTimeline>*);
+
 void Gecko_CopyAnimationNames(
     nsStyleAutoArray<mozilla::StyleAnimation>* aDest,
     const nsStyleAutoArray<mozilla::StyleAnimation>* aSrc);
@@ -306,7 +314,7 @@ void Gecko_SetFontPaletteBase(
 
 void Gecko_SetFontPaletteOverride(
     mozilla::gfx::FontPaletteValueSet::PaletteValues* aValues, int32_t aIndex,
-    mozilla::StyleRGBA aColor);
+    mozilla::StyleAbsoluteColor* aColor);
 
 // Visibility style
 void Gecko_SetImageOrientation(nsStyleVisibility* aVisibility,

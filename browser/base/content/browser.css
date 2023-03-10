@@ -549,7 +549,7 @@ toolbarpaletteitem[place="palette"] > #personal-bookmarks > #bookmarks-toolbar-b
 #nav-bar-customization-target > #personal-bookmarks,
 toolbar:not(#TabsToolbar) > #wrapper-personal-bookmarks,
 toolbar:not(#TabsToolbar) > #personal-bookmarks {
-  flex: 1;
+  flex: 1 auto;
 }
 
 #zoom-controls[cui-areatype="toolbar"]:not([overflowedItem=true]) > #zoom-reset-button > .toolbarbutton-text {
@@ -1022,8 +1022,6 @@ browser[tabmodalPromptShowing], browser[tabDialogShowing] {
 /* Status panel */
 
 #statuspanel:not([hidden]) {
-  display: block;
-
   max-width: calc(100% - 5px);
   pointer-events: none;
 
@@ -1183,7 +1181,7 @@ toolbarpaletteitem[place="palette"] > #downloads-button > .toolbarbutton-badge-s
 
 #customization-content-container {
   display: flex;
-  flex-grow: 1; /* Grow so there isn't empty space below the footer */
+  flex: 1; /* Grow so there isn't empty space below the footer */
   min-height: 0; /* Allow this to shrink so the footer doesn't get pushed out. */
 }
 
@@ -1205,6 +1203,7 @@ toolbarpaletteitem[place="palette"] > #downloads-button > .toolbarbutton-badge-s
 #customization-panelHolder {
   flex-direction: column;
   display: flex;
+  flex-shrink: 1;
   min-height: calc(174px + 9em);
 }
 
@@ -1212,11 +1211,6 @@ toolbarpaletteitem[place="palette"] > #downloads-button > .toolbarbutton-badge-s
   flex: 1;
   height: 0; /* Don't let my contents affect ancestors' content-based sizing */
   align-items: end; /* align to the end on the cross-axis (affects arrow) */
-}
-
-#customization-panelWrapper,
-#customization-panelWrapper > .panel-arrowcontent {
-  flex: 1;
 }
 
 #customization-panel-container {

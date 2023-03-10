@@ -27,6 +27,14 @@ const { TranslationsParent } = ChromeUtils.importESModule(
  * @param {boolean} [options.disabled]
  * Disable the panel through a pref.
  *
+ * @param {number} detectedLanguageConfidence
+ * This is the value for the MockedLanguageIdEngine to give as a confidence score for
+ * the mocked detected language.
+ *
+ * @param {string} detectedLanguageLabel
+ * This is the two-letter language label for the MockedLanguageIdEngine to return as
+ * the mocked detected language.
+ *
  * @param {Array<{ fromLang: string, toLang: string}>} options.languagePairs
  * The translation languages pairs to mock for the test.
  *
@@ -37,6 +45,8 @@ async function openAboutTranslations({
   dataForContent,
   disabled,
   runInPage,
+  detectedLanguageConfidence,
+  detectedLanguageLabel,
   languagePairs,
   prefs,
 }) {
@@ -70,7 +80,13 @@ async function openAboutTranslations({
 
   // Before loading about:translations, handle any mocking of the actor.
   if (languagePairs) {
-    TranslationsParent.mock(languagePairs);
+    TranslationsParent.mockLanguagePairs(languagePairs);
+  }
+  if (detectedLanguageLabel && detectedLanguageConfidence) {
+    TranslationsParent.mockLanguageIdentification(
+      detectedLanguageLabel,
+      detectedLanguageConfidence
+    );
   }
 
   // Now load the about:translations page, since the actor could be mocked.
@@ -84,7 +100,10 @@ async function openAboutTranslations({
   );
 
   if (languagePairs) {
-    TranslationsParent.mock(null);
+    TranslationsParent.mockLanguagePairs(null);
+  }
+  if (detectedLanguageLabel && detectedLanguageConfidence) {
+    TranslationsParent.mockLanguageIdentification(null, null);
   }
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
@@ -255,7 +274,7 @@ async function loadTestPage({ runInPage, languagePairs, page }) {
 
   // Before loading the page, handle any mocking of the actor.
   if (languagePairs) {
-    TranslationsParent.mock(languagePairs);
+    TranslationsParent.mockLanguagePairs(languagePairs);
   }
 
   BrowserTestUtils.loadURIString(tab.linkedBrowser, page);
@@ -268,7 +287,7 @@ async function loadTestPage({ runInPage, languagePairs, page }) {
   );
 
   if (languagePairs) {
-    TranslationsParent.mock(null);
+    TranslationsParent.mockLanguagePairs(null);
   }
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();

@@ -4704,6 +4704,9 @@ void HTMLMediaElement::UpdateWakeLock() {
 }
 
 void HTMLMediaElement::CreateAudioWakeLockIfNeeded() {
+  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed)) {
+    return;
+  }
   if (!mWakeLock) {
     RefPtr<power::PowerManagerService> pmService =
         power::PowerManagerService::GetInstance();

@@ -173,6 +173,10 @@ const kEventConstructors = {
                                                          return e;
                                                        },
                                              },
+  ContentVisibilityAutoStateChangeEvent:     { create (aName, aProps) {
+                                                         return new ContentVisibilityAutoStateChangeEvent(aName, aProps);
+                                                       },
+                                             },
   CustomEvent:                               { create (aName, aProps) {
                                                          return new CustomEvent(aName, aProps);
                                                        },
@@ -567,7 +571,8 @@ function test() {
 
 SimpleTest.waitForExplicitFinish();
 SpecialPowers.pushPrefEnv(
-  {"set": [["dom.w3c_touch_events.legacy_apis.enabled", true]]},
+  {"set": [["dom.w3c_touch_events.legacy_apis.enabled", true],
+           ["layout.css.content-visibility.enabled", true]]},
   function() {
     test();
     SimpleTest.finish();

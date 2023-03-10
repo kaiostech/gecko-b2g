@@ -40,6 +40,7 @@ class ElementAnimationData;
 namespace dom {
 struct CustomElementData;
 class Element;
+class PopoverData;
 }  // namespace dom
 }  // namespace mozilla
 
@@ -207,6 +208,11 @@ class FragmentOrElement : public nsIContent {
      * Web animations data.
      */
     UniquePtr<ElementAnimationData> mAnimations;
+
+    /**
+     * PopoverData for the element.
+     */
+    UniquePtr<PopoverData> mPopoverData;
 
     /**
      * Last remembered size (in CSS pixels) for the element.

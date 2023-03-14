@@ -83,7 +83,7 @@ const PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
 
 const POSSIBLE_USB_INTERFACE_NAME = "rndis0,usb0";
 const DEFAULT_USB_INTERFACE_NAME = "rndis0";
-const DEFAULT_3G_INTERFACE_NAME = "rmnet0";
+const DEFAULT_3G_INTERFACE_NAME = "rmnet_ipa0";
 const DEFAULT_WIFI_INTERFACE_NAME = "wlan0";
 
 // The kernel's proc entry for network lists.

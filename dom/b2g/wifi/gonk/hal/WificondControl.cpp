@@ -31,7 +31,7 @@ using namespace mozilla::dom::wifi;
 static const char* CTL_START_PROPERTY = "ctl.start";
 static const char* CTL_STOP_PROPERTY = "ctl.stop";
 static const char* SUPPLICANT_SERVICE_NAME = "wpa_supplicant";
-static const char* WIFICOND_SERVICE_NAME = "wificond";
+static const char* WIFICOND_SERVICE_NAME = "wifinl80211";
 static const int32_t WIFICOND_POLL_DELAY = 500000;
 static const int32_t WIFICOND_RETRY_COUNT = 20;
 

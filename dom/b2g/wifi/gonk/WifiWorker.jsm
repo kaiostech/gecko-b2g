@@ -259,13 +259,20 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/mobileconnection/imsregservice;1",
   "nsIImsRegService"
 );
-
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
-  "gTelephonyService",
-  "@mozilla.org/telephony/telephonyservice;1",
-  "nsITelephonyService"
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
 );
+const hasRilSupport =
+  "MOZ_B2G_RIL" in AppConstants ? AppConstants.MOZ_B2G_RIL : false;
+
+if (hasRilSupport) {
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "gTelephonyService",
+    "@mozilla.org/telephony/telephonyservice;1",
+    "nsITelephonyService"
+  );
+}
 
 XPCOMUtils.defineLazyModuleGetter(
   lazy,
@@ -305,7 +312,9 @@ var WifiManager = (function() {
       ibssSupported:
         libcutils.property_get("ro.moz.wifi.ibss_supported", "true") === "true",
       ifname: libcutils.property_get("wifi.interface"),
-      numRil: Services.prefs.getIntPref("ril.numRadioInterfaces"),
+      numRil: hasRilSupport
+        ? Services.prefs.getIntPref("ril.numRadioInterfaces")
+        : 0,
       wapiKeyType: libcutils.property_get(
         "ro.wifi.wapi.wapi_key_type",
         "wapi_key_type"
@@ -1842,21 +1851,14 @@ var WifiManager = (function() {
           lazy.gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
 
           manager.supplicantStarted = true;
-          lazy.gNetworkService.setInterfaceConfig(
-            { ifname: manager.ifname, link: "up" },
-            function(ok) {
-              if (ok) {
-                manager.supplicantConnected();
-              }
-              callback(ok);
-            }
-          );
 
           lazy.gNetworkService.setIpv6Status(
             manager.ifname,
             false,
             function() {}
           );
+          manager.supplicantConnected();
+          callback(true);
           BinderServices.wifi.onWifiStateChanged(
             WifiConstants.WIFI_STATE_ENABLED
           );
@@ -2567,9 +2569,11 @@ function WifiWorker() {
   this._listeners = [];
   this._wifiDisableDelayId = null;
 
-  lazy.gTelephonyService.registerListener(this);
+  if (hasRilSupport) {
+    lazy.gTelephonyService.registerListener(this);
 
-  WifiManager.telephonyServiceId = this._getDefaultServiceId();
+    WifiManager.telephonyServiceId = this._getDefaultServiceId();
+  }
 
   // Users of instances of nsITimer should keep a reference to the timer until
   // it is no longer needed in order to assure the timer is fired.
@@ -2795,7 +2799,7 @@ function WifiWorker() {
   WifiManager.onsupplicantconnection = function() {
     debug("Connected to supplicant");
     // Register listener for mobileConnectionService
-    if (!self.mobileConnectionRegistered) {
+    if (hasRilSupport && !self.mobileConnectionRegistered) {
       lazy.gMobileConnectionService
         .getItemByServiceId(WifiManager.telephonyServiceId)
         .registerListener(self);
@@ -4966,8 +4970,9 @@ WifiWorker.prototype = {
 
   shutdown() {
     debug("shutting down ...");
-
-    lazy.gTelephonyService.unregisterListener(this);
+    if (hasRilSupport) {
+      lazy.gTelephonyService.unregisterListener(this);
+    }
     this.handleWifiEnabled(false, function() {});
     this.removeSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
     this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE);
@@ -5063,7 +5068,7 @@ WifiWorker.prototype = {
         break;
 
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
-        if (data === kPrefDefaultServiceId) {
+        if (data === kPrefDefaultServiceId && hasRilSupport) {
           let defaultServiceId = this._getDefaultServiceId();
           if (defaultServiceId == WifiManager.telephonyServiceId) {
             return;

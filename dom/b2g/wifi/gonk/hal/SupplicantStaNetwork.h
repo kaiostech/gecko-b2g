@@ -12,7 +12,7 @@
 #include <string.h>
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantNetwork.h>
 #include <android/hardware/wifi/supplicant/1.0/types.h>
-#include <android/hardware/wifi/supplicant/1.2/ISupplicantStaNetwork.h>
+#include <android/hardware/wifi/supplicant/1.3/ISupplicantStaNetwork.h>
 
 #include "mozilla/Mutex.h"
 
@@ -27,6 +27,8 @@ using ISupplicantStaNetworkV1_1 =
     ::android::hardware::wifi::supplicant::V1_1::ISupplicantStaNetwork;
 using ISupplicantStaNetworkV1_2 =
     ::android::hardware::wifi::supplicant::V1_2::ISupplicantStaNetwork;
+using ISupplicantStaNetworkV1_3 =
+    ::android::hardware::wifi::supplicant::V1_3::ISupplicantStaNetwork;
 
 using RequestGsmAuthParams =
     ISupplicantStaNetworkCallback::NetworkRequestEapSimGsmAuthParams;
@@ -258,6 +260,7 @@ class SupplicantStaNetwork
 
   android::sp<ISupplicantStaNetworkV1_1> GetSupplicantStaNetworkV1_1() const;
   android::sp<ISupplicantStaNetworkV1_2> GetSupplicantStaNetworkV1_2() const;
+  android::sp<ISupplicantStaNetworkV1_3> GetSupplicantStaNetworkV1_3() const;
 
   //..................... ISupplicantStaNetworkCallback ......................./
   /**

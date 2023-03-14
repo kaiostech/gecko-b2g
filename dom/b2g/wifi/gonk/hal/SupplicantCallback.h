@@ -9,7 +9,7 @@
 
 #include "WifiCommon.h"
 
-#include <android/hardware/wifi/supplicant/1.2/ISupplicantStaIfaceCallback.h>
+#include <android/hardware/wifi/supplicant/1.3/ISupplicantStaIfaceCallback.h>
 
 using ISupplicantStaIfaceCallbackV1_0 =
     ::android::hardware::wifi::supplicant::V1_0::ISupplicantStaIfaceCallback;
@@ -17,6 +17,8 @@ using ISupplicantStaIfaceCallbackV1_1 =
     ::android::hardware::wifi::supplicant::V1_1::ISupplicantStaIfaceCallback;
 using ISupplicantStaIfaceCallbackV1_2 =
     ::android::hardware::wifi::supplicant::V1_2::ISupplicantStaIfaceCallback;
+using ISupplicantStaIfaceCallbackV1_3 =
+    ::android::hardware::wifi::supplicant::V1_3::ISupplicantStaIfaceCallback;
 
 BEGIN_WIFI_NAMESPACE
 
@@ -381,6 +383,122 @@ class SupplicantStaIfaceCallbackV1_2 : public ISupplicantStaIfaceCallbackV1_2 {
   std::string mInterfaceName;
   android::sp<WifiEventCallback> mCallback;
   android::sp<SupplicantStaIfaceCallbackV1_1> mSupplicantCallbackV1_1;
+};
+
+class SupplicantStaIfaceCallbackV1_3 : public ISupplicantStaIfaceCallbackV1_3 {
+ public:
+  explicit SupplicantStaIfaceCallbackV1_3(
+      const std::string& aInterfaceName,
+      const android::sp<WifiEventCallback>& aCallback,
+      const android::sp<SupplicantStaIfaceCallbackV1_2>& aSupplicantCallback);
+
+  Return<void> onNetworkAdded(uint32_t id) override;
+  Return<void> onNetworkRemoved(uint32_t id) override;
+  Return<void> onStateChanged(
+    ISupplicantStaIfaceCallback::State newState,
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid, uint32_t id,
+    const ::android::hardware::hidl_vec<uint8_t>& ssid) override;
+  Return<void> onAnqpQueryDone(
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+    const ISupplicantStaIfaceCallback::AnqpData& data,
+    const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data) override;
+  Return<void> onHs20IconQueryDone(
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+      const ::android::hardware::hidl_string& fileName,
+      const ::android::hardware::hidl_vec<uint8_t>& data) override;
+  Return<void> onHs20SubscriptionRemediation(
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+      ISupplicantStaIfaceCallback::OsuMethod osuMethod,
+      const ::android::hardware::hidl_string& url) override;
+  Return<void> onHs20DeauthImminentNotice(
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+      uint32_t reasonCode, uint32_t reAuthDelayInSec,
+      const ::android::hardware::hidl_string& url) override;
+  Return<void> onDisconnected(
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+      bool locallyGenerated,
+      ISupplicantStaIfaceCallback::ReasonCode reasonCode) override;
+  Return<void> onAssociationRejected(
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+      ISupplicantStaIfaceCallback::StatusCode statusCode,
+      bool timedOut) override;
+  Return<void> onAuthenticationTimeout(
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid) override;
+  Return<void> onEapFailure() override;
+  Return<void> onBssidChanged(
+      ISupplicantStaIfaceCallback::BssidChangeReason reason,
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid) override;
+  Return<void> onWpsEventSuccess() override;
+  Return<void> onWpsEventFail(
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+      ISupplicantStaIfaceCallback::WpsConfigError configError,
+      ISupplicantStaIfaceCallback::WpsErrorIndication errorInd) override;
+  Return<void> onWpsEventPbcOverlap() override;
+  Return<void> onExtRadioWorkStart(uint32_t id) override;
+  Return<void> onExtRadioWorkTimeout(uint32_t id) override;
+  Return<void> onEapFailure_1_1(
+      ISupplicantStaIfaceCallbackV1_1::EapErrorCode errorCode) override;
+  /**
+    * Indicates DPP configuration received success event (Enrolee mode).
+    */
+  Return<void> onDppSuccessConfigReceived(
+      const ::android::hardware::hidl_vec<uint8_t>& ssid,
+      const ::android::hardware::hidl_string& password,
+      const ::android::hardware::hidl_array<uint8_t, 32>& psk,
+      ::android::hardware::wifi::supplicant::V1_2::DppAkm securityAkm) override;
+  /**
+    * Indicates DPP configuration sent success event (Configurator mode).
+    */
+  Return<void> onDppSuccessConfigSent() override;
+  /**
+    * Indicates a DPP progress event.
+    */
+  Return<void> onDppProgress(
+      ::android::hardware::wifi::supplicant::V1_2::DppProgressCode code)
+      override;
+  /**
+   * Indicates a DPP failure event.
+   */
+  Return<void> onDppFailure(
+      ::android::hardware::wifi::supplicant::V1_2::DppFailureCode code)
+      override;
+
+  Return<void> onPmkCacheAdded(
+      int64_t expirationTimeInSec,
+      const ::android::hardware::hidl_vec<uint8_t>& serializedEntry)
+      override;
+
+  Return<void> onDppSuccess(
+      ::android::hardware::wifi::supplicant::V1_3::DppSuccessCode code)
+      override;
+  Return<void> onDppProgress_1_3(
+      ::android::hardware::wifi::supplicant::V1_3::DppProgressCode code)
+      override;
+  Return<void> onDppFailure_1_3(
+      ::android::hardware::wifi::supplicant::V1_3::DppFailureCode code,
+      const ::android::hardware::hidl_string& ssid,
+      const ::android::hardware::hidl_string& channelList,
+      const ::android::hardware::hidl_vec<uint16_t>& bandList)
+      override;
+
+  Return<void> onBssTmHandlingDone(
+      const ::android::hardware::wifi::supplicant::V1_3::ISupplicantStaIfaceCallback::BssTmData& tmData)
+      override;
+
+  Return<void> onEapFailure_1_3(uint32_t errorCode)
+      override;
+
+  Return<void> onStateChanged_1_3(
+      ::android::hardware::wifi::supplicant::V1_0::ISupplicantStaIfaceCallback::State newState,
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+      uint32_t id,
+      const ::android::hardware::hidl_vec<uint8_t>& ssid,
+      bool filsHlpSent)
+      override;
+ private:
+  std::string mInterfaceName;
+  android::sp<WifiEventCallback> mCallback;
+  android::sp<SupplicantStaIfaceCallbackV1_2> mSupplicantCallbackV1_2;
 };
 
 END_WIFI_NAMESPACE

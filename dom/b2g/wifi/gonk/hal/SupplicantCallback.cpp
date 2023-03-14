@@ -718,3 +718,208 @@ Return<void> SupplicantStaIfaceCallbackV1_2::onDppFailure(
   WIFI_LOGD(LOG_TAG, "SupplicantStaIfaceCallbackV1_2.onDppFailure()");
   return android::hardware::Void();
 }
+
+/**
+ * SupplicantStaIfaceCallbackV1_3 implementation
+ */
+SupplicantStaIfaceCallbackV1_3::SupplicantStaIfaceCallbackV1_3(
+    const std::string& aInterfaceName,
+    const android::sp<WifiEventCallback>& aCallback,
+    const android::sp<SupplicantStaIfaceCallbackV1_2>& aSupplicantCallback)
+    : mInterfaceName(aInterfaceName),
+      mCallback(aCallback),
+      mSupplicantCallbackV1_2(aSupplicantCallback) {}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onNetworkAdded(uint32_t id) {
+  mSupplicantCallbackV1_2->onNetworkAdded(id);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onNetworkRemoved(uint32_t id) {
+  mSupplicantCallbackV1_2->onNetworkRemoved(id);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onStateChanged(
+    ISupplicantStaIfaceCallback::State newState,
+    const android::hardware::hidl_array<uint8_t, 6>& bssid, uint32_t id,
+    const android::hardware::hidl_vec<uint8_t>& ssid) {
+  mSupplicantCallbackV1_2->onStateChanged(newState, bssid, id, ssid);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onAnqpQueryDone(
+    const android::hardware::hidl_array<uint8_t, 6>& bssid,
+    const ISupplicantStaIfaceCallback::AnqpData& data,
+    const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data) {
+  mSupplicantCallbackV1_2->onAnqpQueryDone(bssid, data, hs20Data);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onHs20IconQueryDone(
+    const android::hardware::hidl_array<uint8_t, 6>& bssid,
+    const ::android::hardware::hidl_string& fileName,
+    const ::android::hardware::hidl_vec<uint8_t>& data) {
+  mSupplicantCallbackV1_2->onHs20IconQueryDone(bssid, fileName, data);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onHs20SubscriptionRemediation(
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+    ISupplicantStaIfaceCallback::OsuMethod osuMethod,
+    const ::android::hardware::hidl_string& url) {
+  mSupplicantCallbackV1_2->onHs20SubscriptionRemediation(bssid, osuMethod, url);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onHs20DeauthImminentNotice(
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+    uint32_t reasonCode, uint32_t reAuthDelayInSec,
+    const ::android::hardware::hidl_string& url) {
+  mSupplicantCallbackV1_2->onHs20DeauthImminentNotice(bssid, reasonCode,
+                                                      reAuthDelayInSec, url);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onDisconnected(
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+    bool locallyGenerated, ISupplicantStaIfaceCallback::ReasonCode reasonCode) {
+  mSupplicantCallbackV1_2->onDisconnected(bssid, locallyGenerated, reasonCode);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onAssociationRejected(
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+    ISupplicantStaIfaceCallback::StatusCode statusCode, bool timedOut) {
+  mSupplicantCallbackV1_2->onAssociationRejected(bssid, statusCode, timedOut);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onAuthenticationTimeout(
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid) {
+  mSupplicantCallbackV1_2->onAuthenticationTimeout(bssid);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onEapFailure() {
+  mSupplicantCallbackV1_2->onEapFailure();
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onBssidChanged(
+    ISupplicantStaIfaceCallback::BssidChangeReason reason,
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid) {
+  mSupplicantCallbackV1_2->onBssidChanged(reason, bssid);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onWpsEventSuccess() {
+  mSupplicantCallbackV1_2->onWpsEventSuccess();
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onWpsEventFail(
+    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+    ISupplicantStaIfaceCallback::WpsConfigError configError,
+    ISupplicantStaIfaceCallback::WpsErrorIndication errorInd) {
+  mSupplicantCallbackV1_2->onWpsEventFail(bssid, configError, errorInd);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onWpsEventPbcOverlap() {
+  mSupplicantCallbackV1_2->onWpsEventPbcOverlap();
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onExtRadioWorkStart(uint32_t id) {
+  mSupplicantCallbackV1_2->onExtRadioWorkStart(id);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onExtRadioWorkTimeout(
+    uint32_t id) {
+  mSupplicantCallbackV1_2->onExtRadioWorkTimeout(id);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onEapFailure_1_1(
+    ISupplicantStaIfaceCallbackV1_1::EapErrorCode errorCode) {
+  mSupplicantCallbackV1_2->onEapFailure_1_1(errorCode);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onDppSuccessConfigReceived(
+    const ::android::hardware::hidl_vec<uint8_t>& ssid,
+    const ::android::hardware::hidl_string& password,
+    const ::android::hardware::hidl_array<uint8_t, 32>& psk,
+    ::android::hardware::wifi::supplicant::V1_2::DppAkm securityAkm) {
+  mSupplicantCallbackV1_2->onDppSuccessConfigReceived(ssid, password, psk, securityAkm);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onDppSuccessConfigSent() {
+  mSupplicantCallbackV1_2->onDppSuccessConfigSent();
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onDppProgress(
+    ::android::hardware::wifi::supplicant::V1_2::DppProgressCode code) {
+  mSupplicantCallbackV1_2->onDppProgress(code);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onDppFailure(
+    ::android::hardware::wifi::supplicant::V1_2::DppFailureCode code) {
+  mSupplicantCallbackV1_2->onDppFailure(code);
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onPmkCacheAdded(
+      int64_t expirationTimeInSec,
+      const ::android::hardware::hidl_vec<uint8_t>& serializedEntry) {
+  WIFI_LOGD(LOG_TAG, "SupplicantStaIfaceCallbackV1_3.onPmkCacheAdded()");
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onDppSuccess(
+      ::android::hardware::wifi::supplicant::V1_3::DppSuccessCode code) {
+  WIFI_LOGD(LOG_TAG, "SupplicantStaIfaceCallbackV1_3.onDppSuccess()");
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onDppProgress_1_3(
+      ::android::hardware::wifi::supplicant::V1_3::DppProgressCode code) {
+  WIFI_LOGD(LOG_TAG, "SupplicantStaIfaceCallbackV1_3.onDppProgress_1_3()");
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onDppFailure_1_3(
+      ::android::hardware::wifi::supplicant::V1_3::DppFailureCode code,
+      const ::android::hardware::hidl_string& ssid,
+      const ::android::hardware::hidl_string& channelList,
+      const ::android::hardware::hidl_vec<uint16_t>& bandList) {
+  WIFI_LOGD(LOG_TAG, "SupplicantStaIfaceCallbackV1_3.onDppFailure_1_3()");
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onBssTmHandlingDone(
+      const ::android::hardware::wifi::supplicant::V1_3::ISupplicantStaIfaceCallback::BssTmData& tmData) {
+  WIFI_LOGD(LOG_TAG, "SupplicantStaIfaceCallbackV1_3.onBssTmHandlingDone()");
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onEapFailure_1_3(uint32_t errorCode) {
+  WIFI_LOGD(LOG_TAG, "SupplicantStaIfaceCallbackV1_3.onEapFailure_1_3()");
+  return android::hardware::Void();
+}
+
+Return<void> SupplicantStaIfaceCallbackV1_3::onStateChanged_1_3(
+      ::android::hardware::wifi::supplicant::V1_0::ISupplicantStaIfaceCallback::State newState,
+      const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
+      uint32_t id,
+      const ::android::hardware::hidl_vec<uint8_t>& ssid,
+      bool filsHlpSent) {
+  WIFI_LOGD(LOG_TAG, "SupplicantStaIfaceCallbackV1_3.onStateChanged_1_3()");
+  mSupplicantCallbackV1_2->onStateChanged(newState, bssid, id, ssid);
+  return android::hardware::Void();
+}

@@ -138,6 +138,13 @@ struct EmbedderColorSchemes {
   /* Hold the audio muted state and should be used on top level browsing      \
    * contexts only */                                                         \
   FIELD(Muted, bool)                                                          \
+  /* Hold the pinned/app-tab state and should be used on top level browsing   \
+   * contexts only */                                                         \
+  FIELD(IsAppTab, bool)                                                       \
+  /* Whether there's more than 1 tab / toplevel browsing context in this      \
+   * parent window. Used to determine if a given BC is allowed to resize      \
+   * and/or move the window or not. */                                        \
+  FIELD(HasSiblings, bool)                                                    \
   /* Indicate that whether we should delay media playback, which would only   \
      be done on an unvisited tab. And this should only be used on the top     \
      level browsing contexts */                                               \
@@ -953,6 +960,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void AddDiscardListener(std::function<void(uint64_t)>&& aListener);
 
+  bool IsAppTab() { return GetIsAppTab(); }
+  bool HasSiblings() { return GetHasSiblings(); }
+
  protected:
   virtual ~BrowsingContext();
   BrowsingContext(WindowContext* aParentWindow, BrowsingContextGroup* aGroup,
@@ -1124,6 +1134,12 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // And then, we do a pre-order walk in the tree to refresh the
   // volume of all media elements.
   void DidSet(FieldIndex<IDX_Muted>);
+
+  bool CanSet(FieldIndex<IDX_IsAppTab>, const bool& aValue,
+              ContentParent* aSource);
+
+  bool CanSet(FieldIndex<IDX_HasSiblings>, const bool& aValue,
+              ContentParent* aSource);
 
   bool CanSet(FieldIndex<IDX_ShouldDelayMediaFromStart>, const bool& aValue,
               ContentParent* aSource);

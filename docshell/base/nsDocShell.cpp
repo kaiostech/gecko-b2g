@@ -352,7 +352,6 @@ nsDocShell::nsDocShell(BrowsingContext* aBrowsingContext,
       mAllowAuth(mItemType == typeContent),
       mAllowKeywordFixup(false),
       mDisableMetaRefreshWhenInactive(false),
-      mIsAppTab(false),
       mDeviceSizeIsPageSize(false),
       mWindowDraggingAllowed(false),
       mInFrameSwap(false),
@@ -4993,18 +4992,6 @@ void nsDocShell::ActivenessMaybeChanged() {
   if (InputTaskManager::CanSuspendInputEvent()) {
     mBrowsingContext->Group()->UpdateInputTaskManagerIfNeeded(isActive);
   }
-}
-
-NS_IMETHODIMP
-nsDocShell::SetIsAppTab(bool aIsAppTab) {
-  mIsAppTab = aIsAppTab;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDocShell::GetIsAppTab(bool* aIsAppTab) {
-  *aIsAppTab = mIsAppTab;
-  return NS_OK;
 }
 
 // Check is App or not through ScreenOrientation permission check.
@@ -13015,7 +13002,8 @@ bool nsDocShell::ShouldOpenInBlankTarget(const nsAString& aOriginalTarget,
   // Only check targets that are in extension panels or app tabs.
   // (isAppTab will be false for app tab subframes).
   nsString mmGroup = mBrowsingContext->Top()->GetMessageManagerGroup();
-  if (!mmGroup.EqualsLiteral("webext-browsers") && !mIsAppTab) {
+  if (!mmGroup.EqualsLiteral("webext-browsers") &&
+      !mBrowsingContext->IsAppTab()) {
     return false;
   }
 

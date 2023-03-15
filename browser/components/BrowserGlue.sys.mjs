@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ContextualIdentityService:
     "resource://gre/modules/ContextualIdentityService.sys.mjs",
 
+  Corroborate: "resource://gre/modules/Corroborate.sys.mjs",
   DAPTelemetrySender: "resource://gre/modules/DAPTelemetrySender.sys.mjs",
   DeferredTask: "resource://gre/modules/DeferredTask.sys.mjs",
   DoHController: "resource:///modules/DoHController.sys.mjs",
@@ -78,7 +79,6 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.jsm",
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
-  Corroborate: "resource://gre/modules/Corroborate.jsm",
   Discovery: "resource:///modules/Discovery.jsm",
   ExperimentAPI: "resource://nimbus/ExperimentAPI.jsm",
   ExtensionsUI: "resource:///modules/ExtensionsUI.jsm",
@@ -110,13 +110,13 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
 });
 
 if (AppConstants.MOZ_UPDATER) {
-  XPCOMUtils.defineLazyModuleGetters(lazy, {
-    UpdateListener: "resource://gre/modules/UpdateListener.jsm",
+  ChromeUtils.defineESModuleGetters(lazy, {
+    UpdateListener: "resource://gre/modules/UpdateListener.sys.mjs",
   });
 }
 if (AppConstants.MOZ_UPDATE_AGENT) {
-  XPCOMUtils.defineLazyModuleGetters(lazy, {
-    BackgroundUpdate: "resource://gre/modules/BackgroundUpdate.jsm",
+  ChromeUtils.defineESModuleGetters(lazy, {
+    BackgroundUpdate: "resource://gre/modules/BackgroundUpdate.sys.mjs",
   });
 }
 
@@ -418,16 +418,8 @@ let JSWINDOWACTORS = {
   },
 
   BrowserTab: {
-    parent: {
-      esModuleURI: "resource:///actors/BrowserTabParent.sys.mjs",
-    },
     child: {
       esModuleURI: "resource:///actors/BrowserTabChild.sys.mjs",
-
-      events: {
-        DOMDocElementInserted: {},
-        MozAfterPaint: {},
-      },
     },
 
     messageManagerGroups: ["browsers"],
@@ -683,10 +675,10 @@ let JSWINDOWACTORS = {
 
   PointerLock: {
     parent: {
-      moduleURI: "resource:///actors/PointerLockParent.jsm",
+      esModuleURI: "resource:///actors/PointerLockParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/PointerLockChild.jsm",
+      esModuleURI: "resource:///actors/PointerLockChild.sys.mjs",
       events: {
         "MozDOMPointerLock:Entered": {},
         "MozDOMPointerLock:Exited": {},
@@ -729,10 +721,10 @@ let JSWINDOWACTORS = {
 
   SearchSERPTelemetry: {
     parent: {
-      moduleURI: "resource:///actors/SearchSERPTelemetryParent.jsm",
+      esModuleURI: "resource:///actors/SearchSERPTelemetryParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/SearchSERPTelemetryChild.jsm",
+      esModuleURI: "resource:///actors/SearchSERPTelemetryChild.sys.mjs",
       events: {
         DOMContentLoaded: {},
         pageshow: { mozSystemGroup: true },

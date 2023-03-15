@@ -292,7 +292,6 @@ class LookAndFeel {
      * 0: no-preference
      * 1: reduce
      */
-
     PrefersReducedMotion,
 
     /*
@@ -302,6 +301,14 @@ class LookAndFeel {
      * 2: Large
      */
     PrefersTextSize,
+
+    /**
+     * Corresponding to prefers-reduced-transparency.
+     * https://drafts.csswg.org/mediaqueries-5/#prefers-reduced-transparency
+     * 0: no-preference
+     * 1: reduce
+     */
+    PrefersReducedTransparency,
 
     /**
      * Corresponding to PointerCapabilities in ServoTypes.h

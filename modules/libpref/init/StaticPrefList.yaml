@@ -1737,7 +1737,7 @@
 #if defined(ANDROID)
   value: false
 #else
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
 #endif
   mirror: always
 
@@ -1745,7 +1745,7 @@
 # ORB.
 - name: browser.opaqueResponseBlocking.javascriptValidator
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # When this pref is enabled, <object> and <embed> elements will create
@@ -2190,12 +2190,6 @@
 # Whether Alarm API is exposed to the web.
 - name: dom.alarm.enabled
   type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# Whether CanvasRenderingContext2D.mozTextStyle is enabled.
-- name: dom.mozTextStyle.enabled
-  type: bool
   value: false
   mirror: always
 
@@ -3115,6 +3109,12 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# Is support for key events and focus events on disabled elements enabled?
+- name: dom.forms.always_allow_key_and_focus_events.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Is support for HTMLInputElement.showPicker enabled?
 - name: dom.input.showPicker
   type: bool
@@ -3635,7 +3635,7 @@
   mirror: never
 #endif
 
-# Use to control to dump CheckedUnsafePtr creation stack and assignment stacks. 
+# Use to control to dump CheckedUnsafePtr creation stack and assignment stacks.
 - name: dom.checkedUnsafePtr.dumpStacks.enabled
   type: RelaxedAtomicBool
   value: false
@@ -5994,6 +5994,11 @@
 #endif
   mirror: always
 
+- name: gfx.color_management.display_profile
+  type: DataMutexString
+  value: ""
+  mirror: always # But be warned: We cache the result.
+
 - name: gfx.color_management.force_srgb
   type: RelaxedAtomicBool
   value: false
@@ -6001,7 +6006,7 @@
 
 - name: gfx.color_management.native_srgb
   type: RelaxedAtomicBool
-#if defined(XP_MACOSX)
+#if defined(XP_MACOSX) || defined(XP_WIN)
   value: true
 #else
   value: false
@@ -6024,6 +6029,16 @@
 - name: gfx.color_management.rendering_intent
   type: RelaxedAtomicInt32
   value: 0
+  mirror: always
+
+- name: gfx.color_management.rec709_gamma_as_srgb
+  type: RelaxedAtomicBool
+  value: true # Tragic backwards compat.
+  mirror: always
+
+- name: gfx.color_management.rec2020_gamma_as_rec709
+  type: RelaxedAtomicBool
+  value: true # Match naive behavior, but hopefully we can stop soon!
   mirror: always
 
 - name: gfx.compositor.clearstate
@@ -9018,6 +9033,13 @@
 - name: layout.css.forced-colors.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Dictates whether or not the prefers-reduced-transparency media query is enabled.
+- name: layout.css.prefers-reduced-transparency.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -12143,6 +12165,13 @@
 - name: network.trr.request_timeout_mode_trronly_ms
   type: RelaxedAtomicUint32
   value: 30000
+  mirror: always
+
+# Similar to network.http.http2.ping-timeout, but this is used when the
+# Http/2 connection is connected to the TRR server.
+- name: network.trr.ping_timeout
+  type: RelaxedAtomicUint32
+  value: 3000
   mirror: always
 
 # The timeout of the TRR confirmation request

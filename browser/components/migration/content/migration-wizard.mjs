@@ -45,8 +45,8 @@ export class MigrationWizard extends HTMLElement {
             </select>
             <details class="resource-selection-details" open="true">
               <summary>
-                <div data-l10n-id="migration-all-available-data-label"></div>
-                <div data-l10n-id="migration-available-data-label"></div>
+                <div class="selected-data-header" data-l10n-id="migration-all-available-data-label"></div>
+                <div class="selected-data deemphasized-text">&nbsp;</div>
                 <span class="dropdown-icon" role="img"></span>
               </summary>
               <fieldset id="resource-type-list">
@@ -80,25 +80,25 @@ export class MigrationWizard extends HTMLElement {
               <div data-resource-type="BOOKMARKS" class="resource-progress-group">
                 <span class="progress-icon-parent"><span class="progress-icon" role="img"></span></span>
                 <span data-l10n-id="migration-bookmarks-option-label"></span>
-                <span class="success-text">&nbsp;</span>
+                <span class="success-text deemphasized-text">&nbsp;</span>
               </div>
 
               <div data-resource-type="PASSWORDS" class="resource-progress-group">
                 <span class="progress-icon-parent"><span class="progress-icon" role="img"></span></span>
                 <span data-l10n-id="migration-logins-and-passwords-option-label"></span>
-                <span class="success-text">&nbsp;</span>
+                <span class="success-text deemphasized-text">&nbsp;</span>
               </div>
 
               <div data-resource-type="HISTORY" class="resource-progress-group">
                 <span class="progress-icon-parent"><span class="progress-icon" role="img"></span></span>
                 <span data-l10n-id="migration-history-option-label"></span>
-                <span class="success-text">&nbsp;</span>
+                <span class="success-text deemphasized-text">&nbsp;</span>
               </div>
 
               <div data-resource-type="FORMDATA" class="resource-progress-group">
                 <span class="progress-icon-parent"><span class="progress-icon" role="img"></span></span>
                 <span data-l10n-id="migration-form-autofill-option-label"></span>
-                <span class="success-text">&nbsp;</span>
+                <span class="success-text deemphasized-text">&nbsp;</span>
               </div>
             </div>
             <moz-button-group class="buttons">
@@ -177,9 +177,7 @@ export class MigrationWizard extends HTMLElement {
 
     this.#browserProfileSelector.addEventListener("change", this);
     this.#resourceTypeList = shadow.querySelector("#resource-type-list");
-
-    let selectAllCheckbox = shadow.querySelector("#select-all").control;
-    selectAllCheckbox.addEventListener("change", this);
+    this.#resourceTypeList.addEventListener("change", this);
 
     this.#shadowRoot = shadow;
   }
@@ -264,6 +262,7 @@ export class MigrationWizard extends HTMLElement {
     }
     let selectAll = this.#shadowRoot.querySelector("#select-all").control;
     selectAll.checked = true;
+    this.#displaySelectedResources();
   }
 
   /**
@@ -445,6 +444,84 @@ export class MigrationWizard extends HTMLElement {
     );
   }
 
+  /**
+   * Changes selected-data-header text and selected-data text based on
+   * how many resources are checked
+   */
+  async #displaySelectedResources() {
+    let resourceTypeLabels = this.#resourceTypeList.querySelectorAll(
+      "label:not([hidden])[data-resource-type]"
+    );
+
+    let totalResources = resourceTypeLabels.length;
+    let checkedResources = 0;
+
+    let selectedData = this.#shadowRoot.querySelector(".selected-data");
+    let selectedDataArray = [];
+    const RESOURCE_TYPE_TO_LABEL_IDS = {
+      [MigrationWizardConstants.DISPLAYED_RESOURCE_TYPES.BOOKMARKS]:
+        "migration-list-bookmark-label",
+      [MigrationWizardConstants.DISPLAYED_RESOURCE_TYPES.PASSWORDS]:
+        "migration-list-password-label",
+      [MigrationWizardConstants.DISPLAYED_RESOURCE_TYPES.HISTORY]:
+        "migration-list-history-label",
+      [MigrationWizardConstants.DISPLAYED_RESOURCE_TYPES.FORMDATA]:
+        "migration-list-autofill-label",
+    };
+
+    let resourceTypes = Object.keys(RESOURCE_TYPE_TO_LABEL_IDS);
+    let labelIds = Object.values(RESOURCE_TYPE_TO_LABEL_IDS).map(id => {
+      return { id };
+    });
+    let labels = await document.l10n.formatValues(labelIds);
+    let resourceTypeLabelMapping = new Map();
+    for (let i = 0; i < resourceTypes.length; ++i) {
+      let resourceType = resourceTypes[i];
+      resourceTypeLabelMapping.set(resourceType, labels[i]);
+    }
+    let formatter = new Intl.ListFormat(undefined, {
+      style: "long",
+      type: "conjunction",
+    });
+    for (let resourceTypeLabel of resourceTypeLabels) {
+      if (resourceTypeLabel.control.checked) {
+        selectedDataArray.push(
+          resourceTypeLabelMapping.get(resourceTypeLabel.dataset.resourceType)
+        );
+        checkedResources++;
+      }
+    }
+    if (selectedDataArray.length) {
+      selectedDataArray[0] =
+        selectedDataArray[0].charAt(0).toLocaleUpperCase() +
+        selectedDataArray[0].slice(1);
+      selectedData.textContent = formatter.format(selectedDataArray);
+    } else {
+      selectedData.textContent = "\u00A0";
+    }
+
+    let selectedDataHeader = this.#shadowRoot.querySelector(
+      ".selected-data-header"
+    );
+
+    if (checkedResources == 0) {
+      document.l10n.setAttributes(
+        selectedDataHeader,
+        "migration-no-selected-data-label"
+      );
+    } else if (checkedResources < totalResources) {
+      document.l10n.setAttributes(
+        selectedDataHeader,
+        "migration-selected-data-label"
+      );
+    } else {
+      document.l10n.setAttributes(
+        selectedDataHeader,
+        "migration-all-available-data-label"
+      );
+    }
+  }
+
   handleEvent(event) {
     switch (event.type) {
       case "click": {
@@ -470,6 +547,9 @@ export class MigrationWizard extends HTMLElement {
           for (let checkbox of checkboxes) {
             checkbox.checked = event.target.checked;
           }
+          this.#displaySelectedResources();
+        } else {
+          this.#displaySelectedResources();
         }
         break;
       }

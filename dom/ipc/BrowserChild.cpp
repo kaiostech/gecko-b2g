@@ -318,7 +318,6 @@ BrowserChild::BrowserChild(ContentChild* aManager, const TabId& aTabId,
       mHasValidInnerSize(false),
       mDestroyed(false),
       mIsTopLevel(aIsTopLevel),
-      mHasSiblings(false),
       mIsTransparent(false),
       mIPCOpen(false),
       mDidSetRealShowInfo(false),
@@ -3722,16 +3721,6 @@ nsresult BrowserChild::CanCancelContentJS(
     entry = nextEntry;
   }
 
-  return NS_OK;
-}
-
-nsresult BrowserChild::GetHasSiblings(bool* aHasSiblings) {
-  *aHasSiblings = mHasSiblings;
-  return NS_OK;
-}
-
-nsresult BrowserChild::SetHasSiblings(bool aHasSiblings) {
-  mHasSiblings = aHasSiblings;
   return NS_OK;
 }
 

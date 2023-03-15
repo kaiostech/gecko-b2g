@@ -197,7 +197,7 @@ HttpBaseChannel::HttpBaseChannel()
       mEncodedBodySize(0),
       mRequestContextID(0),
       mContentWindowId(0),
-      mTopBrowsingContextId(0),
+      mBrowserId(0),
       mAltDataLength(-1),
       mChannelId(0),
       mReqContentLength(0U),
@@ -1683,14 +1683,14 @@ NS_IMETHODIMP HttpBaseChannel::GetTopLevelContentWindowId(uint64_t* aWindowId) {
   return NS_OK;
 }
 
-NS_IMETHODIMP HttpBaseChannel::SetTopBrowsingContextId(uint64_t aId) {
-  mTopBrowsingContextId = aId;
+NS_IMETHODIMP HttpBaseChannel::SetBrowserId(uint64_t aId) {
+  mBrowserId = aId;
   return NS_OK;
 }
 
-NS_IMETHODIMP HttpBaseChannel::GetTopBrowsingContextId(uint64_t* aId) {
-  EnsureTopBrowsingContextId();
-  *aId = mTopBrowsingContextId;
+NS_IMETHODIMP HttpBaseChannel::GetBrowserId(uint64_t* aId) {
+  EnsureBrowserId();
+  *aId = mBrowserId;
   return NS_OK;
 }
 
@@ -3149,18 +3149,21 @@ HttpBaseChannel::PerformOpaqueResponseSafelistCheckBeforeSniff() {
     case OpaqueResponseBlockedReason::BLOCKED_BLOCKLISTED_NEVER_SNIFFED:
       // Step 3.2
       LOGORB("Blocked: BLOCKED_BLOCKLISTED_NEVER_SNIFFED");
-      LogORBError(mLoadInfo, mURI);
+      LogORBError(
+          u"mimeType is an opaque-blocklisted-never-sniffed MIME type"_ns);
       return OpaqueResponse::Block;
     case OpaqueResponseBlockedReason::BLOCKED_206_AND_BLOCKLISTED:
       // Step 3.3
       LOGORB("Blocked: BLOCKED_206_AND_BLOCKEDLISTED");
-      LogORBError(mLoadInfo, mURI);
+      LogORBError(
+          u"response's status is 206 and mimeType is an opaque-blocklisted MIME type"_ns);
       return OpaqueResponse::Block;
     case OpaqueResponseBlockedReason::
         BLOCKED_NOSNIFF_AND_EITHER_BLOCKLISTED_OR_TEXTPLAIN:
       // Step 3.4
       LOGORB("Blocked: BLOCKED_NOSNIFF_AND_EITHER_BLOCKLISTED_OR_TEXTPLAIN");
-      LogORBError(mLoadInfo, mURI);
+      LogORBError(
+          u"nosniff is true and mimeType is an opaque-blocklisted MIME type or its essence is 'text/plain'"_ns);
       return OpaqueResponse::Block;
     default:
       break;
@@ -3183,7 +3186,7 @@ HttpBaseChannel::PerformOpaqueResponseSafelistCheckBeforeSniff() {
   if (mResponseHead->Status() == 206 &&
       !IsFirstPartialResponse(*mResponseHead)) {
     LOGORB("Blocked: Is not a valid partial response given 0");
-    LogORBError(mLoadInfo, mURI);
+    LogORBError(u"response status is 206 and not first partial response"_ns);
     return OpaqueResponse::Block;
   }
 
@@ -3240,14 +3243,14 @@ OpaqueResponse HttpBaseChannel::PerformOpaqueResponseSafelistCheckAfterSniff(
   mLoadInfo->GetIsMediaRequest(&isMediaRequest);
   if (isMediaRequest) {
     LOGORB("Blocked: media request");
-    LogORBError(mLoadInfo, mURI);
+    LogORBError(u"after sniff: media request"_ns);
     return OpaqueResponse::Block;
   }
 
   // Step 11
   if (aNoSniff) {
     LOGORB("Blocked: nosniff");
-    LogORBError(mLoadInfo, mURI);
+    LogORBError(u"after sniff: nosniff is true"_ns);
     return OpaqueResponse::Block;
   }
 
@@ -3256,7 +3259,7 @@ OpaqueResponse HttpBaseChannel::PerformOpaqueResponseSafelistCheckAfterSniff(
       (mResponseHead->Status() < 200 || mResponseHead->Status() > 299)) {
     LOGORB("Blocked: status code (%d) is not allowed ",
            mResponseHead->Status());
-    LogORBError(mLoadInfo, mURI);
+    LogORBError(u"after sniff: status code is not in allowed range"_ns);
     return OpaqueResponse::Block;
   }
 
@@ -3271,7 +3274,8 @@ OpaqueResponse HttpBaseChannel::PerformOpaqueResponseSafelistCheckAfterSniff(
       StringBeginsWith(aContentType, "video/"_ns) ||
       StringBeginsWith(aContentType, "audio/"_ns)) {
     LOGORB("Blocked: ContentType is image/video/audio");
-    LogORBError(mLoadInfo, mURI);
+    LogORBError(
+        u"after sniff: content-type declares image/video/audio, but sniffing fails"_ns);
     return OpaqueResponse::Block;
   }
 
@@ -3282,9 +3286,9 @@ bool HttpBaseChannel::NeedOpaqueResponseAllowedCheckAfterSniff() const {
   return mORB ? mORB->IsSniffing() : false;
 }
 
-void HttpBaseChannel::BlockOpaqueResponseAfterSniff() {
+void HttpBaseChannel::BlockOpaqueResponseAfterSniff(const nsAString& aReason) {
   MOZ_DIAGNOSTIC_ASSERT(mORB);
-  LogORBError(mLoadInfo, mURI);
+  LogORBError(aReason);
   mORB->BlockResponse(this, NS_ERROR_FAILURE);
 }
 
@@ -3296,17 +3300,15 @@ void HttpBaseChannel::AllowOpaqueResponseAfterSniff() {
 void HttpBaseChannel::SetChannelBlockedByOpaqueResponse() {
   mChannelBlockedByOpaqueResponse = true;
 
-  RefPtr<dom::CanonicalBrowsingContext> browsingContext =
-      dom::CanonicalBrowsingContext::Get(mTopBrowsingContextId);
+  RefPtr<dom::BrowsingContext> browsingContext =
+      dom::BrowsingContext::GetCurrentTopByBrowserId(mBrowserId);
   if (!browsingContext) {
     return;
   }
 
-  dom::WindowGlobalParent* windowContext =
-      browsingContext->GetTopWindowContext();
-
+  dom::WindowContext* windowContext = browsingContext->GetTopWindowContext();
   if (windowContext) {
-    windowContext->SetHasBlockedOpaqueResponse();
+    windowContext->Canonical()->SetHasBlockedOpaqueResponse();
   }
 }
 
@@ -4829,7 +4831,7 @@ nsresult HttpBaseChannel::SetupReplacementChannel(nsIURI* newURI,
 
   // When on the parent process, the channel can't attempt to get it itself.
   // When on the child process, it would be waste to query it again.
-  rv = httpChannel->SetTopBrowsingContextId(mTopBrowsingContextId);
+  rv = httpChannel->SetBrowserId(mBrowserId);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
   // Not setting this flag would break carrying permissions down to the child
@@ -5639,16 +5641,16 @@ bool HttpBaseChannel::EnsureRequestContext() {
   return static_cast<bool>(mRequestContext);
 }
 
-void HttpBaseChannel::EnsureTopBrowsingContextId() {
-  if (mTopBrowsingContextId) {
+void HttpBaseChannel::EnsureBrowserId() {
+  if (mBrowserId) {
     return;
   }
 
   RefPtr<dom::BrowsingContext> bc;
   MOZ_ALWAYS_SUCCEEDS(mLoadInfo->GetBrowsingContext(getter_AddRefs(bc)));
 
-  if (bc && bc->Top()) {
-    mTopBrowsingContextId = bc->Top()->Id();
+  if (bc) {
+    mBrowserId = bc->GetBrowserId();
   }
 }
 
@@ -6074,6 +6076,32 @@ HttpBaseChannel::GetIsProxyUsed(bool* aIsProxyUsed) {
   }
   *aIsProxyUsed = LoadIsProxyUsed();
   return NS_OK;
+}
+
+void HttpBaseChannel::LogORBError(const nsAString& aReason) {
+  RefPtr<dom::Document> doc;
+  mLoadInfo->GetLoadingDocument(getter_AddRefs(doc));
+
+  nsAutoCString uri;
+  nsresult rv = nsContentUtils::AnonymizeURI(mURI, uri);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+
+  uint64_t contentWindowId;
+  GetTopLevelContentWindowId(&contentWindowId);
+  if (contentWindowId) {
+    nsContentUtils::ReportToConsoleByWindowID(
+        u"A resource is blocked by OpaqueResponseBlocking, please check browser console for details."_ns,
+        nsIScriptError::warningFlag, "ORB"_ns, contentWindowId, mURI);
+  }
+
+  AutoTArray<nsString, 2> params;
+  params.AppendElement(NS_ConvertUTF8toUTF16(uri));
+  params.AppendElement(aReason);
+  nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "ORB"_ns, doc,
+                                  nsContentUtils::eNECKO_PROPERTIES,
+                                  "ResourceBlockedORB", params);
 }
 }  // namespace net
 }  // namespace mozilla

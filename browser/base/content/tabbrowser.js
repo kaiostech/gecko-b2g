@@ -28,6 +28,57 @@
     LOAD_FLAGS_DISABLE_TRR,
   } = Ci.nsIWebNavigation;
 
+  /**
+   * Updates the User Context UI indicators if the browser is in a non-default context
+   */
+  function updateUserContextUIIndicator() {
+    function replaceContainerClass(classType, element, value) {
+      let prefix = "identity-" + classType + "-";
+      if (value && element.classList.contains(prefix + value)) {
+        return;
+      }
+      for (let className of element.classList) {
+        if (className.startsWith(prefix)) {
+          element.classList.remove(className);
+        }
+      }
+      if (value) {
+        element.classList.add(prefix + value);
+      }
+    }
+
+    let hbox = document.getElementById("userContext-icons");
+
+    let userContextId = gBrowser.selectedBrowser.getAttribute("usercontextid");
+    if (!userContextId) {
+      replaceContainerClass("color", hbox, "");
+      hbox.hidden = true;
+      return;
+    }
+
+    let identity = ContextualIdentityService.getPublicIdentityFromId(
+      userContextId
+    );
+    if (!identity) {
+      replaceContainerClass("color", hbox, "");
+      hbox.hidden = true;
+      return;
+    }
+
+    replaceContainerClass("color", hbox, identity.color);
+
+    let label = ContextualIdentityService.getUserContextLabel(userContextId);
+    document.getElementById("userContext-label").setAttribute("value", label);
+    // Also set the container label as the tooltip so we can only show the icon
+    // in small windows.
+    hbox.setAttribute("tooltiptext", label);
+
+    let indicator = document.getElementById("userContext-indicator");
+    replaceContainerClass("icon", indicator, identity.icon);
+
+    hbox.hidden = false;
+  }
+
   window._gBrowser = {
     init() {
       ChromeUtils.defineModuleGetter(
@@ -709,11 +760,7 @@
     },
 
     _notifyPinnedStatus(aTab) {
-      aTab.linkedBrowser.sendMessageToActor(
-        "Browser:AppTab",
-        { isAppTab: aTab.pinned },
-        "BrowserTab"
-      );
+      aTab.linkedBrowser.browsingContext.isAppTab = aTab.pinned;
 
       let event = document.createEvent("Events");
       event.initEvent(aTab.pinned ? "TabPinned" : "TabUnpinned", true, false);
@@ -1998,12 +2045,6 @@
         // we call updatetabIndicatorAttr here, rather than _tabAttrModified, so as
         // to be consistent with how "crashed" attribute changes are handled elsewhere
         this.tabContainer.updateTabIndicatorAttr(tab);
-      } else {
-        aBrowser.sendMessageToActor(
-          "Browser:AppTab",
-          { isAppTab: tab.pinned },
-          "BrowserTab"
-        );
       }
 
       if (wasActive) {
@@ -2014,12 +2055,6 @@
       if (this.isFindBarInitialized(tab)) {
         this.getCachedFindBar(tab).browser = aBrowser;
       }
-
-      tab.linkedBrowser.sendMessageToActor(
-        "Browser:HasSiblings",
-        this.tabs.length > 1,
-        "BrowserTab"
-      );
 
       evt = document.createEvent("Events");
       evt.initEvent("TabRemotenessChange", true, false);
@@ -2379,22 +2414,22 @@
       // If we transitioned from one browser to two browsers, we need to set
       // hasSiblings=false on both the existing browser and the new browser.
       if (this.tabs.length == 2) {
-        this.tabs[0].linkedBrowser.sendMessageToActor(
-          "Browser:HasSiblings",
-          true,
-          "BrowserTab"
-        );
-        this.tabs[1].linkedBrowser.sendMessageToActor(
-          "Browser:HasSiblings",
-          true,
-          "BrowserTab"
-        );
+        this.tabs[0].linkedBrowser.browsingContext.hasSiblings = true;
+        this.tabs[1].linkedBrowser.browsingContext.hasSiblings = true;
       } else {
-        aTab.linkedBrowser.sendMessageToActor(
-          "Browser:HasSiblings",
-          this.tabs.length > 1,
-          "BrowserTab"
-        );
+        aTab.linkedBrowser.browsingContext.hasSiblings = this.tabs.length > 1;
+      }
+
+      if (aTab.userContextId) {
+        browser.setAttribute("usercontextid", aTab.userContextId);
+      }
+
+      browser.browsingContext.isAppTab = aTab.pinned;
+
+      // We don't want to update the container icon and identifier if
+      // this is not the selected browser.
+      if (aTab.selected) {
+        updateUserContextUIIndicator();
       }
 
       // Only fire this event if the tab is already in the DOM
@@ -4032,16 +4067,12 @@
       if (this.tabs.length == 2) {
         // We're closing one of our two open tabs, inform the other tab that its
         // sibling is going away.
-        this.tabs[0].linkedBrowser.sendMessageToActor(
-          "Browser:HasSiblings",
-          false,
-          "BrowserTab"
-        );
-        this.tabs[1].linkedBrowser.sendMessageToActor(
-          "Browser:HasSiblings",
-          false,
-          "BrowserTab"
-        );
+        for (let tab of this.tabs) {
+          let bc = tab.linkedBrowser.browsingContext;
+          if (bc) {
+            bc.hasSiblings = false;
+          }
+        }
       }
 
       let notificationBox = this.readNotificationBox(browser);
@@ -4583,28 +4614,6 @@
       }
       if (tmp) {
         aOtherBrowser.registeredOpenURI = tmp;
-      }
-    },
-
-    announceWindowCreated(browser, userContextId) {
-      let tab = this.getTabForBrowser(browser);
-      if (tab) {
-        if (userContextId) {
-          ContextualIdentityService.telemetry(userContextId);
-          tab.setUserContextId(userContextId);
-        }
-
-        browser.sendMessageToActor(
-          "Browser:AppTab",
-          { isAppTab: tab.pinned },
-          "BrowserTab"
-        );
-      }
-
-      // We don't want to update the container icon and identifier if
-      // this is not the selected browser.
-      if (browser == gBrowser.selectedBrowser) {
-        updateUserContextUIIndicator();
       }
     },
 
@@ -6221,12 +6230,6 @@
             // crashed.
             tab.removeAttribute("crashed");
             gBrowser.tabContainer.updateTabIndicatorAttr(tab);
-          } else {
-            browser.sendMessageToActor(
-              "Browser:AppTab",
-              { isAppTab: tab.pinned },
-              "BrowserTab"
-            );
           }
 
           if (wasActive) {
@@ -6236,12 +6239,6 @@
           if (this.isFindBarInitialized(tab)) {
             this.getCachedFindBar(tab).browser = browser;
           }
-
-          browser.sendMessageToActor(
-            "Browser:HasSiblings",
-            this.tabs.length > 1,
-            "BrowserTab"
-          );
 
           evt = document.createEvent("Events");
           evt.initEvent("TabRemotenessChange", true, false);

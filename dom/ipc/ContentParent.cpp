@@ -6454,7 +6454,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   // We always expect to open a new window here. If we don't, it's an error.
   cwi.windowOpened() = true;
   cwi.maxTouchPoints() = 0;
-  cwi.hasSiblings() = false;
 
   // Make sure to resolve the resolver when this function exits, even if we
   // failed to generate a valid response.
@@ -6516,7 +6515,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
       return IPC_FAIL(this, "New BrowsingContext has mismatched LoadContext");
     }
   }
-
   BrowserParent::AutoUseNewTab aunt(newTab);
 
   nsCOMPtr<nsIRemoteTab> newRemoteTab;
@@ -6541,6 +6539,11 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
              newTab->GetBrowserHost());
 #endif
 
+  // This used to happen in the child - there may now be a better place to
+  // do this work.
+  MOZ_ALWAYS_SUCCEEDS(
+      newBC->SetHasSiblings(openLocation == nsIBrowserDOMWindow::OPEN_NEWTAB));
+
   newTab->SwapFrameScriptsFrom(cwi.frameScripts());
   newTab->MaybeShowFrame();
 
@@ -6550,7 +6553,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   }
 
   cwi.maxTouchPoints() = newTab->GetMaxTouchPoints();
-  cwi.hasSiblings() = (openLocation == nsIBrowserDOMWindow::OPEN_NEWTAB);
 
   return IPC_OK();
 }
@@ -8046,10 +8048,7 @@ mozilla::ipc::IPCResult ContentParent::RecvWindowClose(
   // related
   //       browsing contexts of bc.
 
-  ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  if (cpm) {
-    ContentParent* cp =
-        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+  if (ContentParent* cp = context->GetContentParent()) {
     Unused << cp->SendWindowClose(context, aTrustedCaller);
   }
   return IPC_OK();
@@ -8067,10 +8066,7 @@ mozilla::ipc::IPCResult ContentParent::RecvWindowFocus(
   LOGFOCUS(("ContentParent::RecvWindowFocus actionid: %" PRIu64, aActionId));
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
-  ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  if (cpm) {
-    ContentParent* cp =
-        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+  if (ContentParent* cp = context->GetContentParent()) {
     Unused << cp->SendWindowFocus(context, aCallerType, aActionId);
   }
   return IPC_OK();
@@ -8086,10 +8082,7 @@ mozilla::ipc::IPCResult ContentParent::RecvWindowBlur(
   }
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
-  ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  if (cpm) {
-    ContentParent* cp =
-        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+  if (ContentParent* cp = context->GetContentParent()) {
     Unused << cp->SendWindowBlur(context, aCallerType);
   }
   return IPC_OK();
@@ -8162,10 +8155,7 @@ mozilla::ipc::IPCResult ContentParent::RecvClearFocus(
   }
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
-  ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  if (cpm) {
-    ContentParent* cp =
-        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+  if (ContentParent* cp = context->GetContentParent()) {
     Unused << cp->SendClearFocus(context);
   }
   return IPC_OK();
@@ -8289,10 +8279,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSetFocusedElement(
   LOGFOCUS(("ContentParent::RecvSetFocusedElement"));
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
-  ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  if (cpm) {
-    ContentParent* cp =
-        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+  if (ContentParent* cp = context->GetContentParent()) {
     Unused << cp->SendSetFocusedElement(context, aNeedsFocus);
   }
   return IPC_OK();
@@ -8405,10 +8392,7 @@ mozilla::ipc::IPCResult ContentParent::RecvMaybeExitFullscreen(
   }
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
-  ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
-  if (cpm) {
-    ContentParent* cp =
-        cpm->GetContentProcessById(ContentParentId(context->OwnerProcessId()));
+  if (ContentParent* cp = context->GetContentParent()) {
     Unused << cp->SendMaybeExitFullscreen(context);
   }
 

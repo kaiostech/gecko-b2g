@@ -946,24 +946,6 @@ SVGElement::IsAttributeMapped(const nsAtom* name) const {
   return SVGElementBase::IsAttributeMapped(name);
 }
 
-// PresentationAttributes-FillStroke
-/* static */
-const Element::MappedAttributeEntry SVGElement::sFillStrokeMap[] = {
-    {nsGkAtoms::fill},
-    {nsGkAtoms::fill_opacity},
-    {nsGkAtoms::fill_rule},
-    {nsGkAtoms::paint_order},
-    {nsGkAtoms::stroke},
-    {nsGkAtoms::stroke_dasharray},
-    {nsGkAtoms::stroke_dashoffset},
-    {nsGkAtoms::stroke_linecap},
-    {nsGkAtoms::stroke_linejoin},
-    {nsGkAtoms::stroke_miterlimit},
-    {nsGkAtoms::stroke_opacity},
-    {nsGkAtoms::stroke_width},
-    {nsGkAtoms::vector_effect},
-    {nullptr}};
-
 // PresentationAttributes-Graphics
 /* static */
 const Element::MappedAttributeEntry SVGElement::sGraphicsMap[] = {
@@ -972,14 +954,27 @@ const Element::MappedAttributeEntry SVGElement::sGraphicsMap[] = {
     {nsGkAtoms::colorInterpolation},
     {nsGkAtoms::cursor},
     {nsGkAtoms::display},
+    {nsGkAtoms::fill},
+    {nsGkAtoms::fill_opacity},
+    {nsGkAtoms::fill_rule},
     {nsGkAtoms::filter},
     {nsGkAtoms::image_rendering},
     {nsGkAtoms::mask},
     {nsGkAtoms::opacity},
+    {nsGkAtoms::paint_order},
     {nsGkAtoms::pointer_events},
     {nsGkAtoms::shape_rendering},
+    {nsGkAtoms::stroke},
+    {nsGkAtoms::stroke_dasharray},
+    {nsGkAtoms::stroke_dashoffset},
+    {nsGkAtoms::stroke_linecap},
+    {nsGkAtoms::stroke_linejoin},
+    {nsGkAtoms::stroke_miterlimit},
+    {nsGkAtoms::stroke_opacity},
+    {nsGkAtoms::stroke_width},
     {nsGkAtoms::text_rendering},
     {nsGkAtoms::transform_origin},
+    {nsGkAtoms::vector_effect},
     {nsGkAtoms::visibility},
     {nullptr}};
 
@@ -989,19 +984,23 @@ const Element::MappedAttributeEntry SVGElement::sTextContentElementsMap[] = {
     // Properties that we don't support are commented out.
     // { nsGkAtoms::alignment_baseline },
     // { nsGkAtoms::baseline_shift },
-    {nsGkAtoms::direction},       {nsGkAtoms::dominant_baseline},
-    {nsGkAtoms::letter_spacing},  {nsGkAtoms::text_anchor},
-    {nsGkAtoms::text_decoration}, {nsGkAtoms::unicode_bidi},
-    {nsGkAtoms::white_space},     {nsGkAtoms::word_spacing},
-    {nsGkAtoms::writing_mode},    {nullptr}};
-
-// PresentationAttributes-FontSpecification
-/* static */
-const Element::MappedAttributeEntry SVGElement::sFontSpecificationMap[] = {
-    {nsGkAtoms::font_family},      {nsGkAtoms::font_size},
-    {nsGkAtoms::font_size_adjust}, {nsGkAtoms::font_stretch},
-    {nsGkAtoms::font_style},       {nsGkAtoms::font_variant},
-    {nsGkAtoms::fontWeight},       {nullptr}};
+    {nsGkAtoms::direction},
+    {nsGkAtoms::dominant_baseline},
+    {nsGkAtoms::font_family},
+    {nsGkAtoms::font_size},
+    {nsGkAtoms::font_size_adjust},
+    {nsGkAtoms::font_stretch},
+    {nsGkAtoms::font_style},
+    {nsGkAtoms::font_variant},
+    {nsGkAtoms::fontWeight},
+    {nsGkAtoms::letter_spacing},
+    {nsGkAtoms::text_anchor},
+    {nsGkAtoms::text_decoration},
+    {nsGkAtoms::unicode_bidi},
+    {nsGkAtoms::white_space},
+    {nsGkAtoms::word_spacing},
+    {nsGkAtoms::writing_mode},
+    {nullptr}};
 
 // PresentationAttributes-GradientStop
 /* static */
@@ -1013,7 +1012,7 @@ const Element::MappedAttributeEntry SVGElement::sGradientStopMap[] = {
 const Element::MappedAttributeEntry SVGElement::sViewportsMap[] = {
     {nsGkAtoms::overflow}, {nsGkAtoms::clip}, {nullptr}};
 
-// PresentationAttributes-Makers
+// PresentationAttributes-Markers
 /* static */
 const Element::MappedAttributeEntry SVGElement::sMarkersMap[] = {
     {nsGkAtoms::marker_end},

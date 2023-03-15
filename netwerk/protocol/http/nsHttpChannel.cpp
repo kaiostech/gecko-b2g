@@ -1375,7 +1375,7 @@ nsresult nsHttpChannel::SetupTransaction() {
     };
   }
 
-  EnsureTopBrowsingContextId();
+  EnsureBrowserId();
   EnsureRequestContext();
 
   HttpTrafficCategory category = CreateTrafficCategory();
@@ -1391,7 +1391,7 @@ nsresult nsHttpChannel::SetupTransaction() {
   rv = mTransaction->Init(
       mCaps, mConnectionInfo, &mRequestHead, mUploadStream, mReqContentLength,
       LoadUploadStreamHasHeaders(), GetCurrentSerialEventTarget(), callbacks,
-      this, mTopBrowsingContextId, category, mRequestContext, mClassOfService,
+      this, mBrowserId, category, mRequestContext, mClassOfService,
       mInitialRwin, LoadResponseTimeoutEnabled(), mChannelId,
       std::move(observer), std::move(pushCallback), mTransWithPushedStream,
       mPushedStreamId);
@@ -9778,13 +9778,15 @@ void nsHttpChannel::DisableIsOpaqueResponseAllowedAfterSniffCheck(
 
         if (!isInitialRequest) {
           // Step 8.1
-          BlockOpaqueResponseAfterSniff();
+          BlockOpaqueResponseAfterSniff(
+              u"media request after sniffing, but not initial request"_ns);
           return;
         }
 
         if (mResponseHead->Status() != 200 && mResponseHead->Status() != 206) {
           // Step 8.2
-          BlockOpaqueResponseAfterSniff();
+          BlockOpaqueResponseAfterSniff(
+              u"media request's response status is neither 200 nor 206"_ns);
           return;
         }
       }

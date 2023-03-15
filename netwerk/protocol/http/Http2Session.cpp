@@ -188,8 +188,7 @@ Http2Session::Http2Session(nsISocketTransport* aSocketTransport,
 
   mPingThreshold = gHttpHandler->SpdyPingThreshold();
   mPreviousPingThreshold = mPingThreshold;
-  mCurrentTopBrowsingContextId =
-      gHttpHandler->ConnMgr()->CurrentTopBrowsingContextId();
+  mCurrentBrowserId = gHttpHandler->ConnMgr()->CurrentBrowserId();
 
   mEnableWebsockets = StaticPrefs::network_http_http2_websockets();
 
@@ -360,11 +359,29 @@ uint32_t Http2Session::ReadTimeoutTick(PRIntervalTime now) {
   }
 
   if (mPingSentEpoch) {
-    LOG3(("Http2Session::ReadTimeoutTick %p handle outstanding ping\n", this));
-    if ((now - mPingSentEpoch) >= gHttpHandler->SpdyPingTimeout()) {
+    bool isTrr = (mTrrStreams > 0);
+    uint32_t pingTimeout = isTrr ? StaticPrefs::network_trr_ping_timeout()
+                                 : gHttpHandler->SpdyPingTimeout();
+    LOG3(
+        ("Http2Session::ReadTimeoutTick %p handle outstanding ping, "
+         "timeout=%d\n",
+         this, pingTimeout));
+    if ((now - mPingSentEpoch) >= pingTimeout) {
       LOG3(("Http2Session::ReadTimeoutTick %p Ping Timer Exhaustion\n", this));
       mPingSentEpoch = 0;
-      Close(NS_ERROR_NET_TIMEOUT);
+      if (isTrr) {
+        // These must be set this way to ensure we gracefully restart all
+        // streams
+        mGoAwayID = 0;
+        mCleanShutdown = true;
+        // If TRR is mode 2, this Http2Session will be closed due to TRR request
+        // timeout, so we won't reach this code. If we are in mode 3, the
+        // request timeout is usually larger than the ping timeout. We close the
+        // stream with NS_ERROR_NET_RESET, so the transactions can be restarted.
+        Close(NS_ERROR_NET_RESET);
+      } else {
+        Close(NS_ERROR_NET_TIMEOUT);
+      }
       return UINT32_MAX;
     }
     return 1;  // run the tick aggressively while ping is outstanding
@@ -514,8 +531,8 @@ void Http2Session::CreateStream(nsAHttpTransaction* aHttpTransaction,
   RefPtr<Http2StreamBase> refStream;
   switch (streamType) {
     case Http2StreamBaseType::Normal:
-      refStream = new Http2Stream(aHttpTransaction, this, aPriority,
-                                  mCurrentTopBrowsingContextId);
+      refStream =
+          new Http2Stream(aHttpTransaction, this, aPriority, mCurrentBrowserId);
       break;
     case Http2StreamBaseType::WebSocket:
     case Http2StreamBaseType::Tunnel:
@@ -554,7 +571,7 @@ already_AddRefed<nsHttpConnection> Http2Session::CreateTunnelStream(
     nsAHttpTransaction* aHttpTransaction, nsIInterfaceRequestor* aCallbacks,
     PRIntervalTime aRtt, bool aIsWebSocket) {
   RefPtr<Http2StreamTunnel> refStream = CreateTunnelStreamFromConnInfo(
-      this, mCurrentTopBrowsingContextId, aHttpTransaction->ConnectionInfo(),
+      this, mCurrentBrowserId, aHttpTransaction->ConnectionInfo(),
       aIsWebSocket);
 
   RefPtr<nsHttpConnection> newConn =
@@ -1937,7 +1954,7 @@ nsresult Http2Session::RecvPushPromise(Http2Session* self) {
   transactionBuffer->SetConnection(self);
   RefPtr<Http2PushedStream> pushedStream(
       new Http2PushedStream(transactionBuffer, self, associatedStream,
-                            promisedID, self->mCurrentTopBrowsingContextId));
+                            promisedID, self->mCurrentBrowserId));
 
   rv = pushedStream->ConvertPushHeaders(&self->mDecompressor,
                                         self->mDecompressBuffer,
@@ -4324,6 +4341,9 @@ void Http2Session::SendPing() {
     mPreviousPingThreshold = mPingThreshold;
     mPreviousUsed = true;
     mPingThreshold = gHttpHandler->NetworkChangedTimeout();
+    // Reset mLastReadEpoch, so we can really check when do we got pong from the
+    // server.
+    mLastReadEpoch = 0;
   }
   GeneratePing(false);
   Unused << ResumeRecv();
@@ -4434,13 +4454,13 @@ bool Http2Session::RealJoinConnection(const nsACString& hostname, int32_t port,
   return joinedReturn;
 }
 
-void Http2Session::TopBrowsingContextIdChanged(uint64_t id) {
+void Http2Session::CurrentBrowserIdChanged(uint64_t id) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
 
-  mCurrentTopBrowsingContextId = id;
+  mCurrentBrowserId = id;
 
   for (const auto& stream : mStreamTransactionHash.Values()) {
-    stream->TopBrowsingContextIdChanged(id);
+    stream->CurrentBrowserIdChanged(id);
   }
 }
 

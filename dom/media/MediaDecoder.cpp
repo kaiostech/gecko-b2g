@@ -1401,15 +1401,7 @@ bool MediaDecoder::CanPlayThrough() {
 
 RefPtr<SetCDMPromise> MediaDecoder::SetCDMProxy(CDMProxy* aProxy) {
   MOZ_ASSERT(NS_IsMainThread());
-#ifdef MOZ_WIDGET_GONK
-  return InvokeAsync<RefPtr<CDMProxy>>(
-      mReader->OwnerThread(), mReader.get(), __func__,
-      &MediaFormatReaderProxy::SetCDMProxy, aProxy);
-#else
-  return InvokeAsync<RefPtr<CDMProxy>>(mReader->OwnerThread(), mReader.get(),
-                                       __func__,
-                                       &MediaFormatReader::SetCDMProxy, aProxy);
-#endif
+  return GetStateMachine()->SetCDMProxy(aProxy);
 }
 
 bool MediaDecoder::IsOpusEnabled() { return StaticPrefs::media_opus_enabled(); }

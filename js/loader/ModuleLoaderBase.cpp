@@ -744,7 +744,7 @@ ResolveResult ModuleLoaderBase::ResolveModuleSpecifier(
   if (aScript) {
     baseURL = aScript->BaseURL();
   } else {
-    baseURL = mLoader->GetBaseURI();
+    baseURL = GetBaseURI();
   }
 
   rv = NS_NewURI(getter_AddRefs(uri), aSpecifier, nullptr, baseURL);
@@ -993,6 +993,7 @@ ModuleLoaderBase::~ModuleLoaderBase() {
 }
 
 void ModuleLoaderBase::Shutdown() {
+  CancelAndClearDynamicImports();
   MOZ_ASSERT(mFetchingModules.IsEmpty());
 
   for (const auto& entry : mFetchedModules) {
@@ -1226,16 +1227,11 @@ nsresult ModuleLoaderBase::EvaluateModuleInContext(
   // unless the user cancels execution.
   MOZ_ASSERT_IF(ok, !JS_IsExceptionPending(aCx));
 
-  // For long running scripts, the request may be cancelled abruptly. This
-  // may also happen if the loader is collected before we get here.
-  if (request->IsCanceled() || !mLoader) {
-    return NS_ERROR_ABORT;
-  }
-
-  if (!ok) {
+  if (!ok || IsModuleEvaluationAborted(request)) {
     LOG(("ScriptLoadRequest (%p):   evaluation failed", aRequest));
     // For a dynamic import, the promise is rejected. Otherwise an error is
     // reported by AutoEntryScript.
+    rv = NS_ERROR_ABORT;
   }
 
   // ModuleEvaluate returns a promise unless the user cancels the execution in
@@ -1247,7 +1243,11 @@ nsresult ModuleLoaderBase::EvaluateModuleInContext(
   }
 
   if (request->IsDynamicImport()) {
-    FinishDynamicImport(aCx, request, NS_OK, evaluationPromise);
+    if (NS_FAILED(rv)) {
+      FinishDynamicImportAndReject(request, rv);
+    } else {
+      FinishDynamicImport(aCx, request, NS_OK, evaluationPromise);
+    }
   } else {
     // If this is not a dynamic import, and if the promise is rejected,
     // the value is unwrapped from the promise value.

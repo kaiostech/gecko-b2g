@@ -34,7 +34,6 @@
 #include "mozilla/dom/PGamepadEventChannelParent.h"
 #include "mozilla/dom/PGamepadTestChannelParent.h"
 #include "mozilla/dom/RemoteWorkerControllerParent.h"
-#include "mozilla/dom/RemoteWorkerParent.h"
 #include "mozilla/dom/RemoteWorkerServiceParent.h"
 #include "mozilla/dom/ReportingHeader.h"
 #include "mozilla/dom/ServiceWorkerActors.h"
@@ -514,19 +513,6 @@ BackgroundParentImpl::AllocPIdleSchedulerParent() {
   return actor.forget();
 }
 
-mozilla::dom::PRemoteWorkerParent*
-BackgroundParentImpl::AllocPRemoteWorkerParent(const RemoteWorkerData& aData) {
-  RefPtr<dom::RemoteWorkerParent> agent = new dom::RemoteWorkerParent();
-  return agent.forget().take();
-}
-
-bool BackgroundParentImpl::DeallocPRemoteWorkerParent(
-    mozilla::dom::PRemoteWorkerParent* aActor) {
-  RefPtr<mozilla::dom::RemoteWorkerParent> actor =
-      dont_AddRef(static_cast<mozilla::dom::RemoteWorkerParent*>(aActor));
-  return true;
-}
-
 dom::PRemoteWorkerControllerParent*
 BackgroundParentImpl::AllocPRemoteWorkerControllerParent(
     const dom::RemoteWorkerData& aRemoteWorkerData) {
@@ -550,9 +536,9 @@ bool BackgroundParentImpl::DeallocPRemoteWorkerControllerParent(
   return true;
 }
 
-mozilla::dom::PRemoteWorkerServiceParent*
+already_AddRefed<dom::PRemoteWorkerServiceParent>
 BackgroundParentImpl::AllocPRemoteWorkerServiceParent() {
-  return new mozilla::dom::RemoteWorkerServiceParent();
+  return MakeAndAddRef<dom::RemoteWorkerServiceParent>();
 }
 
 IPCResult BackgroundParentImpl::RecvPRemoteWorkerServiceConstructor(
@@ -569,12 +555,6 @@ IPCResult BackgroundParentImpl::RecvPRemoteWorkerServiceConstructor(
     actor->Initialize(parent->GetRemoteType());
   }
   return IPC_OK();
-}
-
-bool BackgroundParentImpl::DeallocPRemoteWorkerServiceParent(
-    mozilla::dom::PRemoteWorkerServiceParent* aActor) {
-  delete aActor;
-  return true;
 }
 
 mozilla::dom::PSharedWorkerParent*

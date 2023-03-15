@@ -83,13 +83,8 @@ void RestyleManager::ContentInserted(nsIContent* aChild) {
 }
 
 void RestyleManager::ContentAppended(nsIContent* aFirstNewContent) {
-  MOZ_ASSERT(aFirstNewContent->GetParent());
-
-  // The container cannot be a document, but might be a ShadowRoot.
-  if (!aFirstNewContent->GetParentNode()->IsElement()) {
-    return;
-  }
-  Element* container = aFirstNewContent->GetParentNode()->AsElement();
+  auto* container = aFirstNewContent->GetParentNode();
+  MOZ_ASSERT(container);
 
 #ifdef DEBUG
   {
@@ -102,7 +97,12 @@ void RestyleManager::ContentAppended(nsIContent* aFirstNewContent) {
   uint32_t selectorFlags =
       container->GetFlags() &
       (NODE_ALL_SELECTOR_FLAGS & ~NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS);
-  if (selectorFlags == 0) return;
+  if (selectorFlags == 0) {
+    return;
+  }
+
+  // The container cannot be a document.
+  MOZ_ASSERT(container->IsElement() || container->IsShadowRoot());
 
   if (selectorFlags & NODE_HAS_EMPTY_SELECTOR) {
     // see whether we need to restyle the container
@@ -118,14 +118,20 @@ void RestyleManager::ContentAppended(nsIContent* aFirstNewContent) {
         break;
       }
     }
-    if (wasEmpty) {
-      RestyleForEmptyChange(container);
+    if (wasEmpty && container->IsElement()) {
+      RestyleForEmptyChange(container->AsElement());
       return;
     }
   }
 
   if (selectorFlags & NODE_HAS_SLOW_SELECTOR) {
-    PostRestyleEvent(container, RestyleHint::RestyleSubtree(), nsChangeHint(0));
+    if (container->IsElement()) {
+      PostRestyleEvent(container->AsElement(), RestyleHint::RestyleSubtree(),
+                       nsChangeHint(0));
+    } else {
+      RestylePreviousSiblings(aFirstNewContent);
+      RestyleSiblingsStartingWith(aFirstNewContent);
+    }
     // Restyling the container is the most we can do here, so we're done.
     return;
   }
@@ -143,13 +149,20 @@ void RestyleManager::ContentAppended(nsIContent* aFirstNewContent) {
   }
 }
 
-static void RestyleSiblingsStartingWith(RestyleManager& aRM,
-                                        nsIContent* aStartingSibling) {
+void RestyleManager::RestylePreviousSiblings(nsIContent* aStartingSibling) {
+  for (nsIContent* sibling = aStartingSibling; sibling;
+       sibling = sibling->GetPreviousSibling()) {
+    if (auto* element = Element::FromNode(sibling)) {
+      PostRestyleEvent(element, RestyleHint::RestyleSubtree(), nsChangeHint(0));
+    }
+  }
+}
+
+void RestyleManager::RestyleSiblingsStartingWith(nsIContent* aStartingSibling) {
   for (nsIContent* sibling = aStartingSibling; sibling;
        sibling = sibling->GetNextSibling()) {
     if (auto* element = Element::FromNode(sibling)) {
-      aRM.PostRestyleEvent(element, RestyleHint::RestyleSubtree(),
-                           nsChangeHint(0));
+      PostRestyleEvent(element, RestyleHint::RestyleSubtree(), nsChangeHint(0));
     }
   }
 }
@@ -164,10 +177,10 @@ void RestyleManager::RestyleForEmptyChange(Element* aContainer) {
       !(grandparent->GetFlags() & NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS)) {
     return;
   }
-  RestyleSiblingsStartingWith(*this, aContainer->GetNextSibling());
+  RestyleSiblingsStartingWith(aContainer->GetNextSibling());
 }
 
-void RestyleManager::MaybeRestyleForEdgeChildChange(Element* aContainer,
+void RestyleManager::MaybeRestyleForEdgeChildChange(nsINode* aContainer,
                                                     nsIContent* aChangedChild) {
   MOZ_ASSERT(aContainer->GetFlags() & NODE_HAS_EDGE_CHILD_SELECTOR);
   MOZ_ASSERT(aChangedChild->GetParent() == aContainer);
@@ -317,7 +330,7 @@ void RestyleManager::CharacterDataChanged(
   }
 
   if (slowSelectorFlags & NODE_HAS_EDGE_CHILD_SELECTOR) {
-    MaybeRestyleForEdgeChildChange(parent->AsElement(), aContent);
+    MaybeRestyleForEdgeChildChange(parent, aContent);
   }
 }
 
@@ -328,42 +341,49 @@ void RestyleManager::CharacterDataChanged(
 // The comments are written and variables are named in terms of it being
 // a ContentInserted notification.
 void RestyleManager::RestyleForInsertOrChange(nsIContent* aChild) {
-  nsINode* parentNode = aChild->GetParentNode();
+  nsINode* container = aChild->GetParentNode();
+  MOZ_ASSERT(container);
 
-  MOZ_ASSERT(parentNode);
-  // The container might be a document or a ShadowRoot.
-  if (!parentNode->IsElement()) {
+  uint32_t selectorFlags = container->GetFlags() & NODE_ALL_SELECTOR_FLAGS;
+  if (selectorFlags == 0) {
     return;
   }
-  Element* container = parentNode->AsElement();
 
   NS_ASSERTION(!aChild->IsRootOfNativeAnonymousSubtree(),
                "anonymous nodes should not be in child lists");
-  uint32_t selectorFlags = container->GetFlags() & NODE_ALL_SELECTOR_FLAGS;
-  if (selectorFlags == 0) return;
 
-  if (selectorFlags & NODE_HAS_EMPTY_SELECTOR) {
+  // The container cannot be a document.
+  MOZ_ASSERT(container->IsElement() || container->IsShadowRoot());
+
+  if (selectorFlags & NODE_HAS_EMPTY_SELECTOR && container->IsElement()) {
     // See whether we need to restyle the container due to :empty /
     // :-moz-only-whitespace.
-    const bool wasEmpty = !HasAnySignificantSibling(container, aChild);
+    const bool wasEmpty =
+        !HasAnySignificantSibling(container->AsElement(), aChild);
     if (wasEmpty) {
       // FIXME(emilio): When coming from CharacterDataChanged this can restyle
       // unnecessarily. Also can restyle unnecessarily if aChild is not
       // significant anyway, though that's more unlikely.
-      RestyleForEmptyChange(container);
+      RestyleForEmptyChange(container->AsElement());
       return;
     }
   }
 
   if (selectorFlags & NODE_HAS_SLOW_SELECTOR) {
-    PostRestyleEvent(container, RestyleHint::RestyleSubtree(), nsChangeHint(0));
+    if (container->IsElement()) {
+      PostRestyleEvent(container->AsElement(), RestyleHint::RestyleSubtree(),
+                       nsChangeHint(0));
+    } else {
+      RestylePreviousSiblings(aChild);
+      RestyleSiblingsStartingWith(aChild);
+    }
     // Restyling the container is the most we can do here, so we're done.
     return;
   }
 
   if (selectorFlags & NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS) {
     // Restyle all later siblings.
-    RestyleSiblingsStartingWith(*this, aChild->GetNextSibling());
+    RestyleSiblingsStartingWith(aChild->GetNextSibling());
   }
 
   if (selectorFlags & NODE_HAS_EDGE_CHILD_SELECTOR) {
@@ -373,7 +393,8 @@ void RestyleManager::RestyleForInsertOrChange(nsIContent* aChild) {
 
 void RestyleManager::ContentRemoved(nsIContent* aOldChild,
                                     nsIContent* aFollowingSibling) {
-  MOZ_ASSERT(aOldChild->GetParentNode());
+  auto* container = aOldChild->GetParentNode();
+  MOZ_ASSERT(container);
 
   // Computed style data isn't useful for detached nodes, and we'll need to
   // recompute it anyway if we ever insert the nodes back into a document.
@@ -387,11 +408,10 @@ void RestyleManager::ContentRemoved(nsIContent* aOldChild,
     IncrementUndisplayedRestyleGeneration();
   }
 
-  // The container might be a document or a ShadowRoot.
-  if (!aOldChild->GetParentNode()->IsElement()) {
+  uint32_t selectorFlags = container->GetFlags() & NODE_ALL_SELECTOR_FLAGS;
+  if (selectorFlags == 0) {
     return;
   }
-  Element* container = aOldChild->GetParentNode()->AsElement();
 
   if (aOldChild->IsRootOfNativeAnonymousSubtree()) {
     // This should be an assert, but this is called incorrectly in
@@ -400,10 +420,11 @@ void RestyleManager::ContentRemoved(nsIContent* aOldChild,
     MOZ_ASSERT(aOldChild->GetProperty(nsGkAtoms::restylableAnonymousNode),
                "anonymous nodes should not be in child lists (bug 439258)");
   }
-  uint32_t selectorFlags = container->GetFlags() & NODE_ALL_SELECTOR_FLAGS;
-  if (selectorFlags == 0) return;
 
-  if (selectorFlags & NODE_HAS_EMPTY_SELECTOR) {
+  // The container cannot be a document.
+  MOZ_ASSERT(container->IsElement() || container->IsShadowRoot());
+
+  if (selectorFlags & NODE_HAS_EMPTY_SELECTOR && container->IsElement()) {
     // see whether we need to restyle the container
     bool isEmpty = true;  // :empty or :-moz-only-whitespace
     for (nsIContent* child = container->GetFirstChild(); child;
@@ -417,21 +438,27 @@ void RestyleManager::ContentRemoved(nsIContent* aOldChild,
         break;
       }
     }
-    if (isEmpty) {
-      RestyleForEmptyChange(container);
+    if (isEmpty && container->IsElement()) {
+      RestyleForEmptyChange(container->AsElement());
       return;
     }
   }
 
   if (selectorFlags & NODE_HAS_SLOW_SELECTOR) {
-    PostRestyleEvent(container, RestyleHint::RestyleSubtree(), nsChangeHint(0));
+    if (container->IsElement()) {
+      PostRestyleEvent(container->AsElement(), RestyleHint::RestyleSubtree(),
+                       nsChangeHint(0));
+    } else {
+      RestylePreviousSiblings(aOldChild);
+      RestyleSiblingsStartingWith(aOldChild);
+    }
     // Restyling the container is the most we can do here, so we're done.
     return;
   }
 
   if (selectorFlags & NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS) {
     // Restyle all later siblings.
-    RestyleSiblingsStartingWith(*this, aFollowingSibling);
+    RestyleSiblingsStartingWith(aFollowingSibling);
   }
 
   if (selectorFlags & NODE_HAS_EDGE_CHILD_SELECTOR) {
@@ -3335,6 +3362,23 @@ void RestyleManager::ElementStateChanged(Element* aElement,
   ServoElementSnapshot& snapshot = SnapshotFor(*aElement);
   ElementState previousState = aElement->StyleState() ^ aChangedBits;
   snapshot.AddState(previousState);
+
+  MaybeRestyleForNthOfState(*StyleSet(), aElement, aChangedBits);
+}
+
+void RestyleManager::MaybeRestyleForNthOfState(ServoStyleSet& aStyleSet,
+                                               Element* aChild,
+                                               ElementState aChangedBits) {
+  const auto* parentNode = aChild->GetParentNode();
+  MOZ_ASSERT(parentNode);
+  const auto parentFlags = parentNode->GetFlags();
+  if (!(parentFlags & NODE_HAS_SLOW_SELECTOR_NTH_OF)) {
+    return;
+  }
+
+  if (aStyleSet.HasNthOfStateDependency(*aChild, aChangedBits)) {
+    RestyleSiblings(aChild, parentFlags);
+  }
 }
 
 static inline bool AttributeInfluencesOtherPseudoClassState(
@@ -3465,6 +3509,8 @@ void RestyleManager::AttributeChanged(Element* aElement, int32_t aNameSpaceID,
 
   changeHint |= aElement->GetAttributeChangeHint(aAttribute, aModType);
 
+  MaybeRestyleForNthOfAttribute(aElement, aAttribute, aOldValue);
+
   if (aAttribute == nsGkAtoms::style) {
     restyleHint |= RestyleHint::RESTYLE_STYLE_ATTRIBUTE;
   } else if (AttributeChangeRequiresSubtreeRestyle(*aElement, aAttribute)) {
@@ -3509,6 +3555,59 @@ void RestyleManager::AttributeChanged(Element* aElement, int32_t aNameSpaceID,
     // If we change attributes, we have to mark this to be true, so we will
     // increase the animation generation for the new created transition if any.
     mHaveNonAnimationRestyles = true;
+  }
+}
+
+void RestyleManager::RestyleSiblings(
+    Element* aChild, nsBaseContentList::FlagsType aParentFlags) {
+  const DebugOnly<nsINode*> parentNode = aChild->GetParentNode();
+  MOZ_ASSERT(parentNode->IsElement() || parentNode->IsShadowRoot());
+
+  DebugOnly<bool> restyledSiblings = false;
+  // NODE_HAS_SLOW_SELECTOR typically indicates restyling the parent, but since
+  // we know we're restyling for :nth-last-child(.. of <selector>), we can
+  // restyle only previous siblings without under-invalidating.
+  if (aParentFlags & NODE_HAS_SLOW_SELECTOR) {
+    RestylePreviousSiblings(aChild->GetPreviousSibling());
+    restyledSiblings = true;
+  }
+  if (aParentFlags & NODE_HAS_SLOW_SELECTOR_LATER_SIBLINGS) {
+    RestyleSiblingsStartingWith(aChild->GetNextSibling());
+    restyledSiblings = true;
+  }
+  MOZ_ASSERT(restyledSiblings,
+             "How can we restyle siblings without a slow selector flag?");
+}
+
+void RestyleManager::MaybeRestyleForNthOfAttribute(
+    Element* aChild, nsAtom* aAttribute, const nsAttrValue* aOldValue) {
+  const auto* parentNode = aChild->GetParentNode();
+  MOZ_ASSERT(parentNode);
+  const auto parentFlags = parentNode->GetFlags();
+  if (!(parentFlags & NODE_HAS_SLOW_SELECTOR_NTH_OF)) {
+    return;
+  }
+  if (!aChild->HasServoData()) {
+    return;
+  }
+
+  bool mightHaveNthOfDependency;
+  auto& styleSet = *StyleSet();
+  if (aAttribute == nsGkAtoms::id) {
+    auto* const oldAtom = aOldValue->Type() == nsAttrValue::eAtom
+                              ? aOldValue->GetAtomValue()
+                              : nullptr;
+    mightHaveNthOfDependency =
+        styleSet.MightHaveNthOfIDDependency(*aChild, oldAtom, aChild->GetID());
+  } else if (aAttribute == nsGkAtoms::_class) {
+    mightHaveNthOfDependency = styleSet.MightHaveNthOfClassDependency(*aChild);
+  } else {
+    mightHaveNthOfDependency =
+        styleSet.MightHaveNthOfAttributeDependency(*aChild, aAttribute);
+  }
+
+  if (mightHaveNthOfDependency) {
+    RestyleSiblings(aChild, parentFlags);
   }
 }
 

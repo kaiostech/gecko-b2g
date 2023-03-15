@@ -1272,13 +1272,8 @@ pref("browser.bookmarks.editDialog.firstEditField", "namePicker");
 // The number of recently selected folders in the edit bookmarks dialog.
 pref("browser.bookmarks.editDialog.maxRecentFolders", 7);
 
-// By default the Edit Bookmark dialog is instant-apply. This feature pref will allow to
-// just save on Accept, once the project is complete.
-#ifdef NIGHTLY_BUILD
-  pref("browser.bookmarks.editDialog.delayedApply.enabled", true);
-#else
-  pref("browser.bookmarks.editDialog.delayedApply.enabled", false);
-#endif
+// Whether the Edit Bookmark dialog is delayed-apply.
+pref("browser.bookmarks.editDialog.delayedApply.enabled", true);
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
   // This controls the strength of the Windows content process sandbox for
@@ -2187,8 +2182,11 @@ pref("browser.migrate.content-modal.enabled", false);
 pref("browser.migrate.content-modal.import-all.enabled", false);
 
 pref("extensions.pocket.api", "api.getpocket.com");
+pref("extensions.pocket.bffApi", "firefox-api-proxy.readitlater.com");
+pref("extensions.pocket.bffRecentSaves", true);
 pref("extensions.pocket.enabled", true);
 pref("extensions.pocket.oAuthConsumerKey", "40249-e88c401e1b1f2242d9e441c4");
+pref("extensions.pocket.oAuthConsumerKeyBff", "94110-6d5ff7a89d72c869766af0e0");
 pref("extensions.pocket.site", "getpocket.com");
 pref("extensions.pocket.onSaveRecs", true);
 pref("extensions.pocket.onSaveRecs.locales", "en-US,en-GB,en-CA");

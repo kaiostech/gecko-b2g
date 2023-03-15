@@ -177,16 +177,15 @@ class ModuleLoaderBase : public nsISupports {
 
   nsCOMPtr<nsIGlobalObject> mGlobalObject;
 
-  // Event handler used to process MozPromise actions, used internally to wait
-  // for fetches to finish and for imports to become avilable.
-  nsCOMPtr<nsISerialEventTarget> mEventTarget;
-
   // https://html.spec.whatwg.org/multipage/webappapis.html#import-maps-allowed
   //
   // Each Window has an import maps allowed boolean, initially true.
   bool mImportMapsAllowed = true;
 
  protected:
+  // Event handler used to process MozPromise actions, used internally to wait
+  // for fetches to finish and for imports to become avilable.
+  nsCOMPtr<nsISerialEventTarget> mEventTarget;
   RefPtr<ScriptLoaderInterface> mLoader;
 
   mozilla::UniquePtr<ImportMap> mImportMap;
@@ -203,6 +202,8 @@ class ModuleLoaderBase : public nsISupports {
 
   // Called to break cycles during shutdown to prevent memory leaks.
   void Shutdown();
+
+  virtual nsIURI* GetBaseURI() const { return mLoader->GetBaseURI(); };
 
   using LoadedScript = JS::loader::LoadedScript;
   using ScriptFetchOptions = JS::loader::ScriptFetchOptions;
@@ -243,6 +244,10 @@ class ModuleLoaderBase : public nsISupports {
 
   // Called when a module script has been loaded, including imports.
   virtual void OnModuleLoadComplete(ModuleLoadRequest* aRequest) = 0;
+
+  virtual bool IsModuleEvaluationAborted(ModuleLoadRequest* aRequest) {
+    return false;
+  }
 
   // Get the error message when resolving failed. The default is to call
   // nsContentUtils::FormatLoalizedString. But currently

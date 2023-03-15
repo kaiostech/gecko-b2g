@@ -24,13 +24,16 @@ class PictureInPictureVideoWrapper {
       muteButton.click();
     }
   }
+  setCurrentTime(video, position) {
+    this.player.currentTime = position;
+  }
   setCaptionContainerObserver(video, updateCaptionsFunction) {
     let container = document.querySelector(".ClosedCaption");
 
     if (container) {
       updateCaptionsFunction("");
       const callback = function(mutationsList, observer) {
-        let text = container.querySelector(".CaptionBox").innerText;
+        let text = container.innerText;
         updateCaptionsFunction(text);
       };
 

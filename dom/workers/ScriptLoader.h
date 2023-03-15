@@ -202,6 +202,10 @@ class WorkerScriptLoader : public JS::loader::ScriptLoaderInterface,
 
   bool DispatchLoadScripts();
 
+  void TryShutdown();
+
+  WorkerScriptType GetWorkerScriptType() { return mWorkerScriptType; }
+
  protected:
   nsIURI* GetBaseURI() const override;
 
@@ -242,9 +246,9 @@ class WorkerScriptLoader : public JS::loader::ScriptLoaderInterface,
 
   void InitModuleLoader();
 
-  void TryShutdown();
-
   nsTArray<RefPtr<ThreadSafeRequestHandle>> GetLoadingList();
+
+  bool IsDynamicImport(ScriptLoadRequest* aRequest);
 
   nsContentPolicyType GetContentPolicyType(ScriptLoadRequest* aRequest);
 

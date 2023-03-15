@@ -6167,25 +6167,62 @@ exports.CSS_PROPERTIES = {
     "subproperties": [
       "content"
     ],
-    "supports": [],
+    "supports": [
+      "gradient"
+    ],
     "values": [
       "-moz-alt-content",
+      "-moz-element",
+      "-moz-image-rect",
+      "-moz-label-content",
+      "-moz-linear-gradient",
+      "-moz-radial-gradient",
+      "-moz-repeating-linear-gradient",
+      "-moz-repeating-radial-gradient",
+      "-webkit-gradient",
+      "-webkit-linear-gradient",
+      "-webkit-radial-gradient",
+      "-webkit-repeating-linear-gradient",
+      "-webkit-repeating-radial-gradient",
       "attr",
       "close-quote",
+      "conic-gradient",
       "counter",
       "counters",
       "image-set",
       "inherit",
       "initial",
+      "linear-gradient",
       "no-close-quote",
       "no-open-quote",
       "none",
       "normal",
       "open-quote",
+      "radial-gradient",
+      "repeating-conic-gradient",
+      "repeating-linear-gradient",
+      "repeating-radial-gradient",
       "revert",
       "revert-layer",
       "unset",
       "url"
+    ]
+  },
+  "content-visibility": {
+    "isInherited": false,
+    "subproperties": [
+      "content-visibility"
+    ],
+    "supports": [],
+    "values": [
+      "auto",
+      "hidden",
+      "inherit",
+      "initial",
+      "revert",
+      "revert-layer",
+      "unset",
+      "visible"
     ]
   },
   "counter-increment": {

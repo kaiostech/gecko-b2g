@@ -183,6 +183,26 @@ class ScreenshotsHelper {
     );
   }
 
+  /**
+   * This will drag an overlay starting at the given startX and startY coordinates and ending
+   * at the given endX and endY coordinates.
+   *
+   * endY should be at least 70px from the bottom of window and endX should be at least
+   * 265px from the left of the window. If these requirements are not met then the
+   * overlay buttons (cancel, copy, download) will be positioned different from the default
+   * and the methods to click the overlay buttons will not work unless the updated
+   * position coordinates are supplied.
+   * See https://searchfox.org/mozilla-central/rev/af78418c4b5f2c8721d1a06486cf4cf0b33e1e8d/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs#1789,1798
+   * for how the overlay buttons are positioned when the overlay rect is near the bottom or
+   * left edge of the window.
+   *
+   * Note: The distance of the rect should be greater than 40 to enter in the "dragging" state.
+   * See https://searchfox.org/mozilla-central/rev/af78418c4b5f2c8721d1a06486cf4cf0b33e1e8d/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs#809
+   * @param {Number} startX The starting X coordinate. The left edge of the overlay rect.
+   * @param {Number} startY The starting Y coordinate. The top edge of the overlay rect.
+   * @param {Number} endX The end X coordinate. The right edge of the overlay rect.
+   * @param {Number} endY The end Y coordinate. The bottom edge of the overlay rect.
+   */
   async dragOverlay(startX, startY, endX, endY) {
     await this.waitForStateChange("crosshairs");
     let state = await this.getOverlayState();
@@ -331,12 +351,27 @@ class ScreenshotsHelper {
    */
   getContentDimensions() {
     return SpecialPowers.spawn(this.browser, [], async function() {
-      let doc = content.document.documentElement;
+      let { innerWidth, innerHeight, scrollMaxX, scrollMaxY } = content.window;
+      let width = innerWidth + scrollMaxX;
+      let height = innerHeight + scrollMaxY;
+
+      const scrollbarHeight = {};
+      const scrollbarWidth = {};
+      content.window.windowUtils.getScrollbarSize(
+        false,
+        scrollbarWidth,
+        scrollbarHeight
+      );
+      width -= scrollbarWidth.value;
+      height -= scrollbarHeight.value;
+      innerWidth -= scrollbarWidth.value;
+      innerHeight -= scrollbarHeight.value;
+
       return {
-        clientHeight: doc.clientHeight,
-        clientWidth: doc.clientWidth,
-        scrollHeight: doc.scrollHeight,
-        scrollWidth: doc.scrollWidth,
+        clientHeight: innerHeight,
+        clientWidth: innerWidth,
+        scrollHeight: height,
+        scrollWidth: width,
       };
     });
   }
@@ -350,6 +385,29 @@ class ScreenshotsHelper {
 
       return screenshotsChild._overlay.screenshotsContainer.getSelectionLayerDimensions();
     });
+  }
+
+  async waitForSelectionLayerDimensionChange(oldWidth, oldHeight) {
+    await ContentTask.spawn(
+      this.browser,
+      [oldWidth, oldHeight],
+      async ([prevWidth, prevHeight]) => {
+        let screenshotsChild = content.windowGlobalChild.getActor(
+          "ScreenshotsComponent"
+        );
+
+        await ContentTaskUtils.waitForCondition(() => {
+          let dimensions = screenshotsChild._overlay.screenshotsContainer.getSelectionLayerDimensions();
+          info(
+            `old height: ${prevHeight}. new height: ${dimensions.scrollHeight}.\nold width: ${prevWidth}. new width: ${dimensions.scrollWidth}`
+          );
+          return (
+            dimensions.scrollHeight !== prevHeight &&
+            dimensions.scrollWidth !== prevWidth
+          );
+        }, "Wait for selection box width change");
+      }
+    );
   }
 
   getSelectionBoxDimensions() {

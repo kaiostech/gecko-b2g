@@ -257,6 +257,12 @@ let interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "ConstantSourceNode", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  {
+    name: "ContentVisibilityAutoStateChangeEvent",
+    insecureContext: true,
+    nightly: true,
+  },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "ConvolverNode", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "CountQueuingStrategy", insecureContext: true },
@@ -993,6 +999,8 @@ let interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "RTCRtpTransceiver", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "RTCSctpTransport", insecureContext: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "RTCSessionDescription", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "RTCStatsReport", insecureContext: true },
@@ -1505,12 +1513,6 @@ let interfaceNamesInGlobalScope = [
   { name: "mozInnerScreenX", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "mozInnerScreenY", insecureContext: true },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "mozRTCIceCandidate", insecureContext: true },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "mozRTCPeerConnection", insecureContext: true },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "mozRTCSessionDescription", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "name", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!

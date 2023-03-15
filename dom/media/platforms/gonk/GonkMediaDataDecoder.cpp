@@ -485,4 +485,8 @@ void GonkMediaDataDecoder::ResolveDrainPromise() {
   }
 }
 
+nsCString GonkMediaDataDecoder::GetCodecName() const {
+  return "unknown"_ns;
+}
+
 }  // namespace mozilla

@@ -183,6 +183,8 @@ class GonkMediaDataDecoder : public MediaDataDecoder,
 
   nsCString GetDescriptionName() const override { return "gonk decoder"_ns; }
 
+  nsCString GetCodecName() const override;
+
   ConversionRequired NeedsConversion() const override {
     return ConversionRequired::kNeedAnnexB;
   }

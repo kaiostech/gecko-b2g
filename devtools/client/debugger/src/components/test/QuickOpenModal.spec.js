@@ -130,6 +130,10 @@ describe("QuickOpenModal", () => {
         title: "mozilla.com",
         url: "mozilla.com",
         value: "mozilla.com",
+        source: {
+          url: "mozilla.com",
+          displayURL: getDisplayURL("mozilla.com"),
+        },
       },
     ]);
   });
@@ -328,6 +332,7 @@ describe("QuickOpenModal", () => {
           enabled: true,
           query: ":34:12",
           searchType: "goto",
+          selectedSource: { id: "foo" },
         },
         "shallow"
       );
@@ -338,7 +343,13 @@ describe("QuickOpenModal", () => {
       expect(props.selectSpecificLocation).toHaveBeenCalledWith(mockcx, {
         column: 12,
         line: 34,
-        sourceId: "",
+        sourceId: "foo",
+        source: {
+          id: "foo",
+        },
+        sourceActorId: undefined,
+        sourceActor: null,
+        sourceUrl: "",
       });
     });
 
@@ -362,6 +373,12 @@ describe("QuickOpenModal", () => {
         column: 12,
         line: 34,
         sourceId,
+        source: {
+          id: sourceId,
+        },
+        sourceActorId: undefined,
+        sourceActor: null,
+        sourceUrl: "",
       });
     });
 
@@ -449,15 +466,16 @@ describe("QuickOpenModal", () => {
     });
 
     it("on Enter with results, handle result item", () => {
+      const id = "test_id";
       const { wrapper, props } = generateModal(
         {
           enabled: true,
           query: "@test",
           searchType: "other",
+          selectedSource: { id },
         },
         "shallow"
       );
-      const id = "test_id";
       wrapper.setState(() => ({
         results: [{}, { id }],
         selectedIndex: 1,
@@ -470,11 +488,16 @@ describe("QuickOpenModal", () => {
         column: undefined,
         sourceId: id,
         line: 0,
+        source: { id },
+        sourceActorId: undefined,
+        sourceActor: null,
+        sourceUrl: "",
       });
       expect(props.setQuickOpenQuery).not.toHaveBeenCalled();
     });
 
     it("on Enter with results, handle functions result item", () => {
+      const id = "test_id";
       const { wrapper, props } = generateModal(
         {
           enabled: true,
@@ -484,10 +507,10 @@ describe("QuickOpenModal", () => {
             functions: [],
             variables: {},
           },
+          selectedSource: { id },
         },
         "shallow"
       );
-      const id = "test_id";
       wrapper.setState(() => ({
         results: [{}, { id }],
         selectedIndex: 1,
@@ -499,12 +522,17 @@ describe("QuickOpenModal", () => {
       expect(props.selectSpecificLocation).toHaveBeenCalledWith(mockcx, {
         column: undefined,
         line: 0,
-        sourceId: "",
+        sourceId: id,
+        source: { id },
+        sourceActorId: undefined,
+        sourceActor: null,
+        sourceUrl: "",
       });
       expect(props.setQuickOpenQuery).not.toHaveBeenCalled();
     });
 
     it("on Enter with results, handle gotoSource search", () => {
+      const id = "test_id";
       const { wrapper, props } = generateModal(
         {
           enabled: true,
@@ -514,10 +542,10 @@ describe("QuickOpenModal", () => {
             functions: [],
             variables: {},
           },
+          selectedSource: { id },
         },
         "shallow"
       );
-      const id = "test_id";
       wrapper.setState(() => ({
         results: [{}, { id }],
         selectedIndex: 1,
@@ -530,6 +558,10 @@ describe("QuickOpenModal", () => {
         column: 4,
         line: 3,
         sourceId: id,
+        source: { id },
+        sourceActorId: undefined,
+        sourceActor: null,
+        sourceUrl: "",
       });
       expect(props.setQuickOpenQuery).not.toHaveBeenCalled();
     });
@@ -632,7 +664,6 @@ describe("QuickOpenModal", () => {
       expect(wrapper.state().selectedIndex).toEqual(0);
       expect(props.highlightLineRange).toHaveBeenCalledWith({
         end: 3,
-        sourceId,
         start: 1,
       });
     });
@@ -688,9 +719,7 @@ describe("QuickOpenModal", () => {
       wrapper.find("SearchInput").simulate("keydown", event);
       expect(event.preventDefault).toHaveBeenCalled();
       expect(wrapper.state().selectedIndex).toEqual(0);
-      expect(props.highlightLineRange).toHaveBeenCalledWith({
-        sourceId: "sourceId",
-      });
+      expect(props.highlightLineRange).toHaveBeenCalledWith({});
     });
 
     it(

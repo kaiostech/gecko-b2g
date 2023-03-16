@@ -6,11 +6,7 @@ import { createSelector } from "reselect";
 import { shallowEqual } from "../utils/shallow-equal";
 import { getPrettySourceURL } from "../utils/source";
 
-import {
-  getLocationSource,
-  getSpecificSourceByURL,
-  getSourcesMap,
-} from "./sources";
+import { getSpecificSourceByURL, getSourcesMap } from "./sources";
 import { isOriginalId } from "devtools/client/shared/source-map-loader/index";
 import { isSimilarTab } from "../utils/tabs";
 
@@ -47,43 +43,46 @@ export function hasPrettyTab(state, sourceUrl) {
  * 2. if it is gone, the next available tab to the left should be active
  * 3. if the first tab is active and closed, select the second tab
  */
-export function getNewSelectedSourceId(state, tabList) {
+export function getNewSelectedSource(state, tabList) {
   const { selectedLocation } = state.sources;
   const availableTabs = state.tabs.tabs;
   if (!selectedLocation) {
-    return "";
+    return null;
   }
 
-  const selectedTab = getLocationSource(state, selectedLocation);
-  if (!selectedTab) {
-    return "";
+  const selectedSource = selectedLocation.source;
+  if (!selectedSource) {
+    return null;
   }
 
   const matchingTab = availableTabs.find(tab =>
-    isSimilarTab(tab, selectedTab.url, isOriginalId(selectedLocation.sourceId))
+    isSimilarTab(tab, selectedSource.url, isOriginalId(selectedSource.id))
   );
 
   if (matchingTab) {
     const { sources } = state.sources;
     if (!sources) {
-      return "";
+      return null;
     }
 
-    const selectedSource = getSpecificSourceByURL(
+    const specificSelectedSource = getSpecificSourceByURL(
       state,
-      selectedTab.url,
-      selectedTab.isOriginal
+      selectedSource.url,
+      selectedSource.isOriginal
     );
 
-    if (selectedSource) {
-      return selectedSource.id;
+    if (specificSelectedSource) {
+      return specificSelectedSource;
     }
 
-    return "";
+    return null;
   }
 
   const tabUrls = tabList.map(tab => tab.url);
-  const leftNeighborIndex = Math.max(tabUrls.indexOf(selectedTab.url) - 1, 0);
+  const leftNeighborIndex = Math.max(
+    tabUrls.indexOf(selectedSource.url) - 1,
+    0
+  );
   const lastAvailbleTabIndex = availableTabs.length - 1;
   const newSelectedTabIndex = Math.min(leftNeighborIndex, lastAvailbleTabIndex);
   const availableTab = availableTabs[newSelectedTabIndex];
@@ -96,9 +95,9 @@ export function getNewSelectedSourceId(state, tabList) {
     );
 
     if (tabSource) {
-      return tabSource.id;
+      return tabSource;
     }
   }
 
-  return "";
+  return null;
 }

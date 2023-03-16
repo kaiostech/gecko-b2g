@@ -77,6 +77,7 @@ class SessionHistoryInfo;
 class SessionStorageManager;
 class StructuredCloneHolder;
 class WindowContext;
+class WindowGlobalChild;
 struct WindowPostMessageOptions;
 class WindowProxyHolder;
 
@@ -676,32 +677,26 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     }
   }
 
-  // Using the rules for choosing a browsing context we try to find
-  // the browsing context with the given name in the set of
-  // transitively reachable browsing contexts. Performs access control
-  // checks with regard to this.
-  // See
-  // https://html.spec.whatwg.org/multipage/browsers.html#the-rules-for-choosing-a-browsing-context-given-a-browsing-context-name.
-  //
-  // BrowsingContext::FindWithName(const nsAString&) is equivalent to
-  // calling nsIDocShellTreeItem::FindItemWithName(aName, nullptr,
-  // nullptr, false, <return value>).
-  BrowsingContext* FindWithName(const nsAString& aName,
-                                bool aUseEntryGlobalForAccessCheck = true);
-
   // Find a browsing context in this context's list of
   // children. Doesn't consider the special names, '_self', '_parent',
   // '_top', or '_blank'. Performs access control checks with regard to
   // 'this'.
   BrowsingContext* FindChildWithName(const nsAString& aName,
-                                     BrowsingContext& aRequestingContext);
+                                     WindowGlobalChild& aRequestingWindow);
 
   // Find a browsing context in the subtree rooted at 'this' Doesn't
   // consider the special names, '_self', '_parent', '_top', or
-  // '_blank'. Performs access control checks with regard to
-  // 'aRequestingContext'.
+  // '_blank'.
+  //
+  // If passed, performs access control checks with regard to
+  // 'aRequestingContext', otherwise performs no access checks.
   BrowsingContext* FindWithNameInSubtree(const nsAString& aName,
-                                         BrowsingContext& aRequestingContext);
+                                         WindowGlobalChild* aRequestingWindow);
+
+  // Find the special browsing context if aName is '_self', '_parent',
+  // '_top', but not '_blank'. The latter is handled in FindWithName
+  BrowsingContext* FindWithSpecialName(const nsAString& aName,
+                                       WindowGlobalChild& aRequestingWindow);
 
   nsISupports* GetParentObject() const;
   JSObject* WrapObject(JSContext* aCx,
@@ -810,9 +805,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
                             BrowsingContextGroup* aGroup,
                             ContentParent* aOriginProcess);
 
-  // Performs access control to check that 'this' can access 'aTarget'.
-  bool CanAccess(BrowsingContext* aTarget, bool aConsiderOpener = true);
-
   bool IsSandboxedFrom(BrowsingContext* aTarget);
 
   // The runnable will be called once there is idle time, or the top level
@@ -864,9 +856,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // the current URI.
   void SessionHistoryCommit(const LoadingSessionHistoryInfo& aInfo,
                             uint32_t aLoadType, nsIURI* aCurrentURI,
-                            bool aHadActiveEntry, bool aPersist,
-                            bool aCloneEntryChildren, bool aChannelExpired,
-                            uint32_t aCacheKey);
+                            SessionHistoryInfo* aPreviousActiveEntry,
+                            bool aPersist, bool aCloneEntryChildren,
+                            bool aChannelExpired, uint32_t aCacheKey);
 
   // Set a new active entry on this browsing context. This is used for
   // implementing history.pushState/replaceState and same document navigations.
@@ -987,11 +979,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // parent WindowContext. Called whenever the AllowJavascript() flag or the
   // parent WC changes.
   void RecomputeCanExecuteScripts();
-
-  // Find the special browsing context if aName is '_self', '_parent',
-  // '_top', but not '_blank'. The latter is handled in FindWithName
-  BrowsingContext* FindWithSpecialName(const nsAString& aName,
-                                       BrowsingContext& aRequestingContext);
 
   // Is it early enough in the BrowsingContext's lifecycle that it is still
   // OK to set OriginAttributes?

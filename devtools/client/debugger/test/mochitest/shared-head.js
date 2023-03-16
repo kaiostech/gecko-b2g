@@ -41,6 +41,9 @@ const asyncStorage = require("devtools/shared/async-storage");
 const {
   getSelectedLocation,
 } = require("devtools/client/debugger/src/utils/selected-location");
+const {
+  createLocation,
+} = require("devtools/client/debugger/src/utils/location");
 
 const {
   resetSchemaVersion,
@@ -705,10 +708,11 @@ function findSourceContent(dbg, url, opts) {
   if (!source) {
     return null;
   }
-  const content = dbg.selectors.getSettledSourceTextContent({
-    sourceId: source.id,
-    sourceActorId: null,
-  });
+  const content = dbg.selectors.getSettledSourceTextContent(
+    createLocation({
+      source,
+    })
+  );
 
   if (!content) {
     return null;
@@ -732,10 +736,11 @@ function waitForLoadedSource(dbg, url) {
       const source = findSource(dbg, url, { silent: true });
       return (
         source &&
-        dbg.selectors.getSettledSourceTextContent({
-          sourceId: source.id,
-          sourceActorId: null,
-        })
+        dbg.selectors.getSettledSourceTextContent(
+          createLocation({
+            source,
+          })
+        )
       );
     },
     "loaded source"
@@ -766,7 +771,7 @@ async function selectSource(dbg, url, line, column) {
 
   await dbg.actions.selectLocation(
     getContext(dbg),
-    { sourceId: source.id, line, column },
+    createLocation({ source, line, column }),
     { keepContext: false }
   );
   return waitForSelectedSource(dbg, url);
@@ -961,12 +966,11 @@ function getBreakpointForLocation(dbg, location) {
  */
 async function addBreakpoint(dbg, source, line, column, options) {
   source = findSource(dbg, source);
-  const sourceId = source.id;
   const bpCount = dbg.selectors.getBreakpointCount();
   const onBreakpoint = waitForDispatch(dbg.store, "SET_BREAKPOINT");
   await dbg.actions.addBreakpoint(
     getContext(dbg),
-    { sourceId, line, column },
+    createLocation({ source, line, column }),
     options
   );
   await onBreakpoint;
@@ -991,7 +995,12 @@ async function addBreakpointViaGutter(dbg, line) {
 function disableBreakpoint(dbg, source, line, column) {
   column =
     column || getFirstBreakpointColumn(dbg, { line, sourceId: source.id });
-  const location = { sourceId: source.id, sourceUrl: source.url, line, column };
+  const location = createLocation({
+    source,
+    sourceUrl: source.url,
+    line,
+    column,
+  });
   const bp = getBreakpointForLocation(dbg, location);
   return dbg.actions.disableBreakpoint(getContext(dbg), bp);
 }
@@ -1029,7 +1038,7 @@ async function loadAndAddBreakpoint(dbg, filename, line, column) {
   await addBreakpoint(dbg, source, line, column);
 
   is(getBreakpointCount(), 1, "One breakpoint exists");
-  if (!getBreakpoint({ sourceId: source.id, line, column })) {
+  if (!getBreakpoint(createLocation({ source, line, column }))) {
     const breakpoints = getBreakpointsMap();
     const id = Object.keys(breakpoints).pop();
     const loc = breakpoints[id].location;

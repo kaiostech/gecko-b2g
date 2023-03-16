@@ -422,6 +422,9 @@ NS_IMETHODIMP
 OutputStreamTunnel::Flush() { return NS_OK; }
 
 NS_IMETHODIMP
+OutputStreamTunnel::StreamStatus() { return mCondition; }
+
+NS_IMETHODIMP
 OutputStreamTunnel::Write(const char* buf, uint32_t count,
                           uint32_t* countWritten) {
   LOG(("OutputStreamTunnel::Write [this=%p count=%u]\n", this, count));
@@ -554,6 +557,13 @@ InputStreamTunnel::Available(uint64_t* avail) {
   }
 
   return NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+InputStreamTunnel::StreamStatus() {
+  LOG(("InputStreamTunnel::StreamStatus [this=%p]\n", this));
+
+  return mCondition;
 }
 
 NS_IMETHODIMP

@@ -150,7 +150,7 @@ disable-extension =
     .label = Disable Extension
 
 preferences-data-migration-header = Import Browser Data
-preferences-data-migration-description = Import bookmarks, passwords, history and autofill data from a different browser or a password manager into { -brand-short-name }.
+preferences-data-migration-description = Import bookmarks, passwords, history, and autofill data into { -brand-short-name }.
 preferences-data-migration-button =
     .label = Import Data
     .accesskey = m
@@ -1317,6 +1317,12 @@ permissions-camera-settings =
 
 permissions-microphone = Microphone
 permissions-microphone-settings =
+    .label = Settings…
+    .accesskey = t
+
+# Short form for "the act of choosing sound output devices and redirecting audio to the chosen devices".
+permissions-speaker = Speaker Selection
+permissions-speaker-settings =
     .label = Settings…
     .accesskey = t
 

@@ -81,42 +81,53 @@ var typeInfo = loadTypeInfo(options.typeInfo);
 var gcEdges = JSON.parse(os.file.readFile(options.gcEdges));
 
 var match;
-var gcThings = {};
-var gcPointers = {};
+var gcThings = new Set();
+var gcPointers = new Set();
+var gcRefs = new Set(typeInfo.GCRefs);
 
 text = snarf(options.gcTypes).split("\n");
 for (var line of text) {
     if (match = /^GCThing: (.*)/.exec(line))
-        gcThings[match[1]] = true;
+        gcThings.add(match[1]);
     if (match = /^GCPointer: (.*)/.exec(line))
-        gcPointers[match[1]] = true;
+        gcPointers.add(match[1]);
 }
 text = null;
+
+function isGCRef(type)
+{
+    if (type.Kind == "CSU")
+        return gcRefs.has(type.Name);
+    return false;
+}
 
 function isGCType(type)
 {
     if (type.Kind == "CSU")
-        return type.Name in gcThings;
+        return gcThings.has(type.Name);
     else if (type.Kind == "Array")
         return isGCType(type.Type);
     return false;
 }
 
-function isUnrootedType(type)
+function isUnrootedPointerDeclType(decl)
 {
-    if (type.Kind == "Pointer")
+    // Treat non-temporary T& references as if they were the underlying type T.
+    // For now, restrict this to only the types specifically annotated with JS_HAZ_GC_REF
+    // to avoid lots of false positives with other types.
+    let type = isReferenceDecl(decl) && isGCRef(decl.Type.Type) ? decl.Type.Type : decl.Type;
+
+    while (type.Kind == "Array") {
+        type = type.Type;
+    }
+
+    if (type.Kind == "Pointer") {
         return isGCType(type.Type);
-    else if (type.Kind == "Array") {
-        if (!type.Type) {
-            printErr("Received Array Kind with no Type");
-            printErr(JSON.stringify(type));
-            printErr(getBacktrace({args: true, locals: true}));
-        }
-        return isUnrootedType(type.Type);
-    } else if (type.Kind == "CSU")
-        return type.Name in gcPointers;
-    else
+    } else if (type.Kind == "CSU") {
+        return gcPointers.has(type.Name);
+    } else {
         return false;
+    }
 }
 
 function edgeCanGC(edge)
@@ -399,7 +410,7 @@ function findGCBeforeValueUse(start_body, start_point, suppressed_bits, variable
             if (!path.gcInfo && !(body.attrs[ppoint] & ATTR_GC_SUPPRESSED) && !isGCSuppressed) {
                 var gcName = edgeCanGC(edge, body);
                 if (gcName) {
-                    path.gcInfo = {name:gcName, body, ppoint};
+                    path.gcInfo = {name:gcName, body, ppoint, edge: edge.Index};
                 }
             }
 
@@ -500,7 +511,7 @@ function findGCBeforeValueUse(start_body, start_point, suppressed_bits, variable
     return BFS_upwards(start_body, start_point, functionBodies, visitor, new Path()) || bestPathWithAnyUse;
 }
 
-function variableLiveAcrossGC(suppressed, variable)
+function variableLiveAcrossGC(suppressed, variable, liveToEnd=false)
 {
     // A variable is live across a GC if (1) it is used by an edge (as in, it
     // was at least initialized), and (2) it is used after a GC in a successor
@@ -541,7 +552,7 @@ function variableLiveAcrossGC(suppressed, variable)
             if (edgeEndsValueLiveRange(edge, variable, body))
                 continue;
 
-            var usePoint = edgeUsesVariable(edge, variable, body);
+            var usePoint = edgeUsesVariable(edge, variable, body, liveToEnd);
             if (usePoint) {
                 var call = findGCBeforeValueUse(body, usePoint, suppressed, variable);
                 if (!call)
@@ -615,7 +626,7 @@ function loadPrintedLines(functionName)
 
 function findLocation(body, ppoint, opts={brief: false})
 {
-    var location = body.PPoint[ppoint - 1].Location;
+    var location = body.PPoint[ppoint ? ppoint - 1 : 0].Location;
     var file = location.CacheString;
 
     if (file.indexOf(sourceRoot) == 0)
@@ -637,8 +648,10 @@ function locationLine(text)
     return 0;
 }
 
-function printEntryTrace(functionName, entry)
+function getEntryTrace(functionName, entry)
 {
+    const trace = [];
+
     var gcPoint = entry.gcInfo ? entry.gcInfo.ppoint : 0;
 
     if (!functionBodies[0].lines)
@@ -685,13 +698,19 @@ function printEntryTrace(functionName, entry)
                 edgeText += " [[end of function]]";
         }
 
-        print("    " + lineText + (edgeText.length ? ": " + edgeText : ""));
+        // TODO: Store this in a more structured form for better markup, and perhaps
+        // linking to line numbers.
+        trace.push({lineText, edgeText});
         entry = entry.successor;
     }
+
+    return trace;
 }
 
-function isRootedType(type)
+function isRootedDeclType(decl)
 {
+    // Treat non-temporary T& references as if they were the underlying type T.
+    const type = isReferenceDecl(decl) ? decl.Type.Type : decl.Type;
     return type.Kind == "CSU" && ((type.Name in typeInfo.RootedPointers) ||
                                   (type.Name in typeInfo.RootedGCThings));
 }
@@ -713,6 +732,10 @@ function typeDesc(type)
     }
 }
 
+function printRecord(record) {
+    print(JSON.stringify(record));
+}
+
 function processBodies(functionName, wholeBodyAttrs)
 {
     if (!("DefineVariable" in functionBodies[0]))
@@ -720,7 +743,7 @@ function processBodies(functionName, wholeBodyAttrs)
     const funcInfo = limitedFunctions[mangled(functionName)] || { attributes: 0 };
     const suppressed = funcInfo.attributes | wholeBodyAttrs;
 
-    // Look for the JS_EXPECT_HAZARDS annotation, and output a different
+    // Look for the JS_EXPECT_HAZARDS annotation, so as to output a different
     // message in that case that won't be counted as a hazard.
     var annotations = new Set();
     for (const variable of functionBodies[0].DefineVariable) {
@@ -732,7 +755,7 @@ function processBodies(functionName, wholeBodyAttrs)
         }
     }
 
-    var missingExpectedHazard = annotations.has("Expect Hazards");
+    let missingExpectedHazard = annotations.has("Expect Hazards");
 
     // Awful special case, hopefully temporary:
     //
@@ -775,20 +798,33 @@ function processBodies(functionName, wholeBodyAttrs)
         }
     }
 
-    for (const variable of functionBodies[0].DefineVariable) {
+    const [mangledSymbol, readable] = splitFunction(functionName);
+
+    for (let decl of functionBodies[0].DefineVariable) {
         var name;
-        if (variable.Variable.Kind == "This")
+        if (decl.Variable.Kind == "This")
             name = "this";
-        else if (variable.Variable.Kind == "Return")
+        else if (decl.Variable.Kind == "Return")
             name = "<returnvalue>";
         else
-            name = variable.Variable.Name[0];
+            name = decl.Variable.Name[0];
 
         if (ignoreVars.has(name))
             continue;
 
-        if (isRootedType(variable.Type)) {
-            if (!variableLiveAcrossGC(suppressed, variable.Variable)) {
+        let liveToEnd = false;
+        if (decl.Variable.Kind == "Arg" && isReferenceDecl(decl) && decl.Type.Reference == 2) {
+            // References won't run destructors, so they would normally not be
+            // considered live at the end of the function. In order to handle
+            // the pattern of moving a GC-unsafe value into a function (eg an
+            // AutoCheckCannotGC&&), assume all argument rvalue references live to the
+            // end of the function unless their liveness is terminated by
+            // calling reset() or moving them into another function call.
+            liveToEnd = true;
+        }
+
+        if (isRootedDeclType(decl)) {
+            if (!variableLiveAcrossGC(suppressed, decl.Variable)) {
                 // The earliest use of the variable should be its constructor.
                 var lineText;
                 for (var body of functionBodies) {
@@ -798,37 +834,58 @@ function processBodies(functionName, wholeBodyAttrs)
                             lineText = text;
                     }
                 }
-                print("\nFunction '" + functionName + "'" +
-                      " has unnecessary root '" + name + "' at " + lineText);
+                const record = {
+                    record: "unnecessary",
+                    functionName,
+                    mangled: mangledSymbol,
+                    readable,
+                    variable: name,
+                    type: typeDesc(decl.Type),
+                    loc: lineText || "???",
+                }
+                print(",");
+                printRecord(record);
             }
-        } else if (isUnrootedType(variable.Type)) {
-            var result = variableLiveAcrossGC(suppressed, variable.Variable);
+        } else if (isUnrootedPointerDeclType(decl)) {
+            var result = variableLiveAcrossGC(suppressed, decl.Variable, liveToEnd);
             if (result) {
                 assert(result.gcInfo);
-                var lineText = findLocation(result.gcInfo.body, result.gcInfo.ppoint);
-                if (annotations.has('Expect Hazards')) {
-                    print("\nThis is expected, but '" + functionName + "'" +
-                          " has unrooted '" + name + "'" +
-                          " of type '" + typeDesc(variable.Type) + "'" +
-                          " live across GC call " + result.gcInfo.name +
-                          " at " + lineText);
-                    missingExpectedHazard = false;
-                } else {
-                    print("\nFunction '" + functionName + "'" +
-                          " has unrooted '" + name + "'" +
-                          " of type '" + typeDesc(variable.Type) + "'" +
-                          " live across GC call " + result.gcInfo.name +
-                          " at " + lineText);
-                }
-                printEntryTrace(functionName, result);
+                const edge = result.gcInfo.edge;
+                const body = result.gcInfo.body;
+                const lineText = findLocation(body, result.gcInfo.ppoint);
+                const makeLoc = l => [l.Location.CacheString, l.Location.Line];
+                const range = [makeLoc(body.PPoint[edge[0] - 1]), makeLoc(body.PPoint[edge[1] - 1])];
+                const record = {
+                    record: "unrooted",
+                    expected: annotations.has("Expect Hazards"),
+                    functionName,
+                    mangled: mangledSymbol,
+                    readable,
+                    variable: name,
+                    type: typeDesc(decl.Type),
+                    gccall: result.gcInfo.name.replaceAll("'", ""),
+                    gcrange: range,
+                    loc: lineText,
+                    trace: getEntryTrace(functionName, result),
+                };
+                missingExpectedHazard = false;
+                print(",");
+                printRecord(record);
             }
-            result = unsafeVariableAddressTaken(suppressed, variable.Variable);
+            result = unsafeVariableAddressTaken(suppressed, decl.Variable);
             if (result) {
                 var lineText = findLocation(result.body, result.ppoint);
-                print("\nFunction '" + functionName + "'" +
-                      " takes unsafe address of unrooted '" + name + "'" +
-                      " at " + lineText);
-                printEntryTrace(functionName, {body:result.body, ppoint:result.ppoint});
+                const record = {
+                    record: "address",
+                    functionName,
+                    mangled: mangledSymbol,
+                    readable,
+                    variable: name,
+                    loc: lineText,
+                    trace: getEntryTrace(functionName, {body:result.body, ppoint:result.ppoint}),
+                };
+                print(",");
+                printRecord(record);
             }
         }
     }
@@ -844,12 +901,21 @@ function processBodies(functionName, wholeBodyAttrs)
         const loc = (startfile == endfile) ? `${startfile}:${startline}-${endline}`
               : `${startfile}:${startline}`;
 
-        print("\nFunction '" + functionName + "' expected hazard(s) but none were found at " + loc);
+        const record = {
+            record: "missing",
+            functionName,
+            mangled: mangledSymbol,
+            readable,
+            loc,
+        }
+        print(",");
+        printRecord(record);
     }
 }
 
-if (options.batch == 1)
-    print("Time: " + new Date);
+print("[\n");
+var now = new Date();
+printRecord({record: "time", iso: "" + now, t: now.getTime()});
 
 var xdb = xdbLibrary();
 xdb.open("src_body.xdb");
@@ -900,6 +966,7 @@ if (options.function) {
     debugger;
     process(options.function, json);
     xdb.free_string(data);
+    print("\n]\n");
     quit(0);
 }
 
@@ -917,3 +984,5 @@ for (var nameIndex = start; nameIndex <= end; nameIndex++) {
     }
     xdb.free_string(data);
 }
+
+print("\n]\n");

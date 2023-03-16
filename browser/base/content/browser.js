@@ -1843,7 +1843,6 @@ var gBrowserInit = {
     );
     Services.obs.addObserver(gXPInstallObserver, "addon-install-failed");
     Services.obs.addObserver(gXPInstallObserver, "addon-install-confirmation");
-    Services.obs.addObserver(gXPInstallObserver, "addon-install-complete");
     Services.obs.addObserver(gKeywordURIFixup, "keyword-uri-fixup");
 
     BrowserOffline.init();
@@ -2533,7 +2532,6 @@ var gBrowserInit = {
         gXPInstallObserver,
         "addon-install-confirmation"
       );
-      Services.obs.removeObserver(gXPInstallObserver, "addon-install-complete");
       Services.obs.removeObserver(gKeywordURIFixup, "keyword-uri-fixup");
 
       if (AppConstants.isPlatformAndVersionAtLeast("win", "10")) {
@@ -9666,7 +9664,7 @@ var ConfirmationHint = {
   show(anchor, messageId, options = {}) {
     this._reset();
 
-    MozXULElement.insertFTLIfNeeded("browser/branding/brandings.ftl");
+    MozXULElement.insertFTLIfNeeded("toolkit/branding/brandings.ftl");
     MozXULElement.insertFTLIfNeeded("browser/confirmationHints.ftl");
     document.l10n.setAttributes(this._message, messageId);
 

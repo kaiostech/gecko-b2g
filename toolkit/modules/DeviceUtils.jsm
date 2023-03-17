@@ -15,6 +15,7 @@ const { AppConstants } = ChromeUtils.import(
 );
 
 const isGonk = AppConstants.platform === "gonk";
+const hasRil = AppConstants.MOZ_B2G_RIL;
 
 const lazy = {};
 
@@ -98,6 +99,9 @@ const DeviceUtils = {
   },
 
   get iccInfo() {
+    if (!hasRil) {
+      return null;
+    }
     let icc = lazy.gIccService.getIccByServiceId(0);
     let iccInfo =
       icc && icc.cardState !== Ci.nsIIcc.CARD_STATE_UNDETECTED && icc.iccInfo;
@@ -109,6 +113,9 @@ const DeviceUtils = {
   },
 
   get imei() {
+    if (!hasRil) {
+      return null;
+    }
     let mobile = lazy.gMobileConnectionService.getItemByServiceId(0);
     if (mobile && mobile.deviceIdentities) {
       return mobile.deviceIdentities.imei;
@@ -137,6 +144,9 @@ const DeviceUtils = {
   },
 
   getConn(id) {
+    if (!hasRil) {
+      return null;
+    }
     let conn = lazy.gMobileConnectionService.getItemByServiceId(id);
     if (conn && conn.voice) {
       return conn.voice.network;
@@ -145,6 +155,9 @@ const DeviceUtils = {
   },
 
   get networkMcc() {
+    if (!hasRil) {
+      return null;
+    }
     let network = this.getConn(0);
     let netMcc = network && network.mcc;
     if (!netMcc && lazy.gMobileConnectionService.numItems > 1) {
@@ -155,6 +168,9 @@ const DeviceUtils = {
   },
 
   get networkMnc() {
+    if (!hasRil) {
+      return null;
+    }
     let network = this.getConn(0);
     let netMnc = network && network.mnc;
     if (!netMnc && lazy.gMobileConnectionService.numItems > 1) {
@@ -167,7 +183,7 @@ const DeviceUtils = {
   getDeviceId: function DeviceUtils_getDeviceId() {
     let deferred = PromiseUtils.defer();
     // TODO: need to check how to handle dual-SIM case.
-    if (typeof lazy.gMobileConnectionService != "undefined") {
+    if (hasRil && typeof lazy.gMobileConnectionService != "undefined") {
       let conn = lazy.gMobileConnectionService.getItemByServiceId(0);
       conn.getIdentities({
         notifyGetDeviceIdentitiesRequestSuccess(aResult) {

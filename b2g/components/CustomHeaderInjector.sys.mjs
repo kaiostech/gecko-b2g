@@ -11,6 +11,11 @@ ChromeUtils.defineModuleGetter(
   "resource://gre/modules/DeviceUtils.jsm"
 );
 
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+const hasRil = AppConstants.MOZ_B2G_RIL;
+
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "gMobileConnectionService",
@@ -67,12 +72,14 @@ export const CustomHeaderInjector = {
     Services.obs.addObserver(this, kTopicActiveNetwork);
     Services.obs.addObserver(this, kTopicPrefChange);
 
-    lazy.gIccService
-      .getIccByServiceId(this._defaultServiceId)
-      .registerListener(this);
-    lazy.gMobileConnectionService
-      .getItemByServiceId(this._defaultServiceId)
-      .registerListener(this);
+    if (hasRil) {
+      lazy.gIccService
+        .getIccByServiceId(this._defaultServiceId)
+        .registerListener(this);
+      lazy.gMobileConnectionService
+        .getItemByServiceId(this._defaultServiceId)
+        .registerListener(this);
+    }
   },
 
   buildCustomHeader() {

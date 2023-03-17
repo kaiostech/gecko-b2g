@@ -12,6 +12,7 @@
 */
 const kWatchedPrefs = [
   "app.update.custom",
+  "b2g.ril.enabled",
   "b2g.version",
   "b2g.volume.state",
   "device.bt",

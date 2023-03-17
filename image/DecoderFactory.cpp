@@ -101,6 +101,24 @@ DecoderType DecoderFactory::GetDecoderType(const char* aMimeType) {
 }
 
 /* static */
+DecoderFlags DecoderFactory::GetDefaultDecoderFlagsForType(DecoderType aType) {
+  auto flags = DefaultDecoderFlags();
+
+#ifdef MOZ_AV1
+  if (aType == DecoderType::AVIF) {
+    if (StaticPrefs::image_avif_sequence_enabled()) {
+      flags |= DecoderFlags::AVIF_SEQUENCES_ENABLED;
+    }
+    if (StaticPrefs::image_avif_sequence_animate_avif_major_branded_images()) {
+      flags |= DecoderFlags::AVIF_ANIMATE_AVIF_MAJOR;
+    }
+  }
+#endif
+
+  return flags;
+}
+
+/* static */
 already_AddRefed<Decoder> DecoderFactory::GetDecoder(DecoderType aType,
                                                      RasterImage* aImage,
                                                      bool aIsRedecode) {
@@ -295,7 +313,7 @@ already_AddRefed<Decoder> DecoderFactory::CloneAnimationDecoder(
 
 /* static */
 already_AddRefed<IDecodingTask> DecoderFactory::CreateMetadataDecoder(
-    DecoderType aType, NotNull<RasterImage*> aImage,
+    DecoderType aType, NotNull<RasterImage*> aImage, DecoderFlags aFlags,
     NotNull<SourceBuffer*> aSourceBuffer, int aSampleSize) {
   if (aType == DecoderType::UNKNOWN) {
     return nullptr;
@@ -307,6 +325,7 @@ already_AddRefed<IDecodingTask> DecoderFactory::CreateMetadataDecoder(
 
   // Initialize the decoder.
   decoder->SetMetadataDecode(true);
+  decoder->SetDecoderFlags(aFlags);
   decoder->SetIterator(aSourceBuffer->Iterator());
   decoder->SetSampleSize(aSampleSize);
 

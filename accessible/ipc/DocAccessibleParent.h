@@ -29,7 +29,7 @@ class xpcAccessibleGeneric;
 class DocAccessiblePlatformExtParent;
 #endif
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
 class SessionAccessibility;
 #endif
 
@@ -358,7 +358,7 @@ class DocAccessibleParent : public RemoteAccessible,
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) override;
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
   RefPtr<SessionAccessibility> mSessionAccessibility;
 #endif
 

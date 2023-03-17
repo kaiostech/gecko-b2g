@@ -2,21 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const { IndexedDBHelper } = ChromeUtils.import(
-  "resource://gre/modules/IndexedDBHelper.jsm"
-);
+import { IndexedDBHelper } from "resource://gre/modules/IndexedDBHelper.sys.mjs";
 
 const lazy = {};
 
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "ActivitiesServiceFilter",
-  "resource://gre/modules/ActivitiesServiceFilter.jsm"
-);
-
-const EXPORTED_SYMBOLS = [];
+ChromeUtils.defineESModuleGetters(lazy, {
+  ActivitiesServiceFilter:
+    "resource://gre/modules/ActivitiesServiceFilter.sys.mjs",
+});
 
 const DEBUG = Services.prefs.getBoolPref("dom.activity.debug", false);
 function debug(aMsg) {
@@ -214,11 +207,11 @@ ActivitiesDb.prototype = {
 
 var Activities = {
   messages: [
-    // ActivityProxy.jsm
+    // ActivityProxy.sys.mjs
     "Activity:Start",
     "Activity:Cancel",
 
-    // ActivityRequestHandlerProxy.jsm
+    // ActivityRequestHandlerProxy.sys.mjs
     "Activity:Ready",
     "Activity:PostResult",
     "Activity:PostError",
@@ -228,7 +221,7 @@ var Activities = {
     "Activities:Unregister",
     "Activities:UnregisterAll",
 
-    // ActivityUtils.jsm
+    // ActivityUtils.sys.mjs
     "Activities:Get",
 
     "child-process-shutdown",

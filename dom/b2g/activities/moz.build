@@ -9,11 +9,11 @@ DIRS += [
 ]
 
 EXTRA_JS_MODULES += [
-    "ActivitiesService.jsm",
-    "ActivitiesServiceFilter.jsm",
-    "ActivityProxy.jsm",
-    "ActivityRequestHandlerProxy.jsm",
-    "ActivityUtils.jsm",
+    "ActivitiesService.sys.mjs",
+    "ActivitiesServiceFilter.sys.mjs",
+    "ActivityProxy.sys.mjs",
+    "ActivityRequestHandlerProxy.sys.mjs",
+    "ActivityUtils.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

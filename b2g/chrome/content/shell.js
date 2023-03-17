@@ -14,7 +14,7 @@ const { MarionetteController } = ChromeUtils.import(
   "resource://gre/modules/MarionetteController.jsm"
 );
 
-ChromeUtils.import("resource://gre/modules/ActivitiesService.jsm");
+ChromeUtils.importESModule("resource://gre/modules/ActivitiesService.sys.mjs");
 ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
 ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");

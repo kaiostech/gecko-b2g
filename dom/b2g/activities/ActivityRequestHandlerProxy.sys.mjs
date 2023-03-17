@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 function debug(aMsg) {
   //dump(`ActivityRequestHandlerProxy: ${aMsg}\n`);
 }
@@ -13,7 +11,7 @@ function debug(aMsg) {
  * WebActivityRequestHandler (running on service worker) to ActivitiesService.
  */
 
-function ActivityRequestHandlerProxy() {}
+export function ActivityRequestHandlerProxy() {}
 
 ActivityRequestHandlerProxy.prototype = {
   notifyActivityReady(id) {
@@ -46,4 +44,3 @@ ActivityRequestHandlerProxy.prototype = {
 };
 
 //module initialization
-var EXPORTED_SYMBOLS = ["ActivityRequestHandlerProxy"];

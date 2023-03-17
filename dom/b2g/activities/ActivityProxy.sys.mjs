@@ -2,19 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 function debug(aMsg) {
   //dump(`ActivityProxy: ${aMsg}\n`);
 }
 
 /*
  * ActivityProxy is a helper of passing requests from WebActivity.cpp to
- * ActivitiesService.jsm, receiving results from ActivitiesService and send it
+ * ActivitiesService.sys.mjs, receiving results from ActivitiesService and send it
  * back to WebActivity.
  */
 
-function ActivityProxy() {
+export function ActivityProxy() {
   debug(`consturctor`);
   // NOTE: I think it's okay not to remove MessageListeners because this
   // ActivityProxy runs as a singleton service per process.
@@ -126,4 +124,3 @@ ActivityProxy.prototype = {
 };
 
 //module initialization
-var EXPORTED_SYMBOLS = ["ActivityProxy"];

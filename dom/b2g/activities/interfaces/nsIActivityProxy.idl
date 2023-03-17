@@ -13,7 +13,7 @@ interface nsIActivityStartCallback : nsISupports
 
 /*
  * nsIActivityProxy is a helper of passing requests from WebActivity.cpp to
- * ActivitiesService.jsm, receiving results from ActivitiesService and send it
+ * ActivitiesService.sys.mjs, receiving results from ActivitiesService and send it
  * back to WebActivity.
  */
 [scriptable, uuid(3cd334b4-01f5-11eb-a4f3-d70a879aa1d9)]

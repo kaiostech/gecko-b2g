@@ -5,8 +5,8 @@
 "use strict";
 const EXPORTED_SYMBOLS = ["GonkDrmDB"];
 
-const { IndexedDBHelper } = ChromeUtils.import(
-  "resource://gre/modules/IndexedDBHelper.jsm"
+const { IndexedDBHelper } = ChromeUtils.importESModule(
+  "resource://gre/modules/IndexedDBHelper.sys.mjs"
 );
 
 const GONKDRM_DB_NAME = "gonkdrm";

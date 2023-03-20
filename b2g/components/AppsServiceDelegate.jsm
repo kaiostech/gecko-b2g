@@ -76,18 +76,22 @@ AppsServiceDelegate.prototype = {
     }
   },
 
-  _processServiceWorker(aManifestUrl, aFeatures, aState) {
+  async _processServiceWorker(aManifestUrl, aFeatures, aState) {
     try {
       switch (aState) {
         case "onBoot":
         case "onInstall":
-          ServiceWorkerAssistant.register(aManifestUrl, aFeatures, aState);
+          await ServiceWorkerAssistant.register(
+            aManifestUrl,
+            aFeatures,
+            aState
+          );
           break;
         case "onUpdate":
-          ServiceWorkerAssistant.update(aManifestUrl, aFeatures);
+          await ServiceWorkerAssistant.update(aManifestUrl, aFeatures);
           break;
         case "onUninstall":
-          ServiceWorkerAssistant.unregister(aManifestUrl);
+          await ServiceWorkerAssistant.unregister(aManifestUrl);
           break;
       }
     } catch (e) {
@@ -148,14 +152,14 @@ AppsServiceDelegate.prototype = {
     return ua;
   },
 
-  onBoot(aManifestUrl, aManifest) {
+  async onBoot(aManifestUrl, aManifest) {
     log(`onBoot: ${aManifestUrl}`);
     try {
       let manifest = JSON.parse(aManifest);
       // To compatible with when b2g_features only is passed.
       let features = manifest.b2g_features || manifest;
       this._installPermissions(features, aManifestUrl, false, "onBoot");
-      this._processServiceWorker(aManifestUrl, features, "onBoot");
+      await this._processServiceWorker(aManifestUrl, features, "onBoot");
       this._addOrUpdateAppsList(aManifestUrl, manifest);
     } catch (e) {
       log(`Error in onBoot: ${e}`);
@@ -168,7 +172,7 @@ AppsServiceDelegate.prototype = {
     ServiceWorkerAssistant.waitForRegistrations();
   },
 
-  async onClear(aManifestUrl, aType, aManifest) {
+  async onClear(aManifestUrl, aType, aManifest, aCallback) {
     log(`onClear: ${aManifestUrl}: clear type: ${aType}`);
 
     Services.obs.notifyObservers(
@@ -187,47 +191,64 @@ AppsServiceDelegate.prototype = {
         let manifest = JSON.parse(aManifest);
         // To compatible with when b2g_features only is passed.
         let features = manifest.b2g_features || manifest;
-        ServiceWorkerAssistant.register(aManifestUrl, features, "onClear");
+        await ServiceWorkerAssistant.register(
+          aManifestUrl,
+          features,
+          "onClear"
+        );
       } catch (e) {
         log(`Error when trying re-register sw in onClear: ${e}`);
+        aCallback.reject();
+        return;
       }
     }
+    aCallback.resolve();
   },
 
-  onInstall(aManifestUrl, aManifest) {
+  async onInstall(aManifestUrl, aManifest, aCallback) {
     log(`onInstall: ${aManifestUrl}`);
     try {
       let manifest = JSON.parse(aManifest);
       // To compatible with when b2g_features only is passed.
       let features = manifest.b2g_features || manifest;
       this._installPermissions(features, aManifestUrl, false, "onInstall");
-      this._processServiceWorker(aManifestUrl, features, "onInstall");
+      await this._processServiceWorker(aManifestUrl, features, "onInstall");
       this._addOrUpdateAppsList(aManifestUrl, manifest);
+      aCallback.resolve();
     } catch (e) {
       log(`Error in onInstall: ${e}`);
+      aCallback.reject();
     }
   },
 
-  onUpdate(aManifestUrl, aManifest) {
+  async onUpdate(aManifestUrl, aManifest, aCallback) {
     log(`onUpdate: ${aManifestUrl}`);
     try {
       let manifest = JSON.parse(aManifest);
       // To compatible with when b2g_features only is passed.
       let features = manifest.b2g_features || manifest;
       this._installPermissions(features, aManifestUrl, true, "onUpdate");
-      this._processServiceWorker(aManifestUrl, features, "onUpdate");
+      await this._processServiceWorker(aManifestUrl, features, "onUpdate");
       this._addOrUpdateAppsList(aManifestUrl, manifest);
+      aCallback.resolve();
     } catch (e) {
       log(`Error in onUpdate: ${e}`);
+      aCallback.reject();
     }
   },
 
-  onUninstall(aManifestUrl) {
+  async onUninstall(aManifestUrl, aCallback) {
     log(`onUninstall: ${aManifestUrl}`);
-    PermissionsInstaller.uninstallPermissions(aManifestUrl);
-    this._processServiceWorker(aManifestUrl, undefined, "onUninstall");
-    AppsUtils.clearData(aManifestUrl);
-    this._removeFromAppsList(aManifestUrl);
+    try {
+      PermissionsInstaller.uninstallPermissions(aManifestUrl);
+      await this._processServiceWorker(aManifestUrl, undefined, "onUninstall");
+      AppsUtils.clearData(aManifestUrl);
+      this._removeFromAppsList(aManifestUrl);
+      aCallback.resolve();
+    } catch (e) {
+      log(`Error in onUninstall: ${e}`);
+      aCallback.reject();
+    }
   },
 
   onLaunch(aManifestUrl) {

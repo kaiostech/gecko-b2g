@@ -7,10 +7,10 @@ interface nsIAppsServiceDelegate : nsISupports {
     AString getManifestUrlByScopeUrl(in AString aUrl);
     void onBoot(in AString aManifestUrl, in AString aValue);
     void onBootDone();
-    void onClear(in AString aManifestUrl, in AString aType, in AString aValue);
-    void onInstall(in AString aManifestUrl, in AString aValue);
-    void onUpdate(in AString aManifestUrl, in AString aValue);
-    void onUninstall(in AString aManifestUrl);
+    void onClear(in AString aManifestUrl, in AString aType, in AString aValue, in nsISidlDefaultResponse callback);
+    void onInstall(in AString aManifestUrl, in AString aValue, in nsISidlDefaultResponse callback);
+    void onUpdate(in AString aManifestUrl, in AString aValue, in nsISidlDefaultResponse callback);
+    void onUninstall(in AString aManifestUrl, in nsISidlDefaultResponse callback);
     void onLaunch(in AString aManifestUrl);
     AString getUa();
 };

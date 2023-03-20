@@ -14,9 +14,11 @@ use crate::common::uds_transport::{
 use bincode::Options;
 use log::{debug, error};
 use moz_task::ThreadPtrHandle;
+use nserror::{nsresult, NS_OK};
 use nsstring::*;
 use std::any::Any;
-use xpcom::interfaces::nsIAppsServiceDelegate;
+use xpcom::interfaces::{nsIAppsServiceDelegate, nsISidlDefaultResponse};
+use xpcom::RefPtr;
 
 pub struct AppsServiceDelegate {
     xpcom: ThreadPtrHandle<nsIAppsServiceDelegate>,
@@ -158,6 +160,45 @@ enum AppsServiceCommand {
     GetUa(),
 }
 
+// Implementation of nsISidlDefaultResponse for delegate results.
+#[xpcom(implement(nsISidlDefaultResponse), atomic)]
+pub struct AppResponseXpcom {
+    task: AppsServiceDelegateTask,
+    success: GeckoBridgeFromClient,
+    error: GeckoBridgeFromClient,
+}
+
+impl AppResponseXpcom {
+    fn new(
+        task: AppsServiceDelegateTask,
+        success: GeckoBridgeFromClient,
+        error: GeckoBridgeFromClient,
+    ) -> RefPtr<Self> {
+        debug!("AppResponseXpcom::new");
+
+        Self::allocate(InitAppResponseXpcom {
+            task,
+            success,
+            error,
+        })
+    }
+
+    xpcom_method!(resolve => Resolve());
+    fn resolve(&self) -> Result<(), nsresult> {
+        debug!("AppResponseXpcom::resolve");
+        self.task.reply(&self.success);
+        Ok(())
+    }
+
+    xpcom_method!(reject => Reject());
+    fn reject(&self) -> Result<(), nsresult> {
+        debug!("AppResponseXpcom::reject");
+        self.task.reply(&self.error);
+
+        Ok(())
+    }
+}
+
 // A Task to dispatch commands to the delegate.
 #[derive(Clone)]
 struct AppsServiceDelegateTask {
@@ -170,7 +211,7 @@ struct AppsServiceDelegateTask {
 }
 
 impl AppsServiceDelegateTask {
-    fn reply(&self, payload: GeckoBridgeFromClient) {
+    fn reply(&self, payload: &GeckoBridgeFromClient) {
         let message = BaseMessage {
             service: self.service_id,
             object: self.object_id,
@@ -179,6 +220,14 @@ impl AppsServiceDelegateTask {
         };
         let mut t = self.transport.clone();
         let _ = t.send_message(&message);
+    }
+
+    fn apps_response(
+        &self,
+        success: GeckoBridgeFromClient,
+        error: GeckoBridgeFromClient,
+    ) -> RefPtr<AppResponseXpcom> {
+        AppResponseXpcom::new(self.clone(), success, error)
     }
 }
 
@@ -212,37 +261,65 @@ impl SidlTask for AppsServiceDelegateTask {
                     let manifest_url = nsString::from(manifest_url);
                     let clear_type = nsString::from(clear_type);
                     let value = nsString::from(value);
+                    let callback = self.apps_response(
+                        GeckoBridgeFromClient::AppsServiceDelegateOnClearSuccess,
+                        GeckoBridgeFromClient::AppsServiceDelegateOnClearError,
+                    );
                     unsafe {
                         object.OnClear(
                             &*manifest_url as &nsAString,
                             &*clear_type as &nsAString,
                             &*value as &nsAString,
+                            callback.coerce::<nsISidlDefaultResponse>(),
                         );
                     }
-                    GeckoBridgeFromClient::AppsServiceDelegateOnClearSuccess
+                    return;
                 }
                 AppsServiceCommand::OnInstall(manifest_url, value) => {
                     let manifest_url = nsString::from(manifest_url);
                     let value = nsString::from(value);
+                    let callback = self.apps_response(
+                        GeckoBridgeFromClient::AppsServiceDelegateOnInstallSuccess,
+                        GeckoBridgeFromClient::AppsServiceDelegateOnInstallError,
+                    );
                     unsafe {
-                        object.OnInstall(&*manifest_url as &nsAString, &*value as &nsAString);
+                        object.OnInstall(
+                            &*manifest_url as &nsAString,
+                            &*value as &nsAString,
+                            callback.coerce::<nsISidlDefaultResponse>(),
+                        );
                     }
-                    GeckoBridgeFromClient::AppsServiceDelegateOnInstallSuccess
+                    return;
                 }
                 AppsServiceCommand::OnUpdate(manifest_url, value) => {
                     let manifest_url = nsString::from(manifest_url);
                     let value = nsString::from(value);
+                    let callback = self.apps_response(
+                        GeckoBridgeFromClient::AppsServiceDelegateOnUpdateSuccess,
+                        GeckoBridgeFromClient::AppsServiceDelegateOnUpdateError,
+                    );
                     unsafe {
-                        object.OnUpdate(&*manifest_url as &nsAString, &*value as &nsAString);
+                        object.OnUpdate(
+                            &*manifest_url as &nsAString,
+                            &*value as &nsAString,
+                            callback.coerce::<nsISidlDefaultResponse>(),
+                        );
                     }
-                    GeckoBridgeFromClient::AppsServiceDelegateOnUpdateSuccess
+                    return;
                 }
                 AppsServiceCommand::OnUninstall(manifest_url) => {
                     let url = nsString::from(manifest_url);
+                    let callback = self.apps_response(
+                        GeckoBridgeFromClient::AppsServiceDelegateOnUninstallSuccess,
+                        GeckoBridgeFromClient::AppsServiceDelegateOnUninstallError,
+                    );
                     unsafe {
-                        object.OnUninstall(&*url as &nsAString);
+                        object.OnUninstall(
+                            &*url as &nsAString,
+                            callback.coerce::<nsISidlDefaultResponse>(),
+                        );
                     }
-                    GeckoBridgeFromClient::AppsServiceDelegateOnUninstallSuccess
+                    return;
                 }
                 AppsServiceCommand::OnLaunch(manifest_url) => {
                     let url = nsString::from(manifest_url);
@@ -261,7 +338,7 @@ impl SidlTask for AppsServiceDelegateTask {
                     }
                 }
             };
-            self.reply(payload);
+            self.reply(&payload);
         }
     }
 }

@@ -547,10 +547,8 @@ struct TextRenderedRun {
     eIncludeFill = 1,
     // Includes the stroke geometry of the text in the returned rectangle.
     eIncludeStroke = 2,
-    // Includes any text shadow in the returned rectangle.
-    eIncludeTextShadow = 4,
     // Don't include any horizontal glyph overflow in the returned rectangle.
-    eNoHorizontalOverflow = 8
+    eNoHorizontalOverflow = 4
   };
 
   /**
@@ -863,12 +861,6 @@ SVGBBox TextRenderedRun::GetRunUserSpaceRect(nsPresContext* aContext,
     // Swap line-relative textMetrics dimensions to physical coordinates.
     std::swap(fillInAppUnits.x, fillInAppUnits.y);
     std::swap(fillInAppUnits.width, fillInAppUnits.height);
-  }
-
-  // Account for text-shadow.
-  if (aFlags & eIncludeTextShadow) {
-    fillInAppUnits =
-        nsLayoutUtils::GetTextShadowRectsUnion(fillInAppUnits, mFrame);
   }
 
   // Convert the app units rectangle to user units.
@@ -2032,12 +2024,19 @@ class MOZ_STACK_CLASS CharIterator {
    * Returns whether the current character is the start of a cluster and
    * ligature group.
    */
-  bool IsClusterAndLigatureGroupStart() const;
+  bool IsClusterAndLigatureGroupStart() const {
+    return mTextRun->IsLigatureGroupStart(
+               mSkipCharsIterator.GetSkippedOffset()) &&
+           mTextRun->IsClusterStart(mSkipCharsIterator.GetSkippedOffset());
+  }
 
   /**
    * Returns the glyph run for the current character.
    */
-  const gfxTextRun::GlyphRun& GlyphRun() const;
+  const gfxTextRun::GlyphRun& GlyphRun() const {
+    return *mTextRun->FindFirstGlyphRunContaining(
+        mSkipCharsIterator.GetSkippedOffset());
+  }
 
   /**
    * Returns whether the current character is trimmed away when painting,
@@ -2278,21 +2277,6 @@ bool CharIterator::AdvanceToSubtree() {
     }
   }
   return true;
-}
-
-bool CharIterator::IsClusterAndLigatureGroupStart() const {
-  return mTextRun->IsLigatureGroupStart(
-             mSkipCharsIterator.GetSkippedOffset()) &&
-         mTextRun->IsClusterStart(mSkipCharsIterator.GetSkippedOffset());
-}
-
-const gfxTextRun::GlyphRun& CharIterator::GlyphRun() const {
-  uint32_t numRuns;
-  const gfxTextRun::GlyphRun* glyphRuns = mTextRun->GetGlyphRuns(&numRuns);
-  uint32_t runIndex = mTextRun->FindFirstGlyphRunContaining(
-      mSkipCharsIterator.GetSkippedOffset());
-  MOZ_ASSERT(runIndex < numRuns);
-  return glyphRuns[runIndex];
 }
 
 bool CharIterator::IsOriginalCharTrimmed() const {
@@ -3282,15 +3266,9 @@ void SVGTextFrame::ReflowSVG() {
     uint32_t runFlags = 0;
     if (!run.mFrame->StyleSVG()->mFill.kind.IsNone()) {
       runFlags |= TextRenderedRun::eIncludeFill;
-      if (run.mFrame->StyleText()->HasTextShadow()) {
-        runFlags |= TextRenderedRun::eIncludeTextShadow;
-      }
     }
     if (SVGUtils::HasStroke(run.mFrame)) {
       runFlags |= TextRenderedRun::eIncludeStroke;
-      if (run.mFrame->StyleText()->HasTextShadow()) {
-        runFlags |= TextRenderedRun::eIncludeTextShadow;
-      }
     }
     // Our "visual" overflow rect needs to be valid for building display lists
     // for hit testing, which means that for certain values of 'pointer-events'

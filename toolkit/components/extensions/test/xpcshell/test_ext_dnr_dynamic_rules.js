@@ -180,7 +180,7 @@ add_task(async function test_dynamic_rules_count_limits() {
             { ...DUMMY_RULE, id: MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES + 1 },
           ],
         }),
-        /updateDynamicRules request is exceeding MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES limit \(\d+\)/,
+        `Number of rules in ruleset "_dynamic" exceeds MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES.`,
         "Got the expected rejection of exceeding the number of dynamic rules allowed"
       );
 
@@ -229,7 +229,7 @@ add_task(async function test_dynamic_rules_count_limits() {
         updateDynamicRulesTooMany?.status === "rejected"
           ? Promise.reject(updateDynamicRulesTooMany.reason)
           : Promise.resolve(),
-        /updateDynamicRules request is exceeding MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES limit \(\d+\)/,
+        `Number of rules in ruleset "_dynamic" exceeds MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES.`,
         "Got the expected rejection on the second call exceeding the number of dynamic rules allowed"
       );
 
@@ -257,6 +257,10 @@ add_task(async function test_dynamic_rules_count_limits() {
         "Expect the number of dynamic rules to be still allowed, despite the session rule added"
       );
 
+      // NOTE: In this test we do not exceed the quota of session rules. The
+      // updateSessionRules call here is to verify that the quota of session and
+      // dynamic rules are separate. The limits for session rules are tested
+      // by session_rules_total_rule_limit in test_ext_dnr_session_rules.js.
       browser.test.assertDeepEq(
         updateSessionResult,
         { status: "fulfilled", value: undefined },
@@ -376,14 +380,14 @@ add_task(async function test_stored_dynamic_rules_exceeding_limits() {
   });
 
   await callTestMessageHandler(extension, "assertGetDynamicRulesCount", {
-    expectedRulesCount: expectedDynamicRules.length,
+    expectedRulesCount: 0,
   });
 
   AddonTestUtils.checkMessages(messages, {
     expected: [
       {
         message: new RegExp(
-          `Ignoring dynamic rules exceeding rule count limits while loading DNR store data for ${extension.id}`
+          `Ignoring dynamic ruleset in extension "${extension.id}" because: Number of rules in ruleset "_dynamic" exceeds MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES`
         ),
       },
     ],

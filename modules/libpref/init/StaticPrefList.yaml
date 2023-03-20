@@ -2193,6 +2193,12 @@
   value: false
   mirror: always
 
+# Whether CanvasRenderingContext2D.mozImageSmoothingEnabled is enabled.
+- name: dom.mozImageSmoothingEnabled.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Allow cut/copy
 - name: dom.allow_cut_copy
   type: bool
@@ -8853,7 +8859,7 @@
 # Before enabling everywhere, make sure blockers of bug 1808229 are fixed.
 - name: layout.css.nth-child-of.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 

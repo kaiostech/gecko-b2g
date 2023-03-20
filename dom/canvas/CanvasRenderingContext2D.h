@@ -24,6 +24,7 @@
 #include "FilterDescription.h"
 #include "gfx2DGlue.h"
 #include "gfxFontConstants.h"
+#include "gfxUtils.h"
 #include "nsICanvasRenderingContextInternal.h"
 #include "nsColor.h"
 #include "nsIFrame.h"
@@ -943,7 +944,7 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
       return std::min(SIGMA_MAX, shadowBlur / 2.0f);
     }
 
-    nsTArray<ClipState> clipsAndTransforms;
+    ElementOrArray<ClipState> clipsAndTransforms;
 
     RefPtr<gfxFontGroup> fontGroup;
     RefPtr<nsAtom> fontLanguage;

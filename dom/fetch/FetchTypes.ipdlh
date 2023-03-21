@@ -36,7 +36,7 @@ struct ParentToParentStream {
 };
 
 union ParentToChildStream {
-  RemoteLazyInputStream;
+  nullable RemoteLazyInputStream;
   IPCStream;
 };
 
@@ -86,7 +86,7 @@ struct InternalResponseMetadata {
   HeadersEntry[] headers;
   nsresult errorCode;
   nsCString alternativeDataType;
-  nsITransportSecurityInfo securityInfo;
+  nullable nsITransportSecurityInfo securityInfo;
   PrincipalInfo? principalInfo;
   bool hasSystemXHRPerm;
   nsCString bodyBlobURISpec;

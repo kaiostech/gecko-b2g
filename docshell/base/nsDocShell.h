@@ -1063,9 +1063,6 @@ class nsDocShell final : public nsDocLoader,
 
   // Check to see if we're loading a prior history entry or doing a fragment
   // navigation in the same document.
-  // NOTE: In case we are doing a fragment navigation, and HTTPS-Only/ -First
-  // mode is enabled and upgraded the underlying document, we update the URI of
-  // aLoadState from HTTP to HTTPS (if neccessary).
   bool IsSameDocumentNavigation(nsDocShellLoadState* aLoadState,
                                 SameDocumentNavigationState& aState);
 
@@ -1297,6 +1294,8 @@ class nsDocShell final : public nsDocLoader,
   uint32_t mRequestForBlockingFromBFCacheCount = 0;
 
   uint64_t mChannelToDisconnectOnPageHide;
+
+  uint32_t mPendingReloadCount = 0;
 
   // The following two fields cannot be declared as bit fields
   // because of uses with AutoRestore.

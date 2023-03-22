@@ -915,6 +915,10 @@ pref("privacy.popups.disable_from_plugins", 3);
 // domains exempted from RFP.
 pref("privacy.resistFingerprinting.exemptedDomains", "*.example.invalid");
 
+// If privacy.resistFingerprintingLite is enabled, this pref can be used to add
+// or remove features from its effects
+pref("privacy.resistFingerprintingLite.overrides", "");
+
 // Fix cookie blocking breakage by providing ephemeral Paritioned LocalStorage
 // for a list of hosts when detected as trackers.
 // (See nsICookieService::BEHAVIOR_REJECT_TRACKER cookie behavior)
@@ -3613,9 +3617,6 @@ pref("browser.safebrowsing.provider.mozilla.lists.content", "moz-full");
 
 // The table and global pref for blocking plugin content
 pref("urlclassifier.blockedTable", "moztest-block-simple,mozplugin-block-digest256");
-
-// Turn off Spatial navigation by default.
-pref("snav.enabled", false);
 
 // Wakelock is disabled by default.
 pref("dom.wakelock.enabled", false);

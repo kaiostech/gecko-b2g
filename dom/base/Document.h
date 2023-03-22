@@ -14,7 +14,6 @@
 #include <utility>
 #include "ErrorList.h"
 #include "MainThreadUtils.h"
-#include "ReferrerInfo.h"
 #include "Units.h"
 #include "imgIRequest.h"
 #include "js/RootingAPI.h"
@@ -95,6 +94,7 @@
 #include "nsPIDOMWindow.h"
 #include "nsPropertyTable.h"
 #include "nsRefPtrHashtable.h"
+#include "nsRFPService.h"
 #include "nsString.h"
 #include "nsTArray.h"
 #include "nsTHashSet.h"
@@ -873,9 +873,7 @@ class Document : public nsINode,
     return mUpgradeInsecureRequests;
   }
 
-  void SetReferrerInfo(nsIReferrerInfo* aReferrerInfo) {
-    mReferrerInfo = aReferrerInfo;
-  }
+  void SetReferrerInfo(nsIReferrerInfo*);
 
   /*
    * Referrer policy from <meta name="referrer" content=`policy`>
@@ -966,6 +964,7 @@ class Document : public nsINode,
    * the document, a new one is created.
    */
   URLExtraData* DefaultStyleAttrURLData();
+  nsIReferrerInfo* ReferrerInfoForInternalCSSAndSVGResources();
 
   /**
    * Get/Set the base target of a link in a document.
@@ -4159,9 +4158,7 @@ class Document : public nsINode,
    */
   class HighlightRegistry& HighlightRegistry();
 
-  bool ShouldResistFingerprinting() const {
-    return mShouldResistFingerprinting;
-  }
+  bool ShouldResistFingerprinting(RFPTarget aTarget = RFPTarget::Unknown) const;
 
   void RecomputeResistFingerprinting();
 
@@ -4492,9 +4489,9 @@ class Document : public nsINode,
   // The base domain of the document for third-party checks.
   nsCString mBaseDomain;
 
-  // A lazily-constructed URL data for style system to resolve URL value.
+  // A lazily-constructed URL data for style system to resolve URL values.
   RefPtr<URLExtraData> mCachedURLData;
-  nsCOMPtr<nsIReferrerInfo> mCachedReferrerInfo;
+  nsCOMPtr<nsIReferrerInfo> mCachedReferrerInfoForInternalCSSAndSVGResources;
 
   nsWeakPtr mDocumentLoadGroup;
 

@@ -34,7 +34,7 @@ namespace {
 
 struct OrientationMapping {
   uint32_t mScreenRotation;
-  ScreenOrientation mDomOrientation;
+  mozilla::hal::ScreenOrientation mDomOrientation;
 };
 
 static OrientationMapping sOrientationMappings[] = {
@@ -97,7 +97,7 @@ static void DetectDefaultOrientation() {
  * @param aResult output nsIScreen rotation e.g. nsIScreen::ROTATION_0_DEG.
  * @return NS_OK on success. NS_ILLEGAL_VALUE on failure.
  */
-static nsresult ConvertToScreenRotation(ScreenOrientation aOrientation,
+static nsresult ConvertToScreenRotation(mozilla::hal::ScreenOrientation aOrientation,
                                         uint32_t* aResult) {
   for (uint32_t i = 0; i < ArrayLength(sOrientationMappings); i++) {
     if (aOrientation & sOrientationMappings[i].mDomOrientation) {
@@ -123,7 +123,7 @@ static nsresult ConvertToScreenRotation(ScreenOrientation aOrientation,
  * @return NS_OK on success. NS_ILLEGAL_VALUE on failure.
  */
 nsresult ConvertToDomOrientation(uint32_t aRotation,
-                                 ScreenOrientation* aResult) {
+                                 mozilla::hal::ScreenOrientation* aResult) {
   for (uint32_t i = 0; i < ArrayLength(sOrientationMappings); i++) {
     if (aRotation == sOrientationMappings[i].mScreenRotation) {
       // Shift the mappings in sOrientationMappings so devices with default
@@ -200,7 +200,7 @@ void OrientationObserver::Notify(const hal::SensorData& aSensorData) {
     return;
   }
 
-  ScreenOrientation orientation;
+  mozilla::hal::ScreenOrientation orientation;
   if (NS_FAILED(ConvertToDomOrientation(rotation, &orientation))) {
     return;
   }
@@ -238,7 +238,7 @@ void OrientationObserver::DisableAutoOrientation() {
 }
 
 bool OrientationObserver::LockScreenOrientation(
-    ScreenOrientation aOrientation) {
+    mozilla::hal::ScreenOrientation aOrientation) {
   MOZ_ASSERT(aOrientation | (ScreenOrientation::PortraitPrimary |
                              ScreenOrientation::PortraitSecondary |
                              ScreenOrientation::LandscapePrimary |
@@ -273,7 +273,7 @@ bool OrientationObserver::LockScreenOrientation(
   nsresult rv = screen->GetRotation(&currRotation);
   NS_ENSURE_SUCCESS(rv, false);
 
-  ScreenOrientation currOrientation = ScreenOrientation::None;
+  mozilla::hal::ScreenOrientation currOrientation = ScreenOrientation::None;
   rv = ConvertToDomOrientation(currRotation, &currOrientation);
   NS_ENSURE_SUCCESS(rv, false);
 
@@ -292,7 +292,7 @@ bool OrientationObserver::LockScreenOrientation(
   NS_ENSURE_SUCCESS(rv, false);
 
   // This conversion will disambiguate aOrientation.
-  ScreenOrientation orientation;
+  mozilla::hal::ScreenOrientation orientation;
   rv = ConvertToDomOrientation(rotation, &orientation);
   NS_ENSURE_SUCCESS(rv, false);
 

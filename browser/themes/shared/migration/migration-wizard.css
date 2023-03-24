@@ -7,13 +7,23 @@
 :host {
   display: flex;
   flex-direction: column;
-  width: 25.54em;
+  width: 22.34em;
 }
 
-h3 {
+h1 {
+  font-size: 1.30em;
   font-weight: normal;
-  margin-block-start: 0;
+  margin-block: 0 16px;
   min-height: 1em;
+}
+
+ol {
+  padding-inline-start: 24px;
+  margin-block: 16px 0;
+}
+
+li:not(:last-child) {
+  margin-block-end: 16px;
 }
 
 div[name="page-loading"] > .buttons > button {
@@ -58,12 +68,70 @@ button {
   margin-block-end: 0;
 }
 
+#wizard-deck > div {
+  display: flex;
+  flex-direction: column;
+}
+
+#browser-profile-selector {
+  display: flex;
+  border: 0;
+  padding: 8px;
+  margin: 0;
+  font-weight: unset;
+}
+
+.migrator-icon {
+  content: url(chrome://global/skin/icons/defaultFavicon.svg);
+  height: 32px;
+  width: 32px;
+}
+
+.migrator-icon,
+.migrator-description,
+.dropdown-icon {
+  pointer-events: none;
+}
+
+.dropdown-icon {
+  content: url("chrome://global/skin/icons/arrow-down.svg");
+  -moz-context-properties: fill;
+  fill: var(--in-content-icon-color);
+  height: 16px;
+  width: 16px;
+  align-self: center;
+}
+
+.migrator-description {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  align-items: start;
+  margin-inline-start: 11px;
+}
+
+.profile-name:empty {
+  display: none;
+}
+
+/**
+ * Until we address bug 1823489, it's not that easy to apply styles on
+ * the panel-list. We work around this by setting the CSS variable for
+ * the border instead.
+ */
+slot::slotted(panel-list),
+slot::slotted(panel) {
+  --in-content-box-border-color: transparent;
+}
+
 div[name="page-selection"]:not([show-import-all]) #select-all,
+div[name="page-selection"][show-import-all][single-item] #select-all,
 div[name="page-selection"]:not([show-import-all]) summary {
   display: none;
 }
 
-div[name="page-selection"][show-import-all] label:not(#select-all)  {
+div[name="page-selection"][show-import-all]:not([single-item]) label:not(#select-all)  {
   margin-inline-start: 24px;
 }
 
@@ -72,14 +140,18 @@ div[name="page-selection"][show-import-all] #select-all  {
 }
 
 div[name="page-selection"][show-import-all] .resource-selection-preamble {
-  display:none;
+  display: none;
 }
 
-details[open] .dropdown-icon {
+.resource-selection-preamble {
+  margin-block-start: 16px;
+}
+
+details[open] .expand-collapse-icon {
   background-image: url("chrome://browser/skin/zoom-out.svg");
 }
 
-.dropdown-icon {
+.expand-collapse-icon {
   display: inline-block;
   width: 16px;
   height: 16px;
@@ -88,10 +160,19 @@ details[open] .dropdown-icon {
   -moz-context-properties: fill;
   fill: currentColor;
   justify-self: end;
+  margin-inline-end: 8px;
 }
 
 details:not([open]) summary {
   margin-block-end: 16px;
+}
+
+#resource-type-list {
+  padding: 0;
+}
+
+#resource-type-list > label {
+  margin-block-start: 16px;
 }
 
 :host(:not([dialog-mode])) .cancel-close {
@@ -100,7 +181,7 @@ details:not([open]) summary {
 
 .resource-progress {
   display: grid;
-  gap: 8px;
+  gap: 16px;
 }
 
 .resource-progress-group {
@@ -156,11 +237,16 @@ details:not([open]) summary {
   align-items: center;
 }
 
+div[name="page-selection"][show-import-all] .resource-selection-details {
+  padding-inline-start: 8px;
+}
+
 .resource-selection-details > summary {
   list-style: none;
   display: grid;
   grid-template-areas: "a b"
                        "c b";
+  margin-block: 16px 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

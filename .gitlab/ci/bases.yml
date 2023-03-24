@@ -165,7 +165,7 @@ variables:
 # it's worth noting that the following jobs don't directly extend ".build:rules" because
 # they're extended in other projects, e.g. re/kaios-build
 .build_desktop:
-  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.66.0_9_0
+  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.66.0_10_0
   tags:
     - gecko-dev
   variables:
@@ -197,7 +197,7 @@ variables:
 
 
 .test_wpt:
-  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.66.0_9_0
+  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.66.0_10_0
   tags:
     - gecko-dev
   variables:
@@ -212,7 +212,7 @@ variables:
     - ./mach wpt testing/web-platform/tests/webdriver/tests/get_element_text/get.py --headless
 
 .build_emulator:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_9_0
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_10_0
   tags:
     - gecko-dev
   variables:

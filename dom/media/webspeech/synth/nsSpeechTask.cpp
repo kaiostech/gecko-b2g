@@ -80,20 +80,21 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsSpeechTask)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsSpeechTask)
 
-nsSpeechTask::nsSpeechTask(SpeechSynthesisUtterance* aUtterance, bool aIsChrome)
+nsSpeechTask::nsSpeechTask(SpeechSynthesisUtterance* aUtterance,
+                           bool aShouldResistFingerprinting)
     : mUtterance(aUtterance),
       mInited(false),
       mPrePaused(false),
       mPreCanceled(false),
       mCallback(nullptr),
-      mIsChrome(aIsChrome),
+      mShouldResistFingerprinting(aShouldResistFingerprinting),
       mState(STATE_PENDING) {
   mText = aUtterance->mText;
   mVolume = aUtterance->Volume();
 }
 
 nsSpeechTask::nsSpeechTask(float aVolume, const nsAString& aText,
-                           bool aIsChrome)
+                           bool aShouldResistFingerprinting)
     : mUtterance(nullptr),
       mVolume(aVolume),
       mText(aText),
@@ -101,7 +102,7 @@ nsSpeechTask::nsSpeechTask(float aVolume, const nsAString& aText,
       mPrePaused(false),
       mPreCanceled(false),
       mCallback(nullptr),
-      mIsChrome(aIsChrome),
+      mShouldResistFingerprinting(aShouldResistFingerprinting),
       mState(STATE_PENDING) {}
 
 nsSpeechTask::~nsSpeechTask() {

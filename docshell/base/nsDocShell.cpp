@@ -4069,6 +4069,7 @@ nsDocShell::Reload(uint32_t aReloadFlags) {
     MOZ_LOG(gSHLog, LogLevel::Debug, ("nsDocShell %p Reload", this));
     bool forceReload = IsForceReloadType(loadType);
     if (!XRE_IsParentProcess()) {
+      ++mPendingReloadCount;
       RefPtr<nsDocShell> docShell(this);
       nsCOMPtr<nsIContentViewer> cv(mContentViewer);
       NS_ENSURE_STATE(cv);
@@ -4096,18 +4097,24 @@ nsDocShell::Reload(uint32_t aReloadFlags) {
           mBrowsingContext, forceReload,
           [docShell, doc, loadType, browsingContext, currentURI, referrerInfo,
            loadGroup, stopDetector](
-              Tuple<bool, Maybe<RefPtr<nsDocShellLoadState>>, Maybe<bool>>&&
-                  aResult) {
+              Tuple<bool, Maybe<NotNull<RefPtr<nsDocShellLoadState>>>,
+                    Maybe<bool>>&& aResult) {
             auto scopeExit = MakeScopeExit([loadGroup, stopDetector]() {
               if (loadGroup) {
                 loadGroup->RemoveRequest(stopDetector, nullptr, NS_OK);
               }
             });
+
+            // Decrease mPendingReloadCount before any other early returns!
+            if (--(docShell->mPendingReloadCount) > 0) {
+              return;
+            }
+
             if (stopDetector->Canceled()) {
               return;
             }
             bool canReload;
-            Maybe<RefPtr<nsDocShellLoadState>> loadState;
+            Maybe<NotNull<RefPtr<nsDocShellLoadState>>> loadState;
             Maybe<bool> reloadingActiveEntry;
 
             Tie(canReload, loadState, reloadingActiveEntry) = aResult;
@@ -4135,7 +4142,7 @@ nsDocShell::Reload(uint32_t aReloadFlags) {
     } else {
       // Parent process
       bool canReload = false;
-      Maybe<RefPtr<nsDocShellLoadState>> loadState;
+      Maybe<NotNull<RefPtr<nsDocShellLoadState>>> loadState;
       Maybe<bool> reloadingActiveEntry;
       if (!mBrowsingContext->IsDiscarded()) {
         mBrowsingContext->Canonical()->NotifyOnHistoryReload(

@@ -22,7 +22,7 @@
 #include "mozilla/SVGContextPaint.h"
 #include "mozilla/SVGContentUtils.h"
 #include "mozilla/SVGObserverUtils.h"
-#include "nsDisplayList.h"
+#include "mozilla/SVGUtils.h"
 #include "nsGkAtoms.h"
 #include "nsLayoutUtils.h"
 #include "SVGAnimatedTransformList.h"
@@ -136,9 +136,8 @@ void SVGGeometryFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       return;
     }
     const auto* styleSVG = StyleSVG();
-    if (Type() != LayoutFrameType::SVGImage && styleSVG->mFill.kind.IsNone() &&
-        styleSVG->mStroke.kind.IsNone() && styleSVG->mMarkerEnd.IsNone() &&
-        styleSVG->mMarkerMid.IsNone() && styleSVG->mMarkerStart.IsNone()) {
+    if (styleSVG->mFill.kind.IsNone() && styleSVG->mStroke.kind.IsNone() &&
+        !styleSVG->HasMarker()) {
       return;
     }
 
@@ -692,8 +691,7 @@ bool SVGGeometryFrame::IsInvisible() const {
     }
   }
 
-  if (style->mMarkerStart.IsUrl() || style->mMarkerMid.IsUrl() ||
-      style->mMarkerEnd.IsUrl()) {
+  if (style->HasMarker()) {
     return false;
   }
 
@@ -743,9 +741,7 @@ bool SVGGeometryFrame::CreateWebRenderCommands(
     return false;
   }
 
-  SVGMarkerFrame* markerFrames[SVGMark::eTypeCount];
-  if (element->IsMarkable() &&
-      SVGObserverUtils::GetAndObserveMarkers(this, &markerFrames)) {
+  if (style->HasMarker() && element->IsMarkable()) {
     // Markers aren't suppported yet.
     return false;
   }

@@ -33,6 +33,7 @@
 #include "nsToolkit.h"
 #include "nsCRT.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/glean/GleanMetrics.h"
 #include "mozilla/Logging.h"
 #include "mozilla/MiscEvents.h"
 #include "mozilla/Preferences.h"
@@ -94,6 +95,7 @@ NSString* const kMozFileUrlsPboardType = @"org.mozilla.file-urls";
       [aType isEqualToString:(NSString*)kPasteboardTypeFileURLPromise] ||
       [aType isEqualToString:(NSString*)kPasteboardTypeFilePromiseContent] ||
       [aType isEqualToString:(NSString*)kUTTypeFileURL] ||
+      [aType isEqualToString:NSStringPboardType] ||
       [aType isEqualToString:NSPasteboardTypeString] ||
       [aType isEqualToString:NSPasteboardTypeHTML] || [aType isEqualToString:NSPasteboardTypeRTF] ||
       [aType isEqualToString:NSPasteboardTypeTIFF] || [aType isEqualToString:NSPasteboardTypePNG]) {
@@ -298,6 +300,7 @@ BOOL nsCocoaUtils::ShouldRestoreStateDueToLaunchAtLoginImpl() {
 BOOL nsCocoaUtils::ShouldRestoreStateDueToLaunchAtLogin() {
   BOOL shouldRestore = ShouldRestoreStateDueToLaunchAtLoginImpl();
   Telemetry::ScalarSet(Telemetry::ScalarID::STARTUP_IS_RESTORED_BY_MACOS, !!shouldRestore);
+  mozilla::glean::startup::is_restored_by_macos.Set(!!shouldRestore);
   return shouldRestore;
 }
 

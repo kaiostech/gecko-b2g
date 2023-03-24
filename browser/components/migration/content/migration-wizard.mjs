@@ -17,6 +17,7 @@ export class MigrationWizard extends HTMLElement {
 
   #deck = null;
   #browserProfileSelector = null;
+  #browserProfileSelectorList = null;
   #resourceTypeList = null;
   #shadowRoot = null;
   #importButton = null;
@@ -27,7 +28,7 @@ export class MigrationWizard extends HTMLElement {
         <link rel="stylesheet" href="chrome://browser/skin/migration/migration-wizard.css">
         <named-deck id="wizard-deck" selected-view="page-loading" aria-live="polite" aria-busy="true">
           <div name="page-loading">
-            <h3 data-l10n-id="migration-wizard-selection-header"></h3>
+            <h1 data-l10n-id="migration-wizard-selection-header"></h1>
             <div class="loading-block large"></div>
             <div class="loading-block small"></div>
             <div class="loading-block small"></div>
@@ -40,15 +41,21 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-selection">
-            <h3 data-l10n-id="migration-wizard-selection-header"></h3>
-            <select id="browser-profile-selector">
-            </select>
+            <h1 data-l10n-id="migration-wizard-selection-header"></h1>
+            <button id="browser-profile-selector">
+              <span class="migrator-icon"></span>
+              <div class="migrator-description">
+                <div class="migrator-name">&nbsp;</div>
+                <div class="profile-name deemphasized-text"></div>
+              </div>
+              <span class="dropdown-icon"></span>
+            </button>
             <div data-l10n-id="migration-wizard-selection-list" class="resource-selection-preamble deemphasized-text"></div>
             <details class="resource-selection-details">
               <summary>
                 <div class="selected-data-header" data-l10n-id="migration-all-available-data-label"></div>
                 <div class="selected-data deemphasized-text">&nbsp;</div>
-                <span class="dropdown-icon" role="img"></span>
+                <span class="expand-collapse-icon" role="img"></span>
               </summary>
               <fieldset id="resource-type-list">
                 <label id="select-all">
@@ -76,7 +83,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-progress">
-            <h3 id="progress-header" data-l10n-id="migration-wizard-progress-header"></h3>
+            <h1 id="progress-header" data-l10n-id="migration-wizard-progress-header"></h1>
             <div class="resource-progress">
               <div data-resource-type="BOOKMARKS" class="resource-progress-group">
                 <span class="progress-icon-parent"><span class="progress-icon" role="img"></span></span>
@@ -109,7 +116,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-safari-permission">
-            <h3 data-l10n-id="migration-wizard-selection-header"></h3>
+            <h1 data-l10n-id="migration-wizard-selection-header"></h1>
             <div data-l10n-id="migration-wizard-safari-permissions-sub-header"></div>
             <ol>
               <li data-l10n-id="migration-wizard-safari-instructions-continue"></li>
@@ -122,7 +129,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-no-browsers-found">
-            <h3 data-l10n-id="migration-wizard-selection-header"></h3>
+            <h1 data-l10n-id="migration-wizard-selection-header"></h1>
             <div class="no-browsers-found">
               <span class="error-icon" role="img"></span>
               <div class="no-browsers-found-message" data-l10n-id="migration-wizard-import-browser-no-browsers"></div>
@@ -132,6 +139,7 @@ export class MigrationWizard extends HTMLElement {
             </moz-button-group>
           </div>
         </named-deck>
+        <slot></slot>
       </template>
     `;
   }
@@ -185,7 +193,7 @@ export class MigrationWizard extends HTMLElement {
     this.#importButton = shadow.querySelector("#import");
     this.#importButton.addEventListener("click", this);
 
-    this.#browserProfileSelector.addEventListener("change", this);
+    this.#browserProfileSelector.addEventListener("click", this);
     this.#resourceTypeList = shadow.querySelector("#resource-type-list");
     this.#resourceTypeList.addEventListener("change", this);
 
@@ -248,14 +256,38 @@ export class MigrationWizard extends HTMLElement {
     }
   }
 
+  #ensureSelectionDropdown() {
+    if (this.#browserProfileSelectorList) {
+      return;
+    }
+    this.#browserProfileSelectorList = this.querySelector("panel-list");
+    if (!this.#browserProfileSelectorList) {
+      throw new Error(
+        "Could not find a <panel-list> under the MigrationWizard during initialization."
+      );
+    }
+    this.#browserProfileSelectorList.toggleAttribute(
+      "min-width-from-anchor",
+      true
+    );
+    this.#browserProfileSelectorList.addEventListener("click", this);
+  }
+
   /**
    * Reacts to changes to the browser / profile selector dropdown. This
    * should update the list of resource types to match what's supported
    * by the selected migrator and profile.
+   *
+   *  @param {Element} panelItem the selected <oabel-item>
    */
-  #onBrowserProfileSelectionChanged() {
-    let resourceTypes = this.#browserProfileSelector.selectedOptions[0]
-      .resourceTypes;
+  #onBrowserProfileSelectionChanged(panelItem) {
+    this.#browserProfileSelector.selectedPanelItem = panelItem;
+    this.#browserProfileSelector.querySelector(".migrator-name").textContent =
+      panelItem.displayName;
+    this.#browserProfileSelector.querySelector(".profile-name").textContent =
+      panelItem.profile?.name || "";
+
+    let resourceTypes = panelItem.resourceTypes;
     for (let child of this.#resourceTypeList.children) {
       child.hidden = true;
       child.control.checked = false;
@@ -273,6 +305,7 @@ export class MigrationWizard extends HTMLElement {
     let selectAll = this.#shadowRoot.querySelector("#select-all").control;
     selectAll.checked = true;
     this.#displaySelectedResources();
+    this.#browserProfileSelector.selectedPanelItem = panelItem;
   }
 
   /**
@@ -285,7 +318,8 @@ export class MigrationWizard extends HTMLElement {
    *   can be migrated from.
    */
   #onShowingSelection(state) {
-    this.#browserProfileSelector.textContent = "";
+    this.#ensureSelectionDropdown();
+    this.#browserProfileSelectorList.textContent = "";
 
     let selectionPage = this.#shadowRoot.querySelector(
       "div[name='page-selection']"
@@ -296,10 +330,21 @@ export class MigrationWizard extends HTMLElement {
     details.open = !state.showImportAll;
 
     for (let migrator of state.migrators) {
-      let opt = document.createElement("option");
-      opt.value = migrator.key;
+      let opt = document.createElement("panel-item");
+      opt.setAttribute("key", migrator.key);
       opt.profile = migrator.profile;
+      opt.displayName = migrator.displayName;
       opt.resourceTypes = migrator.resourceTypes;
+
+      // Bug 1823489 - since the panel-list and panel-items are slotted, we
+      // cannot style them directly from migration-wizard.css. We use inline
+      // styles for now to achieve the desired appearance, but bug 1823489
+      // will investigate having MigrationWizard own the <xul:panel>,
+      // <panel-list> and <panel-item>'s so that styling can be done in the
+      // stylesheet instead.
+      let button = opt.shadowRoot.querySelector("button");
+      button.style.minHeight = "40px";
+      button.style.backgroundImage = `url("chrome://global/skin/icons/defaultFavicon.svg")`;
 
       if (migrator.profile) {
         document.l10n.setAttributes(
@@ -320,11 +365,13 @@ export class MigrationWizard extends HTMLElement {
         );
       }
 
-      this.#browserProfileSelector.appendChild(opt);
+      this.#browserProfileSelectorList.appendChild(opt);
     }
 
     if (state.migrators.length) {
-      this.#onBrowserProfileSelectionChanged();
+      this.#onBrowserProfileSelectionChanged(
+        this.#browserProfileSelectorList.firstElementChild
+      );
     }
   }
 
@@ -430,11 +477,9 @@ export class MigrationWizard extends HTMLElement {
    * externally to perform the actual migration.
    */
   #doImport() {
-    let option = this.#browserProfileSelector.options[
-      this.#browserProfileSelector.selectedIndex
-    ];
-    let key = option.value;
-    let profile = option.profile;
+    let panelItem = this.#browserProfileSelector.selectedPanelItem;
+    let key = panelItem.getAttribute("key");
+    let profile = panelItem.profile;
     let resourceTypeFields = this.#resourceTypeList.querySelectorAll(
       "label[data-resource-type]"
     );
@@ -533,6 +578,15 @@ export class MigrationWizard extends HTMLElement {
         "migration-all-available-data-label"
       );
     }
+
+    let selectionPage = this.#shadowRoot.querySelector(
+      "div[name='page-selection']"
+    );
+    selectionPage.toggleAttribute("single-item", totalResources == 1);
+
+    this.dispatchEvent(
+      new CustomEvent("MigrationWizard:ResourcesUpdated", { bubbles: true })
+    );
   }
 
   handleEvent(event) {
@@ -547,6 +601,13 @@ export class MigrationWizard extends HTMLElement {
           this.dispatchEvent(
             new CustomEvent("MigrationWizard:Close", { bubbles: true })
           );
+        } else if (event.target == this.#browserProfileSelector) {
+          this.#browserProfileSelectorList.show(event);
+        } else if (
+          event.currentTarget == this.#browserProfileSelectorList &&
+          event.target != this.#browserProfileSelectorList
+        ) {
+          this.#onBrowserProfileSelectionChanged(event.target);
         }
         break;
       }

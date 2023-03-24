@@ -965,15 +965,6 @@ static bool RecomputePosition(nsIFrame* aFrame) {
   return false;
 }
 
-static bool HasBoxAncestor(nsIFrame* aFrame) {
-  for (nsIFrame* f = aFrame; f; f = f->GetParent()) {
-    if (f->IsXULBoxFrame()) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /**
  * Return true if aFrame's subtree has placeholders for out-of-flow content
  * that would be affected due to the change to
@@ -1133,8 +1124,7 @@ static void DoApplyRenderingChangeToTree(nsIFrame* aFrame,
       needInvalidatingPaint = true;
       aFrame->InvalidateFrameSubtree();
       if ((aChange & nsChangeHint_UpdateEffects) &&
-          aFrame->IsFrameOfType(nsIFrame::eSVG) &&
-          !aFrame->IsSVGOuterSVGFrame()) {
+          aFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT)) {
         // Need to update our overflow rects:
         SVGUtils::ScheduleReflowSVG(aFrame);
       }
@@ -1285,11 +1275,6 @@ static void StyleChangeReflow(nsIFrame* aFrame, nsChangeHint aHint) {
                  NS_FRAME_DESCENDANT_INTRINSIC_ISIZE_DEPENDS_ON_BSIZE)) {
     dirtyType = IntrinsicDirty::FrameAncestorsAndDescendants;
   } else if (aHint & nsChangeHint_ClearAncestorIntrinsics) {
-    dirtyType = IntrinsicDirty::FrameAndAncestors;
-  } else if ((aHint & nsChangeHint_UpdateComputedBSize) &&
-             HasBoxAncestor(aFrame)) {
-    // The frame's computed BSize is changing, and we have a box ancestor
-    // whose cached intrinsic height may need to be updated.
     dirtyType = IntrinsicDirty::FrameAndAncestors;
   } else {
     dirtyType = IntrinsicDirty::None;
@@ -1681,8 +1666,7 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
     }
     if ((hint & nsChangeHint_InvalidateRenderingObservers) ||
         ((hint & nsChangeHint_UpdateOpacityLayer) &&
-         frame->IsFrameOfType(nsIFrame::eSVG) &&
-         !frame->IsSVGOuterSVGFrame())) {
+         frame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT))) {
       SVGObserverUtils::InvalidateRenderingObservers(frame);
       frame->SchedulePaint();
     }

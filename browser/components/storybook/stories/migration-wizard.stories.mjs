@@ -5,6 +5,8 @@
 // Imported for side-effects.
 import { html } from "lit.all.mjs";
 // eslint-disable-next-line import/no-unassigned-import
+import "toolkit-widgets/panel-list.js";
+// eslint-disable-next-line import/no-unassigned-import
 import "browser/components/migration/content/migration-wizard.mjs";
 import { MigrationWizardConstants } from "chrome://browser/content/migration/migration-wizard-constants.mjs";
 
@@ -68,7 +70,7 @@ const FAKE_BROWSER_LIST = [
   {
     key: "vivaldi",
     displayName: "Vivaldi",
-    resourceTypes: ["HISTORY", "FORMDATA", "PASSWORDS", "BOOKMARKS"],
+    resourceTypes: ["HISTORY"],
     profile: { id: "Default", name: "Default" },
   },
 ];
@@ -84,7 +86,7 @@ const Template = ({ state, dialogMode }) => html`
 
   <div class="card card-no-hover" style="width: fit-content">
     <migration-wizard ?dialog-mode=${dialogMode} .state=${state}>
-      <!-- <panel-list></panel-list> -->
+      <panel-list></panel-list>
     </migration-wizard>
   </div>
 `;

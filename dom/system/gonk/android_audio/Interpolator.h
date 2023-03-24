@@ -266,7 +266,7 @@ class Interpolator : public std::map<S, T> {
         return res;
       }
       if ((i > 0 && !(x > lastx)) /* handle nan */
-          || mozilla::IsNaN(y) /* handle nan */) {
+          || std::isnan(y) /* handle nan */) {
         // This is a std::map object which imposes sorted order
         // automatically on emplace.
         // Nevertheless for reading from a Parcel,

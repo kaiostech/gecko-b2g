@@ -610,10 +610,10 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
     }
   }
 
-  if (mozilla::IsDevelopmentBuild()) {
-    // If this is a developer build the resources are symlinks to outside the
-    // binary dir. Therefore in non-release builds we allow reads from the whole
-    // repository. MOZ_DEVELOPER_REPO_DIR is set by mach run.
+  if (!mozilla::IsPackagedBuild()) {
+    // If this is not a packaged build the resources are likely symlinks to
+    // outside the binary dir. Therefore in non-release builds we allow reads
+    // from the whole repository. MOZ_DEVELOPER_REPO_DIR is set by mach run.
     const char* developer_repo_dir = PR_GetEnv("MOZ_DEVELOPER_REPO_DIR");
     if (developer_repo_dir) {
       policy->AddDir(rdonly, developer_repo_dir);
@@ -925,10 +925,10 @@ SandboxBrokerPolicyFactory::GetRDDPolicy(int aPid) {
     }
   }
 
-  if (mozilla::IsDevelopmentBuild()) {
-    // If this is a developer build the resources are symlinks to outside the
-    // binary dir. Therefore in non-release builds we allow reads from the whole
-    // repository. MOZ_DEVELOPER_REPO_DIR is set by mach run.
+  if (!mozilla::IsPackagedBuild()) {
+    // If this is not a packaged build the resources are likely symlinks to
+    // outside the binary dir. Therefore in non-release builds we allow reads
+    // from the whole repository. MOZ_DEVELOPER_REPO_DIR is set by mach run.
     const char* developer_repo_dir = PR_GetEnv("MOZ_DEVELOPER_REPO_DIR");
     if (developer_repo_dir) {
       policy->AddDir(rdonly, developer_repo_dir);

@@ -2583,6 +2583,13 @@
   value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
 
+# Whether wheel event target's should be grouped. When enabled, all wheel
+# events that occur in a given wheel transaction have the same event target.
+- name: dom.event.wheel-event-groups.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Whether WheelEvent should return pixels instead of lines for
 # WheelEvent.deltaX/Y/Z, when deltaMode hasn't been checked.
 #
@@ -5113,7 +5120,7 @@
 # true:  Right node will be created (at splitting) and deleted (at joinining)
 - name: editor.join_split_direction.compatible_with_the_other_browsers
   type: bool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Delay to mask last input character in password fields.
@@ -7364,7 +7371,7 @@
 # Whether to allow decoding of animated AVIF sequences.
 - name: image.avif.sequence.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether AVIF files containing sequences should be animated even when the
@@ -12404,6 +12411,12 @@
   value: ""
   mirror: never
 
+# The URI used for the target DoH server when network.trr.use_ohttp is true
+- name: network.trr.ohttp.uri
+  type: String
+  value: ""
+  mirror: never
+
 # Allow the network changed event to get sent when a network topology or setup
 # change is noticed while running.
 - name: network.notify.changed
@@ -13282,8 +13295,13 @@
 #
 # The variables will, however, be read often (specifically .microseconds on
 # each timer rounding) so performance is important.
-
 - name: privacy.resistFingerprinting
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  do_not_use_directly: true
+
+- name: privacy.resistFingerprintingLite
   type: RelaxedAtomicBool
   value: false
   mirror: always

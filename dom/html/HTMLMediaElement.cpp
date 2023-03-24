@@ -4592,7 +4592,7 @@ void HTMLMediaElement::PlayInternal(bool aHandlingUserInput) {
     if (mDecoder->IsEnded()) {
       SetCurrentTime(0);
     }
-#ifdef MOZ_B2G
+#ifdef MOZ_WIDGET_GONK
     if (CanDecoderStartPlaying()) {
 #else
     if (!mSuspendedByInactiveDocOrDocshell) {
@@ -5283,7 +5283,7 @@ nsresult HTMLMediaElement::FinishDecoderSetup(MediaDecoder* aDecoder) {
 
   if (!mPaused) {
     SetPlayedOrSeeked(true);
-#ifdef MOZ_B2G
+#ifdef MOZ_WIDGET_GONK
     if (CanDecoderStartPlaying()) {
 #else
     if (!mSuspendedByInactiveDocOrDocshell) {
@@ -6192,7 +6192,7 @@ void HTMLMediaElement::ChangeReadyState(nsMediaReadyState aState) {
   if (oldState < HAVE_FUTURE_DATA && mReadyState >= HAVE_FUTURE_DATA) {
     DispatchAsyncEvent(u"canplay"_ns);
     if (!mPaused) {
-#ifdef MOZ_B2G
+#ifdef MOZ_WIDGET_GONK
       if (mDecoder && CanDecoderStartPlaying()) {
 #else
       if (mDecoder && !mSuspendedByInactiveDocOrDocshell) {
@@ -6320,7 +6320,7 @@ void HTMLMediaElement::RunAutoplay() {
     if (mCurrentPlayRangeStart == -1.0) {
       mCurrentPlayRangeStart = CurrentTime();
     }
-#ifdef MOZ_B2G
+#ifdef MOZ_WIDGET_GONK
     if (CanDecoderStartPlaying()) {
       mDecoder->Play();
     }
@@ -6631,7 +6631,7 @@ void HTMLMediaElement::SuspendOrResumeElement(bool aSuspendElement,
   } else {
     if (mDecoder) {
       mDecoder->Resume();
-#ifdef MOZ_B2G
+#ifdef MOZ_WIDGET_GONK
       if (!mPaused && !mDecoder->IsEnded() && CanDecoderStartPlaying()) {
 #else
       if (!mPaused && !mDecoder->IsEnded()) {
@@ -6717,7 +6717,7 @@ void HTMLMediaElement::NotifyOwnerDocumentActivityChanged() {
     NotifyDecoderActivityChanges();
   }
 
-#ifdef MOZ_B2G
+#ifdef MOZ_WIDGET_GONK
   NotifySuspendConditionChanged();
 #else
   // We would suspend media when the document is inactive, or its docshell has

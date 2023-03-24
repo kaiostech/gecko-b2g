@@ -58,7 +58,13 @@ export class FeatureCallout {
       prefName,
       '{"screen":"","complete":true}',
       this._handlePrefChange.bind(this),
-      val => JSON.parse(val)
+      val => {
+        try {
+          return JSON.parse(val);
+        } catch (error) {
+          return null;
+        }
+      }
     );
 
     XPCOMUtils.defineLazyPreferenceGetter(
@@ -268,7 +274,7 @@ export class FeatureCallout {
     // Don't render the callout if the parent element is not present.
     // This means the message was misconfigured, mistargeted, or the
     // content of the parent page is not as expected.
-    if (!parent && !this.currentScreen?.content.callout_position_override) {
+    if (!parent && !this.currentScreen?.content?.callout_position_override) {
       if (this.message?.template === "feature_callout") {
         Services.telemetry.recordEvent(
           "messaging_experiments",
@@ -964,8 +970,10 @@ export class FeatureCallout {
             );
             this.win.addEventListener("keypress", this, { capture: true });
             this._positionCallout();
-            let container = this.doc.getElementById(CONTAINER_ID);
-            container.focus();
+            let button = this.doc
+              .getElementById(CONTAINER_ID)
+              .querySelector(".primary");
+            button.focus();
             this.win.addEventListener("focus", this, {
               capture: true, // get the event before retargeting
               passive: true,

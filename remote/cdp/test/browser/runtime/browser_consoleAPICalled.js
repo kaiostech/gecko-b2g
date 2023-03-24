@@ -3,6 +3,9 @@
 
 "use strict";
 
+// Request a longer timeout as we have many tests which are longer
+requestLongerTimeout(2);
+
 const PAGE_CONSOLE_EVENTS =
   "https://example.com/browser/remote/cdp/test/browser/runtime/doc_console_events.html";
 const PAGE_CONSOLE_EVENTS_ONLOAD =
@@ -10,7 +13,9 @@ const PAGE_CONSOLE_EVENTS_ONLOAD =
 
 add_task(async function noEventsWhenRuntimeDomainDisabled({ client }) {
   await runConsoleTest(client, 0, async () => {
-    ContentTask.spawn(gBrowser.selectedBrowser, {}, () => console.log("foo"));
+    SpecialPowers.spawn(gBrowser.selectedBrowser, [], () =>
+      content.console.log("foo")
+    );
   });
 });
 
@@ -21,7 +26,9 @@ add_task(async function noEventsAfterRuntimeDomainDisabled({ client }) {
   await Runtime.disable();
 
   await runConsoleTest(client, 0, async () => {
-    ContentTask.spawn(gBrowser.selectedBrowser, {}, () => console.log("foo"));
+    SpecialPowers.spawn(gBrowser.selectedBrowser, [], () =>
+      content.console.log("foo")
+    );
   });
 });
 

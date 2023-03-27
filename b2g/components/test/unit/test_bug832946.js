@@ -3,7 +3,7 @@
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
 function run_test() {
-  ChromeUtils.import("resource:///modules/TelURIParser.jsm");
+  ChromeUtils.importESModule("resource:///modules/TelURIParser.sys.mjs");
 
   // blocked numbers
   do_check_eq(TelURIParser.parseURI("tel", "tel:#1234*"), null);

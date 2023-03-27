@@ -9,16 +9,11 @@
  * https://www.rfc-editor.org/rfc/rfc5724.txt
  */
 
-"use strict";
+import { TelURIParser } from "resource:///modules/TelURIParser.sys.mjs";
 
-const { TelURIParser } = ChromeUtils.import(
-  "resource:///modules/TelURIParser.jsm"
-);
-const { ActivityChannel } = ChromeUtils.import(
-  "resource://gre/modules/ActivityChannel.jsm"
-);
+import { ActivityChannel } from "resource://gre/modules/ActivityChannel.sys.mjs";
 
-function SmsProtocolHandler() {}
+export function SmsProtocolHandler() {}
 
 SmsProtocolHandler.prototype = {
   scheme: "sms",
@@ -59,5 +54,3 @@ SmsProtocolHandler.prototype = {
   classID: Components.ID("{81ca20cb-0dad-4e32-8566-979c8998bd73}"),
   QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler]),
 };
-
-const EXPORTED_SYMBOLS = ["SmsProtocolHandler"];

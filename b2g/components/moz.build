@@ -22,7 +22,7 @@ if CONFIG["MOZ_UPDATER"]:
     ]
 
 EXTRA_JS_MODULES += [
-    "ActivityChannel.jsm",
+    "ActivityChannel.sys.mjs",
     "AlertsHelper.jsm",
     "AlertsService.jsm",
     "AppsServiceDelegate.jsm",
@@ -40,7 +40,7 @@ EXTRA_JS_MODULES += [
     "HelperAppDialog.jsm",
     "KillSwitch.jsm",
     "KillSwitchMain.jsm",
-    "MailtoProtocolHandler.jsm",
+    "MailtoProtocolHandler.sys.mjs",
     "MultiscreenHandler.jsm",
     "OrientationChangeHandler.jsm",
     "PermissionsInstaller.jsm",
@@ -52,9 +52,9 @@ EXTRA_JS_MODULES += [
     "ServiceWorkerAssistant.jsm",
     "SettingsPrefsSync.jsm",
     "ShareDelegate.jsm",
-    "SmsProtocolHandler.jsm",
-    "TelProtocolHandler.jsm",
-    "TelURIParser.jsm",
+    "SmsProtocolHandler.sys.mjs",
+    "TelProtocolHandler.sys.mjs",
+    "TelURIParser.sys.mjs",
 ]
 
 EXTRA_PP_JS_MODULES += ["MarionetteController.jsm"]

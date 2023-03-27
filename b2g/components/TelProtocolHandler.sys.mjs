@@ -9,15 +9,11 @@
  * https://www.ietf.org/rfc/rfc2806.txt
  */
 
-"use strict";
+import { TelURIParser } from "resource:///modules/TelURIParser.sys.mjs";
 
-const { TelURIParser } = ChromeUtils.import(
-  "resource:///modules/TelURIParser.jsm"
-);
-const { ActivityChannel } = ChromeUtils.import(
-  "resource://gre/modules/ActivityChannel.jsm"
-);
-function TelProtocolHandler() {}
+import { ActivityChannel } from "resource://gre/modules/ActivityChannel.sys.mjs";
+
+export function TelProtocolHandler() {}
 
 TelProtocolHandler.prototype = {
   scheme: "tel",
@@ -44,5 +40,3 @@ TelProtocolHandler.prototype = {
   classID: Components.ID("{782775dd-7351-45ea-aff1-0ffa872cfdd2}"),
   QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler]),
 };
-
-const EXPORTED_SYMBOLS = ["TelProtocolHandler"];

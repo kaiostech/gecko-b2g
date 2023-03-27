@@ -4,14 +4,10 @@
 
 /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "subaddress" }]*/
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["TelURIParser"];
-
 /**
  * Singleton providing functionality for parsing tel: and sms: URIs
  */
-const TelURIParser = {
+export const TelURIParser = {
   parseURI(scheme, uri) {
     // https://www.ietf.org/rfc/rfc2806.txt
     let subscriber = decodeURIComponent(uri.slice((scheme + ":").length));

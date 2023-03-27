@@ -59,7 +59,9 @@ if (isGonk) {
     return libcutils;
   });
 
-  ChromeUtils.import("resource://gre/modules/NetworkStatsService.jsm");
+  ChromeUtils.importESModule(
+    "resource://gre/modules/NetworkStatsService.sys.mjs"
+  );
 }
 
 try {

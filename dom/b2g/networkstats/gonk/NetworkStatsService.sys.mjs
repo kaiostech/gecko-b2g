@@ -2,27 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["NetworkStatsService"];
-
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { NetworkStatsDB } = ChromeUtils.import(
-  "resource://gre/modules/NetworkStatsDB.jsm"
-);
+import { NetworkStatsDB } from "resource://gre/modules/NetworkStatsDB.sys.mjs";
 
-const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
+import { setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const lazy = {};
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "AlarmService",
-  "resource://gre/modules/AlarmService.jsm"
-);
+ChromeUtils.defineESModuleGetters(lazy, {
+  AlarmService: "resource://gre/modules/AlarmService.sys.mjs",
+});
 
 /* eslint-disable no-unused-vars */
 const NET_NETWORKSTATSSERVICE_CONTRACTID =
@@ -118,7 +108,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIIccService"
 );
 
-const NetworkStatsService = {
+export const NetworkStatsService = {
   _currentAlarms: {},
   _alarmForUpdateStatsId: null,
 

@@ -2,15 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { NetworkStatsService } = ChromeUtils.import(
-  "resource://gre/modules/NetworkStatsService.jsm"
-);
+import { NetworkStatsService } from "resource://gre/modules/NetworkStatsService.sys.mjs";
 
 const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(
@@ -42,7 +37,7 @@ function updateDebug() {
 }
 updateDebug();
 
-function NetworkStatsServiceProxy() {
+export function NetworkStatsServiceProxy() {
   debug("Proxy started");
   Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN);
@@ -206,5 +201,3 @@ NetworkStatsServiceProxy.prototype = {
     Ci.nsIObserver,
   ]),
 };
-
-const EXPORTED_SYMBOLS = ["NetworkStatsServiceProxy"];

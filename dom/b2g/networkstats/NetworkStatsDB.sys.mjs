@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["NetworkStatsDB"];
-
 var DEBUG = false;
 function debug(s) {
   if (DEBUG) {
@@ -13,9 +9,7 @@ function debug(s) {
   }
 }
 
-const { IndexedDBHelper } = ChromeUtils.importESModule(
-  "resource://gre/modules/IndexedDBHelper.sys.mjs"
-);
+import { IndexedDBHelper } from "resource://gre/modules/IndexedDBHelper.sys.mjs";
 
 const DB_NAME = "net_stats";
 const DB_VERSION = 2;
@@ -33,7 +27,7 @@ const VALUES_MAX_LENGTH = 6 * 30;
 // Constant defining the rate of the samples. Daily.
 const SAMPLE_RATE = 1000 * 60 * 60 * 24;
 
-const NetworkStatsDB = function NetworkStatsDB(aDebug) {
+export const NetworkStatsDB = function NetworkStatsDB(aDebug) {
   DEBUG = aDebug;
   debug("Constructor");
   this.initDBHelper(DB_NAME, DB_VERSION, [STATS_STORE_NAME, ALARMS_STORE_NAME]);

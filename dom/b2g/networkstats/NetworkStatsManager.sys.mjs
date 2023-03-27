@@ -2,18 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
-);
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
 const TOPIC_PREF_CHANGED = "nsPref:changed";
@@ -40,7 +35,9 @@ var isParentProcess =
   Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
 if (isParentProcess) {
   if (isGonk) {
-    ChromeUtils.import("resource://gre/modules/NetworkStatsService.jsm");
+    ChromeUtils.importESModule(
+      "resource://gre/modules/NetworkStatsService.sys.mjs"
+    );
   }
 }
 
@@ -54,7 +51,7 @@ const NETWORKSTATSDATA_CID = Components.ID(
   "{3b16fe17-5583-483a-b486-b64a3243221c}"
 );
 
-function NetworkStatsData(aWindow, aData) {
+export function NetworkStatsData(aWindow, aData) {
   this.rxBytes = aData.rxBytes;
   this.txBytes = aData.txBytes;
   this.date = new aWindow.Date(aData.date.getTime());
@@ -72,7 +69,7 @@ const NETWORKSTATSINTERFACE_CID = Components.ID(
   "{f540615b-d803-43ff-8200-2a9d145a5645}"
 );
 
-function NetworkStatsInterface() {
+export function NetworkStatsInterface() {
   debug("NetworkStatsInterface Constructor");
 }
 
@@ -93,7 +90,7 @@ const NETWORKSTATS_CID = Components.ID(
   "{28904f59-8497-4ac0-904f-2af14b7fd3de}"
 );
 
-function NetworkStats(aWindow, aStats) {
+export function NetworkStats(aWindow, aStats) {
   debug("NetworkStats Constructor");
   this.appManifestURL = aStats.appManifestURL || null;
   this.serviceType = aStats.serviceType || null;
@@ -132,7 +129,7 @@ const NETWORKSTATSALARM_CID = Components.ID(
   "{a93ea13e-409c-4189-9b1e-95fff220be55}"
 );
 
-function NetworkStatsAlarm(aWindow, aAlarm) {
+export function NetworkStatsAlarm(aWindow, aAlarm) {
   this.alarmId = aAlarm.id;
   this.network = new aWindow.NetworkStatsInterface(aAlarm.network);
   this.threshold = aAlarm.threshold;
@@ -152,7 +149,7 @@ const NETWORKSTATSMANAGER_CID = Components.ID(
   "{ceb874cd-cc1a-4e65-b404-cc2d3e42425f}"
 );
 
-function NetworkStatsManager() {
+export function NetworkStatsManager() {
   debug("Constructor");
   Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN);
@@ -431,11 +428,3 @@ NetworkStatsManager.prototype = {
     Ci.nsIObserver,
   ]),
 };
-
-const EXPORTED_SYMBOLS = [
-  "NetworkStatsAlarm",
-  "NetworkStatsData",
-  "NetworkStatsInterface",
-  "NetworkStats",
-  "NetworkStatsManager",
-];

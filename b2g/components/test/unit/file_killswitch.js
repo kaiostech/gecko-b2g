@@ -5,8 +5,8 @@
 "use strict";
 
 const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 const { KillSwitchMain } = ChromeUtils.import(
   "resource://gre/modules/KillSwitchMain.jsm"

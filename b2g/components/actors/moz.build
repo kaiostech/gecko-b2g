@@ -7,12 +7,12 @@
 JAR_MANIFESTS += ["jar.mn"]
 
 FINAL_TARGET_FILES.actors += [
-    "AudioVolumeControlOverrideChild.jsm",
-    "AudioVolumeControlOverrideParent.jsm",
-    "PromptParent.jsm",
-    "SelectionActionChild.jsm",
-    "SelectionActionParent.jsm",
-    "VoiceInputStyleChild.jsm",
-    "WebViewExporterChild.jsm",
-    "WebViewForContentChild.jsm",
+    "AudioVolumeControlOverrideChild.sys.mjs",
+    "AudioVolumeControlOverrideParent.sys.mjs",
+    "PromptParent.sys.mjs",
+    "SelectionActionChild.sys.mjs",
+    "SelectionActionParent.sys.mjs",
+    "VoiceInputStyleChild.sys.mjs",
+    "WebViewExporterChild.sys.mjs",
+    "WebViewForContentChild.sys.mjs",
 ]

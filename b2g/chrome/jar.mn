@@ -22,7 +22,7 @@ chrome.jar:
   content/devtools/adb.js               (content/devtools/adb.js)
 #endif
   content/devtools/RemoteDebugger.js    (content/devtools/RemoteDebugger.js)
-  content/devtools/marionette.js        (content/devtools/marionette.js)
+  content/devtools/marionette.sys.mjs        (content/devtools/marionette.sys.mjs)
   content/content.css                   (content/content.css)
   content/touchcontrols.css             (content/touchcontrols.css)
   content/videocontrols.dtd             (content/videocontrols.dtd)

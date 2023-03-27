@@ -13,7 +13,7 @@ DIRS += [
 ]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] != "gonk" and CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
-    EXTRA_JS_MODULES += ["CommandLine.jsm"]
+    EXTRA_JS_MODULES += ["CommandLine.sys.mjs"]
     EXTRA_COMPONENTS += ["SimulatorScreen.js"]
 
 if CONFIG["MOZ_UPDATER"]:
@@ -23,44 +23,44 @@ if CONFIG["MOZ_UPDATER"]:
 
 EXTRA_JS_MODULES += [
     "ActivityChannel.sys.mjs",
-    "AlertsHelper.jsm",
-    "AlertsService.jsm",
-    "AppsServiceDelegate.jsm",
-    "AppsUtils.jsm",
-    "B2GAboutRedirector.jsm",
-    "B2GProcessSelector.jsm",
-    "ChromeNotifications.jsm",
-    "ContentPermissionPrompt.jsm",
-    "CustomHeaderInjector.jsm",
+    "AlertsHelper.sys.mjs",
+    "AlertsService.sys.mjs",
+    "AppsServiceDelegate.sys.mjs",
+    "AppsUtils.sys.mjs",
+    "B2GAboutRedirector.sys.mjs",
+    "B2GProcessSelector.sys.mjs",
+    "ChromeNotifications.sys.mjs",
+    "ContentPermissionPrompt.sys.mjs",
+    "CustomHeaderInjector.sys.mjs",
     "dbg-browser-actors.js",
-    "DirectoryProvider.jsm",
-    "ErrorPage.jsm",
-    "FilePicker.jsm",
-    "GeckoBridge.jsm",
-    "HelperAppDialog.jsm",
-    "KillSwitch.jsm",
-    "KillSwitchMain.jsm",
+    "DirectoryProvider.sys.mjs",
+    "ErrorPage.sys.mjs",
+    "FilePicker.sys.mjs",
+    "GeckoBridge.sys.mjs",
+    "HelperAppDialog.sys.mjs",
+    "KillSwitch.sys.mjs",
+    "KillSwitchMain.sys.mjs",
     "MailtoProtocolHandler.sys.mjs",
-    "MultiscreenHandler.jsm",
-    "OrientationChangeHandler.jsm",
-    "PermissionsInstaller.jsm",
-    "PermissionsTable.jsm",
-    "PersistentDataBlock.jsm",
-    "ProcessGlobal.jsm",
-    "RecoveryService.jsm",
-    "Screenshot.jsm",
-    "ServiceWorkerAssistant.jsm",
-    "SettingsPrefsSync.jsm",
-    "ShareDelegate.jsm",
+    "MultiscreenHandler.sys.mjs",
+    "OrientationChangeHandler.sys.mjs",
+    "PermissionsInstaller.sys.mjs",
+    "PermissionsTable.sys.mjs",
+    "PersistentDataBlock.sys.mjs",
+    "ProcessGlobal.sys.mjs",
+    "RecoveryService.sys.mjs",
+    "Screenshot.sys.mjs",
+    "ServiceWorkerAssistant.sys.mjs",
+    "SettingsPrefsSync.sys.mjs",
+    "ShareDelegate.sys.mjs",
     "SmsProtocolHandler.sys.mjs",
     "TelProtocolHandler.sys.mjs",
     "TelURIParser.sys.mjs",
 ]
 
-EXTRA_PP_JS_MODULES += ["MarionetteController.jsm"]
+EXTRA_PP_JS_MODULES += ["MarionetteController.sys.mjs"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] != "gonk":
-    EXTRA_JS_MODULES += ["GlobalSimulatorScreen.jsm"]
+    EXTRA_JS_MODULES += ["GlobalSimulatorScreen.sys.mjs"]
 
 XPIDL_SOURCES += ["nsIGaiaChrome.idl"]
 

@@ -2,13 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["DownloadsIPC"];
-
-const { PromiseUtils } = ChromeUtils.import(
-  "resource://gre/modules/PromiseUtils.jsm"
-);
+import { PromiseUtils } from "resource://gre/modules/PromiseUtils.sys.mjs";
 
 /**
  * This module lives in the child process and receives the ipc messages
@@ -34,7 +28,7 @@ const ipcMessages = [
   "Downloads:Adopt:Return",
 ];
 
-const DownloadsIPC = {
+export const DownloadsIPC = {
   downloads: {},
 
   init(aCallerOrigin, aGrantedForAll) {

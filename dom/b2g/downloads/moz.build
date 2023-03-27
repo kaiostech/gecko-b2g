@@ -8,9 +8,9 @@ if CONFIG["MOZ_B2G"]:
     MOCHITEST_MANIFESTS += ["tests/mochitest.ini"]
 
 EXTRA_JS_MODULES += [
-    "DownloadManager.jsm",
-    "DownloadService.jsm",
-    "DownloadsIPC.jsm",
+    "DownloadManager.sys.mjs",
+    "DownloadService.sys.mjs",
+    "DownloadsIPC.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

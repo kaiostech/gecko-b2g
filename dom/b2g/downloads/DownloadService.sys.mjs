@@ -2,13 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { Downloads } from "resource://gre/modules/Downloads.sys.mjs";
 
-const EXPORTED_SYMBOLS = ["DownloadService"];
-
-const { Downloads } = ChromeUtils.import(
-  "resource://gre/modules/Downloads.jsm"
-);
 const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
 
 /**
@@ -37,7 +32,7 @@ function sendPromiseMessage(aMm, aMessageName, aData, aError) {
   aMm.sendAsyncMessage(aMessageName, msg);
 }
 
-var DownloadService = {
+export var DownloadService = {
   init() {
     DEBUG && debug("init");
 
@@ -79,7 +74,7 @@ var DownloadService = {
 
       await list.addView(self);
       DEBUG && debug("view added to download list.");
-    })().then(null, Cu.reportError);
+    })().then(null, console.error);
 
     this._currentId = 0;
   },
@@ -212,7 +207,7 @@ var DownloadService = {
         res.push(self.jsonDownload(aDownload));
       });
       aMm.sendAsyncMessage("Downloads:GetList:Return", res);
-    })().then(null, Cu.reportError);
+    })().then(null, console.error);
   },
 
   clearAllDone(aData, aMm) {
@@ -220,7 +215,7 @@ var DownloadService = {
     (async function() {
       let list = await Downloads.getList(Downloads.ALL);
       list.removeFinished();
-    })().then(null, Cu.reportError);
+    })().then(null, console.error);
   },
 
   remove(aData, aMm) {
@@ -403,7 +398,7 @@ var DownloadService = {
           // Anything else is unexpected and should be reported to help track
           // down what's going wrong.
           debug("unexpected download error: " + ex);
-          Cu.reportError(ex);
+          console.error(ex);
         }
         sendPromiseMessage(
           aMm,

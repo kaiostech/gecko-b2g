@@ -2,19 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const EXPORTED_SYMBOLS = ["DownloadManager", "DownloadObject"];
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
-const { DownloadsIPC } = ChromeUtils.import(
-  "resource://gre/modules/DownloadsIPC.jsm"
-);
+import { DownloadsIPC } from "resource://gre/modules/DownloadsIPC.sys.mjs";
 
 const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(
@@ -35,7 +28,7 @@ function debug(aStr) {
   dump("-*- DownloadManager.js : " + aStr + "\n");
 }
 
-function DownloadManager() {
+export function DownloadManager() {
   DEBUG && debug("DownloadManager constructor");
 }
 
@@ -288,7 +281,7 @@ function getOrCreateDownloadObject(aWindow, aDownload) {
   return downloadsCache.get(aWindow, aDownload);
 }
 
-function DownloadObject() {
+export function DownloadObject() {
   DEBUG && debug("DownloadObject constructor ");
 
   this.wrappedJSObject = this;

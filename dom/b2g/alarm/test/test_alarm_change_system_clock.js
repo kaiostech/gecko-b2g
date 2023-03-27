@@ -4,11 +4,11 @@
 
 "use strict";
 
-const { AlarmService } = ChromeUtils.import(
-  "resource://gre/modules/AlarmService.jsm"
+const { AlarmService } = ChromeUtils.importESModule(
+  "resource://gre/modules/AlarmService.sys.mjs"
 );
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 XPCOMUtils.defineLazyServiceGetter(

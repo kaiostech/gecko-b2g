@@ -2,13 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["AlarmProxy"];
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const REQUEST_CPU_LOCK_TIMEOUT = 10 * 1000; // 10 seconds.
 const DEBUG = Services.prefs.getBoolPref("dom.alarm.debug", false);
@@ -33,7 +27,7 @@ XPCOMUtils.defineLazyServiceGetter(
  * one single request, so there is no count or uuid to distinguish each request.
  */
 
-function AlarmProxy() {
+export function AlarmProxy() {
   DEBUG && debug("AlarmProxy constructor.");
 }
 

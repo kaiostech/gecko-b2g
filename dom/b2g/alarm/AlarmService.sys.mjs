@@ -2,14 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { AlarmDB } from "resource://gre/modules/AlarmDB.sys.mjs";
 
-const EXPORTED_SYMBOLS = ["AlarmService"];
-
-const { AlarmDB } = ChromeUtils.import("resource://gre/modules/AlarmDB.jsm");
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const DEBUG = Services.prefs.getBoolPref("dom.alarm.debug", false);
 function debug(aMsg) {
@@ -45,7 +40,7 @@ XPCOMUtils.defineLazyGetter(lazy, "timeService", function() {
  * in the parent process should do this.
  */
 
-const AlarmService = {
+export const AlarmService = {
   lastChromeId: 0,
 
   init: function init() {
@@ -327,7 +322,7 @@ const AlarmService = {
 
     // Reset the next alarm from the queue.
     let alarmQueue = this._alarmQueue;
-    while (alarmQueue.length > 0) {
+    while (alarmQueue.length) {
       let nextAlarm = alarmQueue.shift();
       let nextAlarmTime = this._getAlarmTime(nextAlarm);
 

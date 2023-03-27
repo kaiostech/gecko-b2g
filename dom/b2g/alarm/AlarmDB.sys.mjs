@@ -2,13 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["AlarmDB"];
-
-const { IndexedDBHelper } = ChromeUtils.importESModule(
-  "resource://gre/modules/IndexedDBHelper.sys.mjs"
-);
+import { IndexedDBHelper } from "resource://gre/modules/IndexedDBHelper.sys.mjs";
 
 const ALARMDB_NAME = "alarms";
 const ALARMDB_VERSION = 1;
@@ -19,7 +13,7 @@ function debug(aMsg) {
   console.log(`AlarmDB: ${aMsg}`);
 }
 
-const AlarmDB = function AlarmDB() {
+export const AlarmDB = function AlarmDB() {
   DEBUG && debug("AlarmDB()");
 };
 

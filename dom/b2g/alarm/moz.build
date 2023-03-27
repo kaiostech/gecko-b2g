@@ -27,9 +27,9 @@ SOURCES += [
 ]
 
 EXTRA_JS_MODULES += [
-    "AlarmDB.jsm",
-    "AlarmProxy.jsm",
-    "AlarmService.jsm",
+    "AlarmDB.sys.mjs",
+    "AlarmProxy.sys.mjs",
+    "AlarmService.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

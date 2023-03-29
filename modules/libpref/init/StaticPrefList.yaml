@@ -5920,7 +5920,7 @@
   type: bool
 #if defined(XP_MACOSX) || defined(XP_LINUX) && !defined(ANDROID)
   value: true
-#elif defined(MOZ_WIDGET_ANDROID) && defined(NIGHTLY_BUILD)
+#elif defined(MOZ_WIDGET_ANDROID)
   value: true
 #else
   value: false
@@ -12904,13 +12904,13 @@
 # WebTransport
 - name: network.webtransport.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # WebTransport Datagram support
 - name: network.webtransport.datagrams.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # WebTransport Datagram size
@@ -14530,6 +14530,11 @@
   value: 1200
   mirror: always
   rust: true
+
+- name: telemetry.fog.artifact_build
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 #---------------------------------------------------------------------------
 # Prefs starting with "test."

@@ -38,6 +38,13 @@ Present to allow testing without figuring out how to mock Rust's clock.
 Their values are integer seconds.
 Defaults to 120 (activity), 1200 (inactivity).
 
+## Internal Preferences
+
+`telemetry.fog.artifact_build`
+
+Read-only. This pref is `true` only if `MOZ_ARTIFACT_BUILDS` was set during configure.
+If true, [JOG](./jog) is enabled so that artifact builds will exhibit changes to their Glean metrics.
+
 ## Defines
 
 `MOZ_AUTOMATION`
@@ -72,19 +79,18 @@ This mode can be overridden at runtime in two ways:
   then pings are sent to a server operating locally at that port
   (even if the ping has a Debug Tag), to enable testing.
 
-Also, if set, [JOG](./jog) is disabled.
-Artifact builds will not exhibit changes to their Glean metrics.
-
 `MOZILLA_OFFICIAL` tends to be set on most builds released to users,
 including builds distributed by Linux distributions.
 It tends to not be set on local developer builds.
 See [bug 1680025](https://bugzilla.mozilla.org/show_bug.cgi?id=1680025) for details.
 
-`COMPILE_ENVIRONMENT`
+`MOZ_ARTIFACT_BUILDS`
 
-If `COMPILE_ENVIRONMENT` isn't set in the build config,
+If `MOZ_ARTIFACT_BUILDS` is set in the build config,
 [JOG](./jog) will generate a file for the runtime-registration of metrics and pings.
 This is to support [Artifact Builds](/contributing/build/artifact_builds).
+
+See also `telemetry.fog.artifact_build`.
 
 `OS_TARGET`
 

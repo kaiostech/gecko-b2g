@@ -445,9 +445,6 @@ static std::map<RemoteDecodeIn, media::MediaCodecsSupported> sCodecsSupported;
 uint32_t ContentParent::sMaxContentProcesses = 0;
 
 /* static */
-Maybe<TimeStamp> ContentParent::sLastContentProcessLaunch = Nothing();
-
-/* static */
 LogModule* ContentParent::GetLog() { return gProcessLog; }
 
 /* static */
@@ -3048,7 +3045,6 @@ bool ContentParent::LaunchSubprocessSync(
   if (BeginSubprocessLaunch(aInitialPriority)) {
     const bool ok = mSubprocess->WaitForProcessHandle();
     if (ok && LaunchSubprocessResolve(/* aIsSync = */ true, aInitialPriority)) {
-      ContentParent::DidLaunchSubprocess();
       return true;
     }
   }
@@ -3079,7 +3075,6 @@ RefPtr<ContentParent::LaunchPromise> ContentParent::LaunchSubprocessAsync(
         if (aValue.IsResolve() &&
             self->LaunchSubprocessResolve(/* aIsSync = */ false,
                                           aInitialPriority)) {
-          ContentParent::DidLaunchSubprocess();
           return LaunchPromise::CreateAndResolve(self, __func__);
         }
         self->LaunchSubprocessReject();
@@ -8909,31 +8904,6 @@ NS_IMETHODIMP ContentParent::GetCanSend(bool* aCanSend) {
 ContentParent* ContentParent::AsContentParent() { return this; }
 
 JSActorManager* ContentParent::AsJSActorManager() { return this; }
-
-/* static */
-void ContentParent::DidLaunchSubprocess() {
-  TimeStamp now = TimeStamp::Now();
-  uint32_t count = 0;
-  for (auto* parent : ContentParent::AllProcesses(ContentParent::eLive)) {
-    Unused << parent;
-    count += 1;
-  }
-
-  if (count > sMaxContentProcesses) {
-    sMaxContentProcesses = count;
-
-    Telemetry::ScalarSet(Telemetry::ScalarID::CONTENT_PROCESS_MAX_PRECISE,
-                         count);
-  }
-
-  if (sLastContentProcessLaunch) {
-    TimeStamp last = *sLastContentProcessLaunch;
-
-    Telemetry::AccumulateTimeDelta(
-        Telemetry::CONTENT_PROCESS_TIME_SINCE_LAST_LAUNCH_MS, last, now);
-  }
-  sLastContentProcessLaunch = Some(now);
-}
 
 IPCResult ContentParent::RecvGetSystemIcon(nsIURI* aURI,
                                            GetSystemIconResolver&& aResolver) {

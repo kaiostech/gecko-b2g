@@ -114,7 +114,7 @@ class RTCRtpReceiver : public nsISupports,
   void OnRtcpTimeout();
 
   void SetTrackMuteFromRemoteSdp();
-  void OnUnmute();
+  void OnRtpPacket();
   void UpdateUnmuteBlockingState();
   void UpdateReceiveTrackMute();
 
@@ -164,7 +164,9 @@ class RTCRtpReceiver : public nsISupports,
   std::vector<std::string> mStreamIds;
   bool mRemoteSetSendBit = false;
   Watchable<bool> mReceiveTrackMute{true, "RTCRtpReceiver::mReceiveTrackMute"};
-  Watchable<bool> mBlockUnmuteEvents{false, "RTCRtpReceiver::mBlockUnmuteEve~"};
+  // This corresponds to the [[Receptive]] slot on RTCRtpTransceiver.
+  // Its only purpose is suppressing unmute events if true.
+  bool mReceptive = false;
 
   MediaEventListener mRtcpByeListener;
   MediaEventListener mRtcpTimeoutListener;

@@ -7545,6 +7545,22 @@ urlbar.picked:
       record_in_processes:
         - main
 
+    trending:
+      bug_numbers:
+        - 1823543
+      description: >
+        Counts how many times this result type was picked at a given index.
+      expires: never
+      kind: uint
+      keyed: true
+      notification_emails:
+        - fx-search-telemetry@mozilla.com
+      release_channel_collection: opt-out
+      products:
+        - 'firefox'
+      record_in_processes:
+        - main
+
     unknown:
       bug_numbers:
         - 1671508
@@ -9615,27 +9631,6 @@ cache:
       - 'firefox'
     record_in_processes:
       - 'main'
-
-content:
-  process_max_precise:
-    bug_numbers:
-      - 1741759
-      - 1745268
-    description: >
-      The maximum number of content processes, submitted when a
-      new maximum is reached.  Replaces CONTENT_PROCESS_MAX and
-      CONTENT_PROCESS_PRECISE_MAX.
-
-    notification_emails:
-      - barret@mozilla.com
-      - perf-telemetry-alerts@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - 'main'
-    expires: "104"
-    kind: uint
 
 opaque.response.blocking:
   parsing_size_kb:

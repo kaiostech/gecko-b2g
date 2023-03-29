@@ -985,6 +985,8 @@ pref("browser.gesture.twist.end", "cmd_gestureRotateEnd");
   pref("browser.gesture.tap", "");
 #endif
 
+pref("browser.history_swipe_animation.disabled", false);
+
 // 0: Nothing happens
 // 1: Scrolling contents
 // 2: Go back or go forward, in your history
@@ -2461,6 +2463,10 @@ pref("devtools.gridinspector.showInfiniteLines", false);
 // Max number of grid highlighters that can be displayed
 pref("devtools.gridinspector.maxHighlighters", 3);
 
+// Whether or not simplified highlighters should be used when
+// prefers-reduced-motion is enabled.
+pref("devtools.inspector.simple-highlighters-reduced-motion", false);
+
 // Whether or not the box model panel is opened in the layout view
 pref("devtools.layout.boxmodel.opened", true);
 // Whether or not the flexbox panel is opened in the layout view
@@ -2832,4 +2838,9 @@ pref("cookiebanners.ui.desktop.cfrVariant", 0);
   pref("browser.swipe.navigation-icon-end-position", 60);
   pref("browser.swipe.navigation-icon-min-radius", 12);
   pref("browser.swipe.navigation-icon-max-radius", 20);
+#endif
+
+// Trigger FOG's Artifact Build support on artifact builds.
+#ifdef MOZ_ARTIFACT_BUILDS
+  pref("telemetry.fog.artifact_build", true);
 #endif

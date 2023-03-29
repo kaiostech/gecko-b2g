@@ -233,7 +233,7 @@ bool GMPChild::GetUTF8LibPath(nsACString& aOutLibPath) {
       MOZ_CRASH(explain);                                  \
     } while (false)
 #else
-#  define GMP_ANNOTATE_DIAGNOSTIC_CRASH(explain) \
+#  define GMP_DIAGNOSTIC_CRASH(explain) \
     do {                                         \
     } while (false)
 #endif

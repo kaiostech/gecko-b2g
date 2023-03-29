@@ -8,6 +8,7 @@
 
 loadRelativeToScript('utility.js');
 loadRelativeToScript('annotations.js');
+loadRelativeToScript('callgraph.js');
 loadRelativeToScript('CFG.js');
 loadRelativeToScript('dumpCFG.js');
 
@@ -30,10 +31,6 @@ try {
         {
             name: "gcFunctions",
             default: "gcFunctions.lst"
-        },
-        {
-            name: "gcEdges",
-            default: "gcEdges.json"
         },
         {
             name: "limitedFunctions",
@@ -64,7 +61,7 @@ try {
     ]);
 } catch (e) {
     printErr(e);
-    printErr("Usage: analyzeRoots.js [-f function_name] <gcFunctions.lst> <gcEdges.txt> <limitedFunctions.lst> <gcTypes.txt> <typeInfo.txt> [start end [tmpfile]]");
+    printErr("Usage: analyzeRoots.js [-f function_name] <gcFunctions.lst> <limitedFunctions.lst> <gcTypes.txt> <typeInfo.txt> [start end [tmpfile]]");
     quit(1);
 }
 var gcFunctions = {};
@@ -77,8 +74,6 @@ var limitedFunctions = JSON.parse(snarf(options.limitedFunctions));
 text = null;
 
 var typeInfo = loadTypeInfo(options.typeInfo);
-
-var gcEdges = JSON.parse(os.file.readFile(options.gcEdges));
 
 var match;
 var gcThings = new Set();
@@ -130,39 +125,39 @@ function isUnrootedPointerDeclType(decl)
     }
 }
 
-function edgeCanGC(edge)
+function edgeCanGC(functionName, body, edge, scopeAttrs, functionBodies)
 {
-    if (edge.Kind != "Call")
+    if (edge.Kind != "Call") {
         return false;
+    }
 
-    var callee = edge.Exp[0];
+    for (const { callee, attrs } of getCallees(body, edge, scopeAttrs, functionBodies)) {
+        if (attrs & (ATTR_GC_SUPPRESSED | ATTR_REPLACED)) {
+            continue;
+        }
 
-    while (callee.Kind == "Drf")
-        callee = callee.Exp[0];
-
-    if (callee.Kind == "Var") {
-        var variable = callee.Variable;
-
-        if (variable.Kind == "Func") {
-            var func = mangled(variable.Name[0]);
+        if (callee.kind == "direct") {
+            const func = mangled(callee.name);
             if ((func in gcFunctions) || ((func + internalMarker) in gcFunctions))
                 return `'${func}$${gcFunctions[func]}'`;
             return false;
+        } else if (callee.kind == "indirect") {
+            if (!indirectCallCannotGC(functionName, callee.variable)) {
+                return "'*" + callee.variable + "'";
+            }
+        } else if (callee.kind == "field") {
+            if (fieldCallCannotGC(callee.staticCSU, callee.field)) {
+                continue;
+            }
+            const fieldkey = callee.fieldKey;
+            if (fieldkey in gcFunctions) {
+                return `'${fieldkey}'`;
+            }
+        } else {
+            return "<unknown>";
         }
-
-        var varName = variable.Name[0];
-        return indirectCallCannotGC(functionName, varName) ? false : "'*" + varName + "'";
     }
 
-    assert(callee.Kind == "Fld");
-    const staticCSU = getFieldCallInstanceCSU(edge, callee.Field);
-
-    if (fieldCallCannotGC(staticCSU, callee.Field.Name[0]))
-        return false;
-
-    const fieldkey = fieldKey(staticCSU, callee.Field);
-    if (fieldkey in gcFunctions)
-        return `'${fieldkey}'`;
     return false;
 }
 
@@ -234,10 +229,8 @@ function edgeCanGC(edge)
 //
 //  - 'gcInfo': a direct pointer to the GC call edge
 //
-function findGCBeforeValueUse(start_body, start_point, suppressed_bits, variable)
+function findGCBeforeValueUse(start_body, start_point, funcAttrs, variable)
 {
-    const isGCSuppressed = Boolean(suppressed_bits & ATTR_GC_SUPPRESSED);
-
     // Scan through all edges preceding an unrooted variable use, using an
     // explicit worklist, looking for a GC call and a preceding point where the
     // variable is known to be live. A worklist contains an incoming edge
@@ -405,10 +398,12 @@ function findGCBeforeValueUse(start_body, start_point, suppressed_bits, variable
                 return null;
             }
 
-            // The value is live across this edge. Check whether this edge can GC (if we don't have a GC yet on this path.)
+            // The value is live across this edge. Check whether this edge can
+            // GC (if we don't have a GC yet on this path.)
             const had_gcInfo = Boolean(path.gcInfo);
-            if (!path.gcInfo && !(body.attrs[ppoint] & ATTR_GC_SUPPRESSED) && !isGCSuppressed) {
-                var gcName = edgeCanGC(edge, body);
+            const edgeAttrs = body.attrs[ppoint] | funcAttrs;
+            if (!path.gcInfo && !(edgeAttrs & (ATTR_GC_SUPPRESSED | ATTR_REPLACED))) {
+                var gcName = edgeCanGC(functionName, body, edge, edgeAttrs, functionBodies);
                 if (gcName) {
                     path.gcInfo = {name:gcName, body, ppoint, edge: edge.Index};
                 }
@@ -511,7 +506,7 @@ function findGCBeforeValueUse(start_body, start_point, suppressed_bits, variable
     return BFS_upwards(start_body, start_point, functionBodies, visitor, new Path()) || bestPathWithAnyUse;
 }
 
-function variableLiveAcrossGC(suppressed, variable, liveToEnd=false)
+function variableLiveAcrossGC(funcAttrs, variable, liveToEnd=false)
 {
     // A variable is live across a GC if (1) it is used by an edge (as in, it
     // was at least initialized), and (2) it is used after a GC in a successor
@@ -554,7 +549,7 @@ function variableLiveAcrossGC(suppressed, variable, liveToEnd=false)
 
             var usePoint = edgeUsesVariable(edge, variable, body, liveToEnd);
             if (usePoint) {
-                var call = findGCBeforeValueUse(body, usePoint, suppressed, variable);
+                var call = findGCBeforeValueUse(body, usePoint, funcAttrs, variable);
                 if (!call)
                     continue;
 
@@ -572,15 +567,19 @@ function variableLiveAcrossGC(suppressed, variable, liveToEnd=false)
 // live across a GC. If it is passed into a function that can GC, then it's
 // sort of like a Handle to an unrooted location, and the callee could GC
 // before overwriting it or rooting it.
-function unsafeVariableAddressTaken(suppressed, variable)
+function unsafeVariableAddressTaken(funcAttrs, variable)
 {
     for (var body of functionBodies) {
         if (!("PEdge" in body))
             continue;
         for (var edge of body.PEdge) {
             if (edgeTakesVariableAddress(edge, variable, body)) {
-                if (edge.Kind == "Assign" || (!(suppressed & ATTR_GC_SUPPRESSED) && edgeCanGC(edge)))
+                if (funcAttrs & (ATTR_GC_SUPPRESSED | ATTR_REPLACED)) {
+                    continue;
+                }
+                if (edge.Kind == "Assign" || edgeCanGC(functionName, body, edge, funcAttrs, functionBodies)) {
                     return {body:body, ppoint:edge.Index[0]};
+                }
             }
         }
     }
@@ -715,23 +714,6 @@ function isRootedDeclType(decl)
                                   (type.Name in typeInfo.RootedGCThings));
 }
 
-function typeDesc(type)
-{
-    if (type.Kind == "CSU") {
-        return type.Name;
-    } else if ('Type' in type) {
-        var inner = typeDesc(type.Type);
-        if (type.Kind == 'Pointer')
-            return inner + '*';
-        else if (type.Kind == 'Array')
-            return inner + '[]';
-        else
-            return inner + '?';
-    } else {
-        return '???';
-    }
-}
-
 function printRecord(record) {
     print(JSON.stringify(record));
 }
@@ -741,7 +723,7 @@ function processBodies(functionName, wholeBodyAttrs)
     if (!("DefineVariable" in functionBodies[0]))
       return;
     const funcInfo = limitedFunctions[mangled(functionName)] || { attributes: 0 };
-    const suppressed = funcInfo.attributes | wholeBodyAttrs;
+    const funcAttrs = funcInfo.attributes | wholeBodyAttrs;
 
     // Look for the JS_EXPECT_HAZARDS annotation, so as to output a different
     // message in that case that won't be counted as a hazard.
@@ -824,7 +806,7 @@ function processBodies(functionName, wholeBodyAttrs)
         }
 
         if (isRootedDeclType(decl)) {
-            if (!variableLiveAcrossGC(suppressed, decl.Variable)) {
+            if (!variableLiveAcrossGC(funcAttrs, decl.Variable)) {
                 // The earliest use of the variable should be its constructor.
                 var lineText;
                 for (var body of functionBodies) {
@@ -840,14 +822,14 @@ function processBodies(functionName, wholeBodyAttrs)
                     mangled: mangledSymbol,
                     readable,
                     variable: name,
-                    type: typeDesc(decl.Type),
+                    type: str_Type(decl.Type),
                     loc: lineText || "???",
                 }
                 print(",");
                 printRecord(record);
             }
         } else if (isUnrootedPointerDeclType(decl)) {
-            var result = variableLiveAcrossGC(suppressed, decl.Variable, liveToEnd);
+            var result = variableLiveAcrossGC(funcAttrs, decl.Variable, liveToEnd);
             if (result) {
                 assert(result.gcInfo);
                 const edge = result.gcInfo.edge;
@@ -862,7 +844,7 @@ function processBodies(functionName, wholeBodyAttrs)
                     mangled: mangledSymbol,
                     readable,
                     variable: name,
-                    type: typeDesc(decl.Type),
+                    type: str_Type(decl.Type),
                     gccall: result.gcInfo.name.replaceAll("'", ""),
                     gcrange: range,
                     loc: lineText,
@@ -872,7 +854,7 @@ function processBodies(functionName, wholeBodyAttrs)
                 print(",");
                 printRecord(record);
             }
-            result = unsafeVariableAddressTaken(suppressed, decl.Variable);
+            result = unsafeVariableAddressTaken(funcAttrs, decl.Variable);
             if (result) {
                 var lineText = findLocation(result.body, result.ppoint);
                 const record = {
@@ -943,21 +925,9 @@ function process(name, json) {
             if (attrs)
                 pbody.attrs[id] = attrs;
         }
-        for (const edgeAttr of gcEdges[blockIdentifier(body)] || []) {
-            body.attrs[edgeAttr.Index[0]] |= edgeAttr.attrs;
-        }
     }
 
-    // Special case: std::swap of two refcounted values thinks it can drop the
-    // ref count to zero. Or rather, it just calls operator=() in a context
-    // where the refcount will never drop to zero. Limit all calls within the
-    // body with LIMIT_CANNOT_GC.
-    let wholeBodyAttrs = 0;
-    if (functionName.includes("std::swap") || functionName.includes("mozilla::Swap")) {
-        wholeBodyAttrs = ATTR_GC_SUPPRESSED;
-    }
-
-    processBodies(functionName, wholeBodyAttrs);
+    processBodies(functionName);
 }
 
 if (options.function) {

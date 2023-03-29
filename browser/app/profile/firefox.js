@@ -287,11 +287,7 @@ pref("browser.shell.setDefaultPDFHandler.onlyReplaceBrowsers", true);
 // The behavior of option 3 is detailed at: http://wiki.mozilla.org/Session_Restore
 pref("browser.startup.page",                1);
 pref("browser.startup.homepage",            "about:home");
-#ifdef NIGHTLY_BUILD
 pref("browser.startup.homepage.abouthome_cache.enabled", true);
-#else
-pref("browser.startup.homepage.abouthome_cache.enabled", false);
-#endif
 pref("browser.startup.homepage.abouthome_cache.loglevel", "Warn");
 
 // Whether we should skip the homepage when opening the first-run page
@@ -2187,6 +2183,14 @@ pref("browser.migrate.content-modal.import-all.enabled", false);
 
 // The maximum age of history entries we'll import, in days.
 pref("browser.migrate.history.maxAgeInDays", 180);
+
+// These following prefs are set to true if the user has at some
+// point in the past migrated one of these resource types from
+// another browser. We also attempt to transfer these preferences
+// across profile resets.
+pref("browser.migrate.interactions.bookmarks", false);
+pref("browser.migrate.interactions.history", false);
+pref("browser.migrate.interactions.passwords", false);
 
 pref("extensions.pocket.api", "api.getpocket.com");
 pref("extensions.pocket.bffApi", "firefox-api-proxy.readitlater.com");

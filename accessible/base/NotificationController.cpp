@@ -185,7 +185,6 @@ bool NotificationController::QueueMutationEvent(AccTreeMutationEvent* aEvent) {
   // or hidden children of a container.  So either queue a new one, or move an
   // existing one to the end of the queue if the container already has a
   // reorder event.
-  LocalAccessible* target = aEvent->GetAccessible();
   LocalAccessible* container = aEvent->GetAccessible()->LocalParent();
   RefPtr<AccReorderEvent> reorder;
   if (!container->ReorderEventTarget()) {
@@ -195,7 +194,7 @@ bool NotificationController::QueueMutationEvent(AccTreeMutationEvent* aEvent) {
 
     // Since this is the first child of container that is changing, the name
     // and/or description of dependent Accessibles may be changing.
-    if (PushNameOrDescriptionChange(target)) {
+    if (PushNameOrDescriptionChange(aEvent)) {
       ScheduleProcessing();
     }
   } else {
@@ -231,6 +230,7 @@ bool NotificationController::QueueMutationEvent(AccTreeMutationEvent* aEvent) {
     return true;
   }
 
+  LocalAccessible* target = aEvent->GetAccessible();
   int32_t offset = container->AsHyperText()->GetChildOffset(target);
   AccTreeMutationEvent* prevEvent = aEvent->PrevEvent();
   while (prevEvent &&
@@ -485,9 +485,6 @@ void NotificationController::ProcessMutationEvents() {
     acc->SetShowEventTarget(false);
     acc->SetHideEventTarget(false);
     acc->SetReorderEventTarget(false);
-    // Our events are in a doubly linked list. We don't need the previous
-    // pointers any more, so clear them here to remove reference cycles.
-    event->SetPrevEvent(nullptr);
   }
   // 2. Keep the current queue locally, but clear the queue on the instance.
   RefPtr<AccTreeMutationEvent> firstEvent = mFirstMutationEvent;
@@ -630,6 +627,21 @@ void NotificationController::ProcessMutationEvents() {
         return;
       }
     }
+  }
+
+  // Our events are in a doubly linked list. Clear the pointers to reduce
+  // pressure on the cycle collector. Even though clearing the previous pointers
+  // removes cycles, this isn't enough. The cycle collector still gets bogged
+  // down when there are lots of mutation events if the next pointers aren't
+  // cleared. Even without the cycle collector, not clearing the next pointers
+  // potentially results in deep recursion because releasing each event releases
+  // its next event.
+  RefPtr<AccTreeMutationEvent> event = firstEvent;
+  while (event) {
+    RefPtr<AccTreeMutationEvent> next = event->NextEvent();
+    event->SetNextEvent(nullptr);
+    event->SetPrevEvent(nullptr);
+    event = next;
   }
 }
 

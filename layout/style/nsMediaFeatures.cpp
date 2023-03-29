@@ -340,6 +340,16 @@ StylePrefersTextSize Gecko_MediaFeatures_PrefersTextSize(
   }
 }
 
+StyleScripting Gecko_MediaFeatures_Scripting(const Document* aDocument) {
+  const auto* doc = aDocument;
+  if (aDocument->IsStaticDocument()) {
+    doc = aDocument->GetOriginalDocument();
+  }
+
+  return doc->IsScriptEnabled() ? StyleScripting::Enabled
+                                : StyleScripting::None;
+}
+
 StyleDynamicRange Gecko_MediaFeatures_DynamicRange(const Document* aDocument) {
   // Bug 1759772: Once HDR color is available, update each platform
   // LookAndFeel implementation to return StyleDynamicRange::High when

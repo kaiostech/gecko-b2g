@@ -681,7 +681,7 @@ def android_ndk_url(os_name, ver=NDK_VERSION):
         "LOCAL_NDK_BASE_URL", "https://dl.google.com/android/repository/android-ndk"
     )
 
-    ndk_file_extesion = "tar.bz2" if os.environ.get("LOCAL_NDK_BASE_URL") else "zip"
+    ndk_file_extension = "tar.bz2" if os.environ.get("LOCAL_NDK_BASE_URL") else "zip"
 
     if os_name == "macosx":
         # |mach bootstrap| uses 'macosx', but Google uses 'darwin'.
@@ -692,7 +692,7 @@ def android_ndk_url(os_name, ver=NDK_VERSION):
     else:
         arch = "x86"
 
-    return "%s-%s-%s-%s.%s" % (base_url, ver, os_name, arch, ndk_file_extesion)
+    return "%s-%s-%s-%s.%s" % (base_url, ver, os_name, arch, ndk_file_extension)
 
 
 def main(argv):

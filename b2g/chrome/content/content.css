@@ -24,7 +24,7 @@ xul|scrollbar[root="true"] {
 }
 
 xul|scrollbar {
-  -moz-appearance: none !important;
+  /* -moz-appearance: none !important; */
   background-color: transparent !important;
   background-image: none !important;
   border: 0px solid transparent !important;

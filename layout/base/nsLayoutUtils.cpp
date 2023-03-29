@@ -5525,32 +5525,6 @@ nscolor nsLayoutUtils::DarkenColorIfNeeded(nsIFrame* aFrame, nscolor aColor) {
   return ShouldDarkenColors(aFrame) ? DarkenColor(aColor) : aColor;
 }
 
-gfxFloat nsLayoutUtils::GetSnappedBaselineY(nsIFrame* aFrame,
-                                            gfxContext* aContext, nscoord aY,
-                                            nscoord aAscent) {
-  gfxFloat appUnitsPerDevUnit = aFrame->PresContext()->AppUnitsPerDevPixel();
-  gfxFloat baseline = gfxFloat(aY) + aAscent;
-  gfxRect putativeRect(0, baseline / appUnitsPerDevUnit, 1, 1);
-  if (!aContext->UserToDevicePixelSnapped(
-          putativeRect, gfxContext::SnapOption::IgnoreScale)) {
-    return baseline;
-  }
-  return aContext->DeviceToUser(putativeRect.TopLeft()).y * appUnitsPerDevUnit;
-}
-
-gfxFloat nsLayoutUtils::GetSnappedBaselineX(nsIFrame* aFrame,
-                                            gfxContext* aContext, nscoord aX,
-                                            nscoord aAscent) {
-  gfxFloat appUnitsPerDevUnit = aFrame->PresContext()->AppUnitsPerDevPixel();
-  gfxFloat baseline = gfxFloat(aX) + aAscent;
-  gfxRect putativeRect(baseline / appUnitsPerDevUnit, 0, 1, 1);
-  if (!aContext->UserToDevicePixelSnapped(
-          putativeRect, gfxContext::SnapOption::IgnoreScale)) {
-    return baseline;
-  }
-  return aContext->DeviceToUser(putativeRect.TopLeft()).x * appUnitsPerDevUnit;
-}
-
 // Hard limit substring lengths to 8000 characters ... this lets us statically
 // size the cluster buffer array in FindSafeLength
 #define MAX_GFX_TEXT_BUF_SIZE 8000
@@ -8623,8 +8597,10 @@ void nsLayoutUtils::SetBSizeFromFontMetrics(const nsIFrame* aFrame,
     // The height of our box is the sum of our font size plus the top
     // and bottom border and padding. The height of children do not
     // affect our height.
-    aMetrics.SetBlockStartAscent(aLineWM.IsLineInverted() ? fm->MaxDescent()
-                                                          : fm->MaxAscent());
+    aMetrics.SetBlockStartAscent(
+        aLineWM.IsAlphabeticalBaseline()
+            ? aLineWM.IsLineInverted() ? fm->MaxDescent() : fm->MaxAscent()
+            : fm->MaxHeight() / 2);
     aMetrics.BSize(aLineWM) = fm->MaxHeight();
   } else {
     NS_WARNING("Cannot get font metrics - defaulting sizes to 0");
@@ -9128,16 +9104,6 @@ void nsLayoutUtils::TransformToAncestorAndCombineRegions(
       *aPreciseTargetDest = nsRegion();
     }
   }
-}
-
-/* static */
-bool nsLayoutUtils::ShouldUseNoScriptSheet(Document* aDocument) {
-  // also handle the case where print is done from print preview
-  // see bug #342439 for more details
-  if (aDocument->IsStaticDocument()) {
-    aDocument = aDocument->GetOriginalDocument();
-  }
-  return aDocument->IsScriptEnabled();
 }
 
 /* static */

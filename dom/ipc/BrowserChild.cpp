@@ -2542,7 +2542,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelVolume(
   }
 
   aResolve(
-      Tuple<const bool&, const float&, const bool&>(success, volume, muted));
+      std::tuple<const bool&, const float&, const bool&>(success, volume, muted));
   return IPC_OK();
 }
 
@@ -2574,7 +2574,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelSuspend(
         window, static_cast<AudioChannel>(aAudioChannel), suspend);
   }
 
-  aResolve(Tuple<const bool&, const uint32_t&>(success, suspend));
+  aResolve(std::tuple<const bool&, const uint32_t&>(success, suspend));
   return IPC_OK();
 }
 
@@ -2607,7 +2607,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelActivity(
     success = true;
   }
 
-  aResolve(Tuple<const bool&, const bool&>(success, active));
+  aResolve(std::tuple<const bool&, const bool&>(success, active));
   return IPC_OK();
 }
 

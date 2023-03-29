@@ -77,6 +77,19 @@ export class MigrationWizardParent extends JSWindowActorParent {
           message.data.resourceTypes,
           message.data.profile
         );
+        break;
+      }
+
+      case "CheckPermissions": {
+        let migrator = await MigrationUtils.getMigrator(message.data.key);
+        return migrator.hasPermissions();
+      }
+
+      case "RequestSafariPermissions": {
+        let safariMigrator = await MigrationUtils.getMigrator("safari");
+        return safariMigrator.getPermissions(
+          this.browsingContext.topChromeWindow
+        );
       }
     }
 
@@ -237,8 +250,11 @@ export class MigrationWizardParent extends JSWindowActorParent {
    * @returns {Promise<MigratorProfileInstance>}
    */
   async #serializeMigratorAndProfile(migrator, profileObj) {
-    let profileMigrationData = await migrator.getMigrateData(profileObj);
-    let lastModifiedDate = await migrator.getLastUsedDate();
+    let [profileMigrationData, lastModifiedDate] = await Promise.all([
+      migrator.getMigrateData(profileObj),
+      migrator.getLastUsedDate(),
+    ]);
+
     let availableResourceTypes = [];
 
     for (let resourceType in MigrationUtils.resourceTypes) {
@@ -291,11 +307,10 @@ export class MigrationWizardParent extends JSWindowActorParent {
         );
       }
       case lazy.MigrationWizardConstants.DISPLAYED_RESOURCE_TYPES.HISTORY: {
-        let quantity = MigrationUtils.getImportedCount("history");
         return lazy.gFluentStrings.formatValue(
           "migration-wizard-progress-success-history",
           {
-            quantity,
+            maxAgeInDays: MigrationUtils.HISTORY_MAX_AGE_IN_DAYS,
           }
         );
       }
@@ -306,6 +321,11 @@ export class MigrationWizardParent extends JSWindowActorParent {
           {
             quantity,
           }
+        );
+      }
+      case lazy.MigrationWizardConstants.DISPLAYED_RESOURCE_TYPES.FORMDATA: {
+        return lazy.gFluentStrings.formatValue(
+          "migration-wizard-progress-success-formdata"
         );
       }
       default: {

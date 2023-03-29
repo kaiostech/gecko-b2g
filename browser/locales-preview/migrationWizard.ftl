@@ -82,6 +82,16 @@ migration-wizard-progress-icon-in-progress =
 migration-wizard-progress-icon-completed =
   .aria-label = Completed
 
+migration-safari-password-import-header = Import Passwords from Safari
+migration-safari-password-import-steps-header = To import Safari passwords:
+migration-safari-password-import-step1 = In Safari, open “Safari” menu and go to Preferences > Passwords
+migration-safari-password-import-step2 = Select the <img data-l10n-name="safari-icon-3dots"/> button and choose “Export All Passwords”
+migration-safari-password-import-step3 = Save the passwords file
+migration-safari-password-import-step4 = Use “Select File” below to choose the passwords file you saved
+migration-safari-password-import-skip-button = Skip
+migration-safari-password-import-select-button = Select File
+
+
 # Shown in the migration wizard after importing bookmarks from another
 # browser has completed.
 #
@@ -108,12 +118,14 @@ migration-wizard-progress-success-passwords =
 # browser has completed.
 #
 # Variables:
-#  $quantity (Number): the number of successfully imported history entries
+#  $maxAgeInDays (Number): the maximum number of days of history that might be imported.
 migration-wizard-progress-success-history =
-    { $quantity ->
-        [one] { $quantity } visit
-       *[other] { $quantity } visits
+    { $maxAgeInDays ->
+        [one] From the last day
+       *[other] From the last { $maxAgeInDays } days
     }
+
+migration-wizard-progress-success-formdata = Form history
 
 migration-wizard-safari-permissions-sub-header = To import Safari bookmarks and browsing history:
 migration-wizard-safari-instructions-continue = Select “Continue”

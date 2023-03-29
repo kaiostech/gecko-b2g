@@ -99,6 +99,7 @@ include = [
   "PrefersContrast",
   "PrefersTextSize",
   "DynamicRange",
+  "Scripting",
   "FillRule",
   "FontDisplay",
   "FontFaceSourceListComponent",

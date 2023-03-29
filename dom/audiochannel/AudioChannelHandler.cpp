@@ -229,9 +229,9 @@ already_AddRefed<Promise> AudioChannelHandler::GetVolume(ErrorResult& aRv) {
   }
 
   if (IsRemoteFrame()) {
-    auto resolve = [promise](Tuple<bool, float, bool>&& aResult) {
-      bool success = Get<0>(aResult);
-      float volume = Get<1>(aResult);
+    auto resolve = [promise](std::tuple<bool, float, bool>&& aResult) {
+      bool success = std::get<0>(aResult);
+      float volume = std::get<1>(aResult);
       ResolveOrReject(promise, success, volume);
     };
     mBrowserParent->SendGetAudioChannelVolume(
@@ -289,9 +289,9 @@ already_AddRefed<Promise> AudioChannelHandler::GetSuspended(ErrorResult& aRv) {
   }
 
   if (IsRemoteFrame()) {
-    auto resolve = [promise](Tuple<bool, uint32_t>&& aResult) {
-      bool success = Get<0>(aResult);
-      bool suspended = IsSuspended(Get<1>(aResult));
+    auto resolve = [promise](std::tuple<bool, uint32_t>&& aResult) {
+      bool success = std::get<0>(aResult);
+      bool suspended = IsSuspended(std::get<1>(aResult));
       ResolveOrReject(promise, success, suspended);
     };
     mBrowserParent->SendGetAudioChannelSuspend(
@@ -361,9 +361,9 @@ already_AddRefed<Promise> AudioChannelHandler::IsActive(ErrorResult& aRv) {
     bool active = mState == eStateActive;
     ResolveOrReject(promise, true, active);
   } else if (IsRemoteFrame()) {
-    auto resolve = [promise](Tuple<bool, bool>&& aResult) {
-      bool success = Get<0>(aResult);
-      bool active = Get<1>(aResult);
+    auto resolve = [promise](std::tuple<bool, bool>&& aResult) {
+      bool success = std::get<0>(aResult);
+      bool active = std::get<1>(aResult);
       ResolveOrReject(promise, success, active);
     };
     mBrowserParent->SendGetAudioChannelActivity(

@@ -34,7 +34,6 @@
 #include "nsRegion.h"
 #include "nsRepeatService.h"
 #include "nsFloatManager.h"
-#include "nsSprocketLayout.h"
 #include "nsTextControlFrame.h"
 #include "txMozillaXSLTProcessor.h"
 #include "nsTreeSanitizer.h"
@@ -357,7 +356,6 @@ void nsLayoutStatics::Shutdown() {
 
   nsXULContentUtils::Finish();
   nsXULPrototypeCache::ReleaseGlobals();
-  nsSprocketLayout::Shutdown();
 
   SVGElementFactory::Shutdown();
   nsMathMLOperators::ReleaseTable();

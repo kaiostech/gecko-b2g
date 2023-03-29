@@ -365,7 +365,8 @@ nsresult TRRService::ReadPrefs(const char* name) {
   }
   if (!name || !strcmp(name, TRR_PREF("uri")) ||
       !strcmp(name, TRR_PREF("default_provider_uri")) ||
-      !strcmp(name, kRolloutURIPref) || !strcmp(name, TRR_PREF("ohttp.uri"))) {
+      !strcmp(name, kRolloutURIPref) || !strcmp(name, TRR_PREF("ohttp.uri")) ||
+      !strcmp(name, TRR_PREF("use_ohttp"))) {
     OnTRRURIChange();
   }
   if (!name || !strcmp(name, TRR_PREF("credentials"))) {
@@ -659,6 +660,17 @@ void TRRService::RebuildSuffixList(nsTArray<nsCString>&& aSuffixList) {
 void TRRService::ConfirmationContext::SetState(
     enum ConfirmationState aNewState) {
   mState = aNewState;
+
+  if (mState == CONFIRM_FAILED) {
+    NS_DispatchToMainThread(
+        NS_NewRunnableFunction("TRRService::ConfirmationContextRetry", [] {
+          if (nsCOMPtr<nsIObserverService> obs =
+                  mozilla::services::GetObserverService()) {
+            obs->NotifyObservers(nullptr, "trrservice-confirmation-failed",
+                                 nullptr);
+          }
+        }));
+  }
 
   if (XRE_IsParentProcess()) {
     return;

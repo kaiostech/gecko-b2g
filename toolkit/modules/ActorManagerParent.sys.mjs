@@ -99,6 +99,9 @@ let JSWINDOWACTORS = {
         // Run the actor before any content of the page appears to inject functions.
         DOMDocElementInserted: {},
         DOMContentLoaded: {},
+        // Used to show and hide the translations button.
+        pageshow: { mozSystemGroup: true },
+        pagehide: { mozSystemGroup: true },
       },
     },
     matches: ["about:translations"],
@@ -215,10 +218,10 @@ let JSWINDOWACTORS = {
 
   CookieBanner: {
     parent: {
-      moduleURI: "resource://gre/actors/CookieBannerParent.jsm",
+      esModuleURI: "resource://gre/actors/CookieBannerParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource://gre/actors/CookieBannerChild.jsm",
+      esModuleURI: "resource://gre/actors/CookieBannerChild.sys.mjs",
       events: {
         DOMContentLoaded: {},
         load: { capture: true },

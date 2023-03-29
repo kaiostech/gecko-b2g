@@ -22,7 +22,6 @@ use crate::{Zero, ZeroNoPercent};
 use app_units::Au;
 use cssparser::{Parser, Token};
 use std::cmp;
-use std::ops::Mul;
 use style_traits::values::specified::AllowedNumericType;
 use std::fmt::{self, Write};
 use style_traits::{ParseError, SpecifiedValueInfo, StyleParseErrorKind, CssWriter, ToCss};
@@ -107,7 +106,7 @@ impl FontRelativeLength {
             FontRelativeLength::Ch(_) => "ch",
             FontRelativeLength::Cap(_) => "cap",
             FontRelativeLength::Ic(_) => "ic",
-            FontRelativeLength::Rem(_) => "rem"
+            FontRelativeLength::Rem(_) => "rem",
         }
     }
 
@@ -137,6 +136,17 @@ impl FontRelativeLength {
                 debug_unreachable!("Forgot to handle unit in try_op()")
             },
         })
+    }
+
+    fn map(&self, mut op: impl FnMut(f32) -> f32) -> Self {
+        match self {
+            Self::Em(x) => Self::Em(op(*x)),
+            Self::Ex(x) => Self::Ex(op(*x)),
+            Self::Ch(x) => Self::Ch(op(*x)),
+            Self::Cap(x) => Self::Cap(op(*x)),
+            Self::Ic(x) => Self::Ic(op(*x)),
+            Self::Rem(x) => Self::Rem(op(*x)),
+        }
     }
 
     /// Computes the font-relative length.
@@ -513,6 +523,35 @@ impl ViewportPercentageLength {
         })
     }
 
+    fn map(&self, mut op: impl FnMut(f32) -> f32) -> Self {
+        match self {
+            Self::Vw(x) => Self::Vw(op(*x)),
+            Self::Svw(x) => Self::Svw(op(*x)),
+            Self::Lvw(x) => Self::Lvw(op(*x)),
+            Self::Dvw(x) => Self::Dvw(op(*x)),
+            Self::Vh(x) => Self::Vh(op(*x)),
+            Self::Svh(x) => Self::Svh(op(*x)),
+            Self::Lvh(x) => Self::Lvh(op(*x)),
+            Self::Dvh(x) => Self::Dvh(op(*x)),
+            Self::Vmin(x) => Self::Vmin(op(*x)),
+            Self::Svmin(x) => Self::Svmin(op(*x)),
+            Self::Lvmin(x) => Self::Lvmin(op(*x)),
+            Self::Dvmin(x) => Self::Dvmin(op(*x)),
+            Self::Vmax(x) => Self::Vmax(op(*x)),
+            Self::Svmax(x) => Self::Svmax(op(*x)),
+            Self::Lvmax(x) => Self::Lvmax(op(*x)),
+            Self::Dvmax(x) => Self::Dvmax(op(*x)),
+            Self::Vb(x) => Self::Vb(op(*x)),
+            Self::Svb(x) => Self::Svb(op(*x)),
+            Self::Lvb(x) => Self::Lvb(op(*x)),
+            Self::Dvb(x) => Self::Dvb(op(*x)),
+            Self::Vi(x) => Self::Vi(op(*x)),
+            Self::Svi(x) => Self::Svi(op(*x)),
+            Self::Lvi(x) => Self::Lvi(op(*x)),
+            Self::Dvi(x) => Self::Dvi(op(*x)),
+        }
+    }
+
     /// Computes the given viewport-relative length for the given viewport size.
     pub fn to_computed_value(&self, context: &Context) -> CSSPixelLength {
         let (variant, unit, factor) = self.unpack();
@@ -609,7 +648,7 @@ impl AbsoluteLength {
             AbsoluteLength::Mm(_) => "mm",
             AbsoluteLength::Q(_) => "q",
             AbsoluteLength::Pt(_) => "pt",
-            AbsoluteLength::Pc(_) => "pc"
+            AbsoluteLength::Pc(_) => "pc",
         }
     }
 
@@ -633,6 +672,10 @@ impl AbsoluteLength {
     {
         Ok(Self::Px(op(self.to_px(), other.to_px())))
     }
+
+    fn map(&self, mut op: impl FnMut(f32) -> f32) -> Self {
+        Self::Px(op(self.to_px()))
+    }
 }
 
 impl ToComputedValue for AbsoluteLength {
@@ -650,15 +693,6 @@ impl ToComputedValue for AbsoluteLength {
 impl PartialOrd for AbsoluteLength {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.to_px().partial_cmp(&other.to_px())
-    }
-}
-
-impl Mul<CSSFloat> for AbsoluteLength {
-    type Output = Self;
-
-    #[inline]
-    fn mul(self, scalar: CSSFloat) -> Self {
-        Self::Px(self.to_px() * scalar)
     }
 }
 
@@ -707,7 +741,7 @@ impl ContainerRelativeLength {
             ContainerRelativeLength::Cqi(_) => "cqi",
             ContainerRelativeLength::Cqb(_) => "cqb",
             ContainerRelativeLength::Cqmin(_) => "cqmin",
-            ContainerRelativeLength::Cqmax(_) => "cqmax"
+            ContainerRelativeLength::Cqmax(_) => "cqmax",
         }
     }
 
@@ -739,6 +773,17 @@ impl ContainerRelativeLength {
                 debug_unreachable!("Forgot to handle unit in try_op()")
             },
         })
+    }
+
+    pub(crate) fn map(&self, mut op: impl FnMut(f32) -> f32) -> Self {
+        match self {
+            Self::Cqw(x) => Self::Cqw(op(*x)),
+            Self::Cqh(x) => Self::Cqh(op(*x)),
+            Self::Cqi(x) => Self::Cqi(op(*x)),
+            Self::Cqb(x) => Self::Cqb(op(*x)),
+            Self::Cqmin(x) => Self::Cqmin(op(*x)),
+            Self::Cqmax(x) => Self::Cqmax(op(*x)),
+        }
     }
 
     /// Computes the given container-relative length.
@@ -808,21 +853,6 @@ pub enum NoCalcLength {
     ServoCharacterWidth(CharacterWidth),
 }
 
-impl Mul<CSSFloat> for NoCalcLength {
-    type Output = NoCalcLength;
-
-    #[inline]
-    fn mul(self, scalar: CSSFloat) -> NoCalcLength {
-        match self {
-            NoCalcLength::Absolute(v) => NoCalcLength::Absolute(v * scalar),
-            NoCalcLength::FontRelative(v) => NoCalcLength::FontRelative(v * scalar),
-            NoCalcLength::ViewportPercentage(v) => NoCalcLength::ViewportPercentage(v * scalar),
-            NoCalcLength::ContainerRelative(v) => NoCalcLength::ContainerRelative(v * scalar),
-            NoCalcLength::ServoCharacterWidth(_) => panic!("Can't multiply ServoCharacterWidth!"),
-        }
-    }
-}
-
 impl NoCalcLength {
     /// Return the unitless, raw value.
     pub fn unitless_value(&self) -> CSSFloat {
@@ -842,7 +872,7 @@ impl NoCalcLength {
             NoCalcLength::FontRelative(v) => v.unit(),
             NoCalcLength::ViewportPercentage(v) => v.unit(),
             NoCalcLength::ContainerRelative(v) => v.unit(),
-            NoCalcLength::ServoCharacterWidth(_) => ""
+            NoCalcLength::ServoCharacterWidth(_) => "",
         }
     }
 
@@ -1037,6 +1067,20 @@ impl NoCalcLength {
         })
     }
 
+    pub(crate) fn map(&self, mut op: impl FnMut(f32) -> f32) -> Self {
+        use self::NoCalcLength::*;
+
+        match self {
+            Absolute(ref one) => Absolute(one.map(op)),
+            FontRelative(ref one) => FontRelative(one.map(op)),
+            ViewportPercentage(ref one) => ViewportPercentage(one.map(op)),
+            ContainerRelative(ref one) => ContainerRelative(one.map(op)),
+            ServoCharacterWidth(ref one) => {
+                ServoCharacterWidth(CharacterWidth(op(one.0 as f32) as i32))
+            },
+        }
+    }
+
     /// Get a px value without context.
     #[inline]
     pub fn to_computed_pixel_length_without_context(&self) -> Result<CSSFloat, ()> {
@@ -1156,38 +1200,6 @@ impl PartialOrd for FontRelativeLength {
     }
 }
 
-impl Mul<CSSFloat> for FontRelativeLength {
-    type Output = FontRelativeLength;
-
-    #[inline]
-    fn mul(self, scalar: CSSFloat) -> FontRelativeLength {
-        match self {
-            FontRelativeLength::Em(v) => FontRelativeLength::Em(v * scalar),
-            FontRelativeLength::Ex(v) => FontRelativeLength::Ex(v * scalar),
-            FontRelativeLength::Ch(v) => FontRelativeLength::Ch(v * scalar),
-            FontRelativeLength::Cap(v) => FontRelativeLength::Cap(v * scalar),
-            FontRelativeLength::Ic(v) => FontRelativeLength::Ic(v * scalar),
-            FontRelativeLength::Rem(v) => FontRelativeLength::Rem(v * scalar),
-        }
-    }
-}
-
-impl Mul<CSSFloat> for ContainerRelativeLength {
-    type Output = ContainerRelativeLength;
-
-    #[inline]
-    fn mul(self, scalar: CSSFloat) -> ContainerRelativeLength {
-        match self {
-            ContainerRelativeLength::Cqw(v) => ContainerRelativeLength::Cqw(v * scalar),
-            ContainerRelativeLength::Cqh(v) => ContainerRelativeLength::Cqh(v * scalar),
-            ContainerRelativeLength::Cqi(v) => ContainerRelativeLength::Cqi(v * scalar),
-            ContainerRelativeLength::Cqb(v) => ContainerRelativeLength::Cqb(v * scalar),
-            ContainerRelativeLength::Cqmin(v) => ContainerRelativeLength::Cqmin(v * scalar),
-            ContainerRelativeLength::Cqmax(v) => ContainerRelativeLength::Cqmax(v * scalar),
-        }
-    }
-}
-
 impl PartialOrd for ContainerRelativeLength {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         use self::ContainerRelativeLength::*;
@@ -1213,40 +1225,6 @@ impl PartialOrd for ContainerRelativeLength {
                 }
                 debug_unreachable!("Forgot to handle unit in partial_cmp()")
             },
-        }
-    }
-}
-
-impl Mul<CSSFloat> for ViewportPercentageLength {
-    type Output = ViewportPercentageLength;
-
-    #[inline]
-    fn mul(self, scalar: CSSFloat) -> ViewportPercentageLength {
-        match self {
-            ViewportPercentageLength::Vw(v) => ViewportPercentageLength::Vw(v * scalar),
-            ViewportPercentageLength::Svw(v) => ViewportPercentageLength::Svw(v * scalar),
-            ViewportPercentageLength::Lvw(v) => ViewportPercentageLength::Lvw(v * scalar),
-            ViewportPercentageLength::Dvw(v) => ViewportPercentageLength::Dvw(v * scalar),
-            ViewportPercentageLength::Vh(v) => ViewportPercentageLength::Vh(v * scalar),
-            ViewportPercentageLength::Svh(v) => ViewportPercentageLength::Svh(v * scalar),
-            ViewportPercentageLength::Lvh(v) => ViewportPercentageLength::Lvh(v * scalar),
-            ViewportPercentageLength::Dvh(v) => ViewportPercentageLength::Dvh(v * scalar),
-            ViewportPercentageLength::Vmin(v) => ViewportPercentageLength::Vmin(v * scalar),
-            ViewportPercentageLength::Svmin(v) => ViewportPercentageLength::Svmin(v * scalar),
-            ViewportPercentageLength::Lvmin(v) => ViewportPercentageLength::Lvmin(v * scalar),
-            ViewportPercentageLength::Dvmin(v) => ViewportPercentageLength::Dvmin(v * scalar),
-            ViewportPercentageLength::Vmax(v) => ViewportPercentageLength::Vmax(v * scalar),
-            ViewportPercentageLength::Svmax(v) => ViewportPercentageLength::Svmax(v * scalar),
-            ViewportPercentageLength::Lvmax(v) => ViewportPercentageLength::Lvmax(v * scalar),
-            ViewportPercentageLength::Dvmax(v) => ViewportPercentageLength::Dvmax(v * scalar),
-            ViewportPercentageLength::Vb(v) => ViewportPercentageLength::Vb(v * scalar),
-            ViewportPercentageLength::Svb(v) => ViewportPercentageLength::Svb(v * scalar),
-            ViewportPercentageLength::Lvb(v) => ViewportPercentageLength::Lvb(v * scalar),
-            ViewportPercentageLength::Dvb(v) => ViewportPercentageLength::Dvb(v * scalar),
-            ViewportPercentageLength::Vi(v) => ViewportPercentageLength::Vi(v * scalar),
-            ViewportPercentageLength::Svi(v) => ViewportPercentageLength::Svi(v * scalar),
-            ViewportPercentageLength::Lvi(v) => ViewportPercentageLength::Lvi(v * scalar),
-            ViewportPercentageLength::Dvi(v) => ViewportPercentageLength::Dvi(v * scalar),
         }
     }
 }

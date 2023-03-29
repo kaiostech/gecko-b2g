@@ -21,7 +21,6 @@
 #include "mozilla/Sprintf.h"
 #include "mozilla/TextUtils.h"
 #include "mozilla/ThreadLocal.h"
-#include "mozilla/Tuple.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -151,8 +150,6 @@ using mozilla::AssertedCast;
 using mozilla::AsWritableChars;
 using mozilla::Maybe;
 using mozilla::Span;
-using mozilla::Tie;
-using mozilla::Tuple;
 
 using JS::AutoStableStringChars;
 using JS::CompileOptions;
@@ -5686,8 +5683,15 @@ static bool GetBacktrace(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  JS::ConstUTF8CharsZ utf8chars(buf.get(), strlen(buf.get()));
-  JSString* str = NewStringCopyUTF8Z(cx, utf8chars);
+  size_t len;
+  UniqueTwoByteChars ucbuf(JS::LossyUTF8CharsToNewTwoByteCharsZ(
+                               cx, JS::UTF8Chars(buf.get(), strlen(buf.get())),
+                               &len, js::MallocArena)
+                               .get());
+  if (!ucbuf) {
+    return false;
+  }
+  JSString* str = JS_NewUCStringCopyN(cx, ucbuf.get(), len);
   if (!str) {
     return false;
   }
@@ -7754,15 +7758,15 @@ static bool EncodeAsUtf8InBuffer(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  Maybe<Tuple<size_t, size_t>> amounts = JS_EncodeStringToUTF8BufferPartial(
-      cx, args[0].toString(), AsWritableChars(Span(data, length)));
+  Maybe<std::tuple<size_t, size_t>> amounts =
+      JS_EncodeStringToUTF8BufferPartial(cx, args[0].toString(),
+                                         AsWritableChars(Span(data, length)));
   if (!amounts) {
     ReportOutOfMemory(cx);
     return false;
   }
 
-  size_t unitsRead, bytesWritten;
-  Tie(unitsRead, bytesWritten) = *amounts;
+  auto [unitsRead, bytesWritten] = *amounts;
 
   array->initDenseElement(0, Int32Value(AssertedCast<int32_t>(unitsRead)));
   array->initDenseElement(1, Int32Value(AssertedCast<int32_t>(bytesWritten)));

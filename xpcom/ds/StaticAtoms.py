@@ -1062,6 +1062,7 @@ STATIC_ATOMS = [
     Atom("prefwidth", "prefwidth"),
     Atom("dynamicRange", "dynamic-range"),
     Atom("videoDynamicRange", "video-dynamic-range"),
+    Atom("scripting", "scripting"),
     Atom("preload", "preload"),
     Atom("preserve", "preserve"),
     Atom("preserveSpace", "preserve-space"),
@@ -2023,6 +2024,7 @@ STATIC_ATOMS = [
     Atom("onmozshowdropdown_sourcetouch", "onmozshowdropdown-sourcetouch"),
     Atom("onprintPreviewUpdate", "onprintPreviewUpdate"),
     Atom("onscrollend", "onscrollend"),
+    Atom("onbeforetoggle", "onbeforetoggle"),
     # WebExtensions
     Atom("moz_extension", "moz-extension"),
     Atom("all_urlsPermission", "<all_urls>"),

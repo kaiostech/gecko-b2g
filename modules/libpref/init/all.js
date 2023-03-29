@@ -463,7 +463,7 @@ pref("gfx.downloadable_fonts.disable_cache", false);
 pref("gfx.content.azure.backends", "skia");
 
 #ifdef XP_WIN
-  pref("gfx.webrender.flip-sequential", false);
+  // pref("gfx.webrender.flip-sequential", false);  // no default
   pref("gfx.webrender.dcomp-win.enabled", true);
   pref("gfx.webrender.triple-buffering.enabled", true);
 #endif
@@ -3787,12 +3787,18 @@ pref("browser.sanitizer.loglevel", "Warn");
 // [1]: https://browser.mt/
 // [2]: https://github.com/mozilla/firefox-translations
 pref("browser.translations.enable", false);
-// Set to "All" to see all logs, which are useful for debugging.
+// Set to "All" to see all logs, which are useful for debugging. Set to "Info" to see
+// the application logic logs, and not all of the translated messages, which can be
+// slow and overwhelming.
 pref("browser.translations.logLevel", "Error");
 // By default the translations engine on about:translations uses text for translation,
 // and the full page translations uses HTML. Set this pref to true to use the HTML
 // translation behavior on about:translations. Requires a page refresh.
 pref("browser.translations.useHTML", false);
+// Normally there is a UI to ask the user to translate a page, this pref makes it
+// so that the page automatically performs a translation if one is detected as being
+// required.
+pref("browser.translations.autoTranslate", false);
 
 // When a user cancels this number of authentication dialogs coming from
 // a single web page in a row, all following authentication dialogs will
@@ -4177,7 +4183,7 @@ pref("cookiebanners.listService.testSkipRemoteSettings", false);
 
 // The domains we will block from installing SitePermsAddons. Comma-separated
 // full domains: any subdomains of the domains listed will also be allowed.
-pref("dom.sitepermsaddon-provider.separatedBlocklistedDomains", "shopee.co.th,alipay.com,miravia.es");
+pref("dom.sitepermsaddon-provider.separatedBlocklistedDomains", "shopee.co.th,shopee.tw,shopee.co.id,shopee.com.my,shopee.vn,shopee.ph,shopee.sg,shopee.com.br,shopee.com,shopee.cn,shopee.io,shopee.pl,shopee.com.mx,shopee.com.co,shopee.cl,shopee.kr,shopee.es,shopee.in,alipay.com,miravia.es");
 
 // Log level for logger in URLQueryStrippingListService
 pref("privacy.query_stripping.listService.logLevel", "Error");

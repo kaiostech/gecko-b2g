@@ -5401,7 +5401,7 @@ void nsFocusManager::MarkUncollectableForCCGeneration(uint32_t aGeneration) {
 }
 
 bool nsFocusManager::CanSkipFocus(nsIContent* aContent) {
-  if (!aContent || nsContentUtils::IsChromeDoc(aContent->OwnerDoc())) {
+  if (!aContent) {
     return false;
   }
 

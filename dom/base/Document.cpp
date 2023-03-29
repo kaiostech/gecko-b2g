@@ -223,6 +223,7 @@
 #include "mozilla/dom/StyleSheetApplicableStateChangeEventBinding.h"
 #include "mozilla/dom/StyleSheetList.h"
 #include "mozilla/dom/TimeoutManager.h"
+#include "mozilla/dom/ToggleEvent.h"
 #include "mozilla/dom/Touch.h"
 #include "mozilla/dom/TouchEvent.h"
 #include "mozilla/dom/TreeOrderedArrayInlines.h"
@@ -3177,10 +3178,6 @@ void Document::FillStyleSetUserAndUASheets() {
 
   if (nsLayoutUtils::ShouldUseNoFramesSheet(this)) {
     mStyleSet->AppendStyleSheet(*cache->NoFramesSheet());
-  }
-
-  if (nsLayoutUtils::ShouldUseNoScriptSheet(this)) {
-    mStyleSet->AppendStyleSheet(*cache->NoScriptSheet());
   }
 
   mStyleSet->AppendStyleSheet(*cache->CounterStylesSheet());
@@ -10875,7 +10872,7 @@ void Document::RecomputeColorScheme() {
   }
 }
 
-bool Document::IsScriptEnabled() {
+bool Document::IsScriptEnabled() const {
   // If this document is sandboxed without 'allow-scripts'
   // script is not enabled
   if (HasScriptsBlockedBySandbox()) {
@@ -14896,18 +14893,30 @@ void Document::HideAllPopoversUntil(nsINode& aEndpoint,
   }
 }
 
+// https://html.spec.whatwg.org/#dom-hidepopover
 void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
                            bool aFireEvents, ErrorResult& aRv) {
-  auto* popoverHTMLEl = nsGenericHTMLElement::FromNode(aPopover);
+  RefPtr<nsGenericHTMLElement> popoverHTMLEl =
+      nsGenericHTMLElement::FromNode(aPopover);
   NS_ASSERTION(popoverHTMLEl, "Not a HTML element");
 
-  if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Hidden,
+  if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
                                            aRv)) {
     return;
   }
 
   // TODO: Run auto popover steps.
-  // TODO: Fire beforetoggle event and re-check popover validity.
+  // Fire beforetoggle event and re-check popover validity.
+  if (aFireEvents) {
+    // Intentionally ignore the return value here as only on open event the
+    // cancelable attribute is initialized to true.
+    popoverHTMLEl->FireBeforeToggle(true);
+    if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
+                                             aRv)) {
+      return;
+    }
+  }
+
   // TODO: Remove from Top Layer.
 
   popoverHTMLEl->PopoverPseudoStateUpdate(false, true);
@@ -14915,6 +14924,7 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
       PopoverVisibilityState::Hidden);
 
   // TODO: Queue popover toggle event task.
+  // TODO: Handle element focus.
 }
 
 nsTArray<Element*> Document::AutoPopoverList() const {
@@ -15738,7 +15748,7 @@ void Document::PropagateImageUseCounters(Document* aReferencingDocument) {
   aReferencingDocument->mChildDocumentUseCounters |= mChildDocumentUseCounters;
 }
 
-bool Document::HasScriptsBlockedBySandbox() {
+bool Document::HasScriptsBlockedBySandbox() const {
   return mSandboxFlags & SANDBOXED_SCRIPTS;
 }
 

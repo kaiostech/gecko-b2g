@@ -2113,6 +2113,9 @@ nscoord nsIFrame::SynthesizeFallbackBaseline(
     WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
   const auto margin = GetLogicalUsedMargin(aWM);
   NS_ASSERTION(!IsSubtreeDirty(), "frame must not be dirty");
+  if (aWM.IsCentralBaseline()) {
+    return (BSize(aWM) + GetLogicalUsedMargin(aWM).BEnd(aWM)) / 2;
+  }
   // Baseline for inverted line content is the top (block-start) margin edge,
   // as the frame is in effect "flipped" for alignment purposes.
   if (aWM.IsLineInverted()) {
@@ -4244,7 +4247,6 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
   }
 
   const nsStyleDisplay* ourDisp = StyleDisplay();
-  // REVIEW: Taken from nsBoxFrame::Paint
   // Don't paint our children if the theme object is a leaf.
   if (IsThemed(ourDisp) && !PresContext()->Theme()->WidgetIsContainer(
                                ourDisp->EffectiveAppearance())) {

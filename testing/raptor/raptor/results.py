@@ -593,6 +593,16 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                 "statistics": {},
             }
 
+            def _extract_cpu_vals():
+                # Bug 1806402 - Handle chrome cpu data properly
+                cpu_vals = raw_result.get("cpu", None)
+                if (
+                    cpu_vals
+                    and self.app
+                    not in NON_FIREFOX_BROWSERS + NON_FIREFOX_BROWSERS_MOBILE
+                ):
+                    bt_result["measurements"].setdefault("cpuTime", []).extend(cpu_vals)
+
             if self.power_test:
                 power_result = {
                     "bt_ver": bt_ver,
@@ -602,6 +612,7 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                     "statistics": {},
                     "power_data": True,
                 }
+
                 for cycle in raw_result["android"]["power"]:
                     for metric in cycle:
                         if "total" in metric:
@@ -650,6 +661,7 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                             bt_result["measurements"].setdefault(
                                 "perfstat-" + metric, []
                             ).append(cycle[metric])
+                _extract_cpu_vals()
             else:
                 # extracting values from browserScripts and statistics
                 for bt, raptor in conversion:
@@ -694,14 +706,7 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                         raw_result["statistics"]["timings"], raptor, retval={}
                     )
 
-                # Bug 1806402 - Handle chrome cpu data properly
-                cpu_vals = raw_result.get("cpu", None)
-                if (
-                    cpu_vals
-                    and self.app
-                    not in NON_FIREFOX_BROWSERS + NON_FIREFOX_BROWSERS_MOBILE
-                ):
-                    bt_result["measurements"].setdefault("cpuTime", []).extend(cpu_vals)
+                _extract_cpu_vals()
 
                 if self.perfstats:
                     for cycle in raw_result["geckoPerfStats"]:
@@ -994,6 +999,15 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                     LOG.info("parsed new power result: %s" % str(new_result))
                     return new_result
 
+                def _new_custom_result(new_result):
+                    new_result["type"] = "pageload"
+                    new_result = _new_standard_result(
+                        new_result, subtest_unit=test.get("subtest_unit", "ms")
+                    )
+
+                    LOG.info("parsed new custom result: %s" % str(new_result))
+                    return new_result
+
                 def _new_pageload_result(new_result):
                     new_result["type"] = "pageload"
                     new_result = _new_standard_result(new_result)
@@ -1007,7 +1021,7 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                     new_result = _new_standard_result(
                         new_result, subtest_unit=test.get("subtest_unit", "ms")
                     )
-
+                    new_result["gather_cpuTime"] = test.get("gather_cpuTime", None)
                     LOG.info("parsed new benchmark result: %s" % str(new_result))
                     return new_result
 
@@ -1019,7 +1033,10 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                 if new_result.get("power_data", False):
                     self.results.append(_new_powertest_result(new_result))
                 elif test["type"] == "pageload":
-                    self.results.append(_new_pageload_result(new_result))
+                    if test.get("custom_data", False) == "true":
+                        self.results.append(_new_custom_result(new_result))
+                    else:
+                        self.results.append(_new_pageload_result(new_result))
                 elif test["type"] == "benchmark":
                     for i, item in enumerate(self.results):
                         if item["name"] == test["name"] and not _is_supporting_data(

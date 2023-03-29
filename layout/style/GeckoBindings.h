@@ -638,6 +638,8 @@ mozilla::StylePrefersColorScheme Gecko_MediaFeatures_PrefersColorScheme(
     const mozilla::dom::Document*, bool aUseContent);
 mozilla::StylePrefersTextSize Gecko_MediaFeatures_PrefersTextSize(
     const mozilla::dom::Document*);
+mozilla::StyleScripting Gecko_MediaFeatures_Scripting(
+    const mozilla::dom::Document*);
 
 mozilla::StyleDynamicRange Gecko_MediaFeatures_DynamicRange(
     const mozilla::dom::Document*);

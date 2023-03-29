@@ -39,6 +39,7 @@
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/ReferrerInfo.h"
+#include "mozilla/intl/Segmenter.h"
 #include "nsCSSRendering.h"
 #include "nsString.h"
 #include "nsContainerFrame.h"
@@ -47,9 +48,7 @@
 #include "nsVariant.h"
 #include "nsWidgetsCID.h"
 #include "nsIFrameInlines.h"
-#include "nsBoxFrame.h"
 #include "nsBoxLayoutState.h"
-#include "nsTextBoxFrame.h"
 #include "nsTreeContentView.h"
 #include "nsTreeUtils.h"
 #include "nsStyleConsts.h"
@@ -80,6 +79,129 @@ using namespace mozilla::dom;
 using namespace mozilla::gfx;
 using namespace mozilla::image;
 using namespace mozilla::layout;
+
+enum CroppingStyle { CropNone, CropLeft, CropRight, CropCenter, CropAuto };
+
+// FIXME: Maybe unify with MiddleCroppingBlockFrame?
+static void CropStringForWidth(nsAString& aText, gfxContext& aRenderingContext,
+                               nsFontMetrics& aFontMetrics, nscoord aWidth,
+                               CroppingStyle aCropType) {
+  DrawTarget* drawTarget = aRenderingContext.GetDrawTarget();
+
+  // See if the width is even smaller than the ellipsis
+  // If so, clear the text completely.
+  const nsDependentString& kEllipsis = nsContentUtils::GetLocalizedEllipsis();
+  aFontMetrics.SetTextRunRTL(false);
+  nscoord ellipsisWidth =
+      nsLayoutUtils::AppUnitWidthOfString(kEllipsis, aFontMetrics, drawTarget);
+
+  if (ellipsisWidth > aWidth) {
+    aText.Truncate(0);
+    return;
+  }
+  if (ellipsisWidth == aWidth) {
+    aText.Assign(kEllipsis);
+    return;
+  }
+
+  // We will be drawing an ellipsis, thank you very much.
+  // Subtract out the required width of the ellipsis.
+  // This is the total remaining width we have to play with.
+  aWidth -= ellipsisWidth;
+
+  using mozilla::intl::GraphemeClusterBreakIteratorUtf16;
+  using mozilla::intl::GraphemeClusterBreakReverseIteratorUtf16;
+
+  // Now we crop. This is quite basic: it will not be really accurate in the
+  // presence of complex scripts with contextual shaping, etc., as it measures
+  // each grapheme cluster in isolation, not in its proper context.
+  switch (aCropType) {
+    case CropAuto:
+    case CropNone:
+    case CropRight: {
+      const Span text(aText);
+      GraphemeClusterBreakIteratorUtf16 iter(text);
+      uint32_t pos = 0;
+      nscoord totalWidth = 0;
+
+      while (Maybe<uint32_t> nextPos = iter.Next()) {
+        const nscoord charWidth = nsLayoutUtils::AppUnitWidthOfString(
+            text.FromTo(pos, *nextPos), aFontMetrics, drawTarget);
+        if (totalWidth + charWidth > aWidth) {
+          break;
+        }
+        pos = *nextPos;
+        totalWidth += charWidth;
+      }
+
+      if (pos < aText.Length()) {
+        aText.Replace(pos, aText.Length() - pos, kEllipsis);
+      }
+    } break;
+
+    case CropLeft: {
+      const Span text(aText);
+      GraphemeClusterBreakReverseIteratorUtf16 iter(text);
+      uint32_t pos = text.Length();
+      nscoord totalWidth = 0;
+
+      // nextPos is decreasing since we use a reverse iterator.
+      while (Maybe<uint32_t> nextPos = iter.Next()) {
+        const nscoord charWidth = nsLayoutUtils::AppUnitWidthOfString(
+            text.FromTo(*nextPos, pos), aFontMetrics, drawTarget);
+        if (totalWidth + charWidth > aWidth) {
+          break;
+        }
+
+        pos = *nextPos;
+        totalWidth += charWidth;
+      }
+
+      if (pos > 0) {
+        aText.Replace(0, pos, kEllipsis);
+      }
+    } break;
+
+    case CropCenter: {
+      const Span text(aText);
+      nscoord totalWidth = 0;
+      GraphemeClusterBreakIteratorUtf16 leftIter(text);
+      GraphemeClusterBreakReverseIteratorUtf16 rightIter(text);
+      uint32_t leftPos = 0;
+      uint32_t rightPos = text.Length();
+
+      while (leftPos < rightPos) {
+        Maybe<uint32_t> nextPos = leftIter.Next();
+        nscoord charWidth = nsLayoutUtils::AppUnitWidthOfString(
+            text.FromTo(leftPos, *nextPos), aFontMetrics, drawTarget);
+        if (totalWidth + charWidth > aWidth) {
+          break;
+        }
+
+        leftPos = *nextPos;
+        totalWidth += charWidth;
+
+        if (leftPos >= rightPos) {
+          break;
+        }
+
+        nextPos = rightIter.Next();
+        charWidth = nsLayoutUtils::AppUnitWidthOfString(
+            text.FromTo(*nextPos, rightPos), aFontMetrics, drawTarget);
+        if (totalWidth + charWidth > aWidth) {
+          break;
+        }
+
+        rightPos = *nextPos;
+        totalWidth += charWidth;
+      }
+
+      if (leftPos < rightPos) {
+        aText.Replace(leftPos, rightPos - leftPos, kEllipsis);
+      }
+    } break;
+  }
+}
 
 // Function that cancels all the image requests in our cache.
 void nsTreeBodyFrame::CancelImageRequests() {
@@ -644,9 +766,8 @@ static void FindScrollParts(nsIFrame* aCurrFrame,
     }
   }
 
-  nsScrollbarFrame* sf = do_QueryFrame(aCurrFrame);
-  if (sf) {
-    if (!aCurrFrame->IsXULHorizontal()) {
+  if (nsScrollbarFrame* sf = do_QueryFrame(aCurrFrame)) {
+    if (!sf->IsHorizontal()) {
       if (!aResult->mVScrollbar) {
         aResult->mVScrollbar = sf;
       }
@@ -671,20 +792,17 @@ static void FindScrollParts(nsIFrame* aCurrFrame,
 nsTreeBodyFrame::ScrollParts nsTreeBodyFrame::GetScrollParts() {
   ScrollParts result = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
   XULTreeElement* tree = GetBaseElement();
-  nsIFrame* treeFrame = tree ? tree->GetPrimaryFrame() : nullptr;
-  if (treeFrame) {
+  if (nsIFrame* treeFrame = tree ? tree->GetPrimaryFrame() : nullptr) {
     // The way we do this, searching through the entire frame subtree, is pretty
     // dumb! We should know where these frames are.
     FindScrollParts(treeFrame, &result);
     if (result.mHScrollbar) {
       result.mHScrollbar->SetScrollbarMediatorContent(GetContent());
-      nsIFrame* f = do_QueryFrame(result.mHScrollbar);
-      result.mHScrollbarContent = f->GetContent()->AsElement();
+      result.mHScrollbarContent = result.mHScrollbar->GetContent()->AsElement();
     }
     if (result.mVScrollbar) {
       result.mVScrollbar->SetScrollbarMediatorContent(GetContent());
-      nsIFrame* f = do_QueryFrame(result.mVScrollbar);
-      result.mVScrollbarContent = f->GetContent()->AsElement();
+      result.mVScrollbarContent = result.mVScrollbar->GetContent()->AsElement();
     }
   }
   return result;
@@ -1199,15 +1317,14 @@ void nsTreeBodyFrame::AdjustForCellText(nsAutoString& aText, int32_t aRowIndex,
     }
   }
 
-  using CroppingStyle = nsTextBoxFrame::CroppingStyle;
   CroppingStyle cropType = CroppingStyle::CropRight;
   if (aColumn->GetCropStyle() == 1) {
     cropType = CroppingStyle::CropCenter;
   } else if (aColumn->GetCropStyle() == 2) {
     cropType = CroppingStyle::CropLeft;
   }
-  nsTextBoxFrame::CropStringForWidth(aText, aRenderingContext, aFontMetrics,
-                                     maxWidth, cropType);
+  CropStringForWidth(aText, aRenderingContext, aFontMetrics, maxWidth,
+                     cropType);
 
   nscoord width = nsLayoutUtils::AppUnitWidthOfStringBidi(
       aText, this, aFontMetrics, aRenderingContext);
@@ -3820,7 +3937,7 @@ void nsTreeBodyFrame::RepeatButtonScroll(nsScrollbarFrame* aScrollbar) {
   } else if (increment > 0) {
     direction = 1;
   }
-  bool isHorizontal = aScrollbar->IsXULHorizontal();
+  bool isHorizontal = aScrollbar->IsHorizontal();
 
   AutoWeakFrame weakFrame(this);
   if (isHorizontal) {

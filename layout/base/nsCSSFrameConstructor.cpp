@@ -66,7 +66,6 @@
 #include "nsIFormControl.h"
 #include "nsCSSAnonBoxes.h"
 #include "nsTextFragment.h"
-#include "nsTextBoxFrame.h"
 #include "nsIAnonymousContentCreator.h"
 #include "nsContentUtils.h"
 #include "nsIScriptError.h"
@@ -76,8 +75,6 @@
 #include "ChildIterator.h"
 #include "nsError.h"
 #include "nsLayoutUtils.h"
-#include "nsBoxFrame.h"
-#include "nsBoxLayout.h"
 #include "nsFlexContainerFrame.h"
 #include "nsGridContainerFrame.h"
 #include "RubyUtils.h"
@@ -173,6 +170,8 @@ nsIFrame* NS_NewSVGFELeafFrame(PresShell* aPresShell, ComputedStyle* aStyle);
 nsIFrame* NS_NewSVGFEImageFrame(PresShell* aPresShell, ComputedStyle* aStyle);
 nsIFrame* NS_NewSVGFEUnstyledLeafFrame(PresShell* aPresShell,
                                        ComputedStyle* aStyle);
+nsIFrame* NS_NewFileControlLabelFrame(PresShell*, ComputedStyle*);
+nsIFrame* NS_NewMiddleCroppingLabelFrame(PresShell*, ComputedStyle*);
 
 #include "mozilla/dom/NodeInfo.h"
 #include "prenv.h"
@@ -221,8 +220,8 @@ nsIFrame* NS_NewSliderFrame(PresShell* aPresShell, ComputedStyle* aStyle);
 
 nsIFrame* NS_NewScrollbarFrame(PresShell* aPresShell, ComputedStyle* aStyle);
 
-nsIFrame* NS_NewScrollbarButtonFrame(PresShell* aPresShell,
-                                     ComputedStyle* aStyle);
+nsIFrame* NS_NewScrollbarButtonFrame(PresShell*, ComputedStyle*);
+nsIFrame* NS_NewSimpleXULLeafFrame(PresShell*, ComputedStyle*);
 
 nsIFrame* NS_NewXULImageFrame(PresShell*, ComputedStyle*);
 nsIFrame* NS_NewImageFrameForContentProperty(PresShell*, ComputedStyle*);
@@ -501,6 +500,33 @@ static bool ParentIsWrapperAnonBox(nsIFrame* aParent) {
     maybeAnonBox = maybeAnonBox->GetParent();
   }
   return maybeAnonBox->Style()->IsWrapperAnonBox();
+}
+
+static bool InsertSeparatorBeforeAccessKey() {
+  static bool sInitialized = false;
+  static bool sValue = false;
+  if (!sInitialized) {
+    sInitialized = true;
+
+    const char* prefName = "intl.menuitems.insertseparatorbeforeaccesskeys";
+    nsAutoString val;
+    Preferences::GetLocalizedString(prefName, val);
+    sValue = val.EqualsLiteral("true");
+  }
+  return sValue;
+}
+
+static bool AlwaysAppendAccessKey() {
+  static bool sInitialized = false;
+  static bool sValue = false;
+  if (!sInitialized) {
+    sInitialized = true;
+    const char* prefName = "intl.menuitems.alwaysappendaccesskeys";
+    nsAutoString val;
+    Preferences::GetLocalizedString(prefName, val);
+    sValue = val.EqualsLiteral("true");
+  }
+  return sValue;
 }
 
 //----------------------------------------------------------------------
@@ -1613,14 +1639,14 @@ void nsCSSFrameConstructor::CreateGeneratedContent(
         ToUpperCase(accesskey);
         nsAutoString accessKeyLabel = u"("_ns + accesskey + u")"_ns;
         if (!StringEndsWith(value, accessKeyLabel)) {
-          if (nsTextBoxFrame::InsertSeparatorBeforeAccessKey() &&
-              !value.IsEmpty() && !NS_IS_SPACE(value.Last())) {
+          if (InsertSeparatorBeforeAccessKey() && !value.IsEmpty() &&
+              !NS_IS_SPACE(value.Last())) {
             value.Append(' ');
           }
           value.Append(accessKeyLabel);
         }
       };
-      if (nsTextBoxFrame::AlwaysAppendAccessKey()) {
+      if (AlwaysAppendAccessKey()) {
         AppendAccessKeyLabel();
         RefPtr c = CreateGenConTextNode(aState, value, nullptr);
         aAddChild(c);
@@ -2485,10 +2511,6 @@ nsIFrame* nsCSSFrameConstructor::ConstructDocElementFrame(
       if (display->mDisplay == StyleDisplay::Grid) {
         return NS_NewGridContainerFrame;
       }
-      if (display->mDisplay == StyleDisplay::MozBox &&
-          !computedStyle->StyleVisibility()->EmulateMozBoxWithFlex()) {
-        return NS_NewBoxFrame;
-      }
       return NS_NewFlexContainerFrame;
     }();
     contentFrame = func(mPresShell, computedStyle);
@@ -2643,8 +2665,7 @@ void nsCSSFrameConstructor::SetUpDocElementContainingBlock(
         nsHTMLScrollFrame (if needed)
           nsCanvasFrame [abs-cb]
             root element frame (nsBlockFrame, SVGOuterSVGFrame,
-                                nsTableWrapperFrame, nsPlaceholderFrame,
-                                nsBoxFrame)
+                                nsTableWrapperFrame, nsPlaceholderFrame)
 
   Print presentation, non-XUL
 
@@ -3459,6 +3480,15 @@ nsCSSFrameConstructor::FindHTMLData(const Element& aElement,
                        PseudoStyleType::fieldsetContent ||
                    aParentFrame->GetParent()->IsFieldSetFrame(),
                "Unexpected parent for fieldset content anon box");
+
+  if (aElement.IsInNativeAnonymousSubtree() &&
+      aElement.NodeInfo()->NameAtom() == nsGkAtoms::label &&
+      aParentFrame->IsFileControlFrame()) {
+    static constexpr FrameConstructionData sFileLabelData(
+        NS_NewFileControlLabelFrame);
+    return &sFileLabelData;
+  }
+
   static constexpr FrameConstructionDataByTag sHTMLData[] = {
       SIMPLE_TAG_CHAIN(img, nsCSSFrameConstructor::FindImgData),
       SIMPLE_TAG_CHAIN(mozgeneratedcontentimage,
@@ -4136,8 +4166,11 @@ nsCSSFrameConstructor::FindXULTagData(const Element& aElement,
       SIMPLE_XUL_CREATE(editor, NS_NewSubDocumentFrame),
       SIMPLE_XUL_CREATE(browser, NS_NewSubDocumentFrame),
       SIMPLE_XUL_CREATE(splitter, NS_NewSplitterFrame),
-      SIMPLE_XUL_CREATE(slider, NS_NewSliderFrame),
       SIMPLE_XUL_CREATE(scrollbar, NS_NewScrollbarFrame),
+      SIMPLE_XUL_CREATE(slider, NS_NewSliderFrame),
+      SIMPLE_XUL_CREATE(thumb, NS_NewSimpleXULLeafFrame),
+      SIMPLE_XUL_CREATE(scrollcorner, NS_NewSimpleXULLeafFrame),
+      SIMPLE_XUL_CREATE(resizer, NS_NewSimpleXULLeafFrame),
       SIMPLE_XUL_CREATE(scrollbarbutton, NS_NewScrollbarButtonFrame),
       {nsGkAtoms::panel, kPopupData},
       {nsGkAtoms::menupopup, kPopupData},
@@ -4162,9 +4195,9 @@ nsCSSFrameConstructor::FindXULLabelOrDescriptionData(const Element& aElement,
     return nullptr;
   }
 
-  static constexpr FrameConstructionData sXULTextBoxData =
-      SIMPLE_XUL_FCDATA(NS_NewTextBoxFrame);
-  return &sXULTextBoxData;
+  static constexpr FrameConstructionData sMiddleCroppingData =
+      SIMPLE_XUL_FCDATA(NS_NewMiddleCroppingLabelFrame);
+  return &sMiddleCroppingData;
 }
 
 #ifdef XP_MACOSX
@@ -4447,15 +4480,6 @@ nsCSSFrameConstructor::FindDisplayData(const nsStyleDisplay& aDisplay,
           aElement.OwnerDoc()->IsContentDocument()) {
         aElement.OwnerDoc()->WarnOnceAbout(
             DeprecatedOperations::eMozBoxOrInlineBoxDisplay);
-      }
-
-      // If we're emulating -moz-box with flexbox, then treat it as non-XUL and
-      // fall through.
-      if (aMozBoxLayout == StyleMozBoxLayout::Legacy) {
-        static constexpr FrameConstructionData data =
-            SCROLLABLE_ABSPOS_CONTAINER_XUL_FCDATA(
-                ToCreationFunc(NS_NewBoxFrame));
-        return &data;
       }
       [[fallthrough]];
     }

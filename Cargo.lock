@@ -194,7 +194,7 @@ dependencies = [
  "askama_escape",
  "mime",
  "mime_guess",
- "nom 7.1.3",
+ "nom",
  "proc-macro2",
  "quote",
  "serde",
@@ -327,7 +327,7 @@ dependencies = [
 [[package]]
 name = "audioipc2"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=916f65cc92f6f2484183ff4681b0e9a2bfd60fe7#916f65cc92f6f2484183ff4681b0e9a2bfd60fe7"
 dependencies = [
  "arrayvec",
  "ashmem",
@@ -336,7 +336,7 @@ dependencies = [
  "byteorder",
  "bytes 1.4.0",
  "cc",
- "crossbeam-channel",
+ "crossbeam-queue 0.3.8",
  "cubeb",
  "error-chain",
  "iovec",
@@ -355,7 +355,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-client"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=916f65cc92f6f2484183ff4681b0e9a2bfd60fe7#916f65cc92f6f2484183ff4681b0e9a2bfd60fe7"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -366,7 +366,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-server"
 version = "0.5.0"
-source = "git+https://github.com/kinetiknz/audioipc-2?rev=73c8a02da8f2ff022723307bfafa3a58a61448da#73c8a02da8f2ff022723307bfafa3a58a61448da"
+source = "git+https://github.com/kinetiknz/audioipc-2?rev=916f65cc92f6f2484183ff4681b0e9a2bfd60fe7#916f65cc92f6f2484183ff4681b0e9a2bfd60fe7"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -392,7 +392,7 @@ dependencies = [
  "libudev",
  "log",
  "memoffset 0.6.99",
- "nom 7.1.3",
+ "nom",
  "nss-gk-api",
  "pkcs11-bindings",
  "rand 0.8.5",
@@ -613,7 +613,7 @@ name = "builtins-static"
 version = "0.1.0"
 dependencies = [
  "bindgen 0.63.0",
- "nom 7.1.3",
+ "nom",
  "pkcs11-bindings",
  "smallvec",
 ]
@@ -730,7 +730,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fac387a98bb7c37292057cffc56d62ecb629900026402633ae9160df93a8766"
 dependencies = [
- "nom 7.1.3",
+ "nom",
 ]
 
 [[package]]
@@ -1076,6 +1076,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-queue"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1cfb3ea8a53f37c40dea2c7bedcbd88bdfae54f5e2175d6ecaff1c988353add"
+dependencies = [
+ "cfg-if 1.0.0",
+ "crossbeam-utils 0.8.14",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1404,7 +1414,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9313f104b590510b46fc01c0a324fc76505c13871454d3c48490468d04c8d395"
 dependencies = [
  "libc",
- "nom 7.1.3",
+ "nom",
 ]
 
 [[package]]
@@ -2392,11 +2402,11 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "glsl"
-version = "6.0.1"
+version = "6.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd49bbe5e12dd5aed9d66a84899af422f3d4fcfdd20b2294c8b4ade11500b05"
+checksum = "65c80dbf169ac31dbe6e0a69a7cef0b09ec9805f955da206ff1ee2e47895f836"
 dependencies = [
- "nom 6.99.99",
+ "nom",
 ]
 
 [[package]]
@@ -3835,13 +3845,6 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "6.99.99"
-dependencies = [
- "nom 7.1.3",
-]
-
-[[package]]
-name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
@@ -5123,6 +5126,7 @@ name = "static_prefs"
 version = "0.1.0"
 dependencies = [
  "mozbuild",
+ "nsstring",
 ]
 
 [[package]]
@@ -5598,7 +5602,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c32ffea4827978e9aa392d2f743d973c1dfa3730a2ed3f22ce1e6984da848c"
 dependencies = [
  "crossbeam-deque 0.7.4",
- "crossbeam-queue",
+ "crossbeam-queue 0.1.2",
  "crossbeam-utils 0.6.6",
  "futures 0.1.31",
  "lazy_static",
@@ -6404,7 +6408,7 @@ version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e79c5206e1f43a2306fd64bdb95025ee4228960f2e6c5a8b173f3caaf807741"
 dependencies = [
- "nom 7.1.3",
+ "nom",
 ]
 
 [[package]]
@@ -6487,6 +6491,7 @@ dependencies = [
  "nsstring",
  "parking_lot 0.11.2",
  "serde",
+ "static_prefs",
  "wgpu-core",
  "wgpu-hal",
  "wgpu-types",

@@ -12,7 +12,6 @@
 #include "mozilla/Attributes.h"
 #include "nsContainerFrame.h"
 #include "nsIAnonymousContentCreator.h"
-#include "nsBoxFrame.h"
 #include "nsIScrollableFrame.h"
 #include "nsIScrollbarMediator.h"
 #include "nsIStatefulFrame.h"
@@ -129,6 +128,10 @@ class nsHTMLScrollFrame : public nsContainerFrame,
 
   bool ComputeCustomOverflow(mozilla::OverflowAreas& aOverflowAreas) final;
 
+  BaselineSharingGroup GetDefaultBaselineSharingGroup() const override;
+  nscoord SynthesizeFallbackBaseline(
+      mozilla::WritingMode aWM,
+      BaselineSharingGroup aBaselineGroup) const override;
   Maybe<nscoord> GetNaturalBaselineBOffset(
       mozilla::WritingMode aWM,
       BaselineSharingGroup aBaselineGroup) const override;
@@ -381,7 +384,7 @@ class nsHTMLScrollFrame : public nsContainerFrame,
                   nscoord aNewPos) final;
   void ScrollbarReleased(nsScrollbarFrame* aScrollbar) final;
   void VisibilityChanged(bool aVisible) final {}
-  nsIFrame* GetScrollbarBox(bool aVertical) final {
+  nsScrollbarFrame* GetScrollbarBox(bool aVertical) final {
     return aVertical ? mVScrollbarBox : mHScrollbarBox;
   }
 
@@ -662,7 +665,7 @@ class nsHTMLScrollFrame : public nsContainerFrame,
   static void SetScrollbarVisibility(nsIFrame* aScrollbar, bool aVisible);
 
   /**
-   * GetScrolledRectInternal is designed to encapsulate deciding which
+   * GetUnsnappedScrolledRectInternal is designed to encapsulate deciding which
    * directions of overflow should be reachable by scrolling and which
    * should not.  Callers should NOT depend on it having any particular
    * behavior.
@@ -671,8 +674,8 @@ class nsHTMLScrollFrame : public nsContainerFrame,
    * nsHTMLScrollFrames with LTR directionality, and allows scrolling down and
    * to the left for nsHTMLScrollFrames with RTL directionality.
    */
-  nsRect GetScrolledRectInternal(const nsRect& aScrolledOverflowArea,
-                                 const nsSize& aScrollPortSize) const;
+  nsRect GetUnsnappedScrolledRectInternal(const nsRect& aScrolledOverflowArea,
+                                          const nsSize& aScrollPortSize) const;
 
   bool IsPhysicalLTR() const { return GetWritingMode().IsPhysicalLTR(); }
   bool IsBidiLTR() const { return GetWritingMode().IsBidiLTR(); }
@@ -713,9 +716,12 @@ class nsHTMLScrollFrame : public nsContainerFrame,
   void AdjustScrollbarRectForResizer(
       nsIFrame* aFrame, nsPresContext* aPresContext, nsRect& aRect,
       bool aHasResizer, mozilla::layers::ScrollDirection aDirection);
-  void LayoutScrollbars(nsBoxLayoutState& aState,
+  void LayoutScrollbars(ScrollReflowInput& aState,
                         const nsRect& aInsideBorderArea,
                         const nsRect& aOldScrollPort);
+
+  void LayoutScrollbarPartAtRect(const ScrollReflowInput&,
+                                 ReflowInput& aKidReflowInput, const nsRect&);
 
   bool IsAlwaysActive() const;
   void MarkRecentlyScrolled();
@@ -779,8 +785,8 @@ class nsHTMLScrollFrame : public nsContainerFrame,
   RefPtr<ScrollEndEvent> mScrollEndEvent;
   nsRevocableEventPtr<AsyncScrollPortEvent> mAsyncScrollPortEvent;
   nsRevocableEventPtr<ScrolledAreaEvent> mScrolledAreaEvent;
-  nsIFrame* mHScrollbarBox;
-  nsIFrame* mVScrollbarBox;
+  nsScrollbarFrame* mHScrollbarBox;
+  nsScrollbarFrame* mVScrollbarBox;
   nsIFrame* mScrolledFrame;
   nsIFrame* mScrollCornerBox;
   nsIFrame* mResizerBox;

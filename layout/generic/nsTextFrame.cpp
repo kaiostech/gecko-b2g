@@ -6416,21 +6416,16 @@ void nsTextFrame::PaintText(const PaintTextParams& aParams,
   gfx::Point textBaselinePt;
   if (verticalRun) {
     if (wm.IsVerticalLR()) {
-      textBaselinePt.x = nsLayoutUtils::GetSnappedBaselineX(
-          this, aParams.context, nscoord(aParams.framePt.x), mAscent);
+      textBaselinePt.x = aParams.framePt.x + mAscent;
     } else {
-      textBaselinePt.x = nsLayoutUtils::GetSnappedBaselineX(
-          this, aParams.context, nscoord(aParams.framePt.x) + frameWidth,
-          -mAscent);
+      textBaselinePt.x = aParams.framePt.x + frameWidth - mAscent;
     }
     textBaselinePt.y = reversed ? aParams.framePt.y.value + frameHeight
                                 : aParams.framePt.y.value;
   } else {
-    textBaselinePt =
-        gfx::Point(reversed ? aParams.framePt.x.value + frameWidth
-                            : aParams.framePt.x.value,
-                   nsLayoutUtils::GetSnappedBaselineY(
-                       this, aParams.context, aParams.framePt.y, mAscent));
+    textBaselinePt = gfx::Point(reversed ? aParams.framePt.x.value + frameWidth
+                                         : aParams.framePt.x.value,
+                                aParams.framePt.y + mAscent);
   }
   Range range = ComputeTransformedRange(provider);
   uint32_t startOffset = range.start;
@@ -9292,14 +9287,21 @@ void nsTextFrame::ReflowText(nsLineLayout& aLineLayout, nscoord aAvailableWidth,
   finalSize.ISize(wm) =
       NSToCoordCeilClamped(std::max(gfxFloat(0.0), textMetrics.mAdvanceWidth));
 
+  nscoord fontBaseline;
+  // Note(dshin): Baseline should tecnhically be halfway through the em box for
+  // a central baseline. It is simply half of the text run block size so that it
+  // can be easily calculated in `GetNaturalBaselineBOffset`.
   if (transformedCharsFit == 0 && !usedHyphenation) {
     aMetrics.SetBlockStartAscent(0);
     finalSize.BSize(wm) = 0;
+    fontBaseline = 0;
   } else if (boundingBoxType != gfxFont::LOOSE_INK_EXTENTS) {
+    fontBaseline = NSToCoordCeil(textMetrics.mAscent);
+    const auto size = fontBaseline + NSToCoordCeil(textMetrics.mDescent);
     // Use actual text metrics for floating first letter frame.
-    aMetrics.SetBlockStartAscent(NSToCoordCeil(textMetrics.mAscent));
-    finalSize.BSize(wm) =
-        aMetrics.BlockStartAscent() + NSToCoordCeil(textMetrics.mDescent);
+    aMetrics.SetBlockStartAscent(wm.IsAlphabeticalBaseline() ? fontBaseline
+                                                             : size / 2);
+    finalSize.BSize(wm) = size;
   } else {
     // Otherwise, ascent should contain the overline drawable area.
     // And also descent should contain the underline drawable area.
@@ -9309,27 +9311,31 @@ void nsTextFrame::ReflowText(nsLineLayout& aLineLayout, nscoord aAvailableWidth,
         wm.IsLineInverted() ? fm->MaxDescent() : fm->MaxAscent();
     nscoord fontDescent =
         wm.IsLineInverted() ? fm->MaxAscent() : fm->MaxDescent();
-    aMetrics.SetBlockStartAscent(
-        std::max(NSToCoordCeil(textMetrics.mAscent), fontAscent));
-    nscoord descent =
+    fontBaseline = std::max(NSToCoordCeil(textMetrics.mAscent), fontAscent);
+    const auto size =
+        fontBaseline +
         std::max(NSToCoordCeil(textMetrics.mDescent), fontDescent);
-    finalSize.BSize(wm) = aMetrics.BlockStartAscent() + descent;
+    aMetrics.SetBlockStartAscent(wm.IsAlphabeticalBaseline() ? fontBaseline
+                                                             : size / 2);
+    finalSize.BSize(wm) = size;
   }
   if (Style()->IsTextCombined()) {
     nsFontMetrics* fm = provider.GetFontMetrics();
-    gfxFloat width = finalSize.ISize(wm);
-    gfxFloat em = fm->EmHeight();
+    nscoord width = finalSize.ISize(wm);
+    nscoord em = fm->EmHeight();
     // Compress the characters in horizontal axis if necessary.
     if (width <= em) {
       RemoveProperty(TextCombineScaleFactorProperty());
     } else {
-      SetProperty(TextCombineScaleFactorProperty(), em / width);
+      SetProperty(TextCombineScaleFactorProperty(),
+                  static_cast<float>(em) / static_cast<float>(width));
       finalSize.ISize(wm) = em;
     }
     // Make the characters be in an 1em square.
     if (finalSize.BSize(wm) != em) {
-      aMetrics.SetBlockStartAscent(aMetrics.BlockStartAscent() +
-                                   (em - finalSize.BSize(wm)) / 2);
+      fontBaseline =
+          aMetrics.BlockStartAscent() + (em - finalSize.BSize(wm)) / 2;
+      aMetrics.SetBlockStartAscent(fontBaseline);
       finalSize.BSize(wm) = em;
     }
   }
@@ -9343,7 +9349,7 @@ void nsTextFrame::ReflowText(nsLineLayout& aLineLayout, nscoord aAvailableWidth,
           0,
       "Negative descent???");
 
-  mAscent = aMetrics.BlockStartAscent();
+  mAscent = fontBaseline;
 
   // Handle text that runs outside its normal bounds.
   nsRect boundingBox = RoundOut(textMetrics.mBoundingBox);
@@ -10021,6 +10027,10 @@ Maybe<nscoord> nsTextFrame::GetNaturalBaselineBOffset(
   }
 
   if (!aWM.IsOrthogonalTo(GetWritingMode())) {
+    if (aWM.IsCentralBaseline()) {
+      return Some(GetLogicalUsedBorderAndPadding(aWM).BStart(aWM) +
+                  ContentSize(aWM).BSize(aWM) / 2);
+    }
     return Some(mAscent);
   }
 

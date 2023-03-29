@@ -897,7 +897,7 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
         mCurrentTargetContent = element;
       }
 
-      if (IsTopLevelRemoteTarget(element)) {
+      if (IsTopLevelRemoteTarget(aTargetContent)) {
         WidgetKeyboardEvent* keyEvent = aEvent->AsKeyboardEvent();
         if (DispatchKeyToContentFirst(keyEvent)) {
           keyEvent->StopPropagation();

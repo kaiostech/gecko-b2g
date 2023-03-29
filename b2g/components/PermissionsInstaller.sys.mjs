@@ -87,16 +87,17 @@ export const PermissionsHelper = {
 export const PermissionsInstaller = {
   /**
    * Install permissisions or remove deprecated permissions upon re-install.
-   * @param object aFeatrues
+   *
+   * @param {object} aFeatures
    *        The set of b2g specific features from the manifest
-   * @param string aManifestURL
+   * @param {string} aManifestURL
    *        The url of the manifest
-   * @param boolean aIsReinstall
+   * @param {boolean} aIsReinstall
    *        Indicates the app was just re-installed
-   * @param function aOnError
+   * @param {Function} aOnError
    *        A function called if an error occurs
-   * @returns void
-   **/
+   * @returns {void}
+   */
   installPermissions(aFeatures, aManifestURL, aIsReinstall, aOnError) {
     try {
       if (!aFeatures.permissions && !aIsReinstall) {

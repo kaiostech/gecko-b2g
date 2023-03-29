@@ -25,7 +25,7 @@ export const defaultPermissions = [
  * permission names in alphabetical order. The double quotes are only needed
  * by the names with non-alphanumeric character, such as "-", and could be
  * revised by the lint tools automatically.
- **/
+ */
 export const PermissionsTable = {
   "account-manager": {
     pwa: DENY_ACTION,
@@ -371,17 +371,18 @@ export const PermissionsTable = {
   /**
    * Note: Please do NOT directly add new permission names at the bottom of
    * this table, try to insert them alphabetically.
-   **/
+   */
 };
 
 /**
  * Append access modes to the permission name as suffixes.
  *   e.g. permission name 'device-storage:sdcard' with ['read', 'write'] =
  *   ['device-storage:sdcard:read', 'device-storage:sdcard:write']
- * @param string aPermName
- * @param array aAccess
- * @returns array containing access:appended permission names.
- **/
+ *
+ * @param {string} aPermName
+ * @param {Array} aAccess
+ * @returns {Array} containing access:appended permission names.
+ */
 export const appendAccessToPermName = (aPermName, aAccess) => {
   if (!aAccess.length) {
     return [aPermName];
@@ -395,10 +396,11 @@ export const appendAccessToPermName = (aPermName, aAccess) => {
  * Expand an access string into multiple permission names,
  *   e.g: permission name 'device-storage:sdcard' with 'readwrite' =
  *   ['device-storage:sdcard:read', 'device-storage:sdcard:create', 'device-storage:sdcard:write']
- * @param string aPermName
- * @param string aAccess (optional)
- * @returns array containing expanded permission names.
- **/
+ *
+ * @param {string} aPermName
+ * @param {string} aAccess (optional)
+ * @returns {Array} containing expanded permission names.
+ */
 export const expandPermissions = (aPermName, aAccess) => {
   if (!PermissionsTable[aPermName]) {
     let errorMsg =

@@ -11,24 +11,16 @@ const isGonk = AppConstants.platform === "gonk";
 
 const lazy = {};
 
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "AlarmService",
-  "resource://gre/modules/AlarmService.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "PushCredential",
-  "resource://gre/modules/PushCredential.jsm"
-);
+ChromeUtils.defineESModuleGetters(lazy, {
+  AlarmService: "resource://gre/modules/AlarmService.sys.mjs",
+  PushCredential: "resource://gre/modules/PushCredential.sys.mjs",
+  pushBroadcastService: "resource://gre/modules/PushBroadcastService.sys.mjs",
+});
 
 import { PushDB } from "resource://gre/modules/PushDB.sys.mjs";
 import { PushRecord } from "resource://gre/modules/PushRecord.sys.mjs";
 import { PushCrypto } from "resource://gre/modules/PushCrypto.sys.mjs";
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  pushBroadcastService: "resource://gre/modules/PushBroadcastService.sys.mjs",
-});
 ChromeUtils.defineModuleGetter(
   lazy,
   "ObjectUtils",
@@ -1011,7 +1003,7 @@ export var PushServiceWebSocket = {
           if (!this._hasPendingRequests()) {
             if (errorStatus > 0) {
               return this._mainPushService.getAllUnexpired().then(records => {
-                if (records.length > 0) {
+                if (records.length) {
                   this._reconnect();
                 } else {
                   this._shutdownWS();
@@ -1052,9 +1044,9 @@ export var PushServiceWebSocket = {
       console.debug(
         "acquireWakeLock: Acquiring " + reason + " Wakelock and Creating Timer"
       );
-      this._socketWakeLock[reason].wakeLock = lazy.gPowerManagerService.newWakeLock(
-        "cpu"
-      );
+      this._socketWakeLock[
+        reason
+      ].wakeLock = lazy.gPowerManagerService.newWakeLock("cpu");
       this._socketWakeLock[reason].timer = Cc[
         "@mozilla.org/timer;1"
       ].createInstance(Ci.nsITimer);
@@ -1132,7 +1124,7 @@ export var PushServiceWebSocket = {
       this._shutdownWS();
       if (this.credential) {
         this._mainPushService.getAllUnexpired().then(records => {
-          if (records.length > 0) {
+          if (records.length) {
             this.credential.refreshAccessToken();
             this._reconnect();
           }

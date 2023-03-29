@@ -16,13 +16,6 @@ const lazy = {};
 
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
-  "env",
-  "@mozilla.org/process/environment;1",
-  "nsIEnvironment"
-);
-
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
   "um",
   "@mozilla.org/updates/update-manager;1",
   "nsIUpdateManager"
@@ -36,7 +29,7 @@ XPCOMUtils.defineLazyServiceGetter(
 );
 
 XPCOMUtils.defineLazyGetter(lazy, "gExtStorage", function dp_gExtStorage() {
-  return lazy.env.get("EXTERNAL_STORAGE");
+  return Services.env.get("EXTERNAL_STORAGE");
 });
 
 // This exists to mark the affected code for bug 828858.

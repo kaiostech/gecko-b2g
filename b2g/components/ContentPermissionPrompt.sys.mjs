@@ -23,9 +23,9 @@ const PERMISSION_NO_SESSION = ["audio-capture", "video-capture"];
 /**
  * Determine if a permission should be prompt to user or not.
  *
- * @param perm requested permission
- * @param action the action according to principal
- * @return true if prompt is required
+ * @param {string} perm requested permission
+ * @param {string} action the action according to principal
+ * @returns {bool} true if prompt is required
  */
 function shouldPrompt(perm, action) {
   return (
@@ -38,9 +38,9 @@ function shouldPrompt(perm, action) {
 /**
  * Create the default choices for the requested permissions
  *
- * @param typesInfo requested permissions
- * @return the default choices for permissions with options, return
- *         undefined if no option in all requested permissions.
+ * @param {object} typesInfo requested permissions
+ * @returns {object} the default choices for permissions with options, return
+ *                    undefined if no option in all requested permissions.
  */
 function buildDefaultChoices(typesInfo) {
   let choices;
@@ -57,7 +57,8 @@ function buildDefaultChoices(typesInfo) {
 
 /**
  * Check if the requester has default permissions of installed app.
- * @param principal: principal of the permission requester
+ *
+ * @param {principal} principal of the permission requester
  */
 function hasDefaultPermissions(principal) {
   return defaultPermissions.every(permission => {
@@ -71,10 +72,11 @@ function hasDefaultPermissions(principal) {
 
 /**
  * Update the permissions to PermissionManager
- * @param typesInfo requested permissions and their properties
- * @param remember: permanently remember the decision or not
- * @param granted: granted or not
- * @param principal: principal of the permission requester
+ *
+ * @param {object} typesInfo Requested permissions and their properties
+ * @param {bool} remember Permanently remember the decision or not
+ * @param {bool} granted Granted or not
+ * @param {principal} principal of the permission requester
  */
 function rememberPermission(typesInfo, remember, granted, principal) {
   debug(

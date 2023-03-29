@@ -27,7 +27,7 @@ obj*/
 # Pre-processed files:
 b2g/app/b2g.js
 b2g/locales/en-US/b2g-l10n.js
-b2g/components/MarionetteController.jsm
+b2g/components/MarionetteController.sys.mjs
 koost/koost.js
 dom/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
 dom/mobilemessage/gonk/MmsPduHelper.jsm

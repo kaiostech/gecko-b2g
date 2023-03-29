@@ -6,9 +6,7 @@
 export var MarionetteController;
 
 #ifdef HAS_KOOST_MODULES
-const { MarionetteRunner } = ChromeUtils.import(
-  "resource://gre/modules/MarionetteRunner.jsm"
-);
+import { MarionetteRunner } from "resource://gre/modules/MarionetteRunner.sys.mjs";
 
 MarionetteController = {
   enableRunner() {

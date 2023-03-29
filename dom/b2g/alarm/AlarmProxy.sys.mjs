@@ -21,7 +21,7 @@ XPCOMUtils.defineLazyServiceGetter(
 
 /*
  * AlarmProxy is a helper of passing requests from AlarmManager.cpp to
- * AlarmService.jsm, receiving results from AlarmService.jsm and send it
+ * AlarmService.sys.mjs, receiving results from AlarmService.sys.mjs and send it
  * back to AlarmManager.cpp.
  * Note that the life cycle of an AlarmProxy is expected to be within
  * one single request, so there is no count or uuid to distinguish each request.

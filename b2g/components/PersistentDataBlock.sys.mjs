@@ -251,12 +251,12 @@ export const PersistentDataBlock = {
    * Computes the digest of the entire data block.
    * The digest is saved in the first 32 bytes of the block.
    *
-   * @param isStoredDigestReturned {Bool} Tells the function to return the stored digest as well as the calculated.
+   * @param {bool} isStoredDigestReturned Tells the function to return the stored digest as well as the calculated.
    *                                      True means to return stored digest and the calculated
    *                                      False means to return just the calculated one
    *
-   * @return Promise<digest> {Object} The calculated digest into the "calculated" property, and the stored
-   *                                  digest into the "stored" property.
+   * @returns {object} Promise<digest> The calculated digest into the "calculated" property, and the stored
+   *                                   digest into the "stored" property.
    */
   _computeDigest(isStoredDigestReturned) {
     debug("_computeDigest()");
@@ -310,7 +310,7 @@ export const PersistentDataBlock = {
   /**
    * Returns the size of a block from the undelaying filesystem
    *
-   * @return {Number} The size of the block
+   * @returns {number} The size of the block
    */
   _getBlockDeviceSize() {
     debug("_getBlockDeviceSize()");
@@ -387,7 +387,7 @@ export const PersistentDataBlock = {
    * A value of "1" means that the user doesn't want to enable KillSwitch.
    * The byte is the last one byte into the device block.
    *
-   * @param isSetOemUnlockEnabled {bool} If true, sets the OEM Unlock Enabled byte to 1.
+   * @param {bool} isSetOemUnlockEnabled If true, sets the OEM Unlock Enabled byte to 1.
    *                                     Otherwise, sets it to 0.
    */
   _doSetOemUnlockEnabled(isSetOemUnlockEnabled) {
@@ -436,8 +436,7 @@ export const PersistentDataBlock = {
   /**
    * Computes the digest by reading the entire block of data and write it to the digest field
    *
-   * @return true Promise<bool> Operation succeed
-   * @return false Promise<bool> Operation failed
+   * @returns {bool} Promise<bool> Operation success status
    */
   _computeAndWriteDigest() {
     debug("_computeAndWriteDigest()");
@@ -494,8 +493,8 @@ export const PersistentDataBlock = {
    * Formats the persistent partition if the OEM Unlock Enabled field is set to true, and
    * write the Unlock Property accordingly.
    *
-   * @return true Promise<bool> OEM Unlock was enabled, so the partition has been formated
-   * @return false Promise<bool> OEM Unlock was disabled, so the partition hasn't been formated
+   * @returns {bool} Promise<bool> true if OEM Unlock was enabled, so the partition has been formated
+   *                               false if OEM Unlock was disabled, so the partition hasn't been formated
    */
   _formatIfOemUnlockEnabled() {
     debug("_formatIfOemUnlockEnabled()");
@@ -525,10 +524,10 @@ export const PersistentDataBlock = {
   /**
    * Formats the persistent data partition with the proper structure.
    *
-   * @param isSetOemUnlockEnabled {bool} If true, writes a "1" in the OEM Unlock Enabled field (last
+   * @param {bool} isSetOemUnlockEnabled If true, writes a "1" in the OEM Unlock Enabled field (last
    *                                     byte of the block). If false, writes a "0".
    *
-   * @return Promise
+   * @returns {void} Promise
    */
   _formatPartition(isSetOemUnlockEnabled) {
     debug("_formatPartition()");
@@ -596,9 +595,9 @@ export const PersistentDataBlock = {
   /**
    * Check digest validity. If it's not valid, formats the persistent partition
    *
-   * @return true Promise<bool> The checksum is valid so the promise is resolved to true
-   * @return false Promise<bool> The checksum is not valid, so the partition is going to be
-   *                             formatted and the OEM Unlock Enabled field written to 0 (false).
+   * @returns {bool} Promise<bool> true: The checksum is valid so the promise is resolved to true
+   *                               false: The checksum is not valid, so the partition is going to be
+   *                               formatted and the OEM Unlock Enabled field written to 0 (false).
    */
   _enforceChecksumValidity() {
     debug("_enforceChecksumValidity");
@@ -636,7 +635,7 @@ export const PersistentDataBlock = {
   /**
    * Reads the entire data field
    *
-   * @return bytes Promise<Uint8Array> A promise resolved with the bytes read
+   * @returns {bytes} Promise<Uint8Array> A promise resolved with the bytes read
    */
   read() {
     debug("read()");
@@ -687,9 +686,9 @@ export const PersistentDataBlock = {
   /**
    * Writes an entire block to the persistent partition
    *
-   * @param data {Uint8Array}
+   * @param {Uint8Array} data
    *
-   * @return Promise<Number> Promise resolved to the number of bytes written.
+   * @returns {Promise<number>} Promise resolved to the number of bytes written.
    */
   write(data) {
     debug("write()");
@@ -769,7 +768,7 @@ export const PersistentDataBlock = {
   /**
    * Wipes the persistent partition.
    *
-   * @return Promise If no errors, the promise is resolved
+   * @returns {Promise} If no errors, the promise is resolved
    */
   wipe() {
     debug("wipe()");
@@ -837,9 +836,9 @@ export const PersistentDataBlock = {
    * Set the OEM Unlock Enabled field (one byte at the end of the partition), to 1 or 0 depending on
    * the input parameter.
    *
-   * @param enabled {bool} If enabled, we write a 1 in the last byte of the partition.
+   * @param {bool} enabled If enabled, we write a 1 in the last byte of the partition.
    *
-   * @return Promise
+   * @returns {Promise}
    *
    */
   setOemUnlockEnabled(enabled) {
@@ -859,8 +858,8 @@ export const PersistentDataBlock = {
   /**
    * Gets the byte from the partition which represents the OEM Unlock Enabled state.
    *
-   * @return true Promise<Bool> The user didn't activate KillSwitch.
-   * @return false Promise<Bool> The user did activate KillSwitch.
+   * @returns {Promise<Bool>} true if The user didn't activate KillSwitch.
+   *                          false if The user did activate KillSwitch.
    */
   getOemUnlockEnabled() {
     log("getOemUnlockEnabled()");
@@ -903,7 +902,7 @@ export const PersistentDataBlock = {
   /**
    * Gets the size of the data block by reading the data-length field
    *
-   * @return Promise<Number> A promise resolved to the number of bytes os the data field.
+   * @returns {Promise<number>} A promise resolved to the number of bytes os the data field.
    */
   getDataFieldSize() {
     debug("getDataFieldSize()");
@@ -952,7 +951,7 @@ export const PersistentDataBlock = {
   /**
    * Gets the maximum possible size of a data field
    *
-   * @return Promise<Number> A Promise resolved to the maximum number of bytes allowed for the data field
+   * @returns {Promise<number>} A Promise resolved to the maximum number of bytes allowed for the data field
    *
    */
   getMaximumDataBlockSize() {

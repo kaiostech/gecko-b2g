@@ -5,9 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXTRA_JS_MODULES += [
-    "PermissionsManager.jsm",
-    "PermissionsManagerChild.jsm",
-    "PermissionsManagerParent.jsm",
+    "PermissionsManager.sys.mjs",
+    "PermissionsManagerChild.sys.mjs",
+    "PermissionsManagerParent.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

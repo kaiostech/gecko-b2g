@@ -9,12 +9,12 @@ function debug(aMsg) {
   }
 }
 
-const {
+import {
   AllPossiblePermissions,
   PermissionsTable,
   expandPermissions,
   defaultPermissions,
-} = ChromeUtils.import("resource://gre/modules/PermissionsTable.jsm");
+} from "resource://gre/modules/PermissionsTable.sys.mjs";
 
 const kPermManager = Ci.nsIPermissionManager;
 
@@ -165,7 +165,7 @@ export const PermissionsInstaller = {
       for (let permName in aFeatures.permissions) {
         if (!PermissionsTable[permName]) {
           console.error(
-            `PermissionsInstaller.jsm: '${permName}' is not a valid app permission name.`
+            `PermissionsInstaller.sys.mjs: '${permName}' is not a valid app permission name.`
           );
           debug(`'${permName}' is not a valid app permission name.`);
           continue;
@@ -242,7 +242,7 @@ ChromeUtils.registerWindowActor("PermissionsManager", {
   includeChrome: true,
   allFrames: true,
   parent: {
-    moduleURI: "resource://gre/modules/PermissionsManagerParent.jsm",
+    moduleURI: "resource://gre/modules/PermissionsManagerParent.sys.mjs",
     messages: [
       "PermissionsManager:AddPermission",
       "PermissionsManager:GetPermission",
@@ -250,6 +250,6 @@ ChromeUtils.registerWindowActor("PermissionsManager", {
     ],
   },
   child: {
-    moduleURI: "resource://gre/modules/PermissionsManagerChild.jsm",
+    moduleURI: "resource://gre/modules/PermissionsManagerChild.sys.mjs",
   },
 });

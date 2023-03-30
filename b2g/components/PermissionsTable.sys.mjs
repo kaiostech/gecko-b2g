@@ -404,7 +404,7 @@ export const appendAccessToPermName = (aPermName, aAccess) => {
 export const expandPermissions = (aPermName, aAccess) => {
   if (!PermissionsTable[aPermName]) {
     let errorMsg =
-      "PermissionsTable.jsm: expandPermissions: Unknown Permission: " +
+      "PermissionsTable.sys.mjs: expandPermissions: Unknown Permission: " +
       aPermName;
     console.error(errorMsg);
     dump(errorMsg);
@@ -415,7 +415,7 @@ export const expandPermissions = (aPermName, aAccess) => {
 
   if ((!aAccess && tableEntry.access) || (aAccess && !tableEntry.access)) {
     let errorMsg =
-      "PermissionsTable.jsm: expandPermissions: Invalid access for permission " +
+      "PermissionsTable.sys.mjs: expandPermissions: Invalid access for permission " +
       aPermName +
       ": " +
       aAccess +

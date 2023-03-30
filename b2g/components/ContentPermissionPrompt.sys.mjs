@@ -13,9 +13,7 @@ const PROMPT_FOR_UNKNOWN = [
   "geolocation",
   "video-capture",
 ];
-const { defaultPermissions } = ChromeUtils.import(
-  "resource://gre/modules/PermissionsTable.jsm"
-);
+import { defaultPermissions } from "resource://gre/modules/PermissionsTable.sys.mjs";
 // Due to privary issue, permission requests like GetUserMedia should prompt
 // every time instead of providing session persistence.
 const PERMISSION_NO_SESSION = ["audio-capture", "video-capture"];

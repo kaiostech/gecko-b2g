@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 function debug(aMsg) {
   //dump(`-*- PermissionsManager: ${aMsg}\n`);
 }
@@ -12,9 +10,7 @@ const PERMISSIONSETTINGS_CID = Components.ID(
   "{cd2cf7a1-f4c1-487b-8c1b-1a71c7097431}"
 );
 
-const EXPORTED_SYMBOLS = ["PermissionsManager"];
-
-function PermissionsManager() {
+export function PermissionsManager() {
   debug("Constructor");
 }
 
@@ -88,7 +84,7 @@ PermissionsManager.prototype = {
       !this.isExplicit(aPermName, aOrigin)
     ) {
       let errorMsg = `PermissionsManager: ${aPermName} is an implicit permission for ${aOrigin} or the permission isn't set`;
-      Cu.reportError(errorMsg);
+      console.error(errorMsg);
       throw new Components.Exception(errorMsg);
     }
     let actor = this.window.windowGlobalChild.getActor("PermissionsManager");
@@ -114,7 +110,7 @@ PermissionsManager.prototype = {
   },
 
   remove(aPermName, aOrigin) {
-    // PermissionsManagerParent.jsm handles delete when value is "unknown"
+    // PermissionsManagerParent.sys.mjs handles delete when value is "unknown"
     let actor = this.window.windowGlobalChild.getActor("PermissionsManager");
 
     actor

@@ -33,7 +33,7 @@ namespace {
 /**
  * About sSystemMessagePermissionsTable.
  * Key: Name of system message.
- * Data: Name of permission. (Please lookup from the PermissionsTable.jsm)
+ * Data: Name of permission. (Please lookup from the PermissionsTable.sys.mjs)
  *       For example, "alarm" messages require "alarms" permission, then do
  *       sSystemMessagePermissionsTable.InsertOrUpdate(u"alarm"_ns,
  * "alarms"_ns);

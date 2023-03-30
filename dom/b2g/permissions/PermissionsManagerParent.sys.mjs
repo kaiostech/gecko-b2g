@@ -2,23 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 function debug(s) {
   //dump("-*- PermissionsManagerParent: " + s + "\n");
 }
 
-const EXPORTED_SYMBOLS = ["PermissionsManagerParent"];
+import {
+  PermissionsTable,
+  permissionsReverseTable,
+} from "resource://gre/modules/PermissionsTable.sys.mjs";
 
-const { PermissionsTable, permissionsReverseTable } = ChromeUtils.import(
-  "resource://gre/modules/PermissionsTable.jsm"
-);
+import { PermissionsHelper } from "resource://gre/modules/PermissionsInstaller.sys.mjs";
 
-const { PermissionsHelper } = ChromeUtils.import(
-  "resource://gre/modules/PermissionsInstaller.jsm"
-);
-
-class PermissionsManagerParent extends JSWindowActorParent {
+export class PermissionsManagerParent extends JSWindowActorParent {
   receiveMessage(aMessage) {
     debug(`receiveMessage ${aMessage.name}`);
     let msg = aMessage.data;
@@ -35,12 +30,12 @@ class PermissionsManagerParent extends JSWindowActorParent {
           )
         ) {
           let errorMsg = `Add ${msg.origin}'s ${msg.type}=${msg.value} from ${msg.callerOrigin} w/o 'permissions' privileges`;
-          Cu.reportError(errorMsg);
+          console.error(errorMsg);
           return Promise.reject(String(errorMsg));
         }
         if (!this._internalAddPermission(msg)) {
           let errorMsg = `Change an implicit permission ${msg.origin}'s ${msg.type}=${msg.value}`;
-          Cu.reportError(errorMsg);
+          console.error(errorMsg);
           return Promise.reject(String(errorMsg));
         }
         return Promise.resolve();

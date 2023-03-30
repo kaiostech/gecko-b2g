@@ -678,9 +678,7 @@
 
 - name: apz.overscroll.enabled
   type: RelaxedAtomicBool
-#if defined(XP_MACOSX)
-  value: true
-#elif defined(XP_WIN) && defined(NIGHTLY_BUILD)
+#if defined(XP_MACOSX) || defined(XP_WIN)
   value: true
 #else
   value: false
@@ -9789,25 +9787,7 @@
 - name: media.cubeb.sandbox
   type: bool
   mirror: always
-#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-  value: true
-#elif defined(XP_WIN) && !defined(_ARM64_)
-  value: true
-#elif defined(XP_MACOSX)
-  value: true
-#else
-  value: false
-#endif
-
-# Whether cubeb sandbox (AudioIPC) is v2
-- name: media.cubeb.sandbox_v2
-  type: bool
-  mirror: always
-#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-  value: true
-#elif defined(XP_WIN) && !defined(_ARM64_)
-  value: true
-#elif defined(XP_MACOSX)
+#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID) || defined(XP_WIN) || defined(XP_MACOSX)
   value: true
 #else
   value: false
@@ -13097,7 +13077,7 @@
 # Whether we use the CSS @page size as the paper size in PDF output.
 - name: print.save_as_pdf.use_page_rule_size_as_paper_size.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # The default DPI for printing.

@@ -2442,15 +2442,16 @@ toolbar#nav-bar {
             "browser.tabs.remote.autostart": options.e10s,
             # Enable tracing output for detailed failures in case of
             # failing connection attempts, and hangs (bug 1397201)
-            "marionette.log.level": "Trace",
+            "remote.log.level": "Trace",
             # Disable async font fallback, because the unpredictable
             # extra reflow it can trigger (potentially affecting a later
             # test) results in spurious intermittent failures.
             "gfx.font_rendering.fallback.async": False,
         }
 
+        test_timeout = None
         if options.flavor == "browser" and options.timeout:
-            prefs["testing.browserTestHarness.timeout"] = options.timeout
+            test_timeout = options.timeout
 
         # browser-chrome tests use a fairly short default timeout of 45 seconds;
         # this is sometimes too short on asan and debug, where we expect reduced
@@ -2460,8 +2461,8 @@ toolbar#nav-bar {
             and options.flavor == "browser"
             and options.timeout is None
         ):
-            self.log.info("Increasing default timeout to 90 seconds")
-            prefs["testing.browserTestHarness.timeout"] = 90
+            self.log.info("Increasing default timeout to 90 seconds (asan or debug)")
+            test_timeout = 90
 
         # tsan builds need even more time
         if (
@@ -2469,15 +2470,27 @@ toolbar#nav-bar {
             and options.flavor == "browser"
             and options.timeout is None
         ):
-            self.log.info("Increasing default timeout to 120 seconds")
-            prefs["testing.browserTestHarness.timeout"] = 120
+            self.log.info("Increasing default timeout to 120 seconds (tsan)")
+            test_timeout = 120
 
         if mozinfo.info["os"] == "win" and mozinfo.info["processor"] == "aarch64":
-            extended_timeout = self.DEFAULT_TIMEOUT * 4
+            test_timeout = self.DEFAULT_TIMEOUT * 4
             self.log.info(
-                "Increasing default timeout to {} seconds".format(extended_timeout)
+                "Increasing default timeout to {} seconds (win aarch64)".format(
+                    test_timeout
+                )
             )
-            prefs["testing.browserTestHarness.timeout"] = extended_timeout
+
+        if "MOZ_CHAOSMODE=0xfb" in options.environment and test_timeout:
+            test_timeout *= 2
+            self.log.info(
+                "Increasing default timeout to {} seconds (MOZ_CHAOSMODE)".format(
+                    test_timeout
+                )
+            )
+
+        if test_timeout:
+            prefs["testing.browserTestHarness.timeout"] = test_timeout
 
         if getattr(self, "testRootAbs", None):
             prefs["mochitest.testRoot"] = self.testRootAbs

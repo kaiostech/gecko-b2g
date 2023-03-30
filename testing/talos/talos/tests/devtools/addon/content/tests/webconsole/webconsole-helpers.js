@@ -36,7 +36,7 @@ exports.reloadConsoleAndLog = async function(label, toolbox, expectedMessages) {
     // page load in the code below.
     await onWebConsoleReload;
 
-    await waitForConsoleOutputChildListChange(hud, consoleOutputEl => {
+    const checkMessages = consoleOutputEl => {
       if (logMissingMessagesTimeoutId) {
         clearTimeout(logMissingMessagesTimeoutId);
         logMissingMessagesTimeoutId = null;
@@ -83,7 +83,14 @@ exports.reloadConsoleAndLog = async function(label, toolbox, expectedMessages) {
         }, 3000);
       }
       return foundAllMessages;
-    });
+    };
+
+    // Messages might already be displayed in the console
+    if (checkMessages(getConsoleOutputElement(hud))) {
+      return;
+    }
+    // if all messages weren't there, wait for mutations and check again
+    await waitForConsoleOutputChildListChange(hud, checkMessages);
   };
   await reloadPageAndLog(label + ".webconsole", toolbox, onReload);
 };
@@ -99,8 +106,7 @@ exports.reloadConsoleAndLog = async function(label, toolbox, expectedMessages) {
  *                              when it returns `true`.
  */
 async function waitForConsoleOutputChildListChange(hud, predicate) {
-  const { document } = hud.ui;
-  const webConsoleOutputEl = document.querySelector(".webconsole-output");
+  const webConsoleOutputEl = getConsoleOutputElement(hud);
 
   await waitForDOMPredicate(
     webConsoleOutputEl,
@@ -109,3 +115,13 @@ async function waitForConsoleOutputChildListChange(hud, predicate) {
   );
 }
 exports.waitForConsoleOutputChildListChange = waitForConsoleOutputChildListChange;
+
+/**
+ * Return the webconsole output element from the hud.
+ *
+ * @param {WebConsole} hud
+ * @returns {Element}
+ */
+function getConsoleOutputElement(hud) {
+  return hud.ui.document.querySelector(".webconsole-output");
+}

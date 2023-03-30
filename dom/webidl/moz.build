@@ -1119,6 +1119,7 @@ if CONFIG["MOZ_WEBRTC"]:
         "RTCIdentityProvider.webidl",
         "RTCPeerConnection.webidl",
         "RTCPeerConnectionStatic.webidl",
+        "RTCRtpCapabilities.webidl",
         "RTCRtpParameters.webidl",
         "RTCRtpReceiver.webidl",
         "RTCRtpSender.webidl",

@@ -11,12 +11,12 @@
 namespace mozilla {
 
 class nsDOMCameraControl;
-class CameraPreviewMediaStream;
+class CameraPreviewMediaTrack;
 
 class DOMCameraControlListener : public CameraControlListener {
  public:
   DOMCameraControlListener(nsDOMCameraControl* aDOMCameraControl,
-                           CameraPreviewMediaStream* aStream);
+                           CameraPreviewMediaTrack* aTrack);
 
   virtual void OnAutoFocusComplete(bool aAutoFocusSucceeded) override;
   virtual void OnAutoFocusMoving(bool aIsMoving) override;
@@ -43,7 +43,7 @@ class DOMCameraControlListener : public CameraControlListener {
   virtual ~DOMCameraControlListener();
 
   nsMainThreadPtrHandle<nsISupports> mDOMCameraControl;
-  CameraPreviewMediaStream* mStream;
+  CameraPreviewMediaTrack* mTrack;
 
   class DOMCallback;
 

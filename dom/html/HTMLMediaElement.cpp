@@ -5330,14 +5330,14 @@ void HTMLMediaElement::UpdateSrcMediaStreamPlaying(uint32_t aFlags) {
     SetAudibleState(true);
 
 #ifdef MOZ_B2G_CAMERA
-    auto* cameraTrack = mSrcStream->GetCameraStream();
+    auto* cameraTrack = mSrcStream->GetCameraTrack();
     if (cameraTrack && GetVideoFrameContainer()) {
       cameraTrack->AddVideoOutput(GetVideoFrameContainer());
     }
 #endif
   } else {
 #ifdef MOZ_B2G_CAMERA
-    auto* cameraTrack = mSrcStream->GetCameraStream();
+    auto* cameraTrack = mSrcStream->GetCameraTrack();
     if (cameraTrack && GetVideoFrameContainer()) {
       cameraTrack->RemoveVideoOutput(GetVideoFrameContainer());
     }

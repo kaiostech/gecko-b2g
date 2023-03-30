@@ -418,7 +418,7 @@ bool HTMLVideoElement::ShouldCreateVideoWakeLock() const {
   // check for media stream AND document has audio playing (but that was
   // tricky to do).
   return (HasVideo() && (mSrcStream || HasAudio())) ||
-         (mSrcStream && mSrcStream->GetCameraStream());
+         (mSrcStream && mSrcStream->GetCameraTrack());
 }
 
 void HTMLVideoElement::CreateVideoWakeLockIfNeeded() {

@@ -73,10 +73,10 @@ class nsDOMCameraControl final : public DOMMediaStream,
 
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  MediaTrack* GetCameraStream() const override;
+  MediaTrack* GetCameraTrack() const override;
 
   // Called by TrackCreatedListener when the underlying track has been created.
-  // XXX Bug 1124630. This can be removed with CameraPreviewMediaStream.
+  // XXX Bug 1124630. This can be removed with CameraPreviewMediaTrack.
   void TrackCreated();
 
   // Attributes.
@@ -241,7 +241,7 @@ class nsDOMCameraControl final : public DOMMediaStream,
   DOMCameraControlListener* mListener;
 
   // our viewfinder stream
-  RefPtr<CameraPreviewMediaStream> mInput;
+  RefPtr<CameraPreviewMediaTrack> mInput;
 
   // A listener on mInput for adding tracks to the DOM side.
   RefPtr<TrackCreatedListener> mTrackCreatedListener;

@@ -3,7 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "CameraPreviewMediaStream.h"
+#include "CameraPreviewMediaTrack.h"
 #include "CameraCommon.h"
 #include "MediaTrackListener.h"
 #include "VideoFrameContainer.h"
@@ -41,10 +41,10 @@ bool FakeMediaTrackGraph::OnGraphThread() const { return false; }
 
 bool FakeMediaTrackGraph::Destroyed() const { return false; }
 
-CameraPreviewMediaStream::CameraPreviewMediaStream()
+CameraPreviewMediaTrack::CameraPreviewMediaTrack()
     : ProcessedMediaTrack(FakeMediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
                           MediaSegment::VIDEO, new VideoSegment()),
-      mMutex("mozilla::camera::CameraPreviewMediaStream"),
+      mMutex("mozilla::camera::CameraPreviewMediaTrack"),
       mInvalidatePending(0),
       mDiscardedFrames(0),
       mRateLimit(false),
@@ -52,19 +52,19 @@ CameraPreviewMediaStream::CameraPreviewMediaStream()
   mFakeMediaTrackGraph = new FakeMediaTrackGraph();
 }
 
-void CameraPreviewMediaStream::AddVideoOutput(VideoFrameContainer* aContainer) {
+void CameraPreviewMediaTrack::AddVideoOutput(VideoFrameContainer* aContainer) {
   MutexAutoLock lock(mMutex);
   RefPtr<VideoFrameContainer> container = aContainer;
   AddVideoOutputImpl(container.forget());
 }
 
-void CameraPreviewMediaStream::RemoveVideoOutput(
+void CameraPreviewMediaTrack::RemoveVideoOutput(
     VideoFrameContainer* aContainer) {
   MutexAutoLock lock(mMutex);
   RemoveVideoOutputImpl(aContainer);
 }
 
-void CameraPreviewMediaStream::AddListener(MediaTrackListener* aListener) {
+void CameraPreviewMediaTrack::AddListener(MediaTrackListener* aListener) {
   MutexAutoLock lock(mMutex);
 
   MediaTrackListener* listener = *mListeners.AppendElement() = aListener;
@@ -74,7 +74,7 @@ void CameraPreviewMediaStream::AddListener(MediaTrackListener* aListener) {
   // listener->NotifyHasCurrentData(mFakeMediaTrackGraph);
 }
 
-RefPtr<GenericPromise> CameraPreviewMediaStream::RemoveListener(
+RefPtr<GenericPromise> CameraPreviewMediaTrack::RemoveListener(
     MediaTrackListener* aListener) {
   MutexAutoLock lock(mMutex);
 
@@ -88,7 +88,7 @@ RefPtr<GenericPromise> CameraPreviewMediaStream::RemoveListener(
   return p;
 }
 
-void CameraPreviewMediaStream::OnPreviewStateChange(bool aActive) {
+void CameraPreviewMediaTrack::OnPreviewStateChange(bool aActive) {
   if (aActive) {
     MutexAutoLock lock(mMutex);
     if (!mTrackCreated) {
@@ -104,13 +104,13 @@ void CameraPreviewMediaStream::OnPreviewStateChange(bool aActive) {
   }
 }
 
-void CameraPreviewMediaStream::Destroy() {
+void CameraPreviewMediaTrack::Destroy() {
   MutexAutoLock lock(mMutex);
   mMainThreadDestroyed = true;
   DestroyImpl();
 }
 
-void CameraPreviewMediaStream::Invalidate() {
+void CameraPreviewMediaTrack::Invalidate() {
   MutexAutoLock lock(mMutex);
   --mInvalidatePending;
   for (nsTArray<RefPtr<VideoFrameContainer> >::size_type i = 0;
@@ -120,14 +120,14 @@ void CameraPreviewMediaStream::Invalidate() {
   }
 }
 
-void CameraPreviewMediaStream::ProcessInput(GraphTime aFrom, GraphTime aTo,
-                                            uint32_t aFlags) {
+void CameraPreviewMediaTrack::ProcessInput(GraphTime aFrom, GraphTime aTo,
+                                           uint32_t aFlags) {
   return;
 }
 
-void CameraPreviewMediaStream::RateLimit(bool aLimit) { mRateLimit = aLimit; }
+void CameraPreviewMediaTrack::RateLimit(bool aLimit) { mRateLimit = aLimit; }
 
-void CameraPreviewMediaStream::SetCurrentFrame(
+void CameraPreviewMediaTrack::SetCurrentFrame(
     const gfx::IntSize& aIntrinsicSize, Image* aImage) {
   {
     MutexAutoLock lock(mMutex);
@@ -156,11 +156,11 @@ void CameraPreviewMediaStream::SetCurrentFrame(
   }
 
   NS_DispatchToMainThread(
-      NewRunnableMethod("CameraPreviewMediaStream::SetCurrentFrame", this,
-                        &CameraPreviewMediaStream::Invalidate));
+      NewRunnableMethod("CameraPreviewMediaTrack::SetCurrentFrame", this,
+                        &CameraPreviewMediaTrack::Invalidate));
 }
 
-void CameraPreviewMediaStream::ClearCurrentFrame() {
+void CameraPreviewMediaTrack::ClearCurrentFrame() {
   MutexAutoLock lock(mMutex);
 
   for (nsTArray<RefPtr<VideoFrameContainer> >::size_type i = 0;
@@ -168,11 +168,11 @@ void CameraPreviewMediaStream::ClearCurrentFrame() {
     VideoFrameContainer* output = mVideoOutputs[i];
     output->ClearCurrentFrame();
     NS_DispatchToMainThread(
-        NewRunnableMethod("CameraPreviewMediaStream::ClearCurrentFrame", output,
+        NewRunnableMethod("CameraPreviewMediaTrack::ClearCurrentFrame", output,
                           &VideoFrameContainer::Invalidate));
   }
 }
 
-uint32_t CameraPreviewMediaStream::NumberOfChannels() const { return 1; };
+uint32_t CameraPreviewMediaTrack::NumberOfChannels() const { return 1; };
 
 }  // namespace mozilla

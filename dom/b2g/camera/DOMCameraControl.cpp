@@ -26,7 +26,7 @@
 #include "DOMCameraCapabilities.h"
 #include "CameraCommon.h"
 #include "nsGlobalWindow.h"
-#include "CameraPreviewMediaStream.h"
+#include "CameraPreviewMediaTrack.h"
 #include "mozilla/dom/CameraUtilBinding.h"
 #include "mozilla/dom/CameraControlBinding.h"
 #include "mozilla/dom/CameraManagerBinding.h"
@@ -256,7 +256,7 @@ nsDOMCameraControl::nsDOMCameraControl(
       mRecordingStoppedDeferred(false),
       mSetInitialConfig(false) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
-  mInput = new CameraPreviewMediaStream();
+  mInput = new CameraPreviewMediaTrack();
   // mOwnedStream = mInput;
 
   RefPtr<DOMCameraConfiguration> initialConfig =
@@ -313,7 +313,7 @@ nsDOMCameraControl::nsDOMCameraControl(
 #endif
   mCurrentConfiguration = initialConfig.forget();
 
-  // Register a TrackCreatedListener directly on CameraPreviewMediaStream
+  // Register a TrackCreatedListener directly on CameraPreviewMediaTrack
   // so we can know the TrackID of the video track.
   mTrackCreatedListener = new TrackCreatedListener(this);
   mInput->AddListener(mTrackCreatedListener);
@@ -493,7 +493,7 @@ nsresult nsDOMCameraControl::Get(uint32_t aKey,
   return NS_OK;
 }
 
-MediaTrack* nsDOMCameraControl::GetCameraStream() const { return mInput; }
+MediaTrack* nsDOMCameraControl::GetCameraTrack() const { return mInput; }
 
 void nsDOMCameraControl::TrackCreated() {
   MOZ_ASSERT(NS_IsMainThread());

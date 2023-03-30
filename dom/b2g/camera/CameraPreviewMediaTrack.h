@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef DOM_CAMERA_CAMERAPREVIEWMEDIASTREAM_H
-#define DOM_CAMERA_CAMERAPREVIEWMEDIASTREAM_H
+#ifndef DOM_CAMERA_CAMERAPREVIEWMEDIATRACK_H
+#define DOM_CAMERA_CAMERAPREVIEWMEDIATRACK_H
 
 #include "MediaTrackGraph.h"
 #include "mozilla/Mutex.h"
@@ -39,11 +39,11 @@ class FakeMediaTrackGraph : public MediaTrackGraph {
  * A camera preview requests no delay and no buffering stream,
  * but the SourceMediaStream does not support it.
  */
-class CameraPreviewMediaStream : public ProcessedMediaTrack {
+class CameraPreviewMediaTrack : public ProcessedMediaTrack {
   typedef mozilla::layers::Image Image;
 
  public:
-  CameraPreviewMediaStream();
+  CameraPreviewMediaTrack();
 
   void AddVideoOutput(VideoFrameContainer* aContainer) override;
   void RemoveVideoOutput(VideoFrameContainer* aContainer) override;
@@ -80,4 +80,4 @@ class CameraPreviewMediaStream : public ProcessedMediaTrack {
 
 }  // namespace mozilla
 
-#endif  // DOM_CAMERA_CAMERAPREVIEWMEDIASTREAM_H
+#endif  // DOM_CAMERA_CAMERAPREVIEWMEDIATRACK_H

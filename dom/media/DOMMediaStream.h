@@ -160,7 +160,7 @@ class DOMMediaStream : public DOMEventTargetHelper,
    * Allows a video element to identify this stream as a camera stream, which
    * needs special treatment.
    */
-  virtual MediaTrack* GetCameraStream() const { return nullptr; }
+  virtual MediaTrack* GetCameraTrack() const { return nullptr; }
 
   // Webrtc allows the remote side to name a stream whatever it wants, and we
   // need to surface this to content.
@@ -230,7 +230,7 @@ class DOMMediaStream : public DOMEventTargetHelper,
   nsresult DispatchTrackEvent(const nsAString& aName,
                               const RefPtr<MediaStreamTrack>& aTrack);
 
-  // XXX Bug 1124630. Remove with CameraPreviewMediaStream.
+  // XXX Bug 1124630. Remove with CameraPreviewMediaTrack.
   void CreateAndAddPlaybackStreamListener(MediaTrack*);
 
   // MediaStreamTracks contained by this DOMMediaStream.

@@ -6,7 +6,7 @@
 #include "nsThreadUtils.h"
 #include "CameraCommon.h"
 #include "DOMCameraControl.h"
-#include "CameraPreviewMediaStream.h"
+#include "CameraPreviewMediaTrack.h"
 #include "mozilla/dom/CameraManagerBinding.h"
 #include "mozilla/dom/BlobImpl.h"
 #include "mozilla/dom/File.h"
@@ -16,13 +16,13 @@ using namespace mozilla;
 using namespace mozilla::dom;
 
 DOMCameraControlListener::DOMCameraControlListener(
-    nsDOMCameraControl* aDOMCameraControl, CameraPreviewMediaStream* aStream)
+    nsDOMCameraControl* aDOMCameraControl, CameraPreviewMediaTrack* aTrack)
     : mDOMCameraControl(new nsMainThreadPtrHolder<nsISupports>(
           "DOMCameraControlListener::aDOMCameraControl",
           static_cast<DOMMediaStream*>(aDOMCameraControl))),
-      mStream(aStream) {
-  DOM_CAMERA_LOGT("%s:%d : this=%p, camera=%p, stream=%p\n", __func__, __LINE__,
-                  this, aDOMCameraControl, aStream);
+      mTrack(aTrack) {
+  DOM_CAMERA_LOGT("%s:%d : this=%p, camera=%p, track=%p\n", __func__, __LINE__,
+                  this, aDOMCameraControl, aTrack);
 }
 
 DOMCameraControlListener::~DOMCameraControlListener() {
@@ -102,7 +102,7 @@ void DOMCameraControlListener::OnPreviewStateChange(PreviewState aState) {
       //  SurfaceTextureClient and the MediaStream/ImageContainer,
       //  but without it, the preview can fail to start.
       DOM_CAMERA_LOGI("Preview stopped, clearing current frame\n");
-      mStream->ClearCurrentFrame();
+      mTrack->ClearCurrentFrame();
       break;
 
     case kPreviewPaused:
@@ -122,7 +122,7 @@ void DOMCameraControlListener::OnPreviewStateChange(PreviewState aState) {
       MOZ_ASSERT_UNREACHABLE("Invalid preview state");
       return;
   }
-  mStream->OnPreviewStateChange(aState == kPreviewStarted);
+  mTrack->OnPreviewStateChange(aState == kPreviewStarted);
   NS_DispatchToMainThread(new Callback(mDOMCameraControl, aState));
 }
 
@@ -249,7 +249,7 @@ void DOMCameraControlListener::OnShutter() {
 }
 
 void DOMCameraControlListener::OnRateLimitPreview(bool aLimit) {
-  mStream->RateLimit(aLimit);
+  mTrack->RateLimit(aLimit);
 }
 
 bool DOMCameraControlListener::OnNewPreviewFrame(layers::Image* aImage,
@@ -257,7 +257,7 @@ bool DOMCameraControlListener::OnNewPreviewFrame(layers::Image* aImage,
                                                  uint32_t aHeight) {
   DOM_CAMERA_LOGI("OnNewPreviewFrame: got %d x %d frame\n", aWidth, aHeight);
 
-  mStream->SetCurrentFrame(gfx::IntSize(aWidth, aHeight), aImage);
+  mTrack->SetCurrentFrame(gfx::IntSize(aWidth, aHeight), aImage);
   return true;
 }
 

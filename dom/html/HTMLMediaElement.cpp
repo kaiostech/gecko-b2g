@@ -5329,23 +5329,19 @@ void HTMLMediaElement::UpdateSrcMediaStreamPlaying(uint32_t aFlags) {
     // it as audible when it's playing.
     SetAudibleState(true);
 
-    if (mSrcStream->GetCameraStream()) {
-      mozilla::MediaTrack* stream = mSrcStream->GetCameraStream();
-      stream->AddAudioOutput(this);
-
-      if (GetVideoFrameContainer()) {
-        stream->AddVideoOutput(GetVideoFrameContainer());
-      }
+#ifdef MOZ_B2G_CAMERA
+    auto* cameraTrack = mSrcStream->GetCameraStream();
+    if (cameraTrack && GetVideoFrameContainer()) {
+      cameraTrack->AddVideoOutput(GetVideoFrameContainer());
     }
+#endif
   } else {
-    if (mSrcStream->GetCameraStream()) {
-      mozilla::MediaTrack* stream = mSrcStream->GetCameraStream();
-
-      stream->RemoveAudioOutput(this);
-      if (GetVideoFrameContainer()) {
-        stream->RemoveVideoOutput(GetVideoFrameContainer());
-      }
+#ifdef MOZ_B2G_CAMERA
+    auto* cameraTrack = mSrcStream->GetCameraStream();
+    if (cameraTrack && GetVideoFrameContainer()) {
+      cameraTrack->RemoveVideoOutput(GetVideoFrameContainer());
     }
+#endif
 
     if (mMediaStreamRenderer) {
       mMediaStreamRenderer->Stop();

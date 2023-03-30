@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
@@ -20,7 +18,7 @@ const TETHERING_TYPE_WIFI = "wifi";
 const TETHERING_TYPE_BLUETOOTH = "bt";
 const TETHERING_TYPE_USB = "usb";
 
-function TetheringConfigInfo() {}
+export function TetheringConfigInfo() {}
 
 TetheringConfigInfo.prototype = {
   init(aWindow) {
@@ -38,7 +36,7 @@ TetheringConfigInfo.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer]),
 };
 
-function TetheringManager() {
+export function TetheringManager() {
   this.defineEventHandlerGetterSetter("ontetheringstatuschange");
 }
 
@@ -262,5 +260,3 @@ TetheringManager.prototype = {
     });
   },
 };
-
-const EXPORTED_SYMBOLS = ["TetheringManager", "TetheringConfigInfo"];

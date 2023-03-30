@@ -52,13 +52,6 @@ CameraPreviewMediaStream::CameraPreviewMediaStream()
   mFakeMediaTrackGraph = new FakeMediaTrackGraph();
 }
 
-void CameraPreviewMediaStream::AddAudioOutput(void* aKey) {}
-
-void CameraPreviewMediaStream::SetAudioOutputVolume(void* aKey, float aVolume) {
-}
-
-void CameraPreviewMediaStream::RemoveAudioOutput(void* aKey) {}
-
 void CameraPreviewMediaStream::AddVideoOutput(VideoFrameContainer* aContainer) {
   MutexAutoLock lock(mMutex);
   RefPtr<VideoFrameContainer> container = aContainer;
@@ -181,21 +174,5 @@ void CameraPreviewMediaStream::ClearCurrentFrame() {
 }
 
 uint32_t CameraPreviewMediaStream::NumberOfChannels() const { return 1; };
-
-/*void
-CameraPreviewMediaStream::AddListener(MediaStreamListener* aListener)
-{
-  class Message : public ControlMessage {
-  public:
-    Message(MediaStream* aStream, MediaStreamListener* aListener) :
-      ControlMessage(aStream), mListener(aListener) {}
-    virtual void Run()
-    {
-      mStream->AddListenerImpl(mListener.forget());
-    }
-    RefPtr<MediaStreamListener> mListener;
-  };
-  GraphImpl()->AppendMessage(new Message(this, aListener));
-}*/
 
 }  // namespace mozilla

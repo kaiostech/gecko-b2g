@@ -9,11 +9,8 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   SearchUtils: "resource://gre/modules/SearchUtils.sys.mjs",
-});
-
-XPCOMUtils.defineLazyModuleGetters(lazy, {
-  NimbusFeatures: "resource://nimbus/ExperimentAPI.jsm",
 });
 
 const BinaryInputStream = Components.Constructor(
@@ -1607,13 +1604,8 @@ export class SearchEngine {
   }
 
   // from nsISearchEngine
-  getResultDomain(responseType) {
-    // We can't use a default parameter as that doesn't work correctly with
-    // the idl interfaces.
-    if (!responseType) {
-      responseType = lazy.SearchUtils.URL_TYPE.SEARCH;
-    }
-    let url = this._getURLOfType(responseType);
+  get searchUrlDomain() {
+    let url = this._getURLOfType(lazy.SearchUtils.URL_TYPE.SEARCH);
     if (url) {
       return url.templateHost;
     }

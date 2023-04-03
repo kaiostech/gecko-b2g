@@ -20,6 +20,7 @@ gecko_metrics = [
     "dom/media/webrtc/metrics.yaml",
     "dom/metrics.yaml",
     "gfx/metrics.yaml",
+    "mobile/android/actors/metrics.yaml",
     "netwerk/metrics.yaml",
     "netwerk/protocol/http/metrics.yaml",
     "toolkit/components/cookiebanners/metrics.yaml",
@@ -60,6 +61,7 @@ background_update_metrics = [
 background_tasks_metrics = [
     "toolkit/components/backgroundtasks/metrics.yaml",
     "toolkit/components/crashes/metrics.yaml",
+    "browser/components/metrics.yaml",
 ]
 
 # Test metrics

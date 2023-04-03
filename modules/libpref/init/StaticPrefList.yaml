@@ -4811,7 +4811,7 @@
 # Is support for the Web GPU API enabled?
 - name: dom.webgpu.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Are WebGPU indirect draws/dispatches enabled?
@@ -7844,6 +7844,12 @@
   value: false
   mirror: always
 
+# Experimental support Array.fromAsync
+- name: javascript.options.experimental.enable_array_from_async
+  type: bool
+  value: false
+  mirror: always
+
 #if defined(ENABLE_NEW_SET_METHODS)
   # Experimental support for New Set methods
 - name: javascript.options.experimental.enable_new_set_methods
@@ -9080,7 +9086,7 @@
 # Is support for forced-color-adjust properties enabled?
 - name: layout.css.forced-color-adjust.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -10523,6 +10529,12 @@
     value: 2000000
     mirror: always
 
+# Specifies how many times we restart MFCDM process after crash till we give up.
+-   name: media.wmf.media-engine.max-crashes
+    type: RelaxedAtomicInt32
+    value: 2
+    mirror: always
+
 # Enable PlayReady DRM for EME
 -   name: media.eme.playready.enabled
     type: RelaxedAtomicBool
@@ -11933,6 +11945,18 @@
 - name: network.early-hints.preconnect.enabled
   type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
+# The max number of speculative connections we allow for `Link: rel=preconnect`.
+# When 0, the speculative connection created due to `Link: rel=preconnect` will
+# be limited by "network.http.speculative-parallel-limit".
+- name: network.early-hints.preconnect.max_connections
+  type: uint32_t
+#if defined(NIGHTLY_BUILD)
+  value: 10
+#else
+  value: 0
+#endif
   mirror: always
 
 # How long we should wait for EarlyHintPreloader to be used.

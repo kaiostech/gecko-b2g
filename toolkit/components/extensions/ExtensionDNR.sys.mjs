@@ -69,6 +69,8 @@ const gRuleManagers = [];
  *  - allow / allowAllRequests
  */
 
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineModuleGetter(
@@ -86,6 +88,13 @@ const { ExtensionUtils } = ChromeUtils.import(
   "resource://gre/modules/ExtensionUtils.jsm"
 );
 const { ExtensionError } = ExtensionUtils;
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "gMatchRequestsFromOtherExtensions",
+  "extensions.dnr.match_requests_from_other_extensions",
+  false
+);
 
 // As documented above:
 // Ruleset precedence: session > dynamic > static (order from manifest.json).
@@ -779,6 +788,27 @@ class RuleValidator {
     this.isSessionRuleset = isSessionRuleset;
   }
 
+  /**
+   * Static method used to deserialize Rule class instances from a plain
+   * js object rule as serialized implicitly by aomStartup.encodeBlob
+   * when we store the rules into the startup cache file.
+   *
+   * @param {object} rule
+   * @returns {Rule}
+   */
+  static deserializeRule(rule) {
+    const newRule = new Rule(rule);
+    if (newRule.condition.regexFilter) {
+      newRule.condition.setCompiledRegexFilter(
+        compileRegexFilter(
+          newRule.condition.regexFilter,
+          newRule.condition.isUrlFilterCaseSensitive
+        )
+      );
+    }
+    return newRule;
+  }
+
   removeRuleIds(ruleIds) {
     for (const ruleId of ruleIds) {
       this.rulesMap.delete(ruleId);
@@ -1368,7 +1398,7 @@ class RequestDetails {
         // See the above comment for more info.
         initiatorURI: parentPrin?.isContentPrincipal ? parentPrin.URI : null,
         type: isTop ? "main_frame" : "sub_frame",
-        method: "get", // TODO 1821303: Detect POST requests.
+        method: bc.activeSessionHistoryEntry?.hasPostData ? "post" : "get",
         tabId: this.tabId,
         // In this loop we are already explicitly accounting for ancestors, so
         // we intentionally omit browsingContext even though we have |bc|. If
@@ -1793,12 +1823,21 @@ const NetworkIntegration = {
   startDNREvaluation(channel) {
     let ruleManagers = gRuleManagers;
     if (!channel.canModify) {
+      // Ignore system requests or requests to restricted domains.
       ruleManagers = [];
     }
     if (channel.loadInfo.originAttributes.privateBrowsingId > 0) {
       ruleManagers = ruleManagers.filter(
         rm => rm.extension.privateBrowsingAllowed
       );
+    }
+    if (ruleManagers.length && !lazy.gMatchRequestsFromOtherExtensions) {
+      const policy = channel.loadInfo.loadingPrincipal?.addonPolicy;
+      if (policy) {
+        ruleManagers = ruleManagers.filter(
+          rm => rm.extension.policy === policy
+        );
+      }
     }
     let matchedRules;
     if (ruleManagers.length) {
@@ -2051,6 +2090,16 @@ function getMatchedRulesForRequest(request, extension) {
   let ruleManagers = gRuleManagers;
   if (extension) {
     ruleManagers = ruleManagers.filter(rm => rm.extension === extension);
+  }
+  // While this simulated request is not really from another extension, apply
+  // the same access control checks from NetworkIntegration.startDNREvaluation
+  // for consistency.
+  if (
+    !lazy.gMatchRequestsFromOtherExtensions &&
+    requestDetails.initiatorURI?.schemeIs("moz-extension")
+  ) {
+    const extUuid = requestDetails.initiatorURI.host;
+    ruleManagers = ruleManagers.filter(rm => rm.extension.uuid === extUuid);
   }
   return RequestEvaluator.evaluateRequest(requestDetails, ruleManagers);
 }

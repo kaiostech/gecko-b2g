@@ -1194,6 +1194,10 @@ class nsIFrame : public nsQueryFrame {
    * Return frame's rect without relative positioning
    */
   nsRect GetNormalRect() const;
+  mozilla::LogicalRect GetLogicalNormalRect(
+      mozilla::WritingMode aWritingMode, const nsSize& aContainerSize) const {
+    return mozilla::LogicalRect(aWritingMode, GetNormalRect(), aContainerSize);
+  }
 
   /**
    * Returns frame's rect as required by the GetBoundingClientRect() DOM API.
@@ -4507,6 +4511,13 @@ class nsIFrame : public nsQueryFrame {
    */
   bool IsSubtreeDirty() const {
     return HasAnyStateBits(NS_FRAME_IS_DIRTY | NS_FRAME_HAS_DIRTY_CHILDREN);
+  }
+
+  /**
+   * Returns true if the frame is an SVGTextFrame or one of its descendants.
+   */
+  bool IsInSVGTextSubtree() const {
+    return HasAnyStateBits(NS_FRAME_IS_SVG_TEXT);
   }
 
   /**

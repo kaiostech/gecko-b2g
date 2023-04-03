@@ -850,6 +850,8 @@ def build_generic_worker_payload(config, task, task_def):
         Optional("mac-behavior"): Any(
             "mac_notarize_part_1",
             "mac_notarize_part_3",
+            "apple_notarization",
+            "mac_sign",
             "mac_sign_and_pkg",
             "mac_geckodriver",
             "mac_notarize_geckodriver",

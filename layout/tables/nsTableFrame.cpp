@@ -3016,7 +3016,8 @@ void nsTableFrame::ReflowChildren(TableReflowInput& aReflowInput,
       }
     } else {  // it isn't being reflowed
       aReflowInput.mBCoord += cellSpacingB;
-      LogicalRect kidRect(wm, kidFrame->GetNormalRect(), containerSize);
+      const LogicalRect kidRect =
+          kidFrame->GetLogicalNormalRect(wm, containerSize);
       if (kidRect.BStart(wm) != aReflowInput.mBCoord) {
         // invalidate the old position
         kidFrame->InvalidateFrameSubtree();
@@ -3202,7 +3203,8 @@ void nsTableFrame::DistributeBSizeToRows(const ReflowInput& aReflowInput,
     nsTableRowGroupFrame* rgFrame = rowGroups[rgIdx];
     nscoord amountUsedByRG = 0;
     nscoord bOriginRow = 0;
-    LogicalRect rgNormalRect(wm, rgFrame->GetNormalRect(), containerSize);
+    const LogicalRect rgNormalRect =
+        rgFrame->GetLogicalNormalRect(wm, containerSize);
     if (!rgFrame->HasStyleBSize()) {
       nsTableRowFrame* rowFrame = rgFrame->GetFirstRow();
       while (rowFrame) {
@@ -3210,8 +3212,8 @@ void nsTableFrame::DistributeBSizeToRows(const ReflowInput& aReflowInput,
         // as a dummy containerSize here; we'll adjust the row positions at
         // the end, after the rowGroup size is finalized.
         const nsSize dummyContainerSize;
-        LogicalRect rowNormalRect(wm, rowFrame->GetNormalRect(),
-                                  dummyContainerSize);
+        const LogicalRect rowNormalRect =
+            rowFrame->GetLogicalNormalRect(wm, dummyContainerSize);
         nscoord cellSpacingB = GetRowSpacing(rowFrame->GetRowIndex());
         if ((amountUsed < aAmount) && rowFrame->HasPctBSize()) {
           nscoord pctBSize = rowFrame->GetInitialBSize(pctBasis);
@@ -3345,7 +3347,8 @@ void nsTableFrame::DistributeBSizeToRows(const ReflowInput& aReflowInput,
     nsTableRowGroupFrame* rgFrame = rowGroups[rgIdx];
     nscoord amountUsedByRG = 0;
     nscoord bOriginRow = 0;
-    LogicalRect rgNormalRect(wm, rgFrame->GetNormalRect(), containerSize);
+    const LogicalRect rgNormalRect =
+        rgFrame->GetLogicalNormalRect(wm, containerSize);
     nsRect rgInkOverflow = rgFrame->InkOverflowRect();
     // see if there is an eligible row group or we distribute to all rows
     if (!firstUnStyledRG || !rgFrame->HasStyleBSize() || !eligibleRows) {
@@ -3356,8 +3359,8 @@ void nsTableFrame::DistributeBSizeToRows(const ReflowInput& aReflowInput,
         // as a dummy containerSize here; we'll adjust the row positions at
         // the end, after the rowGroup size is finalized.
         const nsSize dummyContainerSize;
-        LogicalRect rowNormalRect(wm, rowFrame->GetNormalRect(),
-                                  dummyContainerSize);
+        const LogicalRect rowNormalRect =
+            rowFrame->GetLogicalNormalRect(wm, dummyContainerSize);
         nsRect rowInkOverflow = rowFrame->InkOverflowRect();
         // see if there is an eligible row or we distribute to all rows
         if (!firstUnStyledRow || !rowFrame->HasStyleBSize() || !eligibleRows) {
@@ -3551,11 +3554,10 @@ Maybe<nscoord> nsTableFrame::GetNaturalBaselineBOffset(
   auto TableBaseline = [aWM, containerSize](
                            nsTableRowGroupFrame* aRowGroup,
                            nsTableRowFrame* aRow) -> Maybe<nscoord> {
-    nscoord rgBStart =
-        LogicalRect(aWM, aRowGroup->GetNormalRect(), containerSize).BStart(aWM);
-    nscoord rowBStart =
-        LogicalRect(aWM, aRow->GetNormalRect(), aRowGroup->GetSize())
-            .BStart(aWM);
+    const nscoord rgBStart =
+        aRowGroup->GetLogicalNormalRect(aWM, containerSize).BStart(aWM);
+    const nscoord rowBStart =
+        aRow->GetLogicalNormalRect(aWM, aRowGroup->GetSize()).BStart(aWM);
     return aRow->GetRowBaseline(aWM).map(
         [rgBStart, rowBStart](nscoord aBaseline) {
           return rgBStart + rowBStart + aBaseline;
@@ -7285,6 +7287,22 @@ void BCPaintBorderIterator::AccumulateOrDoActionBlockDirSegment(
         }
       }
       blockDirSeg.AdvanceOffsetB();
+      // If the row is empty and cell borders are defined, the row will be
+      // zero-sized (If there existed an empty cell, it'd be sized to contain
+      // the cell's borders). In this case, we effectively need to "pull up"
+      // where the segment starts (Unless the empty row has enough block size).
+      if (mRow->PrincipalChildList().IsEmpty()) {
+        const auto rowSize = mRow->BSize(mTableWM);
+        if (blockDirSeg.mBEndOffset > 0 && blockDirSeg.mBEndOffset > rowSize) {
+          blockDirSeg.mOffsetB -= blockDirSeg.mBEndOffset - rowSize;
+        } else if (blockDirSeg.mBEndOffset < 0 &&
+                   -blockDirSeg.mBEndOffset > rowSize) {
+          // For cases of segments that don't have bevel (e.g. inner block
+          // direction borders). Since they "end early," the block end offset is
+          // negative.
+          blockDirSeg.mOffsetB += blockDirSeg.mBEndOffset + rowSize;
+        }
+      }
     }
     blockDirSeg.Start(*this, borderOwner, blockSegISize, inlineSegBSize);
   }

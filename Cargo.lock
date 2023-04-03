@@ -320,9 +320,9 @@ dependencies = [
 
 [[package]]
 name = "authenticator"
-version = "0.4.0-alpha.10"
+version = "0.4.0-alpha.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2238116278e3a069a5148ce1efaa73d750a0d7341e011235a0ddb3e7079cb1be"
+checksum = "e73e25e6ae754b553f930c48af8f0e5ca71e641c419151e95bafd5644ff6e21b"
 dependencies = [
  "base64",
  "bitflags",
@@ -409,16 +409,16 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.61.999"
+version = "0.63.999"
 dependencies = [
- "bindgen 0.63.0",
+ "bindgen 0.64.0",
 ]
 
 [[package]]
 name = "bindgen"
-version = "0.63.0"
+version = "0.64.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36d860121800b2a9a94f9b5604b332d5cffb234ce17609ea479d723dbc9d3885"
+checksum = "c4243e6031260db77ede97ad86c27e501d646a27ab57b59a574f725d98ab1fb4"
 dependencies = [
  "bitflags",
  "cexpr",
@@ -553,7 +553,7 @@ dependencies = [
 name = "builtins-static"
 version = "0.1.0"
 dependencies = [
- "bindgen 0.63.0",
+ "bindgen 0.64.0",
  "nom",
  "pkcs11-bindings",
  "smallvec",
@@ -854,11 +854,11 @@ dependencies = [
 
 [[package]]
 name = "coreaudio-sys"
-version = "0.2.11"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a9444b94b8024feecc29e01a9706c69c1e26bfee480221c90764200cfd778fb"
+checksum = "f034b2258e6c4ade2f73bf87b21047567fb913ee9550837c2316d139b0262b24"
 dependencies = [
- "bindgen 0.61.999",
+ "bindgen 0.64.0",
 ]
 
 [[package]]
@@ -960,14 +960,14 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.13"
+version = "0.9.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01a9af1f4c2ef74bb8aa1f7e19706bc72d03598c8a570bb5de72243c7a9d9d5a"
+checksum = "46bd5f3f85273295a9d14aedfb86f6aadbff6d8f5295c4a9edb08e819dcf5695"
 dependencies = [
  "autocfg",
  "cfg-if 1.0.0",
  "crossbeam-utils",
- "memoffset 0.7.1",
+ "memoffset 0.8.0",
  "scopeguard",
 ]
 
@@ -1947,7 +1947,7 @@ name = "gecko-profiler"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "bindgen 0.63.0",
+ "bindgen 0.64.0",
  "lazy_static",
  "mozbuild",
  "profiler-macros",
@@ -1959,7 +1959,7 @@ name = "gecko_logger"
 version = "0.1.0"
 dependencies = [
  "app_services_logger",
- "env_logger 0.9.999",
+ "env_logger 0.10.0",
  "lazy_static",
  "log",
 ]
@@ -1986,7 +1986,7 @@ dependencies = [
 
 [[package]]
 name = "geckodriver"
-version = "0.32.2"
+version = "0.33.0"
 dependencies = [
  "base64",
  "chrono",
@@ -2500,7 +2500,7 @@ name = "http3server"
 version = "0.1.1"
 dependencies = [
  "base64",
- "bindgen 0.63.0",
+ "bindgen 0.64.0",
  "cfg-if 1.0.0",
  "http",
  "hyper",
@@ -3113,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "marionette"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3163,14 +3163,14 @@ dependencies = [
 name = "memoffset"
 version = "0.6.99"
 dependencies = [
- "memoffset 0.7.1",
+ "memoffset 0.8.0",
 ]
 
 [[package]]
 name = "memoffset"
-version = "0.7.1"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5de893c32cde5f383baa4c04c5d6dbdd735cfd4a794b0debdb2bb1b421da5ff4"
+checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
 dependencies = [
  "autocfg",
 ]
@@ -3249,7 +3249,7 @@ dependencies = [
 [[package]]
 name = "minidump-writer"
 version = "0.7.0"
-source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=7d76616d27b9dc87fe3a94639b8b4f947d52a6aa#7d76616d27b9dc87fe3a94639b8b4f947d52a6aa"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=59179c83ba62e4378619c6967c0b8c0c077cac2d#59179c83ba62e4378619c6967c0b8c0c077cac2d"
 dependencies = [
  "byteorder",
  "cfg-if 1.0.0",
@@ -3258,9 +3258,9 @@ dependencies = [
  "libc",
  "mach2",
  "memmap2",
- "memoffset 0.7.1",
+ "memoffset 0.8.0",
  "minidump-common",
- "nix 0.25.1",
+ "nix 0.26.2",
  "scroll",
  "tempfile",
  "thiserror",
@@ -3400,7 +3400,7 @@ dependencies = [
 name = "mozilla-central-workspace-hack"
 version = "0.1.0"
 dependencies = [
- "bindgen 0.63.0",
+ "bindgen 0.64.0",
  "libc",
  "quote",
  "serde",
@@ -3534,7 +3534,7 @@ name = "neqo-crypto"
 version = "0.6.4"
 source = "git+https://github.com/mozilla/neqo?tag=v0.6.4#80db3a01f3273c7e742ba560fa99246fc8b30c4f"
 dependencies = [
- "bindgen 0.63.0",
+ "bindgen 0.63.999",
  "log",
  "mozbuild",
  "neqo-common",
@@ -3639,19 +3639,19 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 name = "nix"
 version = "0.24.99"
 dependencies = [
- "nix 0.25.1",
+ "nix 0.26.2",
 ]
 
 [[package]]
 name = "nix"
-version = "0.25.1"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f346ff70e7dbfd675fe90590b92d59ef2de15a8779ae305ebcbfd3f0caf59be4"
+checksum = "bfdda3d196821d6af13126e40375cdf7da646a96114af134d5f417a9a1dc8e1a"
 dependencies = [
- "autocfg",
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
+ "static_assertions",
 ]
 
 [[package]]
@@ -3678,7 +3678,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a689b62ba71fda80458a77b6ace9371d6e6a5473300901383ebd101659b3352"
 dependencies = [
- "bindgen 0.63.0",
+ "bindgen 0.64.0",
  "mozbuild",
  "once_cell",
  "pkcs11-bindings",
@@ -3801,7 +3801,7 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "850ce328ec7e4dc1a9446c56aef700d21d914268c8529b96017a2bf10f74b70f"
 dependencies = [
- "bindgen 0.63.0",
+ "bindgen 0.63.999",
  "byteorder",
  "hex",
  "lazy_static",
@@ -3857,7 +3857,7 @@ version = "0.1.4"
 dependencies = [
  "byteorder",
  "core-foundation",
- "env_logger 0.9.999",
+ "env_logger 0.10.0",
  "lazy_static",
  "libloading",
  "log",
@@ -4057,7 +4057,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0fabbdbe64b22820753da90995b3a73d02907eaeeac6f2414962a566aaa18ea"
 dependencies = [
- "bindgen 0.63.0",
+ "bindgen 0.64.0",
 ]
 
 [[package]]
@@ -4880,7 +4880,7 @@ name = "smoosh"
 version = "0.1.0"
 dependencies = [
  "bumpalo",
- "env_logger 0.9.999",
+ "env_logger 0.10.0",
  "jsparagus",
  "log",
 ]
@@ -4974,7 +4974,7 @@ dependencies = [
  "app_units",
  "arrayvec",
  "atomic_refcell",
- "bindgen 0.63.0",
+ "bindgen 0.64.0",
  "bitflags",
  "byteorder",
  "cssparser",
@@ -5953,7 +5953,7 @@ version = "0.3.100"
 
 [[package]]
 name = "webdriver"
-version = "0.47.1"
+version = "0.48.0"
 dependencies = [
  "base64",
  "bytes",

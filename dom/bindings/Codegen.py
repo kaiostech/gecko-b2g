@@ -2240,7 +2240,7 @@ class CGClassConstructor(CGAbstractStaticMethod):
         )
 
         name = self._ctor.identifier.name
-        nativeName = MakeNativeName(self.descriptor.binaryNameFor(name))
+        nativeName = MakeNativeName(self.descriptor.binaryNameFor(name, True))
         callGenerator = CGMethodCall(
             nativeName, True, self.descriptor, self._ctor, isConstructor=True
         )
@@ -10621,7 +10621,7 @@ class CGSpecializedMethod(CGAbstractStaticMethod):
         if method.underlyingAttr:
             return CGSpecializedGetter.makeNativeName(descriptor, method.underlyingAttr)
         name = method.identifier.name
-        return MakeNativeName(descriptor.binaryNameFor(name))
+        return MakeNativeName(descriptor.binaryNameFor(name, method.isStatic()))
 
 
 class CGMethodPromiseWrapper(CGAbstractStaticMethod):
@@ -10718,7 +10718,7 @@ class CGLegacyCallHook(CGAbstractBindingMethod):
 
     def generate_code(self):
         name = self._legacycaller.identifier.name
-        nativeName = MakeNativeName(self.descriptor.binaryNameFor(name))
+        nativeName = MakeNativeName(self.descriptor.binaryNameFor(name, False))
         return CGMethodCall(nativeName, False, self.descriptor, self._legacycaller)
 
     def error_reporting_label(self):
@@ -11191,7 +11191,7 @@ class CGSpecializedGetter(CGAbstractStaticMethod):
     @staticmethod
     def makeNativeName(descriptor, attr):
         name = attr.identifier.name
-        nativeName = MakeNativeName(descriptor.binaryNameFor(name))
+        nativeName = MakeNativeName(descriptor.binaryNameFor(name, attr.isStatic()))
         _, resultOutParam, _, _, _ = getRetvalDeclarationForType(attr.type, descriptor)
         extendedAttrs = descriptor.getExtendedAttributes(attr, getter=True)
         canFail = "needsErrorResult" in extendedAttrs or "canOOM" in extendedAttrs
@@ -11355,7 +11355,7 @@ class CGSpecializedSetter(CGAbstractStaticMethod):
     @staticmethod
     def makeNativeName(descriptor, attr):
         name = attr.identifier.name
-        return "Set" + MakeNativeName(descriptor.binaryNameFor(name))
+        return "Set" + MakeNativeName(descriptor.binaryNameFor(name, attr.isStatic()))
 
 
 class CGStaticSetter(CGAbstractStaticBindingMethod):
@@ -14022,7 +14022,7 @@ class CGProxySpecialOperation(CGPerSignatureCall):
         self.checkFound = checkFound
         self.foundVar = foundVar or "found"
 
-        nativeName = MakeNativeName(descriptor.binaryNameFor(operation))
+        nativeName = MakeNativeName(descriptor.binaryNameFor(operation, False))
         operation = descriptor.operations[operation]
         assert len(operation.signatures()) == 1
         signature = operation.signatures()[0]
@@ -19987,11 +19987,15 @@ class CGJSImplMethod(CGJSImplMember):
 
 # We're always fallible
 def callbackGetterName(attr, descriptor):
-    return "Get" + MakeNativeName(descriptor.binaryNameFor(attr.identifier.name))
+    return "Get" + MakeNativeName(
+        descriptor.binaryNameFor(attr.identifier.name, attr.isStatic())
+    )
 
 
 def callbackSetterName(attr, descriptor):
-    return "Set" + MakeNativeName(descriptor.binaryNameFor(attr.identifier.name))
+    return "Set" + MakeNativeName(
+        descriptor.binaryNameFor(attr.identifier.name, attr.isStatic())
+    )
 
 
 class CGJSImplGetter(CGJSImplMember):
@@ -20697,7 +20701,7 @@ class CGCallbackInterface(CGCallback):
             needInitId = True
 
         idlist = [
-            descriptor.binaryNameFor(m.identifier.name)
+            descriptor.binaryNameFor(m.identifier.name, m.isStatic())
             for m in iface.members
             if m.isAttr() or m.isMethod()
         ]
@@ -21249,7 +21253,7 @@ class CallbackOperationBase(CallbackMethod):
         spiderMonkeyInterfacesAreStructs=False,
     ):
         self.singleOperation = singleOperation
-        self.methodName = descriptor.binaryNameFor(jsName)
+        self.methodName = descriptor.binaryNameFor(jsName, False)
         CallbackMethod.__init__(
             self,
             signature,
@@ -21323,7 +21327,7 @@ class CallbackOperation(CallbackOperationBase):
             self,
             signature,
             jsName,
-            MakeNativeName(descriptor.binaryNameFor(jsName)),
+            MakeNativeName(descriptor.binaryNameFor(jsName, False)),
             descriptor,
             descriptor.interface.isSingleOperationInterface(),
             rethrowContentException=descriptor.interface.isJSImplemented(),
@@ -21390,7 +21394,7 @@ class CallbackGetter(CallbackAccessor):
             """,
             atomCacheName=self.descriptorProvider.interface.identifier.name + "Atoms",
             attrAtomName=CGDictionary.makeIdName(
-                self.descriptorProvider.binaryNameFor(self.attrName)
+                self.descriptorProvider.binaryNameFor(self.attrName, False)
             ),
             errorReturn=self.getDefaultRetval(),
         )
@@ -21429,7 +21433,7 @@ class CallbackSetter(CallbackAccessor):
             """,
             atomCacheName=self.descriptorProvider.interface.identifier.name + "Atoms",
             attrAtomName=CGDictionary.makeIdName(
-                self.descriptorProvider.binaryNameFor(self.attrName)
+                self.descriptorProvider.binaryNameFor(self.attrName, False)
             ),
             errorReturn=self.getDefaultRetval(),
         )
@@ -22936,7 +22940,7 @@ class GlobalGenRoots:
         structs = []
 
         def memberToAtomCacheMember(binaryNameFor, m):
-            binaryMemberName = binaryNameFor(m.identifier.name)
+            binaryMemberName = binaryNameFor(m)
             return ClassMember(
                 CGDictionary.makeIdName(binaryMemberName),
                 "PinnedStringId",
@@ -22960,7 +22964,9 @@ class GlobalGenRoots:
             if len(dict.members) == 0:
                 continue
 
-            structs.append(buildAtomCacheStructure(dict, lambda x: x, dict.members))
+            structs.append(
+                buildAtomCacheStructure(dict, lambda m: m.identifier.name, dict.members)
+            )
 
         for d in config.getDescriptors(isJSImplemented=True) + config.getDescriptors(
             isCallback=True
@@ -22979,7 +22985,9 @@ class GlobalGenRoots:
 
             structs.append(
                 buildAtomCacheStructure(
-                    d.interface, lambda x: d.binaryNameFor(x), members
+                    d.interface,
+                    lambda m: d.binaryNameFor(m.identifier.name, m.isStatic()),
+                    members,
                 )
             )
 

@@ -11,7 +11,7 @@ const lazy = {};
 XPCOMUtils.defineLazyGetter(lazy, "gFluentStrings", function() {
   return new Localization([
     "branding/brand.ftl",
-    "locales-preview/migrationWizard.ftl",
+    "browser/migrationWizard.ftl",
   ]);
 });
 
@@ -28,6 +28,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * the associated MigrationWizardChild.
  */
 export class MigrationWizardParent extends JSWindowActorParent {
+  constructor() {
+    super();
+    Services.telemetry.setEventRecordingEnabled("browser.migration", true);
+  }
+
   /**
    * General message handler function for messages received from the
    * associated MigrationWizardChild JSWindowActor.
@@ -63,12 +68,21 @@ export class MigrationWizardParent extends JSWindowActorParent {
         // or an Array of them, so we flatten them out and filter out
         // any that ended up going wrong and returning null from the
         // #getMigratorAndProfiles call.
-        return results
+        let filteredResults = results
           .flat()
           .filter(result => result)
           .sort((a, b) => {
             return b.lastModifiedDate - a.lastModifiedDate;
           });
+
+        for (let result of filteredResults) {
+          Services.telemetry.keyedScalarAdd(
+            "migration.discovered_migrators",
+            result.key,
+            1
+          );
+        }
+        return filteredResults;
       }
 
       case "Migrate": {
@@ -91,9 +105,32 @@ export class MigrationWizardParent extends JSWindowActorParent {
           this.browsingContext.topChromeWindow
         );
       }
+
+      case "RecordEvent": {
+        this.#recordEvent(message.data.type, message.data.args);
+        break;
+      }
     }
 
     return null;
+  }
+
+  /**
+   * Used for recording telemetry in the migration wizard.
+   *
+   * @param {string} type
+   *   The type of event being recorded.
+   * @param {object} args
+   *   The data to pass to telemetry when the event is recorded.
+   */
+  #recordEvent(type, args = null) {
+    Services.telemetry.recordEvent(
+      "browser.migration",
+      type,
+      "wizard",
+      null,
+      args
+    );
   }
 
   /**

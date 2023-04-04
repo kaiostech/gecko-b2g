@@ -36,6 +36,83 @@ const TEST_PROVIDER_INFO = [
             },
           ],
         },
+        excluded: {
+          regexps: [/^https:\/\/example\.com\/search\?(?:.+)&prs=/],
+        },
+      },
+      {
+        type: SearchSERPTelemetryUtils.COMPONENTS.REFINED_SEARCH_BUTTONS,
+        included: {
+          parent: {
+            selector: ".moz-carousel",
+          },
+          children: [
+            {
+              selector: ".moz-carousel-text",
+            },
+          ],
+          regexps: [/^https:\/\/example\.com\/search\?(?:.+)&prs=/],
+        },
+        nonAd: true,
+      },
+      {
+        type: SearchSERPTelemetryUtils.COMPONENTS.REFINED_SEARCH_BUTTONS,
+        included: {
+          parent: {
+            selector: ".moz-rich-suggestions",
+          },
+          children: [
+            {
+              selector: ".moz-suggestion a",
+            },
+          ],
+        },
+        nonAd: true,
+        topDown: true,
+      },
+      {
+        type: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+        included: {
+          parent: {
+            selector: ".moz_ad",
+          },
+          children: [
+            {
+              selector: ".multi-col",
+              type: SearchSERPTelemetryUtils.COMPONENTS.AD_SITELINK,
+            },
+          ],
+        },
+        excluded: {
+          parent: {
+            selector: ".rhs",
+          },
+        },
+      },
+      {
+        type: SearchSERPTelemetryUtils.COMPONENTS.AD_SIDEBAR,
+        included: {
+          parent: {
+            selector: ".rhs",
+          },
+        },
+      },
+      {
+        type: SearchSERPTelemetryUtils.COMPONENTS.SHOPPING_TAB,
+        included: {
+          regexps: [/^https:\/\/example\.com\/search\?(?:.+)&page=shop/],
+        },
+        nonAd: true,
+      },
+      {
+        type: SearchSERPTelemetryUtils.COMPONENTS.SHOPPING_TAB,
+        included: {
+          parent: {
+            selector: "nav .list-item-shop a",
+          },
+        },
+        topDown: true,
+        nonAd: true,
       },
       {
         type: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
@@ -134,6 +211,16 @@ add_task(async function test_ad_impressions_with_two_carousels() {
   resetTelemetry();
   let url = getSERPUrl("searchTelemetryAd_components_carousel_doubled.html");
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+
+  // This is to ensure we've seen the other carousel regardless the
+  // size of the browser window.
+  await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
+    let el = content.document
+      .getElementById("second-ad")
+      .getBoundingClientRect();
+    // The 100 is just to guarantee we've scrolled past the element.
+    content.scrollTo(0, el.top + el.height + 100);
+  });
 
   await promiseAdImpressionReceived();
 
@@ -268,5 +355,126 @@ add_task(async function test_ad_impressions_with_carousel_below_the_fold() {
     },
   ]);
 
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_ad_impressions_with_text_links() {
+  resetTelemetry();
+  let url = getSERPUrl("searchTelemetryAd_components_text.html");
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+
+  await promiseAdImpressionReceived();
+
+  assertAdImpressionEvents([
+    {
+      component: SearchSERPTelemetryUtils.COMPONENTS.AD_SITELINK,
+      ads_loaded: "1",
+      ads_visible: "1",
+      ads_hidden: "0",
+    },
+    {
+      component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+      ads_loaded: "2",
+      ads_visible: "2",
+      ads_hidden: "0",
+    },
+    {
+      component: SearchSERPTelemetryUtils.COMPONENTS.AD_SIDEBAR,
+      ads_loaded: "1",
+      ads_visible: "1",
+      ads_hidden: "0",
+    },
+  ]);
+  BrowserTestUtils.removeTab(tab);
+});
+
+// An ad is considered visible if at least one link is within the viewable
+// content area when the impression was taken. Since the user can scroll
+// the page before ad impression is recorded, we should ensure that an
+// ad that was scrolled onto the screen before the impression is taken is
+// properly recorded. Additionally, some ads might have a large content
+// area that extends beyond the viewable area, but as long as a single
+// ad link was viewable within the area, we should count the ads as visible.
+add_task(async function test_ad_visibility() {
+  resetTelemetry();
+  let url = getSERPUrl("searchTelemetryAd_components_visibility.html");
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+
+  await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
+    let el = content.document
+      .getElementById("second-ad")
+      .getBoundingClientRect();
+    // The 100 is just to guarantee we've scrolled past the element.
+    content.scrollTo(0, el.top + el.height + 100);
+  });
+
+  await promiseAdImpressionReceived();
+
+  assertAdImpressionEvents([
+    {
+      component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+      ads_loaded: "6",
+      ads_visible: "4",
+      ads_hidden: "0",
+    },
+  ]);
+  BrowserTestUtils.removeTab(tab);
+});
+
+// Refinement buttons won't be detected unless there is at least
+// one ad on the page. There are two instances of the shopping tab on this page:
+// one using a bottom up approach with regular expressions and the other using
+// a top down approach via the document object.
+add_task(async function test_ad_impressions_with_refined_search_button() {
+  resetTelemetry();
+  let url = getSERPUrl(
+    "searchTelemetryAd_components_refined_search_button.html"
+  );
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+
+  await promiseAdImpressionReceived();
+
+  assertAdImpressionEvents([
+    {
+      component: SearchSERPTelemetryUtils.COMPONENTS.REFINED_SEARCH_BUTTONS,
+      ads_loaded: "2",
+      ads_visible: "2",
+      ads_hidden: "0",
+    },
+    {
+      component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+      ads_loaded: "1",
+      ads_visible: "1",
+      ads_hidden: "0",
+    },
+  ]);
+  BrowserTestUtils.removeTab(tab);
+});
+
+// Shopping tabs won't be detected unless there is at least one
+// ad on the page. There are two instances of the shopping tab on this page:
+// one using a bottom up approach with regular expressions and the other using
+// a top down approach via the document object.
+add_task(async function test_ad_impressions_with_shop_tab() {
+  resetTelemetry();
+  let url = getSERPUrl("searchTelemetryAd_components_shopping_tab.html");
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+
+  await promiseAdImpressionReceived();
+
+  assertAdImpressionEvents([
+    {
+      component: SearchSERPTelemetryUtils.COMPONENTS.SHOPPING_TAB,
+      ads_loaded: "2",
+      ads_visible: "2",
+      ads_hidden: "0",
+    },
+    {
+      component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+      ads_loaded: "1",
+      ads_visible: "1",
+      ads_hidden: "0",
+    },
+  ]);
   BrowserTestUtils.removeTab(tab);
 });

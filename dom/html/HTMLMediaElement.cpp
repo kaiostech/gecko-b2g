@@ -6559,7 +6559,7 @@ void HTMLMediaElement::NotifyDecoderPrincipalChanged() {
 }
 
 void HTMLMediaElement::Invalidate(bool aImageSizeChanged,
-                                  Maybe<nsIntSize>& aNewIntrinsicSize,
+                                  const Maybe<nsIntSize>& aNewIntrinsicSize,
                                   bool aForceInvalidate) {
   nsIFrame* frame = GetPrimaryFrame();
   if (aNewIntrinsicSize) {

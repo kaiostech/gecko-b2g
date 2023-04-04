@@ -795,7 +795,6 @@ bool AudioCallbackDriver::StartStream() {
   mAudioStreamState = AudioStreamState::Starting;
   if (cubeb_stream_start(mAudioStream) != CUBEB_OK) {
     NS_WARNING("Could not start cubeb stream for MTG.");
-    MOZ_ASSERT(mAudioStreamState == AudioStreamState::None);
     return false;
   }
 

@@ -42,6 +42,10 @@ export var SearchSERPTelemetryUtils = {
   COMPONENTS: {
     AD_CAROUSEL: "ad_carousel",
     AD_LINK: "ad_link",
+    AD_SIDEBAR: "ad_sidebar",
+    AD_SITELINK: "ad_sitelink",
+    REFINED_SEARCH_BUTTONS: "refined_search_buttons",
+    SHOPPING_TAB: "shopping_tab",
   },
 };
 

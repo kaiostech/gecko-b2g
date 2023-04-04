@@ -694,7 +694,8 @@ void PDMFactory::CreateContentPDMs() {
   CreateAndStartupPDM<AgnosticDecoderModule>();
 
   if (StaticPrefs::media_gmp_decoder_enabled() &&
-      !CreateAndStartupPDM<GMPDecoderModule>()) {
+      !StartupPDM(GMPDecoderModule::Create(),
+                  StaticPrefs::media_gmp_decoder_preferred())) {
     mFailureFlags += DecoderDoctorDiagnostics::Flags::GMPPDMFailedToStartup;
   }
 }
@@ -743,7 +744,8 @@ void PDMFactory::CreateDefaultPDMs() {
   CreateAndStartupPDM<AgnosticDecoderModule>();
 
   if (StaticPrefs::media_gmp_decoder_enabled() &&
-      !CreateAndStartupPDM<GMPDecoderModule>()) {
+      !StartupPDM(GMPDecoderModule::Create(),
+                  StaticPrefs::media_gmp_decoder_preferred())) {
     mFailureFlags += DecoderDoctorDiagnostics::Flags::GMPPDMFailedToStartup;
   }
 }

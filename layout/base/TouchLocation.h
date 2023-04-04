@@ -6,6 +6,7 @@
 #define TouchLocation_h__
 
 #include "mozilla/dom/AnonymousContent.h"
+#include "mozilla/dom/ChildIterator.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Touch.h"
 #include "mozilla/RefPtr.h"
@@ -79,8 +80,14 @@ class TouchLocation {
 
   dom::Element* _NthChildElement(ChildId aId) const {
     const uint32_t idx = aId.mId;
-    nsCOMPtr<nsINodeList> kids =
-        TouchElement().GetChildren(nsIContent::eAllChildren);
+
+    dom::Element& node = TouchElement();
+    dom::AllChildrenIterator iter(node.AsContent(), nsIContent::eAllChildren);
+    RefPtr kids = new nsSimpleContentList(&node);
+    while (nsIContent* kid = iter.GetNextChild()) {
+      kids->AppendElement(kid);
+    }
+
     uint32_t count = kids->Length();
     return idx < count ? kids->Item(idx)->AsElement() : nullptr;
   }

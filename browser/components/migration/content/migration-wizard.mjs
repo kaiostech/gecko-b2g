@@ -23,6 +23,8 @@ export class MigrationWizard extends HTMLElement {
   #importButton = null;
   #safariPermissionButton = null;
   #selectAllCheckbox = null;
+  #resourceSummary = null;
+  #expandedDetails = false;
 
   static get markup() {
     return `
@@ -58,7 +60,7 @@ export class MigrationWizard extends HTMLElement {
             </div>
             <div data-l10n-id="migration-wizard-selection-list" class="resource-selection-preamble deemphasized-text hide-on-error"></div>
             <details class="resource-selection-details hide-on-error">
-              <summary>
+              <summary id="resource-selection-summary">
                 <div class="selected-data-header" data-l10n-id="migration-all-available-data-label"></div>
                 <div class="selected-data deemphasized-text">&nbsp;</div>
                 <span class="expand-collapse-icon" role="img"></span>
@@ -193,9 +195,7 @@ export class MigrationWizard extends HTMLElement {
 
     if (window.MozXULElement) {
       window.MozXULElement.insertFTLIfNeeded("branding/brand.ftl");
-      window.MozXULElement.insertFTLIfNeeded(
-        "locales-preview/migrationWizard.ftl"
-      );
+      window.MozXULElement.insertFTLIfNeeded("browser/migrationWizard.ftl");
     }
     document.l10n.connectRoot(shadow);
 
@@ -205,6 +205,8 @@ export class MigrationWizard extends HTMLElement {
     this.#browserProfileSelector = shadow.querySelector(
       "#browser-profile-selector"
     );
+    this.#resourceSummary = shadow.querySelector("#resource-selection-summary");
+    this.#resourceSummary.addEventListener("click", this);
 
     let cancelCloseButtons = shadow.querySelectorAll(".cancel-close");
     for (let button of cancelCloseButtons) {
@@ -392,6 +394,8 @@ export class MigrationWizard extends HTMLElement {
     let details = this.#shadowRoot.querySelector("details");
     selectionPage.toggleAttribute("show-import-all", state.showImportAll);
     details.open = !state.showImportAll;
+
+    this.#expandedDetails = false;
 
     for (let migrator of state.migrators) {
       let opt = document.createElement("panel-item");
@@ -588,6 +592,9 @@ export class MigrationWizard extends HTMLElement {
    *   True if this MigrationWizardChild told us that the associated
    *   MigratorBase subclass for the key has enough permission to read
    *   the requested resources.
+   * @property {boolean} expandedDetails
+   *   True if the user clicked on the <summary> element to expand the resource
+   *   type list.
    */
 
   /**
@@ -618,6 +625,7 @@ export class MigrationWizard extends HTMLElement {
       profile,
       resourceTypes,
       hasPermissions,
+      expandedDetails: this.#expandedDetails,
     };
   }
 
@@ -755,6 +763,8 @@ export class MigrationWizard extends HTMLElement {
           this.#onBrowserProfileSelectionChanged(event.target);
         } else if (event.target == this.#safariPermissionButton) {
           this.#requestSafariPermissions();
+        } else if (event.currentTarget == this.#resourceSummary) {
+          this.#expandedDetails = true;
         }
         break;
       }

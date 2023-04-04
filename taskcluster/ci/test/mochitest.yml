@@ -268,6 +268,10 @@ mochitest-browser-chrome:
     max-run-time:
         by-variant:
             msix: 5400
+            socketprocess_networking:
+                by-test-platform:
+                    linux.*-qr/debug: 7200
+                    default: 5400
             default:
                 by-test-platform:
                     linux.*64-ccov.*/.*: 9000
@@ -314,6 +318,14 @@ mochitest-browser-a11y:
             default: 1800
     mozharness:
         mochitest-flavor: browser
+        chunked:
+            by-test-platform:
+                .*tsan.*: true
+                default: false
+    chunks:
+        by-test-platform:
+            .*tsan.*: 2
+            default: 1
     instance-size: default
     allow-software-gl-layers: false
     virtualization: virtual

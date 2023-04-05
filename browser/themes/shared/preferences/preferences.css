@@ -246,6 +246,12 @@ checkbox {
   font-weight: 600;
 }
 
+@supports not -moz-bool-pref("browser.migrate.preferences-entrypoint.enabled") {
+  #dataMigrationGroup {
+    display: none;
+  }
+}
+
 #browserContainersExtensionContent {
   padding-block: 5px;
 }
@@ -465,6 +471,11 @@ richlistitem[selected] .actionsMenu:focus-visible {
 
 .addon-with-favicon .menu-iconic-icon {
   margin-inline-start: 0;
+}
+
+a[is="moz-support-link"] {
+  display: inline-block;
+  white-space: initial;
 }
 
 /* Search Pane */

@@ -4453,9 +4453,13 @@ void CompilationInput::dumpFields(js::JSONPrinter& json) const {
     json.endObject();
   }
 
-  json.beginObjectProperty("enclosingScope");
-  DumpInputScopeFields(json, enclosingScope);
-  json.endObject();
+  if (enclosingScope.isNull()) {
+    json.nullProperty("enclosingScope");
+  } else {
+    json.beginObjectProperty("enclosingScope");
+    DumpInputScopeFields(json, enclosingScope);
+    json.endObject();
+  }
 
   // TODO: Support printing the atomCache and the source fields.
 }
@@ -5244,8 +5248,8 @@ static already_AddRefed<JS::Stencil> CompileModuleScriptToStencilImpl(
   NoScopeBindingCache scopeCache;
   Rooted<CompilationInput> input(cx, CompilationInput(options));
   RefPtr<JS::Stencil> stencil = js::frontend::ParseModuleToStencil(
-      cx, &fc, cx->stackLimitForCurrentPrincipal(), input.get(), &scopeCache,
-      srcBuf);
+      cx, &fc, cx->stackLimitForCurrentPrincipal(), cx->tempLifoAlloc(),
+      input.get(), &scopeCache, srcBuf);
   if (!stencil) {
     return nullptr;
   }

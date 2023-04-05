@@ -75,7 +75,8 @@
 #include "js/CompilationAndEvaluation.h"
 #include "js/CompileOptions.h"
 #include "js/Date.h"
-#include "js/experimental/CodeCoverage.h"      // js::GetCodeCoverageSummary
+#include "js/experimental/CodeCoverage.h"  // js::GetCodeCoverageSummary
+#include "js/experimental/CompileScript.h"  // JS::ParseGlobalScript, JS::PrepareForInstantiate
 #include "js/experimental/JSStencil.h"         // JS::Stencil
 #include "js/experimental/PCCountProfiling.h"  // JS::{Start,Stop}PCCountProfiling, JS::PurgePCCounts, JS::GetPCCountScript{Count,Summary,Contents}
 #include "js/experimental/TypedData.h"         // JS_GetObjectAsUint8Array
@@ -3267,28 +3268,53 @@ static bool NewString(JSContext* cx, unsigned argc, Value* vp) {
   bool wantTwoByte = false;
   bool forceExternal = false;
   bool maybeExternal = false;
+  uint32_t capacity = 0;
 
   if (args.get(1).isObject()) {
     RootedObject options(cx, &args[1].toObject());
     RootedValue v(cx);
     bool requestTenured = false;
-    struct Setting {
+    struct BoolSetting {
       const char* name;
       bool* value;
     };
     for (auto [name, setting] :
-         {Setting{"tenured", &requestTenured}, Setting{"twoByte", &wantTwoByte},
-          Setting{"external", &forceExternal},
-          Setting{"maybeExternal", &maybeExternal}}) {
+         {BoolSetting{"tenured", &requestTenured},
+          BoolSetting{"twoByte", &wantTwoByte},
+          BoolSetting{"external", &forceExternal},
+          BoolSetting{"maybeExternal", &maybeExternal}}) {
       if (!JS_GetProperty(cx, options, name, &v)) {
         return false;
       }
       *setting = ToBoolean(v);  // false if not given (or otherwise undefined)
     }
+    struct Uint32Setting {
+      const char* name;
+      uint32_t* value;
+    };
+    for (auto [name, setting] : {Uint32Setting{"capacity", &capacity}}) {
+      if (!JS_GetProperty(cx, options, name, &v)) {
+        return false;
+      }
+      int32_t i32;
+      if (!ToInt32(cx, v, &i32)) {
+        return false;
+      }
+      if (i32 < 0) {
+        JS_ReportErrorASCII(cx, "nonnegative value required");
+        return false;
+      }
+      *setting = static_cast<uint32_t>(i32);
+    }
 
     heap = requestTenured ? gc::TenuredHeap : gc::DefaultHeap;
     if (forceExternal || maybeExternal) {
       wantTwoByte = true;
+      if (capacity != 0) {
+        JS_ReportErrorASCII(cx,
+                            "strings cannot be both external and extensible");
+        return false;
+      }
     }
   }
 
@@ -3328,7 +3354,33 @@ static bool NewString(JSContext* cx, unsigned argc, Value* vp) {
         return false;
       }
     }
-    if (wantTwoByte) {
+    if (capacity) {
+      if (capacity < len) {
+        capacity = len;
+      }
+      if (stable.isLatin1()) {
+        auto news = cx->make_pod_arena_array<JS::Latin1Char>(
+            js::StringBufferArena, capacity);
+        if (!news) {
+          return false;
+        }
+        mozilla::PodCopy(news.get(), stable.latin1Chars(), len);
+        dest = JSLinearString::newValidLength<CanGC>(cx, std::move(news), len,
+                                                     heap);
+      } else {
+        auto news =
+            cx->make_pod_arena_array<char16_t>(js::StringBufferArena, capacity);
+        if (!news) {
+          return false;
+        }
+        mozilla::PodCopy(news.get(), stable.twoByteChars(), len);
+        dest = JSLinearString::newValidLength<CanGC>(cx, std::move(news), len,
+                                                     heap);
+      }
+      if (dest) {
+        dest->asLinear().makeExtensible(capacity);
+      }
+    } else if (wantTwoByte) {
       dest = NewStringCopyNDontDeflate<CanGC>(cx, stable.twoByteChars(), len,
                                               heap);
     } else if (stable.isLatin1()) {
@@ -6424,10 +6476,33 @@ static bool ParseCompileOptionsForModule(JSContext* cx,
   return true;
 }
 
+static bool ParseCompileOptionsForInstantiate(JSContext* cx,
+                                              JS::CompileOptions& options,
+                                              JS::Handle<JSObject*> opts,
+                                              bool& prepareForInstantiate) {
+  JS::Rooted<JS::Value> v(cx);
+
+  if (!JS_GetProperty(cx, opts, "prepareForInstantiate", &v)) {
+    return false;
+  }
+  if (!v.isUndefined()) {
+    prepareForInstantiate = JS::ToBoolean(v);
+  } else {
+    prepareForInstantiate = false;
+  }
+
+  return true;
+}
+
 static bool CompileToStencil(JSContext* cx, uint32_t argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   if (!args.requireAtLeast(cx, "compileToStencil", 1)) {
+    return false;
+  }
+  if (!args[0].isString()) {
+    const char* typeName = InformalValueTypeName(args[0]);
+    JS_ReportErrorASCII(cx, "expected string to parse, got %s", typeName);
     return false;
   }
 
@@ -6451,6 +6526,7 @@ static bool CompileToStencil(JSContext* cx, uint32_t argc, Value* vp) {
   RootedString sourceMapURL(cx);
   UniqueChars fileNameBytes;
   bool isModule = false;
+  bool prepareForInstantiate = false;
   if (args.length() == 2) {
     if (!args[1].isObject()) {
       JS_ReportErrorASCII(
@@ -6466,24 +6542,40 @@ static bool CompileToStencil(JSContext* cx, uint32_t argc, Value* vp) {
     if (!ParseCompileOptionsForModule(cx, options, opts, isModule)) {
       return false;
     }
+    if (!ParseCompileOptionsForInstantiate(cx, options, opts,
+                                           prepareForInstantiate)) {
+      return false;
+    }
     if (!js::ParseSourceOptions(cx, opts, &displayURL, &sourceMapURL)) {
       return false;
     }
   }
 
+  AutoReportFrontendContext fc(cx);
   RefPtr<JS::Stencil> stencil;
+  JS::CompilationStorage compileStorage;
   if (isModule) {
-    stencil = JS::CompileModuleScriptToStencil(cx, options, srcBuf);
+    stencil = JS::CompileModuleScriptToStencil(
+        &fc, options, cx->stackLimitForCurrentPrincipal(), srcBuf,
+        compileStorage);
   } else {
-    stencil = JS::CompileGlobalScriptToStencil(cx, options, srcBuf);
+    stencil = JS::CompileGlobalScriptToStencil(
+        &fc, options, cx->stackLimitForCurrentPrincipal(), srcBuf,
+        compileStorage);
   }
   if (!stencil) {
     return false;
   }
 
-  AutoReportFrontendContext fc(cx);
   if (!SetSourceOptions(cx, &fc, stencil->source, displayURL, sourceMapURL)) {
     return false;
+  }
+
+  JS::InstantiationStorage storage;
+  if (prepareForInstantiate) {
+    if (!JS::PrepareForInstantiate(&fc, compileStorage, *stencil, storage)) {
+      return false;
+    }
   }
 
   Rooted<js::StencilObject*> stencilObj(
@@ -6624,8 +6716,8 @@ static bool CompileToStencilXDR(JSContext* cx, uint32_t argc, Value* vp) {
   UniquePtr<frontend::ExtensibleCompilationStencil> stencil;
   if (isModule) {
     stencil = frontend::ParseModuleToExtensibleStencil(
-        cx, &fc, cx->stackLimitForCurrentPrincipal(), input.get(), &scopeCache,
-        srcBuf);
+        cx, &fc, cx->stackLimitForCurrentPrincipal(), cx->tempLifoAlloc(),
+        input.get(), &scopeCache, srcBuf);
   } else {
     stencil = frontend::CompileGlobalScriptToExtensibleStencil(
         cx, &fc, cx->stackLimitForCurrentPrincipal(), input.get(), &scopeCache,

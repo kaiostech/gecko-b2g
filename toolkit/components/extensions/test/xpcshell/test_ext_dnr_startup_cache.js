@@ -96,10 +96,14 @@ add_setup(async () => {
   Services.prefs.setBoolPref("extensions.dnr.enabled", true);
   Services.prefs.setBoolPref("extensions.dnr.feedback", true);
 
+  setupTelemetryForTests();
+
   await ExtensionTestUtils.startAddonManager();
 });
 
 add_task(async function test_dnr_startup_cache_save_and_load() {
+  resetTelemetryData();
+
   const rule_resources = [
     {
       id: "ruleset_1",
@@ -137,6 +141,17 @@ add_task(async function test_dnr_startup_cache_save_and_load() {
     })
   );
 
+  assertDNRTelemetryMetricsNoSamples(
+    [
+      {
+        metric: "validateRulesTime",
+        mirroredName: "WEBEXT_DNR_VALIDATE_RULES_MS",
+        mirroredType: "histogram",
+      },
+    ],
+    "before any test extensions have been loaded"
+  );
+
   await temporarilyInstalledExt.startup();
   await extension.startup();
   info(
@@ -147,6 +162,18 @@ add_task(async function test_dnr_startup_cache_save_and_load() {
     "Wait for DNR initialization completed for the permanently installed extension"
   );
   await ExtensionDNR.ensureInitialized(extension.extension);
+
+  assertDNRTelemetryMetricsSamplesCount(
+    [
+      {
+        metric: "validateRulesTime",
+        mirroredName: "WEBEXT_DNR_VALIDATE_RULES_MS",
+        mirroredType: "histogram",
+        expectedSamplesCount: 2,
+      },
+    ],
+    "after two test extensions have been loaded"
+  );
 
   Assert.equal(
     spyScheduleCacheDataSave.callCount,
@@ -163,7 +190,62 @@ add_task(async function test_dnr_startup_cache_save_and_load() {
     ruleset_1: getSchemaNormalizedRules(extension, RULESET_1_DATA),
   });
 
+  assertDNRTelemetryMetricsNoSamples(
+    [
+      {
+        metric: "startupCacheWriteTime",
+        mirroredName: "WEBEXT_DNR_STARTUPCACHE_WRITE_MS",
+        mirroredType: "histogram",
+      },
+      {
+        metric: "startupCacheWriteSize",
+        mirroredName: "WEBEXT_DNR_STARTUPCACHE_WRITE_BYTES",
+        mirroredType: "histogram",
+      },
+      // Expected no startup cache file to be loaded or used for a newly installed extension.
+      {
+        metric: "startupCacheReadSize",
+        mirroredName: "WEBEXT_DNR_STARTUPCACHE_READ_BYTES",
+        mirroredType: "histogram",
+      },
+      {
+        metric: "startupCacheReadTime",
+        mirroredName: "WEBEXT_DNR_STARTUPCACHE_READ_MS",
+        mirroredType: "histogram",
+      },
+      {
+        metric: "startupCacheEntries",
+        label: "miss",
+        mirroredName: "extensions.apis.dnr.startup_cache_entries",
+        mirroredType: "keyedScalar",
+      },
+      {
+        metric: "startupCacheEntries",
+        label: "hit",
+        mirroredName: "extensions.apis.dnr.startup_cache_entries",
+        mirroredType: "keyedScalar",
+      },
+    ],
+    "on loading dnr rules for newly installed extension"
+  );
   await dnrStore.waitSaveCacheDataForTesting();
+  assertDNRTelemetryMetricsSamplesCount(
+    [
+      {
+        metric: "startupCacheWriteTime",
+        mirroredName: "WEBEXT_DNR_STARTUPCACHE_WRITE_MS",
+        mirroredType: "histogram",
+        expectedSamplesCount: 1,
+      },
+      {
+        metric: "startupCacheWriteSize",
+        mirroredName: "WEBEXT_DNR_STARTUPCACHE_WRITE_BYTES",
+        mirroredType: "histogram",
+        expectedSamplesCount: 1,
+      },
+    ],
+    "after writing DNR startup cache data to disk"
+  );
 
   ok(
     await IOUtils.exists(cacheFile),
@@ -203,9 +285,105 @@ add_task(async function test_dnr_startup_cache_save_and_load() {
       "scheduleCacheDataSave"
     );
 
+    resetTelemetryData();
     await AddonTestUtils.promiseStartupManager();
     await extension.awaitStartup();
     await ExtensionDNR.ensureInitialized(extension.extension);
+
+    if (expectLoadedFromCache) {
+      assertDNRTelemetryMetricsSamplesCount(
+        [
+          {
+            metric: "startupCacheReadSize",
+            mirroredName: "WEBEXT_DNR_STARTUPCACHE_READ_BYTES",
+            mirroredType: "histogram",
+            expectedSamplesCount: 1,
+          },
+          {
+            metric: "startupCacheReadTime",
+            mirroredName: "WEBEXT_DNR_STARTUPCACHE_READ_MS",
+            mirroredType: "histogram",
+            expectedSamplesCount: 1,
+          },
+        ],
+        "after app startup and expected startup cache hit"
+      );
+      assertDNRTelemetryMetricsGetValueEq(
+        [
+          {
+            metric: "startupCacheEntries",
+            label: "hit",
+            expectedGetValue: 1,
+            mirroredName: "extensions.apis.dnr.startup_cache_entries",
+            mirroredType: "keyedScalar",
+          },
+        ],
+        "after app startup and expected startup cache hit"
+      );
+      assertDNRTelemetryMetricsNoSamples(
+        [
+          {
+            metric: "validateRulesTime",
+            mirroredName: "WEBEXT_DNR_VALIDATE_RULES_MS",
+            mirroredType: "histogram",
+          },
+          {
+            metric: "startupCacheEntries",
+            label: "miss",
+            mirroredName: "extensions.apis.dnr.startup_cache_entries",
+            mirroredType: "keyedScalar",
+          },
+        ],
+        "after DNR store loaded startup cache data"
+      );
+    } else {
+      assertDNRTelemetryMetricsSamplesCount(
+        [
+          {
+            metric: "validateRulesTime",
+            mirroredName: "WEBEXT_DNR_VALIDATE_RULES_MS",
+            mirroredType: "histogram",
+            expectedSamplesCount: 1,
+          },
+          {
+            metric: "startupCacheReadSize",
+            mirroredName: "WEBEXT_DNR_STARTUPCACHE_READ_BYTES",
+            mirroredType: "histogram",
+            expectedSamplesCount: 1,
+          },
+          {
+            metric: "startupCacheReadTime",
+            mirroredName: "WEBEXT_DNR_STARTUPCACHE_READ_MS",
+            mirroredType: "histogram",
+            expectedSamplesCount: 1,
+          },
+        ],
+        "after app startup and expected startup cache miss"
+      );
+      assertDNRTelemetryMetricsGetValueEq(
+        [
+          {
+            metric: "startupCacheEntries",
+            label: "miss",
+            expectedGetValue: 1,
+            mirroredName: "extensions.apis.dnr.startup_cache_entries",
+            mirroredType: "keyedScalar",
+          },
+        ],
+        "after app startup and expected startup cache miss"
+      );
+      assertDNRTelemetryMetricsNoSamples(
+        [
+          {
+            metric: "startupCacheEntries",
+            label: "hit",
+            mirroredName: "extensions.apis.dnr.startup_cache_entries",
+            mirroredType: "keyedScalar",
+          },
+        ],
+        "after DNR store loaded startup cache data"
+      );
+    }
 
     Assert.equal(
       scheduleCacheDataSaveSpy.called,

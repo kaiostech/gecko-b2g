@@ -51,9 +51,14 @@ XPCOMUtils.defineLazyPreferenceGetter(
   false
 );
 
+const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
 const TOGGLE_ENABLED_PREF =
   "media.videocontrols.picture-in-picture.video-toggle.enabled";
-const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
+const TOGGLE_FIRST_SEEN_PREF =
+  "media.videocontrols.picture-in-picture.video-toggle.first-seen-secs";
+const TOGGLE_FIRST_TIME_DURATION_DAYS = 28;
+const TOGGLE_HAS_USED_PREF =
+  "media.videocontrols.picture-in-picture.video-toggle.has-used";
 const TOGGLE_TESTING_PREF =
   "media.videocontrols.picture-in-picture.video-toggle.testing";
 const TOGGLE_VISIBILITY_THRESHOLD_PREF =
@@ -131,7 +136,10 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
     switch (event.type) {
       case "MozTogglePictureInPicture": {
         if (event.isTrusted) {
-          this.togglePictureInPicture(event.target);
+          this.togglePictureInPicture({
+            video: event.target,
+            reason: event.detail,
+          });
         }
         break;
       }
@@ -153,24 +161,25 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
    * Picture-in-Picture window existing, this tells the parent to
    * close it before opening the new one.
    *
-   * @param {Element} video The <video> element to view in a Picture
-   * in Picture window.
+   * @param {Object} pipObject An object containing the video and reason
+   * for toggling the PiP video
    *
    * @return {Promise}
    * @resolves {undefined} Once the new Picture-in-Picture window
    * has been requested.
    */
-  async togglePictureInPicture(video) {
+  async togglePictureInPicture(pipObject) {
+    let { video, reason } = pipObject;
     if (video.isCloningElementVisually) {
       // The only way we could have entered here for the same video is if
-      // we are toggling via the context menu, since we hide the inline
-      // Picture-in-Picture toggle when a video is being displayed in
-      // Picture-in-Picture. Turn off PiP in this case
+      // we are toggling via the context menu or via the urlbar button,
+      // since we hide the inline Picture-in-Picture toggle when a video
+      // is being displayed in Picture-in-Picture. Turn off PiP in this case
       const stopPipEvent = new this.contentWindow.CustomEvent(
         "MozStopPictureInPicture",
         {
           bubbles: true,
-          detail: { reason: "context-menu" },
+          detail: reason,
         }
       );
       video.dispatchEvent(stopPipEvent);
@@ -218,7 +227,6 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
     });
   }
 
-  //
   /**
    * The keyboard was used to attempt to open Picture-in-Picture. If a video is focused,
    * select that video. Otherwise find the first playing video, or if none, the largest
@@ -241,7 +249,7 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
           listOfVideos.sort((a, b) => b.duration - a.duration)[0];
       }
       if (video) {
-        this.togglePictureInPicture(video);
+        this.togglePictureInPicture({ video });
       }
     }
   }
@@ -274,6 +282,7 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
     };
     Services.prefs.addObserver(TOGGLE_ENABLED_PREF, this.observerFunction);
     Services.prefs.addObserver(PIP_ENABLED_PREF, this.observerFunction);
+    Services.prefs.addObserver(TOGGLE_FIRST_SEEN_PREF, this.observerFunction);
     Services.cpmm.sharedData.addEventListener("change", this);
 
     this.eligiblePipVideos = new WeakSet();
@@ -293,6 +302,10 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
     this.stopTrackingMouseOverVideos();
     Services.prefs.removeObserver(TOGGLE_ENABLED_PREF, this.observerFunction);
     Services.prefs.removeObserver(PIP_ENABLED_PREF, this.observerFunction);
+    Services.prefs.removeObserver(
+      TOGGLE_FIRST_SEEN_PREF,
+      this.observerFunction
+    );
     Services.cpmm.sharedData.removeEventListener("change", this);
 
     // remove the observer on the <video> element
@@ -335,6 +348,18 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
           this.registerVideo(video);
         }
       });
+    }
+
+    switch (data) {
+      case TOGGLE_FIRST_SEEN_PREF:
+        const firstSeenSeconds = Services.prefs.getIntPref(
+          TOGGLE_FIRST_SEEN_PREF
+        );
+        if (!firstSeenSeconds || firstSeenSeconds < 0) {
+          return;
+        }
+        this.changeToIconIfDurationEnd(firstSeenSeconds);
+        break;
     }
   }
 
@@ -583,10 +608,25 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
       this.eligiblePipVideos
     )[0];
     if (video) {
+      if (!video.isCloningElementVisually) {
+        let args = {
+          firstTimeToggle: (!Services.prefs.getBoolPref(
+            "media.videocontrols.picture-in-picture.video-toggle.has-used"
+          )).toString(),
+        };
+        Services.telemetry.recordEvent(
+          "pictureinpicture",
+          "opened_method",
+          "urlBar",
+          null,
+          args
+        );
+      }
       let pipEvent = new this.contentWindow.CustomEvent(
         "MozTogglePictureInPicture",
         {
           bubbles: true,
+          detail: { reason: "urlBar" },
         }
       );
       video.dispatchEvent(pipEvent);
@@ -622,6 +662,48 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
     }
 
     return true;
+  }
+
+  /**
+   * Changes from the first-time toggle to the icon toggle if the Nimbus variable `displayDuration`'s
+   * end date is reached when hovering over a video. The end date is calculated according to the timestamp
+   * indicating when the PiP toggle was first seen.
+   * @param {Number} firstSeenStartSeconds the timestamp in seconds indicating when the PiP toggle was first seen
+   */
+  changeToIconIfDurationEnd(firstSeenStartSeconds) {
+    const {
+      displayDuration,
+    } = lazy.NimbusFeatures.pictureinpicture.getAllVariables({
+      defaultValues: {
+        displayDuration: TOGGLE_FIRST_TIME_DURATION_DAYS,
+      },
+    });
+    if (!displayDuration || displayDuration < 0) {
+      return;
+    }
+
+    let daysInSeconds = displayDuration * 24 * 60 * 60;
+    let firstSeenEndSeconds = daysInSeconds + firstSeenStartSeconds;
+    let currentDateSeconds = Math.round(Date.now() / 1000);
+
+    lazy.logConsole.debug(
+      "Toggle duration experiment - first time toggle seen on:",
+      new Date(firstSeenStartSeconds * 1000).toLocaleDateString()
+    );
+    lazy.logConsole.debug(
+      "Toggle duration experiment - first time toggle will change on:",
+      new Date(firstSeenEndSeconds * 1000).toLocaleDateString()
+    );
+    lazy.logConsole.debug(
+      "Toggle duration experiment - current date:",
+      new Date(currentDateSeconds * 1000).toLocaleDateString()
+    );
+
+    if (currentDateSeconds >= firstSeenEndSeconds) {
+      this.sendAsyncMessage("PictureInPicture:SetHasUsed", {
+        hasUsed: true,
+      });
+    }
   }
 
   /**
@@ -945,15 +1027,14 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
       1
     );
     let args = {
-      method: "toggle",
       firstTimeToggle: (!Services.prefs.getBoolPref(
-        "media.videocontrols.picture-in-picture.video-toggle.has-used"
+        TOGGLE_HAS_USED_PREF
       )).toString(),
     };
     Services.telemetry.recordEvent(
       "pictureinpicture",
       "opened_method",
-      "method",
+      "toggle",
       null,
       args
     );
@@ -1208,6 +1289,7 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
           title: null,
           message: false,
           showIconOnly: false,
+          displayDuration: TOGGLE_FIRST_TIME_DURATION_DAYS,
         },
       }
     );
@@ -1285,9 +1367,7 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
       !toggle.hasAttribute("hidden")
     ) {
       Services.telemetry.scalarAdd("pictureinpicture.saw_toggle", 1);
-      const hasUsedPiP = Services.prefs.getBoolPref(
-        "media.videocontrols.picture-in-picture.video-toggle.has-used"
-      );
+      const hasUsedPiP = Services.prefs.getBoolPref(TOGGLE_HAS_USED_PREF);
       let args = {
         firstTime: (!hasUsedPiP).toString(),
       };
@@ -1301,6 +1381,20 @@ export class PictureInPictureToggleChild extends JSWindowActorChild {
       // only record if this is the first time seeing the toggle
       if (!hasUsedPiP) {
         lazy.NimbusFeatures.pictureinpicture.recordExposureEvent();
+
+        const firstSeenSeconds = Services.prefs.getIntPref(
+          TOGGLE_FIRST_SEEN_PREF,
+          0
+        );
+
+        if (!firstSeenSeconds || firstSeenSeconds < 0) {
+          let firstTimePiPStartDate = Math.round(Date.now() / 1000);
+          this.sendAsyncMessage("PictureInPicture:SetFirstSeen", {
+            dateSeconds: firstTimePiPStartDate,
+          });
+        } else if (nimbusExperimentVariables.displayDuration) {
+          this.changeToIconIfDurationEnd(firstSeenSeconds);
+        }
       }
     }
 
@@ -1785,7 +1879,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
     switch (event.type) {
       case "MozStopPictureInPicture": {
         if (event.isTrusted && event.target === this.getWeakVideo()) {
-          const reason = event.detail?.reason || "video-el-remove";
+          const reason = event.detail?.reason || "videoElRemove";
           this.closePictureInPicture({ reason });
         }
         break;
@@ -1851,7 +1945,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
         // close Picture-in-Picture.
         this.emptiedTimeout = setTimeout(() => {
           if (!video || !video.src) {
-            this.closePictureInPicture({ reason: "video-el-emptied" });
+            this.closePictureInPicture({ reason: "videoElEmptied" });
           }
         }, EMPTIED_TIMEOUT_MS);
         break;
@@ -2193,7 +2287,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
       // If the video element has gone away before we've had a chance to set up
       // Picture-in-Picture for it, tell the parent to close the Picture-in-Picture
       // window.
-      await this.closePictureInPicture({ reason: "setup-failure" });
+      await this.closePictureInPicture({ reason: "setupFailure" });
       return;
     }
 
@@ -2419,7 +2513,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
             return;
           }
           this.pause();
-          this.closePictureInPicture({ reason: "close-player-shortcut" });
+          this.closePictureInPicture({ reason: "closePlayerShortcut" });
           break;
         case "downArrow" /* Volume decrease */:
           if (this.isKeyDisabled(lazy.KEYBOARD_CONTROLS.VOLUME)) {

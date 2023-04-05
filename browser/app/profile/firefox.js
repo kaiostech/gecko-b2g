@@ -546,9 +546,6 @@ pref("browser.urlbar.shortcuts.history", true);
 
 pref("browser.urlbar.eventTelemetry.enabled", false);
 
-// Whether search engagement telemetry should be recorded.
-pref("browser.urlbar.searchEngagementTelemetry.enabled", false);
-
 // When we send events to Urlbar extensions, we wait this amount of time in
 // milliseconds for them to respond before timing out.
 pref("browser.urlbar.extension.timeout", 400);
@@ -1222,12 +1219,6 @@ pref("places.forgetThisSite.clearByBaseDomain", true);
 
 // Whether to warm up network connections for places: menus and places: toolbar.
 pref("browser.places.speculativeConnect.enabled", true);
-
-// Controls behavior of the "Add Exception" dialog launched from SSL error pages
-// 0 - don't pre-populate anything
-// 1 - pre-populate site URL, but don't fetch certificate
-// 2 - pre-populate site URL and pre-fetch certificate
-pref("browser.ssl_override_behavior", 2);
 
 // if true, use full page zoom instead of text zoom
 pref("browser.zoom.full", true);
@@ -2197,6 +2188,7 @@ pref("browser.migrate.history.maxAgeInDays", 180);
 pref("browser.migrate.interactions.bookmarks", false);
 pref("browser.migrate.interactions.history", false);
 pref("browser.migrate.interactions.passwords", false);
+pref("browser.migrate.preferences-entrypoint.enabled", true);
 
 pref("extensions.pocket.api", "api.getpocket.com");
 pref("extensions.pocket.bffApi", "firefox-api-proxy.cdn.mozilla.net");

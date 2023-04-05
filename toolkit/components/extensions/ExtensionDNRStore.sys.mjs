@@ -934,6 +934,7 @@ class RulesetsStore {
     { logRuleValidationError = err => Cu.reportError(err) } = {}
   ) {
     const startTime = Cu.now();
+    const validatedRulesTimerId = Glean.extensionsApisDnr.validateRulesTime.start();
     try {
       const ruleValidator = new lazy.ExtensionDNR.RuleValidator([]);
       // Normalize rules read from JSON.
@@ -990,6 +991,9 @@ class RulesetsStore {
         "ExtensionDNRStore",
         { startTime },
         `#getValidatedRules, addonId: ${extension.id}`
+      );
+      Glean.extensionsApisDnr.validateRulesTime.stopAndAccumulate(
+        validatedRulesTimerId
       );
     }
   }
@@ -1070,11 +1074,13 @@ class RulesetsStore {
           )
         );
       }
-      // TODO(Bug 1803363): consider collecting telemetry about cache load time and cache size.
+
       const startTime = Cu.now();
+      const timerId = Glean.extensionsApisDnr.startupCacheReadTime.start();
       this._ensureCacheLoaded = (async () => {
         const cacheFilePath = this.#getCacheFilePath();
-        const { buffer } = await IOUtils.read(cacheFilePath);
+        const { buffer, byteLength } = await IOUtils.read(cacheFilePath);
+        Glean.extensionsApisDnr.startupCacheReadSize.accumulate(byteLength);
         const decodedData = lazy.aomStartup.decodeBlob(buffer);
         const emptyOrCorruptedCache = !(decodedData?.cacheData instanceof Map);
         if (emptyOrCorruptedCache) {
@@ -1119,6 +1125,9 @@ class RulesetsStore {
             "ExtensionDNRStore",
             { startTime },
             "_ensureCacheLoaded"
+          );
+          Glean.extensionsApisDnr.startupCacheReadTime.stopAndAccumulate(
+            timerId
           );
         });
     }
@@ -1203,6 +1212,7 @@ class RulesetsStore {
     await this.#promiseStartupCacheLoaded();
 
     if (!this._startupCacheData.has(extension.uuid)) {
+      Glean.extensionsApisDnr.startupCacheEntries.miss.add(1);
       return;
     }
 
@@ -1211,9 +1221,11 @@ class RulesetsStore {
 
     if (extCacheData.extVersion != extension.version) {
       StoreData.clearLastUpdateTagPref(extension.uuid);
+      Glean.extensionsApisDnr.startupCacheEntries.miss.add(1);
       return;
     }
 
+    Glean.extensionsApisDnr.startupCacheEntries.hit.add(1);
     for (const ruleset of extCacheData.staticRulesets.values()) {
       ruleset.rules = ruleset.rules.map(rule =>
         lazy.ExtensionDNR.RuleValidator.deserializeRule(rule)
@@ -1334,6 +1346,7 @@ class RulesetsStore {
       let ruleQuotaCounter = new lazy.ExtensionDNR.RuleQuotaCounter();
       try {
         ruleQuotaCounter.tryAddRules("_dynamic", validatedDynamicRules);
+        data.dynamicRuleset = validatedDynamicRules;
       } catch (e) {
         // This should not happen in practice, because updateDynamicRules
         // rejects quota errors. If we get here, the data on disk may have been
@@ -1410,6 +1423,7 @@ class RulesetsStore {
 
   async #saveCacheDataNow() {
     const startTime = Cu.now();
+    const timerId = Glean.extensionsApisDnr.startupCacheWriteTime.start();
     try {
       const cacheFilePath = this.#getCacheFilePath();
       const { filteredData, seenLastUpdateTags } = this.getStartupCacheData();
@@ -1422,6 +1436,7 @@ class RulesetsStore {
       await IOUtils.write(cacheFilePath, data, {
         tmpPath: `${cacheFilePath}.tmp`,
       });
+      Glean.extensionsApisDnr.startupCacheWriteSize.accumulate(data.byteLength);
 
       if (this.detectStartupCacheDataChanged(seenLastUpdateTags)) {
         this.scheduleCacheDataSave();
@@ -1432,6 +1447,7 @@ class RulesetsStore {
         { startTime },
         "#saveCacheDataNow"
       );
+      Glean.extensionsApisDnr.startupCacheWriteTime.stopAndAccumulate(timerId);
     }
   }
 

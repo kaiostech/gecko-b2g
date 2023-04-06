@@ -169,7 +169,7 @@ Object.defineProperty(GeckoDriver.prototype, "currentSession", {
  * Returns the current URL of the ChromeWindow or content browser,
  * depending on context.
  *
- * @return {URL}
+ * @returns {URL}
  *     Read-only property containing the currently loaded URL.
  */
 Object.defineProperty(GeckoDriver.prototype, "currentURL", {
@@ -183,7 +183,7 @@ Object.defineProperty(GeckoDriver.prototype, "currentURL", {
  * Returns the title of the ChromeWindow or content browser,
  * depending on context.
  *
- * @return {string}
+ * @returns {string}
  *     Read-only property containing the title of the loaded URL.
  */
 Object.defineProperty(GeckoDriver.prototype, "title", {
@@ -234,7 +234,7 @@ GeckoDriver.prototype._getCurrentURL = function() {
 /**
  * Get the current "MarionetteCommands" parent actor.
  *
- * @param {Object} options
+ * @param {object} options
  * @param {boolean=} options.top
  *     If set to true use the window's top-level browsing context for the actor,
  *     otherwise the one from the currently selected frame. Defaults to false.
@@ -251,7 +251,7 @@ GeckoDriver.prototype.getActor = function(options = {}) {
 /**
  * Get the selected BrowsingContext for the current context.
  *
- * @param {Object} options
+ * @param {object} options
  * @param {Context=} options.context
  *     Context (content or chrome) for which to retrieve the browsing context.
  *     Defaults to the current one.
@@ -262,7 +262,7 @@ GeckoDriver.prototype.getActor = function(options = {}) {
  *     If set to true return the window's top-level browsing context,
  *     otherwise the one from the currently selected frame. Defaults to false.
  *
- * @return {BrowsingContext}
+ * @returns {BrowsingContext}
  *     The browsing context, or `null` if none is available
  */
 GeckoDriver.prototype.getBrowsingContext = function(options = {}) {
@@ -293,14 +293,14 @@ GeckoDriver.prototype.getBrowsingContext = function(options = {}) {
  * window handle through {@link #switchToWindow}, or the first window that
  * was registered.
  *
- * @param {Object} options
+ * @param {object} options
  * @param {Context=} options.context
  *     Optional name of the context to use for finding the window.
  *     It will be required if a command always needs a specific context,
  *     whether which context is currently set. Defaults to the current
  *     context.
  *
- * @return {ChromeWindow}
+ * @returns {ChromeWindow}
  *     The current top-level browsing context.
  */
 GeckoDriver.prototype.getCurrentWindow = function(options = {}) {
@@ -340,7 +340,7 @@ GeckoDriver.prototype.isReftestBrowser = function(element) {
  * @param {ChromeWindow} win
  *     Window for which we will create a browsing context.
  *
- * @return {string}
+ * @returns {string}
  *     Returns the unique server-assigned ID of the window.
  */
 GeckoDriver.prototype.addBrowser = function(win) {
@@ -380,7 +380,7 @@ GeckoDriver.prototype.getVisibleText = function(el, lines) {
  * Handles registration of new content browsers.  Depending on
  * their type they are either accepted or ignored.
  *
- * @param {xul:browser} browserElement
+ * @param {XULBrowser} browserElement
  */
 GeckoDriver.prototype.registerBrowser = function(browserElement) {
   // We want to ignore frames that are XUL browsers that aren't in the "main"
@@ -401,12 +401,12 @@ GeckoDriver.prototype.registerBrowser = function(browserElement) {
 /**
  * Create a new WebDriver session.
  *
- * @param {Object} cmd
- * @param {Object.<string, *>=} cmd.parameters
+ * @param {object} cmd
+ * @param {Object<string, *>=} cmd.parameters
  *     JSON Object containing any of the recognised capabilities as listed
  *     on the `WebDriverSession` class.
  *
- * @return {Object}
+ * @returns {object}
  *     Session ID and capabilities offered by the WebDriver service.
  *
  * @throws {SessionNotCreatedError}
@@ -511,7 +511,7 @@ GeckoDriver.prototype.newSession = async function(cmd) {
  *
  * @param {ChromeWindow} win
  *     Chrome window to register event listeners for.
- * @param {Object=} options
+ * @param {object=} options
  * @param {boolean=} options.registerBrowsers
  *     If true, register all content browsers of found tabs. Defaults to false.
  */
@@ -587,7 +587,8 @@ GeckoDriver.prototype.getSessionCapabilities = function() {
  * interaction with a browsing context will target the chosen browsing
  * context.
  *
- * @param {string} value
+ * @param {object} cmd
+ * @param {string} cmd.parameters.value
  *     Name of the context to be switched to.  Must be one of "chrome" or
  *     "content".
  *
@@ -610,7 +611,7 @@ GeckoDriver.prototype.setContext = function(cmd) {
  *
  * The default browsing context is {@link Context.Content}.
  *
- * @return {Context}
+ * @returns {Context}
  *     Current context.
  */
 GeckoDriver.prototype.getContext = function() {
@@ -627,28 +628,29 @@ GeckoDriver.prototype.getContext = function() {
  * causing any change it makes on the global state of the document to have
  * lasting side-effects.
  *
- * @param {string} script
+ * @param {object} cmd
+ * @param {string} cmd.parameters.script
  *     Script to evaluate as a function body.
- * @param {Array.<(string|boolean|number|object|WebReference)>} args
+ * @param {Array.<(string|boolean|number|object|WebReference)>} cmd.parameters.args
  *     Arguments exposed to the script in <code>arguments</code>.
  *     The array items must be serialisable to the WebDriver protocol.
- * @param {string=} sandbox
+ * @param {string=} cmd.parameters.sandbox
  *     Name of the sandbox to evaluate the script in.  The sandbox is
  *     cached for later re-use on the same Window object if
  *     <var>newSandbox</var> is false.  If he parameter is undefined,
  *     the script is evaluated in a mutable sandbox.  If the parameter
  *     is "system", it will be evaluted in a sandbox with elevated system
  *     privileges, equivalent to chrome space.
- * @param {boolean=} newSandbox
+ * @param {boolean=} cmd.parameters.newSandbox
  *     Forces the script to be evaluated in a fresh sandbox.  Note that if
  *     it is undefined, the script will normally be evaluted in a fresh
  *     sandbox.
- * @param {string=} filename
+ * @param {string=} cmd.parameters.filename
  *     Filename of the client's program where this script is evaluated.
- * @param {number=} line
+ * @param {number=} cmd.parameters.line
  *     Line in the client's program where this script is evaluated.
  *
- * @return {(string|boolean|number|object|WebReference)}
+ * @returns {(string|boolean|number|object|WebReference)}
  *     Return value from the script, or null which signifies either the
  *     JavaScript notion of null or undefined.
  *
@@ -699,28 +701,29 @@ GeckoDriver.prototype.executeScript = function(cmd) {
  * causing any change it makes on the global state of the document to have
  * lasting side-effects.
  *
- * @param {string} script
+ * @param {object} cmd
+ * @param {string} cmd.parameters.script
  *     Script to evaluate as a function body.
- * @param {Array.<(string|boolean|number|object|WebReference)>} args
+ * @param {Array.<(string|boolean|number|object|WebReference)>} cmd.parameters.args
  *     Arguments exposed to the script in <code>arguments</code>.
  *     The array items must be serialisable to the WebDriver protocol.
- * @param {string=} sandbox
+ * @param {string=} cmd.parameters.sandbox
  *     Name of the sandbox to evaluate the script in.  The sandbox is
  *     cached for later re-use on the same Window object if
  *     <var>newSandbox</var> is false.  If the parameter is undefined,
  *     the script is evaluated in a mutable sandbox.  If the parameter
  *     is "system", it will be evaluted in a sandbox with elevated system
  *     privileges, equivalent to chrome space.
- * @param {boolean=} newSandbox
+ * @param {boolean=} cmd.parameters.newSandbox
  *     Forces the script to be evaluated in a fresh sandbox.  Note that if
  *     it is undefined, the script will normally be evaluted in a fresh
  *     sandbox.
- * @param {string=} filename
+ * @param {string=} cmd.parameters.filename
  *     Filename of the client's program where this script is evaluated.
- * @param {number=} line
+ * @param {number=} cmd.parameters.line
  *     Line in the client's program where this script is evaluated.
  *
- * @return {(string|boolean|number|object|WebReference)}
+ * @returns {(string|boolean|number|object|WebReference)}
  *     Return value from the script, or null which signifies either the
  *     JavaScript notion of null or undefined.
  *
@@ -821,7 +824,8 @@ GeckoDriver.prototype.execute_ = async function(
  * the supplied URL and wait until document.readyState equals "complete"
  * or the page timeout duration has elapsed.
  *
- * @param {string} url
+ * @param {object} cmd
+ * @param {string} cmd.parameters.url
  *     URL to navigate to.
  *
  * @throws {NoSuchWindowError}
@@ -891,7 +895,7 @@ GeckoDriver.prototype.getCurrentUrl = async function() {
 /**
  * Gets the current title of the window.
  *
- * @return {string}
+ * @returns {string}
  *     Document title of the top-level browsing context.
  *
  * @throws {NoSuchWindowError}
@@ -909,7 +913,7 @@ GeckoDriver.prototype.getTitle = async function() {
 /**
  * Gets the current type of the window.
  *
- * @return {string}
+ * @returns {string}
  *     Type of window
  *
  * @throws {NoSuchWindowError}
@@ -924,7 +928,7 @@ GeckoDriver.prototype.getWindowType = function() {
 /**
  * Gets the page source of the content document.
  *
- * @return {string}
+ * @returns {string}
  *     String serialisation of the DOM of the current browsing context's
  *     active document.
  *
@@ -1033,7 +1037,7 @@ GeckoDriver.prototype.refresh = async function() {
  * uniquely identifies it within this Marionette instance.  This can
  * be used to switch to this window at a later point.
  *
- * @return {string}
+ * @returns {string}
  *     Unique window handle.
  *
  * @throws {NoSuchWindowError}
@@ -1059,7 +1063,7 @@ GeckoDriver.prototype.getWindowHandle = function() {
  * Each window handle is assigned by the server and is guaranteed unique,
  * however the return array does not have a specified ordering.
  *
- * @return {Array.<string>}
+ * @returns {Array.<string>}
  *     Unique window handles.
  */
 GeckoDriver.prototype.getWindowHandles = function() {
@@ -1076,7 +1080,7 @@ GeckoDriver.prototype.getWindowHandles = function() {
  * window outerWidth and outerHeight values, which include scroll bars,
  * title bars, etc.
  *
- * @return {Object.<string, number>}
+ * @returns {Object<string, number>}
  *     Object with |x| and |y| coordinates, and |width| and |height|
  *     of browser window.
  *
@@ -1100,18 +1104,19 @@ GeckoDriver.prototype.getWindowRect = async function() {
  * and `outerHeight` values, which include browser chrome and OS-level
  * window borders.
  *
- * @param {number} x
+ * @param {object} cmd
+ * @param {number} cmd.parameters.x
  *     X coordinate of the top/left of the window that it will be
  *     moved to.
- * @param {number} y
+ * @param {number} cmd.parameters.y
  *     Y coordinate of the top/left of the window that it will be
  *     moved to.
- * @param {number} width
+ * @param {number} cmd.parameters.width
  *     Width to resize the window to.
- * @param {number} height
+ * @param {number} cmd.parameters.height
  *     Height to resize the window to.
  *
- * @return {Object.<string, number>}
+ * @returns {Object<string, number>}
  *     Object with `x` and `y` coordinates and `width` and `height`
  *     dimensions.
  *
@@ -1243,11 +1248,12 @@ GeckoDriver.prototype.switchToMarionetteWindow = async function() {
  * Searches for windows by ID, then origin. Content windows take
  * precedence.
  *
- * @param {string} handle
+ * @param {object} cmd
+ * @param {string} cmd.parameters.handle
  *     Handle of the window to switch to.
- * @param {string} origin
+ * @param {string} cmd.parameters.origin
  *     Only for B2G, URL origin of the B2G app window to switch to.
- * @param {boolean=} focus
+ * @param {boolean=} cmd.parameters.focus
  *     A boolean value which determines whether to focus
  *     the window. Defaults to true. B2G forces to be false to app window
  *     controlled by system app or user behaviors.
@@ -1317,7 +1323,7 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
  * the registration is complete. If |focus| is true then set the focus
  * on the window.
  *
- * @param {Object} winProperties
+ * @param {object} winProperties
  *     Object containing window properties such as returned from
  *     :js:func:`GeckoDriver#getWindowProperties`
  * @param {boolean=} focus
@@ -1404,9 +1410,10 @@ GeckoDriver.prototype.switchToParentFrame = async function() {
 /**
  * Switch to a given frame within the current window.
  *
- * @param {(string|Object)=} element
+ * @param {object} cmd
+ * @param {(string | object)=} cmd.parameters.element
  *     A web element reference of the frame or its element id.
- * @param {number=} id
+ * @param {number=} cmd.parameters.id
  *     The index of the frame to switch to.
  *     If both element and id are not defined, switch to top-level frame.
  *
@@ -1455,7 +1462,8 @@ GeckoDriver.prototype.getTimeouts = function() {
 /**
  * Set timeout for page loading, searching, and scripts.
  *
- * @param {Object.<string, number>}
+ * @param {object} cmd
+ * @param {Object<string, number>} cmd.parameters
  *     Dictionary of timeout types and their new value, where all timeout
  *     types are optional.
  *
@@ -1491,7 +1499,8 @@ GeckoDriver.prototype.singleTap = async function(cmd) {
 /**
  * Perform a series of grouped actions at the specified points in time.
  *
- * @param {Array.<?>} actions
+ * @param {object} cmd
+ * @param {Array<?>} cmd.parameters.actions
  *     Array of objects that each represent an action sequence.
  *
  * @throws {NoSuchElementError}
@@ -1537,14 +1546,15 @@ GeckoDriver.prototype.releaseActions = async function() {
 /**
  * Find an element using the indicated search strategy.
  *
- * @param {string=} element
+ * @param {object} cmd
+ * @param {string=} cmd.parameters.element
  *     Web element reference ID to the element that will be used as start node.
- * @param {string} using
+ * @param {string} cmd.parameters.using
  *     Indicates which search method to use.
- * @param {string} value
+ * @param {string} cmd.parameters.value
  *     Value the client is looking for.
  *
- * @return {WebElement}
+ * @returns {WebElement}
  *     Return the found element.
  *
  * @throws {NoSuchElementError}
@@ -1586,14 +1596,15 @@ GeckoDriver.prototype.findElement = async function(cmd) {
 /**
  * Find an element within shadow root using the indicated search strategy.
  *
- * @param {string} shadowRoot
+ * @param {object} cmd
+ * @param {string} cmd.parameters.shadowRoot
  *     Shadow root reference ID.
- * @param {string} using
+ * @param {string} cmd.parameters.using
  *     Indicates which search method to use.
- * @param {string} value
+ * @param {string} cmd.parameters.value
  *     Value the client is looking for.
  *
- * @return {WebElement}
+ * @returns {WebElement}
  *     Return the found element.
  *
  * @throws {DetachedShadowRootError}
@@ -1634,14 +1645,15 @@ GeckoDriver.prototype.findElementFromShadowRoot = async function(cmd) {
 /**
  * Find elements using the indicated search strategy.
  *
- * @param {string=} element
+ * @param {object} cmd
+ * @param {string=} cmd.parameters.element
  *     Web element reference ID to the element that will be used as start node.
- * @param {string} using
+ * @param {string} cmd.parameters.using
  *     Indicates which search method to use.
- * @param {string} value
+ * @param {string} cmd.parameters.value
  *     Value the client is looking for.
  *
- * @return {Array<WebElement>}
+ * @returns {Array<WebElement>}
  *     Return the array of found elements.
  *
  * @throws {NoSuchElementError}
@@ -1683,14 +1695,15 @@ GeckoDriver.prototype.findElements = async function(cmd) {
 /**
  * Find elements within shadow root using the indicated search strategy.
  *
- * @param {string} shadowRoot
+ * @param {object} cmd
+ * @param {string} cmd.parameters.shadowRoot
  *     Shadow root reference ID.
- * @param {string} using
+ * @param {string} cmd.parameters.using
  *     Indicates which search method to use.
- * @param {string} value
+ * @param {string} cmd.parameters.value
  *     Value the client is looking for.
  *
- * @return {Array<WebElement>}
+ * @returns {Array<WebElement>}
  *     Return the array of found elements.
  *
  * @throws {DetachedShadowRootError}
@@ -1728,9 +1741,10 @@ GeckoDriver.prototype.findElementsFromShadowRoot = async function(cmd) {
 /**
  * Return the shadow root of an element in the document.
  *
- * @param {id}
+ * @param {object} cmd
+ * @param {id} cmd.parameters.id
  *     A web element id reference.
- * @return {ShadowRoot}
+ * @returns {ShadowRoot}
  *     ShadowRoot of the element.
  *
  * @throws {InvalidArgumentError}
@@ -1766,7 +1780,7 @@ GeckoDriver.prototype.getShadowRoot = async function(cmd) {
 /**
  * Return the active element in the document.
  *
- * @return {WebReference}
+ * @returns {WebReference}
  *     Active element of the current browsing context's document
  *     element, if the document element is non-null.
  *
@@ -1791,7 +1805,8 @@ GeckoDriver.prototype.getActiveElement = async function() {
 /**
  * Send click event to element.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be clicked.
  *
  * @throws {InvalidArgumentError}
@@ -1836,12 +1851,13 @@ GeckoDriver.prototype.clickElement = async function(cmd) {
 /**
  * Get a given attribute of an element.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Web element reference ID to the element that will be inspected.
- * @param {string} name
+ * @param {string} cmd.parameters.name
  *     Name of the attribute which value to retrieve.
  *
- * @return {string}
+ * @returns {string}
  *     Value of the attribute.
  *
  * @throws {InvalidArgumentError}
@@ -1869,12 +1885,13 @@ GeckoDriver.prototype.getElementAttribute = async function(cmd) {
 /**
  * Returns the value of a property associated with given element.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Web element reference ID to the element that will be inspected.
- * @param {string} name
+ * @param {string} cmd.parameters.name
  *     Name of the property which value to retrieve.
  *
- * @return {string}
+ * @returns {string}
  *     Value of the property.
  *
  * @throws {InvalidArgumentError}
@@ -1903,10 +1920,11 @@ GeckoDriver.prototype.getElementProperty = async function(cmd) {
  * Get the text of an element, if any.  Includes the text of all child
  * elements.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be inspected.
  *
- * @return {string}
+ * @returns {string}
  *     Element's text "as rendered".
  *
  * @throws {InvalidArgumentError}
@@ -1933,10 +1951,11 @@ GeckoDriver.prototype.getElementText = async function(cmd) {
 /**
  * Get the tag name of the element.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be inspected.
  *
- * @return {string}
+ * @returns {string}
  *     Local tag name of element.
  *
  * @throws {InvalidArgumentError}
@@ -1963,10 +1982,11 @@ GeckoDriver.prototype.getElementTagName = async function(cmd) {
 /**
  * Check if element is displayed.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be inspected.
  *
- * @return {boolean}
+ * @returns {boolean}
  *     True if displayed, false otherwise.
  *
  * @throws {InvalidArgumentError}
@@ -1994,12 +2014,13 @@ GeckoDriver.prototype.isElementDisplayed = async function(cmd) {
 /**
  * Return the property of the computed style of an element.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be checked.
- * @param {string} propertyName
+ * @param {string} cmd.parameters.propertyName
  *     CSS rule that is being requested.
  *
- * @return {string}
+ * @returns {string}
  *     Value of |propertyName|.
  *
  * @throws {InvalidArgumentError}
@@ -2027,10 +2048,11 @@ GeckoDriver.prototype.getElementValueOfCssProperty = async function(cmd) {
 /**
  * Check if element is enabled.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be checked.
  *
- * @return {boolean}
+ * @returns {boolean}
  *     True if enabled, false if disabled.
  *
  * @throws {InvalidArgumentError}
@@ -2060,10 +2082,11 @@ GeckoDriver.prototype.isElementEnabled = async function(cmd) {
 /**
  * Check if element is selected.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be checked.
  *
- * @return {boolean}
+ * @returns {boolean}
  *     True if selected, false if unselected.
  *
  * @throws {InvalidArgumentError}
@@ -2113,9 +2136,10 @@ GeckoDriver.prototype.getElementRect = async function(cmd) {
 /**
  * Send key presses to element after focusing on it.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be checked.
- * @param {string} text
+ * @param {string} cmd.parameters.text
  *     Value to send to the element.
  *
  * @throws {InvalidArgumentError}
@@ -2147,7 +2171,8 @@ GeckoDriver.prototype.sendKeysToElement = async function(cmd) {
 /**
  * Clear the text of an element.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Reference ID to the element that will be cleared.
  *
  * @throws {InvalidArgumentError}
@@ -2175,7 +2200,8 @@ GeckoDriver.prototype.clearElement = async function(cmd) {
  * Add a single cookie to the cookie store associated with the active
  * document's address.
  *
- * @param {Map.<string, (string|number|boolean)>} cookie
+ * @param {object} cmd
+ * @param {Map.<string, (string|number|boolean)>} cmd.parameters.cookie
  *     Cookie object.
  *
  * @throws {InvalidCookieDomainError}
@@ -2275,18 +2301,19 @@ GeckoDriver.prototype.deleteCookie = async function(cmd) {
 /**
  * Open a new top-level browsing context.
  *
- * @param {string=} type
+ * @param {object} cmd
+ * @param {string=} cmd.parameters.type
  *     Optional type of the new top-level browsing context. Can be one of
  *     `tab` or `window`. Defaults to `tab`.
- * @param {boolean=} focus
+ * @param {boolean=} cmd.parameters.focus
  *     Optional flag if the new top-level browsing context should be opened
  *     in foreground (focused) or background (not focused). Defaults to false.
- * @param {boolean=} private
+ * @param {boolean=} cmd.parameters.private
  *     Optional flag, which gets only evaluated for type `window`. True if the
  *     new top-level browsing context should be a private window.
  *     Defaults to false.
  *
- * @return {Object.<string, string>}
+ * @returns {Object<string, string>}
  *     Handle and type of the new browsing context.
  *
  * @throws {NoSuchWindowError}
@@ -2362,7 +2389,7 @@ GeckoDriver.prototype.newWindow = async function(cmd) {
  * a shutdown of the application. Instead the returned list of window
  * handles is empty.
  *
- * @return {Array.<string>}
+ * @returns {Array.<string>}
  *     Unique window handles of remaining windows.
  *
  * @throws {NoSuchWindowError}
@@ -2399,7 +2426,7 @@ GeckoDriver.prototype.close = async function() {
  * closed to prevent a shutdown of the application. Instead the returned
  * list of chrome window handles is empty.
  *
- * @return {Array.<string>}
+ * @returns {Array.<string>}
  *     Unique chrome window handles of remaining chrome windows.
  *
  * @throws {NoSuchWindowError}
@@ -2488,18 +2515,19 @@ GeckoDriver.prototype.deleteSession = function() {
  * If called in the chrome context, the screenshot will always represent
  * the entire viewport.
  *
- * @param {string=} id
+ * @param {object} cmd
+ * @param {string=} cmd.parameters.id
  *     Optional web element reference to take a screenshot of.
  *     If undefined, a screenshot will be taken of the document element.
- * @param {boolean=} full
+ * @param {boolean=} cmd.parameters.full
  *     True to take a screenshot of the entire document element. Is only
  *     considered if <var>id</var> is not defined. Defaults to true.
- * @param {boolean=} hash
+ * @param {boolean=} cmd.parameters.hash
  *     True if the user requests a hash of the image data. Defaults to false.
- * @param {boolean=} scroll
+ * @param {boolean=} cmd.parameters.scroll
  *     Scroll to element if |id| is provided. Defaults to true.
  *
- * @return {string}
+ * @returns {string}
  *     If <var>hash</var> is false, PNG image encoded as Base64 encoded
  *     string.  If <var>hash</var> is true, hex digest of the SHA-256
  *     hash of the Base64 encoded string.
@@ -2603,7 +2631,7 @@ GeckoDriver.prototype.setScreenOrientation = async function(cmd) {
  *
  * Not supported on Fennec.
  *
- * @return {Object.<string, number>}
+ * @returns {Object<string, number>}
  *     Window rect and window state.
  *
  * @throws {NoSuchWindowError}
@@ -2655,7 +2683,7 @@ GeckoDriver.prototype.minimizeWindow = async function() {
  *
  * Not supported on Fennec.
  *
- * @return {Object.<string, number>}
+ * @returns {Object<string, number>}
  *     Window rect.
  *
  * @throws {NoSuchWindowError}
@@ -2707,7 +2735,7 @@ GeckoDriver.prototype.maximizeWindow = async function() {
  *
  * Not supported on Fennec.
  *
- * @return {Map.<string, number>}
+ * @returns {Map.<string, number>}
  *     Window rect.
  *
  * @throws {NoSuchWindowError}
@@ -2813,7 +2841,8 @@ GeckoDriver.prototype.getTextFromDialog = function() {
  * a tab modal is currently displayed but has no means for text input,
  * an element not visible error is returned.
  *
- * @param {string} text
+ * @param {object} cmd
+ * @param {string} cmd.parameters.text
  *     Input to the user prompt's value field.
  *
  * @throws {ElementNotInteractableError}
@@ -2908,7 +2937,8 @@ GeckoDriver.prototype._handleUserPrompts = async function() {
  * This method is used for custom in application shutdowns via
  * marionette.quit() or marionette.restart(), like File -> Quit.
  *
- * @param {boolean} state
+ * @param {object} cmd
+ * @param {boolean} cmd.parameters.value
  *     True if the server should accept new socket connections.
  */
 GeckoDriver.prototype.acceptConnections = function(cmd) {
@@ -2931,15 +2961,15 @@ GeckoDriver.prototype.acceptConnections = function(cmd) {
  * flag may be bit-wise combined with one of the *Quit flags to cause
  * the application to restart after it quits.
  *
- * @param {Array.<string>=} flags
+ * @param {object} cmd
+ * @param {Array.<string>=} cmd.parameters.flags
  *     Constant name of masks to pass to |Services.startup.quit|.
  *     If empty or undefined, |nsIAppStartup.eAttemptQuit| is used.
- *
- * @param {boolean=} safeMode
+ * @param {boolean=} cmd.parameters.safeMode
  *     Optional flag to indicate that the application has to
  *     be restarted in safe mode.
  *
- * @return {Object<string,boolean>}
+ * @returns {Object<string,boolean>}
  *     Dictionary containing information that explains the shutdown reason.
  *     The value for `cause` contains the shutdown kind like "shutdown" or
  *     "restart", while `forced` will indicate if it was a normal or forced
@@ -3062,12 +3092,13 @@ GeckoDriver.prototype.uninstallAddon = function(cmd) {
  * Example:
  *     localizeEntity(["chrome://branding/locale/brand.dtd"], "brandShortName")
  *
- * @param {Array.<string>} urls
+ * @param {object} cmd
+ * @param {Array.<string>} cmd.parameters.urls
  *     Array of .dtd URLs.
- * @param {string} id
+ * @param {string} cmd.parameters.id
  *     The ID of the entity to retrieve the localized string for.
  *
- * @return {string}
+ * @returns {string}
  *     The localized string for the requested entity.
  */
 GeckoDriver.prototype.localizeEntity = function(cmd) {
@@ -3095,12 +3126,13 @@ GeckoDriver.prototype.localizeEntity = function(cmd) {
  *     localizeProperty(
  *         ["chrome://global/locale/findbar.properties"], "FastFind");
  *
- * @param {Array.<string>} urls
+ * @param {object} cmd
+ * @param {Array.<string>} cmd.parameters.urls
  *     Array of .properties URLs.
- * @param {string} id
+ * @param {string} cmd.parameters.id
  *     The ID of the property to retrieve the localized string for.
  *
- * @return {string}
+ * @returns {string}
  *     The localized string for the requested property.
  */
 GeckoDriver.prototype.localizeProperty = function(cmd) {
@@ -3198,34 +3230,35 @@ GeckoDriver.prototype.teardownReftest = function() {
 /**
  * Print page as PDF.
  *
- * @param {boolean=} background
+ * @param {object} cmd
+ * @param {boolean=} cmd.parameters.background
  *     Whether or not to print background colors and images.
  *     Defaults to false, which prints without background graphics.
- * @param {number=} margin.bottom
+ * @param {number=} cmd.parameters.margin.bottom
  *     Bottom margin in cm. Defaults to 1cm (~0.4 inches).
- * @param {number=} margin.left
+ * @param {number=} cmd.parameters.margin.left
  *     Left margin in cm. Defaults to 1cm (~0.4 inches).
- * @param {number=} margin.right
+ * @param {number=} cmd.parameters.margin.right
  *     Right margin in cm. Defaults to 1cm (~0.4 inches).
- * @param {number=} margin.top
+ * @param {number=} cmd.parameters.margin.top
  *     Top margin in cm. Defaults to 1cm (~0.4 inches).
- * @param {('landscape'|'portrait')=} options.orientation
+ * @param {('landscape'|'portrait')=} cmd.parameters.options.orientation
  *     Paper orientation. Defaults to 'portrait'.
- * @param {Array.<string|number>=} pageRanges
+ * @param {Array.<string|number>=} cmd.parameters.pageRanges
  *     Paper ranges to print, e.g., ['1-5', 8, '11-13'].
  *     Defaults to the empty array, which means print all pages.
- * @param {number=} page.height
+ * @param {number=} cmd.parameters.page.height
  *     Paper height in cm. Defaults to US letter height (27.94cm / 11 inches)
- * @param {number=} page.width
+ * @param {number=} cmd.parameters.page.width
  *     Paper width in cm. Defaults to US letter width (21.59cm / 8.5 inches)
- * @param {number=} scale
+ * @param {number=} cmd.parameters.scale
  *     Scale of the webpage rendering. Defaults to 1.0.
- * @param {boolean=} shrinkToFit
+ * @param {boolean=} cmd.parameters.shrinkToFit
  *     Whether or not to override page size as defined by CSS.
  *     Defaults to true, in which case the content will be scaled
  *     to fit the paper size.
  *
- * @return {string}
+ * @returns {string}
  *     Base64 encoded PDF representing printed document
  *
  * @throws {NoSuchWindowError}
@@ -3321,11 +3354,12 @@ GeckoDriver.prototype.setPermission = async function(cmd) {
 /**
  * Determines the Accessibility label for this element.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Web element reference ID to the element for which the accessibility label
  *     will be returned.
  *
- * @return {string}
+ * @returns {string}
  *     The Accessibility label for this element
  */
 GeckoDriver.prototype.getComputedLabel = async function(cmd) {
@@ -3341,11 +3375,12 @@ GeckoDriver.prototype.getComputedLabel = async function(cmd) {
 /**
  * Determines the Accessibility role for this element.
  *
- * @param {string} id
+ * @param {object} cmd
+ * @param {string} cmd.parameters.id
  *     Web element reference ID to the element for which the accessibility role
  *     will be returned.
  *
- * @return {string}
+ * @returns {string}
  *     The Accessibility role for this element
  */
 GeckoDriver.prototype.getComputedRole = async function(cmd) {

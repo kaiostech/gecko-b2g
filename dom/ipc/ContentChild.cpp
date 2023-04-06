@@ -3554,7 +3554,7 @@ mozilla::ipc::IPCResult ContentChild::RecvUpdateWindow(
 
 PContentPermissionRequestChild*
 ContentChild::AllocPContentPermissionRequestChild(
-    const nsTArray<PermissionRequest>& aRequests, nsIPrincipal* aPrincipal,
+    Span<const PermissionRequest> aRequests, nsIPrincipal* aPrincipal,
     nsIPrincipal* aTopLevelPrincipal, const bool& aIsHandlingUserInput,
     const bool& aMaybeUnsafePermissionDelegate, const TabId& aTabId) {
   MOZ_CRASH("unused");
@@ -3832,7 +3832,7 @@ bool ContentChild::DeallocPURLClassifierChild(PURLClassifierChild* aActor) {
 }
 
 PURLClassifierLocalChild* ContentChild::AllocPURLClassifierLocalChild(
-    nsIURI* aUri, const nsTArray<IPCURLClassifierFeature>& aFeatures) {
+    nsIURI* aUri, Span<const IPCURLClassifierFeature> aFeatures) {
   return new URLClassifierLocalChild();
 }
 

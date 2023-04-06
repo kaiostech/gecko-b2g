@@ -546,6 +546,9 @@ pref("browser.urlbar.shortcuts.history", true);
 
 pref("browser.urlbar.eventTelemetry.enabled", false);
 
+// Whether search engagement telemetry should be recorded.
+pref("browser.urlbar.searchEngagementTelemetry.enabled", false);
+
 // When we send events to Urlbar extensions, we wait this amount of time in
 // milliseconds for them to respond before timing out.
 pref("browser.urlbar.extension.timeout", 400);
@@ -2175,8 +2178,15 @@ pref("browser.migrate.opera-gx.enabled", true);
 pref("browser.migrate.safari.enabled", true);
 pref("browser.migrate.vivaldi.enabled", true);
 
+#ifdef NIGHTLY_BUILD
+pref("browser.migrate.content-modal.enabled", true);
+#else
 pref("browser.migrate.content-modal.enabled", false);
+#endif
+
 pref("browser.migrate.content-modal.import-all.enabled", false);
+// Values can be: "default", "autoclose", "standalone".
+pref("browser.migrate.content-modal.about-welcome-behavior", "default");
 
 // The maximum age of history entries we'll import, in days.
 pref("browser.migrate.history.maxAgeInDays", 180);

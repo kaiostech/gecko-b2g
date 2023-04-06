@@ -130,6 +130,11 @@ void js::BaseScript::finalize(JS::GCContext* gcx) {
   // the script itself will not be marked as having bytecode.
   if (hasBytecode()) {
     JSScript* script = this->asJSScript();
+    JSRuntime* rt = gcx->runtime();
+
+    if (rt->hasJitRuntime() && rt->jitRuntime()->hasInterpreterEntryMap()) {
+      rt->jitRuntime()->getInterpreterEntryMap()->remove(script);
+    }
 
     if (coverage::IsLCovEnabled()) {
       coverage::CollectScriptCoverage(script, true);
@@ -3188,7 +3193,17 @@ void JSScript::updateJitCodeRaw(JSRuntime* rt) {
   } else if (hasBaselineScript()) {
     setJitCodeRaw(baselineScript()->method()->raw());
   } else if (hasJitScript() && js::jit::IsBaselineInterpreterEnabled()) {
-    setJitCodeRaw(rt->jitRuntime()->baselineInterpreter().codeRaw());
+    bool usingEntryTrampoline = false;
+    if (js::jit::JitOptions.emitInterpreterEntryTrampoline) {
+      auto p = rt->jitRuntime()->getInterpreterEntryMap()->lookup(this);
+      if (p) {
+        setJitCodeRaw(p->value().raw());
+        usingEntryTrampoline = true;
+      }
+    }
+    if (!usingEntryTrampoline) {
+      setJitCodeRaw(rt->jitRuntime()->baselineInterpreter().codeRaw());
+    }
   } else {
     setJitCodeRaw(rt->jitRuntime()->interpreterStub().value);
   }

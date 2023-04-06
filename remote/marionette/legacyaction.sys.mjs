@@ -57,11 +57,11 @@ action.Chain = function() {
  *
  * @param {Element} elem
  *        The Element on which the touch event should be created.
- * @param {Number} x
+ * @param {number} x
  *        x coordinate relative to the viewport.
- * @param {Number} y
+ * @param {number} y
  *        y coordinate relative to the viewport.
- * @param {Number} touchId
+ * @param {number} touchId
  *        Touch event id used by legacyactions.
  */
 action.Chain.prototype.createATouch = function(elem, x, y, touchId) {
@@ -126,13 +126,15 @@ action.Chain.prototype.dispatchActions = function(
  *     Current document.
  * @param {string} type
  *     Type of event to dispatch.
- * @param {number} clickCount
- *     Number of clicks, button notes the mouse button.
  * @param {number} elClientX
  *     X coordinate of the mouse relative to the viewport.
  * @param {number} elClientY
  *     Y coordinate of the mouse relative to the viewport.
- * @param {Object} modifiers
+ * @param {number} button
+ *     The button number.
+ * @param {number} clickCount
+ *     Number of clicks, button notes the mouse button.
+ * @param {object} modifiers
  *     An object of modifier keys present.
  */
 action.Chain.prototype.emitMouseEvent = function(
@@ -262,16 +264,16 @@ action.Chain.prototype.singleTap = async function(
  *
  * @param {Array.<Array<?>>} chain
  *     A multi-dimensional array of actions.
- * @param {Object.<string, number>} touchId
+ * @param {Object<string, number>} touchId
  *     Represents the finger ID.
  * @param {number} i
  *     Keeps track of the current action of the chain.
- * @param {Object.<string, boolean>} keyModifiers
+ * @param {Object<string, boolean>} keyModifiers
  *     Keeps track of keyDown/keyUp pairs through an action chain.
  * @param {function(?)} cb
  *     Called on success.
  *
- * @return {Object.<string, number>}
+ * @returns {Object<string, number>}
  *     Last finger ID, or an empty object.
  */
 action.Chain.prototype.actions = function(chain, touchId, i, keyModifiers, cb) {
@@ -464,12 +466,18 @@ action.Chain.prototype.getCoordinateInfo = function(el, corx, cory) {
 };
 
 /**
+ * @param {string} type
+ *     The event type (eg "tap", "press", ...).
  * @param {number} x
  *     X coordinate of the location to generate the event that is relative
  *     to the viewport.
  * @param {number} y
  *     Y coordinate of the location to generate the event that is relative
  *     to the viewport.
+ * @param {number} touchId
+ *     The current touch id.
+ * @param {Element} target
+ *     The Element on which the events should be created.
  */
 action.Chain.prototype.generateEvents = function(
   type,

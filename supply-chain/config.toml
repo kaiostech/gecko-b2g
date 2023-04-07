@@ -11,10 +11,7 @@ url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-c
 url = "https://raw.githubusercontent.com/EmbarkStudios/rust-ecosystem/main/audits.toml"
 
 [imports.google]
-url = [
-    "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/main/cargo-vet/audits.toml?format=TEXT",
-    "https://fuchsia.googlesource.com/fuchsia/+/refs/heads/main/third_party/rust_crates/supply-chain/audits.toml?format=TEXT",
-]
+url = "https://raw.githubusercontent.com/google/supply-chain/main/audits.toml"
 
 [imports.isrg]
 url = "https://raw.githubusercontent.com/divviup/libprio-rs/main/supply-chain/audits.toml"
@@ -84,10 +81,6 @@ audit-as-crates-io = false
 notes = "This is a first-party crate which is also published to crates.io. We certify audits for this crate as part of the documented release process, but that step happens after the version bump lands on central so we don't enforce it here."
 
 [policy.midir]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code, presumably to get a fix that hadn't been released yet. We should consider switching to the latest official release."
-
-[policy.minidump-writer]
 audit-as-crates-io = true
 notes = "This is a pinned version of the upstream code, presumably to get a fix that hadn't been released yet. We should consider switching to the latest official release."
 
@@ -274,10 +267,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.camino]]
 version = "1.0.9"
-criteria = "safe-to-deploy"
-
-[[exemptions.cargo-platform]]
-version = "0.1.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.cexpr]]
@@ -490,14 +479,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.float-cmp]]
 version = "0.6.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.foreign-types]]
-version = "0.3.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.foreign-types-shared]]
-version = "0.1.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.freetype]]
@@ -866,14 +847,6 @@ criteria = "safe-to-deploy"
 version = "0.2.9"
 criteria = "safe-to-deploy"
 
-[[exemptions.pin-utils]]
-version = "0.1.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.pkg-config]]
-version = "0.3.25"
-criteria = "safe-to-deploy"
-
 [[exemptions.plain]]
 version = "0.2.3"
 criteria = "safe-to-deploy"
@@ -1068,10 +1041,6 @@ criteria = "safe-to-run"
 
 [[exemptions.siphasher]]
 version = "0.3.10"
-criteria = "safe-to-deploy"
-
-[[exemptions.slab]]
-version = "0.4.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.smallbitvec]]

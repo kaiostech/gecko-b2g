@@ -13,6 +13,13 @@
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/Services.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "nsINetworkInterface.h"
+#  include "nsINetworkManager.h"
+#  include "nsServiceManagerUtils.h"
+
+static const char* kNetworkActiveChangedTopic = "network-active-changed";
+#endif
 using namespace mozilla;
 
 static LazyLogModule gNotifyAddrLog("nsNetworkLinkService");
@@ -20,7 +27,13 @@ static LazyLogModule gNotifyAddrLog("nsNetworkLinkService");
 
 NS_IMPL_ISUPPORTS(nsNetworkLinkService, nsINetworkLinkService, nsIObserver)
 
+#ifdef MOZ_WIDGET_GONK
+nsNetworkLinkService::nsNetworkLinkService()
+    : mStatusIsKnown(false),
+      mLinkType(nsINetworkLinkService::LINK_TYPE_UNKNOWN) {}
+#else
 nsNetworkLinkService::nsNetworkLinkService() : mStatusIsKnown(false) {}
+#endif
 
 NS_IMETHODIMP
 nsNetworkLinkService::GetIsLinkUp(bool* aIsUp) {
@@ -38,6 +51,15 @@ nsNetworkLinkService::GetLinkStatusKnown(bool* aIsKnown) {
   return NS_OK;
 }
 
+#ifdef MOZ_WIDGET_GONK
+NS_IMETHODIMP
+nsNetworkLinkService::GetLinkType(uint32_t* aLinkType) {
+  NS_ENSURE_ARG_POINTER(aLinkType);
+
+  *aLinkType = mLinkType;
+  return NS_OK;
+}
+#else
 NS_IMETHODIMP
 nsNetworkLinkService::GetLinkType(uint32_t* aLinkType) {
   NS_ENSURE_ARG_POINTER(aLinkType);
@@ -46,6 +68,7 @@ nsNetworkLinkService::GetLinkType(uint32_t* aLinkType) {
   *aLinkType = nsINetworkLinkService::LINK_TYPE_UNKNOWN;
   return NS_OK;
 }
+#endif
 
 NS_IMETHODIMP
 nsNetworkLinkService::GetNetworkID(nsACString& aNetworkID) {
@@ -95,11 +118,58 @@ nsNetworkLinkService::GetPlatformDNSIndications(
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
+#ifdef MOZ_WIDGET_GONK
+void nsNetworkLinkService::UpdateLinkType(nsISupports* aNetworkInfo,
+                                          bool aObserved) {
+  nsCOMPtr<nsINetworkInfo> info;
+  if (aNetworkInfo) {
+    info = do_QueryInterface(aNetworkInfo);
+  } else if (!aObserved) {
+    nsCOMPtr<nsINetworkManager> networkManager =
+        do_GetService("@mozilla.org/network/manager;1");
+    if (!networkManager) {
+      return;
+    }
+    networkManager->GetActiveNetworkInfo(getter_AddRefs(info));
+  }
+
+  int32_t type = nsINetworkInfo::NETWORK_TYPE_UNKNOWN;
+  bool connected = false;
+
+  if (info) {
+    int32_t state;
+    info->GetState(&state);
+    connected = (state == nsINetworkInfo::NETWORK_STATE_CONNECTED);
+
+    info->GetType(&type);
+  }
+
+  uint32_t linkType = nsINetworkLinkService::LINK_TYPE_UNKNOWN;
+
+  // XXX: Since KaiOS does not support WIMAX, no need for service information
+  // from mobile connection. Once KaiOS supports LINK_TYPE_ETHERNET and
+  // LINK_TYPE_USB, determine the network connection type - Ethernet or USB.
+  if (connected) {
+    if (type == nsINetworkInfo::NETWORK_TYPE_WIFI) {
+      linkType = nsINetworkLinkService::LINK_TYPE_WIFI;
+    } else if (type == nsINetworkInfo::NETWORK_TYPE_MOBILE) {
+      linkType = nsINetworkLinkService::LINK_TYPE_MOBILE;
+    }
+  }
+
+  mLinkType = linkType;
+}
+#endif
+
 NS_IMETHODIMP
 nsNetworkLinkService::Observe(nsISupports* subject, const char* topic,
                               const char16_t* data) {
   if (!strcmp("xpcom-shutdown-threads", topic)) {
     Shutdown();
+#ifdef MOZ_WIDGET_GONK
+  } else if (!strcmp(kNetworkActiveChangedTopic, topic)) {
+    UpdateLinkType(subject, true);
+#endif
   }
 
   return NS_OK;
@@ -115,6 +185,10 @@ nsresult nsNetworkLinkService::Init() {
   nsresult rv;
   rv = observerService->AddObserver(this, "xpcom-shutdown-threads", false);
   NS_ENSURE_SUCCESS(rv, rv);
+#ifdef MOZ_WIDGET_GONK
+  rv = observerService->AddObserver(this, kNetworkActiveChangedTopic, false);
+  NS_ENSURE_SUCCESS(rv, rv);
+#endif
 
   mNetlinkSvc = new mozilla::net::NetlinkService();
   rv = mNetlinkSvc->Init(this);
@@ -135,6 +209,9 @@ nsresult nsNetworkLinkService::Shutdown() {
       mozilla::services::GetObserverService();
   if (observerService) {
     observerService->RemoveObserver(this, "xpcom-shutdown-threads");
+#ifdef MOZ_WIDGET_GONK
+    observerService->RemoveObserver(this, kNetworkActiveChangedTopic);
+#endif
   }
 
   if (mNetlinkSvc) {

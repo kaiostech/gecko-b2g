@@ -42,6 +42,11 @@ class nsNetworkLinkService : public nsINetworkLinkService,
   mozilla::Atomic<bool, mozilla::Relaxed> mStatusIsKnown;
 
   RefPtr<mozilla::net::NetlinkService> mNetlinkSvc;
+
+#ifdef MOZ_WIDGET_GONK
+  void UpdateLinkType(nsISupports* aNetworkInfo, bool aObserved);
+  mozilla::Atomic<uint32_t, mozilla::Relaxed> mLinkType;
+#endif
 };
 
 #endif /* NSNETWORKLINKSERVICE_LINUX_H_ */

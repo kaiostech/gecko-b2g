@@ -220,7 +220,7 @@ EXTRA_JS_MODULES += [
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     EXTRA_JS_MODULES += [
-        "DeviceUtils.jsm",
+        "DeviceUtils.sys.mjs",
     ]
 
 if CONFIG["MOZ_ASAN_REPORTER"]:

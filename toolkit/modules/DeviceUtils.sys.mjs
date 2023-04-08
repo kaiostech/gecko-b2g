@@ -2,17 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const EXPORTED_SYMBOLS = ["DeviceUtils"];
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { PromiseUtils } = ChromeUtils.import(
-  "resource://gre/modules/PromiseUtils.jsm"
-);
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
-);
+import { PromiseUtils } from "resource://gre/modules/PromiseUtils.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const isGonk = AppConstants.platform === "gonk";
 const hasRil = AppConstants.MOZ_B2G_RIL;
@@ -62,7 +55,9 @@ const HTTP_CODE_REQUEST_TIMEOUT = 408;
 const XHR_REQUEST_TIMEOUT = 60000;
 
 XPCOMUtils.defineLazyGetter(lazy, "console", () => {
-  let { ConsoleAPI } = ChromeUtils.import("resource://gre/modules/Console.jsm");
+  let { ConsoleAPI } = ChromeUtils.importESModule(
+    "resource://gre/modules/Console.sys.mjs"
+  );
   return new ConsoleAPI({
     maxLogLevelPref: "toolkit.deviceUtils.loglevel",
     prefix: "DeviceUtils",
@@ -77,7 +72,7 @@ const device_type_map = {
   watch: 4000,
 };
 
-const DeviceUtils = {
+export const DeviceUtils = {
   device_info_cache: null,
   /**
    * Returns a Commercial Unit Reference which is vendor dependent.

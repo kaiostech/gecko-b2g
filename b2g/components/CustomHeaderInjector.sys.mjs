@@ -5,15 +5,12 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "DeviceUtils",
-  "resource://gre/modules/DeviceUtils.jsm"
-);
+ChromeUtils.defineESModuleGetters(lazy, {
+  DeviceUtils: "resource://gre/modules/DeviceUtils.sys.mjs",
+});
 
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
-);
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const hasRil = AppConstants.MOZ_B2G_RIL;
 
 XPCOMUtils.defineLazyServiceGetter(

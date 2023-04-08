@@ -103,7 +103,7 @@ const PasspointManager = (function() {
     let bestMatch = null;
     let allMatches = getAllMatchedProviders(scanResult);
 
-    if (allMatches.length == 0) {
+    if (!allMatches.length) {
       return null;
     }
 

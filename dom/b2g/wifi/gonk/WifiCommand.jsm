@@ -409,7 +409,7 @@ const WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
 
   function doCommandWithParams(cmd, item, data, callback) {
     let msg = { cmd, iface: aInterface };
-    if (item.trim().length > 0) {
+    if (item.trim().length) {
       msg[item] = data;
     }
     aControlMessage(msg, function(result) {

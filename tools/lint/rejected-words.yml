@@ -127,7 +127,7 @@ avoid-blacklist-and-whitelist:
         - dom/tests/mochitest/dom-level0/idn_child.html
         - dom/tests/mochitest/dom-level0/test_setting_document.domain_idn.html
         - dom/tests/mochitest/whatwg/test_postMessage_origin.xhtml
-        - dom/b2g/wifi/hal/WifiHalManager.cpp
+        - dom/b2g/wifi/gonk/hal/WifiHalManager.cpp
         - gfx/gl/GLContextProviderWGL.cpp
         - gfx/gl/GLUploadHelpers.cpp
         - gfx/tests/mochitest/test_font_whitelist.html

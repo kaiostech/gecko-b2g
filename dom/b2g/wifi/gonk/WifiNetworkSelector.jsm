@@ -89,7 +89,7 @@ const WifiNetworkSelector = (function() {
     roamingCandidate = null;
     debug("==========start Network Selection==========");
 
-    if (scanResults.length == 0) {
+    if (!scanResults.length) {
       debug("Empty connectivity scan result");
       callback(null);
       return;
@@ -239,7 +239,7 @@ const WifiNetworkSelector = (function() {
         result.signalStrength - wifiInfo.rssi > minDiff
     );
 
-    if (filterdResult.length > 0) {
+    if (filterdResult.length) {
       roamingCandidate = filterdResult[0];
       debug(
         "roamingCandidate: bssid=" +
@@ -426,7 +426,7 @@ const WifiNetworkSelector = (function() {
   }
 
   function updateSavedNetworkSelectionStatus(configuredNetworks) {
-    if (Object.keys(configuredNetworks).length == 0) {
+    if (!Object.keys(configuredNetworks).length) {
       debug("no saved network");
       return;
     }

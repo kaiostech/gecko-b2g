@@ -150,7 +150,7 @@ const StateMachine = function(aDebugTag) {
       return; // The state machine is paused now.
     }
 
-    hadDeferredEvents = _deferredEventQueue.length > 0;
+    hadDeferredEvents = !!_deferredEventQueue.length;
 
     handleOneEvent(_eventQueue.shift()); // The handler may defer this event.
 

@@ -202,7 +202,7 @@ const WifiConfigUtils = (function() {
         parseVendorOuiElement(ie.bytes, flags);
       }
     }
-    flags.isWEP = flags.protocol.length == 0 && privacy;
+    flags.isWEP = !flags.protocol.length && privacy;
     return flags;
   }
 
@@ -638,7 +638,7 @@ const WifiConfigUtils = (function() {
     var ssid = "",
       encryption = "OPEN";
 
-    if ("security" in network && network.security.length > 0) {
+    if ("security" in network && network.security.length) {
       // manager network object, represents an AP
       // object structure
       // {

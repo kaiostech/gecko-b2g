@@ -30,6 +30,9 @@ if not CONFIG["DISABLE_WIFI"]:
     if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         DIRS += ["gonk"]
     else:
-        error("No Wifi support for: %s, configure your build with DISABLE_WIFI (--disable-wifi-support)" % CONFIG["OS_TARGET"])
+        error(
+            "No Wifi support for: %s, configure your build with DISABLE_WIFI (--disable-wifi-support)"
+            % CONFIG["OS_TARGET"]
+        )
 
 FINAL_LIBRARY = "xul"

@@ -149,7 +149,7 @@ PasspointNetworkSelector.prototype = {
       }
     }
 
-    if (candidateList.length == 0) {
+    if (!candidateList.length) {
       debug("No suitable Passpoint network found");
       return null;
     }

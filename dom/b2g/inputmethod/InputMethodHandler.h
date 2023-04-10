@@ -27,7 +27,8 @@ class InputMethodHandler final : public nsIEditableSupportListener {
   static already_AddRefed<InputMethodHandler> Create(
       InputMethodServiceChild* aServiceChild);
 
-  nsresult SetComposition(uint64_t aId, const nsAString& aText);
+  nsresult SetComposition(uint64_t aId, const nsAString& aText, int32_t aOffset,
+                          int32_t aLength);
   nsresult EndComposition(uint64_t aId, const nsAString& aText);
   nsresult Keydown(uint64_t aId, const nsAString& aKey);
   nsresult Keyup(uint64_t aId, const nsAString& aKey);

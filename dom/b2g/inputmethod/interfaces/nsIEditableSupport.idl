@@ -26,7 +26,7 @@ interface nsIEditableSupportListener : nsISupports
 [scriptable, uuid(44bf6cea-f5db-11ea-b598-ff5a3d009e25)]
 interface nsIEditableSupport : nsISupports
 {
-  void SetComposition(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aText);
+  void SetComposition(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aText, in int32_t aOffset, in int32_t aLength);
   void EndComposition(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aText);
   void Keydown(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aKey);
   void Keyup(in uint64_t aId, in nsIEditableSupportListener aListener, in AString aKey);

@@ -183,10 +183,12 @@ static uint64_t sRequestId = 0;
 NS_IMETHODIMP
 InputMethodServiceParent::SetComposition(uint64_t aId,
                                          nsIEditableSupportListener* aListener,
-                                         const nsAString& aText) {
+                                         const nsAString& aText,
+                                         int32_t aOffset, int32_t aLength) {
   IME_LOGD("InputMethodServiceParent::SetComposition");
   SetEditableSupportListener(aId, aListener);
-  Unused << SendRequest(SetCompositionRequest(aId, nsString(aText)));
+  Unused << SendRequest(
+      SetCompositionRequest(aId, nsString(aText), aOffset, aLength));
   return NS_OK;
 }
 

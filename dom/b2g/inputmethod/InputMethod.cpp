@@ -40,7 +40,9 @@ void InputMethod::Init() {
   }
 }
 
-already_AddRefed<Promise> InputMethod::SetComposition(const nsAString& aText) {
+already_AddRefed<Promise> InputMethod::SetComposition(
+    const nsAString& aText, const Optional<int32_t>& aOffset,
+    const Optional<int32_t>& aLength) {
   RefPtr<Promise> promise;
   ErrorResult rv;
   promise = Promise::Create(mGlobal, rv);
@@ -50,7 +52,11 @@ already_AddRefed<Promise> InputMethod::SetComposition(const nsAString& aText) {
 
   RefPtr<InputMethodHandler> handler =
       InputMethodHandler::Create(promise, mServiceChild);
-  nsresult result = handler->SetComposition(++sId, aText);
+
+  int32_t offset = aOffset.WasPassed() ? aOffset.Value() : 0;
+  int32_t length = aLength.WasPassed() ? aLength.Value() : 0;
+
+  nsresult result = handler->SetComposition(++sId, aText, offset, length);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }

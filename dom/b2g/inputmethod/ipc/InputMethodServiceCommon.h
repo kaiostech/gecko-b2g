@@ -42,8 +42,9 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
       case InputMethodRequest::TSetCompositionRequest: {
         const SetCompositionRequest& request = aRequest;
 
-        GetEditableSupport()->SetComposition(request.id(), this,
-                                             request.text());
+        GetEditableSupport()->SetComposition(request.id(), this, request.text(),
+                                             request.offset(),
+                                             request.length());
         break;
       }
       case InputMethodRequest::TEndCompositionRequest: {

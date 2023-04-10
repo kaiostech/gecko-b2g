@@ -45,11 +45,11 @@ already_AddRefed<InputMethodService> InputMethodService::GetInstance() {
 
 // interfaces of nsIEditableSupport
 NS_IMETHODIMP InputMethodService::SetComposition(
-    uint64_t aId, nsIEditableSupportListener* aListener,
-    const nsAString& aText) {
+    uint64_t aId, nsIEditableSupportListener* aListener, const nsAString& aText,
+    int32_t aOffset, int32_t aLength) {
   IME_LOGD("InputMethodService::SetComposition");
   if (mEditableSupport) {
-    mEditableSupport->SetComposition(aId, aListener, aText);
+    mEditableSupport->SetComposition(aId, aListener, aText, aOffset, aLength);
   } else if (aListener) {
     aListener->OnSetComposition(aId, NS_ERROR_ABORT);
   }

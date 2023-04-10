@@ -893,7 +893,8 @@ GeckoEditableSupport::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
 NS_IMETHODIMP
 GeckoEditableSupport::SetComposition(uint64_t aId,
                                      nsIEditableSupportListener* aListener,
-                                     const nsAString& aText) {
+                                     const nsAString& aText, int32_t aOffset,
+                                     int32_t aLength) {
   RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
   if (!dispatcher) {
     IME_LOGD("Invalid dispatcher");
@@ -913,8 +914,19 @@ GeckoEditableSupport::SetComposition(uint64_t aId,
     } else {
       dispatcher->SetPendingCompositionString(aText);
       dispatcher->SetCaretInPendingComposition(aText.Length(), 0);
-      dispatcher->AppendClauseToPendingComposition(aText.Length(),
-                                                   TextRangeType::eRawClause);
+
+      if (aLength) {
+        // aOffset and aLength defines the range of text to be highlight.
+        dispatcher->AppendClauseToPendingComposition(aOffset,
+                                                     TextRangeType::eRawClause);
+        dispatcher->AppendClauseToPendingComposition(
+            aLength, TextRangeType::eSelectedClause);
+        dispatcher->AppendClauseToPendingComposition(
+            aText.Length() - aOffset - aLength, TextRangeType::eRawClause);
+      } else {
+        dispatcher->AppendClauseToPendingComposition(aText.Length(),
+                                                     TextRangeType::eRawClause);
+      }
     }
 
     nsEventStatus status = nsEventStatus_eIgnore;

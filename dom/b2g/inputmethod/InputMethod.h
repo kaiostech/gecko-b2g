@@ -33,7 +33,9 @@ class InputMethod final : public nsISupports, public nsWrapperCache {
   explicit InputMethod(nsIGlobalObject* aGlobal);
 
   // WebIDL methods
-  already_AddRefed<Promise> SetComposition(const nsAString& aText);
+  already_AddRefed<Promise> SetComposition(const nsAString& aText,
+                                           const Optional<int32_t>& aOffset,
+                                           const Optional<int32_t>& aLength);
   already_AddRefed<Promise> EndComposition(const Optional<nsAString>& aText);
 
   already_AddRefed<Promise> SendKey(const nsAString& aKey);

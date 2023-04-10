@@ -225,20 +225,21 @@ InputMethodHandler::OnReplaceSurroundingText(uint64_t aId, nsresult aStatus) {
 }
 
 nsresult InputMethodHandler::SetComposition(uint64_t aId,
-                                            const nsAString& aText) {
+                                            const nsAString& aText,
+                                            int32_t aOffset, int32_t aLength) {
   nsString text(aText);
   // TODO use a pure interface, and make it point to either the remote version
   // or the local version at Listener's creation.
   if (mServiceChild) {
     IME_LOGD("--InputMethodHandler::SetComposition content process");
     // Call from content process.
-    SendRequest(aId, SetCompositionRequest(aId, text));
+    SendRequest(aId, SetCompositionRequest(aId, text, aOffset, aLength));
   } else {
     IME_LOGD("--InputMethodHandler::SetComposition in-process");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
-    service->SetComposition(aId, this, aText);
+    service->SetComposition(aId, this, aText, aOffset, aLength);
   }
   return NS_OK;
 }

@@ -7,7 +7,14 @@
 [Exposed=Window, Pref="dom.inputmethod.enabled", Func="B2G::HasInputPermission"]
 interface InputMethod {
 
-  Promise<boolean> setComposition(DOMString text);
+  /**
+   * Optional offset and length represents the highlight range in this text.
+   * @param offset The offset from the beginning of text. Defaults to 0.
+   * @param length The length of characters to highlight. Defaults to 0.
+   */
+  Promise<boolean> setComposition(DOMString text,
+                                  optional long offset,
+                                  optional long length);
 
   Promise<boolean> endComposition(optional DOMString text);
 

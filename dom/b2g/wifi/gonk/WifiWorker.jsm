@@ -8,8 +8,8 @@
 
 const EXPORTED_SYMBOLS = ["WifiWorker"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 const { libcutils, netHelpers } = ChromeUtils.import(
@@ -35,8 +35,8 @@ const { WifiConfigManager } = ChromeUtils.import(
 const { WifiScanSettings, WifiPnoSettings } = ChromeUtils.import(
   "resource://gre/modules/WifiScanSettings.jsm"
 );
-const { clearTimeout, setTimeout } = ChromeUtils.import(
-  "resource://gre/modules/Timer.jsm"
+const { clearTimeout, setTimeout } = ChromeUtils.importESModule(
+  "resource://gre/modules/Timer.sys.mjs"
 );
 const { WifiConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
@@ -47,8 +47,8 @@ const { ScanResult, WifiNetwork, WifiConfigUtils } = ChromeUtils.import(
 const { TetheringConfigStore } = ChromeUtils.import(
   "resource://gre/modules/TetheringConfigStore.jsm"
 );
-const { BinderServices } = ChromeUtils.import(
-  "resource://gre/modules/BinderServices.jsm"
+const { BinderServices } = ChromeUtils.importESModule(
+  "resource://gre/modules/BinderServices.sys.mjs"
 );
 const { PasspointManager } = ChromeUtils.import(
   "resource://gre/modules/PasspointManager.jsm"

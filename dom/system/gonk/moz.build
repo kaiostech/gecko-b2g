@@ -41,11 +41,8 @@ UNIFIED_SOURCES += [
 ]
 
 EXTRA_JS_MODULES += [
+    "BinderServices.sys.mjs",
     "systemlibs.js",
-]
-
-EXTRA_PP_JS_MODULES += [
-    "BinderServices.jsm",
 ]
 
 XPCOM_MANIFESTS += [

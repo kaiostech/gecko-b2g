@@ -6,17 +6,17 @@
 
 var EXPORTED_SYMBOLS = ["TetheringService"];
 
-const { FileUtils } = ChromeUtils.import(
-  "resource://gre/modules/FileUtils.jsm"
+const { FileUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/FileUtils.sys.mjs"
 );
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
-const { BinderServices } = ChromeUtils.import(
-  "resource://gre/modules/BinderServices.jsm"
+const { BinderServices } = ChromeUtils.importESModule(
+  "resource://gre/modules/BinderServices.sys.mjs"
 );
 const { TetheringConfigStore } = ChromeUtils.import(
   "resource://gre/modules/TetheringConfigStore.jsm"
@@ -477,7 +477,7 @@ TetheringService.prototype = {
    * Callback when dun connection fails to connect within timeout.
    */
   onDunConnectTimerTimeout() {
-    while (this._pendingTetheringRequests.length > 0) {
+    while (this._pendingTetheringRequests.length) {
       debug("onDunConnectTimerTimeout: callback without network info.");
       let callback = this._pendingTetheringRequests.shift();
       if (typeof callback === "function") {
@@ -1094,9 +1094,9 @@ TetheringService.prototype = {
         ) {
           this.dunConnectTimer.cancel();
           // Handle the request change case.
-          if (this._pendingTetheringRequests.length > 0) {
+          if (this._pendingTetheringRequests.length) {
             debug("DUN data call connected, process callbacks.");
-            while (this._pendingTetheringRequests.length > 0) {
+            while (this._pendingTetheringRequests.length) {
               let callback = this._pendingTetheringRequests.shift();
               if (typeof callback === "function") {
                 callback(aNetworkInfo);
@@ -1382,7 +1382,7 @@ TetheringService.prototype = {
     // Save the new usb tethering configuration when idle.
     if (
       this._usbTetheringAction == TETHERING_STATE_IDLE &&
-      Object.entries(msg.data.config).length != 0
+      Object.entries(msg.data.config).length
     ) {
       let newConfig = this.fillUSBTetheringConfiguration(msg.data.config);
       if (

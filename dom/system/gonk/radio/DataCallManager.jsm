@@ -3,8 +3,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
 const lazy = {};
@@ -68,8 +68,8 @@ XPCOMUtils.defineLazyServiceGetter(
 
 var RIL = ChromeUtils.import("resource://gre/modules/ril_consts.js");
 
-const { BinderServices } = ChromeUtils.import(
-  "resource://gre/modules/BinderServices.jsm"
+const { BinderServices } = ChromeUtils.importESModule(
+  "resource://gre/modules/BinderServices.sys.mjs"
 );
 
 var RIL_DEBUG = ChromeUtils.import(

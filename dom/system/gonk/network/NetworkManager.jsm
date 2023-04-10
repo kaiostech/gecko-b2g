@@ -4,14 +4,14 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const { PromiseUtils } = ChromeUtils.import(
-  "resource://gre/modules/PromiseUtils.jsm"
+const { PromiseUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/PromiseUtils.sys.mjs"
 );
-const { BinderServices } = ChromeUtils.import(
-  "resource://gre/modules/BinderServices.jsm"
+const { BinderServices } = ChromeUtils.importESModule(
+  "resource://gre/modules/BinderServices.sys.mjs"
 );
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
@@ -28,13 +28,6 @@ const lazy = {};
 XPCOMUtils.defineLazyGetter(lazy, "ppmm", function() {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
-
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
-  "gDNSService",
-  "@mozilla.org/network/dns-service;1",
-  "nsIDNSService"
-);
 
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
@@ -2544,8 +2537,8 @@ NetworkManager.prototype = {
             aResolve(retval);
           },
         };
-        debug("Calling gDNSService.asyncResolve: " + aHostname);
-        lazy.gDNSService.asyncResolve(
+        debug("Calling Services.dns.asyncResolve: " + aHostname);
+        Services.dns.asyncResolve(
           aHostname,
           Ci.nsIDNSService.RESOLVE_TYPE_DEFAULT,
           0,

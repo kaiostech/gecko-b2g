@@ -2,21 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var EXPORTED_SYMBOLS = ["BinderServices"];
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
-var BinderServices = {};
+export var BinderServices = {};
 
 XPCOMUtils.defineLazyGetter(BinderServices, "connectivity", function() {
-#ifdef HAS_KOOST_MODULES
-  try {
-    return Cc["@mozilla.org/b2g/connectivitybinderservice;1"].getService(
-      Ci.nsIConnectivityBinderService);
-  } catch (e) {}
-#endif
+  if (AppConstants.HAS_KOOST) {
+    try {
+      return Cc["@mozilla.org/b2g/connectivitybinderservice;1"].getService(
+        Ci.nsIConnectivityBinderService
+      );
+    } catch (e) {}
+  }
   // Sync from nsIConnectivityBinderService.idl.
   return {
     onCaptivePortalChanged(wifiState, usbState) {},
@@ -25,12 +24,13 @@ XPCOMUtils.defineLazyGetter(BinderServices, "connectivity", function() {
 });
 
 XPCOMUtils.defineLazyGetter(BinderServices, "wifi", function() {
-#ifdef HAS_KOOST_MODULES
-  try {
-    return Cc["@mozilla.org/b2g/wifibinderservice;1"].getService(
-      Ci.nsIWifiBinderService);
-  } catch (e) {}
-#endif
+  if (AppConstants.HAS_KOOST) {
+    try {
+      return Cc["@mozilla.org/b2g/wifibinderservice;1"].getService(
+        Ci.nsIWifiBinderService
+      );
+    } catch (e) {}
+  }
   // Sync from nsIWifiBinderService.idl.
   return {
     onWifiStateChanged(state) {},
@@ -38,12 +38,13 @@ XPCOMUtils.defineLazyGetter(BinderServices, "wifi", function() {
 });
 
 XPCOMUtils.defineLazyGetter(BinderServices, "datacall", function() {
-#ifdef HAS_KOOST_MODULES
-  try {
-    return Cc["@mozilla.org/b2g/databinderservice;1"].getService(
-      Ci.nsIDataBinderService);
-  } catch (e) {}
-#endif
+  if (AppConstants.HAS_KOOST) {
+    try {
+      return Cc["@mozilla.org/b2g/databinderservice;1"].getService(
+        Ci.nsIDataBinderService
+      );
+    } catch (e) {}
+  }
   // Sync from nsIDataBinderService.idl.
   return {
     onDefaultSlotIdChanged(id) {},

@@ -32,7 +32,6 @@ koost/koost.js
 dom/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
 dom/mobilemessage/gonk/MmsPduHelper.jsm
 dom/system/gonk/radio/simIOHelper.js
-dom/system/gonk/BinderServices.jsm
 # Tests to fix:
 dom/mobilemessage/tests/
 dom/cellbroadcast/tests/

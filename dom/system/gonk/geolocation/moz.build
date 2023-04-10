@@ -23,7 +23,7 @@ UNIFIED_SOURCES += [
 ]
 
 EXTRA_JS_MODULES += [
-    "GonkNetworkGeolocationProvider.jsm",
+    "GonkNetworkGeolocationProvider.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

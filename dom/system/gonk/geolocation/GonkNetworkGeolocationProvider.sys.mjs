@@ -2,18 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+});
+
 XPCOMUtils.defineLazyModuleGetters(lazy, {
-  clearTimeout: "resource://gre/modules/Timer.jsm",
   LocationHelper: "resource://gre/modules/LocationHelper.jsm",
-  setTimeout: "resource://gre/modules/Timer.jsm",
 });
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -267,7 +266,7 @@ NetworkGeoPositionObject.prototype = {
   QueryInterface: ChromeUtils.generateQI(["nsIDOMGeoPosition"]),
 };
 
-function GonkNetworkGeolocationProvider() {
+export function GonkNetworkGeolocationProvider() {
   /*
     The _wifiMonitorTimeout controls how long we wait on receiving an update
     from the Wifi subsystem.  If this timer fires, we believe the Wifi scan has
@@ -580,7 +579,7 @@ GonkNetworkGeolocationProvider.prototype = {
     }
 
     let cellData = this.getMobileInfo();
-    if (cellData && cellData.length > 0) {
+    if (cellData && cellData.length) {
       data.cellTowers = cellData;
     }
 
@@ -636,7 +635,7 @@ GonkNetworkGeolocationProvider.prototype = {
       );
     } catch (err) {
       LOG("Location request hit error: " + err.name);
-      Cu.reportError(err);
+      console.error(err);
       if (err.name == "AbortError") {
         this.onStatus(true, "xhr-timeout");
       } else {
@@ -686,5 +685,3 @@ GonkNetworkGeolocationProvider.prototype = {
     return result;
   },
 };
-
-var EXPORTED_SYMBOLS = ["GonkNetworkGeolocationProvider"];

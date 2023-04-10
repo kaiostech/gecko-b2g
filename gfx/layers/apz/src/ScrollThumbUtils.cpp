@@ -91,8 +91,7 @@ void AsyncScrollThumbTransformer::ScaleThumbBy(const Axis& aAxis, float aScale,
 }
 
 void AsyncScrollThumbTransformer::ApplyTransformForAxis(const Axis& aAxis) {
-  const ParentLayerCoord asyncScroll =
-      aAxis.GetTransformTranslation(mAsyncTransform);
+  ParentLayerCoord asyncScroll = aAxis.GetTransformTranslation(mAsyncTransform);
   const float asyncZoom = aAxis.GetTransformScale(mAsyncTransform);
   const ParentLayerCoord overscroll =
       aAxis.GetPointOffset(mApzc->GetOverscrollAmount());
@@ -189,9 +188,6 @@ void AsyncScrollThumbTransformer::ApplyTransformForAxis(const Axis& aAxis) {
     // the async scroll and zoom deltas into transforms to apply to the
     // main-thread thumb position and size.
 
-    ParentLayerCoord asyncScroll =
-        aAxis.GetTransformTranslation(mAsyncTransform);
-
     // The scroll thumb needs to be scaled in the direction of scrolling by the
     // inverse of the async zoom. This is because zooming in decreases the
     // fraction of the whole srollable rect that is in view.
@@ -229,7 +225,7 @@ void AsyncScrollThumbTransformer::ApplyTransformForAxis(const Axis& aAxis) {
     // The scroll thumb needs to be translated in opposite direction of the
     // async scroll. This is because scrolling down, which translates the layer
     // content up, should result in moving the scroll thumb down.
-    ParentLayerCoord translation = -asyncScroll * unitlessThumbRatio;
+    ParentLayerCoord translationPL = -asyncScroll * unitlessThumbRatio;
 
     // The translation we computed is in the scroll frame's ParentLayer space.
     // This includes the full cumulative resolution, even if we are a subframe.
@@ -237,8 +233,14 @@ void AsyncScrollThumbTransformer::ApplyTransformForAxis(const Axis& aAxis) {
     // is already subject to the resolutions of enclosing scroll frames. To
     // avoid double application of these enclosing resolutions, divide them out,
     // leaving only the local resolution if any.
-    translation /= (mMetrics.GetCumulativeResolution().scale /
-                    mMetrics.GetPresShellResolution());
+    translationPL /= (mMetrics.GetCumulativeResolution().scale /
+                      mMetrics.GetPresShellResolution());
+
+    // Convert translation to CSS pixels as this is what TranslateThumb expects.
+    translation = ViewAs<OuterCSSPixel>(
+        translationPL / (mMetrics.GetDevPixelsPerCSSPixel() *
+                         LayoutDeviceToParentLayerScale(1.0)),
+        PixelCastJustification::CSSPixelsOfSurroundingContent);
   }
 
   // When scaling the thumb to account for the async zoom, keep the position

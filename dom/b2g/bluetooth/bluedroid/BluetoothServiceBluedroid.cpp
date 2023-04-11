@@ -1843,6 +1843,7 @@ void BluetoothServiceBluedroid::RemoteDevicePropertiesNotification(
     }
   }
 
+#ifdef MOZ_B2G_RIL
   // Append battery level if it's a HFP connected device
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   if (hfp) {
@@ -1853,6 +1854,7 @@ void BluetoothServiceBluedroid::RemoteDevicePropertiesNotification(
       AppendNamedValue(propertiesArray, "BatteryLevel", batteryLevel);
     }
   }
+#endif  // MOZ_B2G_RIL
 
   // The order of operations below is
   //

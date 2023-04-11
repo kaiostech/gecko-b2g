@@ -152,6 +152,7 @@ void nsFileControlFrame::AppendAnonymousContentTo(
 }
 
 NS_QUERYFRAME_HEAD(nsFileControlFrame)
+  NS_QUERYFRAME_ENTRY(nsFileControlFrame)
   NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
   NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsBlockFrame)
@@ -387,11 +388,6 @@ nsresult nsFileControlFrame::SetFormProperty(nsAtom* aName,
     }
   }
   return NS_OK;
-}
-
-void nsFileControlFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
-                                          const nsDisplayListSet& aLists) {
-  BuildDisplayListForInline(aBuilder, aLists);
 }
 
 #ifdef ACCESSIBILITY

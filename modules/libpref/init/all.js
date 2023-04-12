@@ -911,9 +911,9 @@ pref("privacy.popups.disable_from_plugins", 3);
 // domains exempted from RFP.
 pref("privacy.resistFingerprinting.exemptedDomains", "*.example.invalid");
 
-// If privacy.resistFingerprintingLite is enabled, this pref can be used to add
+// If privacy.fingerprintingProtection is enabled, this pref can be used to add
 // or remove features from its effects
-pref("privacy.resistFingerprintingLite.overrides", "");
+pref("privacy.fingerprintingProtection.overrides", "");
 
 // Fix cookie blocking breakage by providing ephemeral Paritioned LocalStorage
 // for a list of hosts when detected as trackers.
@@ -3478,6 +3478,8 @@ pref("network.trr.confirmationNS", "example.com");
 // Comma separated list of domains that we should not use TRR for
 pref("network.trr.excluded-domains", "");
 pref("network.trr.builtin-excluded-domains", "localhost,local");
+// Whether the checkbox to display a fallback warning error page is visible in about:preferences#privacy
+pref("network.trr_ui.show_fallback_warning_option", false);
 
 pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/canonical.html");
 pref("captivedetect.canonicalContent", "<meta http-equiv=\"refresh\" content=\"0;url=https://support.mozilla.org/kb/captive-portal\"/>");

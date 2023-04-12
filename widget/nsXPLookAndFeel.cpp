@@ -183,6 +183,7 @@ static const char sIntPrefs[][45] = {
     "ui.prefersReducedMotion",
     "ui.prefersTextSizeId",
     "ui.prefersReducedTransparency",
+    "ui.invertedColors",
     "ui.primaryPointerCapabilities",
     "ui.allPointerCapabilities",
     "ui.systemScrollbarSize",

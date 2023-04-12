@@ -451,6 +451,14 @@ export class MigrationWizard extends HTMLElement {
         this.#browserProfileSelectorList.firstElementChild
       );
     }
+
+    // Since this is called before the named-deck actually switches to
+    // show the selection page, we cannot focus this button immediately.
+    // Instead, we use a rAF to queue this up for focusing before the
+    // next paint.
+    requestAnimationFrame(() => {
+      this.#browserProfileSelector.focus({ focusVisible: false });
+    });
   }
 
   /**
@@ -545,6 +553,16 @@ export class MigrationWizard extends HTMLElement {
     let cancelButton = progressPage.querySelector(".cancel-close");
     doneButton.hidden = !migrationDone;
     cancelButton.hidden = migrationDone;
+
+    if (migrationDone) {
+      // Since this might be called before the named-deck actually switches to
+      // show the progress page, we cannot focus this button immediately.
+      // Instead, we use a rAF to queue this up for focusing before the
+      // next paint.
+      requestAnimationFrame(() => {
+        doneButton.focus({ focusVisible: false });
+      });
+    }
   }
 
   /**

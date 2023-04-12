@@ -340,6 +340,13 @@ StylePrefersTextSize Gecko_MediaFeatures_PrefersTextSize(
   }
 }
 
+bool Gecko_MediaFeatures_InvertedColors(const Document* aDocument) {
+  if (aDocument->ShouldResistFingerprinting()) {
+    return false;
+  }
+  return LookAndFeel::GetInt(LookAndFeel::IntID::InvertedColors, 0) == 1;
+}
+
 StyleScripting Gecko_MediaFeatures_Scripting(const Document* aDocument) {
   const auto* doc = aDocument;
   if (aDocument->IsStaticDocument()) {

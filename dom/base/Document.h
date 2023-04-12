@@ -1470,7 +1470,7 @@ class Document : public nsINode,
    * changed to true, -1 if it was changed to false.
    */
   void ChangeContentEditableCount(Element*, int32_t aChange);
-  void DeferredContentEditableCountChange(Element*);
+  MOZ_CAN_RUN_SCRIPT void DeferredContentEditableCountChange(Element*);
 
   enum class EditingState : int8_t {
     eTearingDown = -2,
@@ -3406,7 +3406,16 @@ class Document : public nsINode,
   // they could want the IncludeChromeOnly::Yes version.
   nsIContent* GetUnretargetedFocusedContent(
       IncludeChromeOnly = IncludeChromeOnly::No) const;
+  /**
+   * Return true if this document or a subdocument has focus.
+   */
   bool HasFocus(ErrorResult& rv) const;
+
+  /**
+   * Return true if this document itself has focus.
+   */
+  bool ThisDocumentHasFocus() const;
+
   void GetDesignMode(nsAString& aDesignMode);
   void SetDesignMode(const nsAString& aDesignMode,
                      nsIPrincipal& aSubjectPrincipal, mozilla::ErrorResult& rv);
@@ -3680,6 +3689,7 @@ class Document : public nsINode,
   FontFaceSet* GetFonts() { return mFontFaceSet; }
 
   // FontFaceSource
+  FontFaceSet* GetFonts(ErrorResult&) { return Fonts(); }
   FontFaceSet* Fonts();
 
   bool DidFireDOMContentLoaded() const { return mDidFireDOMContentLoaded; }
@@ -3874,6 +3884,8 @@ class Document : public nsINode,
   bool ShouldNotifyFormOrPasswordRemoved() const {
     return mShouldNotifyFormOrPasswordRemoved;
   }
+
+  HTMLEditor* GetHTMLEditor() const;
 
   /**
    * Localization

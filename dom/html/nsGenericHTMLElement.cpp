@@ -2785,10 +2785,15 @@ bool nsGenericHTMLFormControlElementWithState::ParseAttribute(
     int32_t aNamespaceID, nsAtom* aAttribute, const nsAString& aValue,
     nsIPrincipal* aMaybeScriptedPrincipal, nsAttrValue& aResult) {
   if (aNamespaceID == kNameSpaceID_None &&
-      aAttribute == nsGkAtoms::popovertargetaction &&
       StaticPrefs::dom_element_popover_enabled()) {
-    return aResult.ParseEnumValue(aValue, kPopoverTargetActionTable, false,
-                                  kPopoverTargetActionDefault);
+    if (aAttribute == nsGkAtoms::popovertargetaction) {
+      return aResult.ParseEnumValue(aValue, kPopoverTargetActionTable, false,
+                                    kPopoverTargetActionDefault);
+    }
+    if (aAttribute == nsGkAtoms::popovertarget) {
+      aResult.ParseAtom(aValue);
+      return true;
+    }
   }
 
   return nsGenericHTMLFormControlElement::ParseAttribute(
@@ -2803,6 +2808,31 @@ nsGenericHTMLFormControlElementWithState::GetPopoverTargetElement() const {
 void nsGenericHTMLFormControlElementWithState::SetPopoverTargetElement(
     mozilla::dom::Element* aElement) {
   ExplicitlySetAttrElement(nsGkAtoms::popovertarget, aElement);
+}
+
+void nsGenericHTMLFormControlElementWithState::HandlePopoverTargetAction() {
+  RefPtr<nsGenericHTMLElement> target = GetEffectivePopoverTargetElement();
+  if (!target) {
+    return;
+  }
+
+  const nsAttrValue* value = GetParsedAttr(nsGkAtoms::popovertargetaction);
+  if (!value) {
+    return;
+  }
+
+  auto action = static_cast<PopoverTargetAction>(value->GetEnumValue());
+  bool canHide = action == PopoverTargetAction::Hide ||
+                 action == PopoverTargetAction::Toggle;
+  bool canShow = action == PopoverTargetAction::Show ||
+                 action == PopoverTargetAction::Toggle;
+
+  if (canHide && target->IsPopoverOpen()) {
+    target->HidePopover(IgnoreErrors());
+  } else if (canShow && !target->IsPopoverOpen()) {
+    // TODO: Set popover's popover invoker to node once invoker API is in.
+    target->ShowPopover(IgnoreErrors());
+  }
 }
 
 void nsGenericHTMLFormControlElementWithState::GenerateStateKey() {

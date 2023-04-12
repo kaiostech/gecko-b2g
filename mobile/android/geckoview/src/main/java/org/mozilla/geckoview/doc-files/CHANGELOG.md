@@ -13,6 +13,11 @@ exclude: true
 
 ⚠️  breaking change and deprecation notices
 
+## v114
+- Add [`SessionPdfFileSaver.createResponse`][114.1] to response of saving PDF.
+
+[114.1]: {{javadoc_uri}}/SessionPdfFileSaver.html#createResponse(byte[], String, String)
+
 ## v113
 - Add `DisplayMdoe` annotation to [`displayMode`][113.1], [`getDisplayMode`][113.2] and [`setDisplayMode`][113.3].
   ([bug 1820567]({{bugzilla}}1820567))
@@ -20,7 +25,7 @@ exclude: true
   ([bug 1820567]({{bugzilla}}1820567))
 - Add `ViewportMode` annotation to [`viewportMode`][113.7], [`getViewportMode`][113.8] and [`setViewportMode`][113.9].
   ([bug 1820567]({{bugzilla}}1820567))
-- Add [`WebExtensionController.AddonManagerDelegate`][113.10] ([bug 1822763]({{bugzilla}}1822763))
+- Add [`WebExtensionController.AddonManagerDelegate`][113.10] ([bug 1822763]({{bugzilla}}1822763), [bug 1826739]({{bugzilla}}1826739))
 
 [113.1]: {{javadoc_uri}}/GeckoSessionSettings.Builder.html#displayMode(int)
 [113.2]: {{javadoc_uri}}/GeckoSessionSettings.html#getDisplayMode()
@@ -1346,4 +1351,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport(android.content.Context,android.os.Bundle,java.lang.String)
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: 04715b0dddf7887089933ed90637737e336fe190
+[api-version]: b732806c6323be058e5a1933cb66a93a0097a3fa

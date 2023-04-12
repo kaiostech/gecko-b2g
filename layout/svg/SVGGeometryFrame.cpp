@@ -132,7 +132,7 @@ void SVGGeometryFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     if (!IsVisibleForPainting()) {
       return;
     }
-    if (StyleEffects()->mOpacity == 0.0f) {
+    if (StyleEffects()->IsTransparent()) {
       return;
     }
     const auto* styleSVG = StyleSVG();
@@ -154,8 +154,7 @@ void SVGGeometryFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 
 void SVGGeometryFrame::PaintSVG(gfxContext& aContext,
                                 const gfxMatrix& aTransform,
-                                imgDrawingParams& aImgParams,
-                                const nsIntRect* aDirtyRect) {
+                                imgDrawingParams& aImgParams) {
   if (!StyleVisibility()->IsVisible()) {
     return;
   }
@@ -737,7 +736,7 @@ bool SVGGeometryFrame::CreateWebRenderCommands(
     return false;
   }
 
-  if (StyleEffects()->mMixBlendMode != StyleBlend::Normal) {
+  if (StyleEffects()->HasMixBlendMode()) {
     // FIXME: not implemented
     return false;
   }

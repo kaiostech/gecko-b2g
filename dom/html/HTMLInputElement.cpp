@@ -3728,8 +3728,10 @@ nsresult HTMLInputElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
 #ifdef ACCESSIBILITY
       // Fire an event to notify accessibility
       if (mType == FormControlType::InputCheckbox) {
-        FireEventForAccessibility(this, eFormCheckboxStateChange);
-      } else {
+        if (nsContentUtils::MayHaveFormCheckboxStateChangeListeners()) {
+          FireEventForAccessibility(this, eFormCheckboxStateChange);
+        }
+      } else if (nsContentUtils::MayHaveFormRadioStateChangeListeners()) {
         FireEventForAccessibility(this, eFormRadioStateChange);
         // Fire event for the previous selected radio.
         nsCOMPtr<nsIContent> content = do_QueryInterface(aVisitor.mItemData);
@@ -5316,8 +5318,8 @@ bool HTMLInputElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
     }
   }
 
-  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
-                                              aMaybeScriptedPrincipal, aResult);
+  return TextControlElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
+                                            aMaybeScriptedPrincipal, aResult);
 }
 
 void HTMLInputElement::ImageInputMapAttributesIntoRule(

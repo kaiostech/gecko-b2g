@@ -294,19 +294,12 @@ bool TRRService::MaybeSetPrivateURI(const nsACString& aURI) {
       clearCache = true;
     }
 
-    nsCOMPtr<nsIURI> url;
-    nsresult rv = NS_MutateURI(NS_STANDARDURLMUTATOR_CONTRACTID)
-                      .Apply(&nsIStandardURLMutator::Init,
-                             nsIStandardURL::URLTYPE_STANDARD, 443, newURI,
-                             nullptr, nullptr, nullptr)
-                      .Finalize(url);
-    if (NS_FAILED(rv)) {
-      LOG(("TRRService::MaybeSetPrivateURI failed to create URI!\n"));
-      return false;
-    }
-
     nsAutoCString host;
-    url->GetHost(host);
+
+    nsCOMPtr<nsIURI> url;
+    if (NS_SUCCEEDED(NS_NewURI(getter_AddRefs(url), newURI))) {
+      url->GetHost(host);
+    }
 
     SetProviderDomain(host);
 
@@ -661,13 +654,34 @@ void TRRService::ConfirmationContext::SetState(
     enum ConfirmationState aNewState) {
   mState = aNewState;
 
-  if (mState == CONFIRM_FAILED) {
-    NS_DispatchToMainThread(
-        NS_NewRunnableFunction("TRRService::ConfirmationContextRetry", [] {
+  enum ConfirmationState state = mState;
+  if (XRE_IsParentProcess()) {
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        "TRRService::ConfirmationContextNotify", [state] {
           if (nsCOMPtr<nsIObserverService> obs =
                   mozilla::services::GetObserverService()) {
-            obs->NotifyObservers(nullptr, "trrservice-confirmation-failed",
-                                 nullptr);
+            auto stateString =
+                [](enum ConfirmationState aState) -> const char16_t* {
+              switch (aState) {
+                case CONFIRM_OFF:
+                  return u"CONFIRM_OFF";
+                case CONFIRM_TRYING_OK:
+                  return u"CONFIRM_TRYING_OK";
+                case CONFIRM_OK:
+                  return u"CONFIRM_OK";
+                case CONFIRM_FAILED:
+                  return u"CONFIRM_FAILED";
+                case CONFIRM_TRYING_FAILED:
+                  return u"CONFIRM_TRYING_FAILED";
+                case CONFIRM_DISABLED:
+                  return u"CONFIRM_DISABLED";
+              }
+              MOZ_ASSERT_UNREACHABLE();
+              return u"";
+            };
+
+            obs->NotifyObservers(nullptr, "network:trr-confirmation",
+                                 stateString(state));
           }
         }));
   }
@@ -1110,22 +1124,31 @@ void TRRService::RetryTRRConfirm() {
   }
 }
 
-void TRRService::RecordTRRStatus(nsresult aChannelStatus) {
+void TRRService::RecordTRRStatus(TRR* aTrrRequest) {
   MOZ_ASSERT_IF(XRE_IsParentProcess(), NS_IsMainThread() || IsOnTRRThread());
   MOZ_ASSERT_IF(XRE_IsSocketProcess(), NS_IsMainThread());
 
+  nsresult channelStatus = aTrrRequest->ChannelStatus();
+
   Telemetry::AccumulateCategoricalKeyed(
-      ProviderKey(), NS_SUCCEEDED(aChannelStatus)
+      ProviderKey(), NS_SUCCEEDED(channelStatus)
                          ? Telemetry::LABELS_DNS_TRR_SUCCESS3::Fine
-                         : (aChannelStatus == NS_ERROR_NET_TIMEOUT_EXTERNAL
+                         : (channelStatus == NS_ERROR_NET_TIMEOUT_EXTERNAL
                                 ? Telemetry::LABELS_DNS_TRR_SUCCESS3::Timeout
                                 : Telemetry::LABELS_DNS_TRR_SUCCESS3::Bad));
 
-  mConfirmation.RecordTRRStatus(aChannelStatus);
+  mConfirmation.RecordTRRStatus(aTrrRequest);
 }
 
-void TRRService::ConfirmationContext::RecordTRRStatus(nsresult aChannelStatus) {
-  if (NS_SUCCEEDED(aChannelStatus)) {
+void TRRService::ConfirmationContext::RecordTRRStatus(TRR* aTrrRequest) {
+  nsresult channelStatus = aTrrRequest->ChannelStatus();
+
+  if (OwningObject()->Mode() == nsIDNSService::MODE_TRRONLY) {
+    mLastConfirmationSkipReason = aTrrRequest->SkipReason();
+    mLastConfirmationStatus = channelStatus;
+  }
+
+  if (NS_SUCCEEDED(channelStatus)) {
     LOG(("TRRService::RecordTRRStatus channel success"));
     mTRRFailures = 0;
     return;
@@ -1150,7 +1173,7 @@ void TRRService::ConfirmationContext::RecordTRRStatus(nsresult aChannelStatus) {
   }
 
   mFailureReasons[mTRRFailures % ConfirmationContext::RESULTS_SIZE] =
-      StatusToChar(NS_OK, aChannelStatus);
+      StatusToChar(NS_OK, channelStatus);
   uint32_t fails = ++mTRRFailures;
   LOG(("TRRService::RecordTRRStatus fails=%u", fails));
 
@@ -1265,6 +1288,8 @@ void TRRService::ConfirmationContext::CompleteConfirmation(nsresult aStatus,
     }
 
     RequestCompleted(aStatus, aTRRRequest->ChannelStatus());
+    mLastConfirmationSkipReason = aTRRRequest->SkipReason();
+    mLastConfirmationStatus = aTRRRequest->ChannelStatus();
 
     MOZ_ASSERT(mTask);
     if (NS_SUCCEEDED(aStatus)) {

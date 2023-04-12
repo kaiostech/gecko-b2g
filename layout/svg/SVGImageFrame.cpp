@@ -310,8 +310,7 @@ bool SVGImageFrame::TransformContextForPainting(gfxContext* aGfxContext,
 // ISVGDisplayableFrame methods
 
 void SVGImageFrame::PaintSVG(gfxContext& aContext, const gfxMatrix& aTransform,
-                             imgDrawingParams& aImgParams,
-                             const nsIntRect* aDirtyRect) {
+                             imgDrawingParams& aImgParams) {
   if (!StyleVisibility()->IsVisible()) {
     return;
   }
@@ -356,43 +355,13 @@ void SVGImageFrame::PaintSVG(gfxContext& aContext, const gfxMatrix& aTransform,
       opacity = StyleEffects()->mOpacity;
     }
 
-    if (opacity != 1.0f ||
-        StyleEffects()->mMixBlendMode != StyleBlend::Normal) {
-      aContext.PushGroupForBlendBack(gfxContentType::COLOR_ALPHA, opacity);
+    gfxGroupForBlendAutoSaveRestore autoGroupForBlend(&aContext);
+    if (opacity != 1.0f || StyleEffects()->HasMixBlendMode()) {
+      autoGroupForBlend.PushGroupForBlendBack(gfxContentType::COLOR_ALPHA,
+                                              opacity);
     }
 
     nscoord appUnitsPerDevPx = PresContext()->AppUnitsPerDevPixel();
-    nsRect dirtyRect;  // only used if aDirtyRect is non-null
-    if (aDirtyRect) {
-      NS_ASSERTION(HasAnyStateBits(NS_FRAME_IS_NONDISPLAY),
-                   "Display lists handle dirty rect intersection test");
-      dirtyRect = ToAppUnits(*aDirtyRect, appUnitsPerDevPx);
-
-      // dirtyRect is relative to the outer <svg>, we should transform it
-      // down to <image>.
-      Rect dir(dirtyRect.x, dirtyRect.y, dirtyRect.width, dirtyRect.height);
-      dir.Scale(1.f / AppUnitsPerCSSPixel());
-
-      // FIXME: This isn't correct if there is an inner <svg> enclosing
-      // the <image>. But that seems to be a quite obscure usecase, we can
-      // add a dedicated utility for that purpose to replace the GetCTM
-      // here if necessary.
-      auto mat = SVGContentUtils::GetCTM(imgElem, false);
-      if (mat.IsSingular()) {
-        return;
-      }
-
-      mat.Invert();
-      dir = mat.TransformRect(dir);
-
-      // x, y offset of <image> is not included in CTM.
-      dir.MoveBy(-x, -y);
-
-      dir.Scale(AppUnitsPerCSSPixel());
-      dir.Round();
-      dirtyRect = nsRect(dir.x, dir.y, dir.width, dir.height);
-    }
-
     uint32_t flags = aImgParams.imageFlags;
     if (mForceSyncDecoding) {
       flags |= imgIContainer::FLAG_SYNC_DECODE;
@@ -420,19 +389,15 @@ void SVGImageFrame::PaintSVG(gfxContext& aContext, const gfxMatrix& aTransform,
       // and that's not always true for TYPE_VECTOR images.
       aImgParams.result &= nsLayoutUtils::DrawSingleImage(
           aContext, PresContext(), mImageContainer,
-          nsLayoutUtils::GetSamplingFilterForFrame(this), destRect,
-          aDirtyRect ? dirtyRect : destRect, context, flags);
+          nsLayoutUtils::GetSamplingFilterForFrame(this), destRect, destRect,
+          context, flags);
     } else {  // mImageContainer->GetType() == TYPE_RASTER
       aImgParams.result &= nsLayoutUtils::DrawSingleUnscaledImage(
           aContext, PresContext(), mImageContainer,
           nsLayoutUtils::GetSamplingFilterForFrame(this), nsPoint(0, 0),
-          aDirtyRect ? &dirtyRect : nullptr, SVGImageContext(), flags);
+          nullptr, SVGImageContext(), flags);
     }
 
-    if (opacity != 1.0f ||
-        StyleEffects()->mMixBlendMode != StyleBlend::Normal) {
-      aContext.PopGroupAndBlend();
-    }
     // gfxContextAutoSaveRestore goes out of scope & cleans up our gfxContext
   }
 }
@@ -447,7 +412,7 @@ void SVGImageFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     if (!IsVisibleForPainting()) {
       return;
     }
-    if (StyleEffects()->mOpacity == 0.0f) {
+    if (StyleEffects()->IsTransparent()) {
       return;
     }
     aBuilder->BuildCompositorHitTestInfoIfNeeded(this,
@@ -478,7 +443,7 @@ bool SVGImageFrame::CreateWebRenderCommands(
     // FIXME: not implemented, might be trivial
     return false;
   }
-  if (StyleEffects()->mMixBlendMode != StyleBlend::Normal) {
+  if (StyleEffects()->HasMixBlendMode()) {
     // FIXME: not implemented
     return false;
   }

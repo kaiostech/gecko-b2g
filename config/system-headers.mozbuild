@@ -1249,6 +1249,7 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'utils/RefBase.h',
         'utils/String16.h',
         'utils/String8.h',
+        'utils/StrongPointer.h',
         'utils/TextOutput.h',
         'utils/threads.h',
         'utils/Timers.h',

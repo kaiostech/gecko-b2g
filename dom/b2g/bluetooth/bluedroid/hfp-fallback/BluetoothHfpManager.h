@@ -35,6 +35,8 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase {
   // Handle unexpected backend crash
   void HandleBackendError();
 
+  int GetDeviceBatteryLevel() const { return mDeviceBatteryLevel; }
+
  protected:
   virtual ~BluetoothHfpManager() {}
 
@@ -43,6 +45,7 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase {
   bool Init();
   void HandleShutdown();
 
+  int mDeviceBatteryLevel = -1;
   static bool sInShutdown;
 };
 

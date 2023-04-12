@@ -135,9 +135,15 @@ else
     export DISABLE_OEMHOOK=1
 fi
 
+if [ "$PLATFORM_VERSION" == "30" ]; then
+  SYSROOT_SCRIPT=taskcluster/scripts/misc/create-b2g-sysroot-aosp11.sh
+else
+  SYSROOT_SCRIPT=taskcluster/scripts/misc/create-b2g-sysroot.sh
+fi
+
 if [ -z ${B2G_STANDALONE_BUILD+x} ]; then
   rm -rf "${SYSROOT_DEST}/b2g-sysroot"
-  taskcluster/scripts/misc/create-b2g-sysroot.sh "${GONK_PATH}" "${SYSROOT_DEST}"
+  $SYSROOT_SCRIPT "${GONK_PATH}" "${SYSROOT_DEST}"
 fi
 
 rustc --version

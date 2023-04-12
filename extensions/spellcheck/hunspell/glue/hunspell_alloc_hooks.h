@@ -46,6 +46,9 @@
 
 #include "mozHunspellAllocator.h"
 
+// FIXME
+using namespace std;
+
 // Ensure that malloc is imported before we set our malloc-counting hooks below.
 // Otherwise, if malloc is imported afterwards, its source will be trampled
 // over by the "#define"s.

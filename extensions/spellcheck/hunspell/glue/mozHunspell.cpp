@@ -433,8 +433,9 @@ nsresult mozHunspell::DictionaryData::LoadIfNecessary() {
 NS_IMETHODIMP
 mozHunspell::CollectReports(nsIHandleReportCallback* aHandleReport,
                             nsISupports* aData, bool aAnonymize) {
+  // FIXME: HunspellAllocator -> std::HunspellAllocator
   MOZ_COLLECT_REPORT("explicit/spell-check", KIND_HEAP, UNITS_BYTES,
-                     HunspellAllocator::MemoryAllocated(),
+                     std::HunspellAllocator::MemoryAllocated(),
                      "Memory used by the spell-checking engine.");
 
   return NS_OK;

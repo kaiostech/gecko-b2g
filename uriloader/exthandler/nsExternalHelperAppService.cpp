@@ -191,6 +191,7 @@ static nsresult UnescapeFragment(const nsACString& aFragment, nsIURI* aURI,
   return rv;
 }
 
+#if defined(MOZ_WIDGET_GONK)
 static nsresult GetGonkDownloadDirectory(nsIFile** _directory,
                                      bool aSkipChecks = false) {
   nsCOMPtr<nsIFile> dir;
@@ -243,6 +244,7 @@ static nsresult GetGonkDownloadDirectory(nsIFile** _directory,
   dir.forget(_directory);
   return NS_OK;
 }
+#endif
 
 /**
  * Obtains the directory to use.  This tends to vary per platform, and

@@ -25,7 +25,7 @@
 #include <hardware/power.h>
 #include <suspend/autosuspend.h>
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 #include <android/hardware/power/Mode.h>
 #include "binder/IServiceManager.h"
 #endif
@@ -216,7 +216,7 @@ GonkDisplayP::GonkDisplayP()
   ALOGI("created native window\n");
   native_gralloc_initialize(1);
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   mPower = android::waitForVintfService<IPower>();
 #else
   mPower = IPower::getService();
@@ -350,7 +350,7 @@ void GonkDisplayP::SetEnabled(bool enabled) {
     if (!mExtFBEnabled) {
       autosuspend_disable();
       if (mPower) {
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
         ALOGI("Power change: display enabled=%d", enabled);
         mPower->setMode(power::Mode::INTERACTIVE, true);
         mPower->setMode(power::Mode::DISPLAY_INACTIVE, false);
@@ -388,7 +388,7 @@ void GonkDisplayP::SetEnabled(bool enabled) {
 
       autosuspend_enable();
       if (mPower) {
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
         ALOGI("Power change: display enabled=%d", enabled);
         mPower->setMode(power::Mode::INTERACTIVE, false);
         mPower->setMode(power::Mode::DISPLAY_INACTIVE, true);
@@ -418,7 +418,7 @@ void GonkDisplayP::SetExtEnabled(bool enabled) {
     if (!mFBEnabled) {
       autosuspend_disable();
       if (mPower) {
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
         mPower->setMode(power::Mode::INTERACTIVE, true);
         mPower->setMode(power::Mode::DISPLAY_INACTIVE, false);
 #else
@@ -446,7 +446,7 @@ void GonkDisplayP::SetExtEnabled(bool enabled) {
 
       autosuspend_enable();
       if (mPower) {
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
         mPower->setMode(power::Mode::INTERACTIVE, false);
         mPower->setMode(power::Mode::DISPLAY_INACTIVE, true);
 #else

@@ -94,7 +94,7 @@ android::binder::Status VoldListener::onDiskDestroyed(
   return android::binder::Status::ok();
 }
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 android::binder::Status VoldListener::onVolumeCreated(
     const ::std::string& volId, int32_t type, const ::std::string& diskId,
     const ::std::string& partGuid, int32_t userId) {
@@ -300,7 +300,7 @@ bool VoldProxy::OnSecureKeyguardStateChanged(bool aEnabled) {
 
 bool VoldProxy::Mount(const ::std::string& volId, int32_t mountFlag,
                       int32_t mountUserId) {
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   IMPL_VOLD_FUNCTION(mount, volId, mountFlag, mountUserId, 0);
 #else
   IMPL_VOLD_FUNCTION(mount, volId, mountFlag, mountUserId);

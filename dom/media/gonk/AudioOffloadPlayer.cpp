@@ -178,7 +178,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
 
   mAudioSessionId = static_cast<audio_session_t>(
       AudioSystem::newAudioUniqueId(AUDIO_UNIQUE_ID_USE_SESSION));
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   AudioSystem::acquireAudioSessionId(mAudioSessionId, -1, 0);
 #else
   AudioSystem::acquireAudioSessionId(mAudioSessionId, -1);

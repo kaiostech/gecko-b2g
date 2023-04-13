@@ -4,24 +4,6 @@ set -e
 
 export RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-stable}
 
-# Check that the GONK_PATH environment variable is set.
-if [ -z ${GONK_PATH+x} ];
-then
-    echo "Please set GONK_PATH to the root of your Gonk directory first.";
-    exit 1;
-else
-    echo "Using '$GONK_PATH'";
-fi
-
-# Check that the GONK_PRODUCT_NAME environment variable is set.
-if [ -z ${GONK_PRODUCT_NAME+x} ];
-then
-    echo "Please set GONK_PRODUCT_NAME to the name of the device (look at $GONK_PATH/out/target/product).";
-    exit 1;
-else
-    echo "Product is '$GONK_PRODUCT_NAME'";
-fi
-
 if [ -z ${GECKO_OBJDIR+x} ]; then
     echo "Using default objdir"
 else
@@ -110,9 +92,7 @@ esac
 TARGET_TRIPLE=${TARGET_TRIPLE:-$TARGET_ARCH-linux-$ARCH_ABI}
 export TARGET_TRIPLE
 
-export CROSS_TOOLCHAIN_LINKER_PATH=${CROSS_TOOLCHAIN_LINKER_PATH=:-$GONK_PATH/prebuilts/gcc/linux-x86/$ARCH_NAME/$TARGET_TRIPLE-$TARGET_GCC_VERSION/$TARGET_TRIPLE/bin}
-
-export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$CLANG_PATH:$PYTHON_PATH:$CROSS_TOOLCHAIN_LINKER_PATH:$PATH
+export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$CLANG_PATH:$PYTHON_PATH:$PATH
 
 export GONK_PRODUCT=$GONK_PRODUCT_NAME
 
@@ -136,14 +116,36 @@ else
 fi
 
 if [ "$PLATFORM_VERSION" == "30" ]; then
+  # FIXME: bug 134833 - disable lto to make build happy.
+  export MOZ_DISABLE_LTO=1
   SYSROOT_SCRIPT=taskcluster/scripts/misc/create-b2g-sysroot-aosp11.sh
 else
   SYSROOT_SCRIPT=taskcluster/scripts/misc/create-b2g-sysroot.sh
 fi
 
 if [ -z ${B2G_STANDALONE_BUILD+x} ]; then
+  export B2G_SYSROOT=${SYSROOT_DEST}/b2g-sysroot
+  # Check that the GONK_PATH environment variable is set.
+  if [ -z ${GONK_PATH+x} ];
+  then
+      echo "Please set GONK_PATH to the root of your Gonk directory first.";
+      exit 1;
+  else
+      echo "Using '$GONK_PATH'";
+  fi
+  # Check that the GONK_PRODUCT_NAME environment variable is set.
+  if [ -z ${GONK_PRODUCT_NAME+x} ];
+  then
+      echo "Please set GONK_PRODUCT_NAME to the name of the device (look at $GONK_PATH/out/target/product).";
+      exit 1;
+  else
+      echo "Product is '$GONK_PRODUCT_NAME'";
+  fi
   rm -rf "${SYSROOT_DEST}/b2g-sysroot"
   $SYSROOT_SCRIPT "${GONK_PATH}" "${SYSROOT_DEST}"
+else
+  # Standalone build use B2G_SYSROOT to pass the sysroot path from external.
+  export B2G_SYSROOT=${B2G_SYSROOT}
 fi
 
 rustc --version

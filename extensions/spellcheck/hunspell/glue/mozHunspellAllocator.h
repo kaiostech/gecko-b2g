@@ -9,7 +9,6 @@
 
 #include "mozilla/CountingAllocatorBase.h"
 
-// FIXME
 namespace std {
 
 class HunspellAllocator

@@ -161,7 +161,7 @@ class IAudioFlinger : public IInterface {
 
   virtual audio_unique_id_t newAudioUniqueId(audio_unique_id_use_t use) = 0;
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   virtual void acquireAudioSessionId(audio_session_t audioSession,
                                      pid_t pid, uid_t uid) = 0;
 #else

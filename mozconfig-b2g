@@ -21,10 +21,6 @@ fi
 # Disable a bunch of non critical stuff
 ac_add_options --disable-printing
 ac_add_options --disable-updater
-
-# temporarily disable for aosp 11
-# ac_add_options --disable-cranelift
-
 # Disable telemetry
 ac_add_options MOZ_TELEMETRY_REPORTING=
 
@@ -47,14 +43,14 @@ ac_add_options --with-android-ndk=$ANDROID_NDK
 ac_add_options --with-android-version=$PLATFORM_VERSION
 
 # Use sccache
-# ac_add_options --with-ccache=sccache
+ac_add_options --with-ccache=sccache
 
 # Auto-clobber
 mk_add_options AUTOCLOBBER=1
 
 # Gonk-specific stuff
 ac_add_options --with-gonk-gfx
-ac_add_options --with-gonk="$(realpath $GECKO_OBJDIR/b2g-sysroot)"
+ac_add_options --with-gonk="$B2G_SYSROOT"
 
 # Customize the objdir.
 if [ -f "$GECKO_OBJDIR" ]; then
@@ -95,15 +91,19 @@ if [ "$TARGET_BUILD_VARIANT" != "user" ] ; then
   ac_add_options --enable-profiling
 fi
 
-#ac_add_options --enable-b2g-camera
-ac_add_options --enable-forkserver
+# Disable these modules for aosp 11 build.
+# Follow up bug 134834, 134835, 134836, 134837
+if [ "$PLATFORM_VERSION" != "30" ]; then
+ac_add_options --enable-b2g-camera
+ac_add_options --enable-b2g-ims
+ac_add_options --enable-b2g-fm
+ac_add_options --enable-b2g-mediadrm
+fi
 
+ac_add_options --enable-forkserver
 ac_add_options --enable-b2g-ril
-#ac_add_options --enable-b2g-ims
-#ac_add_options --enable-b2g-fm
 ac_add_options --enable-b2g-voice-processing
 ac_add_options --enable-b2g-bt
-ac_add_options --enable-b2g-mediadrm
 
 if [ "$IME_ENGINE" = "touchpal" ]; then
   ac_add_options --enable-touchpal

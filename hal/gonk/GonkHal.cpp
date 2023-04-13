@@ -41,7 +41,7 @@
 #include "hardware/lights.h"
 #include "hardware_legacy/uevent.h"
 #include "android/hardware/vibrator/1.0/IVibrator.h"
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 #include "android/hardware/vibrator/IVibrator.h"
 #endif
 #include "libdisplay/GonkDisplay.h"
@@ -129,7 +129,7 @@ using namespace mozilla;
 using namespace mozilla::hal;
 using namespace mozilla::dom;
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 namespace Aidl = ::android::hardware::vibrator;
 #endif
 
@@ -195,13 +195,13 @@ class HalVibrator {
       // Get a handle to the HIDL vibrator service.
       hidl = android::hardware::vibrator::V1_0::IVibrator::getService();
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
       // If we can't get the HIDL vibrator service, try the AIDL service.
       if (!hidl) {
         aidl = android::waitForVintfService<Aidl::IVibrator>();
       }
 
-      if (!hidl && aidl) {
+      if (!hidl && !aidl) {
         printf_stderr("Failed to run vibration pattern: vibrator == nullptr");
       }
 #endif
@@ -211,7 +211,7 @@ class HalVibrator {
       if (hidl) {
         hidl->off();
       }
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
      else if (aidl) {
         aidl->off();
       }
@@ -222,7 +222,7 @@ class HalVibrator {
       if (hidl) {
         hidl->on(ms);
       }
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
       else if (aidl) {
         aidl->on(ms, nullptr);
       }
@@ -230,7 +230,7 @@ class HalVibrator {
     }
 
   private:
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
     android::sp<Aidl::IVibrator> aidl = nullptr;
 #endif
     android::sp<android::hardware::vibrator::V1_0::IVibrator> hidl = nullptr;
@@ -1318,7 +1318,7 @@ class FlashlightListener : public BnCameraServiceListener {
     return Status::ok();
   }
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   Status onPhysicalCameraStatusChanged (int32_t status, const ::android::String16& cameraId, const ::android::String16& physicalCameraId) override {
    // do nothing
    return Status::ok();

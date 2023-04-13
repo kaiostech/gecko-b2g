@@ -283,7 +283,7 @@ void AudioManager::HandleAudioFlingerDied() {
   SetAllDeviceConnectionStates();
 
   // Restore call state
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   AudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState), 0);
 #else
   AudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState));
@@ -787,7 +787,7 @@ AudioManager::AudioManager()
 
 void AudioManager::Init() {
   // Register AudioSystem callbacks.
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   AudioSystem::addErrorCallback(BinderDeadCallback);
 #else
   AudioSystem::setErrorCallback(BinderDeadCallback);
@@ -896,7 +896,7 @@ void AudioManager::Init() {
 AudioManager::~AudioManager() {
   MOZ_ASSERT(!sAudioManager);
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   AudioSystem::addErrorCallback(nullptr);
 #else
   AudioSystem::setErrorCallback(nullptr);
@@ -1017,7 +1017,7 @@ AudioManager::SetPhoneState(int32_t aState) {
                          IntToString<int32_t>(aState).get());
   }
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   if (AudioSystem::setPhoneState(static_cast<audio_mode_t>(aState), 0)) {
 #else
   if (AudioSystem::setPhoneState(static_cast<audio_mode_t>(aState))) {

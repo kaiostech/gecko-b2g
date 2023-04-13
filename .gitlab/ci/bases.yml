@@ -238,7 +238,7 @@ variables:
     - sccache -s
 
 .build_arm:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_9_0
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_10_0
   tags:
     - gecko-dev
   variables:
@@ -252,15 +252,45 @@ variables:
     SCCACHE_REDIS_DB: 3 # use DB #3 as sccache
     SCCACHE_CACHE_SIZE: 2G
     CARGO_NET_OFFLINE: 'true'
+    B2G_STANDALONE_BUILD: 1
   before_script:
     - *global_setup
     - *koost_setup
   script:
-    - rm -rf gonk-q && git clone ${CI_SERVER_URL}/KaiOS/dummy/gonk-q.git
-    - git -C gonk-q log -1
+    - rm -rf b2g-sysroot && git clone -b gonk_LF.UM.8.6.2 ${CI_SERVER_URL}/KaiOS/dummy/b2g-sysroot.git
+    - git -C b2g-sysroot log -1
     - export SCCACHE_REDIS=${SCCACHE_REDIS_BASEURL}/${SCCACHE_REDIS_DB}
     - sccache -z
-    - export GONK_PATH=${PWD}/gonk-q
+    - export B2G_SYSROOT=${PWD}/b2g-sysroot
     - export GECKO_OBJDIR=${PWD}/objdir-arm-gecko
+    - ./build-b2g.sh
+    - sccache -s
+
+.build_arm64:
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_10_0
+  tags:
+    - gecko-dev
+  variables:
+    PLATFORM_VERSION: 30
+    TARGET_ARCH: arm64
+    TARGET_ARCH_VARIANT: armv8-a
+    TARGET_CPU_VARIANT: cortex-a53
+    ANDROID_NDK: '~/.mozbuild/android-ndk-r21d'
+    PRODUCT_MANUFACTURER: QUALCOMM
+    SCCACHE_REDIS_DB: 3 # use DB #3 as sccache
+    SCCACHE_CACHE_SIZE: 2G
+    CARGO_NET_OFFLINE: 'true'
+    B2G_STANDALONE_BUILD: 1
+  before_script:
+    - *global_setup
+    - *koost_setup
+  script:
+    - rustup target add aarch64-linux-android
+    - rm -rf b2g-sysroot && git clone -b gonk_android-11.0.0_r46 ${CI_SERVER_URL}/KaiOS/dummy/b2g-sysroot.git
+    - git -C b2g-sysroot log -1
+    - export SCCACHE_REDIS=${SCCACHE_REDIS_BASEURL}/${SCCACHE_REDIS_DB}
+    - sccache -z
+    - export B2G_SYSROOT=${PWD}/b2g-sysroot
+    - export GECKO_OBJDIR=${PWD}/objdir-arm64-gecko
     - ./build-b2g.sh
     - sccache -s

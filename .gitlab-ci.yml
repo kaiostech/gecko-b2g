@@ -67,9 +67,15 @@ lint:yml:
   extends: .lint_yml
   stage: lint
 
-build:arm:
+build:arm:gonk-10:
   extends:
     - .build_arm
+    - .rules:unskippable
+  stage: build
+
+build:arm64:gonk-11:
+  extends:
+    - .build_arm64
     - .rules:unskippable
   stage: build
 
@@ -79,7 +85,7 @@ build:desktop:
     - .build:rules:delayed
   stage: build
 
-build:emulator:
+build:emulator:gonk-10:
   extends:
     - .build_emulator
     - .build:rules:delayed

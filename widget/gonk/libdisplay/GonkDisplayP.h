@@ -24,7 +24,11 @@
 #include "GonkDisplay.h"
 #include "hardware/hwcomposer.h"
 #include "hardware/power.h"
+#if ANDROID_VERSION == 30
+#include <android/hardware/power/IPower.h>
+#else
 #include <android/hardware/power/1.0/IPower.h>
+#endif
 #include "NativeFramebufferDevice.h"
 #include "NativeGralloc.h"
 #include "ui/Fence.h"
@@ -35,7 +39,11 @@ namespace mozilla {
 // ----------------------------------------------------------------------------
 
 using namespace android;
+#if ANDROID_VERSION == 30
+using ::android::hardware::power::IPower;
+#else
 using ::android::hardware::power::V1_0::IPower;
+#endif
 class MOZ_EXPORT GonkDisplayP : public GonkDisplay {
  public:
   GonkDisplayP();

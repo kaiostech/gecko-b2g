@@ -1488,6 +1488,10 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
             'android/hardware/gnss/2.0/IGnss.h',
             'android/hardware/gnss/visibility_control/1.0/IGnssVisibilityControl.h',
         ]
+    if CONFIG['ANDROID_VERSION'] == '30':
+        system_headers += [
+            'android/hardware/power/IPower.h',
+        ]
 
     if CONFIG['B2G_OEMHOOK']:
         system_headers += [

@@ -198,6 +198,7 @@ def Libxul(name, output_category=None):
             )
         if CONFIG["ANDROID_VERSION"] == "30":
             AOSPSharedObjects(
+                "android.hardware.power-V1-cpp",
                 "android.hardware.vibrator-V1-cpp",
             )
 

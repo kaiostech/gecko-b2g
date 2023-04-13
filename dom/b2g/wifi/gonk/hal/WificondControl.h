@@ -12,6 +12,8 @@
 #include "SoftapEventService.h"
 
 #include <android-base/macros.h>
+
+#if ANDROID_VERSION == 30
 #include <android/net/wifi/nl80211/IWificond.h>
 #include <android/net/wifi/nl80211/IWifiScannerImpl.h>
 
@@ -21,6 +23,19 @@ using ::android::net::wifi::nl80211::IWificond;
 using ::android::net::wifi::nl80211::IWifiScannerImpl;
 
 namespace Wificond = ::android::net::wifi::nl80211;
+
+#else
+
+#include <android/net/wifi/IWificond.h>
+#include <android/net/wifi/IWifiScannerImpl.h>
+
+using ::android::net::wifi::IApInterface;
+using ::android::net::wifi::IClientInterface;
+using ::android::net::wifi::IWificond;
+using ::android::net::wifi::IWifiScannerImpl;
+
+namespace Wificond = ::com::android::server::wifi::wificond;
+#endif
 
 BEGIN_WIFI_NAMESPACE
 

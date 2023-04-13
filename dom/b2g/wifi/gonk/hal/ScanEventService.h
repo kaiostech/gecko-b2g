@@ -7,19 +7,31 @@
 #ifndef ScanEventService_H
 #define ScanEventService_H
 
+#if ANDROID_VERSION == 30
 #include <android/net/wifi/nl80211/BnScanEvent.h>
 #include <android/net/wifi/nl80211/BnPnoScanEvent.h>
+#else
+#include <android/net/wifi/BnScanEvent.h>
+#include <android/net/wifi/BnPnoScanEvent.h>
+#endif
+
 #include <binder/BinderService.h>
+
+#if ANDROID_VERSION == 30
+namespace Wifi = ::android::net::wifi::nl80211;
+#else
+namespace Wifi = ::android::net::wifi;
+#endif
 
 BEGIN_WIFI_NAMESPACE
 
 class ScanEventService final
     : virtual public android::BinderService<ScanEventService>,
-      virtual public android::net::wifi::nl80211::BnScanEvent {
+      virtual public Wifi::BnScanEvent {
   friend android::BinderService<ScanEventService>;
 
  public:
-  explicit ScanEventService() : android::net::wifi::nl80211::BnScanEvent() {}
+  explicit ScanEventService() : Wifi::BnScanEvent() {}
   virtual ~ScanEventService() = default;
 
   static android::sp<ScanEventService> CreateService(
@@ -40,11 +52,11 @@ class ScanEventService final
 
 class PnoScanEventService final
     : virtual public android::BinderService<PnoScanEventService>,
-      virtual public android::net::wifi::nl80211::BnPnoScanEvent {
+      virtual public Wifi::BnPnoScanEvent {
   friend android::BinderService<PnoScanEventService>;
 
  public:
-  explicit PnoScanEventService() : android::net::wifi::nl80211::BnPnoScanEvent() {}
+  explicit PnoScanEventService() : Wifi::BnPnoScanEvent() {}
   virtual ~PnoScanEventService() = default;
 
   static android::sp<PnoScanEventService> CreateService(
@@ -57,6 +69,10 @@ class PnoScanEventService final
   /* IPnoScanEvent */
   android::binder::Status OnPnoNetworkFound() override;
   android::binder::Status OnPnoScanFailed() override;
+#if ANDROID_VERSION < 30
+  android::binder::Status OnPnoScanOverOffloadStarted() override;
+  android::binder::Status OnPnoScanOverOffloadFailed(int32_t reason) override;
+#endif
 
  private:
   static android::sp<PnoScanEventService> sPnoScanEvent;

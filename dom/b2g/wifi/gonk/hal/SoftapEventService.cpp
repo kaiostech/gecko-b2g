@@ -19,6 +19,12 @@ using ::android::defaultServiceManager;
 using ::android::IBinder;
 using ::android::String16;
 
+#if ANDROID_VERSION == 30
+namespace Wifi = android::net::wifi::nl80211;
+#else
+namespace Wifi = android::net::wifi;
+#endif
+
 using namespace mozilla::dom::wifi;
 
 #define EVENT_HOTSPOT_CLIENT_CHANGED u"HOTSPOT_CLIENT_CHANGED"_ns
@@ -28,7 +34,7 @@ android::sp<SoftapEventService> SoftapEventService::sSoftapEvent = nullptr;
 SoftapEventService::SoftapEventService(
     const std::string& aInterfaceName,
     const android::sp<WifiEventCallback>& aCallback)
-    : android::net::wifi::nl80211::BnApInterfaceEventCallback(),
+    : Wifi::BnApInterfaceEventCallback(),
       mSoftapInterfaceName(aInterfaceName),
       mCallback(aCallback) {}
 
@@ -56,6 +62,7 @@ android::sp<SoftapEventService> SoftapEventService::CreateService(
   return sSoftapEvent;
 }
 
+#if ANDROID_VERSION == 30
 android::binder::Status SoftapEventService::onSoftApChannelSwitched(
     int32_t frequency, int32_t bandwidth) {
   WIFI_LOGI(LOG_TAG, "onSoftApChannelSwitched frequency=%d bandwith=%d",
@@ -63,11 +70,34 @@ android::binder::Status SoftapEventService::onSoftApChannelSwitched(
   return android::binder::Status::ok();
 }
 
-// TODO: FIXME
 android::binder::Status SoftapEventService::onConnectedClientsChanged(
-    const ::android::net::wifi::nl80211::NativeWifiClient& client,
+    const Wifi::NativeWifiClient& client,
           bool isConnected) {
   WIFI_LOGI(LOG_TAG, "onConnectedClientsChanged isConnected=%s",
     isConnected ? "yes" : "no");
   return android::binder::Status::ok();
 }
+
+#else
+/**
+ * Implement IApInterfaceEventCallback
+ */
+android::binder::Status SoftapEventService::onNumAssociatedStationsChanged(
+    int32_t numStations) {
+  nsCString iface(mSoftapInterfaceName);
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_HOTSPOT_CLIENT_CHANGED);
+
+  if (numStations < 0) {
+    WIFI_LOGE(LOG_TAG, "Invalid number of associated stations %d", numStations);
+  }
+  event->mNumStations = (numStations < 0) ? 0 : numStations;
+
+  INVOKE_CALLBACK(mCallback, event, iface);
+  return android::binder::Status::ok();
+}
+
+android::binder::Status SoftapEventService::onSoftApChannelSwitched(
+    int32_t frequency, int32_t bandwidth) {
+  return android::binder::Status::ok();
+}
+#endif

@@ -9,7 +9,12 @@
 
 #include "WifiCommon.h"
 
+#if ANDROID_VERSION == 30
 #include <android/hardware/wifi/supplicant/1.3/ISupplicantStaIfaceCallback.h>
+#else
+#include <android/hardware/wifi/supplicant/1.2/ISupplicantStaIfaceCallback.h>
+#endif
+
 
 using ISupplicantStaIfaceCallbackV1_0 =
     ::android::hardware::wifi::supplicant::V1_0::ISupplicantStaIfaceCallback;
@@ -17,8 +22,10 @@ using ISupplicantStaIfaceCallbackV1_1 =
     ::android::hardware::wifi::supplicant::V1_1::ISupplicantStaIfaceCallback;
 using ISupplicantStaIfaceCallbackV1_2 =
     ::android::hardware::wifi::supplicant::V1_2::ISupplicantStaIfaceCallback;
+#if ANDROID_VERSION == 30
 using ISupplicantStaIfaceCallbackV1_3 =
     ::android::hardware::wifi::supplicant::V1_3::ISupplicantStaIfaceCallback;
+#endif
 
 BEGIN_WIFI_NAMESPACE
 
@@ -385,6 +392,7 @@ class SupplicantStaIfaceCallbackV1_2 : public ISupplicantStaIfaceCallbackV1_2 {
   android::sp<SupplicantStaIfaceCallbackV1_1> mSupplicantCallbackV1_1;
 };
 
+#if ANDROID_VERSION == 30
 class SupplicantStaIfaceCallbackV1_3 : public ISupplicantStaIfaceCallbackV1_3 {
  public:
   explicit SupplicantStaIfaceCallbackV1_3(
@@ -500,6 +508,7 @@ class SupplicantStaIfaceCallbackV1_3 : public ISupplicantStaIfaceCallbackV1_3 {
   android::sp<WifiEventCallback> mCallback;
   android::sp<SupplicantStaIfaceCallbackV1_2> mSupplicantCallbackV1_2;
 };
+#endif // ANDROID_VERSION == 30
 
 END_WIFI_NAMESPACE
 

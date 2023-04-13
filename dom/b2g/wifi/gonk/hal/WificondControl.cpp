@@ -22,16 +22,27 @@ using ::android::defaultServiceManager;
 using ::android::IBinder;
 using ::android::interface_cast;
 using ::android::String16;
+
+#if ANDROID_VERSION == 30
 using ::android::net::wifi::nl80211::IApInterfaceEventCallback;
 using ::android::net::wifi::nl80211::IPnoScanEvent;
 using ::android::net::wifi::nl80211::IScanEvent;
+#else
+using ::android::net::wifi::IApInterfaceEventCallback;
+using ::android::net::wifi::IPnoScanEvent;
+using ::android::net::wifi::IScanEvent;
+#endif
 
 using namespace mozilla::dom::wifi;
 
 static const char* CTL_START_PROPERTY = "ctl.start";
 static const char* CTL_STOP_PROPERTY = "ctl.stop";
 static const char* SUPPLICANT_SERVICE_NAME = "wpa_supplicant";
+#if ANDROID_VERSION == 30
 static const char* WIFICOND_SERVICE_NAME = "wifinl80211";
+#else
+static const char* WIFICOND_SERVICE_NAME = "wificond";
+#endif
 static const int32_t WIFICOND_POLL_DELAY = 500000;
 static const int32_t WIFICOND_RETRY_COUNT = 20;
 
@@ -258,7 +269,7 @@ Result_t WificondControl::InitiateScanEvent(
   }
   if (!mScanner
            ->subscribeScanEvents(
-               android::interface_cast<android::net::wifi::nl80211::IScanEvent>(
+               android::interface_cast<IScanEvent>(
                    mScanEventService))
            .isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
@@ -266,7 +277,7 @@ Result_t WificondControl::InitiateScanEvent(
   }
   if (!mScanner
            ->subscribePnoScanEvents(
-               android::interface_cast<android::net::wifi::nl80211::IPnoScanEvent>(
+               android::interface_cast<IPnoScanEvent>(
                    mPnoScanEventService))
            .isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe pno scan event failed");
@@ -322,7 +333,7 @@ Result_t WificondControl::SetupApIface(
 
   bool success = false;
   mApInterface->registerCallback(
-      android::interface_cast<android::net::wifi::nl80211::IApInterfaceEventCallback>(
+      android::interface_cast<IApInterfaceEventCallback>(
           mSoftapEventService),
       &success);
   return CHECK_SUCCESS(success);
@@ -495,10 +506,13 @@ Result_t WificondControl::GetSoftapStations(uint32_t& aNumStations) {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
-  //TODO FIXME
-  //int32_t stations;
-  //mApInterface->getNumberOfAssociatedStations(&stations);
-  //aNumStations = (stations < 0) ? 0 : stations;
-  //return CHECK_SUCCESS(stations >= 0);
+#if ANDROID_VERSION >= 30
+  // FIXME: bug 134832
   return nsIWifiResult::SUCCESS;
+#else
+  int32_t stations;
+  mApInterface->getNumberOfAssociatedStations(&stations);
+  aNumStations = (stations < 0) ? 0 : stations;
+  return CHECK_SUCCESS(stations >= 0);
+#endif
 }

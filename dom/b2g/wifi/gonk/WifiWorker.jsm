@@ -259,8 +259,8 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/mobileconnection/imsregservice;1",
   "nsIImsRegService"
 );
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
 );
 const hasRilSupport =
   "MOZ_B2G_RIL" in AppConstants ? AppConstants.MOZ_B2G_RIL : false;

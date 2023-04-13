@@ -99,10 +99,12 @@ SupplicantStaNetwork::GetSupplicantStaNetworkV1_2() const {
   return ISupplicantStaNetworkV1_2::castFrom(mNetwork);
 }
 
+#if ANDROID_VERSION == 30
 android::sp<ISupplicantStaNetworkV1_3>
 SupplicantStaNetwork::GetSupplicantStaNetworkV1_3() const {
   return ISupplicantStaNetworkV1_3::castFrom(mNetwork);
 }
+#endif
 /**
  * Update bssid to supplicant.
  */
@@ -474,14 +476,26 @@ SupplicantStatusCode SupplicantStaNetwork::SetKeyMgmt(uint32_t aKeyMgmtMask) {
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "key_mgmt => %d", aKeyMgmtMask);
 
+#if ANDROID_VERSION == 30
   android::sp<ISupplicantStaNetworkV1_3> networkV1_3 =
       GetSupplicantStaNetworkV1_3();
+#else
+  android::sp<ISupplicantStaNetworkV1_2> networkV1_2 =
+      GetSupplicantStaNetworkV1_2();
+#endif
 
   SupplicantStatus response;
+#if ANDROID_VERSION == 30
   if (networkV1_3.get()) {
     // Use HAL V1.3 if supported.
     HIDL_SET(networkV1_3, setKeyMgmt_1_3, SupplicantStatus, response,
              aKeyMgmtMask);
+#else
+  if (networkV1_2.get()) {
+    // Use HAL V1.2 if supported.
+    HIDL_SET(networkV1_2, setKeyMgmt_1_2, SupplicantStatus, response,
+             aKeyMgmtMask);
+#endif
   } else {
     HIDL_SET(mNetwork, setKeyMgmt, SupplicantStatus, response, aKeyMgmtMask);
   }
@@ -496,15 +510,20 @@ SupplicantStatusCode SupplicantStaNetwork::SetSaePassword(
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "sae => %s", aSaePassword.c_str());
 
-  android::sp<ISupplicantStaNetworkV1_3> networkV1_3 =
+#if ANDROID_VERSION == 30
+  android::sp<ISupplicantStaNetworkV1_3> network =
       GetSupplicantStaNetworkV1_3();
+#else
+  android::sp<ISupplicantStaNetworkV1_2> network =
+      GetSupplicantStaNetworkV1_2();
+#endif
 
-  if (!networkV1_3.get()) {
+  if (!network.get()) {
     return SupplicantStatusCode::FAILURE_NETWORK_INVALID;
   }
 
   SupplicantStatus response;
-  HIDL_SET(networkV1_3, setPskPassphrase, SupplicantStatus, response,
+  HIDL_SET(network, setPskPassphrase, SupplicantStatus, response,
            aSaePassword);
   WIFI_LOGD(LOG_TAG, "set psk return: %s",
             ConvertStatusToString(response.code).c_str());
@@ -1126,15 +1145,20 @@ SupplicantStatusCode SupplicantStaNetwork::GetSaePassword(
     std::string& aSaePassword) const {
   MOZ_ASSERT(mNetwork);
 
-  android::sp<ISupplicantStaNetworkV1_3> networkV1_3 =
+#if ANDROID_VERSION == 30
+  android::sp<ISupplicantStaNetworkV1_3> network =
       GetSupplicantStaNetworkV1_3();
+#else
+  android::sp<ISupplicantStaNetworkV1_2> network =
+      GetSupplicantStaNetworkV1_2();
+#endif
 
-  if (!networkV1_3.get()) {
+  if (!network.get()) {
     return SupplicantStatusCode::FAILURE_NETWORK_INVALID;
   }
 
   SupplicantStatus response;
-  networkV1_3->getSaePassword(
+  network->getSaePassword(
       [&](const SupplicantStatus& status,
           const ::android::hardware::hidl_string& saePassword) {
         response = status;
@@ -1524,10 +1548,15 @@ SupplicantStatusCode SupplicantStaNetwork::RegisterNetworkCallback() {
 }
 
 uint32_t SupplicantStaNetwork::IncludeSha256KeyMgmt(uint32_t aKeyMgmt) const {
-  android::sp<ISupplicantStaNetworkV1_3> networkV1_3 =
+#if ANDROID_VERSION == 30
+  android::sp<ISupplicantStaNetworkV1_3> network =
       GetSupplicantStaNetworkV1_3();
+#else
+  android::sp<ISupplicantStaNetworkV1_2> network =
+      GetSupplicantStaNetworkV1_2();
+#endif
 
-  if (!networkV1_3.get()) {
+  if (!network.get()) {
     return aKeyMgmt;
   }
 

@@ -7,14 +7,24 @@
 #ifndef SoftapEventService_H
 #define SoftapEventService_H
 
+#if ANDROID_VERSION == 30
 #include <android/net/wifi/nl80211/BnApInterfaceEventCallback.h>
+#else
+#include <android/net/wifi/BnApInterfaceEventCallback.h>
+#endif
 #include <binder/BinderService.h>
+
+#if ANDROID_VERSION == 30
+namespace Wifi = ::android::net::wifi::nl80211;
+#else
+namespace Wifi = ::android::net::wifi;
+#endif
 
 BEGIN_WIFI_NAMESPACE
 
 class SoftapEventService
     : virtual public android::BinderService<SoftapEventService>,
-      virtual public android::net::wifi::nl80211::BnApInterfaceEventCallback {
+      virtual public Wifi::BnApInterfaceEventCallback {
  public:
   explicit SoftapEventService(const std::string& aInterfaceName,
                               const android::sp<WifiEventCallback>& aCallback);
@@ -27,17 +37,28 @@ class SoftapEventService
 
   void Cleanup() { sSoftapEvent = nullptr; }
 
+#if ANDROID_VERSION < 30
+  // IApInterfaceEventCallback
+  android::binder::Status onNumAssociatedStationsChanged(
+      int32_t numStations) override;
+  android::binder::Status onSoftApChannelSwitched(int32_t frequency,
+                                                  int32_t bandwidth) override;
+#endif
+
+
  private:
   static android::sp<SoftapEventService> sSoftapEvent;
   std::string mSoftapInterfaceName;
 
   android::sp<WifiEventCallback> mCallback;
 
+#if ANDROID_VERSION == 30
   android::binder::Status onSoftApChannelSwitched(int32_t frequency,
                                                   int32_t bandwidth) override;
 
-  android::binder::Status onConnectedClientsChanged(const ::android::net::wifi::nl80211::NativeWifiClient& client,
+  android::binder::Status onConnectedClientsChanged(const Wifi::NativeWifiClient& client,
                                                     bool isConnected) override;
+#endif
 };
 
 END_WIFI_NAMESPACE

@@ -196,6 +196,10 @@ def Libxul(name, output_category=None):
                 "android.hardware.gnss@2.0",
                 "android.hardware.gnss.visibility_control@1.0",
             )
+        if CONFIG["ANDROID_VERSION"] == "30":
+            AOSPSharedObjects(
+                "android.hardware.vibrator-V1-cpp",
+            )
 
         if CONFIG["B2G_OEMHOOK"]:
             AOSPSharedObjects(

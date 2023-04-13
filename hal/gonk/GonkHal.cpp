@@ -41,6 +41,9 @@
 #include "hardware/lights.h"
 #include "hardware_legacy/uevent.h"
 #include "android/hardware/vibrator/1.0/IVibrator.h"
+#if ANDROID_VERSION == 30
+#include "android/hardware/vibrator/IVibrator.h"
+#endif
 #include "libdisplay/GonkDisplay.h"
 
 #include "utils/threads.h"
@@ -126,6 +129,10 @@ using namespace mozilla;
 using namespace mozilla::hal;
 using namespace mozilla::dom;
 
+#if ANDROID_VERSION == 30
+namespace Aidl = ::android::hardware::vibrator;
+#endif
+
 namespace mozilla {
 namespace hal_impl {
 
@@ -181,6 +188,54 @@ bool VibratorRunnable::sShuttingDown = false;
 
 static StaticRefPtr<VibratorRunnable> sVibratorRunnable;
 
+// Helper class to abstract over HIDL and AIDL implementations.
+class HalVibrator {
+  public:
+    HalVibrator() {
+      // Get a handle to the HIDL vibrator service.
+      hidl = android::hardware::vibrator::V1_0::IVibrator::getService();
+
+#if ANDROID_VERSION == 30
+      // If we can't get the HIDL vibrator service, try the AIDL service.
+      if (!hidl) {
+        aidl = android::waitForVintfService<Aidl::IVibrator>();
+      }
+
+      if (!hidl && aidl) {
+        printf_stderr("Failed to run vibration pattern: vibrator == nullptr");
+      }
+#endif
+    }
+
+    void off() {
+      if (hidl) {
+        hidl->off();
+      }
+#if ANDROID_VERSION == 30
+     else if (aidl) {
+        aidl->off();
+      }
+#endif
+    }
+
+    void on(int32_t ms) {
+      if (hidl) {
+        hidl->on(ms);
+      }
+#if ANDROID_VERSION == 30
+      else if (aidl) {
+        aidl->on(ms, nullptr);
+      }
+#endif
+    }
+
+  private:
+#if ANDROID_VERSION == 30
+    android::sp<Aidl::IVibrator> aidl = nullptr;
+#endif
+    android::sp<android::hardware::vibrator::V1_0::IVibrator> hidl = nullptr;
+};
+
 NS_IMETHODIMP
 VibratorRunnable::Run() {
   MonitorAutoLock lock(mMonitor);
@@ -194,16 +249,15 @@ VibratorRunnable::Run() {
   // condvar onto another thread.  Better just to be chill about small errors in
   // the timing here.
 
+  HalVibrator vibrator;
+
   while (!sShuttingDown) {
     if (mIndex < mPattern.Length()) {
       uint32_t duration = mPattern[mIndex];
-      // Get a handle to the HIDL vibrator service.
-      auto vibrator =
-          android::hardware::vibrator::V1_0::IVibrator::getService();
       if ((mPattern.Length() == 1) && (duration == 0)) {
-        vibrator->off();
+        vibrator.off();
       } else if (mIndex % 2 == 0) {
-        vibrator->on(duration);
+        vibrator.on(duration);
       }
       mIndex++;
       mMonitor.Wait(TimeDuration::FromMilliseconds(duration));

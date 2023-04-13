@@ -1287,6 +1287,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'android/hardware/radio/1.1/IRadioResponse.h',
         'android/hardware/radio/1.1/ISap.h',
         'android/hardware/vibrator/1.0/IVibrator.h',
+        'android/hardware/vibrator/IVibrator.h',
         'android/hardware/sensors/1.0/ISensors.h',
         'android/hardware/sensors/2.0/ISensors.h',
         'android/hardware/wifi/1.0/IWifi.h',

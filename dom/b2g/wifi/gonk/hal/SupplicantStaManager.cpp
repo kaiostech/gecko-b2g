@@ -31,7 +31,7 @@ static const char SUPPLICANT_INTERFACE_NAME_V1_1[] =
 static const char SUPPLICANT_INTERFACE_NAME_V1_2[] =
     "android.hardware.wifi.supplicant@1.2::ISupplicant";
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 static const char SUPPLICANT_INTERFACE_NAME_V1_3[] =
     "android.hardware.wifi.supplicant@1.3::ISupplicant";
 
@@ -150,7 +150,7 @@ Result_t SupplicantStaManager::InitServiceManager() {
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   if (!mServiceManager->registerForNotifications(SUPPLICANT_INTERFACE_NAME_V1_3,
                                                  "", this)) {
 #else
@@ -269,7 +269,7 @@ Result_t SupplicantStaManager::GetSupportedFeatures(
 
   SupplicantStatus response;
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   if (IsSupplicantV1_3()) {
     android::sp<ISupplicantStaIfaceV1_3> supplicant =
         GetSupplicantStaIfaceV1_3();
@@ -468,7 +468,7 @@ Result_t SupplicantStaManager::SetupStaInterface(
   android::sp<SupplicantStaIfaceCallback> supplicantCallback =
       new SupplicantStaIfaceCallback(mInterfaceName, mCallback,
                                      mPasspointCallback, this);
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   if (IsSupplicantV1_3()) {
     android::sp<SupplicantStaIfaceCallbackV1_1> supplicantCallbackV1_1 =
         new SupplicantStaIfaceCallbackV1_1(mInterfaceName, mCallback,
@@ -1352,7 +1352,7 @@ bool SupplicantStaManager::IsSupplicantV1_2() {
   return SupplicantVersionSupported(SUPPLICANT_INTERFACE_NAME_V1_2);
 }
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 android::sp<ISupplicantV1_3> SupplicantStaManager::GetSupplicantV1_3() {
   return ISupplicantV1_3::castFrom(GetSupplicant());
 }

@@ -75,7 +75,11 @@ status_t BnMediaHTTPConnection::onTransact(uint32_t code, const Parcel& data,
       if (size > memory->size()) {
         size = memory->size();
       }
+#if ANDROID_VERSION == 30
       ssize_t len = readAt(offset, memory->unsecurePointer(), size);
+#else
+      ssize_t len = readAt(offset, memory->pointer(), size);
+#endif
       reply->writeNoException();
       reply->writeInt32(len);
       return NO_ERROR;

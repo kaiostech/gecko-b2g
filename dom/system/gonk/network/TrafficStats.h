@@ -12,7 +12,11 @@
 #include "bpf/BpfUtils.h"
 #include "netdbpf/BpfNetworkStats.h"
 
+#if ANDROID_VERSION == 30
 using ::Stats;
+#else
+using android::bpf::Stats;
+#endif
 
 namespace mozilla {
 

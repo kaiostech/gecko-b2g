@@ -99,7 +99,7 @@ SupplicantStaNetwork::GetSupplicantStaNetworkV1_2() const {
   return ISupplicantStaNetworkV1_2::castFrom(mNetwork);
 }
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 android::sp<ISupplicantStaNetworkV1_3>
 SupplicantStaNetwork::GetSupplicantStaNetworkV1_3() const {
   return ISupplicantStaNetworkV1_3::castFrom(mNetwork);
@@ -476,7 +476,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetKeyMgmt(uint32_t aKeyMgmtMask) {
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "key_mgmt => %d", aKeyMgmtMask);
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   android::sp<ISupplicantStaNetworkV1_3> networkV1_3 =
       GetSupplicantStaNetworkV1_3();
 #else
@@ -485,7 +485,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetKeyMgmt(uint32_t aKeyMgmtMask) {
 #endif
 
   SupplicantStatus response;
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   if (networkV1_3.get()) {
     // Use HAL V1.3 if supported.
     HIDL_SET(networkV1_3, setKeyMgmt_1_3, SupplicantStatus, response,
@@ -510,7 +510,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetSaePassword(
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "sae => %s", aSaePassword.c_str());
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   android::sp<ISupplicantStaNetworkV1_3> network =
       GetSupplicantStaNetworkV1_3();
 #else
@@ -1145,7 +1145,7 @@ SupplicantStatusCode SupplicantStaNetwork::GetSaePassword(
     std::string& aSaePassword) const {
   MOZ_ASSERT(mNetwork);
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   android::sp<ISupplicantStaNetworkV1_3> network =
       GetSupplicantStaNetworkV1_3();
 #else
@@ -1548,7 +1548,7 @@ SupplicantStatusCode SupplicantStaNetwork::RegisterNetworkCallback() {
 }
 
 uint32_t SupplicantStaNetwork::IncludeSha256KeyMgmt(uint32_t aKeyMgmt) const {
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   android::sp<ISupplicantStaNetworkV1_3> network =
       GetSupplicantStaNetworkV1_3();
 #else

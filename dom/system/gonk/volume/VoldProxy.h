@@ -38,7 +38,11 @@ class VoldListener : public android::BinderService<VoldListener>,
   android::binder::Status onDiskDestroyed(const ::std::string& diskId) override;
   android::binder::Status onVolumeCreated(
       const ::std::string& volId, int32_t type, const ::std::string& diskId,
+#if ANDROID_VERSION == 30
       const ::std::string& partGuid, int32_t userId = 0) override;
+#else
+      const ::std::string& partGuid) override;
+#endif
   android::binder::Status onVolumeStateChanged(const ::std::string& volId,
                                                int32_t state) override;
   android::binder::Status onVolumeMetadataChanged(

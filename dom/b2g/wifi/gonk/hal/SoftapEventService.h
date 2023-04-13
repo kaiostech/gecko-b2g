@@ -7,14 +7,14 @@
 #ifndef SoftapEventService_H
 #define SoftapEventService_H
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 #include <android/net/wifi/nl80211/BnApInterfaceEventCallback.h>
 #else
 #include <android/net/wifi/BnApInterfaceEventCallback.h>
 #endif
 #include <binder/BinderService.h>
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 namespace Wifi = ::android::net::wifi::nl80211;
 #else
 namespace Wifi = ::android::net::wifi;
@@ -37,7 +37,7 @@ class SoftapEventService
 
   void Cleanup() { sSoftapEvent = nullptr; }
 
-#if ANDROID_VERSION < 30
+#if ANDROID_VERSION <= 29
   // IApInterfaceEventCallback
   android::binder::Status onNumAssociatedStationsChanged(
       int32_t numStations) override;
@@ -52,7 +52,7 @@ class SoftapEventService
 
   android::sp<WifiEventCallback> mCallback;
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   android::binder::Status onSoftApChannelSwitched(int32_t frequency,
                                                   int32_t bandwidth) override;
 

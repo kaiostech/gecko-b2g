@@ -473,6 +473,10 @@ export var AppConstants = Object.freeze({
   MOZ_B2G_OS_NAME: "@MOZ_B2G_OS_NAME@",
   MOZ_B2G_VERSION: "@MOZ_B2G_VERSION@",
 
+#ifdef ANDROID_VERSION
+  ANDROID_VERSION: @ANDROID_VERSION@,
+#endif
+
   MOZ_CAN_FOLLOW_SYSTEM_TIME:
 #ifdef XP_WIN
     true,

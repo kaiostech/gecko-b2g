@@ -23,7 +23,7 @@ using ::android::IBinder;
 using ::android::interface_cast;
 using ::android::String16;
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 using ::android::net::wifi::nl80211::IApInterfaceEventCallback;
 using ::android::net::wifi::nl80211::IPnoScanEvent;
 using ::android::net::wifi::nl80211::IScanEvent;
@@ -38,7 +38,7 @@ using namespace mozilla::dom::wifi;
 static const char* CTL_START_PROPERTY = "ctl.start";
 static const char* CTL_STOP_PROPERTY = "ctl.stop";
 static const char* SUPPLICANT_SERVICE_NAME = "wpa_supplicant";
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 static const char* WIFICOND_SERVICE_NAME = "wifinl80211";
 #else
 static const char* WIFICOND_SERVICE_NAME = "wificond";

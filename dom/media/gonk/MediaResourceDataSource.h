@@ -7,7 +7,11 @@
 #ifndef MediaResourceDataSource_h_
 #define MediaResourceDataSource_h_
 
+#if ANDROID_VERSION == 30
 #include <media/DataSource.h>
+#else
+#include <media/stagefright/DataSource.h>
+#endif
 #include "mozilla/RefPtr.h"
 
 namespace mozilla {

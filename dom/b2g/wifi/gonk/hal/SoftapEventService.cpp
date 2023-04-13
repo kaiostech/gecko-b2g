@@ -19,7 +19,7 @@ using ::android::defaultServiceManager;
 using ::android::IBinder;
 using ::android::String16;
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 namespace Wifi = android::net::wifi::nl80211;
 #else
 namespace Wifi = android::net::wifi;
@@ -62,7 +62,7 @@ android::sp<SoftapEventService> SoftapEventService::CreateService(
   return sSoftapEvent;
 }
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 android::binder::Status SoftapEventService::onSoftApChannelSwitched(
     int32_t frequency, int32_t bandwidth) {
   WIFI_LOGI(LOG_TAG, "onSoftApChannelSwitched frequency=%d bandwith=%d",

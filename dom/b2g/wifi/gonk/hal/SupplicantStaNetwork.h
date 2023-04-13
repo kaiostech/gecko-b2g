@@ -12,7 +12,7 @@
 #include <string.h>
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantNetwork.h>
 #include <android/hardware/wifi/supplicant/1.0/types.h>
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 #include <android/hardware/wifi/supplicant/1.3/ISupplicantStaNetwork.h>
 #else
 #include <android/hardware/wifi/supplicant/1.2/ISupplicantStaNetwork.h>
@@ -31,7 +31,7 @@ using ISupplicantStaNetworkV1_1 =
     ::android::hardware::wifi::supplicant::V1_1::ISupplicantStaNetwork;
 using ISupplicantStaNetworkV1_2 =
     ::android::hardware::wifi::supplicant::V1_2::ISupplicantStaNetwork;
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 using ISupplicantStaNetworkV1_3 =
     ::android::hardware::wifi::supplicant::V1_3::ISupplicantStaNetwork;
 #endif
@@ -266,7 +266,7 @@ class SupplicantStaNetwork
 
   android::sp<ISupplicantStaNetworkV1_1> GetSupplicantStaNetworkV1_1() const;
   android::sp<ISupplicantStaNetworkV1_2> GetSupplicantStaNetworkV1_2() const;
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
   android::sp<ISupplicantStaNetworkV1_3> GetSupplicantStaNetworkV1_3() const;
 #endif
 

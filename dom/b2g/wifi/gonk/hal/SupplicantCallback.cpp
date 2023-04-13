@@ -719,7 +719,7 @@ Return<void> SupplicantStaIfaceCallbackV1_2::onDppFailure(
   return android::hardware::Void();
 }
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 /**
  * SupplicantStaIfaceCallbackV1_3 implementation
  */
@@ -924,4 +924,4 @@ Return<void> SupplicantStaIfaceCallbackV1_3::onStateChanged_1_3(
   mSupplicantCallbackV1_2->onStateChanged(newState, bssid, id, ssid);
   return android::hardware::Void();
 }
-#endif // ANDROID_VERSION == 30
+#endif // ANDROID_VERSION >= 30

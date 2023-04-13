@@ -22,7 +22,7 @@
 #include <android/hardware/wifi/1.3/IWifiStaIface.h>
 #include <android/hardware/wifi/1.0/IWifiEventCallback.h>
 #include <android/hardware/wifi/1.2/IWifiChipEventCallback.h>
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 #include <android/hardware/wifi/1.4/types.h>
 #else
 #include <android/hardware/wifi/1.3/types.h>
@@ -58,7 +58,7 @@ using ::android::hidl::base::V1_0::IBase;
 
 namespace wifiNameSpaceV1_0 = ::android::hardware::wifi::V1_0;
 namespace wifiNameSpaceV1_3 = ::android::hardware::wifi::V1_3;
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 namespace wifiNameSpaceV1_4 = ::android::hardware::wifi::V1_4;
 #endif
 

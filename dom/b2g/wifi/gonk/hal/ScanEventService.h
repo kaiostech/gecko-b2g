@@ -7,7 +7,7 @@
 #ifndef ScanEventService_H
 #define ScanEventService_H
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 #include <android/net/wifi/nl80211/BnScanEvent.h>
 #include <android/net/wifi/nl80211/BnPnoScanEvent.h>
 #else
@@ -17,7 +17,7 @@
 
 #include <binder/BinderService.h>
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 namespace Wifi = ::android::net::wifi::nl80211;
 #else
 namespace Wifi = ::android::net::wifi;
@@ -69,7 +69,7 @@ class PnoScanEventService final
   /* IPnoScanEvent */
   android::binder::Status OnPnoNetworkFound() override;
   android::binder::Status OnPnoScanFailed() override;
-#if ANDROID_VERSION < 30
+#if ANDROID_VERSION <= 29
   android::binder::Status OnPnoScanOverOffloadStarted() override;
   android::binder::Status OnPnoScanOverOffloadFailed(int32_t reason) override;
 #endif

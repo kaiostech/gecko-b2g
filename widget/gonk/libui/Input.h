@@ -32,12 +32,14 @@
 class SkMatrix;
 #endif
 
+#if ANDROID_VERSION >= 30
 enum {
     DISPLAY_ORIENTATION_0 = 0,
     DISPLAY_ORIENTATION_90 = 1,
     DISPLAY_ORIENTATION_180 = 2,
     DISPLAY_ORIENTATION_270 = 3
 };
+#endif
 
 /*
  * Additional private constants not defined in ndk/ui/input.h.

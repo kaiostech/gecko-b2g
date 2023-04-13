@@ -13,7 +13,7 @@
 
 #include <android-base/macros.h>
 
-#if ANDROID_VERSION == 30
+#if ANDROID_VERSION >= 30
 #include <android/net/wifi/nl80211/IWificond.h>
 #include <android/net/wifi/nl80211/IWifiScannerImpl.h>
 

@@ -1317,7 +1317,8 @@ class FlashlightListener : public BnCameraServiceListener {
     // do nothing
     return Status::ok();
   }
-  
+
+#if ANDROID_VERSION == 30
   Status onPhysicalCameraStatusChanged (int32_t status, const ::android::String16& cameraId, const ::android::String16& physicalCameraId) override {
    // do nothing
    return Status::ok();
@@ -1326,12 +1327,13 @@ class FlashlightListener : public BnCameraServiceListener {
   Status onCameraOpened(const ::android::String16& cameraId, const ::android::String16& clientPackageId) override {
    // do nothing
    return Status::ok();
-  } 
+  }
 
   Status onCameraClosed(const ::android::String16& cameraId) override {
    // do nothing
    return Status::ok();
   }
+#endif
 
   Status onTorchStatusChanged(int32_t status,
                               const String16& cameraId) override {

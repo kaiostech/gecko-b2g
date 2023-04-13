@@ -94,9 +94,15 @@ android::binder::Status VoldListener::onDiskDestroyed(
   return android::binder::Status::ok();
 }
 
+#if ANDROID_VERSION == 30
 android::binder::Status VoldListener::onVolumeCreated(
     const ::std::string& volId, int32_t type, const ::std::string& diskId,
     const ::std::string& partGuid, int32_t userId) {
+#else
+android::binder::Status VoldListener::onVolumeCreated(
+    const ::std::string& volId, int32_t type, const ::std::string& diskId,
+    const ::std::string& partGuid) {
+#endif
   MutexAutoLock lock(sLock);
   DBG("%s, volId: %s, type: %d, diskId: %s, partGuid: %s\n", __func__,
       volId.c_str(), type, diskId.c_str(), partGuid.c_str());
@@ -294,7 +300,11 @@ bool VoldProxy::OnSecureKeyguardStateChanged(bool aEnabled) {
 
 bool VoldProxy::Mount(const ::std::string& volId, int32_t mountFlag,
                       int32_t mountUserId) {
+#if ANDROID_VERSION == 30
   IMPL_VOLD_FUNCTION(mount, volId, mountFlag, mountUserId, 0);
+#else
+  IMPL_VOLD_FUNCTION(mount, volId, mountFlag, mountUserId);
+#endif
 }
 
 bool VoldProxy::Unmount(const ::std::string& volId) {

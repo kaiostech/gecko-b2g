@@ -6,7 +6,11 @@
 #include "MediaCodecProxy.h"
 #include <OMX_IVCommon.h>
 #include <gui/Surface.h>
+#if ANDROID_VERSION >= 30
 #include <mediadrm/ICrypto.h>
+#else
+#include <media/ICrypto.h>
+#endif
 #include "GonkAudioDecoderManager.h"
 #include "VideoUtils.h"
 #include "nsTArray.h"

@@ -81,7 +81,11 @@ class AudioSystem {
                                 const String8& keyValuePairs);
   static String8 getParameters(audio_io_handle_t ioHandle, const String8& keys);
 
+#if ANDROID_VERSION == 30
   static void addErrorCallback(audio_error_callback cb);
+#else
+  static void setErrorCallback(audio_error_callback cb);
+#endif
 
   // helper function to obtain AudioFlinger service handle
   static const sp<IAudioFlinger> get_audio_flinger();
@@ -136,7 +140,11 @@ class AudioSystem {
                                            audio_format_t encodedFormat);
   static audio_policy_dev_state_t getDeviceConnectionState(
       audio_devices_t device, const char* device_address);
+#if ANDROID_VERSION == 30
   static status_t setPhoneState(audio_mode_t state, uid_t uid);
+#else
+  static status_t setPhoneState(audio_mode_t state);
+#endif
   static status_t setForceUse(audio_policy_force_use_t usage,
                               audio_policy_forced_cfg_t config);
   static audio_policy_forced_cfg_t getForceUse(audio_policy_force_use_t usage);

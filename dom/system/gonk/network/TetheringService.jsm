@@ -6,6 +6,9 @@
 
 var EXPORTED_SYMBOLS = ["TetheringService"];
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 const { FileUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/FileUtils.sys.mjs"
 );
@@ -83,7 +86,6 @@ const PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
 
 const POSSIBLE_USB_INTERFACE_NAME = "rndis0,usb0";
 const DEFAULT_USB_INTERFACE_NAME = "rndis0";
-const DEFAULT_3G_INTERFACE_NAME = "rmnet_ipa0";
 const DEFAULT_WIFI_INTERFACE_NAME = "wlan0";
 
 // The kernel's proc entry for network lists.
@@ -119,6 +121,13 @@ const DUN_REQUIRED_PROPERTY = "ro.tethering.dun_required";
 const MOBILE_DUN_CONNECT_TIMEOUT = 15000;
 const MOBILE_DUN_RETRY_INTERVAL = 5000;
 const MOBILE_DUN_MAX_RETRIES = 2;
+
+function default_3G_interface_name() {
+  if (AppConstants.PLATFORM_VERSION >= 30) {
+    return "rmnet_ipa0";
+  }
+  return "rmnet0";
+}
 
 var DEBUG = false;
 function updateDebug() {
@@ -164,16 +173,18 @@ function TetheringService() {
   // Default values for internal and external interfaces.
   this._externalInterface = {};
   this._internalInterface = {};
-  this._externalInterface[TETHERING_TYPE_USB] = DEFAULT_3G_INTERFACE_NAME;
-  this._externalInterface[TETHERING_TYPE_WIFI] = DEFAULT_3G_INTERFACE_NAME;
+  this._externalInterface[TETHERING_TYPE_USB] = default_3G_interface_name();
+  this._externalInterface[TETHERING_TYPE_WIFI] = default_3G_interface_name();
   this._internalInterface[TETHERING_TYPE_USB] = DEFAULT_USB_INTERFACE_NAME;
   this._internalInterface[TETHERING_TYPE_WIFI] = DEFAULT_WIFI_INTERFACE_NAME;
 
   lazy.gNetworkService.createNetwork(
-    DEFAULT_3G_INTERFACE_NAME,
+    default_3G_interface_name(),
     Ci.nsINetworkInfo.NETWORK_TYPE_UNKNOWN,
     function() {
-      debug("Create a default Network interface: " + DEFAULT_3G_INTERFACE_NAME);
+      debug(
+        "Create a default Network interface: " + default_3G_interface_name()
+      );
     }
   );
 
@@ -1238,14 +1249,14 @@ TetheringService.prototype = {
         }
       }
       if (!this._externalInterface[aType]) {
-        this._externalInterface[aType] = DEFAULT_3G_INTERFACE_NAME;
+        this._externalInterface[aType] = default_3G_interface_name();
       }
       // Non Dun case, find available external interface.
     } else if (lazy.gNetworkManager.activeNetworkInfo) {
       this._externalInterface[aType] =
         lazy.gNetworkManager.activeNetworkInfo.name;
     } else {
-      this._externalInterface[aType] = DEFAULT_3G_INTERFACE_NAME;
+      this._externalInterface[aType] = default_3G_interface_name();
     }
   },
 

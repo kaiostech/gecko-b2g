@@ -5941,6 +5941,13 @@ void nsGlobalWindowInner::SyncStateFromParentWindow() {
   nsPIDOMWindowOuter* outer = GetOuterWindow();
   MOZ_ASSERT(outer);
 
+  if (!GetBrowsingContext()->GetParentWindowContext()) {
+    // Since nested Freeze/Thaw(Suspend/Resume) is checked in the context tree,
+    // skip if it is a top-level context (or maybe we should sync state from
+    // parent window context).
+    return;
+  }
+
   // Attempt to find our parent windows.
   nsCOMPtr<Element> frame = outer->GetFrameElementInternal();
   nsPIDOMWindowOuter* parentOuter =

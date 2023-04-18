@@ -189,6 +189,11 @@ export const ServiceWorkerAssistant = {
     });
   },
 
+  /**
+   * This is called when uninstalling an app, will unregister its Activity data
+   * from DB, remove its SystemMessage entries from table, and unregister its
+   * sw.
+   */
   unregister(aManifestURL) {
     debug(`unregister ${aManifestURL}`);
     let appURI = Services.io.newURI(aManifestURL);
@@ -202,12 +207,22 @@ export const ServiceWorkerAssistant = {
     return this._doUnregisterServiceWorker(principal, scope);
   },
 
+  /**
+   * This is called when updating an app, to update activity and system message
+   * info from manifest, we want to clear out the Activity DB (stored in db
+   * file) and SystemMessage table(stored in memory) first. But don't unregister
+   * sw since it'll causes Push servive to lose their endpoints.
+   * Side effect is that an app cannot "unregister" its sw via app update.
+   */
   update(aManifestURL, aFeatures) {
     debug(`update ${aManifestURL}`);
-    this.unregister(aManifestURL).then(msg => {
-      debug(`${msg}`);
-      this.register(aManifestURL, aFeatures, "onUpdate");
-    });
+    let appURI = Services.io.newURI(aManifestURL);
+    let ssm = Services.scriptSecurityManager;
+    let principal = ssm.createContentPrincipal(appURI, {});
+
+    systemMessageService.unsubscribe(principal);
+    Services.cpmm.sendAsyncMessage("Activities:UnregisterAll", aManifestURL);
+    this.register(aManifestURL, aFeatures, "onUpdate");
   },
 
   waitForRegistrations() {

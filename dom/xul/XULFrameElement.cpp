@@ -204,7 +204,7 @@ void XULFrameElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
                                     aSubjectPrincipal, aNotify);
 }
 
-nsresult XULFrameElement::OnAttrSetButNotChanged(
+void XULFrameElement::OnAttrSetButNotChanged(
     int32_t aNamespaceID, nsAtom* aName, const nsAttrValueOrString& aValue,
     bool aNotify) {
   if (aNamespaceID == kNameSpaceID_None) {

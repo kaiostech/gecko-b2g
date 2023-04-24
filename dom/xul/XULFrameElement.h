@@ -63,9 +63,9 @@ class XULFrameElement final : public nsXULElement, public nsFrameLoaderOwner {
                             nsIPrincipal* aSubjectPrincipal,
                             bool aNotify) override;
 
-  virtual nsresult OnAttrSetButNotChanged(int32_t aNamespaceID, nsAtom* aName,
-                                          const nsAttrValueOrString& aValue,
-                                          bool aNotify) override;
+  virtual void OnAttrSetButNotChanged(int32_t aNamespaceID, nsAtom* aName,
+                                      const nsAttrValueOrString& aValue,
+                                      bool aNotify) override;
 
   NS_IMPL_FROMNODE_HELPER(XULFrameElement,
                           IsAnyOfXULElements(nsGkAtoms::iframe,

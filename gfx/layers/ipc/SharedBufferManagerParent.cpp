@@ -133,7 +133,6 @@ SharedBufferManagerParent* SharedBufferManagerParent::CreateSameProcess() {
 
   RefPtr<SharedBufferManagerParent> parent =
       new SharedBufferManagerParent(pid, new base::Thread(thrname));
-  parent->mSelfRef = parent;
   return parent;
 }
 
@@ -156,8 +155,7 @@ bool SharedBufferManagerParent::CreateForContent(
 }
 
 void SharedBufferManagerParent::Bind(Endpoint<PSharedBufferManagerParent>&& aEndpoint) {
-  if (!aEndpoint.Bind(this)) return;
-  mSelfRef = this;
+  aEndpoint.Bind(this);
 }
 
 SharedBufferManagerParent::SharedBufferManagerParent(base::ProcessId aOwner, base::Thread* aThread)
@@ -216,7 +214,6 @@ SharedBufferManagerParent::ActorDestroy(ActorDestroyReason aWhy)
   mBuffers.clear();
 #endif
   RefPtr<Runnable> task = new DeleteSharedBufferManagerParentTask(this);
-  mSelfRef = nullptr;
   mMainMessageLoop->PostTask(task.forget());
 }
 

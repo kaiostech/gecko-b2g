@@ -38,7 +38,7 @@ class SharedBufferManagerParent : public PSharedBufferManagerParent
 {
 friend class GrallocReporter;
 public:
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedBufferManagerParent);
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedBufferManagerParent, final);
 
   static SharedBufferManagerParent* CreateSameProcess();
   static bool CreateForContent(Endpoint<PSharedBufferManagerParent>&& aEndpoint);
@@ -116,10 +116,6 @@ protected:
    */
   std::map<int64_t, android::sp<android::GraphicBuffer> > mBuffers;
 #endif
-
-  // This keeps us alive until ActorDestroy(), at which point we do a
-  // deferred destruction of ourselves.
-  RefPtr<SharedBufferManagerParent> mSelfRef;
 
   base::ProcessId mOwner;
   base::Thread* mThread;

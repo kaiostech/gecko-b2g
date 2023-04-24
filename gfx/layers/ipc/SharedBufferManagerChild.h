@@ -44,7 +44,7 @@ struct GrallocParam {
 
 class SharedBufferManagerChild : public PSharedBufferManagerChild {
 public:
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedBufferManagerChild);
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedBufferManagerChild, final);
 
   SharedBufferManagerChild();
   /**

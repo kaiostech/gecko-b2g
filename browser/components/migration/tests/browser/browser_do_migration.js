@@ -119,7 +119,7 @@ add_task(async function test_successful_migrations() {
   let migration = waitForTestMigration(
     [MigrationUtils.resourceTypes.BOOKMARKS],
     [MigrationUtils.resourceTypes.BOOKMARKS],
-    null
+    InternalTestingProfileMigrator.testProfile
   );
 
   await withMigrationWizardDialog(async prefsWin => {
@@ -142,7 +142,9 @@ add_task(async function test_successful_migrations() {
     await wizardDone;
 
     let dialog = prefsWin.document.querySelector("#migrationWizardDialog");
-    let doneButton = shadow.querySelector("#done-button");
+    let doneButton = shadow.querySelector(
+      "div[name='page-progress'] .done-button"
+    );
 
     await new Promise(resolve => prefsWin.requestAnimationFrame(resolve));
     Assert.equal(
@@ -167,7 +169,7 @@ add_task(async function test_successful_migrations() {
       MigrationUtils.resourceTypes.PASSWORDS,
     ],
     [MigrationUtils.resourceTypes.PASSWORDS],
-    null
+    InternalTestingProfileMigrator.testProfile
   );
 
   await withMigrationWizardDialog(async prefsWin => {
@@ -190,7 +192,9 @@ add_task(async function test_successful_migrations() {
     await wizardDone;
 
     let dialog = prefsWin.document.querySelector("#migrationWizardDialog");
-    let doneButton = shadow.querySelector("#done-button");
+    let doneButton = shadow.querySelector(
+      "div[name='page-progress'] .done-button"
+    );
 
     await new Promise(resolve => prefsWin.requestAnimationFrame(resolve));
     Assert.equal(
@@ -215,7 +219,11 @@ add_task(async function test_successful_migrations() {
     return MigrationUtils.resourceTypes[resourceTypeStr];
   });
 
-  migration = waitForTestMigration(allResourceTypes, allResourceTypes, null);
+  migration = waitForTestMigration(
+    allResourceTypes,
+    allResourceTypes,
+    InternalTestingProfileMigrator.testProfile
+  );
 
   await withMigrationWizardDialog(async prefsWin => {
     let dialogBody = prefsWin.document.body;
@@ -246,7 +254,7 @@ add_task(async function test_invalid_resource_type() {
   let migration = waitForTestMigration(
     [MigrationUtils.resourceTypes.BOOKMARKS],
     [MigrationUtils.resourceTypes.BOOKMARKS],
-    null
+    InternalTestingProfileMigrator.testProfile
   );
 
   await withMigrationWizardDialog(async prefsWin => {
@@ -272,7 +280,9 @@ add_task(async function test_invalid_resource_type() {
 
     let dialog = prefsWin.document.querySelector("#migrationWizardDialog");
     let shadow = wizard.openOrClosedShadowRoot;
-    let doneButton = shadow.querySelector("#done-button");
+    let doneButton = shadow.querySelector(
+      "div[name='page-progress'] .done-button"
+    );
 
     await new Promise(resolve => prefsWin.requestAnimationFrame(resolve));
     Assert.equal(

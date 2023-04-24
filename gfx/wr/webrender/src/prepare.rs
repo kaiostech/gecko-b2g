@@ -2009,7 +2009,7 @@ fn add_composite_prim(
         targets,
     );
 
-    let mut composite_quad_flags = QuadFlags::empty();
+    let mut composite_quad_flags = QuadFlags::IGNORE_DEVICE_PIXEL_SCALE;
     if quad_flags.contains(QuadFlags::IS_OPAQUE) {
         composite_quad_flags |= QuadFlags::IS_OPAQUE;
     }

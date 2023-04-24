@@ -489,14 +489,13 @@ WorkerScriptLoader::WorkerScriptLoader(
       mSyncLoopTarget(aSyncLoopTarget),
       mWorkerScriptType(aWorkerScriptType),
       mRv(aRv),
+      mLoadingModuleRequestCount(0),
       mCleanedUp(false),
       mCleanUpLock("cleanUpLock") {
   aWorkerPrivate->AssertIsOnWorkerThread();
 
-  RefPtr<WorkerScriptLoader> self = this;
-
   RefPtr<StrongWorkerRef> workerRef =
-      StrongWorkerRef::Create(aWorkerPrivate, "ScriptLoader", [self]() {});
+      StrongWorkerRef::Create(aWorkerPrivate, "ScriptLoader");
 
   if (workerRef) {
     mWorkerRef = new ThreadSafeWorkerRef(workerRef);
@@ -507,12 +506,12 @@ WorkerScriptLoader::WorkerScriptLoader(
 
   nsIGlobalObject* global = GetGlobal();
   mController = global->GetController();
-  // Set up the module loader, if it has not been yet.
-  // TODO: Implement this for classic scripts when dynamic imports are added.
 
   if (!StaticPrefs::dom_workers_modules_enabled()) {
     return;
   }
+
+  // Set up the module loader, if it has not been initialzied yet.
   if (!aWorkerPrivate->IsServiceWorker()) {
     InitModuleLoader();
   }
@@ -697,6 +696,8 @@ already_AddRefed<ScriptLoadRequest> WorkerScriptLoader::CreateScriptLoadRequest(
 
 bool WorkerScriptLoader::DispatchLoadScript(ScriptLoadRequest* aRequest) {
   mWorkerRef->Private()->AssertIsOnWorkerThread();
+
+  IncreaseLoadingModuleRequestCount();
 
   nsTArray<RefPtr<ThreadSafeRequestHandle>> scriptLoadList;
   RefPtr<ThreadSafeRequestHandle> handle =
@@ -1162,8 +1163,14 @@ bool WorkerScriptLoader::EvaluateScript(JSContext* aCx,
     // keep things simple, we don't create a classic script for ServiceWorkers.
     // If this changes then we will need to ensure that the reference that is
     // held is released appropriately.
-    classicScript = new JS::loader::ClassicScript(aRequest->mFetchOptions,
-                                                  aRequest->mBaseURL);
+    nsCOMPtr<nsIURI> requestBaseURI;
+    if (loadContext->mMutedErrorFlag.valueOr(false)) {
+      NS_NewURI(getter_AddRefs(requestBaseURI), "about:blank"_ns);
+    } else {
+      requestBaseURI = aRequest->mBaseURL;
+    }
+    classicScript =
+        new JS::loader::ClassicScript(aRequest->mFetchOptions, requestBaseURI);
   }
 
   bool successfullyEvaluated =
@@ -1186,13 +1193,14 @@ bool WorkerScriptLoader::EvaluateScript(JSContext* aCx,
 }
 
 void WorkerScriptLoader::TryShutdown() {
-  if (AllScriptsExecuted()) {
+  if (AllScriptsExecuted() && AllModuleRequestsLoaded()) {
     ShutdownScriptLoader(!mExecutionAborted, mMutedErrorFlag);
   }
 }
 
 void WorkerScriptLoader::ShutdownScriptLoader(bool aResult, bool aMutedError) {
   MOZ_ASSERT(AllScriptsExecuted());
+  MOZ_ASSERT(AllModuleRequestsLoaded());
   mWorkerRef->Private()->AssertIsOnWorkerThread();
 
   if (!aResult) {
@@ -1277,6 +1285,21 @@ void WorkerScriptLoader::LogExceptionToConsole(JSContext* aCx,
 
   RefPtr<AsyncErrorReporter> r = new AsyncErrorReporter(xpcReport);
   NS_DispatchToMainThread(r);
+}
+
+bool WorkerScriptLoader::AllModuleRequestsLoaded() const {
+  mWorkerRef->Private()->AssertIsOnWorkerThread();
+  return mLoadingModuleRequestCount == 0;
+}
+
+void WorkerScriptLoader::IncreaseLoadingModuleRequestCount() {
+  mWorkerRef->Private()->AssertIsOnWorkerThread();
+  ++mLoadingModuleRequestCount;
+}
+
+void WorkerScriptLoader::DecreaseLoadingModuleRequestCount() {
+  mWorkerRef->Private()->AssertIsOnWorkerThread();
+  --mLoadingModuleRequestCount;
 }
 
 NS_IMPL_ISUPPORTS(ScriptLoaderRunnable, nsIRunnable, nsINamed)
@@ -1528,8 +1551,20 @@ bool ScriptExecutorRunnable::PreRun(WorkerPrivate* aWorkerPrivate) {
       mScriptLoader->mSyncLoopTarget == mSyncLoopTarget,
       "Unexpected SyncLoopTarget. Check if the sync loop was closed early");
 
-  if (!mLoadedRequests[0]->GetContext()->IsTopLevel()) {
-    return true;
+  {
+    // There is a possibility that we cleaned up while this task was waiting to
+    // run. If this has happened, return and exit.
+    MutexAutoLock lock(mScriptLoader->CleanUpLock());
+    if (mScriptLoader->CleanedUp()) {
+      return true;
+    }
+
+    const auto& requestHandle = mLoadedRequests[0];
+    // Check if the request is still valid.
+    if (requestHandle->IsEmpty() ||
+        !requestHandle->GetContext()->IsTopLevel()) {
+      return true;
+    }
   }
 
   return mScriptLoader->StoreCSP();
@@ -1565,6 +1600,11 @@ bool ScriptExecutorRunnable::ProcessModuleScript(
   WorkerLoadContext* loadContext = request->GetWorkerLoadContext();
   ModuleLoadRequest* moduleRequest = request->AsModuleRequest();
 
+  // DecreaseLoadingModuleRequestCount must be called before OnFetchComplete.
+  // OnFetchComplete will call ProcessPendingRequests, and in
+  // ProcessPendingRequests it will try to shutdown if
+  // AllModuleRequestsLoaded() returns true.
+  mScriptLoader->DecreaseLoadingModuleRequestCount();
   moduleRequest->OnFetchComplete(loadContext->mLoadResult);
 
   if (NS_FAILED(loadContext->mLoadResult)) {
@@ -1575,6 +1615,7 @@ bool ScriptExecutorRunnable::ProcessModuleScript(
       }
     } else if (!moduleRequest->IsTopLevel()) {
       moduleRequest->Cancel();
+      mScriptLoader->TryShutdown();
     } else {
       moduleRequest->LoadFailed();
     }
@@ -1626,7 +1667,8 @@ nsresult ScriptExecutorRunnable::Cancel() {
   nsresult rv = MainThreadWorkerSyncRunnable::Cancel();
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (mScriptLoader->AllScriptsExecuted()) {
+  if (mScriptLoader->AllScriptsExecuted() &&
+      mScriptLoader->AllModuleRequestsLoaded()) {
     mScriptLoader->ShutdownScriptLoader(false, false);
   }
   return NS_OK;

@@ -8,6 +8,8 @@
  * @typedef {import("../translations").LanguageIdEnginePayload} LanguageIdEnginePayload
  * @typedef {import("../translations").LanguageTranslationModelFiles} LanguageTranslationModelFiles
  * @typedef {import("../translations").TranslationsEnginePayload} TranslationsEnginePayload
+ * @typedef {import("../translations").LanguagePair} LanguagePair
+ * @typedef {import("../translations").SupportedLanguages} SupportedLanguages
  */
 
 /**
@@ -56,12 +58,6 @@ XPCOMUtils.defineLazyGetter(lazy, "console", () => {
     prefix: "Translations",
   });
 });
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  lazy,
-  "autoTranslatePagePref",
-  "browser.translations.autoTranslate"
-);
 
 export class LanguageIdEngine {
   /** @type {Worker} */
@@ -540,6 +536,7 @@ export class TranslationsChild extends JSWindowActorChild {
   }
 
   /**
+   * @overrides JSWindowActorChild.prototype.handleEvent
    * @param {{ type: string }} event
    */
   handleEvent(event) {
@@ -559,17 +556,18 @@ export class TranslationsChild extends JSWindowActorChild {
           this.contentWindow.location,
           this.#langTags
         );
-        this.reportLangTagsToParent(null);
+        this.reportDetectedLangTagsToParent(null);
         break;
     }
+    return undefined;
   }
 
   /**
    * This is used to conditionally add the translations button.
    * @param {null | { appLangTag: string, docLangTag: string }} langTags
    */
-  reportLangTagsToParent(langTags) {
-    this.sendAsyncMessage("Translations:ReportLangTags", {
+  reportDetectedLangTagsToParent(langTags) {
+    this.sendAsyncMessage("Translations:ReportDetectedLangTags", {
       langTags,
     });
   }
@@ -645,25 +643,27 @@ export class TranslationsChild extends JSWindowActorChild {
       return null;
     }
 
-    // There is no reason to look at supported languages if the engine is already in
+    // There is no reason to look at the language pairs if the engine is already in
     // the cache.
     if (!translationsEngineCache.isInCache(docLangTag, appLangTag)) {
-      // TODO - This is wrong for non-bidirectional translation pairs.
-      const supportedLanguages = await this.getSupportedLanguages();
+      const languagePairs = await this.getLanguagePairs();
       if (this.#isDestroyed) {
         return null;
       }
       if (
-        !supportedLanguages.some(({ langTag }) => langTag === appLangTag) ||
-        !supportedLanguages.some(({ langTag }) => langTag === docLangTag)
+        !languagePairs.some(
+          ({ fromLang, toLang }) =>
+            fromLang === docLangTag && toLang === appLangTag
+        )
       ) {
+        // No language pairs match.
         const message = `Translating from "${docLangTag}" to "${appLangTag}" is not supported.`;
         ChromeUtils.addProfilerMarker(
           "TranslationsChild",
           { innerWindowId: this.innerWindowId },
           message
         );
-        lazy.console.log(message, supportedLanguages);
+        lazy.console.log(message, languagePairs);
         return null;
       }
     }
@@ -687,10 +687,17 @@ export class TranslationsChild extends JSWindowActorChild {
     const langTags = await this.getLangTagsForTranslation(translationsStart);
 
     this.#langTags = langTags;
-    this.reportLangTagsToParent(langTags);
+    this.reportDetectedLangTagsToParent(langTags);
 
-    if (langTags && lazy.autoTranslatePagePref) {
-      this.translatePage(langTags, translationsStart);
+    if (
+      langTags &&
+      (await this.sendQuery("Translations:MaybeAutoTranslate", langTags))
+    ) {
+      this.translatePage(
+        langTags.docLangTag,
+        langTags.appLangTag,
+        translationsStart
+      );
     }
   }
 
@@ -711,12 +718,13 @@ export class TranslationsChild extends JSWindowActorChild {
   /**
    * Load the translation engine and translate the page.
    *
-   * @param {{docLangTag: string, appLangTag: string}} langTags
+   * @param {{fromLanguage: string, toLanguage: string}} langTags
    * @param {number} [translationsStart]
    * @returns {Promise<void>}
    */
   async translatePage(
-    { docLangTag, appLangTag },
+    fromLanguage,
+    toLanguage,
     translationsStart = this.docShell.now()
   ) {
     if (this.translatedDoc) {
@@ -725,14 +733,13 @@ export class TranslationsChild extends JSWindowActorChild {
     }
     try {
       const engineLoadStart = this.docShell.now();
-
       // Create a function to get an engine. These engines are pretty heavy in terms
       // of memory usage, so they will be destroyed when not in use, and attempt to
       // be re-used when loading a new page.
       this.#getTranslationsEngine = await translationsEngineCache.createGetter(
         this,
-        docLangTag,
-        appLangTag
+        fromLanguage,
+        toLanguage
       );
       if (this.#isDestroyed) {
         return;
@@ -760,9 +767,18 @@ export class TranslationsChild extends JSWindowActorChild {
       return;
     }
 
+    // Ensure the translation engine loads correctly at least once before instantiating
+    // the TranslationsDocument.
+    try {
+      await this.#getTranslationsEngine();
+    } catch (error) {
+      this.sendAsyncMessage("Translations:FullPageTranslationFailed");
+      return;
+    }
+
     this.translatedDoc = new lazy.TranslationsDocument(
       this.document,
-      docLangTag,
+      fromLanguage,
       this.innerWindowId,
       html =>
         this.#getTranslationsEngine().then(engine =>
@@ -808,34 +824,46 @@ export class TranslationsChild extends JSWindowActorChild {
    *
    * @param {{ name: string, data: any }} message
    */
-  receiveMessage(message) {
-    switch (message.name) {
+  receiveMessage({ name, data }) {
+    switch (name) {
       case "Translations:TranslatePage":
-        if (!this.#langTags) {
+        const langTags = data ?? this.#langTags;
+        if (!langTags) {
           lazy.console.warn(
-            "Attempting to translate a page, but no language tags were present."
+            "Attempting to translate a page, but no language tags were given."
           );
           break;
         }
-        this.translatePage(this.#langTags);
+        this.translatePage(langTags.fromLanguage, langTags.toLanguage);
         break;
+      case "Translations:GetLangTagsForTranslation":
+        return this.getLangTagsForTranslation();
       default:
         lazy.console.warn("Unknown message.");
     }
+    return undefined;
   }
 
   /**
    * Get the list of languages and their display names, sorted by their display names.
+   * This is more expensive of a call than getLanguagePairs since the display names
+   * are looked up.
    *
-   * TODO (Bug 1813775) - Not all languages have bi-directional translations, like
-   * Icelandic. These are listed as "Beta" in the addon. This list should be changed into
-   * a "from" and "to" list, and the logic enhanced in the dropdowns to only allow valid
-   * translations.
-   *
-   * @returns {Promise<Array<{ langTag: string, displayName }>>}
+   * @returns {Promise<Array<SupportedLanguages>>}
    */
   getSupportedLanguages() {
     return this.sendQuery("Translations:GetSupportedLanguages");
+  }
+
+  /**
+   * Get the language pairs that can be used for translations. This is cheaper than
+   * the getSupportedLanguages call, since the localized display names of the languages
+   * are not needed.
+   *
+   * @returns {Promise<Array<LanguagePair>>}
+   */
+  getLanguagePairs() {
+    return this.sendQuery("Translations:GetLanguagePairs");
   }
 
   /**

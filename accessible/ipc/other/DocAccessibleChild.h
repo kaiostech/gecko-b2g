@@ -220,27 +220,13 @@ class DocAccessibleChild : public DocAccessibleChildBase {
   virtual mozilla::ipc::IPCResult RecvEndOffset(const uint64_t& aID,
                                                 uint32_t* aRetVal,
                                                 bool* aOk) override;
-  virtual mozilla::ipc::IPCResult RecvIsLinkValid(const uint64_t& aID,
-                                                  bool* aRetVal) override;
-  virtual mozilla::ipc::IPCResult RecvAnchorCount(const uint64_t& aID,
-                                                  uint32_t* aRetVal,
-                                                  bool* aOk) override;
   virtual mozilla::ipc::IPCResult RecvAnchorURIAt(const uint64_t& aID,
                                                   const uint32_t& aIndex,
                                                   nsCString* aURI,
                                                   bool* aOk) override;
-  virtual mozilla::ipc::IPCResult RecvAnchorAt(const uint64_t& aID,
-                                               const uint32_t& aIndex,
-                                               uint64_t* aIDOfAnchor,
-                                               bool* aOk) override;
 
   virtual mozilla::ipc::IPCResult RecvLinkCount(const uint64_t& aID,
                                                 uint32_t* aCount) override;
-
-  virtual mozilla::ipc::IPCResult RecvLinkAt(const uint64_t& aID,
-                                             const uint32_t& aIndex,
-                                             uint64_t* aIDOfLink,
-                                             bool* aOk) override;
 
   virtual mozilla::ipc::IPCResult RecvLinkIndexAtOffset(
       const uint64_t& aID, const uint32_t& aOffset, int32_t* aIndex) override;

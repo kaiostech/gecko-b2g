@@ -56,19 +56,7 @@ xpcAccessibleHyperLink::GetAnchorCount(int32_t* aAnchorCount) {
 
   if (!Intl()) return NS_ERROR_FAILURE;
 
-  if (Intl()->IsLocal()) {
-    *aAnchorCount = Intl()->AsLocal()->AnchorCount();
-  } else {
-#if defined(XP_WIN)
-    return NS_ERROR_NOT_IMPLEMENTED;
-#else
-    bool isCountValid = false;
-    uint32_t anchorCount = Intl()->AsRemote()->AnchorCount(&isCountValid);
-    if (!isCountValid) return NS_ERROR_FAILURE;
-
-    *aAnchorCount = anchorCount;
-#endif
-  }
+  *aAnchorCount = Intl()->AnchorCount();
 
   return NS_OK;
 }
@@ -116,19 +104,11 @@ xpcAccessibleHyperLink::GetAnchor(int32_t aIndex, nsIAccessible** aAccessible) {
 
   if (aIndex < 0) return NS_ERROR_INVALID_ARG;
 
-  if (Intl()->IsLocal()) {
-    if (aIndex >= static_cast<int32_t>(Intl()->AsLocal()->AnchorCount())) {
-      return NS_ERROR_INVALID_ARG;
-    }
-
-    NS_IF_ADDREF(*aAccessible = ToXPC(Intl()->AsLocal()->AnchorAt(aIndex)));
-  } else {
-#if defined(XP_WIN)
-    return NS_ERROR_NOT_IMPLEMENTED;
-#else
-    NS_IF_ADDREF(*aAccessible = ToXPC(Intl()->AsRemote()->AnchorAt(aIndex)));
-#endif
+  if (aIndex >= static_cast<int32_t>(Intl()->AnchorCount())) {
+    return NS_ERROR_INVALID_ARG;
   }
+
+  NS_IF_ADDREF(*aAccessible = ToXPC(Intl()->AnchorAt(aIndex)));
 
   return NS_OK;
 }
@@ -140,15 +120,7 @@ xpcAccessibleHyperLink::GetValid(bool* aValid) {
 
   if (!Intl()) return NS_ERROR_FAILURE;
 
-  if (Intl()->IsLocal()) {
-    *aValid = Intl()->AsLocal()->IsLinkValid();
-  } else {
-#if defined(XP_WIN)
-    return NS_ERROR_NOT_IMPLEMENTED;
-#else
-    *aValid = Intl()->AsRemote()->IsLinkValid();
-#endif
-  }
+  *aValid = Intl()->IsLinkValid();
 
   return NS_OK;
 }

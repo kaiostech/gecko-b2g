@@ -733,9 +733,12 @@ void RemoteAccessible::ScrollSubstringTo(int32_t aStartOffset,
                                          int32_t aEndOffset,
                                          uint32_t aScrollType) {
   if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
-    // Not yet supported by the cache.
+    MOZ_ASSERT(IsHyperText(), "is not hypertext?");
+    RemoteAccessibleBase<RemoteAccessible>::ScrollSubstringTo(
+        aStartOffset, aEndOffset, aScrollType);
     return;
   }
+
   RefPtr<IAccessibleText> acc = QueryInterface<IAccessibleText>(this);
   if (!acc) {
     return;
@@ -776,66 +779,6 @@ void RemoteAccessible::ScrollSubstringToPoint(int32_t aStartOffset,
   acc->scrollSubstringToPoint(static_cast<long>(aStartOffset),
                               static_cast<long>(aEndOffset), coordType,
                               static_cast<long>(aX), static_cast<long>(aY));
-}
-
-bool RemoteAccessible::IsLinkValid() {
-  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
-    // Not yet supported by the cache.
-    return false;
-  }
-  RefPtr<IAccessibleHyperlink> acc = QueryInterface<IAccessibleHyperlink>(this);
-  if (!acc) {
-    return false;
-  }
-
-  boolean valid;
-  if (FAILED(acc->get_valid(&valid))) {
-    return false;
-  }
-
-  return valid;
-}
-
-uint32_t RemoteAccessible::AnchorCount(bool* aOk) {
-  *aOk = false;
-  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
-    // Not yet supported by the cache.
-    return 0;
-  }
-  RefPtr<IGeckoCustom> custom = QueryInterface<IGeckoCustom>(this);
-  if (!custom) {
-    return 0;
-  }
-
-  long count;
-  if (FAILED(custom->get_anchorCount(&count))) {
-    return 0;
-  }
-
-  *aOk = true;
-  return count;
-}
-
-RemoteAccessible* RemoteAccessible::AnchorAt(uint32_t aIdx) {
-  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
-    // Not yet supported by the cache.
-    return nullptr;
-  }
-  RefPtr<IAccessibleHyperlink> link =
-      QueryInterface<IAccessibleHyperlink>(this);
-  if (!link) {
-    return nullptr;
-  }
-
-  VARIANT anchor;
-  if (FAILED(link->get_anchor(aIdx, &anchor))) {
-    return nullptr;
-  }
-
-  MOZ_ASSERT(anchor.vt == VT_UNKNOWN);
-  RemoteAccessible* proxyAnchor = GetProxyFor(Document(), anchor.punkVal);
-  anchor.punkVal->Release();
-  return proxyAnchor;
 }
 
 void RemoteAccessible::DOMNodeID(nsString& aID) const {

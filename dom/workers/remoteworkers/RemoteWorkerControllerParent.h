@@ -72,6 +72,10 @@ class RemoteWorkerControllerParent final : public PRemoteWorkerControllerParent,
     // no-op for service workers
   }
 
+  void WebTransportNotified(bool aCreated) final {
+    // no-op for service workers
+  }
+
   void Terminated() override;
 
   RefPtr<RemoteWorkerController> mRemoteWorkerController;

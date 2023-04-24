@@ -146,6 +146,12 @@ void RemoteWorkerController::NotifyLock(bool aCreated) {
   mObserver->LockNotified(aCreated);
 }
 
+void RemoteWorkerController::NotifyWebTransport(bool aCreated) {
+  AssertIsOnBackgroundThread();
+
+  mObserver->WebTransportNotified(aCreated);
+}
+
 void RemoteWorkerController::WorkerTerminated() {
   AssertIsOnBackgroundThread();
 

@@ -2776,10 +2776,10 @@ StyleImageOrientation nsStyleVisibility::UsedImageOrientation(
   bool isSameOrigin =
       uri->SchemeIs("data") || triggeringPrincipal->IsSameOrigin(uri);
 
-  // If the image request is a cross-origin request, do not enforce the
-  // image orientation found in the style. Use the image orientation found
-  // in the exif data.
-  if (!isSameOrigin) {
+  // If the image request is a cross-origin request that does not use CORS,
+  // do not enforce the image orientation found in the style. Use the image
+  // orientation found in the exif data.
+  if (!isSameOrigin && !nsLayoutUtils::ImageRequestUsesCORS(aRequest)) {
     return StyleImageOrientation::FromImage;
   }
 
@@ -2989,7 +2989,8 @@ nsStyleText::nsStyleText(const nsStyleText& aSource)
       mWebkitTextStrokeWidth(aSource.mWebkitTextStrokeWidth),
       mTextShadow(aSource.mTextShadow),
       mTextEmphasisStyle(aSource.mTextEmphasisStyle),
-      mHyphenateCharacter(aSource.mHyphenateCharacter) {
+      mHyphenateCharacter(aSource.mHyphenateCharacter),
+      mWebkitTextSecurity(aSource.mWebkitTextSecurity) {
   MOZ_COUNT_CTOR(nsStyleText);
 }
 
@@ -3024,7 +3025,8 @@ nsChangeHint nsStyleText::CalcDifference(const nsStyleText& aNewData) const {
       (mTextJustify != aNewData.mTextJustify) ||
       (mWordSpacing != aNewData.mWordSpacing) ||
       (mTabSize != aNewData.mTabSize) ||
-      (mHyphenateCharacter != aNewData.mHyphenateCharacter)) {
+      (mHyphenateCharacter != aNewData.mHyphenateCharacter) ||
+      (mWebkitTextSecurity != aNewData.mWebkitTextSecurity)) {
     return NS_STYLE_HINT_REFLOW;
   }
 

@@ -200,18 +200,18 @@ function waitForSelectedLocation(dbg, line, column) {
  */
 function waitForSelectedSource(dbg, sourceOrUrl) {
   const {
-    getSelectedSource,
     getSelectedSourceTextContent,
     getSymbols,
     getBreakableLines,
     getSourceActorsForSource,
     getSourceActorBreakableLines,
+    getFirstSourceActorForGeneratedSource,
   } = dbg.selectors;
 
   return waitForState(
     dbg,
     state => {
-      const source = getSelectedSource() || {};
+      const location = dbg.selectors.getSelectedLocation() || {};
       const sourceTextContent = getSelectedSourceTextContent();
       if (!sourceTextContent) {
         return false;
@@ -221,31 +221,31 @@ function waitForSelectedSource(dbg, sourceOrUrl) {
         // Second argument is either a source URL (string)
         // or a Source object.
         if (typeof sourceOrUrl == "string") {
-          if (!source.url.includes(encodeURI(sourceOrUrl))) {
+          if (!location.source.url.includes(encodeURI(sourceOrUrl))) {
             return false;
           }
-        } else if (source.id != sourceOrUrl.id) {
+        } else if (location.source.id != sourceOrUrl.id) {
           return false;
         }
       }
 
       // Wait for symbols/AST to be parsed
-      if (!getSymbols(source)) {
+      if (!getSymbols(location)) {
         return false;
       }
 
       // Finaly wait for breakable lines to be set
-      if (source.isHTML) {
+      if (location.source.isHTML) {
         // For HTML sources we need to wait for each source actor to be processed.
         // getBreakableLines will return the aggregation without being able to know
         // if that's complete, with all the source actors.
-        const sourceActors = getSourceActorsForSource(source.id);
+        const sourceActors = getSourceActorsForSource(location.source.id);
         const allSourceActorsProcessed = sourceActors.every(
           sourceActor => !!getSourceActorBreakableLines(sourceActor.id)
         );
         return allSourceActorsProcessed;
       }
-      return getBreakableLines(source.id);
+      return getBreakableLines(location.source.id);
     },
     "selected source"
   );

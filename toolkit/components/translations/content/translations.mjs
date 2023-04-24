@@ -17,6 +17,10 @@ window.DEBOUNCE_DELAY = 200;
 window.DEBOUNCE_RUN_COUNT = 0;
 
 /**
+ * @typedef {import("../translations").SupportedLanguages} SupportedLanguages
+ */
+
+/**
  * The model and controller for initializing about:translations.
  */
 class TranslationsState {
@@ -83,6 +87,9 @@ class TranslationsState {
       ? AT_createLanguageIdEngine()
       : Promise.resolve();
 
+    /**
+     * @type {SupportedLanguages}
+     */
     this.supportedLanguages = isSupported
       ? AT_getSupportedLanguages()
       : Promise.resolve([]);
@@ -275,13 +282,13 @@ class TranslationsState {
 
     // Only update the language if the detected language matches
     // one of our supported languages.
-    const entry = supportedLanguages.find(
+    const entry = supportedLanguages.fromLanguages.find(
       ({ langTag }) => langTag === languageLabel
     );
     if (entry) {
-      const { displayName } = entry;
+      const { displayName, isBeta } = entry;
       await this.setFromLanguage(languageLabel);
-      this.ui.setDetectOptionTextContent(displayName);
+      this.ui.setDetectOptionTextContent(displayName, isBeta);
     }
   }
 
@@ -381,16 +388,43 @@ class TranslationsUI {
    */
   async setupDropdowns() {
     const supportedLanguages = await this.state.supportedLanguages;
-    // Update the DOM elements with the display names.
-    for (const { langTag, displayName } of supportedLanguages) {
-      let option = document.createElement("option");
-      option.value = langTag;
-      option.text = displayName;
-      this.languageTo.add(option);
 
-      option = document.createElement("option");
+    // Update the DOM elements with the display names.
+    for (const {
+      langTag,
+      isBeta,
+      displayName,
+    } of supportedLanguages.toLanguages) {
+      const option = document.createElement("option");
       option.value = langTag;
-      option.text = displayName;
+      if (isBeta) {
+        document.l10n.setAttributes(
+          option,
+          "about-translations-displayname-beta",
+          { language: displayName }
+        );
+      } else {
+        option.text = displayName;
+      }
+      this.languageTo.add(option);
+    }
+
+    for (const {
+      langTag,
+      isBeta,
+      displayName,
+    } of supportedLanguages.fromLanguages) {
+      const option = document.createElement("option");
+      option.value = langTag;
+      if (isBeta) {
+        document.l10n.setAttributes(
+          option,
+          "about-translations-displayname-beta",
+          { language: displayName }
+        );
+      } else {
+        option.text = displayName;
+      }
       this.languageFrom.add(option);
     }
 
@@ -454,12 +488,14 @@ class TranslationsUI {
    *
    * @param {string} displayName
    */
-  setDetectOptionTextContent(displayName) {
+  setDetectOptionTextContent(displayName, isBeta = false) {
+    // Set the text to the fluent value that takes an arg to display the language name.
     if (displayName) {
-      // Set the text to the fluent value that takes an arg to display the language name.
       document.l10n.setAttributes(
         this.#detectOption,
-        "about-translations-detect-lang",
+        isBeta
+          ? "about-translations-detect-lang-beta"
+          : "about-translations-detect-lang",
         { language: displayName }
       );
     } else {

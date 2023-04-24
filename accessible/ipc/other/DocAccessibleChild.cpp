@@ -613,33 +613,6 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvEndOffset(const uint64_t& aID,
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult DocAccessibleChild::RecvIsLinkValid(const uint64_t& aID,
-                                                            bool* aRetVal) {
-  LocalAccessible* acc = IdToAccessibleLink(aID);
-  if (acc) {
-    *aRetVal = acc->IsLinkValid();
-  } else {
-    *aRetVal = false;
-  }
-
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult DocAccessibleChild::RecvAnchorCount(const uint64_t& aID,
-                                                            uint32_t* aRetVal,
-                                                            bool* aOk) {
-  LocalAccessible* acc = IdToAccessibleLink(aID);
-  if (acc) {
-    *aRetVal = acc->AnchorCount();
-    *aOk = true;
-  } else {
-    *aRetVal = 0;
-    *aOk = false;
-  }
-
-  return IPC_OK();
-}
-
 mozilla::ipc::IPCResult DocAccessibleChild::RecvAnchorURIAt(
     const uint64_t& aID, const uint32_t& aIndex, nsCString* aURI, bool* aOk) {
   LocalAccessible* acc = IdToAccessibleLink(aID);
@@ -655,46 +628,10 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvAnchorURIAt(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult DocAccessibleChild::RecvAnchorAt(const uint64_t& aID,
-                                                         const uint32_t& aIndex,
-                                                         uint64_t* aIDOfAnchor,
-                                                         bool* aOk) {
-  *aIDOfAnchor = 0;
-  *aOk = false;
-  LocalAccessible* acc = IdToAccessibleLink(aID);
-  if (acc) {
-    LocalAccessible* anchor = acc->AnchorAt(aIndex);
-    if (anchor) {
-      *aIDOfAnchor = reinterpret_cast<uint64_t>(anchor->UniqueID());
-      *aOk = true;
-    }
-  }
-
-  return IPC_OK();
-}
-
 mozilla::ipc::IPCResult DocAccessibleChild::RecvLinkCount(const uint64_t& aID,
                                                           uint32_t* aCount) {
   HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
   *aCount = acc ? acc->LinkCount() : 0;
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult DocAccessibleChild::RecvLinkAt(const uint64_t& aID,
-                                                       const uint32_t& aIndex,
-                                                       uint64_t* aIDOfLink,
-                                                       bool* aOk) {
-  *aIDOfLink = 0;
-  *aOk = false;
-  HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
-  if (acc) {
-    LocalAccessible* link = acc->LinkAt(aIndex);
-    if (link) {
-      *aIDOfLink = reinterpret_cast<uint64_t>(link->UniqueID());
-      *aOk = true;
-    }
-  }
-
   return IPC_OK();
 }
 

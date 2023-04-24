@@ -26,10 +26,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ProvenanceData: "resource:///modules/ProvenanceData.sys.mjs",
   SearchSERPTelemetry: "resource:///modules/SearchSERPTelemetry.sys.mjs",
+  SearchSERPTelemetryUtils: "resource:///modules/SearchSERPTelemetry.sys.mjs",
   WindowsInstallsInfo:
     "resource://gre/modules/components-utils/WindowsInstallsInfo.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  DeferredTask: "resource://gre/modules/DeferredTask.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
@@ -279,7 +281,10 @@ let URICountListener = {
       webProgress.isTopLevel
     ) {
       // By default, assume we no longer need to track this tab.
-      lazy.SearchSERPTelemetry.stopTrackingBrowser(browser);
+      lazy.SearchSERPTelemetry.stopTrackingBrowser(
+        browser,
+        lazy.SearchSERPTelemetryUtils.ABANDONMENTS.NAVIGATION
+      );
     }
 
     // Don't count this URI if it's an error page.
@@ -458,6 +463,11 @@ let BrowserUsageTelemetry = {
     Services.prefs.addObserver("browser.tabs.inTitlebar", this);
 
     this._recordUITelemetry();
+
+    this._onTabsOpenedTask = new lazy.DeferredTask(
+      () => this._onTabsOpened(),
+      0
+    );
   },
 
   /**
@@ -526,7 +536,7 @@ let BrowserUsageTelemetry = {
   handleEvent(event) {
     switch (event.type) {
       case "TabOpen":
-        this._onTabOpen(getOpenTabsAndWinsCounts());
+        this._onTabOpen();
         break;
       case "TabPinned":
         this._onTabPinned();
@@ -1042,11 +1052,22 @@ let BrowserUsageTelemetry = {
 
   /**
    * Updates the tab counts.
-   * @param {Object} [counts] The counts returned by `getOpenTabsAndWindowCounts`.
    */
-  _onTabOpen({ tabCount, loadedTabCount }) {
+  _onTabOpen() {
     // Update the "tab opened" count and its maximum.
     Services.telemetry.scalarAdd(TAB_OPEN_EVENT_COUNT_SCALAR_NAME, 1);
+
+    // In the case of opening multiple tabs at once, avoid enumerating all open
+    // tabs and windows each time a tab opens.
+    this._onTabsOpenedTask.disarm();
+    this._onTabsOpenedTask.arm();
+  },
+
+  /**
+   * Update tab counts after opening multiple tabs.
+   */
+  _onTabsOpened() {
+    const { tabCount, loadedTabCount } = getOpenTabsAndWinsCounts();
     Services.telemetry.scalarSetMaximum(MAX_TAB_COUNT_SCALAR_NAME, tabCount);
 
     this._recordTabCounts({ tabCount, loadedTabCount });

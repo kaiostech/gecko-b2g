@@ -398,11 +398,7 @@ bool DMABufSurfaceRGBA::Create(int aWidth, int aHeight,
     return false;
   }
 
-  mGmbFormat = GetDMABufDevice()->GetGbmFormat(mSurfaceFlags & DMABUF_ALPHA);
-  if (!mGmbFormat) {
-    // Requested DRM format is not supported.
-    return false;
-  }
+  mGmbFormat = nsWaylandDisplay::GetGbmFormat(mSurfaceFlags & DMABUF_ALPHA);
   mDrmFormats[0] = mGmbFormat->mFormat;
 
   bool useModifiers = (aDMABufSurfaceFlags & DMABUF_USE_MODIFIERS) &&
@@ -717,7 +713,7 @@ bool DMABufSurfaceRGBA::CreateWlBuffer() {
     return false;
   }
 
-  RefPtr<nsWaylandDisplay> waylandDisplay = widget::WaylandDisplayGet();
+  nsWaylandDisplay* waylandDisplay = widget::WaylandDisplayGet();
   if (!waylandDisplay->GetDmabuf()) {
     CloseFileDescriptors(lockFD);
     return false;
@@ -1078,7 +1074,7 @@ bool DMABufSurfaceYUV::CreateYUVPlane(int aPlane) {
   LOGDMABUF(("DMABufSurfaceYUV::CreateYUVPlane() UID %d size %d x %d", mUID,
              mWidth[aPlane], mHeight[aPlane]));
 
-  if (!GetAndConfigureDMABufDevice()->GetGbmDevice()) {
+  if (!GetDMABufDevice()->GetGbmDevice()) {
     LOGDMABUF(("    Missing GbmDevice!"));
     return false;
   }

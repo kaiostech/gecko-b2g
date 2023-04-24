@@ -76,6 +76,9 @@ bitflags! {
 
         /// If true, the prim is 2d and we can apply a clip to the task rect in vertex shader
         const APPLY_DEVICE_CLIP = 1 << 1;
+
+        /// If true, the device-pixel scale is already applied, so ignore in vertex shaders
+        const IGNORE_DEVICE_PIXEL_SCALE = 1 << 2;
     }
 }
 

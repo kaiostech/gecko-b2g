@@ -118,6 +118,10 @@ void RemoteAccessible::Relations(
 }
 
 bool RemoteAccessible::IsSearchbox() const {
+  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    return RemoteAccessibleBase<RemoteAccessible>::IsSearchbox();
+  }
+
   bool retVal = false;
   Unused << mDoc->SendIsSearchbox(mID, &retVal);
   return retVal;
@@ -351,6 +355,13 @@ bool RemoteAccessible::RemoveFromSelection(int32_t aSelectionNum) {
 void RemoteAccessible::ScrollSubstringTo(int32_t aStartOffset,
                                          int32_t aEndOffset,
                                          uint32_t aScrollType) {
+  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    MOZ_ASSERT(IsHyperText(), "is not hypertext?");
+    RemoteAccessibleBase<RemoteAccessible>::ScrollSubstringTo(
+        aStartOffset, aEndOffset, aScrollType);
+    return;
+  }
+
   Unused << mDoc->SendScrollSubstringTo(mID, aStartOffset, aEndOffset,
                                         aScrollType);
 }
@@ -421,41 +432,15 @@ uint32_t RemoteAccessible::EndOffset() {
   return retVal;
 }
 
-bool RemoteAccessible::IsLinkValid() {
-  bool retVal = false;
-  Unused << mDoc->SendIsLinkValid(mID, &retVal);
-  return retVal;
-}
-
-uint32_t RemoteAccessible::AnchorCount(bool* aOk) {
-  uint32_t retVal = 0;
-  Unused << mDoc->SendAnchorCount(mID, &retVal, aOk);
-  return retVal;
-}
-
 void RemoteAccessible::AnchorURIAt(uint32_t aIndex, nsCString& aURI,
                                    bool* aOk) {
   Unused << mDoc->SendAnchorURIAt(mID, aIndex, &aURI, aOk);
-}
-
-RemoteAccessible* RemoteAccessible::AnchorAt(uint32_t aIndex) {
-  uint64_t id = 0;
-  bool ok = false;
-  Unused << mDoc->SendAnchorAt(mID, aIndex, &id, &ok);
-  return ok ? mDoc->GetAccessible(id) : nullptr;
 }
 
 uint32_t RemoteAccessible::LinkCount() {
   uint32_t retVal = 0;
   Unused << mDoc->SendLinkCount(mID, &retVal);
   return retVal;
-}
-
-RemoteAccessible* RemoteAccessible::LinkAt(const uint32_t& aIndex) {
-  uint64_t linkID = 0;
-  bool ok = false;
-  Unused << mDoc->SendLinkAt(mID, aIndex, &linkID, &ok);
-  return ok ? mDoc->GetAccessible(linkID) : nullptr;
 }
 
 int32_t RemoteAccessible::LinkIndexAtOffset(uint32_t aOffset) {

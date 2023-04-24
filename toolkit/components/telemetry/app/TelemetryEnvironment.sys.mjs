@@ -319,12 +319,22 @@ const DEFAULT_ENVIRONMENT_PREFS = new Map([
   ["layout.css.devPixelsPerPx", { what: RECORD_PREF_VALUE }],
   ["media.gmp-gmpopenh264.enabled", { what: RECORD_PREF_VALUE }],
   ["media.gmp-gmpopenh264.lastInstallFailed", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-gmpopenh264.lastInstallFailReason", { what: RECORD_PREF_VALUE }],
   ["media.gmp-gmpopenh264.lastInstallStart", { what: RECORD_PREF_VALUE }],
   ["media.gmp-gmpopenh264.lastDownload", { what: RECORD_PREF_VALUE }],
   ["media.gmp-gmpopenh264.lastDownloadFailed", { what: RECORD_PREF_VALUE }],
   ["media.gmp-gmpopenh264.lastDownloadFailReason", { what: RECORD_PREF_VALUE }],
   ["media.gmp-gmpopenh264.lastUpdate", { what: RECORD_PREF_VALUE }],
   ["media.gmp-gmpopenh264.visible", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.enabled", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.lastInstallFailed", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.lastInstallFailReason", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.lastInstallStart", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.lastDownload", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.lastDownloadFailed", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.lastDownloadFailReason", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.lastUpdate", { what: RECORD_PREF_VALUE }],
+  ["media.gmp-widevinecdm.visible", { what: RECORD_PREF_VALUE }],
   ["media.gmp-manager.lastCheck", { what: RECORD_PREF_VALUE }],
   ["media.gmp-manager.lastEmptyCheck", { what: RECORD_PREF_VALUE }],
   ["network.http.windows-sso.enabled", { what: RECORD_PREF_VALUE }],
@@ -1532,8 +1542,8 @@ EnvironmentCache.prototype = {
     }
 
     try {
-      let { ShellService } = ChromeUtils.import(
-        "resource:///modules/ShellService.jsm"
+      let { ShellService } = ChromeUtils.importESModule(
+        "resource:///modules/ShellService.sys.mjs"
       );
       // This uses the same set of flags used by the pref pane.
       return isDefault(ShellService, false, true);

@@ -103,6 +103,8 @@ class RemoteWorkerObserver {
 
   virtual void LockNotified(bool aCreated) = 0;
 
+  virtual void WebTransportNotified(bool aCreated) = 0;
+
   virtual void Terminated() = 0;
 };
 
@@ -160,6 +162,8 @@ class RemoteWorkerController final {
   RefPtr<nsIURI> GetScriptURI() const {
     return mScriptURI;
   }
+
+  void NotifyWebTransport(bool aCreated);
 
  private:
   RemoteWorkerController(const RemoteWorkerData& aData,

@@ -3,6 +3,10 @@
 const { AboutWelcomeParent } = ChromeUtils.import(
   "resource:///actors/AboutWelcomeParent.jsm"
 );
+
+const { AboutWelcomeTelemetry } = ChromeUtils.import(
+  "resource://activity-stream/aboutwelcome/lib/AboutWelcomeTelemetry.jsm"
+);
 const { AWScreenUtils } = ChromeUtils.import(
   "resource://activity-stream/lib/AWScreenUtils.jsm"
 );
@@ -48,10 +52,6 @@ add_task(async function test_aboutwelcome_mr_template_telemetry() {
   const messageStub = sandbox.spy(aboutWelcomeActor, "onContentMessage");
   await clickVisibleButton(browser, ".action-buttons button.secondary");
 
-  registerCleanupFunction(() => {
-    sandbox.restore();
-  });
-
   const { callCount } = messageStub;
   ok(callCount >= 1, `${callCount} Stub was called`);
   let clickCall;
@@ -70,6 +70,65 @@ add_task(async function test_aboutwelcome_mr_template_telemetry() {
 
   await cleanup();
   sandbox.restore();
+});
+
+/**
+ * Telemetry Impression with Pin as First Screen
+ */
+add_task(async function test_aboutwelcome_pin_screen_impression() {
+  await pushPrefs(["browser.shell.checkDefaultBrowser", true]);
+
+  const sandbox = initSandbox();
+  sandbox
+    .stub(AWScreenUtils, "evaluateScreenTargeting")
+    .resolves(true)
+    .withArgs(
+      "os.windowsBuildNumber >= 15063 && !isDefaultBrowser && !doesAppNeedPin"
+    )
+    .resolves(false);
+
+  let impressionSpy = sandbox.spy(
+    AboutWelcomeTelemetry.prototype,
+    "sendTelemetry"
+  );
+
+  let { browser, cleanup } = await openMRAboutWelcome();
+  // Wait for screen elements to render before checking impression pings
+  await test_screen_content(
+    browser,
+    "Onboarding screen elements rendered",
+    // Expected selectors:
+    [
+      `main.screen[pos="split"]`,
+      "div.secondary-cta.top",
+      "button[value='secondary_button_top']",
+    ]
+  );
+
+  const { callCount } = impressionSpy;
+  ok(callCount >= 1, `${callCount} impressionSpy was called`);
+  let impressionCall;
+  for (let i = 0; i < callCount; i++) {
+    const call = impressionSpy.getCall(i);
+    info(`Call #${i}:  ${JSON.stringify(call.args[0])}`);
+    if (
+      call.calledWithMatch({ event: "IMPRESSION" }) &&
+      !call.calledWithMatch({ message_id: "MR_WELCOME_DEFAULT" })
+    ) {
+      info(`Screen Impression Call #${i}:  ${JSON.stringify(call.args[0])}`);
+      impressionCall = call;
+    }
+  }
+
+  Assert.ok(
+    impressionCall.args[0].message_id.startsWith(
+      "MR_WELCOME_DEFAULT_0_AW_PIN_FIREFOX_P"
+    ),
+    "Impression telemetry includes correct message id"
+  );
+  await cleanup();
+  sandbox.restore();
+  await popPrefs();
 });
 
 /**
@@ -287,6 +346,122 @@ add_task(async function test_aboutwelcome_gratitude() {
   );
 
   // cleanup
+  await SpecialPowers.popPrefEnv(); // for setAboutWelcomeMultiStage
+  await cleanup();
+});
+
+add_task(async function test_aboutwelcome_embedded_migration() {
+  // Let's make sure at least one migrator is available and enabled - the
+  // InternalTestingProfileMigrator.
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.migrate.internal-testing.enabled", true]],
+  });
+
+  const TEST_CONTENT = [
+    {
+      id: "AW_IMPORT_SETTINGS_EMBEDDED",
+      content: {
+        tiles: { type: "migration-wizard" },
+        position: "split",
+        split_narrow_bkg_position: "-42px",
+        image_alt_text: {
+          string_id: "mr2022-onboarding-import-image-alt",
+        },
+        background:
+          "url('chrome://activity-stream/content/data/content/assets/mr-import.svg') var(--mr-secondary-position) no-repeat var(--mr-screen-background-color)",
+        progress_bar: true,
+        secondary_button: {
+          label: {
+            string_id: "mr2022-onboarding-secondary-skip-button-label",
+          },
+          action: {
+            navigate: true,
+          },
+          has_arrow_icon: true,
+        },
+      },
+    },
+  ];
+
+  await setAboutWelcomeMultiStage(JSON.stringify(TEST_CONTENT)); // NB: calls SpecialPowers.pushPrefEnv
+  let { cleanup, browser } = await openMRAboutWelcome();
+
+  // execution
+  await test_screen_content(
+    browser,
+    "Renders a <migration-wizard> custom element",
+    // We expect <migration-wizard> to automatically request the set of migrators
+    // upon binding to the DOM, and to not be in dialog mode.
+    [
+      "main.AW_IMPORT_SETTINGS_EMBEDDED",
+      "migration-wizard[auto-request-state]:not([dialog-mode])",
+    ]
+  );
+
+  // Do a basic test to make sure that the <migration-wizard> is on the right
+  // page and the <panel-list> can open.
+  await SpecialPowers.spawn(browser, [], async () => {
+    const { MigrationWizardConstants } = ChromeUtils.importESModule(
+      "chrome://browser/content/migration/migration-wizard-constants.mjs"
+    );
+
+    let wizard = content.document.querySelector("migration-wizard");
+    let shadow = wizard.openOrClosedShadowRoot;
+    let deck = shadow.querySelector("#wizard-deck");
+
+    // It's unlikely but possible that the deck might not yet be showing the
+    // selection page yet, in which case we wait for that page to appear.
+    if (deck.selectedViewName !== MigrationWizardConstants.PAGES.SELECTION) {
+      await ContentTaskUtils.waitForMutationCondition(
+        deck,
+        { attributeFilter: ["selected-view"] },
+        () => {
+          return (
+            deck.getAttribute("selected-view") ===
+            `page-${MigrationWizardConstants.PAGES.SELECTION}`
+          );
+        }
+      );
+    }
+
+    Assert.ok(true, "Selection page is being shown in the migration wizard.");
+
+    // Now let's make sure that the <panel-list> can appear.
+    let panelList = wizard.querySelector("panel-list");
+    Assert.ok(panelList, "Found the <panel-list>.");
+
+    // The "shown" event from the panel-list is coming from a lower level
+    // of privilege than where we're executing this SpecialPowers.spawn
+    // task. In order to properly listen for it, we have to ask
+    // ContentTaskUtils.waitForEvent to listen for untrusted events.
+    let shown = ContentTaskUtils.waitForEvent(
+      panelList,
+      "shown",
+      false /* capture */,
+      null /* checkFn */,
+      true /* wantsUntrusted */
+    );
+    let selector = shadow.querySelector("#browser-profile-selector");
+    selector.click();
+    await shown;
+
+    let panelRect = panelList.getBoundingClientRect();
+    let selectorRect = selector.getBoundingClientRect();
+
+    // Recalculate the <panel-list> rect top value relative to the top-left
+    // of the selectorRect. We expect the <panel-list> to be tightly anchored
+    // to the bottom of the <button>, so we expect this new value to be 0.
+    let panelTopLeftRelativeToAnchorTopLeft =
+      panelRect.top - selectorRect.top - selectorRect.height;
+    Assert.equal(
+      panelTopLeftRelativeToAnchorTopLeft,
+      0,
+      "Panel should be tightly anchored to the bottom of the button shadow node."
+    );
+  });
+
+  // cleanup
+  await SpecialPowers.popPrefEnv(); // for the InternalTestingProfileMigrator.
   await SpecialPowers.popPrefEnv(); // for setAboutWelcomeMultiStage
   await cleanup();
 });

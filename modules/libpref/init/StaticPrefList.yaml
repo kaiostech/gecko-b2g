@@ -214,7 +214,7 @@
 
 - name: accessibility.ARIAReflection.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether form controls and images should be focusable with mouse, in content
@@ -875,6 +875,12 @@
 - name: apz.scale_repaint_delay_ms
   type: RelaxedAtomicInt32
   value: 500
+  mirror: always
+
+# Whether to use rounded external scroll offsets.
+- name: apz.rounded_external_scroll_offset
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -2192,12 +2198,6 @@
 # Whether Alarm API is exposed to the web.
 - name: dom.alarm.enabled
   type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# Whether CanvasRenderingContext2D.mozImageSmoothingEnabled is enabled.
-- name: dom.mozImageSmoothingEnabled.enabled
-  type: bool
   value: false
   mirror: always
 
@@ -3658,7 +3658,12 @@
 # Use a Background Task to delete files at shutdown.
 - name: dom.quotaManager.backgroundTask.enabled
   type: bool
+#ifdef XP_MACOSX
+# Needs to figure out how to prevent bug 1827486.
+  value: false
+#else
   value: true
+#endif
   mirror: never
 #endif
 
@@ -5364,11 +5369,11 @@
   value: true
   mirror: always
 
-# Store the session history in the parent process, and access it over IPC
-# from the child processes.
-- name: fission.sessionHistoryInParent
+# Disable storing the session history in the parent process, and accessing it
+# over IPC from the child processes.
+- name: fission.disableSessionHistoryInParent
   type: bool
-  value: false
+  value: @IS_ANDROID@
   mirror: once
   do_not_use_directly: true
 
@@ -7715,6 +7720,14 @@
   mirror: always  # LoadStartupJSPrefs
   do_not_use_directly: true
 
+# Jit Hints Cache - An in-process cache to
+# accelerate repeated baseline compilations
+- name: javascript.options.jitHints
+  type: bool
+  value: true
+  mirror: always  # LoadStartupJSPrefs
+  do_not_use_directly: true
+
 # "Warm-up" thresholds at which we attempt to compile a script/function with
 # the next JIT tier.
 #
@@ -8485,13 +8498,6 @@
   value: -1
   mirror: always
 
-# Whether @layer is enabled
-- name: layout.css.cascade-layers.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Whether Container Queries are enabled
 - name: layout.css.container-queries.enabled
   type: RelaxedAtomicBool
@@ -9238,6 +9244,12 @@
   value: 50 # 50%
   mirror: always
 
+# Whether the "modern" uppercase mapping of ß to ẞ (rather than SS) is used.
+- name: layout.css.text-transform.uppercase-eszett.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Whether to block large cursors intersecting UI.
 - name: layout.cursor.block.enabled
   type: bool
@@ -9581,6 +9593,13 @@
 - name: layout.css.scrollbar-gutter.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Whether supports() conditions in @import is enabled
+- name: layout.css.import-supports.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -10605,8 +10624,20 @@
   value: 2500
   mirror: always
 
+# True if we want to decode in batches.
+- name: media.gmp.decoder.decode_batch
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # True if we allow use of any decoders found in GMP plugins.
 - name: media.gmp.decoder.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# True if we want to request the multithreaded GMP decoder.
+- name: media.gmp.decoder.multithreaded
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -12927,6 +12958,11 @@
   value: 1
   mirror: always
 
+- name: network.allow_redirect_to_data
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: network.allow_raw_sockets_in_content_processes
   type: bool
   value: false
@@ -13195,13 +13231,6 @@
 - name: privacy.annotate_channels.strict_list.pbmode.enabled
   type: bool
   value: true
-  mirror: always
-
-# Enable the clearing of cache data using the clear-site-data header. If enabled,
-# header values of "cache" and "*" will clear cached data from the site
-- name: privacy.clearsitedata.cache.enabled
-  type: bool
-  value: false
   mirror: always
 
 # First Party Isolation (double keying), disabled by default.
@@ -13994,17 +14023,12 @@
   value: true
   mirror: always
 
-# No way to enable on Android, Bug 1552602
-- name: security.webauth.u2f
-  type: bool
-  value: false
-  mirror: always
-
 # WebAuthn CTAP2 support
 - name: security.webauthn.ctap2
   type: RelaxedAtomicBool
   value: true
   mirror: always
+  rust: true
 
 # Dispatch WebAuthn requests to the software CTAP1 token.
 # (mutually exclusive with webauthn_enable_android_fido2,
@@ -14191,6 +14215,17 @@
 # stored in OS certificate storage. Currently only available for Windows and
 # macOS.
 - name: security.osclientcerts.autoload
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# If true, assume tokens accessed via osclientcerts implement RSA-PSS. If a
+# given token does not support RSA-PSS, users may see the error
+# 'SEC_ERROR_PKCS11_GENERAL_ERROR' if a server indicates it will accept an
+# RSA-PSS signature in the client's certificate verify message.
+# Setting this to false may allow such connections to succeed, if the server
+# also accepts RSA-PKCS1 signatures.
+- name: security.osclientcerts.assume_rsa_pss_support
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -14542,6 +14577,23 @@
   value: 1
   mirror: always
 
+# Whether to restrict <svg:use> element recursion levels.
+#
+# - 0: Don't restrict ever.
+# - 1: Restrict everywhere
+# - 2/other: Restrict only in the parent process.
+#
+- name: svg.use-element.recursive-clone-limit.enabled
+  type: int32_t
+  value: 2
+  mirror: always
+
+# What is the recursion limit for svg use element cloning if enabled.
+- name: svg.use-element.recursive-clone-limit
+  type: uint32_t
+  value: 8
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "telemetry."
 #---------------------------------------------------------------------------
@@ -14615,6 +14667,14 @@
 - name: threads.use_low_power.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+
+# If the process priority is set to background, put the main thread in the background.
+# Currently off by default.
+- name: threads.lower_mainthread_priority_in_background.enabled
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -15440,6 +15500,13 @@
   type: bool
   value: false
   mirror: always
+
+# Whether GTK should use non-native menu styling.
+- name: widget.gtk.non-native-menu-styling
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+  rust: true
 
 # The amount of space that the thumb should fill the scrollbar, from zero to
 # one.

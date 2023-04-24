@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Module } from "chrome://remote/content/shared/messagehandler/Module.sys.mjs";
+import { WindowGlobalBiDiModule } from "chrome://remote/content/webdriver-bidi/modules/WindowGlobalBiDiModule.sys.mjs";
 
 const lazy = {};
 
@@ -11,7 +11,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   error: "chrome://remote/content/shared/webdriver/Errors.sys.mjs",
   getFramesFromStack: "chrome://remote/content/shared/Stack.sys.mjs",
   isChromeFrame: "chrome://remote/content/shared/Stack.sys.mjs",
+  OwnershipModel: "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs",
   serialize: "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs",
+  setDefaultSerializationOptions:
+    "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs",
   stringify: "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs",
   WindowRealm: "chrome://remote/content/webdriver-bidi/Realm.sys.mjs",
 });
@@ -31,7 +34,7 @@ const EvaluationStatus = {
   Throw: "throw",
 };
 
-class ScriptModule extends Module {
+class ScriptModule extends WindowGlobalBiDiModule {
   #defaultRealm;
   #observerListening;
   #preloadScripts;
@@ -76,13 +79,7 @@ class ScriptModule extends Module {
     }
   }
 
-  #buildExceptionDetails(
-    exception,
-    stack,
-    realm,
-    resultOwnership,
-    serializeOptions
-  ) {
+  #buildExceptionDetails(exception, stack, realm, resultOwnership, options) {
     exception = this.#toRawObject(exception);
     const frames = lazy.getFramesFromStack(stack) || [];
 
@@ -104,11 +101,11 @@ class ScriptModule extends Module {
       columnNumber: stack.column - 1,
       exception: lazy.serialize(
         exception,
-        1,
+        lazy.setDefaultSerializationOptions(),
         resultOwnership,
         new Map(),
         realm,
-        serializeOptions
+        options
       ),
       lineNumber: stack.line - 1,
       stackTrace: { callFrames },
@@ -121,7 +118,8 @@ class ScriptModule extends Module {
     realm,
     awaitPromise,
     resultOwnership,
-    serializeOptions
+    serializationOptions,
+    options
   ) {
     let evaluationStatus, exception, result, stack;
 
@@ -163,11 +161,11 @@ class ScriptModule extends Module {
           evaluationStatus,
           result: lazy.serialize(
             this.#toRawObject(result),
-            1,
+            serializationOptions,
             resultOwnership,
             new Map(),
             realm,
-            serializeOptions
+            options
           ),
           realmId: realm.id,
         };
@@ -179,7 +177,7 @@ class ScriptModule extends Module {
             stack,
             realm,
             resultOwnership,
-            serializeOptions
+            options
           ),
           realmId: realm.id,
         };
@@ -190,6 +188,35 @@ class ScriptModule extends Module {
     }
   }
 
+  /**
+   * Emit "script.message" event with provided data.
+   *
+   * @param {Realm} realm
+   * @param {ChannelProperties} channelProperties
+   * @param {RemoteValue} message
+   */
+  #emitScriptMessage = (realm, channelProperties, message) => {
+    const {
+      channel,
+      ownership: ownershipType = lazy.OwnershipModel.None,
+      serializationOptions,
+    } = channelProperties;
+
+    const data = lazy.serialize(
+      this.#toRawObject(message),
+      lazy.setDefaultSerializationOptions(serializationOptions),
+      ownershipType,
+      new Map(),
+      realm
+    );
+
+    this.emitEvent("script.message", {
+      channel,
+      data,
+      source: this.#getSource(realm),
+    });
+  };
+
   #evaluatePreloadScripts() {
     let resolveBlockerPromise;
     const blockerPromise = new Promise(resolve => {
@@ -199,10 +226,21 @@ class ScriptModule extends Module {
     // Block script parsing.
     this.messageHandler.window.document.blockParsing(blockerPromise);
     for (const script of this.#preloadScripts.values()) {
-      const { functionDeclaration, sandbox } = script;
+      const {
+        arguments: commandArguments,
+        functionDeclaration,
+        sandbox,
+      } = script;
       const realm = this.#getRealmFromSandboxName(sandbox);
-
-      const rv = realm.executeInGlobalWithBindings(functionDeclaration, []);
+      const deserializedArguments = commandArguments.map(arg =>
+        lazy.deserialize(realm, arg, {
+          emitScriptMessage: this.#emitScriptMessage,
+        })
+      );
+      const rv = realm.executeInGlobalWithBindings(
+        functionDeclaration,
+        deserializedArguments
+      );
 
       if ("throw" in rv) {
         const exception = this.#toRawObject(rv.throw);
@@ -250,6 +288,13 @@ class ScriptModule extends Module {
     this.#realms.set(sandboxName, realm);
 
     return realm;
+  }
+
+  #getSource(realm) {
+    return {
+      realm: realm.id,
+      context: this.messageHandler.context,
+    };
   }
 
   #startObserving() {
@@ -302,6 +347,9 @@ class ScriptModule extends Module {
    *     The ownership model to use for the results of this evaluation.
    * @param {string=} options.sandbox
    *     The name of the sandbox.
+   * @param {SerializationOptions=} options.serializationOptions
+   *     An object which holds the information of how the result of evaluation
+   *     in case of ECMAScript objects should be serialized.
    * @param {RemoteValue=} options.thisParameter
    *     The value of the this keyword for the function call.
    *
@@ -320,22 +368,29 @@ class ScriptModule extends Module {
       realmId = null,
       resultOwnership,
       sandbox: sandboxName = null,
+      serializationOptions,
       thisParameter = null,
     } = options;
 
     const realm = this.#getRealm(realmId, sandboxName);
-    const nodeCache = this.messageHandler.processActor.getNodeCache();
+    const nodeCache = this.nodeCache;
 
     const deserializedArguments =
       commandArguments !== null
         ? commandArguments.map(arg =>
-            lazy.deserialize(realm, arg, { nodeCache })
+            lazy.deserialize(realm, arg, {
+              emitScriptMessage: this.#emitScriptMessage,
+              nodeCache,
+            })
           )
         : [];
 
     const deserializedThis =
       thisParameter !== null
-        ? lazy.deserialize(realm, thisParameter, { nodeCache })
+        ? lazy.deserialize(realm, thisParameter, {
+            emitScriptMessage: this.#emitScriptMessage,
+            nodeCache,
+          })
         : null;
 
     const rv = realm.executeInGlobalWithBindings(
@@ -344,9 +399,16 @@ class ScriptModule extends Module {
       deserializedThis
     );
 
-    return this.#buildReturnValue(rv, realm, awaitPromise, resultOwnership, {
-      nodeCache,
-    });
+    return this.#buildReturnValue(
+      rv,
+      realm,
+      awaitPromise,
+      resultOwnership,
+      serializationOptions,
+      {
+        nodeCache,
+      }
+    );
   }
 
   /**
@@ -399,16 +461,23 @@ class ScriptModule extends Module {
       realmId = null,
       resultOwnership,
       sandbox: sandboxName = null,
+      serializationOptions,
     } = options;
 
     const realm = this.#getRealm(realmId, sandboxName);
-    const nodeCache = this.messageHandler.processActor.getNodeCache();
 
     const rv = realm.executeInGlobal(expression);
 
-    return this.#buildReturnValue(rv, realm, awaitPromise, resultOwnership, {
-      nodeCache,
-    });
+    return this.#buildReturnValue(
+      rv,
+      realm,
+      awaitPromise,
+      resultOwnership,
+      serializationOptions,
+      {
+        nodeCache: this.nodeCache,
+      }
+    );
   }
 
   /**

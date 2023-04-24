@@ -40,6 +40,7 @@
 #include "HTMLSelectAccessible.h"
 #include "ImageAccessible.h"
 
+#include "nsComputedDOMStyle.h"
 #include "nsIDOMXULButtonElement.h"
 #include "nsIDOMXULSelectCntrlEl.h"
 #include "nsIDOMXULSelectCntrlItemEl.h"
@@ -1175,25 +1176,28 @@ already_AddRefed<AccAttributes> LocalAccessible::NativeAttributes() {
   // 1. There is no frame (e.g. the accessible is unattached from the tree).
   // 2. This is an image map area. CSS is irrelevant here. Furthermore, we won't
   // be able to get the computed style if the map is unslotted in a shadow host.
-  if (!mContent->GetPrimaryFrame() ||
-      mContent->IsHTMLElement(nsGkAtoms::area)) {
+  nsIFrame* f = mContent->GetPrimaryFrame();
+  if (!f || mContent->IsHTMLElement(nsGkAtoms::area)) {
     return attributes.forget();
   }
 
-  // CSS style based object attributes.
-  nsAutoString value;
-  StyleInfo styleInfo(mContent->AsElement());
+  const ComputedStyle& style = *f->Style();
+  auto Atomize = [&](nsCSSPropertyID aId) -> RefPtr<nsAtom> {
+    nsAutoCString value;
+    style.GetComputedPropertyValue(aId, value);
+    return NS_Atomize(value);
+  };
 
   // Expose 'display' attribute.
-  RefPtr<nsAtom> displayValue = styleInfo.Display();
-  attributes->SetAttribute(nsGkAtoms::display, displayValue);
+  attributes->SetAttribute(nsGkAtoms::display, Atomize(eCSSProperty_display));
 
   // Expose 'text-align' attribute.
-  RefPtr<nsAtom> textAlignValue = styleInfo.TextAlign();
-  attributes->SetAttribute(nsGkAtoms::textAlign, textAlignValue);
+  attributes->SetAttribute(nsGkAtoms::textAlign,
+                           Atomize(eCSSProperty_text_align));
 
   // Expose 'text-indent' attribute.
-  mozilla::LengthPercentage textIndent = styleInfo.TextIndent();
+  // XXX how does whatever reads this whether this was a percentage or a length?
+  const LengthPercentage& textIndent = f->StyleText()->mTextIndent;
   if (textIndent.ConvertsToLength()) {
     attributes->SetAttribute(nsGkAtoms::textIndent,
                              textIndent.ToLengthInCSSPixels());
@@ -1201,17 +1205,29 @@ already_AddRefed<AccAttributes> LocalAccessible::NativeAttributes() {
     attributes->SetAttribute(nsGkAtoms::textIndent, textIndent.ToPercentage());
   }
 
+  auto GetMargin = [&](mozilla::Side aSide) -> CSSCoord {
+    // This is here only to guarantee that we do the same as getComputedStyle
+    // does, so that we don't hit precision errors in tests.
+    auto& margin = f->StyleMargin()->mMargin.Get(aSide);
+    if (margin.ConvertsToLength()) {
+      return margin.AsLengthPercentage().ToLengthInCSSPixels();
+    }
+
+    nscoord coordVal = f->GetUsedMargin().Side(aSide);
+    return CSSPixel::FromAppUnits(coordVal);
+  };
+
   // Expose 'margin-left' attribute.
-  attributes->SetAttribute(nsGkAtoms::marginLeft, styleInfo.MarginLeft());
+  attributes->SetAttribute(nsGkAtoms::marginLeft, GetMargin(eSideLeft));
 
   // Expose 'margin-right' attribute.
-  attributes->SetAttribute(nsGkAtoms::marginRight, styleInfo.MarginRight());
+  attributes->SetAttribute(nsGkAtoms::marginRight, GetMargin(eSideRight));
 
   // Expose 'margin-top' attribute.
-  attributes->SetAttribute(nsGkAtoms::marginTop, styleInfo.MarginTop());
+  attributes->SetAttribute(nsGkAtoms::marginTop, GetMargin(eSideTop));
 
   // Expose 'margin-bottom' attribute.
-  attributes->SetAttribute(nsGkAtoms::marginBottom, styleInfo.MarginBottom());
+  attributes->SetAttribute(nsGkAtoms::marginBottom, GetMargin(eSideBottom));
 
   // Expose data-at-shortcutkeys attribute for web applications and virtual
   // cursors. Currently mostly used by JAWS.
@@ -2760,16 +2776,6 @@ bool LocalAccessible::IsLink() const {
   return mParent && mParent->IsHyperText() && !IsText();
 }
 
-uint32_t LocalAccessible::AnchorCount() {
-  MOZ_ASSERT(IsLink(), "AnchorCount is called on not hyper link!");
-  return 1;
-}
-
-LocalAccessible* LocalAccessible::AnchorAt(uint32_t aAnchorIndex) {
-  MOZ_ASSERT(IsLink(), "GetAnchor is called on not hyper link!");
-  return aAnchorIndex == 0 ? this : nullptr;
-}
-
 already_AddRefed<nsIURI> LocalAccessible::AnchorURIAt(
     uint32_t aAnchorIndex) const {
   MOZ_ASSERT(IsLink(), "AnchorURIAt is called on not hyper link!");
@@ -3891,18 +3897,38 @@ nsAtom* LocalAccessible::TagName() const {
                                            : nullptr;
 }
 
-already_AddRefed<nsAtom> LocalAccessible::DisplayStyle() const {
-  if (dom::Element* elm = Elm()) {
-    if (elm->IsHTMLElement(nsGkAtoms::area)) {
-      // This is an image map area. CSS is irrelevant here. Furthermore, we
-      // won't be able to get the computed style if the map is unslotted in a
-      // shadow host.
-      return nullptr;
-    }
-    StyleInfo info(elm);
-    return info.Display();
+already_AddRefed<nsAtom> LocalAccessible::InputType() const {
+  if (!IsTextField() && !IsDateTimeField()) {
+    return nullptr;
   }
+
+  dom::Element* el = mContent->AsElement();
+  if (const nsAttrValue* attr = el->GetParsedAttr(nsGkAtoms::type)) {
+    RefPtr<nsAtom> inputType = attr->GetAsAtom();
+    return inputType.forget();
+  }
+
   return nullptr;
+}
+
+already_AddRefed<nsAtom> LocalAccessible::DisplayStyle() const {
+  dom::Element* elm = Elm();
+  if (!elm) {
+    return nullptr;
+  }
+  if (elm->IsHTMLElement(nsGkAtoms::area)) {
+    // This is an image map area. CSS is irrelevant here.
+    return nullptr;
+  }
+  RefPtr<const ComputedStyle> style =
+      nsComputedDOMStyle::GetComputedStyleNoFlush(elm);
+  if (!style) {
+    // The element is not styled, maybe not in the flat tree?
+    return nullptr;
+  }
+  nsAutoCString value;
+  style->GetComputedPropertyValue(eCSSProperty_display, value);
+  return NS_Atomize(value);
 }
 
 float LocalAccessible::Opacity() const {

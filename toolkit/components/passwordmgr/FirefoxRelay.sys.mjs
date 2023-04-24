@@ -29,6 +29,9 @@ const gConfig = (function() {
     learnMoreURL: Services.urlFormatter.formatURLPref(
       "signon.firefoxRelay.learn_more_url"
     ),
+    manageURL: Services.urlFormatter.formatURLPref(
+      "signon.firefoxRelay.manage_url"
+    ),
     relayFeaturePref: "signon.firefoxRelay.feature",
   };
 })();
@@ -44,14 +47,14 @@ XPCOMUtils.defineLazyGetter(lazy, "fxAccounts", () =>
 XPCOMUtils.defineLazyGetter(lazy, "strings", function() {
   return new Localization([
     "branding/brand.ftl",
-    "browser/branding/sync-brand.ftl",
-    "toolkit/branding/brandings.ftl",
     "browser/firefoxRelay.ftl",
+    "toolkit/branding/accounts.ftl",
+    "toolkit/branding/brandings.ftl",
   ]);
 });
 
 if (Services.appinfo.processType !== Services.appinfo.PROCESS_TYPE_DEFAULT) {
-  throw new Error("FirefoxRelay.jsm should only run in the parent process");
+  throw new Error("FirefoxRelay.sys.mjs should only run in the parent process");
 }
 
 async function getRelayTokenAsync() {
@@ -245,7 +248,7 @@ async function showReusableMasksAsync(browser, origin, error) {
         "get_unlimited_masks",
         FirefoxRelay.flowId
       );
-      browser.ownerGlobal.openWebLinkIn(gConfig.learnMoreURL, "tab");
+      browser.ownerGlobal.openWebLinkIn(gConfig.manageURL, "tab");
     },
   };
 

@@ -18,7 +18,7 @@
 using namespace mozilla::a11y;
 
 HyperTextAccessibleBase* ia2AccessibleText::sLastTextChangeAcc = nullptr;
-StaticAutoPtr<nsString> ia2AccessibleText::sLastTextChangeString;
+mozilla::StaticAutoPtr<nsString> ia2AccessibleText::sLastTextChangeString;
 uint32_t ia2AccessibleText::sLastTextChangeStart = 0;
 uint32_t ia2AccessibleText::sLastTextChangeEnd = 0;
 bool ia2AccessibleText::sLastTextChangeWasInsert = false;
@@ -380,9 +380,9 @@ ia2AccessibleText::get_nCharacters(long* aNCharacters) {
 STDMETHODIMP
 ia2AccessibleText::scrollSubstringTo(long aStartIndex, long aEndIndex,
                                      enum IA2ScrollType aScrollType) {
-  auto [textAcc, hr] = LocalTextAcc();
+  HyperTextAccessibleBase* textAcc = TextAcc();
   if (!textAcc) {
-    return hr;
+    return CO_E_OBJNOTCONNECTED;
   }
 
   if (!textAcc->IsValidRange(aStartIndex, aEndIndex)) return E_INVALIDARG;

@@ -108,7 +108,7 @@ void RemoteTextureOwnerClient::PushDummyTexture(
 }
 
 void RemoteTextureOwnerClient::GetLatestBufferSnapshot(
-    const RemoteTextureOwnerId aOwnerId, const ipc::Shmem& aDestShmem,
+    const RemoteTextureOwnerId aOwnerId, const mozilla::ipc::Shmem& aDestShmem,
     const gfx::IntSize& aSize) {
   MOZ_ASSERT(IsRegistered(aOwnerId));
   RemoteTextureMap::Get()->GetLatestBufferSnapshot(aOwnerId, mForPid,
@@ -165,7 +165,7 @@ void RemoteTextureMap::PushTexture(
     const std::shared_ptr<gl::SharedSurface>& aSharedSurface) {
   MOZ_RELEASE_ASSERT(aTextureHost);
 
-  std::vector<std::function<void(void)>>
+  std::vector<std::function<void(const RemoteTextureInfo&)>>
       renderingReadyCallbacks;  // Call outside the monitor
   {
     MonitorAutoLock lock(mMonitor);
@@ -244,14 +244,15 @@ void RemoteTextureMap::PushTexture(
     }
   }
 
+  const auto info = RemoteTextureInfo(aTextureId, aOwnerId, aForPid);
   for (auto& callback : renderingReadyCallbacks) {
-    callback();
+    callback(info);
   }
 }
 
 void RemoteTextureMap::GetLatestBufferSnapshot(
     const RemoteTextureOwnerId aOwnerId, const base::ProcessId aForPid,
-    const ipc::Shmem& aDestShmem, const gfx::IntSize& aSize) {
+    const mozilla::ipc::Shmem& aDestShmem, const gfx::IntSize& aSize) {
   // The compositable ref of remote texture should be updated in mMonitor lock.
   CompositableTextureHostRef textureHostRef;
   RefPtr<TextureHost> releasingTexture;  // Release outside the monitor
@@ -364,7 +365,7 @@ void RemoteTextureMap::UnregisterTextureOwner(
   UniquePtr<TextureOwner> releasingOwner;  // Release outside the monitor
   std::vector<RefPtr<TextureHost>>
       releasingTextures;  // Release outside the monitor
-  std::vector<std::function<void(void)>>
+  std::vector<std::function<void(const RemoteTextureInfo&)>>
       renderingReadyCallbacks;  // Call outside the monitor
   {
     MonitorAutoLock lock(mMonitor);
@@ -403,8 +404,10 @@ void RemoteTextureMap::UnregisterTextureOwner(
     mMonitor.Notify();
   }
 
+  const auto info =
+      RemoteTextureInfo(RemoteTextureId{0}, RemoteTextureOwnerId{0}, 0);
   for (auto& callback : renderingReadyCallbacks) {
-    callback();
+    callback(info);
   }
 }
 
@@ -416,7 +419,7 @@ void RemoteTextureMap::UnregisterTextureOwners(
       releasingOwners;  // Release outside the monitor
   std::vector<RefPtr<TextureHost>>
       releasingTextures;  // Release outside the monitor
-  std::vector<std::function<void(void)>>
+  std::vector<std::function<void(const RemoteTextureInfo&)>>
       renderingReadyCallbacks;  // Call outside the monitor
   {
     MonitorAutoLock lock(mMonitor);
@@ -457,8 +460,10 @@ void RemoteTextureMap::UnregisterTextureOwners(
     mMonitor.Notify();
   }
 
+  const auto info =
+      RemoteTextureInfo(RemoteTextureId{0}, RemoteTextureOwnerId{0}, 0);
   for (auto& callback : renderingReadyCallbacks) {
-    callback();
+    callback(info);
   }
 }
 
@@ -514,13 +519,13 @@ void RemoteTextureMap::UpdateTexture(const MonitorAutoLock& aProofOfLock,
   }
 }
 
-std::vector<std::function<void(void)>>
+std::vector<std::function<void(const RemoteTextureInfo&)>>
 RemoteTextureMap::GetRenderingReadyCallbacks(
     const MonitorAutoLock& aProofOfLock, RemoteTextureMap::TextureOwner* aOwner,
     const RemoteTextureId aTextureId) {
   MOZ_ASSERT(aOwner);
 
-  std::vector<std::function<void(void)>> functions;
+  std::vector<std::function<void(const RemoteTextureInfo&)>> functions;
 
   while (!aOwner->mRenderingReadyCallbackHolders.empty()) {
     auto& front = aOwner->mRenderingReadyCallbackHolders.front();
@@ -536,7 +541,7 @@ RemoteTextureMap::GetRenderingReadyCallbacks(
   return functions;
 }
 
-std::vector<std::function<void(void)>>
+std::vector<std::function<void(const RemoteTextureInfo&)>>
 RemoteTextureMap::GetAllRenderingReadyCallbacks(
     const MonitorAutoLock& aProofOfLock,
     RemoteTextureMap::TextureOwner* aOwner) {
@@ -547,10 +552,15 @@ RemoteTextureMap::GetAllRenderingReadyCallbacks(
   return functions;
 }
 
-void RemoteTextureMap::GetRemoteTextureForDisplayList(
-    RemoteTextureHostWrapper* aTextureHostWrapper) {
+bool RemoteTextureMap::GetRemoteTextureForDisplayList(
+    RemoteTextureHostWrapper* aTextureHostWrapper,
+    std::function<void(const RemoteTextureInfo&)>&& aReadyCallback) {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   MOZ_ASSERT(aTextureHostWrapper);
+
+  if (aTextureHostWrapper->IsReadyForRendering()) {
+    return false;
+  }
 
   const auto& textureId = aTextureHostWrapper->mTextureId;
   const auto& ownerId = aTextureHostWrapper->mOwnerId;
@@ -563,7 +573,7 @@ void RemoteTextureMap::GetRemoteTextureForDisplayList(
 
     auto* owner = GetTextureOwner(lock, ownerId, forPid);
     if (!owner) {
-      return;
+      return false;
     }
 
     UpdateTexture(lock, owner, textureId);
@@ -571,10 +581,12 @@ void RemoteTextureMap::GetRemoteTextureForDisplayList(
     if (owner->mLatestTextureHost &&
         (owner->mLatestTextureHost->GetFlags() & TextureFlags::DUMMY_TEXTURE)) {
       // Remote texture allocation was failed.
-      return;
+      return false;
     }
 
-    if (owner->mIsSyncMode) {
+    bool syncMode = owner->mIsSyncMode || bool(aReadyCallback);
+
+    if (syncMode) {
       // remote texture sync ipc
       if (textureId == owner->mLatestTextureId) {
         MOZ_ASSERT(owner->mLatestTextureHost);
@@ -586,7 +598,15 @@ void RemoteTextureMap::GetRemoteTextureForDisplayList(
         }
         textureHost = owner->mLatestTextureHost;
       } else {
-        MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+        if (aReadyCallback) {
+          auto callbackHolder = MakeUnique<RenderingReadyCallbackHolder>(
+              textureId, std::move(aReadyCallback));
+          owner->mRenderingReadyCallbackHolders.push_back(
+              std::move(callbackHolder));
+          return true;
+        } else {
+          MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+        }
       }
     } else {
       // remote texture async ipc
@@ -619,11 +639,13 @@ void RemoteTextureMap::GetRemoteTextureForDisplayList(
     }
 
     if (textureHost) {
-      aTextureHostWrapper->SetRemoteTextureHostForDisplayList(
-          lock, textureHost, owner->mIsSyncMode);
+      aTextureHostWrapper->SetRemoteTextureHostForDisplayList(lock, textureHost,
+                                                              syncMode);
       aTextureHostWrapper->ApplyTextureFlagsToRemoteTexture();
     }
   }
+
+  return false;
 }
 
 wr::MaybeExternalImageId RemoteTextureMap::GetExternalImageIdOfRemoteTexture(
@@ -811,8 +833,9 @@ void RemoteTextureMap::UnregisterRemoteTexturePushListener(
 }
 
 bool RemoteTextureMap::CheckRemoteTextureReady(
-    const RemoteTextureInfo& aInfo, std::function<void(void)>&& aCallback) {
-  MOZ_ASSERT(wr::RenderThread::IsInRenderThread());
+    const RemoteTextureInfo& aInfo,
+    std::function<void(const RemoteTextureInfo&)>&& aCallback) {
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
 
   MonitorAutoLock lock(mMonitor);
 
@@ -847,6 +870,58 @@ bool RemoteTextureMap::CheckRemoteTextureReady(
   owner->mRenderingReadyCallbackHolders.push_back(std::move(callbackHolder));
 
   return false;
+}
+
+bool RemoteTextureMap::WaitRemoteTextureReady(const RemoteTextureInfo& aInfo) {
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+
+  MonitorAutoLock lock(mMonitor);
+
+  auto* owner = GetTextureOwner(lock, aInfo.mOwnerId, aInfo.mForPid);
+  if (!owner) {
+    // Owner is already removed.
+    return false;
+  }
+
+  const auto key = std::pair(aInfo.mForPid, aInfo.mTextureId);
+  auto it = mRemoteTextureHostWrapperHolders.find(key);
+  if (it == mRemoteTextureHostWrapperHolders.end()) {
+    MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+    gfxCriticalNoteOnce << "Remote texture does not exist id:"
+                        << uint64_t(aInfo.mTextureId);
+    return false;
+  }
+
+  const TimeDuration timeout = TimeDuration::FromMilliseconds(1000);
+  TextureHost* remoteTexture = it->second->mAsyncRemoteTextureHost;
+
+  while (!remoteTexture) {
+    CVStatus status = mMonitor.Wait(timeout);
+    if (status == CVStatus::Timeout) {
+      MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+      gfxCriticalNoteOnce << "Remote texture wait time out id:"
+                          << uint64_t(aInfo.mTextureId);
+      return false;
+    }
+
+    auto it = mRemoteTextureHostWrapperHolders.find(key);
+    if (it == mRemoteTextureHostWrapperHolders.end()) {
+      MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+      return false;
+    }
+
+    remoteTexture = it->second->mAsyncRemoteTextureHost;
+    if (!remoteTexture) {
+      auto* owner = GetTextureOwner(lock, aInfo.mOwnerId, aInfo.mForPid);
+      // When owner is alreay unregistered, remote texture will not be pushed.
+      if (!owner) {
+        // This could happen with IPC abnormal shutdown
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 UniquePtr<TextureData> RemoteTextureMap::GetRecycledBufferTextureData(
@@ -928,7 +1003,8 @@ RemoteTextureMap::TextureDataHolder::TextureDataHolder(
       mSharedSurface(aSharedSurface) {}
 
 RemoteTextureMap::RenderingReadyCallbackHolder::RenderingReadyCallbackHolder(
-    const RemoteTextureId aTextureId, std::function<void(void)>&& aCallback)
+    const RemoteTextureId aTextureId,
+    std::function<void(const RemoteTextureInfo&)>&& aCallback)
     : mTextureId(aTextureId), mCallback(aCallback) {}
 
 RemoteTextureMap::RemoteTextureHostWrapperHolder::

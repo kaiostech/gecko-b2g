@@ -2178,39 +2178,6 @@ export class UrlbarProvider {
   }
 
   /**
-   * Called when a result from the provider is picked, but currently only for
-   * tip and dynamic results.  The provider should handle the pick.  For tip
-   * results, this is called only when the tip's payload doesn't have a URL.
-   * For dynamic results, this is called when any selectable element in the
-   * result's view is picked.
-   *
-   * @param {UrlbarResult} result
-   *   The result that was picked.
-   * @param {Element} element
-   *   The element in the result's view that was picked.
-   * @abstract
-   */
-  pickResult(result, element) {}
-
-  /**
-   * Called when the result's block button is picked. If the provider can block
-   * the result, it should do so and return true. If the provider cannot block
-   * the result, it should return false. The meaning of "blocked" depends on the
-   * provider and the type of result.
-   *
-   * @param {UrlbarQueryContext} queryContext
-   *   The query context object.
-   * @param {UrlbarResult} result
-   *   The result that should be blocked.
-   * @returns {boolean}
-   *   Whether the result was blocked.
-   * @abstract
-   */
-  blockResult(queryContext, result) {
-    return false;
-  }
-
-  /**
    * Called when the user starts and ends an engagement with the urlbar.
    *
    * @param {boolean} isPrivate
@@ -2234,10 +2201,24 @@ export class UrlbarProvider {
    *   when `state` is "start".  It will always be defined for "engagement" and
    *   "abandonment".
    * @param {object} details
-   *   This is defined only when `state` is "engagement" or "abandonment", and
-   *   it describes the search string and picked result.  For "engagement", it
-   *   has the following properties:
+   *   This object is non-empty only when `state` is "engagement" or
+   *   "abandonment", and it describes the search string and engaged result.
    *
+   *   For "engagement", it has the following properties:
+   *
+   *   {UrlbarResult} result
+   *       The engaged result. If a result itself was picked, this will be it.
+   *       If an element related to a result was picked (like a button or menu
+   *       command), this will be that result. This property will be present if
+   *       and only if `state` == "engagement", so it can be used to quickly
+   *       tell when the user engaged with a result.
+   *   {Element} element
+   *       The picked DOM element.
+   *   {boolean} isSessionOngoing
+   *       True if the search session remains ongoing or false if the engagement
+   *       ended it. Typically picking a result ends the session but not always.
+   *       Picking a button or menu command may not end the session; dismissals
+   *       do not, for example.
    *   {string} searchString
    *       The search string for the engagement's query.
    *   {number} selIndex
@@ -2256,7 +2237,7 @@ export class UrlbarProvider {
    * Called when a result from the provider is selected. "Selected" refers to
    * the user highlighing the result with the arrow keys/Tab, before it is
    * picked. onSelection is also called when a user clicks a result. In the
-   * event of a click, onSelection is called just before pickResult. Note that
+   * event of a click, onSelection is called just before onEngagement. Note that
    * this is called when heuristic results are pre-selected.
    *
    * @param {UrlbarResult} result
@@ -2334,6 +2315,35 @@ export class UrlbarProvider {
    *     A string that will be set as `element.textContent`.
    */
   getViewUpdate(result, idsByName) {
+    return null;
+  }
+
+  /**
+   * Gets the list of commands that should be shown in the result menu for a
+   * given result from the provider. All commands returned by this method should
+   * be handled by implementing `onEngagement()` with the possible exception of
+   * commands automatically handled by the urlbar, like "help".
+   *
+   * @param {UrlbarResult} result
+   *   The menu will be shown for this result.
+   * @returns {Array}
+   *   If the result doesn't have any commands, this should return null.
+   *   Otherwise it should return an array of command objects that look like:
+   *   `{ name, l10n, children}`
+   *
+   *   {string} name
+   *     The name of the command. Must be specified unless `children` is
+   *     present. When a command is picked, its name will be passed as
+   *     `details.selType` to `onEngagement()`. The special name "separator"
+   *     will create a menu separator.
+   *   {object} l10n
+   *     An l10n object for the command's label: `{ id, args }`
+   *     Must be specified unless `name` is "separator".
+   *   {array} children
+   *     If specified, a submenu will be created with the given child commands.
+   *     Each object in the array must be a command object.
+   */
+  getResultCommands(result) {
     return null;
   }
 

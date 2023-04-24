@@ -83,3 +83,5 @@ user_pref("remote.experimental.enabled", true);
 user_pref("privacy.partition.always_partition_third_party_non_cookie_storage", false);
 // system app url for b2g wpt tests
 user_pref("b2g.system_startup_url", "chrome://b2g/content/system/marionette.html");
+// Disable OCSP checks in WPT (webtransport triggers these occasionally)
+user_pref("security.OCSP.enabled", 0);

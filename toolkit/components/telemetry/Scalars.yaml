@@ -2957,6 +2957,22 @@ dom.parentprocess:
     record_in_processes:
       - 'main'
 
+  process_launch_errors:
+    bug_numbers:
+      - 1819311
+    description: >
+      Collect precise set of error code and calling site upon process creation failure path.
+    expires: "never"
+    kind: uint
+    keyed: true
+    notification_emails:
+      - alissy@mozilla.com
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+    release_channel_collection: opt-out
+
 devtools.toolbar.eyedropper:
   opened:
     bug_numbers:
@@ -9767,6 +9783,21 @@ places:
     kind: uint
     notification_emails:
       - fx-search-telemetry@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  previousday_visits:
+    bug_numbers:
+      - 1824380
+    description: >
+      Number of history entries for the previous day.
+    expires: never
+    kind: uint
+    notification_emails:
+      - firefox-view-engineers@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'

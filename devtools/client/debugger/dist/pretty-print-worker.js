@@ -9290,6 +9290,8 @@
       "do",
       "=",
       "in",
+      "of",
+      "...",
       "{",
       "*",
       "/",
@@ -9323,6 +9325,42 @@
       "!==",
       ",",
       "}",
+    ]);
+
+    // If any of these tokens are seen before a "{" token, we know that "{" token
+    // is the start of an object literal, rather than the start of a block.
+    const PRE_OBJECT_LITERAL_TOKENS = new Set([
+      "typeof",
+      "void",
+      "delete",
+      "=",
+      "in",
+      "of",
+      "...",
+      "*",
+      "/",
+      "%",
+      "++",
+      "--",
+      "+",
+      "-",
+      "~",
+      "!",
+      ">>",
+      ">>>",
+      "<<",
+      "<",
+      ">",
+      "<=",
+      ">=",
+      "instanceof",
+      "&",
+      "^",
+      "|",
+      "==",
+      "!=",
+      "===",
+      "!==",
     ]);
 
     class PrettyFast {
@@ -9389,6 +9427,10 @@
       #currentCode = "";
       #currentLine = 1;
       #currentColumn = 0;
+      // The tokens parsed by acorn.
+      #tokenQueue;
+      // The index of the current token in this.#tokenQueue.
+      #currentTokenIndex;
       // The last token we added to the pretty printed code.
       #lastToken;
       // Stack of token types/keywords that can affect whether we want to add a
@@ -9400,7 +9442,9 @@
       // Strings that go on the stack:
       //
       //   - "{"
+      //   - "{\n"
       //   - "("
+      //   - "(\n"
       //   - "["
       //   - "[\n"
       //   - "do"
@@ -9409,9 +9453,12 @@
       //   - "case"
       //   - "default"
       //
-      // The difference between "[" and "[\n" is that "[\n" is used when we are
-      // treating "[" and "]" tokens as line delimiters and should increment and
-      // decrement the indent level when we find them.
+      // The difference between "[" and "[\n" (as well as "{" and "{\n", and "(" and "(\n")
+      // is that "\n" is used when we are treating (curly) brackets/parens as line delimiters
+      // and should increment and decrement the indent level when we find them.
+      // "[" can represent either a property access (e.g. `x["hi"]`), or an empty array literal
+      // "{" only represents an empty object literals
+      // "(" can represent lots of different things (wrapping expression, if/loop condition, function call, …)
       #stack = [];
 
       /**
@@ -9438,11 +9485,12 @@
         // After this process, tokenQueue has the following token stream:
         //
         //     [ foo, '// a', '// b', bar]
-        const tokenQueue = this.#getTokens(input);
+        this.#tokenQueue = this.#getTokens(input);
 
-        for (let i = 0, len = tokenQueue.length; i < len; i++) {
-          const token = tokenQueue[i];
-          const nextToken = tokenQueue[i + 1];
+        for (let i = 0, len = this.#tokenQueue.length; i < len; i++) {
+          this.#currentTokenIndex = i;
+          const token = this.#tokenQueue[i];
+          const nextToken = this.#tokenQueue[i + 1];
           this.#handleToken(token, nextToken);
 
           // Acorn's tokenizer re-uses tokens, so we have to copy the last token on
@@ -9460,7 +9508,6 @@
           this.#lastToken.loc.end.column = token.loc.end.column;
           this.#lastToken.type = token.type;
           this.#lastToken.value = token.value;
-          this.#lastToken.isArrayLiteral = token.isArrayLiteral;
         }
 
         return { code: this.#currentCode, map: this.#sourceMapGenerator };
@@ -9642,23 +9689,34 @@
           return;
         }
 
-        token.isArrayLiteral = isArrayLiteral(token, this.#lastToken);
-
         if (belongsOnStack(token)) {
-          if (token.isArrayLiteral) {
-            this.#stack.push("[\n");
+          let stackEntry;
+
+          if (isArrayLiteral(token, this.#lastToken)) {
+            // Don't add new lines for empty array literals
+            stackEntry = nextToken?.type?.label === "]" ? "[" : "[\n";
+          } else if (isObjectLiteral(token, this.#lastToken)) {
+            // Don't add new lines for empty object literals
+            stackEntry = nextToken?.type?.label === "}" ? "{" : "{\n";
+          } else if (
+            isRoundBracketStartingLongParenthesis(
+              token,
+              this.#tokenQueue,
+              this.#currentTokenIndex
+            )
+          ) {
+            stackEntry = "(\n";
+          } else if (ttl == "{") {
+            // We need to add a line break for "{" which are not empty object literals
+            stackEntry = "{\n";
           } else {
-            this.#stack.push(ttl || ttk);
+            stackEntry = ttl || ttk;
           }
+
+          this.#stack.push(stackEntry);
         }
 
-        if (decrementsIndent(ttl, this.#stack)) {
-          this.#indentLevel--;
-          if (ttl == "}" && this.#stack.at(-2) == "switch") {
-            this.#indentLevel--;
-          }
-        }
-
+        this.#maybeDecrementIndent(token);
         this.#prependWhiteSpace(token);
         this.#writeToken(token);
         this.#addedSpace = false;
@@ -9673,15 +9731,64 @@
           this.#maybeAppendNewline(token);
         }
 
-        if (shouldStackPop(token, this.#stack)) {
+        this.#maybePopStack(token);
+        this.#maybeIncrementIndent(token);
+      }
+
+      /**
+       * Returns true if the given token should cause us to pop the stack.
+       */
+      #maybePopStack(token) {
+        const ttl = token.type.label;
+        const ttk = token.type.keyword;
+        const top = this.#stack.at(-1);
+
+        if (
+          ttl == "]" ||
+          ttl == ")" ||
+          ttl == "}" ||
+          (ttl == ":" && (top == "case" || top == "default" || top == "?")) ||
+          (ttk == "while" && top == "do")
+        ) {
           this.#stack.pop();
           if (ttl == "}" && this.#stack.at(-1) == "switch") {
             this.#stack.pop();
           }
         }
+      }
 
-        if (incrementsIndent(token)) {
+      #maybeIncrementIndent(token) {
+        if (
+          // Don't increment indent for empty object literals
+          (token.type.label == "{" && this.#stack.at(-1) === "{\n") ||
+          // Don't increment indent for empty array literals
+          (token.type.label == "[" && this.#stack.at(-1) === "[\n") ||
+          token.type.keyword == "switch" ||
+          (token.type.label == "(" && this.#stack.at(-1) === "(\n")
+        ) {
           this.#indentLevel++;
+        }
+      }
+
+      #shouldDecrementIndent(token) {
+        const top = this.#stack.at(-1);
+        const ttl = token.type.label;
+        return (
+          (ttl == "}" && top == "{\n") ||
+          (ttl == "]" && top == "[\n") ||
+          (ttl == ")" && top == "(\n")
+        );
+      }
+
+      #maybeDecrementIndent(token) {
+        if (!this.#shouldDecrementIndent(token)) {
+          return;
+        }
+
+        const ttl = token.type.label;
+        this.#indentLevel--;
+        if (ttl == "}" && this.#stack.at(-2) == "switch") {
+          this.#indentLevel--;
         }
       }
 
@@ -9775,7 +9882,7 @@
           ensureNewline();
         }
 
-        if (decrementsIndent(ttl, this.#stack)) {
+        if (this.#shouldDecrementIndent(token)) {
           ensureNewline();
         }
 
@@ -9830,9 +9937,108 @@
       if (lastToken.type.isAssign) {
         return true;
       }
+
       return PRE_ARRAY_LITERAL_TOKENS.has(
+        lastToken.type.keyword ||
+          // Some tokens ('of', 'yield', …) have a `token.type.keyword` of 'name' and their
+          // actual value in `token.value`
+          (lastToken.type.label == "name" ? lastToken.value : lastToken.type.label)
+      );
+    }
+
+    /**
+     * Determines if we think that the given token starts an object literal.
+     *
+     * @param Object token
+     *        The token we want to determine if it is an object literal.
+     * @param Object lastToken
+     *        The last token we added to the pretty printed results.
+     *
+     * @returns Boolean
+     *          True if we believe it is an object literal, false otherwise.
+     */
+    function isObjectLiteral(token, lastToken) {
+      if (token.type.label != "{") {
+        return false;
+      }
+      if (!lastToken) {
+        return false;
+      }
+      if (lastToken.type.isAssign) {
+        return true;
+      }
+      return PRE_OBJECT_LITERAL_TOKENS.has(
         lastToken.type.keyword || lastToken.type.label
       );
+    }
+
+    /**
+     * Determines if we think that the given token starts a long parenthesis
+     *
+     * @param {Object} token
+     *        The token we want to determine if it is the beginning of a long paren.
+     * @param {Array<Object>} tokenQueue
+     *        The whole list of tokens parsed by acorn
+     * @param {Integer} currentTokenIndex
+     *        The index of `token` in `tokenQueue`
+     * @returns
+     */
+    function isRoundBracketStartingLongParenthesis(
+      token,
+      tokenQueue,
+      currentTokenIndex
+    ) {
+      if (token.type.label !== "(") {
+        return false;
+      }
+
+      // If we're just wrapping an object, we'll have a new line right after
+      if (tokenQueue[currentTokenIndex + 1].type.label == "{") {
+        return false;
+      }
+
+      // We're going to iterate through the following tokens until :
+      // - we find the closing parent
+      // - or we reached the maximum character we think should be in parenthesis
+      const longParentContentLength = 60;
+
+      // Keep track of other parens so we know when we get the closing one for `token`
+      let parenCount = 0;
+      let parenContentLength = 0;
+      for (let i = currentTokenIndex + 1, len = tokenQueue.length; i < len; i++) {
+        const currToken = tokenQueue[i];
+        const ttl = currToken.type.label;
+
+        if (ttl == "(") {
+          parenCount++;
+        } else if (ttl == ")") {
+          if (parenCount == 0) {
+            // Matching closing paren, if we got here, we didn't reach the length limit,
+            // as we return when parenContentLength is greater than the limit.
+            return false;
+          }
+          parenCount--;
+        }
+
+        // Aside block comments, all tokens start and end location are on the same line, so
+        // we can use `start` and `end` to deduce the token length.
+        const tokenLength = currToken.comment
+          ? currToken.text.length
+          : currToken.end - currToken.start;
+        parenContentLength += tokenLength;
+
+        // If we didn't find the matching closing paren yet and the characters from the
+        // tokens we evaluated so far are longer than the limit, so consider the token
+        // a long paren.
+        if (parenContentLength > longParentContentLength) {
+          return true;
+        }
+      }
+
+      // if we get to here, we didn't found a closing paren, which shouldn't happen
+      // (scripts with syntax error are not displayed in the debugger), but just to
+      // be safe, return false.
+      return false;
     }
 
     // If any of these tokens are followed by a token on a new line, we know that
@@ -9997,16 +10203,17 @@
      *          True if we should add a newline.
      */
     function isLineDelimiter(token, stack) {
-      if (token.isArrayLiteral) {
-        return true;
-      }
       const ttl = token.type.label;
       const top = stack.at(-1);
       return (
         (ttl == ";" && top != "(") ||
-        ttl == "{" ||
-        (ttl == "," && top != "(") ||
-        (ttl == ":" && (top == "case" || top == "default"))
+        // Don't add a new line for empty object literals
+        (ttl == "{" && top == "{\n") ||
+        // Don't add a new line for empty array literals
+        (ttl == "[" && top == "[\n") ||
+        ((ttl == "," || ttl == "||" || ttl == "&&") && top != "(") ||
+        (ttl == ":" && (top == "case" || top == "default")) ||
+        (ttl == "(" && top == "(\n")
       );
     }
 
@@ -10032,6 +10239,9 @@
       if (token.type.label == "?") {
         return true;
       }
+      if (token.type.label == "=>") {
+        return true;
+      }
 
       return false;
     }
@@ -10044,6 +10254,9 @@
         return true;
       }
       if (lastToken.type.binop != null) {
+        return true;
+      }
+      if (lastToken.value == "of") {
         return true;
       }
 
@@ -10061,6 +10274,9 @@
         return true;
       }
       if (lastTokenTypeLabel == "${") {
+        return true;
+      }
+      if (lastTokenTypeLabel == "=>") {
         return true;
       }
       return false;
@@ -10216,45 +10432,6 @@
         ttk == "switch" ||
         ttk == "case" ||
         ttk == "default"
-      );
-    }
-
-    /**
-     * Returns true if the given token should cause us to pop the stack.
-     */
-    function shouldStackPop(token, stack) {
-      const ttl = token.type.label;
-      const ttk = token.type.keyword;
-      const top = stack.at(-1);
-      return (
-        ttl == "]" ||
-        ttl == ")" ||
-        ttl == "}" ||
-        (ttl == ":" && (top == "case" || top == "default" || top == "?")) ||
-        (ttk == "while" && top == "do")
-      );
-    }
-
-    /**
-     * Returns true if the given token type should cause us to decrement the
-     * indent level.
-     */
-    function decrementsIndent(tokenType, stack) {
-      const top = stack.at(-1);
-      return (
-        (tokenType == "}" && top != "${") || (tokenType == "]" && top == "[\n")
-      );
-    }
-
-    /**
-     * Returns true if the given token should cause us to increment the indent
-     * level.
-     */
-    function incrementsIndent(token) {
-      return (
-        token.type.label == "{" ||
-        token.isArrayLiteral ||
-        token.type.keyword == "switch"
       );
     }
 

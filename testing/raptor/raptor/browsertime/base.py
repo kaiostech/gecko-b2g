@@ -135,6 +135,7 @@ class Browsertime(Perftest):
             "chrome",
             "chrome-m",
             "chromium",
+            "custom-car",
         ):
             if (
                 not self.config.get("run_local", None)
@@ -355,7 +356,7 @@ class Browsertime(Perftest):
                     browsertime_options.extend(pairing)
 
         priority1_options = self.browsertime_args
-        if self.config["app"] in ("chrome", "chromium", "chrome-m"):
+        if self.config["app"] in ("chrome", "chromium", "chrome-m", "custom-car"):
             priority1_options.extend(self.setup_chrome_args(test))
 
         if self.debug_mode:
@@ -414,6 +415,7 @@ class Browsertime(Perftest):
                 "chromium",
                 "chrome-m",
                 "chrome",
+                "custom-car",
             ):
                 priority1_options.extend(
                     [
@@ -686,6 +688,10 @@ class Browsertime(Perftest):
         # timeout is a single page-load timeout value (ms) from the test INI
         # this will be used for btime --timeouts.pageLoad
         cmd = self._compose_cmd(test, timeout)
+
+        if test.get("support_class", None):
+            LOG.info("Test support class is modifying the command...")
+            test.get("support_class").modify_command(cmd)
 
         output_timeout = BROWSERTIME_PAGELOAD_OUTPUT_TIMEOUT
         if test.get("type", "") == "scenario":

@@ -22,8 +22,16 @@ from mozbuild import build_commands
     virtualenv_name="build",
 )
 @CommandArgument("ide", choices=["eclipse", "visualstudio", "vscode"])
+@CommandArgument(
+    "--no-interactive",
+    default=False,
+    action="store_true",
+    help="Just generate the configuration",
+)
 @CommandArgument("args", nargs=argparse.REMAINDER)
-def run(command_context, ide, args):
+def run(command_context, ide, no_interactive, args):
+    interactive = not no_interactive
+
     if ide == "eclipse":
         backend = "CppEclipse"
     elif ide == "visualstudio":
@@ -47,17 +55,6 @@ def run(command_context, ide, args):
         return 1
 
     if ide == "vscode":
-        from mozbuild.backend.clangd import find_vscode_cmd
-
-        # Check if platform has VSCode installed
-        vscode_cmd = find_vscode_cmd()
-        if vscode_cmd is None:
-            choice = prompt_bool(
-                "VSCode cannot be found, and may not be installed. Proceed?"
-            )
-            if not choice:
-                return 1
-
         rc = build_commands.configure(command_context)
 
         if rc != 0:
@@ -109,7 +106,7 @@ def run(command_context, ide, args):
         visual_studio_workspace_dir = get_visualstudio_workspace_path(command_context)
         subprocess.call(["explorer.exe", visual_studio_workspace_dir])
     elif ide == "vscode":
-        return setup_vscode(command_context, vscode_cmd)
+        return setup_vscode(command_context, interactive)
 
 
 def get_eclipse_workspace_path(command_context):
@@ -126,7 +123,19 @@ def get_visualstudio_workspace_path(command_context):
     )
 
 
-def setup_vscode(command_context, vscode_cmd):
+def setup_vscode(command_context, interactive):
+    from mozbuild.backend.clangd import find_vscode_cmd
+
+    # Check if platform has VSCode installed
+    if interactive:
+        vscode_cmd = find_vscode_cmd()
+        if vscode_cmd is None:
+            choice = prompt_bool(
+                "VSCode cannot be found, and may not be installed. Proceed?"
+            )
+            if not choice:
+                return 1
+
     vscode_settings = mozpath.join(
         command_context.topsrcdir, ".vscode", "settings.json"
     )
@@ -147,6 +156,12 @@ def setup_vscode(command_context, vscode_cmd):
         "files.associations": {
             "*.jsm": "javascript",
             "*.sjs": "javascript",
+        },
+        # Note, the top-level editor settings are left as default to allow the
+        # user's defaults (if any) to take effect.
+        "[javascript][javascriptreact][typescript][typescriptreact]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode",
+            "editor.formatOnSave": True,
         },
     }
 
@@ -189,30 +204,34 @@ def setup_vscode(command_context, vscode_cmd):
         if old_settings != settings:
             # Prompt the user with a diff of the changes we're going to make
             new_settings_str = json.dumps(settings, indent=4)
-            print(
-                "\nThe following modifications to {settings} will occur:\n{diff}".format(
-                    settings=vscode_settings,
-                    diff="".join(
-                        difflib.unified_diff(
-                            old_settings_str.splitlines(keepends=True),
-                            new_settings_str.splitlines(keepends=True),
-                            "a/.vscode/settings.json",
-                            "b/.vscode/settings.json",
-                            n=30,
-                        )
-                    ),
+            if interactive:
+                print(
+                    "\nThe following modifications to {settings} will occur:\n{diff}".format(
+                        settings=vscode_settings,
+                        diff="".join(
+                            difflib.unified_diff(
+                                old_settings_str.splitlines(keepends=True),
+                                new_settings_str.splitlines(keepends=True),
+                                "a/.vscode/settings.json",
+                                "b/.vscode/settings.json",
+                                n=30,
+                            )
+                        ),
+                    )
                 )
-            )
-            choice = prompt_bool(
-                "{}{}\nProceed with modifications to {}?".format(
-                    artifact_prefix, prompt_prefix, vscode_settings
+                choice = prompt_bool(
+                    "{}{}\nProceed with modifications to {}?".format(
+                        artifact_prefix, prompt_prefix, vscode_settings
+                    )
                 )
-            )
-            if not choice:
-                return 1
+                if not choice:
+                    return 1
 
             with open(vscode_settings, "w") as fh:
                 fh.write(new_settings_str)
+
+    if not interactive:
+        return 0
 
     # Open vscode with new configuration, or ask the user to do so if the
     # binary was not found.
@@ -271,9 +290,12 @@ def setup_clangd_rust_in_vscode(command_context):
 
     clang_tidy_cfg = ClangTidyConfig(command_context.topsrcdir)
 
-    cargo_check_command = [
-        sys.executable,
-        mozpath.join(command_context.topsrcdir, "mach"),
+    if sys.platform == "win32":
+        cargo_check_command = [sys.executable, "mach"]
+    else:
+        cargo_check_command = ["./mach"]
+
+    cargo_check_command += [
         "--log-no-times",
         "cargo",
         "check",
@@ -293,11 +315,18 @@ def setup_clangd_rust_in_vscode(command_context):
     with open(".clang-tidy", "w") as file:
         yaml.dump(clang_tidy, file)
 
+    clangd_cfg = {
+        "CompileFlags": {
+            "CompilationDatabase": clangd_cc_path,
+        }
+    }
+
+    with open(".clangd", "w") as file:
+        yaml.dump(clangd_cfg, file)
+
     return {
         "clangd.path": clangd_path,
         "clangd.arguments": [
-            "--compile-commands-dir",
-            clangd_cc_path,
             "-j",
             str(multiprocessing.cpu_count() // 2),
             "--limit-results",
@@ -324,7 +353,6 @@ def setup_clangd_rust_in_vscode(command_context):
 
 
 def get_clang_tools(command_context, clang_tools_path):
-
     import shutil
 
     if os.path.isdir(clang_tools_path):

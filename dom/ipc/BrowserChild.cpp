@@ -1567,7 +1567,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvHandleTap(
   switch (aType) {
     case GeckoContentController::TapType::eSingleTap:
       if (mBrowserChildMessageManager) {
-        mAPZEventState->ProcessSingleTap(point, scale, aModifiers, 1);
+        mAPZEventState->ProcessSingleTap(point, scale, aModifiers, 1,
+                                         aInputBlockId);
       }
       break;
     case GeckoContentController::TapType::eDoubleTap:
@@ -1575,7 +1576,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvHandleTap(
       break;
     case GeckoContentController::TapType::eSecondTap:
       if (mBrowserChildMessageManager) {
-        mAPZEventState->ProcessSingleTap(point, scale, aModifiers, 2);
+        mAPZEventState->ProcessSingleTap(point, scale, aModifiers, 2,
+                                         aInputBlockId);
       }
       break;
     case GeckoContentController::TapType::eLongTap:
@@ -1609,8 +1611,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvNormalPriorityHandleTap(
 bool BrowserChild::NotifyAPZStateChange(
     const ViewID& aViewId,
     const layers::GeckoContentController::APZStateChange& aChange,
-    const int& aArg) {
-  mAPZEventState->ProcessAPZStateChange(aViewId, aChange, aArg);
+    const int& aArg, Maybe<uint64_t> aInputBlockId) {
+  mAPZEventState->ProcessAPZStateChange(aViewId, aChange, aArg, aInputBlockId);
   nsCOMPtr<nsIObserverService> observerService =
       mozilla::services::GetObserverService();
   if (aChange ==

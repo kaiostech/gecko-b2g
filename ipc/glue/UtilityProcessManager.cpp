@@ -6,6 +6,7 @@
 #include "UtilityProcessManager.h"
 
 #include "JSOracleParent.h"
+#include "mozilla/AppShutdown.h"
 #include "mozilla/ipc/UtilityProcessHost.h"
 #include "mozilla/MemoryReportingProcess.h"
 #include "mozilla/Preferences.h"
@@ -281,10 +282,10 @@ RefPtr<GenericNonExclusivePromise> UtilityProcessManager::StartUtility(
         return GenericNonExclusivePromise::CreateAndResolve(true, __func__);
       },
       [self](nsresult aError) {
-        if (!self->IsShutdown()) {
-          MOZ_ASSERT_UNREACHABLE("Failure when starting actor");
-        }
         NS_WARNING("Reject StartUtility() for LaunchProcess() rejection");
+        if (!self->IsShutdown()) {
+          NS_WARNING("Reject StartUtility() when !IsShutdown()");
+        }
         return GenericNonExclusivePromise::CreateAndReject(aError, __func__);
       });
 }
@@ -361,6 +362,17 @@ UtilityProcessManager::StartProcessForRemoteMediaDecoding(
           },
           [self](nsresult aError) {
             if (!self->IsShutdown()) {
+              NS_WARNING(
+                  nsPrintfCString(
+                      "PUtilityAudioDecoder failure with states: "
+                      "sXPCOMShutdown=%s sSingleton=%p ; "
+                      "AppShutdown::IsInOrBeyond(ShutdownPhase::XPCOMShutdown)="
+                      "%s",
+                      sXPCOMShutdown ? "true" : "false", sSingleton.get(),
+                      AppShutdown::IsInOrBeyond(ShutdownPhase::XPCOMShutdown)
+                          ? "true"
+                          : "false")
+                      .get());
               MOZ_ASSERT_UNREACHABLE(
                   "PUtilityAudioDecoder: failure when starting actor");
             }

@@ -18,7 +18,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   Spotlight: "resource://activity-stream/lib/Spotlight.jsm",
-  ColorwayClosetOpener: "resource:///modules/ColorwayClosetOpener.jsm",
 });
 
 export const SpecialMessageActions = {
@@ -404,12 +403,6 @@ export const SpecialMessageActions = {
           action.data.selector
         );
         clickElement?.click();
-        break;
-      case "OPEN_FIREFOX_VIEW_AND_COLORWAYS_MODAL":
-        window.FirefoxViewHandler.openTab();
-        lazy.ColorwayClosetOpener.openModal({
-          source: "firefoxview",
-        });
         break;
       case "RELOAD_BROWSER":
         browser.reload();

@@ -50,8 +50,6 @@ virtual already_AddRefed<AccAttributes> Attributes() override;
 
 virtual Relation RelationByType(RelationType aType) const override;
 
-bool IsSearchbox() const;
-
 virtual mozilla::a11y::GroupPos GroupPosition() override;
 void ScrollToPoint(uint32_t aScrollType, int32_t aX, int32_t aY);
 
@@ -85,8 +83,8 @@ virtual bool SetSelectionBoundsAt(int32_t aSelectionNum, int32_t aStartOffset,
 
 virtual bool RemoveFromSelection(int32_t aSelectionNum) override;
 
-void ScrollSubstringTo(int32_t aStartOffset, int32_t aEndOffset,
-                       uint32_t aScrollType);
+virtual void ScrollSubstringTo(int32_t aStartOffset, int32_t aEndOffset,
+                               uint32_t aScrollType) override;
 
 void ScrollSubstringToPoint(int32_t aStartOffset, int32_t aEndOffset,
                             uint32_t aCoordinateType, int32_t aX, int32_t aY);
@@ -109,17 +107,9 @@ LayoutDeviceIntPoint ImagePosition(uint32_t aCoordType);
 
 LayoutDeviceIntSize ImageSize();
 
-bool IsLinkValid();
-
-uint32_t AnchorCount(bool* aOk);
-
 void AnchorURIAt(uint32_t aIndex, nsCString& aURI, bool* aOk);
 
-RemoteAccessible* AnchorAt(uint32_t aIndex);
-
 uint32_t LinkCount();
-
-RemoteAccessible* LinkAt(const uint32_t& aIndex);
 
 RemoteAccessible* TableOfACell();
 

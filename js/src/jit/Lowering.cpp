@@ -5448,8 +5448,9 @@ void LIRGenerator::visitWasmAlignmentCheck(MWasmAlignmentCheck* ins) {
   }
 }
 
-void LIRGenerator::visitWasmLoadGlobalVar(MWasmLoadGlobalVar* ins) {
-  size_t offs = wasm::Instance::offsetOfGlobalArea() + ins->globalDataOffset();
+void LIRGenerator::visitWasmLoadInstanceDataField(
+    MWasmLoadInstanceDataField* ins) {
+  size_t offs = wasm::Instance::offsetInData(ins->instanceDataOffset());
   if (ins->type() == MIRType::Int64) {
 #ifdef JS_PUNBOX64
     LAllocation instance = useRegisterAtStart(ins->instance());
@@ -5495,9 +5496,10 @@ void LIRGenerator::visitWasmLoadTableElement(MWasmLoadTableElement* ins) {
   define(new (alloc()) LWasmLoadTableElement(elements, index), ins);
 }
 
-void LIRGenerator::visitWasmStoreGlobalVar(MWasmStoreGlobalVar* ins) {
+void LIRGenerator::visitWasmStoreInstanceDataField(
+    MWasmStoreInstanceDataField* ins) {
   MDefinition* value = ins->value();
-  size_t offs = wasm::Instance::offsetOfGlobalArea() + ins->globalDataOffset();
+  size_t offs = wasm::Instance::offsetInData(ins->instanceDataOffset());
   if (value->type() == MIRType::Int64) {
 #ifdef JS_PUNBOX64
     LAllocation instance = useRegisterAtStart(ins->instance());
@@ -6741,7 +6743,7 @@ bool LIRGenerator::visitInstruction(MInstruction* ins) {
   return !errored();
 }
 
-void LIRGenerator::definePhis() {
+bool LIRGenerator::definePhis() {
   size_t lirIndex = 0;
   MBasicBlock* block = current->mir();
   for (MPhiIterator phi(block->phisBegin()); phi != block->phisEnd(); phi++) {
@@ -6756,6 +6758,7 @@ void LIRGenerator::definePhis() {
       lirIndex += 1;
     }
   }
+  return !errored();
 }
 
 void LIRGenerator::updateResumeState(MInstruction* ins) {
@@ -6785,7 +6788,9 @@ bool LIRGenerator::visitBlock(MBasicBlock* block) {
   current = block->lir();
   updateResumeState(block);
 
-  definePhis();
+  if (!definePhis()) {
+    return false;
+  }
 
   MOZ_ASSERT_IF(block->unreachable(), !mir()->optimizationInfo().gvnEnabled());
   for (MInstructionIterator iter = block->begin(); *iter != block->lastIns();

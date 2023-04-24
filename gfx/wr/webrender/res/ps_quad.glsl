@@ -26,6 +26,7 @@ varying highp vec2 v_uv;
 
 #define QF_IS_OPAQUE            1
 #define QF_APPLY_DEVICE_CLIP    2
+#define QF_IGNORE_DEVICE_SCALE  4
 
 #define INVALID_SEGMENT_INDEX   0xff
 
@@ -236,13 +237,18 @@ PrimitiveInfo ps_quad_main(void) {
 
     vec2 local_pos = mix(local_coverage_rect.p0, local_coverage_rect.p1, aPosition);
 
+    float device_pixel_scale = task.device_pixel_scale;
+    if ((qi.quad_flags & QF_IGNORE_DEVICE_SCALE) != 0) {
+        device_pixel_scale = 1.0f;
+    }
+
     VertexInfo vi = write_vertex(
         local_pos,
         z,
         transform,
         task.content_origin,
         task.task_rect,
-        task.device_pixel_scale,
+        device_pixel_scale,
         qi.quad_flags
     );
 

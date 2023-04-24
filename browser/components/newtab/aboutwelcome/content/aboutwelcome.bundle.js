@@ -201,6 +201,7 @@ const MultiStageAboutWelcome = props => {
   let {
     defaultScreens
   } = props;
+  const didFilter = (0,react__WEBPACK_IMPORTED_MODULE_0__.useRef)(false);
   const [screens, setScreens] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(defaultScreens);
   const [index, setScreenIndex] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(props.startScreen);
   const [previousOrder, setPreviousOrder] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(props.startScreen - 1);
@@ -211,11 +212,16 @@ const MultiStageAboutWelcome = props => {
 
       if (filteredScreens) {
         setScreens(filteredScreens);
+        didFilter.current = true;
       }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+    if (!didFilter.current) {
+      return;
+    }
+
     const screenInitials = screens.map(({
       id
     }) => {
@@ -228,8 +234,11 @@ const MultiStageAboutWelcome = props => {
       if (index === order) {
         _lib_aboutwelcome_utils__WEBPACK_IMPORTED_MODULE_2__.AboutWelcomeUtils.sendImpressionTelemetry(`${props.message_id}_${order}_${screen.id}_${screenInitials}`);
       }
-    }); // Remember that a new screen has loaded for browser navigation
+    });
+  }, [index, screens]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+    // Remember that a new screen has loaded for browser navigation
     if (props.updateHistory && index > window.history.state) {
       window.history.pushState(index, "");
     } // Remember the previous screen index so we can animate the transition
@@ -499,12 +508,25 @@ class WelcomeScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCo
     if (action.collectSelect) {
       // Populate MULTI_ACTION data actions property with selected checkbox actions from tiles data
       action.data = {
-        actions: this.props.activeMultiSelect.map(id => {
-          var _props$content, _props$content$tiles, _props$content$tiles$;
+        actions: []
+      };
 
-          return (_props$content = props.content) === null || _props$content === void 0 ? void 0 : (_props$content$tiles = _props$content.tiles) === null || _props$content$tiles === void 0 ? void 0 : (_props$content$tiles$ = _props$content$tiles.data.find(ckbx => ckbx.id === id)) === null || _props$content$tiles$ === void 0 ? void 0 : _props$content$tiles$.action;
-        })
-      }; // Send telemetry with selected checkbox ids
+      for (const checkbox of ((_props$content = props.content) === null || _props$content === void 0 ? void 0 : (_props$content$tiles = _props$content.tiles) === null || _props$content$tiles === void 0 ? void 0 : _props$content$tiles.data) ?? []) {
+        var _props$content, _props$content$tiles;
+
+        let checkboxAction;
+
+        if (this.props.activeMultiSelect.includes(checkbox.id)) {
+          checkboxAction = checkbox.checkedAction ?? checkbox.action;
+        } else {
+          checkboxAction = checkbox.uncheckedAction;
+        }
+
+        if (checkboxAction) {
+          action.data.actions.push(checkboxAction);
+        }
+      } // Send telemetry with selected checkbox ids
+
 
       _lib_aboutwelcome_utils__WEBPACK_IMPORTED_MODULE_2__.AboutWelcomeUtils.sendActionTelemetry(props.messageId, props.activeMultiSelect, "SELECT_CHECKBOX");
     }
@@ -873,7 +895,9 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
       activeMultiSelect: this.props.activeMultiSelect,
       setActiveMultiSelect: this.props.setActiveMultiSelect,
       handleAction: this.props.handleAction
-    }) : null);
+    }) : null, content.tiles && content.tiles.type === "migration-wizard" ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("migration-wizard", {
+      "auto-request-state": ""
+    }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("panel-list", null)) : null);
   }
 
   renderNoodles() {
@@ -969,7 +993,7 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
   }
 
   render() {
-    var _this$props$appAndSys, _this$props$messageId;
+    var _content$tiles, _this$props$appAndSys, _this$props$messageId;
 
     const {
       autoAdvance,
@@ -988,6 +1012,7 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
     // by checking if screen order is even or odd.
 
     const screenClassName = isCenterPosition ? this.getScreenClassName(isFirstScreen, isLastScreen, includeNoodles, content === null || content === void 0 ? void 0 : content.video_container) : "";
+    const isEmbeddedMigration = ((_content$tiles = content.tiles) === null || _content$tiles === void 0 ? void 0 : _content$tiles.type) === "migration-wizard";
     return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("main", {
       className: `screen ${this.props.id || ""}
           ${screenClassName} ${textColorClass}`,
@@ -999,7 +1024,7 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
         this.mainContentHeader = input;
       }
     }, isCenterPosition ? null : this.renderSecondarySection(content), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
-      className: "section-main",
+      className: `section-main ${isEmbeddedMigration ? "embedded-migration" : ""}`,
       role: "document"
     }, content.secondary_button_top ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MultiStageAboutWelcome__WEBPACK_IMPORTED_MODULE_6__.SecondaryCTA, {
       content: content,

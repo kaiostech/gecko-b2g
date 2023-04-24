@@ -64,8 +64,7 @@ if CONFIG["OS_TARGET"] == "Android":
 
     if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
         UNIFIED_SOURCES += [
-            "/third_party/libwebrtc/modules/utility/source/helpers_android.cc",
-            "/third_party/libwebrtc/modules/utility/source/jvm_android.cc"
+            "/third_party/libwebrtc/modules/utility/source/helpers_android.cc"
         ]
 
 if CONFIG["OS_TARGET"] == "Darwin":

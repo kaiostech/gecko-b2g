@@ -1040,6 +1040,7 @@ pub static MEDIA_FEATURES: [QueryFeatureDescription; 68] = [
     ),
     lnf_int_feature!(atom!("-moz-system-dark-theme"), SystemUsesDarkTheme),
     lnf_int_feature!(atom!("-moz-panel-animations"), PanelAnimations),
+    bool_pref_feature!(atom!("-moz-gtk-non-native-menus"), "widget.gtk.non-native-menu-styling"),
     // media query for MathML Core's implementation of maction/semantics
     bool_pref_feature!(
         atom!("-moz-mathml-core-maction-and-semantics"),
@@ -1051,8 +1052,5 @@ pub static MEDIA_FEATURES: [QueryFeatureDescription; 68] = [
         "mathml.ms_lquote_rquote_attributes.disabled"
     ),
     // media query for popover attribute
-    bool_pref_feature!(
-        atom!("-moz-popover-enabled"),
-        "dom.element.popover.enabled"
-    ),
+    bool_pref_feature!(atom!("-moz-popover-enabled"), "dom.element.popover.enabled"),
 ];

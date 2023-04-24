@@ -948,6 +948,15 @@
   transform: rotate(270deg) translateX(-100%);
 }
 
+#hiddenCopyElement {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .pdfViewer {
   /* Define this variable here and not in :root to avoid to reflow all the UI
      when scaling (see #15929). */
@@ -1080,7 +1089,7 @@
   --dir-factor: 1;
   --scale-select-width: 140px;
 
-  --toolbar-icon-opacity: 0.7;
+  --toolbar-icon-opacity: 1;
   --doorhanger-icon-opacity: 0.9;
 
   --main-color: rgba(12, 12, 13, 1);
@@ -1219,15 +1228,18 @@ body {
   bottom: 5%;
   right: 5%;
   background-color: transparent;
-  z-index: 100000;
+  transition-property: opacity;
+  transition-duration: 400ms;
 }
 
 #floatingToolbar.show {
-  display: block;
+  z-index: 100000;
+  opacity: 1;
 }
 
 #floatingToolbar:not(show) {
-  display: none;
+  z-index: -1;
+  opacity: 0;
 }
 
 .toolbarButton {
@@ -1259,11 +1271,6 @@ body {
   opacity: 0.5;
 }
 
-.toolbarButton:hover,
-.toolbarButton:focus-visible {
-  backdrop-filter: blur(20px) contrast(200%) invert(100%);
-}
-
 .toolbarButton::before {
   display: inline-block;
   width: 100%;
@@ -1276,10 +1283,6 @@ body {
 
 .toolbarButton::before {
   opacity: var(--toolbar-icon-opacity);
-}
-
-.toolbarButton:hover::before {
-  backdrop-filter: invert(60%);
 }
 
 #download::before {

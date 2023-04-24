@@ -62,7 +62,7 @@ class Element;
  *     ScrollTimelineSet, and iterates the set to schedule the animations
  *     linked to the ScrollTimelines.
  */
-class ScrollTimeline final : public AnimationTimeline {
+class ScrollTimeline : public AnimationTimeline {
   template <typename T, typename... Args>
   friend already_AddRefed<T> mozilla::MakeAndAddRef(Args&&... aArgs);
 
@@ -111,6 +111,8 @@ class ScrollTimeline final : public AnimationTimeline {
       Document* aDocument, const NonOwningAnimationTarget& aTarget,
       StyleScrollAxis aAxis, StyleScroller aScroller);
 
+  // Note: |aReferfenceElement| is used as the scroller which specifies
+  // scroll-timeline-name property.
   static already_AddRefed<ScrollTimeline> MakeNamed(
       Document* aDocument, Element* aReferenceElement,
       PseudoStyleType aPseudoType, const StyleScrollTimeline& aStyleTimeline);
@@ -121,8 +123,7 @@ class ScrollTimeline final : public AnimationTimeline {
   }
 
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(ScrollTimeline,
-                                                         AnimationTimeline)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ScrollTimeline, AnimationTimeline)
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override {
@@ -148,6 +149,8 @@ class ScrollTimeline final : public AnimationTimeline {
   bool IsMonotonicallyIncreasing() const override { return false; }
   bool IsScrollTimeline() const override { return true; }
   const ScrollTimeline* AsScrollTimeline() const override { return this; }
+  bool IsViewTimeline() const override { return false; }
+
   Nullable<TimeDuration> TimelineDuration() const override {
     // We are using this magic number for progress-based timeline duration
     // because we don't support percentage for duration.
@@ -191,11 +194,17 @@ class ScrollTimeline final : public AnimationTimeline {
 
  protected:
   virtual ~ScrollTimeline() { Teardown(); }
-
- private:
   ScrollTimeline() = delete;
   ScrollTimeline(Document* aDocument, const Scroller& aScroller,
                  StyleScrollAxis aAxis);
+
+  struct ScrollOffsets {
+    nscoord mStart = 0;
+    nscoord mEnd = 0;
+  };
+  virtual Maybe<ScrollOffsets> ComputeOffsets(
+      const nsIScrollableFrame* aScrollFrame,
+      layers::ScrollDirection aOrientation) const;
 
   // Note: This function is required to be idempotent, as it can be called from
   // both cycleCollection::Unlink() and ~ScrollTimeline(). When modifying this
@@ -209,6 +218,9 @@ class ScrollTimeline final : public AnimationTimeline {
   void UnregisterFromScrollSource();
 
   const nsIScrollableFrame* GetScrollFrame() const;
+
+  static std::pair<const Element*, PseudoStyleType> FindNearestScroller(
+      Element* aSubject, PseudoStyleType aPseudoType);
 
   RefPtr<Document> mDocument;
 

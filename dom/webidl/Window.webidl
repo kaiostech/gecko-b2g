@@ -401,9 +401,6 @@ partial interface Window {
 // https://dvcs.w3.org/hg/webcrypto-api/raw-file/tip/spec/Overview.html
 Window includes GlobalCrypto;
 
-// https://fidoalliance.org/specifications/download/
-Window includes GlobalU2F;
-
 dictionary SizeToContentConstraints {
   long maxWidth = 0;
   long maxHeight = 0;
@@ -729,7 +726,7 @@ partial interface Window {
   [NewObject, Func="nsGlobalWindowInner::IsPrivilegedChromeWindow"]
   Promise<any> promiseDocumentFlushed(PromiseDocumentFlushedCallback callback);
 
-  [ChromeOnly]
+  [Func="IsChromeOrUAWidget"]
   readonly attribute boolean isChromeWindow;
 
   [ChromeOnly]

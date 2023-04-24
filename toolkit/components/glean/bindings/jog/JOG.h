@@ -76,6 +76,25 @@ class JOG {
   static Maybe<uint32_t> GetMetric(const nsACString& aMetricName);
 
   /**
+   * Get the metric name for an identified runtime-registered metric.
+   *
+   * @param aMetricId The id of the runtime-registered metric.
+   * @return Nothing() if no metric by that id has been registered.
+   *         Otherwise, the `myCategory.myName` dotted.camelCase metric name of
+   *         the runtime-registered metric.
+   */
+  static Maybe<nsCString> GetMetricName(uint32_t aMetricId);
+
+  /**
+   * Adds `aCategoryName`'s runtime-registered metrics' names to `aNames`.
+   *
+   * @param aCategoryName The name of the category we want the metric names for.
+   * @param aNames The list to add the metrics' names to.
+   */
+  static void GetMetricNames(const nsACString& aCategoryName,
+                             nsTArray<nsString>& aNames);
+
+  /**
    * Get the ping id in a u32 for a named runtime-registered ping.
    *
    * Return value's only useful to GleanJSPingsLookup.h
@@ -85,6 +104,13 @@ class JOG {
    *         Otherwise, the id for the runtime-registered ping.
    */
   static Maybe<uint32_t> GetPing(const nsACString& aPingName);
+
+  /**
+   * Adds the runtime-registered pings' names to `aNames`.
+   *
+   * @param aNames The list to add the pings' names to.
+   */
+  static void GetPingNames(nsTArray<nsString>& aNames);
 };
 
 }  // namespace mozilla::glean

@@ -133,9 +133,8 @@ class ContentParent final : public PContentParent,
   friend class mozilla::dom::RemoteWorkerManager;
 
  public:
-  using LaunchError = mozilla::ipc::LaunchError;
   using LaunchPromise =
-      mozilla::MozPromise<RefPtr<ContentParent>, LaunchError, false>;
+      mozilla::MozPromise<RefPtr<ContentParent>, nsresult, false>;
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_CONTENTPARENT_IID)
 
@@ -689,7 +688,6 @@ class ContentParent final : public PContentParent,
                                     const char* aOperation) const;
 
   void ActorDestroy(ActorDestroyReason why) override;
-  void ActorDealloc() override;
 
   bool ShouldContinueFromReplyTimeout() override;
 
@@ -1616,9 +1614,6 @@ class ContentParent final : public PContentParent,
   void MarkAsUsed() { mIsUsed = true; }
 
  private:
-  // Released in ActorDealloc; deliberately not exposed to the CC.
-  RefPtr<ContentParent> mSelfRef;
-
   // If you add strong pointers to cycle collected objects here, be sure to
   // release these objects in ShutDownProcess.  See the comment there for more
   // details.
@@ -1718,7 +1713,7 @@ class ContentParent final : public PContentParent,
   ScopedClose mChildXSocketFdDup;
 #endif
 
-  PProcessHangMonitorParent* mHangMonitorActor;
+  RefPtr<PProcessHangMonitorParent> mHangMonitorActor;
 
   UniquePtr<gfx::DriverCrashGuard> mDriverCrashGuard;
   UniquePtr<MemoryReportRequestHost> mMemoryReportRequest;

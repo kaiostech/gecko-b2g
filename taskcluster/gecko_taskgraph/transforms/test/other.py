@@ -378,7 +378,7 @@ def setup_browsertime(config, tasks):
             # Only add the chromedriver fetches when chrome is running
             for platform in cd_fetches:
                 fs["by-test-platform"][platform].extend(cd_fetches[platform])
-        if "--app=chromium" in extra_options:
+        if "--app=chromium" in extra_options or "--app=custom-car" in extra_options:
             for platform in chromium_fetches:
                 fs["by-test-platform"][platform].extend(chromium_fetches[platform])
 
@@ -643,6 +643,14 @@ def handle_tier(config, tasks):
                 "windows10-64-2004-shippable-qr/opt",
                 "windows10-64-2004-devedition-qr/opt",
                 "windows10-64-2004-asan-qr/opt",
+                "windows11-32-2009-qr/debug",
+                "windows11-32-2009-qr/opt",
+                "windows11-32-2009-shippable-qr/opt",
+                "windows11-64-2009-qr/opt",
+                "windows11-64-2009-qr/debug",
+                "windows11-64-2009-shippable-qr/opt",
+                "windows11-64-2009-devedition-qr/opt",
+                "windows11-64-2009-asan-qr/opt",
                 "macosx1015-64/opt",
                 "macosx1015-64/debug",
                 "macosx1015-64-shippable/opt",
@@ -751,6 +759,7 @@ test_setting_description_schema = Schema(
                 "domstreams",
                 "lite",
                 "mingwclang",
+                "nightlyasrelease",
                 "shippable",
                 "tsan",
             ): bool,

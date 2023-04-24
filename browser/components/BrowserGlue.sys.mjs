@@ -38,6 +38,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   LoginBreaches: "resource:///modules/LoginBreaches.sys.mjs",
   NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
+  Normandy: "resource://normandy/Normandy.sys.mjs",
   OsEnvironment: "resource://gre/modules/OsEnvironment.sys.mjs",
   PageDataService: "resource:///modules/pagedata/PageDataService.sys.mjs",
   PdfJs: "resource://pdf.js/PdfJs.sys.mjs",
@@ -49,8 +50,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PluginManager: "resource:///actors/PluginParent.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ProvenanceData: "resource:///modules/ProvenanceData.sys.mjs",
+
   PublicSuffixList:
     "resource://gre/modules/netwerk-dns/PublicSuffixList.sys.mjs",
+
   QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
   RFPHelper: "resource://gre/modules/RFPHelper.sys.mjs",
 
@@ -58,13 +61,17 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/psm/RemoteSecuritySettings.sys.mjs",
 
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
+  SaveToPocket: "chrome://pocket/content/SaveToPocket.sys.mjs",
   ScreenshotsUtils: "resource:///modules/ScreenshotsUtils.sys.mjs",
   SearchSERPTelemetry: "resource:///modules/SearchSERPTelemetry.sys.mjs",
   SessionStartup: "resource:///modules/sessionstore/SessionStartup.sys.mjs",
   SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
+  ShellService: "resource:///modules/ShellService.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
+
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
+
   TRRRacer: "resource:///modules/TRRPerformance.sys.mjs",
   TelemetryUtils: "resource://gre/modules/TelemetryUtils.sys.mjs",
   UIState: "resource://services-sync/UIState.sys.mjs",
@@ -78,10 +85,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AboutNewTab: "resource:///modules/AboutNewTab.jsm",
   AddonManager: "resource://gre/modules/AddonManager.jsm",
-
   ASRouterDefaultConfig:
     "resource://activity-stream/lib/ASRouterDefaultConfig.jsm",
-
   ASRouterNewTabHook: "resource://activity-stream/lib/ASRouterNewTabHook.jsm",
   ASRouter: "resource://activity-stream/lib/ASRouter.jsm",
   Blocklist: "resource://gre/modules/Blocklist.jsm",
@@ -92,19 +97,14 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
   ExtensionsUI: "resource:///modules/ExtensionsUI.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
   NetUtil: "resource://gre/modules/NetUtil.jsm",
-  Normandy: "resource://normandy/Normandy.jsm",
-
   OnboardingMessageProvider:
     "resource://activity-stream/lib/OnboardingMessageProvider.jsm",
-
   PageActions: "resource:///modules/PageActions.jsm",
   PageThumbs: "resource://gre/modules/PageThumbs.jsm",
   PluralForm: "resource://gre/modules/PluralForm.jsm",
   ProcessHangMonitor: "resource:///modules/ProcessHangMonitor.jsm",
   SafeBrowsing: "resource://gre/modules/SafeBrowsing.jsm",
   Sanitizer: "resource:///modules/Sanitizer.jsm",
-  SaveToPocket: "chrome://pocket/content/SaveToPocket.jsm",
-  ShellService: "resource:///modules/ShellService.jsm",
   TabCrashHandler: "resource:///modules/ContentCrashHandlers.jsm",
   TabUnloader: "resource:///modules/TabUnloader.jsm",
 });
@@ -724,20 +724,21 @@ let JSWINDOWACTORS = {
       events: {
         DOMContentLoaded: {},
         pageshow: { mozSystemGroup: true },
-        // The 'unload' event is only used to clean up state, and should not
+        // The 'pagehide' event is only used to clean up state, and should not
         // force actor creation.
-        unload: { createActor: false },
+        pagehide: { createActor: false },
         load: { mozSystemGroup: true, capture: true },
       },
     },
+    matches: ["https://*/*"],
   },
 
   ShieldFrame: {
     parent: {
-      moduleURI: "resource://normandy-content/ShieldFrameParent.jsm",
+      esModuleURI: "resource://normandy-content/ShieldFrameParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource://normandy-content/ShieldFrameChild.jsm",
+      esModuleURI: "resource://normandy-content/ShieldFrameChild.sys.mjs",
       events: {
         pageshow: {},
         pagehide: {},
@@ -808,10 +809,10 @@ let JSWINDOWACTORS = {
 
   WebRTC: {
     parent: {
-      moduleURI: "resource:///actors/WebRTCParent.jsm",
+      esModuleURI: "resource:///actors/WebRTCParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/WebRTCChild.jsm",
+      esModuleURI: "resource:///actors/WebRTCChild.sys.mjs",
     },
 
     allFrames: true,
@@ -2711,19 +2712,12 @@ BrowserGlue.prototype = {
         task: () => {
           Services.fog.initializeFOG();
 
-          // Grabbing the configuration here in case the registration of the
-          // callback below doesn't trigger invoking the callback if we are
-          // already enrolled. See Bug 1818738 for more info.
-          Services.fog.setMetricsFeatureConfig(
-            JSON.stringify(
-              lazy.NimbusFeatures.glean.getVariable("metricsDisabled")
-            )
-          );
-
           // Register Glean to listen for experiment updates releated to the
           // "glean" feature defined in the t/c/nimbus/FeatureManifest.yaml
           lazy.NimbusFeatures.glean.onUpdate(() => {
-            let cfg = lazy.NimbusFeatures.glean.getVariable("metricsDisabled");
+            let cfg = lazy.NimbusFeatures.glean.getVariable(
+              "gleanMetricConfiguration"
+            );
             Services.fog.setMetricsFeatureConfig(JSON.stringify(cfg));
           });
         },

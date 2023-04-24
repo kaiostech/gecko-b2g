@@ -9,6 +9,12 @@
 
 #include "CommonSocketControl.h"
 #include "SharedSSLState.h"
+#include "TLSClientAuthCertSelection.h"
+#include "nsThreadUtils.h"
+
+extern mozilla::LazyLogModule gPIPNSSLog;
+
+class SelectClientAuthCertificate;
 
 class NSSSocketControl final : public CommonSocketControl {
  public:
@@ -64,6 +70,7 @@ class NSSSocketControl final : public CommonSocketControl {
   NS_IMETHOD DisableEarlyData(void) override;
   NS_IMETHOD SetHandshakeCallbackListener(
       nsITlsHandshakeCallbackListener* callback) override;
+  NS_IMETHOD Claim() override;
 
   PRStatus CloseSocketAndDestroy();
 
@@ -118,13 +125,14 @@ class NSSSocketControl final : public CommonSocketControl {
 
   mozilla::psm::SharedSSLState& SharedState();
 
-  // XXX: These are only used on for diagnostic purposes
   enum CertVerificationState {
-    before_cert_verification,
-    waiting_for_cert_verification,
-    after_cert_verification
+    BeforeCertVerification,
+    WaitingForCertVerification,
+    AfterCertVerification
   };
+
   void SetCertVerificationWaiting();
+
   // Use errorCode == 0 to indicate success;
   void SetCertVerificationResult(PRErrorCode errorCode) override;
 
@@ -132,10 +140,9 @@ class NSSSocketControl final : public CommonSocketControl {
       nsTArray<uint8_t>& certBytes,
       nsTArray<nsTArray<uint8_t>>& certChainBytes);
 
-  // for logging only
-  PRBool IsWaitingForCertVerification() const {
+  bool IsWaitingForCertVerification() const {
     COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
-    return mCertVerificationState == waiting_for_cert_verification;
+    return mCertVerificationState == WaitingForCertVerification;
   }
   void AddPlaintextBytesRead(uint64_t val) {
     COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
@@ -218,8 +225,32 @@ class NSSSocketControl final : public CommonSocketControl {
   void SetPreliminaryHandshakeInfo(const SSLChannelInfo& channelInfo,
                                    const SSLCipherSuiteInfo& cipherInfo);
 
+  void SetPendingSelectClientAuthCertificate(
+      nsCOMPtr<nsIRunnable>&& selectClientAuthCertificate) {
+    COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
+    MOZ_LOG(
+        gPIPNSSLog, mozilla::LogLevel::Debug,
+        ("[%p] setting pending select client auth certificate", (void*)mFd));
+    mPendingSelectClientAuthCertificate =
+        std::move(selectClientAuthCertificate);
+  }
+
+  void MaybeDispatchSelectClientAuthCertificate() {
+    COMMON_SOCKET_CONTROL_ASSERT_ON_OWNING_THREAD();
+    if (!IsWaitingForCertVerification() && mClaimed &&
+        mPendingSelectClientAuthCertificate) {
+      MOZ_LOG(gPIPNSSLog, mozilla::LogLevel::Debug,
+              ("[%p] dispatching pending select client auth certificate",
+               (void*)mFd));
+      mozilla::Unused << NS_DispatchToMainThread(
+          mPendingSelectClientAuthCertificate);
+      mPendingSelectClientAuthCertificate = nullptr;
+    }
+  }
+
  private:
   ~NSSSocketControl() = default;
+
   PRFileDesc* mFd;
 
   CertVerificationState mCertVerificationState;
@@ -269,6 +300,9 @@ class NSSSocketControl final : public CommonSocketControl {
   uint32_t mProviderTlsFlags;
   mozilla::TimeStamp mSocketCreationTimestamp;
   uint64_t mPlaintextBytesRead;
+
+  bool mClaimed;
+  nsCOMPtr<nsIRunnable> mPendingSelectClientAuthCertificate;
 
   // Regarding the client certificate message in the TLS handshake, RFC 5246
   // (TLS 1.2) says:

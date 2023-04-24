@@ -5,13 +5,9 @@
 
 ChromeUtils.defineESModuleGetters(this, {
   AppMenuNotifications: "resource://gre/modules/AppMenuNotifications.sys.mjs",
+  DownloadUtils: "resource://gre/modules/DownloadUtils.sys.mjs",
   UpdateListener: "resource://gre/modules/UpdateListener.sys.mjs",
 });
-ChromeUtils.defineModuleGetter(
-  this,
-  "DownloadUtils",
-  "resource://gre/modules/DownloadUtils.jsm"
-);
 const { XPIInstall } = ChromeUtils.import(
   "resource://gre/modules/addons/XPIInstall.jsm"
 );
@@ -1119,6 +1115,12 @@ function runAboutPrefsUpdateTest(params, steps) {
             // instead of a label for the link.
             if (selectedPanel.id == "downloadFailed") {
               selector = "a.text-link";
+            }
+            // The manualUpdate panel in about:preferences uses
+            // the moz-support-link element which doesn't have
+            // the .text-link class.
+            if (selectedPanel.id == "manualUpdate") {
+              selector = "a.manualLink";
             }
             let link = selectedPanel.querySelector(selector);
             is(

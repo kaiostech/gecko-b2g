@@ -36,6 +36,7 @@ PERFHERDER_BASE_URL = (
     "https://treeherder.mozilla.org/perfherder/"
     "compare?originalProject=try&originalRevision=%s&newProject=try&newRevision=%s"
 )
+TREEHERDER_TRY_BASE_URL = "https://treeherder.mozilla.org/jobs?repo=try&revision=%s"
 
 # Prevent users from running more than 300 tests at once. It's possible, but
 # it's more likely that a query is broken and is selecting far too much.
@@ -680,14 +681,6 @@ class PerfParser(CompareParser):
             else:
                 # Add the new tasks to the currently selected ones
                 selected_tasks |= category_tasks
-
-        if len(selected_tasks) > MAX_PERF_TASKS:
-            print(
-                "That's a lot of tests selected (%s)!\n"
-                "These tests won't be triggered. If this was unexpected, "
-                "please file a bug in Testing :: Performance." % MAX_PERF_TASKS
-            )
-            return [], [], []
 
         return selected_tasks, selected_categories, queries
 
@@ -1381,6 +1374,7 @@ class PerfParser(CompareParser):
         single_run=False,
         query=None,
         detect_changes=False,
+        rebuild=1,
         **kwargs,
     ):
         # Setup fzf
@@ -1412,6 +1406,14 @@ class PerfParser(CompareParser):
 
         if len(selected_tasks) == 0:
             print("No tasks selected")
+            return None
+
+        if (len(selected_tasks) * rebuild) > MAX_PERF_TASKS:
+            print(
+                "That's a lot of tests selected (%s)!\n"
+                "These tests won't be triggered. If this was unexpected, "
+                "please file a bug in Testing :: Performance." % MAX_PERF_TASKS
+            )
             return None
 
         if detect_changes:
@@ -1554,6 +1556,7 @@ def run(**kwargs):
 
     revisions = PerfParser.run(
         profile=kwargs.get("try_config", {}).get("gecko-profile", False),
+        rebuild=kwargs.get("try_config", {}).get("rebuild", 1),
         **kwargs,
     )
 
@@ -1563,11 +1566,18 @@ def run(**kwargs):
     # Provide link to perfherder for comparisons now
     if not kwargs.get("single_run", False):
         perfcompare_url = PERFHERDER_BASE_URL % revisions
+        original_try_url = TREEHERDER_TRY_BASE_URL % revisions[0]
+        local_change_try_url = TREEHERDER_TRY_BASE_URL % revisions[1]
         print(
             "\n!!!NOTE!!!\n You'll be able to find a performance comparison here "
             "once the tests are complete (ensure you select the right "
             "framework): %s\n" % perfcompare_url
         )
+        print("\n*******************************************************")
+        print("*          2 commits/try-runs are created...          *")
+        print("*******************************************************")
+        print(f"Base revision's try run: {original_try_url}")
+        print(f"Local revision's try run: {local_change_try_url}\n")
     print(
         "If you need any help, you can find us in the #perf-help Matrix channel:\n"
         "https://matrix.to/#/#perf-help:mozilla.org\n"

@@ -29,6 +29,14 @@ const TELEMETRY_SCALARS = {
   IMPRESSION: `${TELEMETRY_PREFIX}.impression_weather`,
 };
 
+const RESULT_MENU_COMMAND = {
+  HELP: "help",
+  INACCURATE_LOCATION: "inaccurate_location",
+  NOT_INTERESTED: "not_interested",
+  NOT_RELEVANT: "not_relevant",
+  SHOW_LESS_FREQUENTLY: "show_less_frequently",
+};
+
 const WEATHER_DYNAMIC_TYPE = "weather";
 const WEATHER_VIEW_TEMPLATE = {
   attributes: {
@@ -235,6 +243,8 @@ class ProviderWeather extends UrlbarProvider {
         url: suggestion.url,
         iconId: suggestion.current_conditions.icon_id,
         helpUrl: lazy.QuickSuggest.HELP_URL,
+        // TODO: Remove helpL10n, isBlockable, and blockL10n once the telemetry
+        // test is updated for the result menu.
         helpL10n: {
           id: lazy.UrlbarPrefs.get("resultMenu")
             ? "urlbar-result-menu-learn-more-about-firefox-suggest"
@@ -265,6 +275,49 @@ class ProviderWeather extends UrlbarProvider {
 
     addCallback(this, result);
     this.#resultFromLastQuery = result;
+  }
+
+  getResultCommands(result) {
+    return [
+      {
+        name: RESULT_MENU_COMMAND.INACCURATE_LOCATION,
+        l10n: {
+          id: "firefox-suggest-weather-command-inaccurate-location",
+        },
+      },
+      {
+        name: RESULT_MENU_COMMAND.SHOW_LESS_FREQUENTLY,
+        l10n: {
+          id: "firefox-suggest-weather-command-show-less-frequently",
+        },
+      },
+      {
+        l10n: {
+          id: "firefox-suggest-weather-command-dont-show-this",
+        },
+        children: [
+          {
+            name: RESULT_MENU_COMMAND.NOT_RELEVANT,
+            l10n: {
+              id: "firefox-suggest-weather-command-not-relevant",
+            },
+          },
+          {
+            name: RESULT_MENU_COMMAND.NOT_INTERESTED,
+            l10n: {
+              id: "firefox-suggest-weather-command-not-interested",
+            },
+          },
+        ],
+      },
+      { name: "separator" },
+      {
+        name: RESULT_MENU_COMMAND.HELP,
+        l10n: {
+          id: "urlbar-result-menu-learn-more-about-firefox-suggest",
+        },
+      },
+    ];
   }
 
   /**
@@ -358,26 +411,6 @@ class ProviderWeather extends UrlbarProvider {
     };
   }
 
-  /**
-   * Called when the result's block button is picked. If the provider can block
-   * the result, it should do so and return true. If the provider cannot block
-   * the result, it should return false. The meaning of "blocked" depends on the
-   * provider and the type of result.
-   *
-   * @param {UrlbarQueryContext} queryContext
-   *   The query context.
-   * @param {UrlbarResult} result
-   *   The result that should be blocked.
-   * @returns {boolean}
-   *   Whether the result was blocked.
-   */
-  blockResult(queryContext, result) {
-    this.logger.info("Blocking weather result");
-    lazy.UrlbarPrefs.set("suggest.weather", false);
-    this.#recordEngagementTelemetry(result, queryContext.isPrivate, "block");
-    return true;
-  }
-
   onResultsShown(queryContext, results) {
     Services.telemetry.keyedScalarAdd(
       TELEMETRY_SCALARS.EXPOSURE,
@@ -387,70 +420,68 @@ class ProviderWeather extends UrlbarProvider {
     );
   }
 
-  /**
-   * Called when the user starts and ends an engagement with the urlbar.  For
-   * details on parameters, see UrlbarProvider.onEngagement().
-   *
-   * @param {boolean} isPrivate
-   *   True if the engagement is in a private context.
-   * @param {string} state
-   *   The state of the engagement, one of: start, engagement, abandonment,
-   *   discard
-   * @param {UrlbarQueryContext} queryContext
-   *   The engagement's query context.  This is *not* guaranteed to be defined
-   *   when `state` is "start".  It will always be defined for "engagement" and
-   *   "abandonment".
-   * @param {object} details
-   *   This is defined only when `state` is "engagement" or "abandonment", and
-   *   it describes the search string and picked result.
-   */
   onEngagement(isPrivate, state, queryContext, details) {
-    let result = this.#resultFromLastQuery;
-    this.#resultFromLastQuery = null;
+    // Ignore engagements on other results that didn't end the session.
+    if (details.result?.providerName != this.name && details.isSessionOngoing) {
+      return;
+    }
 
     // Impression and clicked telemetry are both recorded on engagement. We
     // define "impression" to mean a weather result was present in the view when
     // any result was picked.
     if (state == "engagement" && queryContext) {
-      // Find the weather result that's currently visible in the view. It's
-      // probably the result from the last query so check it first, but due to
-      // the async nature of how results are added to the view and made visible,
-      // it may not be.
-      if (
-        result &&
-        (result.rowIndex < 0 ||
-          queryContext.view?.visibleResults?.[result.rowIndex] != result)
-      ) {
-        // The result from the last query isn't visible.
-        result = null;
+      // Get the result that's visible in the view. `details.result` is the
+      // engaged result, if any; if it's from this provider, then that's the
+      // visible result. Otherwise fall back to #getVisibleResultFromLastQuery.
+      let { result } = details;
+      if (result?.providerName != this.name) {
+        result = this.#getVisibleResultFromLastQuery(queryContext.view);
       }
 
-      // If the result isn't visible, find a visible one.
-      if (!result) {
-        result = queryContext.view?.visibleResults?.find(
-          r => r.providerName == this.name
-        );
-      }
-
-      // Finally, record telemetry if there's a visible result.
       if (result) {
         this.#recordEngagementTelemetry(
           result,
           isPrivate,
-          details.selIndex == result.rowIndex ? details.selType : ""
+          details.result == result ? details.selType : ""
         );
       }
     }
+
+    // Handle commands.
+    if (details.result?.providerName == this.name) {
+      this.#handlePossibleCommand(
+        queryContext,
+        details.result,
+        details.selType
+      );
+    }
+
+    this.#resultFromLastQuery = null;
+  }
+
+  #getVisibleResultFromLastQuery(view) {
+    let result = this.#resultFromLastQuery;
+
+    if (
+      result?.rowIndex >= 0 &&
+      view?.visibleResults?.[result.rowIndex] == result
+    ) {
+      // The result was visible.
+      return result;
+    }
+
+    // Find a visible result.
+    return view?.visibleResults?.find(r => r.providerName == this.name);
   }
 
   /**
    * Records engagement telemetry. This should be called only at the end of an
    * engagement when a weather result is present or when a weather result is
-   * blocked.
+   * dismissed.
    *
    * @param {UrlbarResult} result
    *   The weather result that was present (and possibly picked) at the end of
-   *   the engagement or that was blocked.
+   *   the engagement or that was dismissed.
    * @param {boolean} isPrivate
    *   Whether the engagement is in a private context.
    * @param {string} selType
@@ -460,7 +491,7 @@ class ProviderWeather extends UrlbarProvider {
    *   - "": The user didn't pick the row or any part of it
    *   - "weather": The user picked the main part of the row
    *   - "help": The user picked the help button
-   *   - "block": The user picked the block button or used the key shortcut
+   *   - "dismiss": The user dismissed the result
    *
    *   An empty string means the user picked some other row to end the
    *   engagement, not the weather row. In that case only impression telemetry
@@ -485,21 +516,23 @@ class ProviderWeather extends UrlbarProvider {
 
     // scalars related to clicking the result and other elements in its row
     let clickScalars = [];
+    let eventObject;
     switch (selType) {
       case "weather":
         clickScalars.push(TELEMETRY_SCALARS.CLICK);
+        eventObject = "click";
         break;
       case "help":
         clickScalars.push(TELEMETRY_SCALARS.HELP);
+        eventObject = "help";
         break;
-      case "block":
+      case "dismiss":
         clickScalars.push(TELEMETRY_SCALARS.BLOCK);
+        eventObject = "block";
         break;
       default:
         if (selType) {
-          this.logger.error(
-            "Engagement telemetry error, unknown selType: " + selType
-          );
+          eventObject = "other";
         }
         break;
     }
@@ -511,7 +544,7 @@ class ProviderWeather extends UrlbarProvider {
     Services.telemetry.recordEvent(
       lazy.QuickSuggest.TELEMETRY_EVENT_CATEGORY,
       "engagement",
-      selType == "weather" ? "click" : selType || "impression_only",
+      eventObject || "impression_only",
       "",
       {
         match_type: "firefox-suggest",
@@ -520,6 +553,28 @@ class ProviderWeather extends UrlbarProvider {
         source: result.payload.source,
       }
     );
+  }
+
+  #handlePossibleCommand(queryContext, result, selType) {
+    switch (selType) {
+      case RESULT_MENU_COMMAND.HELP:
+        // "help" is handled by UrlbarInput, no need to do anything here.
+        break;
+      // selType == "dismiss" when the user presses the dismiss key shortcut.
+      case "dismiss":
+      case RESULT_MENU_COMMAND.NOT_INTERESTED:
+      case RESULT_MENU_COMMAND.NOT_RELEVANT:
+        this.logger.info("Dismissing weather result");
+        lazy.UrlbarPrefs.set("suggest.weather", false);
+        queryContext.view.controller.removeResult(result);
+        break;
+      case RESULT_MENU_COMMAND.INACCURATE_LOCATION:
+        // TODO
+        break;
+      case RESULT_MENU_COMMAND.SHOW_LESS_FREQUENTLY:
+        // TODO
+        break;
+    }
   }
 
   // The result we added during the most recent query.

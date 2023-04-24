@@ -202,6 +202,8 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
 
   virtual nsAtom* TagName() const override;
 
+  virtual already_AddRefed<nsAtom> InputType() const override;
+
   virtual already_AddRefed<nsAtom> DisplayStyle() const override;
 
   virtual float Opacity() const override;
@@ -460,6 +462,11 @@ class RemoteAccessibleBase : public Accessible, public HyperTextAccessibleBase {
   nsAtom* GetPrimaryAction() const;
 
   virtual nsTArray<int32_t>& GetCachedHyperTextOffsets() override;
+
+  // XXX: Declare ourselves as a template friend to work around a suspected gcc
+  // bug with calling protected functions. See Bug 1825516.
+  template <class>
+  friend class RemoteAccessibleBase;
 
  private:
   uintptr_t mParent;

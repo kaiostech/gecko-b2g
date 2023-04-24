@@ -18,6 +18,7 @@
 #include "mozilla/dom/DOMRect.h"
 #include "mozilla/dom/ValidityState.h"
 #include "mozilla/dom/PopoverData.h"
+#include "mozilla/dom/ToggleEvent.h"
 
 class nsDOMTokenList;
 class nsIFormControlFrame;
@@ -156,7 +157,14 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
   bool CheckPopoverValidity(mozilla::dom::PopoverVisibilityState aExpectedState,
                             ErrorResult& aRv);
   /** Returns true if the event has been cancelled. */
-  MOZ_CAN_RUN_SCRIPT bool FireBeforeToggle(bool aIsOpen);
+  MOZ_CAN_RUN_SCRIPT bool FireToggleEvent(
+      mozilla::dom::PopoverVisibilityState aOldState,
+      mozilla::dom::PopoverVisibilityState aNewState, const nsAString& aType);
+  MOZ_CAN_RUN_SCRIPT void QueuePopoverEventTask(
+      mozilla::dom::PopoverVisibilityState aOldState);
+  MOZ_CAN_RUN_SCRIPT void RunPopoverToggleEventTask(
+      mozilla::dom::PopoverToggleEventTask* aTask,
+      mozilla::dom::PopoverVisibilityState aOldState);
   MOZ_CAN_RUN_SCRIPT void ShowPopover(ErrorResult& aRv);
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void HidePopoverWithoutRunningScript();
   MOZ_CAN_RUN_SCRIPT void HidePopoverInternal(bool aFocusPreviousElement,
@@ -742,15 +750,14 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
   }
 
  protected:
-  nsresult BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
-                         const nsAttrValueOrString* aValue,
-                         bool aNotify) override;
+  void BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+                     const nsAttrValue* aValue, bool aNotify) override;
   // TODO: Convert AfterSetAttr to MOZ_CAN_RUN_SCRIPT and get rid of
   // kungFuDeathGrip in it.
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
-  AfterSetAttr(int32_t aNamespaceID, nsAtom* aName, const nsAttrValue* aValue,
-               const nsAttrValue* aOldValue,
-               nsIPrincipal* aMaybeScriptedPrincipal, bool aNotify) override;
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void AfterSetAttr(
+      int32_t aNamespaceID, nsAtom* aName, const nsAttrValue* aValue,
+      const nsAttrValue* aOldValue, nsIPrincipal* aMaybeScriptedPrincipal,
+      bool aNotify) override;
 
   mozilla::EventListenerManager* GetEventListenerManagerForAttr(
       nsAtom* aAttrName, bool* aDefer) override;
@@ -1047,14 +1054,13 @@ class nsGenericHTMLFormElement : public nsGenericHTMLElement {
  protected:
   virtual ~nsGenericHTMLFormElement() = default;
 
-  nsresult BeforeSetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                         const nsAttrValueOrString* aValue,
-                         bool aNotify) override;
+  void BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
+                     const nsAttrValue* aValue, bool aNotify) override;
 
-  nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                        const nsAttrValue* aValue, const nsAttrValue* aOldValue,
-                        nsIPrincipal* aMaybeScriptedPrincipal,
-                        bool aNotify) override;
+  void AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
+                    const nsAttrValue* aValue, const nsAttrValue* aOldValue,
+                    nsIPrincipal* aMaybeScriptedPrincipal,
+                    bool aNotify) override;
 
   virtual void BeforeSetForm(bool aBindToTree) {}
 

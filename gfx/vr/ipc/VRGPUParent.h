@@ -14,7 +14,7 @@ namespace mozilla {
 namespace gfx {
 
 class VRGPUParent final : public PVRGPUParent {
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VRGPUParent)
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VRGPUParent, final)
 
   friend class PVRGPUParent;
 
@@ -37,7 +37,6 @@ class VRGPUParent final : public PVRGPUParent {
 
   void DeferredDestroy();
 
-  RefPtr<VRGPUParent> mSelfRef;
 #if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   RefPtr<VRService> mVRService;
 #endif

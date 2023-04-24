@@ -169,14 +169,12 @@ AtkObject* getObjectCB(AtkHyperlink* aLink, gint aLinkIndex) {
     return nullptr;
   }
 
-  if (LocalAccessible* hyperlink = maiLink->GetAccHyperlink()) {
-    LocalAccessible* anchor = hyperlink->AnchorAt(aLinkIndex);
-    NS_ENSURE_TRUE(anchor, nullptr);
-
-    return AccessibleWrap::GetAtkObject(anchor);
+  Accessible* acc = maiLink->Acc();
+  if (!acc) {
+    return nullptr;
   }
 
-  RemoteAccessible* anchor = maiLink->Proxy()->AnchorAt(aLinkIndex);
+  Accessible* anchor = acc->AnchorAt(aLinkIndex);
   return anchor ? GetWrapperFor(anchor) : nullptr;
 }
 
@@ -198,22 +196,22 @@ gboolean isValidCB(AtkHyperlink* aLink) {
   MaiHyperlink* maiLink = GetMaiHyperlink(aLink);
   if (!maiLink) return false;
 
-  if (LocalAccessible* hyperlink = maiLink->GetAccHyperlink()) {
-    return static_cast<gboolean>(hyperlink->IsLinkValid());
+  Accessible* acc = maiLink->Acc();
+  if (!acc) {
+    return false;
   }
 
-  return static_cast<gboolean>(maiLink->Proxy()->IsLinkValid());
+  return static_cast<gboolean>(acc->IsLinkValid());
 }
 
 gint getAnchorCountCB(AtkHyperlink* aLink) {
   MaiHyperlink* maiLink = GetMaiHyperlink(aLink);
   if (!maiLink) return -1;
 
-  if (LocalAccessible* hyperlink = maiLink->GetAccHyperlink()) {
-    return static_cast<gint>(hyperlink->AnchorCount());
+  Accessible* acc = maiLink->Acc();
+  if (!acc) {
+    return -1;
   }
 
-  bool valid = false;
-  uint32_t anchorCount = maiLink->Proxy()->AnchorCount(&valid);
-  return valid ? static_cast<gint>(anchorCount) : -1;
+  return static_cast<gint>(acc->AnchorCount());
 }

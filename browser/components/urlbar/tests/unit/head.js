@@ -132,6 +132,9 @@ function createContext(searchString = "foo", properties = {}) {
     get visibleResults() {
       return context.results;
     },
+    controller: {
+      removeResult() {},
+    },
   };
   UrlbarTokenizer.tokenize(context);
   return context;
@@ -387,33 +390,6 @@ async function cleanupPlaces() {
 
   await PlacesUtils.bookmarks.eraseEverything();
   await PlacesUtils.history.clear();
-}
-
-/**
- * Returns the frecency of a url.
- *
- * @param {string} aURI The URI or spec to get frecency for.
- * @returns {number} the frecency value.
- */
-function frecencyForUrl(aURI) {
-  let url = aURI;
-  if (aURI instanceof Ci.nsIURI) {
-    url = aURI.spec;
-  } else if (URL.isInstance(aURI)) {
-    url = aURI.href;
-  }
-  let stmt = DBConn().createStatement(
-    "SELECT frecency FROM moz_places WHERE url_hash = hash(?1) AND url = ?1"
-  );
-  stmt.bindByIndex(0, url);
-  try {
-    if (!stmt.executeStep()) {
-      throw new Error("No result for frecency.");
-    }
-    return stmt.getInt32(0);
-  } finally {
-    stmt.finalize();
-  }
 }
 
 /**

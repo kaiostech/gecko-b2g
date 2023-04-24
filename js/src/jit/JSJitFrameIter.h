@@ -75,15 +75,13 @@ enum class FrameType {
   JSJitToWasm,
 };
 
-enum ReadFrameArgsBehavior {
-  // Only read formals (i.e. [0 ... callee()->nargs]
-  ReadFrame_Formals,
+enum class ReadFrameArgsBehavior {
+  // Read all actual arguments. Will invoke the callback numActualArgs times.
+  Actuals,
 
-  // Only read overflown args (i.e. [callee()->nargs ... numActuals()]
-  ReadFrame_Overflown,
-
-  // Read all args (i.e. [0 ... numActuals()])
-  ReadFrame_Actuals
+  // Read all argument values in the stack frame. Will invoke the callback
+  // max(numFormalArgs, numActualArgs) times.
+  ActualsAndFormals,
 };
 
 class CommonFrameLayout;
@@ -234,27 +232,12 @@ class JSJitFrameIter {
   MachineState machineState() const;
 
   template <class Op>
-  void unaliasedForEachActual(Op op, ReadFrameArgsBehavior behavior) const {
+  void unaliasedForEachActual(Op op) const {
     MOZ_ASSERT(isBaselineJS());
 
     unsigned nactual = numActualArgs();
-    unsigned start, end;
-    switch (behavior) {
-      case ReadFrame_Formals:
-        start = 0;
-        end = callee()->nargs();
-        break;
-      case ReadFrame_Overflown:
-        start = callee()->nargs();
-        end = nactual;
-        break;
-      case ReadFrame_Actuals:
-        start = 0;
-        end = nactual;
-    }
-
     Value* argv = actualArgs();
-    for (unsigned i = start; i < end; i++) {
+    for (unsigned i = 0; i < nactual; i++) {
       op(argv[i]);
     }
   }
@@ -682,15 +665,24 @@ class InlineFrameIterator {
       unsigned nactual = numActualArgs();
       unsigned nformal = calleeTemplate()->nargs();
 
-      // Get the non overflown arguments, which are taken from the inlined
-      // frame, because it will have the updated value when JSOp::SetArg is
-      // done.
-      if (behavior != ReadFrame_Overflown) {
-        s.readFunctionFrameArgs(argOp, argsObj, thisv, 0, nformal, script(),
-                                fallback);
+      // Read the formal arguments, which are taken from the inlined frame,
+      // because it will have the updated value when JSOp::SetArg is used.
+      unsigned numFormalsToRead;
+      if (behavior == ReadFrameArgsBehavior::Actuals) {
+        numFormalsToRead = std::min(nactual, nformal);
+      } else {
+        MOZ_ASSERT(behavior == ReadFrameArgsBehavior::ActualsAndFormals);
+        numFormalsToRead = nformal;
+      }
+      s.readFunctionFrameArgs(argOp, argsObj, thisv, 0, numFormalsToRead,
+                              script(), fallback);
+
+      // Skip formals we didn't read.
+      for (unsigned i = numFormalsToRead; i < nformal; i++) {
+        s.skip();
       }
 
-      if (behavior != ReadFrame_Formals) {
+      if (nactual > nformal) {
         if (more()) {
           // There is still a parent frame of this inlined frame.  All
           // arguments (also the overflown) are the last pushed values
@@ -742,11 +734,10 @@ class InlineFrameIterator {
 
   template <class Op>
   void unaliasedForEachActual(JSContext* cx, Op op,
-                              ReadFrameArgsBehavior behavior,
                               MaybeReadFallback& fallback) const {
     Nop nop;
     readFrameArgsAndLocals(cx, op, nop, nullptr, nullptr, nullptr, nullptr,
-                           nullptr, behavior, fallback);
+                           nullptr, ReadFrameArgsBehavior::Actuals, fallback);
   }
 
   JSScript* script() const { return script_; }

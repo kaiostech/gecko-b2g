@@ -3633,7 +3633,10 @@ contextservices.quicksuggest:
       "click": The user picked the suggestion.
       "help": The user picked the suggestion's help button.
       "impression_only": The user picked some other row.
-    objects: ["block", "click", "help", "impression_only"]
+      "other": The user engaged with the suggestion in some other way, for
+        example by picking a command in the result menu. This is a catch-all
+        category and going forward Glean telemetry should be preferred.
+    objects: ["block", "click", "help", "impression_only", "other"]
     extra_keys:
       match_type: >
         "best-match" if the suggestion was a best match or "firefox-suggest" if
@@ -3734,88 +3737,6 @@ synced_tabs:
     extra_keys:
       tab_pos: position of the tab clicked
       filter: was there a filter enabled
-
-colorways_modal:
-  try_colorways:
-    objects: ["firefoxview", "aboutaddons", "unknown"]
-    description: >
-      Recorded when the Colorway Closet modal opens when no colorway from the current collection was selected. The object is the source from where the user opened the modal.
-    notification_emails:
-      - firefoxview@mozilla.com
-    products:
-      - "firefox"
-    record_in_processes:
-      - main
-    bug_numbers:
-      - 1779642
-      - 1747229
-    expiry_version: "never"
-    release_channel_collection: opt-out
-  change_colorway:
-    objects: ["firefoxview", "aboutaddons", "unknown"]
-    description: >
-      Recorded when the Colorway Closet modal opens when a colorway from the current collection was already selected. The object is the source from where the user opened the modal.
-    notification_emails:
-      - firefoxview@mozilla.com
-    products:
-      - "firefox"
-    record_in_processes:
-      - main
-    bug_numbers:
-      - 1779642
-      - 1747229
-    expiry_version: "never"
-    release_channel_collection: opt-out
-  cancel:
-    description: >
-      Recorded when colorway selection is canceled and the colorway closet modal is closed. This may be done by pressing the Cancel button or ESC key, or by closing the browser tab or window.
-    objects: ["modal"]
-    release_channel_collection: opt-out
-    record_in_processes:
-      - "main"
-    bug_numbers: [1747229]
-    notification_emails:
-      - firefoxview@mozilla.com
-    expiry_version: "never"
-    products: ["firefox"]
-  set_colorway:
-    description: >
-      Recorded when a colorway and intensity are set in the colorway closet modal
-    objects: ["modal"]
-    extra_keys:
-      colorway_id: The id of the selected colorway
-    release_channel_collection: opt-out
-    record_in_processes:
-      - "main"
-    bug_numbers: [1747229]
-    notification_emails:
-      - firefoxview@mozilla.com
-    expiry_version: "never"
-    products: ["firefox"]
-  homepage_reset:
-    description: >
-      Recorded when the apply button is selected in the colorway modal. This will set the user’s home page default to Firefox Home
-    objects: ["modal"]
-    release_channel_collection: opt-out
-    record_in_processes:
-      - "main"
-    bug_numbers: [1747229]
-    notification_emails:
-      - firefoxview@mozilla.com
-    expiry_version: "never"
-    products: ["firefox"]
-  homepage_reset_undo:
-    description: >
-      Recorded when the undo button is selected in the colorway modal. This will undo the apply button selection for setting Firefox Home to default
-    objects: ["modal"]
-    release_channel_collection: opt-out
-    record_in_processes:
-      - "main"
-    bug_numbers: [1747229]
-    notification_emails:
-      - firefoxview@mozilla.com
-    expiry_version: "never"
-    products: ["firefox"]
 
 firefoxview:
   entered:

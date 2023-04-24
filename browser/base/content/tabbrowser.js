@@ -172,8 +172,6 @@
 
     arrowKeysShouldWrap: AppConstants == "macosx",
 
-    _dateTimePicker: null,
-
     _previewMode: false,
 
     _lastFindValue: "",
@@ -804,16 +802,6 @@
         this.selectedTab = currentTab;
         this._previewMode = false;
       }
-    },
-
-    _getAndMaybeCreateDateTimePickerPanel() {
-      if (!this._dateTimePicker) {
-        let wrapper = document.getElementById("dateTimePickerTemplate");
-        wrapper.replaceWith(wrapper.content);
-        this._dateTimePicker = document.getElementById("DateTimePickerPanel");
-      }
-
-      return this._dateTimePicker;
     },
 
     syncThrobberAnimations(aTab) {
@@ -6651,7 +6639,7 @@
                 isURL: true,
               });
 
-              this.mBrowser._initialURI = originalLocation;
+              this.mBrowser.browsingContext.nonWebControlledBlankURI = originalLocation;
               if (this.mTab.selected && !gBrowser.userTypedValue) {
                 gURLBar.setURI();
               }
@@ -7221,6 +7209,10 @@
 } // end private scope for gBrowser
 
 var StatusPanel = {
+  // This is useful for debugging (set to `true` in the interesting state for
+  // the panel to remain in that state).
+  _frozen: false,
+
   get panel() {
     delete this.panel;
     this.panel = document.getElementById("statuspanel");
@@ -7240,7 +7232,7 @@ var StatusPanel = {
   },
 
   update() {
-    if (BrowserHandler.kiosk) {
+    if (BrowserHandler.kiosk || this._frozen) {
       return;
     }
     let text;
@@ -7352,6 +7344,9 @@ var StatusPanel = {
   },
 
   _mirror() {
+    if (this._frozen) {
+      return;
+    }
     if (this.panel.hasAttribute("mirror")) {
       this.panel.removeAttribute("mirror");
     } else {

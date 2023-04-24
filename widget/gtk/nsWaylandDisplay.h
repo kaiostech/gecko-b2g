@@ -23,29 +23,24 @@
 namespace mozilla {
 namespace widget {
 
+struct GbmFormat {
+  bool mIsSupported;
+  bool mHasAlpha;
+  int mFormat;
+  uint64_t* mModifiers;
+  int mModifiersCount;
+};
+
 // Our general connection to Wayland display server,
 // holds our display connection and runs event loop.
 // We have a global nsWaylandDisplay object for each thread.
 class nsWaylandDisplay {
  public:
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(nsWaylandDisplay)
-
   // Create nsWaylandDisplay object on top of native Wayland wl_display
   // connection.
   explicit nsWaylandDisplay(wl_display* aDisplay);
 
-  void DispatchEventQueue();
-  void ShutdownEventQueue();
-
-  void SyncBegin();
-  void QueueSyncBegin();
-  void SyncEnd();
-  void WaitForSyncEnd();
-
-  bool Matches(wl_display* aDisplay);
-
   wl_display* GetDisplay() { return mDisplay; };
-  wl_event_queue* GetEventQueue() { return mEventQueue; };
   wl_compositor* GetCompositor() { return mCompositor; };
   wl_subcompositor* GetSubcompositor() { return mSubcompositor; };
   wl_shm* GetShm() { return mShm; };
@@ -62,8 +57,6 @@ class nsWaylandDisplay {
   zwp_linux_dmabuf_v1* GetDmabuf() { return mDmabuf; };
   xdg_activation_v1* GetXdgActivation() { return mXdgActivation; };
 
-  bool IsMainThreadDisplay() { return mEventQueue == nullptr; }
-
   void SetShm(wl_shm* aShm);
   void SetCompositor(wl_compositor* aCompositor);
   void SetSubcompositor(wl_subcompositor* aSubcompositor);
@@ -76,18 +69,19 @@ class nsWaylandDisplay {
   void SetDmabuf(zwp_linux_dmabuf_v1* aDmabuf);
   void SetXdgActivation(xdg_activation_v1* aXdgActivation);
 
-  bool IsExplicitSyncEnabled() { return mExplicitSync; }
-
- private:
   ~nsWaylandDisplay();
 
+  static GbmFormat* GetGbmFormat(bool aHasAlpha);
+  static void AddFormatModifier(bool aHasAlpha, int aFormat,
+                                uint32_t aModifierHi, uint32_t aModifierLo);
+
+ private:
   PRThread* mThreadId = nullptr;
+  wl_registry* mRegistry = nullptr;
   wl_display* mDisplay = nullptr;
-  wl_event_queue* mEventQueue = nullptr;
   wl_compositor* mCompositor = nullptr;
   wl_subcompositor* mSubcompositor = nullptr;
   wl_shm* mShm = nullptr;
-  wl_callback* mSyncCallback = nullptr;
   zwp_idle_inhibit_manager_v1* mIdleInhibitManager = nullptr;
   zwp_relative_pointer_manager_v1* mRelativePointerManager = nullptr;
   zwp_pointer_constraints_v1* mPointerConstraints = nullptr;
@@ -95,13 +89,14 @@ class nsWaylandDisplay {
   zwp_linux_dmabuf_v1* mDmabuf = nullptr;
   xdg_activation_v1* mXdgActivation = nullptr;
   bool mExplicitSync = false;
+
+  static GbmFormat sXRGBFormat;
+  static GbmFormat sARGBFormat;
 };
 
-void WaylandDispatchDisplays();
-void WaylandDisplayRelease();
-
-RefPtr<nsWaylandDisplay> WaylandDisplayGet();
 wl_display* WaylandDisplayGetWLDisplay();
+nsWaylandDisplay* WaylandDisplayGet();
+void WaylandDisplayRelease();
 
 }  // namespace widget
 }  // namespace mozilla

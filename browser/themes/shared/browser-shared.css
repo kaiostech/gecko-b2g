@@ -165,11 +165,6 @@ toolbar[brighttext] :is(a, .text-link):-moz-lwtheme,
   color: var(--lwt-brighttext-url-color);
 }
 
-:is(toolbar, panel) :is(a, .text-link):-moz-lwtheme:not(:hover) {
-  text-decoration: none;
-}
-
-
 /* Toolbar / content area border */
 
 #navigator-toolbox {
@@ -305,20 +300,27 @@ menupopup::part(drop-indicator) {
 /* Find bar */
 
 .browserContainer > findbar {
-  background-color: var(--toolbar-non-lwt-bgcolor);
-  color: var(--toolbar-non-lwt-textcolor);
-  text-shadow: none;
+  background-color: var(--toolbar-bgcolor);
+  color: var(--toolbar-color);
+  border-top-color: var(--chrome-content-separator-color, ThreeDShadow);
 }
 
-:root:not([lwtheme-image]) .browserContainer > findbar:-moz-lwtheme {
+.browserContainer > findbar:-moz-lwtheme {
   background-color: var(--lwt-accent-color);
-  background-image: linear-gradient(var(--toolbar-bgcolor), var(--toolbar-bgcolor));
-  border-top-color: var(--chrome-content-separator-color);
-  color: var(--toolbar-color);
+  background-image: linear-gradient(var(--toolbar-bgcolor), var(--toolbar-bgcolor)), var(--lwt-additional-images);
+  background-repeat: no-repeat, var(--lwt-background-tiling);
+  background-position: right bottom, var(--lwt-background-alignment);
+  background-position-y: bottom !important;
 }
 
 :root:not([lwtheme-image]) .browserContainer > findbar:-moz-lwtheme:-moz-window-inactive {
   background-color: var(--lwt-accent-color-inactive, var(--lwt-accent-color));
+}
+
+:root[lwtheme-image] .browserContainer > findbar {
+  background-image: linear-gradient(var(--toolbar-bgcolor), var(--toolbar-bgcolor)), var(--lwt-header-image), var(--lwt-additional-images);
+  background-repeat: no-repeat, no-repeat, var(--lwt-background-tiling);
+  background-position: center, right bottom, var(--lwt-background-alignment);
 }
 
 /* Private browsing indicator */
@@ -541,6 +543,12 @@ menupopup::part(drop-indicator) {
   margin-inline-end: 12px;
 }
 
+#contextual-feature-recommendation-notification .cfr-doorhanger-medium-icon {
+  width: 50px;
+  height: 50px;
+  margin-inline-end: 12px;
+}
+
 #contextual-feature-recommendation-notification .popup-notification-body-container {
   width: 100%;
   padding-bottom: 2px;
@@ -564,6 +572,23 @@ menupopup::part(drop-indicator) {
   display: none;
 }
 
+#contextual-feature-recommendation-notification[data-notification-category="addon_recommendation"] .popup-notification-description > b {
+  font-weight: 300;
+  padding-inline-start: 5px;
+}
+
+#contextual-feature-recommendation-notification[data-notification-category="addon_recommendation"] #cfr-notification-footer-learn-more-link {
+  margin-inline-start: 5px;
+}
+
+#contextual-feature-recommendation-notification[data-notification-category="addon_recommendation"] #cfr-notification-header-image {
+  display: none;
+}
+
+#contextual-feature-recommendation-notification[data-notification-category="addon_recommendation"] #cfr-notification-header-label {
+  margin-block-end: 9px;
+}
+
 /*
  * `icon_and_message` CFR doorhanger with: icon, title and subtitle.
  * No panel header is shown
@@ -580,7 +605,6 @@ menupopup::part(drop-indicator) {
 #contextual-feature-recommendation-notification[data-notification-category="icon_and_message"] popupnotificationcontent {
   display: block; /* This forces the subtitle content to wrap */
 }
-
 
 #cfr-notification-feature-steps {
   display: flex;

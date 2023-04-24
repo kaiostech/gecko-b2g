@@ -346,3 +346,26 @@ function assertAdImpressionEvents(expectedAdImpressions) {
     );
   }
 }
+
+async function assertAbandonmentEvent(expectedAbandonment) {
+  let recordedAbandonment = Glean.serp.abandonment.testGetValue() ?? [];
+
+  Assert.equal(
+    recordedAbandonment[0].extra.reason,
+    expectedAbandonment.abandonment.reason,
+    "Should have the correct abandonment reason."
+  );
+}
+
+async function promiseAdImpressionReceived(num) {
+  if (num) {
+    return TestUtils.waitForCondition(() => {
+      let adImpressions = Glean.serp.adImpression.testGetValue() ?? [];
+      return adImpressions.length == num;
+    }, `Should have received an ${num} ad impressions.`);
+  }
+  return TestUtils.waitForCondition(() => {
+    let adImpressions = Glean.serp.adImpression.testGetValue() ?? [];
+    return adImpressions.length;
+  }, "Should have received an ad impression.");
+}

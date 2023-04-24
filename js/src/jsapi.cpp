@@ -2321,7 +2321,6 @@ void JS::TransitiveCompileOptions::copyPODTransitiveOptions(
 
   topLevelAwait = rhs.topLevelAwait;
   importAssertions = rhs.importAssertions;
-  useFdlibmForSinCosTan = rhs.useFdlibmForSinCosTan;
 
   borrowBuffer = rhs.borrowBuffer;
   usePinnedBytecode = rhs.usePinnedBytecode;
@@ -2414,8 +2413,6 @@ JS::CompileOptions::CompileOptions(JSContext* cx) : ReadOnlyCompileOptions() {
       cx->options().throwOnAsmJSValidationFailure();
 
   importAssertions = cx->options().importAssertions();
-
-  useFdlibmForSinCosTan = math_use_fdlibm_for_sin_cos_tan();
 
   sourcePragmas_ = cx->options().sourcePragmas();
 
@@ -4185,6 +4182,9 @@ JS_PUBLIC_API void JS_SetGlobalJitCompilerOption(JSContext* cx,
       break;
     case JSJITCOMPILER_NATIVE_REGEXP_ENABLE:
       jit::JitOptions.nativeRegExp = !!value;
+      break;
+    case JSJITCOMPILER_JIT_HINTS_ENABLE:
+      jit::JitOptions.disableJitHints = !value;
       break;
     case JSJITCOMPILER_OFFTHREAD_COMPILATION_ENABLE:
       if (value == 1) {

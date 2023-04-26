@@ -100,7 +100,7 @@ export GONK_PRODUCT=$GONK_PRODUCT_NAME
 if [ -z ${GECKO_OBJDIR+x} ]; then
   SYSROOT_DEST=$(./mach environment | grep -A1 '^object directory' | tail -n 1 | cut -b2-)
 else
-  SYSROOT_DEST="${GECKO_OBJDIR}"
+  SYSROOT_DEST=$(realpath "${GECKO_OBJDIR}")
 fi
 
 if [ -d "koost" ]; then

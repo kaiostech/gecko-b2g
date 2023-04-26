@@ -312,7 +312,7 @@ option("--with-gonk", nargs=1, help="Path to the gonk base directory")
 @imports("os")
 def gonkdir(value):
     if not os.path.isabs(value[0]):
-        die("Argument to --with-gonkdir must be an absolute path.")
+        die("Argument to --with-gonk must be an absolute path but is " + value[0])
     return value[0]
 
 set_config("GONK_PATH", gonkdir)

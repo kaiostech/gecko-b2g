@@ -791,10 +791,9 @@ this.EncodedStringValue = {
    *        A string.
    */
   encodeCharsetEncodedString(data, str) {
-
     let raw;
     try {
-      raw = new TextEncoder("utf-8").encode(str)
+      raw = new TextEncoder("utf-8").encode(str);
     } catch (e) {
       throw new WSP.CodeError("Charset-encoded-string: " + e.message);
     }

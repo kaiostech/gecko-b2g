@@ -2,12 +2,12 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const ALLOWED = 0;
 const RESTRICTED = 1;
 const UNKNOWN = 2;
-const PAYPHONE =3;
+const PAYPHONE = 3;
 
 function getPresentationStr(presentation) {
   let str;
@@ -43,11 +43,16 @@ function getNamePresentation(numberPresentation, namePresentation) {
 function test(number, numberPresentation, name, namePresentation) {
   return gRemoteDial(number, numberPresentation, name, namePresentation)
     .then(call => {
-      is(call.id.numberPresentation, getPresentationStr(numberPresentation),
-         "check numberPresentation");
-      is(call.id.namePresentation,
-         getNamePresentation(numberPresentation, namePresentation),
-         "check namePresentation");
+      is(
+        call.id.numberPresentation,
+        getPresentationStr(numberPresentation),
+        "check numberPresentation"
+      );
+      is(
+        call.id.namePresentation,
+        getNamePresentation(numberPresentation, namePresentation),
+        "check namePresentation"
+      );
       return call;
     })
     .then(gHangUp);

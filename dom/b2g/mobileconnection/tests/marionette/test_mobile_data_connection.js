@@ -10,8 +10,9 @@ function checkOrWaitForDataState(connected) {
     return;
   }
 
-  return waitForManagerEvent("datachange")
-    .then(() => checkOrWaitForDataState(connected));
+  return waitForManagerEvent("datachange").then(() =>
+    checkOrWaitForDataState(connected)
+  );
 }
 
 function verifyInitialState() {
@@ -27,7 +28,7 @@ function verifyInitialState() {
     })
     .then(getDataEnabled)
     .then(function(aResult) {
-      is(aResult, false, "Data must be off.")
+      is(aResult, false, "Data must be off.");
     });
 }
 
@@ -42,8 +43,9 @@ function testUnregisterDataWhileDataEnabled() {
 
   // When data registration is unregistered, all data calls will be
   // automatically deactivated.
-  return setEmulatorVoiceDataStateAndWait("data", "unregistered")
-    .then(() => checkOrWaitForDataState(false));
+  return setEmulatorVoiceDataStateAndWait("data", "unregistered").then(() =>
+    checkOrWaitForDataState(false)
+  );
 }
 
 function testRegisterDataWhileDataEnabled() {
@@ -51,8 +53,9 @@ function testRegisterDataWhileDataEnabled() {
 
   // When data registration is registered, data call will be (re)activated by
   // gecko if ril.data.enabled is set to true.
-  return setEmulatorVoiceDataStateAndWait("data", "home")
-    .then(() => checkOrWaitForDataState(true));
+  return setEmulatorVoiceDataStateAndWait("data", "home").then(() =>
+    checkOrWaitForDataState(true)
+  );
 }
 
 function testDisableDataRoamingWhileRoaming() {
@@ -60,16 +63,16 @@ function testDisableDataRoamingWhileRoaming() {
 
   // After setting emulator state to roaming, data connection should be
   // disconnected due to data roaming setting set to off.
-  return setEmulatorRoamingAndWait(true)
-    .then(() => checkOrWaitForDataState(false));
+  return setEmulatorRoamingAndWait(true).then(() =>
+    checkOrWaitForDataState(false)
+  );
 }
 
 function testEnableDataRoamingWhileRoaming() {
   log("Enable data roaming while roaming.");
 
   // Data should be re-connected as we enabled data roaming.
-  return setDataRoamingEnabled(true)
-    .then(() => checkOrWaitForDataState(true));
+  return setDataRoamingEnabled(true).then(() => checkOrWaitForDataState(true));
 }
 
 function testDisableData() {
@@ -78,34 +81,43 @@ function testDisableData() {
   return setDataEnabledAndWait(false);
 }
 
-startTestCommon(function() {
-
-  let origApnSettings;
-  return verifyInitialState()
-    .then(() => getDataApnSettings())
-    .then(value => {
-      origApnSettings = value;
-    })
-    .then(() => {
-      let apnSettings = [[{ "carrier": "T-Mobile US",
-                            "apn": "epc.tmobile.com",
-                            "mmsc": "http://mms.msg.eng.t-mobile.com/mms/wapenc",
-                            "types": ["default","supl","mms"] }]];
-      return setDataApnSettings(apnSettings);
-    })
-    .then(() => testEnableData())
-    .then(() => testUnregisterDataWhileDataEnabled())
-    .then(() => testRegisterDataWhileDataEnabled())
-    .then(() => testDisableDataRoamingWhileRoaming())
-    .then(() => testEnableDataRoamingWhileRoaming())
-    .then(() => testDisableData())
-    // Restore test environment.
-    .then(() => {
-      if (origApnSettings) {
-        return setDataApnSettings(origApnSettings);
-      }
-    })
-    .then(() => setEmulatorRoamingAndWait(false))
-    .then(() => setDataRoamingEnabled(false));
-
-}, ["settings-read", "settings-write", "settings-api-read", "settings-api-write"]);
+startTestCommon(
+  function() {
+    let origApnSettings;
+    return (
+      verifyInitialState()
+        .then(() => getDataApnSettings())
+        .then(value => {
+          origApnSettings = value;
+        })
+        .then(() => {
+          let apnSettings = [
+            [
+              {
+                carrier: "T-Mobile US",
+                apn: "epc.tmobile.com",
+                mmsc: "http://mms.msg.eng.t-mobile.com/mms/wapenc",
+                types: ["default", "supl", "mms"],
+              },
+            ],
+          ];
+          return setDataApnSettings(apnSettings);
+        })
+        .then(() => testEnableData())
+        .then(() => testUnregisterDataWhileDataEnabled())
+        .then(() => testRegisterDataWhileDataEnabled())
+        .then(() => testDisableDataRoamingWhileRoaming())
+        .then(() => testEnableDataRoamingWhileRoaming())
+        .then(() => testDisableData())
+        // Restore test environment.
+        .then(() => {
+          if (origApnSettings) {
+            return setDataApnSettings(origApnSettings);
+          }
+        })
+        .then(() => setEmulatorRoamingAndWait(false))
+        .then(() => setDataRoamingEnabled(false))
+    );
+  },
+  ["settings-read", "settings-write", "settings-api-read", "settings-api-write"]
+);

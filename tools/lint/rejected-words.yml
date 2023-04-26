@@ -102,6 +102,7 @@ avoid-blacklist-and-whitelist:
         - dom/bindings/Codegen.py
         - dom/bindings/parser/WebIDL.py
         - dom/bindings/RemoteObjectProxy.cpp
+        - dom/b2g/mobileconnection/gonk/interfaces/nsIImsRegistration.idl
         - dom/events/EventStateManager.cpp
         - dom/events/KeyboardEvent.cpp
         - dom/html/MediaError.cpp

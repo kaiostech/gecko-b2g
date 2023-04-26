@@ -11,8 +11,10 @@ SpecialPowers.addPermission("sms", true, document);
 SpecialPowers.setBoolPref("dom.sms.enabled", true);
 
 var manager = window.navigator.mozMobileMessage;
-ok(manager instanceof MozMobileMessageManager,
-   "manager is instance of " + manager.constructor);
+ok(
+  manager instanceof MozMobileMessageManager,
+  "manager is instance of " + manager.constructor
+);
 
 var pendingEmulatorCmdCount = 0;
 function sendSmsToEmulator(from, text) {
@@ -56,7 +58,7 @@ var tasks = {
 
   run: function() {
     this.next();
-  }
+  },
 };
 
 function getAllMessages(callback, filter, reverse) {
@@ -70,7 +72,7 @@ function getAllMessages(callback, filter, reverse) {
     }
 
     window.setTimeout(callback.bind(null, messages), 0);
-  }
+  };
 }
 
 function getAllThreads(callback) {
@@ -84,7 +86,7 @@ function getAllThreads(callback) {
     }
 
     window.setTimeout(callback.bind(null, threads), 0);
-  }
+  };
 }
 
 function deleteAllMessages() {
@@ -101,25 +103,30 @@ function deleteAllMessages() {
     request.onerror = function(event) {
       ok(false, "failed to delete all messages");
       tasks.finish();
-    }
+    };
   });
 }
 
-function checkThread(thread, id, body, unreadCount, timestamp)
-{
+function checkThread(thread, id, body, unreadCount, timestamp) {
   is(thread.id, id, "Thread ID is set");
   is(thread.body, body, "Thread subject is set to last message body");
   is(thread.unreadCount, unreadCount, "Thread unread count");
-  is(JSON.stringify(thread.participants), JSON.stringify([FROM]), "Thread participants");
+  is(
+    JSON.stringify(thread.participants),
+    JSON.stringify([FROM]),
+    "Thread participants"
+  );
   is(thread.timestamp, timestamp, "Thread timestamp is set");
 }
 
 tasks.push(deleteAllMessages);
 
-tasks.push(getAllThreads.bind(null, function(threads) {
-  is(threads.length, 0, "Threads are cleared");
-  tasks.next();
-}));
+tasks.push(
+  getAllThreads.bind(null, function(threads) {
+    is(threads.length, 0, "Threads are cleared");
+    tasks.next();
+  })
+);
 
 var gotMessagesCount = 0;
 tasks.push(function() {
@@ -149,22 +156,25 @@ tasks.push(function waitAllMessageReceived() {
   });
 });
 
-
 var originalThread;
-tasks.push(getAllThreads.bind(null, function(threads) {
-  is(threads.length, 1, "Should have only one thread");
+tasks.push(
+  getAllThreads.bind(null, function(threads) {
+    is(threads.length, 1, "Should have only one thread");
 
-  let lastMessage = allMessages[allMessages.length - 1];
+    let lastMessage = allMessages[allMessages.length - 1];
 
-  originalThread = threads[0];
-  checkThread(originalThread,
-              originalThread.id,
-              lastMessage.body,
-              allMessages.length,
-              lastMessage.timestamp);
+    originalThread = threads[0];
+    checkThread(
+      originalThread,
+      originalThread.id,
+      lastMessage.body,
+      allMessages.length,
+      lastMessage.timestamp
+    );
 
-  tasks.next();
-}));
+    tasks.next();
+  })
+);
 
 tasks.push(function DeleteFirstMessage() {
   let request = manager.delete(allMessages[0].id);
@@ -175,11 +185,13 @@ tasks.push(function DeleteFirstMessage() {
       allMessages = allMessages.slice(1);
       let lastMessage = allMessages[allMessages.length - 1];
 
-      checkThread(threads[0],
-                  originalThread.id,
-                  lastMessage.body,
-                  allMessages.length,
-                  lastMessage.timestamp);
+      checkThread(
+        threads[0],
+        originalThread.id,
+        lastMessage.body,
+        allMessages.length,
+        lastMessage.timestamp
+      );
 
       tasks.next();
     });
@@ -195,11 +207,13 @@ tasks.push(function DeleteLastMessage() {
       allMessages = allMessages.slice(0, -1);
       let lastMessage = allMessages[allMessages.length - 1];
 
-      checkThread(threads[0],
-                  originalThread.id,
-                  lastMessage.body,
-                  allMessages.length,
-                  lastMessage.timestamp);
+      checkThread(
+        threads[0],
+        originalThread.id,
+        lastMessage.body,
+        allMessages.length,
+        lastMessage.timestamp
+      );
 
       tasks.next();
     });
@@ -208,10 +222,12 @@ tasks.push(function DeleteLastMessage() {
 
 tasks.push(deleteAllMessages);
 
-tasks.push(getAllThreads.bind(null, function(threads) {
-  is(threads.length, 0, "Should have deleted all threads");
-  tasks.next();
-}));
+tasks.push(
+  getAllThreads.bind(null, function(threads) {
+    is(threads.length, 0, "Should have deleted all threads");
+    tasks.next();
+  })
+);
 
 // WARNING: All tasks should be pushed before this!!!
 tasks.push(function cleanUp() {

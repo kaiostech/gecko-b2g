@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const SENDER = "5555552368"; // the remote number
 const RECEIVER = "15555215554"; // the emulator's number
@@ -28,11 +28,12 @@ function checkMessage(aMessage, aBody) {
   is(aMessage.deliveryTimestamp, 0, "message.deliveryTimestamp");
   ok(aMessage.sentTimestamp, "message.sentTimestamp");
   is(aMessage.read, false, "message.read");
-};
+}
 
 function test(aBody) {
-  return sendTextSmsToEmulatorAndWait(SENDER, aBody)
-    .then((aMessage) => checkMessage(aMessage, aBody));
+  return sendTextSmsToEmulatorAndWait(SENDER, aBody).then(aMessage =>
+    checkMessage(aMessage, aBody)
+  );
 }
 
 startTestBase(function testCaseMain() {

@@ -22,7 +22,7 @@ interface nsITelephonyAudioService : nsISupports
   const long PHONE_STATE_NORMAL   = 0;
   const long PHONE_STATE_RINGTONE = 1;
   const long PHONE_STATE_IN_CALL  = 2;
- 
+
   const long HEADSET_STATE_UNKNOWN = -1;
   const long HEADSET_STATE_OFF = 0;
   const long HEADSET_STATE_HEADSET = 1;

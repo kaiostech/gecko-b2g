@@ -19,7 +19,7 @@ add_test(function test_Text_decode() {
   for (let i = 0; i < 256; i++) {
     if (i == 0) {
       wsp_decode_test(WSP.Text, [0], null, "NullCharError");
-    } else if ((i < WSP.CTLS) || (i == WSP.DEL)) {
+    } else if (i < WSP.CTLS || i == WSP.DEL) {
       wsp_decode_test(WSP.Text, [i], null, "CodeError");
     } else {
       wsp_decode_test(WSP.Text, [i], String.fromCharCode(i));
@@ -37,7 +37,7 @@ add_test(function test_Text_decode() {
 
 add_test(function test_Text_encode() {
   for (let i = 0; i < 256; i++) {
-    if ((i < WSP.CTLS) || (i == WSP.DEL)) {
+    if (i < WSP.CTLS || i == WSP.DEL) {
       wsp_encode_test(WSP.Text, String.fromCharCode(i), null, "CodeError");
     } else {
       wsp_encode_test(WSP.Text, String.fromCharCode(i), [i]);
@@ -55,14 +55,28 @@ add_test(function test_Text_encode() {
 
 add_test(function test_NullTerminatedTexts_decode() {
   // Test incompleted string:
-  wsp_decode_test(WSP.NullTerminatedTexts, strToCharCodeArray(" ", true), null, "RangeError");
+  wsp_decode_test(
+    WSP.NullTerminatedTexts,
+    strToCharCodeArray(" ", true),
+    null,
+    "RangeError"
+  );
   // Test control char:
-  wsp_decode_test(WSP.NullTerminatedTexts, strToCharCodeArray(" \n"), null, "CodeError");
+  wsp_decode_test(
+    WSP.NullTerminatedTexts,
+    strToCharCodeArray(" \n"),
+    null,
+    "CodeError"
+  );
   // Test normal string:
   wsp_decode_test(WSP.NullTerminatedTexts, strToCharCodeArray(""), "");
   wsp_decode_test(WSP.NullTerminatedTexts, strToCharCodeArray("oops"), "oops");
   // Test \r\n(SP|HT)* sequence:
-  wsp_decode_test(WSP.NullTerminatedTexts, strToCharCodeArray("A\r\n \t \t \tB"), "A B");
+  wsp_decode_test(
+    WSP.NullTerminatedTexts,
+    strToCharCodeArray("A\r\n \t \t \tB"),
+    "A B"
+  );
 
   run_next_test();
 });
@@ -71,8 +85,11 @@ add_test(function test_NullTerminatedTexts_decode() {
 
 add_test(function test_NullTerminatedTexts_encode() {
   wsp_encode_test(WSP.NullTerminatedTexts, "", [0]);
-  wsp_encode_test(WSP.NullTerminatedTexts, "Hello, World!",
-                  strToCharCodeArray("Hello, World!"));
+  wsp_encode_test(
+    WSP.NullTerminatedTexts,
+    "Hello, World!",
+    strToCharCodeArray("Hello, World!")
+  );
 
   run_next_test();
 });
@@ -81,7 +98,7 @@ add_test(function test_NullTerminatedTexts_encode() {
 // Test target: Token
 //
 
-var TOKEN_SEPS = "()<>@,;:\\\"/[]?={} \t";
+var TOKEN_SEPS = '()<>@,;:\\"/[]?={} \t';
 
 //// Token.decode ////
 
@@ -89,8 +106,11 @@ add_test(function test_Token_decode() {
   for (let i = 0; i < 256; i++) {
     if (i == 0) {
       wsp_decode_test(WSP.Token, [i], null, "NullCharError");
-    } else if ((i < WSP.CTLS) || (i >= WSP.ASCIIS)
-        || (TOKEN_SEPS.indexOf(String.fromCharCode(i)) >= 0)) {
+    } else if (
+      i < WSP.CTLS ||
+      i >= WSP.ASCIIS ||
+      TOKEN_SEPS.indexOf(String.fromCharCode(i)) >= 0
+    ) {
       wsp_decode_test(WSP.Token, [i], null, "CodeError");
     } else {
       wsp_decode_test(WSP.Token, [i], String.fromCharCode(i));
@@ -104,8 +124,11 @@ add_test(function test_Token_decode() {
 
 add_test(function test_Token_encode() {
   for (let i = 0; i < 256; i++) {
-    if ((i < WSP.CTLS) || (i >= WSP.ASCIIS)
-        || (TOKEN_SEPS.indexOf(String.fromCharCode(i)) >= 0)) {
+    if (
+      i < WSP.CTLS ||
+      i >= WSP.ASCIIS ||
+      TOKEN_SEPS.indexOf(String.fromCharCode(i)) >= 0
+    ) {
       wsp_encode_test(WSP.Token, String.fromCharCode(i), null, "CodeError");
     } else {
       wsp_encode_test(WSP.Token, String.fromCharCode(i), [i]);
@@ -122,8 +145,9 @@ add_test(function test_Token_encode() {
 //// URIC.decode ////
 
 add_test(function test_URIC_decode() {
-  let uric = "!#$%&'()*+,-./0123456789:;=?@ABCDEFGHIJKLMN"
-             + "OPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~";
+  let uric =
+    "!#$%&'()*+,-./0123456789:;=?@ABCDEFGHIJKLMN" +
+    "OPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~";
   for (let i = 0; i < 256; i++) {
     if (i == 0) {
       wsp_decode_test(WSP.URIC, [i], null, "NullCharError");
@@ -208,7 +232,11 @@ add_test(function test_QuotedString_decode() {
 //// QuotedString.encode ////
 
 add_test(function test_QuotedString_encode() {
-  wsp_encode_test(WSP.QuotedString, "B2G", [34].concat(strToCharCodeArray("B2G")));
+  wsp_encode_test(
+    WSP.QuotedString,
+    "B2G",
+    [34].concat(strToCharCodeArray("B2G"))
+  );
 
   run_next_test();
 });

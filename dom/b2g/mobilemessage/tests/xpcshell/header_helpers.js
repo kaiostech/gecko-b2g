@@ -3,11 +3,11 @@
 
 "use strict";
 
-var {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
+var { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
 
-
-var subscriptLoader = Cc["@mozilla.org/moz/jssubscript-loader;1"]
-                        .getService(Ci.mozIJSSubScriptLoader);
+var subscriptLoader = Cc["@mozilla.org/moz/jssubscript-loader;1"].getService(
+  Ci.mozIJSSubScriptLoader
+);
 
 /**
  * Test whether specified function throws exception with expected
@@ -20,10 +20,8 @@ var subscriptLoader = Cc["@mozilla.org/moz/jssubscript-loader;1"]
  * @param stack
  *        Optional stack object to be printed. null for Components#stack#caller.
  */
-function do_check_throws(func, result, stack)
-{
-  if (!stack)
-    stack = Components.stack.caller;
+function do_check_throws(func, result, stack) {
+  if (!stack) stack = Components.stack.caller;
 
   try {
     func();
@@ -69,7 +67,7 @@ function wsp_test_func(func, data, expect) {
  *        Expected class name of thrown exception. Use null for no throws.
  */
 function wsp_decode_test_ex(func, input, expect, exception) {
-  let data = {array: input, offset: 0};
+  let data = { array: input, offset: 0 };
   do_check_throws(wsp_test_func.bind(null, func, data, expect), exception);
 }
 
@@ -107,9 +105,11 @@ function wsp_decode_test(target, input, expect, exception) {
  *        Expected class name of thrown exception. Use null for no throws.
  */
 function wsp_encode_test_ex(func, input, expect, exception) {
-  let data = {array: [], offset: 0};
-  do_check_throws(wsp_test_func.bind(null, func.bind(null, data), input,
-                                     expect), exception);
+  let data = { array: [], offset: 0 };
+  do_check_throws(
+    wsp_test_func.bind(null, func.bind(null, data), input, expect),
+    exception
+  );
 }
 
 /**
@@ -134,7 +134,7 @@ function wsp_encode_test(target, input, expect, exception) {
     }
 
     return data.array;
-  }
+  };
 
   wsp_encode_test_ex(func, input, expect, exception);
 }
@@ -159,4 +159,3 @@ function strToCharCodeArray(str, noAppendNull) {
 
   return result;
 }
-

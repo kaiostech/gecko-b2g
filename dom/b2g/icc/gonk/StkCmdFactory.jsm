@@ -337,7 +337,7 @@ function StkSetupEventListMessage(aStkSetupEventListCmd) {
 
   let eventList = aStkSetupEventListCmd.getEventList();
 
-  if (eventList && eventList.length > 0) {
+  if (eventList && eventList.length) {
     this.options.eventList = eventList;
   }
 }
@@ -455,7 +455,7 @@ function StkSetUpMenuMessage(aStkSetUpMenuCmd) {
   };
 
   let nextActionList = aStkSetUpMenuCmd.getNextActionList();
-  if (nextActionList && nextActionList.length > 0) {
+  if (nextActionList && nextActionList.length) {
     this.options.nextActionList = nextActionList;
   }
 

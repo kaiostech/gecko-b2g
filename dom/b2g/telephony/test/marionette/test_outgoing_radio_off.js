@@ -2,7 +2,7 @@
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const normalNumber = "0912345678";
 const emergencyNumber = "112";
@@ -20,9 +20,11 @@ function testDial_NormalNumber() {
 function testDial_EmergencyNumber() {
   return gSetRadioEnabledAll(false)
     .then(() => gDial(emergencyNumber))
-    .then(call => { outCall = call; })
+    .then(call => {
+      outCall = call;
+    })
     .then(() => gRemoteAnswer(outCall))
-    .then(() => gDelay(1000))  // See Bug 1018051 for the purpose of the delay.
+    .then(() => gDelay(1000)) // See Bug 1018051 for the purpose of the delay.
     .then(() => gRemoteHangUp(outCall));
 }
 
@@ -38,13 +40,15 @@ function testDialEmergency_NormalNumber() {
 function testDialEmergency_EmergencyNumber() {
   return gSetRadioEnabledAll(false)
     .then(() => gDialEmergency(emergencyNumber))
-    .then(call => { outCall = call; })
+    .then(call => {
+      outCall = call;
+    })
     .then(() => gRemoteAnswer(outCall))
-    .then(() => gDelay(1000))  // See Bug 1018051 for the purpose of the delay.
+    .then(() => gDelay(1000)) // See Bug 1018051 for the purpose of the delay.
     .then(() => gRemoteHangUp(outCall));
 }
 
-startTestWithPermissions(['mobileconnection'], function() {
+startTestWithPermissions(["mobileconnection"], function() {
   Promise.resolve()
     .then(() => testDial_NormalNumber())
     .then(() => testDial_EmergencyNumber())

@@ -66,15 +66,14 @@ android::sp<SoftapEventService> SoftapEventService::CreateService(
 android::binder::Status SoftapEventService::onSoftApChannelSwitched(
     int32_t frequency, int32_t bandwidth) {
   WIFI_LOGI(LOG_TAG, "onSoftApChannelSwitched frequency=%d bandwith=%d",
-    frequency, bandwidth);
+            frequency, bandwidth);
   return android::binder::Status::ok();
 }
 
 android::binder::Status SoftapEventService::onConnectedClientsChanged(
-    const Wifi::NativeWifiClient& client,
-          bool isConnected) {
+    const Wifi::NativeWifiClient& client, bool isConnected) {
   WIFI_LOGI(LOG_TAG, "onConnectedClientsChanged isConnected=%s",
-    isConnected ? "yes" : "no");
+            isConnected ? "yes" : "no");
   return android::binder::Status::ok();
 }
 

@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const DEFAULT_ECC_LIST = "112,911";
 
@@ -15,17 +15,17 @@ function setEccListProperty(list) {
     list = "''";
   }
 
-  return emulator.runShellCmd(["setprop","ril.ecclist", list])
+  return emulator
+    .runShellCmd(["setprop", "ril.ecclist", list])
     .then(list => list);
 }
 
 function getEccListProperty() {
   log("Get property ril.ecclist.");
 
-  return emulator.runShellCmd(["getprop","ril.ecclist"])
-    .then(aResult => {
-      return !aResult.length ? "" : aResult[0];
-    });
+  return emulator.runShellCmd(["getprop", "ril.ecclist"]).then(aResult => {
+    return !aResult.length ? "" : aResult[0];
+  });
 }
 
 function testEmergencyLabel(number, list) {
@@ -34,13 +34,18 @@ function testEmergencyLabel(number, list) {
   }
   let index = list.split(",").indexOf(number);
   let emergency = index != -1;
-  log("= testEmergencyLabel = " + number + " should be " +
-      (emergency ? "emergency" : "normal") + " call");
+  log(
+    "= testEmergencyLabel = " +
+      number +
+      " should be " +
+      (emergency ? "emergency" : "normal") +
+      " call"
+  );
 
   let outCall;
 
   return gDial(number)
-    .then(call => outCall = call)
+    .then(call => (outCall = call))
     .then(() => is(outCall.emergency, emergency, "check emergency"))
     .then(() => gRemoteAnswer(outCall))
     .then(() => is(outCall.emergency, emergency, "check emergency"))

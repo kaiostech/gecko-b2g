@@ -7,8 +7,10 @@ SpecialPowers.setBoolPref("dom.sms.enabled", true);
 SpecialPowers.addPermission("sms", true, document);
 
 var manager = window.navigator.mozMobileMessage;
-ok(manager instanceof MozMobileMessageManager,
-   "manager is instance of " + manager.constructor);
+ok(
+  manager instanceof MozMobileMessageManager,
+  "manager is instance of " + manager.constructor
+);
 
 // Note: 378 chars and below is fine, but 379 and above will cause the issue.
 // Sending first message works, but second one we get emulator callback but
@@ -17,7 +19,7 @@ ok(manager instanceof MozMobileMessageManager,
 // characters) works; so it is not a compounded send limit.
 var fromNumber = "5551110000";
 var msgLength = 379;
-var msgText = new Array(msgLength + 1).join('a');
+var msgText = new Array(msgLength + 1).join("a");
 
 var pendingEmulatorCmdCount = 0;
 function sendSmsToEmulator(from, text) {
@@ -40,8 +42,9 @@ function secondIncomingSms() {
 }
 
 function simulateIncomingSms(nextFunction) {
-  log("Simulating incoming multipart SMS (" + msgText.length
-      + " chars total).");
+  log(
+    "Simulating incoming multipart SMS (" + msgText.length + " chars total)."
+  );
 
   manager.onreceived = function onreceived(event) {
     log("Received 'onreceived' event.");

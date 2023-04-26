@@ -38,12 +38,14 @@ function setDataRoamingSettings(enableDataRoammingIds) {
 }
 
 function setApnSettings() {
-  let apn = [{
-    "carrier":"T-Mobile US",
-    "apn":"epc.tmobile.com",
-    "mmsc":"http://mms.msg.eng.t-mobile.com/mms/wapenc",
-    "types":["default","supl","mms"]
-  }];
+  let apn = [
+    {
+      carrier: "T-Mobile US",
+      apn: "epc.tmobile.com",
+      mmsc: "http://mms.msg.eng.t-mobile.com/mms/wapenc",
+      types: ["default", "supl", "mms"],
+    },
+  ];
 
   // Use the same APN for all sims for now.
   let apns = [];
@@ -52,7 +54,6 @@ function setApnSettings() {
   }
 
   return setDataApnSettings(apns);
-
 }
 
 function waitForDataState(clientId, connected) {
@@ -60,8 +61,12 @@ function waitForDataState(clientId, connected) {
 
   let connection = connections[clientId];
   if (connection.data.connected === connected) {
-    log("data connection for client " + clientId + " is now " +
-      connection.data.connected);
+    log(
+      "data connection for client " +
+        clientId +
+        " is now " +
+        connection.data.connected
+    );
     deferred.resolve();
     return;
   }
@@ -137,18 +142,22 @@ function testDisableData() {
   let connection = connections[currentDataDefaultId];
   is(connection.data.connected, true);
 
-  return Promise.resolve()
-    .then(() => setDataEnabledAndWait(false, currentDataDefaultId));
+  return Promise.resolve().then(() =>
+    setDataEnabledAndWait(false, currentDataDefaultId)
+  );
 }
 
-startDSDSTestCommon(function() {
-  connections = workingFrame.contentWindow.navigator.mozMobileConnections;
-  numOfRadioInterfaces = getNumOfRadioInterfaces();
+startDSDSTestCommon(
+  function() {
+    connections = workingFrame.contentWindow.navigator.mozMobileConnections;
+    numOfRadioInterfaces = getNumOfRadioInterfaces();
 
-  return testEnableData()
-    .then(testSwitchDefaultDataToSimTwo)
-    .then(testDisableDataRoamingWhileRoaming)
-    .then(testEnableDataRoamingWhileRoaming)
-    .then(testDisableData)
-    .then(restoreTestEnvironment);
-}, ["settings-read", "settings-write", "settings-api-read", "settings-api-write"]);
+    return testEnableData()
+      .then(testSwitchDefaultDataToSimTwo)
+      .then(testDisableDataRoamingWhileRoaming)
+      .then(testEnableDataRoamingWhileRoaming)
+      .then(testDisableData)
+      .then(restoreTestEnvironment);
+  },
+  ["settings-read", "settings-write", "settings-api-read", "settings-api-write"]
+);

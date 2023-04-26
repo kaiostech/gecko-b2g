@@ -7,7 +7,7 @@
 #ifndef mozilla_dom_IccCardLockError_h
 #define mozilla_dom_IccCardLockError_h
 
-//#include "mozilla/dom/DOMException.h"
+// #include "mozilla/dom/DOMException.h"
 #include "mozilla/Attributes.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"

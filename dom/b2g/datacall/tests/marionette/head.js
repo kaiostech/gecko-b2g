@@ -373,10 +373,10 @@ function verifyHostRoute(aHost, aInterfaceName, aShouldExist) {
  */
 function verifyDataCallAttributes(aDataCall, aIsAvailable) {
   if (aIsAvailable) {
-    ok(aDataCall.name.length > 0, "check name");
-    ok(aDataCall.addresses.length > 0, "check addresses");
-    ok(aDataCall.gateways.length > 0, "check gateways");
-    ok(aDataCall.dnses.length > 0, "check dnses");
+    ok(!!aDataCall.name.length, "check name");
+    ok(!!aDataCall.addresses.length, "check addresses");
+    ok(!!aDataCall.gateways.length, "check gateways");
+    ok(!!aDataCall.dnses.length, "check dnses");
   } else {
     is(aDataCall.name.length, 0, "check name");
     is(aDataCall.addresses.length, 0, "check addresses");
@@ -404,9 +404,9 @@ function requestDataCall(aType, aServiceId) {
     aDataCall => {
       is(aDataCall.state, "connected", "check state");
       is(aDataCall.type, aType, "check type");
-      ok(aDataCall.addresses.length > 0, "check addresses");
-      ok(aDataCall.gateways.length > 0, "check gateways");
-      ok(aDataCall.dnses.length > 0, "check dnses");
+      ok(!!aDataCall.addresses.length, "check addresses");
+      ok(!!aDataCall.gateways.length, "check gateways");
+      ok(!!aDataCall.dnses.length, "check dnses");
 
       return aDataCall;
     },

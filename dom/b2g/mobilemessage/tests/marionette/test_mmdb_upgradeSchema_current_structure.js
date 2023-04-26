@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'mmdb_head.js';
+MARIONETTE_HEAD_JS = "mmdb_head.js";
 
 const DBNAME = "test_mmdb_upgradeSchema_current_structure:" + newUUID();
 
@@ -51,7 +51,7 @@ const LAYOUT = {
         keyPath: "transactionIdIndex",
         multiEntry: false,
         unique: true,
-      }
+      },
     },
   },
 
@@ -69,7 +69,7 @@ const LAYOUT = {
         keyPath: "participantIds",
         multiEntry: false,
         unique: false,
-      }
+      },
     },
   },
 
@@ -81,7 +81,7 @@ const LAYOUT = {
         keyPath: "addresses",
         multiEntry: true,
         unique: false,
-      }
+      },
     },
   },
 
@@ -93,9 +93,9 @@ const LAYOUT = {
         keyPath: "hash",
         multiEntry: false,
         unique: true,
-      }
+      },
     },
-  }
+  },
 };
 
 function verifyIndex(aIndex, aIndexLayout) {
@@ -110,8 +110,11 @@ function verifyStore(aObjectStore, aStoreLayout) {
   log("Verifying object store '" + aObjectStore.name + "'");
 
   is(aObjectStore.keyPath, aStoreLayout.keyPath, "aObjectStore.keyPath");
-  is(aObjectStore.autoIncrement, aStoreLayout.autoIncrement,
-     "aObjectStore.autoIncrement");
+  is(
+    aObjectStore.autoIncrement,
+    aStoreLayout.autoIncrement,
+    "aObjectStore.autoIncrement"
+  );
 
   let expectedIndexNames = Object.keys(aStoreLayout.indice);
   for (let i = 0; i < aObjectStore.indexNames.length; i++) {
@@ -133,33 +136,44 @@ function verifyDatabase(aMmdb) {
   let deferred = Promise.defer();
 
   let expectedStoreNames = Object.keys(LAYOUT);
-  aMmdb.newTxn("readonly", function(aError, aTransaction, aObjectStores) {
-    if (!Array.isArray(aObjectStores)) {
-      // When we have only one object store open, aObjectStores is an instance
-      // of IDBObjectStore.  Push it to an array for convenience here.
-      aObjectStores = [aObjectStores];
-    }
+  aMmdb.newTxn(
+    "readonly",
+    function(aError, aTransaction, aObjectStores) {
+      if (!Array.isArray(aObjectStores)) {
+        // When we have only one object store open, aObjectStores is an instance
+        // of IDBObjectStore.  Push it to an array for convenience here.
+        aObjectStores = [aObjectStores];
+      }
 
-    is(aObjectStores.length, expectedStoreNames.length,
-       "expected number of object stores");
+      is(
+        aObjectStores.length,
+        expectedStoreNames.length,
+        "expected number of object stores"
+      );
 
-    let slicedStoreNames = expectedStoreNames.slice();
-    for (let i = 0; i < aObjectStores.length; i++) {
-      let objectStore = aObjectStores[i];
+      let slicedStoreNames = expectedStoreNames.slice();
+      for (let i = 0; i < aObjectStores.length; i++) {
+        let objectStore = aObjectStores[i];
 
-      let index = slicedStoreNames.indexOf(objectStore.name);
-      ok(index >= 0, "objectStore.name '" + objectStore.name + "' validity");
-      slicedStoreNames.splice(index, 1);
+        let index = slicedStoreNames.indexOf(objectStore.name);
+        ok(index >= 0, "objectStore.name '" + objectStore.name + "' validity");
+        slicedStoreNames.splice(index, 1);
 
-      verifyStore(objectStore, LAYOUT[objectStore.name]);
-    }
+        verifyStore(objectStore, LAYOUT[objectStore.name]);
+      }
 
-    // All store names should have been verified and leaves slicedStoreNames an
-    // empty array.
-    is(slicedStoreNames.length, 0, "Extra object stores: " + slicedStoreNames);
+      // All store names should have been verified and leaves slicedStoreNames an
+      // empty array.
+      is(
+        slicedStoreNames.length,
+        0,
+        "Extra object stores: " + slicedStoreNames
+      );
 
-    deferred.resolve(aMmdb);
-  }, expectedStoreNames);
+      deferred.resolve(aMmdb);
+    },
+    expectedStoreNames
+  );
 
   return deferred.promise;
 }

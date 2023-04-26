@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'mmdb_head.js';
+MARIONETTE_HEAD_JS = "mmdb_head.js";
 
 const DBNAME = "test_mmdb_ports_in_cdma_wappush:" + newUUID();
 
@@ -18,7 +18,7 @@ const TEST_PDU = [
     teleservice: 0x1004, // PDU_CDMA_MSG_TELESERVICE_ID_WAP
     // Port numbers are only provided in 1st segment from CDMA SMS PDUs.
     originatorPort: 9200, // WDP_PORT_PUSH (server-side)
-    destinationPort: 2948 // WDP_PORT_PUSH (client-side)
+    destinationPort: 2948, // WDP_PORT_PUSH (client-side)
   },
   {
     sender: "+0987654321",
@@ -31,8 +31,8 @@ const TEST_PDU = [
     teleservice: 0x1004, // PDU_CDMA_MSG_TELESERVICE_ID_WAP
     // Port numbers are only provided in 1st segment from CDMA SMS PDUs.
     originatorPort: Ci.nsIGonkSmsService.SMS_APPLICATION_PORT_INVALID,
-    destinationPort: Ci.nsIGonkSmsService.SMS_APPLICATION_PORT_INVALID
-  }
+    destinationPort: Ci.nsIGonkSmsService.SMS_APPLICATION_PORT_INVALID,
+  },
 ];
 
 function testSaveCdmaWapPush(aMmdb, aReverse) {
@@ -45,28 +45,33 @@ function testSaveCdmaWapPush(aMmdb, aReverse) {
   for (let pdu of testPDUs) {
     lengthOfFullData += pdu.data.length;
     promises.push(saveSmsSegment(aMmdb, pdu));
-  };
+  }
 
-  return Promise.all(promises)
-    .then((aResults) => {
-      // Complete message shall be returned after 2 segments are saved.
-      let completeMsg = aResults[1][1];
+  return Promise.all(promises).then(aResults => {
+    // Complete message shall be returned after 2 segments are saved.
+    let completeMsg = aResults[1][1];
 
-      is(completeMsg.originatorPort, TEST_PDU[0].originatorPort, "originatorPort");
-      is(completeMsg.destinationPort, TEST_PDU[0].destinationPort, "destinationPort");
+    is(
+      completeMsg.originatorPort,
+      TEST_PDU[0].originatorPort,
+      "originatorPort"
+    );
+    is(
+      completeMsg.destinationPort,
+      TEST_PDU[0].destinationPort,
+      "destinationPort"
+    );
 
-      is(completeMsg.fullData.length, lengthOfFullData, "fullData.length");
-      for (let i = 0; i < lengthOfFullData; i++) {
-        is(completeMsg.fullData[i], i, "completeMsg.fullData[" + i + "]");
-      }
-    });
+    is(completeMsg.fullData.length, lengthOfFullData, "fullData.length");
+    for (let i = 0; i < lengthOfFullData; i++) {
+      is(completeMsg.fullData[i], i, "completeMsg.fullData[" + i + "]");
+    }
+  });
 }
 
 startTestBase(function testCaseMain() {
-
   let mmdb = newMobileMessageDB();
   return initMobileMessageDB(mmdb, DBNAME, 0)
-
     .then(() => testSaveCdmaWapPush(mmdb, false))
     .then(() => testSaveCdmaWapPush(mmdb, true))
 

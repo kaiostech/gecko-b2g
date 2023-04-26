@@ -15,8 +15,8 @@ const TEST_DATA = [
     newPinAgain: "1111",
     expectedError: {
       name: "emMmiError",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing no newPin.
   {
@@ -25,8 +25,8 @@ const TEST_DATA = [
     newPinAgain: "",
     expectedError: {
       name: "emMmiError",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing mismatched newPin.
   {
@@ -35,8 +35,8 @@ const TEST_DATA = [
     newPinAgain: "1111",
     expectedError: {
       name: "emMmiErrorMismatchPin",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing invalid pin (< 4 digit).
   {
@@ -45,8 +45,8 @@ const TEST_DATA = [
     newPinAgain: "0000",
     expectedError: {
       name: "emMmiErrorInvalidPin",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing invalid newPin (> 8 digit).
   {
@@ -55,8 +55,8 @@ const TEST_DATA = [
     newPinAgain: "000000000",
     expectedError: {
       name: "emMmiErrorInvalidPin",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing incorrect pin.
   {
@@ -66,15 +66,15 @@ const TEST_DATA = [
     expectedError: {
       name: "emMmiErrorBadPin",
       // The default pin retries is 3, failed once becomes to 2
-      additionalInformation: 2
-    }
+      additionalInformation: 2,
+    },
   },
   // Test changing pin successfully (Reset the retries).
   {
     pin: "0000",
     newPin: "0000",
-    newPinAgain: "0000"
-  }
+    newPinAgain: "0000",
+  },
 ];
 
 function testChangePin(aPin, aNewPin, aNewPinAgain, aExpectedError) {
@@ -87,11 +87,18 @@ function testChangePin(aPin, aNewPin, aNewPinAgain, aExpectedError) {
 
     if (aResult.success) {
       is(aResult.statusMessage, "smPinChanged", "Check status message");
-      is(aResult.additionalInformation, undefined, "Check additional information");
+      is(
+        aResult.additionalInformation,
+        undefined,
+        "Check additional information"
+      );
     } else {
       is(aResult.statusMessage, aExpectedError.name, "Check name");
-      is(aResult.additionalInformation, aExpectedError.additionalInformation,
-         "Check additional information");
+      is(
+        aResult.additionalInformation,
+        aExpectedError.additionalInformation,
+        "Check additional information"
+      );
     }
   });
 }
@@ -101,10 +108,9 @@ startTest(function() {
   let promise = Promise.resolve();
   for (let i = 0; i < TEST_DATA.length; i++) {
     let data = TEST_DATA[i];
-    promise = promise.then(() => testChangePin(data.pin,
-                                               data.newPin,
-                                               data.newPinAgain,
-                                               data.expectedError));
+    promise = promise.then(() =>
+      testChangePin(data.pin, data.newPin, data.newPinAgain, data.expectedError)
+    );
   }
 
   return promise

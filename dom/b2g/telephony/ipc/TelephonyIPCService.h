@@ -9,7 +9,7 @@
 
 #include "mozilla/dom/telephony/TelephonyCommon.h"
 #ifdef MOZ_WIDGET_GONK
-//#include "mozilla/dom/videocallprovider/VideoCallProviderChild.h"
+// #include "mozilla/dom/videocallprovider/VideoCallProviderChild.h"
 #endif
 #include "mozilla/Attributes.h"
 #include "nsIObserver.h"

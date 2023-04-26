@@ -27,4 +27,3 @@ interface nsIWapPushApplication : nsISupports
                       in unsigned long                   aOffset,
                       in jsval                           aOptions);
 };
-

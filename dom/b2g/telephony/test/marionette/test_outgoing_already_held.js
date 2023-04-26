@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const outNumber = "5555551111";
 const outInfo = gOutCallStrPool(outNumber);
@@ -14,7 +14,7 @@ var inCall;
 
 startTest(function() {
   gRemoteDial(inNumber)
-    .then(call => inCall = call)
+    .then(call => (inCall = call))
     .then(() => gCheckAll(null, [inCall], "", [], [inInfo.incoming]))
     .then(() => gAnswer(inCall))
     .then(() => gCheckAll(inCall, [inCall], "", [], [inInfo.active]))
@@ -23,12 +23,26 @@ startTest(function() {
 
     // With one call on hold, make outgoing call
     .then(() => gDial(outNumber))
-    .then(call => outCall = call)
-    .then(() => gCheckAll(outCall, [inCall, outCall], "", [],
-                          [inInfo.held, outInfo.ringing]))
+    .then(call => (outCall = call))
+    .then(() =>
+      gCheckAll(
+        outCall,
+        [inCall, outCall],
+        "",
+        [],
+        [inInfo.held, outInfo.ringing]
+      )
+    )
     .then(() => gRemoteAnswer(outCall))
-    .then(() => gCheckAll(outCall, [inCall, outCall], "", [],
-                          [inInfo.held, outInfo.active]))
+    .then(() =>
+      gCheckAll(
+        outCall,
+        [inCall, outCall],
+        "",
+        [],
+        [inInfo.held, outInfo.active]
+      )
+    )
 
     // Hang-up
     .then(() => gHangUp(inCall))

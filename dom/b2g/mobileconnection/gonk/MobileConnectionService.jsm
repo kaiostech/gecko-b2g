@@ -2992,7 +2992,7 @@ MobileConnectionService.prototype = {
       );
     }
 
-    if (numericArray.length == 0 || operatorNumeric == 0) {
+    if (!numericArray.length || operatorNumeric == 0) {
       return false;
     }
 
@@ -3040,7 +3040,7 @@ MobileConnectionService.prototype = {
       );
     }
 
-    if (numericArray.length == 0 || operatorNumeric == 0) {
+    if (!numericArray.length || operatorNumeric == 0) {
       return false;
     }
 

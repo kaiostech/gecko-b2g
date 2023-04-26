@@ -12,8 +12,10 @@ var smsList = new Array();
 
 function verifyInitialState() {
   log("Verifying initial state.");
-  ok(manager instanceof MozMobileMessageManager,
-     "manager is instance of " + manager.constructor);
+  ok(
+    manager instanceof MozMobileMessageManager,
+    "manager is instance of " + manager.constructor
+  );
   // Ensure test is starting clean with no existing sms messages
   deleteAllMsgs(sendSms);
 }
@@ -22,8 +24,7 @@ function deleteAllMsgs(nextFunction) {
   let msgList = new Array();
 
   let cursor = manager.getMessages();
-  ok(cursor instanceof DOMCursor,
-      "cursor is instanceof " + cursor.constructor);
+  ok(cursor instanceof DOMCursor, "cursor is instanceof " + cursor.constructor);
 
   cursor.onsuccess = function(event) {
     // Check if message was found
@@ -47,7 +48,7 @@ function deleteAllMsgs(nextFunction) {
     log("Received 'onerror' event.");
     ok(event.target.error, "domerror obj");
     log("manager.getMessages error: " + event.target.error.name);
-    ok(false,"Could not get SMS messages");
+    ok(false, "Could not get SMS messages");
     cleanUp();
   };
 }
@@ -57,8 +58,10 @@ function deleteMsgs(msgList, nextFunction) {
 
   log("Deleting SMS (id: " + smsId + ").");
   let request = manager.delete(smsId);
-  ok(request instanceof DOMRequest,
-      "request is instanceof " + request.constructor);
+  ok(
+    request instanceof DOMRequest,
+    "request is instanceof " + request.constructor
+  );
 
   request.onsuccess = function(event) {
     log("Received 'onsuccess' smsrequest event.");
@@ -72,7 +75,7 @@ function deleteMsgs(msgList, nextFunction) {
       }
     } else {
       log("SMS delete failed.");
-      ok(false,"manager.delete request returned false");
+      ok(false, "manager.delete request returned false");
       cleanUp();
     }
   };
@@ -80,20 +83,22 @@ function deleteMsgs(msgList, nextFunction) {
   request.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.delete request returned unexpected error: "
-        + event.target.error.name );
+    ok(
+      false,
+      "manager.delete request returned unexpected error: " +
+        event.target.error.name
+    );
     cleanUp();
   };
 }
 
-function sendSms() {  
+function sendSms() {
   let gotSmsSent = false;
   let gotRequestSuccess = false;
   let remoteNumber = "5557779999";
   let text = "Outgoing SMS brought to you by Firefox OS!";
 
-  log("Sending SMS " + (smsList.length + 1) + " of "
-      + (numberMsgs - 1) + ".");
+  log("Sending SMS " + (smsList.length + 1) + " of " + (numberMsgs - 1) + ".");
 
   manager.onsent = function(event) {
     log("Received 'onsent' event.");
@@ -108,19 +113,21 @@ function sendSms() {
   };
 
   let request = manager.send(remoteNumber, text);
-  ok(request instanceof DOMRequest,
-      "request is instanceof " + request.constructor);
+  ok(
+    request instanceof DOMRequest,
+    "request is instanceof " + request.constructor
+  );
 
   request.onsuccess = function(event) {
     log("Received 'onsuccess' smsrequest event.");
-    if(event.target.result) {
+    if (event.target.result) {
       gotRequestSuccess = true;
       if (gotSmsSent && gotRequestSuccess) {
-        nextRep(); 
+        nextRep();
       }
     } else {
       log("smsrequest returned false for manager.send");
-      ok(false,"SMS send failed");
+      ok(false, "SMS send failed");
       cleanUp();
     }
   };
@@ -128,14 +135,17 @@ function sendSms() {
   request.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.send request returned unexpected error: "
-        + event.target.error.name );
+    ok(
+      false,
+      "manager.send request returned unexpected error: " +
+        event.target.error.name
+    );
     cleanUp();
   };
 }
 
 function nextRep() {
-  if (smsList.length < (numberMsgs - 1)) {
+  if (smsList.length < numberMsgs - 1) {
     sendSms();
   } else {
     // Now receive one message so filter won't find all
@@ -164,8 +174,8 @@ manager.onreceived = function onreceived(event) {
   log("Received SMS (id: " + incomingSms.id + ").");
 
   // Wait for emulator to catch up before continuing
-  waitFor(getMsgs,function() {
-    return(rcvdEmulatorCallback);
+  waitFor(getMsgs, function() {
+    return rcvdEmulatorCallback;
   });
 };
 
@@ -177,8 +187,7 @@ function getMsgs() {
 
   log("Getting the sent SMS messages.");
   let cursor = manager.getMessages(filter, false);
-  ok(cursor instanceof DOMCursor,
-      "cursor is instanceof " + cursor.constructor);
+  ok(cursor instanceof DOMCursor, "cursor is instanceof " + cursor.constructor);
 
   cursor.onsuccess = function(event) {
     log("Received 'onsuccess' event.");
@@ -193,13 +202,24 @@ function getMsgs() {
     } else {
       // No more messages; ensure correct number found
       if (foundSmsList.length == smsList.length) {
-        log("SMS getMessages returned " + foundSmsList.length +
-            " messages as expected.");
+        log(
+          "SMS getMessages returned " +
+            foundSmsList.length +
+            " messages as expected."
+        );
         verifyFoundMsgs(foundSmsList);
       } else {
-        log("SMS getMessages returned " + foundSmsList.length +
-            " messages, but expected " + smsList.length + ".");
-        ok(false, "Incorrect number of messages returned by manager.getMessages");
+        log(
+          "SMS getMessages returned " +
+            foundSmsList.length +
+            " messages, but expected " +
+            smsList.length +
+            "."
+        );
+        ok(
+          false,
+          "Incorrect number of messages returned by manager.getMessages"
+        );
         deleteAllMsgs(cleanUp);
       }
     }
@@ -209,7 +229,7 @@ function getMsgs() {
     log("Received 'onerror' event.");
     ok(event.target.error, "domerror obj");
     log("manager.getMessages error: " + event.target.error.name);
-    ok(false,"Could not get SMS messages");
+    ok(false, "Could not get SMS messages");
     cleanUp();
   };
 }

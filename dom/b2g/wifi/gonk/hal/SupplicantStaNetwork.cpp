@@ -523,8 +523,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetSaePassword(
   }
 
   SupplicantStatus response;
-  HIDL_SET(network, setPskPassphrase, SupplicantStatus, response,
-           aSaePassword);
+  HIDL_SET(network, setPskPassphrase, SupplicantStatus, response, aSaePassword);
   WIFI_LOGD(LOG_TAG, "set psk return: %s",
             ConvertStatusToString(response.code).c_str());
   return response.code;

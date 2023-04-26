@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 90000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const inNumber = "5555552222";
 const inInfo = gInCallStrPool(inNumber);
@@ -13,7 +13,7 @@ startTest(function() {
 
     // Incoming
     .then(() => gRemoteDial(inNumber))
-    .then(call => inCall = call)
+    .then(call => (inCall = call))
     .then(() => gCheckAll(null, [inCall], "", [], [inInfo.incoming]))
     .then(() => is(inCall.disconnectedReason, null))
 
@@ -26,8 +26,10 @@ startTest(function() {
     // where the hold request will fail and the call will remain active.
     .then(() => emulator.runCmd("telephony disable hold"))
     .then(() => gHold(inCall))
-    .then(() => ok(false, "This hold request should be rejected."),
-          () => log("This hold request is rejected as expected."))
+    .then(
+      () => ok(false, "This hold request should be rejected."),
+      () => log("This hold request is rejected as expected.")
+    )
     .then(() => gCheckAll(inCall, [inCall], "", [], [inInfo.active]))
     .then(() => is(inCall.disconnectedReason, null))
 
@@ -35,8 +37,10 @@ startTest(function() {
     // where the hold request should succeed and the call should become held.
     .then(() => emulator.runCmd("telephony enable hold"))
     .then(() => gHold(inCall))
-    .then(() => log("This hold request is resolved as expected."),
-          () => ok(false, "This hold request should be resolved."))
+    .then(
+      () => log("This hold request is resolved as expected."),
+      () => ok(false, "This hold request should be resolved.")
+    )
     .then(() => gCheckAll(null, [inCall], "", [], [inInfo.held]))
     .then(() => is(inCall.disconnectedReason, null))
 

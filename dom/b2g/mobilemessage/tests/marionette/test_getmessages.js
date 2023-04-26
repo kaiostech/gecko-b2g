@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const NUMBER_OF_MESSAGES = 10;
 const REMOTE = "5552229797";
@@ -11,9 +11,10 @@ function simulateIncomingSms() {
   let promise = Promise.resolve();
   let messages = [];
 
-  for (let i = 0; i< NUMBER_OF_MESSAGES; i++) {
+  for (let i = 0; i < NUMBER_OF_MESSAGES; i++) {
     let text = "Incoming SMS number " + i;
-    promise = promise.then(() => sendTextSmsToEmulatorAndWait(REMOTE, text))
+    promise = promise
+      .then(() => sendTextSmsToEmulatorAndWait(REMOTE, text))
       .then(function(aMessage) {
         messages.push(aMessage);
         return messages;
@@ -35,12 +36,15 @@ startTestCommon(function testCaseMain() {
   let incomingMessages;
 
   return simulateIncomingSms()
-    .then((aMessages) => { incomingMessages = aMessages; })
+    .then(aMessages => {
+      incomingMessages = aMessages;
+    })
 
     .then(() => getMessages(null, false))
-    .then((aFoundMessages) => verifyFoundMsgs(aFoundMessages, incomingMessages))
+    .then(aFoundMessages => verifyFoundMsgs(aFoundMessages, incomingMessages))
 
     .then(() => getMessages(null, true))
-    .then((aFoundMessages) => verifyFoundMsgs(aFoundMessages,
-                                              incomingMessages.slice().reverse()));
+    .then(aFoundMessages =>
+      verifyFoundMsgs(aFoundMessages, incomingMessages.slice().reverse())
+    );
 });

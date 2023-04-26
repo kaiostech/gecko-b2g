@@ -405,4 +405,3 @@ interface nsIImsUt : nsISupports
    */
   long updateCLIR(in long clirMode);
 };
-

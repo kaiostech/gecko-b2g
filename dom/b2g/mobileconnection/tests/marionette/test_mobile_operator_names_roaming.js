@@ -24,40 +24,58 @@ function check(aLongName, aShortName, aRoaming) {
 function test(aLongName, aShortName, aRoaming) {
   log("Testing roaming check '" + aLongName + "', '" + aShortName + "':");
 
-  return Promise.resolve()
+  return (
+    Promise.resolve()
 
-    // We should not have voicechange here, but, yes, we do.
-    .then(() => setEmulatorOperatorNamesAndWait("roaming", aLongName, aShortName,
-                                                null, null, true, false))
+      // We should not have voicechange here, but, yes, we do.
+      .then(() =>
+        setEmulatorOperatorNamesAndWait(
+          "roaming",
+          aLongName,
+          aShortName,
+          null,
+          null,
+          true,
+          false
+        )
+      )
 
-    .then(() => setEmulatorVoiceDataStateAndWait("voice", "roaming"))
-    .then(() => check(aLongName, aShortName, aRoaming))
-    .then(() => setEmulatorVoiceDataStateAndWait("voice", "home"));
+      .then(() => setEmulatorVoiceDataStateAndWait("voice", "roaming"))
+      .then(() => check(aLongName, aShortName, aRoaming))
+      .then(() => setEmulatorVoiceDataStateAndWait("voice", "home"))
+  );
 }
 
 startTestCommon(function() {
-  return getEmulatorOperatorNames()
-    .then(function(aOperators) {
-      let {longName: longName, shortName: shortName} = aOperators[0];
+  return getEmulatorOperatorNames().then(function(aOperators) {
+    let { longName: longName, shortName: shortName } = aOperators[0];
 
-      return Promise.resolve()
+    return (
+      Promise.resolve()
 
         // If Either long name or short name of current registered operator
         // matches SPN("Android"), then the `roaming` attribute should be set
         // to false.
-        .then(() => test(longName,               shortName,               false))
-        .then(() => test(longName,               shortName.toLowerCase(), false))
-        .then(() => test(longName,               "Bar",                   false))
-        .then(() => test(longName.toLowerCase(), shortName,               false))
-        .then(() => test(longName.toLowerCase(), shortName.toLowerCase(), false))
-        .then(() => test(longName.toLowerCase(), "Bar",                   false))
-        .then(() => test("Foo",                  shortName,               false))
-        .then(() => test("Foo",                  shortName.toLowerCase(), false))
-        .then(() => test("Foo",                  "Bar",                   true))
+        .then(() => test(longName, shortName, false))
+        .then(() => test(longName, shortName.toLowerCase(), false))
+        .then(() => test(longName, "Bar", false))
+        .then(() => test(longName.toLowerCase(), shortName, false))
+        .then(() =>
+          test(longName.toLowerCase(), shortName.toLowerCase(), false)
+        )
+        .then(() => test(longName.toLowerCase(), "Bar", false))
+        .then(() => test("Foo", shortName, false))
+        .then(() => test("Foo", shortName.toLowerCase(), false))
+        .then(() => test("Foo", "Bar", true))
 
         // Reset roaming operator.
-        .then(() => setEmulatorOperatorNamesAndWait("roaming",
-                                                    aOperators[1].longName,
-                                                    aOperators[1].shortName));
-    });
+        .then(() =>
+          setEmulatorOperatorNamesAndWait(
+            "roaming",
+            aOperators[1].longName,
+            aOperators[1].shortName
+          )
+        )
+    );
+  });
 });

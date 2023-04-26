@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const outNumber = "5555551111";
 const outInfo = gOutCallStrPool(outNumber);
@@ -14,15 +14,22 @@ var inCall;
 
 startTest(function() {
   gDial(outNumber)
-    .then(call => outCall = call)
+    .then(call => (outCall = call))
     .then(() => gRemoteAnswer(outCall))
     .then(() => gHold(outCall))
 
     .then(() => gRemoteDial(inNumber))
-    .then(call => inCall = call)
+    .then(call => (inCall = call))
     .then(() => gAnswer(inCall))
-    .then(() => gCheckAll(inCall, [outCall, inCall], "", [],
-                          [outInfo.held, inInfo.active]))
+    .then(() =>
+      gCheckAll(
+        inCall,
+        [outCall, inCall],
+        "",
+        [],
+        [outInfo.held, inInfo.active]
+      )
+    )
 
     // Swap calls by resuming the held (outgoing) call. Will force active
     // (incoming) call to hold.
@@ -31,8 +38,15 @@ startTest(function() {
       let p2 = gResume(outCall);
       return Promise.all([p1, p2]);
     })
-    .then(() => gCheckAll(outCall, [outCall, inCall], "", [],
-                          [outInfo.active, inInfo.held]))
+    .then(() =>
+      gCheckAll(
+        outCall,
+        [outCall, inCall],
+        "",
+        [],
+        [outInfo.active, inInfo.held]
+      )
+    )
 
     .then(() => gHangUp(outCall))
     .then(() => gHangUp(inCall))

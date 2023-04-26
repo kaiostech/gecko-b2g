@@ -2,21 +2,23 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 startTest(function() {
   let outCall;
 
   gDial("5555551111")
-    .then(call => outCall = call)
+    .then(call => (outCall = call))
     .then(() => gRemoteAnswer(outCall))
     .then(() => {
       return new Promise(function(resolve, reject) {
         callStartTime = Date.now();
-        waitFor(resolve,function() {
+        waitFor(resolve, function() {
           callDuration = Date.now() - callStartTime;
-          log("Waiting while call is active, call duration (ms): " + callDuration);
-          return(callDuration >= 2000);
+          log(
+            "Waiting while call is active, call duration (ms): " + callDuration
+          );
+          return callDuration >= 2000;
         });
       });
     })

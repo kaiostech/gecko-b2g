@@ -2,18 +2,20 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 // Make an outgoing call then power off radio.
-startTestWithPermissions(['mobileconnection'], function() {
+startTestWithPermissions(["mobileconnection"], function() {
   let connection = navigator.mozMobileConnections[0];
-  ok(connection instanceof MozMobileConnection,
-     "connection is instanceof " + connection.constructor);
+  ok(
+    connection instanceof MozMobileConnection,
+    "connection is instanceof " + connection.constructor
+  );
 
   let outCall;
 
   gDial("0912345000")
-    .then(call => outCall = call)
+    .then(call => (outCall = call))
     .then(() => gRemoteAnswer(outCall))
     .then(() => {
       let p1 = gWaitForNamedStateEvent(outCall, "disconnected");

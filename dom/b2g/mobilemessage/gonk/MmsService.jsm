@@ -2694,7 +2694,7 @@ MmsService.prototype = {
     if (aParams.isGroup) {
       headersCc = headers.cc = [];
     }
-    if (receivers.length != 0) {
+    if (receivers.length) {
       for (let i = 0; i < receivers.length; i++) {
         let receiver = receivers[i];
         let type = lazy.MMS.Address.resolveType(receiver);
@@ -2737,7 +2737,7 @@ MmsService.prototype = {
 
     // |aMessage.parts|
     let attachments = aParams.attachments;
-    if (attachments.length != 0 || smil) {
+    if (attachments.length || smil) {
       let parts = (aMessage.parts = []);
 
       // Set the SMIL part if needed.

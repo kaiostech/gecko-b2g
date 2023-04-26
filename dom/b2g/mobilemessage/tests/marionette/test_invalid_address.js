@@ -38,7 +38,7 @@ var tasks = {
 
   run: function() {
     this.next();
-  }
+  },
 };
 
 var manager;
@@ -54,7 +54,7 @@ function getAllMessages(callback, filter, reverse) {
     }
 
     window.setTimeout(callback.bind(null, messages), 0);
-  }
+  };
 }
 
 function deleteAllMessages() {
@@ -71,13 +71,16 @@ function deleteAllMessages() {
     request.onerror = function(event) {
       ok(false, "failed to delete all messages");
       tasks.finish();
-    }
+    };
   });
 }
 
-function testInvalidAddressForSMS(aInvalidAddr)  {
-  log("manager.send(...) should get 'InvalidAddressError' error " +
-      "when attempting to send SMS to: " + aInvalidAddr);
+function testInvalidAddressForSMS(aInvalidAddr) {
+  log(
+    "manager.send(...) should get 'InvalidAddressError' error " +
+      "when attempting to send SMS to: " +
+      aInvalidAddr
+  );
 
   let request = manager.send(aInvalidAddr, "Test");
 
@@ -90,9 +93,12 @@ function testInvalidAddressForSMS(aInvalidAddr)  {
   };
 }
 
-function testInvalidAddressForMMS(aInvalidAddrs)  {
-  log("manager.sendMMS(...) should get 'InvalidAddressError' error " +
-      "when attempting to send MMS to: " + aInvalidAddrs);
+function testInvalidAddressForMMS(aInvalidAddrs) {
+  log(
+    "manager.sendMMS(...) should get 'InvalidAddressError' error " +
+      "when attempting to send MMS to: " +
+      aInvalidAddrs
+  );
 
   let request = manager.sendMMS({
     subject: "Test",
@@ -113,8 +119,10 @@ tasks.push(function() {
   log("Verifying initial state.");
 
   manager = window.navigator.mozMobileMessage;
-  ok(manager instanceof MozMobileMessageManager,
-     "manager is instance of " + manager.constructor);
+  ok(
+    manager instanceof MozMobileMessageManager,
+    "manager is instance of " + manager.constructor
+  );
 
   tasks.next();
 });

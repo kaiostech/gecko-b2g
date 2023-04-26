@@ -10,8 +10,10 @@ SpecialPowers.addPermission("sms", true, document);
 SpecialPowers.setBoolPref("dom.sms.enabled", true);
 
 var manager = window.navigator.mozMobileMessage;
-ok(manager instanceof MozMobileMessageManager,
-   "manager is instance of " + manager.constructor);
+ok(
+  manager instanceof MozMobileMessageManager,
+  "manager is instance of " + manager.constructor
+);
 
 var pendingEmulatorCmdCount = 0;
 function sendSmsToEmulator(from, text) {
@@ -55,7 +57,7 @@ var tasks = {
 
   run: function() {
     this.next();
-  }
+  },
 };
 
 function getAllMessages(callback, filter, reverse) {
@@ -69,7 +71,7 @@ function getAllMessages(callback, filter, reverse) {
     }
 
     window.setTimeout(callback.bind(null, messages), 0);
-  }
+  };
 }
 
 function deleteAllMessages(next) {
@@ -86,15 +88,17 @@ function deleteAllMessages(next) {
     request.onerror = function(event) {
       ok(false, "failed to delete all messages");
       tasks.finish();
-    }
+    };
   });
 }
 
 function checkSenderOrReceiver(message, number) {
-  return message.sender == number ||
-         message.sender == ("+1" + number) ||
-         message.receiver == number ||
-         message.receiver == ("+1" + number);
+  return (
+    message.sender == number ||
+    message.sender == "+1" + number ||
+    message.receiver == number ||
+    message.receiver == "+1" + number
+  );
 }
 
 tasks.push(deleteAllMessages);
@@ -129,10 +133,10 @@ tasks.push(function populateMessages() {
       threadIds.push(request.result.threadId);
 
       sendSmsToEmulator("555531555" + iter, "Nice to meet you, too");
-    }
+    };
     request.onerror = function onRequestError(event) {
       tasks.finish();
-    }
+    };
   }
 
   function onReceived(event) {
@@ -153,10 +157,10 @@ tasks.push(function populateMessages() {
         } else {
           tasks.next();
         }
-      }
+      };
       request.onerror = function onRequestError(event) {
         tasks.finish();
-      }
+      };
     } else if (count < NUM_THREADS) {
       sendMessage(count);
     } else {
@@ -194,14 +198,22 @@ tasks.push(function testDeliveryAndNumber() {
       }
     }
 
-    getAllMessages(function(messages_r) {
-      is(messages.length, messages_r.length, "message count");
-      for (let i = 0; i < messages_r.length; i++) {
-        is(messages_r[i].id, messages[messages.length - 1 - i].id, "message id");
-      }
+    getAllMessages(
+      function(messages_r) {
+        is(messages.length, messages_r.length, "message count");
+        for (let i = 0; i < messages_r.length; i++) {
+          is(
+            messages_r[i].id,
+            messages[messages.length - 1 - i].id,
+            "message id"
+          );
+        }
 
-      tasks.next();
-    }, filter, true);
+        tasks.next();
+      },
+      filter,
+      true
+    );
   }, filter);
 });
 
@@ -223,7 +235,7 @@ tasks.push(function testDeliveryAndRead() {
   let filter = {
     delivery: "received",
     read: true,
-  }
+  };
   getAllMessages(function(messages) {
     // { delivery: "received", sender: "5555315550", read: true },
     // { delivery: "received", sender: "5555315552", read: true },
@@ -237,14 +249,22 @@ tasks.push(function testDeliveryAndRead() {
       is(message.read, filter.read, "message read");
     }
 
-    getAllMessages(function(messages_r) {
-      is(messages.length, messages_r.length, "message count");
-      for (let i = 0; i < messages_r.length; i++) {
-        is(messages_r[i].id, messages[messages.length - 1 - i].id, "message id");
-      }
+    getAllMessages(
+      function(messages_r) {
+        is(messages.length, messages_r.length, "message count");
+        for (let i = 0; i < messages_r.length; i++) {
+          is(
+            messages_r[i].id,
+            messages[messages.length - 1 - i].id,
+            "message id"
+          );
+        }
 
-      tasks.next();
-    }, filter, true);
+        tasks.next();
+      },
+      filter,
+      true
+    );
   }, filter);
 });
 
@@ -276,14 +296,22 @@ tasks.push(function testDeliveryAndThreadId() {
       is(message.threadId, filter.threadId, "message threadId");
     }
 
-    getAllMessages(function(messages_r) {
-      is(messages.length, messages_r.length, "message count");
-      for (let i = 0; i < messages_r.length; i++) {
-        is(messages_r[i].id, messages[messages.length - 1 - i].id, "message id");
-      }
+    getAllMessages(
+      function(messages_r) {
+        is(messages.length, messages_r.length, "message count");
+        for (let i = 0; i < messages_r.length; i++) {
+          is(
+            messages_r[i].id,
+            messages[messages.length - 1 - i].id,
+            "message id"
+          );
+        }
 
-      tasks.next();
-    }, filter, true);
+        tasks.next();
+      },
+      filter,
+      true
+    );
   }, filter);
 });
 
@@ -318,14 +346,22 @@ tasks.push(function testNumberAndRead() {
       is(message.read, filter.read, "message read");
     }
 
-    getAllMessages(function(messages_r) {
-      is(messages.length, messages_r.length, "message count");
-      for (let i = 0; i < messages_r.length; i++) {
-        is(messages_r[i].id, messages[messages.length - 1 - i].id, "message id");
-      }
+    getAllMessages(
+      function(messages_r) {
+        is(messages.length, messages_r.length, "message count");
+        for (let i = 0; i < messages_r.length; i++) {
+          is(
+            messages_r[i].id,
+            messages[messages.length - 1 - i].id,
+            "message id"
+          );
+        }
 
-      tasks.next();
-    }, filter, true);
+        tasks.next();
+      },
+      filter,
+      true
+    );
   }, filter);
 });
 
@@ -360,14 +396,22 @@ tasks.push(function testNumberAndThreadId() {
       is(message.threadId, filter.threadId, "message threadId");
     }
 
-    getAllMessages(function(messages_r) {
-      is(messages.length, messages_r.length, "message count");
-      for (let i = 0; i < messages_r.length; i++) {
-        is(messages_r[i].id, messages[messages.length - 1 - i].id, "message id");
-      }
+    getAllMessages(
+      function(messages_r) {
+        is(messages.length, messages_r.length, "message count");
+        for (let i = 0; i < messages_r.length; i++) {
+          is(
+            messages_r[i].id,
+            messages[messages.length - 1 - i].id,
+            "message id"
+          );
+        }
 
-      tasks.next();
-    }, filter, true);
+        tasks.next();
+      },
+      filter,
+      true
+    );
   }, filter);
 });
 
@@ -397,8 +441,12 @@ tasks.push(function testMultipleNumbers() {
     is(messages.length, 4, "message count");
     for (let i = 0; i < messages.length; i++) {
       let message = messages[i];
-      if (!(checkSenderOrReceiver(message, filter.numbers[0]) ||
-            checkSenderOrReceiver(message, filter.numbers[1]))) {
+      if (
+        !(
+          checkSenderOrReceiver(message, filter.numbers[0]) ||
+          checkSenderOrReceiver(message, filter.numbers[1])
+        )
+      ) {
         ok(false, "message sender or receiver number");
       }
     }
@@ -420,7 +468,9 @@ tasks.push(function testMultipleNumbersNotFound() {
 });
 
 tasks.push(function testDeliveryAndMultipleNumbers() {
-  log("Checking delivery == sent && (number == 5555315550 || number == 5555315551)");
+  log(
+    "Checking delivery == sent && (number == 5555315550 || number == 5555315551)"
+  );
   let filter = {
     delivery: "sent",
     numbers: ["5555315550", "5555315551"],
@@ -432,8 +482,12 @@ tasks.push(function testDeliveryAndMultipleNumbers() {
     for (let i = 0; i < messages.length; i++) {
       let message = messages[i];
       is(message.delivery, filter.delivery, "message delivery");
-      if (!(checkSenderOrReceiver(message, filter.numbers[0]) ||
-            checkSenderOrReceiver(message, filter.numbers[1]))) {
+      if (
+        !(
+          checkSenderOrReceiver(message, filter.numbers[0]) ||
+          checkSenderOrReceiver(message, filter.numbers[1])
+        )
+      ) {
         ok(false, "message sender or receiver number");
       }
     }
@@ -443,7 +497,9 @@ tasks.push(function testDeliveryAndMultipleNumbers() {
 });
 
 tasks.push(function testMultipleNumbersAndRead() {
-  log("Checking (number == 5555315550 || number == 5555315551) && read == true");
+  log(
+    "Checking (number == 5555315550 || number == 5555315551) && read == true"
+  );
   let filter = {
     numbers: ["5555315550", "5555315551"],
     read: true,
@@ -456,8 +512,12 @@ tasks.push(function testMultipleNumbersAndRead() {
     for (let i = 0; i < messages.length; i++) {
       let message = messages[i];
       is(message.read, filter.read, "message read");
-      if (!(checkSenderOrReceiver(message, filter.numbers[0]) ||
-            checkSenderOrReceiver(message, filter.numbers[1]))) {
+      if (
+        !(
+          checkSenderOrReceiver(message, filter.numbers[0]) ||
+          checkSenderOrReceiver(message, filter.numbers[1])
+        )
+      ) {
         ok(false, "message sender or receiver number");
       }
     }
@@ -467,7 +527,10 @@ tasks.push(function testMultipleNumbersAndRead() {
 });
 
 tasks.push(function testMultipleNumbersAndThreadId() {
-  log("Checking (number == 5555315550 || number == 5555315551) && threadId == " + threadIds[0]);
+  log(
+    "Checking (number == 5555315550 || number == 5555315551) && threadId == " +
+      threadIds[0]
+  );
   let filter = {
     numbers: ["5555315550", "5555315551"],
     threadId: threadIds[0],
@@ -479,8 +542,12 @@ tasks.push(function testMultipleNumbersAndThreadId() {
     for (let i = 0; i < messages.length; i++) {
       let message = messages[i];
       is(message.threadId, filter.threadId, "message threadId");
-      if (!(checkSenderOrReceiver(message, filter.numbers[0]) ||
-            checkSenderOrReceiver(message, filter.numbers[1]))) {
+      if (
+        !(
+          checkSenderOrReceiver(message, filter.numbers[0]) ||
+          checkSenderOrReceiver(message, filter.numbers[1])
+        )
+      ) {
         ok(false, "message sender or receiver number");
       }
     }
@@ -545,14 +612,22 @@ tasks.push(function testReadAndThreadId() {
       is(message.threadId, filter.threadId, "message threadId");
     }
 
-    getAllMessages(function(messages_r) {
-      is(messages.length, messages_r.length, "message count");
-      for (let i = 0; i < messages_r.length; i++) {
-        is(messages_r[i].id, messages[messages.length - 1 - i].id, "message id");
-      }
+    getAllMessages(
+      function(messages_r) {
+        is(messages.length, messages_r.length, "message count");
+        for (let i = 0; i < messages_r.length; i++) {
+          is(
+            messages_r[i].id,
+            messages[messages.length - 1 - i].id,
+            "message id"
+          );
+        }
 
-      tasks.next();
-    }, filter, true);
+        tasks.next();
+      },
+      filter,
+      true
+    );
   }, filter);
 });
 

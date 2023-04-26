@@ -269,16 +269,14 @@ Result_t WificondControl::InitiateScanEvent(
   }
   if (!mScanner
            ->subscribeScanEvents(
-               android::interface_cast<IScanEvent>(
-                   mScanEventService))
+               android::interface_cast<IScanEvent>(mScanEventService))
            .isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   if (!mScanner
            ->subscribePnoScanEvents(
-               android::interface_cast<IPnoScanEvent>(
-                   mPnoScanEventService))
+               android::interface_cast<IPnoScanEvent>(mPnoScanEventService))
            .isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe pno scan event failed");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
@@ -333,8 +331,7 @@ Result_t WificondControl::SetupApIface(
 
   bool success = false;
   mApInterface->registerCallback(
-      android::interface_cast<IApInterfaceEventCallback>(
-          mSoftapEventService),
+      android::interface_cast<IApInterfaceEventCallback>(mSoftapEventService),
       &success);
   return CHECK_SUCCESS(success);
 }

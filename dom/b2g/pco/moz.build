@@ -1,7 +1,7 @@
 XPIDL_SOURCES += [
-    'nsIPCOService.idl',
+    "nsIPCOService.idl",
 ]
 
-XPIDL_MODULE = 'pcoservice'
+XPIDL_MODULE = "pcoservice"
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

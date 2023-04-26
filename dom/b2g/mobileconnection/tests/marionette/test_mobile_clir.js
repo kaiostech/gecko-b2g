@@ -7,13 +7,18 @@ MARIONETTE_HEAD_JS = "head.js";
 function testSetCallingLineIdRestriction(aMode, aExpectedErrorMsg) {
   log("Test setting calling line id restriction mode to " + aMode);
 
-  return setClir(aMode)
-    .then(function resolve() {
+  return setClir(aMode).then(
+    function resolve() {
       ok(!aExpectedErrorMsg, "setCallingLineIdRestriction success");
-    }, function reject(aError) {
-      is(aError.name, aExpectedErrorMsg,
-         "failed to setCallingLineIdRestriction");
-    });
+    },
+    function reject(aError) {
+      is(
+        aError.name,
+        aExpectedErrorMsg,
+        "failed to setCallingLineIdRestriction"
+      );
+    }
+  );
 }
 
 // TODO: Bug 999374 - [B2G] [Emulator] support setClir and getClir.
@@ -22,33 +27,56 @@ function testSetCallingLineIdRestriction(aMode, aExpectedErrorMsg) {
 function testGetCallingLineIdRestriction() {
   log("Test getting calling line id restriction mode");
 
-  return getClir()
-    .then(function resolve() {
+  return getClir().then(
+    function resolve() {
       ok(false, "getCallingLineIdRestriction should not success");
-    }, function reject(aError) {
-      is(aError.name, "RequestNotSupported",
-         "failed to getCallingLineIdRestriction");
-    });
+    },
+    function reject(aError) {
+      is(
+        aError.name,
+        "RequestNotSupported",
+        "failed to getCallingLineIdRestriction"
+      );
+    }
+  );
 }
 
 // Start tests
 startTestCommon(function() {
-  return Promise.resolve()
-    // Test set calling line id restriction mode.
-    // TODO: Bug 999374 - [B2G] [Emulator] support setClir and getClir.
-    // Currently emulator doesn't support REQUEST_SET_CLIR, so we expect to get
-    // a 'RequestNotSupported' error here.
-    .then(() => testSetCallingLineIdRestriction(
-                  MozMobileConnection.CLIR_DEFAULT, "RequestNotSupported"))
-    .then(() => testSetCallingLineIdRestriction(
-                  MozMobileConnection.CLIR_INVOCATION, "RequestNotSupported"))
-    .then(() => testSetCallingLineIdRestriction(
-                  MozMobileConnection.CLIR_SUPPRESSION, "RequestNotSupported"))
+  return (
+    Promise.resolve()
+      // Test set calling line id restriction mode.
+      // TODO: Bug 999374 - [B2G] [Emulator] support setClir and getClir.
+      // Currently emulator doesn't support REQUEST_SET_CLIR, so we expect to get
+      // a 'RequestNotSupported' error here.
+      .then(() =>
+        testSetCallingLineIdRestriction(
+          MozMobileConnection.CLIR_DEFAULT,
+          "RequestNotSupported"
+        )
+      )
+      .then(() =>
+        testSetCallingLineIdRestriction(
+          MozMobileConnection.CLIR_INVOCATION,
+          "RequestNotSupported"
+        )
+      )
+      .then(() =>
+        testSetCallingLineIdRestriction(
+          MozMobileConnection.CLIR_SUPPRESSION,
+          "RequestNotSupported"
+        )
+      )
 
-    // Test passing an invalid mode.
-    .then(() => testSetCallingLineIdRestriction(10 /* Invalid mode */,
-                                                "InvalidParameter"))
+      // Test passing an invalid mode.
+      .then(() =>
+        testSetCallingLineIdRestriction(
+          10 /* Invalid mode */,
+          "InvalidParameter"
+        )
+      )
 
-    // Test get calling line id restriction mode.
-    .then(() => testGetCallingLineIdRestriction());
+      // Test get calling line id restriction mode.
+      .then(() => testGetCallingLineIdRestriction())
+  );
 });

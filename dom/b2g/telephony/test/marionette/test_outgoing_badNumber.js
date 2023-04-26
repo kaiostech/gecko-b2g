@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const number = "****5555552368****";
 var outCall;
@@ -16,20 +16,21 @@ function testDialOutInvalidNumber() {
   return telephony.dial(number).then(call => {
     outCall = call;
     ok(outCall);
-    is(outCall.id.number, "");  // Emulator returns empty number for this call.
+    is(outCall.id.number, ""); // Emulator returns empty number for this call.
     is(outCall.state, "dialing");
 
     is(outCall, telephony.active);
     is(telephony.calls.length, 1);
     is(telephony.calls[0], outCall);
 
-    return gWaitForEvent(outCall, "error").then(event => {
-      is(event.call, outCall);
-      ok(event.call.error);
-      is(event.call.error.name, "BadNumberError");
-      is(event.call.disconnectedReason, "BadNumber");
-    })
-    .then(() => gCheckAll(null, [], "", [], []));
+    return gWaitForEvent(outCall, "error")
+      .then(event => {
+        is(event.call, outCall);
+        ok(event.call.error);
+        is(event.call.error.name, "BadNumberError");
+        is(event.call.disconnectedReason, "BadNumber");
+      })
+      .then(() => gCheckAll(null, [], "", [], []));
   });
 }
 

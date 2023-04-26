@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const outNumber = "5555551111";
 const outInfo = gOutCallStrPool(outNumber);
@@ -14,7 +14,7 @@ var inCall;
 
 startTest(function() {
   gRemoteDial(inNumber)
-    .then(call => inCall = call)
+    .then(call => (inCall = call))
     .then(() => gCheckAll(null, [inCall], "", [], [inInfo.incoming]))
 
     // Answer incoming call
@@ -27,14 +27,28 @@ startTest(function() {
 
     // Dial out.
     .then(() => gDial(outNumber))
-    .then(call => outCall = call)
-    .then(() => gCheckAll(outCall, [inCall, outCall], "", [],
-                          [inInfo.held, outInfo.ringing]))
+    .then(call => (outCall = call))
+    .then(() =>
+      gCheckAll(
+        outCall,
+        [inCall, outCall],
+        "",
+        [],
+        [inInfo.held, outInfo.ringing]
+      )
+    )
 
     // Remote answer the call
     .then(() => gRemoteAnswer(outCall))
-    .then(() => gCheckAll(outCall, [inCall, outCall], "", [],
-                          [inInfo.held, outInfo.active]))
+    .then(() =>
+      gCheckAll(
+        outCall,
+        [inCall, outCall],
+        "",
+        [],
+        [inInfo.held, outInfo.active]
+      )
+    )
 
     // With one held call and one active, hold the active one; expect the first
     // (held) call to automatically become active, and the 2nd call to be held
@@ -43,8 +57,15 @@ startTest(function() {
       let p2 = gHold(outCall);
       return Promise.all([p1, p2]);
     })
-    .then(() => gCheckAll(inCall, [inCall, outCall], "", [],
-                          [inInfo.active, outInfo.held]))
+    .then(() =>
+      gCheckAll(
+        inCall,
+        [inCall, outCall],
+        "",
+        [],
+        [inInfo.active, outInfo.held]
+      )
+    )
 
     // Hangup the active call will automatically resume the held call.
     .then(() => {

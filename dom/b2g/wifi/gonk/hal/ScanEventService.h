@@ -8,11 +8,11 @@
 #define ScanEventService_H
 
 #if ANDROID_VERSION >= 30
-#include <android/net/wifi/nl80211/BnScanEvent.h>
-#include <android/net/wifi/nl80211/BnPnoScanEvent.h>
+#  include <android/net/wifi/nl80211/BnScanEvent.h>
+#  include <android/net/wifi/nl80211/BnPnoScanEvent.h>
 #else
-#include <android/net/wifi/BnScanEvent.h>
-#include <android/net/wifi/BnPnoScanEvent.h>
+#  include <android/net/wifi/BnScanEvent.h>
+#  include <android/net/wifi/BnPnoScanEvent.h>
 #endif
 
 #include <binder/BinderService.h>

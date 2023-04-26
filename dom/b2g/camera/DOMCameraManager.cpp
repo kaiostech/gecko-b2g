@@ -14,7 +14,7 @@
 #include "nsIPermissionManager.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "DOMCameraControl.h"
-//#include "nsDOMClassInfo.h" //TODO
+// #include "nsDOMClassInfo.h" //TODO
 #include "CameraCommon.h"
 #include "CameraPreferences.h"
 #include "mozilla/dom/BindingUtils.h"

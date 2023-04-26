@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const PDU_SMSC_NONE = "00"; // no SMSC Address
 
@@ -12,7 +12,7 @@ const PDU_FIRST_OCTET = "40";
 
 // |   | <= TON => | <=== NOI ===> |
 // | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | => 0xa8
-const PDU_OA = "0AA89021436587";  // 0912345678
+const PDU_OA = "0AA89021436587"; // 0912345678
 
 const PDU_PID_NORMAL = "00";
 const PDU_DCS_GSM_7BIT = "00";
@@ -32,10 +32,18 @@ const PDU_UDHL = "06";
 
 const PDU_UDL = "0B"; // UDH occupies 7 octets = 8 septets, plus 3 septets data.
 
-const PDU = PDU_SMSC_NONE + PDU_FIRST_OCTET + PDU_OA + PDU_PID_NORMAL
-  + PDU_DCS_GSM_7BIT + PDU_TIMESTAMP + PDU_UDL + PDU_UDHL
-  + IE_USE_SPANISH_LOCKING_SHIFT_TABLE + IE_USE_SPANISH_SINGLE_SHIFT_TABLE
-  + PDU_UD_GSM;
+const PDU =
+  PDU_SMSC_NONE +
+  PDU_FIRST_OCTET +
+  PDU_OA +
+  PDU_PID_NORMAL +
+  PDU_DCS_GSM_7BIT +
+  PDU_TIMESTAMP +
+  PDU_UDL +
+  PDU_UDHL +
+  IE_USE_SPANISH_LOCKING_SHIFT_TABLE +
+  IE_USE_SPANISH_SINGLE_SHIFT_TABLE +
+  PDU_UD_GSM;
 
 function verifyMessage(aMessage) {
   is(aMessage.body, "GSM", "SmsMessage body");

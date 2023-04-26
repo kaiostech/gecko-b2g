@@ -2,15 +2,15 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 function testConferenceTwoAndRemoveOne() {
-  log('= testConferenceTwoAndRemoveOne =');
+  log("= testConferenceTwoAndRemoveOne =");
 
   let outCall;
   let inCall;
   let outNumber = "5555550101";
-  let inNumber  = "5555550201";
+  let inNumber = "5555550201";
   let outInfo = gOutCallStrPool(outNumber);
   let inInfo = gInCallStrPool(inNumber);
 
@@ -19,11 +19,20 @@ function testConferenceTwoAndRemoveOne() {
     .then(calls => {
       [outCall, inCall] = calls;
     })
-    .then(() => gRemoveCallInConference(outCall, [inCall], [], function() {
-      gCheckState(outCall, [outCall, inCall], '', []);
-    }))
-    .then(() => gCheckAll(outCall, [outCall, inCall], '', [],
-                          [outInfo.active, inInfo.held]))
+    .then(() =>
+      gRemoveCallInConference(outCall, [inCall], [], function() {
+        gCheckState(outCall, [outCall, inCall], "", []);
+      })
+    )
+    .then(() =>
+      gCheckAll(
+        outCall,
+        [outCall, inCall],
+        "",
+        [],
+        [outInfo.active, inInfo.held]
+      )
+    )
     .then(() => gRemoteHangUpCalls([outCall, inCall]));
 }
 

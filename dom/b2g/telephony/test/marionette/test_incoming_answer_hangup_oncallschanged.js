@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const inNumber = "5555552222";
 const inInfo = gInCallStrPool(inNumber);
@@ -10,7 +10,7 @@ var inCall;
 
 startTest(function() {
   gRemoteDial(inNumber)
-    .then(call => inCall = call)
+    .then(call => (inCall = call))
     .then(() => gCheckAll(null, [inCall], "", [], [inInfo.incoming]))
 
     // Answer incoming call

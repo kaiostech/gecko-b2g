@@ -14,9 +14,11 @@ var msgText = "Mozilla Firefox OS!";
 
 function verifyInitialState() {
   log("Verifying initial state.");
-  ok(manager instanceof MozMobileMessageManager,
-     "manager is instance of " + manager.constructor);
-  simulateIncomingSms();  
+  ok(
+    manager instanceof MozMobileMessageManager,
+    "manager is instance of " + manager.constructor
+  );
+  simulateIncomingSms();
 }
 
 function simulateIncomingSms() {
@@ -72,23 +74,23 @@ function verifySmsExists(incomingSms) {
     ok(event.target.error, "domerror obj");
     is(event.target.error.name, "NotFoundError", "error returned");
     log("Could not get SMS (id: " + incomingSms.id + ") but should have.");
-    ok(false,"SMS was not found");
+    ok(false, "SMS was not found");
     cleanUp();
   };
 }
 
-function deleteSms(smsMsgObj){
+function deleteSms(smsMsgObj) {
   log("Deleting SMS (id: " + smsMsgObj.id + ") using smsmsg obj parameter.");
   let requestRet = manager.delete(smsMsgObj);
-  ok(requestRet,"smsrequest obj returned");
+  ok(requestRet, "smsrequest obj returned");
 
   requestRet.onsuccess = function(event) {
     log("Received 'onsuccess' smsrequest event.");
-    if(event.target.result){
+    if (event.target.result) {
       verifySmsDeleted(smsMsgObj.id);
     } else {
       log("smsrequest returned false for manager.delete");
-      ok(false,"SMS delete failed");
+      ok(false, "SMS delete failed");
       cleanUp();
     }
   };
@@ -96,8 +98,11 @@ function deleteSms(smsMsgObj){
   requestRet.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.delete request returned unexpected error: "
-        + event.target.error.name );
+    ok(
+      false,
+      "manager.delete request returned unexpected error: " +
+        event.target.error.name
+    );
     cleanUp();
   };
 }

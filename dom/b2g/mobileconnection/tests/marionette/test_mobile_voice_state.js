@@ -4,7 +4,8 @@
 MARIONETTE_TIMEOUT = 60000;
 MARIONETTE_HEAD_JS = "head.js";
 
-const TEST_DATA = [{
+const TEST_DATA = [
+  {
     // Test state becomes to "unregistered"
     state: "unregistered",
     expected: {
@@ -14,9 +15,10 @@ const TEST_DATA = [{
       roaming: false,
       signalStrength: null,
       relSignalStrength: null,
-      cell: null
-    }
-  }, {
+      cell: null,
+    },
+  },
+  {
     // Test state becomes to "searching"
     state: "searching",
     expected: {
@@ -26,9 +28,10 @@ const TEST_DATA = [{
       roaming: false,
       signalStrength: null,
       relSignalStrength: null,
-      cell: null
-    }
-  }, {
+      cell: null,
+    },
+  },
+  {
     // Test state becomes to "denied"
     state: "denied",
     expected: {
@@ -38,9 +41,10 @@ const TEST_DATA = [{
       roaming: false,
       signalStrength: null,
       relSignalStrength: null,
-      cell: null
-    }
-  }, {
+      cell: null,
+    },
+  },
+  {
     // Test state becomes to "roaming"
     state: "roaming",
     expected: {
@@ -52,10 +56,11 @@ const TEST_DATA = [{
       relSignalStrength: 44,
       cell: {
         gsmLocationAreaCode: 0,
-        gsmCellId: 0
-      }
-    }
-  }, {
+        gsmCellId: 0,
+      },
+    },
+  },
+  {
     // Reset state to default value.
     state: "home",
     expected: {
@@ -67,10 +72,10 @@ const TEST_DATA = [{
       relSignalStrength: 44,
       cell: {
         gsmLocationAreaCode: 0,
-        gsmCellId: 0
-      }
-    }
-  }
+        gsmCellId: 0,
+      },
+    },
+  },
 ];
 
 function compareTo(aPrefix, aFrom, aTo) {
@@ -100,8 +105,9 @@ function testVoiceStateUpdate(aNewState, aExpected) {
   log("Test voice info with state='" + aNewState + "'");
 
   // Set emulator's lac/cid and wait for 'onvoicechange' event.
-  return setEmulatorVoiceDataStateAndWait("voice", aNewState)
-    .then(() => verifyVoiceInfo(aExpected));
+  return setEmulatorVoiceDataStateAndWait("voice", aNewState).then(() =>
+    verifyVoiceInfo(aExpected)
+  );
 }
 
 startTestCommon(function() {
@@ -110,8 +116,9 @@ startTestCommon(function() {
   let promise = Promise.resolve();
   for (let i = 0; i < TEST_DATA.length; i++) {
     let entry = TEST_DATA[i];
-    promise =
-      promise.then(testVoiceStateUpdate.bind(null, entry.state, entry.expected));
+    promise = promise.then(
+      testVoiceStateUpdate.bind(null, entry.state, entry.expected)
+    );
   }
 
   return promise;

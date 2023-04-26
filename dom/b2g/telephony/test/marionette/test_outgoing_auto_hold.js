@@ -2,10 +2,10 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 function testAutoHoldCall() {
-  log('= testAutoHoldCall =');
+  log("= testAutoHoldCall =");
 
   let outCall1;
   let outCall2;
@@ -14,22 +14,25 @@ function testAutoHoldCall() {
 
   return Promise.resolve()
     .then(() => gDial(callNumber1))
-    .then(call => { outCall1 = call; })
+    .then(call => {
+      outCall1 = call;
+    })
     .then(() => gRemoteAnswer(outCall1))
     .then(() => {
       is(outCall1.state, "connected");
     })
     .then(() => gDial(callNumber2))
-    .then(call => { outCall2 = call; })
+    .then(call => {
+      outCall2 = call;
+    })
     .then(() => {
       is(outCall1.state, "held");
     })
     .then(() => gRemoteHangUpCalls([outCall1, outCall2]));
 }
 
-
 function testAutoHoldCallFailed() {
-  log('= testAutoHoldCallFailed =');
+  log("= testAutoHoldCallFailed =");
 
   let outCall1;
   let outCall2;
@@ -39,23 +42,28 @@ function testAutoHoldCallFailed() {
   return Promise.resolve()
     .then(() => emulator.runCmd("telephony disable hold"))
     .then(() => gDial(callNumber1))
-    .then(call => { outCall1 = call; })
+    .then(call => {
+      outCall1 = call;
+    })
     .then(() => gRemoteAnswer(outCall1))
     .then(() => {
       is(outCall1.state, "connected");
     })
     .then(() => gDial(callNumber2))
-    .then(call => {
-      ok(false, "The second |dial()| should be rejected.");
-      outCall2 = call;
-      return gRemoteHangUpCalls([outCall2]);
-    }, () => log("The second |dial()| is rejected as expected."))
+    .then(
+      call => {
+        ok(false, "The second |dial()| should be rejected.");
+        outCall2 = call;
+        return gRemoteHangUpCalls([outCall2]);
+      },
+      () => log("The second |dial()| is rejected as expected.")
+    )
     .then(() => gRemoteHangUpCalls([outCall1]))
     .then(() => emulator.runCmd("telephony enable hold"));
 }
 
 function testAutoHoldConferenceCall() {
-  log('= testAutoHoldConferenceCall =');
+  log("= testAutoHoldConferenceCall =");
 
   let subCall1;
   let subCall2;
@@ -71,7 +79,9 @@ function testAutoHoldConferenceCall() {
       is(conference.state, "connected");
     })
     .then(() => gDial(outNumber))
-    .then(call => { outCall = call; })
+    .then(call => {
+      outCall = call;
+    })
     .then(() => {
       is(subCall1.state, "held");
       is(subCall2.state, "held");

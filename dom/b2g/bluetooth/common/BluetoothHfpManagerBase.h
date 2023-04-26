@@ -30,4 +30,4 @@ class BluetoothHfpManagerBase : public BluetoothProfileManagerBase {
 
 END_BLUETOOTH_NAMESPACE
 
-#endif  //#ifndef mozilla_dom_bluetooth_bluetoothhfpmanagerbase_h__
+#endif  // #ifndef mozilla_dom_bluetooth_bluetoothhfpmanagerbase_h__

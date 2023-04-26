@@ -11,22 +11,29 @@ const CB_TYPES = ["33", "331", "332", "35", "351"];
 const CB_TYPES_UNSUPPORTED = ["330", "333", "353"];
 // Basic Service - 10: Voice + Fax + SMS.
 const BS = "10";
-const MMI_SERVICE_CLASS = ["serviceClassVoice", "serviceClassFax",
-                           "serviceClassSms"];
+const MMI_SERVICE_CLASS = [
+  "serviceClassVoice",
+  "serviceClassFax",
+  "serviceClassSms",
+];
 // Call barring doesn't support Registration (**) and Erasure (##) operation.
 const OPERATION_UNSUPPORTED = ["**", "##"];
 
-function sendCbMMI(aOperation, aType, aExpectedSuccess, aExpectedStatusMessage) {
+function sendCbMMI(
+  aOperation,
+  aType,
+  aExpectedSuccess,
+  aExpectedStatusMessage
+) {
   let mmi = aOperation + aType + "*" + PASSWORD + "*" + BS + "#";
   log("Test " + mmi + " ...");
 
-  return gSendMMI(mmi)
-    .then((aResult) => {
-      is(aResult.success, aExpectedSuccess, "Check success");
-      is(aResult.serviceCode, "scCallBarring", "Check serviceCode");
-      is(aResult.statusMessage, aExpectedStatusMessage,  "Check statusMessage");
-      return aResult;
-    });
+  return gSendMMI(mmi).then(aResult => {
+    is(aResult.success, aExpectedSuccess, "Check success");
+    is(aResult.serviceCode, "scCallBarring", "Check serviceCode");
+    is(aResult.statusMessage, aExpectedStatusMessage, "Check statusMessage");
+    return aResult;
+  });
 }
 
 function testCallBarring(aEnabled) {
@@ -35,18 +42,36 @@ function testCallBarring(aEnabled) {
   CB_TYPES.forEach(function(aType) {
     promise = promise
       // Test setting call barring.
-      .then(() => sendCbMMI(aEnabled ? "*" : "#", aType, true,
-                            aEnabled ? "smServiceEnabled" : "smServiceDisabled"))
+      .then(() =>
+        sendCbMMI(
+          aEnabled ? "*" : "#",
+          aType,
+          true,
+          aEnabled ? "smServiceEnabled" : "smServiceDisabled"
+        )
+      )
       // Test getting call barring.
-      .then(() => sendCbMMI("*#", aType, true,
-                            aEnabled ? "smServiceEnabledFor": "smServiceDisabled"))
+      .then(() =>
+        sendCbMMI(
+          "*#",
+          aType,
+          true,
+          aEnabled ? "smServiceEnabledFor" : "smServiceDisabled"
+        )
+      )
       .then(aResult => {
         if (aEnabled) {
-          is(aResult.additionalInformation.length, MMI_SERVICE_CLASS.length,
-             "Check additionalInformation.length");
+          is(
+            aResult.additionalInformation.length,
+            MMI_SERVICE_CLASS.length,
+            "Check additionalInformation.length"
+          );
           for (let i = 0; i < MMI_SERVICE_CLASS.length; i++) {
-            is(aResult.additionalInformation[i], MMI_SERVICE_CLASS[i],
-               "Check additionalInformation[" + i + "]");
+            is(
+              aResult.additionalInformation[i],
+              MMI_SERVICE_CLASS[i],
+              "Check additionalInformation[" + i + "]"
+            );
           }
         }
       });
@@ -75,9 +100,9 @@ function testUnsupportedOperation() {
   let types = CB_TYPES.concat(CB_TYPES_UNSUPPORTED);
   types.forEach(function(aType) {
     OPERATION_UNSUPPORTED.forEach(function(aOperation) {
-      promise = promise
-        .then(() => sendCbMMI(aOperation, aType, false,
-                              "emMmiErrorNotSupported"));
+      promise = promise.then(() =>
+        sendCbMMI(aOperation, aType, false, "emMmiErrorNotSupported")
+      );
     });
   });
 
@@ -87,12 +112,14 @@ function testUnsupportedOperation() {
 // Start test.
 startTest(function() {
   // Activate call barring service.
-  return testCallBarring(true)
-    // Deactivate call barring service.
-    .then(() => testCallBarring(false))
-    .then(() => testUnsupportType())
-    .then(() => testUnsupportedOperation())
+  return (
+    testCallBarring(true)
+      // Deactivate call barring service.
+      .then(() => testCallBarring(false))
+      .then(() => testUnsupportType())
+      .then(() => testUnsupportedOperation())
 
-    .catch(error => ok(false, "Promise reject: " + error))
-    .then(finish);;
+      .catch(error => ok(false, "Promise reject: " + error))
+      .then(finish)
+  );
 });

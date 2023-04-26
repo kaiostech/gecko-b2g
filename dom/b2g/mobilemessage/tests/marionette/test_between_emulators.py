@@ -1,4 +1,4 @@
-from marionette_test import *
+from marionette_test import MarionetteTestCase, unittest
 
 
 class SMSTest(MarionetteTestCase):

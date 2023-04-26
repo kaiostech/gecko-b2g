@@ -8,13 +8,18 @@
 
 "use strict";
 
-const {interfaces: Ci, utils: Cu, results: Cr, manager: Cm} = Components;
+const { interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Components;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
-const IMSREGSERVICE_CONTRACTID = "@mozilla.org/mobileconnection/imsregservice;1";
-const IMSREGSERVICE_CID = Components.ID("{80297610-34fa-11e5-b68f-1365a9172f05}");
-const MOCK_IMSREGSERVICE_CID = Components.ID("{f3c6848b-6723-4fbd-a2ff-19f366b90b45}");
+const IMSREGSERVICE_CONTRACTID =
+  "@mozilla.org/mobileconnection/imsregservice;1";
+const IMSREGSERVICE_CID = Components.ID(
+  "{80297610-34fa-11e5-b68f-1365a9172f05}"
+);
+const MOCK_IMSREGSERVICE_CID = Components.ID(
+  "{f3c6848b-6723-4fbd-a2ff-19f366b90b45}"
+);
 
 function debug(s) {
   dump("ImsRegService: " + s + "\n");
@@ -33,7 +38,7 @@ ImsRegService.prototype = {
 
   createInstance: function(aOuter, aIID) {
     if (aOuter != null) {
-        throw Cr.NS_ERROR_NO_AGGREGATION;
+      throw Cr.NS_ERROR_NO_AGGREGATION;
     }
     return this.QueryInterface(aIID);
   },
@@ -54,7 +59,7 @@ ImsRegService.prototype = {
    */
   getHandlerByServiceId: function(aServiceId) {
     return this._handlers[aServiceId] || null;
-  }
+  },
 };
 
 function ImsRegHandler(aServiceId) {
@@ -95,12 +100,14 @@ ImsRegHandler.prototype = {
       "voice-over-cellular",
       "voice-over-wifi",
       "video-over-cellular",
-      "video-over-wifi"
+      "video-over-wifi",
     ];
     this._capability = capabilities.indexOf(aCapability);
     this._unregisteredReason = aUnregisteredReason;
-    this._deliverListenerEvent("notifyCapabilityChanged",
-                               [this._capability, this._unregisteredReason]);
+    this._deliverListenerEvent("notifyCapabilityChanged", [
+      this._capability,
+      this._unregisteredReason,
+    ]);
   },
 
   /**
@@ -124,7 +131,7 @@ ImsRegHandler.prototype = {
   getSupportedBearers: function(aCount) {
     let bearers = [
       Ci.nsIImsRegHandler.IMS_BEARER_CELLULAR,
-      Ci.nsIImsRegHandler.IMS_BEARER_WIFI
+      Ci.nsIImsRegHandler.IMS_BEARER_WIFI,
     ];
 
     if (aCount) {
@@ -182,25 +189,33 @@ ImsRegHandler.prototype = {
 let gImsRegService = new ImsRegService();
 
 function setUpMockService() {
-  Cm.QueryInterface(Ci.nsIComponentRegistrar)
-    .registerFactory(MOCK_IMSREGSERVICE_CID, "MockImsRegService",
-                     IMSREGSERVICE_CONTRACTID,
-                     gImsRegService);
-};
+  Cm.QueryInterface(Ci.nsIComponentRegistrar).registerFactory(
+    MOCK_IMSREGSERVICE_CID,
+    "MockImsRegService",
+    IMSREGSERVICE_CONTRACTID,
+    gImsRegService
+  );
+}
 
 function teardownMockService() {
-  Cm.QueryInterface(Ci.nsIComponentRegistrar)
-    .registerFactory(IMSREGSERVICE_CID, null,
-                     IMSREGSERVICE_CONTRACTID,
-                     null); // Set to null to restore the old factory.
-  Cm.QueryInterface(Ci.nsIComponentRegistrar)
-    .unregisterFactory(MOCK_IMSREGSERVICE_CID, gImsRegService);
+  Cm.QueryInterface(Ci.nsIComponentRegistrar).registerFactory(
+    IMSREGSERVICE_CID,
+    null,
+    IMSREGSERVICE_CONTRACTID,
+    null
+  ); // Set to null to restore the old factory.
+  Cm.QueryInterface(Ci.nsIComponentRegistrar).unregisterFactory(
+    MOCK_IMSREGSERVICE_CID,
+    gImsRegService
+  );
   gImsRegService = null;
-};
+}
 
 addMessageListener("updateImsCapability", function(aMessage) {
   gImsRegService.notifyCapabilityChanged(
-    aMessage.capability, aMessage.unregisteredReason);
+    aMessage.capability,
+    aMessage.unregisteredReason
+  );
 });
 
 addMessageListener("mockSetterError", function(aMessage) {

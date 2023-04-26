@@ -1622,7 +1622,7 @@ SmsService.prototype = {
     }
     switch (aName) {
       case kSettingsDefaukltServiceId:
-        if (aResult < 0 || aResult >= gRadioInterfaces.length) {
+        if (aResult < 0 || aResult >= lazy.gRadioInterfaces.length) {
           this.smsDefaultServiceId = 0;
         } else {
           this.smsDefaultServiceId = aResult;

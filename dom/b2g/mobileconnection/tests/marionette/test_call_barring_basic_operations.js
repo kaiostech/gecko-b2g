@@ -6,7 +6,8 @@ MARIONETTE_HEAD_JS = "head.js";
 
 const AO = MozMobileConnection.CALL_BARRING_PROGRAM_ALL_OUTGOING;
 const OI = MozMobileConnection.CALL_BARRING_PROGRAM_OUTGOING_INTERNATIONAL;
-const OX = MozMobileConnection.CALL_BARRING_PROGRAM_OUTGOING_INTERNATIONAL_EXCEPT_HOME;
+const OX =
+  MozMobileConnection.CALL_BARRING_PROGRAM_OUTGOING_INTERNATIONAL_EXCEPT_HOME;
 var outgoingPrograms = [null, AO, OI, OX];
 
 const AI = MozMobileConnection.CALL_BARRING_PROGRAM_ALL_INCOMING;
@@ -21,10 +22,12 @@ function getProgram(aProgram, aEnabled) {
   }
 
   return Promise.resolve()
-    .then(() => getCallBarringOption({
-      program: aProgram,
-      serviceClass: SERVICE_CLASS_VOICE
-    }))
+    .then(() =>
+      getCallBarringOption({
+        program: aProgram,
+        serviceClass: SERVICE_CLASS_VOICE,
+      })
+    )
 
     .then(result => {
       is(result.program, aProgram, "Program");
@@ -38,13 +41,14 @@ function setProgram(aProgram, aEnabled) {
     return Promise.resolve();
   }
 
-  return Promise.resolve()
-    .then(() => setCallBarringOption({
+  return Promise.resolve().then(() =>
+    setCallBarringOption({
       program: aProgram,
       serviceClass: SERVICE_CLASS_VOICE,
       enabled: aEnabled,
-      password: "0000" // The dafault call barring password of the emulator
-    }));
+      password: "0000", // The dafault call barring password of the emulator
+    })
+  );
 }
 
 function setAndCheckProgram(aActiveProgram, aAllPrograms) {
@@ -61,7 +65,9 @@ function setAndCheckProgram(aActiveProgram, aAllPrograms) {
 
   // Make sure |aActiveProgram| is the only active program in |aAllPrograms|.
   promise = aAllPrograms.reduce((previousPromise, program) => {
-    return previousPromise.then(() => getProgram(program, program === aActiveProgram));
+    return previousPromise.then(() =>
+      getProgram(program, program === aActiveProgram)
+    );
   }, promise);
 
   return promise;
@@ -82,31 +88,37 @@ function testAllPrograms(aPrograms) {
   let targetPrograms = aPrograms.slice();
 
   return aPrograms.reduce((previousPromise, program) => {
-    return previousPromise
-      .then(() => {
-        targetPrograms.shift();
-        return testSingleProgram(program, targetPrograms, aPrograms);
-      });
+    return previousPromise.then(() => {
+      targetPrograms.shift();
+      return testSingleProgram(program, targetPrograms, aPrograms);
+    });
   }, Promise.resolve());
 }
 
 function testUnsupportedPrograms() {
   // Emulator now doesn't support these three programs.
-  let unsupportedPrograms =
-    [MozMobileConnection.CALL_BARRING_PROGRAM_ALL_SERVICE,
-     MozMobileConnection.CALL_BARRING_PROGRAM_OUTGOING_SERVICE,
-     MozMobileConnection.CALL_BARRING_PROGRAM_INCOMING_SERVICE];
+  let unsupportedPrograms = [
+    MozMobileConnection.CALL_BARRING_PROGRAM_ALL_SERVICE,
+    MozMobileConnection.CALL_BARRING_PROGRAM_OUTGOING_SERVICE,
+    MozMobileConnection.CALL_BARRING_PROGRAM_INCOMING_SERVICE,
+  ];
 
   return unsupportedPrograms.reduce((previousPromise, program) => {
     return previousPromise
       .then(() => log("Test " + program))
       .then(() => setProgram(program, false))
-      .then(() => {
-        ok(false, "Should be rejected");
-      }, error => {
-        is(error.name, "RequestNotSupported",
-           "Failed to setProgram: "+ error.name);
-      });
+      .then(
+        () => {
+          ok(false, "Should be rejected");
+        },
+        error => {
+          is(
+            error.name,
+            "RequestNotSupported",
+            "Failed to setProgram: " + error.name
+          );
+        }
+      );
   }, Promise.resolve());
 }
 

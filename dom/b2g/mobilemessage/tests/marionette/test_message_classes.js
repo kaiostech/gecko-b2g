@@ -18,8 +18,10 @@ const SENT_TIMESTAMP = Date.UTC(2000, 0, 1); // Must be equal to PDU_TIMESTAMP.
 SpecialPowers.addPermission("sms", true, document);
 
 var manager = window.navigator.mozMobileMessage;
-ok(manager instanceof MozMobileMessageManager,
-   "manager is instance of " + manager.constructor);
+ok(
+  manager instanceof MozMobileMessageManager,
+  "manager is instance of " + manager.constructor
+);
 
 var pendingEmulatorCmdCount = 0;
 function sendSmsPduToEmulator(pdu) {
@@ -34,8 +36,10 @@ function sendSmsPduToEmulator(pdu) {
 }
 
 function checkMessage(message, id, threadId, messageClass) {
-  ok(message instanceof SmsMessage,
-     "message is instanceof " + message.constructor);
+  ok(
+    message instanceof SmsMessage,
+    "message is instanceof " + message.constructor
+  );
   if (id == null) {
     ok(message.id > 0, "message.id");
   } else {
@@ -59,7 +63,7 @@ function test_message_class_0() {
   let allDCSs = [
     "10", // General Group: 00xx
     "50", // Automatica Deletion Group: 01xx
-    "F0"  // (no name) Group: 1111
+    "F0", // (no name) Group: 1111
   ];
 
   function do_test(dcsIndex) {
@@ -68,12 +72,19 @@ function test_message_class_0() {
 
       let message = event.message;
       checkMessage(message, -1, 0, "class-0");
-      ok(event.message.timestamp >= timeBeforeSend,
-         "Message's timestamp should be greater then the timetamp of sending");
-      ok(event.message.timestamp <= Date.now(),
-         "Message's timestamp should be lesser than the timestamp of now");
-      is(event.message.sentTimestamp, SENT_TIMESTAMP,
-         "Message's sentTimestamp should be equal to SENT_TIMESTAMP");
+      ok(
+        event.message.timestamp >= timeBeforeSend,
+        "Message's timestamp should be greater then the timetamp of sending"
+      );
+      ok(
+        event.message.timestamp <= Date.now(),
+        "Message's timestamp should be lesser than the timestamp of now"
+      );
+      is(
+        event.message.sentTimestamp,
+        SENT_TIMESTAMP,
+        "Message's sentTimestamp should be equal to SENT_TIMESTAMP"
+      );
 
       // Make sure the message is not stored.
       let cursor = manager.getMessages();
@@ -101,8 +112,15 @@ function test_message_class_0() {
 
     let dcs = allDCSs[dcsIndex];
     log("  Testing DCS " + dcs);
-    let pdu = PDU_SMSC + PDU_FIRST_OCTET + PDU_SENDER + PDU_PID_NORMAL +
-              dcs + PDU_TIMESTAMP + PDU_UDL + PDU_UD;
+    let pdu =
+      PDU_SMSC +
+      PDU_FIRST_OCTET +
+      PDU_SENDER +
+      PDU_PID_NORMAL +
+      dcs +
+      PDU_TIMESTAMP +
+      PDU_UDL +
+      PDU_UD;
     let timeBeforeSend = Date.now();
     sendSmsPduToEmulator(pdu);
   }
@@ -118,12 +136,19 @@ function doTestMessageClassGeneric(allDCSs, messageClass, next) {
 
       // Make sure we can correctly receive the message
       checkMessage(event.message, null, null, messageClass);
-      ok(event.message.timestamp >= timeBeforeSend,
-         "Message's timestamp should be greater then the timetamp of sending");
-      ok(event.message.timestamp <= Date.now(),
-         "Message's timestamp should be lesser than the timestamp of now");
-      is(event.message.sentTimestamp, SENT_TIMESTAMP,
-         "Message's sentTimestamp should be equal to SENT_TIMESTAMP");
+      ok(
+        event.message.timestamp >= timeBeforeSend,
+        "Message's timestamp should be greater then the timetamp of sending"
+      );
+      ok(
+        event.message.timestamp <= Date.now(),
+        "Message's timestamp should be lesser than the timestamp of now"
+      );
+      is(
+        event.message.sentTimestamp,
+        SENT_TIMESTAMP,
+        "Message's sentTimestamp should be equal to SENT_TIMESTAMP"
+      );
 
       ++dcsIndex;
       if (dcsIndex >= allDCSs.length) {
@@ -135,8 +160,15 @@ function doTestMessageClassGeneric(allDCSs, messageClass, next) {
 
     let dcs = allDCSs[dcsIndex];
     log("  Testing DCS " + dcs);
-    let pdu = PDU_SMSC + PDU_FIRST_OCTET + PDU_SENDER + PDU_PID_NORMAL +
-              dcs + PDU_TIMESTAMP + PDU_UDL + PDU_UD;
+    let pdu =
+      PDU_SMSC +
+      PDU_FIRST_OCTET +
+      PDU_SENDER +
+      PDU_PID_NORMAL +
+      dcs +
+      PDU_TIMESTAMP +
+      PDU_UDL +
+      PDU_UD;
 
     let timeBeforeSend = Date.now();
     sendSmsPduToEmulator(pdu);
@@ -149,7 +181,7 @@ function test_message_class_1() {
   let allDCSs = [
     "11", // General Group: 00xx
     "51", // Automatica Deletion Group: 01xx
-    "F1"  // (no name) Group: 1111
+    "F1", // (no name) Group: 1111
   ];
 
   log("Checking Message Class 1");
@@ -160,13 +192,13 @@ function test_message_class_2() {
   let allDCSs = [
     "12", // General Group: 00xx
     "52", // Automatica Deletion Group: 01xx
-    "F2"  // (no name) Group: 1111
+    "F2", // (no name) Group: 1111
   ];
 
   let allPIDs = [
     PDU_PID_NORMAL,
     PDU_PID_ANSI_136_R_DATA,
-    PDU_PID_USIM_DATA_DOWNLOAD
+    PDU_PID_USIM_DATA_DOWNLOAD,
   ];
 
   function do_test_dcs(dcsIndex) {
@@ -175,12 +207,19 @@ function test_message_class_2() {
         if (pidIndex == 0) {
           // Make sure we can correctly receive the message
           checkMessage(event.message, null, null, "class-2");
-          ok(event.message.timestamp >= timeBeforeSend,
-             "Message's timestamp should be greater then the timetamp of sending");
-          ok(event.message.timestamp <= Date.now(),
-             "Message's timestamp should be lesser than the timestamp of now");
-          is(event.message.sentTimestamp, SENT_TIMESTAMP,
-             "Message's sentTimestamp should be equal to SENT_TIMESTAMP");
+          ok(
+            event.message.timestamp >= timeBeforeSend,
+            "Message's timestamp should be greater then the timetamp of sending"
+          );
+          ok(
+            event.message.timestamp <= Date.now(),
+            "Message's timestamp should be lesser than the timestamp of now"
+          );
+          is(
+            event.message.sentTimestamp,
+            SENT_TIMESTAMP,
+            "Message's sentTimestamp should be equal to SENT_TIMESTAMP"
+          );
 
           next();
           return;
@@ -220,8 +259,15 @@ function test_message_class_2() {
       let pid = allPIDs[pidIndex];
       log("    Testing PID " + pid);
 
-      let pdu = PDU_SMSC + PDU_FIRST_OCTET + PDU_SENDER + pid + dcs +
-                PDU_TIMESTAMP + PDU_UDL + PDU_UD;
+      let pdu =
+        PDU_SMSC +
+        PDU_FIRST_OCTET +
+        PDU_SENDER +
+        pid +
+        dcs +
+        PDU_TIMESTAMP +
+        PDU_UDL +
+        PDU_UD;
       let timeBeforeSend = Date.now();
       sendSmsPduToEmulator(pdu);
     }
@@ -240,7 +286,7 @@ function test_message_class_3() {
   let allDCSs = [
     "13", // General Group: 00xx
     "53", // Automatica Deletion Group: 01xx
-    "F3"  // (no name) Group: 1111
+    "F3", // (no name) Group: 1111
   ];
 
   log("Checking Message Class 3");

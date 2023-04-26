@@ -8,34 +8,39 @@ var mockImsRegServiceHelper = SpecialPowers.loadChromeScript(
 );
 function ensureMockImsRegService() {
   return new Promise(function(resolve, reject) {
-    mockImsRegServiceHelper.addMessageListener('setup-complete',
-                                               function onevent() {
-      mockImsRegServiceHelper
-        .removeMessageListener('setup-complete', onevent);
+    mockImsRegServiceHelper.addMessageListener(
+      "setup-complete",
+      function onevent() {
+        mockImsRegServiceHelper.removeMessageListener(
+          "setup-complete",
+          onevent
+        );
 
-      ok(true, "MockImsRegService has been setup.");
-      resolve();
-    });
+        ok(true, "MockImsRegService has been setup.");
+        resolve();
+      }
+    );
 
-    mockImsRegServiceHelper.sendAsyncMessage('setup');
+    mockImsRegServiceHelper.sendAsyncMessage("setup");
   });
 }
 
 var imsRegHandler;
 function ensureImsRegHandler() {
   return new Promise(function(resolve, reject) {
-    SpecialPowers.pushPermissions([{ "type": "mobileconnection",
-                                     "allow": 1, "context": document }],
-                                  function() {
-      info("permission of mobileconnection is pushed");
-      imsRegHandler = navigator.mozMobileConnections[0].imsHandler;
-      ok(imsRegHandler, "imsRegHandler is granted.");
-      if (imsRegHandler) {
-        resolve();
-      } else {
-        reject("imsRegHandler is not granted.");
+    SpecialPowers.pushPermissions(
+      [{ type: "mobileconnection", allow: 1, context: document }],
+      function() {
+        info("permission of mobileconnection is pushed");
+        imsRegHandler = navigator.mozMobileConnections[0].imsHandler;
+        ok(imsRegHandler, "imsRegHandler is granted.");
+        if (imsRegHandler) {
+          resolve();
+        } else {
+          reject("imsRegHandler is not granted.");
+        }
       }
-    });
+    );
   });
 }
 
@@ -64,29 +69,33 @@ function updateImsCapability(aCapability, aUnregisteredReason) {
 
     mockImsRegServiceHelper.sendAsyncMessage("updateImsCapability", {
       capability: aCapability,
-      unregisteredReason: aUnregisteredReason
+      unregisteredReason: aUnregisteredReason,
     });
   });
 }
 
 function mockSetterError() {
   return new Promise(function(resolve, reject) {
-    mockImsRegServiceHelper.addMessageListener('mockSetterError-complete',
-                                               function onevent() {
-      mockImsRegServiceHelper
-        .removeMessageListener('mockSetterError-complete', onevent);
+    mockImsRegServiceHelper.addMessageListener(
+      "mockSetterError-complete",
+      function onevent() {
+        mockImsRegServiceHelper.removeMessageListener(
+          "mockSetterError-complete",
+          onevent
+        );
 
-      ok(true, "mockSetterError completed.");
-      resolve();
-    });
+        ok(true, "mockSetterError completed.");
+        resolve();
+      }
+    );
 
-    mockImsRegServiceHelper.sendAsyncMessage('mockSetterError');
+    mockImsRegServiceHelper.sendAsyncMessage("mockSetterError");
   });
 }
 
 function cleanUp() {
   imsRegHandler = null;
-  mockImsRegServiceHelper.sendAsyncMessage('teardown');
+  mockImsRegServiceHelper.sendAsyncMessage("teardown");
   mockImsRegServiceHelper.destroy();
   mockImsRegServiceHelper = null;
   SimpleTest.finish();
@@ -98,7 +107,7 @@ function startTestCommon(aTestCaseMain) {
     .then(ensureImsRegHandler)
     .then(aTestCaseMain)
     .catch(function(e) {
-      ok(false, 'promise rejects during test: ' + e);
+      ok(false, "promise rejects during test: " + e);
     })
     .then(cleanUp);
 }

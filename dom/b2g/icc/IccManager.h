@@ -9,7 +9,7 @@
 
 #include "mozilla/DOMEventTargetHelper.h"
 #include "nsCycleCollectionParticipant.h"
-//#include "nsTArrayHelpers.h"
+// #include "nsTArrayHelpers.h"
 
 namespace mozilla {
 namespace dom {

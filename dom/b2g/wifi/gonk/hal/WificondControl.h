@@ -14,8 +14,8 @@
 #include <android-base/macros.h>
 
 #if ANDROID_VERSION >= 30
-#include <android/net/wifi/nl80211/IWificond.h>
-#include <android/net/wifi/nl80211/IWifiScannerImpl.h>
+#  include <android/net/wifi/nl80211/IWificond.h>
+#  include <android/net/wifi/nl80211/IWifiScannerImpl.h>
 
 using ::android::net::wifi::nl80211::IApInterface;
 using ::android::net::wifi::nl80211::IClientInterface;
@@ -26,8 +26,8 @@ namespace Wificond = ::android::net::wifi::nl80211;
 
 #else
 
-#include <android/net/wifi/IWificond.h>
-#include <android/net/wifi/IWifiScannerImpl.h>
+#  include <android/net/wifi/IWificond.h>
+#  include <android/net/wifi/IWifiScannerImpl.h>
 
 using ::android::net::wifi::IApInterface;
 using ::android::net::wifi::IClientInterface;

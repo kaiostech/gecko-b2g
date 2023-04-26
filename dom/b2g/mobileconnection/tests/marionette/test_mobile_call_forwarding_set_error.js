@@ -15,13 +15,15 @@ const TEST_DATA = [
       action: MozMobileConnection.CALL_FORWARD_ACTION_DISABLE,
       reason: MozMobileConnection.CALL_FORWARD_REASON_ALL_CALL_FORWARDING,
     },
-    errorMsg: "GenericFailure"
-  }, {
+    errorMsg: "GenericFailure",
+  },
+  {
     options: {
       action: MozMobileConnection.CALL_FORWARD_ACTION_ENABLE,
-      reason: MozMobileConnection.CALL_FORWARD_REASON_ALL_CONDITIONAL_CALL_FORWARDING,
+      reason:
+        MozMobileConnection.CALL_FORWARD_REASON_ALL_CONDITIONAL_CALL_FORWARDING,
     },
-    errorMsg: "GenericFailure"
+    errorMsg: "GenericFailure",
   },
   // Test passing invalid action. We expect to get a 'InvalidParameter' error.
   {
@@ -30,13 +32,14 @@ const TEST_DATA = [
       action: MozMobileConnection.CALL_FORWARD_ACTION_QUERY_STATUS,
       reason: MozMobileConnection.CALL_FORWARD_REASON_MOBILE_BUSY,
     },
-    errorMsg: "InvalidParameter"
-  }, {
+    errorMsg: "InvalidParameter",
+  },
+  {
     options: {
       action: 10 /* Invalid action */,
       reason: MozMobileConnection.CALL_FORWARD_REASON_MOBILE_BUSY,
     },
-    errorMsg: "InvalidParameter"
+    errorMsg: "InvalidParameter",
   },
   // Test passing invalid reason. We expect to get a 'InvalidParameter' error.
   {
@@ -44,8 +47,8 @@ const TEST_DATA = [
       action: MozMobileConnection.CALL_FORWARD_ACTION_DISABLE,
       reason: 10 /*Invalid reason*/,
     },
-    errorMsg: "InvalidParameter"
-  }
+    errorMsg: "InvalidParameter",
+  },
 ];
 
 function testSetCallForwardingOption(aOptions, aErrorMsg) {
@@ -54,12 +57,14 @@ function testSetCallForwardingOption(aOptions, aErrorMsg) {
   aOptions.number = TEST_NUMBER;
   aOptions.timeSeconds = TEST_TIME_SECONDS;
 
-  return setCallForwardingOption(aOptions)
-    .then(function resolve() {
+  return setCallForwardingOption(aOptions).then(
+    function resolve() {
       ok(false, "setCallForwardingOption success");
-    }, function reject(aError) {
+    },
+    function reject(aError) {
       is(aError.name, aErrorMsg, "failed to setCallForwardingOption");
-    });
+    }
+  );
 }
 
 // Start tests
@@ -67,8 +72,9 @@ startTestCommon(function() {
   let promise = Promise.resolve();
   for (let i = 0; i < TEST_DATA.length; i++) {
     let data = TEST_DATA[i];
-    promise = promise.then(() => testSetCallForwardingOption(data.options,
-                                                             data.errorMsg));
+    promise = promise.then(() =>
+      testSetCallForwardingOption(data.options, data.errorMsg)
+    );
   }
   return promise;
 });

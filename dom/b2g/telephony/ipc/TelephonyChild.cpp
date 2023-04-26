@@ -8,7 +8,7 @@
 
 #include "mozilla/dom/telephony/TelephonyDialCallback.h"
 #ifdef MOZ_WIDGET_GONK
-//#include "mozilla/dom/videocallprovider/VideoCallProviderChild.h"
+// #include "mozilla/dom/videocallprovider/VideoCallProviderChild.h"
 #endif
 #include "mozilla/UniquePtr.h"
 #include "TelephonyIPCService.h"

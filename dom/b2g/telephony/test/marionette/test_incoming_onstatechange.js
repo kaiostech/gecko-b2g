@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 MARIONETTE_TIMEOUT = 60000;
 
 const inNumber = "5555552222";
@@ -10,7 +10,7 @@ var inCall;
 
 startTest(function() {
   gRemoteDial(inNumber)
-    .then(call => inCall = call)
+    .then(call => (inCall = call))
     .then(() => gCheckAll(null, [inCall], "", [], [inInfo.incoming]))
 
     // Answer incoming call

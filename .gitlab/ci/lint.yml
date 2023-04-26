@@ -10,7 +10,7 @@
     - gecko-eslint
   variables:
     SPECIFIC_LINTERS: "eslint codespell"
-    PATHSPEC: "*.{js,jsm,jsx,xul,html,xhtml} ':(glob)**/.eslintignore' ':(glob)**/*eslintrc*' 'tools/lint/eslint/eslint-plugin-mozilla/' 'tools/lint/eslint/eslint-plugin-spidermonkey-js/'"
+    PATHSPEC: "*.{js,jsm,jsx,mjs,xul,html,xhtml} ':(glob)**/.eslintignore' ':(glob)**/*eslintrc*' 'tools/lint/eslint/eslint-plugin-mozilla/' 'tools/lint/eslint/eslint-plugin-spidermonkey-js/'"
   script:
     - |
       if [[ ${GIT_CLONE_PATH##*/} == koost ]]; then

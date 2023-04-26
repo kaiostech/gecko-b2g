@@ -16,8 +16,10 @@ const EMULATOR = "15555215554"; // the emulator's number
 
 function verifyInitialState() {
   log("Verifying initial state.");
-  ok(manager instanceof MozMobileMessageManager,
-     "manager is instance of " + manager.constructor);
+  ok(
+    manager instanceof MozMobileMessageManager,
+    "manager is instance of " + manager.constructor
+  );
   simulateIncomingSms();
 }
 
@@ -25,9 +27,10 @@ function simulateIncomingSms() {
   let msgText = "";
 
   // Build the message text
-  msgText = new Array((maxCharsPerSms * maxSegments) + 1).join('a');
-  log("Simulating incoming multipart SMS (" + msgText.length +
-      " chars total).");
+  msgText = new Array(maxCharsPerSms * maxSegments + 1).join("a");
+  log(
+    "Simulating incoming multipart SMS (" + msgText.length + " chars total)."
+  );
 
   manager.onreceived = function onreceived(event) {
     manager.onreceived = null;
@@ -79,7 +82,7 @@ function verifySmsExists(incomingSms) {
   };
 }
 
-function deleteSms(smsMsgObj){
+function deleteSms(smsMsgObj) {
   log("Deleting SMS (id: " + smsMsgObj.id + ") using smsmsg obj parameter.");
   let requestRet = manager.delete(smsMsgObj);
   ok(requestRet, "smsrequest obj returned");
@@ -98,8 +101,11 @@ function deleteSms(smsMsgObj){
   requestRet.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.delete request returned unexpected error: " +
-              event.target.error.name);
+    ok(
+      false,
+      "manager.delete request returned unexpected error: " +
+        event.target.error.name
+    );
     cleanUp();
   };
 }

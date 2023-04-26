@@ -7,7 +7,7 @@
 #include "mozilla/dom/telephony/TelephonyParent.h"
 #include "nsServiceManagerUtils.h"
 #ifdef MOZ_WIDGET_GONK
-//#include "mozilla/dom/videocallprovider/VideoCallProviderParent.h"
+// #include "mozilla/dom/videocallprovider/VideoCallProviderParent.h"
 #endif
 
 USING_TELEPHONY_NAMESPACE

@@ -48,7 +48,7 @@ var tasks = {
 
   run: function() {
     this.next();
-  }
+  },
 };
 
 function getAllMessages(callback, filter, reverse) {
@@ -62,7 +62,7 @@ function getAllMessages(callback, filter, reverse) {
     }
 
     window.setTimeout(callback.bind(null, messages), 0);
-  }
+  };
 }
 
 function deleteAllMessages() {
@@ -79,7 +79,7 @@ function deleteAllMessages() {
     request.onerror = function(event) {
       ok(false, "failed to delete all messages");
       tasks.finish();
-    }
+    };
   });
 }
 
@@ -92,8 +92,11 @@ function validate(number, normalizedNumber) {
 
     manager.onreceived = function onreceived(event) {
       let receivedMessage = event.message;
-      is(sentMessage.threadId, receivedMessage.threadId,
-         "message threadIds are supposed to be matched");
+      is(
+        sentMessage.threadId,
+        receivedMessage.threadId,
+        "message threadIds are supposed to be matched"
+      );
 
       tasks.next();
     };
@@ -108,8 +111,10 @@ function validate(number, normalizedNumber) {
 var manager = window.navigator.mozMobileMessage;
 tasks.push(function() {
   log("Verifying initial state.");
-  ok(manager instanceof MozMobileMessageManager,
-     "manager is instance of " + manager.constructor);
+  ok(
+    manager instanceof MozMobileMessageManager,
+    "manager is instance of " + manager.constructor
+  );
   tasks.next();
 });
 

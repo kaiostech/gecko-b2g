@@ -11,8 +11,10 @@ var smsId;
 
 function verifyInitialState() {
   log("Verifying initial state.");
-  ok(manager instanceof MozMobileMessageManager,
-     "manager is instance of " + manager.constructor);
+  ok(
+    manager instanceof MozMobileMessageManager,
+    "manager is instance of " + manager.constructor
+  );
   simulateIncomingSms();
 }
 
@@ -40,7 +42,7 @@ manager.onreceived = function onreceived(event) {
 
   // Wait for emulator to catch up before continuing
   waitFor(test1, function() {
-    return(rcvdEmulatorCallback);
+    return rcvdEmulatorCallback;
   });
 };
 
@@ -65,24 +67,32 @@ function markMsgError(invalidId, readBool, nextFunction) {
 function test1() {
   // Mark message read for a message that doesn't exist, expect error
   let msgIdNoExist = smsId + 1;
-  log("Attempting to mark non-existent sms (id: " + msgIdNoExist
-      + ") read, expect error.");
+  log(
+    "Attempting to mark non-existent sms (id: " +
+      msgIdNoExist +
+      ") read, expect error."
+  );
   markMsgError(msgIdNoExist, true, test2);
 }
 
 function test2() {
   // Mark message read using invalid SMS id, expect error
   invalidId = -1;
-  log("Attempting to mark sms unread using an invalid id (id: " + invalidId
-      + "), expect error.");
+  log(
+    "Attempting to mark sms unread using an invalid id (id: " +
+      invalidId +
+      "), expect error."
+  );
   markMsgError(invalidId, false, deleteMsg);
 }
 
 function deleteMsg() {
   log("Deleting SMS (id: " + smsId + ").");
   let request = manager.delete(smsId);
-  ok(request instanceof DOMRequest,
-      "request is instanceof " + request.constructor);
+  ok(
+    request instanceof DOMRequest,
+    "request is instanceof " + request.constructor
+  );
 
   request.onsuccess = function(event) {
     log("Received 'onsuccess' smsrequest event.");
@@ -91,7 +101,7 @@ function deleteMsg() {
       cleanUp();
     } else {
       log("SMS delete failed.");
-      ok(false,"manager.delete request returned false");
+      ok(false, "manager.delete request returned false");
       cleanUp();
     }
   };
@@ -99,8 +109,11 @@ function deleteMsg() {
   request.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.delete request returned unexpected error: "
-        + event.target.error.name );
+    ok(
+      false,
+      "manager.delete request returned unexpected error: " +
+        event.target.error.name
+    );
     cleanUp();
   };
 }

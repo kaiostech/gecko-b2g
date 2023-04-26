@@ -12,8 +12,8 @@ const TEST_DATA = [
     newPin2Again: "1111",
     expectedError: {
       name: "emMmiError",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing no newPin2.
   {
@@ -22,8 +22,8 @@ const TEST_DATA = [
     newPin2Again: "",
     expectedError: {
       name: "emMmiError",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing mismatched newPin2.
   {
@@ -32,8 +32,8 @@ const TEST_DATA = [
     newPin2Again: "1111",
     expectedError: {
       name: "emMmiErrorMismatchPin",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing invalid pin2 (< 4 digit).
   {
@@ -42,8 +42,8 @@ const TEST_DATA = [
     newPin2Again: "0000",
     expectedError: {
       name: "emMmiErrorInvalidPin",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing invalid newPin2 (> 8 digit).
   {
@@ -52,8 +52,8 @@ const TEST_DATA = [
     newPin2Again: "123456789",
     expectedError: {
       name: "emMmiErrorInvalidPin",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
   // Test passing valid pin2 and newPin2. But currently emulator doesn't support
   // REQUEST_CHANGE_SIM_PIN2, so we expect to get a 'RequestNotSupported' error
@@ -64,8 +64,8 @@ const TEST_DATA = [
     newPin2Again: "0000",
     expectedError: {
       name: "RequestNotSupported",
-      additionalInformation: null
-    }
+      additionalInformation: null,
+    },
   },
 ];
 
@@ -79,11 +79,18 @@ function testChangePin2(aPin2, aNewPin2, aNewPin2Again, aExpectedError) {
 
     if (aResult.success) {
       is(aResult.statusMessage, "smPin2Changed", "Check status message");
-      is(aResult.additionalInformation, undefined, "Check additional information");
+      is(
+        aResult.additionalInformation,
+        undefined,
+        "Check additional information"
+      );
     } else {
       is(aResult.statusMessage, aExpectedError.name, "Check name");
-      is(aResult.additionalInformation, aExpectedError.additionalInformation,
-         "Check additional information");
+      is(
+        aResult.additionalInformation,
+        aExpectedError.additionalInformation,
+        "Check additional information"
+      );
     }
   });
 }
@@ -93,10 +100,14 @@ startTest(function() {
   let promise = Promise.resolve();
   for (let i = 0; i < TEST_DATA.length; i++) {
     let data = TEST_DATA[i];
-    promise = promise.then(() => testChangePin2(data.pin2,
-                                                data.newPin2,
-                                                data.newPin2Again,
-                                                data.expectedError));
+    promise = promise.then(() =>
+      testChangePin2(
+        data.pin2,
+        data.newPin2,
+        data.newPin2Again,
+        data.expectedError
+      )
+    );
   }
 
   return promise

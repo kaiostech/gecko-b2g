@@ -2,26 +2,29 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const SELF = "5554";
 
 function randomString16() {
-  return Math.random().toString(36).substr(2, 16);
+  return Math.random()
+    .toString(36)
+    .substr(2, 16);
 }
 
 function times(str, n) {
-  return (new Array(n + 1)).join(str);
+  return new Array(n + 1).join(str);
 }
 
 function test(aBody) {
   let promises = [];
 
-  promises.push(waitForManagerEvent('received')
-    .then(function(aEvent) {
+  promises.push(
+    waitForManagerEvent("received").then(function(aEvent) {
       let message = aEvent.message;
       is(message.body, aBody, "message.body");
-    }));
+    })
+  );
 
   promises.push(sendSmsWithSuccess(SELF, aBody));
 
@@ -40,13 +43,13 @@ const TEST_DATA = [
   times("\u95dc\u95dc\u96ce\u9ce9\uff0c\u5728\u6cb3\u4e4b\u6d32\u3002", 100),
 
   // Test case from Bug 809553
-  "zertuuuppzuzyeueieieyeieoeiejeheejrueufjfjfjjfjfkxifjfjfufjjfjfufujdjduxxjdu"
-  + "djdjdjdudhdjdhdjdbddhbfjfjxbuwjdjdudjddjdhdhdvdyudusjdudhdjjfjdvdudbddjdbd"
-  + "usjfbjdfudjdhdjbzuuzyzehdjjdjwybwudjvwywuxjdbfudsbwuwbwjdjdbwywhdbddudbdjd"
-  + "uejdhdudbdduwjdbjddudjdjdjdudjdbdjdhdhdjjdjbxudjdbxufjudbdjhdjdisjsjzusbzh"
-  + "xbdudksksuqjgdjdb jeudi jeudis duhebevzcevevsvs DVD suscite eh du d des jv"
-  + " y b Dj. Du  wh. Hu Deb wh. Du web h w show d DVD h w v.  Th\u00e9 \u00e9c"
-  + "hec d whdvdj. Wh d'h\u00f4tel DVD. IMAX eusjw ii ce",
+  "zertuuuppzuzyeueieieyeieoeiejeheejrueufjfjfjjfjfkxifjfjfufjjfjfufujdjduxxjdu" +
+    "djdjdjdudhdjdhdjdbddhbfjfjxbuwjdjdudjddjdhdhdvdyudusjdudhdjjfjdvdudbddjdbd" +
+    "usjfbjdfudjdhdjbzuuzyzehdjjdjwybwudjvwywuxjdbfudsbwuwbwjdjdbwywhdbddudbdjd" +
+    "uejdhdudbdduwjdbjddudjdjdjdudjdbdjdhdhdjjdjbxudjdbxufjudbdjhdjdisjsjzusbzh" +
+    "xbdudksksuqjgdjdb jeudi jeudis duhebevzcevevsvs DVD suscite eh du d des jv" +
+    " y b Dj. Du  wh. Hu Deb wh. Du web h w show d DVD h w v.  Th\u00e9 \u00e9c" +
+    "hec d whdvdj. Wh d'h\u00f4tel DVD. IMAX eusjw ii ce",
 
   // Android Emulator specific problems:
   // 1) wrong default 7Bit alphabet character for "Ň"(U+0147).
@@ -57,15 +60,14 @@ const TEST_DATA = [
 ];
 
 startTestBase(function testCaseMain() {
-  return ensureMobileMessage()
-    .then(function() {
-      let promise = Promise.resolve();
+  return ensureMobileMessage().then(function() {
+    let promise = Promise.resolve();
 
-      for (let i = 0; i < TEST_DATA.length; i++) {
-        let text = TEST_DATA[i];
-        promise = promise.then(() => test(text));
-      }
+    for (let i = 0; i < TEST_DATA.length; i++) {
+      let text = TEST_DATA[i];
+      promise = promise.then(() => test(text));
+    }
 
-      return promise;
-    });
+    return promise;
+  });
 });

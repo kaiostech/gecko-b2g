@@ -21,6 +21,3 @@ interface nsIAlarmHalService : nsISupports
   bool setAlarm(in int32_t aSeconds, in int32_t aNanoseconds);
   void setAlarmFiredCb(in nsIAlarmFiredCb aAlarmFiredCb);
 };
-
-
-

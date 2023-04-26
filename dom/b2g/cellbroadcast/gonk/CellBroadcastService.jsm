@@ -464,7 +464,7 @@ CellBroadcastService.prototype = {
       });
     }
     allBroadcastMessages.forEach(msg => {
-      if (commonBroadcastArea.length > 0) {
+      if (commonBroadcastArea.length) {
         this._handleGeometryMessage(aServiceId, msg, commonBroadcastArea);
       } else {
         this._handleGeometryMessage(aServiceId, msg);

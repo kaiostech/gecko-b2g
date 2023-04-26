@@ -82,7 +82,8 @@ void BuildPermissionsTable() {
       u"icc-stkcommand"_ns, "settings:read,settings:write"_ns);
   sSystemMessagePermissionsTable.InsertOrUpdate(u"media-button"_ns,
                                                 EmptyCString());
-  sSystemMessagePermissionsTable.InsertOrUpdate(u"networkstats-alarm"_ns, "networkstats-manage"_ns);
+  sSystemMessagePermissionsTable.InsertOrUpdate(u"networkstats-alarm"_ns,
+                                                "networkstats-manage"_ns);
   sSystemMessagePermissionsTable.InsertOrUpdate(u"sms-delivery-error"_ns,
                                                 "sms"_ns);
   sSystemMessagePermissionsTable.InsertOrUpdate(u"sms-delivery-success"_ns,

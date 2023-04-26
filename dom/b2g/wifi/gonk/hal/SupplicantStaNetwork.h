@@ -13,9 +13,9 @@
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantNetwork.h>
 #include <android/hardware/wifi/supplicant/1.0/types.h>
 #if ANDROID_VERSION >= 30
-#include <android/hardware/wifi/supplicant/1.3/ISupplicantStaNetwork.h>
+#  include <android/hardware/wifi/supplicant/1.3/ISupplicantStaNetwork.h>
 #else
-#include <android/hardware/wifi/supplicant/1.2/ISupplicantStaNetwork.h>
+#  include <android/hardware/wifi/supplicant/1.2/ISupplicantStaNetwork.h>
 #endif
 
 #include "mozilla/Mutex.h"

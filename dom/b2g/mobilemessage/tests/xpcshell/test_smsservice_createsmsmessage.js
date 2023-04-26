@@ -11,17 +11,20 @@ function do_check_throws(f, result, stack) {
   try {
     f();
   } catch (exc) {
-    if (exc.result == result)
-      return;
+    if (exc.result == result) return;
     do_throw("expected result " + result + ", caught " + exc, stack);
   }
   do_throw("expected result " + result + ", none thrown", stack);
 }
 
-var gMobileMessageService = Cc["@mozilla.org/mobilemessage/mobilemessageservice;1"]
-                            .getService(Ci.nsIMobileMessageService);
+var gMobileMessageService = Cc[
+  "@mozilla.org/mobilemessage/mobilemessageservice;1"
+].getService(Ci.nsIMobileMessageService);
 function newMessage() {
-  return gMobileMessageService.createSmsMessage.apply(gMobileMessageService, arguments);
+  return gMobileMessageService.createSmsMessage.apply(
+    gMobileMessageService,
+    arguments
+  );
 }
 
 function run_test() {
@@ -32,8 +35,21 @@ function run_test() {
  * Ensure an SmsMessage object created has sensible initial values.
  */
 add_test(function test_interface() {
-  let sms = newMessage(null, null, ICC_ID, "sent", "success", null, null, null,
-                       "normal", Date.now(), Date.now(), Date.now(), true);
+  let sms = newMessage(
+    null,
+    null,
+    ICC_ID,
+    "sent",
+    "success",
+    null,
+    null,
+    null,
+    "normal",
+    Date.now(),
+    Date.now(),
+    Date.now(),
+    true
+  );
   do_check_true(sms instanceof Ci.nsISmsMessage);
   do_check_eq(sms.id, 0);
   do_check_eq(sms.threadId, 0);
@@ -52,8 +68,21 @@ add_test(function test_interface() {
  * Test if ICC ID is null when it's not available.
  */
 add_test(function test_icc_id_not_available() {
-  let sms = newMessage(null, null, null, "sent", "success", null, null, null,
-                       "normal", Date.now(), Date.now(), Date.now(), true);
+  let sms = newMessage(
+    null,
+    null,
+    null,
+    "sent",
+    "success",
+    null,
+    null,
+    null,
+    "normal",
+    Date.now(),
+    Date.now(),
+    Date.now(),
+    true
+  );
   do_check_true(sms instanceof Ci.nsISmsMessage);
   do_check_eq(sms.id, 0);
   do_check_eq(sms.threadId, 0);
@@ -72,8 +101,21 @@ add_test(function test_icc_id_not_available() {
  * Verify that attributes are read-only.
  */
 add_test(function test_readonly_attributes() {
-  let sms = newMessage(null, null, ICC_ID, "sent", "success", null, null, null,
-                       "normal", Date.now(), Date.now(), Date.now(), true);
+  let sms = newMessage(
+    null,
+    null,
+    ICC_ID,
+    "sent",
+    "success",
+    null,
+    null,
+    null,
+    "normal",
+    Date.now(),
+    Date.now(),
+    Date.now(),
+    true
+  );
 
   sms.id = 1;
   do_check_eq(sms.id, 0);
@@ -125,8 +167,21 @@ add_test(function test_readonly_attributes() {
  */
 add_test(function test_timestamp_number() {
   let ts = Date.now();
-  let sms = newMessage(42, 1, ICC_ID, "sent", "success", "the sender", "the receiver",
-                       "the body", "normal", ts, ts, ts, true);
+  let sms = newMessage(
+    42,
+    1,
+    ICC_ID,
+    "sent",
+    "success",
+    "the sender",
+    "the receiver",
+    "the body",
+    "normal",
+    ts,
+    ts,
+    ts,
+    true
+  );
   do_check_eq(sms.id, 42);
   do_check_eq(sms.threadId, 1);
   do_check_eq(sms.iccId, ICC_ID);
@@ -149,8 +204,21 @@ add_test(function test_timestamp_number() {
  */
 add_test(function test_timestamp_date() {
   let date = new Date();
-  let sms = newMessage(42, 1, ICC_ID, "sent", "success", "the sender", "the receiver",
-                       "the body", "normal", date, date, date, true);
+  let sms = newMessage(
+    42,
+    1,
+    ICC_ID,
+    "sent",
+    "success",
+    "the sender",
+    "the receiver",
+    "the body",
+    "normal",
+    date,
+    date,
+    date,
+    true
+  );
   do_check_eq(sms.id, 42);
   do_check_eq(sms.threadId, 1);
   do_check_eq(sms.iccId, ICC_ID);
@@ -172,8 +240,21 @@ add_test(function test_timestamp_date() {
  */
 add_test(function test_invalid_delivery_string() {
   do_check_throws(function() {
-    newMessage(42, 1, ICC_ID, "this is invalid", "pending", "the sender",
-               "the receiver", "the body", "normal", Date.now(), 0, 0, true);
+    newMessage(
+      42,
+      1,
+      ICC_ID,
+      "this is invalid",
+      "pending",
+      "the sender",
+      "the receiver",
+      "the body",
+      "normal",
+      Date.now(),
+      0,
+      0,
+      true
+    );
   }, Cr.NS_ERROR_INVALID_ARG);
   run_next_test();
 });
@@ -183,8 +264,21 @@ add_test(function test_invalid_delivery_string() {
  */
 add_test(function test_invalid_delivery_string() {
   do_check_throws(function() {
-    newMessage(42, 1, ICC_ID, 1, "pending", "the sender", "the receiver", "the body",
-               "normal", Date.now(), 0, 0, true);
+    newMessage(
+      42,
+      1,
+      ICC_ID,
+      1,
+      "pending",
+      "the sender",
+      "the receiver",
+      "the body",
+      "normal",
+      Date.now(),
+      0,
+      0,
+      true
+    );
   }, Cr.NS_ERROR_INVALID_ARG);
   run_next_test();
 });
@@ -194,8 +288,21 @@ add_test(function test_invalid_delivery_string() {
  */
 add_test(function test_invalid_delivery_status_string() {
   do_check_throws(function() {
-    newMessage(42, 1, ICC_ID, "sent", "this is invalid", "the sender", "the receiver",
-               "the body", "normal", Date.now(), Date.now(), 0, true);
+    newMessage(
+      42,
+      1,
+      ICC_ID,
+      "sent",
+      "this is invalid",
+      "the sender",
+      "the receiver",
+      "the body",
+      "normal",
+      Date.now(),
+      Date.now(),
+      0,
+      true
+    );
   }, Cr.NS_ERROR_INVALID_ARG);
   run_next_test();
 });
@@ -205,8 +312,21 @@ add_test(function test_invalid_delivery_status_string() {
  */
 add_test(function test_invalid_delivery_status_string() {
   do_check_throws(function() {
-    newMessage(42, 1, ICC_ID, "sent", 1, "the sender", "the receiver", "the body",
-               "normal", Date.now(), Date.now(), 0, true);
+    newMessage(
+      42,
+      1,
+      ICC_ID,
+      "sent",
+      1,
+      "the sender",
+      "the receiver",
+      "the body",
+      "normal",
+      Date.now(),
+      Date.now(),
+      0,
+      true
+    );
   }, Cr.NS_ERROR_INVALID_ARG);
   run_next_test();
 });
@@ -216,8 +336,21 @@ add_test(function test_invalid_delivery_status_string() {
  */
 add_test(function test_invalid_message_class_string() {
   do_check_throws(function() {
-    newMessage(42, 1, ICC_ID, "sent", "success", "the sender", "the receiver",
-               "the body", "this is invalid", Date.now(), Date.now(), Date.now(), true);
+    newMessage(
+      42,
+      1,
+      ICC_ID,
+      "sent",
+      "success",
+      "the sender",
+      "the receiver",
+      "the body",
+      "this is invalid",
+      Date.now(),
+      Date.now(),
+      Date.now(),
+      true
+    );
   }, Cr.NS_ERROR_INVALID_ARG);
   run_next_test();
 });
@@ -227,8 +360,21 @@ add_test(function test_invalid_message_class_string() {
  */
 add_test(function test_invalid_message_class_string() {
   do_check_throws(function() {
-    newMessage(42, 1, ICC_ID, "sent", "success", "the sender", "the receiver",
-               "the body", 1, Date.now(), Date.now(), Date.now(), true);
+    newMessage(
+      42,
+      1,
+      ICC_ID,
+      "sent",
+      "success",
+      "the sender",
+      "the receiver",
+      "the body",
+      1,
+      Date.now(),
+      Date.now(),
+      Date.now(),
+      true
+    );
   }, Cr.NS_ERROR_INVALID_ARG);
   run_next_test();
 });

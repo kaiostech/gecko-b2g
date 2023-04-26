@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 const MARIONETTE_TIMEOUT = 60000;
-const MARIONETTE_HEAD_JS = 'head.js';
+const MARIONETTE_HEAD_JS = "head.js";
 
 startTestCommon(function() {
   let serviceId = 0;

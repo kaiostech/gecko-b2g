@@ -8,11 +8,16 @@ MARIONETTE_HEAD_JS = "head_chrome.js";
 startTestBase(function() {
   // Emulator doesn't support REQUEST_GET_NEIGHBORING_CELL_IDS, so we expect to
   // get an 'RequestNotSupported' error here.
-  return getNeighboringCellIds()
-    .then(() => {
+  return getNeighboringCellIds().then(
+    () => {
       ok(false, "should not success");
-    }, (aErrorMsg) => {
-      is(aErrorMsg, "RequestNotSupported",
-         "Failed to getNeighboringCellIds: " + aErrorMsg);
-    });
+    },
+    aErrorMsg => {
+      is(
+        aErrorMsg,
+        "RequestNotSupported",
+        "Failed to getNeighboringCellIds: " + aErrorMsg
+      );
+    }
+  );
 });

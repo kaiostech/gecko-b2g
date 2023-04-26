@@ -225,7 +225,7 @@ DataCallService.prototype = {
         }
       }
 
-      if (requests.length == 0 && context.connectTimer) {
+      if (!requests.length && context.connectTimer) {
         context.connectTimer.cancel();
         context.connectTimer = null;
       }
@@ -247,7 +247,7 @@ DataCallService.prototype = {
         }
       }
 
-      if (requests.length == 0 && context.connectTimer) {
+      if (!requests.length && context.connectTimer) {
         context.connectTimer.cancel();
         context.connectTimer = null;
       }

@@ -29,16 +29,16 @@ b2g/app/b2g.js
 b2g/locales/en-US/b2g-l10n.js
 b2g/components/MarionetteController.sys.mjs
 koost/koost.js
-dom/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
-dom/mobilemessage/gonk/MmsPduHelper.jsm
+dom/b2g/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
+dom/b2g/mobilemessage/gonk/MmsPduHelper.jsm
 dom/system/gonk/radio/simIOHelper.js
 # Tests to fix:
-dom/mobilemessage/tests/
-dom/cellbroadcast/tests/
-dom/telephony/test/
-dom/voicemail/test/
-dom/icc/tests/
-dom/mobileconnection/tests/
+dom/b2g/mobilemessage/tests/
+dom/b2g/cellbroadcast/tests/
+dom/b2g/telephony/test/
+dom/b2g/voicemail/test/
+dom/b2g/icc/tests/
+dom/b2g/mobileconnection/tests/
 
 # build/ third-party code
 build/pgo/js-input/

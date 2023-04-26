@@ -23,11 +23,11 @@
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantIface.h>
 #include <android/hardware/wifi/supplicant/1.0/types.h>
 #if ANDROID_VERSION >= 30
-#include <android/hardware/wifi/supplicant/1.3/ISupplicant.h>
-#include <android/hardware/wifi/supplicant/1.3/ISupplicantStaIface.h>
+#  include <android/hardware/wifi/supplicant/1.3/ISupplicant.h>
+#  include <android/hardware/wifi/supplicant/1.3/ISupplicantStaIface.h>
 #else
-#include <android/hardware/wifi/supplicant/1.2/ISupplicant.h>
-#include <android/hardware/wifi/supplicant/1.2/ISupplicantStaIface.h>
+#  include <android/hardware/wifi/supplicant/1.2/ISupplicant.h>
+#  include <android/hardware/wifi/supplicant/1.2/ISupplicantStaIface.h>
 #endif
 #include <android/hardware/wifi/supplicant/1.2/ISupplicantP2pIface.h>
 

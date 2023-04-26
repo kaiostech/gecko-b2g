@@ -43,4 +43,3 @@ interface nsIImsServiceManager : nsISupports
   { 0x9896511d, 0x7a63, 0x4c1d, { 0x90, 0x2d, 0x45, 0x57, 0xde, 0x8d, 0xf8, 0x22 } }
 #define NS_IMS_SERVICE_MANAGER_CONTRACTID "@mozilla.org/b2g/imsservicemanager;1"
 %}
-

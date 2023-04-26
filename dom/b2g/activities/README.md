@@ -20,7 +20,7 @@ Then, start the activity by `start()` method, if an activity handler (i.e. Galle
 activity.start().then(
   result => {
     console.log(`Result pass back from activity handler: ${result}`);
-  },  
+  },
   error => {
     console.log(`Failed: ${error}`);
   }
@@ -96,8 +96,8 @@ self.addEventListener('systemmessage', event => {
       .openWindow('/page_to_open.html', { disposition: 'inline' })
       .then(windowClient => {
         // Success.
-      })  
-  );  
+      })
+  );
 });
 ````
 

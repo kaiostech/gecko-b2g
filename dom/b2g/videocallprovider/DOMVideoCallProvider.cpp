@@ -671,8 +671,7 @@ NS_IMETHODIMP
 DOMVideoCallProvider::OnReceiveSessionModifyRequest(
     nsIVideoCallProfile* request) {
   LOG("%s", __FUNCTION__);
-  DispatchSessionModifyRequestEvent(u"sessionmodifyrequest"_ns,
-                                    request);
+  DispatchSessionModifyRequestEvent(u"sessionmodifyrequest"_ns, request);
   return NS_OK;
 }
 
@@ -699,8 +698,8 @@ NS_IMETHODIMP
 DOMVideoCallProvider::OnChangePeerDimensions(uint16_t aWidth,
                                              uint16_t aHeight) {
   LOG("%s, width: %d, height: %d", __FUNCTION__, aWidth, aHeight);
-  DispatchChangePeerDimensionsEvent(u"changepeerdimensions"_ns,
-                                    aWidth, aHeight);
+  DispatchChangePeerDimensionsEvent(u"changepeerdimensions"_ns, aWidth,
+                                    aHeight);
 
   if (!mDisplayCallback) {
     return NS_OK;
@@ -721,8 +720,7 @@ NS_IMETHODIMP
 DOMVideoCallProvider::OnChangeCameraCapabilities(
     nsIVideoCallCameraCapabilities* capabilities) {
   LOG("%s", __FUNCTION__);
-  DispatchCameraCapabilitiesEvent(u"changecameracapabilities"_ns,
-                                  capabilities);
+  DispatchCameraCapabilitiesEvent(u"changecameracapabilities"_ns, capabilities);
   if (!mPreviewCallback) {
     return NS_OK;
   }
@@ -748,8 +746,7 @@ DOMVideoCallProvider::OnChangeCameraCapabilities(
 
 NS_IMETHODIMP
 DOMVideoCallProvider::OnChangeVideoQuality(uint16_t quality) {
-  DispatchVideoQualityChangeEvent(u"changevideoquality"_ns,
-                                  quality);
+  DispatchVideoQualityChangeEvent(u"changevideoquality"_ns, quality);
   return NS_OK;
 }
 

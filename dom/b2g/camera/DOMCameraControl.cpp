@@ -5,7 +5,7 @@
 #include "DOMCameraControl.h"
 #include "base/basictypes.h"
 #include "nsCOMPtr.h"
-//#include "nsDOMClassInfo.h"
+// #include "nsDOMClassInfo.h"
 #include "nsHashPropertyBag.h"
 #include "nsThread.h"
 #include "DeviceStorage.h"
@@ -16,7 +16,7 @@
 #include "mozilla/MediaManager.h"
 #include "mozilla/Services.h"
 #include "mozilla/Unused.h"
-//#include "nsIAppsService.h" //TODO
+// #include "nsIAppsService.h" //TODO
 #include "nsIObserverService.h"
 #include "nsIDOMEventListener.h"
 #include "nsIScriptSecurityManager.h"
@@ -65,7 +65,7 @@ class BasicTrackSource : public MediaStreamTrackSource {
   void Disable() override {}
   void Enable() override {}
 
-protected:
+ protected:
   ~BasicTrackSource() = default;
 
   const MediaSourceEnum mMediaSource;

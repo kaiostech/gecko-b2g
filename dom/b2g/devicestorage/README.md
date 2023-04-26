@@ -8,7 +8,7 @@
 1. `itor.next()` returns a Promise with the result object.
 2. Supports `for-await-of` to loop through the iteration.
 3. Does not support indexing.
- 
+
 For more details about asynchronously iterable, please reference the W3C spec at [Asynchronously iterable declarations](https://heycam.github.io/webidl/#idl-async-iterable).
 
 ### Interfaces
@@ -71,4 +71,3 @@ printAllFiles();
 // Object { done: false, value: File {name: "/sdcard/b.txt", ...} }
 // Object { done: false, value: File {name: "/sdcard/c.txt", ...} }
 ```
-

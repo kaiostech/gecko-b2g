@@ -3,7 +3,10 @@
 
 function newMmsTransactionHelper() {
   let MMS_Service = {};
-  subscriptLoader.loadSubScript("resource://gre/components/MmsService.js", MMS_Service);
+  subscriptLoader.loadSubScript(
+    "resource://gre/components/MmsService.js",
+    MMS_Service
+  );
   MMS_Service.debug = do_print;
   return MMS_Service.gMmsTransactionHelper;
 }
@@ -35,22 +38,23 @@ add_test(function test_LongRecipientField() {
   let msg = {};
   msg.headers = {};
   msg.headers["to"] = [
-    { address:
-      "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
-      "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
-      "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
-      "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
-      "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
-      "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
-      "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
-      "abcdefghijklmnopqrstuvwxyz",
-      type: "PLMN" },
+    {
+      address:
+        "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
+        "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
+        "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
+        "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
+        "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
+        "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
+        "abcdefghijklmnopqrstuvwxyz0123456789/-+@?" +
+        "abcdefghijklmnopqrstuvwxyz",
+      type: "PLMN",
+    },
   ];
   do_check_eq(CallFunc.checkMaxValuesParameters(msg), false);
 
   run_next_test();
 });
-
 
 add_test(function test_checkMaxValuesParameters() {
   let msg = {};
@@ -58,15 +62,18 @@ add_test(function test_checkMaxValuesParameters() {
   msg.headers["cc"] = [
     { address: "+789", type: "PLMN" },
     { address: "+119", type: "num" },
-    { address: "Joe2 User " +
-               "<abcdefghijklmnopqrstuvwxyz0123456789" +
-               "abcdefghijklmnopqrstuvwxyz0123456789@" +
-               "abcdefghijklmnopqrstuvwxyz0123456789" +
-               "abcdefghijklmnopqrstuvwxyz0123456789." +
-               "abcdefghijklmnopqrstuvwxyz0123456789" +
-               "abcdefghijklmnopqrstuvwxyz0123456789" +
-               "abcdefghijklmnopqrstuvwxyz0123456789->"
-      , type: "email" },
+    {
+      address:
+        "Joe2 User " +
+        "<abcdefghijklmnopqrstuvwxyz0123456789" +
+        "abcdefghijklmnopqrstuvwxyz0123456789@" +
+        "abcdefghijklmnopqrstuvwxyz0123456789" +
+        "abcdefghijklmnopqrstuvwxyz0123456789." +
+        "abcdefghijklmnopqrstuvwxyz0123456789" +
+        "abcdefghijklmnopqrstuvwxyz0123456789" +
+        "abcdefghijklmnopqrstuvwxyz0123456789->",
+      type: "email",
+    },
   ];
   do_check_eq(CallFunc.checkMaxValuesParameters(msg), false);
 
@@ -117,9 +124,7 @@ add_test(function test_TotalRecipientCount() {
 add_test(function test_NameParameterInContentType() {
   let msg = {};
   msg.headers = {};
-  msg.headers["to"] = [
-                       { address: "Joe User <joe@user.org>", type: "email" },
-                      ];
+  msg.headers["to"] = [{ address: "Joe User <joe@user.org>", type: "email" }];
   let params = {};
   params["name"] = "abcdefghijklmnopqrstuvwxyz0123456789/-+@?";
   let headers = {};

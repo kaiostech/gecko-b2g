@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const number = "0900000001";
 var outCall;
@@ -22,10 +22,10 @@ function getIMEI() {
 }
 
 function testInCallMMI_IMEI() {
-  log('= testInCallMMI_IMEI =');
+  log("= testInCallMMI_IMEI =");
 
   return gDial(number)
-    .then(call => outCall = call)
+    .then(call => (outCall = call))
     .then(() => gRemoteAnswer(outCall))
     .then(() => getIMEI())
     .then(() => gRemoteHangUpCalls([outCall]));

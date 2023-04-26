@@ -4,12 +4,12 @@
 const { Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu } = SpecialPowers;
 
 // Emulate PromiseUtils.jsm semantics.
-Promise.defer = function () {
+Promise.defer = function() {
   return new Deferred();
 };
 function Deferred() {
   this.promise = new Promise(
-    function (resolve, reject) {
+    function(resolve, reject) {
       this.resolve = resolve;
       this.reject = reject;
     }.bind(this)
@@ -267,7 +267,7 @@ function ensureCellBroadcast() {
       context: document,
     },
   ];
-  SpecialPowers.pushPermissions(permissions, function () {
+  SpecialPowers.pushPermissions(permissions, function() {
     ok(true, "permissions pushed: " + JSON.stringify(permissions));
 
     // Permission changes can't change existing Navigator.prototype
@@ -319,7 +319,7 @@ function runEmulatorCmdSafe(aCommand) {
   let deferred = Promise.defer();
 
   ++pendingEmulatorCmdCount;
-  runEmulatorCmd(aCommand, function (aResult) {
+  runEmulatorCmd(aCommand, function(aResult) {
     --pendingEmulatorCmdCount;
 
     ok(true, "Emulator response: " + JSON.stringify(aResult));
@@ -402,7 +402,7 @@ function sendMultipleRawCbsToEmulatorAndWait(aPdus) {
     promises.push(sendRawCbsToEmulator(pdu));
   }
 
-  return Promise.all(promises).then((aResults) => aResults[0].message);
+  return Promise.all(promises).then(aResults => aResults[0].message);
 }
 
 /**
@@ -412,7 +412,7 @@ function cleanUp() {
   // Use ok here so that we have at least one test run.
   ok(true, ":: CLEANING UP ::");
 
-  waitFor(finish, function () {
+  waitFor(finish, function() {
     return pendingEmulatorCmdCount === 0;
   });
 }
@@ -471,7 +471,7 @@ function startTestCommon(aTestCaseMain) {
   Promise.resolve()
     .then(ensureCellBroadcast)
     .then(aTestCaseMain)
-    .then(cleanUp, function () {
+    .then(cleanUp, function() {
       ok(false, "promise rejects during test.");
       cleanUp();
     });

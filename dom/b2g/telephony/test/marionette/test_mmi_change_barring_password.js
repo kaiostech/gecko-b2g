@@ -11,8 +11,8 @@ const TEST_DATA = [
     newPassword: "0000",
     newPasswordAgain: "1111",
     expectedError: {
-      name: "emMmiErrorInvalidPassword"
-    }
+      name: "emMmiErrorInvalidPassword",
+    },
   },
   // Test passing no newPassword.
   {
@@ -20,8 +20,8 @@ const TEST_DATA = [
     newPassword: "",
     newPasswordAgain: "",
     expectedError: {
-      name: "emMmiErrorInvalidPassword"
-    }
+      name: "emMmiErrorInvalidPassword",
+    },
   },
   // Test passing mismatched newPassword.
   {
@@ -29,8 +29,8 @@ const TEST_DATA = [
     newPassword: "0000",
     newPasswordAgain: "1111",
     expectedError: {
-      name: "emMmiErrorMismatchPassword"
-    }
+      name: "emMmiErrorMismatchPassword",
+    },
   },
   // Test passing invalid password (not 4 digits).
   {
@@ -38,33 +38,34 @@ const TEST_DATA = [
     newPassword: "0000",
     newPasswordAgain: "0000",
     expectedError: {
-      name: "emMmiErrorInvalidPassword"
-    }
+      name: "emMmiErrorInvalidPassword",
+    },
   },
   // Expect to succeed.
   {
-    password: "0000",  // 0000 is the default password for call barring
+    password: "0000", // 0000 is the default password for call barring
     newPassword: "1234",
-    newPasswordAgain: "1234"
+    newPasswordAgain: "1234",
   },
   // Restore to the default password
   {
     password: "1234",
     newPassword: "0000",
-    newPasswordAgain: "0000"
-  }
+    newPasswordAgain: "0000",
+  },
 ];
 
-var MMI_PREFIX = [
-  "*03*330*",
-  "**03*330*",
-  "*03**",
-  "**03**",
-];
+var MMI_PREFIX = ["*03*330*", "**03*330*", "*03**", "**03**"];
 
-function testChangeCallBarringPassword(aMMIPrefix, aPassword, aNewPassword,
-                                       aNewPasswordAgain, aExpectedError) {
-  let MMI_CODE = aMMIPrefix + aPassword + "*" + aNewPassword + "*" + aNewPasswordAgain + "#";
+function testChangeCallBarringPassword(
+  aMMIPrefix,
+  aPassword,
+  aNewPassword,
+  aNewPasswordAgain,
+  aExpectedError
+) {
+  let MMI_CODE =
+    aMMIPrefix + aPassword + "*" + aNewPassword + "*" + aNewPasswordAgain + "#";
   log("Test " + MMI_CODE);
 
   return gSendMMI(MMI_CODE).then(aResult => {
@@ -86,11 +87,15 @@ startTest(function() {
   for (let prefix of MMI_PREFIX) {
     for (let i = 0; i < TEST_DATA.length; i++) {
       let data = TEST_DATA[i];
-      promise = promise.then(() => testChangeCallBarringPassword(prefix,
-                                                                 data.password,
-                                                                 data.newPassword,
-                                                                 data.newPasswordAgain,
-                                                                 data.expectedError));
+      promise = promise.then(() =>
+        testChangeCallBarringPassword(
+          prefix,
+          data.password,
+          data.newPassword,
+          data.newPasswordAgain,
+          data.expectedError
+        )
+      );
     }
   }
 

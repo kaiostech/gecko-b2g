@@ -484,7 +484,7 @@ Result_t SupplicantStaManager::SetupStaInterface(
     mSupplicantStaIfaceCallback = supplicantCallbackV1_3;
   } else
 #endif
-  if (IsSupplicantV1_2()) {
+      if (IsSupplicantV1_2()) {
     android::sp<SupplicantStaIfaceCallbackV1_1> supplicantCallbackV1_1 =
         new SupplicantStaIfaceCallbackV1_1(mInterfaceName, mCallback,
                                            supplicantCallback);

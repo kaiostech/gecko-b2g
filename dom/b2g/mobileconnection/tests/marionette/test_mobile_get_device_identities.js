@@ -10,6 +10,5 @@ function testGetDeviceIdentities() {
 
 // Start tests
 startTestCommon(function() {
-  return Promise.resolve()
-    .then(() => testGetDeviceIdentities());
+  return Promise.resolve().then(() => testGetDeviceIdentities());
 });

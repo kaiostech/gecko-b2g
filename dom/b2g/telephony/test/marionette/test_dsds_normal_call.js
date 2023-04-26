@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 function muxModem(id) {
   let deferred = Promise.defer();
@@ -24,11 +24,11 @@ function testOutgoingCallForServiceId(number, serviceId) {
       outCall = call;
       is(outCall.serviceId, serviceId);
     })
-    .then(() => gCheckAll(outCall, [outCall], '', [], [outInfo.ringing]))
+    .then(() => gCheckAll(outCall, [outCall], "", [], [outInfo.ringing]))
     .then(() => gRemoteAnswer(outCall))
-    .then(() => gCheckAll(outCall, [outCall], '', [], [outInfo.active]))
+    .then(() => gCheckAll(outCall, [outCall], "", [], [outInfo.active]))
     .then(() => gRemoteHangUp(outCall))
-    .then(() => gCheckAll(null, [], '', [], []));
+    .then(() => gCheckAll(null, [], "", [], []));
 }
 
 function testIncomingCallForServiceId(number, serviceId) {
@@ -41,11 +41,11 @@ function testIncomingCallForServiceId(number, serviceId) {
       inCall = call;
       is(inCall.serviceId, serviceId);
     })
-    .then(() => gCheckAll(null, [inCall], '', [], [inInfo.incoming]))
+    .then(() => gCheckAll(null, [inCall], "", [], [inInfo.incoming]))
     .then(() => gAnswer(inCall))
-    .then(() => gCheckAll(inCall, [inCall], '', [], [inInfo.active]))
+    .then(() => gCheckAll(inCall, [inCall], "", [], [inInfo.active]))
     .then(() => gRemoteHangUp(inCall))
-    .then(() => gCheckAll(null, [], '', [], []));
+    .then(() => gCheckAll(null, [], "", [], []));
 }
 
 function testOutgoingCall() {

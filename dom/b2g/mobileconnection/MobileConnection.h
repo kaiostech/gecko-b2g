@@ -18,7 +18,7 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsIIccService.h"
 #include "nsIMobileConnectionService.h"
-//#include "nsWeakPtr.h"
+// #include "nsWeakPtr.h"
 
 namespace mozilla {
 namespace dom {

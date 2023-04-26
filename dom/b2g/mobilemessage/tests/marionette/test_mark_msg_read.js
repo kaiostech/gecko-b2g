@@ -11,8 +11,10 @@ var smsList = new Array();
 
 function verifyInitialState() {
   log("Verifying initial state.");
-  ok(manager instanceof MozMobileMessageManager,
-     "manager is instance of " + manager.constructor);
+  ok(
+    manager instanceof MozMobileMessageManager,
+    "manager is instance of " + manager.constructor
+  );
   simulateIncomingSms();
 }
 
@@ -43,7 +45,7 @@ manager.onreceived = function onreceived(event) {
 
   // Wait for emulator to catch up before continuing
   waitFor(sendSms, function() {
-    return(rcvdEmulatorCallback);
+    return rcvdEmulatorCallback;
   });
 };
 
@@ -75,7 +77,7 @@ function sendSms() {
 
   request.onsuccess = function(event) {
     log("Received 'onsuccess' smsrequest event.");
-    if(event.target.result) {
+    if (event.target.result) {
       gotRequestSuccess = true;
       if (gotSmsSent && gotRequestSuccess) {
         test1();
@@ -90,16 +92,21 @@ function sendSms() {
   request.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.send request returned unexpected error: "
-        + event.target.error.name );
+    ok(
+      false,
+      "manager.send request returned unexpected error: " +
+        event.target.error.name
+    );
     deleteMsgs();
   };
 }
 
 function markMessageAndVerify(smsId, readBool, nextFunction) {
   let request = manager.markMessageRead(smsId, readBool);
-  ok(request instanceof DOMRequest,
-      "request is instanceof " + request.constructor);
+  ok(
+    request instanceof DOMRequest,
+    "request is instanceof " + request.constructor
+  );
 
   request.onsuccess = function(event) {
     log("Received 'onsuccess' smsrequest event.");
@@ -123,8 +130,13 @@ function markMessageAndVerify(smsId, readBool, nextFunction) {
         ok(true, "marked sms " + text);
       } else {
         ok(false, "marking sms " + text + " didn't work");
-        log("Expected SMS (id: " + foundSms.id + ") to be marked " + text
-            + " but it is not.");
+        log(
+          "Expected SMS (id: " +
+            foundSms.id +
+            ") to be marked " +
+            text +
+            " but it is not."
+        );
       }
       nextFunction();
     };
@@ -142,8 +154,11 @@ function markMessageAndVerify(smsId, readBool, nextFunction) {
   request.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.markMessageRead request returned unexpected error: "
-        + event.target.error.name );
+    ok(
+      false,
+      "manager.markMessageRead request returned unexpected error: " +
+        event.target.error.name
+    );
     nextFunction();
   };
 }
@@ -189,8 +204,10 @@ function deleteMsgs() {
 
   log("Deleting SMS (id: " + smsId + ").");
   let request = manager.delete(smsId);
-  ok(request instanceof DOMRequest,
-      "request is instanceof " + request.constructor);
+  ok(
+    request instanceof DOMRequest,
+    "request is instanceof " + request.constructor
+  );
 
   request.onsuccess = function(event) {
     log("Received 'onsuccess' smsrequest event.");
@@ -211,8 +228,11 @@ function deleteMsgs() {
   request.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.delete request returned unexpected error: "
-        + event.target.error.name );
+    ok(
+      false,
+      "manager.delete request returned unexpected error: " +
+        event.target.error.name
+    );
     cleanUp();
   };
 }

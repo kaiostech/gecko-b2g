@@ -6,7 +6,7 @@
 #define DOM_CAMERA_CAMERACONTROLIMPL_H
 
 #include "nsTArray.h"
-//#include "nsWeakPtr.h"
+// #include "nsWeakPtr.h"
 #include "nsIWeakReferenceUtils.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/ReentrantMonitor.h"

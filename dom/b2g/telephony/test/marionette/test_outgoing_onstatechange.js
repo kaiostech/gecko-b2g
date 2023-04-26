@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const outNumber = "5555551111";
 const outInfo = gOutCallStrPool(outNumber);
@@ -10,7 +10,7 @@ var outCall;
 
 startTest(function() {
   gDial(outNumber)
-    .then(call => outCall = call)
+    .then(call => (outCall = call))
     .then(() => gCheckAll(outCall, [outCall], "", [], [outInfo.ringing]))
 
     // Remote answer.

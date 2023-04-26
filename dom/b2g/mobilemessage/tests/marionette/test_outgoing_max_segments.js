@@ -13,8 +13,10 @@ var maxSegments = 10; // 10 message segments concatenated into 1 multipart SMS
 
 function verifyInitialState() {
   log("Verifying initial state.");
-  ok(manager instanceof MozMobileMessageManager,
-     "manager is instance of " + manager.constructor);
+  ok(
+    manager instanceof MozMobileMessageManager,
+    "manager is instance of " + manager.constructor
+  );
   sendSms();
 }
 
@@ -26,7 +28,7 @@ function sendSms() {
   let sentSms;
 
   // Build the message text
-  msgText = new Array((maxCharsPerSms * maxSegments) + 1).join('a');
+  msgText = new Array(maxCharsPerSms * maxSegments + 1).join("a");
   log("Sending multipart SMS (" + msgText.length + " chars total).");
 
   manager.onsent = function(event) {
@@ -43,7 +45,9 @@ function sendSms() {
     is(sentSms.body, msgText, "msg body");
     is(sentSms.delivery, "sent", "delivery");
 
-    if (gotReqOnSuccess) { verifySmsExists(sentSms); }
+    if (gotReqOnSuccess) {
+      verifySmsExists(sentSms);
+    }
   };
 
   let requestRet = manager.send(destNumber, msgText);
@@ -53,7 +57,9 @@ function sendSms() {
     log("Received 'onsuccess' smsrequest event.");
     gotReqOnSuccess = true;
     if (event.target.result) {
-      if (gotSmsOnSent) { verifySmsExists(sentSms); }
+      if (gotSmsOnSent) {
+        verifySmsExists(sentSms);
+      }
     } else {
       log("smsrequest returned false for manager.send");
       ok(false, "SMS send failed");
@@ -64,8 +70,11 @@ function sendSms() {
   requestRet.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.send request returned unexpected error: " +
-              event.target.error.name);
+    ok(
+      false,
+      "manager.send request returned unexpected error: " +
+        event.target.error.name
+    );
     cleanUp();
   };
 }
@@ -100,7 +109,7 @@ function verifySmsExists(sentSms) {
 function deleteSms(smsMsgObj) {
   log("Deleting SMS (id: " + smsMsgObj.id + ") using smsmsg obj parameter.");
   let requestRet = manager.delete(smsMsgObj);
-  ok(requestRet,"smsrequest obj returned");
+  ok(requestRet, "smsrequest obj returned");
 
   requestRet.onsuccess = function(event) {
     log("Received 'onsuccess' smsrequest event.");
@@ -116,8 +125,11 @@ function deleteSms(smsMsgObj) {
   requestRet.onerror = function(event) {
     log("Received 'onerror' smsrequest event.");
     ok(event.target.error, "domerror obj");
-    ok(false, "manager.delete request returned unexpected error: " +
-              event.target.error.name);
+    ok(
+      false,
+      "manager.delete request returned unexpected error: " +
+        event.target.error.name
+    );
     cleanUp();
   };
 }

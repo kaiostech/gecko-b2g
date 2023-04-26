@@ -11,12 +11,14 @@ MARIONETTE_HEAD_JS = "head.js";
 function testSetVoicePrivacyMode(aEnabled) {
   log("Test setting voice privacy mode to " + aEnabled);
 
-  return setVoicePrivacyMode(aEnabled)
-    .then(function resolve() {
+  return setVoicePrivacyMode(aEnabled).then(
+    function resolve() {
       ok(false, "setVoicePrivacyMode should not success");
-    }, function reject(aError) {
+    },
+    function reject(aError) {
       is(aError.name, "RequestNotSupported", "failed to setVoicePrivacyMode");
-    });
+    }
+  );
 }
 
 // TODO: Bug 999369 - B2G Emulator: Support voice privacy.
@@ -26,12 +28,14 @@ function testSetVoicePrivacyMode(aEnabled) {
 function testGetVoicePrivacyMode() {
   log("Test getting voice privacy mode");
 
-  return getVoicePrivacyMode()
-    .then(function resolve() {
+  return getVoicePrivacyMode().then(
+    function resolve() {
       ok(false, "getVoicePrivacyMode should not success");
-    }, function reject(aError) {
+    },
+    function reject(aError) {
       is(aError.name, "RequestNotSupported", "failed to getVoicePrivacyMode");
-    });
+    }
+  );
 }
 
 // Start tests

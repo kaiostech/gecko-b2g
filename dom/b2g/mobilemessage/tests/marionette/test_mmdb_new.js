@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'mmdb_head.js';
+MARIONETTE_HEAD_JS = "mmdb_head.js";
 
 const DBNAME = "test_mmdb_new:" + newUUID();
 var dbVersion = 0;

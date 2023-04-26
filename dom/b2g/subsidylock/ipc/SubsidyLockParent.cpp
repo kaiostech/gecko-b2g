@@ -6,7 +6,7 @@
 
 #include "mozilla/dom/subsidylock/SubsidyLockParent.h"
 
-//#include "mozilla/AppProcessChecker.h"
+// #include "mozilla/AppProcessChecker.h"
 #include "mozilla/dom/BindingUtils.h"
 
 using namespace mozilla;

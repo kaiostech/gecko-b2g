@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 90000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const outNumber = "5555552222";
 const outInfo = gOutCallStrPool(outNumber);
@@ -12,37 +12,34 @@ var outCall;
 
 function outgoing() {
   return gDialSTK(outNumber)
-    .then(call => outCall = call)
+    .then(call => (outCall = call))
     .then(() => gCheckAll(outCall, [outCall], "", [], [outInfo.ringing]));
 }
 
 function localHangUp() {
-  return gHangUp(outCall)
-    .then(() => gCheckAll(null, [], "", [], []));
+  return gHangUp(outCall).then(() => gCheckAll(null, [], "", [], []));
 }
 
 function remoteAnswer() {
-  return gRemoteAnswer(outCall)
-    .then(() => gCheckAll(outCall, [outCall], "", [], [outInfo.active]));
+  return gRemoteAnswer(outCall).then(() =>
+    gCheckAll(outCall, [outCall], "", [], [outInfo.active])
+  );
 }
 
 function remoteHangUp() {
-  return gRemoteHangUp(outCall)
-    .then(() => gCheckAll(null, [], "", [], []));
+  return gRemoteHangUp(outCall).then(() => gCheckAll(null, [], "", [], []));
 }
 
 // Sub tests
 
-function testOutgoingLocalHangUp(){
+function testOutgoingLocalHangUp() {
   log("= testOutgoingLocalHangUp =");
-  return outgoing()
-    .then(() => localHangUp());
+  return outgoing().then(() => localHangUp());
 }
 
 function testOutgoingRemoteHangUp() {
   log("= testOutgoingRemoteHangUp =");
-  return outgoing()
-    .then(() => remoteHangUp());
+  return outgoing().then(() => remoteHangUp());
 }
 
 function testOutgoingRemoteAnswerRemoteHangUp() {

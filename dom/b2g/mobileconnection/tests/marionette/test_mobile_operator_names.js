@@ -16,15 +16,21 @@ function check(aLongName, aShortName) {
 function test(aLongName, aShortName) {
   log("Testing '" + aLongName + "', '" + aShortName + "':");
 
-  return setEmulatorOperatorNamesAndWait("home", aLongName, aShortName,
-                                         null, null, true, false)
-    .then(() => check(aLongName, aShortName));
+  return setEmulatorOperatorNamesAndWait(
+    "home",
+    aLongName,
+    aShortName,
+    null,
+    null,
+    true,
+    false
+  ).then(() => check(aLongName, aShortName));
 }
 
 startTestCommon(function() {
-  return getEmulatorOperatorNames()
-    .then(function(aOperators) {
-      return Promise.resolve()
+  return getEmulatorOperatorNames().then(function(aOperators) {
+    return (
+      Promise.resolve()
 
         .then(() => test("Mozilla", "B2G"))
         .then(() => test("Mozilla", ""))
@@ -32,6 +38,7 @@ startTestCommon(function() {
         .then(() => test("", ""))
 
         // Reset back to initial values.
-        .then(() => test(aOperators[0].longName, aOperators[0].shortName));
-    });
+        .then(() => test(aOperators[0].longName, aOperators[0].shortName))
+    );
+  });
 });

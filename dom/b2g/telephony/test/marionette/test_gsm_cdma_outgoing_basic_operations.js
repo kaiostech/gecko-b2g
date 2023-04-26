@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 90000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 /******************************************************************************
  ****                          Basic Operations                            ****
@@ -11,12 +11,18 @@ MARIONETTE_HEAD_JS = 'head.js';
 const OutgoingNumber = "5555551111";
 
 function exptectedCall(aCall, aState, aEmulatorState = null) {
-  let disconnectedReason = aState === "disconnected" ? "NormalCallClearing"
-                                                     : null;
+  let disconnectedReason =
+    aState === "disconnected" ? "NormalCallClearing" : null;
 
-  return TelephonyHelper.createExptectedCall(aCall, OutgoingNumber, false,
-                                             "out", aState, aEmulatorState,
-                                             disconnectedReason);
+  return TelephonyHelper.createExptectedCall(
+    aCall,
+    OutgoingNumber,
+    false,
+    "out",
+    aState,
+    aEmulatorState,
+    disconnectedReason
+  );
 }
 
 function outgoing(aNumber) {
@@ -26,7 +32,7 @@ function outgoing(aNumber) {
   // "connected" state instead.
   let state = Modem.isCDMA() ? "connected" : "alerting";
   return TelephonyHelper.dial(aNumber)
-    .then(call => ret = call)
+    .then(call => (ret = call))
     .then(() => TelephonyHelper.equals([exptectedCall(ret, state)]))
     .then(() => ret);
 }
@@ -56,10 +62,11 @@ function resume(aCall) {
   // have to use |hold()| function here to resume the call. Otherwise, if we use
   // |resume()| function, we'll get an invalid state error.
   let call = exptectedCall(aCall, "connected");
-  return Modem.isGSM() ? TelephonyHelper.resume(aCall)
-                       : TelephonyHelper.hold(aCall, false)
-    .then(() => TelephonyHelper.equals([call]))
-    .then(() => aCall);
+  return Modem.isGSM()
+    ? TelephonyHelper.resume(aCall)
+    : TelephonyHelper.hold(aCall, false)
+        .then(() => TelephonyHelper.equals([call]))
+        .then(() => aCall);
 }
 
 function hangUp(aCall) {
@@ -82,14 +89,12 @@ function remoteHangUp(aCall) {
 
 function testOutgoingReject() {
   log("= testOutgoingReject =");
-  return outgoing(OutgoingNumber)
-    .then(call => remoteHangUp(call));
+  return outgoing(OutgoingNumber).then(call => remoteHangUp(call));
 }
 
 function testOutgoingCancel() {
   log("= testOutgoingCancel =");
-  return outgoing(OutgoingNumber)
-    .then(call => hangUp(call));
+  return outgoing(OutgoingNumber).then(call => hangUp(call));
 }
 
 function testOutgoingAnswerHangUp() {
@@ -145,22 +150,24 @@ function testOutgoingAnswerHoldResumeRemoteHangUp() {
 /******************************************************************************/
 
 function runTestSuite(aTech, aTechMask) {
-  return Promise.resolve()
-    // Setup Environment
-    .then(() => Modem.changeTech(aTech, aTechMask))
+  return (
+    Promise.resolve()
+      // Setup Environment
+      .then(() => Modem.changeTech(aTech, aTechMask))
 
-    // Tests
-    .then(() => testOutgoingReject())
-    .then(() => testOutgoingCancel())
-    .then(() => testOutgoingAnswerHangUp())
-    .then(() => testOutgoingAnswerRemoteHangUp())
-    .then(() => testOutgoingAnswerHoldHangUp())
-    .then(() => testOutgoingAnswerHoldRemoteHangUp())
-    .then(() => testOutgoingAnswerHoldResumeHangUp())
-    .then(() => testOutgoingAnswerHoldResumeRemoteHangUp())
+      // Tests
+      .then(() => testOutgoingReject())
+      .then(() => testOutgoingCancel())
+      .then(() => testOutgoingAnswerHangUp())
+      .then(() => testOutgoingAnswerRemoteHangUp())
+      .then(() => testOutgoingAnswerHoldHangUp())
+      .then(() => testOutgoingAnswerHoldRemoteHangUp())
+      .then(() => testOutgoingAnswerHoldResumeHangUp())
+      .then(() => testOutgoingAnswerHoldResumeRemoteHangUp())
 
-    // Restore Environment
-    .then(() => Modem.changeTech("wcdma"));
+      // Restore Environment
+      .then(() => Modem.changeTech("wcdma"))
+  );
 }
 
 startTest(function() {
@@ -171,4 +178,3 @@ startTest(function() {
     .catch(error => ok(false, "Promise reject: " + error))
     .then(finish);
 });
-

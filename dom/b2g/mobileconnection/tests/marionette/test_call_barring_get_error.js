@@ -7,42 +7,56 @@ MARIONETTE_HEAD_JS = "head.js";
 function testGetCallBarringOption(aExpectedError, aOptions) {
   log("Test getCallBarringOption with " + JSON.stringify(aOptions));
 
-  return getCallBarringOption(aOptions)
-    .then(function resolve(aResult) {
+  return getCallBarringOption(aOptions).then(
+    function resolve(aResult) {
       ok(false, "should be rejected");
-    }, function reject(aError) {
+    },
+    function reject(aError) {
       is(aError.name, aExpectedError, "failed to getCallBarringOption");
-    });
+    }
+  );
 }
 
 // Start tests
 startTestCommon(function() {
-  return Promise.resolve()
+  return (
+    Promise.resolve()
 
-    // Test program
-    .then(() => testGetCallBarringOption("InvalidParameter", {
-      program: 8, /* Invalid program */
-      serviceClass: 0
-    }))
+      // Test program
+      .then(() =>
+        testGetCallBarringOption("InvalidParameter", {
+          program: 8 /* Invalid program */,
+          serviceClass: 0,
+        })
+      )
 
-    .then(() => testGetCallBarringOption("InvalidParameter", {
-      program: null, /* Invalid program */
-      serviceClass: 0
-    }))
+      .then(() =>
+        testGetCallBarringOption("InvalidParameter", {
+          program: null /* Invalid program */,
+          serviceClass: 0,
+        })
+      )
 
-    .then(() => testGetCallBarringOption("InvalidParameter", {
-      /* Undefined program */
-      serviceClass: 0
-    }))
+      .then(() =>
+        testGetCallBarringOption("InvalidParameter", {
+          /* Undefined program */
+          serviceClass: 0,
+        })
+      )
 
-    // Test serviceClass
-    .then(() => testGetCallBarringOption("InvalidParameter", {
-      program: MozMobileConnection.CALL_BARRING_PROGRAM_ALL_OUTGOING,
-      serviceClass: null /* Invalid serviceClass */
-    }))
+      // Test serviceClass
+      .then(() =>
+        testGetCallBarringOption("InvalidParameter", {
+          program: MozMobileConnection.CALL_BARRING_PROGRAM_ALL_OUTGOING,
+          serviceClass: null /* Invalid serviceClass */,
+        })
+      )
 
-    .then(() => testGetCallBarringOption("InvalidParameter", {
-      program: MozMobileConnection.CALL_BARRING_PROGRAM_ALL_OUTGOING,
-      /* Undefined serviceClass */
-    }));
+      .then(() =>
+        testGetCallBarringOption("InvalidParameter", {
+          program: MozMobileConnection.CALL_BARRING_PROGRAM_ALL_OUTGOING,
+          /* Undefined serviceClass */
+        })
+      )
+  );
 });

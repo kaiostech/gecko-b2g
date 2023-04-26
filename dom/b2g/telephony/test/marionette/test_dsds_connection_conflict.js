@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 function muxModem(id) {
   let deferred = Promise.defer();
@@ -33,12 +33,15 @@ function testNewCallWhenOtherConnectionInUse(firstServiceId, secondServiceId) {
     .then(() => {
       return telephony.dial("0912345001", secondServiceId);
     })
-    .then(() => {
-      log("The promise should not be resolved");
-      ok(false);
-    }, cause => {
-      is(cause, "OtherConnectionInUse");
-    })
+    .then(
+      () => {
+        log("The promise should not be resolved");
+        ok(false);
+      },
+      cause => {
+        is(cause, "OtherConnectionInUse");
+      }
+    )
     .then(() => gRemoteHangUp(outCall));
 }
 

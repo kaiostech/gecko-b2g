@@ -11,14 +11,24 @@ function verifyDataCellLocationInfo(aLac, aCid) {
   is(cell.gsmLocationAreaCode, aLac, "data.cell.gsmLocationAreaCode");
   is(cell.gsmCellId, aCid, "data.cell.gsmCellId");
   is(cell.cdmaBaseStationId, -1, "data.cell.cdmaBaseStationId");
-  is(cell.cdmaBaseStationLatitude, -2147483648,
-     "data.cell.cdmaBaseStationLatitude");
-  is(cell.cdmaBaseStationLongitude, -2147483648,
-     "data.cell.cdmaBaseStationLongitude");
+  is(
+    cell.cdmaBaseStationLatitude,
+    -2147483648,
+    "data.cell.cdmaBaseStationLatitude"
+  );
+  is(
+    cell.cdmaBaseStationLongitude,
+    -2147483648,
+    "data.cell.cdmaBaseStationLongitude"
+  );
   is(cell.cdmaSystemId, -1, "data.cell.cdmaSystemId");
   is(cell.cdmaNetworkId, -1, "data.cell.cdmaNetworkId");
   is(cell.cdmaRoamingIndicator, -1, "data.cell.cdmaRoamingIndicator");
-  is(cell.cdmaDefaultRoamingIndicator, -1, "data.cell.cdmaDefaultRoamingIndicator");
+  is(
+    cell.cdmaDefaultRoamingIndicator,
+    -1,
+    "data.cell.cdmaDefaultRoamingIndicator"
+  );
   is(cell.cdmaSystemIsInPRL, false, "data.cell.cdmaSystemIsInPRL");
 }
 
@@ -27,21 +37,23 @@ function testDataCellLocationUpdate(aLac, aCid) {
   // Set emulator's lac/cid and wait for 'ondatachange' event.
   log("Test cell location with lac=" + aLac + " and cid=" + aCid);
 
-  return setEmulatorGsmLocationAndWait(aLac, aCid, false, true)
-    .then(() => verifyDataCellLocationInfo(aLac, aCid));
+  return setEmulatorGsmLocationAndWait(aLac, aCid, false, true).then(() =>
+    verifyDataCellLocationInfo(aLac, aCid)
+  );
 }
 
 startTestCommon(function() {
-  return getEmulatorGsmLocation()
-    .then(function(aResult) {
-      log("Test initial data location info");
-      verifyDataCellLocationInfo(aResult.lac, aResult.cid);
+  return getEmulatorGsmLocation().then(function(aResult) {
+    log("Test initial data location info");
+    verifyDataCellLocationInfo(aResult.lac, aResult.cid);
 
-      return Promise.resolve()
+    return (
+      Promise.resolve()
         .then(() => testDataCellLocationUpdate(100, 100))
         .then(() => testDataCellLocationUpdate(2000, 2000))
 
         // Reset back to initial values.
-        .then(() => testDataCellLocationUpdate(aResult.lac, aResult.cid));
-    });
+        .then(() => testDataCellLocationUpdate(aResult.lac, aResult.cid))
+    );
+  });
 });

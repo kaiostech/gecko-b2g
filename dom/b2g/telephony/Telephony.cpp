@@ -8,14 +8,14 @@
 
 #include "mozilla/Preferences.h"
 #include "mozilla/dom/CallEvent.h"
-//#include "mozilla/dom/MobileConnectionBinding.h"
+// #include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/TelephonyBinding.h"
 #include "mozilla/dom/RingbackToneEvent.h"
 #include "mozilla/dom/SuppServiceNotificationEvent.h"
 #include "mozilla/dom/TtyModeReceivedEvent.h"
 #include "mozilla/dom/TelephonyCoverageLosingEvent.h"
-//#include "mozilla/unused.h"
+// #include "mozilla/unused.h"
 
 #include "nsCharSeparatedTokenizer.h"
 #include "nsComponentManagerUtils.h"
@@ -41,13 +41,13 @@
 
 // === SIMULATOR START ===
 #ifdef MOZ_WIDGET_GONK
-//#include "SystemProperty.h"
-//#include "mozilla/dom/DOMVideoCallProvider.h"
+// #include "SystemProperty.h"
+// #include "mozilla/dom/DOMVideoCallProvider.h"
 
 #  define FEED_TEST_DATA_TO_PRODUCER
 #  ifdef FEED_TEST_DATA_TO_PRODUCER
 #    include <cutils/properties.h>
-//#include "mozilla/dom/FakeVideoCallProvider.h"
+// #include "mozilla/dom/FakeVideoCallProvider.h"
 #  endif
 
 #  include <android/log.h>

@@ -14,7 +14,7 @@
 #include "mozilla/dom/DOMException.h"
 #include "mozilla/dom/DOMExceptionBinding.h"
 #ifdef MOZ_WIDGET_GONK
-//#include "mozilla/dom/DOMVideoCallProvider.h"
+// #include "mozilla/dom/DOMVideoCallProvider.h"
 #endif
 #include "nsPrintfCString.h"
 

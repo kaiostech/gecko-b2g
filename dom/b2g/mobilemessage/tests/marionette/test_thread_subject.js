@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 const PHONE_NUMBER = "+1234567890";
 
@@ -10,7 +10,7 @@ const PHONE_NUMBER = "+1234567890";
 // networking here.
 const MMS_MAX_LENGTH_SUBJECT = 40;
 function genMmsSubject(sep) {
-  return "Hello " + (new Array(MMS_MAX_LENGTH_SUBJECT).join(sep)) + " World!";
+  return "Hello " + new Array(MMS_MAX_LENGTH_SUBJECT).join(sep) + " World!";
 }
 
 function testSms(aProgressStr, aText) {
@@ -22,7 +22,9 @@ function testSms(aProgressStr, aText) {
       return getThreadById(message.threadId);
     })
     .then(function(thread) {
-      log("  Got thread.lastMessageSubject = '" + thread.lastMessageSubject + "'");
+      log(
+        "  Got thread.lastMessageSubject = '" + thread.lastMessageSubject + "'"
+      );
       is(thread.lastMessageSubject, "", "thread.lastMessageSubject");
     });
 }
@@ -43,7 +45,9 @@ function testMms(aProgressStr, aSubject) {
       return getThreadById(result.message.threadId);
     })
     .then(function(thread) {
-      log("  Got thread.lastMessageSubject = '" + thread.lastMessageSubject + "'");
+      log(
+        "  Got thread.lastMessageSubject = '" + thread.lastMessageSubject + "'"
+      );
       is(thread.lastMessageSubject, aSubject, "thread.lastMessageSubject");
     });
 }

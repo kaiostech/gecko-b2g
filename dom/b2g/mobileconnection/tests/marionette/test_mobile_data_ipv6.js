@@ -34,28 +34,35 @@ function doTest(aApnSettings, aHaveV4Address, aHaveV6Address) {
       ok(networkInfo, "Active network info");
       log("  Interface: " + networkInfo.name);
 
-      let ips = {}, prefixLengths = {};
+      let ips = {},
+        prefixLengths = {};
       let num = networkInfo.getAddresses(ips, prefixLengths);
       log("  Num addresses: " + num);
       log("  Addresses: " + JSON.stringify(ips.value));
       log("  PrefixLengths: " + JSON.stringify(prefixLengths.value));
 
       if (aHaveV4Address) {
-        ok(ips.value.reduce(function(aFound, aAddress) {
-          return aFound || aAddress.indexOf(":") < 0;
-        }, false), "IPv4 address");
+        ok(
+          ips.value.reduce(function(aFound, aAddress) {
+            return aFound || aAddress.indexOf(":") < 0;
+          }, false),
+          "IPv4 address"
+        );
       }
       if (aHaveV6Address) {
-        ok(ips.value.reduce(function(aFound, aAddress) {
-          return aFound || aAddress.indexOf(":") > 0;
-        }, false), "IPv6 address");
+        ok(
+          ips.value.reduce(function(aFound, aAddress) {
+            return aFound || aAddress.indexOf(":") > 0;
+          }, false),
+          "IPv6 address"
+        );
       }
     })
     .then(() => setDataEnabledAndWait(false));
 }
 
 function doTestHome(aApnSettings, aProtocol) {
-  log("Testing \"" + aProtocol + "\"@HOME... ");
+  log('Testing "' + aProtocol + '"@HOME... ');
 
   // aApnSettings is a double-array of per PDP context settings.  The first
   // index is a DSDS service ID, and the second one is the index of pre-defined
@@ -64,13 +71,15 @@ function doTestHome(aApnSettings, aProtocol) {
   aApnSettings[0][0].protocol = aProtocol;
   delete aApnSettings[0][0].roaming_protocol;
 
-  return doTest(aApnSettings,
-                aProtocol === "IP" || aProtocol === "IPV4V6",
-                aProtocol === "IPV4V6" || aProtocol === "IPV6");
+  return doTest(
+    aApnSettings,
+    aProtocol === "IP" || aProtocol === "IPV4V6",
+    aProtocol === "IPV4V6" || aProtocol === "IPV6"
+  );
 }
 
 function doTestRoaming(aApnSettings, aRoaminProtocol) {
-  log("Testing \"" + aRoaminProtocol + "\"@ROMAING... ");
+  log('Testing "' + aRoaminProtocol + '"@ROMAING... ');
 
   // aApnSettings is a double-array of per PDP context settings.  The first
   // index is a DSDS service ID, and the second one is the index of pre-defined
@@ -79,52 +88,68 @@ function doTestRoaming(aApnSettings, aRoaminProtocol) {
   delete aApnSettings[0][0].protocol;
   aApnSettings[0][0].roaming_protocol = aRoaminProtocol;
 
-  return doTest(aApnSettings,
-                aRoaminProtocol === "IP" || aRoaminProtocol === "IPV4V6",
-                aRoaminProtocol === "IPV4V6" || aRoaminProtocol === "IPV6");
+  return doTest(
+    aApnSettings,
+    aRoaminProtocol === "IP" || aRoaminProtocol === "IPV4V6",
+    aRoaminProtocol === "IPV4V6" || aRoaminProtocol === "IPV6"
+  );
 }
 
-startTestCommon(function() {
-  let origApnSettings;
+startTestCommon(
+  function() {
+    let origApnSettings;
 
-  return setDataRoamingEnabled(true)
-    .then(getDataApnSettings)
-    .then(function(aResult) {
-      // If already set, then save original APN settings.
-      origApnSettings = JSON.parse(JSON.stringify(aResult));
-      return aResult;
-    }, function() {
-      // Return our own default value.
-      return [[{ "carrier": "T-Mobile US",
-                 "apn": "epc.tmobile.com",
-                 "mmsc": "http://mms.msg.eng.t-mobile.com/mms/wapenc",
-                 "types": ["default", "supl", "mms"] }]];
-    })
+    return setDataRoamingEnabled(true)
+      .then(getDataApnSettings)
+      .then(
+        function(aResult) {
+          // If already set, then save original APN settings.
+          origApnSettings = JSON.parse(JSON.stringify(aResult));
+          return aResult;
+        },
+        function() {
+          // Return our own default value.
+          return [
+            [
+              {
+                carrier: "T-Mobile US",
+                apn: "epc.tmobile.com",
+                mmsc: "http://mms.msg.eng.t-mobile.com/mms/wapenc",
+                types: ["default", "supl", "mms"],
+              },
+            ],
+          ];
+        }
+      )
 
-    .then(function(aApnSettings) {
-      return Promise.resolve()
+      .then(function(aApnSettings) {
+        return (
+          Promise.resolve()
 
-        .then(() => doTestHome(aApnSettings, "NoSuchProtocol"))
-        .then(() => doTestHome(aApnSettings, "IP"))
-        // TODO: Bug 979137 - B2G Emulator: Support the IPV4V6
-        //.then(() => doTestHome(aApnSettings, "IPV4V6"))
-        .then(() => doTestHome(aApnSettings, "IPV6"))
+            .then(() => doTestHome(aApnSettings, "NoSuchProtocol"))
+            .then(() => doTestHome(aApnSettings, "IP"))
+            // TODO: Bug 979137 - B2G Emulator: Support the IPV4V6
+            //.then(() => doTestHome(aApnSettings, "IPV4V6"))
+            .then(() => doTestHome(aApnSettings, "IPV6"))
 
-        .then(() => setEmulatorRoamingAndWait(true))
+            .then(() => setEmulatorRoamingAndWait(true))
 
-        .then(() => doTestRoaming(aApnSettings, "NoSuchProtocol"))
-        .then(() => doTestRoaming(aApnSettings, "IP"))
-        // TODO: Bug 979137 - B2G Emulator: Support the IPV4V6
-        //.then(() => doTestRoaming(aApnSettings, "IPV4V6"))
-        .then(() => doTestRoaming(aApnSettings, "IPV6"))
+            .then(() => doTestRoaming(aApnSettings, "NoSuchProtocol"))
+            .then(() => doTestRoaming(aApnSettings, "IP"))
+            // TODO: Bug 979137 - B2G Emulator: Support the IPV4V6
+            //.then(() => doTestRoaming(aApnSettings, "IPV4V6"))
+            .then(() => doTestRoaming(aApnSettings, "IPV6"))
 
-        .then(() => setEmulatorRoamingAndWait(false));
-    })
+            .then(() => setEmulatorRoamingAndWait(false))
+        );
+      })
 
-    .then(() => setDataRoamingEnabled(false))
-    .then(function() {
-      if (origApnSettings) {
-        return setDataApnSettings(origApnSettings);
-      }
-    });
-}, ["settings-read", "settings-write", "settings-api-read", "settings-api-write"]);
+      .then(() => setDataRoamingEnabled(false))
+      .then(function() {
+        if (origApnSettings) {
+          return setDataApnSettings(origApnSettings);
+        }
+      });
+  },
+  ["settings-read", "settings-write", "settings-api-read", "settings-api-write"]
+);

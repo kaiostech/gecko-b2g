@@ -100,4 +100,3 @@ interface nsIImsConfig : nsISupports
    */
   void setConfigInt(in long item, in long value, in nsIImsConfigCallback callback);
 };
-

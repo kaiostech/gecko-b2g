@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'mmdb_head.js';
+MARIONETTE_HEAD_JS = "mmdb_head.js";
 
 const DBNAME = "test_mmdb_full_storage:" + newUUID();
 
@@ -10,19 +10,21 @@ function newSavableMessage(aSender, aReceiver) {
   return {
     type: "sms",
     sender: aSender ? aSender : "+0987654321",
-    receiver: aReceiver? aReceiver : "+1234567890",
+    receiver: aReceiver ? aReceiver : "+1234567890",
     body: "quick fox jump over the lazy dog",
     deliveryStatusRequested: false,
     messageClass: "normal",
     timestamp: Date.now(),
-    iccId: "1029384756"
+    iccId: "1029384756",
   };
 }
 
 function setStorageFull(aFull) {
-  SpecialPowers.notifyObserversInParentProcess(null,
-                                               "disk-space-watcher",
-                                               aFull ? "full" : "free");
+  SpecialPowers.notifyObserversInParentProcess(
+    null,
+    "disk-space-watcher",
+    aFull ? "full" : "free"
+  );
 }
 
 function isFileNoDeviceSpaceError(aErrorResult) {
@@ -30,66 +32,82 @@ function isFileNoDeviceSpaceError(aErrorResult) {
 }
 
 function isCallbackStorageFullError(aErrorCode) {
-  is(aErrorCode, Ci.nsIMobileMessageCallback.STORAGE_FULL_ERROR,
-     "nsIMobileMessageCallback error code");
+  is(
+    aErrorCode,
+    Ci.nsIMobileMessageCallback.STORAGE_FULL_ERROR,
+    "nsIMobileMessageCallback error code"
+  );
 }
 
 function testSaveSendingMessage(aMmdb) {
   log("testSaveSendingMessage()");
 
   setStorageFull(true);
-  return saveSendingMessage(aMmdb, newSavableMessage())
-    // Resolved/rejected results are both [<Cr.NS_ERROR_FOO>, <DOM message>],
-    // and we need only the error code in both cases.
-    .then((aValue) => aValue[0],
-          (aValue) => aValue[0])
-    .then(isFileNoDeviceSpaceError)
-    .then(() => setStorageFull(false));
+  return (
+    saveSendingMessage(aMmdb, newSavableMessage())
+      // Resolved/rejected results are both [<Cr.NS_ERROR_FOO>, <DOM message>],
+      // and we need only the error code in both cases.
+      .then(
+        aValue => aValue[0],
+        aValue => aValue[0]
+      )
+      .then(isFileNoDeviceSpaceError)
+      .then(() => setStorageFull(false))
+  );
 }
 
 function testSaveReceivedMessage(aMmdb) {
   log("testSaveReceivedMessage()");
 
   setStorageFull(true);
-  return saveReceivedMessage(aMmdb, newSavableMessage())
-    // Resolved/rejected results are both [<Cr.NS_ERROR_FOO>, <DOM message>],
-    // and we need only the error code in both cases.
-    .then((aValue) => aValue[0],
-          (aValue) => aValue[0])
-    .then(isFileNoDeviceSpaceError)
-    .then(() => setStorageFull(false));
+  return (
+    saveReceivedMessage(aMmdb, newSavableMessage())
+      // Resolved/rejected results are both [<Cr.NS_ERROR_FOO>, <DOM message>],
+      // and we need only the error code in both cases.
+      .then(
+        aValue => aValue[0],
+        aValue => aValue[0]
+      )
+      .then(isFileNoDeviceSpaceError)
+      .then(() => setStorageFull(false))
+  );
 }
 
 function testGetMessageRecordById(aMmdb) {
   log("testGetMessageRecordById()");
 
   setStorageFull(false);
-  return saveReceivedMessage(aMmdb, newSavableMessage())
-    // Resolved result is [<Cr.NS_ERROR_FOO>, <DOM message>],
-    .then(function(aValue) {
-      let domMessage = aValue[1];
+  return (
+    saveReceivedMessage(aMmdb, newSavableMessage())
+      // Resolved result is [<Cr.NS_ERROR_FOO>, <DOM message>],
+      .then(function(aValue) {
+        let domMessage = aValue[1];
 
-      setStorageFull(true);
-      return getMessageRecordById(aMmdb, domMessage.id)
-        .then(() => setStorageFull(false));
-    });
+        setStorageFull(true);
+        return getMessageRecordById(aMmdb, domMessage.id).then(() =>
+          setStorageFull(false)
+        );
+      })
+  );
 }
 
 function testMarkMessageRead(aMmdb) {
   log("testMarkMessageRead()");
 
   setStorageFull(false);
-  return saveReceivedMessage(aMmdb, newSavableMessage())
-    // Resolved/rejected results are both [<Cr.NS_ERROR_FOO>, <DOM message>].
-    .then(function(aValue) {
-      let domMessage = aValue[1];
+  return (
+    saveReceivedMessage(aMmdb, newSavableMessage())
+      // Resolved/rejected results are both [<Cr.NS_ERROR_FOO>, <DOM message>].
+      .then(function(aValue) {
+        let domMessage = aValue[1];
 
-      setStorageFull(true);
-      return markMessageRead(aMmdb, domMessage.id, true)
-        .then(null, (aValue) => aValue)
-        .then(isCallbackStorageFullError)
-        .then(() => setStorageFull(false));
-    });
+        setStorageFull(true);
+        return markMessageRead(aMmdb, domMessage.id, true)
+          .then(null, aValue => aValue)
+          .then(isCallbackStorageFullError)
+          .then(() => setStorageFull(false));
+      })
+  );
 }
 
 function testDeleteMessage(aMmdb) {
@@ -115,27 +133,34 @@ function testDeleteMessage(aMmdb) {
   setStorageFull(false);
   // Save several unread messages to the same thread then delete them.
   for (let i = 0; i < numOfTestMessages; i++) {
-    promises.push(saveReceivedMessage(aMmdb, newSavableMessage(testAddress))
-      .then((aValue) => { savedMsgIds.push(aValue[1].id); }));
+    promises.push(
+      saveReceivedMessage(aMmdb, newSavableMessage(testAddress)).then(
+        aValue => {
+          savedMsgIds.push(aValue[1].id);
+        }
+      )
+    );
   }
 
-  return Promise.all(promises)
-    .then(() => setStorageFull(true))
+  return (
+    Promise.all(promises)
+      .then(() => setStorageFull(true))
 
-    // Failure is expected when deleting the last one.
-    .then(() => deleteMessage(aMmdb, [savedMsgIds[numOfTestMessages - 1]], 1))
-    .then(null, (aValue) => aValue)
-    .then(isCallbackStorageFullError)
+      // Failure is expected when deleting the last one.
+      .then(() => deleteMessage(aMmdb, [savedMsgIds[numOfTestMessages - 1]], 1))
+      .then(null, aValue => aValue)
+      .then(isCallbackStorageFullError)
 
-    // Failure is expected when deleting an unread message.
-    .then(() => deleteMessage(aMmdb, [savedMsgIds[0]], 1))
-    .then(null, (aValue) => aValue)
-    .then(isCallbackStorageFullError)
+      // Failure is expected when deleting an unread message.
+      .then(() => deleteMessage(aMmdb, [savedMsgIds[0]], 1))
+      .then(null, aValue => aValue)
+      .then(isCallbackStorageFullError)
 
-    // Delete all messages in the thread.
-    .then(() => deleteMessage(aMmdb, savedMsgIds, savedMsgIds.length))
+      // Delete all messages in the thread.
+      .then(() => deleteMessage(aMmdb, savedMsgIds, savedMsgIds.length))
 
-    .then(() => setStorageFull(false));
+      .then(() => setStorageFull(false))
+  );
 }
 
 function testSaveSmsSegment(aMmdb) {
@@ -148,40 +173,40 @@ function testSaveSmsSegment(aMmdb) {
     segmentRef: 0,
     segmentSeq: 1,
     segmentMaxSeq: 3,
-    body: "quick fox jump over the lazy dog"
-  }
+    body: "quick fox jump over the lazy dog",
+  };
 
   setStorageFull(true);
-  return saveSmsSegment(aMmdb, smsSegment)
-    // Resolved/rejected results are both [<Cr.NS_ERROR_FOO>, <completeMessage>],
-    // and we need only the error code in both cases.
-    .then((aValue) => aValue[0],
-          (aValue) => aValue[0])
-    .then(isFileNoDeviceSpaceError)
-    .then(() => setStorageFull(false));
+  return (
+    saveSmsSegment(aMmdb, smsSegment)
+      // Resolved/rejected results are both [<Cr.NS_ERROR_FOO>, <completeMessage>],
+      // and we need only the error code in both cases.
+      .then(
+        aValue => aValue[0],
+        aValue => aValue[0]
+      )
+      .then(isFileNoDeviceSpaceError)
+      .then(() => setStorageFull(false))
+  );
 }
 
 function testCreateMessageCursor(aMmdb) {
   log("testCreateMessageCursor()");
 
   setStorageFull(true);
-  return createMessageCursor(aMmdb)
-    .then(() => setStorageFull(false));
+  return createMessageCursor(aMmdb).then(() => setStorageFull(false));
 }
 
 function testCreateThreadCursor(aMmdb) {
   log("testCreateThreadCursor()");
 
   setStorageFull(true);
-  return createThreadCursor(aMmdb)
-    .then(() => setStorageFull(false));
+  return createThreadCursor(aMmdb).then(() => setStorageFull(false));
 }
 
 startTestBase(function testCaseMain() {
-
   let mmdb = newMobileMessageDB();
   return initMobileMessageDB(mmdb, DBNAME, 0)
-
     .then(() => testSaveSendingMessage(mmdb))
     .then(() => testSaveReceivedMessage(mmdb))
     .then(() => testGetMessageRecordById(mmdb))

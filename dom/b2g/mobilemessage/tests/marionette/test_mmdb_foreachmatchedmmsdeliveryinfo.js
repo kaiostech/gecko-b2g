@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'mmdb_head.js';
+MARIONETTE_HEAD_JS = "mmdb_head.js";
 
 const DBNAME = "test_mmdb_foreachmatchedmmsdeliveryinfo:" + newUUID();
 
@@ -35,7 +35,9 @@ function doTest(aMmdb, aNeedle, aVerifyFunc, aCount) {
   clearTraversed(deliveryInfo);
 
   let count = 0;
-  aMmdb.forEachMatchedMmsDeliveryInfo(deliveryInfo, aNeedle, function(aElement) {
+  aMmdb.forEachMatchedMmsDeliveryInfo(deliveryInfo, aNeedle, function(
+    aElement
+  ) {
     ok(true, "checking " + aElement.receiver);
     ok(!aElement.hasOwnProperty("traversed"), "element.traversed");
     aVerifyFunc(aElement);
@@ -49,9 +51,14 @@ function doTest(aMmdb, aNeedle, aVerifyFunc, aCount) {
 function testNotFound(aMmdb) {
   log("Testing unavailable");
 
-  doTest(aMmdb, PHONE_0, function(aElement) {
-    ok(false, "Should never have a match");
-  }, 0);
+  doTest(
+    aMmdb,
+    PHONE_0,
+    function(aElement) {
+      ok(false, "Should never have a match");
+    },
+    0
+  );
 }
 
 function testDirectMatch(aMmdb) {
@@ -61,9 +68,14 @@ function testDirectMatch(aMmdb) {
     let count = deliveryInfo.reduce(function(aCount, aElement) {
       return aElement.receiver == needle ? aCount + 1 : aCount;
     }, 0);
-    doTest(aMmdb, needle, function(aElement) {
-      is(aElement.receiver, needle, "element.receiver");
-    }, count);
+    doTest(
+      aMmdb,
+      needle,
+      function(aElement) {
+        is(aElement.receiver, needle, "element.receiver");
+      },
+      count
+    );
   }
 }
 

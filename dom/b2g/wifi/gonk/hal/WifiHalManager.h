@@ -23,9 +23,9 @@
 #include <android/hardware/wifi/1.0/IWifiEventCallback.h>
 #include <android/hardware/wifi/1.2/IWifiChipEventCallback.h>
 #if ANDROID_VERSION >= 30
-#include <android/hardware/wifi/1.4/types.h>
+#  include <android/hardware/wifi/1.4/types.h>
 #else
-#include <android/hardware/wifi/1.3/types.h>
+#  include <android/hardware/wifi/1.3/types.h>
 #endif
 
 #include "mozilla/Mutex.h"

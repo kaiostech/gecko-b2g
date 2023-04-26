@@ -26,12 +26,12 @@
   } /* namespace mozilla */
 #define USING_TELEPHONY_NAMESPACE using namespace mozilla::dom::telephony;
 
-//#ifndef MOZ_WIDGET_GONK
+// #ifndef MOZ_WIDGET_GONK
 #define USING_VIDEOCALLPROVIDER_NAMESPACE
-//#else
-//#define USING_VIDEOCALLPROVIDER_NAMESPACE \
+// #else
+// #d efine USING_VIDEOCALLPROVIDER_NAMESPACE \
 //  using namespace mozilla::dom::videocallprovider;
-//#endif
+// #endif
 
 namespace mozilla {
 namespace dom {

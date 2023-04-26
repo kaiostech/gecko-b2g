@@ -19,7 +19,7 @@ function testGettingIMEI() {
 }
 
 // Start test
-startTestWithPermissions(['mobileconnection'], function() {
+startTestWithPermissions(["mobileconnection"], function() {
   Promise.resolve()
     .then(() => gSetRadioEnabledAll(false))
     .then(() => testGettingIMEI())

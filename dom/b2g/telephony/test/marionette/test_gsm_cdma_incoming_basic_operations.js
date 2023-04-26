@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 90000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 /******************************************************************************
  ****                          Basic Operations                            ****
@@ -11,18 +11,24 @@ MARIONETTE_HEAD_JS = 'head.js';
 const IncomingNumber = "1111110000";
 
 function exptectedCall(aCall, aState, aEmulatorState = null) {
-  let disconnectedReason = aState === "disconnected" ? "NormalCallClearing"
-                                                     : null;
+  let disconnectedReason =
+    aState === "disconnected" ? "NormalCallClearing" : null;
 
-  return TelephonyHelper.createExptectedCall(aCall, IncomingNumber, false,
-                                             "in", aState, aEmulatorState,
-                                             disconnectedReason);
+  return TelephonyHelper.createExptectedCall(
+    aCall,
+    IncomingNumber,
+    false,
+    "in",
+    aState,
+    aEmulatorState,
+    disconnectedReason
+  );
 }
 
 function incoming(aNumber) {
   let ret;
   return Remote.dial(aNumber)
-    .then(call => ret = call)
+    .then(call => (ret = call))
     .then(() => TelephonyHelper.equals([exptectedCall(ret, "incoming")]))
     .then(() => ret);
 }
@@ -40,7 +46,7 @@ function hold(aCall) {
   // the call actually goes to "held" state, and we shouldn't wait for the state
   // change event here.
   let state = Modem.isGSM() ? "held" : "connected";
-  let call = exptectedCall(aCall, state,"held");
+  let call = exptectedCall(aCall, state, "held");
   return TelephonyHelper.hold(aCall, Modem.isGSM())
     .then(() => TelephonyHelper.equals([call]))
     .then(() => aCall);
@@ -52,10 +58,11 @@ function resume(aCall) {
   // have to use |hold()| function here to resume the call. Otherwise, if we use
   // |resume()| function, we'll get an invalid state error.
   let call = exptectedCall(aCall, "connected");
-  return Modem.isGSM() ? TelephonyHelper.resume(aCall)
-                       : TelephonyHelper.hold(aCall, false)
-    .then(() => TelephonyHelper.equals([call]))
-    .then(() => aCall);
+  return Modem.isGSM()
+    ? TelephonyHelper.resume(aCall)
+    : TelephonyHelper.hold(aCall, false)
+        .then(() => TelephonyHelper.equals([call]))
+        .then(() => aCall);
 }
 
 function hangUp(aCall) {
@@ -78,14 +85,12 @@ function remoteHangUp(aCall) {
 
 function testIncomingReject() {
   log("= testIncomingReject =");
-  return incoming(IncomingNumber)
-    .then(call => hangUp(call));
+  return incoming(IncomingNumber).then(call => hangUp(call));
 }
 
 function testIncomingCancel() {
   log("= testIncomingCancel =");
-  return incoming(IncomingNumber)
-    .then(call => remoteHangUp(call));
+  return incoming(IncomingNumber).then(call => remoteHangUp(call));
 }
 
 function testIncomingAnswerHangUp() {
@@ -141,22 +146,24 @@ function testIncomingAnswerHoldResumeRemoteHangUp() {
  ******************************************************************************/
 
 function runTestSuite(aTech, aTechMask) {
-  return Promise.resolve()
-    // Setup Environment
-    .then(() => Modem.changeTech(aTech, aTechMask))
+  return (
+    Promise.resolve()
+      // Setup Environment
+      .then(() => Modem.changeTech(aTech, aTechMask))
 
-    // Tests
-    .then(() => testIncomingReject())
-    .then(() => testIncomingCancel())
-    .then(() => testIncomingAnswerHangUp())
-    .then(() => testIncomingAnswerRemoteHangUp())
-    .then(() => testIncomingAnswerHoldHangUp())
-    .then(() => testIncomingAnswerHoldRemoteHangUp())
-    .then(() => testIncomingAnswerHoldResumeHangUp())
-    .then(() => testIncomingAnswerHoldResumeRemoteHangUp())
+      // Tests
+      .then(() => testIncomingReject())
+      .then(() => testIncomingCancel())
+      .then(() => testIncomingAnswerHangUp())
+      .then(() => testIncomingAnswerRemoteHangUp())
+      .then(() => testIncomingAnswerHoldHangUp())
+      .then(() => testIncomingAnswerHoldRemoteHangUp())
+      .then(() => testIncomingAnswerHoldResumeHangUp())
+      .then(() => testIncomingAnswerHoldResumeRemoteHangUp())
 
-    // Restore Environment
-    .then(() => Modem.changeTech("wcdma"));
+      // Restore Environment
+      .then(() => Modem.changeTech("wcdma"))
+  );
 }
 
 startTest(function() {
@@ -167,4 +174,3 @@ startTest(function() {
     .catch(error => ok(false, "Promise reject: " + error))
     .then(finish);
 });
-

@@ -34,21 +34,23 @@ function testVoiceCellLocationUpdate(aLac, aCid) {
   // Set emulator's lac/cid and wait for 'onvoicechange' event.
   log("Test cell location with lac=" + aLac + " and cid=" + aCid);
 
-  return setEmulatorGsmLocationAndWait(aLac, aCid, true, false)
-    .then(() => verifyVoiceCellLocationInfo(aLac, aCid));
+  return setEmulatorGsmLocationAndWait(aLac, aCid, true, false).then(() =>
+    verifyVoiceCellLocationInfo(aLac, aCid)
+  );
 }
 
 startTestCommon(function() {
-  return getEmulatorGsmLocation()
-    .then(function(aResult) {
-      log("Test initial voice location info");
-      verifyVoiceCellLocationInfo(aResult.lac, aResult.cid);
+  return getEmulatorGsmLocation().then(function(aResult) {
+    log("Test initial voice location info");
+    verifyVoiceCellLocationInfo(aResult.lac, aResult.cid);
 
-      return Promise.resolve()
+    return (
+      Promise.resolve()
         .then(() => testVoiceCellLocationUpdate(100, 100))
         .then(() => testVoiceCellLocationUpdate(2000, 2000))
 
         // Reset back to initial values.
-        .then(() => testVoiceCellLocationUpdate(aResult.lac, aResult.cid));
-    });
+        .then(() => testVoiceCellLocationUpdate(aResult.lac, aResult.cid))
+    );
+  });
 });

@@ -189,4 +189,3 @@ interface nsICameraTestHardware : nsISupports
      list derived from the this.params hash table. */
   AString pullParameters();
 };
-

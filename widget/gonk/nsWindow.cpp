@@ -80,7 +80,7 @@ static nsWindow* gFocusedWindow = nullptr;
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 
 nsWindow::nsWindow()
-    : mGLCursorImageManager(nullptr), mSizeMode(nsSizeMode_Normal) {
+    : mSizeMode(nsSizeMode_Normal), mGLCursorImageManager(nullptr) {
   // This is a hack to force initialization of the compositor
   // resources, if we're going to use omtc.
   //
@@ -671,7 +671,7 @@ nsWindow::MakeFullScreen(bool aFullScreen) {
   }
 
   if (nsIWidgetListener* listener = GetWidgetListener()) {
-    listener->FullscreenChanged(aFullScreen);
+    listener->SizeModeChanged(nsSizeMode_Fullscreen);
   }
   return NS_OK;
 }

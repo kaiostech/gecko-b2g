@@ -107,26 +107,9 @@ DIRS += [
     "reporting",
     "localstorage",
     "l10n",
-    "pco",
     "origin-trials",
     "webscheduling",
 ]
-
-# MOZ_B2G_RIL
-if CONFIG["MOZ_B2G_RIL"]:
-    DIRS += [
-        "cellbroadcast",
-        "datacall",
-        "icc",
-        "mobileconnection",
-        "mobilemessage",
-        "telephony",
-        "subsidylock",
-        "videocallprovider",
-        "voicemail",
-        "wappush",
-    ]
-# MOZ_B2G_RIL_END
 
 TEST_DIRS += [
     "tests",

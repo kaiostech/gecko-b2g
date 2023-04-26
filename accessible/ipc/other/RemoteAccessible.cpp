@@ -127,7 +127,7 @@ bool RemoteAccessible::IsSearchbox() const {
   return retVal;
 }
 
-nsAtom* RemoteAccessible::LandmarkRole() const {
+nsStaticAtom* RemoteAccessible::LandmarkRole() const {
   if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
     return RemoteAccessibleBase<RemoteAccessible>::LandmarkRole();
   }
@@ -430,11 +430,6 @@ uint32_t RemoteAccessible::EndOffset() {
   uint32_t retVal = 0;
   Unused << mDoc->SendEndOffset(mID, &retVal, &ok);
   return retVal;
-}
-
-void RemoteAccessible::AnchorURIAt(uint32_t aIndex, nsCString& aURI,
-                                   bool* aOk) {
-  Unused << mDoc->SendAnchorURIAt(mID, aIndex, &aURI, aOk);
 }
 
 uint32_t RemoteAccessible::LinkCount() {

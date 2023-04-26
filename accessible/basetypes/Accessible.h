@@ -13,8 +13,11 @@
 #include "Units.h"
 
 class nsAtom;
+class nsStaticAtom;
 
 struct nsRoleMapEntry;
+
+class nsIURI;
 
 namespace mozilla {
 namespace a11y {
@@ -351,6 +354,13 @@ class Accessible {
    */
   virtual void Language(nsAString& aLocale) = 0;
 
+  /**
+   * Get the role of this Accessible as an ARIA role token. This might have been
+   * set explicitly (e.g. role="button") or it might be implicit in native
+   * markup (e.g. <button> returns "button").
+   */
+  nsStaticAtom* ComputedARIARole() const;
+
   // Methods that interact with content.
 
   virtual void TakeFocus() const = 0;
@@ -374,7 +384,7 @@ class Accessible {
   /**
    * Return a landmark role if applied.
    */
-  virtual nsAtom* LandmarkRole() const;
+  virtual nsStaticAtom* LandmarkRole() const;
 
   /**
    * Return the id of the dom node this accessible represents.
@@ -578,9 +588,14 @@ class Accessible {
   uint32_t AnchorCount();
 
   /**
+   * Returns an anchor URI at the given index.
+   */
+  virtual already_AddRefed<nsIURI> AnchorURIAt(uint32_t aAnchorIndex) const;
+
+  /**
    * Returns an anchor accessible at the given index.
    */
-  Accessible* AnchorAt(uint32_t aAnchorIndex);
+  Accessible* AnchorAt(uint32_t aAnchorIndex) const;
 
   // Remote/Local types
 

@@ -2922,29 +2922,24 @@ bool nsWindow::UpdateNonClientMargins(bool aReflowWindow) {
     mNonClientOffset.left = 0;
     mNonClientOffset.right = 0;
 
-    APPBARDATA appBarData;
-    appBarData.cbSize = sizeof(appBarData);
-    UINT taskbarState = SHAppBarMessage(ABM_GETSTATE, &appBarData);
-    if (ABS_AUTOHIDE & taskbarState) {
-      UINT edge = -1;
-      appBarData.hWnd = FindWindow(L"Shell_TrayWnd", nullptr);
-      if (appBarData.hWnd) {
-        HMONITOR taskbarMonitor =
-            ::MonitorFromWindow(appBarData.hWnd, MONITOR_DEFAULTTOPRIMARY);
-        HMONITOR windowMonitor =
-            ::MonitorFromWindow(mWnd, MONITOR_DEFAULTTONEAREST);
-        if (taskbarMonitor == windowMonitor) {
-          SHAppBarMessage(ABM_GETTASKBARPOS, &appBarData);
-          edge = appBarData.uEdge;
-        }
+    mozilla::Maybe<UINT> maybeEdge = GetHiddenTaskbarEdge();
+    if (maybeEdge) {
+      auto edge = maybeEdge.value();
+      if (ABE_LEFT == edge) {
+        mNonClientOffset.left -= kHiddenTaskbarSize;
+      } else if (ABE_RIGHT == edge) {
+        mNonClientOffset.right -= kHiddenTaskbarSize;
+      } else if (ABE_BOTTOM == edge || ABE_TOP == edge) {
+        mNonClientOffset.bottom -= kHiddenTaskbarSize;
       }
 
-      if (ABE_LEFT == edge) {
-        mNonClientOffset.left -= 1;
-      } else if (ABE_RIGHT == edge) {
-        mNonClientOffset.right -= 1;
-      } else if (ABE_BOTTOM == edge || ABE_TOP == edge) {
-        mNonClientOffset.bottom -= 1;
+      // On Windows 10+, when we are drawing the non-client region, we need
+      // to clear the portion of the NC region that is exposed by the
+      // hidden taskbar.  As above, we clear the bottom of the NC region
+      // when the taskbar is at the top of the screen.
+      if (IsWin10OrLater()) {
+        UINT clearEdge = (edge == ABE_TOP) ? ABE_BOTTOM : edge;
+        mClearNCEdge = Some(clearEdge);
       }
     }
   } else {
@@ -3652,12 +3647,6 @@ void nsWindow::CleanupFullscreenTransition() {
   mTransitionWnd = nullptr;
 }
 
-void nsWindow::OnFullscreenWillChange(bool aFullScreen) {
-  if (mWidgetListener) {
-    mWidgetListener->FullscreenWillChange(aFullScreen);
-  }
-}
-
 void nsWindow::OnFullscreenChanged(nsSizeMode aOldSizeMode, bool aFullScreen) {
   // Hide chrome and reposition window. Note this will also cache dimensions for
   // restoration, so it should only be called once per fullscreen request.
@@ -3669,10 +3658,6 @@ void nsWindow::OnFullscreenChanged(nsSizeMode aOldSizeMode, bool aFullScreen) {
       aOldSizeMode == nsSizeMode_Minimized;
   if (!toOrFromMinimized) {
     InfallibleMakeFullScreen(aFullScreen);
-  }
-
-  if (mWidgetListener) {
-    mWidgetListener->FullscreenChanged(aFullScreen);
   }
 
   // Possibly notify the taskbar that we have changed our fullscreen mode.
@@ -9225,6 +9210,57 @@ nsresult nsWindow::SetHiDPIMode(bool aHiDPI) {
 nsresult nsWindow::RestoreHiDPIMode() { return WinUtils::RestoreHiDPIMode(); }
 #endif
 
+mozilla::Maybe<UINT> nsWindow::GetHiddenTaskbarEdge() {
+  HMONITOR windowMonitor = ::MonitorFromWindow(mWnd, MONITOR_DEFAULTTONEAREST);
+
+  if (!IsWin8OrLater()) {
+    // Per-monitor taskbar information is not available.
+    APPBARDATA appBarData;
+    appBarData.cbSize = sizeof(appBarData);
+    UINT taskbarState = SHAppBarMessage(ABM_GETSTATE, &appBarData);
+    if (ABS_AUTOHIDE & taskbarState) {
+      appBarData.hWnd = FindWindow(L"Shell_TrayWnd", nullptr);
+      if (appBarData.hWnd) {
+        HMONITOR taskbarMonitor =
+            ::MonitorFromWindow(appBarData.hWnd, MONITOR_DEFAULTTOPRIMARY);
+        if (taskbarMonitor == windowMonitor) {
+          SHAppBarMessage(ABM_GETTASKBARPOS, &appBarData);
+          return Some(appBarData.uEdge);
+        }
+      }
+    }
+    return Nothing();
+  }
+
+  // Check all four sides of our monitor for an appbar.  Skip any that aren't
+  // the system taskbar.
+  MONITORINFO mi;
+  mi.cbSize = sizeof(MONITORINFO);
+  ::GetMonitorInfo(windowMonitor, &mi);
+
+  APPBARDATA appBarData;
+  appBarData.cbSize = sizeof(appBarData);
+  appBarData.rc = mi.rcMonitor;
+  const auto kEdges = {ABE_BOTTOM, ABE_TOP, ABE_LEFT, ABE_RIGHT};
+  for (auto edge : kEdges) {
+    appBarData.uEdge = edge;
+    // ABM_GETAUTOHIDEBAREX is not defined before Windows 8.
+    static constexpr DWORD ABM_GETAUTOHIDEBAREX = 0x000b;
+    HWND appBarHwnd = (HWND)SHAppBarMessage(ABM_GETAUTOHIDEBAREX, &appBarData);
+    if (appBarHwnd) {
+      nsAutoString className;
+      if (WinUtils::GetClassName(appBarHwnd, className)) {
+        if (className.Equals(L"Shell_TrayWnd") ||
+            className.Equals(L"Shell_SecondaryTrayWnd")) {
+          return Some(edge);
+        }
+      }
+    }
+  }
+
+  return Nothing();
+}
+
 static nsSizeMode GetSizeModeForWindowFrame(HWND aWnd, bool aFullscreenMode) {
   WINDOWPLACEMENT pl;
   pl.length = sizeof(pl);
@@ -9374,10 +9410,6 @@ void nsWindow::FrameState::SetSizeModeInternal(nsSizeMode aMode,
       mSizeMode == nsSizeMode_Fullscreen || aMode == nsSizeMode_Fullscreen;
   const bool fullscreen = aMode == nsSizeMode_Fullscreen;
 
-  if (fullscreenChange) {
-    mWindow->OnFullscreenWillChange(fullscreen);
-  }
-
   mLastSizeMode = mSizeMode;
   mSizeMode = aMode;
 
@@ -9387,11 +9419,11 @@ void nsWindow::FrameState::SetSizeModeInternal(nsSizeMode aMode,
     ShowWindowWithMode(mWindow->mWnd, aMode);
   }
 
-  mWindow->OnSizeModeChange();
-
   if (fullscreenChange) {
     mWindow->OnFullscreenChanged(oldSizeMode, fullscreen);
   }
+
+  mWindow->OnSizeModeChange();
 }
 
 void nsWindow::ContextMenuPreventer::Update(

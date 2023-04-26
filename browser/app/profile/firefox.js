@@ -1634,6 +1634,10 @@ pref("browser.newtabpage.activity-stream.discoverystream.recs.personalized", fal
 // System pref to allow Pocket sponsored content personalization to be turned on/off.
 pref("browser.newtabpage.activity-stream.discoverystream.spocs.personalized", true);
 
+// Flip this once the user has dismissed the Pocket onboarding experience,
+pref("browser.newtabpage.activity-stream.discoverystream.onboardingExperience.dismissed", false);
+pref("browser.newtabpage.activity-stream.discoverystream.onboardingExperience.enabled", false);
+
 // User pref to show stories on newtab (feeds.system.topstories has to be set to true as well)
 pref("browser.newtabpage.activity-stream.feeds.section.topstories", true);
 
@@ -2187,6 +2191,8 @@ pref("browser.migrate.interactions.bookmarks", false);
 pref("browser.migrate.interactions.history", false);
 pref("browser.migrate.interactions.passwords", false);
 pref("browser.migrate.preferences-entrypoint.enabled", true);
+
+pref("browser.device-migration.help-menu.hidden", false);
 
 pref("extensions.pocket.api", "api.getpocket.com");
 pref("extensions.pocket.bffApi", "firefox-api-proxy.cdn.mozilla.net");

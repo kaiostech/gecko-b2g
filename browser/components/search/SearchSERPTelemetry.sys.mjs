@@ -58,6 +58,9 @@ export var SearchSERPTelemetryUtils = {
     WINDOW_CLOSE: "window_close",
     NAVIGATION: "navigation",
   },
+  INCONTENT_SOURCES: {
+    SEARCHBOX: "follow_on_from_refine_on_incontent_search",
+  },
 };
 
 /**
@@ -101,6 +104,34 @@ class TelemetryHandler {
   // _browserSourceMap is a map of the latest search source for a particular
   // browser - one of the KNOWN_SEARCH_SOURCES in BrowserSearchTelemetry.
   _browserSourceMap = new WeakMap();
+
+  /**
+   * A WeakMap whose key is a browser with value of a source type found in
+   * INCONTENT_SOURCES. Kept separate to avoid overlapping with legacy
+   * search sources. These sources are specific to the content of a search
+   * provider page rather than something from within the browser itself.
+   */
+  #browserContentSourceMap = new WeakMap();
+
+  /**
+   * Sets the source of a SERP visit from something that occured in content
+   * rather than from the browser.
+   *
+   * @param {browser} browser
+   *   The browser object associated with the page that should be a SERP.
+   * @param {string} type
+   *   The component type that started the load.
+   */
+  setBrowserContentSource(browser, type) {
+    switch (type) {
+      case SearchSERPTelemetryUtils.COMPONENTS.INCONTENT_SEARCHBOX:
+        this.#browserContentSourceMap.set(
+          browser,
+          SearchSERPTelemetryUtils.INCONTENT_SOURCES.SEARCHBOX
+        );
+        break;
+    }
+  }
 
   // _browserNewtabSessionMap is a map of the newtab session id for particular
   // browsers.
@@ -265,6 +296,12 @@ class TelemetryHandler {
           r => new RegExp(r)
         );
       }
+      if (provider.extraPageRegexps) {
+        newProvider.extraPageRegexps = provider.extraPageRegexps.map(
+          r => new RegExp(r)
+        );
+      }
+
       newProvider.nonAdsLinkRegexps = provider.nonAdsLinkRegexps?.length
         ? provider.nonAdsLinkRegexps.map(r => new RegExp(r))
         : [];
@@ -332,6 +369,14 @@ class TelemetryHandler {
       this._browserSourceMap.delete(browser);
     }
 
+    // If it's a SERP but doesn't have a browser source, the source might be
+    // from something that happened in content. We keep this separate from
+    // source because legacy telemetry should not change its reporting.
+    let inContentSource;
+    if (lazy.serpEventsEnabled && this.#browserContentSourceMap.has(browser)) {
+      inContentSource = this.#browserContentSourceMap.get(browser);
+    }
+
     let newtabSessionId;
     if (this._browserNewtabSessionMap.has(browser)) {
       newtabSessionId = this._browserNewtabSessionMap.get(browser);
@@ -365,7 +410,7 @@ class TelemetryHandler {
         provider: info.provider,
         tagged: info.type.startsWith("tagged"),
         partnerCode,
-        source,
+        source: inContentSource ?? source,
         isShoppingPage: info.isShoppingPage,
       };
     }
@@ -377,6 +422,7 @@ class TelemetryHandler {
         impressionId,
         hrefToComponentMap: null,
         impressionInfo,
+        searchBoxSubmitted: false,
       });
       item.count++;
       item.source = source;
@@ -389,6 +435,7 @@ class TelemetryHandler {
           impressionId,
           hrefToComponentMap: null,
           impressionInfo,
+          searchBoxSubmitted: false,
         }),
         info,
         count: 1,
@@ -885,6 +932,7 @@ class ContentHandler {
       if (
         lazy.serpEventsEnabled &&
         channel.isDocument &&
+        channel.loadInfo.isTopLevelLoad &&
         !wrappedChannel._countedClick
       ) {
         let start = Cu.now();
@@ -903,8 +951,18 @@ class ContentHandler {
         }
 
         let type;
-        // Check if telemetry is found.
-        if (telemetryState && telemetryState.hrefToComponentMap) {
+        // Check if telemetry is found. If a searchbox was used to initiate the
+        // load, then ignore the href because the event has already been logged.
+        // Related searches on some SERPs can be encoded as a nonAdsLinkRegexp
+        // before becoming a search page URL, so if the origin of the request
+        // was from a URL matching a non ads link, we can ignore it because
+        // we've already recorded an event.
+        if (
+          telemetryState &&
+          telemetryState.adImpressionsReported &&
+          !telemetryState.searchBoxSubmitted &&
+          !info.nonAdsLinkRegexps.some(r => r.test(originURL))
+        ) {
           // First check, see if anything matches.
           type = telemetryState.hrefToComponentMap?.get(URL);
           // The SERP provider may have modified the url with different query
@@ -927,6 +985,20 @@ class ContentHandler {
           // the href was recorded in memory.
           if (!type) {
             type = info.nonAdsLinkRegexps.some(r => r.test(URL))
+              ? SearchSERPTelemetryUtils.COMPONENTS.NON_ADS_LINK
+              : "";
+          }
+          // The search may have been refined or moved into another search
+          // engine (e.g. images, video).
+          if (!type) {
+            type = info.searchPageRegexp?.test(URL)
+              ? SearchSERPTelemetryUtils.COMPONENTS.NON_ADS_LINK
+              : "";
+          }
+          // Some variants of the search page have a different regular
+          // expression than the one we use for standard search pages.
+          if (!type) {
+            type = info.extraPageRegexps?.some(r => r.test(URL))
               ? SearchSERPTelemetryUtils.COMPONENTS.NON_ADS_LINK
               : "";
           }
@@ -1090,6 +1162,7 @@ class ContentHandler {
       }
       telemetryState.hrefToComponentMap = info.hrefToComponentMap;
       telemetryState.adImpressionsReported = true;
+      Services.obs.notifyObservers(null, "reported-page-with-ad-impressions");
     }
   }
 
@@ -1112,10 +1185,11 @@ class ContentHandler {
     if (!item) {
       return;
     }
-    let impressionId = item.browserTelemetryStateMap.get(browser)?.impressionId;
+    let telemetryState = item.browserTelemetryStateMap.get(browser);
+    let impressionId = telemetryState?.impressionId;
     if (info.type && impressionId) {
       lazy.logConsole.debug(`Recorded page action:`, {
-        impressionId,
+        impressionId: telemetryState.impressionId,
         type: info.type,
         action: info.action,
       });
@@ -1125,6 +1199,15 @@ class ContentHandler {
         target: info.type,
       });
       impressionIdsWithoutEngagementsSet.delete(impressionId);
+      // In-content searches are not be categorized with a type, so they will
+      // not be picked up in the network processes.
+      if (
+        info.type == SearchSERPTelemetryUtils.COMPONENTS.INCONTENT_SEARCHBOX &&
+        info.action == SearchSERPTelemetryUtils.ACTIONS.SUBMITTED
+      ) {
+        telemetryState.searchBoxSubmitted = true;
+        SearchSERPTelemetry.setBrowserContentSource(browser, info.type);
+      }
     } else {
       lazy.logConsole.warn(
         "Expected to report a",

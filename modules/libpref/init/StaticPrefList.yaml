@@ -7720,11 +7720,12 @@
   mirror: always  # LoadStartupJSPrefs
   do_not_use_directly: true
 
-# Jit Hints Cache - An in-process cache to
-# accelerate repeated baseline compilations
-- name: javascript.options.jitHints
+# Jit Hints Cache - An in-process cache for the 
+# content process to accelerate repeated baseline 
+# compilations
+- name: javascript.options.jithints
   type: bool
-  value: true
+  value: @IS_NIGHTLY_BUILD@
   mirror: always  # LoadStartupJSPrefs
   do_not_use_directly: true
 
@@ -8883,7 +8884,11 @@
 # private-browsing level specified by this pref.)
 - name: layout.css.font-visibility.private
   type: int32_t
+#if defined(NIGHTLY_BUILD)
+  value: 2
+#else
   value: 3
+#endif
   mirror: always
 
 # Is support for GeometryUtils.getBoxQuads enabled?
@@ -15351,7 +15356,11 @@
 # Forces async present to wait for a sync, even while using remote textures.
 - name: webgl.out-of-process.async-present.force-sync
   type: RelaxedAtomicBool
+#if !defined(MOZ_WIDGET_ANDROID) && defined(NIGHTLY_BUILD)
+  value: false
+#else
   value: true
+#endif
   mirror: always
 
 #if defined(MOZ_WIDGET_ANDROID)
@@ -15714,6 +15723,13 @@
   type: bool
   value: true
   mirror: once
+
+# Whether to keep firing vsync at layout.throttled_frame_rate after we've been
+# occluded.
+- name: widget.wayland.vsync.keep-firing-at-idle
+  type: bool
+  value: false
+  mirror: always
 #endif
 
 #ifdef MOZ_WIDGET_GTK

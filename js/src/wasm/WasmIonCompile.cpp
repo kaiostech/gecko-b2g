@@ -28,6 +28,7 @@
 #include "jit/CompileInfo.h"
 #include "jit/Ion.h"
 #include "jit/IonOptimizationLevels.h"
+#include "jit/MIR.h"
 #include "jit/ShuffleAnalysis.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "wasm/WasmBaselineCompile.h"
@@ -4207,12 +4208,19 @@ class FunctionCompiler {
   }
 
   [[nodiscard]] MDefinition* isGcObjectSubtypeOf(MDefinition* object,
-                                                 uint32_t castTypeIndex,
-                                                 bool succeedOnNull) {
-    auto* superSuperTypeVector = loadSuperTypeVector(castTypeIndex);
-    auto* isSubTypeOf = MWasmGcObjectIsSubtypeOf::New(
-        alloc(), object, superSuperTypeVector,
-        moduleEnv_.types->type(castTypeIndex).subTypingDepth(), succeedOnNull);
+                                                 const RefType& type) {
+    MInstruction* isSubTypeOf = nullptr;
+    if (type.isTypeRef()) {
+      uint32_t typeIndex = moduleEnv_.types->indexOf(*type.typeDef());
+      MDefinition* superSuperTypeVector = loadSuperTypeVector(typeIndex);
+      isSubTypeOf = MWasmGcObjectIsSubtypeOfConcrete::New(
+          alloc(), object, superSuperTypeVector, type);
+    } else {
+      isSubTypeOf =
+          MWasmGcObjectIsSubtypeOfAbstract::New(alloc(), object, type);
+    }
+    MOZ_ASSERT(isSubTypeOf);
+
     curBlock_->add(isSubTypeOf);
     return isSubTypeOf;
   }
@@ -4221,9 +4229,8 @@ class FunctionCompiler {
   // downcast fails, we trap.  If it succeeds, then `ref` can be assumed to
   // have a type that is a subtype of (or the same as) `castToTypeDef` after
   // this point.
-  [[nodiscard]] bool refCast(MDefinition* ref, uint32_t castTypeIndex) {
-    MDefinition* success =
-        isGcObjectSubtypeOf(ref, castTypeIndex, /*succeedOnNull=*/true);
+  [[nodiscard]] bool refCast(MDefinition* ref, const RefType& castType) {
+    MDefinition* success = isGcObjectSubtypeOf(ref, castType);
     if (!success) {
       return false;
     }
@@ -4235,13 +4242,14 @@ class FunctionCompiler {
 
   // Generate MIR that computes a boolean value indicating whether or not it
   // is possible to downcast `ref` to `castToTypeDef`.
-  [[nodiscard]] MDefinition* refTest(MDefinition* ref, uint32_t castTypeIndex) {
-    return isGcObjectSubtypeOf(ref, castTypeIndex, /*succeedOnNull=*/false);
+  [[nodiscard]] MDefinition* refTest(MDefinition* ref,
+                                     const RefType& castType) {
+    return isGcObjectSubtypeOf(ref, castType);
   }
 
   // Generates MIR for br_on_cast and br_on_cast_fail.
   [[nodiscard]] bool brOnCastCommon(bool onSuccess, uint32_t labelRelativeDepth,
-                                    uint32_t castTypeIndex,
+                                    const RefType& type,
                                     const ResultType& labelType,
                                     const DefVector& values) {
     if (inDeadCode()) {
@@ -4265,8 +4273,7 @@ class FunctionCompiler {
     MDefinition* ref = values.back();
     MOZ_ASSERT(ref->type() == MIRType::RefOrNull);
 
-    MDefinition* success =
-        isGcObjectSubtypeOf(ref, castTypeIndex, /*succeedOnNull=*/false);
+    MDefinition* success = isGcObjectSubtypeOf(ref, type);
     if (!success) {
       return false;
     }
@@ -7019,10 +7026,10 @@ static bool EmitArrayCopy(FunctionCompiler& f) {
                              numElements, elemSizeDef);
 }
 
-static bool EmitRefTest(FunctionCompiler& f) {
+static bool EmitRefTestV5(FunctionCompiler& f) {
   MDefinition* ref;
   uint32_t typeIndex;
-  if (!f.iter().readRefTest(&typeIndex, &ref)) {
+  if (!f.iter().readRefTestV5(&typeIndex, &ref)) {
     return false;
   }
 
@@ -7030,7 +7037,9 @@ static bool EmitRefTest(FunctionCompiler& f) {
     return true;
   }
 
-  MDefinition* success = f.refTest(ref, typeIndex);
+  const TypeDef& typeDef = f.moduleEnv().types->type(typeIndex);
+  const RefType& type = RefType::fromTypeDef(&typeDef, false);
+  MDefinition* success = f.refTest(ref, type);
   if (!success) {
     return false;
   }
@@ -7039,10 +7048,10 @@ static bool EmitRefTest(FunctionCompiler& f) {
   return true;
 }
 
-static bool EmitRefCast(FunctionCompiler& f) {
+static bool EmitRefCastV5(FunctionCompiler& f) {
   MDefinition* ref;
   uint32_t typeIndex;
-  if (!f.iter().readRefCast(&typeIndex, &ref)) {
+  if (!f.iter().readRefCastV5(&typeIndex, &ref)) {
     return false;
   }
 
@@ -7050,7 +7059,9 @@ static bool EmitRefCast(FunctionCompiler& f) {
     return true;
   }
 
-  if (!f.refCast(ref, typeIndex)) {
+  const TypeDef& typeDef = f.moduleEnv().types->type(typeIndex);
+  const RefType& type = RefType::fromTypeDef(&typeDef, /*nullable=*/true);
+  if (!f.refCast(ref, type)) {
     return false;
   }
 
@@ -7058,24 +7069,98 @@ static bool EmitRefCast(FunctionCompiler& f) {
   return true;
 }
 
-static bool EmitBrOnCastCommon(FunctionCompiler& f, bool onSuccess) {
+static bool EmitRefTest(FunctionCompiler& f, bool nullable) {
+  MDefinition* ref;
+  RefType type;
+  if (!f.iter().readRefTest(nullable, &type, &ref)) {
+    return false;
+  }
+
+  if (f.inDeadCode()) {
+    return true;
+  }
+
+  MDefinition* success = f.refTest(ref, type);
+  if (!success) {
+    return false;
+  }
+
+  f.iter().setResult(success);
+  return true;
+}
+
+static bool EmitRefCast(FunctionCompiler& f, bool nullable) {
+  MDefinition* ref;
+  RefType type;
+  if (!f.iter().readRefCast(nullable, &type, &ref)) {
+    return false;
+  }
+
+  if (f.inDeadCode()) {
+    return true;
+  }
+
+  if (!f.refCast(ref, type)) {
+    return false;
+  }
+
+  f.iter().setResult(ref);
+  return true;
+}
+
+static bool EmitBrOnCast(FunctionCompiler& f) {
+  bool onSuccess;
+  uint32_t labelRelativeDepth;
+  RefType destType;
+  ResultType labelType;
+  DefVector values;
+  if (!f.iter().readBrOnCast(&onSuccess, &labelRelativeDepth, &destType,
+                             &labelType, &values)) {
+    return false;
+  }
+
+  return f.brOnCastCommon(onSuccess, labelRelativeDepth, destType, labelType,
+                          values);
+}
+
+static bool EmitBrOnCastCommonV5(FunctionCompiler& f, bool onSuccess) {
   uint32_t labelRelativeDepth;
   uint32_t castTypeIndex;
   ResultType labelType;
   DefVector values;
   if (onSuccess
-          ? !f.iter().readBrOnCast(&labelRelativeDepth, &castTypeIndex,
-                                   &labelType, &values)
-          : !f.iter().readBrOnCastFail(&labelRelativeDepth, &castTypeIndex,
-                                       &labelType, &values)) {
+          ? !f.iter().readBrOnCastV5(&labelRelativeDepth, &castTypeIndex,
+                                     &labelType, &values)
+          : !f.iter().readBrOnCastFailV5(&labelRelativeDepth, &castTypeIndex,
+                                         &labelType, &values)) {
     return false;
   }
 
-  return f.brOnCastCommon(onSuccess, labelRelativeDepth, castTypeIndex,
-                          labelType, values);
+  const TypeDef& typeDef = f.moduleEnv().types->type(castTypeIndex);
+  const RefType& type = RefType::fromTypeDef(&typeDef, false);
+  return f.brOnCastCommon(onSuccess, labelRelativeDepth, type, labelType,
+                          values);
 }
 
-static bool EmitRefAsStruct(FunctionCompiler& f) {
+static bool EmitBrOnCastHeapV5(FunctionCompiler& f, bool onSuccess,
+                               bool nullable) {
+  uint32_t labelRelativeDepth;
+  RefType destType;
+  ResultType labelType;
+  DefVector values;
+  if (onSuccess
+          ? !f.iter().readBrOnCastHeapV5(nullable, &labelRelativeDepth,
+                                         &destType, &labelType, &values)
+          : !f.iter().readBrOnCastFailHeapV5(nullable, &labelRelativeDepth,
+                                             &destType, &labelType, &values)) {
+    return false;
+  }
+
+  return f.brOnCastCommon(onSuccess, labelRelativeDepth, destType, labelType,
+                          values);
+}
+
+static bool EmitRefAsStructV5(FunctionCompiler& f) {
   MDefinition* value;
   if (!f.iter().readConversion(ValType(RefType::any()),
                                ValType(RefType::struct_().asNonNullable()),
@@ -7086,11 +7171,11 @@ static bool EmitRefAsStruct(FunctionCompiler& f) {
   return true;
 }
 
-static bool EmitBrOnNonStruct(FunctionCompiler& f) {
+static bool EmitBrOnNonStructV5(FunctionCompiler& f) {
   uint32_t labelRelativeDepth;
   ResultType labelType;
   DefVector values;
-  if (!f.iter().readBrOnNonStruct(&labelRelativeDepth, &labelType, &values)) {
+  if (!f.iter().readBrOnNonStructV5(&labelRelativeDepth, &labelType, &values)) {
     return false;
   }
   return f.brOnNonStruct(values);
@@ -7709,6 +7794,7 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
             CHECK(EmitArrayNewFixed(f));
           case uint32_t(GcOp::ArrayNewData):
             CHECK(EmitArrayNewData(f));
+          case uint32_t(GcOp::ArrayInitFromElemStaticV5):
           case uint32_t(GcOp::ArrayNewElem):
             CHECK(EmitArrayNewElem(f));
           case uint32_t(GcOp::ArraySet):
@@ -7725,18 +7811,39 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
             CHECK(EmitArrayLen(f, /*decodeIgnoredTypeIndex=*/false));
           case uint32_t(GcOp::ArrayCopy):
             CHECK(EmitArrayCopy(f));
-          case uint32_t(GcOp::RefTest):
-            CHECK(EmitRefTest(f));
-          case uint32_t(GcOp::RefCast):
-            CHECK(EmitRefCast(f));
+          case uint32_t(GcOp::RefTestV5):
+            CHECK(EmitRefTestV5(f));
+          case uint32_t(GcOp::RefCastV5):
+            CHECK(EmitRefCastV5(f));
           case uint32_t(GcOp::BrOnCast):
-            CHECK(EmitBrOnCastCommon(f, /*onSuccess=*/true));
-          case uint32_t(GcOp::BrOnCastFail):
-            CHECK(EmitBrOnCastCommon(f, /*onSuccess=*/false));
-          case uint32_t(GcOp::RefAsStruct):
-            CHECK(EmitRefAsStruct(f));
-          case uint32_t(GcOp::BrOnNonStruct):
-            CHECK(EmitBrOnNonStruct(f));
+            CHECK(EmitBrOnCast(f));
+          case uint32_t(GcOp::BrOnCastV5):
+            CHECK(EmitBrOnCastCommonV5(f, /*onSuccess=*/true));
+          case uint32_t(GcOp::BrOnCastFailV5):
+            CHECK(EmitBrOnCastCommonV5(f, /*onSuccess=*/false));
+          case uint32_t(GcOp::BrOnCastHeapV5):
+            CHECK(
+                EmitBrOnCastHeapV5(f, /*onSuccess=*/true, /*nullable=*/false));
+          case uint32_t(GcOp::BrOnCastHeapNullV5):
+            CHECK(EmitBrOnCastHeapV5(f, /*onSuccess=*/true, /*nullable=*/true));
+          case uint32_t(GcOp::BrOnCastFailHeapV5):
+            CHECK(
+                EmitBrOnCastHeapV5(f, /*onSuccess=*/false, /*nullable=*/false));
+          case uint32_t(GcOp::BrOnCastFailHeapNullV5):
+            CHECK(
+                EmitBrOnCastHeapV5(f, /*onSuccess=*/false, /*nullable=*/true));
+          case uint32_t(GcOp::RefAsStructV5):
+            CHECK(EmitRefAsStructV5(f));
+          case uint32_t(GcOp::BrOnNonStructV5):
+            CHECK(EmitBrOnNonStructV5(f));
+          case uint32_t(GcOp::RefTest):
+            CHECK(EmitRefTest(f, /*nullable=*/false));
+          case uint32_t(GcOp::RefTestNull):
+            CHECK(EmitRefTest(f, /*nullable=*/true));
+          case uint32_t(GcOp::RefCast):
+            CHECK(EmitRefCast(f, /*nullable=*/false));
+          case uint32_t(GcOp::RefCastNull):
+            CHECK(EmitRefCast(f, /*nullable=*/true));
           case uint16_t(GcOp::ExternInternalize):
             CHECK(EmitExternInternalize(f));
           case uint16_t(GcOp::ExternExternalize):
@@ -8382,12 +8489,18 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
           case uint32_t(MozOp::F64Mod):
             CHECK(EmitRem(f, ValType::F64, MIRType::Double,
                           /* isUnsigned = */ false));
-          case uint32_t(MozOp::F64Sin):
-            CHECK(EmitUnaryMathBuiltinCall(f, SASigSinD));
-          case uint32_t(MozOp::F64Cos):
-            CHECK(EmitUnaryMathBuiltinCall(f, SASigCosD));
-          case uint32_t(MozOp::F64Tan):
-            CHECK(EmitUnaryMathBuiltinCall(f, SASigTanD));
+          case uint32_t(MozOp::F64SinNative):
+            CHECK(EmitUnaryMathBuiltinCall(f, SASigSinNativeD));
+          case uint32_t(MozOp::F64SinFdlibm):
+            CHECK(EmitUnaryMathBuiltinCall(f, SASigSinFdlibmD));
+          case uint32_t(MozOp::F64CosNative):
+            CHECK(EmitUnaryMathBuiltinCall(f, SASigCosNativeD));
+          case uint32_t(MozOp::F64CosFdlibm):
+            CHECK(EmitUnaryMathBuiltinCall(f, SASigCosFdlibmD));
+          case uint32_t(MozOp::F64TanNative):
+            CHECK(EmitUnaryMathBuiltinCall(f, SASigTanNativeD));
+          case uint32_t(MozOp::F64TanFdlibm):
+            CHECK(EmitUnaryMathBuiltinCall(f, SASigTanFdlibmD));
           case uint32_t(MozOp::F64Asin):
             CHECK(EmitUnaryMathBuiltinCall(f, SASigASinD));
           case uint32_t(MozOp::F64Acos):

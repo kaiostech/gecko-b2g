@@ -85,3 +85,5 @@ user_pref("privacy.partition.always_partition_third_party_non_cookie_storage", f
 user_pref("b2g.system_startup_url", "chrome://b2g/content/system/marionette.html");
 // Disable OCSP checks in WPT (webtransport triggers these occasionally)
 user_pref("security.OCSP.enabled", 0);
+// Disable prefers-reduced-motion to ensure that smooth scrolls can be tested.
+user_pref("general.smoothScroll", true);

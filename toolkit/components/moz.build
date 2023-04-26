@@ -64,7 +64,6 @@ DIRS += [
     "prompts",
     "protobuf",
     "remotebrowserutils",
-    "remotepagemanager",
     "reflect",
     "reputationservice",
     "resistfingerprinting",

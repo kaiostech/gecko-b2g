@@ -133,10 +133,10 @@ var AdbController = {
       this.updateStorageState(storageIndex + 1);
     }.bind(this);
     req.onerror = function(e) {
-      Cu.reportError(
-        "AdbController: error querying storage availability for '" +
-          this.storages[storageIndex].storageName +
-          "' (ignoring)\n"
+      console.error(
+        "AdbController: error querying storage availability for '",
+        this.storages[storageIndex].storageName,
+        "' (ignoring)\n"
       );
       this.updateStorageState(storageIndex + 1);
     }.bind(this);
@@ -277,7 +277,7 @@ var AdbController = {
       try {
         libcutils.property_set("persist.sys.usb.config", newConfig);
       } catch (e) {
-        Cu.reportError("Error configuring adb: " + e);
+        console.error("Error configuring adb: ", e);
       }
     }
     if (useDisableAdbTimer) {

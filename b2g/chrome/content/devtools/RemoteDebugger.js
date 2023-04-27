@@ -52,7 +52,7 @@ var RemoteDebugger = {
   /**
    * Prompt the user to accept or decline the incoming connection.
    *
-   * @param session object
+   * @param {object} session
    *        The session object will contain at least the following fields:
    *        {
    *          authentication,
@@ -68,7 +68,7 @@ var RemoteDebugger = {
    *        Specific authentication modes may include additional fields.  Check
    *        the different |allowConnection| methods in
    *        devtools/shared/security/auth.js.
-   * @return An AuthenticationResult value.
+   * @returns {AuthenticationResult} value.
    *         A promise that will be resolved to the above is also allowed.
    */
   allowConnection(session) {
@@ -177,9 +177,9 @@ var RemoteDebugger = {
    * This implementation instructs Fennec to invoke a QR decoder and return the
    * the data it contains back here.
    *
-   * @return An object containing:
-   *         * sha256: hash(ClientCert)
-   *         * k     : K(random 128-bit number)
+   * @returns {object} containing:
+   *         sha256: hash(ClientCert)
+   *         k     : K(random 128-bit number)
    *         A promise that will be resolved to the above is also allowed.
    */
   receiveOOB() {

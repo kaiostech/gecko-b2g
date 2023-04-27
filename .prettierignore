@@ -27,6 +27,7 @@ browser/branding/official/pref/firefox-branding.js
 browser/branding/unofficial/pref/firefox-branding.js
 b2g/app/b2g.js
 b2g/common.configure
+b2g/components/MarionetteController.sys.mjs
 b2g/locales/en-US/b2g-l10n.js
 dom/b2g/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
 devtools/client/preferences/debugger.js

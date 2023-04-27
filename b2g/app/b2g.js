@@ -921,9 +921,6 @@ pref("dom.downloads.enabled", true);
 //
 pref("security.exthelperapp.disable_background_handling", true);
 
-// Inactivity time in milliseconds after which we shut down the OS.File worker.
-pref("osfile.reset_worker_delay", 5000);
-
 // APZ physics settings, tuned by UX designers
 pref("apz.axis_lock.mode", 2); // Use "sticky" axis locking
 pref("apz.fling_curve_function_x1", "0.41");

@@ -7,8 +7,6 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 
-const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
-
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "settings",
@@ -43,10 +41,7 @@ const kXpcomShutdownObserverTopic = "xpcom-shutdown";
 
 const kProperty = "persist.moz.killswitch";
 
-const kUserValues = OS.Path.join(
-  OS.Constants.Path.profileDir,
-  "killswitch.json"
-);
+const kUserValues = PathUtils.join(PathUtils.profileDir, "killswitch.json");
 
 var inParent =
   Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
@@ -315,7 +310,10 @@ export const KillSwitchMain = {
               delete self._pendingSettingsGet;
               let payload = JSON.stringify(_userValues);
               DEBUG && debug("Dumping to " + kUserValues + ": " + payload);
-              OS.File.writeAtomic(kUserValues, payload).then(
+              IOUtils.write(kUserValues, payload, {
+                tmpPath: kUserValues + ".tmp",
+                flush: true,
+              }).then(
                 function writeOk() {
                   resolve(true);
                 },
@@ -364,10 +362,8 @@ export const KillSwitchMain = {
         reject("nolibcutils");
       }
 
-      OS.File.read(kUserValues, { encoding: "utf-8" })
-        .then(content => {
-          let values = JSON.parse(content);
-
+      IOUtils.readJSON(kUserValues)
+        .then(values => {
           for (let key of Object.keys(values.prefs)) {
             this.setPref(key, values.prefs[key]);
           }

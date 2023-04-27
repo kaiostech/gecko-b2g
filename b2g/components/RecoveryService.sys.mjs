@@ -111,17 +111,17 @@ RecoveryService.prototype = {
     }
 
     if (commands.length) {
-      const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
       let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
       dir.initWithPath("/persist");
       var postResetFile = dir.exists()
-        ? OS.Path.join("/persist", gFactoryResetFile)
-        : OS.Path.join("/cache", gFactoryResetFile);
+        ? PathUtils.join("/persist", gFactoryResetFile)
+        : PathUtils.join("/cache", gFactoryResetFile);
       let encoder = new TextEncoder();
       let text = commands.join("\n");
       let array = encoder.encode(text);
-      let promise = OS.File.writeAtomic(postResetFile, array, {
+      let promise = IOUtils.write(postResetFile, array, {
         tmpPath: postResetFile + ".tmp",
+        flush: true,
       });
 
       promise.then(doReset, function onError(error) {

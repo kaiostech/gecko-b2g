@@ -12,8 +12,6 @@ const { KillSwitchMain } = ChromeUtils.import(
   "resource://gre/modules/KillSwitchMain.jsm"
 );
 
-ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
-
 var kUserValues;
 
 function run_test() {
@@ -99,7 +97,7 @@ add_test(function test_prepareTestValues() {
     };
   }
 
-  kUserValues = OS.Path.join(OS.Constants.Path.profileDir, "killswitch.json");
+  kUserValues = PathUtils.join(PathUtils.profileDir, "killswitch.json");
   run_next_test();
 });
 
@@ -191,10 +189,10 @@ function install_common_tests() {
   add_test(function test_saveUserValues_prepare() {
     reset_status();
 
-    OS.File.exists(kUserValues)
+    IOUtils.exists(kUserValues)
       .then(e => {
         if (e) {
-          OS.File.remove(kUserValues)
+          IOUtils.remove(kUserValues)
             .then(() => {
               run_next_test();
             })
@@ -241,10 +239,8 @@ function install_common_tests() {
       .then(e => {
         ok(e, "should have succeeded");
 
-        OS.File.read(kUserValues, { encoding: "utf-8" })
-          .then(content => {
-            let obj = JSON.parse(content);
-
+        IOUtils.readJSON(kUserValues)
+          .then(obj => {
             deepEqual(obj.settings, expectedValues.settings);
             notDeepEqual(obj.settings, KillSwitchMain._enabledValues.settings);
 
@@ -273,10 +269,10 @@ function install_common_tests() {
   add_test(function test_saveUserValues_cleaup() {
     reset_status();
 
-    OS.File.exists(kUserValues)
+    IOUtils.exists(kUserValues)
       .then(e => {
         if (e) {
-          OS.File.remove(kUserValues)
+          IOUtils.remove(kUserValues)
             .then(() => {
               ok(true, "should have had a file");
               run_next_test();
@@ -316,10 +312,10 @@ function install_common_tests() {
       },
     };
 
-    OS.File.exists(kUserValues)
+    IOUtils.exists(kUserValues)
       .then(e => {
         if (!e) {
-          OS.File.writeAtomic(kUserValues, JSON.stringify(fakeValues)).then(
+          IOUtils.write(kUserValues, JSON.stringify(fakeValues)).then(
             () => {
               ok(true, "success writing file");
               run_next_test();

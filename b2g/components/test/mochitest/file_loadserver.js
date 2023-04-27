@@ -48,17 +48,16 @@ function installUserValues(next) {
     },
   };
 
-  OS.File.writeAtomic(kUserValues, JSON.stringify(fakeValues)).then(() => {
+  IOUtils.write(kUserValues, JSON.stringify(fakeValues)).then(() => {
     next();
   });
 }
 
 if (isMainProcess()) {
   ChromeUtils.import("resource://gre/modules/SettingsRequestManager.jsm");
-  ChromeUtils.import("resource://gre/modules/osfile.jsm");
   ChromeUtils.import("resource://gre/modules/KillSwitchMain.jsm");
 
-  kUserValues = OS.Path.join(OS.Constants.Path.profileDir, "killswitch.json");
+  kUserValues = PathUtils.join(PathUtils.profileDir, "killswitch.json");
 
   installUserValues(() => {
     KillSwitchMain._libcutils = fakeLibcUtils;

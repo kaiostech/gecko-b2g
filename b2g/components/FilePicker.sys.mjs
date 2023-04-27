@@ -17,8 +17,6 @@
  * platform-specific code, you can't throw across an XPCOM method boundary.)
  */
 
-const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
-
 // FIXME: improve this list of filters.
 const IMAGE_FILTERS = [
   "image/gif",
@@ -225,7 +223,7 @@ FilePicker.prototype = {
 
     // Let's try to remove the full path and take just the filename.
     if (name) {
-      let names = OS.Path.split(name);
+      let names = PathUtils.split(name);
       name = names.components[names.components.length - 1];
     }
 

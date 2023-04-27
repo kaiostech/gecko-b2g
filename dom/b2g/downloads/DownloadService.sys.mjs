@@ -4,8 +4,6 @@
 
 import { Downloads } from "resource://gre/modules/Downloads.sys.mjs";
 
-const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
-
 /**
  * Parent process logic that services download API requests from the
  * DownloadAPI.js instances in content processeses.  The actual work of managing
@@ -316,10 +314,10 @@ export var DownloadService = {
       // if the file does not exist.  We will also use this information for the
       // file size to avoid weird inconsistencies.  We ignore the filesystem
       // timestamp in favor of whatever the caller is telling us.
-      let fileInfo = await OS.File.stat(adoptJsonRep.path);
+      let fileInfo = await IOUtils.stat(adoptJsonRep.path);
 
       // We also require that the file is not a directory.
-      if (fileInfo.isDir) {
+      if (fileInfo.type == "directory") {
         throw new Error("AdoptFileIsDirectory");
       }
 
@@ -390,7 +388,7 @@ export var DownloadService = {
       ex => {
         let reportAs = "AdoptError";
         // Provide better error codes for expected errors.
-        if (ex instanceof OS.File.Error && ex.becauseNoSuchFile) {
+        if (DOMException.isInstance(ex) && ex.name == "NotFoundError") {
           reportAs = "AdoptNoSuchFile";
         } else if (ex.message === "AdoptFileIsDirectory") {
           reportAs = ex.message;

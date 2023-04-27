@@ -142,12 +142,11 @@ ProcessGlobal.prototype = {
   cleanupAfterFactoryReset() {
     log("cleanupAfterWipe start");
 
-    const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
     let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     dir.initWithPath("/persist");
     var postResetFile = dir.exists()
-      ? OS.Path.join("/persist", gFactoryResetFile)
-      : OS.Path.join("/cache", gFactoryResetFile);
+      ? PathUtils.join("/persist", gFactoryResetFile)
+      : PathUtils.join("/cache", gFactoryResetFile);
     let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     file.initWithPath(postResetFile);
     if (!file.exists()) {
@@ -155,7 +154,7 @@ ProcessGlobal.prototype = {
       return;
     }
 
-    let promise = OS.File.read(postResetFile);
+    let promise = IOUtils.read(postResetFile);
     promise.then(
       array => {
         file.remove(false);

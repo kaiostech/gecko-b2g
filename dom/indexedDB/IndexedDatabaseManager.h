@@ -115,6 +115,8 @@ class IndexedDatabaseManager final : public nsIObserver {
 
   void InvalidateAllFileManagers();
 
+  void InvalidateFileManagers(PersistenceType aPersistenceType);
+
   void InvalidateFileManagers(PersistenceType aPersistenceType,
                               const nsACString& aOrigin);
 

@@ -15003,7 +15003,7 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
   NS_ASSERTION(popoverHTMLEl, "Not a HTML element");
 
   if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
-                                           aRv)) {
+                                           nullptr, aRv)) {
     return;
   }
 
@@ -15019,7 +15019,7 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
                                    PopoverVisibilityState::Hidden,
                                    u"beforetoggle"_ns);
     if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
-                                             aRv)) {
+                                             nullptr, aRv)) {
       return;
     }
   }
@@ -15035,7 +15035,11 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
     popoverHTMLEl->QueuePopoverEventTask(PopoverVisibilityState::Showing);
   }
 
-  popoverHTMLEl->HandleFocusAfterHidingPopover(aFocusPreviousElement);
+  if (aFocusPreviousElement) {
+    popoverHTMLEl->FocusPreviousElementAfterHidingPopover();
+  } else {
+    popoverHTMLEl->ForgetPreviouslyFocusedElementAfterHidingPopover();
+  }
 }
 
 nsTArray<Element*> Document::AutoPopoverList() const {

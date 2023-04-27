@@ -155,7 +155,7 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
   void PopoverPseudoStateUpdate(bool aOpen, bool aNotify);
   bool PopoverOpen() const;
   bool CheckPopoverValidity(mozilla::dom::PopoverVisibilityState aExpectedState,
-                            ErrorResult& aRv);
+                            Document* aExpectedDocument, ErrorResult& aRv);
   /** Returns true if the event has been cancelled. */
   MOZ_CAN_RUN_SCRIPT bool FireToggleEvent(
       mozilla::dom::PopoverVisibilityState aOldState,
@@ -173,8 +173,8 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
   MOZ_CAN_RUN_SCRIPT void HidePopover(ErrorResult& aRv);
   MOZ_CAN_RUN_SCRIPT void TogglePopover(bool force, ErrorResult& aRv);
   MOZ_CAN_RUN_SCRIPT void FocusPopover();
-  MOZ_CAN_RUN_SCRIPT void HandleFocusAfterHidingPopover(
-      bool aFocusPreviousElement);
+  void ForgetPreviouslyFocusedElementAfterHidingPopover();
+  MOZ_CAN_RUN_SCRIPT void FocusPreviousElementAfterHidingPopover();
 
   MOZ_CAN_RUN_SCRIPT void FocusCandidate(Element&, bool aClearUpFocus);
 

@@ -268,7 +268,6 @@ extern void InstallSignalHandlers(const char* ProgramName);
 #define FILE_COMPATIBILITY_INFO "compatibility.ini"_ns
 #define FILE_INVALIDATE_CACHES ".purgecaches"_ns
 #define FILE_STARTUP_INCOMPLETE u".startup-incomplete"_ns
-#define FILE_GLX_TEST u"glxtest"_ns
 
 #if defined(MOZ_BLOCK_PROFILE_DOWNGRADE) || defined(MOZ_LAUNCHER_PROCESS) || \
     defined(MOZ_DEFAULT_BROWSER_AGENT)
@@ -5121,6 +5120,15 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
   GfxInfo::FireGLXTestProcess();
 #endif
 
+#ifdef MOZ_WAYLAND
+  // Make sure we have wayland connection for main thread.
+  // It's used as template to create display connections
+  // for different threads.
+  if (IsWaylandEnabled()) {
+    MOZ_UNUSED(WaylandDisplayGet());
+  }
+#endif
+
   return 0;
 }
 
@@ -6112,14 +6120,10 @@ mozilla::BinPathType XRE_GetChildProcBinPathType(
 }
 
 // From mozglue/static/rust/lib.rs
-extern "C" void install_rust_panic_hook();
-extern "C" void install_rust_oom_hook();
+extern "C" void install_rust_hooks();
 
 struct InstallRustHooks {
-  InstallRustHooks() {
-    install_rust_panic_hook();
-    install_rust_oom_hook();
-  }
+  InstallRustHooks() { install_rust_hooks(); }
 };
 
 InstallRustHooks sInstallRustHooks;

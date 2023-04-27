@@ -71,6 +71,12 @@ var gExceptionPaths = [
 
   // Localization file added programatically in featureCallout.jsm
   "resource://app/localization/en-US/browser/featureCallout.ftl",
+
+  // Will be removed in bug 1737308
+  "resource://gre/modules/lz4.js",
+  "resource://gre/modules/lz4_internal.js",
+  "resource://gre/modules/osfile.jsm",
+  "resource://gre/modules/osfile/",
 ];
 
 // These are not part of the omni.ja file, so we find them only when running
@@ -121,6 +127,12 @@ var whitelist = [
   {
     file: "resource://gre/localization/en-US/toolkit/printing/printDialogs.ftl",
     platforms: ["linux", "macosx"],
+  },
+
+  // This file is referenced by the build system to generate the
+  // Firefox .desktop entry. See bug 1824327 (and perhaps bug 1526672)
+  {
+    file: "resource://app/localization/en-US/browser/linuxDesktopEntry.ftl",
   },
 
   // toolkit/content/aboutRights-unbranded.xhtml doesn't use aboutRights.css

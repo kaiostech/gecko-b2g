@@ -168,12 +168,12 @@ class DecoderManagerCallback;
 // the higher-level logic that drives mapping the Gonk to the async
 // MediaDataDecoder interface. The specifics of decoding the exact stream
 // type are handled by GonkDecoderManager and the GonkDecoder it creates.
-class GonkMediaDataDecoder : public MediaDataDecoder,
-                             public GonkDecoderManagerCallback {
+class GonkMediaDataDecoder final : public MediaDataDecoder,
+                                   public GonkDecoderManagerCallback {
  public:
-  GonkMediaDataDecoder(GonkDecoderManager* aDecoderManager);
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GonkMediaDataDecoder, final);
 
-  ~GonkMediaDataDecoder();
+  GonkMediaDataDecoder(GonkDecoderManager* aDecoderManager);
 
   RefPtr<InitPromise> Init() override;
   RefPtr<DecodePromise> Decode(MediaRawData* aSample) override;
@@ -196,6 +196,8 @@ class GonkMediaDataDecoder : public MediaDataDecoder,
   void NotifyError(const char* aCallSite, nsresult aResult) override;
 
  private:
+  ~GonkMediaDataDecoder();
+
   void ResolveDecodePromise();
   void ResolveDrainPromise();
   void AssertOnTaskQueue() { MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn()); }

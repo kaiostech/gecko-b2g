@@ -40,7 +40,7 @@ friend class GrallocReporter;
 public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedBufferManagerParent, final);
 
-  static SharedBufferManagerParent* CreateSameProcess();
+  static already_AddRefed<SharedBufferManagerParent> CreateSameProcess();
   static bool CreateForContent(Endpoint<PSharedBufferManagerParent>&& aEndpoint);
 
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC

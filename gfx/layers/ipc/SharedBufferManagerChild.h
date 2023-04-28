@@ -42,7 +42,7 @@ struct GrallocParam {
 // Since Android O, SharedBufferManagerChild should not be necessary.
 // android::Graphic buffer could be allocated via Binderized HAL.
 
-class SharedBufferManagerChild : public PSharedBufferManagerChild {
+class SharedBufferManagerChild final : public PSharedBufferManagerChild {
 public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedBufferManagerChild, final);
 

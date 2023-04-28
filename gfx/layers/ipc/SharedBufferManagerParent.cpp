@@ -125,7 +125,7 @@ private:
 };
 
 /* static */
-SharedBufferManagerParent* SharedBufferManagerParent::CreateSameProcess() {
+already_AddRefed<SharedBufferManagerParent> SharedBufferManagerParent::CreateSameProcess() {
   base::ProcessId pid = base::GetCurrentProcId();
 
   char thrname[128];
@@ -133,7 +133,7 @@ SharedBufferManagerParent* SharedBufferManagerParent::CreateSameProcess() {
 
   RefPtr<SharedBufferManagerParent> parent =
       new SharedBufferManagerParent(pid, new base::Thread(thrname));
-  return parent;
+  return parent.forget();
 }
 
 /* static */

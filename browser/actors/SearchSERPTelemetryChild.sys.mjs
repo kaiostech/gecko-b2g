@@ -188,10 +188,9 @@ class SearchAdImpression {
     this.#topDownComponents = [];
 
     for (let component of this.#providerInfo.components) {
-      // Shopping is parsed before any component, so its regular expression
-      // and flags should not be added to avoid double-checking.
-      if (component.included?.default) {
+      if (component.default) {
         this.#defaultComponent = component;
+        continue;
       }
       if (component.nonAd && component.included?.regexps) {
         this.#nonAdRegexps = this.#nonAdRegexps.concat(
@@ -370,6 +369,16 @@ class SearchAdImpression {
     // Some hrefs might be using relative URLs.
     if (href?.startsWith("/")) {
       href = this.#pageUrl.origin + href;
+    }
+    // Some reserved characters are converted into percent-encoded strings by
+    // the time they are observed in the network.
+    // e.g. /path'?q=Mozilla's -> /path'?q=Mozilla%27s
+    if (href) {
+      try {
+        href = Services.io.newURI(href)?.spec;
+      } catch {
+        return "";
+      }
     }
     return href;
   }
@@ -558,7 +567,7 @@ class SearchAdImpression {
 
       // The default component doesn't need to be checked,
       // as it will be the fallback option.
-      if (component.included.default) {
+      if (component.default) {
         continue;
       }
 

@@ -7720,8 +7720,8 @@
   mirror: always  # LoadStartupJSPrefs
   do_not_use_directly: true
 
-# Jit Hints Cache - An in-process cache for the 
-# content process to accelerate repeated baseline 
+# Jit Hints Cache - An in-process cache for the
+# content process to accelerate repeated baseline
 # compilations
 - name: javascript.options.jithints
   type: bool
@@ -11472,6 +11472,13 @@
   value: 5
   mirror: always
 
+# Timeout period (in milliseconds) when the mouse wheel event is no longer
+# handled as the same series.
+- name: mousewheel.scroll_series_timeout
+  type: RelaxedAtomicInt32
+  value: 80
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "mozilla."
 #---------------------------------------------------------------------------
@@ -13330,14 +13337,6 @@
   value: true
   mirror: always
 
-# Whether Origin Telemetry should be enabled.
-# NOTE: if telemetry.origin_telemetry_test_mode.enabled is enabled, this pref
-#       won't have any effect.
-- name: privacy.trackingprotection.origin_telemetry.enabled
-  type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
-  mirror: always
-
 - name: privacy.trackingprotection.testing.report_blocked_node
   type: RelaxedAtomicBool
   value: false
@@ -14610,14 +14609,6 @@
 #---------------------------------------------------------------------------
 # Prefs starting with "telemetry."
 #---------------------------------------------------------------------------
-
-# Enable origin telemetry test mode or not
-# NOTE: turning this on will override the
-#       privacy.trackingprotection.origin_telemetry.enabled pref.
-- name: telemetry.origin_telemetry_test_mode.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
 
 - name: telemetry.number_of_site_origin.min_interval
   type: uint32_t

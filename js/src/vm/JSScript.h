@@ -900,8 +900,8 @@ class ScriptSource {
   // This function asserts nothing about |data|.  Users should use assertions to
   // double-check their own understandings of the |data| state transition being
   // performed.
-  template <typename Unit>
-  [[nodiscard]] bool setUncompressedSourceHelper(JSContext* cx,
+  template <typename ContextT, typename Unit>
+  [[nodiscard]] bool setUncompressedSourceHelper(ContextT* cx,
                                                  EntryUnits<Unit>&& source,
                                                  size_t length,
                                                  SourceRetrievable retrievable);
@@ -910,7 +910,7 @@ class ScriptSource {
   // Initialize a fresh |ScriptSource| with unretrievable, uncompressed source.
   template <typename Unit>
   [[nodiscard]] bool initializeUnretrievableUncompressedSource(
-      JSContext* cx, EntryUnits<Unit>&& source, size_t length);
+      FrontendContext* fc, EntryUnits<Unit>&& source, size_t length);
 
   // Set the retrieved source for a |ScriptSource| whose source was recorded as
   // missing but retrievable.
@@ -942,7 +942,8 @@ class ScriptSource {
   // source of the indicated original encoding.
   template <typename Unit>
   [[nodiscard]] bool initializeWithUnretrievableCompressedSource(
-      JSContext* cx, UniqueChars&& raw, size_t rawLength, size_t sourceLength);
+      FrontendContext* fc, UniqueChars&& raw, size_t rawLength,
+      size_t sourceLength);
 
  private:
   void performTaskWork(SourceCompressionTask* task);

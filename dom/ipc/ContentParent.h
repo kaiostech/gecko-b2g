@@ -1088,6 +1088,7 @@ class ContentParent final : public PContentParent,
   mozilla::ipc::IPCResult RecvSetClipboard(
       const IPCDataTransfer& aDataTransfer, const bool& aIsPrivateData,
       nsIPrincipal* aRequestingPrincipal,
+      mozilla::Maybe<CookieJarSettingsArgs> aCookieJarSettingsArgs,
       const nsContentPolicyType& aContentPolicyType,
       nsIReferrerInfo* aReferrerInfo, const int32_t& aWhichClipboard);
 

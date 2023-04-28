@@ -193,14 +193,14 @@ void js::NurseryDecommitTask::run(AutoLockHelperThreadState& lock) {
 }
 
 js::Nursery::Nursery(GCRuntime* gc)
-    : gc(gc),
-      position_(0),
-      currentStartChunk_(0),
-      currentStartPosition_(0),
+    : position_(0),
       currentEnd_(0),
       currentStringEnd_(0),
       currentBigIntEnd_(0),
+      gc(gc),
       currentChunk_(0),
+      currentStartChunk_(0),
+      currentStartPosition_(0),
       capacity_(0),
       timeInChunkAlloc_(0),
       enableProfiling_(false),
@@ -318,6 +318,8 @@ void js::Nursery::enable() {
   }
 #endif
 
+  updateZoneAllocFlags();
+
   // This should always succeed after the first time it's called.
   MOZ_ALWAYS_TRUE(gc->storeBuffer().enable());
 }
@@ -364,30 +366,41 @@ void js::Nursery::disable() {
   currentBigIntEnd_ = 0;
   position_ = 0;
   gc->storeBuffer().disable();
+  updateZoneAllocFlags();
 }
 
 void js::Nursery::enableStrings() {
   MOZ_ASSERT(isEmpty());
   canAllocateStrings_ = true;
   currentStringEnd_ = currentEnd_;
+  updateZoneAllocFlags();
 }
 
 void js::Nursery::disableStrings() {
   MOZ_ASSERT(isEmpty());
   canAllocateStrings_ = false;
   currentStringEnd_ = 0;
+  updateZoneAllocFlags();
 }
 
 void js::Nursery::enableBigInts() {
   MOZ_ASSERT(isEmpty());
   canAllocateBigInts_ = true;
   currentBigIntEnd_ = currentEnd_;
+  updateZoneAllocFlags();
 }
 
 void js::Nursery::disableBigInts() {
   MOZ_ASSERT(isEmpty());
   canAllocateBigInts_ = false;
   currentBigIntEnd_ = 0;
+  updateZoneAllocFlags();
+}
+
+void js::Nursery::updateZoneAllocFlags() {
+  for (AllZonesIter zone(gc); !zone.done(); zone.next()) {
+    zone->updateNurseryAllocFlags(*this);
+  }
 }
 
 bool js::Nursery::isEmpty() const {
@@ -464,7 +477,6 @@ void* js::Nursery::allocateObject(gc::AllocSite* site, size_t size,
     return nullptr;
   }
 
-  gcprobes::NurseryAlloc(ptr, size);
   return ptr;
 }
 
@@ -487,16 +499,24 @@ void* js::Nursery::allocateCell(gc::AllocSite* site, size_t size,
 
   // Update the allocation site. This code is also inlined in
   // MacroAssembler::updateAllocSite.
-  if (!site->isInAllocatedList()) {
+  uint32_t allocCount = site->incAllocCount();
+  if (allocCount == 1) {
     pretenuringNursery.insertIntoAllocatedList(site);
+  } else {
+    MOZ_ASSERT_IF(site->isNormal(), site->isInAllocatedList());
   }
-  site->incAllocCount();
+
+  // We count this regardless of the profiler's state, assuming that it costs
+  // just as much to count it, as to check the profiler's state and decide not
+  // to count it.
+  stats().noteNurseryAlloc();
 
   gcprobes::NurseryAlloc(cell, kind);
   return cell;
 }
 
 void* js::Nursery::allocateString(gc::AllocSite* site, size_t size) {
+  MOZ_ASSERT(canAllocateStrings());
   void* ptr = allocateCell(site, size, JS::TraceKind::String);
   if (ptr) {
     site->zone()->nurseryAllocatedStrings++;
@@ -525,10 +545,6 @@ inline void* js::Nursery::allocate(size_t size) {
 
   void* thing = (void*)position();
   position_ = position() + size;
-  // We count this regardless of the profiler's state, assuming that it costs
-  // just as much to count it, as to check the profiler's state and decide not
-  // to count it.
-  stats().noteNurseryAlloc();
 
   DebugOnlyPoison(thing, JS_ALLOCATED_NURSERY_PATTERN, size,
                   MemCheckKind::MakeUndefined);
@@ -1594,11 +1610,12 @@ size_t js::Nursery::doPretenuring(JSRuntime* rt, JS::GCReason reason,
         }
       }
       if (disableNurseryStrings) {
-        zone->allocNurseryStrings = false;
+        zone->nurseryStringsDisabled = true;
       }
       if (disableNurseryBigInts) {
-        zone->allocNurseryBigInts = false;
+        zone->nurseryBigIntsDisabled = true;
       }
+      zone->updateNurseryAllocFlags(*this);
     }
     numStringsTenured += zoneTenuredStrings;
     numBigIntsTenured += zone->tenuredBigInts;

@@ -630,9 +630,9 @@ void MacroAssembler::updateAllocSite(Register temp, Register result,
 
   add32(Imm32(1), Address(site, gc::AllocSite::offsetOfNurseryAllocCount()));
 
-  branchPtr(Assembler::NotEqual,
-            Address(site, gc::AllocSite::offsetOfNextNurseryAllocated()),
-            ImmPtr(nullptr), &done);
+  branch32(Assembler::NotEqual,
+           Address(site, gc::AllocSite::offsetOfNurseryAllocCount()), Imm32(1),
+           &done);
 
   loadPtr(AbsoluteAddress(zone->addressOfNurseryAllocatedSites()), temp);
   storePtr(temp, Address(site, gc::AllocSite::offsetOfNextNurseryAllocated()));
@@ -2193,6 +2193,7 @@ void MacroAssembler::loadAtomOrSymbolAndHash(ValueOperand value, Register outId,
 
     unboxSymbol(value, outId);
     load32(Address(outId, JS::Symbol::offsetOfHash()), outHash);
+    orPtr(Imm32(PropertyKey::SymbolTypeTag), outId);
     jump(&done);
   }
 

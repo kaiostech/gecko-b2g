@@ -10,7 +10,7 @@ DESKTOP_CSS = "#cbiBody"
 @pytest.mark.with_interventions
 async def test_enabled(client):
     await client.navigate(URL)
-    assert client.find_css(MOBILE_CSS)
+    assert client.await_css(MOBILE_CSS)
     assert not client.find_css(DESKTOP_CSS)
 
 
@@ -19,5 +19,5 @@ async def test_enabled(client):
 @pytest.mark.without_interventions
 async def test_disabled(client):
     await client.navigate(URL)
-    assert client.find_css(DESKTOP_CSS)
+    assert client.await_css(DESKTOP_CSS)
     assert not client.find_css(MOBILE_CSS)

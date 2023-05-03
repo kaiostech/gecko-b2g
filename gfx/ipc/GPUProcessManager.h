@@ -98,7 +98,7 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   // If the GPU process is enabled but has not yet been launched then this will
   // launch the process. If that is not desired then check that return value of
   // Process() is non-null before calling.
-  bool EnsureGPUReady();
+  nsresult EnsureGPUReady();
 
   already_AddRefed<CompositorSession> CreateTopLevelCompositor(
       nsBaseWidget* aWidget, WebRenderLayerManager* aLayerManager,
@@ -297,14 +297,14 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   void EnsureVsyncIOThread();
   void ShutdownVsyncIOThread();
 
-  void EnsureProtocolsReady();
-  void EnsureCompositorManagerChild();
+  bool EnsureProtocolsReady();
+  bool EnsureCompositorManagerChild();
 
 #ifdef MOZ_WIDGET_GONK
-  void EnsureSharedBufferManagerChild();
+  bool EnsureSharedBufferManagerChild();
 #endif
-  void EnsureImageBridgeChild();
-  void EnsureVRManager();
+  bool EnsureImageBridgeChild();
+  bool EnsureVRManager();
 
 #if defined(XP_WIN)
   void SetProcessIsForeground();

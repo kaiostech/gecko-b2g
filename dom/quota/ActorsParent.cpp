@@ -816,7 +816,6 @@ class OriginOperationBase : public BackgroundThreadObject, public Runnable {
   bool mActorDestroyed;
 
  protected:
-  bool mNeedsQuotaManagerInit;
   bool mNeedsStorageInit;
 
  public:
@@ -840,7 +839,6 @@ class OriginOperationBase : public BackgroundThreadObject, public Runnable {
         mResultCode(NS_OK),
         mState(State_Initial),
         mActorDestroyed(false),
-        mNeedsQuotaManagerInit(false),
         mNeedsStorageInit(false) {}
 
   // Reference counted.
@@ -879,6 +877,8 @@ class OriginOperationBase : public BackgroundThreadObject, public Runnable {
 
   NS_IMETHOD
   Run() override;
+
+  virtual nsresult DoInit(QuotaManager& aQuotaManager);
 
   virtual void Open() = 0;
 
@@ -984,16 +984,19 @@ class NormalOriginOperationBase
 };
 
 class SaveOriginAccessTimeOp : public NormalOriginOperationBase {
+  const OriginMetadata mOriginMetadata;
   int64_t mTimestamp;
 
  public:
-  SaveOriginAccessTimeOp(PersistenceType aPersistenceType,
-                         const nsACString& aOrigin, int64_t aTimestamp)
-      : NormalOriginOperationBase("dom::quota::SaveOriginAccessTimeOp",
-                                  Nullable<PersistenceType>(aPersistenceType),
-                                  OriginScope::FromOrigin(aOrigin),
-                                  Nullable<Client::Type>(),
-                                  /* aExclusive */ false),
+  SaveOriginAccessTimeOp(const OriginMetadata& aOriginMetadata,
+                         int64_t aTimestamp)
+      : NormalOriginOperationBase(
+            "dom::quota::SaveOriginAccessTimeOp",
+            Nullable<PersistenceType>(aOriginMetadata.mPersistenceType),
+            OriginScope::FromOrigin(aOriginMetadata.mOrigin),
+            Nullable<Client::Type>(),
+            /* aExclusive */ false),
+        mOriginMetadata(aOriginMetadata),
         mTimestamp(aTimestamp) {
     AssertIsOnOwningThread();
   }
@@ -1176,8 +1179,10 @@ class GetUsageOp final : public QuotaUsageRequestBase,
 };
 
 class GetOriginUsageOp final : public QuotaUsageRequestBase {
+  const OriginUsageParams mParams;
   nsCString mSuffix;
   nsCString mGroup;
+  nsCString mStorageOrigin;
   uint64_t mUsage;
   uint64_t mFileUsage;
   bool mIsPrivate;
@@ -1188,6 +1193,8 @@ class GetOriginUsageOp final : public QuotaUsageRequestBase {
 
  private:
   ~GetOriginUsageOp() = default;
+
+  nsresult DoInit(QuotaManager& aQuotaManager) override;
 
   RefPtr<DirectoryLock> CreateDirectoryLock() override;
 
@@ -1314,8 +1321,10 @@ class InitTemporaryStorageOp final : public QuotaRequestBase {
 
 class InitializeOriginRequestBase : public QuotaRequestBase {
  protected:
+  const PrincipalInfo mPrincipalInfo;
   nsCString mSuffix;
   nsCString mGroup;
+  nsCString mStorageOrigin;
   bool mIsPrivate;
   bool mCreated;
 
@@ -1326,6 +1335,8 @@ class InitializeOriginRequestBase : public QuotaRequestBase {
   InitializeOriginRequestBase(const char* aRunnableName,
                               PersistenceType aPersistenceType,
                               const PrincipalInfo& aPrincipalInfo);
+
+  nsresult DoInit(QuotaManager& aQuotaManager) override;
 };
 
 class InitializePersistentOriginOp final : public InitializeOriginRequestBase {
@@ -1353,13 +1364,17 @@ class InitializeTemporaryOriginOp final : public InitializeOriginRequestBase {
 };
 
 class GetFullOriginMetadataOp : public QuotaRequestBase {
-  const OriginMetadata mOriginMetadata;
+  const GetFullOriginMetadataParams mParams;
+  // XXX Consider wrapping with LazyInitializedOnce
+  OriginMetadata mOriginMetadata;
   Maybe<FullOriginMetadata> mMaybeFullOriginMetadata;
 
  public:
   explicit GetFullOriginMetadataOp(const GetFullOriginMetadataParams& aParams);
 
  private:
+  nsresult DoInit(QuotaManager& aQuotaManager) override;
+
   RefPtr<DirectoryLock> CreateDirectoryLock() override;
 
   nsresult DoDirectoryWork(QuotaManager& aQuotaManager) override;
@@ -1468,6 +1483,7 @@ class PersistRequestBase : public QuotaRequestBase {
  protected:
   nsCString mSuffix;
   nsCString mGroup;
+  nsCString mStorageOrigin;
   bool mIsPrivate;
 
  public:
@@ -1475,6 +1491,8 @@ class PersistRequestBase : public QuotaRequestBase {
 
  protected:
   explicit PersistRequestBase(const PrincipalInfo& aPrincipalInfo);
+
+  nsresult DoInit(QuotaManager& aQuotaManager) override;
 };
 
 class PersistedOp final : public PersistRequestBase {
@@ -1504,7 +1522,8 @@ class PersistOp final : public PersistRequestBase {
 };
 
 class EstimateOp final : public QuotaRequestBase {
-  const OriginMetadata mOriginMetadata;
+  const EstimateParams mParams;
+  OriginMetadata mOriginMetadata;
   std::pair<uint64_t, uint64_t> mUsageAndLimit;
 
  public:
@@ -1512,6 +1531,8 @@ class EstimateOp final : public QuotaRequestBase {
 
  private:
   ~EstimateOp() = default;
+
+  nsresult DoInit(QuotaManager& aQuotaManager) override;
 
   RefPtr<DirectoryLock> CreateDirectoryLock() override;
 
@@ -1702,10 +1723,8 @@ Result<bool, nsresult> MaybeUpdateLastAccessTimeForOrigin(
     QuotaManager* quotaManager = QuotaManager::Get();
     MOZ_ASSERT(quotaManager);
 
-    QM_TRY_INSPECT(
-        const auto& metadataFile,
-        quotaManager->GetDirectoryForOrigin(
-            aFullOriginMetadata.mPersistenceType, aFullOriginMetadata.mOrigin));
+    QM_TRY_INSPECT(const auto& metadataFile,
+                   quotaManager->GetOriginDirectory(aFullOriginMetadata));
 
     QM_TRY(MOZ_TO_RESULT(
         metadataFile->Append(nsLiteralString(METADATA_V2_FILE_NAME))));
@@ -3604,7 +3623,8 @@ void QuotaManager::InitQuotaForOrigin(
       aFullOriginMetadata.mGroup);
 
   groupInfo->LockedAddOriginInfo(MakeNotNull<RefPtr<OriginInfo>>(
-      groupInfo, aFullOriginMetadata.mOrigin, aFullOriginMetadata.mIsPrivate,
+      groupInfo, aFullOriginMetadata.mOrigin,
+      aFullOriginMetadata.mStorageOrigin, aFullOriginMetadata.mIsPrivate,
       aClientUsages, aUsageBytes, aFullOriginMetadata.mLastAccessTime,
       aFullOriginMetadata.mPersisted,
       /* aDirectoryExists */ true));
@@ -3624,8 +3644,8 @@ void QuotaManager::EnsureQuotaForOrigin(const OriginMetadata& aOriginMetadata) {
       groupInfo->LockedGetOriginInfo(aOriginMetadata.mOrigin);
   if (!originInfo) {
     groupInfo->LockedAddOriginInfo(MakeNotNull<RefPtr<OriginInfo>>(
-        groupInfo, aOriginMetadata.mOrigin, aOriginMetadata.mIsPrivate,
-        ClientUsageArray(),
+        groupInfo, aOriginMetadata.mOrigin, aOriginMetadata.mStorageOrigin,
+        aOriginMetadata.mIsPrivate, ClientUsageArray(),
         /* aUsageBytes */ 0,
         /* aAccessTime */ PR_Now(), /* aPersisted */ false,
         /* aDirectoryExists */ false));
@@ -3654,8 +3674,8 @@ int64_t QuotaManager::NoteOriginDirectoryCreated(
   } else {
     timestamp = PR_Now();
     groupInfo->LockedAddOriginInfo(MakeNotNull<RefPtr<OriginInfo>>(
-        groupInfo, aOriginMetadata.mOrigin, aOriginMetadata.mIsPrivate,
-        ClientUsageArray(),
+        groupInfo, aOriginMetadata.mOrigin, aOriginMetadata.mStorageOrigin,
+        aOriginMetadata.mIsPrivate, ClientUsageArray(),
         /* aUsageBytes */ 0,
         /* aAccessTime */ timestamp, aPersisted, /* aDirectoryExists */ true));
   }
@@ -3743,6 +3763,7 @@ void QuotaManager::UpdateOriginAccessTime(
     PersistenceType aPersistenceType, const OriginMetadata& aOriginMetadata) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aPersistenceType != PERSISTENCE_TYPE_PERSISTENT);
+  MOZ_ASSERT(aOriginMetadata.mPersistenceType == aPersistenceType);
   MOZ_ASSERT(!IsShuttingDown());
 
   MutexAutoLock lock(mQuotaMutex);
@@ -3765,8 +3786,7 @@ void QuotaManager::UpdateOriginAccessTime(
 
     MutexAutoUnlock autoUnlock(mQuotaMutex);
 
-    auto op = MakeRefPtr<SaveOriginAccessTimeOp>(
-        aPersistenceType, aOriginMetadata.mOrigin, timestamp);
+    auto op = MakeRefPtr<SaveOriginAccessTimeOp>(aOriginMetadata, timestamp);
 
     RegisterNormalOriginOp(*op);
 
@@ -3870,6 +3890,8 @@ nsresult QuotaManager::LoadQuota() {
                         MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCString, stmt,
                                                           GetUTF8String, 3));
 
+          fullOriginMetadata.mStorageOrigin = fullOriginMetadata.mOrigin;
+
           fullOriginMetadata.mIsPrivate = false;
 
           QM_TRY_INSPECT(const auto& clientUsagesText,
@@ -3908,10 +3930,8 @@ nsresult QuotaManager::LoadQuota() {
           // ensure consistency is in EnsureTemporaryOriginIsInitialized.)
 
           if (accessed) {
-            QM_TRY_INSPECT(
-                const auto& directory,
-                GetDirectoryForOrigin(fullOriginMetadata.mPersistenceType,
-                                      fullOriginMetadata.mOrigin));
+            QM_TRY_INSPECT(const auto& directory,
+                           GetOriginDirectory(fullOriginMetadata));
 
             QM_TRY_INSPECT(const bool& exists,
                            MOZ_TO_RESULT_INVOKE_MEMBER(directory, Exists));
@@ -3948,6 +3968,10 @@ nsresult QuotaManager::LoadQuota() {
                    Err(NS_ERROR_FAILURE));
 
             QM_TRY(OkIf(fullOriginMetadata.mOrigin == metadata.mOrigin),
+                   Err(NS_ERROR_FAILURE));
+
+            QM_TRY(OkIf(fullOriginMetadata.mStorageOrigin ==
+                        metadata.mStorageOrigin),
                    Err(NS_ERROR_FAILURE));
 
             QM_TRY(OkIf(fullOriginMetadata.mIsPrivate == metadata.mIsPrivate),
@@ -4159,6 +4183,7 @@ already_AddRefed<QuotaObject> QuotaManager::GetQuotaObject(
     Client::Type aClientType, nsIFile* aFile, int64_t aFileSize,
     int64_t* aFileSizeOut /* = nullptr */) {
   NS_ASSERTION(!NS_IsMainThread(), "Wrong thread!");
+  MOZ_ASSERT(aOriginMetadata.mPersistenceType == aPersistenceType);
 
   if (aFileSizeOut) {
     *aFileSizeOut = 0;
@@ -4174,10 +4199,8 @@ already_AddRefed<QuotaObject> QuotaManager::GetQuotaObject(
 
 #ifdef DEBUG
   {
-    QM_TRY_INSPECT(
-        const auto& directory,
-        GetDirectoryForOrigin(aPersistenceType, aOriginMetadata.mOrigin),
-        nullptr);
+    QM_TRY_INSPECT(const auto& directory, GetOriginDirectory(aOriginMetadata),
+                   nullptr);
 
     nsAutoString clientType;
     QM_TRY(OkIf(Client::TypeToText(aClientType, clientType, fallible)),
@@ -4347,13 +4370,14 @@ void QuotaManager::AbortOperationsForProcess(ContentParentId aContentParentId) {
   }
 }
 
-Result<nsCOMPtr<nsIFile>, nsresult> QuotaManager::GetDirectoryForOrigin(
-    PersistenceType aPersistenceType, const nsACString& aASCIIOrigin) const {
-  QM_TRY_UNWRAP(auto directory,
-                QM_NewLocalFile(GetStoragePath(aPersistenceType)));
+Result<nsCOMPtr<nsIFile>, nsresult> QuotaManager::GetOriginDirectory(
+    const OriginMetadata& aOriginMetadata) const {
+  QM_TRY_UNWRAP(
+      auto directory,
+      QM_NewLocalFile(GetStoragePath(aOriginMetadata.mPersistenceType)));
 
   QM_TRY(MOZ_TO_RESULT(
-      directory->Append(MakeSanitizedOriginString(aASCIIOrigin))));
+      directory->Append(MakeSanitizedOriginString(aOriginMetadata.mOrigin))));
 
   return directory;
 }
@@ -4413,6 +4437,8 @@ Result<FullOriginMetadata, nsresult> QuotaManager::LoadFullOriginMetadata(
   QM_TRY_UNWRAP(
       fullOriginMetadata.mOrigin,
       MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCString, binaryStream, ReadCString));
+
+  fullOriginMetadata.mStorageOrigin = fullOriginMetadata.mOrigin;
 
   // Currently used for isPrivate (used to be used for isApp).
   QM_TRY_UNWRAP(fullOriginMetadata.mIsPrivate,
@@ -5941,9 +5967,7 @@ QuotaManager::EnsurePersistentOriginIsInitialized(
   const auto innerFunc = [&aOriginMetadata,
                           this](const auto& firstInitializationAttempt)
       -> mozilla::Result<std::pair<nsCOMPtr<nsIFile>, bool>, nsresult> {
-    QM_TRY_UNWRAP(auto directory,
-                  GetDirectoryForOrigin(PERSISTENCE_TYPE_PERSISTENT,
-                                        aOriginMetadata.mOrigin));
+    QM_TRY_UNWRAP(auto directory, GetOriginDirectory(aOriginMetadata));
 
     if (mInitializedOrigins.Contains(aOriginMetadata.mOrigin)) {
       MOZ_ASSERT(firstInitializationAttempt.Recorded());
@@ -5996,16 +6020,14 @@ QuotaManager::EnsureTemporaryOriginIsInitialized(
     PersistenceType aPersistenceType, const OriginMetadata& aOriginMetadata) {
   AssertIsOnIOThread();
   MOZ_ASSERT(aPersistenceType != PERSISTENCE_TYPE_PERSISTENT);
+  MOZ_ASSERT(aOriginMetadata.mPersistenceType == aPersistenceType);
   MOZ_DIAGNOSTIC_ASSERT(mStorageConnection);
   MOZ_DIAGNOSTIC_ASSERT(mTemporaryStorageInitialized);
 
-  const auto innerFunc = [&aPersistenceType, &aOriginMetadata,
-                          this](const auto&)
+  const auto innerFunc = [&aOriginMetadata, this](const auto&)
       -> mozilla::Result<std::pair<nsCOMPtr<nsIFile>, bool>, nsresult> {
     // Get directory for this origin and persistence type.
-    QM_TRY_UNWRAP(
-        auto directory,
-        GetDirectoryForOrigin(aPersistenceType, aOriginMetadata.mOrigin));
+    QM_TRY_UNWRAP(auto directory, GetOriginDirectory(aOriginMetadata));
 
     QM_TRY_INSPECT(const bool& created, EnsureOriginDirectory(*directory));
 
@@ -6415,8 +6437,8 @@ bool QuotaManager::IsPrincipalInfoValid(const PrincipalInfo& aPrincipalInfo) {
   return false;
 }
 
-// static
-PrincipalMetadata QuotaManager::GetInfoFromValidatedPrincipalInfo(
+Result<PrincipalMetadata, nsresult>
+QuotaManager::GetInfoFromValidatedPrincipalInfo(
     const PrincipalInfo& aPrincipalInfo) {
   MOZ_ASSERT(IsPrincipalInfoValid(aPrincipalInfo));
 
@@ -6437,6 +6459,8 @@ PrincipalMetadata QuotaManager::GetInfoFromValidatedPrincipalInfo(
 
       principalMetadata.mOrigin =
           info.originNoSuffix() + principalMetadata.mSuffix;
+
+      principalMetadata.mStorageOrigin = principalMetadata.mOrigin;
 
       principalMetadata.mIsPrivate = info.attrs().mPrivateBrowsingId != 0;
 
@@ -6509,6 +6533,8 @@ Result<PrincipalMetadata, nsresult> QuotaManager::GetInfoFromPrincipal(
 
   principalMetadata.mGroup = baseDomain + principalMetadata.mSuffix;
 
+  principalMetadata.mStorageOrigin = principalMetadata.mOrigin;
+
   principalMetadata.mIsPrivate = aPrincipal->GetPrivateBrowsingId() != 0;
 
   return principalMetadata;
@@ -6571,7 +6597,11 @@ Result<nsAutoCString, nsresult> QuotaManager::GetOriginFromWindow(
 
 // static
 PrincipalMetadata QuotaManager::GetInfoForChrome() {
-  return {{}, GetOriginForChrome(), GetOriginForChrome(), false};
+  return {{},
+          GetOriginForChrome(),
+          GetOriginForChrome(),
+          GetOriginForChrome(),
+          false};
 }
 
 // static
@@ -6900,10 +6930,11 @@ void QuotaManager::ClearOrigins(
       break;
     }
 
-    DeleteFilesForOrigin(doomedOriginInfo->mGroupInfo->mPersistenceType,
-                         doomedOriginInfo->mOrigin);
+    auto originMetadata = doomedOriginInfo->FlattenToOriginMetadata();
 
-    clearedOrigins.AppendElement(doomedOriginInfo->FlattenToOriginMetadata());
+    DeleteOriginDirectory(originMetadata);
+
+    clearedOrigins.AppendElement(std::move(originMetadata));
   }
 
   {
@@ -6935,10 +6966,10 @@ void QuotaManager::CleanupTemporaryStorage() {
   }
 }
 
-void QuotaManager::DeleteFilesForOrigin(PersistenceType aPersistenceType,
-                                        const nsACString& aOrigin) {
-  QM_TRY_INSPECT(const auto& directory,
-                 GetDirectoryForOrigin(aPersistenceType, aOrigin), QM_VOID);
+void QuotaManager::DeleteOriginDirectory(
+    const OriginMetadata& aOriginMetadata) {
+  QM_TRY_INSPECT(const auto& directory, GetOriginDirectory(aOriginMetadata),
+                 QM_VOID);
 
   nsresult rv = directory->Remove(true);
   if (rv != NS_ERROR_FILE_NOT_FOUND && NS_FAILED(rv)) {
@@ -7003,8 +7034,7 @@ Result<Ok, nsresult> QuotaManager::ArchiveOrigins(
         IsBestEffortPersistenceType(fullOriginMetadata.mPersistenceType));
 
     QM_TRY_INSPECT(const auto& directory,
-                   GetDirectoryForOrigin(fullOriginMetadata.mPersistenceType,
-                                         fullOriginMetadata.mOrigin));
+                   GetOriginDirectory(fullOriginMetadata));
 
     // The origin could have been removed, for example due to corruption.
     QM_TRY_INSPECT(
@@ -7211,6 +7241,12 @@ OriginOperationBase::Run() {
   return NS_OK;
 }
 
+nsresult OriginOperationBase::DoInit(QuotaManager& aQuotaManager) {
+  AssertIsOnOwningThread();
+
+  return NS_OK;
+}
+
 nsresult OriginOperationBase::DirectoryOpen() {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mState == State_DirectoryOpenPending);
@@ -7248,9 +7284,10 @@ nsresult OriginOperationBase::Init() {
     return NS_ERROR_ABORT;
   }
 
-  if (mNeedsQuotaManagerInit) {
-    QM_TRY(QuotaManager::EnsureCreated());
-  }
+  QuotaManager* const quotaManager = QuotaManager::Get();
+  MOZ_ASSERT(quotaManager);
+
+  QM_TRY(MOZ_TO_RESULT(DoInit(*quotaManager)));
 
   Open();
 
@@ -7396,8 +7433,7 @@ nsresult SaveOriginAccessTimeOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
   AUTO_PROFILER_LABEL("SaveOriginAccessTimeOp::DoDirectoryWork", OTHER);
 
   QM_TRY_INSPECT(const auto& file,
-                 aQuotaManager.GetDirectoryForOrigin(mPersistenceType.Value(),
-                                                     mOriginScope.GetOrigin()));
+                 aQuotaManager.GetOriginDirectory(mOriginMetadata));
 
   // The origin directory might not exist
   // anymore, because it was deleted by a clear operation.
@@ -7783,6 +7819,8 @@ PQuotaUsageRequestParent* Quota::AllocPQuotaUsageRequestParent(
     return nullptr;
   }
 
+  QM_TRY(QuotaManager::EnsureCreated(), nullptr);
+
   auto actor = [&]() -> RefPtr<QuotaUsageRequestBase> {
     switch (aParams.type()) {
       case UsageRequestParams::TAllUsageParams:
@@ -7849,6 +7887,8 @@ PQuotaRequestParent* Quota::AllocPQuotaRequestParent(
     MOZ_CRASH_UNLESS_FUZZING();
     return nullptr;
   }
+
+  QM_TRY(QuotaManager::EnsureCreated(), nullptr);
 
   auto actor = [&]() -> RefPtr<QuotaRequestBase> {
     switch (aParams.type()) {
@@ -8024,7 +8064,6 @@ mozilla::ipc::IPCResult Quota::RecvAbortOperationsForProcess(
 void QuotaUsageRequestBase::Init(Quota& aQuota) {
   AssertIsOnOwningThread();
 
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = true;
 }
 
@@ -8032,10 +8071,10 @@ Result<UsageInfo, nsresult> QuotaUsageRequestBase::GetUsageForOrigin(
     QuotaManager& aQuotaManager, PersistenceType aPersistenceType,
     const OriginMetadata& aOriginMetadata) {
   AssertIsOnIOThread();
+  MOZ_ASSERT(aOriginMetadata.mPersistenceType == aPersistenceType);
 
   QM_TRY_INSPECT(const auto& directory,
-                 aQuotaManager.GetDirectoryForOrigin(aPersistenceType,
-                                                     aOriginMetadata.mOrigin));
+                 aQuotaManager.GetOriginDirectory(aOriginMetadata));
 
   QM_TRY_INSPECT(const bool& exists,
                  MOZ_TO_RESULT_INVOKE_MEMBER(directory, Exists));
@@ -8334,26 +8373,34 @@ void GetUsageOp::GetResponse(UsageRequestResponse& aResponse) {
 
 GetOriginUsageOp::GetOriginUsageOp(const UsageRequestParams& aParams)
     : QuotaUsageRequestBase("dom::quota::GetOriginUsageOp"),
+      mParams(aParams.get_OriginUsageParams()),
       mUsage(0),
       mFileUsage(0) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aParams.type() == UsageRequestParams::TOriginUsageParams);
 
-  const OriginUsageParams& params = aParams.get_OriginUsageParams();
+  // Overwrite OriginOperationBase default values.
+  mNeedsStorageInit = true;
 
-  PrincipalMetadata principalMetadata =
-      QuotaManager::GetInfoFromValidatedPrincipalInfo(params.principalInfo());
+  // Overwrite GetOriginUsageOp default values.
+  mFromMemory = mParams.fromMemory();
+}
+
+nsresult GetOriginUsageOp::DoInit(QuotaManager& aQuotaManager) {
+  AssertIsOnOwningThread();
+
+  QM_TRY_UNWRAP(
+      PrincipalMetadata principalMetadata,
+      aQuotaManager.GetInfoFromValidatedPrincipalInfo(mParams.principalInfo()));
+  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
 
   mSuffix = std::move(principalMetadata.mSuffix);
   mGroup = std::move(principalMetadata.mGroup);
   mOriginScope.SetFromOrigin(principalMetadata.mOrigin);
+  mStorageOrigin = std::move(principalMetadata.mStorageOrigin);
   mIsPrivate = principalMetadata.mIsPrivate;
 
-  mFromMemory = params.fromMemory();
-
-  // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
-  mNeedsStorageInit = true;
+  return NS_OK;
 }
 
 RefPtr<DirectoryLock> GetOriginUsageOp::CreateDirectoryLock() {
@@ -8374,7 +8421,8 @@ nsresult GetOriginUsageOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   if (mFromMemory) {
     const PrincipalMetadata principalMetadata = {
-        mSuffix, mGroup, nsCString{mOriginScope.GetOrigin()}, mIsPrivate};
+        mSuffix, mGroup, nsCString{mOriginScope.GetOrigin()}, mStorageOrigin,
+        mIsPrivate};
 
     // Ensure temporary storage is initialized. If temporary storage hasn't been
     // initialized yet, the method will initialize it by traversing the
@@ -8393,7 +8441,8 @@ nsresult GetOriginUsageOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
   // Add all the persistent/temporary/default storage files we care about.
   for (const PersistenceType type : kAllPersistenceTypes) {
     const OriginMetadata originMetadata = {
-        mSuffix, mGroup, nsCString{mOriginScope.GetOrigin()}, mIsPrivate, type};
+        mSuffix,        mGroup,     nsCString{mOriginScope.GetOrigin()},
+        mStorageOrigin, mIsPrivate, type};
 
     auto usageInfoOrErr =
         GetUsageForOrigin(aQuotaManager, type, originMetadata);
@@ -8424,7 +8473,6 @@ void GetOriginUsageOp::GetResponse(UsageRequestResponse& aResponse) {
 void QuotaRequestBase::Init(Quota& aQuota) {
   AssertIsOnOwningThread();
 
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = true;
 }
 
@@ -8459,7 +8507,6 @@ StorageNameOp::StorageNameOp()
   AssertIsOnOwningThread();
 
   // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = false;
 }
 
@@ -8493,7 +8540,6 @@ InitializedRequestBase::InitializedRequestBase(const char* aRunnableName)
   AssertIsOnOwningThread();
 
   // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = false;
 }
 
@@ -8549,7 +8595,6 @@ InitOp::InitOp()
   AssertIsOnOwningThread();
 
   // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = false;
 }
 
@@ -8577,7 +8622,6 @@ InitTemporaryStorageOp::InitTemporaryStorageOp()
   AssertIsOnOwningThread();
 
   // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = false;
 }
 
@@ -8606,28 +8650,36 @@ InitializeOriginRequestBase::InitializeOriginRequestBase(
     const PrincipalInfo& aPrincipalInfo)
     : QuotaRequestBase(aRunnableName,
                        /* aExclusive */ false),
+      mPrincipalInfo(aPrincipalInfo),
       mCreated(false) {
   AssertIsOnOwningThread();
 
-  auto principalMetadata =
-      QuotaManager::GetInfoFromValidatedPrincipalInfo(aPrincipalInfo);
-
   // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = false;
 
   // Overwrite NormalOriginOperationBase default values.
   mPersistenceType.SetValue(aPersistenceType);
-  mOriginScope.SetFromOrigin(principalMetadata.mOrigin);
-
-  // Overwrite InitializeOriginRequestBase default values.
-  mSuffix = std::move(principalMetadata.mSuffix);
-  mGroup = std::move(principalMetadata.mGroup);
-  mIsPrivate = principalMetadata.mIsPrivate;
 }
 
 void InitializeOriginRequestBase::Init(Quota& aQuota) {
   AssertIsOnOwningThread();
+}
+
+nsresult InitializeOriginRequestBase::DoInit(QuotaManager& aQuotaManager) {
+  AssertIsOnOwningThread();
+
+  QM_TRY_UNWRAP(
+      auto principalMetadata,
+      aQuotaManager.GetInfoFromValidatedPrincipalInfo(mPrincipalInfo));
+  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
+
+  mSuffix = std::move(principalMetadata.mSuffix);
+  mGroup = std::move(principalMetadata.mGroup);
+  mOriginScope.SetFromOrigin(principalMetadata.mOrigin);
+  mStorageOrigin = std::move(principalMetadata.mStorageOrigin);
+  mIsPrivate = principalMetadata.mIsPrivate;
+
+  return NS_OK;
 }
 
 InitializePersistentOriginOp::InitializePersistentOriginOp(
@@ -8650,12 +8702,13 @@ nsresult InitializePersistentOriginOp::DoDirectoryWork(
 
   QM_TRY(OkIf(aQuotaManager.IsStorageInitialized()), NS_ERROR_FAILURE);
 
-  QM_TRY_UNWRAP(mCreated,
-                (aQuotaManager
-                     .EnsurePersistentOriginIsInitialized(OriginMetadata{
-                         mSuffix, mGroup, nsCString{mOriginScope.GetOrigin()},
-                         mIsPrivate, PERSISTENCE_TYPE_PERSISTENT})
-                     .map([](const auto& res) { return res.second; })));
+  QM_TRY_UNWRAP(
+      mCreated,
+      (aQuotaManager
+           .EnsurePersistentOriginIsInitialized(OriginMetadata{
+               mSuffix, mGroup, nsCString{mOriginScope.GetOrigin()},
+               mStorageOrigin, mIsPrivate, PERSISTENCE_TYPE_PERSISTENT})
+           .map([](const auto& res) { return res.second; })));
 
   return NS_OK;
 }
@@ -8687,14 +8740,15 @@ nsresult InitializeTemporaryOriginOp::DoDirectoryWork(
 
   QM_TRY(OkIf(aQuotaManager.IsTemporaryStorageInitialized()), NS_ERROR_FAILURE);
 
-  QM_TRY_UNWRAP(mCreated,
-                (aQuotaManager
-                     .EnsureTemporaryOriginIsInitialized(
-                         mPersistenceType.Value(),
-                         OriginMetadata{mSuffix, mGroup,
-                                        nsCString{mOriginScope.GetOrigin()},
-                                        mIsPrivate, mPersistenceType.Value()})
-                     .map([](const auto& res) { return res.second; })));
+  QM_TRY_UNWRAP(
+      mCreated,
+      (aQuotaManager
+           .EnsureTemporaryOriginIsInitialized(
+               mPersistenceType.Value(),
+               OriginMetadata{
+                   mSuffix, mGroup, nsCString{mOriginScope.GetOrigin()},
+                   mStorageOrigin, mIsPrivate, mPersistenceType.Value()})
+           .map([](const auto& res) { return res.second; })));
 
   return NS_OK;
 }
@@ -8709,10 +8763,21 @@ GetFullOriginMetadataOp::GetFullOriginMetadataOp(
     const GetFullOriginMetadataParams& aParams)
     : QuotaRequestBase("dom::quota::GetFullOriginMetadataOp",
                        /* aExclusive */ false),
-      mOriginMetadata(QuotaManager::GetInfoFromValidatedPrincipalInfo(
-                          aParams.principalInfo()),
-                      aParams.persistenceType()) {
+      mParams(aParams) {
   AssertIsOnOwningThread();
+}
+
+nsresult GetFullOriginMetadataOp::DoInit(QuotaManager& aQuotaManager) {
+  AssertIsOnOwningThread();
+
+  QM_TRY_UNWRAP(
+      PrincipalMetadata principalMetadata,
+      aQuotaManager.GetInfoFromValidatedPrincipalInfo(mParams.principalInfo()));
+  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
+
+  mOriginMetadata = {std::move(principalMetadata), mParams.persistenceType()};
+
+  return NS_OK;
 }
 
 RefPtr<DirectoryLock> GetFullOriginMetadataOp::CreateDirectoryLock() {
@@ -8751,7 +8816,6 @@ ResetOrClearOp::ResetOrClearOp(bool aClear)
   AssertIsOnOwningThread();
 
   // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = false;
 }
 
@@ -9164,7 +9228,6 @@ ResetOriginOp::ResetOriginOp(const RequestParams& aParams)
       QuotaManager::GetOriginFromValidatedPrincipalInfo(params.principalInfo());
 
   // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = false;
 
   // Overwrite NormalOriginOperationBase default values.
@@ -9212,15 +9275,24 @@ void PersistRequestBase::Init(Quota& aQuota) {
   QuotaRequestBase::Init(aQuota);
 
   mPersistenceType.SetValue(PERSISTENCE_TYPE_DEFAULT);
+}
+
+nsresult PersistRequestBase::DoInit(QuotaManager& aQuotaManager) {
+  AssertIsOnOwningThread();
 
   // Figure out which origin we're dealing with.
-  PrincipalMetadata principalMetadata =
-      QuotaManager::GetInfoFromValidatedPrincipalInfo(mPrincipalInfo);
+  QM_TRY_UNWRAP(
+      PrincipalMetadata principalMetadata,
+      aQuotaManager.GetInfoFromValidatedPrincipalInfo(mPrincipalInfo));
+  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
 
   mSuffix = std::move(principalMetadata.mSuffix);
   mGroup = std::move(principalMetadata.mGroup);
   mOriginScope.SetFromOrigin(principalMetadata.mOrigin);
+  mStorageOrigin = std::move(principalMetadata.mStorageOrigin);
   mIsPrivate = principalMetadata.mIsPrivate;
+
+  return NS_OK;
 }
 
 PersistedOp::PersistedOp(const RequestParams& aParams)
@@ -9238,9 +9310,11 @@ nsresult PersistedOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("PersistedOp::DoDirectoryWork", OTHER);
 
-  Nullable<bool> persisted = aQuotaManager.OriginPersisted(
-      OriginMetadata{mSuffix, mGroup, nsCString{mOriginScope.GetOrigin()},
-                     mIsPrivate, mPersistenceType.Value()});
+  const OriginMetadata originMetadata = {
+      mSuffix,        mGroup,     nsCString{mOriginScope.GetOrigin()},
+      mStorageOrigin, mIsPrivate, mPersistenceType.Value()};
+
+  Nullable<bool> persisted = aQuotaManager.OriginPersisted(originMetadata);
 
   if (!persisted.IsNull()) {
     mPersisted = persisted.Value();
@@ -9251,8 +9325,7 @@ nsresult PersistedOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
   // Try to get the persisted flag from directory metadata on disk.
 
   QM_TRY_INSPECT(const auto& directory,
-                 aQuotaManager.GetDirectoryForOrigin(mPersistenceType.Value(),
-                                                     mOriginScope.GetOrigin()));
+                 aQuotaManager.GetOriginDirectory(originMetadata));
 
   QM_TRY_INSPECT(const bool& exists,
                  MOZ_TO_RESULT_INVOKE_MEMBER(directory, Exists));
@@ -9292,17 +9365,16 @@ nsresult PersistOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
   MOZ_ASSERT(mPersistenceType.Value() == PERSISTENCE_TYPE_DEFAULT);
   MOZ_ASSERT(mOriginScope.IsOrigin());
 
-  const OriginMetadata originMetadata = {mSuffix, mGroup,
-                                         nsCString{mOriginScope.GetOrigin()},
-                                         mIsPrivate, mPersistenceType.Value()};
+  const OriginMetadata originMetadata = {
+      mSuffix,        mGroup,     nsCString{mOriginScope.GetOrigin()},
+      mStorageOrigin, mIsPrivate, mPersistenceType.Value()};
 
   AUTO_PROFILER_LABEL("PersistOp::DoDirectoryWork", OTHER);
 
   // Update directory metadata on disk first. Then, create/update the originInfo
   // if needed.
   QM_TRY_INSPECT(const auto& directory,
-                 aQuotaManager.GetDirectoryForOrigin(mPersistenceType.Value(),
-                                                     originMetadata.mOrigin));
+                 aQuotaManager.GetOriginDirectory(originMetadata));
 
   QM_TRY_INSPECT(const bool& created,
                  aQuotaManager.EnsureOriginDirectory(*directory));
@@ -9363,14 +9435,24 @@ void PersistOp::GetResponse(RequestResponse& aResponse) {
 
 EstimateOp::EstimateOp(const EstimateParams& aParams)
     : QuotaRequestBase("dom::quota::EstimateOp", /* aExclusive */ false),
-      mOriginMetadata(QuotaManager::GetInfoFromValidatedPrincipalInfo(
-                          aParams.principalInfo()),
-                      PERSISTENCE_TYPE_DEFAULT) {
+      mParams(aParams) {
   AssertIsOnOwningThread();
 
   // Overwrite OriginOperationBase default values.
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = true;
+}
+
+nsresult EstimateOp::DoInit(QuotaManager& aQuotaManager) {
+  AssertIsOnOwningThread();
+
+  QM_TRY_UNWRAP(
+      PrincipalMetadata principalMetadata,
+      aQuotaManager.GetInfoFromValidatedPrincipalInfo(mParams.principalInfo()));
+  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
+
+  mOriginMetadata = {std::move(principalMetadata), PERSISTENCE_TYPE_DEFAULT};
+
+  return NS_OK;
 }
 
 RefPtr<DirectoryLock> EstimateOp::CreateDirectoryLock() { return nullptr; }
@@ -9413,7 +9495,6 @@ ListOriginsOp::ListOriginsOp()
 void ListOriginsOp::Init(Quota& aQuota) {
   AssertIsOnOwningThread();
 
-  mNeedsQuotaManagerInit = true;
   mNeedsStorageInit = true;
 }
 
@@ -9755,6 +9836,9 @@ nsresult StorageOperationBase::ProcessOriginDirectories() {
   AssertIsOnIOThread();
   MOZ_ASSERT(!mOriginProps.IsEmpty());
 
+  QuotaManager* quotaManager = QuotaManager::Get();
+  MOZ_ASSERT(quotaManager);
+
 #ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
   nsTArray<PrincipalInfo> principalInfos;
 #endif
@@ -9802,9 +9886,12 @@ nsresult StorageOperationBase::ProcessOriginDirectories() {
 
         PrincipalInfo principalInfo(contentPrincipalInfo);
 
-        originProps.mOriginMetadata = {
-            QuotaManager::GetInfoFromValidatedPrincipalInfo(principalInfo),
-            *originProps.mPersistenceType};
+        QM_TRY_UNWRAP(
+            auto principalMetadata,
+            quotaManager->GetInfoFromValidatedPrincipalInfo(principalInfo));
+
+        originProps.mOriginMetadata = {std::move(principalMetadata),
+                                       *originProps.mPersistenceType};
 
 #ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
         principalInfos.AppendElement(principalInfo);

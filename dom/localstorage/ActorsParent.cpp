@@ -4016,9 +4016,10 @@ nsresult Connection::EnsureStorageConnection() {
   MOZ_ASSERT(quotaManager);
 
   if (!mDatabaseWasNotAvailable || mHasCreatedDatabase) {
+    MOZ_ASSERT(mOriginMetadata.mPersistenceType == PERSISTENCE_TYPE_DEFAULT);
+
     QM_TRY_INSPECT(const auto& directoryEntry,
-                   quotaManager->GetDirectoryForOrigin(PERSISTENCE_TYPE_DEFAULT,
-                                                       Origin()));
+                   quotaManager->GetOriginDirectory(mOriginMetadata));
 
     QM_TRY(MOZ_TO_RESULT(directoryEntry->Append(
         NS_LITERAL_STRING_FROM_CSTRING(LS_DIRECTORY_NAME))));
@@ -6653,6 +6654,8 @@ nsresult PrepareDatastoreOp::Start() {
   MOZ_ASSERT(!QuotaClient::IsShuttingDownOnBackgroundThread());
   MOZ_ASSERT(MayProceed());
 
+  QM_TRY(QuotaManager::EnsureCreated());
+
   const LSRequestCommonParams& commonParams =
       mForPreload
           ? mParams.get_LSRequestPreloadDatastoreParams().commonParams()
@@ -6668,8 +6671,9 @@ nsresult PrepareDatastoreOp::Start() {
     MOZ_ASSERT(storagePrincipalInfo.type() ==
                PrincipalInfo::TContentPrincipalInfo);
 
-    PrincipalMetadata principalMetadata =
-        QuotaManager::GetInfoFromValidatedPrincipalInfo(storagePrincipalInfo);
+    QM_TRY_UNWRAP(auto principalMetadata,
+                  QuotaManager::Get()->GetInfoFromValidatedPrincipalInfo(
+                      storagePrincipalInfo));
 
     mOriginMetadata.mSuffix = std::move(principalMetadata.mSuffix);
     mOriginMetadata.mGroup = std::move(principalMetadata.mGroup);
@@ -6677,6 +6681,9 @@ nsresult PrepareDatastoreOp::Start() {
     // LSRequestBase::Dispatch to synchronously run LSRequestBase::StartRequest
     // through LSRequestBase::Run.
     mMainThreadOrigin = std::move(principalMetadata.mOrigin);
+    mOriginMetadata.mStorageOrigin =
+        std::move(principalMetadata.mStorageOrigin);
+    mOriginMetadata.mIsPrivate = principalMetadata.mIsPrivate;
     mOriginMetadata.mPersistenceType = PERSISTENCE_TYPE_DEFAULT;
   }
 
@@ -6836,10 +6843,11 @@ nsresult PrepareDatastoreOp::BeginDatastorePreparationInternal() {
     return NS_OK;
   }
 
-  QM_TRY(QuotaManager::EnsureCreated());
+  QuotaManager* quotaManager = QuotaManager::Get();
+  MOZ_ASSERT(quotaManager);
 
   // Open directory
-  mPendingDirectoryLock = QuotaManager::Get()->CreateDirectoryLock(
+  mPendingDirectoryLock = quotaManager->CreateDirectoryLock(
       PERSISTENCE_TYPE_DEFAULT, mOriginMetadata,
       mozilla::dom::quota::Client::LS,
       /* aExclusive */ false);
@@ -6953,9 +6961,11 @@ nsresult PrepareDatastoreOp::DatabaseWork() {
                               .map([](const auto& res) { return res.first; }));
           }
 
+          MOZ_ASSERT(mOriginMetadata.mPersistenceType ==
+                     PERSISTENCE_TYPE_DEFAULT);
+
           QM_TRY_UNWRAP(auto directoryEntry,
-                        quotaManager->GetDirectoryForOrigin(
-                            PERSISTENCE_TYPE_DEFAULT, Origin()));
+                        quotaManager->GetOriginDirectory(mOriginMetadata));
 
           quotaManager->EnsureQuotaForOrigin(mOriginMetadata);
 
@@ -8299,13 +8309,13 @@ Result<UsageInfo, nsresult> QuotaClient::InitOrigin(
     const AtomicBool& aCanceled) {
   AssertIsOnIOThread();
   MOZ_ASSERT(aPersistenceType == PERSISTENCE_TYPE_DEFAULT);
+  MOZ_ASSERT(aOriginMetadata.mPersistenceType == aPersistenceType);
 
   QuotaManager* quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
   QM_TRY_INSPECT(const auto& directory,
-                 quotaManager->GetDirectoryForOrigin(aPersistenceType,
-                                                     aOriginMetadata.mOrigin));
+                 quotaManager->GetOriginDirectory(aOriginMetadata));
 
   MOZ_ASSERT(directory);
 

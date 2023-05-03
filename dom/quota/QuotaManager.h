@@ -230,8 +230,8 @@ class QuotaManager final : public BackgroundThreadObject {
   // for the given process.
   void AbortOperationsForProcess(ContentParentId aContentParentId);
 
-  Result<nsCOMPtr<nsIFile>, nsresult> GetDirectoryForOrigin(
-      PersistenceType aPersistenceType, const nsACString& aASCIIOrigin) const;
+  Result<nsCOMPtr<nsIFile>, nsresult> GetOriginDirectory(
+      const OriginMetadata& aOriginMetadata) const;
 
   nsresult RestoreDirectoryMetadata2(nsIFile* aDirectory);
 
@@ -419,7 +419,7 @@ class QuotaManager final : public BackgroundThreadObject {
 
   static bool IsPrincipalInfoValid(const PrincipalInfo& aPrincipalInfo);
 
-  static PrincipalMetadata GetInfoFromValidatedPrincipalInfo(
+  Result<PrincipalMetadata, nsresult> GetInfoFromValidatedPrincipalInfo(
       const PrincipalInfo& aPrincipalInfo);
 
   static nsAutoCString GetOriginFromValidatedPrincipalInfo(
@@ -558,8 +558,7 @@ class QuotaManager final : public BackgroundThreadObject {
 
   void CleanupTemporaryStorage();
 
-  void DeleteFilesForOrigin(PersistenceType aPersistenceType,
-                            const nsACString& aOrigin);
+  void DeleteOriginDirectory(const OriginMetadata& aOriginMetadata);
 
   void FinalizeOriginEviction(nsTArray<RefPtr<OriginDirectoryLock>>&& aLocks);
 

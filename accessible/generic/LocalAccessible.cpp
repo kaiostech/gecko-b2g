@@ -1292,6 +1292,11 @@ void LocalAccessible::DOMAttributeChanged(int32_t aNameSpaceID,
     }
   }
 
+  if (aAttribute == nsGkAtoms::_class) {
+    mDoc->QueueCacheUpdate(this, CacheDomain::DOMNodeIDAndClass);
+    return;
+  }
+
   // When a details object has its open attribute changed
   // we should fire a state-change event on the accessible of
   // its main summary
@@ -1414,7 +1419,7 @@ void LocalAccessible::DOMAttributeChanged(int32_t aNameSpaceID,
     SendCache(CacheDomain::Actions, CacheUpdateType::Update);
   }
 
-  if (aAttribute == nsGkAtoms::href) {
+  if (aAttribute == nsGkAtoms::href || aAttribute == nsGkAtoms::src) {
     mDoc->QueueCacheUpdate(this, CacheDomain::Value);
   }
 
@@ -3203,6 +3208,24 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
         fields->SetAttribute(nsGkAtoms::aria_valuetext, DeleteEntry());
       }
     }
+
+    if (IsImage()) {
+      // Cache the src of images. This is used by some clients to help remediate
+      // inaccessible images. If the image has a name, it's accessible, so this
+      // isn't necessary.
+      MOZ_ASSERT(mContent, "Image must have mContent");
+      nsAutoString name;
+      Name(name);
+      if (name.IsEmpty()) {
+        nsString src;
+        mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::src, src);
+        if (!src.IsEmpty()) {
+          fields->SetAttribute(nsGkAtoms::src, std::move(src));
+        } else if (aUpdateType == CacheUpdateType::Update) {
+          fields->SetAttribute(nsGkAtoms::src, DeleteEntry());
+        }
+      }
+    }
   }
 
   if (aCacheDomain & CacheDomain::Viewport && IsDoc()) {
@@ -3522,12 +3545,21 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
     }
   }
 
-  if (aCacheDomain & CacheDomain::DOMNodeID && mContent) {
+  if (aCacheDomain & CacheDomain::DOMNodeIDAndClass && mContent) {
     nsAtom* id = mContent->GetID();
     if (id) {
       fields->SetAttribute(nsGkAtoms::id, id);
     } else if (aUpdateType == CacheUpdateType::Update) {
       fields->SetAttribute(nsGkAtoms::id, DeleteEntry());
+    }
+    if (auto* el = dom::Element::FromNodeOrNull(mContent)) {
+      nsAutoString className;
+      el->GetClassName(className);
+      if (!className.IsEmpty()) {
+        fields->SetAttribute(nsGkAtoms::_class, std::move(className));
+      } else if (aUpdateType == CacheUpdateType::Update) {
+        fields->SetAttribute(nsGkAtoms::_class, DeleteEntry());
+      }
     }
   }
 

@@ -152,7 +152,7 @@
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WindowGlobalParent.h"
 #ifdef MOZ_B2G_BT
-#include "mozilla/dom/bluetooth/PBluetoothParent.h"
+#  include "mozilla/dom/bluetooth/PBluetoothParent.h"
 #endif
 #include "mozilla/dom/ipc/SharedMap.h"
 #include "mozilla/dom/ipc/StructuredCloneData.h"
@@ -344,7 +344,7 @@ using namespace mozilla::system;
 #endif
 
 #ifdef ENABLE_RSU
-#   include "mozilla/dom/RSUParent.h"
+#  include "mozilla/dom/RSUParent.h"
 #endif
 
 #include "mozilla/RemoteSpellCheckEngineParent.h"
@@ -678,7 +678,8 @@ ScriptableCPInfo::GetServiceWorkerCount(int32_t* aServiceWorkerCount) {
   rv = mContentParent->GetRemoteType(remoteType);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  *aServiceWorkerCount = RemoteWorkerManager::GetScriptURIs(pid, remoteType).Length();
+  *aServiceWorkerCount =
+      RemoteWorkerManager::GetScriptURIs(pid, remoteType).Length();
   return NS_OK;
 }
 
@@ -707,7 +708,8 @@ ScriptableCPInfo::GetTabURIs(nsTArray<RefPtr<nsIURI>>& aTabURIs) {
 }
 
 NS_IMETHODIMP
-ScriptableCPInfo::GetServiceWorkerURIs(nsTArray<RefPtr<nsIURI>>& aServiceWorkerURIs) {
+ScriptableCPInfo::GetServiceWorkerURIs(
+    nsTArray<RefPtr<nsIURI>>& aServiceWorkerURIs) {
   int32_t pid = -1;
   nsresult rv = GetProcessId(&pid);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -716,7 +718,8 @@ ScriptableCPInfo::GetServiceWorkerURIs(nsTArray<RefPtr<nsIURI>>& aServiceWorkerU
   rv = mContentParent->GetRemoteType(remoteType);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  aServiceWorkerURIs = std::move(RemoteWorkerManager::GetScriptURIs(pid, remoteType));
+  aServiceWorkerURIs =
+      std::move(RemoteWorkerManager::GetScriptURIs(pid, remoteType));
 
   return NS_OK;
 }
@@ -1672,7 +1675,8 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
     // Dispatch a |processready| event when the content process is ready.
     constructorSender->WaitForLaunchAsync()->Then(
         GetMainThreadSerialEventTarget(), __func__,
-        [constructorSender, aFrameElement](const LaunchPromise::ResolveOrRejectValue& aValue) {
+        [constructorSender,
+         aFrameElement](const LaunchPromise::ResolveOrRejectValue& aValue) {
           if (!aValue.IsResolve()) {
             return;
           }
@@ -1682,8 +1686,9 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
           pid.AppendInt(constructorSender->Pid());
           ErrorResult rv;
           aFrameElement->SetAttribute(u"processid"_ns, pid, rv);
-          MOZ_ASSERT(!rv.Failed(),
-                     "Fail to set the |processid| attribute of the frame element");
+          MOZ_ASSERT(
+              !rv.Failed(),
+              "Fail to set the |processid| attribute of the frame element");
 
           // Dispatch a processready event
           RefPtr<Event> event = NS_NewDOMEvent(aFrameElement, nullptr, nullptr);
@@ -3452,6 +3457,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
                                  &vrBridge, &videoManager, &namespaces)) {
     // This can fail if we've already started shutting down the compositor
     // thread. See Bug 1562763 comment 8.
+    MOZ_ASSERT(AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown));
     return false;
   }
 
@@ -3635,9 +3641,11 @@ void ContentParent::OnCompositorUnexpectedShutdown() {
   Unused << SendReinitBufferManager(std::move(bufferManager));
 #endif
 
-  opened = gpm->CreateContentBridges(OtherPid(), &compositor, &imageBridge,
-                                     &vrBridge, &videoManager, &namespaces);
-  MOZ_ASSERT(opened);
+  if (!gpm->CreateContentBridges(OtherPid(), &compositor, &imageBridge,
+                                 &vrBridge, &videoManager, &namespaces)) {
+    MOZ_ASSERT(AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown));
+    return;
+  }
 
   Unused << SendReinitRendering(std::move(compositor), std::move(imageBridge),
                                 std::move(vrBridge), std::move(videoManager),
@@ -5032,7 +5040,7 @@ PMobileConnectionParent* ContentParent::AllocPMobileConnectionParent(
 bool ContentParent::DeallocPMobileConnectionParent(
     PMobileConnectionParent* aActor) {
   RefPtr<MobileConnectionParent> actor =
-    dont_AddRef(static_cast<MobileConnectionParent*>(aActor));
+      dont_AddRef(static_cast<MobileConnectionParent*>(aActor));
   return true;
 }
 
@@ -5063,9 +5071,8 @@ PImsRegistrationParent* ContentParent::AllocPImsRegistrationParent(
 
 bool ContentParent::DeallocPImsRegistrationParent(
     PImsRegistrationParent* aActor) {
-
   RefPtr<ImsRegistrationParent> actor =
-    dont_AddRef(static_cast<ImsRegistrationParent*>(aActor));
+      dont_AddRef(static_cast<ImsRegistrationParent*>(aActor));
 
   return true;
 }
@@ -5081,7 +5088,7 @@ PTelephonyParent* ContentParent::AllocPTelephonyParent() {
 
 bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
   RefPtr<TelephonyParent> actor =
-    dont_AddRef(static_cast<TelephonyParent*>(aActor));
+      dont_AddRef(static_cast<TelephonyParent*>(aActor));
   return true;
 }
 
@@ -5116,8 +5123,7 @@ PIccParent* ContentParent::AllocPIccParent(const uint32_t& aServiceId) {
 }
 
 bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
-  RefPtr<IccParent> actor =
-    dont_AddRef(static_cast<IccParent*>(aActor));
+  RefPtr<IccParent> actor = dont_AddRef(static_cast<IccParent*>(aActor));
   return true;
 }
 
@@ -5125,12 +5131,11 @@ PSubsidyLockParent* ContentParent::AllocPSubsidyLockParent(
     const uint32_t& aClientId) {
   RefPtr<SubsidyLockParent> actor = new SubsidyLockParent(aClientId);
   return actor.forget().take();
-
 }
 
 bool ContentParent::DeallocPSubsidyLockParent(PSubsidyLockParent* aActor) {
   RefPtr<SubsidyLockParent> actor =
-    dont_AddRef(static_cast<SubsidyLockParent*>(aActor));
+      dont_AddRef(static_cast<SubsidyLockParent*>(aActor));
   return true;
 }
 
@@ -5321,16 +5326,12 @@ bool ContentParent::DeallocPFMRadioParent(PFMRadioParent* aActor) {
 #endif
 
 #ifdef ENABLE_RSU
-PRSUParent*
-ContentParent::AllocPRSUParent()
-{
+PRSUParent* ContentParent::AllocPRSUParent() {
   RefPtr<RSUParent> actor = new RSUParent();
   return actor.forget().take();
 }
 
-bool
-ContentParent::DeallocPRSUParent(PRSUParent* aActor)
-{
+bool ContentParent::DeallocPRSUParent(PRSUParent* aActor) {
   RefPtr<RSUParent> actor = dont_AddRef(static_cast<RSUParent*>(aActor));
   return true;
 }

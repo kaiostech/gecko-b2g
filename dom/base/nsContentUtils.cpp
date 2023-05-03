@@ -2723,7 +2723,7 @@ nsINode* nsContentUtils::Retarget(nsINode* aTargetA, nsINode* aTargetB) {
 }
 
 // static
-nsINode* nsContentUtils::GetAnElementForTiming(Element* aTarget,
+Element* nsContentUtils::GetAnElementForTiming(Element* aTarget,
                                                const Document* aDocument,
                                                nsIGlobalObject* aGlobal) {
   if (!aTarget->IsInComposedDoc()) {
@@ -8840,47 +8840,59 @@ class BulkAppender {
   void Finish() { mHandle.Finish(mPosition, false); }
 
  private:
-  mozilla::BulkWriteHandle<char16_t> mHandle;
+  BulkWriteHandle<char16_t> mHandle;
   size_type mPosition;
 };
 
 class StringBuilder {
  private:
-  // Try to keep the size of StringBuilder close to a jemalloc bucket size.
-  static const uint32_t STRING_BUFFER_UNITS = 1020;
   class Unit {
    public:
-    Unit() : mAtom(nullptr), mType(eUnknown), mLength(0) {
-      MOZ_COUNT_CTOR(StringBuilder::Unit);
-    }
+    Unit() : mAtom(nullptr) { MOZ_COUNT_CTOR(StringBuilder::Unit); }
     ~Unit() {
-      if (mType == eString || mType == eStringWithEncode) {
-        delete mString;
+      if (mType == Type::String || mType == Type::StringWithEncode) {
+        mString.~nsString();
       }
       MOZ_COUNT_DTOR(StringBuilder::Unit);
     }
 
-    enum Type {
-      eUnknown,
-      eAtom,
-      eString,
-      eStringWithEncode,
-      eLiteral,
-      eTextFragment,
-      eTextFragmentWithEncode,
+    enum class Type : uint8_t {
+      Unknown,
+      Atom,
+      String,
+      StringWithEncode,
+      Literal,
+      TextFragment,
+      TextFragmentWithEncode,
     };
 
     union {
       nsAtom* mAtom;
       const char16_t* mLiteral;
-      nsAutoString* mString;
+      nsString mString;
       const nsTextFragment* mTextFragment;
     };
-    Type mType;
-    uint32_t mLength;
+    uint32_t mLength = 0;
+    Type mType = Type::Unknown;
   };
 
+  static_assert(sizeof(void*) != 8 || sizeof(Unit) <= 3 * sizeof(void*),
+                "Unit should remain small");
+
  public:
+  // Try to keep the size of StringBuilder close to a jemalloc bucket size (the
+  // 16kb one in this case).
+  static constexpr uint32_t TARGET_SIZE = 16 * 1024;
+
+  // The number of units we need to remove from the inline buffer so that the
+  // rest of the builder members fit. A more precise approach would be to
+  // calculate that extra size and use (TARGET_SIZE - OTHER_SIZE) / sizeof(Unit)
+  // or so, but this is simpler.
+  static constexpr uint32_t PADDING_UNITS = sizeof(void*) == 8 ? 1 : 2;
+
+  static constexpr uint32_t STRING_BUFFER_UNITS =
+      TARGET_SIZE / sizeof(Unit) - PADDING_UNITS;
+
   StringBuilder() : mLast(this), mLength(0) { MOZ_COUNT_CTOR(StringBuilder); }
 
   MOZ_COUNTED_DTOR(StringBuilder)
@@ -8888,7 +8900,7 @@ class StringBuilder {
   void Append(nsAtom* aAtom) {
     Unit* u = AddUnit();
     u->mAtom = aAtom;
-    u->mType = Unit::eAtom;
+    u->mType = Unit::Type::Atom;
     uint32_t len = aAtom->GetLength();
     u->mLength = len;
     mLength += len;
@@ -8898,34 +8910,25 @@ class StringBuilder {
   void Append(const char16_t (&aLiteral)[N]) {
     Unit* u = AddUnit();
     u->mLiteral = aLiteral;
-    u->mType = Unit::eLiteral;
+    u->mType = Unit::Type::Literal;
     uint32_t len = N - 1;
     u->mLength = len;
     mLength += len;
   }
 
-  void Append(const nsAString& aString) {
+  void Append(nsString&& aString) {
     Unit* u = AddUnit();
-    u->mString = new nsAutoString(aString);
-    u->mType = Unit::eString;
     uint32_t len = aString.Length();
+    new (&u->mString) nsString(std::move(aString));
+    u->mType = Unit::Type::String;
     u->mLength = len;
     mLength += len;
   }
 
-  void Append(nsAutoString* aString) {
+  void AppendWithAttrEncode(nsString&& aString, uint32_t aLen) {
     Unit* u = AddUnit();
-    u->mString = aString;
-    u->mType = Unit::eString;
-    uint32_t len = aString->Length();
-    u->mLength = len;
-    mLength += len;
-  }
-
-  void AppendWithAttrEncode(nsAutoString* aString, uint32_t aLen) {
-    Unit* u = AddUnit();
-    u->mString = aString;
-    u->mType = Unit::eStringWithEncode;
+    new (&u->mString) nsString(std::move(aString));
+    u->mType = Unit::Type::StringWithEncode;
     u->mLength = aLen;
     mLength += aLen;
   }
@@ -8933,7 +8936,7 @@ class StringBuilder {
   void Append(const nsTextFragment* aTextFragment) {
     Unit* u = AddUnit();
     u->mTextFragment = aTextFragment;
-    u->mType = Unit::eTextFragment;
+    u->mType = Unit::Type::TextFragment;
     uint32_t len = aTextFragment->GetLength();
     u->mLength = len;
     mLength += len;
@@ -8942,7 +8945,7 @@ class StringBuilder {
   void AppendWithEncode(const nsTextFragment* aTextFragment, uint32_t aLen) {
     Unit* u = AddUnit();
     u->mTextFragment = aTextFragment;
-    u->mType = Unit::eTextFragmentWithEncode;
+    u->mType = Unit::Type::TextFragmentWithEncode;
     u->mLength = aLen;
     mLength += aLen;
   }
@@ -8964,19 +8967,19 @@ class StringBuilder {
       for (uint32_t i = 0; i < len; ++i) {
         Unit& u = current->mUnits[i];
         switch (u.mType) {
-          case Unit::eAtom:
+          case Unit::Type::Atom:
             appender.Append(*(u.mAtom));
             break;
-          case Unit::eString:
-            appender.Append(*(u.mString));
+          case Unit::Type::String:
+            appender.Append(u.mString);
             break;
-          case Unit::eStringWithEncode:
-            EncodeAttrString(*(u.mString), appender);
+          case Unit::Type::StringWithEncode:
+            EncodeAttrString(u.mString, appender);
             break;
-          case Unit::eLiteral:
+          case Unit::Type::Literal:
             appender.Append(Span(u.mLiteral, u.mLength));
             break;
-          case Unit::eTextFragment:
+          case Unit::Type::TextFragment:
             if (u.mTextFragment->Is2b()) {
               appender.Append(
                   Span(u.mTextFragment->Get2b(), u.mTextFragment->GetLength()));
@@ -8985,7 +8988,7 @@ class StringBuilder {
                   Span(u.mTextFragment->Get1b(), u.mTextFragment->GetLength()));
             }
             break;
-          case Unit::eTextFragmentWithEncode:
+          case Unit::Type::TextFragmentWithEncode:
             if (u.mTextFragment->Is2b()) {
               EncodeTextFragment(
                   Span(u.mTextFragment->Get2b(), u.mTextFragment->GetLength()),
@@ -9086,11 +9089,14 @@ class StringBuilder {
   }
 
   AutoTArray<Unit, STRING_BUFFER_UNITS> mUnits;
-  mozilla::UniquePtr<StringBuilder> mNext;
+  UniquePtr<StringBuilder> mNext;
   StringBuilder* mLast;
   // mLength is used only in the first StringBuilder object in the linked list.
   CheckedInt<uint32_t> mLength;
 };
+
+static_assert(sizeof(StringBuilder) <= StringBuilder::TARGET_SIZE,
+              "StringBuilder should fit in the target bucket");
 
 }  // namespace
 
@@ -9149,10 +9155,9 @@ static void AppendEncodedCharacters(const nsTextFragment* aText,
   }
 }
 
-static void AppendEncodedAttributeValue(nsAutoString* aValue,
-                                        StringBuilder& aBuilder) {
-  const char16_t* c = aValue->BeginReading();
-  const char16_t* end = aValue->EndReading();
+static uint32_t ExtraSpaceNeededForAttrEncoding(const nsAString& aValue) {
+  const char16_t* c = aValue.BeginReading();
+  const char16_t* end = aValue.EndReading();
 
   uint32_t extraSpaceNeeded = 0;
   while (c < end) {
@@ -9172,57 +9177,67 @@ static void AppendEncodedAttributeValue(nsAutoString* aValue,
     ++c;
   }
 
-  if (extraSpaceNeeded) {
-    aBuilder.AppendWithAttrEncode(aValue, aValue->Length() + extraSpaceNeeded);
+  return extraSpaceNeeded;
+}
+
+static void AppendEncodedAttributeValue(const nsAttrValue& aValue,
+                                        StringBuilder& aBuilder) {
+  if (nsAtom* atom = aValue.GetStoredAtom()) {
+    nsDependentAtomString atomStr(atom);
+    uint32_t space = ExtraSpaceNeededForAttrEncoding(atomStr);
+    if (!space) {
+      aBuilder.Append(atom);
+    } else {
+      aBuilder.AppendWithAttrEncode(nsString(atomStr),
+                                    atomStr.Length() + space);
+    }
+    return;
+  }
+  // NOTE(emilio): In most cases this will just be a reference to the stored
+  // nsStringBuffer.
+  nsString str;
+  aValue.ToString(str);
+  uint32_t space = ExtraSpaceNeededForAttrEncoding(str);
+  if (space) {
+    aBuilder.AppendWithAttrEncode(std::move(str), str.Length() + space);
   } else {
-    aBuilder.Append(aValue);
+    aBuilder.Append(std::move(str));
   }
 }
 
-static void StartElement(Element* aContent, StringBuilder& aBuilder) {
-  nsAtom* localName = aContent->NodeInfo()->NameAtom();
-  int32_t tagNS = aContent->GetNameSpaceID();
+static void StartElement(Element* aElement, StringBuilder& aBuilder) {
+  nsAtom* localName = aElement->NodeInfo()->NameAtom();
+  const int32_t tagNS = aElement->GetNameSpaceID();
 
   aBuilder.Append(u"<");
-  if (aContent->IsHTMLElement() || aContent->IsSVGElement() ||
-      aContent->IsMathMLElement()) {
+  if (tagNS == kNameSpaceID_XHTML || tagNS == kNameSpaceID_SVG ||
+      tagNS == kNameSpaceID_MathML) {
     aBuilder.Append(localName);
   } else {
-    aBuilder.Append(aContent->NodeName());
+    aBuilder.Append(nsString(aElement->NodeName()));
   }
 
-  CustomElementData* ceData = aContent->GetCustomElementData();
-  if (ceData) {
-    nsAtom* isAttr = ceData->GetIs(aContent);
-    if (isAttr && !aContent->HasAttr(kNameSpaceID_None, nsGkAtoms::is)) {
+  if (CustomElementData* ceData = aElement->GetCustomElementData()) {
+    nsAtom* isAttr = ceData->GetIs(aElement);
+    if (isAttr && !aElement->HasAttr(nsGkAtoms::is)) {
       aBuilder.Append(uR"( is=")");
-      aBuilder.Append(nsDependentAtomString(isAttr));
+      aBuilder.Append(isAttr);
       aBuilder.Append(uR"(")");
     }
   }
 
-  int32_t count = aContent->GetAttrCount();
-  for (int32_t i = 0; i < count; i++) {
-    const nsAttrName* name = aContent->GetAttrNameAt(i);
+  uint32_t i = 0;
+  while (BorrowedAttrInfo info = aElement->GetAttrInfoAt(i++)) {
+    const nsAttrName* name = info.mName;
+
     int32_t attNs = name->NamespaceID();
     nsAtom* attName = name->LocalName();
 
     // Filter out any attribute starting with [-|_]moz
+    // FIXME(emilio): Do we still need this?
     nsDependentAtomString attrNameStr(attName);
     if (StringBeginsWith(attrNameStr, u"_moz"_ns) ||
         StringBeginsWith(attrNameStr, u"-moz"_ns)) {
-      continue;
-    }
-
-    auto* attValue = new nsAutoString();
-    aContent->GetAttr(attNs, attName, *attValue);
-
-    // Filter out special case of <br type="_moz*"> used by the editor.
-    // Bug 16988.  Yuck.
-    if (localName == nsGkAtoms::br && tagNS == kNameSpaceID_XHTML &&
-        attName == nsGkAtoms::type && attNs == kNameSpaceID_None &&
-        StringBeginsWith(*attValue, u"_moz"_ns)) {
-      delete attValue;
       continue;
     }
 
@@ -9237,17 +9252,14 @@ static void StartElement(Element* aContent, StringBuilder& aBuilder) {
       aBuilder.Append(u"xmlns:");
     } else if (attNs == kNameSpaceID_XLink) {
       aBuilder.Append(u"xlink:");
-    } else {
-      nsAtom* prefix = name->GetPrefix();
-      if (prefix) {
-        aBuilder.Append(prefix);
-        aBuilder.Append(u":");
-      }
+    } else if (nsAtom* prefix = name->GetPrefix()) {
+      aBuilder.Append(prefix);
+      aBuilder.Append(u":");
     }
 
     aBuilder.Append(attName);
     aBuilder.Append(uR"(=")");
-    AppendEncodedAttributeValue(attValue, aBuilder);
+    AppendEncodedAttributeValue(*info.mValue, aBuilder);
     aBuilder.Append(uR"(")");
   }
 
@@ -9315,13 +9327,13 @@ static inline bool IsVoidTag(Element* aElement) {
 }
 
 bool nsContentUtils::SerializeNodeToMarkup(nsINode* aRoot,
-                                           bool aDescendentsOnly,
+                                           bool aDescendantsOnly,
                                            nsAString& aOut) {
   // If you pass in a DOCUMENT_NODE, you must pass aDescendentsOnly as true
-  MOZ_ASSERT(aDescendentsOnly || aRoot->NodeType() != nsINode::DOCUMENT_NODE);
+  MOZ_ASSERT(aDescendantsOnly || aRoot->NodeType() != nsINode::DOCUMENT_NODE);
 
   nsINode* current =
-      aDescendentsOnly ? aRoot->GetFirstChildOfTemplateOrNode() : aRoot;
+      aDescendantsOnly ? aRoot->GetFirstChildOfTemplateOrNode() : aRoot;
 
   if (!current) {
     return true;
@@ -9364,14 +9376,14 @@ bool nsContentUtils::SerializeNodeToMarkup(nsINode* aRoot,
 
       case nsINode::DOCUMENT_TYPE_NODE: {
         builder.Append(u"<!DOCTYPE ");
-        builder.Append(current->NodeName());
+        builder.Append(nsString(current->NodeName()));
         builder.Append(u">");
         break;
       }
 
       case nsINode::PROCESSING_INSTRUCTION_NODE: {
         builder.Append(u"<?");
-        builder.Append(current->NodeName());
+        builder.Append(nsString(current->NodeName()));
         builder.Append(u" ");
         builder.Append(static_cast<nsIContent*>(current)->GetText());
         builder.Append(u">");
@@ -9387,7 +9399,7 @@ bool nsContentUtils::SerializeNodeToMarkup(nsINode* aRoot,
             elem->IsMathMLElement()) {
           builder.Append(elem->NodeInfo()->NameAtom());
         } else {
-          builder.Append(current->NodeName());
+          builder.Append(nsString(current->NodeName()));
         }
         builder.Append(u">");
       }
@@ -9415,7 +9427,7 @@ bool nsContentUtils::SerializeNodeToMarkup(nsINode* aRoot,
         }
       }
 
-      if (aDescendentsOnly && current == aRoot) {
+      if (aDescendantsOnly && current == aRoot) {
         return builder.ToString(aOut);
       }
     }

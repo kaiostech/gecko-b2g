@@ -758,7 +758,7 @@ void FileManagerInfo::InvalidateAllFileManagers() const {
   }
 
   for (i = 0; i < mPrivateStorageFileManagers.Length(); i++) {
-    mDefaultStorageFileManagers[i]->Invalidate();
+    mPrivateStorageFileManagers[i]->Invalidate();
   }
 }
 

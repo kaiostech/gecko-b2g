@@ -67,6 +67,7 @@
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/SystemPrincipal.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/TelemetryHistogramEnums.h"
 #include "mozilla/TextUtils.h"
@@ -85,6 +86,7 @@
 #include "mozilla/dom/quota/AssertionsImpl.h"
 #include "mozilla/dom/quota/CheckedUnsafePtr.h"
 #include "mozilla/dom/quota/Client.h"
+#include "mozilla/dom/quota/Constants.h"
 #include "mozilla/dom/quota/DirectoryLock.h"
 #include "mozilla/dom/quota/PersistenceType.h"
 #include "mozilla/dom/quota/PQuota.h"
@@ -104,7 +106,7 @@
 #include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/ipc/PBackgroundSharedTypes.h"
 #include "mozilla/ipc/ProtocolUtils.h"
-#include "mozilla/net/MozURL.h"
+#include "mozilla/net/ExtensionProtocolHandler.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsBaseHashtable.h"
 #include "nsCOMPtr.h"
@@ -122,6 +124,7 @@
 #include "nsIBinaryOutputStream.h"
 #include "nsIConsoleService.h"
 #include "nsIDirectoryEnumerator.h"
+#include "nsIDUtils.h"
 #include "nsIEventTarget.h"
 #include "nsIFile.h"
 #include "nsIFileStreams.h"
@@ -146,6 +149,7 @@
 #include "nsNetUtil.h"
 #include "nsPIDOMWindow.h"
 #include "nsPrintfCString.h"
+#include "nsStandardURL.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
 #include "nsStringFlags.h"
@@ -213,7 +217,6 @@ static_assert(
 namespace mozilla::dom::quota {
 
 using namespace mozilla::ipc;
-using mozilla::net::MozURL;
 
 // We want profiles to be platform-independent so we always need to replace
 // the same characters on every platform. Windows has the most extensive set
@@ -1009,6 +1012,40 @@ class SaveOriginAccessTimeOp : public NormalOriginOperationBase {
   virtual void SendResults() override;
 };
 
+// XXX This class is a copy of ClearPrivateBrowsingOp because
+// ClearPrivateBrowsingOp is supposed to work as a parent actor. We could maybe
+// still inherit from ClearPrivateBrowsingOp instead of inheriting
+// NormalOriginOperationBase and override SendResults, but that's still not
+// very clean. It would be better to refactor the classes to have operations
+// which can be used independently from IPC and then have wrappers (actors)
+// around them for IPC.
+class ClearPrivateRepositoryOp : public NormalOriginOperationBase {
+  MozPromiseHolder<BoolPromise> mPromiseHolder;
+
+ public:
+  ClearPrivateRepositoryOp()
+      : NormalOriginOperationBase(
+            "dom::quota::ClearPrivateRepositoryOp",
+            Nullable<PersistenceType>(PERSISTENCE_TYPE_PRIVATE),
+            OriginScope::FromNull(), Nullable<Client::Type>(),
+            /* aExclusive */ true) {
+    AssertIsOnOwningThread();
+  }
+
+  RefPtr<BoolPromise> OnResults() {
+    AssertIsOnOwningThread();
+
+    return mPromiseHolder.Ensure(__func__);
+  }
+
+ private:
+  ~ClearPrivateRepositoryOp() = default;
+
+  nsresult DoDirectoryWork(QuotaManager& aQuotaManager) override;
+
+  void SendResults() override;
+};
+
 class ShutdownStorageOp : public NormalOriginOperationBase {
   MozPromiseHolder<BoolPromise> mPromiseHolder;
 
@@ -1671,22 +1708,13 @@ Result<bool, nsresult> MaybeUpdateGroupForOrigin(
       updated = true;
     }
   } else {
-    OriginAttributes originAttributes;
-    nsCString originNoSuffix;
-    QM_TRY(OkIf(originAttributes.PopulateFromOrigin(aOriginMetadata.mOrigin,
-                                                    originNoSuffix)),
-           Err(NS_ERROR_FAILURE));
+    nsCOMPtr<nsIPrincipal> principal =
+        BasePrincipal::CreateContentPrincipal(aOriginMetadata.mOrigin);
+    QM_TRY(MOZ_TO_RESULT(principal));
 
-    RefPtr<MozURL> url;
-    QM_TRY(MOZ_TO_RESULT(MozURL::Init(getter_AddRefs(url), originNoSuffix)),
-           QM_PROPAGATE, [&originNoSuffix](const nsresult) {
-             QM_WARNING("A URL %s is not recognized by MozURL",
-                        originNoSuffix.get());
-           });
-
-    QM_TRY_INSPECT(
-        const auto& baseDomain,
-        MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsAutoCString, *url, BaseDomain));
+    QM_TRY_INSPECT(const auto& baseDomain,
+                   MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsAutoCString, principal,
+                                                     GetBaseDomain));
 
     const nsCString upToDateGroup = baseDomain + aOriginMetadata.mSuffix;
 
@@ -1695,6 +1723,12 @@ Result<bool, nsresult> MaybeUpdateGroupForOrigin(
       updated = true;
 
 #ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
+      OriginAttributes originAttributes;
+      nsCString originNoSuffix;
+      QM_TRY(OkIf(originAttributes.PopulateFromOrigin(aOriginMetadata.mOrigin,
+                                                      originNoSuffix)),
+             Err(NS_ERROR_FAILURE));
+
       ContentPrincipalInfo contentPrincipalInfo;
       contentPrincipalInfo.attrs() = originAttributes;
       contentPrincipalInfo.originNoSuffix() = originNoSuffix;
@@ -2454,16 +2488,15 @@ nsresult CreateDirectoryMetadata2(nsIFile& aDirectory, int64_t aTimestamp,
   // Reserved data 2
   QM_TRY(MOZ_TO_RESULT(stream->Write32(0)));
 
-  // The suffix isn't used right now, but we might need it in future. It's
-  // a bit of redundancy we can live with given how painful is to upgrade
-  // metadata files.
-  QM_TRY(MOZ_TO_RESULT(stream->WriteStringZ(aOriginMetadata.mSuffix.get())));
+  // Currently unused (used to be suffix).
+  QM_TRY(MOZ_TO_RESULT(stream->WriteStringZ("")));
 
-  QM_TRY(MOZ_TO_RESULT(stream->WriteStringZ(aOriginMetadata.mGroup.get())));
+  // Currently unused (used to be group).
+  QM_TRY(MOZ_TO_RESULT(stream->WriteStringZ("")));
 
-  QM_TRY(MOZ_TO_RESULT(stream->WriteStringZ(aOriginMetadata.mOrigin.get())));
+  QM_TRY(MOZ_TO_RESULT(
+      stream->WriteStringZ(aOriginMetadata.mStorageOrigin.get())));
 
-  /* HS(PB): Do we really need to write into metadata file for private origins*/
   // Currently used for isPrivate (used to be used for isApp).
   QM_TRY(MOZ_TO_RESULT(stream->WriteBoolean(aOriginMetadata.mIsPrivate)));
 
@@ -2558,11 +2591,14 @@ void InitializeQuotaManager() {
 #endif
 
   if (!QuotaManager::IsRunningGTests()) {
-    // This service has to be started on the main thread currently.
+    // These services have to be started on the main thread currently.
     const nsCOMPtr<mozIStorageService> ss =
         do_GetService(MOZ_STORAGE_SERVICE_CONTRACTID);
-
     QM_WARNONLY_TRY(OkIf(ss));
+
+    RefPtr<net::ExtensionProtocolHandler> extensionProtocolHandler =
+        net::ExtensionProtocolHandler::GetSingleton();
+    QM_WARNONLY_TRY(MOZ_TO_RESULT(extensionProtocolHandler));
   }
 
   QM_WARNONLY_TRY(QM_TO_RESULT(QuotaManager::Initialize()));
@@ -2822,8 +2858,8 @@ QuotaManager::Observer::Observe(nsISupports* aSubject, const char* aTopic,
     }
 
     nsCOMPtr<nsIQuotaRequest> request;
-    rv = quotaManagerService->ClearStoragesForOriginAttributesPattern(
-        u"{ \"privateBrowsingId\": 1 }"_ns, nsGetterAddRefs(request));
+    rv = quotaManagerService->ClearStoragesForPrivateBrowsing(
+        nsGetterAddRefs(request));
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -2910,6 +2946,10 @@ QuotaManager::GetOrCreate() {
   QM_TRY(MOZ_TO_RESULT(instance->Init()));
 
   gInstance = instance;
+
+  // Do this before clients have a chance to acquire a directory lock for the
+  // private repository.
+  gInstance->ClearPrivateRepository();
 
   return WrapMovingNotNullUnchecked(std::move(instance));
 }
@@ -4376,8 +4416,8 @@ Result<nsCOMPtr<nsIFile>, nsresult> QuotaManager::GetOriginDirectory(
       auto directory,
       QM_NewLocalFile(GetStoragePath(aOriginMetadata.mPersistenceType)));
 
-  QM_TRY(MOZ_TO_RESULT(
-      directory->Append(MakeSanitizedOriginString(aOriginMetadata.mOrigin))));
+  QM_TRY(MOZ_TO_RESULT(directory->Append(
+      MakeSanitizedOriginString(aOriginMetadata.mStorageOrigin))));
 
   return directory;
 }
@@ -4426,25 +4466,43 @@ Result<FullOriginMetadata, nsresult> QuotaManager::LoadFullOriginMetadata(
 
   fullOriginMetadata.mPersistenceType = aPersistenceType;
 
-  QM_TRY_UNWRAP(
-      fullOriginMetadata.mSuffix,
-      MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCString, binaryStream, ReadCString));
+  QM_TRY_INSPECT(const auto& suffix, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                                         nsCString, binaryStream, ReadCString));
+  Unused << suffix;
+
+  QM_TRY_INSPECT(const auto& group, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                                        nsCString, binaryStream, ReadCString));
+  Unused << group;
 
   QM_TRY_UNWRAP(
-      fullOriginMetadata.mGroup,
+      fullOriginMetadata.mStorageOrigin,
       MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCString, binaryStream, ReadCString));
-
-  QM_TRY_UNWRAP(
-      fullOriginMetadata.mOrigin,
-      MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCString, binaryStream, ReadCString));
-
-  fullOriginMetadata.mStorageOrigin = fullOriginMetadata.mOrigin;
 
   // Currently used for isPrivate (used to be used for isApp).
   QM_TRY_UNWRAP(fullOriginMetadata.mIsPrivate,
                 MOZ_TO_RESULT_INVOKE_MEMBER(binaryStream, ReadBoolean));
 
   QM_TRY(MOZ_TO_RESULT(binaryStream->Close()));
+
+  auto principal =
+      [&storageOrigin =
+           fullOriginMetadata.mStorageOrigin]() -> nsCOMPtr<nsIPrincipal> {
+    if (storageOrigin.EqualsLiteral(kChromeOrigin)) {
+      return SystemPrincipal::Get();
+    }
+    return BasePrincipal::CreateContentPrincipal(storageOrigin);
+  }();
+  QM_TRY(MOZ_TO_RESULT(principal));
+
+  PrincipalInfo principalInfo;
+  QM_TRY(MOZ_TO_RESULT(PrincipalToPrincipalInfo(principal, &principalInfo)));
+
+  QM_TRY_UNWRAP(auto principalMetadata,
+                GetInfoFromValidatedPrincipalInfo(principalInfo));
+
+  fullOriginMetadata.mSuffix = std::move(principalMetadata.mSuffix);
+  fullOriginMetadata.mGroup = std::move(principalMetadata.mGroup);
+  fullOriginMetadata.mOrigin = std::move(principalMetadata.mOrigin);
 
   QM_TRY_INSPECT(const bool& groupUpdated,
                  MaybeUpdateGroupForOrigin(fullOriginMetadata));
@@ -6104,6 +6162,16 @@ nsresult QuotaManager::EnsureTemporaryStorageIsInitialized() {
       "dom::quota::FirstInitializationAttempt::TemporaryStorage"_ns, innerFunc);
 }
 
+RefPtr<BoolPromise> QuotaManager::ClearPrivateRepository() {
+  auto clearPrivateRepositoryOp = MakeRefPtr<ClearPrivateRepositoryOp>();
+
+  RegisterNormalOriginOp(*clearPrivateRepositoryOp);
+
+  clearPrivateRepositoryOp->RunImmediately();
+
+  return clearPrivateRepositoryOp->OnResults();
+}
+
 RefPtr<BoolPromise> QuotaManager::ShutdownStorage() {
   if (!mShuttingDownStorage) {
     mShuttingDownStorage = true;
@@ -6380,16 +6448,18 @@ bool QuotaManager::IsPrincipalInfoValid(const PrincipalInfo& aPrincipalInfo) {
           aPrincipalInfo.get_ContentPrincipalInfo();
 
       // Verify the principal spec parses.
-      RefPtr<MozURL> specURL;
-      nsresult rv = MozURL::Init(getter_AddRefs(specURL), info.spec());
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        QM_WARNING("A URL %s is not recognized by MozURL", info.spec().get());
-        return false;
-      }
+      nsCOMPtr<nsIURI> uri;
+      QM_TRY(MOZ_TO_RESULT(NS_NewURI(getter_AddRefs(uri), info.spec())), false);
+
+      nsCOMPtr<nsIPrincipal> principal =
+          BasePrincipal::CreateContentPrincipal(uri, info.attrs());
+      QM_TRY(MOZ_TO_RESULT(principal), false);
 
       // Verify the principal originNoSuffix matches spec.
-      nsCString originNoSuffix;
-      specURL->Origin(originNoSuffix);
+      QM_TRY_INSPECT(const auto& originNoSuffix,
+                     MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsAutoCString, principal,
+                                                       GetOriginNoSuffix),
+                     false);
 
       if (NS_WARN_IF(originNoSuffix != info.originNoSuffix())) {
         QM_WARNING("originNoSuffix (%s) doesn't match passed one (%s)!",
@@ -6413,11 +6483,10 @@ bool QuotaManager::IsPrincipalInfoValid(const PrincipalInfo& aPrincipalInfo) {
       }
 
       // Verify the principal baseDomain matches spec.
-      nsCString baseDomain;
-      rv = specURL->BaseDomain(baseDomain);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
-      }
+      QM_TRY_INSPECT(const auto& baseDomain,
+                     MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsAutoCString, principal,
+                                                       GetBaseDomain),
+                     false);
 
       if (NS_WARN_IF(baseDomain != info.baseDomain())) {
         QM_WARNING("baseDomain (%s) doesn't match passed one (%s)!",
@@ -6451,16 +6520,40 @@ QuotaManager::GetInfoFromValidatedPrincipalInfo(
       const ContentPrincipalInfo& info =
           aPrincipalInfo.get_ContentPrincipalInfo();
 
+      nsCString suffix;
+      info.attrs().CreateSuffix(suffix);
+
+      nsCString origin = info.originNoSuffix() + suffix;
+
+      if (StringBeginsWith(origin, kUUIDOriginScheme)) {
+        QM_TRY_INSPECT(const auto& originalOrigin,
+                       GetOriginFromStorageOrigin(origin));
+
+        nsCOMPtr<nsIPrincipal> principal =
+            BasePrincipal::CreateContentPrincipal(originalOrigin);
+        QM_TRY(MOZ_TO_RESULT(principal));
+
+        PrincipalInfo principalInfo;
+        QM_TRY(
+            MOZ_TO_RESULT(PrincipalToPrincipalInfo(principal, &principalInfo)));
+
+        return GetInfoFromValidatedPrincipalInfo(principalInfo);
+      }
+
       PrincipalMetadata principalMetadata;
 
-      info.attrs().CreateSuffix(principalMetadata.mSuffix);
+      principalMetadata.mSuffix = suffix;
 
-      principalMetadata.mGroup = info.baseDomain() + principalMetadata.mSuffix;
+      principalMetadata.mGroup = info.baseDomain() + suffix;
 
-      principalMetadata.mOrigin =
-          info.originNoSuffix() + principalMetadata.mSuffix;
+      principalMetadata.mOrigin = origin;
 
-      principalMetadata.mStorageOrigin = principalMetadata.mOrigin;
+      if (info.attrs().mPrivateBrowsingId != 0) {
+        QM_TRY_UNWRAP(principalMetadata.mStorageOrigin,
+                      EnsureStorageOriginFromOrigin(origin));
+      } else {
+        principalMetadata.mStorageOrigin = origin;
+      }
 
       principalMetadata.mIsPrivate = info.attrs().mPrivateBrowsingId != 0;
 
@@ -6503,7 +6596,6 @@ nsAutoCString QuotaManager::GetOriginFromValidatedPrincipalInfo(
 // static
 Result<PrincipalMetadata, nsresult> QuotaManager::GetInfoFromPrincipal(
     nsIPrincipal* aPrincipal) {
-  MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aPrincipal);
 
   if (aPrincipal->IsSystemPrincipal()) {
@@ -7095,6 +7187,59 @@ bool QuotaManager::IsSanitizedOriginValid(const nsACString& aSanitizedOrigin) {
       });
 }
 
+Result<nsCString, nsresult> QuotaManager::EnsureStorageOriginFromOrigin(
+    const nsACString& aOrigin) {
+  MutexAutoLock lock(mQuotaMutex);
+
+  QM_TRY_UNWRAP(
+      auto storageOrigin,
+      mOriginToStorageOriginMap.TryLookupOrInsertWith(
+          aOrigin, [this, &aOrigin]() -> Result<nsCString, nsresult> {
+            OriginAttributes originAttributes;
+
+            nsCString originNoSuffix;
+            QM_TRY(MOZ_TO_RESULT(
+                originAttributes.PopulateFromOrigin(aOrigin, originNoSuffix)));
+
+            nsCOMPtr<nsIURI> uri;
+            QM_TRY(MOZ_TO_RESULT(
+                NS_MutateURI(NS_STANDARDURLMUTATOR_CONTRACTID)
+                    .SetSpec(originNoSuffix)
+                    .SetScheme(kUUIDOriginScheme)
+                    .SetHost(NSID_TrimBracketsASCII(nsID::GenerateUUID()))
+                    .SetPort(-1)
+                    .Finalize(uri)));
+
+            nsCOMPtr<nsIPrincipal> principal =
+                BasePrincipal::CreateContentPrincipal(uri, OriginAttributes{});
+            QM_TRY(MOZ_TO_RESULT(principal));
+
+            QM_TRY_UNWRAP(auto origin,
+                          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                              nsAutoCString, principal, GetOrigin));
+
+            mStorageOriginToOriginMap.WithEntryHandle(
+                origin,
+                [&aOrigin](auto entryHandle) { entryHandle.Insert(aOrigin); });
+
+            return nsCString(std::move(origin));
+          }));
+
+  return nsCString(std::move(storageOrigin));
+}
+
+Result<nsCString, nsresult> QuotaManager::GetOriginFromStorageOrigin(
+    const nsACString& aStorageOrigin) {
+  MutexAutoLock lock(mQuotaMutex);
+
+  auto maybeOrigin = mStorageOriginToOriginMap.MaybeGet(aStorageOrigin);
+  if (maybeOrigin.isNothing()) {
+    return Err(NS_ERROR_FAILURE);
+  }
+
+  return maybeOrigin.ref();
+}
+
 int64_t QuotaManager::GenerateDirectoryLockId() {
   const int64_t directorylockId = mNextDirectoryLockId;
 
@@ -7456,6 +7601,44 @@ void SaveOriginAccessTimeOp::SendResults() {
 #ifdef DEBUG
   NoteActorDestroyed();
 #endif
+}
+
+nsresult ClearPrivateRepositoryOp::DoDirectoryWork(
+    QuotaManager& aQuotaManager) {
+  AssertIsOnIOThread();
+  MOZ_ASSERT(!mPersistenceType.IsNull());
+  MOZ_ASSERT(mPersistenceType.Value() == PERSISTENCE_TYPE_PRIVATE);
+
+  AUTO_PROFILER_LABEL("ClearPrivateRepositoryOp::DoDirectoryWork", OTHER);
+
+  QM_TRY_INSPECT(
+      const auto& directory,
+      QM_NewLocalFile(aQuotaManager.GetStoragePath(mPersistenceType.Value())));
+
+  nsresult rv = directory->Remove(true);
+  if (rv != NS_ERROR_FILE_NOT_FOUND && NS_FAILED(rv)) {
+    // This should never fail if we've closed all storage connections
+    // correctly...
+    MOZ_ASSERT(false, "Failed to remove directory!");
+  }
+
+  aQuotaManager.RemoveQuotaForRepository(mPersistenceType.Value());
+
+  aQuotaManager.RepositoryClearCompleted(mPersistenceType.Value());
+
+  return NS_OK;
+}
+
+void ClearPrivateRepositoryOp::SendResults() {
+#ifdef DEBUG
+  NoteActorDestroyed();
+#endif
+
+  if (NS_SUCCEEDED(mResultCode)) {
+    mPromiseHolder.ResolveIfExists(true, __func__);
+  } else {
+    mPromiseHolder.RejectIfExists(mResultCode, __func__);
+  }
 }
 
 #ifdef DEBUG
@@ -8392,7 +8575,8 @@ nsresult GetOriginUsageOp::DoInit(QuotaManager& aQuotaManager) {
   QM_TRY_UNWRAP(
       PrincipalMetadata principalMetadata,
       aQuotaManager.GetInfoFromValidatedPrincipalInfo(mParams.principalInfo()));
-  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
+
+  principalMetadata.AssertInvariants();
 
   mSuffix = std::move(principalMetadata.mSuffix);
   mGroup = std::move(principalMetadata.mGroup);
@@ -8671,7 +8855,8 @@ nsresult InitializeOriginRequestBase::DoInit(QuotaManager& aQuotaManager) {
   QM_TRY_UNWRAP(
       auto principalMetadata,
       aQuotaManager.GetInfoFromValidatedPrincipalInfo(mPrincipalInfo));
-  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
+
+  principalMetadata.AssertInvariants();
 
   mSuffix = std::move(principalMetadata.mSuffix);
   mGroup = std::move(principalMetadata.mGroup);
@@ -8773,7 +8958,8 @@ nsresult GetFullOriginMetadataOp::DoInit(QuotaManager& aQuotaManager) {
   QM_TRY_UNWRAP(
       PrincipalMetadata principalMetadata,
       aQuotaManager.GetInfoFromValidatedPrincipalInfo(mParams.principalInfo()));
-  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
+
+  principalMetadata.AssertInvariants();
 
   mOriginMetadata = {std::move(principalMetadata), mParams.persistenceType()};
 
@@ -8991,20 +9177,8 @@ void ClearRequestBase::DeleteFiles(QuotaManager& aQuotaManager,
   QM_TRY(
       CollectEachFile(
           *directory,
-          [originScope =
-               [this] {
-                 OriginScope originScope = mOriginScope.Clone();
-                 if (originScope.IsOrigin()) {
-                   originScope.SetOrigin(
-                       MakeSanitizedOriginCString(originScope.GetOrigin()));
-                 } else if (originScope.IsPrefix()) {
-                   originScope.SetOriginNoSuffix(MakeSanitizedOriginCString(
-                       originScope.GetOriginNoSuffix()));
-                 }
-                 return originScope;
-               }(),
-           aPersistenceType, &aQuotaManager, &directoriesForRemovalRetry,
-           &toBeRemovedDir,
+          [&originScope = mOriginScope, aPersistenceType, &aQuotaManager,
+           &directoriesForRemovalRetry, &toBeRemovedDir,
            this](nsCOMPtr<nsIFile>&& file) -> mozilla::Result<Ok, nsresult> {
             QM_TRY_INSPECT(const auto& leafName,
                            MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsAutoString, file,
@@ -9014,17 +9188,17 @@ void ClearRequestBase::DeleteFiles(QuotaManager& aQuotaManager,
 
             switch (dirEntryKind) {
               case nsIFileKind::ExistsAsDirectory: {
-                // Skip the origin directory if it doesn't match the pattern.
-                if (!originScope.Matches(OriginScope::FromOrigin(
-                        NS_ConvertUTF16toUTF8(leafName)))) {
-                  break;
-                }
-
                 QM_TRY_INSPECT(
                     const auto& metadata,
                     aQuotaManager.LoadFullOriginMetadataWithRestore(file));
 
                 MOZ_ASSERT(metadata.mPersistenceType == aPersistenceType);
+
+                // Skip the origin directory if it doesn't match the pattern.
+                if (!originScope.Matches(
+                        OriginScope::FromOrigin(metadata.mOrigin))) {
+                  break;
+                }
 
                 if (!mClientType.IsNull()) {
                   nsAutoString clientDirectoryName;
@@ -9284,7 +9458,8 @@ nsresult PersistRequestBase::DoInit(QuotaManager& aQuotaManager) {
   QM_TRY_UNWRAP(
       PrincipalMetadata principalMetadata,
       aQuotaManager.GetInfoFromValidatedPrincipalInfo(mPrincipalInfo));
-  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
+
+  principalMetadata.AssertInvariants();
 
   mSuffix = std::move(principalMetadata.mSuffix);
   mGroup = std::move(principalMetadata.mGroup);
@@ -9448,7 +9623,8 @@ nsresult EstimateOp::DoInit(QuotaManager& aQuotaManager) {
   QM_TRY_UNWRAP(
       PrincipalMetadata principalMetadata,
       aQuotaManager.GetInfoFromValidatedPrincipalInfo(mParams.principalInfo()));
-  MOZ_ASSERT(principalMetadata.mOrigin == principalMetadata.mStorageOrigin);
+
+  principalMetadata.AssertInvariants();
 
   mOriginMetadata = {std::move(principalMetadata), PERSISTENCE_TYPE_DEFAULT};
 
@@ -9852,39 +10028,17 @@ nsresult StorageOperationBase::ProcessOriginDirectories() {
       }
 
       case OriginProps::eContent: {
-        RefPtr<MozURL> specURL;
-        nsresult rv = MozURL::Init(getter_AddRefs(specURL), originProps.mSpec);
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          // If a URL cannot be understood by MozURL during restoring or
-          // upgrading, either marking the directory as broken or removing that
-          // corresponding directory should be considered. While the cost of
-          // marking the directory as broken during a upgrade is too high,
-          // removing the directory is a better choice rather than blocking the
-          // initialization or the upgrade.
-          QM_WARNING(
-              "A URL (%s) for the origin directory is not recognized by "
-              "MozURL. The directory will be deleted for now to pass the "
-              "initialization or the upgrade.",
-              originProps.mSpec.get());
+        nsCOMPtr<nsIURI> uri;
+        QM_TRY(
+            MOZ_TO_RESULT(NS_NewURI(getter_AddRefs(uri), originProps.mSpec)));
 
-          originProps.mType = OriginProps::eObsolete;
-          break;
-        }
+        nsCOMPtr<nsIPrincipal> principal =
+            BasePrincipal::CreateContentPrincipal(uri, originProps.mAttrs);
+        QM_TRY(MOZ_TO_RESULT(principal));
 
-        nsCString originNoSuffix;
-        specURL->Origin(originNoSuffix);
-
-        QM_TRY_INSPECT(
-            const auto& baseDomain,
-            MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCString, specURL, BaseDomain));
-
-        ContentPrincipalInfo contentPrincipalInfo;
-        contentPrincipalInfo.attrs() = originProps.mAttrs;
-        contentPrincipalInfo.originNoSuffix() = originNoSuffix;
-        contentPrincipalInfo.spec() = originProps.mSpec;
-        contentPrincipalInfo.baseDomain() = baseDomain;
-
-        PrincipalInfo principalInfo(contentPrincipalInfo);
+        PrincipalInfo principalInfo;
+        QM_TRY(
+            MOZ_TO_RESULT(PrincipalToPrincipalInfo(principal, &principalInfo)));
 
         QM_TRY_UNWRAP(
             auto principalMetadata,
@@ -10112,7 +10266,8 @@ void OriginParser::HandleScheme(const nsDependentCSubstring& aToken) {
       (isFile = aToken.EqualsLiteral("file")) || aToken.EqualsLiteral("app") ||
       aToken.EqualsLiteral("resource") ||
       aToken.EqualsLiteral("moz-extension") ||
-      (isChrome = aToken.EqualsLiteral(kChromeOrigin))) {
+      (isChrome = aToken.EqualsLiteral(kChromeOrigin)) ||
+      aToken.EqualsLiteral("uuid")) {
     mScheme = aToken;
 
     if (isAbout) {

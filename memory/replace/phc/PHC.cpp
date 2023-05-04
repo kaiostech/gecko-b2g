@@ -1099,32 +1099,36 @@ static void* MaybePageAlloc(const Maybe<arena_id_t>& aArenaId, size_t aReqSize,
 #else
         mprotect(pagePtr, kPageSize, PROT_READ | PROT_WRITE) == 0;
 #endif
-    size_t usableSize = sMallocTable.malloc_good_size(aReqSize);
-    if (ok) {
-      MOZ_ASSERT(usableSize > 0);
 
-      // Put the allocation as close to the end of the page as possible,
-      // allowing for alignment requirements.
-      ptr = pagePtr + kPageSize - usableSize;
-      if (aAlignment != 1) {
-        ptr = reinterpret_cast<uint8_t*>(
-            (reinterpret_cast<uintptr_t>(ptr) & ~(aAlignment - 1)));
-      }
+    if (!ok) {
+      pagePtr = nullptr;
+      continue;
+    }
+
+    size_t usableSize = sMallocTable.malloc_good_size(aReqSize);
+    MOZ_ASSERT(usableSize > 0);
+
+    // Put the allocation as close to the end of the page as possible,
+    // allowing for alignment requirements.
+    ptr = pagePtr + kPageSize - usableSize;
+    if (aAlignment != 1) {
+      ptr = reinterpret_cast<uint8_t*>(
+          (reinterpret_cast<uintptr_t>(ptr) & ~(aAlignment - 1)));
+    }
 
 #if PHC_LOGGING
-      Time then = gMut->GetFreeTime(i);
-      lifetime = then != 0 ? now - then : 0;
+    Time then = gMut->GetFreeTime(i);
+    lifetime = then != 0 ? now - then : 0;
 #endif
 
-      gMut->SetPageInUse(lock, i, aArenaId, ptr, allocStack);
+    gMut->SetPageInUse(lock, i, aArenaId, ptr, allocStack);
 
-      if (aZero) {
-        memset(ptr, 0, usableSize);
-      } else {
+    if (aZero) {
+      memset(ptr, 0, usableSize);
+    } else {
 #ifdef DEBUG
-        memset(ptr, kAllocJunk, usableSize);
+      memset(ptr, kAllocJunk, usableSize);
 #endif
-      }
     }
 
     gMut->IncPageAllocHits(lock);
@@ -1163,14 +1167,15 @@ static void FreePage(GMutLock aLock, uintptr_t aIndex,
                      const Maybe<arena_id_t>& aArenaId,
                      const StackTrace& aFreeStack, Delay aReuseDelay) {
   void* pagePtr = gConst->AllocPagePtr(aIndex);
+
 #ifdef XP_WIN
   if (!VirtualFree(pagePtr, kPageSize, MEM_DECOMMIT)) {
-    return;
+    MOZ_CRASH("VirtualFree failed");
   }
 #else
   if (mmap(pagePtr, kPageSize, PROT_NONE, MAP_FIXED | MAP_PRIVATE | MAP_ANON,
            -1, 0) == MAP_FAILED) {
-    return;
+    MOZ_CRASH("mmap failed");
   }
 #endif
 

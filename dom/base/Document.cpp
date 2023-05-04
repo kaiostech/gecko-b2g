@@ -6962,7 +6962,7 @@ already_AddRefed<PresShell> Document::CreatePresShell(
 
   presShell->Init(aContext, aViewManager);
   if (RefPtr<class HighlightRegistry> highlightRegistry = mHighlightRegistry) {
-    highlightRegistry->AddHighlightSelectionsToFrameSelection(IgnoreErrors());
+    highlightRegistry->AddHighlightSelectionsToFrameSelection();
   }
   // Gaining a shell causes changes in how media queries are evaluated, so
   // invalidate that.
@@ -8318,8 +8318,7 @@ static void RemoveAnonContentFromCanvas(AnonymousContent& aAnonContent,
   container->RemoveChild(aAnonContent.ContentNode(), IgnoreErrors());
 }
 
-void Document::RemoveAnonymousContent(AnonymousContent& aContent,
-                                      ErrorResult& aRv) {
+void Document::RemoveAnonymousContent(AnonymousContent& aContent) {
   nsAutoScriptBlocker scriptBlocker;
 
   auto index = mAnonymousContents.IndexOf(&aContent);
@@ -10166,7 +10165,7 @@ nsINode* Document::AdoptNode(nsINode& aAdoptedNode, ErrorResult& rv) {
       // Remove from ownerElement.
       OwningNonNull<Attr> adoptedAttr = static_cast<Attr&>(*adoptedNode);
 
-      nsCOMPtr<Element> ownerElement = adoptedAttr->GetOwnerElement(rv);
+      nsCOMPtr<Element> ownerElement = adoptedAttr->GetOwnerElement();
       if (rv.Failed()) {
         return nullptr;
       }
@@ -15049,7 +15048,17 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
     // TODO: we can't always guarantee:
     // The last item in document's auto popover list is popoverHTMLEl.
     // See, https://github.com/whatwg/html/issues/9197
-    MOZ_ASSERT(GetTopmostAutoPopover() == popoverHTMLEl);
+    // If popoverHTMLEl is not on top, hide popovers again without firing
+    // events.
+    if (NS_WARN_IF(GetTopmostAutoPopover() != popoverHTMLEl)) {
+      HideAllPopoversUntil(*popoverHTMLEl, aFocusPreviousElement, false);
+      if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
+                                               nullptr, aRv)) {
+        return;
+      }
+      MOZ_ASSERT(GetTopmostAutoPopover() == popoverHTMLEl,
+                 "popoverHTMLEl should be on top of auto popover list");
+    }
   }
 
   aPopover.SetHasPopoverInvoker(false);

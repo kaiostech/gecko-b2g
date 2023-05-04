@@ -13023,13 +13023,13 @@
 # WebTransport
 - name: network.webtransport.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # WebTransport Datagram support
 - name: network.webtransport.datagrams.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # WebTransport Datagram size
@@ -14083,6 +14083,12 @@
   value: @IS_ANDROID@
   mirror: always
 
+# residentKey support when using Android platform API
+- name: security.webauthn.webauthn_enable_android_fido2.residentkey
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Dispatch WebAuthn requests to authenticator-rs
 - name: security.webauth.webauthn_enable_usbtoken
   type: RelaxedAtomicBool
@@ -14736,7 +14742,7 @@
 - name: timer.maximum_firing_delay_tolerance_ms
   type: AtomicFloat
 #ifdef NIGHTLY_BUILD
-  value: 100.0
+  value: 10000.0
 #else
   value: 0.0
 #endif
@@ -15922,7 +15928,6 @@
   type: RelaxedAtomicUint32
   value: 6
   mirror: always
-#endif
 
 # Whether to flush the Ole clipboard synchronously.
 # Possible values are:
@@ -15933,6 +15938,20 @@
   type: uint32_t
   value: 2
   mirror: always
+
+# Whether to apply a hack (adjusting the window height by -1px and back again)
+# upon first entering fullscreen intended to work around a bug exhibited under
+# on some Windows 11 machines under some configurations. (See bug 1763981.)
+#
+# Semantics:
+#  * 0: never
+#  * 1: always
+#  * 2: auto
+- name: widget.windows.apply-dwm-resize-hack
+  type: RelaxedAtomicInt32
+  value: 2
+  mirror: always
+#endif
 
 # Whether to disable SwipeTracker (e.g. swipe-to-nav).
 - name: widget.disable-swipe-tracker

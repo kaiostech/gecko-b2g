@@ -101,10 +101,7 @@ void TouchLocation::InjectElement(dom::Document* aDocument) {
 }
 
 void TouchLocation::RemoveElement(dom::Document* aDocument) {
-  ErrorResult rv;
-  aDocument->RemoveAnonymousContent(*mTouchElementHolder, rv);
-  // It's OK rv is failed since nsCanvasFrame might not exists now.
-  rv.SuppressException();
+  aDocument->RemoveAnonymousContent(*mTouchElementHolder);
 }
 
 void TouchLocation::HandleTouchList(EventMessage aMessage,

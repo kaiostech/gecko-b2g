@@ -234,7 +234,7 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
       loadRequest.mRequest->StartDecoding(imgIContainer::FLAG_NONE);
 
       // Since we have cloned the imgIRequest, we can remove the element.
-      doc->RemoveAnonymousContent(*cursorElementHolder, rv);
+      doc->RemoveAnonymousContent(*cursorElementHolder);
     }
   }
 }

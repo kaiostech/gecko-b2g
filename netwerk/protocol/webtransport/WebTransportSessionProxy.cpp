@@ -356,7 +356,7 @@ void WebTransportSessionProxy::CreateStreamInternal(
     case WebTransportSessionProxyState::DONE: {
       nsCOMPtr<nsIWebTransportStreamCallback> cb(callback);
       NS_DispatchToCurrentThread(NS_NewRunnableFunction(
-          "WebTransportSessionProxy::CreateOutgoingUnidirectionalStream",
+          "WebTransportSessionProxy::CreateStreamInternal",
           [cb{std::move(cb)}]() {
             cb->OnError(nsIWebTransport::INVALID_STATE_ERROR);
           }));
@@ -1128,6 +1128,42 @@ WebTransportSessionProxy::OnOutgoingDatagramOutCome(
   }
 
   OnOutgoingDatagramOutComeInternal(aId, aOutCome);
+  return NS_OK;
+}
+
+NS_IMETHODIMP WebTransportSessionProxy::OnStopSending(uint64_t aStreamId,
+                                                      nsresult aError) {
+  MOZ_ASSERT(OnSocketThread());
+  nsCOMPtr<WebTransportSessionEventListener> listener;
+  {
+    MutexAutoLock lock(mMutex);
+    MOZ_ASSERT(mTarget->IsOnCurrentThread());
+
+    if (mState != WebTransportSessionProxyState::ACTIVE || !mListener) {
+      return NS_OK;
+    }
+    listener = mListener;
+  }
+
+  listener->OnStopSending(aStreamId, aError);
+  return NS_OK;
+}
+
+NS_IMETHODIMP WebTransportSessionProxy::OnResetReceived(uint64_t aStreamId,
+                                                        nsresult aError) {
+  MOZ_ASSERT(OnSocketThread());
+  nsCOMPtr<WebTransportSessionEventListener> listener;
+  {
+    MutexAutoLock lock(mMutex);
+    MOZ_ASSERT(mTarget->IsOnCurrentThread());
+
+    if (mState != WebTransportSessionProxyState::ACTIVE || !mListener) {
+      return NS_OK;
+    }
+    listener = mListener;
+  }
+
+  listener->OnResetReceived(aStreamId, aError);
   return NS_OK;
 }
 

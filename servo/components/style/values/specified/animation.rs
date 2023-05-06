@@ -205,7 +205,9 @@ pub enum Scroller {
     Nearest,
     /// The document viewport as the scroll container.
     Root,
-    // FIXME: Bug 1814444. Support self keyword.
+    /// Specifies to use the element’s own principal box as the scroll container.
+    #[css(keyword = "self")]
+    SelfElement,
 }
 
 impl Scroller {
@@ -283,12 +285,12 @@ impl Default for ScrollAxis {
 #[css(function = "scroll")]
 #[repr(C)]
 pub struct ScrollFunction {
-    /// The axis of scrolling that drives the progress of the timeline.
-    #[css(skip_if = "ScrollAxis::is_default")]
-    pub axis: ScrollAxis,
     /// The scroll container element whose scroll position drives the progress of the timeline.
     #[css(skip_if = "Scroller::is_default")]
     pub scroller: Scroller,
+    /// The axis of scrolling that drives the progress of the timeline.
+    #[css(skip_if = "ScrollAxis::is_default")]
+    pub axis: ScrollAxis,
 }
 
 impl ScrollFunction {
@@ -296,11 +298,25 @@ impl ScrollFunction {
     fn parse_arguments<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i>> {
         // <scroll()> = scroll( [ <scroller> || <axis> ]? )
         // https://drafts.csswg.org/scroll-animations-1/#funcdef-scroll
-        //
-        // FIXME: This doesn't match the spec. I will update it in Bug 1814444.
+        let mut scroller = None;
+        let mut axis = None;
+        loop {
+            if scroller.is_none() {
+                scroller = input.try_parse(Scroller::parse).ok();
+            }
+
+            if axis.is_none() {
+                axis = input.try_parse(ScrollAxis::parse).ok();
+                if axis.is_some() {
+                    continue;
+                }
+            }
+            break;
+        }
+
         Ok(Self {
-            axis: input.try_parse(ScrollAxis::parse).unwrap_or_default(),
-            scroller: input.try_parse(Scroller::parse).unwrap_or_default(),
+            scroller: scroller.unwrap_or_default(),
+            axis: axis.unwrap_or_default(),
         })
     }
 }

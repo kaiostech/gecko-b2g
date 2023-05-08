@@ -2,15 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { FileUtils } from "resource://gre/modules/FileUtils.sys.mjs";
 
-const { FileUtils } = ChromeUtils.import(
-  "resource://gre/modules/FileUtils.jsm"
-);
 const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const NETWORKSERVICE_CID = Components.ID(
   "{48c13741-aec9-4a86-8962-432011708261}"
@@ -108,7 +103,7 @@ NetworkWorkerRequestQueue.prototype = {
  * This component watches for network interfaces changing state and then
  * adjusts routes etc. accordingly.
  */
-function NetworkService() {
+export function NetworkService() {
   debug("Starting NetworkService.");
 
   let self = this;
@@ -1039,5 +1034,3 @@ NetworkService.prototype = {
     });
   },
 };
-
-var EXPORTED_SYMBOLS = ["NetworkService"];

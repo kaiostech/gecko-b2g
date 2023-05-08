@@ -4,16 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { FileUtils } from "resource://gre/modules/FileUtils.sys.mjs";
 
-const { FileUtils } = ChromeUtils.import(
-  "resource://gre/modules/FileUtils.jsm"
-);
 const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 
-const EXPORTED_SYMBOLS = ["TetheringConfigStore"];
-
-const TetheringConfigStore = (function() {
+export const TetheringConfigStore = (function() {
   var tetheringConfigStore = {};
 
   // Sync from TetheringService

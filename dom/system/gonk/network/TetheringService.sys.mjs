@@ -2,28 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+import { FileUtils } from "resource://gre/modules/FileUtils.sys.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-var EXPORTED_SYMBOLS = ["TetheringService"];
-
-const { AppConstants } = ChromeUtils.importESModule(
-  "resource://gre/modules/AppConstants.sys.mjs"
-);
-const { FileUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/FileUtils.sys.mjs"
-);
-const { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-);
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
-const { BinderServices } = ChromeUtils.importESModule(
-  "resource://gre/modules/BinderServices.sys.mjs"
-);
-const { TetheringConfigStore } = ChromeUtils.import(
-  "resource://gre/modules/TetheringConfigStore.jsm"
-);
+import { BinderServices } from "resource://gre/modules/BinderServices.sys.mjs";
+
+import { TetheringConfigStore } from "resource://gre/modules/TetheringConfigStore.sys.mjs";
 
 const TETHERINGSERVICE_CONTRACTID = "@mozilla.org/tethering/service;1";
 const TETHERINGSERVICE_CID = Components.ID(
@@ -144,7 +132,7 @@ function debug(s) {
 
 updateDebug();
 
-function TetheringService() {
+export function TetheringService() {
   const messages = [
     "TetheringService:setUsbTethering",
     "TetheringService:getStatus",
@@ -215,6 +203,7 @@ function TetheringService() {
 
   this._pendingTetheringRequests = [];
 }
+
 TetheringService.prototype = {
   classID: TETHERINGSERVICE_CID,
   contractID: TETHERINGSERVICE_CONTRACTID,

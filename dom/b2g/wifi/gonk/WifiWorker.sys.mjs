@@ -28,9 +28,7 @@ import {
   WifiConfigUtils,
 } from "resource://gre/modules/WifiConfiguration.sys.mjs";
 
-const { TetheringConfigStore } = ChromeUtils.import(
-  "resource://gre/modules/TetheringConfigStore.jsm"
-);
+import { TetheringConfigStore } from "resource://gre/modules/TetheringConfigStore.sys.mjs";
 import { BinderServices } from "resource://gre/modules/BinderServices.sys.mjs";
 
 import { PasspointManager } from "resource://gre/modules/PasspointManager.sys.mjs";

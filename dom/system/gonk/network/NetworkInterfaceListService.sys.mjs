@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const NETWORKLISTSERVICE_CID = Components.ID(
   "{3780be6e-7012-4e53-ade6-15212fb88a0d}"
@@ -18,7 +14,7 @@ XPCOMUtils.defineLazyGetter(lazy, "cpmm", () => {
   return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
 });
 
-function NetworkInterfaceListService() {}
+export function NetworkInterfaceListService() {}
 
 NetworkInterfaceListService.prototype = {
   classID: NETWORKLISTSERVICE_CID,
@@ -114,5 +110,3 @@ NetworkInterfaceList.prototype = {
     return this._interfaces[index];
   },
 };
-
-var EXPORTED_SYMBOLS = ["NetworkInterfaceListService"];

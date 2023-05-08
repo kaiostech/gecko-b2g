@@ -2,17 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+import { PromiseUtils } from "resource://gre/modules/PromiseUtils.sys.mjs";
+import { BinderServices } from "resource://gre/modules/BinderServices.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-);
-const { PromiseUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/PromiseUtils.sys.mjs"
-);
-const { BinderServices } = ChromeUtils.importESModule(
-  "resource://gre/modules/BinderServices.sys.mjs"
-);
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
@@ -582,7 +575,7 @@ CaptivePortalLanding.prototype = {
  * This component watches for network interfaces changing state and then
  * adjusts routes etc. accordingly.
  */
-function NetworkManager() {
+export function NetworkManager() {
   this.networkInterfaces = {};
   this.networkInterfaceLinks = {};
   this.networkNat464Links = {};
@@ -619,6 +612,7 @@ function NetworkManager() {
     BinderServices.connectivity.onCaptivePortalChanged(captivePortalLanding);
   }
 }
+
 NetworkManager.prototype = {
   classID: NETWORKMANAGER_CID,
   QueryInterface: ChromeUtils.generateQI([
@@ -3139,5 +3133,3 @@ XPCOMUtils.defineLazyGetter(NetworkManager.prototype, "mRil", function() {
 
   return null;
 });
-
-var EXPORTED_SYMBOLS = ["NetworkManager"];

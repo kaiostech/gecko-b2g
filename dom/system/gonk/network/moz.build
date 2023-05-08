@@ -40,11 +40,11 @@ UNIFIED_SOURCES += [
     "TrafficStats.cpp",
 ]
 EXTRA_JS_MODULES += [
-    "NetworkInterfaceListService.jsm",
-    "NetworkManager.jsm",
-    "NetworkService.jsm",
-    "TetheringConfigStore.jsm",
-    "TetheringService.jsm",
+    "NetworkInterfaceListService.sys.mjs",
+    "NetworkManager.sys.mjs",
+    "NetworkService.sys.mjs",
+    "TetheringConfigStore.sys.mjs",
+    "TetheringService.sys.mjs",
 ]
 
 include("/ipc/chromium/chromium-config.mozbuild")

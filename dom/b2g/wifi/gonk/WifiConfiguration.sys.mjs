@@ -4,17 +4,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const { WifiConstants, EAPConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-
-const EXPORTED_SYMBOLS = ["ScanResult", "WifiNetwork", "WifiConfigUtils"];
+import {
+  WifiConstants,
+  EAPConstants,
+} from "resource://gre/modules/WifiConstants.sys.mjs";
 
 var gDebug = false;
 
-const WifiConfigUtils = (function() {
+export const WifiConfigUtils = (function() {
   var wifiConfigUtils = {};
 
   /* eslint-disable no-unused-vars */
@@ -763,7 +760,7 @@ InfoElement.api = {
   data: "rw",
 };
 
-const WifiNetwork = function WifiNetwork(
+export const WifiNetwork = function WifiNetwork(
   ssid,
   mode,
   frequency,
@@ -812,7 +809,13 @@ WifiNetwork.api = {
   wapiUserCertificate: "rw",
 };
 
-const ScanResult = function ScanResult(ssid, bssid, frequency, flags, signal) {
+export const ScanResult = function ScanResult(
+  ssid,
+  bssid,
+  frequency,
+  flags,
+  signal
+) {
   WifiNetwork.call(
     this,
     ssid,

@@ -4,10 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["AnqpCache", "AnqpData", "AnqpMatcher"];
-
 const CACHE_SWEEP_INTERVAL_MILLISECONDS = 60 * 1000;
 const DATA_LIFETIME_MILLISECONDS = 60 * 60 * 1000;
 
@@ -19,7 +15,7 @@ function debug(aMsg) {
   }
 }
 
-const AnqpData = function(anqpElements) {
+export const AnqpData = function(anqpElements) {
   if (anqpElements) {
     this._anqpElements = anqpElements;
   }
@@ -103,7 +99,7 @@ AnqpData.prototype = {
   },
 };
 
-const AnqpCache = function() {
+export const AnqpCache = function() {
   this._anqpCaches = new Map();
   this._lastSweep = Date.now();
 };
@@ -146,7 +142,7 @@ AnqpCache.prototype = {
   },
 };
 
-const AnqpMatcher = (function() {
+export const AnqpMatcher = (function() {
   var anqpMatcher = {};
 
   const PLMNText = ["org", "3gppnetwork", "mcc*", "mnc*", "wlan"];

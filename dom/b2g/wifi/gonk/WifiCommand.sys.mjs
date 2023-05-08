@@ -4,10 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["WifiCommand"];
-
 const WIFI_CMD_INITIALIZE = Ci.nsIWifiCommand.INITIALIZE;
 const WIFI_CMD_GET_SUPPORTED_FEATURES =
   Ci.nsIWifiCommand.GET_SUPPORTED_FEATURES;
@@ -68,7 +64,7 @@ const WIFI_CMD_GET_AP_IFACE = Ci.nsIWifiCommand.GET_AP_IFACE;
 const WIFI_CMD_GET_SOFTAP_STATION_NUMBER =
   Ci.nsIWifiCommand.GET_SOFTAP_STATION_NUMBER;
 
-const WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
+export const WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   var command = {};
 
   //-------------------------------------------------

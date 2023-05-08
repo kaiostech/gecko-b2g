@@ -4,18 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const { WifiConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-
-const EXPORTED_SYMBOLS = ["WifiScanSettings", "WifiPnoSettings"];
+import { WifiConstants } from "resource://gre/modules/WifiConstants.sys.mjs";
 
 /**
  * Describes WiFi scan settings.
  */
-const WifiScanSettings = (function() {
+export const WifiScanSettings = (function() {
   var wifiScanSettings = {};
 
   const SCAN_TYPE_LOW_SPAN = Ci.nsIScanSettings.SCAN_TYPE_LOW_SPAN;
@@ -51,7 +45,7 @@ const WifiScanSettings = (function() {
 /**
  * Describes WiFi pno scan settings.
  */
-const WifiPnoSettings = (function() {
+export const WifiPnoSettings = (function() {
   var wifiPnoSettings = {};
 
   const DEFAULT_PNO_INTERVAL_MS = 20 * 1000;

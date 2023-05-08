@@ -4,23 +4,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { WifiConfigStore } from "resource://gre/modules/WifiConfigStore.sys.mjs";
 
-const { WifiConfigStore } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfigStore.jsm"
-);
-const { WifiConfigUtils } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfiguration.jsm"
-);
-const { WifiConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-
-const EXPORTED_SYMBOLS = ["WifiConfigManager"];
+import { WifiConfigUtils } from "resource://gre/modules/WifiConfiguration.sys.mjs";
+import { WifiConstants } from "resource://gre/modules/WifiConstants.sys.mjs";
 
 var gDebug = false;
 
-const WifiConfigManager = (function() {
+export const WifiConfigManager = (function() {
   var configManager = {};
 
   var NETWORK_SELECTION_DISABLE_THRESHOLD = [

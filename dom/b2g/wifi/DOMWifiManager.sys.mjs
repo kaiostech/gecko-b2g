@@ -4,11 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
@@ -24,7 +20,7 @@ XPCOMUtils.defineLazyGetter(lazy, "cpmm", () => {
   return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
 });
 
-function WifiNetwork() {}
+export function WifiNetwork() {}
 
 WifiNetwork.prototype = {
   init(aWindow) {
@@ -42,7 +38,7 @@ WifiNetwork.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer]),
 };
 
-function WifiConnection(obj) {
+export function WifiConnection(obj) {
   this.status = obj.status;
   this.network = obj.network;
 }
@@ -52,7 +48,7 @@ WifiConnection.prototype = {
   contractID: "@mozilla.org/wificonnection;1",
 };
 
-function WifiConnectionInfo(obj) {
+export function WifiConnectionInfo(obj) {
   this.signalStrength = obj.signalStrength;
   this.relSignalStrength = obj.relSignalStrength;
   this.linkSpeed = obj.linkSpeed;
@@ -64,7 +60,7 @@ WifiConnectionInfo.prototype = {
   contractID: "@mozilla.org/wificonnectioninfo;1",
 };
 
-function WifiCapabilities(obj) {
+export function WifiCapabilities(obj) {
   this.security = obj.security;
   this.eapMethod = obj.eapMethod;
   this.eapPhase2 = obj.eapPhase2;
@@ -92,7 +88,7 @@ WifiCapabilities.prototype = {
   },
 };
 
-function DOMWifiManager() {
+export function DOMWifiManager() {
   this.defineEventHandlerGetterSetter("onstatuschange");
   this.defineEventHandlerGetterSetter("onconnectioninfoupdate");
   this.defineEventHandlerGetterSetter("onenabled");
@@ -803,11 +799,3 @@ DOMWifiManager.prototype = {
     });
   },
 };
-
-const EXPORTED_SYMBOLS = [
-  "DOMWifiManager",
-  "WifiNetwork",
-  "WifiConnection",
-  "WifiCapabilities",
-  "WifiConnectionInfo",
-];

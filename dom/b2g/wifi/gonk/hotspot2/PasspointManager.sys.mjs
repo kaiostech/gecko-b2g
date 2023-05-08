@@ -4,29 +4,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { AnqpCache } from "resource://gre/modules/AnqpUtils.sys.mjs";
 
-const { AnqpCache } = ChromeUtils.import(
-  "resource://gre/modules/AnqpUtils.jsm"
-);
-const { WifiConfigUtils } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfiguration.jsm"
-);
-const { WifiConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-const { PasspointConfigManager } = ChromeUtils.import(
-  "resource://gre/modules/PasspointConfigManager.jsm"
-);
-const { PasspointProvider, PasspointConfig } = ChromeUtils.import(
-  "resource://gre/modules/PasspointConfiguration.jsm"
-);
-
-const EXPORTED_SYMBOLS = ["PasspointManager"];
+import { WifiConfigUtils } from "resource://gre/modules/WifiConfiguration.sys.mjs";
+import { WifiConstants } from "resource://gre/modules/WifiConstants.sys.mjs";
+import { PasspointConfigManager } from "resource://gre/modules/PasspointConfigManager.sys.mjs";
+import {
+  PasspointProvider,
+  PasspointConfig,
+} from "resource://gre/modules/PasspointConfiguration.sys.mjs";
 
 var gDebug = false;
 
-const PasspointManager = (function() {
+export const PasspointManager = (function() {
   var passpointManager = {};
   var passpointEnabled = false;
   var mAnqpCache = new AnqpCache();

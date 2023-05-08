@@ -4,20 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { WifiConfigStore } from "resource://gre/modules/WifiConfigStore.sys.mjs";
 
-const { WifiConfigStore } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfigStore.jsm"
-);
-const { PasspointProvider } = ChromeUtils.import(
-  "resource://gre/modules/PasspointConfiguration.jsm"
-);
-
-const EXPORTED_SYMBOLS = ["PasspointConfigManager"];
+import { PasspointProvider } from "resource://gre/modules/PasspointConfiguration.sys.mjs";
 
 var gDebug = false;
 
-const PasspointConfigManager = (function() {
+export const PasspointConfigManager = (function() {
   var passpointConfigManager = {};
   var providers = Object.create(null);
   var providerId = 0;

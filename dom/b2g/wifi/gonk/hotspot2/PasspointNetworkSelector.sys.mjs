@@ -2,23 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { WifiConfigManager } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfigManager.jsm"
-);
-const { WifiConstants, EAPConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-const { PasspointManager } = ChromeUtils.import(
-  "resource://gre/modules/PasspointManager.jsm"
-);
-const { WifiConfigUtils } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfiguration.jsm"
-);
+import { WifiConfigManager } from "resource://gre/modules/WifiConfigManager.sys.mjs";
+import {
+  WifiConstants,
+  EAPConstants,
+} from "resource://gre/modules/WifiConstants.sys.mjs";
+import { PasspointManager } from "resource://gre/modules/PasspointManager.sys.mjs";
+import { WifiConfigUtils } from "resource://gre/modules/WifiConfiguration.sys.mjs";
 
 const HOME_PROVIDER_AWARD = 100;
 const INTERNET_ACCESS_AWARD = 50;
@@ -81,8 +73,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIDataCallManager"
 );
 
-const EXPORTED_SYMBOLS = ["PasspointNetworkSelector"];
-
 var gDebug = false;
 
 function debug(aMsg) {
@@ -91,7 +81,7 @@ function debug(aMsg) {
   }
 }
 
-let PasspointNetworkSelector = function PasspointNetworkSelector() {};
+export let PasspointNetworkSelector = function PasspointNetworkSelector() {};
 
 PasspointNetworkSelector.prototype = {
   lastUserSelectedNetwork: WifiConfigManager.getLastSelectedNetwork(),

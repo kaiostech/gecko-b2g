@@ -2,16 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { WifiConfigManager } from "resource://gre/modules/WifiConfigManager.sys.mjs";
 
-const { WifiConfigManager } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfigManager.jsm"
-);
-const { WifiConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-
-const EXPORTED_SYMBOLS = ["SavedNetworkSelector"];
+import { WifiConstants } from "resource://gre/modules/WifiConstants.sys.mjs";
 
 const BAND_AWARD_5GHZ = 40;
 const LAST_SELECTION_AWARD = 480;
@@ -28,7 +21,7 @@ function debug(aMsg) {
   }
 }
 
-const SavedNetworkSelector = function SavedNetworkSelector() {};
+export const SavedNetworkSelector = function SavedNetworkSelector() {};
 
 SavedNetworkSelector.prototype = {
   setDebug(aDebug) {

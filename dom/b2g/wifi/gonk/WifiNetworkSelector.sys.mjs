@@ -4,22 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { WifiConfigManager } from "resource://gre/modules/WifiConfigManager.sys.mjs";
 
-const { WifiConfigManager } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfigManager.jsm"
-);
-const { WifiConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-const { SavedNetworkSelector } = ChromeUtils.import(
-  "resource://gre/modules/SavedNetworkSelector.jsm"
-);
-const { PasspointNetworkSelector } = ChromeUtils.import(
-  "resource://gre/modules/PasspointNetworkSelector.jsm"
-);
-
-const EXPORTED_SYMBOLS = ["WifiNetworkSelector"];
+import { WifiConstants } from "resource://gre/modules/WifiConstants.sys.mjs";
+import { SavedNetworkSelector } from "resource://gre/modules/SavedNetworkSelector.sys.mjs";
+import { PasspointNetworkSelector } from "resource://gre/modules/PasspointNetworkSelector.sys.mjs";
 
 var gDebug = false;
 
@@ -33,7 +22,7 @@ BssidDenylistStatus.prototype = {
   denylistedTimeStamp: WifiConstants.INVALID_TIME_STAMP,
 };
 
-const WifiNetworkSelector = (function() {
+export const WifiNetworkSelector = (function() {
   var wifiNetworkSelector = {};
 
   // Minimum time gap between last successful Network Selection and

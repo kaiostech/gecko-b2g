@@ -20,7 +20,7 @@ XPIDL_SOURCES += [
 
 if not CONFIG["DISABLE_WIFI"]:
     EXTRA_JS_MODULES += [
-        "DOMWifiManager.jsm",
+        "DOMWifiManager.sys.mjs",
     ]
 
     XPCOM_MANIFESTS += [

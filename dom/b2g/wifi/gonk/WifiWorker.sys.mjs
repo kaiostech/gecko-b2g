@@ -4,55 +4,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["WifiWorker"];
-
-const { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const { libcutils, netHelpers } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
-const { WifiInfo } = ChromeUtils.import("resource://gre/modules/WifiInfo.jsm");
+import { WifiInfo } from "resource://gre/modules/WifiInfo.sys.mjs";
+import { WifiNetUtil } from "resource://gre/modules/WifiNetUtil.sys.mjs";
+import { WifiCommand } from "resource://gre/modules/WifiCommand.sys.mjs";
+import { OpenNetworkNotifier } from "resource://gre/modules/OpenNetworkNotifier.sys.mjs";
+import { WifiNetworkSelector } from "resource://gre/modules/WifiNetworkSelector.sys.mjs";
+import { WifiConfigManager } from "resource://gre/modules/WifiConfigManager.sys.mjs";
+import {
+  WifiScanSettings,
+  WifiPnoSettings,
+} from "resource://gre/modules/WifiScanSettings.sys.mjs";
+import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
-const { WifiNetUtil } = ChromeUtils.import(
-  "resource://gre/modules/WifiNetUtil.jsm"
-);
-const { WifiCommand } = ChromeUtils.import(
-  "resource://gre/modules/WifiCommand.jsm"
-);
-const { OpenNetworkNotifier } = ChromeUtils.import(
-  "resource://gre/modules/OpenNetworkNotifier.jsm"
-);
-const { WifiNetworkSelector } = ChromeUtils.import(
-  "resource://gre/modules/WifiNetworkSelector.jsm"
-);
-const { WifiConfigManager } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfigManager.jsm"
-);
-const { WifiScanSettings, WifiPnoSettings } = ChromeUtils.import(
-  "resource://gre/modules/WifiScanSettings.jsm"
-);
-const { clearTimeout, setTimeout } = ChromeUtils.importESModule(
-  "resource://gre/modules/Timer.sys.mjs"
-);
-const { WifiConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-const { ScanResult, WifiNetwork, WifiConfigUtils } = ChromeUtils.import(
-  "resource://gre/modules/WifiConfiguration.jsm"
-);
+import { WifiConstants } from "resource://gre/modules/WifiConstants.sys.mjs";
+import {
+  ScanResult,
+  WifiNetwork,
+  WifiConfigUtils,
+} from "resource://gre/modules/WifiConfiguration.sys.mjs";
+
 const { TetheringConfigStore } = ChromeUtils.import(
   "resource://gre/modules/TetheringConfigStore.jsm"
 );
-const { BinderServices } = ChromeUtils.importESModule(
-  "resource://gre/modules/BinderServices.sys.mjs"
-);
-const { PasspointManager } = ChromeUtils.import(
-  "resource://gre/modules/PasspointManager.jsm"
-);
+import { BinderServices } from "resource://gre/modules/BinderServices.sys.mjs";
+
+import { PasspointManager } from "resource://gre/modules/PasspointManager.sys.mjs";
 
 var gDebug = false;
 
@@ -259,9 +240,8 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/mobileconnection/imsregservice;1",
   "nsIImsRegService"
 );
-const { AppConstants } = ChromeUtils.importESModule(
-  "resource://gre/modules/AppConstants.sys.mjs"
-);
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const hasRilSupport =
   "MOZ_B2G_RIL" in AppConstants ? AppConstants.MOZ_B2G_RIL : false;
 
@@ -2514,7 +2494,7 @@ function WifiScanResult() {}
 var netToDOM;
 var netFromDOM;
 
-function WifiWorker() {
+export function WifiWorker() {
   var self = this;
 
   const messages = [

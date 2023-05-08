@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["WifiConstants", "EAPConstants"];
-
-const WifiConstants = {
+export const WifiConstants = {
   // Set in wpa_supplicant "bssid" field if no specific AP restricted
   SUPPLICANT_BSSID_ANY: "00:00:00:00:00:00",
 
@@ -108,7 +104,7 @@ const WifiConstants = {
   },
 };
 
-const EAPConstants = {
+export const EAPConstants = {
   INVALID_EAP: -1,
   EAP_MD5: 4,
   EAP_OTP: 5,

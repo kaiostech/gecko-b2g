@@ -4,19 +4,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const { WifiConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-
-const EXPORTED_SYMBOLS = ["WifiInfo"];
+import { WifiConstants } from "resource://gre/modules/WifiConstants.sys.mjs";
 
 /**
  * Describes the state of any Wifi connection that is active or
  * is in the process of being set up.
  */
-const WifiInfo = function WifiInfo() {};
+export const WifiInfo = function WifiInfo() {};
+
 WifiInfo.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIWifiInfo]),
   supplicantState: "UNINITIALIZED",

@@ -4,17 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { WifiConstants, EAPConstants } = ChromeUtils.import(
-  "resource://gre/modules/WifiConstants.jsm"
-);
-const { AnqpMatcher } = ChromeUtils.import(
-  "resource://gre/modules/AnqpUtils.jsm"
-);
+import {
+  WifiConstants,
+  EAPConstants,
+} from "resource://gre/modules/WifiConstants.sys.mjs";
+import { AnqpMatcher } from "resource://gre/modules/AnqpUtils.sys.mjs";
 
 const lazy = {};
 
@@ -32,13 +28,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIDataCallManager"
 );
 
-const EXPORTED_SYMBOLS = [
-  "PasspointProvider",
-  "PasspointConfig",
-  "HomeSp",
-  "Credential",
-];
-
 var gDebug = true;
 
 function debug(aMsg) {
@@ -46,8 +35,9 @@ function debug(aMsg) {
     dump("-*- PasspointConfiguration: " + aMsg);
   }
 }
+
 // HomeSp
-const HomeSp = function(homeSp) {
+export const HomeSp = function(homeSp) {
   if (homeSp) {
     this.fqdn = homeSp.fqdn;
     this.friendlyName = homeSp.friendlyName;
@@ -73,7 +63,7 @@ HomeSp.prototype = {
 };
 
 // Credential
-const Credential = function(credential) {
+export const Credential = function(credential) {
   if (credential) {
     this.realm = credential.realm;
     this.imsi = credential.imsi;
@@ -91,7 +81,7 @@ Credential.prototype = {
 };
 
 // PasspointConfig
-const PasspointConfig = function(config) {
+export const PasspointConfig = function(config) {
   if (config) {
     this.homeSp = new HomeSp(config.homeSp);
     this.credential = new Credential(config.credential);
@@ -105,7 +95,7 @@ PasspointConfig.prototype = {
 };
 
 // PasspointProvider
-const PasspointProvider = function(passpointConfig) {
+export const PasspointProvider = function(passpointConfig) {
   this.passpointConfig = new PasspointConfig(passpointConfig);
   if (this.passpointConfig.credential) {
     this.imsi = this.passpointConfig.credential.imsi;

@@ -4,11 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
@@ -21,13 +18,11 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsINetworkService"
 );
 
-const EXPORTED_SYMBOLS = ["WifiNetUtil"];
-
 const DHCP_PROP = "init.svc.dhcpcd";
 const DHCP = "dhcpcd";
 const DEBUG = false;
 
-const WifiNetUtil = function(controlMessage) {
+export const WifiNetUtil = function(controlMessage) {
   function debug(msg) {
     if (DEBUG) {
       dump("-*- NetUtil: " + msg);

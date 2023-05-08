@@ -2136,6 +2136,11 @@ bool DrawTargetWebgl::SharedContext::DrawRectAccel(
 
       // We need to be able to transform from local space into texture space.
       Matrix invMatrix = surfacePattern.mMatrix;
+      // If drawing a pre-transformed vertex range, then we need to ensure the
+      // user-space pattern is still transformed to screen-space.
+      if (aVertexRange && !aTransformed) {
+        invMatrix *= currentTransform;
+      }
       if (!invMatrix.Invert()) {
         break;
       }
@@ -4326,6 +4331,10 @@ void DrawTargetWebgl::BeginFrame(const IntRect& aPersistedRect) {
       if (aPersistedRect.IsEmpty()) {
         // If nothing needs to persist, just mark the WebGL context valid.
         mWebglValid = true;
+        // Even if the Skia framebuffer is marked clear, since the WebGL
+        // context is not valid, its contents may be out-of-date and not
+        // necessarily clear.
+        mIsClear = false;
       } else {
         FlushFromSkia();
       }

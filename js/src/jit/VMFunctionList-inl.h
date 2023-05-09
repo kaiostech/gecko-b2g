@@ -251,12 +251,14 @@ namespace jit {
   _(RegExpTesterRaw, js::RegExpTesterRaw)                                      \
   _(SameValue, js::SameValue)                                                  \
   _(SetArrayLength, js::jit::SetArrayLength)                                   \
-  _(SetElementMegamorphic, js::jit::SetElementMegamorphic)                     \
-  _(SetElementMegamorphicCached, js::jit::SetElementMegamorphicCached)         \
+  _(SetElementMegamorphicNoCache, js::jit::SetElementMegamorphic<false>)       \
+  _(SetElementMegamorphicYesCache, js::jit::SetElementMegamorphic<true>)       \
   _(SetElementSuper, js::SetElementSuper)                                      \
   _(SetFunctionName, js::SetFunctionName)                                      \
   _(SetIntrinsicOperation, js::SetIntrinsicOperation)                          \
   _(SetObjectHas, js::jit::SetObjectHas)                                       \
+  _(SetPropertyMegamorphicNoCache, js::jit::SetPropertyMegamorphic<false>)     \
+  _(SetPropertyMegamorphicYesCache, js::jit::SetPropertyMegamorphic<true>)     \
   _(SetPropertySuper, js::SetPropertySuper)                                    \
   _(StartDynamicModuleImport, js::StartDynamicModuleImport)                    \
   _(StringBigIntGreaterThanOrEqual,                                            \

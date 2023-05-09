@@ -81,7 +81,7 @@ const void* CompileRuntime::addressOfMegamorphicCache() {
 }
 
 const void* CompileRuntime::addressOfMegamorphicSetPropCache() {
-  return &runtime()->caches().megamorphicSetPropCache;
+  return runtime()->caches().megamorphicSetPropCache.get();
 }
 
 const void* CompileRuntime::addressOfStringToAtomCache() {
@@ -172,13 +172,11 @@ void* CompileZone::addressOfNurseryAllocatedSites() {
 }
 
 bool CompileZone::canNurseryAllocateStrings() {
-  return zone()->runtimeFromAnyThread()->gc.nursery().canAllocateStrings() &&
-         zone()->allocNurseryStrings;
+  return zone()->allocNurseryStrings();
 }
 
 bool CompileZone::canNurseryAllocateBigInts() {
-  return zone()->runtimeFromAnyThread()->gc.nursery().canAllocateBigInts() &&
-         zone()->allocNurseryBigInts;
+  return zone()->allocNurseryBigInts();
 }
 
 gc::AllocSite* CompileZone::catchAllAllocSite(JS::TraceKind traceKind,

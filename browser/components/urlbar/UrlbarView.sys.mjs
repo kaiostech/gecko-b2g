@@ -436,7 +436,7 @@ export class UrlbarView {
 
   acknowledgeDismissal(result) {
     let row = this.#rows.children[result.rowIndex];
-    if (!row) {
+    if (!row || row.result != result) {
       return;
     }
 
@@ -1836,6 +1836,9 @@ export class UrlbarView {
     // Get the view update from the result's provider.
     let provider = lazy.UrlbarProvidersManager.getProvider(result.providerName);
     let viewUpdate = await provider.getViewUpdate(result, idsByName);
+    if (item.result != result) {
+      return;
+    }
 
     // Update each node in the view by name.
     for (let [nodeName, update] of Object.entries(viewUpdate)) {
@@ -1849,6 +1852,9 @@ export class UrlbarView {
       if (update.l10n) {
         if (update.l10n.cacheable) {
           await this.#l10nCache.ensureAll([update.l10n]);
+          if (item.result != result) {
+            return;
+          }
         }
         this.#setElementL10n(node, update.l10n);
       } else if (update.textContent) {
@@ -2716,21 +2722,6 @@ export class UrlbarView {
     );
 
     Services.telemetry.scalarAdd(ZERO_PREFIX_SCALAR_EXPOSURE, 1);
-
-    // Weather suggestion telemetry needs to be recorded when the zero-prefix
-    // view is shown. Ideally this logic would be general to all providers.
-    // Relying on `visibleResults` here means we assume `onQueryFinished()` has
-    // been called by this point and `visibleResults` accurately reflects the
-    // visible rows at the end of the zero-prefix query.
-    let weatherResults = this.visibleResults.filter(
-      r => r.providerName == lazy.UrlbarProviderWeather.name
-    );
-    if (weatherResults.length) {
-      lazy.UrlbarProviderWeather.onResultsShown(
-        this.#queryContext,
-        weatherResults
-      );
-    }
   }
 
   /**

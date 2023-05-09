@@ -1285,12 +1285,6 @@
   value: false
   mirror: always
 
-# Whether to force alt text for missing images to be laid out inline.
-- name: browser.display.force_inline_alttext
-  type: bool
-  value: false
-  mirror: always
-
 # Enable showing image placeholders while image is loading or when image is broken.
 - name: browser.display.show_image_placeholders
   type: bool
@@ -7868,6 +7862,12 @@
 
   # Experimental support for Array Grouping in JavaScript.
 -   name: javascript.options.experimental.array_grouping
+    type: bool
+    value: false
+    mirror: always
+
+  # Experimental support for String.prototype.{is,to}WellFormed in JavaScript.
+-   name: javascript.options.experimental.well_formed_unicode_strings
     type: bool
     value: false
     mirror: always

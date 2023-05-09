@@ -24,7 +24,6 @@ const TELEMETRY_PREFIX = "contextual.services.quicksuggest";
 const TELEMETRY_SCALARS = {
   BLOCK: `${TELEMETRY_PREFIX}.block_weather`,
   CLICK: `${TELEMETRY_PREFIX}.click_weather`,
-  EXPOSURE: `${TELEMETRY_PREFIX}.exposure_weather`,
   HELP: `${TELEMETRY_PREFIX}.help_weather`,
   IMPRESSION: `${TELEMETRY_PREFIX}.impression_weather`,
 };
@@ -213,11 +212,10 @@ class ProviderWeather extends UrlbarProvider {
 
     let { keywords } = lazy.QuickSuggest.weather;
     if (!keywords) {
-      // Show the suggestion only on zero prefix (empty search string).
-      return !queryContext.searchString;
+      return false;
     }
 
-    return keywords.has(queryContext.searchString.trim());
+    return keywords.has(queryContext.searchString.trim().toLocaleLowerCase());
   }
 
   /**
@@ -279,19 +277,25 @@ class ProviderWeather extends UrlbarProvider {
   }
 
   getResultCommands(result) {
-    return [
+    let commands = [
       {
         name: RESULT_MENU_COMMAND.INACCURATE_LOCATION,
         l10n: {
           id: "firefox-suggest-weather-command-inaccurate-location",
         },
       },
-      {
+    ];
+
+    if (lazy.QuickSuggest.weather.canIncrementMinKeywordLength) {
+      commands.push({
         name: RESULT_MENU_COMMAND.SHOW_LESS_FREQUENTLY,
         l10n: {
           id: "firefox-suggest-weather-command-show-less-frequently",
         },
-      },
+      });
+    }
+
+    commands.push(
       {
         l10n: {
           id: "firefox-suggest-weather-command-dont-show-this",
@@ -317,8 +321,10 @@ class ProviderWeather extends UrlbarProvider {
         l10n: {
           id: "urlbar-result-menu-learn-more-about-firefox-suggest",
         },
-      },
-    ];
+      }
+    );
+
+    return commands;
   }
 
   /**
@@ -410,15 +416,6 @@ class ProviderWeather extends UrlbarProvider {
         },
       },
     };
-  }
-
-  onResultsShown(queryContext, results) {
-    Services.telemetry.keyedScalarAdd(
-      TELEMETRY_SCALARS.EXPOSURE,
-      // Telemetry indexes are 1-based.
-      results[0].rowIndex + 1,
-      1
-    );
   }
 
   onEngagement(isPrivate, state, queryContext, details) {
@@ -567,7 +564,6 @@ class ProviderWeather extends UrlbarProvider {
       case RESULT_MENU_COMMAND.NOT_RELEVANT:
         this.logger.info("Dismissing weather result");
         lazy.UrlbarPrefs.set("suggest.weather", false);
-        queryContext.view.controller.removeResult(result);
         queryContext.view.acknowledgeDismissal(result);
         break;
       case RESULT_MENU_COMMAND.INACCURATE_LOCATION:
@@ -578,8 +574,8 @@ class ProviderWeather extends UrlbarProvider {
         queryContext.view.acknowledgeFeedback(result);
         break;
       case RESULT_MENU_COMMAND.SHOW_LESS_FREQUENTLY:
-        // TODO: Increment required keyword length
         queryContext.view.acknowledgeFeedback(result);
+        lazy.QuickSuggest.weather.incrementMinKeywordLength();
         break;
     }
   }

@@ -712,7 +712,9 @@ class alignas(TypicalCacheLineSize) Nursery {
 
   const js::gc::GCSchedulingTunables& tunables() const;
 
-  void updateZoneAllocFlags();
+  void updateAllZoneAllocFlags();
+  void updateAllocFlagsForZone(JS::Zone* zone);
+  void discardJitCodeForZone(JS::Zone* zone);
 
   // Common internal allocator function.
   void* allocate(size_t size);
@@ -727,7 +729,8 @@ class alignas(TypicalCacheLineSize) Nursery {
     size_t tenuredBytes;
     size_t tenuredCells;
   };
-  CollectionResult doCollection(JS::GCOptions options, JS::GCReason reason);
+  CollectionResult doCollection(gc::AutoGCSession& session,
+                                JS::GCOptions options, JS::GCReason reason);
   void traceRoots(gc::AutoGCSession& session, TenuringTracer& mover);
 
   size_t doPretenuring(JSRuntime* rt, JS::GCReason reason,
@@ -788,6 +791,7 @@ class alignas(TypicalCacheLineSize) Nursery {
   mozilla::TimeStamp collectionStartTime() const;
   mozilla::TimeStamp lastCollectionEndTime() const;
 
+  friend class gc::GCRuntime;
   friend class TenuringTracer;
   friend class gc::MinorCollectionTracer;
   friend class jit::MacroAssembler;

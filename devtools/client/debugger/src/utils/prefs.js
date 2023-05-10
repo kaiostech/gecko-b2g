@@ -22,8 +22,7 @@ if (isNode()) {
   pref("devtools.debugger.ignore-caught-exceptions", true);
   pref("devtools.debugger.call-stack-visible", true);
   pref("devtools.debugger.scopes-visible", true);
-  pref("devtools.debugger.component-visible", false);
-  pref("devtools.debugger.workers-visible", false);
+  pref("devtools.debugger.threads-visible", true);
   pref("devtools.debugger.expressions-visible", false);
   pref("devtools.debugger.xhr-breakpoints-visible", false);
   pref("devtools.debugger.breakpoints-visible", true);
@@ -45,13 +44,8 @@ if (isNode()) {
   pref("devtools.debugger.log-actions", true);
   pref("devtools.debugger.log-event-breakpoints", false);
   pref("devtools.debugger.javascript-tracing-log-method", "console");
-  pref("devtools.debugger.features.workers", true);
-  pref("devtools.debugger.features.async-stepping", false);
   pref("devtools.debugger.features.wasm", true);
-  pref("devtools.debugger.features.shortcuts", true);
-  pref("devtools.debugger.features.root", true);
   pref("devtools.debugger.features.map-scopes", true);
-  pref("devtools.debugger.features.remove-command-bar-options", true);
   pref("devtools.debugger.features.code-folding", false);
   pref("devtools.debugger.features.command-click", false);
   pref("devtools.debugger.features.column-breakpoints", true);
@@ -64,8 +58,6 @@ if (isNode()) {
   pref("devtools.debugger.features.dom-mutation-breakpoints", true);
   pref("devtools.debugger.features.log-points", true);
   pref("devtools.debugger.features.inline-preview", true);
-  pref("devtools.debugger.features.overlay-step-buttons", true);
-  pref("devtools.debugger.features.frame-step", true);
   pref("devtools.debugger.features.blackbox-lines", false);
   pref("devtools.debugger.features.javascript-tracing", false);
   pref("devtools.editor.tabsize", 2);
@@ -83,8 +75,7 @@ export const prefs = new PrefsHelper("devtools", {
   ignoreCaughtExceptions: ["Bool", "debugger.ignore-caught-exceptions"],
   callStackVisible: ["Bool", "debugger.call-stack-visible"],
   scopesVisible: ["Bool", "debugger.scopes-visible"],
-  componentVisible: ["Bool", "debugger.component-visible"],
-  workersVisible: ["Bool", "debugger.workers-visible"],
+  threadsVisible: ["Bool", "debugger.threads-visible"],
   breakpointsVisible: ["Bool", "debugger.breakpoints-visible"],
   expressionsVisible: ["Bool", "debugger.expressions-visible"],
   xhrBreakpointsVisible: ["Bool", "debugger.xhr-breakpoints-visible"],
@@ -125,14 +116,9 @@ export const prefs = new PrefsHelper("devtools", {
 prefs.cursorBlinkRate = Services.prefs.getIntPref("ui.caretBlinkTime", 530);
 
 export const features = new PrefsHelper("devtools.debugger.features", {
-  asyncStepping: ["Bool", "async-stepping"],
   wasm: ["Bool", "wasm"],
-  shortcuts: ["Bool", "shortcuts"],
-  root: ["Bool", "root"],
   columnBreakpoints: ["Bool", "column-breakpoints"],
   mapScopes: ["Bool", "map-scopes"],
-  removeCommandBarOptions: ["Bool", "remove-command-bar-options"],
-  workers: ["Bool", "workers"],
   outline: ["Bool", "outline"],
   codeFolding: ["Bool", "code-folding"],
   autocompleteExpression: ["Bool", "autocomplete-expressions"],
@@ -144,10 +130,8 @@ export const features = new PrefsHelper("devtools.debugger.features", {
   domMutationBreakpoints: ["Bool", "dom-mutation-breakpoints"],
   logPoints: ["Bool", "log-points"],
   commandClick: ["Bool", "command-click"],
-  showOverlay: ["Bool", "overlay"],
   inlinePreview: ["Bool", "inline-preview"],
   windowlessServiceWorkers: ["Bool", "windowless-service-workers"],
-  frameStep: ["Bool", "frame-step"],
   blackboxLines: ["Bool", "blackbox-lines"],
   javascriptTracing: ["Bool", "javascript-tracing"],
 });

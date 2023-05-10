@@ -13,20 +13,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 loader.lazyRequireGetter(
   this,
-  "formatCommand",
-  "resource://devtools/server/actors/webconsole/commands.js",
+  ["formatCommand", "isCommand"],
+  "resource://devtools/server/actors/webconsole/commands/parser.js",
   true
 );
 loader.lazyRequireGetter(
   this,
-  "isCommand",
-  "resource://devtools/server/actors/webconsole/commands.js",
-  true
-);
-loader.lazyRequireGetter(
-  this,
-  "WebConsoleCommands",
-  "resource://devtools/server/actors/webconsole/utils.js",
+  "WebConsoleCommandsManager",
+  "resource://devtools/server/actors/webconsole/commands/manager.js",
   true
 );
 
@@ -113,8 +107,6 @@ function isObject(value) {
  *         - frame: (optional) the frame where the string was evaluated.
  *         - global: the Debugger.Object for the global where the string was evaluated in.
  *         - result: the result of the evaluation.
- *         - helperResult: any result coming from a Web Console commands
- *         function.
  */
 exports.evalWithDebugger = function(string, options = {}, webConsole) {
   if (isCommand(string.trim()) && options.eager) {
@@ -131,21 +123,29 @@ exports.evalWithDebugger = function(string, options = {}, webConsole) {
     dbg,
     webConsole
   );
-  const helpers = getHelpers(dbgGlobal, options, webConsole);
-  let { bindings, helperCache } = bindCommands(
-    isCommand(string),
-    dbgGlobal,
-    bindSelf,
-    frame,
-    helpers
-  );
 
-  if (options.bindings) {
-    bindings = { ...(bindings || {}), ...options.bindings };
+  const helpers = WebConsoleCommandsManager.getWebConsoleCommands(
+    webConsole,
+    dbgGlobal,
+    frame,
+    string,
+    options.selectedNodeActor
+  );
+  let { bindings } = helpers;
+
+  // '_self' refers to the JS object references via options.selectedObjectActor.
+  // This isn't exposed on typical console evaluation, but only when "Store As Global"
+  // runs an invisible script storing `_self` into `temp${i}`.
+  if (bindSelf) {
+    bindings._self = bindSelf;
   }
 
-  // Ready to evaluate the string.
-  helpers.evalInput = string;
+  // Log points calls this method from the server side and pass additional variables
+  // to be exposed to the evaluated JS string
+  if (options.bindings) {
+    bindings = { ...bindings, ...options.bindings };
+  }
+
   const evalOptions = {};
 
   const urlOption =
@@ -195,17 +195,10 @@ exports.evalWithDebugger = function(string, options = {}, webConsole) {
     );
   }
 
-  const { helperResult } = helpers;
-
-  // Clean up helpers helpers and bindings
-  delete helpers.evalInput;
-  delete helpers.helperResult;
-  delete helpers.selectedNode;
-  cleanupBindings(bindings, helperCache);
-
   return {
     result,
-    helperResult,
+    // Retrieve the result of commands, if any ran
+    helperResult: helpers.getHelperResult(),
     dbg,
     frame,
     dbgGlobal,
@@ -679,65 +672,4 @@ function getDbgGlobal(options, dbg, webConsole) {
   // jsVal appropriately for the evaluation compartment.
   const bindSelf = dbgGlobal.makeDebuggeeValue(jsVal);
   return { bindSelf, dbgGlobal, evalGlobal };
-}
-
-function getHelpers(dbgGlobal, options, webConsole) {
-  // Get the Web Console commands for the given debugger global.
-  const helpers = webConsole._getWebConsoleCommands(dbgGlobal);
-  if (options.selectedNodeActor) {
-    const actor = webConsole.conn.getActor(options.selectedNodeActor);
-    if (actor) {
-      helpers.selectedNode = actor.rawNode;
-    }
-  }
-
-  return helpers;
-}
-
-function cleanupBindings(bindings, helperCache) {
-  // Replaces bindings that were overwritten with commands saved in the helperCache
-  for (const [helperName, helper] of Object.entries(helperCache)) {
-    bindings[helperName] = helper;
-  }
-
-  if (bindings._self) {
-    delete bindings._self;
-  }
-}
-
-function bindCommands(isCmd, dbgGlobal, bindSelf, frame, helpers) {
-  const bindings = helpers.sandbox;
-  if (bindSelf) {
-    bindings._self = bindSelf;
-  }
-  // Check if the Debugger.Frame or Debugger.Object for the global include any of the
-  // helper function we set. We will not overwrite these functions with the Web Console
-  // commands.
-  const availableHelpers = [...WebConsoleCommands._originalCommands.keys()];
-
-  let helpersToDisable = [];
-  const helperCache = {};
-
-  // do not override command functions if we are using the command key `:`
-  // before the command string
-  if (!isCmd) {
-    if (frame) {
-      const env = frame.environment;
-      if (env) {
-        helpersToDisable = availableHelpers.filter(name => !!env.find(name));
-      }
-    } else {
-      helpersToDisable = availableHelpers.filter(
-        name => !!dbgGlobal.getOwnPropertyDescriptor(name)
-      );
-    }
-    // if we do not have the command key as a prefix, screenshot is disabled by default
-    helpersToDisable.push("screenshot");
-  }
-
-  for (const helper of helpersToDisable) {
-    helperCache[helper] = bindings[helper];
-    delete bindings[helper];
-  }
-  return { bindings, helperCache };
 }

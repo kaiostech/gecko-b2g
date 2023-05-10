@@ -277,7 +277,7 @@ body,
 
 body {
   background-color: var(--newtab-background-color);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Ubuntu", "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, "Helvetica Neue", sans-serif;
   font-size: 16px;
 }
 
@@ -1184,11 +1184,11 @@ main.has-snippet {
   margin-bottom: 48px;
 }
 .search-wrapper .logo-and-wordmark .logo {
-  background: url("chrome://branding/content/about-logo.png") no-repeat center;
-  background-size: 82px;
   display: inline-block;
   height: 82px;
   width: 82px;
+  background: url("chrome://branding/content/about-logo.png") no-repeat center;
+  background-size: 82px;
 }
 @media (min-resolution: 2x) {
   .search-wrapper .logo-and-wordmark .logo {
@@ -1369,10 +1369,7 @@ main.has-snippet {
   height: 100%;
   opacity: 0;
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
 }
 .search-handoff-button .fake-textbox {
   opacity: 0.54;
@@ -2507,7 +2504,7 @@ main.has-snippet {
 .pocket-logged-in-cta .cta-text {
   font-weight: normal;
   font-size: 13px;
-  line-height: 1.230769231;
+  line-height: 1.2307692308;
 }
 .pocket-logged-in-cta .pocket-cta-button,
 .pocket-logged-in-cta .cta-text {
@@ -2518,7 +2515,7 @@ main.has-snippet {
   display: flex;
   align-items: center;
   white-space: nowrap;
-  line-height: 1.230769231;
+  line-height: 1.2307692308;
 }
 .more-recommendations::after {
   background: url("chrome://global/skin/icons/arrow-right-12.svg") no-repeat center center;
@@ -4527,12 +4524,6 @@ body[lwt-newtab-brighttext] .scene2Icon .icon-light-theme {
   font-style: normal;
   background: var(--newtab-text-emphasis-background);
 }
-.SimpleSnippet.bold .donation-form-url,
-.SimpleSnippet.bold .donation-amount, .SimpleSnippet.takeover .donation-form-url,
-.SimpleSnippet.takeover .donation-amount {
-  padding-top: 8px;
-  padding-bottom: 8px;
-}
 .SimpleSnippet.bold {
   height: 176px;
 }
@@ -4582,7 +4573,12 @@ body[lwt-newtab-brighttext] .scene2Icon .icon-light-theme {
 .SimpleSnippet.tall .icon {
   margin-inline-end: 20px;
 }
-.SimpleSnippet.takeover .icon, .SimpleSnippet.bold .icon {
+.SimpleSnippet.bold .donation-form-url,
+.SimpleSnippet.bold .donation-amount, .SimpleSnippet.takeover .donation-form-url,
+.SimpleSnippet.takeover .donation-amount {
+  padding-block: 8px;
+}
+.SimpleSnippet.bold .icon, .SimpleSnippet.takeover .icon {
   margin-inline-end: 20px;
 }
 .SimpleSnippet .icon {

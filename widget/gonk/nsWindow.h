@@ -85,7 +85,6 @@ class nsWindow final : public nsBaseWidget {
   virtual void SetFocus(Raise, mozilla::dom::CallerType aCallerType) override;
   void Invalidate(const LayoutDeviceIntRect& aRect) override;
   virtual void* GetNativeData(uint32_t aDataType) override;
-  virtual void SetNativeData(uint32_t aDataType, uintptr_t aVal) override;
   NS_IMETHOD SetTitle(const nsAString& aTitle) override { return NS_OK; }
   virtual LayoutDeviceIntPoint WidgetToScreenOffset() override;
   void DispatchTouchInputViaAPZ(mozilla::MultiTouchInput& aInput);

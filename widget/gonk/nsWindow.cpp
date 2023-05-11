@@ -573,21 +573,6 @@ void* nsWindow::GetNativeData(uint32_t aDataType) {
   return nullptr;
 }
 
-void nsWindow::SetNativeData(uint32_t aDataType, uintptr_t aVal) {
-  switch (aDataType) {
-    case NS_NATIVE_OPENGL_CONTEXT:
-      GLContext* context = reinterpret_cast<GLContext*>(aVal);
-      if (!context) {
-        mScreen->SetEGLInfo(EGL_NO_DISPLAY, EGL_NO_SURFACE, nullptr);
-        return;
-      }
-      mScreen->SetEGLInfo(GLContextEGL::Cast(context)->mEgl->mDisplay,
-                          GLContextEGL::Cast(context)->GetEGLSurface(),
-                          context);
-      return;
-  }
-}
-
 void nsWindow::EnsureGLCursorImageManager() {
   if (mGLCursorImageManager) {
     return;

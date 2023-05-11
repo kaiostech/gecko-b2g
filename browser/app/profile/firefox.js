@@ -407,6 +407,12 @@ pref("browser.urlbar.suggest.calculator",           false);
   pref("browser.urlbar.quickactions.showPrefs", true);
 #endif
 
+#if defined(EARLY_BETA_OR_EARLIER)
+  // Enable Trending suggestions.
+  pref("browser.urlbar.trending.featureGate", true);
+  pref("browser.urlbar.trending.requireSearchMode", false);
+#endif
+
 // Feature gate pref for weather suggestions in the urlbar.
 pref("browser.urlbar.weather.featureGate", false);
 
@@ -830,6 +836,13 @@ pref("security.allow_parent_unrestricted_js_loads", false);
 // Tab Unloader does not unload tabs whose last inactive period is longer than
 // this value (in milliseconds).
 pref("browser.tabs.min_inactive_duration_before_unload", 600000);
+
+// Does middleclick paste of clipboard to new tab button
+#ifdef UNIX_BUT_NOT_MAC
+pref("browser.tabs.searchclipboardfor.middleclick", true);
+#else
+pref("browser.tabs.searchclipboardfor.middleclick", false);
+#endif
 
 #if defined(XP_MACOSX)
   // During low memory periods, poll with this frequency (milliseconds)

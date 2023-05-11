@@ -684,7 +684,6 @@ STATIC_ATOMS = [
     Atom("mixed", "mixed"),
     Atom("messagemanagergroup", "messagemanagergroup"),
     Atom("mod", "mod"),
-    Atom("_module", "module"),
     Atom("mode", "mode"),
     Atom("modifiers", "modifiers"),
     Atom("monochrome", "monochrome"),

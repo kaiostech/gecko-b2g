@@ -28,7 +28,7 @@ import {
 } from "../../selectors";
 
 import AccessibleImage from "../shared/AccessibleImage";
-import { prefs, features } from "../../utils/prefs";
+import { prefs } from "../../utils/prefs";
 
 import Breakpoints from "./Breakpoints";
 import Expressions from "./Expressions";
@@ -404,17 +404,11 @@ class SecondaryPanes extends Component {
       }
     }
 
-    if (features.xhrBreakpoints) {
-      items.push(this.getXHRItem());
-    }
+    items.push(this.getXHRItem());
 
-    if (features.eventListenersBreakpoints) {
-      items.push(this.getEventListenersItem());
-    }
+    items.push(this.getEventListenersItem());
 
-    if (features.domMutationBreakpoints) {
-      items.push(this.getDOMMutationsItem());
-    }
+    items.push(this.getDOMMutationsItem());
 
     return items;
   }

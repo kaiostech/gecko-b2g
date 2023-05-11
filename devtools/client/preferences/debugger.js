@@ -52,16 +52,12 @@ pref("devtools.debugger.log-event-breakpoints", false);
 pref("devtools.debugger.javascript-tracing-log-method", "console");
 
 pref("devtools.debugger.features.wasm", true);
-pref("devtools.debugger.features.column-breakpoints", true);
 pref("devtools.debugger.features.map-scopes", true);
 pref("devtools.debugger.features.code-folding", false);
 pref("devtools.debugger.features.command-click", false);
 pref("devtools.debugger.features.component-pane", false);
 pref("devtools.debugger.features.autocomplete-expressions", false);
 pref("devtools.debugger.features.map-expression-bindings", true);
-pref("devtools.debugger.features.xhr-breakpoints", true);
-pref("devtools.debugger.features.event-listeners-breakpoints", true);
-pref("devtools.debugger.features.dom-mutation-breakpoints", true);
 pref("devtools.debugger.features.log-points", true);
 pref("devtools.debugger.features.inline-preview", true);
 pref("devtools.debugger.features.blackbox-lines", false);

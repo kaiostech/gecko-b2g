@@ -25,6 +25,7 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 ChromeUtils.defineESModuleGetters(lazy, {
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "console", () => {
@@ -68,6 +69,7 @@ const VERIFY_SIGNATURES_FROM_FS = false;
  * @typedef {import("../translations").LanguagePair} LanguagePair
  * @typedef {import("../translations").SupportedLanguages} SupportedLanguages
  * @typedef {import("../translations").LanguageIdModelRecord} LanguageIdModelRecord
+ * @typedef {import("../translations").TranslationErrors} TranslationErrors
  */
 
 /**
@@ -96,6 +98,21 @@ export class TranslationsParent extends JSWindowActorParent {
 
   actorCreated() {
     this.languageState = new TranslationsLanguageState(this);
+
+    if (TranslationsParent.#translateOnPageReload) {
+      // The actor was recreated after a page reload, start the translation.
+      const {
+        fromLanguage,
+        toLanguage,
+      } = TranslationsParent.#translateOnPageReload;
+      TranslationsParent.#translateOnPageReload = null;
+
+      lazy.console.log(
+        `Translating on a page reload from "${fromLanguage}" to "${toLanguage}".`
+      );
+
+      this.translate(fromLanguage, toLanguage);
+    }
   }
 
   /**
@@ -173,6 +190,13 @@ export class TranslationsParent extends JSWindowActorParent {
    */
   static #isTranslationsEngineSupported = null;
 
+  /**
+   * When reloading the page, store the translation pair that needs translating.
+   *
+   * @type {null | TranslationPair}
+   */
+  static #translateOnPageReload = null;
+
   // On a fast connection, 10 concurrent downloads were measured to be the fastest when
   // downloading all of the language files.
   static MAX_CONCURRENT_DOWNLOADS = 10;
@@ -245,8 +269,7 @@ export class TranslationsParent extends JSWindowActorParent {
         return TranslationsParent.getIsTranslationsEngineSupported();
       }
       case "Translations:FullPageTranslationFailed": {
-        // Reset the TranslationsLanguageState in case of an engine failure.
-        this.languageState.requestedTranslationPair = null;
+        this.languageState.error = data.reason;
         break;
       }
       case "Translations:GetLanguageTranslationModelFiles": {
@@ -332,7 +355,7 @@ export class TranslationsParent extends JSWindowActorParent {
     const client = this.#getLanguageIdModelRemoteClient();
 
     /** @type {LanguageIdModelRecord[]} */
-    const modelRecords = await TranslationsParent.getMaxVersionRecords(client);
+    let modelRecords = await TranslationsParent.getMaxVersionRecords(client);
 
     if (modelRecords.length === 0) {
       throw new Error(
@@ -349,6 +372,8 @@ export class TranslationsParent extends JSWindowActorParent {
       );
     }
     const [modelRecord] = modelRecords;
+
+    await chaosModeError(1 / 3);
 
     /** @type {{buffer: ArrayBuffer}} */
     const { buffer } = await client.attachments.download(modelRecord);
@@ -392,7 +417,7 @@ export class TranslationsParent extends JSWindowActorParent {
     lazy.console.log(`Getting remote language-identification wasm binary.`);
 
     /** @type {WasmRecord[]} */
-    const wasmRecords = await TranslationsParent.getMaxVersionRecords(client, {
+    let wasmRecords = await TranslationsParent.getMaxVersionRecords(client, {
       filters: { name: "fasttext-wasm" },
     });
 
@@ -417,6 +442,8 @@ export class TranslationsParent extends JSWindowActorParent {
     // cache on disk if it's already been downloaded. Do not retain a copy, as
     // this will be running in the parent process. It's not worth holding onto
     // this much memory, so reload it every time it is needed.
+
+    await chaosModeError(1 / 3);
 
     /** @type {{buffer: ArrayBuffer}} */
     const { buffer } = await client.attachments.download(wasmRecords[0]);
@@ -631,6 +658,12 @@ export class TranslationsParent extends JSWindowActorParent {
     remoteSettingsClient,
     { filters = {}, lookupKey = record => record.name } = {}
   ) {
+    try {
+      await chaosMode(1 / 4);
+    } catch (_error) {
+      // Simulate an error by providing empty records.
+      return [];
+    }
     const retrievedRecords = await remoteSettingsClient.get({
       // Pull the records from the network.
       syncIfEmpty: true,
@@ -691,6 +724,10 @@ export class TranslationsParent extends JSWindowActorParent {
           )}`,
       }
     );
+
+    if (translationModelRecords.length === 0) {
+      throw new Error("Unable to retrieve the translation models.");
+    }
 
     for (const record of TranslationsParent.ensureLanguagePairsHavePivots(
       translationModelRecords
@@ -865,6 +902,8 @@ export class TranslationsParent extends JSWindowActorParent {
     // this will be running in the parent process. It's not worth holding onto
     // this much memory, so reload it every time it is needed.
 
+    await chaosModeError(1 / 3);
+
     /** @type {{buffer: ArrayBuffer}} */
     const { buffer } = await client.attachments.download(wasmRecords[0]);
 
@@ -956,6 +995,7 @@ export class TranslationsParent extends JSWindowActorParent {
    */
   async deleteAllLanguageFiles() {
     const client = this.#getTranslationModelsRemoteClient();
+    await chaosMode();
     await client.attachments.deleteAll();
     return [...(await this.#getTranslationModelRecords()).keys()];
   }
@@ -1095,6 +1135,8 @@ export class TranslationsParent extends JSWindowActorParent {
         const start = Date.now();
 
         // Download or retrieve from the local cache:
+
+        await chaosModeError(1 / 3);
 
         /** @type {{buffer: ArrayBuffer }} */
         const { buffer } = await client.attachments.download(record);
@@ -1240,15 +1282,21 @@ export class TranslationsParent extends JSWindowActorParent {
    * @param {string} toLanguage
    */
   translate(fromLanguage, toLanguage) {
-    this.languageState.requestedTranslationPair = {
-      fromLanguage,
-      toLanguage,
-    };
-
-    this.sendAsyncMessage("Translations:TranslatePage", {
-      fromLanguage,
-      toLanguage,
-    });
+    if (this.languageState.requestedTranslationPair) {
+      // This page has already been translated, restore it and translate it
+      // again once the actor has been recreated.
+      TranslationsParent.#translateOnPageReload = { fromLanguage, toLanguage };
+      this.restorePage();
+    } else {
+      this.languageState.requestedTranslationPair = {
+        fromLanguage,
+        toLanguage,
+      };
+      this.sendAsyncMessage("Translations:TranslatePage", {
+        fromLanguage,
+        toLanguage,
+      });
+    }
   }
 
   /**
@@ -1350,67 +1398,33 @@ function detectSimdSupport() {
  * the UI.
  */
 class TranslationsLanguageState {
-  #actor;
+  /**
+   * @param {TranslationsParent} actor
+   */
   constructor(actor) {
     this.#actor = actor;
     this.dispatch();
   }
 
+  /**
+   * The data members for TranslationsLanguageState, see the getters for their
+   * documentation.
+   */
+
+  /** @type {TranslationsParent} */
+  #actor;
+
   /** @type {TranslationPair | null} */
   #requestedTranslationPair = null;
-
-  /**
-   * When a translation is requested, this contains the translation pair. This means
-   * that the TranslationsChild should be creating a TranslationsDocument and keep
-   * the page updated with the target language.
-   *
-   * @returns {TranslationPair | null}
-   */
-  get requestedTranslationPair() {
-    return this.#requestedTranslationPair;
-  }
-
-  set requestedTranslationPair(requestedTranslationPair) {
-    this.#requestedTranslationPair = requestedTranslationPair;
-    this.dispatch();
-  }
 
   /** @type {DetectedLanguages | null} */
   #detectedLanguages = null;
 
-  /**
-   * The TranslationsChild will detect languages and offer them up for translation.
-   * The results are stored here.
-   *
-   * @returns {DetectedLanguages | null}
-   */
-  get detectedLanguages() {
-    return this.#detectedLanguages;
-  }
-
-  set detectedLanguages(detectedLanguages) {
-    this.#detectedLanguages = detectedLanguages;
-    this.dispatch();
-  }
-
   /** @type {number} */
   #locationChangeId = -1;
 
-  /**
-   * This id represents the last location change that happened for this actor. This
-   * allows the UI to disambiguate when there are races and out of order events that
-   * are dispatched. Only the most up to date `locationChangeId` is used.
-   *
-   * @returns {number}
-   */
-  get locationChangeId() {
-    return this.#locationChangeId;
-  }
-
-  set locationChangeId(locationChangeId) {
-    this.#locationChangeId = locationChangeId;
-    this.dispatch();
-  }
+  /** @type {null | TranslationErrors} */
+  #error = null;
 
   /**
    * Dispatch anytime the language details change, so that any UI can react to it.
@@ -1432,9 +1446,76 @@ class TranslationsLanguageState {
         detail: {
           detectedLanguages: this.#detectedLanguages,
           requestedTranslationPair: this.#requestedTranslationPair,
+          error: this.#error,
         },
       })
     );
+  }
+
+  /**
+   * When a translation is requested, this contains the translation pair. This means
+   * that the TranslationsChild should be creating a TranslationsDocument and keep
+   * the page updated with the target language.
+   *
+   * @returns {TranslationPair | null}
+   */
+  get requestedTranslationPair() {
+    return this.#requestedTranslationPair;
+  }
+
+  set requestedTranslationPair(requestedTranslationPair) {
+    this.#error = null;
+    this.#requestedTranslationPair = requestedTranslationPair;
+    this.dispatch();
+  }
+
+  /**
+   * The TranslationsChild will detect languages and offer them up for translation.
+   * The results are stored here.
+   *
+   * @returns {DetectedLanguages | null}
+   */
+  get detectedLanguages() {
+    return this.#detectedLanguages;
+  }
+
+  set detectedLanguages(detectedLanguages) {
+    this.#detectedLanguages = detectedLanguages;
+    this.dispatch();
+  }
+
+  /**
+   * This id represents the last location change that happened for this actor. This
+   * allows the UI to disambiguate when there are races and out of order events that
+   * are dispatched. Only the most up to date `locationChangeId` is used.
+   *
+   * @returns {number}
+   */
+  get locationChangeId() {
+    return this.#locationChangeId;
+  }
+
+  set locationChangeId(locationChangeId) {
+    this.#locationChangeId = locationChangeId;
+
+    // When the location changes remove the previous error.
+    this.#error = null;
+
+    this.dispatch();
+  }
+
+  /**
+   * The last error that occured during translation.
+   */
+  get error() {
+    return this.#error;
+  }
+
+  set error(error) {
+    this.#error = error;
+    // Setting an error invalidates the requested translation pair.
+    this.#requestedTranslationPair = null;
+    this.dispatch();
   }
 }
 
@@ -1533,4 +1614,57 @@ async function downloadManager(queue) {
   lazy.console.log(
     `Finished ${originalQueueLength} downloads in ${duration} seconds.`
   );
+}
+
+/**
+ * The translations code has lots of async code and fallible network requests. To test
+ * this manually while using the feature, enable chaos mode by setting "errors" to true
+ * and "timeoutMS" to a positive number of milliseconds.
+ * prefs to true:
+ *
+ *  - browser.translations.chaos.timeoutMS
+ *  - browser.translations.chaos.errors
+ */
+async function chaosMode(probability = 0.5) {
+  await chaosModeTimer();
+  await chaosModeError(probability);
+}
+
+/**
+ * The translations code has lots of async code that relies on the network. To test
+ * this manually while using the feature, enable chaos mode by setting the following pref
+ * to a positive number of milliseconds.
+ *
+ *  - browser.translations.chaos.timeoutMS
+ */
+async function chaosModeTimer() {
+  /** @type {number} */
+  const timeoutLimit = Services.prefs.getIntPref(
+    "browser.translations.chaos.timeoutMS"
+  );
+  if (timeoutLimit) {
+    const timeout = Math.random() * timeoutLimit;
+    lazy.console.log(
+      `Chaos mode timer started for ${(timeout / 1000).toFixed(1)} seconds.`
+    );
+    await new Promise(resolve => lazy.setTimeout(resolve, timeout));
+  }
+}
+
+/**
+ * The translations code has lots of async code that is fallible. To test this manually
+ * while using the feature, enable chaos mode by setting the following pref to true.
+ *
+ *  - browser.translations.chaos.errors
+ */
+async function chaosModeError(probability = 0.5) {
+  if (
+    Services.prefs.getBoolPref("browser.translations.chaos.errors") &&
+    Math.random() < probability
+  ) {
+    lazy.console.trace(`Chaos mode error generated.`);
+    throw new Error(
+      `Chaos Mode error from the pref "browser.translations.chaos.errors".`
+    );
+  }
 }

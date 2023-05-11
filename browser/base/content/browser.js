@@ -36,6 +36,7 @@ ChromeUtils.defineESModuleGetters(this, {
   MigrationUtils: "resource:///modules/MigrationUtils.sys.mjs",
   NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
+  PageThumbs: "resource://gre/modules/PageThumbs.sys.mjs",
   PictureInPicture: "resource://gre/modules/PictureInPicture.sys.mjs",
   PlacesTransactions: "resource://gre/modules/PlacesTransactions.sys.mjs",
   PlacesUIUtils: "resource:///modules/PlacesUIUtils.sys.mjs",
@@ -88,7 +89,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   NetUtil: "resource://gre/modules/NetUtil.jsm",
   OpenInTabsUtils: "resource:///modules/OpenInTabsUtils.jsm",
   PageActions: "resource:///modules/PageActions.jsm",
-  PageThumbs: "resource://gre/modules/PageThumbs.jsm",
   PanelMultiView: "resource:///modules/PanelMultiView.jsm",
   PanelView: "resource:///modules/PanelMultiView.jsm",
   ProcessHangMonitor: "resource:///modules/ProcessHangMonitor.jsm",
@@ -553,6 +553,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
   this,
   "gAlwaysOpenPanel",
   "browser.download.alwaysOpenPanel",
+  true
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "gMiddleClickNewTabUsesPasteboard",
+  "browser.tabs.searchclipboardfor.middleclick",
   true
 );
 
@@ -2853,7 +2860,11 @@ function openLocation(event) {
   );
 }
 
-function BrowserOpenTab({ event, url = BROWSER_NEW_TAB_URL } = {}) {
+function BrowserOpenTab({ event, url } = {}) {
+  let werePassedURL = !!url;
+  url ??= BROWSER_NEW_TAB_URL;
+  let searchClipboard = gMiddleClickNewTabUsesPasteboard && event?.button == 1;
+
   let relatedToCurrent = false;
   let where = "tab";
 
@@ -2886,10 +2897,20 @@ function BrowserOpenTab({ event, url = BROWSER_NEW_TAB_URL } = {}) {
   Services.obs.notifyObservers(
     {
       wrappedJSObject: new Promise(resolve => {
-        openTrustedLinkIn(url, where, {
-          relatedToCurrent,
-          resolveOnNewTabCreated: resolve,
-        });
+        if (!werePassedURL && searchClipboard) {
+          let clipboard = readFromClipboard();
+          clipboard = UrlbarUtils.stripUnsafeProtocolOnPaste(clipboard);
+          openTrustedLinkIn(clipboard, where, {
+            relatedToCurrent,
+            resolveOnNewTabCreated: resolve,
+            allowThirdPartyFixup: true,
+          });
+        } else {
+          openTrustedLinkIn(url, where, {
+            relatedToCurrent,
+            resolveOnNewTabCreated: resolve,
+          });
+        }
       }),
     },
     "browser-open-newtab-start"

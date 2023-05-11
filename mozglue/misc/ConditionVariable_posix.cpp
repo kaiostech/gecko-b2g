@@ -20,10 +20,10 @@ using mozilla::TimeDuration;
 
 static const long NanoSecPerSec = 1000000000;
 
-// Android 32-bit & macOS 10.12 has the clock functions, but not
+// Android 4.4 or earlier & macOS 10.12 has the clock functions, but not
 // pthread_condattr_setclock.
 #if defined(HAVE_CLOCK_MONOTONIC) && \
-    !(defined(__ANDROID__) && ANDROID_VERSION < 21) && !defined(__APPLE__)
+    !(defined(__ANDROID__) && __ANDROID_API__ < 21) && !defined(__APPLE__)
 #  define CV_USE_CLOCK_API
 #endif
 

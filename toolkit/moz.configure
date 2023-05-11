@@ -163,7 +163,6 @@ def dmd(value):
 
 set_config("MOZ_DMD", dmd)
 set_define("MOZ_DMD", dmd)
-add_old_configure_assignment("MOZ_DMD", dmd)
 imply_option("--enable-profiling", dmd)
 imply_option("--enable-jemalloc", dmd, when=compile_environment)
 imply_option("--enable-replace-malloc", dmd, when=compile_environment)
@@ -589,7 +588,6 @@ def fc_freetype(value, toolkit):
         return True
 
 
-add_old_configure_assignment("USE_FC_FREETYPE", fc_freetype)
 set_define("USE_FC_FREETYPE", fc_freetype)
 
 # Pango
@@ -751,7 +749,6 @@ def fmp4(value, target, wmf, applemedia):
 
 set_config("MOZ_FMP4", fmp4)
 set_define("MOZ_FMP4", fmp4)
-add_old_configure_assignment("MOZ_FMP4", fmp4)
 
 
 @depends(target)
@@ -1128,7 +1125,6 @@ def webspeech(value):
 
 set_config("MOZ_WEBSPEECH", webspeech)
 set_define("MOZ_WEBSPEECH", webspeech)
-add_old_configure_assignment("MOZ_WEBSPEECH", webspeech)
 
 # Speech API test backend
 # ==============================================================
@@ -1470,7 +1466,6 @@ def enable_asan_reporter(value):
 
 set_config("MOZ_ASAN_REPORTER", enable_asan_reporter)
 set_define("MOZ_ASAN_REPORTER", enable_asan_reporter)
-add_old_configure_assignment("MOZ_ASAN_REPORTER", enable_asan_reporter)
 
 # Elfhack
 # ==============================================================
@@ -3315,3 +3310,53 @@ set_config(
     "STL_FLAGS",
     depends(build_environment.dist)(lambda dist: [f"-I{dist}/stl_wrappers"]),
 )
+
+
+# Perl detection
+# ==============================================================
+@depends(target)
+def need_perl(target):
+    # Ideally, we'd also depend on gnu_as here, but that adds complications.
+    return target.cpu == "arm"
+
+
+perl = check_prog("PERL", ("perl5", "perl"), when=need_perl)
+
+
+@template
+def perl_version_check(min_version):
+    @depends(perl)
+    @checking("for minimum required perl version >= %s" % min_version)
+    def get_perl_version(perl):
+        return Version(
+            check_cmd_output(
+                perl,
+                "-e",
+                "print $]",
+                onerror=lambda: die("Failed to get perl version."),
+            )
+        )
+
+    @depends(get_perl_version)
+    def check_perl_version(version):
+        if version < min_version:
+            die("Perl %s or higher is required.", min_version)
+
+    @depends(perl)
+    @checking("for full perl installation")
+    @imports("subprocess")
+    def has_full_perl_installation(perl):
+        ret = subprocess.call([perl, "-e", "use Config; exit(!-d $Config{archlib})"])
+        return ret == 0
+
+    @depends(has_full_perl_installation)
+    def require_full_perl_installation(has_full_perl_installation):
+        if not has_full_perl_installation:
+            die(
+                "Cannot find Config.pm or $Config{archlib}. "
+                "A full perl installation is required."
+            )
+
+
+with only_when(need_perl):
+    perl_version_check("5.006")

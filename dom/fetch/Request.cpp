@@ -359,11 +359,7 @@ SafeRefPtr<Request> Request::Constructor(nsIGlobalObject* aGlobal,
     RefPtr<Request> inputReq = &aInput.GetAsRequest();
     nsCOMPtr<nsIInputStream> body;
     inputReq->GetBody(getter_AddRefs(body));
-    bool used = inputReq->GetBodyUsed(aRv);
-    if (NS_WARN_IF(aRv.Failed())) {
-      return nullptr;
-    }
-    if (used) {
+    if (inputReq->BodyUsed()) {
       aRv.ThrowTypeError<MSG_FETCH_BODY_CONSUMED_ERROR>();
       return nullptr;
     }
@@ -707,11 +703,7 @@ SafeRefPtr<Request> Request::Constructor(nsIGlobalObject* aGlobal,
 }
 
 SafeRefPtr<Request> Request::Clone(ErrorResult& aRv) {
-  bool used = GetBodyUsed(aRv);
-  if (NS_WARN_IF(aRv.Failed())) {
-    return nullptr;
-  }
-  if (used) {
+  if (BodyUsed()) {
     aRv.ThrowTypeError<MSG_FETCH_BODY_CONSUMED_ERROR>();
     return nullptr;
   }

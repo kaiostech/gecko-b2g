@@ -1750,6 +1750,29 @@
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
+# This pref controls how filtering of opaque responses for calls to `Window.fetch`.
+# (and similar) is performed in the parent process. This is intended to make sure
+# that data that would be filtered in a content process never actually reaches that
+# content process.
+# See https://fetch.spec.whatwg.org/#concept-filtered-response-opaque
+#   0) Don't filter in the parent process at all, and let content processes handle
+#      opaque filtering. Regardless of if ORB is enabled or not. N.B. that if ORB
+#      is enabled opaque responses will be blocked.
+#   1) If ORB is enabled, in the parent process, filter the responses that ORB allows.
+#      N.B. any responses ORB doesn't allow will not send data to a content process
+#      since they will return a NetworkError. If the request is allowed by ORB, the
+#      internal response will be intact and sent to the content process as is.
+#   2) If ORB is enabled, in the parent process, filter the responses that ORB blocks,
+#      if they were issued by `Window.fetch` (and similar).
+#   3) Filter all responses in the parent, regardless of if ORB is enabled or not.
+#      This means that opaque responses coming from `Window.fetch` won't even be
+#      considered for being blocked by ORB.
+- name: browser.opaqueResponseBlocking.filterFetchResponse
+  type: uint32_t
+  value: 2
+  mirror: always
+  do_not_use_directly: true
+
 # When this pref is enabled, <object> and <embed> elements will create
 # synthetic documents when the resource type they're loading is an image.
 - name: browser.opaqueResponseBlocking.syntheticBrowsingContext
@@ -2877,7 +2900,7 @@
 # Enable indexedDB in private browsing mode with encryption
 - name: dom.indexedDB.privateBrowsing.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether or not indexedDB test mode is enabled.
@@ -5825,11 +5848,6 @@
 - name: general.smoothScroll.msdPhysics.regularSpringConstant
   type: RelaxedAtomicInt32
   value: 1000
-  mirror: always
-
-- name: general.utility-process.startup_timeout_ms
-  type: RelaxedAtomicInt32
-  value: 5000
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -12031,17 +12049,8 @@
   value: false
   mirror: always
 
-# Enables `<link rel="preload">` tag and `Link: rel=preload` response header
-# handling.
+# Enables `<link rel="preload">` tag and `Link: rel=preload` response header handling.
 - name: network.preload
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Enables `<link rel="modulepreload">` tag and `Link: rel=modulepreload`
-# response header handling. The latter is not yet implemented, see:
-# https://bugzilla.mozilla.org/show_bug.cgi?id=1773056.
-- name: network.modulepreload
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -12958,6 +12967,13 @@
 - name: network.jar.record_failure_reason
   type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
+# nsJARInputStream::Available returns the size indicated by the archived entry
+# so we need a limit so we don't OOM if the archive is corrupted.
+- name: network.jar.max_available_size
+  type: RelaxedAtomicUint32
+  value: 256*1024*1024 # 256 Mb
   mirror: always
 
 # When this pref is true we clear the Content-Encoding header for
@@ -14720,7 +14736,7 @@
 # Currently off by default.
 - name: threads.lower_mainthread_priority_in_background.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -15397,7 +15413,7 @@
 # Forces async present to wait for a sync, even while using remote textures.
 - name: webgl.out-of-process.async-present.force-sync
   type: RelaxedAtomicBool
-#if !defined(MOZ_WIDGET_ANDROID) && defined(EARLY_BETA_OR_EARLIER)
+#if defined(EARLY_BETA_OR_EARLIER)
   value: false
 #else
   value: true

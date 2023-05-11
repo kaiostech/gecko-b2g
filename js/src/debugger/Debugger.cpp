@@ -114,10 +114,11 @@
 #include "debugger/DebugAPI-inl.h"
 #include "debugger/Environment-inl.h"  // for DebuggerEnvironment::owner
 #include "debugger/Frame-inl.h"        // for DebuggerFrame::hasGeneratorInfo
-#include "debugger/Object-inl.h"   // for DebuggerObject::owner and isInstance.
-#include "debugger/Script-inl.h"   // for DebuggerScript::getReferent
-#include "gc/GC-inl.h"             // for ZoneCellIter
-#include "gc/Marking-inl.h"        // for MaybeForwarded
+#include "debugger/Object-inl.h"  // for DebuggerObject::owner and isInstance.
+#include "debugger/Script-inl.h"  // for DebuggerScript::getReferent
+#include "gc/GC-inl.h"            // for ZoneCellIter
+#include "gc/Marking-inl.h"       // for MaybeForwarded
+#include "gc/StableCellHasher-inl.h"
 #include "gc/WeakMap-inl.h"        // for DebuggerWeakMap::trace
 #include "vm/Compartment-inl.h"    // for Compartment::wrap
 #include "vm/GeckoProfiler-inl.h"  // for AutoSuppressProfilerSampling
@@ -3822,7 +3823,7 @@ void DebugAPI::slowPathTraceGeneratorFrame(JSTracer* tracer,
   // generator objects as having an owning edge to their Debugger.Frame objects,
   // a helper thread trying to update a generator object will end up calling
   // this function. However, it is verboten to do weak map lookups (e.g., in
-  // Debugger::generatorFrames) off the main thread, since MovableCellHasher
+  // Debugger::generatorFrames) off the main thread, since StableCellHasher
   // must consult the Zone to find the key's unique id.
   //
   // Fortunately, it's not necessary for compacting GC to worry about that edge
@@ -5645,7 +5646,7 @@ bool Debugger::CallData::findScripts() {
  */
 class MOZ_STACK_CLASS Debugger::SourceQuery : public Debugger::QueryBase {
  public:
-  using SourceSet = JS::GCHashSet<JSObject*, js::MovableCellHasher<JSObject*>,
+  using SourceSet = JS::GCHashSet<JSObject*, js::StableCellHasher<JSObject*>,
                                   ZoneAllocPolicy>;
 
   SourceQuery(JSContext* cx, Debugger* dbg)

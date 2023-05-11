@@ -10,8 +10,8 @@
  */
 var tabPreviews = {
   get aspectRatio() {
-    let { PageThumbUtils } = ChromeUtils.import(
-      "resource://gre/modules/PageThumbUtils.jsm"
+    let { PageThumbUtils } = ChromeUtils.importESModule(
+      "resource://gre/modules/PageThumbUtils.sys.mjs"
     );
     let [width, height] = PageThumbUtils.getThumbnailSize(window);
     delete this.aspectRatio;
@@ -326,11 +326,11 @@ var ctrlTab = {
       this.updatePreview(this.previews[i], this.tabList[i]);
     }
 
-    var showAllLabel = gNavigatorBundle.getString("ctrlTab.listAllTabs.label");
-    this.showAllButton.label = PluralForm.get(
-      this.tabCount,
-      showAllLabel
-    ).replace("#1", this.tabCount);
+    document.l10n.setAttributes(
+      this.showAllButton,
+      "tabbrowser-ctrl-tab-list-all-tabs",
+      { tabCount: this.tabCount }
+    );
     this.showAllButton.hidden = !gTabsPanel.canOpen;
   },
 

@@ -206,10 +206,6 @@ check_prog("WGET", ("wget",), allow_missing=True)
 include("build/moz.configure/toolchain.configure", when="--enable-compile-environment")
 
 include("build/moz.configure/pkg.configure")
-# Make this assignment here rather than in pkg.configure to avoid
-# requiring this file in unit tests.
-add_old_configure_assignment("PKG_CONFIG", pkg_config)
-
 include("build/moz.configure/memory.configure", when="--enable-compile-environment")
 include("build/moz.configure/headers.configure", when="--enable-compile-environment")
 include("build/moz.configure/warnings.configure", when="--enable-compile-environment")
@@ -496,59 +492,6 @@ def awk_for_old_configure(value):
 
 
 add_old_configure_assignment("AWK", awk_for_old_configure)
-
-
-# Perl detection
-# ==============================================================
-perl = check_prog("PERL", ("perl5", "perl"))
-
-# Until the PERL variable is not necessary in old-configure
-
-
-@depends(perl)
-def perl_for_old_configure(value):
-    return value
-
-
-add_old_configure_assignment("PERL", perl_for_old_configure)
-
-
-@template
-def perl_version_check(min_version):
-    @depends(perl)
-    @checking("for minimum required perl version >= %s" % min_version)
-    def get_perl_version(perl):
-        return Version(
-            check_cmd_output(
-                perl,
-                "-e",
-                "print $]",
-                onerror=lambda: die("Failed to get perl version."),
-            )
-        )
-
-    @depends(get_perl_version)
-    def check_perl_version(version):
-        if version < min_version:
-            die("Perl %s or higher is required.", min_version)
-
-    @depends(perl)
-    @checking("for full perl installation")
-    @imports("subprocess")
-    def has_full_perl_installation(perl):
-        ret = subprocess.call([perl, "-e", "use Config; exit(!-d $Config{archlib})"])
-        return ret == 0
-
-    @depends(has_full_perl_installation)
-    def require_full_perl_installation(has_full_perl_installation):
-        if not has_full_perl_installation:
-            die(
-                "Cannot find Config.pm or $Config{archlib}. "
-                "A full perl installation is required."
-            )
-
-
-perl_version_check("5.006")
 
 
 # GNU make detection

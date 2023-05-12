@@ -13,6 +13,54 @@
 
 #include "GonkNativeWindow.h"
 
+// Utility class to unwrap a number to a larger type. The numbers will never be
+// unwrapped to a negative value.
+template <typename U>
+class Unwrapper {
+  static_assert(!std::numeric_limits<U>::is_signed, "U must be unsigned");
+  static_assert(std::numeric_limits<U>::max() <=
+                    std::numeric_limits<uint32_t>::max(),
+                "U must not be wider than 32 bits");
+
+ public:
+  // Get the unwrapped value, but don't update the internal state.
+  int64_t UnwrapWithoutUpdate(U value) const {
+    if (!last_value_)
+      return value;
+
+    constexpr int64_t kMaxPlusOne =
+        static_cast<int64_t>(std::numeric_limits<U>::max()) + 1;
+
+    U cropped_last = static_cast<U>(*last_value_);
+    int64_t delta = value - cropped_last;
+    if (webrtc::IsNewer(value, cropped_last)) {
+      if (delta < 0)
+        delta += kMaxPlusOne;  // Wrap forwards.
+    } else if (delta > 0 && (*last_value_ + delta - kMaxPlusOne) >= 0) {
+      // If value is older but delta is positive, this is a backwards
+      // wrap-around. However, don't wrap backwards past 0 (unwrapped).
+      delta -= kMaxPlusOne;
+    }
+
+    return *last_value_ + delta;
+  }
+
+  // Only update the internal state to the specified last (unwrapped) value.
+  void UpdateLast(int64_t last_value) { last_value_ = last_value; }
+
+  // Unwrap the value and update the internal state.
+  int64_t Unwrap(U value) {
+    int64_t unwrapped = UnwrapWithoutUpdate(value);
+    UpdateLast(unwrapped);
+    return unwrapped;
+  }
+
+ private:
+  absl::optional<int64_t> last_value_;
+};
+
+using TimestampUnwrapper = Unwrapper<uint32_t>;
+
 namespace android {
 
 struct FrameInfo;
@@ -131,7 +179,7 @@ class WebrtcGonkVideoDecoder final : public AHandler,
   sp<Surface> InitBufferQueue();
 
   Callback* mCallback = nullptr;
-  webrtc::TimestampUnwrapper mUnwrapper;
+  TimestampUnwrapper mUnwrapper;
 
   sp<ALooper> mDecoderLooper;
   sp<ALooper> mCodecLooper;

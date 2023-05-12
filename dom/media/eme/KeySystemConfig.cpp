@@ -49,8 +49,7 @@ bool KeySystemConfig::Supports(const nsAString& aKeySystem) {
   }
 #endif
 #if MOZ_WMF_CDM
-  if (IsPlayReadyKeySystem(aKeySystem) &&
-      StaticPrefs::media_eme_playready_enabled() &&
+  if (IsPlayReadyKeySystemAndSupported(aKeySystem) &&
       WMFCDMImpl::Supports(aKeySystem)) {
     return true;
   }
@@ -213,7 +212,7 @@ bool KeySystemConfig::GetConfig(const nsAString& aKeySystem,
     return true;
   }
 #ifdef MOZ_WMF_CDM
-  if (IsPlayReadyKeySystem(aKeySystem)) {
+  if (IsPlayReadyKeySystemAndSupported(aKeySystem)) {
     RefPtr<WMFCDMImpl> cdm = MakeRefPtr<WMFCDMImpl>(aKeySystem);
     return cdm->GetCapabilities(aConfig);
   }

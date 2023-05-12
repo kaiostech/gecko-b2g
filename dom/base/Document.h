@@ -1225,6 +1225,7 @@ class Document : public nsINode,
   void SetParentDocument(Document* aParent) {
     mParentDocument = aParent;
     if (aParent) {
+      RecomputeResistFingerprinting();
       mIgnoreDocGroupMismatches = aParent->mIgnoreDocGroupMismatches;
       if (!mIsDevToolsDocument) {
         mIsDevToolsDocument = mParentDocument->IsDevToolsDocument();

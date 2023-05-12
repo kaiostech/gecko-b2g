@@ -128,8 +128,7 @@ MediaKeySystemStatus MediaKeySystemAccess::GetKeySystemStatus(
   }
 
 #ifdef MOZ_WMF_CDM
-  if (IsPlayReadyKeySystem(aKeySystem) &&
-      StaticPrefs::media_eme_playready_enabled() &&
+  if (IsPlayReadyKeySystemAndSupported(aKeySystem) &&
       KeySystemConfig::Supports(aKeySystem)) {
     return MediaKeySystemStatus::Available;
   }

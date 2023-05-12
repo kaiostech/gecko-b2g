@@ -166,8 +166,8 @@ class EventListenerManagerBase {
   uint16_t mMayHaveTransitionEventListener : 1;
   uint16_t mClearingListeners : 1;
   uint16_t mIsMainThreadELM : 1;
-  uint16_t mHasNonPrivilegedClickListeners : 1;
-  uint16_t mUnknownNonPrivilegedClickListeners : 1;
+  uint16_t mMayHaveListenersForUntrustedEvents : 1;
+  // 1 unused flag.
 };
 
 /*
@@ -227,7 +227,6 @@ class EventListenerManager final : public EventListenerManagerBase {
     bool mListenerIsHandler : 1;
     bool mHandlerIsString : 1;
     bool mAllEvents : 1;
-    bool mIsChrome : 1;
     bool mEnabled : 1;
 
     EventListenerFlags mFlags;
@@ -244,7 +243,6 @@ class EventListenerManager final : public EventListenerManagerBase {
           mListenerIsHandler(false),
           mHandlerIsString(false),
           mAllEvents(false),
-          mIsChrome(false),
           mEnabled(true) {}
 
     Listener(Listener&& aOther)
@@ -256,14 +254,12 @@ class EventListenerManager final : public EventListenerManagerBase {
           mListenerIsHandler(aOther.mListenerIsHandler),
           mHandlerIsString(aOther.mHandlerIsString),
           mAllEvents(aOther.mAllEvents),
-          mIsChrome(aOther.mIsChrome),
           mEnabled(aOther.mEnabled) {
       aOther.mEventMessage = eVoidEvent;
       aOther.mListenerType = eNoListener;
       aOther.mListenerIsHandler = false;
       aOther.mHandlerIsString = false;
       aOther.mAllEvents = false;
-      aOther.mIsChrome = false;
       aOther.mEnabled = true;
     }
 
@@ -380,15 +376,15 @@ class EventListenerManager final : public EventListenerManagerBase {
   void HandleEvent(nsPresContext* aPresContext, WidgetEvent* aEvent,
                    dom::Event** aDOMEvent, dom::EventTarget* aCurrentTarget,
                    nsEventStatus* aEventStatus, bool aItemInShadowTree) {
-    if (mListeners.IsEmpty() || aEvent->PropagationStopped()) {
-      return;
-    }
-
     if (!mMayHaveCapturingListeners && !aEvent->mFlags.mInBubblingPhase) {
       return;
     }
 
     if (!mMayHaveSystemGroupListeners && aEvent->mFlags.mInSystemGroup) {
+      return;
+    }
+
+    if (!aEvent->IsTrusted() && !mMayHaveListenersForUntrustedEvents) {
       return;
     }
 
@@ -402,6 +398,11 @@ class EventListenerManager final : public EventListenerManagerBase {
                mNoListenerForEvents[2] == aEvent->mMessage) {
       return;
     }
+
+    if (mListeners.IsEmpty() || aEvent->PropagationStopped()) {
+      return;
+    }
+
     HandleEventInternal(aPresContext, aEvent, aDOMEvent, aCurrentTarget,
                         aEventStatus, aItemInShadowTree);
   }
@@ -504,8 +505,6 @@ class EventListenerManager final : public EventListenerManagerBase {
     return mMayHaveTransitionEventListener;
   }
 
-  bool HasNonPrivilegedClickListeners();
-
   /**
    * Returns true if there may be a key event listener (keydown, keypress,
    * or keyup) registered, or false if there definitely isn't.
@@ -540,8 +539,6 @@ class EventListenerManager final : public EventListenerManagerBase {
 
   bool HasNonPassiveWheelListener();
 
-  // Return true if aListener is a non-chrome-privileged click event listner
-  bool IsNonChromeClickListener(Listener* aListener);
   /**
    * Remove all event listeners from the event target this EventListenerManager
    * is for.

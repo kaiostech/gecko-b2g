@@ -2489,6 +2489,12 @@ void gfxPlatform::InitAcceleration() {
       }
     }
 #endif
+  } else if (XRE_IsParentProcess()) {
+    FeatureState& feature =
+        gfxConfig::GetFeature(Feature::HARDWARE_VIDEO_DECODING);
+    feature.EnableByDefault();
+    feature.UserDisable("User disabled via pref",
+                        "FEATURE_HARDWARE_VIDEO_DECODING_PREF_DISABLED"_ns);
   }
 
   sLayersAccelerationPrefsInitialized = true;
@@ -2876,10 +2882,12 @@ void gfxPlatform::InitHardwareVideoConfig() {
     return;
   }
 
-  // We don't use selective VP8/9 decode control on Linux.
-  if (kIsWayland || kIsX11) {
+#ifdef MOZ_WIDGET_GTK
+  // We don't want to expose codec info if whole HW decoding is disabled.
+  if (!sLayersSupportsHardwareVideoDecoding) {
     return;
   }
+#endif
 
   nsCString message;
   nsCString failureId;
@@ -2891,7 +2899,6 @@ void gfxPlatform::InitHardwareVideoConfig() {
                            failureId)) {
     featureVP8.Disable(FeatureStatus::Blocklisted, message.get(), failureId);
   }
-
   gfxVars::SetUseVP8HwDecode(featureVP8.IsEnabled());
 
   FeatureState& featureVP9 = gfxConfig::GetFeature(Feature::VP9_HW_DECODE);
@@ -2901,8 +2908,28 @@ void gfxPlatform::InitHardwareVideoConfig() {
                            failureId)) {
     featureVP9.Disable(FeatureStatus::Blocklisted, message.get(), failureId);
   }
-
   gfxVars::SetUseVP9HwDecode(featureVP9.IsEnabled());
+
+  // H264_HW_DECODE/AV1_HW_DECODE is used on Linux only right now.
+#ifdef MOZ_WIDGET_GTK
+  FeatureState& featureH264 = gfxConfig::GetFeature(Feature::H264_HW_DECODE);
+  featureH264.EnableByDefault();
+
+  if (!IsGfxInfoStatusOkay(nsIGfxInfo::FEATURE_H264_HW_DECODE, &message,
+                           failureId)) {
+    featureH264.Disable(FeatureStatus::Blocklisted, message.get(), failureId);
+  }
+  gfxVars::SetUseH264HwDecode(featureH264.IsEnabled());
+
+  FeatureState& featureAV1 = gfxConfig::GetFeature(Feature::AV1_HW_DECODE);
+  featureAV1.EnableByDefault();
+
+  if (!IsGfxInfoStatusOkay(nsIGfxInfo::FEATURE_AV1_HW_DECODE, &message,
+                           failureId)) {
+    featureAV1.Disable(FeatureStatus::Blocklisted, message.get(), failureId);
+  }
+  gfxVars::SetUseAV1HwDecode(featureAV1.IsEnabled());
+#endif
 }
 
 void gfxPlatform::InitWebGLConfig() {

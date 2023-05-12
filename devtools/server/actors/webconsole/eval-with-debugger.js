@@ -424,7 +424,7 @@ function makeSideeffectFreeDebugger(maybeEvalGlobal) {
       // getters are handled with an allowlist.
       if (
         (reason == "get" || reason == "call") &&
-        nativeHasNoSideEffects(callee)
+        nativeIsEagerlyEvaluateable(callee)
       ) {
         // Returning undefined causes execution to continue normally.
         return undefined;
@@ -511,7 +511,8 @@ function ensureSideEffectFreeNatives(maybeEvalGlobal) {
   }
 
   const natives = [
-    ...eagerEcmaAllowlist,
+    ...eagerEcmaAllowlist.functions,
+    ...eagerEcmaAllowlist.getters,
 
     // Pull in all of the non-ECMAScript native functions that we want to
     // allow as well.
@@ -531,9 +532,21 @@ function ensureSideEffectFreeNatives(maybeEvalGlobal) {
   gSideEffectFreeNatives = map;
 }
 
-function nativeHasNoSideEffects(fn) {
+function nativeIsEagerlyEvaluateable(fn) {
   if (fn.isBoundFunction) {
     fn = fn.boundTargetFunction;
+  }
+
+  // We assume all DOM getters have no major side effect, and they are
+  // eagerly-evaluateable.
+  //
+  // JitInfo is used only by methods/accessors in WebIDL, and being
+  // "a getter with JitInfo" can be used as a condition to check if given
+  // function is DOM getter.
+  //
+  // This includes privileged interfaces in addition to standard web APIs.
+  if (fn.isNativeGetterWithJitInfo()) {
+    return true;
   }
 
   // Natives with certain names are always considered side effect free.
@@ -544,14 +557,8 @@ function nativeHasNoSideEffects(fn) {
       return true;
   }
 
-  // This needs to use isSameNativeWithJitInfo instead of isSameNative, given
-  // DOM getters share single native function with different JSJitInto,
-  // and isSameNative cannot distinguish between side-effect-free getters
-  // and others.
-  //
-  // See bug 1806598 for more info.
   const natives = gSideEffectFreeNatives.get(fn.name);
-  return natives && natives.some(n => fn.isSameNativeWithJitInfo(n));
+  return natives && natives.some(n => fn.isSameNative(n));
 }
 
 function updateConsoleInputEvaluation(dbg, webConsole) {

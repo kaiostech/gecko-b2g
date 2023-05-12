@@ -342,9 +342,6 @@ class LookAndFeel {
     /** GTK titlebar radius */
     TitlebarRadius,
 
-    /** GTK menu radius */
-    GtkMenuRadius,
-
     /**
      * Corresponding to dynamic-range.
      * https://drafts.csswg.org/mediaqueries-5/#dynamic-range

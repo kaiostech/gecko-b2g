@@ -1620,6 +1620,13 @@ nsXULAppInfo::GetContentThemeDerivedColorSchemeIsDark(bool* aResult) {
 }
 
 NS_IMETHODIMP
+nsXULAppInfo::GetPrefersReducedMotion(bool* aResult) {
+  *aResult =
+      LookAndFeel::GetInt(LookAndFeel::IntID::PrefersReducedMotion, 0) == 1;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsXULAppInfo::GetDrawInTitlebar(bool* aResult) {
   *aResult = LookAndFeel::DrawInTitlebar();
   return NS_OK;
@@ -2704,7 +2711,11 @@ static ReturnAbortOnError ProfileLockedDialog(nsIFile* aProfileDir,
   rv = xpcom.Initialize();
   NS_ENSURE_SUCCESS(rv, rv);
 
+#if defined(MOZ_TELEMETRY_REPORTING)
+  // We cannot check if telemetry has been disabled by the user, yet.
+  // So, rely on the build time settings, instead.
   mozilla::Telemetry::WriteFailedProfileLock(aProfileDir);
+#endif
 
   rv = xpcom.SetWindowCreator(aNative);
   NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);

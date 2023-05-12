@@ -1763,7 +1763,7 @@
 #      since they will return a NetworkError. If the request is allowed by ORB, the
 #      internal response will be intact and sent to the content process as is.
 #   2) If ORB is enabled, in the parent process, filter the responses that ORB blocks,
-#      if they were issued by `Window.fetch` (and similar).
+#      when they were issued by `Window.fetch` (and similar).
 #   3) Filter all responses in the parent, regardless of if ORB is enabled or not.
 #      This means that opaque responses coming from `Window.fetch` won't even be
 #      considered for being blocked by ORB.
@@ -2345,7 +2345,7 @@
   mirror: always
 
 # Whether window.location.reload() and window.history.go(0) should be blocked
-# if called directly from a window resize event handler.
+# when called directly from a window resize event handler.
 #
 # This used to be necessary long ago to prevent terrible UX when using stuff
 # like TypeAheadFind (bug 258917), but it also causes compat issues on mobile
@@ -3270,7 +3270,7 @@
 # Whether HTMLMediaElement.mozPreservesPitch is enabled.
 - name: dom.media.mozPreservesPitch.enabled
   type: bool
-  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: always
 
 # WebCodecs API
@@ -5378,7 +5378,7 @@
 # `useRemoteSubframes` flag set.
 # Callers which cannot use `useRemoteSubframes` must use
 # `Services.appinfo.fissionAutostart` or `mozilla::FissionAutostart()` to check
-# if fission is enabled by default.
+# whether fission is enabled by default.
 - name: fission.autostart
   type: bool
   value: @IS_NOT_ANDROID@
@@ -5595,18 +5595,6 @@
 - name: font.size.inflation.maxRatio
   type: uint32_t
   value: 0
-  mirror: always
-
-# This setting corresponds to a global text zoom setting affecting
-# all content that is not already subject to font size inflation.
-# It is interpreted as a percentage value that is applied on top
-# of the document's current text zoom setting.
-#
-# The resulting total zoom factor (text zoom * system font scale)
-# will be limited by zoom.minPercent and maxPercent.
-- name: font.size.systemFontScale
-  type: uint32_t
-  value: 100
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -6079,7 +6067,7 @@
 
 - name: gfx.color_management.native_srgb
   type: RelaxedAtomicBool
-#if defined(XP_MACOSX) || defined(XP_WIN)
+#if defined(XP_MACOSX)
   value: true
 #else
   value: false
@@ -7511,8 +7499,8 @@
 
   # Whether Gecko returns available composition string rect or TS_E_NOLAYOUT
   # from ITextStoreACP::GetTextExt() when the specified range is same as the
-  # range of composition string but some character rects in it are still dirty
-  # if and only if ATOK is active TIP.
+  # range of composition string but some character rects in it are still
+  # dirty if and only if ATOK is active TIP.
   # Note that this is ignored if active ATOK is or older than 2016 and
   # create_native_caret is true.
 -   name: intl.tsf.hack.atok.do_not_return_no_layout_error_of_composition_string
@@ -7541,8 +7529,8 @@
 
   # Whether Gecko returns available composition string rect or TS_E_NOLAYOUT
   # from ITextStoreACP::GetTextExt() when the specified range is same as the
-  # range of composition string but some character rects in it are still dirty
-  # if and only if Japanist 10 is active TIP.
+  # range of composition string but some character rects in it are still
+  # dirty if and only if Japanist 10 is active TIP.
 -   name: intl.tsf.hack.japanist10.do_not_return_no_layout_error_of_composition_string
     type: bool
     value: true
@@ -13261,8 +13249,8 @@
 #    (both in the output, and the images we select via srcset, for example).
 #
 # Therefore, using a high DPI is preferable. For now, we use 144dpi to match
-# physical printer output on Windows, but higher (e.g. 300dpi) might be better
-# if it does not lead to issues such as excessive memory use.
+# physical printer output on Windows, but higher (e.g. 300dpi) might be better,
+# but only if it does not lead to issues such as excessive memory use.
 - name: print.default_dpi
   type: float
   value: 144.0f
@@ -13753,6 +13741,13 @@
   value: true
   mirror: always
 
+# Enables / disables the strip on share feature which strips query parameters
+# when copying/sharing in-content links or from the url bar.
+- name: privacy.query_stripping.strip_on_share.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Enables / disables the URL query string stripping in normal browsing mode
 # which strips query parameters from loading URIs to prevent bounce (redirect)
 # tracking.
@@ -14012,7 +14007,7 @@
     value: true
     mirror: always
 
-#  ifdef MOZ_WMF
+#ifdef MOZ_WMF
   # Whether Arbitrary Code Guard is enabled for the utility WMF audio decoder
   # process.
 
@@ -14020,7 +14015,7 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
-#  endif  // MOZ_WMF
+#endif  // MOZ_WMF
 
   # This controls the depth of stack trace that is logged when Windows sandbox
   # logging is turned on. This is only currently available for the content
@@ -14254,9 +14249,9 @@
   mirror: once
 
 # On Windows 8.1, if the following preference is 2, we will attempt to detect
-# if the Family Safety TLS interception feature has been enabled. If so, we
-# will behave as if the enterprise roots feature has been enabled (i.e. import
-# and trust third party root certificates from the OS).
+# whether the Family Safety TLS interception feature has been enabled.
+# If so, we will behave as if the enterprise roots feature has been enabled
+# (i.e. import and trust third party root certificates from the OS).
 # With any other value of the pref or on any other platform, this does nothing.
 # This preference takes precedence over "security.enterprise_roots.enabled".
 - name: security.family_safety.mode
@@ -15566,13 +15561,6 @@
   type: bool
   value: false
   mirror: always
-
-# Whether GTK should use non-native menu styling.
-- name: widget.gtk.non-native-menu-styling
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
 
 # The amount of space that the thumb should fill the scrollbar, from zero to
 # one.

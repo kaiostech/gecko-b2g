@@ -3190,8 +3190,10 @@ void nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext, nsIFrame* aFrame,
 
   // If the dynamic toolbar is completely collapsed, the visible rect should
   // be expanded to include this area.
-  if (presContext->IsRootContentDocumentCrossProcess() &&
-      presContext->HasDynamicToolbar()) {
+  const bool hasDynamicToolbar =
+      presContext->IsRootContentDocumentCrossProcess() &&
+      presContext->HasDynamicToolbar();
+  if (hasDynamicToolbar) {
     rootInkOverflow.SizeTo(nsLayoutUtils::ExpandHeightForDynamicToolbar(
         presContext, rootInkOverflow.Size()));
   }
@@ -3252,9 +3254,16 @@ void nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext, nsIFrame* aFrame,
     }
   });
 
-  nsRect canvasArea(nsPoint(0, 0), aFrame->GetSize());
+  nsRect canvasArea(nsPoint(0, 0),
+                    aFrame->InkOverflowRectRelativeToSelf().Size());
   bool ignoreViewportScrolling =
       !aFrame->GetParent() && presShell->IgnoringViewportScrolling();
+
+  if (!aFrame->GetParent() && hasDynamicToolbar) {
+    canvasArea.SizeTo(nsLayoutUtils::ExpandHeightForDynamicToolbar(
+        presContext, canvasArea.Size()));
+  }
+
   if (ignoreViewportScrolling && rootScrollFrame) {
     nsIScrollableFrame* rootScrollableFrame =
         presShell->GetRootScrollFrameAsScrollable();

@@ -24,6 +24,44 @@ using namespace mozilla;
 
 LazyLogModule gWifiMonitorLog("WifiMonitor");
 
+// Helper functions:
+
+bool AccessPointsEqual(nsCOMArray<nsWifiAccessPoint>& a,
+                       nsCOMArray<nsWifiAccessPoint>& b) {
+  if (a.Count() != b.Count()) {
+    LOG(("AccessPoint lists have different lengths\n"));
+    return false;
+  }
+
+  for (int32_t i = 0; i < a.Count(); i++) {
+    LOG(("++ Looking for %s\n", a[i]->mSsid));
+    bool found = false;
+    for (int32_t j = 0; j < b.Count(); j++) {
+      LOG(("   %s->%s | %s->%s\n", a[i]->mSsid, b[j]->mSsid, a[i]->mMac,
+           b[j]->mMac));
+      if (!strcmp(a[i]->mSsid, b[j]->mSsid) &&
+          !strcmp(a[i]->mMac, b[j]->mMac) && a[i]->mSignal == b[j]->mSignal) {
+        found = true;
+      }
+    }
+    if (!found) return false;
+  }
+  LOG(("   match!\n"));
+  return true;
+}
+
+void ReplaceArray(nsCOMArray<nsWifiAccessPoint>& a,
+                  nsCOMArray<nsWifiAccessPoint>& b) {
+  a.Clear();
+
+  // better way to copy?
+  for (int32_t i = 0; i < b.Count(); i++) {
+    a.AppendObject(b[i]);
+  }
+
+  b.Clear();
+}
+
 NS_IMPL_ISUPPORTS(nsWifiMonitor, nsIWifiMonitor, nsIObserver,
                   nsIWifiScanResultsReady)
 
@@ -36,16 +74,14 @@ nsWifiMonitor::nsWifiMonitor() {
 }
 
 NS_IMETHODIMP
-nsWifiMonitor::StartWatching(nsIWifiListener* aListener) {
+nsWifiMonitor::StartWatching(nsIWifiListener* aListener, bool aForcePolling) {
   LOG(("@@@@@ nsWifiMonitor::StartWatching\n"));
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
   if (!aListener) {
     return NS_ERROR_NULL_POINTER;
   }
 
-  mListeners.AppendElement(
-      nsWifiListener(new nsMainThreadPtrHolder<nsIWifiListener>(
-          "nsIWifiListener", aListener)));
+  mListeners.AppendElement(WifiListenerHolder(aListener, aForcePolling));
 
   if (!mTimer) {
     mTimer = do_CreateInstance("@mozilla.org/timer;1");

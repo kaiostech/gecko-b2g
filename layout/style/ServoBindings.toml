@@ -203,8 +203,6 @@ allowlist-vars = [
 # TODO(emilio): A bunch of types here can go away once we generate bindings and
 # structs together.
 allowlist-types = [
-    "RawGecko.*",
-    "RawServo.*",
     "ServoCssRules",
     "nsFontFaceRuleContainer",
     "Matrix4x4Components",
@@ -651,6 +649,10 @@ cbindgen-types = [
     { gecko = "StyleUseCounters", servo = "crate::use_counters::UseCounters" },
     { gecko = "StyleStylesheetContents", servo = "crate::stylesheets::StylesheetContents" },
     { gecko = "StyleAnimationValue", servo = "crate::properties::animated_properties::AnimationValue" },
+    { gecko = "StyleLockedDeclarationBlock", servo = "crate::gecko::arc_types::LockedDeclarationBlock" },
+    { gecko = "StyleLockedMediaList", servo = "crate::gecko::arc_types::LockedMediaList" },
+    { gecko = "StyleLockedImportRule", servo = "crate::gecko::arc_types::LockedImportRule" },
+    { gecko = "StyleLockedFontFaceRule", servo = "crate::gecko::arc_types::LockedFontFaceRule" },
 ]
 
 mapped-generic-types = [
@@ -659,9 +661,6 @@ mapped-generic-types = [
     { generic = false, gecko = "mozilla::ServoWritingMode", servo = "crate::logical_geometry::WritingMode" },
     { generic = false, gecko = "mozilla::ServoCustomPropertiesMap", servo = "Option<servo_arc::Arc<crate::custom_properties::CustomPropertiesMap>>" },
     { generic = false, gecko = "mozilla::ServoRuleNode", servo = "Option<crate::rule_tree::StrongRuleNode>" },
-    { generic = false, gecko = "mozilla::ServoVisitedStyle", servo = "Option<servo_arc::RawOffsetArc<crate::properties::ComputedValues>>" },
-    { generic = true, gecko = "mozilla::ServoRawOffsetArc", servo = "servo_arc::RawOffsetArc" },
-    { generic = true, gecko = "mozilla::ServoManuallyDrop", servo = "::std::mem::ManuallyDrop" },
     { generic = false, gecko = "nsACString", servo = "nsstring::nsACString" },
     { generic = false, gecko = "nsAString", servo = "nsstring::nsAString" },
     { generic = false, gecko = "nsCString", servo = "nsstring::nsCString" },

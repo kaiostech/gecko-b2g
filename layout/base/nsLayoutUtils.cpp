@@ -2712,7 +2712,7 @@ nsIFrame* nsLayoutUtils::GetFrameForPoint(
   // throught the frame under the frame with mozpasspointerevents
   uint32_t idx = FindIdxForMozPassPointerEvents(outFrames);
 
-  return outFrames.Length() ? outFrames.ElementAt(idx) : nullptr;
+  return outFrames.SafeElementAt(idx);
 }
 
 nsresult nsLayoutUtils::GetFramesForArea(RelativeTo aRelativeTo,

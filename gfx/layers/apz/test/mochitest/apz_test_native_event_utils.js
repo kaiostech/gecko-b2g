@@ -89,9 +89,20 @@ function nativeArrowUpKey() {
   );
 }
 
+function targetIsWindow(aTarget) {
+  return aTarget.Window && aTarget instanceof aTarget.Window;
+}
+
+function targetIsTopWindow(aTarget) {
+  if (!targetIsWindow(aTarget)) {
+    return false;
+  }
+  return aTarget == aTarget.top;
+}
+
 // Given an event target which may be a window or an element, get the associated window.
 function windowForTarget(aTarget) {
-  if (aTarget.Window && aTarget instanceof aTarget.Window) {
+  if (targetIsWindow(aTarget)) {
     return aTarget;
   }
   return aTarget.ownerDocument.defaultView;
@@ -99,7 +110,7 @@ function windowForTarget(aTarget) {
 
 // Given an event target which may be a window or an element, get the associated element.
 function elementForTarget(aTarget) {
-  if (aTarget.Window && aTarget instanceof aTarget.Window) {
+  if (targetIsWindow(aTarget)) {
     return aTarget.document.documentElement;
   }
   return aTarget;
@@ -189,20 +200,6 @@ function parseNativeModifiers(aModifiers, aWindow = window) {
       : SpecialPowers.Ci.nsIDOMWindowUtils.NATIVE_MODIFIER_ALT_GRAPH;
   }
   return modifiers;
-}
-
-function getBoundingClientRectRelativeToVisualViewport(aElement) {
-  let utils = SpecialPowers.getDOMWindowUtils(window);
-  var rect = aElement.getBoundingClientRect();
-  var offsetX = {},
-    offsetY = {};
-  // TODO: Audit whether these offset values are correct or not for
-  // position:fixed elements especially in the case where the visual viewport
-  // offset is not 0.
-  utils.getVisualViewportOffsetRelativeToLayoutViewport(offsetX, offsetY);
-  rect.x -= offsetX.value;
-  rect.y -= offsetY.value;
-  return rect;
 }
 
 // Several event sythesization functions below (and their helpers) take a "target"
@@ -358,9 +355,8 @@ async function coordinatesRelativeToScreen(aParams) {
 
 // Get the bounding box of aElement, and return it in device pixels
 // relative to the screen.
-// TODO: This function should probably take into account the resolution
-//       and use getBoundingClientRectRelativeToVisualViewport()
-//       like coordinatesRelativeToScreen() does.
+// TODO: This function should probably take into account the resolution and
+//       the relative viewport rect like coordinatesRelativeToScreen() does.
 function rectRelativeToScreen(aElement) {
   var targetWindow = aElement.ownerDocument.defaultView;
   var scale = targetWindow.devicePixelRatio;
@@ -1305,7 +1301,7 @@ function promiseMoveMouseAndScrollWheelOver(
   return p;
 }
 
-function scrollbarDragStart(aTarget, aScaleFactor) {
+async function scrollbarDragStart(aTarget, aScaleFactor) {
   var targetElement = elementForTarget(aTarget);
   var w = {},
     h = {};
@@ -1320,6 +1316,16 @@ function scrollbarDragStart(aTarget, aScaleFactor) {
   var startY = upArrowHeight + 5; // start dragging somewhere in the thumb
   startX *= aScaleFactor;
   startY *= aScaleFactor;
+
+  // targetElement.clientWidth is unaffected by the zoom, but if the target
+  // is the root content window, the distance from the window origin to the
+  // scrollbar in CSS pixels does decrease proportionally to the zoom,
+  // so the CSS coordinates we return need to be scaled accordingly.
+  if (targetIsTopWindow(aTarget)) {
+    var resolution = await getResolution();
+    startX /= resolution;
+    startY /= resolution;
+  }
 
   return { x: startX, y: startY };
 }
@@ -1345,7 +1351,7 @@ async function promiseVerticalScrollbarDrag(
   aIncrement = 5,
   aScaleFactor = 1
 ) {
-  var startPoint = scrollbarDragStart(aTarget, aScaleFactor);
+  var startPoint = await scrollbarDragStart(aTarget, aScaleFactor);
   var targetElement = elementForTarget(aTarget);
   if (startPoint == null) {
     return null;
@@ -1412,7 +1418,7 @@ async function promiseVerticalScrollbarTouchDrag(
   aDistance = 20,
   aScaleFactor = 1
 ) {
-  var startPoint = scrollbarDragStart(aTarget, aScaleFactor);
+  var startPoint = await scrollbarDragStart(aTarget, aScaleFactor);
   var targetElement = elementForTarget(aTarget);
   if (startPoint == null) {
     return false;

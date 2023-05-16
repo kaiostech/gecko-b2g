@@ -10,11 +10,16 @@ ChromeUtils.defineESModuleGetters(lazy, {
   capture: "chrome://remote/content/shared/Capture.sys.mjs",
   error: "chrome://remote/content/shared/webdriver/Errors.sys.mjs",
   Log: "chrome://remote/content/shared/Log.sys.mjs",
+  session: "chrome://remote/content/shared/webdriver/Session.sys.mjs",
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "logger", () =>
   lazy.Log.get(lazy.Log.TYPES.MARIONETTE)
 );
+
+// Because Marionette supports a single session only we store its id
+// globally so that the parent actor can access it.
+let webDriverSessionId = null;
 
 export class MarionetteCommandsParent extends JSWindowActorParent {
   actorCreated() {
@@ -25,6 +30,28 @@ export class MarionetteCommandsParent extends JSWindowActorParent {
     return new Promise(resolve => {
       this._resolveDialogOpened = resolve;
     });
+  }
+
+  async receiveMessage(msg) {
+    const { name, data } = msg;
+
+    switch (name) {
+      case "MarionetteCommandsChild:addNodeToSeenNodes":
+        return lazy.session.addNodeToSeenNodes(
+          webDriverSessionId,
+          data.browsingContext,
+          data.nodeId
+        );
+
+      case "MarionetteCommandsChild:isNodeReferenceKnown":
+        return lazy.session.isNodeReferenceKnown(
+          webDriverSessionId,
+          data.browsingContext,
+          data.nodeId
+        );
+    }
+
+    return null;
   }
 
   async sendQuery(name, data) {
@@ -350,8 +377,11 @@ export function getMarionetteCommandsActorProxy(browsingContextFn) {
 
 /**
  * Register the MarionetteCommands actor that holds all the commands.
+ *
+ * @param {string} sessionId
+ *     The id of the current WebDriver session.
  */
-export function registerCommandsActor() {
+export function registerCommandsActor(sessionId) {
   try {
     ChromeUtils.registerWindowActor("MarionetteCommands", {
       kind: "JSWindowActor",
@@ -374,8 +404,12 @@ export function registerCommandsActor() {
       throw e;
     }
   }
+
+  webDriverSessionId = sessionId;
 }
 
 export function unregisterCommandsActor() {
+  webDriverSessionId = null;
+
   ChromeUtils.unregisterWindowActor("MarionetteCommands");
 }

@@ -176,6 +176,10 @@ class BaseTimeDuration {
     return FromTicks(std::min(aA.mValue, aB.mValue));
   }
 
+#if defined(DEBUG)
+  int64_t GetValue() const { return mValue; }
+#endif
+
  private:
   // Block double multiplier (slower, imprecise if long duration) - Bug 853398.
   // If required, use MultDouble explicitly and with care.
@@ -541,6 +545,10 @@ class TimeStamp {
 
   static MFBT_API void Startup();
   static MFBT_API void Shutdown();
+
+#if defined(DEBUG)
+  TimeStampValue GetValue() const { return mValue; }
+#endif
 
  private:
   friend struct IPC::ParamTraits<mozilla::TimeStamp>;

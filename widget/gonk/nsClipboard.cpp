@@ -26,14 +26,15 @@ using mozilla::dom::ContentChild;
 #define LOGI(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
 #define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
 
-NS_IMPL_ISUPPORTS(nsClipboard, nsIClipboard)
+NS_IMPL_ISUPPORTS_INHERITED0(nsClipboard, ClipboardSetDataHelper)
 
 nsClipboard::nsClipboard()
     : mClipboard(mozilla::MakeUnique<GonkClipboardData>()) {}
 
 NS_IMETHODIMP
-nsClipboard::SetData(nsITransferable* aTransferable, nsIClipboardOwner* anOwner,
-                     int32_t aWhichClipboard) {
+nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
+                                    nsIClipboardOwner* aOwner,
+                                    int32_t aWhichClipboard) {
   if (aWhichClipboard != kGlobalClipboard) {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
@@ -41,7 +42,7 @@ nsClipboard::SetData(nsITransferable* aTransferable, nsIClipboardOwner* anOwner,
   if (!XRE_IsParentProcess()) {
     // Re-direct to the clipboard proxy.
     RefPtr<nsClipboardProxy> clipboardProxy = new nsClipboardProxy();
-    return clipboardProxy->SetData(aTransferable, anOwner, aWhichClipboard);
+    return clipboardProxy->SetData(aTransferable, aOwner, aWhichClipboard);
   }
 
   // Clear out the clipboard in order to set the new data.

@@ -201,15 +201,6 @@ class FetchBody : public BodyStreamHolder, public AbortFollower {
   // to the Console.
   void SetBodyUsed(JSContext* aCx, ErrorResult& aRv);
 
-  // BodyStreamHolder
-  void NullifyStream() override {
-    BodyStreamHolder::NullifyStream();
-    mReadableStreamReader = nullptr;
-    mFetchStreamReader = nullptr;
-  }
-
-  void MarkAsRead() override { mBodyUsed = true; }
-
   virtual AbortSignalImpl* GetSignalImpl() const = 0;
 
   virtual AbortSignalImpl* GetSignalImplToConsumeBody() const = 0;
@@ -226,7 +217,6 @@ class FetchBody : public BodyStreamHolder, public AbortFollower {
 
   // This is the Reader used to retrieve data from the body. This needs to be
   // traversed by subclasses.
-  RefPtr<ReadableStreamDefaultReader> mReadableStreamReader;
   RefPtr<FetchStreamReader> mFetchStreamReader;
 
   explicit FetchBody(nsIGlobalObject* aOwner);

@@ -71,7 +71,6 @@
 #include "nsIURIWithSpecialOrigin.h"
 #include "nsIViewSourceChannel.h"
 #include "nsInterfaceRequestorAgg.h"
-#include "plstr.h"
 #include "nsINestedURI.h"
 #include "mozilla/dom/nsCSPUtils.h"
 #include "mozilla/dom/nsHTTPSOnlyUtils.h"

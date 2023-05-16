@@ -3126,9 +3126,9 @@ void LIRGenerator::visitRegExpSearcher(MRegExpSearcher* ins) {
   MOZ_ASSERT(ins->lastIndex()->type() == MIRType::Int32);
 
   LRegExpSearcher* lir = new (alloc()) LRegExpSearcher(
-      useFixedAtStart(ins->regexp(), RegExpTesterRegExpReg),
-      useFixedAtStart(ins->string(), RegExpTesterStringReg),
-      useFixedAtStart(ins->lastIndex(), RegExpTesterLastIndexReg));
+      useFixedAtStart(ins->regexp(), RegExpSearcherRegExpReg),
+      useFixedAtStart(ins->string(), RegExpSearcherStringReg),
+      useFixedAtStart(ins->lastIndex(), RegExpSearcherLastIndexReg));
   defineReturn(lir, ins);
   assignSafepoint(lir, ins);
 }
@@ -3139,8 +3139,7 @@ void LIRGenerator::visitRegExpExecMatch(MRegExpExecMatch* ins) {
 
   auto* lir = new (alloc())
       LRegExpExecMatch(useFixedAtStart(ins->regexp(), RegExpMatcherRegExpReg),
-                       useFixedAtStart(ins->string(), RegExpMatcherStringReg),
-                       tempFixed(RegExpMatcherLastIndexReg));
+                       useFixedAtStart(ins->string(), RegExpMatcherStringReg));
   defineReturn(lir, ins);
   assignSafepoint(lir, ins);
 }
@@ -3150,9 +3149,8 @@ void LIRGenerator::visitRegExpExecTest(MRegExpExecTest* ins) {
   MOZ_ASSERT(ins->string()->type() == MIRType::String);
 
   auto* lir = new (alloc())
-      LRegExpExecTest(useFixedAtStart(ins->regexp(), RegExpTesterRegExpReg),
-                      useFixedAtStart(ins->string(), RegExpTesterStringReg),
-                      tempFixed(RegExpTesterLastIndexReg));
+      LRegExpExecTest(useFixedAtStart(ins->regexp(), RegExpExecTestRegExpReg),
+                      useFixedAtStart(ins->string(), RegExpExecTestStringReg));
   defineReturn(lir, ins);
   assignSafepoint(lir, ins);
 }

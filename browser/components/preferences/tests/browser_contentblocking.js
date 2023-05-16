@@ -18,7 +18,6 @@ const EMAIL_TP_PREF = "privacy.trackingprotection.emailtracking.enabled";
 const EMAIL_TP_PBM_PREF =
   "privacy.trackingprotection.emailtracking.pbmode.enabled";
 const LEVEL2_PREF = "privacy.annotate_channels.strict_list.enabled";
-const LEVEL2_PBM_PREF = "privacy.annotate_channels.strict_list.pbmode.enabled";
 const REFERRER_PREF = "network.http.referer.disallowCrossSiteRelaxingDefault";
 const REFERRER_TOP_PREF =
   "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation";
@@ -327,7 +326,6 @@ add_task(async function testContentBlockingStandardCategory() {
     [EMAIL_TP_PREF]: null,
     [EMAIL_TP_PBM_PREF]: null,
     [LEVEL2_PREF]: null,
-    [LEVEL2_PBM_PREF]: null,
     [REFERRER_PREF]: null,
     [REFERRER_TOP_PREF]: null,
     [OCSP_PREF]: null,
@@ -376,10 +374,6 @@ add_task(async function testContentBlockingStandardCategory() {
   Services.prefs.setBoolPref(
     LEVEL2_PREF,
     !Services.prefs.getBoolPref(LEVEL2_PREF)
-  );
-  Services.prefs.setBoolPref(
-    LEVEL2_PBM_PREF,
-    !Services.prefs.getBoolPref(LEVEL2_PBM_PREF)
   );
   Services.prefs.setBoolPref(
     REFERRER_PREF,
@@ -461,7 +455,6 @@ add_task(async function testContentBlockingStrictCategory() {
   Services.prefs.setBoolPref(EMAIL_TP_PREF, false);
   Services.prefs.setBoolPref(EMAIL_TP_PBM_PREF, false);
   Services.prefs.setBoolPref(LEVEL2_PREF, false);
-  Services.prefs.setBoolPref(LEVEL2_PBM_PREF, false);
   Services.prefs.setBoolPref(REFERRER_PREF, false);
   Services.prefs.setBoolPref(REFERRER_TOP_PREF, false);
   Services.prefs.setBoolPref(OCSP_PREF, false);
@@ -599,20 +592,6 @@ add_task(async function testContentBlockingStrictCategory() {
       case "-lvl2":
         is(
           Services.prefs.getBoolPref(LEVEL2_PREF),
-          false,
-          `${CM_PREF} has been set to false`
-        );
-        break;
-      case "lvl2PBM":
-        is(
-          Services.prefs.getBoolPref(LEVEL2_PBM_PREF),
-          true,
-          `${CM_PREF} has been set to true`
-        );
-        break;
-      case "-lvl2PBM":
-        is(
-          Services.prefs.getBoolPref(LEVEL2_PBM_PREF),
           false,
           `${CM_PREF} has been set to false`
         );
@@ -963,6 +942,119 @@ add_task(async function testContentBlockingDependentTPControls() {
   await openPreferencesViaOpenPreferencesAPI("privacy", { leaveOpen: true });
   let doc = gBrowser.contentDocument;
   checkControlState(doc, disabledControls, false);
+
+  gBrowser.removeCurrentTab();
+});
+
+// Checks that disabling tracking protection also disables email tracking protection.
+add_task(async function testDisableTPCheckBoxDisablesEmailTP() {
+  SpecialPowers.pushPrefEnv({
+    set: [
+      [TP_PREF, false],
+      [TP_PBM_PREF, true],
+      [EMAIL_TP_PREF, false],
+      [EMAIL_TP_PBM_PREF, true],
+      [CAT_PREF, "custom"],
+    ],
+  });
+
+  await openPreferencesViaOpenPreferencesAPI("privacy", { leaveOpen: true });
+  let doc = gBrowser.contentDocument;
+
+  // Click the checkbox to disable TP and check if this disables Email TP.
+  let tpCheckbox = doc.getElementById(
+    "contentBlockingTrackingProtectionCheckbox"
+  );
+
+  // Verify the initial check state of the tracking protection checkbox.
+  is(
+    tpCheckbox.getAttribute("checked"),
+    "true",
+    "Tracking protection checkbox is checked initially"
+  );
+
+  tpCheckbox.click();
+
+  // Verify the checkbox is unchecked after clicking.
+  is(
+    tpCheckbox.getAttribute("checked"),
+    "",
+    "Tracking protection checkbox is unchecked"
+  );
+
+  // Verify the pref states.
+  is(
+    Services.prefs.getBoolPref(EMAIL_TP_PREF),
+    false,
+    `${EMAIL_TP_PREF} has been set to false`
+  );
+
+  is(
+    Services.prefs.getBoolPref(EMAIL_TP_PBM_PREF),
+    false,
+    `${EMAIL_TP_PBM_PREF} has been set to false`
+  );
+
+  gBrowser.removeCurrentTab();
+});
+
+// Checks that the email tracking prefs set properly with tracking protection
+// drop downs.
+add_task(async function testTPMenuForEmailTP() {
+  SpecialPowers.pushPrefEnv({
+    set: [
+      [TP_PREF, false],
+      [TP_PBM_PREF, true],
+      [EMAIL_TP_PREF, false],
+      [EMAIL_TP_PBM_PREF, true],
+      [CAT_PREF, "custom"],
+    ],
+  });
+
+  await openPreferencesViaOpenPreferencesAPI("privacy", { leaveOpen: true });
+  let doc = gBrowser.contentDocument;
+
+  let menu = doc.querySelector("#trackingProtectionMenu");
+  let always = doc.querySelector(
+    "#trackingProtectionMenu > menupopup > menuitem[value=always]"
+  );
+  let privateElement = doc.querySelector(
+    "#trackingProtectionMenu > menupopup > menuitem[value=private]"
+  );
+
+  // Click the always option on the tracking protection drop down.
+  menu.selectedItem = always;
+  always.click();
+
+  // Verify the pref states.
+  is(
+    Services.prefs.getBoolPref(EMAIL_TP_PREF),
+    true,
+    `${EMAIL_TP_PREF} has been set to true`
+  );
+
+  is(
+    Services.prefs.getBoolPref(EMAIL_TP_PBM_PREF),
+    true,
+    `${EMAIL_TP_PBM_PREF} has been set to true`
+  );
+
+  // Click the private-only option on the tracking protection drop down.
+  menu.selectedItem = privateElement;
+  privateElement.click();
+
+  // Verify the pref states.
+  is(
+    Services.prefs.getBoolPref(EMAIL_TP_PREF),
+    false,
+    `${EMAIL_TP_PREF} has been set to false`
+  );
+
+  is(
+    Services.prefs.getBoolPref(EMAIL_TP_PBM_PREF),
+    true,
+    `${EMAIL_TP_PBM_PREF} has been set to true`
+  );
 
   gBrowser.removeCurrentTab();
 });

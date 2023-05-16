@@ -8160,28 +8160,15 @@ bool CacheIRCompiler::emitRegExpBuiltinExecMatchResult(
   Register input = allocator.useRegister(masm, inputId);
   AutoScratchRegister lastIndex(allocator, masm);
 
-  // Discard the stack to ensure it's balanced when we skip the vm-call.
-  allocator.discardStack(masm);
+  callvm.prepare();
+  masm.Push(ImmWord(0));  // nullptr MatchPairs.
+  masm.Push(input);
+  masm.Push(regexp);
 
-  Label done;
-  masm.loadAndUpdateRegExpLastIndex(/* forTest = */ false, regexp, input,
-                                    lastIndex, callvm.output().valueReg(),
-                                    &done);
-
-  {
-    callvm.prepare();
-    masm.Push(ImmWord(0));  // nullptr MatchPairs.
-    masm.Push(lastIndex);
-    masm.Push(input);
-    masm.Push(regexp);
-
-    using Fn = bool (*)(JSContext*, Handle<RegExpObject*> regexp,
-                        HandleString input, int32_t lastIndex,
-                        MatchPairs* pairs, MutableHandleValue output);
-    callvm.call<Fn, RegExpBuiltinExecMatchRaw<true>>();
-  }
-
-  masm.bind(&done);
+  using Fn =
+      bool (*)(JSContext*, Handle<RegExpObject*> regexp, HandleString input,
+               MatchPairs* pairs, MutableHandleValue output);
+  callvm.call<Fn, RegExpBuiltinExecMatchFromJit>();
   return true;
 }
 
@@ -8195,26 +8182,13 @@ bool CacheIRCompiler::emitRegExpBuiltinExecTestResult(ObjOperandId regexpId,
   Register input = allocator.useRegister(masm, inputId);
   AutoScratchRegister lastIndex(allocator, masm);
 
-  // Discard the stack to ensure it's balanced when we skip the vm-call.
-  allocator.discardStack(masm);
+  callvm.prepare();
+  masm.Push(input);
+  masm.Push(regexp);
 
-  Label done;
-  masm.loadAndUpdateRegExpLastIndex(/* forTest = */ true, regexp, input,
-                                    lastIndex, callvm.output().valueReg(),
-                                    &done);
-
-  {
-    callvm.prepare();
-    masm.Push(lastIndex);
-    masm.Push(input);
-    masm.Push(regexp);
-
-    using Fn = bool (*)(JSContext*, Handle<RegExpObject*> regexp,
-                        HandleString input, int32_t lastIndex, bool* result);
-    callvm.call<Fn, RegExpBuiltinExecTestRaw<true>>();
-  }
-
-  masm.bind(&done);
+  using Fn = bool (*)(JSContext*, Handle<RegExpObject*> regexp,
+                      HandleString input, bool* result);
+  callvm.call<Fn, RegExpBuiltinExecTestFromJit>();
   return true;
 }
 

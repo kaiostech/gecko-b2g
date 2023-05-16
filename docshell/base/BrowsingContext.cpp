@@ -48,6 +48,7 @@
 #include "mozilla/dom/WindowProxyHolder.h"
 #include "mozilla/dom/SyncedContextInlines.h"
 #include "mozilla/dom/XULFrameElement.h"
+#include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/net/DocumentLoadListener.h"
 #include "mozilla/net/RequestContextService.h"
 #include "mozilla/Assertions.h"
@@ -534,9 +535,9 @@ void BrowsingContext::EnsureAttached() {
 }
 
 /* static */
-void BrowsingContext::CreateFromIPC(BrowsingContext::IPCInitializer&& aInit,
-                                    BrowsingContextGroup* aGroup,
-                                    ContentParent* aOriginProcess) {
+mozilla::ipc::IPCResult BrowsingContext::CreateFromIPC(
+    BrowsingContext::IPCInitializer&& aInit, BrowsingContextGroup* aGroup,
+    ContentParent* aOriginProcess) {
   MOZ_DIAGNOSTIC_ASSERT(aOriginProcess || XRE_IsContentProcess());
   MOZ_DIAGNOSTIC_ASSERT(aGroup);
 
@@ -587,7 +588,7 @@ void BrowsingContext::CreateFromIPC(BrowsingContext::IPCInitializer&& aInit,
 
   Register(context);
 
-  context->Attach(/* aFromIPC */ true, aOriginProcess);
+  return context->Attach(/* aFromIPC */ true, aOriginProcess);
 }
 
 BrowsingContext::BrowsingContext(WindowContext* aParentWindow,
@@ -801,7 +802,8 @@ void BrowsingContext::Embed() {
   }
 }
 
-void BrowsingContext::Attach(bool aFromIPC, ContentParent* aOriginProcess) {
+mozilla::ipc::IPCResult BrowsingContext::Attach(bool aFromIPC,
+                                                ContentParent* aOriginProcess) {
   MOZ_DIAGNOSTIC_ASSERT(!mEverAttached);
   MOZ_DIAGNOSTIC_ASSERT_IF(aFromIPC, aOriginProcess || XRE_IsContentProcess());
   mEverAttached = true;
@@ -820,14 +822,29 @@ void BrowsingContext::Attach(bool aFromIPC, ContentParent* aOriginProcess) {
   MOZ_DIAGNOSTIC_ASSERT(mGroup);
   MOZ_DIAGNOSTIC_ASSERT(!mIsDiscarded);
 
-  MOZ_DIAGNOSTIC_ASSERT(
-      mGroup->IsPotentiallyCrossOriginIsolated() ==
+  if (mGroup->IsPotentiallyCrossOriginIsolated() !=
       (Top()->GetOpenerPolicy() ==
-       nsILoadInfo::OPENER_POLICY_SAME_ORIGIN_EMBEDDER_POLICY_REQUIRE_CORP));
+       nsILoadInfo::OPENER_POLICY_SAME_ORIGIN_EMBEDDER_POLICY_REQUIRE_CORP)) {
+    MOZ_DIAGNOSTIC_ASSERT(aFromIPC);
+    if (aFromIPC) {
+      auto* actor = aOriginProcess
+                        ? static_cast<mozilla::ipc::IProtocol*>(aOriginProcess)
+                        : static_cast<mozilla::ipc::IProtocol*>(
+                              ContentChild::GetSingleton());
+      return IPC_FAIL(
+          actor,
+          "Invalid CrossOriginIsolated state in BrowsingContext::Attach call");
+    } else {
+      MOZ_CRASH(
+          "Invalid CrossOriginIsolated state in BrowsingContext::Attach call");
+    }
+  }
 
   AssertCoherentLoadContext();
 
   // Add ourselves either to our parent or BrowsingContextGroup's child list.
+  // Important: We shouldn't return IPC_FAIL after this point, since the
+  // BrowsingContext will have already been added to the tree.
   if (mParentWindow) {
     if (!aFromIPC) {
       MOZ_DIAGNOSTIC_ASSERT(!mParentWindow->IsDiscarded(),
@@ -905,6 +922,7 @@ void BrowsingContext::Attach(bool aFromIPC, ContentParent* aOriginProcess) {
   if (XRE_IsParentProcess()) {
     Canonical()->CanonicalAttach();
   }
+  return IPC_OK();
 }
 
 void BrowsingContext::Detach(bool aFromIPC) {

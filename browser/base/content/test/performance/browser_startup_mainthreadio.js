@@ -271,6 +271,15 @@ const startupPhases = {
       condition: WIN,
       stat: 1,
     },
+    {
+      // bug 1833104 has context - this is artifact-only so doesn't affect
+      // any real users, will just show up for developer builds and
+      // artifact trypushes so we include it here.
+      path: "GreD:jogfile.json",
+      condition:
+        WIN && Services.prefs.getBoolPref("telemetry.fog.artifact_build"),
+      stat: 1,
+    },
   ],
 
   // We reach this phase right after showing the first browser window.
@@ -390,50 +399,6 @@ const startupPhases = {
       close: 1,
     },
     {
-      // bug 1370516 - NSS should be initialized off main thread.
-      path: `ProfD:cert9.db`,
-      condition: WIN,
-      read: 5,
-      stat: AppConstants.NIGHTLY_BUILD ? 5 : 4,
-    },
-    {
-      // bug 1370516 - NSS should be initialized off main thread.
-      path: `ProfD:cert9.db-journal`,
-      condition: WIN,
-      stat: 3,
-    },
-    {
-      // bug 1370516 - NSS should be initialized off main thread.
-      path: `ProfD:cert9.db-wal`,
-      condition: WIN,
-      stat: 3,
-    },
-    {
-      // bug 1370516 - NSS should be initialized off main thread.
-      path: "ProfD:pkcs11.txt",
-      condition: WIN,
-      read: 2,
-    },
-    {
-      // bug 1370516 - NSS should be initialized off main thread.
-      path: `ProfD:key4.db`,
-      condition: WIN,
-      read: 8,
-      stat: AppConstants.NIGHTLY_BUILD ? 5 : 4,
-    },
-    {
-      // bug 1370516 - NSS should be initialized off main thread.
-      path: `ProfD:key4.db-journal`,
-      condition: WIN,
-      stat: 5,
-    },
-    {
-      // bug 1370516 - NSS should be initialized off main thread.
-      path: `ProfD:key4.db-wal`,
-      condition: WIN,
-      stat: 5,
-    },
-    {
       path: "XREAppFeat:webcompat-reporter@mozilla.org.xpi",
       condition: !WIN,
       ignoreIfUnused: true,
@@ -462,6 +427,50 @@ const startupPhases = {
   // be listed here.
   "before becoming idle": [
     {
+      // bug 1370516 - NSS should be initialized off main thread.
+      path: `ProfD:cert9.db`,
+      condition: WIN,
+      read: 5,
+      stat: AppConstants.NIGHTLY_BUILD ? 5 : 4,
+    },
+    {
+      // bug 1370516 - NSS should be initialized off main thread.
+      path: `ProfD:cert9.db-journal`,
+      condition: WIN,
+      stat: 3,
+    },
+    {
+      // bug 1370516 - NSS should be initialized off main thread.
+      path: `ProfD:cert9.db-wal`,
+      condition: WIN,
+      stat: 3,
+    },
+    {
+      // bug 1370516 - NSS should be initialized off main thread.
+      path: "ProfD:pkcs11.txt",
+      condition: WIN,
+      read: 2,
+    },
+    {
+      // bug 1370516 - NSS should be initialized off main thread.
+      path: `ProfD:key4.db`,
+      condition: WIN,
+      read: 10,
+      stat: AppConstants.NIGHTLY_BUILD ? 5 : 4,
+    },
+    {
+      // bug 1370516 - NSS should be initialized off main thread.
+      path: `ProfD:key4.db-journal`,
+      condition: WIN,
+      stat: 7,
+    },
+    {
+      // bug 1370516 - NSS should be initialized off main thread.
+      path: `ProfD:key4.db-wal`,
+      condition: WIN,
+      stat: 7,
+    },
+    {
       path: "XREAppFeat:screenshots@mozilla.org.xpi",
       ignoreIfUnused: true,
       close: 1,
@@ -471,6 +480,20 @@ const startupPhases = {
       ignoreIfUnused: true,
       stat: 1,
       close: 1,
+    },
+    {
+      // bug 1833110, utility process instantiation due to JS ORB validator.
+      path: "*ld.so.conf*",
+      condition:
+        LINUX &&
+        !AppConstants.MOZ_CODE_COVERAGE &&
+        Services.prefs.getBoolPref(
+          "browser.opaqueResponseBlocking.javascriptValidator"
+        ),
+      read: 14,
+      /* Whether this happens before or after idle is racy: */
+      ignoreIfUnused: true,
+      close: 7,
     },
     {
       // bug 1391590
@@ -539,16 +562,6 @@ const startupPhases = {
       read: 8,
       stat: 4,
       write: 1300,
-    },
-    {
-      path: `ProfD:key4.db-journal`,
-      condition: WIN,
-      stat: 2,
-    },
-    {
-      path: `ProfD:key4.db-wal`,
-      condition: WIN,
-      stat: 2,
     },
     {
       path: "ProfD:",

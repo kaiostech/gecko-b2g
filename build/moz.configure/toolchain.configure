@@ -544,20 +544,6 @@ def get_vc_paths(topsrcdir):
         yield (Version(install["installationVersion"]), tools_path)
 
 
-option(
-    "--with-visual-studio-version",
-    nargs=1,
-    choices=("2017",),
-    when=host_is_windows,
-    help="Select a specific Visual Studio version to use",
-)
-
-
-@depends_if("--with-visual-studio-version", when=host_is_windows)
-def vs_version(value):
-    return value[0]
-
-
 @depends(target, host)
 def is_windows(target, host):
     return host.kernel == "WINNT" or target.kernel == "WINNT"
@@ -598,7 +584,6 @@ option(
 
 @depends(
     host,
-    vs_version,
     build_environment,
     "VC_PATH",
     winsysroot,
@@ -606,10 +591,7 @@ option(
 )
 @imports("os")
 @imports(_from="operator", _import="itemgetter")
-def vc_compiler_paths_for_version(host, vs_version, env, vc_path, winsysroot):
-    if (vc_path or winsysroot) and vs_version:
-        var = "VC_PATH" if vc_path else "WINSYSROOT"
-        die(f"{var} and --with-visual-studio-version cannot be used together.")
+def vc_compiler_paths_for_version(host, env, vc_path, winsysroot):
     if winsysroot:
         if vc_path:
             die("WINSYSROOT and VC_PATH cannot be set together.")
@@ -626,15 +608,8 @@ def vc_compiler_paths_for_version(host, vs_version, env, vc_path, winsysroot):
         all_versions = sorted(get_vc_paths(env.topsrcdir), key=itemgetter(0))
     if not all_versions:
         return
-    if vs_version:
-        vs_major_version = {"2017": 15}[vs_version]
-        versions = [d for (v, d) in all_versions if v.major == vs_major_version]
-        if not versions:
-            die("Visual Studio %s could not be found!" % vs_version)
-        path = versions[0]
-    else:
-        # Choose the newest version.
-        path = all_versions[-1][1]
+    # Choose the newest version.
+    path = all_versions[-1][1]
     host_dir = {
         "x86_64": "Hostx64",
         "x86": "Hostx86",
@@ -689,15 +664,32 @@ def vc_compiler_version(vc_compiler_path):
     )
     # MSVC path with version 14.x is actually version 19.x
     if version.major == 14:
-        return f"19.{version.minor}"
+        return Version(f"19.{version.minor}")
 
 
 @depends_if(vc_compiler_version)
 def is_vs2019_or_more(vc_compiler_version):
-    return Version(vc_compiler_version) >= Version("19.20")
+    return vc_compiler_version >= Version("19.20")
 
 
 add_old_configure_assignment("IS_VS2019_OR_MORE", is_vs2019_or_more)
+
+
+@depends_if(vc_compiler_version)
+def msvs_version(vc_compiler_version):
+    # clang-cl emulates the same version scheme as cl. And MSVS_VERSION needs to
+    # be set for GYP on Windows.
+    if vc_compiler_version >= Version("19.30"):
+        return "2022"
+    if vc_compiler_version >= Version("19.20"):
+        return "2019"
+    if vc_compiler_version >= Version("19.10"):
+        return "2017"
+
+    return ""
+
+
+set_config("MSVS_VERSION", msvs_version)
 
 
 clang_search_path = bootstrap_search_path("clang/bin")
@@ -1973,18 +1965,6 @@ def gcc_use_gnu_ld(select_linker, target, c_compiler):
 set_config("GCC_USE_GNU_LD", gcc_use_gnu_ld)
 add_old_configure_assignment("GCC_USE_GNU_LD", gcc_use_gnu_ld)
 
-
-@depends(c_compiler)
-def msvs_version(info):
-    # clang-cl emulates the same version scheme as cl. And MSVS_VERSION needs to
-    # be set for GYP on Windows.
-    if info.type == "clang-cl":
-        return "2017"
-
-    return ""
-
-
-set_config("MSVS_VERSION", msvs_version)
 
 include("compile-checks.configure")
 include("arm.configure", when=depends(target.cpu)(lambda cpu: cpu == "arm"))

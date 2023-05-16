@@ -315,7 +315,7 @@ EXPORTS.ipc = [
 if CONFIG["MOZ_X11"] or CONFIG["MOZ_WAYLAND"]:
     DIRS += ["x11"]
 
-if toolkit in {"gtk", "cocoa", "windows", "android", "uikit"}:
+if toolkit in {"gtk", "cocoa", "windows", "android", "uikit", "gonk"}:
     UNIFIED_SOURCES += [
         "nsBaseFilePicker.cpp",
     ]

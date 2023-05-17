@@ -8418,6 +8418,17 @@ var gCSSProperties = {
     invalid_values: [],
     quirks_values: { "5": "5px" },
   },
+  "baseline-source": {
+    domProp: "baselineSource",
+    inherited: false,
+    type: CSS_TYPE_LONGHAND,
+    applies_to_first_letter: true,
+    applies_to_first_line: true,
+    applies_to_placeholder: true,
+    initial_values: ["auto"],
+    other_values: ["first", "last"],
+    invalid_values: [],
+  },
   visibility: {
     domProp: "visibility",
     inherited: true,
@@ -12023,16 +12034,14 @@ gCSSProperties["touch-action"] = {
   ],
 };
 
-if (IsCSSPropertyPrefEnabled("layout.css.named-pages.enabled")) {
-  gCSSProperties["page"] = {
-    domProp: "page",
-    inherited: false,
-    type: CSS_TYPE_LONGHAND,
-    initial_values: ["auto"],
-    other_values: ["page", "small_page", "large_page", "A4"],
-    invalid_values: ["page1 page2", "auto page", "1cm"],
-  };
-}
+gCSSProperties["page"] = {
+  domProp: "page",
+  inherited: false,
+  type: CSS_TYPE_LONGHAND,
+  initial_values: ["auto"],
+  other_values: ["page", "small_page", "large_page", "A4"],
+  invalid_values: ["page1 page2", "auto page", "1cm"],
+};
 
 gCSSProperties["text-justify"] = {
   domProp: "textJustify",

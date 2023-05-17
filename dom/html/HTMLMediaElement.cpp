@@ -2430,7 +2430,7 @@ void HTMLMediaElement::AbortExistingLoads() {
   if (IsVideo() && hadVideo) {
     // Ensure we render transparent black after resetting video resolution.
     Maybe<nsIntSize> size = Some(nsIntSize(0, 0));
-    Invalidate(true, size, false);
+    Invalidate(ImageSizeChanged::Yes, size, ForceInvalidate::No);
   }
 
   // As aborting current load would stop current playback, so we have no need to
@@ -5602,6 +5602,8 @@ void HTMLMediaElement::MetadataLoaded(const MediaInfo* aInfo,
   DispatchAsyncEvent(u"durationchange"_ns);
   if (IsVideo() && HasVideo()) {
     DispatchAsyncEvent(u"resize"_ns);
+    Invalidate(ImageSizeChanged::No, Some(mMediaInfo.mVideo.mDisplay),
+               ForceInvalidate::No);
   }
   NS_ASSERTION(!HasVideo() || (mMediaInfo.mVideo.mDisplay.width > 0 &&
                                mMediaInfo.mVideo.mDisplay.height > 0),
@@ -6559,9 +6561,9 @@ void HTMLMediaElement::NotifyDecoderPrincipalChanged() {
   mDecoder->SetOutputTracksPrincipal(principal);
 }
 
-void HTMLMediaElement::Invalidate(bool aImageSizeChanged,
+void HTMLMediaElement::Invalidate(ImageSizeChanged aImageSizeChanged,
                                   const Maybe<nsIntSize>& aNewIntrinsicSize,
-                                  bool aForceInvalidate) {
+                                  ForceInvalidate aForceInvalidate) {
   nsIFrame* frame = GetPrimaryFrame();
   if (aNewIntrinsicSize) {
     UpdateMediaSize(aNewIntrinsicSize.value());
@@ -6575,10 +6577,10 @@ void HTMLMediaElement::Invalidate(bool aImageSizeChanged,
   }
 
   RefPtr<ImageContainer> imageContainer = GetImageContainer();
-  bool asyncInvalidate =
-      imageContainer && imageContainer->IsAsync() && !aForceInvalidate;
+  bool asyncInvalidate = imageContainer && imageContainer->IsAsync() &&
+                         aForceInvalidate == ForceInvalidate::No;
   if (frame) {
-    if (aImageSizeChanged) {
+    if (aImageSizeChanged == ImageSizeChanged::Yes) {
       frame->InvalidateFrame();
     } else {
       frame->InvalidateLayer(DisplayItemType::TYPE_VIDEO, nullptr, nullptr,

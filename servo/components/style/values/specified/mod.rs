@@ -44,7 +44,7 @@ pub use self::box_::{Contain, Display};
 pub use self::box_::{OverflowClipBox, OverscrollBehavior, Perspective, Resize, ScrollbarGutter};
 pub use self::box_::{ScrollSnapAlign, ScrollSnapAxis, ScrollSnapStop};
 pub use self::box_::{ScrollSnapStrictness, ScrollSnapType};
-pub use self::box_::{TouchAction, VerticalAlign, WillChange};
+pub use self::box_::{BaselineSource, TouchAction, VerticalAlign, WillChange};
 pub use self::color::{
     Color, ColorOrAuto, ColorPropertyValue, ColorScheme, ForcedColorAdjust, PrintColorAdjust,
 };
@@ -879,12 +879,7 @@ impl Parse for Attr {
 
 /// Get the Namespace for a given prefix from the namespace map.
 fn get_namespace_for_prefix(prefix: &Prefix, context: &ParserContext) -> Option<Namespace> {
-    context
-        .namespaces
-        .as_ref()?
-        .prefixes
-        .get(prefix)
-        .map(|x| x.clone())
+    context.namespaces.prefixes.get(prefix).cloned()
 }
 
 impl Attr {

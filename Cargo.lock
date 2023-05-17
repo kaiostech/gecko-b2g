@@ -1017,8 +1017,7 @@ dependencies = [
 [[package]]
 name = "cssparser"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c18bf42b9ab91d1d7ce0192f5b432c9ab6a5728206f25ab6cb0eb61fea25bccc"
+source = "git+https://github.com/servo/rust-cssparser?rev=6ce91afdf292c4290118843e7421e146f0a4c48b#6ce91afdf292c4290118843e7421e146f0a4c48b"
 dependencies = [
  "cssparser-macros",
  "dtoa-short",
@@ -1033,8 +1032,7 @@ dependencies = [
 [[package]]
 name = "cssparser-macros"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfae75de57f2b2e85e8768c3ea840fd159c8f33e2b6522c7835b7abac81be16e"
+source = "git+https://github.com/servo/rust-cssparser?rev=6ce91afdf292c4290118843e7421e146f0a4c48b#6ce91afdf292c4290118843e7421e146f0a4c48b"
 dependencies = [
  "quote",
  "syn",
@@ -2161,6 +2159,7 @@ dependencies = [
  "mapped_hyph",
  "mdns_service",
  "midir_impl",
+ "mime-guess-ffi",
  "mio 0.8.0",
  "moz_asserts",
  "mozglue-static",
@@ -3239,6 +3238,14 @@ name = "mime"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a60c7ce501c71e03a9c9c0d35b861413ae925bd979cc7a4e30d060069aaac8d"
+
+[[package]]
+name = "mime-guess-ffi"
+version = "0.1.0"
+dependencies = [
+ "mime_guess",
+ "nsstring",
+]
 
 [[package]]
 name = "mime_guess"

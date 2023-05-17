@@ -24,6 +24,7 @@ include NeckoChannelParams;
 include WindowGlobalTypes;
 include IPCBlob;
 include IPCStream;
+include IPCTransferable;
 include URIParams;
 include PPrintingTypes;
 include PTabContext;
@@ -642,7 +643,7 @@ parent:
     [Nested=inside_sync] sync DispatchKeyboardEvent(WidgetKeyboardEvent event);
     [Nested=inside_sync] sync DispatchTouchEvent(WidgetTouchEvent event);
 
-    async InvokeDragSession(IPCDataTransfer[] transfers, uint32_t action,
+    async InvokeDragSession(IPCTransferableData[] transfers, uint32_t action,
                             BigBuffer? visualData,
                             uint32_t stride, SurfaceFormat format,
                             LayoutDeviceIntRect dragRect,
@@ -885,7 +886,8 @@ child:
      * Call PasteTransferable via a controller on the content process
      * to handle the command content event, "pasteTransferable".
      */
-    async PasteTransferable(IPCDataTransfer aDataTransfer,
+    // XXX Do we really need data other than IPCTransferableData? See bug 1833172.
+    async PasteTransferable(IPCTransferableData aTransferableData,
                             bool aIsPrivateData,
                             nullable nsIPrincipal aRequestingPrincipal,
                             nsContentPolicyType aContentPolicyType);

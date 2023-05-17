@@ -2086,13 +2086,15 @@ nscoord nsIFrame::SynthesizeFallbackBaseline(
 }
 
 nscoord nsIFrame::GetLogicalBaseline(WritingMode aWM) const {
-  return GetLogicalBaseline(aWM, GetDefaultBaselineSharingGroup());
+  return GetLogicalBaseline(aWM, GetDefaultBaselineSharingGroup(),
+                            BaselineExportContext::LineLayout);
 }
 
 nscoord nsIFrame::GetLogicalBaseline(
-    WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
+    WritingMode aWM, BaselineSharingGroup aBaselineGroup,
+    BaselineExportContext aExportContext) const {
   const auto result =
-      GetNaturalBaselineBOffset(aWM, aBaselineGroup)
+      GetNaturalBaselineBOffset(aWM, aBaselineGroup, aExportContext)
           .valueOrFrom([this, aWM, aBaselineGroup]() {
             return SynthesizeFallbackBaseline(aWM, aBaselineGroup);
           });
@@ -2152,9 +2154,6 @@ nsIFrame::CaretBlockAxisMetrics nsIFrame::GetCaretBlockAxisMetrics(
 }
 
 const nsAtom* nsIFrame::ComputePageValue() const {
-  if (!StaticPrefs::layout_css_named_pages_enabled()) {
-    return nsGkAtoms::_empty;
-  }
   const nsAtom* value = nsGkAtoms::_empty;
   const nsIFrame* frame = this;
   do {

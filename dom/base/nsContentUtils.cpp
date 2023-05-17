@@ -7887,8 +7887,8 @@ void nsContentUtils::CallOnAllRemoteChildren(
   }
 }
 
-bool nsContentUtils::IPCDataTransferItemHasKnownFlavor(
-    const IPCDataTransferItem& aItem) {
+bool nsContentUtils::IPCTransferableDataItemHasKnownFlavor(
+    const IPCTransferableDataItem& aItem) {
   // Unknown types are converted to kCustomTypesMime.
   if (aItem.flavor().EqualsASCII(kCustomTypesMime)) {
     return true;
@@ -7903,16 +7903,16 @@ bool nsContentUtils::IPCDataTransferItemHasKnownFlavor(
   return false;
 }
 
-nsresult nsContentUtils::IPCTransferableToTransferable(
-    const IPCDataTransfer& aDataTransfer, bool aAddDataFlavor,
+nsresult nsContentUtils::IPCTransferableDataToTransferable(
+    const IPCTransferableData& aTransferableData, bool aAddDataFlavor,
     nsITransferable* aTransferable, const bool aFilterUnknownFlavors) {
   nsresult rv;
-  const nsTArray<IPCDataTransferItem>& items = aDataTransfer.items();
+  const nsTArray<IPCTransferableDataItem>& items = aTransferableData.items();
   for (const auto& item : items) {
-    if (aFilterUnknownFlavors && !IPCDataTransferItemHasKnownFlavor(item)) {
+    if (aFilterUnknownFlavors && !IPCTransferableDataItemHasKnownFlavor(item)) {
       NS_WARNING(
           "Ignoring unknown flavor in "
-          "nsContentUtils::IPCTransferableToTransferable");
+          "nsContentUtils::IPCTransferableDataToTransferable");
       continue;
     }
 
@@ -7922,8 +7922,8 @@ nsresult nsContentUtils::IPCTransferableToTransferable(
 
     nsCOMPtr<nsISupports> transferData;
     switch (item.data().type()) {
-      case IPCDataTransferData::TIPCDataTransferString: {
-        const auto& data = item.data().get_IPCDataTransferString();
+      case IPCTransferableDataType::TIPCTransferableDataString: {
+        const auto& data = item.data().get_IPCTransferableDataString();
         nsCOMPtr<nsISupportsString> dataWrapper =
             do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -7934,8 +7934,8 @@ nsresult nsContentUtils::IPCTransferableToTransferable(
         transferData = dataWrapper;
         break;
       }
-      case IPCDataTransferData::TIPCDataTransferCString: {
-        const auto& data = item.data().get_IPCDataTransferCString();
+      case IPCTransferableDataType::TIPCTransferableDataCString: {
+        const auto& data = item.data().get_IPCTransferableDataCString();
         nsCOMPtr<nsISupportsCString> dataWrapper =
             do_CreateInstance(NS_SUPPORTS_CSTRING_CONTRACTID, &rv);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -7946,8 +7946,8 @@ nsresult nsContentUtils::IPCTransferableToTransferable(
         transferData = dataWrapper;
         break;
       }
-      case IPCDataTransferData::TIPCDataTransferInputStream: {
-        const auto& data = item.data().get_IPCDataTransferInputStream();
+      case IPCTransferableDataType::TIPCTransferableDataInputStream: {
+        const auto& data = item.data().get_IPCTransferableDataInputStream();
         nsCOMPtr<nsIInputStream> stream;
         rv = NS_NewByteInputStream(getter_AddRefs(stream),
                                    AsChars(data.data().AsSpan()),
@@ -7956,21 +7956,21 @@ nsresult nsContentUtils::IPCTransferableToTransferable(
         transferData = stream.forget();
         break;
       }
-      case IPCDataTransferData::TIPCDataTransferImageContainer: {
-        const auto& data = item.data().get_IPCDataTransferImageContainer();
+      case IPCTransferableDataType::TIPCTransferableDataImageContainer: {
+        const auto& data = item.data().get_IPCTransferableDataImageContainer();
         nsCOMPtr<imgIContainer> container;
-        rv = DeserializeDataTransferImageContainer(data,
-                                                   getter_AddRefs(container));
+        rv = DeserializeTransferableDataImageContainer(
+            data, getter_AddRefs(container));
         NS_ENSURE_SUCCESS(rv, rv);
         transferData = container;
         break;
       }
-      case IPCDataTransferData::TIPCDataTransferBlob: {
-        const auto& data = item.data().get_IPCDataTransferBlob();
+      case IPCTransferableDataType::TIPCTransferableDataBlob: {
+        const auto& data = item.data().get_IPCTransferableDataBlob();
         transferData = IPCBlobUtils::Deserialize(data.blob());
         break;
       }
-      case IPCDataTransferData::T__None:
+      case IPCTransferableDataType::T__None:
         MOZ_ASSERT_UNREACHABLE();
         return NS_ERROR_FAILURE;
     }
@@ -7981,15 +7981,17 @@ nsresult nsContentUtils::IPCTransferableToTransferable(
   return NS_OK;
 }
 
-nsresult nsContentUtils::IPCTransferableToTransferable(
-    const IPCDataTransfer& aDataTransfer, const bool& aIsPrivateData,
+nsresult nsContentUtils::IPCTransferableDataToTransferable(
+    const IPCTransferableData& aTransferableData, const bool& aIsPrivateData,
     nsIPrincipal* aRequestingPrincipal,
     const nsContentPolicyType& aContentPolicyType, bool aAddDataFlavor,
     nsITransferable* aTransferable, const bool aFilterUnknownFlavors) {
+  // Note that we need to set privacy status of transferable before adding any
+  // data into it.
   aTransferable->SetIsPrivateData(aIsPrivateData);
 
-  nsresult rv = IPCTransferableToTransferable(
-      aDataTransfer, aAddDataFlavor, aTransferable, aFilterUnknownFlavors);
+  nsresult rv = IPCTransferableDataToTransferable(
+      aTransferableData, aAddDataFlavor, aTransferable, aFilterUnknownFlavors);
   NS_ENSURE_SUCCESS(rv, rv);
 
   aTransferable->SetRequestingPrincipal(aRequestingPrincipal);
@@ -7997,27 +7999,46 @@ nsresult nsContentUtils::IPCTransferableToTransferable(
   return NS_OK;
 }
 
-nsresult nsContentUtils::IPCTransferableItemToVariant(
-    const IPCDataTransferItem& aDataTransferItem,
-    nsIWritableVariant* aVariant) {
+nsresult nsContentUtils::IPCTransferableToTransferable(
+    const IPCTransferable& aIPCTransferable, bool aAddDataFlavor,
+    nsITransferable* aTransferable, const bool aFilterUnknownFlavors) {
+  nsresult rv = IPCTransferableDataToTransferable(
+      aIPCTransferable.data(), aIPCTransferable.isPrivateData(),
+      aIPCTransferable.requestingPrincipal(),
+      aIPCTransferable.contentPolicyType(), aAddDataFlavor, aTransferable,
+      aFilterUnknownFlavors);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (aIPCTransferable.cookieJarSettings().isSome()) {
+    nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
+    net::CookieJarSettings::Deserialize(
+        aIPCTransferable.cookieJarSettings().ref(),
+        getter_AddRefs(cookieJarSettings));
+    aTransferable->SetCookieJarSettings(cookieJarSettings);
+  }
+  aTransferable->SetReferrerInfo(aIPCTransferable.referrerInfo());
+  return NS_OK;
+}
+
+nsresult nsContentUtils::IPCTransferableDataItemToVariant(
+    const IPCTransferableDataItem& aItem, nsIWritableVariant* aVariant) {
   MOZ_ASSERT(aVariant);
 
-  switch (aDataTransferItem.data().type()) {
-    case IPCDataTransferData::TIPCDataTransferString: {
-      const auto& data = aDataTransferItem.data().get_IPCDataTransferString();
+  switch (aItem.data().type()) {
+    case IPCTransferableDataType::TIPCTransferableDataString: {
+      const auto& data = aItem.data().get_IPCTransferableDataString();
       return aVariant->SetAsAString(nsDependentSubstring(
           reinterpret_cast<const char16_t*>(data.data().Data()),
           data.data().Size() / sizeof(char16_t)));
     }
-    case IPCDataTransferData::TIPCDataTransferCString: {
-      const auto& data = aDataTransferItem.data().get_IPCDataTransferCString();
+    case IPCTransferableDataType::TIPCTransferableDataCString: {
+      const auto& data = aItem.data().get_IPCTransferableDataCString();
       return aVariant->SetAsACString(nsDependentCSubstring(
           reinterpret_cast<const char*>(data.data().Data()),
           data.data().Size()));
     }
-    case IPCDataTransferData::TIPCDataTransferInputStream: {
-      const auto& data =
-          aDataTransferItem.data().get_IPCDataTransferInputStream();
+    case IPCTransferableDataType::TIPCTransferableDataInputStream: {
+      const auto& data = aItem.data().get_IPCTransferableDataInputStream();
       nsCOMPtr<nsIInputStream> stream;
       nsresult rv = NS_NewByteInputStream(getter_AddRefs(stream),
                                           AsChars(data.data().AsSpan()),
@@ -8025,21 +8046,20 @@ nsresult nsContentUtils::IPCTransferableItemToVariant(
       NS_ENSURE_SUCCESS(rv, rv);
       return aVariant->SetAsISupports(stream);
     }
-    case IPCDataTransferData::TIPCDataTransferImageContainer: {
-      const auto& data =
-          aDataTransferItem.data().get_IPCDataTransferImageContainer();
+    case IPCTransferableDataType::TIPCTransferableDataImageContainer: {
+      const auto& data = aItem.data().get_IPCTransferableDataImageContainer();
       nsCOMPtr<imgIContainer> container;
-      nsresult rv = DeserializeDataTransferImageContainer(
+      nsresult rv = DeserializeTransferableDataImageContainer(
           data, getter_AddRefs(container));
       NS_ENSURE_SUCCESS(rv, rv);
       return aVariant->SetAsISupports(container);
     }
-    case IPCDataTransferData::TIPCDataTransferBlob: {
-      const auto& data = aDataTransferItem.data().get_IPCDataTransferBlob();
+    case IPCTransferableDataType::TIPCTransferableDataBlob: {
+      const auto& data = aItem.data().get_IPCTransferableDataBlob();
       RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(data.blob());
       return aVariant->SetAsISupports(blobImpl);
     }
-    case IPCDataTransferData::T__None:
+    case IPCTransferableDataType::T__None:
       break;
   }
 
@@ -8047,18 +8067,19 @@ nsresult nsContentUtils::IPCTransferableItemToVariant(
   return NS_ERROR_UNEXPECTED;
 }
 
-void nsContentUtils::TransferablesToIPCTransferables(
-    nsIArray* aTransferables, nsTArray<IPCDataTransfer>& aIPC,
+void nsContentUtils::TransferablesToIPCTransferableDatas(
+    nsIArray* aTransferables, nsTArray<IPCTransferableData>& aIPC,
     bool aInSyncMessage, mozilla::dom::ContentParent* aParent) {
   aIPC.Clear();
   if (aTransferables) {
     uint32_t transferableCount = 0;
     aTransferables->GetLength(&transferableCount);
     for (uint32_t i = 0; i < transferableCount; ++i) {
-      IPCDataTransfer* dt = aIPC.AppendElement();
+      IPCTransferableData* dt = aIPC.AppendElement();
       nsCOMPtr<nsITransferable> transferable =
           do_QueryElementAt(aTransferables, i);
-      TransferableToIPCTransferable(transferable, dt, aInSyncMessage, aParent);
+      TransferableToIPCTransferableData(transferable, dt, aInSyncMessage,
+                                        aParent);
     }
   }
 }
@@ -8104,8 +8125,9 @@ static already_AddRefed<DataSourceSurface> BigBufferToDataSurface(
                                          aStride);
 }
 
-nsresult nsContentUtils::DeserializeDataTransferImageContainer(
-    const IPCDataTransferImageContainer& aData, imgIContainer** aContainer) {
+nsresult nsContentUtils::DeserializeTransferableDataImageContainer(
+    const IPCTransferableDataImageContainer& aData,
+    imgIContainer** aContainer) {
   const IntSize size(aData.width(), aData.height());
   size_t maxBufferSize = 0;
   size_t usedBufferSize = 0;
@@ -8139,20 +8161,20 @@ bool nsContentUtils::IsFlavorImage(const nsACString& aFlavor) {
 
 // FIXME: This can probably be removed once bug 1783240 lands, as `nsString`
 // will be implicitly serialized in shmem when sent over IPDL directly.
-static IPCDataTransferString AsIPCDataTransferString(
+static IPCTransferableDataString AsIPCTransferableDataString(
     Span<const char16_t> aInput) {
-  return IPCDataTransferString{BigBuffer(AsBytes(aInput))};
+  return IPCTransferableDataString{BigBuffer(AsBytes(aInput))};
 }
 
 // FIXME: This can probably be removed once bug 1783240 lands, as `nsCString`
 // will be implicitly serialized in shmem when sent over IPDL directly.
-static IPCDataTransferCString AsIPCDataTransferCString(
+static IPCTransferableDataCString AsIPCTransferableDataCString(
     Span<const char> aInput) {
-  return IPCDataTransferCString{BigBuffer(AsBytes(aInput))};
+  return IPCTransferableDataCString{BigBuffer(AsBytes(aInput))};
 }
 
-void nsContentUtils::TransferableToIPCTransferable(
-    nsITransferable* aTransferable, IPCDataTransfer* aIPCDataTransfer,
+void nsContentUtils::TransferableToIPCTransferableData(
+    nsITransferable* aTransferable, IPCTransferableData* aTransferableData,
     bool aInSyncMessage, mozilla::dom::ContentParent* aParent) {
   MOZ_ASSERT_IF(XRE_IsParentProcess(), aParent);
 
@@ -8182,24 +8204,27 @@ void nsContentUtils::TransferableToIPCTransferable(
         // and for OSX we need to create
         // nsContentAreaDragDropDataProvider as nsIFlavorDataProvider.
         if (flavorStr.EqualsLiteral(kFilePromiseMime)) {
-          IPCDataTransferItem* item = aIPCDataTransfer->items().AppendElement();
+          IPCTransferableDataItem* item =
+              aTransferableData->items().AppendElement();
           item->flavor() = flavorStr;
           item->data() =
-              AsIPCDataTransferString(NS_ConvertUTF8toUTF16(flavorStr));
+              AsIPCTransferableDataString(NS_ConvertUTF8toUTF16(flavorStr));
           continue;
         }
 
         // Empty element, transfer only the flavor
-        IPCDataTransferItem* item = aIPCDataTransfer->items().AppendElement();
+        IPCTransferableDataItem* item =
+            aTransferableData->items().AppendElement();
         item->flavor() = flavorStr;
-        item->data() = AsIPCDataTransferString(EmptyString());
+        item->data() = AsIPCTransferableDataString(EmptyString());
         continue;
       }
 
       // We need to handle nsIInputStream before nsISupportsCString, otherwise
       // nsStringInputStream would be converted into a wrong type.
       if (nsCOMPtr<nsIInputStream> stream = do_QueryInterface(data)) {
-        IPCDataTransferItem* item = aIPCDataTransfer->items().AppendElement();
+        IPCTransferableDataItem* item =
+            aTransferableData->items().AppendElement();
         item->flavor() = flavorStr;
         nsCString imageData;
         DebugOnly<nsresult> rv =
@@ -8211,7 +8236,7 @@ void nsContentUtils::TransferableToIPCTransferable(
         // `nsCString` will be implicitly serialized in shmem when sent over
         // IPDL directly.
         item->data() =
-            IPCDataTransferInputStream(BigBuffer(AsBytes(Span(imageData))));
+            IPCTransferableDataInputStream(BigBuffer(AsBytes(Span(imageData))));
         continue;
       }
 
@@ -8219,9 +8244,10 @@ void nsContentUtils::TransferableToIPCTransferable(
         nsAutoString dataAsString;
         MOZ_ALWAYS_SUCCEEDS(text->GetData(dataAsString));
 
-        IPCDataTransferItem* item = aIPCDataTransfer->items().AppendElement();
+        IPCTransferableDataItem* item =
+            aTransferableData->items().AppendElement();
         item->flavor() = flavorStr;
-        item->data() = AsIPCDataTransferString(dataAsString);
+        item->data() = AsIPCTransferableDataString(dataAsString);
         continue;
       }
 
@@ -8229,9 +8255,10 @@ void nsContentUtils::TransferableToIPCTransferable(
         nsAutoCString dataAsString;
         MOZ_ALWAYS_SUCCEEDS(ctext->GetData(dataAsString));
 
-        IPCDataTransferItem* item = aIPCDataTransfer->items().AppendElement();
+        IPCTransferableDataItem* item =
+            aTransferableData->items().AppendElement();
         item->flavor() = flavorStr;
-        item->data() = AsIPCDataTransferCString(dataAsString);
+        item->data() = AsIPCTransferableDataCString(dataAsString);
         continue;
       }
 
@@ -8257,11 +8284,12 @@ void nsContentUtils::TransferableToIPCTransferable(
           continue;
         }
 
-        IPCDataTransferItem* item = aIPCDataTransfer->items().AppendElement();
+        IPCTransferableDataItem* item =
+            aTransferableData->items().AppendElement();
         item->flavor() = flavorStr;
 
         mozilla::gfx::IntSize size = dataSurface->GetSize();
-        item->data() = IPCDataTransferImageContainer(
+        item->data() = IPCTransferableDataImageContainer(
             std::move(*surfaceData), size.width, size.height, stride,
             dataSurface->GetFormat());
         continue;
@@ -8318,12 +8346,37 @@ void nsContentUtils::TransferableToIPCTransferable(
           continue;
         }
 
-        IPCDataTransferItem* item = aIPCDataTransfer->items().AppendElement();
+        IPCTransferableDataItem* item =
+            aTransferableData->items().AppendElement();
         item->flavor() = flavorStr;
-        item->data() = IPCDataTransferBlob(ipcBlob);
+        item->data() = IPCTransferableDataBlob(ipcBlob);
       }
     }
   }
+}
+
+void nsContentUtils::TransferableToIPCTransferable(
+    nsITransferable* aTransferable, IPCTransferable* aIPCTransferable,
+    bool aInSyncMessage, mozilla::dom::ContentParent* aParent) {
+  IPCTransferableData ipcTransferableData;
+  TransferableToIPCTransferableData(aTransferable, &ipcTransferableData,
+                                    aInSyncMessage, aParent);
+
+  Maybe<net::CookieJarSettingsArgs> cookieJarSettingsArgs;
+  if (nsCOMPtr<nsICookieJarSettings> cookieJarSettings =
+          aTransferable->GetCookieJarSettings()) {
+    net::CookieJarSettingsArgs args;
+    net::CookieJarSettings::Cast(cookieJarSettings)->Serialize(args);
+    cookieJarSettingsArgs = Some(std::move(args));
+  }
+
+  aIPCTransferable->data() = std::move(ipcTransferableData);
+  aIPCTransferable->isPrivateData() = aTransferable->GetIsPrivateData();
+  aIPCTransferable->requestingPrincipal() =
+      aTransferable->GetRequestingPrincipal();
+  aIPCTransferable->cookieJarSettings() = std::move(cookieJarSettingsArgs);
+  aIPCTransferable->contentPolicyType() = aTransferable->GetContentPolicyType();
+  aIPCTransferable->referrerInfo() = aTransferable->GetReferrerInfo();
 }
 
 Maybe<BigBuffer> nsContentUtils::GetSurfaceData(DataSourceSurface& aSurface,

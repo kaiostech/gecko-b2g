@@ -101,6 +101,7 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
    */
   virtual void NotifyDataArrived() {}
   RefPtr<SetCDMPromise> SetCDMProxy(CDMProxy* aProxy);
+  bool IsCDMProxySupported(CDMProxy* aProxy);
   void UpdateCompositor(already_AddRefed<layers::KnowsCompositor> aCompositor);
   RefPtr<GenericPromise> RequestDebugInfo(
       dom::MediaFormatReaderDebugInfo& aInfo);

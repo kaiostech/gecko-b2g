@@ -351,6 +351,11 @@ RefPtr<SetCDMPromise> MediaOffloadPlayer::SetCDMProxy(CDMProxy* aProxy) {
   return SetCDMPromise::CreateAndReject(NS_ERROR_ABORT, __func__);
 }
 
+bool MediaOffloadPlayer::IsCDMProxySupported(CDMProxy* aProxy) {
+  return false;
+}
+
+
 void MediaOffloadPlayer::UpdateCompositor(
     already_AddRefed<layers::KnowsCompositor> aCompositor) {
   RefPtr<layers::KnowsCompositor> compositor = aCompositor;

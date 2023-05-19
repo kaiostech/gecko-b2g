@@ -10555,19 +10555,15 @@
     mirror: always
 
 # Using Windows Media Foundation Media Engine for encrypted playback
+# 0 : disable, 1 : enable for encrypted and clear,
+# 2 : enable for encrypted only, 3 : enable for clear only
 -   name: media.wmf.media-engine.enabled
-    type: RelaxedAtomicBool
-    value: false
+    type: RelaxedAtomicUint32
+    value: 0
     mirror: always
 
 # Testing purpose, enable media engine on channel decoder as well.
 -   name: media.wmf.media-engine.channel-decoder.enabled
-    type: RelaxedAtomicBool
-    value: false
-    mirror: always
-
-# This allows playing DRM video via the media engine pipeline.
--   name: media.wmf.media-engine.drm-playback
     type: RelaxedAtomicBool
     value: false
     mirror: always
@@ -11175,7 +11171,16 @@
 #if defined(MOZ_WIDGET_ANDROID)
   value: true
 #else
+  value: @IS_EARLY_BETA_OR_EARLIER@
+#endif
+  mirror: always
+
+- name: media.webrtc.platformencoder.sw_only
+  type: RelaxedAtomicBool
+#if defined(MOZ_WIDGET_ANDROID)
   value: false
+#else
+  value: true
 #endif
   mirror: always
 
@@ -11186,11 +11191,6 @@
 #else
   value: false
 #endif
-  mirror: always
-
-- name: media.webrtc.platformencoder.sw_mft
-  type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 #if defined(XP_MACOSX)

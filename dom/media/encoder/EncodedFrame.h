@@ -61,7 +61,7 @@ class EncodedFrame final {
 
   // The end time of the frame in microseconds.
   media::TimeUnit GetEndTime() const {
-    return mTime + media::TimeUnit(mDuration, mDurationBase);
+    return mTime + FramesToTimeUnit(mDuration, mDurationBase);
   }
 
  private:

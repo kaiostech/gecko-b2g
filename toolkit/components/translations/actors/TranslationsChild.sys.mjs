@@ -4,7 +4,6 @@
 
 /**
  * @typedef {import("../content/translations-document.sys.mjs").TranslationsDocument} TranslationsDocument
- * @typedef {import("../translations").LanguageIdEngineMockedPayload} LanguageIdEngineMockedPayload
  * @typedef {import("../translations").LanguageIdEnginePayload} LanguageIdEnginePayload
  * @typedef {import("../translations").LanguageTranslationModelFiles} LanguageTranslationModelFiles
  * @typedef {import("../translations").TranslationsEnginePayload} TranslationsEnginePayload
@@ -71,8 +70,10 @@ export class LanguageIdEngine {
    *
    * @param {Object} data
    * @param {string} data.type - The message type, expects "initialize".
-   * @param {ArrayBuffer} [data.wasmBuffer] - The buffer containing the wasm binary.
-   * @param {ArrayBuffer} [data.modelBuffer] - The buffer containing the language-id model binary.
+   * @param {ArrayBuffer} data.wasmBuffer - The buffer containing the wasm binary.
+   * @param {ArrayBuffer} data.modelBuffer - The buffer containing the language-id model binary.
+   * @param {null | string} data.mockedLangTag - The mocked language tag value (only present when mocking).
+   * @param {null | number} data.mockedConfidence - The mocked confidence value (only present when mocking).
    * @param {boolean} data.isLoggingEnabled
    */
   constructor(data) {
@@ -93,11 +94,9 @@ export class LanguageIdEngine {
     });
 
     const transferables = [];
-    if (data.wasmBuffer && data.modelBuffer) {
-      // Make sure the ArrayBuffers are transferred, not cloned.
-      // https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects
-      transferables.push(data.wasmBuffer, data.modelBuffer);
-    }
+    // Make sure the ArrayBuffers are transferred, not cloned.
+    // https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects
+    transferables.push(data.wasmBuffer, data.modelBuffer);
 
     this.#languageIdWorker.postMessage(data, transferables);
   }
@@ -181,9 +180,10 @@ class TranslationsEngineCache {
       this.#engines[key] = enginePromise;
 
       // Remove the engine if it fails to initialize.
-      enginePromise.catch(() => {
-        lazy.console.log(
-          `The engine failed to load for translating "${fromLanguage}" to "${toLanguage}". Removing it from the cache.`
+      enginePromise.catch(error => {
+        lazy.console.error(
+          `The engine failed to load for translating "${fromLanguage}" to "${toLanguage}". Removing it from the cache.`,
+          error
         );
         this.#engines[key] = null;
       });
@@ -272,7 +272,7 @@ export class TranslationsEngine {
    *
    * @param {string} fromLanguage
    * @param {string} toLanguage
-   * @param {TranslationsEnginePayload} [enginePayload] - If there is no engine payload
+   * @param {TranslationsEnginePayload} enginePayload - If there is no engine payload
    *   then the engine will be mocked. This allows this class to be used in tests.
    * @param {number} innerWindowId - This only used for creating profiler markers in
    *   the initial creation of the engine.
@@ -439,22 +439,6 @@ export class TranslationsChild extends JSWindowActorChild {
   }
 
   /**
-   * @override https://firefox-source-docs.mozilla.org/dom/ipc/jsactors.html#actorcreated
-   */
-  actorCreated() {
-    this.#isTranslationsEngineMocked = this.sendQuery(
-      "Translations:GetIsTranslationsEngineMocked"
-    );
-  }
-
-  /**
-   * The translations engine could be mocked for tests, since the wasm and the language
-   * models must be downloaded from Remote Settings.
-   * @type {undefined | Promise<boolean>}
-   */
-  #isTranslationsEngineMocked;
-
-  /**
    * The getter for the TranslationsEngine, managed by the EngineCache.
    *
    * @type {null | (() => Promise<TranslationsEngine>) | ((fromCache: true) => Promise<TranslationsEngine | null>)}
@@ -495,53 +479,6 @@ export class TranslationsChild extends JSWindowActorChild {
    */
   static languagePairKey(fromLanguage, toLanguage) {
     return `${fromLanguage},${toLanguage}`;
-  }
-
-  /**
-   * @returns {Promise<ArrayBuffer>}
-   */
-  async #getBergamotWasmArrayBuffer() {
-    if (await this.#isTranslationsEngineMocked) {
-      throw new Error(
-        "The engine is mocked, the Bergamot wasm is not available."
-      );
-    }
-    return this.sendQuery("Translations:GetBergamotWasmArrayBuffer");
-  }
-
-  /**
-   * Retrieves the language-identification model binary from the TranslationsParent.
-   *
-   * @returns {Promise<ArrayBuffer>}
-   */
-  #getLanguageIdModelArrayBuffer() {
-    return this.sendQuery("Translations:GetLanguageIdModelArrayBuffer");
-  }
-
-  /**
-   * Retrieves the language-identification wasm binary from the TranslationsParent.
-   *
-   * @returns {Promise<ArrayBuffer>}
-   */
-  async #getLanguageIdWasmArrayBuffer() {
-    return this.sendQuery("Translations:GetLanguageIdWasmArrayBuffer");
-  }
-
-  /**
-   * @param {string} fromLanguage
-   * @param {string} toLanguage
-   * @returns {Promise<LanguageTranslationModelFiles[]>}
-   */
-  async #getLanguageTranslationModelFiles(fromLanguage, toLanguage) {
-    if (await this.#isTranslationsEngineMocked) {
-      throw new Error(
-        "The engine is mocked, there are no language model files available."
-      );
-    }
-    return this.sendQuery("Translations:GetLanguageTranslationModelFiles", {
-      fromLanguage,
-      toLanguage,
-    });
   }
 
   /**
@@ -944,52 +881,22 @@ export class TranslationsChild extends JSWindowActorChild {
   /**
    * Retrieve the payload for creating a LanguageIdEngine.
    *
-   * @returns {Promise<LanguageIdEnginePayload | LanguageIdEngineMockedPayload>}
+   * @returns {Promise<LanguageIdEnginePayload>}
    */
   async #getLanguageIdEnginePayload() {
-    // If the TranslationsParent has a mocked payload defined for testing purposes,
-    // then we will return the mocked payload, otherwise we will attempt to retrieve
-    // the full payload from Remote Settings.
-    const mockedPayload = await this.sendQuery(
-      "Translations:GetLanguageIdEngineMockedPayload"
-    );
-    if (mockedPayload) {
-      const { langTag, confidence } = mockedPayload;
-      return {
-        langTag,
-        confidence,
-      };
-    }
-
-    const [wasmBuffer, modelBuffer] = await Promise.all([
-      this.#getLanguageIdWasmArrayBuffer(),
-      this.#getLanguageIdModelArrayBuffer(),
-    ]);
-    return {
-      modelBuffer,
-      wasmBuffer,
-    };
+    return this.sendQuery("Translations:GetLanguageIdEnginePayload");
   }
 
   /**
-   * The engine is not available in tests.
-   *
    * @param {string} fromLanguage
    * @param {string} toLanguage
-   * @returns {null | TranslationsEnginePayload}
+   * @returns {TranslationsEnginePayload}
    */
   async #getTranslationsEnginePayload(fromLanguage, toLanguage) {
-    if (!this.#isTranslationsEngineMocked) {
-      throw new Error("Expected #isTranslationsEngineMocked to be a promise.");
-    }
-    if (await this.#isTranslationsEngineMocked) {
-      return null;
-    }
-    const [bergamotWasmArrayBuffer, languageModelFiles] = await Promise.all([
-      this.#getBergamotWasmArrayBuffer(),
-      this.#getLanguageTranslationModelFiles(fromLanguage, toLanguage),
-    ]);
-    return { bergamotWasmArrayBuffer, languageModelFiles };
+    return this.sendQuery("Translations:GetTranslationsEnginePayload", {
+      fromLanguage,
+      toLanguage,
+    });
   }
 
   /**
@@ -998,20 +905,12 @@ export class TranslationsChild extends JSWindowActorChild {
    * @returns {LanguageIdEngine}
    */
   async createLanguageIdEngine() {
-    const {
-      confidence,
-      langTag,
-      modelBuffer,
-      wasmBuffer,
-    } = await this.#getLanguageIdEnginePayload();
+    const payload = await this.#getLanguageIdEnginePayload();
     const engine = new LanguageIdEngine({
       type: "initialize",
-      confidence,
-      langTag,
-      modelBuffer,
-      wasmBuffer,
       isLoggingEnabled:
         Services.prefs.getCharPref("browser.translations.logLevel") === "All",
+      ...payload,
     });
     await engine.isReady;
     return engine;
@@ -1026,7 +925,6 @@ export class TranslationsChild extends JSWindowActorChild {
    */
   async createTranslationsEngine(fromLanguage, toLanguage) {
     const startTime = this.docShell.now();
-
     const enginePayload = await this.#getTranslationsEnginePayload(
       fromLanguage,
       toLanguage

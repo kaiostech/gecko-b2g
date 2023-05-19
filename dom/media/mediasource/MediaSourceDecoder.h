@@ -31,7 +31,6 @@ class MediaSourceDecoder : public MediaDecoder,
 
   nsresult Load(nsIPrincipal* aPrincipal);
   media::TimeIntervals GetSeekable() override;
-  media::TimeRanges GetSeekableTimeRanges() override;
   media::TimeIntervals GetBuffered() override;
 
   void Shutdown() override;
@@ -44,8 +43,7 @@ class MediaSourceDecoder : public MediaDecoder,
   // Return the duration of the video in seconds.
   double GetDuration() override;
 
-  void SetInitialDuration(const media::TimeUnit& aDuration);
-  void SetMediaSourceDuration(const media::TimeUnit& aDuration);
+  void SetInitialDuration(int64_t aDuration);
   void SetMediaSourceDuration(double aDuration);
 
   MediaSourceDemuxer* GetDemuxer() { return mDemuxer; }
@@ -82,9 +80,6 @@ class MediaSourceDecoder : public MediaDecoder,
   MediaDecoderStateMachineBase* CreateStateMachine(
       bool aDisableExternalEngine) override;
 #endif
-
-  template <typename IntervalType>
-  IntervalType GetSeekableImpl();
 
   void DoSetMediaSourceDuration(double aDuration);
   media::TimeInterval ClampIntervalToEnd(const media::TimeInterval& aInterval);

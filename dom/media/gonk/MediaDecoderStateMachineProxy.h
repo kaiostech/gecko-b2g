@@ -62,6 +62,7 @@ class MediaDecoderStateMachineProxy
   PROXY_MEMBER_FUNCTION(CanonicalCurrentPosition)
   PROXY_MEMBER_FUNCTION(CanonicalIsAudioDataAudible)
   PROXY_MEMBER_FUNCTION(SetCDMProxy)
+  PROXY_MEMBER_FUNCTION(IsCDMProxySupported)
 
  private:
   ~MediaDecoderStateMachineProxy();

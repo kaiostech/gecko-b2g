@@ -159,7 +159,7 @@
 .urlbarView-row[dynamicType=quickactions] .urlbarView-label {
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 11px;
+  font-size: .8em;
   font-weight: 500;
 }
 
@@ -494,7 +494,7 @@
 .urlbarView-dynamic-addons-description {
   grid-area: description;
   font-size: 0.85em;
-  color: var(--panel-description-color);
+  color: var(--text-color-deemphasized);
   margin-block: 2px 9px;
 }
 
@@ -535,5 +535,5 @@
 
 .urlbarView-dynamic-addons-reviews {
   font-size: 0.85em;
-  color: var(--panel-description-color);
+  color: var(--text-color-deemphasized);
 }

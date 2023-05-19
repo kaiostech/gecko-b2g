@@ -25,6 +25,7 @@
 #include "gc/ObjectKind-inl.h"
 #include "vm/BytecodeIterator-inl.h"
 #include "vm/BytecodeLocation-inl.h"
+#include "vm/JSObject-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -322,7 +323,7 @@ bool WarpBuilder::buildInline() {
 MInstruction* WarpBuilder::buildNamedLambdaEnv(MDefinition* callee,
                                                MDefinition* env,
                                                NamedLambdaObject* templateObj) {
-  MOZ_ASSERT(!templateObj->hasDynamicSlots());
+  MOZ_ASSERT(templateObj->numDynamicSlots() == 0);
 
   MInstruction* namedLambda = MNewNamedLambdaObject::New(alloc(), templateObj);
   current->add(namedLambda);
@@ -1844,23 +1845,6 @@ bool WarpBuilder::build_GetName(BytecodeLocation loc) {
 
 bool WarpBuilder::build_GetGName(BytecodeLocation loc) {
   MOZ_ASSERT(!script_->hasNonSyntacticScope());
-
-  // Try to optimize undefined/NaN/Infinity.
-  PropertyName* name = loc.getPropertyName(script_);
-  const JSAtomState& names = mirGen().runtime->names();
-
-  if (name == names.undefined) {
-    pushConstant(UndefinedValue());
-    return true;
-  }
-  if (name == names.NaN) {
-    pushConstant(JS::NaNValue());
-    return true;
-  }
-  if (name == names.Infinity) {
-    pushConstant(JS::InfinityValue());
-    return true;
-  }
 
   MDefinition* env = globalLexicalEnvConstant();
   return buildIC(loc, CacheKind::GetName, {env});

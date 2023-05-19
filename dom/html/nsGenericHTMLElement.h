@@ -86,11 +86,9 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
   void SetDir(const nsAString& aDir, mozilla::ErrorResult& aError) {
     SetHTMLAttr(nsGkAtoms::dir, aDir, aError);
   }
-  void GetPopover(nsString& aPopover) {
-    GetHTMLEnumAttr(nsGkAtoms::popover, aPopover);
-  }
+  void GetPopover(nsString& aPopover) const;
   void SetPopover(const nsAString& aPopover, mozilla::ErrorResult& aError) {
-    SetHTMLAttr(nsGkAtoms::popover, aPopover, aError);
+    SetOrRemoveNullableStringAttr(nsGkAtoms::popover, aPopover, aError);
   }
   bool Hidden() const { return GetBoolAttr(nsGkAtoms::hidden); }
   void SetHidden(bool aHidden, mozilla::ErrorResult& aError) {
@@ -180,7 +178,7 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
 
   void SetNonce(const nsAString& aNonce) {
     SetProperty(nsGkAtoms::nonce, new nsString(aNonce),
-                nsINode::DeleteProperty<nsString>);
+                nsINode::DeleteProperty<nsString>, /* aTransfer = */ true);
   }
   void RemoveNonce() { RemoveProperty(nsGkAtoms::nonce); }
   void GetNonce(nsAString& aNonce) const {

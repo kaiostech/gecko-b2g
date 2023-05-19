@@ -3959,6 +3959,13 @@ nsresult Document::InitFeaturePolicy(nsIChannel* aChannel) {
   return NS_OK;
 }
 
+void Document::EnsureNotEnteringAndExitFullscreen() {
+  Document::ClearPendingFullscreenRequests(this);
+  if (GetFullscreenElement()) {
+    Document::AsyncExitFullscreen(this);
+  }
+}
+
 void Document::SetReferrerInfo(nsIReferrerInfo* aReferrerInfo) {
   mReferrerInfo = aReferrerInfo;
   mCachedReferrerInfoForInternalCSSAndSVGResources = nullptr;
@@ -15014,6 +15021,11 @@ void Document::HideAllPopoversUntil(nsINode& aEndpoint,
   }
 }
 
+MOZ_CAN_RUN_SCRIPT_BOUNDARY void
+Document::HideAllPopoversWithoutRunningScript() {
+  return HideAllPopoversUntil(*this, false, false);
+}
+
 // https://html.spec.whatwg.org/#dom-hidepopover
 void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
                            bool aFireEvents, ErrorResult& aRv) {
@@ -15251,6 +15263,10 @@ bool Document::FullscreenElementReadyCheck(FullscreenRequest& aRequest) {
     aRequest.Reject("FullscreenDeniedNotInDocument");
     return false;
   }
+  if (elem->IsPopoverOpen()) {
+    aRequest.Reject("FullscreenDeniedPopoverOpen");
+    return false;
+  }
   if (elem->OwnerDoc() != this) {
     aRequest.Reject("FullscreenDeniedMovedDocument");
     return false;
@@ -15470,6 +15486,9 @@ bool Document::ApplyFullscreen(UniquePtr<FullscreenRequest> aRequest) {
   if (!FullscreenElementReadyCheck(*aRequest)) {
     return false;
   }
+
+  RefPtr<Document> doc = aRequest->Document();
+  doc->HideAllPopoversWithoutRunningScript();
 
   // Stash a reference to any existing fullscreen doc, we'll use this later
   // to detect if the origin which is fullscreen has changed.

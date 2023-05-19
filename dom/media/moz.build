@@ -325,6 +325,7 @@ UNIFIED_SOURCES += [
     "QueueObject.cpp",
     "ReaderProxy.cpp",
     "SeekJob.cpp",
+    "TimeUnits.cpp",
     "Tracing.cpp",
     "VideoFrameContainer.cpp",
     "VideoPlaybackQuality.cpp",

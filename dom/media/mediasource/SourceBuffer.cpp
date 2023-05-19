@@ -102,6 +102,11 @@ void SourceBuffer::SetTimestampOffset(double aTimestampOffset,
   }
 }
 
+media::TimeIntervals SourceBuffer::GetBufferedIntervals() {
+  MOZ_ASSERT(mTrackBuffersManager);
+  return mTrackBuffersManager->Buffered();
+}
+
 TimeRanges* SourceBuffer::GetBuffered(ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
   // http://w3c.github.io/media-source/index.html#widl-SourceBuffer-buffered
@@ -124,13 +129,15 @@ TimeRanges* SourceBuffer::GetBuffered(ErrorResult& aRv) {
   // as the current value of this attribute, then update the current value of
   // this attribute to intersection ranges.
   if (rangeChanged) {
-    mBuffered = new TimeRanges(ToSupports(this), intersection);
+    mBuffered = new TimeRanges(ToSupports(this),
+                               intersection.ToMicrosecondResolution());
   }
   // 6. Return the current value of this attribute.
   return mBuffered;
 }
 
 media::TimeIntervals SourceBuffer::GetTimeIntervals() {
+  MOZ_ASSERT(mTrackBuffersManager);
   return mTrackBuffersManager->Buffered();
 }
 
@@ -532,9 +539,9 @@ void SourceBuffer::AbortUpdating() {
 void SourceBuffer::CheckEndTime() {
   MOZ_ASSERT(NS_IsMainThread());
   // Check if we need to update mMediaSource duration
-  double endTime = mCurrentAttributes.GetGroupEndTimestamp().ToSeconds();
+  TimeUnit endTime = mCurrentAttributes.GetGroupEndTimestamp();
   double duration = mMediaSource->Duration();
-  if (endTime > duration) {
+  if (!std::isnan(duration) && endTime > TimeUnit::FromSeconds(duration)) {
     mMediaSource->SetDuration(endTime);
   }
 }
@@ -708,32 +715,23 @@ already_AddRefed<MediaByteBuffer> SourceBuffer::PrepareAppend(
   return data.forget();
 }
 
-double SourceBuffer::GetBufferedStart() {
+TimeUnit SourceBuffer::GetBufferedEnd() {
   MOZ_ASSERT(NS_IsMainThread());
   ErrorResult dummy;
-  RefPtr<TimeRanges> ranges = GetBuffered(dummy);
-  return ranges->Length() > 0 ? ranges->GetStartTime() : 0;
+  media::TimeIntervals intervals = GetBufferedIntervals();
+  return intervals.GetEnd();
 }
 
-double SourceBuffer::GetBufferedEnd() {
+TimeUnit SourceBuffer::HighestStartTime() {
   MOZ_ASSERT(NS_IsMainThread());
-  ErrorResult dummy;
-  RefPtr<TimeRanges> ranges = GetBuffered(dummy);
-  return ranges->Length() > 0 ? ranges->GetEndTime() : 0;
+  MOZ_ASSERT(mTrackBuffersManager);
+  return mTrackBuffersManager->HighestStartTime();
 }
 
-double SourceBuffer::HighestStartTime() {
+TimeUnit SourceBuffer::HighestEndTime() {
   MOZ_ASSERT(NS_IsMainThread());
-  return mTrackBuffersManager
-             ? mTrackBuffersManager->HighestStartTime().ToSeconds()
-             : 0.0;
-}
-
-double SourceBuffer::HighestEndTime() {
-  MOZ_ASSERT(NS_IsMainThread());
-  return mTrackBuffersManager
-             ? mTrackBuffersManager->HighestEndTime().ToSeconds()
-             : 0.0;
+  MOZ_ASSERT(mTrackBuffersManager);
+  return mTrackBuffersManager->HighestEndTime();
 }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(SourceBuffer)

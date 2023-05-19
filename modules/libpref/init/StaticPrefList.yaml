@@ -2900,7 +2900,7 @@
 # Enable indexedDB in private browsing mode with encryption
 - name: dom.indexedDB.privateBrowsing.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Whether or not indexedDB test mode is enabled.
@@ -4513,7 +4513,7 @@
 # Whether to shim a Components object on untrusted windows.
 - name: dom.use_components_shim
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: dom.vibrator.enabled
@@ -8553,6 +8553,13 @@
   mirror: always
   rust: true
 
+# Whether CSS nesting is enabled.
+- name: layout.css.nesting.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Should we look for counter ancestor scopes first?
 - name: layout.css.counter-ancestor-scope.enabled
   type: bool
@@ -10407,6 +10414,14 @@
     value: false
     mirror: always
 #endif  # MOZ_FFMPEG
+
+#if defined(MOZ_FFMPEG) || defined(MOZ_FFVPX)
+# Allow using openh264 decoding with ffmpeg
+-   name: media.ffmpeg.allow-openh264
+    type: RelaxedAtomicBool
+    value: @IS_NOT_NIGHTLY_BUILD@
+    mirror: always
+#endif  # MOZ_FFMPEG || MOZ_FFVPX
 
 #ifdef MOZ_WIDGET_GTK
 # Use VA-API for ffmpeg video playback on Linux

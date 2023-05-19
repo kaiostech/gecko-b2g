@@ -47,6 +47,7 @@ ChromeUtils.defineESModuleGetters(this, {
   PromiseUtils: "resource://gre/modules/PromiseUtils.sys.mjs",
   PromptUtils: "resource://gre/modules/PromptUtils.sys.mjs",
   ReaderMode: "resource://gre/modules/ReaderMode.sys.mjs",
+  SafeBrowsing: "resource://gre/modules/SafeBrowsing.sys.mjs",
   Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
   SaveToPocket: "chrome://pocket/content/SaveToPocket.sys.mjs",
   ScreenshotsUtils: "resource:///modules/ScreenshotsUtils.sys.mjs",
@@ -54,6 +55,7 @@ ChromeUtils.defineESModuleGetters(this, {
   SessionStartup: "resource:///modules/sessionstore/SessionStartup.sys.mjs",
   SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
+  SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
   SubDialog: "resource://gre/modules/SubDialog.sys.mjs",
   SubDialogManager: "resource://gre/modules/SubDialog.sys.mjs",
   TabModalPrompt: "chrome://global/content/tabprompts.sys.mjs",
@@ -92,9 +94,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   PanelMultiView: "resource:///modules/PanelMultiView.jsm",
   PanelView: "resource:///modules/PanelMultiView.jsm",
   ProcessHangMonitor: "resource:///modules/ProcessHangMonitor.jsm",
-  SafeBrowsing: "resource://gre/modules/SafeBrowsing.jsm",
   SiteDataManager: "resource:///modules/SiteDataManager.jsm",
-  SitePermissions: "resource:///modules/SitePermissions.jsm",
   TabCrashHandler: "resource:///modules/ContentCrashHandlers.jsm",
   Translation: "resource:///modules/translation/TranslationParent.jsm",
   WebNavigationFrames: "resource://gre/modules/WebNavigationFrames.jsm",
@@ -2871,20 +2871,19 @@ function BrowserOpenTab({ event, url } = {}) {
   Services.obs.notifyObservers(
     {
       wrappedJSObject: new Promise(resolve => {
+        let options = {
+          relatedToCurrent,
+          resolveOnNewTabCreated: resolve,
+        };
         if (!werePassedURL && searchClipboard) {
           let clipboard = readFromClipboard();
-          clipboard = UrlbarUtils.stripUnsafeProtocolOnPaste(clipboard);
-          openTrustedLinkIn(clipboard, where, {
-            relatedToCurrent,
-            resolveOnNewTabCreated: resolve,
-            allowThirdPartyFixup: true,
-          });
-        } else {
-          openTrustedLinkIn(url, where, {
-            relatedToCurrent,
-            resolveOnNewTabCreated: resolve,
-          });
+          clipboard = UrlbarUtils.stripUnsafeProtocolOnPaste(clipboard).trim();
+          if (clipboard) {
+            url = clipboard;
+            options.allowThirdPartyFixup = true;
+          }
         }
+        openTrustedLinkIn(url, where, options);
       }),
     },
     "browser-open-newtab-start"

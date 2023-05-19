@@ -1550,6 +1550,8 @@ class Document : public nsINode,
   void InitFeaturePolicy();
   nsresult InitFeaturePolicy(nsIChannel* aChannel);
 
+  void EnsureNotEnteringAndExitFullscreen();
+
  protected:
   friend class nsUnblockOnloadEvent;
 
@@ -3470,6 +3472,7 @@ class Document : public nsINode,
                                                bool aFocusPreviousElement,
                                                bool aFireEvents);
 
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void HideAllPopoversWithoutRunningScript();
   // Hides the given popover element, see
   // https://html.spec.whatwg.org/multipage/popover.html#hide-popover-algorithm
   MOZ_CAN_RUN_SCRIPT void HidePopover(Element& popover,

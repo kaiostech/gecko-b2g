@@ -2,29 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
 // A base class to use by Web Embedders, providing an ergonomic
 // api over Gecko specific various hooks.
 // It runs with chrome privileges in the system app.
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 
-XPCOMUtils.defineLazyModuleGetters(lazy, {
-  ChromeNotifications: "resource://gre/modules/ChromeNotifications.jsm",
-  SelectionActionParent: "resource://gre/actors/SelectionActionParent.jsm",
-  embeddableProcessInfo: "resource://gre/modules/B2GProcessSelector.jsm",
-});
-
-XPCOMUtils.defineLazyGetter(lazy, "Screenshot", function() {
-  const { Screenshot } = ChromeUtils.import(
-    "resource://gre/modules/Screenshot.jsm"
-  );
-  return Screenshot;
+ChromeUtils.defineESModuleGetters(lazy, {
+  ChromeNotifications: "resource://gre/modules/ChromeNotifications.sys.mjs",
+  SelectionActionParent: "resource://gre/actors/SelectionActionParent.sys.mjs",
+  embeddableProcessInfo: "resource://gre/modules/B2GProcessSelector.sys.mjs",
+  Screenshot: "resource://mozscreenshots/Screenshot.sys.mjs",
 });
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -34,9 +24,9 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIUserIdleService"
 );
 
-(function() {
-  const { AlertsEventHandler } = ChromeUtils.import(
-    "resource://gre/modules/AlertsHelper.jsm"
+(function () {
+  const { AlertsEventHandler } = ChromeUtils.importESModule(
+    "resource://gre/modules/AlertsHelper.sys.mjs"
   );
 
   const systemAlerts = {
@@ -593,8 +583,8 @@ XPCOMUtils.defineLazyServiceGetter(
     }
 
     isGonk() {
-      const { AppConstants } = ChromeUtils.import(
-        "resource://gre/modules/AppConstants.jsm"
+      const { AppConstants } = ChromeUtils.importESModule(
+        "resource://gre/modules/AppConstants.sys.mjs"
       );
       return AppConstants.platform === "gonk";
     }

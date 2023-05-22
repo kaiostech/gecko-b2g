@@ -239,12 +239,12 @@ ProcessGlobal.prototype = {
     let JSWINDOWACTORS = {
       AudioVolumeControlOverride: {
         parent: {
-          moduleURI:
-            "resource://gre/actors/AudioVolumeControlOverrideParent.jsm",
+          esModuleURI:
+            "resource://gre/actors/AudioVolumeControlOverrideParent.sys.mjs",
         },
         child: {
-          moduleURI:
-            "resource://gre/actors/AudioVolumeControlOverrideChild.jsm",
+          esModuleURI:
+            "resource://gre/actors/AudioVolumeControlOverrideChild.sys.mjs",
           events: {
             fullscreenchange: {},
           },
@@ -254,10 +254,10 @@ ProcessGlobal.prototype = {
 
       SelectionAction: {
         parent: {
-          moduleURI: "resource://gre/actors/SelectionActionParent.jsm",
+          esModuleURI: "resource://gre/actors/SelectionActionParent.sys.mjs",
         },
         child: {
-          moduleURI: "resource://gre/actors/SelectionActionChild.jsm",
+          esModuleURI: "resource://gre/actors/SelectionActionChild.sys.mjs",
           events: {
             mozcaretstatechanged: { mozSystemGroup: true },
           },
@@ -267,7 +267,7 @@ ProcessGlobal.prototype = {
 
       VoiceInputStyle: {
         child: {
-          moduleURI: "resource://gre/actors/VoiceInputStyleChild.jsm",
+          esModuleURI: "resource://gre/actors/VoiceInputStyleChild.sys.mjsm",
           events: {
             IMEFocus: {},
             IMEBlur: {},
@@ -279,7 +279,7 @@ ProcessGlobal.prototype = {
 
       WebViewExporter: {
         child: {
-          moduleURI: "resource://gre/actors/WebViewExporterChild.jsm",
+          esModuleURI: "resource://gre/actors/WebViewExporterChild.sys.mjs",
           events: {
             DOMContentLoaded: { capture: true },
           },
@@ -289,7 +289,7 @@ ProcessGlobal.prototype = {
 
       WebViewForContent: {
         child: {
-          moduleURI: "resource://gre/actors/WebViewForContentChild.jsm",
+          esModuleURI: "resource://gre/actors/WebViewForContentChild.sys.mjs",
           events: {
             DOMTitleChanged: { mozSystemGroup: true },
             DOMLinkAdded: { capture: true },
@@ -309,7 +309,7 @@ ProcessGlobal.prototype = {
 
       Prompt: {
         parent: {
-          moduleURI: "resource://gre/actors/PromptParent.jsm",
+          esModuleURI: "resource://gre/actors/PromptParent.sys.mjs",
         },
         includeChrome: true,
         allFrames: true,

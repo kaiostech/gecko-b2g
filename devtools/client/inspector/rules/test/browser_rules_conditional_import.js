@@ -17,7 +17,7 @@ const TEST_URI = `
   <h1>Hello @import!</h1>
 `;
 
-add_task(async function() {
+add_task(async function () {
   // Enable the pref for @import supports()
   await pushPref("layout.css.import-supports.enabled", true);
 
@@ -95,8 +95,9 @@ add_task(async function() {
     const expectedRule = expectedRules[i];
     info(`Checking rule #${i}: ${expectedRule.selector}`);
 
-    const selector = rulesInView[i].querySelector(".ruleview-selectorcontainer")
-      .innerText;
+    const selector = rulesInView[i].querySelector(
+      ".ruleview-selectorcontainer"
+    ).innerText;
     is(selector, expectedRule.selector, `Expected selector for ${selector}`);
 
     if (expectedRule.ancestorRulesData == null) {

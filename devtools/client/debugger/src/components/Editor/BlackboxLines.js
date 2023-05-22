@@ -6,6 +6,7 @@ import { connect } from "../../utils/connect";
 import PropTypes from "prop-types";
 import { Component } from "react";
 import { toEditorLine, fromEditorLine } from "../../utils/editor";
+import { isLineBlackboxed } from "../../utils/source";
 import { getBlackBoxRanges, getSelectedSource } from "../../selectors";
 import { isWasm } from "../../utils/wasm";
 
@@ -20,11 +21,8 @@ class BlackboxLines extends Component {
   }
 
   componentDidMount() {
-    const {
-      selectedSource,
-      blackboxedRangesForSelectedSource,
-      editor,
-    } = this.props;
+    const { selectedSource, blackboxedRangesForSelectedSource, editor } =
+      this.props;
 
     // When `blackboxedRangesForSelectedSource` is undefined, the source isn't blackboxed
     if (!blackboxedRangesForSelectedSource) {
@@ -49,11 +47,8 @@ class BlackboxLines extends Component {
   }
 
   componentDidUpdate() {
-    const {
-      selectedSource,
-      blackboxedRangesForSelectedSource,
-      editor,
-    } = this.props;
+    const { selectedSource, blackboxedRangesForSelectedSource, editor } =
+      this.props;
 
     // when unblackboxed
     if (!blackboxedRangesForSelectedSource) {
@@ -80,7 +75,7 @@ class BlackboxLines extends Component {
           sourceIsWasm
         );
 
-        if (this.isLineBlackboxed(blackboxedRangesForSelectedSource, line)) {
+        if (isLineBlackboxed(blackboxedRangesForSelectedSource, line)) {
           this.setBlackboxLine(editor, lineHandle);
         } else {
           this.clearBlackboxLine(editor, lineHandle);
@@ -93,12 +88,6 @@ class BlackboxLines extends Component {
     // Lets make sure we remove everything  relating to
     // blackboxing lines when this component is unmounted.
     this.clearAllBlackboxLines(this.props.editor);
-  }
-
-  isLineBlackboxed(ranges, line) {
-    return !!ranges.find(
-      range => line >= range.start.line && line <= range.end.line
-    );
   }
 
   clearAllBlackboxLines(editor) {

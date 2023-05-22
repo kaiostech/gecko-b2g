@@ -80,13 +80,20 @@ function generateDefaults(overrides = {}, breakpointOverrides = {}) {
   const breakpoint = makeBreakpoint(breakpointOverrides);
   const selectedSource = createSourceObject("foo");
   return {
+    cx: {},
+    disableBreakpoint: () => {},
+    enableBreakpoint: () => {},
+    openConditionalPanel: () => {},
+    removeBreakpoint: () => {},
+    selectSpecificLocation: () => {},
+    blackboxedRangesForSource: [],
     source,
     breakpoint,
     selectedSource,
     frame: null,
     editor: {
       CodeMirror: {
-        runMode: function() {
+        runMode: function () {
           return "";
         },
       },

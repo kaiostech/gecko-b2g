@@ -843,16 +843,18 @@ class PointerAction extends Action {
       lazy.assert.numberInRange(
         altitudeAngle,
         [0, Math.PI / 2],
-        lazy.pprint`Expected 'altitudeAngle' (${altitudeAngle}) to be in range 0 to ${Math.PI /
-          2}`
+        lazy.pprint`Expected 'altitudeAngle' (${altitudeAngle}) to be in range 0 to ${
+          Math.PI / 2
+        }`
       );
     }
     if (azimuthAngle !== undefined) {
       lazy.assert.numberInRange(
         azimuthAngle,
         [0, 2 * Math.PI],
-        lazy.pprint`Expected 'azimuthAngle' (${azimuthAngle}) to be in range 0 to ${2 *
-          Math.PI}`
+        lazy.pprint`Expected 'azimuthAngle' (${azimuthAngle}) to be in range 0 to ${
+          2 * Math.PI
+        }`
       );
     }
     return {
@@ -1349,10 +1351,9 @@ class PointerUpTouchActionGroup extends TouchActionGroup {
       }
 
       // Only include pointers that are not already depressed
-      const actions = Array.from(
-        this.actions.values()
-      ).filter(([actionInputSource, action]) =>
-        actionInputSource.isPressed(action.button)
+      const actions = Array.from(this.actions.values()).filter(
+        ([actionInputSource, action]) =>
+          actionInputSource.isPressed(action.button)
       );
       if (actions.length) {
         const eventData = new MultiTouchEventData("touchend");

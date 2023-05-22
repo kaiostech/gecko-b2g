@@ -97,17 +97,14 @@ const {
   COMPATIBILITY_UPDATE_NODES_COMPLETE,
 } = require("resource://devtools/client/inspector/compatibility/actions/index.js");
 
-add_task(async function() {
+add_task(async function () {
   info("Enable 3 pane mode");
   await pushPref("devtools.inspector.three-pane-enabled", true);
 
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
 
-  const {
-    allElementsPane,
-    inspector,
-    selectedElementPane,
-  } = await openCompatibilityView();
+  const { allElementsPane, inspector, selectedElementPane } =
+    await openCompatibilityView();
   await selectNode(".test-class", inspector);
 
   info("Check the initial issue");

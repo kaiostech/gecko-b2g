@@ -112,7 +112,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   TransientPrefs: "resource:///modules/TransientPrefs.jsm",
 });
 
-XPCOMUtils.defineLazyGetter(this, "gSubDialog", function() {
+XPCOMUtils.defineLazyGetter(this, "gSubDialog", function () {
   const { SubDialogManager } = ChromeUtils.importESModule(
     "resource://gre/modules/SubDialog.sys.mjs"
   );
@@ -218,21 +218,19 @@ function init_all() {
   register_module("paneContainers", gContainersPane);
   if (Services.prefs.getBoolPref("browser.preferences.experimental")) {
     // Set hidden based on previous load's hidden value.
-    document.getElementById(
-      "category-experimental"
-    ).hidden = Services.prefs.getBoolPref(
-      "browser.preferences.experimental.hidden",
-      false
-    );
+    document.getElementById("category-experimental").hidden =
+      Services.prefs.getBoolPref(
+        "browser.preferences.experimental.hidden",
+        false
+      );
     register_module("paneExperimental", gExperimentalPane);
   }
 
   NimbusFeatures.moreFromMozilla.recordExposureEvent({ once: true });
   if (NimbusFeatures.moreFromMozilla.getVariable("enabled")) {
     document.getElementById("category-more-from-mozilla").hidden = false;
-    gMoreFromMozillaPane.option = NimbusFeatures.moreFromMozilla.getVariable(
-      "template"
-    );
+    gMoreFromMozillaPane.option =
+      NimbusFeatures.moreFromMozilla.getVariable("template");
     register_module("paneMoreFromMozilla", gMoreFromMozillaPane);
   }
   // The Sync category needs to be the last of the "real" categories
@@ -249,12 +247,12 @@ function init_all() {
   let categories = document.getElementById("categories");
   categories.addEventListener("select", event => gotoPref(event.target.value));
 
-  document.documentElement.addEventListener("keydown", function(event) {
+  document.documentElement.addEventListener("keydown", function (event) {
     if (event.keyCode == KeyEvent.DOM_VK_TAB) {
       categories.setAttribute("keyboard-navigation", "true");
     }
   });
-  categories.addEventListener("mousedown", function() {
+  categories.addEventListener("mousedown", function () {
     this.removeAttribute("keyboard-navigation");
   });
 
@@ -510,8 +508,8 @@ function getClosestDisplayedHeader(element) {
 }
 
 function scrollContentTo(element) {
-  const STICKY_CONTAINER_HEIGHT = document.querySelector(".sticky-container")
-    .clientHeight;
+  const STICKY_CONTAINER_HEIGHT =
+    document.querySelector(".sticky-container").clientHeight;
   let mainContent = document.querySelector(".main-content");
   let top = element.getBoundingClientRect().top - STICKY_CONTAINER_HEIGHT;
   mainContent.scroll({
@@ -529,7 +527,7 @@ function friendlyPrefCategoryNameToInternalName(aName) {
 
 // This function is duplicated inside of utilityOverlay.js's openPreferences.
 function internalPrefCategoryNameToFriendlyName(aName) {
-  return (aName || "").replace(/^pane./, function(toReplace) {
+  return (aName || "").replace(/^pane./, function (toReplace) {
     return toReplace[4].toLowerCase();
   });
 }

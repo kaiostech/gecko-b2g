@@ -10,6 +10,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   L10nCache: "resource:///modules/UrlbarUtils.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
+  UrlbarProviderQuickSuggest:
+    "resource:///modules/UrlbarProviderQuickSuggest.sys.mjs",
   UrlbarProviderTopSites: "resource:///modules/UrlbarProviderTopSites.sys.mjs",
   UrlbarProvidersManager: "resource:///modules/UrlbarProvidersManager.sys.mjs",
   UrlbarProviderWeather: "resource:///modules/UrlbarProviderWeather.sys.mjs",
@@ -441,6 +443,16 @@ export class UrlbarView {
       return;
     }
 
+    // The row is no longer selectable. It's necessary to clear the selection
+    // before replacing the row because replacement will likely create a new
+    // `urlbarView-row-inner`, which will interfere with the ability of
+    // `#selectElement()` to clear the old selection after replacement, below.
+    let isSelected = this.#getSelectedRow() == row;
+    if (isSelected) {
+      this.#selectElement(null, { updateInput: false });
+    }
+    this.#setRowSelectable(row, false);
+
     // Replace the row with a dismissal acknowledgment tip.
     let tip = new lazy.UrlbarResult(
       lazy.UrlbarUtils.RESULT_TYPE.TIP,
@@ -454,6 +466,13 @@ export class UrlbarView {
     );
     this.#updateRow(row, tip);
     this.#updateIndices();
+
+    // If the row was selected, move the selection to the tip button.
+    if (isSelected) {
+      this.#selectElement(this.#getNextSelectableElement(row), {
+        updateInput: false,
+      });
+    }
   }
 
   removeAccessibleFocus() {
@@ -1761,7 +1780,9 @@ export class UrlbarView {
       default:
         if (result.heuristic && !result.payload.title) {
           isVisitAction = true;
-        } else if (result.providerName != "UrlbarProviderQuickSuggest") {
+        } else if (
+          result.providerName != lazy.UrlbarProviderQuickSuggest.name
+        ) {
           setURL = true;
         }
         break;
@@ -1796,7 +1817,7 @@ export class UrlbarView {
     }
 
     if (
-      result.providerName == "UrlbarProviderQuickSuggest" &&
+      result.providerName == lazy.UrlbarProviderQuickSuggest.name &&
       result.payload.isSponsored
     ) {
       item.toggleAttribute("firefox-suggest-sponsored", true);
@@ -2114,6 +2135,10 @@ export class UrlbarView {
 
     if (!this.#queryContext?.searchString || row.result.heuristic) {
       return null;
+    }
+
+    if (row.result.providerName == lazy.UrlbarProviderQuickSuggest.name) {
+      return { id: "urlbar-group-firefox-suggest" };
     }
 
     switch (row.result.type) {

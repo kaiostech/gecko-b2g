@@ -29,7 +29,7 @@ var HeaderSetDecompressor = http2_compression.HeaderSetDecompressor;
 var originalRead = HeaderSetDecompressor.prototype.read;
 var lastDecompressor;
 var decompressedPairs;
-HeaderSetDecompressor.prototype.read = function() {
+HeaderSetDecompressor.prototype.read = function () {
   if (this != lastDecompressor) {
     lastDecompressor = this;
     decompressedPairs = [];
@@ -45,7 +45,7 @@ var connection_module = node_http2_root + "/lib/protocol/connection";
 var http2_connection = require(connection_module);
 var Connection = http2_connection.Connection;
 var originalClose = Connection.prototype.close;
-Connection.prototype.close = function(error, lastId) {
+Connection.prototype.close = function (error, lastId) {
   if (lastId !== undefined) {
     this._lastIncomingStream = lastId;
   }
@@ -57,7 +57,7 @@ var framer_module = node_http2_root + "/lib/protocol/framer";
 var http2_framer = require(framer_module);
 var Serializer = http2_framer.Serializer;
 var originalTransform = Serializer.prototype._transform;
-var newTransform = function(frame, encoding, done) {
+var newTransform = function (frame, encoding, done) {
   if (frame.type == "DATA") {
     // Insert our empty DATA frame
     const emptyFrame = {};
@@ -135,7 +135,7 @@ var m = {
   },
 };
 
-var runlater = function() {};
+var runlater = function () {};
 runlater.prototype = {
   req: null,
   resp: null,
@@ -149,7 +149,7 @@ runlater.prototype = {
   },
 };
 
-var runConnectLater = function() {};
+var runConnectLater = function () {};
 runConnectLater.prototype = {
   req: null,
   resp: null,
@@ -166,7 +166,7 @@ runConnectLater.prototype = {
   },
 };
 
-var moreData = function() {};
+var moreData = function () {};
 moreData.prototype = {
   req: null,
   resp: null,
@@ -281,28 +281,28 @@ function handleRequest(req, res) {
 
     rContent = Buffer.from(
       "0000" +
-      "0100" +
-      "0001" + // QDCOUNT
-      "0002" + // ANCOUNT
-      "00000000" + // NSCOUNT + ARCOUNT
-      "07636E616D652d61" + // cname-a
-      "076578616D706C6503636F6D00" + // .example.com
-      "00010001" + // question type (A) + question class (IN)
-      // answer record 1
-      "C00C" + // name pointer to cname-a.example.com
-      "0005" + // type (CNAME)
-      "0001" + // class
-      "00000037" + // TTL
-      "0012" + // RDLENGTH
-      "0468657265" + // here
-      "076578616D706C6503636F6D00" + // .example.com
-      // answer record 2, the A entry for the CNAME above
-      "0468657265" + // here
-      "076578616D706C6503636F6D00" + // .example.com
-      "0001" + // type (A)
-      "0001" + // class
-      "00000037" + // TTL
-      "0004" + // RDLENGTH
+        "0100" +
+        "0001" + // QDCOUNT
+        "0002" + // ANCOUNT
+        "00000000" + // NSCOUNT + ARCOUNT
+        "07636E616D652d61" + // cname-a
+        "076578616D706C6503636F6D00" + // .example.com
+        "00010001" + // question type (A) + question class (IN)
+        // answer record 1
+        "C00C" + // name pointer to cname-a.example.com
+        "0005" + // type (CNAME)
+        "0001" + // class
+        "00000037" + // TTL
+        "0012" + // RDLENGTH
+        "0468657265" + // here
+        "076578616D706C6503636F6D00" + // .example.com
+        // answer record 2, the A entry for the CNAME above
+        "0468657265" + // here
+        "076578616D706C6503636F6D00" + // .example.com
+        "0001" + // type (A)
+        "0001" + // class
+        "00000037" + // TTL
+        "0004" + // RDLENGTH
         "09080706", // IPv4 address
       "hex"
     );
@@ -476,7 +476,7 @@ function handleRequest(req, res) {
       resp.setHeader("Set-Cookie", "trackyou=yes; path=/; max-age=100000;");
       resp.setHeader("Content-Type", contentType);
       if (req.headers["accept-encoding"].includes("gzip")) {
-        zlib.gzip(buffer, function(err, result) {
+        zlib.gzip(buffer, function (err, result) {
           resp.setHeader("Content-Encoding", "gzip");
           resp.setHeader("Content-Length", result.length);
           try {
@@ -811,10 +811,7 @@ function handleRequest(req, res) {
     };
     var pushHdrTxt =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    var pullHdrTxt = pushHdrTxt
-      .split("")
-      .reverse()
-      .join("");
+    var pullHdrTxt = pushHdrTxt.split("").reverse().join("");
     for (let i = 0; i < 265; i++) {
       pushRequestHeaders["X-Push-Test-Header-" + i] = pushHdrTxt;
       res.setHeader("X-Pull-Test-Header-" + i, pullHdrTxt);
@@ -975,8 +972,7 @@ function handleRequest(req, res) {
       push = res.push({
         hostname: "foo.example.com:" + serverPort,
         port: serverPort,
-        path:
-          "/dns-pushed-response?dns=AAAAAAABAAAAAAAABHB1c2gHZXhhbXBsZQNvcmcAABwAAQ",
+        path: "/dns-pushed-response?dns=AAAAAAABAAAAAAAABHB1c2gHZXhhbXBsZQNvcmcAABwAAQ",
         method: "GET",
         headers: {
           accept: "application/dns-message",
@@ -1426,8 +1422,7 @@ function handleRequest(req, res) {
     push = res.push({
       hostname: "foo.example.com:" + serverPort,
       port: serverPort,
-      path:
-        "/dns-pushed-response?dns=AAABAAABAAAAAAABCl9lc25pX3B1c2gHZXhhbXBsZQNjb20AABAAAQAAKRAAAAAAAAAIAAgABAABAAA",
+      path: "/dns-pushed-response?dns=AAABAAABAAAAAAABCl9lc25pX3B1c2gHZXhhbXBsZQNjb20AABAAAQAAKRAAAAAAAAAIAAgABAABAAA",
       method: "GET",
       headers: {
         accept: "application/dns-message",
@@ -1890,15 +1885,15 @@ if (process.env.HTTP2_LOG !== undefined) {
 
 var server = http2.createServer(options, handleRequest);
 
-server.on("connection", function(socket) {
-  socket.on("error", function() {
+server.on("connection", function (socket) {
+  socket.on("error", function () {
     // Ignoring SSL socket errors, since they usually represent a connection that was tore down
     // by the browser because of an untrusted certificate. And this happens at least once, when
     // the first test case if done.
   });
 });
 
-server.on("connect", function(req, clientSocket, head) {
+server.on("connect", function (req, clientSocket, head) {
   clientSocket.write(
     "HTTP/1.1 404 Not Found\r\nProxy-agent: Node.js-Proxy\r\n\r\n"
   );

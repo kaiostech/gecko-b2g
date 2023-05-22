@@ -746,9 +746,8 @@ FormAutofillUtils = {
       ];
       let reAlternativeCountryNames = this._reAlternativeCountryNames[country];
       if (!reAlternativeCountryNames) {
-        reAlternativeCountryNames = this._reAlternativeCountryNames[
-          country
-        ] = [];
+        reAlternativeCountryNames = this._reAlternativeCountryNames[country] =
+          [];
       }
 
       if (countryName.length == 3) {
@@ -1196,13 +1195,13 @@ FormAutofillUtils = {
   },
 };
 
-XPCOMUtils.defineLazyGetter(FormAutofillUtils, "stringBundle", function() {
+XPCOMUtils.defineLazyGetter(FormAutofillUtils, "stringBundle", function () {
   return Services.strings.createBundle(
     "chrome://formautofill/locale/formautofill.properties"
   );
 });
 
-XPCOMUtils.defineLazyGetter(FormAutofillUtils, "brandBundle", function() {
+XPCOMUtils.defineLazyGetter(FormAutofillUtils, "brandBundle", function () {
   return Services.strings.createBundle(
     "chrome://branding/locale/brand.properties"
   );

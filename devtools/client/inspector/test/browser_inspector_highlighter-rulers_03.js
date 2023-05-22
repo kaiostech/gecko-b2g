@@ -15,7 +15,7 @@ const ID = "rulers-highlighter-";
 
 var { Toolbox } = require("resource://devtools/client/framework/toolbox.js");
 
-add_task(async function() {
+add_task(async function () {
   const { inspector, highlighterTestFront } = await openInspectorForURL(
     TEST_URL
   );
@@ -85,10 +85,11 @@ async function hasRightLabelsContent(highlighterFront, highlighterTestFront) {
 
   info("Wait until the rulers dimension tooltip have the proper text");
   await asyncWaitUntil(async () => {
-    const dimensionText = await highlighterTestFront.getHighlighterNodeTextContent(
-      `${ID}viewport-infobar-container`,
-      highlighterFront
-    );
+    const dimensionText =
+      await highlighterTestFront.getHighlighterNodeTextContent(
+        `${ID}viewport-infobar-container`,
+        highlighterFront
+      );
     return dimensionText == windowText;
   }, 100);
 }

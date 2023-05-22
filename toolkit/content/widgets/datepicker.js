@@ -104,7 +104,6 @@ function DatePicker(context) {
         setMonthByOffset: offset => {
           dateKeeper.setMonthByOffset(offset);
           this._update();
-          this._dispatchState();
         },
         setYear: year => {
           dateKeeper.setYear(year);
@@ -150,7 +149,6 @@ function DatePicker(context) {
                 month,
               });
               this._update();
-              this._dispatchState();
             },
             getDayString: this.state.getDayString,
             getWeekHeaderString: this.state.getWeekHeaderString,
@@ -281,9 +279,8 @@ function DatePicker(context) {
             case " ":
             case "Escape": {
               // If the target is a toggle or a spinner on the month-year panel
-              const isOnMonthPicker = this.context.monthYearView.parentNode.contains(
-                event.target
-              );
+              const isOnMonthPicker =
+                this.context.monthYearView.parentNode.contains(event.target);
 
               if (this.state.isMonthPickerVisible && isOnMonthPicker) {
                 // While a control on the month-year picker panel is focused,

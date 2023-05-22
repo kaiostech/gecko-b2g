@@ -239,13 +239,6 @@
   value: 50
   mirror: always
 
-# Whether to cache the entire accessibility trees of all content processes in
-# the parent process.
-- name: accessibility.cache.enabled
-  type: bool
-  value: true
-  mirror: once
-
 # Whether to avoid accessibility activation on Windows shortly after clipboard
 # copy.
 #
@@ -8048,10 +8041,10 @@
   mirror: always  # LoadStartupJSPrefs
   do_not_use_directly: true
 
-#if !defined(JS_CODEGEN_MIPS32) && !defined(JS_CODEGEN_MIPS64)
+#if !defined(JS_CODEGEN_MIPS32) && !defined(JS_CODEGEN_MIPS64) && !defined(JS_CODEGEN_LOONG64)
   # Spectre security vulnerability mitigations for the JS JITs.
   #
-  # NOTE: The MIPS backends do not support these mitigations (and generally
+  # NOTE: The MIPS and LoongArch backends do not support these mitigations (and generally
   #       do not need them). In that case, leave the pref unlisted with its
   #       default value of false.
 -   name: javascript.options.spectre.index_masking
@@ -8083,7 +8076,7 @@
     value: true
     mirror: always  # LoadStartupJSPrefs
     do_not_use_directly: true
-#endif  // !defined(JS_CODEGEN_MIPSXX)
+#endif  // !defined(JS_CODEGEN_MIPSXX) && !defined(JS_CODEGEN_LOONG64)
 
 # Separate pref to override the values of the Spectre-related prefs above for
 # isolated web content processes, where we don't need these mitigations.
@@ -8566,18 +8559,6 @@
   value: true
   mirror: always
 
-# Whether we get notified of history queries for visited even if unvisited.
-- name: layout.css.notify-of-unvisited
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Whether we always restyle / repaint as a result of a visited query
-- name: layout.css.always-repaint-on-unvisited
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Make `zoom` a `transform` + `transform-origin` alias.
 - name: layout.css.zoom-transform-hack.enabled
   type: RelaxedAtomicBool
@@ -8644,6 +8625,12 @@
 
 # Is the codepath for using cached scrollbar styles enabled?
 - name: layout.css.cached-scrollbar-styles.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Whether we cache inline styles in a document unconditionally or not.
+- name: layout.css.inline-style-caching.always-enabled
   type: bool
   value: true
   mirror: always

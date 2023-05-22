@@ -128,9 +128,8 @@ function nativeScrollUnits(aTarget, aDimen) {
       // GTK deltas are treated as line height divided by 3 by gecko.
       var targetWindow = windowForTarget(aTarget);
       var targetElement = elementForTarget(aTarget);
-      var lineHeight = targetWindow.getComputedStyle(targetElement)[
-        "font-size"
-      ];
+      var lineHeight =
+        targetWindow.getComputedStyle(targetElement)["font-size"];
       return aDimen / (parseInt(lineHeight) * 3);
     }
   }
@@ -615,7 +614,7 @@ function promiseNativeWheelAndWaitForWheelEvent(
     var targetWindow = windowForTarget(aTarget);
     targetWindow.addEventListener(
       "wheel",
-      function(e) {
+      function (e) {
         setTimeout(resolve, 0);
       },
       { once: true }
@@ -644,7 +643,7 @@ function promiseNativeWheelAndWaitForScrollEvent(
     var targetWindow = windowForTarget(aTarget);
     targetWindow.addEventListener(
       "scroll",
-      function() {
+      function () {
         setTimeout(resolve, 0);
       },
       { capture: true, once: true }
@@ -1198,7 +1197,7 @@ async function synthesizeNativeMouseEventWithAPZ(aParams, aObserver = null) {
       button,
       modifierFlags,
       element,
-      function() {
+      function () {
         utils.sendNativeMouseEvent(
           pt.x,
           pt.y,
@@ -1398,7 +1397,7 @@ async function promiseVerticalScrollbarDrag(
   });
 
   // and return an async function to call afterwards to finish up the drag
-  return async function() {
+  return async function () {
     dump("Finishing drag of #" + targetElement.id + "\n");
     await promiseNativeMouseEventWithAPZ({
       target: aTarget,
@@ -1504,7 +1503,7 @@ async function promiseNativeMouseDrag(
   }
 
   // and return a function-wrapped promise to call afterwards to finish the drag
-  return function() {
+  return function () {
     return promiseNativeMouseEventWithAPZ({
       target,
       offsetX: mouseX + distanceX,
@@ -1567,7 +1566,7 @@ function promiseScrollend(aTarget = window) {
 function promiseTouchEnd(element, count = 1) {
   return new Promise(resolve => {
     var eventCount = 0;
-    var counterFunction = function(e) {
+    var counterFunction = function (e) {
       eventCount++;
       if (eventCount == count) {
         element.removeEventListener("touchend", counterFunction, {
@@ -1600,39 +1599,11 @@ async function pinchZoomInWithTouch(focusX, focusY) {
 // relative to the document body.
 async function pinchZoomInWithTouchpad(focusX, focusY, options = {}) {
   var zoomIn = [
-    1.0,
-    1.019531,
-    1.035156,
-    1.037156,
-    1.039156,
-    1.054688,
-    1.056688,
-    1.070312,
-    1.072312,
-    1.089844,
-    1.091844,
-    1.109375,
-    1.128906,
-    1.144531,
-    1.160156,
-    1.175781,
-    1.191406,
-    1.207031,
-    1.222656,
-    1.234375,
-    1.246094,
-    1.261719,
-    1.273438,
-    1.285156,
-    1.296875,
-    1.3125,
-    1.328125,
-    1.347656,
-    1.363281,
-    1.382812,
-    1.402344,
-    1.421875,
-    1.0,
+    1.0, 1.019531, 1.035156, 1.037156, 1.039156, 1.054688, 1.056688, 1.070312,
+    1.072312, 1.089844, 1.091844, 1.109375, 1.128906, 1.144531, 1.160156,
+    1.175781, 1.191406, 1.207031, 1.222656, 1.234375, 1.246094, 1.261719,
+    1.273438, 1.285156, 1.296875, 1.3125, 1.328125, 1.347656, 1.363281,
+    1.382812, 1.402344, 1.421875, 1.0,
   ];
   await synthesizeTouchpadPinch(zoomIn, focusX, focusY, options);
 }
@@ -1659,30 +1630,10 @@ async function pinchZoomInAndPanWithTouchpad(options = {}) {
 async function pinchZoomOutWithTouchpad(focusX, focusY, options = {}) {
   // The last item equal one to indicate scale end
   var zoomOut = [
-    1.0,
-    1.375,
-    1.359375,
-    1.339844,
-    1.316406,
-    1.296875,
-    1.277344,
-    1.257812,
-    1.238281,
-    1.21875,
-    1.199219,
-    1.175781,
-    1.15625,
-    1.132812,
-    1.101562,
-    1.078125,
-    1.054688,
-    1.03125,
-    1.011719,
-    0.992188,
-    0.972656,
-    0.953125,
-    0.933594,
-    1.0,
+    1.0, 1.375, 1.359375, 1.339844, 1.316406, 1.296875, 1.277344, 1.257812,
+    1.238281, 1.21875, 1.199219, 1.175781, 1.15625, 1.132812, 1.101562,
+    1.078125, 1.054688, 1.03125, 1.011719, 0.992188, 0.972656, 0.953125,
+    0.933594, 1.0,
   ];
   await synthesizeTouchpadPinch(zoomOut, focusX, focusY, options);
 }
@@ -1690,23 +1641,8 @@ async function pinchZoomOutWithTouchpad(focusX, focusY, options = {}) {
 async function pinchZoomInOutWithTouchpad(focusX, focusY, options = {}) {
   // Use the same scale for two events in a row to make sure the code handles this properly.
   var zoomInOut = [
-    1.0,
-    1.082031,
-    1.089844,
-    1.097656,
-    1.101562,
-    1.109375,
-    1.121094,
-    1.128906,
-    1.128906,
-    1.125,
-    1.097656,
-    1.074219,
-    1.054688,
-    1.035156,
-    1.015625,
-    1.0,
-    1.0,
+    1.0, 1.082031, 1.089844, 1.097656, 1.101562, 1.109375, 1.121094, 1.128906,
+    1.128906, 1.125, 1.097656, 1.074219, 1.054688, 1.035156, 1.015625, 1.0, 1.0,
   ];
   await synthesizeTouchpadPinch(zoomInOut, focusX, focusY, options);
 }

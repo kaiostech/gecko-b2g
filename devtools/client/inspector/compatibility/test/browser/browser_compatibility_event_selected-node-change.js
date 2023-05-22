@@ -50,14 +50,11 @@ const TEST_DATA_ALL = [
   { property: "user-modify" },
 ];
 
-add_task(async function() {
+add_task(async function () {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
 
-  const {
-    allElementsPane,
-    inspector,
-    selectedElementPane,
-  } = await openCompatibilityView();
+  const { allElementsPane, inspector, selectedElementPane } =
+    await openCompatibilityView();
 
   for (const { selector, expectedIssues } of TEST_DATA_SELECTED) {
     info(`Check the issue list for ${selector} node`);

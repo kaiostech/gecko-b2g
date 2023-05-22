@@ -7,7 +7,7 @@ add_task(async function bookmark_all_tabs() {
   for (let url of TEST_URLS) {
     tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, url));
   }
-  registerCleanupFunction(async function() {
+  registerCleanupFunction(async function () {
     for (let tab of tabs) {
       BrowserTestUtils.removeTab(tab);
     }
@@ -32,9 +32,8 @@ add_task(async function bookmark_all_tabs() {
         .getString("bookmarkAllTabsDefault");
       Assert.equal(namepicker.value, folderName, "Name field is correct.");
 
-      let promiseBookmarkAdded = PlacesTestUtils.waitForNotification(
-        "bookmark-added"
-      );
+      let promiseBookmarkAdded =
+        PlacesTestUtils.waitForNotification("bookmark-added");
 
       fillBookmarkTextField("editBMPanel_namePicker", "folder", dialog);
 

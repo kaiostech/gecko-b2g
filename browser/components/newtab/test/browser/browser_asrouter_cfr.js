@@ -38,8 +38,7 @@ const createDummyRecommendation = ({
         label: { attributes: { tooltiptext: "Why am I seeing this" } },
         sumo_path: "extensionrecommendations",
       },
-      icon:
-        "chrome://activity-stream/content/data/content/assets/glyph-webextension-16.svg",
+      icon: "chrome://activity-stream/content/data/content/assets/glyph-webextension-16.svg",
       icon_dark_theme:
         "chrome://activity-stream/content/data/content/assets/glyph-webextension-16.svg",
       learn_more: "extensionrecommendations",
@@ -182,7 +181,7 @@ function trigger_cfr_panel(
   );
 }
 
-add_setup(async function() {
+add_setup(async function () {
   // Store it in order to restore to the original value
   const { _fetchLatestAddonVersion } = CFRPageActions;
   // Prevent fetching the real addon url and making a network request

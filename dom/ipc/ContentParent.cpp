@@ -47,7 +47,6 @@
 #  include "mozilla/a11y/AccessibleWrap.h"
 #  include "mozilla/a11y/Compatibility.h"
 #  include "mozilla/mscom/ActCtxResource.h"
-#  include "mozilla/StaticPrefs_accessibility.h"
 #endif
 #include <map>
 #include <utility>
@@ -1898,12 +1897,10 @@ void ContentParent::Init() {
 #  if defined(XP_WIN)
     // Don't init content a11y if we detect an incompat version of JAWS in use.
     if (!mozilla::a11y::Compatibility::IsOldJAWS()) {
-      Unused << SendActivateA11y(
-          ::GetCurrentThreadId(),
-          a11y::MsaaAccessible::GetContentProcessIdFor(ChildID()));
+      Unused << SendActivateA11y(::GetCurrentThreadId());
     }
 #  else
-    Unused << SendActivateA11y(0, 0);
+    Unused << SendActivateA11y(0);
 #  endif
   }
 #endif  // #ifdef ACCESSIBILITY
@@ -2456,10 +2453,6 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
 
   mBlobURLs.Clear();
 
-#if defined(XP_WIN) && defined(ACCESSIBILITY)
-  a11y::MsaaAccessible::ReleaseContentProcessIdFor(ChildID());
-#endif
-
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   AssertNotInPool();
 #endif
@@ -2877,7 +2870,7 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   // Determining the accessibility resource ID causes problems with the sandbox,
   // so we pass it on the command line as it is required very early in process
   // start up. It is not required when the caching mechanism is being used.
-  if (!StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+  if (!a11y::IsCacheActive()) {
     // The accessibility resource ID may not be set in some cases, for example
     // in xpcshell tests.
     auto resourceId = mscom::ActCtxResource::GetAccessibilityResourceId();
@@ -4415,12 +4408,10 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
       // Don't init content a11y if we detect an incompat version of JAWS in
       // use.
       if (!mozilla::a11y::Compatibility::IsOldJAWS()) {
-        Unused << SendActivateA11y(
-            ::GetCurrentThreadId(),
-            a11y::MsaaAccessible::GetContentProcessIdFor(ChildID()));
+        Unused << SendActivateA11y(::GetCurrentThreadId());
       }
 #  else
-      Unused << SendActivateA11y(0, 0);
+      Unused << SendActivateA11y(0);
 #  endif
     } else {
       // If possible, shut down accessibility in content process when
@@ -6953,29 +6944,6 @@ ContentParent::RecvUnstoreAndBroadcastBlobURLUnregistration(
   BroadcastBlobURLUnregistration(aURI, aPrincipal, this);
   mBlobURLs.RemoveElement(aURI);
   return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvGetA11yContentId(
-    uint32_t* aContentId) {
-#if defined(XP_WIN) && defined(ACCESSIBILITY)
-  *aContentId = a11y::MsaaAccessible::GetContentProcessIdFor(ChildID());
-  MOZ_ASSERT(*aContentId);
-  return IPC_OK();
-#else
-  return IPC_FAIL_NO_REASON(this);
-#endif
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvA11yHandlerControl(
-    const uint32_t& aPid, const IHandlerControlHolder& aHandlerControl) {
-#if defined(XP_WIN) && defined(ACCESSIBILITY)
-  MOZ_ASSERT(!aHandlerControl.IsNull());
-  RefPtr<IHandlerControl> proxy(aHandlerControl.Get());
-  a11y::AccessibleWrap::SetHandlerControl(aPid, std::move(proxy));
-  return IPC_OK();
-#else
-  return IPC_FAIL_NO_REASON(this);
-#endif
 }
 
 bool ContentParent::HandleWindowsMessages(const Message& aMsg) const {

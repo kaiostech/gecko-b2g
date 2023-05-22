@@ -700,7 +700,7 @@ var SessionStoreInternal = {
   _closedObjectsChanged: false,
 
   // A promise resolved once initialization is complete
-  _deferredInitialized: (function() {
+  _deferredInitialized: (function () {
     let deferred = {};
 
     deferred.promise = new Promise((resolve, reject) => {
@@ -715,7 +715,7 @@ var SessionStoreInternal = {
   _sessionInitialized: false,
 
   // A promise resolved once all windows are restored.
-  _deferredAllWindowsRestored: (function() {
+  _deferredAllWindowsRestored: (function () {
     let deferred = {};
 
     deferred.promise = new Promise((resolve, reject) => {
@@ -804,7 +804,7 @@ var SessionStoreInternal = {
     }
 
     TelemetryTimestamps.add("sessionRestoreInitialized");
-    OBSERVING.forEach(function(aTopic) {
+    OBSERVING.forEach(function (aTopic) {
       Services.obs.addObserver(this, aTopic, true);
     }, this);
 
@@ -833,9 +833,8 @@ var SessionStoreInternal = {
         // If we're doing a DEFERRED session, then we want to pull pinned tabs
         // out so they can be restored.
         if (ss.sessionType == ss.DEFER_SESSION) {
-          let [iniState, remainingState] = this._prepDataForDeferredRestore(
-            state
-          );
+          let [iniState, remainingState] =
+            this._prepDataForDeferredRestore(state);
           // If we have a iniState with windows, that means that we have windows
           // with app tabs to restore.
           if (iniState.windows.length) {
@@ -922,7 +921,7 @@ var SessionStoreInternal = {
 
           // clear any lastSessionWindowID attributes since those don't matter
           // during normal restore
-          state.windows.forEach(function(aWindow) {
+          state.windows.forEach(function (aWindow) {
             delete aWindow.__lastSessionWindowID;
           });
         }
@@ -1637,7 +1636,7 @@ var SessionStoreInternal = {
       this.onTabBrowserInserted(aWindow, tabbrowser.tabs[i]);
     }
     // notification of tab add/remove/selection/show/hide
-    TAB_EVENTS.forEach(function(aEvent) {
+    TAB_EVENTS.forEach(function (aEvent) {
       tabbrowser.tabContainer.addEventListener(aEvent, this, true);
     }, this);
 
@@ -1763,12 +1762,10 @@ var SessionStoreInternal = {
           // they should be added back to _closedWindows.
           // We'll cheat a little bit and reuse _prepDataForDeferredRestore
           // even though it wasn't built exactly for this.
-          let [
-            appTabsState,
-            normalTabsState,
-          ] = this._prepDataForDeferredRestore({
-            windows: [closedWindowState],
-          });
+          let [appTabsState, normalTabsState] =
+            this._prepDataForDeferredRestore({
+              windows: [closedWindowState],
+            });
 
           // These are our pinned tabs, which we should restore
           if (appTabsState.windows.length) {
@@ -1911,9 +1908,8 @@ var SessionStoreInternal = {
       }
 
       let restoreID = WINDOW_RESTORE_IDS.get(aWindow);
-      this._windows[aWindow.__SSi] = this._statesToRestore[
-        restoreID
-      ].windows[0];
+      this._windows[aWindow.__SSi] =
+        this._statesToRestore[restoreID].windows[0];
       delete this._statesToRestore[restoreID];
       WINDOW_RESTORE_IDS.delete(aWindow);
     }
@@ -1938,7 +1934,7 @@ var SessionStoreInternal = {
 
     let browsers = Array.from(tabbrowser.browsers);
 
-    TAB_EVENTS.forEach(function(aEvent) {
+    TAB_EVENTS.forEach(function (aEvent) {
       tabbrowser.tabContainer.removeEventListener(aEvent, this, true);
     }, this);
 
@@ -3805,9 +3801,8 @@ var SessionStoreInternal = {
         canUseLastWindow = false;
       }
 
-      let [canUseWindow, canOverwriteTabs] = this._prepWindowToRestoreInto(
-        windowToUse
-      );
+      let [canUseWindow, canOverwriteTabs] =
+        this._prepWindowToRestoreInto(windowToUse);
 
       // If there's a window already open that we can restore into, use that
       if (canUseWindow) {
@@ -4028,7 +4023,7 @@ var SessionStoreInternal = {
   _updateWindowFeatures: function ssi_updateWindowFeatures(aWindow) {
     var winData = this._windows[aWindow.__SSi];
 
-    WINDOW_ATTRIBUTES.forEach(function(aAttr) {
+    WINDOW_ATTRIBUTES.forEach(function (aAttr) {
       winData[aAttr] = this._getWindowDimension(aWindow, aAttr);
     }, this);
 
@@ -4036,7 +4031,7 @@ var SessionStoreInternal = {
       winData.sizemodeBeforeMinimized = winData.sizemode;
     }
 
-    var hidden = WINDOW_HIDEABLE_FEATURES.filter(function(aItem) {
+    var hidden = WINDOW_HIDEABLE_FEATURES.filter(function (aItem) {
       return aWindow[aItem] && !aWindow[aItem].visible;
     });
     if (hidden.length) {
@@ -4446,9 +4441,8 @@ var SessionStoreInternal = {
     }
     // Because newClosedTabsData are put in first, we need to
     // copy also the _lastClosedTabGroupCount.
-    this._windows[
-      aWindow.__SSi
-    ]._lastClosedTabGroupCount = newLastClosedTabGroupCount;
+    this._windows[aWindow.__SSi]._lastClosedTabGroupCount =
+      newLastClosedTabGroupCount;
 
     if (!this._isWindowLoaded(aWindow)) {
       // from now on, the data will come from the actual window
@@ -5055,7 +5049,7 @@ var SessionStoreInternal = {
    */
   restoreWindowFeatures: function ssi_restoreWindowFeatures(aWindow, aWinData) {
     var hidden = aWinData.hidden ? aWinData.hidden.split(",") : [];
-    WINDOW_HIDEABLE_FEATURES.forEach(function(aItem) {
+    WINDOW_HIDEABLE_FEATURES.forEach(function (aItem) {
       aWindow[aItem].visible = !hidden.includes(aItem);
     });
 
@@ -5219,9 +5213,8 @@ var SessionStoreInternal = {
           aWindow.resizeTo(aWidth, aHeight);
         }
       }
-      this._windows[
-        aWindow.__SSi
-      ].sizemodeBeforeMinimized = aSizeModeBeforeMinimized;
+      this._windows[aWindow.__SSi].sizemodeBeforeMinimized =
+        aSizeModeBeforeMinimized;
       if (
         aSizeMode &&
         win_("sizemode") != aSizeMode &&
@@ -5767,7 +5760,7 @@ var SessionStoreInternal = {
       // We want to build the rest of this new window object if we have pinnedTabs.
       if (pinnedWindowState.tabs.length) {
         // First get the other attributes off the window
-        WINDOW_ATTRIBUTES.forEach(function(attr) {
+        WINDOW_ATTRIBUTES.forEach(function (attr) {
           if (attr in window) {
             pinnedWindowState[attr] = window[attr];
             delete window[attr];
@@ -5806,32 +5799,33 @@ var SessionStoreInternal = {
     return [defaultState, state];
   },
 
-  _sendRestoreCompletedNotifications: function ssi_sendRestoreCompletedNotifications() {
-    // not all windows restored, yet
-    if (this._restoreCount > 1) {
-      this._restoreCount--;
-      return;
-    }
+  _sendRestoreCompletedNotifications:
+    function ssi_sendRestoreCompletedNotifications() {
+      // not all windows restored, yet
+      if (this._restoreCount > 1) {
+        this._restoreCount--;
+        return;
+      }
 
-    // observers were already notified
-    if (this._restoreCount == -1) {
-      return;
-    }
+      // observers were already notified
+      if (this._restoreCount == -1) {
+        return;
+      }
 
-    // This was the last window restored at startup, notify observers.
-    if (!this._browserSetState) {
-      Services.obs.notifyObservers(null, NOTIFY_WINDOWS_RESTORED);
-      this._deferredAllWindowsRestored.resolve();
-    } else {
-      // _browserSetState is used only by tests, and it uses an alternate
-      // notification in order not to retrigger startup observers that
-      // are listening for NOTIFY_WINDOWS_RESTORED.
-      Services.obs.notifyObservers(null, NOTIFY_BROWSER_STATE_RESTORED);
-    }
+      // This was the last window restored at startup, notify observers.
+      if (!this._browserSetState) {
+        Services.obs.notifyObservers(null, NOTIFY_WINDOWS_RESTORED);
+        this._deferredAllWindowsRestored.resolve();
+      } else {
+        // _browserSetState is used only by tests, and it uses an alternate
+        // notification in order not to retrigger startup observers that
+        // are listening for NOTIFY_WINDOWS_RESTORED.
+        Services.obs.notifyObservers(null, NOTIFY_BROWSER_STATE_RESTORED);
+      }
 
-    this._browserSetState = false;
-    this._restoreCount = -1;
-  },
+      this._browserSetState = false;
+      this._restoreCount = -1;
+    },
 
   /**
    * Set the given window's busy state
@@ -5847,9 +5841,8 @@ var SessionStoreInternal = {
     // Keep the to-be-restored state in sync because that is returned by
     // getWindowState() as long as the window isn't loaded, yet.
     if (!this._isWindowLoaded(aWindow)) {
-      let stateToRestore = this._statesToRestore[
-        WINDOW_RESTORE_IDS.get(aWindow)
-      ].windows[0];
+      let stateToRestore =
+        this._statesToRestore[WINDOW_RESTORE_IDS.get(aWindow)].windows[0];
       stateToRestore.busy = aValue;
     }
   },
@@ -6117,7 +6110,7 @@ var SessionStoreInternal = {
     let beats = Math.ceil(delay / DELAY_BEAT);
     let deferred = lazy.PromiseUtils.defer();
     timer.initWithCallback(
-      function() {
+      function () {
         if (beats <= 0) {
           deferred.resolve();
         }
@@ -6402,7 +6395,8 @@ var SessionStoreInternal = {
     }
     // Here, we need to load user data or about:blank instead.
     // As it's user-typed (or blank), it gets system triggering principal:
-    let triggeringPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
+    let triggeringPrincipal =
+      Services.scriptSecurityManager.getSystemPrincipal();
     // Bypass all the fixup goop for about:blank:
     if (!haveUserTypedValue) {
       let blankPromise = this._waitForStateStop(browser, "about:blank");
@@ -6816,11 +6810,8 @@ var TabRestoreQueue = {
    */
   willRestoreSoon(tab) {
     let { priority, hidden, visible } = this.tabs;
-    let {
-      restoreOnDemand,
-      restorePinnedTabsOnDemand,
-      restoreHiddenTabs,
-    } = this.prefs;
+    let { restoreOnDemand, restorePinnedTabsOnDemand, restoreHiddenTabs } =
+      this.prefs;
     let restorePinned = !(restoreOnDemand && restorePinnedTabsOnDemand);
     let candidateSet = [];
 

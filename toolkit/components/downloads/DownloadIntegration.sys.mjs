@@ -53,7 +53,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/telephony/volume-service;1",
   "nsIVolumeService"
 );
-XPCOMUtils.defineLazyGetter(lazy, "gParentalControlsService", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gParentalControlsService", function () {
   if ("@mozilla.org/parental-controls-service;1" in Cc) {
     return Cc["@mozilla.org/parental-controls-service;1"].createInstance(
       Ci.nsIParentalControlsService
@@ -538,10 +538,7 @@ export var DownloadIntegration = {
       let url;
       const uri = lazy.NetUtil.newURI(aUrl);
       if (["http", "https", "ftp"].includes(uri.scheme)) {
-        url = uri
-          .mutate()
-          .setUserPass("")
-          .finalize().spec;
+        url = uri.mutate().setUserPass("").finalize().spec;
       } else if (aFallback) {
         url = aFallback;
       } else {
@@ -720,10 +717,11 @@ export var DownloadIntegration = {
       fileExtension &&
       fileExtension.toLowerCase() == "exe";
 
-    let isExemptExecutableExtension = Services.policies.isExemptExecutableExtension(
-      aDownload.source.url,
-      fileExtension
-    );
+    let isExemptExecutableExtension =
+      Services.policies.isExemptExecutableExtension(
+        aDownload.source.url,
+        fileExtension
+      );
 
     // Ask for confirmation if the file is executable, except for .exe on
     // Windows where the operating system will show the prompt based on the
@@ -1152,7 +1150,7 @@ var DownloadObserver = {
         );
         break;
       case "last-pb-context-exited":
-        let promise = (async function() {
+        let promise = (async function () {
           let list = await Downloads.getList(Downloads.PRIVATE);
           let downloads = await list.getAll();
 
@@ -1248,7 +1246,7 @@ var DownloadObserver = {
  * @param aList
  *        DownloadList object linked to this observer.
  */
-var DownloadHistoryObserver = function(aList) {
+var DownloadHistoryObserver = function (aList) {
   this._list = aList;
 
   const placesObserver = new PlacesWeakCallbackWrapper(
@@ -1300,7 +1298,7 @@ DownloadHistoryObserver.prototype = {
  * @param aStore
  *        The DownloadStore object used for saving.
  */
-var DownloadAutoSaveView = function(aList, aStore) {
+var DownloadAutoSaveView = function (aList, aStore) {
   this._list = aList;
   this._store = aStore;
   this._downloadsMap = new Map();

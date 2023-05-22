@@ -259,9 +259,10 @@ export function URIFixup() {
   // not work well and returns always true due to flatpak. In this case, in order to
   // fallback to nsIHandlerService.exits(), we test whether can trust
   // nsIExternalProtocolService here.
-  this._trustExternalProtocolService = !lazy.externalProtocolService.externalProtocolHandlerExists(
-    `__dummy${Date.now()}__`
-  );
+  this._trustExternalProtocolService =
+    !lazy.externalProtocolService.externalProtocolHandlerExists(
+      `__dummy${Date.now()}__`
+    );
 }
 
 URIFixup.prototype = {
@@ -300,11 +301,8 @@ URIFixup.prototype = {
 
     let info = new URIFixupInfo(uriString);
 
-    const {
-      scheme,
-      fixedSchemeUriString,
-      fixupChangedProtocol,
-    } = extractScheme(uriString, fixupFlags);
+    const { scheme, fixedSchemeUriString, fixupChangedProtocol } =
+      extractScheme(uriString, fixupFlags);
     uriString = fixedSchemeUriString;
     info.fixupChangedProtocol = fixupChangedProtocol;
 
@@ -469,8 +467,8 @@ URIFixup.prototype = {
     try {
       Services.io.newURI(href);
       // Remove LOAD_FLAGS_ALLOW_THIRD_PARTY_FIXUP for valid uris.
-      navigationFlags &= ~Ci.nsIWebNavigation
-        .LOAD_FLAGS_ALLOW_THIRD_PARTY_FIXUP;
+      navigationFlags &=
+        ~Ci.nsIWebNavigation.LOAD_FLAGS_ALLOW_THIRD_PARTY_FIXUP;
     } catch (ex) {}
 
     let fixupFlags = FIXUP_FLAG_NONE;
@@ -836,10 +834,7 @@ function checkAndFixPublicSuffix(info) {
     if (suffix == typo) {
       let host = uri.host.substring(0, uri.host.length - typo.length) + fixed;
       let updatePreferredURI = info.preferredURI == info.fixedURI;
-      info.fixedURI = uri
-        .mutate()
-        .setHost(host)
-        .finalize();
+      info.fixedURI = uri.mutate().setHost(host).finalize();
       if (updatePreferredURI) {
         info.preferredURI = info.fixedURI;
       }

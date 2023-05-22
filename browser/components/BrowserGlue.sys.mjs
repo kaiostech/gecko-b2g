@@ -832,13 +832,13 @@ if (AppConstants.MOZ_CRASHREPORTER) {
   });
 }
 
-XPCOMUtils.defineLazyGetter(lazy, "gBrandBundle", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gBrandBundle", function () {
   return Services.strings.createBundle(
     "chrome://branding/locale/brand.properties"
   );
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "gBrowserBundle", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gBrowserBundle", function () {
   return Services.strings.createBundle(
     "chrome://browser/locale/browser.properties"
   );
@@ -904,7 +904,7 @@ export function BrowserGlue() {
     "nsIUserIdleService"
   );
 
-  XPCOMUtils.defineLazyGetter(this, "_distributionCustomizer", function() {
+  XPCOMUtils.defineLazyGetter(this, "_distributionCustomizer", function () {
     const { DistributionCustomizer } = ChromeUtils.import(
       "resource:///modules/distribution.js"
     );
@@ -2106,9 +2106,8 @@ BrowserGlue.prototype = {
 
     const _checkIonPref = async () => {
       for (let win of Services.wm.getEnumerator("navigator:browser")) {
-        win.document.getElementById(
-          "ion-button"
-        ).hidden = !Services.prefs.getStringPref(PREF_ION_ID, null);
+        win.document.getElementById("ion-button").hidden =
+          !Services.prefs.getStringPref(PREF_ION_ID, null);
       }
     };
 
@@ -2632,7 +2631,7 @@ BrowserGlue.prototype = {
       {
         name: "trackStartupCrashEndSetTimeout",
         task: () => {
-          lazy.setTimeout(function() {
+          lazy.setTimeout(function () {
             Services.tm.idleDispatchToMainThread(
               Services.startup.trackStartupCrashEnd
             );
@@ -3028,7 +3027,7 @@ BrowserGlue.prototype = {
 
   _addBreachAlertsPrefObserver() {
     const BREACH_ALERTS_PREF = "signon.management.page.breach-alerts.enabled";
-    const clearVulnerablePasswordsIfBreachAlertsDisabled = async function() {
+    const clearVulnerablePasswordsIfBreachAlertsDisabled = async function () {
       if (!Services.prefs.getBoolPref(BREACH_ALERTS_PREF)) {
         await lazy.LoginBreaches.clearAllPotentiallyVulnerablePasswords();
       }
@@ -3151,15 +3150,12 @@ BrowserGlue.prototype = {
       checkboxLabelId = "tabbrowser-confirm-close-tabs-checkbox";
     }
 
-    const [
-      title,
-      buttonLabel,
-      checkboxLabel,
-    ] = win.gBrowser.tabLocalization.formatMessagesSync([
-      titleId,
-      buttonLabelId,
-      checkboxLabelId,
-    ]);
+    const [title, buttonLabel, checkboxLabel] =
+      win.gBrowser.tabLocalization.formatMessagesSync([
+        titleId,
+        buttonLabelId,
+        checkboxLabelId,
+      ]);
 
     let warnOnClose = { value: true };
     let flags =
@@ -3401,14 +3397,10 @@ BrowserGlue.prototype = {
       this._bookmarksBackupIdleTime = idleTime;
 
       if (this._isNewProfile) {
-        try {
-          // New profiles may have existing bookmarks (imported from another browser or
-          // copied into the profile) and we want to show the bookmark toolbar for them
-          // in some cases.
-          lazy.PlacesUIUtils.maybeToggleBookmarkToolbarVisibility();
-        } catch (ex) {
-          console.error(ex);
-        }
+        // New profiles may have existing bookmarks (imported from another browser or
+        // copied into the profile) and we want to show the bookmark toolbar for them
+        // in some cases.
+        await lazy.PlacesUIUtils.maybeToggleBookmarkToolbarVisibility();
       }
     })()
       .catch(ex => {
@@ -3426,7 +3418,7 @@ BrowserGlue.prototype = {
    * If a backup for today doesn't exist, this creates one.
    */
   _backupBookmarks: function BG__backupBookmarks() {
-    return (async function() {
+    return (async function () {
       let lastBackupFile = await lazy.PlacesBackups.getMostRecentBackup();
       // Should backup bookmarks if there are no backups or the maximum
       // interval between backups elapsed.
@@ -3446,21 +3438,22 @@ BrowserGlue.prototype = {
   /**
    * Show the notificationBox for a locked places database.
    */
-  _showPlacesLockedNotificationBox: function BG__showPlacesLockedNotificationBox() {
-    var win = lazy.BrowserWindowTracker.getTopWindow();
-    var buttons = [{ supportPage: "places-locked" }];
+  _showPlacesLockedNotificationBox:
+    function BG__showPlacesLockedNotificationBox() {
+      var win = lazy.BrowserWindowTracker.getTopWindow();
+      var buttons = [{ supportPage: "places-locked" }];
 
-    var notifyBox = win.gBrowser.getNotificationBox();
-    var notification = notifyBox.appendNotification(
-      "places-locked",
-      {
-        label: { "l10n-id": "places-locked-prompt" },
-        priority: win.gNotificationBox.PRIORITY_CRITICAL_MEDIUM,
-      },
-      buttons
-    );
-    notification.persistence = -1; // Until user closes it
-  },
+      var notifyBox = win.gBrowser.getNotificationBox();
+      var notification = notifyBox.appendNotification(
+        "places-locked",
+        {
+          label: { "l10n-id": "places-locked-prompt" },
+          priority: win.gNotificationBox.PRIORITY_CRITICAL_MEDIUM,
+        },
+        buttons
+      );
+      notification.persistence = -1; // Until user closes it
+    },
 
   _onThisDeviceConnected() {
     const [title, body] = lazy.accountsL10n.formatValuesSync([
@@ -4451,9 +4444,8 @@ BrowserGlue.prototype = {
         return "disallow-postUpdate";
       }
 
-      const useMROnboarding = lazy.NimbusFeatures.majorRelease2022.getVariable(
-        "onboarding"
-      );
+      const useMROnboarding =
+        lazy.NimbusFeatures.majorRelease2022.getVariable("onboarding");
       const showUpgradeDialog =
         useMROnboarding ??
         lazy.NimbusFeatures.upgradeDialog.getVariable("enabled");
@@ -4489,8 +4481,8 @@ BrowserGlue.prototype = {
 
     await lazy.ASRouter.waitForInitialized;
     lazy.ASRouter.sendTriggerMessage({
-      browser: lazy.BrowserWindowTracker.getTopWindow()?.gBrowser
-        .selectedBrowser,
+      browser:
+        lazy.BrowserWindowTracker.getTopWindow()?.gBrowser.selectedBrowser,
       // triggerId and triggerContext
       id: "defaultBrowserCheck",
       context: { willShowDefaultPrompt: willPrompt, source: "startup" },
@@ -4893,7 +4885,8 @@ var ContentBlockingCategoriesPrefs = {
         "privacy.trackingprotection.emailtracking.pbmode.enabled": null,
         "privacy.annotate_channels.strict_list.enabled": null,
         "network.http.referer.disallowCrossSiteRelaxingDefault": null,
-        "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation": null,
+        "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation":
+          null,
         "privacy.partition.network_state.ocsp_cache": null,
         "privacy.query_stripping.enabled": null,
         "privacy.query_stripping.enabled.pbmode": null,
@@ -4910,7 +4903,8 @@ var ContentBlockingCategoriesPrefs = {
         "privacy.trackingprotection.emailtracking.pbmode.enabled": null,
         "privacy.annotate_channels.strict_list.enabled": null,
         "network.http.referer.disallowCrossSiteRelaxingDefault": null,
-        "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation": null,
+        "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation":
+          null,
         "privacy.partition.network_state.ocsp_cache": null,
         "privacy.query_stripping.enabled": null,
         "privacy.query_stripping.enabled.pbmode": null,
@@ -6113,9 +6107,8 @@ export var AboutHomeStartupCache = {
     let cacheScriptInputStream;
     try {
       this.log.trace("Connecting script stream to pipe.");
-      cacheScriptInputStream = this._cacheEntry.openAlternativeInputStream(
-        "script"
-      );
+      cacheScriptInputStream =
+        this._cacheEntry.openAlternativeInputStream("script");
       lazy.NetUtil.asyncCopy(
         cacheScriptInputStream,
         this.scriptPipe.outputStream,

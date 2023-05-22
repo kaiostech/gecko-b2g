@@ -36,16 +36,13 @@ const {
   COMPATIBILITY_UPDATE_TOP_LEVEL_TARGET_FAILURE,
 } = require("resource://devtools/client/inspector/compatibility/actions/index.js");
 
-add_task(async function() {
+add_task(async function () {
   const tab = await addTab(
     "data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI)
   );
 
-  const {
-    allElementsPane,
-    inspector,
-    selectedElementPane,
-  } = await openCompatibilityView();
+  const { allElementsPane, inspector, selectedElementPane } =
+    await openCompatibilityView();
 
   info("Check the issues on the selected element");
   await assertIssueList(selectedElementPane, TEST_DATA_SELECTED);

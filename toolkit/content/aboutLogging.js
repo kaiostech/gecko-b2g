@@ -20,7 +20,7 @@ const { CustomizableUI } = ChromeUtils.import(
   "resource:///modules/CustomizableUI.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "ProfilerPopupBackground", function() {
+XPCOMUtils.defineLazyGetter(this, "ProfilerPopupBackground", function () {
   return ChromeUtils.import(
     "resource://devtools/client/performance-new/shared/background.jsm.js"
   );
@@ -136,7 +136,7 @@ function populatePresets() {
     gLoggingSettings.loggingPreset = preset;
   }
 
-  dropdown.onchange = function() {
+  dropdown.onchange = function () {
     // When switching to custom, leave the existing module list, to allow
     // editing.
     if (dropdown.value != "custom") {
@@ -426,7 +426,7 @@ function updateLogFile(file) {
 
     if (file.exists()) {
       openLogFileButton.disabled = false;
-      openLogFileButton.onclick = function(e) {
+      openLogFileButton.onclick = function (e) {
         file.reveal();
       };
     }
@@ -602,16 +602,11 @@ function startLogging() {
         supportedFeatures
       );
     }
-    let {
-      entries,
-      interval,
-      features,
-      threads,
-      duration,
-    } = ProfilerPopupBackground.getRecordingSettings(
-      pageContext,
-      Services.profiler.GetFeatures()
-    );
+    let { entries, interval, features, threads, duration } =
+      ProfilerPopupBackground.getRecordingSettings(
+        pageContext,
+        Services.profiler.GetFeatures()
+      );
 
     if (gLoggingSettings.profilerThreads) {
       threads.push(...gLoggingSettings.profilerThreads.split(","));
@@ -669,6 +664,6 @@ async function stopLogging() {
 // the page is loaded via session-restore/bfcache. In such cases we need to call
 // init() to keep the page behaviour consistent with the ticked checkboxes.
 // Mostly the issue is with the autorefresh checkbox.
-window.addEventListener("pageshow", function() {
+window.addEventListener("pageshow", function () {
   init();
 });

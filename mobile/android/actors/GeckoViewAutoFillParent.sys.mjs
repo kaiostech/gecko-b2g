@@ -13,10 +13,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 export class GeckoViewAutoFillParent extends GeckoViewActorParent {
   constructor() {
     super();
-    this.sessionId = Services.uuid
-      .generateUUID()
-      .toString()
-      .slice(1, -1); // discard the surrounding curly braces
+    this.sessionId = Services.uuid.generateUUID().toString().slice(1, -1); // discard the surrounding curly braces
   }
 
   get rootActor() {
@@ -88,6 +85,5 @@ export class GeckoViewAutoFillParent extends GeckoViewActorParent {
   }
 }
 
-const { debug, warn } = GeckoViewAutoFillParent.initLogging(
-  "GeckoViewAutoFill"
-);
+const { debug, warn } =
+  GeckoViewAutoFillParent.initLogging("GeckoViewAutoFill");

@@ -112,11 +112,11 @@ NotificationStorage.prototype = {
     if (DEBUG) {
       debug("GETBYID: " + origin + " " + id);
     }
-    var GetByIDProxyCallback = function(id, originalCallback) {
+    var GetByIDProxyCallback = function (id, originalCallback) {
       this.searchID = id;
       this.originalCallback = originalCallback;
       var self = this;
-      this.handle = function(
+      this.handle = function (
         id,
         title,
         dir,
@@ -151,7 +151,7 @@ NotificationStorage.prototype = {
           );
         }
       };
-      this.done = function() {
+      this.done = function () {
         self.originalCallback.done();
       };
     };
@@ -230,7 +230,7 @@ NotificationStorage.prototype = {
     // Pass each notification back separately.
     // The callback is called asynchronously to match the behaviour when
     // fetching from the database.
-    notifications.forEach(function(notification) {
+    notifications.forEach(function (notification) {
       try {
         Services.tm.dispatchToMainThread(
           callback.handle.bind(

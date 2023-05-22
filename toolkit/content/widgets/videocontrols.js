@@ -500,9 +500,8 @@ this.VideoControlsImplWidget = class {
               if (control.modifier) {
                 propertyName += "-" + control.modifier;
               }
-              let preDefinedSize = this.controlBarComputedStyles.getPropertyValue(
-                propertyName
-              );
+              let preDefinedSize =
+                this.controlBarComputedStyles.getPropertyValue(propertyName);
 
               // The stylesheet from <link> might not be loaded if the
               // element was inserted into a hidden iframe.
@@ -1283,7 +1282,8 @@ this.VideoControlsImplWidget = class {
         // informs CSS custom properties used elsewhere to determine minimum
         // widths we need to show stuff.
         let modifier = durationMs >= 3600000 ? "long" : "";
-        this.positionDurationBox.modifier = this.durationSpan.modifier = modifier;
+        this.positionDurationBox.modifier = this.durationSpan.modifier =
+          modifier;
 
         // Update the text-based labels:
         let position = this.formatTime(currentTimeMs);
@@ -1792,17 +1792,16 @@ this.VideoControlsImplWidget = class {
           }
           let dimenDiff = this.video.videoWidth - this.video.videoHeight;
           if (dimenDiff > 0) {
-            this.video.mozIsOrientationLocked = this.window.screen.mozLockOrientation(
-              "landscape"
-            );
+            this.video.mozIsOrientationLocked =
+              this.window.screen.mozLockOrientation("landscape");
           } else if (dimenDiff < 0) {
-            this.video.mozIsOrientationLocked = this.window.screen.mozLockOrientation(
-              "portrait"
-            );
+            this.video.mozIsOrientationLocked =
+              this.window.screen.mozLockOrientation("portrait");
           } else {
-            this.video.mozIsOrientationLocked = this.window.screen.mozLockOrientation(
-              this.window.screen.orientation
-            );
+            this.video.mozIsOrientationLocked =
+              this.window.screen.mozLockOrientation(
+                this.window.screen.orientation
+              );
           }
         } else {
           if (!this.video.mozIsOrientationLocked) {
@@ -2374,7 +2373,7 @@ this.VideoControlsImplWidget = class {
           }
           let val = obj[prop];
           if (typeof val == "function") {
-            return function() {
+            return function () {
               return val.apply(obj, arguments);
             };
           }
@@ -2416,7 +2415,8 @@ this.VideoControlsImplWidget = class {
       updateReflowedDimensions() {
         this.reflowedDimensions.videoHeight = this.video.clientHeight;
         this.reflowedDimensions.videoWidth = this.video.clientWidth;
-        this.reflowedDimensions.videocontrolsWidth = this.videocontrols.clientWidth;
+        this.reflowedDimensions.videocontrolsWidth =
+          this.videocontrols.clientWidth;
         this.reflowedDimensions.scrubberWidth = this.scrubber.clientWidth;
       },
 
@@ -2590,15 +2590,13 @@ this.VideoControlsImplWidget = class {
         this.shadowRoot = shadowRoot;
         this.prefs = prefs;
 
-        this.controlsContainer = this.shadowRoot.getElementById(
-          "controlsContainer"
-        );
+        this.controlsContainer =
+          this.shadowRoot.getElementById("controlsContainer");
         this.statusIcon = this.shadowRoot.getElementById("statusIcon");
         this.controlBar = this.shadowRoot.getElementById("controlBar");
         this.playButton = this.shadowRoot.getElementById("playButton");
-        this.controlBarSpacer = this.shadowRoot.getElementById(
-          "controlBarSpacer"
-        );
+        this.controlBarSpacer =
+          this.shadowRoot.getElementById("controlBarSpacer");
         this.muteButton = this.shadowRoot.getElementById("muteButton");
         this.volumeStack = this.shadowRoot.getElementById("volumeStack");
         this.volumeControl = this.shadowRoot.getElementById("volumeControl");
@@ -2610,17 +2608,15 @@ this.VideoControlsImplWidget = class {
         this.durationLabel = this.shadowRoot.getElementById("durationLabel");
         this.positionLabel = this.shadowRoot.getElementById("positionLabel");
         this.statusOverlay = this.shadowRoot.getElementById("statusOverlay");
-        this.controlsOverlay = this.shadowRoot.getElementById(
-          "controlsOverlay"
-        );
+        this.controlsOverlay =
+          this.shadowRoot.getElementById("controlsOverlay");
         this.pictureInPictureOverlay = this.shadowRoot.getElementById(
           "pictureInPictureOverlay"
         );
         this.controlsSpacer = this.shadowRoot.getElementById("controlsSpacer");
         this.clickToPlay = this.shadowRoot.getElementById("clickToPlay");
-        this.fullscreenButton = this.shadowRoot.getElementById(
-          "fullscreenButton"
-        );
+        this.fullscreenButton =
+          this.shadowRoot.getElementById("fullscreenButton");
         this.castingButton = this.shadowRoot.getElementById("castingButton");
         this.closedCaptionButton = this.shadowRoot.getElementById(
           "closedCaptionButton"
@@ -3133,13 +3129,11 @@ this.NoControlsMobileImplWidget = class {
         this.window = this.document.defaultView;
         this.shadowRoot = shadowRoot;
 
-        this.controlsContainer = this.shadowRoot.getElementById(
-          "controlsContainer"
-        );
+        this.controlsContainer =
+          this.shadowRoot.getElementById("controlsContainer");
         this.clickToPlay = this.shadowRoot.getElementById("clickToPlay");
-        this.noControlsOverlay = this.shadowRoot.getElementById(
-          "controlsContainer"
-        );
+        this.noControlsOverlay =
+          this.shadowRoot.getElementById("controlsContainer");
 
         let isMobile = this.window.navigator.appVersion.includes("Android");
         if (isMobile) {
@@ -3378,7 +3372,8 @@ this.NoControlsDesktopImplWidget = class {
       updateReflowedDimensions() {
         this.reflowedDimensions.videoHeight = this.video.clientHeight;
         this.reflowedDimensions.videoWidth = this.video.clientWidth;
-        this.reflowedDimensions.videocontrolsWidth = this.videocontrols.clientWidth;
+        this.reflowedDimensions.videocontrolsWidth =
+          this.videocontrols.clientWidth;
       },
 
       reflowedDimensions: {

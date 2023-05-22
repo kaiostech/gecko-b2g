@@ -674,9 +674,8 @@ class SearchAdImpression {
    *  and adsHidden, the number of ads not visible to the user.
    */
   #countVisibleAndHiddenAds(element, adsLoaded, childElements) {
-    let elementRect = element.ownerGlobal.windowUtils.getBoundsWithoutFlushing(
-      element
-    );
+    let elementRect =
+      element.ownerGlobal.windowUtils.getBoundsWithoutFlushing(element);
 
     // If the element lacks a dimension, assume all ads that
     // were contained within it are hidden.
@@ -705,9 +704,8 @@ class SearchAdImpression {
     let adsVisible = 0;
     let adsHidden = 0;
     for (let child of childElements) {
-      let itemRect = child.ownerGlobal.windowUtils.getBoundsWithoutFlushing(
-        child
-      );
+      let itemRect =
+        child.ownerGlobal.windowUtils.getBoundsWithoutFlushing(child);
 
       // If the child element we're inspecting has no dimension, it is hidden.
       if (itemRect.height == 0 || itemRect.width == 0) {
@@ -769,9 +767,8 @@ class SearchAdImpression {
     if (this.#elementToAdDataMap.has(element)) {
       let recordedValues = this.#elementToAdDataMap.get(element);
       if (childElements.length) {
-        recordedValues.childElements = recordedValues.childElements.concat(
-          childElements
-        );
+        recordedValues.childElements =
+          recordedValues.childElements.concat(childElements);
       }
     } else {
       this.#elementToAdDataMap.set(element, {
@@ -918,7 +915,7 @@ export class SearchSERPTelemetryChild extends JSWindowActorChild {
 
     if (
       lazy.serpEventsEnabled &&
-      providerInfo?.components &&
+      providerInfo?.components.length &&
       (eventType == "load" || eventType == "pageshow")
     ) {
       searchAdImpression.pageUrl = new URL(url);
@@ -932,10 +929,8 @@ export class SearchSERPTelemetryChild extends JSWindowActorChild {
         });
       };
       let start = Cu.now();
-      let {
-        componentToVisibilityMap,
-        hrefToComponentMap,
-      } = searchAdImpression.categorize(anchors, doc);
+      let { componentToVisibilityMap, hrefToComponentMap } =
+        searchAdImpression.categorize(anchors, doc);
       ChromeUtils.addProfilerMarker(
         "SearchSERPTelemetryChild._checkForAdLink",
         start,
@@ -956,19 +951,20 @@ export class SearchSERPTelemetryChild extends JSWindowActorChild {
   #checkForPageImpressionComponents() {
     let url = this.document.documentURI;
     let providerInfo = this._getProviderInfoForUrl(url);
-    searchAdImpression.providerInfo = providerInfo;
-
-    let start = Cu.now();
-    let hasShoppingTab = searchAdImpression.hasShoppingTab(this.document);
-    ChromeUtils.addProfilerMarker(
-      "SearchSERPTelemetryChild.#recordImpression",
-      start,
-      "Checked for shopping tab"
-    );
-    this.sendAsyncMessage("SearchTelemetry:PageImpression", {
-      url,
-      hasShoppingTab,
-    });
+    if (providerInfo.components?.length) {
+      searchAdImpression.providerInfo = providerInfo;
+      let start = Cu.now();
+      let hasShoppingTab = searchAdImpression.hasShoppingTab(this.document);
+      ChromeUtils.addProfilerMarker(
+        "SearchSERPTelemetryChild.#recordImpression",
+        start,
+        "Checked for shopping tab"
+      );
+      this.sendAsyncMessage("SearchTelemetry:PageImpression", {
+        url,
+        hasShoppingTab,
+      });
+    }
   }
 
   /**

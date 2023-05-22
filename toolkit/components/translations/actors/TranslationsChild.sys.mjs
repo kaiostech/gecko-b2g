@@ -163,9 +163,10 @@ class TranslationsEngineCache {
    */
   createGetter(actor, fromLanguage, toLanguage) {
     return async (onlyFromCache = false) => {
-      let enginePromise = this.#engines[
-        TranslationsChild.languagePairKey(fromLanguage, toLanguage)
-      ];
+      let enginePromise =
+        this.#engines[
+          TranslationsChild.languagePairKey(fromLanguage, toLanguage)
+        ];
       if (enginePromise) {
         return enginePromise;
       }
@@ -765,6 +766,8 @@ export class TranslationsChild extends JSWindowActorChild {
       "Beginning to translate.",
       this.contentWindow.location.href
     );
+
+    this.sendAsyncMessage("Translations:EngineIsReady");
 
     this.translatedDoc.addRootElement(this.document.querySelector("title"));
     this.translatedDoc.addRootElement(

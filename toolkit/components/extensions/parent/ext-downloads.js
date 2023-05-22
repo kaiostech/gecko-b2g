@@ -465,7 +465,7 @@ const downloadQuery = query => {
   );
   const matchUrl = makeMatch(query.urlRegex, query.url, "url");
 
-  return function(item) {
+  return function (item) {
     const url = item.url.toLowerCase();
     const filename = item.filename.toLowerCase();
 
@@ -1220,10 +1220,10 @@ this.downloads = class extends ExtensionAPIPersistent {
               }
 
               return new Promise((resolve, reject) => {
-                let chromeWebNav = Services.appShell.createWindowlessBrowser(
-                  true
-                );
-                let system = Services.scriptSecurityManager.getSystemPrincipal();
+                let chromeWebNav =
+                  Services.appShell.createWindowlessBrowser(true);
+                let system =
+                  Services.scriptSecurityManager.getSystemPrincipal();
                 chromeWebNav.docShell.createAboutBlankContentViewer(
                   system,
                   system

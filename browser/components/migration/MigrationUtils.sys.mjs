@@ -180,7 +180,7 @@ class MigrationUtils {
    *   the wrapped function.
    */
   wrapMigrateFunction(aFunction, aCallback) {
-    return function() {
+    return function () {
       let success = false;
       try {
         aFunction.apply(null, arguments);
@@ -292,9 +292,8 @@ class MigrationUtils {
         MIGRATOR_MODULES
       )) {
         if (platforms.includes(AppConstants.platform)) {
-          let { [symbol]: migratorClass } = ChromeUtils.importESModule(
-            moduleURI
-          );
+          let { [symbol]: migratorClass } =
+            ChromeUtils.importESModule(moduleURI);
           if (gMigrators.has(migratorClass.key)) {
             console.error(
               "A pre-existing migrator exists with key " +
@@ -819,7 +818,7 @@ class MigrationUtils {
         if (parent == lazy.PlacesUtils.bookmarks.toolbarGuid) {
           lazy.PlacesUIUtils.maybeToggleBookmarkToolbarVisibility(
             true /* aForceVisible */
-          );
+          ).catch(console.error);
         }
       },
       ex => console.error(ex)

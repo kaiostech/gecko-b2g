@@ -26,12 +26,10 @@ var EXPORTED_SYMBOLS = [
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const {
-  computeSha256HashAsString,
-  getHashStringForCrypto,
-} = ChromeUtils.importESModule(
-  "resource://gre/modules/addons/crypto-utils.sys.mjs"
-);
+const { computeSha256HashAsString, getHashStringForCrypto } =
+  ChromeUtils.importESModule(
+    "resource://gre/modules/addons/crypto-utils.sys.mjs"
+  );
 
 const { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
@@ -177,7 +175,8 @@ const MSG_JAR_FLUSH = "Extension:FlushJarCache";
 /**
  * Valid IDs fit this pattern.
  */
-var gIDTest = /^(\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}|[a-z0-9-\._]*\@[a-z0-9-\._]+)$/i;
+var gIDTest =
+  /^(\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}|[a-z0-9-\._]*\@[a-z0-9-\._]+)$/i;
 
 const { Log } = ChromeUtils.importESModule(
   "resource://gre/modules/Log.sys.mjs"
@@ -656,7 +655,7 @@ function generateTemporaryInstallID(aFile) {
   return id;
 }
 
-var loadManifest = async function(aPackage, aLocation, aOldAddon) {
+var loadManifest = async function (aPackage, aLocation, aOldAddon) {
   let addon;
   let verifiedSignedState;
   if (await aPackage.hasResource("manifest.json")) {
@@ -748,7 +747,7 @@ var loadManifest = async function(aPackage, aLocation, aOldAddon) {
  * @returns {AddonInternal}
  *        The parsed Addon object for the file's manifest.
  */
-var loadManifestFromFile = async function(aFile, aLocation, aOldAddon) {
+var loadManifestFromFile = async function (aFile, aLocation, aOldAddon) {
   let pkg = Package.get(aFile);
   try {
     let addon = await loadManifest(pkg, aLocation, aOldAddon);
@@ -907,7 +906,7 @@ function shouldVerifySignedState(aAddonType, aLocation) {
  * @returns {Promise<number>}
  *        A Promise that resolves to an AddonManager.SIGNEDSTATE_* constant.
  */
-var verifyBundleSignedState = async function(aBundle, aAddon) {
+var verifyBundleSignedState = async function (aBundle, aAddon) {
   let pkg = Package.get(aBundle);
   try {
     let { signedState } = await pkg.verifySignedState(
@@ -1453,7 +1452,7 @@ class AddonInstall {
    */
   addListener(aListener) {
     if (
-      !this.listeners.some(function(i) {
+      !this.listeners.some(function (i) {
         return i == aListener;
       })
     ) {
@@ -1468,7 +1467,7 @@ class AddonInstall {
    *        The InstallListener to remove
    */
   removeListener(aListener) {
-    this.listeners = this.listeners.filter(function(i) {
+    this.listeners = this.listeners.filter(function (i) {
       return i != aListener;
     });
   }
@@ -2677,7 +2676,7 @@ var DownloadAddonInstall = class extends AddonInstall {
 function createUpdate(aCallback, aAddon, aUpdate, isUserRequested) {
   let url = Services.io.newURI(aUpdate.updateURL);
 
-  (async function() {
+  (async function () {
     let opts = {
       hash: aUpdate.updateHash,
       existingAddon: aAddon,
@@ -2843,7 +2842,7 @@ AddonInstallWrapper.prototype = {
   "state",
   "progress",
   "maxProgress",
-].forEach(function(aProp) {
+].forEach(function (aProp) {
   Object.defineProperty(AddonInstallWrapper.prototype, aProp, {
     get() {
       return installFor(this)[aProp];
@@ -2868,7 +2867,7 @@ AddonInstallWrapper.prototype = {
  * @throws if the aListener or aReason arguments are not valid
  */
 var AddonUpdateChecker;
-var UpdateChecker = function(
+var UpdateChecker = function (
   aAddon,
   aListener,
   aReason,

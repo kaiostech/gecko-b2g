@@ -8,7 +8,7 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "gFluentStrings", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gFluentStrings", function () {
   return new Localization([
     "branding/brand.ftl",
     "browser/migrationWizard.ftl",
@@ -209,13 +209,11 @@ export class MigrationWizardParent extends JSWindowActorParent {
       };
     }
 
-    let [
-      progressHeaderString,
-      successHeaderString,
-    ] = await lazy.gFluentStrings.formatValues([
-      fileMigrator.progressHeaderL10nID,
-      fileMigrator.successHeaderL10nID,
-    ]);
+    let [progressHeaderString, successHeaderString] =
+      await lazy.gFluentStrings.formatValues([
+        fileMigrator.progressHeaderL10nID,
+        fileMigrator.successHeaderL10nID,
+      ]);
 
     this.sendAsyncMessage("UpdateFileImportProgress", {
       title: progressHeaderString,

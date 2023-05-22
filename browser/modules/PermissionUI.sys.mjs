@@ -90,7 +90,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/content-pref/service;1",
   "nsIContentPrefService2"
 );
-XPCOMUtils.defineLazyGetter(lazy, "gBrowserBundle", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gBrowserBundle", function () {
   return Services.strings.createBundle(
     "chrome://browser/locale/browser.properties"
   );
@@ -915,9 +915,8 @@ class XRPermissionPrompt extends PermissionPromptForRequest {
     };
 
     if (options.checkbox.show) {
-      options.checkbox.label = lazy.gBrowserBundle.GetStringFromName(
-        "xr.remember"
-      );
+      options.checkbox.label =
+        lazy.gBrowserBundle.GetStringFromName("xr.remember");
     }
 
     return options;
@@ -1235,9 +1234,8 @@ class MIDIPermissionPrompt extends SitePermsAddonInstallRequest {
     };
 
     if (options.checkbox.show) {
-      options.checkbox.label = lazy.gBrowserBundle.GetStringFromName(
-        "midi.remember"
-      );
+      options.checkbox.label =
+        lazy.gBrowserBundle.GetStringFromName("midi.remember");
     }
 
     return options;

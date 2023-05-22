@@ -141,7 +141,7 @@ nsURLFormatterService.prototype = {
 
   formatURL: function uf_formatURL(aFormat) {
     var _this = this;
-    var replacementCallback = function(aMatch, aKey) {
+    var replacementCallback = function (aMatch, aKey) {
       if (aKey in _this._defaults) {
         return _this._defaults[aKey].call(_this);
       }

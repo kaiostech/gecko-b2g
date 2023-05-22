@@ -159,10 +159,7 @@ export class WebDriverSession {
     // to reconnect.
     this._connections = new Set();
 
-    this.id = Services.uuid
-      .generateUUID()
-      .toString()
-      .slice(1, -1);
+    this.id = Services.uuid.generateUUID().toString().slice(1, -1);
 
     // Define the HTTP path to query this session via WebDriver BiDi
     this.path = `/session/${this.id}`;
@@ -255,12 +252,10 @@ export class WebDriverSession {
 
   get messageHandler() {
     if (!this._messageHandler) {
-      this._messageHandler = lazy.RootMessageHandlerRegistry.getOrCreateMessageHandler(
-        this.id
-      );
-      this._onMessageHandlerProtocolEvent = this._onMessageHandlerProtocolEvent.bind(
-        this
-      );
+      this._messageHandler =
+        lazy.RootMessageHandlerRegistry.getOrCreateMessageHandler(this.id);
+      this._onMessageHandlerProtocolEvent =
+        this._onMessageHandlerProtocolEvent.bind(this);
       this._messageHandler.on(
         "message-handler-protocol-event",
         this._onMessageHandlerProtocolEvent

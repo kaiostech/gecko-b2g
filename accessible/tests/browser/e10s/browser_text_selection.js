@@ -59,13 +59,6 @@ function testSelectionRange(
   endContainer,
   endOffset
 ) {
-  if (browser.isRemoteBrowser && !isCacheEnabled) {
-    todo(
-      false,
-      "selectionRanges not implemented for non-cached RemoteAccessible"
-    );
-    return;
-  }
   let selRange = root.selectionRanges.queryElementAt(0, nsIAccessibleTextRange);
   testTextRange(
     selRange,
@@ -89,7 +82,7 @@ addAccessibleTask(
   <p id="pWithLink">d<a id="link" href="https://example.com/">e</a><span id="textAfterLink">f</span></p>
 </div>
   `,
-  async function(browser, docAcc) {
+  async function (browser, docAcc) {
     queryInterfaces(docAcc, [nsIAccessibleText]);
 
     const textarea = findAccessibleChildByID(docAcc, "textarea", [
@@ -153,7 +146,7 @@ addAccessibleTask(
     testTextGetSelection(editable, 0, 1, 0);
     testTextGetSelection(p1, 0, 1, 0);
     const p2 = findAccessibleChildByID(docAcc, "p2", [nsIAccessibleText]);
-    if (isCacheEnabled && browser.isRemoteBrowser) {
+    if (browser.isRemoteBrowser) {
       is(p2.selectionCount, 0, "p2 selectionCount is 0");
     } else {
       todo(
@@ -212,35 +205,28 @@ addAccessibleTask(
       content.window.getSelection().addRange(r);
     });
     await selChanged;
-    if (browser.isRemoteBrowser && !isCacheEnabled) {
-      todo(
-        false,
-        "selectionRanges not implemented for non-cached RemoteAccessible"
-      );
-    } else {
-      let selRanges = editable.selectionRanges;
-      is(selRanges.length, 2, "2 selection ranges");
-      testTextRange(
-        selRanges.queryElementAt(0, nsIAccessibleTextRange),
-        "range 0",
-        p1,
-        0,
-        p1,
-        1
-      );
-      testTextRange(
-        selRanges.queryElementAt(1, nsIAccessibleTextRange),
-        "range 1",
-        p2,
-        0,
-        p2,
-        1
-      );
-    }
+    let selRanges = editable.selectionRanges;
+    is(selRanges.length, 2, "2 selection ranges");
+    testTextRange(
+      selRanges.queryElementAt(0, nsIAccessibleTextRange),
+      "range 0",
+      p1,
+      0,
+      p1,
+      1
+    );
+    testTextRange(
+      selRanges.queryElementAt(1, nsIAccessibleTextRange),
+      "range 1",
+      p2,
+      0,
+      p2,
+      1
+    );
     is(editable.selectionCount, 2, "editable selectionCount is 2");
     testTextGetSelection(editable, 0, 1, 0);
     testTextGetSelection(editable, 1, 2, 1);
-    if (isCacheEnabled && browser.isRemoteBrowser) {
+    if (browser.isRemoteBrowser) {
       is(p1.selectionCount, 1, "p1 selectionCount is 1");
       testTextGetSelection(p1, 0, 1, 0);
       is(p2.selectionCount, 1, "p2 selectionCount is 1");
@@ -254,9 +240,9 @@ addAccessibleTask(
   },
   {
     chrome: true,
-    topLevel: !isWinNoCache,
-    iframe: !isWinNoCache,
-    remoteIframe: !isWinNoCache,
+    topLevel: true,
+    iframe: true,
+    remoteIframe: true,
   }
 );
 
@@ -270,7 +256,7 @@ addAccessibleTask(
 <button id="before">Before</button>
 <input id="input" value="test">
   `,
-  async function(browser, docAcc) {
+  async function (browser, docAcc) {
     // The tab order is different when there's an iframe, so focus a control
     // before the input to make tab consistent.
     info("Focusing before");
@@ -305,9 +291,9 @@ addAccessibleTask(
   },
   {
     chrome: true,
-    topLevel: !isWinNoCache,
-    iframe: !isWinNoCache,
-    remoteIframe: !isWinNoCache,
+    topLevel: true,
+    iframe: true,
+    remoteIframe: true,
   }
 );
 
@@ -321,7 +307,7 @@ addAccessibleTask(
     <li id="li">Number one</li>
   </ol>
   `,
-  async function(browser, docAcc) {
+  async function (browser, docAcc) {
     const paragraph = findAccessibleChildByID(docAcc, "paragraph", [
       nsIAccessibleText,
     ]);
@@ -352,8 +338,8 @@ addAccessibleTask(
   },
   {
     chrome: true,
-    topLevel: !isWinNoCache,
-    iframe: !isWinNoCache,
-    remoteIframe: !isWinNoCache,
+    topLevel: true,
+    iframe: true,
+    remoteIframe: true,
   }
 );

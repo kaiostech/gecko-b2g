@@ -85,7 +85,6 @@
 #include "mozilla/Unused.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/ProfilerMarkers.h"
-#include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/StaticPrefs_ui.h"
 #include "mozilla/dom/CanvasRenderingContext2D.h"
 #include "mozilla/dom/Element.h"
@@ -291,8 +290,7 @@ KeyBinding LocalAccessible::AccessKey() const {
 KeyBinding LocalAccessible::KeyboardShortcut() const { return KeyBinding(); }
 
 uint64_t LocalAccessible::VisibilityState() const {
-  if (IPCAccessibilityActive() &&
-      StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+  if (IPCAccessibilityActive() && a11y::IsCacheActive()) {
     // Visibility states must be calculated by RemoteAccessible, so there's no
     // point calculating them here.
     return 0;
@@ -443,8 +441,7 @@ uint64_t LocalAccessible::NativeInteractiveState() const {
   // Although ignoring visibility means IsFocusable will return true for
   // visibility: hidden, etc., this isn't a problem because we don't include
   // those hidden elements in the a11y tree anyway.
-  const bool ignoreVisibility =
-      mDoc->IPCDoc() && StaticPrefs::accessibility_cache_enabled_AtStartup();
+  const bool ignoreVisibility = mDoc->IPCDoc() && a11y::IsCacheActive();
   if (frame && frame->IsFocusable(
                    /* aWithMouse */ false,
                    /* aCheckVisibility */ !ignoreVisibility)) {
@@ -904,8 +901,8 @@ nsresult LocalAccessible::HandleAccEvent(AccEvent* aEvent) {
           }
 
 #if defined(XP_WIN)
-          if (StaticPrefs::accessibility_cache_enabled_AtStartup() &&
-              HasOwnContent() && mContent->IsMathMLElement()) {
+          if (a11y::IsCacheActive() && HasOwnContent() &&
+              mContent->IsMathMLElement()) {
             // For any change in a MathML subtree, update the innerHTML cache on
             // the root math element.
             for (LocalAccessible* acc = this; acc; acc = acc->LocalParent()) {
@@ -940,24 +937,9 @@ nsresult LocalAccessible::HandleAccEvent(AccEvent* aEvent) {
         case nsIAccessibleEvent::EVENT_TEXT_REMOVED: {
           AccTextChangeEvent* event = downcast_accEvent(aEvent);
           const nsString& text = event->ModifiedText();
-#if defined(XP_WIN)
-          // On Windows with the cache disabled, events for live region updates
-          // containing embedded objects require us to dispatch synchronous
-          // events.
-          bool sync = !StaticPrefs::accessibility_cache_enabled_AtStartup() &&
-                      text.Contains(L'\xfffc') &&
-                      nsAccUtils::IsARIALive(aEvent->GetAccessible());
-#endif
-          ipcDoc->SendTextChangeEvent(id, text, event->GetStartOffset(),
-                                      event->GetLength(),
-                                      event->IsTextInserted(),
-                                      event->IsFromUserInput()
-#if defined(XP_WIN)
-                                      // This parameter only exists on Windows.
-                                      ,
-                                      sync
-#endif
-          );
+          ipcDoc->SendTextChangeEvent(
+              id, text, event->GetStartOffset(), event->GetLength(),
+              event->IsTextInserted(), event->IsFromUserInput());
           break;
         }
         case nsIAccessibleEvent::EVENT_SELECTION:
@@ -1005,7 +987,7 @@ nsresult LocalAccessible::HandleAccEvent(AccEvent* aEvent) {
 #endif  // !defined(XP_WIN)
         case nsIAccessibleEvent::EVENT_TEXT_SELECTION_CHANGED: {
 #if defined(XP_WIN)
-          if (!StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+          if (!a11y::IsCacheActive()) {
             // On Windows, when the cache is disabled, we have to defer events
             // until we are notified that the DocAccessibleParent has been
             // constructed, which needs specific code for each event payload.
@@ -2528,7 +2510,7 @@ void LocalAccessible::BindToParent(LocalAccessible* aParent,
       eInsideAlert;
 
   if (TableCellAccessible* cell = AsTableCell()) {
-    if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+    if (a11y::IsCacheActive()) {
       CachedTableAccessible::Invalidate(this);
     } else if (Role() == roles::COLUMNHEADER) {
       // A new column header is being added. Invalidate the table's header
@@ -2545,8 +2527,7 @@ void LocalAccessible::BindToParent(LocalAccessible* aParent,
 void LocalAccessible::UnbindFromParent() {
   // We do this here to handle document shutdown and an Accessible being moved.
   // We do this for subtree removal in DocAccessible::UncacheChildrenInSubtree.
-  if (StaticPrefs::accessibility_cache_enabled_AtStartup() &&
-      (IsTable() || IsTableCell())) {
+  if (a11y::IsCacheActive() && (IsTable() || IsTableCell())) {
     CachedTableAccessible::Invalidate(this);
   }
 
@@ -3109,7 +3090,7 @@ AccGroupInfo* LocalAccessible::GetOrCreateGroupInfo() {
 
 void LocalAccessible::SendCache(uint64_t aCacheDomain,
                                 CacheUpdateType aUpdateType) {
-  if (!StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+  if (!a11y::IsCacheActive()) {
     return;
   }
 
@@ -3858,8 +3839,7 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
 void LocalAccessible::MaybeQueueCacheUpdateForStyleChanges() {
   // mOldComputedStyle might be null if the initial cache hasn't been sent yet.
   // In that case, there is nothing to do here.
-  if (!IPCAccessibilityActive() ||
-      !StaticPrefs::accessibility_cache_enabled_AtStartup() ||
+  if (!IPCAccessibilityActive() || !a11y::IsCacheActive() ||
       !mOldComputedStyle) {
     return;
   }
@@ -4061,8 +4041,7 @@ void LocalAccessible::StaticAsserts() const {
 }
 
 TableAccessibleBase* LocalAccessible::AsTableBase() {
-  if (StaticPrefs::accessibility_cache_enabled_AtStartup() && IsTable() &&
-      !mContent->IsXULElement()) {
+  if (a11y::IsCacheActive() && IsTable() && !mContent->IsXULElement()) {
     // This isn't strictly related to caching, but this new table implementation
     // is being developed to make caching feasible. We put it behind this pref
     // to make it easy to test while it's still under development.
@@ -4072,8 +4051,7 @@ TableAccessibleBase* LocalAccessible::AsTableBase() {
 }
 
 TableCellAccessibleBase* LocalAccessible::AsTableCellBase() {
-  if (StaticPrefs::accessibility_cache_enabled_AtStartup() && IsTableCell() &&
-      !mContent->IsXULElement()) {
+  if (a11y::IsCacheActive() && IsTableCell() && !mContent->IsXULElement()) {
     // This isn't strictly related to caching, but this new table implementation
     // is being developed to make caching feasible. We put it behind this pref
     // to make it easy to test while it's still under development.

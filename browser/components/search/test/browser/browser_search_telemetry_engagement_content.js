@@ -9,17 +9,14 @@
 
 "use strict";
 
-const {
-  SearchSERPTelemetry,
-  SearchSERPTelemetryUtils,
-} = ChromeUtils.importESModule(
-  "resource:///modules/SearchSERPTelemetry.sys.mjs"
-);
+const { SearchSERPTelemetry, SearchSERPTelemetryUtils } =
+  ChromeUtils.importESModule("resource:///modules/SearchSERPTelemetry.sys.mjs");
 
 const TEST_PROVIDER_INFO = [
   {
     telemetryId: "example",
-    searchPageRegexp: /^https:\/\/example.org\/browser\/browser\/components\/search\/test\/browser\/searchTelemetryAd_searchbox_with_content.html/,
+    searchPageRegexp:
+      /^https:\/\/example.org\/browser\/browser\/components\/search\/test\/browser\/searchTelemetryAd_searchbox_with_content.html/,
     extraPageRegexps: [
       /^https:\/\/example.org\/browser\/browser\/components\/search\/test\/browser\/searchTelemetryAd_searchbox.html/,
     ],
@@ -100,7 +97,7 @@ async function waitForIdle() {
   }
 }
 
-add_setup(async function() {
+add_setup(async function () {
   SearchSERPTelemetry.overrideSearchTelemetryForTests(TEST_PROVIDER_INFO);
   await waitForIdle();
   // Enable local telemetry recording for the duration of the tests.

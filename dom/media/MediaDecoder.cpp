@@ -483,6 +483,11 @@ void MediaDecoder::OnPlaybackErrorEvent(const MediaResult& aError) {
   // metadata because the MDSM might not be ready to perform the operations yet.
   mPendingStatusUpdateForNewlyCreatedStateMachine = true;
 
+  // If there is ongoing seek performed on the old MDSM, cancel it because we
+  // will perform seeking later again and don't want the old seeking affecting
+  // us.
+  DiscardOngoingSeekIfExists();
+
   discardStateMachine->BeginShutdown()->Then(
       AbstractThread::MainThread(), __func__, [discardStateMachine] {});
 #endif
@@ -794,6 +799,9 @@ void MediaDecoder::MetadataLoaded(
 #ifdef MOZ_WMF_MEDIA_ENGINE
   if (mPendingStatusUpdateForNewlyCreatedStateMachine) {
     mPendingStatusUpdateForNewlyCreatedStateMachine = false;
+    LOG("Set pending statuses if necessary (mLogicallySeeking=%d, "
+        "mLogicalPosition=%f, mPlaybackRate=%f)",
+        mLogicallySeeking.Ref(), mLogicalPosition, mPlaybackRate);
     if (mLogicalPosition != 0) {
       Seek(mLogicalPosition, SeekTarget::Accurate);
     }
@@ -939,6 +947,7 @@ void MediaDecoder::NotifyPrincipalChanged() {
 void MediaDecoder::OnSeekResolved() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_DIAGNOSTIC_ASSERT(!IsShutdown());
+  LOG("MediaDecoder::OnSeekResolved");
   mLogicallySeeking = false;
 
   // Ensure logical position is updated after seek.
@@ -950,6 +959,7 @@ void MediaDecoder::OnSeekResolved() {
 
 void MediaDecoder::OnSeekRejected() {
   MOZ_ASSERT(NS_IsMainThread());
+  LOG("MediaDecoder::OnSeekRejected");
   mSeekRequest.Complete();
   mLogicallySeeking = false;
 

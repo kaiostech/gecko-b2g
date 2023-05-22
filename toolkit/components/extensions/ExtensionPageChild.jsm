@@ -42,12 +42,8 @@ const { ExtensionUtils } = ChromeUtils.import(
 
 const { getInnerWindowID, promiseEvent } = ExtensionUtils;
 
-const {
-  BaseContext,
-  CanOfAPIs,
-  SchemaAPIManager,
-  defineLazyGetter,
-} = ExtensionCommon;
+const { BaseContext, CanOfAPIs, SchemaAPIManager, defineLazyGetter } =
+  ExtensionCommon;
 
 const { ChildAPIManager, Messenger } = ExtensionChild;
 
@@ -79,8 +75,7 @@ const initializeBackgroundPage = context => {
 
   function ignoredSuspendListener() {
     logWarningMessage({
-      text:
-        "Background event page was not terminated on idle because a DevTools toolbox is attached to the extension.",
+      text: "Background event page was not terminated on idle because a DevTools toolbox is attached to the extension.",
       filename: context.contentWindow.location.href,
     });
   }
@@ -110,8 +105,7 @@ const initializeBackgroundPage = context => {
       );
 
       logWarningMessage({
-        text:
-          "alert() is not supported in background windows; please use console.log instead.",
+        text: "alert() is not supported in background windows; please use console.log instead.",
         filename,
         lineNumber,
         columnNumber,
@@ -169,7 +163,7 @@ function getContextChildManagerGetter(
   { envType },
   ChildAPIManagerClass = ChildAPIManager
 ) {
-  return function() {
+  return function () {
     let apiManager =
       envType === "devtools_parent"
         ? devtoolsAPIManager
@@ -302,7 +296,7 @@ class ExtensionBaseContextChild extends BaseContext {
   }
 }
 
-defineLazyGetter(ExtensionBaseContextChild.prototype, "messenger", function() {
+defineLazyGetter(ExtensionBaseContextChild.prototype, "messenger", function () {
   return new Messenger(this);
 });
 

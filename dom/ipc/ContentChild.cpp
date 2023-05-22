@@ -43,7 +43,6 @@
 #include "mozilla/SharedStyleSheetCache.h"
 #include "mozilla/SimpleEnumerator.h"
 #include "mozilla/SpinEventLoopUntil.h"
-#include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_fission.h"
@@ -661,8 +660,7 @@ ContentChild::ContentChild()
     : mID(uint64_t(-1))
 #if defined(XP_WIN) && defined(ACCESSIBILITY)
       ,
-      mMainChromeTid(0),
-      mMsaaID(0)
+      mMainChromeTid(0)
 #endif
       ,
       mIsForBrowser(false),
@@ -2877,15 +2875,11 @@ mozilla::ipc::IPCResult ContentChild::RecvFlushMemory(const nsString& reason) {
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvActivateA11y(
-    const uint32_t& aMainChromeTid, const uint32_t& aMsaaID) {
+    const uint32_t& aMainChromeTid) {
 #ifdef ACCESSIBILITY
 #  ifdef XP_WIN
   MOZ_ASSERT(aMainChromeTid != 0);
   mMainChromeTid = aMainChromeTid;
-
-  MOZ_ASSERT(StaticPrefs::accessibility_cache_enabled_AtStartup() ? !aMsaaID
-                                                                  : aMsaaID);
-  mMsaaID = aMsaaID;
 #  endif  // XP_WIN
 
   // Start accessibility in content process if it's running in chrome
@@ -3778,12 +3772,6 @@ mozilla::ipc::IPCResult ContentChild::RecvBlobURLUnregistration(
       /* aBroadcastToOtherProcesses = */ false);
   return IPC_OK();
 }
-
-#if defined(XP_WIN) && defined(ACCESSIBILITY)
-bool ContentChild::SendGetA11yContentId() {
-  return PContentChild::SendGetA11yContentId(&mMsaaID);
-}
-#endif  // defined(XP_WIN) && defined(ACCESSIBILITY)
 
 void ContentChild::CreateGetFilesRequest(const nsAString& aDirectoryPath,
                                          bool aRecursiveFlag, nsID& aUUID,

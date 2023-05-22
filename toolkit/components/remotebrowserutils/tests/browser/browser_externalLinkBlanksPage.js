@@ -17,9 +17,8 @@ let Pages = [httpURL("dummy_page.html"), fileURL("dummy_page.html")];
  * Creates dummy protocol handler
  */
 function initTestHandlers() {
-  let handlerInfo = HandlerServiceTestUtils.getBlankHandlerInfo(
-    "test-proto://"
-  );
+  let handlerInfo =
+    HandlerServiceTestUtils.getBlankHandlerInfo("test-proto://");
 
   let appHandler = Cc[
     "@mozilla.org/uriloader/local-handler-app;1"
@@ -47,7 +46,7 @@ async function runTest() {
       ],
     });
     for (let page of Pages) {
-      await BrowserTestUtils.withNewTab(page, async function(aBrowser) {
+      await BrowserTestUtils.withNewTab(page, async function (aBrowser) {
         await SpecialPowers.spawn(aBrowser, [], async () => {
           let h = content.document.createElement("h1");
           ok(h);

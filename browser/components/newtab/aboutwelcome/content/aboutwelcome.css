@@ -511,6 +511,7 @@ html {
 .onboardingContainer .screen[pos=center].with-video .main-content .secondary-cta .arrow-icon {
   -moz-context-properties: fill;
   fill: currentColor;
+  text-decoration: none;
 }
 .onboardingContainer .screen[pos=center].with-video .main-content .secondary-cta .arrow-icon::after {
   content: "";
@@ -528,10 +529,10 @@ html {
   font-size: 0.72em;
   font-weight: 600;
   padding: 8px 16px;
+  text-decoration: none;
   color: var(--in-content-button-text-color);
 }
 .onboardingContainer .screen[pos=center].with-video .main-content .secondary-cta .secondary:hover {
-  text-decoration: none;
   background-color: var(--in-content-button-background-hover) !important;
   color: var(--in-content-button-text-color-hover);
 }
@@ -610,6 +611,8 @@ html {
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .checkbox-container {
   font-size: 13px;
   margin-block: 1em;
+}
+.onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .checkbox-container:not(.multi-select-item) {
   transition: var(--transition);
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .checkbox-container input,
@@ -620,15 +623,20 @@ html {
   margin: 8px 0;
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .additional-cta.cta-link {
-  color: var(--in-content-link-color);
   background: none;
   padding: 0;
   font-weight: normal;
   text-decoration: underline;
   cursor: pointer;
+  color: var(--in-content-link-color);
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .additional-cta.cta-link:hover {
+  text-decoration: none;
   color: var(--in-content-link-color-hover);
+}
+.onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .additional-cta.cta-link:active {
+  text-decoration: none;
+  color: var(--in-content-link-color-active);
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .additional-cta.secondary:hover {
   background-color: var(--in-content-button-background-hover);
@@ -649,15 +657,16 @@ html {
   font-size: 0.72em;
   font-weight: 600;
   padding: 8px 16px;
+  text-decoration: none;
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .secondary-cta .secondary:hover {
-  text-decoration: none;
   background-color: var(--in-content-button-background-hover) !important;
   color: var(--in-content-button-text-color-hover);
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .secondary-cta .arrow-icon {
   -moz-context-properties: fill;
   fill: currentColor;
+  text-decoration: none;
 }
 .onboardingContainer .screen[pos=split] .section-main .main-content .action-buttons .secondary-cta .arrow-icon::after {
   content: "";
@@ -941,6 +950,19 @@ html {
     text-align: center;
   }
 }
+.onboardingContainer .text-link {
+  text-decoration: underline;
+  cursor: pointer;
+  color: var(--in-content-link-color);
+}
+.onboardingContainer .text-link:hover {
+  text-decoration: none;
+  color: var(--in-content-link-color-hover);
+}
+.onboardingContainer .text-link:active {
+  text-decoration: none;
+  color: var(--in-content-link-color-active);
+}
 .onboardingContainer .welcome-text {
   display: flex;
   flex-direction: column;
@@ -1208,9 +1230,18 @@ html {
 .onboardingContainer .mobile-downloads .email-link {
   font-size: 16px;
   font-weight: 400;
-  text-decoration: underline;
-  color: var(--in-content-link-color);
   background: none;
+  text-decoration: underline;
+  cursor: pointer;
+  color: var(--in-content-link-color);
+}
+.onboardingContainer .mobile-downloads .email-link:hover {
+  text-decoration: none;
+  color: var(--in-content-link-color-hover);
+}
+.onboardingContainer .mobile-downloads .email-link:active {
+  text-decoration: none;
+  color: var(--in-content-link-color-active);
 }
 .onboardingContainer .mobile-downloads .email-link:hover {
   background: none;
@@ -1469,11 +1500,11 @@ html {
 .onboardingContainer .dialog-initial .brand-logo {
   transition-delay: 0.6s;
 }
-.onboardingContainer .dialog-initial .welcome-text,
-.onboardingContainer .dialog-initial .multi-select-container {
+.onboardingContainer .dialog-initial .welcome-text {
   transition-delay: 0.8s;
 }
 .onboardingContainer .dialog-initial .tiles-theme-section,
+.onboardingContainer .dialog-initial .multi-select-container,
 .onboardingContainer .dialog-initial migration-wizard {
   transition-delay: 0.9s;
 }
@@ -1485,6 +1516,7 @@ html {
   transition-delay: 1s;
 }
 .onboardingContainer .screen:not(.dialog-initial) .tiles-theme-section,
+.onboardingContainer .screen:not(.dialog-initial) .multi-select-container,
 .onboardingContainer .screen:not(.dialog-initial) .colorway-text {
   transition-delay: 0.2s;
 }
@@ -1540,10 +1572,11 @@ html {
   translate: 0 calc(-1 * var(--translate));
 }
 .onboardingContainer.transition-in .screen .welcome-text,
+.onboardingContainer.transition-in .screen .multi-select-container,
 .onboardingContainer.transition-in .screen .tiles-theme-section,
 .onboardingContainer.transition-in .screen .colorway-text,
 .onboardingContainer.transition-in .screen .primary,
-.onboardingContainer.transition-in .screen .checkbox-container,
+.onboardingContainer.transition-in .screen .checkbox-container:not(.multi-select-item),
 .onboardingContainer.transition-in .screen .secondary,
 .onboardingContainer.transition-in .screen .secondary-cta:not(.top),
 .onboardingContainer.transition-in .screen .cta-link,
@@ -1577,7 +1610,7 @@ html {
   transition-delay: 0.2s;
 }
 .onboardingContainer.transition-out .screen:not(.dialog-last) .primary,
-.onboardingContainer.transition-out .screen:not(.dialog-last) .checkbox-container,
+.onboardingContainer.transition-out .screen:not(.dialog-last) .checkbox-container:not(.multi-select-item),
 .onboardingContainer.transition-out .screen:not(.dialog-last) .secondary,
 .onboardingContainer.transition-out .screen:not(.dialog-last) .secondary-cta:not(.top),
 .onboardingContainer.transition-out .screen:not(.dialog-last) .cta-link {

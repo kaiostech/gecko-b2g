@@ -21,10 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 function getUUID() {
-  return Services.uuid
-    .generateUUID()
-    .toString()
-    .slice(1, -1);
+  return Services.uuid.generateUUID().toString().slice(1, -1);
 }
 
 /**
@@ -297,9 +294,8 @@ class ScriptModule extends Module {
 
     const { contextId, realmId, sandbox } = this.#assertTarget(target);
     const context = await this.#getContextFromTarget({ contextId, realmId });
-    const serializationOptionsWithDefaults = lazy.setDefaultAndAssertSerializationOptions(
-      serializationOptions
-    );
+    const serializationOptionsWithDefaults =
+      lazy.setDefaultAndAssertSerializationOptions(serializationOptions);
     const evaluationResult = await this.messageHandler.forwardCommand({
       moduleName: "script",
       commandName: "callFunctionDeclaration",
@@ -415,9 +411,8 @@ class ScriptModule extends Module {
 
     const { contextId, realmId, sandbox } = this.#assertTarget(target);
     const context = await this.#getContextFromTarget({ contextId, realmId });
-    const serializationOptionsWithDefaults = lazy.setDefaultAndAssertSerializationOptions(
-      serializationOptions
-    );
+    const serializationOptionsWithDefaults =
+      lazy.setDefaultAndAssertSerializationOptions(serializationOptions);
     const evaluationResult = await this.messageHandler.forwardCommand({
       moduleName: "script",
       commandName: "evaluateExpression",

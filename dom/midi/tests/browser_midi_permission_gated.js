@@ -19,7 +19,7 @@ ChromeUtils.defineModuleGetter(
   "resource://testing-common/AddonTestUtils.jsm"
 );
 
-add_setup(async function() {
+add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [["midi.prompt.testing", false]],
   });
@@ -84,12 +84,10 @@ add_task(async function testRequestMIDIAccess() {
 
   info("Deny site permission addon install in first popup");
   let addonInstallPanel = await onAddonInstallBlockedNotification;
-  const [
-    installPopupHeader,
-    installPopupMessage,
-  ] = addonInstallPanel.querySelectorAll(
-    "description.popup-notification-description"
-  );
+  const [installPopupHeader, installPopupMessage] =
+    addonInstallPanel.querySelectorAll(
+      "description.popup-notification-description"
+    );
   is(
     installPopupHeader.textContent,
     gNavigatorBundle.getString("sitePermissionInstallFirstPrompt.midi.header"),
@@ -267,7 +265,8 @@ add_task(async function testRequestMIDIAccess() {
     "addon-install-blocked"
   );
   await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
-    content.midiNoSysexAccessRequestPromise = content.navigator.requestMIDIAccess();
+    content.midiNoSysexAccessRequestPromise =
+      content.navigator.requestMIDIAccess();
   });
 
   info("Accept site permission addon install");
@@ -410,8 +409,9 @@ add_task(async function testRequestMIDIAccess() {
   let denyIntervalElapsed = performance.now() - denyIntervalStart;
   ok(
     denyIntervalElapsed >= 3000,
-    `Rejection should be delayed by a randomized interval no less than 3 seconds (got ${denyIntervalElapsed /
-      1000} seconds)`
+    `Rejection should be delayed by a randomized interval no less than 3 seconds (got ${
+      denyIntervalElapsed / 1000
+    } seconds)`
   );
 
   // Invoking getAMTelemetryEvents resets the mocked event array, and we want
@@ -581,7 +581,7 @@ add_task(async function testIframeRequestMIDIAccess() {
 add_task(async function testRequestMIDIAccessLocalhost() {
   const httpServer = new HttpServer();
   httpServer.start(-1);
-  httpServer.registerPathHandler(`/test`, function(request, response) {
+  httpServer.registerPathHandler(`/test`, function (request, response) {
     response.setStatusLine(request.httpVersion, 200, "OK");
     response.write(`
       <!DOCTYPE html>

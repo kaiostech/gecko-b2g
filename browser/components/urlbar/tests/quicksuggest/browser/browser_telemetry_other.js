@@ -24,7 +24,7 @@ const REMOTE_SETTINGS_RESULTS = [
   },
 ];
 
-add_setup(async function() {
+add_setup(async function () {
   await PlacesUtils.history.clear();
   await PlacesUtils.bookmarks.eraseEverything();
   await UrlbarTestUtils.formHistory.clear();
@@ -342,7 +342,8 @@ add_task(async function telemetryEnvironmentOnStartup() {
   // to finish before calling `updateFirefoxSuggestScenario()`. This simulates
   // startup where telemetry environment's initialization races the intial
   // update of the Suggest scenario.
-  let environmentInitPromise = TelemetryEnvironment.testCleanRestart().onInitialized();
+  let environmentInitPromise =
+    TelemetryEnvironment.testCleanRestart().onInitialized();
 
   // Update the scenario and force the startup prefs to take on values that are
   // the inverse of what they are now.
@@ -374,7 +375,8 @@ add_task(async function telemetryEnvironmentOnStartup() {
 
   // Simulate another startup and set all prefs back to their original default
   // values.
-  environmentInitPromise = TelemetryEnvironment.testCleanRestart().onInitialized();
+  environmentInitPromise =
+    TelemetryEnvironment.testCleanRestart().onInitialized();
 
   await UrlbarPrefs.updateFirefoxSuggestScenario({
     isStartup: true,

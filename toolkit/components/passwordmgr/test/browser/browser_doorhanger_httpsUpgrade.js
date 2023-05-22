@@ -37,7 +37,7 @@ add_task(async function test_httpsUpgradeCaptureFields_noChange() {
 
   await testSubmittingLoginForm(
     "subtst_notifications_1.html",
-    function(fieldValues) {
+    function (fieldValues) {
       Assert.equal(
         fieldValues.username,
         "notifyu1",
@@ -80,7 +80,7 @@ add_task(async function test_httpsUpgradeCaptureFields_changePW() {
 
   await testSubmittingLoginForm(
     "subtst_notifications_8.html",
-    async function(fieldValues) {
+    async function (fieldValues) {
       Assert.equal(
         fieldValues.username,
         "notifyu1",
@@ -138,7 +138,7 @@ add_task(
 
     await testSubmittingLoginForm(
       "subtst_notifications_8.html",
-      async function(fieldValues) {
+      async function (fieldValues) {
         Assert.equal(
           fieldValues.username,
           "notifyu1",
@@ -216,7 +216,7 @@ add_task(async function test_httpsUpgradeCaptureFields_captureMatchingHTTP() {
 
   await testSubmittingLoginFormHTTP(
     "subtst_notifications_1.html",
-    async function(fieldValues) {
+    async function (fieldValues) {
       Assert.equal(
         fieldValues.username,
         "notifyu1",
@@ -261,22 +261,23 @@ add_task(async function test_httpsUpgradeCaptureFields_captureMatchingHTTP() {
   info(
     "Make sure Remember took effect and we don't prompt for an existing HTTP login"
   );
-  await testSubmittingLoginFormHTTP("subtst_notifications_1.html", function(
-    fieldValues
-  ) {
-    Assert.equal(
-      fieldValues.username,
-      "notifyu1",
-      "Checking submitted username"
-    );
-    Assert.equal(
-      fieldValues.password,
-      "notifyp1",
-      "Checking submitted password"
-    );
-    let notif = getCaptureDoorhanger("password-save");
-    Assert.ok(!notif, "checking for no notification popup");
-  });
+  await testSubmittingLoginFormHTTP(
+    "subtst_notifications_1.html",
+    function (fieldValues) {
+      Assert.equal(
+        fieldValues.username,
+        "notifyu1",
+        "Checking submitted username"
+      );
+      Assert.equal(
+        fieldValues.password,
+        "notifyp1",
+        "Checking submitted password"
+      );
+      let notif = getCaptureDoorhanger("password-save");
+      Assert.ok(!notif, "checking for no notification popup");
+    }
+  );
 
   logins = Services.logins.getAllLogins();
   Assert.equal(logins.length, 2, "Should have both HTTP and HTTPS still");

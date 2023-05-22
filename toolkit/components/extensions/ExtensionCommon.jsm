@@ -557,9 +557,8 @@ class BaseContext {
     this.messageManager = contentWindow.docShell.messageManager;
 
     if (this.incognito == null) {
-      this.incognito = lazy.PrivateBrowsingUtils.isContentWindowPrivate(
-        contentWindow
-      );
+      this.incognito =
+        lazy.PrivateBrowsingUtils.isContentWindowPrivate(contentWindow);
     }
 
     let wgc = contentWindow.windowGlobalChild;
@@ -961,14 +960,16 @@ class BaseContext {
           value => {
             if (this.unloaded) {
               Cu.reportError(
-                `Promise rejected after context unloaded: ${value &&
-                  value.message}\n`,
+                `Promise rejected after context unloaded: ${
+                  value && value.message
+                }\n`,
                 caller
               );
             } else if (!this.active) {
               Cu.reportError(
-                `Promise rejected while context is inactive: ${value &&
-                  value.message}\n`,
+                `Promise rejected while context is inactive: ${
+                  value && value.message
+                }\n`,
                 caller
               );
             } else {
@@ -1909,7 +1910,7 @@ class LazyAPIManager extends SchemaAPIManager {
   }
 }
 
-defineLazyGetter(LazyAPIManager.prototype, "schema", function() {
+defineLazyGetter(LazyAPIManager.prototype, "schema", function () {
   let root = new lazy.SchemaRoot(lazy.Schemas.rootSchema, this.schemaURLs);
   root.parseSchemas();
   return root;
@@ -1970,7 +1971,7 @@ class MultiAPIManager extends SchemaAPIManager {
   }
 }
 
-defineLazyGetter(MultiAPIManager.prototype, "schema", function() {
+defineLazyGetter(MultiAPIManager.prototype, "schema", function () {
   let bases = this.children.map(child => child.schema);
 
   // All API manager schema roots should derive from the global schema root,
@@ -2194,7 +2195,7 @@ LocaleData.prototype = {
   },
 };
 
-defineLazyGetter(LocaleData.prototype, "availableLocales", function() {
+defineLazyGetter(LocaleData.prototype, "availableLocales", function () {
   return new Set(
     [this.BUILTIN, this.selectedLocale, this.defaultLocale].filter(locale =>
       this.messages.has(locale)
@@ -2853,12 +2854,8 @@ class EventManager {
     // If this is a new listener for a persistent event, record
     // the details for subsequent startups.
     if (recordStartupData) {
-      const [
-        ,
-        ,
-        ,
-        /* _module */ /* _event */ /* _key */ primeId,
-      ] = EventManager.savePersistentListener(extension, module, event, args);
+      const [, , , /* _module */ /* _event */ /* _key */ primeId] =
+        EventManager.savePersistentListener(extension, module, event, args);
       this.remove.set(callback, () => {
         EventManager.clearPersistentListener(
           extension,
@@ -2926,7 +2923,7 @@ class EventManager {
 // Simple API for event listeners where events never fire.
 function ignoreEvent(context, name) {
   return {
-    addListener: function(callback) {
+    addListener: function (callback) {
       let id = context.extension.id;
       let frame = Components.stack.caller;
       let msg = `In add-on ${id}, attempting to use listener "${name}", which is unimplemented.`;
@@ -2944,8 +2941,8 @@ function ignoreEvent(context, name) {
       );
       Services.console.logMessage(scriptError);
     },
-    removeListener: function(callback) {},
-    hasListener: function(callback) {},
+    removeListener: function (callback) {},
+    hasListener: function (callback) {},
   };
 }
 

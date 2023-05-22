@@ -41,17 +41,14 @@ const TEST_URI = `
   </body>
 `;
 
-add_task(async function() {
+add_task(async function () {
   info("Testing dynamic style change via the devtools inspector's rule view");
   const tab = await addTab(
     "data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI)
   );
 
-  const {
-    allElementsPane,
-    inspector,
-    selectedElementPane,
-  } = await openCompatibilityView();
+  const { allElementsPane, inspector, selectedElementPane } =
+    await openCompatibilityView();
 
   info("Select the div to undergo mutation");
   const waitForCompatibilityListUpdate = waitForUpdateSelectedNodeAction(

@@ -848,11 +848,7 @@ function setupTestCommon(aAppUpdateAutoEnabled = false, aAllowBits = false) {
   );
 
   let caller = Components.stack.caller;
-  gTestID = caller.filename
-    .toString()
-    .split("/")
-    .pop()
-    .split(".")[0];
+  gTestID = caller.filename.toString().split("/").pop().split(".")[0];
 
   if (gDebugTestLog && !gIsServiceTest) {
     if (!gTestsToLog.length || gTestsToLog.includes(gTestID)) {
@@ -1206,11 +1202,11 @@ function setTestFilesAndDirsForFailure() {
  * directory files from being created.
  */
 function preventDistributionFiles() {
-  gTestFiles = gTestFiles.filter(function(aTestFile) {
+  gTestFiles = gTestFiles.filter(function (aTestFile) {
     return !aTestFile.relPathDir.includes("distribution/");
   });
 
-  gTestDirs = gTestDirs.filter(function(aTestDir) {
+  gTestDirs = gTestDirs.filter(function (aTestDir) {
     return !aTestDir.relPathDir.includes("distribution/");
   });
 }
@@ -1778,8 +1774,10 @@ function getMockUpdRootDWin(aGetOldLocation) {
 function createWorldWritableAppUpdateDir() {
   // This function is only necessary in Windows
   if (AppConstants.platform == "win") {
-    let installDir = Services.dirsvc.get(XRE_EXECUTABLE_FILE, Ci.nsIFile)
-      .parent;
+    let installDir = Services.dirsvc.get(
+      XRE_EXECUTABLE_FILE,
+      Ci.nsIFile
+    ).parent;
     let exitValue = runTestHelperSync(["create-update-dir", installDir.path]);
     Assert.equal(exitValue, 0, "The helper process exit value should be 0");
   }
@@ -4625,7 +4623,7 @@ IncrementalDownload.prototype = {
           status = Cr.NS_ERROR_OFFLINE;
           // After we report offline, we want to eventually show offline
           // status being changed to online.
-          Services.tm.dispatchToMainThread(function() {
+          Services.tm.dispatchToMainThread(function () {
             Services.obs.notifyObservers(
               gAUS,
               "network:offline-status-changed",

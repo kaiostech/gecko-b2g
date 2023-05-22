@@ -22,7 +22,7 @@ add_task(async function init() {
 // * Nimbus values: none
 // * Min keyword length pref: none
 // * Expected: no suggestion
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "No data",
     tests: {
@@ -50,7 +50,7 @@ add_task(async function() {
 // * Nimbus values: none
 // * Min keyword length pref: none
 // * Expected: no suggestion
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Empty settings",
     settingsData: {},
@@ -79,7 +79,7 @@ add_task(async function() {
 // * Nimbus values: none
 // * Min keyword length pref: none
 // * Expected: full keywords only
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings only, keywords only",
     settingsData: {
@@ -110,7 +110,7 @@ add_task(async function() {
 // * Nimbus values: none
 // * Min keyword length pref: none
 // * Expected: full keywords only
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings only, min keyword length = 0",
     settingsData: {
@@ -142,7 +142,7 @@ add_task(async function() {
 // * Nimbus values: none
 // * Min keyword length pref: none
 // * Expected: use settings data
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings only, min keyword length > 0",
     settingsData: {
@@ -174,7 +174,7 @@ add_task(async function() {
 // * Nimbus values: none
 // * Min keyword length pref: 6
 // * Expected: use settings keywords and min keyword length pref
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings only, min keyword length = 0, pref exists",
     settingsData: {
@@ -207,7 +207,7 @@ add_task(async function() {
 // * Nimbus values: none
 // * Min keyword length pref: 6
 // * Expected: use settings keywords and min keyword length pref
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings only, min keyword length > 0, pref exists",
     settingsData: {
@@ -240,7 +240,7 @@ add_task(async function() {
 // * Nimbus values: empty
 // * Min keyword length pref: none
 // * Expected: no suggestion
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings: empty; Nimbus: empty",
     settingsData: {},
@@ -270,7 +270,7 @@ add_task(async function() {
 // * Nimbus values: keywords only
 // * Min keyword length pref: none
 // * Expected: full keywords in Nimbus
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings: keywords; Nimbus: keywords",
     settingsData: {
@@ -304,7 +304,7 @@ add_task(async function() {
 // * Nimbus values: keywords only
 // * Min keyword length pref: none
 // * Expected: full keywords in Nimbus
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings: keywords, min keyword length = 0; Nimbus: keywords",
     settingsData: {
@@ -339,7 +339,7 @@ add_task(async function() {
 // * Nimbus values: keywords only
 // * Min keyword length pref: none
 // * Expected: Nimbus keywords with settings min keyword length
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings: keywords, min keyword length > 0; Nimbus: keywords",
     settingsData: {
@@ -374,10 +374,9 @@ add_task(async function() {
 // * Nimbus values: keywords and min keyword length = 0
 // * Min keyword length pref: none
 // * Expected: Nimbus keywords with settings min keyword length
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
-    desc:
-      "Settings: keywords, min keyword length > 0; Nimbus: keywords, min keyword length = 0",
+    desc: "Settings: keywords, min keyword length > 0; Nimbus: keywords, min keyword length = 0",
     settingsData: {
       keywords: ["weather"],
       min_keyword_length: 3,
@@ -411,10 +410,9 @@ add_task(async function() {
 // * Nimbus values: keywords and min keyword length > 0
 // * Min keyword length pref: none
 // * Expected: use Nimbus values
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
-    desc:
-      "Settings: keywords, min keyword length > 0; Nimbus: keywords, min keyword length > 0",
+    desc: "Settings: keywords, min keyword length > 0; Nimbus: keywords, min keyword length > 0",
     settingsData: {
       keywords: ["weather"],
       min_keyword_length: 3,
@@ -448,10 +446,9 @@ add_task(async function() {
 // * Nimbus values: keywords and min keyword length = 0
 // * Min keyword length pref: exists
 // * Expected: Nimbus keywords with min keyword length pref
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
-    desc:
-      "Settings: keywords, min keyword length > 0; Nimbus: keywords, min keyword length = 0; pref exists",
+    desc: "Settings: keywords, min keyword length > 0; Nimbus: keywords, min keyword length = 0; pref exists",
     settingsData: {
       keywords: ["weather"],
       min_keyword_length: 3,
@@ -486,10 +483,9 @@ add_task(async function() {
 // * Nimbus values: keywords and min keyword length > 0
 // * Min keyword length pref: exists
 // * Expected: Nimbus keywords with min keyword length pref
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
-    desc:
-      "Settings: keywords, min keyword length > 0; Nimbus: keywords, min keyword length > 0; pref exists",
+    desc: "Settings: keywords, min keyword length > 0; Nimbus: keywords, min keyword length > 0; pref exists",
     settingsData: {
       keywords: ["weather", "forecast"],
       min_keyword_length: 3,
@@ -524,7 +520,7 @@ add_task(async function() {
 // * Nimbus values: keywords only
 // * Min keyword length pref: none
 // * Expected: full keywords
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings: none; Nimbus: keywords",
     nimbusValues: {
@@ -555,7 +551,7 @@ add_task(async function() {
 // * Nimbus values: keywords and min keyword length = 0
 // * Min keyword length pref: none
 // * Expected: full keywords
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings: none; Nimbus: keywords, min keyword length = 0",
     nimbusValues: {
@@ -587,7 +583,7 @@ add_task(async function() {
 // * Nimbus values: keywords and min keyword length > 0
 // * Min keyword length pref: none
 // * Expected: use Nimbus values
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
     desc: "Settings: none; Nimbus: keywords, min keyword length > 0",
     nimbusValues: {
@@ -619,10 +615,9 @@ add_task(async function() {
 // * Nimbus values: keywords and min keyword length > 0
 // * Min keyword length pref: exists
 // * Expected: use Nimbus keywords and min keyword length pref
-add_task(async function() {
+add_task(async function () {
   await doKeywordsTest({
-    desc:
-      "Settings: none; Nimbus: keywords, min keyword length > 0; pref exists",
+    desc: "Settings: none; Nimbus: keywords, min keyword length > 0; pref exists",
     nimbusValues: {
       weatherKeywords: ["weather", "forecast"],
       weatherKeywordsMinimumLength: 3,
@@ -885,7 +880,7 @@ async function doMatchingQuickSuggestTest(pref, isSponsored) {
   UrlbarPrefs.clear(pref);
 }
 
-add_task(async function() {
+add_task(async function () {
   await doIncrementTest({
     desc: "Settings only",
     setup: {
@@ -938,7 +933,7 @@ add_task(async function() {
   });
 });
 
-add_task(async function() {
+add_task(async function () {
   await doIncrementTest({
     desc: "Settings only with cap",
     setup: {
@@ -1031,7 +1026,7 @@ add_task(async function() {
   });
 });
 
-add_task(async function() {
+add_task(async function () {
   await doIncrementTest({
     desc: "Settings and Nimbus",
     setup: {
@@ -1101,7 +1096,7 @@ add_task(async function() {
   });
 });
 
-add_task(async function() {
+add_task(async function () {
   await doIncrementTest({
     desc: "Settings and Nimbus with cap in Nimbus",
     setup: {

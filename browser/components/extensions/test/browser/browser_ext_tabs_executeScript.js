@@ -262,7 +262,8 @@ add_task(async function testExecuteScript() {
               );
             },
             error => {
-              const expected = /Script '.*script3.js' result is non-structured-clonable data/;
+              const expected =
+                /Script '.*script3.js' result is non-structured-clonable data/;
               browser.test.assertTrue(
                 expected.test(error.message),
                 "Got expected error"
@@ -423,7 +424,7 @@ add_task(async function testExecuteScript() {
     background,
 
     files: {
-      "script.js": function() {
+      "script.js": function () {
         browser.runtime.sendMessage("script ran");
       },
 

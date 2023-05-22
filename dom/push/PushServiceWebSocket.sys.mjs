@@ -84,7 +84,7 @@ XPCOMUtils.defineLazyGetter(lazy, "console", () => {
  * closed but the PushService may not be interested in these. It's easier to
  * stop listening than to have checks at specific points.
  */
-var PushWebSocketListener = function(pushService) {
+var PushWebSocketListener = function (pushService) {
   this._pushService = pushService;
 };
 
@@ -1469,10 +1469,7 @@ export var PushServiceWebSocket = {
 
   _generateID() {
     // generateUUID() gives a UUID surrounded by {...}, slice them off.
-    return Services.uuid
-      .generateUUID()
-      .toString()
-      .slice(1, -1);
+    return Services.uuid.generateUUID().toString().slice(1, -1);
   },
 
   register(record) {
@@ -1979,7 +1976,7 @@ PushRecordWebSocket.prototype = Object.create(PushRecord.prototype, {
   },
 });
 
-PushRecordWebSocket.prototype.toSubscription = function() {
+PushRecordWebSocket.prototype.toSubscription = function () {
   let subscription = PushRecord.prototype.toSubscription.call(this);
   subscription.version = this.version;
   return subscription;

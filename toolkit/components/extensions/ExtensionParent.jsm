@@ -69,13 +69,8 @@ const DUMMY_PAGE_URI = Services.io.newURI(
   "chrome://extensions/content/dummy.xhtml"
 );
 
-var {
-  BaseContext,
-  CanOfAPIs,
-  SchemaAPIManager,
-  SpreadArgs,
-  defineLazyGetter,
-} = ExtensionCommon;
+var { BaseContext, CanOfAPIs, SchemaAPIManager, SpreadArgs, defineLazyGetter } =
+  ExtensionCommon;
 
 var {
   DefaultMap,
@@ -700,17 +695,17 @@ class ProxyContextParent extends BaseContext {
   }
 }
 
-defineLazyGetter(ProxyContextParent.prototype, "apiCan", function() {
+defineLazyGetter(ProxyContextParent.prototype, "apiCan", function () {
   let obj = {};
   let can = new CanOfAPIs(this, this.extension.apiManager, obj);
   return can;
 });
 
-defineLazyGetter(ProxyContextParent.prototype, "apiObj", function() {
+defineLazyGetter(ProxyContextParent.prototype, "apiObj", function () {
   return this.apiCan.root;
 });
 
-defineLazyGetter(ProxyContextParent.prototype, "sandbox", function() {
+defineLazyGetter(ProxyContextParent.prototype, "sandbox", function () {
   // NOTE: the required Blob and URL globals are used in the ext-registerContentScript.js
   // API module to convert JS and CSS data into blob URLs.
   return Cu.Sandbox(this.principal, {
@@ -846,9 +841,10 @@ class DevToolsExtensionPageContextParent extends ExtensionPageContextParent {
     }
 
     this._devToolsCommandsPromise = (async () => {
-      const commands = await lazy.DevToolsShim.createCommandsForTabForWebExtension(
-        this.devToolsToolbox.commands.descriptorFront.localTab
-      );
+      const commands =
+        await lazy.DevToolsShim.createCommandsForTabForWebExtension(
+          this.devToolsToolbox.commands.descriptorFront.localTab
+        );
       await commands.targetCommand.startListening();
       this._devToolsCommands = commands;
       this._devToolsCommandsPromise = null;
@@ -1967,7 +1963,7 @@ let IconDetails = {
 
       if (imageData) {
         if (typeof imageData == "string") {
-          imageData = { "19": imageData };
+          imageData = { 19: imageData };
         }
 
         for (let size of Object.keys(imageData)) {
@@ -1979,7 +1975,7 @@ let IconDetails = {
 
       if (path != null) {
         if (typeof path != "object") {
-          path = { "19": path };
+          path = { 19: path };
         }
 
         for (let size of Object.keys(path)) {
@@ -2306,14 +2302,14 @@ ExtensionParent._resetStartupPromises();
 
 XPCOMUtils.defineLazyGetter(ExtensionParent, "PlatformInfo", () => {
   return Object.freeze({
-    os: (function() {
+    os: (function () {
       let os = AppConstants.platform;
       if (os == "macosx") {
         os = "mac";
       }
       return os;
     })(),
-    arch: (function() {
+    arch: (function () {
       let abi = Services.appinfo.XPCOMABI;
       let [arch] = abi.split("-");
       if (arch == "x86") {

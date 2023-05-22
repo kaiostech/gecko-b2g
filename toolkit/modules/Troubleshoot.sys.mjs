@@ -150,8 +150,8 @@ function getPref(name) {
 // Return the preferences filtered by PREF_REGEXES_NOT_TO_DISPLAY and PREFS_FOR_DISPLAY
 // and also by the custom 'filter'-ing function.
 function getPrefList(filter, allowlist = PREFS_FOR_DISPLAY) {
-  return allowlist.reduce(function(prefs, branch) {
-    Services.prefs.getChildList(branch).forEach(function(name) {
+  return allowlist.reduce(function (prefs, branch) {
+    Services.prefs.getChildList(branch).forEach(function (name) {
       if (
         filter(name) &&
         !PREF_REGEXES_NOT_TO_DISPLAY.some(re => re.test(name))
@@ -313,7 +313,7 @@ var dataProviders = {
       "sitepermission",
     ]);
     addons = addons.filter(e => !e.isSystem);
-    addons.sort(function(a, b) {
+    addons.sort(function (a, b) {
       if (a.isActive != b.isActive) {
         return b.isActive ? 1 : -1;
       }
@@ -336,8 +336,8 @@ var dataProviders = {
     });
     let props = ["name", "type", "version", "isActive", "id"];
     done(
-      addons.map(function(ext) {
-        return props.reduce(function(extData, prop) {
+      addons.map(function (ext) {
+        return props.reduce(function (extData, prop) {
           extData[prop] = ext[prop];
           return extData;
         }, {});
@@ -368,7 +368,7 @@ var dataProviders = {
   features: async function features(done) {
     let features = await AddonManager.getAddonsByTypes(["extension"]);
     features = features.filter(f => f.isSystem);
-    features.sort(function(a, b) {
+    features.sort(function (a, b) {
       // In some unfortunate cases addon names can be null.
       let aname = a.name || null;
       let bname = b.name || null;
@@ -383,8 +383,8 @@ var dataProviders = {
     });
     let props = ["name", "version", "id"];
     done(
-      features.map(function(f) {
-        return props.reduce(function(fData, prop) {
+      features.map(function (f) {
+        return props.reduce(function (fData, prop) {
           fData[prop] = f[prop];
           return fData;
         }, {});
@@ -533,9 +533,8 @@ var dataProviders = {
           break;
         case Ci.nsIGfxInfo.FEATURE_BLOCKED_DRIVER_VERSION:
           try {
-            var driverVersion = gfxInfo.getFeatureSuggestedDriverVersion(
-              feature
-            );
+            var driverVersion =
+              gfxInfo.getFeatureSuggestedDriverVersion(feature);
           } catch (e) {}
           msg = driverVersion
             ? { key: "try-newer-driver", args: { driverVersion } }
@@ -669,7 +668,7 @@ var dataProviders = {
       canvas.addEventListener(
         "webglcontextcreationerror",
 
-        function(e) {
+        function (e) {
           creationError = e.statusMessage;
         }
       );
@@ -959,19 +958,17 @@ var dataProviders = {
       return;
     }
 
-    const {
-      PreferenceExperiments: NormandyPreferenceStudies,
-    } = ChromeUtils.importESModule(
-      "resource://normandy/lib/PreferenceExperiments.sys.mjs"
-    );
+    const { PreferenceExperiments: NormandyPreferenceStudies } =
+      ChromeUtils.importESModule(
+        "resource://normandy/lib/PreferenceExperiments.sys.mjs"
+      );
     const { AddonStudies: NormandyAddonStudies } = ChromeUtils.importESModule(
       "resource://normandy/lib/AddonStudies.sys.mjs"
     );
-    const {
-      PreferenceRollouts: NormandyPreferenceRollouts,
-    } = ChromeUtils.importESModule(
-      "resource://normandy/lib/PreferenceRollouts.sys.mjs"
-    );
+    const { PreferenceRollouts: NormandyPreferenceRollouts } =
+      ChromeUtils.importESModule(
+        "resource://normandy/lib/PreferenceRollouts.sys.mjs"
+      );
     const { ExperimentManager } = ChromeUtils.importESModule(
       "resource://nimbus/lib/ExperimentManager.sys.mjs"
     );

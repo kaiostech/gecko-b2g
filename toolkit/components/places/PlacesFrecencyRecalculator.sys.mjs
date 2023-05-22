@@ -24,7 +24,7 @@ ChromeUtils.defineModuleGetter(
   "resource://gre/modules/ObjectUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "logger", function() {
+XPCOMUtils.defineLazyGetter(lazy, "logger", function () {
   return lazy.PlacesUtils.getLogger({ prefix: "FrecencyRecalculator" });
 });
 
@@ -181,7 +181,7 @@ export class PlacesFrecencyRecalculator {
     );
     let affectedCount = 0;
     let db = await lazy.PlacesUtils.promiseUnsafeWritableDBConnection();
-    await db.executeTransaction(async function() {
+    await db.executeTransaction(async function () {
       let affected = await db.executeCached(
         `UPDATE moz_places
         SET frecency = CALCULATE_FRECENCY(id)
@@ -204,9 +204,10 @@ export class PlacesFrecencyRecalculator {
     }
 
     // If alternative frecency is enabled, also recalculate a chunk of it.
-    affectedCount += await this.#alternativeFrecencyHelper.recalculateSomeOriginsAlternativeFrecencies(
-      { chunkSize }
-    );
+    affectedCount +=
+      await this.#alternativeFrecencyHelper.recalculateSomeOriginsAlternativeFrecencies(
+        { chunkSize }
+      );
 
     if (chunkSize > 0 && affectedCount >= chunkSize) {
       // There's more entries to recalculate, rearm the task.
@@ -262,7 +263,7 @@ export class PlacesFrecencyRecalculator {
     lazy.PlacesUtils.history.isFrecencyDecaying = true;
     try {
       let db = await lazy.PlacesUtils.promiseUnsafeWritableDBConnection();
-      await db.executeTransaction(async function() {
+      await db.executeTransaction(async function () {
         // Decay all frecency rankings to reduce value of pages that haven't
         // been visited in a while.
         await db.executeCached(
@@ -321,7 +322,8 @@ export class PlacesFrecencyRecalculator {
         return;
       case "test-alternative-frecency-init":
         this.#alternativeFrecencyHelper = new AlternativeFrecencyHelper(this);
-        subject.promise = this.#alternativeFrecencyHelper.initializedDeferred.promise;
+        subject.promise =
+          this.#alternativeFrecencyHelper.initializedDeferred.promise;
     }
   }
 }

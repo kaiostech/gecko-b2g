@@ -36,10 +36,8 @@ const { TelemetryTestUtils } = ChromeUtils.importESModule(
 
 const { promiseShutdownManager, promiseStartupManager } = AddonTestUtils;
 
-const {
-  IDB_MIGRATED_PREF_BRANCH,
-  IDB_MIGRATE_RESULT_HISTOGRAM,
-} = ExtensionStorageIDB;
+const { IDB_MIGRATED_PREF_BRANCH, IDB_MIGRATE_RESULT_HISTOGRAM } =
+  ExtensionStorageIDB;
 const CATEGORIES = ["success", "failure"];
 const EVENT_CATEGORY = "extensions.data";
 const EVENT_OBJECT = "storageLocal";
@@ -403,9 +401,7 @@ add_task(async function test_storage_local_data_migration() {
 // as expected.
 add_task(async function test_extensionId_trimmed_in_telemetry_event() {
   // Generated extensionId in email-like format, longer than 80 chars.
-  const EXTENSION_ID = `long.extension.id@${Array(80)
-    .fill("a")
-    .join("")}`;
+  const EXTENSION_ID = `long.extension.id@${Array(80).fill("a").join("")}`;
 
   const data = { test_key_string: "test_value" };
 
@@ -656,16 +652,14 @@ add_task(async function test_storage_local_data_migration_failure() {
   setLowDiskMode(false);
 
   // Create the file under the expected directory tree.
-  const {
-    jsonFile,
-    oldStorageFilename,
-  } = await createExtensionJSONFileWithData(EXTENSION_ID, {});
+  const { jsonFile, oldStorageFilename } =
+    await createExtensionJSONFileWithData(EXTENSION_ID, {});
 
   // Store a fake invalid value which is going to fail to be saved into IndexedDB
   // (because it can't be cloned and it is going to raise a DataCloneError), which
   // will trigger a data migration failure that we expect to increment the related
   // telemetry histogram.
-  jsonFile.data.set("fake_invalid_key", function() {});
+  jsonFile.data.set("fake_invalid_key", function () {});
 
   async function background() {
     await browser.storage.local.set({

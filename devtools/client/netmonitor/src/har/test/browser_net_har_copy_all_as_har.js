@@ -10,7 +10,7 @@
 const EXPECTED_REQUEST_HEADER_COUNT = 9;
 const EXPECTED_RESPONSE_HEADER_COUNT = 6;
 
-add_task(async function() {
+add_task(async function () {
   // Disable tcp fast open, because it is setting a response header indicator
   // (bug 1352274). TCP Fast Open is not present on all platforms therefore the
   // number of response headers will vary depending on the platform.
@@ -125,13 +125,15 @@ async function testClearedRequests({ tab, monitor, toolbox }) {
     "Doing this, should notify a network request that is destroyed on the server side"
   );
   const onNetworkEvents = waitForNetworkEvents(monitor, 2);
-  await SpecialPowers.spawn(tab.linkedBrowser, [iframeURL], async function(
-    _iframeURL
-  ) {
-    const iframe = content.document.createElement("iframe");
-    iframe.setAttribute("src", _iframeURL);
-    content.document.body.appendChild(iframe);
-  });
+  await SpecialPowers.spawn(
+    tab.linkedBrowser,
+    [iframeURL],
+    async function (_iframeURL) {
+      const iframe = content.document.createElement("iframe");
+      iframe.setAttribute("src", _iframeURL);
+      content.document.body.appendChild(iframe);
+    }
+  );
   // Wait for the two request to be processed (iframe doc + fetch requests)
   // before removing the iframe so that the netmonitor is able to fetch
   // all lazy data without throwing
@@ -139,7 +141,7 @@ async function testClearedRequests({ tab, monitor, toolbox }) {
   await waitForAllNetworkUpdateEvents();
 
   info("Remove the iframe so that lazy request data are freed");
-  await SpecialPowers.spawn(tab.linkedBrowser, [], async function() {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async function () {
     content.document.querySelector("iframe").remove();
   });
 
@@ -214,9 +216,8 @@ async function reloadAndCopyAllAsHar({
   store.dispatch(Actions.batchEnable(false));
 
   const onNetworkEvent = waitForNetworkEvents(monitor, 1);
-  const {
-    onDomCompleteResource,
-  } = await waitForNextTopLevelDomCompleteResource(toolbox.commands);
+  const { onDomCompleteResource } =
+    await waitForNextTopLevelDomCompleteResource(toolbox.commands);
 
   if (reloadTwice) {
     reloadBrowser();

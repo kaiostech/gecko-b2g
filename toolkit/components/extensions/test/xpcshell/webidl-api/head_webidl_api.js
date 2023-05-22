@@ -40,12 +40,8 @@ function getBackgroundServiceWorkerRegistration(extension) {
 function waitForTerminatedWorkers(swRegInfo) {
   info(`Wait all ${swRegInfo.scope} workers to be terminated`);
   return TestUtils.waitForCondition(() => {
-    const {
-      evaluatingWorker,
-      installingWorker,
-      waitingWorker,
-      activeWorker,
-    } = swRegInfo;
+    const { evaluatingWorker, installingWorker, waitingWorker, activeWorker } =
+      swRegInfo;
     return !(
       evaluatingWorker ||
       installingWorker ||
@@ -102,7 +98,7 @@ function mockHandleAPIRequest(extPage, mockHandleAPIRequest) {
           ExtensionAPIRequestHandler.handleAPIRequest;
       }
 
-      ExtensionAPIRequestHandler.handleAPIRequest = function(policy, request) {
+      ExtensionAPIRequestHandler.handleAPIRequest = function (policy, request) {
         if (request.apiNamespace === "test") {
           return this._handleAPIRequest_orig(policy, request);
         }

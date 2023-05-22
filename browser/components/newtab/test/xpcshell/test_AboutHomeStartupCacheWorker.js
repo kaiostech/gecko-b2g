@@ -53,7 +53,7 @@ const NEWTAB_RENDER_URL =
  * a dynamic layout, and then have that layout point to a local feed rather
  * than one from the Pocket CDN.
  */
-add_setup(async function() {
+add_setup(async function () {
   do_get_profile();
   // The SearchService is also needed in order to construct the initial state,
   // which means that the AddonManager needs to be available.
@@ -231,8 +231,9 @@ add_task(async function test_cache_worker() {
     3,
     "There are 3 DSCards"
   );
-  let cardHostname = doc.querySelector("[data-section-id='topstories'] .source")
-    .innerText;
+  let cardHostname = doc.querySelector(
+    "[data-section-id='topstories'] .source"
+  ).innerText;
   equal(cardHostname, "bbc.com", "Card hostname is bbc.com");
 
   let placeholders = doc.querySelectorAll(".ds-card.placeholder");

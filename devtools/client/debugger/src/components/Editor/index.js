@@ -8,7 +8,7 @@ import { bindActionCreators } from "redux";
 import ReactDOM from "react-dom";
 import { connect } from "../../utils/connect";
 
-import { getLineText } from "./../../utils/source";
+import { getLineText, isLineBlackboxed } from "./../../utils/source";
 import { createLocation } from "./../../utils/location";
 import { features } from "../../utils/prefs";
 import { getIndentation } from "../../utils/indentation";
@@ -483,18 +483,13 @@ class Editor extends PureComponent {
       closeConditionalPanel,
       addBreakpointAtLine,
       continueToHere,
-      toggleBlackBox,
       breakableLines,
+      blackboxedRanges,
     } = this.props;
 
     // ignore right clicks in the gutter
     if (isSecondary(ev) || ev.button === 2 || !selectedSource) {
       return;
-    }
-
-    // if user clicks gutter to set breakpoint on blackboxed source, un-blackbox the source.
-    if (this.props.selectedSourceIsBlackBoxed) {
-      toggleBlackBox(cx, selectedSource);
     }
 
     if (conditionalPanelLocation) {
@@ -525,7 +520,13 @@ class Editor extends PureComponent {
       return;
     }
 
-    addBreakpointAtLine(cx, sourceLine, ev.altKey, ev.shiftKey);
+    addBreakpointAtLine(
+      cx,
+      sourceLine,
+      ev.altKey,
+      ev.shiftKey ||
+        isLineBlackboxed(blackboxedRanges[selectedSource.url], sourceLine)
+    );
   };
 
   onGutterContextMenu = event => {
@@ -533,12 +534,8 @@ class Editor extends PureComponent {
   };
 
   onClick(e) {
-    const {
-      cx,
-      selectedSource,
-      updateCursorPosition,
-      jumpToMappedLocation,
-    } = this.props;
+    const { cx, selectedSource, updateCursorPosition, jumpToMappedLocation } =
+      this.props;
 
     if (selectedSource) {
       const sourceLocation = getSourceLocationFromMouseEvent(
@@ -556,11 +553,8 @@ class Editor extends PureComponent {
   }
 
   shouldScrollToLocation(nextProps, editor) {
-    const {
-      selectedLocation,
-      selectedSource,
-      selectedSourceTextContent,
-    } = this.props;
+    const { selectedLocation, selectedSource, selectedSourceTextContent } =
+      this.props;
     if (
       !editor ||
       !nextProps.selectedSource ||
@@ -684,17 +678,15 @@ class Editor extends PureComponent {
         {highlightedLineRange ? (
           <HighlightLines editor={editor} range={highlightedLineRange} />
         ) : null}
-        {features.blackboxLines ? <BlackboxLines editor={editor} /> : null}
+        <BlackboxLines editor={editor} />
         <Exceptions />
-        {
-          <EditorMenu
-            editor={editor}
-            contextMenu={contextMenu}
-            clearContextMenu={this.clearContextMenu}
-            selectedSource={selectedSource}
-            editorWrappingEnabled={editorWrappingEnabled}
-          />
-        }
+        <EditorMenu
+          editor={editor}
+          contextMenu={contextMenu}
+          clearContextMenu={this.clearContextMenu}
+          selectedSource={selectedSource}
+          editorWrappingEnabled={editorWrappingEnabled}
+        />
         {conditionalPanelLocation ? <ConditionalPanel editor={editor} /> : null}
         <ColumnBreakpoints editor={editor} />
         {isPaused && inlinePreviewEnabled ? (

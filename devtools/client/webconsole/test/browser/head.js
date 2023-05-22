@@ -42,7 +42,7 @@ const GA_PARAMS = `?${new URLSearchParams({
 
 const wcActions = require("resource://devtools/client/webconsole/actions/index.js");
 
-registerCleanupFunction(async function() {
+registerCleanupFunction(async function () {
   // Reset all cookies, tests loading sjs_slow-response-test-server.sjs will
   // set a foo cookie which might have side effects on other tests.
   Services.cookies.removeAll();
@@ -98,22 +98,24 @@ async function openNewTabWithIframesAndConsole(tabUrl, iframes) {
   // to handle remote frames (we don't support creating frames target when the toolbox
   // is already open).
   await addTab(tabUrl);
-  await ContentTask.spawn(gBrowser.selectedBrowser, iframes, async function(
-    urls
-  ) {
-    const iframesLoadPromises = urls.map((url, i) => {
-      const iframe = content.document.createElement("iframe");
-      iframe.classList.add(`iframe-${i + 1}`);
-      const onLoadIframe = new Promise(resolve => {
-        iframe.addEventListener("load", resolve, { once: true });
+  await ContentTask.spawn(
+    gBrowser.selectedBrowser,
+    iframes,
+    async function (urls) {
+      const iframesLoadPromises = urls.map((url, i) => {
+        const iframe = content.document.createElement("iframe");
+        iframe.classList.add(`iframe-${i + 1}`);
+        const onLoadIframe = new Promise(resolve => {
+          iframe.addEventListener("load", resolve, { once: true });
+        });
+        content.document.body.append(iframe);
+        iframe.src = url;
+        return onLoadIframe;
       });
-      content.document.body.append(iframe);
-      iframe.src = url;
-      return onLoadIframe;
-    });
 
-    await Promise.all(iframesLoadPromises);
-  });
+      await Promise.all(iframesLoadPromises);
+    }
+  );
 
   return openConsole();
 }
@@ -157,7 +159,7 @@ function logAllStoreChanges(hud) {
     );
     info(
       "messages : " +
-        JSON.stringify(debugMessages, function(key, value) {
+        JSON.stringify(debugMessages, function (key, value) {
           if (value && value.getGrip) {
             return value.getGrip();
           }
@@ -1003,7 +1005,7 @@ function overrideOpenLink(fn) {
   const oldOpenWebLinkIn = browserWindow.openWebLinkIn;
 
   const onOpenLink = new Promise(resolve => {
-    const openLinkIn = function(link, where) {
+    const openLinkIn = function (link, where) {
       browserWindow.openTrustedLinkIn = oldOpenTrustedLinkIn;
       browserWindow.openWebLinkIn = oldOpenWebLinkIn;
       resolve({ link, where });
@@ -1015,7 +1017,7 @@ function overrideOpenLink(fn) {
   // Declare a timeout Promise that we can use to make sure openTrustedLinkIn or
   // openWebLinkIn was not called.
   let timeoutId;
-  const onTimeout = new Promise(function(resolve) {
+  const onTimeout = new Promise(function (resolve) {
     timeoutId = setTimeout(() => {
       browserWindow.openTrustedLinkIn = oldOpenTrustedLinkIn;
       browserWindow.openWebLinkIn = oldOpenWebLinkIn;
@@ -1527,7 +1529,7 @@ async function selectFrame(dbg, frame) {
 async function pauseDebugger(dbg) {
   info("Waiting for debugger to pause");
   const onPaused = waitForPaused(dbg);
-  SpecialPowers.spawn(gBrowser.selectedBrowser, [], function() {
+  SpecialPowers.spawn(gBrowser.selectedBrowser, [], function () {
     content.wrappedJSObject.firstCall();
   }).catch(() => {});
   await onPaused;
@@ -1956,33 +1958,35 @@ async function getImageSizeFromClipboard() {
   // (which is value of the global `document` here). Doing so might push the
   // toolbox upwards, shrink the content page and fail the fullpage screenshot
   // test.
-  return SpecialPowers.spawn(gBrowser.selectedBrowser, [buffer], async function(
-    _buffer
-  ) {
-    const img = content.document.createElement("img");
-    const loaded = new Promise(r => {
-      img.addEventListener("load", r, { once: true });
-    });
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [buffer],
+    async function (_buffer) {
+      const img = content.document.createElement("img");
+      const loaded = new Promise(r => {
+        img.addEventListener("load", r, { once: true });
+      });
 
-    // Build a URL from the buffer passed to the ContentTask
-    const url = content.URL.createObjectURL(
-      new Blob([_buffer], { type: "image/png" })
-    );
+      // Build a URL from the buffer passed to the ContentTask
+      const url = content.URL.createObjectURL(
+        new Blob([_buffer], { type: "image/png" })
+      );
 
-    // Load the image
-    img.src = url;
-    content.document.documentElement.appendChild(img);
+      // Load the image
+      img.src = url;
+      content.document.documentElement.appendChild(img);
 
-    info("Waiting for the clipboard image to load in the content page");
-    await loaded;
+      info("Waiting for the clipboard image to load in the content page");
+      await loaded;
 
-    // Remove the image and revoke the URL.
-    img.remove();
-    content.URL.revokeObjectURL(url);
+      // Remove the image and revoke the URL.
+      img.remove();
+      content.URL.revokeObjectURL(url);
 
-    return {
-      width: img.width,
-      height: img.height,
-    };
-  });
+      return {
+        width: img.width,
+        height: img.height,
+      };
+    }
+  );
 }

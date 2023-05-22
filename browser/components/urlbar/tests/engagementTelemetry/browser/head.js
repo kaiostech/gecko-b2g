@@ -407,8 +407,7 @@ async function setup() {
   });
 
   const engine = await SearchTestUtils.promiseNewSearchEngine({
-    url:
-      "chrome://mochitests/content/browser/browser/components/urlbar/tests/browser/searchSuggestionEngine.xml",
+    url: "chrome://mochitests/content/browser/browser/components/urlbar/tests/browser/searchSuggestionEngine.xml",
   });
   const originalDefaultEngine = await Services.search.getDefault();
   await Services.search.setDefault(
@@ -417,7 +416,7 @@ async function setup() {
   );
   await Services.search.moveEngine(engine, 0);
 
-  registerCleanupFunction(async function() {
+  registerCleanupFunction(async function () {
     await SpecialPowers.popPrefEnv();
     await Services.search.setDefault(
       originalDefaultEngine,

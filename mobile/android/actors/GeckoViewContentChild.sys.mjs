@@ -129,9 +129,8 @@ export class GeckoViewContentChild extends GeckoViewActorChild {
           // If we don't actually have any pending fullscreen request
           // to handle, neither we have been in fullscreen, tell the
           // parent to just exit.
-          const actor = this.contentWindow?.windowGlobalChild?.getActor(
-            "ContentDelegate"
-          );
+          const actor =
+            this.contentWindow?.windowGlobalChild?.getActor("ContentDelegate");
           actor?.sendAsyncMessage("GeckoView:DOMFullscreenExit", {});
         }
         break;
@@ -144,7 +143,7 @@ export class GeckoViewContentChild extends GeckoViewActorChild {
         const { contentWindow } = this;
         const dwu = contentWindow.windowUtils;
 
-        const zoomToFocusedInput = function() {
+        const zoomToFocusedInput = function () {
           if (!dwu.flushApzRepaints()) {
             dwu.zoomToFocusedInput();
             return;
@@ -158,7 +157,7 @@ export class GeckoViewContentChild extends GeckoViewActorChild {
         const { force } = message.data;
 
         let gotResize = false;
-        const onResize = function() {
+        const onResize = function () {
           gotResize = true;
           if (dwu.isMozAfterPaintPending) {
             contentWindow.windowRoot.addEventListener(
@@ -221,13 +220,8 @@ export class GeckoViewContentChild extends GeckoViewActorChild {
         const x = {};
         const y = {};
         const { contentWindow } = this;
-        const {
-          widthValue,
-          widthType,
-          heightValue,
-          heightType,
-          behavior,
-        } = message.data;
+        const { widthValue, widthType, heightValue, heightType, behavior } =
+          message.data;
         contentWindow.windowUtils.getVisualViewportOffset(x, y);
         contentWindow.windowUtils.scrollToVisual(
           x.value + this.toPixels(widthValue, widthType),
@@ -239,13 +233,8 @@ export class GeckoViewContentChild extends GeckoViewActorChild {
       }
       case "GeckoView:ScrollTo": {
         const { contentWindow } = this;
-        const {
-          widthValue,
-          widthType,
-          heightValue,
-          heightType,
-          behavior,
-        } = message.data;
+        const { widthValue, widthType, heightValue, heightType, behavior } =
+          message.data;
         contentWindow.windowUtils.scrollToVisual(
           this.toPixels(widthValue, widthType),
           this.toPixels(heightValue, heightType),

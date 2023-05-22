@@ -473,9 +473,11 @@ async function GetBookmarksResource(aProfileFolder, aBrowserKey) {
       console.error(ex);
     }
 
-    let alternativeBookmarks = await lazy.Qihoo360seMigrationUtils.getAlternativeBookmarks(
-      { bookmarksPath, localState }
-    );
+    let alternativeBookmarks =
+      await lazy.Qihoo360seMigrationUtils.getAlternativeBookmarks({
+        bookmarksPath,
+        localState,
+      });
     if (alternativeBookmarks.resource) {
       return alternativeBookmarks.resource;
     }
@@ -500,9 +502,9 @@ async function GetBookmarksResource(aProfileFolder, aBrowserKey) {
     type: MigrationUtils.resourceTypes.BOOKMARKS,
 
     migrate(aCallback) {
-      return (async function() {
+      return (async function () {
         let gotErrors = false;
-        let errorGatherer = function() {
+        let errorGatherer = function () {
           gotErrors = true;
         };
 
@@ -631,7 +633,7 @@ async function GetHistoryResource(aProfileFolder) {
     type: MigrationUtils.resourceTypes.HISTORY,
 
     migrate(aCallback) {
-      (async function() {
+      (async function () {
         const LIMIT = Services.prefs.getIntPref(
           "browser.migrate.chrome.history.limit"
         );

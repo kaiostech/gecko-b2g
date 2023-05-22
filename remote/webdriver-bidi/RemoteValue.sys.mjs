@@ -62,10 +62,7 @@ export const OwnershipModel = {
  */
 
 function getUUID() {
-  return Services.uuid
-    .generateUUID()
-    .toString()
-    .slice(1, -1);
+  return Services.uuid.generateUUID().toString().slice(1, -1);
 }
 
 const TYPED_ARRAY_CLASSES = [
@@ -990,11 +987,8 @@ export function setDefaultAndAssertSerializationOptions(options = {}) {
 
   const serializationOptions = setDefaultSerializationOptions(options);
 
-  const {
-    includeShadowTree,
-    maxDomDepth,
-    maxObjectDepth,
-  } = serializationOptions;
+  const { includeShadowTree, maxDomDepth, maxObjectDepth } =
+    serializationOptions;
 
   if (maxDomDepth !== null) {
     lazy.assert.positiveNumber(maxDomDepth);

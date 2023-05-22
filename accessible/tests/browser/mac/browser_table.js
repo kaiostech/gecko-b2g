@@ -314,10 +314,7 @@ async function testIsLayout(table, elem, event, change, isLayout) {
     event == EVENT_TABLE_STYLING_CHANGED ? "table" : elem
   );
   await change();
-  if (event != EVENT_TABLE_STYLING_CHANGED || !isCacheEnabled) {
-    // We can't wait for this event when the cache is on because
-    // we don't fire it. Instead we rely on the `untilCacheIs` check
-    // below.
+  if (event != EVENT_TABLE_STYLING_CHANGED) {
     await toWait;
   }
   let intendedRole = isLayout ? "AXGroup" : "AXTable";
@@ -593,8 +590,8 @@ addAccessibleTask(
       const head = content.document.getElementById("thead");
       const body = content.document.getElementById("tbody");
 
-      head.addEventListener("click", function() {});
-      body.addEventListener("click", function() {});
+      head.addEventListener("click", function () {});
+      body.addEventListener("click", function () {});
     });
     await reorder;
 

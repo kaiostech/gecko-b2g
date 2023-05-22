@@ -111,19 +111,15 @@ var WebNavigationManager = {
    * @param {string} topic
    * @param {string | undefined} data
    */
-  observe: function(subject, topic, data) {
+  observe: function (subject, topic, data) {
     if (topic == "urlbar-user-start-navigation") {
       this.onURLBarUserStartNavigation(subject.wrappedJSObject);
     } else if (topic == "webNavigation-createdNavigationTarget") {
       // The observed notification is coming from privileged JavaScript components running
       // in the main process (e.g. when a new tab or window is opened using the context menu
       // or Ctrl/Shift + click on a link).
-      const {
-        createdTabBrowser,
-        url,
-        sourceFrameID,
-        sourceTabBrowser,
-      } = subject.wrappedJSObject;
+      const { createdTabBrowser, url, sourceFrameID, sourceTabBrowser } =
+        subject.wrappedJSObject;
 
       this.fire("onCreatedNavigationTarget", createdTabBrowser, null, {
         sourceTabBrowser,

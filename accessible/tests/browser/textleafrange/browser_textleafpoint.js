@@ -12,7 +12,7 @@ addAccessibleTask(
 h<a href="#">id i</a>n
 the <strong>big</strong> rug.</p>
 `,
-  function(browser, docAcc) {
+  function (browser, docAcc) {
     const container = findAccessibleChildByID(docAcc, "p");
     const firstPoint = createTextLeafPoint(container, 0);
     const lastPoint = createTextLeafPoint(container, kTextEndOffset);
@@ -172,14 +172,14 @@ the <strong>big</strong> rug.</p>
       "Backward BOUNDARY_LINE_END sequence is correct"
     );
   },
-  { chrome: true, topLevel: isCacheEnabled, iframe: false, remoteIframe: false }
+  { chrome: true, topLevel: true, iframe: false, remoteIframe: false }
 );
 
 addAccessibleTask(
   `<p id="p">
     Rob ca<input id="i1" value="n m">op up.
   </p>`,
-  function(browser, docAcc) {
+  function (browser, docAcc) {
     const container = findAccessibleChildByID(docAcc, "p");
     const firstPoint = createTextLeafPoint(container, 0);
     const lastPoint = createTextLeafPoint(container, kTextEndOffset);
@@ -241,7 +241,7 @@ addAccessibleTask(
       }
     );
   },
-  { chrome: true, topLevel: isCacheEnabled, iframe: false, remoteIframe: false }
+  { chrome: true, topLevel: true, iframe: false, remoteIframe: false }
 );
 
 addAccessibleTask(
@@ -256,7 +256,7 @@ on a <span style="display: block;">rug</span></p>
     <li>Two</li>
     <li>Three</li>
   </ul>`,
-  function(browser, docAcc) {
+  function (browser, docAcc) {
     const firstPoint = createTextLeafPoint(docAcc, 0);
     const lastPoint = createTextLeafPoint(docAcc, kTextEndOffset);
 
@@ -292,7 +292,7 @@ on a <span style="display: block;">rug</span></p>
       "The word end from the previous block is the first point in this block"
     );
   },
-  { chrome: true, topLevel: isCacheEnabled, iframe: false, remoteIframe: false }
+  { chrome: true, topLevel: true, iframe: false, remoteIframe: false }
 );
 
 // Test for skipping list item bullets.
@@ -303,7 +303,7 @@ addAccessibleTask(
     <li style="white-space: pre-line;">Three
 Four</li>
   </ul>`,
-  function(browser, docAcc) {
+  function (browser, docAcc) {
     const firstPoint = createTextLeafPoint(docAcc, 0);
     const lastPoint = createTextLeafPoint(docAcc, kTextEndOffset);
 
@@ -457,7 +457,7 @@ Four</li>
       { flags: BOUNDARY_FLAG_SKIP_LIST_ITEM_MARKER }
     );
   },
-  { chrome: true, topLevel: isCacheEnabled, iframe: false, remoteIframe: false }
+  { chrome: true, topLevel: true, iframe: false, remoteIframe: false }
 );
 
 /**
@@ -470,7 +470,7 @@ addAccessibleTask(
   <tr><td>c</td><td>d</td></tr>
 </table>
   `,
-  async function(browser, docAcc) {
+  async function (browser, docAcc) {
     const firstPoint = createTextLeafPoint(docAcc, 0);
     const lastPoint = createTextLeafPoint(docAcc, kTextEndOffset);
     testBoundarySequence(
@@ -481,5 +481,5 @@ addAccessibleTask(
       "Forward BOUNDARY_PARAGRAPH sequence is correct"
     );
   },
-  { chrome: true, topLevel: isCacheEnabled, iframe: false, remoteIframe: false }
+  { chrome: true, topLevel: true, iframe: false, remoteIframe: false }
 );

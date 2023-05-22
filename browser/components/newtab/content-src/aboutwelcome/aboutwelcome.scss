@@ -185,6 +185,7 @@ html {
     .arrow-icon {
       -moz-context-properties: fill;
       fill: currentColor;
+      text-decoration: none;
 
       &::after {
         content: '';
@@ -206,11 +207,27 @@ html {
     font-size: 0.72em;
     font-weight: 600;
     padding: 8px 16px;
+    text-decoration: none;
+
+    &:hover {
+      background-color: var(--in-content-button-background-hover) !important; // stylelint-disable-line declaration-no-important
+      color: var(--in-content-button-text-color-hover);
+    }
+  }
+
+  @mixin text-link-styles {
+    text-decoration: underline;
+    cursor: pointer;
+    color: var(--in-content-link-color);
 
     &:hover {
       text-decoration: none;
-      background-color: var(--in-content-button-background-hover) !important; // stylelint-disable-line declaration-no-important
-      color: var(--in-content-button-text-color-hover);
+      color: var(--in-content-link-color-hover);
+    }
+
+    &:active {
+      text-decoration: none;
+      color: var(--in-content-link-color-active);
     }
   }
 
@@ -418,7 +435,10 @@ html {
             .checkbox-container {
               font-size: 13px;
               margin-block: 1em;
-              transition: var(--transition);
+
+              &:not(.multi-select-item) {
+                transition: var(--transition);
+              }
 
               input,
               label {
@@ -430,16 +450,11 @@ html {
               margin: 8px 0;
 
               &.cta-link {
-                color: var(--in-content-link-color);
                 background: none;
                 padding: 0;
                 font-weight: normal;
-                text-decoration: underline;
-                cursor: pointer;
 
-                &:hover {
-                  color: var(--in-content-link-color-hover);
-                }
+                @include text-link-styles;
               }
 
               &.secondary {
@@ -811,6 +826,10 @@ html {
     }
   }
 
+  .text-link {
+    @include text-link-styles;
+  }
+
   .welcome-text {
     display: flex;
     flex-direction: column;
@@ -1146,9 +1165,9 @@ html {
     .email-link {
       font-size: 16px;
       font-weight: 400;
-      text-decoration: underline;
-      color: var(--in-content-link-color);
       background: none;
+
+      @include text-link-styles;
 
       &:hover {
         background: none;
@@ -1464,12 +1483,12 @@ html {
       transition-delay: 0.6s;
     }
 
-    .welcome-text,
-    .multi-select-container {
+    .welcome-text {
       transition-delay: 0.8s;
     }
 
     .tiles-theme-section,
+    .multi-select-container,
     migration-wizard {
       transition-delay: 0.9s;
     }
@@ -1486,6 +1505,7 @@ html {
   // Delays for transitioning-in of intermediate screens
   .screen:not(.dialog-initial) {
     .tiles-theme-section,
+    .multi-select-container,
     .colorway-text {
       transition-delay: 0.2s;
     }
@@ -1559,10 +1579,11 @@ html {
 
     .screen {
       .welcome-text,
+      .multi-select-container,
       .tiles-theme-section,
       .colorway-text,
       .primary,
-      .checkbox-container,
+      .checkbox-container:not(.multi-select-item),
       .secondary,
       .secondary-cta:not(.top),
       .cta-link,
@@ -1610,7 +1631,7 @@ html {
       }
 
       .primary,
-      .checkbox-container,
+      .checkbox-container:not(.multi-select-item),
       .secondary,
       .secondary-cta:not(.top),
       .cta-link {

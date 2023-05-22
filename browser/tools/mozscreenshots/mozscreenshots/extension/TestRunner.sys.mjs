@@ -257,8 +257,12 @@ export var TestRunner = {
     // Scale for high-density displays
     const scale = Cc["@mozilla.org/gfx/screenmanager;1"]
       .getService(Ci.nsIScreenManager)
-      .screenForRect(browserWindow.screenX, browserWindow.screenY, 1, 1)
-      .defaultCSSScaleFactor;
+      .screenForRect(
+        browserWindow.screenX,
+        browserWindow.screenY,
+        1,
+        1
+      ).defaultCSSScaleFactor;
 
     const windowLeft = browserWindow.screenX * scale;
     const windowTop = browserWindow.screenY * scale;
@@ -477,7 +481,7 @@ export var TestRunner = {
   },
 
   _comboName(combo) {
-    return combo.reduce(function(a, b) {
+    return combo.reduce(function (a, b) {
       return a + "_" + b.name;
     }, "");
   },
@@ -549,7 +553,7 @@ export var TestRunner = {
         });
       };
 
-      img.onerror = function() {
+      img.onerror = function () {
         reject(`error loading image ${srcPath}`);
       };
       // Load the src image for drawing

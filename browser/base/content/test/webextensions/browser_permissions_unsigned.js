@@ -30,7 +30,7 @@ add_task(async function test_unsigned() {
   SpecialPowers.spawn(
     gBrowser.selectedBrowser,
     [`${BASE}/browser_webext_unsigned.xpi`],
-    async function(url) {
+    async function (url) {
       content.wrappedJSObject.installTrigger(url);
     }
   );
@@ -38,8 +38,9 @@ add_task(async function test_unsigned() {
   let panel = await promisePopupNotificationShown("addon-webext-permissions");
 
   is(panel.getAttribute("icon"), WARNING_ICON);
-  let description = panel.querySelector(".popup-notification-description")
-    .textContent;
+  let description = panel.querySelector(
+    ".popup-notification-description"
+  ).textContent;
   checkPermissionString(
     description,
     "webextPerms.headerUnsignedWithPerms",

@@ -6,12 +6,8 @@ const { setTimeout } = ChromeUtils.importESModule(
   "resource://gre/modules/Timer.sys.mjs"
 );
 
-const {
-  ProgressListener,
-  waitForInitialNavigationCompleted,
-} = ChromeUtils.importESModule(
-  "chrome://remote/content/shared/Navigate.sys.mjs"
-);
+const { ProgressListener, waitForInitialNavigationCompleted } =
+  ChromeUtils.importESModule("chrome://remote/content/shared/Navigate.sys.mjs");
 
 const CURRENT_URI = Services.io.newURI("http://foo.bar/");
 const INITIAL_URI = Services.io.newURI("about:blank");
@@ -133,7 +129,7 @@ class MockTopContext {
   }
 }
 
-const hasPromiseResolved = async function(promise) {
+const hasPromiseResolved = async function (promise) {
   let resolved = false;
   promise.finally(() => (resolved = true));
   // Make sure microtasks have time to run.
@@ -141,7 +137,7 @@ const hasPromiseResolved = async function(promise) {
   return resolved;
 };
 
-const hasPromiseRejected = async function(promise) {
+const hasPromiseRejected = async function (promise) {
   let rejected = false;
   promise.catch(() => (rejected = true));
   // Make sure microtasks have time to run.

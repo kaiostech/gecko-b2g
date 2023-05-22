@@ -254,8 +254,8 @@ HashCompleter.prototype = {
     if (!this._backoffs[aGethashUrl]) {
       // Initialize request backoffs separately, since requests are deleted
       // after they are dispatched.
-      var jslib = Cc["@mozilla.org/url-classifier/jslib;1"].getService()
-        .wrappedJSObject;
+      var jslib =
+        Cc["@mozilla.org/url-classifier/jslib;1"].getService().wrappedJSObject;
 
       // Using the V4 backoff algorithm for both V2 and V4. See bug 1273398.
       this._backoffs[aGethashUrl] = new jslib.RequestBackoffV4(
@@ -418,7 +418,7 @@ HashCompleterRequest.prototype = {
       return false;
     }
 
-    return this._requests.find(function(r) {
+    return this._requests.find(function (r) {
       return r.partialHash === aPartialHash;
     });
   },
@@ -466,9 +466,8 @@ HashCompleterRequest.prototype = {
         // point, finishRequest must be called.
         this._completer.noteRequest(this.gethashUrl);
       } catch (err) {
-        this._completer._ongoingRequests = this._completer._ongoingRequests.filter(
-          v => v != this
-        );
+        this._completer._ongoingRequests =
+          this._completer._ongoingRequests.filter(v => v != this);
         this.notifyFailure(err);
         throw err;
       }

@@ -56,9 +56,8 @@
       return;
     }
 
-    let identity = ContextualIdentityService.getPublicIdentityFromId(
-      userContextId
-    );
+    let identity =
+      ContextualIdentityService.getPublicIdentityFromId(userContextId);
     if (!identity) {
       replaceContainerClass("color", hbox, "");
       hbox.hidden = true;
@@ -498,10 +497,11 @@
         URILoadingWrapper,
         browser
       );
-      browser.fixupAndLoadURIString = URILoadingWrapper.fixupAndLoadURIString.bind(
-        URILoadingWrapper,
-        browser
-      );
+      browser.fixupAndLoadURIString =
+        URILoadingWrapper.fixupAndLoadURIString.bind(
+          URILoadingWrapper,
+          browser
+        );
 
       let uniqueId = this._generateUniquePanelID();
       let panel = this.getPanel(browser);
@@ -1200,8 +1200,10 @@
 
       this._updateVisibleNotificationBox(newBrowser);
 
-      let oldBrowserPopupsBlocked = oldBrowser.popupBlocker.getBlockedPopupCount();
-      let newBrowserPopupsBlocked = newBrowser.popupBlocker.getBlockedPopupCount();
+      let oldBrowserPopupsBlocked =
+        oldBrowser.popupBlocker.getBlockedPopupCount();
+      let newBrowserPopupsBlocked =
+        newBrowser.popupBlocker.getBlockedPopupCount();
       if (oldBrowserPopupsBlocked != newBrowserPopupsBlocked) {
         newBrowser.popupBlocker.updateBlockedPopupsUI();
       }
@@ -1682,8 +1684,9 @@
         // See if we can use the URI as the title.
         if (browser.currentURI.displaySpec) {
           try {
-            title = Services.io.createExposableURI(browser.currentURI)
-              .displaySpec;
+            title = Services.io.createExposableURI(
+              browser.currentURI
+            ).displaySpec;
           } catch (ex) {
             title = browser.currentURI.displaySpec;
           }
@@ -2381,10 +2384,11 @@
         URILoadingWrapper,
         browser
       );
-      browser.fixupAndLoadURIString = URILoadingWrapper.fixupAndLoadURIString.bind(
-        URILoadingWrapper,
-        browser
-      );
+      browser.fixupAndLoadURIString =
+        URILoadingWrapper.fixupAndLoadURIString.bind(
+          URILoadingWrapper,
+          browser
+        );
 
       // Most of the time, we start our browser's docShells out as inactive,
       // and then maintain activeness in the tab switcher. Preloaded about:newtab's
@@ -2528,11 +2532,10 @@
      */
     addWebTab(aURI, params = {}) {
       if (!params.triggeringPrincipal) {
-        params.triggeringPrincipal = Services.scriptSecurityManager.createNullPrincipal(
-          {
+        params.triggeringPrincipal =
+          Services.scriptSecurityManager.createNullPrincipal({
             userContextId: params.userContextId,
-          }
-        );
+          });
       }
       if (params.triggeringPrincipal.isSystemPrincipal) {
         throw new Error(
@@ -2562,7 +2565,8 @@
      * If in doubt use addWebTab
      */
     addTrustedTab(aURI, params = {}) {
-      params.triggeringPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
+      params.triggeringPrincipal =
+        Services.scriptSecurityManager.getSystemPrincipal();
       return this.addTab(aURI, params);
     },
 
@@ -2743,9 +2747,8 @@
                 {
                   url: lazyBrowserURI?.spec || "about:blank",
                   title: lazyTabTitle,
-                  triggeringPrincipal_base64: E10SUtils.serializePrincipal(
-                    triggeringPrincipal
-                  ),
+                  triggeringPrincipal_base64:
+                    E10SUtils.serializePrincipal(triggeringPrincipal),
                 },
               ],
               // Make sure to store the userContextId associated to the lazy tab
@@ -2809,7 +2812,7 @@
       this.tabAnimationsInProgress++;
 
       if (animate) {
-        requestAnimationFrame(function() {
+        requestAnimationFrame(function () {
           // kick the animation off
           t.setAttribute("fadein", "true");
         });
@@ -2906,7 +2909,7 @@
         // Call _handleNewTab asynchronously as it needs to know if the
         // new tab is selected.
         setTimeout(
-          function(tabContainer) {
+          function (tabContainer) {
             tabContainer._handleNewTab(t);
           },
           0,
@@ -3761,15 +3764,13 @@
      */
     async runBeforeUnloadForTabs(tabs) {
       try {
-        let {
-          beforeUnloadComplete,
-          tabsWithBeforeUnloadPrompt,
-        } = this._startRemoveTabs(tabs, {
-          animate: false,
-          suppressWarnAboutClosingWindow: false,
-          skipPermitUnload: false,
-          skipRemoves: true,
-        });
+        let { beforeUnloadComplete, tabsWithBeforeUnloadPrompt } =
+          this._startRemoveTabs(tabs, {
+            animate: false,
+            suppressWarnAboutClosingWindow: false,
+            skipPermitUnload: false,
+            skipRemoves: true,
+          });
 
         await beforeUnloadComplete;
 
@@ -3829,16 +3830,13 @@
 
       // Guarantee that _clearMultiSelectionLocked lock gets released.
       try {
-        let {
-          beforeUnloadComplete,
-          tabsWithBeforeUnloadPrompt,
-          lastToClose,
-        } = this._startRemoveTabs(tabs, {
-          animate,
-          suppressWarnAboutClosingWindow,
-          skipPermitUnload,
-          skipRemoves: false,
-        });
+        let { beforeUnloadComplete, tabsWithBeforeUnloadPrompt, lastToClose } =
+          this._startRemoveTabs(tabs, {
+            animate,
+            suppressWarnAboutClosingWindow,
+            skipPermitUnload,
+            skipRemoves: false,
+          });
 
         // Wait for all the beforeunload events to have been processed by content processes.
         // The permitUnload() promise will, alas, not call its resolution
@@ -3987,7 +3985,7 @@
       aTab.removeAttribute("bursting");
 
       setTimeout(
-        function(tab, tabbrowser) {
+        function (tab, tabbrowser) {
           if (
             tab.container &&
             window.getComputedStyle(tab).maxWidth == "0.1px"
@@ -4304,7 +4302,7 @@
         this.tabContainer._updateCloseButtons();
 
         setTimeout(
-          function(tabs) {
+          function (tabs) {
             tabs._lastTabClosedByMouse = false;
           },
           0,
@@ -4699,9 +4697,8 @@
       // If switcher is active, it will intercept swap events and
       // react as needed.
       if (!this._switcher) {
-        aOtherBrowser.docShellIsActive = this.shouldActivateDocShell(
-          ourBrowser
-        );
+        aOtherBrowser.docShellIsActive =
+          this.shouldActivateDocShell(ourBrowser);
       }
 
       // Swap the docshells
@@ -5600,15 +5597,12 @@
 
         try {
           this._awaitingToggleCaretBrowsingPrompt = true;
-          const [
-            title,
-            message,
-            checkbox,
-          ] = this.tabLocalization.formatValuesSync([
-            "tabbrowser-confirm-caretbrowsing-title",
-            "tabbrowser-confirm-caretbrowsing-message",
-            "tabbrowser-confirm-caretbrowsing-checkbox",
-          ]);
+          const [title, message, checkbox] =
+            this.tabLocalization.formatValuesSync([
+              "tabbrowser-confirm-caretbrowsing-title",
+              "tabbrowser-confirm-caretbrowsing-message",
+              "tabbrowser-confirm-caretbrowsing-checkbox",
+            ]);
           var buttonPressed = promptService.confirmEx(
             window,
             title,
@@ -5840,9 +5834,8 @@
       //     true if we're refreshing the page. false if we're redirecting.
 
       let notificationBox = this.getNotificationBox(browser);
-      let notification = notificationBox.getNotificationWithValue(
-        "refresh-blocked"
-      );
+      let notification =
+        notificationBox.getNotificationWithValue("refresh-blocked");
 
       let l10nId = data.sameURI
         ? "refresh-blocked-refresh-label"
@@ -6606,11 +6599,8 @@
         location
       );
 
-      const {
-        STATE_START,
-        STATE_STOP,
-        STATE_IS_NETWORK,
-      } = Ci.nsIWebProgressListener;
+      const { STATE_START, STATE_STOP, STATE_IS_NETWORK } =
+        Ci.nsIWebProgressListener;
 
       // If we were ignoring some messages about the initial about:blank, and we
       // got the STATE_STOP for it, we'll want to pay attention to those messages
@@ -6672,7 +6662,8 @@
                 isURL: true,
               });
 
-              this.mBrowser.browsingContext.nonWebControlledBlankURI = originalLocation;
+              this.mBrowser.browsingContext.nonWebControlledBlankURI =
+                originalLocation;
               if (this.mTab.selected && !gBrowser.userTypedValue) {
                 gURLBar.setURI();
               }
@@ -7123,7 +7114,8 @@
             .getService(Ci.nsIMIMEService)
             .getTypeFromURI(aUri);
           if (mimeType == "application/x-xpinstall") {
-            let systemPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
+            let systemPrincipal =
+              Services.scriptSecurityManager.getSystemPrincipal();
             AddonManager.getInstallForURL(aUri.spec, {
               telemetryInfo: { source: "file-url" },
             }).then(install => {
@@ -7481,9 +7473,8 @@ var TabContextMenu = {
 
     // Only one of Reload_Tab/Reload_Selected_Tabs should be visible.
     document.getElementById("context_reloadTab").hidden = multiselectionContext;
-    document.getElementById(
-      "context_reloadSelectedTabs"
-    ).hidden = !multiselectionContext;
+    document.getElementById("context_reloadSelectedTabs").hidden =
+      !multiselectionContext;
 
     // Show Play Tab menu item if the tab has attribute activemedia-blocked
     document.getElementById("context_playTab").hidden = !(
@@ -7550,12 +7541,10 @@ var TabContextMenu = {
     }
 
     // Only one of "Duplicate Tab"/"Duplicate Tabs" should be visible.
-    document.getElementById(
-      "context_duplicateTab"
-    ).hidden = multiselectionContext;
-    document.getElementById(
-      "context_duplicateTabs"
-    ).hidden = !multiselectionContext;
+    document.getElementById("context_duplicateTab").hidden =
+      multiselectionContext;
+    document.getElementById("context_duplicateTabs").hidden =
+      !multiselectionContext;
 
     // Disable "Close Tabs to the Left/Right" if there are no tabs
     // preceding/following it.
@@ -7712,9 +7701,8 @@ var TabContextMenu = {
         // Ensure that we have a null principal if we couldn't
         // deserialize it (for lazy tab browsers) ...
         // This won't always work however is safe to use.
-        triggeringPrincipal = Services.scriptSecurityManager.createNullPrincipal(
-          { userContextId }
-        );
+        triggeringPrincipal =
+          Services.scriptSecurityManager.createNullPrincipal({ userContextId });
       } else if (triggeringPrincipal.isContentPrincipal) {
         triggeringPrincipal = Services.scriptSecurityManager.principalWithOA(
           triggeringPrincipal,

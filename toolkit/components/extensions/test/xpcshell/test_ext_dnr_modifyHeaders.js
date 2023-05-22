@@ -381,10 +381,12 @@ add_task(async function requestHeaders_set_host_header() {
   AddonTestUtils.checkMessages(messages, {
     expected: [
       {
-        message: /Failed to apply modifyHeaders action to header "Host" \(DNR rule id 2 from ruleset "_session"\): Error: Unable to set host header, url missing from permissions\./,
+        message:
+          /Failed to apply modifyHeaders action to header "Host" \(DNR rule id 2 from ruleset "_session"\): Error: Unable to set host header, url missing from permissions\./,
       },
       {
-        message: /Failed to apply modifyHeaders action to header "Host" \(DNR rule id 3 from ruleset "_session"\): Error: Unable to set host header to restricted url\./,
+        message:
+          /Failed to apply modifyHeaders action to header "Host" \(DNR rule id 3 from ruleset "_session"\): Error: Unable to set host header to restricted url\./,
       },
     ],
   });
@@ -456,7 +458,8 @@ add_task(async function requestHeaders_set_host_header_multiple_extensions() {
   AddonTestUtils.checkMessages(messages, {
     expected: [
       {
-        message: /Failed to apply modifyHeaders action to header "Host" \(DNR rule id 1 from ruleset "_session"\): Error: Unable to set host header, url missing from permissions\./,
+        message:
+          /Failed to apply modifyHeaders action to header "Host" \(DNR rule id 1 from ruleset "_session"\): Error: Unable to set host header, url missing from permissions\./,
       },
     ],
   });
@@ -851,11 +854,7 @@ add_task(async function requestHeaders_and_responseHeaders_cookies() {
     let contentPage = await ExtensionTestUtils.loadContentPage(url);
     let res = await contentPage.spawn(null, () => {
       const { document } = content;
-      const sortCookies = s =>
-        s
-          .split("; ")
-          .sort()
-          .join("; ");
+      const sortCookies = s => s.split("; ").sort().join("; ");
       return {
         // Server at /setcookie echos value of Cookie request header.
         serverSeenCookies: sortCookies(document.body.textContent),

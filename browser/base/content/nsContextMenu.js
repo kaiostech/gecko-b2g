@@ -274,9 +274,10 @@ class nsContextMenu {
 
       this.browser = this.ownerDoc.defaultView.docShell.chromeEventHandler;
       this.selectionInfo = SelectionUtils.getSelectionDetails(window);
-      this.actor = this.browser.browsingContext.currentWindowGlobal.getActor(
-        "ContextMenu"
-      );
+      this.actor =
+        this.browser.browsingContext.currentWindowGlobal.getActor(
+          "ContextMenu"
+        );
     }
 
     this.remoteType = this.actor?.domProcess?.remoteType;
@@ -710,9 +711,8 @@ class nsContextMenu {
     );
 
     if (haveSetDesktopBackground && this.onLoadedImage) {
-      document.getElementById(
-        "context-setDesktopBackground"
-      ).disabled = this.contentData.disableSetDesktopBackground;
+      document.getElementById("context-setDesktopBackground").disabled =
+        this.contentData.disableSetDesktopBackground;
     }
   }
 
@@ -802,8 +802,8 @@ class nsContextMenu {
     if (this.inFrame) {
       // To make it easier to debug the browser running with out-of-process iframes, we
       // display the process PID of the iframe in the context menu for the subframe.
-      let frameOsPid = this.actor.manager.browsingContext.currentWindowGlobal
-        .osPid;
+      let frameOsPid =
+        this.actor.manager.browsingContext.currentWindowGlobal.osPid;
       this.setItemAttr("context-frameOsPid", "label", "PID: " + frameOsPid);
 
       // We need to check if "Take Screenshot" should be displayed in the "This Frame"
@@ -1546,7 +1546,7 @@ class nsContextMenu {
   // View Partial Source
   viewPartialSource() {
     let { browser } = this;
-    let openSelectionFn = function() {
+    let openSelectionFn = function () {
       let tabBrowser = gBrowser;
       const inNewWindow = !Services.prefs.getBoolPref("view_source.tab");
       // In the case of popups, we need to find a non-popup browser window.
@@ -1563,7 +1563,8 @@ class nsContextMenu {
         relatedToCurrent,
         inBackground: inNewWindow,
         skipAnimation: inNewWindow,
-        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+        triggeringPrincipal:
+          Services.scriptSecurityManager.getSystemPrincipal(),
       });
       const viewSourceBrowser = tabBrowser.getBrowserForTab(tab);
       if (inNewWindow) {
@@ -1654,7 +1655,7 @@ class nsContextMenu {
     let referrerInfo = this.contentData.referrerInfo;
     let systemPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
     if (this.onCanvas) {
-      this._canvasToBlobURL(this.targetIdentifier).then(function(blobURL) {
+      this._canvasToBlobURL(this.targetIdentifier).then(function (blobURL) {
         openLinkIn(blobURL, where, {
           referrerInfo,
           triggeringPrincipal: systemPrincipal,
@@ -2038,7 +2039,7 @@ class nsContextMenu {
     let cookieJarSettings = this.contentData.cookieJarSettings;
     if (this.onCanvas) {
       // Bypass cache, since it's a data: URL.
-      this._canvasToBlobURL(this.targetIdentifier).then(function(blobURL) {
+      this._canvasToBlobURL(this.targetIdentifier).then(function (blobURL) {
         internalSave(
           blobURL,
           null, // originalURL
@@ -2176,8 +2177,8 @@ class nsContextMenu {
    */
   copyStrippedLink() {
     let strippedLinkURI = this.getStrippedLink();
-    let strippedLinkURL = Services.io.createExposableURI(strippedLinkURI)
-      ?.displaySpec;
+    let strippedLinkURL =
+      Services.io.createExposableURI(strippedLinkURI)?.displaySpec;
     if (strippedLinkURL) {
       let clipboard = Cc["@mozilla.org/widget/clipboardhelper;1"].getService(
         Ci.nsIClipboardHelper

@@ -280,9 +280,10 @@
           let visibleTabs = this._getVisibleTabs();
           let lastTab = visibleTabs[visibleTabs.length - 1];
           let winUtils = window.windowUtils;
-          let endOfTab = winUtils.getBoundsWithoutFlushing(lastTab)[
-            RTL_UI ? "left" : "right"
-          ];
+          let endOfTab =
+            winUtils.getBoundsWithoutFlushing(lastTab)[
+              RTL_UI ? "left" : "right"
+            ];
           if (
             (!RTL_UI && event.clientX > endOfTab) ||
             (RTL_UI && event.clientX < endOfTab)
@@ -473,7 +474,7 @@
         // On Windows and Mac we can update the drag image during a drag
         // using updateDragImage. On Linux, we can use a panel.
         if (platform == "win" || platform == "macosx") {
-          captureListener = function() {
+          captureListener = function () {
             dt.updateDragImage(canvas, dragImageOffset, dragImageOffset);
           };
         } else {
@@ -633,9 +634,7 @@
         let newIndex = this._getDropIndex(event);
         let children = this.allTabs;
         if (newIndex == children.length) {
-          let tabRect = this._getVisibleTabs()
-            .at(-1)
-            .getBoundingClientRect();
+          let tabRect = this._getVisibleTabs().at(-1).getBoundingClientRect();
           if (RTL_UI) {
             newMargin = rect.right - tabRect.left;
           } else {
@@ -820,9 +819,8 @@
         let newIndex = this._getDropIndex(event);
         let urls = links.map(link => link.url);
         let csp = browserDragAndDrop.getCsp(event);
-        let triggeringPrincipal = browserDragAndDrop.getTriggeringPrincipal(
-          event
-        );
+        let triggeringPrincipal =
+          browserDragAndDrop.getTriggeringPrincipal(event);
 
         (async () => {
           if (
@@ -1849,7 +1847,8 @@
       if (!this._backgroundTabScrollPromise) {
         this._backgroundTabScrollPromise = window
           .promiseDocumentFlushed(() => {
-            let lastTabRect = this._lastTabToScrollIntoView.getBoundingClientRect();
+            let lastTabRect =
+              this._lastTabToScrollIntoView.getBoundingClientRect();
             let selectedTab = this.selectedItem;
             if (selectedTab.pinned) {
               selectedTab = null;
@@ -1909,7 +1908,7 @@
             if (!this._animateElement.hasAttribute("highlight")) {
               this._animateElement.setAttribute("highlight", "true");
               setTimeout(
-                function(ele) {
+                function (ele) {
                   ele.removeAttribute("highlight");
                 },
                 150,

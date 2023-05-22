@@ -21,7 +21,7 @@ function log(msg) {
 const isGonk = AppConstants.platform === "gonk";
 
 if (isGonk) {
-  var librecovery = (function() {
+  var librecovery = (function () {
     let library;
     try {
       library = ctypes.open("librecovery.so");

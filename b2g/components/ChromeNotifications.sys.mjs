@@ -30,7 +30,7 @@ export const ChromeNotifications = {
   performResend(notifications) {
     let resentNotifications = 0;
 
-    notifications.forEach(function(notification) {
+    notifications.forEach(function (notification) {
       let behavior;
       try {
         behavior = JSON.parse(notification.mozbehavior);

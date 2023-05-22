@@ -87,7 +87,7 @@ function test_object_contains() {
 
 function test_mock_doc() {
   do_test_pending();
-  let mockedDoc = mockDoc({ loggedInUser: null }, function(action, params) {
+  let mockedDoc = mockDoc({ loggedInUser: null }, function (action, params) {
     do_check_eq(action, "coffee");
     do_test_finished();
     run_next_test();
@@ -101,10 +101,10 @@ function test_mock_doc() {
 function test_watch() {
   do_test_pending();
 
-  setup_test_identity("pie@food.gov", TEST_CERT, function() {
+  setup_test_identity("pie@food.gov", TEST_CERT, function () {
     let controller = SignInToWebsiteController;
 
-    let mockedDoc = mockDoc({ loggedInUser: null }, function(action, params) {
+    let mockedDoc = mockDoc({ loggedInUser: null }, function (action, params) {
       do_check_eq(action, "ready");
       controller.uninit();
       MinimalIDService.RP.unwatch(mockedDoc.id);
@@ -120,17 +120,17 @@ function test_watch() {
 function test_request_login() {
   do_test_pending();
 
-  setup_test_identity("flan@food.gov", TEST_CERT, function() {
+  setup_test_identity("flan@food.gov", TEST_CERT, function () {
     let controller = SignInToWebsiteController;
 
     let mockedDoc = mockDoc(
       { loggedInUser: null },
       call_sequentially(
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "ready");
           do_check_eq(params, undefined);
         },
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "login");
           do_check_eq(params, TEST_CERT);
           controller.uninit();
@@ -150,17 +150,17 @@ function test_request_login() {
 function test_request_logout() {
   do_test_pending();
 
-  setup_test_identity("flan@food.gov", TEST_CERT, function() {
+  setup_test_identity("flan@food.gov", TEST_CERT, function () {
     let controller = SignInToWebsiteController;
 
     let mockedDoc = mockDoc(
       { loggedInUser: null },
       call_sequentially(
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "ready");
           do_check_eq(params, undefined);
         },
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "logout");
           do_check_eq(params, undefined);
           controller.uninit();
@@ -180,21 +180,21 @@ function test_request_logout() {
 function test_request_login_logout() {
   do_test_pending();
 
-  setup_test_identity("unagi@food.gov", TEST_CERT, function() {
+  setup_test_identity("unagi@food.gov", TEST_CERT, function () {
     let controller = SignInToWebsiteController;
 
     let mockedDoc = mockDoc(
       { loggedInUser: null },
       call_sequentially(
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "ready");
           do_check_eq(params, undefined);
         },
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "login");
           do_check_eq(params, TEST_CERT);
         },
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "logout");
           do_check_eq(params, undefined);
           controller.uninit();
@@ -216,19 +216,19 @@ function test_logout_everywhere() {
   do_test_pending();
   let logouts = 0;
 
-  setup_test_identity("fugu@food.gov", TEST_CERT, function() {
+  setup_test_identity("fugu@food.gov", TEST_CERT, function () {
     let controller = SignInToWebsiteController;
 
     let mockedDoc1 = mockDoc(
       { loggedInUser: null },
       call_sequentially(
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "ready");
         },
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "login");
         },
-        function(action, params) {
+        function (action, params) {
           // Result of logout from doc2.
           // We don't know what order the logouts will occur in.
           do_check_eq(action, "logout");
@@ -243,13 +243,13 @@ function test_logout_everywhere() {
     let mockedDoc2 = mockDoc(
       { loggedInUser: null },
       call_sequentially(
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "ready");
         },
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "login");
         },
-        function(action, params) {
+        function (action, params) {
           do_check_eq(action, "logout");
           if (++logouts === 2) {
             do_test_finished();
@@ -288,7 +288,7 @@ function test_options_pass_through() {
     },
   };
 
-  let mockedDoc = mockDoc(randomMixedParams, function(action, params) {});
+  let mockedDoc = mockDoc(randomMixedParams, function (action, params) {});
 
   function pipeOtherEnd(rpOptions, gaiaOptions) {
     // Ensure that every time we receive a message, our mixed

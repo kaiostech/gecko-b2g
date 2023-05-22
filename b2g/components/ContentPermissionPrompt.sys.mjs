@@ -194,7 +194,7 @@ ContentPermissionPrompt.prototype = {
     request,
     typesInfo
   ) {
-    typesInfo.forEach(function(type) {
+    typesInfo.forEach(function (type) {
       type.action = Services.perms.testExactPermissionFromPrincipal(
         request.principal,
         type.permission
@@ -306,7 +306,7 @@ ContentPermissionPrompt.prototype = {
       return;
     }
 
-    let visibilitychangeHandler = function(event) {
+    let visibilitychangeHandler = function (event) {
       debug(`callback of ${event.type} ${JSON.stringify(event.detail)}`);
       if (!getIsVisible(request)) {
         debug("visibilitychange !getIsVisible, cancel.");

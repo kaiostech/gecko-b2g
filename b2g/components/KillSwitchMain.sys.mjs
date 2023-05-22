@@ -15,7 +15,7 @@ XPCOMUtils.defineLazyServiceGetter(
 );
 
 if (AppConstants.platform === "gonk") {
-  XPCOMUtils.defineLazyGetter(lazy, "libcutils", function() {
+  XPCOMUtils.defineLazyGetter(lazy, "libcutils", function () {
     const { libcutils } = ChromeUtils.import(
       "resource://gre/modules/systemlibs.js"
     );

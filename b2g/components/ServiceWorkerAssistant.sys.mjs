@@ -115,10 +115,10 @@ export const ServiceWorkerAssistant = {
     debug(`register ${aManifestURL}`);
 
     let appURI = Services.io.newURI(aManifestURL);
-    let fullpath = function(aPath) {
+    let fullpath = function (aPath) {
       return appURI.resolve(aPath ? aPath : "/");
     };
-    let getUpdateViaCache = function(aUpdateViaCache) {
+    let getUpdateViaCache = function (aUpdateViaCache) {
       if (!aUpdateViaCache) {
         return Ci.nsIServiceWorkerRegistrationInfo.UPDATE_VIA_CACHE_IMPORTS;
       }
@@ -338,7 +338,7 @@ export const ServiceWorkerAssistant = {
     // TODO: icon is null because "icons" is not in "b2g_features"
     // Create Bug 105445 to track.
     let appURI = Services.io.newURI(aManifestURL);
-    let iconURLForSize = function(aSize) {
+    let iconURLForSize = function (aSize) {
       let icons = aFeatures.icons;
       if (!icons) {
         return null;

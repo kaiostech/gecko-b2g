@@ -130,9 +130,8 @@ var AlertsHelper = {
           detail.type !== kDesktopNotificationShow
         ) {
           const scope = listener.serviceWorkerRegistrationScope;
-          const originAttr = ChromeUtils.createOriginAttributesFromOrigin(
-            scope
-          );
+          const originAttr =
+            ChromeUtils.createOriginAttributesFromOrigin(scope);
           const originSuffix = ChromeUtils.originAttributesToSuffix(originAttr);
           let eventName;
 

@@ -7,7 +7,7 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
-XPCOMUtils.defineLazyGetter(this, "libcutils", function() {
+XPCOMUtils.defineLazyGetter(this, "libcutils", function () {
   ChromeUtils.import("resource://gre/modules/systemlibs.js");
   return libcutils;
 });

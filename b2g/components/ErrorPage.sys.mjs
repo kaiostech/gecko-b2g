@@ -73,7 +73,7 @@ SSLExceptions.prototype = {
     try {
       req.open("GET", this._uri.prePath, true);
       req.channel.notificationCallbacks = this;
-      let xhrHandler = function() {
+      let xhrHandler = function () {
         req.removeEventListener("load", xhrHandler);
         req.removeEventListener("error", xhrHandler);
         if (!this._sslStatus) {
@@ -150,7 +150,7 @@ export var ErrorPage = {
 
     let uri = Services.io.newURI(aMessage.data.url);
     let sslExceptions = new SSLExceptions(
-      function() {
+      function () {
         mm.sendAsyncMessage("ErrorPage:ReloadPage");
       },
       uri,
@@ -166,7 +166,7 @@ export var ErrorPage = {
   _listenError(frameLoader) {
     let self = this;
     let frameElement = frameLoader.ownerElement;
-    let injectErrorPageScript = function() {
+    let injectErrorPageScript = function () {
       let mm = frameLoader.messageManager;
       try {
         mm.loadFrameScript(kErrorPageFrameScript, true, true);

@@ -32,7 +32,7 @@ SmsProtocolHandler.prototype = {
 
     if (query) {
       let params = query.split("&");
-      params.forEach(function(aParam) {
+      params.forEach(function (aParam) {
         let [name, value] = aParam.split("=");
         if (name === "body") {
           body = decodeURIComponent(value);

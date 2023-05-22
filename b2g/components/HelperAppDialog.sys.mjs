@@ -35,18 +35,19 @@ HelperAppLauncherDialog.prototype = {
     aForcePrompt
   ) {
     // Retrieve the user's default download directory.
-    (async function() {
+    (async function () {
       let file = null;
       try {
-        let defaultFolder = await lazy.Downloads.getPreferredDownloadsDirectory();
+        let defaultFolder =
+          await lazy.Downloads.getPreferredDownloadsDirectory();
         let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
         dir.initWithPath(defaultFolder);
         file = this.validateLeafName(dir, aDefaultFile, aSuggestedFileExt);
       } catch (e) {}
       aLauncher.saveDestinationAvailable(file);
-    }
+    })
       .bind(this)()
-      .then(null, console.error));
+      .then(null, console.error);
   },
 
   validateLeafName(aLocalFile, aLeafName, aFileExt) {

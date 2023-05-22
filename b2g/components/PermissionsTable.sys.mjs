@@ -387,7 +387,7 @@ export const appendAccessToPermName = (aPermName, aAccess) => {
   if (!aAccess.length) {
     return [aPermName];
   }
-  return aAccess.map(function(aMode) {
+  return aAccess.map(function (aMode) {
     return aPermName + ":" + aMode;
   });
 };
@@ -467,7 +467,7 @@ export const expandPermissions = (aPermName, aAccess) => {
 export const permissionsReverseTable = {};
 export const AllPossiblePermissions = [];
 
-(function() {
+(function () {
   // PermissionsTable as it is works well for direct searches, but not
   // so well for reverse ones (that is, if I get something like
   // device-storage:music:read or settings:read, how

@@ -37,7 +37,7 @@ function hookScreen(window) {
 
   let screen = window.wrappedJSObject.screen;
 
-  screen.mozLockOrientation = function(orientation) {
+  screen.mozLockOrientation = function (orientation) {
     debug("mozLockOrientation:", orientation, "from", origin);
 
     // Normalize and do some checks against orientation input
@@ -64,7 +64,7 @@ function hookScreen(window) {
     return true;
   };
 
-  screen.mozUnlockOrientation = function() {
+  screen.mozUnlockOrientation = function () {
     debug("mozOrientationUnlock from", origin);
     GlobalSimulatorScreen.unlock();
     return true;

@@ -34,7 +34,7 @@ function log(...aMessageArgs) {
 
 function partial(fn) {
   let args = Array.prototype.slice.call(arguments, 1);
-  return function() {
+  return function () {
     return fn.apply(this, args.concat(Array.prototype.slice.call(arguments)));
   };
 }
@@ -50,7 +50,7 @@ function mockDoc(aParams, aDoFunc) {
   mockedDoc.id = uuid();
 
   // Properties of aParams may include loggedInUser
-  Object.keys(aParams).forEach(function(param) {
+  Object.keys(aParams).forEach(function (param) {
     mockedDoc[param] = aParams[param];
   });
 
@@ -144,7 +144,7 @@ function call_sequentially() {
   let numCalls = 0;
   let funcs = arguments;
 
-  return function() {
+  return function () {
     if (!funcs[numCalls]) {
       let argString = Array.prototype.slice.call(arguments).join(",");
       do_throw("Too many calls: " + argString);

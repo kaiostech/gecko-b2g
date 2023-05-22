@@ -85,7 +85,7 @@ export class WebViewExporterChild extends JSWindowActorChild {
     // Add non-closures
     classWebView.prototype.__dispatchEventImpl =
       classWebView.prototype.dispatchEvent;
-    classWebView.prototype.dispatchEvent = function(aEvent) {
+    classWebView.prototype.dispatchEvent = function (aEvent) {
       // It is not allowed to dispatch events in MainThread,
       // this needs to run asynchronously.
       DispatchToCurrentThread(() => {
@@ -120,7 +120,7 @@ export class WebViewExporterChild extends JSWindowActorChild {
 
     // Now nested webview is inprocess and doesn't own a message manager.
     // Instead of messages, we use events when using a nested web-view.
-    classBrowser.prototype.webViewGetBackgroundColor = function() {
+    classBrowser.prototype.webViewGetBackgroundColor = function () {
       let id = `WebView::ReturnBackgroundColor::${this.webViewRequestId}`;
       this.webViewRequestId += 1;
 
@@ -154,7 +154,7 @@ export class WebViewExporterChild extends JSWindowActorChild {
       });
     };
 
-    classBrowser.prototype.webViewGetScreenshot = function(
+    classBrowser.prototype.webViewGetScreenshot = function (
       maxWidth,
       maxHeight,
       mimeType
@@ -195,10 +195,10 @@ export class WebViewExporterChild extends JSWindowActorChild {
       });
     };
 
-    classWebView.prototype._getter = function(aName) {
+    classWebView.prototype._getter = function (aName) {
       return this[aName];
     };
-    classWebView.prototype._setter = function(aName, aValue) {
+    classWebView.prototype._setter = function (aName, aValue) {
       this[aName] = aValue;
     };
 

@@ -38,7 +38,7 @@ ChromeUtils.defineModuleGetter(lazy, "OS", "resource://gre/modules/osfile.jsm");
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
-XPCOMUtils.defineLazyGetter(lazy, "libcutils", function() {
+XPCOMUtils.defineLazyGetter(lazy, "libcutils", function () {
   const { libcutils } = ChromeUtils.import(
     "resource://gre/modules/systemlibs.js"
   );

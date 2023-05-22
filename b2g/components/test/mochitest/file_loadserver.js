@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 // Stolen from SpecialPowers, since at this point we don't know we're in a test.
-var isMainProcess = function() {
+var isMainProcess = function () {
   try {
     return (
       // eslint-disable-next-line mozilla/use-services

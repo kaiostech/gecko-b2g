@@ -14,7 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ChromeNotifications: "resource://gre/modules/ChromeNotifications.sys.mjs",
   SelectionActionParent: "resource://gre/actors/SelectionActionParent.sys.mjs",
   embeddableProcessInfo: "resource://gre/modules/B2GProcessSelector.sys.mjs",
-  Screenshot: "resource://mozscreenshots/Screenshot.sys.mjs",
+  Screenshot: "resource://gre/modules/Screenshot.sys.mjs",
 });
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -129,7 +129,8 @@ XPCOMUtils.defineLazyServiceGetter(
   );
 
   function _webembed_log(msg) {
-    webEmbedLogEnabled && console.log(`WebEmbedder: ${msg}`);
+    //webEmbedLogEnabled && 
+    console.log(`WebEmbedder: ${msg}`);
   }
 
   function _webembed_error(msg) {

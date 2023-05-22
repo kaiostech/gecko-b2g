@@ -224,7 +224,7 @@ export class WebViewForContentChild extends JSWindowActorChild {
     };
 
     this.log(`Got linkAdded: (${event.target.href}) ${event.target.rel}`);
-    event.target.rel.split(" ").forEach(function(x) {
+    event.target.rel.split(" ").forEach(function (x) {
       let token = x.toLowerCase();
       if (handlers[token]) {
         handlers[token](event);
@@ -354,7 +354,7 @@ export class WebViewForContentChild extends JSWindowActorChild {
     if (menuData.contextmenu) {
       let self = this.contentWindow;
       Cu.exportFunction(
-        function(id) {
+        function (id) {
           let evt = new self.CustomEvent(
             "webview-fire-ctx-callback",
             Cu.cloneInto(

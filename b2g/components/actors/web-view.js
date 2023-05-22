@@ -13,12 +13,12 @@
   Object.keys(classData.properties).forEach(key => {
     const property = classData.properties[key];
     if (property.get) {
-      property.get = function() {
+      property.get = function () {
         return this._getter(key);
       };
     }
     if (property.set) {
-      property.set = function(val) {
+      property.set = function (val) {
         return this._setter(key, val);
       };
     }

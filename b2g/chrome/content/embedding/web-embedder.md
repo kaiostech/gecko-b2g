@@ -1,6 +1,6 @@
 # WebEmbedder API
 
-The WebEmbedder API is exposed to the system app by including the ES module from `chrome://b2g/content/embedding/web-embedder.js`.
+The WebEmbedder API is exposed to the system app by including the ES module from `chrome://b2g/content/embedding/web-embedder.sys.mjs`.
 
 The embedder is responsible for providing delegates that are used for each functional area exposed to the embedder when it creates a `WebEmbedder` object:
 

@@ -6,6 +6,8 @@
 // api over Gecko specific various hooks.
 // It runs with chrome privileges in the system app.
 
+/* global window */
+
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
@@ -129,8 +131,7 @@ XPCOMUtils.defineLazyServiceGetter(
   );
 
   function _webembed_log(msg) {
-    //webEmbedLogEnabled && 
-    console.log(`WebEmbedder: ${msg}`);
+    webEmbedLogEnabled && console.log(`WebEmbedder: ${msg}`);
   }
 
   function _webembed_error(msg) {

@@ -88,7 +88,7 @@ All events are CustomEvents, with an event payload specific to each type.
 - `showmodalprompt` : `{ type: string, detail: {} }`
   - `type` : A custom event named `showmodalprompt`.
   - `detail` object of the custom event.
-    - `promptType` : string type, refer to `Prompter.jsm`, value could be `alert`, `alertCheck`, `confirm`, `confirmCheck`, `prompt`
+    - `promptType` : string type, refer to `Prompter.sys.mjs`, value could be `alert`, `alertCheck`, `confirm`, `confirmCheck`, `prompt`
     - `title` : string type, title of dialog.
     - `text` : string type, text context in dialog.
     - `unblock(returnValue)` : function, app need to call this function to unblock waiting response after `returnValue` is set.

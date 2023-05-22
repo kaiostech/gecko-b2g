@@ -7,9 +7,9 @@
 
 // A <web-view> custom element, wrapping a <xul:browser>
 
-(function() {
-  const { XPCOMUtils } = ChromeUtils.import(
-    "resource://gre/modules/XPCOMUtils.jsm"
+(function () {
+  const { XPCOMUtils } = ChromeUtils.importESModule(
+    "resource://gre/modules/XPCOMUtils.sys.mjs"
   );
 
   const lazy = {};
@@ -21,7 +21,7 @@
     "nsIKeyboardAppProxy"
   );
 
-  XPCOMUtils.defineLazyGetter(lazy, "DataControlService", function() {
+  XPCOMUtils.defineLazyGetter(lazy, "DataControlService", function () {
     try {
       return Cc["@kaiostech.com/datacontrolservice;1"].getService(
         Ci.nsIDataControlService

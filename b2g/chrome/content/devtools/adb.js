@@ -10,12 +10,12 @@
 
 // This file is only loaded on Gonk to manage ADB state
 
-const { FileUtils } = ChromeUtils.import(
-  "resource://gre/modules/FileUtils.jsm"
+const { FileUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/FileUtils.sys.mjs"
 );
 
 const DEBUG = false;
-var debug = function(str) {
+var debug = function (str) {
   dump("AdbController: " + str + "\n");
 };
 
@@ -118,7 +118,7 @@ var AdbController = {
       debug("Checking availability of storage: '" + storage.storageName + "'");
 
     let req = storage.available();
-    req.onsuccess = function(e) {
+    req.onsuccess = function (e) {
       DEBUG &&
         debug(
           "Storage: '" + storage.storageName + "' is '" + e.target.result + "'"
@@ -132,7 +132,7 @@ var AdbController = {
       }
       this.updateStorageState(storageIndex + 1);
     }.bind(this);
-    req.onerror = function(e) {
+    req.onerror = function (e) {
       console.error(
         "AdbController: error querying storage availability for '",
         this.storages[storageIndex].storageName,

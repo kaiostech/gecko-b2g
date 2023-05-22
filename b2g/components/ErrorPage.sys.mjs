@@ -15,7 +15,7 @@ XPCOMUtils.defineLazyServiceGetter(
 );
 
 function debug(str) {
-  console.log(`-*- ErrorPage.jsm: ${str}`);
+  console.log(`-*- ErrorPage.sys.mjs: ${str}`);
 }
 
 /**

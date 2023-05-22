@@ -55,7 +55,7 @@ export class VoiceInputStyleChild extends JSWindowActorChild {
   }
 
   log(msg) {
-    this.debug && console.log("VoiceInputStyleChild.jsm " + msg);
+    this.debug && console.log("VoiceInputStyleChild.sys.mjs " + msg);
   }
 
   handleEvent(event) {

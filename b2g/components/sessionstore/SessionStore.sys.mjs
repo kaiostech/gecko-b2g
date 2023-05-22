@@ -12,7 +12,7 @@ export var SessionStore = {
     // No return value expected.
   },
 
-  // Used by remote/cdp/domains/parent/Page.jsm
+  // Used by remote/cdp/domains/parent/Page.sys.mjs
   getSessionHistory(tab, updatedCallback) {
     // Don't do anything for now.
   },

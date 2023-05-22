@@ -267,7 +267,7 @@ ProcessGlobal.prototype = {
 
       VoiceInputStyle: {
         child: {
-          esModuleURI: "resource://gre/actors/VoiceInputStyleChild.sys.mjsm",
+          esModuleURI: "resource://gre/actors/VoiceInputStyleChild.sys.mjs",
           events: {
             IMEFocus: {},
             IMEBlur: {},

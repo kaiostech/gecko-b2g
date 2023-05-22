@@ -21,7 +21,7 @@ XPCOMUtils.defineLazyServiceGetter(
 );
 
 function debug(str) {
-  dump("=*= AlertsHelper.jsm : " + str + "\n");
+  dump("=*= AlertsHelper.sys.js : " + str + "\n");
 }
 
 // const kNotificationIconSize = 128;

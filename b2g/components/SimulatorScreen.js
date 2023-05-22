@@ -2,19 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-);
-const { ComponentUtils } = ChromeUtils.import(
-  "resource://gre/modules/ComponentUtils.jsm"
+/* TODO: proper cleanup */
+/* globals GlobalSimulatorScreen */
+
+const { ComponentUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/ComponentUtils.sys.mjs"
 );
 
-// const {} = ChromeUtils.import("resource://gre/modules/DOMRequestHelper.jsm");
-
-ChromeUtils.defineModuleGetter(
+ChromeUtils.defineESModuleGetter(
   this,
   "GlobalSimulatorScreen",
-  "resource://gre/modules/GlobalSimulatorScreen.jsm"
+  "resource://gre/modules/GlobalSimulatorScreen.sys.mjs"
 );
 
 var DEBUG_PREFIX = "SimulatorScreen.js - ";

@@ -9,7 +9,7 @@ export class PromptParent extends JSWindowActorParent {
   }
 
   log(msg) {
-    console.log("PromptParent.jsm " + msg);
+    console.log("PromptParent.sys.mjs " + msg);
   }
 
   receiveMessage(message) {

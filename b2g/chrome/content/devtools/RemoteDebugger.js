@@ -4,24 +4,24 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /* TODO: proper cleanup */
-/* globals DevToolsServer, XPCOMUtils, Services, Prompt, Strings, WindowEventDispatcher */
+/* globals lazy, XPCOMUtils, Services, Prompt, Strings, WindowEventDispatcher */
 
 "use strict";
 
-XPCOMUtils.defineLazyGetter(this, "require", () => {
-  let { require } = ChromeUtils.import(
-    "resource://devtools/shared/loader/Loader.jsm"
+XPCOMUtils.defineLazyGetter(lazy, "require", () => {
+  let { require } = ChromeUtils.importESModule(
+    "resource://devtools/shared/loader/Loader.sys.mjs"
   );
   return require;
 });
 
-XPCOMUtils.defineLazyGetter(this, "DevToolsServer", () => {
-  let { DevToolsServer } = require("devtools/server/devtools-server");
+XPCOMUtils.defineLazyGetter(lazy, "DevToolsServer", () => {
+  let { DevToolsServer } = lazy.require("devtools/server/devtools-server");
   return DevToolsServer;
 });
 
-XPCOMUtils.defineLazyGetter(this, "SocketListener", () => {
-  let { SocketListener } = require("devtools/shared/security/socket");
+XPCOMUtils.defineLazyGetter(lazy, "SocketListener", () => {
+  let { SocketListener } = lazy.require("devtools/shared/security/socket");
   return SocketListener;
 });
 
@@ -74,7 +74,7 @@ var RemoteDebugger = {
   allowConnection(session) {
     if (this._promptingForAllow) {
       // Don't stack connection prompts if one is already open
-      return DevToolsServer.AuthenticationResult.DENY;
+      return lazy.DevToolsServer.AuthenticationResult.DENY;
     }
 
     if (!session.server.port) {
@@ -91,7 +91,7 @@ var RemoteDebugger = {
     if (session.authentication !== "PROMPT") {
       // This dialog is not prepared for any other authentication method at
       // this time.
-      return DevToolsServer.AuthenticationResult.DENY;
+      return lazy.DevToolsServer.AuthenticationResult.DENY;
     }
 
     return new Promise(resolve => {
@@ -117,9 +117,9 @@ var RemoteDebugger = {
       prompt.show(data => {
         let result = data.button;
         if (result === 0) {
-          resolve(DevToolsServer.AuthenticationResult.ALLOW);
+          resolve(lazy.DevToolsServer.AuthenticationResult.ALLOW);
         } else {
-          resolve(DevToolsServer.AuthenticationResult.DENY);
+          resolve(lazy.DevToolsServer.AuthenticationResult.DENY);
         }
       });
     });
@@ -129,7 +129,7 @@ var RemoteDebugger = {
     if (session.authentication !== "OOB_CERT" || !session.client.cert) {
       // This dialog is not prepared for any other authentication method at
       // this time.
-      return DevToolsServer.AuthenticationResult.DENY;
+      return lazy.DevToolsServer.AuthenticationResult.DENY;
     }
 
     return new Promise(resolve => {
@@ -159,11 +159,11 @@ var RemoteDebugger = {
       prompt.show(data => {
         let result = data.button;
         if (result === 0) {
-          resolve(DevToolsServer.AuthenticationResult.ALLOW);
+          resolve(lazy.DevToolsServer.AuthenticationResult.ALLOW);
         } else if (result === 1) {
-          resolve(DevToolsServer.AuthenticationResult.ALLOW_PERSIST);
+          resolve(lazy.DevToolsServer.AuthenticationResult.ALLOW_PERSIST);
         } else {
-          resolve(DevToolsServer.AuthenticationResult.DENY);
+          resolve(lazy.DevToolsServer.AuthenticationResult.DENY);
         }
       });
     });
@@ -221,26 +221,25 @@ var RemoteDebugger = {
   },
 
   initServer() {
-    DevToolsServer.init();
+    lazy.DevToolsServer.init();
 
     // Add browser and Fennec specific actors
-    DevToolsServer.registerAllActors();
-    const {
-      createRootActor,
-    } = require("resource://gre/modules/dbg-browser-actors.js");
-    DevToolsServer.setRootActor(createRootActor);
+    lazy.DevToolsServer.registerAllActors();
+    const { createRootActor } = lazy.require(
+      "resource://gre/modules/dbg-browser-actors.js"
+    );
+    lazy.DevToolsServer.setRootActor(createRootActor);
 
     // Allow debugging of chrome for any process
-    DevToolsServer.allowChromeProcess = true;
-    DevToolsServer.chromeWindowType = this._windowType;
+    lazy.DevToolsServer.allowChromeProcess = true;
+    lazy.DevToolsServer.chromeWindowType = this._windowType;
     // Force the Server to stay alive even if there are no connections at the moment.
-    DevToolsServer.keepAlive = true;
+    lazy.DevToolsServer.keepAlive = true;
   },
 };
 
-RemoteDebugger.allowConnection = RemoteDebugger.allowConnection.bind(
-  RemoteDebugger
-);
+RemoteDebugger.allowConnection =
+  RemoteDebugger.allowConnection.bind(RemoteDebugger);
 RemoteDebugger.receiveOOB = RemoteDebugger.receiveOOB.bind(RemoteDebugger);
 
 var USBRemoteDebugger = {
@@ -297,11 +296,15 @@ var USBRemoteDebugger = {
 
     try {
       dump(`Starting USB debugger on ${portOrPath}\n`);
-      const AuthenticatorType = DevToolsServer.Authenticators.get("PROMPT");
+      const AuthenticatorType =
+        lazy.DevToolsServer.Authenticators.get("PROMPT");
       const authenticator = new AuthenticatorType.Server();
       authenticator.allowConnection = RemoteDebugger.allowConnection;
       const socketOptions = { authenticator, portOrPath };
-      this._listener = new SocketListener(DevToolsServer, socketOptions);
+      this._listener = new lazy.SocketListener(
+        lazy.DevToolsServer,
+        socketOptions
+      );
       this._listener.open();
     } catch (e) {
       dump("Unable to start USB debugger server: " + e);
@@ -371,7 +374,8 @@ var WiFiRemoteDebugger = {
 
     try {
       dump("Starting WiFi debugger");
-      const AuthenticatorType = DevToolsServer.Authenticators.get("OOB_CERT");
+      const AuthenticatorType =
+        lazy.DevToolsServer.Authenticators.get("OOB_CERT");
       const authenticator = new AuthenticatorType.Server();
       authenticator.allowConnection = RemoteDebugger.allowConnection;
       authenticator.receiveOOB = RemoteDebugger.receiveOOB;
@@ -381,7 +385,10 @@ var WiFiRemoteDebugger = {
         encryption: true,
         portOrPath: -1,
       };
-      this._listener = new SocketListener(DevToolsServer, socketOptions);
+      this._listener = new lazy.SocketListener(
+        lazy.DevToolsServer,
+        socketOptions
+      );
       this._listener.open();
       let port = this._listener.port;
       dump("Started WiFi debugger on " + port);

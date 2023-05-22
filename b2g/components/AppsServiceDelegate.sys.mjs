@@ -2,17 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { PermissionsInstaller } = ChromeUtils.import(
-  "resource://gre/modules/PermissionsInstaller.jsm"
-);
-
-const { ServiceWorkerAssistant } = ChromeUtils.import(
-  "resource://gre/modules/ServiceWorkerAssistant.jsm"
-);
-
-const { AppsUtils } = ChromeUtils.import(
-  "resource://gre/modules/AppsUtils.jsm"
-);
+import { PermissionsInstaller } from "resource://gre/modules/PermissionsInstaller.sys.mjs";
+import { ServiceWorkerAssistant } from "resource://gre/modules/ServiceWorkerAssistant.sys.mjs";
+import { AppsUtils } from "resource://gre/modules/AppsUtils.sys.mjs";
 
 const DEBUG = 1;
 var log = DEBUG

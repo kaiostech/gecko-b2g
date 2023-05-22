@@ -5,14 +5,11 @@
 const DEBUG = false;
 
 function debug(s) {
-  dump("-*- KillSwitch.js: " + s + "\n");
+  dump("-*- KillSwitch.sys.mj: " + s + "\n");
 }
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
-const { DOMRequestIpcHelper } = ChromeUtils.import(
-  "resource://gre/modules/DOMRequestHelper.jsm"
-);
+import { DOMRequestIpcHelper } from "resource://gre/modules/DOMRequestHelper.sys.mjs";
 
 const lazy = {};
 XPCOMUtils.defineLazyServiceGetter(

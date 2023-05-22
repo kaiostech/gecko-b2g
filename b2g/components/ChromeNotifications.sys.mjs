@@ -15,7 +15,7 @@ XPCOMUtils.defineLazyServiceGetter(
 const DEBUG = false;
 
 function debug(s) {
-  dump("-*- ChromeNotifications.jsm: " + s + "\n");
+  dump("-*- ChromeNotifications.sys.mjs: " + s + "\n");
 }
 
 export const ChromeNotifications = {

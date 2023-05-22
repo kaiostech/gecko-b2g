@@ -39,10 +39,7 @@ XPCOMUtils.defineLazyServiceGetter(
 ChromeUtils.defineESModuleGetters(this, {
   GeckoBridge: "resource://gre/modules/GeckoBridge.sys.mjs",
   SettingsPrefsSync: "resource://gre/modules/SettingsPrefsSync.sys.mjs",
-});
-
-XPCOMUtils.defineLazyModuleGetters(this, {
-  SafeBrowsing: "resource://gre/modules/SafeBrowsing.jsm",
+  SafeBrowsing: "resource://gre/modules/SafeBrowsing.sys.mjs",
 });
 
 const isGonk = AppConstants.platform === "gonk";

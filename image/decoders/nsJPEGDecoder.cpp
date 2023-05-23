@@ -283,7 +283,7 @@ LexerTransition<nsJPEGDecoder::State> nsJPEGDecoder::ReadJPEGData(
 
       // Post our size to the superclass
       EXIFData exif = ReadExifData();
-      PostSize(mInfo.image_width, mInfo.image_height, exif.orientation,
+      PostSize(mInfo.output_width, mInfo.output_height, exif.orientation,
                exif.resolution);
       if (HasError()) {
         // Setting the size led to an error.

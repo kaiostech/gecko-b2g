@@ -1154,6 +1154,9 @@ void CacheIRWriter::copyStubData(uint8_t* dest) const {
       case StubField::Type::BaseScript:
         InitGCPtr<BaseScript*>(destWords, field.asWord());
         break;
+      case StubField::Type::JitCode:
+        InitGCPtr<JitCode*>(destWords, field.asWord());
+        break;
       case StubField::Type::Id:
         AsGCPtr<jsid>(destWords)->init(jsid::fromRawBits(field.asWord()));
         break;
@@ -1214,6 +1217,10 @@ void jit::TraceCacheIRStub(JSTracer* trc, T* stub,
       case StubField::Type::BaseScript:
         TraceEdge(trc, &stubInfo->getStubField<T, BaseScript*>(stub, offset),
                   "cacheir-script");
+        break;
+      case StubField::Type::JitCode:
+        TraceEdge(trc, &stubInfo->getStubField<T, JitCode*>(stub, offset),
+                  "cacheir-jitcode");
         break;
       case StubField::Type::Id:
         TraceEdge(trc, &stubInfo->getStubField<T, jsid>(stub, offset),
@@ -8100,95 +8107,6 @@ bool CacheIRCompiler::emitCallGetSparseElementResult(ObjOperandId objId,
   using Fn = bool (*)(JSContext* cx, Handle<NativeObject*> obj, int32_t int_id,
                       MutableHandleValue result);
   callvm.call<Fn, GetSparseElementHelper>();
-  return true;
-}
-
-bool CacheIRCompiler::emitCallRegExpMatcherResult(ObjOperandId regexpId,
-                                                  StringOperandId inputId,
-                                                  Int32OperandId lastIndexId) {
-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-
-  AutoCallVM callvm(masm, this, allocator);
-
-  Register regexp = allocator.useRegister(masm, regexpId);
-  Register input = allocator.useRegister(masm, inputId);
-  Register lastIndex = allocator.useRegister(masm, lastIndexId);
-
-  callvm.prepare();
-  masm.Push(ImmWord(0));  // nullptr MatchPairs.
-  masm.Push(lastIndex);
-  masm.Push(input);
-  masm.Push(regexp);
-
-  using Fn =
-      bool (*)(JSContext*, HandleObject regexp, HandleString input,
-               int32_t lastIndex, MatchPairs* pairs, MutableHandleValue output);
-  callvm.call<Fn, RegExpMatcherRaw>();
-  return true;
-}
-
-bool CacheIRCompiler::emitCallRegExpSearcherResult(ObjOperandId regexpId,
-                                                   StringOperandId inputId,
-                                                   Int32OperandId lastIndexId) {
-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-
-  AutoCallVM callvm(masm, this, allocator);
-
-  Register regexp = allocator.useRegister(masm, regexpId);
-  Register input = allocator.useRegister(masm, inputId);
-  Register lastIndex = allocator.useRegister(masm, lastIndexId);
-
-  callvm.prepare();
-  masm.Push(ImmWord(0));  // nullptr MatchPairs.
-  masm.Push(lastIndex);
-  masm.Push(input);
-  masm.Push(regexp);
-
-  using Fn = bool (*)(JSContext*, HandleObject regexp, HandleString input,
-                      int32_t lastIndex, MatchPairs* pairs, int32_t* result);
-  callvm.call<Fn, RegExpSearcherRaw>();
-  return true;
-}
-
-bool CacheIRCompiler::emitRegExpBuiltinExecMatchResult(
-    ObjOperandId regexpId, StringOperandId inputId) {
-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-
-  AutoCallVM callvm(masm, this, allocator);
-
-  Register regexp = allocator.useRegister(masm, regexpId);
-  Register input = allocator.useRegister(masm, inputId);
-  AutoScratchRegister lastIndex(allocator, masm);
-
-  callvm.prepare();
-  masm.Push(ImmWord(0));  // nullptr MatchPairs.
-  masm.Push(input);
-  masm.Push(regexp);
-
-  using Fn =
-      bool (*)(JSContext*, Handle<RegExpObject*> regexp, HandleString input,
-               MatchPairs* pairs, MutableHandleValue output);
-  callvm.call<Fn, RegExpBuiltinExecMatchFromJit>();
-  return true;
-}
-
-bool CacheIRCompiler::emitRegExpBuiltinExecTestResult(ObjOperandId regexpId,
-                                                      StringOperandId inputId) {
-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-
-  AutoCallVM callvm(masm, this, allocator);
-
-  Register regexp = allocator.useRegister(masm, regexpId);
-  Register input = allocator.useRegister(masm, inputId);
-  AutoScratchRegister lastIndex(allocator, masm);
-
-  callvm.prepare();
-  masm.Push(input);
-  masm.Push(regexp);
-
-  using Fn = bool (*)(JSContext*, Handle<RegExpObject*> regexp,
-                      HandleString input, bool* result);
-  callvm.call<Fn, RegExpBuiltinExecTestFromJit>();
   return true;
 }
 

@@ -99,6 +99,11 @@ class VideoFrameSurface<LIBAV_VER> {
   // Surface points to dmabuf memmory owned by ffmpeg.
   bool IsFFMPEGSurface() const { return !!mLib; }
 
+  void MarkAsUsed(VASurfaceID aFFMPEGSurfaceID) {
+    mFFMPEGSurfaceID = aFFMPEGSurfaceID;
+    mUsed = true;
+  }
+
  private:
   virtual ~VideoFrameSurface();
 
@@ -107,6 +112,10 @@ class VideoFrameSurface<LIBAV_VER> {
   AVBufferRef* mAVHWFrameContext;
   AVBufferRef* mHWAVBuffer;
   VASurfaceID mFFMPEGSurfaceID;
+  // Used by VideoFramePool, we know this surface holds live
+  // decoded video frame. We'll release/recycle it when !IsUsed() i.e.
+  // it's not referenced by any gecko component.
+  bool mUsed = false;
 };
 
 // VideoFramePool class is thread-safe.
@@ -120,6 +129,11 @@ class VideoFramePool<LIBAV_VER> {
       VADRMPRIMESurfaceDescriptor& aVaDesc, int aWidth, int aHeight,
       AVCodecContext* aAVCodecContext, AVFrame* aAVFrame,
       FFmpegLibWrapper* aLib);
+  RefPtr<VideoFrameSurface<LIBAV_VER>> GetVideoFrameSurface(
+      AVDRMFrameDescriptor& aDesc, int aWidth, int aHeight,
+      AVCodecContext* aAVCodecContext, AVFrame* aAVFrame,
+      FFmpegLibWrapper* aLib);
+
   void ReleaseUnusedVAAPIFrames();
 
  private:

@@ -381,7 +381,7 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvFlushMemory(const nsString& reason);
 
-  mozilla::ipc::IPCResult RecvActivateA11y(const uint32_t& aMainChromeTid);
+  mozilla::ipc::IPCResult RecvActivateA11y();
   mozilla::ipc::IPCResult RecvShutdownA11y();
 
   mozilla::ipc::IPCResult RecvApplicationForeground();
@@ -507,10 +507,6 @@ class ContentChild final : public PContentChild,
   nsString& GetIndexedDBPath();
 
   ContentParentId GetID() const { return mID; }
-
-#if defined(XP_WIN) && defined(ACCESSIBILITY)
-  uint32_t GetChromeMainThreadId() const { return mMainChromeTid; }
-#endif
 
   bool IsForBrowser() const { return mIsForBrowser; }
 
@@ -947,13 +943,6 @@ class ContentChild final : public PContentChild,
    * channel to us.
    */
   ContentParentId mID;
-
-#if defined(XP_WIN) && defined(ACCESSIBILITY)
-  /**
-   * The thread ID of the main thread in the chrome process.
-   */
-  uint32_t mMainChromeTid;
-#endif  // defined(XP_WIN) && defined(ACCESSIBILITY)
 
   AppInfo mAppInfo;
 

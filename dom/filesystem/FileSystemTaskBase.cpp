@@ -194,7 +194,7 @@ void FileSystemTaskParentBase::HandleResult() {
   }
 
   MOZ_ASSERT(mRequestParent);
-  Unused << mRequestParent->Send__delete__(mRequestParent, GetRequestResult());
+  (void)mRequestParent->Send__delete__(mRequestParent, GetRequestResult());
 }
 
 FileSystemResponseValue FileSystemTaskParentBase::GetRequestResult() const {

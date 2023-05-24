@@ -4168,7 +4168,7 @@
 
 - name: dom.workers.importScripts.enforceStrictMimeType
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Is support for modules (new Worker(..., {type: "module"})) enabled for workers?
@@ -9215,6 +9215,16 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+  rust: true
+
+# Stylo thread-pool size.
+# Negative means auto, 0 disables the thread-pool (main-thread styling), other
+# numbers override as specified.
+# Note that 1 still creates a thread-pool of one thread!
+- name: layout.css.stylo-threads
+  type: int32_t
+  value: -1
+  mirror: once
   rust: true
 
 # Are counters for implemented CSS properties enabled?

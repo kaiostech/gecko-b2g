@@ -489,7 +489,7 @@ void nsWindow::Show(bool aState) {
 
 bool nsWindow::IsVisible() const { return mVisible; }
 
-void nsWindow::ConstrainPosition(bool aAllowSlop, int32_t* aX, int32_t* aY) {}
+void nsWindow::ConstrainPosition(DesktopIntPoint&) {}
 
 void nsWindow::Move(double aX, double aY) {}
 

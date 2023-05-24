@@ -73,7 +73,7 @@ class nsWindow final : public nsBaseWidget {
 
   void Show(bool aState) override;
   virtual bool IsVisible() const override;
-  void ConstrainPosition(bool aAllowSlop, int32_t* aX, int32_t* aY) override;
+  void ConstrainPosition(DesktopIntPoint&) override;
   void Move(double aX, double aY) override;
   void Resize(double aWidth, double aHeight, bool aRepaint) override;
   void Resize(double aX, double aY, double aWidth, double aHeight,

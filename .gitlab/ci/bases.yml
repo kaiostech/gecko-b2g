@@ -209,7 +209,7 @@ variables:
     - merge_requests
   script:
     - tar zxf artifacts-desktop-gecko.tgz
-    - ./mach wpt testing/web-platform/tests/webdriver/tests/get_element_text/get.py --headless
+    - ./mach wpt testing/web-platform/tests/webdriver/tests/classic/get_element_text/get.py --headless
 
 .build_emulator:
   image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_10_0

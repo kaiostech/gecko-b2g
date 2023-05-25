@@ -1,0 +1,582 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "GonkDataDecoder.h"
+
+#include <media/hardware/VideoAPI.h>
+#include <media/stagefright/foundation/ABuffer.h>
+#include <mediadrm/ICrypto.h>
+
+#include "GonkMediaCodec.h"
+#include "GonkMediaUtils.h"
+#include "ImageContainer.h"
+#include "mozilla/StaticPrefs_media.h"
+
+#ifdef B2G_MEDIADRM
+#  include "mozilla/GonkDrmCDMProxy.h"
+#endif
+
+using android::ABuffer;
+using android::AMessage;
+using android::AString;
+using android::GonkCryptoInfo;
+using android::GonkMediaCodec;
+using android::GonkMediaUtils;
+using android::ICrypto;
+using android::MediaCodec;
+using android::MediaCodecBuffer;
+using android::RefBase;
+using android::sp;
+using android::status_t;
+
+namespace mozilla {
+
+#undef LOGE
+#undef LOGW
+#undef LOGI
+#undef LOGD
+#undef LOGV
+
+static mozilla::LazyLogModule sCodecLog("GonkDataDecoder");
+#define LOGE(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Error, (__VA_ARGS__))
+#define LOGW(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Warning, (__VA_ARGS__))
+#define LOGI(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Info, (__VA_ARGS__))
+#define LOGD(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+#define LOGV(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Verbose, (__VA_ARGS__))
+
+// A promise-like async reply that dispatches the result to target thread.
+class GonkDataDecoder::CodecReply final : public GonkMediaCodec::Reply {
+ public:
+  using Func = std::function<void(status_t)>;
+
+  static sp<CodecReply> Create(nsISerialEventTarget* aThread) {
+    return new CodecReply(aThread);
+  }
+
+  void Invoke(status_t aErr) override {
+    MutexAutoLock lock(mMutex);
+    if (mInvoked) {
+      return;
+    }
+    mInvoked = true;
+    mErr = aErr;
+    MaybeDispatch();
+  }
+
+  void Then(const Func& aFunc) {
+    MutexAutoLock lock(mMutex);
+    if (mFunc) {
+      return;
+    }
+    mFunc = aFunc;
+    MaybeDispatch();
+  }
+
+ private:
+  CodecReply(nsISerialEventTarget* aThread)
+      : mThread(aThread), mMutex("CodecReply Mutex") {}
+
+  void MaybeDispatch() {
+    if (!mInvoked || !mFunc) {
+      return;
+    }
+
+    nsresult rv = mThread->Dispatch(
+        NS_NewRunnableFunction("CodecReply::MaybeDispatch",
+                               [func = mFunc, err = mErr]() { func(err); }));
+    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+    Unused << rv;
+  }
+
+  nsCOMPtr<nsISerialEventTarget> mThread;
+  Mutex mMutex;
+  Func mFunc;
+  bool mInvoked = false;
+  status_t mErr = android::OK;
+};
+
+class GonkDataDecoder::CodecCallback final : public GonkMediaCodec::Callback {
+ public:
+  static sp<CodecCallback> Create(GonkDataDecoder* aOwner) {
+    return new CodecCallback(aOwner);
+  }
+
+  bool FetchInput(const sp<MediaCodecBuffer>& aBuffer, sp<RefBase>* aInputInfo,
+                  sp<GonkCryptoInfo>* aCryptoInfo, int64_t* aTimeUs,
+                  uint32_t* aFlags) override {
+    return mOwner->FetchInput(aBuffer, aInputInfo, aCryptoInfo, aTimeUs,
+                              aFlags);
+  };
+
+  void Output(const sp<MediaCodecBuffer>& aBuffer,
+              const sp<RefBase>& aInputInfo, int64_t aTimeUs) override {
+    mOwner->Output(aBuffer, aInputInfo, aTimeUs);
+  }
+
+  void Output(layers::TextureClient* aBuffer, const sp<RefBase>& aInputInfo,
+              int64_t aTimeUs) override {
+    mOwner->Output(aBuffer, aInputInfo, aTimeUs);
+  }
+
+  void NotifyOutputEnded() override { mOwner->NotifyOutputEnded(); }
+
+  void NotifyOutputFormat(const sp<AMessage>& aFormat) override {
+    mOwner->NotifyOutputFormat(aFormat);
+  }
+
+  void NotifyCodecDetails(const sp<AMessage>& aDetails) override {
+    mOwner->NotifyCodecDetails(aDetails);
+  }
+
+  void NotifyError(status_t aErr, int32_t aActionCode) override {
+    mOwner->NotifyError(aErr, aActionCode);
+  }
+
+ private:
+  CodecCallback(GonkDataDecoder* aOwner) : mOwner(aOwner) {}
+
+  GonkDataDecoder* mOwner = nullptr;
+};
+
+GonkDataDecoder::GonkDataDecoder(const CreateDecoderParams& aParams,
+                                 CDMProxy* aProxy)
+    : mConfig(aParams.mConfig.Clone()),
+      mImageContainer(aParams.mImageContainer),
+      mImageAllocator(aParams.mKnowsCompositor),
+      mCDMProxy(aProxy),
+      mAudioCompactor(mOutputQueue) {
+  LOGD("%p constructor", this);
+}
+
+GonkDataDecoder::~GonkDataDecoder() { LOGD("%p destructor", this); }
+
+RefPtr<GonkDataDecoder::InitPromise> GonkDataDecoder::Init() {
+  LOGD("%p initializing", this);
+  if (mCodec) {
+    LOGE("%p already initialized", this);
+    return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR,
+                                        __func__);
+  }
+  if (!mInitPromise.IsEmpty()) {
+    LOGE("%p already initializing", this);
+    return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR,
+                                        __func__);
+  }
+
+  mThread = GetCurrentSerialEventTarget();
+  mPushListener = mOutputQueue.PushEvent().Connect(
+      mThread, this, &GonkDataDecoder::OutputPushed);
+  mFinishListener = mOutputQueue.FinishEvent().Connect(
+      mThread, this, &GonkDataDecoder::OutputFinished);
+
+  mCodec = new GonkMediaCodec();
+  mCodec->Init();
+
+  auto reply = CodecReply::Create(mThread);
+  mCodec->Configure(reply, CodecCallback::Create(this),
+                    GonkMediaUtils::GetMediaCodecConfig(mConfig.get()),
+                    GetCrypto(), false);
+
+  reply->Then([self = Self(), this](status_t aErr) {
+    if (aErr == android::OK) {
+      LOGD("%p configure completed", this);
+      mInitPromise.ResolveIfExists(mConfig->GetType(), __func__);
+    } else {
+      LOGE("%p configure failed", this);
+      mCodec = nullptr;
+      mInputQueue.Reset();
+      mOutputQueue.Reset();
+      mPushListener.Disconnect();
+      mFinishListener.Disconnect();
+      mThread = nullptr;
+      mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
+    }
+  });
+  return mInitPromise.Ensure(__func__);
+}
+
+RefPtr<ShutdownPromise> GonkDataDecoder::Shutdown() {
+  LOGD("%p shutting down", this);
+  if (!mCodec) {
+    LOGE("%p not initialized", this);
+    return ShutdownPromise::CreateAndReject(false, __func__);
+  }
+  if (!mShutdownPromise.IsEmpty()) {
+    LOGE("%p already shutting down", this);
+    return ShutdownPromise::CreateAndReject(false, __func__);
+  }
+
+  auto reply = CodecReply::Create(mThread);
+  mCodec->Shutdown(reply);
+
+  reply->Then([self = Self(), this](status_t aErr) {
+    LOGD("%p shut down completed", this);
+    mCodec = nullptr;
+    mInputQueue.Reset();
+    mOutputQueue.Reset();
+    mPushListener.Disconnect();
+    mFinishListener.Disconnect();
+    mThread = nullptr;
+    mShutdownPromise.ResolveIfExists(true, __func__);
+  });
+  return mShutdownPromise.Ensure(__func__);
+}
+
+RefPtr<GonkDataDecoder::DecodePromise> GonkDataDecoder::Decode(
+    MediaRawData* aSample) {
+  LOGV("%p decoding, timestamp %" PRId64, this,
+       aSample->mTime.ToMicroseconds());
+  if (!mCodec) {
+    LOGE("%p not initialized", this);
+    return DecodePromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR,
+                                          __func__);
+  }
+
+  mInputQueue.Push(aSample);
+  mCodec->InputUpdated();
+  return mDecodePromise.Ensure(__func__);
+}
+
+RefPtr<GonkDataDecoder::DecodePromise> GonkDataDecoder::Drain() {
+  LOGD("%p draining", this);
+  if (!mCodec) {
+    LOGE("%p not initialized", this);
+    return DecodePromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR,
+                                          __func__);
+  }
+
+  mInputQueue.Finish();
+  mCodec->InputUpdated();
+  nsresult rv = mThread->Dispatch(NS_NewRunnableFunction(
+      "GonkDataDecoder::Drain", [self = Self(), this]() { OutputUpdated(); }));
+  MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+  Unused << rv;
+  return mDrainPromise.Ensure(__func__);
+}
+
+RefPtr<GonkDataDecoder::FlushPromise> GonkDataDecoder::Flush() {
+  LOGD("%p flushing", this);
+  if (!mCodec) {
+    LOGE("%p not initialized", this);
+    return FlushPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR,
+                                         __func__);
+  }
+  if (!mFlushPromise.IsEmpty()) {
+    LOGE("%p already flushing", this);
+    return FlushPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR,
+                                         __func__);
+  }
+
+  mDecodePromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+  mDrainPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+  mInputQueue.Reset();
+
+  auto reply = CodecReply::Create(mThread);
+  mCodec->Flush(reply);
+
+  reply->Then([self = Self(), this](status_t aErr) {
+    LOGD("%p flush completed", this);
+    mOutputQueue.Reset();
+    mFlushPromise.ResolveIfExists(true, __func__);
+  });
+  return mFlushPromise.Ensure(__func__);
+}
+
+sp<ICrypto> GonkDataDecoder::GetCrypto() {
+#ifdef B2G_MEDIADRM
+  if (mCDMProxy) {
+    return static_cast<GonkDrmCDMProxy*>(mCDMProxy.get())->CreateCrypto();
+  }
+#endif
+  return nullptr;
+}
+
+MediaDataDecoder::DecodedData GonkDataDecoder::FetchOutput() {
+  DecodedData data;
+  while (mOutputQueue.GetSize() > 0) {
+    *data.AppendElement() = mOutputQueue.PopFront();
+  }
+  return data;
+}
+
+void GonkDataDecoder::OutputUpdated() {
+  if (!mDecodePromise.IsEmpty()) {
+    mDecodePromise.Resolve(FetchOutput(), __func__);
+  }
+  if (!mDrainPromise.IsEmpty()) {
+    if (mOutputQueue.GetSize() > 0) {
+      // Partially drained.
+      mDrainPromise.Resolve(FetchOutput(), __func__);
+    } else if (mOutputQueue.AtEndOfStream()) {
+      LOGD("%p drained", this);
+      mDrainPromise.Resolve(DecodedData(), __func__);
+    }
+  }
+}
+
+struct SampleInfo final : public RefBase {
+  bool mKeyframe = false;
+  int64_t mOffset = -1;
+  media::TimeUnit mTime;
+  media::TimeUnit mTimecode;
+  media::TimeUnit mDuration;
+
+  explicit SampleInfo(const MediaRawData* aSample)
+      : mKeyframe(aSample->mKeyframe),
+        mOffset(aSample->mOffset),
+        mTime(aSample->mTime),
+        mTimecode(aSample->mTimecode),
+        mDuration(aSample->mDuration) {}
+};
+
+bool GonkDataDecoder::FetchInput(const sp<MediaCodecBuffer>& aBuffer,
+                                 sp<RefBase>* aInputInfo,
+                                 sp<GonkCryptoInfo>* aCryptoInfo,
+                                 int64_t* aTimeUs, uint32_t* aFlags) {
+  if (mInputQueue.AtEndOfStream()) {
+    aBuffer->setRange(0, 0);
+    *aFlags = MediaCodec::BUFFER_FLAG_EOS;
+    LOGD("%p fetch input EOS", this);
+    return true;
+  }
+  if (mInputQueue.GetSize() == 0) {
+    nsresult rv = mThread->Dispatch(NS_NewRunnableFunction(
+        "GonkDataDecoder::FetchInput", [self = Self(), this]() {
+          if (!mDecodePromise.IsEmpty()) {
+            LOGV("%p request more input", this);
+            mDecodePromise.ResolveIfExists(FetchOutput(), __func__);
+          }
+        }));
+    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+    Unused << rv;
+    return false;
+  }
+
+  RefPtr<MediaRawData> sample = mInputQueue.PopFront();
+  if (sample->Size() > aBuffer->capacity()) {
+    LOGE("%p input sample too large", this);
+    return false;
+  }
+  aBuffer->setRange(0, sample->Size());
+  memcpy(aBuffer->data(), sample->Data(), sample->Size());
+  *aInputInfo = new SampleInfo(sample);
+  *aTimeUs = sample->mTime.ToMicroseconds();
+
+#ifdef B2G_MEDIADRM
+  *aCryptoInfo = GonkMediaUtils::GetCryptoInfo(sample);
+#endif
+  LOGV("%p fetch input %" PRId64, this, *aTimeUs);
+  return true;
+};
+
+void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
+                             const sp<RefBase>& aInputInfo, int64_t aTimeUs) {
+  using android::MediaImage2;
+  LOGV("%p output timestamp %" PRId64, this, aTimeUs);
+
+  if (!aBuffer || aBuffer->size() == 0) {
+    LOGE("%p empty output buffer", this);
+    return;
+  }
+  if (!aInputInfo) {
+    LOGE("%p null input info", this);
+    return;
+  }
+
+  sp<SampleInfo> sampleInfo = static_cast<SampleInfo*>(aInputInfo.get());
+
+  RefPtr<MediaData> data;
+  if (IsVideo()) {
+    // See the usage of image-data in MediaCodec_sanity_test.cpp.
+    sp<ABuffer> imgBuf;
+    if (!aBuffer->meta()->findBuffer("image-data", &imgBuf)) {
+      LOGE("%p, failed to find image-data", this);
+      return;
+    }
+
+    auto* img = reinterpret_cast<MediaImage2*>(imgBuf->data());
+    if (img->mType != img->MEDIA_IMAGE_TYPE_YUV) {
+      LOGE("%p only support YUV format", this);
+      return;
+    }
+
+    CHECK_EQ(img->mWidth, static_cast<uint32_t>(mVideoOutputFormat.mWidth));
+    CHECK_EQ(img->mHeight, static_cast<uint32_t>(mVideoOutputFormat.mHeight));
+    CHECK_EQ(img->mPlane[img->Y].mRowInc, mVideoOutputFormat.mStride);
+
+    VideoData::YCbCrBuffer yuv;
+    const static int srcIndices[] = {MediaImage2::Y, MediaImage2::U,
+                                     MediaImage2::V};
+    for (int i = 0; i < 3; i++) {
+      auto& dstPlane = yuv.mPlanes[i];
+      auto& srcPlane = img->mPlane[srcIndices[i]];
+      CHECK_GE(srcPlane.mHorizSubsampling, 1u);
+      CHECK_GE(srcPlane.mVertSubsampling, 1u);
+      CHECK_GE(srcPlane.mColInc, 1);
+      dstPlane.mData = aBuffer->data() + srcPlane.mOffset;
+      dstPlane.mWidth = img->mWidth / srcPlane.mHorizSubsampling;
+      dstPlane.mHeight = img->mHeight / srcPlane.mVertSubsampling;
+      dstPlane.mStride = srcPlane.mRowInc;
+      dstPlane.mSkip = srcPlane.mColInc - 1;
+    }
+
+    auto uSubsampling = std::make_pair(img->mPlane[img->U].mHorizSubsampling,
+                                       img->mPlane[img->U].mVertSubsampling);
+    auto vSubsampling = std::make_pair(img->mPlane[img->V].mHorizSubsampling,
+                                       img->mPlane[img->V].mVertSubsampling);
+    CHECK(uSubsampling == vSubsampling);
+    if (uSubsampling == std::make_pair(1u, 1u)) {
+      yuv.mChromaSubsampling = gfx::ChromaSubsampling::FULL;
+    } else if (uSubsampling == std::make_pair(2u, 1u)) {
+      yuv.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH;
+    } else if (uSubsampling == std::make_pair(2u, 2u)) {
+      yuv.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
+    } else {
+      TRESPASS();
+    }
+    yuv.mYUVColorSpace = gfx::YUVColorSpace::Default;
+
+    data = VideoData::CreateAndCopyData(
+        *mConfig->GetAsVideoInfo(), mImageContainer, sampleInfo->mOffset,
+        media::TimeUnit::FromMicroseconds(aTimeUs), sampleInfo->mDuration, yuv,
+        sampleInfo->mKeyframe, sampleInfo->mTimecode, mVideoOutputFormat.mCrop,
+        mImageAllocator);
+
+    mOutputQueue.Push(data);
+  } else {
+    auto channels = mAudioOutputFormat.mChannelCount;
+    auto rate = mAudioOutputFormat.mSampleRate;
+    auto* data = aBuffer->data();
+    auto size = aBuffer->size();
+    auto frames = size / (2 * channels);
+
+    CheckedInt64 duration = FramesToUsecs(frames, rate);
+    if (!duration.isValid()) {
+      return;
+    }
+
+    mAudioCompactor.Push(sampleInfo->mOffset, aTimeUs, rate, frames, channels,
+                         AudioCompactor::NativeCopy(data, size, channels));
+  }
+}
+
+void GonkDataDecoder::Output(layers::TextureClient* aBuffer,
+                             const sp<RefBase>& aInputInfo, int64_t aTimeUs) {
+  MOZ_ASSERT(IsVideo());
+  LOGV("%p output graphic buffer timestamp %" PRId64, this, aTimeUs);
+
+  if (!aBuffer) {
+    LOGE("%p empty output buffer", this);
+    return;
+  }
+  if (!aInputInfo) {
+    LOGE("%p null input info", this);
+    return;
+  }
+
+  sp<SampleInfo> sampleInfo = static_cast<SampleInfo*>(aInputInfo.get());
+
+  RefPtr<VideoData> data = VideoData::CreateAndCopyData(
+      *mConfig->GetAsVideoInfo(), mImageContainer, sampleInfo->mOffset,
+      media::TimeUnit::FromMicroseconds(aTimeUs), sampleInfo->mDuration,
+      aBuffer, sampleInfo->mKeyframe, sampleInfo->mTimecode,
+      mVideoOutputFormat.mCrop);
+  mOutputQueue.Push(data);
+}
+
+void GonkDataDecoder::NotifyOutputEnded() { mOutputQueue.Finish(); }
+
+void GonkDataDecoder::NotifyOutputFormat(const sp<AMessage>& aFormat) {
+  if (IsVideo()) {
+    int32_t width, height;
+    int32_t stride, sliceHeight;
+    int32_t cropLeft, cropTop, cropRight, cropBottom;
+    int32_t colorFormat;
+
+    if (!aFormat->findInt32("width", &width)) {
+      LOGE("%p failed to find width", this);
+      return;
+    }
+
+    if (!aFormat->findInt32("height", &height)) {
+      LOGE("%p failed to find height", this);
+      return;
+    }
+
+    if (!aFormat->findInt32("stride", &stride)) {
+      stride = width;
+    }
+
+    if (!aFormat->findInt32("slice-height", &sliceHeight)) {
+      sliceHeight = height;
+    }
+
+    if (!aFormat->findRect("crop", &cropLeft, &cropTop, &cropRight,
+                           &cropBottom)) {
+      LOGE("%p failed to find crop", this);
+      return;
+    }
+
+    if (!aFormat->findInt32("color-format", &colorFormat)) {
+      LOGE("%p failed to find color_format", this);
+      return;
+    }
+
+    mVideoOutputFormat.mWidth = width;
+    mVideoOutputFormat.mHeight = height;
+    mVideoOutputFormat.mStride = stride;
+    mVideoOutputFormat.mSliceHeight = sliceHeight;
+    mVideoOutputFormat.mColorFormat = colorFormat;
+    mVideoOutputFormat.mCrop = gfx::IntRect(
+        cropLeft, cropTop, cropRight - cropLeft + 1, cropBottom - cropTop + 1);
+    LOGI("%p video output format changed, width %d, height %d, color %d", this,
+         mVideoOutputFormat.mCrop.Width(), mVideoOutputFormat.mCrop.Height(),
+         colorFormat);
+  } else {
+    int32_t channelCount = 0;
+    int32_t sampleRate = 0;
+
+    if (!aFormat->findInt32("channel-count", &channelCount)) {
+      LOGE("%p failed to find channel-count", this);
+      return;
+    }
+
+    if (!aFormat->findInt32("sample-rate", &sampleRate)) {
+      LOGE("%p failed to find sample-rate", this);
+      return;
+    }
+
+    mAudioOutputFormat.mChannelCount = channelCount;
+    mAudioOutputFormat.mSampleRate = sampleRate;
+    LOGI("%p audio output format changed, channels %d, rate %d", this,
+         channelCount, sampleRate);
+  }
+}
+
+void GonkDataDecoder::NotifyCodecDetails(const sp<AMessage>& aDetails) {
+  int32_t required;
+  /* atomic */ mSupportAdaptivePlayback =
+      aDetails->findInt32("feature-adaptive-playback", &required);
+}
+
+void GonkDataDecoder::NotifyError(status_t aErr, int32_t aActionCode) {
+  LOGE("%p notify error: 0x%x, actionCode %d", this, aErr, aActionCode);
+  nsresult err = aActionCode == android::ACTION_CODE_FATAL
+                     ? NS_ERROR_DOM_MEDIA_FATAL_ERR
+                     : NS_ERROR_DOM_MEDIA_DECODE_ERR;
+  nsresult rv = mThread->Dispatch(NS_NewRunnableFunction(
+      "GonkDataDecoder::NotifyError", [self = Self(), this, err]() {
+        mDecodePromise.RejectIfExists(MediaResult(err), __func__);
+        mDrainPromise.RejectIfExists(MediaResult(err), __func__);
+      }));
+  MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+  Unused << rv;
+}
+
+bool GonkDataDecoder::SupportDecoderRecycling() const {
+  return StaticPrefs::media_gonkmediacodec_recycling_enabled() &&
+         mSupportAdaptivePlayback;
+}
+
+}  // namespace mozilla

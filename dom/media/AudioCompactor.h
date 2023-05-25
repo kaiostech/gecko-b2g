@@ -14,7 +14,11 @@ namespace mozilla {
 
 class AudioCompactor {
  public:
-  explicit AudioCompactor(MediaQueue<AudioData>& aQueue) : mQueue(aQueue) {
+  // Allow MediaQueue<MediaData> or MediaQueue<AudioData>.
+  template <typename T>
+  explicit AudioCompactor(MediaQueue<T>& aQueue) {
+    mPushFunc = [&aQueue](AudioData* aData) { aQueue.Push(aData); };
+
     // Determine padding size used by AlignedBuffer.
     size_t paddedSize = AlignedAudioBuffer::AlignmentPaddingSize();
     mSamplesPadding = paddedSize / sizeof(AudioDataValue);
@@ -69,7 +73,7 @@ class AudioCompactor {
       RefPtr<AudioData> data = new AudioData(aOffset, time, std::move(buffer),
                                              aChannels, aSampleRate);
       MOZ_DIAGNOSTIC_ASSERT(duration == data->mDuration, "must be equal");
-      mQueue.Push(data);
+      mPushFunc(data);
 
       // Remove the frames we just pushed into the queue and loop if there is
       // more to be done.
@@ -119,7 +123,7 @@ class AudioCompactor {
     return aFrames * BytesPerFrame(aChannels);
   }
 
-  MediaQueue<AudioData>& mQueue;
+  std::function<void(AudioData*)> mPushFunc;
   size_t mSamplesPadding;
 };
 

@@ -11369,6 +11369,25 @@
     value: "audio/mpeg"
     mirror: never
 
+  # Set which audio decoder path should be used.
+  # true: use new decoder: GonkDataDecoder / GonkMediaCodec
+  # false: use old decoder: GonkMediaDataDecoder / MediaCodecProxy
+-   name: media.gonkmediacodec.audio.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
+  # Set which video decoder path should be used.
+-   name: media.gonkmediacodec.video.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
+-   name: media.gonkmediacodec.recycling.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
 -   name: media.gonkmediacodec.bufferqueue.enabled
     type: RelaxedAtomicBool
     value: true

@@ -7,10 +7,12 @@
 
 #include "GonkVideoDecoderManager.h"
 #include "GonkAudioDecoderManager.h"
+#include "GonkDataDecoder.h"
 #include "GonkMediaDataDecoder.h"
 #include "mozilla/CDMProxy.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_media.h"
 
 #ifdef B2G_MEDIADRM
 #  include "EMEDecoderModule.h"
@@ -27,9 +29,13 @@ already_AddRefed<PlatformDecoderModule> GonkDecoderModule::Create(
 
 already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateVideoDecoder(
     const CreateDecoderParams& aParams) {
-  RefPtr<MediaDataDecoder> decoder =
-      new GonkMediaDataDecoder(new GonkVideoDecoderManager(
-          aParams.VideoConfig(), aParams.mImageContainer, mCDMProxy.get()));
+  RefPtr<MediaDataDecoder> decoder;
+  if (StaticPrefs::media_gonkmediacodec_video_enabled()) {
+    decoder = new GonkDataDecoder(aParams, mCDMProxy.get());
+  } else {
+    decoder = new GonkMediaDataDecoder(new GonkVideoDecoderManager(
+        aParams.VideoConfig(), aParams.mImageContainer, mCDMProxy.get()));
+  }
 #ifdef B2G_MEDIADRM
   if (mCDMProxy) {
     decoder = new EMEMediaDataDecoderProxy(aParams, decoder.forget(),
@@ -41,8 +47,13 @@ already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateVideoDecoder(
 
 already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateAudioDecoder(
     const CreateDecoderParams& aParams) {
-  RefPtr<MediaDataDecoder> decoder = new GonkMediaDataDecoder(
-      new GonkAudioDecoderManager(aParams.AudioConfig(), mCDMProxy.get()));
+  RefPtr<MediaDataDecoder> decoder;
+  if (StaticPrefs::media_gonkmediacodec_audio_enabled()) {
+    decoder = new GonkDataDecoder(aParams, mCDMProxy.get());
+  } else {
+    decoder = new GonkMediaDataDecoder(
+        new GonkAudioDecoderManager(aParams.AudioConfig(), mCDMProxy.get()));
+  }
 #ifdef B2G_MEDIADRM
   if (mCDMProxy) {
     decoder = new EMEMediaDataDecoderProxy(aParams, decoder.forget(),

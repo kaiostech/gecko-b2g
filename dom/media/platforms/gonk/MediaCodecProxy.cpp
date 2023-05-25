@@ -13,6 +13,8 @@
 #include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaErrors.h>
 
+#include "GonkMediaUtils.h"
+
 mozilla::LazyLogModule gMediaCodecProxyLog("MediaCodecProxy");
 #undef LOG
 #undef LOGE
@@ -512,7 +514,7 @@ bool MediaCodecProxy::UpdateOutputBuffers() {
 status_t MediaCodecProxy::Input(const uint8_t* aData, uint32_t aDataSize,
                                 int64_t aTimestampUsecs, uint64_t aflags,
                                 int64_t aTimeoutUs,
-                                GonkCryptoInfo* aCryptoInfo) {
+                                const sp<GonkCryptoInfo>& aCryptoInfo) {
   // Read Lock for mCodec
   {
     RWLock::AutoRLock autolock(mCodecLock);

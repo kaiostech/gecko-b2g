@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "GonkMediaDataDecoder.h"
+#include "GonkMediaUtils.h"
 #include "VideoUtils.h"
 #include "nsTArray.h"
 #include "MediaCodecProxy.h"
@@ -105,76 +106,19 @@ nsresult GonkDecoderManager::Input(MediaRawData* aSample) {
   return NS_OK;
 }
 
-#ifdef B2G_MEDIADRM
-static void GetCryptoInfoFromSample(const MediaRawData* aSample,
-                                    GonkCryptoInfo* aCryptoInfo) {
-  auto& cryptoObj = aSample->mCrypto;
-  if (!cryptoObj.IsEncrypted()) {
-    return;
-  }
-
-  // |mPlainSizes| and |mEncryptedSizes| should have the same length. If not,
-  // just pad the shorter one with zero.
-  auto numSubSamples = std::max(cryptoObj.mPlainSizes.Length(),
-                                cryptoObj.mEncryptedSizes.Length());
-  auto& subSamples = aCryptoInfo->mSubSamples;
-  uint32_t totalSubSamplesSize = 0;
-  for (size_t i = 0; i < numSubSamples; i++) {
-    auto plainSize = cryptoObj.mPlainSizes.SafeElementAt(i, 0);
-    auto encryptedSize = cryptoObj.mEncryptedSizes.SafeElementAt(i, 0);
-    totalSubSamplesSize += plainSize + encryptedSize;
-    subSamples.push_back({plainSize, encryptedSize});
-  }
-
-  // Size of codec specific data("CSD") for MediaCodec usage should be included
-  // in the 1st plain size if it exists.
-  if (!subSamples.empty()) {
-    uint32_t codecSpecificDataSize = aSample->Size() - totalSubSamplesSize;
-    // This shouldn't overflow as the the plain size should be UINT16_MAX at
-    // most, and the CSD should never be that large. Checked int acts like a
-    // diagnostic assert here to help catch if we ever have insane inputs.
-    CheckedUint32 newLeadingPlainSize{subSamples[0].mNumBytesOfClearData};
-    newLeadingPlainSize += codecSpecificDataSize;
-    subSamples[0].mNumBytesOfClearData = newLeadingPlainSize.value();
-  }
-
-  static const int kExpectedIVLength = 16;
-  aCryptoInfo->mIV.assign(cryptoObj.mIV.begin(), cryptoObj.mIV.end());
-  aCryptoInfo->mIV.resize(kExpectedIVLength, 0);  // padding with 0
-  static const int kExpectedKeyLength = 16;
-  aCryptoInfo->mKey.assign(cryptoObj.mKeyId.begin(), cryptoObj.mKeyId.end());
-  aCryptoInfo->mKey.resize(kExpectedKeyLength, 0);  // padding with 0
-
-  aCryptoInfo->mPattern.mEncryptBlocks = cryptoObj.mCryptByteBlock;
-  aCryptoInfo->mPattern.mSkipBlocks = cryptoObj.mSkipByteBlock;
-
-  switch (cryptoObj.mCryptoScheme) {
-    case CryptoScheme::None:
-      aCryptoInfo->mMode = CryptoPlugin::kMode_Unencrypted;
-      break;
-    case CryptoScheme::Cenc:
-      aCryptoInfo->mMode = CryptoPlugin::kMode_AES_CTR;
-      break;
-    case CryptoScheme::Cbcs:
-      aCryptoInfo->mMode = CryptoPlugin::kMode_AES_CBC;
-      break;
-  }
-}
-#endif
-
 int32_t GonkDecoderManager::ProcessQueuedSamples() {
   AssertOnTaskQueue();
 
   status_t rv;
   while (mQueuedSamples.Length()) {
     RefPtr<MediaRawData> data = mQueuedSamples.ElementAt(0);
-    GonkCryptoInfo cryptoInfo;
+    sp<GonkCryptoInfo> cryptoInfo;
 #ifdef B2G_MEDIADRM
-    GetCryptoInfoFromSample(data, &cryptoInfo);
+    cryptoInfo = GonkMediaUtils::GetCryptoInfo(data);
 #endif
     rv = mDecoder->Input(reinterpret_cast<const uint8_t*>(data->Data()),
                          data->Size(), data->mTime.ToMicroseconds(), 0,
-                         INPUT_TIMEOUT_US, &cryptoInfo);
+                         INPUT_TIMEOUT_US, cryptoInfo);
     if (rv == OK) {
       mQueuedSamples.RemoveElementAt(0);
       mWaitOutput.AppendElement(WaitOutputInfo(data->mOffset,

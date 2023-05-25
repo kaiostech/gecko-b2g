@@ -48,6 +48,7 @@ class GonkAudioDecoderManager : public GonkDecoderManager {
   nsresult CreateAudioData(const sp<SimpleMediaBuffer>& aBuffer,
                            int64_t aStreamOffset);
 
+  AudioInfo mConfig;
   uint32_t mAudioChannels;
   uint32_t mAudioRate;
   const uint32_t mAudioProfile;

@@ -12,6 +12,7 @@
 #include <media/ICrypto.h>
 #endif
 #include "GonkAudioDecoderManager.h"
+#include "GonkMediaUtils.h"
 #include "VideoUtils.h"
 #include "nsTArray.h"
 #include "mozilla/Logging.h"
@@ -49,6 +50,7 @@ namespace mozilla {
 GonkAudioDecoderManager::GonkAudioDecoderManager(const AudioInfo& aConfig,
                                                  CDMProxy* aProxy)
     : GonkDecoderManager(aProxy),
+      mConfig(aConfig),
       mAudioChannels(aConfig.mChannels),
       mAudioRate(aConfig.mRate),
       mAudioProfile(aConfig.mProfile),
@@ -85,78 +87,11 @@ bool GonkAudioDecoderManager::InitMediaCodecProxy() {
     mDecoder = nullptr;
     return false;
   }
-  sp<AMessage> format = new AMessage;
   // Fixed values
   LOG("Configure audio mime type:%s, chan no:%d, sample-rate:%d, profile:%d",
       mMimeType.get(), mAudioChannels, mAudioRate, mAudioProfile);
-  format->setString("mime", mMimeType.get());
-  format->setInt32("channel-count", mAudioChannels);
-  format->setInt32("sample-rate", mAudioRate);
-  format->setInt32("aac-profile", mAudioProfile);
 
-  if (mMimeType.EqualsLiteral("audio/opus") &&
-      mCodecSpecificConfig.is<OpusCodecSpecificData>()) {
-    auto& csd = mCodecSpecificConfig.as<OpusCodecSpecificData>();
-    RefPtr<MediaByteBuffer> blob = csd.mHeadersBinaryBlob;
-    auto csdBuffer = ABuffer::CreateAsCopy(blob->Elements(), blob->Length());
-    // AOSP Opus decoder requires 1) codec specific data, 2) codec delay and 3)
-    // seek preroll, but Gecko demuxer only provides codec delay, so set seek
-    // preroll to 0.
-    int64_t codecDelayNs = csd.mContainerCodecDelayMicroSeconds * 1000;
-    int64_t seekPreroll = 0;
-    auto delayBuffer = ABuffer::CreateAsCopy(&codecDelayNs, sizeof(int64_t));
-    auto prerollBuffer = ABuffer::CreateAsCopy(&seekPreroll, sizeof(int64_t));
-    format->setBuffer("csd-0", csdBuffer);
-    format->setBuffer("csd-1", delayBuffer);
-    format->setBuffer("csd-2", prerollBuffer);
-  } else if (mMimeType.EqualsLiteral("audio/vorbis") &&
-             mCodecSpecificConfig.is<VorbisCodecSpecificData>()) {
-    auto& csd = mCodecSpecificConfig.as<VorbisCodecSpecificData>();
-    RefPtr<MediaByteBuffer> blob = csd.mHeadersBinaryBlob;
-    AutoTArray<unsigned char*, 4> headers;
-    AutoTArray<size_t, 4> headerLens;
-    if (!XiphExtradataToHeaders(headers, headerLens, blob->Elements(),
-                                blob->Length())) {
-      LOG("Could not get vorbis header");
-      return false;
-    }
-    for (size_t i = 0; i < headers.Length(); i++) {
-      auto header = ABuffer::CreateAsCopy(headers[i], headerLens[i]);
-      if (header->size() < 1) {
-        continue;
-      }
-      switch (header->data()[0]) {
-        case 0x1:  // Identification header
-          format->setBuffer("csd-0", header);
-          break;
-        case 0x5:  // Setup header
-          format->setBuffer("csd-1", header);
-          break;
-      }
-    }
-  } else if (mMimeType.EqualsLiteral("audio/flac") &&
-             mCodecSpecificConfig.is<FlacCodecSpecificData>()) {
-    auto& csd = mCodecSpecificConfig.as<FlacCodecSpecificData>();
-    RefPtr<MediaByteBuffer> blob = csd.mStreamInfoBinaryBlob;
-    // mStreamInfoBinaryBlob contains a stream info block without its block
-    // header, but AOSP FLAC decoder expects complete metadata that begins
-    // with a "fLaC" stream marker and contains one or more metadata blocks
-    // with the "last" flag properly set at the last block, so prepend a fake
-    // header here with only one stream info block.
-    nsTArray<uint8_t> meta = {0x66, 0x4c, 0x61, 0x43, 0x80, 0x00, 0x00, 0x22};
-    meta.AppendElements(*blob);
-    auto metaBuffer = ABuffer::CreateAsCopy(meta.Elements(), meta.Length());
-    format->setBuffer("csd-0", metaBuffer);
-  } else if (mMimeType.EqualsLiteral("audio/mp4a-latm") &&
-             mCodecSpecificConfig.is<AacCodecSpecificData>()) {
-    auto& csd = mCodecSpecificConfig.as<AacCodecSpecificData>();
-    RefPtr<MediaByteBuffer> blob = csd.mDecoderConfigDescriptorBinaryBlob;
-    auto csdBuffer = ABuffer::CreateAsCopy(blob->Elements(), blob->Length());
-    format->setBuffer("csd-0", csdBuffer);
-  } else {
-    LOG("Not sending codec config data for %s", mMimeType.Data());
-  }
-
+  sp<AMessage> format = GonkMediaUtils::GetMediaCodecConfig(&mConfig);
   status_t err = mDecoder->configure(format, nullptr, GetCrypto(), 0);
   if (err != OK) {
     return false;

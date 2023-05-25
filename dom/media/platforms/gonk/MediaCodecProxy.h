@@ -22,6 +22,8 @@
 
 namespace android {
 
+class GonkCryptoInfo;
+
 class SimpleMediaBuffer : public RefBase {
  public:
   explicit SimpleMediaBuffer(const sp<MediaCodecBuffer>& aMediaCodecBuffer)
@@ -50,14 +52,6 @@ class SimpleMediaBuffer : public RefBase {
   sp<GraphicBuffer> mGraphicBuffer;
   wp<RefBase> mManager;
   MetaDataBase mMetaData;
-};
-
-struct GonkCryptoInfo {
-  CryptoPlugin::Mode mMode = CryptoPlugin::kMode_Unencrypted;
-  CryptoPlugin::Pattern mPattern = {0, 0};
-  std::vector<CryptoPlugin::SubSample> mSubSamples;
-  std::vector<uint8_t> mKey;
-  std::vector<uint8_t> mIV;
 };
 
 // This class is intended to be a proxy for MediaCodec with codec resource
@@ -150,7 +144,8 @@ class MediaCodecProxy : public RefBase {
   // If aData is null, will notify decoder input EOS
   status_t Input(const uint8_t* aData, uint32_t aDataSize,
                  int64_t aTimestampUsecs, uint64_t flags,
-                 int64_t aTimeoutUs = 0, GonkCryptoInfo* aCryptoInfo = nullptr);
+                 int64_t aTimeoutUs = 0,
+                 const sp<GonkCryptoInfo>& aCryptoInfo = nullptr);
   status_t Output(sp<SimpleMediaBuffer>* aBuffer, int64_t aTimeoutUs);
   bool Prepare();
   void ReleaseMediaResources();

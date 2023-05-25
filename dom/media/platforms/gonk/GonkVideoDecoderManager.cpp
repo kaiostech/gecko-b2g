@@ -11,6 +11,7 @@
 #else
 #include <media/ICrypto.h>
 #endif
+#include "GonkMediaUtils.h"
 #include "GonkVideoDecoderManager.h"
 #include "GrallocImages.h"
 #include "ImageContainer.h"
@@ -561,15 +562,12 @@ void GonkVideoDecoderManager::CodecReserved() {
     return;
   }
   LOG("CodecReserved");
-  sp<AMessage> format = new AMessage;
   sp<Surface> surface;
   status_t rv = OK;
   // Fixed values
   LOG("Configure video mime type: %s, width:%d, height:%d",
       mConfig.mMimeType.get(), mConfig.mImage.width, mConfig.mImage.height);
-  format->setString("mime", mConfig.mMimeType.get());
-  format->setInt32("width", mConfig.mImage.width);
-  format->setInt32("height", mConfig.mImage.height);
+  sp<AMessage> format = GonkMediaUtils::GetMediaCodecConfig(&mConfig);
   // Set the "moz-use-undequeued-bufs" to use the undeque buffers to accelerate
   // the video decoding.
   format->setInt32("moz-use-undequeued-bufs", 1);
@@ -578,12 +576,6 @@ void GonkVideoDecoderManager::CodecReserved() {
   }
   mDecoder->configure(format, surface, GetCrypto(), 0);
   mDecoder->Prepare();
-
-  if (mConfig.mMimeType.EqualsLiteral("video/mp4v-es")) {
-    rv = mDecoder->Input(
-        mConfig.mExtraData->Elements(), mConfig.mExtraData->Length(), 0,
-        android::MediaCodec::BUFFER_FLAG_CODECCONFIG, CODECCONFIG_TIMEOUT_US);
-  }
 
   if (rv != OK) {
     LOGE("Failed to configure codec!!!!");

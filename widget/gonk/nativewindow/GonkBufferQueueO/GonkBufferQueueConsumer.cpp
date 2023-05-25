@@ -573,4 +573,16 @@ int GonkBufferQueueConsumer::getSlotFromTextureClientLocked(
   ALOGE("getSlotFromBufferLocked: unknown TextureClient: %p", client);
   return BAD_VALUE;
 }
+
+int GonkBufferQueueConsumer::getAcquiredBufferCount() const {
+  Mutex::Autolock lock(mCore->mMutex);
+  int numAcquiredBuffers = 0;
+  for (int s = 0; s < GonkBufferQueueDefs::NUM_BUFFER_SLOTS; ++s) {
+    if (mSlots[s].mBufferState == GonkBufferSlot::ACQUIRED) {
+      ++numAcquiredBuffers;
+    }
+  }
+  return numAcquiredBuffers;
+}
+
 }  // namespace android

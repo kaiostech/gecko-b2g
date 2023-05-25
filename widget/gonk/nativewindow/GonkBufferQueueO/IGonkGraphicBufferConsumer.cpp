@@ -442,6 +442,10 @@ class BpGonkGraphicBufferConsumer
       mozilla::layers::TextureClient* client) const {
     return BAD_VALUE;
   }
+
+  virtual int getAcquiredBufferCount() const {
+    return -1;
+  }
 };
 
 IMPLEMENT_META_INTERFACE(GonkGraphicBufferConsumer,

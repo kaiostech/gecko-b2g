@@ -145,6 +145,8 @@ class GonkBufferQueueConsumer : public BnGonkGraphicBufferConsumer {
   virtual int getSlotFromTextureClientLocked(
       GonkBufferSlot::TextureClient* client) const;
 
+  virtual int getAcquiredBufferCount() const;
+
   // Functions required for backwards compatibility.
   // These will be modified/renamed in IGonkGraphicBufferConsumer and will be
   // removed from this class at that time. See b/13306289.

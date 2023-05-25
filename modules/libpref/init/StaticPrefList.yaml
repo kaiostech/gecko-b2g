@@ -11369,6 +11369,16 @@
     value: "audio/mpeg"
     mirror: never
 
+-   name: media.gonkmediacodec.bufferqueue.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
+-   name: media.gonkmediacodec.bufferqueue.max.acquired.count
+    type: RelaxedAtomicInt32
+    value: 4
+    mirror: always
+
 -   name: media.gonk.video.max_video_decode_width
     type: RelaxedAtomicUint32
     value: 1920

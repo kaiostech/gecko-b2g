@@ -112,6 +112,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libhidlbase.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libhidlmemory.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libhidltransport.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libhwbinder.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libmedia_codeclist.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libmedia_helper.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libmedia_omx.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libmedia.so

@@ -749,7 +749,7 @@ export class UrlbarInput {
     // the appropriate engine submission url.
     let browser = this.window.gBrowser.selectedBrowser;
     let lastLocationChange = browser.lastLocationChange;
-    lazy.UrlbarUtils.getHeuristicResultFor(url)
+    lazy.UrlbarUtils.getHeuristicResultFor(url, this.window)
       .then(newResult => {
         // Because this happens asynchronously, we must verify that the browser
         // location did not change in the meanwhile.
@@ -3636,8 +3636,10 @@ export class UrlbarInput {
       event.preventDefault();
       event.stopImmediatePropagation();
 
-      this.inputField.value = oldStart + pasteData + oldEnd;
-      this._untrimmedValue = this.inputField.value;
+      const value = oldStart + pasteData + oldEnd;
+      this.inputField.value = value;
+      this._untrimmedValue = value;
+      this.window.gBrowser.userTypedValue = value;
 
       if (this._untrimmedValue) {
         this.setAttribute("usertyping", "true");

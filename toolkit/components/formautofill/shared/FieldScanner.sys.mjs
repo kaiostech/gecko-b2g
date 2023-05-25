@@ -13,45 +13,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FormAutofillUtils: "resource://gre/modules/shared/FormAutofillUtils.sys.mjs",
 });
 
-export class FormSection {
-  static ADDRESS = "address";
-  static CREDIT_CARD = "creditCard";
-
-  #fieldDetails = [];
-
-  #name = "";
-
-  constructor(fieldDetails) {
-    if (!fieldDetails.length) {
-      throw new TypeError("A section should contain at least one field");
-    }
-
-    fieldDetails.forEach(field => this.addField(field));
-
-    const fieldName = fieldDetails[0].fieldName;
-    if (lazy.FormAutofillUtils.isAddressField(fieldName)) {
-      this.type = FormSection.ADDRESS;
-    } else if (lazy.FormAutofillUtils.isCreditCardField(fieldName)) {
-      this.type = FormSection.CREDIT_CARD;
-    } else {
-      throw new Error("Unknown field type to create a section.");
-    }
-  }
-
-  get fieldDetails() {
-    return this.#fieldDetails;
-  }
-
-  get name() {
-    return this.#name;
-  }
-
-  addField(fieldDetail) {
-    this.#name ||= fieldDetail.sectionName;
-    this.#fieldDetails.push(fieldDetail);
-  }
-}
-
 /**
  * Represents the detailed information about a form field, including
  * the inferred field name, the approach used for inferring, and additional metadata.
@@ -236,12 +197,17 @@ export class FieldScanner {
    *        The index indicates a field detail to be updated.
    * @param {string} fieldName
    *        The new fieldName
+   * @param {string} reason
+   *        What approach we use to identify this field
    */
-  updateFieldName(index, fieldName) {
+  updateFieldName(index, fieldName, reason = null) {
     if (index >= this.fieldDetails.length) {
       throw new Error("Try to update the non-existing field detail.");
     }
     this.fieldDetails[index].fieldName = fieldName;
+    if (reason) {
+      this.fieldDetails[index].reason = reason;
+    }
   }
 
   elementExisting(index) {

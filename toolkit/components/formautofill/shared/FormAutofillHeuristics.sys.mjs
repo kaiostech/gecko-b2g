@@ -44,7 +44,7 @@ const MULTI_N_FIELD_NAMES = {
   "cc-number": 4,
 };
 
-class Section {
+export class FormSection {
   static ADDRESS = "address";
   static CREDIT_CARD = "creditCard";
 
@@ -61,9 +61,9 @@ class Section {
 
     const fieldName = fieldDetails[0].fieldName;
     if (lazy.FormAutofillUtils.isAddressField(fieldName)) {
-      this.type = Section.ADDRESS;
+      this.type = FormSection.ADDRESS;
     } else if (lazy.FormAutofillUtils.isCreditCardField(fieldName)) {
-      this.type = Section.CREDIT_CARD;
+      this.type = FormSection.CREDIT_CARD;
     } else {
       throw new Error("Unknown field type to create a section.");
     }
@@ -301,12 +301,14 @@ export const FormAutofillHeuristics = {
    *          otherwise false.
    */
   _parseAddressFields(fieldScanner) {
-    let parsedFields = false;
-    const addressLines = ["address-line1", "address-line2", "address-line3"];
+    if (fieldScanner.parsingFinished) {
+      return false;
+    }
 
     // TODO: These address-line* regexps are for the lines with numbers, and
     // they are the subset of the regexps in `heuristicsRegexp.js`. We have to
     // find a better way to make them consistent.
+    const addressLines = ["address-line1", "address-line2", "address-line3"];
     const addressLineRegexps = {
       "address-line1": new RegExp(
         "address[_-]?line(1|one)|address1|addr1" +
@@ -336,6 +338,9 @@ export const FormAutofillHeuristics = {
         "iu"
       ),
     };
+
+    let parsedFields = false;
+    const startIndex = fieldScanner.parsingIndex;
     while (!fieldScanner.parsingFinished) {
       let detail = fieldScanner.getFieldDetailByIndex(
         fieldScanner.parsingIndex
@@ -362,6 +367,23 @@ export const FormAutofillHeuristics = {
         break;
       }
       fieldScanner.parsingIndex++;
+    }
+
+    // If "address-line2" is found but the previous field is "street-address",
+    // then we assume what the website actually wants is "address-line1" instead
+    // of "street-address".
+    if (
+      startIndex > 0 &&
+      fieldScanner.getFieldDetailByIndex(startIndex)?.fieldName ==
+        "address-line2" &&
+      fieldScanner.getFieldDetailByIndex(startIndex - 1)?.fieldName ==
+        "street-address"
+    ) {
+      fieldScanner.updateFieldName(
+        startIndex - 1,
+        "address-line1",
+        "regexp-heuristic"
+      );
     }
 
     return parsedFields;
@@ -556,7 +578,7 @@ export const FormAutofillHeuristics = {
    *
    * @param {HTMLFormElement} form
    *        the elements in this form to be predicted the field info.
-   * @returns {Array<Array<object>>}
+   * @returns {Array<FormSection>}
    *        all sections within its field details in the form.
    */
   getFormInfo(form) {
@@ -622,7 +644,7 @@ export const FormAutofillHeuristics = {
    * The result is an array contains the sections with its belonging field details.
    *
    * @param   {Array<FieldDetails>} fieldDetails field detail array to be classified
-   * @returns {Array<Section>} The array with the sections.
+   * @returns {Array<FormSection>} The array with the sections.
    */
   _classifySections(fieldDetails) {
     let sections = [];
@@ -699,7 +721,7 @@ export const FormAutofillHeuristics = {
       }
 
       // Create a new section
-      sections.push(new Section([fieldDetails[i]]));
+      sections.push(new FormSection([fieldDetails[i]]));
     }
 
     return sections;

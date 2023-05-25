@@ -15026,7 +15026,6 @@ Document::HideAllPopoversWithoutRunningScript() {
   return HideAllPopoversUntil(*this, false, false);
 }
 
-// https://html.spec.whatwg.org/#dom-hidepopover
 void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
                            bool aFireEvents, ErrorResult& aRv) {
   RefPtr<nsGenericHTMLElement> popoverHTMLEl =
@@ -16171,7 +16170,9 @@ void Document::SendPageUseCounters() {
   wgc->SendAccumulatePageUseCounters(counters);
 }
 
-void Document::RecomputeResistFingerprinting() {
+bool Document::RecomputeResistFingerprinting() {
+  const bool previous = mShouldResistFingerprinting;
+
   if (mParentDocument &&
       (NodePrincipal()->Equals(mParentDocument->NodePrincipal()) ||
        NodePrincipal()->GetIsNullPrincipal())) {
@@ -16189,13 +16190,12 @@ void Document::RecomputeResistFingerprinting() {
         nsContentUtils::ShouldResistFingerprinting(
             mChannel, RFPTarget::IsAlwaysEnabledForPrecompute);
   }
+
+  return previous != mShouldResistFingerprinting;
 }
 
 bool Document::ShouldResistFingerprinting(
     RFPTarget aTarget /* = RFPTarget::Unknown */) const {
-  if (aTarget == RFPTarget::IgnoreTargetAndReturnCachedValue) {
-    return mShouldResistFingerprinting;
-  }
   return mShouldResistFingerprinting && nsRFPService::IsRFPEnabledFor(aTarget);
 }
 

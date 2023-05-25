@@ -204,7 +204,7 @@ RefPtr<MediaDataDecoder::DecodePromise> VorbisDataDecoder::Decode(
       }
     }
 
-    auto duration = FramesToTimeUnit(frames, rate);
+    auto duration = media::TimeUnit(frames, rate);
     if (!duration.IsValid()) {
       LOG(LogLevel::Warning, ("VorbisDecoder: invalid packet duration"));
       return DecodePromise::CreateAndReject(
@@ -212,7 +212,7 @@ RefPtr<MediaDataDecoder::DecodePromise> VorbisDataDecoder::Decode(
                       RESULT_DETAIL("Overflow converting audio duration")),
           __func__);
     }
-    auto total_duration = FramesToTimeUnit(mFrames, rate);
+    auto total_duration = media::TimeUnit(mFrames, rate);
     if (!total_duration.IsValid()) {
       LOG(LogLevel::Warning, ("VorbisDecoder: invalid total duration"));
       return DecodePromise::CreateAndReject(

@@ -387,6 +387,7 @@ status_t GonkBufferQueueProducer::dequeueBuffer(
         return NO_INIT;
       }
 
+      graphicBuffer->setGenerationNumber(mCore->mGenerationNumber);
       mSlots[*outSlot].mFrameNumber = UINT32_MAX;
       mSlots[*outSlot].mGraphicBuffer = graphicBuffer;
       mSlots[*outSlot].mTextureClient = textureClient;
@@ -923,7 +924,9 @@ status_t GonkBufferQueueProducer::allowAllocation(bool allow) {
 
 status_t GonkBufferQueueProducer::setGenerationNumber(
     uint32_t generationNumber) {
-  return INVALID_OPERATION;
+  Mutex::Autolock lock(mCore->mMutex);
+  mCore->mGenerationNumber = generationNumber;
+  return NO_ERROR;
 }
 
 String8 GonkBufferQueueProducer::getConsumerName() const { return String8(""); }
@@ -960,7 +963,8 @@ void GonkBufferQueueProducer::binderDied(
 }
 
 status_t GonkBufferQueueProducer::getUniqueId(uint64_t* outId) const {
-  return INVALID_OPERATION;
+  *outId = mCore->mUniqueId;
+  return NO_ERROR;
 }
 
 status_t GonkBufferQueueProducer::getConsumerUsage(uint64_t* outUsage) const {

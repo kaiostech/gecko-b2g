@@ -239,6 +239,13 @@ class GonkBufferQueueCore : public virtual RefBase {
   // mIsAllocatingCondition is a condition variable used by producers to wait
   // until mIsAllocating becomes false.
   mutable Condition mIsAllocatingCondition;
+
+  // mGenerationNumber stores the current generation number of the attached
+  // producer. Any attempt to attach a buffer with a different generation
+  // number will fail.
+  uint32_t mGenerationNumber;
+
+  const uint64_t mUniqueId;
 };  // class GonkBufferQueueCore
 
 }  // namespace android

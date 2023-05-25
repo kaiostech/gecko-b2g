@@ -243,6 +243,15 @@ status_t GonkBufferQueueConsumer::attachBuffer(
         numAcquiredBuffers, mCore->mMaxAcquiredBufferCount);
     return INVALID_OPERATION;
   }
+
+  if (buffer->getGenerationNumber() != mCore->mGenerationNumber) {
+    ALOGE(
+        "attachBuffer: generation number mismatch [buffer %u] "
+        "[queue %u]",
+        buffer->getGenerationNumber(), mCore->mGenerationNumber);
+    return BAD_VALUE;
+  }
+
   if (found == GonkBufferQueueCore::INVALID_BUFFER_SLOT) {
     ALOGE("attachBuffer(P): could not find free buffer slot");
     return NO_MEMORY;

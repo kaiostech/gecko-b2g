@@ -40,6 +40,12 @@ static String8 getUniqueName() {
   return String8::format("unnamed-%d-%d", getpid(), counter++);
 }
 
+static uint64_t getUniqueId() {
+    static std::atomic<uint32_t> counter{0};
+    static uint64_t id = static_cast<uint64_t>(getpid()) << 32;
+    return id | counter++;
+}
+
 GonkBufferQueueCore::GonkBufferQueueCore()
     : mMutex(),
       mIsAbandoned(false),
@@ -64,7 +70,9 @@ GonkBufferQueueCore::GonkBufferQueueCore()
       mFrameCounter(0),
       mTransformHint(0),
       mIsAllocating(false),
-      mIsAllocatingCondition() {
+      mIsAllocatingCondition(),
+      mGenerationNumber(0),
+      mUniqueId(getUniqueId()) {
   ALOGV("GonkBufferQueueCore");
 }
 

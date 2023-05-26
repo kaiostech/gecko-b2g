@@ -30,11 +30,9 @@ use style::driver;
 use style::error_reporting::ParseErrorReporter;
 use style::font_face::{self, FontFaceSourceFormat, FontFaceSourceListComponent, Source};
 use style::gecko::arc_types::{
-    LockedContainerRule, LockedCounterStyleRule, LockedCssRules, LockedDeclarationBlock,
-    LockedDocumentRule, LockedFontFaceRule, LockedFontFeatureValuesRule,
-    LockedFontPaletteValuesRule, LockedImportRule, LockedKeyframe, LockedKeyframesRule,
-    LockedLayerBlockRule, LockedLayerStatementRule, LockedMediaList, LockedMediaRule,
-    LockedNamespaceRule, LockedPageRule, LockedPropertyRule, LockedStyleRule, LockedSupportsRule,
+    LockedCounterStyleRule, LockedCssRules, LockedDeclarationBlock,
+    LockedFontFaceRule, LockedImportRule, LockedKeyframe, LockedKeyframesRule,
+    LockedMediaList, LockedPageRule, LockedStyleRule,
 };
 use style::gecko::data::{
     AuthorStyles, GeckoStyleSheet, PerDocumentStyleData, PerDocumentStyleDataImpl,
@@ -2114,36 +2112,55 @@ pub extern "C" fn Servo_CssRules_DeleteRule(rules: &LockedCssRules, index: u32) 
     })
 }
 
+trait MaybeLocked<Target> {
+    fn maybe_locked_read<'a>(&'a self, guard: &'a SharedRwLockReadGuard) -> &'a Target;
+}
+
+impl<T> MaybeLocked<T> for T {
+    fn maybe_locked_read<'a>(&'a self, _: &'a SharedRwLockReadGuard) -> &'a T {
+        self
+    }
+}
+
+impl<T> MaybeLocked<T> for Locked<T> {
+    fn maybe_locked_read<'a>(&'a self, guard: &'a SharedRwLockReadGuard) -> &'a T {
+        self.read_with(guard)
+    }
+}
+
 macro_rules! impl_basic_rule_funcs_without_getter {
-    { $rule_type:ty,
+    {
+        ($rule_type:ty, $maybe_locked_rule_type:ty),
         debug: $debug:ident,
         to_css: $to_css:ident,
     } => {
         #[cfg(debug_assertions)]
         #[no_mangle]
-        pub extern "C" fn $debug(rule: &Locked<$rule_type>, result: &mut nsACString) {
-            read_locked_arc(rule, |rule: &$rule_type| {
-                write!(result, "{:?}", *rule).unwrap();
-            })
+        pub extern "C" fn $debug(rule: &$maybe_locked_rule_type, result: &mut nsACString) {
+            let global_style_data = &*GLOBAL_STYLE_DATA;
+            let guard = global_style_data.shared_lock.read();
+            let rule: &$rule_type = rule.maybe_locked_read(&guard);
+            write!(result, "{:?}", *rule).unwrap();
         }
 
         #[cfg(not(debug_assertions))]
         #[no_mangle]
-        pub extern "C" fn $debug(_: &Locked<$rule_type>, _: &mut nsACString) {
+        pub extern "C" fn $debug(_: &$maybe_locked_rule_type, _: &mut nsACString) {
             unreachable!()
         }
 
         #[no_mangle]
-        pub extern "C" fn $to_css(rule: &Locked<$rule_type>, result: &mut nsACString) {
+        pub extern "C" fn $to_css(rule: &$maybe_locked_rule_type, result: &mut nsACString) {
             let global_style_data = &*GLOBAL_STYLE_DATA;
             let guard = global_style_data.shared_lock.read();
-            rule.read_with(&guard).to_css(&guard, result).unwrap();
+            let rule: &$rule_type = rule.maybe_locked_read(&guard);
+            rule.to_css(&guard, result).unwrap();
         }
     }
 }
 
 macro_rules! impl_basic_rule_funcs {
-    { ($name:ident, $rule_type:ty),
+    { ($name:ident, $rule_type:ty, $maybe_locked_rule_type:ty),
         getter: $getter:ident,
         debug: $debug:ident,
         to_css: $to_css:ident,
@@ -2155,7 +2172,7 @@ macro_rules! impl_basic_rule_funcs {
             index: u32,
             line: &mut u32,
             column: &mut u32,
-        ) -> Strong<Locked<$rule_type>> {
+        ) -> Strong<$maybe_locked_rule_type> {
             let global_style_data = &*GLOBAL_STYLE_DATA;
             let guard = global_style_data.shared_lock.read();
             let rules = rules.read_with(&guard);
@@ -2166,11 +2183,12 @@ macro_rules! impl_basic_rule_funcs {
             }
 
             match rules.0[index] {
-                CssRule::$name(ref rule) => {
-                    let location = rule.read_with(&guard).source_location;
+                CssRule::$name(ref arc) => {
+                    let rule: &$rule_type = (&**arc).maybe_locked_read(&guard);
+                    let location = rule.source_location;
                     *line = location.line as u32;
                     *column = location.column as u32;
-                    rule.clone().into()
+                    arc.clone().into()
                 },
                 _ => {
                     Strong::null()
@@ -2181,7 +2199,7 @@ macro_rules! impl_basic_rule_funcs {
         #[no_mangle]
         pub extern "C" fn $changed(
             styleset: &PerDocumentStyleData,
-            rule: &Locked<$rule_type>,
+            rule: &$maybe_locked_rule_type,
             sheet: &DomStyleSheet,
             change_kind: RuleChangeKind,
         ) {
@@ -2196,7 +2214,8 @@ macro_rules! impl_basic_rule_funcs {
             data.stylist.rule_changed(&sheet, &rule, &guard, change_kind);
         }
 
-        impl_basic_rule_funcs_without_getter! { $rule_type,
+        impl_basic_rule_funcs_without_getter! {
+            ($rule_type, $maybe_locked_rule_type),
             debug: $debug,
             to_css: $to_css,
         }
@@ -2204,48 +2223,49 @@ macro_rules! impl_basic_rule_funcs {
 }
 
 macro_rules! impl_group_rule_funcs {
-    { ($name:ident, $rule_type:ty),
+    { ($name:ident, $rule_type:ty, $maybe_locked_rule_type:ty),
       get_rules: $get_rules:ident,
       $($basic:tt)+
     } => {
-        impl_basic_rule_funcs! { ($name, $rule_type), $($basic)+ }
+        impl_basic_rule_funcs! { ($name, $rule_type, $maybe_locked_rule_type), $($basic)+ }
 
         #[no_mangle]
-        pub extern "C" fn $get_rules(rule: &Locked<$rule_type>) -> Strong<LockedCssRules> {
-            read_locked_arc(rule, |rule: &$rule_type| {
-                rule.rules.clone().into()
-            })
+        pub extern "C" fn $get_rules(rule: &$maybe_locked_rule_type) -> Strong<LockedCssRules> {
+            let global_style_data = &*GLOBAL_STYLE_DATA;
+            let guard = global_style_data.shared_lock.read();
+            let rule: &$rule_type = rule.maybe_locked_read(&guard);
+            rule.rules.clone().into()
         }
     }
 }
 
-impl_basic_rule_funcs! { (Style, StyleRule),
+impl_basic_rule_funcs! { (Style, StyleRule, Locked<StyleRule>),
     getter: Servo_CssRules_GetStyleRuleAt,
     debug: Servo_StyleRule_Debug,
     to_css: Servo_StyleRule_GetCssText,
     changed: Servo_StyleSet_StyleRuleChanged,
 }
 
-impl_basic_rule_funcs! { (Import, ImportRule),
+impl_basic_rule_funcs! { (Import, ImportRule, Locked<ImportRule>),
     getter: Servo_CssRules_GetImportRuleAt,
     debug: Servo_ImportRule_Debug,
     to_css: Servo_ImportRule_GetCssText,
     changed: Servo_StyleSet_ImportRuleChanged,
 }
 
-impl_basic_rule_funcs_without_getter! { Keyframe,
+impl_basic_rule_funcs_without_getter! { (Keyframe, Locked<Keyframe>),
     debug: Servo_Keyframe_Debug,
     to_css: Servo_Keyframe_GetCssText,
 }
 
-impl_basic_rule_funcs! { (Keyframes, KeyframesRule),
+impl_basic_rule_funcs! { (Keyframes, KeyframesRule, Locked<KeyframesRule>),
     getter: Servo_CssRules_GetKeyframesRuleAt,
     debug: Servo_KeyframesRule_Debug,
     to_css: Servo_KeyframesRule_GetCssText,
     changed: Servo_StyleSet_KeyframesRuleChanged,
 }
 
-impl_group_rule_funcs! { (Media, MediaRule),
+impl_group_rule_funcs! { (Media, MediaRule, MediaRule),
     get_rules: Servo_MediaRule_GetRules,
     getter: Servo_CssRules_GetMediaRuleAt,
     debug: Servo_MediaRule_Debug,
@@ -2253,28 +2273,28 @@ impl_group_rule_funcs! { (Media, MediaRule),
     changed: Servo_StyleSet_MediaRuleChanged,
 }
 
-impl_basic_rule_funcs! { (Namespace, NamespaceRule),
+impl_basic_rule_funcs! { (Namespace, NamespaceRule, NamespaceRule),
     getter: Servo_CssRules_GetNamespaceRuleAt,
     debug: Servo_NamespaceRule_Debug,
     to_css: Servo_NamespaceRule_GetCssText,
     changed: Servo_StyleSet_NamespaceRuleChanged,
 }
 
-impl_basic_rule_funcs! { (Page, PageRule),
+impl_basic_rule_funcs! { (Page, PageRule, Locked<PageRule>),
     getter: Servo_CssRules_GetPageRuleAt,
     debug: Servo_PageRule_Debug,
     to_css: Servo_PageRule_GetCssText,
     changed: Servo_StyleSet_PageRuleChanged,
 }
 
-impl_basic_rule_funcs! { (Property, PropertyRule),
+impl_basic_rule_funcs! { (Property, PropertyRule, PropertyRule),
     getter: Servo_CssRules_GetPropertyRuleAt,
     debug: Servo_PropertyRule_Debug,
     to_css: Servo_PropertyRule_GetCssText,
     changed: Servo_StyleSet_PropertyRuleChanged,
 }
 
-impl_group_rule_funcs! { (Supports, SupportsRule),
+impl_group_rule_funcs! { (Supports, SupportsRule, SupportsRule),
     get_rules: Servo_SupportsRule_GetRules,
     getter: Servo_CssRules_GetSupportsRuleAt,
     debug: Servo_SupportsRule_Debug,
@@ -2282,7 +2302,7 @@ impl_group_rule_funcs! { (Supports, SupportsRule),
     changed: Servo_StyleSet_SupportsRuleChanged,
 }
 
-impl_group_rule_funcs! { (Container, ContainerRule),
+impl_group_rule_funcs! { (Container, ContainerRule, ContainerRule),
     get_rules: Servo_ContainerRule_GetRules,
     getter: Servo_CssRules_GetContainerRuleAt,
     debug: Servo_ContainerRule_Debug,
@@ -2290,7 +2310,7 @@ impl_group_rule_funcs! { (Container, ContainerRule),
     changed: Servo_StyleSet_ContainerRuleChanged,
 }
 
-impl_group_rule_funcs! { (LayerBlock, LayerBlockRule),
+impl_group_rule_funcs! { (LayerBlock, LayerBlockRule, LayerBlockRule),
     get_rules: Servo_LayerBlockRule_GetRules,
     getter: Servo_CssRules_GetLayerBlockRuleAt,
     debug: Servo_LayerBlockRule_Debug,
@@ -2298,14 +2318,14 @@ impl_group_rule_funcs! { (LayerBlock, LayerBlockRule),
     changed: Servo_StyleSet_LayerBlockRuleChanged,
 }
 
-impl_basic_rule_funcs! { (LayerStatement, LayerStatementRule),
+impl_basic_rule_funcs! { (LayerStatement, LayerStatementRule, LayerStatementRule),
     getter: Servo_CssRules_GetLayerStatementRuleAt,
     debug: Servo_LayerStatementRule_Debug,
     to_css: Servo_LayerStatementRule_GetCssText,
     changed: Servo_StyleSet_LayerStatementRuleChanged,
 }
 
-impl_group_rule_funcs! { (Document, DocumentRule),
+impl_group_rule_funcs! { (Document, DocumentRule, DocumentRule),
     get_rules: Servo_DocumentRule_GetRules,
     getter: Servo_CssRules_GetDocumentRuleAt,
     debug: Servo_DocumentRule_Debug,
@@ -2313,28 +2333,28 @@ impl_group_rule_funcs! { (Document, DocumentRule),
     changed: Servo_StyleSet_DocumentRuleChanged,
 }
 
-impl_basic_rule_funcs! { (FontFeatureValues, FontFeatureValuesRule),
+impl_basic_rule_funcs! { (FontFeatureValues, FontFeatureValuesRule, FontFeatureValuesRule),
     getter: Servo_CssRules_GetFontFeatureValuesRuleAt,
     debug: Servo_FontFeatureValuesRule_Debug,
     to_css: Servo_FontFeatureValuesRule_GetCssText,
     changed: Servo_StyleSet_FontFeatureValuesRuleChanged,
 }
 
-impl_basic_rule_funcs! { (FontPaletteValues, FontPaletteValuesRule),
+impl_basic_rule_funcs! { (FontPaletteValues, FontPaletteValuesRule, FontPaletteValuesRule),
     getter: Servo_CssRules_GetFontPaletteValuesRuleAt,
     debug: Servo_FontPaletteValuesRule_Debug,
     to_css: Servo_FontPaletteValuesRule_GetCssText,
     changed: Servo_StyleSet_FontPaletteValuesRuleChanged,
 }
 
-impl_basic_rule_funcs! { (FontFace, FontFaceRule),
+impl_basic_rule_funcs! { (FontFace, FontFaceRule, Locked<FontFaceRule>),
     getter: Servo_CssRules_GetFontFaceRuleAt,
     debug: Servo_FontFaceRule_Debug,
     to_css: Servo_FontFaceRule_GetCssText,
     changed: Servo_StyleSet_FontFaceRuleChanged,
 }
 
-impl_basic_rule_funcs! { (CounterStyle, CounterStyleRule),
+impl_basic_rule_funcs! { (CounterStyle, CounterStyleRule, Locked<CounterStyleRule>),
     getter: Servo_CssRules_GetCounterStyleRuleAt,
     debug: Servo_CounterStyleRule_Debug,
     to_css: Servo_CounterStyleRule_GetCssText,
@@ -2755,22 +2775,18 @@ pub extern "C" fn Servo_KeyframesRule_DeleteRule(rule: &LockedKeyframesRule, ind
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_MediaRule_GetMedia(rule: &LockedMediaRule) -> Strong<LockedMediaList> {
-    read_locked_arc(rule, |rule: &MediaRule| rule.media_queries.clone().into())
+pub extern "C" fn Servo_MediaRule_GetMedia(rule: &MediaRule) -> Strong<LockedMediaList> {
+    rule.media_queries.clone().into()
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_NamespaceRule_GetPrefix(rule: &LockedNamespaceRule) -> *mut nsAtom {
-    read_locked_arc(rule, |rule: &NamespaceRule| {
-        rule.prefix
-            .as_ref()
-            .map_or(atom!("").as_ptr(), |a| a.as_ptr())
-    })
+pub extern "C" fn Servo_NamespaceRule_GetPrefix(rule: &NamespaceRule) -> *mut nsAtom {
+    rule.prefix.as_ref().map_or(atom!("").as_ptr(), |a| a.as_ptr())
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_NamespaceRule_GetURI(rule: &LockedNamespaceRule) -> *mut nsAtom {
-    read_locked_arc(rule, |rule: &NamespaceRule| rule.url.0.as_ptr())
+pub extern "C" fn Servo_NamespaceRule_GetURI(rule: &NamespaceRule) -> *mut nsAtom {
+    rule.url.0.as_ptr()
 }
 
 #[no_mangle]
@@ -2838,178 +2854,140 @@ pub extern "C" fn Servo_PageRule_SetSelectorText(
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_PropertyRule_GetName(rule: &LockedPropertyRule, result: &mut nsACString) {
-    read_locked_arc(rule, |rule: &PropertyRule| {
-        rule.name.to_css(&mut CssWriter::new(result)).unwrap()
-    })
+pub extern "C" fn Servo_PropertyRule_GetName(rule: &PropertyRule, result: &mut nsACString) {
+    rule.name.to_css(&mut CssWriter::new(result)).unwrap()
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_PropertyRule_GetSyntax(rule: &LockedPropertyRule, result: &mut nsACString) {
-    read_locked_arc(rule, |rule: &PropertyRule| {
-        if let Some(ref syntax) = rule.syntax {
-            CssWriter::new(result).write_str(syntax.as_str()).unwrap()
-        }
-    })
+pub extern "C" fn Servo_PropertyRule_GetSyntax(rule: &PropertyRule, result: &mut nsACString) {
+    if let Some(ref syntax) = rule.syntax {
+        CssWriter::new(result).write_str(syntax.as_str()).unwrap()
+    }
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_PropertyRule_GetInherits(rule: &LockedPropertyRule) -> bool {
-    read_locked_arc(rule, |rule: &PropertyRule| {
-        matches!(rule.inherits, Some(PropertyInherits::True))
-    })
+pub extern "C" fn Servo_PropertyRule_GetInherits(rule: &PropertyRule) -> bool {
+    matches!(rule.inherits, Some(PropertyInherits::True))
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_PropertyRule_GetInitialValue(
-    rule: &LockedPropertyRule,
+    rule: &PropertyRule,
     result: &mut nsACString,
 ) -> bool {
-    read_locked_arc(rule, |rule: &PropertyRule| {
-        rule.initial_value
-            .to_css(&mut CssWriter::new(result))
-            .unwrap();
-        rule.initial_value.is_some()
-    })
+    rule.initial_value
+        .to_css(&mut CssWriter::new(result))
+        .unwrap();
+    rule.initial_value.is_some()
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_SupportsRule_GetConditionText(
-    rule: &LockedSupportsRule,
+    rule: &SupportsRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &SupportsRule| {
-        rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
-    })
+    rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_ContainerRule_GetConditionText(
-    rule: &LockedContainerRule,
+    rule: &ContainerRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &ContainerRule| {
-        rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
-    })
+    rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_ContainerRule_GetContainerQuery(
-    rule: &LockedContainerRule,
+    rule: &ContainerRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &ContainerRule| {
-        rule.query_condition()
-            .to_css(&mut CssWriter::new(result))
-            .unwrap();
-    })
+    rule.query_condition().to_css(&mut CssWriter::new(result)).unwrap();
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_ContainerRule_QueryContainerFor(
-    rule: &LockedContainerRule,
+    rule: &ContainerRule,
     element: &RawGeckoElement,
 ) -> *const RawGeckoElement {
-    read_locked_arc(rule, |rule: &ContainerRule| {
-        rule.condition
-            .find_container(GeckoElement(element), None)
-            .map_or(ptr::null(), |result| result.element.0)
-    })
+    rule.condition
+        .find_container(GeckoElement(element), None)
+        .map_or(ptr::null(), |result| result.element.0)
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_ContainerRule_GetContainerName(
-    rule: &LockedContainerRule,
+    rule: &ContainerRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &ContainerRule| {
-        let name = rule.container_name();
-        if !name.is_none() {
-            name.to_css(&mut CssWriter::new(result)).unwrap();
-        }
-    })
+    let name = rule.container_name();
+    if !name.is_none() {
+        name.to_css(&mut CssWriter::new(result)).unwrap();
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_DocumentRule_GetConditionText(
-    rule: &LockedDocumentRule,
+    rule: &DocumentRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &DocumentRule| {
-        rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
-    })
+    rule.condition.to_css(&mut CssWriter::new(result)).unwrap();
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_FontFeatureValuesRule_GetFontFamily(
-    rule: &LockedFontFeatureValuesRule,
+    rule: &FontFeatureValuesRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &FontFeatureValuesRule| {
-        rule.family_names
-            .to_css(&mut CssWriter::new(result))
-            .unwrap()
-    })
+    rule.family_names.to_css(&mut CssWriter::new(result)).unwrap();
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_FontFeatureValuesRule_GetValueText(
-    rule: &LockedFontFeatureValuesRule,
+    rule: &FontFeatureValuesRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &FontFeatureValuesRule| {
-        rule.value_to_css(&mut CssWriter::new(result)).unwrap();
-    })
+    rule.value_to_css(&mut CssWriter::new(result)).unwrap();
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_FontPaletteValuesRule_GetName(
-    rule: &LockedFontPaletteValuesRule,
+    rule: &FontPaletteValuesRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &FontPaletteValuesRule| {
-        rule.name.to_css(&mut CssWriter::new(result)).unwrap()
-    })
+    rule.name.to_css(&mut CssWriter::new(result)).unwrap()
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_FontPaletteValuesRule_GetFontFamily(
-    rule: &LockedFontPaletteValuesRule,
+    rule: &FontPaletteValuesRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &FontPaletteValuesRule| {
-        if !rule.family_names.is_empty() {
-            rule.family_names
-                .to_css(&mut CssWriter::new(result))
-                .unwrap()
-        }
-    })
+    if !rule.family_names.is_empty() {
+        rule.family_names
+            .to_css(&mut CssWriter::new(result))
+            .unwrap()
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_FontPaletteValuesRule_GetBasePalette(
-    rule: &LockedFontPaletteValuesRule,
+    rule: &FontPaletteValuesRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &FontPaletteValuesRule| {
-        rule.base_palette
-            .to_css(&mut CssWriter::new(result))
-            .unwrap()
-    })
+    rule.base_palette.to_css(&mut CssWriter::new(result)).unwrap()
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_FontPaletteValuesRule_GetOverrideColors(
-    rule: &LockedFontPaletteValuesRule,
+    rule: &FontPaletteValuesRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &FontPaletteValuesRule| {
-        if !rule.override_colors.is_empty() {
-            rule.override_colors
-                .to_css(&mut CssWriter::new(result))
-                .unwrap()
-        }
-    })
+    if !rule.override_colors.is_empty() {
+        rule.override_colors
+            .to_css(&mut CssWriter::new(result))
+            .unwrap()
+    }
 }
 
 #[no_mangle]
@@ -6590,9 +6568,6 @@ pub extern "C" fn Servo_StyleSet_BuildFontFeatureValueSet(
 ) -> *mut gfxFontFeatureValueSet {
     let data = raw_data.borrow();
 
-    let global_style_data = &*GLOBAL_STYLE_DATA;
-    let guard = global_style_data.shared_lock.read();
-
     let has_rule = data
         .stylist
         .iter_extra_data_origins()
@@ -6608,8 +6583,7 @@ pub extern "C" fn Servo_StyleSet_BuildFontFeatureValueSet(
         .flat_map(|(d, _)| d.font_feature_values.iter());
 
     let set = unsafe { Gecko_ConstructFontFeatureValueSet() };
-    for &(ref src, _) in font_feature_values_iter {
-        let rule = src.read_with(&guard);
+    for &(ref rule, _) in font_feature_values_iter {
         rule.set_at_rules(set);
     }
     set
@@ -6620,9 +6594,6 @@ pub extern "C" fn Servo_StyleSet_BuildFontPaletteValueSet(
     raw_data: &PerDocumentStyleData,
 ) -> *mut FontPaletteValueSet {
     let data = raw_data.borrow();
-
-    let global_style_data = &*GLOBAL_STYLE_DATA;
-    let guard = global_style_data.shared_lock.read();
 
     let has_rule = data
         .stylist
@@ -6639,8 +6610,7 @@ pub extern "C" fn Servo_StyleSet_BuildFontPaletteValueSet(
         .flat_map(|(d, _)| d.font_palette_values.iter());
 
     let set = unsafe { Gecko_ConstructFontPaletteValueSet() };
-    for &(ref src, _) in font_palette_values_iter {
-        let rule = src.read_with(&guard);
+    for &(ref rule, _) in font_palette_values_iter {
         rule.to_gecko_palette_value_set(set);
     }
     set
@@ -7657,32 +7627,28 @@ pub extern "C" fn Servo_ColorScheme_Parse(input: &nsACString, out: &mut u8) -> b
 
 #[no_mangle]
 pub extern "C" fn Servo_LayerBlockRule_GetName(
-    rule: &LockedLayerBlockRule,
+    rule: &LayerBlockRule,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &LayerBlockRule| {
-        if let Some(ref name) = rule.name {
-            name.to_css(&mut CssWriter::new(result)).unwrap()
-        }
-    })
+    if let Some(ref name) = rule.name {
+        name.to_css(&mut CssWriter::new(result)).unwrap()
+    }
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_LayerStatementRule_GetNameCount(rule: &LockedLayerStatementRule) -> usize {
-    read_locked_arc(rule, |rule: &LayerStatementRule| rule.names.len())
+pub extern "C" fn Servo_LayerStatementRule_GetNameCount(rule: &LayerStatementRule) -> usize {
+    rule.names.len()
 }
 
 #[no_mangle]
 pub extern "C" fn Servo_LayerStatementRule_GetNameAt(
-    rule: &LockedLayerStatementRule,
+    rule: &LayerStatementRule,
     index: usize,
     result: &mut nsACString,
 ) {
-    read_locked_arc(rule, |rule: &LayerStatementRule| {
-        if let Some(ref name) = rule.names.get(index) {
-            name.to_css(&mut CssWriter::new(result)).unwrap()
-        }
-    })
+    if let Some(ref name) = rule.names.get(index) {
+        name.to_css(&mut CssWriter::new(result)).unwrap()
+    }
 }
 
 #[no_mangle]

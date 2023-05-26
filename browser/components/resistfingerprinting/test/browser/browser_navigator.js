@@ -130,7 +130,7 @@ const rvVersion =
     Services.prefs.getIntPref("network.http.useragent.forceRVOnly", 0),
     0
   ) || appVersion;
-const spoofedVersion = AppConstants.platform == "android" ? "102" : appVersion;
+const spoofedVersion = AppConstants.platform == "android" ? "115" : appVersion;
 
 const LEGACY_UA_GECKO_TRAIL = "20100101";
 
@@ -414,11 +414,11 @@ add_task(async function setupResistFingerprinting() {
 
   let spoofedUserAgentNavigator = `Mozilla/5.0 (${
     SPOOFED_UA_NAVIGATOR_OS[AppConstants.platform]
-  }; rv:${spoofedVersion}.0) Gecko/${spoofedGeckoTrail} Firefox/${spoofedVersion}.0`;
+  }; rv:${rvVersion}.0) Gecko/${spoofedGeckoTrail} Firefox/${appVersion}.0`;
 
   let spoofedUserAgentHeader = `Mozilla/5.0 (${
     SPOOFED_UA_HTTPHEADER_OS[AppConstants.platform]
-  }; rv:${spoofedVersion}.0) Gecko/${spoofedGeckoTrail} Firefox/${spoofedVersion}.0`;
+  }; rv:${rvVersion}.0) Gecko/${spoofedGeckoTrail} Firefox/${appVersion}.0`;
 
   expectedResults = {
     testDesc: "spoofed",

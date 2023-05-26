@@ -7864,7 +7864,7 @@
   # Experimental support for change-array-by-copy methods
 - name: javascript.options.experimental.enable_change_array_by_copy
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Experimental support Array.fromAsync
@@ -13103,6 +13103,13 @@
 - name: network.wifi.scanning_period
   type: RelaxedAtomicUint32
   value: 60000
+  mirror: always
+
+# When the Access-Control-Allow-Headers is wildcard (*), whether to allow
+# CORS-protected requests with the Authorization request header.
+- name: network.cors_preflight.authorization_covered_by_wildcard
+  type: bool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------

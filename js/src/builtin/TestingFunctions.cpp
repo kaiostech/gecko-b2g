@@ -202,14 +202,12 @@ static bool GetRealmConfiguration(JSContext* cx, unsigned argc, Value* vp) {
   }
 #endif
 
-#ifdef ENABLE_CHANGE_ARRAY_BY_COPY
   bool changeArrayByCopy =
       cx->realm()->creationOptions().getChangeArrayByCopyEnabled();
   if (!JS_SetProperty(cx, info, "enableChangeArrayByCopy",
                       changeArrayByCopy ? TrueHandleValue : FalseHandleValue)) {
     return false;
   }
-#endif
 
 #ifdef ENABLE_NEW_SET_METHODS
   bool newSetMethods = cx->realm()->creationOptions().getNewSetMethodsEnabled();
@@ -563,15 +561,6 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
 
   value.setInt32(sizeof(void*));
   if (!JS_SetProperty(cx, info, "pointer-byte-size", value)) {
-    return false;
-  }
-
-#ifdef ENABLE_CHANGE_ARRAY_BY_COPY
-  value = BooleanValue(true);
-#else
-  value = BooleanValue(false);
-#endif
-  if (!JS_SetProperty(cx, info, "change-array-by-copy", value)) {
     return false;
   }
 
@@ -9353,17 +9342,6 @@ JS_FOR_WASM_FEATURES(WASM_FEATURE, WASM_FEATURE, WASM_FEATURE)
 "  element's edge is the node of the i+1'th array element; the destination of\n"
 "  the last array element is implicitly |target|.\n"),
 
-    JS_FN_HELP("shortestPaths", ShortestPaths, 3, 0,
-"shortestPaths(targets, options)",
-"  Return an array of arrays of shortest retaining paths. There is an array of\n"
-"  shortest retaining paths for each object in |targets|. Each element in a path\n"
-"  is of the form |{ predecessor, edge }|. |options| may contain:\n"
-"  \n"
-"    maxNumPaths: The maximum number of paths returned in each of those arrays\n"
-"      (default 3).\n"
-"    start: The object to start all paths from. If not given, then\n"
-"      the starting point will be the set of GC roots."),
-
 #if defined(DEBUG) || defined(JS_JITSPEW)
     JS_FN_HELP("dumpObject", DumpObject, 1, 0,
 "dumpObject()",
@@ -9687,6 +9665,18 @@ JS_FN_HELP("getEnclosingEnvironmentObject", GetEnclosingEnvironmentObject, 1, 0,
 JS_FN_HELP("getEnvironmentObjectType", GetEnvironmentObjectType, 1, 0,
 "getEnvironmentObjectType(env)",
 "  Return a string represents the type of given environment object."),
+
+    JS_FN_HELP("shortestPaths", ShortestPaths, 3, 0,
+"shortestPaths(targets, options)",
+"  Return an array of arrays of shortest retaining paths. There is an array of\n"
+      "  shortest retaining paths for each object in |targets|. Each element in a path\n"
+      "  is of the form |{ predecessor, edge }|. |options| may contain:\n"
+      "  \n"
+      "    maxNumPaths: The maximum number of paths returned in each of those arrays\n"
+      "      (default 3).\n"
+      "    start: The object to start all paths from. If not given, then\n"
+      "      the starting point will be the set of GC roots."),
+
 
     JS_FS_HELP_END
 };

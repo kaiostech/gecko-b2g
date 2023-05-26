@@ -15,7 +15,7 @@ import {
   createSourceActor,
 } from "../../client/firefox/create";
 import { toggleBlackBox } from "./blackbox";
-import { syncBreakpoint } from "../breakpoints";
+import { syncPendingBreakpoint } from "../breakpoints";
 import { loadSourceText } from "./loadSourceText";
 import { togglePrettyPrint } from "./prettyPrint";
 import { toggleSourceMapIgnoreList } from "../ui";
@@ -172,11 +172,13 @@ function checkPendingBreakpoints(cx, source, sourceActor) {
 
     // load the source text if there is a pending breakpoint for it
     await dispatch(loadSourceText(cx, source, sourceActor));
-    await dispatch(setBreakableLines(cx, source, sourceActor));
+    await dispatch(
+      setBreakableLines(cx, createLocation({ source, sourceActor }))
+    );
 
     await Promise.all(
-      pendingBreakpoints.map(bp => {
-        return dispatch(syncBreakpoint(cx, source.id, bp));
+      pendingBreakpoints.map(pendingBp => {
+        return dispatch(syncPendingBreakpoint(cx, source.id, pendingBp));
       })
     );
   };
@@ -330,7 +332,10 @@ export function newGeneratedSources(sourceResources) {
         // will request breakable lines for that particular source actor.
         if (sourceActor.sourceObject.isHTML) {
           await dispatch(
-            setBreakableLines(cx, sourceActor.sourceObject, sourceActor)
+            setBreakableLines(
+              cx,
+              createLocation({ source: sourceActor.sourceObject, sourceActor })
+            )
           );
         }
         dispatch(

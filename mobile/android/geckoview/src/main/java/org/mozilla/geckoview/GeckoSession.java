@@ -586,17 +586,23 @@ public class GeckoSession {
           } else if ("GeckoView:CookieBannerEvent:Handled".equals(event)) {
             delegate.onCookieBannerHandled(GeckoSession.this);
           } else if ("GeckoView:SavePdf".equals(event)) {
-            final WebResponse response =
+            final GeckoResult<WebResponse> result =
                 SessionPdfFileSaver.createResponse(
-                    message.getByteArray("bytes"),
+                    GeckoSession.this,
+                    message.getString("url"),
                     message.getString("filename"),
                     message.getString("originalUrl"),
                     message.getBoolean("skipConfirmation"),
                     message.getBoolean("requestExternalApp"));
-            if (response == null) {
+            if (result == null) {
+              callback.sendError("Failed to create response");
               return;
             }
-            delegate.onExternalResponse(GeckoSession.this, response);
+            result.accept(
+                response ->
+                    ThreadUtils.runOnUiThread(
+                        () -> delegate.onExternalResponse(GeckoSession.this, response)),
+                exception -> callback.sendError("Failed to create response"));
           } else if ("GeckoView:GetNimbusFeature".equals(event)) {
             final String featureId = message.getString("featureId");
             final JSONObject res = delegate.onGetNimbusFeature(GeckoSession.this, featureId);
@@ -2447,7 +2453,7 @@ public class GeckoSession {
   @AnyThread
   public @NonNull SessionPdfFileSaver getPdfFileSaver() {
     if (mPdfFileSaver == null) {
-      mPdfFileSaver = new SessionPdfFileSaver(getEventDispatcher());
+      mPdfFileSaver = new SessionPdfFileSaver(this);
     }
     return mPdfFileSaver;
   }
@@ -4271,9 +4277,7 @@ public class GeckoSession {
      *     following special methods are made available to the URI: -
      *     document.addCertException(isTemporary), returns Promise -
      *     document.getFailedCertSecurityInfo(), returns FailedCertSecurityInfo -
-     *     document.getNetErrorInfo(), returns NetErrorInfo - document.allowDeprecatedTls, a
-     *     property indicating whether or not TLS 1.0/1.1 is allowed -
-     *     document.reloadWithHttpsOnlyException()
+     *     document.getNetErrorInfo(), returns NetErrorInfo document.reloadWithHttpsOnlyException()
      * @see <a
      *     href="https://searchfox.org/mozilla-central/source/dom/webidl/FailedCertSecurityInfo.webidl">FailedCertSecurityInfo
      *     IDL</a>
@@ -6980,9 +6984,7 @@ public class GeckoSession {
                   }
                 } else {
                   geckoResult.completeFrom(
-                      self.getPdfFileSaver()
-                          .save()
-                          .map(result -> new ByteArrayInputStream(result.bytes)));
+                      self.getPdfFileSaver().save().map(result -> result.body));
                 }
                 return null;
               }

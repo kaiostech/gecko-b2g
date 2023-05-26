@@ -382,6 +382,15 @@ export class ChromeProfileMigrator extends MigratorBase {
     };
   }
   async _GetPaymentMethodsResource(aProfileFolder) {
+    if (
+      !Services.prefs.getBoolPref(
+        "browser.migrate.chrome.payment_methods.enabled",
+        false
+      )
+    ) {
+      return null;
+    }
+
     let paymentMethodsPath = PathUtils.join(aProfileFolder, "Web Data");
 
     if (!(await IOUtils.exists(paymentMethodsPath))) {
@@ -724,19 +733,32 @@ async function GetFormdataResource(aProfileFolder) {
         "Chrome formdata",
         query
       );
+      let addOps = [];
       for (let row of rows) {
         try {
-          await lazy.FormHistory.update({
-            op: "add",
-            fieldname: row.getResultByName("name"),
-            value: row.getResultByName("value"),
-            timesUsed: row.getResultByName("count"),
-            firstUsed: row.getResultByName("date_created") * 1000,
-            lastUsed: row.getResultByName("date_last_used") * 1000,
-          });
+          let fieldname = row.getResultByName("name");
+          let value = row.getResultByName("value");
+          if (fieldname && value) {
+            addOps.push({
+              op: "add",
+              fieldname,
+              value,
+              timesUsed: row.getResultByName("count"),
+              firstUsed: row.getResultByName("date_created") * 1000,
+              lastUsed: row.getResultByName("date_last_used") * 1000,
+            });
+          }
         } catch (e) {
           console.error(e);
         }
+      }
+
+      try {
+        await lazy.FormHistory.update(addOps);
+      } catch (e) {
+        console.error(e);
+        aCallback(false);
+        return;
       }
 
       aCallback(true);

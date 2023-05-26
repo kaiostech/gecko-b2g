@@ -87,6 +87,14 @@ class _QuickSuggestRemoteSettings {
     return this.#config;
   }
 
+  /**
+   * @returns {Array}
+   *   Array of `BasicFeature` instances.
+   */
+  get features() {
+    return [...this.#features];
+  }
+
   get logger() {
     if (!this.#logger) {
       this.#logger = lazy.UrlbarUtils.getLogger({
@@ -191,15 +199,11 @@ class _QuickSuggestRemoteSettings {
   }
 
   async #syncConfig() {
-    if (this._test_ignoreSettingsSync) {
-      return;
-    }
-
     this.logger.debug("Syncing config");
     let rs = this.#rs;
 
     let configArray = await rs.get({ filters: { type: "configuration" } });
-    if (rs != this.#rs || this._test_ignoreSettingsSync) {
+    if (rs != this.#rs) {
       return;
     }
 
@@ -208,19 +212,11 @@ class _QuickSuggestRemoteSettings {
   }
 
   async #syncFeature(feature) {
-    if (this._test_ignoreSettingsSync) {
-      return;
-    }
-
     this.logger.debug("Syncing feature: " + feature.name);
     await feature.onRemoteSettingsSync(this.#rs);
   }
 
   async #syncAll({ event = null } = {}) {
-    if (this._test_ignoreSettingsSync) {
-      return;
-    }
-
     this.logger.debug("Syncing all");
     let rs = this.#rs;
 
@@ -236,7 +232,7 @@ class _QuickSuggestRemoteSettings {
             ])
           )
       );
-      if (rs != this.#rs || this._test_ignoreSettingsSync) {
+      if (rs != this.#rs) {
         return;
       }
     }
@@ -259,14 +255,6 @@ class _QuickSuggestRemoteSettings {
     this.logger.debug("Setting config: " + JSON.stringify(config));
     this.#config = config;
     this.#emitter.emit("config-set");
-  }
-
-  get _test_rs() {
-    return this.#rs;
-  }
-
-  _test_setConfig(config) {
-    this.#setConfig(config);
   }
 
   // The `RemoteSettings` client.

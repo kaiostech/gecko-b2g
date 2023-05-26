@@ -307,8 +307,6 @@ class BrowserParent final : public PBrowserParent,
       const Maybe<mozilla::ContentBlockingNotifier::
                       StorageAccessPermissionGrantedReason>& aReason);
 
-  mozilla::ipc::IPCResult RecvSetAllowDeprecatedTls(bool value);
-
   mozilla::ipc::IPCResult RecvNavigationFinished();
 
   already_AddRefed<nsIBrowser> GetBrowser();
@@ -398,8 +396,6 @@ class BrowserParent final : public PBrowserParent,
                                           const nsString& aDirection);
 
   mozilla::ipc::IPCResult RecvHideTooltip();
-
-  mozilla::ipc::IPCResult RecvDispatchFocusToTopLevelWindow();
 
   mozilla::ipc::IPCResult RecvRespondStartSwipeEvent(
       const uint64_t& aInputBlockId, const bool& aStartSwipe);
@@ -861,12 +857,12 @@ class BrowserParent final : public PBrowserParent,
   static void UnsetLastMouseRemoteTarget(BrowserParent* aBrowserParent);
 
   struct APZData {
-    bool operator==(const APZData& aOther) {
+    bool operator==(const APZData& aOther) const {
       return aOther.guid == guid && aOther.blockId == blockId &&
              aOther.apzResponse == apzResponse;
     }
 
-    bool operator!=(const APZData& aOther) { return !(*this == aOther); }
+    bool operator!=(const APZData& aOther) const { return !(*this == aOther); }
 
     ScrollableLayerGuid guid;
     uint64_t blockId;

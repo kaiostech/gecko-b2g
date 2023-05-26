@@ -145,7 +145,7 @@ const rvVersion =
     Services.prefs.getIntPref("network.http.useragent.forceRVOnly", 0),
     0
   ) || appVersion;
-const spoofedVersion = AppConstants.platform == "android" ? "102" : appVersion;
+const spoofedVersion = AppConstants.platform == "android" ? "115" : appVersion;
 
 const LEGACY_UA_GECKO_TRAIL = "20100101";
 
@@ -301,13 +301,13 @@ const defaultUserAgent = `Mozilla/5.0 (${
 
 const spoofedUserAgentNavigator = `Mozilla/5.0 (${
   SPOOFED_UA_NAVIGATOR_OS[AppConstants.platform]
-}; rv:${appVersion}.0) Gecko/${
+}; rv:${rvVersion}.0) Gecko/${
   SPOOFED_UA_GECKO_TRAIL[AppConstants.platform]
 } Firefox/${appVersion}.0`;
 
 const spoofedUserAgentHeader = `Mozilla/5.0 (${
   SPOOFED_UA_HTTPHEADER_OS[AppConstants.platform]
-}; rv:${appVersion}.0) Gecko/${
+}; rv:${rvVersion}.0) Gecko/${
   SPOOFED_UA_GECKO_TRAIL[AppConstants.platform]
 } Firefox/${appVersion}.0`;
 

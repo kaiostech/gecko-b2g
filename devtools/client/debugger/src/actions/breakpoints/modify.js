@@ -4,7 +4,7 @@
 
 import { createBreakpoint } from "../../client/firefox/create";
 import {
-  makeBreakpointLocation,
+  makeBreakpointServerLocation,
   makeBreakpointId,
 } from "../../utils/breakpoint";
 import {
@@ -60,7 +60,7 @@ async function clientSetBreakpoint(
   { getState, dispatch },
   breakpoint
 ) {
-  const breakpointLocation = makeBreakpointLocation(
+  const breakpointServerLocation = makeBreakpointServerLocation(
     getState(),
     breakpoint.generatedLocation
   );
@@ -72,12 +72,15 @@ async function clientSetBreakpoint(
   if (shouldMapBreakpointExpressions) {
     breakpoint = await dispatch(updateBreakpointSourceMapping(cx, breakpoint));
   }
-  return client.setBreakpoint(breakpointLocation, breakpoint.options);
+  return client.setBreakpoint(breakpointServerLocation, breakpoint.options);
 }
 
 function clientRemoveBreakpoint(client, state, generatedLocation) {
-  const breakpointLocation = makeBreakpointLocation(state, generatedLocation);
-  return client.removeBreakpoint(breakpointLocation);
+  const breakpointServerLocation = makeBreakpointServerLocation(
+    state,
+    generatedLocation
+  );
+  return client.removeBreakpoint(breakpointServerLocation);
 }
 
 export function enableBreakpoint(cx, initialBreakpoint) {
@@ -125,8 +128,7 @@ export function addBreakpoint(
     await dispatch(
       setBreakpointPositions({
         cx,
-        sourceId: initialLocation.source.id,
-        line: initialLocation.line,
+        location: initialLocation,
       })
     );
 
@@ -225,8 +227,8 @@ export function removeBreakpoint(cx, initialBreakpoint) {
  * Remove all installed, pending, and client breakpoints associated with a
  * target generated location.
  *
- * @memberof actions/breakpoints
- * @static
+ * @param {Object} target
+ *        Location object where to remove breakpoints.
  */
 export function removeBreakpointAtGeneratedLocation(cx, target) {
   return ({ dispatch, getState, client }) => {
@@ -255,8 +257,8 @@ export function removeBreakpointAtGeneratedLocation(cx, target) {
 
     // Remove any remaining pending breakpoints matching the generated location.
     const pending = getPendingBreakpointList(getState());
-    for (const breakpoint of pending) {
-      const { generatedLocation } = breakpoint;
+    for (const pendingBreakpoint of pending) {
+      const { generatedLocation } = pendingBreakpoint;
       if (
         generatedLocation.sourceUrl == target.sourceUrl &&
         comparePosition(generatedLocation, target)
@@ -264,7 +266,7 @@ export function removeBreakpointAtGeneratedLocation(cx, target) {
         dispatch({
           type: "REMOVE_PENDING_BREAKPOINT",
           cx,
-          breakpoint,
+          pendingBreakpoint,
         });
       }
     }

@@ -249,8 +249,8 @@ CLANG_CL_3_9 = (
     + SUPPORTS_GNUXX11
     + SUPPORTS_CXX14
 ) + {"*.cpp": {"__STDC_VERSION__": False, "__cplusplus": "201103L"}}
-CLANG_CL_8_0 = (
-    CLANG_BASE("8.0.0")
+CLANG_CL_9_0 = (
+    CLANG_BASE("9.0.0")
     + VS("18.00.00000")
     + DEFAULT_C11
     + SUPPORTS_GNU99
@@ -499,14 +499,14 @@ class LinuxToolchainTest(BaseToolchainTest):
         "Only clang/llvm 7.0 or newer is supported (found version 4.0.2)."
     )
     CLANG_7_0_RESULT = CompilerResult(
-        flags=["-Qunused-arguments", "-std=gnu99"],
+        flags=["-std=gnu99"],
         version="7.0.0",
         type="clang",
         compiler="/usr/bin/clang-7.0",
         language="C",
     )
     CLANGXX_7_0_RESULT = CompilerResult(
-        flags=["-Qunused-arguments", "-std=gnu++17"],
+        flags=["-std=gnu++17"],
         version="7.0.0",
         type="clang",
         compiler="/usr/bin/clang++-7.0",
@@ -872,14 +872,14 @@ class OSXToolchainTest(BaseToolchainTest):
         "Only clang/llvm 7.0 or newer is supported (found version 4.0.0.or.less)."
     )
     DEFAULT_CLANG_RESULT = CompilerResult(
-        flags=["-Qunused-arguments", "-std=gnu99"],
+        flags=["-std=gnu99"],
         version="7.0.0",
         type="clang",
         compiler="/usr/bin/clang",
         language="C",
     )
     DEFAULT_CLANGXX_RESULT = CompilerResult(
-        flags=["-stdlib=libc++", "-Qunused-arguments", "-std=gnu++17"],
+        flags=["-stdlib=libc++", "-std=gnu++17"],
         version="7.0.0",
         type="clang",
         compiler="/usr/bin/clang++",
@@ -966,7 +966,7 @@ class MingwToolchainTest(BaseToolchainTest):
     PATHS = {
         "/usr/bin/cl": VS_2017u8 + VS_PLATFORM_X86,
         "/usr/bin/clang-cl-3.9": CLANG_CL_3_9 + CLANG_CL_PLATFORM_X86,
-        "/usr/bin/clang-cl": CLANG_CL_8_0 + CLANG_CL_PLATFORM_X86,
+        "/usr/bin/clang-cl": CLANG_CL_9_0 + CLANG_CL_PLATFORM_X86,
         "/usr/bin/gcc": DEFAULT_GCC + GCC_PLATFORM_X86_WIN + MINGW32,
         "/usr/bin/g++": DEFAULT_GXX + GCC_PLATFORM_X86_WIN + MINGW32,
         "/usr/bin/gcc-4.9": GCC_4_9 + GCC_PLATFORM_X86_WIN + MINGW32,
@@ -988,21 +988,21 @@ class MingwToolchainTest(BaseToolchainTest):
     }
 
     CLANG_CL_3_9_RESULT = (
-        "Only clang-cl 8.0 or newer is supported (found version 3.9.0)"
+        "Only clang-cl 9.0 or newer is supported (found version 3.9.0)"
     )
-    CLANG_CL_8_0_RESULT = CompilerResult(
-        version="8.0.0",
-        flags=["-Qunused-arguments", "-Xclang", "-std=gnu99"],
+    CLANG_CL_9_0_RESULT = CompilerResult(
+        version="9.0.0",
+        flags=["-Xclang", "-std=gnu99"],
         type="clang-cl",
         compiler="/usr/bin/clang-cl",
         language="C",
     )
     CLANGXX_CL_3_9_RESULT = (
-        "Only clang-cl 8.0 or newer is supported (found version 3.9.0)"
+        "Only clang-cl 9.0 or newer is supported (found version 3.9.0)"
     )
-    CLANGXX_CL_8_0_RESULT = CompilerResult(
-        version="8.0.0",
-        flags=["-Qunused-arguments", "-Xclang", "-std=c++17"],
+    CLANGXX_CL_9_0_RESULT = CompilerResult(
+        version="9.0.0",
+        flags=["-Xclang", "-std=c++17"],
         type="clang-cl",
         compiler="/usr/bin/clang-cl",
         language="C++",
@@ -1032,8 +1032,8 @@ class MingwToolchainTest(BaseToolchainTest):
         self.do_toolchain_test(
             self.PATHS,
             {
-                "c_compiler": self.CLANG_CL_8_0_RESULT,
-                "cxx_compiler": self.CLANGXX_CL_8_0_RESULT,
+                "c_compiler": self.CLANG_CL_9_0_RESULT,
+                "cxx_compiler": self.CLANGXX_CL_9_0_RESULT,
             },
         )
 
@@ -1103,7 +1103,7 @@ class Mingw64ToolchainTest(MingwToolchainTest):
     # real Windows paths.
     PATHS = {
         "/usr/bin/cl": VS_2017u8 + VS_PLATFORM_X86_64,
-        "/usr/bin/clang-cl": CLANG_CL_8_0 + CLANG_CL_PLATFORM_X86_64,
+        "/usr/bin/clang-cl": CLANG_CL_9_0 + CLANG_CL_PLATFORM_X86_64,
         "/usr/bin/clang-cl-3.9": CLANG_CL_3_9 + CLANG_CL_PLATFORM_X86_64,
         "/usr/bin/gcc": DEFAULT_GCC + GCC_PLATFORM_X86_64_WIN + MINGW32,
         "/usr/bin/g++": DEFAULT_GXX + GCC_PLATFORM_X86_64_WIN + MINGW32,
@@ -1149,8 +1149,8 @@ class WindowsToolchainTest(BaseToolchainTest):
         self.do_toolchain_test(
             self.PATHS,
             {
-                "c_compiler": MingwToolchainTest.CLANG_CL_8_0_RESULT,
-                "cxx_compiler": MingwToolchainTest.CLANGXX_CL_8_0_RESULT,
+                "c_compiler": MingwToolchainTest.CLANG_CL_9_0_RESULT,
+                "cxx_compiler": MingwToolchainTest.CLANGXX_CL_9_0_RESULT,
             },
         )
 
@@ -1576,14 +1576,14 @@ class OSXCrossToolchainTest(BaseToolchainTest):
         }
     )
     DEFAULT_CLANG_RESULT = CompilerResult(
-        flags=["-Qunused-arguments", "-std=gnu99"],
+        flags=["-std=gnu99"],
         version="7.0.0",
         type="clang",
         compiler="/usr/bin/clang",
         language="C",
     )
     DEFAULT_CLANGXX_RESULT = CompilerResult(
-        flags=["-Qunused-arguments", "-std=gnu++17"],
+        flags=["-std=gnu++17"],
         version="7.0.0",
         type="clang",
         compiler="/usr/bin/clang++",
@@ -1626,13 +1626,13 @@ class WindowsCrossToolchainTest(BaseToolchainTest):
     DEFAULT_CLANGXX_RESULT = LinuxToolchainTest.DEFAULT_CLANGXX_RESULT
 
     def test_clang_cl_cross(self):
-        paths = {"/usr/bin/clang-cl": CLANG_CL_8_0 + CLANG_CL_PLATFORM_X86_64}
+        paths = {"/usr/bin/clang-cl": CLANG_CL_9_0 + CLANG_CL_PLATFORM_X86_64}
         paths.update(LinuxToolchainTest.PATHS)
         self.do_toolchain_test(
             paths,
             {
-                "c_compiler": MingwToolchainTest.CLANG_CL_8_0_RESULT,
-                "cxx_compiler": MingwToolchainTest.CLANGXX_CL_8_0_RESULT,
+                "c_compiler": MingwToolchainTest.CLANG_CL_9_0_RESULT,
+                "cxx_compiler": MingwToolchainTest.CLANGXX_CL_9_0_RESULT,
                 "host_c_compiler": self.DEFAULT_CLANG_RESULT,
                 "host_cxx_compiler": self.DEFAULT_CLANGXX_RESULT,
             },

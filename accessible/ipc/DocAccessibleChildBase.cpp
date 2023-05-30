@@ -8,7 +8,6 @@
 #include "mozilla/a11y/CacheConstants.h"
 #include "mozilla/a11y/RemoteAccessible.h"
 #include "mozilla/ipc/ProcessChild.h"
-#include "nsAccessibilityService.h"
 
 #include "LocalAccessible-inl.h"
 #ifdef A11Y_LOG
@@ -64,8 +63,7 @@ void DocAccessibleChildBase::SerializeTree(nsTArray<LocalAccessible*>& aTree,
     RefPtr<AccAttributes> fields;
     // Even though we send moves as a hide and a show, we don't want to
     // push the cache again for moves.
-    if (a11y::IsCacheActive() &&
-        !acc->Document()->IsAccessibleBeingMoved(acc)) {
+    if (!acc->Document()->IsAccessibleBeingMoved(acc)) {
       fields =
           acc->BundleFieldsForCache(CacheDomain::All, CacheUpdateType::Initial);
       if (fields->Count() == 0) {
@@ -260,6 +258,66 @@ mozilla::ipc::IPCResult DocAccessibleChildBase::RecvSetCurValue(
   LocalAccessible* acc = IdToAccessible(aID);
   if (acc) {
     acc->SetCurValue(aValue);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult DocAccessibleChildBase::RecvReplaceText(
+    const uint64_t& aID, const nsAString& aText) {
+  HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
+  if (acc && acc->IsTextRole()) {
+    acc->ReplaceText(aText);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult DocAccessibleChildBase::RecvInsertText(
+    const uint64_t& aID, const nsAString& aText, const int32_t& aPosition) {
+  HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
+  if (acc && acc->IsTextRole()) {
+    acc->InsertText(aText, aPosition);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult DocAccessibleChildBase::RecvCopyText(
+    const uint64_t& aID, const int32_t& aStartPos, const int32_t& aEndPos) {
+  HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
+  if (acc && acc->IsTextRole()) {
+    acc->CopyText(aStartPos, aEndPos);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult DocAccessibleChildBase::RecvCutText(
+    const uint64_t& aID, const int32_t& aStartPos, const int32_t& aEndPos) {
+  HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
+  if (acc && acc->IsTextRole()) {
+    acc->CutText(aStartPos, aEndPos);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult DocAccessibleChildBase::RecvDeleteText(
+    const uint64_t& aID, const int32_t& aStartPos, const int32_t& aEndPos) {
+  HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
+  if (acc && acc->IsTextRole()) {
+    acc->DeleteText(aStartPos, aEndPos);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult DocAccessibleChildBase::RecvPasteText(
+    const uint64_t& aID, const int32_t& aPosition) {
+  RefPtr<HyperTextAccessible> acc = IdToHyperTextAccessible(aID);
+  if (acc && acc->IsTextRole()) {
+    acc->PasteText(aPosition);
   }
 
   return IPC_OK();

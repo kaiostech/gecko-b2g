@@ -1533,6 +1533,13 @@ pref("browser.topsites.useRemoteSetting", true);
 pref("browser.topsites.contile.enabled", true);
 pref("browser.topsites.contile.endpoint", "https://contile.services.mozilla.com/v1/tiles");
 
+// Whether to enable the Share-of-Voice feature for Sponsored Topsites via Contile.
+#if defined(EARLY_BETA_OR_EARLIER)
+  pref("browser.topsites.contile.sov.enabled", true);
+#else
+  pref("browser.topsites.contile.sov.enabled", false);
+#endif
+
 // The base URL for the Quick Suggest anonymizing proxy. To make a request to
 // the proxy, include a campaign ID in the path.
 pref("browser.partnerlink.attributionURL", "https://topsites.services.mozilla.com/cid/");
@@ -2457,7 +2464,11 @@ pref("devtools.inspector.showUserAgentStyles", false);
 // Show native anonymous content and user agent shadow roots
 pref("devtools.inspector.showAllAnonymousContent", false);
 // Enable the inline CSS compatiblity warning in inspector rule view
-pref("devtools.inspector.ruleview.inline-compatibility-warning.enabled", false);
+#ifdef NIGHTLY_BUILD
+  pref("devtools.inspector.ruleview.inline-compatibility-warning.enabled", true);
+#else
+  pref("devtools.inspector.ruleview.inline-compatibility-warning.enabled", false);
+#endif
 // Enable the compatibility tool in the inspector.
 pref("devtools.inspector.compatibility.enabled", true);
 // Enable overflow debugging in the inspector.

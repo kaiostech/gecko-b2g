@@ -67,16 +67,6 @@ class GCSchedulingTunables;
 class TenuringTracer;
 }  // namespace gc
 
-// Classes with JSCLASS_SKIP_NURSERY_FINALIZE or Wrapper classes with
-// CROSS_COMPARTMENT flags will not have their finalizer called if they are
-// nursery allocated and not promoted to the tenured heap. The finalizers for
-// these classes must do nothing except free data which was allocated via
-// Nursery::allocateBuffer.
-inline bool CanNurseryAllocateFinalizedClass(const JSClass* const clasp) {
-  MOZ_ASSERT(clasp->hasFinalize());
-  return clasp->flags & JSCLASS_SKIP_NURSERY_FINALIZE;
-}
-
 class alignas(TypicalCacheLineSize) Nursery {
  public:
   static const size_t Alignment = gc::ChunkSize;
@@ -131,23 +121,6 @@ class alignas(TypicalCacheLineSize) Nursery {
 
   template <typename T>
   inline bool isInside(const SharedMem<T>& p) const;
-
-  // Allocate and return a pointer to a new GC object with its |slots|
-  // pointer pre-filled. Returns nullptr if the Nursery is full.
-  void* allocateObject(gc::AllocSite* site, size_t size, const JSClass* clasp) {
-    MOZ_ASSERT_IF(clasp->hasFinalize() && !clasp->isProxyObject(),
-                  CanNurseryAllocateFinalizedClass(clasp));
-    return allocateCell(site, size, JS::TraceKind::Object);
-  }
-
-  void* allocateBigInt(gc::AllocSite* site, size_t size) {
-    MOZ_ASSERT(canAllocateBigInts());
-    return allocateCell(site, size, JS::TraceKind::BigInt);
-  }
-  void* allocateString(gc::AllocSite* site, size_t size) {
-    MOZ_ASSERT(canAllocateStrings());
-    return allocateCell(site, size, JS::TraceKind::String);
-  }
 
   // Allocate and return a pointer to a new GC thing. Returns nullptr if the
   // Nursery is full.
@@ -348,13 +321,10 @@ class alignas(TypicalCacheLineSize) Nursery {
   void printTotalProfileTimes();
 
   void* addressOfPosition() const { return (void**)&position_; }
-  const void* addressOfCurrentEnd() const { return (void**)&currentEnd_; }
-  const void* addressOfCurrentStringEnd() const {
-    return (void*)&currentStringEnd_;
+  static constexpr int32_t offsetOfCurrentEndFromPosition() {
+    return offsetof(Nursery, currentEnd_) - offsetof(Nursery, position_);
   }
-  const void* addressOfCurrentBigIntEnd() const {
-    return (void*)&currentBigIntEnd_;
-  }
+
   void* addressOfNurseryAllocatedSites() {
     return pretenuringNursery.addressOfAllocatedSites();
   }
@@ -420,14 +390,6 @@ class alignas(TypicalCacheLineSize) Nursery {
 
   // Pointer to the last byte of space in the current chunk.
   uintptr_t currentEnd_;
-
-  // Pointer to the last byte of space in the current chunk, or nullptr if we
-  // are not allocating strings in the nursery.
-  uintptr_t currentStringEnd_;
-
-  // Pointer to the last byte of space in the current chunk, or nullptr if we
-  // are not allocating BigInts in the nursery.
-  uintptr_t currentBigIntEnd_;
 
   // Other fields not necessarily used during allocation follow:
 
@@ -582,11 +544,10 @@ class alignas(TypicalCacheLineSize) Nursery {
 
   NurseryChunk& chunk(unsigned index) const { return *chunks_[index]; }
 
-  // Set the current chunk. This updates the currentChunk_, position_
-  // currentEnd_ and currentStringEnd_ values as approprite. It'll also
-  // poison the chunk, either a portion of the chunk if it is already the
-  // current chunk, or the whole chunk if fullPoison is true or it is not
-  // the current chunk.
+  // Set the current chunk. This updates the currentChunk_, position_ and
+  // currentEnd_ values as appropriate. It'll also poison the chunk, either a
+  // portion of the chunk if it is already the current chunk, or the whole chunk
+  // if fullPoison is true or it is not the current chunk.
   void setCurrentChunk(unsigned chunkno);
 
   bool initFirstChunk(AutoLockGCBgAlloc& lock);

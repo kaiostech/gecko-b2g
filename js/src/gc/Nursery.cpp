@@ -215,8 +215,6 @@ void js::NurseryDecommitTask::run(AutoLockHelperThreadState& lock) {
 js::Nursery::Nursery(GCRuntime* gc)
     : position_(0),
       currentEnd_(0),
-      currentStringEnd_(0),
-      currentBigIntEnd_(0),
       gc(gc),
       currentChunk_(0),
       currentStartChunk_(0),
@@ -380,8 +378,6 @@ void js::Nursery::disable() {
   // We must reset currentEnd_ so that there is no space for anything in the
   // nursery. JIT'd code uses this even if the nursery is disabled.
   currentEnd_ = 0;
-  currentStringEnd_ = 0;
-  currentBigIntEnd_ = 0;
   position_ = 0;
   gc->storeBuffer().disable();
 
@@ -391,28 +387,24 @@ void js::Nursery::disable() {
 void js::Nursery::enableStrings() {
   MOZ_ASSERT(isEmpty());
   canAllocateStrings_ = true;
-  currentStringEnd_ = currentEnd_;
   updateAllZoneAllocFlags();
 }
 
 void js::Nursery::disableStrings() {
   MOZ_ASSERT(isEmpty());
   canAllocateStrings_ = false;
-  currentStringEnd_ = 0;
   updateAllZoneAllocFlags();
 }
 
 void js::Nursery::enableBigInts() {
   MOZ_ASSERT(isEmpty());
   canAllocateBigInts_ = true;
-  currentBigIntEnd_ = currentEnd_;
   updateAllZoneAllocFlags();
 }
 
 void js::Nursery::disableBigInts() {
   MOZ_ASSERT(isEmpty());
   canAllocateBigInts_ = false;
-  currentBigIntEnd_ = 0;
   updateAllZoneAllocFlags();
 }
 
@@ -515,6 +507,8 @@ void* js::Nursery::allocateCell(gc::AllocSite* site, size_t size,
   MOZ_ASSERT(size >= sizeof(RelocationOverlay));
   MOZ_ASSERT(size % CellAlignBytes == 0);
   MOZ_ASSERT(size_t(kind) < NurseryTraceKinds);
+  MOZ_ASSERT_IF(kind == JS::TraceKind::String, canAllocateStrings());
+  MOZ_ASSERT_IF(kind == JS::TraceKind::BigInt, canAllocateBigInts());
 
   void* ptr = allocate(sizeof(NurseryCellHeader) + size);
   if (!ptr) {
@@ -1706,12 +1700,6 @@ MOZ_ALWAYS_INLINE void js::Nursery::setCurrentEnd() {
                 currentChunk_ == 0 && currentEnd_ <= chunk(0).end());
   currentEnd_ =
       uintptr_t(&chunk(currentChunk_)) + std::min(capacity_, ChunkSize);
-  if (canAllocateStrings_) {
-    currentStringEnd_ = currentEnd_;
-  }
-  if (canAllocateBigInts_) {
-    currentBigIntEnd_ = currentEnd_;
-  }
 }
 
 bool js::Nursery::allocateNextChunk(const unsigned chunkno,

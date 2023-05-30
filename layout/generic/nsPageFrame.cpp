@@ -61,12 +61,15 @@ nsReflowStatus nsPageFrame::ReflowPageContent(
   // Reflow our ::-moz-page-content frame, allowing it only to be as big as we
   // are (minus margins).
   const nsSize pageSize = ComputePageSize();
-  // Scaling applied to the page after rendering, used for down-scaling when a
-  // CSS-specified page-size is too large to fit on the paper we are printing
-  // on. This is needed for scaling margins that are applied as physical sizes,
-  // in this case the user-provided margins from the print UI and the printer-
-  // provided unwriteable margins.
-  const float pageSizeScale = ComputePageSizeScale(pageSize);
+  // Scaling applied to the page in the single page-per-sheet case (used for
+  // down-scaling when the page is too large to fit on the sheet we are printing
+  // on). In the single page-per-sheet case, we need this here to preemptively
+  // increase the margins by the same amount that the scaling will reduce them
+  // in order to make sure that their physical size is unchanged (particularly
+  // important for the unwriteable margins).
+  const auto* ppsInfo = GetSharedPageData()->PagesPerSheetInfo();
+  const float pageSizeScale =
+      ppsInfo->mNumPages == 1 ? ComputeSinglePPSPageSizeScale(pageSize) : 1.0f;
   // Scaling applied to content, as given by the print UI.
   // This is an additional scale factor that is applied to the content in the
   // nsPageContentFrame.
@@ -543,13 +546,14 @@ static gfx::Matrix4x4 ComputePagesPerSheetAndPageSizeTransform(
   MOZ_ASSERT(aFrame->IsPageFrame());
   auto* pageFrame = static_cast<const nsPageFrame*>(aFrame);
   const nsSize contentPageSize = pageFrame->ComputePageSize();
+  MOZ_ASSERT(contentPageSize.width > 0 && contentPageSize.height > 0);
   nsSharedPageData* pd = pageFrame->GetSharedPageData();
   const auto* ppsInfo = pd->PagesPerSheetInfo();
 
   gfx::Matrix4x4 transform;
 
   if (ppsInfo->mNumPages == 1) {
-    float scale = pageFrame->ComputePageSizeScale(contentPageSize);
+    float scale = pageFrame->ComputeSinglePPSPageSizeScale(contentPageSize);
     transform = gfx::Matrix4x4::Scaling(scale, scale, 1);
     return transform;
   }
@@ -561,28 +565,44 @@ static gfx::Matrix4x4 ComputePagesPerSheetAndPageSizeTransform(
              "Parent of nsPageFrame should be PrintedSheetFrame");
   auto* sheetFrame = static_cast<const PrintedSheetFrame*>(parentFrame);
 
-  // Begin with the offset of the grid origin (which accounts for the sheet's
-  // unwritable margins).
-  nsPoint gridOrigin = sheetFrame->GetPagesPerSheetGridOrigin();
-  transform = gfx::Matrix4x4::Translation(
-      NSAppUnitsToFloatPixels(gridOrigin.x, aAppUnitsPerPixel),
-      NSAppUnitsToFloatPixels(gridOrigin.y, aAppUnitsPerPixel), 0);
-
-  // Scale the page to fit its pages-per-sheet grid cell.
-  float scale = pageFrame->ComputePageSizeScale(contentPageSize) *
-                sheetFrame->GetPagesPerSheetScale();
-  transform.PreScale(scale, scale, 1);
-
-  // Translate the page to its pages-per-sheet grid "cell":
+  // Begin with the translation of the page to its pages-per-sheet grid "cell"
+  // (the grid origin accounts for the sheet's unwriteable margins):
+  const nsPoint gridOrigin = sheetFrame->GetGridOrigin();
+  const nscoord cellWidth = sheetFrame->GetGridCellWidth();
+  const nscoord cellHeight = sheetFrame->GetGridCellHeight();
   uint32_t rowIdx, colIdx;
-  std::tie(rowIdx, colIdx) = GetRowAndColFromIdx(
-      pageFrame->IndexOnSheet(), sheetFrame->GetPagesPerSheetNumCols());
-  transform.PreTranslate(
-      NSAppUnitsToFloatPixels(colIdx * contentPageSize.width,
+  std::tie(rowIdx, colIdx) = GetRowAndColFromIdx(pageFrame->IndexOnSheet(),
+                                                 sheetFrame->GetGridNumCols());
+  transform = gfx::Matrix4x4::Translation(
+      NSAppUnitsToFloatPixels(gridOrigin.x + nscoord(colIdx) * cellWidth,
                               aAppUnitsPerPixel),
-      NSAppUnitsToFloatPixels(rowIdx * contentPageSize.height,
+      NSAppUnitsToFloatPixels(gridOrigin.y + nscoord(rowIdx) * cellHeight,
                               aAppUnitsPerPixel),
-      0);
+      0.0f);
+
+  // Scale the page to fit, centered, in the grid cell:
+  float scaleX = float(cellWidth) / float(contentPageSize.width);
+  float scaleY = float(cellHeight) / float(contentPageSize.height);
+  MOZ_ASSERT(scaleX > 0.0f && scaleX <= 1.0f && scaleY > 0.0f &&
+             scaleY <= 1.0f);
+  float scale;
+  float dx = 0.0f, dy = 0.0f;
+  if (scaleX < scaleY) {
+    scale = scaleX;
+    // We need to scale down more for the width than the height, so we'll have
+    // some spare space in the page's vertical direction. We offset the page
+    // to share that space equally above and below the page to center it.
+    nscoord extraSpace =
+        cellHeight - NSToCoordRound(float(contentPageSize.height) * scale);
+    dy = NSAppUnitsToFloatPixels(extraSpace / 2, aAppUnitsPerPixel);
+  } else {
+    scale = scaleY;
+    nscoord extraSpace =
+        cellWidth - NSToCoordRound(float(contentPageSize.width) * scale);
+    dx = NSAppUnitsToFloatPixels(extraSpace / 2, aAppUnitsPerPixel);
+  }
+  transform.PreTranslate(dx, dy, 0.0f);
+  transform.PreScale(scale, scale, 1.0f);
 
   // Apply 'page-orientation' to any applicable pages:
   if (StaticPrefs::layout_css_page_orientation_enabled()) {
@@ -597,8 +617,8 @@ static gfx::Matrix4x4 ComputePagesPerSheetAndPageSizeTransform(
     }
 
     if (angle != 0.0) {
-      float cellRatio =
-          sheetFrame->GetGridCellWidth() / sheetFrame->GetGridCellHeight();
+      float cellRatio = float(sheetFrame->GetGridCellWidth()) /
+                        float(sheetFrame->GetGridCellHeight());
       float pageRatio =
           float(contentPageSize.width) / float(contentPageSize.height);
       // To fit into the available space on a sheet, a page typically needs to
@@ -683,7 +703,10 @@ nsSize nsPageFrame::ComputePageSize() const {
   return size;
 }
 
-float nsPageFrame::ComputePageSizeScale(const nsSize aContentPageSize) const {
+float nsPageFrame::ComputeSinglePPSPageSizeScale(
+    const nsSize aContentPageSize) const {
+  MOZ_ASSERT(GetSharedPageData()->PagesPerSheetInfo()->mNumPages == 1,
+             "Only intended for the pps==1 case");
   MOZ_ASSERT(aContentPageSize == ComputePageSize(),
              "Incorrect content page size");
 

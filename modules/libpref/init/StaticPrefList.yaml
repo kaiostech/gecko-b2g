@@ -7867,10 +7867,10 @@
   value: true
   mirror: always
 
-# Experimental support Array.fromAsync
+# Support Array.fromAsync
 - name: javascript.options.experimental.enable_array_from_async
   type: bool
-  value: false
+  value: true
   mirror: always
 
 #if defined(ENABLE_NEW_SET_METHODS)
@@ -9249,7 +9249,7 @@
 # serial.
 - name: layout.css.stylo-parallelism-threshold
   type: RelaxedAtomicUint32
-  value: 16
+  value: 32
   mirror: always
   rust: true
 
@@ -9550,6 +9550,13 @@
 - name: layout.css.scroll-anchoring.max-consecutive-adjustments
   type: uint32_t
   value: 10
+  mirror: always
+
+# Whether to reset counting the consecutive scroll-anchoring adjustments during
+# running async scrolling by APZ.
+- name: layout.css.scroll-anchoring.reset-heuristic-during-animation
+  type: bool
+  value: false
   mirror: always
 
 # The time after which we reset the max-consecutive-adjustments period, in
@@ -11052,6 +11059,23 @@
   type: bool
   value: true
   mirror: once
+
+# This pref turns on legacy (non-spec) exposure of camera and microphone
+# information from enumerateDevices and devicechange ahead of successful
+# getUserMedia calls. Should only be turned on to resolve web compat issues,
+# since doing so reveals more user fingerprinting information to trackers.
+#
+# This mode is marginally more permissive than the legacy behavior it attempts
+# to emulate in that device labels do not disappear when tracks are stopped and
+# temporary permission expires. That behavior isn't emulated due to low relative
+# privacy value  compared to spec and it not being being conducive to spec
+# convergence.
+#
+# Planned next steps: true → @IS_NOT_NIGHTLY_BUILD@ → false
+- name: media.devices.enumerate.legacy.enabled
+  type: bool
+  value: true
+  mirror: always
 
 # WebRTC prefs follow
 
@@ -13236,29 +13260,6 @@
   mirror: always
 
 #---------------------------------------------------------------------------
-# Prefs starting with "plugin."
-#---------------------------------------------------------------------------
-
-- name: plugin.state.flash
-  type: uint32_t
-  # Flash is Click-to-Activate by default on all channels. Disabled for ARM builds.
-#if defined(_ARM64_) && defined(XP_WIN)
-  value: 0
-#else
-  value: 1
-#endif
-  mirror: always
-
-#---------------------------------------------------------------------------
-# Prefs starting with "plugins."
-#---------------------------------------------------------------------------
-
-- name: plugins.http_https_only
-  type: bool
-  value: true
-  mirror: always
-
-#---------------------------------------------------------------------------
 # Prefs starting with "preferences."
 #---------------------------------------------------------------------------
 
@@ -14074,12 +14075,12 @@
 
 -   name: security.sandbox.gpu.shadow-stack.enabled
     type: RelaxedAtomicBool
-    value: false
+    value: @IS_NIGHTLY_BUILD@
     mirror: always
 
 -   name: security.sandbox.gmp.shadow-stack.enabled
     type: RelaxedAtomicBool
-    value: false
+    value: @IS_NIGHTLY_BUILD@
     mirror: always
 
   # Whether a Low Privilege AppContainer (LPAC) is enabled for the relevant

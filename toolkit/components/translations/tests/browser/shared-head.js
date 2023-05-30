@@ -299,6 +299,13 @@ async function setupActorTest({
     detectedLanguageConfidence,
   });
 
+  // Create a new tab so each test gets a new actor, and doesn't re-use the old one.
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    BLANK_PAGE,
+    true // waitForLoad
+  );
+
   /** @type {import("../../actors/TranslationsParent.sys.mjs").TranslationsParent} */
   const actor =
     gBrowser.selectedBrowser.browsingContext.currentWindowGlobal.getActor(
@@ -309,6 +316,7 @@ async function setupActorTest({
     actor,
     remoteClients,
     cleanup() {
+      BrowserTestUtils.removeTab(tab);
       removeMocks();
       return SpecialPowers.popPrefEnv();
     },
@@ -634,8 +642,8 @@ async function createTranslationModelsRemoteClient(
     }
   }
 
-  const { RemoteSettings } = ChromeUtils.import(
-    "resource://services-settings/remote-settings.js"
+  const { RemoteSettings } = ChromeUtils.importESModule(
+    "resource://services-settings/remote-settings.sys.mjs"
   );
   const client = RemoteSettings("test-translation-models");
   const metadata = {};
@@ -662,8 +670,8 @@ async function createTranslationsWasmRemoteClient(
     schema: Date.now(),
   }));
 
-  const { RemoteSettings } = ChromeUtils.import(
-    "resource://services-settings/remote-settings.js"
+  const { RemoteSettings } = ChromeUtils.importESModule(
+    "resource://services-settings/remote-settings.sys.mjs"
   );
   const client = RemoteSettings("test-translations-wasm");
   const metadata = {};
@@ -692,8 +700,8 @@ async function createLanguageIdModelsRemoteClient(
     },
   ];
 
-  const { RemoteSettings } = ChromeUtils.import(
-    "resource://services-settings/remote-settings.js"
+  const { RemoteSettings } = ChromeUtils.importESModule(
+    "resource://services-settings/remote-settings.sys.mjs"
   );
   const client = RemoteSettings("test-language-id-models");
   const metadata = {};

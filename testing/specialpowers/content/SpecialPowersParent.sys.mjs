@@ -11,13 +11,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   HiddenFrame: "resource://gre/modules/HiddenFrame.sys.mjs",
   PerTestCoverageUtils:
     "resource://testing-common/PerTestCoverageUtils.sys.mjs",
-  SpecialPowersSandbox: "resource://specialpowers/SpecialPowersSandbox.sys.mjs",
+  ServiceWorkerCleanUp: "resource://gre/modules/ServiceWorkerCleanUp.sys.mjs",
+  SpecialPowersSandbox:
+    "resource://testing-common/SpecialPowersSandbox.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   ExtensionData: "resource://gre/modules/Extension.jsm",
   ExtensionTestCommon: "resource://testing-common/ExtensionTestCommon.jsm",
-  ServiceWorkerCleanUp: "resource://gre/modules/ServiceWorkerCleanUp.jsm",
 });
 
 class SpecialPowersError extends Error {
@@ -180,6 +181,27 @@ export class SpecialPowersParent extends JSWindowActorParent {
     this._chromeScriptListeners = [];
     this._extensions = new Map();
     this._taskActors = new Map();
+  }
+
+  static registerActor() {
+    ChromeUtils.registerWindowActor("SpecialPowers", {
+      allFrames: true,
+      includeChrome: true,
+      child: {
+        esModuleURI: "resource://testing-common/SpecialPowersChild.sys.mjs",
+        observers: [
+          "chrome-document-global-created",
+          "content-document-global-created",
+        ],
+      },
+      parent: {
+        esModuleURI: "resource://testing-common/SpecialPowersParent.sys.mjs",
+      },
+    });
+  }
+
+  static unregisterActor() {
+    ChromeUtils.unregisterWindowActor("SpecialPowers");
   }
 
   init() {

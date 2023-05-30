@@ -9,12 +9,6 @@
 
 const { SearchSERPTelemetry, SearchSERPTelemetryUtils } =
   ChromeUtils.importESModule("resource:///modules/SearchSERPTelemetry.sys.mjs");
-const { UrlbarTestUtils } = ChromeUtils.importESModule(
-  "resource://testing-common/UrlbarTestUtils.sys.mjs"
-);
-const { SearchTestUtils } = ChromeUtils.importESModule(
-  "resource://testing-common/SearchTestUtils.sys.mjs"
-);
 
 const TEST_PROVIDER_INFO = [
   {
@@ -75,7 +69,6 @@ function resetTelemetry() {
 }
 
 SearchTestUtils.init(this);
-UrlbarTestUtils.init(this);
 
 let tab;
 
@@ -208,9 +201,7 @@ add_task(async function test_reload() {
   await promiseAdImpressionReceived();
 
   let pageLoadPromise = BrowserTestUtils.waitForLocationChange(gBrowser);
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
-    content.document.getElementById("ad1").click();
-  });
+  await BrowserTestUtils.synthesizeMouseAtCenter("#ad1", {}, tab.linkedBrowser);
   await pageLoadPromise;
 
   await assertSearchSourcesTelemetry(
@@ -293,9 +284,7 @@ add_task(async function test_fresh_search() {
 
 add_task(async function test_click_ad() {
   let pageLoadPromise = BrowserTestUtils.waitForLocationChange(gBrowser);
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
-    content.document.getElementById("ad1").click();
-  });
+  await BrowserTestUtils.synthesizeMouseAtCenter("#ad1", {}, tab.linkedBrowser);
   await pageLoadPromise;
 
   await assertSearchSourcesTelemetry(
@@ -379,9 +368,7 @@ add_task(async function test_go_back() {
   await promiseAdImpressionReceived(2);
 
   let pageLoadPromise = BrowserTestUtils.waitForLocationChange(gBrowser);
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
-    content.document.getElementById("ad1").click();
-  });
+  await BrowserTestUtils.synthesizeMouseAtCenter("#ad1", {}, tab.linkedBrowser);
   await pageLoadPromise;
 
   await assertSearchSourcesTelemetry(
@@ -512,9 +499,8 @@ add_task(async function test_fresh_search_with_urlbar_persisted() {
 
   // Click on an ad.
   let pageLoadPromise = BrowserTestUtils.waitForLocationChange(gBrowser);
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
-    content.document.getElementById("ad1").click();
-  });
+  await BrowserTestUtils.synthesizeMouseAtCenter("#ad1", {}, tab.linkedBrowser);
+
   await pageLoadPromise;
   await assertSearchSourcesTelemetry(
     {

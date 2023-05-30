@@ -188,9 +188,6 @@ function update(state = initialSourcesState(), action) {
       };
     }
 
-    case "NAVIGATE":
-      return initialSourcesState(state);
-
     case "REMOVE_THREAD": {
       return removeSourcesAndActors(state, action);
     }
@@ -257,6 +254,9 @@ function removeSourcesAndActors(state, action) {
     mutableOriginalBreakableLines,
     mutableBreakpointPositions,
   } = state;
+
+  const newState = { ...state };
+
   for (const removedSource of action.sources) {
     const sourceId = removedSource.id;
 
@@ -292,6 +292,10 @@ function removeSourcesAndActors(state, action) {
     }
 
     mutableBreakpointPositions.delete(sourceId);
+
+    if (newState.selectedLocation?.source == removedSource) {
+      newState.selectedLocation = null;
+    }
   }
 
   for (const removedActor of action.actors) {
@@ -312,9 +316,13 @@ function removeSourcesAndActors(state, action) {
     if (!actorsForSource.length) {
       mutableSourceActors.delete(sourceId);
     }
+
+    if (newState.selectedLocation?.sourceActor == removedActor) {
+      newState.selectedLocation = null;
+    }
   }
 
-  return { ...state };
+  return newState;
 }
 
 function insertSourceActors(state, action) {

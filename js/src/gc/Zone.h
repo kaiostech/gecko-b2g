@@ -182,9 +182,9 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
  private:
   // Flags dynamically updated based on more than one condition, including the
   // flags above.
-  js::MainThreadData<bool> allocNurseryObjects_;
-  js::MainThreadData<bool> allocNurseryStrings_;
-  js::MainThreadData<bool> allocNurseryBigInts_;
+  js::MainThreadOrIonCompileData<bool> allocNurseryObjects_;
+  js::MainThreadOrIonCompileData<bool> allocNurseryStrings_;
+  js::MainThreadOrIonCompileData<bool> allocNurseryBigInts_;
 
  public:
   // When true, skip calling the metadata callback. We use this:
@@ -469,6 +469,19 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
   void fixupScriptMapsAfterMovingGC(JSTracer* trc);
 
   void updateNurseryAllocFlags(const js::Nursery& nursery);
+
+  bool allocKindInNursery(JS::TraceKind kind) const {
+    switch (kind) {
+      case JS::TraceKind::Object:
+        return allocNurseryObjects_;
+      case JS::TraceKind::String:
+        return allocNurseryStrings_;
+      case JS::TraceKind::BigInt:
+        return allocNurseryBigInts_;
+      default:
+        MOZ_CRASH("Unsupported kind for nursery allocation");
+    }
+  }
   bool allocNurseryObjects() const { return allocNurseryObjects_; }
   bool allocNurseryStrings() const { return allocNurseryStrings_; }
   bool allocNurseryBigInts() const { return allocNurseryBigInts_; }

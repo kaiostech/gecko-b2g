@@ -53,6 +53,18 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "browser.translations.autoTranslate"
 );
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "chaosErrorsPref",
+  "browser.translations.chaos.errors"
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "chaosTimeoutMSPref",
+  "browser.translations.chaos.timeoutMS"
+);
+
 /**
  * Returns the always-translate language tags as an array.
  */
@@ -95,7 +107,7 @@ const VERIFY_SIGNATURES_FROM_FS = false;
  * @typedef {import("../translations").LanguageIdEngineMockedPayload} LanguageIdEngineMockedPayload
  * @typedef {import("../translations").LanguageTranslationModelFiles} LanguageTranslationModelFiles
  * @typedef {import("../translations").WasmRecord} WasmRecord
- * @typedef {import("../translations").DetectedLanguages} DetectedLanguages
+ * @typedef {import("../translations").LangTags} LangTags
  * @typedef {import("../translations").LanguagePair} LanguagePair
  * @typedef {import("../translations").SupportedLanguages} SupportedLanguages
  * @typedef {import("../translations").LanguageIdModelRecord} LanguageIdModelRecord
@@ -215,6 +227,17 @@ export class TranslationsParent extends JSWindowActorParent {
    */
   static #translateOnPageReload = null;
 
+  /**
+   * An ordered list of preferred languages based on:
+   *   1. App languages
+   *   2. Web requested languages
+   *   3. OS language
+   *
+   * @type {null | string[]}
+   */
+  static #preferredLanguages = null;
+  static #observingLanguages = false;
+
   // On a fast connection, 10 concurrent downloads were measured to be the fastest when
   // downloading all of the language files.
   static MAX_CONCURRENT_DOWNLOADS = 10;
@@ -264,6 +287,110 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     return TranslationsParent.#isTranslationsEngineSupported;
+  }
+
+  /**
+   * Only translate pages that match certain protocols, that way internal pages like
+   * about:* pages will not be translated.
+   * @param {string} url
+   */
+  static isRestrictedPage(url) {
+    // Keep this logic up to date with TranslationsChild.prototype.#isRestrictedPage.
+    return !(
+      url.startsWith("http://") ||
+      url.startsWith("https://") ||
+      url.startsWith("file:///")
+    );
+  }
+
+  static #resetPreferredLanguages() {
+    TranslationsParent.#preferredLanguages = null;
+    TranslationsParent.getPreferredLanguages();
+  }
+
+  static async observe(_subject, topic, _data) {
+    switch (topic) {
+      case "nsPref:changed":
+      case "intl:app-locales-changed": {
+        this.#resetPreferredLanguages();
+        break;
+      }
+      default:
+        throw new Error("Unknown observer event", topic);
+    }
+  }
+
+  /**
+   * Provide a way for tests to override the system locales.
+   * @type {null | string[]}
+   */
+  mockedSystemLocales = null;
+
+  /**
+   * An ordered list of preferred languages based on:
+   *
+   *   1. App languages
+   *   2. Web requested languages
+   *   3. OS language
+   *
+   * @returns {string[]}
+   */
+  static getPreferredLanguages() {
+    if (TranslationsParent.#preferredLanguages) {
+      return TranslationsParent.#preferredLanguages;
+    }
+
+    if (!TranslationsParent.#observingLanguages) {
+      Services.obs.addObserver(
+        TranslationsParent.#resetPreferredLanguages,
+        "intl:app-locales-changed"
+      );
+      Services.prefs.addObserver(
+        "intl.accept_languages",
+        TranslationsParent.#resetPreferredLanguages
+      );
+      TranslationsParent.#observingLanguages = true;
+    }
+
+    // The "Accept-Language" values that the localizer or user has indicated for
+    // the preferences for the web. https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language
+    // Note that this preference often falls back ultimately to English, even if the
+    // user doesn't actually speak English, or to other languages they do not speak.
+    // However, this preference will be used as an indication that a user may prefer
+    // this language.
+    const webLanguages = Services.prefs
+      .getComplexValue("intl.accept_languages", Ci.nsIPrefLocalizedString)
+      .data.split(/\s*,\s*/g);
+
+    // The system language could also be a good option for a language to offer the user.
+    const osPrefs = Cc["@mozilla.org/intl/ospreferences;1"].getService(
+      Ci.mozIOSPreferences
+    );
+    const systemLocales = this.mockedSystemLocales ?? osPrefs.systemLocales;
+
+    // Combine the locales together.
+    const preferredLocales = new Set([
+      ...Services.locale.appLocalesAsBCP47,
+      ...webLanguages,
+      ...systemLocales,
+    ]);
+
+    // Attempt to convert the locales to lang tags. Do not completely trust the
+    // values coming from preferences and the OS to have been validated as correct
+    // BCP 47 locale identifiers.
+    const langTags = new Set();
+    for (const locale of preferredLocales) {
+      try {
+        langTags.add(new Intl.Locale(locale).language);
+      } catch (_) {
+        // The locale was invalid, discard it.
+      }
+    }
+
+    // Convert the Set to an array to indicate that it is an ordered listing of languages.
+    TranslationsParent.#preferredLanguages = [...langTags];
+
+    return TranslationsParent.#preferredLanguages;
   }
 
   async receiveMessage({ name, data }) {
@@ -343,6 +470,9 @@ export class TranslationsParent extends JSWindowActorParent {
       case "Translations:GetLanguagePairs": {
         return this.getLanguagePairs();
       }
+      case "Translations:GetPreferredLanguages": {
+        return TranslationsParent.getPreferredLanguages();
+      }
       case "Translations:EngineIsReady": {
         this.isEngineReady = true;
         this.languageState.isEngineReady = true;
@@ -356,10 +486,10 @@ export class TranslationsParent extends JSWindowActorParent {
           TranslationsParent.shouldNeverTranslateLanguage(data.docLangTag) ||
           (await this.shouldNeverTranslateSite());
 
-        if (maybeAutoTranslate) {
+        if (maybeAutoTranslate && !maybeNeverTranslate) {
           this.languageState.requestedTranslationPair = {
             fromLanguage: data.docLangTag,
-            toLanguage: data.appLangTag,
+            toLanguage: data.userLangTag,
           };
         }
 
@@ -431,7 +561,7 @@ export class TranslationsParent extends JSWindowActorParent {
     }
     const [modelRecord] = modelRecords;
 
-    await chaosModeError(1 / 3);
+    await chaosMode(1 / 3);
 
     /** @type {{buffer: ArrayBuffer}} */
     const { buffer } = await client.attachments.download(modelRecord);
@@ -456,7 +586,6 @@ export class TranslationsParent extends JSWindowActorParent {
 
     /** @type {RemoteSettingsClient} */
     const client = lazy.RemoteSettings("translations-identification-models");
-    bypassSignatureVerificationIfDev(client);
 
     TranslationsParent.#languageIdModelsRemoteClient = client;
     return client;
@@ -501,7 +630,7 @@ export class TranslationsParent extends JSWindowActorParent {
     // this will be running in the parent process. It's not worth holding onto
     // this much memory, so reload it every time it is needed.
 
-    await chaosModeError(1 / 3);
+    await chaosMode(1 / 3);
 
     /** @type {{buffer: ArrayBuffer}} */
     const { buffer } = await client.attachments.download(wasmRecords[0]);
@@ -512,25 +641,6 @@ export class TranslationsParent extends JSWindowActorParent {
     );
 
     return buffer;
-  }
-
-  /**
-   * For testing purposes, the LanguageIdEngine can be mocked to always return
-   * a pre-determined language tag and confidence value.
-   *
-   * @returns {LanguageIdEngineMockedPayload | null}
-   */
-  #getLanguageIdEngineMockedPayload() {
-    if (
-      !TranslationsParent.#mockedLangTag ||
-      !TranslationsParent.#mockedLanguageIdConfidence
-    ) {
-      return null;
-    }
-    return {
-      langTag: TranslationsParent.#mockedLangTag,
-      confidence: TranslationsParent.#mockedLanguageIdConfidence,
-    };
   }
 
   /**
@@ -650,8 +760,6 @@ export class TranslationsParent extends JSWindowActorParent {
     /** @type {RemoteSettingsClient} */
     const client = lazy.RemoteSettings("translations-models");
     TranslationsParent.#translationModelsRemoteClient = client;
-
-    bypassSignatureVerificationIfDev(client);
 
     client.on("sync", async ({ data: { created, updated, deleted } }) => {
       // Language model attachments will only be downloaded when they are used.
@@ -885,8 +993,6 @@ export class TranslationsParent extends JSWindowActorParent {
     const client = lazy.RemoteSettings("translations-wasm");
 
     TranslationsParent.#translationsWasmRemoteClient = client;
-
-    bypassSignatureVerificationIfDev(client);
 
     client.on("sync", async ({ data: { created, updated, deleted } }) => {
       lazy.console.log(`"sync" event for remote bergamot wasm `, {
@@ -1186,7 +1292,7 @@ export class TranslationsParent extends JSWindowActorParent {
 
         // Download or retrieve from the local cache:
 
-        await chaosModeError(1 / 3);
+        await chaosMode(1 / 3);
 
         /** @type {{buffer: ArrayBuffer }} */
         const { buffer } = await client.attachments.download(record);
@@ -1391,7 +1497,7 @@ export class TranslationsParent extends JSWindowActorParent {
   /**
    * Returns the lang tags that should be offered for translation.
    *
-   * @returns {Promise<null | { appLangTag: string, docLangTag: string }>}
+   * @returns {Promise<LangTags>}
    */
   getLangTagsForTranslation() {
     return this.sendQuery("Translations:GetLangTagsForTranslation");
@@ -1487,19 +1593,17 @@ export class TranslationsParent extends JSWindowActorParent {
    * to the pref list if it is not present, or removing it if it is present.
    *
    * @param {string} langTag - A BCP-47 language tag
-   * @returns {boolean} Whether the pref was toggled on for the langTag
    */
   static toggleAlwaysTranslateLanguagePref(langTag) {
     if (TranslationsParent.shouldAlwaysTranslateLanguage(langTag)) {
       // The pref was toggled off for this langTag
       this.#removeLangTagFromPref(langTag, ALWAYS_TRANSLATE_LANGS_PREF);
-      return false;
+      return;
     }
 
     // The pref was toggled on for this langTag
     this.#addLangTagToPref(langTag, ALWAYS_TRANSLATE_LANGS_PREF);
     this.#removeLangTagFromPref(langTag, NEVER_TRANSLATE_LANGS_PREF);
-    return true;
   }
 
   /**
@@ -1537,29 +1641,6 @@ export class TranslationsParent extends JSWindowActorParent {
         perms.DENY_ACTION
       );
     }
-  }
-}
-
-/**
- * The signature verification can break on the Dev server. Bypass it to ensure new
- * language models can always be tested. On Prod and Staging the signatures will
- * always be verified.
- *
- * @param {RemoteSettingsClient} client
- */
-function bypassSignatureVerificationIfDev(client) {
-  let host;
-  try {
-    const url = new URL(Services.prefs.getCharPref("services.settings.server"));
-    host = url.host;
-  } catch (error) {}
-
-  if (host === "remote-settings-dev.allizom.org") {
-    console.warn(
-      "The translations is set to the Remote Settings dev server. It's bypassing " +
-        "the signature verification."
-    );
-    client.verifySignature = false;
   }
 }
 
@@ -1608,7 +1689,7 @@ class TranslationsLanguageState {
   /** @type {TranslationPair | null} */
   #requestedTranslationPair = null;
 
-  /** @type {DetectedLanguages | null} */
+  /** @type {LangTags | null} */
   #detectedLanguages = null;
 
   /** @type {number} */
@@ -1668,7 +1749,7 @@ class TranslationsLanguageState {
    * The TranslationsChild will detect languages and offer them up for translation.
    * The results are stored here.
    *
-   * @returns {DetectedLanguages | null}
+   * @returns {LangTags | null}
    */
   get detectedLanguages() {
     return this.#detectedLanguages;
@@ -1847,12 +1928,8 @@ async function chaosMode(probability = 0.5) {
  *  - browser.translations.chaos.timeoutMS
  */
 async function chaosModeTimer() {
-  /** @type {number} */
-  const timeoutLimit = Services.prefs.getIntPref(
-    "browser.translations.chaos.timeoutMS"
-  );
-  if (timeoutLimit) {
-    const timeout = Math.random() * timeoutLimit;
+  if (lazy.chaosTimeoutMSPref) {
+    const timeout = Math.random() * lazy.chaosTimeoutMSPref;
     lazy.console.log(
       `Chaos mode timer started for ${(timeout / 1000).toFixed(1)} seconds.`
     );
@@ -1867,10 +1944,7 @@ async function chaosModeTimer() {
  *  - browser.translations.chaos.errors
  */
 async function chaosModeError(probability = 0.5) {
-  if (
-    Services.prefs.getBoolPref("browser.translations.chaos.errors") &&
-    Math.random() < probability
-  ) {
+  if (lazy.chaosErrorsPref && Math.random() < probability) {
     lazy.console.trace(`Chaos mode error generated.`);
     throw new Error(
       `Chaos Mode error from the pref "browser.translations.chaos.errors".`

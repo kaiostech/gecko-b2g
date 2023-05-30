@@ -121,7 +121,6 @@
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPrefs_page_load.h"
-#include "mozilla/StaticPrefs_plugins.h"
 #include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/StaticPrefs_widget.h"
@@ -251,7 +250,6 @@
 #include "mozilla/ipc/IdleSchedulerChild.h"
 #include "mozilla/ipc/MessageChannel.h"
 #include "mozilla/net/ChannelEventQueue.h"
-#include "mozilla/net/ChildDNSService.h"
 #include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/net/NeckoChannelParams.h"
 #include "mozilla/net/RequestContextService.h"
@@ -327,6 +325,7 @@
 #include "nsIDocumentLoader.h"
 #include "nsIDocumentLoaderFactory.h"
 #include "nsIDocumentObserver.h"
+#include "nsIDNSService.h"
 #include "nsIEditingSession.h"
 #include "nsIEditor.h"
 #include "nsIEffectiveTLDService.h"
@@ -2057,6 +2056,9 @@ void Document::AccumulatePageLoadTelemetry(
     return;
   }
 
+  // Default duration is 0, use this to check for bogus negative values.
+  const TimeDuration zeroDuration;
+
   TimeStamp responseStart;
   timedChannel->GetResponseStart(&responseStart);
 
@@ -2072,8 +2074,23 @@ void Document::AccumulatePageLoadTelemetry(
   }
 
   if (!redirectStart.IsNull() && !redirectEnd.IsNull()) {
-    aEventTelemetryDataOut.redirectTime = mozilla::Some(
-        static_cast<uint32_t>((redirectEnd - redirectStart).ToMilliseconds()));
+    TimeDuration redirectTime = redirectEnd - redirectStart;
+    if (redirectTime > zeroDuration) {
+      aEventTelemetryDataOut.redirectTime =
+          mozilla::Some(static_cast<uint32_t>(redirectTime.ToMilliseconds()));
+    }
+  }
+
+  TimeStamp dnsLookupStart, dnsLookupEnd;
+  timedChannel->GetDomainLookupStart(&dnsLookupStart);
+  timedChannel->GetDomainLookupEnd(&dnsLookupEnd);
+
+  if (!dnsLookupStart.IsNull() && !dnsLookupEnd.IsNull()) {
+    TimeDuration dnsLookupTime = dnsLookupEnd - dnsLookupStart;
+    if (dnsLookupTime > zeroDuration) {
+      aEventTelemetryDataOut.dnsLookupTime =
+          mozilla::Some(static_cast<uint32_t>(dnsLookupTime.ToMilliseconds()));
+    }
   }
 
   TimeStamp navigationStart =
@@ -2093,9 +2110,13 @@ void Document::AccumulatePageLoadTelemetry(
     bool resolvedByTRR = false;
     Unused << httpChannel->GetIsResolvedByTRR(&resolvedByTRR);
     if (resolvedByTRR) {
-      RefPtr<net::ChildDNSService> dnsServiceChild =
-          net::ChildDNSService::GetSingleton();
-      dnsServiceChild->GetTRRDomainKey(dnsKey);
+      if (nsCOMPtr<nsIDNSService> dns =
+              do_GetService(NS_DNSSERVICE_CONTRACTID)) {
+        dns->GetTRRDomainKey(dnsKey);
+      } else {
+        // Failed to get the DNS service.
+        dnsKey = "(fail)"_ns;
+      }
       aEventTelemetryDataOut.trrDomain = mozilla::Some(dnsKey);
     }
 
@@ -2177,8 +2198,11 @@ void Document::AccumulatePageLoadTelemetry(
         Telemetry::PERF_FIRST_CONTENTFUL_PAINT_FROM_RESPONSESTART_MS,
         responseStart, firstContentfulComposite);
 
-    aEventTelemetryDataOut.fcpTime = mozilla::Some(static_cast<uint32_t>(
-        (firstContentfulComposite - navigationStart).ToMilliseconds()));
+    TimeDuration fcpTime = firstContentfulComposite - navigationStart;
+    if (fcpTime > zeroDuration) {
+      aEventTelemetryDataOut.fcpTime =
+          mozilla::Some(static_cast<uint32_t>(fcpTime.ToMilliseconds()));
+    }
   }
 
   // DOM Content Loaded event
@@ -2217,10 +2241,17 @@ void Document::AccumulatePageLoadTelemetry(
         Telemetry::PERF_PAGE_LOAD_TIME_FROM_RESPONSESTART_MS, responseStart,
         loadEventStart);
 
-    aEventTelemetryDataOut.responseTime = mozilla::Some(static_cast<uint32_t>(
-        (responseStart - navigationStart).ToMilliseconds()));
-    aEventTelemetryDataOut.loadTime = mozilla::Some(static_cast<uint32_t>(
-        (loadEventStart - navigationStart).ToMilliseconds()));
+    TimeDuration responseTime = responseStart - navigationStart;
+    if (responseTime > zeroDuration) {
+      aEventTelemetryDataOut.responseTime =
+          mozilla::Some(static_cast<uint32_t>(responseTime.ToMilliseconds()));
+    }
+
+    TimeDuration loadTime = loadEventStart - navigationStart;
+    if (loadTime > zeroDuration) {
+      aEventTelemetryDataOut.loadTime =
+          mozilla::Some(static_cast<uint32_t>(loadTime.ToMilliseconds()));
+    }
   }
 }
 

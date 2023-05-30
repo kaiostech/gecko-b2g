@@ -1290,10 +1290,6 @@ def compiler(
         if info.type == "clang" and language == "C++" and host_or_target.os == "OSX":
             flags.append("-stdlib=libc++")
 
-        # Suppress Clang Argument Warnings
-        if info.type in ("clang", "clang-cl"):
-            flags.append("-Qunused-arguments")
-
         # Check that the additional flags we got are enough to not require any
         # more flags. If we get an exception, just ignore it; it's liable to be
         # invalid command-line flags, which means the compiler we're checking
@@ -1383,9 +1379,9 @@ def compiler(
                     flags.extend(("-isystem", os.path.join(sysroot.path, path)))
 
         if info.type == "clang-cl":
-            if info.version < "8.0.0":
+            if info.version < "9.0.0":
                 raise FatalCheckError(
-                    "Only clang-cl 8.0 or newer is supported (found version %s)"
+                    "Only clang-cl 9.0 or newer is supported (found version %s)"
                     % info.version
                 )
             if winsysroot and host.os != "WINNT":

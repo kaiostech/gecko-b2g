@@ -92,6 +92,7 @@ export class UAWidgetsChild extends JSWindowActorChild {
           "media.videocontrols.keyboard-tab-to-all-controls",
           "media.videocontrols.keyboard-enter-to-toggle-pause",
           "media.videocontrols.volume-control-override",
+          "media.videocontrols.picture-in-picture.respect-disablePictureInPicture",
         ];
         break;
       case "input":

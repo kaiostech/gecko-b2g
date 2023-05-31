@@ -25,8 +25,8 @@ use crate::values::specified::{Angle, NonNegativePercentage};
 #[cfg(feature = "gecko")]
 use cssparser::UnicodeRange;
 use cssparser::{
-    AtRuleParser, CowRcStr, RuleBodyParser, RuleBodyItemParser, DeclarationParser, Parser,
-    QualifiedRuleParser, SourceLocation,
+    AtRuleParser, CowRcStr, DeclarationParser, Parser, QualifiedRuleParser, RuleBodyItemParser,
+    RuleBodyParser, SourceLocation,
 };
 use selectors::parser::SelectorParseErrorKind;
 use std::fmt::{self, Write};
@@ -97,7 +97,7 @@ pub enum FontFaceSourceFormatKeyword {
 bitflags! {
     /// Flags for the @font-face tech() function, indicating font technologies
     /// required by the resource.
-    #[derive(ToShmem)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, ToShmem)]
     #[repr(C)]
     pub struct FontFaceSourceTechFlags: u16 {
         /// Font requires OpenType feature support.
@@ -549,9 +549,15 @@ impl<'a, 'b, 'i> QualifiedRuleParser<'i> for FontFaceRuleParser<'a, 'b> {
     type Error = StyleParseErrorKind<'i>;
 }
 
-impl<'a, 'b, 'i> RuleBodyItemParser<'i, (), StyleParseErrorKind<'i>> for FontFaceRuleParser<'a, 'b> {
-    fn parse_qualified(&self) -> bool { false }
-    fn parse_declarations(&self) -> bool { true }
+impl<'a, 'b, 'i> RuleBodyItemParser<'i, (), StyleParseErrorKind<'i>>
+    for FontFaceRuleParser<'a, 'b>
+{
+    fn parse_qualified(&self) -> bool {
+        false
+    }
+    fn parse_declarations(&self) -> bool {
+        true
+    }
 }
 
 impl Parse for Source {

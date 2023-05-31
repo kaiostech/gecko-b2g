@@ -78,6 +78,7 @@ fn to_ascii_lowercase(s: &str) -> Cow<str> {
 
 bitflags! {
     /// Flags that indicate at which point of parsing a selector are we.
+    #[derive(Copy, Clone)]
     struct SelectorParsingState: u8 {
         /// Whether we should avoid adding default namespaces to selectors that
         /// aren't type or universal selectors.
@@ -643,10 +644,13 @@ impl<Impl: SelectorImpl> Selector<Impl> {
     }
 
     fn ampersand() -> Self {
-        Self(ThinArc::from_header_and_iter(SpecificityAndFlags {
-            specificity: 0,
-            flags: SelectorFlags::HAS_PARENT,
-        }, std::iter::once(Component::ParentSelector)))
+        Self(ThinArc::from_header_and_iter(
+            SpecificityAndFlags {
+                specificity: 0,
+                flags: SelectorFlags::HAS_PARENT,
+            },
+            std::iter::once(Component::ParentSelector),
+        ))
     }
 
     #[inline]
@@ -962,8 +966,12 @@ impl<Impl: SelectorImpl> Selector<Impl> {
             specificity += parent_specificity;
             let iter = iter
                 .cloned()
-                .chain(std::iter::once(Component::Combinator(Combinator::Descendant)))
-                .chain(std::iter::once(Component::Is(parent.to_vec().into_boxed_slice())));
+                .chain(std::iter::once(Component::Combinator(
+                    Combinator::Descendant,
+                )))
+                .chain(std::iter::once(Component::Is(
+                    parent.to_vec().into_boxed_slice(),
+                )));
             let header = HeaderWithLength::new(specificity_and_flags, len);
             UniqueArc::from_header_and_iter_with_size(header, iter, len)
         } else {
@@ -1506,6 +1514,7 @@ pub struct RelativeSelector<Impl: SelectorImpl> {
 
 bitflags! {
     /// Composition of combinators in a given selector, not traversing selectors of pseudoclasses.
+    #[derive(Clone, Debug, Eq, PartialEq)]
     struct CombinatorComposition: u8 {
         const DESCENDANTS = 1 << 0;
         const SIBLINGS = 1 << 1;
@@ -1518,10 +1527,10 @@ impl CombinatorComposition {
         for combinator in CombinatorIter::new(inner_selector.iter_skip_relative_selector_anchor()) {
             match combinator {
                 Combinator::Descendant | Combinator::Child => {
-                    result.insert(CombinatorComposition::DESCENDANTS);
+                    result.insert(Self::DESCENDANTS);
                 },
                 Combinator::NextSibling | Combinator::LaterSibling => {
-                    result.insert(CombinatorComposition::SIBLINGS);
+                    result.insert(Self::SIBLINGS);
                 },
                 Combinator::Part | Combinator::PseudoElement | Combinator::SlotAssignment => {
                     continue
@@ -4063,25 +4072,19 @@ pub mod tests {
         let parent = parse(".bar, div .baz").unwrap();
         let child = parse("#foo &.bar").unwrap();
         assert_eq!(
-            SelectorList::from_vec(vec![child.0[0]
-                .replace_parent_selector(&parent.0)
-            ]),
+            SelectorList::from_vec(vec![child.0[0].replace_parent_selector(&parent.0)]),
             parse("#foo :is(.bar, div .baz).bar").unwrap()
         );
 
         let has_child = parse("#foo:has(&.bar)").unwrap();
         assert_eq!(
-            SelectorList::from_vec(vec![has_child.0[0]
-                .replace_parent_selector(&parent.0)
-                ]),
+            SelectorList::from_vec(vec![has_child.0[0].replace_parent_selector(&parent.0)]),
             parse("#foo:has(:is(.bar, div .baz).bar)").unwrap()
         );
 
         let child = parse("#foo").unwrap();
         assert_eq!(
-            SelectorList::from_vec(vec![child.0[0]
-                .replace_parent_selector(&parent.0)
-                ]),
+            SelectorList::from_vec(vec![child.0[0].replace_parent_selector(&parent.0)]),
             parse(":is(.bar, div .baz) #foo").unwrap()
         );
     }

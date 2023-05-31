@@ -3363,6 +3363,8 @@ void nsGenericHTMLElement::ShowPopover(ErrorResult& aRv) {
     return;
   }
 
+  bool shouldRestoreFocus = false;
+  nsWeakPtr originallyFocusedElement;
   if (IsAutoPopover()) {
     RefPtr<Element> ancestor = GetTopmostPopoverAncestor();
     if (!ancestor) {
@@ -3376,16 +3378,15 @@ void nsGenericHTMLElement::ShowPopover(ErrorResult& aRv) {
         !CheckPopoverValidity(PopoverVisibilityState::Hidden, document, aRv)) {
       return;
     }
-  }
 
-  const bool shouldRestoreFocus = !document->GetTopmostAutoPopover();
-  // Let originallyFocusedElement be document's focused area of the document's
-  // DOM anchor.
-  nsWeakPtr originallyFocusedElement;
-  if (nsIContent* unretargetedFocus =
-          document->GetUnretargetedFocusedContent()) {
-    originallyFocusedElement =
-        do_GetWeakReference(unretargetedFocus->AsElement());
+    shouldRestoreFocus = !document->GetTopmostAutoPopover();
+    // Let originallyFocusedElement be document's focused area of the document's
+    // DOM anchor.
+    if (nsIContent* unretargetedFocus =
+            document->GetUnretargetedFocusedContent()) {
+      originallyFocusedElement =
+          do_GetWeakReference(unretargetedFocus->AsElement());
+    }
   }
 
   document->AddPopoverToTopLayer(*this);
@@ -3457,6 +3458,10 @@ void nsGenericHTMLElement::TogglePopover(const Optional<bool>& aForce,
 
 // https://html.spec.whatwg.org/multipage/popover.html#popover-focusing-steps
 void nsGenericHTMLElement::FocusPopover() {
+  if (RefPtr<Document> doc = GetComposedDoc()) {
+    doc->FlushPendingNotifications(FlushType::Frames);
+  }
+
   // This diverges from the spec a bit,
   // see https://github.com/whatwg/html/pull/8998
   RefPtr<Element> control =

@@ -821,6 +821,13 @@ void nsWindow::RegisterTouchWindow() {
   mTouches.Clear();
 }
 
+LayoutDeviceIntPoint nsWindow::GetScreenEdgeSlop() {
+  if (DrawsToCSDTitlebar()) {
+    return GetClientOffset();
+  }
+  return {};
+}
+
 void nsWindow::ConstrainPosition(DesktopIntPoint& aPoint) {
   if (!mShell || GdkIsWaylandDisplay()) {
     return;
@@ -852,10 +859,12 @@ void nsWindow::ConstrainPosition(DesktopIntPoint& aPoint) {
   DesktopIntRect screenRect = mSizeMode == nsSizeMode_Fullscreen
                                   ? screen->GetRectDisplayPix()
                                   : screen->GetAvailRectDisplayPix();
+
   // Expand for the decoration size if needed.
-  if (DrawsToCSDTitlebar()) {
-    screenRect.Inflate(mClientOffset.x, mClientOffset.y);
-  }
+  auto slop =
+      DesktopIntPoint::Round(GetScreenEdgeSlop() / GetDesktopToDeviceScale());
+  screenRect.Inflate(slop.x, slop.y);
+
   if (aPoint.x < screenRect.x) {
     aPoint.x = screenRect.x;
   } else if (aPoint.x >= screenRect.XMost() - logWidth) {

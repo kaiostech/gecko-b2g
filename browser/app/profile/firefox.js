@@ -2166,6 +2166,7 @@ pref("dom.ipc.processPrelaunch.enabled", false);
 pref("dom.ipc.processPrelaunch.enabled", true);
 #endif
 
+pref("browser.migrate.bookmarks-file.enabled", true);
 pref("browser.migrate.brave.enabled", true);
 pref("browser.migrate.canary.enabled", true);
 
@@ -2591,6 +2592,7 @@ pref("devtools.netmonitor.har.compress", false);
 pref("devtools.netmonitor.har.forceExport", false);
 pref("devtools.netmonitor.har.pageLoadedTimeout", 1500);
 pref("devtools.netmonitor.har.enableAutoExportToFile", false);
+pref("devtools.netmonitor.har.multiple-pages", false);
 
 // netmonitor audit
 pref("devtools.netmonitor.audits.slow", 500);

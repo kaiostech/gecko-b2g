@@ -4506,7 +4506,7 @@
 # Whether to shim a Components object on untrusted windows.
 - name: dom.use_components_shim
   type: bool
-  value: false
+  value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.vibrator.enabled
@@ -6878,13 +6878,6 @@
     value: false
     mirror: once
 #endif
-  # Whether to apply a mitigation disabling DirectComposition for NVIDIA users
-  # with mixed monitor refresh rates. (This mitigation induces bug 1763981 on
-  # some devices.)
--   name: gfx.webrender.dcomp-apply-1704954
-    type: bool
-    value: true
-    mirror: once
 
 # Whether or not fallback to Software WebRender requires the GPU process.
 - name: gfx.webrender.fallback.software.requires-gpu-process

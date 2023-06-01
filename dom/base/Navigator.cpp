@@ -434,7 +434,8 @@ void Navigator::GetOscpu(nsAString& aOSCPU, CallerType aCallerType,
   if (aCallerType != CallerType::System) {
     // If fingerprinting resistance is on, we will spoof this value. See
     // nsRFPService.h for details about spoofed values.
-    if (nsContentUtils::ShouldResistFingerprinting(GetDocShell())) {
+    if (nsContentUtils::ShouldResistFingerprinting(GetDocShell(),
+                                                   RFPTarget::NavigatorOscpu)) {
       aOSCPU.AssignLiteral(SPOOFED_OSCPU);
       return;
     }
@@ -503,7 +504,8 @@ bool Navigator::PdfViewerEnabled() {
   // We ignore pdfjs.disabled when resisting fingerprinting.
   // See bug 1756280 for an explanation.
   return !StaticPrefs::pdfjs_disabled() ||
-         nsContentUtils::ShouldResistFingerprinting(GetDocShell());
+         nsContentUtils::ShouldResistFingerprinting(GetDocShell(),
+                                                    RFPTarget::Unknown);
 }
 
 Permissions* Navigator::GetPermissions(ErrorResult& aRv) {
@@ -582,7 +584,8 @@ void Navigator::GetBuildID(nsAString& aBuildID, CallerType aCallerType,
   if (aCallerType != CallerType::System) {
     // If fingerprinting resistance is on, we will spoof this value. See
     // nsRFPService.h for details about spoofed values.
-    if (nsContentUtils::ShouldResistFingerprinting(GetDocShell())) {
+    if (nsContentUtils::ShouldResistFingerprinting(
+            GetDocShell(), RFPTarget::NavigatorBuildID)) {
       aBuildID.AssignLiteral(LEGACY_BUILD_ID);
       return;
     }
@@ -661,7 +664,8 @@ uint64_t Navigator::HardwareConcurrency() {
   }
 
   return rts->ClampedHardwareConcurrency(
-      nsGlobalWindowInner::Cast(mWindow)->ShouldResistFingerprinting());
+      nsGlobalWindowInner::Cast(mWindow)->ShouldResistFingerprinting(
+          RFPTarget::NavigatorHWConcurrency));
 }
 
 namespace {
@@ -876,7 +880,8 @@ uint32_t Navigator::MaxTouchPoints(CallerType aCallerType) {
   // The maxTouchPoints is going to reveal the detail of users' hardware. So,
   // we will spoof it into 0 if fingerprinting resistance is on.
   if (aCallerType != CallerType::System &&
-      nsContentUtils::ShouldResistFingerprinting(GetDocShell())) {
+      nsContentUtils::ShouldResistFingerprinting(GetDocShell(),
+                                                 RFPTarget::Unknown)) {
     return 0;
   }
 
@@ -1598,9 +1603,10 @@ void Navigator::ValidateShareData(const ShareData& aData, ErrorResult& aRv) {
   }
 }
 
-static bool ShouldResistFingerprinting(const Document* aDoc) {
-  return aDoc ? aDoc->ShouldResistFingerprinting()
-              : nsContentUtils::ShouldResistFingerprinting("Fallback");
+static bool ShouldResistFingerprinting(const Document* aDoc,
+                                       RFPTarget aTarget) {
+  return aDoc ? aDoc->ShouldResistFingerprinting(aTarget)
+              : nsContentUtils::ShouldResistFingerprinting("Fallback", aTarget);
 }
 
 already_AddRefed<LegacyMozTCPSocket> Navigator::MozTCPSocket() {
@@ -1974,7 +1980,7 @@ nsresult Navigator::GetPlatform(nsAString& aPlatform, Document* aCallerDoc,
   if (aUsePrefOverriddenValue) {
     // If fingerprinting resistance is on, we will spoof this value. See
     // nsRFPService.h for details about spoofed values.
-    if (ShouldResistFingerprinting(aCallerDoc)) {
+    if (ShouldResistFingerprinting(aCallerDoc, RFPTarget::NavigatorPlatform)) {
       aPlatform.AssignLiteral(SPOOFED_PLATFORM);
       return NS_OK;
     }
@@ -2017,7 +2023,8 @@ nsresult Navigator::GetAppVersion(nsAString& aAppVersion, Document* aCallerDoc,
   if (aUsePrefOverriddenValue) {
     // If fingerprinting resistance is on, we will spoof this value. See
     // nsRFPService.h for details about spoofed values.
-    if (ShouldResistFingerprinting(aCallerDoc)) {
+    if (ShouldResistFingerprinting(aCallerDoc,
+                                   RFPTarget::NavigatorAppVersion)) {
       aAppVersion.AssignLiteral(SPOOFED_APPVERSION);
       return NS_OK;
     }
@@ -2061,7 +2068,7 @@ void Navigator::AppName(nsAString& aAppName, Document* aCallerDoc,
   if (aUsePrefOverriddenValue) {
     // If fingerprinting resistance is on, we will spoof this value. See
     // nsRFPService.h for details about spoofed values.
-    if (ShouldResistFingerprinting(aCallerDoc)) {
+    if (ShouldResistFingerprinting(aCallerDoc, RFPTarget::NavigatorAppName)) {
       aAppName.AssignLiteral(SPOOFED_APPNAME);
       return;
     }
@@ -2106,7 +2113,8 @@ nsresult Navigator::GetUserAgent(nsPIDOMWindowInner* aWindow,
   bool shouldResistFingerprinting =
       aShouldResistFingerprinting.isSome()
           ? aShouldResistFingerprinting.value()
-          : ShouldResistFingerprinting(aCallerDoc);
+          : ShouldResistFingerprinting(aCallerDoc,
+                                       RFPTarget::NavigatorUserAgent);
 
   // We will skip the override and pass to httpHandler to get spoofed userAgent
   // when 'privacy.resistFingerprinting' is true.

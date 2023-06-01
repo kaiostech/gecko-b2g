@@ -875,7 +875,6 @@ pref("dom.popup_allowed_events", "change click dblclick auxclick mousedown mouse
 
 pref("dom.serviceWorkers.disable_open_click_delay", 1000);
 
-pref("dom.storage.enabled", true);
 pref("dom.storage.shadow_writes", false);
 pref("dom.storage.snapshot_prefill", 16384);
 pref("dom.storage.snapshot_gradual_prefill", 4096);
@@ -4124,8 +4123,8 @@ pref("devtools.remote.adb.extensionURL", "https://ftp.mozilla.org/pub/labs/devto
 // Enable Inactive CSS detection; used both by the client and the server.
 pref("devtools.inspector.inactive.css.enabled", true);
 
-// The F12 experiment aims at disabling f12 on selected profiles.
-pref("devtools.experiment.f12.shortcut_disabled", false);
+// Should F12 open the Developer Tools toolbox.
+pref("devtools.f12_enabled", true);
 
 #if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
 // Define in StaticPrefList.yaml and override here since StaticPrefList.yaml

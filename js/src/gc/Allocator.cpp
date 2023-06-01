@@ -30,7 +30,19 @@ using mozilla::TimeDuration;
 using mozilla::TimeStamp;
 
 using namespace js;
-using namespace gc;
+using namespace js::gc;
+
+// Return a Heap value that can be compared numerically with an
+// allocation's requested heap to determine whether to allocate in the nursery
+// or the tenured heap.
+//
+// If nursery allocation is allowed this returns Heap::Tenured, meaning only
+// Heap::Tenured allocations will be tenured. If nursery allocation is not
+// allowed this returns Heap::Default, meaning all allocations are tenured.
+static Heap MinHeapToTenure(bool allowNurseryAlloc) {
+  static_assert(Heap::Tenured > Heap::Default);
+  return allowNurseryAlloc ? Heap::Tenured : Heap::Default;
+}
 
 void Zone::updateNurseryAllocFlags(const Nursery& nursery) {
   allocNurseryObjects_ = nursery.isEnabled();
@@ -38,18 +50,22 @@ void Zone::updateNurseryAllocFlags(const Nursery& nursery) {
                          !nurseryStringsDisabled;
   allocNurseryBigInts_ = nursery.isEnabled() && nursery.canAllocateBigInts() &&
                          !nurseryBigIntsDisabled;
+
+  minObjectHeapToTenure_ = MinHeapToTenure(allocNurseryObjects());
+  minStringHeapToTenure_ = MinHeapToTenure(allocNurseryStrings());
+  minBigintHeapToTenure_ = MinHeapToTenure(allocNurseryBigInts());
 }
 
 template <JS::TraceKind traceKind, AllowGC allowGC /* = CanGC */>
 void* gc::CellAllocator::AllocNurseryOrTenuredCell(JSContext* cx,
                                                    AllocKind allocKind,
-                                                   gc::InitialHeap heap,
+                                                   gc::Heap heap,
                                                    AllocSite* site) {
   MOZ_ASSERT(!cx->isHelperThreadContext());
-  MOZ_ASSERT_IF(heap != gc::TenuredHeap, IsNurseryAllocable(allocKind));
+  MOZ_ASSERT_IF(heap != gc::Heap::Tenured, IsNurseryAllocable(allocKind));
   MOZ_ASSERT(MapAllocToTraceKind(allocKind) == traceKind);
-  MOZ_ASSERT_IF(site && site->initialHeap() == TenuredHeap,
-                heap == TenuredHeap);
+  MOZ_ASSERT_IF(site && site->initialHeap() == Heap::Tenured,
+                heap == Heap::Tenured);
 
   size_t thingSize = Arena::thingSize(allocKind);
 
@@ -58,7 +74,7 @@ void* gc::CellAllocator::AllocNurseryOrTenuredCell(JSContext* cx,
     return nullptr;
   }
 
-  if (heap != TenuredHeap && cx->zone()->allocKindInNursery(traceKind)) {
+  if (heap < cx->zone()->minHeapToTenure(traceKind)) {
     if (!site) {
       site = cx->zone()->unknownAllocSite(traceKind);
     }
@@ -85,7 +101,7 @@ void* gc::CellAllocator::AllocNurseryOrTenuredCell(JSContext* cx,
 #define INSTANTIATE_ALLOC_NURSERY_CELL(traceKind, allowGc)          \
   template void*                                                    \
   gc::CellAllocator::AllocNurseryOrTenuredCell<traceKind, allowGc>( \
-      JSContext*, AllocKind, gc::InitialHeap, AllocSite*);
+      JSContext*, AllocKind, gc::Heap, AllocSite*);
 INSTANTIATE_ALLOC_NURSERY_CELL(JS::TraceKind::Object, NoGC)
 INSTANTIATE_ALLOC_NURSERY_CELL(JS::TraceKind::Object, CanGC)
 INSTANTIATE_ALLOC_NURSERY_CELL(JS::TraceKind::String, NoGC)

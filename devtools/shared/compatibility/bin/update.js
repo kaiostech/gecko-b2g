@@ -12,23 +12,22 @@
 // The MDN compatibility data is available as a node package ("@mdn/browser-compat-data"),
 // which is used here to update `../dataset/css-properties.json`.
 
-/* global __dirname */
+/* eslint-disable mozilla/reject-relative-requires */
 
 "use strict";
 
 const compatData = require("@mdn/browser-compat-data");
 const { properties } = compatData.css;
 
-globalThis.loader = { lazyRequireGetter: () => {} };
-// eslint-disable-next-line mozilla/reject-relative-requires
-const MDNCompatibility = require("../../../server/actors/compatibility/lib/MDNCompatibility");
+const { TARGET_BROWSER_ID } = require("../constants.js");
+const { getCompatTable } = require("../helpers.js");
 
-const mdnCompatibility = new MDNCompatibility(properties);
 // Flatten all CSS properties aliases here so we don't have to do it at runtime,
 // which is costly.
-flattenAliases(mdnCompatibility._cssPropertiesCompatData);
-parseBrowserVersion(mdnCompatibility._cssPropertiesCompatData);
-exportData(mdnCompatibility._cssPropertiesCompatData, "css-properties.json");
+flattenAliases(properties);
+parseBrowserVersion(properties);
+removeUnusedData(properties);
+exportData(properties, "css-properties.json");
 
 /**
  * Builds a list of aliases between CSS properties, like flex and -webkit-flex,
@@ -42,7 +41,7 @@ function flattenAliases(compatNode) {
       continue;
     }
 
-    const compatTable = mdnCompatibility._getCompatTable(compatNode, [term]);
+    const compatTable = getCompatTable(compatNode, [term]);
     if (compatTable) {
       const aliases = findAliasesFrom(compatTable);
 
@@ -90,7 +89,7 @@ function parseBrowserVersion(compatNode) {
       continue;
     }
 
-    const compatTable = mdnCompatibility._getCompatTable(compatNode, [term]);
+    const compatTable = getCompatTable(compatNode, [term]);
     if (compatTable?.support) {
       for (const [browserId, supportItem] of Object.entries(
         compatTable.support
@@ -131,6 +130,51 @@ function asFloatVersion(version) {
   }
 
   return parseFloat(version);
+}
+
+/**
+ * Remove all unused data from the file so it's smaller and faster to load
+ */
+function removeUnusedData(compatNode) {
+  for (const term in compatNode) {
+    if (term.startsWith("_")) {
+      // Ignore exploring if the term is _aliasOf or __compat.
+      continue;
+    }
+
+    const compatTable = getCompatTable(compatNode, [term]);
+
+    // source_file references the name of the file in the MDN compat data repo where the
+    // property is handled. We don't make use of it so we can remove it.
+    delete compatTable.source_file;
+    // Not used at the moment. Doesn't seem to have much information anyway
+    delete compatTable.description;
+
+    if (compatTable?.support) {
+      for (const [browserId, supportItem] of Object.entries(
+        compatTable.support
+      )) {
+        // Remove any browser we won't handle
+        if (!TARGET_BROWSER_ID.includes(browserId)) {
+          delete compatTable.support[browserId];
+          continue;
+        }
+
+        // Remove `version_added` and `version_removed`, that are parsed in `replaceVersionsInBrowserSupport`
+        // and which we don't need anymore.
+        for (const item of supportItem) {
+          delete item.version_added;
+          delete item.version_removed;
+          // Those might be interesting, but we're not using them at the moment, so let's
+          // remove them as they can be quite lengthy
+          delete item.notes;
+        }
+      }
+    }
+
+    // Handle deeper node as well.
+    removeUnusedData(compatNode[term]);
+  }
 }
 
 function exportData(data, fileName) {

@@ -11,11 +11,9 @@ ChromeUtils.defineModuleGetter(
   "AddonManager",
   "resource://gre/modules/AddonManager.jsm"
 );
-ChromeUtils.defineModuleGetter(
-  this,
-  "ExtensionTestCommon",
-  "resource://testing-common/ExtensionTestCommon.jsm"
-);
+ChromeUtils.defineESModuleGetters(this, {
+  ExtensionTestCommon: "resource://testing-common/ExtensionTestCommon.sys.mjs",
+});
 
 const MERINO_SUGGESTIONS = [
   {
@@ -108,6 +106,7 @@ add_task(async function nonsponsoredDisabled() {
       makeExpectedResult({
         suggestion: MERINO_SUGGESTIONS[0],
         source: "merino",
+        isTopPick: true,
       }),
     ],
   });
@@ -141,6 +140,7 @@ add_task(async function addonSuggestionsSpecificPrefDisabled() {
         makeExpectedResult({
           suggestion: MERINO_SUGGESTIONS[0],
           source: "merino",
+          isTopPick: true,
         }),
       ],
     });
@@ -186,6 +186,7 @@ add_task(async function nimbus() {
       makeExpectedResult({
         suggestion: MERINO_SUGGESTIONS[0],
         source: "merino",
+        isTopPick: true,
       }),
     ],
   });
@@ -222,6 +223,7 @@ add_task(async function hideIfAlreadyInstalled() {
       makeExpectedResult({
         suggestion: MERINO_SUGGESTIONS[0],
         source: "merino",
+        isTopPick: true,
       }),
     ],
   });
@@ -256,6 +258,7 @@ add_task(async function remoteSettings() {
       expected: makeExpectedResult({
         suggestion: REMOTE_SETTINGS_RESULTS[0].attachment[0],
         source: "remote-settings",
+        isTopPick: true,
       }),
     },
     {
@@ -263,6 +266,7 @@ add_task(async function remoteSettings() {
       expected: makeExpectedResult({
         suggestion: REMOTE_SETTINGS_RESULTS[0].attachment[0],
         source: "remote-settings",
+        isTopPick: true,
       }),
     },
     {
@@ -270,6 +274,7 @@ add_task(async function remoteSettings() {
       expected: makeExpectedResult({
         suggestion: REMOTE_SETTINGS_RESULTS[0].attachment[1],
         source: "remote-settings",
+        isTopPick: false,
       }),
     },
     {
@@ -277,6 +282,7 @@ add_task(async function remoteSettings() {
       expected: makeExpectedResult({
         suggestion: REMOTE_SETTINGS_RESULTS[0].attachment[1],
         source: "remote-settings",
+        isTopPick: false,
       }),
     },
     {
@@ -284,6 +290,7 @@ add_task(async function remoteSettings() {
       expected: makeExpectedResult({
         suggestion: REMOTE_SETTINGS_RESULTS[0].attachment[2],
         source: "remote-settings",
+        isTopPick: true,
       }),
     },
     {
@@ -291,6 +298,7 @@ add_task(async function remoteSettings() {
       expected: makeExpectedResult({
         suggestion: REMOTE_SETTINGS_RESULTS[0].attachment[2],
         source: "remote-settings",
+        isTopPick: true,
       }),
     },
     {
@@ -299,6 +307,7 @@ add_task(async function remoteSettings() {
       expected: makeExpectedResult({
         suggestion: MERINO_SUGGESTIONS[0],
         source: "merino",
+        isTopPick: true,
       }),
     },
   ];
@@ -314,9 +323,45 @@ add_task(async function remoteSettings() {
   }
 });
 
-function makeExpectedResult({ suggestion, source }) {
-  const isTopPick = suggestion.is_top_pick ?? true;
+add_task(async function merinoIsTopPick() {
+  const suggestion = JSON.parse(JSON.stringify(MERINO_SUGGESTIONS[0]));
 
+  // is_top_pick is specified as false.
+  suggestion.is_top_pick = false;
+  MerinoTestUtils.server.response.body.suggestions = [suggestion];
+  await check_results({
+    context: createContext("test", {
+      providers: [UrlbarProviderQuickSuggest.name],
+      isPrivate: false,
+    }),
+    matches: [
+      makeExpectedResult({
+        suggestion,
+        source: "merino",
+        isTopPick: false,
+      }),
+    ],
+  });
+
+  // is_top_pick is undefined.
+  delete suggestion.is_top_pick;
+  MerinoTestUtils.server.response.body.suggestions = [suggestion];
+  await check_results({
+    context: createContext("test", {
+      providers: [UrlbarProviderQuickSuggest.name],
+      isPrivate: false,
+    }),
+    matches: [
+      makeExpectedResult({
+        suggestion,
+        source: "merino",
+        isTopPick: true,
+      }),
+    ],
+  });
+});
+
+function makeExpectedResult({ suggestion, source, isTopPick }) {
   let rating;
   let number_of_ratings;
   if (source === "remote-settings") {

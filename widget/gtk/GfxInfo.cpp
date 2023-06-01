@@ -645,7 +645,7 @@ void GfxInfo::GetDataVAAPI() {
   }
   mIsVAAPISupported = Some(false);
 
-#ifdef MOZ_WAYLAND
+#ifdef MOZ_ENABLE_VAAPI
   char* vaapiData = nullptr;
   auto free = mozilla::MakeScopeExit([&] { g_free((void*)vaapiData); });
 
@@ -1157,7 +1157,11 @@ nsresult GfxInfo::GetFeatureStatusImpl(
   // Probe VA-API on supported devices only
   if (aFeature == nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING &&
       *aStatus == nsIGfxInfo::FEATURE_STATUS_OK) {
-    GetDataVAAPI();
+    if (mIsAccelerated) {
+      GetDataVAAPI();
+    } else {
+      mIsVAAPISupported = Some(false);
+    }
     if (!mIsVAAPISupported.value()) {
       *aStatus = nsIGfxInfo::FEATURE_BLOCKED_PLATFORM_TEST;
       aFailureId = "FEATURE_FAILURE_VIDEO_DECODING_TEST_FAILED";

@@ -2466,16 +2466,6 @@ nsresult nsFrameLoader::UpdatePositionAndSize(nsSubDocumentFrame* aIFrame) {
   return NS_OK;
 }
 
-void nsFrameLoader::SendIsUnderHiddenEmbedderElement(
-    bool aIsUnderHiddenEmbedderElement) {
-  MOZ_ASSERT(IsRemoteFrame());
-
-  if (auto* browserBridgeChild = GetBrowserBridgeChild()) {
-    browserBridgeChild->SetIsUnderHiddenEmbedderElement(
-        aIsUnderHiddenEmbedderElement);
-  }
-}
-
 void nsFrameLoader::PropagateIsUnderHiddenEmbedderElement(
     bool aIsUnderHiddenEmbedderElement) {
   bool isUnderHiddenEmbedderElement = true;
@@ -2486,12 +2476,12 @@ void nsFrameLoader::PropagateIsUnderHiddenEmbedderElement(
   }
 
   isUnderHiddenEmbedderElement |= aIsUnderHiddenEmbedderElement;
-  if (nsDocShell* docShell = GetExistingDocShell()) {
-    if (PresShell* presShell = docShell->GetPresShell()) {
-      presShell->SetIsUnderHiddenEmbedderElement(isUnderHiddenEmbedderElement);
-    }
-  } else {
-    SendIsUnderHiddenEmbedderElement(isUnderHiddenEmbedderElement);
+
+  BrowsingContext* browsingContext = GetExtantBrowsingContext();
+  if (browsingContext && browsingContext->IsUnderHiddenEmbedderElement() !=
+                             isUnderHiddenEmbedderElement) {
+    Unused << browsingContext->SetIsUnderHiddenEmbedderElement(
+        isUnderHiddenEmbedderElement);
   }
 }
 

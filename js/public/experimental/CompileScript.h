@@ -33,6 +33,9 @@ JS_PUBLIC_API JS::FrontendContext* NewFrontendContext();
 // Destroy a front-end context allocated with NewFrontendContext.
 JS_PUBLIC_API void DestroyFrontendContext(JS::FrontendContext* fc);
 
+JS_PUBLIC_API void SetNativeStackQuota(JS::FrontendContext* fc,
+                                       JS::NativeStackSize stackSize);
+
 /*
  * Set supported import assertions on a FrontendContext to be used with
  * CompileModuleScriptToStencil. May only be set once for each FrontendContext.
@@ -92,23 +95,21 @@ struct CompilationStorage {
 
 extern JS_PUBLIC_API already_AddRefed<JS::Stencil> CompileGlobalScriptToStencil(
     JS::FrontendContext* fc, const JS::ReadOnlyCompileOptions& options,
-    JS::NativeStackLimit stackLimit, JS::SourceText<mozilla::Utf8Unit>& srcBuf,
+    JS::SourceText<mozilla::Utf8Unit>& srcBuf,
     JS::CompilationStorage& compileStorage);
 
 extern JS_PUBLIC_API already_AddRefed<JS::Stencil> CompileGlobalScriptToStencil(
     JS::FrontendContext* fc, const JS::ReadOnlyCompileOptions& options,
-    JS::NativeStackLimit stackLimit, JS::SourceText<char16_t>& srcBuf,
+    JS::SourceText<char16_t>& srcBuf, JS::CompilationStorage& compileStorage);
+
+extern JS_PUBLIC_API already_AddRefed<JS::Stencil> CompileModuleScriptToStencil(
+    JS::FrontendContext* fc, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<mozilla::Utf8Unit>& srcBuf,
     JS::CompilationStorage& compileStorage);
 
 extern JS_PUBLIC_API already_AddRefed<JS::Stencil> CompileModuleScriptToStencil(
     JS::FrontendContext* fc, const JS::ReadOnlyCompileOptions& options,
-    JS::NativeStackLimit stackLimit, JS::SourceText<mozilla::Utf8Unit>& srcBuf,
-    JS::CompilationStorage& compileStorage);
-
-extern JS_PUBLIC_API already_AddRefed<JS::Stencil> CompileModuleScriptToStencil(
-    JS::FrontendContext* fc, const JS::ReadOnlyCompileOptions& options,
-    JS::NativeStackLimit stackLimit, JS::SourceText<char16_t>& srcBuf,
-    JS::CompilationStorage& compileStorage);
+    JS::SourceText<char16_t>& srcBuf, JS::CompilationStorage& compileStorage);
 
 extern JS_PUBLIC_API bool PrepareForInstantiate(
     JS::FrontendContext* fc, JS::CompilationStorage& compileStorage,

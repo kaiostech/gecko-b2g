@@ -1828,7 +1828,7 @@ static JSFunction* CreateFunctionFast(JSContext* cx,
                                 ? gc::AllocKind::FUNCTION_EXTENDED
                                 : gc::AllocKind::FUNCTION;
 
-  JSFunction* fun = JSFunction::create(cx, allocKind, gc::TenuredHeap, shape);
+  JSFunction* fun = JSFunction::create(cx, allocKind, gc::Heap::Tenured, shape);
   if (!fun) {
     return nullptr;
   }
@@ -5216,8 +5216,8 @@ static already_AddRefed<JS::Stencil> CompileGlobalScriptToStencilImpl(
   NoScopeBindingCache scopeCache;
   Rooted<CompilationInput> input(cx, CompilationInput(options));
   RefPtr<JS::Stencil> stencil = js::frontend::CompileGlobalScriptToStencil(
-      cx, &fc, cx->stackLimitForCurrentPrincipal(), cx->tempLifoAlloc(),
-      input.get(), &scopeCache, srcBuf, scopeKind);
+      cx, &fc, cx->tempLifoAlloc(), input.get(), &scopeCache, srcBuf,
+      scopeKind);
   if (!stencil) {
     return nullptr;
   }
@@ -5249,8 +5249,7 @@ static already_AddRefed<JS::Stencil> CompileModuleScriptToStencilImpl(
   NoScopeBindingCache scopeCache;
   Rooted<CompilationInput> input(cx, CompilationInput(options));
   RefPtr<JS::Stencil> stencil = js::frontend::ParseModuleToStencil(
-      cx, &fc, cx->stackLimitForCurrentPrincipal(), cx->tempLifoAlloc(),
-      input.get(), &scopeCache, srcBuf);
+      cx, &fc, cx->tempLifoAlloc(), input.get(), &scopeCache, srcBuf);
   if (!stencil) {
     return nullptr;
   }
@@ -5326,16 +5325,23 @@ JS::TranscodeResult JS::DecodeStencil(JSContext* cx,
                                       const JS::TranscodeRange& range,
                                       JS::Stencil** stencilOut) {
   AutoReportFrontendContext fc(cx);
-  RefPtr<ScriptSource> source = fc.getAllocator()->new_<ScriptSource>();
+  return JS::DecodeStencil(&fc, options, range, stencilOut);
+}
+
+JS::TranscodeResult JS::DecodeStencil(JS::FrontendContext* fc,
+                                      const JS::DecodeOptions& options,
+                                      const JS::TranscodeRange& range,
+                                      JS::Stencil** stencilOut) {
+  RefPtr<ScriptSource> source = fc->getAllocator()->new_<ScriptSource>();
   if (!source) {
     return TranscodeResult::Throw;
   }
   RefPtr<JS::Stencil> stencil(
-      fc.getAllocator()->new_<CompilationStencil>(source));
+      fc->getAllocator()->new_<CompilationStencil>(source));
   if (!stencil) {
     return TranscodeResult::Throw;
   }
-  XDRStencilDecoder decoder(&fc, range);
+  XDRStencilDecoder decoder(fc, range);
   XDRResult res = decoder.codeStencil(options, *stencil);
   if (res.isErr()) {
     return res.unwrapErr();

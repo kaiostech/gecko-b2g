@@ -9,11 +9,13 @@
 
 #include <string>
 
+#include "frontend/FrontendContext.h"  // js::FrontendContext
 #include "js/CompileOptions.h"
 #include "js/experimental/CompileScript.h"
 #include "js/SourceText.h"
 #include "js/Stack.h"
 #include "jsapi-tests/tests.h"
+#include "util/NativeStack.h"  // js::GetNativeStackBase
 
 using namespace JS;
 
@@ -21,8 +23,16 @@ BEGIN_FRONTEND_TEST(testFrontendContextCompileGlobalScriptToStencil) {
   JS::FrontendContext* fc = JS::NewFrontendContext();
   CHECK(fc);
 
+  static constexpr JS::NativeStackSize stackSize = 128 * sizeof(size_t) * 1024;
+
+  JS::SetNativeStackQuota(fc, stackSize);
+
+#ifndef __wasi__
+  CHECK(fc->stackLimit() ==
+        JS::GetNativeStackLimit(js::GetNativeStackBase(), stackSize - 1));
+#endif
+
   JS::CompileOptions options((JS::CompileOptions::ForFrontendContext()));
-  JS::NativeStackLimit stackLimit = JS::NativeStackLimitMax;
 
   {
     const char source[] = "var a = 10;";
@@ -31,8 +41,8 @@ BEGIN_FRONTEND_TEST(testFrontendContextCompileGlobalScriptToStencil) {
     CHECK(
         srcBuf.init(fc, source, strlen(source), JS::SourceOwnership::Borrowed));
     JS::CompilationStorage compileStorage;
-    RefPtr<JS::Stencil> stencil = JS::CompileGlobalScriptToStencil(
-        fc, options, stackLimit, srcBuf, compileStorage);
+    RefPtr<JS::Stencil> stencil =
+        JS::CompileGlobalScriptToStencil(fc, options, srcBuf, compileStorage);
     CHECK(stencil);
     CHECK(compileStorage.hasInput());
   }
@@ -44,8 +54,8 @@ BEGIN_FRONTEND_TEST(testFrontendContextCompileGlobalScriptToStencil) {
     CHECK(srcBuf.init(fc, source, std::char_traits<char16_t>::length(source),
                       JS::SourceOwnership::Borrowed));
     JS::CompilationStorage compileStorage;
-    RefPtr<JS::Stencil> stencil = JS::CompileGlobalScriptToStencil(
-        fc, options, stackLimit, srcBuf, compileStorage);
+    RefPtr<JS::Stencil> stencil =
+        JS::CompileGlobalScriptToStencil(fc, options, srcBuf, compileStorage);
     CHECK(stencil);
     CHECK(compileStorage.hasInput());
   }

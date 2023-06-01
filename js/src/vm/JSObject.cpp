@@ -769,7 +769,7 @@ static MOZ_ALWAYS_INLINE NativeObject* NewObject(JSContext* cx,
     return nullptr;
   }
 
-  gc::InitialHeap heap = GetInitialHeap(newKind, clasp);
+  gc::Heap heap = GetInitialHeap(newKind, clasp);
   NativeObject* obj = NativeObject::create(cx, kind, heap, shape);
   if (!obj) {
     return nullptr;
@@ -1375,6 +1375,16 @@ void JSObject::swap(JSContext* cx, HandleObject a, HandleObject b,
     }
   }
 
+  // Restore original unique IDs.
+  if ((aid || bid) && (na || nb)) {
+    if ((aid && !gc::SetOrUpdateUniqueId(cx, a, aid)) ||
+        (bid && !gc::SetOrUpdateUniqueId(cx, b, bid))) {
+      oomUnsafe.crash("Failed to set unique ID after swap");
+    }
+  }
+  MOZ_ASSERT_IF(aid, gc::GetUniqueIdInfallible(a) == aid);
+  MOZ_ASSERT_IF(bid, gc::GetUniqueIdInfallible(b) == bid);
+
   // Preserve the IsUsedAsPrototype flag on the objects.
   if (aIsUsedAsPrototype) {
     if (!JSObject::setIsUsedAsPrototype(cx, a)) {
@@ -1386,16 +1396,6 @@ void JSObject::swap(JSContext* cx, HandleObject a, HandleObject b,
       oomUnsafe.crash("setIsUsedAsPrototype");
     }
   }
-
-  // Restore original unique IDs.
-  if ((aid || bid) && (na || nb)) {
-    if ((aid && !gc::SetOrUpdateUniqueId(cx, a, aid)) ||
-        (bid && !gc::SetOrUpdateUniqueId(cx, b, bid))) {
-      oomUnsafe.crash("Failed to set unique ID after swap");
-    }
-  }
-  MOZ_ASSERT_IF(aid, gc::GetUniqueIdInfallible(a) == aid);
-  MOZ_ASSERT_IF(bid, gc::GetUniqueIdInfallible(b) == bid);
 
   /*
    * We need a write barrier here. If |a| was marked and |b| was not, then
@@ -3605,7 +3605,7 @@ void js::AssertJSClassInvariants(const JSClass* clasp) {
 
 /* static */
 void JSObject::debugCheckNewObject(Shape* shape, js::gc::AllocKind allocKind,
-                                   js::gc::InitialHeap heap) {
+                                   js::gc::Heap heap) {
   const JSClass* clasp = shape->getObjectClass();
 
   if (!ClassCanHaveFixedData(clasp)) {
@@ -3638,7 +3638,7 @@ void JSObject::debugCheckNewObject(Shape* shape, js::gc::AllocKind allocKind,
   }
 
   MOZ_ASSERT_IF(clasp->hasFinalize(),
-                heap == gc::TenuredHeap ||
+                heap == gc::Heap::Tenured ||
                     CanNurseryAllocateFinalizedClass(clasp) ||
                     clasp->isProxyObject());
 

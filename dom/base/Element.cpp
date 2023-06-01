@@ -280,7 +280,7 @@ nsDOMAttributeMap* Element::Attributes() {
 }
 
 void Element::SetPointerCapture(int32_t aPointerId, ErrorResult& aError) {
-  if (OwnerDoc()->ShouldResistFingerprinting() &&
+  if (OwnerDoc()->ShouldResistFingerprinting(RFPTarget::Unknown) &&
       aPointerId != PointerEventHandler::GetSpoofedPointerIdForRFP()) {
     aError.ThrowNotFoundError("Invalid pointer id");
     return;
@@ -309,7 +309,7 @@ void Element::SetPointerCapture(int32_t aPointerId, ErrorResult& aError) {
 }
 
 void Element::ReleasePointerCapture(int32_t aPointerId, ErrorResult& aError) {
-  if (OwnerDoc()->ShouldResistFingerprinting() &&
+  if (OwnerDoc()->ShouldResistFingerprinting(RFPTarget::Unknown) &&
       aPointerId != PointerEventHandler::GetSpoofedPointerIdForRFP()) {
     aError.ThrowNotFoundError("Invalid pointer id");
     return;
@@ -3003,12 +3003,12 @@ void Element::List(FILE* out, int32_t aIndent, const nsCString& aPrefix) const {
           static_cast<unsigned long long>(State().GetInternalValue()));
   fprintf(out, " flags=[%08x]", static_cast<unsigned int>(GetFlags()));
   if (IsClosestCommonInclusiveAncestorForRangeInSelection()) {
-    const LinkedList<nsRange>* ranges =
+    const LinkedList<AbstractRange>* ranges =
         GetExistingClosestCommonInclusiveAncestorRanges();
     int32_t count = 0;
     if (ranges) {
       // Can't use range-based iteration on a const LinkedList, unfortunately.
-      for (const nsRange* r = ranges->getFirst(); r; r = r->getNext()) {
+      for (const AbstractRange* r = ranges->getFirst(); r; r = r->getNext()) {
         ++count;
       }
     }
@@ -4248,19 +4248,6 @@ void Element::ClearServoData(Document* aDoc) {
   }
 }
 
-bool Element::HasPopoverInvoker() const {
-  auto* popoverData = GetPopoverData();
-  return popoverData && popoverData->HasPopoverInvoker();
-}
-
-void Element::SetHasPopoverInvoker(bool aHasInvoker) {
-  if (aHasInvoker) {
-    EnsurePopoverData().SetHasPopoverInvoker(true);
-  } else if (auto* popoverData = GetPopoverData()) {
-    popoverData->SetHasPopoverInvoker(false);
-  }
-}
-
 bool Element::IsAutoPopover() const {
   const auto* htmlElement = nsGenericHTMLElement::FromNode(this);
   return htmlElement &&
@@ -4305,8 +4292,9 @@ Element* Element::GetTopmostPopoverAncestor() const {
 
   checkAncestor(newPopover->GetFlattenedTreeParentElement());
 
-  // TODO: To handle the button invokers
   // https://github.com/whatwg/html/issues/9160
+  RefPtr<Element> invoker = newPopover->GetPopoverData()->GetInvoker();
+  checkAncestor(invoker);
 
   return topmostPopoverAncestor;
 }

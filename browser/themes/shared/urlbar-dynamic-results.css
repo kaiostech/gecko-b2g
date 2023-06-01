@@ -489,6 +489,7 @@
 
 .urlbarView-dynamic-addons-header {
   grid-area: header;
+  display: flex;
 }
 
 .urlbarView-dynamic-addons-description {
@@ -510,6 +511,10 @@
   margin-inline-end: 9px;
 }
 
+.urlbarView-dynamic-addons-content[treatment=b] > .urlbarView-dynamic-addons-footer > .urlbarView-dynamic-addons-ratingContainer {
+  display: none;
+}
+
 .urlbarView-dynamic-addons-rating {
   display: inline-block;
   width: 16px;
@@ -526,7 +531,7 @@
 .urlbarView-dynamic-addons-rating[fill="half"] {
   background-image: url("chrome://mozapps/skin/extensions/rating-star.svg#half");
 }
-.urlbarView-dynamic-addons-rating[fill="half"]:dir(rtl) {
+.urlbarView-dynamic-addons-rating[fill="half"]:-moz-locale-dir(rtl) {
   transform: scaleX(-1);
 }
 .urlbarView-dynamic-addons-rating[fill="full"] {

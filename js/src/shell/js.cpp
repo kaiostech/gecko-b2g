@@ -4897,9 +4897,7 @@ static bool ParseModule(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   AutoReportFrontendContext fc(cx);
-  RootedObject module(
-      cx, frontend::CompileModule(cx, &fc, cx->stackLimitForCurrentPrincipal(),
-                                  options, srcBuf));
+  RootedObject module(cx, frontend::CompileModule(cx, &fc, options, srcBuf));
   if (!module) {
     return false;
   }
@@ -5355,10 +5353,10 @@ static bool DumpAST(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
   using namespace js::frontend;
 
   AutoReportFrontendContext fc(cx);
-  Parser<FullParseHandler, Unit> parser(
-      &fc, cx->stackLimitForCurrentPrincipal(), options, units, length,
-      /* foldConstants = */ false, compilationState,
-      /* syntaxParser = */ nullptr);
+  Parser<FullParseHandler, Unit> parser(&fc, options, units, length,
+                                        /* foldConstants = */ false,
+                                        compilationState,
+                                        /* syntaxParser = */ nullptr);
   if (!parser.checkOptions()) {
     return false;
   }
@@ -5411,12 +5409,10 @@ template <typename Unit>
   UniquePtr<frontend::ExtensibleCompilationStencil> stencil;
   if (goal == frontend::ParseGoal::Script) {
     stencil = frontend::CompileGlobalScriptToExtensibleStencil(
-        cx, &fc, cx->stackLimitForCurrentPrincipal(), input.get(), &scopeCache,
-        srcBuf, ScopeKind::Global);
+        cx, &fc, input.get(), &scopeCache, srcBuf, ScopeKind::Global);
   } else {
     stencil = frontend::ParseModuleToExtensibleStencil(
-        cx, &fc, cx->stackLimitForCurrentPrincipal(), cx->tempLifoAlloc(),
-        input.get(), &scopeCache, srcBuf);
+        cx, &fc, cx->tempLifoAlloc(), input.get(), &scopeCache, srcBuf);
   }
 
   if (!stencil) {
@@ -5584,8 +5580,7 @@ static bool FrontendTest(JSContext* cx, unsigned argc, Value* vp,
               cx, frontend::CompilationInput(options));
           UniquePtr<frontend::ExtensibleCompilationStencil> stencil;
           if (!Smoosh::tryCompileGlobalScriptToExtensibleStencil(
-                  cx, &fc, cx->stackLimitForCurrentPrincipal(), input.get(),
-                  srcBuf, stencil)) {
+                  cx, &fc, input.get(), srcBuf, stencil)) {
             return false;
           }
           if (!stencil) {
@@ -5730,7 +5725,7 @@ static bool SyntaxParse(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   Parser<frontend::SyntaxParseHandler, char16_t> parser(
-      &fc, cx->stackLimitForCurrentPrincipal(), options, chars, length,
+      &fc, options, chars, length,
       /* foldConstants = */ false, compilationState,
       /* syntaxParser = */ nullptr);
   if (!parser.checkOptions()) {

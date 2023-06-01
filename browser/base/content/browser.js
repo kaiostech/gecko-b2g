@@ -76,6 +76,7 @@ ChromeUtils.defineESModuleGetters(this, {
   UrlbarUtils: "resource:///modules/UrlbarUtils.sys.mjs",
   UrlbarValueFormatter: "resource:///modules/UrlbarValueFormatter.sys.mjs",
   Weave: "resource://services-sync/main.sys.mjs",
+  WebNavigationFrames: "resource://gre/modules/WebNavigationFrames.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
 });
 
@@ -97,7 +98,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   SiteDataManager: "resource:///modules/SiteDataManager.jsm",
   TabCrashHandler: "resource:///modules/ContentCrashHandlers.jsm",
   Translation: "resource:///modules/translation/TranslationParent.jsm",
-  WebNavigationFrames: "resource://gre/modules/WebNavigationFrames.jsm",
   webrtcUI: "resource:///modules/webrtcUI.jsm",
   ZoomUI: "resource:///modules/ZoomUI.jsm",
 });
@@ -7283,7 +7283,7 @@ var ToolbarContextMenu = {
     return node?.closest(".unified-extensions-item")?.id;
   },
 
-  async updateExtension(popup) {
+  async updateExtension(popup, event) {
     let removeExtension = popup.querySelector(
       ".customize-context-removeExtension"
     );
@@ -7325,7 +7325,9 @@ var ToolbarContextMenu = {
         addon.permissions & AddonManager.PERM_CAN_UNINSTALL
       );
 
-      ExtensionsUI.originControlsMenu(popup, id);
+      if (event?.target?.id === "toolbar-context-menu") {
+        ExtensionsUI.originControlsMenu(popup, id);
+      }
     }
   },
 

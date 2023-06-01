@@ -32,6 +32,7 @@ const VIEW_TEMPLATE = {
     {
       name: "content",
       tag: "span",
+      overflowable: true,
       children: [
         {
           name: "icon",
@@ -160,7 +161,7 @@ export class AddonSuggestions extends BaseFeature {
       number_of_ratings: suggestion.number_of_ratings,
       guid: suggestion.guid,
       score: suggestion.score,
-      is_top_pick: suggestion.is_top_pick ?? true,
+      is_top_pick: suggestion.is_top_pick,
     }));
   }
 
@@ -193,6 +194,9 @@ export class AddonSuggestions extends BaseFeature {
       return null;
     }
 
+    // If is_top_pick is not specified, handle it as top pick suggestion.
+    suggestion.is_top_pick = suggestion.is_top_pick ?? true;
+
     const { guid, rating, number_of_ratings } =
       suggestion.source === "remote-settings"
         ? suggestion
@@ -218,19 +222,27 @@ export class AddonSuggestions extends BaseFeature {
       telemetryType: "amo",
     };
 
-    return new lazy.UrlbarResult(
-      lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC,
-      lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
-      ...lazy.UrlbarResult.payloadAndSimpleHighlights(
-        queryContext.tokens,
-        payload
-      )
+    return Object.assign(
+      new lazy.UrlbarResult(
+        lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC,
+        lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
+        ...lazy.UrlbarResult.payloadAndSimpleHighlights(
+          queryContext.tokens,
+          payload
+        )
+      ),
+      { showFeedbackMenu: true }
     );
   }
 
   getViewUpdate(result) {
+    const treatment = lazy.UrlbarPrefs.get("addonsUITreatment");
     const rating = result.payload.rating;
+
     return {
+      content: {
+        attributes: { treatment },
+      },
       icon: {
         attributes: {
           src: result.payload.icon,
@@ -271,12 +283,15 @@ export class AddonSuggestions extends BaseFeature {
         },
       },
       reviews: {
-        l10n: {
-          id: "firefox-suggest-addons-reviews",
-          args: {
-            quantity: result.payload.reviews,
-          },
-        },
+        l10n:
+          treatment === "b"
+            ? { id: "firefox-suggest-addons-recommended" }
+            : {
+                id: "firefox-suggest-addons-reviews",
+                args: {
+                  quantity: result.payload.reviews,
+                },
+              },
       },
     };
   }

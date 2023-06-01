@@ -19,9 +19,7 @@ const TEST_PROVIDER_INFO = [
     codeParamName: "abc",
     taggedCodes: ["ff"],
     adServerAttributes: ["mozAttr"],
-    nonAdsLinkRegexps: [
-      /^https:\/\/example.com\/browser\/browser\/components\/search\/test\/browser\//,
-    ],
+    nonAdsLinkRegexps: [],
     extraAdServersRegexps: [/^https:\/\/example\.com\/ad/],
     components: [
       {

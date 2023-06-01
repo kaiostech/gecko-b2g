@@ -276,6 +276,15 @@ async function reorderingTranslator(message) {
 }
 
 /**
+ * @returns {import("../../actors/TranslationsParent.sys.mjs").TranslationsParent}
+ */
+function getTranslationsParent() {
+  return gBrowser.selectedBrowser.browsingContext.currentWindowGlobal.getActor(
+    "Translations"
+  );
+}
+
+/**
  * This is for tests that don't need a browser page to run.
  */
 async function setupActorTest({
@@ -306,14 +315,8 @@ async function setupActorTest({
     true // waitForLoad
   );
 
-  /** @type {import("../../actors/TranslationsParent.sys.mjs").TranslationsParent} */
-  const actor =
-    gBrowser.selectedBrowser.browsingContext.currentWindowGlobal.getActor(
-      "Translations"
-    );
-
   return {
-    actor,
+    actor: getTranslationsParent(),
     remoteClients,
     cleanup() {
       BrowserTestUtils.removeTab(tab);
@@ -836,5 +839,45 @@ async function setupAboutPreferences(languagePairs) {
     cleanup,
     remoteClients,
     elements,
+  };
+}
+
+function waitForAppLocaleChanged() {
+  new Promise(resolve => {
+    function onChange() {
+      Services.obs.removeObserver(onChange, "intl:app-locales-changed");
+      resolve();
+    }
+    Services.obs.addObserver(onChange, "intl:app-locales-changed");
+  });
+}
+
+async function mockLocales({ systemLocales, appLocales, webLanguages }) {
+  const appLocaleChanged1 = waitForAppLocaleChanged();
+
+  TranslationsParent.mockedSystemLocales = systemLocales;
+  const { availableLocales, requestedLocales } = Services.locale;
+
+  info("Mocking locales, so expect potential .ftl resource errors.");
+  Services.locale.availableLocales = appLocales;
+  Services.locale.requestedLocales = appLocales;
+
+  await appLocaleChanged1;
+
+  await SpecialPowers.pushPrefEnv({
+    set: [["intl.accept_languages", webLanguages.join(",")]],
+  });
+
+  return async () => {
+    const appLocaleChanged2 = waitForAppLocaleChanged();
+
+    // Reset back to the originals.
+    TranslationsParent.mockedSystemLocales = null;
+    Services.locale.availableLocales = availableLocales;
+    Services.locale.requestedLocales = requestedLocales;
+
+    await appLocaleChanged2;
+
+    await SpecialPowers.popPrefEnv();
   };
 }

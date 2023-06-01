@@ -16,15 +16,15 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AppMenuNotifications: "resource://gre/modules/AppMenuNotifications.sys.mjs",
+  ExtensionData: "resource://gre/modules/Extension.sys.mjs",
+  ExtensionPermissions: "resource://gre/modules/ExtensionPermissions.sys.mjs",
+  OriginControls: "resource://gre/modules/ExtensionPermissions.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   AddonManagerPrivate: "resource://gre/modules/AddonManager.jsm",
   AMTelemetry: "resource://gre/modules/AddonManager.jsm",
-  ExtensionData: "resource://gre/modules/Extension.jsm",
-  ExtensionPermissions: "resource://gre/modules/ExtensionPermissions.jsm",
-  OriginControls: "resource://gre/modules/ExtensionPermissions.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(
@@ -589,9 +589,6 @@ var ExtensionsUI = {
   // Populate extension toolbar popup menu with origin controls.
   originControlsMenu(popup, extensionId) {
     let policy = WebExtensionPolicy.getByID(extensionId);
-    if (!policy?.extension.originControls) {
-      return;
-    }
 
     let win = popup.ownerGlobal;
     let tab = win.gBrowser.selectedTab;
@@ -605,8 +602,17 @@ var ExtensionsUI = {
     let headerItem = doc.createXULElement("menuitem");
     headerItem.setAttribute("disabled", true);
 
+    // MV2 normally don't have controls, but we show the quarantined state.
+    if (!policy?.extension.originControls && !state.quarantined) {
+      return;
+    }
+
     if (state.noAccess) {
-      doc.l10n.setAttributes(headerItem, "origin-controls-no-access");
+      if (state.quarantined) {
+        doc.l10n.setAttributes(headerItem, "origin-controls-quarantined");
+      } else {
+        doc.l10n.setAttributes(headerItem, "origin-controls-no-access");
+      }
     } else {
       doc.l10n.setAttributes(headerItem, "origin-controls-options");
     }
@@ -653,8 +659,13 @@ var ExtensionsUI = {
       popup.querySelector(".unified-extensions-context-menu-pin-to-toolbar");
     items.forEach(item => item && popup.insertBefore(item, manageItem));
 
-    let cleanup = () => items.forEach(item => item?.remove());
-    popup.addEventListener("popuphidden", cleanup, { once: true });
+    let cleanup = e => {
+      if (e.target === popup) {
+        items.forEach(item => item?.remove());
+        popup.removeEventListener("popuphidden", cleanup);
+      }
+    };
+    popup.addEventListener("popuphidden", cleanup);
   },
 };
 

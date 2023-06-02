@@ -226,6 +226,11 @@ extern bool gBluetoothDebugFlag;
 #define MAP_CONNECTION_REQ_ID u"mapconnectionreq"_ns
 
 /**
+ * Update MAP version.
+ */
+#define MAP_VERSION_ID u"mapversion"_ns
+
+/**
  * When the connection status of a Bluetooth profile is changed, we'll
  * dispatch one of the following events.
  */
@@ -1436,6 +1441,23 @@ struct BluetoothSdpRecord {
 
   BluetoothSdpRecord() {}
 
+  // No l2cap psm
+  BluetoothSdpRecord(BluetoothSdpType aType, BluetoothUuid aUuid,
+                     const nsACString& aServiceName,
+                     int32_t aRfcommChannelNumber,
+                     int32_t aProfileVersion, uint32_t aSupportedFeatures,
+                     uint32_t aSupportedContentTypes, uint32_t aInstanceId)
+      : mType(aType),
+        mUuid(aUuid),
+        mServiceName(aServiceName),
+        mRfcommChannelNumber(aRfcommChannelNumber),
+        mProfileVersion(aProfileVersion),
+        mSupportedFeatures(aSupportedFeatures),
+        mSupportedContentTypes(aSupportedContentTypes)  // content of MAS or PSE
+        ,
+        mInstanceId(aInstanceId) {}
+
+  // l2cap psm
   BluetoothSdpRecord(BluetoothSdpType aType, BluetoothUuid aUuid,
                      const nsACString& aServiceName,
                      int32_t aRfcommChannelNumber, int32_t aL2capPsm,
@@ -1457,8 +1479,12 @@ struct BluetoothSdpRecord {
 #define DEFAULT_RFCOMM_CHANNEL_PBS 19
 #define DEFAULT_RFCOMM_CHANNEL_MAS 21
 #define DEFAULT_RFCOMM_CHANNEL_MNS 22
+#define DEFAULT_L2CAP_PSM 4137
 
+// MAP 1.1
 #define MAP_PROFILE_VERSION 0x0101
+// MAP 1.3
+#define MAP_PROFILE_VERSION_13 0x0103
 
 /*
  * Gonk supports feature bit 0, 1, 2, 3 and 4
@@ -1469,7 +1495,25 @@ struct BluetoothSdpRecord {
  * Bit 4 = Delete Feature
  * Bit 5 = Instance Information Feature
  * Bit 6 = Extended Event Report 1.1
+ * Bit 7 = Event Report Version 1.2
+ * Bit 8 = Message Format Version 1.1
+ * Bit 9 = Messages-Listing Format Version 1.1
+ * Bit 10 = Persistent Message Handles
+ * Bit 11 = Database Identifier
+ * Bit 12 = Folder Version Counter
+ * Bit 13 = Conversation Version Counters
+ * Bit 14 = Participant Presence Change Notification
+ * Bit 15 = Participant Chat State Change Notification
+ * Bit 16 = PBAP Contact Cross Reference
+ * Bit 17 = Notification Filtering
+ * Bit 18 = UTC Offset Timestamp Format
+ * Bit 19 = MapSupportedFeatures in Connect Request
+ * Bit 20 = Conversation listing
+ * Bit 21 = Owner Status
  */
+
+// Backwards compatibility: If the MapSupportedFeatures attribute is not present
+// 0x0000001F shall be assumed for a remote MSE.
 #define MAP_SUPPORTED_FEATURES 0x0000001F
 
 /*
@@ -1485,7 +1529,13 @@ struct BluetoothMasRecord : public BluetoothSdpRecord {
   BluetoothMasRecord(int32_t aRfcommChannelNumber, int32_t aInstanceId)
       : BluetoothSdpRecord(SDP_TYPE_MAP_MAS, BluetoothUuid(MAP_MAS),
                            "SMS Message Access"_ns, aRfcommChannelNumber,
-                           -1,  // don't specify L2CAP PSM
+                           // don't specify L2CAP PSM
+                           MAP_PROFILE_VERSION, MAP_SUPPORTED_FEATURES,
+                           MAP_SUPPORTED_MSG_TYPES, aInstanceId) {}
+  BluetoothMasRecord(int32_t aRfcommChannelNumber, int32_t aL2capPsm, int32_t aInstanceId)
+      : BluetoothSdpRecord(SDP_TYPE_MAP_MAS, BluetoothUuid(MAP_MAS),
+                           "SMS Message Access"_ns, aRfcommChannelNumber,
+                           aL2capPsm,
                            MAP_PROFILE_VERSION, MAP_SUPPORTED_FEATURES,
                            MAP_SUPPORTED_MSG_TYPES, aInstanceId) {}
 };

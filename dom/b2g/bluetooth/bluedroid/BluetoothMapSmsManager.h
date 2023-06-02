@@ -71,6 +71,12 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
     aName.AssignLiteral("MapSms");
   }
 
+  virtual void SdpSearchNotification(int aSdpType,
+                                     int aRfcommChannel,
+                                     int aL2capPsm,
+                                     int aProfileVersion,
+                                     int aSupportFeature) override;
+
   static const int MAX_PACKET_LENGTH = 0xFFFE;
   static const int MAX_INSTANCE_ID = 255;
   // SDP record for SupportedMessageTypes
@@ -179,6 +185,7 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
  private:
   class CreateSdpRecordResultHandler;
   class RemoveSdpRecordResultHandler;
+  class SdpSearchResultHandler;
   class InitProfileResultHandlerRunnable;
   class DeinitProfileResultHandlerRunnable;
   class RegisterModuleResultHandler;
@@ -213,11 +220,14 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
   bool SendReply(uint8_t aResponse);
 
   void HandleNotificationRegistration(const ObexHeaderSet& aHeader);
+  void HandleSmsMmsInstanceInfo(const ObexHeaderSet& aHeader);
   void HandleSetMessageStatus(const ObexHeaderSet& aHeader);
   void HandleSmsMmsFolderListing(const ObexHeaderSet& aHeader);
   void HandleSmsMmsMsgListing(const ObexHeaderSet& aHeader);
   void HandleSmsMmsGetMessage(const ObexHeaderSet& aHeader);
-  void HandleSmsMmsPushMessage(const ObexHeaderSet& aHeader);
+  void ExtractBodyMultiPutPackets(const ObexHeaderSet& aHeader, uint8_t aOpcode);
+  void HandleSmsMmsPushMessage(const ObexHeaderSet& aHeader, uint8_t aOpcode);
+  void HandleRfcommPushMessage(const ObexHeaderSet& aHeader, uint8_t aOpcode);
 
   void AppendBtNamedValueByTagId(const ObexHeaderSet& aHeader,
                                  nsTArray<BluetoothNamedValue>& aValues,
@@ -227,6 +237,7 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
   void SendMnsObexData(uint8_t* aData, uint8_t aOpcode, int aSize);
   bool StatusResponse(bool aStatus);
 
+  void NotifyMapVersion(bool aIsRfcomm);
   ObexResponseCode NotifyConnectionRequest();
 
   uint8_t SetPath(uint8_t flags, const ObexHeaderSet& aHeader);
@@ -239,7 +250,7 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
   void SendMnsConnectRequest();
   void SendMnsDisconnectRequest();
   void MnsDataHandler(mozilla::ipc::UnixSocketBuffer* aMessage);
-  void MasDataHandler(mozilla::ipc::UnixSocketBuffer* aMessage);
+  void MasDataHandler(mozilla::ipc::UnixSocketBuffer* aMessage, bool aIsRfcomm);
   bool GetInputStreamFromBlob(BlobImpl* aBlob, bool aIsMas);
   nsTArray<uint32_t> PackParameterMask(uint8_t* aData, int aSize);
 
@@ -278,6 +289,8 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
    */
   void BuildDefaultFolderStructure();
 
+  void Dump(const mozilla::ipc::UnixSocketBuffer* buffer);
+
   static bool sInShutdown;
   /**
    * Current virtual folder path
@@ -307,18 +320,24 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
   // If a connection has been established, mMasSocket will be the socket
   // communicating with the remote socket. We maintain the invariant that if
   // mMasSocket is non-null, mServerSocket must be null (and vice versa).
+  // L2CAP socket for OBEX v1.5.
   RefPtr<BluetoothSocket> mMasSocket;
 
-  // Server socket. Once an inbound connection is established, it will hand
+  // RFCOMM socket
+  RefPtr<BluetoothSocket> mMasRfcommSocket;
+
+  // L2CAP Server socket. Once an inbound connection is established, it will hand
   // over the ownership to mMasSocket, and get a new server socket while
   // Listen() is called.
   RefPtr<BluetoothSocket> mMasServerSocket;
 
+  // RFCOMM server socket.
+  RefPtr<BluetoothSocket> mMasRfcommServerSocket;
+
   // Message notification service client socket
   RefPtr<BluetoothSocket> mMnsSocket;
-
-  int mBodySegmentLength;
-  UniquePtr<uint8_t[]> mBodySegment;
+  int mMnsL2capPsm;
+  int mMnsRfcommChannel;
 
   // The getMessage/messagesListing data stream for current processing response
   nsCOMPtr<nsIInputStream> mMasDataStream;
@@ -328,8 +347,23 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
   // Set when receiving a PutFinal packet
   bool mPutFinalFlag;
   int mPutPacketLength;
+  // For PUT only one packet size
   int mPutReceivedPacketLength;
+  int mPutBodyLength;
+  int mBodySegmentLength;
+
+  // Record OBEX total length for RFCOMM socket case
+  uint32_t mObexTotalLength;
+  // RFCOMM socket data length
+  uint32_t mReceivedRfcommLength;
+  bool mRfcommPacketIncomplete;
+  bool mIsMnsRfcomm;
+
+  nsString mPutFolderName;
+  UniquePtr<uint8_t[]> mBodySegment;
   UniquePtr<uint8_t[]> mPutReceivedDataBuffer;
+  std::vector<uint8_t> mMultiPutDataBuffer;
+  std::vector<uint8_t> mRfcommDataBuffer;
 };
 
 END_BLUETOOTH_NAMESPACE

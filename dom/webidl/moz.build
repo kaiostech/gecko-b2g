@@ -1370,6 +1370,7 @@ if CONFIG["MOZ_B2G_BT"]:
         "BluetoothMapMessageUpdateEvent.webidl",
         "BluetoothMapSendMessageEvent.webidl",
         "BluetoothMapSetMessageStatusEvent.webidl",
+        "BluetoothMapVersionEvent.webidl",
         "BluetoothObexAuthEvent.webidl",
         "BluetoothPairingEvent.webidl",
         "BluetoothPbapConnectionReqEvent.webidl",

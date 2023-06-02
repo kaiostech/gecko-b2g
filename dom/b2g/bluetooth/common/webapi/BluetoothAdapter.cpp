@@ -18,6 +18,7 @@
 #include "mozilla/dom/BluetoothMapMessageUpdateEvent.h"
 #include "mozilla/dom/BluetoothMapSetMessageStatusEvent.h"
 #include "mozilla/dom/BluetoothMapSendMessageEvent.h"
+#include "mozilla/dom/BluetoothMapVersionEvent.h"
 #include "mozilla/dom/BluetoothObexAuthEvent.h"
 #include "mozilla/dom/BluetoothPbapConnectionReqEvent.h"
 #include "mozilla/dom/BluetoothPhonebookPullingEvent.h"
@@ -549,6 +550,8 @@ void BluetoothAdapter::Notify(const BluetoothSignal& aData) {
     HandleMapSendMessage(aData.value());
   } else if (aData.name().Equals(MAP_MESSAGE_UPDATE_REQ_ID)) {
     HandleMapMessageUpdate(aData.value());
+  } else if (aData.name().Equals(MAP_VERSION_ID)) {
+    HandleMapVersion(aData.value());
   } else {
     BT_WARNING("Not handling adapter signal: %s",
                NS_ConvertUTF16toUTF8(aData.name()).get());
@@ -1398,6 +1401,19 @@ void BluetoothAdapter::HandleMapConnectionReq(const BluetoothValue& aValue) {
   RefPtr<BluetoothMapConnectionReqEvent> event =
       BluetoothMapConnectionReqEvent::Constructor(this, MAP_CONNECTION_REQ_ID,
                                                   init);
+
+  DispatchTrustedEvent(event);
+}
+
+void BluetoothAdapter::HandleMapVersion(const BluetoothValue& aValue) {
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TnsString);
+
+  BluetoothMapVersionEventInit init;
+  init.mVersion = aValue.get_nsString();
+  init.mHandle = BluetoothMapRequestHandle::Create(GetOwner());
+
+  RefPtr<BluetoothMapVersionEvent> event =
+      BluetoothMapVersionEvent::Constructor(this, MAP_VERSION_ID, init);
 
   DispatchTrustedEvent(event);
 }

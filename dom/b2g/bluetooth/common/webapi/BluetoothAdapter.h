@@ -395,6 +395,14 @@ class BluetoothAdapter : public DOMEventTargetHelper,
   void HandleMapConnectionReq(const BluetoothValue& aValue);
 
   /**
+   * Handle MAP_VERSION_ID bluetooth signal.
+   *
+   * @param aValue [in] a BluetoothValue with 'TnsString' type
+   *                    as the 'version' property.
+   */
+  void HandleMapVersion(const BluetoothValue& aValue);
+
+  /**
    * Handle "MapFolderListing" bluetooth signal.
    *
    * @param aValue [in] Properties array of the MAP request.

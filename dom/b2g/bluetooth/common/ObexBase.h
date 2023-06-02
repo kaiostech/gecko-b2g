@@ -38,7 +38,7 @@ static const uint32_t kObexBodyHeaderSize = 3;
 static const uint32_t kObexLeastMaxSize = 255;
 
 /*
- * Defined in section 2.1 "OBEX Headers", IrOBEX ver 1.2
+ * Defined in section 2.1 "OBEX Headers", IrOBEX ver 1.5
  */
 enum ObexHeaderId {
   Count = 0xC0,
@@ -57,7 +57,9 @@ enum ObexHeaderId {
   AppParameters = 0x4C,
   AuthChallenge = 0x4D,
   AuthResponse = 0x4E,
-  ObjectClass = 0x4F
+  ObjectClass = 0x4F,
+  SingleResponseMode = 0x97,
+  SingleResponseModeParam = 0x98
 };
 
 /*
@@ -299,6 +301,33 @@ class ObexHeaderSet {
     return nullptr;
   }
 
+  // Get SRM mode (0x97)
+  int8_t GetSRM() const {
+    int length = mHeaders.Length();
+
+    for (int i = 0; i < length; ++i) {
+      if (mHeaders[i]->mId == ObexHeaderId::SingleResponseMode) {
+        uint8_t* ptr = mHeaders[i]->mData.get();
+        BT_LOGR("SrmValue: %d", *ptr);
+        return *ptr;
+      }
+    }
+    return -1;
+  }
+
+  // Get SRM Parameter (0x98)
+  int8_t GetSRMP() const {
+    int length = mHeaders.Length();
+
+    for (int i = 0; i < length; ++i) {
+      if (mHeaders[i]->mId == ObexHeaderId::SingleResponseModeParam) {
+        uint8_t* ptr = mHeaders[i]->mData.get();
+        return *ptr;
+      }
+    }
+    return -1;
+  }
+
   bool Has(ObexHeaderId aId) const { return !!GetHeader(aId); }
 
   void ClearHeaders() { mHeaders.Clear(); }
@@ -325,7 +354,10 @@ int AppendAppParameter(uint8_t* aRetBuf, int aBufferSize, const uint8_t aTagId,
                        const uint8_t* aValue, int aLength);
 int AppendHeaderLength(uint8_t* aRetBuf, int aObjectLength);
 int AppendHeaderConnectionId(uint8_t* aRetBuf, int aConnectionId);
+int AppendHeaderSRM(uint8_t* aRetBuf, bool aEnabled);
 int AppendHeaderEndOfBody(uint8_t* aRetBuf);
+int AppendHeaderEndOfBody(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aBody,
+                          int aLength);
 void SetObexPacketInfo(uint8_t* aRetBuf, uint8_t aOpcode, int aPacketLength);
 
 /**

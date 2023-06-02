@@ -1060,11 +1060,11 @@ class BluetoothGattInterface {
 
 class BluetoothSdpNotificationHandler {
  public:
-  virtual void SdpSearchNotification(BluetoothStatus aStatus,
-                                     const BluetoothAddress& aBdAddr,
-                                     const BluetoothUuid& aUuid,
-                                     int aNumRecords,
-                                     const BluetoothSdpRecord& aRecords);
+  virtual void SdpSearchNotification(int aSdpType,
+                                     int aRfcommChannel,
+                                     int aL2capPsm,
+                                     int aProfileVersion,
+                                     int aSupportFeature);
 
  protected:
   BluetoothSdpNotificationHandler();

@@ -59,6 +59,7 @@ class BluetoothMapBMessage {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(BluetoothMapBMessage)
   // Parse OBEX body and return bMessage object.
   BluetoothMapBMessage(uint8_t* aObexBody, int aLength);
+  BluetoothMapBMessage(const nsAutoCString& aBody);
   void GetRecipients(nsTArray<RefPtr<VCard>>& aRecipients);
   void GetOriginators(nsTArray<RefPtr<VCard>>& aRecipients);
   void GetBody(nsACString& aBody);

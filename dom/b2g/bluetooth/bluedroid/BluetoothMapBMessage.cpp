@@ -25,6 +25,15 @@ BluetoothMapBMessage::BluetoothMapBMessage(uint8_t* aObexBody, int aLength)
   ProcessDecode(body.get());
 }
 
+BluetoothMapBMessage::BluetoothMapBMessage(const nsAutoCString& aBody)
+    : mReadStatus(false),
+      mPartId(0),
+      mState(BMSG_PARSING_STATE_INVALID),
+      mUnwindState(BMSG_PARSING_STATE_INVALID),
+      mEnvelopeLevel(0) {
+  ProcessDecode(aBody.get());
+}
+
 BluetoothMapBMessage::~BluetoothMapBMessage() {}
 
 /**
@@ -42,6 +51,13 @@ static int ReadLine(const char*& aNextLineStart, nsACString& aLine) {
 
     if (!eol) {  // Reached end of file before newline
       eol = aNextLineStart + strlen(aNextLineStart);
+      // If eol is equal to aNextLineStart (which means that the input buffer is
+      // empty), it will return -1 to indicate an error.
+      if (eol == aNextLineStart) {
+        // End of input, return error
+        BT_LOGR("Error! End of input.");
+        return -1;
+      }
     }
 
     aLine.Append(aNextLineStart, eol - aNextLineStart);
@@ -137,6 +153,8 @@ void BluetoothMapBMessage::ProcessDecode(const char* aBuf) {
 void BluetoothMapBMessage::ParseBeginBmsg(const nsAutoCString& aCurrLine) {
   if (aCurrLine.EqualsLiteral("BEGIN:BMSG")) {
     mState = BMSG_PARSING_STATE_VERSION;
+  } else {
+    BT_LOGR("not found begin bmsg: reason: %s", aCurrLine.get());
   }
 }
 

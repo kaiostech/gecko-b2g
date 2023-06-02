@@ -697,12 +697,11 @@ BluetoothSdpNotificationHandler::BluetoothSdpNotificationHandler() {}
 
 BluetoothSdpNotificationHandler::~BluetoothSdpNotificationHandler() {}
 
-void BluetoothSdpNotificationHandler::SdpSearchNotification(
-    BluetoothStatus aStatus, const BluetoothAddress& aBdAddr,
-    const BluetoothUuid& aUuid, int aNumRecords,
-    const BluetoothSdpRecord& aRecords) {
-  // TODO: handle the SDP search results once the hardware stack is ready
-}
+void BluetoothSdpNotificationHandler::SdpSearchNotification(int aSdpType,
+                                                            int aRfcommChannel,
+                                                            int aL2capPsm,
+                                                            int aProfileVersion,
+                                                            int aSupportFeatures) {}
 
 // Result handling
 //

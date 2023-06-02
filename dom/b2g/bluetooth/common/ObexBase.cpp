@@ -37,6 +37,16 @@ int AppendHeader(uint8_t aHeaderId, uint8_t* aRetBuf, int aValue) {
   return 5;
 }
 
+/**
+ * Append byte to header
+ */
+int AppendHeader(uint8_t aHeaderId, uint8_t* aRetBuf, bool aValue) {
+  aRetBuf[0] = aHeaderId;
+  aRetBuf[1] = (uint8_t) aValue;
+
+  return 2;
+}
+
 //
 // Exposed functions
 //
@@ -49,6 +59,11 @@ int AppendHeaderName(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aName,
 int AppendHeaderBody(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aBody,
                      int aLength) {
   return AppendHeader(ObexHeaderId::Body, aRetBuf, aBufferSize, aBody, aLength);
+}
+
+int AppendHeaderEndOfBody(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aBody,
+                          int aLength) {
+  return AppendHeader(ObexHeaderId::EndOfBody, aRetBuf, aBufferSize, aBody, aLength);
 }
 
 int AppendHeaderTarget(uint8_t* aRetBuf, int aBufferSize,
@@ -103,6 +118,10 @@ int AppendHeaderLength(uint8_t* aRetBuf, int aObjectLength) {
 
 int AppendHeaderConnectionId(uint8_t* aRetBuf, int aConnectionId) {
   return AppendHeader(ObexHeaderId::ConnectionId, aRetBuf, aConnectionId);
+}
+
+int AppendHeaderSRM(uint8_t* aRetBuf, bool aEnabled) {
+  return AppendHeader(ObexHeaderId::SingleResponseMode, aRetBuf, aEnabled);
 }
 
 int AppendHeaderEndOfBody(uint8_t* aRetBuf) {

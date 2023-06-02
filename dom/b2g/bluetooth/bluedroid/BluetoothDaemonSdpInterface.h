@@ -85,10 +85,9 @@ class BluetoothDaemonSdpModule {
   class NotificationHandlerWrapper;
 
   typedef mozilla::ipc::DaemonNotificationRunnable5<
-      NotificationHandlerWrapper, void, BluetoothStatus, BluetoothAddress,
-      BluetoothUuid, int, BluetoothSdpRecord, BluetoothStatus,
-      const BluetoothAddress&, const BluetoothUuid&, int,
-      const BluetoothSdpRecord&>
+      NotificationHandlerWrapper, void, int /* sdp type */ , int /* rfcomm */,
+      int /* l2cap */, int /* profile version */, int /* features */,
+      int, int, int, int, int>
       SdpSearchNotification;
 
   void SdpSearchNtf(const DaemonSocketPDUHeader& aHeader,

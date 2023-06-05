@@ -12,6 +12,7 @@ var { XPCOMUtils } = ChromeUtils.importESModule(
 );
 
 ChromeUtils.defineESModuleGetters(this, {
+  Blocklist: "resource://gre/modules/Blocklist.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   EventDispatcher: "resource://gre/modules/Messaging.sys.mjs",
   GeckoViewActorManager: "resource://gre/modules/GeckoViewActorManager.sys.mjs",
@@ -23,7 +24,6 @@ ChromeUtils.defineESModuleGetters(this, {
 });
 
 XPCOMUtils.defineLazyModuleGetters(this, {
-  Blocklist: "resource://gre/modules/Blocklist.jsm",
   HistogramStopwatch: "resource://gre/modules/GeckoViewTelemetry.jsm",
   InitializationTracker: "resource://gre/modules/GeckoViewTelemetry.jsm",
 });
@@ -544,10 +544,6 @@ function createBrowser() {
   browser.setAttribute("remote", "true");
   browser.setAttribute("remoteType", E10SUtils.DEFAULT_REMOTE_TYPE);
   browser.setAttribute("messagemanagergroup", "browsers");
-
-  // The browser starts up as inactive for a tab by default.
-  // See: https://bugzilla.mozilla.org/show_bug.cgi?id=1815015
-  browser.setAttribute("initiallyactive", "false");
 
   // This is only needed for mochitests, so that they honor the
   // prefers-color-scheme.content-override pref. GeckoView doesn't set this

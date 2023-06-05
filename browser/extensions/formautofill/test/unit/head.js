@@ -16,8 +16,8 @@ var { FormLikeFactory } = ChromeUtils.importESModule(
 var { FormAutofillHandler } = ChromeUtils.importESModule(
   "resource://gre/modules/shared/FormAutofillHandler.sys.mjs"
 );
-var { AddonTestUtils, MockAsyncShutdown } = ChromeUtils.import(
-  "resource://testing-common/AddonTestUtils.jsm"
+var { AddonTestUtils, MockAsyncShutdown } = ChromeUtils.importESModule(
+  "resource://testing-common/AddonTestUtils.sys.mjs"
 );
 var { ExtensionTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/ExtensionXPCShellUtils.sys.mjs"
@@ -35,17 +35,9 @@ var { TestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/TestUtils.sys.mjs"
 );
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "AddonManager",
-  "resource://gre/modules/AddonManager.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "AddonManagerPrivate",
-  "resource://gre/modules/AddonManager.jsm"
-);
 ChromeUtils.defineESModuleGetters(this, {
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  AddonManagerPrivate: "resource://gre/modules/AddonManager.sys.mjs",
   ExtensionParent: "resource://gre/modules/ExtensionParent.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
 });

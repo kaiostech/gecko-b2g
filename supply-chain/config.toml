@@ -353,20 +353,12 @@ criteria = "safe-to-deploy"
 version = "0.13.4"
 criteria = "safe-to-deploy"
 
-[[exemptions.dashmap]]
-version = "4.0.2"
-criteria = "safe-to-deploy"
-
 [[exemptions.data-encoding]]
 version = "2.3.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.dbus]]
 version = "0.6.5"
-criteria = "safe-to-deploy"
-
-[[exemptions.derive_more]]
-version = "0.99.17"
 criteria = "safe-to-deploy"
 
 [[exemptions.devd-rs]]
@@ -499,10 +491,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.hexf-parse]]
 version = "0.2.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.ident_case]]
-version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.instant]]
@@ -643,10 +631,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.os_str_bytes]]
 version = "6.1.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.oslog]]
-version = "0.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.owning_ref]]

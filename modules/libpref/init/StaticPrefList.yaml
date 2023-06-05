@@ -981,11 +981,6 @@
   value: true
   mirror: always
 
-- name: browser.cache.offline.enable
-  type: bool
-  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
-  mirror: always
-
 - name: browser.cache.disk.enable
   type: RelaxedAtomicBool
   value: true
@@ -2605,7 +2600,7 @@
 # events that occur in a given wheel transaction have the same event target.
 - name: dom.event.wheel-event-groups.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Whether WheelEvent should return pixels instead of lines for
@@ -8541,7 +8536,7 @@
 # Whether CSS nesting is enabled.
 - name: layout.css.nesting.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -11057,11 +11052,9 @@
 # getUserMedia calls. Should only be turned on to resolve web compat issues,
 # since doing so reveals more user fingerprinting information to trackers.
 #
-# This mode is marginally more permissive than the legacy behavior it attempts
-# to emulate in that device labels do not disappear when tracks are stopped and
-# temporary permission expires. That behavior isn't emulated due to low relative
-# privacy value  compared to spec and it not being being conducive to spec
-# convergence.
+# In this mode, camera and microphone device labels are exposed if the site has a
+# persisted permission to either kind, as well as while actively capturing either
+# kind (temporary and tab-specific grace-period permissions do not count).
 #
 # Planned next steps: true → @IS_NOT_NIGHTLY_BUILD@ → false
 - name: media.devices.enumerate.legacy.enabled
@@ -11150,7 +11143,7 @@
   # will become sparse.
 -   name: media.aboutwebrtc.hist.enabled
     type: RelaxedAtomicBool
-#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GTK)
+#if defined(MOZ_WIDGET_ANDROID)
     value: false
 #else
     value: @IS_NIGHTLY_BUILD@
@@ -12155,11 +12148,7 @@
 # be limited by "network.http.speculative-parallel-limit".
 - name: network.early-hints.preconnect.max_connections
   type: uint32_t
-#if defined(NIGHTLY_BUILD)
   value: 10
-#else
-  value: 0
-#endif
   mirror: always
 
 # How long we should wait for EarlyHintPreloader to be used.
@@ -12566,42 +12555,6 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
-
-# Whether to enable odoh.
-- name: network.trr.odoh.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# The uri of Oblivious Proxy.
-- name: network.trr.odoh.proxy_uri
-  type: String
-  value: ""
-  mirror: never
-
-# The host name of Oblivious Target.
-- name: network.trr.odoh.target_host
-  type: String
-  value: ""
-  mirror: never
-
-# The uri path of the odoh uri.
-- name: network.trr.odoh.target_path
-  type: String
-  value: ""
-  mirror: never
-
-# The minimum ttl of the DNS record that contains ODoHConfigs.
-- name: network.trr.odoh.min_ttl
-  type: RelaxedAtomicUint32
-  value: 60
-  mirror: always
-
-# The uri indicates where to get ODoHConfigs.
-- name: network.trr.odoh.configs_uri
-  type: String
-  value: ""
-  mirror: never
 
 # Whether to add padding in the doh dns queries (rfc 7830)
 - name: network.trr.padding
@@ -15775,12 +15728,6 @@
   value: true
   mirror: always
 #endif
-
-# Whether to allow gtk dark themes in content.
-- name: widget.content.allow-gtk-dark-theme
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
 
 # Whether native GTK context menus are enabled.
 # Disabled because at the very least there's missing custom icon support.

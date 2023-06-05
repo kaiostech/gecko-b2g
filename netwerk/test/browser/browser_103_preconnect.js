@@ -47,11 +47,21 @@ async function test_hint_preconnect(href, crossOrigin) {
     async function () {}
   );
 
-  if (!crossOrigin) {
-    crossOrigin = "anonymous";
-  }
+  // Extracting "localhost:443"
+  let hostPortRegex = /\[.*\](.*?)\^/;
+  let hostPortMatch = hostPortRegex.exec(observed);
+  let hostPort = hostPortMatch ? hostPortMatch[1] : "";
+  // Extracting "%28https%2Cexample.com%29"
+  let partitionKeyRegex = /\^partitionKey=(.*)$/;
+  let partitionKeyMatch = partitionKeyRegex.exec(observed);
+  let partitionKey = partitionKeyMatch ? partitionKeyMatch[1] : "";
+  // See nsHttpConnectionInfo::BuildHashKey, the second character is A if this
+  // is an anonymous connection.
+  let anonymousFlag = observed[2];
 
-  Assert.equal(observed, `${href}/${crossOrigin}`);
+  Assert.equal(anonymousFlag, crossOrigin === "use-credentials" ? "." : "A");
+  Assert.equal(hostPort, "localhost:443");
+  Assert.equal(partitionKey, "%28https%2Cexample.com%29");
 }
 
 add_task(async function test_103_preconnect() {

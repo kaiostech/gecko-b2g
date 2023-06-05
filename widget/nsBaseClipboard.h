@@ -8,6 +8,7 @@
 
 #include "mozilla/dom/PContent.h"
 #include "mozilla/Logging.h"
+#include "mozilla/UniquePtr.h"
 #include "nsIClipboard.h"
 #include "nsITransferable.h"
 #include "nsCOMPtr.h"
@@ -37,10 +38,6 @@ class ClipboardSetDataHelper : public nsIClipboard {
   ClipboardSetDataHelper() = default;
 
   // nsIClipboard
-  // XXX the Cocoa widget currently overrides `SetData` for `kSelectionCache`
-  // type, so it cannot be marked as final. Once the Cocoa widget handles
-  // `kSelectionCache` type more generic after bug 1812078, it can be marked
-  // as final, too.
   NS_IMETHOD SetData(nsITransferable* aTransferable, nsIClipboardOwner* aOwner,
                      int32_t aWhichClipboard) override;
   NS_IMETHOD AsyncSetData(int32_t aWhichClipboard,
@@ -107,7 +104,7 @@ class nsBaseClipboard : public ClipboardSetDataHelper {
 
   // nsIClipboard
   NS_IMETHOD SetData(nsITransferable* aTransferable, nsIClipboardOwner* anOwner,
-                     int32_t aWhichClipboard) override;
+                     int32_t aWhichClipboard) override final;
   NS_IMETHOD GetData(nsITransferable* aTransferable,
                      int32_t aWhichClipboard) override;
   NS_IMETHOD EmptyClipboard(int32_t aWhichClipboard) override;
@@ -122,17 +119,41 @@ class nsBaseClipboard : public ClipboardSetDataHelper {
       const nsTArray<nsCString>& aFlavorList, int32_t aWhichClipboard) override;
 
  protected:
-  virtual ~nsBaseClipboard();
+  virtual ~nsBaseClipboard() = default;
 
   // Implement the native clipboard behavior.
   NS_IMETHOD GetNativeClipboardData(nsITransferable* aTransferable,
                                     int32_t aWhichClipboard) = 0;
 
-  void ClearClipboardCache();
+  class ClipboardCache final {
+   public:
+    ~ClipboardCache() {
+      // In order to notify the old clipboard owner.
+      Clear();
+    }
 
+    /**
+     * Clear the cached transferable and notify the original clipboard owner
+     * that it has lost ownership.
+     */
+    void Clear();
+    void Update(nsITransferable* aTransferable,
+                nsIClipboardOwner* aClipboardOwner) {
+      // Clear first to notify the old clipboard owner.
+      Clear();
+      mTransferable = aTransferable;
+      mClipboardOwner = aClipboardOwner;
+    }
+    nsITransferable* GetTransferable() const { return mTransferable; }
+    nsIClipboardOwner* GetClipboardOwner() const { return mClipboardOwner; }
+
+   private:
+    nsCOMPtr<nsITransferable> mTransferable;
+    nsCOMPtr<nsIClipboardOwner> mClipboardOwner;
+  };
+
+  mozilla::UniquePtr<ClipboardCache> mCaches[nsIClipboard::kClipboardTypeCount];
   bool mEmptyingForSetData = false;
-  nsCOMPtr<nsIClipboardOwner> mClipboardOwner;
-  nsCOMPtr<nsITransferable> mTransferable;
 
  private:
   const mozilla::dom::ClipboardCapabilities mClipboardCaps;

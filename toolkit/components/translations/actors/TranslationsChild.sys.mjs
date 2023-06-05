@@ -52,6 +52,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   TranslationsDocument:
     "chrome://global/content/translations/translations-document.sys.mjs",
+  TranslationsTelemetry:
+    "chrome://global/content/translations/TranslationsTelemetry.sys.mjs",
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "console", () => {
@@ -191,7 +193,7 @@ class TranslationsEngineCache {
 
       // Remove the engine if it fails to initialize.
       enginePromise.catch(error => {
-        lazy.console.error(
+        lazy.console.log(
           `The engine failed to load for translating "${fromLanguage}" to "${toLanguage}". Removing it from the cache.`,
           error
         );
@@ -519,7 +521,7 @@ export class TranslationsChild extends JSWindowActorChild {
     switch (event.type) {
       case "DOMContentLoaded":
         this.innerWindowId = this.contentWindow.windowGlobalChild.innerWindowId;
-        this.maybeOfferTranslation().catch(error => lazy.console.error(error));
+        this.maybeOfferTranslation().catch(error => lazy.console.log(error));
         break;
       case "pagehide":
         lazy.console.log(
@@ -756,6 +758,11 @@ export class TranslationsChild extends JSWindowActorChild {
         langTags
       );
       if (maybeAutoTranslate && !maybeNeverTranslate) {
+        lazy.TranslationsTelemetry.onTranslate({
+          fromLanguage: langTags.docLangTag,
+          toLanguage: langTags.userLangTag,
+          autoTranslate: maybeAutoTranslate,
+        });
         this.translatePage(
           langTags.docLangTag,
           langTags.userLangTag,
@@ -824,11 +831,12 @@ export class TranslationsChild extends JSWindowActorChild {
           );
         },
         error => {
-          lazy.console.error("Failed to load the translations engine.", error);
+          lazy.console.log("Failed to load the translations engine.", error);
         }
       );
     } catch (error) {
-      lazy.console.error(
+      lazy.TranslationsTelemetry.onError(error);
+      lazy.console.log(
         "Failed to load the translations engine",
         error,
         this.contentWindow.location.href
@@ -844,6 +852,7 @@ export class TranslationsChild extends JSWindowActorChild {
     try {
       await this.#getTranslationsEngine();
     } catch (error) {
+      lazy.TranslationsTelemetry.onError(error);
       this.sendAsyncMessage("Translations:FullPageTranslationFailed", {
         reason: "engine-load-failure",
       });
@@ -910,6 +919,11 @@ export class TranslationsChild extends JSWindowActorChild {
           );
           break;
         }
+        lazy.TranslationsTelemetry.onTranslate({
+          fromLanguage: langTags.fromLanguage,
+          toLanguage: langTags.toLanguage,
+          autoTranslate: false,
+        });
         this.translatePage(langTags.fromLanguage, langTags.toLanguage);
         break;
       case "Translations:GetLangTagsForTranslation":

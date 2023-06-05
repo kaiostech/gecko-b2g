@@ -342,11 +342,11 @@ class Editor extends PureComponent {
     }
 
     return openConditionalPanel(
-      {
+      createLocation({
         line,
         column,
-        sourceId: selectedSource.id,
-      },
+        source: selectedSource,
+      }),
       false
     );
   };
@@ -518,11 +518,14 @@ class Editor extends PureComponent {
     }
 
     if (isCmd(ev)) {
-      continueToHere(cx, {
-        line: sourceLine,
-        column: undefined,
-        sourceId: selectedSource.id,
-      });
+      continueToHere(
+        cx,
+        createLocation({
+          line: sourceLine,
+          column: undefined,
+          source: selectedSource,
+        })
+      );
       return;
     }
 
@@ -670,6 +673,9 @@ class Editor extends PureComponent {
       inlinePreviewEnabled,
       editorWrappingEnabled,
       highlightedLineRange,
+      blackboxedRanges,
+      isSourceOnIgnoreList,
+      selectedSourceIsBlackBoxed,
     } = this.props;
     const { editor, contextMenu } = this.state;
 
@@ -688,7 +694,16 @@ class Editor extends PureComponent {
         {highlightedLineRange ? (
           <HighlightLines editor={editor} range={highlightedLineRange} />
         ) : null}
-        <BlackboxLines editor={editor} />
+        {isSourceOnIgnoreList || selectedSourceIsBlackBoxed ? (
+          <BlackboxLines
+            editor={editor}
+            selectedSource={selectedSource}
+            isSourceOnIgnoreList={isSourceOnIgnoreList}
+            blackboxedRangesForSelectedSource={
+              blackboxedRanges[selectedSource.url]
+            }
+          />
+        ) : null}
         <Exceptions />
         <EditorMenu
           editor={editor}

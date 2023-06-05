@@ -22,8 +22,8 @@ var EXPORTED_SYMBOLS = ["XPIProvider", "XPIInternal"];
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
-const { AddonManager, AddonManagerPrivate } = ChromeUtils.import(
-  "resource://gre/modules/AddonManager.jsm"
+const { AddonManager, AddonManagerPrivate } = ChromeUtils.importESModule(
+  "resource://gre/modules/AddonManager.sys.mjs"
 );
 const { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
@@ -32,6 +32,7 @@ const { AppConstants } = ChromeUtils.importESModule(
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AddonSettings: "resource://gre/modules/addons/AddonSettings.sys.mjs",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   Dictionary: "resource://gre/modules/Extension.sys.mjs",
   Extension: "resource://gre/modules/Extension.sys.mjs",
@@ -44,7 +45,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
-  AddonSettings: "resource://gre/modules/addons/AddonSettings.jsm",
   XPIDatabase: "resource://gre/modules/addons/XPIDatabase.jsm",
   XPIDatabaseReconcile: "resource://gre/modules/addons/XPIDatabase.jsm",
   XPIInstall: "resource://gre/modules/addons/XPIInstall.jsm",

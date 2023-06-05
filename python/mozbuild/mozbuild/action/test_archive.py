@@ -545,7 +545,6 @@ ARCHIVE_FILES = {
                 "node_ip/**",
                 "node-ws/**",
                 "dns-packet/**",
-                "odoh-wasm/**",
                 "remotexpcshelltests.py",
                 "runxpcshelltests.py",
                 "selftest.py",

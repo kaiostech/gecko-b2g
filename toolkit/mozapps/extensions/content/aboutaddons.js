@@ -10,6 +10,8 @@
 "use strict";
 
 ChromeUtils.defineESModuleGetters(this, {
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  AddonRepository: "resource://gre/modules/addons/AddonRepository.sys.mjs",
   BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
   ClientID: "resource://gre/modules/ClientID.sys.mjs",
   DeferredTask: "resource://gre/modules/DeferredTask.sys.mjs",
@@ -18,11 +20,6 @@ ChromeUtils.defineESModuleGetters(this, {
   ExtensionParent: "resource://gre/modules/ExtensionParent.sys.mjs",
   ExtensionPermissions: "resource://gre/modules/ExtensionPermissions.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-});
-
-XPCOMUtils.defineLazyModuleGetters(this, {
-  AddonManager: "resource://gre/modules/AddonManager.jsm",
-  AddonRepository: "resource://gre/modules/addons/AddonRepository.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(this, "extensionStylesheets", () => {

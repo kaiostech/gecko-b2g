@@ -13,6 +13,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   AddonSearchEngine: "resource://gre/modules/AddonSearchEngine.sys.mjs",
   IgnoreLists: "resource://gre/modules/IgnoreLists.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
@@ -26,10 +27,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchStaticData: "resource://gre/modules/SearchStaticData.sys.mjs",
   SearchUtils: "resource://gre/modules/SearchUtils.sys.mjs",
   UserSearchEngine: "resource://gre/modules/UserSearchEngine.sys.mjs",
-});
-
-XPCOMUtils.defineLazyModuleGetters(lazy, {
-  AddonManager: "resource://gre/modules/AddonManager.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "logConsole", () => {
@@ -392,15 +389,18 @@ export class SearchService {
     lazy.logConsole.debug("init");
 
     TelemetryStopwatch.start("SEARCH_SERVICE_INIT_MS");
+    const timerId = Glean.searchService.startupTime.start();
     this.#initStarted = true;
     let result;
     try {
       // Complete initialization by calling asynchronous initializer.
       result = await this.#init();
       TelemetryStopwatch.finish("SEARCH_SERVICE_INIT_MS");
+      Glean.searchService.startupTime.stopAndAccumulate(timerId);
     } catch (ex) {
       this.#initializationStatus = "failed";
       TelemetryStopwatch.cancel("SEARCH_SERVICE_INIT_MS");
+      Glean.searchService.startupTime.cancel(timerId);
       this.#initObservers.reject(ex.result);
       throw ex;
     }

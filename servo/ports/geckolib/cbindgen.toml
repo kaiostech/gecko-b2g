@@ -114,6 +114,7 @@ include = [
   "FontFamilyNameSyntax",
   "OverflowWrap",
   "OffsetPath",
+  "OffsetPosition",
   "OffsetRotate",
   "UnicodeRange",
   "UserSelect",

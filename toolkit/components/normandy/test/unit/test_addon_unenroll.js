@@ -1,5 +1,5 @@
-const { AddonTestUtils } = ChromeUtils.import(
-  "resource://testing-common/AddonTestUtils.jsm"
+const { AddonTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/AddonTestUtils.sys.mjs"
 );
 const { ExtensionTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/ExtensionXPCShellUtils.sys.mjs"
@@ -13,8 +13,8 @@ const { BaseAction } = ChromeUtils.importESModule(
 const { TelemetryEvents } = ChromeUtils.importESModule(
   "resource://normandy/lib/TelemetryEvents.sys.mjs"
 );
-const { AddonManager } = ChromeUtils.import(
-  "resource://gre/modules/AddonManager.jsm"
+const { AddonManager } = ChromeUtils.importESModule(
+  "resource://gre/modules/AddonManager.sys.mjs"
 );
 const { AddonStudies } = ChromeUtils.importESModule(
   "resource://normandy/lib/AddonStudies.sys.mjs"

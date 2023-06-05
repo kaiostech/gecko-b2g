@@ -100,6 +100,7 @@
 #include "mozilla/dom/HTMLBodyElement.h"
 #include "imgIContainer.h"
 #include "nsComputedDOMStyle.h"
+#include "mozilla/dom/HTMLDialogElement.h"
 #include "mozilla/dom/HTMLLabelElement.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/dom/CustomElementRegistry.h"
@@ -704,11 +705,7 @@ void nsGenericHTMLElement::AfterSetPopoverAttr() {
   const PopoverAttributeState oldState = GetPopoverAttributeState();
 
   if (newState != oldState) {
-    if (newState == PopoverAttributeState::None) {
-      ClearPopoverData();
-    } else {
-      EnsurePopoverData().SetPopoverAttributeState(newState);
-    }
+    EnsurePopoverData().SetPopoverAttributeState(newState);
 
     HidePopoverInternal(/* aFocusPreviousElement = */ true,
                         /* aFireEvents = */ true, IgnoreErrors());
@@ -717,6 +714,12 @@ void nsGenericHTMLElement::AfterSetPopoverAttr() {
     // changes and don't overwrite anything here.
     if (newState == GetPopoverAttributeState()) {
       if (newState == PopoverAttributeState::None) {
+        // `HidePopoverInternal` above didn't remove the element from the top
+        // layer, because in that call, the element's popover attribute state
+        // was already `None`. Revisit this, when the spec is corrected
+        // (bug 1835811).
+        OwnerDoc()->RemovePopoverFromTopLayer(*this);
+
         ClearPopoverData();
         RemoveStates(ElementState::POPOVER_OPEN);
       } else {
@@ -3366,9 +3369,9 @@ void nsGenericHTMLElement::ShowPopover(ErrorResult& aRv) {
   bool shouldRestoreFocus = false;
   nsWeakPtr originallyFocusedElement;
   if (IsAutoPopover()) {
-    RefPtr<Element> ancestor = GetTopmostPopoverAncestor();
+    RefPtr<nsINode> ancestor = GetTopmostPopoverAncestor();
     if (!ancestor) {
-      ancestor = document->GetDocumentElement();
+      ancestor = document;
     }
     document->HideAllPopoversUntil(*ancestor, false, true);
 
@@ -3458,6 +3461,10 @@ void nsGenericHTMLElement::TogglePopover(const Optional<bool>& aForce,
 
 // https://html.spec.whatwg.org/multipage/popover.html#popover-focusing-steps
 void nsGenericHTMLElement::FocusPopover() {
+  if (auto* dialog = HTMLDialogElement::FromNode(this)) {
+    return MOZ_KnownLive(dialog)->FocusDialog();
+  }
+
   if (RefPtr<Document> doc = GetComposedDoc()) {
     doc->FlushPendingNotifications(FlushType::Frames);
   }

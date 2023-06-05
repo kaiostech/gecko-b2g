@@ -4,6 +4,7 @@
 
 /* eslint no-shadow: error, mozilla/no-aArgs: error */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
@@ -120,7 +121,12 @@ const ParamPreferenceCache = {
   ]),
 
   initCache() {
-    this.branch = Services.prefs.getDefaultBranch(
+    // Preference params are normally only on the default branch to avoid these being easily changed.
+    // We allow them on the normal branch in nightly builds to make testing easier.
+    let branchFetcher = AppConstants.NIGHTLY_BUILD
+      ? "getBranch"
+      : "getDefaultBranch";
+    this.branch = Services.prefs[branchFetcher](
       lazy.SearchUtils.BROWSER_SEARCH_PREF + "param."
     );
     this.cache = new Map();
@@ -1719,7 +1725,7 @@ export class SearchEngine {
     );
 
     try {
-      connector.speculativeConnect(searchURI, principal, callbacks);
+      connector.speculativeConnect(searchURI, principal, callbacks, false);
     } catch (e) {
       // Can't setup speculative connection for this url, just ignore it.
       console.error(e);
@@ -1732,7 +1738,7 @@ export class SearchEngine {
       ).uri;
       if (suggestURI.prePath != searchURI.prePath) {
         try {
-          connector.speculativeConnect(suggestURI, principal, callbacks);
+          connector.speculativeConnect(suggestURI, principal, callbacks, false);
         } catch (e) {
           // Can't setup speculative connection for this url, just ignore it.
           console.error(e);

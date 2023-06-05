@@ -1,10 +1,8 @@
 "use strict";
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "AddonManager",
-  "resource://gre/modules/AddonManager.jsm"
-);
+ChromeUtils.defineESModuleGetters(this, {
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+});
 
 const { AddonStudies } = ChromeUtils.importESModule(
   "resource://normandy/lib/AddonStudies.sys.mjs"
@@ -15,8 +13,8 @@ const { NormandyTestUtils } = ChromeUtils.importESModule(
 const { TestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/TestUtils.sys.mjs"
 );
-var { AddonTestUtils } = ChromeUtils.import(
-  "resource://testing-common/AddonTestUtils.jsm"
+var { AddonTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/AddonTestUtils.sys.mjs"
 );
 
 const { addonStudyFactory } = NormandyTestUtils.factories;

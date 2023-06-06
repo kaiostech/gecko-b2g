@@ -17,7 +17,7 @@ const {
  * have been simplified. We may want to consider unifying them in the future
  */
 
-const DEBUGGER_POLLING_INTERVAL = 50;
+const DEBUGGER_POLLING_INTERVAL = 25;
 
 function waitForState(dbg, predicate, msg) {
   return new Promise(resolve => {
@@ -66,6 +66,13 @@ function waitForDispatch(dbg, type) {
 async function waitUntil(predicate, msg) {
   if (msg) {
     dump(`Waiting until: ${msg}\n`);
+  }
+  const earlyPredicateResult = predicate();
+  if (earlyPredicateResult) {
+    if (msg) {
+      dump(`Finished Waiting until: ${msg} (was immediately true)\n`);
+    }
+    return earlyPredicateResult;
   }
   return new Promise(resolve => {
     const timer = setInterval(() => {
@@ -178,12 +185,16 @@ function createContext(panel) {
 }
 exports.createContext = createContext;
 
-function selectSource(dbg, url) {
+async function selectSource(dbg, url) {
   dump(`Selecting source: ${url}\n`);
   const line = 1;
   const source = findSource(dbg, url);
   const cx = dbg.selectors.getContext(dbg.getState());
-  dbg.actions.selectLocation(cx, createLocation({ source, line }));
+  // keepContext set to false allows to force selecting original/generated source
+  // regardless if we were currently selecting the opposite type of source.
+  await dbg.actions.selectLocation(cx, createLocation({ source, line }), {
+    keepContext: false,
+  });
   return waitForState(
     dbg,
     state => {
@@ -248,7 +259,9 @@ async function reloadDebuggerAndLog(label, toolbox, expected) {
     const panel = await toolbox.getPanelWhenReady("jsdebugger");
     const dbg = await createContext(panel);
     await waitForDispatch(dbg, "NAVIGATE");
+    await waitForDispatch(dbg, "REMOVE_THREAD");
     await waitForSources(dbg, expected.sources);
+    await waitForSource(dbg, expected.sourceURL);
     await waitForText(dbg, expected.text);
     await waitForSymbols(dbg);
   };

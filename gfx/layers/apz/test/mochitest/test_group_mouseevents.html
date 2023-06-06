@@ -29,7 +29,7 @@ var subtests = [
     ["test.events.async.enabled", true],
     ["apz.test.logging_enabled", true],
     // The test performs scrollbar dragging, avoid auto-hiding scrollbars.
-    ["ui.useOverlayScrollbars", false]
+    ["ui.useOverlayScrollbars", 0]
   ]},
   // Test for dragging on a fake-scrollbar element that scrolls the page
   {"file": "helper_drag_scroll.html"},
@@ -56,6 +56,10 @@ var subtests = [
   {"file": "helper_bug1662800.html"},
   // Scrollbar-dragging on subframe with enclosing translation transform
   {"file": "helper_drag_bug1719913.html"},
+  // Scrolling with mouse down on the scrollbar
+  {"file": "helper_scrollbartrack_click_overshoot.html",
+   "prefs": [["test.events.async.enabled", true], ["apz.test.logging_enabled", true],
+             ["ui.useOverlayScrollbars", 0]]},
 ];
 
 // Android, mac, and linux (at least in our automation) do not have scrollbar buttons.

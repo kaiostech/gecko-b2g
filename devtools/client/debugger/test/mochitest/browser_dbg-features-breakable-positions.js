@@ -221,14 +221,14 @@ async function assertBreakablePositions(
         } in ${JSON.stringify(columns)}) for line ${line}`
       );
       is(
-        selPos.location.sourceId,
+        selPos.location.source.id,
         source.id,
-        "Selector breakable column has the right sourceId"
+        "Selector breakable column has the right source id"
       );
       is(
-        selPos.location.sourceUrl,
+        selPos.location.source.url,
         source.url,
-        "Selector breakable column has the right sourceUrl"
+        "Selector breakable column has the right source url"
       );
     }
 

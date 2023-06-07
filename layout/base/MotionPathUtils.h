@@ -22,8 +22,6 @@ class TransformReferenceBox;
 
 namespace mozilla {
 
-using RayFunction = StyleRayFunction<StyleAngle>;
-
 namespace layers {
 class MotionPathData;
 class PathCommand;
@@ -37,7 +35,8 @@ struct ResolvedMotionPathData {
 };
 
 struct RayReferenceData {
-  // The initial position related to the containing block.
+  // The current position of this transfromed box in the coordinate system of
+  // its containing block.
   CSSPoint mInitialPosition;
   // The rect of the containing block.
   CSSRect mContainingBlockRect;
@@ -70,7 +69,7 @@ struct OffsetPathData {
   };
 
   struct RayData {
-    const RayFunction* mRay;
+    const StyleRayFunction* mRay;
     RayReferenceData mData;
   };
 
@@ -87,11 +86,12 @@ struct OffsetPathData {
     return OffsetPathData(std::move(aGfxPath),
                           !path.empty() && path.rbegin()->IsClosePath());
   }
-  static OffsetPathData Ray(const RayFunction& aRay,
+  static OffsetPathData Ray(const StyleRayFunction& aRay,
                             const RayReferenceData& aData) {
     return OffsetPathData(&aRay, aData);
   }
-  static OffsetPathData Ray(const RayFunction& aRay, RayReferenceData&& aData) {
+  static OffsetPathData Ray(const StyleRayFunction& aRay,
+                            RayReferenceData&& aData) {
     return OffsetPathData(&aRay, std::move(aData));
   }
 
@@ -152,9 +152,9 @@ struct OffsetPathData {
   OffsetPathData() : mType(Type::None) {}
   OffsetPathData(already_AddRefed<gfx::Path>&& aPath, bool aIsClosed)
       : mType(Type::Path), mPath{std::move(aPath), aIsClosed} {}
-  OffsetPathData(const RayFunction* aRay, RayReferenceData&& aRef)
+  OffsetPathData(const StyleRayFunction* aRay, RayReferenceData&& aRef)
       : mType(Type::Ray), mRay{aRay, std::move(aRef)} {}
-  OffsetPathData(const RayFunction* aRay, const RayReferenceData& aRef)
+  OffsetPathData(const StyleRayFunction* aRay, const RayReferenceData& aRef)
       : mType(Type::Ray), mRay{aRay, aRef} {}
   OffsetPathData& operator=(const OffsetPathData&) = delete;
   OffsetPathData& operator=(OffsetPathData&&) = delete;
@@ -182,8 +182,8 @@ class MotionPathUtils final {
   static Maybe<ResolvedMotionPathData> ResolveMotionPath(
       const OffsetPathData& aPath, const LengthPercentage& aDistance,
       const StyleOffsetRotate& aRotate, const StylePositionOrAuto& aAnchor,
-      const CSSPoint& aTransformOrigin, TransformReferenceBox&,
-      const CSSPoint& aAnchorPointAdjustment);
+      const StyleOffsetPosition& aPosition, const CSSPoint& aTransformOrigin,
+      TransformReferenceBox&, const CSSPoint& aAnchorPointAdjustment);
 
   /**
    * Generate the motion path transform result with |nsIFrame|. This is only
@@ -200,6 +200,7 @@ class MotionPathUtils final {
   static Maybe<ResolvedMotionPathData> ResolveMotionPath(
       const StyleOffsetPath* aPath, const StyleLengthPercentage* aDistance,
       const StyleOffsetRotate* aRotate, const StylePositionOrAuto* aAnchor,
+      const StyleOffsetPosition* aPosition,
       const Maybe<layers::MotionPathData>& aMotionPathData,
       TransformReferenceBox&, gfx::Path* aCachedMotionPath);
 

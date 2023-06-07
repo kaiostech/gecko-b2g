@@ -9,8 +9,8 @@ user-login = "BurntSushi"
 user-name = "Andrew Gallant"
 
 [[publisher.async-trait]]
-version = "0.1.64"
-when = "2023-01-30"
+version = "0.1.68"
+when = "2023-03-24"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
@@ -193,6 +193,13 @@ user-name = "Josh Stone"
 [[publisher.inherent]]
 version = "1.0.4"
 when = "2023-02-15"
+user-id = 3618
+user-login = "dtolnay"
+user-name = "David Tolnay"
+
+[[publisher.inherent]]
+version = "1.0.7"
+when = "2023-03-25"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
@@ -389,6 +396,13 @@ user-name = "David Tolnay"
 [[publisher.serde_repr]]
 version = "0.1.10"
 when = "2022-12-17"
+user-id = 3618
+user-login = "dtolnay"
+user-name = "David Tolnay"
+
+[[publisher.serde_repr]]
+version = "0.1.12"
+when = "2023-03-18"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
@@ -820,6 +834,18 @@ who = "Johan Andersson <opensource@embark-studios.com>"
 criteria = "safe-to-deploy"
 version = "1.0.1"
 notes = "No unsafe usage or ambient capabilities"
+
+[[audits.embark-studios.audits.thiserror]]
+who = "Johan Andersson <opensource@embark-studios.com>"
+criteria = "safe-to-deploy"
+version = "1.0.40"
+notes = "Wrapper over implementation crate, found no unsafe or ambient capabilities used"
+
+[[audits.embark-studios.audits.thiserror-impl]]
+who = "Johan Andersson <opensource@embark-studios.com>"
+criteria = "safe-to-deploy"
+version = "1.0.40"
+notes = "Found no unsafe or ambient capabilities used"
 
 [[audits.google.audits.ash]]
 who = "David Koloski <dkoloski@google.com>"

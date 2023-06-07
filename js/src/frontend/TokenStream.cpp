@@ -35,6 +35,7 @@
 #include "frontend/Parser.h"
 #include "frontend/ParserAtom.h"
 #include "frontend/ReservedWords.h"
+#include "js/CharacterEncoding.h"     // JS::ConstUTF8CharsZ
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/Printf.h"                // JS_smprintf
 #include "js/RegExpFlags.h"           // JS::RegExpFlags
@@ -1034,8 +1035,8 @@ MOZ_COLD void TokenStreamChars<Utf8Unit, AnyCharsAccess>::internalEncodingError(
     uint32_t line, column;
     computeLineAndColumn(offset, &line, &column);
 
-    if (!notes->addNoteASCII(anyChars.fc, anyChars.getFilename(), 0, line,
-                             column, GetErrorMessage, nullptr,
+    if (!notes->addNoteASCII(anyChars.fc, anyChars.getFilename().c_str(), 0,
+                             line, column, GetErrorMessage, nullptr,
                              JSMSG_BAD_CODE_UNITS, badUnitsStr)) {
       break;
     }
@@ -1595,7 +1596,7 @@ bool TokenStreamAnyChars::fillExceptingContext(ErrorMetadata* err,
                                FrameIter::FOLLOW_DEBUGGER_EVAL_PREV_LINK,
                                maybeCx->realm()->principals());
       if (!iter.done() && iter.filename()) {
-        err->filename = iter.filename();
+        err->filename = JS::ConstUTF8CharsZ(iter.filename());
         err->lineNumber = iter.computeLine(&err->columnNumber);
         return false;
       }
@@ -2654,6 +2655,8 @@ template <typename Unit, class AnyCharsAccess>
       flag = RegExpFlag::DotAll;
     } else if (unit == 'u') {
       flag = RegExpFlag::Unicode;
+    } else if (unit == 'v') {
+      flag = RegExpFlag::UnicodeSets;
     } else if (unit == 'y') {
       flag = RegExpFlag::Sticky;
     } else if (IsAsciiAlpha(unit)) {
@@ -2663,6 +2666,15 @@ template <typename Unit, class AnyCharsAccess>
     }
 
     if ((reflags & flag) || flag == RegExpFlag::NoFlags) {
+      ungetCodeUnit(unit);
+      char buf[2] = {char(unit), '\0'};
+      error(JSMSG_BAD_REGEXP_FLAG, buf);
+      return badToken();
+    }
+
+    // /u and /v flags are mutually exclusive.
+    if (((reflags & RegExpFlag::Unicode) && (flag & RegExpFlag::UnicodeSets)) ||
+        ((reflags & RegExpFlag::UnicodeSets) && (flag & RegExpFlag::Unicode))) {
       ungetCodeUnit(unit);
       char buf[2] = {char(unit), '\0'};
       error(JSMSG_BAD_REGEXP_FLAG, buf);

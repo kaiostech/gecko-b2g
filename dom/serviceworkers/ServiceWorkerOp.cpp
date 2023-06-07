@@ -294,6 +294,11 @@ class ServiceWorkerOp::ServiceWorkerOpRunnable : public WorkerDebuggeeRunnable {
     MOZ_ASSERT(aWorkerPrivate->IsServiceWorker());
     MOZ_ASSERT(mOwner);
 
+    if (aWorkerPrivate->GlobalScope()->IsDying()) {
+      Unused << Cancel();
+      return true;
+    }
+
     bool rv = mOwner->Exec(aCx, aWorkerPrivate);
     Unused << NS_WARN_IF(!rv);
     mOwner = nullptr;
@@ -302,10 +307,6 @@ class ServiceWorkerOp::ServiceWorkerOpRunnable : public WorkerDebuggeeRunnable {
   }
 
   nsresult Cancel() override {
-    // We need to check first if cancel is permitted
-    nsresult rv = WorkerRunnable::Cancel();
-    NS_ENSURE_SUCCESS(rv, rv);
-
     MOZ_ASSERT(mOwner);
 
     mOwner->RejectAll(NS_ERROR_DOM_ABORT_ERR);
@@ -551,7 +552,7 @@ class UpdateServiceWorkerStateOp final : public ServiceWorkerOp {
       mOwner->RejectAll(NS_ERROR_DOM_ABORT_ERR);
       mOwner = nullptr;
 
-      return MainThreadWorkerControlRunnable::Cancel();
+      return NS_OK;
     }
 
     RefPtr<UpdateServiceWorkerStateOp> mOwner;

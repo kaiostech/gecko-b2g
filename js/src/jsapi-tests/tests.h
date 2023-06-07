@@ -243,6 +243,9 @@ class JSAPIRuntimeTest : public JSAPITest {
     if (flags.unicode()) {
       str += "u";
     }
+    if (flags.unicodeSets()) {
+      str += "v";
+    }
     if (flags.sticky()) {
       str += "y";
     }
@@ -382,7 +385,7 @@ class JSAPIRuntimeTest : public JSAPITest {
     MOZ_RELEASE_ASSERT(report->isWarning());
 
     fprintf(stderr, "%s:%u:%s\n",
-            report->filename ? report->filename : "<no filename>",
+            report->filename ? report->filename.c_str() : "<no filename>",
             (unsigned int)report->lineno, report->message().c_str());
   }
 

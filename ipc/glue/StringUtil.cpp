@@ -15,11 +15,9 @@
 #include "base/string_piece.h"
 #include "base/string_util.h"
 
-#include "build/build_config.h"
-
 // FIXME/cjones: these really only pertain to the linux sys string
 // converters.
-#ifdef WCHAR_T_IS_UTF16
+#ifdef XP_WIN
 #  define ICONV_WCHAR_T_ENCODING "UTF-16"
 #else
 #  define ICONV_WCHAR_T_ENCODING "WCHAR_T"
@@ -61,14 +59,14 @@ namespace base {
 // converters, and implementing the one that doesn't exist for OS X
 // and Windows.
 
-#if !defined(OS_MACOSX) && !defined(OS_WIN)
+#if !defined(XP_DARWIN) && !defined(XP_WIN)
 std::string SysWideToUTF8(const std::wstring& wide) {
   // FIXME/cjones: do this with iconv
   return GhettoStringConvert<std::wstring, std::string>(wide);
 }
 #endif
 
-#if !defined(OS_MACOSX) && !defined(OS_WIN)
+#if !defined(XP_DARWIN) && !defined(XP_WIN)
 std::wstring SysUTF8ToWide(const StringPiece& utf8) {
   // FIXME/cjones: do this with iconv
   return GhettoStringConvert<StringPiece, std::wstring>(utf8);

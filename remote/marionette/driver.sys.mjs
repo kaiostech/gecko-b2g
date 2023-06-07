@@ -2374,7 +2374,10 @@ GeckoDriver.prototype.newWindow = async function (cmd) {
   // Actors need the new window to be loaded to safely execute queries.
   // Wait until the initial page load has been finished.
   await lazy.waitForInitialNavigationCompleted(
-    contentBrowser.browsingContext.webProgress
+    contentBrowser.browsingContext.webProgress,
+    {
+      unloadTimeout: 5000,
+    }
   );
 
   const id = lazy.TabManager.getIdForBrowser(contentBrowser);

@@ -134,6 +134,13 @@ using mozilla::ipc::PrincipalInfo;
 
 namespace mozilla::dom {
 
+static mozilla::LazyLogModule sWorkerScopeLog("WorkerScope");
+
+#ifdef LOG
+#  undef LOG
+#endif
+#define LOG(args) MOZ_LOG(sWorkerScopeLog, LogLevel::Debug, args);
+
 class WorkerScriptTimeoutHandler final : public ScriptTimeoutHandler {
  public:
   NS_DECL_ISUPPORTS_INHERITED
@@ -240,6 +247,7 @@ WorkerGlobalScopeBase::WorkerGlobalScopeBase(
       mClientSource(std::move(aClientSource)),
       mSerialEventTarget(aWorkerPrivate->HybridEventTarget()),
       mShouldResistFingerprinting(aShouldResistFingerprinting) {
+  LOG(("WorkerGlobalScopeBase::WorkerGlobalScopeBase [%p]", this));
   MOZ_ASSERT(mWorkerPrivate);
 #ifdef DEBUG
   mWorkerPrivate->AssertIsOnWorkerThread();
@@ -431,6 +439,7 @@ NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(WorkerGlobalScope,
 WorkerGlobalScope::~WorkerGlobalScope() = default;
 
 void WorkerGlobalScope::NoteTerminating() {
+  LOG(("WorkerGlobalScope::NoteTerminating [%p]", this));
   if (IsDying()) {
     return;
   }
@@ -440,17 +449,11 @@ void WorkerGlobalScope::NoteTerminating() {
 
 void WorkerGlobalScope::NoteShuttingDown() {
   MOZ_ASSERT(IsDying());
+  LOG(("WorkerGlobalScope::NoteShuttingDown [%p]", this));
 
   if (mNavigator) {
     mNavigator->Invalidate();
     mNavigator = nullptr;
-  }
-
-  if (mPerformance) {
-    RefPtr<PerformanceWorker> pw =
-        static_cast<PerformanceWorker*>(mPerformance.get());
-    MOZ_ASSERT(pw);
-    pw->NoteShuttingDown();
   }
 }
 
@@ -698,7 +701,7 @@ Performance* WorkerGlobalScope::GetPerformance() {
   AssertIsOnWorkerThread();
 
   if (!mPerformance) {
-    mPerformance = Performance::CreateForWorker(mWorkerPrivate);
+    mPerformance = Performance::CreateForWorker(this);
   }
 
   return mPerformance;
@@ -854,6 +857,12 @@ mozilla::dom::StorageManager* WorkerGlobalScope::GetStorageManager() {
   return RefPtr(Navigator())->Storage();
 }
 
+// https://html.spec.whatwg.org/multipage/web-messaging.html#eligible-for-messaging
+// * a WorkerGlobalScope object whose closing flag is false and whose worker
+//   is not a suspendable worker.
+bool WorkerGlobalScope::IsEligibleForMessaging() {
+  return mIsEligibleForMessaging;
+}
 void WorkerGlobalScope::StorageAccessPermissionGranted() {
   // Reset the IndexedDB factory.
   mIndexedDB = nullptr;

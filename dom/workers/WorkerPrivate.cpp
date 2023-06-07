@@ -123,7 +123,11 @@ mozilla::LogModule* TimeoutsLog() { return sWorkerTimeoutsLog; }
 #ifdef LOG
 #  undef LOG
 #endif
+#ifdef LOGV
+#  undef LOGV
+#endif
 #define LOG(log, _args) MOZ_LOG(log, LogLevel::Debug, _args);
+#define LOGV(args) MOZ_LOG(sWorkerPrivateLog, LogLevel::Verbose, args);
 
 namespace mozilla {
 
@@ -210,14 +214,11 @@ class ExternalRunnableWrapper final : public WorkerRunnable {
   }
 
   nsresult Cancel() override {
-    // We need to check first if cancel is called twice
-    nsresult rv = WorkerRunnable::Cancel();
-    NS_ENSURE_SUCCESS(rv, rv);
-
     nsCOMPtr<nsIDiscardableRunnable> doomed =
         do_QueryInterface(mWrappedRunnable);
-    MOZ_ASSERT(doomed);  // We checked this earlier!
-    doomed->OnDiscard();
+    if (doomed) {
+      doomed->OnDiscard();
+    }
     return NS_OK;
   }
 };
@@ -929,6 +930,7 @@ class CancelingRunnable final : public Runnable {
 
   NS_IMETHOD
   Run() override {
+    LOG(WorkerLog(), ("CancelingRunnable::Run [%p]", this));
     WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
     MOZ_ASSERT(workerPrivate);
     workerPrivate->AssertIsOnWorkerThread();
@@ -1576,10 +1578,14 @@ nsresult WorkerPrivate::DispatchLockHeld(
     const MutexAutoLock& aProofOfLock) {
   // May be called on any thread!
   RefPtr<WorkerRunnable> runnable(aRunnable);
+  LOGV(("WorkerPrivate::DispatchLockHeld [%p] runnable: %p", this,
+        runnable.get()));
 
   MOZ_ASSERT_IF(aSyncLoopTarget, mThread);
 
-  if (mStatus == Dead || (!aSyncLoopTarget && ParentStatus() > Running)) {
+  if (mStatus == Dead || (!aSyncLoopTarget && ParentStatus() > Canceling)) {
+    LOGV(("WorkerPrivate::DispatchLockHeld [%p] runnable %p, parent status: %u",
+          this, runnable.get(), (uint8_t)(ParentStatus())));
     NS_WARNING(
         "A runnable was posted to a worker that is already shutting "
         "down!");
@@ -1594,6 +1600,10 @@ nsresult WorkerPrivate::DispatchLockHeld(
 
   if (!mThread) {
     if (ParentStatus() == Pending || mStatus == Pending) {
+      LOGV(
+          ("WorkerPrivate::DispatchLockHeld [%p] runnable %p is queued in "
+           "mPreStartRunnables",
+           this, runnable.get()));
       mPreStartRunnables.AppendElement(runnable);
       return NS_OK;
     }
@@ -1606,12 +1616,20 @@ nsresult WorkerPrivate::DispatchLockHeld(
 
   nsresult rv;
   if (aSyncLoopTarget) {
+    LOGV(
+        ("WorkerPrivate::DispatchLockHeld [%p] runnable %p dispatch to a "
+         "SyncLoop(%p)",
+         this, runnable.get(), aSyncLoopTarget));
     rv = aSyncLoopTarget->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
   } else {
     // WorkerDebuggeeRunnables don't need any special treatment here. True,
     // they should not be delivered to a frozen worker. But frozen workers
     // aren't drawing from the thread's main event queue anyway, only from
     // mControlQueue.
+    LOGV(
+        ("WorkerPrivate::DispatchLockHeld [%p] runnable %p dispatch to the "
+         "main event queue",
+         this, runnable.get()));
     rv = mThread->DispatchAnyThread(WorkerThreadFriendKey(), runnable.forget());
   }
 
@@ -1651,6 +1669,9 @@ nsresult WorkerPrivate::DispatchControlRunnable(
   // May be called on any thread!
   RefPtr<WorkerControlRunnable> runnable(aWorkerControlRunnable);
   MOZ_ASSERT(runnable);
+
+  LOG(WorkerLog(), ("WorkerPrivate::DispatchControlRunnable [%p] runnable %p",
+                    this, runnable.get()));
 
   {
     MutexAutoLock lock(mMutex);
@@ -1707,17 +1728,13 @@ already_AddRefed<WorkerRunnable> WorkerPrivate::MaybeWrapAsWorkerRunnable(
   nsCOMPtr<nsIRunnable> runnable(aRunnable);
   MOZ_ASSERT(runnable);
 
+  LOGV(("WorkerPrivate::MaybeWrapAsWorkerRunnable [%p] runnable: %p", this,
+        runnable.get()));
+
   RefPtr<WorkerRunnable> workerRunnable =
       WorkerRunnable::FromRunnable(runnable);
   if (workerRunnable) {
     return workerRunnable.forget();
-  }
-
-  nsCOMPtr<nsIDiscardableRunnable> maybe = do_QueryInterface(runnable);
-  if (!maybe) {
-    MOZ_CRASH(
-        "All runnables destined for a worker thread must be "
-        "nsIDiscardableRunnable!");
   }
 
   workerRunnable = new ExternalRunnableWrapper(this, runnable);
@@ -1726,6 +1743,7 @@ already_AddRefed<WorkerRunnable> WorkerPrivate::MaybeWrapAsWorkerRunnable(
 
 bool WorkerPrivate::Start() {
   // May be called on any thread!
+  LOG(WorkerLog(), ("WorkerPrivate::Start [%p]", this));
   {
     MutexAutoLock lock(mMutex);
     NS_ASSERTION(mParentStatus != Running, "How can this be?!");
@@ -2347,7 +2365,6 @@ WorkerPrivate::WorkerPrivate(
       mWorkerThreadAccessible(aParent),
       mPostSyncLoopOperations(0),
       mParentWindowPaused(false),
-      mCancelAllPendingRunnables(false),
       mWorkerScriptExecutedSuccessfully(false),
       mFetchHandlerWasAdded(false),
       mMainThreadObjectsForgotten(false),
@@ -2364,6 +2381,7 @@ WorkerPrivate::WorkerPrivate(
       mIsPrivilegedAddonGlobal(false),
       mTopLevelWorkerFinishedRunnableCount(0),
       mWorkerFinishedRunnableCount(0) {
+  LOG(WorkerLog(), ("WorkerPrivate::WorkerPrivate [%p]", this));
   MOZ_ASSERT_IF(!IsDedicatedWorker(), NS_IsMainThread());
 
   if (aParent) {
@@ -3095,6 +3113,7 @@ void WorkerPrivate::OverrideLoadInfoLoadGroup(WorkerLoadInfo& aLoadInfo,
 }
 
 void WorkerPrivate::RunLoopNeverRan() {
+  LOG(WorkerLog(), ("WorkerPrivate::RunLoopNeverRan [%p]", this));
   {
     MutexAutoLock lock(mMutex);
 
@@ -3111,12 +3130,14 @@ void WorkerPrivate::RunLoopNeverRan() {
     }
   }
 
-  NotifyWorkerRefs(Killing);
+  // Should not have any WorkerRefs, children workers and Timeouts.
+  MOZ_DIAGNOSTIC_ASSERT(!HasActiveWorkerRefs());
 
   ScheduleDeletion(WorkerPrivate::WorkerRan);
 }
 
 void WorkerPrivate::UnrootGlobalScopes() {
+  LOG(WorkerLog(), ("WorkerPrivate::UnrootGlobalScopes [%p]", this));
   auto data = mWorkerThreadAccessible.Access();
 
   RefPtr<WorkerDebuggerGlobalScope> debugScope = data->mDebuggerScope.forget();
@@ -3130,6 +3151,7 @@ void WorkerPrivate::UnrootGlobalScopes() {
 }
 
 void WorkerPrivate::DoRunLoop(JSContext* aCx) {
+  LOG(WorkerLog(), ("WorkerPrivate::DoRunLoop [%p]", this));
   auto data = mWorkerThreadAccessible.Access();
   MOZ_RELEASE_ASSERT(!GetExecutionManager());
 
@@ -3165,6 +3187,11 @@ void WorkerPrivate::DoRunLoop(JSContext* aCx) {
     {
       MutexAutoLock lock(mMutex);
 
+      LOGV(
+          ("WorkerPrivate::DoRunLoop [%p] mStatus %u before getting events"
+           " to run",
+           this, (uint8_t)mStatus));
+
       // Wait for a runnable to arrive that we can execute, or for it to be okay
       // to shutdown this worker once all holders have been removed.
       // Holders may be removed from inside normal runnables, but we don't check
@@ -3185,19 +3212,20 @@ void WorkerPrivate::DoRunLoop(JSContext* aCx) {
 
       auto result = ProcessAllControlRunnablesLocked();
       if (result != ProcessAllControlRunnablesResult::Nothing) {
-        // NB: There's no JS on the stack here, so Abort vs MayContinue is
-        // irrelevant
-
-        // The state of the world may have changed, recheck it.
-        normalRunnablesPending = NS_HasPendingEvents(thread);
-        // The debugger queue doesn't get cleared, so we can ignore that.
+        continue;
       }
 
       currentStatus = mStatus;
     }
 
-    // if all holders are done then we can kill this thread.
-    if (currentStatus != Running && !HasActiveWorkerRefs()) {
+    // Transition from Canceling to Killing and exit this loop when:
+    //  * All (non-weak) WorkerRefs have been released.
+    //  * There are no runnables pending. This is intended to let same-thread
+    //    dispatches as part of cleanup be able to run to completion, but any
+    //    logic that still wants async things to happen should be holding a
+    //    StrongWorkerRef.
+    if (currentStatus != Running && !HasActiveWorkerRefs() &&
+        !normalRunnablesPending && !debuggerRunnablesPending) {
       // Now we are ready to kill the worker thread.
       if (currentStatus == Canceling) {
         NotifyInternal(Killing);
@@ -3236,6 +3264,10 @@ void WorkerPrivate::DoRunLoop(JSContext* aCx) {
         // After mStatus is set to Dead there can be no more
         // WorkerControlRunnables so no need to lock here.
         if (!mControlQueue.IsEmpty()) {
+          LOG(WorkerLog(),
+              ("WorkerPrivate::DoRunLoop [%p] dropping control runnables in "
+               "Dead status",
+               this));
           WorkerControlRunnable* runnable = nullptr;
           while (mControlQueue.Pop(runnable)) {
             runnable->Cancel();
@@ -3248,6 +3280,21 @@ void WorkerPrivate::DoRunLoop(JSContext* aCx) {
         UnlinkTimeouts();
 
         return;
+      }
+    }
+
+    // Status transitions to Closing/Canceling and there are no SyncLoops,
+    // set global start dying, disconnect EventTargetObjects and
+    // WebTaskScheduler.
+    if (currentStatus >= Closing &&
+        !data->mPerformedShutdownAfterLastContentTaskExecuted) {
+      data->mPerformedShutdownAfterLastContentTaskExecuted.Flip();
+      if (data->mScope) {
+        data->mScope->NoteTerminating();
+        data->mScope->DisconnectEventTargetObjects();
+        if (data->mScope->GetExistingScheduler()) {
+          data->mScope->GetExistingScheduler()->Disconnect();
+        }
       }
     }
 
@@ -3766,7 +3813,12 @@ void WorkerPrivate::ScheduleDeletion(WorkerRanOrNot aRanOrNot) {
   MOZ_ASSERT(mSyncLoopStack.IsEmpty());
   MOZ_ASSERT(mPostSyncLoopOperations == 0);
 
-  ClearMainEventQueue(aRanOrNot);
+  // If Worker is never ran, clear the mPreStartRunnables. To let the resource
+  // hold by the pre-submmited runnables.
+  if (WorkerNeverRan == aRanOrNot) {
+    ClearPreStartRunnables();
+  }
+
 #ifdef DEBUG
   if (WorkerRan == aRanOrNot) {
     nsIThread* currentThread = NS_GetCurrentThread();
@@ -3930,48 +3982,17 @@ void WorkerPrivate::ShutdownModuleLoader() {
   }
 }
 
-void WorkerPrivate::ClearMainEventQueue(WorkerRanOrNot aRanOrNot) {
-  AssertIsOnWorkerThread();
-
-  MOZ_ASSERT((mPostSyncLoopOperations & ePendingEventQueueClearing)
-                 ? (mSyncLoopStack.Length() == 1)
-                 : mSyncLoopStack.IsEmpty());
-  MOZ_ASSERT(!mCancelAllPendingRunnables);
-
-  mCancelAllPendingRunnables = true;
-  WorkerGlobalScope* globalScope = GlobalScope();
-  if (globalScope) {
-    // It's appropriate to disconnect event targets at the point that it's no
-    // longer possible for new tasks to be dispatched at the global, and this is
-    // that point.
-    globalScope->DisconnectEventTargetObjects();
-
-    globalScope->WorkerPrivateSaysForbidScript();
+void WorkerPrivate::ClearPreStartRunnables() {
+  nsTArray<RefPtr<WorkerRunnable>> prestart;
+  {
+    MutexAutoLock lock(mMutex);
+    mPreStartRunnables.SwapElements(prestart);
   }
-
-  if (WorkerNeverRan == aRanOrNot) {
-    nsTArray<RefPtr<WorkerRunnable>> prestart;
-    {
-      MutexAutoLock lock(mMutex);
-      mPreStartRunnables.SwapElements(prestart);
-    }
-    for (uint32_t count = prestart.Length(), index = 0; index < count;
-         index++) {
-      RefPtr<WorkerRunnable> runnable = std::move(prestart[index]);
-      static_cast<nsIRunnable*>(runnable.get())->Run();
-    }
-  } else {
-    nsIThread* currentThread = NS_GetCurrentThread();
-    MOZ_ASSERT(currentThread);
-
-    NS_ProcessPendingEvents(currentThread);
+  for (uint32_t count = prestart.Length(), index = 0; index < count; index++) {
+    LOG(WorkerLog(), ("WorkerPrivate::ClearPreStartRunnable [%p]", this));
+    RefPtr<WorkerRunnable> runnable = std::move(prestart[index]);
+    runnable->Cancel();
   }
-
-  if (globalScope) {
-    globalScope->WorkerPrivateSaysAllowScript();
-  }
-  MOZ_ASSERT(mCancelAllPendingRunnables);
-  mCancelAllPendingRunnables = false;
 }
 
 void WorkerPrivate::ClearDebuggerEventQueue() {
@@ -4112,6 +4133,11 @@ bool WorkerPrivate::AddWorkerRef(WorkerRef* aWorkerRef,
   {
     MutexAutoLock lock(mMutex);
 
+    LOG(WorkerLog(),
+        ("WorkerPrivate::AddWorkerRef [%p] mStatus: %u, aFailStatus: (%u)",
+         this, static_cast<uint8_t>(mStatus),
+         static_cast<uint8_t>(aFailStatus)));
+
     if (mStatus >= aFailStatus) {
       return false;
     }
@@ -4143,6 +4169,8 @@ bool WorkerPrivate::AddWorkerRef(WorkerRef* aWorkerRef,
 
 void WorkerPrivate::RemoveWorkerRef(WorkerRef* aWorkerRef) {
   MOZ_ASSERT(aWorkerRef);
+  LOG(WorkerLog(),
+      ("WorkerPrivate::RemoveWorkerRef [%p] aWorkerRef: %p", this, aWorkerRef));
   auto data = mWorkerThreadAccessible.Access();
 
   MOZ_ASSERT(data->mWorkerRefs.Contains(aWorkerRef),
@@ -4163,7 +4191,12 @@ void WorkerPrivate::NotifyWorkerRefs(WorkerStatus aStatus) {
 
   NS_ASSERTION(aStatus > Closing, "Bad status!");
 
+  LOG(WorkerLog(), ("WorkerPrivate::NotifyWorkerRefs [%p] aStatus: %u", this,
+                    static_cast<uint8_t>(aStatus)));
+
   for (auto* workerRef : data->mWorkerRefs.ForwardRange()) {
+    LOG(WorkerLog(), ("WorkerPrivate::NotifyWorkerRefs [%p] WorkerRefs(%s %p)",
+                      this, workerRef->mName, workerRef));
     workerRef->Notify();
   }
 
@@ -4271,6 +4304,9 @@ already_AddRefed<nsISerialEventTarget> WorkerPrivate::CreateNewSyncLoop(
       aFailStatus >= Canceling,
       "Sync loops can be created when the worker is in Running/Closing state!");
 
+  LOG(WorkerLog(), ("WorkerPrivate::CreateNewSyncLoop [%p] failstatus: %u",
+                    this, static_cast<uint8_t>(aFailStatus)));
+
   ThreadEventQueue* queue = nullptr;
   {
     MutexAutoLock lock(mMutex);
@@ -4302,6 +4338,7 @@ already_AddRefed<nsISerialEventTarget> WorkerPrivate::CreateNewSyncLoop(
 
 nsresult WorkerPrivate::RunCurrentSyncLoop() {
   AssertIsOnWorkerThread();
+  LOG(WorkerLog(), ("WorkerPrivate::RunCurrentSyncLoop [%p]", this));
   RefPtr<WorkerThread> thread;
   JSContext* cx = GetJSContext();
   MOZ_ASSERT(cx);
@@ -4405,6 +4442,9 @@ nsresult WorkerPrivate::DestroySyncLoop(uint32_t aLoopIndex) {
   MOZ_ASSERT(!mSyncLoopStack.IsEmpty());
   MOZ_ASSERT(mSyncLoopStack.Length() - 1 == aLoopIndex);
 
+  LOG(WorkerLog(),
+      ("WorkerPrivate::DestroySyncLoop [%p] aLoopIndex: %u", this, aLoopIndex));
+
   AutoYieldJSThreadExecution yield;
 
   // We're about to delete the loop, stash its event target and result.
@@ -4428,11 +4468,10 @@ nsresult WorkerPrivate::DestroySyncLoop(uint32_t aLoopIndex) {
 
   // Are we making a 1 -> 0 transition here?
   if (mSyncLoopStack.Length() == 1) {
-    if ((mPostSyncLoopOperations & ePendingEventQueueClearing)) {
-      ClearMainEventQueue(WorkerRan);
-    }
-
     if ((mPostSyncLoopOperations & eDispatchCancelingRunnable)) {
+      LOG(WorkerLog(),
+          ("WorkerPrivate::DestroySyncLoop [%p] Dispatching CancelingRunnables",
+           this));
       DispatchCancelingRunnable();
     }
 
@@ -4458,6 +4497,8 @@ void WorkerPrivate::DispatchCancelingRunnable() {
   // is finished. We cannot use a WorkerRunnable because they are not
   // accepted any more by the worker, and we do not want to use a
   // WorkerControlRunnable because they are immediately executed.
+
+  LOG(WorkerLog(), ("WorkerPrivate::DispatchCancelingRunnable [%p]", this));
   RefPtr<CancelingRunnable> r = new CancelingRunnable();
   {
     MutexAutoLock lock(mMutex);
@@ -4467,6 +4508,9 @@ void WorkerPrivate::DispatchCancelingRunnable() {
   // At the same time, we want to be sure that we interrupt infinite loops.
   // The following runnable starts a timer that cancel the worker, from the
   // parent thread, after CANCELING_TIMEOUT millseconds.
+  LOG(WorkerLog(), ("WorkerPrivate::DispatchCancelingRunnable [%p] Setup a "
+                    "timeout canceling",
+                    this));
   RefPtr<CancelingWithTimeoutOnParentRunnable> rr =
       new CancelingWithTimeoutOnParentRunnable(this);
   rr->Dispatch();
@@ -4607,6 +4651,7 @@ void WorkerPrivate::AssertValidSyncLoop(nsIEventTarget* aSyncLoopTarget) {
 void WorkerPrivate::PostMessageToParent(
     JSContext* aCx, JS::Handle<JS::Value> aMessage,
     const Sequence<JSObject*>& aTransferable, ErrorResult& aRv) {
+  LOG(WorkerLog(), ("WorkerPrivate::PostMessageToParent [%p]", this));
   AssertIsOnWorkerThread();
   MOZ_DIAGNOSTIC_ASSERT(IsDedicatedWorker());
 
@@ -4781,9 +4826,12 @@ bool WorkerPrivate::NotifyInternal(WorkerStatus aStatus) {
   RefPtr<EventTarget> eventTarget;
 
   // Save the old status and set the new status.
-  WorkerStatus previousStatus;
   {
     MutexAutoLock lock(mMutex);
+
+    LOG(WorkerLog(),
+        ("WorkerPrivate::NotifyInternal [%p] mStatus: %u, aStatus: %u", this,
+         static_cast<uint8_t>(mStatus), static_cast<uint8_t>(aStatus)));
 
     if (mStatus >= aStatus) {
       return true;
@@ -4802,7 +4850,6 @@ bool WorkerPrivate::NotifyInternal(WorkerStatus aStatus) {
       }
     }
 
-    previousStatus = mStatus;
     mStatus = aStatus;
 
     // Mark parent status as closing immediately to avoid new events being
@@ -4812,44 +4859,37 @@ bool WorkerPrivate::NotifyInternal(WorkerStatus aStatus) {
     }
   }
 
-  MOZ_ASSERT(previousStatus != Pending);
-
   if (aStatus >= Closing) {
     CancelAllTimeouts();
   }
 
-  // Let all our holders know the new status.
-  if (aStatus > Closing) {
-    NotifyWorkerRefs(aStatus);
+  if (aStatus == Closing && GlobalScope()) {
+    GlobalScope()->SetIsNotEligibleForMessaging();
   }
 
-  // If this is the first time our status has changed then we need to clear the
-  // main event queue.
-  if (previousStatus == Running) {
-    // NB: If we're in a sync loop, we can't clear the queue immediately,
-    // because this is the wrong queue. So we have to defer it until later.
-    if (!mSyncLoopStack.IsEmpty()) {
-      mPostSyncLoopOperations |= ePendingEventQueueClearing;
-    } else {
-      ClearMainEventQueue(WorkerRan);
-    }
+  // Let all our holders know the new status.
+  if (aStatus == Canceling) {
+    NotifyWorkerRefs(aStatus);
   }
 
   // If the worker script never ran, or failed to compile, we don't need to do
   // anything else.
   WorkerGlobalScope* global = GlobalScope();
   if (!global) {
+    if (aStatus == Canceling) {
+      MOZ_ASSERT(!data->mCancelBeforeWorkerScopeConstructed);
+      data->mCancelBeforeWorkerScopeConstructed.Flip();
+    }
     return true;
-  }
-
-  if (WebTaskScheduler* scheduler = global->GetExistingScheduler()) {
-    scheduler->Disconnect();
   }
 
   // Don't abort the script now, but we dispatch a runnable to do it when the
   // current JS frame is executed.
   if (aStatus == Closing) {
     if (!mSyncLoopStack.IsEmpty()) {
+      LOG(WorkerLog(), ("WorkerPrivate::NotifyInternal [%p] request to "
+                        "dispatch canceling runnables...",
+                        this));
       mPostSyncLoopOperations |= eDispatchCancelingRunnable;
     } else {
       DispatchCancelingRunnable();
@@ -4858,6 +4898,8 @@ bool WorkerPrivate::NotifyInternal(WorkerStatus aStatus) {
   }
 
   MOZ_ASSERT(aStatus == Canceling || aStatus == Killing);
+
+  LOG(WorkerLog(), ("WorkerPrivate::NotifyInternal [%p] abort script", this));
 
   // Always abort the script.
   return false;
@@ -5475,6 +5517,8 @@ void WorkerPrivate::SetThread(WorkerThread* aThread) {
 
 void WorkerPrivate::SetWorkerPrivateInWorkerThread(
     WorkerThread* const aThread) {
+  LOG(WorkerLog(),
+      ("WorkerPrivate::SetWorkerPrivateInWorkerThread [%p]", this));
   MutexAutoLock lock(mMutex);
 
   MOZ_ASSERT(!mThread);
@@ -5493,6 +5537,8 @@ void WorkerPrivate::SetWorkerPrivateInWorkerThread(
 }
 
 void WorkerPrivate::ResetWorkerPrivateInWorkerThread() {
+  LOG(WorkerLog(),
+      ("WorkerPrivate::ResetWorkerPrivateInWorkerThread [%p]", this));
   RefPtr<WorkerThread> doomedThread;
 
   // Release the mutex before doomedThread.
@@ -5612,6 +5658,12 @@ WorkerGlobalScope* WorkerPrivate::GetOrCreateGlobalScope(JSContext* aCx) {
   if (!RegisterBindings(aCx, global)) {
     data->mScope = nullptr;
     return nullptr;
+  }
+
+  // Worker has already in "Canceling", let the WorkerGlobalScope start dying.
+  if (data->mCancelBeforeWorkerScopeConstructed) {
+    data->mScope->NoteTerminating();
+    data->mScope->DisconnectEventTargetObjects();
   }
 
   JS_FireOnNewGlobalObject(aCx, global);

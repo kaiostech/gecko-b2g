@@ -31,9 +31,9 @@ ChildThread* ChildThread::current() {
 void ChildThread::Init() {
   auto channel = mozilla::MakeUnique<IPC::Channel>(
       channel_name_, IPC::Channel::MODE_CLIENT, nullptr);
-#if defined(OS_WIN)
+#if defined(XP_WIN)
   channel->StartAcceptingHandles(IPC::Channel::MODE_CLIENT);
-#elif defined(OS_MACOSX)
+#elif defined(XP_DARWIN)
   channel->StartAcceptingMachPorts(IPC::Channel::MODE_CLIENT);
 #endif
 

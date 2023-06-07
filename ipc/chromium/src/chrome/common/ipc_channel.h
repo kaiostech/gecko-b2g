@@ -11,13 +11,12 @@
 #include <queue>
 #include "base/basictypes.h"
 #include "base/process.h"
-#include "build/build_config.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/WeakPtr.h"
 #include "chrome/common/ipc_message.h"
 
-#ifdef OS_WIN
+#ifdef XP_WIN
 #  include <string>
 #endif
 
@@ -38,7 +37,7 @@ class Channel {
   // but on Unix we use unnamed socketpairs and pass capabilities
   // directly using SCM_RIGHTS messages.  This type abstracts away
   // that difference.
-#ifdef OS_WIN
+#ifdef XP_WIN
   typedef std::wstring ChannelId;
 #else
   struct ChannelId {};
@@ -141,7 +140,7 @@ class Channel {
   // be out of date.
   bool IsClosed() const;
 
-#if defined(OS_POSIX)
+#if defined(XP_UNIX)
   // On POSIX an IPC::Channel wraps a socketpair(), this method returns the
   // FD # for the client end of the socket and the equivalent FD# to use for
   // mapping it into the Child process.
@@ -151,7 +150,7 @@ class Channel {
   // Close the client side of the socketpair.
   void CloseClientFileDescriptor();
 
-#  if defined(OS_MACOSX)
+#  if defined(XP_DARWIN)
   // Configure the mach task_t for the peer task.
   void SetOtherMachTask(task_t task);
 
@@ -161,12 +160,12 @@ class Channel {
   void StartAcceptingMachPorts(Mode mode);
 #  endif
 
-#elif defined(OS_WIN)
+#else
   // Tell this pipe to accept handles. Exactly one side of the IPC connection
   // must be set as `MODE_SERVER`, and that side will be responsible for calling
   // `DuplicateHandle` to transfer the handle between processes.
   void StartAcceptingHandles(Mode mode);
-#endif  // defined(OS_POSIX)
+#endif
 
   // On Windows: Generates a channel ID that, if passed to the client
   // as a shared secret, will validate the client's authenticity.
@@ -195,7 +194,7 @@ class Channel {
   RefPtr<ChannelImpl> channel_impl_;
 
   enum {
-#if defined(OS_MACOSX)
+#if defined(XP_DARWIN)
     // If the channel receives a message that contains file descriptors, then
     // it will reply back with this message, indicating that the message has
     // been received. The sending channel can then close any descriptors that

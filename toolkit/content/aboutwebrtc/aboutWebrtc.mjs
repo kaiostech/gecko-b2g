@@ -133,6 +133,8 @@ async function getStats(requestFullRefresh) {
     requestFullRefresh ||
     !Services.prefs.getBoolPref("media.aboutwebrtc.hist.enabled")
   ) {
+    // Upon clearing the history we need to get all the stats to rebuild what
+    // will become the skeleton of the page.hg wip
     const { reports } = await new Promise(r => WGI.getAllStats(r));
     appendStats(reports);
     return reports.sort((a, b) => b.timestamp - a.timestamp);
@@ -366,7 +368,12 @@ class ShowTab extends Control {
     Object.assign(autorefresh, {
       type: "checkbox",
       id: "autorefresh",
-      checked: true,
+      checked: Services.prefs.getBoolPref("media.aboutwebrtc.auto_refresh"),
+      onchange: () =>
+        Services.prefs.setBoolPref(
+          "media.aboutwebrtc.auto_refresh",
+          autorefresh.checked
+        ),
     });
     const autorefreshLabel = document.createElement("label");
     document.l10n.setAttributes(
@@ -476,6 +483,7 @@ class ShowTab extends Control {
       const sections = (
         await Promise.all(
           statReports.flatMap(report => [
+            translateSection(report, "pc-tools", renderPeerConnectionTools),
             translateSection(report, "ice-stats", renderICEStats),
             translateSection(
               report,
@@ -500,39 +508,24 @@ class ShowTab extends Control {
   );
 })();
 
+function renderCopyTextToClipboardButton(rndr, id, l10n_id, getTextFn) {
+  return rndr.elem_button(
+    {
+      id: `copytextbutton-${id}`,
+      onclick() {
+        navigator.clipboard.writeText(getTextFn());
+      },
+    },
+    l10n_id
+  );
+}
+
 function renderPeerConnection(report) {
   const rndr = elemRenderer;
-  const {
-    pcid,
-    browserId,
-    closed: isClosed,
-    timestamp,
-    configuration,
-  } = report;
+  const { pcid, configuration } = report;
 
   const pcDiv = renderElement("div", { className: "peer-connection" });
-  {
-    const id = pcid.match(/id=(\S+)/)[1];
-    const url = pcid.match(/url=([^)]+)/)[1];
-    const now = new Date(timestamp);
-
-    pcDiv.append(
-      isClosed
-        ? renderElement("h3", {}, "about-webrtc-connection-closed", {
-            "browser-id": browserId,
-            id,
-            url,
-            now,
-          })
-        : renderElement("h3", {}, "about-webrtc-connection-open", {
-            "browser-id": browserId,
-            id,
-            url,
-            now,
-          })
-    );
-    pcDiv.append(new ShowTab(browserId).render()[0]);
-  }
+  pcDiv.append(renderPeerConnectionTools(rndr, report));
   {
     const section = renderFoldableSection(pcDiv);
     section.append(
@@ -557,6 +550,35 @@ function renderPeerConnection(report) {
     pcDiv.append(section);
   }
   return pcDiv;
+}
+
+function renderPeerConnectionTools(rndr, report) {
+  const { pcid, timestamp, closed: isClosed, browserId } = report;
+  const id = pcid.match(/id=(\S+)/)[1];
+  const url = pcid.match(/url=([^)]+)/)[1];
+  const now = new Date(timestamp);
+  return renderElements("div", { id: "pc-tools: " + pcid }, [
+    isClosed
+      ? renderElement("h3", {}, "about-webrtc-connection-closed", {
+          "browser-id": browserId,
+          id,
+          url,
+          now,
+        })
+      : renderElement("h3", {}, "about-webrtc-connection-open", {
+          "browser-id": browserId,
+          id,
+          url,
+          now,
+        }),
+    new ShowTab(browserId).render()[0],
+    renderCopyTextToClipboardButton(
+      rndr,
+      report.pcid,
+      "about-webrtc-copy-report-button",
+      () => JSON.stringify({ ...report }, null, 2)
+    ),
+  ]);
 }
 
 const trimNewlines = sdp => sdp.replaceAll("\r\n", "\n");
@@ -818,12 +840,9 @@ function renderRTPStats(rndr, report, hist) {
       // For some (remote) graphs data comes in slowly.
       // Those graphs can be larger to show trends.
       const histSecs = gd.getConfig().histSecs;
-      const canvas = rndr.elem_canvas({
-        width: (histSecs > 30 ? histSecs / 3 : 15) * 20,
-        height: 100,
-        className: "line-graph",
-      });
-      const graph = new GraphImpl(canvas, canvas.width, canvas.height);
+      const width = (histSecs > 30 ? histSecs / 3 : 15) * 20;
+      const height = 100;
+      const graph = new GraphImpl(width, height);
       graph.startTime = () => stat.timestamp - histSecs * 1000;
       graph.stopTime = () => stat.timestamp;
       if (gd.subKey == "packetsLost") {
@@ -834,8 +853,7 @@ function renderRTPStats(rndr, report, hist) {
       const dataSet = gd.getDataSetSince(
         graph.startTime() - histSecs * 0.2 * 1000
       );
-      graph.drawSparseValues(dataSet, gd.subKey, gd.getConfig());
-      return canvas;
+      return graph.drawSparseValues(dataSet, gd.subKey, gd.getConfig());
     });
   // Render stats set
   return renderElements("div", { id: "rtp-stats: " + report.pcid }, [
@@ -1389,10 +1407,12 @@ function renderUserPrefs() {
     "media.getusermedia",
     "media.gmp-gmpopenh264.enabled",
   ];
+  const hidden_prefs = ["media.aboutwebrtc.auto_refresh"];
   const renderPref = p => renderText("p", `${p}: ${getPref(p)}`);
   const display = prefs
     .flatMap(Services.prefs.getChildList)
     .filter(Services.prefs.prefHasUserValue)
+    .filter(p => !hidden_prefs.includes(p))
     .map(renderPref);
   return renderElements(
     "div",

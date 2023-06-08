@@ -6,6 +6,7 @@
 #include "AccEvent.h"
 #include "LocalAccessible-inl.h"
 
+#include <stdint.h>
 #include "EmbeddedObjCollector.h"
 #include "AccAttributes.h"
 #include "AccGroupInfo.h"
@@ -14,6 +15,8 @@
 #include "CachedTableAccessible.h"
 #include "DocAccessible-inl.h"
 #include "mozilla/a11y/AccAttributes.h"
+#include "mozilla/a11y/TableAccessible.h"
+#include "mozilla/a11y/TableCellAccessible.h"
 #include "nsAccUtils.h"
 #include "nsAccessibilityService.h"
 #include "ApplicationAccessible.h"
@@ -33,14 +36,14 @@
 #include "StyleInfo.h"
 #include "TextLeafRange.h"
 #include "TextRange.h"
-#include "TableAccessible.h"
-#include "TableCellAccessible.h"
 #include "TreeWalker.h"
 #include "HTMLElementAccessibles.h"
 #include "HTMLSelectAccessible.h"
+#include "HTMLTableAccessible.h"
 #include "ImageAccessible.h"
 
 #include "nsComputedDOMStyle.h"
+#include "nsGkAtoms.h"
 #include "nsIDOMXULButtonElement.h"
 #include "nsIDOMXULSelectCntrlEl.h"
 #include "nsIDOMXULSelectCntrlItemEl.h"
@@ -1607,15 +1610,10 @@ void LocalAccessible::ApplyARIAState(uint64_t* aState) const {
        roleMapEntry->Is(nsGkAtoms::columnheader) ||
        roleMapEntry->Is(nsGkAtoms::rowheader)) &&
       !nsAccUtils::HasDefinedARIAToken(mContent, nsGkAtoms::aria_readonly)) {
-    const TableCellAccessible* cell = AsTableCell();
-    if (cell) {
-      TableAccessible* table = cell->Table();
-      if (table) {
-        LocalAccessible* grid = table->AsAccessible();
-        uint64_t gridState = 0;
-        grid->ApplyARIAState(&gridState);
-        *aState |= gridState & states::READONLY;
-      }
+    if (const LocalAccessible* grid = nsAccUtils::TableFor(this)) {
+      uint64_t gridState = 0;
+      grid->ApplyARIAState(&gridState);
+      *aState |= gridState & states::READONLY;
     }
   }
 }
@@ -1802,12 +1800,9 @@ role LocalAccessible::ARIATransformRole(role aRole) const {
     // A cell inside an ancestor table element that has a grid role needs a
     // gridcell role
     // (https://www.w3.org/TR/html-aam-1.0/#html-element-role-mappings).
-    const TableCellAccessible* cell = AsTableCell();
-    if (cell) {
-      TableAccessible* table = cell->Table();
-      if (table && table->AsAccessible()->IsARIARole(nsGkAtoms::grid)) {
-        return roles::GRID_CELL;
-      }
+    const LocalAccessible* table = nsAccUtils::TableFor(this);
+    if (table && table->IsARIARole(nsGkAtoms::grid)) {
+      return roles::GRID_CELL;
     }
   }
 
@@ -3622,13 +3617,13 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
   }
 
   if (aCacheDomain & CacheDomain::Table) {
-    if (TableAccessible* table = AsTable()) {
+    if (auto* table = HTMLTableAccessible::GetFrom(this)) {
       if (table->IsProbablyLayoutTable()) {
         fields->SetAttribute(nsGkAtoms::layout_guess, true);
       } else if (aUpdateType == CacheUpdateType::Update) {
         fields->SetAttribute(nsGkAtoms::layout_guess, DeleteEntry());
       }
-    } else if (TableCellAccessible* cell = AsTableCell()) {
+    } else if (auto* cell = HTMLTableCellAccessible::GetFrom(this)) {
       // For HTML table cells, we must use the HTMLTableCellAccessible
       // GetRow/ColExtent methods rather than using the DOM attributes directly.
       // This is because of things like rowspan="0" which depend on knowing
@@ -4018,18 +4013,18 @@ void LocalAccessible::StaticAsserts() const {
       "LocalAccessible::mContextFlags was oversized by eLastContextFlag!");
 }
 
-TableAccessibleBase* LocalAccessible::AsTableBase() {
+TableAccessible* LocalAccessible::AsTable() {
   if (IsTable() && !mContent->IsXULElement()) {
     return CachedTableAccessible::GetFrom(this);
   }
-  return AsTable();
+  return nullptr;
 }
 
-TableCellAccessibleBase* LocalAccessible::AsTableCellBase() {
+TableCellAccessible* LocalAccessible::AsTableCell() {
   if (IsTableCell() && !mContent->IsXULElement()) {
     return CachedTableCellAccessible::GetFrom(this);
   }
-  return AsTableCell();
+  return nullptr;
 }
 
 Maybe<int32_t> LocalAccessible::GetIntARIAAttr(nsAtom* aAttrName) const {

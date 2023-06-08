@@ -16,6 +16,7 @@ extern crate bitsdownload;
 extern crate bookmark_sync;
 extern crate cascade_bloom_filter;
 extern crate cert_storage;
+extern crate crypto_hash;
 extern crate chardetng_c;
 extern crate cosec;
 #[cfg(feature = "cubeb_coreaudio_rust")]
@@ -98,6 +99,9 @@ extern crate gecko_sidl;
 #[cfg(target_os = "linux")]
 #[cfg(feature = "oxidized_breakpad")]
 extern crate rust_minidump_writer_linux;
+
+extern crate mozannotation_client;
+extern crate mozannotation_server;
 
 #[cfg(feature = "webmidi_midir_impl")]
 extern crate midir_impl;

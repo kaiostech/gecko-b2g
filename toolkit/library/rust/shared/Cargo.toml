@@ -38,6 +38,7 @@ cose-c = { version = "0.1.5" }
 jsrust_shared = { path = "../../../../js/src/rust/shared" }
 cascade_bloom_filter = { path = "../../../components/cascade_bloom_filter" }
 cert_storage = { path = "../../../../security/manager/ssl/cert_storage" }
+crypto_hash = { path = "../../../../security/manager/ssl/crypto_hash" }
 bitsdownload = { path = "../../../components/bitsdownload", optional = true }
 storage = { path = "../../../../storage/rust" }
 bookmark_sync = { path = "../../../components/places/bookmark_sync", optional = true }
@@ -56,6 +57,8 @@ fluent-langneg = { version = "0.13", features = ["cldr"] }
 fluent-langneg-ffi = { path = "../../../../intl/locale/rust/fluent-langneg-ffi" }
 rure = "0.2.2"
 rust_minidump_writer_linux = { path = "../../../crashreporter/rust_minidump_writer_linux", optional = true }
+mozannotation_client = { path = "../../../crashreporter/mozannotation_client" }
+mozannotation_server  = { path = "../../../crashreporter/mozannotation_server" }
 gecko-profiler = { path = "../../../../tools/profiler/rust-api"}
 midir_impl = { path = "../../../../dom/midi/midir_impl", optional = true }
 dom = { path = "../../../../dom/base/rust" }

@@ -114,7 +114,6 @@ UNIFIED_SOURCES += [
     "nsCertOverrideService.cpp",
     "nsCertTree.cpp",
     "nsClientAuthRemember.cpp",
-    "nsCryptoHash.cpp",
     "nsLocalSecureBrowserUI.cpp",
     "nsNSSCallbacks.cpp",
     "nsNSSCertHelper.cpp",

@@ -9,6 +9,7 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/dom/SVGElement.h"
 #include "mozilla/dom/SVGSVGElement.h"
+#include "nsCSSValue.h"
 #include "nsTextFormatter.h"
 #include "SVGContentUtils.h"
 #include <limits>
@@ -81,25 +82,25 @@ float SVGLength::GetAbsUnitsPerAbsUnit(uint8_t aUnits, uint8_t aPerUnit) {
       // columns: px, cm, mm, in, pt, pc, q
       // px per...:
       {1.0f, 37.7952755906f, 3.779528f, 96.0f, 1.33333333333333333f, 16.0f,
-       0.06614583333f},
+       0.94488188988f},
       // cm per...:
       {0.02645833333f, 1.0f, 0.1f, 2.54f, 0.035277777777777778f,
-       0.42333333333333333f, 2.5f},
+       0.42333333333333333f, 0.025f},
       // mm per...:
       {0.26458333333f, 10.0f, 1.0f, 25.4f, 0.35277777777777778f,
        4.2333333333333333f, 0.25f},
       // in per...:
       {0.01041666666f, 0.39370078740157481f, 0.039370078740157481f, 1.0f,
-       0.013888888888888889f, 0.16666666666666667f, 6.35f},
+       0.013888888888888889f, 0.16666666666666667f, 0.02204860853f},
       // pt per...:
       {0.75f, 28.346456692913386f, 2.8346456692913386f, 72.0f, 1.0f, 12.0f,
-       0.08819444444f},
+       0.70866141732f},
       // pc per...:
       {0.0625f, 2.3622047244094489f, 0.23622047244094489f, 6.0f,
-       0.083333333333333333f, 1.0f, 1.05833333333f},
+       0.083333333333333333f, 1.0f, 16.9333333333f},
       // q per...:
-      {15.118110237f, 40.0f, 4.0f, 0.15748031496f, 11.3385826777f,
-       0.94488188976f, 1.0f}};
+      {1.0583333332f, 40.0f, 4.0f, 45.354336f, 1.41111111111f, 16.9333333333f,
+       1.0f}};
 
   auto ToIndex = [](uint8_t aUnit) {
     return aUnit == SVG_LENGTHTYPE_NUMBER ? 0 : aUnit - 5;
@@ -166,6 +167,46 @@ float SVGLength::GetPixelsPerUnit(const UserSpaceMetrics& aMetrics,
     default:
       MOZ_ASSERT(IsAbsoluteUnit(aUnitType));
       return GetAbsUnitsPerAbsUnit(SVG_LENGTHTYPE_PX, aUnitType);
+  }
+}
+
+/* static */
+nsCSSUnit SVGLength::SpecifiedUnitTypeToCSSUnit(uint8_t aSpecifiedUnit) {
+  switch (aSpecifiedUnit) {
+    case SVG_LENGTHTYPE_NUMBER:
+    case SVG_LENGTHTYPE_PX:
+      return nsCSSUnit::eCSSUnit_Pixel;
+
+    case SVG_LENGTHTYPE_MM:
+      return nsCSSUnit::eCSSUnit_Millimeter;
+
+    case SVG_LENGTHTYPE_CM:
+      return nsCSSUnit::eCSSUnit_Centimeter;
+
+    case SVG_LENGTHTYPE_IN:
+      return nsCSSUnit::eCSSUnit_Inch;
+
+    case SVG_LENGTHTYPE_PT:
+      return nsCSSUnit::eCSSUnit_Point;
+
+    case SVG_LENGTHTYPE_PC:
+      return nsCSSUnit::eCSSUnit_Pica;
+
+    case SVG_LENGTHTYPE_PERCENTAGE:
+      return nsCSSUnit::eCSSUnit_Percent;
+
+    case SVG_LENGTHTYPE_EMS:
+      return nsCSSUnit::eCSSUnit_EM;
+
+    case SVG_LENGTHTYPE_EXS:
+      return nsCSSUnit::eCSSUnit_XHeight;
+
+    case SVG_LENGTHTYPE_Q:
+      return nsCSSUnit::eCSSUnit_Quarter;
+
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unknown unit type");
+      return nsCSSUnit::eCSSUnit_Pixel;
   }
 }
 

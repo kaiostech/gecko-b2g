@@ -3596,9 +3596,4 @@ void nsHttpTransaction::SetIsForWebTransport(bool aIsForWebTransport) {
   mIsForWebTransport = aIsForWebTransport;
 }
 
-void nsHttpTransaction::RemoveConnection() {
-  MutexAutoLock lock(mLock);
-  mConnection = nullptr;
-}
-
 }  // namespace mozilla::net

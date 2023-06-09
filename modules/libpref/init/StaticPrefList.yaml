@@ -2187,7 +2187,7 @@
 # This only works when sessionHistoryInParent is enabled.
 - name: docshell.shistory.bfcache.ship_allow_beforeunload_listeners
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -6303,16 +6303,6 @@
   type: RelaxedAtomicBool
   value: @IS_NOT_RELEASE_OR_BETA@
   mirror: always
-
-- name: gfx.draw-color-bars
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: gfx.e10s.hide-plugins-for-scroll
-  type: bool
-  value: true
-  mirror: once
 
 - name: gfx.e10s.font-list.shared
   type: bool
@@ -11500,7 +11490,7 @@
 #if defined(XP_MACOSX)
 -   name: media.plugin_helper_process.enabled
     type: RelaxedAtomicBool
-    value: false
+    value: true
     mirror: always
 #endif
 
@@ -11974,16 +11964,6 @@
 - name: network.http.sanitize-headers-in-logs
   type: RelaxedAtomicBool
   value: true
-  mirror: always
-
-# Set this pref to an integer like 99 to override the User-Agent string's
-# Firefox version. The value 0 means use the default Firefox version. If
-# enterprise users rely on sites that aren't compatible with Firefox version
-# 100's three-digit version number, enterprise admins can set this pref to a
-# known-good version (like 99) in an enterprise policy file.
-- name: network.http.useragent.forceVersion
-  type: uint32_t
-  value: 0
   mirror: always
 
 # Set this pref to an integer like 99 to override the User-Agent string's
@@ -12902,12 +12882,6 @@
 - name: network.http.http3.version_negotiation.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# When a Http/3 connection failed, whether to retry with a different IP address.
-- name: network.http.http3.retry_different_ip_family
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # When true, a http request will be upgraded to https when HTTPS RR is

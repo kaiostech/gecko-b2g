@@ -93,7 +93,7 @@ async function makeExtension({
 async function testOriginControls(
   extension,
   { contextMenuId },
-  { items, selected, click, granted, revoked, attention, quarantined }
+  { items, selected, click, granted, revoked, attention }
 ) {
   info(
     `Testing ${extension.id} on ${gBrowser.currentURI.spec} with contextMenuId=${contextMenuId}.`
@@ -164,11 +164,8 @@ async function testOriginControls(
       buttonOrWidget.querySelector(".unified-extensions-item-action-button")
     ),
     {
-      // eslint-disable-next-line no-nested-ternary
       id: attention
-        ? quarantined
-          ? "origin-controls-toolbar-button-quarantined"
-          : "origin-controls-toolbar-button-permission-needed"
+        ? "origin-controls-toolbar-button-permission-needed"
         : "origin-controls-toolbar-button",
       args: {
         extensionTitle: "Generated extension",
@@ -374,33 +371,14 @@ const originControlsInContextMenu = async options => {
   });
 
   await BrowserTestUtils.withNewTab("http://mochi.test:8888/", async () => {
-    await testOriginControls(ext1, options, {
-      items: [NO_ACCESS],
-      attention: false,
-    });
+    await testOriginControls(ext1, options, { items: [NO_ACCESS] });
 
-    await testOriginControls(ext2, options, {
-      items: [QUARANTINED],
-      attention: true,
-      quarantined: true,
-    });
-    await testOriginControls(ext3, options, {
-      items: [QUARANTINED],
-      attention: true,
-      quarantined: true,
-    });
-    await testOriginControls(ext4, options, {
-      items: [QUARANTINED],
-      attention: true,
-      quarantined: true,
-    });
+    await testOriginControls(ext2, options, { items: [QUARANTINED] });
+    await testOriginControls(ext3, options, { items: [QUARANTINED] });
+    await testOriginControls(ext4, options, { items: [QUARANTINED] });
 
     // MV2 normally don't have controls, but we show the quarantined status.
-    await testOriginControls(ext5, options, {
-      items: [QUARANTINED],
-      attention: true,
-      quarantined: true,
-    });
+    await testOriginControls(ext5, options, { items: [QUARANTINED] });
   });
 
   await SpecialPowers.popPrefEnv();

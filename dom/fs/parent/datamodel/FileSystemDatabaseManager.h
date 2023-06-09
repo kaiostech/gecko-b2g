@@ -33,12 +33,15 @@ struct OriginMetadata;
 
 namespace fs {
 
+struct FileId;
 class FileSystemChildMetadata;
 class FileSystemEntryMetadata;
 class FileSystemDirectoryListing;
 class FileSystemEntryPair;
 
 namespace data {
+
+using FileSystemConnection = fs::ResultConnection;
 
 class FileSystemDatabaseManager {
  public:
@@ -69,7 +72,7 @@ class FileSystemDatabaseManager {
    *
    * @param aEntry EntryId of the file whose size is refreshed.
    */
-  virtual nsresult UpdateUsage(const EntryId& aEntry) = 0;
+  virtual nsresult UpdateUsage(const FileId& aFileId) = 0;
 
   /**
    * @brief Returns directory identifier, optionally creating it if it doesn't
@@ -128,10 +131,9 @@ class FileSystemDatabaseManager {
    *
    * @param aHandle Source directory or file
    * @param aNewName New entry name
-   * @return Result<bool, QMResult> False if entry didn't exist, otherwise true
-   * or error
+   * @return Result<EntryId, QMResult> The relevant entry id or error
    */
-  virtual Result<bool, QMResult> RenameEntry(
+  virtual Result<EntryId, QMResult> RenameEntry(
       const FileSystemEntryMetadata& aHandle, const Name& aNewName) = 0;
 
   /**
@@ -139,10 +141,9 @@ class FileSystemDatabaseManager {
    *
    * @param aHandle Source directory or file
    * @param aNewDesignation Destination directory and entry name
-   * @return Result<bool, QMResult> False if entry didn't exist, otherwise true
-   * or error
+   * @return Result<EntryId, QMResult> The relevant entry id or error
    */
-  virtual Result<bool, QMResult> MoveEntry(
+  virtual Result<EntryId, QMResult> MoveEntry(
       const FileSystemEntryMetadata& aHandle,
       const FileSystemChildMetadata& aNewDesignation) = 0;
 
@@ -157,6 +158,27 @@ class FileSystemDatabaseManager {
       const FileSystemEntryPair& aEndpoints) const = 0;
 
   /**
+   * @brief Generates an EntryId for a given parent EntryId and filename.
+   */
+  virtual Result<EntryId, QMResult> GetEntryId(
+      const FileSystemChildMetadata& aHandle) const = 0;
+
+  /**
+   * @brief Make sure EntryId maps to a FileId. This method should be called
+   * before locking is attempted.
+   */
+  virtual nsresult EnsureFileId(const EntryId& aEntryId) = 0;
+
+  /**
+   * @brief To support moves in metadata, the actual files on disk are tagged
+   * with file id's which are mapped to entry id's which represent paths.
+   *
+   * @param aEntryId Metadata reference to a path
+   * @return Result<EntryId, QMResult> Persistent reference to a file or error
+   */
+  virtual Result<FileId, QMResult> GetFileId(const EntryId& aEntryId) const = 0;
+
+  /**
    * @brief Close database connection.
    */
   virtual void Close() = 0;
@@ -164,12 +186,12 @@ class FileSystemDatabaseManager {
   /**
    * @brief Start tracking file's usage.
    */
-  virtual nsresult BeginUsageTracking(const EntryId& aEntryId) = 0;
+  virtual nsresult BeginUsageTracking(const FileId& aFileId) = 0;
 
   /**
    * @brief Stop tracking file's usage.
    */
-  virtual nsresult EndUsageTracking(const EntryId& aEntryId) = 0;
+  virtual nsresult EndUsageTracking(const FileId& aFileId) = 0;
 
   virtual ~FileSystemDatabaseManager() = default;
 };

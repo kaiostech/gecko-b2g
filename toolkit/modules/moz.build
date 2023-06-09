@@ -155,7 +155,7 @@ EXTRA_JS_MODULES += [
     "BinarySearch.sys.mjs",
     "BrowserTelemetryUtils.sys.mjs",
     "BrowserUtils.sys.mjs",
-    "CanonicalJSON.jsm",
+    "CanonicalJSON.sys.mjs",
     "CertUtils.sys.mjs",
     "Color.sys.mjs",
     "Console.sys.mjs",
@@ -233,7 +233,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
         "PropertyListUtils.sys.mjs",
     ]
 
-EXTRA_JS_MODULES.third_party.jsesc += ["third_party/jsesc/jsesc.js"]
+EXTRA_JS_MODULES.third_party.jsesc += ["third_party/jsesc/jsesc.mjs"]
 EXTRA_JS_MODULES.sessionstore += [
     "sessionstore/PrivacyFilter.sys.mjs",
     "sessionstore/PrivacyLevel.sys.mjs",

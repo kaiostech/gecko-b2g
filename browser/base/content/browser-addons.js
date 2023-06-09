@@ -1222,13 +1222,7 @@ var gUnifiedExtensions = {
 
       // Only show for extensions which are not already visible in the toolbar.
       if (!widget || widget.areaType !== CustomizableUI.TYPE_TOOLBAR) {
-        const { attention: att, quarantined } =
-          lazy.OriginControls.getAttentionState(policy, window);
-        // Do not take the attention for quarantined domains into account yet.
-        //
-        // TODO: Bug 1836448 - show attention dot with a new localized string
-        // when the message-bar notification is shown in the panel.
-        if (att && !quarantined) {
+        if (lazy.OriginControls.getAttention(policy, window)) {
           attention = true;
           break;
         }
@@ -1892,11 +1886,13 @@ var gUnifiedExtensions = {
 
     if (titleFluentId) {
       const titleEl = document.createElement("strong");
+      titleEl.setAttribute("id", titleFluentId);
       document.l10n.setAttributes(titleEl, titleFluentId);
       messageBar.append(titleEl);
     }
 
     const messageEl = document.createElement("span");
+    messageEl.setAttribute("id", messageFluentId);
     document.l10n.setAttributes(messageEl, messageFluentId);
     messageBar.append(messageEl);
 
@@ -1907,6 +1903,13 @@ var gUnifiedExtensions = {
         is: "moz-support-link",
       });
       supportUrl.setAttribute("support-page", supportPage);
+      if (titleFluentId) {
+        supportUrl.setAttribute("aria-labelledby", titleFluentId);
+        supportUrl.setAttribute("aria-describedby", messageFluentId);
+      } else {
+        supportUrl.setAttribute("aria-labelledby", messageFluentId);
+      }
+
       messageBar.append(supportUrl);
     }
 

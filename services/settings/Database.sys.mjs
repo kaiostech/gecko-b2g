@@ -9,11 +9,11 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   CommonUtils: "resource://services-common/utils.sys.mjs",
+  IDBHelpers: "resource://services-settings/IDBHelpers.sys.mjs",
   Utils: "resource://services-settings/Utils.sys.mjs",
 });
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
-  IDBHelpers: "resource://services-settings/IDBHelpers.jsm",
   ObjectUtils: "resource://gre/modules/ObjectUtils.jsm",
 });
 XPCOMUtils.defineLazyGetter(lazy, "console", () => lazy.Utils.log);
@@ -305,8 +305,6 @@ export class Database {
             request.onsuccess = e => resolve(e.target.result);
             request.onerror = e => reject(e);
           });
-
-          console.error("allRecords", allRecords);
 
           // Compare known records IDs to those stored along the attachments.
           const currentRecordsIDs = new Set(allRecords.map(r => r.id));

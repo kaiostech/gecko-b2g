@@ -172,8 +172,6 @@ class ContentChild final : public PContentChild,
       Endpoint<PRemoteDecoderManagerChild>&& aVideoManager,
       nsTArray<uint32_t>&& namespaces);
 
-  mozilla::ipc::IPCResult RecvRequestPerformanceMetrics(const nsID& aID);
-
   PDeviceStorageRequestChild* AllocPDeviceStorageRequestChild(
       const DeviceStorageParams&);
 

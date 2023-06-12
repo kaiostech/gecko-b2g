@@ -14,6 +14,7 @@ async function makeExtension({
   host_permissions,
   content_scripts,
   granted,
+  default_area,
 }) {
   info(
     `Loading extension ` +
@@ -28,7 +29,7 @@ async function makeExtension({
     content_scripts,
     action: {
       default_popup: "popup.html",
-      default_area: "navbar",
+      default_area: default_area || "navbar",
     },
   };
   if (manifest_version < 3) {
@@ -93,7 +94,7 @@ async function makeExtension({
 async function testOriginControls(
   extension,
   { contextMenuId },
-  { items, selected, click, granted, revoked, attention }
+  { items, selected, click, granted, revoked, attention, quarantined }
 ) {
   info(
     `Testing ${extension.id} on ${gBrowser.currentURI.spec} with contextMenuId=${contextMenuId}.`
@@ -164,8 +165,11 @@ async function testOriginControls(
       buttonOrWidget.querySelector(".unified-extensions-item-action-button")
     ),
     {
+      // eslint-disable-next-line no-nested-ternary
       id: attention
-        ? "origin-controls-toolbar-button-permission-needed"
+        ? quarantined
+          ? "origin-controls-toolbar-button-quarantined"
+          : "origin-controls-toolbar-button-permission-needed"
         : "origin-controls-toolbar-button",
       args: {
         extensionTitle: "Generated extension",
@@ -260,12 +264,16 @@ const originControlsInContextMenu = async options => {
     useAddonManager: "permanent",
   });
 
-  let extensions = [ext1, ext2, ext3, ext4, ext5];
+  // Add an extension always visible in the extensions panel.
+  let ext6 = await makeExtension({
+    id: "ext6@test",
+    default_area: "menupanel",
+  });
+
+  let extensions = [ext1, ext2, ext3, ext4, ext5, ext6];
 
   let unifiedButton;
   if (options.contextMenuId === "unified-extensions-context-menu") {
-    // Unified button should only show a notification indicator when extensions
-    // asking for attention are not already visible in the toolbar.
     moveWidget(ext1, false);
     moveWidget(ext2, false);
     moveWidget(ext3, false);
@@ -295,6 +303,10 @@ const originControlsInContextMenu = async options => {
   const UNIFIED_NO_ATTENTION = { id: "unified-extensions-button", args: null };
   const UNIFIED_ATTENTION = {
     id: "unified-extensions-button-permissions-needed",
+    args: null,
+  };
+  const UNIFIED_QUARANTINED = {
+    id: "unified-extensions-button-quarantined",
     args: null,
   };
 
@@ -371,15 +383,75 @@ const originControlsInContextMenu = async options => {
   });
 
   await BrowserTestUtils.withNewTab("http://mochi.test:8888/", async () => {
-    await testOriginControls(ext1, options, { items: [NO_ACCESS] });
+    await testOriginControls(ext1, options, {
+      items: [NO_ACCESS],
+      attention: false,
+    });
 
-    await testOriginControls(ext2, options, { items: [QUARANTINED] });
-    await testOriginControls(ext3, options, { items: [QUARANTINED] });
-    await testOriginControls(ext4, options, { items: [QUARANTINED] });
+    await testOriginControls(ext2, options, {
+      items: [QUARANTINED],
+      attention: true,
+      quarantined: true,
+    });
+    await testOriginControls(ext3, options, {
+      items: [QUARANTINED],
+      attention: true,
+      quarantined: true,
+    });
+    await testOriginControls(ext4, options, {
+      items: [QUARANTINED],
+      attention: true,
+      quarantined: true,
+    });
 
     // MV2 normally don't have controls, but we show the quarantined status.
-    await testOriginControls(ext5, options, { items: [QUARANTINED] });
+    await testOriginControls(ext5, options, {
+      items: [QUARANTINED],
+      attention: true,
+      quarantined: true,
+    });
+
+    if (unifiedButton) {
+      ok(unifiedButton.hasAttribute("attention"), "Expected attention UI");
+      Assert.deepEqual(
+        document.l10n.getAttributes(unifiedButton),
+        UNIFIED_QUARANTINED,
+        "Expected attention tooltip text for quarantined domains"
+      );
+    }
   });
+
+  if (unifiedButton) {
+    extensions.forEach(extension =>
+      moveWidget(extension, /* pinToToolbar */ true)
+    );
+
+    await BrowserTestUtils.withNewTab("http://mochi.test:8888/", async () => {
+      ok(unifiedButton.hasAttribute("attention"), "Expected attention UI");
+      Assert.deepEqual(
+        document.l10n.getAttributes(unifiedButton),
+        UNIFIED_QUARANTINED,
+        "Expected attention tooltip text for quarantined domains"
+      );
+
+      await openExtensionsPanel();
+
+      const messages = getMessageBars();
+      Assert.equal(messages.length, 1, "expected a message");
+      const supportLink = messages[0].querySelector("a");
+      Assert.equal(
+        supportLink.getAttribute("support-page"),
+        "quarantined-domains",
+        "Expected the correct support page ID"
+      );
+
+      await closeExtensionsPanel();
+    });
+
+    extensions.forEach(extension =>
+      moveWidget(extension, /* pinToToolbar */ false)
+    );
+  }
 
   await SpecialPowers.popPrefEnv();
 

@@ -1832,7 +1832,7 @@
 
 # Is support for CanvasRenderingContext2D.filter enabled?
 - name: canvas.filters.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: true
   mirror: always
 
@@ -3002,23 +3002,6 @@
   type: bool
   value: @IS_NOT_RELEASE_OR_BETA@
   mirror: once
-
-# Allow Flash async drawing mode in 64-bit release builds.
-- name: dom.ipc.plugins.asyncdrawing.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# How long we wait before unloading an idle plugin process.
-- name: dom.ipc.plugins.unloadTimeoutSecs
-  type: RelaxedAtomicUint32
-  value: 30
-  mirror: always
-
-- name: dom.ipc.plugins.allow_dxgi_surface
-  type: bool
-  value: true
-  mirror: always
 
 # Enable e10s hang monitoring (slow script checking and plugin hang detection).
 - name: dom.ipc.processHangMonitor
@@ -5869,11 +5852,6 @@
 # Prefs starting with "gfx."
 #---------------------------------------------------------------------------
 
-- name: gfx.allow-texture-direct-mapping
-  type: bool
-  value: true
-  mirror: once
-
 # Allow 24-bit colour when the hardware supports it.
 - name: gfx.android.rgb16.force
   type: bool
@@ -6218,13 +6196,6 @@
   type: bool
   value: false
   mirror: once
-
-# Whether to defer destruction of Direct2D DrawTargets to the paint thread
-# when using OMTP.
-- name: gfx.direct2d.destroy-dt-on-paintthread
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
 
 - name: gfx.direct2d.target-independent-rasterization.disabled
   type: bool
@@ -7273,13 +7244,6 @@
   value: true
   mirror: once
 
-# Whether the heap should be used for frames from animated images. On Android,
-# volatile memory keeps file handles open for each buffer.
-- name: image.mem.animated.use_heap
-  type: RelaxedAtomicBool
-  value: @IS_ANDROID@
-  mirror: always
-
 # Enable extra information for debugging in the image memory reports.
 - name: image.mem.debug-reporting
   type: RelaxedAtomicBool
@@ -7346,17 +7310,6 @@
   type: uint32_t
   value: 4
   mirror: once
-
-# Minimum buffer size in KB before using volatile memory over the heap.
-- name: image.mem.volatile.min_threshold_kb
-  type: RelaxedAtomicInt32
-#if defined(ANDROID)
-  # On Android, volatile memory keeps file handles open for each buffer.
-  value: 100
-#else
-  value: -1
-#endif
-  mirror: always
 
 # How long in ms before we should start shutting down idle decoder threads.
 - name: image.multithreaded_decoding.idle_timeout
@@ -9358,11 +9311,6 @@
   value: false
   mirror: always
 
-- name: layout.display-list.flatten-transform
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: layout.display-list.improve-fragmentation
   type: RelaxedAtomicBool
   value: true
@@ -9445,11 +9393,6 @@
 - name: layout.interruptible-reflow.enabled
   type: bool
   value: true
-  mirror: always
-
-- name: layout.min-active-layer-size
-  type: int32_t
-  value: 64
   mirror: always
 
 # On Android, don't synth mouse move events after scrolling, as they cause
@@ -9623,13 +9566,6 @@
 - name: layout.css.element-content-none.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-  rust: true
-
-# Is 'font-synthesis: small-caps' supported?
-- name: layout.css.font-synthesis-small-caps.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
   rust: true
 
@@ -13149,13 +13085,6 @@
   value: false
   mirror: always
 
-# Enable/disable widget update area flashing --- only supported with
-# BasicLayers (other layer managers always update the entire widget area).
-- name: nglayout.debug.widget_update_flashing
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: nglayout.debug.disable_xul_cache
   type: bool
   value: false
@@ -14157,6 +14086,11 @@
 
 # The style-src-attr and style-src-elem directive
 - name: security.csp.style-src-attr-elem.enabled
+  type: bool
+  value: true
+  mirror: always
+
+- name: security.csp.external-hashes.enabled
   type: bool
   value: true
   mirror: always

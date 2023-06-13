@@ -22,11 +22,9 @@ extern mozilla::LogModule* GetSpeechSynthLog();
 namespace mozilla::dom {
 
 class SynthStreamListener : public MediaTrackListener {
-public:
-  explicit SynthStreamListener(nsSpeechTask* aSpeechTask,
-                               MediaTrack* aStream) :
-    mSpeechTask(aSpeechTask),
-    mStream(aStream) {}
+ public:
+  explicit SynthStreamListener(nsSpeechTask* aSpeechTask, MediaTrack* aStream)
+      : mSpeechTask(aSpeechTask), mStream(aStream) {}
 
   void DoNotifyStarted() {
     if (mSpeechTask && !mStream->IsDestroyed()) {
@@ -43,12 +41,11 @@ public:
 
   void NotifyEnded(MediaTrackGraph* aGraph) override {
     aGraph->DispatchToMainThreadStableState(NS_NewRunnableFunction(
-      "NotifyEnded endRunnable",
-      [self = RefPtr<SynthStreamListener>(this)] {
-        if (self) {
-          self->DoNotifyFinished();
-        }
-      }));
+        "NotifyEnded endRunnable", [self = RefPtr<SynthStreamListener>(this)] {
+          if (self) {
+            self->DoNotifyFinished();
+          }
+        }));
   }
 
   void NotifyRemoved(MediaTrackGraph* aGraph) override {
@@ -57,7 +54,7 @@ public:
     mStream = nullptr;
   }
 
-private:
+ private:
   // Raw pointer; if we exist, the stream exists,
   // and 'mSpeechTask' exclusively owns it and therefor exists as well.
   nsSpeechTask* mSpeechTask;
@@ -136,7 +133,8 @@ nsSpeechTask::Setup(nsISpeechTaskCallback* aCallback) {
 }
 
 NS_IMETHODIMP
-nsSpeechTask::SetupAudioNative(nsISpeechTaskCallback* aCallback, uint32_t aRate) {
+nsSpeechTask::SetupAudioNative(nsISpeechTaskCallback* aCallback,
+                               uint32_t aRate) {
   MOZ_ASSERT(XRE_IsParentProcess());
 
   MediaTrackGraph* g1 = MediaTrackGraph::GetInstance(
@@ -155,8 +153,8 @@ nsSpeechTask::SetupAudioNative(nsISpeechTaskCallback* aCallback, uint32_t aRate)
   return NS_OK;
 }
 
-static RefPtr<mozilla::SharedBuffer>
-makeSamples(int16_t* aData, uint32_t aDataLen) {
+static RefPtr<mozilla::SharedBuffer> makeSamples(int16_t* aData,
+                                                 uint32_t aDataLen) {
   CheckedInt<size_t> size = aDataLen * sizeof(int16_t);
   RefPtr<mozilla::SharedBuffer> samples = SharedBuffer::Create(size);
   int16_t* frames = static_cast<int16_t*>(samples->Data());
@@ -171,10 +169,10 @@ NS_IMETHODIMP
 nsSpeechTask::SendAudioNative(int16_t* aData, uint32_t aDataLen) {
   MOZ_ASSERT(XRE_IsParentProcess());
 
-  if(NS_WARN_IF(!(mStream))) {
+  if (NS_WARN_IF(!(mStream))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-  if(NS_WARN_IF(mStream->IsDestroyed())) {
+  if (NS_WARN_IF(mStream->IsDestroyed())) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -184,8 +182,8 @@ nsSpeechTask::SendAudioNative(int16_t* aData, uint32_t aDataLen) {
   return NS_OK;
 }
 
-void
-nsSpeechTask::SendAudioImpl(RefPtr<mozilla::SharedBuffer>& aSamples, uint32_t aDataLen) {
+void nsSpeechTask::SendAudioImpl(RefPtr<mozilla::SharedBuffer>& aSamples,
+                                 uint32_t aDataLen) {
   if (aDataLen == 0) {
     mStream->End();
     return;
@@ -450,13 +448,11 @@ void nsSpeechTask::ForceEnd() {
   DispatchEnd(0, 0);
 }
 
-float
-nsSpeechTask::GetCurrentTime() {
+float nsSpeechTask::GetCurrentTime() {
   return mStream ? (float)(mStream->GetCurrentTime() / 1000000.0) : 0;
 }
 
-uint32_t
-nsSpeechTask::GetCurrentCharOffset() {
+uint32_t nsSpeechTask::GetCurrentCharOffset() {
   return mStream && mStream->IsEnded() ? mText.Length() : 0;
 }
 

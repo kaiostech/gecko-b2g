@@ -1065,6 +1065,16 @@ class MediaTrackGraph {
                                       TrackRate aSampleRate,
                                       CubebUtils::AudioDeviceID aOutputDeviceID,
                                       dom::AudioChannel aAudioChannel);
+
+  // Called by B2G nsSpeechTask.
+  static MediaTrackGraph* GetInstance(GraphDriverType aGraphDriverRequested,
+                                      uint64_t aWindowID,
+                                      bool aShouldResistFingerprinting,
+                                      TrackRate aSampleRate,
+                                      CubebUtils::AudioDeviceID aOutputDeviceID,
+                                      dom::AudioChannel aAudioChannel,
+                                      nsISerialEventTarget* aMainThread);
+
   static MediaTrackGraph* CreateNonRealtimeInstance(
       TrackRate aSampleRate, nsPIDOMWindowInner* aWindowId);
 

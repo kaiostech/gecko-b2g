@@ -3403,10 +3403,8 @@ MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
     nsPIDOMWindowInner* aWindow, TrackRate aSampleRate,
     CubebUtils::AudioDeviceID aOutputDeviceID,
     dom::AudioChannel aAudioChannel) {
-  // On B2G, webspeech gets the graph with null window, so give it window ID 0.
-  uint64_t windowID = aWindow ? aWindow->WindowID() : 0;
   return MediaTrackGraphImpl::GetInstanceIfExists(
-      windowID,
+      aWindow->WindowID(),
       aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::Unknown),
       aSampleRate, aOutputDeviceID, aAudioChannel);
 }
@@ -3460,15 +3458,22 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     GraphDriverType aGraphDriverRequested, nsPIDOMWindowInner* aWindow,
     TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID,
     dom::AudioChannel aAudioChannel) {
-  // On B2G, webspeech gets the graph with null window, so give it window ID 0.
-  uint64_t windowID = aWindow ? aWindow->WindowID() : 0;
-  nsCOMPtr<nsISerialEventTarget> mainThread =
-      aWindow ? aWindow->EventTargetFor(TaskCategory::Other)
-              : GetMainThreadSerialEventTarget();
   return MediaTrackGraphImpl::GetInstance(
-      aGraphDriverRequested, windowID,
+      aGraphDriverRequested, aWindow->WindowID(),
       aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::Unknown),
-      aSampleRate, aOutputDeviceID, aAudioChannel, mainThread);
+      aSampleRate, aOutputDeviceID, aAudioChannel,
+      aWindow->EventTargetFor(TaskCategory::Other));
+}
+
+/* static */
+MediaTrackGraph* MediaTrackGraph::GetInstance(
+    GraphDriverType aGraphDriverRequested, uint64_t aWindowID,
+    bool aShouldResistFingerprinting, TrackRate aSampleRate,
+    CubebUtils::AudioDeviceID aOutputDeviceID, dom::AudioChannel aAudioChannel,
+    nsISerialEventTarget* aMainThread) {
+  return MediaTrackGraphImpl::GetInstance(
+      aGraphDriverRequested, aWindowID, aShouldResistFingerprinting,
+      aSampleRate, aOutputDeviceID, aAudioChannel, aMainThread);
 }
 
 MediaTrackGraph* MediaTrackGraph::CreateNonRealtimeInstance(

@@ -26,40 +26,17 @@ class MediaQueue;
  */
 class AudioSinkWrapper : public MediaSink {
   using PlaybackParams = AudioSink::PlaybackParams;
-
-  // An AudioSink factory.
-  class Creator {
-   public:
-    virtual ~Creator() = default;
-    virtual AudioSink* Create() = 0;
-  };
-
-  // Wrap around a function object which creates AudioSinks.
-  template <typename Function>
-  class CreatorImpl : public Creator {
-   public:
-    explicit CreatorImpl(const Function& aFunc) : mFunction(aFunc) {}
-    AudioSink* Create() override { return mFunction(); }
-
-   private:
-    Function mFunction;
-  };
+  using SinkCreator = std::function<UniquePtr<AudioSink>()>;
 
  public:
-  template <typename Function>
   AudioSinkWrapper(AbstractThread* aOwnerThread,
-                   MediaQueue<AudioData>& aAudioQueue, const Function& aFunc,
+                   MediaQueue<AudioData>& aAudioQueue, SinkCreator aFunc,
                    double aVolume, double aPlaybackRate, bool aPreservesPitch,
                    RefPtr<AudioDeviceInfo> aAudioDevice)
       : mOwnerThread(aOwnerThread),
-        mCreator(new CreatorImpl<Function>(aFunc)),
+        mSinkCreator(std::move(aFunc)),
         mAudioDevice(std::move(aAudioDevice)),
-        mIsStarted(false),
         mParams(aVolume, aPlaybackRate, aPreservesPitch),
-        // Give an invalid value to facilitate debug if used before playback
-        // starts.
-        mPlayDuration(media::TimeUnit::Invalid()),
-        mAudioEnded(true),
         mAudioQueue(aAudioQueue) {}
 
   RefPtr<EndedPromise> OnEnded(TrackType aType) override;
@@ -110,6 +87,10 @@ class AudioSinkWrapper : public MediaSink {
     MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
   }
 
+  bool NeedAudioSink();
+  void StartAudioSink(const media::TimeUnit& aStartTime);
+  void ShutDownAudioSink();
+  // Create and start mAudioSink.
   // An AudioSink can be started synchronously from the MDSM thread, or
   // asynchronously.
   // In synchronous mode, the clock doesn't advance until the sink has been
@@ -118,9 +99,8 @@ class AudioSinkWrapper : public MediaSink {
   // In asynchronous mode, the clock will keep going forward (using the system
   // clock) until the AudioSink is started, at which point the clock will use
   // the AudioSink clock. This is used when unmuting a media element.
-  enum class AudioSinkStartPolicy { SYNC, ASYNC };
-  nsresult StartAudioSink(const media::TimeUnit& aStartTime,
-                          AudioSinkStartPolicy aPolicy);
+  nsresult SyncCreateAudioSink(const media::TimeUnit& aStartTime);
+  void MaybeAsyncCreateAudioSink();
 
   // Get the current media position using the system clock. This is used when
   // the audio is muted, or when the media has no audio track. Otherwise, the
@@ -128,12 +108,12 @@ class AudioSinkWrapper : public MediaSink {
   media::TimeUnit GetSystemClockPosition(TimeStamp aNow) const;
   bool CheckIfEnded() const;
 
-  void OnAudioEnded();
+  void OnAudioEnded(const EndedPromise::ResolveOrRejectValue& aValue);
 
   bool IsAudioSourceEnded(const MediaInfo& aInfo) const;
 
   const RefPtr<AbstractThread> mOwnerThread;
-  UniquePtr<Creator> mCreator;
+  SinkCreator mSinkCreator;
   UniquePtr<AudioSink> mAudioSink;
   // The output device this AudioSink is playing data to. The system's default
   // device is used if this is null.
@@ -141,15 +121,25 @@ class AudioSinkWrapper : public MediaSink {
   // Will only exist when media has an audio track.
   RefPtr<EndedPromise> mEndedPromise;
   MozPromiseHolder<EndedPromise> mEndedPromiseHolder;
-
-  bool mIsStarted;
+  // true between Start() and Stop()
+  bool mIsStarted = false;
   PlaybackParams mParams;
+  // mClockStartTime is null before Start(), after Stop(), and between
+  // SetPlaying(false) and SetPlaying(true).  When the system time is used for
+  // the clock, this is the time corresponding to mPositionAtClockStart.  When
+  // an AudioStream is used for the clock, non-null values don't have specific
+  // meaning beyond indicating that the clock is advancing.
+  TimeStamp mClockStartTime;
+  // The media position at the clock datum.  If the clock is not advancing,
+  // then this is the media position from which to resume playback.  The value
+  // is Invalid() before Start() to facilitate debug.
+  media::TimeUnit mPositionAtClockStart = media::TimeUnit::Invalid();
+  // End time of last packet played or dropped.
+  // Only up-to-date when there is no AudioSink.
+  media::TimeUnit mLastPacketEndTime;
 
-  TimeStamp mPlayStartTime;
-  media::TimeUnit mPlayDuration;
-
-  bool mAudioEnded;
-  MozPromiseRequestHolder<EndedPromise> mAudioSinkEndedPromise;
+  bool mAudioEnded = true;
+  MozPromiseRequestHolder<EndedPromise> mAudioSinkEndedRequest;
   MediaQueue<AudioData>& mAudioQueue;
 
   // True if we'd like to treat underrun as silent frames. But that can only be

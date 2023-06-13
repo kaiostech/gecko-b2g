@@ -93,7 +93,7 @@ pub fn parse_border<'i, 't>(
     if !any {
         return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError))
     }
-    Ok((color.unwrap_or(Color::CurrentColor), style.unwrap_or(BorderStyle::None), width.unwrap_or(BorderSideWidth::Medium)))
+    Ok((color.unwrap_or(Color::CurrentColor), style.unwrap_or(BorderStyle::None), width.unwrap_or(BorderSideWidth::medium())))
 }
 
 % for side, logical in ALL_SIDES:
@@ -107,7 +107,7 @@ pub fn parse_border<'i, 't>(
         engines="gecko servo-2013 servo-2020"
         sub_properties="${' '.join(
             'border-%s-%s' % (side, prop)
-            for prop in ['color', 'style', 'width']
+            for prop in ['width', 'style', 'color']
         )}"
         aliases="${maybe_moz_logical_alias(engine, (side, logical), '-moz-border-%s')}"
         spec="${spec}">
@@ -126,7 +126,7 @@ pub fn parse_border<'i, 't>(
 
     impl<'a> ToCss for LonghandsToSerialize<'a>  {
         fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result where W: fmt::Write {
-            super::serialize_directional_border(
+            crate::values::specified::border::serialize_directional_border(
                 dest,
                 self.border_${to_rust_ident(side)}_width,
                 self.border_${to_rust_ident(side)}_style,
@@ -141,8 +141,8 @@ pub fn parse_border<'i, 't>(
 <%helpers:shorthand name="border"
     engines="gecko servo-2013 servo-2020"
     sub_properties="${' '.join('border-%s-%s' % (side, prop)
-        for side in PHYSICAL_SIDES
-        for prop in ['color', 'style', 'width'])}
+        for side in PHYSICAL_SIDES for prop in ['width', 'style', 'color']
+        )}
         ${' '.join('border-image-%s' % name
         for name in ['outset', 'repeat', 'slice', 'source', 'width'])}"
     derive_value_info="False"
@@ -205,16 +205,15 @@ pub fn parse_border<'i, 't>(
 
             // If all longhands are all present, then all sides should be the same,
             // so we can just one set of color/style/width
-            if all_equal {
-                super::serialize_directional_border(
-                    dest,
-                    self.border_${side}_width,
-                    self.border_${side}_style,
-                    self.border_${side}_color
-                )
-            } else {
-                Ok(())
+            if !all_equal {
+                return Ok(())
             }
+            crate::values::specified::border::serialize_directional_border(
+                dest,
+                self.border_${side}_width,
+                self.border_${side}_style,
+                self.border_${side}_color
+            )
         }
     }
 
@@ -357,15 +356,42 @@ pub fn parse_border<'i, 't>(
 
     impl<'a> ToCss for LonghandsToSerialize<'a>  {
         fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result where W: fmt::Write {
-            self.border_image_source.to_css(dest)?;
-            dest.write_char(' ')?;
-            self.border_image_slice.to_css(dest)?;
-            dest.write_str(" / ")?;
-            self.border_image_width.to_css(dest)?;
-            dest.write_str(" / ")?;
-            self.border_image_outset.to_css(dest)?;
-            dest.write_char(' ')?;
-            self.border_image_repeat.to_css(dest)
+            let mut has_any = false;
+            % for name in "source slice outset width repeat".split():
+            let has_${name} = *self.border_image_${name} != border_image_${name}::get_initial_specified_value();
+            has_any = has_any || has_${name};
+            % endfor
+            if has_source || !has_any {
+                self.border_image_source.to_css(dest)?;
+                if !has_any {
+                    return Ok(());
+                }
+            }
+            let needs_slice = has_slice || has_width || has_outset;
+            if needs_slice {
+                if has_source {
+                    dest.write_char(' ')?;
+                }
+                self.border_image_slice.to_css(dest)?;
+                if has_width || has_outset {
+                    dest.write_str(" /")?;
+                    if has_width {
+                        dest.write_char(' ')?;
+                        self.border_image_width.to_css(dest)?;
+                    }
+                    if has_outset {
+                        dest.write_str(" / ")?;
+                        self.border_image_outset.to_css(dest)?;
+                    }
+                }
+            }
+            if has_repeat {
+                if has_source || needs_slice {
+                    dest.write_char(' ')?;
+                }
+                self.border_image_repeat.to_css(dest)?;
+            }
+            Ok(())
         }
     }
 </%helpers:shorthand>
@@ -453,7 +479,7 @@ pub fn parse_border<'i, 't>(
 
         impl<'a> ToCss for LonghandsToSerialize<'a>  {
             fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result where W: fmt::Write {
-                super::serialize_directional_border(
+                crate::values::specified::border::serialize_directional_border(
                     dest,
                     self.border_${axis}_start_width,
                     self.border_${axis}_start_style,

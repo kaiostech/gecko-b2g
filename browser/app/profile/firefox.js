@@ -411,6 +411,12 @@ pref("browser.urlbar.suggest.calculator",           false);
   pref("browser.urlbar.trending.featureGate", true);
 #endif
 
+#if defined(NIGHTLY_BUILD)
+  // Enable Rich Entities.
+  pref("browser.urlbar.richSuggestions.featureGate", true);
+  pref("browser.search.param.search_rich_suggestions", "fen");
+#endif
+
 // Feature gate pref for weather suggestions in the urlbar.
 pref("browser.urlbar.weather.featureGate", false);
 
@@ -684,9 +690,6 @@ pref("browser.search.openintab", false);
 // context menu searches open in the foreground
 pref("browser.search.context.loadInBackground", false);
 
-// comma separated list of of engines to hide in the search panel.
-pref("browser.search.hiddenOneOffs", "");
-
 // Mirrors whether the search-container widget is in the navigation toolbar.
 pref("browser.search.widget.inNavBar", false);
 
@@ -933,9 +936,6 @@ pref("dom.disable_window_move_resize",            false);
 // prevent JS from monkeying with window focus, etc
 pref("dom.disable_window_flip",                   true);
 
-// popups.policy 1=allow,2=reject
-pref("privacy.popups.policy",               1);
-pref("privacy.popups.usecustom",            true);
 pref("privacy.popups.showBrowserMessage",   true);
 
 pref("privacy.item.cookies",                false);
@@ -1084,11 +1084,6 @@ pref("accessibility.typeaheadfind", false);
 pref("accessibility.typeaheadfind.timeout", 5000);
 pref("accessibility.typeaheadfind.linksonly", false);
 pref("accessibility.typeaheadfind.flashBar", 1);
-
-pref("plugins.testmode", false);
-
-// Should plugins that are hidden show the infobar UI?
-pref("plugins.show_infobar", false);
 
 #if defined(_ARM64_) && defined(XP_WIN)
   pref("plugin.default.state", 0);

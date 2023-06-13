@@ -386,8 +386,6 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
   friend void js::ReportOversizedAllocation(JSContext*, const unsigned);
 
  public:
-  inline JS::Result<> boolToResult(bool ok);
-
   /**
    * Intentionally awkward signpost method that is stationed on the
    * boundary between Result-using and non-Result-using code.
@@ -962,15 +960,6 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
 
 }; /* struct JSContext */
 
-inline JS::Result<> JSContext::boolToResult(bool ok) {
-  if (MOZ_LIKELY(ok)) {
-    MOZ_ASSERT(!isExceptionPending());
-    MOZ_ASSERT(!isPropagatingForcedReturn());
-    return JS::Ok();
-  }
-  return JS::Result<>(JS::Error());
-}
-
 inline JSContext* JSRuntime::mainContextFromOwnThread() {
   MOZ_ASSERT(mainContextFromAnyThread() == js::TlsContext.get());
   return mainContextFromAnyThread();
@@ -1145,5 +1134,65 @@ class MOZ_RAII AutoUnsafeCallWithABI {
 #define CHECK_THREAD(cx)                            \
   MOZ_ASSERT_IF(cx, !cx->isHelperThreadContext() && \
                         js::CurrentThreadCanAccessRuntime(cx->runtime()))
+
+/**
+ * [SMDOC] JS::Result transitional macros
+ *
+ * ## Checking Results when your return type is not Result
+ *
+ * This header defines alternatives to MOZ_TRY and MOZ_TRY_VAR for when you
+ * need to call a `Result` function from a function that uses false or nullptr
+ * to indicate errors:
+ *
+ *     JS_TRY_OR_RETURN_FALSE(cx, DefenestrateObject(cx, obj));
+ *     JS_TRY_VAR_OR_RETURN_FALSE(cx, v, GetObjectThrug(cx, obj));
+ *
+ *     JS_TRY_VAR_OR_RETURN_NULL(cx, v, GetObjectThrug(cx, obj));
+ *
+ * When TRY is not what you want, because you need to do some cleanup or
+ * recovery on error, use this idiom:
+ *
+ *     if (!cx->resultToBool(expr_that_is_a_Result)) {
+ *         ... your recovery code here ...
+ *     }
+ *
+ * In place of a tail call, you can use one of these methods:
+ *
+ *     return cx->resultToBool(expr);  // false on error
+ *     return cx->resultToPtr(expr);  // null on error
+ *
+ * Once we are using `Result` everywhere, including in public APIs, all of
+ * these will go away.
+ */
+
+/**
+ * JS_TRY_OR_RETURN_FALSE(cx, expr) runs expr to compute a Result value.
+ * On success, nothing happens; on error, it returns false immediately.
+ *
+ * Implementation note: this involves cx because this may eventually
+ * do the work of setting a pending exception or reporting OOM.
+ */
+#define JS_TRY_OR_RETURN_FALSE(cx, expr)                           \
+  do {                                                             \
+    auto tmpResult_ = (expr);                                      \
+    if (tmpResult_.isErr()) return (cx)->resultToBool(tmpResult_); \
+  } while (0)
+
+#define JS_TRY_VAR_OR_RETURN_FALSE(cx, target, expr)               \
+  do {                                                             \
+    auto tmpResult_ = (expr);                                      \
+    if (tmpResult_.isErr()) return (cx)->resultToBool(tmpResult_); \
+    (target) = tmpResult_.unwrap();                                \
+  } while (0)
+
+#define JS_TRY_VAR_OR_RETURN_NULL(cx, target, expr)     \
+  do {                                                  \
+    auto tmpResult_ = (expr);                           \
+    if (tmpResult_.isErr()) {                           \
+      MOZ_ALWAYS_FALSE((cx)->resultToBool(tmpResult_)); \
+      return nullptr;                                   \
+    }                                                   \
+    (target) = tmpResult_.unwrap();                     \
+  } while (0)
 
 #endif /* vm_JSContext_h */

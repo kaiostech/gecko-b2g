@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { FormAutoCompleteResult } from "resource://gre/modules/nsFormAutoCompleteResult.sys.mjs";
+import { FormAutoCompleteResult } from "resource://gre/modules/FormAutoCompleteResult.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -43,9 +43,6 @@ class SuggestAutoComplete {
     if (this.#listener) {
       let result = new FormAutoCompleteResult(
         searchString,
-        Ci.nsIAutoCompleteResult.RESULT_SUCCESS,
-        0,
-        "",
         results.map(result => ({
           value: result,
           label: result,

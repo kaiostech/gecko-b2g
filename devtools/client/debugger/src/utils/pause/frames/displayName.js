@@ -85,12 +85,12 @@ export function formatDisplayName(
   return simplifyDisplayName(displayName) || l10n.getStr("anonymousFunction");
 }
 
-export function formatCopyName(frame, l10n) {
+export function formatCopyName(frame, l10n, shouldDisplayOriginalLocation) {
   const displayName = formatDisplayName(frame, undefined, l10n);
-  if (!frame.source) {
-    throw new Error("no frame source");
-  }
-  const fileName = frame.source.url || frame.source.id;
+  const location = shouldDisplayOriginalLocation
+    ? frame.location
+    : frame.generatedLocation;
+  const fileName = location.source.url || location.source.id;
   const frameLocation = frame.location.line;
 
   return `${displayName} (${fileName}#${frameLocation})`;

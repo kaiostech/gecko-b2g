@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "chrome://remote/content/shared/messagehandler/RootMessageHandler.sys.mjs",
   RootMessageHandlerRegistry:
     "chrome://remote/content/shared/messagehandler/RootMessageHandlerRegistry.sys.mjs",
+  TabManager: "chrome://remote/content/shared/TabManager.sys.mjs",
   unregisterProcessDataActor:
     "chrome://remote/content/shared/webdriver/process-actors/WebDriverProcessDataParent.sys.mjs",
   WebDriverBiDiConnection:
@@ -28,6 +29,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "logger", () => lazy.Log.get());
+
+// Global singleton that holds active WebDriver sessions
+const webDriverSessions = new Map();
 
 /**
  * Representation of WebDriver session.
@@ -198,10 +202,22 @@ export class WebDriverSession {
       this._connections.add(connection);
     }
 
+    // Maps a Navigable (browsing context or content browser for top-level
+    // browsing contexts) to a Set of nodeId's.
+    this.navigableSeenNodes = new WeakMap();
+
     lazy.registerProcessDataActor();
+
+    webDriverSessions.set(this.id, this);
   }
 
   destroy() {
+    webDriverSessions.delete(this.id);
+
+    lazy.unregisterProcessDataActor();
+
+    this.navigableSeenNodes = null;
+
     lazy.allowAllCerts.disable();
 
     // Close all open connections which unregister themselves.
@@ -220,8 +236,6 @@ export class WebDriverSession {
       );
       this._messageHandler.destroy();
     }
-
-    lazy.unregisterProcessDataActor();
   }
 
   async execute(module, command, params) {
@@ -341,4 +355,41 @@ export class WebDriverSession {
   get QueryInterface() {
     return ChromeUtils.generateQI(["nsIHttpRequestHandler"]);
   }
+}
+
+/**
+ * Get a WebDriver session corresponding to the session id.
+ * Get the list of seen nodes for the given browsing context.
+ *
+ * @param {string} sessionId
+ *     The id of the WebDriver session to use.
+ * @param {BrowsingContext} browsingContext
+ *     Browsing context the node is part of.
+ *
+ * @returns {Set}
+ *     The list of seen nodes.
+ */
+export function getSeenNodesForBrowsingContext(sessionId, browsingContext) {
+  const navigable =
+    lazy.TabManager.getNavigableForBrowsingContext(browsingContext);
+  const session = getWebDriverSessionById(sessionId);
+
+  if (!session.navigableSeenNodes.has(navigable)) {
+    // The navigable hasn't been seen yet.
+    session.navigableSeenNodes.set(navigable, new Set());
+  }
+
+  return session.navigableSeenNodes.get(navigable);
+}
+
+/**
+ *
+ * @param {string} sessionId
+ *     The ID of the WebDriver session to retrieve.
+ *
+ * @returns {WebDriverSession|undefined}
+ *     The WebDriver session or undefined if the id is not known.
+ */
+export function getWebDriverSessionById(sessionId) {
+  return webDriverSessions.get(sessionId);
 }

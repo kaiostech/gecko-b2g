@@ -168,6 +168,20 @@ export class SearchSettings {
       this.#migrateTelemetryLoadPaths();
     }
 
+    // Migration for hiddenOneOffs
+    if (this.#settings.version < 9 && this.#settings.engines) {
+      const hiddenOneOffsPrefs = Services.prefs.getStringPref(
+        "browser.search.hiddenOneOffs",
+        ""
+      );
+      for (const engine of this.#settings.engines) {
+        engine._metaData.hideOneOffButton = hiddenOneOffsPrefs.includes(
+          engine._name
+        );
+      }
+      Services.prefs.clearUserPref("browser.search.hiddenOneOffs");
+    }
+
     return structuredClone(json);
   }
 
@@ -358,21 +372,37 @@ export class SearchSettings {
    *
    * @param {string} name
    *   The name of the attribute to get.
+   * @param {boolean} isAppProvided
+   *   |true| if the engine associated with the attribute is an application
+   *          provided engine.
    * @returns {*}
-   *   The value of the attribute, or undefined if not known or an empty strings
-   *   if it does not match the verification hash.
+   *   The value of the attribute.
+   *   We return undefined if the value of the attribute is not known or does
+   *   not match the verification hash.
+   *
    */
-  getVerifiedMetaDataAttribute(name) {
-    let val = this.getMetaDataAttribute(name);
+  getVerifiedMetaDataAttribute(name, isAppProvided) {
+    let attribute = this.getMetaDataAttribute(name);
+
+    // If the selected engine is an application provided one, we can relax the
+    // verification hash check to reduce the annoyance for users who
+    // backup/sync their profile in custom ways.
+    if (isAppProvided) {
+      return attribute;
+    }
+
     if (
-      val &&
+      attribute &&
       this.getMetaDataAttribute(this.getHashName(name)) !=
-        lazy.SearchUtils.getVerificationHash(val)
+        lazy.SearchUtils.getVerificationHash(attribute)
     ) {
-      lazy.logConsole.warn("getVerifiedGlobalAttr, invalid hash for", name);
+      lazy.logConsole.warn(
+        "getVerifiedMetaDataAttribute, invalid hash for",
+        name
+      );
       return undefined;
     }
-    return val;
+    return attribute;
   }
 
   /**

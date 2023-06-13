@@ -3,6 +3,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// This is ugly: there are two FormAutoCompleteResult classes in the
+// tree, one in a module and one in this file. Datalist results need to
+// use the one defined in the module but the rest of this file assumes
+// that we use the one defined here. To get around that, we explicitly
+// import the module here, out of the way of the other uses of
+// FormAutoCompleteResult.
+import { FormAutoCompleteResult as DataListAutoCompleteResult } from "resource://gre/modules/FormAutoCompleteResult.sys.mjs";
+
 function isAutocompleteDisabled(aField) {
   if (!aField) {
     return false;
@@ -184,13 +192,15 @@ export class FormAutoCompleteResult {
   entries = null;
   fieldName = null;
 
-  _checkIndexBounds(index) {
-    if (index < 0 || index >= this.entries.length) {
-      throw Components.Exception(
-        "Index out of range.",
-        Cr.NS_ERROR_ILLEGAL_VALUE
-      );
+  getAt(index) {
+    if (index >= 0 && index < this.entries.length) {
+      return this.entries[index];
     }
+
+    throw Components.Exception(
+      "Index out of range.",
+      Cr.NS_ERROR_ILLEGAL_VALUE
+    );
   }
 
   // Allow autoCompleteSearch to get at the JS object so it can
@@ -204,17 +214,13 @@ export class FormAutoCompleteResult {
   errorDescription = "";
 
   get defaultIndex() {
-    if (!this.entries.length) {
-      return -1;
-    }
-    return 0;
+    return this.entries.length ? 0 : -1;
   }
 
   get searchResult() {
-    if (!this.entries.length) {
-      return Ci.nsIAutoCompleteResult.RESULT_NOMATCH;
-    }
-    return Ci.nsIAutoCompleteResult.RESULT_SUCCESS;
+    return this.entries.length
+      ? Ci.nsIAutoCompleteResult.RESULT_SUCCESS
+      : Ci.nsIAutoCompleteResult.RESULT_NOMATCH;
   }
 
   get matchCount() {
@@ -222,26 +228,22 @@ export class FormAutoCompleteResult {
   }
 
   getValueAt(index) {
-    this._checkIndexBounds(index);
-    return this.entries[index].text;
+    return this.getAt(index).text;
   }
 
   getLabelAt(index) {
     return this.getValueAt(index);
   }
 
-  getCommentAt(index) {
-    this._checkIndexBounds(index);
+  getCommentAt(_index) {
     return "";
   }
 
-  getStyleAt(index) {
-    this._checkIndexBounds(index);
+  getStyleAt(_index) {
     return "";
   }
 
-  getImageAt(index) {
-    this._checkIndexBounds(index);
+  getImageAt(_index) {
     return "";
   }
 
@@ -250,12 +252,12 @@ export class FormAutoCompleteResult {
   }
 
   isRemovableAt(index) {
-    this._checkIndexBounds(index);
+    this.getAt(index);
     return true;
   }
 
   removeValueAt(index) {
-    this._checkIndexBounds(index);
+    this.getAt(index);
 
     const [removedEntry] = this.entries.splice(index, 1);
     this.client.remove(removedEntry.text, removedEntry.guid);
@@ -341,7 +343,7 @@ export class FormAutoComplete {
    * aUntrimmedSearchString -- current value of the input
    * aField -- HTMLInputElement being autocompleted (may be null if from chrome)
    * aPreviousResult -- previous search result, if any.
-   * aDatalistResult -- results from list=datalist for aField.
+   * aAddDataList -- add results from list=datalist for aField.
    * aListener -- nsIFormAutoCompleteObserver that listens for the nsIAutoCompleteResult
    *              that may be returned asynchronously.
    */
@@ -350,7 +352,7 @@ export class FormAutoComplete {
     aUntrimmedSearchString,
     aField,
     aPreviousResult,
-    aDatalistResult,
+    aAddDataList,
     aListener
   ) {
     // Guard against void DOM strings filtering into this code.
@@ -366,13 +368,17 @@ export class FormAutoComplete {
       inputName: aInputName,
     });
 
-    function maybeNotifyListener(result) {
+    function reportSearchResult(result) {
       aListener?.onSearchCompletion(result);
     }
 
+    const dataListResult = aAddDataList
+      ? this.getDataListResult(aField, aUntrimmedSearchString)
+      : null;
+
     // If we have datalist results, they become our "empty" result.
     const emptyResult =
-      aDatalistResult ||
+      dataListResult ||
       new FormAutoCompleteResult(
         client,
         [],
@@ -381,7 +387,7 @@ export class FormAutoComplete {
       );
 
     if (!this._enabled) {
-      maybeNotifyListener(emptyResult);
+      reportSearchResult(emptyResult);
       return;
     }
 
@@ -389,13 +395,13 @@ export class FormAutoComplete {
     // search bar history.
     if (aInputName == "searchbar-history" && aField) {
       this.log(`autoCompleteSearch for input name "${aInputName}" is denied`);
-      maybeNotifyListener(emptyResult);
+      reportSearchResult(emptyResult);
       return;
     }
 
     if (isAutocompleteDisabled(aField)) {
       this.log("autoCompleteSearch not allowed due to autcomplete=off");
-      maybeNotifyListener(emptyResult);
+      reportSearchResult(emptyResult);
       return;
     }
 
@@ -404,14 +410,11 @@ export class FormAutoComplete {
     );
     const searchString = aUntrimmedSearchString.trim().toLowerCase();
 
-    // reuse previous results if:
-    // a) length greater than one character (others searches are special cases) AND
-    // b) the the new results will be a subset of the previous results
     const prevSearchString = aPreviousResult?.searchString.trim();
-    if (
+    const reuseResult =
       prevSearchString?.length > 1 &&
-      searchString.includes(prevSearchString.toLowerCase())
-    ) {
+      searchString.includes(prevSearchString.toLowerCase());
+    if (reuseResult) {
       this.log("Using previous autocomplete result");
       const result = aPreviousResult;
       const wrappedResult = result.wrappedJSObject;
@@ -423,7 +426,7 @@ export class FormAutoComplete {
       // to deal with the <datalist> results here as well (and down below
       // in mergeResults).
       // If there were datalist results result is a FormAutoCompleteResult
-      // as defined in nsFormAutoCompleteResult.jsm with the entire list
+      // as defined in FormAutoCompleteResult.jsm with the entire list
       // of results in wrappedResult._items and only the results from
       // form history in wrappedResult.entries.
       // First, grab the entire list of old results.
@@ -482,12 +485,12 @@ export class FormAutoComplete {
         wrappedResult._items = filteredEntries.concat(datalistItems);
       }
 
-      maybeNotifyListener(result);
+      reportSearchResult(result);
     } else {
       this.log("Creating new autocomplete search result.");
 
       // Start with an empty list.
-      let result = aDatalistResult
+      let result = dataListResult
         ? new FormAutoCompleteResult(
             client,
             [],
@@ -496,7 +499,7 @@ export class FormAutoComplete {
           )
         : emptyResult;
 
-      const processEntry = aEntries => {
+      this.getAutoCompleteValues(client, aInputName, searchString, aEntries => {
         if (aField?.maxLength > -1) {
           result.entries = aEntries.filter(
             el => el.text.length <= aField.maxLength
@@ -505,20 +508,46 @@ export class FormAutoComplete {
           result.entries = aEntries;
         }
 
-        if (aDatalistResult?.matchCount > 0) {
-          result = this.mergeResults(result, aDatalistResult);
+        if (dataListResult?.matchCount > 0) {
+          result = this.mergeResults(result, dataListResult);
         }
 
-        maybeNotifyListener(result);
-      };
-
-      this.getAutoCompleteValues(
-        client,
-        aInputName,
-        searchString,
-        processEntry
-      );
+        reportSearchResult(result);
+      });
     }
+  }
+
+  getDataListResult(aField, aUntrimmedSearchString) {
+    const items = this.getDataListSuggestions(aField);
+
+    return new DataListAutoCompleteResult(aUntrimmedSearchString, items, null);
+  }
+
+  getDataListSuggestions(aField) {
+    const items = [];
+
+    if (!aField?.list) {
+      return items;
+    }
+
+    const upperFieldValue = aField.value.toUpperCase();
+
+    for (const option of aField.list.options) {
+      const label = option.label || option.text || option.value || "";
+
+      if (!label.toUpperCase().includes(upperFieldValue)) {
+        continue;
+      }
+
+      items.push({
+        label,
+        value: option.value,
+        comment: "",
+        removable: false,
+      });
+    }
+
+    return items;
   }
 
   mergeResults(historyResult, datalistResult) {
@@ -554,20 +583,8 @@ export class FormAutoComplete {
         entry => !isInArray(entry.text, items, "value")
       );
 
-    // This is ugly: there are two FormAutoCompleteResult classes in the
-    // tree, one in a module and one in this file. Datalist results need to
-    // use the one defined in the module but the rest of this file assumes
-    // that we use the one defined here. To get around that, we explicitly
-    // import the module here, out of the way of the other uses of
-    // FormAutoCompleteResult.
-    const { FormAutoCompleteResult } = ChromeUtils.importESModule(
-      "resource://gre/modules/nsFormAutoCompleteResult.sys.mjs"
-    );
-    return new FormAutoCompleteResult(
+    return new DataListAutoCompleteResult(
       datalistResult.searchString,
-      Ci.nsIAutoCompleteResult.RESULT_SUCCESS,
-      0,
-      "",
       finalItems,
       historyResult
     );

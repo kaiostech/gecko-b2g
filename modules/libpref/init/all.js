@@ -571,19 +571,6 @@ pref("ui.-moz-autofill-background", "rgba(255, 249, 145, .5)");
 // further checks.
 pref("accessibility.force_disabled", 0);
 
-#ifdef XP_WIN
-  // Some accessibility tools poke at windows in the plugin process during
-  // setup which can cause hangs.  To hack around this set
-  // accessibility.delay_plugins to true, you can also try increasing
-  // accessibility.delay_plugin_time if your machine is slow and you still
-  // experience hangs. See bug 781791.
-  pref("accessibility.delay_plugins", false);
-  pref("accessibility.delay_plugin_time", 10000);
-
-  // The COM handler used for Windows e10s performance and live regions.
-  pref("accessibility.handler.enabled", true);
-#endif
-
 pref("focusmanager.testmode", false);
 
 // Type Ahead Find
@@ -895,13 +882,6 @@ pref("dom.forms.selectSearch", false);
 #endif
 
 pref("dom.cycle_collector.incremental", true);
-
-// Disable popups from plugins by default
-//   0 = openAllowed
-//   1 = openControlled
-//   2 = openBlocked
-//   3 = openAbused
-pref("privacy.popups.disable_from_plugins", 3);
 
 // List of domains exempted from RFP. The list is comma separated domain list.
 pref("privacy.resistFingerprinting.exemptedDomains", "*.example.invalid");
@@ -2031,9 +2011,6 @@ pref("layout.scrollbar.side", 0);
 // pref to control whether layout warnings that are hit quite often are enabled
 pref("layout.spammy_warnings.enabled", false);
 
-// if true, allow plug-ins to override internal imglib decoder mime types in full-page mode
-pref("plugin.override_internal_types", false);
-
 // enable single finger gesture input (win7+ tablets)
 pref("gestures.enable_single_finger_input", true);
 
@@ -2044,9 +2021,6 @@ pref("dom.global_stop_script", true);
 
 // Support the input event queue on the main thread of content process
 pref("input_event_queue.supported", true);
-
-// This only supports one hidden ctp plugin, edit nsPluginArray.cpp if adding a second
-pref("plugins.navigator.hidden_ctp_plugin", "");
 
 // The default value for nsIPluginTag.enabledState (STATE_ENABLED = 2)
 pref("plugin.default.state", 2);
@@ -2442,10 +2416,6 @@ pref("font.size.monospace.x-math", 13);
   // force_gdi_classic_for_families.
   pref("gfx.font_rendering.cleartype_params.force_gdi_classic_max_size", 15);
 
-  // Locate plugins by the directories specified in the Windows registry for PLIDs
-  // Which is currently HKLM\Software\MozillaPlugins\xxxPLIDxxx\Path
-  pref("plugin.scan.plid.all", true);
-
   // Switch the keyboard layout per window
   pref("intl.keyboard.per_window_layout", false);
 
@@ -2539,7 +2509,6 @@ pref("font.size.monospace.x-math", 13);
 #ifdef XP_MACOSX
   // Mac specific preference defaults
   pref("browser.drag_out_of_frame_style", 1);
-  pref("ui.key.saveLink.shift", false); // true = shift, false = meta
 
   // default fonts (in UTF8 and using canonical names)
   // to determine canonical font names, use a debug build and
@@ -3661,10 +3630,6 @@ pref("reader.color_scheme.values", "[\"light\",\"dark\",\"sepia\",\"auto\"]");
 // The font type in reader (sans-serif, serif)
 pref("reader.font_type", "sans-serif");
 
-// Whether or not the user has interacted with the reader mode toolbar.
-// This is used to show a first-launch tip in reader mode.
-pref("reader.has_used_toolbar", false);
-
 // Whether to use a vertical or horizontal toolbar.
 pref("reader.toolbar.vertical", true);
 
@@ -3765,22 +3730,12 @@ pref("prompts.authentication_dialog_abuse_limit", 2);
 // content: 1, tab: 2, window: 3
 pref("prompts.modalType.httpAuth", 2);
 
-// Payment Request API preferences
-pref("dom.payments.loglevel", "Warn");
-pref("dom.payments.defaults.saveCreditCard", false);
-pref("dom.payments.defaults.saveAddress", true);
 pref("dom.payments.request.supportedRegions", "US,CA");
 
 #ifdef MOZ_ASAN_REPORTER
   pref("asanreporter.apiurl", "https://anf1.fuzzing.mozilla.org/crashproxy/submit/");
   pref("asanreporter.clientid", "unknown");
   pref("toolkit.telemetry.overrideUpdateChannel", "nightly-asan");
-#endif
-
-#ifdef RELEASE_OR_BETA
-  pref("toolkit.aboutPerformance.showInternals", false);
-#else
-  pref("toolkit.aboutPerformance.showInternals", true);
 #endif
 
 // If `true`, about:processes shows in-process subframes.

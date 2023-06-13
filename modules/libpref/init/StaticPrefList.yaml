@@ -2319,13 +2319,6 @@
   value: 20
   mirror: always
 
-# Whether Window.{inner,outer}{Width,Height} and screen{X,Y}
-# behave as replaceable properties unconditionally.
-- name: dom.window_position_size_properties_replaceable.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Whether window.location.reload() and window.history.go(0) should be blocked
 # when called directly from a window resize event handler.
 #
@@ -3451,11 +3444,6 @@
   value: false
   mirror: always
 
-- name: dom.performance.children_results_ipc_timeout
-  type: uint32_t
-  value: 1000
-  mirror: always
-
 # Enable notification of performance timing
 - name: dom.performance.enable_notify_performance_timing
   type: bool
@@ -4169,6 +4157,19 @@
 - name: dom.workers.serialized-sab-access
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Enable stronger diagnostics on worker shutdown.
+# If this is true, we will potentially run an extra GCCC when a  worker should
+# exit its DoRunLoop but holds any WorkerRef and we will MOZ_DIAGNOSTIC_ASSERT
+# when during that extra GCCC such a WorkerRef is freed.
+- name: dom.workers.GCCC_on_potentially_last_event
+  type: RelaxedAtomicBool
+#if defined(FUZZING) || defined(DEBUG)
+  value: true
+#else
+  value: false
+#endif
   mirror: always
 
 - name: dom.sitepermsaddon-provider.enabled
@@ -7309,19 +7310,6 @@
 - name: image.mem.surfacecache.size_factor
   type: uint32_t
   value: 4
-  mirror: once
-
-# How long in ms before we should start shutting down idle decoder threads.
-- name: image.multithreaded_decoding.idle_timeout
-  type: int32_t
-  value: 600000
-  mirror: once
-
-# How many threads we'll use for multithreaded decoding. If < 0, will be
-# automatically determined based on the system's number of cores.
-- name: image.multithreaded_decoding.limit
-  type: int32_t
-  value: -1
   mirror: once
 
 # Whether we record SVG images as blobs or not.
@@ -12696,11 +12684,6 @@
   value: true
   mirror: always
 
-- name: network.http.http2.persistent-settings
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: network.http.http2.ping-threshold
   type: RelaxedAtomicInt32
   value: 58
@@ -12906,11 +12889,6 @@
 - name: network.dns.force_use_https_rr
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-- name: network.cache.frecency_array_check_enabled
-  type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # When this pref is true, AddStorageEntry will return an error if the

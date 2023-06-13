@@ -2,13 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["GonkDrmStorage"];
-
-const { GonkDrmDB } = ChromeUtils.import(
-  "resource://gre/modules/GonkDrmDB.jsm"
-);
+import { GonkDrmDB } from "resource://gre/modules/GonkDrmDB.sys.mjs";
 
 const DEBUG = Services.prefs.getBoolPref("media.b2g.mediadrm.debug", false);
 
@@ -16,7 +10,7 @@ function debug(msg) {
   console.log(`GonkDrmStorage: ${msg}`);
 }
 
-function GonkDrmStorage() {
+export function GonkDrmStorage() {
   DEBUG && debug(`constructor`);
 }
 

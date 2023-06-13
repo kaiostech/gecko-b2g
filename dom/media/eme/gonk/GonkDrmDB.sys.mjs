@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-const EXPORTED_SYMBOLS = ["GonkDrmDB"];
-
-const { IndexedDBHelper } = ChromeUtils.importESModule(
-  "resource://gre/modules/IndexedDBHelper.sys.mjs"
-);
+import { IndexedDBHelper } from "resource://gre/modules/IndexedDBHelper.sys.mjs";
 
 const GONKDRM_DB_NAME = "gonkdrm";
 const GONKDRM_DB_VERSION = 1;
@@ -19,7 +14,7 @@ function debug(msg) {
   console.log(`GonkDrmDB: ${msg}`);
 }
 
-function GonkDrmDB(origin, keySystem) {
+export function GonkDrmDB(origin, keySystem) {
   DEBUG && debug(`constructor, origin: ${origin}, key system: ${keySystem}`);
   this._origin = origin;
   this._keySystem = keySystem;
@@ -62,7 +57,7 @@ GonkDrmDB.prototype = {
       DEBUG && debug(`add, calling put`);
       txn.result = { success: false };
 
-      store.put(session).onsuccess = function(event) {
+      store.put(session).onsuccess = function (event) {
         DEBUG && debug(`add, put request success`);
         txn.result = { success: true };
       };

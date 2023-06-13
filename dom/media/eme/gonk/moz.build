@@ -33,9 +33,9 @@ XPIDL_SOURCES += [
 XPIDL_MODULE = "gonkdrm"
 
 EXTRA_JS_MODULES += [
-    "GonkDrmDB.jsm",
-    "GonkDrmNetUtils.jsm",
-    "GonkDrmStorage.jsm",
+    "GonkDrmDB.sys.mjs",
+    "GonkDrmNetUtils.sys.mjs",
+    "GonkDrmStorage.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

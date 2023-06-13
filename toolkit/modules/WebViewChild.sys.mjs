@@ -2,13 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-var EXPORTED_SYMBOLS = ["WebViewChild"];
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 
@@ -21,7 +15,7 @@ XPCOMUtils.defineLazyModuleGetters(lazy, {
 });
 
 function debugEvents(global, els) {
-  let handler = function(evt) {
+  let handler = function (evt) {
     let msg = "event type: " + evt.type;
     if (evt.key) {
       msg += ", key: " + evt.key;
@@ -46,7 +40,7 @@ function debugEvents(global, els) {
   }
 }
 
-function WebViewChild() {}
+export function WebViewChild() {}
 
 WebViewChild.prototype = {
   // Prints arguments separated by a space and appends a new line.
@@ -403,7 +397,7 @@ WebViewChild.prototype = {
     };
 
     this.log(`Got linkAdded: (${event.target.href}) ${event.target.rel}`);
-    event.target.rel.split(" ").forEach(function(x) {
+    event.target.rel.split(" ").forEach(function (x) {
       let token = x.toLowerCase();
       if (handlers[token]) {
         handlers[token](event);
@@ -530,8 +524,9 @@ WebViewChild.prototype = {
   addMozAfterPaintHandler(callback) {
     let self = this;
     function onMozAfterPaint() {
-      let uri = self.global.docShell.QueryInterface(Ci.nsIWebNavigation)
-        .currentURI;
+      let uri = self.global.docShell.QueryInterface(
+        Ci.nsIWebNavigation
+      ).currentURI;
       if (uri.spec != "about:blank") {
         self.log(`Got afterpaint event: ${uri.spec}`);
         self.global.removeEventListener(
@@ -556,8 +551,9 @@ WebViewChild.prototype = {
       return;
     }
 
-    let uri = this.global.docShell.QueryInterface(Ci.nsIWebNavigation)
-      .currentURI;
+    let uri = this.global.docShell.QueryInterface(
+      Ci.nsIWebNavigation
+    ).currentURI;
     this.log("Window created: " + uri.spec);
     if (uri.spec != "about:blank") {
       this.addMozAfterPaintHandler(() => {

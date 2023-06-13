@@ -4,11 +4,9 @@
 
 /* eslint-env mozilla/frame-script */
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "WebViewChild",
-  "resource://gre/modules/WebViewChild.jsm"
-);
+ChromeUtils.defineESModuleGetters(this, {
+  WebViewChild: "resource://gre/modules/WebViewChild.sys.mjs",
+});
 
 // Initialize the <web-view> specific support.
 this.webViewChild = new WebViewChild();

@@ -215,7 +215,7 @@ EXTRA_JS_MODULES += [
     "Troubleshoot.sys.mjs",
     "UpdateUtils.sys.mjs",
     "WebChannel.sys.mjs",
-    "WebViewChild.jsm",
+    "WebViewChild.sys.mjs",
 ]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":

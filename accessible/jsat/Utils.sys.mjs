@@ -2,66 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* eslint consistent-return: "warn" */
-
-/* exported Utils, Logger, PivotContext, PrefCache, SettingCache */
-
-"use strict";
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "Rect", function() {
-  const { Rect } = ChromeUtils.import("resource://gre/modules/Geometry.jsm");
-  return Rect;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Roles", function() {
-  const { Roles } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Roles;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Events", function() {
-  const { Events } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Events;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Relations", function() {
-  const { Relations } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Relations;
-});
-XPCOMUtils.defineLazyGetter(lazy, "States", function() {
-  const { States } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return States;
-});
-XPCOMUtils.defineLazyGetter(lazy, "PluralForm", function() {
-  const { PluralForm } = ChromeUtils.import(
-    "resource://gre/modules/PluralForm.jsm"
-  );
-  return PluralForm;
+ChromeUtils.defineESModuleGetters(lazy, {
+  Rect: "resource://gre/modules/Geometry.sys.mjs",
+  PluralForm: "resource://gre/modules/PluralForm.sys.mjs",
+  Roles: "resource://gre/modules/accessibility/Constants.sys.mjs",
+  Events: "resource://gre/modules/accessibility/Constants.sys.mjs",
+  Relations: "resource://gre/modules/accessibility/Constants.sys.mjs",
+  States: "resource://gre/modules/accessibility/Constants.sys.mjs",
 });
 
-const EXPORTED_SYMBOLS = [
-  "Utils",
-  "Logger",
-  "PivotContext",
-  "PrefCache", // jshint ignore:line
-  "SettingCache",
-];
-
-const Utils = {
+export const Utils = {
   // jshint ignore:line
   _buildAppMap: {
     "{3c2e2abc-06d4-11e1-ac3b-374f68613e61}": "b2g",
-    "{d1bfe7d9-c01e-4237-998b-7b5f960a4314}": "graphene",
     "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}": "browser",
     "{aa3c5121-dab2-40e2-81ca-7ea25febc110}": "mobile/android",
     "{a23983c0-fd0e-11dc-95ff-0800200c9a66}": "mobile/xul",
@@ -160,9 +115,8 @@ const Utils = {
   get AndroidSdkVersion() {
     if (!this._AndroidSdkVersion) {
       if (Services.appinfo.OS == "Android") {
-        this._AndroidSdkVersion = Services.sysinfo.getPropertyAsInt32(
-          "version"
-        );
+        this._AndroidSdkVersion =
+          Services.sysinfo.getPropertyAsInt32("version");
       } else {
         // Most useful in desktop debugging.
         this._AndroidSdkVersion = 16;
@@ -599,8 +553,9 @@ const Utils = {
 
 /**
  * State object used internally to process accessible's states.
- * @param {Number} aBase     Base state.
- * @param {Number} aExtended Extended state.
+ *
+ * @param {number} aBase     Base state.
+ * @param {number} aExtended Extended state.
  */
 function State(aBase, aExtended) {
   this.base = aBase;
@@ -624,7 +579,7 @@ State.prototype = {
   },
 };
 
-const Logger = {
+export const Logger = {
   // jshint ignore:line
   GESTURE: -1,
   DEBUG: 0,
@@ -761,8 +716,9 @@ const Logger = {
       let event = aEvent.QueryInterface(
         Ci.nsIAccessibleVirtualCursorChangeEvent
       );
-      let pivot = aEvent.accessible.QueryInterface(Ci.nsIAccessibleDocument)
-        .virtualCursor;
+      let pivot = aEvent.accessible.QueryInterface(
+        Ci.nsIAccessibleDocument
+      ).virtualCursor;
       str +=
         " (" +
         this.accessibleToString(event.oldAccessible) +
@@ -817,7 +773,7 @@ const Logger = {
  * label. In this case the |accessible| field would be the embedded control,
  * and the |accessibleForBounds| field would be the label.
  */
-const PivotContext = function PivotContext(
+export const PivotContext = function PivotContext(
   aAccessible,
   aOldAccessible, // jshint ignore:line
   aStartOffset,
@@ -902,12 +858,13 @@ PivotContext.prototype = {
     return this._textAndAdjustedOffsets;
   },
 
-  /**
+  /*
    * Get a list of |aAccessible|'s ancestry up to the root.
+   *
    * @param  {nsIAccessible} aAccessible.
-   * @return {Array} Ancestry list.
+   * @returns {Array} Ancestry list.
    */
-  _getAncestry: function _getAncestry(aAccessible) {
+  _getAncestry(aAccessible) {
     let ancestry = [];
     let parent = aAccessible;
     try {
@@ -964,10 +921,11 @@ PivotContext.prototype = {
     return this._newAncestry;
   },
 
-  /**
+  /*
    * Get a |aAccessible|'s parent.
+   *
    * @param  {nsIAccessible} aAccessible.
-   * @return {nsIAccessible} aAccessible's parent.
+   * @returns {nsIAccessible} aAccessible's parent.
    */
   _getParent: function _getParent(aAccessible) {
     if (!aAccessible) {
@@ -1038,7 +996,8 @@ PivotContext.prototype = {
 
   /**
    * Get interaction hints for the context ancestry.
-   * @return {Array} Array of interaction hints.
+   *
+   * @returns {Array} Array of interaction hints.
    */
   get interactionHints() {
     let hints = [];
@@ -1196,7 +1155,7 @@ PivotContext.prototype = {
   },
 };
 
-const PrefCache = function PrefCache(aName, aCallback, aRunCallbackNow) {
+export const PrefCache = function PrefCache(aName, aCallback, aRunCallbackNow) {
   // jshint ignore:line
   this.name = aName;
   this.callback = aCallback;
@@ -1255,7 +1214,11 @@ PrefCache.prototype = {
   ]),
 };
 
-const SettingCache = function SettingCache(aName, aCallback, aOptions = {}) {
+export const SettingCache = function SettingCache(
+  aName,
+  aCallback,
+  aOptions = {}
+) {
   // jshint ignore:line
   this.value = aOptions.defaultValue;
   let runCallback = () => {

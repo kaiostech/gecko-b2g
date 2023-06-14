@@ -2,22 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* exported AccessFu */
-
-"use strict";
-
-const EXPORTED_SYMBOLS = ["AccessFu"];
-
-const { Utils, PrefCache, Logger } = ChromeUtils.import(
-  "resource://gre/modules/accessibility/Utils.jsm"
-);
-const { PointerAdapter } = ChromeUtils.import(
-  "resource://gre/modules/accessibility/PointerAdapter.jsm"
-);
-const { Presentation } = ChromeUtils.import(
-  "resource://gre/modules/accessibility/Presentation.jsm"
-);
-const { Rect } = ChromeUtils.import("resource://gre/modules/Geometry.jsm");
+import {
+  Utils,
+  PrefCache,
+  Logger,
+} from "resource://gre/modules/accessibility/Utils.sys.mjs";
+import { PointerAdapter } from "resource://gre/modules/accessibility/PointerAdapter.sys.mjs";
+import { Presentation } from "resource://gre/modules/accessibility/Presentation.sys.mjs";
+import { Rect } from "resource://gre/modules/Geometry.sys.mjs";
 
 const ACCESSFU_DISABLE = 0; // eslint-disable-line
 const ACCESSFU_ENABLE = 1;
@@ -31,7 +23,7 @@ let settingsManager = Cc["@mozilla.org/sidl-native/settings;1"].getService(
   Ci.nsISettingsManager
 );
 
-const AccessFu = {
+export const AccessFu = {
   /**
    * Initialize chrome-layer accessibility functionality.
    * If accessibility is enabled on the platform, then a special accessibility
@@ -468,6 +460,7 @@ const AccessFu = {
 
   /**
    * Adjusts the given bounds relative to the given browser.
+   *
    * @param {Rect} aJsonBounds the bounds to adjust
    * @param {browser} aBrowser the browser we want the bounds relative to
    * @param {bool} aToCSSPixels whether to convert to CSS pixels (as opposed to
@@ -576,7 +569,7 @@ var Output = {
   },
 
   start: function start() {
-    ChromeUtils.import("resource://gre/modules/Geometry.jsm");
+    ChromeUtils.importESModule("resource://gre/modules/Geometry.sys.mjs");
   },
 
   stop: function stop() {

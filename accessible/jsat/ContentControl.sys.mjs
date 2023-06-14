@@ -2,56 +2,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
-  const { Utils } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Utils;
+ChromeUtils.defineESModuleGetters(lazy, {
+  Utils: "resource://gre/modules/accessibility/Utils.sys.mjs",
+  Logger: "resource://gre/modules/accessibility/Utils.sys.mjs",
+  Roles: "resource://gre/modules/accessibility/Constants.sys.mjs",
+  TraversalRules: "resource://gre/modules/accessibility/Traversal.sys.mjs",
+  TraversalHelper: "resource://gre/modules/accessibility/Traversal.sys.mjs",
+  Presentation: "resource://gre/modules/accessibility/Presentation.sys.mjs",
 });
-XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
-  const { Logger } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Logger;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Roles", function() {
-  const { Roles } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Roles;
-});
-XPCOMUtils.defineLazyGetter(lazy, "TraversalRules", function() {
-  const { TraversalRules } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Traversal.jsm"
-  );
-  return TraversalRules;
-});
-XPCOMUtils.defineLazyGetter(lazy, "TraversalHelper", function() {
-  const { TraversalHelper } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Traversal.jsm"
-  );
-  return TraversalHelper;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Presentation", function() {
-  const { Presentation } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Presentation.jsm"
-  );
-  return Presentation;
-});
-
-const EXPORTED_SYMBOLS = ["ContentControl"];
 
 const MOVEMENT_GRANULARITY_CHARACTER = 1;
 const MOVEMENT_GRANULARITY_WORD = 2;
 const MOVEMENT_GRANULARITY_PARAGRAPH = 8;
 
-const ContentControl = function ContentControl(aContentScope) {
+export const ContentControl = function ContentControl(aContentScope) {
   this._contentScope = Cu.getWeakReference(aContentScope);
   this._childMessageSenders = new WeakMap();
 };

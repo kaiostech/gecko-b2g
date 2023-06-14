@@ -4,54 +4,21 @@
 
 /* eslint complexity: "warn" */
 
-"use strict";
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
-  const { Utils } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Utils;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
-  const { Logger } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Logger;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Presentation", function() {
-  const { Presentation } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Presentation.jsm"
-  );
-  return Presentation;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Roles", function() {
-  const { Roles } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Roles;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Events", function() {
-  const { Events } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return Events;
-});
-XPCOMUtils.defineLazyGetter(lazy, "States", function() {
-  const { States } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return States;
+ChromeUtils.defineESModuleGetters(lazy, {
+  Utils: "resource://gre/modules/accessibility/Utils.sys.mjs",
+  Logger: "resource://gre/modules/accessibility/Utils.sys.mjs",
+  Roles: "resource://gre/modules/accessibility/Constants.sys.mjs",
+  Events: "resource://gre/modules/accessibility/Constants.sys.mjs",
+  States: "resource://gre/modules/accessibility/Constants.sys.mjs",
+  Presentation: "resource://gre/modules/accessibility/Presentation.sys.mjs",
 });
 
-const EXPORTED_SYMBOLS = ["EventManager"];
-
-const EventManager = function EventManager(aContentScope, aContentControl) {
+export const EventManager = function EventManager(
+  aContentScope,
+  aContentControl
+) {
   this.contentScope = aContentScope;
   this.contentControl = aContentControl;
   this.addEventListener = this.contentScope.addEventListener.bind(
@@ -233,8 +200,9 @@ EventManager.prototype = {
           return;
         }
 
-        let pivot = aEvent.accessible.QueryInterface(Ci.nsIAccessibleDocument)
-          .virtualCursor;
+        let pivot = aEvent.accessible.QueryInterface(
+          Ci.nsIAccessibleDocument
+        ).virtualCursor;
         let position = pivot.position;
         if (position && position.role == lazy.Roles.INTERNAL_FRAME) {
           break;
@@ -319,8 +287,9 @@ EventManager.prototype = {
       }
       case lazy.Events.TEXT_CARET_MOVED: {
         let acc = aEvent.accessible.QueryInterface(Ci.nsIAccessibleText);
-        let caretOffset = aEvent.QueryInterface(Ci.nsIAccessibleCaretMoveEvent)
-          .caretOffset;
+        let caretOffset = aEvent.QueryInterface(
+          Ci.nsIAccessibleCaretMoveEvent
+        ).caretOffset;
 
         // We could get a caret move in an accessible that is not focused,
         // it doesn't mean we are not on any editable accessible. just not
@@ -843,7 +812,7 @@ const AccessibilityEventObserver = {
    * Register an EventManager and start listening to the
    * 'accessible-event' messages.
    *
-   * @param aEventManager EventManager
+   * @param {EventManager} aEventManager
    *        An EventManager object that was loaded into the specific content.
    */
   addListener: function addListener(aEventManager) {
@@ -864,7 +833,7 @@ const AccessibilityEventObserver = {
    * Unregister an EventManager and, optionally, stop listening to the
    * 'accessible-event' messages.
    *
-   * @param aEventManager EventManager
+   * @param {EventManager} aEventManager
    *        An EventManager object that was stopped in the specific content.
    */
   removeListener: function removeListener(aEventManager) {
@@ -887,7 +856,8 @@ const AccessibilityEventObserver = {
   /**
    * Lookup an EventManager for a specific content. If the EventManager is not
    * found, walk up the hierarchy of parent windows.
-   * @param content Window
+   *
+   * @param {Window} content
    *        A content Window used to lookup the corresponding EventManager.
    */
   getListener: function getListener(content) {

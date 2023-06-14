@@ -4,50 +4,54 @@
 
 /* global content, sendAsyncMessage, addMessageListener, removeMessageListener */
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
-XPCOMUtils.defineLazyGetter(this, "Logger", function() {
-  const { Logger } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Logger;
-});
-XPCOMUtils.defineLazyGetter(this, "Presentation", function() {
-  const { Presentation } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Presentation.jsm"
+const lazy = {};
+
+const { Logger } = ChromeUtils.importESModule(
+  "resource://gre/modules/accessibility/Utils.sys.mjs"
+);
+
+XPCOMUtils.defineLazyGetter(lazy, "Presentation", function () {
+  const { Presentation } = ChromeUtils.importESModule(
+    "resource://gre/modules/accessibility/Presentation.sys.mjs"
   );
   return Presentation;
 });
 
-XPCOMUtils.defineLazyGetter(this, "Utils", function() {
-  const { Utils } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
+XPCOMUtils.defineLazyGetter(lazy, "Utils", function () {
+  const { Utils } = ChromeUtils.importESModule(
+    "resource://gre/modules/accessibility/Utils.sys.mjs"
   );
   return Utils;
 });
-XPCOMUtils.defineLazyGetter(this, "EventManager", function() {
-  const { EventManager } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/EventManager.jsm"
+
+XPCOMUtils.defineLazyGetter(lazy, "EventManager", function () {
+  const { EventManager } = ChromeUtils.importESModule(
+    "resource://gre/modules/accessibility/EventManager.sys.mjs"
   );
   return EventManager;
 });
-XPCOMUtils.defineLazyGetter(this, "ContentControl", function() {
-  const { ContentControl } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/ContentControl.jsm"
+
+XPCOMUtils.defineLazyGetter(lazy, "ContentControl", function () {
+  const { ContentControl } = ChromeUtils.importESModule(
+    "resource://gre/modules/accessibility/ContentControl.sys.mjs"
   );
   return ContentControl;
 });
-XPCOMUtils.defineLazyGetter(this, "Roles", function() {
-  const { Roles } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
+
+XPCOMUtils.defineLazyGetter(lazy, "Roles", function () {
+  const { Roles } = ChromeUtils.importESModule(
+    "resource://gre/modules/accessibility/Constants.sys.mjs"
   );
   return Roles;
 });
-XPCOMUtils.defineLazyGetter(this, "States", function() {
-  const { States } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
+
+XPCOMUtils.defineLazyGetter(lazy, "States", function () {
+  const { States } = ChromeUtils.importESModule(
+    "resource://gre/modules/accessibility/Constants.sys.mjs"
   );
   return States;
 });
@@ -65,9 +69,13 @@ function forwardToParent(aMessage) {
 }
 
 function forwardToChild(aMessage, aListener, aVCPosition) {
-  let acc = aVCPosition || Utils.getVirtualCursor(content.document).position;
+  let acc =
+    aVCPosition || lazy.Utils.getVirtualCursor(content.document).position;
 
-  if (!Utils.isAliveAndVisible(acc) || acc.role != Roles.INTERNAL_FRAME) {
+  if (
+    !lazy.Utils.isAliveAndVisible(acc) ||
+    acc.role != lazy.Roles.INTERNAL_FRAME
+  ) {
     return false;
   }
 
@@ -80,7 +88,7 @@ function forwardToChild(aMessage, aListener, aVCPosition) {
     ];
   });
 
-  let mm = Utils.getMessageManager(acc.DOMNode);
+  let mm = lazy.Utils.getMessageManager(acc.DOMNode);
 
   if (aListener) {
     mm.addMessageListener(aMessage.name, aListener);
@@ -89,7 +97,7 @@ function forwardToChild(aMessage, aListener, aVCPosition) {
   // XXX: This is a silly way to make a deep copy
   let newJSON = JSON.parse(JSON.stringify(aMessage.json));
   newJSON.origin = "parent";
-  if (Utils.isContentProcess) {
+  if (lazy.Utils.isContentProcess) {
     // XXX: OOP content's screen offset is 0,
     // so we remove the real screen offset here.
     newJSON.x -= content.mozInnerScreenX;
@@ -100,9 +108,9 @@ function forwardToChild(aMessage, aListener, aVCPosition) {
 }
 
 function activateContextMenu(aMessage) {
-  let position = Utils.getVirtualCursor(content.document).position;
+  let position = lazy.Utils.getVirtualCursor(content.document).position;
   if (!forwardToChild(aMessage, activateContextMenu, position)) {
-    let center = Utils.getBounds(position, true).center();
+    let center = lazy.Utils.getBounds(position, true).center();
 
     let evt = content.document.createEvent("HTMLEvents");
     evt.initEvent("contextmenu", true, true);
@@ -114,7 +122,7 @@ function activateContextMenu(aMessage) {
 
 function presentCaretChange(aText, aOldOffset, aNewOffset) {
   if (aOldOffset !== aNewOffset) {
-    let msg = Presentation.textSelectionChanged(
+    let msg = lazy.Presentation.textSelectionChanged(
       aText,
       aNewOffset,
       aNewOffset,
@@ -127,45 +135,45 @@ function presentCaretChange(aText, aOldOffset, aNewOffset) {
 }
 
 function scroll(aMessage) {
-  let position = Utils.getVirtualCursor(content.document).position;
+  let position = lazy.Utils.getVirtualCursor(content.document).position;
   if (!forwardToChild(aMessage, scroll, position)) {
     sendAsyncMessage("AccessFu:DoScroll", {
-      bounds: Utils.getBounds(position, true),
+      bounds: lazy.Utils.getBounds(position, true),
       page: aMessage.json.page,
       horizontal: aMessage.json.horizontal,
     });
   }
 }
 
-addMessageListener("AccessFu:Start", function(m) {
+addMessageListener("AccessFu:Start", function (m) {
   if (m.json.logLevel) {
     Logger.logLevel = Logger[m.json.logLevel];
   }
 
   Logger.debug("AccessFu:Start");
   if (m.json.buildApp) {
-    Utils.MozBuildApp = m.json.buildApp;
+    lazy.Utils.MozBuildApp = m.json.buildApp;
   }
 
   addMessageListener("AccessFu:ContextMenu", activateContextMenu);
   addMessageListener("AccessFu:Scroll", scroll);
 
-  Utils.isBrowserFrame = this.docShell.isBrowserElement || false;
+  lazy.Utils.isBrowserFrame = this.docShell.isBrowserElement || false;
 
   if (!contentControl) {
-    contentControl = new ContentControl(this);
+    contentControl = new lazy.ContentControl(this);
   }
   contentControl.start();
 
   if (!eventManager) {
-    eventManager = new EventManager(this, contentControl);
+    eventManager = new lazy.EventManager(this, contentControl);
   }
   eventManager.inTest = m.json.inTest;
   eventManager.start();
 
   function contentStarted() {
-    let accDoc = Utils.AccRetrieval.getAccessibleFor(content.document);
-    if (accDoc && !Utils.getState(accDoc).contains(States.BUSY)) {
+    let accDoc = lazy.Utils.AccRetrieval.getAccessibleFor(content.document);
+    if (accDoc && !lazy.Utils.getState(accDoc).contains(lazy.States.BUSY)) {
       sendAsyncMessage("AccessFu:ContentStarted");
     } else {
       content.setTimeout(contentStarted, 0);
@@ -179,7 +187,7 @@ addMessageListener("AccessFu:Start", function(m) {
   }
 });
 
-addMessageListener("AccessFu:Stop", function(m) {
+addMessageListener("AccessFu:Stop", function (m) {
   Logger.debug("AccessFu:Stop");
 
   removeMessageListener("AccessFu:ContextMenu", activateContextMenu);

@@ -2,63 +2,30 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* exported Presentation */
-
-"use strict";
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { Utils, PrefCache } = ChromeUtils.import(
-  "resource://gre/modules/accessibility/Utils.jsm"
-);
+import {
+  Utils,
+  PrefCache,
+  Logger,
+  PivotContext,
+} from "resource://gre/modules/accessibility/Utils.sys.mjs";
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
-  const { Logger } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Logger;
+ChromeUtils.defineESModuleGetters(lazy, {
+  UtteranceGenerator:
+    "resource://gre/modules/accessibility/OutputGenerator.sys.mjs",
+  BriefGenerator:
+    "resource://gre/modules/accessibility/OutputGenerator.sys.mjs",
+  BrailleGenerator:
+    "resource://gre/modules/accessibility/OutputGenerator.sys.mjs",
+  States: "resource://gre/modules/accessibility/Constants.sys.mjs",
 });
-XPCOMUtils.defineLazyGetter(lazy, "PivotContext", function() {
-  const { PivotContext } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return PivotContext;
-});
-XPCOMUtils.defineLazyGetter(lazy, "UtteranceGenerator", function() {
-  const { UtteranceGenerator } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/OutputGenerator.jsm"
-  );
-  return UtteranceGenerator;
-});
-XPCOMUtils.defineLazyGetter(lazy, "BriefGenerator", function() {
-  const { BriefGenerator } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/OutputGenerator.jsm"
-  );
-  return BriefGenerator;
-});
-XPCOMUtils.defineLazyGetter(lazy, "BrailleGenerator", function() {
-  const { BrailleGenerator } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/OutputGenerator.jsm"
-  );
-  return BrailleGenerator;
-});
-XPCOMUtils.defineLazyGetter(lazy, "States", function() {
-  const { States } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return States;
-});
-
-const EXPORTED_SYMBOLS = ["Presentation"]; // jshint ignore:line
 
 /**
  * The interface for all presenter classes. A presenter could be, for example,
  * a speech output module, or a visual cursor indicator.
  */
-function Presenter() {}
+function Presenter() {} // jshint ignore:line
 
 Presenter.prototype = {
   /**
@@ -68,11 +35,6 @@ Presenter.prototype = {
 
   /**
    * The virtual cursor's position changed.
-   * @param {PivotContext} aContext the context object for the new pivot
-   *   position.
-   * @param {int} aReason the reason for the pivot change.
-   *   See nsIAccessiblePivot.
-   * @param {bool} aIsFromUserInput the pivot change was invoked by the user
    */
   pivotChanged: function pivotChanged(
     aPosition,
@@ -85,6 +47,7 @@ Presenter.prototype = {
 
   /**
    * An object's action has been invoked.
+   *
    * @param {nsIAccessible} aObject the object that has been invoked.
    * @param {string} aActionName the name of the action.
    */
@@ -116,24 +79,28 @@ Presenter.prototype = {
 
   /**
    * Selection has changed. TODO.
+   *
    * @param {nsIAccessible} aObject the object that has been selected.
    */
   selectionChanged: function selectionChanged(aObject) {}, // jshint ignore:line
 
   /**
    * Name has changed.
+   *
    * @param {nsIAccessible} aAccessible the object whose value has changed.
    */
   nameChanged: function nameChanged(aAccessible) {}, // jshint ignore: line
 
   /**
    * Value has changed.
+   *
    * @param {nsIAccessible} aAccessible the object whose value has changed.
    */
   valueChanged: function valueChanged(aAccessible) {}, // jshint ignore:line
 
   /**
    * The tab, or the tab's document state has changed.
+   *
    * @param {nsIAccessible} aDocObj the tab document accessible that has had its
    *    state changed, or null if the tab has no associated document yet.
    * @param {string} aPageState the state name for the tab, valid states are:
@@ -143,6 +110,7 @@ Presenter.prototype = {
 
   /**
    * The current tab has changed.
+   *
    * @param {PivotContext} aDocContext context object for tab's
    *   document.
    * @param {PivotContext} aVCContext context object for tab's current
@@ -153,6 +121,7 @@ Presenter.prototype = {
   /**
    * The viewport has changed, either a scroll, pan, zoom, or
    *    landscape/portrait toggle.
+   *
    * @param {Window} aWindow window of viewport that changed.
    * @param {PivotContext} aCurrentContext context of last pivot change.
    */
@@ -170,12 +139,14 @@ Presenter.prototype = {
 
   /**
    * User tried to move cursor forward or backward with no success.
+   *
    * @param {string} aMoveMethod move method that was used (eg. 'moveNext').
    */
   noMove: function noMove(aMoveMethod) {},
 
   /**
    * Announce a live region.
+   *
    * @param  {PivotContext} aContext context object for an accessible.
    * @param  {boolean} aIsPolite A politeness level for a live region.
    * @param  {boolean} aIsHide An indicator of hide/remove event.
@@ -190,6 +161,7 @@ Presenter.prototype = {
 
   /**
    * Explicitly read out by front-end
+   *
    * @param {nsIAccessible} aAccessible the object that should be
    *   read out explicitly (usually non-focused item).
    */
@@ -210,35 +182,33 @@ VisualPresenter.prototype.type = "Visual";
  */
 VisualPresenter.prototype.BORDER_PADDING = 2;
 
-VisualPresenter.prototype.viewportChanged = function VisualPresenter_viewportChanged(
-  aWindow,
-  aCurrentContext
-) {
-  if (!aCurrentContext) {
+VisualPresenter.prototype.viewportChanged =
+  function VisualPresenter_viewportChanged(aWindow, aCurrentContext) {
+    if (!aCurrentContext) {
+      return null;
+    }
+
+    let currentAcc = aCurrentContext.accessibleForBounds;
+    let start = aCurrentContext.startOffset;
+    let end = aCurrentContext.endOffset;
+    if (Utils.isAliveAndVisible(currentAcc)) {
+      let bounds =
+        start === -1 && end === -1
+          ? Utils.getBounds(currentAcc)
+          : Utils.getTextBounds(currentAcc, start, end);
+
+      return {
+        type: this.type,
+        details: {
+          eventType: "viewport-change",
+          bounds,
+          padding: this.BORDER_PADDING,
+        },
+      };
+    }
+
     return null;
-  }
-
-  let currentAcc = aCurrentContext.accessibleForBounds;
-  let start = aCurrentContext.startOffset;
-  let end = aCurrentContext.endOffset;
-  if (Utils.isAliveAndVisible(currentAcc)) {
-    let bounds =
-      start === -1 && end === -1
-        ? Utils.getBounds(currentAcc)
-        : Utils.getTextBounds(currentAcc, start, end);
-
-    return {
-      type: this.type,
-      details: {
-        eventType: "viewport-change",
-        bounds,
-        padding: this.BORDER_PADDING,
-      },
-    };
-  }
-
-  return null;
-};
+  };
 
 VisualPresenter.prototype.pivotChanged = function VisualPresenter_pivotChanged(
   aPosition,
@@ -246,7 +216,7 @@ VisualPresenter.prototype.pivotChanged = function VisualPresenter_pivotChanged(
   aStartOffset,
   aEndOffset
 ) {
-  let aContext = new lazy.PivotContext(
+  let aContext = new PivotContext(
     aPosition,
     aOldPosition,
     aStartOffset,
@@ -280,7 +250,7 @@ VisualPresenter.prototype.pivotChanged = function VisualPresenter_pivotChanged(
       },
     };
   } catch (e) {
-    lazy.Logger.logException(e, "Failed to get bounds");
+    Logger.logException(e, "Failed to get bounds");
     return null;
   }
 };
@@ -292,16 +262,14 @@ VisualPresenter.prototype.tabSelected = function VisualPresenter_tabSelected(
   return this.pivotChanged(aVCContext, Ci.nsIAccessiblePivot.REASON_NONE);
 };
 
-VisualPresenter.prototype.tabStateChanged = function VisualPresenter_tabStateChanged(
-  aDocObj,
-  aPageState
-) {
-  if (aPageState == "newdoc") {
-    return { type: this.type, details: { eventType: "tabstate-change" } };
-  }
+VisualPresenter.prototype.tabStateChanged =
+  function VisualPresenter_tabStateChanged(aDocObj, aPageState) {
+    if (aPageState == "newdoc") {
+      return { type: this.type, details: { eventType: "tabstate-change" } };
+    }
 
-  return null;
-};
+    return null;
+  };
 
 /**
  * Android presenter. Fires Android a11y events.
@@ -327,106 +295,107 @@ AndroidPresenter.prototype.ANDROID_ANNOUNCEMENT = 0x4000;
 AndroidPresenter.prototype.ANDROID_VIEW_ACCESSIBILITY_FOCUSED = 0x8000;
 AndroidPresenter.prototype.ANDROID_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY = 0x20000;
 
-AndroidPresenter.prototype.pivotChanged = function AndroidPresenter_pivotChanged(
-  aPosition,
-  aOldPosition,
-  aStartOffset,
-  aEndOffset,
-  aReason
-) {
-  let aContext = new lazy.PivotContext(
+AndroidPresenter.prototype.pivotChanged =
+  function AndroidPresenter_pivotChanged(
     aPosition,
     aOldPosition,
     aStartOffset,
-    aEndOffset
-  );
-  if (!aContext.accessible) {
-    return null;
-  }
-
-  let androidEvents = [];
-
-  let isExploreByTouch =
-    aReason == Ci.nsIAccessiblePivot.REASON_POINT &&
-    Utils.AndroidSdkVersion >= 14;
-  let focusEventType =
-    Utils.AndroidSdkVersion >= 16
-      ? this.ANDROID_VIEW_ACCESSIBILITY_FOCUSED
-      : this.ANDROID_VIEW_FOCUSED;
-
-  if (isExploreByTouch) {
-    // This isn't really used by TalkBack so this is a half-hearted attempt
-    // for now.
-    androidEvents.push({ eventType: this.ANDROID_VIEW_HOVER_EXIT, text: [] });
-  }
-
-  let brailleOutput = {};
-  if (Utils.AndroidSdkVersion >= 16) {
-    if (!this._braillePresenter) {
-      this._braillePresenter = new BraillePresenter();
+    aEndOffset,
+    aReason
+  ) {
+    let aContext = new PivotContext(
+      aPosition,
+      aOldPosition,
+      aStartOffset,
+      aEndOffset
+    );
+    if (!aContext.accessible) {
+      return null;
     }
-    brailleOutput = this._braillePresenter.pivotChanged(aContext, aReason)
-      .details;
-  }
 
-  if (aReason === Ci.nsIAccessiblePivot.REASON_TEXT) {
+    let androidEvents = [];
+
+    let isExploreByTouch =
+      aReason == Ci.nsIAccessiblePivot.REASON_POINT &&
+      Utils.AndroidSdkVersion >= 14;
+    let focusEventType =
+      Utils.AndroidSdkVersion >= 16
+        ? this.ANDROID_VIEW_ACCESSIBILITY_FOCUSED
+        : this.ANDROID_VIEW_FOCUSED;
+
+    if (isExploreByTouch) {
+      // This isn't really used by TalkBack so this is a half-hearted attempt
+      // for now.
+      androidEvents.push({ eventType: this.ANDROID_VIEW_HOVER_EXIT, text: [] });
+    }
+
+    let brailleOutput = {};
     if (Utils.AndroidSdkVersion >= 16) {
-      let adjustedText = aContext.textAndAdjustedOffsets;
+      if (!this._braillePresenter) {
+        this._braillePresenter = new BraillePresenter();
+      }
+      brailleOutput = this._braillePresenter.pivotChanged(
+        aContext,
+        aReason
+      ).details;
+    }
 
+    if (aReason === Ci.nsIAccessiblePivot.REASON_TEXT) {
+      if (Utils.AndroidSdkVersion >= 16) {
+        let adjustedText = aContext.textAndAdjustedOffsets;
+
+        androidEvents.push({
+          eventType: this.ANDROID_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY,
+          text: [adjustedText.text],
+          fromIndex: adjustedText.startOffset,
+          toIndex: adjustedText.endOffset,
+        });
+      }
+    } else {
+      let state = Utils.getState(aContext.accessible);
       androidEvents.push({
-        eventType: this.ANDROID_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY,
-        text: [adjustedText.text],
-        fromIndex: adjustedText.startOffset,
-        toIndex: adjustedText.endOffset,
+        eventType: isExploreByTouch
+          ? this.ANDROID_VIEW_HOVER_ENTER
+          : focusEventType,
+        text: Utils.localize(lazy.UtteranceGenerator.genForContext(aContext)),
+        bounds: aContext.bounds,
+        clickable: aContext.accessible.actionCount > 0,
+        checkable: state.contains(lazy.States.CHECKABLE),
+        checked: state.contains(lazy.States.CHECKED),
+        brailleOutput,
       });
     }
-  } else {
-    let state = Utils.getState(aContext.accessible);
-    androidEvents.push({
-      eventType: isExploreByTouch
-        ? this.ANDROID_VIEW_HOVER_ENTER
-        : focusEventType,
-      text: Utils.localize(lazy.UtteranceGenerator.genForContext(aContext)),
-      bounds: aContext.bounds,
-      clickable: aContext.accessible.actionCount > 0,
-      checkable: state.contains(lazy.States.CHECKABLE),
-      checked: state.contains(lazy.States.CHECKED),
-      brailleOutput,
-    });
-  }
 
-  return {
-    type: this.type,
-    details: androidEvents,
+    return {
+      type: this.type,
+      details: androidEvents,
+    };
   };
-};
 
-AndroidPresenter.prototype.actionInvoked = function AndroidPresenter_actionInvoked(
-  aObject,
-  aActionName
-) {
-  let state = Utils.getState(aObject);
+AndroidPresenter.prototype.actionInvoked =
+  function AndroidPresenter_actionInvoked(aObject, aActionName) {
+    let state = Utils.getState(aObject);
 
-  // Checkable objects use TalkBack's text derived from the event state,
-  // so we don't populate the text here.
-  let text = "";
-  if (!state.contains(lazy.States.CHECKABLE)) {
-    text = Utils.localize(
-      lazy.UtteranceGenerator.genForAction(aObject, aActionName)
-    );
-  }
+    // Checkable objects use TalkBack's text derived from the event state,
+    // so we don't populate the text here.
+    let text = "";
+    if (!state.contains(lazy.States.CHECKABLE)) {
+      text = Utils.localize(
+        lazy.UtteranceGenerator.genForAction(aObject, aActionName)
+      );
+    }
 
-  return {
-    type: this.type,
-    details: [
-      {
-        eventType: this.ANDROID_VIEW_CLICKED,
-        text,
-        checked: state.contains(lazy.States.CHECKED),
-      },
-    ],
+    return {
+      type: this.type,
+      details: [
+        {
+          eventType: this.ANDROID_VIEW_CLICKED,
+          text,
+          checked: state.contains(lazy.States.CHECKED),
+        },
+      ],
+    };
   };
-};
 
 AndroidPresenter.prototype.tabSelected = function AndroidPresenter_tabSelected(
   aDocContext,
@@ -436,14 +405,12 @@ AndroidPresenter.prototype.tabSelected = function AndroidPresenter_tabSelected(
   return this.pivotChanged(aVCContext, Ci.nsIAccessiblePivot.REASON_NONE);
 };
 
-AndroidPresenter.prototype.tabStateChanged = function AndroidPresenter_tabStateChanged(
-  aDocObj,
-  aPageState
-) {
-  return this.announce(
-    lazy.UtteranceGenerator.genForTabStateChange(aDocObj, aPageState)
-  );
-};
+AndroidPresenter.prototype.tabStateChanged =
+  function AndroidPresenter_tabStateChanged(aDocObj, aPageState) {
+    return this.announce(
+      lazy.UtteranceGenerator.genForTabStateChange(aDocObj, aPageState)
+    );
+  };
 
 AndroidPresenter.prototype.textChanged = function AndroidPresenter_textChanged(
   aAccessible,
@@ -474,96 +441,94 @@ AndroidPresenter.prototype.textChanged = function AndroidPresenter_textChanged(
   return { type: this.type, details: [eventDetails] };
 };
 
-AndroidPresenter.prototype.textSelectionChanged = function AndroidPresenter_textSelectionChanged(
-  aText,
-  aStart,
-  aEnd,
-  aOldStart,
-  aOldEnd,
-  aIsFromUserInput
-) {
-  let androidEvents = [];
+AndroidPresenter.prototype.textSelectionChanged =
+  function AndroidPresenter_textSelectionChanged(
+    aText,
+    aStart,
+    aEnd,
+    aOldStart,
+    aOldEnd,
+    aIsFromUserInput
+  ) {
+    let androidEvents = [];
 
-  if (Utils.AndroidSdkVersion >= 14 && !aIsFromUserInput) {
-    if (!this._braillePresenter) {
-      this._braillePresenter = new BraillePresenter();
-    }
-    let brailleOutput = this._braillePresenter.textSelectionChanged(
-      aText,
-      aStart,
-      aEnd,
-      aOldStart,
-      aOldEnd,
-      aIsFromUserInput
-    ).details;
+    if (Utils.AndroidSdkVersion >= 14 && !aIsFromUserInput) {
+      if (!this._braillePresenter) {
+        this._braillePresenter = new BraillePresenter();
+      }
+      let brailleOutput = this._braillePresenter.textSelectionChanged(
+        aText,
+        aStart,
+        aEnd,
+        aOldStart,
+        aOldEnd,
+        aIsFromUserInput
+      ).details;
 
-    androidEvents.push({
-      eventType: this.ANDROID_VIEW_TEXT_SELECTION_CHANGED,
-      text: [aText],
-      fromIndex: aStart,
-      toIndex: aEnd,
-      itemCount: aText.length,
-      brailleOutput,
-    });
-  }
-
-  if (Utils.AndroidSdkVersion >= 16 && aIsFromUserInput) {
-    let [from, to] =
-      aOldStart < aStart ? [aOldStart, aStart] : [aStart, aOldStart];
-    androidEvents.push({
-      eventType: this.ANDROID_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY,
-      text: [aText],
-      fromIndex: from,
-      toIndex: to,
-    });
-  }
-
-  return {
-    type: this.type,
-    details: androidEvents,
-  };
-};
-
-AndroidPresenter.prototype.viewportChanged = function AndroidPresenter_viewportChanged(
-  aWindow,
-  aCurrentContext
-) {
-  if (Utils.AndroidSdkVersion < 14) {
-    return null;
-  }
-
-  let events = [
-    {
-      eventType: this.ANDROID_VIEW_SCROLLED,
-      text: [],
-      scrollX: aWindow.scrollX,
-      scrollY: aWindow.scrollY,
-      maxScrollX: aWindow.scrollMaxX,
-      maxScrollY: aWindow.scrollMaxY,
-    },
-  ];
-
-  if (Utils.AndroidSdkVersion >= 16 && aCurrentContext) {
-    let currentAcc = aCurrentContext.accessibleForBounds;
-    if (Utils.isAliveAndVisible(currentAcc)) {
-      events.push({
-        eventType: this.ANDROID_VIEW_ACCESSIBILITY_FOCUSED,
-        bounds: Utils.getBounds(currentAcc),
+      androidEvents.push({
+        eventType: this.ANDROID_VIEW_TEXT_SELECTION_CHANGED,
+        text: [aText],
+        fromIndex: aStart,
+        toIndex: aEnd,
+        itemCount: aText.length,
+        brailleOutput,
       });
     }
-  }
 
-  return {
-    type: this.type,
-    details: events,
+    if (Utils.AndroidSdkVersion >= 16 && aIsFromUserInput) {
+      let [from, to] =
+        aOldStart < aStart ? [aOldStart, aStart] : [aStart, aOldStart];
+      androidEvents.push({
+        eventType: this.ANDROID_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY,
+        text: [aText],
+        fromIndex: from,
+        toIndex: to,
+      });
+    }
+
+    return {
+      type: this.type,
+      details: androidEvents,
+    };
   };
-};
 
-AndroidPresenter.prototype.editingModeChanged = function AndroidPresenter_editingModeChanged(
-  aIsEditing
-) {
-  return this.announce(lazy.UtteranceGenerator.genForEditingMode(aIsEditing));
-};
+AndroidPresenter.prototype.viewportChanged =
+  function AndroidPresenter_viewportChanged(aWindow, aCurrentContext) {
+    if (Utils.AndroidSdkVersion < 14) {
+      return null;
+    }
+
+    let events = [
+      {
+        eventType: this.ANDROID_VIEW_SCROLLED,
+        text: [],
+        scrollX: aWindow.scrollX,
+        scrollY: aWindow.scrollY,
+        maxScrollX: aWindow.scrollMaxX,
+        maxScrollY: aWindow.scrollMaxY,
+      },
+    ];
+
+    if (Utils.AndroidSdkVersion >= 16 && aCurrentContext) {
+      let currentAcc = aCurrentContext.accessibleForBounds;
+      if (Utils.isAliveAndVisible(currentAcc)) {
+        events.push({
+          eventType: this.ANDROID_VIEW_ACCESSIBILITY_FOCUSED,
+          bounds: Utils.getBounds(currentAcc),
+        });
+      }
+    }
+
+    return {
+      type: this.type,
+      details: events,
+    };
+  };
+
+AndroidPresenter.prototype.editingModeChanged =
+  function AndroidPresenter_editingModeChanged(aIsEditing) {
+    return this.announce(lazy.UtteranceGenerator.genForEditingMode(aIsEditing));
+  };
 
 AndroidPresenter.prototype.announce = function AndroidPresenter_announce(
   aAnnouncement
@@ -631,12 +596,14 @@ B2GPresenter.prototype.CHARACTER_AND_WORD_ECHO = 3;
 
 /**
  * A pattern used for haptic feedback.
+ *
  * @type {Array}
  */
 B2GPresenter.prototype.PIVOT_CHANGE_HAPTIC_PATTERN = [40];
 
 /**
  * Pivot move reasons.
+ *
  * @type {Array}
  */
 B2GPresenter.prototype.pivotChangedReasons = [
@@ -657,7 +624,7 @@ B2GPresenter.prototype.pivotChanged = function B2GPresenter_pivotChanged(
   aReason,
   aIsUserInput
 ) {
-  let aContext = new lazy.PivotContext(
+  let aContext = new PivotContext(
     aPosition,
     aOldPosition,
     aStartOffset,
@@ -844,59 +811,58 @@ AppFramePresenter.prototype = Object.create(B2GPresenter.prototype);
 AppFramePresenter.prototype.EMPHASIZED_ROLE =
   Ci.nsIAccessibleRole.ROLE_PAGETABLIST;
 
-AppFramePresenter.prototype.pivotChanged = function AppFramePresenter_pivotChanged(
-  aPosition,
-  aOldPosition,
-  aStartOffset,
-  aEndOffset,
-  aReason,
-  aIsUserInput
-) {
-  let aContext = new lazy.PivotContext(
+AppFramePresenter.prototype.pivotChanged =
+  function AppFramePresenter_pivotChanged(
     aPosition,
     aOldPosition,
     aStartOffset,
     aEndOffset,
-    false,
-    false,
-    this.EMPHASIZED_ROLE
-  );
-  if (!aContext.accessible) {
-    return null;
-  }
+    aReason,
+    aIsUserInput
+  ) {
+    let aContext = new PivotContext(
+      aPosition,
+      aOldPosition,
+      aStartOffset,
+      aEndOffset,
+      false,
+      false,
+      this.EMPHASIZED_ROLE
+    );
+    if (!aContext.accessible) {
+      return null;
+    }
 
-  return {
-    type: this.type,
-    details: {
-      eventType: "vc-change",
-      data: lazy.BriefGenerator.genForContext(aContext),
-      options: {
-        pattern: this.PIVOT_CHANGE_HAPTIC_PATTERN,
-        isKey: Utils.isActivatableOnFingerUp(aContext.accessible),
-        reason: this.pivotChangedReasons[aReason],
-        isUserInput: aIsUserInput,
-        hints: aContext.interactionHints,
+    return {
+      type: this.type,
+      details: {
+        eventType: "vc-change",
+        data: lazy.BriefGenerator.genForContext(aContext),
+        options: {
+          pattern: this.PIVOT_CHANGE_HAPTIC_PATTERN,
+          isKey: Utils.isActivatableOnFingerUp(aContext.accessible),
+          reason: this.pivotChangedReasons[aReason],
+          isUserInput: aIsUserInput,
+          hints: aContext.interactionHints,
+        },
       },
-    },
+    };
   };
-};
 
-AppFramePresenter.prototype.actionInvoked = function AppFramePresenter_actionInvoked(
-  aObject,
-  aActionName
-) {
-  return {
-    type: this.type,
-    details: {
-      eventType: "action",
-      data: lazy.BriefGenerator.genForAction(aObject, aActionName),
-      options: {
-        actionName: aActionName,
-        accessibleName: aObject.name,
+AppFramePresenter.prototype.actionInvoked =
+  function AppFramePresenter_actionInvoked(aObject, aActionName) {
+    return {
+      type: this.type,
+      details: {
+        eventType: "action",
+        data: lazy.BriefGenerator.genForAction(aObject, aActionName),
+        options: {
+          actionName: aActionName,
+          accessibleName: aObject.name,
+        },
       },
-    },
+    };
   };
-};
 
 AppFramePresenter.prototype.liveRegion = function AppFramePresenter_liveRegion(
   aContext,
@@ -921,7 +887,7 @@ AppFramePresenter.prototype.liveRegion = function AppFramePresenter_liveRegion(
 AppFramePresenter.prototype.selected = function AppFramePresenter_selected(
   aAccessible
 ) {
-  let aContext = new lazy.PivotContext(aAccessible, null, -1, -1, true);
+  let aContext = new PivotContext(aAccessible, null, -1, -1, true);
   if (!aContext.accessible) {
     return null;
   }
@@ -943,49 +909,47 @@ BraillePresenter.prototype = Object.create(Presenter.prototype);
 
 BraillePresenter.prototype.type = "Braille";
 
-BraillePresenter.prototype.pivotChanged = function BraillePresenter_pivotChanged(
-  aPosition,
-  aOldPosition,
-  aStartOffset,
-  aEndOffset
-) {
-  let aContext = new lazy.PivotContext(
+BraillePresenter.prototype.pivotChanged =
+  function BraillePresenter_pivotChanged(
     aPosition,
     aOldPosition,
     aStartOffset,
     aEndOffset
-  );
-  if (!aContext.accessible) {
-    return null;
-  }
+  ) {
+    let aContext = new PivotContext(
+      aPosition,
+      aOldPosition,
+      aStartOffset,
+      aEndOffset
+    );
+    if (!aContext.accessible) {
+      return null;
+    }
 
-  return {
-    type: this.type,
-    details: {
-      output: Utils.localize(
-        lazy.BrailleGenerator.genForContext(aContext)
-      ).join(" "),
-      selectionStart: 0,
-      selectionEnd: 0,
-    },
+    return {
+      type: this.type,
+      details: {
+        output: Utils.localize(
+          lazy.BrailleGenerator.genForContext(aContext)
+        ).join(" "),
+        selectionStart: 0,
+        selectionEnd: 0,
+      },
+    };
   };
-};
 
-BraillePresenter.prototype.textSelectionChanged = function BraillePresenter_textSelectionChanged(
-  aText,
-  aStart,
-  aEnd
-) {
-  return {
-    type: this.type,
-    details: {
-      selectionStart: aStart,
-      selectionEnd: aEnd,
-    },
+BraillePresenter.prototype.textSelectionChanged =
+  function BraillePresenter_textSelectionChanged(aText, aStart, aEnd) {
+    return {
+      type: this.type,
+      details: {
+        selectionStart: aStart,
+        selectionEnd: aEnd,
+      },
+    };
   };
-};
 
-const Presentation = {
+export const Presentation = {
   // jshint ignore:line
   get presenters() {
     delete this.presenters;
@@ -1015,7 +979,7 @@ const Presentation = {
     aEndOffset,
     aIsUserInput
   ) {
-    let context = new lazy.PivotContext(
+    let context = new PivotContext(
       aPosition,
       aOldPosition,
       aStartOffset,
@@ -1125,14 +1089,7 @@ const Presentation = {
   ) {
     let context;
     if (!aModifiedText) {
-      context = new lazy.PivotContext(
-        aAccessible,
-        null,
-        -1,
-        -1,
-        true,
-        !!aIsHide
-      );
+      context = new PivotContext(aAccessible, null, -1, -1, true, !!aIsHide);
     }
     return this.presenters.map(p =>
       p.liveRegion(context, aIsPolite, aIsHide, aModifiedText)

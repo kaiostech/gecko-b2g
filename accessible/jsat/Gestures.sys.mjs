@@ -35,43 +35,14 @@
            Explore -> ExploreEnd       (v)
 ******************************************************************************/
 
-"use strict";
-
-const EXPORTED_SYMBOLS = ["GestureSettings", "GestureTracker"]; // jshint ignore:line
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
-  const { Utils } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Utils;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
-  const { Logger } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Logger;
-});
-XPCOMUtils.defineLazyGetter(lazy, "setTimeout", function() {
-  const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
-  return setTimeout;
-});
-XPCOMUtils.defineLazyGetter(lazy, "clearTimeout", function() {
-  const { clearTimeout } = ChromeUtils.import(
-    "resource://gre/modules/Timer.jsm"
-  );
-  return clearTimeout;
-});
-XPCOMUtils.defineLazyGetter(lazy, "PromiseUtils", function() {
-  const { PromiseUtils } = ChromeUtils.import(
-    "resource://gre/modules/PromiseUtils.jsm"
-  );
-  return PromiseUtils;
+ChromeUtils.defineESModuleGetters(lazy, {
+  Utils: "resource://gre/modules/accessibility/Utils.sys.mjs",
+  Logger: "resource://gre/modules/accessibility/Utils.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  PromiseUtils: "resource://gre/modules/PromiseUtils.sys.mjs",
 });
 
 // Default maximum duration of swipe
@@ -102,7 +73,8 @@ const IS_ANDROID =
 
 /**
  * A point object containing distance travelled data.
- * @param {Object} aPoint A point object that looks like: {
+ *
+ * @param {object} aPoint A point object that looks like: {
  *   x: x coordinate in pixels,
  *   y: y coordinate in pixels
  * }
@@ -117,7 +89,8 @@ function Point(aPoint) {
 Point.prototype = {
   /**
    * Update the current point coordiates.
-   * @param  {Object} aPoint A new point coordinates.
+   *
+   * @param  {object} aPoint A new point coordinates.
    */
   update: function Point_update(aPoint) {
     let lastX = this.x;
@@ -135,9 +108,10 @@ Point.prototype = {
 
   /**
    * Get distance between the current point coordinates and the given ones.
-   * @param  {Number} aX A pixel value for the x coordinate.
-   * @param  {Number} aY A pixel value for the y coordinate.
-   * @return {Number} A distance between point's current and the given
+   *
+   * @param  {number} aX A pixel value for the x coordinate.
+   * @param  {number} aY A pixel value for the y coordinate.
+   * @returns {number} A distance between point's current and the given
    * coordinates.
    */
   getDistanceToCoord: function Point_getDistanceToCoord(aX, aY) {
@@ -154,25 +128,29 @@ Point.prototype = {
 
 /**
  * An externally accessible collection of settings used in gesture resolition.
- * @type {Object}
+ *
+ * @type {object}
  */
-const GestureSettings = {
+export const GestureSettings = {
   // jshint ignore:line
   /**
    * Maximum duration of swipe
-   * @type {Number}
+   *
+   * @type {number}
    */
   swipeMaxDuration: SWIPE_MAX_DURATION * TIMEOUT_MULTIPLIER,
 
   /**
    * Maximum amount of time allowed for a gesture to be considered a multitouch.
-   * @type {Number}
+   *
+   * @type {number}
    */
   maxMultitouch: MAX_MULTITOUCH * TIMEOUT_MULTIPLIER,
 
   /**
    * Maximum consecutive pointer event timeout.
-   * @type {Number}
+   *
+   * @type {number}
    */
   maxConsecutiveGestureDelay:
     MAX_CONSECUTIVE_GESTURE_DELAY * TIMEOUT_MULTIPLIER,
@@ -180,20 +158,23 @@ const GestureSettings = {
   /**
    * A maximum time we wait for a next pointer down event to consider a sequence
    * a multi-action gesture.
-   * @type {Number}
+   *
+   * @type {number}
    */
   maxGestureResolveTimeout: MAX_CONSECUTIVE_GESTURE_DELAY * TIMEOUT_MULTIPLIER,
 
   /**
    * Delay before tap turns into dwell
-   * @type {Number}
+   *
+   * @type {number}
    */
   dwellThreshold: DWELL_THRESHOLD * TIMEOUT_MULTIPLIER,
 
   /**
    * Minimum distance that needs to be travelled for the pointer move to be
    * fired.
-   * @type {Number}
+   *
+   * @type {number}
    */
   travelThreshold: 0.025,
 };
@@ -201,13 +182,15 @@ const GestureSettings = {
 /**
  * An interface that handles the pointer events and calculates the appropriate
  * gestures.
- * @type {Object}
+ *
+ * @type {object}
  */
-const GestureTracker = {
+export const GestureTracker = {
   // jshint ignore:line
   /**
    * Reset GestureTracker to its initial state.
-   * @return {[type]} [description]
+   *
+   * @returns {type} [description]
    */
   reset: function GestureTracker_reset() {
     if (this.current) {
@@ -219,8 +202,9 @@ const GestureTracker = {
   /**
    * Create a new gesture object and attach resolution handler to it as well as
    * handle the incoming pointer event.
-   * @param  {Object} aDetail A new pointer event detail.
-   * @param  {Number} aTimeStamp A new pointer event timeStamp.
+   *
+   * @param  {object} aDetail A new pointer event detail.
+   * @param  {number} aTimeStamp A new pointer event timeStamp.
    * @param  {Function} aGesture A gesture constructor (default: Tap).
    */
   _init: function GestureTracker__init(aDetail, aTimeStamp, aGesture) {
@@ -236,8 +220,9 @@ const GestureTracker = {
   /**
    * Handle the incoming pointer event with the existing gesture object(if
    * present) or with the newly created one.
-   * @param  {Object} aDetail A new pointer event detail.
-   * @param  {Number} aTimeStamp A new pointer event timeStamp.
+   *
+   * @param  {object} aDetail A new pointer event detail.
+   * @param  {number} aTimeStamp A new pointer event timeStamp.
    */
   handle: function GestureTracker_handle(aDetail, aTimeStamp) {
     lazy.Logger.gesture(() => {
@@ -254,11 +239,12 @@ const GestureTracker = {
 
   /**
    * Create a new gesture object and attach resolution handler to it.
+   *
    * @param  {Function} aGesture A gesture constructor.
-   * @param  {Number} aTimeStamp An original pointer event timeStamp.
+   * @param  {number} aTimeStamp An original pointer event timeStamp.
    * @param  {Array} aPoints All changed points associated with the new pointer
    * event.
-   * @param {?String} aLastEvent Last pointer event type.
+   * @param {?string} aLastEvent Last pointer event type.
    */
   _create: function GestureTracker__create(
     aGesture,
@@ -276,8 +262,9 @@ const GestureTracker = {
 
   /**
    * Handle the incoming pointer event with the existing gesture object.
-   * @param  {Object} aDetail A new pointer event detail.
-   * @param  {Number} aTimeStamp A new pointer event timeStamp.
+   *
+   * @param  {object} aDetail A new pointer event detail.
+   * @param  {number} aTimeStamp A new pointer event timeStamp.
    */
   _update: function GestureTracker_update(aDetail, aTimeStamp) {
     this.current[aDetail.type](aDetail.points, aTimeStamp);
@@ -285,7 +272,8 @@ const GestureTracker = {
 
   /**
    * A resolution handler function for the current gesture promise.
-   * @param  {Object} aResult A resolution payload with the relevant gesture id
+   *
+   * @param  {object} aResult A resolution payload with the relevant gesture id
    * and an optional new gesture contructor.
    */
   _onFulfill: function GestureTracker__onFulfill(aResult) {
@@ -313,13 +301,11 @@ const GestureTracker = {
 
 /**
  * Compile a mozAccessFuGesture detail structure.
- * @param  {String} aType A gesture type.
- * @param  {Object} aPoints Gesture's points.
- * @param  {String} xKey A default key for the x coordinate. Default is
- * 'startX'.
- * @param  {String} yKey A default key for the y coordinate. Default is
- * 'startY'.
- * @return {Object} a mozAccessFuGesture detail structure.
+ *
+ * @param  {string} aType A gesture type.
+ * @param  {object} aPoints Gesture's points.
+ * @param  {object} keyMap Key mapping for the coordinates.
+ * @returns {object} a mozAccessFuGesture detail structure.
  */
 function compileDetail(aType, aPoints, keyMap = { x: "startX", y: "startY" }) {
   let touches = [];
@@ -355,11 +341,12 @@ function compileDetail(aType, aPoints, keyMap = { x: "startX", y: "startY" }) {
 
 /**
  * A general gesture object.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
+ * @param {object} aPoints An existing set of points (from previous events).
  * Default is an empty object.
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function Gesture(aTimeStamp, aPoints = {}, aLastEvent = undefined) {
   this.startTime = Date.now();
@@ -379,7 +366,8 @@ function Gesture(aTimeStamp, aPoints = {}, aLastEvent = undefined) {
 Gesture.prototype = {
   /**
    * Get the gesture timeout delay.
-   * @return {Number}
+   *
+   * @returns {number}
    */
   _getDelay: function Gesture__getDelay() {
     // If nothing happens withing the
@@ -400,7 +388,8 @@ Gesture.prototype = {
 
   /**
    * Start the timer for gesture timeout.
-   * @param {Number} aTimeStamp An original pointer event's timeStamp that
+   *
+   * @param {number} aTimeStamp An original pointer event's timeStamp that
    * started the gesture resolution sequence.
    */
   startTimer: function Gesture_startTimer(aTimeStamp) {
@@ -425,6 +414,7 @@ Gesture.prototype = {
 
   /**
    * Add a gesture promise resolution callback.
+   *
    * @param  {Function} aCallback
    */
   then: function Gesture_then(aCallback) {
@@ -434,14 +424,15 @@ Gesture.prototype = {
   /**
    * Update gesture's points. Test the points set with the optional gesture test
    * function.
+   *
    * @param  {Array} aPoints An array with the changed points from the new
    * pointer event.
-   * @param {String} aType Pointer event type.
-   * @param  {Boolean} aCanCreate A flag that enables including the new points.
+   * @param {string} aType Pointer event type.
+   * @param  {boolean} aCanCreate A flag that enables including the new points.
    * Default is false.
-   * @param  {Boolean} aNeedComplete A flag that indicates that the gesture is
+   * @param  {boolean} aNeedComplete A flag that indicates that the gesture is
    * completing. Default is false.
-   * @return {Boolean} Indicates whether the gesture can be complete (it is
+   * @returns {boolean} Indicates whether the gesture can be complete (it is
    * set to true iff the aNeedComplete is true and there was a change to at
    * least one point that belongs to the gesture).
    */
@@ -485,7 +476,8 @@ Gesture.prototype = {
 
   /**
    * Emit a mozAccessFuGesture (when the gesture is resolved).
-   * @param  {Object} aDetail a compiled mozAccessFuGesture detail structure.
+   *
+   * @param  {object} aDetail a compiled mozAccessFuGesture detail structure.
    */
   _emit: function Gesture__emit(aDetail) {
     let evt = new lazy.Utils.win.CustomEvent("mozAccessFuGesture", {
@@ -498,8 +490,9 @@ Gesture.prototype = {
 
   /**
    * Handle the pointer down event.
+   *
    * @param  {Array} aPoints A new pointer down points.
-   * @param  {Number} aTimeStamp A new pointer down timeStamp.
+   * @param  {number} aTimeStamp A new pointer down timeStamp.
    */
   pointerdown: function Gesture_pointerdown(aPoints, aTimeStamp) {
     this._inProgress = true;
@@ -512,6 +505,7 @@ Gesture.prototype = {
 
   /**
    * Handle the pointer move event.
+   *
    * @param  {Array} aPoints A new pointer move points.
    */
   pointermove: function Gesture_pointermove(aPoints) {
@@ -520,6 +514,7 @@ Gesture.prototype = {
 
   /**
    * Handle the pointer up event.
+   *
    * @param  {Array} aPoints A new pointer up points.
    */
   pointerup: function Gesture_pointerup(aPoints) {
@@ -532,6 +527,7 @@ Gesture.prototype = {
   /**
    * A subsequent gesture constructor to resolve the current one to. E.g.
    * tap->doubletap, dwell->dwellend, etc.
+   *
    * @type {Function}
    */
   resolveTo: null,
@@ -547,7 +543,8 @@ Gesture.prototype = {
 
   /**
    * A gesture promise resolve callback. Compile and emit the gesture.
-   * @return {Object} Returns a structure to the gesture handler that looks like
+   *
+   * @returns {object} Returns a structure to the gesture handler that looks like
    * this: {
    *   id: current gesture id,
    *   gestureType: an optional subsequent gesture constructor.
@@ -572,7 +569,8 @@ Gesture.prototype = {
 
   /**
    * A gesture promise reject callback.
-   * @return {Object} Returns a structure to the gesture handler that looks like
+   *
+   * @returns {object} Returns a structure to the gesture handler that looks like
    * this: {
    *   id: current gesture id,
    *   gestureType: an optional subsequent gesture constructor.
@@ -595,7 +593,8 @@ Gesture.prototype = {
    * A default compilation function used to build the mozAccessFuGesture event
    * detail. The detail always includes the type and the touches associated
    * with the gesture.
-   * @return {Object} Gesture event detail.
+   *
+   * @returns {object} Gesture event detail.
    */
   compile: function Gesture_compile() {
     return compileDetail(this.type, this.points);
@@ -631,13 +630,14 @@ function checkProgressGesture(aGesture) {
  * pointer events' points are tested for their total distance traveled. If that
  * distance exceeds the _threshold distance, the gesture will be rejected to a
  * _travelTo gesture.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  * @param {Function} aTravelTo A contructor for the gesture to reject to when
  * travelling (default: Explore).
- * @param {Number} aThreshold Travel threshold (default:
+ * @param {number} aThreshold Travel threshold (default:
  * GestureSettings.travelThreshold).
  */
 function TravelGesture(
@@ -673,10 +673,11 @@ TravelGesture.prototype.test = function TravelGesture_test() {
 
 /**
  * DwellEnd gesture.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function DwellEnd(aTimeStamp, aPoints, aLastEvent) {
   this._inProgress = true;
@@ -691,10 +692,11 @@ DwellEnd.prototype.type = "dwellend";
 /**
  * TapHoldEnd gesture. This gesture can be represented as the following diagram:
  * pointerdown-pointerup-pointerdown-*wait*-pointerup.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function TapHoldEnd(aTimeStamp, aPoints, aLastEvent) {
   this._inProgress = true;
@@ -710,10 +712,11 @@ TapHoldEnd.prototype.type = "tapholdend";
  * DoubleTapHoldEnd gesture. This gesture can be represented as the following
  * diagram:
  * pointerdown-pointerup-pointerdown-pointerup-pointerdown-*wait*-pointerup.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function DoubleTapHoldEnd(aTimeStamp, aPoints, aLastEvent) {
   this._inProgress = true;
@@ -727,10 +730,11 @@ DoubleTapHoldEnd.prototype.type = "doubletapholdend";
 
 /**
  * A common tap gesture object.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  * @param {Function} aRejectToOnWait A constructor for the next gesture to
  * reject to in case no pointermove or pointerup happens within the
  * GestureSettings.dwellThreshold.
@@ -803,10 +807,11 @@ TapGesture.prototype.pointerdown = function TapGesture_pointerdown(
 
 /**
  * Tap gesture.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function Tap(aTimeStamp, aPoints, aLastEvent) {
   // If the pointer travels, reject to Swipe.
@@ -826,10 +831,11 @@ Tap.prototype.type = "tap";
 
 /**
  * Double Tap gesture.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function DoubleTap(aTimeStamp, aPoints, aLastEvent) {
   this._inProgress = true;
@@ -849,10 +855,11 @@ DoubleTap.prototype.type = "doubletap";
 
 /**
  * Triple Tap gesture.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function TripleTap(aTimeStamp, aPoints, aLastEvent) {
   this._inProgress = true;
@@ -872,10 +879,11 @@ TripleTap.prototype.type = "tripletap";
 
 /**
  * Common base object for gestures that are created as resolved.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function ResolvedGesture(aTimeStamp, aPoints, aLastEvent) {
   Gesture.call(this, aTimeStamp, aPoints, aLastEvent);
@@ -887,10 +895,11 @@ ResolvedGesture.prototype = Object.create(Gesture.prototype);
 
 /**
  * Dwell gesture
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function Dwell(aTimeStamp, aPoints, aLastEvent) {
   ResolvedGesture.call(this, aTimeStamp, aPoints, aLastEvent);
@@ -902,10 +911,11 @@ Dwell.prototype.resolveTo = DwellEnd;
 
 /**
  * TapHold gesture
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function TapHold(aTimeStamp, aPoints, aLastEvent) {
   ResolvedGesture.call(this, aTimeStamp, aPoints, aLastEvent);
@@ -917,10 +927,11 @@ TapHold.prototype.resolveTo = TapHoldEnd;
 
 /**
  * DoubleTapHold gesture
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function DoubleTapHold(aTimeStamp, aPoints, aLastEvent) {
   ResolvedGesture.call(this, aTimeStamp, aPoints, aLastEvent);
@@ -932,10 +943,11 @@ DoubleTapHold.prototype.resolveTo = DoubleTapHoldEnd;
 
 /**
  * Explore gesture
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function Explore(aTimeStamp, aPoints, aLastEvent) {
   ExploreGesture.call(this);
@@ -948,10 +960,11 @@ Explore.prototype.resolveTo = ExploreEnd;
 
 /**
  * ExploreEnd gesture.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function ExploreEnd(aTimeStamp, aPoints, aLastEvent) {
   this._inProgress = true;
@@ -966,10 +979,11 @@ ExploreEnd.prototype.type = "exploreend";
 
 /**
  * Swipe gesture.
- * @param {Number} aTimeStamp An original pointer event's timeStamp that started
+ *
+ * @param {number} aTimeStamp An original pointer event's timeStamp that started
  * the gesture resolution sequence.
- * @param {Object} aPoints An existing set of points (from previous events).
- * @param {?String} aLastEvent Last pointer event type.
+ * @param {object} aPoints An existing set of points (from previous events).
+ * @param {?string} aLastEvent Last pointer event type.
  */
 function Swipe(aTimeStamp, aPoints, aLastEvent) {
   this._inProgress = true;
@@ -988,6 +1002,7 @@ Swipe.prototype._getDelay = function Swipe__getDelay(aTimeStamp) {
 
 /**
  * Determine wither the gesture was Swipe or Explore.
+ *
  * @param  {Booler} aComplete A flag that indicates whether the gesture is and
  * will be complete after the test.
  */
@@ -1016,7 +1031,8 @@ Swipe.prototype.test = function Swipe_test(aComplete) {
 
 /**
  * Compile a swipe related mozAccessFuGesture event detail.
- * @return {Object} A mozAccessFuGesture detail object.
+ *
+ * @returns {object} A mozAccessFuGesture detail object.
  */
 Swipe.prototype.compile = function Swipe_compile() {
   let type = this.type;

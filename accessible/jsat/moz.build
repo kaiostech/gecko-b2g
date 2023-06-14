@@ -5,16 +5,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXTRA_JS_MODULES.accessibility += [
-    "AccessFu.jsm",
-    "Constants.jsm",
-    "ContentControl.jsm",
-    "EventManager.jsm",
-    "Gestures.jsm",
-    "OutputGenerator.jsm",
-    "PointerAdapter.jsm",
-    "Presentation.jsm",
-    "Traversal.jsm",
-    "Utils.jsm",
+    "AccessFu.sys.mjs",
+    "Constants.sys.mjs",
+    "ContentControl.sys.mjs",
+    "EventManager.sys.mjs",
+    "Gestures.sys.mjs",
+    "OutputGenerator.sys.mjs",
+    "PointerAdapter.sys.mjs",
+    "Presentation.sys.mjs",
+    "Traversal.sys.mjs",
+    "Utils.sys.mjs",
 ]
 
 JAR_MANIFESTS += ["jar.mn"]

@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* exported UtteranceGenerator, BrailleGenerator */
-
-"use strict";
-
 const INCLUDE_DESC = 0x01;
 const INCLUDE_NAME = 0x02;
 const INCLUDE_VALUE = 0x04;
@@ -15,55 +11,29 @@ const IGNORE_EXPLICIT_NAME = 0x20;
 const OUTPUT_DESC_FIRST = 0;
 const OUTPUT_DESC_LAST = 1;
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "Utils", function() {
-  const { Utils } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Utils;
-});
-XPCOMUtils.defineLazyGetter(lazy, "PrefCache", function() {
-  const { PrefCache } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return PrefCache;
-});
-XPCOMUtils.defineLazyGetter(lazy, "Logger", function() {
-  const { Logger } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Utils.jsm"
-  );
-  return Logger;
-});
-const { Roles } = ChromeUtils.import(
-  "resource://gre/modules/accessibility/Constants.jsm"
-);
-XPCOMUtils.defineLazyGetter(lazy, "States", function() {
-  const { States } = ChromeUtils.import(
-    "resource://gre/modules/accessibility/Constants.jsm"
-  );
-  return States;
+ChromeUtils.defineESModuleGetters(lazy, {
+  Utils: "resource://gre/modules/accessibility/Utils.sys.mjs",
+  Logger: "resource://gre/modules/accessibility/Utils.sys.mjs",
+  PrefCache: "resource://gre/modules/accessibility/Utils.sys.mjs",
 });
 
-const EXPORTED_SYMBOLS = [
-  "UtteranceGenerator",
-  "BriefGenerator", // jshint ignore:line
-  "BrailleGenerator",
-]; // jshint ignore:line
+import {
+  Roles,
+  States,
+} from "resource://gre/modules/accessibility/Constants.sys.mjs";
 
 var OutputGenerator = {
   defaultOutputOrder: OUTPUT_DESC_LAST,
 
   /**
    * Generates output for a PivotContext.
+   *
    * @param {PivotContext} aContext object that generates and caches
    *    context information for a given accessible and its relationship with
    *    another accessible.
-   * @return {Object} An array of speech data. Depending on the utterance order,
+   * @returns {object} An array of speech data. Depending on the utterance order,
    *    the data describes the context for an accessible object either
    *    starting from the accessible's ancestry or accessible's subtree.
    */
@@ -122,12 +92,13 @@ var OutputGenerator = {
 
   /**
    * Generates output for an object.
+   *
    * @param {nsIAccessible} aAccessible accessible object to generate output
    *    for.
    * @param {PivotContext} aContext object that generates and caches
    *    context information for a given accessible and its relationship with
    *    another accessible.
-   * @return {Array} A 2 element array of speech data. The first element
+   * @returns {Array} A 2 element array of speech data. The first element
    *    describes the object and its state. The second element is the object's
    *    name. Whether the object's description or it's role is included is
    *    determined by {@link roleRuleMap}.
@@ -155,35 +126,42 @@ var OutputGenerator = {
 
   /**
    * Generates output for an action performed.
+   *
    * @param {nsIAccessible} aAccessible accessible object that the action was
    *    invoked in.
    * @param {string} aActionName the name of the action, one of the keys in
    *    {@link gActionMap}.
-   * @return {Array} A one element array with action data.
+   * @returns {Array} A one element array with action data.
    */
-  genForAction: function genForAction(aObject, aActionName) {}, // jshint ignore:line
+  genForAction: function genForAction(aAccessible, aActionName) {}, // jshint ignore:line
 
   /**
    * Generates output for an announcement.
+   *
    * @param {string} aAnnouncement unlocalized announcement.
-   * @return {Array} An announcement speech data to be localized.
+   * @returns {Array} An announcement speech data to be localized.
    */
   genForAnnouncement: function genForAnnouncement(aAnnouncement) {}, // jshint ignore:line
 
   /**
    * Generates output for a tab state change.
+   *
    * @param {nsIAccessible} aAccessible accessible object of the tab's attached
    *    document.
    * @param {string} aTabState the tab state name, see
    *    {@link Presenter.tabStateChanged}.
-   * @return {Array} The tab state utterace.
+   * @returns {Array} The tab state utterace.
    */
-  genForTabStateChange: function genForTabStateChange(aObject, aTabState) {}, // jshint ignore:line
+  genForTabStateChange: function genForTabStateChange(
+    aAccessible,
+    aTabState
+  ) {}, // jshint ignore:line
 
   /**
    * Generates output for announcing entering and leaving editing mode.
-   * @param {aIsEditing} boolean true if we are in editing mode
-   * @return {Array} The mode utterance
+   *
+   * @param {boolean} aIsEditing true if we are in editing mode
+   * @returns {Array} The mode utterance
    */
   genForEditingMode: function genForEditingMode(aIsEditing) {}, // jshint ignore:line
 
@@ -191,9 +169,10 @@ var OutputGenerator = {
 
   /**
    * Adds an accessible name and description to the output if available.
+   *
    * @param {Array} aOutput Output array.
    * @param {nsIAccessible} aAccessible current accessible object.
-   * @param {Number} aFlags output flags.
+   * @param {number} aFlags output flags.
    */
   _addName: function _addName(aOutput, aAccessible, aFlags) {
     let name;
@@ -227,6 +206,7 @@ var OutputGenerator = {
 
   /**
    * Adds a landmark role to the output if available.
+   *
    * @param {Array} aOutput Output array.
    * @param {nsIAccessible} aAccessible current accessible object.
    */
@@ -242,9 +222,10 @@ var OutputGenerator = {
 
   /**
    * Adds math roles to the output, for a MathML accessible.
+   *
    * @param {Array} aOutput Output array.
    * @param {nsIAccessible} aAccessible current accessible object.
-   * @param {String} aRoleStr aAccessible's role string.
+   * @param {string} aRoleStr aAccessible's role string.
    */
   _addMathRoles: function _addMathRoles(aOutput, aAccessible, aRoleStr) {
     // First, determine the actual role to use (e.g. mathmlfraction).
@@ -306,6 +287,7 @@ var OutputGenerator = {
 
   /**
    * Adds MathML menclose notations to the output.
+   *
    * @param {Array} aOutput Output array.
    * @param {nsIAccessible} aAccessible current accessible object.
    */
@@ -321,9 +303,10 @@ var OutputGenerator = {
 
   /**
    * Adds an entry type attribute to the description if available.
+   *
    * @param {Array} aOutput Output array.
    * @param {nsIAccessible} aAccessible current accessible object.
-   * @param {String} aRoleStr aAccessible's role string.
+   * @param {string} aRoleStr aAccessible's role string.
    */
   _addType: function _addType(aOutput, aAccessible, aRoleStr) {
     if (aRoleStr !== "entry") {
@@ -536,9 +519,7 @@ var OutputGenerator = {
     },
 
     entry: function entry(aAccessible, aRoleStr, aState, aFlags) {
-      let rolestr = aState.contains(lazy.States.MULTI_LINE)
-        ? "textarea"
-        : "entry";
+      let rolestr = aState.contains(States.MULTI_LINE) ? "textarea" : "entry";
       return this.objectOutputFunctions.defaultFunc.apply(this, [
         aAccessible,
         rolestr,
@@ -630,7 +611,7 @@ var OutputGenerator = {
       return output;
     },
   },
-};
+}; // jshint ignore:line
 
 /**
  * Generates speech utterances from objects, actions and state changes.
@@ -648,7 +629,7 @@ var OutputGenerator = {
  * clicked event. Speaking only 'clicked' makes sense. Speaking 'button' does
  * not.
  */
-const UtteranceGenerator = {
+export const UtteranceGenerator = {
   // jshint ignore:line
   __proto__: OutputGenerator, // jshint ignore:line
 
@@ -814,7 +795,7 @@ const UtteranceGenerator = {
           }
         };
         let addHeaders = function addHeaders(aUtterance, aHeaders) {
-          if (aHeaders.length > 0) {
+          if (aHeaders.length) {
             aUtterance.push.apply(aUtterance, aHeaders);
           }
         };
@@ -870,11 +851,11 @@ const UtteranceGenerator = {
   },
 
   _addState: function _addState(aOutput, aState, aRoleStr) {
-    if (aState.contains(lazy.States.UNAVAILABLE)) {
+    if (aState.contains(States.UNAVAILABLE)) {
       aOutput.push({ string: "stateUnavailable" });
     }
 
-    if (aState.contains(lazy.States.READONLY)) {
+    if (aState.contains(States.READONLY)) {
       aOutput.push({ string: "stateReadonly" });
     }
 
@@ -885,9 +866,9 @@ const UtteranceGenerator = {
     if (
       (lazy.Utils.AndroidSdkVersion < 16 ||
         lazy.Utils.MozBuildApp === "browser") &&
-      aState.contains(lazy.States.CHECKABLE)
+      aState.contains(States.CHECKABLE)
     ) {
-      let checked = aState.contains(lazy.States.CHECKED);
+      let checked = aState.contains(States.CHECKED);
       let statetr;
       if (aRoleStr === "switch") {
         statetr = checked ? "stateOn" : "stateOff";
@@ -897,30 +878,30 @@ const UtteranceGenerator = {
       aOutput.push({ string: statetr });
     }
 
-    if (aState.contains(lazy.States.PRESSED)) {
+    if (aState.contains(States.PRESSED)) {
       aOutput.push({ string: "statePressed" });
     }
 
-    if (aState.contains(lazy.States.EXPANDABLE)) {
-      let statetr = aState.contains(lazy.States.EXPANDED)
+    if (aState.contains(States.EXPANDABLE)) {
+      let statetr = aState.contains(States.EXPANDED)
         ? "stateExpanded"
         : "stateCollapsed";
       aOutput.push({ string: statetr });
     }
 
-    if (aState.contains(lazy.States.REQUIRED)) {
+    if (aState.contains(States.REQUIRED)) {
       aOutput.push({ string: "stateRequired" });
     }
 
-    if (aState.contains(lazy.States.TRAVERSED)) {
+    if (aState.contains(States.TRAVERSED)) {
       aOutput.push({ string: "stateTraversed" });
     }
 
-    if (aState.contains(lazy.States.HASPOPUP)) {
+    if (aState.contains(States.HASPOPUP)) {
       aOutput.push({ string: "stateHasPopup" });
     }
 
-    if (aState.contains(lazy.States.SELECTED)) {
+    if (aState.contains(States.SELECTED)) {
       aOutput.push({ string: "stateSelected" });
     }
   },
@@ -952,7 +933,7 @@ const UtteranceGenerator = {
  * of the methods are overwritten by this version, which should be more suitable
  * for packaged app.
  */
-const BriefGenerator = {
+export const BriefGenerator = {
   // jshint ignore:line
   __proto__: UtteranceGenerator,
 
@@ -1039,7 +1020,7 @@ const BriefGenerator = {
   },
 };
 
-const BrailleGenerator = {
+export const BrailleGenerator = {
   // jshint ignore:line
   __proto__: OutputGenerator, // jshint ignore:line
 
@@ -1108,7 +1089,7 @@ const BrailleGenerator = {
       let cell = aContext.getCellInfo(aAccessible);
       if (cell) {
         let addHeaders = function addHeaders(aBraille, aHeaders) {
-          if (aHeaders.length > 0) {
+          if (aHeaders.length) {
             aBraille.push.apply(aBraille, aHeaders);
           }
         };
@@ -1197,16 +1178,16 @@ const BrailleGenerator = {
   },
 
   _addState: function _addState(aBraille, aState, aRoleStr) {
-    if (aState.contains(lazy.States.CHECKABLE)) {
+    if (aState.contains(States.CHECKABLE)) {
       aBraille.push({
-        string: aState.contains(lazy.States.CHECKED)
+        string: aState.contains(States.CHECKED)
           ? this._getOutputName("stateChecked")
           : this._getOutputName("stateUnchecked"),
       });
     }
     if (aRoleStr === "toggle button") {
       aBraille.push({
-        string: aState.contains(lazy.States.PRESSED)
+        string: aState.contains(States.PRESSED)
           ? this._getOutputName("statePressed")
           : this._getOutputName("stateUnpressed"),
       });

@@ -604,7 +604,9 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
   }
 
 #ifndef MOZ_B2G
-  return !nsGlobalWindowInner::Cast(window)->ShouldResistFingerprinting();
+  return !nsGlobalWindowInner::Cast(window)->ShouldResistFingerprinting(
+      RFPTarget::Unknown
+  );
 #else
   return true;
 #endif

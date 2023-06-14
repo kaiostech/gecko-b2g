@@ -29,7 +29,6 @@
 #endif
 
 #if defined(MOZ_WIDGET_ANDROID)
-#  include "mozilla/a11y/SessionAccessibility.h"
 #  define ACQUIRE_ANDROID_LOCK \
     MonitorAutoLock mal(nsAccessibilityService::GetAndroidMonitor());
 #else

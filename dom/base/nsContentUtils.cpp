@@ -2268,8 +2268,8 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIDocShell* aDocShell,
 }
 
 /* static */
-bool nsContentUtils::ShouldResistFingerprinting(
-    nsIChannel* aChannel, RFPTarget aTarget /* = RFPTarget::Unknown */) {
+bool nsContentUtils::ShouldResistFingerprinting(nsIChannel* aChannel,
+                                                RFPTarget aTarget) {
   if (!aChannel) {
     MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Info,
             ("Called nsContentUtils::ShouldResistFingerprinting(nsIChannel* "
@@ -8666,8 +8666,7 @@ void nsContentUtils::FirePageShowEventForFrameLoaderSwap(
   }
 
   RefPtr<Document> doc = aItem->GetDocument();
-  NS_ASSERTION(doc, "What happened here?");
-  if (doc->IsShowing() == aFireIfShowing) {
+  if (doc && doc->IsShowing() == aFireIfShowing) {
     doc->OnPageShow(true, aChromeEventHandler, aOnlySystemGroup);
   }
 }

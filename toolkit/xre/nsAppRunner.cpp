@@ -4445,6 +4445,7 @@ enum struct ShouldNotProcessUpdatesReason {
   DevToolsLaunching,
   NotAnUpdatingTask,
   OtherInstanceRunning,
+  FirstStartup
 };
 
 const char* ShouldNotProcessUpdatesReasonAsString(
@@ -4463,6 +4464,14 @@ const char* ShouldNotProcessUpdatesReasonAsString(
 
 Maybe<ShouldNotProcessUpdatesReason> ShouldNotProcessUpdates(
     nsXREDirProvider& aDirProvider) {
+  // Don't process updates when launched from the installer.
+  // It's possible for a stale update to be present in the case of a paveover;
+  // ignore it and leave the update service to discard it.
+  if (ARG_FOUND == CheckArgExists("first-startup")) {
+    NS_WARNING("ShouldNotProcessUpdates(): FirstStartup");
+    return Some(ShouldNotProcessUpdatesReason::FirstStartup);
+  }
+
   // Do not process updates if we're launching devtools, as evidenced by
   // "--chrome ..." with the browser toolbox chrome document URL.
 

@@ -1871,8 +1871,8 @@ network::Connection* Navigator::GetConnection(ErrorResult& aRv) {
       return nullptr;
     }
     mConnection = network::Connection::CreateForWindow(
-        mWindow,
-        nsGlobalWindowInner::Cast(mWindow)->ShouldResistFingerprinting());
+        mWindow, nsGlobalWindowInner::Cast(mWindow)->ShouldResistFingerprinting(
+                     RFPTarget::Unknown));
   }
 
   return mConnection;

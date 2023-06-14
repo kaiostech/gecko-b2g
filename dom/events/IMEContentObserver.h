@@ -185,9 +185,12 @@ class IMEContentObserver final : public nsStubMutationObserver,
 
   /**
    * Called when text control value is changed while this is not observing
-   * mRootElement.
+   * mRootElement.  This is typically there is no frame for the editor (i.e.,
+   * no proper anonymous <div> element for the editor yet) or the TextEditor
+   * has not been created (i.e., IMEStateManager has not been reinitialized
+   * this instance with new anonymous <div> element yet).
    */
-  void OnTextControlValueChangedDuringNoFrame(const nsAString& aNewValue);
+  void OnTextControlValueChangedWhileNotObservable(const nsAString& aNewValue);
 
   dom::Element* GetObservingElement() const {
     return mIsObserving ? mRootElement.get() : nullptr;
@@ -400,6 +403,7 @@ class IMEContentObserver final : public nsStubMutationObserver,
    */
   class DocumentObserver final : public nsStubDocumentObserver {
    public:
+    DocumentObserver() = delete;
     explicit DocumentObserver(IMEContentObserver& aIMEContentObserver)
         : mIMEContentObserver(&aIMEContentObserver), mDocumentUpdating(0) {
       SetEnabledCallbacks(nsIMutationObserver::kBeginUpdate |
@@ -420,7 +424,6 @@ class IMEContentObserver final : public nsStubMutationObserver,
     bool IsUpdating() const { return mDocumentUpdating != 0; }
 
    private:
-    DocumentObserver() = delete;
     virtual ~DocumentObserver() { Destroy(); }
 
     RefPtr<IMEContentObserver> mIMEContentObserver;

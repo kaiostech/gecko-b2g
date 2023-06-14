@@ -29,10 +29,6 @@ class xpcAccessibleGeneric;
 class DocAccessiblePlatformExtParent;
 #endif
 
-#ifdef MOZ_WIDGET_ANDROID
-class SessionAccessibility;
-#endif
-
 /*
  * These objects live in the main process and comunicate with and represent
  * an accessible document in a content process.
@@ -347,10 +343,6 @@ class DocAccessibleParent : public RemoteAccessible,
   static DocAccessibleParent* GetFrom(dom::BrowsingContext* aBrowsingContext);
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) override;
-
-#ifdef MOZ_WIDGET_ANDROID
-  RefPtr<SessionAccessibility> mSessionAccessibility;
-#endif
 
  private:
   ~DocAccessibleParent();

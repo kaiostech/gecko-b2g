@@ -65,28 +65,29 @@ bool KeySystemConfig::CreateKeySystemConfigs(
   }
 
 #ifdef B2G_MEDIADRM
-  aConfig.mKeySystem = aKeySystem;
-  aConfig.mInitDataTypes.AppendElement(u"cenc"_ns);
-  aConfig.mInitDataTypes.AppendElement(u"keyids"_ns);
-  aConfig.mInitDataTypes.AppendElement(u"webm"_ns);
-  aConfig.mPersistentState = Requirement::Optional;
-  aConfig.mDistinctiveIdentifier = Requirement::NotAllowed;
-  aConfig.mSessionTypes.AppendElement(SessionType::Temporary);
-  aConfig.mEncryptionSchemes.AppendElement(u"cenc"_ns);
-  aConfig.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
-  aConfig.mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
-  aConfig.mMP4.SetCanDecryptAndDecode(EME_CODEC_FLAC);
-  aConfig.mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
-  aConfig.mWebM.SetCanDecryptAndDecode(EME_CODEC_VORBIS);
-  aConfig.mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
-  aConfig.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
+  KeySystemConfig* config = aOutConfigs.AppendElement();
+  config->mKeySystem = aKeySystem;
+  config->mInitDataTypes.AppendElement(u"cenc"_ns);
+  config->mInitDataTypes.AppendElement(u"keyids"_ns);
+  config->mInitDataTypes.AppendElement(u"webm"_ns);
+  config->mPersistentState = Requirement::Optional;
+  config->mDistinctiveIdentifier = Requirement::NotAllowed;
+  config->mSessionTypes.AppendElement(SessionType::Temporary);
+  config->mEncryptionSchemes.AppendElement(u"cenc"_ns);
+  config->mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+  config->mMP4.SetCanDecryptAndDecode(EME_CODEC_AAC);
+  config->mMP4.SetCanDecryptAndDecode(EME_CODEC_FLAC);
+  config->mMP4.SetCanDecryptAndDecode(EME_CODEC_OPUS);
+  config->mWebM.SetCanDecryptAndDecode(EME_CODEC_VORBIS);
+  config->mWebM.SetCanDecryptAndDecode(EME_CODEC_OPUS);
+  config->mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
   if (IsWidevineKeySystem(aKeySystem)) {
-    aConfig.mAudioRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
-    aConfig.mVideoRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
-    aConfig.mVideoRobustness.AppendElement(u"SW_SECURE_DECODE"_ns);
-    aConfig.mEncryptionSchemes.AppendElement(u"cbcs"_ns);
-    aConfig.mEncryptionSchemes.AppendElement(u"cbcs-1-9"_ns);
-    aConfig.mSessionTypes.AppendElement(SessionType::PersistentLicense);
+    config->mAudioRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
+    config->mVideoRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
+    config->mVideoRobustness.AppendElement(u"SW_SECURE_DECODE"_ns);
+    config->mEncryptionSchemes.AppendElement(u"cbcs"_ns);
+    config->mEncryptionSchemes.AppendElement(u"cbcs-1-9"_ns);
+    config->mSessionTypes.AppendElement(SessionType::PersistentLicense);
   }
   return true;
 #endif

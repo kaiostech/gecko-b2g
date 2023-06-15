@@ -309,9 +309,9 @@ dependencies = [
 
 [[package]]
 name = "authenticator"
-version = "0.4.0-alpha.15"
+version = "0.4.0-alpha.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa0e182b77b6b19eaf9c7b69fddf3be970169ec6d34eca3f5d682ab948727e57"
+checksum = "80dfc2f20aa0c1135069b1076e0cb3372b9c051f928d3a3adebbd5c3dea40afe"
 dependencies = [
  "base64 0.13.999",
  "bitflags 1.3.2",
@@ -322,7 +322,6 @@ dependencies = [
  "libudev",
  "log",
  "memoffset",
- "nom",
  "nss-gk-api",
  "pkcs11-bindings",
  "rand",
@@ -1021,24 +1020,25 @@ dependencies = [
 
 [[package]]
 name = "cssparser"
-version = "0.31.0"
+version = "0.31.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b3df4f93e5fbbe73ec01ec8d3f68bba73107993a5b1e7519273c32db9b0d5be"
 dependencies = [
  "cssparser-macros",
  "dtoa-short",
  "itoa",
  "phf",
- "proc-macro2",
- "quote",
  "smallvec",
- "syn 1.0.107",
 ]
 
 [[package]]
 name = "cssparser-macros"
-version = "0.6.0"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13b588ba4ac1a99f7f2964d24b3d896ddc6bf847ee3855dbd4366f058cfcd331"
 dependencies = [
  "quote",
- "syn 1.0.107",
+ "syn 2.0.18",
 ]
 
 [[package]]
@@ -2208,9 +2208,9 @@ dependencies = [
 
 [[package]]
 name = "glean"
-version = "52.7.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb5fc2dc8615ab49bfa879d64a02565b459881b72023ff39aca75e5581825695"
+checksum = "682e1f9e0b4bf0ae80e479d228e7cd2102f4d4febd58e10cab57771216b9de13"
 dependencies = [
  "chrono",
  "crossbeam-channel",
@@ -2228,9 +2228,9 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "52.7.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3493e4f4df45199762f43a6d2298fa9d885fa5ddc9efdc118a41b38c69c7ad59"
+checksum = "767c210fd3af23c70cb19bb889f5642142ea16b6d86160649d96ff348c6a7549"
 dependencies = [
  "android_logger",
  "bincode",
@@ -3697,9 +3697,9 @@ dependencies = [
 
 [[package]]
 name = "nss-gk-api"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a689b62ba71fda80458a77b6ace9371d6e6a5473300901383ebd101659b3352"
+checksum = "4c17aec6d4e1822c023689899f09311592a36cbf6de8f85dfaf5f01976790d8d"
 dependencies = [
  "bindgen 0.64.0",
  "mozbuild",

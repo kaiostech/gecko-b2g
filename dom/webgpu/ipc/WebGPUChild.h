@@ -79,6 +79,7 @@ class WebGPUChild final : public PWebGPUChild, public SupportsWeakPtr {
   RawId RenderBundleEncoderFinish(ffi::WGPURenderBundleEncoder& aEncoder,
                                   RawId aDeviceId,
                                   const dom::GPURenderBundleDescriptor& aDesc);
+  RawId RenderBundleEncoderFinishError(RawId aDeviceId, const nsString& aLabel);
   RawId DeviceCreateBindGroupLayout(
       RawId aSelfId, const dom::GPUBindGroupLayoutDescriptor& aDesc);
   RawId DeviceCreatePipelineLayout(
@@ -116,10 +117,10 @@ class WebGPUChild final : public PWebGPUChild, public SupportsWeakPtr {
   static void ConvertTextureFormatRef(const dom::GPUTextureFormat& aInput,
                                       ffi::WGPUTextureFormat& aOutput);
 
+  static void JsWarning(nsIGlobalObject* aGlobal, const nsACString& aMessage);
+
  private:
   virtual ~WebGPUChild();
-
-  void JsWarning(nsIGlobalObject* aGlobal, const nsACString& aMessage);
 
   RawId DeviceCreateComputePipelineImpl(
       PipelineCreationContext* const aContext,
@@ -134,8 +135,8 @@ class WebGPUChild final : public PWebGPUChild, public SupportsWeakPtr {
   std::unordered_map<RawId, WeakPtr<Device>> mDeviceMap;
 
  public:
-  ipc::IPCResult RecvDeviceUncapturedError(RawId aDeviceId,
-                                           const nsACString& aMessage);
+  ipc::IPCResult RecvUncapturedError(Maybe<RawId> aDeviceId,
+                                     const nsACString& aMessage);
   ipc::IPCResult RecvDropAction(const ipc::ByteBuf& aByteBuf);
   void ActorDestroy(ActorDestroyReason) override;
 };

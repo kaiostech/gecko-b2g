@@ -114,6 +114,7 @@ include = [
   "FontFamilyNameSyntax",
   "OverflowWrap",
   "OffsetPath",
+  "OffsetPathFunction",
   "OffsetPosition",
   "OffsetRotate",
   "RayFunction",

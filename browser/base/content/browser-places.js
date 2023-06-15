@@ -241,8 +241,6 @@ var StarUI = {
       });
     }
 
-    this._setIconAndPreviewImage();
-
     let onPanelReady = fn => {
       let target = this.panel;
       if (target.parentNode) {
@@ -278,27 +276,6 @@ var StarUI = {
       let clone = template.content.cloneNode(true);
       template.replaceWith(clone);
     }
-  },
-
-  _setIconAndPreviewImage() {
-    let faviconImage = this._element("editBookmarkPanelFavicon");
-    faviconImage.removeAttribute("iconloadingprincipal");
-    faviconImage.removeAttribute("src");
-
-    let tab = gBrowser.selectedTab;
-    if (tab.hasAttribute("image") && !tab.hasAttribute("busy")) {
-      faviconImage.setAttribute(
-        "iconloadingprincipal",
-        tab.getAttribute("iconloadingprincipal")
-      );
-      faviconImage.setAttribute("src", tab.getAttribute("image"));
-    }
-
-    let canvas = PageThumbs.createCanvas(window);
-    PageThumbs.captureToCanvas(gBrowser.selectedBrowser, canvas).catch(e =>
-      console.error(e)
-    );
-    document.mozSetImageElement("editBookmarkPanelImageCanvas", canvas);
   },
 
   removeBookmarkButtonCommand: function SU_removeBookmarkButtonCommand() {
@@ -1246,15 +1223,11 @@ var PlacesToolbarHelper = {
         if (entry.name) {
           submenu.setAttribute("label", entry.name);
         } else {
-          submenu.setAttribute("data-l10n-id", "managed-bookmarks-subfolder");
+          document.l10n.setAttributes(submenu, "managed-bookmarks-subfolder");
         }
         submenu.setAttribute("container", "true");
-        submenu.setAttribute(
-          "class",
-          "menu-iconic bookmark-item subviewbutton"
-        );
+        submenu.classList.add("menu-iconic", "bookmark-item");
         let submenupopup = document.createXULElement("menupopup");
-        submenupopup.setAttribute("placespopup", "true");
         submenu.appendChild(submenupopup);
         menu.appendChild(submenu);
         this.addManagedBookmarks(submenupopup, entry.children);
@@ -1264,9 +1237,10 @@ var PlacesToolbarHelper = {
         let menuitem = document.createXULElement("menuitem");
         menuitem.setAttribute("label", entry.name);
         menuitem.setAttribute("image", "page-icon:" + preferredURI.spec);
-        menuitem.setAttribute(
-          "class",
-          "menuitem-iconic bookmark-item menuitem-with-favicon subviewbutton"
+        menuitem.classList.add(
+          "menuitem-iconic",
+          "menuitem-with-favicon",
+          "bookmark-item"
         );
         menuitem.link = preferredURI.spec;
         menu.appendChild(menuitem);
@@ -2249,8 +2223,8 @@ var BookmarkingUI = {
       is: "places-popup",
     });
     otherBookmarksPopup.setAttribute("placespopup", "true");
-    otherBookmarksPopup.setAttribute("type", "arrow");
     otherBookmarksPopup.setAttribute("context", "placesContext");
+    otherBookmarksPopup.classList.add("toolbar-menupopup");
     otherBookmarksPopup.id = "OtherBookmarksPopup";
 
     otherBookmarksPopup._placesNode = PlacesUtils.asContainer(node);

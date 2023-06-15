@@ -71,9 +71,6 @@ var gExceptionPaths = [
 
   // Localization file added programatically in featureCallout.jsm
   "resource://app/localization/en-US/browser/featureCallout.ftl",
-
-  // Temporary allowlist for shopping - we'll reference this soon.
-  "chrome://browser/content/shopping/shopping.html",
 ];
 
 // These are not part of the omni.ja file, so we find them only when running
@@ -95,6 +92,11 @@ if (AppConstants.MOZ_BACKGROUNDTASKS) {
 // Bug 1710546 https://bugzilla.mozilla.org/show_bug.cgi?id=1710546
 if (AppConstants.NIGHTLY_BUILD) {
   gExceptionPaths.push("resource://builtin-addons/translations/");
+}
+
+// Temporary allowlist for shopping - we'll reference this soon.
+if (AppConstants.NIGHTLY_BUILD) {
+  gExceptionPaths.push("chrome://browser/content/shopping/shopping.html");
 }
 
 if (AppConstants.NIGHTLY_BUILD) {
@@ -292,12 +294,6 @@ var whitelist = [
 
   // Bug 1824826 - Implement a view of history in Firefox View
   { file: "resource://gre/modules/PlacesQuery.sys.mjs" },
-
-  // Should be removed in bug 1824826 when fxview-tab-list is used in Firefox View
-  { file: "resource://app/localization/en-US/browser/fxviewTabList.ftl" },
-  { file: "chrome://browser/content/firefoxview/fxview-tab-list.css" },
-  { file: "chrome://browser/content/firefoxview/fxview-tab-list.mjs" },
-  { file: "chrome://browser/content/firefoxview/fxview-tab-row.css" },
 ];
 
 if (AppConstants.NIGHTLY_BUILD && AppConstants.platform != "win") {

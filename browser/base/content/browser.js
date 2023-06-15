@@ -1532,8 +1532,8 @@ var gBrowserInit = {
       if (!toolbarMenubar.hasAttribute("autohide")) {
         toolbarMenubar.setAttribute("autohide", true);
       }
-      toolbarMenubar.setAttribute(
-        "data-l10n-id",
+      document.l10n.setAttributes(
+        toolbarMenubar,
         "toolbar-context-menu-menu-bar-cmd"
       );
       toolbarMenubar.setAttribute("data-l10n-attrs", "toolbarname");
@@ -1987,8 +1987,8 @@ var gBrowserInit = {
               toplevel.toplevel_name
             );
           } else {
-            managedBookmarksButton.setAttribute(
-              "data-l10n-id",
+            document.l10n.setAttributes(
+              managedBookmarksButton,
               "managed-bookmarks"
             );
           }
@@ -2017,7 +2017,7 @@ var gBrowserInit = {
           );
           managedBookmarksPopup.setAttribute("placespopup", "true");
           managedBookmarksPopup.setAttribute("is", "places-popup");
-          managedBookmarksPopup.setAttribute("type", "arrow");
+          managedBookmarksPopup.classList.add("toolbar-menupopup");
           managedBookmarksButton.appendChild(managedBookmarksPopup);
 
           gNavToolbox.palette.appendChild(managedBookmarksButton);
@@ -5434,7 +5434,7 @@ var XULBrowserWindow = {
       }
     }
 
-    if (TranslationsParent.isRestrictedPage(gBrowser.currentURI.spec)) {
+    if (TranslationsParent.isRestrictedPage(gBrowser.currentURI.scheme)) {
       this._menuItemForTranslations.setAttribute("disabled", "true");
     } else {
       this._menuItemForTranslations.removeAttribute("disabled");
@@ -8156,6 +8156,23 @@ function AddKeywordForSearchField() {
 }
 
 /**
+ * Applies only to the cmd|ctrl + shift + T keyboard shortcut
+ * Undo the last action that was taken - either closing the last tab or closing the last window;
+ * If none of those were the last actions, restore the last session if possible.
+ */
+function restoreLastClosedTabOrWindowOrSession() {
+  let lastActionTaken = SessionStore.popLastClosedAction();
+
+  if (!lastActionTaken && SessionStore.canRestoreLastSession) {
+    SessionStore.restoreLastSession();
+  } else if (lastActionTaken?.type == SessionStore.LAST_ACTION_CLOSED_TAB) {
+    this.undoCloseTab();
+  } else if (lastActionTaken?.type == SessionStore.LAST_ACTION_CLOSED_WINDOW) {
+    this.undoCloseWindow();
+  }
+}
+
+/**
  * Re-open a closed tab.
  * @param aIndex
  *        The index of the tab (via SessionStore.getClosedTabDataForWindow)
@@ -8169,19 +8186,6 @@ function undoCloseTab(aIndex) {
   }
 
   let closedTabCount = SessionStore.getLastClosedTabCount(window);
-
-  // There's nothing to do here if there are no tabs to re-open for this
-  // window...
-  if (!closedTabCount) {
-    // ... unless there's a previous session that we can restore, in which
-    // case, we use this as a signal to restore that session and merge it into
-    // the current session.
-    if (SessionStore.canRestoreLastSession) {
-      SessionStore.restoreLastSession();
-    }
-    return null;
-  }
-
   let tab = null;
   // aIndex is undefined if the function is called without a specific tab to restore.
   let tabsToRemove =

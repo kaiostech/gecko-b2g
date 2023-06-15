@@ -13,6 +13,7 @@
 #include "mozilla/dom/CSSTransition.h"
 #include "mozilla/dom/KeyframeEffect.h"
 #include "mozilla/EffectSet.h"
+#include "mozilla/MotionPathUtils.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/StaticPrefs_layout.h"
 #include "nsIContent.h"
@@ -332,16 +333,6 @@ static Maybe<ScrollTimelineOptions> GetScrollTimelineOptions(
   return Some(ScrollTimelineOptions(source, timeline->Axis()));
 }
 
-// FIXME: Bug 1489392: We don't have to normalize the path here if we accept
-// the spec issue which would like to normalize svg paths at computed time.
-static StyleOffsetPath NormalizeOffsetPath(const StyleOffsetPath& aOffsetPath) {
-  if (aOffsetPath.IsPath()) {
-    return StyleOffsetPath::Path(
-        MotionPathUtils::NormalizeSVGPathData(aOffsetPath.AsPath()));
-  }
-  return StyleOffsetPath(aOffsetPath);
-}
-
 static void SetAnimatable(nsCSSPropertyID aProperty,
                           const AnimationValue& aAnimationValue,
                           nsIFrame* aFrame, TransformReferenceBox& aRefBox,
@@ -380,8 +371,8 @@ static void SetAnimatable(nsCSSPropertyID aProperty,
           aAnimationValue.GetTransformProperty(), aRefBox);
       break;
     case eCSSProperty_offset_path:
-      aAnimatable =
-          NormalizeOffsetPath(aAnimationValue.GetOffsetPathProperty());
+      aAnimatable = StyleOffsetPath::None();
+      aAnimationValue.GetOffsetPathProperty(aAnimatable.get_StyleOffsetPath());
       break;
     case eCSSProperty_offset_distance:
       aAnimatable = aAnimationValue.GetOffsetDistanceProperty();
@@ -863,7 +854,7 @@ void AnimationInfo::AddNonAnimatingTransformLikePropertiesStyles(
         break;
       case eCSSProperty_offset_path:
         if (!display->mOffsetPath.IsNone()) {
-          appendFakeAnimation(id, NormalizeOffsetPath(display->mOffsetPath));
+          appendFakeAnimation(id, display->mOffsetPath);
         }
         break;
       case eCSSProperty_offset_distance:

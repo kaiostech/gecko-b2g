@@ -34,7 +34,7 @@ class WMFCDMImpl final {
 
   static bool Supports(const nsAString& aKeySystem);
   // TODO: make this async?
-  bool GetCapabilities(KeySystemConfig& aConfig);
+  bool GetCapabilities(nsTArray<KeySystemConfig>& aOutConfigs);
 
   using InitPromise = GenericPromise;
   struct InitParams {
@@ -42,8 +42,9 @@ class WMFCDMImpl final {
     CopyableTArray<nsString> mInitDataTypes;
     bool mPersistentStateRequired;
     bool mDistinctiveIdentifierRequired;
-    bool mHWSecure;
     WMFCDMProxyCallback* mProxyCallback;
+    CopyableTArray<MFCDMMediaCapability> mAudioCapabilities;
+    CopyableTArray<MFCDMMediaCapability> mVideoCapabilities;
   };
 
   RefPtr<InitPromise> Init(const InitParams& aParams);

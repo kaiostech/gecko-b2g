@@ -13,6 +13,7 @@
 #include "mozilla/EMEUtils.h"
 #include "mozilla/KeySystemConfig.h"
 #include "MFCDMProxy.h"
+#include "MFMediaEngineUtils.h"
 #include "RemoteDecodeUtils.h"       // For GetCurrentSandboxingKind()
 #include "SpecialSystemDirectory.h"  // For temp dir
 
@@ -62,6 +63,217 @@ DEFINE_PROPERTYKEY(EME_CONTENTDECRYPTIONMODULE_ORIGIN_ID, 0x1218a3e2, 0xcfb0,
       return IPC_OK();                                             \
     }                                                              \
   } while (false)
+
+// RAIIized PROPVARIANT. See
+// third_party/libwebrtc/modules/audio_device/win/core_audio_utility_win.h
+class AutoPropVar {
+ public:
+  AutoPropVar() { PropVariantInit(&mVar); }
+
+  ~AutoPropVar() { Reset(); }
+
+  AutoPropVar(const AutoPropVar&) = delete;
+  AutoPropVar& operator=(const AutoPropVar&) = delete;
+  bool operator==(const AutoPropVar&) const = delete;
+  bool operator!=(const AutoPropVar&) const = delete;
+
+  // Returns a pointer to the underlying PROPVARIANT for use as an out param
+  // in a function call.
+  PROPVARIANT* Receive() {
+    MOZ_ASSERT(mVar.vt == VT_EMPTY);
+    return &mVar;
+  }
+
+  // Clears the instance to prepare it for re-use (e.g., via Receive).
+  void Reset() {
+    if (mVar.vt != VT_EMPTY) {
+      HRESULT hr = PropVariantClear(&mVar);
+      MOZ_ASSERT(SUCCEEDED(hr));
+      Unused << hr;
+    }
+  }
+
+  const PROPVARIANT& get() const { return mVar; }
+  const PROPVARIANT* ptr() const { return &mVar; }
+
+ private:
+  PROPVARIANT mVar;
+};
+
+static MF_MEDIAKEYS_REQUIREMENT ToMFRequirement(
+    const KeySystemConfig::Requirement aRequirement) {
+  switch (aRequirement) {
+    case KeySystemConfig::Requirement::NotAllowed:
+      return MF_MEDIAKEYS_REQUIREMENT_NOT_ALLOWED;
+    case KeySystemConfig::Requirement::Optional:
+      return MF_MEDIAKEYS_REQUIREMENT_OPTIONAL;
+    case KeySystemConfig::Requirement::Required:
+      return MF_MEDIAKEYS_REQUIREMENT_REQUIRED;
+  }
+};
+
+static inline LPCWSTR InitDataTypeToString(const nsAString& aInitDataType) {
+  // The strings are defined in https://www.w3.org/TR/eme-initdata-registry/
+  if (aInitDataType.EqualsLiteral("webm")) {
+    return L"webm";
+  } else if (aInitDataType.EqualsLiteral("cenc")) {
+    return L"cenc";
+  } else if (aInitDataType.EqualsLiteral("keyids")) {
+    return L"keyids";
+  } else {
+    return L"unknown";
+  }
+}
+
+static void BuildCapabilitiesArray(
+    const nsTArray<MFCDMMediaCapability>& aCapabilities,
+    AutoPropVar& capabilitiesPropOut) {
+  PROPVARIANT* capabilitiesArray = (PROPVARIANT*)CoTaskMemAlloc(
+      sizeof(PROPVARIANT) * aCapabilities.Length());
+  for (size_t idx = 0; idx < aCapabilities.Length(); idx++) {
+    ComPtr<IPropertyStore> capabilitiesProperty;
+    RETURN_VOID_IF_FAILED(
+        PSCreateMemoryPropertyStore(IID_PPV_ARGS(&capabilitiesProperty)));
+
+    AutoPropVar contentType;
+    auto* var = contentType.Receive();
+    var->vt = VT_BSTR;
+    var->bstrVal = SysAllocString(aCapabilities[idx].contentType().get());
+    RETURN_VOID_IF_FAILED(
+        capabilitiesProperty->SetValue(MF_EME_CONTENTTYPE, contentType.get()));
+
+    AutoPropVar robustness;
+    var = robustness.Receive();
+    var->vt = VT_BSTR;
+    var->bstrVal = SysAllocString(aCapabilities[idx].robustness().get());
+    RETURN_VOID_IF_FAILED(
+        capabilitiesProperty->SetValue(MF_EME_ROBUSTNESS, robustness.get()));
+
+    capabilitiesArray[idx].vt = VT_UNKNOWN;
+    capabilitiesArray[idx].punkVal = capabilitiesProperty.Detach();
+  }
+  auto* var = capabilitiesPropOut.Receive();
+  var->vt = VT_VARIANT | VT_VECTOR;
+  var->capropvar.cElems = aCapabilities.Length();
+  var->capropvar.pElems = capabilitiesArray;
+}
+
+static HRESULT BuildCDMAccessConfig(const MFCDMInitParamsIPDL& aParams,
+                                    ComPtr<IPropertyStore>& aConfig) {
+  ComPtr<IPropertyStore> mksc;  // EME MediaKeySystemConfiguration
+  MFCDM_RETURN_IF_FAILED(PSCreateMemoryPropertyStore(IID_PPV_ARGS(&mksc)));
+
+  // Init type. If we don't set `MF_EME_INITDATATYPES` then we won't be able to
+  // create CDM module on Windows 10, which is not documented officially.
+  BSTR* initDataTypeArray =
+      (BSTR*)CoTaskMemAlloc(sizeof(BSTR) * aParams.initDataTypes().Length());
+  for (size_t i = 0; i < aParams.initDataTypes().Length(); i++) {
+    initDataTypeArray[i] =
+        SysAllocString(InitDataTypeToString(aParams.initDataTypes()[i]));
+  }
+  AutoPropVar initDataTypes;
+  PROPVARIANT* var = initDataTypes.Receive();
+  var->vt = VT_VECTOR | VT_BSTR;
+  var->cabstr.cElems = static_cast<ULONG>(aParams.initDataTypes().Length());
+  var->cabstr.pElems = initDataTypeArray;
+  MFCDM_RETURN_IF_FAILED(
+      mksc->SetValue(MF_EME_INITDATATYPES, initDataTypes.get()));
+
+  // Audio capabilities
+  AutoPropVar audioCapabilities;
+  BuildCapabilitiesArray(aParams.audioCapabilities(), audioCapabilities);
+  MFCDM_RETURN_IF_FAILED(
+      mksc->SetValue(MF_EME_AUDIOCAPABILITIES, audioCapabilities.get()));
+
+  // Video capabilities
+  AutoPropVar videoCapabilities;
+  BuildCapabilitiesArray(aParams.videoCapabilities(), videoCapabilities);
+  MFCDM_RETURN_IF_FAILED(
+      mksc->SetValue(MF_EME_VIDEOCAPABILITIES, videoCapabilities.get()));
+
+  // Persist state
+  AutoPropVar persistState;
+  InitPropVariantFromUInt32(ToMFRequirement(aParams.persistentState()),
+                            persistState.Receive());
+  MFCDM_RETURN_IF_FAILED(
+      mksc->SetValue(MF_EME_PERSISTEDSTATE, persistState.get()));
+
+  // Distintive Id
+  AutoPropVar distinctiveID;
+  InitPropVariantFromUInt32(ToMFRequirement(aParams.distinctiveID()),
+                            distinctiveID.Receive());
+  MFCDM_RETURN_IF_FAILED(
+      mksc->SetValue(MF_EME_DISTINCTIVEID, distinctiveID.get()));
+
+  aConfig.Swap(mksc);
+  return S_OK;
+}
+
+static HRESULT BuildCDMProperties(const nsString& aOrigin,
+                                  ComPtr<IPropertyStore>& aProps) {
+  MOZ_ASSERT(!aOrigin.IsEmpty());
+
+  ComPtr<IPropertyStore> props;
+  MFCDM_RETURN_IF_FAILED(PSCreateMemoryPropertyStore(IID_PPV_ARGS(&props)));
+
+  AutoPropVar origin;
+  MFCDM_RETURN_IF_FAILED(
+      InitPropVariantFromString(aOrigin.get(), origin.Receive()));
+  MFCDM_RETURN_IF_FAILED(
+      props->SetValue(EME_CONTENTDECRYPTIONMODULE_ORIGIN_ID, origin.get()));
+
+  // TODO: support client token?
+
+  // TODO: CDM store path per profile?
+  nsCOMPtr<nsIFile> dir;
+  if (NS_FAILED(GetSpecialSystemDirectory(OS_TemporaryDirectory,
+                                          getter_AddRefs(dir)))) {
+    return E_ACCESSDENIED;
+  }
+  if (NS_FAILED(dir->AppendNative(nsDependentCString("mfcdm")))) {
+    return E_ACCESSDENIED;
+  }
+  nsresult rv = dir->Create(nsIFile::DIRECTORY_TYPE, 0700);
+  if (rv != NS_ERROR_FILE_ALREADY_EXISTS && NS_FAILED(rv)) {
+    return E_ACCESSDENIED;
+  }
+  nsAutoString cdmStorePath;
+  if (NS_FAILED(dir->GetPath(cdmStorePath))) {
+    return E_ACCESSDENIED;
+  }
+
+  AutoPropVar path;
+  MFCDM_RETURN_IF_FAILED(
+      InitPropVariantFromString(cdmStorePath.get(), path.Receive()));
+  MFCDM_RETURN_IF_FAILED(
+      props->SetValue(MF_CONTENTDECRYPTIONMODULE_STOREPATH, path.get()));
+
+  aProps.Swap(props);
+  return S_OK;
+}
+
+static HRESULT CreateContentDecryptionModule(
+    ComPtr<IMFContentDecryptionModuleFactory> aFactory,
+    const nsString& aKeySystem, const MFCDMInitParamsIPDL& aParams,
+    ComPtr<IMFContentDecryptionModule>& aCDMOut) {
+  // Get access object to CDM.
+  ComPtr<IPropertyStore> accessConfig;
+  RETURN_IF_FAILED(BuildCDMAccessConfig(aParams, accessConfig));
+
+  AutoTArray<IPropertyStore*, 1> configs = {accessConfig.Get()};
+  ComPtr<IMFContentDecryptionModuleAccess> cdmAccess;
+  RETURN_IF_FAILED(aFactory->CreateContentDecryptionModuleAccess(
+      aKeySystem.get(), configs.Elements(), configs.Length(), &cdmAccess));
+
+  // Get CDM.
+  ComPtr<IPropertyStore> cdmProps;
+  RETURN_IF_FAILED(BuildCDMProperties(aParams.origin(), cdmProps));
+  ComPtr<IMFContentDecryptionModule> cdm;
+  RETURN_IF_FAILED(
+      cdmAccess->CreateContentDecryptionModule(cdmProps.Get(), &cdm));
+  aCDMOut.Swap(cdm);
+  return S_OK;
+}
 
 void MFCDMParent::Register() {
   MOZ_ASSERT(!sRegisteredCDMs.Contains(this->mId));
@@ -134,41 +346,108 @@ HRESULT MFCDMParent::LoadFactory() {
 // capabilities. It appears to be the same as
 // Windows.Media.Protection.ProtectionCapabilities.IsTypeSupported(). See
 // https://learn.microsoft.com/en-us/uwp/api/windows.media.protection.protectioncapabilities.istypesupported?view=winrt-19041
-static bool FactorySupports(
-    ComPtr<IMFContentDecryptionModuleFactory>& aFactory,
-    const nsString& aKeySystem,
-    const KeySystemConfig::EMECodecString& aVideoCodec,
-    const KeySystemConfig::EMECodecString& aAudioCodec =
-        KeySystemConfig::EMECodecString(""),
-    const nsString& aAdditionalFeature = nsString(u"")) {
+static bool FactorySupports(ComPtr<IMFContentDecryptionModuleFactory>& aFactory,
+                            const nsString& aKeySystem,
+                            const KeySystemConfig::EMECodecString& aVideoCodec,
+                            const KeySystemConfig::EMECodecString& aAudioCodec =
+                                KeySystemConfig::EMECodecString(""),
+                            const nsString& aAdditionalFeatures = nsString(u""),
+                            bool aIsHWSecure = false) {
   // MP4 is the only container supported.
-  nsString mimeType(u"video/mp4;codecs=\"");
+  nsString contentType(u"video/mp4;codecs=\"");
   MOZ_ASSERT(!aVideoCodec.IsEmpty());
-  mimeType.AppendASCII(aVideoCodec);
+  contentType.AppendASCII(aVideoCodec);
   if (!aAudioCodec.IsEmpty()) {
-    mimeType.AppendLiteral(u",");
-    mimeType.AppendASCII(aAudioCodec);
+    contentType.AppendLiteral(u",");
+    contentType.AppendASCII(aAudioCodec);
   }
   // These features are required to call IsTypeSupported(). We only care about
   // codec and encryption scheme so hardcode the rest.
-  mimeType.AppendLiteral(
+  contentType.AppendLiteral(
       u"\";features=\"decode-bpp=8,"
       "decode-res-x=1920,decode-res-y=1080,"
       "decode-bitrate=10000000,decode-fps=30,");
-  if (!aAdditionalFeature.IsEmpty()) {
-    MOZ_ASSERT(aAdditionalFeature.Last() == u',');
-    mimeType.Append(aAdditionalFeature);
+  if (!aAdditionalFeatures.IsEmpty()) {
+    contentType.Append(aAdditionalFeatures);
   }
-  // TODO: add HW robustness setting too.
-  mimeType.AppendLiteral(u"encryption-robustness=SW_SECURE_DECODE\"");
-  return aFactory->IsTypeSupported(aKeySystem.get(), mimeType.get());
+  if (aIsHWSecure) {
+    contentType.AppendLiteral(u"encryption-robustness=HW_SECURE_ALL");
+  } else {
+    contentType.AppendLiteral(u"encryption-robustness=SW_SECURE_DECODE");
+  }
+  // End of the query string
+  contentType.AppendLiteral(u"\"");
+  bool support = aFactory->IsTypeSupported(aKeySystem.get(), contentType.get());
+  MFCDM_PARENT_SLOG("IsTypeSupport=%d (key-system=%s, content-type=%s)",
+                    support, NS_ConvertUTF16toUTF8(aKeySystem).get(),
+                    NS_ConvertUTF16toUTF8(contentType).get());
+  if (aIsHWSecure && support) {
+    // For HWDRM, `IsTypeSupported` can't tell the answer correctly, so we
+    // need to create a dummy CDM to see if the HWDRM is really usable or not.
+    nsTArray<nsString> dummyInitDataType{nsString(u"cenc"),
+                                         nsString(u"keyids")};
+    // TODO : support Widevine 'HW_SECURE_ALL'
+    MFCDMMediaCapability dummyVideoCapability{
+        nsString(u""), IsPlayReadyKeySystemAndSupported(aKeySystem)
+                           ? nsString(u"3000")
+                           : nsString(u"")};
+    MFCDMInitParamsIPDL dummyParam{
+        nsString(u"dummy"),
+        dummyInitDataType,
+        KeySystemConfig::Requirement::Required /* distintiveID */,
+        KeySystemConfig::Requirement::Required /* persistent */,
+        {} /* audio capabilites */,
+        {dummyVideoCapability} /* video capabilites */,
+    };
+    ComPtr<IMFContentDecryptionModule> dummyCDM;
+    if (FAILED(CreateContentDecryptionModule(aFactory, aKeySystem, dummyParam,
+                                             dummyCDM))) {
+      MFCDM_PARENT_SLOG("HWDRM actually not supported for %s",
+                        NS_ConvertUTF16toUTF8(aKeySystem).get());
+      support = false;
+    }
+  }
+  return support;
+}
+
+static nsString GetRobustnessStringForKeySystem(const nsString& aKeySystem,
+                                                const bool aIsHWSecure,
+                                                const bool aIsVideo = true) {
+  if (IsPlayReadyKeySystemAndSupported(aKeySystem)) {
+    // Audio doesn't support SL3000.
+    return aIsHWSecure && aIsVideo ? nsString(u"3000") : nsString(u"2000");
+  }
+  // TODO : implement Widevine L1, HW_SECURE_ALL/HW_SECURE_DECODE/....
+  return nsString(u"");
+}
+
+static bool IsKeySystemHWSecure(
+    const nsAString& aKeySystem,
+    const nsTArray<MFCDMMediaCapability>& aCapabilities) {
+  if (IsPlayReadyKeySystemAndSupported(aKeySystem)) {
+    if (aKeySystem.EqualsLiteral(kPlayReadyKeySystemHardware)) {
+      return true;
+    }
+    for (const auto& capabilities : aCapabilities) {
+      if (capabilities.robustness().EqualsLiteral("3000")) {
+        return true;
+      }
+    }
+  }
+  // TODO : implement for Widevine
+  return false;
 }
 
 mozilla::ipc::IPCResult MFCDMParent::RecvGetCapabilities(
-    GetCapabilitiesResolver&& aResolver) {
+    const bool aIsHWSecure, GetCapabilitiesResolver&& aResolver) {
   MFCDM_REJECT_IF(!mFactory, NS_ERROR_DOM_NOT_SUPPORTED_ERR);
 
   MFCDMCapabilitiesIPDL capabilities;
+  capabilities.keySystem() = mKeySystem;
+  // WMF CDMs usually require these. See
+  // https://source.chromium.org/chromium/chromium/src/+/main:media/cdm/win/media_foundation_cdm_factory.cc;l=69-73;drc=b3ca5c09fa0aa07b7f9921501f75e43d80f3ba48
+  capabilities.persistentState() = KeySystemConfig::Requirement::Required;
+  capabilities.distinctiveID() = KeySystemConfig::Requirement::Required;
 
   // TODO : check HW CDM creation
   // TODO : add HEVC support?
@@ -182,16 +461,20 @@ mozilla::ipc::IPCResult MFCDMParent::RecvGetCapabilities(
   // support.
   nsTArray<KeySystemConfig::EMECodecString> supportedVideoCodecs;
   for (auto& codec : kVideoCodecs) {
-    if (FactorySupports(mFactory, mKeySystem, codec)) {
+    if (FactorySupports(mFactory, mKeySystem, codec,
+                        KeySystemConfig::EMECodecString(""), nsString(u""),
+                        aIsHWSecure)) {
       MFCDMMediaCapability* c =
           capabilities.videoCapabilities().AppendElement();
       c->contentType() = NS_ConvertUTF8toUTF16(codec);
+      c->robustness() =
+          GetRobustnessStringForKeySystem(mKeySystem, aIsHWSecure);
       MFCDM_PARENT_LOG("%s: +video:%s", __func__, codec.get());
       supportedVideoCodecs.AppendElement(codec);
     }
   }
   if (supportedVideoCodecs.IsEmpty()) {
-    // Return empty capabilities when no video codec is supported.
+    // Return a capabilities with no codec supported.
     aResolver(std::move(capabilities));
     return IPC_OK();
   }
@@ -207,6 +490,8 @@ mozilla::ipc::IPCResult MFCDMParent::RecvGetCapabilities(
       MFCDMMediaCapability* c =
           capabilities.audioCapabilities().AppendElement();
       c->contentType() = NS_ConvertUTF8toUTF16(codec);
+      c->robustness() = GetRobustnessStringForKeySystem(mKeySystem, aIsHWSecure,
+                                                        false /* isVideo */);
       MFCDM_PARENT_LOG("%s: +audio:%s", __func__, codec.get());
     }
   }
@@ -220,9 +505,9 @@ mozilla::ipc::IPCResult MFCDMParent::RecvGetCapabilities(
   for (auto& scheme : kSchemes) {
     bool ok = true;
     for (auto& codec : supportedVideoCodecs) {
-      ok &= FactorySupports(mFactory, mKeySystem, codec,
-                            KeySystemConfig::EMECodecString(""),
-                            scheme.second /* additional feature */);
+      ok &= FactorySupports(
+          mFactory, mKeySystem, codec, KeySystemConfig::EMECodecString(""),
+          scheme.second /* additional feature */, aIsHWSecure);
       if (!ok) {
         break;
       }
@@ -241,191 +526,9 @@ mozilla::ipc::IPCResult MFCDMParent::RecvGetCapabilities(
       KeySystemConfig::SessionType::Temporary);
   capabilities.sessionTypes().AppendElement(
       KeySystemConfig::SessionType::PersistentLicense);
-  // WMF CDMs usually require these. See
-  // https://source.chromium.org/chromium/chromium/src/+/main:media/cdm/win/media_foundation_cdm_factory.cc;l=69-73;drc=b3ca5c09fa0aa07b7f9921501f75e43d80f3ba48
-  capabilities.persistentState() = KeySystemConfig::Requirement::Required;
-  capabilities.distinctiveID() = KeySystemConfig::Requirement::Required;
-
-  capabilities.keySystem() = mKeySystem;
 
   aResolver(std::move(capabilities));
   return IPC_OK();
-}
-
-// RAIIized PROPVARIANT. See
-// third_party/libwebrtc/modules/audio_device/win/core_audio_utility_win.h
-class AutoPropVar {
- public:
-  AutoPropVar() { PropVariantInit(&mVar); }
-
-  ~AutoPropVar() { Reset(); }
-
-  AutoPropVar(const AutoPropVar&) = delete;
-  AutoPropVar& operator=(const AutoPropVar&) = delete;
-  bool operator==(const AutoPropVar&) const = delete;
-  bool operator!=(const AutoPropVar&) const = delete;
-
-  // Returns a pointer to the underlying PROPVARIANT for use as an out param
-  // in a function call.
-  PROPVARIANT* Receive() {
-    MOZ_ASSERT(mVar.vt == VT_EMPTY);
-    return &mVar;
-  }
-
-  // Clears the instance to prepare it for re-use (e.g., via Receive).
-  void Reset() {
-    if (mVar.vt != VT_EMPTY) {
-      HRESULT hr = PropVariantClear(&mVar);
-      MOZ_ASSERT(SUCCEEDED(hr));
-      Unused << hr;
-    }
-  }
-
-  const PROPVARIANT& get() const { return mVar; }
-  const PROPVARIANT* ptr() const { return &mVar; }
-
- private:
-  PROPVARIANT mVar;
-};
-
-static MF_MEDIAKEYS_REQUIREMENT ToMFRequirement(
-    const KeySystemConfig::Requirement aRequirement) {
-  switch (aRequirement) {
-    case KeySystemConfig::Requirement::NotAllowed:
-      return MF_MEDIAKEYS_REQUIREMENT_NOT_ALLOWED;
-    case KeySystemConfig::Requirement::Optional:
-      return MF_MEDIAKEYS_REQUIREMENT_OPTIONAL;
-    case KeySystemConfig::Requirement::Required:
-      return MF_MEDIAKEYS_REQUIREMENT_REQUIRED;
-  }
-};
-
-static inline LPCWSTR InitDataTypeToString(const nsAString& aInitDataType) {
-  // The strings are defined in https://www.w3.org/TR/eme-initdata-registry/
-  if (aInitDataType.EqualsLiteral("webm")) {
-    return L"webm";
-  } else if (aInitDataType.EqualsLiteral("cenc")) {
-    return L"cenc";
-  } else if (aInitDataType.EqualsLiteral("keyids")) {
-    return L"keyids";
-  } else {
-    return L"unknown";
-  }
-}
-
-static HRESULT BuildCDMAccessConfig(const MFCDMInitParamsIPDL& aParams,
-                                    ComPtr<IPropertyStore>& aConfig) {
-  ComPtr<IPropertyStore> mksc;  // EME MediaKeySystemConfiguration
-  MFCDM_RETURN_IF_FAILED(PSCreateMemoryPropertyStore(IID_PPV_ARGS(&mksc)));
-
-  // If we don't set `MF_EME_INITDATATYPES` then we won't be able to create
-  // CDM module on Windows 10, which is not documented officially.
-  BSTR* initDataTypeArray =
-      (BSTR*)CoTaskMemAlloc(sizeof(BSTR) * aParams.initDataTypes().Length());
-  for (size_t i = 0; i < aParams.initDataTypes().Length(); i++) {
-    initDataTypeArray[i] =
-        SysAllocString(InitDataTypeToString(aParams.initDataTypes()[i]));
-  }
-  AutoPropVar initDataTypes;
-  PROPVARIANT* var = initDataTypes.Receive();
-  var->vt = VT_VECTOR | VT_BSTR;
-  var->cabstr.cElems = static_cast<ULONG>(aParams.initDataTypes().Length());
-  var->cabstr.pElems = initDataTypeArray;
-  MFCDM_RETURN_IF_FAILED(
-      mksc->SetValue(MF_EME_INITDATATYPES, initDataTypes.get()));
-
-  // Empty 'audioCapabilities'.
-  AutoPropVar audioCapabilities;
-  var = audioCapabilities.Receive();
-  var->vt = VT_VARIANT | VT_VECTOR;
-  var->capropvar.cElems = 0;
-  MFCDM_RETURN_IF_FAILED(
-      mksc->SetValue(MF_EME_AUDIOCAPABILITIES, audioCapabilities.get()));
-
-  // 'videoCapabilites'.
-  ComPtr<IPropertyStore> mksmc;  // EME MediaKeySystemMediaCapability
-  MFCDM_RETURN_IF_FAILED(PSCreateMemoryPropertyStore(IID_PPV_ARGS(&mksmc)));
-  if (aParams.hwSecure()) {
-    AutoPropVar robustness;
-    var = robustness.Receive();
-    var->vt = VT_BSTR;
-    var->bstrVal = SysAllocString(L"HW_SECURE_ALL");
-    MFCDM_RETURN_IF_FAILED(
-        mksmc->SetValue(MF_EME_ROBUSTNESS, robustness.get()));
-  }
-  // Store mksmc in a PROPVARIANT.
-  AutoPropVar videoCapability;
-  var = videoCapability.Receive();
-  var->vt = VT_UNKNOWN;
-  var->punkVal = mksmc.Detach();
-  // Insert element.
-  AutoPropVar videoCapabilities;
-  var = videoCapabilities.Receive();
-  var->vt = VT_VARIANT | VT_VECTOR;
-  var->capropvar.cElems = 1;
-  var->capropvar.pElems =
-      reinterpret_cast<PROPVARIANT*>(CoTaskMemAlloc(sizeof(PROPVARIANT)));
-  PropVariantCopy(var->capropvar.pElems, videoCapability.ptr());
-  MFCDM_RETURN_IF_FAILED(
-      mksc->SetValue(MF_EME_VIDEOCAPABILITIES, videoCapabilities.get()));
-
-  AutoPropVar persistState;
-  InitPropVariantFromUInt32(ToMFRequirement(aParams.persistentState()),
-                            persistState.Receive());
-  MFCDM_RETURN_IF_FAILED(
-      mksc->SetValue(MF_EME_PERSISTEDSTATE, persistState.get()));
-
-  AutoPropVar distinctiveID;
-  InitPropVariantFromUInt32(ToMFRequirement(aParams.distinctiveID()),
-                            distinctiveID.Receive());
-  MFCDM_RETURN_IF_FAILED(
-      mksc->SetValue(MF_EME_DISTINCTIVEID, distinctiveID.get()));
-
-  aConfig.Swap(mksc);
-  return S_OK;
-}
-
-static HRESULT BuildCDMProperties(const nsString& aOrigin,
-                                  ComPtr<IPropertyStore>& aProps) {
-  MOZ_ASSERT(!aOrigin.IsEmpty());
-
-  ComPtr<IPropertyStore> props;
-  MFCDM_RETURN_IF_FAILED(PSCreateMemoryPropertyStore(IID_PPV_ARGS(&props)));
-
-  AutoPropVar origin;
-  MFCDM_RETURN_IF_FAILED(
-      InitPropVariantFromString(aOrigin.get(), origin.Receive()));
-  MFCDM_RETURN_IF_FAILED(
-      props->SetValue(EME_CONTENTDECRYPTIONMODULE_ORIGIN_ID, origin.get()));
-
-  // TODO: support client token?
-
-  // TODO: CDM store path per profile?
-  nsCOMPtr<nsIFile> dir;
-  if (NS_FAILED(GetSpecialSystemDirectory(OS_TemporaryDirectory,
-                                          getter_AddRefs(dir)))) {
-    return E_ACCESSDENIED;
-  }
-  if (NS_FAILED(dir->AppendNative(nsDependentCString("mfcdm")))) {
-    return E_ACCESSDENIED;
-  }
-  nsresult rv = dir->Create(nsIFile::DIRECTORY_TYPE, 0700);
-  if (rv != NS_ERROR_FILE_ALREADY_EXISTS && NS_FAILED(rv)) {
-    return E_ACCESSDENIED;
-  }
-  nsAutoString cdmStorePath;
-  if (NS_FAILED(dir->GetPath(cdmStorePath))) {
-    return E_ACCESSDENIED;
-  }
-
-  AutoPropVar path;
-  MFCDM_RETURN_IF_FAILED(
-      InitPropVariantFromString(cdmStorePath.get(), path.Receive()));
-  MFCDM_RETURN_IF_FAILED(
-      props->SetValue(MF_CONTENTDECRYPTIONMODULE_STOREPATH, path.get()));
-
-  aProps.Swap(props);
-  return S_OK;
 }
 
 mozilla::ipc::IPCResult MFCDMParent::RecvInit(
@@ -448,30 +551,14 @@ mozilla::ipc::IPCResult MFCDMParent::RecvInit(
       NS_ConvertUTF16toUTF8(mKeySystem).get(),
       NS_ConvertUTF16toUTF8(aParams.origin()).get(),
       RequirementToStr(aParams.distinctiveID()),
-      RequirementToStr(aParams.persistentState()), aParams.hwSecure());
+      RequirementToStr(aParams.persistentState()),
+      IsKeySystemHWSecure(mKeySystem, aParams.videoCapabilities()));
   MOZ_ASSERT(mFactory->IsTypeSupported(mKeySystem.get(), nullptr));
 
-  // Get access object to CDM.
-  ComPtr<IPropertyStore> accessConfig;
-  MFCDM_REJECT_IF_FAILED(BuildCDMAccessConfig(aParams, accessConfig),
-                         NS_ERROR_FAILURE);
-
-  AutoTArray<IPropertyStore*, 1> configs = {accessConfig.Get()};
-  ComPtr<IMFContentDecryptionModuleAccess> cdmAccess;
   MFCDM_REJECT_IF_FAILED(
-      mFactory->CreateContentDecryptionModuleAccess(
-          mKeySystem.get(), configs.Elements(), configs.Length(), &cdmAccess),
+      CreateContentDecryptionModule(mFactory, mKeySystem, aParams, mCDM),
       NS_ERROR_FAILURE);
-  // Get CDM.
-  ComPtr<IPropertyStore> cdmProps;
-  MFCDM_REJECT_IF_FAILED(BuildCDMProperties(aParams.origin(), cdmProps),
-                         NS_ERROR_FAILURE);
-  ComPtr<IMFContentDecryptionModule> cdm;
-  MFCDM_REJECT_IF_FAILED(
-      cdmAccess->CreateContentDecryptionModule(cdmProps.Get(), &cdm),
-      NS_ERROR_FAILURE);
-
-  mCDM.Swap(cdm);
+  MOZ_ASSERT(mCDM);
   MFCDM_PARENT_LOG("Created a CDM!");
 
   // TODO : for Widevine CDM, would we still need to do following steps?

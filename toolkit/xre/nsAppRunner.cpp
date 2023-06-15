@@ -5840,7 +5840,8 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     return NS_OK;
   });
 
-  mozilla::IOInterposerInit ioInterposerGuard;
+  mozilla::AutoIOInterposer ioInterposerGuard;
+  ioInterposerGuard.Init();
 
 #if defined(XP_WIN)
   // We should have already done this when we created the skeleton UI. However,

@@ -79,12 +79,12 @@ void MFCDMChild::Shutdown() {
   mShutdown = true;
   mProxyCallback = nullptr;
 
-  mRemoteRequest.DisconnectIfExists();
-  mInitRequest.DisconnectIfExists();
-
   if (mState == NS_OK) {
     mManagerThread->Dispatch(
         NS_NewRunnableFunction(__func__, [self = RefPtr{this}, this]() {
+          mRemoteRequest.DisconnectIfExists();
+          mInitRequest.DisconnectIfExists();
+
           for (auto& promise : mPendingSessionPromises) {
             promise.second.RejectIfExists(NS_ERROR_ABORT, __func__);
           }
@@ -103,7 +103,8 @@ void MFCDMChild::Shutdown() {
   }
 }
 
-RefPtr<MFCDMChild::CapabilitiesPromise> MFCDMChild::GetCapabilities() {
+RefPtr<MFCDMChild::CapabilitiesPromise> MFCDMChild::GetCapabilities(
+    bool aIsHWSecured) {
   MOZ_ASSERT(mManagerThread);
 
   if (mShutdown) {
@@ -115,21 +116,23 @@ RefPtr<MFCDMChild::CapabilitiesPromise> MFCDMChild::GetCapabilities() {
     return CapabilitiesPromise::CreateAndReject(mState, __func__);
   }
 
-  auto doSend = [self = RefPtr{this}, this]() {
-    SendGetCapabilities()->Then(
-        mManagerThread, __func__,
-        [self, this](MFCDMCapabilitiesResult&& aResult) {
-          if (aResult.type() == MFCDMCapabilitiesResult::Tnsresult) {
-            mCapabilitiesPromiseHolder.RejectIfExists(aResult.get_nsresult(),
-                                                      __func__);
-            return;
-          }
-          mCapabilitiesPromiseHolder.ResolveIfExists(
-              std::move(aResult.get_MFCDMCapabilitiesIPDL()), __func__);
-        },
-        [self, this](const mozilla::ipc::ResponseRejectReason& aReason) {
-          mCapabilitiesPromiseHolder.RejectIfExists(NS_ERROR_FAILURE, __func__);
-        });
+  auto doSend = [self = RefPtr{this}, aIsHWSecured, this]() {
+    SendGetCapabilities(aIsHWSecured)
+        ->Then(
+            mManagerThread, __func__,
+            [self, this](MFCDMCapabilitiesResult&& aResult) {
+              if (aResult.type() == MFCDMCapabilitiesResult::Tnsresult) {
+                mCapabilitiesPromiseHolder.RejectIfExists(
+                    aResult.get_nsresult(), __func__);
+                return;
+              }
+              mCapabilitiesPromiseHolder.ResolveIfExists(
+                  std::move(aResult.get_MFCDMCapabilitiesIPDL()), __func__);
+            },
+            [self, this](const mozilla::ipc::ResponseRejectReason& aReason) {
+              mCapabilitiesPromiseHolder.RejectIfExists(NS_ERROR_FAILURE,
+                                                        __func__);
+            });
   };
 
   return InvokeAsync(doSend, __func__, mCapabilitiesPromiseHolder);
@@ -168,7 +171,9 @@ already_AddRefed<PromiseType> MFCDMChild::InvokeAsync(
 RefPtr<MFCDMChild::InitPromise> MFCDMChild::Init(
     const nsAString& aOrigin, const CopyableTArray<nsString>& aInitDataTypes,
     const KeySystemConfig::Requirement aPersistentState,
-    const KeySystemConfig::Requirement aDistinctiveID, const bool aHWSecure,
+    const KeySystemConfig::Requirement aDistinctiveID,
+    const CopyableTArray<MFCDMMediaCapability>& aAudioCapabilities,
+    const CopyableTArray<MFCDMMediaCapability>& aVideoCapabilities,
     WMFCDMProxyCallback* aProxyCallback) {
   MOZ_ASSERT(mManagerThread);
 
@@ -182,8 +187,9 @@ RefPtr<MFCDMChild::InitPromise> MFCDMChild::Init(
   }
 
   mProxyCallback = aProxyCallback;
-  MFCDMInitParamsIPDL params{nsString(aOrigin), aInitDataTypes, aDistinctiveID,
-                             aPersistentState, aHWSecure};
+  MFCDMInitParamsIPDL params{nsString(aOrigin),  aInitDataTypes,
+                             aDistinctiveID,     aPersistentState,
+                             aAudioCapabilities, aVideoCapabilities};
   auto doSend = [self = RefPtr{this}, this, params]() {
     SendInit(params)
         ->Then(

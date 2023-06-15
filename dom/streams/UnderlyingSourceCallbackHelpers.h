@@ -237,11 +237,15 @@ class InputToReadableStreamAlgorithms final
 
   void WriteIntoReadRequestBuffer(JSContext* aCx, ReadableStream* aStream,
                                   JS::Handle<JSObject*> aBuffer,
-                                  uint32_t aLength, uint32_t* aByteWritten);
+                                  uint32_t aLength, uint32_t* aByteWritten,
+                                  ErrorResult& aRv);
 
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY void EnqueueChunkWithSizeIntoStream(
-      JSContext* aCx, ReadableStream* aStream, uint64_t aAvailableData,
-      ErrorResult& aRv);
+  // https://streams.spec.whatwg.org/#readablestream-pull-from-bytes
+  // (Uses InputStreamHolder for the "byte sequence" in the spec)
+  MOZ_CAN_RUN_SCRIPT void PullFromInputStream(JSContext* aCx,
+                                              uint64_t aAvailable,
+                                              ErrorResult& aRv);
+
   void ErrorPropagation(JSContext* aCx, ReadableStream* aStream,
                         nsresult aError);
 
@@ -257,7 +261,9 @@ class InputToReadableStreamAlgorithms final
   RefPtr<Promise> mPullPromise;
 
   RefPtr<InputStreamHolder> mInput;
-  RefPtr<ReadableStream> mStream;
+
+  // mStream never changes after construction and before CC
+  MOZ_KNOWN_LIVE RefPtr<ReadableStream> mStream;
 };
 
 class NonAsyncInputToReadableStreamAlgorithms

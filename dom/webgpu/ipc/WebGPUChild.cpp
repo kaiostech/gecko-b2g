@@ -55,7 +55,7 @@ static ffi::WGPUCompareFunction ConvertCompareFunction(
   return ffi::WGPUCompareFunction(UnderlyingValue(aCompare) + 1);
 }
 
-static ffi::WGPUTextureFormat ConvertTextureFormat(
+ffi::WGPUTextureFormat WebGPUChild::ConvertTextureFormat(
     const dom::GPUTextureFormat& aFormat) {
   ffi::WGPUTextureFormat result = {ffi::WGPUTextureFormat_Sentinel};
   switch (aFormat) {
@@ -137,7 +137,7 @@ static ffi::WGPUTextureFormat ConvertTextureFormat(
     case dom::GPUTextureFormat::Rgb10a2unorm:
       result.tag = ffi::WGPUTextureFormat_Rgb10a2Unorm;
       break;
-    case dom::GPUTextureFormat::Rg11b10float:
+    case dom::GPUTextureFormat::Rg11b10ufloat:
       result.tag = ffi::WGPUTextureFormat_Rg11b10Float;
       break;
     case dom::GPUTextureFormat::Rg32uint:
@@ -212,6 +212,12 @@ static ffi::WGPUTextureFormat ConvertTextureFormat(
     case dom::GPUTextureFormat::Bc7_rgba_unorm_srgb:
       result.tag = ffi::WGPUTextureFormat_Bc7RgbaUnormSrgb;
       break;
+    case dom::GPUTextureFormat::Stencil8:
+      result.tag = ffi::WGPUTextureFormat_Stencil8;
+      break;
+    case dom::GPUTextureFormat::Depth16unorm:
+      result.tag = ffi::WGPUTextureFormat_Depth16Unorm;
+      break;
     case dom::GPUTextureFormat::Depth24plus:
       result.tag = ffi::WGPUTextureFormat_Depth24Plus;
       break;
@@ -231,11 +237,6 @@ static ffi::WGPUTextureFormat ConvertTextureFormat(
              "unexpected texture format enum");
 
   return result;
-}
-
-void WebGPUChild::ConvertTextureFormatRef(const dom::GPUTextureFormat& aInput,
-                                          ffi::WGPUTextureFormat& aOutput) {
-  aOutput = ConvertTextureFormat(aInput);
 }
 
 static UniquePtr<ffi::WGPUClient> initialize() {
@@ -308,9 +309,6 @@ RawId WebGPUChild::DeviceCreateTexture(RawId aSelfId,
   webgpu::StringHelper label(aDesc.mLabel);
   desc.label = label.Get();
 
-  // TODO: bug 1773723
-  desc.view_formats = {nullptr, 0};
-
   if (aDesc.mSize.IsRangeEnforcedUnsignedLongSequence()) {
     const auto& seq = aDesc.mSize.GetAsRangeEnforcedUnsignedLongSequence();
     desc.size.width = seq.Length() > 0 ? seq[0] : 1;
@@ -327,8 +325,14 @@ RawId WebGPUChild::DeviceCreateTexture(RawId aSelfId,
   desc.mip_level_count = aDesc.mMipLevelCount;
   desc.sample_count = aDesc.mSampleCount;
   desc.dimension = ffi::WGPUTextureDimension(aDesc.mDimension);
-  desc.format = ConvertTextureFormat(aDesc.mFormat);
+  desc.format = WebGPUChild::ConvertTextureFormat(aDesc.mFormat);
   desc.usage = aDesc.mUsage;
+
+  AutoTArray<ffi::WGPUTextureFormat, 8> viewFormats;
+  for (auto format : aDesc.mViewFormats) {
+    viewFormats.AppendElement(WebGPUChild::ConvertTextureFormat(format));
+  }
+  desc.view_formats = {viewFormats.Elements(), viewFormats.Length()};
 
   ByteBuf bb;
   RawId id = ffi::wgpu_client_create_texture(mClient.get(), aSelfId, &desc,
@@ -349,7 +353,7 @@ RawId WebGPUChild::TextureCreateView(
 
   ffi::WGPUTextureFormat format = {ffi::WGPUTextureFormat_Sentinel};
   if (aDesc.mFormat.WasPassed()) {
-    format = ConvertTextureFormat(aDesc.mFormat.Value());
+    format = WebGPUChild::ConvertTextureFormat(aDesc.mFormat.Value());
     desc.format = &format;
   }
   ffi::WGPUTextureViewDimension dimension =
@@ -511,7 +515,7 @@ RawId WebGPUChild::DeviceCreateBindGroupLayout(
     if (entry.mStorageTexture.WasPassed()) {
       const auto& texture = entry.mStorageTexture.Value();
       data.dim = ffi::WGPUTextureViewDimension(texture.mViewDimension);
-      data.format = ConvertTextureFormat(texture.mFormat);
+      data.format = WebGPUChild::ConvertTextureFormat(texture.mFormat);
     }
     optional.AppendElement(data);
   }
@@ -911,7 +915,7 @@ static ffi::WGPUStencilFaceState ConvertStencilFaceState(
 static ffi::WGPUDepthStencilState ConvertDepthStencilState(
     const dom::GPUDepthStencilState& aDesc) {
   ffi::WGPUDepthStencilState desc = {};
-  desc.format = ConvertTextureFormat(aDesc.mFormat);
+  desc.format = WebGPUChild::ConvertTextureFormat(aDesc.mFormat);
   desc.depth_write_enabled = aDesc.mDepthWriteEnabled;
   desc.depth_compare = ConvertCompareFunction(aDesc.mDepthCompare);
   desc.stencil.front = ConvertStencilFaceState(aDesc.mStencilFront);
@@ -996,7 +1000,7 @@ RawId WebGPUChild::DeviceCreateRenderPipelineImpl(
     // so that we can have non-stale pointers into it.
     for (const auto& colorState : stage.mTargets) {
       ffi::WGPUColorTargetState desc = {};
-      desc.format = ConvertTextureFormat(colorState.mFormat);
+      desc.format = WebGPUChild::ConvertTextureFormat(colorState.mFormat);
       desc.write_mask = colorState.mWriteMask;
       colorStates.AppendElement(desc);
       ffi::WGPUBlendState bs = {};

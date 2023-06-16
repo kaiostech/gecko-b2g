@@ -273,6 +273,7 @@ dictionary GPUTextureDescriptor : GPUObjectDescriptorBase {
     GPUTextureDimension dimension = "2d";
     required GPUTextureFormat format;
     required GPUTextureUsageFlags usage;
+    sequence<GPUTextureFormat> viewFormats = [];
 };
 
 enum GPUTextureDimension {
@@ -365,7 +366,7 @@ enum GPUTextureFormat {
     // Packed 32-bit formats
     "rgb9e5ufloat",
     "rgb10a2unorm",
-    "rg11b10float",
+    "rg11b10ufloat",
 
     // 64-bit formats
     "rg32uint",
@@ -381,8 +382,8 @@ enum GPUTextureFormat {
     "rgba32float",
 
     // Depth and stencil formats
-    //"stencil8", //TODO
-    //"depth16unorm",
+    "stencil8",
+    "depth16unorm",
     "depth24plus",
     "depth24plus-stencil8",
     "depth32float",
@@ -1153,6 +1154,7 @@ dictionary GPUCanvasConfiguration {
     required GPUDevice device;
     required GPUTextureFormat format;
     GPUTextureUsageFlags usage = 0x10; //GPUTextureUsage.OUTPUT_ATTACHMENT
+    sequence<GPUTextureFormat> viewFormats = [];
     //GPUPredefinedColorSpace colorSpace = "srgb"; //TODO
     GPUCanvasCompositingAlphaMode compositingAlphaMode = "opaque";
 };

@@ -2,19 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
-
-var EXPORTED_SYMBOLS = ["ScreenshotUtils"];
-
 const lazy = {};
 
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "PromiseUtils",
-  "resource://gre/modules/PromiseUtils.jsm"
-);
+ChromeUtils.defineESModuleGetters(lazy, {
+  PromiseUtils: "resource://gre/modules/PromiseUtils.sys.mjs",
+});
 
-var ScreenshotUtils = {
+export var ScreenshotUtils = {
   getScreenshot(content, maxWidth, maxHeight, mimeType) {
     let deferred = lazy.PromiseUtils.defer();
 

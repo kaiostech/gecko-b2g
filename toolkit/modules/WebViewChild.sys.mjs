@@ -2,16 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
 const lazy = {};
 
-XPCOMUtils.defineLazyModuleGetters(lazy, {
-  ContextMenuUtils: "resource://gre/modules/ContextMenuUtils.jsm",
-});
-
-XPCOMUtils.defineLazyModuleGetters(lazy, {
-  ScreenshotUtils: "resource://gre/modules/ScreenshotUtils.jsm",
+ChromeUtils.defineESModuleGetters(lazy, {
+  ContextMenuUtils: "resource://gre/modules/ContextMenuUtils.sys.mjs",
+  ScreenshotUtils: "resource://gre/modules/ScreenshotUtils.sys.mjs",
 });
 
 function debugEvents(global, els) {

@@ -10,6 +10,7 @@
 #include "nsIURI.h"
 #include "nsIFile.h"
 #include "nsComponentManagerUtils.h"
+#include "nsIObserverService.h"
 #include "nsISupportsPrimitives.h"
 #include "xpcpublic.h"
 #include "mozilla/dom/Promise.h"

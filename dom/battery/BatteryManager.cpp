@@ -15,6 +15,7 @@
 #include "nsContentPermissionHelper.h"
 #include "nsContentUtils.h"
 #include "mozilla/dom/Document.h"
+#include "mozilla/Services.h"
 
 /**
  * We have to use macros here because our leak analysis tool thinks we are
@@ -245,7 +246,7 @@ bool BatteryManager::HasPermission(JSContext* aContext, JSObject* aGlobal) {
   }
 
   nsCOMPtr<nsIPermissionManager> permissionManager =
-      services::GetPermissionManager();
+      mozilla::services::GetPermissionManager();
   if (NS_WARN_IF(!permissionManager)) {
     return false;
   }

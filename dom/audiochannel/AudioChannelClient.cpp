@@ -9,6 +9,7 @@
 #include "AudioChannelService.h"
 #include "nsIPermissionManager.h"
 #include "nsIScriptObjectPrincipal.h"
+#include "mozilla/Services.h"
 
 namespace mozilla {
 namespace dom {
@@ -70,7 +71,7 @@ bool AudioChannelClient::CheckAudioChannelPermissions(
   }
 
   nsCOMPtr<nsIPermissionManager> permissionManager =
-      services::GetPermissionManager();
+      mozilla::services::GetPermissionManager();
   if (!permissionManager) {
     return false;
   }

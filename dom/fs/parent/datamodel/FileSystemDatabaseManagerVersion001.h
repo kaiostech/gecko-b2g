@@ -61,8 +61,7 @@ class FileSystemDatabaseManagerVersion001 : public FileSystemDatabaseManager {
       const FileSystemChildMetadata& aHandle, bool aCreate) override;
 
   virtual Result<EntryId, QMResult> GetOrCreateFile(
-      const FileSystemChildMetadata& aHandle, const ContentType& aType,
-      bool aCreate) override;
+      const FileSystemChildMetadata& aHandle, bool aCreate) override;
 
   virtual nsresult GetFile(const EntryId& aEntryId, ContentType& aType,
                            TimeStamp& lastModifiedMilliSeconds, Path& aPath,
@@ -165,6 +164,9 @@ Result<bool, QMResult> ApplyEntryExistsQuery(
 Result<bool, QMResult> ApplyEntryExistsQuery(
     const FileSystemConnection& aConnection, const nsACString& aQuery,
     const EntryId& aEntry);
+
+Result<bool, QMResult> DoesFileExist(const FileSystemConnection& aConnection,
+                                     const EntryId& aEntryId);
 
 Result<bool, QMResult> IsFile(const FileSystemConnection& aConnection,
                               const EntryId& aEntryId);

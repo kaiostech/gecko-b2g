@@ -164,18 +164,6 @@ Result<bool, QMResult> DoesFileExist(const FileSystemConnection& aConnection,
   QM_TRY_RETURN(ApplyEntryExistsQuery(aConnection, existsQuery, aHandle));
 }
 
-Result<bool, QMResult> DoesFileExist(const FileSystemConnection& aConnection,
-                                     const EntryId& aEntry) {
-  MOZ_ASSERT(!aEntry.IsEmpty());
-
-  const nsCString existsQuery =
-      "SELECT EXISTS "
-      "(SELECT 1 FROM Files WHERE handle = :handle ) "
-      ";"_ns;
-
-  QM_TRY_RETURN(ApplyEntryExistsQuery(aConnection, existsQuery, aEntry));
-}
-
 nsresult GetFileAttributes(const FileSystemConnection& aConnection,
                            const EntryId& aEntryId, ContentType& aType) {
   const nsLiteralCString getFileLocation =
@@ -285,13 +273,9 @@ nsresult PerformRename(const FileSystemConnection& aConnection,
   QM_TRY_UNWRAP(ResultStatement stmt,
                 ResultStatement::Create(aConnection, aNameUpdateQuery)
                     .mapErr(toNSResult));
-  QM_TRY(QM_OR_ELSE_WARN_IF(
-      // Expression
-      MOZ_TO_RESULT(stmt.BindContentTypeByName("type"_ns, aNewType)),
-      // Predicate
-      IsSpecificError<NS_ERROR_ILLEGAL_VALUE>,
-      // Fallback
-      ErrToDefaultOk<>));
+  if (!aNewType.IsVoid()) {
+    QM_TRY(MOZ_TO_RESULT(stmt.BindContentTypeByName("type"_ns, aNewType)));
+  }
   QM_TRY(MOZ_TO_RESULT(stmt.BindNameByName("name"_ns, aNewName)));
   QM_TRY(MOZ_TO_RESULT(stmt.BindEntryIdByName("handle"_ns, aHandle.entryId())));
   QM_TRY(MOZ_TO_RESULT(stmt.Execute()));
@@ -308,21 +292,27 @@ nsresult PerformRenameDirectory(const FileSystemConnection& aConnection,
       "WHERE handle = :handle "
       ";"_ns;
 
-  return PerformRename(aConnection, aHandle, aNewName, /* dummy type */ ""_ns,
+  return PerformRename(aConnection, aHandle, aNewName, VoidCString(),
                        updateDirectoryNameQuery);
 }
 
 nsresult PerformRenameFile(const FileSystemConnection& aConnection,
                            const FileSystemEntryMetadata& aHandle,
                            const Name& aNewName, const ContentType& aNewType) {
+  const nsLiteralCString updateFileTypeAndNameQuery =
+      "UPDATE Files SET type = :type, name = :name "
+      "WHERE handle = :handle ;"_ns;
+
   const nsLiteralCString updateFileNameQuery =
-      "UPDATE Files "
-      "SET type = :type, name = :name "
-      "WHERE handle = :handle "
-      ";"_ns;
+      "UPDATE Files SET name = :name WHERE handle = :handle ;"_ns;
+
+  if (aNewType.IsVoid()) {
+    return PerformRename(aConnection, aHandle, aNewName, aNewType,
+                         updateFileNameQuery);
+  }
 
   return PerformRename(aConnection, aHandle, aNewName, aNewType,
-                       updateFileNameQuery);
+                       updateFileTypeAndNameQuery);
 }
 
 template <class HandlerType>
@@ -585,6 +575,18 @@ Result<bool, QMResult> ApplyEntryExistsQuery(
   return stmt.YesOrNoQuery();
 }
 
+Result<bool, QMResult> DoesFileExist(const FileSystemConnection& aConnection,
+                                     const EntryId& aEntryId) {
+  MOZ_ASSERT(!aEntryId.IsEmpty());
+
+  const nsCString existsQuery =
+      "SELECT EXISTS "
+      "(SELECT 1 FROM Files WHERE handle = :handle ) "
+      ";"_ns;
+
+  QM_TRY_RETURN(ApplyEntryExistsQuery(aConnection, existsQuery, aEntryId));
+}
+
 Result<bool, QMResult> IsFile(const FileSystemConnection& aConnection,
                               const EntryId& aEntryId) {
   QM_TRY_UNWRAP(bool exists, DoesFileExist(aConnection, aEntryId));
@@ -692,17 +694,17 @@ FileSystemDatabaseManagerVersion001::FileSystemDatabaseManagerVersion001(
 nsresult FileSystemDatabaseManagerVersion001::RescanTrackedUsages(
     const FileSystemConnection& aConnection,
     const quota::OriginMetadata& aOriginMetadata) {
-  QM_TRY_UNWRAP(FileSystemFileManager fileManager,
+  QM_TRY_UNWRAP(UniquePtr<FileSystemFileManager> fileManager,
                 data::FileSystemFileManager::CreateFileSystemFileManager(
                     aOriginMetadata));
 
-  QM_TRY_UNWRAP(bool ok, ScanTrackedFiles(aConnection, fileManager));
+  QM_TRY_UNWRAP(bool ok, ScanTrackedFiles(aConnection, *fileManager));
   if (ok) {
     return NS_OK;
   }
 
   // Retry once without explicit delay
-  QM_TRY_UNWRAP(ok, ScanTrackedFiles(aConnection, fileManager));
+  QM_TRY_UNWRAP(ok, ScanTrackedFiles(aConnection, *fileManager));
   if (!ok) {
     return NS_ERROR_UNEXPECTED;
   }
@@ -831,8 +833,7 @@ FileSystemDatabaseManagerVersion001::GetOrCreateDirectory(
 }
 
 Result<EntryId, QMResult> FileSystemDatabaseManagerVersion001::GetOrCreateFile(
-    const FileSystemChildMetadata& aHandle, const ContentType& aType,
-    bool aCreate) {
+    const FileSystemChildMetadata& aHandle, bool aCreate) {
   MOZ_ASSERT(!aHandle.parentId().IsEmpty());
 
   const auto& name = aHandle.childName();
@@ -877,8 +878,7 @@ Result<EntryId, QMResult> FileSystemDatabaseManagerVersion001::GetOrCreateFile(
   QM_TRY_INSPECT(const EntryId& entryId, GetEntryId(aHandle));
   MOZ_ASSERT(!entryId.IsEmpty());
 
-  const ContentType& type =
-      aType.IsVoid() ? FileSystemContentTypeGuess::FromPath(name) : aType;
+  const ContentType type = FileSystemContentTypeGuess::FromPath(name);
 
   mozStorageTransaction transaction(
       mConnection.get(), false, mozIStorageConnection::TRANSACTION_IMMEDIATE);

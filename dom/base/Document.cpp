@@ -1268,32 +1268,6 @@ void DOMStyleSheetSetList::EnsureFresh() {
   }
 }
 
-// ==================================================================
-Document::SelectorCache::SelectorCache(nsIEventTarget* aEventTarget)
-    : nsExpirationTracker<SelectorCacheKey, 4>(1000, "Document::SelectorCache",
-                                               aEventTarget) {}
-
-Document::SelectorCache::~SelectorCache() { AgeAllGenerations(); }
-
-void Document::SelectorCache::NotifyExpired(SelectorCacheKey* aSelector) {
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aSelector);
-
-  // There is no guarantee that this method won't be re-entered when selector
-  // matching is ongoing because "memory-pressure" could be notified immediately
-  // when OOM happens according to the design of nsExpirationTracker.
-  // The perfect solution is to delete the |aSelector| and its
-  // RawServoSelectorList in mTable asynchronously.
-  // We remove these objects synchronously for now because NotifyExpired() will
-  // never be triggered by "memory-pressure" which is not implemented yet in
-  // the stage 2 of mozalloc_handle_oom().
-  // Once these objects are removed asynchronously, we should update the warning
-  // added in mozalloc_handle_oom() as well.
-  RemoveObject(aSelector);
-  mTable.Remove(aSelector->mKey);
-  delete aSelector;
-}
-
 Document::PendingFrameStaticClone::~PendingFrameStaticClone() = default;
 
 // ==================================================================
@@ -7846,7 +7820,7 @@ void Document::SetScriptGlobalObject(
   }
 
   // Tell the script loader about the new global object.
-  if (mScriptLoader) {
+  if (mScriptLoader && !IsTemplateContentsOwner()) {
     mScriptLoader->SetGlobalObject(mScriptGlobalObject);
   }
 
@@ -12772,6 +12746,7 @@ Document* Document::GetTemplateContentsOwner() {
     mTemplateContentsOwner->mTemplateContentsOwner = mTemplateContentsOwner;
   }
 
+  MOZ_ASSERT(mTemplateContentsOwner->IsTemplateContentsOwner());
   return mTemplateContentsOwner;
 }
 
@@ -15050,16 +15025,18 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
     return;
   }
 
-  bool wasHiding = popoverHTMLEl->GetPopoverData()->IsHiding();
-  popoverHTMLEl->GetPopoverData()->SetIsHiding(true);
-  auto restoreIsHiding = MakeScopeExit([&]() {
+  bool wasShowingOrHiding =
+      popoverHTMLEl->GetPopoverData()->IsShowingOrHiding();
+  popoverHTMLEl->GetPopoverData()->SetIsShowingOrHiding(true);
+  const bool fireEvents = aFireEvents && !wasShowingOrHiding;
+  auto cleanupHidingFlag = MakeScopeExit([&]() {
     if (auto* popoverData = popoverHTMLEl->GetPopoverData()) {
-      popoverData->SetIsHiding(wasHiding);
+      popoverData->SetIsShowingOrHiding(wasShowingOrHiding);
     }
   });
 
   if (popoverHTMLEl->IsAutoPopover()) {
-    HideAllPopoversUntil(*popoverHTMLEl, aFocusPreviousElement, aFireEvents);
+    HideAllPopoversUntil(*popoverHTMLEl, aFocusPreviousElement, fireEvents);
     if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
                                              nullptr, aRv)) {
       return;
@@ -15085,7 +15062,7 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
   data->SetInvoker(nullptr);
 
   // Fire beforetoggle event and re-check popover validity.
-  if (aFireEvents && !wasHiding) {
+  if (fireEvents) {
     // Intentionally ignore the return value here as only on open event for
     // beforetoggle the cancelable attribute is initialized to true.
     popoverHTMLEl->FireToggleEvent(PopoverVisibilityState::Showing,
@@ -15104,7 +15081,7 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
       PopoverVisibilityState::Hidden);
 
   // Queue popover toggle event task.
-  if (aFireEvents) {
+  if (fireEvents) {
     popoverHTMLEl->QueuePopoverEventTask(PopoverVisibilityState::Showing);
   }
 
@@ -15119,7 +15096,7 @@ nsTArray<Element*> Document::AutoPopoverList() const {
   nsTArray<Element*> elements;
   for (const nsWeakPtr& ptr : mTopLayer) {
     if (nsCOMPtr<Element> element = do_QueryReferent(ptr)) {
-      if (element && element->IsAutoPopover()) {
+      if (element && element->IsAutoPopover() && element->IsPopoverOpen()) {
         elements.AppendElement(element);
       }
     }
@@ -15130,17 +15107,8 @@ nsTArray<Element*> Document::AutoPopoverList() const {
 Element* Document::GetTopmostAutoPopover() const {
   for (const nsWeakPtr& weakPtr : Reversed(mTopLayer)) {
     nsCOMPtr<Element> element(do_QueryReferent(weakPtr));
-    if (!element) {
-      continue;
-    }
-    if (element->State().HasState(ElementState::FULLSCREEN)) {
-      continue;
-    }
-    if (element->IsAutoPopover()) {
-      auto* dialog = HTMLDialogElement::FromNode(element);
-      if (!dialog || !dialog->IsInTopLayer()) {
-        return element;
-      }
+    if (element && element->IsAutoPopover() && element->IsPopoverOpen()) {
+      return element;
     }
   }
   return nullptr;

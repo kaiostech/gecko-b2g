@@ -157,7 +157,7 @@ fn get_prim_render_strategy(
     clip_chain: &ClipChainInstance,
     clip_store: &ClipStore,
     data_stores: &DataStores,
-    prim_is_2d_axis_aligned: bool,
+    can_use_nine_patch: bool,
 ) -> QuadRenderStrategy {
     if clip_chain.needs_mask {
         fn tile_count_for_size(size: f32) -> u16 {
@@ -170,7 +170,7 @@ fn get_prim_render_strategy(
         let try_split_prim = x_tiles > 1 || y_tiles > 1;
 
         if try_split_prim {
-            if prim_is_2d_axis_aligned {
+            if can_use_nine_patch {
                 if clip_chain.clips_range.count == 1 {
                     let clip_instance = clip_store.get_instance_from_range(&clip_chain.clips_range, 0);
                     let clip_node = &data_stores.clip[clip_instance.handle];
@@ -678,12 +678,13 @@ fn prepare_interned_prim_for_render(
                     pic_context.raster_spatial_node_index,
                 );
                 let prim_is_2d_axis_aligned = map_prim_to_surface.is_2d_axis_aligned();
+                let prim_has_perspective = map_prim_to_surface.is_perspective();
 
                 let strategy = get_prim_render_strategy(
                     &prim_instance.vis.clip_chain,
                     frame_state.clip_store,
                     data_stores,
-                    prim_is_2d_axis_aligned,
+                    prim_is_2d_axis_aligned && !prim_has_perspective,
                 );
 
                 let prim_data = &data_stores.prim[*data_handle];
@@ -706,7 +707,7 @@ fn prepare_interned_prim_for_render(
                 if is_opaque {
                     quad_flags |= QuadFlags::IS_OPAQUE;
                 }
-                let needs_scissor = !prim_is_2d_axis_aligned || map_prim_to_surface.is_perspective();
+                let needs_scissor = !prim_is_2d_axis_aligned || prim_has_perspective;
                 if !needs_scissor {
                     quad_flags |= QuadFlags::APPLY_DEVICE_CLIP;
                 }

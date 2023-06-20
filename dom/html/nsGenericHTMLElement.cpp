@@ -29,7 +29,6 @@
 #include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/Document.h"
 #include "nsMappedAttributes.h"
-#include "nsHTMLStyleSheet.h"
 #include "nsPIDOMWindow.h"
 #include "nsIFrameInlines.h"
 #include "nsIScrollableFrame.h"
@@ -3276,9 +3275,11 @@ bool nsGenericHTMLElement::CheckPopoverValidity(
     return false;
   }
 
-  if (IsHTMLElement(nsGkAtoms::dialog) && HasAttr(nsGkAtoms::open)) {
-    aRv.ThrowInvalidStateError("Element is an open <dialog> element");
-    return false;
+  if (auto* dialog = HTMLDialogElement::FromNode(this)) {
+    if (dialog->IsInTopLayer()) {
+      aRv.ThrowInvalidStateError("Element is a modal <dialog> element");
+      return false;
+    }
   }
 
   if (State().HasState(ElementState::FULLSCREEN)) {

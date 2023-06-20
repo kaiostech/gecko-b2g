@@ -2319,8 +2319,23 @@ mozilla::ipc::IPCResult BrowserParent::RecvSetCursor(
 
   nsCOMPtr<imgIContainer> cursorImage;
   if (aHasCustomCursor) {
-    if (!aCursorData || aHeight * aStride != aCursorData->Size() ||
-        aStride < aWidth * gfx::BytesPerPixel(aFormat)) {
+    const bool cursorDataValid = [&] {
+      if (!aCursorData) {
+        return false;
+      }
+      auto expectedSize = CheckedInt<uint32_t>(aHeight) * aStride;
+      if (!expectedSize.isValid() ||
+          expectedSize.value() != aCursorData->Size()) {
+        return false;
+      }
+      auto minStride =
+          CheckedInt<uint32_t>(aWidth) * gfx::BytesPerPixel(aFormat);
+      if (!minStride.isValid() || aStride < minStride.value()) {
+        return false;
+      }
+      return true;
+    }();
+    if (!cursorDataValid) {
       return IPC_FAIL(this, "Invalid custom cursor data");
     }
     const gfx::IntSize size(aWidth, aHeight);
@@ -3897,10 +3912,14 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
       cookieJarSettings, aSourceWindowContext.GetMaybeDiscarded(),
       aSourceTopWindowContext.GetMaybeDiscarded());
 
-  if (aVisualDnDData && aVisualDnDData->Size() >= aDragRect.height * aStride) {
-    dragStartData->SetVisualization(gfx::CreateDataSourceSurfaceFromData(
-        gfx::IntSize(aDragRect.width, aDragRect.height), aFormat,
-        aVisualDnDData->Data(), aStride));
+  if (aVisualDnDData) {
+    const auto checkedSize = CheckedInt<size_t>(aDragRect.height) * aStride;
+    if (checkedSize.isValid() &&
+        aVisualDnDData->Size() >= checkedSize.value()) {
+      dragStartData->SetVisualization(gfx::CreateDataSourceSurfaceFromData(
+          gfx::IntSize(aDragRect.width, aDragRect.height), aFormat,
+          aVisualDnDData->Data(), aStride));
+    }
   }
 
   nsCOMPtr<nsIDragService> dragService =

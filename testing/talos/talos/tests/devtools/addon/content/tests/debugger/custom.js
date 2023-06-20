@@ -38,6 +38,7 @@ const EXPECTED = {
   file: "App.js",
   sourceURL: `${IFRAME_BASE_URL}custom/debugger/static/js/App.js`,
   text: "import React, { Component } from 'react';",
+  threadsCount: 2,
 };
 
 const EXPECTED_FUNCTION = "window.hitBreakpoint()";
@@ -160,7 +161,6 @@ async function testPreview(dbg, tab, testFunction) {
   let test = runTest("custom.jsdebugger.preview.DAMP");
   await pauseDebugger(dbg, tab, testFunction, pauseLocation);
   await hoverOnToken(dbg, cx, "window.hitBreakpoint", "window");
-  dbg.actions.clearPreview(cx);
   test.done();
 
   await removeBreakpoints(dbg);

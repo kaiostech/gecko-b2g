@@ -149,8 +149,15 @@ const ParamPreferenceCache = {
   onNimbusUpdate() {
     let extraParams =
       lazy.NimbusFeatures.search.getVariable("extraParams") || [];
-    for (const { key, value } of extraParams) {
-      this.nimbusCache.set(key, value);
+    this.nimbusCache.clear();
+    // The try catch ensures that if the params were incorrect for some reason,
+    // the search service can still startup properly.
+    try {
+      for (const { key, value } of extraParams) {
+        this.nimbusCache.set(key, value);
+      }
+    } catch (ex) {
+      console.error("Failed to load nimbus variables for extraParams:", ex);
     }
   },
 

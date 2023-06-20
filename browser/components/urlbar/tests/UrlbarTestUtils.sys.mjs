@@ -1,8 +1,6 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 import {
@@ -15,6 +13,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonTestUtils: "resource://testing-common/AddonTestUtils.sys.mjs",
   BrowserTestUtils: "resource://testing-common/BrowserTestUtils.sys.mjs",
+  BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   ExperimentAPI: "resource://nimbus/ExperimentAPI.sys.mjs",
   ExperimentFakes: "resource://testing-common/NimbusTestUtils.sys.mjs",
   ExperimentManager: "resource://nimbus/lib/ExperimentManager.sys.mjs",
@@ -29,11 +29,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   UrlbarSearchUtils: "resource:///modules/UrlbarSearchUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
-});
-
-XPCOMUtils.defineLazyModuleGetters(lazy, {
-  BrowserUIUtils: "resource:///modules/BrowserUIUtils.jsm",
-  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
 });
 
 export var UrlbarTestUtils = {
@@ -1236,18 +1231,24 @@ export var UrlbarTestUtils = {
    *   The browser window containing target gURLBar.
    * @param {string} text
    *   The text to be input.
-   * @param {boolean} [replaceContent=false]
-   *   When set to true the content of gURLBar is erased, before inserting new content.
    */
-  async inputIntoURLBar(win, text, { replaceContent = false } = {}) {
-    this.EventUtils.synthesizeMouseAtCenter(win.gURLBar.inputField, {}, win);
-    await lazy.BrowserTestUtils.waitForCondition(
-      () => win.document.activeElement === win.gURLBar.inputField
-    );
-    if (replaceContent === true) {
-      win.gURLBar.value = "";
+  async inputIntoURLBar(win, text) {
+    if (win.gURLBar.focused) {
+      win.gURLBar.select();
+    } else {
+      this.EventUtils.synthesizeMouseAtCenter(win.gURLBar.inputField, {}, win);
+      await lazy.TestUtils.waitForCondition(() => win.gURLBar.focused);
     }
-    this.EventUtils.sendString(text, win);
+    if (text.length > 1) {
+      // Set most of the string directly instead of going through sendString,
+      // so that we don't make life unnecessarily hard for consumers by
+      // possibly starting multiple searches.
+      win.gURLBar._setValue(
+        text.substr(0, text.length - 1),
+        false /* allowTrim = */
+      );
+    }
+    this.EventUtils.sendString(text.substr(-1, 1), win);
   },
 };
 

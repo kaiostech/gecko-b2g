@@ -478,22 +478,40 @@ class CGNativePropertyHooks(CGThing):
         return ""
 
     def define(self):
-        deleteNamedProperty = "nullptr"
         if (
             self.descriptor.concrete
             and self.descriptor.proxy
             and not self.descriptor.isMaybeCrossOriginObject()
         ):
-            resolveOwnProperty = "binding_detail::ResolveOwnProperty"
-            enumerateOwnProperties = "binding_detail::EnumerateOwnProperties"
             if self.descriptor.needsXrayNamedDeleterHook():
                 deleteNamedProperty = "DeleteNamedProperty"
+            else:
+                deleteNamedProperty = "nullptr"
+            namedOrIndexed = fill(
+                """
+                const NativeNamedOrIndexedPropertyHooks sNativeNamedOrIndexedPropertyHooks = {
+                  binding_detail::ResolveOwnProperty,
+                  binding_detail::EnumerateOwnProperties,
+                  ${deleteNamedProperty}
+                };
+                """,
+                deleteNamedProperty=deleteNamedProperty,
+            )
+            namedOrIndexedPointer = "&sNativeNamedOrIndexedPropertyHooks"
         elif self.descriptor.needsXrayResolveHooks():
-            resolveOwnProperty = "ResolveOwnPropertyViaResolve"
-            enumerateOwnProperties = "EnumerateOwnPropertiesViaGetOwnPropertyNames"
+            namedOrIndexed = dedent(
+                """
+                const NativeNamedOrIndexedPropertyHooks sNativeNamedOrIndexedPropertyHooks = {
+                  ResolveOwnPropertyViaResolve,
+                  EnumerateOwnPropertiesViaGetOwnPropertyNames,
+                  nullptr
+                };
+                """
+            )
+            namedOrIndexedPointer = "&sNativeNamedOrIndexedPropertyHooks"
         else:
-            resolveOwnProperty = "nullptr"
-            enumerateOwnProperties = "nullptr"
+            namedOrIndexed = ""
+            namedOrIndexedPointer = "nullptr"
         if self.properties.hasNonChromeOnly():
             regular = "sNativeProperties.Upcast()"
         else:
@@ -518,22 +536,18 @@ class CGNativePropertyHooks(CGThing):
         else:
             expandoClass = "&DefaultXrayExpandoObjectClass"
 
-        return fill(
+        return namedOrIndexed + fill(
             """
             bool sNativePropertiesInited = false;
             const NativePropertyHooks sNativePropertyHooks = {
-              ${resolveOwnProperty},
-              ${enumerateOwnProperties},
-              ${deleteNamedProperty},
+              ${namedOrIndexedPointer},
               { ${regular}, ${chrome}, &sNativePropertiesInited },
               ${prototypeID},
               ${constructorID},
               ${expandoClass}
             };
             """,
-            resolveOwnProperty=resolveOwnProperty,
-            enumerateOwnProperties=enumerateOwnProperties,
-            deleteNamedProperty=deleteNamedProperty,
+            namedOrIndexedPointer=namedOrIndexedPointer,
             regular=regular,
             chrome=chrome,
             prototypeID=prototypeID,
@@ -866,11 +880,9 @@ class CGPrototypeJSClass(CGThing):
                 JS_NULL_OBJECT_OPS
               },
               ${type},
-              false,
               ${prototypeID},
               ${depth},
               ${hooks},
-              nullptr,
               ${protoGetter}
             };
             """,
@@ -990,22 +1002,24 @@ class CGInterfaceObjectJSClass(CGThing):
 
         ret = ret + fill(
             """
-            static const DOMIfaceAndProtoJSClass sInterfaceObjectClass = {
+            static const DOMIfaceJSClass sInterfaceObjectClass = {
               {
-                "${classString}",
-                JSCLASS_IS_DOMIFACEANDPROTOJSCLASS | JSCLASS_HAS_RESERVED_SLOTS(${slotCount}),
-                ${classOpsPtr},
-                JS_NULL_CLASS_SPEC,
-                JS_NULL_CLASS_EXT,
-                ${objectOps}
+                {
+                  "${classString}",
+                  JSCLASS_IS_DOMIFACEANDPROTOJSCLASS | JSCLASS_HAS_RESERVED_SLOTS(${slotCount}),
+                  ${classOpsPtr},
+                  JS_NULL_CLASS_SPEC,
+                  JS_NULL_CLASS_EXT,
+                  ${objectOps}
+                },
+                ${type},
+                ${prototypeID},
+                ${depth},
+                ${hooks},
+                ${protoGetter}
               },
-              ${type},
               ${needsHasInstance},
-              ${prototypeID},
-              ${depth},
-              ${hooks},
-              ${funToString},
-              ${protoGetter}
+              ${funToString}
             };
             """,
             classString=classString,
@@ -1016,11 +1030,11 @@ class CGInterfaceObjectJSClass(CGThing):
             type="eNamespace"
             if self.descriptor.interface.isNamespace()
             else "eInterface",
-            needsHasInstance=toStringBool(needsHasInstance),
             prototypeID=prototypeID,
             depth=depth,
-            funToString=funToString,
             protoGetter=protoGetter,
+            needsHasInstance=toStringBool(needsHasInstance),
+            funToString=funToString,
         )
         return ret
 
@@ -2290,9 +2304,9 @@ class CGLegacyFactoryFunctions(CGThing):
         else:
             constructorID += "_ID_Count"
 
-        namedConstructors = ""
+        legacyFactoryFunctions = ""
         for n in self.descriptor.interface.legacyFactoryFunctions:
-            namedConstructors += (
+            legacyFactoryFunctions += (
                 '{ "%s", { %s, &sLegacyFactoryFunctionNativePropertyHooks }, %i },\n'
                 % (n.identifier.name, LegacyFactoryFunctionName(n), methodLength(n))
             )
@@ -2302,22 +2316,20 @@ class CGLegacyFactoryFunctions(CGThing):
             bool sLegacyFactoryFunctionNativePropertiesInited = true;
             const NativePropertyHooks sLegacyFactoryFunctionNativePropertyHooks = {
                 nullptr,
-                nullptr,
-                nullptr,
                 { nullptr, nullptr, &sLegacyFactoryFunctionNativePropertiesInited },
                 prototypes::id::${name},
                 ${constructorID},
                 nullptr
             };
 
-            static const LegacyFactoryFunction namedConstructors[] = {
-              $*{namedConstructors}
+            static const LegacyFactoryFunction legacyFactoryFunctions[] = {
+              $*{legacyFactoryFunctions}
               { nullptr, { nullptr, nullptr }, 0 }
             };
             """,
             name=self.descriptor.name,
             constructorID=constructorID,
-            namedConstructors=namedConstructors,
+            legacyFactoryFunctions=legacyFactoryFunctions,
         )
 
 
@@ -3592,12 +3604,12 @@ class CGCreateInterfaceObjectsMethod(CGAbstractMethod):
             constructArgs = 0
             isConstructorChromeOnly = False
         if len(self.descriptor.interface.legacyFactoryFunctions) > 0:
-            namedConstructors = "namedConstructors"
+            legacyFactoryFunctions = "legacyFactoryFunctions"
         else:
-            namedConstructors = "nullptr"
+            legacyFactoryFunctions = "nullptr"
 
         if needInterfacePrototypeObject:
-            protoClass = "&sPrototypeClass.mBase"
+            protoClass = "&sPrototypeClass"
             protoCache = (
                 "&aProtoAndIfaceCache.EntrySlotOrCreate(prototypes::id::%s)"
                 % self.descriptor.name
@@ -3611,7 +3623,7 @@ class CGCreateInterfaceObjectsMethod(CGAbstractMethod):
             getParentProto = None
 
         if needInterfaceObject:
-            interfaceClass = "&sInterfaceObjectClass.mBase"
+            interfaceClass = "&sInterfaceObjectClass"
             interfaceCache = (
                 "&aProtoAndIfaceCache.EntrySlotOrCreate(constructors::id::%s)"
                 % self.descriptor.name
@@ -3651,7 +3663,7 @@ class CGCreateInterfaceObjectsMethod(CGAbstractMethod):
             JS::Heap<JSObject*>* interfaceCache = ${interfaceCache};
             dom::CreateInterfaceObjects(aCx, aGlobal, ${parentProto},
                                         ${protoClass}, protoCache,
-                                        ${constructorProto}, ${interfaceClass}, ${constructArgs}, ${isConstructorChromeOnly}, ${namedConstructors},
+                                        ${constructorProto}, ${interfaceClass}, ${constructArgs}, ${isConstructorChromeOnly}, ${legacyFactoryFunctions},
                                         interfaceCache,
                                         ${properties},
                                         ${chromeProperties},
@@ -3668,7 +3680,7 @@ class CGCreateInterfaceObjectsMethod(CGAbstractMethod):
             interfaceClass=interfaceClass,
             constructArgs=constructArgs,
             isConstructorChromeOnly=toStringBool(isConstructorChromeOnly),
-            namedConstructors=namedConstructors,
+            legacyFactoryFunctions=legacyFactoryFunctions,
             interfaceCache=interfaceCache,
             properties=properties,
             chromeProperties=chromeProperties,
@@ -4061,9 +4073,11 @@ class CGGetNamedPropertiesObjectMethod(CGAbstractStaticMethod):
                          "Expected ${nativeType}::CreateNamedPropertiesObject to return a named properties object");
               MOZ_ASSERT(clasp->mNativeHooks,
                          "The named properties object for ${nativeType} should have NativePropertyHooks.");
-              MOZ_ASSERT(!clasp->mNativeHooks->mResolveOwnProperty,
+              MOZ_ASSERT(!clasp->mNativeHooks->mIndexedOrNamedNativeProperties ||
+                         !clasp->mNativeHooks->mIndexedOrNamedNativeProperties->mResolveOwnProperty,
                          "Shouldn't resolve the properties of the named properties object for ${nativeType} for Xrays.");
-              MOZ_ASSERT(!clasp->mNativeHooks->mEnumerateOwnProperties,
+              MOZ_ASSERT(!clasp->mNativeHooks->mIndexedOrNamedNativeProperties ||
+                         !clasp->mNativeHooks->mIndexedOrNamedNativeProperties->mEnumerateOwnProperties,
                          "Shouldn't enumerate the properties of the named properties object for ${nativeType} for Xrays.");
             }
             return namedPropertiesObject.get();
@@ -11563,15 +11577,18 @@ class CGMemberJITInfo(CGThing):
             )
             return initializer.rstrip()
 
-        slotAssert = fill(
-            """
-            static_assert(${slotIndex} <= JSJitInfo::maxSlotIndex, "We won't fit");
-            static_assert(${slotIndex} < ${classReservedSlots}, "There is no slot for us");
-            """,
-            slotIndex=slotIndex,
-            classReservedSlots=INSTANCE_RESERVED_SLOTS
-            + self.descriptor.interface.totalMembersInSlots,
-        )
+        if alwaysInSlot or lazilyInSlot:
+            slotAssert = fill(
+                """
+                static_assert(${slotIndex} <= JSJitInfo::maxSlotIndex, "We won't fit");
+                static_assert(${slotIndex} < ${classReservedSlots}, "There is no slot for us");
+                """,
+                slotIndex=slotIndex,
+                classReservedSlots=INSTANCE_RESERVED_SLOTS
+                + self.descriptor.interface.totalMembersInSlots,
+            )
+        else:
+            slotAssert = ""
         if args is not None:
             argTypes = "%s_argTypes" % infoName
             args = [CGMemberJITInfo.getJSArgType(arg.type) for arg in args]
@@ -19951,7 +19968,7 @@ class CGJSImplMethod(CGJSImplMember):
         assert self.descriptor.interface.isJSImplemented()
         if self.name != "Constructor":
             raise TypeError(
-                "Named constructors are not supported for JS implemented WebIDL. See bug 851287."
+                "Legacy factory functions are not supported for JS implemented WebIDL."
             )
         if len(self.signature[1]) != 0:
             # The first two arguments to the constructor implementation are not

@@ -23,9 +23,12 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  AboutNewTab: "resource:///modules/AboutNewTab.sys.mjs",
   AttributionCode: "resource:///modules/AttributionCode.sys.mjs",
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   ClientEnvironment: "resource://normandy/lib/ClientEnvironment.sys.mjs",
   CustomizableUI: "resource:///modules/CustomizableUI.sys.mjs",
+  HomePage: "resource:///modules/HomePage.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   ProfileAge: "resource://gre/modules/ProfileAge.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
@@ -36,9 +39,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
   ASRouterPreferences: "resource://activity-stream/lib/ASRouterPreferences.jsm",
-  HomePage: "resource:///modules/HomePage.jsm",
-  AboutNewTab: "resource:///modules/AboutNewTab.jsm",
-  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(lazy, "fxAccounts", () => {
@@ -254,7 +254,11 @@ function CheckBrowserNeedsUpdate(
       );
       let result = await check.result;
       if (!result.succeeded) {
-        throw result.request;
+        lazy.ASRouterPreferences.console.error(
+          "CheckBrowserNeedsUpdate failed :>> ",
+          result.request
+        );
+        return false;
       }
       checker._value = !!result.updates.length;
       return checker._value;

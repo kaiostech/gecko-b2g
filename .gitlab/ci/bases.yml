@@ -185,7 +185,6 @@ variables:
     - sccache -s
     - mkdir artifacts-desktop-gecko
     - cp -r -L ${MOZ_OBJDIR}/dist artifacts-desktop-gecko/
-    - cp -r -L ${MOZ_OBJDIR}/_virtualenvs artifacts-desktop-gecko/
     - cp ${MOZ_OBJDIR}/config.status artifacts-desktop-gecko/
     - cp ${MOZ_OBJDIR}/mozinfo.json artifacts-desktop-gecko/
     - find artifacts-desktop-gecko/dist/ -type f | xargs strip > /dev/null 2>&1 || echo ignore-strip-fails

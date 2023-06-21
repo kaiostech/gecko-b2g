@@ -3405,7 +3405,7 @@ MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
     dom::AudioChannel aAudioChannel) {
   return MediaTrackGraphImpl::GetInstanceIfExists(
       aWindow->WindowID(),
-      aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::Unknown),
+      aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::AudioSampleRate),
       aSampleRate, aOutputDeviceID, aAudioChannel);
 }
 
@@ -3460,7 +3460,7 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     dom::AudioChannel aAudioChannel) {
   return MediaTrackGraphImpl::GetInstance(
       aGraphDriverRequested, aWindow->WindowID(),
-      aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::Unknown),
+      aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::AudioSampleRate),
       aSampleRate, aOutputDeviceID, aAudioChannel,
       aWindow->EventTargetFor(TaskCategory::Other));
 }

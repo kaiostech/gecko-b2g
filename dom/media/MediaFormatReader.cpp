@@ -39,6 +39,7 @@
 #include "mozilla/TaskQueue.h"
 #include "mozilla/Unused.h"
 #include "nsContentUtils.h"
+#include "nsLiteralString.h"
 #include "nsPrintfCString.h"
 #include "nsTHashSet.h"
 
@@ -3336,6 +3337,9 @@ Maybe<nsCString> MediaFormatReader::GetAudioProcessPerCodec() {
     }
     if (!StaticPrefs::media_utility_process_enabled()) {
       audioProcessPerCodecName += ",utility-disabled"_ns;
+    }
+    if (StaticPrefs::media_allow_audio_non_utility()) {
+      audioProcessPerCodecName += ",allow-non-utility"_ns;
     }
   }
   return Some(audioProcessPerCodecName);

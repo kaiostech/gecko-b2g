@@ -96,6 +96,9 @@ vcpkg = { path = "build/rust/vcpkg" }
 # Helper crate for integration in the gecko build system.
 mozbuild = { path = "build/rust/mozbuild" }
 
+# Workspace hack
+mozilla-central-workspace-hack = { path = "build/workspace-hack" }
+
 # Dummy oslog replacement. It's only used by glean in code that is not actually used.
 oslog = { path = "build/rust/oslog" }
 
@@ -130,7 +133,8 @@ base64 = { path = "build/rust/base64" }
 # Patch wasi 0.10 to 0.11
 wasi = { path = "build/rust/wasi" }
 
-# Patch bindgen 0.63 to 0.64
+# Patch bindgen 0.63 and 0.64 to 0.66
+bindgen_0_63 = { package = "bindgen", path = "build/rust/bindgen-0.63" }
 bindgen = { path = "build/rust/bindgen" }
 
 # Patch ntapi 0.3 to 0.4

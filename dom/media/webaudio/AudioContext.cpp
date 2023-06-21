@@ -159,7 +159,8 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
       mId(gAudioContextId++),
       mSampleRate(GetSampleRateForAudioContext(
           aIsOffline, aSampleRate,
-          aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::Unknown))),
+          aWindow->AsGlobal()->ShouldResistFingerprinting(
+              RFPTarget::AudioSampleRate))),
       mAudioChannel(AudioChannelService::GetDefaultAudioChannel()),
       mAudioContextState(AudioContextState::Suspended),
       mNumberOfChannels(aNumberOfChannels),

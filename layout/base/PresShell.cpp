@@ -8657,7 +8657,7 @@ nsresult PresShell::EventHandler::DispatchEventToDOM(
   }
   if (eventTarget) {
     if (eventTarget->OwnerDoc()->ShouldResistFingerprinting(
-            RFPTarget::Unknown) &&
+            RFPTarget::WidgetEvents) &&
         aEvent->IsBlockedForFingerprintingResistance()) {
       aEvent->mFlags.mOnlySystemGroupDispatchInContent = true;
     } else if (aEvent->mMessage == eKeyPress) {

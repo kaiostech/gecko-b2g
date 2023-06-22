@@ -6359,7 +6359,9 @@ def getJSToNativeConversionInfo(
                     ctorArgs = ""
                 # It's enough to set us to the right type; that will
                 # create an empty array, which is all we need here.
-                default = CGGeneric("%s.RawSetAs%s(%s);\n" % (value, name, ctorArgs))
+                default = CGGeneric(
+                    "Unused << %s.RawSetAs%s(%s);\n" % (value, name, ctorArgs)
+                )
             elif defaultValue.type.isEnum():
                 name = getUnionMemberName(defaultValue.type)
                 # Make sure we actually construct the thing inside the nullable.
@@ -12886,6 +12888,7 @@ class CGUnionStruct(CGThing):
                         vars["ctorArgList"],
                         bodyInHeader=not self.ownsMembers,
                         body=body % "MOZ_ASSERT(mType == eUninitialized);",
+                        noDiscard=True,
                     )
                 )
                 methods.append(
@@ -12895,6 +12898,7 @@ class CGUnionStruct(CGThing):
                         vars["ctorArgList"],
                         bodyInHeader=not self.ownsMembers,
                         body=body % uninit,
+                        noDiscard=True,
                     )
                 )
 
@@ -13314,6 +13318,7 @@ class ClassMethod(ClassItem):
         breakAfterSelf="\n",
         override=False,
         canRunScript=False,
+        noDiscard=False,
     ):
         """
         override indicates whether to flag the method as override
@@ -13333,10 +13338,13 @@ class ClassMethod(ClassItem):
         self.breakAfterSelf = breakAfterSelf
         self.override = override
         self.canRunScript = canRunScript
+        self.noDiscard = noDiscard
         ClassItem.__init__(self, name, visibility)
 
     def getDecorators(self, declaring):
         decorators = []
+        if self.noDiscard:
+            decorators.append("[[nodiscard]]")
         if self.canRunScript:
             decorators.append("MOZ_CAN_RUN_SCRIPT")
         if self.inline:

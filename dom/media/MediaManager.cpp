@@ -2644,7 +2644,7 @@ static void ReduceConstraint(
     aConstraint.SetAsMediaTrackConstraints().mMediaSource.Construct(
         *mediaSource);
   } else {
-    aConstraint.SetAsMediaTrackConstraints();
+    Unused << aConstraint.SetAsMediaTrackConstraints();
   }
 }
 

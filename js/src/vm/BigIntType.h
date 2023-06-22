@@ -101,6 +101,8 @@ class BigInt final : public js::gc::CellWithLengthAndFlags {
   bool isZero() const { return digitLength() == 0; }
   bool isNegative() const { return headerFlagsField() & SignBit; }
 
+  int32_t sign() const { return isZero() ? 0 : isNegative() ? -1 : 1; }
+
   void initializeDigitsToZero();
 
   void traceChildren(JSTracer* trc);
@@ -146,6 +148,10 @@ class BigInt final : public js::gc::CellWithLengthAndFlags {
   static BigInt* bitXor(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
   static BigInt* bitOr(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
   static BigInt* bitNot(JSContext* cx, Handle<BigInt*> x);
+
+  static bool divmod(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y,
+                     MutableHandle<BigInt*> quotient,
+                     MutableHandle<BigInt*> remainder);
 
   static int64_t toInt64(const BigInt* x);
   static uint64_t toUint64(const BigInt* x);
@@ -384,9 +390,11 @@ class BigInt final : public js::gc::CellWithLengthAndFlags {
   static BigInt* absoluteSub(JSContext* cx, Handle<BigInt*> x,
                              Handle<BigInt*> y, bool resultNegative);
 
+ public:
   // If `|x| < |y|` return -1; if `|x| == |y|` return 0; otherwise return 1.
   static int8_t absoluteCompare(BigInt* lhs, BigInt* rhs);
 
+ private:
   static int8_t compare(BigInt* lhs, double rhs);
 
   template <js::AllowGC allowGC>

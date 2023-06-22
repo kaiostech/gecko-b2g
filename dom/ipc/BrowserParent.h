@@ -787,8 +787,6 @@ class BrowserParent final : public PBrowserParent,
  private:
   void SuppressDisplayport(bool aEnabled);
 
-  void DestroyInternal();
-
   void SetRenderLayersInternal(bool aEnabled);
 
   already_AddRefed<nsFrameLoader> GetFrameLoader(

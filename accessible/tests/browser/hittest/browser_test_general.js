@@ -5,7 +5,6 @@
 "use strict";
 
 async function runTests(browser, accDoc) {
-  await waitForImageMap(browser, accDoc);
   const dpr = await getContentDPR(browser);
 
   await testChildAtPoint(
@@ -60,7 +59,9 @@ async function runTests(browser, accDoc) {
   await testChildAtPoint(dpr, 1, 1, area, area, area);
 
   info("Test image maps. Their children are not in the layout tree.");
+  await waitForImageMap(browser, accDoc);
   const imgmap = findAccessibleChildByID(accDoc, "imgmap");
+  ok(imgmap, "Image map exists");
   const theLetterA = imgmap.firstChild;
   await hitTest(browser, imgmap, theLetterA, theLetterA);
   await hitTest(
@@ -309,6 +310,30 @@ addAccessibleTask(
       1,
       COORDTYPE_PARENT_RELATIVE,
       0
+    );
+  },
+  { chrome: false, iframe: true, remoteIframe: true }
+);
+
+/**
+ * Verify that hit testing is appropriately fuzzy when working with generics with siblings.
+ * We should return the deepest text leaf as the deepest match instead of the generic itself.
+ */
+addAccessibleTask(
+  `
+<div id="generic"><span aria-hidden="true" id="visible">Mozilla</span><span id="invisible" style="display: block !important;border: 0 !important;clip: rect(0 0 0 0) !important;height: 1px !important;margin: -1px !important;overflow: hidden !important;padding: 0 !important;position: absolute !important;white-space: nowrap !important;width: 1px !important;">Mozilla</span><br>I am some other text</div>`,
+  async function (browser, docAcc) {
+    const generic = findAccessibleChildByID(docAcc, "generic");
+    const invisible = findAccessibleChildByID(docAcc, "invisible");
+    const dpr = await getContentDPR(browser);
+
+    await testChildAtPoint(
+      dpr,
+      1,
+      1,
+      generic,
+      invisible, // Direct Child
+      invisible.firstChild // Deepest Child
     );
   },
   { chrome: false, iframe: true, remoteIframe: true }

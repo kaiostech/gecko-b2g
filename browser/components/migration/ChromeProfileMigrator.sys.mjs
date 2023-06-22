@@ -22,6 +22,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   Qihoo360seMigrationUtils: "resource:///modules/360seMigrationUtils.sys.mjs",
+  MigrationWizardConstants:
+    "chrome://browser/content/migration/migration-wizard-constants.mjs",
 });
 
 /**
@@ -124,6 +126,7 @@ export class ChromeProfileMigrator extends MigratorBase {
           GetBookmarksResource(profileFolder, this.constructor.key),
           GetHistoryResource(profileFolder),
           GetFormdataResource(profileFolder),
+          GetExtensionsResource(aProfile.id),
         ];
         if (lazy.ChromeMigrationUtils.supportsLoginsForPlatform) {
           possibleResourcePromises.push(
@@ -758,6 +761,43 @@ async function GetFormdataResource(aProfileFolder) {
       }
 
       aCallback(true);
+    },
+  };
+}
+
+async function GetExtensionsResource(aProfileId, aBrowserKey = "chrome") {
+  if (
+    !Services.prefs.getBoolPref(
+      "browser.migrate.chrome.extensions.enabled",
+      false
+    )
+  ) {
+    return null;
+  }
+  let extensions = await lazy.ChromeMigrationUtils.getExtensionList(aProfileId);
+  if (!extensions.length || aBrowserKey !== "chrome") {
+    return null;
+  }
+
+  return {
+    type: MigrationUtils.resourceTypes.EXTENSIONS,
+    async migrate(callback) {
+      let ids = extensions.map(extension => extension.id);
+      let [progressValue, importedExtensions] =
+        await MigrationUtils.installExtensionsWrapper(ids);
+      let details = {
+        progressValue,
+        totalExtensions: extensions,
+        importedExtensions,
+      };
+      if (
+        progressValue == lazy.MigrationWizardConstants.PROGRESS_VALUE.INFO ||
+        progressValue == lazy.MigrationWizardConstants.PROGRESS_VALUE.SUCCESS
+      ) {
+        callback(true, details);
+      } else {
+        callback(false);
+      }
     },
   };
 }

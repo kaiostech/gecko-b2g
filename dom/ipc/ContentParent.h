@@ -28,6 +28,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReportingProcess.h"
 #include "mozilla/MozPromise.h"
+#include "mozilla/RecursiveMutex.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtr.h"
@@ -345,6 +346,8 @@ class ContentParent final : public PContentParent,
 
   virtual nsresult DoSendAsyncMessage(const nsAString& aMessage,
                                       StructuredCloneData& aData) override;
+
+  RecursiveMutex& ThreadsafeHandleMutex();
 
   /** Notify that a tab is about to send Destroy to its child. */
   void NotifyTabWillDestroy();
@@ -852,7 +855,7 @@ class ContentParent final : public PContentParent,
     CLOSE_CHANNEL,
   };
 
-  void MaybeAsyncSendShutDownMessage();
+  void AsyncSendShutDownMessage();
 
   /**
    * Exit the subprocess and vamoose.  After this call IsAlive()
@@ -1818,13 +1821,15 @@ class ThreadsafeContentParentHandle final {
                                    aScriptURL);
   }
 
+  RecursiveMutex& Mutex() { return mMutex; }
+
  private:
   ThreadsafeContentParentHandle(ContentParent* aActor, ContentParentId aChildID,
                                 const nsACString& aRemoteType)
       : mChildID(aChildID), mRemoteType(aRemoteType), mWeakActor(aActor) {}
   ~ThreadsafeContentParentHandle() { MOZ_ASSERT(!mWeakActor); }
 
-  mozilla::Mutex mMutex{"ContentParentIdentity"};
+  mozilla::RecursiveMutex mMutex{"ContentParentIdentity"};
 
   const ContentParentId mChildID;
 

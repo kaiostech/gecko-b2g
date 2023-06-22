@@ -306,6 +306,39 @@ class RecordedStrokeLine : public RecordedDrawingEvent<RecordedStrokeLine> {
   DrawOptions mOptions;
 };
 
+class RecordedStrokeCircle : public RecordedDrawingEvent<RecordedStrokeCircle> {
+ public:
+  RecordedStrokeCircle(DrawTarget* aDT, Circle aCircle, const Pattern& aPattern,
+                       const StrokeOptions& aStrokeOptions,
+                       const DrawOptions& aOptions)
+      : RecordedDrawingEvent(STROKECIRCLE, aDT),
+        mCircle(aCircle),
+        mPattern(),
+        mStrokeOptions(aStrokeOptions),
+        mOptions(aOptions) {
+    StorePattern(mPattern, aPattern);
+  }
+
+  bool PlayEvent(Translator* aTranslator) const override;
+
+  template <class S>
+  void Record(S& aStream) const;
+  void OutputSimpleEventInfo(std::stringstream& aStringStream) const override;
+
+  std::string GetName() const override { return "StrokeCircle"; }
+
+ private:
+  friend class RecordedEvent;
+
+  template <class S>
+  MOZ_IMPLICIT RecordedStrokeCircle(S& aStream);
+
+  Circle mCircle;
+  PatternStorage mPattern;
+  StrokeOptions mStrokeOptions;
+  DrawOptions mOptions;
+};
+
 class RecordedFill : public RecordedDrawingEvent<RecordedFill> {
  public:
   RecordedFill(DrawTarget* aDT, ReferencePtr aPath, const Pattern& aPattern,
@@ -332,6 +365,36 @@ class RecordedFill : public RecordedDrawingEvent<RecordedFill> {
   MOZ_IMPLICIT RecordedFill(S& aStream);
 
   ReferencePtr mPath;
+  PatternStorage mPattern;
+  DrawOptions mOptions;
+};
+
+class RecordedFillCircle : public RecordedDrawingEvent<RecordedFillCircle> {
+ public:
+  RecordedFillCircle(DrawTarget* aDT, Circle aCircle, const Pattern& aPattern,
+                     const DrawOptions& aOptions)
+      : RecordedDrawingEvent(FILLCIRCLE, aDT),
+        mCircle(aCircle),
+        mPattern(),
+        mOptions(aOptions) {
+    StorePattern(mPattern, aPattern);
+  }
+
+  bool PlayEvent(Translator* aTranslator) const override;
+
+  template <class S>
+  void Record(S& aStream) const;
+  void OutputSimpleEventInfo(std::stringstream& aStringStream) const override;
+
+  std::string GetName() const override { return "FillCircle"; }
+
+ private:
+  friend class RecordedEvent;
+
+  template <class S>
+  MOZ_IMPLICIT RecordedFillCircle(S& aStream);
+
+  Circle mCircle;
   PatternStorage mPattern;
   DrawOptions mOptions;
 };
@@ -2344,6 +2407,44 @@ inline void RecordedStrokeLine::OutputSimpleEventInfo(
   OutputSimplePatternInfo(mPattern, aStringStream);
 }
 
+inline bool RecordedStrokeCircle::PlayEvent(Translator* aTranslator) const {
+  DrawTarget* dt = aTranslator->LookupDrawTarget(mDT);
+  if (!dt) {
+    return false;
+  }
+
+  dt->StrokeCircle(mCircle.origin, mCircle.radius,
+                   *GenericPattern(mPattern, aTranslator), mStrokeOptions,
+                   mOptions);
+  return true;
+}
+
+template <class S>
+void RecordedStrokeCircle::Record(S& aStream) const {
+  RecordedDrawingEvent::Record(aStream);
+  WriteElement(aStream, mCircle);
+  WriteElement(aStream, mOptions);
+  RecordPatternData(aStream, mPattern);
+  RecordStrokeOptions(aStream, mStrokeOptions);
+}
+
+template <class S>
+RecordedStrokeCircle::RecordedStrokeCircle(S& aStream)
+    : RecordedDrawingEvent(STROKECIRCLE, aStream) {
+  ReadElement(aStream, mCircle);
+  ReadDrawOptions(aStream, mOptions);
+  ReadPatternData(aStream, mPattern);
+  ReadStrokeOptions(aStream, mStrokeOptions);
+}
+
+inline void RecordedStrokeCircle::OutputSimpleEventInfo(
+    std::stringstream& aStringStream) const {
+  aStringStream << "[" << mDT << "] StrokeCircle (" << mCircle.origin.x << ", "
+                << mCircle.origin.y << " - " << mCircle.radius
+                << ") LineWidth: " << mStrokeOptions.mLineWidth << "px ";
+  OutputSimplePatternInfo(mPattern, aStringStream);
+}
+
 inline bool RecordedFill::PlayEvent(Translator* aTranslator) const {
   DrawTarget* dt = aTranslator->LookupDrawTarget(mDT);
   if (!dt) {
@@ -2373,6 +2474,40 @@ void RecordedFill::Record(S& aStream) const {
 inline void RecordedFill::OutputSimpleEventInfo(
     std::stringstream& aStringStream) const {
   aStringStream << "[" << mDT << "] Fill (" << mPath << ") ";
+  OutputSimplePatternInfo(mPattern, aStringStream);
+}
+
+inline bool RecordedFillCircle::PlayEvent(Translator* aTranslator) const {
+  DrawTarget* dt = aTranslator->LookupDrawTarget(mDT);
+  if (!dt) {
+    return false;
+  }
+
+  dt->FillCircle(mCircle.origin, mCircle.radius,
+                 *GenericPattern(mPattern, aTranslator), mOptions);
+  return true;
+}
+
+template <class S>
+void RecordedFillCircle::Record(S& aStream) const {
+  RecordedDrawingEvent::Record(aStream);
+  WriteElement(aStream, mCircle);
+  WriteElement(aStream, mOptions);
+  RecordPatternData(aStream, mPattern);
+}
+
+template <class S>
+RecordedFillCircle::RecordedFillCircle(S& aStream)
+    : RecordedDrawingEvent(FILLCIRCLE, aStream) {
+  ReadElement(aStream, mCircle);
+  ReadDrawOptions(aStream, mOptions);
+  ReadPatternData(aStream, mPattern);
+}
+
+inline void RecordedFillCircle::OutputSimpleEventInfo(
+    std::stringstream& aStringStream) const {
+  aStringStream << "[" << mDT << "] StrokeCircle (" << mCircle.origin.x << ", "
+                << mCircle.origin.y << " - " << mCircle.radius << ")";
   OutputSimplePatternInfo(mPattern, aStringStream);
 }
 
@@ -3993,6 +4128,7 @@ inline void RecordedDestination::OutputSimpleEventInfo(
   f(FILLRECT, RecordedFillRect);                                   \
   f(STROKERECT, RecordedStrokeRect);                               \
   f(STROKELINE, RecordedStrokeLine);                               \
+  f(STROKECIRCLE, RecordedStrokeCircle);                           \
   f(CLEARRECT, RecordedClearRect);                                 \
   f(COPYSURFACE, RecordedCopySurface);                             \
   f(SETTRANSFORM, RecordedSetTransform);                           \
@@ -4000,6 +4136,7 @@ inline void RecordedDestination::OutputSimpleEventInfo(
   f(PUSHCLIP, RecordedPushClip);                                   \
   f(POPCLIP, RecordedPopClip);                                     \
   f(FILL, RecordedFill);                                           \
+  f(FILLCIRCLE, RecordedFillCircle);                               \
   f(FILLGLYPHS, RecordedFillGlyphs);                               \
   f(MASK, RecordedMask);                                           \
   f(STROKE, RecordedStroke);                                       \

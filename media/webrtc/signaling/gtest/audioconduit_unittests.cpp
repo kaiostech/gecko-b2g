@@ -9,7 +9,6 @@
 
 #include "AudioConduit.h"
 #include "Canonicals.h"
-#include "WaitFor.h"
 
 #include "MockCall.h"
 
@@ -26,7 +25,8 @@ class AudioConduitTest : public ::testing::Test {
         mAudioConduit(MakeRefPtr<WebrtcAudioConduit>(
             mCallWrapper, GetCurrentSerialEventTarget())),
         mControl(GetCurrentSerialEventTarget()) {
-    mAudioConduit->InitControl(&mControl);
+    mControl.Update(
+        [&](auto& aControl) { mAudioConduit->InitControl(&mControl); });
   }
 
   ~AudioConduitTest() override {

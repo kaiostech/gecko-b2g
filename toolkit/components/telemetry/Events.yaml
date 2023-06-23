@@ -205,7 +205,7 @@ addonsManager:
       error: The AddonManager error related to an install or update failure.
       source: >
         The source that originally triggered the add-on installation, one of "about:addons",
-        "about:debugging", "about:preferences", "amo", "disco", "distribution",
+        "about:debugging", "about:preferences", "amo", "browser-import", "disco", "distribution",
         "extension", "enterprise-policy", "file-url", "geckoview-app", "gmp-plugin",
         "internal", "plugin", "rtamo", "siteperm-addon-provider" "sync", "system-addon",
         "temporary-addon", "unknown".
@@ -783,7 +783,7 @@ urlbar:
       search result.
       The value field records the initial interaction type. One of:
         "typed", "dropped", "pasted", "topsites"
-    bug_numbers: [1559136, 1671404]
+    bug_numbers: [1559136, 1671404, 1466103]
     notification_emails:
       - "fx-search-telemetry@mozilla.com"
     expiry_version: never
@@ -794,11 +794,12 @@ urlbar:
       selIndex: index of the selected result in the urlbar panel, or -1.
       selType: >
         type of the selected result in the urlbar panel. One of:
-          "autofill", "visit", "bookmark", "history", "keyword", "search",
-          "searchsuggestion", "searchsuggestion_rich", "switchtab",
-          "remotetab", "extension", "oneoff", "keywordoffer", "canonized",
-          "tip", "tiphelp", "formhistory", "tabtosearch", "quicksuggest",
-          "weather", "dynamic-wikipedia", "navigational", "none"
+          "autofill", "visit", "bookmark", "bookmark_adaptive", "history",
+          "history_adaptive", "keyword", "search", "searchsuggestion",
+          "searchsuggestion_rich", "switchtab", "remotetab", "extension",
+          "oneoff", "keywordoffer", "canonized", "tip", "tiphelp",
+          "formhistory", "tabtosearch", "quicksuggest", "weather",
+          "dynamic-wikipedia", "navigational", "none"
       provider: The name of the provider that presented the result.
   abandonment:
     objects: ["blur"]
@@ -1151,6 +1152,8 @@ browser.migration:
         "1" if bookmarks were selected. "0" otherwise.
       payment_methods: >
         "1" if payment methods were selected. "0" otherwise.
+      extensions: >
+        "1" if extensions were selected. "0" otherwise.
       other: A count of the number of other resource types that were selected.
       configured: >
         "1" if Variant 2 of the new Migration Wizard was being used, and the list of
@@ -1209,6 +1212,8 @@ browser.migration:
         "1" if bookmarks are being migrated. "0" otherwise.
       payment_methods: >
         "1" if payment methods are being migrated. "0" otherwise.
+      extensions: >
+        "1" if extensions are being migrated. "0" otherwise.
       other: A count of the number of other resource types that are being migrated.
   migration_finished:
     objects: ["legacy_wizard", "wizard"]
@@ -1235,6 +1240,10 @@ browser.migration:
         "1" if bookmarks were migrated. "0" otherwise.
       payment_methods: >
         "1" if payment methods were migrated. "0" otherwise.
+      extensions: >
+        "1" if no extensions were matched, "2" if only some extensions
+        were matched, "3" if all extensions were matched, and "0" if extensions
+        weren't selected for migration.
       other: A count of the number of other resource types that were migrated.
 
 pwmgr:

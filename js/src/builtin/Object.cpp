@@ -30,11 +30,13 @@
 #include "vm/DateObject.h"
 #include "vm/EqualityOperations.h"  // js::SameValue
 #include "vm/ErrorObject.h"
+#include "vm/Iteration.h"
 #include "vm/JSContext.h"
 #include "vm/NumberObject.h"
 #include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/RegExpObject.h"
 #include "vm/StringObject.h"
+#include "vm/StringType.h"
 #include "vm/ToSource.h"  // js::ValueToSource
 #include "vm/Watchtower.h"
 #include "vm/WellKnownAtom.h"  // js_*_str
@@ -1490,10 +1492,43 @@ static bool TryEnumerableOwnPropertiesNative(JSContext* cx, HandleObject obj,
   RootedValue key(cx);
   RootedValue value(cx);
 
+  if (kind == EnumerableOwnPropertiesKind::Keys) {
+    // If possible, attempt to use the shape's iterator cache.
+    Rooted<PropertyIteratorObject*> piter(cx,
+                                          LookupInShapeIteratorCache(cx, nobj));
+    if (piter) {
+      do {
+        NativeIterator* ni = piter->getNativeIterator();
+        MOZ_ASSERT(ni->isReusable());
+
+        // Guard against indexes.
+        if (ni->mayHavePrototypeProperties()) {
+          break;
+        }
+
+        JSLinearString** properties =
+            ni->propertiesBegin()->unbarrieredAddress();
+        JSObject* array = NewDenseCopiedArray(cx, ni->numKeys(), properties);
+        if (!array) {
+          return false;
+        }
+
+        rval.setObject(*array);
+        return true;
+
+      } while (false);
+    }
+  }
+
   // We have ensured |nobj| contains no extra indexed properties, so the
   // only indexed properties we need to handle here are dense and typed
   // array elements.
-
+  //
+  // Pre-reserve to avoid reallocating the properties vector frequently.
+  if (nobj->getDenseInitializedLength() > 0 &&
+      !properties.reserve(nobj->getDenseInitializedLength())) {
+    return false;
+  }
   for (uint32_t i = 0, len = nobj->getDenseInitializedLength(); i < len; i++) {
     value.set(nobj->getDenseElement(i));
     if (value.isMagic(JS_ELEMENTS_HOLE)) {
@@ -1632,6 +1667,19 @@ static bool TryEnumerableOwnPropertiesNative(JSContext* cx, HandleObject obj,
   // Up to this point no side-effects through accessor properties are
   // possible which could have replaced |obj| with a non-native object.
   MOZ_ASSERT(obj->is<NativeObject>());
+  MOZ_ASSERT(obj.as<NativeObject>() == nobj);
+
+  {
+    // This new scope exists to support the goto end used by
+    // ENABLE_RECORD_TUPLE builds, and can be removed when said goto goes away.
+    size_t approximatePropertyCount =
+        nobj->shape()->propMap()
+            ? nobj->shape()->propMap()->approximateEntryCount()
+            : 0;
+    if (!properties.reserve(properties.length() + approximatePropertyCount)) {
+      return false;
+    }
+  }
 
   if (kind == EnumerableOwnPropertiesKind::Keys ||
       kind == EnumerableOwnPropertiesKind::Names ||

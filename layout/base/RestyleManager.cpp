@@ -3459,18 +3459,14 @@ void RestyleManager::TakeSnapshotForAttributeChange(Element& aElement,
 
 // For some attribute changes we must restyle the whole subtree:
 //
-// * <td> is affected by the cellpadding on its ancestor table
 // * lang="" and xml:lang="" can affect all descendants due to :lang()
 // * exportparts can affect all descendant parts. We could certainly integrate
 //   it better in the invalidation machinery if it was necessary.
 static inline bool AttributeChangeRequiresSubtreeRestyle(
     const Element& aElement, nsAtom* aAttr) {
-  if (aAttr == nsGkAtoms::cellpadding) {
-    return aElement.IsHTMLElement(nsGkAtoms::table);
-  }
-  // TODO(emilio, bug 1598094): Maybe finer-grained invalidation for exportparts
-  // attribute changes?
   if (aAttr == nsGkAtoms::exportparts) {
+    // TODO(emilio, bug 1598094): Maybe finer-grained invalidation for
+    // exportparts attribute changes?
     return !!aElement.GetShadowRoot();
   }
   return aAttr == nsGkAtoms::lang;
@@ -3492,9 +3488,6 @@ void RestyleManager::AttributeChanged(Element* aElement, int32_t aNameSpaceID,
     restyleHint |= RestyleHint::RESTYLE_STYLE_ATTRIBUTE;
   } else if (AttributeChangeRequiresSubtreeRestyle(*aElement, aAttribute)) {
     restyleHint |= RestyleHint::RestyleSubtree();
-  } else if (aElement->IsAttributeMapped(aAttribute)) {
-    // FIXME(emilio): Does this really need to re-selector-match?
-    restyleHint |= RestyleHint::RESTYLE_SELF;
   } else if (aElement->IsInShadowTree() && aAttribute == nsGkAtoms::part) {
     // TODO(emilio, bug 1598094): Maybe finer-grained invalidation for part
     // attribute changes?

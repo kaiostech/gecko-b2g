@@ -4,6 +4,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "gtest/gtest.h"
+#include "gmock/gmock.h"
+
 #include "APZCBasicTester.h"
 #include "APZTestCommon.h"
 #include "InputUtils.h"
@@ -482,7 +485,7 @@ class APZCLongPressTester : public APZCGestureDetectorTester {
 
     EXPECT_CALL(*mcc, RequestContentRepaint(_)).Times(0);
 
-    int touchX = 10, touchStartY = 10, touchEndY = 50;
+    int touchX = 10, touchStartY = 50, touchEndY = 10;
 
     APZEventResult result =
         TouchDown(apzc, ScreenIntPoint(touchX, touchStartY), mcc->Time());
@@ -527,8 +530,7 @@ class APZCLongPressTester : public APZCGestureDetectorTester {
 
     MultiTouchInput mti =
         CreateMultiTouchInput(MultiTouchInput::MULTITOUCH_MOVE, mcc->Time());
-    mti.mTouches.AppendElement(SingleTouchData(
-        0, ParentLayerPoint(touchX, touchEndY), ScreenSize(0, 0), 0, 0));
+    mti.mTouches.AppendElement(CreateSingleTouchData(0, touchX, touchEndY));
     result = apzc->ReceiveInputEvent(mti);
     EXPECT_EQ(nsEventStatus_eConsumeDoDefault, result.GetStatus());
 

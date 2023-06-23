@@ -179,7 +179,7 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   void NotifyPlaybackError(MediaResult aError);
   void NotifyNextFrameStatus(NextFrameStatus aStatus);
   void NotifyTrackInfoUpdated();
- 
+
   /*
    * Canonicals.
    */

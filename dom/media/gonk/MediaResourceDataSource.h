@@ -8,9 +8,9 @@
 #define MediaResourceDataSource_h_
 
 #if ANDROID_VERSION >= 30
-#include <media/DataSource.h>
+#  include <media/DataSource.h>
 #else
-#include <media/stagefright/DataSource.h>
+#  include <media/stagefright/DataSource.h>
 #endif
 #include "mozilla/RefPtr.h"
 

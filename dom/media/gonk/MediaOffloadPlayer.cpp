@@ -108,8 +108,8 @@ RefPtr<MediaOffloadPlayer> MediaOffloadPlayer::Create(
 
 MediaOffloadPlayer::MediaOffloadPlayer(MediaFormatReaderInit& aInit)
     : mTaskQueue(TaskQueue::Create(GetMediaThreadPool(MediaThreadType::MDSM),
-                               "MediaOffloadPlayer::mTaskQueue",
-                               /* aSupportsTailDispatch = */ true)),
+                                   "MediaOffloadPlayer::mTaskQueue",
+                                   /* aSupportsTailDispatch = */ true)),
       mWatchManager(this, mTaskQueue),
       mCurrentPositionTimer(mTaskQueue, true /*aFuzzy*/),
       mDormantTimer(mTaskQueue, true /*aFuzzy*/),
@@ -145,16 +145,16 @@ void MediaOffloadPlayer::InitializationTask(MediaDecoder* aDecoder) {
   LOG("MediaOffloadPlayer::InitializationTask");
 
   // Connect mirrors.
-  mPlayState.Connect(aDecoder->CanonicalPlayState());
-  mVolume.Connect(aDecoder->CanonicalVolume());
-  mPreservesPitch.Connect(aDecoder->CanonicalPreservesPitch());
-  mLooping.Connect(aDecoder->CanonicalLooping());
-  mSinkDevice.Connect(aDecoder->CanonicalSinkDevice());
-  mSecondaryVideoContainer.Connect(
-      aDecoder->CanonicalSecondaryVideoContainer());
-  mOutputCaptureState.Connect(aDecoder->CanonicalOutputCaptureState());
-  mOutputTracks.Connect(aDecoder->CanonicalOutputTracks());
-  mOutputPrincipal.Connect(aDecoder->CanonicalOutputPrincipal());
+  aDecoder->CanonicalPlayState().ConnectMirror(&mPlayState);
+  aDecoder->CanonicalVolume().ConnectMirror(&mVolume);
+  aDecoder->CanonicalPreservesPitch().ConnectMirror(&mPreservesPitch);
+  aDecoder->CanonicalLooping().ConnectMirror(&mLooping);
+  aDecoder->CanonicalSinkDevice().ConnectMirror(&mSinkDevice);
+  aDecoder->CanonicalSecondaryVideoContainer().ConnectMirror(
+      &mSecondaryVideoContainer);
+  aDecoder->CanonicalOutputCaptureState().ConnectMirror(&mOutputCaptureState);
+  aDecoder->CanonicalOutputTracks().ConnectMirror(&mOutputTracks);
+  aDecoder->CanonicalOutputPrincipal().ConnectMirror(&mOutputPrincipal);
 
   // Initialize watchers.
   mWatchManager.Watch(mPlayState, &MediaOffloadPlayer::PlayStateChanged);
@@ -351,10 +351,7 @@ RefPtr<SetCDMPromise> MediaOffloadPlayer::SetCDMProxy(CDMProxy* aProxy) {
   return SetCDMPromise::CreateAndReject(NS_ERROR_ABORT, __func__);
 }
 
-bool MediaOffloadPlayer::IsCDMProxySupported(CDMProxy* aProxy) {
-  return false;
-}
-
+bool MediaOffloadPlayer::IsCDMProxySupported(CDMProxy* aProxy) { return false; }
 
 void MediaOffloadPlayer::UpdateCompositor(
     already_AddRefed<layers::KnowsCompositor> aCompositor) {
@@ -363,7 +360,7 @@ void MediaOffloadPlayer::UpdateCompositor(
 
 RefPtr<GenericPromise> MediaOffloadPlayer::RequestDebugInfo(
     dom::MediaFormatReaderDebugInfo& aInfo) {
-  GenericPromise::CreateAndReject(NS_ERROR_ABORT, __func__);
+  return GenericPromise::CreateAndReject(NS_ERROR_ABORT, __func__);
 }
 
 void MediaOffloadPlayer::StartDormantTimer() {

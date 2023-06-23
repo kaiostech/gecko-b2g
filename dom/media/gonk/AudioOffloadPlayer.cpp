@@ -93,7 +93,7 @@ void AudioOffloadPlayer::InitInternal() {
     mAudioWatchManager.Watch(mReaderBuffered,
                              &AudioOffloadPlayer::ReaderBufferedUpdated);
 
-    mReaderProxy->SetCanonicalDuration(&mDuration);
+    mReaderProxy->SetCanonicalDuration(mDuration);
     mReaderProxy->ReadMetadata()
         ->Then(OwnerThread(), __func__, this,
                &AudioOffloadPlayer::OnReaderMetadataRead,

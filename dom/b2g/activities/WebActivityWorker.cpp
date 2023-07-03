@@ -49,7 +49,7 @@ class ActivityInitRunnable : public WorkerMainThreadRunnable,
       return false;
     }
     nsAutoCString origin;
-    principal->GetAsciiOrigin(origin);
+    principal->GetWebExposedOriginSerialization(origin);
 
     nsCOMPtr<nsIActivityProxy> proxy = WebActivity::GetOrCreateActivityProxy();
     proxy->Create(nullptr, options, origin, mWebActivity->mId);

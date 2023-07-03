@@ -369,9 +369,9 @@ nsresult alarm::Initialize(const nsCOMPtr<nsIPrincipal>& aPrincipal,
     return NS_ERROR_DOM_SECURITY_ERR;
   }
 
-  rv = aPrincipal->GetAsciiOrigin(aUrl);
+  rv = aPrincipal->GetWebExposedOriginSerialization(aUrl);
   if (NS_WARN_IF(NS_FAILED(rv))) {
-    LOG("GetAsciiOrigin failed. [%x]", uint(rv));
+    LOG("GetWebExposedOriginSerialization failed. [%x]", uint(rv));
     return rv;
   }
 
